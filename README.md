@@ -11,7 +11,7 @@ CISO-GRC; bilgi güvenliği, siber güvenlik ve yönetişim, risk ve uyum operas
 - `packages/shared`: API sözleşmeleri, enum'lar ve tenant context tipleri.
 - `packages/config`: paylaşılan TypeScript yapılandırması.
 
-İlk dikey dilim dashboard, varlık, risk, kontrol, kanıt metadata, değerlendirme, bulgu/aksiyon ve audit çalışma alanlarını kapsar. Kimlik doğrulama, gerçek dosya nesnesi yükleme, kalıcı API repository katmanı ve production RLS sonraki fazlardadır.
+İlk dikey dilim dashboard, varlık, risk, kontrol, kanıt metadata, değerlendirme, bulgu/aksiyon ve audit çalışma alanlarını kapsar. API bu alanlarda tenant-scoped Prisma repository kullanır; kritik yazmalar audit log ve outbox olayını aynı transaction içinde üretir. Kimlik doğrulama, gerçek dosya nesnesi yükleme ve production RLS sonraki fazlardadır.
 
 ## Gereksinimler
 
@@ -26,6 +26,7 @@ cp .env.example .env
 pnpm install
 docker compose up -d postgres minio
 pnpm db:generate
+pnpm db:push
 pnpm db:seed
 pnpm dev
 ```
@@ -45,7 +46,7 @@ docker compose config
 ## Güvenlik notları
 
 - Secret veya gerçek kurum verisi commit edilmez; yalnızca sentetik seed verisi kullanılır.
-- Her istek açık `x-tenant-id` kapsamı taşır; production kimliğinden türetilmesi planlanır.
+- Her istek açık `x-tenant-id` kapsamı taşır; repository sorguları tenant ve soft-delete sınırını uygular. Production tenant context’inin doğrulanmış kimlikten türetilmesi planlanır.
 - DTO validation, güvenlik header'ları, CORS allowlist, rate limit ve genişletilebilir authorization guard iskeleti vardır.
 - Kanıt yükleme sözleşmesi dosya türü ve boyutunu doğrular; bu foundation yalnızca metadata kaydeder.
 - Kritik değişiklikler audit/outbox modeliyle izlenmek üzere tasarlanmıştır. Ayrıntılar `docs/SECURITY.md` içindedir.

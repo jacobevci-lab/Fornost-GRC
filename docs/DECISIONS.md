@@ -23,3 +23,15 @@
 ## ADR-006 — Kanıt yükleme iki aşamalı
 
 **Karar:** Foundation metadata doğrular; nesne yükleme ileride presigned URL, malware scan ve quarantine akışıyla eklenir. **Gerekçe:** Doğrulanmamış byte akışını uygulama sunucusuna güvenli varsaymamak.
+
+## ADR-007 — Foundation backend kararı
+
+**Karar:** Yaşayan repository ve `AGENTS.md` uyarınca foundation backend NestJS olarak devam eder. **Gerekçe:** Merge edilmiş çalışan foundation'ı yeniden kurmamak ve mevcut API sözleşmesini korumak. Ana Technical Architecture kaynak belgesindeki .NET kararı tarihsel kaynak olarak korunur; dokümanların resmî olarak uzlaştırılması ayrı karar işidir.
+
+## ADR-008 — GRC API kalıcı repository
+
+**Karar:** Process-memory demo repository, tenant ve soft-delete kapsamını her sorguda uygulayan Prisma repository ile değiştirilir. Kritik yazmalar domain kaydı, audit log ve outbox olayını tek PostgreSQL transaction'ında üretir. **Gerekçe:** Restart sonrası kalıcılık, izlenebilirlik ve ileride RLS uygulanacak açık repository sınırı.
+
+## ADR-009 — Yerel şema hazırlığı
+
+**Karar:** Versioned production migration seti tamamlanana kadar yalnızca yerel/pilot profil `prisma db push` ile hazırlanır. **Gerekçe:** Kalıcı repository'nin çalıştırılabilir olması; bu yaklaşım production migration rollout veya RLS tamamlandı anlamına gelmez.
