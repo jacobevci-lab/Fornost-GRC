@@ -9,6 +9,7 @@ Son güncelleme: 2026-08-08
 - Dashboard'dan audit çalışma alanına uzanan ilk gezilebilir ekran zinciri.
 - API doğrulama, Swagger, güvenlik header'ları, CORS ve rate-limit başlangıcı.
 - Docker Compose, CI, lint/typecheck/test/build yapılandırmaları.
+- Beş ana ürün/tasarım dokümanı, kaynak içerikleri ve özgün dosya adları korunarak `docs/` altına aktarıldı.
 
 ## Devam edenler
 
@@ -17,7 +18,6 @@ Son güncelleme: 2026-08-08
 
 ## Bekleyenler
 
-- Library'deki beş ürün dokümanı; bu çalışma oturumunda Library erişimi yoktur ve içerik üretilmemiştir.
 - MinIO presigned upload, malware scanning ve kanıt immutable retention.
 - RLS politikaları, workflow engine, collector ve entegrasyonlar.
 
