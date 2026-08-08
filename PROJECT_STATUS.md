@@ -13,10 +13,10 @@ Son güncelleme: 2026-08-08
 - API demo repository'si tenant-scoped PostgreSQL/Prisma repository ile değiştirildi.
 - Risk, kanıt, değerlendirme ve aksiyon yazmaları audit log/outbox ile aynı transaction'a alındı.
 - Çapraz tenant ilişki kimlikleri güvenli `404` ile reddediliyor.
+- OIDC JWT doğrulaması, doğrulanmış subject üzerinden tenant üyeliği ve deny-by-default izin guard'ları eklendi.
 
 ## Devam edenler
 
-- OIDC tabanlı authentication ve doğrulanmış kimlikten tenant üyeliği üretimi.
 - PostgreSQL migration rollout ve RLS politikaları.
 
 ## Bekleyenler
@@ -27,12 +27,12 @@ Son güncelleme: 2026-08-08
 
 ## Bilinen sorunlar
 
-- `x-tenant-id` yalnızca geliştirme/pilot kolaylığıdır; production kimlik sınırı değildir.
+- `AUTH_DEV_BYPASS` yalnızca geliştirme/pilot kolaylığıdır ve production'da fail-closed davranır.
 - Yerel profil şemayı `db:push` ile hazırlar; versioned production migration henüz yoktur.
 - UI foundation verisini yerel fixture üzerinden gösterir.
-- Authentication guard yalnızca genişletilebilir sözleşme iskeletidir.
+- Gerçek IdP uygulama kaydı, production issuer/audience değerleri ve kullanıcı identity provisioning operasyonel kurulumda tamamlanmalıdır.
 - Ana Technical Architecture kaynak belgesindeki .NET backend kararı, yaşayan repo/AGENTS NestJS kararıyla çelişir; foundation kararı korunmuş ve doküman uzlaştırması bekleyen iş olarak kaydedilmiştir.
 
 ## Sonraki önerilen iş
 
-OIDC token doğrulaması, tenant üyeliği lookup'ı ve deny-by-default permission policy eklemek; ardından PostgreSQL RLS ve uçtan uca çapraz tenant entegrasyon testlerini tamamlamak.
+PostgreSQL versioned migration ve RLS politikalarını eklemek; ardından uçtan uca OIDC/çapraz tenant entegrasyon testlerini tamamlamak.
