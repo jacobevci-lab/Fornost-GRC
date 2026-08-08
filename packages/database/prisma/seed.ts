@@ -15,6 +15,43 @@ async function main() {
     create: { id: tenantId, name: 'Örnek Teknoloji A.Ş.', slug: 'ornek-teknoloji' },
   });
 
+  const role = await prisma.role.upsert({
+    where: { tenantId_name: { tenantId, name: 'GRC Manager' } },
+    update: {
+      permissions: ['dashboard:read', 'grc:read', 'risk:write', 'evidence:write', 'assessment:write', 'finding:write'],
+    },
+    create: {
+      tenantId,
+      name: 'GRC Manager',
+      permissions: ['dashboard:read', 'grc:read', 'risk:write', 'evidence:write', 'assessment:write', 'finding:write'],
+    },
+  });
+  const user = await prisma.user.upsert({
+    where: { tenantId_email: { tenantId, email: 'grc.manager@example.invalid' } },
+    update: {},
+    create: { tenantId, email: 'grc.manager@example.invalid', displayName: 'Sentetik GRC Yöneticisi' },
+  });
+  await prisma.userRole.upsert({
+    where: { userId_roleId: { userId: user.id, roleId: role.id } },
+    update: {},
+    create: { userId: user.id, roleId: role.id },
+  });
+  await prisma.userIdentity.upsert({
+    where: {
+      issuer_subject_userId: {
+        issuer: 'https://login.microsoftonline.com/replace-tenant-id/v2.0',
+        subject: 'replace-synthetic-oidc-subject',
+        userId: user.id,
+      },
+    },
+    update: {},
+    create: {
+      issuer: 'https://login.microsoftonline.com/replace-tenant-id/v2.0',
+      subject: 'replace-synthetic-oidc-subject',
+      userId: user.id,
+    },
+  });
+
   await prisma.asset.upsert({
     where: { id: '22222222-2222-4222-8222-222222222222' },
     update: {},
