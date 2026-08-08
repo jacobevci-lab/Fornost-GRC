@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { EvidenceStatus, RecordStatus, RiskLevel } from '@prisma/client';
 import type { Prisma } from '@prisma/client';
 import type { CreateActionDto, CreateAssessmentDto, CreateEvidenceDto, CreateRiskDto } from './dto';
@@ -34,7 +34,7 @@ export interface GrcRepository {
 
 @Injectable()
 export class PrismaGrcRepository implements GrcRepository {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
 
   async list(kind: ResourceKind, tenantId: string): Promise<unknown[]> {
     switch (kind) {
