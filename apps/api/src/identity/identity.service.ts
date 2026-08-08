@@ -15,33 +15,43 @@ export class IdentityService {
     @Inject(PrismaService) private readonly prisma: PrismaService,
   ) {}
 
-  async authenticate(authorization?: string, requestedTenantId?: string): Promise<AuthenticatedPrincipal> {
+  async authenticate(
+    authorization?: string,
+    requestedTenantId?: string,
+  ): Promise<AuthenticatedPrincipal> {
     if (process.env.AUTH_DEV_BYPASS === 'true') return this.devPrincipal(requestedTenantId);
     const token = this.bearer(authorization);
     const verified = await this.verifier.verify(token);
-    if (requestedTenantId && !isUUID(requestedTenantId, '4')) {
+    if (!requestedTenantId || !isUUID(requestedTenantId, '4')) {
       throw new ForbiddenException('Tenant üyeliği doğrulanamadı.');
     }
 
-    const identities = await this.prisma.userIdentity.findMany({
-      where: {
-        issuer: verified.issuer,
-        subject: verified.subject,
-        user: {
-          deletedAt: null,
-          tenant: { deletedAt: null },
-          ...(requestedTenantId ? { tenantId: requestedTenantId } : {}),
+    const identities = await this.prisma.withTenant(requestedTenantId, (tx) =>
+      tx.userIdentity.findMany({
+        where: {
+          issuer: verified.issuer,
+          subject: verified.subject,
+          user: {
+            deletedAt: null,
+            tenant: { deletedAt: null },
+            tenantId: requestedTenantId,
+          },
         },
-      },
-      include: { user: { include: { roles: { include: { role: true } } } } },
-      take: 2,
-    });
+        include: { user: { include: { roles: { include: { role: true } } } } },
+        take: 2,
+      }),
+    );
     if (identities.length !== 1) throw new ForbiddenException('Tenant üyeliği doğrulanamadı.');
     const [identity] = identities;
     if (!identity) throw new ForbiddenException('Tenant üyeliği doğrulanamadı.');
     const user = identity.user;
     const permissions = user.roles.flatMap(({ role }) => this.permissions(role.permissions));
-    return { ...verified, userId: user.id, tenantId: user.tenantId, permissions: [...new Set(permissions)] };
+    return {
+      ...verified,
+      userId: user.id,
+      tenantId: user.tenantId,
+      permissions: [...new Set(permissions)],
+    };
   }
 
   private bearer(value?: string): string {
@@ -53,12 +63,22 @@ export class IdentityService {
   }
 
   private permissions(value: unknown): string[] {
-    return Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : [];
+    return Array.isArray(value)
+      ? value.filter((item): item is string => typeof item === 'string')
+      : [];
   }
 
   private devPrincipal(tenantId?: string): AuthenticatedPrincipal {
-    if (process.env.NODE_ENV === 'production') throw new Error('AUTH_DEV_BYPASS production ortamında kullanılamaz.');
-    if (!tenantId || !isUUID(tenantId, '4')) throw new ForbiddenException('Geçerli pilot tenant başlığı zorunludur.');
-    return { issuer: 'development', subject: 'local-pilot', userId: 'development', tenantId, permissions: ['*'] };
+    if (process.env.NODE_ENV === 'production')
+      throw new Error('AUTH_DEV_BYPASS production ortamında kullanılamaz.');
+    if (!tenantId || !isUUID(tenantId, '4'))
+      throw new ForbiddenException('Geçerli pilot tenant başlığı zorunludur.');
+    return {
+      issuer: 'development',
+      subject: 'local-pilot',
+      userId: 'development',
+      tenantId,
+      permissions: ['*'],
+    };
   }
 }

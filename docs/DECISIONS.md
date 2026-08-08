@@ -35,3 +35,10 @@
 ## ADR-009 — Yerel şema hazırlığı
 
 **Karar:** Versioned production migration seti tamamlanana kadar yalnızca yerel/pilot profil `prisma db push` ile hazırlanır. **Gerekçe:** Kalıcı repository'nin çalıştırılabilir olması; bu yaklaşım production migration rollout veya RLS tamamlandı anlamına gelmez.
+
+## ADR-006 — Tenant context ve PostgreSQL RLS
+
+- Karar: Uygulama sorguları, transaction başında `set_config('app.current_tenant_id', tenantId, true)` ile transaction-local tenant context kurar.
+- Karar: Tenant kapsamlı tablolar `ENABLE ROW LEVEL SECURITY` ve `FORCE ROW LEVEL SECURITY` ile korunur; hem `USING` hem `WITH CHECK` politikaları uygulanır.
+- Karar: Production runtime veritabanı rolü migration sahibinden ayrı, `BYPASSRLS` yetkisi olmayan en az ayrıcalıklı rol olacaktır.
+- Sonuç: Prisma filtreleri defense-in-depth olarak kalır; veritabanı çapraz-tenant okuma ve yazmayı bağımsız olarak reddeder.

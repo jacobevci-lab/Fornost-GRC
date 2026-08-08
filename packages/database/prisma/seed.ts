@@ -1,42 +1,56 @@
-import {
-  EvidenceStatus,
-  PrismaClient,
-  RecordStatus,
-  RiskLevel,
-} from '@prisma/client';
+import { EvidenceStatus, PrismaClient, RecordStatus, RiskLevel } from '@prisma/client';
+import type { Prisma } from '@prisma/client';
 
 const prisma = new PrismaClient();
 const tenantId = '11111111-1111-4111-8111-111111111111';
 
-async function main() {
-  await prisma.tenant.upsert({
+async function seed(tx: Prisma.TransactionClient) {
+  await tx.tenant.upsert({
     where: { id: tenantId },
     update: {},
     create: { id: tenantId, name: 'Örnek Teknoloji A.Ş.', slug: 'ornek-teknoloji' },
   });
 
-  const role = await prisma.role.upsert({
+  const role = await tx.role.upsert({
     where: { tenantId_name: { tenantId, name: 'GRC Manager' } },
     update: {
-      permissions: ['dashboard:read', 'grc:read', 'risk:write', 'evidence:write', 'assessment:write', 'finding:write'],
+      permissions: [
+        'dashboard:read',
+        'grc:read',
+        'risk:write',
+        'evidence:write',
+        'assessment:write',
+        'finding:write',
+      ],
     },
     create: {
       tenantId,
       name: 'GRC Manager',
-      permissions: ['dashboard:read', 'grc:read', 'risk:write', 'evidence:write', 'assessment:write', 'finding:write'],
+      permissions: [
+        'dashboard:read',
+        'grc:read',
+        'risk:write',
+        'evidence:write',
+        'assessment:write',
+        'finding:write',
+      ],
     },
   });
-  const user = await prisma.user.upsert({
+  const user = await tx.user.upsert({
     where: { tenantId_email: { tenantId, email: 'grc.manager@example.invalid' } },
     update: {},
-    create: { tenantId, email: 'grc.manager@example.invalid', displayName: 'Sentetik GRC Yöneticisi' },
+    create: {
+      tenantId,
+      email: 'grc.manager@example.invalid',
+      displayName: 'Sentetik GRC Yöneticisi',
+    },
   });
-  await prisma.userRole.upsert({
+  await tx.userRole.upsert({
     where: { userId_roleId: { userId: user.id, roleId: role.id } },
     update: {},
     create: { userId: user.id, roleId: role.id },
   });
-  await prisma.userIdentity.upsert({
+  await tx.userIdentity.upsert({
     where: {
       issuer_subject_userId: {
         issuer: 'https://login.microsoftonline.com/replace-tenant-id/v2.0',
@@ -52,7 +66,7 @@ async function main() {
     },
   });
 
-  await prisma.asset.upsert({
+  await tx.asset.upsert({
     where: { id: '22222222-2222-4222-8222-222222222222' },
     update: {},
     create: {
@@ -67,7 +81,7 @@ async function main() {
     },
   });
 
-  await prisma.risk.upsert({
+  await tx.risk.upsert({
     where: { id: '33333333-3333-4333-8333-333333333333' },
     update: {},
     create: {
@@ -84,7 +98,7 @@ async function main() {
     },
   });
 
-  await prisma.control.upsert({
+  await tx.control.upsert({
     where: {
       tenantId_code: {
         tenantId,
@@ -103,7 +117,7 @@ async function main() {
     },
   });
 
-  await prisma.evidence.upsert({
+  await tx.evidence.upsert({
     where: { id: '55555555-5555-4555-8555-555555555555' },
     update: {},
     create: {
@@ -118,7 +132,7 @@ async function main() {
     },
   });
 
-  await prisma.controlAssessment.upsert({
+  await tx.controlAssessment.upsert({
     where: { id: '66666666-6666-4666-8666-666666666666' },
     update: {},
     create: {
@@ -132,7 +146,7 @@ async function main() {
     },
   });
 
-  await prisma.finding.upsert({
+  await tx.finding.upsert({
     where: { id: '77777777-7777-4777-8777-777777777777' },
     update: {},
     create: {
@@ -148,7 +162,7 @@ async function main() {
     },
   });
 
-  await prisma.audit.upsert({
+  await tx.audit.upsert({
     where: { id: '88888888-8888-4888-8888-888888888888' },
     update: {},
     create: {
@@ -161,6 +175,13 @@ async function main() {
       endsAt: new Date('2026-09-30T23:59:59.000Z'),
       status: RecordStatus.IN_PROGRESS,
     },
+  });
+}
+
+async function main() {
+  await prisma.$transaction(async (tx) => {
+    await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
+    await seed(tx);
   });
 }
 
