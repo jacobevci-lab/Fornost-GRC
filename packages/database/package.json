@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "generate": "prisma generate",
+    "push": "prisma db push",
     "build": "prisma generate",
     "lint": "prisma validate",
     "typecheck": "prisma validate",
