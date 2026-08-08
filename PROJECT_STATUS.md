@@ -14,10 +14,12 @@ Son güncelleme: 2026-08-08
 - Risk, kanıt, değerlendirme ve aksiyon yazmaları audit log/outbox ile aynı transaction'a alındı.
 - Çapraz tenant ilişki kimlikleri güvenli `404` ile reddediliyor.
 - OIDC JWT doğrulaması, doğrulanmış subject üzerinden tenant üyeliği ve deny-by-default izin guard'ları eklendi.
+- Versioned başlangıç migration'ı ve PostgreSQL forced RLS tenant politikaları eklendi.
+- API repository ve identity lookup işlemleri transaction-local tenant context'ine taşındı.
 
 ## Devam edenler
 
-- PostgreSQL migration rollout ve RLS politikaları.
+- RLS politikalarının gerçek PostgreSQL runtime rolüyle entegrasyon doğrulaması.
 
 ## Bekleyenler
 
@@ -28,11 +30,11 @@ Son güncelleme: 2026-08-08
 ## Bilinen sorunlar
 
 - `AUTH_DEV_BYPASS` yalnızca geliştirme/pilot kolaylığıdır ve production'da fail-closed davranır.
-- Yerel profil şemayı `db:push` ile hazırlar; versioned production migration henüz yoktur.
+- Production veritabanı bağlantısı migration sahibi olmayan ve `BYPASSRLS` yetkisi bulunmayan ayrı bir runtime rolü kullanmalıdır.
 - UI foundation verisini yerel fixture üzerinden gösterir.
 - Gerçek IdP uygulama kaydı, production issuer/audience değerleri ve kullanıcı identity provisioning operasyonel kurulumda tamamlanmalıdır.
 - Ana Technical Architecture kaynak belgesindeki .NET backend kararı, yaşayan repo/AGENTS NestJS kararıyla çelişir; foundation kararı korunmuş ve doküman uzlaştırması bekleyen iş olarak kaydedilmiştir.
 
 ## Sonraki önerilen iş
 
-PostgreSQL versioned migration ve RLS politikalarını eklemek; ardından uçtan uca OIDC/çapraz tenant entegrasyon testlerini tamamlamak.
+Gerçek PostgreSQL runtime rolüyle uçtan uca OIDC/çapraz-tenant entegrasyon testlerini tamamlamak; ardından MinIO kanıt yükleme dilimine geçmek.
