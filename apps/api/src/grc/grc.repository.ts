@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { EvidenceStatus, Prisma, RecordStatus, RiskLevel } from '@prisma/client';
+import { EvidenceStatus, RecordStatus, RiskLevel } from '@prisma/client';
+import type { Prisma } from '@prisma/client';
 import type { CreateActionDto, CreateAssessmentDto, CreateEvidenceDto, CreateRiskDto } from './dto';
 import { PrismaService } from '../database/prisma.service';
 
