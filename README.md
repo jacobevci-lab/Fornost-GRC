@@ -11,7 +11,7 @@ CISO-GRC; bilgi güvenliği, siber güvenlik ve yönetişim, risk ve uyum operas
 - `packages/shared`: API sözleşmeleri, enum'lar ve tenant context tipleri.
 - `packages/config`: paylaşılan TypeScript yapılandırması.
 
-İlk dikey dilim dashboard, varlık, risk, kontrol, kanıt metadata, değerlendirme, bulgu/aksiyon ve audit çalışma alanlarını kapsar. API bu alanlarda tenant-scoped Prisma repository kullanır; kritik yazmalar audit log ve outbox olayını aynı transaction içinde üretir. API OIDC JWT'lerini issuer/audience/JWKS ile doğrular, tenant context'ini doğrulanmış kullanıcı üyeliğinden üretir ve açık izin politikalarını deny-by-default uygular. Gerçek dosya nesnesi yükleme ve production RLS sonraki fazlardadır.
+İlk dikey dilim dashboard, varlık, risk, kontrol, kanıt metadata, değerlendirme, bulgu/aksiyon ve audit çalışma alanlarını kapsar. API bu alanlarda tenant-scoped Prisma repository kullanır; kritik yazmalar audit log ve outbox olayını aynı transaction içinde üretir. API OIDC JWT'lerini issuer/audience/JWKS ile doğrular, tenant context'ini doğrulanmış kullanıcı üyeliğinden üretir ve açık izin politikalarını deny-by-default uygular. PostgreSQL migration'ları tenant session context'ine bağlı zorunlu RLS politikalarını kurar. Gerçek dosya nesnesi yükleme sonraki fazdadır.
 
 ## Gereksinimler
 
@@ -26,7 +26,7 @@ cp .env.example .env
 pnpm install
 docker compose up -d postgres minio
 pnpm db:generate
-pnpm db:push
+pnpm db:migrate
 pnpm db:seed
 pnpm dev
 ```
@@ -46,9 +46,9 @@ docker compose config
 ## Güvenlik notları
 
 - Secret veya gerçek kurum verisi commit edilmez; yalnızca sentetik seed verisi kullanılır.
-- Production istekleri Bearer OIDC token taşır. `x-tenant-id` yalnızca çoklu üyelik seçimidir ve token subject'ine ait aktif üyelikle doğrulanmadan kabul edilmez.
+- Production istekleri Bearer OIDC token ve açık `x-tenant-id` seçimi taşır; tenant seçimi token subject'ine ait aktif üyelikle doğrulanmadan kabul edilmez.
 - `AUTH_DEV_BYPASS=true` yalnızca production dışı pilot kullanım içindir; production ortamında fail-closed davranır.
-- Repository sorguları tenant ve soft-delete sınırını uygular; controller'lar açık permission policy olmadan erişime açılmaz.
+- Repository sorguları transaction-local tenant context'i kurar; Prisma filtresine ek olarak PostgreSQL forced RLS çapraz-tenant okumayı ve yazmayı reddeder. Controller'lar açık permission policy olmadan erişime açılmaz.
 - DTO validation, güvenlik header'ları, CORS allowlist, rate limit ve genişletilebilir authorization guard iskeleti vardır.
 - Kanıt yükleme sözleşmesi dosya türü ve boyutunu doğrular; bu foundation yalnızca metadata kaydeder.
 - Kritik değişiklikler audit/outbox modeliyle izlenmek üzere tasarlanmıştır. Ayrıntılar `docs/SECURITY.md` içindedir.
