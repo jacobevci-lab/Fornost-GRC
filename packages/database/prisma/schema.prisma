@@ -1,0 +1,414 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum RecordStatus {
+  DRAFT
+  OPEN
+  IN_PROGRESS
+  COMPLETED
+  CLOSED
+  ARCHIVED
+}
+
+enum RiskLevel {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum EvidenceStatus {
+  PENDING
+  VALID
+  SUITABLE
+  EXPIRED
+  REJECTED
+}
+
+model Tenant {
+  id           String             @id @default(uuid()) @db.Uuid
+  name         String
+  slug         String             @unique
+  createdAt    DateTime           @default(now()) @db.Timestamptz(6)
+  updatedAt    DateTime           @updatedAt @db.Timestamptz(6)
+  deletedAt    DateTime?          @db.Timestamptz(6)
+  users        User[]
+  roles        Role[]
+  assets       Asset[]
+  risks        Risk[]
+  controls     Control[]
+  frameworks   Framework[]
+  audits       Audit[]
+  policies     Policy[]
+  exceptions   Exception[]
+  vendors      Vendor[]
+  workflows    WorkflowInstance[]
+  auditLogs    AuditLog[]
+  outboxEvents OutboxEvent[]
+}
+
+model User {
+  id          String     @id @default(uuid()) @db.Uuid
+  tenantId    String     @db.Uuid
+  email       String
+  displayName String
+  createdAt   DateTime   @default(now()) @db.Timestamptz(6)
+  updatedAt   DateTime   @updatedAt @db.Timestamptz(6)
+  deletedAt   DateTime?  @db.Timestamptz(6)
+  tenant      Tenant     @relation(fields: [tenantId], references: [id])
+  roles       UserRole[]
+
+  @@unique([tenantId, email])
+  @@index([tenantId, deletedAt])
+}
+
+model Role {
+  id          String     @id @default(uuid()) @db.Uuid
+  tenantId    String     @db.Uuid
+  name        String
+  permissions Json       @default("[]")
+  tenant      Tenant     @relation(fields: [tenantId], references: [id])
+  users       UserRole[]
+
+  @@unique([tenantId, name])
+}
+
+model UserRole {
+  userId     String   @db.Uuid
+  roleId     String   @db.Uuid
+  assignedAt DateTime @default(now()) @db.Timestamptz(6)
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role       Role     @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@id([userId, roleId])
+}
+
+model Asset {
+  id             String       @id @default(uuid()) @db.Uuid
+  tenantId       String       @db.Uuid
+  name           String
+  type           String
+  owner          String
+  classification String
+  criticality    RiskLevel
+  status         RecordStatus @default(OPEN)
+  createdAt      DateTime     @default(now()) @db.Timestamptz(6)
+  updatedAt      DateTime     @updatedAt @db.Timestamptz(6)
+  deletedAt      DateTime?    @db.Timestamptz(6)
+  tenant         Tenant       @relation(fields: [tenantId], references: [id])
+  risks          Risk[]
+
+  @@index([tenantId, deletedAt])
+}
+
+model Risk {
+  id          String          @id @default(uuid()) @db.Uuid
+  tenantId    String          @db.Uuid
+  assetId     String?         @db.Uuid
+  title       String
+  description String
+  likelihood  Int
+  impact      Int
+  level       RiskLevel
+  owner       String
+  status      RecordStatus    @default(OPEN)
+  dueAt       DateTime?       @db.Timestamptz(6)
+  createdAt   DateTime        @default(now()) @db.Timestamptz(6)
+  updatedAt   DateTime        @updatedAt @db.Timestamptz(6)
+  deletedAt   DateTime?       @db.Timestamptz(6)
+  tenant      Tenant          @relation(fields: [tenantId], references: [id])
+  asset       Asset?          @relation(fields: [assetId], references: [id])
+  treatments  RiskTreatment[]
+  findings    Finding[]
+
+  @@index([tenantId, status, deletedAt])
+}
+
+model RiskTreatment {
+  id       String       @id @default(uuid()) @db.Uuid
+  tenantId String       @db.Uuid
+  riskId   String       @db.Uuid
+  strategy String
+  plan     String
+  owner    String
+  dueAt    DateTime?    @db.Timestamptz(6)
+  status   RecordStatus @default(OPEN)
+  risk     Risk         @relation(fields: [riskId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, riskId])
+}
+
+model Control {
+  id            String              @id @default(uuid()) @db.Uuid
+  tenantId      String              @db.Uuid
+  code          String
+  title         String
+  objective     String
+  owner         String
+  status        RecordStatus        @default(OPEN)
+  createdAt     DateTime            @default(now()) @db.Timestamptz(6)
+  updatedAt     DateTime            @updatedAt @db.Timestamptz(6)
+  deletedAt     DateTime?           @db.Timestamptz(6)
+  tenant        Tenant              @relation(fields: [tenantId], references: [id])
+  mappings      ControlMapping[]
+  assessments   ControlAssessment[]
+  evidenceLinks EvidenceLink[]
+  findings      Finding[]
+
+  @@unique([tenantId, code])
+}
+
+model Framework {
+  id           String        @id @default(uuid()) @db.Uuid
+  tenantId     String        @db.Uuid
+  name         String
+  version      String
+  tenant       Tenant        @relation(fields: [tenantId], references: [id])
+  requirements Requirement[]
+
+  @@unique([tenantId, name, version])
+}
+
+model Requirement {
+  id          String           @id @default(uuid()) @db.Uuid
+  tenantId    String           @db.Uuid
+  frameworkId String           @db.Uuid
+  code        String
+  title       String
+  framework   Framework        @relation(fields: [frameworkId], references: [id], onDelete: Cascade)
+  mappings    ControlMapping[]
+
+  @@unique([tenantId, frameworkId, code])
+}
+
+model ControlMapping {
+  id            String      @id @default(uuid()) @db.Uuid
+  tenantId      String      @db.Uuid
+  controlId     String      @db.Uuid
+  requirementId String      @db.Uuid
+  rationale     String?
+  control       Control     @relation(fields: [controlId], references: [id], onDelete: Cascade)
+  requirement   Requirement @relation(fields: [requirementId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, controlId, requirementId])
+}
+
+model ControlAssessment {
+  id             String   @id @default(uuid()) @db.Uuid
+  tenantId       String   @db.Uuid
+  controlId      String   @db.Uuid
+  assessor       String
+  designScore    Int
+  operatingScore Int
+  notes          String?
+  assessedAt     DateTime @default(now()) @db.Timestamptz(6)
+  control        Control  @relation(fields: [controlId], references: [id])
+
+  @@index([tenantId, controlId])
+}
+
+model Evidence {
+  id         String         @id @default(uuid()) @db.Uuid
+  tenantId   String         @db.Uuid
+  name       String
+  fileName   String
+  mimeType   String
+  sizeBytes  Int
+  checksum   String?
+  storageKey String
+  status     EvidenceStatus @default(PENDING)
+  validUntil DateTime?      @db.Timestamptz(6)
+  createdAt  DateTime       @default(now()) @db.Timestamptz(6)
+  deletedAt  DateTime?      @db.Timestamptz(6)
+  links      EvidenceLink[]
+
+  @@index([tenantId, status, deletedAt])
+}
+
+model EvidenceLink {
+  id         String   @id @default(uuid()) @db.Uuid
+  tenantId   String   @db.Uuid
+  evidenceId String   @db.Uuid
+  controlId  String?  @db.Uuid
+  findingId  String?  @db.Uuid
+  evidence   Evidence @relation(fields: [evidenceId], references: [id], onDelete: Cascade)
+  control    Control? @relation(fields: [controlId], references: [id])
+  finding    Finding? @relation(fields: [findingId], references: [id])
+
+  @@index([tenantId, evidenceId])
+}
+
+model Finding {
+  id            String         @id @default(uuid()) @db.Uuid
+  tenantId      String         @db.Uuid
+  auditId       String?        @db.Uuid
+  controlId     String?        @db.Uuid
+  riskId        String?        @db.Uuid
+  title         String
+  description   String
+  severity      RiskLevel
+  owner         String
+  status        RecordStatus   @default(OPEN)
+  dueAt         DateTime?      @db.Timestamptz(6)
+  createdAt     DateTime       @default(now()) @db.Timestamptz(6)
+  updatedAt     DateTime       @updatedAt @db.Timestamptz(6)
+  deletedAt     DateTime?      @db.Timestamptz(6)
+  audit         Audit?         @relation(fields: [auditId], references: [id])
+  control       Control?       @relation(fields: [controlId], references: [id])
+  risk          Risk?          @relation(fields: [riskId], references: [id])
+  actions       Action[]
+  evidenceLinks EvidenceLink[]
+
+  @@index([tenantId, status, deletedAt])
+}
+
+model Action {
+  id        String       @id @default(uuid()) @db.Uuid
+  tenantId  String       @db.Uuid
+  findingId String       @db.Uuid
+  title     String
+  owner     String
+  dueAt     DateTime     @db.Timestamptz(6)
+  status    RecordStatus @default(OPEN)
+  createdAt DateTime     @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime     @updatedAt @db.Timestamptz(6)
+  finding   Finding      @relation(fields: [findingId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, findingId])
+}
+
+model Audit {
+  id        String       @id @default(uuid()) @db.Uuid
+  tenantId  String       @db.Uuid
+  name      String
+  type      String
+  lead      String
+  startsAt  DateTime     @db.Timestamptz(6)
+  endsAt    DateTime     @db.Timestamptz(6)
+  status    RecordStatus @default(DRAFT)
+  createdAt DateTime     @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime     @updatedAt @db.Timestamptz(6)
+  deletedAt DateTime?    @db.Timestamptz(6)
+  tenant    Tenant       @relation(fields: [tenantId], references: [id])
+  scopes    AuditScope[]
+  findings  Finding[]
+
+  @@index([tenantId, status, deletedAt])
+}
+
+model AuditScope {
+  id          String @id @default(uuid()) @db.Uuid
+  tenantId    String @db.Uuid
+  auditId     String @db.Uuid
+  scopeType   String
+  referenceId String
+  audit       Audit  @relation(fields: [auditId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, auditId])
+}
+
+model Policy {
+  id          String       @id @default(uuid()) @db.Uuid
+  tenantId    String       @db.Uuid
+  title       String
+  version     String
+  owner       String
+  status      RecordStatus @default(DRAFT)
+  effectiveAt DateTime?    @db.Timestamptz(6)
+  reviewAt    DateTime?    @db.Timestamptz(6)
+  tenant      Tenant       @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId, status])
+}
+
+model Exception {
+  id            String       @id @default(uuid()) @db.Uuid
+  tenantId      String       @db.Uuid
+  title         String
+  justification String
+  owner         String
+  status        RecordStatus @default(DRAFT)
+  expiresAt     DateTime     @db.Timestamptz(6)
+  tenant        Tenant       @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId, status])
+}
+
+model Vendor {
+  id          String       @id @default(uuid()) @db.Uuid
+  tenantId    String       @db.Uuid
+  name        String
+  service     String
+  criticality RiskLevel
+  owner       String
+  status      RecordStatus @default(OPEN)
+  tenant      Tenant       @relation(fields: [tenantId], references: [id])
+
+  @@unique([tenantId, name])
+}
+
+model WorkflowInstance {
+  id           String     @id @default(uuid()) @db.Uuid
+  tenantId     String     @db.Uuid
+  workflowType String
+  subjectType  String
+  subjectId    String     @db.Uuid
+  state        String
+  context      Json       @default("{}")
+  createdAt    DateTime   @default(now()) @db.Timestamptz(6)
+  updatedAt    DateTime   @updatedAt @db.Timestamptz(6)
+  tenant       Tenant     @relation(fields: [tenantId], references: [id])
+  approvals    Approval[]
+
+  @@index([tenantId, subjectType, subjectId])
+}
+
+model Approval {
+  id                 String           @id @default(uuid()) @db.Uuid
+  tenantId           String           @db.Uuid
+  workflowInstanceId String           @db.Uuid
+  approverId         String           @db.Uuid
+  decision           String?
+  comment            String?
+  decidedAt          DateTime?        @db.Timestamptz(6)
+  workflowInstance   WorkflowInstance @relation(fields: [workflowInstanceId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, approverId])
+}
+
+model AuditLog {
+  id            String   @id @default(uuid()) @db.Uuid
+  tenantId      String   @db.Uuid
+  actorId       String?  @db.Uuid
+  action        String
+  resourceType  String
+  resourceId    String?  @db.Uuid
+  correlationId String   @db.Uuid
+  metadata      Json     @default("{}")
+  createdAt     DateTime @default(now()) @db.Timestamptz(6)
+  tenant        Tenant   @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId, createdAt])
+}
+
+model OutboxEvent {
+  id            String    @id @default(uuid()) @db.Uuid
+  tenantId      String    @db.Uuid
+  aggregateType String
+  aggregateId   String    @db.Uuid
+  eventType     String
+  payload       Json
+  occurredAt    DateTime  @default(now()) @db.Timestamptz(6)
+  processedAt   DateTime? @db.Timestamptz(6)
+  attempts      Int       @default(0)
+  tenant        Tenant    @relation(fields: [tenantId], references: [id])
+
+  @@index([processedAt, occurredAt])
+  @@index([tenantId, aggregateType, aggregateId])
+}
