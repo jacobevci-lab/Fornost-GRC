@@ -15,6 +15,8 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "db:generate": "pnpm --filter @ciso-grc/database generate",
+    "db:migrate": "pnpm --filter @ciso-grc/database migrate",
+    "db:migrate:status": "pnpm --filter @ciso-grc/database migrate:status",
     "db:push": "pnpm --filter @ciso-grc/database push",
     "db:seed": "pnpm --filter @ciso-grc/database seed"
   },
