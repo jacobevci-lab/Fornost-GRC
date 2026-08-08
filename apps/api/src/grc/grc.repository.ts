@@ -8,13 +8,7 @@ import { PrismaService } from '../database/prisma.service';
 export const GRC_REPOSITORY = Symbol('GRC_REPOSITORY');
 
 export type ResourceKind =
-  | 'assets'
-  | 'risks'
-  | 'controls'
-  | 'evidence'
-  | 'assessments'
-  | 'findings'
-  | 'audits';
+  'assets' | 'risks' | 'controls' | 'evidence' | 'assessments' | 'findings' | 'audits';
 
 export interface GrcRepository {
   list(kind: ResourceKind, tenantId: string): Promise<unknown[]>;
@@ -37,69 +31,57 @@ export class PrismaGrcRepository implements GrcRepository {
   constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
 
   async list(kind: ResourceKind, tenantId: string): Promise<unknown[]> {
-    switch (kind) {
-      case 'assets':
-        return this.prisma.asset.findMany({ where: { tenantId, deletedAt: null } });
-      case 'risks':
-        return this.prisma.risk.findMany({ where: { tenantId, deletedAt: null } });
-      case 'controls':
-        return this.prisma.control.findMany({ where: { tenantId, deletedAt: null } });
-      case 'evidence':
-        return this.prisma.evidence.findMany({ where: { tenantId, deletedAt: null } });
-      case 'assessments':
-        return this.prisma.controlAssessment.findMany({ where: { tenantId } });
-      case 'findings':
-        return this.prisma.finding.findMany({
-          where: { tenantId, deletedAt: null },
-          include: { actions: { where: { tenantId } } },
-        });
-      case 'audits':
-        return this.prisma.audit.findMany({ where: { tenantId, deletedAt: null } });
-    }
+    return this.prisma.withTenant(tenantId, async (tx) => {
+      switch (kind) {
+        case 'assets':
+          return tx.asset.findMany({ where: { tenantId, deletedAt: null } });
+        case 'risks':
+          return tx.risk.findMany({ where: { tenantId, deletedAt: null } });
+        case 'controls':
+          return tx.control.findMany({ where: { tenantId, deletedAt: null } });
+        case 'evidence':
+          return tx.evidence.findMany({ where: { tenantId, deletedAt: null } });
+        case 'assessments':
+          return tx.controlAssessment.findMany({ where: { tenantId } });
+        case 'findings':
+          return tx.finding.findMany({
+            where: { tenantId, deletedAt: null },
+            include: { actions: { where: { tenantId } } },
+          });
+        case 'audits':
+          return tx.audit.findMany({ where: { tenantId, deletedAt: null } });
+      }
+    });
   }
 
   async detail(kind: ResourceKind, tenantId: string, id: string): Promise<unknown> {
     const where = { id, tenantId };
-    let item: unknown;
-    switch (kind) {
-      case 'assets':
-        item = await this.prisma.asset.findFirst({ where: { ...where, deletedAt: null } });
-        break;
-      case 'risks':
-        item = await this.prisma.risk.findFirst({ where: { ...where, deletedAt: null } });
-        break;
-      case 'controls':
-        item = await this.prisma.control.findFirst({ where: { ...where, deletedAt: null } });
-        break;
-      case 'evidence':
-        item = await this.prisma.evidence.findFirst({ where: { ...where, deletedAt: null } });
-        break;
-      case 'assessments':
-        item = await this.prisma.controlAssessment.findFirst({ where });
-        break;
-      case 'findings':
-        item = await this.prisma.finding.findFirst({
-          where: { ...where, deletedAt: null },
-          include: { actions: { where: { tenantId } } },
-        });
-        break;
-      case 'audits':
-        item = await this.prisma.audit.findFirst({ where: { ...where, deletedAt: null } });
-        break;
-    }
+    const item = await this.prisma.withTenant(tenantId, async (tx) => {
+      switch (kind) {
+        case 'assets':
+          return tx.asset.findFirst({ where: { ...where, deletedAt: null } });
+        case 'risks':
+          return tx.risk.findFirst({ where: { ...where, deletedAt: null } });
+        case 'controls':
+          return tx.control.findFirst({ where: { ...where, deletedAt: null } });
+        case 'evidence':
+          return tx.evidence.findFirst({ where: { ...where, deletedAt: null } });
+        case 'assessments':
+          return tx.controlAssessment.findFirst({ where });
+        case 'findings':
+          return tx.finding.findFirst({
+            where: { ...where, deletedAt: null },
+            include: { actions: { where: { tenantId } } },
+          });
+        case 'audits':
+          return tx.audit.findFirst({ where: { ...where, deletedAt: null } });
+      }
+    });
     if (!item) throw new NotFoundException('Kayıt bulunamadı.');
     return item;
   }
 
   async createRisk(tenantId: string, input: CreateRiskDto): Promise<unknown> {
-    await this.assertTenant(tenantId);
-    if (input.assetId) {
-      const asset = await this.prisma.asset.findFirst({
-        where: { id: input.assetId, tenantId, deletedAt: null },
-        select: { id: true },
-      });
-      if (!asset) throw new NotFoundException('Kayıt bulunamadı.');
-    }
     const score = input.likelihood * input.impact;
     const level =
       score >= 15
@@ -110,7 +92,15 @@ export class PrismaGrcRepository implements GrcRepository {
             ? RiskLevel.MEDIUM
             : RiskLevel.LOW;
     const id = randomUUID();
-    return this.prisma.$transaction(async (tx) => {
+    return this.prisma.withTenant(tenantId, async (tx) => {
+      await this.assertTenant(tx, tenantId);
+      if (input.assetId) {
+        const asset = await tx.asset.findFirst({
+          where: { id: input.assetId, tenantId, deletedAt: null },
+          select: { id: true },
+        });
+        if (!asset) throw new NotFoundException('Kayıt bulunamadı.');
+      }
       const risk = await tx.risk.create({
         data: {
           id,
@@ -134,9 +124,9 @@ export class PrismaGrcRepository implements GrcRepository {
   }
 
   async createEvidence(tenantId: string, input: CreateEvidenceDto): Promise<unknown> {
-    await this.assertTenant(tenantId);
     const id = randomUUID();
-    return this.prisma.$transaction(async (tx) => {
+    return this.prisma.withTenant(tenantId, async (tx) => {
+      await this.assertTenant(tx, tenantId);
       const evidence = await tx.evidence.create({
         data: {
           id,
@@ -156,14 +146,14 @@ export class PrismaGrcRepository implements GrcRepository {
   }
 
   async createAssessment(tenantId: string, input: CreateAssessmentDto): Promise<unknown> {
-    await this.assertTenant(tenantId);
-    const control = await this.prisma.control.findFirst({
-      where: { id: input.controlId, tenantId, deletedAt: null },
-      select: { id: true },
-    });
-    if (!control) throw new NotFoundException('Kayıt bulunamadı.');
     const id = randomUUID();
-    return this.prisma.$transaction(async (tx) => {
+    return this.prisma.withTenant(tenantId, async (tx) => {
+      await this.assertTenant(tx, tenantId);
+      const control = await tx.control.findFirst({
+        where: { id: input.controlId, tenantId, deletedAt: null },
+        select: { id: true },
+      });
+      if (!control) throw new NotFoundException('Kayıt bulunamadı.');
       const assessment = await tx.controlAssessment.create({
         data: { id, tenantId, ...input },
       });
@@ -179,14 +169,14 @@ export class PrismaGrcRepository implements GrcRepository {
     findingId: string,
     input: CreateActionDto,
   ): Promise<unknown> {
-    await this.assertTenant(tenantId);
-    const finding = await this.prisma.finding.findFirst({
-      where: { id: findingId, tenantId, deletedAt: null },
-      select: { id: true },
-    });
-    if (!finding) throw new NotFoundException('Kayıt bulunamadı.');
     const id = randomUUID();
-    return this.prisma.$transaction(async (tx) => {
+    return this.prisma.withTenant(tenantId, async (tx) => {
+      await this.assertTenant(tx, tenantId);
+      const finding = await tx.finding.findFirst({
+        where: { id: findingId, tenantId, deletedAt: null },
+        select: { id: true },
+      });
+      if (!finding) throw new NotFoundException('Kayıt bulunamadı.');
       const action = await tx.action.create({
         data: {
           id,
@@ -204,32 +194,43 @@ export class PrismaGrcRepository implements GrcRepository {
   }
 
   async dashboard(tenantId: string) {
-    const [openRisks, criticalAssets, controls, assessedControls, openFindings] = await Promise.all([
-      this.prisma.risk.count({
-        where: { tenantId, deletedAt: null, status: { notIn: [RecordStatus.CLOSED, RecordStatus.ARCHIVED] } },
-      }),
-      this.prisma.asset.count({
-        where: { tenantId, deletedAt: null, criticality: RiskLevel.CRITICAL },
-      }),
-      this.prisma.control.count({ where: { tenantId, deletedAt: null } }),
-      this.prisma.control.count({
-        where: { tenantId, deletedAt: null, assessments: { some: { tenantId } } },
-      }),
-      this.prisma.finding.count({
-        where: { tenantId, deletedAt: null, status: { notIn: [RecordStatus.CLOSED, RecordStatus.ARCHIVED] } },
-      }),
-    ]);
-    return {
-      tenantId,
-      openRisks,
-      criticalAssets,
-      controlCoverage: controls === 0 ? 0 : Math.round((assessedControls / controls) * 100),
-      openFindings,
-    };
+    return this.prisma.withTenant(tenantId, async (tx) => {
+      const [openRisks, criticalAssets, controls, assessedControls, openFindings] =
+        await Promise.all([
+          tx.risk.count({
+            where: {
+              tenantId,
+              deletedAt: null,
+              status: { notIn: [RecordStatus.CLOSED, RecordStatus.ARCHIVED] },
+            },
+          }),
+          tx.asset.count({
+            where: { tenantId, deletedAt: null, criticality: RiskLevel.CRITICAL },
+          }),
+          tx.control.count({ where: { tenantId, deletedAt: null } }),
+          tx.control.count({
+            where: { tenantId, deletedAt: null, assessments: { some: { tenantId } } },
+          }),
+          tx.finding.count({
+            where: {
+              tenantId,
+              deletedAt: null,
+              status: { notIn: [RecordStatus.CLOSED, RecordStatus.ARCHIVED] },
+            },
+          }),
+        ]);
+      return {
+        tenantId,
+        openRisks,
+        criticalAssets,
+        controlCoverage: controls === 0 ? 0 : Math.round((assessedControls / controls) * 100),
+        openFindings,
+      };
+    });
   }
 
-  private async assertTenant(tenantId: string) {
-    const tenant = await this.prisma.tenant.findFirst({
+  private async assertTenant(tx: Prisma.TransactionClient, tenantId: string) {
+    const tenant = await tx.tenant.findFirst({
       where: { id: tenantId, deletedAt: null },
       select: { id: true },
     });
