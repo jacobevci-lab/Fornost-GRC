@@ -31,3 +31,11 @@ Branch koruması, zorunlu review, lint/typecheck/test/build, dependency/secret/c
 ## Vulnerability reporting
 
 Güvenlik açığını public issue olarak paylaşmayın. Depo yöneticileri private vulnerability reporting'i etkinleştirmeli ve yayınlanacak güvenlik iletişim kanalını tanımlamalıdır. Bu kanal tanımlanana kadar gerçek hassas ayrıntı repo içine yazılmamalıdır.
+
+## PostgreSQL tenant izolasyonu
+
+- Her identity lookup ve GRC repository işlemi transaction-local `app.current_tenant_id` değeri kurulmadan çalıştırılmaz.
+- Versioned migration tenant kapsamlı tabloların tamamında forced RLS ve yazma kontrolü uygular.
+- `UserIdentity` ve `UserRole` politikaları bağlı kullanıcı/rol tenant üyeliğini alt sorguyla doğrular.
+- Production runtime rolü tablo sahibi, superuser veya `BYPASSRLS` yetkili olamaz.
+- Uygulama katmanındaki `tenantId` filtreleri kaldırılmaz; RLS ikinci, bağımsız güvenlik sınırıdır.
