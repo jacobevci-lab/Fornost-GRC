@@ -6,6 +6,10 @@ Tüm önemli değişiklikler bu dosyada belgelenir. Yapı Keep a Changelog yakla
 
 ### Added
 
+- Versioned PostgreSQL başlangıç migration'ı ve forced RLS tenant politikaları.
+- Transaction-local tenant context'i kullanan Prisma repository ve identity lookup sınırı.
+- Migration/RLS yapısını doğrulayan negatif güvenlik testleri.
+
 - Tenant-scoped Prisma repository ve Prisma lifecycle servisi.
 - Kritik GRC yazmaları için transaction içi audit log ve outbox olayları.
 - Kalıcı ekran zincirini besleyen genişletilmiş sentetik seed.
@@ -15,9 +19,9 @@ Tüm önemli değişiklikler bu dosyada belgelenir. Yapı Keep a Changelog yakla
 - İlk GRC dikey dilimi, tenant-aware Prisma şeması, API, worker ve web deneyimi.
 - Güvenlik, roadmap, karar ve proje durum dokümantasyonu.
 - Docker Compose ve GitHub Actions kalite hattı.
+
 # 2026-08-08
 
 - OIDC issuer/audience/JWKS token doğrulaması eklendi.
 - Tenant context doğrulanmış identity membership üzerinden üretilir hale getirildi.
 - Route izinleri deny-by-default guard ve açık permission deklarasyonlarına taşındı.
-
