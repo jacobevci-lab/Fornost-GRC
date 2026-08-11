@@ -1,0 +1,111 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "6",
+      "when": 1786085424821,
+      "tag": "0000_useful_vance_astro",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1786089546639,
+      "tag": "0001_funny_sunfire",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1786101521467,
+      "tag": "0002_massive_madame_masque",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1786104169202,
+      "tag": "0003_material_dazzler",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1786105322079,
+      "tag": "0004_clumsy_epoch",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1786106612689,
+      "tag": "0005_abnormal_shadowcat",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1786186302475,
+      "tag": "0006_sleepy_wong",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1786279194438,
+      "tag": "0007_unknown_nekra",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1786308883447,
+      "tag": "0008_nice_redwing",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1786311213594,
+      "tag": "0009_brainy_cable",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1786311937335,
+      "tag": "0010_opposite_epoch",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "6",
+      "when": 1786342038192,
+      "tag": "0011_fresh_invaders",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "6",
+      "when": 1786342467591,
+      "tag": "0012_simple_starfox",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "6",
+      "when": 1786343142086,
+      "tag": "0013_past_yellow_claw",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "6",
+      "when": 1786348392869,
+      "tag": "0014_panoramic_leper_queen",
+      "breakpoints": true
+    }
+  ]
+}

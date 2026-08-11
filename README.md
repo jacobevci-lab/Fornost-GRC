@@ -1,55 +1,59 @@
-# CISO-GRC
+# Nexora GRC
 
-CISO-GRC; bilgi güvenliği, siber güvenlik ve yönetişim, risk ve uyum operasyonlarını tek tenant-aware platformda birleştirmeyi amaçlayan bir monorepodur. Bu depo ilk çalışan foundation sürümüdür ve **henüz production-ready değildir**.
+Nexora GRC; risk, iş etki analizi, varlık, uyum, kontrol, kanıt, tedarikçi ve denetim süreçlerini tek çalışma alanında yöneten Türkçe/İngilizce bir GRC uygulamasıdır.
 
-## Mimari ve modüller
+**Govern Risk. Prove Compliance.**
 
-- `apps/web`: Next.js tabanlı erişilebilir, responsive Türkçe yönetim arayüzü.
-- `apps/api`: NestJS REST API, Swagger, DTO doğrulama, standart hata modeli ve güvenlik başlangıç ayarları.
-- `apps/worker`: outbox olaylarını işleyecek arka plan worker başlangıcı.
-- `packages/database`: PostgreSQL/Prisma şeması ve anonim örnek seed verileri.
-- `packages/shared`: API sözleşmeleri, enum'lar ve tenant context tipleri.
-- `packages/config`: paylaşılan TypeScript yapılandırması.
+## Modüller
 
-İlk dikey dilim dashboard, varlık, risk, kontrol, kanıt metadata, değerlendirme, bulgu/aksiyon ve audit çalışma alanlarını kapsar. Kimlik doğrulama, gerçek dosya nesnesi yükleme, kalıcı API repository katmanı ve production RLS sonraki fazlardadır.
+- Dashboard ve risk matrisi
+- Risk Assessment
+- Business Impact Analysis (BIA)
+- Varlık Envanteri
+- Uyum ve Kontrol Kütüphanesi
+- Kanıt Yönetimi ve güvenli dosya yükleme
+- Tedarikçi Yönetimi
+- Denetim Yönetimi: ISO 27001, SOC 1/2 Type I/II çalışma alanları
+- Admin / Editor / Viewer rol yönetimi
+- Excel içe aktarma ve CSV/Excel dışa aktarma
+- TR/EN arayüz
 
-## Gereksinimler
+## Teknoloji
 
-- Node.js 22+
-- pnpm 10+
-- Docker ve Docker Compose
+- Next.js 16, React 19, TypeScript
+- Vinext/Vite üzerinde Cloudflare Worker uyumlu çalışma zamanı
+- Cloudflare D1 (ilişkisel kayıtlar)
+- Cloudflare R2 (kanıt dosyaları)
+- Drizzle ORM ve sürümlenmiş SQL migration dosyaları
 
-## Yerel kurulum ve çalıştırma
+## Yerel geliştirme
 
-```bash
-cp .env.example .env
-pnpm install
-docker compose up -d postgres minio
-pnpm db:generate
-pnpm db:seed
-pnpm dev
-```
-
-Web `http://localhost:3000`, API `http://localhost:3001/api/v1`, Swagger `http://localhost:3001/docs`, MinIO konsolu `http://localhost:9001` adresindedir.
-
-## Test ve kalite
+Gereksinimler: Node.js `>=22.13.0`, npm ve Linux üzerinde GNU `timeout`.
 
 ```bash
-pnpm lint
-pnpm typecheck
-pnpm test
-pnpm build
-docker compose config
+npm ci
+npm run dev
 ```
 
-## Güvenlik notları
+Kalite kapıları:
 
-- Secret veya gerçek kurum verisi commit edilmez; yalnızca sentetik seed verisi kullanılır.
-- Her istek açık `x-tenant-id` kapsamı taşır; production kimliğinden türetilmesi planlanır.
-- DTO validation, güvenlik header'ları, CORS allowlist, rate limit ve genişletilebilir authorization guard iskeleti vardır.
-- Kanıt yükleme sözleşmesi dosya türü ve boyutunu doğrular; bu foundation yalnızca metadata kaydeder.
-- Kritik değişiklikler audit/outbox modeliyle izlenmek üzere tasarlanmıştır. Ayrıntılar `docs/SECURITY.md` içindedir.
+```bash
+npm run lint
+npm test
+npm audit --omit=dev
+npm run validate:artifact
+```
 
-## Roadmap
+## Yapılandırma ve veri
 
-Foundation sonrası kalıcı repository katmanı ve kimlik doğrulama; Core GRC; Evidence/Audit; entegrasyon/otomasyon; ileri analitik ve AI-assisted workflow fazları planlanmıştır. Ayrıntılar `docs/ROADMAP.md` ve güncel durum `PROJECT_STATUS.md` içindedir.
+Hosting kimliği ve D1/R2 binding adları `.openai/hosting.json` içinde tutulur. Gizli değerler repoya yazılmaz. Canlı ortam değerleri hosting platformunun environment-variable yönetiminden verilmelidir.
+
+Kanıt dosyaları yalnız PDF, JPEG, PNG veya WebP olabilir; MIME türü ve dosya imzası birlikte doğrulanır. Üst sınır 10 MB'dır. Excel import yalnız `.xlsx`, 5 MB ve 1.000 satırla sınırlıdır.
+
+## Production readiness
+
+Teknik kalite kapısı, güvenlik kontrolleri ve operasyonel önkoşullar [Production Readiness](docs/PRODUCTION-READINESS.md) belgesinde yer alır. Mimari için [Architecture](docs/ARCHITECTURE.md), güvenlik modeli için [Security](SECURITY.md), test kapsamı için [Test Strategy](docs/TEST-STRATEGY.md) okunmalıdır.
+
+## Lisans ve gizlilik
+
+Bu depo kuruma özel/proprietary kaynak kod içerir. Yetkisiz kopyalama, dağıtma veya üçüncü taraf ortamlarında çalıştırma izni verilmez.
