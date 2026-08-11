@@ -1,0 +1,62 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+import { constantTimeEqual, validPassword } from "../app/api/auth/security";
+import { cleanText, validDate, validModule, validate } from "../app/api/grc/route";
+
+test("password policy accepts strong passwords and rejects weak inputs", () => {
+  assert.equal(validPassword("Strong-Passphrase-2026!"), true);
+  assert.equal(validPassword("short1!A"), false);
+  assert.equal(validPassword("alllowercase-2026!"), false);
+  assert.equal(validPassword("NOLOWERCASE-2026!"), false);
+  assert.equal(validPassword("NoSpecialCharacter2026"), false);
+  assert.equal(validPassword("A".repeat(129) + "1!a"), false);
+});
+
+test("constant-time comparison handles equal, unequal and different-length inputs", () => {
+  assert.equal(constantTimeEqual("abc123", "abc123"), true);
+  assert.equal(constantTimeEqual("abc123", "abc124"), false);
+  assert.equal(constantTimeEqual("abc", "abc0"), false);
+});
+
+test("date validation rejects calendar-invalid dates", () => {
+  assert.equal(validDate("2026-02-28"), true);
+  assert.equal(validDate("2024-02-29"), true);
+  assert.equal(validDate("2026-02-30"), false);
+  assert.equal(validDate("2026-13-01"), false);
+  assert.equal(validDate("11.08.2026"), false);
+});
+
+test("module allowlist rejects unknown modules", () => {
+  assert.equal(validModule("Risk Assessment"), true);
+  assert.equal(validModule("Denetim Yönetimi"), true);
+  assert.equal(validModule("../../admin"), false);
+});
+
+test("risk validation enforces required fields and score boundaries", () => {
+  const validRisk = {
+    title: "Test riski", businessUnit: "BT", owner: "Bilgi Güvenliği",
+    inherentLikelihood: 3, inherentImpact: 5, treatment: "Azalt",
+    status: "Açık", nextReview: "2026-12-31",
+  };
+  assert.deepEqual(validate("Risk Assessment", validRisk), { module: "Risk Assessment", data: validRisk });
+  assert.match(String((validate("Risk Assessment", { ...validRisk, inherentImpact: 6 }) as {error:string}).error), /1-5/);
+  assert.match(String((validate("Risk Assessment", { ...validRisk, title: "" }) as {error:string}).error), /title/);
+});
+
+test("audit validation enforces progress and chronological dates", () => {
+  const audit = {
+    auditName: "ISO 27001", auditType: "Dış Denetim", auditOwner: "BG",
+    startDate: "2026-09-10", endDate: "2026-09-12", requirementRef: "A.5.1",
+    requirementTitle: "Politikalar", owner: "BG", businessUnit: "BT",
+    dueDate: "2026-09-08", status: "Devam Ediyor", progress: 50,
+  };
+  assert.equal("error" in validate("Denetim Yönetimi", audit), false);
+  assert.match(String((validate("Denetim Yönetimi", { ...audit, progress: 101 }) as {error:string}).error), /0-100/);
+  assert.match(String((validate("Denetim Yönetimi", { ...audit, endDate: "2026-09-01" }) as {error:string}).error), /bitiş tarihi/);
+});
+
+test("text cleaning trims and caps untrusted values", () => {
+  assert.equal(cleanText("  test  "), "test");
+  assert.equal(cleanText("abcdef", 3), "abc");
+  assert.equal(cleanText(42), 42);
+});
