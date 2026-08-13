@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
-import { actor, constantTimeEqual, createSession, destroySession, identityDb, passwordHash, sameOrigin, validPassword } from "./security";
+import { actor, constantTimeEqual, createSession, demoAccount, destroySession, ensureDemoUser, identityDb, passwordHash, sameOrigin, validPassword } from "./security";
 
 const cookie = (req: NextRequest) => ({ httpOnly: true, secure: req.nextUrl.protocol === "https:", sameSite: "strict" as const, path: "/", maxAge: 8 * 3600 });
 const normalize = (v: unknown) => String(v || "").trim();
 
 export async function GET(req: NextRequest) {
   const db = await identityDb(), current = await actor(req);
-  const count = await db.prepare("SELECT COUNT(*) total FROM local_users").first<{ total: number }>();
-  return NextResponse.json({ authenticated: !!current, user: current, bootstrapRequired: !count?.total }, { headers: { "cache-control": "no-store" } });
+  await ensureDemoUser(db);
+  const count = await db.prepare("SELECT COUNT(*) total FROM local_users WHERE role='Admin' AND status='Active'").first<{ total: number }>();
+  return NextResponse.json({ authenticated: !!current, user: current, bootstrapRequired: !count?.total, demoAccount:{email:demoAccount.email,role:demoAccount.role} }, { headers: { "cache-control": "no-store" } });
 }
 
 export async function POST(req: NextRequest) {
@@ -17,9 +18,17 @@ export async function POST(req: NextRequest) {
   if (action === "logout") {
     await destroySession(req); const res = NextResponse.json({ ok: true }); res.cookies.set("odine_session", "", { ...cookie(req), maxAge: 0 }); return res;
   }
+  if (action === "demo_login") {
+    await ensureDemoUser(db);
+    const demo = await db.prepare("SELECT id,status FROM local_users WHERE email=?").bind(demoAccount.email).first<{id:string;status:string}>();
+    if (!demo || demo.status !== "Active") return NextResponse.json({ error: "Demo hesabı kullanılamıyor." }, { status: 503 });
+    const session = await createSession(db, demo.id), res = NextResponse.json({ ok: true });
+    res.cookies.set("odine_session", session.token, cookie(req));
+    return res;
+  }
   const email = normalize(body.email).toLowerCase(), password = normalize(body.password);
   if (action === "bootstrap") {
-    const count = await db.prepare("SELECT COUNT(*) total FROM local_users").first<{ total: number }>();
+    const count = await db.prepare("SELECT COUNT(*) total FROM local_users WHERE role='Admin' AND status='Active'").first<{ total: number }>();
     if (count?.total) return NextResponse.json({ error: "İlk yönetici hesabı zaten oluşturulmuş." }, { status: 409 });
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || !validPassword(password)) return NextResponse.json({ error: "Geçerli e-posta ve en az 12 karakterlik güçlü parola gerekli." }, { status: 400 });
     const now = new Date().toISOString(), id = crypto.randomUUID(), p = await passwordHash(password);
