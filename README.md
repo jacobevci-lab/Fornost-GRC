@@ -37,12 +37,18 @@ npm run dev
 
 ## Linux sunucu kurulumu
 
-RHEL/Rocky/Alma 8 dahil desteklenen Linux sunucularda Podman veya Docker kullanılır. Bu yöntem uygulamanın ihtiyaç duyduğu güncel çalışma ortamını kendi içinde taşır; sunucunun sistem `glibc` veya Node.js sürümünü değiştirmez.
+Önerilen platformlar: Red Hat Enterprise Linux 8/9, Rocky Linux 8/9, AlmaLinux 8/9 ve CentOS Stream 8/9. CentOS Linux 7 kullanım ömrünü tamamladığı için desteklenmez. Podman önerilir; Docker Engine de kullanılabilir. Container image gerekli Node.js ve `glibc` çalışma ortamını kendi içinde taşır, host paketlerini değiştirmez.
+
+RHEL tabanlı temiz sunucuda Podman ile eksiksiz kurulum:
 
 ```bash
+sudo dnf install -y git podman curl
 git clone https://github.com/jacobevci-lab/Fornost-GRC.git
 cd Fornost-GRC
-bash scripts/linux/install.sh
+sudo bash scripts/linux/install.sh
+sudo firewall-cmd --permanent --zone=public --add-port=80/tcp
+sudo firewall-cmd --reload
+sudo bash scripts/linux/check.sh
 ```
 
 Varsayılan ilk kurulum adresi:
@@ -51,9 +57,9 @@ Varsayılan ilk kurulum adresi:
 http://SUNUCU_IP/fornost-grc/
 ```
 
-İlk ziyarette Fornost GRC, ilk yerel yönetici hesabını oluşturma ekranını açar. Uygulama kayıtları ve yüklenen kanıtlar `fornost-grc-data` adlı kalıcı container volume alanında tutulur; container yenilense de silinmez.
+İlk ziyarette Fornost GRC, ilk yerel yönetici hesabını oluşturma ekranını açar. Uygulama kayıtları ve yüklenen kanıtlar `fornost-grc-data` adlı kalıcı container volume alanında tutulur; container yenilense de silinmez. Installer uygulama ve ters proxy sağlık kontrolleri geçmeden başarı mesajı vermez.
 
-Adres yolu veya HTTP portu `.env.onprem` dosyasından değiştirilebilir. Ayrıntılı kurulum, durum, log ve güvenlik duvarı adımları için [Linux On-Prem Kurulum Rehberi](docs/LINUX-INSTALLATION.md) belgesine bakın.
+Adres yolu veya HTTP portu `.env.onprem` dosyasından değiştirilebilir. Rootless kurulum, Docker alternatifi, güncelleme, yedekleme, kaldırma, SELinux ve güvenlik duvarı adımları için [Linux On-Prem Kurulum Rehberi](docs/LINUX-INSTALLATION.md) belgesine bakın.
 
 Kalite kapıları:
 

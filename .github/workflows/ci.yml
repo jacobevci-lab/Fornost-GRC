@@ -23,3 +23,43 @@ jobs:
       - run: npm test
       - run: npm audit --omit=dev --audit-level=high
       - run: npm run validate:artifact
+
+  onprem-container-integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        engine: [docker, podman]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Podman
+        if: matrix.engine == 'podman'
+        run: sudo apt-get update && sudo apt-get install -y podman
+      - name: Run full on-prem integration
+        run: >-
+          sudo env
+          FORNOST_INTEGRATION_TEST=1
+          FORNOST_CONTAINER_ENGINE=${{ matrix.engine }}
+          FORNOST_INTEGRATION_PORT=18080
+          bash tests/onprem-container-integration.sh
+
+  rhel-family-shell-compatibility:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        image:
+          - rockylinux:8
+          - almalinux:9
+          - quay.io/centos/centos:stream9
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate installer on ${{ matrix.image }}
+        run: >-
+          docker run --rm
+          --volume "$PWD:/src:ro"
+          --workdir /src
+          "${{ matrix.image }}"
+          bash -lc 'bash -n scripts/linux/*.sh tests/onprem-install-smoke.sh && bash tests/onprem-install-smoke.sh'

@@ -7,6 +7,7 @@ source "${script_dir}/common.sh"
 cd "${project_root}"
 
 [[ "$(uname -s)" == "Linux" ]] || { echo "This installer supports Linux only." >&2; exit 69; }
+require_command curl
 
 if [[ ! -f "${env_file}" ]]; then
   cp .env.onprem.example "${env_file}"
@@ -30,6 +31,15 @@ image="localhost/fornost-grc-app:latest"
 network="fornost-grc-net"
 data_volume="fornost-grc-data"
 
+if ((http_port < 1024)) && [[ "$(id -u)" != "0" ]]; then
+  echo "Port ${http_port} requires root privileges." >&2
+  echo "Run: sudo bash scripts/linux/install.sh" >&2
+  echo "Or set FORNOST_HTTP_PORT=8080 in .env.onprem for a rootless installation." >&2
+  exit 77
+fi
+
+"${engine}" info >/dev/null
+
 echo "Building Fornost GRC in a glibc-compatible container runtime..."
 "${engine}" build \
   --build-arg "NEXT_PUBLIC_BASE_PATH=${base_path}" \
@@ -38,6 +48,7 @@ echo "Building Fornost GRC in a glibc-compatible container runtime..."
 
 "${engine}" network inspect "${network}" >/dev/null 2>&1 || "${engine}" network create "${network}" >/dev/null
 "${engine}" volume inspect "${data_volume}" >/dev/null 2>&1 || "${engine}" volume create "${data_volume}" >/dev/null
+"${engine}" pull docker.io/library/nginx:1.27-alpine >/dev/null
 
 "${engine}" rm -f fornost-grc-proxy fornost-grc-app >/dev/null 2>&1 || true
 
@@ -50,6 +61,20 @@ echo "Building Fornost GRC in a glibc-compatible container runtime..."
   --volume "${data_volume}:/app/.sites-runtime/data:Z" \
   "${image}" >/dev/null
 
+echo "Waiting for the application health endpoint..."
+for attempt in $(seq 1 30); do
+  if "${engine}" exec fornost-grc-app curl --fail --silent --max-time 5 \
+    "http://127.0.0.1:3000${base_path}/api/auth" >/dev/null 2>&1; then
+    break
+  fi
+  if [[ "${attempt}" == "30" ]]; then
+    "${engine}" logs --tail 100 fornost-grc-app >&2 || true
+    echo "Fornost GRC application container did not become healthy." >&2
+    exit 70
+  fi
+  sleep 2
+done
+
 "${engine}" run -d \
   --name fornost-grc-proxy \
   --network "${network}" \
@@ -58,6 +83,12 @@ echo "Building Fornost GRC in a glibc-compatible container runtime..."
   --env "FORNOST_BASE_PATH=${base_path}" \
   --volume "${project_root}/deploy/nginx/default.conf.template:/etc/nginx/templates/default.conf.template:ro,Z" \
   docker.io/library/nginx:1.27-alpine >/dev/null
+
+echo "Verifying the reverse proxy endpoint..."
+wait_for_url "http://127.0.0.1:${http_port}${base_path}/api/auth" 30 2 || {
+  "${engine}" logs --tail 100 fornost-grc-proxy >&2 || true
+  exit 70
+}
 
 ip="$(server_ip)"
 port_suffix=""
@@ -72,4 +103,5 @@ Initial setup address:
 
 The first browser visit opens the initial administrator creation screen.
 Persistent application data is stored in the ${data_volume} container volume.
+Health check passed: http://127.0.0.1:${http_port}${base_path}/api/auth
 EOF
