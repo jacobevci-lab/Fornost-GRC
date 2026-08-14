@@ -7,9 +7,9 @@ import writeXlsxFile from "write-excel-file/browser";
 import "./matrix-overrides.css";
 import "./i18n.css";
 import "./settings.css";
-import "./odine-refresh.css";
+import "./fornost-refresh.css";
 import "./product-polish.css";
-import "./nexora-premium.css";
+import "./fornost-premium.css";
 import Settings from "./settings";
 import { withBasePath } from "./base-path";
 
@@ -733,21 +733,21 @@ function AuthGate() {
     return (
       <div className="auth-screen">
         <div className="auth-card">
-          <b>Nexora GRC</b>
+          <b>Fornost GRC</b>
           <p>Güvenli oturum hazırlanıyor…</p>
         </div>
       </div>
     );
-  if(state.loadFailed)return <div className="auth-screen"><div className="auth-card"><div className="auth-mark">N</div><small>NEXORA GRC</small><h1>Oturum hazırlanamadı</h1><p>Kimlik servisi geçici olarak yanıt veremedi. Birkaç saniye sonra tekrar deneyin.</p>{error&&<div className="auth-error">{error}</div>}<button className="primary" onClick={()=>{setState(null);check()}}>Tekrar Dene</button></div></div>;
-  if (state.authenticated) return <NexoraApp currentUser={state.user} />;
+  if(state.loadFailed)return <div className="auth-screen"><div className="auth-card"><div className="auth-mark">F</div><small>FORNOST GRC</small><h1>Oturum hazırlanamadı</h1><p>Kimlik servisi geçici olarak yanıt veremedi. Birkaç saniye sonra tekrar deneyin.</p>{error&&<div className="auth-error">{error}</div>}<button className="primary" onClick={()=>{setState(null);check()}}>Tekrar Dene</button></div></div>;
+  if (state.authenticated) return <FornostApp currentUser={state.user} />;
   return (
     <div className="auth-screen">
       <form className="auth-card" onSubmit={submit}>
-        <div className="auth-mark">N</div>
-        <small>NEXORA GRC</small>
+        <div className="auth-mark">F</div>
+        <small>FORNOST GRC</small>
         <h1>
           {state.bootstrapRequired && !showLogin
-            ? "Nexora GRC İlk Kurulum"
+            ? "Fornost GRC İlk Kurulum"
             : "Yerel Hesapla Giriş"}
         </h1>
         <p>
@@ -802,7 +802,7 @@ function AuthGate() {
   );
 }
 
-function NexoraApp({ currentUser }: { currentUser: any }) {
+function FornostApp({ currentUser }: { currentUser: any }) {
   const [lang, setLang] = useState<Lang>("tr"),
     [active, setActive] = useState("Ana Sayfa"),
     [rows, setRows] = useState<Row[]>(examples),
@@ -819,18 +819,15 @@ function NexoraApp({ currentUser }: { currentUser: any }) {
     u = ui[lang];
   linkedRows = rows;
   useEffect(() => {
-    const saved =
-      localStorage.getItem("nexora-grc-language") ||
-      localStorage.getItem("odine-grc-language") ||
-      localStorage.getItem("ciso-grc-language");
+    const saved = localStorage.getItem("fornost-grc-language");
     if (saved === "tr" || saved === "en") setLang(saved);
   }, []);
   useEffect(() => {
-    localStorage.setItem("nexora-grc-language", lang);
+    localStorage.setItem("fornost-grc-language", lang);
     document.documentElement.lang = lang;
   }, [lang]);
   useEffect(() => {
-    const saved = localStorage.getItem("nexora-grc-theme");
+    const saved = localStorage.getItem("fornost-grc-theme");
     setTheme(
       saved === "dark" || saved === "light"
         ? saved
@@ -842,18 +839,18 @@ function NexoraApp({ currentUser }: { currentUser: any }) {
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
     document.documentElement.style.colorScheme = theme;
-    localStorage.setItem("nexora-grc-theme", theme);
+    localStorage.setItem("fornost-grc-theme", theme);
     return () => {
       delete document.documentElement.dataset.theme;
       document.documentElement.style.colorScheme = "";
     };
   }, [theme]);
   useEffect(() => {
-    document.title = "Nexora GRC";
+    document.title = "Fornost GRC";
     const overview = document.querySelector(".welcome small");
     if (overview)
       overview.textContent =
-        lang === "tr" ? "NEXORA GRC GENEL DURUM" : "NEXORA GRC OVERVIEW";
+        lang === "tr" ? "FORNOST GRC GENEL DURUM" : "FORNOST GRC OVERVIEW";
   }, [lang, active]);
   async function load() {
     try {
@@ -993,7 +990,7 @@ function NexoraApp({ currentUser }: { currentUser: any }) {
         <div className="brand">
           <span>N</span>
           <div>
-            <b>Nexora GRC</b>
+            <b>Fornost GRC</b>
             <small>
               {lang === "tr"
                 ? "Governance · Risk · Compliance"
@@ -1657,11 +1654,11 @@ function Field({
         {labelMap[lang][k]}
         <input
           name={nameMode ? k : undefined}
-          list="odine-control-refs"
+          list="fornost-control-refs"
           value={value}
           onChange={(e) => change(e.target.value)}
         />
-        <datalist id="odine-control-refs">
+        <datalist id="fornost-control-refs">
           {options.map((x) => (
             <option key={x} value={x} />
           ))}
@@ -1760,7 +1757,7 @@ function Dashboard({
     <>
       <section className="welcome">
         <div>
-          <small>{tr ? "NEXORA GRC GENEL DURUM" : "NEXORA GRC OVERVIEW"}</small>
+          <small>{tr ? "FORNOST GRC GENEL DURUM" : "FORNOST GRC OVERVIEW"}</small>
           <h2>
             {tr ? (
               <>
@@ -1988,7 +1985,7 @@ function Reports({ rows, lang }: { rows: Row[]; lang: Lang }) {
     const keys = [...new Set(data.flatMap((row) => Object.keys(row)))];
     await writeXlsxFile(
       [keys.map((key) => ({ value: key, fontWeight: "bold" as const })), ...data.map((row) => keys.map((key) => ({ value: String(row[key] ?? "") })))],
-    ).toFile(`Nexora-GRC-${tr ? "Raporu" : "Report"}-${new Date().toISOString().slice(0, 10)}.xlsx`);
+    ).toFile(`Fornost-GRC-${tr ? "Raporu" : "Report"}-${new Date().toISOString().slice(0, 10)}.xlsx`);
   }
   return (
     <>
@@ -2004,7 +2001,7 @@ function Reports({ rows, lang }: { rows: Row[]; lang: Lang }) {
         <div className="actions">
           <button
             className="ghost"
-            onClick={() => csvDownload("Nexora-GRC-Report.csv", filtered, lang)}
+            onClick={() => csvDownload("Fornost-GRC-Report.csv", filtered, lang)}
           >
             {ui[lang].csv}
           </button>

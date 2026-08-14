@@ -6,15 +6,15 @@ server {
     client_max_body_size 10m;
 
     location = / {
-        return 302 ${NEXORA_BASE_PATH}/;
+        return 302 ${FORNOST_BASE_PATH}/;
     }
 
-    location = ${NEXORA_BASE_PATH} {
-        return 301 ${NEXORA_BASE_PATH}/;
+    location = ${FORNOST_BASE_PATH} {
+        return 301 ${FORNOST_BASE_PATH}/;
     }
 
-    location ${NEXORA_BASE_PATH}/ {
-        proxy_pass http://nexora-grc-app:3000;
+    location ${FORNOST_BASE_PATH}/ {
+        proxy_pass http://fornost-grc-app:3000;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;

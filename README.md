@@ -1,6 +1,6 @@
-# Nexora GRC
+# Fornost GRC
 
-Nexora GRC; risk, iş etki analizi, varlık, uyum, kontrol, kanıt, tedarikçi ve denetim süreçlerini tek çalışma alanında yöneten Türkçe/İngilizce bir GRC uygulamasıdır.
+Fornost GRC; risk, iş etki analizi, varlık, uyum, kontrol, kanıt, tedarikçi ve denetim süreçlerini tek çalışma alanında yöneten Türkçe/İngilizce bir GRC uygulamasıdır.
 
 **Govern Risk. Prove Compliance.**
 
@@ -40,18 +40,18 @@ npm run dev
 RHEL/Rocky/Alma 8 dahil desteklenen Linux sunucularda Podman veya Docker kullanılır. Bu yöntem uygulamanın ihtiyaç duyduğu güncel çalışma ortamını kendi içinde taşır; sunucunun sistem `glibc` veya Node.js sürümünü değiştirmez.
 
 ```bash
-git clone https://github.com/jacobevci-lab/CISO-GRC.git
-cd CISO-GRC
+git clone https://github.com/jacobevci-lab/Fornost-GRC.git
+cd Fornost-GRC
 bash scripts/linux/install.sh
 ```
 
 Varsayılan ilk kurulum adresi:
 
 ```text
-http://SUNUCU_IP/nexora-grc/
+http://SUNUCU_IP/fornost-grc/
 ```
 
-İlk ziyarette Nexora GRC, ilk yerel yönetici hesabını oluşturma ekranını açar. Uygulama kayıtları ve yüklenen kanıtlar `nexora-grc-data` adlı kalıcı container volume alanında tutulur; container yenilense de silinmez.
+İlk ziyarette Fornost GRC, ilk yerel yönetici hesabını oluşturma ekranını açar. Uygulama kayıtları ve yüklenen kanıtlar `fornost-grc-data` adlı kalıcı container volume alanında tutulur; container yenilense de silinmez.
 
 Adres yolu veya HTTP portu `.env.onprem` dosyasından değiştirilebilir. Ayrıntılı kurulum, durum, log ve güvenlik duvarı adımları için [Linux On-Prem Kurulum Rehberi](docs/LINUX-INSTALLATION.md) belgesine bakın.
 

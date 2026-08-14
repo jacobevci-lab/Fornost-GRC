@@ -9,7 +9,7 @@ COPY package.json package-lock.json ./
 RUN npm ci --no-audit --no-fund
 
 COPY . .
-ARG NEXT_PUBLIC_BASE_PATH=/nexora-grc
+ARG NEXT_PUBLIC_BASE_PATH=/fornost-grc
 ENV NEXT_PUBLIC_BASE_PATH=${NEXT_PUBLIC_BASE_PATH}
 RUN npm run build
 
@@ -20,12 +20,12 @@ RUN apt-get update \
   && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
-ARG NEXT_PUBLIC_BASE_PATH=/nexora-grc
+ARG NEXT_PUBLIC_BASE_PATH=/fornost-grc
 ENV NODE_ENV=production \
     NEXT_PUBLIC_BASE_PATH=${NEXT_PUBLIC_BASE_PATH} \
     HOST=0.0.0.0 \
     PORT=3000 \
-    NEXORA_DEMO_MODE=false
+    FORNOST_DEMO_MODE=false
 
 COPY --from=build --chown=node:node /app/node_modules ./node_modules
 COPY --from=build --chown=node:node /app/dist ./dist

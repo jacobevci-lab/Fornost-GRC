@@ -1,4 +1,4 @@
-/* Nexora GRC — premium visual system. Loaded last to preserve existing behaviour. */
+/* Fornost GRC — premium visual system. Loaded last to preserve existing behaviour. */
 :root{
   --navy:#0b1224;
   --blue:#635bff;
@@ -109,7 +109,7 @@ table{font-size:10px}th{height:45px;background:#f8f9fc;color:#7b8495;font-size:8
     radial-gradient(circle at 85% 85%,rgba(34,193,166,.16),transparent 24rem),
     linear-gradient(140deg,#07101f,#0c1530 58%,#111d38);
 }
-.auth-screen:before{content:"NEXORA";position:absolute;left:-30px;bottom:-55px;color:rgba(255,255,255,.025);font-size:18vw;font-weight:900;letter-spacing:-.08em;pointer-events:none}
+.auth-screen:before{content:"FORNOST";position:absolute;left:-30px;bottom:-55px;color:rgba(255,255,255,.025);font-size:18vw;font-weight:900;letter-spacing:-.08em;pointer-events:none}
 .auth-screen:after{content:"";position:absolute;width:420px;height:420px;right:-180px;top:-190px;border:1px solid rgba(255,255,255,.07);border-radius:50%;box-shadow:0 0 0 65px rgba(255,255,255,.018),0 0 0 130px rgba(255,255,255,.012)}
 .auth-card{
   position:relative;z-index:1;width:min(460px,100%);padding:36px 38px!important;border-radius:24px!important;

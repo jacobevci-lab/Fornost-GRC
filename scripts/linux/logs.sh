@@ -4,4 +4,4 @@ script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=common.sh
 source "${script_dir}/common.sh"
 engine="$(container_engine)"
-"${engine}" logs --tail 200 --follow nexora-grc-app
+"${engine}" logs --tail 200 --follow fornost-grc-app

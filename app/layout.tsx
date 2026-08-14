@@ -10,9 +10,9 @@ const basePath = !normalizedBasePath
   : normalizedBasePath.startsWith("/") ? normalizedBasePath : `/${normalizedBasePath}`;
 
 export const metadata: Metadata = {
-  title: "Nexora GRC",
+  title: "Fornost GRC",
   description: "Govern risk, prove compliance and manage resilience from one workspace.",
-  applicationName: "Nexora GRC",
+  applicationName: "Fornost GRC",
   icons: { icon: `${basePath}/favicon.svg` },
   other: { "codex-preview": "development" },
 };

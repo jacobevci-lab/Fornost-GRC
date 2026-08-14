@@ -20,5 +20,5 @@ exec bash scripts/sites-env.sh -- \
   --inspector-port 0 \
   --local \
   --persist-to .sites-runtime/data \
-  --var "NEXORA_DEMO_MODE:${NEXORA_DEMO_MODE:-false}" \
+  --var "FORNOST_DEMO_MODE:${FORNOST_DEMO_MODE:-false}" \
   --show-interactive-dev-session=false

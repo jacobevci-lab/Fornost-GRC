@@ -7,7 +7,7 @@ const normalize = (v: unknown) => String(v || "").trim();
 
 async function demoMode(req: NextRequest) {
   const { env } = await import("cloudflare:workers");
-  const configured = String((env as unknown as Record<string, unknown>).NEXORA_DEMO_MODE ?? "").trim().toLowerCase();
+  const configured = String((env as unknown as Record<string, unknown>).FORNOST_DEMO_MODE ?? "").trim().toLowerCase();
   if (configured) return configured === "true" || configured === "1";
   return req.nextUrl.hostname.endsWith(".chatgpt.site");
 }
@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
   if (Number(req.headers.get("content-length") || 0) > 16_384) return NextResponse.json({ error: "İstek boyutu çok büyük." }, { status: 413 });
   const body = await req.json().catch(() => ({})), action = normalize(body.action), db = await identityDb();
   if (action === "logout") {
-    await destroySession(req); const res = NextResponse.json({ ok: true }); res.cookies.set("odine_session", "", { ...cookie(req), maxAge: 0 }); return res;
+    await destroySession(req); const res = NextResponse.json({ ok: true }); res.cookies.set("fornost_session", "", { ...cookie(req), maxAge: 0 }); return res;
   }
   if (action === "demo_login") {
     if (!(await demoMode(req))) return NextResponse.json({ error: "Demo girişi bu kurulumda etkin değil." }, { status: 403 });
@@ -33,7 +33,7 @@ export async function POST(req: NextRequest) {
     const demo = await db.prepare("SELECT id,status FROM local_users WHERE email=?").bind(demoAccount.email).first<{id:string;status:string}>();
     if (!demo || demo.status !== "Active") return NextResponse.json({ error: "Demo hesabı kullanılamıyor." }, { status: 503 });
     const session = await createSession(db, demo.id), res = NextResponse.json({ ok: true });
-    res.cookies.set("odine_session", session.token, cookie(req));
+    res.cookies.set("fornost_session", session.token, cookie(req));
     return res;
   }
   const email = normalize(body.email).toLowerCase(), password = normalize(body.password);
@@ -43,7 +43,7 @@ export async function POST(req: NextRequest) {
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || !validPassword(password)) return NextResponse.json({ error: "Geçerli e-posta ve en az 12 karakterlik güçlü parola gerekli." }, { status: 400 });
     const now = new Date().toISOString(), id = crypto.randomUUID(), p = await passwordHash(password);
     await db.prepare("INSERT INTO local_users(id,name,email,password_hash,password_salt,role,status,created_at,updated_at) VALUES(?,?,?,?,?,'Admin','Active',?,?)").bind(id, normalize(body.name) || email, email, p.hash, p.salt, now, now).run();
-    const session = await createSession(db, id), res = NextResponse.json({ ok: true }); res.cookies.set("odine_session", session.token, cookie(req)); return res;
+    const session = await createSession(db, id), res = NextResponse.json({ ok: true }); res.cookies.set("fornost_session", session.token, cookie(req)); return res;
   }
   if (action !== "login") return NextResponse.json({ error: "Geçersiz işlem." }, { status: 400 });
   const row = await db.prepare("SELECT * FROM local_users WHERE email=?").bind(email).first<{id:string;status:string;locked_until:string|null;password_salt:string;password_hash:string;failed_attempts:number}>();
@@ -55,5 +55,5 @@ export async function POST(req: NextRequest) {
     await db.prepare("UPDATE local_users SET failed_attempts=?,locked_until=?,updated_at=? WHERE id=?").bind(locked ? 0 : attempts, locked, now.toISOString(), row.id).run(); return generic;
   }
   await db.prepare("UPDATE local_users SET failed_attempts=0,locked_until=NULL,updated_at=? WHERE id=?").bind(now.toISOString(), row.id).run();
-  const session = await createSession(db, row.id), res = NextResponse.json({ ok: true }); res.cookies.set("odine_session", session.token, cookie(req)); return res;
+  const session = await createSession(db, row.id), res = NextResponse.json({ ok: true }); res.cookies.set("fornost_session", session.token, cookie(req)); return res;
 }

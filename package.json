@@ -1,8 +1,8 @@
 {
-  "name": "ciso-grc-platform",
+  "name": "fornost-grc-platform",
   "version": "0.1.0",
   "private": true,
-  "displayName": "Nexora GRC",
+  "displayName": "Fornost GRC",
   "engines": {
     "node": ">=22.13.0"
   },

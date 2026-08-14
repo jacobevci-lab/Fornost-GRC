@@ -18,7 +18,7 @@ export async function identityDb() {
   return env.DB;
 }
 
-export const demoAccount={name:"Nexora Demo Editor",email:"demo@nexora.test",role:"Editor" as const};
+export const demoAccount={name:"Fornost Demo Editor",email:"demo@fornost.test",role:"Editor" as const};
 
 export async function ensureDemoUser(db: Awaited<ReturnType<typeof identityDb>>){
  const existing=await db.prepare("SELECT id FROM local_users WHERE email=?").bind(demoAccount.email).first<{id:string}>();
@@ -60,7 +60,7 @@ export function sameOrigin(req: NextRequest) {
 export async function actor(req: NextRequest): Promise<Actor | null> {
   const platformEmail = req.headers.get("oai-authenticated-user-email")?.trim().toLowerCase();
   if (platformEmail) return { id: `entra:${platformEmail}`, email: platformEmail, name: platformEmail, role: "Admin", source: "entra" };
-  const token = req.cookies.get("odine_session")?.value;
+  const token = req.cookies.get("fornost_session")?.value;
   if (!token) return null;
   const db = await identityDb(), now = new Date().toISOString(), tokenHash = await sha256(token);
   const row = await db.prepare(`SELECT u.id,u.name,u.email,u.role,u.status,s.expires_at
@@ -86,6 +86,6 @@ export async function createSession(db: Awaited<ReturnType<typeof identityDb>>, 
 }
 
 export async function destroySession(req: NextRequest) {
-  const token = req.cookies.get("odine_session")?.value;
+  const token = req.cookies.get("fornost_session")?.value;
   if (token) await (await identityDb()).prepare("DELETE FROM local_sessions WHERE id_hash=?").bind(await sha256(token)).run();
 }

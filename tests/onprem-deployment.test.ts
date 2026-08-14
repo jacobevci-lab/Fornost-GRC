@@ -7,8 +7,8 @@ test("on-prem base path is normalized safely", () => {
   assert.equal(normalizeBasePath(undefined), "");
   assert.equal(normalizeBasePath("/"), "");
   assert.equal(normalizeBasePath("//"), "");
-  assert.equal(normalizeBasePath("nexora-grc/"), "/nexora-grc");
-  assert.equal(normalizeBasePath("/nexora-grc///"), "/nexora-grc");
+  assert.equal(normalizeBasePath("fornost-grc/"), "/fornost-grc");
+  assert.equal(normalizeBasePath("/fornost-grc///"), "/fornost-grc");
   assert.equal(withBasePath("https://example.com/file"), "https://example.com/file");
 });
 
@@ -18,11 +18,11 @@ test("container deployment isolates workerd from the host glibc", async () => {
   const common = await readFile(new URL("../scripts/linux/common.sh", import.meta.url), "utf8");
   assert.match(dockerfile, /node:22-bookworm-slim/);
   assert.match(common, /podman/);
-  assert.match(installer, /nexora-grc-data/);
+  assert.match(installer, /fornost-grc-data/);
 });
 
-test("reverse proxy exposes the configured Nexora path", async () => {
+test("reverse proxy exposes the configured Fornost path", async () => {
   const nginx = await readFile(new URL("../deploy/nginx/default.conf.template", import.meta.url), "utf8");
-  assert.match(nginx, /location \$\{NEXORA_BASE_PATH\}\//);
-  assert.match(nginx, /proxy_pass http:\/\/nexora-grc-app:3000/);
+  assert.match(nginx, /location \$\{FORNOST_BASE_PATH\}\//);
+  assert.match(nginx, /proxy_pass http:\/\/fornost-grc-app:3000/);
 });
