@@ -23,13 +23,9 @@ make_case() {
 set -euo pipefail
 printf '%s %s\n' "$(basename "$0")" "$*" >>"${FORNOST_TEST_LOG}"
 case "${1:-}" in
-  info|build|pull|run|rm|logs|ps) exit 0 ;;
+  info|build|pull|run|rm|logs|ps|inspect) exit 0 ;;
   network|volume)
     [[ "${2:-}" == "inspect" ]] && exit 1
-    exit 0
-    ;;
-  exec)
-    [[ "${FORNOST_TEST_APP_HEALTH_FAIL:-0}" == "1" ]] && exit 1
     exit 0
     ;;
 esac
@@ -53,7 +49,7 @@ MOCK_HOSTNAME
 
   cat >"${bin_dir}/curl" <<'MOCK_CURL'
 #!/usr/bin/env bash
-[[ "${FORNOST_TEST_PROXY_HEALTH_FAIL:-0}" == "1" ]] && exit 22
+[[ "${FORNOST_TEST_APP_HEALTH_FAIL:-0}" == "1" || "${FORNOST_TEST_PROXY_HEALTH_FAIL:-0}" == "1" ]] && exit 22
 exit 0
 MOCK_CURL
 
@@ -79,7 +75,8 @@ podman_case="$(make_case podman-success podman 80 /fornost-grc)"
 run_install "${podman_case}" podman >"${podman_case}/output.log"
 grep -q 'podman build .*NEXT_PUBLIC_BASE_PATH=/fornost-grc' "${podman_case}/engine.log" || fail "Podman build was not configured"
 grep -q 'podman volume create fornost-grc-data' "${podman_case}/engine.log" || fail "persistent volume was not created"
-grep -q 'podman exec fornost-grc-app curl' "${podman_case}/engine.log" || fail "application health was not checked"
+grep -q 'podman run .*--name fornost-grc-proxy' "${podman_case}/engine.log" || fail "reverse proxy was not started before health verification"
+if grep -q 'podman exec fornost-grc-app curl' "${podman_case}/engine.log"; then fail "installer used the Podman exec path that can hang"; fi
 grep -q 'Health check passed' "${podman_case}/output.log" || fail "success was reported before health verification"
 if grep -q 'volume rm' "${podman_case}/engine.log"; then fail "installer attempted to remove persistent data"; fi
 
@@ -104,7 +101,9 @@ app_failure_case="$(make_case app-health-failure podman 8080 /fornost-grc)"
 if FORNOST_TEST_APP_HEALTH_FAIL=1 run_install "${app_failure_case}" podman >"${app_failure_case}/output.log" 2>&1; then
   fail "installer reported success while application health failed"
 fi
-grep -q 'did not become healthy' "${app_failure_case}/output.log" || fail "application health failure is unclear"
+grep -q 'did not become reachable through the reverse proxy' "${app_failure_case}/output.log" || fail "application health failure is unclear"
+grep -q 'podman inspect fornost-grc-app' "${app_failure_case}/engine.log" || fail "application diagnostics were not collected"
+grep -q 'podman logs --tail 100 fornost-grc-proxy' "${app_failure_case}/engine.log" || fail "proxy diagnostics were not collected"
 
 proxy_failure_case="$(make_case proxy-health-failure podman 8080 /fornost-grc)"
 if FORNOST_TEST_PROXY_HEALTH_FAIL=1 run_install "${proxy_failure_case}" podman >"${proxy_failure_case}/output.log" 2>&1; then
@@ -112,4 +111,4 @@ if FORNOST_TEST_PROXY_HEALTH_FAIL=1 run_install "${proxy_failure_case}" podman >
 fi
 grep -q 'Health check failed' "${proxy_failure_case}/output.log" || fail "proxy health failure is unclear"
 
-echo "On-prem installer smoke tests passed: Podman, Docker, rootless guard, path validation, app health, proxy health, persistent volume."
+echo "On-prem installer smoke tests passed: Podman, Docker, rootless guard, path validation, bounded external health, diagnostics, persistent volume."

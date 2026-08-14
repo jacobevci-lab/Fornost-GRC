@@ -8,6 +8,7 @@ cd "${project_root}"
 
 [[ "$(uname -s)" == "Linux" ]] || { echo "This installer supports Linux only." >&2; exit 69; }
 require_command curl
+require_command timeout
 
 if [[ ! -f "${env_file}" ]]; then
   cp .env.onprem.example "${env_file}"
@@ -61,20 +62,6 @@ echo "Building Fornost GRC in a glibc-compatible container runtime..."
   --volume "${data_volume}:/app/.sites-runtime/data:Z" \
   "${image}" >/dev/null
 
-echo "Waiting for the application health endpoint..."
-for attempt in $(seq 1 30); do
-  if "${engine}" exec fornost-grc-app curl --fail --silent --max-time 5 \
-    "http://127.0.0.1:3000${base_path}/api/auth" >/dev/null 2>&1; then
-    break
-  fi
-  if [[ "${attempt}" == "30" ]]; then
-    "${engine}" logs --tail 100 fornost-grc-app >&2 || true
-    echo "Fornost GRC application container did not become healthy." >&2
-    exit 70
-  fi
-  sleep 2
-done
-
 "${engine}" run -d \
   --name fornost-grc-proxy \
   --network "${network}" \
@@ -84,9 +71,17 @@ done
   --volume "${project_root}/deploy/nginx/default.conf.template:/etc/nginx/templates/default.conf.template:ro,Z" \
   docker.io/library/nginx:1.27-alpine >/dev/null
 
-echo "Verifying the reverse proxy endpoint..."
+echo "Verifying the externally reachable Fornost GRC endpoint..."
 wait_for_url "http://127.0.0.1:${http_port}${base_path}/api/auth" 30 2 || {
-  "${engine}" logs --tail 100 fornost-grc-proxy >&2 || true
+  echo "Fornost GRC did not become reachable through the reverse proxy." >&2
+  echo "Application container state:" >&2
+  timeout 10 "${engine}" inspect fornost-grc-app >&2 || true
+  echo "Application container logs:" >&2
+  timeout 10 "${engine}" logs --tail 100 fornost-grc-app >&2 || true
+  echo "Reverse proxy container state:" >&2
+  timeout 10 "${engine}" inspect fornost-grc-proxy >&2 || true
+  echo "Reverse proxy container logs:" >&2
+  timeout 10 "${engine}" logs --tail 100 fornost-grc-proxy >&2 || true
   exit 70
 }
 

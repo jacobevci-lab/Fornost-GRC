@@ -20,7 +20,9 @@ test("container deployment isolates workerd from the host glibc", async () => {
   assert.match(common, /podman/);
   assert.match(installer, /fornost-grc-data/);
   assert.match(installer, /FORNOST_HTTP_PORT=8080/);
-  assert.match(installer, /did not become healthy/);
+  assert.doesNotMatch(installer, /exec fornost-grc-app curl/);
+  assert.match(installer, /did not become reachable through the reverse proxy/);
+  assert.match(installer, /timeout 10 "\$\{engine\}" logs/);
   assert.match(installer, /wait_for_url/);
 });
 
