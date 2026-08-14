@@ -35,6 +35,20 @@ npm ci
 npm run dev
 ```
 
+## Linux sunucu kurulumu
+
+Ubuntu/Debian ve RHEL/Fedora tabanlı sunucular için hazır kurulum akışı:
+
+```bash
+git clone https://github.com/jacobevci-lab/CISO-GRC.git
+cd CISO-GRC
+git switch production
+npm run setup:linux
+npm run serve:linux
+```
+
+Kurulum gerekirse resmi Node.js 22 çalışma zamanını proje içine otomatik kurar; ardından bağımlılıkları yükler, kalite kontrollerini çalıştırır, production Worker çıktısını üretir ve kalıcı yerel D1/R2 depolamasını hazırlar. Arka planda otomatik başlatma, systemd, güncelleme, güvenlik duvarı ve sorun giderme komutları için [Linux Kurulum Rehberi](docs/LINUX-INSTALLATION.md) belgesine bakın.
+
 Kalite kapıları:
 
 ```bash
