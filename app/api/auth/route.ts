@@ -1,14 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
 import { actor, constantTimeEqual, createSession, demoAccount, destroySession, ensureDemoUser, identityDb, passwordHash, sameOrigin, validPassword } from "./security";
 
-const cookie = (req: NextRequest) => ({ httpOnly: true, secure: req.nextUrl.protocol === "https:", sameSite: "strict" as const, path: "/", maxAge: 8 * 3600 });
+const configuredBasePath = process.env.NEXT_PUBLIC_BASE_PATH?.trim().replace(/\/+$/, "") || "";
+const cookie = (req: NextRequest) => ({ httpOnly: true, secure: req.nextUrl.protocol === "https:", sameSite: "strict" as const, path: configuredBasePath || "/", maxAge: 8 * 3600 });
 const normalize = (v: unknown) => String(v || "").trim();
+
+async function demoMode(req: NextRequest) {
+  const { env } = await import("cloudflare:workers");
+  const configured = String((env as unknown as Record<string, unknown>).NEXORA_DEMO_MODE ?? "").trim().toLowerCase();
+  if (configured) return configured === "true" || configured === "1";
+  return req.nextUrl.hostname.endsWith(".chatgpt.site");
+}
 
 export async function GET(req: NextRequest) {
   const db = await identityDb(), current = await actor(req);
-  await ensureDemoUser(db);
+  const allowDemo = await demoMode(req);
+  if (allowDemo) await ensureDemoUser(db);
   const count = await db.prepare("SELECT COUNT(*) total FROM local_users WHERE role='Admin' AND status='Active'").first<{ total: number }>();
-  return NextResponse.json({ authenticated: !!current, user: current, bootstrapRequired: !count?.total, demoAccount:{email:demoAccount.email,role:demoAccount.role} }, { headers: { "cache-control": "no-store" } });
+  return NextResponse.json({ authenticated: !!current, user: current, bootstrapRequired: !count?.total, demoAccount:allowDemo?{email:demoAccount.email,role:demoAccount.role}:null }, { headers: { "cache-control": "no-store" } });
 }
 
 export async function POST(req: NextRequest) {
@@ -19,6 +28,7 @@ export async function POST(req: NextRequest) {
     await destroySession(req); const res = NextResponse.json({ ok: true }); res.cookies.set("odine_session", "", { ...cookie(req), maxAge: 0 }); return res;
   }
   if (action === "demo_login") {
+    if (!(await demoMode(req))) return NextResponse.json({ error: "Demo girişi bu kurulumda etkin değil." }, { status: 403 });
     await ensureDemoUser(db);
     const demo = await db.prepare("SELECT id,status FROM local_users WHERE email=?").bind(demoAccount.email).first<{id:string;status:string}>();
     if (!demo || demo.status !== "Active") return NextResponse.json({ error: "Demo hesabı kullanılamıyor." }, { status: 503 });

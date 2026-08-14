@@ -11,6 +11,7 @@ import "./odine-refresh.css";
 import "./product-polish.css";
 import "./nexora-premium.css";
 import Settings from "./settings";
+import { withBasePath } from "./base-path";
 
 type Lang = "tr" | "en";
 type Row = {
@@ -696,7 +697,7 @@ function AuthGate() {
     [showLogin, setShowLogin] = useState(false);
   async function check() {
     try{
-      const r = await fetch("/api/auth", { cache: "no-store" });
+      const r = await fetch(withBasePath("/api/auth"), { cache: "no-store" });
       const j=await r.json().catch(()=>({}));
       if(!r.ok)throw new Error(j.error||"Kimlik servisine ulaşılamadı.");
       setState(j);setError("");
@@ -709,7 +710,7 @@ function AuthGate() {
     e.preventDefault();
     setError("");
     const fd = new FormData(e.currentTarget),
-      r = await fetch("/api/auth", {
+      r = await fetch(withBasePath("/api/auth"), {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
@@ -725,7 +726,7 @@ function AuthGate() {
   }
   async function demoLogin(){
     setError("");
-    const r=await fetch("/api/auth",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({action:"demo_login"})}),j=await r.json();
+    const r=await fetch(withBasePath("/api/auth"),{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({action:"demo_login"})}),j=await r.json();
     if(!r.ok)setError(j.error||"Demo hesabıyla giriş başarısız.");else check();
   }
   if (!state)
@@ -746,14 +747,21 @@ function AuthGate() {
         <small>NEXORA GRC</small>
         <h1>
           {state.bootstrapRequired && !showLogin
-            ? "İlk Yönetici Hesabı"
+            ? "Nexora GRC İlk Kurulum"
             : "Yerel Hesapla Giriş"}
         </h1>
         <p>
           {state.bootstrapRequired && !showLogin
-            ? "Platformu kullanmaya başlamak için ilk yerel yönetici hesabını oluşturun."
+            ? "Kurulumu tamamlamak için ilk yerel yönetici hesabını oluşturun. Bu hesap sistem yöneticisi yetkisine sahip olacaktır."
             : "Entra SSO kullanılamadığında yetkili yerel hesabınızla giriş yapın."}
         </p>
+        {state.bootstrapRequired && !showLogin && (
+          <div className="setup-progress" aria-label="İlk kurulum adımları">
+            <span className="active"><b>1</b> Yönetici</span>
+            <span><b>2</b> Giriş</span>
+            <span><b>3</b> Ayarlar</span>
+          </div>
+        )}
         {state.bootstrapRequired && !showLogin && (
           <label>
             Ad Soyad
@@ -783,11 +791,11 @@ function AuthGate() {
         <button className="primary">
           {state.bootstrapRequired && !showLogin ? "Yönetici Hesabını Oluştur" : "Giriş Yap"}
         </button>
-        <div className="demo-login-box">
+        {state.demoAccount&&<div className="demo-login-box">
           <b>Demo Editor Hesabı</b>
           <span>{state.demoAccount.email}</span>
           <button type="button" className="ghost" onClick={demoLogin}>Demo Hesapla Giriş Yap</button>
-        </div>
+        </div>}
         {state.bootstrapRequired&&<button type="button" className="auth-switch" onClick={()=>setShowLogin(x=>!x)}>{showLogin?"İlk yönetici oluşturma ekranına dön":"Mevcut yerel hesapla giriş yap"}</button>}
       </form>
     </div>
@@ -849,7 +857,7 @@ function NexoraApp({ currentUser }: { currentUser: any }) {
   }, [lang, active]);
   async function load() {
     try {
-      const r = await fetch("/api/grc");
+      const r = await fetch(withBasePath("/api/grc"));
       if (r.ok) {
         const j = await r.json();
         if (j.rows?.length)
@@ -901,7 +909,7 @@ function NexoraApp({ currentUser }: { currentUser: any }) {
   }
   async function save(e: FormEvent) {
     e.preventDefault();
-    const r = await fetch("/api/grc", {
+    const r = await fetch(withBasePath("/api/grc"), {
       method: editing ? "PATCH" : "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ id: editing?.id, module: active, data: form }),
@@ -933,12 +941,12 @@ function NexoraApp({ currentUser }: { currentUser: any }) {
       !confirm(lang === "tr" ? "Bu kayıt silinsin mi?" : "Delete this record?")
     )
       return;
-    await fetch(`/api/grc?id=${id}`, { method: "DELETE" });
+    await fetch(withBasePath(`/api/grc?id=${id}`), { method: "DELETE" });
     await load();
   }
   async function uploadEvidence(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    const r = await fetch("/api/evidence", {
+    const r = await fetch(withBasePath("/api/evidence"), {
       method: "POST",
       body: new FormData(e.currentTarget),
     });
@@ -1335,7 +1343,7 @@ function ImportModal({
     )
     .filter((r) => Object.values(r).some(Boolean));
   async function commit() {
-    const r = await fetch("/api/grc", {
+    const r = await fetch(withBasePath("/api/grc"), {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ module, rows: converted }),
@@ -3051,13 +3059,13 @@ function SmartCell({
   return display(d[column], lang) || "—";
 }
 function EvidencePreview({row,lang,onClose}:{row:Row;lang:Lang;onClose:()=>void}){
- const d=row.data,tr=lang==="tr",source=d.demoImage||(d.fileKey?`/api/evidence?key=${encodeURIComponent(d.fileKey)}&inline=1`:"");
+ const d=row.data,tr=lang==="tr",source=d.demoImage?withBasePath(d.demoImage):(d.fileKey?withBasePath(`/api/evidence?key=${encodeURIComponent(d.fileKey)}&inline=1`):"");
  const isPdf=d.fileType==="application/pdf";
  return <div className="overlay evidence-overlay" onMouseDown={onClose}>
   <section className="evidence-preview" onMouseDown={(e)=>e.stopPropagation()} role="dialog" aria-modal="true" aria-label={tr?"Kanıt önizleme":"Evidence preview"}>
    <header className="evidence-preview-head"><div><small>{row.id} · {tr?"KANIT ÖNİZLEME":"EVIDENCE PREVIEW"}</small><h2>{d.evidenceTitle||row.id}</h2><p>{d.controlRef||"—"} · {d.owner||"—"} · {d.period||"—"}</p></div><button onClick={onClose} aria-label={tr?"Kapat":"Close"}>×</button></header>
    <div className="evidence-stage">{source?(isPdf?<iframe src={source} title={d.evidenceTitle||row.id}/>:<><img src={source} alt={`${d.evidenceTitle||row.id} ${tr?"ekran görüntüsü":"screenshot"}`}/></>):<div className="evidence-missing">{tr?"Bu kanıta henüz görsel eklenmemiş.":"No image has been attached to this evidence yet."}</div>}</div>
-   <footer className="evidence-meta"><div><b>{tr?"Dosya":"File"}</b><span>{d.fileName|| (tr?"Demo ekran görüntüsü":"Demo screenshot")}</span></div><div><b>{tr?"Standartlar":"Standards"}</b><span>{d.frameworks||"—"}</span></div><div><b>{tr?"Not":"Note"}</b><span>{d.notes||"—"}</span></div>{d.fileKey&&<a href={`/api/evidence?key=${encodeURIComponent(d.fileKey)}`}>{tr?"Orijinal dosyayı indir":"Download original"}</a>}</footer>
+   <footer className="evidence-meta"><div><b>{tr?"Dosya":"File"}</b><span>{d.fileName|| (tr?"Demo ekran görüntüsü":"Demo screenshot")}</span></div><div><b>{tr?"Standartlar":"Standards"}</b><span>{d.frameworks||"—"}</span></div><div><b>{tr?"Not":"Note"}</b><span>{d.notes||"—"}</span></div>{d.fileKey&&<a href={withBasePath(`/api/evidence?key=${encodeURIComponent(d.fileKey)}`)}>{tr?"Orijinal dosyayı indir":"Download original"}</a>}</footer>
   </section>
  </div>;
 }
