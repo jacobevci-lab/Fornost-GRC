@@ -17,6 +17,7 @@ cd "${repo_root}"
 engine="${FORNOST_CONTAINER_ENGINE:-docker}"
 port="${FORNOST_INTEGRATION_PORT:-18080}"
 marker="fornost-integration-$(date +%s)"
+volume_helper_image="docker.io/library/nginx:1.27-alpine"
 
 cleanup() {
   "${engine}" rm -f fornost-grc-proxy fornost-grc-app >/dev/null 2>&1 || true
@@ -34,13 +35,20 @@ FORNOST_CONTAINER_ENGINE="${engine}" bash scripts/linux/check.sh
 curl --fail --silent --show-error \
   "http://127.0.0.1:${port}/fornost-grc/api/auth" | grep -q 'bootstrapRequired'
 
-"${engine}" exec fornost-grc-app sh -c \
-  "printf '%s' '${marker}' > /app/.sites-runtime/data/integration-marker"
+"${engine}" run --rm \
+  --volume fornost-grc-data:/data:Z \
+  --entrypoint sh \
+  "${volume_helper_image}" \
+  -c "printf '%s' '${marker}' > /data/integration-marker"
 
 FORNOST_CONTAINER_ENGINE="${engine}" bash scripts/linux/install.sh
 FORNOST_CONTAINER_ENGINE="${engine}" bash scripts/linux/check.sh
 
-persisted="$("${engine}" exec fornost-grc-app cat /app/.sites-runtime/data/integration-marker)"
+persisted="$("${engine}" run --rm \
+  --volume fornost-grc-data:/data:ro,Z \
+  --entrypoint cat \
+  "${volume_helper_image}" \
+  /data/integration-marker)"
 [[ "${persisted}" == "${marker}" ]] || {
   echo "Persistent volume marker was lost after reinstall." >&2
   exit 1
