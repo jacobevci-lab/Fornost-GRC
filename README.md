@@ -1,6 +1,6 @@
-# Nexora GRC
+# Fornost GRC
 
-Nexora GRC; risk, iş etki analizi, varlık, uyum, kontrol, kanıt, tedarikçi ve denetim süreçlerini tek çalışma alanında yöneten Türkçe/İngilizce bir GRC uygulamasıdır.
+Fornost GRC; risk, iş etki analizi, varlık, uyum, kontrol, kanıt, tedarikçi ve denetim süreçlerini tek çalışma alanında yöneten Türkçe/İngilizce bir GRC uygulamasıdır.
 
 **Govern Risk. Prove Compliance.**
 
@@ -34,6 +34,32 @@ Gereksinimler: Node.js `>=22.13.0`, npm ve Linux üzerinde GNU `timeout`.
 npm ci
 npm run dev
 ```
+
+## Linux sunucu kurulumu
+
+Önerilen platformlar: Red Hat Enterprise Linux 8/9, Rocky Linux 8/9, AlmaLinux 8/9 ve CentOS Stream 8/9. CentOS Linux 7 kullanım ömrünü tamamladığı için desteklenmez. Podman önerilir; Docker Engine de kullanılabilir. Container image gerekli Node.js ve `glibc` çalışma ortamını kendi içinde taşır, host paketlerini değiştirmez.
+
+RHEL tabanlı temiz sunucuda Podman ile eksiksiz kurulum:
+
+```bash
+sudo dnf install -y git podman curl
+git clone https://github.com/jacobevci-lab/Fornost-GRC.git
+cd Fornost-GRC
+sudo bash scripts/linux/install.sh
+sudo firewall-cmd --permanent --zone=public --add-port=80/tcp
+sudo firewall-cmd --reload
+sudo bash scripts/linux/check.sh
+```
+
+Varsayılan ilk kurulum adresi:
+
+```text
+http://SUNUCU_IP/fornost-grc/
+```
+
+İlk ziyarette Fornost GRC, ilk yerel yönetici hesabını oluşturma ekranını açar. Uygulama kayıtları ve yüklenen kanıtlar `fornost-grc-data` adlı kalıcı container volume alanında tutulur; container yenilense de silinmez. Installer uygulama ve ters proxy sağlık kontrolleri geçmeden başarı mesajı vermez.
+
+Adres yolu veya HTTP portu `.env.onprem` dosyasından değiştirilebilir. Rootless kurulum, Docker alternatifi, güncelleme, yedekleme, kaldırma, SELinux ve güvenlik duvarı adımları için [Linux On-Prem Kurulum Rehberi](docs/LINUX-INSTALLATION.md) belgesine bakın.
 
 Kalite kapıları:
 

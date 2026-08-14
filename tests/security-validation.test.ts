@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { constantTimeEqual, validPassword } from "../app/api/auth/security";
+import { constantTimeEqual, demoAccount, PBKDF2_ITERATIONS, validPassword } from "../app/api/auth/security";
 import { cleanText, validDate, validModule, validate } from "../app/api/grc/route";
 
 test("password policy accepts strong passwords and rejects weak inputs", () => {
@@ -10,6 +10,16 @@ test("password policy accepts strong passwords and rejects weak inputs", () => {
   assert.equal(validPassword("NOLOWERCASE-2026!"), false);
   assert.equal(validPassword("NoSpecialCharacter2026"), false);
   assert.equal(validPassword("A".repeat(129) + "1!a"), false);
+});
+
+test("public demo editor account is non-admin and exposes no credential",()=>{
+ assert.equal(demoAccount.role,"Editor");
+ assert.match(demoAccount.email,/^[^\s@]+@[^\s@]+\.[^\s@]+$/);
+ assert.equal("password" in demoAccount,false);
+});
+
+test("PBKDF2 cost stays within the Cloudflare runtime limit",()=>{
+ assert.equal(PBKDF2_ITERATIONS,100_000);
 });
 
 test("constant-time comparison handles equal, unequal and different-length inputs", () => {

@@ -1,4 +1,4 @@
-# Odine GRC Architecture
+# Fornost GRC Architecture
 
 ## Bileşenler
 

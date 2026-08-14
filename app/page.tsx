@@ -1,4 +1,5 @@
 "use client";
+/* eslint-disable @next/next/no-img-element -- evidence images are authenticated runtime URLs and cannot use the static image optimizer */
 
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { readSheet as readXlsxSheet } from "read-excel-file/browser";
@@ -6,9 +7,11 @@ import writeXlsxFile from "write-excel-file/browser";
 import "./matrix-overrides.css";
 import "./i18n.css";
 import "./settings.css";
-import "./odine-refresh.css";
+import "./fornost-refresh.css";
 import "./product-polish.css";
+import "./fornost-premium.css";
 import Settings from "./settings";
+import { withBasePath } from "./base-path";
 
 type Lang = "tr" | "en";
 type Row = {
@@ -690,10 +693,15 @@ export default function Home() {
 
 function AuthGate() {
   const [state, setState] = useState<any>(null),
-    [error, setError] = useState("");
+    [error, setError] = useState(""),
+    [showLogin, setShowLogin] = useState(false);
   async function check() {
-    const r = await fetch("/api/auth", { cache: "no-store" });
-    setState(await r.json());
+    try{
+      const r = await fetch(withBasePath("/api/auth"), { cache: "no-store" });
+      const j=await r.json().catch(()=>({}));
+      if(!r.ok)throw new Error(j.error||"Kimlik servisine ulaşılamadı.");
+      setState(j);setError("");
+    }catch(e){setState({loadFailed:true});setError(e instanceof Error?e.message:"Kimlik servisine ulaşılamadı.");}
   }
   useEffect(() => {
     check();
@@ -702,11 +710,11 @@ function AuthGate() {
     e.preventDefault();
     setError("");
     const fd = new FormData(e.currentTarget),
-      r = await fetch("/api/auth", {
+      r = await fetch(withBasePath("/api/auth"), {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
-          action: state.bootstrapRequired ? "bootstrap" : "login",
+          action: state.bootstrapRequired && !showLogin ? "bootstrap" : "login",
           name: fd.get("name"),
           email: fd.get("email"),
           password: fd.get("password"),
@@ -716,32 +724,45 @@ function AuthGate() {
     if (!r.ok) setError(j.error || "Giriş başarısız.");
     else check();
   }
+  async function demoLogin(){
+    setError("");
+    const r=await fetch(withBasePath("/api/auth"),{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({action:"demo_login"})}),j=await r.json();
+    if(!r.ok)setError(j.error||"Demo hesabıyla giriş başarısız.");else check();
+  }
   if (!state)
     return (
       <div className="auth-screen">
         <div className="auth-card">
-          <b>Nexora GRC</b>
+          <b>Fornost GRC</b>
           <p>Güvenli oturum hazırlanıyor…</p>
         </div>
       </div>
     );
-  if (state.authenticated) return <NexoraApp currentUser={state.user} />;
+  if(state.loadFailed)return <div className="auth-screen"><div className="auth-card"><div className="auth-mark">F</div><small>FORNOST GRC</small><h1>Oturum hazırlanamadı</h1><p>Kimlik servisi geçici olarak yanıt veremedi. Birkaç saniye sonra tekrar deneyin.</p>{error&&<div className="auth-error">{error}</div>}<button className="primary" onClick={()=>{setState(null);check()}}>Tekrar Dene</button></div></div>;
+  if (state.authenticated) return <FornostApp currentUser={state.user} />;
   return (
     <div className="auth-screen">
       <form className="auth-card" onSubmit={submit}>
-        <div className="auth-mark">N</div>
-        <small>NEXORA GRC</small>
+        <div className="auth-mark">F</div>
+        <small>FORNOST GRC</small>
         <h1>
-          {state.bootstrapRequired
-            ? "İlk Yönetici Hesabı"
+          {state.bootstrapRequired && !showLogin
+            ? "Fornost GRC İlk Kurulum"
             : "Yerel Hesapla Giriş"}
         </h1>
         <p>
-          {state.bootstrapRequired
-            ? "Platformu kullanmaya başlamak için ilk yerel yönetici hesabını oluşturun."
+          {state.bootstrapRequired && !showLogin
+            ? "Kurulumu tamamlamak için ilk yerel yönetici hesabını oluşturun. Bu hesap sistem yöneticisi yetkisine sahip olacaktır."
             : "Entra SSO kullanılamadığında yetkili yerel hesabınızla giriş yapın."}
         </p>
-        {state.bootstrapRequired && (
+        {state.bootstrapRequired && !showLogin && (
+          <div className="setup-progress" aria-label="İlk kurulum adımları">
+            <span className="active"><b>1</b> Yönetici</span>
+            <span><b>2</b> Giriş</span>
+            <span><b>3</b> Ayarlar</span>
+          </div>
+        )}
+        {state.bootstrapRequired && !showLogin && (
           <label>
             Ad Soyad
             <input name="name" required autoComplete="name" />
@@ -759,23 +780,29 @@ function AuthGate() {
             required
             minLength={12}
             autoComplete={
-              state.bootstrapRequired ? "new-password" : "current-password"
+              state.bootstrapRequired && !showLogin ? "new-password" : "current-password"
             }
           />
         </label>
-        {state.bootstrapRequired && (
+        {state.bootstrapRequired && !showLogin && (
           <em>En az 12 karakter; büyük/küçük harf, sayı ve özel karakter.</em>
         )}
         {error && <div className="auth-error">{error}</div>}
         <button className="primary">
-          {state.bootstrapRequired ? "Yönetici Hesabını Oluştur" : "Giriş Yap"}
+          {state.bootstrapRequired && !showLogin ? "Yönetici Hesabını Oluştur" : "Giriş Yap"}
         </button>
+        {state.demoAccount&&<div className="demo-login-box">
+          <b>Demo Editor Hesabı</b>
+          <span>{state.demoAccount.email}</span>
+          <button type="button" className="ghost" onClick={demoLogin}>Demo Hesapla Giriş Yap</button>
+        </div>}
+        {state.bootstrapRequired&&<button type="button" className="auth-switch" onClick={()=>setShowLogin(x=>!x)}>{showLogin?"İlk yönetici oluşturma ekranına dön":"Mevcut yerel hesapla giriş yap"}</button>}
       </form>
     </div>
   );
 }
 
-function NexoraApp({ currentUser }: { currentUser: any }) {
+function FornostApp({ currentUser }: { currentUser: any }) {
   const [lang, setLang] = useState<Lang>("tr"),
     [active, setActive] = useState("Ana Sayfa"),
     [rows, setRows] = useState<Row[]>(examples),
@@ -785,31 +812,49 @@ function NexoraApp({ currentUser }: { currentUser: any }) {
     [form, setForm] = useState<Record<string, any>>({}),
     [notice, setNotice] = useState(""),
     [importOpen, setImportOpen] = useState(false),
-    [selectedAudit, setSelectedAudit] = useState("");
+    [previewEvidence, setPreviewEvidence] = useState<Row | null>(null),
+    [selectedAudit, setSelectedAudit] = useState(""),
+    [theme, setTheme] = useState<"light" | "dark">("light");
   const labels = labelMap[lang],
     u = ui[lang];
   linkedRows = rows;
   useEffect(() => {
-    const saved =
-      localStorage.getItem("nexora-grc-language") ||
-      localStorage.getItem("odine-grc-language") ||
-      localStorage.getItem("ciso-grc-language");
+    const saved = localStorage.getItem("fornost-grc-language");
     if (saved === "tr" || saved === "en") setLang(saved);
   }, []);
   useEffect(() => {
-    localStorage.setItem("nexora-grc-language", lang);
+    localStorage.setItem("fornost-grc-language", lang);
     document.documentElement.lang = lang;
   }, [lang]);
   useEffect(() => {
-    document.title = "Nexora GRC";
+    const saved = localStorage.getItem("fornost-grc-theme");
+    setTheme(
+      saved === "dark" || saved === "light"
+        ? saved
+        : window.matchMedia("(prefers-color-scheme: dark)").matches
+          ? "dark"
+          : "light",
+    );
+  }, []);
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    document.documentElement.style.colorScheme = theme;
+    localStorage.setItem("fornost-grc-theme", theme);
+    return () => {
+      delete document.documentElement.dataset.theme;
+      document.documentElement.style.colorScheme = "";
+    };
+  }, [theme]);
+  useEffect(() => {
+    document.title = "Fornost GRC";
     const overview = document.querySelector(".welcome small");
     if (overview)
       overview.textContent =
-        lang === "tr" ? "NEXORA GRC GENEL DURUM" : "NEXORA GRC OVERVIEW";
+        lang === "tr" ? "FORNOST GRC GENEL DURUM" : "FORNOST GRC OVERVIEW";
   }, [lang, active]);
   async function load() {
     try {
-      const r = await fetch("/api/grc");
+      const r = await fetch(withBasePath("/api/grc"));
       if (r.ok) {
         const j = await r.json();
         if (j.rows?.length)
@@ -861,7 +906,7 @@ function NexoraApp({ currentUser }: { currentUser: any }) {
   }
   async function save(e: FormEvent) {
     e.preventDefault();
-    const r = await fetch("/api/grc", {
+    const r = await fetch(withBasePath("/api/grc"), {
       method: editing ? "PATCH" : "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ id: editing?.id, module: active, data: form }),
@@ -893,12 +938,12 @@ function NexoraApp({ currentUser }: { currentUser: any }) {
       !confirm(lang === "tr" ? "Bu kayıt silinsin mi?" : "Delete this record?")
     )
       return;
-    await fetch(`/api/grc?id=${id}`, { method: "DELETE" });
+    await fetch(withBasePath(`/api/grc?id=${id}`), { method: "DELETE" });
     await load();
   }
   async function uploadEvidence(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    const r = await fetch("/api/evidence", {
+    const r = await fetch(withBasePath("/api/evidence"), {
       method: "POST",
       body: new FormData(e.currentTarget),
     });
@@ -945,7 +990,7 @@ function NexoraApp({ currentUser }: { currentUser: any }) {
         <div className="brand">
           <span>N</span>
           <div>
-            <b>Nexora GRC</b>
+            <b>Fornost GRC</b>
             <small>
               {lang === "tr"
                 ? "Governance · Risk · Compliance"
@@ -981,6 +1026,18 @@ function NexoraApp({ currentUser }: { currentUser: any }) {
             <h1>{names[lang][active]}</h1>
           </div>
           <div className="header-actions">
+            <button
+              className="theme-toggle"
+              onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+              aria-label={
+                theme === "dark"
+                  ? lang === "tr" ? "Açık temaya geç" : "Switch to light theme"
+                  : lang === "tr" ? "Koyu temaya geç" : "Switch to dark theme"
+              }
+              title={theme === "dark" ? "Light mode" : "Dark mode"}
+            >
+              <span aria-hidden="true">{theme === "dark" ? "☀" : "☾"}</span>
+            </button>
             <div
               className="language-switch"
               aria-label={lang === "tr" ? "Dil seçimi" : "Language selection"}
@@ -1110,6 +1167,7 @@ function NexoraApp({ currentUser }: { currentUser: any }) {
                     lang={lang}
                     edit={openEdit}
                     remove={remove}
+                    viewEvidence={setPreviewEvidence}
                   />
                 )}
               </div>
@@ -1176,6 +1234,13 @@ function NexoraApp({ currentUser }: { currentUser: any }) {
             )}
           </div>
         </div>
+      )}
+      {previewEvidence && (
+        <EvidencePreview
+          row={previewEvidence}
+          lang={lang}
+          onClose={() => setPreviewEvidence(null)}
+        />
       )}
       {importOpen && (
         <ImportModal
@@ -1275,7 +1340,7 @@ function ImportModal({
     )
     .filter((r) => Object.values(r).some(Boolean));
   async function commit() {
-    const r = await fetch("/api/grc", {
+    const r = await fetch(withBasePath("/api/grc"), {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ module, rows: converted }),
@@ -1589,11 +1654,11 @@ function Field({
         {labelMap[lang][k]}
         <input
           name={nameMode ? k : undefined}
-          list="odine-control-refs"
+          list="fornost-control-refs"
           value={value}
           onChange={(e) => change(e.target.value)}
         />
-        <datalist id="odine-control-refs">
+        <datalist id="fornost-control-refs">
           {options.map((x) => (
             <option key={x} value={x} />
           ))}
@@ -1692,7 +1757,7 @@ function Dashboard({
     <>
       <section className="welcome">
         <div>
-          <small>{tr ? "NEXORA GRC GENEL DURUM" : "NEXORA GRC OVERVIEW"}</small>
+          <small>{tr ? "FORNOST GRC GENEL DURUM" : "FORNOST GRC OVERVIEW"}</small>
           <h2>
             {tr ? (
               <>
@@ -1920,7 +1985,7 @@ function Reports({ rows, lang }: { rows: Row[]; lang: Lang }) {
     const keys = [...new Set(data.flatMap((row) => Object.keys(row)))];
     await writeXlsxFile(
       [keys.map((key) => ({ value: key, fontWeight: "bold" as const })), ...data.map((row) => keys.map((key) => ({ value: String(row[key] ?? "") })))],
-    ).toFile(`Nexora-GRC-${tr ? "Raporu" : "Report"}-${new Date().toISOString().slice(0, 10)}.xlsx`);
+    ).toFile(`Fornost-GRC-${tr ? "Raporu" : "Report"}-${new Date().toISOString().slice(0, 10)}.xlsx`);
   }
   return (
     <>
@@ -1936,7 +2001,7 @@ function Reports({ rows, lang }: { rows: Row[]; lang: Lang }) {
         <div className="actions">
           <button
             className="ghost"
-            onClick={() => csvDownload("Nexora-GRC-Report.csv", filtered, lang)}
+            onClick={() => csvDownload("Fornost-GRC-Report.csv", filtered, lang)}
           >
             {ui[lang].csv}
           </button>
@@ -2757,11 +2822,13 @@ function SmartCell({
   column,
   row,
   lang,
+  viewEvidence,
 }: {
   module: string;
   column: string;
   row: Row;
   lang: Lang;
+  viewEvidence?: (row: Row) => void;
 }) {
   const d = row.data,
     tr = lang === "tr";
@@ -2963,15 +3030,11 @@ function SmartCell({
   if (column === "frameworks")
     return <span className="clamp-text">{d.frameworks || "—"}</span>;
   if (module === "Kanıtlar" && column === "evidenceTitle")
-    return d.fileKey ? (
-      <a
-        href={`/api/evidence?key=${encodeURIComponent(d.fileKey)}`}
-        target="_blank"
-      >
-        {d.evidenceTitle || row.id}
-      </a>
-    ) : (
-      <b>{d.evidenceTitle || "—"}</b>
+    return (
+      <button className="evidence-link" onClick={() => viewEvidence?.(row)}>
+        <span className="evidence-thumb-mark">▣</span>
+        <span><b>{d.evidenceTitle || row.id}</b><small>{d.fileName || (tr ? "Örnek ekran görüntüsü" : "Sample screenshot")}</small></span>
+      </button>
     );
   if (column === "freshness") {
     const days = ageInDays(row.createdAt);
@@ -2992,18 +3055,32 @@ function SmartCell({
   }
   return display(d[column], lang) || "—";
 }
+function EvidencePreview({row,lang,onClose}:{row:Row;lang:Lang;onClose:()=>void}){
+ const d=row.data,tr=lang==="tr",source=d.demoImage?withBasePath(d.demoImage):(d.fileKey?withBasePath(`/api/evidence?key=${encodeURIComponent(d.fileKey)}&inline=1`):"");
+ const isPdf=d.fileType==="application/pdf";
+ return <div className="overlay evidence-overlay" onMouseDown={onClose}>
+  <section className="evidence-preview" onMouseDown={(e)=>e.stopPropagation()} role="dialog" aria-modal="true" aria-label={tr?"Kanıt önizleme":"Evidence preview"}>
+   <header className="evidence-preview-head"><div><small>{row.id} · {tr?"KANIT ÖNİZLEME":"EVIDENCE PREVIEW"}</small><h2>{d.evidenceTitle||row.id}</h2><p>{d.controlRef||"—"} · {d.owner||"—"} · {d.period||"—"}</p></div><button onClick={onClose} aria-label={tr?"Kapat":"Close"}>×</button></header>
+   <div className="evidence-stage">{source?(isPdf?<iframe src={source} title={d.evidenceTitle||row.id}/>:<><img src={source} alt={`${d.evidenceTitle||row.id} ${tr?"ekran görüntüsü":"screenshot"}`}/></>):<div className="evidence-missing">{tr?"Bu kanıta henüz görsel eklenmemiş.":"No image has been attached to this evidence yet."}</div>}</div>
+   <footer className="evidence-meta"><div><b>{tr?"Dosya":"File"}</b><span>{d.fileName|| (tr?"Demo ekran görüntüsü":"Demo screenshot")}</span></div><div><b>{tr?"Standartlar":"Standards"}</b><span>{d.frameworks||"—"}</span></div><div><b>{tr?"Not":"Note"}</b><span>{d.notes||"—"}</span></div>{d.fileKey&&<a href={withBasePath(`/api/evidence?key=${encodeURIComponent(d.fileKey)}`)}>{tr?"Orijinal dosyayı indir":"Download original"}</a>}</footer>
+  </section>
+ </div>;
+}
+
 function SmartRegister({
   module,
   rows,
   lang,
   edit,
   remove,
+  viewEvidence,
 }: {
   module: string;
   rows: Row[];
   lang: Lang;
   edit: (r: Row) => void;
   remove: (id: string) => void;
+  viewEvidence?: (row: Row) => void;
 }) {
   const cols = registerColumns[module] || [],
     u = ui[lang];
@@ -3021,12 +3098,10 @@ function SmartRegister({
       <tbody>
         {rows.map((r) => (
           <tr key={r.id} onDoubleClick={() => edit(r)}>
-            <td>
-              <b className="code">{r.id}</b>
-            </td>
+            <td>{module === "Kanıtlar" ? <button className="code code-link" onClick={() => viewEvidence?.(r)}>{r.id}</button> : <b className="code">{r.id}</b>}</td>
             {cols.map((c) => (
               <td key={c.key}>
-                <SmartCell module={module} column={c.key} row={r} lang={lang} />
+                <SmartCell module={module} column={c.key} row={r} lang={lang} viewEvidence={viewEvidence} />
               </td>
             ))}
             <td>

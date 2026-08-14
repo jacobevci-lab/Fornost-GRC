@@ -18,14 +18,26 @@ export async function identityDb() {
   return env.DB;
 }
 
+export const demoAccount={name:"Fornost Demo Editor",email:"demo@fornost.test",role:"Editor" as const};
+
+export async function ensureDemoUser(db: Awaited<ReturnType<typeof identityDb>>){
+ const existing=await db.prepare("SELECT id FROM local_users WHERE email=?").bind(demoAccount.email).first<{id:string}>();
+ if(existing)return;
+ const oneTimeSecret=`${bytesToHex(crypto.getRandomValues(new Uint8Array(24)))}Aa1!`;
+ const p=await passwordHash(oneTimeSecret),now=new Date().toISOString();
+ await db.prepare("INSERT INTO local_users(id,name,email,password_hash,password_salt,role,status,created_at,updated_at) VALUES(?,?,?,?,?,?,'Active',?,?)").bind("demo-editor",demoAccount.name,demoAccount.email,p.hash,p.salt,demoAccount.role,now,now).run();
+}
+
 function bytesToHex(bytes: Uint8Array) { return [...bytes].map(x => x.toString(16).padStart(2, "0")).join(""); }
 function hexToBytes(hex: string) { return new Uint8Array(hex.match(/.{2}/g)?.map(x => parseInt(x, 16)) || []); }
 async function sha256(value: string) { return bytesToHex(new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value)))); }
 
+export const PBKDF2_ITERATIONS=100_000;
+
 export async function passwordHash(password: string, saltHex?: string) {
   const salt = saltHex ? hexToBytes(saltHex) : crypto.getRandomValues(new Uint8Array(16));
   const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(password), "PBKDF2", false, ["deriveBits"]);
-  const bits = await crypto.subtle.deriveBits({ name: "PBKDF2", hash: "SHA-256", salt, iterations: 210000 }, key, 256);
+  const bits = await crypto.subtle.deriveBits({ name: "PBKDF2", hash: "SHA-256", salt, iterations: PBKDF2_ITERATIONS }, key, 256);
   return { hash: bytesToHex(new Uint8Array(bits)), salt: bytesToHex(salt) };
 }
 
@@ -48,7 +60,7 @@ export function sameOrigin(req: NextRequest) {
 export async function actor(req: NextRequest): Promise<Actor | null> {
   const platformEmail = req.headers.get("oai-authenticated-user-email")?.trim().toLowerCase();
   if (platformEmail) return { id: `entra:${platformEmail}`, email: platformEmail, name: platformEmail, role: "Admin", source: "entra" };
-  const token = req.cookies.get("odine_session")?.value;
+  const token = req.cookies.get("fornost_session")?.value;
   if (!token) return null;
   const db = await identityDb(), now = new Date().toISOString(), tokenHash = await sha256(token);
   const row = await db.prepare(`SELECT u.id,u.name,u.email,u.role,u.status,s.expires_at
@@ -74,6 +86,6 @@ export async function createSession(db: Awaited<ReturnType<typeof identityDb>>, 
 }
 
 export async function destroySession(req: NextRequest) {
-  const token = req.cookies.get("odine_session")?.value;
+  const token = req.cookies.get("fornost_session")?.value;
   if (token) await (await identityDb()).prepare("DELETE FROM local_sessions WHERE id_hash=?").bind(await sha256(token)).run();
 }
