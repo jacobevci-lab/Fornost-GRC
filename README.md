@@ -47,7 +47,7 @@ npm run setup:linux
 npm run serve:linux
 ```
 
-Kurulum bağımlılıkları yükler, kalite kontrollerini çalıştırır, production Worker çıktısını üretir ve kalıcı yerel D1/R2 depolamasını hazırlar. Arka planda otomatik başlatma, systemd, güncelleme, güvenlik duvarı ve sorun giderme komutları için [Linux Kurulum Rehberi](docs/LINUX-INSTALLATION.md) belgesine bakın.
+Kurulum gerekirse resmi Node.js 22 çalışma zamanını proje içine otomatik kurar; ardından bağımlılıkları yükler, kalite kontrollerini çalıştırır, production Worker çıktısını üretir ve kalıcı yerel D1/R2 depolamasını hazırlar. Arka planda otomatik başlatma, systemd, güncelleme, güvenlik duvarı ve sorun giderme komutları için [Linux Kurulum Rehberi](docs/LINUX-INSTALLATION.md) belgesine bakın.
 
 Kalite kapıları:
 

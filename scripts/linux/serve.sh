@@ -4,6 +4,10 @@ set -euo pipefail
 project_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "${project_root}"
 
+if [[ -x "${project_root}/.sites-runtime/node/bin/node" ]]; then
+  export PATH="${project_root}/.sites-runtime/node/bin:${PATH}"
+fi
+
 [[ -f dist/server/wrangler.json ]] || {
   echo "Build output is missing. Run npm run setup:linux first." >&2
   exit 69

@@ -15,7 +15,6 @@ port="${PORT:-3000}"
   exit 64
 }
 
-npm_bin="$(command -v npm)"
 unit_path="/etc/systemd/system/nexora-grc.service"
 
 cat >"${unit_path}" <<EOF
@@ -30,7 +29,7 @@ User=${app_user}
 WorkingDirectory=${project_root}
 Environment=NODE_ENV=production
 Environment=PORT=${port}
-ExecStart=${npm_bin} run serve:linux
+ExecStart=/usr/bin/bash ${project_root}/scripts/linux/serve.sh
 Restart=on-failure
 RestartSec=5
 NoNewPrivileges=true
