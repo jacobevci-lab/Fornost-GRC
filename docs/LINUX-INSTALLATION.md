@@ -7,7 +7,8 @@ Bu rehber Nexora GRC'yi Ubuntu/Debian veya RHEL/Fedora tabanlı bir Linux sunucu
 ## Sistem gereksinimleri
 
 - 64-bit Linux
-- Node.js `>=22.13.0` (Node.js 22 LTS önerilir)
+- glibc `>=2.28` kullanan x86_64 veya arm64 Linux (Ubuntu 20.04+, Debian 10+, RHEL/Rocky/Alma 8+)
+- Node.js `>=22.13.0`; yoksa veya eskiyse kurulum resmi Node.js 22 arşivini checksum doğrulamasıyla proje içine otomatik kurar
 - npm, Git, curl, GNU coreutils (`timeout`, `sha256sum`) ve util-linux (`flock`)
 - En az 2 GB RAM, 2 vCPU ve 5 GB boş disk
 - Uygulama portuna erişim (varsayılan `3000/tcp`)
@@ -16,13 +17,13 @@ Ubuntu/Debian araçları:
 
 ```bash
 sudo apt-get update
-sudo apt-get install -y curl git coreutils util-linux
+sudo apt-get install -y curl git coreutils util-linux xz-utils
 ```
 
 RHEL/Fedora araçları:
 
 ```bash
-sudo dnf install -y curl git coreutils util-linux
+sudo dnf install -y curl git coreutils util-linux xz
 ```
 
 Node.js sürümünü doğrulayın:
@@ -31,6 +32,8 @@ Node.js sürümünü doğrulayın:
 node --version
 npm --version
 ```
+
+Sistemde Node.js 10/12/16/18 gibi eski bir sürüm bulunması kurulumu engellemez. `npm run setup:linux`, desteklenen işletim sistemlerinde `.sites-runtime/node` altında izole Node.js 22 kurar ve uygulama komutlarında onu kullanır. Sistem genelindeki Node.js değiştirilmez.
 
 ## Tek komutla uygulama kurulumu
 
@@ -116,7 +119,7 @@ sudo journalctl -u nexora-grc -n 200 --no-pager
 ```
 
 - `GNU timeout` veya `flock` bulunamıyorsa işletim sistemi paketlerini yükleyin.
-- Node.js sürümü eskiyse Node.js 22 LTS'e yükseltin.
+- `glibc >=2.28` hatası alırsanız işletim sistemi RHEL/CentOS 7 veya benzeri eski bir tabandadır; işletim sistemini desteklenen sürüme yükseltin.
+- Node.js indirmesi başarısızsa sunucunun `nodejs.org:443` adresine erişebildiğini doğrulayın.
 - Port kullanımda ise `.env` içindeki `PORT` değerini değiştirin.
 - Kurulum yarıda kalırsa aynı `npm run setup:linux` komutunu yeniden çalıştırabilirsiniz.
-
