@@ -93,3 +93,58 @@ print_runtime_diagnostics() {
 server_ip() {
   hostname -I 2>/dev/null | awk '{print $1}'
 }
+
+existing_path() {
+  local path="$1"
+  while [[ ! -e "${path}" && "${path}" != "/" ]]; do
+    path="$(dirname "${path}")"
+  done
+  printf '%s' "${path}"
+}
+
+filesystem_id() {
+  local path
+  path="$(existing_path "$1")"
+  df -Pk "${path}" | awk 'NR == 2 {print $1}'
+}
+
+filesystem_available_mb() {
+  local path
+  path="$(existing_path "$1")"
+  df -Pk "${path}" | awk 'NR == 2 {printf "%d", $4 / 1024}'
+}
+
+require_free_space_mb() {
+  local path="$1" required_mb="$2" purpose="$3" available_mb
+  available_mb="$(filesystem_available_mb "${path}")"
+  [[ "${available_mb}" =~ ^[0-9]+$ ]] || {
+    echo "Could not determine free disk space for ${path}." >&2
+    return 74
+  }
+  if ((available_mb < required_mb)); then
+    echo "Insufficient disk space for ${purpose}." >&2
+    echo "Filesystem path: ${path}" >&2
+    echo "Available: ${available_mb} MiB; required: ${required_mb} MiB." >&2
+    df -hP "$(existing_path "${path}")" >&2 || true
+    echo "Increase the filesystem or free space, then rerun the same installer command." >&2
+    return 28
+  fi
+}
+
+container_storage_root() {
+  local engine="$1" root=""
+  if [[ "${engine}" == "podman" ]]; then
+    root="$("${engine}" info --format '{{.Store.GraphRoot}}' 2>/dev/null || true)"
+    if [[ -z "${root}" ]]; then
+      if [[ "$(id -u)" == "0" ]]; then
+        root="/var/lib/containers/storage"
+      else
+        root="${XDG_DATA_HOME:-${HOME}/.local/share}/containers/storage"
+      fi
+    fi
+  else
+    root="$("${engine}" info --format '{{.DockerRootDir}}' 2>/dev/null || true)"
+    root="${root:-/var/lib/docker}"
+  fi
+  printf '%s' "${root}"
+}

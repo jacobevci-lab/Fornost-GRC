@@ -18,6 +18,7 @@ test("container deployment isolates workerd from the host glibc", async () => {
   const integration = await readFile(new URL("./onprem-container-integration.sh", import.meta.url), "utf8");
   const common = await readFile(new URL("../scripts/linux/common.sh", import.meta.url), "utf8");
   const bootstrap = await readFile(new URL("../scripts/linux/bootstrap.sh", import.meta.url), "utf8");
+  const quickInstall = await readFile(new URL("../scripts/linux/quick-install.sh", import.meta.url), "utf8");
   assert.match(dockerfile, /node:22-bookworm-slim/);
   assert.match(common, /podman/);
   assert.match(installer, /fornost-grc-data/);
@@ -30,8 +31,15 @@ test("container deployment isolates workerd from the host glibc", async () => {
   assert.match(installer, /wait_for_url/);
   assert.match(installer, /installation failed during/);
   assert.match(installer, /default_state_dir/);
+  assert.match(installer, /disk capacity preflight/);
+  assert.match(installer, /FORNOST_MIN_FREE_MB/);
+  assert.match(installer, /previously downloaded and checksum-verified image bundle/);
   assert.match(bootstrap, /dnf install -y git podman curl openssl firewalld/);
   assert.match(bootstrap, /scripts\/linux\/check\.sh|check\.sh/);
+  assert.match(quickInstall, /\/opt\/fornost-grc/);
+  assert.match(quickInstall, /status --porcelain/);
+  assert.match(quickInstall, /merge --ff-only/);
+  assert.match(quickInstall, /scripts\/linux\/bootstrap\.sh/);
 });
 
 test("built runtime config is accepted by current Wrangler", async () => {
@@ -50,11 +58,14 @@ test("reverse proxy exposes the configured Fornost path", async () => {
   assert.match(nginx, /ssl_certificate \/etc\/nginx\/fornost-tls\.crt/);
 });
 
-test("RHEL and CentOS Stream guide covers install, validation, update, backup and removal", async () => {
+test("RHEL and supported CentOS Stream guide covers easy install, validation, update, backup and removal", async () => {
   const guide = await readFile(new URL("../docs/LINUX-INSTALLATION.md", import.meta.url), "utf8");
   for (const required of [
     "Red Hat Enterprise Linux",
     "CentOS Stream",
+    "CentOS Stream 8",
+    "8 GiB",
+    "quick-install.sh | sudo bash",
     "sudo dnf install -y git podman curl openssl firewalld",
     "scripts/linux/bootstrap.sh",
     "scripts/linux/check.sh",

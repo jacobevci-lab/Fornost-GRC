@@ -9,9 +9,9 @@ Bu rehber Fornost GRC'yi kurum içi bir Linux sunucuda, kalıcı veri alanı ve 
 | Red Hat Enterprise Linux | 8, 9 | Podman | Desteklenir |
 | Rocky Linux | 8, 9 | Podman | Desteklenir |
 | AlmaLinux | 8, 9 | Podman | Desteklenir |
-| CentOS Stream | 8, 9 | Podman | Desteklenir |
+| CentOS Stream | 9, 10 | Podman | Desteklenir |
 | Ubuntu Server / Debian | Güncel LTS/stable | Docker veya Podman | Desteklenir |
-| CentOS Linux | 7 | — | Desteklenmez; işletim sistemi EOL'dur |
+| CentOS Linux / CentOS Stream 8 | 7, 8 | — | Desteklenmez; işletim sistemi EOL'dur |
 
 Uygulama container içinde Node.js 22 tabanlı Debian kullanıcı alanıyla çalışır. Bu nedenle RHEL 8 ailesindeki `glibc 2.28` değiştirilmez ve host üzerinde görülen `GLIBC_2.29 ... GLIBC_2.35 not found` hatası oluşmaz.
 
@@ -23,7 +23,7 @@ Uygulama container içinde Node.js 22 tabanlı Debian kullanıcı alanıyla çal
 - `fornost-grc-data`: D1 kayıtları ve R2 kanıt dosyaları için kalıcı volume.
 - Varsayılan uygulama yolu: `/fornost-grc/`.
 
-Önerilen minimum kaynak: 2 vCPU, 2 GB RAM, 5 GB boş disk. Normal kurulum sunucuda uygulama build'i yapmaz.
+Önerilen minimum kaynak: 2 vCPU, 2 GB RAM, **8 GiB boş disk**; rahat güncelleme ve yedekleme için 25–30 GB toplam disk önerilir. Normal kurulum sunucuda uygulama build'i yapmaz. Installer, image indirmeden önce hem cache hem container storage dosya sistemini ölçer; alan yetersizse hiçbir büyük indirme veya image açılımı başlatmadan durur.
 
 ## Ağ gereksinimleri
 
@@ -35,6 +35,27 @@ Kurulum sırasında aşağıdaki kaynaklara HTTPS erişimi gerekir:
 Kurulum tamamlandıktan sonra uygulama internet erişimi olmadan kurum içi kullanılabilir; dış SMTP veya başka entegrasyonlar ayrıca ağ erişimi gerektirebilir.
 
 ## 1. RHEL, Rocky, AlmaLinux veya CentOS Stream kurulumu
+
+### En kolay yöntem: tek komut
+
+Temiz sunucuda aşağıdaki komut yeterlidir:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/jacobevci-lab/Fornost-GRC/main/scripts/linux/quick-install.sh | sudo bash
+```
+
+Bu komut Git'i kurar, repoyu `/opt/fornost-grc` altına indirir ve doğrulanmış bootstrap'ı çalıştırır. Aynı komut daha sonra tekrar çalıştırıldığında checkout'ta yerel değişiklik yoksa yalnız fast-forward güncellemesi yapar; değiştirilmiş dosyaların üzerine yazmaz.
+
+İndirmeden önce scripti incelemek isterseniz:
+
+```bash
+curl -fsSLo /tmp/fornost-quick-install.sh \
+  https://raw.githubusercontent.com/jacobevci-lab/Fornost-GRC/main/scripts/linux/quick-install.sh
+less /tmp/fornost-quick-install.sh
+sudo bash /tmp/fornost-quick-install.sh
+```
+
+### Manuel yöntem
 
 Podman önerilen runtime'dır:
 
@@ -58,14 +79,16 @@ Installer sırasıyla şunları yapar:
 1. Git, Podman, curl, OpenSSL ve firewalld paketlerini kurar.
 2. `.env.onprem` yoksa güvenli varsayılanlarla oluşturur.
 3. Base path, HTTPS portu, kalıcı sistem dizini ve TLS ayarlarını doğrular.
-4. Klonlanan Git commit'ine sabitlenmiş, CI üzerinde hazırlanıp test edilmiş uygulama image paketini GitHub Release üzerinden indirir.
-5. İndirilen paketin SHA-256 checksum'unu doğrular ve `podman load` ile runtime'a yükler; sunucuda Node.js/npm çalıştırmaz.
-6. `fornost-grc-data` kalıcı volume'ünü ve özel container ağını oluşturur.
-7. Sertifika tanımlanmadıysa sunucu IP'sini SAN alanına ekleyen kendinden imzalı sertifikayı `/var/lib/fornost-grc/tls` altında üretir.
-8. Uygulama ve TLS etkin Nginx proxy container'larını başlatır.
-9. Host üzerindeki HTTPS uç noktasından sınırlı süreli uçtan uca sağlık kontrolü yapar.
-10. İki container'ın gerçekten çalıştığını doğrular ve kurulum durumunu `/var/lib/fornost-grc/install-state.env` dosyasına yazar.
-11. Hata oluşursa başarısız fazı, container durumlarını ve mevcut logları otomatik gösterir; veri volume'ünü silmez.
+4. Cache ve container storage üzerinde en az 8 GiB boş alan bulunduğunu doğrular; yetersizse image indirmeden durur.
+5. Klonlanan Git commit'ine sabitlenmiş, CI üzerinde hazırlanıp test edilmiş uygulama image paketini GitHub Release üzerinden indirir.
+6. Daha önce eksiksiz indirilmiş paket varsa checksum ile doğrulayıp yeniden indirmeden kullanır.
+7. İndirilen paketin SHA-256 checksum'unu doğrular ve `podman load` ile runtime'a yükler; sunucuda Node.js/npm çalıştırmaz.
+8. `fornost-grc-data` kalıcı volume'ünü ve özel container ağını oluşturur.
+9. Sertifika tanımlanmadıysa sunucu IP'sini SAN alanına ekleyen kendinden imzalı sertifikayı `/var/lib/fornost-grc/tls` altında üretir.
+10. Uygulama ve TLS etkin Nginx proxy container'larını başlatır.
+11. Host üzerindeki HTTPS uç noktasından sınırlı süreli uçtan uca sağlık kontrolü yapar.
+12. İki container'ın gerçekten çalıştığını doğrular ve kurulum durumunu `/var/lib/fornost-grc/install-state.env` dosyasına yazar.
+13. Hata oluşursa başarısız fazı, container durumlarını ve mevcut logları otomatik gösterir; veri volume'ünü silmez.
 
 ## 2. Güvenlik duvarı
 
@@ -118,6 +141,7 @@ curl --fail --silent --insecure https://127.0.0.1:8443/fornost-grc/api/auth
 ```dotenv
 FORNOST_BASE_PATH=/fornost-grc
 FORNOST_HTTPS_PORT=8443
+FORNOST_MIN_FREE_MB=8192
 FORNOST_STATE_DIR=
 FORNOST_TLS_CERT_FILE=
 FORNOST_TLS_KEY_FILE=
@@ -139,6 +163,8 @@ sudo bash scripts/linux/install.sh
 ```
 
 Base path `/` ile başlamalı ve yalnız harf, rakam, `/`, `_` veya `-` içermelidir. Port `1-65535` aralığında olmalıdır.
+
+`FORNOST_MIN_FREE_MB` güvenlik eşiğidir. Üretim kurulumunda düşürülmesi önerilmez; mevcut image bundle sıkıştırılmış görünse de container katmanları açılırken birkaç GiB geçici ve kalıcı alan gerekir.
 
 Önceden hazırlanmış image `/fornost-grc` yolu ve x86_64/amd64 sunucular içindir. Farklı bir base path veya mimari için geliştirme amaçlı yerel build açıkça etkinleştirilebilir:
 
@@ -288,6 +314,7 @@ sudo FORNOST_CONFIRM_PURGE=DELETE bash scripts/linux/uninstall.sh --purge-data
 - Tarayıcı sertifika uyarısı: Başlangıç sertifikası kendinden imzalıdır; kurum sertifikası tanımlayın veya kurum CA'sını istemcilere güvenilir olarak dağıtın.
 - `prebuilt application image download` hatası: Klonlanan commit için CI paketinin yayımlandığını ve sunucunun GitHub Release indirme uçlarına erişebildiğini doğrulayın. Installer başka bir commit'in paketine geçmez.
 - `application image checksum verification` hatası: İndirme bozulmuş veya değiştirilmiştir; `/var/lib/fornost-grc/cache` içindeki ilgili paketi silip kurulumu yeniden çalıştırın. Doğrulama geçmeden image yüklenmez.
+- `disk capacity preflight` veya `Insufficient disk space`: İlgili dosya sisteminde en az 8 GiB boş alan oluşturun. `df -h / /var /var/tmp` ve `sudo podman system df` ile kontrol edin; installer alan yeterli olmadan paketi indirmez veya açmaz.
 - `read/write on closed pipe` ve `application image build`: Eski installer sunucuda build yapıyordur veya `FORNOST_BUILD_LOCAL=true` verilmiştir. Güncel `main` dalını çekin ve bu değişkeni kaldırın.
 - Nginx image indirilemiyor: Proxy/DNS ayarlarını ve Docker Hub erişimini kontrol edin.
 - Uygulama sağlıklı olmuyor: `sudo podman logs --tail 200 fornost-grc-app` çalıştırın.
@@ -299,6 +326,7 @@ sudo FORNOST_CONFIRM_PURGE=DELETE bash scripts/linux/uninstall.sh --purge-data
 ## 14. Kurulum sonrası kontrol listesi
 
 - [ ] `scripts/linux/bootstrap.sh` sunucuda npm/build çalıştırmadan hata vermeden tamamlandı.
+- [ ] Kurulumdan önce en az 8 GiB boş alan doğrulandı.
 - [ ] `scripts/linux/check.sh` sağlık kontrolünü geçti.
 - [ ] `fornost-grc-app` ve `fornost-grc-proxy` çalışıyor.
 - [ ] Tarayıcıda `/fornost-grc/` açılıyor.

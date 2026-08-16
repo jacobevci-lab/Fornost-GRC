@@ -44,7 +44,10 @@ MOCK_ENGINE
 
   cat >"${bin_dir}/uname" <<'MOCK_UNAME'
 #!/usr/bin/env bash
-printf 'Linux\n'
+case "${1:-}" in
+  -m) printf 'x86_64\n' ;;
+  *) printf 'Linux\n' ;;
+esac
 MOCK_UNAME
 
   cat >"${bin_dir}/id" <<'MOCK_ID'
@@ -59,9 +62,45 @@ MOCK_HOSTNAME
 
   cat >"${bin_dir}/curl" <<'MOCK_CURL'
 #!/usr/bin/env bash
+set -euo pipefail
+output=""
+url=""
+while (($#)); do
+  case "$1" in
+    --output) output="$2"; shift 2 ;;
+    http://*|https://*) url="$1"; shift ;;
+    *) shift ;;
+  esac
+done
+if [[ -n "${output}" ]]; then
+  printf 'curl %s\n' "${url}" >>"${FORNOST_TEST_LOG}"
+  if [[ "${url}" == *.sha256 ]]; then
+    bundle_sha="$(sha256sum "${FORNOST_TEST_REMOTE_BUNDLE}")"
+    printf '%s  fornost-grc-amd64.tar.gz\n' "${bundle_sha%% *}" >"${output}"
+  else
+    cp "${FORNOST_TEST_REMOTE_BUNDLE}" "${output}"
+  fi
+  exit 0
+fi
 [[ "${FORNOST_TEST_APP_HEALTH_FAIL:-0}" == "1" || "${FORNOST_TEST_PROXY_HEALTH_FAIL:-0}" == "1" ]] && exit 22
 exit 0
 MOCK_CURL
+
+  cat >"${bin_dir}/df" <<'MOCK_DF'
+#!/usr/bin/env bash
+available_kb="${FORNOST_TEST_AVAILABLE_KB:-16777216}"
+printf 'Filesystem 1024-blocks Used Available Capacity Mounted on\n'
+printf '/dev/fornost-test 33554432 1024 %s 1%% /\n' "${available_kb}"
+MOCK_DF
+
+  cat >"${bin_dir}/git" <<'MOCK_GIT'
+#!/usr/bin/env bash
+if [[ " $* " == *" rev-parse HEAD "* ]]; then
+  printf '%s\n' '1111111111111111111111111111111111111111'
+  exit 0
+fi
+exec /usr/bin/git "$@"
+MOCK_GIT
 
   cat >"${bin_dir}/openssl" <<'MOCK_OPENSSL'
 #!/usr/bin/env bash
@@ -103,6 +142,7 @@ exit 0
 MOCK_SLEEP
 
   chmod +x "${bin_dir}"/*
+  printf 'downloaded prebuilt image bundle for %s\n' "${name}" >"${case_root}/remote-bundle.tar.gz"
   printf '%s\n' "${case_root}"
 }
 
@@ -112,8 +152,21 @@ run_install() {
   FORNOST_CONTAINER_ENGINE="${engine}" \
   FORNOST_TEST_LOG="${case_root}/engine.log" \
   FORNOST_TEST_OPENSSL_LOG="${case_root}/openssl.log" \
+  FORNOST_TEST_REMOTE_BUNDLE="${case_root}/remote-bundle.tar.gz" \
   FORNOST_STATE_DIR="${case_root}/project/.fornost-state" \
   FORNOST_APP_BUNDLE_FILE="${case_root}/project/fornost-grc-amd64.tar.gz" \
+  PATH="${case_root}/bin:${PATH}" \
+    bash "${repo_root}/scripts/linux/install.sh"
+}
+
+run_remote_install() {
+  local case_root="$1" engine="$2"
+  FORNOST_PROJECT_ROOT="${case_root}/project" \
+  FORNOST_CONTAINER_ENGINE="${engine}" \
+  FORNOST_TEST_LOG="${case_root}/engine.log" \
+  FORNOST_TEST_OPENSSL_LOG="${case_root}/openssl.log" \
+  FORNOST_TEST_REMOTE_BUNDLE="${case_root}/remote-bundle.tar.gz" \
+  FORNOST_STATE_DIR="${case_root}/project/.fornost-state" \
   PATH="${case_root}/bin:${PATH}" \
     bash "${repo_root}/scripts/linux/install.sh"
 }
@@ -205,4 +258,54 @@ fi
 grep -q 'installation failed during: application image checksum verification' "${checksum_failure_case}/output.log" || fail "checksum failure phase was not diagnosed"
 if grep -Eq 'podman (load|run)' "${checksum_failure_case}/engine.log"; then fail "tampered image was loaded or started"; fi
 
-echo "On-prem installer smoke tests passed: clean RHEL bootstrap, checksum-verified prebuilt image without server build, HTTPS 8443, persistent/generated TLS, configured TLS, Podman, Docker, rootless guard and phase diagnostics."
+low_disk_case="$(make_case low-disk podman 8443 /fornost-grc)"
+if FORNOST_TEST_AVAILABLE_KB=2097152 run_install "${low_disk_case}" podman >"${low_disk_case}/output.log" 2>&1; then
+  fail "installation unexpectedly continued with only 2 GiB free"
+fi
+grep -q 'installation failed during: disk capacity preflight' "${low_disk_case}/output.log" || fail "low disk phase was not diagnosed"
+grep -q 'Available: 2048 MiB; required: 8192 MiB' "${low_disk_case}/output.log" || fail "low disk remediation is not precise"
+if grep -Eq 'podman (load|pull|run)' "${low_disk_case}/engine.log"; then fail "installer modified images after low disk preflight failed"; fi
+
+cache_case="$(make_case verified-cache podman 8443 /fornost-grc)"
+run_remote_install "${cache_case}" podman >"${cache_case}/first.log"
+run_remote_install "${cache_case}" podman >"${cache_case}/second.log"
+bundle_downloads="$(grep -c '/fornost-grc-amd64.tar.gz$' "${cache_case}/engine.log" || true)"
+[[ "${bundle_downloads}" == "1" ]] || fail "verified image bundle was downloaded ${bundle_downloads} times instead of once"
+grep -q 'Using the previously downloaded and checksum-verified image bundle' "${cache_case}/second.log" || fail "verified cache reuse was not reported"
+
+quick_root="${test_root}/quick-install"
+quick_bin="${quick_root}/bin"
+quick_target="${quick_root}/opt/fornost-grc"
+mkdir -p "${quick_bin}"
+cat >"${quick_root}/bootstrap.sh" <<'MOCK_BOOTSTRAP'
+#!/usr/bin/env bash
+printf 'bootstrap %s\n' "${FORNOST_PROJECT_ROOT}" >>"${FORNOST_TEST_QUICK_LOG}"
+MOCK_BOOTSTRAP
+cat >"${quick_bin}/git" <<'MOCK_QUICK_GIT'
+#!/usr/bin/env bash
+set -euo pipefail
+printf 'git %s\n' "$*" >>"${FORNOST_TEST_QUICK_LOG}"
+if [[ " $* " == *" clone "* ]]; then
+  target="${@: -1}"
+  mkdir -p "${target}/.git" "${target}/scripts/linux"
+  cp "${FORNOST_TEST_QUICK_BOOTSTRAP}" "${target}/scripts/linux/bootstrap.sh"
+elif [[ " $* " == *" remote get-url origin "* ]]; then
+  printf '%s\n' 'https://github.com/jacobevci-lab/Fornost-GRC.git'
+fi
+MOCK_QUICK_GIT
+chmod +x "${quick_bin}/git" "${quick_root}/bootstrap.sh"
+FORNOST_INSTALL_DIR="${quick_target}" \
+FORNOST_TEST_QUICK_BOOTSTRAP="${quick_root}/bootstrap.sh" \
+FORNOST_TEST_QUICK_LOG="${quick_root}/quick.log" \
+PATH="${quick_bin}:${PATH}" \
+  bash "${repo_root}/scripts/linux/quick-install.sh" >"${quick_root}/first.log"
+FORNOST_INSTALL_DIR="${quick_target}" \
+FORNOST_TEST_QUICK_BOOTSTRAP="${quick_root}/bootstrap.sh" \
+FORNOST_TEST_QUICK_LOG="${quick_root}/quick.log" \
+PATH="${quick_bin}:${PATH}" \
+  bash "${repo_root}/scripts/linux/quick-install.sh" >"${quick_root}/second.log"
+grep -q 'git clone --branch main --single-branch' "${quick_root}/quick.log" || fail "quick installer did not clone the main branch"
+grep -q 'git -C .* merge --ff-only origin/main' "${quick_root}/quick.log" || fail "quick installer update was not fast-forward only"
+[[ "$(grep -c '^bootstrap ' "${quick_root}/quick.log")" == "2" ]] || fail "quick installer did not run bootstrap after install and update"
+
+echo "On-prem installer smoke tests passed: one-command install/update, clean RHEL bootstrap, 8 GiB disk preflight, verified cache reuse, checksum-verified prebuilt image without server build, HTTPS 8443, persistent/generated TLS, configured TLS, Podman, Docker, rootless guard and phase diagnostics."
