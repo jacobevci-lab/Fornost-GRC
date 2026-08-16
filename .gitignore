@@ -21,6 +21,7 @@
 .DS_Store
 *.pem
 /.fornost-tls/
+/.fornost-integration-state/
 
 # debug
 npm-debug.log*

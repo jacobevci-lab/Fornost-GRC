@@ -46,25 +46,26 @@ podman --version
 git --version
 ```
 
-Repo'yu klonlayın ve installer'ı çalıştırın. Aşağıdaki `sudo` örneği rootful Podman kurulumu içindir; 8443 ayrıcalıksız bir port olduğundan rootless kurulum da desteklenir:
+Repo'yu klonlayın ve temiz kurulum bootstrap'ını çalıştırın. Bootstrap gerekli paketleri kurar, aktif firewall zone'una 8443/TCP ekler, Podman reboot servisini etkinleştirir, iki container'ı kurar ve HTTPS sağlık kontrolünü doğrular:
 
 ```bash
 git clone https://github.com/jacobevci-lab/Fornost-GRC.git
 cd Fornost-GRC
-sudo bash scripts/linux/install.sh
+sudo bash scripts/linux/bootstrap.sh
 ```
 
 Installer sırasıyla şunları yapar:
 
-1. `.env.onprem` yoksa güvenli varsayılanlarla oluşturur.
-2. Base path, HTTPS portu ve TLS ayarlarını doğrular.
-3. Podman'ı, yoksa Docker'ı seçer ve runtime erişimini kontrol eder.
+1. Git, Podman, curl, OpenSSL ve firewalld paketlerini kurar.
+2. `.env.onprem` yoksa güvenli varsayılanlarla oluşturur.
+3. Base path, HTTPS portu, kalıcı sistem dizini ve TLS ayarlarını doğrular.
 4. Uygulama image'ını Node.js 22 ile build eder.
-5. Kalıcı volume ve özel container ağını oluşturur.
-6. Sertifika tanımlanmadıysa sunucu IP'sini SAN alanına ekleyen kendinden imzalı sertifika üretir ve sonraki kurulumlarda aynı sertifikayı kullanır.
+5. `fornost-grc-data` kalıcı volume'ünü ve özel container ağını oluşturur.
+6. Sertifika tanımlanmadıysa sunucu IP'sini SAN alanına ekleyen kendinden imzalı sertifikayı `/var/lib/fornost-grc/tls` altında üretir.
 7. Uygulama ve TLS etkin Nginx proxy container'larını başlatır.
 8. Host üzerindeki HTTPS uç noktasından sınırlı süreli uçtan uca sağlık kontrolü yapar.
-9. Yalnız tüm kontroller geçerse ilk kurulum adresini gösterir.
+9. İki container'ın gerçekten çalıştığını doğrular ve kurulum durumunu `/var/lib/fornost-grc/install-state.env` dosyasına yazar.
+10. Hata oluşursa başarısız fazı, container durumlarını ve mevcut logları otomatik gösterir; veri volume'ünü silmez.
 
 ## 2. Güvenlik duvarı
 
@@ -117,6 +118,7 @@ curl --fail --silent --insecure https://127.0.0.1:8443/fornost-grc/api/auth
 ```dotenv
 FORNOST_BASE_PATH=/fornost-grc
 FORNOST_HTTPS_PORT=8443
+FORNOST_STATE_DIR=
 FORNOST_TLS_CERT_FILE=
 FORNOST_TLS_KEY_FILE=
 FORNOST_TLS_HOSTNAME=
@@ -139,7 +141,7 @@ Base path `/` ile başlamalı ve yalnız harf, rakam, `/`, `_` veya `-` içermel
 
 ## 5. TLS sertifikası
 
-Sertifika alanları boş bırakıldığında installer `.fornost-tls/tls.crt` ve `.fornost-tls/tls.key` dosyalarını bir kez üretip tekrar kullanır. Bu başlangıç bağlantısını şifreler ancak istemciler sertifikayı otomatik güvenilir saymaz.
+Sertifika alanları boş bırakıldığında rootful installer `/var/lib/fornost-grc/tls/tls.crt` ve `/var/lib/fornost-grc/tls/tls.key` dosyalarını bir kez üretip tekrar kullanır. Rootless kurulumda varsayılan dizin `$HOME/.local/share/fornost-grc` olur. Bu dizin repo dışında kaldığı için kaynak klasörü silinse veya yeniden klonlansa da sertifika korunur. Başlangıç sertifikası bağlantıyı şifreler ancak istemciler sertifikayı otomatik güvenilir saymaz.
 
 Kurumsal CA veya güvenilir bir sertifika sağlayıcısından alınan PEM dosyalarını kullanmak için her iki yolu birlikte tanımlayın. Göreli yollar repo kökünden çözülür:
 
@@ -187,7 +189,23 @@ Installer HTTP portu yayınlamaz; dış erişim doğrudan HTTPS 8443 üzerinden 
 
 Uygulamayı doğrudan internete açmayın. Erişimi VPN, kurumsal ağ veya güvenilir reverse proxy ile sınırlandırın.
 
-## 8. Güncelleme
+## 8. Temiz yeniden kurulum
+
+Runtime'ı kaldırıp uygulama verisini koruyun, eski kaynak klasörünü geri alınabilir biçimde kenara taşıyın ve repoyu yeniden klonlayın:
+
+```bash
+cd "$HOME/Fornost-GRC"
+sudo bash scripts/linux/uninstall.sh
+cd "$HOME"
+mv Fornost-GRC "Fornost-GRC.backup-$(date +%Y%m%d-%H%M%S)"
+git clone https://github.com/jacobevci-lab/Fornost-GRC.git
+cd Fornost-GRC
+sudo bash scripts/linux/bootstrap.sh
+```
+
+Bu akış `fornost-grc-data` volume'ünü ve `/var/lib/fornost-grc` altındaki TLS durumunu korur. Yeni kurulum doğrulandıktan sonra eski `Fornost-GRC.backup-*` klasörü kaldırılabilir.
+
+## 9. Güncelleme
 
 Önce yedek alın, ardından yalnız fast-forward güncelleme uygulayın:
 
@@ -195,13 +213,13 @@ Uygulamayı doğrudan internete açmayın. Erişimi VPN, kurumsal ağ veya güve
 cd Fornost-GRC
 git status --short
 git pull --ff-only origin main
-sudo bash scripts/linux/install.sh
+sudo bash scripts/linux/bootstrap.sh
 sudo bash scripts/linux/check.sh
 ```
 
 Installer container'ları yeniden oluşturur ancak `fornost-grc-data` volume'ünü silmez.
 
-## 9. Durum ve loglar
+## 10. Durum ve loglar
 
 ```bash
 sudo bash scripts/linux/status.sh
@@ -217,7 +235,7 @@ sudo podman logs --tail 200 fornost-grc-proxy
 
 Docker kullanıyorsanız komutlardaki `podman` yerine `docker` yazın veya `FORNOST_CONTAINER_ENGINE=docker` değişkenini kullanın.
 
-## 10. Yedekleme
+## 11. Yedekleme
 
 Önce bir yedek klasörü oluşturun:
 
@@ -237,22 +255,23 @@ sudo podman run --rm \
 
 Yedek dosyasını sunucu dışında şifreli ve erişim kontrollü bir alana aktarın. Geri yükleme veri üzerine yazan bir işlemdir; önce mevcut volume'ün ayrıca yedeğini alın ve uygulama container'larını durdurun.
 
-## 11. Kaldırma
+## 12. Kaldırma
 
 Uygulamayı kaldırıp veriyi korumak için:
 
 ```bash
-sudo podman rm -f fornost-grc-proxy fornost-grc-app
-sudo podman network rm fornost-grc-net
+sudo bash scripts/linux/uninstall.sh
 ```
 
 Kalıcı veri volume'ü bu işlemlerle korunur. **Aşağıdaki komut tüm uygulama kayıtlarını ve yüklenen kanıtları geri dönüşsüz siler:**
 
+Kalıcı veriyi bilinçli olarak silmek için iki aşamalı onay gerekir:
+
 ```bash
-sudo podman volume rm fornost-grc-data
+sudo FORNOST_CONFIRM_PURGE=DELETE bash scripts/linux/uninstall.sh --purge-data
 ```
 
-## 12. Sorun giderme
+## 13. Sorun giderme
 
 - `GLIBC_2.xx not found`: Host üzerinde `serve.sh` çalıştırmayın; container tabanlı `install.sh` kullanın.
 - `Port 443 requires root privileges`: `sudo` kullanın veya `.env.onprem` içinde varsayılan `FORNOST_HTTPS_PORT=8443` değerini kullanın.
@@ -263,10 +282,11 @@ sudo podman volume rm fornost-grc-data
 - Proxy sağlıklı olmuyor: `sudo podman logs --tail 200 fornost-grc-proxy` ve `sudo firewall-cmd --get-active-zones` çıktısını kontrol edin.
 - İlk yönetici yerine giriş ekranı: Kalıcı volume içinde daha önce oluşturulmuş aktif bir Admin vardır.
 - SELinux izin hatası: Volume mount'larda kullanılan `:Z` etiketini kaldırmayın; `sudo ausearch -m AVC -ts recent` ile olayı inceleyin.
+- Container listesi boş: `sudo bash scripts/linux/bootstrap.sh` çalıştırın. Yeni installer başarısız fazı ve runtime loglarını aynı terminal çıktısında gösterir.
 
-## 13. Kurulum sonrası kontrol listesi
+## 14. Kurulum sonrası kontrol listesi
 
-- [ ] `scripts/linux/install.sh` hata vermeden tamamlandı.
+- [ ] `scripts/linux/bootstrap.sh` hata vermeden tamamlandı.
 - [ ] `scripts/linux/check.sh` sağlık kontrolünü geçti.
 - [ ] `fornost-grc-app` ve `fornost-grc-proxy` çalışıyor.
 - [ ] Tarayıcıda `/fornost-grc/` açılıyor.

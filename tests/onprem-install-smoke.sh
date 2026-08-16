@@ -23,7 +23,15 @@ make_case() {
 set -euo pipefail
 printf '%s %s\n' "$(basename "$0")" "$*" >>"${FORNOST_TEST_LOG}"
 case "${1:-}" in
-  info|build|pull|run|rm|logs|ps|inspect) exit 0 ;;
+  build)
+    [[ "${FORNOST_TEST_BUILD_FAIL:-0}" == "1" ]] && exit 125
+    exit 0
+    ;;
+  inspect)
+    [[ " $* " == *" --format "* ]] && printf 'true\n'
+    exit 0
+    ;;
+  info|pull|run|rm|rmi|logs|ps) exit 0 ;;
   network|volume)
     [[ "${2:-}" == "inspect" ]] && exit 1
     exit 0
@@ -70,6 +78,23 @@ printf '%s\n' 'test private key' >"${key_file}"
 printf '%s\n' 'test certificate' >"${cert_file}"
 MOCK_OPENSSL
 
+  cat >"${bin_dir}/dnf" <<'MOCK_DNF'
+#!/usr/bin/env bash
+printf 'dnf %s\n' "$*" >>"${FORNOST_TEST_LOG}"
+MOCK_DNF
+
+  cat >"${bin_dir}/systemctl" <<'MOCK_SYSTEMCTL'
+#!/usr/bin/env bash
+printf 'systemctl %s\n' "$*" >>"${FORNOST_TEST_LOG}"
+MOCK_SYSTEMCTL
+
+  cat >"${bin_dir}/firewall-cmd" <<'MOCK_FIREWALL'
+#!/usr/bin/env bash
+printf 'firewall-cmd %s\n' "$*" >>"${FORNOST_TEST_LOG}"
+if [[ "${1:-}" == "--get-default-zone" ]]; then printf 'public\n'; fi
+exit 0
+MOCK_FIREWALL
+
   cat >"${bin_dir}/sleep" <<'MOCK_SLEEP'
 #!/usr/bin/env bash
 exit 0
@@ -85,17 +110,31 @@ run_install() {
   FORNOST_CONTAINER_ENGINE="${engine}" \
   FORNOST_TEST_LOG="${case_root}/engine.log" \
   FORNOST_TEST_OPENSSL_LOG="${case_root}/openssl.log" \
+  FORNOST_STATE_DIR="${case_root}/project/.fornost-state" \
   PATH="${case_root}/bin:${PATH}" \
     bash "${repo_root}/scripts/linux/install.sh"
 }
 
+run_bootstrap() {
+  local case_root="$1" engine="$2"
+  FORNOST_PROJECT_ROOT="${case_root}/project" \
+  FORNOST_CONTAINER_ENGINE="${engine}" \
+  FORNOST_TEST_LOG="${case_root}/engine.log" \
+  FORNOST_TEST_OPENSSL_LOG="${case_root}/openssl.log" \
+  FORNOST_STATE_DIR="${case_root}/project/.fornost-state" \
+  PATH="${case_root}/bin:${PATH}" \
+    bash "${repo_root}/scripts/linux/bootstrap.sh"
+}
+
 podman_case="$(make_case podman-success podman 8443 /fornost-grc)"
-run_install "${podman_case}" podman >"${podman_case}/output.log"
+run_bootstrap "${podman_case}" podman >"${podman_case}/output.log"
+grep -q 'dnf install -y git podman curl openssl firewalld' "${podman_case}/engine.log" || fail "RHEL prerequisites were not installed"
+grep -q 'firewall-cmd --permanent --zone=public --add-port=8443/tcp' "${podman_case}/engine.log" || fail "HTTPS firewall rule was not configured"
 grep -q 'podman build .*NEXT_PUBLIC_BASE_PATH=/fornost-grc' "${podman_case}/engine.log" || fail "Podman build was not configured"
 grep -q 'podman volume create fornost-grc-data' "${podman_case}/engine.log" || fail "persistent volume was not created"
 grep -q 'podman run .*--name fornost-grc-proxy' "${podman_case}/engine.log" || fail "reverse proxy was not started before health verification"
 grep -q -- '--publish 8443:8443' "${podman_case}/engine.log" || fail "HTTPS port mapping is incorrect"
-grep -q -- '/.fornost-tls/tls.crt:/etc/nginx/fornost-tls.crt:ro,Z' "${podman_case}/engine.log" || fail "generated certificate was not mounted"
+grep -q -- '/.fornost-state/tls/tls.crt:/etc/nginx/fornost-tls.crt:ro,Z' "${podman_case}/engine.log" || fail "persistent generated certificate was not mounted"
 grep -q 'subjectAltName=DNS:localhost,IP:127.0.0.1,IP:192.0.2.10' "${podman_case}/openssl.log" || fail "generated certificate SAN is incomplete"
 if grep -q 'podman exec fornost-grc-app curl' "${podman_case}/engine.log"; then fail "installer used the Podman exec path that can hang"; fi
 grep -q 'Health check passed' "${podman_case}/output.log" || fail "success was reported before health verification"
@@ -145,4 +184,12 @@ run_install "${cert_case}" podman >"${cert_case}/output.log"
 grep -q -- '/certs/server.crt:/etc/nginx/fornost-tls.crt:ro,Z' "${cert_case}/engine.log" || fail "configured certificate was not mounted"
 grep -q 'TLS source: configured certificate' "${cert_case}/output.log" || fail "configured certificate source was not reported"
 
-echo "On-prem installer smoke tests passed: HTTPS 8443, generated/configured TLS, Podman, Docker, rootless guard, path validation, bounded external health, diagnostics, persistent volume."
+build_failure_case="$(make_case build-failure podman 8443 /fornost-grc)"
+if FORNOST_TEST_BUILD_FAIL=1 run_install "${build_failure_case}" podman >"${build_failure_case}/output.log" 2>&1; then
+  fail "image build failure unexpectedly succeeded"
+fi
+grep -q 'installation failed during: application image build' "${build_failure_case}/output.log" || fail "failed phase was not diagnosed"
+grep -q 'Application data volume fornost-grc-data was not removed' "${build_failure_case}/output.log" || fail "data preservation was not reported"
+if grep -q 'podman run' "${build_failure_case}/engine.log"; then fail "containers started after failed image build"; fi
+
+echo "On-prem installer smoke tests passed: clean RHEL bootstrap, HTTPS 8443, persistent/generated TLS, configured TLS, Podman, Docker, rootless guard, bounded health and phase diagnostics."

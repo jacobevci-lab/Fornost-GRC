@@ -39,17 +39,13 @@ npm run dev
 
 Önerilen platformlar: Red Hat Enterprise Linux 8/9, Rocky Linux 8/9, AlmaLinux 8/9 ve CentOS Stream 8/9. CentOS Linux 7 kullanım ömrünü tamamladığı için desteklenmez. Podman önerilir; Docker Engine de kullanılabilir. Container image gerekli Node.js ve `glibc` çalışma ortamını kendi içinde taşır, host paketlerini değiştirmez.
 
-RHEL tabanlı temiz sunucuda Podman ile eksiksiz kurulum:
+RHEL tabanlı temiz sunucuda Podman ile eksiksiz ve doğrulamalı kurulum:
 
 ```bash
-sudo dnf install -y git podman curl openssl firewalld
+sudo dnf install -y git
 git clone https://github.com/jacobevci-lab/Fornost-GRC.git
 cd Fornost-GRC
-sudo bash scripts/linux/install.sh
-sudo systemctl enable --now firewalld
-sudo firewall-cmd --permanent --zone=public --add-port=8443/tcp
-sudo firewall-cmd --reload
-sudo bash scripts/linux/check.sh
+sudo bash scripts/linux/bootstrap.sh
 ```
 
 Varsayılan ilk kurulum adresi:
@@ -58,7 +54,7 @@ Varsayılan ilk kurulum adresi:
 https://SUNUCU_IP:8443/fornost-grc/
 ```
 
-İlk ziyarette Fornost GRC, ilk yerel yönetici hesabını oluşturma ekranını açar. Installer ilk kurulum için kendinden imzalı bir TLS sertifikası üretir; tarayıcı uyarısını kaldırmak için `.env.onprem` üzerinden kurum sertifikası ve anahtarı tanımlanabilir. Uygulama kayıtları ve yüklenen kanıtlar `fornost-grc-data` adlı kalıcı container volume alanında tutulur; container yenilense de silinmez. Installer uygulama ve HTTPS ters proxy sağlık kontrolleri geçmeden başarı mesajı vermez.
+İlk ziyarette Fornost GRC, ilk yerel yönetici hesabını oluşturma ekranını açar. Bootstrap gerekli RHEL paketlerini ve firewall kuralını kurar; installer ilk kurulum için kalıcı sistem dizininde kendinden imzalı bir TLS sertifikası üretir. Tarayıcı uyarısını kaldırmak için `.env.onprem` üzerinden kurum sertifikası ve anahtarı tanımlanabilir. Uygulama kayıtları ve yüklenen kanıtlar `fornost-grc-data` adlı kalıcı container volume alanında tutulur; repo veya container yenilense de silinmez. Herhangi bir faz başarısız olursa installer ilgili fazı, container durumunu ve logları otomatik gösterir; tüm kontroller geçmeden başarı mesajı vermez.
 
 Adres yolu, HTTPS portu ve TLS sertifikası `.env.onprem` dosyasından değiştirilebilir. Rootless kurulum, Docker alternatifi, güncelleme, yedekleme, kaldırma, SELinux ve güvenlik duvarı adımları için [Linux On-Prem Kurulum Rehberi](docs/LINUX-INSTALLATION.md) belgesine bakın.
 
