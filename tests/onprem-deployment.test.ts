@@ -20,7 +20,7 @@ test("container deployment isolates workerd from the host glibc", async () => {
   assert.match(dockerfile, /node:22-bookworm-slim/);
   assert.match(common, /podman/);
   assert.match(installer, /fornost-grc-data/);
-  assert.match(installer, /FORNOST_HTTP_PORT=8080/);
+  assert.match(installer, /FORNOST_HTTPS_PORT=8443/);
   assert.doesNotMatch(installer, /exec fornost-grc-app curl/);
   assert.doesNotMatch(integration, /exec fornost-grc-app/);
   assert.match(integration, /--entrypoint sh/);
@@ -33,6 +33,9 @@ test("reverse proxy exposes the configured Fornost path", async () => {
   const nginx = await readFile(new URL("../deploy/nginx/default.conf.template", import.meta.url), "utf8");
   assert.match(nginx, /location \$\{FORNOST_BASE_PATH\}\//);
   assert.match(nginx, /proxy_pass http:\/\/fornost-grc-app:3000/);
+  assert.match(nginx, /listen 8443 ssl default_server/);
+  assert.match(nginx, /ssl_protocols TLSv1\.2 TLSv1\.3/);
+  assert.match(nginx, /ssl_certificate \/etc\/nginx\/fornost-tls\.crt/);
 });
 
 test("RHEL and CentOS Stream guide covers install, validation, update, backup and removal", async () => {
@@ -40,13 +43,26 @@ test("RHEL and CentOS Stream guide covers install, validation, update, backup an
   for (const required of [
     "Red Hat Enterprise Linux",
     "CentOS Stream",
-    "sudo dnf install -y git podman curl firewalld",
+    "sudo dnf install -y git podman curl openssl firewalld",
     "scripts/linux/install.sh",
     "scripts/linux/check.sh",
     "git pull --ff-only origin main",
     "fornost-grc-data",
     "Kaldırma",
   ]) assert.match(guide, new RegExp(required.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+});
+
+test("on-prem defaults to HTTPS 8443 with generated or configured TLS", async () => {
+  const installer = await readFile(new URL("../scripts/linux/install.sh", import.meta.url), "utf8");
+  const example = await readFile(new URL("../.env.onprem.example", import.meta.url), "utf8");
+  const guide = await readFile(new URL("../docs/LINUX-INSTALLATION.md", import.meta.url), "utf8");
+  assert.match(example, /FORNOST_HTTPS_PORT=8443/);
+  assert.doesNotMatch(example, /FORNOST_HTTP_PORT/);
+  assert.match(installer, /openssl req -x509/);
+  assert.match(installer, /FORNOST_TLS_CERT_FILE/);
+  assert.match(installer, /https:\/\/127\.0\.0\.1/);
+  assert.match(guide, /https:\/\/192\.168\.1\.1:8443\/fornost-grc\//);
+  assert.match(guide, /kendinden imzalı/i);
 });
 
 test("repository-facing install files contain no legacy product names", async () => {

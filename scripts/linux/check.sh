@@ -7,8 +7,8 @@ source "${script_dir}/common.sh"
 
 engine="$(container_engine)"
 base_path="$(read_setting FORNOST_BASE_PATH /fornost-grc)"
-http_port="$(read_setting FORNOST_HTTP_PORT 80)"
+https_port="$(read_setting FORNOST_HTTPS_PORT 8443)"
 
 "${engine}" ps --filter name=fornost-grc-app --filter name=fornost-grc-proxy
-wait_for_url "http://127.0.0.1:${http_port}${base_path}/api/auth" 5 2
-echo "Fornost GRC health check passed: http://127.0.0.1:${http_port}${base_path}/api/auth"
+wait_for_url "https://127.0.0.1:${https_port}${base_path}/api/auth" 5 2 true
+echo "Fornost GRC health check passed: https://127.0.0.1:${https_port}${base_path}/api/auth"

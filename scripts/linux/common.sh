@@ -43,15 +43,26 @@ require_command() {
 }
 
 wait_for_url() {
-  local url="$1" attempts="${2:-30}" delay="${3:-2}" index
+  local url="$1" attempts="${2:-30}" delay="${3:-2}" insecure="${4:-false}" index
+  local -a curl_args=(--fail --silent --show-error --max-time 5)
+  [[ "${insecure}" == "true" ]] && curl_args+=(--insecure)
   for ((index = 1; index <= attempts; index++)); do
-    if curl --fail --silent --show-error --max-time 5 "${url}" >/dev/null 2>&1; then
+    if curl "${curl_args[@]}" "${url}" >/dev/null 2>&1; then
       return 0
     fi
     sleep "${delay}"
   done
   echo "Health check failed after ${attempts} attempts: ${url}" >&2
   return 1
+}
+
+resolve_project_path() {
+  local path="$1"
+  if [[ "${path}" == /* ]]; then
+    printf '%s' "${path}"
+  else
+    printf '%s/%s' "${project_root}" "${path}"
+  fi
 }
 
 server_ip() {

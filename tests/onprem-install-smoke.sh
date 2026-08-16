@@ -15,7 +15,7 @@ make_case() {
   local case_root="${test_root}/${name}"
   local bin_dir="${case_root}/bin" project_dir="${case_root}/project"
   mkdir -p "${bin_dir}" "${project_dir}/deploy/nginx"
-  printf 'FORNOST_BASE_PATH=%s\nFORNOST_HTTP_PORT=%s\n' "${base_path}" "${port}" >"${project_dir}/.env.onprem"
+  printf 'FORNOST_BASE_PATH=%s\nFORNOST_HTTPS_PORT=%s\n' "${base_path}" "${port}" >"${project_dir}/.env.onprem"
   : >"${project_dir}/deploy/nginx/default.conf.template"
 
   cat >"${bin_dir}/${engine}" <<'MOCK_ENGINE'
@@ -53,6 +53,23 @@ MOCK_HOSTNAME
 exit 0
 MOCK_CURL
 
+  cat >"${bin_dir}/openssl" <<'MOCK_OPENSSL'
+#!/usr/bin/env bash
+set -euo pipefail
+printf '%s\n' "$*" >>"${FORNOST_TEST_OPENSSL_LOG}"
+key_file=""
+cert_file=""
+while (($#)); do
+  case "$1" in
+    -keyout) key_file="$2"; shift 2 ;;
+    -out) cert_file="$2"; shift 2 ;;
+    *) shift ;;
+  esac
+done
+printf '%s\n' 'test private key' >"${key_file}"
+printf '%s\n' 'test certificate' >"${cert_file}"
+MOCK_OPENSSL
+
   cat >"${bin_dir}/sleep" <<'MOCK_SLEEP'
 #!/usr/bin/env bash
 exit 0
@@ -67,37 +84,41 @@ run_install() {
   FORNOST_PROJECT_ROOT="${case_root}/project" \
   FORNOST_CONTAINER_ENGINE="${engine}" \
   FORNOST_TEST_LOG="${case_root}/engine.log" \
+  FORNOST_TEST_OPENSSL_LOG="${case_root}/openssl.log" \
   PATH="${case_root}/bin:${PATH}" \
     bash "${repo_root}/scripts/linux/install.sh"
 }
 
-podman_case="$(make_case podman-success podman 80 /fornost-grc)"
+podman_case="$(make_case podman-success podman 8443 /fornost-grc)"
 run_install "${podman_case}" podman >"${podman_case}/output.log"
 grep -q 'podman build .*NEXT_PUBLIC_BASE_PATH=/fornost-grc' "${podman_case}/engine.log" || fail "Podman build was not configured"
 grep -q 'podman volume create fornost-grc-data' "${podman_case}/engine.log" || fail "persistent volume was not created"
 grep -q 'podman run .*--name fornost-grc-proxy' "${podman_case}/engine.log" || fail "reverse proxy was not started before health verification"
+grep -q -- '--publish 8443:8443' "${podman_case}/engine.log" || fail "HTTPS port mapping is incorrect"
+grep -q -- '/.fornost-tls/tls.crt:/etc/nginx/fornost-tls.crt:ro,Z' "${podman_case}/engine.log" || fail "generated certificate was not mounted"
+grep -q 'subjectAltName=DNS:localhost,IP:127.0.0.1,IP:192.0.2.10' "${podman_case}/openssl.log" || fail "generated certificate SAN is incomplete"
 if grep -q 'podman exec fornost-grc-app curl' "${podman_case}/engine.log"; then fail "installer used the Podman exec path that can hang"; fi
 grep -q 'Health check passed' "${podman_case}/output.log" || fail "success was reported before health verification"
 if grep -q 'volume rm' "${podman_case}/engine.log"; then fail "installer attempted to remove persistent data"; fi
 
-docker_case="$(make_case docker-rootless docker 8080 /grc)"
+docker_case="$(make_case docker-rootless docker 9443 /grc)"
 FORNOST_TEST_UID=1000 run_install "${docker_case}" docker >"${docker_case}/output.log"
-grep -q 'docker run .*--publish 8080:80' "${docker_case}/engine.log" || fail "Docker rootless port mapping is incorrect"
-grep -q 'http://192.0.2.10:8080/grc/' "${docker_case}/output.log" || fail "custom installation URL is incorrect"
+grep -q 'docker run .*--publish 9443:8443' "${docker_case}/engine.log" || fail "Docker rootless port mapping is incorrect"
+grep -q 'https://192.0.2.10:9443/grc/' "${docker_case}/output.log" || fail "custom HTTPS installation URL is incorrect"
 
-rootless_case="$(make_case rootless-port podman 80 /fornost-grc)"
+rootless_case="$(make_case rootless-port podman 443 /fornost-grc)"
 if FORNOST_TEST_UID=1000 run_install "${rootless_case}" podman >"${rootless_case}/output.log" 2>&1; then
-  fail "rootless installation unexpectedly accepted privileged port 80"
+  fail "rootless installation unexpectedly accepted privileged port 443"
 fi
-grep -q 'FORNOST_HTTP_PORT=8080' "${rootless_case}/output.log" || fail "rootless remediation guidance is missing"
+grep -q 'FORNOST_HTTPS_PORT=8443' "${rootless_case}/output.log" || fail "rootless remediation guidance is missing"
 
-invalid_path_case="$(make_case invalid-path podman 8080 '/../unsafe')"
+invalid_path_case="$(make_case invalid-path podman 8443 '/../unsafe')"
 if run_install "${invalid_path_case}" podman >"${invalid_path_case}/output.log" 2>&1; then
   fail "unsafe base path was accepted"
 fi
 grep -q 'must be a safe path' "${invalid_path_case}/output.log" || fail "unsafe path error is unclear"
 
-app_failure_case="$(make_case app-health-failure podman 8080 /fornost-grc)"
+app_failure_case="$(make_case app-health-failure podman 8443 /fornost-grc)"
 if FORNOST_TEST_APP_HEALTH_FAIL=1 run_install "${app_failure_case}" podman >"${app_failure_case}/output.log" 2>&1; then
   fail "installer reported success while application health failed"
 fi
@@ -105,10 +126,23 @@ grep -q 'did not become reachable through the reverse proxy' "${app_failure_case
 grep -q 'podman inspect fornost-grc-app' "${app_failure_case}/engine.log" || fail "application diagnostics were not collected"
 grep -q 'podman logs --tail 100 fornost-grc-proxy' "${app_failure_case}/engine.log" || fail "proxy diagnostics were not collected"
 
-proxy_failure_case="$(make_case proxy-health-failure podman 8080 /fornost-grc)"
+proxy_failure_case="$(make_case proxy-health-failure podman 8443 /fornost-grc)"
 if FORNOST_TEST_PROXY_HEALTH_FAIL=1 run_install "${proxy_failure_case}" podman >"${proxy_failure_case}/output.log" 2>&1; then
   fail "installer reported success while proxy health failed"
 fi
 grep -q 'Health check failed' "${proxy_failure_case}/output.log" || fail "proxy health failure is unclear"
 
-echo "On-prem installer smoke tests passed: Podman, Docker, rootless guard, path validation, bounded external health, diagnostics, persistent volume."
+cert_case="$(make_case configured-cert podman 8443 /fornost-grc)"
+mkdir -p "${cert_case}/project/certs"
+printf '%s\n' cert >"${cert_case}/project/certs/server.crt"
+printf '%s\n' key >"${cert_case}/project/certs/server.key"
+cat >>"${cert_case}/project/.env.onprem" <<'CERT_ENV'
+FORNOST_TLS_CERT_FILE=certs/server.crt
+FORNOST_TLS_KEY_FILE=certs/server.key
+CERT_ENV
+run_install "${cert_case}" podman >"${cert_case}/output.log"
+[[ ! -e "${cert_case}/openssl.log" ]] || fail "OpenSSL ran despite configured certificate"
+grep -q -- '/certs/server.crt:/etc/nginx/fornost-tls.crt:ro,Z' "${cert_case}/engine.log" || fail "configured certificate was not mounted"
+grep -q 'TLS source: configured certificate' "${cert_case}/output.log" || fail "configured certificate source was not reported"
+
+echo "On-prem installer smoke tests passed: HTTPS 8443, generated/configured TLS, Podman, Docker, rootless guard, path validation, bounded external health, diagnostics, persistent volume."

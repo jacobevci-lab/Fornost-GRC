@@ -42,11 +42,12 @@ npm run dev
 RHEL tabanlı temiz sunucuda Podman ile eksiksiz kurulum:
 
 ```bash
-sudo dnf install -y git podman curl
+sudo dnf install -y git podman curl openssl firewalld
 git clone https://github.com/jacobevci-lab/Fornost-GRC.git
 cd Fornost-GRC
 sudo bash scripts/linux/install.sh
-sudo firewall-cmd --permanent --zone=public --add-port=80/tcp
+sudo systemctl enable --now firewalld
+sudo firewall-cmd --permanent --zone=public --add-port=8443/tcp
 sudo firewall-cmd --reload
 sudo bash scripts/linux/check.sh
 ```
@@ -54,12 +55,12 @@ sudo bash scripts/linux/check.sh
 Varsayılan ilk kurulum adresi:
 
 ```text
-http://SUNUCU_IP/fornost-grc/
+https://SUNUCU_IP:8443/fornost-grc/
 ```
 
-İlk ziyarette Fornost GRC, ilk yerel yönetici hesabını oluşturma ekranını açar. Uygulama kayıtları ve yüklenen kanıtlar `fornost-grc-data` adlı kalıcı container volume alanında tutulur; container yenilense de silinmez. Installer uygulama ve ters proxy sağlık kontrolleri geçmeden başarı mesajı vermez.
+İlk ziyarette Fornost GRC, ilk yerel yönetici hesabını oluşturma ekranını açar. Installer ilk kurulum için kendinden imzalı bir TLS sertifikası üretir; tarayıcı uyarısını kaldırmak için `.env.onprem` üzerinden kurum sertifikası ve anahtarı tanımlanabilir. Uygulama kayıtları ve yüklenen kanıtlar `fornost-grc-data` adlı kalıcı container volume alanında tutulur; container yenilense de silinmez. Installer uygulama ve HTTPS ters proxy sağlık kontrolleri geçmeden başarı mesajı vermez.
 
-Adres yolu veya HTTP portu `.env.onprem` dosyasından değiştirilebilir. Rootless kurulum, Docker alternatifi, güncelleme, yedekleme, kaldırma, SELinux ve güvenlik duvarı adımları için [Linux On-Prem Kurulum Rehberi](docs/LINUX-INSTALLATION.md) belgesine bakın.
+Adres yolu, HTTPS portu ve TLS sertifikası `.env.onprem` dosyasından değiştirilebilir. Rootless kurulum, Docker alternatifi, güncelleme, yedekleme, kaldırma, SELinux ve güvenlik duvarı adımları için [Linux On-Prem Kurulum Rehberi](docs/LINUX-INSTALLATION.md) belgesine bakın.
 
 Kalite kapıları:
 
