@@ -42,6 +42,7 @@ jobs:
           FORNOST_INTEGRATION_TEST=1
           FORNOST_CONTAINER_ENGINE=${{ matrix.engine }}
           FORNOST_INTEGRATION_PORT=18443
+          FORNOST_BUILD_LOCAL=true
           bash tests/onprem-container-integration.sh
 
   rhel-family-shell-compatibility:

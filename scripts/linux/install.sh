@@ -26,6 +26,7 @@ trap 'on_install_error "${LINENO}"' ERR
 [[ "$(uname -s)" == "Linux" ]] || { echo "This installer supports Linux only." >&2; exit 69; }
 require_command curl
 require_command timeout
+require_command sha256sum
 
 if [[ ! -f "${env_file}" ]]; then
   cp .env.onprem.example "${env_file}"
@@ -112,12 +113,72 @@ fi
 phase="container runtime preflight"
 "${engine}" info >/dev/null
 
-echo "Building Fornost GRC in a glibc-compatible container runtime..."
-phase="application image build"
-"${engine}" build \
-  --build-arg "NEXT_PUBLIC_BASE_PATH=${base_path}" \
-  --tag "${image}" \
-  "${project_root}"
+install_prebuilt_image() {
+  local bundle_file="${FORNOST_APP_BUNDLE_FILE:-}"
+  local bundle_url="${FORNOST_APP_BUNDLE_URL:-}"
+  local checksum_file checksum_url release_commit release_repository architecture
+
+  if [[ -z "${bundle_file}" ]]; then
+    architecture="$(uname -m)"
+    [[ "${architecture}" == "x86_64" || "${architecture}" == "amd64" ]] || {
+      echo "Prebuilt installation currently supports x86_64/amd64. Set FORNOST_BUILD_LOCAL=true for ${architecture}." >&2
+      return 64
+    }
+    [[ "${base_path}" == "/fornost-grc" ]] || {
+      echo "Prebuilt installation uses /fornost-grc. Set FORNOST_BUILD_LOCAL=true for a custom base path." >&2
+      return 64
+    }
+
+    release_repository="${FORNOST_RELEASE_REPOSITORY:-jacobevci-lab/Fornost-GRC}"
+    release_commit="${FORNOST_RELEASE_COMMIT:-$(git -C "${project_root}" rev-parse HEAD 2>/dev/null || true)}"
+    [[ "${release_commit}" =~ ^[0-9a-f]{40}$ ]] || {
+      echo "Could not determine the checked-out Git commit for the prebuilt image." >&2
+      return 66
+    }
+    bundle_url="${bundle_url:-https://github.com/${release_repository}/releases/download/onprem-${release_commit}/fornost-grc-amd64.tar.gz}"
+    checksum_url="${bundle_url}.sha256"
+    install -d -m 700 "${state_dir}/cache"
+    bundle_file="${state_dir}/cache/fornost-grc-${release_commit}-amd64.tar.gz"
+    checksum_file="${bundle_file}.sha256"
+
+    echo "Downloading the tested Fornost GRC image for commit ${release_commit:0:12}..."
+    curl --fail --location --silent --show-error \
+      --retry 4 --retry-connrefused --connect-timeout 15 --max-time 900 \
+      --output "${bundle_file}.part" "${bundle_url}"
+    mv "${bundle_file}.part" "${bundle_file}"
+    curl --fail --location --silent --show-error \
+      --retry 4 --retry-connrefused --connect-timeout 15 --max-time 60 \
+      --output "${checksum_file}.part" "${checksum_url}"
+    mv "${checksum_file}.part" "${checksum_file}"
+  else
+    bundle_file="$(resolve_project_path "${bundle_file}")"
+    checksum_file="${FORNOST_APP_BUNDLE_CHECKSUM_FILE:-${bundle_file}.sha256}"
+    checksum_file="$(resolve_project_path "${checksum_file}")"
+  fi
+
+  [[ -r "${bundle_file}" ]] || { echo "Application image bundle is not readable: ${bundle_file}" >&2; return 66; }
+  [[ -r "${checksum_file}" ]] || { echo "Application image checksum is not readable: ${checksum_file}" >&2; return 66; }
+  phase="application image checksum verification"
+  (
+    cd "$(dirname "${bundle_file}")"
+    sed "s#  .*#  $(basename "${bundle_file}")#" "${checksum_file}" | sha256sum --check --strict -
+  )
+  phase="prebuilt application image load"
+  "${engine}" load --input "${bundle_file}"
+  "${engine}" image inspect "${image}" >/dev/null
+}
+
+if [[ "${FORNOST_BUILD_LOCAL:-false}" == "true" ]]; then
+  echo "FORNOST_BUILD_LOCAL=true: building Fornost GRC on this server..."
+  phase="local application image build"
+  "${engine}" build \
+    --build-arg "NEXT_PUBLIC_BASE_PATH=${base_path}" \
+    --tag "${image}" \
+    "${project_root}"
+else
+  phase="prebuilt application image download"
+  install_prebuilt_image
+fi
 
 phase="runtime network preparation"
 "${engine}" network inspect "${network}" >/dev/null 2>&1 || "${engine}" network create "${network}" >/dev/null

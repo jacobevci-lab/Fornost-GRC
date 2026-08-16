@@ -1,0 +1,57 @@
+name: Publish on-prem bundle
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: onprem-bundle-${{ github.event.workflow_run.head_sha }}
+  cancel-in-progress: false
+
+jobs:
+  build-test-publish:
+    if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      SOURCE_SHA: ${{ github.event.workflow_run.head_sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.SOURCE_SHA }}
+      - name: Build immutable application image
+        run: >-
+          docker build
+          --build-arg NEXT_PUBLIC_BASE_PATH=/fornost-grc
+          --tag localhost/fornost-grc-app:latest
+          .
+      - name: Create and verify image bundle
+        run: |
+          docker save localhost/fornost-grc-app:latest | gzip -1 > fornost-grc-amd64.tar.gz
+          sha256sum fornost-grc-amd64.tar.gz > fornost-grc-amd64.tar.gz.sha256
+          sha256sum --check fornost-grc-amd64.tar.gz.sha256
+          docker image rm localhost/fornost-grc-app:latest
+          docker load --input fornost-grc-amd64.tar.gz
+          docker image inspect localhost/fornost-grc-app:latest >/dev/null
+      - name: Test installer using only the prebuilt bundle
+        run: >-
+          sudo env
+          FORNOST_INTEGRATION_TEST=1
+          FORNOST_CONTAINER_ENGINE=docker
+          FORNOST_INTEGRATION_PORT=18443
+          FORNOST_APP_BUNDLE_FILE=${{ github.workspace }}/fornost-grc-amd64.tar.gz
+          bash tests/onprem-container-integration.sh
+      - name: Publish commit-pinned bundle
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "onprem-${SOURCE_SHA}" \
+            --target "${SOURCE_SHA}" \
+            --title "Fornost GRC on-prem ${SOURCE_SHA::12}" \
+            --notes "Tested x86_64 on-prem image for source commit ${SOURCE_SHA}." \
+            fornost-grc-amd64.tar.gz \
+            fornost-grc-amd64.tar.gz.sha256
