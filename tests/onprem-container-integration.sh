@@ -37,6 +37,8 @@ FORNOST_CONTAINER_ENGINE="${engine}" \
 FORNOST_STATE_DIR="${state_dir}" \
 FORNOST_SKIP_PACKAGE_INSTALL=true \
 FORNOST_SKIP_FIREWALL=true \
+FORNOST_APP_BUNDLE_FILE="${FORNOST_APP_BUNDLE_FILE:-}" \
+FORNOST_BUILD_LOCAL="${FORNOST_BUILD_LOCAL:-false}" \
   bash scripts/linux/bootstrap.sh
 
 for name in fornost-grc-app fornost-grc-proxy; do
@@ -55,7 +57,11 @@ curl --fail --silent --show-error --insecure \
   "${volume_helper_image}" \
   -c "printf '%s' '${marker}' > /data/integration-marker"
 
-FORNOST_CONTAINER_ENGINE="${engine}" FORNOST_STATE_DIR="${state_dir}" bash scripts/linux/install.sh
+FORNOST_CONTAINER_ENGINE="${engine}" \
+FORNOST_STATE_DIR="${state_dir}" \
+FORNOST_APP_BUNDLE_FILE="${FORNOST_APP_BUNDLE_FILE:-}" \
+FORNOST_BUILD_LOCAL="${FORNOST_BUILD_LOCAL:-false}" \
+  bash scripts/linux/install.sh
 FORNOST_CONTAINER_ENGINE="${engine}" FORNOST_STATE_DIR="${state_dir}" bash scripts/linux/check.sh
 
 persisted="$("${engine}" run --rm \
@@ -68,4 +74,4 @@ persisted="$("${engine}" run --rm \
   exit 1
 }
 
-echo "On-prem ${engine} clean bootstrap passed: empty runtime, build, two running containers, HTTPS API and reinstall data persistence."
+echo "On-prem ${engine} clean bootstrap passed: empty runtime, verified image install, two running containers, HTTPS API and reinstall data persistence."

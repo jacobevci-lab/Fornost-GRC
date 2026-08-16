@@ -17,6 +17,8 @@ make_case() {
   mkdir -p "${bin_dir}" "${project_dir}/deploy/nginx"
   printf 'FORNOST_BASE_PATH=%s\nFORNOST_HTTPS_PORT=%s\n' "${base_path}" "${port}" >"${project_dir}/.env.onprem"
   : >"${project_dir}/deploy/nginx/default.conf.template"
+  printf 'prebuilt image bundle for %s\n' "${name}" >"${project_dir}/fornost-grc-amd64.tar.gz"
+  (cd "${project_dir}" && sha256sum fornost-grc-amd64.tar.gz >fornost-grc-amd64.tar.gz.sha256)
 
   cat >"${bin_dir}/${engine}" <<'MOCK_ENGINE'
 #!/usr/bin/env bash
@@ -111,6 +113,7 @@ run_install() {
   FORNOST_TEST_LOG="${case_root}/engine.log" \
   FORNOST_TEST_OPENSSL_LOG="${case_root}/openssl.log" \
   FORNOST_STATE_DIR="${case_root}/project/.fornost-state" \
+  FORNOST_APP_BUNDLE_FILE="${case_root}/project/fornost-grc-amd64.tar.gz" \
   PATH="${case_root}/bin:${PATH}" \
     bash "${repo_root}/scripts/linux/install.sh"
 }
@@ -122,6 +125,7 @@ run_bootstrap() {
   FORNOST_TEST_LOG="${case_root}/engine.log" \
   FORNOST_TEST_OPENSSL_LOG="${case_root}/openssl.log" \
   FORNOST_STATE_DIR="${case_root}/project/.fornost-state" \
+  FORNOST_APP_BUNDLE_FILE="${case_root}/project/fornost-grc-amd64.tar.gz" \
   PATH="${case_root}/bin:${PATH}" \
     bash "${repo_root}/scripts/linux/bootstrap.sh"
 }
@@ -130,7 +134,8 @@ podman_case="$(make_case podman-success podman 8443 /fornost-grc)"
 run_bootstrap "${podman_case}" podman >"${podman_case}/output.log"
 grep -q 'dnf install -y git podman curl openssl firewalld' "${podman_case}/engine.log" || fail "RHEL prerequisites were not installed"
 grep -q 'firewall-cmd --permanent --zone=public --add-port=8443/tcp' "${podman_case}/engine.log" || fail "HTTPS firewall rule was not configured"
-grep -q 'podman build .*NEXT_PUBLIC_BASE_PATH=/fornost-grc' "${podman_case}/engine.log" || fail "Podman build was not configured"
+grep -q 'podman load --input .*fornost-grc-amd64.tar.gz' "${podman_case}/engine.log" || fail "verified prebuilt image was not loaded"
+if grep -q 'podman build' "${podman_case}/engine.log"; then fail "normal installation unexpectedly built on the server"; fi
 grep -q 'podman volume create fornost-grc-data' "${podman_case}/engine.log" || fail "persistent volume was not created"
 grep -q 'podman run .*--name fornost-grc-proxy' "${podman_case}/engine.log" || fail "reverse proxy was not started before health verification"
 grep -q -- '--publish 8443:8443' "${podman_case}/engine.log" || fail "HTTPS port mapping is incorrect"
@@ -185,11 +190,19 @@ grep -q -- '/certs/server.crt:/etc/nginx/fornost-tls.crt:ro,Z' "${cert_case}/eng
 grep -q 'TLS source: configured certificate' "${cert_case}/output.log" || fail "configured certificate source was not reported"
 
 build_failure_case="$(make_case build-failure podman 8443 /fornost-grc)"
-if FORNOST_TEST_BUILD_FAIL=1 run_install "${build_failure_case}" podman >"${build_failure_case}/output.log" 2>&1; then
+if FORNOST_TEST_BUILD_FAIL=1 FORNOST_BUILD_LOCAL=true run_install "${build_failure_case}" podman >"${build_failure_case}/output.log" 2>&1; then
   fail "image build failure unexpectedly succeeded"
 fi
-grep -q 'installation failed during: application image build' "${build_failure_case}/output.log" || fail "failed phase was not diagnosed"
+grep -q 'installation failed during: local application image build' "${build_failure_case}/output.log" || fail "failed phase was not diagnosed"
 grep -q 'Application data volume fornost-grc-data was not removed' "${build_failure_case}/output.log" || fail "data preservation was not reported"
 if grep -q 'podman run' "${build_failure_case}/engine.log"; then fail "containers started after failed image build"; fi
 
-echo "On-prem installer smoke tests passed: clean RHEL bootstrap, HTTPS 8443, persistent/generated TLS, configured TLS, Podman, Docker, rootless guard, bounded health and phase diagnostics."
+checksum_failure_case="$(make_case checksum-failure podman 8443 /fornost-grc)"
+printf 'tampered bundle\n' >>"${checksum_failure_case}/project/fornost-grc-amd64.tar.gz"
+if run_install "${checksum_failure_case}" podman >"${checksum_failure_case}/output.log" 2>&1; then
+  fail "tampered prebuilt image unexpectedly succeeded"
+fi
+grep -q 'installation failed during: application image checksum verification' "${checksum_failure_case}/output.log" || fail "checksum failure phase was not diagnosed"
+if grep -Eq 'podman (load|run)' "${checksum_failure_case}/engine.log"; then fail "tampered image was loaded or started"; fi
+
+echo "On-prem installer smoke tests passed: clean RHEL bootstrap, checksum-verified prebuilt image without server build, HTTPS 8443, persistent/generated TLS, configured TLS, Podman, Docker, rootless guard and phase diagnostics."
