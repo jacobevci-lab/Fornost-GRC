@@ -293,7 +293,11 @@ elif [[ " $* " == *" remote get-url origin "* ]]; then
   printf '%s\n' 'https://github.com/jacobevci-lab/Fornost-GRC.git'
 fi
 MOCK_QUICK_GIT
-chmod +x "${quick_bin}/git" "${quick_root}/bootstrap.sh"
+cat >"${quick_bin}/id" <<'MOCK_QUICK_ID'
+#!/usr/bin/env bash
+[[ "${1:-}" == "-u" ]] && printf '0\n' || /usr/bin/id "$@"
+MOCK_QUICK_ID
+chmod +x "${quick_bin}/git" "${quick_bin}/id" "${quick_root}/bootstrap.sh"
 FORNOST_INSTALL_DIR="${quick_target}" \
 FORNOST_TEST_QUICK_BOOTSTRAP="${quick_root}/bootstrap.sh" \
 FORNOST_TEST_QUICK_LOG="${quick_root}/quick.log" \
