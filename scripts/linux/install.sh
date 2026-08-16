@@ -1,10 +1,27 @@
 #!/usr/bin/env bash
-set -euo pipefail
+set -Eeuo pipefail
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=common.sh
 source "${script_dir}/common.sh"
 cd "${project_root}"
+
+phase="preflight"
+engine=""
+state_dir=""
+
+on_install_error() {
+  local code="$?" line="$1"
+  trap - ERR
+  set +e
+  echo >&2
+  echo "Fornost GRC installation failed during: ${phase} (line ${line}, exit ${code})." >&2
+  [[ -n "${engine}" ]] && print_runtime_diagnostics "${engine}"
+  [[ -n "${state_dir}" ]] && echo "Persistent installer state was preserved at: ${state_dir}" >&2
+  echo "Application data volume fornost-grc-data was not removed." >&2
+  exit "${code}"
+}
+trap 'on_install_error "${LINENO}"' ERR
 
 [[ "$(uname -s)" == "Linux" ]] || { echo "This installer supports Linux only." >&2; exit 69; }
 require_command curl
@@ -20,6 +37,7 @@ https_port="$(read_setting FORNOST_HTTPS_PORT 8443)"
 tls_cert_setting="$(read_setting FORNOST_TLS_CERT_FILE '')"
 tls_key_setting="$(read_setting FORNOST_TLS_KEY_FILE '')"
 tls_hostname="$(read_setting FORNOST_TLS_HOSTNAME '')"
+state_dir_setting="${FORNOST_STATE_DIR:-$(read_setting FORNOST_STATE_DIR '')}"
 
 [[ "${base_path}" =~ ^/[A-Za-z0-9][A-Za-z0-9/_-]*$ && "${base_path}" != *".."* ]] || {
   echo "FORNOST_BASE_PATH must be a safe path such as /fornost-grc." >&2
@@ -42,6 +60,9 @@ engine="$(container_engine)"
 image="localhost/fornost-grc-app:latest"
 network="fornost-grc-net"
 data_volume="fornost-grc-data"
+state_dir="${state_dir_setting:-$(default_state_dir)}"
+[[ "${state_dir}" == /* ]] || state_dir="$(resolve_project_path "${state_dir}")"
+install -d -m 700 "${state_dir}"
 
 if ((https_port < 1024)) && [[ "$(id -u)" != "0" ]]; then
   echo "Port ${https_port} requires root privileges." >&2
@@ -51,6 +72,7 @@ if ((https_port < 1024)) && [[ "$(id -u)" != "0" ]]; then
 fi
 
 ip="$(server_ip)"
+phase="TLS preparation"
 if [[ -n "${tls_cert_setting}" ]]; then
   tls_cert_file="$(resolve_project_path "${tls_cert_setting}")"
   tls_key_file="$(resolve_project_path "${tls_key_setting}")"
@@ -59,7 +81,7 @@ if [[ -n "${tls_cert_setting}" ]]; then
   tls_source="configured certificate"
 else
   require_command openssl
-  tls_dir="${project_root}/.fornost-tls"
+  tls_dir="${state_dir}/tls"
   tls_cert_file="${tls_dir}/tls.crt"
   tls_key_file="${tls_dir}/tls.key"
   if [[ -e "${tls_cert_file}" || -e "${tls_key_file}" ]]; then
@@ -87,20 +109,27 @@ else
   tls_source="self-signed certificate"
 fi
 
+phase="container runtime preflight"
 "${engine}" info >/dev/null
 
 echo "Building Fornost GRC in a glibc-compatible container runtime..."
+phase="application image build"
 "${engine}" build \
   --build-arg "NEXT_PUBLIC_BASE_PATH=${base_path}" \
   --tag "${image}" \
   "${project_root}"
 
+phase="runtime network preparation"
 "${engine}" network inspect "${network}" >/dev/null 2>&1 || "${engine}" network create "${network}" >/dev/null
+phase="persistent data volume preparation"
 "${engine}" volume inspect "${data_volume}" >/dev/null 2>&1 || "${engine}" volume create "${data_volume}" >/dev/null
+phase="reverse proxy image pull"
 "${engine}" pull docker.io/library/nginx:1.27-alpine >/dev/null
 
+phase="old container replacement"
 "${engine}" rm -f fornost-grc-proxy fornost-grc-app >/dev/null 2>&1 || true
 
+phase="application container start"
 "${engine}" run -d \
   --name fornost-grc-app \
   --network "${network}" \
@@ -110,6 +139,7 @@ echo "Building Fornost GRC in a glibc-compatible container runtime..."
   --volume "${data_volume}:/app/.sites-runtime/data:Z" \
   "${image}" >/dev/null
 
+phase="HTTPS reverse proxy start"
 "${engine}" run -d \
   --name fornost-grc-proxy \
   --network "${network}" \
@@ -122,6 +152,7 @@ echo "Building Fornost GRC in a glibc-compatible container runtime..."
   docker.io/library/nginx:1.27-alpine >/dev/null
 
 echo "Verifying the externally reachable Fornost GRC endpoint..."
+phase="HTTPS health verification"
 wait_for_url "https://127.0.0.1:${https_port}${base_path}/api/auth" 30 2 true || {
   echo "Fornost GRC did not become reachable through the reverse proxy." >&2
   echo "Application container state:" >&2
@@ -135,6 +166,16 @@ wait_for_url "https://127.0.0.1:${https_port}${base_path}/api/auth" 30 2 true ||
   exit 70
 }
 
+phase="installation state recording"
+{
+  printf 'FORNOST_CONTAINER_ENGINE=%s\n' "${engine}"
+  printf 'FORNOST_BASE_PATH=%s\n' "${base_path}"
+  printf 'FORNOST_HTTPS_PORT=%s\n' "${https_port}"
+  printf 'FORNOST_INSTALLED_AT=%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+} >"${state_dir}/install-state.env"
+chmod 600 "${state_dir}/install-state.env"
+trap - ERR
+
 cat <<EOF
 
 Fornost GRC installation is running.
@@ -145,5 +186,6 @@ Initial setup address:
 The first browser visit opens the initial administrator creation screen.
 Persistent application data is stored in the ${data_volume} container volume.
 TLS source: ${tls_source}
+Persistent installer state: ${state_dir}
 Health check passed: https://127.0.0.1:${https_port}${base_path}/api/auth
 EOF

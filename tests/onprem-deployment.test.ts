@@ -17,6 +17,7 @@ test("container deployment isolates workerd from the host glibc", async () => {
   const installer = await readFile(new URL("../scripts/linux/install.sh", import.meta.url), "utf8");
   const integration = await readFile(new URL("./onprem-container-integration.sh", import.meta.url), "utf8");
   const common = await readFile(new URL("../scripts/linux/common.sh", import.meta.url), "utf8");
+  const bootstrap = await readFile(new URL("../scripts/linux/bootstrap.sh", import.meta.url), "utf8");
   assert.match(dockerfile, /node:22-bookworm-slim/);
   assert.match(common, /podman/);
   assert.match(installer, /fornost-grc-data/);
@@ -27,6 +28,10 @@ test("container deployment isolates workerd from the host glibc", async () => {
   assert.match(installer, /did not become reachable through the reverse proxy/);
   assert.match(installer, /timeout 10 "\$\{engine\}" logs/);
   assert.match(installer, /wait_for_url/);
+  assert.match(installer, /installation failed during/);
+  assert.match(installer, /default_state_dir/);
+  assert.match(bootstrap, /dnf install -y git podman curl openssl firewalld/);
+  assert.match(bootstrap, /scripts\/linux\/check\.sh|check\.sh/);
 });
 
 test("reverse proxy exposes the configured Fornost path", async () => {
@@ -44,7 +49,7 @@ test("RHEL and CentOS Stream guide covers install, validation, update, backup an
     "Red Hat Enterprise Linux",
     "CentOS Stream",
     "sudo dnf install -y git podman curl openssl firewalld",
-    "scripts/linux/install.sh",
+    "scripts/linux/bootstrap.sh",
     "scripts/linux/check.sh",
     "git pull --ff-only origin main",
     "fornost-grc-data",
@@ -63,6 +68,13 @@ test("on-prem defaults to HTTPS 8443 with generated or configured TLS", async ()
   assert.match(installer, /https:\/\/127\.0\.0\.1/);
   assert.match(guide, /https:\/\/192\.168\.1\.1:8443\/fornost-grc\//);
   assert.match(guide, /kendinden imzalı/i);
+});
+
+test("clean uninstall preserves data unless purge is explicitly confirmed", async () => {
+  const uninstall = await readFile(new URL("../scripts/linux/uninstall.sh", import.meta.url), "utf8");
+  assert.match(uninstall, /volume fornost-grc-data was preserved/);
+  assert.match(uninstall, /FORNOST_CONFIRM_PURGE/);
+  assert.match(uninstall, /--purge-data/);
 });
 
 test("repository-facing install files contain no legacy product names", async () => {

@@ -65,6 +65,31 @@ resolve_project_path() {
   fi
 }
 
+default_state_dir() {
+  if [[ "$(id -u)" == "0" ]]; then
+    printf '%s' /var/lib/fornost-grc
+  else
+    printf '%s/fornost-grc' "${XDG_DATA_HOME:-${HOME}/.local/share}"
+  fi
+}
+
+container_present() {
+  local engine="$1" name="$2"
+  "${engine}" inspect "${name}" >/dev/null 2>&1
+}
+
+print_runtime_diagnostics() {
+  local engine="$1" name
+  echo "Container state:" >&2
+  timeout 10 "${engine}" ps -a --filter name=fornost-grc >&2 || true
+  for name in fornost-grc-app fornost-grc-proxy; do
+    if container_present "${engine}" "${name}"; then
+      echo "${name} logs:" >&2
+      timeout 10 "${engine}" logs --tail 120 "${name}" >&2 || true
+    fi
+  done
+}
+
 server_ip() {
   hostname -I 2>/dev/null | awk '{print $1}'
 }

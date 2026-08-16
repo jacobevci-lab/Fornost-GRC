@@ -18,19 +18,33 @@ engine="${FORNOST_CONTAINER_ENGINE:-docker}"
 port="${FORNOST_INTEGRATION_PORT:-18443}"
 marker="fornost-integration-$(date +%s)"
 volume_helper_image="docker.io/library/nginx:1.27-alpine"
+state_dir="${repo_root}/.fornost-integration-state"
 
 cleanup() {
   "${engine}" rm -f fornost-grc-proxy fornost-grc-app >/dev/null 2>&1 || true
   "${engine}" network rm fornost-grc-net >/dev/null 2>&1 || true
   "${engine}" volume rm fornost-grc-data >/dev/null 2>&1 || true
   rm -f .env.onprem
+  rm -rf "${state_dir}"
 }
 trap cleanup EXIT
 
+cleanup
+
 printf 'FORNOST_BASE_PATH=/fornost-grc\nFORNOST_HTTPS_PORT=%s\n' "${port}" >.env.onprem
 
-FORNOST_CONTAINER_ENGINE="${engine}" bash scripts/linux/install.sh
-FORNOST_CONTAINER_ENGINE="${engine}" bash scripts/linux/check.sh
+FORNOST_CONTAINER_ENGINE="${engine}" \
+FORNOST_STATE_DIR="${state_dir}" \
+FORNOST_SKIP_PACKAGE_INSTALL=true \
+FORNOST_SKIP_FIREWALL=true \
+  bash scripts/linux/bootstrap.sh
+
+for name in fornost-grc-app fornost-grc-proxy; do
+  [[ "$("${engine}" inspect --format '{{.State.Running}}' "${name}")" == "true" ]] || {
+    echo "Fresh bootstrap did not leave ${name} running." >&2
+    exit 1
+  }
+done
 
 curl --fail --silent --show-error --insecure \
   "https://127.0.0.1:${port}/fornost-grc/api/auth" | grep -q 'bootstrapRequired'
@@ -41,8 +55,8 @@ curl --fail --silent --show-error --insecure \
   "${volume_helper_image}" \
   -c "printf '%s' '${marker}' > /data/integration-marker"
 
-FORNOST_CONTAINER_ENGINE="${engine}" bash scripts/linux/install.sh
-FORNOST_CONTAINER_ENGINE="${engine}" bash scripts/linux/check.sh
+FORNOST_CONTAINER_ENGINE="${engine}" FORNOST_STATE_DIR="${state_dir}" bash scripts/linux/install.sh
+FORNOST_CONTAINER_ENGINE="${engine}" FORNOST_STATE_DIR="${state_dir}" bash scripts/linux/check.sh
 
 persisted="$("${engine}" run --rm \
   --volume fornost-grc-data:/data:ro,Z \
@@ -54,4 +68,4 @@ persisted="$("${engine}" run --rm \
   exit 1
 }
 
-echo "On-prem ${engine} integration passed: build, app health, proxy health, API response and persistent data."
+echo "On-prem ${engine} clean bootstrap passed: empty runtime, build, two running containers, HTTPS API and reinstall data persistence."
