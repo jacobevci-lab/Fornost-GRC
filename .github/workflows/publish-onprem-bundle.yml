@@ -45,6 +45,16 @@ jobs:
           FORNOST_INTEGRATION_PORT=18443
           FORNOST_APP_BUNDLE_FILE=${{ github.workspace }}/fornost-grc-amd64.tar.gz
           bash tests/onprem-container-integration.sh
+      - name: Install Podman for bundle compatibility test
+        run: sudo apt-get update && sudo apt-get install -y podman
+      - name: Test the same prebuilt bundle with Podman
+        run: >-
+          sudo env
+          FORNOST_INTEGRATION_TEST=1
+          FORNOST_CONTAINER_ENGINE=podman
+          FORNOST_INTEGRATION_PORT=19443
+          FORNOST_APP_BUNDLE_FILE=${{ github.workspace }}/fornost-grc-amd64.tar.gz
+          bash tests/onprem-container-integration.sh
       - name: Publish commit-pinned bundle
         env:
           GH_TOKEN: ${{ github.token }}
