@@ -53,8 +53,11 @@ jobs:
       matrix:
         image:
           - rockylinux:8
+          - rockylinux:9
+          - almalinux:8
           - almalinux:9
           - quay.io/centos/centos:stream9
+          - quay.io/centos/centos:stream10
     steps:
       - uses: actions/checkout@v4
       - name: Validate installer on ${{ matrix.image }}

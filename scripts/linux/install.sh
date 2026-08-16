@@ -27,6 +27,7 @@ trap 'on_install_error "${LINENO}"' ERR
 require_command curl
 require_command timeout
 require_command sha256sum
+require_command df
 
 if [[ ! -f "${env_file}" ]]; then
   cp .env.onprem.example "${env_file}"
@@ -39,6 +40,7 @@ tls_cert_setting="$(read_setting FORNOST_TLS_CERT_FILE '')"
 tls_key_setting="$(read_setting FORNOST_TLS_KEY_FILE '')"
 tls_hostname="$(read_setting FORNOST_TLS_HOSTNAME '')"
 state_dir_setting="${FORNOST_STATE_DIR:-$(read_setting FORNOST_STATE_DIR '')}"
+minimum_free_mb="${FORNOST_MIN_FREE_MB:-$(read_setting FORNOST_MIN_FREE_MB 8192)}"
 
 [[ "${base_path}" =~ ^/[A-Za-z0-9][A-Za-z0-9/_-]*$ && "${base_path}" != *".."* ]] || {
   echo "FORNOST_BASE_PATH must be a safe path such as /fornost-grc." >&2
@@ -56,6 +58,10 @@ if [[ -n "${tls_cert_setting}" && -z "${tls_key_setting}" ]] || [[ -z "${tls_cer
   echo "FORNOST_TLS_CERT_FILE and FORNOST_TLS_KEY_FILE must be configured together." >&2
   exit 64
 fi
+[[ "${minimum_free_mb}" =~ ^[0-9]+$ ]] && ((minimum_free_mb >= 1024)) || {
+  echo "FORNOST_MIN_FREE_MB must be an integer of at least 1024." >&2
+  exit 64
+}
 
 engine="$(container_engine)"
 image="localhost/fornost-grc-app:latest"
@@ -113,6 +119,18 @@ fi
 phase="container runtime preflight"
 "${engine}" info >/dev/null
 
+phase="disk capacity preflight"
+storage_root="$(container_storage_root "${engine}")"
+state_filesystem="$(filesystem_id "${state_dir}")"
+storage_filesystem="$(filesystem_id "${storage_root}")"
+if [[ "${state_filesystem}" == "${storage_filesystem}" ]]; then
+  require_free_space_mb "${state_dir}" "${minimum_free_mb}" "the image bundle and container layers"
+else
+  require_free_space_mb "${state_dir}" 1024 "the verified image bundle cache"
+  require_free_space_mb "${storage_root}" "${minimum_free_mb}" "container image extraction"
+fi
+echo "Disk preflight passed: at least ${minimum_free_mb} MiB is available for container installation."
+
 install_prebuilt_image() {
   local bundle_file="${FORNOST_APP_BUNDLE_FILE:-}"
   local bundle_url="${FORNOST_APP_BUNDLE_URL:-}"
@@ -141,15 +159,29 @@ install_prebuilt_image() {
     bundle_file="${state_dir}/cache/fornost-grc-${release_commit}-amd64.tar.gz"
     checksum_file="${bundle_file}.sha256"
 
-    echo "Downloading the tested Fornost GRC image for commit ${release_commit:0:12}..."
-    curl --fail --location --silent --show-error \
-      --retry 4 --retry-connrefused --connect-timeout 15 --max-time 900 \
-      --output "${bundle_file}.part" "${bundle_url}"
-    mv "${bundle_file}.part" "${bundle_file}"
+    rm -f "${bundle_file}.part" "${checksum_file}.part"
     curl --fail --location --silent --show-error \
       --retry 4 --retry-connrefused --connect-timeout 15 --max-time 60 \
       --output "${checksum_file}.part" "${checksum_url}"
     mv "${checksum_file}.part" "${checksum_file}"
+
+    if [[ -r "${bundle_file}" ]] && (
+      cd "$(dirname "${bundle_file}")"
+      sed "s#  .*#  $(basename "${bundle_file}")#" "${checksum_file}" | sha256sum --check --strict - >/dev/null 2>&1
+    ); then
+      echo "Using the previously downloaded and checksum-verified image bundle for commit ${release_commit:0:12}."
+    else
+      rm -f "${bundle_file}"
+      echo "Downloading the tested Fornost GRC image for commit ${release_commit:0:12}..."
+      curl --fail --location --silent --show-error \
+        --retry 4 --retry-connrefused --connect-timeout 15 --max-time 900 \
+        --output "${bundle_file}.part" "${bundle_url}"
+      (
+        cd "$(dirname "${bundle_file}")"
+        sed "s#  .*#  $(basename "${bundle_file}.part")#" "${checksum_file}" | sha256sum --check --strict -
+      )
+      mv "${bundle_file}.part" "${bundle_file}"
+    fi
   else
     bundle_file="$(resolve_project_path "${bundle_file}")"
     checksum_file="${FORNOST_APP_BUNDLE_CHECKSUM_FILE:-${bundle_file}.sha256}"

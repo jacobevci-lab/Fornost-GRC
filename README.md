@@ -37,9 +37,15 @@ npm run dev
 
 ## Linux sunucu kurulumu
 
-Önerilen platformlar: Red Hat Enterprise Linux 8/9, Rocky Linux 8/9, AlmaLinux 8/9 ve CentOS Stream 8/9. CentOS Linux 7 kullanım ömrünü tamamladığı için desteklenmez. Podman önerilir; Docker Engine de kullanılabilir. Sunucuda Node.js/npm kurulmaz ve kaynak kod build edilmez. Installer, klonlanan Git commit'i için GitHub Actions tarafından hazırlanıp uçtan uca test edilmiş image paketini indirir, SHA-256 bütünlüğünü doğrular ve container runtime'a yükler.
+Önerilen platformlar: Red Hat Enterprise Linux 8/9, Rocky Linux 8/9, AlmaLinux 8/9 ve CentOS Stream 9/10. Podman önerilir; Docker Engine de kullanılabilir. Sunucuda Node.js/npm kurulmaz ve kaynak kod build edilmez. Installer, klonlanan Git commit'i için GitHub Actions tarafından hazırlanıp uçtan uca test edilmiş image paketini indirir, SHA-256 bütünlüğünü doğrular ve container runtime'a yükler.
 
-RHEL tabanlı temiz sunucuda Podman ile eksiksiz ve doğrulamalı kurulum:
+RHEL tabanlı temiz sunucuda en kolay kurulum tek komuttur:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/jacobevci-lab/Fornost-GRC/main/scripts/linux/quick-install.sh | sudo bash
+```
+
+Script Git'i ve gerekli Podman paketlerini kurar, kaynakları `/opt/fornost-grc` altına indirir, başlamadan önce en az 8 GiB boş alanı doğrular ve yalnız CI'da test edilmiş container paketini yükler. Aynı komut daha sonra güvenli fast-forward güncellemesi yapar. Kaynağı önce incelemek isteyenler için eşdeğer manuel kurulum:
 
 ```bash
 sudo dnf install -y git
