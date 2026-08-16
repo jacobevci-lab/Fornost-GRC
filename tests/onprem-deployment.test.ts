@@ -34,6 +34,13 @@ test("container deployment isolates workerd from the host glibc", async () => {
   assert.match(bootstrap, /scripts\/linux\/check\.sh|check\.sh/);
 });
 
+test("built runtime config is accepted by current Wrangler", async () => {
+  const generatedConfig = JSON.parse(
+    await readFile(new URL("../dist/server/wrangler.json", import.meta.url), "utf8"),
+  );
+  assert.equal("legacy_env" in generatedConfig, false);
+});
+
 test("reverse proxy exposes the configured Fornost path", async () => {
   const nginx = await readFile(new URL("../deploy/nginx/default.conf.template", import.meta.url), "utf8");
   assert.match(nginx, /location \$\{FORNOST_BASE_PATH\}\//);
