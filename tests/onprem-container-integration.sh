@@ -15,7 +15,7 @@ cd "${repo_root}"
 }
 
 engine="${FORNOST_CONTAINER_ENGINE:-docker}"
-port="${FORNOST_INTEGRATION_PORT:-18080}"
+port="${FORNOST_INTEGRATION_PORT:-18443}"
 marker="fornost-integration-$(date +%s)"
 volume_helper_image="docker.io/library/nginx:1.27-alpine"
 
@@ -27,13 +27,13 @@ cleanup() {
 }
 trap cleanup EXIT
 
-printf 'FORNOST_BASE_PATH=/fornost-grc\nFORNOST_HTTP_PORT=%s\n' "${port}" >.env.onprem
+printf 'FORNOST_BASE_PATH=/fornost-grc\nFORNOST_HTTPS_PORT=%s\n' "${port}" >.env.onprem
 
 FORNOST_CONTAINER_ENGINE="${engine}" bash scripts/linux/install.sh
 FORNOST_CONTAINER_ENGINE="${engine}" bash scripts/linux/check.sh
 
-curl --fail --silent --show-error \
-  "http://127.0.0.1:${port}/fornost-grc/api/auth" | grep -q 'bootstrapRequired'
+curl --fail --silent --show-error --insecure \
+  "https://127.0.0.1:${port}/fornost-grc/api/auth" | grep -q 'bootstrapRequired'
 
 "${engine}" run --rm \
   --volume fornost-grc-data:/data:Z \
