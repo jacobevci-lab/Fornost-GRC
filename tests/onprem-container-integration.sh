@@ -101,8 +101,22 @@ cross_origin_status="$(curl --silent --show-error --insecure \
 }
 
 page_file="$(mktemp)"
-curl --fail --silent --show-error --insecure \
-  "https://127.0.0.1:${port}/fornost-grc/" >"${page_file}"
+page_status=""
+for attempt in $(seq 1 15); do
+  page_status="$(curl --silent --show-error --insecure \
+    --output "${page_file}" --write-out '%{http_code}' \
+    "https://127.0.0.1:${port}/fornost-grc/")"
+  [[ "${page_status}" == "200" ]] && break
+  sleep 1
+done
+if [[ "${page_status}" != "200" ]]; then
+  echo "Rendered on-prem page did not become stable; last HTTP status was ${page_status}." >&2
+  cat "${page_file}" >&2 || true
+  echo >&2
+  runtime_diagnostics
+  rm -f "${page_file}"
+  exit 1
+fi
 grep -q '/fornost-grc/assets/[^" ]*\.css' "${page_file}"
 grep -q '/fornost-grc/assets/[^" ]*\.js' "${page_file}"
 mapfile -t browser_assets < <(
