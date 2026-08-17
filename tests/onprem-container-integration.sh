@@ -51,6 +51,32 @@ done
 curl --fail --silent --show-error --insecure \
   "https://127.0.0.1:${port}/fornost-grc/api/auth" | grep -q 'bootstrapRequired'
 
+auth_probe_file="$(mktemp)"
+auth_probe_status="$(curl --silent --show-error --insecure \
+  --output "${auth_probe_file}" --write-out '%{http_code}' \
+  --header "Origin: https://127.0.0.1:${port}" \
+  --header 'Content-Type: application/json' \
+  --data '{"action":"invalid-integration-probe"}' \
+  "https://127.0.0.1:${port}/fornost-grc/api/auth")"
+[[ "${auth_probe_status}" == "400" ]] || {
+  echo "Same-origin auth POST through HTTPS proxy returned ${auth_probe_status}, expected 400." >&2
+  cat "${auth_probe_file}" >&2
+  rm -f "${auth_probe_file}"
+  exit 1
+}
+rm -f "${auth_probe_file}"
+
+cross_origin_status="$(curl --silent --show-error --insecure \
+  --output /dev/null --write-out '%{http_code}' \
+  --header 'Origin: https://evil.example' \
+  --header 'Content-Type: application/json' \
+  --data '{"action":"invalid-integration-probe"}' \
+  "https://127.0.0.1:${port}/fornost-grc/api/auth")"
+[[ "${cross_origin_status}" == "403" ]] || {
+  echo "Cross-origin auth POST returned ${cross_origin_status}, expected 403." >&2
+  exit 1
+}
+
 page_file="$(mktemp)"
 curl --fail --silent --show-error --insecure \
   "https://127.0.0.1:${port}/fornost-grc/" >"${page_file}"
@@ -95,4 +121,4 @@ persisted="$("${engine}" run --rm \
   exit 1
 }
 
-echo "On-prem ${engine} clean bootstrap passed: empty runtime, verified image install, two running containers, HTTPS page assets and API, plus reinstall data persistence."
+echo "On-prem ${engine} clean bootstrap passed: empty runtime, verified image install, two running containers, HTTPS page assets, same-origin auth POST and API, plus reinstall data persistence."
