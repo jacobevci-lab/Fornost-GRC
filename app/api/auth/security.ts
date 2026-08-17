@@ -12,9 +12,20 @@ const sessionsSql = `CREATE TABLE IF NOT EXISTS local_sessions (
   id_hash TEXT PRIMARY KEY, user_id TEXT NOT NULL, expires_at TEXT NOT NULL,
   created_at TEXT NOT NULL, last_seen_at TEXT NOT NULL)`;
 
+let identitySchemaReady: Promise<void> | null = null;
+
 export async function identityDb() {
   const { env } = await import("cloudflare:workers");
-  await env.DB.batch([env.DB.prepare(usersSql), env.DB.prepare(sessionsSql)]);
+  if (!identitySchemaReady) {
+    identitySchemaReady = env.DB.batch([
+      env.DB.prepare(usersSql),
+      env.DB.prepare(sessionsSql),
+    ]).then(() => undefined).catch((error) => {
+      identitySchemaReady = null;
+      throw error;
+    });
+  }
+  await identitySchemaReady;
   return env.DB;
 }
 

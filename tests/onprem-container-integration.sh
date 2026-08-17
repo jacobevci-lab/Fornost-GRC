@@ -20,6 +20,15 @@ marker="fornost-integration-$(date +%s)"
 volume_helper_image="docker.io/library/nginx:1.27-alpine"
 state_dir="${repo_root}/.fornost-integration-state"
 
+runtime_diagnostics() {
+  echo "===== ${engine} container state =====" >&2
+  "${engine}" ps -a --filter name=fornost-grc >&2 || true
+  echo "===== fornost-grc-app logs =====" >&2
+  "${engine}" logs --tail 250 fornost-grc-app >&2 || true
+  echo "===== fornost-grc-proxy logs =====" >&2
+  "${engine}" logs --tail 250 fornost-grc-proxy >&2 || true
+}
+
 cleanup() {
   "${engine}" rm -f fornost-grc-proxy fornost-grc-app >/dev/null 2>&1 || true
   "${engine}" network rm fornost-grc-net >/dev/null 2>&1 || true
@@ -44,12 +53,24 @@ FORNOST_BUILD_LOCAL="${FORNOST_BUILD_LOCAL:-false}" \
 for name in fornost-grc-app fornost-grc-proxy; do
   [[ "$("${engine}" inspect --format '{{.State.Running}}' "${name}")" == "true" ]] || {
     echo "Fresh bootstrap did not leave ${name} running." >&2
+    runtime_diagnostics
     exit 1
   }
 done
 
-curl --fail --silent --show-error --insecure \
-  "https://127.0.0.1:${port}/fornost-grc/api/auth" | grep -q 'bootstrapRequired'
+auth_get_file="$(mktemp)"
+auth_get_status="$(curl --silent --show-error --insecure \
+  --output "${auth_get_file}" --write-out '%{http_code}' \
+  "https://127.0.0.1:${port}/fornost-grc/api/auth")"
+if [[ "${auth_get_status}" != "200" ]] || ! grep -q 'bootstrapRequired' "${auth_get_file}"; then
+  echo "Auth GET through HTTPS proxy returned ${auth_get_status}; response follows." >&2
+  cat "${auth_get_file}" >&2 || true
+  echo >&2
+  runtime_diagnostics
+  rm -f "${auth_get_file}"
+  exit 1
+fi
+rm -f "${auth_get_file}"
 
 auth_probe_file="$(mktemp)"
 auth_probe_status="$(curl --silent --show-error --insecure \
@@ -61,6 +82,7 @@ auth_probe_status="$(curl --silent --show-error --insecure \
 [[ "${auth_probe_status}" == "400" ]] || {
   echo "Same-origin auth POST through HTTPS proxy returned ${auth_probe_status}, expected 400." >&2
   cat "${auth_probe_file}" >&2
+  runtime_diagnostics
   rm -f "${auth_probe_file}"
   exit 1
 }
@@ -74,6 +96,7 @@ cross_origin_status="$(curl --silent --show-error --insecure \
   "https://127.0.0.1:${port}/fornost-grc/api/auth")"
 [[ "${cross_origin_status}" == "403" ]] || {
   echo "Cross-origin auth POST returned ${cross_origin_status}, expected 403." >&2
+  runtime_diagnostics
   exit 1
 }
 
@@ -91,6 +114,7 @@ mapfile -t browser_assets < <(
 rm -f "${page_file}"
 (( ${#browser_assets[@]} > 0 )) || {
   echo "Rendered on-prem page did not reference any browser assets." >&2
+  runtime_diagnostics
   exit 1
 }
 for asset_path in "${browser_assets[@]}"; do
@@ -118,6 +142,7 @@ persisted="$("${engine}" run --rm \
   /data/integration-marker)"
 [[ "${persisted}" == "${marker}" ]] || {
   echo "Persistent volume marker was lost after reinstall." >&2
+  runtime_diagnostics
   exit 1
 }
 
