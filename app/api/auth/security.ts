@@ -52,9 +52,36 @@ export function constantTimeEqual(left: string, right: string) {
   return mismatch === 0;
 }
 
+function firstForwardedValue(value: string | null) {
+  return value?.split(",", 1)[0]?.trim() || "";
+}
+
+function forwardedOrigin(req: NextRequest) {
+  const proto = firstForwardedValue(req.headers.get("x-forwarded-proto")).toLowerCase();
+  const host = firstForwardedValue(req.headers.get("x-forwarded-host"));
+  if ((proto !== "http" && proto !== "https") || !host) return null;
+  try {
+    return new URL(`${proto}://${host}`).origin;
+  } catch {
+    return null;
+  }
+}
+
+export function requestIsSecure(req: NextRequest) {
+  return req.nextUrl.protocol === "https:" || forwardedOrigin(req)?.startsWith("https://") === true;
+}
+
 export function sameOrigin(req: NextRequest) {
   const origin = req.headers.get("origin");
-  return !origin || origin === req.nextUrl.origin;
+  if (!origin) return true;
+  let normalizedOrigin: string;
+  try {
+    normalizedOrigin = new URL(origin).origin;
+  } catch {
+    return false;
+  }
+  const proxiedOrigin = forwardedOrigin(req);
+  return normalizedOrigin === req.nextUrl.origin || (!!proxiedOrigin && normalizedOrigin === proxiedOrigin);
 }
 
 export async function actor(req: NextRequest): Promise<Actor | null> {
