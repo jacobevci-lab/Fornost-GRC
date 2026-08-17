@@ -51,6 +51,27 @@ done
 curl --fail --silent --show-error --insecure \
   "https://127.0.0.1:${port}/fornost-grc/api/auth" | grep -q 'bootstrapRequired'
 
+page_file="$(mktemp)"
+curl --fail --silent --show-error --insecure \
+  "https://127.0.0.1:${port}/fornost-grc/" >"${page_file}"
+grep -q '/fornost-grc/assets/[^" ]*\.css' "${page_file}"
+grep -q '/fornost-grc/assets/[^" ]*\.js' "${page_file}"
+mapfile -t browser_assets < <(
+  grep -Eo '(href|src)="[^"]+"' "${page_file}" \
+    | cut -d'"' -f2 \
+    | grep '^/fornost-grc/' \
+    | sort -u
+)
+rm -f "${page_file}"
+(( ${#browser_assets[@]} > 0 )) || {
+  echo "Rendered on-prem page did not reference any browser assets." >&2
+  exit 1
+}
+for asset_path in "${browser_assets[@]}"; do
+  curl --fail --silent --show-error --insecure \
+    "https://127.0.0.1:${port}${asset_path}" >/dev/null
+done
+
 "${engine}" run --rm \
   --volume fornost-grc-data:/data:Z \
   --entrypoint sh \
@@ -74,4 +95,4 @@ persisted="$("${engine}" run --rm \
   exit 1
 }
 
-echo "On-prem ${engine} clean bootstrap passed: empty runtime, verified image install, two running containers, HTTPS API and reinstall data persistence."
+echo "On-prem ${engine} clean bootstrap passed: empty runtime, verified image install, two running containers, HTTPS page assets and API, plus reinstall data persistence."

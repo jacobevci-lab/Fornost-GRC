@@ -9,6 +9,9 @@ fi
 
 worker="${SITES_PROJECT_ROOT}/dist/server/index.js"
 hosting="${SITES_PROJECT_ROOT}/dist/.openai/hosting.json"
+configured_base_path="${NEXT_PUBLIC_BASE_PATH:-}"
+normalized_base_path="${configured_base_path#/}"
+normalized_base_path="${normalized_base_path%/}"
 
 [[ -f "${worker}" ]] || {
   echo "Missing Sites Worker entry: dist/server/index.js" >&2
@@ -18,6 +21,17 @@ hosting="${SITES_PROJECT_ROOT}/dist/.openai/hosting.json"
   echo "Missing packaged Sites manifest: dist/.openai/hosting.json" >&2
   exit 66
 }
+
+if [[ -n "${normalized_base_path}" ]]; then
+  [[ -d "${SITES_PROJECT_ROOT}/dist/client/assets" ]] || {
+    echo "Missing immutable browser assets: dist/client/assets" >&2
+    exit 66
+  }
+  [[ -f "${SITES_PROJECT_ROOT}/dist/client/${normalized_base_path}/favicon.svg" ]] || {
+    echo "Missing base-path public assets: dist/client/${normalized_base_path}/favicon.svg" >&2
+    exit 66
+  }
+fi
 
 node --input-type=module - "${worker}" "${hosting}" <<'NODE'
 import { readFile } from "node:fs/promises";

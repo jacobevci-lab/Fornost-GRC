@@ -25,5 +25,6 @@ timeout \
   "${SITES_BUILD_TIMEOUT:-3m}" \
   "${vinext}" build
 
+node "${script_dir}/stage-base-path-assets.mjs"
 node "${script_dir}/normalize-wrangler-config.mjs"
 "${script_dir}/validate-artifact.sh"
