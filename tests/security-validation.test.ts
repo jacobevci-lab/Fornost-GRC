@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { constantTimeEqual, demoAccount, PBKDF2_ITERATIONS, validPassword } from "../app/api/auth/security";
+import { NextRequest } from "next/server";
+import { constantTimeEqual, demoAccount, PBKDF2_ITERATIONS, requestIsSecure, sameOrigin, validPassword } from "../app/api/auth/security";
 import { cleanText, validDate, validModule, validate } from "../app/api/grc/route";
 
 test("password policy accepts strong passwords and rejects weak inputs", () => {
@@ -26,6 +27,29 @@ test("constant-time comparison handles equal, unequal and different-length input
   assert.equal(constantTimeEqual("abc123", "abc123"), true);
   assert.equal(constantTimeEqual("abc123", "abc124"), false);
   assert.equal(constantTimeEqual("abc", "abc0"), false);
+});
+
+test("same-origin validation honors the external HTTPS host and port behind the on-prem proxy", () => {
+  const proxied = new NextRequest("http://fornost-grc-app:3000/fornost-grc/api/auth", {
+    headers: {
+      origin: "https://192.0.2.10:8443",
+      "x-forwarded-host": "192.0.2.10:8443",
+      "x-forwarded-proto": "https",
+    },
+  });
+  assert.equal(sameOrigin(proxied), true);
+  assert.equal(requestIsSecure(proxied), true);
+});
+
+test("same-origin validation still rejects a different browser origin", () => {
+  const proxied = new NextRequest("http://fornost-grc-app:3000/fornost-grc/api/auth", {
+    headers: {
+      origin: "https://evil.example",
+      "x-forwarded-host": "192.0.2.10:8443",
+      "x-forwarded-proto": "https",
+    },
+  });
+  assert.equal(sameOrigin(proxied), false);
 });
 
 test("date validation rejects calendar-invalid dates", () => {

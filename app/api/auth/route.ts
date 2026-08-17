@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { actor, constantTimeEqual, createSession, demoAccount, destroySession, ensureDemoUser, identityDb, passwordHash, sameOrigin, validPassword } from "./security";
+import { actor, constantTimeEqual, createSession, demoAccount, destroySession, ensureDemoUser, identityDb, passwordHash, requestIsSecure, sameOrigin, validPassword } from "./security";
 
 const configuredBasePath = process.env.NEXT_PUBLIC_BASE_PATH?.trim().replace(/\/+$/, "") || "";
-const cookie = (req: NextRequest) => ({ httpOnly: true, secure: req.nextUrl.protocol === "https:", sameSite: "strict" as const, path: configuredBasePath || "/", maxAge: 8 * 3600 });
+const cookie = (req: NextRequest) => ({ httpOnly: true, secure: requestIsSecure(req), sameSite: "strict" as const, path: configuredBasePath || "/", maxAge: 8 * 3600 });
 const normalize = (v: unknown) => String(v || "").trim();
 
 async function demoMode(req: NextRequest) {
