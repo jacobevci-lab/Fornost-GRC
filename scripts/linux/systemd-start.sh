@@ -17,8 +17,16 @@ for name in fornost-grc-app fornost-grc-proxy; do
   fi
 done
 
-# Start the application first. Starting an already-running container is harmless.
-"${engine}" start fornost-grc-app >/dev/null
+start_if_needed() {
+  local name="$1" running
+  running="$("${engine}" inspect --format '{{.State.Running}}' "${name}")"
+  if [[ "${running}" != "true" ]]; then
+    "${engine}" start "${name}" >/dev/null
+  fi
+}
+
+# Start the application first.
+start_if_needed fornost-grc-app
 
 # Do not expose the reverse proxy until the app can answer locally from inside
 # its own container. This removes the reboot race where nginx starts before the
@@ -40,7 +48,7 @@ if [[ "${app_ready}" != "true" ]]; then
   exit 70
 fi
 
-"${engine}" start fornost-grc-proxy >/dev/null
+start_if_needed fornost-grc-proxy
 
 if ! wait_for_url "https://127.0.0.1:${https_port}${base_path}/api/auth" 20 2 true; then
   print_runtime_diagnostics "${engine}"
