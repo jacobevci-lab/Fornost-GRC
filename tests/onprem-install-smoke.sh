@@ -74,6 +74,14 @@ while (($#)); do
 done
 if [[ -n "${output}" ]]; then
   printf 'curl %s\n' "${url}" >>"${FORNOST_TEST_LOG}"
+  if [[ "${url}" == *.sha256 && "${FORNOST_TEST_RELEASE_HTTP_FAILURES:-0}" =~ ^[0-9]+$ ]]; then
+    release_http_failures="${FORNOST_TEST_RELEASE_HTTP_FAILURES:-0}"
+    checksum_attempts="$(grep -c '\.sha256$' "${FORNOST_TEST_LOG}" || true)"
+    if ((checksum_attempts <= release_http_failures)); then
+      printf 'curl: (22) The requested URL returned error: 404\n' >&2
+      exit 22
+    fi
+  fi
   if [[ "${url}" == *.sha256 ]]; then
     bundle_sha="$(sha256sum "${FORNOST_TEST_REMOTE_BUNDLE}")"
     printf '%s  fornost-grc-amd64.tar.gz\n' "${bundle_sha%% *}" >"${output}"
@@ -272,6 +280,15 @@ run_remote_install "${cache_case}" podman >"${cache_case}/second.log"
 bundle_downloads="$(grep -c '/fornost-grc-amd64.tar.gz$' "${cache_case}/engine.log" || true)"
 [[ "${bundle_downloads}" == "1" ]] || fail "verified image bundle was downloaded ${bundle_downloads} times instead of once"
 grep -q 'Using the previously downloaded and checksum-verified image bundle' "${cache_case}/second.log" || fail "verified cache reuse was not reported"
+
+release_wait_case="$(make_case release-publish-delay podman 8443 /fornost-grc)"
+FORNOST_TEST_RELEASE_HTTP_FAILURES=2 \
+FORNOST_RELEASE_WAIT_ATTEMPTS=3 \
+FORNOST_RELEASE_WAIT_INTERVAL=0 \
+  run_remote_install "${release_wait_case}" podman >"${release_wait_case}/output.log"
+checksum_downloads="$(grep -c '\.sha256$' "${release_wait_case}/engine.log" || true)"
+[[ "${checksum_downloads}" == "3" ]] || fail "commit release was not retried after a transient 404"
+grep -q 'still being published; waiting for GitHub Release' "${release_wait_case}/output.log" || fail "release publication wait was not explained"
 
 quick_root="${test_root}/quick-install"
 quick_bin="${quick_root}/bin"
