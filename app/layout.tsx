@@ -14,7 +14,6 @@ export const metadata: Metadata = {
   description: "Govern risk, prove compliance and manage resilience from one workspace.",
   applicationName: "Fornost GRC",
   icons: { icon: `${basePath}/favicon.svg` },
-  other: { "codex-preview": "development" },
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
