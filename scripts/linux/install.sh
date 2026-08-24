@@ -41,6 +41,8 @@ tls_key_setting="$(read_setting FORNOST_TLS_KEY_FILE '')"
 tls_hostname="$(read_setting FORNOST_TLS_HOSTNAME '')"
 state_dir_setting="${FORNOST_STATE_DIR:-$(read_setting FORNOST_STATE_DIR '')}"
 minimum_free_mb="${FORNOST_MIN_FREE_MB:-$(read_setting FORNOST_MIN_FREE_MB 8192)}"
+release_wait_attempts="${FORNOST_RELEASE_WAIT_ATTEMPTS:-80}"
+release_wait_interval="${FORNOST_RELEASE_WAIT_INTERVAL:-15}"
 
 [[ "${base_path}" =~ ^/[A-Za-z0-9][A-Za-z0-9/_-]*$ && "${base_path}" != *".."* ]] || {
   echo "FORNOST_BASE_PATH must be a safe path such as /fornost-grc." >&2
@@ -60,6 +62,14 @@ if [[ -n "${tls_cert_setting}" && -z "${tls_key_setting}" ]] || [[ -z "${tls_cer
 fi
 [[ "${minimum_free_mb}" =~ ^[0-9]+$ ]] && ((minimum_free_mb >= 1024)) || {
   echo "FORNOST_MIN_FREE_MB must be an integer of at least 1024." >&2
+  exit 64
+}
+[[ "${release_wait_attempts}" =~ ^[0-9]+$ ]] && ((release_wait_attempts >= 1 && release_wait_attempts <= 240)) || {
+  echo "FORNOST_RELEASE_WAIT_ATTEMPTS must be an integer between 1 and 240." >&2
+  exit 64
+}
+[[ "${release_wait_interval}" =~ ^[0-9]+$ ]] && ((release_wait_interval <= 300)) || {
+  echo "FORNOST_RELEASE_WAIT_INTERVAL must be an integer between 0 and 300 seconds." >&2
   exit 64
 }
 
@@ -131,6 +141,37 @@ else
 fi
 echo "Disk preflight passed: at least ${minimum_free_mb} MiB is available for container installation."
 
+download_commit_release_asset() {
+  local url="$1" output="$2" description="$3"
+  local attempt curl_code error_file="${output}.curl-error"
+
+  for ((attempt = 1; attempt <= release_wait_attempts; attempt++)); do
+    if curl --fail --location --silent --show-error \
+      --retry 4 --retry-connrefused --connect-timeout 15 --max-time 900 \
+      --output "${output}" "${url}" 2>"${error_file}"; then
+      rm -f "${error_file}"
+      return 0
+    else
+      curl_code=$?
+    fi
+
+    rm -f "${output}"
+    if ((curl_code != 22 || attempt == release_wait_attempts)); then
+      [[ -s "${error_file}" ]] && cat "${error_file}" >&2
+      rm -f "${error_file}"
+      echo "Could not download ${description}: ${url}" >&2
+      return "${curl_code}"
+    fi
+
+    if ((attempt == 1)); then
+      echo "The tested image for this commit is still being published; waiting for GitHub Release..."
+    elif ((attempt % 4 == 0)); then
+      echo "Still waiting for the commit-pinned image (${attempt}/${release_wait_attempts})..."
+    fi
+    sleep "${release_wait_interval}"
+  done
+}
+
 install_prebuilt_image() {
   local bundle_file="${FORNOST_APP_BUNDLE_FILE:-}"
   local bundle_url="${FORNOST_APP_BUNDLE_URL:-}"
@@ -160,9 +201,7 @@ install_prebuilt_image() {
     checksum_file="${bundle_file}.sha256"
 
     rm -f "${bundle_file}.part" "${checksum_file}.part"
-    curl --fail --location --silent --show-error \
-      --retry 4 --retry-connrefused --connect-timeout 15 --max-time 60 \
-      --output "${checksum_file}.part" "${checksum_url}"
+    download_commit_release_asset "${checksum_url}" "${checksum_file}.part" "the image checksum"
     mv "${checksum_file}.part" "${checksum_file}"
 
     if [[ -r "${bundle_file}" ]] && (
@@ -173,9 +212,7 @@ install_prebuilt_image() {
     else
       rm -f "${bundle_file}"
       echo "Downloading the tested Fornost GRC image for commit ${release_commit:0:12}..."
-      curl --fail --location --silent --show-error \
-        --retry 4 --retry-connrefused --connect-timeout 15 --max-time 900 \
-        --output "${bundle_file}.part" "${bundle_url}"
+      download_commit_release_asset "${bundle_url}" "${bundle_file}.part" "the application image"
       (
         cd "$(dirname "${bundle_file}")"
         sed "s#  .*#  $(basename "${bundle_file}.part")#" "${checksum_file}" | sha256sum --check --strict -
