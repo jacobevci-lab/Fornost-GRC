@@ -10,6 +10,7 @@ import "./settings.css";
 import "./fornost-refresh.css";
 import "./product-polish.css";
 import "./fornost-premium.css";
+import "./command-center.css";
 import Settings from "./settings";
 import { withBasePath } from "./base-path";
 
@@ -814,7 +815,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
     [importOpen, setImportOpen] = useState(false),
     [previewEvidence, setPreviewEvidence] = useState<Row | null>(null),
     [selectedAudit, setSelectedAudit] = useState(""),
-    [theme, setTheme] = useState<"light" | "dark">("light");
+    [theme, setTheme] = useState<"light" | "dark">("dark");
   const labels = labelMap[lang],
     u = ui[lang];
   linkedRows = rows;
@@ -831,9 +832,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
     setTheme(
       saved === "dark" || saved === "light"
         ? saved
-        : window.matchMedia("(prefers-color-scheme: dark)").matches
-          ? "dark"
-          : "light",
+        : "dark",
     );
   }, []);
   useEffect(() => {
@@ -993,46 +992,57 @@ function FornostApp({ currentUser }: { currentUser: any }) {
               : lang === "tr"
                 ? "Kayıtlarını sade, aranabilir ve raporlanabilir biçimde yönet."
                 : "Manage records in a simple, searchable and reportable format.";
-  const navIcons = ["⌂", "◇", "◫", "▦", "✓", "◎", "◈", "▣", "◉", "↗", "⚙"];
+  const navIcons = ["⌂", "◇", "◫", "▦", "✓", "◎", "◈", "▣", "◉", "↗", "⚙"],
+    navGroups = [
+      { label: lang === "tr" ? "KOMUTA" : "COMMAND", items: modules.slice(0, 1) },
+      { label: lang === "tr" ? "GRC OPERASYONLARI" : "GRC OPERATIONS", items: modules.slice(1, 9) },
+      { label: lang === "tr" ? "YÖNETİM" : "MANAGEMENT", items: modules.slice(9) },
+    ];
   return (
     <div className="shell">
       <aside>
         <div className="brand">
-          <span>N</span>
+          <span>F</span>
           <div>
             <b>Fornost GRC</b>
-            <small>
-              {lang === "tr"
-                ? "Governance · Risk · Compliance"
-                : "Governance · Risk · Compliance"}
-            </small>
+            <small>Governance Command</small>
           </div>
         </div>
         <nav>
-          {modules.map((m, i) => (
-            <button
-              className={active === m ? "active" : ""}
-              onClick={() => {
-                setActive(m);
-                setQuery("");
-                setNotice("");
-              }}
-              key={m}
-            >
-              <i>{navIcons[i]}</i>
-              <span>{names[lang][m]}</span>
-            </button>
+          {navGroups.map((group) => (
+            <div className="nav-section" key={group.label}>
+              <small>{group.label}</small>
+              {group.items.map((m) => {
+                const i = modules.indexOf(m);
+                return (
+                  <button
+                    className={active === m ? "active" : ""}
+                    onClick={() => {
+                      setActive(m);
+                      setQuery("");
+                      setNotice("");
+                    }}
+                    key={m}
+                  >
+                    <i>{navIcons[i]}</i>
+                    <span>{names[lang][m]}</span>
+                    {active === m && <em />}
+                  </button>
+                );
+              })}
+            </div>
           ))}
         </nav>
         <div className="aside-note">
+          <div className="system-state"><i />{lang === "tr" ? "Platform aktif" : "Platform active"}</div>
           <b>{u.tagline}</b>
-          <p>{u.aside}</p>
+          <p>{lang === "tr" ? "Risk, uyum ve dayanıklılık verileri güncel." : "Risk, compliance and resilience data is current."}</p>
         </div>
       </aside>
       <main>
         <header>
-          <div>
-            <small>{u.workspace}</small>
+          <div className="header-title">
+            <small>Fornost / {u.workspace}</small>
             <h1>{names[lang][active]}</h1>
           </div>
           <div className="header-actions">
@@ -1753,124 +1763,76 @@ function Dashboard({
   const by = (m: string) => rows.filter((r) => r.module === m),
     risks = by("Risk Assessment"),
     high = risks.filter((r) => score(r) >= 10),
+    critical = risks.filter((r) => score(r) >= 17),
     assets = by("Varlık Envanteri"),
     bias = by("BIA"),
     compliance = by("Uyum"),
     vendors = by("Tedarikçiler"),
     evidence = by("Kanıtlar"),
+    controls = by("Kontroller"),
+    audits = by("Denetim Yönetimi"),
     compliant = compliance.filter((r) => r.data.status === "Uyumlu").length,
     coverage = compliance.length
       ? Math.round((compliant / compliance.length) * 100)
       : 0,
-    tr = lang === "tr";
+    tr = lang === "tr",
+    today = new Date().toISOString().slice(0, 10),
+    closed = (status: unknown) => ["Kapalı", "Kapatıldı", "Tamamlandı", "Closed", "Completed"].includes(String(status)),
+    overdueAudits = audits.filter((r) => r.data.dueDate && r.data.dueDate < today && !closed(r.data.status)).length,
+    highVendors = vendors.filter((r) => ["Yüksek", "Kritik"].includes(String(r.data.riskLevel))).length,
+    pendingEvidence = audits.filter((r) => r.data.evidenceStatus === "Kanıt Bekleniyor").length,
+    linkedControls = new Set(evidence.map((r) => r.data.controlRef).filter(Boolean)).size,
+    evidenceCoverage = controls.length ? Math.min(100, Math.round((linkedControls / controls.length) * 100)) : 0,
+    riskHealth = risks.length ? Math.max(0, Math.round(((risks.length - high.length) / risks.length) * 100)) : 100,
+    posture = Math.round((coverage + evidenceCoverage + riskHealth) / 3),
+    attention = [
+      { n: critical.length, label: tr ? "Kritik risk karar bekliyor" : "Critical risks need decisions", module: "Risk Assessment", tone: "danger" },
+      { n: overdueAudits, label: tr ? "Gecikmiş denetim maddesi" : "Overdue audit requirements", module: "Denetim Yönetimi", tone: "warning" },
+      { n: pendingEvidence, label: tr ? "Kanıt bekleyen denetim maddesi" : "Audit requirements awaiting evidence", module: "Denetim Yönetimi", tone: "violet" },
+      { n: highVendors, label: tr ? "Yüksek riskli tedarikçi" : "High-risk vendors", module: "Tedarikçiler", tone: "cyan" },
+    ];
   return (
-    <>
-      <section className="welcome">
-        <div>
-          <small>{tr ? "FORNOST GRC GENEL DURUM" : "FORNOST GRC OVERVIEW"}</small>
-          <h2>
-            {tr ? (
-              <>
-                Risk, süreklilik ve uyumu
-                <br />
-                tek ekrandan izle.
-              </>
-            ) : (
-              <>
-                Monitor risk, resilience and compliance
-                <br />
-                from one screen.
-              </>
-            )}
-          </h2>
-          <p>
-            {tr
-              ? "Göstergeler platformdaki gerçek kayıtlardan anlık hesaplanır."
-              : "Metrics are calculated instantly from live platform records."}
-          </p>
+    <div className="command-dashboard">
+      <section className="command-hero">
+        <div className="command-copy">
+          <div className="live-badge"><i />{tr ? "CANLI GRC DURUŞU" : "LIVE GRC POSTURE"}</div>
+          <h2>{tr ? "Riskin, uyumun ve dayanıklılığın tek komuta görünümü." : "One command view for risk, compliance and resilience."}</h2>
+          <p>{tr ? "Kritik kararları öne çıkar, kurumsal duruşu anlık izle ve yönetime kanıtlanabilir bir görünüm sun." : "Surface critical decisions, monitor posture in real time and give leadership an evidence-ready view."}</p>
+          <div className="command-actions">
+            <button className="command-primary" onClick={() => go("Raporlar")}>{tr ? "Yönetim görünümünü aç" : "Open executive view"}<span>↗</span></button>
+            <button className="command-secondary" onClick={() => go("Risk Assessment")}>{tr ? "Risk portföyüne git" : "Go to risk portfolio"}</button>
+          </div>
         </div>
-        <button onClick={() => go("Raporlar")}>
-          {tr ? "Yönetim raporu oluştur →" : "Create management report →"}
-        </button>
+        <div className="posture-card">
+          <div className="posture-dial" style={{ background: `conic-gradient(#8d83ff 0 ${posture}%, rgba(255,255,255,.08) ${posture}% 100%)` }}>
+            <div><b>{posture}</b><span>/ 100</span></div>
+          </div>
+          <div className="posture-copy"><small>{tr ? "KURUMSAL DURUŞ" : "ENTERPRISE POSTURE"}</small><b>{posture >= 75 ? (tr ? "Güçlü" : "Strong") : posture >= 50 ? (tr ? "Gelişiyor" : "Developing") : (tr ? "Aksiyon Gerekli" : "Action Required")}</b><span>{tr ? "Risk · Uyum · Kanıt" : "Risk · Compliance · Evidence"}</span></div>
+        </div>
       </section>
-      <section
-        className="quick-actions"
-        aria-label={tr ? "Hızlı erişim" : "Quick access"}
-      >
-        <button onClick={() => go("Risk Assessment")}>
-          <span>01</span><b>{tr ? "Riskleri yönet" : "Manage risks"}</b>
-          <small>{tr ? "Risk kaydı ve 5×5 matris" : "Risk register and 5×5 matrix"}</small>
-        </button>
-        <button onClick={() => go("Denetim Yönetimi")}>
-          <span>02</span><b>{tr ? "Denetimleri izle" : "Track audits"}</b>
-          <small>{tr ? "Maddeler, kanıtlar ve terminler" : "Requirements, evidence and deadlines"}</small>
-        </button>
-        <button onClick={() => go("Kanıtlar")}>
-          <span>03</span><b>{tr ? "Kanıtları eşleştir" : "Map evidence"}</b>
-          <small>{tr ? "Kontrol ve standart bağlantıları" : "Control and framework links"}</small>
-        </button>
-        <button onClick={() => go("Raporlar")}>
-          <span>04</span><b>{tr ? "Yönetim görünümü" : "Executive view"}</b>
-          <small>{tr ? "Filtrelenebilir anlık rapor" : "Live filterable reporting"}</small>
-        </button>
+
+      <section className="command-stats" aria-label={tr ? "Ana göstergeler" : "Key indicators"}>
+        <CommandStat icon="R" value={high.length} label={tr ? "Yüksek risk maruziyeti" : "High risk exposure"} detail={tr ? `${critical.length} kritik risk` : `${critical.length} critical risks`} tone="rose" />
+        <CommandStat icon="U" value={`${coverage}%`} label={tr ? "Uyum sağlığı" : "Compliance health"} detail={`${compliant}/${compliance.length} ${tr ? "uyumlu kontrol" : "compliant controls"}`} tone="violet" />
+        <CommandStat icon="D" value={overdueAudits} label={tr ? "Gecikmiş denetim maddesi" : "Overdue audit items"} detail={tr ? `${audits.length} toplam madde` : `${audits.length} total items`} tone="amber" />
+        <CommandStat icon="K" value={`${evidenceCoverage}%`} label={tr ? "Kanıt kapsaması" : "Evidence coverage"} detail={tr ? `${linkedControls}/${controls.length} kontrol bağlı` : `${linkedControls}/${controls.length} controls linked`} tone="cyan" />
       </section>
-      <section className="kpis">
-        <Kpi
-          n={risks.length}
-          t={tr ? "Toplam Risk" : "Total Risks"}
-          s={
-            tr ? `${high.length} yüksek/kritik` : `${high.length} high/critical`
-          }
-        />
-        <Kpi
-          n={assets.length}
-          t={tr ? "Varlık" : "Assets"}
-          s={
-            tr
-              ? `${assets.filter((r) => r.data.criticality === "Kritik").length} kritik`
-              : `${assets.filter((r) => r.data.criticality === "Kritik").length} critical`
-          }
-        />
-        <Kpi
-          n={bias.length}
-          t={tr ? "BIA Kaydı" : "BIA Records"}
-          s={
-            tr
-              ? `${bias.filter((r) => r.data.criticality === "Kritik").length} kritik süreç`
-              : `${bias.filter((r) => r.data.criticality === "Kritik").length} critical processes`
-          }
-        />
-        <Kpi
-          n={`${coverage}%`}
-          t={tr ? "Uyum Oranı" : "Compliance Rate"}
-          s={
-            tr
-              ? `${compliant}/${compliance.length} uyumlu`
-              : `${compliant}/${compliance.length} compliant`
-          }
-        />
-        <Kpi
-          n={vendors.length}
-          t={tr ? "Tedarikçi" : "Vendors"}
-          s={
-            tr
-              ? `${vendors.filter((r) => ["Yüksek", "Kritik"].includes(r.data.riskLevel)).length} yüksek riskli`
-              : `${vendors.filter((r) => ["Yüksek", "Kritik"].includes(r.data.riskLevel)).length} high risk`
-          }
-        />
-        <Kpi
-          n={evidence.length}
-          t={tr ? "Kanıt" : "Evidence"}
-          s={
-            tr
-              ? `${new Set(evidence.map((r) => r.data.controlRef).filter(Boolean)).size} kontrole bağlı`
-              : `linked to ${new Set(evidence.map((r) => r.data.controlRef).filter(Boolean)).size} controls`
-          }
-        />
-      </section>
-      <section className="dash-grid">
-        <div className="panel">
-          <h3>{tr ? "Risk Seviyesi Dağılımı" : "Risk Level Distribution"}</h3>
+
+      <section className="command-grid">
+        <div className="command-panel matrix-panel">
+          <div className="command-panel-head"><div><small>{tr ? "RİSK YOĞUNLUĞU" : "RISK DENSITY"}</small><h3>{tr ? "Kurumsal risk matrisi" : "Enterprise risk matrix"}</h3></div><button onClick={() => go("Risk Assessment")}>{tr ? "Tüm riskler" : "All risks"} →</button></div>
+          <div className="matrix-embed"><RiskMatrix rows={risks} lang={lang} /></div>
+        </div>
+
+        <div className="command-panel attention-panel">
+          <div className="command-panel-head"><div><small>{tr ? "DİKKAT KUYRUĞU" : "ATTENTION QUEUE"}</small><h3>{tr ? "Öncelikli aksiyonlar" : "Priority actions"}</h3></div><span>{attention.reduce((sum, x) => sum + x.n, 0)}</span></div>
+          <div className="attention-list">
+            {attention.map((item) => <button key={item.label} onClick={() => go(item.module)}><i className={item.tone}>{item.n}</i><span><b>{item.label}</b><small>{tr ? "İncele ve aksiyon al" : "Review and take action"}</small></span><em>›</em></button>)}
+          </div>
+        </div>
+
+        <div className="command-panel distribution-panel">
+          <div className="command-panel-head"><div><small>{tr ? "PORTFÖY DAĞILIMI" : "PORTFOLIO MIX"}</small><h3>{tr ? "Risk seviyeleri" : "Risk levels"}</h3></div><b>{risks.length}</b></div>
           <Bars
             items={["Kritik", "Yüksek", "Orta", "Düşük"].map((x) => ({
               label: display(x, lang),
@@ -1879,8 +1841,9 @@ function Dashboard({
             }))}
           />
         </div>
-        <div className="panel">
-          <h3>{tr ? "Uyum Durumu" : "Compliance Status"}</h3>
+
+        <div className="command-panel distribution-panel">
+          <div className="command-panel-head"><div><small>{tr ? "KONTROL DURUŞU" : "CONTROL POSTURE"}</small><h3>{tr ? "Uyum görünümü" : "Compliance view"}</h3></div><b>{coverage}%</b></div>
           <Bars
             items={["Uyumlu", "Kısmi", "Açık"].map((x) => ({
               label: display(x, lang),
@@ -1889,45 +1852,56 @@ function Dashboard({
             }))}
           />
         </div>
-        <div className="panel">
-          <h3>{tr ? "Yüksek ve Kritik Riskler" : "High and Critical Risks"}</h3>
+
+        <div className="command-panel priority-risks">
+          <div className="command-panel-head"><div><small>{tr ? "MARUZİYET" : "EXPOSURE"}</small><h3>{tr ? "En yüksek riskler" : "Top risks"}</h3></div><button onClick={() => go("Risk Assessment")}>{tr ? "Portföy" : "Portfolio"} →</button></div>
           {high
             .sort((a, b) => score(b) - score(a))
-            .slice(0, 5)
+            .slice(0, 4)
             .map((r) => (
               <div className="dash-row" key={r.id}>
                 <div>
                   <b>{r.data.title}</b>
-                  <small>
-                    {r.data.owner} · {r.data.businessUnit}
-                  </small>
+                  <small>{r.data.owner} · {r.data.businessUnit}</small>
                 </div>
-                <span className={`risk ${band(score(r)).toLowerCase()}`}>
-                  {score(r)}
-                </span>
+                <span className={`risk ${band(score(r)).toLowerCase()}`}>{score(r)}</span>
               </div>
             ))}
+          {!high.length && <div className="command-empty">{tr ? "Yüksek risk bulunmuyor." : "No high risks found."}</div>}
         </div>
-        <div className="panel">
-          <h3>{tr ? "Kritik İş Süreçleri" : "Critical Business Processes"}</h3>
+
+        <div className="command-panel critical-processes">
+          <div className="command-panel-head"><div><small>{tr ? "DAYANIKLILIK" : "RESILIENCE"}</small><h3>{tr ? "Kritik iş süreçleri" : "Critical processes"}</h3></div><button onClick={() => go("BIA")}>BIA →</button></div>
           {bias
             .filter((r) => r.data.criticality === "Kritik")
-            .slice(0, 5)
+            .slice(0, 4)
             .map((r) => (
               <div className="dash-row" key={r.id}>
                 <div>
                   <b>{r.data.process}</b>
-                  <small>
-                    {r.data.owner} · RTO {r.data.rto} {tr ? "saat" : "hours"}
-                  </small>
+                  <small>{r.data.owner} · RTO {r.data.rto} {tr ? "saat" : "hours"}</small>
                 </div>
                 <span className="tag">{tr ? "Kritik" : "Critical"}</span>
               </div>
             ))}
         </div>
       </section>
-    </>
+
+      <section className="command-launchpad" aria-label={tr ? "Hızlı erişim" : "Quick access"}>
+        <div><small>{tr ? "HIZLI ERİŞİM" : "QUICK ACCESS"}</small><h3>{tr ? "Operasyon merkezleri" : "Operational workspaces"}</h3></div>
+        {[
+          ["Risk Assessment", tr ? "Risk Merkezi" : "Risk Center", tr ? `${risks.length} kayıt` : `${risks.length} records`, "01"],
+          ["Denetim Yönetimi", tr ? "Denetim Merkezi" : "Audit Center", tr ? `${audits.length} madde` : `${audits.length} items`, "02"],
+          ["Kanıtlar", tr ? "Kanıt Kasası" : "Evidence Vault", tr ? `${evidence.length} kanıt` : `${evidence.length} evidence`, "03"],
+          ["Tedarikçiler", tr ? "Tedarikçi Riski" : "Vendor Risk", tr ? `${vendors.length} tedarikçi` : `${vendors.length} vendors`, "04"],
+        ].map(([module, title, detail, no]) => <button key={module} onClick={() => go(module)}><span>{no}</span><div><b>{title}</b><small>{detail}</small></div><em>↗</em></button>)}
+      </section>
+      <div className="command-footnote">{tr ? `${assets.length} varlık · ${bias.length} süreç · ${controls.length} kontrol · veriler anlık hesaplanır` : `${assets.length} assets · ${bias.length} processes · ${controls.length} controls · metrics calculated live`}</div>
+    </div>
   );
+}
+function CommandStat({icon,value,label,detail,tone}:{icon:string;value:number|string;label:string;detail:string;tone:string}){
+ return <article className={`command-stat ${tone}`}><span>{icon}</span><div><b>{value}</b><strong>{label}</strong><small>{detail}</small></div><i /></article>;
 }
 function Kpi({ n, t, s }: { n: number | string; t: string; s: string }) {
   return (
