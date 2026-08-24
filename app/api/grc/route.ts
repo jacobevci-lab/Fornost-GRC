@@ -3,6 +3,7 @@ import { requireRole } from "../auth/security";
 import { demoSeeds } from "./demo-seeds";
 
 const table=`CREATE TABLE IF NOT EXISTS simple_grc_records (id TEXT PRIMARY KEY,module TEXT NOT NULL,data_json TEXT NOT NULL,created_at TEXT NOT NULL,updated_at TEXT NOT NULL)`;
+const metadataTable=`CREATE TABLE IF NOT EXISTS simple_grc_metadata (key TEXT PRIMARY KEY,value TEXT NOT NULL,updated_at TEXT NOT NULL)`;
 const modules=["Risk Assessment","BIA","Varlık Envanteri","Uyum","Tedarikçiler","Kontroller","Kanıtlar","Denetim Yönetimi"] as const;
 type ModuleName=(typeof modules)[number];
 type Data=Record<string,unknown>;
@@ -18,7 +19,9 @@ const required:Record<ModuleName,string[]>={
 };
 const prefixes:Record<ModuleName,string>={"Risk Assessment":"RSK",BIA:"BIA","Varlık Envanteri":"AST",Uyum:"CMP",Tedarikçiler:"VEN",Kontroller:"CTL",Kanıtlar:"EVD","Denetim Yönetimi":"AUD"};
 const seeds:[string,ModuleName,Data][]=demoSeeds;
-async function db(){const {env}=await import("cloudflare:workers");await env.DB.prepare(table).run();return env.DB}
+const demoSeedMarker="demo_seed_initialized";
+async function db(){const {env}=await import("cloudflare:workers");await env.DB.batch([env.DB.prepare(table),env.DB.prepare(metadataTable)]);return env.DB}
+export function shouldInsertDemoSeeds(marker:unknown,total:number){return !marker&&total===0}
 export function cleanText(value:unknown,max=1000){return typeof value==="string"?value.trim().slice(0,max):value}
 export function validModule(value:unknown):value is ModuleName{return typeof value==="string"&&modules.includes(value as ModuleName)}
 export function validDate(value:unknown){
@@ -47,7 +50,7 @@ export function validate(module:unknown,input:unknown){
 }
 function readJson(req:NextRequest){const len=Number(req.headers.get("content-length")||0);if(len>2_000_000)throw new Error("PAYLOAD_TOO_LARGE");return req.json()}
 
-export async function GET(req:NextRequest){const auth=await requireRole(req,["Admin","Editor","Viewer"]);if(auth.response)return auth.response;const d=await db();const c=await d.prepare("SELECT COUNT(*) total FROM simple_grc_records").first<{total:number}>(),now=new Date().toISOString();if(!c?.total||seeds.length===96){await d.batch(seeds.map(s=>d.prepare("INSERT OR IGNORE INTO simple_grc_records(id,module,data_json,created_at,updated_at) VALUES(?,?,?,?,?)").bind(s[0],s[1],JSON.stringify(s[2]),now,now)))}else{const auditCount=await d.prepare("SELECT COUNT(*) total FROM simple_grc_records WHERE module='Denetim Yönetimi'").first<{total:number}>();if(!auditCount?.total){const sample=seeds.find(s=>s[1]==="Denetim Yönetimi");if(sample)await d.prepare("INSERT OR IGNORE INTO simple_grc_records(id,module,data_json,created_at,updated_at) VALUES(?,?,?,?,?)").bind(sample[0],sample[1],JSON.stringify(sample[2]),now,now).run()}}const demoEvidence=seeds.filter(s=>s[1]==="Kanıtlar"&&String(s[0]).startsWith("EVD-"));await d.batch(demoEvidence.map(s=>d.prepare("UPDATE simple_grc_records SET data_json=?,updated_at=? WHERE id=? AND module=\'Kanıtlar\'").bind(JSON.stringify(s[2]),now,s[0])));const r=await d.prepare("SELECT * FROM simple_grc_records ORDER BY updated_at DESC LIMIT 5000").all<Record<string,unknown>>();const rows=r.results.map(row=>{if(row.module!=="Risk Assessment")return row;try{const data=JSON.parse(String(row.data_json)) as Data;if(data.inherentLikelihood===undefined&&data.likelihood!==undefined)data.inherentLikelihood=data.likelihood;if(data.inherentImpact===undefined&&data.impact!==undefined)data.inherentImpact=data.impact;delete data.likelihood;delete data.impact;return {...row,data_json:JSON.stringify(data)}}catch{return row}});return NextResponse.json({rows})}
+export async function GET(req:NextRequest){const auth=await requireRole(req,["Admin","Editor","Viewer"]);if(auth.response)return auth.response;const d=await db();const marker=await d.prepare("SELECT value FROM simple_grc_metadata WHERE key=?").bind(demoSeedMarker).first<{value:string}>(),c=await d.prepare("SELECT COUNT(*) total FROM simple_grc_records").first<{total:number}>(),now=new Date().toISOString();if(shouldInsertDemoSeeds(marker,Number(c?.total||0))){await d.batch(seeds.map(s=>d.prepare("INSERT OR IGNORE INTO simple_grc_records(id,module,data_json,created_at,updated_at) VALUES(?,?,?,?,?)").bind(s[0],s[1],JSON.stringify(s[2]),now,now)))}if(!marker){await d.prepare("INSERT OR REPLACE INTO simple_grc_metadata(key,value,updated_at) VALUES(?,?,?)").bind(demoSeedMarker,"1",now).run()}const r=await d.prepare("SELECT * FROM simple_grc_records ORDER BY updated_at DESC LIMIT 5000").all<Record<string,unknown>>();const rows=r.results.map(row=>{if(row.module!=="Risk Assessment")return row;try{const data=JSON.parse(String(row.data_json)) as Data;if(data.inherentLikelihood===undefined&&data.likelihood!==undefined)data.inherentLikelihood=data.likelihood;if(data.inherentImpact===undefined&&data.impact!==undefined)data.inherentImpact=data.impact;delete data.likelihood;delete data.impact;return {...row,data_json:JSON.stringify(data)}}catch{return row}});return NextResponse.json({rows})}
 export async function POST(req:NextRequest){
  const auth=await requireRole(req,["Admin","Editor"]);if(auth.response)return auth.response;
  try{
