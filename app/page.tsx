@@ -857,10 +857,11 @@ function FornostApp({ currentUser }: { currentUser: any }) {
       const r = await fetch(withBasePath("/api/grc"));
       if (r.ok) {
         const j = await r.json();
-        if (j.rows?.length)
-          setRows(
-            j.rows.map((x: any) => ({ ...x, data: JSON.parse(x.data_json) })),
-          );
+        setRows(
+          Array.isArray(j.rows)
+            ? j.rows.map((x: any) => ({ ...x, data: JSON.parse(x.data_json) }))
+            : [],
+        );
       }
     } catch {}
   }
@@ -938,8 +939,17 @@ function FornostApp({ currentUser }: { currentUser: any }) {
       !confirm(lang === "tr" ? "Bu kayıt silinsin mi?" : "Delete this record?")
     )
       return;
-    await fetch(withBasePath(`/api/grc?id=${id}`), { method: "DELETE" });
-    await load();
+    const r = await fetch(withBasePath(`/api/grc?id=${id}`), { method: "DELETE" });
+    if (r.ok) {
+      await load();
+      setNotice(lang === "tr" ? "Kayıt silindi." : "Record deleted.");
+      return;
+    }
+    const j = await r.json().catch(() => ({}));
+    setNotice(
+      j.error ||
+        (lang === "tr" ? "Kayıt silinemedi." : "Record could not be deleted."),
+    );
   }
   async function uploadEvidence(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
