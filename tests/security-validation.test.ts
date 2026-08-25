@@ -4,6 +4,8 @@ import { NextRequest } from "next/server";
 import { constantTimeEqual, demoAccount, PBKDF2_ITERATIONS, requestIsSecure, sameOrigin, validPassword } from "../app/api/auth/security";
 import { cleanText, validDate, validModule, validate } from "../app/api/grc/route";
 import { calculatedRiskScore, effectiveImpact } from "../app/risk-methodology";
+import { isCatalogKey } from "../app/catalogs";
+import { validCatalogValue } from "../app/api/catalogs/route";
 
 test("password policy accepts strong passwords and rejects weak inputs", () => {
   assert.equal(validPassword("Strong-Passphrase-2026!"), true);
@@ -70,6 +72,7 @@ test("module allowlist rejects unknown modules", () => {
 test("risk validation enforces required fields and score boundaries", () => {
   const validRisk = {
     title: "Test riski", businessUnit: "BT", owner: "Bilgi Güvenliği",
+    category: "Siber Güvenlik", asset: "Microsoft Entra ID",
     inherentLikelihood: 3, inherentImpact: 5, treatment: "Azalt",
     confidentialityImpact: 4, integrityImpact: 5, availabilityImpact: 3,
     status: "Açık", nextReview: "2026-12-31",
@@ -78,6 +81,15 @@ test("risk validation enforces required fields and score boundaries", () => {
   assert.match(String((validate("Risk Assessment", { ...validRisk, inherentImpact: 6 }) as {error:string}).error), /1-5/);
   assert.match(String((validate("Risk Assessment", { ...validRisk, confidentialityImpact: 0 }) as {error:string}).error), /1-5/);
   assert.match(String((validate("Risk Assessment", { ...validRisk, title: "" }) as {error:string}).error), /title/);
+  assert.match(String((validate("Risk Assessment", { ...validRisk, asset: "" }) as {error:string}).error), /asset/);
+});
+
+test("catalog allowlist and values reject unknown or unsafe master data", () => {
+  assert.equal(isCatalogKey("riskCategories"), true);
+  assert.equal(isCatalogKey("adminRoles"), false);
+  assert.equal(validCatalogValue("Yeni Kategori"), true);
+  assert.equal(validCatalogValue("x"), false);
+  assert.equal(validCatalogValue("x".repeat(101)), false);
 });
 
 test("CIA high-water mark drives the effective impact without double counting", () => {
