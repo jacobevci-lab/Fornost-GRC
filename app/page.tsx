@@ -14,6 +14,7 @@ import "./command-center.css";
 import "./cockpit.css";
 import Settings from "./settings";
 import { withBasePath } from "./base-path";
+import { calculatedRiskScore, effectiveImpact } from "./risk-methodology";
 
 type Lang = "tr" | "en";
 type Row = {
@@ -147,6 +148,10 @@ Object.assign(labelMap.tr, {
   consequence: "Muhtemel Sonuç",
   inherentLikelihood: "Doğal Risk Olasılığı (1-5)",
   inherentImpact: "Doğal Risk Etkisi (1-5)",
+  confidentialityImpact: "Gizlilik Etkisi (1-5)",
+  integrityImpact: "Bütünlük Etkisi (1-5)",
+  availabilityImpact: "Erişilebilirlik Etkisi (1-5)",
+  calculatedImpact: "Hesaplanan Etki",
   existingControls: "Mevcut Kontroller",
   plannedAction: "Planlanan Aksiyon",
   actionOwner: "Aksiyon Sahibi",
@@ -173,6 +178,30 @@ Object.assign(labelMap.tr, {
   edrStatus: "EDR Kapsamı",
   siemStatus: "SIEM / Log Kapsamı",
   vulnScan: "Zafiyet Taraması Kapsamı",
+  peakPeriod: "Kritik / Yoğun Dönem",
+  peopleDependency: "Kritik Personel / Rol Bağımlılığı",
+  technologyDependency: "Teknoloji / Sistem Bağımlılığı",
+  facilityDependency: "Lokasyon / Tesis Bağımlılığı",
+  supplierDependency: "Tedarikçi Bağımlılığı",
+  regulatoryDeadline: "Yasal / Düzenleyici Zaman Sınırı",
+  recoveryStrategy: "Kurtarma Stratejisi",
+  singlePointOfFailure: "Tek Hata Noktası Var",
+  approver: "BIA Onaylayan",
+  approvalDate: "BIA Onay Tarihi",
+  assetId: "Varlık Envanter Kodu",
+  custodian: "Varlık Sorumlusu / Custodian",
+  vendor: "Üretici / Tedarikçi",
+  confidentialityRating: "Gizlilik Değeri (1-5)",
+  integrityRating: "Bütünlük Değeri (1-5)",
+  availabilityRating: "Erişilebilirlik Değeri (1-5)",
+  regulatoryScope: "Yasal / Düzenleyici Kapsam",
+  retentionPeriod: "Saklama Süresi",
+  version: "Sürüm / Model",
+  lifecycleStage: "Yaşam Döngüsü Aşaması",
+  acquisitionDate: "Edinim / Devreye Alma Tarihi",
+  encryptionStatus: "Şifreleme Durumu",
+  accessReviewStatus: "Erişim Gözden Geçirme",
+  patchStatus: "Yama Güncelliği",
 });
 Object.assign(labelMap.en, {
   processLink: "Related Process / BIA",
@@ -182,6 +211,10 @@ Object.assign(labelMap.en, {
   consequence: "Potential Consequence",
   inherentLikelihood: "Inherent Likelihood (1-5)",
   inherentImpact: "Inherent Impact (1-5)",
+  confidentialityImpact: "Confidentiality Impact (1-5)",
+  integrityImpact: "Integrity Impact (1-5)",
+  availabilityImpact: "Availability Impact (1-5)",
+  calculatedImpact: "Calculated Impact",
   existingControls: "Existing Controls",
   plannedAction: "Planned Action",
   actionOwner: "Action Owner",
@@ -208,6 +241,30 @@ Object.assign(labelMap.en, {
   edrStatus: "EDR Coverage",
   siemStatus: "SIEM / Log Coverage",
   vulnScan: "Vulnerability Scan Scope",
+  peakPeriod: "Peak / Critical Period",
+  peopleDependency: "Critical People / Role Dependency",
+  technologyDependency: "Technology / System Dependency",
+  facilityDependency: "Facility / Location Dependency",
+  supplierDependency: "Supplier Dependency",
+  regulatoryDeadline: "Regulatory Deadline",
+  recoveryStrategy: "Recovery Strategy",
+  singlePointOfFailure: "Single Point of Failure",
+  approver: "BIA Approver",
+  approvalDate: "BIA Approval Date",
+  assetId: "Asset Inventory ID",
+  custodian: "Asset Custodian",
+  vendor: "Manufacturer / Vendor",
+  confidentialityRating: "Confidentiality Value (1-5)",
+  integrityRating: "Integrity Value (1-5)",
+  availabilityRating: "Availability Value (1-5)",
+  regulatoryScope: "Legal / Regulatory Scope",
+  retentionPeriod: "Retention Period",
+  version: "Version / Model",
+  lifecycleStage: "Lifecycle Stage",
+  acquisitionDate: "Acquisition / Go-live Date",
+  encryptionStatus: "Encryption Status",
+  accessReviewStatus: "Access Review",
+  patchStatus: "Patch Status",
 });
 Object.assign(labelMap.tr, { ownerEmail: "Risk Sahibi E-posta Adresi" });
 Object.assign(labelMap.en, { ownerEmail: "Risk Owner Email Address" });
@@ -399,6 +456,10 @@ const fields: Record<string, string[]> = {
     "processLink",
     "inherentLikelihood",
     "inherentImpact",
+    "confidentialityImpact",
+    "integrityImpact",
+    "availabilityImpact",
+    "calculatedImpact",
     "treatment",
     "existingControls",
     "plannedAction",
@@ -416,6 +477,12 @@ const fields: Record<string, string[]> = {
     "criticality",
     "asset",
     "dependencies",
+    "peakPeriod",
+    "peopleDependency",
+    "technologyDependency",
+    "facilityDependency",
+    "supplierDependency",
+    "regulatoryDeadline",
     "financial",
     "operational",
     "legal",
@@ -427,23 +494,39 @@ const fields: Record<string, string[]> = {
     "rpo",
     "minimumService",
     "manualWorkaround",
+    "recoveryStrategy",
+    "singlePointOfFailure",
     "drStatus",
     "lastTestDate",
     "testResult",
     "nextTestDate",
     "lastReview",
+    "nextReview",
+    "approver",
+    "approvalDate",
   ],
   "Varlık Envanteri": [
     "title",
+    "assetId",
     "assetType",
     "description",
     "businessUnit",
     "owner",
     "technicalOwner",
+    "custodian",
+    "vendor",
     "criticality",
     "dataClassification",
+    "confidentialityRating",
+    "integrityRating",
+    "availabilityRating",
+    "regulatoryScope",
+    "retentionPeriod",
     "environment",
     "location",
+    "version",
+    "lifecycleStage",
+    "acquisitionDate",
     "ip",
     "internetFacing",
     "personalData",
@@ -453,8 +536,14 @@ const fields: Record<string, string[]> = {
     "edrStatus",
     "siemStatus",
     "vulnScan",
+    "encryptionStatus",
+    "accessReviewStatus",
+    "patchStatus",
+    "dependencies",
     "processLink",
     "status",
+    "lastReview",
+    "nextReview",
   ],
   Uyum: [
     "framework",
@@ -701,16 +790,10 @@ const valueEN: Record<string, string> = {
 const display = (v: any, lang: Lang) =>
   lang === "en" ? valueEN[String(v)] || v : v;
 function score(r: Row) {
-  return (
-    Number(r.data.inherentLikelihood || r.data.likelihood || 0) *
-    Number(r.data.inherentImpact || r.data.impact || 0)
-  );
+  return calculatedRiskScore(r.data);
 }
 function inherentScore(r: Row) {
-  return (
-    Number(r.data.inherentLikelihood || r.data.likelihood || 0) *
-    Number(r.data.inherentImpact || r.data.impact || 0)
-  );
+  return calculatedRiskScore(r.data);
 }
 function band(n: number) {
   return n >= 17 ? "Kritik" : n >= 10 ? "Yüksek" : n >= 5 ? "Orta" : "Düşük";
@@ -1532,6 +1615,12 @@ function Field({
     impact: scores,
     inherentLikelihood: scores,
     inherentImpact: scores,
+    confidentialityImpact: scores,
+    integrityImpact: scores,
+    availabilityImpact: scores,
+    confidentialityRating: scores,
+    integrityRating: scores,
+    availabilityRating: scores,
     financial: scores,
     operational: scores,
     legal: scores,
@@ -1588,10 +1677,15 @@ function Field({
     personalData: yesNo,
     criticalService: yesNo,
     manualWorkaround: yesNo,
+    singlePointOfFailure: yesNo,
     backupStatus: coverage,
     edrStatus: coverage,
     siemStatus: coverage,
     vulnScan: coverage,
+    encryptionStatus: ["Kapsamda", "Kısmi", "Kapsam Dışı", "Bilinmiyor"],
+    accessReviewStatus: ["Güncel", "Gecikmiş", "Planlandı", "Bilinmiyor"],
+    patchStatus: ["Güncel", "Gecikmiş", "Muaf", "Bilinmiyor"],
+    lifecycleStage: ["Planlama", "Aktif", "Bakım", "Kullanımdan Kaldırma", "Arşiv"],
     drStatus: ["Mevcut", "Kısmi", "Mevcut Değil", "Bilinmiyor"],
     testResult: ["Başarılı", "Kısmen Başarılı", "Başarısız", "Test Edilmedi"],
     status: [
@@ -1615,6 +1709,17 @@ function Field({
   const value = form[k] || "",
     change = (v: string) => setForm({ ...form, [k]: v }),
     u = ui[lang];
+  if (k === "calculatedImpact") {
+    const impact = effectiveImpact(form), likelihood = Number(form.inherentLikelihood || 0), total = likelihood * impact;
+    return (
+      <div className="wide cia-calculation">
+        <div><small>{lang === "tr" ? "GİZLİLİK" : "CONFIDENTIALITY"}</small><b>{form.confidentialityImpact || "—"}</b></div>
+        <div><small>{lang === "tr" ? "BÜTÜNLÜK" : "INTEGRITY"}</small><b>{form.integrityImpact || "—"}</b></div>
+        <div><small>{lang === "tr" ? "ERİŞİLEBİLİRLİK" : "AVAILABILITY"}</small><b>{form.availabilityImpact || "—"}</b></div>
+        <div className="cia-result"><small>{lang === "tr" ? "ETKİN ETKİ / RİSK SKORU" : "EFFECTIVE IMPACT / RISK SCORE"}</small><b>{impact || "—"} / {total || "—"}</b><span>{total ? display(band(total), lang) : (lang === "tr" ? "CIA değerlerini girin" : "Enter CIA values")}</span></div>
+      </div>
+    );
+  }
   if (k === "frameworks") {
     const selected = String(value)
         .split(",")
@@ -1665,6 +1770,12 @@ function Field({
     "existingControls",
     "plannedAction",
     "dependencies",
+    "peopleDependency",
+    "technologyDependency",
+    "facilityDependency",
+    "supplierDependency",
+    "recoveryStrategy",
+    "regulatoryScope",
     "minimumService",
     "requirementTitle",
     "responsibleNote",
@@ -1683,6 +1794,8 @@ function Field({
     "startDate",
     "endDate",
     "dueDate",
+    "approvalDate",
+    "acquisitionDate",
   ];
   const numberFields = ["rto", "rpo", "mtpd", "progress"];
   if (k === "asset" || k === "processLink") {
@@ -2180,7 +2293,7 @@ function RiskMatrix({ rows, lang }: { rows: Row[]; lang: Lang }) {
       rows.filter(
         (r) =>
           Number(r.data.inherentLikelihood || r.data.likelihood) === l &&
-          Number(r.data.inherentImpact || r.data.impact) === i,
+          effectiveImpact(r.data) === i,
       ).length,
     tr = lang === "tr";
   return (
@@ -2212,7 +2325,7 @@ function RiskMatrix({ rows, lang }: { rows: Row[]; lang: Lang }) {
             <em key={i}>{i}</em>
           ))}
         </div>
-        <b className="axis x">{tr ? "Etki" : "Impact"}</b>
+        <b className="axis x">{tr ? "Hesaplanan Etki" : "Calculated Impact"}</b>
       </div>
     </section>
   );
@@ -2357,7 +2470,7 @@ function RiskRegister({
           const il = Number(
               r.data.inherentLikelihood || r.data.likelihood || 0,
             ),
-            ii = Number(r.data.inherentImpact || r.data.impact || 0),
+            ii = effectiveImpact(r.data),
             is = il * ii;
           return (
             <tr key={r.id} onDoubleClick={() => edit(r)}>
@@ -2373,6 +2486,9 @@ function RiskRegister({
               <td>{r.data.owner || "—"}</td>
               <td>
                 <RiskScore l={il} i={ii} n={is} lang={lang} />
+                <small className="cia-summary">
+                  {tr ? "G/B/E" : "C/I/A"}: {r.data.confidentialityImpact || "—"} / {r.data.integrityImpact || "—"} / {r.data.availabilityImpact || "—"}
+                </small>
               </td>
               <td>{display(r.data.treatment, lang) || "—"}</td>
               <td>{display(r.data.status, lang) || "—"}</td>
@@ -2698,6 +2814,7 @@ const registerColumns: Record<
     { key: "businessImpact", tr: "İş Etkisi", en: "Business Impact" },
     { key: "mtpd", tr: "MTPD / MAO", en: "MTPD / MAO" },
     { key: "recovery", tr: "RTO / RPO", en: "RTO / RPO" },
+    { key: "biaGovernance", tr: "Yönetişim", en: "Governance" },
     { key: "readiness", tr: "Kurtarma Hazırlığı", en: "Recovery Readiness" },
     { key: "test", tr: "Son Test / Durum", en: "Last Test / Status" },
   ],
@@ -2707,6 +2824,7 @@ const registerColumns: Record<
     { key: "ownership", tr: "İş Birimi / Sahip", en: "Business Unit / Owner" },
     { key: "criticality", tr: "Kritiklik", en: "Criticality" },
     { key: "dataClassification", tr: "Veri Sınıfı", en: "Data Class" },
+    { key: "cia", tr: "G / B / E", en: "C / I / A" },
     { key: "exposure", tr: "Maruziyet", en: "Exposure" },
     { key: "coverage", tr: "Güvenlik Kapsamı", en: "Security Coverage" },
     { key: "lifecycle", tr: "Yaşam Döngüsü", en: "Lifecycle" },
@@ -2920,6 +3038,13 @@ function SmartCell({
         <small>RPO {d.rpo || "—"}h</small>
       </div>
     );
+  if (column === "biaGovernance")
+    return (
+      <div className="stack">
+        <b>{d.approver || (tr ? "Onay bekliyor" : "Awaiting approval")}</b>
+        <small>{d.approvalDate || d.nextReview || "—"}</small>
+      </div>
+    );
   if (column === "readiness")
     return (
       <div className="readiness">
@@ -2971,6 +3096,14 @@ function SmartCell({
         <span className={d.personalData === "Evet" ? "warn" : "ok"}>
           {tr ? "KV" : "PD"}
         </span>
+      </div>
+    );
+  if (column === "cia")
+    return (
+      <div className="readiness cia-pills">
+        <span className="ok">{tr ? "G" : "C"} {d.confidentialityRating || "—"}</span>
+        <span className="ok">{tr ? "B" : "I"} {d.integrityRating || "—"}</span>
+        <span className="ok">E {d.availabilityRating || "—"}</span>
       </div>
     );
   if (column === "coverage")
