@@ -3,6 +3,7 @@ import test from "node:test";
 import { NextRequest } from "next/server";
 import { constantTimeEqual, demoAccount, PBKDF2_ITERATIONS, requestIsSecure, sameOrigin, validPassword } from "../app/api/auth/security";
 import { cleanText, validDate, validModule, validate } from "../app/api/grc/route";
+import { calculatedRiskScore, effectiveImpact } from "../app/risk-methodology";
 
 test("password policy accepts strong passwords and rejects weak inputs", () => {
   assert.equal(validPassword("Strong-Passphrase-2026!"), true);
@@ -70,11 +71,20 @@ test("risk validation enforces required fields and score boundaries", () => {
   const validRisk = {
     title: "Test riski", businessUnit: "BT", owner: "Bilgi Güvenliği",
     inherentLikelihood: 3, inherentImpact: 5, treatment: "Azalt",
+    confidentialityImpact: 4, integrityImpact: 5, availabilityImpact: 3,
     status: "Açık", nextReview: "2026-12-31",
   };
   assert.deepEqual(validate("Risk Assessment", validRisk), { module: "Risk Assessment", data: validRisk });
   assert.match(String((validate("Risk Assessment", { ...validRisk, inherentImpact: 6 }) as {error:string}).error), /1-5/);
+  assert.match(String((validate("Risk Assessment", { ...validRisk, confidentialityImpact: 0 }) as {error:string}).error), /1-5/);
   assert.match(String((validate("Risk Assessment", { ...validRisk, title: "" }) as {error:string}).error), /title/);
+});
+
+test("CIA high-water mark drives the effective impact without double counting", () => {
+  const risk = { inherentLikelihood: 4, inherentImpact: 2, confidentialityImpact: 3, integrityImpact: 5, availabilityImpact: 4 };
+  assert.equal(effectiveImpact(risk), 5);
+  assert.equal(calculatedRiskScore(risk), 20);
+  assert.equal(calculatedRiskScore({ inherentLikelihood: 3, inherentImpact: 4 }), 12);
 });
 
 test("audit validation enforces progress and chronological dates", () => {
