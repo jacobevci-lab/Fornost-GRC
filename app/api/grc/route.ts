@@ -8,8 +8,8 @@ const modules=["Risk Assessment","BIA","Varlık Envanteri","Uyum","Tedarikçiler
 type ModuleName=(typeof modules)[number];
 type Data=Record<string,unknown>;
 const required:Record<ModuleName,string[]>={
- "Risk Assessment":["title","businessUnit","owner","inherentLikelihood","inherentImpact","treatment","status","nextReview"],
- BIA:["process","businessUnit","owner","criticality","rto","rpo"],
+ "Risk Assessment":["title","category","businessUnit","owner","asset","inherentLikelihood","inherentImpact","treatment","status","nextReview"],
+ BIA:["process","processCategory","businessUnit","owner","criticality","asset","rto","rpo"],
  "Varlık Envanteri":["title","assetType","businessUnit","owner","criticality","status"],
  Uyum:["framework","controlRef","controlTitle","owner","status"],
  Tedarikçiler:["title","service","owner","criticality","riskLevel","status"],
@@ -45,6 +45,7 @@ export function validate(module:unknown,input:unknown){
  const source=input as Data,data:Data={};
  for(const [key,value] of Object.entries(source)){if(key.length>60)continue;data[key]=cleanText(value)}
  if(module==="Risk Assessment"){delete data.likelihood;delete data.impact}
+ if(module==="BIA"&&!data.processCategory)data.processCategory="Operasyonel Süreç";
  const missing=required[module].filter(key=>data[key]===undefined||data[key]===null||data[key]==="");
  if(missing.length)return {error:`Zorunlu alanlar eksik: ${missing.join(", ")}`};
  for(const key of ["inherentLikelihood","inherentImpact","confidentialityImpact","integrityImpact","availabilityImpact","confidentialityRating","integrityRating","availabilityRating","financial","operational","legal","reputation","customer","dataImpact"]){
@@ -60,7 +61,7 @@ export function validate(module:unknown,input:unknown){
 }
 function readJson(req:NextRequest){const len=Number(req.headers.get("content-length")||0);if(len>2_000_000)throw new Error("PAYLOAD_TOO_LARGE");return req.json()}
 
-export async function GET(req:NextRequest){const auth=await requireRole(req,["Admin","Editor","Viewer"]);if(auth.response)return auth.response;const d=await db();const marker=await d.prepare("SELECT value FROM simple_grc_metadata WHERE key=?").bind(demoSeedMarker).first<{value:string}>(),c=await d.prepare("SELECT COUNT(*) total FROM simple_grc_records").first<{total:number}>(),now=new Date().toISOString();if(shouldInsertDemoSeeds(marker,Number(c?.total||0))){await d.batch(seeds.map(s=>d.prepare("INSERT OR IGNORE INTO simple_grc_records(id,module,data_json,created_at,updated_at) VALUES(?,?,?,?,?)").bind(s[0],s[1],JSON.stringify(s[2]),now,now)))}if(!marker){await d.prepare("INSERT OR REPLACE INTO simple_grc_metadata(key,value,updated_at) VALUES(?,?,?)").bind(demoSeedMarker,"1",now).run()}await applyListedCompanyAssets(d,now);const r=await d.prepare("SELECT * FROM simple_grc_records ORDER BY updated_at DESC LIMIT 5000").all<Record<string,unknown>>();const rows=r.results.map(row=>{if(row.module!=="Risk Assessment")return row;try{const data=JSON.parse(String(row.data_json)) as Data;if(data.inherentLikelihood===undefined&&data.likelihood!==undefined)data.inherentLikelihood=data.likelihood;if(data.inherentImpact===undefined&&data.impact!==undefined)data.inherentImpact=data.impact;delete data.likelihood;delete data.impact;return {...row,data_json:JSON.stringify(data)}}catch{return row}});return NextResponse.json({rows})}
+export async function GET(req:NextRequest){const auth=await requireRole(req,["Admin","Editor","Viewer"]);if(auth.response)return auth.response;const d=await db();const marker=await d.prepare("SELECT value FROM simple_grc_metadata WHERE key=?").bind(demoSeedMarker).first<{value:string}>(),c=await d.prepare("SELECT COUNT(*) total FROM simple_grc_records").first<{total:number}>(),now=new Date().toISOString();if(shouldInsertDemoSeeds(marker,Number(c?.total||0))){await d.batch(seeds.map(s=>d.prepare("INSERT OR IGNORE INTO simple_grc_records(id,module,data_json,created_at,updated_at) VALUES(?,?,?,?,?)").bind(s[0],s[1],JSON.stringify(s[2]),now,now)))}if(!marker){await d.prepare("INSERT OR REPLACE INTO simple_grc_metadata(key,value,updated_at) VALUES(?,?,?)").bind(demoSeedMarker,"1",now).run()}await applyListedCompanyAssets(d,now);const r=await d.prepare("SELECT * FROM simple_grc_records ORDER BY updated_at DESC LIMIT 5000").all<Record<string,unknown>>();const rows=r.results.map(row=>{try{const data=JSON.parse(String(row.data_json)) as Data;if(row.module==="Risk Assessment"){if(data.inherentLikelihood===undefined&&data.likelihood!==undefined)data.inherentLikelihood=data.likelihood;if(data.inherentImpact===undefined&&data.impact!==undefined)data.inherentImpact=data.impact;delete data.likelihood;delete data.impact}if(row.module==="BIA"&&!data.processCategory)data.processCategory="Operasyonel Süreç";return {...row,data_json:JSON.stringify(data)}}catch{return row}});return NextResponse.json({rows})}
 export async function POST(req:NextRequest){
  const auth=await requireRole(req,["Admin","Editor"]);if(auth.response)return auth.response;
  try{
