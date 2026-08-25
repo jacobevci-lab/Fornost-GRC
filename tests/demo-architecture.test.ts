@@ -4,12 +4,13 @@ import { access,readFile } from "node:fs/promises";
 import { demoSeeds } from "../app/api/grc/demo-seeds";
 import { shouldInsertDemoSeeds,validate } from "../app/api/grc/route";
 
-test("demo portfolio contains exactly 12 records in every data module",()=>{
- assert.equal(demoSeeds.length,96);
+test("demo portfolio keeps 12 records per module and a broader listed-company asset inventory",()=>{
+ assert.equal(demoSeeds.length,108);
  const counts=new Map<string,number>();
  for(const [,module] of demoSeeds)counts.set(module,(counts.get(module)||0)+1);
  assert.equal(counts.size,8);
- for(const count of counts.values())assert.equal(count,12);
+ assert.equal(counts.get("Varlık Envanteri"),24);
+ for(const [module,count] of counts)if(module!=="Varlık Envanteri")assert.equal(count,12);
 });
 
 test("demo identifiers are unique and every row passes API validation",()=>{
@@ -39,6 +40,13 @@ test("demo values cover the principal choice states used by dashboards",()=>{
  assert.ok(values("Kontroller","frequency").size>=6);
  assert.ok(values("Kanıtlar","status").size>=3);
  assert.ok(values("Denetim Yönetimi","status").size>=4);
+});
+
+test("listed-company demo data covers HR, KAP, governance and financial reporting",()=>{
+ const assetNames=new Set(demoSeeds.filter(([,module])=>module==="Varlık Envanteri").map(([, ,data])=>data.title));
+ const categories=new Set(demoSeeds.filter(([,module])=>module==="Risk Assessment").map(([, ,data])=>data.category));
+ for(const asset of ["İK Yönetim Sistemi","KAP Bildirim Süreci","Finansal Raporlama ve Konsolidasyon","Yönetim Kurulu ve Komite Kayıtları"])assert.ok(assetNames.has(asset));
+ for(const category of ["İnsan Kaynakları","Sermaye Piyasaları ve KAP","Kurumsal Yönetim","Finansal Raporlama ve İç Kontrol"])assert.ok(categories.has(category));
 });
 
 test("every demo evidence record has a displayable sample screenshot",async()=>{

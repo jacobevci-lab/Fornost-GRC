@@ -354,6 +354,34 @@ const frameworkGroups = [
     ],
   },
 ];
+const riskCategories = [
+  "Stratejik",
+  "Kurumsal Yönetim",
+  "Sermaye Piyasaları ve KAP",
+  "Hukuk ve Regülasyon",
+  "Uyum",
+  "Finansal Raporlama ve İç Kontrol",
+  "Finansal",
+  "Hazine ve Likidite",
+  "Vergi",
+  "İnsan Kaynakları",
+  "Operasyonel",
+  "Bilgi Teknolojileri",
+  "Siber Güvenlik",
+  "Bilgi Güvenliği",
+  "Veri Yönetimi ve Yapay Zekâ",
+  "Kişisel Verilerin Korunması",
+  "Üçüncü Taraf ve Tedarik Zinciri",
+  "İş Sürekliliği ve Kriz Yönetimi",
+  "Suistimal, Etik ve Yolsuzluk",
+  "İtibar",
+  "Proje ve Değişiklik Yönetimi",
+  "Fiziksel Güvenlik",
+  "İş Sağlığı ve Güvenliği",
+  "ESG, Sürdürülebilirlik ve İklim",
+  "Müşteri ve Ürün",
+  "Pazar ve Rekabet",
+];
 const dataModules = modules.filter(
   (x) => !["Ana Sayfa", "Raporlar", "Kanıtlar"].includes(x),
 );
@@ -644,6 +672,31 @@ const valueEN: Record<string, string> = {
   Kapalı: "Closed",
   Üretim: "Production",
   Sürekli: "Continuous",
+  Stratejik: "Strategic",
+  "Kurumsal Yönetim": "Corporate Governance",
+  "Sermaye Piyasaları ve KAP": "Capital Markets and Public Disclosure",
+  "Hukuk ve Regülasyon": "Legal and Regulatory",
+  "Finansal Raporlama ve İç Kontrol": "Financial Reporting and Internal Control",
+  Finansal: "Financial",
+  "Hazine ve Likidite": "Treasury and Liquidity",
+  Vergi: "Tax",
+  "İnsan Kaynakları": "Human Resources",
+  Operasyonel: "Operational",
+  "Bilgi Teknolojileri": "Information Technology",
+  "Siber Güvenlik": "Cybersecurity",
+  "Bilgi Güvenliği": "Information Security",
+  "Veri Yönetimi ve Yapay Zekâ": "Data Management and AI",
+  "Kişisel Verilerin Korunması": "Privacy and Personal Data Protection",
+  "Üçüncü Taraf ve Tedarik Zinciri": "Third Party and Supply Chain",
+  "İş Sürekliliği ve Kriz Yönetimi": "Business Continuity and Crisis Management",
+  "Suistimal, Etik ve Yolsuzluk": "Fraud, Ethics and Anti-Corruption",
+  İtibar: "Reputation",
+  "Proje ve Değişiklik Yönetimi": "Project and Change Management",
+  "Fiziksel Güvenlik": "Physical Security",
+  "İş Sağlığı ve Güvenliği": "Occupational Health and Safety",
+  "ESG, Sürdürülebilirlik ve İklim": "ESG, Sustainability and Climate",
+  "Müşteri ve Ürün": "Customer and Product",
+  "Pazar ve Rekabet": "Market and Competition",
 };
 const display = (v: any, lang: Lang) =>
   lang === "en" ? valueEN[String(v)] || v : v;
@@ -1487,16 +1540,7 @@ function Field({
     dataImpact: scores,
     criticality: ["Düşük", "Orta", "Yüksek", "Kritik"],
     riskLevel: ["Düşük", "Orta", "Yüksek", "Kritik"],
-    category: [
-      "Siber Güvenlik",
-      "Bilgi Güvenliği",
-      "Operasyonel",
-      "Üçüncü Taraf",
-      "Uyum",
-      "Gizlilik",
-      "İş Sürekliliği",
-      "Finansal",
-    ],
+    category: riskCategories,
     assetType: [
       "Sunucu",
       "Uygulama",
@@ -1506,6 +1550,10 @@ function Field({
       "Bulut Servisi",
       "Bilgi Varlığı",
       "Tedarikçi Hizmeti",
+      "İş Süreci",
+      "Doküman / Kayıt",
+      "Fiziksel Lokasyon",
+      "Kritik Rol / Personel",
     ],
     environment: ["Üretim", "Test", "Geliştirme", "Felaket Kurtarma"],
     dataClassification: ["Herkese Açık", "Şirket İçi", "Gizli", "Çok Gizli"],
@@ -1647,6 +1695,44 @@ function Field({
             .filter((r) => r.module === "BIA")
             .map((r) => r.data.process);
     const options = [...new Set(source.filter(Boolean))];
+    if (k === "asset" && "category" in form) {
+      const selected = String(value)
+        .split(",")
+        .map((x) => x.trim())
+        .filter(Boolean);
+      return (
+        <fieldset className="wide asset-multi-picker">
+          <legend>{labelMap[lang][k]}</legend>
+          <p>
+            {lang === "tr"
+              ? "Riskten etkilenen bir veya birden fazla varlığı seçin."
+              : "Select one or more assets affected by the risk."}
+          </p>
+          <select
+            multiple
+            value={selected}
+            onChange={(e) =>
+              change(
+                Array.from(e.currentTarget.selectedOptions)
+                  .map((option) => option.value)
+                  .join(", "),
+              )
+            }
+          >
+            {options.map((x) => (
+              <option key={x} value={x}>
+                {x}
+              </option>
+            ))}
+          </select>
+          <small>
+            {lang === "tr"
+              ? `${selected.length} varlık seçildi · Yeni varlıklar Varlık Envanteri modülünden eklenir.`
+              : `${selected.length} assets selected · Add new assets from Asset Inventory.`}
+          </small>
+        </fieldset>
+      );
+    }
     return (
       <label>
         {labelMap[lang][k]}
