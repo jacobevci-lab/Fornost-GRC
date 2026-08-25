@@ -15,6 +15,7 @@ import "./cockpit.css";
 import Settings from "./settings";
 import { withBasePath } from "./base-path";
 import { calculatedRiskScore, effectiveImpact } from "./risk-methodology";
+import { defaultCatalogs, type CatalogMap } from "./catalogs";
 
 type Lang = "tr" | "en";
 type Row = {
@@ -76,6 +77,7 @@ const labelMap: Record<Lang, Record<string, string>> = {
     impact: "Etki (1-5)",
     treatment: "Risk Aksiyonu",
     process: "Süreç / Hizmet",
+    processCategory: "BIA Süreç Kategorisi",
     rto: "RTO (saat)",
     rpo: "RPO (saat)",
     financial: "Finansal Etki (1-5)",
@@ -113,6 +115,7 @@ const labelMap: Record<Lang, Record<string, string>> = {
     impact: "Impact (1-5)",
     treatment: "Risk Treatment",
     process: "Process / Service",
+    processCategory: "BIA Process Category",
     rto: "RTO (hours)",
     rpo: "RPO (hours)",
     financial: "Financial Impact (1-5)",
@@ -411,34 +414,6 @@ const frameworkGroups = [
     ],
   },
 ];
-const riskCategories = [
-  "Stratejik",
-  "Kurumsal Yönetim",
-  "Sermaye Piyasaları ve KAP",
-  "Hukuk ve Regülasyon",
-  "Uyum",
-  "Finansal Raporlama ve İç Kontrol",
-  "Finansal",
-  "Hazine ve Likidite",
-  "Vergi",
-  "İnsan Kaynakları",
-  "Operasyonel",
-  "Bilgi Teknolojileri",
-  "Siber Güvenlik",
-  "Bilgi Güvenliği",
-  "Veri Yönetimi ve Yapay Zekâ",
-  "Kişisel Verilerin Korunması",
-  "Üçüncü Taraf ve Tedarik Zinciri",
-  "İş Sürekliliği ve Kriz Yönetimi",
-  "Suistimal, Etik ve Yolsuzluk",
-  "İtibar",
-  "Proje ve Değişiklik Yönetimi",
-  "Fiziksel Güvenlik",
-  "İş Sağlığı ve Güvenliği",
-  "ESG, Sürdürülebilirlik ve İklim",
-  "Müşteri ve Ürün",
-  "Pazar ve Rekabet",
-];
 const dataModules = modules.filter(
   (x) => !["Ana Sayfa", "Raporlar", "Kanıtlar"].includes(x),
 );
@@ -471,6 +446,7 @@ const fields: Record<string, string[]> = {
   ],
   BIA: [
     "process",
+    "processCategory",
     "description",
     "businessUnit",
     "owner",
@@ -695,6 +671,9 @@ const examples: Row[] = [
   },
 ];
 let linkedRows: Row[] = examples;
+let catalogOptions: CatalogMap = Object.fromEntries(
+  Object.entries(defaultCatalogs).map(([key, values]) => [key, [...values]]),
+) as CatalogMap;
 const aliases: Record<string, string> = {
   "risk adı": "title",
   "risk name": "title",
@@ -952,10 +931,12 @@ function FornostApp({ currentUser }: { currentUser: any }) {
     [importOpen, setImportOpen] = useState(false),
     [previewEvidence, setPreviewEvidence] = useState<Row | null>(null),
     [selectedAudit, setSelectedAudit] = useState(""),
+    [catalogs, setCatalogs] = useState<CatalogMap>(catalogOptions),
     [theme, setTheme] = useState<"light" | "dark">("dark");
   const labels = labelMap[lang],
     u = ui[lang];
   linkedRows = rows;
+  catalogOptions = catalogs;
   useEffect(() => {
     const saved = localStorage.getItem("fornost-grc-language");
     if (saved === "tr" || saved === "en") setLang(saved);
@@ -1001,8 +982,15 @@ function FornostApp({ currentUser }: { currentUser: any }) {
       }
     } catch {}
   }
+  async function loadCatalogs() {
+    try {
+      const response = await fetch(withBasePath("/api/catalogs"), { cache: "no-store" });
+      if (response.ok) setCatalogs((await response.json()).catalogs);
+    } catch {}
+  }
   useEffect(() => {
     load();
+    loadCatalogs();
   }, []);
   const visible = useMemo(
     () =>
@@ -1239,7 +1227,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
         ) : active === "Raporlar" ? (
           <Reports rows={rows} lang={lang} />
         ) : active === "Ayarlar" ? (
-          <Settings lang={lang} currentUser={currentUser} />
+          <Settings lang={lang} currentUser={currentUser} catalogs={catalogs} onCatalogChange={loadCatalogs} />
         ) : active === "Denetim Yönetimi" ? (
           <AuditModule
             rows={by("Denetim Yönetimi")}
@@ -1627,25 +1615,14 @@ function Field({
     reputation: scores,
     customer: scores,
     dataImpact: scores,
-    criticality: ["Düşük", "Orta", "Yüksek", "Kritik"],
+    criticality: catalogOptions.criticalities,
     riskLevel: ["Düşük", "Orta", "Yüksek", "Kritik"],
-    category: riskCategories,
-    assetType: [
-      "Sunucu",
-      "Uygulama",
-      "Veritabanı",
-      "Ağ Cihazı",
-      "Uç Nokta",
-      "Bulut Servisi",
-      "Bilgi Varlığı",
-      "Tedarikçi Hizmeti",
-      "İş Süreci",
-      "Doküman / Kayıt",
-      "Fiziksel Lokasyon",
-      "Kritik Rol / Personel",
-    ],
-    environment: ["Üretim", "Test", "Geliştirme", "Felaket Kurtarma"],
-    dataClassification: ["Herkese Açık", "Şirket İçi", "Gizli", "Çok Gizli"],
+    category: catalogOptions.riskCategories,
+    processCategory: catalogOptions.biaCategories,
+    assetType: catalogOptions.assetTypes,
+    businessUnit: catalogOptions.businessUnits,
+    environment: catalogOptions.environments,
+    dataClassification: catalogOptions.dataClassifications,
     treatment: ["Azalt", "Kabul Et", "Transfer Et", "Kaçın"],
     implementation: [
       "Uygulanıyor",
@@ -1708,7 +1685,8 @@ function Field({
   };
   const value = form[k] || "",
     change = (v: string) => setForm({ ...form, [k]: v }),
-    u = ui[lang];
+    u = ui[lang],
+    requiredField = ["asset", "category", "processCategory", "assetType"].includes(k);
   if (k === "calculatedImpact") {
     const impact = effectiveImpact(form), likelihood = Number(form.inherentLikelihood || 0), total = likelihood * impact;
     return (
@@ -1823,6 +1801,7 @@ function Field({
           </p>
           <select
             multiple
+            required
             value={selected}
             onChange={(e) =>
               change(
@@ -1849,7 +1828,7 @@ function Field({
     return (
       <label>
         {labelMap[lang][k]}
-        <select value={value} onChange={(e) => change(e.target.value)}>
+        <select required={requiredField} value={value} onChange={(e) => change(e.target.value)}>
           <option value="">{u.select}</option>
           {options.map((x) => (
             <option key={x} value={x}>
@@ -1911,10 +1890,11 @@ function Field({
         <select
           name={nameMode ? k : undefined}
           value={value}
+          required={requiredField}
           onChange={(e) => change(e.target.value)}
         >
           <option value="">{u.select}</option>
-          {select[k].map((x) => (
+          {[...select[k], ...(value && !select[k].includes(value) ? [value] : [])].map((x) => (
             <option key={x} value={x}>
               {display(x, lang)}
             </option>
@@ -3009,7 +2989,7 @@ function SmartCell({
     return (
       <div className="stack title-stack">
         <b>{d.process || "—"}</b>
-        <small>{d.asset || ""}</small>
+        <small>{[d.processCategory, d.asset].filter(Boolean).join(" · ")}</small>
       </div>
     );
   if (column === "businessImpact") {
