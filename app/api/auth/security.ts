@@ -97,7 +97,16 @@ export function sameOrigin(req: NextRequest) {
 
 export async function actor(req: NextRequest): Promise<Actor | null> {
   const platformEmail = req.headers.get("oai-authenticated-user-email")?.trim().toLowerCase();
-  if (platformEmail) return { id: `entra:${platformEmail}`, email: platformEmail, name: platformEmail, role: "Admin", source: "entra" };
+  const { env } = await import("cloudflare:workers");
+  const trustPlatformIdentity = ["true", "1"].includes(String((env as unknown as Record<string, unknown>).FORNOST_TRUST_PLATFORM_IDENTITY ?? "").trim().toLowerCase());
+  if (platformEmail && trustPlatformIdentity) {
+    const db = await identityDb();
+    const mapped = await db.prepare("SELECT id,name,email,role,status FROM local_users WHERE email=?").bind(platformEmail).first<{id:string;name:string;email:string;role:string;status:string}>();
+    if (mapped?.status === "Active") return { id:mapped.id, email:mapped.email, name:mapped.name, role:mapped.role as AppRole, source:"entra" };
+    const admins = await db.prepare("SELECT COUNT(*) total FROM local_users WHERE role='Admin'").first<{total:number}>();
+    if (!admins?.total) return null;
+    return { id:`platform:${platformEmail}`, email:platformEmail, name:platformEmail, role:"Viewer", source:"entra" };
+  }
   const token = req.cookies.get("fornost_session")?.value;
   if (!token) return null;
   const db = await identityDb(), now = new Date().toISOString(), tokenHash = await sha256(token);

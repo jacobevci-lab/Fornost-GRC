@@ -16,7 +16,7 @@ export async function GET(req: NextRequest) {
   const db = await identityDb(), current = await actor(req);
   const allowDemo = await demoMode(req);
   if (allowDemo) await ensureDemoUser(db);
-  const count = await db.prepare("SELECT COUNT(*) total FROM local_users WHERE role='Admin' AND status='Active'").first<{ total: number }>();
+  const count = await db.prepare("SELECT COUNT(*) total FROM local_users WHERE role='Admin'").first<{ total: number }>();
   return NextResponse.json({ authenticated: !!current, user: current, bootstrapRequired: !count?.total, demoAccount:allowDemo?{email:demoAccount.email,role:demoAccount.role}:null }, { headers: { "cache-control": "no-store" } });
 }
 
@@ -38,11 +38,15 @@ export async function POST(req: NextRequest) {
   }
   const email = normalize(body.email).toLowerCase(), password = normalize(body.password);
   if (action === "bootstrap") {
-    const count = await db.prepare("SELECT COUNT(*) total FROM local_users WHERE role='Admin' AND status='Active'").first<{ total: number }>();
+    const count = await db.prepare("SELECT COUNT(*) total FROM local_users WHERE role='Admin'").first<{ total: number }>();
     if (count?.total) return NextResponse.json({ error: "İlk yönetici hesabı zaten oluşturulmuş." }, { status: 409 });
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || !validPassword(password)) return NextResponse.json({ error: "Geçerli e-posta ve en az 12 karakterlik güçlü parola gerekli." }, { status: 400 });
-    const now = new Date().toISOString(), id = crypto.randomUUID(), p = await passwordHash(password);
-    await db.prepare("INSERT INTO local_users(id,name,email,password_hash,password_salt,role,status,created_at,updated_at) VALUES(?,?,?,?,?,'Admin','Active',?,?)").bind(id, normalize(body.name) || email, email, p.hash, p.salt, now, now).run();
+    const now = new Date().toISOString(), id = "bootstrap-admin", p = await passwordHash(password);
+    try {
+      await db.prepare("INSERT INTO local_users(id,name,email,password_hash,password_salt,role,status,created_at,updated_at) VALUES(?,?,?,?,?,'Admin','Active',?,?)").bind(id, normalize(body.name) || email, email, p.hash, p.salt, now, now).run();
+    } catch {
+      return NextResponse.json({ error: "İlk yönetici hesabı başka bir oturum tarafından oluşturuldu." }, { status: 409 });
+    }
     const session = await createSession(db, id), res = NextResponse.json({ ok: true }); res.cookies.set("fornost_session", session.token, cookie(req)); return res;
   }
   if (action !== "login") return NextResponse.json({ error: "Geçersiz işlem." }, { status: 400 });

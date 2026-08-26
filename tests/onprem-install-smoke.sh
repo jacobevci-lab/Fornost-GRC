@@ -15,7 +15,7 @@ make_case() {
   local case_root="${test_root}/${name}"
   local bin_dir="${case_root}/bin" project_dir="${case_root}/project"
   mkdir -p "${bin_dir}" "${project_dir}/deploy/nginx"
-  printf 'FORNOST_BASE_PATH=%s\nFORNOST_HTTPS_PORT=%s\n' "${base_path}" "${port}" >"${project_dir}/.env.onprem"
+  printf 'FORNOST_BASE_PATH=%s\nFORNOST_HTTPS_PORT=%s\nFORNOST_SETTINGS_ENCRYPTION_KEY=%s\n' "${base_path}" "${port}" "test-only-settings-encryption-key-0123456789abcdef0123456789abcdef" >"${project_dir}/.env.onprem"
   : >"${project_dir}/deploy/nginx/default.conf.template"
   printf 'prebuilt image bundle for %s\n' "${name}" >"${project_dir}/fornost-grc-amd64.tar.gz"
   (cd "${project_dir}" && sha256sum fornost-grc-amd64.tar.gz >fornost-grc-amd64.tar.gz.sha256)

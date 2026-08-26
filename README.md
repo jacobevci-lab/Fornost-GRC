@@ -14,6 +14,9 @@ Fornost GRC; risk, iş etki analizi, varlık, uyum, kontrol, kanıt, tedarikçi 
 - Kanıt Yönetimi ve güvenli dosya yükleme
 - Tedarikçi Yönetimi
 - Denetim Yönetimi: ISO 27001, SOC 1/2 Type I/II çalışma alanları
+- Entegrasyon Merkezi: Jira, ServiceNow, Azure DevOps, GitHub Issues ve webhook ticket akışları
+- E-posta bağlantı testi: SMTP bridge, Microsoft Graph Mail veya HTTP email API
+- IAM bağlantı profilleri: Entra ID, Okta, OIDC, SAML ve on-prem LDAP/LDAPS bridge
 - Admin / Editor / Viewer rol yönetimi
 - Excel içe aktarma ve CSV/Excel dışa aktarma
 - TR/EN arayüz
@@ -75,7 +78,7 @@ npm run validate:artifact
 
 ## Yapılandırma ve veri
 
-Hosting kimliği ve D1/R2 binding adları `.openai/hosting.json` içinde tutulur. Gizli değerler repoya yazılmaz. Canlı ortam değerleri hosting platformunun environment-variable yönetiminden verilmelidir.
+Hosting kimliği ve D1/R2 binding adları `.openai/hosting.json` içinde tutulur. Gizli değerler repoya yazılmaz. Canlı ortam değerleri hosting platformunun environment-variable yönetiminden verilmelidir. Entegrasyon token'ları D1 içinde AES-GCM ile şifrelenir; anahtar canlı ortam değişkenlerinden veya on-prem kalıcı state dizininden sağlanır. LDAP/LDAPS ham TCP bağlantısı hosted ortamdan açılmaz, şirket içi HTTPS IAM bridge üzerinden çalışır.
 
 Kanıt dosyaları yalnız PDF, JPEG, PNG veya WebP olabilir; MIME türü ve dosya imzası birlikte doğrulanır. Üst sınır 10 MB'dır. Excel import yalnız `.xlsx`, 5 MB ve 1.000 satırla sınırlıdır.
 

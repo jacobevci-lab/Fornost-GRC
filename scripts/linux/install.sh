@@ -40,6 +40,8 @@ tls_cert_setting="$(read_setting FORNOST_TLS_CERT_FILE '')"
 tls_key_setting="$(read_setting FORNOST_TLS_KEY_FILE '')"
 tls_hostname="$(read_setting FORNOST_TLS_HOSTNAME '')"
 state_dir_setting="${FORNOST_STATE_DIR:-$(read_setting FORNOST_STATE_DIR '')}"
+settings_encryption_key="${FORNOST_SETTINGS_ENCRYPTION_KEY:-$(read_setting FORNOST_SETTINGS_ENCRYPTION_KEY '')}"
+allow_private_connectors="${FORNOST_ALLOW_PRIVATE_CONNECTORS:-$(read_setting FORNOST_ALLOW_PRIVATE_CONNECTORS false)}"
 minimum_free_mb="${FORNOST_MIN_FREE_MB:-$(read_setting FORNOST_MIN_FREE_MB 8192)}"
 release_wait_attempts="${FORNOST_RELEASE_WAIT_ATTEMPTS:-80}"
 release_wait_interval="${FORNOST_RELEASE_WAIT_INTERVAL:-15}"
@@ -80,6 +82,27 @@ data_volume="fornost-grc-data"
 state_dir="${state_dir_setting:-$(default_state_dir)}"
 [[ "${state_dir}" == /* ]] || state_dir="$(resolve_project_path "${state_dir}")"
 install -d -m 700 "${state_dir}"
+
+[[ "${allow_private_connectors}" == "true" || "${allow_private_connectors}" == "false" ]] || {
+  echo "FORNOST_ALLOW_PRIVATE_CONNECTORS must be true or false." >&2
+  exit 64
+}
+if [[ -z "${settings_encryption_key}" ]]; then
+  require_command openssl
+  settings_key_file="${state_dir}/settings-encryption.key"
+  if [[ ! -s "${settings_key_file}" ]]; then
+    umask 077
+    openssl rand -hex 32 >"${settings_key_file}"
+    chmod 600 "${settings_key_file}"
+  fi
+  settings_encryption_key="$(<"${settings_key_file}")"
+fi
+(( ${#settings_encryption_key} >= 32 )) || {
+  echo "FORNOST_SETTINGS_ENCRYPTION_KEY must contain at least 32 characters." >&2
+  exit 64
+}
+export FORNOST_SETTINGS_ENCRYPTION_KEY="${settings_encryption_key}"
+export FORNOST_ALLOW_PRIVATE_CONNECTORS="${allow_private_connectors}"
 
 if ((https_port < 1024)) && [[ "$(id -u)" != "0" ]]; then
   echo "Port ${https_port} requires root privileges." >&2
@@ -266,6 +289,9 @@ phase="application container start"
   --restart unless-stopped \
   --env "NEXT_PUBLIC_BASE_PATH=${base_path}" \
   --env FORNOST_DEMO_MODE=false \
+  --env FORNOST_SETTINGS_ENCRYPTION_KEY \
+  --env FORNOST_ALLOW_PRIVATE_CONNECTORS \
+  --env FORNOST_TRUST_PLATFORM_IDENTITY=false \
   --volume "${data_volume}:/app/.sites-runtime/data:Z" \
   "${image}" >/dev/null
 

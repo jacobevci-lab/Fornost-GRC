@@ -31,6 +31,9 @@ server {
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Host $http_host;
         proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header oai-authenticated-user-email "";
+        proxy_set_header oai-authenticated-user-full-name "";
+        proxy_set_header oai-authenticated-user-full-name-encoding "";
     }
 
     location ${FORNOST_BASE_PATH}/ {
@@ -41,6 +44,9 @@ server {
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Host $http_host;
         proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header oai-authenticated-user-email "";
+        proxy_set_header oai-authenticated-user-full-name "";
+        proxy_set_header oai-authenticated-user-full-name-encoding "";
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection $connection_upgrade;
         proxy_read_timeout 120s;

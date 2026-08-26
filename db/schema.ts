@@ -186,3 +186,24 @@ export const securityResiliencePlans = sqliteTable("security_resilience_plans", 
 export const securityIctDependencies = sqliteTable("security_ict_dependencies", { id:text("id").primaryKey(), resiliencePlanId:text("resilience_plan_id").notNull().unique(), tenantId:text("tenant_id").notNull(), providerName:text("provider_name").notNull(), serviceName:text("service_name").notNull(), subcontractorChain:text("subcontractor_chain").notNull(), concentrationScore:integer("concentration_score").notNull(), contractualRto:integer("contractual_rto").notNull(), contractualRpo:integer("contractual_rpo").notNull(), exitStrategy:text("exit_strategy").notNull(), alternateProvider:text("alternate_provider").notNull(), portabilityScope:text("portability_scope").notNull(), jointTestDate:text("joint_test_date").notNull(), owner:text("owner").notNull(), status:text("status").notNull(), assessedBy:text("assessed_by").notNull(), assessedAt:text("assessed_at").notNull(), testEvidence:text("test_evidence"), actualExitMinutes:integer("actual_exit_minutes"), testedBy:text("tested_by"), testedAt:text("tested_at"), verifiedBy:text("verified_by"), verifiedAt:text("verified_at"), verificationNote:text("verification_note") }, (table) => [index("security_ict_tenant_status_idx").on(table.tenantId, table.status),index("security_ict_test_date_idx").on(table.tenantId, table.jointTestDate)]);
 export const securityVendorIncidents = sqliteTable("security_vendor_incidents", { id:text("id").primaryKey(), dependencyId:text("dependency_id").notNull(), tenantId:text("tenant_id").notNull(), title:text("title").notNull(), severity:text("severity").notNull(), detectedAt:text("detected_at").notNull(), serviceImpact:text("service_impact").notNull(), providerNoticeAt:text("provider_notice_at").notNull(), regulatoryDeadline:text("regulatory_deadline").notNull(), notificationScope:text("notification_scope").notNull(), slaClause:text("sla_clause").notNull(), contractualBreach:text("contractual_breach").notNull(), responseOwner:text("response_owner").notNull(), correctivePlan:text("corrective_plan").notNull(), dueDate:text("due_date").notNull(), status:text("status").notNull(), reportedBy:text("reported_by").notNull(), reportedAt:text("reported_at").notNull(), providerEvidence:text("provider_evidence"), actualRecoveryMinutes:integer("actual_recovery_minutes"), submittedBy:text("submitted_by"), submittedAt:text("submitted_at"), verifiedBy:text("verified_by"), verifiedAt:text("verified_at"), verificationNote:text("verification_note") }, (table) => [index("security_vendor_incidents_tenant_status_idx").on(table.tenantId, table.status)]);
 export const securityVendorReassessments = sqliteTable("security_vendor_reassessments", { id:text("id").primaryKey(), incidentId:text("incident_id").notNull().unique(), dependencyId:text("dependency_id").notNull(), tenantId:text("tenant_id").notNull(), inherentRisk:integer("inherent_risk").notNull(), controlScore:integer("control_score").notNull(), residualRisk:integer("residual_risk").notNull(), controlScope:text("control_scope").notNull(), contractChanges:text("contract_changes").notNull(), slaChanges:text("sla_changes").notNull(), monitoringPlan:text("monitoring_plan").notNull(), owner:text("owner").notNull(), reviewDate:text("review_date").notNull(), recommendation:text("recommendation").notNull(), status:text("status").notNull(), preparedBy:text("prepared_by").notNull(), preparedAt:text("prepared_at").notNull(), evidenceRef:text("evidence_ref"), submittedBy:text("submitted_by"), submittedAt:text("submitted_at"), decidedBy:text("decided_by"), decidedAt:text("decided_at"), decisionNote:text("decision_note") }, (table) => [index("security_vendor_reassess_tenant_status_idx").on(table.tenantId, table.status),index("security_vendor_reassess_review_idx").on(table.tenantId, table.reviewDate)]);
+
+export const integrationSettings = sqliteTable("integration_settings", {
+  id: text("id").primaryKey(),
+  kind: text("kind").notNull().unique(),
+  provider: text("provider").notNull(),
+  enabled: integer("enabled").notNull().default(0),
+  configJson: text("config_json").notNull().default("{}"),
+  secretCiphertext: text("secret_ciphertext"),
+  updatedAt: text("updated_at").notNull(),
+  updatedBy: text("updated_by").notNull(),
+}, (table) => [index("integration_settings_kind_idx").on(table.kind)]);
+
+export const integrationEvents = sqliteTable("integration_events", {
+  id: text("id").primaryKey(),
+  kind: text("kind").notNull(),
+  action: text("action").notNull(),
+  status: text("status").notNull(),
+  detail: text("detail").notNull(),
+  actor: text("actor").notNull(),
+  createdAt: text("created_at").notNull(),
+}, (table) => [index("integration_events_kind_created_idx").on(table.kind, table.createdAt)]);
