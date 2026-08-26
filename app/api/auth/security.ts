@@ -12,9 +12,20 @@ const sessionsSql = `CREATE TABLE IF NOT EXISTS local_sessions (
   id_hash TEXT PRIMARY KEY, user_id TEXT NOT NULL, expires_at TEXT NOT NULL,
   created_at TEXT NOT NULL, last_seen_at TEXT NOT NULL)`;
 
+let identitySchemaReady: Promise<void> | null = null;
+
 export async function identityDb() {
   const { env } = await import("cloudflare:workers");
-  await env.DB.batch([env.DB.prepare(usersSql), env.DB.prepare(sessionsSql)]);
+  if (!identitySchemaReady) {
+    identitySchemaReady = env.DB.batch([
+      env.DB.prepare(usersSql),
+      env.DB.prepare(sessionsSql),
+    ]).then(() => undefined).catch((error) => {
+      identitySchemaReady = null;
+      throw error;
+    });
+  }
+  await identitySchemaReady;
   return env.DB;
 }
 
@@ -52,9 +63,36 @@ export function constantTimeEqual(left: string, right: string) {
   return mismatch === 0;
 }
 
+function firstForwardedValue(value: string | null) {
+  return value?.split(",", 1)[0]?.trim() || "";
+}
+
+function forwardedOrigin(req: NextRequest) {
+  const proto = firstForwardedValue(req.headers.get("x-forwarded-proto")).toLowerCase();
+  const host = firstForwardedValue(req.headers.get("x-forwarded-host"));
+  if ((proto !== "http" && proto !== "https") || !host) return null;
+  try {
+    return new URL(`${proto}://${host}`).origin;
+  } catch {
+    return null;
+  }
+}
+
+export function requestIsSecure(req: NextRequest) {
+  return req.nextUrl.protocol === "https:" || forwardedOrigin(req)?.startsWith("https://") === true;
+}
+
 export function sameOrigin(req: NextRequest) {
   const origin = req.headers.get("origin");
-  return !origin || origin === req.nextUrl.origin;
+  if (!origin) return true;
+  let normalizedOrigin: string;
+  try {
+    normalizedOrigin = new URL(origin).origin;
+  } catch {
+    return false;
+  }
+  const proxiedOrigin = forwardedOrigin(req);
+  return normalizedOrigin === req.nextUrl.origin || (!!proxiedOrigin && normalizedOrigin === proxiedOrigin);
 }
 
 export async function actor(req: NextRequest): Promise<Actor | null> {
