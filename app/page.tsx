@@ -13,6 +13,7 @@ import "./product-polish.css";
 import "./fornost-premium.css";
 import "./command-center.css";
 import "./cockpit.css";
+import "./ui-accessibility.css";
 import Settings from "./settings";
 import { withBasePath } from "./base-path";
 import { calculatedRiskScore, effectiveImpact } from "./risk-methodology";
@@ -37,8 +38,19 @@ const modules = [
   "Kanıtlar",
   "Denetim Yönetimi",
   "Raporlar",
-  "Ayarlar",
+  "Sistem Ayarları",
+  "Ana Veri Yönetimi",
+  "İş Akışı Entegrasyonları",
+  "E-posta ve Bildirimler",
+  "Kimlik ve Erişim",
 ];
+const adminModules = new Set([
+  "Sistem Ayarları",
+  "Ana Veri Yönetimi",
+  "İş Akışı Entegrasyonları",
+  "E-posta ve Bildirimler",
+  "Kimlik ve Erişim",
+]);
 const names: Record<Lang, Record<string, string>> = {
   tr: {
     "Ana Sayfa": "Gösterge Paneli",
@@ -51,7 +63,11 @@ const names: Record<Lang, Record<string, string>> = {
     Kanıtlar: "Kanıt Kütüphanesi",
     "Denetim Yönetimi": "Denetim Yönetimi",
     Raporlar: "Raporlama",
-    Ayarlar: "Ayarlar",
+    "Sistem Ayarları": "Sistem Ayarları",
+    "Ana Veri Yönetimi": "Ana Veri Yönetimi",
+    "İş Akışı Entegrasyonları": "İş Akışı Entegrasyonları",
+    "E-posta ve Bildirimler": "E-posta ve Bildirimler",
+    "Kimlik ve Erişim": "Kimlik ve Erişim",
   },
   en: {
     "Ana Sayfa": "Dashboard",
@@ -64,9 +80,33 @@ const names: Record<Lang, Record<string, string>> = {
     Kanıtlar: "Evidence Library",
     "Denetim Yönetimi": "Audit Management",
     Raporlar: "Reporting",
-    Ayarlar: "Settings",
+    "Sistem Ayarları": "System Settings",
+    "Ana Veri Yönetimi": "Master Data",
+    "İş Akışı Entegrasyonları": "Workflow Integrations",
+    "E-posta ve Bildirimler": "Email & Notifications",
+    "Kimlik ve Erişim": "Identity & Access",
   },
 };
+const iconPaths: Record<string, React.ReactNode> = {
+  "Ana Sayfa": <><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></>,
+  "Risk Assessment": <><path d="M12 3 2.8 20h18.4L12 3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></>,
+  BIA: <><path d="M4 19V9"/><path d="M10 19V5"/><path d="M16 19v-7"/><path d="M22 19H2"/></>,
+  "Varlık Envanteri": <><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18"/><path d="M8 4v16"/></>,
+  Uyum: <><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/><path d="m9 12 2 2 4-4"/></>,
+  Tedarikçiler: <><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/></>,
+  Kontroller: <><path d="M4 6h16"/><path d="M4 12h16"/><path d="M4 18h16"/><circle cx="8" cy="6" r="2"/><circle cx="16" cy="12" r="2"/><circle cx="10" cy="18" r="2"/></>,
+  Kanıtlar: <><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/><path d="m9 15 2 2 4-4"/></>,
+  "Denetim Yönetimi": <><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M9 3v4h6V3"/><path d="m8 13 2 2 5-5"/></>,
+  Raporlar: <><path d="M4 19V5"/><path d="M4 19h16"/><path d="m7 15 4-4 3 2 5-6"/></>,
+  "Sistem Ayarları": <><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-2.83 2.83-.06-.06a1.7 1.7 0 0 0-1.88-.34 1.7 1.7 0 0 0-1.03 1.56V21h-4v-.08A1.7 1.7 0 0 0 9 19.37a1.7 1.7 0 0 0-1.88.34l-.06.06-2.83-2.83.06-.06A1.7 1.7 0 0 0 4.63 15 1.7 1.7 0 0 0 3.08 14H3v-4h.08A1.7 1.7 0 0 0 4.63 9a1.7 1.7 0 0 0-.34-1.88l-.06-.06 2.83-2.83.06.06A1.7 1.7 0 0 0 9 4.63 1.7 1.7 0 0 0 10 3.08V3h4v.08A1.7 1.7 0 0 0 15 4.63a1.7 1.7 0 0 0 1.88-.34l.06-.06 2.83 2.83-.06.06A1.7 1.7 0 0 0 19.37 9 1.7 1.7 0 0 0 20.92 10H21v4h-.08A1.7 1.7 0 0 0 19.4 15Z"/></>,
+  "Ana Veri Yönetimi": <><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v6c0 1.7 3.6 3 8 3s8-1.3 8-3V5"/><path d="M4 11v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6"/></>,
+  "İş Akışı Entegrasyonları": <><circle cx="6" cy="6" r="3"/><circle cx="18" cy="18" r="3"/><path d="M8.5 7.5 15.5 16.5"/><path d="M15 6h4v4"/><path d="m19 6-5 5"/></>,
+  "E-posta ve Bildirimler": <><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></>,
+  "Kimlik ve Erişim": <><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/><path d="M18 10h4"/><path d="M20 8v4"/></>,
+};
+function NavIcon({ module }: { module: string }) {
+  return <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">{iconPaths[module]}</svg>;
+}
 const labelMap: Record<Lang, Record<string, string>> = {
   tr: {
     title: "Başlık / Ad",
@@ -1193,12 +1233,12 @@ function FornostApp({ currentUser }: { currentUser: any }) {
               : lang === "tr"
                 ? "Kayıtlarını sade, aranabilir ve raporlanabilir biçimde yönet."
                 : "Manage records in a simple, searchable and reportable format.";
-  const navIcons = ["01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11"],
-    navGroups = [
-      { label: lang === "tr" ? "KOMUTA" : "COMMAND", items: modules.slice(0, 1) },
-      { label: lang === "tr" ? "GRC OPERASYONLARI" : "GRC OPERATIONS", items: modules.slice(1, 9) },
-      { label: lang === "tr" ? "YÖNETİM" : "MANAGEMENT", items: modules.slice(9) },
-    ];
+  const navGroups = [
+    { label: lang === "tr" ? "KOMUTA" : "COMMAND", items: modules.slice(0, 1) },
+    { label: lang === "tr" ? "GRC OPERASYONLARI" : "GRC OPERATIONS", items: modules.slice(1, 9) },
+    { label: lang === "tr" ? "İÇGÖRÜ" : "INSIGHTS", items: ["Raporlar"] },
+    ...(currentUser.role === "Admin" ? [{ label: lang === "tr" ? "AYARLAR" : "SETTINGS", items: modules.filter((m) => adminModules.has(m)) }] : []),
+  ];
   return (
     <div className="shell">
       <aside>
@@ -1214,11 +1254,10 @@ function FornostApp({ currentUser }: { currentUser: any }) {
             <div className="nav-group" key={group.label}>
               <small>{group.label}</small>
               {group.items.map((m) => {
-                const i = modules.indexOf(m);
                 return <button className={active === m ? "active" : ""} onClick={() => {
                   setActive(m); setQuery(""); setNotice("");
                 }} key={m}>
-                  <i>{navIcons[i]}</i><span>{names[lang][m]}</span>
+                  <i><NavIcon module={m} /></i><span>{names[lang][m]}</span>
                 </button>;
               })}
             </div>
@@ -1293,8 +1332,14 @@ function FornostApp({ currentUser }: { currentUser: any }) {
           <Dashboard rows={rows} go={setActive} lang={lang} />
         ) : active === "Raporlar" ? (
           <Reports rows={rows} lang={lang} />
-        ) : active === "Ayarlar" ? (
-          <Settings lang={lang} currentUser={currentUser} catalogs={catalogs} onCatalogChange={loadCatalogs} />
+        ) : adminModules.has(active) ? (
+          <Settings
+            lang={lang}
+            currentUser={currentUser}
+            catalogs={catalogs}
+            onCatalogChange={loadCatalogs}
+            page={active === "Ana Veri Yönetimi" ? "catalogs" : active === "İş Akışı Entegrasyonları" ? "workflow" : active === "E-posta ve Bildirimler" ? "email" : active === "Kimlik ve Erişim" ? "identity" : "system"}
+          />
         ) : active === "Denetim Yönetimi" ? (
           <AuditModule
             rows={by("Denetim Yönetimi")}

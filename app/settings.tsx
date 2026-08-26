@@ -6,20 +6,32 @@ import IntegrationSettings from "./integration-settings";
 import "./integration-settings.css";
 
 type Lang = "tr" | "en";
+export type SettingsPage = "system" | "catalogs" | "workflow" | "email" | "identity";
 type Config = { reminderDays:string;remindersEnabled:boolean;tlsMode:string;domain:string;minimumTls:string;forceHttps:boolean;hstsEnabled:boolean };
 const defaults: Config = { reminderDays:"15",remindersEnabled:true,tlsMode:"managed",domain:"",minimumTls:"1.2",forceHttps:true,hstsEnabled:true };
 
-export default function Settings({ lang, currentUser, catalogs, onCatalogChange }:{ lang:Lang;currentUser:any;catalogs:CatalogMap;onCatalogChange:()=>Promise<void> }) {
+export default function Settings({ lang, currentUser, catalogs, onCatalogChange, page }:{ lang:Lang;currentUser:any;catalogs:CatalogMap;onCatalogChange:()=>Promise<void>;page:SettingsPage }) {
   const tr=lang==="tr",[cfg,setCfg]=useState(defaults),[certPassword,setCertPassword]=useState(""),[certFile,setCertFile]=useState<File|null>(null),[certError,setCertError]=useState(""),[message,setMessage]=useState("");
   useEffect(()=>{try{const x=localStorage.getItem("fornost-grc-settings");if(x)setCfg({...defaults,...JSON.parse(x)})}catch{}},[]);
   const set=(k:keyof Config,v:any)=>{setCfg(x=>({...x,[k]:v}));setMessage("")};
   function chooseCertificate(e:ChangeEvent<HTMLInputElement>){const file=e.target.files?.[0]||null;setCertError("");if(!file){setCertFile(null);return}const ext=file.name.toLowerCase().split(".").pop();if(!["pfx","p12","pem","crt","cer"].includes(ext||"")){setCertFile(null);e.target.value="";setCertError(tr?"Yalnız PFX, P12, PEM, CRT veya CER dosyası seçilebilir.":"Only PFX, P12, PEM, CRT or CER files are accepted.");return}if(file.size>5*1024*1024){setCertFile(null);e.target.value="";setCertError(tr?"Sertifika dosyası 5 MB'dan küçük olmalıdır.":"The certificate file must be smaller than 5 MB.");return}setCertFile(file)}
   function save(e:FormEvent){e.preventDefault();localStorage.setItem("fornost-grc-settings",JSON.stringify(cfg));setCertPassword("");setCertFile(null);setMessage(tr?"Yerel platform tercihleri kaydedildi. Sertifika ve parolalar tarayıcıda saklanmadı.":"Local platform preferences saved. Certificates and passwords were not stored in the browser.")}
+  const headings:Record<SettingsPage,{tr:[string,string];en:[string,string]}>= {
+    system:{tr:["Sistem Ayarları","HTTPS/TLS güvenliği ve risk hatırlatma kurallarını yönetin."],en:["System Settings","Manage HTTPS/TLS security and risk reminder rules."]},
+    catalogs:{tr:["Ana Veri Yönetimi","Risk, BIA ve varlık envanterinde kullanılan seçim listelerini yönetin."],en:["Master Data Management","Manage selection lists used across Risk, BIA and Asset Inventory."]},
+    workflow:{tr:["İş Akışı Entegrasyonları","Jira ve diğer ticketing sistemleriyle GRC aksiyonlarını bağlayın."],en:["Workflow Integrations","Connect GRC actions with Jira and other ticketing systems."]},
+    email:{tr:["E-posta ve Bildirimler","SMTP, Graph veya e-posta API kanalını yapılandırıp test edin."],en:["Email & Notifications","Configure and test SMTP, Graph or email API delivery."]},
+    identity:{tr:["Kimlik ve Erişim","Entra, Okta, OIDC, SAML, LDAP/LDAPS ve yerel kullanıcıları yönetin."],en:["Identity & Access","Manage Entra, Okta, OIDC, SAML, LDAP/LDAPS and local users."]},
+  };
+  const [title,description]=headings[page][lang];
+  if(currentUser.role!=="Admin")return <section className="settings-empty"><b>{tr?"Yönetici yetkisi gerekli":"Administrator access required"}</b><p>{tr?"Bu yönetim ekranını yalnızca Admin rolündeki kullanıcılar açabilir.":"Only users with the Admin role can open this management page."}</p></section>;
   return <>
-    <section className="module-head settings-head"><div><h2>{tr?"Platform Ayarları":"Platform Settings"}</h2><p>{tr?"Ana veri listeleri, Entra ID, SMTP, HTTPS/TLS, risk hatırlatmaları ve yerel hesapları yönetin.":"Manage master data, Entra ID, SMTP, HTTPS/TLS, risk reminders and local accounts."}</p></div><span className="admin-badge">{tr?"Yalnızca Yönetici":"Administrators only"}</span></section>
-    {currentUser.role==="Admin"&&<IntegrationSettings lang={lang}/>}
-    {currentUser.role==="Admin"&&<CatalogManager lang={lang} catalogs={catalogs} onChange={onCatalogChange}/>}
-    <form className="settings-grid" onSubmit={save}>
+    <section className="module-head settings-head"><div><small>{tr?"YÖNETİM KONSOLU":"ADMIN CONSOLE"}</small><h2>{title}</h2><p>{description}</p></div><span className="admin-badge">{tr?"Yalnızca Yönetici":"Administrators only"}</span></section>
+    {page==="workflow"&&<IntegrationSettings lang={lang} kind="ticketing"/>}
+    {page==="email"&&<IntegrationSettings lang={lang} kind="email"/>}
+    {page==="identity"&&<><IntegrationSettings lang={lang} kind="identity"/><LocalUsers lang={lang}/></>}
+    {page==="catalogs"&&<CatalogManager lang={lang} catalogs={catalogs} onChange={onCatalogChange}/>}
+    {page==="system"&&<form className="settings-grid" onSubmit={save}>
       <Card title={tr?"HTTPS / TLS Güvenliği":"HTTPS / TLS Security"} desc={tr?"Alan adı, sertifika ve güvenli protokol ayarları":"Domain, certificate and secure protocol settings"} status={cfg.tlsMode==="managed"?(tr?"Platform Korumalı":"Platform Managed"):(cfg.domain?(tr?"Bağlama Hazır":"Ready to Bind"):(tr?"Eksik":"Incomplete"))} wide>
         <label className="setting-field wide"><span>{tr?"Sertifika Yönetimi":"Certificate Management"}</span><select value={cfg.tlsMode} onChange={e=>set("tlsMode",e.target.value)}><option value="managed">{tr?"Platform tarafından yönetilen SSL (önerilen)":"Platform-managed SSL (recommended)"}</option><option value="custom">{tr?"Özel alan adı / Azure App Service":"Custom domain / Azure App Service"}</option></select></label>
         <Input label={tr?"Alan Adı (FQDN)":"Domain (FQDN)"} value={cfg.domain} onChange={v=>set("domain",v.trim())} placeholder="grc.firma.com"/>
@@ -30,8 +42,7 @@ export default function Settings({ lang, currentUser, catalogs, onCatalogChange 
       </Card>
       <Card title={tr?"Risk Hatırlatmaları":"Risk Reminders"} desc={tr?"Sonraki değerlendirme tarihine göre otomatik bildirim":"Automatic notifications based on the next review date"} status={cfg.remindersEnabled?(tr?"Etkin":"Enabled"):(tr?"Kapalı":"Disabled")} wide><Toggle checked={cfg.remindersEnabled} onChange={v=>set("remindersEnabled",v)} label={tr?"Otomatik hatırlatmaları etkinleştir":"Enable automatic reminders"}/><Input label={tr?"Kaç Gün Önce":"Days Before"} value={cfg.reminderDays} onChange={v=>set("reminderDays",v)} type="number"/><div className="reminder-rule wide"><b>{tr?"Alıcı kuralı":"Recipient rule"}</b><p>{tr?`Açık risklerde ${cfg.reminderDays||15} gün önce aktif kullanıcılara ve risk sahibi e-postasına bildirim gönderilir.`:`For open risks, reminders are sent ${cfg.reminderDays||15} days before review to active users and the risk-owner email.`}</p></div></Card>
       <div className="settings-footer">{message&&<span>{message}</span>}<button className="primary">{tr?"Ayarları Kaydet":"Save Settings"}</button></div>
-    </form>
-    {currentUser.role==="Admin"&&<LocalUsers lang={lang}/>}
+    </form>}
   </>;
 }
 
