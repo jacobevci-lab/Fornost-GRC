@@ -21,4 +21,7 @@ exec bash scripts/sites-env.sh -- \
   --local \
   --persist-to .sites-runtime/data \
   --var "FORNOST_DEMO_MODE:${FORNOST_DEMO_MODE:-false}" \
+  --var "FORNOST_SETTINGS_ENCRYPTION_KEY:${FORNOST_SETTINGS_ENCRYPTION_KEY:-development-only-integration-key-change-me}" \
+  --var "FORNOST_ALLOW_PRIVATE_CONNECTORS:${FORNOST_ALLOW_PRIVATE_CONNECTORS:-false}" \
+  --var "FORNOST_TRUST_PLATFORM_IDENTITY:${FORNOST_TRUST_PLATFORM_IDENTITY:-false}" \
   --show-interactive-dev-session=false
