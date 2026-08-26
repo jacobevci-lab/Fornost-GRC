@@ -8,14 +8,15 @@ import "./matrix-overrides.css";
 import "./i18n.css";
 import "./settings.css";
 import "./fornost-refresh.css";
+import "./soc2-audit.css";
 import "./product-polish.css";
 import "./fornost-premium.css";
-import "./command-center.css";
 import "./cockpit.css";
 import Settings from "./settings";
 import { withBasePath } from "./base-path";
 import { calculatedRiskScore, effectiveImpact } from "./risk-methodology";
 import { defaultCatalogs, type CatalogMap } from "./catalogs";
+import { safeSpreadsheetCell } from "./export-security";
 
 type Lang = "tr" | "en";
 type Row = {
@@ -289,6 +290,22 @@ Object.assign(labelMap.tr, {
   delayReason: "Gecikme Nedeni",
   riskRef: "Bağlı Risk",
   evidenceRef: "Bağlı Kanıt",
+  frameworkTemplate: "Framework Şablonu",
+  scopeCategory: "SOC 2 Kapsam Kategorisi",
+  consultantStatus: "Danışman Başlangıç Değerlendirmesi",
+  designEffectiveness: "Tasarım Etkinliği",
+  operatingEffectiveness: "Operasyonel Etkinlik",
+  expectedEvidence: "Beklenen Kanıt / Doküman",
+  typeIITestApproach: "Type II Test Yaklaşımı",
+  currentDocuments: "Mevcut Doküman / Kayıt",
+  gapNote: "Gap / Denetim Notu",
+  requiredAction: "Gerekli Aksiyon",
+  testOwner: "Kontrol Test Sorumlusu",
+  testDate: "Kontrol Test Tarihi",
+  populationSize: "Popülasyon Büyüklüğü",
+  sampleSize: "Örneklem Sayısı",
+  exceptions: "İstisna Sayısı",
+  auditorResult: "Denetçi Sonucu",
 });
 Object.assign(labelMap.en, {
   auditName: "Audit Name",
@@ -308,6 +325,22 @@ Object.assign(labelMap.en, {
   delayReason: "Delay Reason",
   riskRef: "Linked Risk",
   evidenceRef: "Linked Evidence",
+  frameworkTemplate: "Framework Template",
+  scopeCategory: "SOC 2 Scope Category",
+  consultantStatus: "Consultant Baseline Assessment",
+  designEffectiveness: "Design Effectiveness",
+  operatingEffectiveness: "Operating Effectiveness",
+  expectedEvidence: "Expected Evidence / Document",
+  typeIITestApproach: "Type II Test Approach",
+  currentDocuments: "Current Document / Record",
+  gapNote: "Gap / Audit Note",
+  requiredAction: "Required Action",
+  testOwner: "Control Test Owner",
+  testDate: "Control Test Date",
+  populationSize: "Population Size",
+  sampleSize: "Sample Size",
+  exceptions: "Exception Count",
+  auditorResult: "Auditor Result",
 });
 const ui: Record<Lang, Record<string, string>> = {
   tr: {
@@ -562,18 +595,34 @@ const fields: Record<string, string[]> = {
   "Denetim Yönetimi": [
     "auditName",
     "auditType",
+    "frameworkTemplate",
     "auditor",
     "auditOwner",
     "startDate",
     "endDate",
     "requirementRef",
     "requirementTitle",
+    "scopeCategory",
     "owner",
     "businessUnit",
+    "consultantStatus",
+    "designEffectiveness",
+    "operatingEffectiveness",
     "dueDate",
     "status",
     "progress",
     "evidenceStatus",
+    "expectedEvidence",
+    "typeIITestApproach",
+    "currentDocuments",
+    "gapNote",
+    "requiredAction",
+    "testOwner",
+    "testDate",
+    "populationSize",
+    "sampleSize",
+    "exceptions",
+    "auditorResult",
     "controlRef",
     "riskRef",
     "evidenceRef",
@@ -794,7 +843,7 @@ function csvDownload(name: string, rows: Row[], lang: Lang) {
       ...all.map((k) => r.data[k] ?? ""),
     ]);
   const csv = [head, ...body]
-    .map((x) => x.map((v) => `"${String(v).replaceAll('"', '""')}"`).join(";"))
+    .map((x) => x.map((v) => `"${safeSpreadsheetCell(v).replaceAll('"', '""')}"`).join(";"))
     .join("\n");
   const a = document.createElement("a");
   a.href = URL.createObjectURL(
@@ -950,7 +999,9 @@ function FornostApp({ currentUser }: { currentUser: any }) {
     setTheme(
       saved === "dark" || saved === "light"
         ? saved
-        : "dark",
+        : window.matchMedia("(prefers-color-scheme: dark)").matches
+          ? "dark"
+          : "light",
     );
   }, []);
   useEffect(() => {
@@ -974,11 +1025,10 @@ function FornostApp({ currentUser }: { currentUser: any }) {
       const r = await fetch(withBasePath("/api/grc"));
       if (r.ok) {
         const j = await r.json();
-        setRows(
-          Array.isArray(j.rows)
-            ? j.rows.map((x: any) => ({ ...x, data: JSON.parse(x.data_json) }))
-            : [],
-        );
+        if (j.rows?.length)
+          setRows(
+            j.rows.map((x: any) => ({ ...x, data: JSON.parse(x.data_json) })),
+          );
       }
     } catch {}
   }
@@ -1063,17 +1113,34 @@ function FornostApp({ currentUser }: { currentUser: any }) {
       !confirm(lang === "tr" ? "Bu kayıt silinsin mi?" : "Delete this record?")
     )
       return;
-    const r = await fetch(withBasePath(`/api/grc?id=${id}`), { method: "DELETE" });
-    if (r.ok) {
-      await load();
-      setNotice(lang === "tr" ? "Kayıt silindi." : "Record deleted.");
+    await fetch(withBasePath(`/api/grc?id=${id}`), { method: "DELETE" });
+    await load();
+  }
+  async function createTicket(row: Row) {
+    const response = await fetch(withBasePath("/api/integrations"), {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        kind: "ticketing",
+        action: "create-ticket",
+        sourceId: row.id,
+        title: `[Fornost GRC] ${row.data.requirementRef || row.id} - ${row.data.requirementTitle || row.data.title || "GRC Aksiyonu"}`,
+        description: [row.data.gapNote, row.data.requiredAction, row.data.finding].filter(Boolean).join("\n\n"),
+      }),
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      setNotice(result.error || (lang === "tr" ? "Ticket oluşturulamadı." : "Ticket could not be created."));
       return;
     }
-    const j = await r.json().catch(() => ({}));
-    setNotice(
-      j.error ||
-        (lang === "tr" ? "Kayıt silinemedi." : "Record could not be deleted."),
-    );
+    const ticketRef = String(result.id || "created"), ticketUrl = String(result.url || "");
+    const update = await fetch(withBasePath("/api/grc"), {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ id: row.id, module: row.module, data: { ...row.data, ticketRef, ticketUrl, ticketStatus: "Open" } }),
+    });
+    if (update.ok) await load();
+    setNotice(lang === "tr" ? `Ticket oluşturuldu: ${ticketRef}` : `Ticket created: ${ticketRef}`);
   }
   async function uploadEvidence(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -1139,20 +1206,11 @@ function FornostApp({ currentUser }: { currentUser: any }) {
               <small>{group.label}</small>
               {group.items.map((m) => {
                 const i = modules.indexOf(m);
-                return (
-                  <button
-                    className={active === m ? "active" : ""}
-                    onClick={() => {
-                      setActive(m);
-                      setQuery("");
-                      setNotice("");
-                    }}
-                    key={m}
-                  >
-                    <i>{navIcons[i]}</i>
-                    <span>{names[lang][m]}</span>
-                  </button>
-                );
+                return <button className={active === m ? "active" : ""} onClick={() => {
+                  setActive(m); setQuery(""); setNotice("");
+                }} key={m}>
+                  <i>{navIcons[i]}</i><span>{names[lang][m]}</span>
+                </button>;
               })}
             </div>
           ))}
@@ -1231,6 +1289,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
         ) : active === "Denetim Yönetimi" ? (
           <AuditModule
             rows={by("Denetim Yönetimi")}
+            allRows={rows}
             visible={visible}
             selected={selectedAudit}
             select={(x) => {
@@ -1245,6 +1304,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
             remove={remove}
             openImport={() => setImportOpen(true)}
             canWrite={currentUser.role !== "Viewer"}
+            createTicket={createTicket}
           />
         ) : (
           <>
@@ -1665,6 +1725,10 @@ function Field({
     lifecycleStage: ["Planlama", "Aktif", "Bakım", "Kullanımdan Kaldırma", "Arşiv"],
     drStatus: ["Mevcut", "Kısmi", "Mevcut Değil", "Bilinmiyor"],
     testResult: ["Başarılı", "Kısmen Başarılı", "Başarısız", "Test Edilmedi"],
+    consultantStatus: ["Uygun", "Kısmi", "Eksik"],
+    designEffectiveness: ["Etkili", "Kısmen Etkili", "Etkisiz", "Test Bekliyor"],
+    operatingEffectiveness: ["Etkili", "Kısmen Etkili", "Etkisiz", "Test Bekliyor"],
+    auditorResult: ["Bekliyor", "Uygun", "İstisnalı", "Uygun Değil"],
     status: [
       "Aktif",
       "Açık",
@@ -1760,6 +1824,11 @@ function Field({
     "auditorFeedback",
     "finding",
     "delayReason",
+    "expectedEvidence",
+    "typeIITestApproach",
+    "currentDocuments",
+    "gapNote",
+    "requiredAction",
   ].includes(k);
   const dateFields = [
     "contractEnd",
@@ -1774,8 +1843,9 @@ function Field({
     "dueDate",
     "approvalDate",
     "acquisitionDate",
+    "testDate",
   ];
-  const numberFields = ["rto", "rpo", "mtpd", "progress"];
+  const numberFields = ["rto", "rpo", "mtpd", "progress", "populationSize", "sampleSize", "exceptions"];
   if (k === "asset" || k === "processLink") {
     const source =
       k === "asset"
@@ -2072,7 +2142,7 @@ function Reports({ rows, lang }: { rows: Row[]; lang: Lang }) {
     }));
     const keys = [...new Set(data.flatMap((row) => Object.keys(row)))];
     await writeXlsxFile(
-      [keys.map((key) => ({ value: key, fontWeight: "bold" as const })), ...data.map((row) => keys.map((key) => ({ value: String(row[key] ?? "") })))],
+      [keys.map((key) => ({ value: key, fontWeight: "bold" as const })), ...data.map((row) => keys.map((key) => ({ value: safeSpreadsheetCell(row[key]) })))],
     ).toFile(`Fornost-GRC-${tr ? "Raporu" : "Report"}-${new Date().toISOString().slice(0, 10)}.xlsx`);
   }
   return (
@@ -2536,6 +2606,7 @@ function auditKind(name: string) {
 }
 function AuditModule({
   rows,
+  allRows,
   visible,
   selected,
   select,
@@ -2547,8 +2618,10 @@ function AuditModule({
   remove,
   openImport,
   canWrite,
+  createTicket,
 }: {
   rows: Row[];
+  allRows: Row[];
   visible: Row[];
   selected: string;
   select: (x: string) => void;
@@ -2560,6 +2633,7 @@ function AuditModule({
   remove: (id: string) => void;
   openImport: () => void;
   canWrite: boolean;
+  createTicket: (row: Row) => Promise<void>;
 }) {
   const tr = lang === "tr",
     actual = [
@@ -2731,56 +2805,51 @@ function AuditModule({
           <span>{tr ? "Kapatılan" : "Closed"}</span>
         </article>
       </section>
-      <section className="table-card smart-register">
-        <div className="table-tools">
-          <div className="register-search">
-            <span>⌕</span>
-            <input
-              placeholder={
-                tr
-                  ? "Bu denetimin maddelerinde ara..."
-                  : "Search this audit's requirements..."
-              }
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-            />
-          </div>
-          <b>
-            {items.length} {tr ? "madde" : "requirements"}
-          </b>
-        </div>
-        <div className="table-wrap">
-          {items.length ? (
-            <SmartRegister
-              module="Denetim Yönetimi"
-              rows={items}
-              lang={lang}
-              edit={edit}
-              remove={remove}
-            />
-          ) : (
-            <div className="audit-empty">
-              <b>
-                {tr
-                  ? "Bu denetimde henüz madde yok."
-                  : "This audit has no requirements yet."}
-              </b>
-              <p>
-                {tr
-                  ? "İlk maddeyi ekleyin veya Excel dosyasından toplu içe aktarın."
-                  : "Add the first requirement or import them from Excel."}
-              </p>
-              {canWrite && (
-                <button className="primary" onClick={openNew}>
-                  {tr ? "İlk Maddeyi Ekle" : "Add First Requirement"}
-                </button>
-              )}
-            </div>
-          )}
-        </div>
-      </section>
+      <AuditWorkspaceTabs
+        items={items}
+        allRows={allRows}
+        lang={lang}
+        query={query}
+        setQuery={setQuery}
+        edit={edit}
+        remove={remove}
+        openNew={openNew}
+        canWrite={canWrite}
+        createTicket={createTicket}
+      />
     </>
   );
+}
+
+function AuditWorkspaceTabs({items,allRows,lang,query,setQuery,edit,remove,openNew,canWrite,createTicket}:{
+ items:Row[];allRows:Row[];lang:Lang;query:string;setQuery:(x:string)=>void;edit:(r:Row)=>void;remove:(id:string)=>void;openNew:()=>void;canWrite:boolean;createTicket:(row:Row)=>Promise<void>;
+}){
+ const tr=lang==="tr",[tab,setTab]=useState("overview"),soc2=items.some((r)=>r.data.frameworkTemplate||String(r.data.auditName).startsWith("SOC 2"));
+ const evidence=allRows.filter((r)=>r.module==="Kanıtlar"),linkedEvidence=(ref:string)=>evidence.filter((r)=>r.data.controlRef===ref);
+ const consultant=(value:string)=>items.filter((r)=>r.data.consultantStatus===value).length;
+ const tested=items.filter((r)=>r.data.operatingEffectiveness&&r.data.operatingEffectiveness!=="Test Bekliyor").length;
+ const findings=items.filter((r)=>r.data.gapNote||r.data.requiredAction||r.data.finding);
+ const tabs=[
+  ["overview",tr?"Genel Bakış":"Overview"],["scope",tr?"Kapsam":"Scope"],["controls",tr?"Kontroller":"Controls"],
+  ["evidence",tr?"Kanıtlar":"Evidence"],["tests",tr?"Kontrol Testleri":"Control Tests"],["findings",tr?"Gap ve Aksiyonlar":"Gaps & Actions"],
+ ];
+ if(!items.length)return <section className="table-card"><div className="audit-empty"><b>{tr?"Bu denetimde henüz madde yok.":"This audit has no requirements yet."}</b><p>{tr?"İlk maddeyi ekleyin veya Excel dosyasından toplu içe aktarın.":"Add the first requirement or import them from Excel."}</p>{canWrite&&<button className="primary" onClick={openNew}>{tr?"İlk Maddeyi Ekle":"Add First Requirement"}</button>}</div></section>;
+ return <>
+  <nav className="audit-workspace-tabs" aria-label={tr?"Denetim çalışma alanı":"Audit workspace"}>{tabs.map(([key,label])=><button key={key} className={tab===key?"active":""} onClick={()=>setTab(key)}>{label}{key==="findings"&&findings.length>0?<span>{findings.length}</span>:null}</button>)}</nav>
+  {tab==="overview"&&<section className="soc2-overview-grid">
+   <article className="soc2-readiness-card"><header><div><small>{soc2?"SOC 2 TYPE II":"AUDIT READINESS"}</small><h3>{tr?"Denetim hazırlık görünümü":"Audit readiness view"}</h3></div><span>{items[0]?.data.frameworkTemplate||items[0]?.data.auditType}</span></header><div className="soc2-status-grid">{[[consultant("Uygun"),tr?"Uygun":"Ready","ready"],[consultant("Kısmi"),tr?"Kısmi":"Partial","partial"],[consultant("Eksik"),tr?"Eksik":"Missing","missing"],[tested,tr?"Operasyonel test tamamlandı":"Operating tests complete","tested"]].map(([value,label,tone])=><div key={String(label)} className={String(tone)}><b>{value}</b><span>{label}</span></div>)}</div><footer><span>{tr?"Danışman başlangıç değerlendirmesi ayrı tutulur; nihai sonuç değildir.":"The consultant baseline is retained separately and is not the final audit result."}</span></footer></article>
+   <article className="soc2-period-card"><small>{tr?"DENETİM DÖNEMİ":"AUDIT PERIOD"}</small><h3>{items[0]?.data.startDate||"—"} → {items[0]?.data.endDate||"—"}</h3><p>{tr?"Type II kapsamında kontrollerin dönem boyunca çalıştığını kanıtlayan tarihli kayıtlar ve örneklemler izlenir.":"Dated evidence and samples demonstrate that controls operated throughout the Type II period."}</p><dl><div><dt>{tr?"Toplam kriter":"Total criteria"}</dt><dd>{items.length}</dd></div><div><dt>{tr?"Kanıt bağlanan":"Evidence linked"}</dt><dd>{items.filter((r)=>linkedEvidence(r.data.controlRef).length>0).length}</dd></div><div><dt>{tr?"Açık aksiyon":"Open actions"}</dt><dd>{findings.length}</dd></div></dl></article>
+  </section>}
+  {tab==="scope"&&<section className="audit-scope-grid">{[["Security",tr?"Başlangıç kapsamında":"In initial scope",items.filter((r)=>String(r.data.scopeCategory).includes("Security")).length],["Availability",tr?"Başlangıç kapsamında":"In initial scope",items.filter((r)=>r.data.scopeCategory==="Availability").length],["Confidentiality",tr?"Başlangıç kapsamında":"In initial scope",items.filter((r)=>r.data.scopeCategory==="Confidentiality").length],["Processing Integrity + Privacy",tr?"Faz 2 adayı":"Phase 2 candidate",0]].map(([name,status,count],i)=><article key={String(name)} className={i===3?"phase-two":""}><span>{i<3?"✓":"→"}</span><div><small>{status}</small><h3>{name}</h3><p>{count} {tr?"kriter":"criteria"}</p></div></article>)}</section>}
+  {tab==="controls"&&<section className="table-card smart-register"><AuditTableTools tr={tr} query={query} setQuery={setQuery} count={items.length}/><div className="table-wrap"><SmartRegister module="Denetim Yönetimi" rows={items} lang={lang} edit={edit} remove={remove}/></div></section>}
+  {tab==="evidence"&&<section className="table-card soc2-work-table"><header><div><small>{tr?"KANIT TALEP LİSTESİ":"EVIDENCE REQUEST LIST"}</small><h3>{tr?"Beklenen ve yüklenen kanıtlar":"Expected and uploaded evidence"}</h3></div><b>{evidence.length} {tr?"kütüphane kaydı":"library records"}</b></header><div className="table-wrap"><table><thead><tr><th>TSC</th><th>{tr?"Beklenen kanıt":"Expected evidence"}</th><th>{tr?"Sahip / Frekans":"Owner / Frequency"}</th><th>{tr?"Yüklenen":"Uploaded"}</th><th>{tr?"Durum":"Status"}</th></tr></thead><tbody>{items.map((r)=>{const linked=linkedEvidence(r.data.controlRef);return <tr key={r.id}><td><b>{r.data.requirementRef}</b></td><td>{r.data.expectedEvidence||"—"}</td><td><b>{r.data.owner||"—"}</b><small>{r.data.frequency||"—"}</small></td><td><span className="audit-count-chip">{linked.length}</span></td><td><StatusPill value={linked.length?r.data.evidenceStatus:"Kanıt Bekleniyor"} lang={lang}/></td></tr>})}</tbody></table></div></section>}
+  {tab==="tests"&&<section className="table-card soc2-work-table"><header><div><small>{tr?"TYPE II ETKİNLİK TESTİ":"TYPE II EFFECTIVENESS TEST"}</small><h3>{tr?"Tasarım ve operasyonel etkinlik":"Design and operating effectiveness"}</h3></div><b>{tested}/{items.length} {tr?"tamamlandı":"complete"}</b></header><div className="table-wrap"><table><thead><tr><th>TSC</th><th>{tr?"Test yaklaşımı":"Test approach"}</th><th>{tr?"Tasarım":"Design"}</th><th>{tr?"Operasyon":"Operation"}</th><th>{tr?"Örneklem":"Sample"}</th><th>{tr?"Denetçi":"Auditor"}</th></tr></thead><tbody>{items.map((r)=><tr key={r.id}><td><b>{r.data.requirementRef}</b><small>{r.data.requirementTitle}</small></td><td>{r.data.typeIITestApproach||"—"}</td><td><StatusPill value={r.data.designEffectiveness} lang={lang}/></td><td><StatusPill value={r.data.operatingEffectiveness} lang={lang}/></td><td>{r.data.sampleSize||"—"} / {r.data.populationSize||"—"}</td><td><StatusPill value={r.data.auditorResult} lang={lang}/></td></tr>)}</tbody></table></div></section>}
+  {tab==="findings"&&<section className="soc2-findings">{findings.map((r)=><article key={r.id}><header><span>{r.data.requirementRef}</span><StatusPill value={r.data.consultantStatus||r.data.status} lang={lang}/></header><h3>{r.data.requirementTitle}</h3>{r.data.gapNote&&<p><b>{tr?"Gap":"Gap"}</b>{r.data.gapNote}</p>}{r.data.requiredAction&&<p><b>{tr?"Gerekli aksiyon":"Required action"}</b>{r.data.requiredAction}</p>}{r.data.ticketRef&&<a className="soc2-ticket-ref" href={r.data.ticketUrl||undefined} target={r.data.ticketUrl?"_blank":undefined} rel="noreferrer">{tr?"Bağlı ticket":"Linked ticket"}: {r.data.ticketRef}</a>}<footer><span>{r.data.owner}</span><span>{r.data.dueDate}</span>{canWrite&&<button onClick={()=>edit(r)}>{tr?"Aksiyonu güncelle":"Update action"}</button>}{canWrite&&!r.data.ticketRef&&<button className="ticket-action" onClick={()=>createTicket(r)}>{tr?"Ticket Aç":"Create Ticket"}</button>}</footer></article>)}</section>}
+ </>;
+}
+
+function AuditTableTools({tr,query,setQuery,count}:{tr:boolean;query:string;setQuery:(x:string)=>void;count:number}){
+ return <div className="table-tools"><div className="register-search"><span>⌕</span><input placeholder={tr?"Bu denetimin maddelerinde ara...":"Search this audit's requirements..."} value={query} onChange={(e)=>setQuery(e.target.value)}/></div><b>{count} {tr?"madde":"requirements"}</b></div>;
 }
 
 const registerColumns: Record<
