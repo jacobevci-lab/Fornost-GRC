@@ -13,8 +13,9 @@
 
 ## Canlıya geçiş önkoşulları
 
-- [ ] Kurumsal Entra ID entegrasyonu ve grup→rol eşlemesi tamamlanmalı
-- [ ] SMTP relay ve 15 günlük hatırlatma job'ı gerçek servislerle test edilmeli
+- [ ] Entra/Okta/OIDC/SAML profili gerçek tenant ile doğrulanmalı ve grup→rol eşlemesi IAM bridge/gateway üzerinde tamamlanmalı
+- [ ] SMTP bridge veya Graph Mail ile “Test E-postası Gönder” gerçek servis hesabıyla doğrulanmalı; 15 günlük hatırlatma job'ı zamanlayıcıya bağlanmalı
+- [ ] Jira/ServiceNow/Azure DevOps/GitHub ticket profili gerçek proje ve en az ayrıcalıklı servis hesabıyla test edilmeli
 - [ ] D1 backup/restore prosedürü uygulanarak geri dönüş testi yapılmalı
 - [ ] Hosting logları SIEM'e bağlanmalı; alarm ve saklama süreleri tanımlanmalı
 - [ ] Rate limiting/WAF kuralı canlı alan adında doğrulanmalı
