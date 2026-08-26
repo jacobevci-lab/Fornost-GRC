@@ -2,23 +2,24 @@
 import { ChangeEvent, FormEvent, useEffect, useState } from "react";
 import { withBasePath } from "./base-path";
 import type { CatalogKey, CatalogMap } from "./catalogs";
+import IntegrationSettings from "./integration-settings";
+import "./integration-settings.css";
 
 type Lang = "tr" | "en";
-type Config = { tenantId:string;clientId:string;smtpHost:string;smtpPort:string;senderEmail:string;reminderDays:string;ssoEnabled:boolean;remindersEnabled:boolean;tlsMode:string;domain:string;minimumTls:string;forceHttps:boolean;hstsEnabled:boolean };
-const defaults: Config = { tenantId:"",clientId:"",smtpHost:"",smtpPort:"587",senderEmail:"",reminderDays:"15",ssoEnabled:false,remindersEnabled:true,tlsMode:"managed",domain:"",minimumTls:"1.2",forceHttps:true,hstsEnabled:true };
+type Config = { reminderDays:string;remindersEnabled:boolean;tlsMode:string;domain:string;minimumTls:string;forceHttps:boolean;hstsEnabled:boolean };
+const defaults: Config = { reminderDays:"15",remindersEnabled:true,tlsMode:"managed",domain:"",minimumTls:"1.2",forceHttps:true,hstsEnabled:true };
 
 export default function Settings({ lang, currentUser, catalogs, onCatalogChange }:{ lang:Lang;currentUser:any;catalogs:CatalogMap;onCatalogChange:()=>Promise<void> }) {
-  const tr=lang==="tr",[cfg,setCfg]=useState(defaults),[secret,setSecret]=useState(""),[certPassword,setCertPassword]=useState(""),[certFile,setCertFile]=useState<File|null>(null),[certError,setCertError]=useState(""),[message,setMessage]=useState("");
+  const tr=lang==="tr",[cfg,setCfg]=useState(defaults),[certPassword,setCertPassword]=useState(""),[certFile,setCertFile]=useState<File|null>(null),[certError,setCertError]=useState(""),[message,setMessage]=useState("");
   useEffect(()=>{try{const x=localStorage.getItem("fornost-grc-settings");if(x)setCfg({...defaults,...JSON.parse(x)})}catch{}},[]);
   const set=(k:keyof Config,v:any)=>{setCfg(x=>({...x,[k]:v}));setMessage("")};
   function chooseCertificate(e:ChangeEvent<HTMLInputElement>){const file=e.target.files?.[0]||null;setCertError("");if(!file){setCertFile(null);return}const ext=file.name.toLowerCase().split(".").pop();if(!["pfx","p12","pem","crt","cer"].includes(ext||"")){setCertFile(null);e.target.value="";setCertError(tr?"Yalnız PFX, P12, PEM, CRT veya CER dosyası seçilebilir.":"Only PFX, P12, PEM, CRT or CER files are accepted.");return}if(file.size>5*1024*1024){setCertFile(null);e.target.value="";setCertError(tr?"Sertifika dosyası 5 MB'dan küçük olmalıdır.":"The certificate file must be smaller than 5 MB.");return}setCertFile(file)}
-  function save(e:FormEvent){e.preventDefault();localStorage.setItem("fornost-grc-settings",JSON.stringify(cfg));setSecret("");setCertPassword("");setCertFile(null);setMessage(tr?"Ayarlar kaydedildi. Sertifika ve parolalar tarayıcıda saklanmadı.":"Settings saved. Certificates and passwords were not stored in the browser.")}
+  function save(e:FormEvent){e.preventDefault();localStorage.setItem("fornost-grc-settings",JSON.stringify(cfg));setCertPassword("");setCertFile(null);setMessage(tr?"Yerel platform tercihleri kaydedildi. Sertifika ve parolalar tarayıcıda saklanmadı.":"Local platform preferences saved. Certificates and passwords were not stored in the browser.")}
   return <>
     <section className="module-head settings-head"><div><h2>{tr?"Platform Ayarları":"Platform Settings"}</h2><p>{tr?"Ana veri listeleri, Entra ID, SMTP, HTTPS/TLS, risk hatırlatmaları ve yerel hesapları yönetin.":"Manage master data, Entra ID, SMTP, HTTPS/TLS, risk reminders and local accounts."}</p></div><span className="admin-badge">{tr?"Yalnızca Yönetici":"Administrators only"}</span></section>
+    {currentUser.role==="Admin"&&<IntegrationSettings lang={lang}/>}
     {currentUser.role==="Admin"&&<CatalogManager lang={lang} catalogs={catalogs} onChange={onCatalogChange}/>}
     <form className="settings-grid" onSubmit={save}>
-      <Card title="Microsoft Entra ID SSO" desc={tr?"Kurumsal kullanıcı girişi":"Corporate sign-in"} status={cfg.ssoEnabled?(tr?"Etkin":"Enabled"):(tr?"Taslak":"Draft")}><Toggle checked={cfg.ssoEnabled} onChange={v=>set("ssoEnabled",v)} label={tr?"Entra ID SSO'yu etkinleştir":"Enable Entra ID SSO"}/><Input label="Tenant ID" value={cfg.tenantId} onChange={v=>set("tenantId",v)}/><Input label="Client ID" value={cfg.clientId} onChange={v=>set("clientId",v)}/></Card>
-      <Card title="SMTP Relay" desc={tr?"Risk bildirim e-postaları":"Risk notification emails"} status={cfg.smtpHost?(tr?"Yapılandırıldı":"Configured"):(tr?"Eksik":"Incomplete")}><Input label={tr?"SMTP Sunucusu":"SMTP Server"} value={cfg.smtpHost} onChange={v=>set("smtpHost",v)}/><Input label="Port" value={cfg.smtpPort} onChange={v=>set("smtpPort",v)} type="number"/><Input label={tr?"Gönderici E-posta":"Sender Email"} value={cfg.senderEmail} onChange={v=>set("senderEmail",v)} type="email"/><Input label={tr?"Parola / Secret":"Password / Secret"} value={secret} onChange={setSecret} type="password" placeholder={tr?"Kaydedildikten sonra gösterilmez":"Hidden after saving"}/></Card>
       <Card title={tr?"HTTPS / TLS Güvenliği":"HTTPS / TLS Security"} desc={tr?"Alan adı, sertifika ve güvenli protokol ayarları":"Domain, certificate and secure protocol settings"} status={cfg.tlsMode==="managed"?(tr?"Platform Korumalı":"Platform Managed"):(cfg.domain?(tr?"Bağlama Hazır":"Ready to Bind"):(tr?"Eksik":"Incomplete"))} wide>
         <label className="setting-field wide"><span>{tr?"Sertifika Yönetimi":"Certificate Management"}</span><select value={cfg.tlsMode} onChange={e=>set("tlsMode",e.target.value)}><option value="managed">{tr?"Platform tarafından yönetilen SSL (önerilen)":"Platform-managed SSL (recommended)"}</option><option value="custom">{tr?"Özel alan adı / Azure App Service":"Custom domain / Azure App Service"}</option></select></label>
         <Input label={tr?"Alan Adı (FQDN)":"Domain (FQDN)"} value={cfg.domain} onChange={v=>set("domain",v.trim())} placeholder="grc.firma.com"/>
