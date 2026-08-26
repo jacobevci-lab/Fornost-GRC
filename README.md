@@ -14,6 +14,9 @@ Fornost GRC; risk, iş etki analizi, varlık, uyum, kontrol, kanıt, tedarikçi 
 - Kanıt Yönetimi ve güvenli dosya yükleme
 - Tedarikçi Yönetimi
 - Denetim Yönetimi: ISO 27001, SOC 1/2 Type I/II çalışma alanları
+- Entegrasyon Merkezi: Jira, ServiceNow, Azure DevOps, GitHub Issues ve webhook ticket akışları
+- E-posta bağlantı testi: SMTP bridge, Microsoft Graph Mail veya HTTP email API
+- IAM bağlantı profilleri: Entra ID, Okta, OIDC, SAML ve on-prem LDAP/LDAPS bridge
 - Admin / Editor / Viewer rol yönetimi
 - Excel içe aktarma ve CSV/Excel dışa aktarma
 - TR/EN arayüz
@@ -37,15 +40,9 @@ npm run dev
 
 ## Linux sunucu kurulumu
 
-Önerilen platformlar: Red Hat Enterprise Linux 8/9, Rocky Linux 8/9, AlmaLinux 8/9 ve CentOS Stream 9/10. Podman önerilir; Docker Engine de kullanılabilir. Sunucuda Node.js/npm kurulmaz ve kaynak kod build edilmez. Installer, klonlanan Git commit'i için GitHub Actions tarafından hazırlanıp uçtan uca test edilmiş image paketini indirir, SHA-256 bütünlüğünü doğrular ve container runtime'a yükler.
+Önerilen platformlar: Red Hat Enterprise Linux 8/9, Rocky Linux 8/9, AlmaLinux 8/9 ve CentOS Stream 8/9. CentOS Linux 7 kullanım ömrünü tamamladığı için desteklenmez. Podman önerilir; Docker Engine de kullanılabilir. Container image gerekli Node.js ve `glibc` çalışma ortamını kendi içinde taşır, host paketlerini değiştirmez.
 
-RHEL tabanlı temiz sunucuda en kolay kurulum tek komuttur:
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/jacobevci-lab/Fornost-GRC/main/scripts/linux/quick-install.sh | sudo bash
-```
-
-Script Git'i ve gerekli Podman paketlerini kurar, kaynakları `/opt/fornost-grc` altına indirir, başlamadan önce en az 8 GiB boş alanı doğrular ve yalnız CI'da test edilmiş container paketini yükler. Aynı komut daha sonra güvenli fast-forward güncellemesi yapar. Kaynağı önce incelemek isteyenler için eşdeğer manuel kurulum:
+RHEL tabanlı temiz sunucuda Podman ile eksiksiz ve doğrulamalı kurulum:
 
 ```bash
 sudo dnf install -y git
@@ -60,7 +57,7 @@ Varsayılan ilk kurulum adresi:
 https://SUNUCU_IP:8443/fornost-grc/
 ```
 
-İlk ziyarette Fornost GRC, ilk yerel yönetici hesabını oluşturma ekranını açar. Bootstrap gerekli RHEL paketlerini ve firewall kuralını kurar; installer ilk kurulum için kalıcı sistem dizininde kendinden imzalı bir TLS sertifikası üretir. Tarayıcı uyarısını kaldırmak için `.env.onprem` üzerinden kurum sertifikası ve anahtarı tanımlanabilir. Uygulama kayıtları ve yüklenen kanıtlar `fornost-grc-data` adlı kalıcı container volume alanında tutulur; repo veya container yenilense de silinmez. İndirilen image paketinin checksum'u uyuşmazsa hiçbir container başlatılmaz. Herhangi bir faz başarısız olursa installer ilgili fazı, container durumunu ve logları otomatik gösterir; tüm kontroller geçmeden başarı mesajı vermez.
+İlk ziyarette Fornost GRC, ilk yerel yönetici hesabını oluşturma ekranını açar. Bootstrap gerekli RHEL paketlerini ve firewall kuralını kurar; installer ilk kurulum için kalıcı sistem dizininde kendinden imzalı bir TLS sertifikası üretir. Tarayıcı uyarısını kaldırmak için `.env.onprem` üzerinden kurum sertifikası ve anahtarı tanımlanabilir. Uygulama kayıtları ve yüklenen kanıtlar `fornost-grc-data` adlı kalıcı container volume alanında tutulur; repo veya container yenilense de silinmez. Herhangi bir faz başarısız olursa installer ilgili fazı, container durumunu ve logları otomatik gösterir; tüm kontroller geçmeden başarı mesajı vermez.
 
 Adres yolu, HTTPS portu ve TLS sertifikası `.env.onprem` dosyasından değiştirilebilir. Rootless kurulum, Docker alternatifi, güncelleme, yedekleme, kaldırma, SELinux ve güvenlik duvarı adımları için [Linux On-Prem Kurulum Rehberi](docs/LINUX-INSTALLATION.md) belgesine bakın.
 
@@ -75,7 +72,7 @@ npm run validate:artifact
 
 ## Yapılandırma ve veri
 
-Hosting kimliği ve D1/R2 binding adları `.openai/hosting.json` içinde tutulur. Gizli değerler repoya yazılmaz. Canlı ortam değerleri hosting platformunun environment-variable yönetiminden verilmelidir.
+Hosting kimliği ve D1/R2 binding adları `.openai/hosting.json` içinde tutulur. Gizli değerler repoya yazılmaz. Entegrasyon token'ları D1 içinde AES-GCM ile şifrelenir; anahtar canlı ortam değişkenlerinden veya on-prem kalıcı state dizininden sağlanır. LDAP/LDAPS ham TCP bağlantısı hosted ortamdan açılmaz, şirket içi HTTPS IAM bridge üzerinden çalışır.
 
 Kanıt dosyaları yalnız PDF, JPEG, PNG veya WebP olabilir; MIME türü ve dosya imzası birlikte doğrulanır. Üst sınır 10 MB'dır. Excel import yalnız `.xlsx`, 5 MB ve 1.000 satırla sınırlıdır.
 
