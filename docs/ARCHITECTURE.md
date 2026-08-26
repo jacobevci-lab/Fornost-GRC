@@ -10,6 +10,7 @@ flowchart TD
     API --> AUTH[Session + RBAC]
     API --> D1[(Cloudflare D1)]
     API --> R2[(Cloudflare R2)]
+    API --> EXT[Ticket / Mail / IAM APIs]
 ```
 
 ## Katmanlar
@@ -19,6 +20,7 @@ flowchart TD
 - `app/api/grc`: modül allowlist'i, sunucu tarafı validasyon, CRUD ve toplu import.
 - `app/api/evidence`: dosya boyutu/türü/imzası doğrulaması ve güvenli indirme.
 - `app/api/users`: Admin rolüyle kullanıcı ve rol yönetimi.
+- `app/api/integrations`: Admin yönetimli ticket, e-posta ve IAM bağlantıları; şifreli secret saklama, SSRF koruması ve bağlantı olay kaydı.
 - `db/` ve `drizzle/`: veri modeli ve sürümlenmiş migration'lar.
 - `worker/index.ts`: Cloudflare Worker giriş noktası ve image optimization geçidi.
 
@@ -29,6 +31,7 @@ flowchart TD
 3. Modül, alan, tarih, skor, e-posta ve payload sınırları sunucuda uygulanır.
 4. D1 kalıcı kayıt sistemidir; R2 yalnız kanıt dosyalarını tutar.
 5. Gizli değerler kaynak kodda veya browser storage'da tutulmamalıdır.
+6. On-prem reverse proxy, platform kimlik başlıklarını temizler; hosted ortam bu başlıkları yalnız açıkça etkinleştirilmiş güven sınırında kabul eder.
 
 ## Veri yaşam döngüsü
 
