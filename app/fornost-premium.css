@@ -240,6 +240,8 @@ html[data-theme="dark"] .form small,html[data-theme="dark"] .form em,html[data-t
 html[data-theme="dark"] .audit-overview,html[data-theme="dark"] .audit-detail-head{background:linear-gradient(135deg,#151f35,#10182b);border-color:#2b3953;color:#eef2ff}
 html[data-theme="dark"] .audit-kpis article,html[data-theme="dark"] .audit-detail-kpis article{background:#111c30;border-color:#2c3a54}
 html[data-theme="dark"] .audit-kpis article b,html[data-theme="dark"] .audit-detail-kpis article b{color:#d9dcff}
+html[data-theme="dark"] .audit-workspace-tabs,html[data-theme="dark"] .soc2-period-card,html[data-theme="dark"] .audit-scope-grid article,html[data-theme="dark"] .soc2-findings article{background:#111c30;border-color:#2c3a54;color:#eef2ff}
+html[data-theme="dark"] .audit-workspace-tabs button:hover{background:#1b2942;color:#c7d2fe}html[data-theme="dark"] .soc2-period-card dl div,html[data-theme="dark"] .soc2-findings footer{border-color:#2c3a54}html[data-theme="dark"] .soc2-findings p{background:#0d1729;color:#b9c3d6}html[data-theme="dark"] .soc2-findings p b{color:#eef2ff}
 html[data-theme="dark"] .audit-card h3,html[data-theme="dark"] .audit-empty b{color:#eef2ff}html[data-theme="dark"] .audit-card footer{border-color:#293752;color:#95a1b6}
 html[data-theme="dark"] .audit-links span{background:#292855;color:#c3bfff}
 html[data-theme="dark"] .evidence-thumb-mark{background:#272754;color:#bdb9ff}
