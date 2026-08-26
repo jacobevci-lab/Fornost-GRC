@@ -1,9 +1,10 @@
 import { NextRequest,NextResponse } from "next/server";
 import { requireRole } from "../auth/security";
 import { demoSeeds } from "./demo-seeds";
+import { soc2TemplateControls, soc2TemplateMeta } from "./soc2-template";
 
 const table=`CREATE TABLE IF NOT EXISTS simple_grc_records (id TEXT PRIMARY KEY,module TEXT NOT NULL,data_json TEXT NOT NULL,created_at TEXT NOT NULL,updated_at TEXT NOT NULL)`;
-const metadataTable=`CREATE TABLE IF NOT EXISTS simple_grc_metadata (key TEXT PRIMARY KEY,value TEXT NOT NULL,updated_at TEXT NOT NULL)`;
+const migrationTable=`CREATE TABLE IF NOT EXISTS simple_grc_migrations (id TEXT PRIMARY KEY,applied_at TEXT NOT NULL)`;
 const modules=["Risk Assessment","BIA","Varlık Envanteri","Uyum","Tedarikçiler","Kontroller","Kanıtlar","Denetim Yönetimi"] as const;
 type ModuleName=(typeof modules)[number];
 type Data=Record<string,unknown>;
@@ -19,18 +20,57 @@ const required:Record<ModuleName,string[]>={
 };
 const prefixes:Record<ModuleName,string>={"Risk Assessment":"RSK",BIA:"BIA","Varlık Envanteri":"AST",Uyum:"CMP",Tedarikçiler:"VEN",Kontroller:"CTL",Kanıtlar:"EVD","Denetim Yönetimi":"AUD"};
 const seeds:[string,ModuleName,Data][]=demoSeeds;
-const demoSeedMarker="demo_seed_initialized";
-const listedCompanyAssetMarker="listed_company_risk_assets_2026_08";
-async function db(){const {env}=await import("cloudflare:workers");await env.DB.batch([env.DB.prepare(table),env.DB.prepare(metadataTable)]);return env.DB}
-export function shouldInsertDemoSeeds(marker:unknown,total:number){return !marker&&total===0}
-async function applyListedCompanyAssets(d:Awaited<ReturnType<typeof db>>,now:string){
- const applied=await d.prepare("SELECT value FROM simple_grc_metadata WHERE key=?").bind(listedCompanyAssetMarker).first();
+async function db(){const {env}=await import("cloudflare:workers");await env.DB.batch([env.DB.prepare(table),env.DB.prepare(migrationTable)]);return env.DB}
+async function applyReferenceDataMigration(d:Awaited<ReturnType<typeof db>>,now:string){
+ const migrationId="2026-08-listed-company-risk-assets";
+ const applied=await d.prepare("SELECT id FROM simple_grc_migrations WHERE id=?").bind(migrationId).first();
  if(applied)return;
  const additions=seeds.filter(([id,module])=>module==="Varlık Envanteri"&&Number(String(id).split("-")[1])>=13);
  await d.batch([
   ...additions.map(([id,module,data])=>d.prepare("INSERT OR IGNORE INTO simple_grc_records(id,module,data_json,created_at,updated_at) VALUES(?,?,?,?,?)").bind(id,module,JSON.stringify(data),now,now)),
-  d.prepare("INSERT OR REPLACE INTO simple_grc_metadata(key,value,updated_at) VALUES(?,?,?)").bind(listedCompanyAssetMarker,"1",now),
+  d.prepare("INSERT OR IGNORE INTO simple_grc_migrations(id,applied_at) VALUES(?,?)").bind(migrationId,now),
  ]);
+}
+function soc2Status(status:string){
+ const normalized=status.toLocaleLowerCase("tr-TR");
+ if(normalized==="uygun")return {status:"Tamamlandı",progress:100,evidenceStatus:"Kabul Edildi",designEffectiveness:"Etkili"};
+ if(normalized==="eksik")return {status:"Başlanmadı",progress:0,evidenceStatus:"Kanıt Bekleniyor",designEffectiveness:"Etkisiz"};
+ return {status:"Devam Ediyor",progress:50,evidenceStatus:"İncelemede",designEffectiveness:"Kısmen Etkili"};
+}
+async function applySoc2TemplateMigration(d:Awaited<ReturnType<typeof db>>,now:string){
+ const migrationId="2026-08-soc2-odine-v1";
+ const applied=await d.prepare("SELECT id FROM simple_grc_migrations WHERE id=?").bind(migrationId).first();
+ if(applied)return;
+ const statements=soc2TemplateControls.flatMap((control)=>{
+  const assessment=soc2Status(control.consultantStatus),safeId=control.tscId.replace(/[^a-zA-Z0-9]+/g,"-");
+  const common={
+   frameworkTemplate:soc2TemplateMeta.name,templateVersion:"v1",tscCategory:control.tscCategory,
+   exampleControls:control.exampleControls,performingControls:control.performingControls,controlOwner:control.controlOwner,
+   controlType:control.controlType,nature:control.nature,isoAnnex:control.isoAnnex,isoControlTitles:control.isoControlTitles,
+   isoClauses:control.isoClauses,iso22301:control.iso22301,expectedEvidence:control.expectedEvidence,
+   typeIITestApproach:control.typeIITestApproach,currentDocuments:control.currentDocuments,gapNote:control.gapNote,
+   requiredAction:control.requiredAction,consultantStatus:control.consultantStatus,source:control.source,
+  };
+  const controlRecord={controlRef:control.tscId,standardRef:control.tscId,controlTitle:control.expectation,
+   description:control.performingControls,owner:control.controlOwner,frequency:control.frequency,
+   frameworks:"SOC 2 Type II, ISO/IEC 27001:2022, ISO 22301:2019",implementation:control.consultantStatus,
+   lastTestDate:"",testResult:"Test Bekliyor",status:"Aktif",...common};
+  const auditRecord={auditName:soc2TemplateMeta.auditName,auditType:"SOC Denetimi",auditor:"Bağımsız Denetim / Hazırlık",
+   auditOwner:"Bilgi Güvenliği",startDate:soc2TemplateMeta.startDate,endDate:soc2TemplateMeta.endDate,
+   requirementRef:control.tscId,requirementTitle:control.expectation,owner:control.controlOwner,
+   businessUnit:control.controlOwner.split("/")[0].trim()||"Bilgi Güvenliği",dueDate:soc2TemplateMeta.endDate,
+   status:assessment.status,progress:assessment.progress,evidenceStatus:assessment.evidenceStatus,controlRef:control.tscId,
+   riskRef:"",evidenceRef:"",responsibleNote:control.requiredAction,auditorFeedback:"",finding:control.gapNote,
+   delayReason:"",scopeCategory:control.tscCategory.split("/")[0].trim(),designEffectiveness:assessment.designEffectiveness,
+   operatingEffectiveness:"Test Bekliyor",testOwner:"",testDate:"",populationSize:"",sampleSize:"",exceptions:"",
+   auditorResult:"Bekliyor",recordKind:"ControlAssessment",...common};
+  return [
+   d.prepare("INSERT OR IGNORE INTO simple_grc_records(id,module,data_json,created_at,updated_at) VALUES(?,?,?,?,?)").bind(`SOC2-CTL-${safeId}`,"Kontroller",JSON.stringify(controlRecord),now,now),
+   d.prepare("INSERT OR IGNORE INTO simple_grc_records(id,module,data_json,created_at,updated_at) VALUES(?,?,?,?,?)").bind(`SOC2-AUD-${safeId}`,"Denetim Yönetimi",JSON.stringify(auditRecord),now,now),
+  ];
+ });
+ for(let i=0;i<statements.length;i+=50)await d.batch(statements.slice(i,i+50));
+ await d.prepare("INSERT OR IGNORE INTO simple_grc_migrations(id,applied_at) VALUES(?,?)").bind(migrationId,now).run();
 }
 export function cleanText(value:unknown,max=1000){return typeof value==="string"?value.trim().slice(0,max):value}
 export function validModule(value:unknown):value is ModuleName{return typeof value==="string"&&modules.includes(value as ModuleName)}
@@ -53,7 +93,7 @@ export function validate(module:unknown,input:unknown){
  }
  if(module==="Denetim Yönetimi"&&(!Number.isInteger(Number(data.progress))||Number(data.progress)<0||Number(data.progress)>100))return {error:"progress 0-100 arasında olmalıdır."};
  if(data.ownerEmail&&(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(data.ownerEmail))||String(data.ownerEmail).length>254))return {error:"Geçersiz risk sahibi e-posta adresi."};
- for(const key of ["targetDate","lastReview","nextReview","contractEnd","eolDate","lastTestDate","nextTestDate","startDate","endDate","dueDate","approvalDate","acquisitionDate"])if(data[key]&&!validDate(data[key]))return {error:`Geçersiz tarih: ${key}`};
+ for(const key of ["targetDate","lastReview","nextReview","contractEnd","eolDate","lastTestDate","nextTestDate","startDate","endDate","dueDate","approvalDate","acquisitionDate","testDate"])if(data[key]&&!validDate(data[key]))return {error:`Geçersiz tarih: ${key}`};
  if(data.lastReview&&data.nextReview&&String(data.nextReview)<String(data.lastReview))return {error:"Sonraki değerlendirme tarihi son değerlendirmeden önce olamaz."};
  if(data.startDate&&data.endDate&&String(data.endDate)<String(data.startDate))return {error:"Denetim bitiş tarihi başlangıç tarihinden önce olamaz."};
  const encoded=JSON.stringify(data);if(encoded.length>100_000)return {error:"Kayıt verisi izin verilen boyutu aşıyor."};
@@ -61,7 +101,7 @@ export function validate(module:unknown,input:unknown){
 }
 function readJson(req:NextRequest){const len=Number(req.headers.get("content-length")||0);if(len>2_000_000)throw new Error("PAYLOAD_TOO_LARGE");return req.json()}
 
-export async function GET(req:NextRequest){const auth=await requireRole(req,["Admin","Editor","Viewer"]);if(auth.response)return auth.response;const d=await db();const marker=await d.prepare("SELECT value FROM simple_grc_metadata WHERE key=?").bind(demoSeedMarker).first<{value:string}>(),c=await d.prepare("SELECT COUNT(*) total FROM simple_grc_records").first<{total:number}>(),now=new Date().toISOString();if(shouldInsertDemoSeeds(marker,Number(c?.total||0))){await d.batch(seeds.map(s=>d.prepare("INSERT OR IGNORE INTO simple_grc_records(id,module,data_json,created_at,updated_at) VALUES(?,?,?,?,?)").bind(s[0],s[1],JSON.stringify(s[2]),now,now)))}if(!marker){await d.prepare("INSERT OR REPLACE INTO simple_grc_metadata(key,value,updated_at) VALUES(?,?,?)").bind(demoSeedMarker,"1",now).run()}await applyListedCompanyAssets(d,now);const r=await d.prepare("SELECT * FROM simple_grc_records ORDER BY updated_at DESC LIMIT 5000").all<Record<string,unknown>>();const rows=r.results.map(row=>{try{const data=JSON.parse(String(row.data_json)) as Data;if(row.module==="Risk Assessment"){if(data.inherentLikelihood===undefined&&data.likelihood!==undefined)data.inherentLikelihood=data.likelihood;if(data.inherentImpact===undefined&&data.impact!==undefined)data.inherentImpact=data.impact;delete data.likelihood;delete data.impact}if(row.module==="BIA"&&!data.processCategory)data.processCategory="Operasyonel Süreç";return {...row,data_json:JSON.stringify(data)}}catch{return row}});return NextResponse.json({rows})}
+export async function GET(req:NextRequest){const auth=await requireRole(req,["Admin","Editor","Viewer"]);if(auth.response)return auth.response;const d=await db();const c=await d.prepare("SELECT COUNT(*) total FROM simple_grc_records").first<{total:number}>(),now=new Date().toISOString();if(!c?.total){await d.batch(seeds.map(s=>d.prepare("INSERT OR IGNORE INTO simple_grc_records(id,module,data_json,created_at,updated_at) VALUES(?,?,?,?,?)").bind(s[0],s[1],JSON.stringify(s[2]),now,now)))}else{const auditCount=await d.prepare("SELECT COUNT(*) total FROM simple_grc_records WHERE module='Denetim Yönetimi'").first<{total:number}>();if(!auditCount?.total){const sample=seeds.find(s=>s[1]==="Denetim Yönetimi");if(sample)await d.prepare("INSERT OR IGNORE INTO simple_grc_records(id,module,data_json,created_at,updated_at) VALUES(?,?,?,?,?)").bind(sample[0],sample[1],JSON.stringify(sample[2]),now,now).run()}}await applyReferenceDataMigration(d,now);await applySoc2TemplateMigration(d,now);const demoEvidence=seeds.filter(s=>s[1]==="Kanıtlar"&&String(s[0]).startsWith("EVD-"));await d.batch(demoEvidence.map(s=>d.prepare("UPDATE simple_grc_records SET data_json=?,updated_at=? WHERE id=? AND module=\'Kanıtlar\'").bind(JSON.stringify(s[2]),now,s[0])));const r=await d.prepare("SELECT * FROM simple_grc_records ORDER BY updated_at DESC LIMIT 5000").all<Record<string,unknown>>();const rows=r.results.map(row=>{try{const data=JSON.parse(String(row.data_json)) as Data;if(row.module==="Risk Assessment"){if(data.inherentLikelihood===undefined&&data.likelihood!==undefined)data.inherentLikelihood=data.likelihood;if(data.inherentImpact===undefined&&data.impact!==undefined)data.inherentImpact=data.impact;delete data.likelihood;delete data.impact}if(row.module==="BIA"&&!data.processCategory)data.processCategory="Operasyonel Süreç";return {...row,data_json:JSON.stringify(data)}}catch{return row}});return NextResponse.json({rows})}
 export async function POST(req:NextRequest){
  const auth=await requireRole(req,["Admin","Editor"]);if(auth.response)return auth.response;
  try{
