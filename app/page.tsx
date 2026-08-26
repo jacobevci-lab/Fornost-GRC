@@ -1,6 +1,3 @@
-Warning: truncated output (original token count: 30894)
-Total output lines: 3356
-
 "use client";
 /* eslint-disable @next/next/no-img-element -- evidence images are authenticated runtime URLs and cannot use the static image optimizer */
 
@@ -1808,7 +1805,113 @@ function Field({
     change = (v: string) => setForm({ ...form, [k]: v }),
     u = ui[lang],
     requiredField = ["asset", "category", "processCategory", "assetType"].includes(k);
-  if (k === "c…894 tokens truncated…)
+  if (k === "calculatedImpact") {
+    const impact = effectiveImpact(form), likelihood = Number(form.inherentLikelihood || 0), total = likelihood * impact;
+    return (
+      <div className="wide cia-calculation">
+        <div><small>{lang === "tr" ? "GİZLİLİK" : "CONFIDENTIALITY"}</small><b>{form.confidentialityImpact || "—"}</b></div>
+        <div><small>{lang === "tr" ? "BÜTÜNLÜK" : "INTEGRITY"}</small><b>{form.integrityImpact || "—"}</b></div>
+        <div><small>{lang === "tr" ? "ERİŞİLEBİLİRLİK" : "AVAILABILITY"}</small><b>{form.availabilityImpact || "—"}</b></div>
+        <div className="cia-result"><small>{lang === "tr" ? "ETKİN ETKİ / RİSK SKORU" : "EFFECTIVE IMPACT / RISK SCORE"}</small><b>{impact || "—"} / {total || "—"}</b><span>{total ? display(band(total), lang) : (lang === "tr" ? "CIA değerlerini girin" : "Enter CIA values")}</span></div>
+      </div>
+    );
+  }
+  if (k === "frameworks") {
+    const selected = String(value)
+        .split(",")
+        .map((x) => x.trim())
+        .filter(Boolean),
+      toggle = (x: string) =>
+        change(
+          selected.includes(x)
+            ? selected.filter((v) => v !== x).join(", ")
+            : [...selected, x].join(", "),
+        );
+    return (
+      <fieldset className="wide framework-picker">
+        <legend>{labelMap[lang][k]}</legend>
+        <p>
+          {lang === "tr"
+            ? "Bu kanıt veya kontrol için geçerli olan tüm standartları seçin."
+            : "Select every standard that applies to this evidence or control."}
+        </p>
+        {nameMode && <input type="hidden" name={k} value={value} />}
+        <div>
+          {frameworkGroups.map((group) => (
+            <section key={group.en}>
+              <b>{group[lang]}</b>
+              {group.items.map((x) => (
+                <label key={x}>
+                  <input
+                    type="checkbox"
+                    checked={selected.includes(x)}
+                    onChange={() => toggle(x)}
+                  />
+                  <span>{x}</span>
+                </label>
+              ))}
+            </section>
+          ))}
+        </div>
+      </fieldset>
+    );
+  }
+  const wide = [
+    "description",
+    "notes",
+    "implementation",
+    "threat",
+    "event",
+    "consequence",
+    "existingControls",
+    "plannedAction",
+    "dependencies",
+    "peopleDependency",
+    "technologyDependency",
+    "facilityDependency",
+    "supplierDependency",
+    "recoveryStrategy",
+    "regulatoryScope",
+    "minimumService",
+    "requirementTitle",
+    "responsibleNote",
+    "auditorFeedback",
+    "finding",
+    "delayReason",
+    "expectedEvidence",
+    "typeIITestApproach",
+    "currentDocuments",
+    "gapNote",
+    "requiredAction",
+  ].includes(k);
+  const dateFields = [
+    "contractEnd",
+    "targetDate",
+    "lastReview",
+    "nextReview",
+    "eolDate",
+    "lastTestDate",
+    "nextTestDate",
+    "startDate",
+    "endDate",
+    "dueDate",
+    "approvalDate",
+    "acquisitionDate",
+    "testDate",
+  ];
+  const numberFields = ["rto", "rpo", "mtpd", "progress", "populationSize", "sampleSize", "exceptions"];
+  if (k === "asset" || k === "processLink") {
+    const source =
+      k === "asset"
+        ? linkedRows
+            .filter((r) => r.module === "Varlık Envanteri")
+            .map((r) => r.data.title)
+        : linkedRows
+            .filter((r) => r.module === "BIA")
+            .map((r) => r.data.process);
+    const options = [...new Set(source.filter(Boolean))];
+    if (k === "asset" && "category" in form) {
+      const selected = String(value)
         .split(",")
         .map((x) => x.trim())
         .filter(Boolean);
