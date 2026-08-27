@@ -60,6 +60,7 @@ async function applySoc2TemplateMigration(d:Awaited<ReturnType<typeof db>>,now:s
   const auditRecord={auditName:soc2TemplateMeta.auditName,auditType:"SOC Denetimi",auditor:"Bağımsız Denetim / Hazırlık",
    auditOwner:"Bilgi Güvenliği",startDate:soc2TemplateMeta.startDate,endDate:soc2TemplateMeta.endDate,
    requirementRef:control.tscId,requirementTitle:control.expectation,owner:control.controlOwner,
+   followUpOwner:"Bilgi Güvenliği",
    businessUnit:control.controlOwner.split("/")[0].trim()||"Bilgi Güvenliği",dueDate:soc2TemplateMeta.endDate,
    status:assessment.status,progress:assessment.progress,evidenceStatus:assessment.evidenceStatus,controlRef:control.tscId,
    riskRef:"",evidenceRef:"",responsibleNote:control.requiredAction,auditorFeedback:"",finding:control.gapNote,
@@ -95,7 +96,7 @@ export function validate(module:unknown,input:unknown){
  }
  if(module==="Denetim Yönetimi"&&(!Number.isInteger(Number(data.progress))||Number(data.progress)<0||Number(data.progress)>100))return {error:"progress 0-100 arasında olmalıdır."};
  if(data.ownerEmail&&(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(data.ownerEmail))||String(data.ownerEmail).length>254))return {error:"Geçersiz risk sahibi e-posta adresi."};
- for(const key of ["targetDate","lastReview","nextReview","contractEnd","eolDate","lastTestDate","nextTestDate","startDate","endDate","dueDate","approvalDate","acquisitionDate"])if(data[key]&&!validDate(data[key]))return {error:`Geçersiz tarih: ${key}`};
+ for(const key of ["targetDate","lastReview","nextReview","contractEnd","eolDate","lastTestDate","nextTestDate","startDate","endDate","dueDate","approvalDate","acquisitionDate","lastAssessment","nextAssessment","collectedAt","expiresAt"])if(data[key]&&!validDate(data[key]))return {error:`Geçersiz tarih: ${key}`};
  if(data.lastReview&&data.nextReview&&String(data.nextReview)<String(data.lastReview))return {error:"Sonraki değerlendirme tarihi son değerlendirmeden önce olamaz."};
  if(data.startDate&&data.endDate&&String(data.endDate)<String(data.startDate))return {error:"Denetim bitiş tarihi başlangıç tarihinden önce olamaz."};
  const encoded=JSON.stringify(data);if(encoded.length>100_000)return {error:"Kayıt verisi izin verilen boyutu aşıyor."};
