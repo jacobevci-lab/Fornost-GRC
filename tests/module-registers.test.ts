@@ -25,4 +25,14 @@ test("register layout contains readable and overflow-safe desktop and mobile rul
   assert.match(css, /@media\(max-width:1500px\)\{\.risk-overview\{grid-template-columns:1fr!important/);
   assert.match(css, /@media\(max-width:720px\)/);
   assert.match(css, /\.column-picker\{position:fixed/);
+  assert.match(page, /getBoundingClientRect/);
+  assert.match(page, /window\.addEventListener\("scroll", placePicker, true\)/);
+});
+
+test("module catalogs expose operational tracking fields beyond the default view", () => {
+  assert.match(page, /followUpOwner: "Takip Eden \/ Koordinatör"/);
+  assert.match(page, /"Risk Assessment": \["category", "businessUnit", "owner", "asset", "actionOwner"/);
+  assert.match(page, /"Varlık Envanteri": \["assetType", "businessUnit", "owner", "technicalOwner", "custodian"/);
+  assert.match(page, /"Denetim Yönetimi": \["auditType", "businessUnit", "owner", "followUpOwner"/);
+  assert.match(page, /tr: "Atanan Kişi \/ İş Birimi"/);
 });

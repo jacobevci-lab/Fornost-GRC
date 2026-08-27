@@ -1,7 +1,7 @@
 "use client";
 /* eslint-disable @next/next/no-img-element -- evidence images are authenticated runtime URLs and cannot use the static image optimizer */
 
-import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { CSSProperties, FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { readSheet as readXlsxSheet } from "read-excel-file/browser";
 import writeXlsxFile from "write-excel-file/browser";
 import "./matrix-overrides.css";
@@ -363,6 +363,22 @@ Object.assign(labelMap.tr, {
   sampleSize: "Örneklem Sayısı",
   exceptions: "İstisna Sayısı",
   auditorResult: "Denetçi Sonucu",
+  followUpOwner: "Takip Eden / Koordinatör",
+  lastAssessment: "Son Değerlendirme",
+  nextAssessment: "Sonraki Değerlendirme",
+  evidenceOwner: "Kanıt Sorumlusu",
+  reviewStatus: "İnceleme Durumu",
+  reviewer: "İnceleyen",
+  collectedAt: "Toplanma Tarihi",
+  expiresAt: "Geçerlilik Bitişi",
+  sourceSystem: "Kaynak Sistem",
+  dataAccess: "Veri Erişim Seviyesi",
+  hostingLocation: "Barındırma Lokasyonu",
+  incidentSla: "Olay Bildirim SLA",
+  exitPlan: "Çıkış / Geçiş Planı",
+  riskTreatment: "Tedarikçi Risk Aksiyonu",
+  controlType: "Kontrol Türü",
+  controlObjective: "Kontrol Hedefi",
 });
 Object.assign(labelMap.en, {
   auditName: "Audit Name",
@@ -398,6 +414,22 @@ Object.assign(labelMap.en, {
   sampleSize: "Sample Size",
   exceptions: "Exception Count",
   auditorResult: "Auditor Result",
+  followUpOwner: "Follower / Coordinator",
+  lastAssessment: "Last Assessment",
+  nextAssessment: "Next Assessment",
+  evidenceOwner: "Evidence Owner",
+  reviewStatus: "Review Status",
+  reviewer: "Reviewer",
+  collectedAt: "Collected At",
+  expiresAt: "Expiry Date",
+  sourceSystem: "Source System",
+  dataAccess: "Data Access Level",
+  hostingLocation: "Hosting Location",
+  incidentSla: "Incident Notification SLA",
+  exitPlan: "Exit / Transition Plan",
+  riskTreatment: "Vendor Risk Treatment",
+  controlType: "Control Type",
+  controlObjective: "Control Objective",
 });
 const ui: Record<Lang, Record<string, string>> = {
   tr: {
@@ -615,9 +647,16 @@ const fields: Record<string, string[]> = {
     "framework",
     "controlRef",
     "controlTitle",
+    "businessUnit",
     "owner",
+    "followUpOwner",
     "implementation",
+    "evidenceStatus",
+    "lastAssessment",
+    "nextAssessment",
+    "dueDate",
     "status",
+    "notes",
   ],
   Tedarikçiler: [
     "title",
@@ -629,14 +668,29 @@ const fields: Record<string, string[]> = {
     "contractEnd",
     "riskLevel",
     "contact",
+    "dataAccess",
+    "hostingLocation",
+    "lastAssessment",
+    "nextAssessment",
+    "incidentSla",
+    "exitPlan",
+    "riskTreatment",
     "status",
   ],
   Kontroller: [
     "controlRef",
     "controlTitle",
     "description",
+    "businessUnit",
     "owner",
+    "controlType",
+    "controlObjective",
     "frequency",
+    "evidenceOwner",
+    "testOwner",
+    "lastTestDate",
+    "nextTestDate",
+    "testResult",
     "status",
     "frameworks",
   ],
@@ -647,6 +701,11 @@ const fields: Record<string, string[]> = {
     "owner",
     "period",
     "frameworks",
+    "sourceSystem",
+    "collectedAt",
+    "expiresAt",
+    "reviewer",
+    "reviewStatus",
     "notes",
   ],
   "Denetim Yönetimi": [
@@ -661,6 +720,7 @@ const fields: Record<string, string[]> = {
     "requirementTitle",
     "scopeCategory",
     "owner",
+    "followUpOwner",
     "businessUnit",
     "consultantStatus",
     "designEffectiveness",
@@ -1990,6 +2050,10 @@ function Field({
     "approvalDate",
     "acquisitionDate",
     "testDate",
+    "lastAssessment",
+    "nextAssessment",
+    "collectedAt",
+    "expiresAt",
   ];
   const numberFields = ["rto", "rpo", "mtpd", "progress", "populationSize", "sampleSize", "exceptions"];
   if (k === "asset" || k === "processLink") {
@@ -3060,9 +3124,10 @@ const registerColumns: Record<
     { key: "audit", tr: "Denetim / Madde", en: "Audit / Requirement" },
     {
       key: "ownership",
-      tr: "İş Birimi / Sorumlu",
-      en: "Business Unit / Owner",
+      tr: "Atanan Kişi / İş Birimi",
+      en: "Assignee / Business Unit",
     },
+    { key: "followUpOwner", tr: "Takip Eden", en: "Follower" },
     { key: "dueDate", tr: "Termin", en: "Due Date" },
     { key: "progress", tr: "İlerleme", en: "Progress" },
     { key: "evidenceStatus", tr: "Kanıt", en: "Evidence" },
@@ -3078,14 +3143,14 @@ const systemRegisterColumns: RegisterColumn[] = [
   { key: "updatedAt", tr: "Son Güncelleme", en: "Last Updated" },
 ];
 const registerFilterKeys: Record<string, string[]> = {
-  "Risk Assessment": ["category", "businessUnit", "owner", "treatment", "status"],
-  BIA: ["processCategory", "businessUnit", "owner", "criticality", "drStatus", "testResult"],
-  "Varlık Envanteri": ["assetType", "businessUnit", "owner", "criticality", "dataClassification", "environment", "internetFacing", "status"],
-  Uyum: ["framework", "owner", "implementation", "status"],
-  Tedarikçiler: ["vendorType", "businessUnit", "owner", "criticality", "riskLevel", "status"],
-  Kontroller: ["owner", "frequency", "status"],
-  Kanıtlar: ["owner", "period"],
-  "Denetim Yönetimi": ["auditType", "businessUnit", "owner", "consultantStatus", "evidenceStatus", "status"],
+  "Risk Assessment": ["category", "businessUnit", "owner", "asset", "actionOwner", "treatment", "status", "nextReview"],
+  BIA: ["processCategory", "businessUnit", "owner", "criticality", "asset", "drStatus", "testResult", "approver", "nextTestDate"],
+  "Varlık Envanteri": ["assetType", "businessUnit", "owner", "technicalOwner", "custodian", "criticality", "dataClassification", "environment", "internetFacing", "personalData", "criticalService", "backupStatus", "edrStatus", "siemStatus", "patchStatus", "status"],
+  Uyum: ["framework", "businessUnit", "owner", "followUpOwner", "implementation", "evidenceStatus", "status", "nextAssessment"],
+  Tedarikçiler: ["vendorType", "businessUnit", "owner", "criticality", "riskLevel", "dataAccess", "hostingLocation", "riskTreatment", "status", "nextAssessment"],
+  Kontroller: ["businessUnit", "owner", "controlType", "frequency", "testOwner", "testResult", "status"],
+  Kanıtlar: ["owner", "period", "sourceSystem", "reviewer", "reviewStatus", "expiresAt"],
+  "Denetim Yönetimi": ["auditType", "businessUnit", "owner", "followUpOwner", "consultantStatus", "evidenceStatus", "testOwner", "auditorResult", "dueDate", "status"],
 };
 function getAvailableRegisterColumns(module: string): RegisterColumn[] {
   const preferred = registerColumns[module] || [];
@@ -3124,7 +3189,30 @@ function RegisterToolbar({
   filterPanelOpen: boolean; setFilterPanelOpen: (open: boolean) => void;
 }) {
   const tr = lang === "tr", available = getAvailableRegisterColumns(module), filterKeys = registerFilterKeys[module] || [];
+  const columnButtonRef = useRef<HTMLButtonElement>(null);
+  const [pickerPosition, setPickerPosition] = useState<CSSProperties>({});
   const activeFilterCount = Object.values(filters).filter(Boolean).length;
+  useEffect(() => {
+    if (!columnPickerOpen) return;
+    const placePicker = () => {
+      const rect = columnButtonRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      const width = Math.min(420, window.innerWidth - 24);
+      const maxHeight = Math.min(540, window.innerHeight - 24);
+      const left = Math.max(12, Math.min(window.innerWidth - width - 12, rect.right - width));
+      const openUp = window.innerHeight - rect.bottom < Math.min(390, maxHeight) && rect.top > window.innerHeight - rect.bottom;
+      setPickerPosition(openUp
+        ? { left, width, maxHeight, top: "auto", bottom: Math.max(12, window.innerHeight - rect.top + 8) }
+        : { left, width, maxHeight, top: Math.min(window.innerHeight - 12, rect.bottom + 8), bottom: "auto" });
+    };
+    placePicker();
+    window.addEventListener("resize", placePicker);
+    window.addEventListener("scroll", placePicker, true);
+    return () => {
+      window.removeEventListener("resize", placePicker);
+      window.removeEventListener("scroll", placePicker, true);
+    };
+  }, [columnPickerOpen]);
   const toggleColumn = (key: string) => {
     const next = selectedColumnKeys.includes(key) ? selectedColumnKeys.filter((item) => item !== key) : [...selectedColumnKeys, key];
     if (next.length) setSelectedColumnKeys(next);
@@ -3136,8 +3224,8 @@ function RegisterToolbar({
       <div className="register-view-actions">
         <button className={filterPanelOpen || activeFilterCount ? "active" : ""} onClick={() => { setFilterPanelOpen(!filterPanelOpen); setColumnPickerOpen(false); }}><span aria-hidden="true">▽</span>{tr ? "Filtreler" : "Filters"}{activeFilterCount > 0 && <b>{activeFilterCount}</b>}</button>
         <div className="column-picker-wrap">
-          <button className={columnPickerOpen ? "active" : ""} onClick={() => { setColumnPickerOpen(!columnPickerOpen); setFilterPanelOpen(false); }}><span aria-hidden="true">▥</span>{tr ? "Sütunlar" : "Columns"}<b>{selectedColumnKeys.length}</b></button>
-          {columnPickerOpen && <div className="column-picker" role="dialog" aria-label={tr ? "Görüntülenecek sütunlar" : "Visible columns"}>
+          <button ref={columnButtonRef} className={columnPickerOpen ? "active" : ""} onClick={() => { setColumnPickerOpen(!columnPickerOpen); setFilterPanelOpen(false); }}><span aria-hidden="true">▥</span>{tr ? "Sütunlar" : "Columns"}<b>{selectedColumnKeys.length}</b></button>
+          {columnPickerOpen && <div className="column-picker" style={pickerPosition} role="dialog" aria-label={tr ? "Görüntülenecek sütunlar" : "Visible columns"}>
             <header><div><b>{tr ? "Görüntülenecek sütunlar" : "Visible columns"}</b><small>{tr ? "Tercihin bu cihazda saklanır" : "Saved on this device"}</small></div><button onClick={() => setSelectedColumnKeys(defaultRegisterColumnKeys(module))}>{tr ? "Varsayılan" : "Default"}</button></header>
             <div>{available.map((column) => <label key={column.key}><input type="checkbox" checked={selectedColumnKeys.includes(column.key)} onChange={() => toggleColumn(column.key)} /><span>{column[lang]}</span></label>)}</div>
           </div>}
@@ -3262,8 +3350,15 @@ function SmartCell({
   if (column === "ownership")
     return (
       <div className="stack">
-        <b>{d.businessUnit || "—"}</b>
-        <small>{d.owner || "—"}</small>
+        <b>{module === "Denetim Yönetimi" ? d.owner || "—" : d.businessUnit || "—"}</b>
+        <small>{module === "Denetim Yönetimi" ? d.businessUnit || "—" : d.owner || "—"}</small>
+      </div>
+    );
+  if (module === "Denetim Yönetimi" && column === "followUpOwner")
+    return (
+      <div className="stack">
+        <b>{d.followUpOwner || d.auditOwner || d.testOwner || "—"}</b>
+        <small>{tr ? "Koordinasyon ve takip" : "Coordination and follow-up"}</small>
       </div>
     );
   if (column === "control")

@@ -24,6 +24,8 @@ test("portfolio audits and their requirements support controlled deletion", () =
 
 test("layout guardrails prevent settings cards from widening the page", () => {
   assert.match(css, /html,body\{max-width:100%;overflow-x:hidden\}/);
-  assert.match(css, /\.integration-grid,.catalog-grid\{width:100%;grid-template-columns:minmax\(0,1fr\)!important\}/);
+  assert.match(css, /\.integration-grid\{width:100%;grid-template-columns:minmax\(0,1fr\)!important\}/);
+  assert.match(css, /\.catalog-grid\{width:100%;grid-template-columns:repeat\(2,minmax\(0,1fr\)\)!important\}/);
+  assert.match(css, /\.catalog-grid article>header.*position:static!important/);
   assert.match(css, /overflow-wrap:anywhere/);
 });

@@ -3,8 +3,10 @@ html,body{max-width:100%;overflow-x:hidden}
 .shell>main>*{min-width:0;max-width:100%}
 .integration-page,.integration-hub,.integration-grid,.integration-card,.integration-card>header>div,.integration-fields,.settings-grid,.settings-card,.catalog-manager,.catalog-grid,.catalog-grid article{min-width:0;max-width:100%}
 .integration-hub,.settings-card,.catalog-manager{width:100%}
-.integration-grid,.catalog-grid{width:100%;grid-template-columns:minmax(0,1fr)!important}
+.integration-grid{width:100%;grid-template-columns:minmax(0,1fr)!important}
+.catalog-grid{width:100%;grid-template-columns:repeat(2,minmax(0,1fr))!important}
 .integration-card>header,.integration-hub>header,.settings-card-head,.catalog-grid article>header{align-items:flex-start;flex-wrap:wrap}
+.integration-card>header,.integration-hub>header,.catalog-grid article>header,.soc2-work-table>header,.column-picker>header{position:static!important;inset:auto!important;width:auto!important;max-width:100%!important;height:auto!important;min-height:0!important;margin:0!important;transform:none!important;z-index:auto!important}
 .integration-card>header>div,.integration-hub>header>div,.settings-card-head>div,.catalog-grid article>header b{min-width:0;overflow-wrap:anywhere}
 .integration-switch,.integration-hub>header>span,.settings-card-head>span{flex:0 0 auto;max-width:100%}
 .integration-field,.integration-field input,.integration-field select,.catalog-grid form input{min-width:0;max-width:100%}
@@ -13,6 +15,8 @@ html,body{max-width:100%;overflow-x:hidden}
 .integration-card header p,.integration-hub>header p,.settings-card-head p{font-size:12px!important;line-height:1.55}
 .integration-field,.integration-switch{font-size:11px!important}
 .catalog-values>div{max-width:100%;font-size:11px!important}.catalog-values>div>span{min-width:0;overflow-wrap:anywhere}
+.catalog-grid article{isolation:isolate}.catalog-grid article>header{padding-left:14px!important;padding-right:14px!important;overflow:visible!important}.catalog-grid article>header b{display:block;max-width:calc(100% - 42px)}
 .audit-card{min-width:0}.audit-card-open{width:100%;padding:0;border:0;background:transparent;color:inherit;text-align:left;cursor:pointer}.audit-card-actions{display:flex;align-items:center;justify-content:space-between;gap:8px}.audit-card-delete{border:1px solid color-mix(in srgb,#d92d20 32%,var(--line));border-radius:8px;background:color-mix(in srgb,#d92d20 7%,transparent);color:#b42318;padding:6px 8px;font-size:10px;font-weight:800;cursor:pointer}.audit-card-delete:hover{background:#fee4e2}
 .audit-picker{width:min(620px,94vw)}.audit-picker .form{grid-template-columns:1fr 1fr}.audit-picker-note{grid-column:1/-1;margin:0;padding:11px 12px;border-radius:9px;background:color-mix(in srgb,var(--cp-indigo,#635bff) 7%,transparent);color:var(--muted);font-size:11px;line-height:1.5}.audit-portfolio-empty{grid-column:1/-1;padding:42px 24px;border:1px dashed var(--line);border-radius:17px;background:var(--cp-panel,#fff);text-align:center}.audit-portfolio-empty b{display:block;font-size:16px}.audit-portfolio-empty p{margin:7px auto 16px;max-width:520px;color:var(--muted);font-size:12px;line-height:1.55}
+@media(max-width:1100px){.catalog-grid{grid-template-columns:minmax(0,1fr)!important}}
 @media(max-width:700px){.integration-fields,.audit-picker .form{grid-template-columns:1fr}.integration-field.wide,.integration-note.wide,.audit-picker-note{grid-column:auto}.integration-card>footer{flex-wrap:wrap}.integration-card>footer button{flex:1}.catalog-grid{padding:12px}.settings-card-head,.integration-hub>header{padding-inline:16px}}
