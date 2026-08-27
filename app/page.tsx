@@ -15,6 +15,7 @@ import "./command-center.css";
 import "./cockpit.css";
 import "./ui-accessibility.css";
 import "./module-registers.css";
+import "./layout-guardrails.css";
 import Settings from "./settings";
 import { withBasePath } from "./base-path";
 import { calculatedRiskScore, effectiveImpact } from "./risk-methodology";
@@ -28,6 +29,17 @@ type Row = {
   data: Record<string, any>;
   createdAt?: string;
   updatedAt?: string;
+};
+type AuditPortfolioItem = {
+  id: string;
+  name: string;
+  template: string;
+  audit_type: string;
+  auditor: string;
+  audit_owner: string;
+  status: string;
+  created_at?: string;
+  updated_at?: string;
 };
 const modules = [
   "Ana Sayfa",
@@ -1025,6 +1037,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
     [importOpen, setImportOpen] = useState(false),
     [previewEvidence, setPreviewEvidence] = useState<Row | null>(null),
     [selectedAudit, setSelectedAudit] = useState(""),
+    [auditPortfolio, setAuditPortfolio] = useState<AuditPortfolioItem[]>([]),
     [columnPickerOpen, setColumnPickerOpen] = useState(false),
     [filterPanelOpen, setFilterPanelOpen] = useState(false),
     [columnPreferences, setColumnPreferences] = useState<Record<string, string[]>>({}),
@@ -1095,9 +1108,16 @@ function FornostApp({ currentUser }: { currentUser: any }) {
       if (response.ok) setCatalogs((await response.json()).catalogs);
     } catch {}
   }
+  async function loadAudits() {
+    try {
+      const response = await fetch(withBasePath("/api/audits"), { cache: "no-store" });
+      if (response.ok) setAuditPortfolio((await response.json()).audits || []);
+    } catch {}
+  }
   useEffect(() => {
     load();
     loadCatalogs();
+    loadAudits();
   }, []);
   useEffect(() => {
     setRegisterFilters({});
@@ -1197,6 +1217,34 @@ function FornostApp({ currentUser }: { currentUser: any }) {
       j.error ||
         (lang === "tr" ? "Kayıt silinemedi." : "Record could not be deleted."),
     );
+  }
+  async function createAudit(input: {name:string;template:string;auditType:string;auditor:string;auditOwner:string}) {
+    const response = await fetch(withBasePath("/api/audits"), {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(input),
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      setNotice(result.error || (lang === "tr" ? "Denetim oluşturulamadı." : "Audit could not be created."));
+      return false;
+    }
+    await loadAudits();
+    setSelectedAudit(input.name);
+    setNotice(lang === "tr" ? "Denetim portföye eklendi." : "Audit added to the portfolio.");
+    return true;
+  }
+  async function deleteAudit(audit: AuditPortfolioItem) {
+    if (!confirm(lang === "tr" ? `“${audit.name}” denetimi ve içindeki tüm maddeler silinsin mi? Bu işlem yönetici arşivine kaydedilir.` : `Delete “${audit.name}” and all of its requirements? This action is retained in the administrator archive.`)) return;
+    const response = await fetch(withBasePath(`/api/audits?id=${encodeURIComponent(audit.id)}`), { method: "DELETE" });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      setNotice(result.error || (lang === "tr" ? "Denetim silinemedi." : "Audit could not be deleted."));
+      return;
+    }
+    setSelectedAudit("");
+    await Promise.all([load(), loadAudits()]);
+    setNotice(lang === "tr" ? `Denetim ve ${result.deletedRequirements || 0} maddesi silindi.` : `Audit and ${result.deletedRequirements || 0} requirements deleted.`);
   }
   async function createTicket(row: Row) {
     const response = await fetch(withBasePath("/api/integrations"), {
@@ -1376,6 +1424,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
         ) : active === "Denetim Yönetimi" ? (
           <AuditModule
             rows={by("Denetim Yönetimi")}
+            audits={auditPortfolio}
             allRows={rows}
             visible={visible}
             selected={selectedAudit}
@@ -1392,6 +1441,9 @@ function FornostApp({ currentUser }: { currentUser: any }) {
             openImport={() => setImportOpen(true)}
             canWrite={currentUser.role !== "Viewer"}
             createTicket={createTicket}
+            createAudit={createAudit}
+            deleteAudit={deleteAudit}
+            canDeleteAudit={currentUser.role === "Admin"}
           />
         ) : (
           <>
@@ -2687,6 +2739,7 @@ function auditKind(name: string) {
 }
 function AuditModule({
   rows,
+  audits,
   allRows,
   visible,
   selected,
@@ -2700,8 +2753,12 @@ function AuditModule({
   openImport,
   canWrite,
   createTicket,
+  createAudit,
+  deleteAudit,
+  canDeleteAudit,
 }: {
   rows: Row[];
+  audits: AuditPortfolioItem[];
   allRows: Row[];
   visible: Row[];
   selected: string;
@@ -2715,14 +2772,29 @@ function AuditModule({
   openImport: () => void;
   canWrite: boolean;
   createTicket: (row: Row) => Promise<void>;
+  createAudit: (input: {name:string;template:string;auditType:string;auditor:string;auditOwner:string}) => Promise<boolean>;
+  deleteAudit: (audit: AuditPortfolioItem) => Promise<void>;
+  canDeleteAudit: boolean;
 }) {
   const tr = lang === "tr",
-    actual = [
-      ...new Set(
-        rows.map((r) => String(r.data.auditName || "")).filter(Boolean),
-      ),
-    ],
-    audits = [...new Set([...auditCatalog, ...actual])];
+    actual = [...new Set(rows.map((r) => String(r.data.auditName || "")).filter(Boolean))],
+    templateOptions = [...new Set([...auditCatalog, ...actual])],
+    [pickerOpen, setPickerOpen] = useState(false),
+    [auditDraft, setAuditDraft] = useState({template:auditCatalog[0],name:auditCatalog[0],auditType:auditKind(auditCatalog[0]),auditor:"",auditOwner:""}),
+    [savingAudit, setSavingAudit] = useState(false);
+  const portfolioNames = new Set(audits.map((audit) => audit.name)),
+    portfolioRows = rows.filter((row) => portfolioNames.has(String(row.data.auditName || "")));
+  async function submitAudit(event: FormEvent) {
+    event.preventDefault();
+    setSavingAudit(true);
+    const ok = await createAudit(auditDraft);
+    setSavingAudit(false);
+    if (ok) setPickerOpen(false);
+  }
+  function chooseTemplate(template: string) {
+    const custom = template === "Özel Denetim" || template === "Custom Audit";
+    setAuditDraft((current) => ({...current, template, name: custom ? "" : template, auditType: custom ? "Diğer Denetim" : auditKind(template)}));
+  }
   if (!selected)
     return (
       <>
@@ -2739,16 +2811,18 @@ function AuditModule({
             {canWrite && (
               <button
                 className="primary"
-                onClick={() => select("Yeni Denetim")}
+                onClick={() => setPickerOpen(true)}
               >
                 {tr ? "+ Yeni Denetim" : "+ New Audit"}
               </button>
             )}
           </div>
         </section>
-        <AuditOverview rows={rows} lang={lang} />
+        <AuditOverview rows={portfolioRows} lang={lang} />
         <section className="audit-portfolio">
-          {audits.map((name) => {
+          {!audits.length && <div className="audit-portfolio-empty"><b>{tr ? "Portföy henüz boş" : "The portfolio is empty"}</b><p>{tr ? "Hazır kartlar otomatik eklenmez. Bir standart şablonu seçin veya özel denetim oluşturun." : "Template cards are not added automatically. Choose a standard template or create a custom audit."}</p>{canWrite&&<button className="primary" onClick={()=>setPickerOpen(true)}>{tr?"Denetim Seç ve Ekle":"Choose and Add Audit"}</button>}</div>}
+          {audits.map((audit) => {
+            const name=audit.name;
             const items = rows.filter((r) => r.data.auditName === name),
               progress = items.length
                 ? Math.round(
@@ -2770,55 +2844,23 @@ function AuditModule({
                   ),
               ).length;
             return (
-              <button
-                className="audit-card"
-                key={name}
-                onClick={() => select(name)}
-              >
-                <div className="audit-card-top">
-                  <span>{name.startsWith("ISO") ? "ISO" : "SOC"}</span>
-                  <em>
-                    {items.length
-                      ? tr
-                        ? "Aktif"
-                        : "Active"
-                      : tr
-                        ? "Taslak"
-                        : "Draft"}
-                  </em>
-                </div>
-                <h3>{name}</h3>
-                <p>
-                  {items[0]?.data.auditor ||
-                    items[0]?.data.auditType ||
-                    (tr ? "Denetim çalışma alanı" : "Audit workspace")}
-                </p>
-                <div className="audit-card-progress">
-                  <span>
-                    <i style={{ width: `${progress}%` }} />
-                  </span>
-                  <b>%{progress}</b>
-                </div>
-                <footer>
-                  <span>
-                    {items.length} {tr ? "madde" : "requirements"}
-                  </span>
-                  <span>
-                    {closed} {tr ? "kapalı" : "closed"}
-                  </span>
-                  {late > 0 && (
-                    <strong>
-                      {late} {tr ? "geciken" : "overdue"}
-                    </strong>
-                  )}
-                </footer>
-              </button>
+              <article className="audit-card" key={audit.id}>
+                <button className="audit-card-open" onClick={() => select(name)}>
+                  <div className="audit-card-top"><span>{name.startsWith("ISO") ? "ISO" : name.startsWith("SOC") ? "SOC" : "AUD"}</span><em>{items.length ? (tr ? "Aktif" : "Active") : (tr ? "Taslak" : "Draft")}</em></div>
+                  <h3>{name}</h3>
+                  <p>{audit.auditor || audit.audit_type || (tr ? "Denetim çalışma alanı" : "Audit workspace")}</p>
+                  <div className="audit-card-progress"><span><i style={{ width: `${progress}%` }} /></span><b>%{progress}</b></div>
+                  <footer><span>{items.length} {tr ? "madde" : "requirements"}</span><span>{closed} {tr ? "kapalı" : "closed"}</span>{late > 0 && <strong>{late} {tr ? "geciken" : "overdue"}</strong>}</footer>
+                </button>
+                {canDeleteAudit&&<div className="audit-card-actions"><small>{audit.template}</small><button className="audit-card-delete" onClick={()=>deleteAudit(audit)}>{tr?"Denetimi Sil":"Delete Audit"}</button></div>}
+              </article>
             );
           })}
         </section>
+        {pickerOpen&&<div className="overlay" onMouseDown={(e)=>{if(e.target===e.currentTarget)setPickerOpen(false)}}><section className="modal audit-picker" role="dialog" aria-modal="true" aria-labelledby="audit-picker-title"><div className="modal-head"><div><small>{tr?"DENETİM PORTFÖYÜ":"AUDIT PORTFOLIO"}</small><h2 id="audit-picker-title">{tr?"Denetim seç ve ekle":"Choose and add an audit"}</h2></div><button onClick={()=>setPickerOpen(false)} aria-label={tr?"Kapat":"Close"}>×</button></div><form className="form" onSubmit={submitAudit}><label className="wide">{tr?"Şablon / seçenek":"Template / option"}<select value={auditDraft.template} onChange={e=>chooseTemplate(e.target.value)}>{templateOptions.map(option=><option key={option}>{option}</option>)}<option>{tr?"Özel Denetim":"Custom Audit"}</option></select></label><label className="wide">{tr?"Denetim adı":"Audit name"}<input required minLength={3} maxLength={160} value={auditDraft.name} onChange={e=>setAuditDraft({...auditDraft,name:e.target.value})}/></label><label>{tr?"Denetim türü":"Audit type"}<input required value={auditDraft.auditType} onChange={e=>setAuditDraft({...auditDraft,auditType:e.target.value})}/></label><label>{tr?"Denetim sahibi":"Audit owner"}<input value={auditDraft.auditOwner} onChange={e=>setAuditDraft({...auditDraft,auditOwner:e.target.value})}/></label><label className="wide">{tr?"Denetçi / ekip":"Auditor / team"}<input value={auditDraft.auditor} onChange={e=>setAuditDraft({...auditDraft,auditor:e.target.value})}/></label><p className="audit-picker-note">{tr?"Seçtiğiniz denetim portföye tek kart olarak eklenir. Sonrasında çalışma alanından maddeleri tek tek ekleyebilir veya silebilirsiniz.":"The selected audit is added as one portfolio card. You can then add or remove requirements individually in its workspace."}</p><div className="form-actions"><button type="button" className="ghost" onClick={()=>setPickerOpen(false)}>{tr?"Vazgeç":"Cancel"}</button><button className="primary" disabled={savingAudit}>{savingAudit?(tr?"Ekleniyor…":"Adding…"):(tr?"Portföye Ekle":"Add to Portfolio")}</button></div></form></section></div>}
       </>
     );
-  const items = selected === "Yeni Denetim" ? [] : visible,
+  const items = visible,
     avg = items.length
       ? Math.round(
           items.reduce((n, r) => n + Number(r.data.progress || 0), 0) /

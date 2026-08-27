@@ -1,0 +1,29 @@
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import test from "node:test";
+
+const page = readFileSync("app/page.tsx", "utf8");
+const route = readFileSync("app/api/audits/route.ts", "utf8");
+const css = readFileSync("app/layout-guardrails.css", "utf8");
+
+test("audit templates are choices instead of automatically rendered portfolio cards", () => {
+  assert.doesNotMatch(page, /audits\s*=\s*\[\.\.\.new Set\(\[\.\.\.auditCatalog/);
+  assert.match(page, /Hazır kartlar otomatik eklenmez/);
+  assert.match(page, /Denetim seç ve ekle/);
+  assert.match(page, /createAudit=\{createAudit\}/);
+});
+
+test("portfolio audits and their requirements support controlled deletion", () => {
+  assert.match(route, /CREATE TABLE IF NOT EXISTS simple_audits/);
+  assert.match(route, /requireRole\(req, \["Admin"\]\)/);
+  assert.match(route, /audit_archive_/);
+  assert.match(route, /DELETE FROM simple_grc_records WHERE module='Denetim Yönetimi'/);
+  assert.match(page, /Denetimi Sil/);
+  assert.match(page, /\+ Madde Ekle/);
+});
+
+test("layout guardrails prevent settings cards from widening the page", () => {
+  assert.match(css, /html,body\{max-width:100%;overflow-x:hidden\}/);
+  assert.match(css, /\.integration-grid,.catalog-grid\{width:100%;grid-template-columns:minmax\(0,1fr\)!important\}/);
+  assert.match(css, /overflow-wrap:anywhere/);
+});
