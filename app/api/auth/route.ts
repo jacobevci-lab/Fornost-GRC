@@ -6,6 +6,7 @@ const cookie = (req: NextRequest) => ({ httpOnly: true, secure: requestIsSecure(
 const normalize = (v: unknown) => String(v || "").trim();
 
 async function demoMode(req: NextRequest) {
+  if (process.env.NODE_ENV === "development") return true;
   const { env } = await import("cloudflare:workers");
   const configured = String((env as unknown as Record<string, unknown>).FORNOST_DEMO_MODE ?? "").trim().toLowerCase();
   if (configured) return configured === "true" || configured === "1";
