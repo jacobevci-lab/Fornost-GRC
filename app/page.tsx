@@ -14,6 +14,7 @@ import "./fornost-premium.css";
 import "./command-center.css";
 import "./cockpit.css";
 import "./ui-accessibility.css";
+import "./module-registers.css";
 import Settings from "./settings";
 import { withBasePath } from "./base-path";
 import { calculatedRiskScore, effectiveImpact } from "./risk-methodology";
@@ -26,6 +27,7 @@ type Row = {
   module: string;
   data: Record<string, any>;
   createdAt?: string;
+  updatedAt?: string;
 };
 const modules = [
   "Ana Sayfa",
@@ -1023,6 +1025,10 @@ function FornostApp({ currentUser }: { currentUser: any }) {
     [importOpen, setImportOpen] = useState(false),
     [previewEvidence, setPreviewEvidence] = useState<Row | null>(null),
     [selectedAudit, setSelectedAudit] = useState(""),
+    [columnPickerOpen, setColumnPickerOpen] = useState(false),
+    [filterPanelOpen, setFilterPanelOpen] = useState(false),
+    [columnPreferences, setColumnPreferences] = useState<Record<string, string[]>>({}),
+    [registerFilters, setRegisterFilters] = useState<Record<string, string>>({}),
     [catalogs, setCatalogs] = useState<CatalogMap>(catalogOptions),
     [theme, setTheme] = useState<"light" | "dark">("dark");
   const labels = labelMap[lang],
@@ -1032,6 +1038,10 @@ function FornostApp({ currentUser }: { currentUser: any }) {
   useEffect(() => {
     const saved = localStorage.getItem("fornost-grc-language");
     if (saved === "tr" || saved === "en") setLang(saved);
+    try {
+      const columns = JSON.parse(localStorage.getItem("fornost-grc-columns") || "{}");
+      if (columns && typeof columns === "object") setColumnPreferences(columns);
+    } catch {}
   }, []);
   useEffect(() => {
     localStorage.setItem("fornost-grc-language", lang);
@@ -1068,7 +1078,12 @@ function FornostApp({ currentUser }: { currentUser: any }) {
         const j = await r.json();
         setRows(
           Array.isArray(j.rows)
-            ? j.rows.map((x: any) => ({ ...x, data: JSON.parse(x.data_json) }))
+            ? j.rows.map((x: any) => ({
+                ...x,
+                data: JSON.parse(x.data_json),
+                createdAt: x.createdAt || x.created_at,
+                updatedAt: x.updatedAt || x.updated_at,
+              }))
             : [],
         );
       }
@@ -1084,6 +1099,13 @@ function FornostApp({ currentUser }: { currentUser: any }) {
     load();
     loadCatalogs();
   }, []);
+  useEffect(() => {
+    setRegisterFilters({});
+    setColumnPickerOpen(false);
+    setFilterPanelOpen(false);
+    setQuery("");
+  }, [active]);
+  const selectedColumnKeys = columnPreferences[active] || defaultRegisterColumnKeys(active);
   const visible = useMemo(
     () =>
       rows.filter(
@@ -1096,10 +1118,19 @@ function FornostApp({ currentUser }: { currentUser: any }) {
             .toLocaleLowerCase(lang === "tr" ? "tr-TR" : "en-US")
             .includes(
               query.toLocaleLowerCase(lang === "tr" ? "tr-TR" : "en-US"),
-            ),
+            ) &&
+          Object.entries(registerFilters).every(
+            ([key, value]) => !value || String(r.data[key] ?? "") === value,
+          ),
       ),
-    [rows, active, query, lang, selectedAudit],
+    [rows, active, query, lang, selectedAudit, registerFilters],
   );
+  function setModuleColumns(keys: string[]) {
+    if (!keys.length) return;
+    const next = { ...columnPreferences, [active]: keys };
+    setColumnPreferences(next);
+    localStorage.setItem("fornost-grc-columns", JSON.stringify(next));
+  }
   function changeLang(next: Lang) {
     setLang(next);
   }
@@ -1400,19 +1431,22 @@ function FornostApp({ currentUser }: { currentUser: any }) {
             <section
               className={`table-card ${active === "Risk Assessment" ? "risk-register" : "smart-register"}`}
             >
-              <div className="table-tools">
-                <div className="register-search">
-                  <span>⌕</span>
-                  <input
-                    placeholder={u.search}
-                    value={query}
-                    onChange={(e) => setQuery(e.target.value)}
-                  />
-                </div>
-                <b>
-                  {visible.length} {u.record}
-                </b>
-              </div>
+              <RegisterToolbar
+                module={active}
+                lang={lang}
+                rows={by(active)}
+                resultCount={visible.length}
+                query={query}
+                setQuery={setQuery}
+                selectedColumnKeys={selectedColumnKeys}
+                setSelectedColumnKeys={setModuleColumns}
+                filters={registerFilters}
+                setFilters={setRegisterFilters}
+                columnPickerOpen={columnPickerOpen}
+                setColumnPickerOpen={setColumnPickerOpen}
+                filterPanelOpen={filterPanelOpen}
+                setFilterPanelOpen={setFilterPanelOpen}
+              />
               <div className="table-wrap">
                 {active === "Risk Assessment" ? (
                   <RiskRegister
@@ -1420,6 +1454,8 @@ function FornostApp({ currentUser }: { currentUser: any }) {
                     lang={lang}
                     edit={openEdit}
                     remove={remove}
+                    columns={selectedColumnKeys}
+                    canWrite={currentUser.role !== "Viewer"}
                   />
                 ) : (
                   <SmartRegister
@@ -1429,6 +1465,8 @@ function FornostApp({ currentUser }: { currentUser: any }) {
                     edit={openEdit}
                     remove={remove}
                     viewEvidence={setPreviewEvidence}
+                    columns={selectedColumnKeys}
+                    canWrite={currentUser.role !== "Viewer"}
                   />
                 )}
               </div>
@@ -2548,68 +2586,44 @@ function RiskRegister({
   lang,
   edit,
   remove,
+  columns,
+  canWrite = true,
 }: {
   rows: Row[];
   lang: Lang;
   edit: (r: Row) => void;
   remove: (id: string) => void;
+  columns: string[];
+  canWrite?: boolean;
 }) {
-  const tr = lang === "tr",
-    u = ui[lang];
+  const u = ui[lang], cols = getAvailableRegisterColumns("Risk Assessment").filter((c) => columns.includes(c.key));
   return (
     <table className="risk-table">
       <thead>
         <tr>
-          <th>{tr ? "Kod" : "Code"}</th>
-          <th>{tr ? "Risk Başlığı" : "Risk Title"}</th>
-          <th>{tr ? "Kategori" : "Category"}</th>
-          <th>{tr ? "İş Birimi" : "Business Unit"}</th>
-          <th>{tr ? "Risk Sahibi" : "Risk Owner"}</th>
-          <th>{tr ? "Doğal Risk" : "Inherent Risk"}</th>
-          <th>{tr ? "Risk Aksiyonu" : "Treatment"}</th>
-          <th>{tr ? "Durum" : "Status"}</th>
-          <th></th>
+          <th>{lang === "tr" ? "Kod" : "Code"}</th>
+          {cols.map((c) => <th key={c.key}>{c[lang]}</th>)}
+          {canWrite && <th></th>}
         </tr>
       </thead>
       <tbody>
-        {rows.map((r) => {
-          const il = Number(
-              r.data.inherentLikelihood || r.data.likelihood || 0,
-            ),
-            ii = effectiveImpact(r.data),
-            is = il * ii;
-          return (
-            <tr key={r.id} onDoubleClick={() => edit(r)}>
+        {rows.map((r) => (
+            <tr key={r.id} onDoubleClick={() => canWrite && edit(r)}>
               <td>
                 <b className="code">{r.id}</b>
               </td>
-              <td className="risk-title">
-                <b>{r.data.title || "—"}</b>
-                <small>{r.data.asset || r.data.processLink || ""}</small>
-              </td>
-              <td>{display(r.data.category, lang) || "—"}</td>
-              <td>{r.data.businessUnit || "—"}</td>
-              <td>{r.data.owner || "—"}</td>
-              <td>
-                <RiskScore l={il} i={ii} n={is} lang={lang} />
-                <small className="cia-summary">
-                  {tr ? "G/B/E" : "C/I/A"}: {r.data.confidentialityImpact || "—"} / {r.data.integrityImpact || "—"} / {r.data.availabilityImpact || "—"}
-                </small>
-              </td>
-              <td>{display(r.data.treatment, lang) || "—"}</td>
-              <td>{display(r.data.status, lang) || "—"}</td>
-              <td>
+              {cols.map((c) => <td key={c.key}><RiskRegisterCell row={r} column={c.key} lang={lang} /></td>)}
+              {canWrite && <td>
                 <div className="row-actions">
                   <button onClick={() => edit(r)}>{u.edit}</button>
                   <button onClick={() => remove(r.id)}>{u.delete}</button>
                 </div>
-              </td>
+              </td>}
             </tr>
-          );
-        })}
+        ))}
         {!rows.length && (
           <tr>
-            <td colSpan={9} className="empty">
+            <td colSpan={cols.length + (canWrite ? 2 : 1)} className="empty">
               {u.empty}
             </td>
           </tr>
@@ -2617,6 +2631,17 @@ function RiskRegister({
       </tbody>
     </table>
   );
+}
+function RiskRegisterCell({ row, column, lang }: { row: Row; column: string; lang: Lang }) {
+  const d = row.data, tr = lang === "tr";
+  if (column === "title") return <div className="stack title-stack"><b>{d.title || "—"}</b><small>{d.asset || d.processLink || ""}</small></div>;
+  if (column === "inherentRisk") {
+    const likelihood = Number(d.inherentLikelihood || d.likelihood || 0), impact = effectiveImpact(d);
+    return <><RiskScore l={likelihood} i={impact} n={likelihood * impact} lang={lang} /><small className="cia-summary">{tr ? "G/B/E" : "C/I/A"}: {d.confidentialityImpact || "—"} / {d.integrityImpact || "—"} / {d.availabilityImpact || "—"}</small></>;
+  }
+  if (column === "updatedAt" || column === "createdAt") return <DateTimeCell value={column === "updatedAt" ? row.updatedAt : row.createdAt} lang={lang} />;
+  if (["status", "treatment", "category"].includes(column)) return <StatusPill value={d[column]} lang={lang} />;
+  return display(d[column], lang) || "—";
 }
 function RiskScore({
   l,
@@ -2880,7 +2905,10 @@ function AuditModule({
 function AuditWorkspaceTabs({items,allRows,lang,query,setQuery,edit,remove,openNew,canWrite,createTicket}:{
  items:Row[];allRows:Row[];lang:Lang;query:string;setQuery:(x:string)=>void;edit:(r:Row)=>void;remove:(id:string)=>void;openNew:()=>void;canWrite:boolean;createTicket:(row:Row)=>Promise<void>;
 }){
- const tr=lang==="tr",[tab,setTab]=useState("overview"),soc2=items.some((r)=>r.data.frameworkTemplate||String(r.data.auditName).startsWith("SOC 2"));
+ const tr=lang==="tr",[tab,setTab]=useState("overview"),[auditColumns,setAuditColumns]=useState(defaultRegisterColumnKeys("Denetim Yönetimi")),[auditFilters,setAuditFilters]=useState<Record<string,string>>({}),[auditColumnPicker,setAuditColumnPicker]=useState(false),[auditFilterPanel,setAuditFilterPanel]=useState(false),soc2=items.some((r)=>r.data.frameworkTemplate||String(r.data.auditName).startsWith("SOC 2"));
+ useEffect(()=>{try{const saved=JSON.parse(localStorage.getItem("fornost-grc-columns")||"{}");if(Array.isArray(saved["Denetim Yönetimi"])&&saved["Denetim Yönetimi"].length)setAuditColumns(saved["Denetim Yönetimi"])}catch{}},[]);
+ const setAuditColumnPreference=(keys:string[])=>{setAuditColumns(keys);try{const saved=JSON.parse(localStorage.getItem("fornost-grc-columns")||"{}");localStorage.setItem("fornost-grc-columns",JSON.stringify({...saved,"Denetim Yönetimi":keys}))}catch{localStorage.setItem("fornost-grc-columns",JSON.stringify({"Denetim Yönetimi":keys}))}};
+ const filteredAuditItems=items.filter((row)=>Object.entries(auditFilters).every(([key,value])=>!value||String(row.data[key]??"")===value));
  const evidence=allRows.filter((r)=>r.module==="Kanıtlar"),linkedEvidence=(ref:string)=>evidence.filter((r)=>r.data.controlRef===ref);
  const consultant=(value:string)=>items.filter((r)=>r.data.consultantStatus===value).length;
  const tested=items.filter((r)=>r.data.operatingEffectiveness&&r.data.operatingEffectiveness!=="Test Bekliyor").length;
@@ -2897,21 +2925,27 @@ function AuditWorkspaceTabs({items,allRows,lang,query,setQuery,edit,remove,openN
    <article className="soc2-period-card"><small>{tr?"DENETİM DÖNEMİ":"AUDIT PERIOD"}</small><h3>{items[0]?.data.startDate||"—"} → {items[0]?.data.endDate||"—"}</h3><p>{tr?"Type II kapsamında kontrollerin dönem boyunca çalıştığını kanıtlayan tarihli kayıtlar ve örneklemler izlenir.":"Dated evidence and samples demonstrate that controls operated throughout the Type II period."}</p><dl><div><dt>{tr?"Toplam kriter":"Total criteria"}</dt><dd>{items.length}</dd></div><div><dt>{tr?"Kanıt bağlanan":"Evidence linked"}</dt><dd>{items.filter((r)=>linkedEvidence(r.data.controlRef).length>0).length}</dd></div><div><dt>{tr?"Açık aksiyon":"Open actions"}</dt><dd>{findings.length}</dd></div></dl></article>
   </section>}
   {tab==="scope"&&<section className="audit-scope-grid">{[["Security",tr?"Başlangıç kapsamında":"In initial scope",items.filter((r)=>String(r.data.scopeCategory).includes("Security")).length],["Availability",tr?"Başlangıç kapsamında":"In initial scope",items.filter((r)=>r.data.scopeCategory==="Availability").length],["Confidentiality",tr?"Başlangıç kapsamında":"In initial scope",items.filter((r)=>r.data.scopeCategory==="Confidentiality").length],["Processing Integrity + Privacy",tr?"Faz 2 adayı":"Phase 2 candidate",0]].map(([name,status,count],i)=><article key={String(name)} className={i===3?"phase-two":""}><span>{i<3?"✓":"→"}</span><div><small>{status}</small><h3>{name}</h3><p>{count} {tr?"kriter":"criteria"}</p></div></article>)}</section>}
-  {tab==="controls"&&<section className="table-card smart-register"><AuditTableTools tr={tr} query={query} setQuery={setQuery} count={items.length}/><div className="table-wrap"><SmartRegister module="Denetim Yönetimi" rows={items} lang={lang} edit={edit} remove={remove}/></div></section>}
+  {tab==="controls"&&<section className="table-card smart-register"><RegisterToolbar module="Denetim Yönetimi" lang={lang} rows={items} resultCount={filteredAuditItems.length} query={query} setQuery={setQuery} selectedColumnKeys={auditColumns} setSelectedColumnKeys={setAuditColumnPreference} filters={auditFilters} setFilters={setAuditFilters} columnPickerOpen={auditColumnPicker} setColumnPickerOpen={setAuditColumnPicker} filterPanelOpen={auditFilterPanel} setFilterPanelOpen={setAuditFilterPanel}/><div className="table-wrap"><SmartRegister module="Denetim Yönetimi" rows={filteredAuditItems} lang={lang} edit={edit} remove={remove} canWrite={canWrite} columns={auditColumns}/></div></section>}
   {tab==="evidence"&&<section className="table-card soc2-work-table"><header><div><small>{tr?"KANIT TALEP LİSTESİ":"EVIDENCE REQUEST LIST"}</small><h3>{tr?"Beklenen ve yüklenen kanıtlar":"Expected and uploaded evidence"}</h3></div><b>{evidence.length} {tr?"kütüphane kaydı":"library records"}</b></header><div className="table-wrap"><table><thead><tr><th>TSC</th><th>{tr?"Beklenen kanıt":"Expected evidence"}</th><th>{tr?"Sahip / Frekans":"Owner / Frequency"}</th><th>{tr?"Yüklenen":"Uploaded"}</th><th>{tr?"Durum":"Status"}</th></tr></thead><tbody>{items.map((r)=>{const linked=linkedEvidence(r.data.controlRef);return <tr key={r.id}><td><b>{r.data.requirementRef}</b></td><td>{r.data.expectedEvidence||"—"}</td><td><b>{r.data.owner||"—"}</b><small>{r.data.frequency||"—"}</small></td><td><span className="audit-count-chip">{linked.length}</span></td><td><StatusPill value={linked.length?r.data.evidenceStatus:"Kanıt Bekleniyor"} lang={lang}/></td></tr>})}</tbody></table></div></section>}
   {tab==="tests"&&<section className="table-card soc2-work-table"><header><div><small>{tr?"TYPE II ETKİNLİK TESTİ":"TYPE II EFFECTIVENESS TEST"}</small><h3>{tr?"Tasarım ve operasyonel etkinlik":"Design and operating effectiveness"}</h3></div><b>{tested}/{items.length} {tr?"tamamlandı":"complete"}</b></header><div className="table-wrap"><table><thead><tr><th>TSC</th><th>{tr?"Test yaklaşımı":"Test approach"}</th><th>{tr?"Tasarım":"Design"}</th><th>{tr?"Operasyon":"Operation"}</th><th>{tr?"Örneklem":"Sample"}</th><th>{tr?"Denetçi":"Auditor"}</th></tr></thead><tbody>{items.map((r)=><tr key={r.id}><td><b>{r.data.requirementRef}</b><small>{r.data.requirementTitle}</small></td><td>{r.data.typeIITestApproach||"—"}</td><td><StatusPill value={r.data.designEffectiveness} lang={lang}/></td><td><StatusPill value={r.data.operatingEffectiveness} lang={lang}/></td><td>{r.data.sampleSize||"—"} / {r.data.populationSize||"—"}</td><td><StatusPill value={r.data.auditorResult} lang={lang}/></td></tr>)}</tbody></table></div></section>}
   {tab==="findings"&&<section className="soc2-findings">{findings.map((r)=><article key={r.id}><header><span>{r.data.requirementRef}</span><StatusPill value={r.data.consultantStatus||r.data.status} lang={lang}/></header><h3>{r.data.requirementTitle}</h3>{r.data.gapNote&&<p><b>{tr?"Gap":"Gap"}</b>{r.data.gapNote}</p>}{r.data.requiredAction&&<p><b>{tr?"Gerekli aksiyon":"Required action"}</b>{r.data.requiredAction}</p>}{r.data.ticketRef&&<a className="soc2-ticket-ref" href={r.data.ticketUrl||undefined} target={r.data.ticketUrl?"_blank":undefined} rel="noreferrer">{tr?"Bağlı ticket":"Linked ticket"}: {r.data.ticketRef}</a>}<footer><span>{r.data.owner}</span><span>{r.data.dueDate}</span>{canWrite&&<button onClick={()=>edit(r)}>{tr?"Aksiyonu güncelle":"Update action"}</button>}{canWrite&&!r.data.ticketRef&&<button className="ticket-action" onClick={()=>createTicket(r)}>{tr?"Ticket Aç":"Create Ticket"}</button>}</footer></article>)}</section>}
  </>;
 }
 
-function AuditTableTools({tr,query,setQuery,count}:{tr:boolean;query:string;setQuery:(x:string)=>void;count:number}){
- return <div className="table-tools"><div className="register-search"><span>⌕</span><input placeholder={tr?"Bu denetimin maddelerinde ara...":"Search this audit's requirements..."} value={query} onChange={(e)=>setQuery(e.target.value)}/></div><b>{count} {tr?"madde":"requirements"}</b></div>;
-}
-
 const registerColumns: Record<
   string,
   { key: string; tr: string; en: string }[]
 > = {
+  "Risk Assessment": [
+    { key: "title", tr: "Risk Başlığı", en: "Risk Title" },
+    { key: "category", tr: "Kategori", en: "Category" },
+    { key: "businessUnit", tr: "İş Birimi", en: "Business Unit" },
+    { key: "owner", tr: "Risk Sahibi", en: "Risk Owner" },
+    { key: "inherentRisk", tr: "Doğal Risk", en: "Inherent Risk" },
+    { key: "treatment", tr: "Risk Aksiyonu", en: "Treatment" },
+    { key: "status", tr: "Durum", en: "Status" },
+    { key: "updatedAt", tr: "Son Güncelleme", en: "Last Updated" },
+  ],
   BIA: [
     { key: "process", tr: "Süreç", en: "Process" },
     { key: "ownership", tr: "İş Birimi / Sahip", en: "Business Unit / Owner" },
@@ -2922,6 +2956,7 @@ const registerColumns: Record<
     { key: "biaGovernance", tr: "Yönetişim", en: "Governance" },
     { key: "readiness", tr: "Kurtarma Hazırlığı", en: "Recovery Readiness" },
     { key: "test", tr: "Son Test / Durum", en: "Last Test / Status" },
+    { key: "updatedAt", tr: "Son Güncelleme", en: "Last Updated" },
   ],
   "Varlık Envanteri": [
     { key: "title", tr: "Varlık", en: "Asset" },
@@ -2933,6 +2968,7 @@ const registerColumns: Record<
     { key: "exposure", tr: "Maruziyet", en: "Exposure" },
     { key: "coverage", tr: "Güvenlik Kapsamı", en: "Security Coverage" },
     { key: "lifecycle", tr: "Yaşam Döngüsü", en: "Lifecycle" },
+    { key: "updatedAt", tr: "Son Güncelleme", en: "Last Updated" },
   ],
   Uyum: [
     {
@@ -2945,6 +2981,7 @@ const registerColumns: Record<
     { key: "implementation", tr: "Uygulama", en: "Implementation" },
     { key: "evidence", tr: "Kanıt", en: "Evidence" },
     { key: "status", tr: "Uyum Durumu", en: "Compliance Status" },
+    { key: "updatedAt", tr: "Son Güncelleme", en: "Last Updated" },
   ],
   Tedarikçiler: [
     { key: "title", tr: "Tedarikçi / Hizmet", en: "Vendor / Service" },
@@ -2953,6 +2990,7 @@ const registerColumns: Record<
     { key: "riskLevel", tr: "Risk Seviyesi", en: "Risk Level" },
     { key: "contractEnd", tr: "Sözleşme Bitişi", en: "Contract End" },
     { key: "status", tr: "Durum", en: "Status" },
+    { key: "updatedAt", tr: "Son Güncelleme", en: "Last Updated" },
   ],
   Kontroller: [
     { key: "control", tr: "Kontrol", en: "Control" },
@@ -2961,6 +2999,7 @@ const registerColumns: Record<
     { key: "frequency", tr: "Sıklık", en: "Frequency" },
     { key: "evidence", tr: "Kanıt Kapsamı", en: "Evidence Coverage" },
     { key: "status", tr: "Durum", en: "Status" },
+    { key: "updatedAt", tr: "Son Güncelleme", en: "Last Updated" },
   ],
   Kanıtlar: [
     { key: "evidenceTitle", tr: "Kanıt", en: "Evidence" },
@@ -2973,6 +3012,7 @@ const registerColumns: Record<
       en: "Applicable Standards",
     },
     { key: "freshness", tr: "Güncellik", en: "Freshness" },
+    { key: "updatedAt", tr: "Son Güncelleme", en: "Last Updated" },
   ],
   "Denetim Yönetimi": [
     { key: "audit", tr: "Denetim / Madde", en: "Audit / Requirement" },
@@ -2986,8 +3026,89 @@ const registerColumns: Record<
     { key: "evidenceStatus", tr: "Kanıt", en: "Evidence" },
     { key: "links", tr: "Bağlantılar", en: "Links" },
     { key: "status", tr: "Durum", en: "Status" },
+    { key: "updatedAt", tr: "Son Güncelleme", en: "Last Updated" },
   ],
 };
+
+type RegisterColumn = { key: string; tr: string; en: string };
+const systemRegisterColumns: RegisterColumn[] = [
+  { key: "createdAt", tr: "Oluşturulma Tarihi", en: "Created At" },
+  { key: "updatedAt", tr: "Son Güncelleme", en: "Last Updated" },
+];
+const registerFilterKeys: Record<string, string[]> = {
+  "Risk Assessment": ["category", "businessUnit", "owner", "treatment", "status"],
+  BIA: ["processCategory", "businessUnit", "owner", "criticality", "drStatus", "testResult"],
+  "Varlık Envanteri": ["assetType", "businessUnit", "owner", "criticality", "dataClassification", "environment", "internetFacing", "status"],
+  Uyum: ["framework", "owner", "implementation", "status"],
+  Tedarikçiler: ["vendorType", "businessUnit", "owner", "criticality", "riskLevel", "status"],
+  Kontroller: ["owner", "frequency", "status"],
+  Kanıtlar: ["owner", "period"],
+  "Denetim Yönetimi": ["auditType", "businessUnit", "owner", "consultantStatus", "evidenceStatus", "status"],
+};
+function getAvailableRegisterColumns(module: string): RegisterColumn[] {
+  const preferred = registerColumns[module] || [];
+  const seen = new Set(preferred.map((column) => column.key));
+  const direct = (fields[module] || [])
+    .filter((key) => !seen.has(key))
+    .map((key) => ({ key, tr: labelMap.tr[key] || key, en: labelMap.en[key] || key }));
+  for (const column of systemRegisterColumns) if (!seen.has(column.key)) direct.push(column);
+  return [...preferred, ...direct];
+}
+function defaultRegisterColumnKeys(module: string) {
+  return (registerColumns[module] || []).map((column) => column.key);
+}
+function formatRecordDate(value: string | undefined, lang: Lang) {
+  if (!value) return "—";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return new Intl.DateTimeFormat(lang === "tr" ? "tr-TR" : "en-GB", {
+    year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit",
+  }).format(date);
+}
+function DateTimeCell({ value, lang }: { value?: string; lang: Lang }) {
+  if (!value) return <>—</>;
+  const date = new Date(value);
+  return <div className="stack date-stack"><b>{formatRecordDate(value, lang)}</b><small>{Number.isNaN(date.getTime()) ? "" : new Intl.RelativeTimeFormat(lang === "tr" ? "tr" : "en", { numeric: "auto" }).format(Math.round((date.getTime() - Date.now()) / 86400000), "day")}</small></div>;
+}
+
+function RegisterToolbar({
+  module, lang, rows, resultCount, query, setQuery, selectedColumnKeys, setSelectedColumnKeys,
+  filters, setFilters, columnPickerOpen, setColumnPickerOpen, filterPanelOpen, setFilterPanelOpen,
+}: {
+  module: string; lang: Lang; rows: Row[]; resultCount: number; query: string; setQuery: (value: string) => void;
+  selectedColumnKeys: string[]; setSelectedColumnKeys: (keys: string[]) => void;
+  filters: Record<string, string>; setFilters: (filters: Record<string, string>) => void;
+  columnPickerOpen: boolean; setColumnPickerOpen: (open: boolean) => void;
+  filterPanelOpen: boolean; setFilterPanelOpen: (open: boolean) => void;
+}) {
+  const tr = lang === "tr", available = getAvailableRegisterColumns(module), filterKeys = registerFilterKeys[module] || [];
+  const activeFilterCount = Object.values(filters).filter(Boolean).length;
+  const toggleColumn = (key: string) => {
+    const next = selectedColumnKeys.includes(key) ? selectedColumnKeys.filter((item) => item !== key) : [...selectedColumnKeys, key];
+    if (next.length) setSelectedColumnKeys(next);
+  };
+  const optionsFor = (key: string) => [...new Set(rows.map((row) => String(row.data[key] ?? "")).filter(Boolean))].sort((a, b) => a.localeCompare(b, lang === "tr" ? "tr" : "en"));
+  return <div className="register-toolbar">
+    <div className="register-toolbar-main">
+      <div className="register-search"><span aria-hidden="true">⌕</span><input aria-label={tr ? "Kayıtlarda ara" : "Search records"} placeholder={ui[lang].search} value={query} onChange={(event) => setQuery(event.target.value)} /></div>
+      <div className="register-view-actions">
+        <button className={filterPanelOpen || activeFilterCount ? "active" : ""} onClick={() => { setFilterPanelOpen(!filterPanelOpen); setColumnPickerOpen(false); }}><span aria-hidden="true">▽</span>{tr ? "Filtreler" : "Filters"}{activeFilterCount > 0 && <b>{activeFilterCount}</b>}</button>
+        <div className="column-picker-wrap">
+          <button className={columnPickerOpen ? "active" : ""} onClick={() => { setColumnPickerOpen(!columnPickerOpen); setFilterPanelOpen(false); }}><span aria-hidden="true">▥</span>{tr ? "Sütunlar" : "Columns"}<b>{selectedColumnKeys.length}</b></button>
+          {columnPickerOpen && <div className="column-picker" role="dialog" aria-label={tr ? "Görüntülenecek sütunlar" : "Visible columns"}>
+            <header><div><b>{tr ? "Görüntülenecek sütunlar" : "Visible columns"}</b><small>{tr ? "Tercihin bu cihazda saklanır" : "Saved on this device"}</small></div><button onClick={() => setSelectedColumnKeys(defaultRegisterColumnKeys(module))}>{tr ? "Varsayılan" : "Default"}</button></header>
+            <div>{available.map((column) => <label key={column.key}><input type="checkbox" checked={selectedColumnKeys.includes(column.key)} onChange={() => toggleColumn(column.key)} /><span>{column[lang]}</span></label>)}</div>
+          </div>}
+        </div>
+        <strong>{resultCount} {ui[lang].record}</strong>
+      </div>
+    </div>
+    {filterPanelOpen && <div className="register-filters">
+      {filterKeys.map((key) => <label key={key}><span>{labelMap[lang][key] || key}</span><select value={filters[key] || ""} onChange={(event) => setFilters({ ...filters, [key]: event.target.value })}><option value="">{tr ? "Tümü" : "All"}</option>{optionsFor(key).map((option) => <option key={option} value={option}>{display(option, lang)}</option>)}</select></label>)}
+      {activeFilterCount > 0 && <button onClick={() => setFilters({})}>{tr ? "Filtreleri Temizle" : "Clear Filters"}</button>}
+    </div>}
+  </div>;
+}
 function maxImpact(r: Row) {
   return Math.max(
     0,
@@ -3050,6 +3171,8 @@ function SmartCell({
 }) {
   const d = row.data,
     tr = lang === "tr";
+  if (column === "updatedAt" || column === "createdAt")
+    return <DateTimeCell value={column === "updatedAt" ? row.updatedAt : row.createdAt} lang={lang} />;
   if (module === "Denetim Yönetimi" && column === "audit")
     return (
       <div className="stack title-stack">
@@ -3307,6 +3430,8 @@ function SmartRegister({
   edit,
   remove,
   viewEvidence,
+  columns,
+  canWrite = true,
 }: {
   module: string;
   rows: Row[];
@@ -3314,8 +3439,10 @@ function SmartRegister({
   edit: (r: Row) => void;
   remove: (id: string) => void;
   viewEvidence?: (row: Row) => void;
+  columns?: string[];
+  canWrite?: boolean;
 }) {
-  const cols = registerColumns[module] || [],
+  const cols = getAvailableRegisterColumns(module).filter((column) => (columns || defaultRegisterColumnKeys(module)).includes(column.key)),
     u = ui[lang];
   return (
     <table className={`smart-table ${module === "BIA" ? "bia-table" : ""}`}>
@@ -3325,29 +3452,29 @@ function SmartRegister({
           {cols.map((c) => (
             <th key={c.key}>{c[lang]}</th>
           ))}
-          <th></th>
+          {canWrite && <th></th>}
         </tr>
       </thead>
       <tbody>
         {rows.map((r) => (
-          <tr key={r.id} onDoubleClick={() => edit(r)}>
+          <tr key={r.id} onDoubleClick={() => canWrite && edit(r)}>
             <td>{module === "Kanıtlar" ? <button className="code code-link" onClick={() => viewEvidence?.(r)}>{r.id}</button> : <b className="code">{r.id}</b>}</td>
             {cols.map((c) => (
               <td key={c.key}>
                 <SmartCell module={module} column={c.key} row={r} lang={lang} viewEvidence={viewEvidence} />
               </td>
             ))}
-            <td>
+            {canWrite && <td>
               <div className="row-actions">
                 <button onClick={() => edit(r)}>{u.edit}</button>
                 <button onClick={() => remove(r.id)}>{u.delete}</button>
               </div>
-            </td>
+            </td>}
           </tr>
         ))}
         {!rows.length && (
           <tr>
-            <td colSpan={cols.length + 2} className="empty">
+            <td colSpan={cols.length + (canWrite ? 2 : 1)} className="empty">
               {u.empty}
             </td>
           </tr>

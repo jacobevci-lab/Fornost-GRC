@@ -1,0 +1,53 @@
+/* Module register controls and final layout guardrails */
+.register-toolbar{position:relative;border-bottom:1px solid var(--line);background:rgba(255,255,255,.88)}
+.register-toolbar-main{min-height:68px;display:flex;align-items:center;justify-content:space-between;gap:16px;padding:13px 17px}
+.register-search{min-width:220px;max-width:420px;flex:1;display:flex;align-items:center;gap:8px;padding:0 11px;border:1px solid #e4e8ef;border-radius:11px;background:#f8fafc}
+.register-search>span{flex:0 0 auto;color:var(--muted);font-size:18px;line-height:1}
+.register-search input{width:100%!important;min-width:0;border:0!important;padding:10px 0!important;background:transparent!important;box-shadow:none!important;color:inherit;font-size:12px}
+.register-search input:focus{outline:0}
+.register-view-actions{display:flex;align-items:center;justify-content:flex-end;gap:8px}
+.register-view-actions>button,.column-picker-wrap>button,.register-filters>button{min-height:38px;display:inline-flex;align-items:center;gap:7px;padding:8px 11px;border:1px solid var(--line);border-radius:10px;background:#fff;color:var(--ink);font-size:11px;font-weight:750;cursor:pointer}
+.register-view-actions button:hover,.register-view-actions button.active{border-color:#8d87ff;background:#f5f3ff;color:#5148e5}
+.register-view-actions button b{min-width:18px;height:18px;display:grid;place-items:center;padding:0 5px;border-radius:99px;background:#eceaff;color:#5148e5;font-size:9px}
+.register-view-actions>strong{margin-left:3px;color:var(--muted);font-size:11px;white-space:nowrap}
+.column-picker-wrap{position:relative}
+.column-picker{position:absolute;z-index:20;right:0;top:46px;width:min(390px,calc(100vw - 32px));overflow:hidden;border:1px solid var(--line);border-radius:14px;background:#fff;box-shadow:0 22px 60px rgba(15,23,42,.2)}
+.column-picker header{position:static;height:auto;margin:0;padding:14px 15px;display:flex;align-items:center;justify-content:space-between;gap:12px;border-bottom:1px solid var(--line);background:#fafbfe;backdrop-filter:none}
+.column-picker header b,.column-picker header small{display:block}.column-picker header b{font-size:12px}.column-picker header small{margin-top:3px;color:var(--muted);font-size:10px;text-transform:none;letter-spacing:0}
+.column-picker header button{border:0;background:transparent;color:#635bff;font-size:10px;font-weight:800;cursor:pointer}
+.column-picker>div{max-height:390px;overflow:auto;display:grid;grid-template-columns:1fr 1fr;gap:2px;padding:10px}
+.column-picker label{min-width:0;display:flex;align-items:center;gap:8px;padding:8px;border-radius:8px;color:var(--ink);font-size:11px;cursor:pointer}
+.column-picker label:hover{background:#f5f6fa}.column-picker label input{accent-color:#635bff}.column-picker label span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.register-filters{display:grid;grid-template-columns:repeat(auto-fit,minmax(165px,1fr));gap:10px;padding:13px 17px 16px;border-top:1px solid var(--line);background:#f8f9fc}
+.register-filters label{min-width:0}.register-filters label>span{display:block;margin-bottom:6px;color:var(--muted);font-size:9.5px;font-weight:800}
+.register-filters select{width:100%;min-height:38px;padding:8px 10px;border:1px solid var(--line);border-radius:9px;background:#fff;color:var(--ink);font-size:11px}
+.register-filters>button{align-self:end;justify-content:center;color:#b42318}
+.smart-table,.risk-table{width:max-content;min-width:100%;table-layout:auto}
+.smart-table th,.risk-table th{font-size:10px!important;line-height:1.35;white-space:normal;vertical-align:middle}
+.smart-table td,.risk-table td{max-width:320px;font-size:11.5px!important;line-height:1.45;vertical-align:middle}
+.smart-table td:not(:first-child),.risk-table td:not(:first-child){white-space:normal}
+.smart-table .title-stack,.risk-table .title-stack{min-width:210px;max-width:310px}
+.stack b{font-size:11.5px!important;line-height:1.4}.stack small{font-size:10px!important;line-height:1.4}
+.state-pill,.coverage-count{font-size:10px!important;line-height:1.25}
+.readiness span,.warnings span{font-size:9px!important;line-height:1.2}
+.date-stack{min-width:132px}.date-stack small{color:var(--muted)}
+.table-wrap{max-width:100%;overscroll-behavior-x:contain;scrollbar-gutter:stable}
+.module-head{gap:20px}.module-head>div:first-child{min-width:0}.module-head h2,.module-head p{overflow-wrap:anywhere}
+.actions{flex-wrap:wrap;justify-content:flex-end}
+.risk-overview .matrix-card{min-width:0;overflow:hidden}
+.risk-overview .matrix-embed{min-width:0;overflow:auto}
+
+html[data-theme="dark"] .register-toolbar{background:rgba(17,26,44,.94);border-color:#26324a}
+html[data-theme="dark"] .register-search{background:#0d1525;border-color:#2a3750}
+html[data-theme="dark"] .register-view-actions>button,html[data-theme="dark"] .column-picker-wrap>button{background:#172137;border-color:#2e3b54;color:#d9e0ee}
+html[data-theme="dark"] .register-view-actions button:hover,html[data-theme="dark"] .register-view-actions button.active{background:#242452;border-color:#625ae0;color:#c7c4ff}
+html[data-theme="dark"] .column-picker{background:#111a2c;border-color:#303c55;box-shadow:0 25px 70px rgba(0,0,0,.45)}
+html[data-theme="dark"] .column-picker header{background:#141f34;border-color:#2a3750}
+html[data-theme="dark"] .column-picker label:hover{background:#19253d}
+html[data-theme="dark"] .register-filters{background:#0f182a;border-color:#26324a}
+html[data-theme="dark"] .register-filters select{background:#0c1424;border-color:#2a3750;color:#eef2ff}
+
+@media(max-width:1500px){.risk-overview{grid-template-columns:1fr!important}.risk-overview .matrix-card{grid-template-columns:minmax(180px,.55fr) minmax(360px,1fr)!important}.risk-overview .matrix-embed{overflow:visible}}
+@media(max-width:1050px){.register-toolbar-main{align-items:stretch;flex-direction:column}.register-search{max-width:none}.register-view-actions{justify-content:flex-start;flex-wrap:wrap}.register-view-actions>strong{margin-left:auto}.module-head{align-items:flex-start}.module-head .actions{max-width:55%}.risk-overview .matrix-card{grid-template-columns:1fr!important}.risk-overview .matrix-embed{overflow:auto}}
+@media(max-width:720px){main{overflow-x:hidden}.register-toolbar-main{padding:12px}.register-view-actions>button,.column-picker-wrap>button{flex:1;justify-content:center}.register-view-actions>strong{width:100%;margin:4px 0 0;text-align:right}.column-picker{position:fixed;inset:auto 12px 12px;width:auto;max-height:72vh}.column-picker>div{grid-template-columns:1fr;max-height:55vh}.register-filters{grid-template-columns:1fr 1fr;padding:12px}.module-head .actions{max-width:none;width:100%;justify-content:flex-start}.module-head .actions button{flex:1}.smart-table td,.risk-table td{max-width:260px}}
+@media(max-width:480px){.register-filters{grid-template-columns:1fr}.register-view-actions{display:grid;grid-template-columns:1fr 1fr}.register-view-actions>strong{grid-column:1/-1}.module-head .actions{display:grid;grid-template-columns:1fr 1fr}.module-head .actions button{width:100%}}
