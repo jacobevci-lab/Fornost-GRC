@@ -1390,9 +1390,8 @@ function FornostApp({ currentUser }: { currentUser: any }) {
     } catch {}
   }
   useEffect(() => {
-    load();
+    loadAudits().then(load);
     loadCatalogs();
-    loadAudits();
   }, []);
   useEffect(() => {
     setRegisterFilters({});
@@ -1519,7 +1518,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
       );
       return false;
     }
-    await loadAudits();
+    await Promise.all([load(), loadAudits()]);
     setSelectedAudit(input.name);
     setNotice(
       lang === "tr"
@@ -1805,7 +1804,6 @@ function FornostApp({ currentUser }: { currentUser: any }) {
           <AuditModule
             rows={by("Denetim Yönetimi")}
             audits={auditPortfolio}
-            allRows={rows}
             visible={visible}
             selected={selectedAudit}
             select={(x) => {
@@ -1820,7 +1818,6 @@ function FornostApp({ currentUser }: { currentUser: any }) {
             remove={remove}
             openImport={() => setImportOpen(true)}
             canWrite={currentUser.role !== "Viewer"}
-            createTicket={createTicket}
             createAudit={createAudit}
             deleteAudit={deleteAudit}
             canDeleteAudit={currentUser.role === "Admin"}
@@ -3591,8 +3588,6 @@ function RiskScore({
 
 const auditCatalog = [
   "ISO/IEC 27001:2022",
-  "SOC 1 Type I",
-  "SOC 1 Type II",
   "SOC 2 Type I",
   "SOC 2 Type II",
 ];
@@ -3606,7 +3601,6 @@ function auditKind(name: string) {
 function AuditModule({
   rows,
   audits,
-  allRows,
   visible,
   selected,
   select,
@@ -3618,14 +3612,12 @@ function AuditModule({
   remove,
   openImport,
   canWrite,
-  createTicket,
   createAudit,
   deleteAudit,
   canDeleteAudit,
 }: {
   rows: Row[];
   audits: AuditPortfolioItem[];
-  allRows: Row[];
   visible: Row[];
   selected: string;
   select: (x: string) => void;
@@ -3637,7 +3629,6 @@ function AuditModule({
   remove: (id: string) => void;
   openImport: () => void;
   canWrite: boolean;
-  createTicket: (row: Row) => Promise<void>;
   createAudit: (input: {
     name: string;
     template: string;
@@ -3896,8 +3887,8 @@ function AuditModule({
                 </label>
                 <p className="audit-picker-note">
                   {tr
-                    ? "Seçtiğiniz denetim portföye tek kart olarak eklenir. Sonrasında çalışma alanından maddeleri tek tek ekleyebilir veya silebilirsiniz."
-                    : "The selected audit is added as one portfolio card. You can then add or remove requirements individually in its workspace."}
+                    ? "Seçilen standart portföye kart olarak eklenir ve standart maddeleri çalışma tablosuna otomatik yüklenir."
+                    : "The selected standard is added as a portfolio card and its requirements are loaded into the workspace table automatically."}
                 </p>
                 <div className="form-actions">
                   <button
@@ -3991,9 +3982,8 @@ function AuditModule({
           <span>{tr ? "Kapatılan" : "Closed"}</span>
         </article>
       </section>
-      <AuditWorkspaceTabs
+      <AuditRequirementsTable
         items={items}
-        allRows={allRows}
         lang={lang}
         query={query}
         setQuery={setQuery}
@@ -4001,9 +3991,60 @@ function AuditModule({
         remove={remove}
         openNew={openNew}
         canWrite={canWrite}
-        createTicket={createTicket}
       />
     </>
+  );
+}
+
+function AuditRequirementsTable({
+  items,
+  lang,
+  query,
+  setQuery,
+  edit,
+  remove,
+  openNew,
+  canWrite,
+}: {
+  items: Row[];
+  lang: Lang;
+  query: string;
+  setQuery: (x: string) => void;
+  edit: (r: Row) => void;
+  remove: (id: string) => void;
+  openNew: (seed?: Record<string, any>) => void;
+  canWrite: boolean;
+}) {
+  const tr = lang === "tr",
+    [columns, setColumns] = useState(defaultRegisterColumnKeys("Denetim Yönetimi")),
+    [filters, setFilters] = useState<Record<string, string>>({}),
+    [columnPickerOpen, setColumnPickerOpen] = useState(false),
+    [filterPanelOpen, setFilterPanelOpen] = useState(false);
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem("fornost-grc-columns") || "{}");
+      if (Array.isArray(saved["Denetim Yönetimi"]) && saved["Denetim Yönetimi"].length) setColumns(saved["Denetim Yönetimi"]);
+    } catch {}
+  }, []);
+  const saveColumns = (keys: string[]) => {
+    setColumns(keys);
+    try {
+      const saved = JSON.parse(localStorage.getItem("fornost-grc-columns") || "{}");
+      localStorage.setItem("fornost-grc-columns", JSON.stringify({ ...saved, "Denetim Yönetimi": keys }));
+    } catch {}
+  };
+  const filtered = items.filter((row) => Object.entries(filters).every(([key, value]) => !value || String(row.data[key] ?? "") === value));
+  return (
+    <section className="table-card smart-register audit-requirements-register">
+      <div className="audit-table-heading">
+        <div><small>{tr ? "STANDART MADDELERİ" : "STANDARD REQUIREMENTS"}</small><h3>{tr ? "Denetim maddeleri ve sorumluluk takibi" : "Audit requirements and ownership tracking"}</h3></div>
+        {canWrite && <button className="ghost" onClick={() => openNew()}>{tr ? "+ Özel Madde" : "+ Custom Item"}</button>}
+      </div>
+      <RegisterToolbar module="Denetim Yönetimi" lang={lang} rows={items} resultCount={filtered.length} query={query} setQuery={setQuery} selectedColumnKeys={columns} setSelectedColumnKeys={saveColumns} filters={filters} setFilters={setFilters} columnPickerOpen={columnPickerOpen} setColumnPickerOpen={setColumnPickerOpen} filterPanelOpen={filterPanelOpen} setFilterPanelOpen={setFilterPanelOpen} />
+      <div className="table-wrap">
+        {items.length ? <SmartRegister module="Denetim Yönetimi" rows={filtered} lang={lang} edit={edit} remove={remove} canWrite={canWrite} columns={columns} /> : <div className="audit-empty"><b>{tr ? "Bu şablon için otomatik madde bulunamadı." : "No automatic requirements are available for this template."}</b><p>{tr ? "Excel ile içe aktarabilir veya özel madde ekleyebilirsiniz." : "Import from Excel or add a custom item."}</p></div>}
+      </div>
+    </section>
   );
 }
 
