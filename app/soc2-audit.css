@@ -64,3 +64,9 @@
   .audit-control-source > div:last-child { display: grid; grid-template-columns: 1fr; }
   .audit-control-list article button { width: 100%; }
 }
+
+.audit-requirements-register { margin-top: 18px; }
+.audit-table-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 17px 20px; border-bottom: 1px solid var(--border); }
+.audit-table-heading small { display: block; margin-bottom: 4px; color: var(--blue); font-size: 10px; font-weight: 900; letter-spacing: .16em; }
+.audit-table-heading h3 { margin: 0; font-size: 16px; }
+@media (max-width: 720px) { .audit-table-heading { align-items: stretch; flex-direction: column; } }
