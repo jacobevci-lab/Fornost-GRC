@@ -4738,7 +4738,7 @@ const registerColumns: Record<
     { key: "updatedAt", tr: "Son Güncelleme", en: "Last Updated" },
   ],
   "Denetim Yönetimi": [
-    { key: "audit", tr: "Denetim / Madde", en: "Audit / Requirement" },
+    { key: "audit", tr: "Madde", en: "Requirement" },
     {
       key: "ownership",
       tr: "Atanan Kişi / İş Birimi",
@@ -5170,14 +5170,21 @@ function SmartCell({
       />
     );
   if (module === "Denetim Yönetimi" && column === "audit")
-    return (
-      <div className="stack title-stack">
-        <b>{d.auditName || "—"}</b>
-        <small>
-          {d.requirementRef || "—"} · {d.requirementTitle || "—"}
-        </small>
-      </div>
-    );
+    {
+      const reference = String(d.requirementRef || d.controlRef || "—"),
+        rawTitle = String(d.requirementTitle || d.title || "").trim(),
+        redundantTitle = [
+          `${d.auditName || ""} ${reference} kontrolü`,
+          `${d.frameworkTemplate || ""} ${reference} kontrolü`,
+          `ISO/IEC 27001:2022 ${reference} kontrolü`,
+        ].some((value) => value.trim().toLocaleLowerCase("tr-TR") === rawTitle.toLocaleLowerCase("tr-TR"));
+      return (
+        <div className="stack title-stack audit-requirement-cell">
+          <b>{reference}</b>
+          {rawTitle && !redundantTitle && <small>{rawTitle}</small>}
+        </div>
+      );
+    }
   if (module === "Denetim Yönetimi" && column === "progress")
     return (
       <div className="audit-progress">
@@ -5549,12 +5556,13 @@ function SmartRegister({
   const cols = getAvailableRegisterColumns(module).filter((column) =>
       (columns || defaultRegisterColumnKeys(module)).includes(column.key),
     ),
-    u = ui[lang];
+    u = ui[lang],
+    showRecordCode = module !== "Denetim Yönetimi";
   return (
     <table className={`smart-table ${module === "BIA" ? "bia-table" : ""}`}>
       <thead>
         <tr>
-          <th>{lang === "tr" ? "Kod" : "Code"}</th>
+          {showRecordCode && <th>{lang === "tr" ? "Kod" : "Code"}</th>}
           {cols.map((c) => (
             <th key={c.key}>{c[lang]}</th>
           ))}
@@ -5564,18 +5572,20 @@ function SmartRegister({
       <tbody>
         {rows.map((r) => (
           <tr key={r.id} onDoubleClick={() => canWrite && edit(r)}>
-            <td>
-              {module === "Kanıtlar" ? (
-                <button
-                  className="code code-link"
-                  onClick={() => viewEvidence?.(r)}
-                >
-                  {r.id}
-                </button>
-              ) : (
-                <b className="code">{r.id}</b>
-              )}
-            </td>
+            {showRecordCode && (
+              <td>
+                {module === "Kanıtlar" ? (
+                  <button
+                    className="code code-link"
+                    onClick={() => viewEvidence?.(r)}
+                  >
+                    {r.id}
+                  </button>
+                ) : (
+                  <b className="code">{r.id}</b>
+                )}
+              </td>
+            )}
             {cols.map((c) => (
               <td key={c.key}>
                 <SmartCell
@@ -5599,7 +5609,7 @@ function SmartRegister({
         ))}
         {!rows.length && (
           <tr>
-            <td colSpan={cols.length + (canWrite ? 2 : 1)} className="empty">
+            <td colSpan={cols.length + (canWrite ? 1 : 0) + (showRecordCode ? 1 : 0)} className="empty">
               {u.empty}
             </td>
           </tr>
