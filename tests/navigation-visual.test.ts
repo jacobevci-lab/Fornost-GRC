@@ -23,7 +23,7 @@ test("admin configuration is split into focused navigation pages", () => {
 
 test("navigation uses scalable icons and the final UI layer restores readable type", () => {
   assert.match(page, /function NavIcon/);
-  assert.match(page, /<svg viewBox="0 0 24 24"/);
+  assert.match(page, /<svg\s+viewBox="0 0 24 24"/);
   assert.match(ui, /\.nav-group button\{[^}]*font-size:12px!important/);
   assert.match(ui, /table\{font-size:12px!important/);
   assert.match(ui, /\.evidence-stage img\{[^}]*object-fit:contain/);

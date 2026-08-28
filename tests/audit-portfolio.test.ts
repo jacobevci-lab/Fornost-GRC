@@ -19,7 +19,8 @@ test("portfolio audits and their requirements support controlled deletion", () =
   assert.match(route, /audit_archive_/);
   assert.match(route, /DELETE FROM simple_grc_records WHERE module='Denetim Yönetimi'/);
   assert.match(page, /Denetimi Sil/);
-  assert.match(page, /\+ Madde Ekle/);
+  assert.match(page, /\+ Özel Madde/);
+  assert.match(page, /Kütüphaneden Kontrol Ekle/);
 });
 
 test("layout guardrails prevent settings cards from widening the page", () => {
