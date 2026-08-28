@@ -22,7 +22,13 @@
 .register-filters label{min-width:0}.register-filters label>span{display:block;margin-bottom:6px;color:var(--muted);font-size:9.5px;font-weight:800}
 .register-filters select{width:100%;min-height:38px;padding:8px 10px;border:1px solid var(--line);border-radius:9px;background:#fff;color:var(--ink);font-size:11px}
 .register-filters>button{align-self:end;justify-content:center;color:#b42318}
-.smart-table,.risk-table{width:max-content;min-width:100%;table-layout:auto}
+.smart-table,.risk-table,.report-card table{width:max-content;min-width:100%;table-layout:fixed}
+.resizable-column{position:relative;padding-right:18px!important;overflow:visible!important}
+.resizable-column>span:first-child{display:block;overflow:hidden;text-overflow:ellipsis}
+.column-resizer{position:absolute;z-index:3;top:0;right:-4px;width:9px;height:100%;cursor:col-resize;touch-action:none}
+.column-resizer:after{content:"";position:absolute;top:20%;bottom:20%;left:4px;width:1px;background:transparent}
+.resizable-column:hover .column-resizer:after,.column-resizer:focus:after{background:#756cff;box-shadow:0 0 0 1px rgba(117,108,255,.12)}
+body.resizing-columns{cursor:col-resize;user-select:none}
 .smart-table th,.risk-table th{font-size:10px!important;line-height:1.35;white-space:normal;vertical-align:middle}
 .smart-table td,.risk-table td{max-width:320px;font-size:11.5px!important;line-height:1.45;vertical-align:middle}
 .smart-table td:not(:first-child),.risk-table td:not(:first-child){white-space:normal}
@@ -46,6 +52,20 @@ html[data-theme="dark"] .column-picker header{background:#141f34;border-color:#2
 html[data-theme="dark"] .column-picker label:hover{background:#19253d}
 html[data-theme="dark"] .register-filters{background:#0f182a;border-color:#26324a}
 html[data-theme="dark"] .register-filters select{background:#0c1424;border-color:#2a3750;color:#eef2ff}
+
+/* Calm high-contrast dark workspace: clearer depth without neon-heavy surfaces. */
+html[data-theme="dark"]{--cp-bg:#0b1220;--cp-panel:#151f2f;--cp-panel-2:#101827;--cp-ink:#f4f7fb;--cp-muted:#b3bfd0;--cp-faint:#8e9aae;--cp-line:#314057;--cp-indigo:#8b83ff;--cc-bg:#0b1220;--cc-surface:#151f2f;--cc-surface-2:#101827;--cc-elevated:#192537;--cc-ink:#f4f7fb;--cc-muted:#b3bfd0;--cc-line:#314057}
+html[data-theme="dark"] body,html[data-theme="dark"] .shell>main{background:#0b1220!important}
+html[data-theme="dark"] .table-card,html[data-theme="dark"] .panel,html[data-theme="dark"] .audit-detail-head,html[data-theme="dark"] .audit-detail-kpis article,html[data-theme="dark"] .report-card,html[data-theme="dark"] .settings-card{background:#151f2f!important;border-color:#314057!important;box-shadow:0 14px 38px rgba(0,0,0,.2)!important}
+html[data-theme="dark"] .register-toolbar,html[data-theme="dark"] .table-tools{background:#172235!important;border-color:#314057!important}
+html[data-theme="dark"] th{background:#101827!important;color:#b8c4d6!important;border-color:#34435b!important}
+html[data-theme="dark"] td{color:#e8edf5!important;border-color:#2b394e!important}
+html[data-theme="dark"] tbody tr:nth-child(even){background:#131d2c!important}
+html[data-theme="dark"] tbody tr:hover{background:#1b2940!important}
+html[data-theme="dark"] .stack small,html[data-theme="dark"] .date-stack small,html[data-theme="dark"] .module-head p,html[data-theme="dark"] .audit-detail-head p{color:#9eabc0!important}
+html[data-theme="dark"] .register-search,html[data-theme="dark"] .register-filters select,html[data-theme="dark"] .form input,html[data-theme="dark"] .form select,html[data-theme="dark"] .form textarea{background:#0e1726!important;border-color:#3a4962!important;color:#f4f7fb!important}
+html[data-theme="dark"] .column-picker{background:#182438!important;border-color:#3a4962!important}
+html[data-theme="dark"] .column-picker header{background:#111b2b!important;border-color:#314057!important}
 
 @media(max-width:1500px){.risk-overview{grid-template-columns:1fr!important}.risk-overview .matrix-card{grid-template-columns:minmax(180px,.55fr) minmax(360px,1fr)!important}.risk-overview .matrix-embed{overflow:visible}}
 @media(max-width:1050px){.register-toolbar-main{align-items:stretch;flex-direction:column}.register-search{max-width:none}.register-view-actions{justify-content:flex-start;flex-wrap:wrap}.register-view-actions>strong{margin-left:auto}.module-head{align-items:flex-start}.module-head .actions{max-width:55%}.risk-overview .matrix-card{grid-template-columns:1fr!important}.risk-overview .matrix-embed{overflow:auto}}

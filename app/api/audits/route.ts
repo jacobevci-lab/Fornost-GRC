@@ -31,6 +31,12 @@ const iso27001Refs = [
   ...Array.from({ length: 14 }, (_, index) => `A.7.${index + 1}`),
   ...Array.from({ length: 34 }, (_, index) => `A.8.${index + 1}`),
 ];
+const iso27001Titles = Object.fromEntries([
+  ["5",["Bilgi güvenliği politikaları","Bilgi güvenliği rolleri ve sorumlulukları","Görevlerin ayrılığı","Yönetim sorumlulukları","Yetkili makamlarla iletişim","Özel ilgi gruplarıyla iletişim","Tehdit istihbaratı","Proje yönetiminde bilgi güvenliği","Bilgi ve diğer ilişkili varlıkların envanteri","Bilgi ve diğer ilişkili varlıkların kabul edilebilir kullanımı","Varlıkların iadesi","Bilginin sınıflandırılması","Bilginin etiketlenmesi","Bilgi aktarımı","Erişim kontrolü","Kimlik yönetimi","Kimlik doğrulama bilgileri","Erişim hakları","Tedarikçi ilişkilerinde bilgi güvenliği","Tedarikçi sözleşmelerinde bilgi güvenliğinin ele alınması","Bilgi ve iletişim teknolojileri tedarik zincirinde bilgi güvenliği","Tedarikçi hizmetlerinin izlenmesi, gözden geçirilmesi ve değişiklik yönetimi","Bulut hizmetlerinin kullanımında bilgi güvenliği","Bilgi güvenliği olay yönetimi planlaması ve hazırlığı","Bilgi güvenliği olaylarının değerlendirilmesi ve kararı","Bilgi güvenliği olaylarına müdahale","Bilgi güvenliği olaylarından öğrenme","Kanıtların toplanması","Kesinti sırasında bilgi güvenliği","İş sürekliliği için BİT hazırlığı","Yasal, düzenleyici ve sözleşmesel gereksinimler","Fikri mülkiyet hakları","Kayıtların korunması","Kişisel verilerin gizliliği ve korunması","Bilgi güvenliğinin bağımsız gözden geçirilmesi","Bilgi güvenliği politika ve standartlarına uyum","Belgelenmiş işletim prosedürleri"]],
+  ["6",["İşe alım öncesi kontroller","İstihdam şartları ve koşulları","Bilgi güvenliği farkındalığı, eğitimi ve öğretimi","Disiplin süreci","İşten ayrılma veya görev değişikliği sonrası sorumluluklar","Gizlilik veya ifşa etmeme anlaşmaları","Uzaktan çalışma","Bilgi güvenliği olaylarının raporlanması"]],
+  ["7",["Fiziksel güvenlik çevreleri","Fiziksel giriş","Ofislerin, odaların ve tesislerin güvenliği","Fiziksel güvenlik izleme","Fiziksel ve çevresel tehditlere karşı koruma","Güvenli alanlarda çalışma","Temiz masa ve temiz ekran","Ekipman yerleşimi ve korunması","Kuruluş dışındaki varlıkların güvenliği","Depolama ortamları","Destek altyapıları","Kablolama güvenliği","Ekipman bakımı","Ekipmanın güvenli imhası veya yeniden kullanımı"]],
+  ["8",["Kullanıcı uç nokta cihazları","Ayrıcalıklı erişim hakları","Bilgiye erişim kısıtlaması","Kaynak koda erişim","Güvenli kimlik doğrulama","Kapasite yönetimi","Kötücül yazılımlara karşı koruma","Teknik zafiyetlerin yönetimi","Yapılandırma yönetimi","Bilginin silinmesi","Veri maskeleme","Veri sızıntısının önlenmesi","Bilginin yedeklenmesi","Bilgi işleme tesislerinin yedekliliği","Günlükleme","İzleme faaliyetleri","Saat senkronizasyonu","Ayrıcalıklı yardımcı programların kullanımı","Canlı sistemlere yazılım kurulumu","Ağ güvenliği","Ağ hizmetlerinin güvenliği","Ağların ayrıştırılması","Web filtreleme","Kriptografi kullanımı","Güvenli geliştirme yaşam döngüsü","Uygulama güvenliği gereksinimleri","Güvenli sistem mimarisi ve mühendislik ilkeleri","Güvenli kodlama","Geliştirme ve kabulde güvenlik testleri","Dış kaynaklı geliştirme","Geliştirme, test ve üretim ortamlarının ayrılması","Değişiklik yönetimi","Test bilgileri","Denetim testleri sırasında bilgi sistemlerinin korunması"]],
+].flatMap(([group,titles]) => (titles as string[]).map((title,index) => [`A.${group}.${index+1}`,title])));
 
 function auditTemplateRows(audit: Record<string, unknown>) {
   const template = String(audit.template || ""), name = String(audit.name || ""), nowDate = new Date().toISOString().slice(0, 10);
@@ -70,7 +76,7 @@ function auditTemplateRows(audit: Record<string, unknown>) {
     ...common,
     frameworkTemplate: "ISO/IEC 27001:2022 Annex A",
     requirementRef: ref,
-    requirementTitle: "",
+    requirementTitle: iso27001Titles[ref] || "",
     controlRef: ref,
     owner: String(audit.audit_owner || "Bilgi Güvenliği"),
     businessUnit: "Bilgi Güvenliği",
@@ -81,7 +87,14 @@ function auditTemplateRows(audit: Record<string, unknown>) {
 
 async function ensureTemplateRows(d: Awaited<ReturnType<typeof db>>, audit: Record<string, unknown>, now: string) {
   const count = await d.prepare("SELECT COUNT(*) AS total FROM simple_grc_records WHERE module='Denetim Yönetimi' AND json_extract(data_json,'$.auditName')=?").bind(String(audit.name)).first<{ total: number }>();
-  if (Number(count?.total || 0) > 0) return 0;
+  if (Number(count?.total || 0) > 0) {
+    if(String(audit.template||"").startsWith("ISO/IEC 27001")){
+      const existing=await d.prepare("SELECT id,data_json FROM simple_grc_records WHERE module='Denetim Yönetimi' AND json_extract(data_json,'$.auditName')=?").bind(String(audit.name)).all<{id:string;data_json:string}>();
+      const updates=[];for(const row of existing.results){const data=JSON.parse(row.data_json);if(!String(data.requirementTitle||"").trim()&&iso27001Titles[data.requirementRef]){data.requirementTitle=iso27001Titles[data.requirementRef];updates.push(d.prepare("UPDATE simple_grc_records SET data_json=?,updated_at=? WHERE id=?").bind(JSON.stringify(data),now,row.id));}}
+      for(let index=0;index<updates.length;index+=50)await d.batch(updates.slice(index,index+50));
+    }
+    return 0;
+  }
   const rows = auditTemplateRows(audit);
   for (let index = 0; index < rows.length; index += 50) {
     await d.batch(rows.slice(index, index + 50).map((data, offset) => d.prepare("INSERT OR IGNORE INTO simple_grc_records(id,module,data_json,created_at,updated_at) VALUES(?,?,?,?,?)").bind(`AUD-${String(audit.id).replace(/[^a-zA-Z0-9-]/g, "")}-${index + offset + 1}`, "Denetim Yönetimi", JSON.stringify(data), now, now)));

@@ -4,6 +4,8 @@
 import {
   CSSProperties,
   FormEvent,
+  type PointerEvent as ReactPointerEvent,
+  type ReactNode,
   useEffect,
   useMemo,
   useRef,
@@ -1610,6 +1612,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
       method: "POST",
       body: new FormData(e.currentTarget),
     });
+    const result = await r.json().catch(() => ({}));
     if (r.ok) {
       setModal(false);
       await load();
@@ -1620,9 +1623,9 @@ function FornostApp({ currentUser }: { currentUser: any }) {
       );
     } else
       setNotice(
-        lang === "tr"
-          ? "Kanıt yüklenemedi."
-          : "Evidence could not be uploaded.",
+        String(result.error || (lang === "tr"
+          ? "Kanıt yüklenemedi. Dosya türünü ve 10 MB sınırını kontrol edin."
+          : "Evidence could not be uploaded. Check the file type and 10 MB limit.")),
       );
   }
   const by = (m: string) => rows.filter((r) => r.module === m),
@@ -3070,7 +3073,8 @@ function Reports({ rows, lang }: { rows: Row[]; lang: Lang }) {
     [unit, setUnit] = useState(all),
     [owner, setOwner] = useState(all),
     [status, setStatus] = useState(all),
-    tr = lang === "tr";
+    tr = lang === "tr",
+    widths = useColumnWidths("Raporlar");
   useEffect(() => {
     setModule(all);
     setUnit(all);
@@ -3089,7 +3093,6 @@ function Reports({ rows, lang }: { rows: Row[]; lang: Lang }) {
   async function excel() {
     const labels = labelMap[lang];
     const data = filtered.map((r) => ({
-      [tr ? "Kod" : "Code"]: r.id,
       [tr ? "Modül" : "Module"]: names[lang][r.module] || r.module,
       ...Object.fromEntries(
         Object.entries(r.data).map(([k, v]) => [labels[k] || k, v]),
@@ -3202,32 +3205,33 @@ function Reports({ rows, lang }: { rows: Row[]; lang: Lang }) {
         </div>
         <div className="table-wrap">
           <table>
+            <colgroup>
+              {["module","title","businessUnit","owner","status","level"].map((key) => <col key={key} style={{ width: widths.width(key) }} />)}
+            </colgroup>
             <thead>
               <tr>
                 {[
-                  tr ? "Kod" : "Code",
-                  tr ? "Modül" : "Module",
-                  tr ? "Başlık" : "Title",
-                  tr ? "İş Birimi" : "Business Unit",
-                  tr ? "Sahip" : "Owner",
-                  tr ? "Durum" : "Status",
-                  tr ? "Seviye" : "Level",
-                ].map((x) => (
-                  <th key={x}>{x}</th>
+                  ["module", tr ? "Modül" : "Module"],
+                  ["title", tr ? "Başlık" : "Title"],
+                  ["businessUnit", tr ? "İş Birimi" : "Business Unit"],
+                  ["owner", tr ? "Sahip" : "Owner"],
+                  ["status", tr ? "Durum" : "Status"],
+                  ["level", tr ? "Seviye" : "Level"],
+                ].map(([key, label]) => (
+                  <ResizableTh key={key} columnKey={key} widths={widths}>{label}</ResizableTh>
                 ))}
               </tr>
             </thead>
             <tbody>
               {filtered.slice(0, 250).map((r) => (
                 <tr key={r.id}>
-                  <td>
-                    <b className="code">{r.id}</b>
-                  </td>
                   <td>{names[lang][r.module] || r.module}</td>
                   <td>
                     {r.data.title ||
                       r.data.process ||
                       r.data.controlTitle ||
+                      r.data.requirementTitle ||
+                      r.data.requirementRef ||
                       "—"}
                   </td>
                   <td>{r.data.businessUnit || "—"}</td>
@@ -3467,14 +3471,19 @@ function RiskRegister({
   const u = ui[lang],
     cols = getAvailableRegisterColumns("Risk Assessment").filter((c) =>
       columns.includes(c.key),
-    );
+    ), widths = useColumnWidths("Risk Assessment");
   return (
     <table className="risk-table">
+      <colgroup>
+        <col style={{ width: widths.width("recordCode", 130) }} />
+        {cols.map((c) => <col key={c.key} style={{ width: widths.width(c.key) }} />)}
+        {canWrite && <col style={{ width: 120 }} />}
+      </colgroup>
       <thead>
         <tr>
-          <th>{lang === "tr" ? "Kod" : "Code"}</th>
+          <ResizableTh columnKey="recordCode" widths={widths}>{lang === "tr" ? "Kod" : "Code"}</ResizableTh>
           {cols.map((c) => (
-            <th key={c.key}>{c[lang]}</th>
+            <ResizableTh key={c.key} columnKey={c.key} widths={widths}>{c[lang]}</ResizableTh>
           ))}
           {canWrite && <th></th>}
         </tr>
@@ -3510,6 +3519,39 @@ function RiskRegister({
       </tbody>
     </table>
   );
+}
+
+type ColumnWidthController = {
+  width: (key: string, fallback?: number) => number;
+  begin: (key: string, event: ReactPointerEvent<HTMLSpanElement>) => void;
+  nudge: (key: string, delta: number) => void;
+};
+function useColumnWidths(scope: string): ColumnWidthController {
+  const storageKey = `fornost-grc-column-widths:${scope}`;
+  const [values, setValues] = useState<Record<string, number>>({});
+  useEffect(() => {
+    try { setValues(JSON.parse(localStorage.getItem(storageKey) || "{}")); } catch { setValues({}); }
+  }, [storageKey]);
+  const save = (key: string, next: number) => setValues((current) => {
+    const updated = { ...current, [key]: Math.max(96, Math.min(640, Math.round(next))) };
+    localStorage.setItem(storageKey, JSON.stringify(updated));
+    return updated;
+  });
+  return {
+    width: (key, fallback = 190) => values[key] || fallback,
+    begin: (key, event) => {
+      event.preventDefault();
+      const startX = event.clientX, startWidth = values[key] || 190;
+      const move = (e: PointerEvent) => save(key, startWidth + e.clientX - startX);
+      const stop = () => { window.removeEventListener("pointermove", move); window.removeEventListener("pointerup", stop); document.body.classList.remove("resizing-columns"); };
+      document.body.classList.add("resizing-columns");
+      window.addEventListener("pointermove", move); window.addEventListener("pointerup", stop, { once: true });
+    },
+    nudge: (key, delta) => save(key, (values[key] || 190) + delta),
+  };
+}
+function ResizableTh({ columnKey, widths, children }: { columnKey: string; widths: ColumnWidthController; children: ReactNode }) {
+  return <th className="resizable-column"><span>{children}</span><span className="column-resizer" role="separator" aria-label={`${String(children)} sütun genişliği`} aria-orientation="vertical" tabIndex={0} onPointerDown={(e) => widths.begin(columnKey, e)} onKeyDown={(e) => { if (e.key === "ArrowLeft") widths.nudge(columnKey, -16); if (e.key === "ArrowRight") widths.nudge(columnKey, 16); }} /></th>;
 }
 function RiskRegisterCell({
   row,
@@ -5557,14 +5599,20 @@ function SmartRegister({
       (columns || defaultRegisterColumnKeys(module)).includes(column.key),
     ),
     u = ui[lang],
-    showRecordCode = module !== "Denetim Yönetimi";
+    showRecordCode = module !== "Denetim Yönetimi",
+    widths = useColumnWidths(module);
   return (
     <table className={`smart-table ${module === "BIA" ? "bia-table" : ""}`}>
+      <colgroup>
+        {showRecordCode && <col style={{ width: widths.width("recordCode", 130) }} />}
+        {cols.map((c) => <col key={c.key} style={{ width: widths.width(c.key) }} />)}
+        {canWrite && <col style={{ width: 120 }} />}
+      </colgroup>
       <thead>
         <tr>
-          {showRecordCode && <th>{lang === "tr" ? "Kod" : "Code"}</th>}
+          {showRecordCode && <ResizableTh columnKey="recordCode" widths={widths}>{lang === "tr" ? "Kod" : "Code"}</ResizableTh>}
           {cols.map((c) => (
-            <th key={c.key}>{c[lang]}</th>
+            <ResizableTh key={c.key} columnKey={c.key} widths={widths}>{c[lang]}</ResizableTh>
           ))}
           {canWrite && <th></th>}
         </tr>

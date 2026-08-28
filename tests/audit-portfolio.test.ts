@@ -37,7 +37,9 @@ test("audit requirements show framework references without internal record codes
   assert.match(page, /showRecordCode = module !== "Denetim Yönetimi"/);
   assert.match(page, /<b>{reference}<\/b>/);
   assert.doesNotMatch(page, /<b>{d\.auditName \|\| "—"}<\/b>/);
-  assert.match(route, /requirementTitle: ""/);
+  assert.match(route, /requirementTitle: iso27001Titles\[ref\]/);
+  assert.match(route, /Bilgi güvenliği politikaları/);
+  assert.match(route, /UPDATE simple_grc_records SET data_json/);
 });
 
 test("layout guardrails prevent settings cards from widening the page", () => {
