@@ -282,6 +282,15 @@ phase="reverse proxy image pull"
 phase="old container replacement"
 "${engine}" rm -f fornost-grc-proxy fornost-grc-app >/dev/null 2>&1 || true
 
+# Podman's DNS backend can briefly retain the removed application's address on
+# a reused network. Recreate this product-owned network after both containers
+# are gone so the proxy always resolves the newly created application container.
+if [[ "$(basename "${engine}")" == "podman" ]]; then
+  phase="Podman runtime network refresh"
+  "${engine}" network rm "${network}" >/dev/null 2>&1 || true
+  "${engine}" network create "${network}" >/dev/null
+fi
+
 phase="application container start"
 "${engine}" run -d \
   --name fornost-grc-app \
