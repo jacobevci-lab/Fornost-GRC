@@ -31,8 +31,8 @@ test("register layout contains readable and overflow-safe desktop and mobile rul
 
 test("module catalogs expose operational tracking fields beyond the default view", () => {
   assert.match(page, /followUpOwner: "Takip Eden \/ Koordinatör"/);
-  assert.match(page, /"Risk Assessment": \["category", "businessUnit", "owner", "asset", "actionOwner"/);
-  assert.match(page, /"Varlık Envanteri": \["assetType", "businessUnit", "owner", "technicalOwner", "custodian"/);
-  assert.match(page, /"Denetim Yönetimi": \["auditType", "businessUnit", "owner", "followUpOwner"/);
+  assert.match(page, /"Risk Assessment": \[\s*"category",\s*"businessUnit",\s*"owner",\s*"asset",\s*"actionOwner"/);
+  assert.match(page, /"Varlık Envanteri": \[\s*"assetType",\s*"businessUnit",\s*"owner",\s*"technicalOwner",\s*"custodian"/);
+  assert.match(page, /"Denetim Yönetimi": \[\s*"auditType",\s*"businessUnit",\s*"owner",\s*"followUpOwner"/);
   assert.match(page, /tr: "Atanan Kişi \/ İş Birimi"/);
 });
