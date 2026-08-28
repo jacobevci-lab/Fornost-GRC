@@ -13,6 +13,20 @@ test("module registers expose persistent column selection and module filters", (
   assert.match(page, /Filtreleri Temizle/);
 });
 
+test("all operational and reporting tables persist user-adjusted column widths", () => {
+  assert.match(page, /fornost-grc-column-widths:/);
+  assert.match(page, /function ResizableTh/);
+  assert.match(page, /role="separator"/);
+  assert.match(page, /useColumnWidths\("Raporlar"\)/);
+  assert.match(css, /\.column-resizer/);
+});
+
+test("management reporting omits opaque internal record identifiers", () => {
+  const reports = page.slice(page.indexOf("function Reports"), page.indexOf("function ModuleFilter"));
+  assert.doesNotMatch(reports, /r\.id,<\/b>/);
+  assert.doesNotMatch(reports, /\[tr \? "Kod" : "Code"\]/);
+});
+
 test("record timestamps are mapped from the API and visible in every register", () => {
   assert.match(page, /updatedAt: x\.updatedAt \|\| x\.updated_at/);
   assert.match(page, /createdAt: x\.createdAt \|\| x\.created_at/);
