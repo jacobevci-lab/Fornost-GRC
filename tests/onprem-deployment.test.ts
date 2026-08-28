@@ -66,6 +66,13 @@ test("reverse proxy exposes the configured Fornost path", async () => {
   assert.match(integration, /browser_assets/);
 });
 
+test("Podman install refreshes the product network before recreating containers", async () => {
+  const installer = await readFile(new URL("../scripts/linux/install.sh", import.meta.url), "utf8");
+  assert.match(installer, /Podman runtime network refresh/);
+  assert.match(installer, /network rm "\$\{network\}"/);
+  assert.match(installer, /network create "\$\{network\}"/);
+});
+
 test("RHEL and supported CentOS Stream guide covers easy install, validation, update, backup and removal", async () => {
   const guide = await readFile(new URL("../docs/LINUX-INSTALLATION.md", import.meta.url), "utf8");
   for (const required of [

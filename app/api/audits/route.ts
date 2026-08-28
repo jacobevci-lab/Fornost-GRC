@@ -70,7 +70,7 @@ function auditTemplateRows(audit: Record<string, unknown>) {
     ...common,
     frameworkTemplate: "ISO/IEC 27001:2022 Annex A",
     requirementRef: ref,
-    requirementTitle: `ISO/IEC 27001:2022 ${ref} kontrolü`,
+    requirementTitle: "",
     controlRef: ref,
     owner: String(audit.audit_owner || "Bilgi Güvenliği"),
     businessUnit: "Bilgi Güvenliği",
