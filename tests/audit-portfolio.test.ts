@@ -32,6 +32,14 @@ test("standard audit cards automatically receive their control requirements", ()
   assert.match(page, /standart maddeleri çalışma tablosuna otomatik yüklenir/);
 });
 
+test("audit requirements show framework references without internal record codes or repeated audit names", () => {
+  assert.match(page, /key: "audit", tr: "Madde", en: "Requirement"/);
+  assert.match(page, /showRecordCode = module !== "Denetim Yönetimi"/);
+  assert.match(page, /<b>{reference}<\/b>/);
+  assert.doesNotMatch(page, /<b>{d\.auditName \|\| "—"}<\/b>/);
+  assert.match(route, /requirementTitle: ""/);
+});
+
 test("layout guardrails prevent settings cards from widening the page", () => {
   assert.match(css, /html,body\{max-width:100%;overflow-x:hidden\}/);
   assert.match(css, /\.integration-grid\{width:100%;grid-template-columns:minmax\(0,1fr\)!important\}/);
