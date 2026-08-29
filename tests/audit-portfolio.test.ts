@@ -5,6 +5,7 @@ import test from "node:test";
 const page = readFileSync("app/page.tsx", "utf8");
 const route = readFileSync("app/api/audits/route.ts", "utf8");
 const css = readFileSync("app/layout-guardrails.css", "utf8");
+const catalogs = readFileSync("app/api/grc/framework-catalogs.ts", "utf8");
 
 test("audit templates are choices instead of automatically rendered portfolio cards", () => {
   assert.doesNotMatch(page, /audits\s*=\s*\[\.\.\.new Set\(\[\.\.\.auditCatalog/);
@@ -30,13 +31,20 @@ test("portfolio audits and their requirements support controlled deletion", () =
 test("standard audit cards automatically receive their control requirements", () => {
   assert.match(route, /soc2TemplateControls/);
   assert.match(route, /iso27001Refs/);
-  assert.match(route, /pciDssTemplateRequirements/);
-  assert.match(route, /template\.startsWith\("PCI DSS"\)/);
+  assert.match(catalogs, /pciDssRequirements/);
+  assert.match(route, /frameworkTemplateCatalogs/);
   assert.match(route, /ensureTemplateRows/);
   assert.match(route, /insertedRequirements/);
   assert.match(route, /const missing = rows\.filter/);
   assert.match(route, /DELETE FROM simple_grc_records WHERE id='AUD-006'/);
   assert.match(page, /standart maddeleri çalışma tablosuna otomatik yüklenir/);
+});
+
+test("all advertised standards and regulations have automatic requirement catalogs", () => {
+  for (const template of ["NIST Cybersecurity Framework", "CIS Controls v8.1", "ISO 22301:2019", "ISO\/IEC 27701:2019", "ISO\/IEC 27017:2015", "ISO\/IEC 27018:2019", "COBIT 2019", "DORA", "NIS2", "KVKK", "GDPR"])
+    assert.match(catalogs, new RegExp(template));
+  assert.match(catalogs, /pciDssRequirements/);
+  assert.match(page, /automaticAuditTemplates/);
 });
 
 test("audit requirements show framework references without internal record codes or repeated audit names", () => {
