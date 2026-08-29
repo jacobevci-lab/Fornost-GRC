@@ -27,6 +27,16 @@ test("management reporting omits opaque internal record identifiers", () => {
   assert.doesNotMatch(reports, /\[tr \? "Kod" : "Code"\]/);
 });
 
+test("management reporting offers separate exports for every operational module", () => {
+  const reports = page.slice(page.indexOf("function Reports"), page.indexOf("function ModuleFilter"));
+  assert.match(page, /const reportModules = \[/);
+  assert.match(page, /"Risk Assessment",\s*"BIA",\s*"Varlık Envanteri",\s*"Uyum"/);
+  assert.match(page, /"Tedarikçiler",\s*"Kontroller",\s*"Kanıtlar",\s*"Denetim Yönetimi"/);
+  assert.match(reports, /className="report-module-picker"/);
+  assert.match(reports, /module === all \|\| r\.module === module/);
+  assert.match(reports, /csvDownload\(`Fornost-GRC-\$\{exportSlug\}\.csv`, filtered, lang\)/);
+});
+
 test("record timestamps are mapped from the API and visible in every register", () => {
   assert.match(page, /updatedAt: x\.updatedAt \|\| x\.updated_at/);
   assert.match(page, /createdAt: x\.createdAt \|\| x\.created_at/);
