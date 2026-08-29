@@ -11,6 +11,9 @@ test("audit templates are choices instead of automatically rendered portfolio ca
   assert.match(page, /Hazır kartlar otomatik eklenmez/);
   assert.match(page, /Denetim seç ve ekle/);
   assert.match(page, /createAudit=\{createAudit\}/);
+  assert.match(page, /"PCI DSS 4\.0\.1"/);
+  assert.match(page, /templateOptions = auditCatalog/);
+  assert.doesNotMatch(page, /templateOptions = \[\.\.\.new Set\(\[\.\.\.auditCatalog, \.\.\.actual\]\)\]/);
 });
 
 test("portfolio audits and their requirements support controlled deletion", () => {
@@ -27,8 +30,12 @@ test("portfolio audits and their requirements support controlled deletion", () =
 test("standard audit cards automatically receive their control requirements", () => {
   assert.match(route, /soc2TemplateControls/);
   assert.match(route, /iso27001Refs/);
+  assert.match(route, /pciDssTemplateRequirements/);
+  assert.match(route, /template\.startsWith\("PCI DSS"\)/);
   assert.match(route, /ensureTemplateRows/);
   assert.match(route, /insertedRequirements/);
+  assert.match(route, /const missing = rows\.filter/);
+  assert.match(route, /DELETE FROM simple_grc_records WHERE id='AUD-006'/);
   assert.match(page, /standart maddeleri çalışma tablosuna otomatik yüklenir/);
 });
 

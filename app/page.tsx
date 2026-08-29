@@ -677,6 +677,16 @@ const frameworkGroups = [
 const dataModules = modules.filter(
   (x) => !["Ana Sayfa", "Raporlar", "Kanıtlar"].includes(x),
 );
+const reportModules = [
+  "Risk Assessment",
+  "BIA",
+  "Varlık Envanteri",
+  "Uyum",
+  "Tedarikçiler",
+  "Kontroller",
+  "Kanıtlar",
+  "Denetim Yönetimi",
+] as const;
 const fields: Record<string, string[]> = {
   "Risk Assessment": [
     "title",
@@ -3048,19 +3058,19 @@ function Bars({
   );
 }
 function Reports({ rows, lang }: { rows: Row[]; lang: Lang }) {
-  const all = lang === "tr" ? "Tümü" : "All",
-    [module, setModule] = useState(all),
+  const all = "__all__",
+    allLabel = lang === "tr" ? "Tüm Modüller" : "All Modules",
+    [module, setModule] = useState<string>(all),
     [unit, setUnit] = useState(all),
     [owner, setOwner] = useState(all),
     [status, setStatus] = useState(all),
     tr = lang === "tr",
     widths = useColumnWidths("Raporlar");
   useEffect(() => {
-    setModule(all);
     setUnit(all);
     setOwner(all);
     setStatus(all);
-  }, [all]);
+  }, [module]);
   const values = (k: string) =>
     [...new Set(rows.map((r) => r.data[k]).filter(Boolean))].sort();
   const filtered = rows.filter(
@@ -3070,6 +3080,8 @@ function Reports({ rows, lang }: { rows: Row[]; lang: Lang }) {
       (owner === all || r.data.owner === owner) &&
       (status === all || r.data.status === status),
   );
+  const selectedModuleLabel = module === all ? allLabel : names[lang][module] || module;
+  const exportSlug = module === all ? "all-modules" : module.toLocaleLowerCase("tr-TR").replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "");
   async function excel() {
     const labels = labelMap[lang];
     const data = filtered.map((r) => ({
@@ -3085,7 +3097,7 @@ function Reports({ rows, lang }: { rows: Row[]; lang: Lang }) {
         keys.map((key) => ({ value: safeSpreadsheetCell(row[key]) })),
       ),
     ]).toFile(
-      `Fornost-GRC-${tr ? "Raporu" : "Report"}-${new Date().toISOString().slice(0, 10)}.xlsx`,
+      `Fornost-GRC-${exportSlug}-${new Date().toISOString().slice(0, 10)}.xlsx`,
     );
   }
   return (
@@ -3095,15 +3107,15 @@ function Reports({ rows, lang }: { rows: Row[]; lang: Lang }) {
           <h2>{names[lang].Raporlar}</h2>
           <p>
             {tr
-              ? "Genel durumu filtrele; yönetim raporunu Excel veya CSV olarak indir."
-              : "Filter the overview and download the management report as Excel or CSV."}
+              ? `${selectedModuleLabel} kayıtlarını filtreleyin ve ayrı rapor olarak indirin.`
+              : `Filter ${selectedModuleLabel} records and export them as a separate report.`}
           </p>
         </div>
         <div className="actions">
           <button
             className="ghost"
             onClick={() =>
-              csvDownload("Fornost-GRC-Report.csv", filtered, lang)
+              csvDownload(`Fornost-GRC-${exportSlug}.csv`, filtered, lang)
             }
           >
             {ui[lang].csv}
@@ -3113,8 +3125,17 @@ function Reports({ rows, lang }: { rows: Row[]; lang: Lang }) {
           </button>
         </div>
       </section>
+      <section className="report-module-picker" aria-label={tr ? "Rapor modülü" : "Report module"}>
+        <button className={module === all ? "active" : ""} onClick={() => setModule(all)}>
+          <span>{allLabel}</span><b>{rows.length}</b>
+        </button>
+        {reportModules.map((item) => (
+          <button key={item} className={module === item ? "active" : ""} onClick={() => setModule(item)}>
+            <span>{names[lang][item] || item}</span><b>{rows.filter((row) => row.module === item).length}</b>
+          </button>
+        ))}
+      </section>
       <section className="report-filters">
-        <ModuleFilter value={module} set={setModule} lang={lang} all={all} />
         <Filter
           label={tr ? "İş Birimi" : "Business Unit"}
           value={unit}
@@ -3141,7 +3162,7 @@ function Reports({ rows, lang }: { rows: Row[]; lang: Lang }) {
         <Kpi
           n={filtered.length}
           t={tr ? "Raporlanan Kayıt" : "Reported Records"}
-          s={tr ? "Aktif filtre sonucu" : "Active filter result"}
+          s={selectedModuleLabel}
         />
         <Kpi
           n={
@@ -3612,12 +3633,15 @@ const auditCatalog = [
   "ISO/IEC 27001:2022",
   "SOC 2 Type I",
   "SOC 2 Type II",
+  "PCI DSS 4.0.1",
 ];
 function auditKind(name: string) {
   return name.startsWith("ISO")
     ? "ISO Denetimi"
     : name.startsWith("SOC")
       ? "SOC Denetimi"
+      : name.startsWith("PCI DSS")
+        ? "PCI DSS Denetimi"
       : "Diğer Denetim";
 }
 function AuditModule({
@@ -3662,12 +3686,7 @@ function AuditModule({
   canDeleteAudit: boolean;
 }) {
   const tr = lang === "tr",
-    actual = [
-      ...new Set(
-        rows.map((r) => String(r.data.auditName || "")).filter(Boolean),
-      ),
-    ],
-    templateOptions = [...new Set([...auditCatalog, ...actual])],
+    templateOptions = auditCatalog,
     [pickerOpen, setPickerOpen] = useState(false),
     [auditDraft, setAuditDraft] = useState({
       template: auditCatalog[0],
