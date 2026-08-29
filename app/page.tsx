@@ -495,14 +495,10 @@ Object.assign(labelMap.tr, {
   evidenceRef: "Bağlı Kanıt",
   frameworkTemplate: "Framework Şablonu",
   scopeCategory: "SOC 2 Kapsam Kategorisi",
-  consultantStatus: "Danışman Başlangıç Değerlendirmesi",
   designEffectiveness: "Tasarım Etkinliği",
   operatingEffectiveness: "Operasyonel Etkinlik",
   expectedEvidence: "Beklenen Kanıt / Doküman",
   typeIITestApproach: "Type II Test Yaklaşımı",
-  currentDocuments: "Mevcut Doküman / Kayıt",
-  gapNote: "Gap / Denetim Notu",
-  requiredAction: "Gerekli Aksiyon",
   testOwner: "Kontrol Test Sorumlusu",
   testDate: "Kontrol Test Tarihi",
   populationSize: "Popülasyon Büyüklüğü",
@@ -546,14 +542,10 @@ Object.assign(labelMap.en, {
   evidenceRef: "Linked Evidence",
   frameworkTemplate: "Framework Template",
   scopeCategory: "SOC 2 Scope Category",
-  consultantStatus: "Consultant Baseline Assessment",
   designEffectiveness: "Design Effectiveness",
   operatingEffectiveness: "Operating Effectiveness",
   expectedEvidence: "Expected Evidence / Document",
   typeIITestApproach: "Type II Test Approach",
-  currentDocuments: "Current Document / Record",
-  gapNote: "Gap / Audit Note",
-  requiredAction: "Required Action",
   testOwner: "Control Test Owner",
   testDate: "Control Test Date",
   populationSize: "Population Size",
@@ -868,7 +860,6 @@ const fields: Record<string, string[]> = {
     "owner",
     "followUpOwner",
     "businessUnit",
-    "consultantStatus",
     "designEffectiveness",
     "operatingEffectiveness",
     "dueDate",
@@ -877,9 +868,6 @@ const fields: Record<string, string[]> = {
     "evidenceStatus",
     "expectedEvidence",
     "typeIITestApproach",
-    "currentDocuments",
-    "gapNote",
-    "requiredAction",
     "testOwner",
     "testDate",
     "populationSize",
@@ -1569,11 +1557,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
         action: "create-ticket",
         sourceId: row.id,
         title: `[Fornost GRC] ${row.data.requirementRef || row.id} - ${row.data.requirementTitle || row.data.title || "GRC Aksiyonu"}`,
-        description: [
-          row.data.gapNote,
-          row.data.requiredAction,
-          row.data.finding,
-        ]
+        description: [row.data.finding, row.data.responsibleNote]
           .filter(Boolean)
           .join("\n\n"),
       }),
@@ -1653,7 +1637,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
     { label: lang === "tr" ? "KOMUTA" : "COMMAND", items: modules.slice(0, 1) },
     {
       label: lang === "tr" ? "GRC OPERASYONLARI" : "GRC OPERATIONS",
-      items: modules.slice(1, 9),
+      items: modules.slice(1, 8),
     },
     { label: lang === "tr" ? "İÇGÖRÜ" : "INSIGHTS", items: ["Raporlar"] },
     ...(currentUser.role === "Admin"
@@ -2257,7 +2241,6 @@ function Field({
     ],
     drStatus: ["Mevcut", "Kısmi", "Mevcut Değil", "Bilinmiyor"],
     testResult: ["Başarılı", "Kısmen Başarılı", "Başarısız", "Test Edilmedi"],
-    consultantStatus: ["Uygun", "Kısmi", "Eksik"],
     designEffectiveness: [
       "Etkili",
       "Kısmen Etkili",
@@ -2400,9 +2383,6 @@ function Field({
     "delayReason",
     "expectedEvidence",
     "typeIITestApproach",
-    "currentDocuments",
-    "gapNote",
-    "requiredAction",
   ].includes(k);
   const dateFields = [
     "contractEnd",
@@ -4195,15 +4175,15 @@ function AuditWorkspaceTabs({
       evidenceStatus: "Kanıt Bekleniyor",
     });
   };
-  const consultant = (value: string) =>
-    items.filter((r) => r.data.consultantStatus === value).length;
+  const statusCount = (value: string) =>
+    items.filter((r) => r.data.status === value).length;
   const tested = items.filter(
     (r) =>
       r.data.operatingEffectiveness &&
       r.data.operatingEffectiveness !== "Test Bekliyor",
   ).length;
   const findings = items.filter(
-    (r) => r.data.gapNote || r.data.requiredAction || r.data.finding,
+    (r) => r.data.finding || r.data.responsibleNote,
   );
   const tabs = [
     ["overview", tr ? "Genel Bakış" : "Overview"],
@@ -4248,9 +4228,9 @@ function AuditWorkspaceTabs({
             </header>
             <div className="soc2-status-grid">
               {[
-                [consultant("Uygun"), tr ? "Uygun" : "Ready", "ready"],
-                [consultant("Kısmi"), tr ? "Kısmi" : "Partial", "partial"],
-                [consultant("Eksik"), tr ? "Eksik" : "Missing", "missing"],
+                [statusCount("Tamamlandı"), tr ? "Tamamlandı" : "Complete", "ready"],
+                [statusCount("Devam Ediyor"), tr ? "Devam ediyor" : "In progress", "partial"],
+                [statusCount("Başlanmadı"), tr ? "Başlanmadı" : "Not started", "missing"],
                 [
                   tested,
                   tr
@@ -4268,8 +4248,8 @@ function AuditWorkspaceTabs({
             <footer>
               <span>
                 {tr
-                  ? "Danışman başlangıç değerlendirmesi ayrı tutulur; nihai sonuç değildir."
-                  : "The consultant baseline is retained separately and is not the final audit result."}
+                  ? "Hazırlık değerleri mevcut denetim akışını ve test sonuçlarını gösterir."
+                  : "Readiness values reflect the current audit workflow and test results."}
               </span>
             </footer>
           </article>
@@ -4555,21 +4535,15 @@ function AuditWorkspaceTabs({
               <header>
                 <span>{r.data.requirementRef}</span>
                 <StatusPill
-                  value={r.data.consultantStatus || r.data.status}
+                  value={r.data.status}
                   lang={lang}
                 />
               </header>
               <h3>{r.data.requirementTitle}</h3>
-              {r.data.gapNote && (
-                <p>
-                  <b>{tr ? "Gap" : "Gap"}</b>
-                  {r.data.gapNote}
-                </p>
-              )}
-              {r.data.requiredAction && (
+              {r.data.responsibleNote && (
                 <p>
                   <b>{tr ? "Gerekli aksiyon" : "Required action"}</b>
-                  {r.data.requiredAction}
+                  {r.data.responsibleNote}
                 </p>
               )}
               {r.data.ticketRef && (
@@ -4885,7 +4859,6 @@ const registerFilterKeys: Record<string, string[]> = {
     "businessUnit",
     "owner",
     "followUpOwner",
-    "consultantStatus",
     "evidenceStatus",
     "testOwner",
     "auditorResult",
