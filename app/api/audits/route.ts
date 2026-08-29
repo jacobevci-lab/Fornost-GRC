@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireRole } from "../auth/security";
 import { soc2TemplateControls, soc2TemplateMeta } from "../grc/soc2-template";
+import { pciDssTemplateRequirements } from "../grc/pci-dss-template";
 
 const auditsTable = `CREATE TABLE IF NOT EXISTS simple_audits (
   id TEXT PRIMARY KEY,
@@ -82,24 +83,43 @@ function auditTemplateRows(audit: Record<string, unknown>) {
     businessUnit: "Bilgi Güvenliği",
     scopeCategory: ref.startsWith("A.5.") ? "Organizasyonel" : ref.startsWith("A.6.") ? "İnsan" : ref.startsWith("A.7.") ? "Fiziksel" : "Teknolojik",
   }));
+  if (template.startsWith("PCI DSS")) return pciDssTemplateRequirements.map((requirement) => ({
+    ...common,
+    frameworkTemplate: "PCI DSS 4.0.1",
+    requirementRef: requirement.ref,
+    requirementTitle: requirement.title,
+    controlRef: requirement.ref,
+    owner: requirement.owner,
+    businessUnit: requirement.owner,
+    scopeCategory: requirement.category,
+  }));
   return [];
 }
 
 async function ensureTemplateRows(d: Awaited<ReturnType<typeof db>>, audit: Record<string, unknown>, now: string) {
-  const count = await d.prepare("SELECT COUNT(*) AS total FROM simple_grc_records WHERE module='Denetim Yönetimi' AND json_extract(data_json,'$.auditName')=?").bind(String(audit.name)).first<{ total: number }>();
-  if (Number(count?.total || 0) > 0) {
-    if(String(audit.template||"").startsWith("ISO/IEC 27001")){
-      const existing=await d.prepare("SELECT id,data_json FROM simple_grc_records WHERE module='Denetim Yönetimi' AND json_extract(data_json,'$.auditName')=?").bind(String(audit.name)).all<{id:string;data_json:string}>();
-      const updates=[];for(const row of existing.results){const data=JSON.parse(row.data_json);if(!String(data.requirementTitle||"").trim()&&iso27001Titles[data.requirementRef]){data.requirementTitle=iso27001Titles[data.requirementRef];updates.push(d.prepare("UPDATE simple_grc_records SET data_json=?,updated_at=? WHERE id=?").bind(JSON.stringify(data),now,row.id));}}
-      for(let index=0;index<updates.length;index+=50)await d.batch(updates.slice(index,index+50));
-    }
-    return 0;
-  }
   const rows = auditTemplateRows(audit);
-  for (let index = 0; index < rows.length; index += 50) {
-    await d.batch(rows.slice(index, index + 50).map((data, offset) => d.prepare("INSERT OR IGNORE INTO simple_grc_records(id,module,data_json,created_at,updated_at) VALUES(?,?,?,?,?)").bind(`AUD-${String(audit.id).replace(/[^a-zA-Z0-9-]/g, "")}-${index + offset + 1}`, "Denetim Yönetimi", JSON.stringify(data), now, now)));
+  if (!rows.length) return 0;
+  const auditName = String(audit.name), template = String(audit.template || "");
+  if (template.startsWith("PCI DSS")) {
+    await d.prepare("DELETE FROM simple_grc_records WHERE id='AUD-006' AND module='Denetim Yönetimi' AND json_extract(data_json,'$.auditName')=?").bind(auditName).run();
   }
-  return rows.length;
+  const existing = await d.prepare("SELECT id,data_json FROM simple_grc_records WHERE module='Denetim Yönetimi' AND json_extract(data_json,'$.auditName')=?").bind(auditName).all<{ id: string; data_json: string }>();
+  const parsed = existing.results.map((record) => ({ record, data: JSON.parse(record.data_json) as Record<string, unknown> }));
+  const existingRefs = new Set(parsed.map(({ data }) => String(data.requirementRef || data.controlRef || "")).filter(Boolean));
+  const titleByRef = new Map(rows.map((row) => [String(row.requirementRef), String(row.requirementTitle || "")]));
+  const updates = parsed.flatMap(({ record, data }) => {
+    const ref = String(data.requirementRef || data.controlRef || ""), title = titleByRef.get(ref);
+    if (!title || String(data.requirementTitle || "").trim()) return [];
+    data.requirementTitle = title;
+    return [d.prepare("UPDATE simple_grc_records SET data_json=?,updated_at=? WHERE id=?").bind(JSON.stringify(data), now, record.id)];
+  });
+  for (let index = 0; index < updates.length; index += 50) await d.batch(updates.slice(index, index + 50));
+  const missing = rows.filter((row) => !existingRefs.has(String(row.requirementRef)));
+  const safeAuditId = String(audit.id).replace(/[^a-zA-Z0-9-]/g, ""), safeRef = (value: unknown) => String(value).replace(/[^a-zA-Z0-9-]/g, "-");
+  for (let index = 0; index < missing.length; index += 50) {
+    await d.batch(missing.slice(index, index + 50).map((data) => d.prepare("INSERT OR IGNORE INTO simple_grc_records(id,module,data_json,created_at,updated_at) VALUES(?,?,?,?,?)").bind(`AUD-${safeAuditId}-${safeRef(data.requirementRef)}`, "Denetim Yönetimi", JSON.stringify(data), now, now)));
+  }
+  return missing.length;
 }
 
 export async function GET(req: NextRequest) {
