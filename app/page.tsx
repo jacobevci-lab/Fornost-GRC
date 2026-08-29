@@ -30,6 +30,8 @@ import { withBasePath } from "./base-path";
 import { calculatedRiskScore, effectiveImpact } from "./risk-methodology";
 import { defaultCatalogs, type CatalogMap } from "./catalogs";
 import { safeSpreadsheetCell } from "./export-security";
+import { automaticAuditTemplates } from "./api/grc/framework-catalogs";
+import "./theme-system.css";
 
 type Lang = "tr" | "en";
 type Row = {
@@ -3629,12 +3631,7 @@ function RiskScore({
   );
 }
 
-const auditCatalog = [
-  "ISO/IEC 27001:2022",
-  "SOC 2 Type I",
-  "SOC 2 Type II",
-  "PCI DSS 4.0.1",
-];
+const auditCatalog = [...automaticAuditTemplates];
 function auditKind(name: string) {
   return name.startsWith("ISO")
     ? "ISO Denetimi"
@@ -3642,6 +3639,10 @@ function auditKind(name: string) {
       ? "SOC Denetimi"
       : name.startsWith("PCI DSS")
         ? "PCI DSS Denetimi"
+      : name.startsWith("NIST") || name.startsWith("CIS") || name.startsWith("COBIT")
+        ? "Framework Değerlendirmesi"
+      : name.startsWith("DORA") || name.startsWith("NIS2") || name.startsWith("KVKK") || name.startsWith("GDPR")
+        ? "Regülasyon Denetimi"
       : "Diğer Denetim";
 }
 function AuditModule({

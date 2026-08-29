@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireRole } from "../auth/security";
 import { soc2TemplateControls, soc2TemplateMeta } from "../grc/soc2-template";
-import { pciDssTemplateRequirements } from "../grc/pci-dss-template";
+import { frameworkTemplateCatalogs } from "../grc/framework-catalogs";
 
 const auditsTable = `CREATE TABLE IF NOT EXISTS simple_audits (
   id TEXT PRIMARY KEY,
@@ -83,14 +83,15 @@ function auditTemplateRows(audit: Record<string, unknown>) {
     businessUnit: "Bilgi Güvenliği",
     scopeCategory: ref.startsWith("A.5.") ? "Organizasyonel" : ref.startsWith("A.6.") ? "İnsan" : ref.startsWith("A.7.") ? "Fiziksel" : "Teknolojik",
   }));
-  if (template.startsWith("PCI DSS")) return pciDssTemplateRequirements.map((requirement) => ({
+  const catalog = frameworkTemplateCatalogs[template];
+  if (catalog) return catalog.map((requirement) => ({
     ...common,
-    frameworkTemplate: "PCI DSS 4.0.1",
+    frameworkTemplate: template,
     requirementRef: requirement.ref,
     requirementTitle: requirement.title,
     controlRef: requirement.ref,
-    owner: requirement.owner,
-    businessUnit: requirement.owner,
+    owner: requirement.owner || String(audit.audit_owner || "Bilgi Güvenliği"),
+    businessUnit: requirement.owner || "Bilgi Güvenliği",
     scopeCategory: requirement.category,
   }));
   return [];
