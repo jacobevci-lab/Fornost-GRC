@@ -1,5 +1,6 @@
 html,body{max-width:100%;overflow-x:hidden}
-.shell,.shell>main{min-width:0;width:100%;max-width:100%}
+.shell{min-width:0;width:100%;max-width:100%}
+.shell>main{min-width:0;width:auto;max-width:100%}
 .shell>main>*{min-width:0;max-width:100%}
 .integration-page,.integration-hub,.integration-grid,.integration-card,.integration-card>header>div,.integration-fields,.settings-grid,.settings-card,.catalog-manager,.catalog-grid,.catalog-grid article{min-width:0;max-width:100%}
 .integration-hub,.settings-card,.catalog-manager{width:100%}
