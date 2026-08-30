@@ -59,7 +59,7 @@ test("reverse proxy exposes the configured Fornost path", async () => {
   assert.match(nginx, /resolver \$\{FORNOST_DNS_RESOLVER\} valid=2s/);
   assert.match(nginx, /proxy_pass \$fornost_backend/);
   assert.match(nginx, /location \$\{FORNOST_BASE_PATH\}\/assets\//);
-  assert.match(nginx, /proxy_pass \$fornost_backend\/assets\//);
+  assert.match(nginx, /rewrite \^\$\{FORNOST_BASE_PATH\}\/assets\/\(\.\*\)\$ \/assets\/\$1 break/);
   assert.match(nginx, /listen 8443 ssl default_server/);
   assert.match(nginx, /ssl_protocols TLSv1\.2 TLSv1\.3/);
   assert.match(nginx, /ssl_certificate \/etc\/nginx\/fornost-tls\.crt/);
