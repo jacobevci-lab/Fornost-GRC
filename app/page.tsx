@@ -33,6 +33,8 @@ import { defaultCatalogs, type CatalogMap } from "./catalogs";
 import { safeSpreadsheetCell } from "./export-security";
 import { automaticAuditTemplates } from "./api/grc/framework-catalogs";
 import "./theme-system.css";
+import "./final-polish.css";
+import { buildReportHtml, buildReportPdf, downloadBlob, reportMetrics } from "./report-export";
 
 type Lang = "tr" | "en";
 type Row = {
@@ -3101,6 +3103,19 @@ function Reports({ rows, lang }: { rows: Row[]; lang: Lang }) {
   );
   const selectedModuleLabel = module === all ? allLabel : names[lang][module] || module;
   const exportSlug = module === all ? "all-modules" : module.toLocaleLowerCase("tr-TR").replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "");
+  const metrics = reportMetrics(module, filtered, tr);
+  const statusDistribution = Object.entries(filtered.reduce<Record<string, number>>((acc, row) => {
+    const key = display(row.data.status, lang) || (tr ? "Belirtilmedi" : "Unspecified");
+    acc[key] = (acc[key] || 0) + 1;
+    return acc;
+  }, {})).sort((a, b) => b[1] - a[1]).slice(0, 6);
+  const reportTitle = `Fornost GRC — ${selectedModuleLabel}`;
+  function htmlReport() {
+    downloadBlob(`Fornost-GRC-${exportSlug}.html`, new Blob([buildReportHtml(reportTitle, filtered, metrics, tr)], { type: "text/html;charset=utf-8" }));
+  }
+  function pdfReport() {
+    downloadBlob(`Fornost-GRC-${exportSlug}.pdf`, buildReportPdf(reportTitle, metrics, filtered, tr));
+  }
   async function excel() {
     const labels = labelMap[lang];
     const data = filtered.map((r) => ({
@@ -3131,6 +3146,12 @@ function Reports({ rows, lang }: { rows: Row[]; lang: Lang }) {
           </p>
         </div>
         <div className="actions">
+          <button className="ghost" onClick={htmlReport}>
+            {tr ? "HTML Raporu" : "HTML Report"}
+          </button>
+          <button className="ghost" onClick={pdfReport}>
+            {tr ? "PDF Raporu" : "PDF Report"}
+          </button>
           <button
             className="ghost"
             onClick={() =>
@@ -3178,40 +3199,15 @@ function Reports({ rows, lang }: { rows: Row[]; lang: Lang }) {
         />
       </section>
       <section className="report-summary">
-        <Kpi
-          n={filtered.length}
-          t={tr ? "Raporlanan Kayıt" : "Reported Records"}
-          s={selectedModuleLabel}
-        />
-        <Kpi
-          n={
-            filtered.filter(
-              (r) => r.module === "Risk Assessment" && score(r) >= 10,
-            ).length
-          }
-          t={tr ? "Yüksek/Kritik Risk" : "High/Critical Risks"}
-          s={tr ? "Skor 10 ve üzeri" : "Score 10 or above"}
-        />
-        <Kpi
-          n={
-            filtered.filter(
-              (r) =>
-                r.module === "Varlık Envanteri" &&
-                r.data.criticality === "Kritik",
-            ).length
-          }
-          t={tr ? "Kritik Varlık" : "Critical Assets"}
-          s={tr ? "Envanter kapsamı" : "Inventory scope"}
-        />
-        <Kpi
-          n={
-            filtered.filter(
-              (r) => r.module === "Uyum" && r.data.status !== "Uyumlu",
-            ).length
-          }
-          t={tr ? "Uyum Açığı" : "Compliance Gaps"}
-          s={tr ? "Kısmi veya açık" : "Partial or open"}
-        />
+        {metrics.map((metric) => <Kpi key={metric.label} n={metric.value} t={metric.label} s={metric.note} />)}
+      </section>
+      <section className="report-insights">
+        <div>
+          <small>{tr ? "YÖNETİM GÖRÜNÜMÜ" : "MANAGEMENT VIEW"}</small>
+          <h3>{tr ? "Durum dağılımı" : "Status distribution"}</h3>
+          <p>{tr ? "Seçili filtrelerle rapora giren kayıtların güncel dağılımı." : "Current distribution of records included by the selected filters."}</p>
+        </div>
+        <Bars items={statusDistribution.map(([label, value], index) => ({ label, value, cls: ["uyumlu", "orta", "yüksek", "kritik"][index % 4] }))} />
       </section>
       <section className="table-card">
         <div className="table-tools">
