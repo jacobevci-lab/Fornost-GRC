@@ -35,6 +35,10 @@ case "${1:-}" in
     ;;
   info|pull|run|rm|rmi|logs|ps) exit 0 ;;
   network|volume)
+    if [[ "${1:-}" == "network" && "${2:-}" == "inspect" && " $* " == *" --format "* ]]; then
+      printf '10.89.0.1\n'
+      exit 0
+    fi
     [[ "${2:-}" == "inspect" ]] && exit 1
     exit 0
     ;;
