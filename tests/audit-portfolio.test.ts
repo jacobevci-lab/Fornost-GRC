@@ -59,6 +59,9 @@ test("audit requirements show framework references without internal record codes
 
 test("layout guardrails prevent settings cards from widening the page", () => {
   assert.match(css, /html,body\{max-width:100%;overflow-x:hidden\}/);
+  assert.match(css, /\.shell\{min-width:0;width:100%;max-width:100%\}/);
+  assert.match(css, /\.shell>main\{min-width:0;width:auto;max-width:100%\}/);
+  assert.doesNotMatch(css, /\.shell,\.shell>main\{[^}]*width:100%/);
   assert.match(css, /\.integration-grid\{width:100%;grid-template-columns:minmax\(0,1fr\)!important\}/);
   assert.match(css, /\.catalog-grid\{width:100%;grid-template-columns:repeat\(2,minmax\(0,1fr\)\)!important\}/);
   assert.match(css, /\.catalog-grid article>header.*position:static!important/);
