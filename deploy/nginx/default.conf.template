@@ -12,6 +12,11 @@ server {
 
     client_max_body_size 10m;
 
+    # Container addresses can change during a Podman restart/reinstall. Resolve
+    # the service name at request time instead of pinning the first container IP.
+    resolver ${FORNOST_DNS_RESOLVER} valid=2s ipv6=off;
+    set $fornost_backend "http://fornost-grc-app:3000";
+
     location = / {
         return 302 ${FORNOST_BASE_PATH}/;
     }
@@ -24,7 +29,8 @@ server {
     # server exposes the immutable bundles from /assets. Strip only this static
     # prefix at the proxy boundary; application and API routes keep their base path.
     location ${FORNOST_BASE_PATH}/assets/ {
-        proxy_pass http://fornost-grc-app:3000/assets/;
+        rewrite ^${FORNOST_BASE_PATH}/assets/(.*)$ /assets/$1 break;
+        proxy_pass $fornost_backend;
         proxy_http_version 1.1;
         proxy_set_header Host $http_host;
         proxy_set_header X-Real-IP $remote_addr;
@@ -37,7 +43,7 @@ server {
     }
 
     location ${FORNOST_BASE_PATH}/ {
-        proxy_pass http://fornost-grc-app:3000;
+        proxy_pass $fornost_backend;
         proxy_http_version 1.1;
         proxy_set_header Host $http_host;
         proxy_set_header X-Real-IP $remote_addr;

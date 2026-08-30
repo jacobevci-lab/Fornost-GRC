@@ -55,9 +55,11 @@ test("reverse proxy exposes the configured Fornost path", async () => {
   const nginx = await readFile(new URL("../deploy/nginx/default.conf.template", import.meta.url), "utf8");
   const integration = await readFile(new URL("./onprem-container-integration.sh", import.meta.url), "utf8");
   assert.match(nginx, /location \$\{FORNOST_BASE_PATH\}\//);
-  assert.match(nginx, /proxy_pass http:\/\/fornost-grc-app:3000/);
+  assert.match(nginx, /set \$fornost_backend "http:\/\/fornost-grc-app:3000"/);
+  assert.match(nginx, /resolver \$\{FORNOST_DNS_RESOLVER\} valid=2s/);
+  assert.match(nginx, /proxy_pass \$fornost_backend/);
   assert.match(nginx, /location \$\{FORNOST_BASE_PATH\}\/assets\//);
-  assert.match(nginx, /proxy_pass http:\/\/fornost-grc-app:3000\/assets\//);
+  assert.match(nginx, /rewrite \^\$\{FORNOST_BASE_PATH\}\/assets\/\(\.\*\)\$ \/assets\/\$1 break/);
   assert.match(nginx, /listen 8443 ssl default_server/);
   assert.match(nginx, /ssl_protocols TLSv1\.2 TLSv1\.3/);
   assert.match(nginx, /ssl_certificate \/etc\/nginx\/fornost-tls\.crt/);

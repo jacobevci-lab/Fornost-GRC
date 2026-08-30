@@ -291,6 +291,16 @@ if [[ "$(basename "${engine}")" == "podman" ]]; then
   "${engine}" network create "${network}" >/dev/null
 fi
 
+if [[ "$(basename "${engine}")" == "podman" ]]; then
+  dns_resolver="$("${engine}" network inspect --format '{{range .Subnets}}{{.Gateway}}{{end}}' "${network}")"
+else
+  dns_resolver="127.0.0.11"
+fi
+[[ "${dns_resolver}" =~ ^[0-9a-fA-F:.]+$ ]] || {
+  echo "Could not determine the container DNS resolver for ${network}." >&2
+  exit 70
+}
+
 phase="application container start"
 "${engine}" run -d \
   --name fornost-grc-app \
@@ -311,6 +321,7 @@ phase="HTTPS reverse proxy start"
   --restart unless-stopped \
   --publish "${https_port}:8443" \
   --env "FORNOST_BASE_PATH=${base_path}" \
+  --env "FORNOST_DNS_RESOLVER=${dns_resolver}" \
   --volume "${project_root}/deploy/nginx/default.conf.template:/etc/nginx/templates/default.conf.template:ro,Z" \
   --volume "${tls_cert_file}:/etc/nginx/fornost-tls.crt:ro,Z" \
   --volume "${tls_key_file}:/etc/nginx/fornost-tls.key:ro,Z" \

@@ -35,6 +35,10 @@ case "${1:-}" in
     ;;
   info|pull|run|rm|rmi|logs|ps) exit 0 ;;
   network|volume)
+    if [[ "${1:-}" == "network" && "${2:-}" == "inspect" && " $* " == *" --format "* ]]; then
+      printf '10.89.0.1\n'
+      exit 0
+    fi
     [[ "${2:-}" == "inspect" ]] && exit 1
     exit 0
     ;;
@@ -256,6 +260,9 @@ if FORNOST_TEST_BUILD_FAIL=1 FORNOST_BUILD_LOCAL=true run_install "${build_failu
 fi
 grep -q 'installation failed during: local application image build' "${build_failure_case}/output.log" || fail "failed phase was not diagnosed"
 grep -q 'Application data volume fornost-grc-data was not removed' "${build_failure_case}/output.log" || fail "data preservation was not reported"
+
+grep -q 'resolver \${FORNOST_DNS_RESOLVER} valid=2s' deploy/nginx/default.conf.template || fail "reverse proxy does not refresh container DNS"
+grep -q -- '--env "FORNOST_DNS_RESOLVER=' scripts/linux/install.sh || fail "installer does not pass the runtime DNS resolver"
 if grep -q 'podman run' "${build_failure_case}/engine.log"; then fail "containers started after failed image build"; fi
 
 checksum_failure_case="$(make_case checksum-failure podman 8443 /fornost-grc)"
