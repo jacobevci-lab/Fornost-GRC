@@ -4,6 +4,7 @@ import test from "node:test";
 
 const page = readFileSync("app/page.tsx", "utf8");
 const css = readFileSync("app/module-registers.css", "utf8");
+const finalCss = readFileSync("app/final-polish.css", "utf8");
 
 test("module registers expose persistent column selection and module filters", () => {
   assert.match(page, /fornost-grc-columns/);
@@ -51,6 +52,33 @@ test("register layout contains readable and overflow-safe desktop and mobile rul
   assert.match(css, /\.column-picker\{position:fixed/);
   assert.match(page, /getBoundingClientRect/);
   assert.match(page, /window\.addEventListener\("scroll", placePicker, true\)/);
+});
+
+test("record actions remain readable in every shared register", () => {
+  assert.equal((page.match(/className="row-actions-column" style=\{\{ width: 180 \}\}/g) || []).length, 2);
+  assert.equal((page.match(/className="row-actions-cell"/g) || []).length, 2);
+  assert.match(finalCss, /\.row-actions\{[^}]*min-width:max-content[^}]*flex-wrap:nowrap[^}]*opacity:1!important/);
+  assert.match(finalCss, /\.row-actions button\{[^}]*min-width:66px[^}]*white-space:nowrap[^}]*word-break:keep-all/);
+  assert.match(finalCss, /\.row-actions button:last-child\{[^}]*#d92d20/);
+  assert.doesNotMatch(page, /<col style=\{\{ width: 120 \}\} \/>/);
+});
+
+test("percent values follow the selected interface language", () => {
+  assert.match(page, /function formatPercent\(value: number, lang: Lang\)/);
+  assert.match(page, /lang === "tr" \? `%\$\{value\}` : `\$\{value\}%`/);
+  assert.doesNotMatch(page, /<b>%\{(?:progress|avg|Number\(d\.progress)/);
+});
+
+test("shared record and import dialogs expose accessible names", () => {
+  assert.match(page, /aria-label=\{names\[lang\]\[active\]\}/);
+  assert.match(
+    page,
+    /aria-label=\{lang === "tr" \? "Excel içe aktar" : "Import Excel"\}/,
+  );
+  assert.ok((page.match(/aria-modal="true"/g) || []).length >= 5);
+  assert.ok(
+    (page.match(/"Pencereyi kapat" : "Close dialog"/g) || []).length >= 2,
+  );
 });
 
 test("module catalogs expose operational tracking fields beyond the default view", () => {

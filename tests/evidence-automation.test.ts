@@ -20,3 +20,13 @@ test("collector enforces outbound and payload safety boundaries",()=>{
   assert.match(route,/1_000_000/);
   assert.match(route,/encryptSecret/);
 });
+
+test("evidence automation keeps Turkish and English UI states consistent",()=>{
+  assert.match(ui,/lang:Lang/);
+  assert.match(ui,/tr\?"Uygun":"Passed"/);
+  assert.match(ui,/tr\?"Saatlik":"Hourly"/);
+  assert.match(ui,/"Cloud & SaaS":"Bulut ve SaaS"/);
+  assert.match(ui,/new Intl\.DateTimeFormat\(tr\?"tr-TR":"en-GB"/);
+  assert.match(ui,/aria-modal="true"/);
+  assert.match(ui,/aria-label=\{closeLabel\}/);
+});

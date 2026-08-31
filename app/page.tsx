@@ -1923,13 +1923,25 @@ function FornostApp({ currentUser }: { currentUser: any }) {
       </main>
       {modal && (
         <div className="overlay" onMouseDown={() => setModal(false)}>
-          <div className="modal" onMouseDown={(e) => e.stopPropagation()}>
+          <div
+            className="modal"
+            role="dialog"
+            aria-modal="true"
+            aria-label={names[lang][active]}
+            onMouseDown={(e) => e.stopPropagation()}
+          >
             <div className="modal-head">
               <div>
                 <small>{editing ? u.editRecord : u.newRecord}</small>
                 <h2>{names[lang][active]}</h2>
               </div>
-              <button onClick={() => setModal(false)}>×</button>
+              <button
+                type="button"
+                aria-label={lang === "tr" ? "Pencereyi kapat" : "Close dialog"}
+                onClick={() => setModal(false)}
+              >
+                ×
+              </button>
             </div>
             {active === "Kanıtlar" && !editing ? (
               <form onSubmit={uploadEvidence} className="form">
@@ -2100,13 +2112,24 @@ function ImportModal({
   }
   return (
     <div className="overlay">
-      <div className="modal import-modal">
+      <div
+        className="modal import-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-label={lang === "tr" ? "Excel içe aktar" : "Import Excel"}
+      >
         <div className="modal-head">
           <div>
             <small>{lang === "tr" ? "EXCEL İÇE AKTAR" : "IMPORT EXCEL"}</small>
             <h2>{names[lang][module]}</h2>
           </div>
-          <button onClick={onClose}>×</button>
+          <button
+            type="button"
+            aria-label={lang === "tr" ? "Pencereyi kapat" : "Close dialog"}
+            onClick={onClose}
+          >
+            ×
+          </button>
         </div>
         <div className="import-body">
           <div className="drop" onClick={() => input.current?.click()}>
@@ -3448,7 +3471,7 @@ function AuditOverview({ rows, lang }: { rows: Row[]; lang: Lang }) {
           <span>{tr ? "Aktif denetim" : "Active audits"}</span>
         </article>
         <article>
-          <b>%{progress}</b>
+          <b>{formatPercent(progress, lang)}</b>
           <span>{tr ? "Ortalama ilerleme" : "Average progress"}</span>
         </article>
         <article className={overdue ? "danger" : ""}>
@@ -3493,7 +3516,7 @@ function RiskRegister({
       <colgroup>
         <col style={{ width: widths.width("recordCode", 130) }} />
         {cols.map((c) => <col key={c.key} style={{ width: widths.width(c.key) }} />)}
-        {canWrite && <col style={{ width: 120 }} />}
+        {canWrite && <col className="row-actions-column" style={{ width: 180 }} />}
       </colgroup>
       <thead>
         <tr>
@@ -3516,7 +3539,7 @@ function RiskRegister({
               </td>
             ))}
             {canWrite && (
-              <td>
+              <td className="row-actions-cell">
                 <div className="row-actions">
                   <button onClick={() => edit(r)}>{u.edit}</button>
                   <button onClick={() => remove(r.id)}>{u.delete}</button>
@@ -3823,7 +3846,7 @@ function AuditModule({
                     <span>
                       <i style={{ width: `${progress}%` }} />
                     </span>
-                    <b>%{progress}</b>
+                    <b>{formatPercent(progress, lang)}</b>
                   </div>
                   <footer>
                     <span>
@@ -4014,7 +4037,7 @@ function AuditModule({
           <span>{tr ? "Toplam madde" : "Total requirements"}</span>
         </article>
         <article>
-          <b>%{avg}</b>
+          <b>{formatPercent(avg, lang)}</b>
           <span>{tr ? "Genel ilerleme" : "Overall progress"}</span>
         </article>
         <article>
@@ -4916,6 +4939,9 @@ function getAvailableRegisterColumns(module: string): RegisterColumn[] {
 function defaultRegisterColumnKeys(module: string) {
   return (registerColumns[module] || []).map((column) => column.key);
 }
+function formatPercent(value: number, lang: Lang) {
+  return lang === "tr" ? `%${value}` : `${value}%`;
+}
 function formatRecordDate(value: string | undefined, lang: Lang) {
   if (!value) return "—";
   const date = new Date(value);
@@ -5243,7 +5269,7 @@ function SmartCell({
             }}
           />
         </span>
-        <b>%{Number(d.progress || 0)}</b>
+        <b>{formatPercent(Number(d.progress || 0), lang)}</b>
       </div>
     );
   if (module === "Denetim Yönetimi" && column === "links")
@@ -5612,7 +5638,7 @@ function SmartRegister({
       <colgroup>
         {showRecordCode && <col style={{ width: widths.width("recordCode", 130) }} />}
         {cols.map((c) => <col key={c.key} style={{ width: widths.width(c.key) }} />)}
-        {canWrite && <col style={{ width: 120 }} />}
+        {canWrite && <col className="row-actions-column" style={{ width: 180 }} />}
       </colgroup>
       <thead>
         <tr>
@@ -5652,7 +5678,7 @@ function SmartRegister({
               </td>
             ))}
             {canWrite && (
-              <td>
+              <td className="row-actions-cell">
                 <div className="row-actions">
                   <button onClick={() => edit(r)}>{u.edit}</button>
                   <button onClick={() => remove(r.id)}>{u.delete}</button>
