@@ -46,13 +46,13 @@ nav button.active i{background:#635bff;color:#fff;box-shadow:0 5px 14px rgba(99,
 .aside-note b{color:#fff}.aside-note p{color:#8f9bb4}
 
 main{padding:0 34px 48px;background:transparent}
-header{
+.shell>main>header{
   position:sticky;top:0;z-index:5;height:82px;margin:0 -34px;padding:0 34px;
   background:rgba(245,247,251,.82);border-bottom:1px solid rgba(222,226,235,.8);
   backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);
 }
-header h1{font-size:20px;margin:3px 0 0;letter-spacing:-.035em}
-header small{font-size:9px;font-weight:700;letter-spacing:.09em;text-transform:uppercase}
+.shell>main>header h1{font-size:20px;margin:3px 0 0;letter-spacing:-.035em}
+.shell>main>header small{font-size:9px;font-weight:700;letter-spacing:.09em;text-transform:uppercase}
 .language-switch{padding:3px;border:1px solid #e1e5ec;background:#fff;border-radius:10px;box-shadow:0 2px 10px rgba(15,23,42,.04)}
 .language-switch button{border:0;border-radius:7px;background:transparent;color:#8a94a6;padding:6px 9px;font-size:9px;font-weight:800;cursor:pointer}
 .language-switch button.active{background:#111827;color:#fff}
@@ -126,7 +126,7 @@ table{font-size:10px}th{height:45px;background:#f8f9fc;color:#7b8495;font-size:8
 .brand b{font-size:16px}.brand small{font-size:10px;line-height:1.4}
 nav button{font-size:12.5px;line-height:1.25}
 .aside-note b{font-size:13px}.aside-note p{font-size:11px;line-height:1.6}
-header small{font-size:10px}header h1{font-size:22px}
+.shell>main>header small{font-size:10px}.shell>main>header h1{font-size:22px}
 .user b{font-size:12px}.user small{font-size:10px}
 .welcome small{font-size:11px}.welcome p{font-size:13px;line-height:1.65}
 .quick-actions b{font-size:12.5px}.quick-actions small{font-size:10.5px;line-height:1.4}
@@ -149,8 +149,8 @@ html[data-theme="dark"]{
 }
 html[data-theme="dark"] body{background:radial-gradient(circle at 82% -10%,rgba(99,91,255,.13),transparent 32rem),#090f1d;color:var(--ink)}
 html[data-theme="dark"] main{background:transparent}
-html[data-theme="dark"] header{background:rgba(9,15,29,.83);border-bottom-color:#202a3e}
-html[data-theme="dark"] header small,html[data-theme="dark"] .module-head p,html[data-theme="dark"] .kpi small,html[data-theme="dark"] .dash-row small{color:#98a4ba}
+html[data-theme="dark"] .shell>main>header{background:rgba(9,15,29,.83);border-bottom-color:#202a3e}
+html[data-theme="dark"] .shell>main>header small,html[data-theme="dark"] .module-head p,html[data-theme="dark"] .kpi small,html[data-theme="dark"] .dash-row small{color:#98a4ba}
 html[data-theme="dark"] .theme-toggle,html[data-theme="dark"] .language-switch,html[data-theme="dark"] .user{background:#121b2d;border-color:#29344a;color:#a9a4ff;box-shadow:0 4px 18px rgba(0,0,0,.18)}
 html[data-theme="dark"] .theme-toggle:hover{background:#1a2540;border-color:#625ae0}
 html[data-theme="dark"] .language-switch button{color:#8f9bb0}html[data-theme="dark"] .language-switch button.active{background:#665eff;color:#fff}
@@ -203,7 +203,7 @@ html[data-theme="dark"] nav button i{background:#131f36;color:#94a2bb;border:1px
 html[data-theme="dark"] nav button:hover{background:#141f36;border-color:#263554;color:#fff}
 html[data-theme="dark"] nav button.active{background:linear-gradient(100deg,rgba(102,91,255,.28),rgba(78,69,198,.11));border-color:#4a438e;box-shadow:inset 3px 0 #8178ff,0 8px 24px rgba(0,0,0,.14)}
 html[data-theme="dark"] .aside-note{background:linear-gradient(145deg,rgba(98,87,239,.13),rgba(18,29,50,.75));border-color:#293754}
-html[data-theme="dark"] header{background:rgba(8,13,24,.78);border-bottom-color:#1d2940;box-shadow:0 8px 30px rgba(0,0,0,.06)}
+html[data-theme="dark"] .shell>main>header{background:rgba(8,13,24,.78);border-bottom-color:#1d2940;box-shadow:0 8px 30px rgba(0,0,0,.06)}
 html[data-theme="dark"] .theme-toggle{position:relative;overflow:hidden;background:linear-gradient(145deg,#1e2942,#131c30);border-color:#35435e;box-shadow:inset 0 1px rgba(255,255,255,.05),0 7px 18px rgba(0,0,0,.22)}
 html[data-theme="dark"] .theme-toggle:after{content:"";position:absolute;width:20px;height:20px;border-radius:50%;background:rgba(255,198,86,.14);box-shadow:0 0 20px rgba(255,190,70,.2)}
 html[data-theme="dark"] .theme-toggle span{position:relative;z-index:1;color:#ffd978}
@@ -246,12 +246,12 @@ html[data-theme="dark"] .audit-card h3,html[data-theme="dark"] .audit-empty b{co
 html[data-theme="dark"] .audit-links span{background:#292855;color:#c3bfff}
 html[data-theme="dark"] .evidence-thumb-mark{background:#272754;color:#bdb9ff}
 html[data-theme="dark"] .evidence-stage img,html[data-theme="dark"] .evidence-stage iframe{border-color:#394862;box-shadow:0 18px 50px rgba(0,0,0,.36)}
-@media(prefers-reduced-motion:no-preference){body,header,.panel,.kpi,.quick-actions button,.table-card,.modal,input,select,textarea{transition:background-color .22s ease,border-color .22s ease,color .22s ease,box-shadow .22s ease}}
+@media(prefers-reduced-motion:no-preference){body,.shell>main>header,.panel,.kpi,.quick-actions button,.table-card,.modal,input,select,textarea{transition:background-color .22s ease,border-color .22s ease,color .22s ease,box-shadow .22s ease}}
 
-@media(max-width:1100px){.shell{grid-template-columns:238px minmax(0,1fr)}main{padding-inline:24px}header{margin-inline:-24px;padding-inline:24px}.welcome{padding:32px}}
+@media(max-width:1100px){.shell{grid-template-columns:238px minmax(0,1fr)}main{padding-inline:24px}.shell>main>header{margin-inline:-24px;padding-inline:24px}.welcome{padding:32px}}
 @media(max-width:900px){
   .shell{display:block}aside{position:static;height:auto;padding:15px}.brand{padding-bottom:14px}nav{display:flex;overflow-x:auto}.aside-note{display:none}nav button{min-width:max-content}
-  main{padding:0 16px 32px}header{margin:0 -16px;padding:0 16px;height:72px}.welcome{border-radius:18px}.kpis,.dash-grid{grid-template-columns:1fr 1fr}
+  main{padding:0 16px 32px}.shell>main>header{margin:0 -16px;padding:0 16px;height:72px}.welcome{border-radius:18px}.kpis,.dash-grid{grid-template-columns:1fr 1fr}
 }
 @media(max-width:560px){
   .auth-screen{padding:14px}.auth-card{padding:27px 23px!important;border-radius:20px!important}.auth-card h1{font-size:23px}

@@ -28,7 +28,7 @@
 .table-tools>*{min-width:0}
 .panel h3,.settings-card h3,.ea-catalog h3,.module-head h2,.report-insights h3{max-width:100%;overflow:visible;overflow-wrap:anywhere;word-break:normal}
 .ea-catalog,.ea-catalog article,.ea-catalog article>header,.ea-catalog article>div{min-width:0}
-.ea-catalog article>header{height:auto!important;padding:15px 18px!important;overflow:visible!important}
+.ea-catalog article>header{position:static!important;inset:auto!important;width:100%!important;max-width:100%!important;min-height:0!important;height:auto!important;margin:0!important;padding:15px 18px!important;overflow:visible!important;transform:none!important;backdrop-filter:none!important}
 .ea-catalog article>header>*:first-child{margin-left:0!important;padding-left:0!important;text-indent:0!important;transform:none!important}
 .ea-catalog h3{min-width:0;margin:0!important;padding:0!important;text-indent:0!important;font-size:13px!important;line-height:1.4;overflow-wrap:anywhere}
 .ea-catalog article button{overflow:hidden}
