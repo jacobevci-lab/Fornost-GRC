@@ -2,13 +2,28 @@
 .table-wrap{overflow:auto!important}
 .table-wrap table{min-width:100%;font-size:12px!important;line-height:1.48}
 .table-wrap th{min-height:46px;padding:12px 14px!important;font-size:10px!important;line-height:1.35;white-space:normal;overflow-wrap:anywhere}
-.table-wrap td{min-height:58px;padding:13px 14px!important;font-size:11.5px!important;line-height:1.48;white-space:normal;overflow-wrap:anywhere;word-break:normal}
+.table-wrap td{min-height:58px;padding:13px 14px!important;font-size:11.5px!important;line-height:1.48;vertical-align:middle;white-space:normal;overflow-wrap:anywhere;word-break:normal}
 .table-wrap .row-actions-column{width:180px!important;min-width:180px}
 .table-wrap .row-actions-cell{min-width:180px;overflow-wrap:normal;word-break:normal}
 .row-actions{min-width:max-content;display:flex;flex-wrap:nowrap;align-items:center;gap:7px;opacity:1!important}
 .row-actions button{min-width:66px;white-space:nowrap;overflow-wrap:normal;word-break:keep-all;text-align:center}
 .row-actions button:last-child{border-color:color-mix(in srgb,#d92d20 34%,var(--line))!important;color:#c4322b!important;background:color-mix(in srgb,#d92d20 6%,var(--cp-panel,#fff))!important}
 .row-actions button:last-child:hover{border-color:#d92d20!important;background:color-mix(in srgb,#d92d20 12%,var(--cp-panel,#fff))!important}
+.smart-table .evidence-column-evidenceTitle{min-width:320px;overflow-wrap:normal;word-break:normal}
+.smart-table .evidence-column-control{min-width:230px}
+.smart-table .evidence-link{width:100%;max-width:none;min-width:0;align-items:flex-start;white-space:normal;overflow-wrap:normal;word-break:normal}
+.smart-table .evidence-link>span:last-child{min-width:0;text-align:left}
+.smart-table .evidence-link b,.smart-table .evidence-link small{display:block;max-width:100%;line-height:1.45;white-space:normal;overflow-wrap:break-word;word-break:normal}
+.evidence-overlay{position:fixed!important;inset:0!important;width:100vw!important;height:100dvh!important;max-width:none!important;margin:0!important;padding:clamp(8px,2vw,24px)!important;overflow:hidden;transform:none!important;z-index:1000!important}
+.evidence-preview{width:min(1180px,100%)!important;max-width:100%!important;max-height:100%!important;min-width:0;margin:0!important;transform:none!important}
+.evidence-preview-head{box-sizing:border-box;width:100%;min-width:0;height:auto!important;margin:0!important;padding:18px 22px!important;position:static!important;transform:none!important;overflow:visible!important}
+.evidence-preview-head>div{min-width:0;max-width:calc(100% - 54px);margin:0!important;padding:0!important;text-indent:0!important;transform:none!important}
+.evidence-preview-head small,.evidence-preview-head h2,.evidence-preview-head p{display:block;max-width:100%;margin-left:0!important;padding-left:0!important;text-indent:0!important;overflow-wrap:break-word;word-break:normal}
+.evidence-preview-head button{flex:0 0 34px;margin-left:16px}
+.evidence-stage{min-width:0;max-width:100%;overflow:auto}
+.evidence-stage img,.evidence-stage iframe{max-width:100%!important}
+.evidence-meta{min-width:0;max-width:100%}
+.evidence-meta>div{min-width:0}.evidence-meta span,.evidence-meta a{overflow-wrap:break-word;word-break:normal}
 .table-tools,.register-toolbar-main{flex-wrap:wrap}
 .table-tools>*{min-width:0}
 .panel h3,.settings-card h3,.ea-catalog h3,.module-head h2,.report-insights h3{max-width:100%;overflow:visible;overflow-wrap:anywhere;word-break:normal}
@@ -33,4 +48,4 @@ html[data-theme="dark"] .report-insights{background:#151f2f;border-color:#314057
 html[data-theme="dark"] .report-insights .bars i{background:#26344b}
 html[data-theme="dark"] .row-actions button:last-child{border-color:#713943!important;color:#ff91a0!important;background:#271923!important}
 @media(max-width:900px){.report-insights{grid-template-columns:1fr}}
-@media(max-width:560px){.report-insights{padding:16px}.report-insights .bars>div{grid-template-columns:95px 1fr 25px}}
+@media(max-width:560px){.report-insights{padding:16px}.report-insights .bars>div{grid-template-columns:95px 1fr 25px}.smart-table .evidence-column-evidenceTitle{min-width:260px}.evidence-preview-head{padding:14px 16px!important}.evidence-preview-head>div{max-width:calc(100% - 48px)}.evidence-preview-head button{margin-left:10px}.evidence-meta{grid-template-columns:1fr!important;gap:12px!important}}

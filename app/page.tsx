@@ -11,6 +11,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { createPortal } from "react-dom";
 import { readSheet as readXlsxSheet } from "read-excel-file/browser";
 import writeXlsxFile from "write-excel-file/browser";
 import "./matrix-overrides.css";
@@ -5535,7 +5536,14 @@ function EvidencePreview({
           )
         : "";
   const isPdf = d.fileType === "application/pdf";
-  return (
+  useEffect(() => {
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, []);
+  return createPortal(
     <div className="overlay evidence-overlay" onMouseDown={onClose}>
       <section
         className="evidence-preview"
@@ -5554,7 +5562,11 @@ function EvidencePreview({
               {d.controlRef || "—"} · {d.owner || "—"} · {d.period || "—"}
             </p>
           </div>
-          <button onClick={onClose} aria-label={tr ? "Kapat" : "Close"}>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label={tr ? "Kapat" : "Close"}
+          >
             ×
           </button>
         </header>
@@ -5604,7 +5616,8 @@ function EvidencePreview({
           )}
         </footer>
       </section>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
@@ -5637,7 +5650,17 @@ function SmartRegister({
     <table className={`smart-table ${module === "BIA" ? "bia-table" : ""}`}>
       <colgroup>
         {showRecordCode && <col style={{ width: widths.width("recordCode", 130) }} />}
-        {cols.map((c) => <col key={c.key} style={{ width: widths.width(c.key) }} />)}
+        {cols.map((c) => (
+          <col
+            key={c.key}
+            style={{
+              width: widths.width(
+                c.key,
+                module === "Kanıtlar" && c.key === "evidenceTitle" ? 320 : 190,
+              ),
+            }}
+          />
+        ))}
         {canWrite && <col className="row-actions-column" style={{ width: 180 }} />}
       </colgroup>
       <thead>
@@ -5667,7 +5690,14 @@ function SmartRegister({
               </td>
             )}
             {cols.map((c) => (
-              <td key={c.key}>
+              <td
+                key={c.key}
+                className={
+                  module === "Kanıtlar"
+                    ? `evidence-column evidence-column-${c.key}`
+                    : undefined
+                }
+              >
                 <SmartCell
                   module={module}
                   column={c.key}
