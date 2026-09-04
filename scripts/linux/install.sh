@@ -130,10 +130,6 @@ if ((https_port < 1024)) && [[ "$(id -u)" != "0" ]]; then
 fi
 
 ip="$(server_ip)"
-if [[ -n "${ip}" ]]; then
-  allowed_ip_pattern="${ip//./\\.}"
-  allowed_host_pattern="${allowed_host_pattern}|${allowed_ip_pattern}"
-fi
 phase="TLS preparation"
 if [[ -n "${tls_cert_setting}" ]]; then
   tls_cert_file="$(resolve_project_path "${tls_cert_setting}")"
