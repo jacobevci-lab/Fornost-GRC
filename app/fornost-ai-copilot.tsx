@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useCallback, useEffect, useState } from "react";
 import { withBasePath } from "./base-path";
 
 type User = { name?: string; email: string; role: "Admin" | "Editor" | "Viewer" };
@@ -43,39 +43,50 @@ export default function FornostAiCopilot() {
   const [provider, setProvider] = useState<ProviderForm>(defaults);
   const [providerLoaded, setProviderLoaded] = useState(false);
 
-  async function refreshIdentity() {
+  const refreshStatus = useCallback(async () => {
+    const response = await fetch(withBasePath("/api/ai/status"), { cache: "no-store" }).catch(() => null);
+    if (!response?.ok) return;
+    setStatus(await response.json());
+  }, []);
+
+  const refreshIdentity = useCallback(async () => {
     const response = await fetch(withBasePath("/api/auth"), { cache: "no-store" }).catch(() => null);
-    if (!response?.ok) return setUser(null);
+    if (!response?.ok) {
+      setUser(null);
+      return;
+    }
     const body = await response.json().catch(() => ({}));
     const nextUser = body.authenticated ? body.user as User : null;
     setUser(nextUser);
     if (nextUser) await refreshStatus();
-  }
+  }, [refreshStatus]);
 
-  async function refreshStatus() {
-    const response = await fetch(withBasePath("/api/ai/status"), { cache: "no-store" }).catch(() => null);
-    if (!response?.ok) return;
-    setStatus(await response.json());
-  }
-
-  async function loadProvider() {
-    if (!user || user.role !== "Admin") return;
+  const loadProvider = useCallback(async () => {
+    if (user?.role !== "Admin") return;
     const response = await fetch(withBasePath("/api/ai/providers"), { cache: "no-store" });
     const body = await response.json().catch(() => ({}));
-    if (!response.ok) return setNotice(body.error || "AI ayarları okunamadı.");
+    if (!response.ok) {
+      setNotice(body.error || "AI ayarları okunamadı.");
+      return;
+    }
     setProvider({ ...defaults, ...body, secret: "" });
     setProviderLoaded(true);
-  }
+  }, [user?.role]);
 
   useEffect(() => {
-    refreshIdentity();
-    const timer = window.setInterval(refreshIdentity, 5000);
-    return () => window.clearInterval(timer);
-  }, []);
+    const first = window.setTimeout(() => { void refreshIdentity(); }, 0);
+    const timer = window.setInterval(() => { void refreshIdentity(); }, 5000);
+    return () => {
+      window.clearTimeout(first);
+      window.clearInterval(timer);
+    };
+  }, [refreshIdentity]);
 
   useEffect(() => {
-    if (open && user?.role === "Admin" && !providerLoaded) loadProvider();
-  }, [open, user, providerLoaded]);
+    if (!(open && user?.role === "Admin" && !providerLoaded)) return;
+    const timer = window.setTimeout(() => { void loadProvider(); }, 0);
+    return () => window.clearTimeout(timer);
+  }, [open, user?.role, providerLoaded, loadProvider]);
 
   async function send(e: FormEvent) {
     e.preventDefault();
@@ -164,13 +175,13 @@ export default function FornostAiCopilot() {
           <div><small>{question.length}/4000</small><button disabled={!aiReady || busy || !question.trim()}>Gönder</button></div>
         </form>
       </> : <div className="fornost-ai-settings">
-        <div className="fornost-ai-security-note"><b>Güvenli çalışma modeli</b><p>Model DB'ye doğrudan bağlanmaz. Fornost yalnız izin verilen, read-only GRC context'ini modele gönderir; API anahtarı şifreli saklanır ve prompt'a eklenmez.</p></div>
+        <div className="fornost-ai-security-note"><b>Güvenli çalışma modeli</b><p>Model DB’ye doğrudan bağlanmaz. Fornost yalnız izin verilen, read-only GRC context’ini modele gönderir; API anahtarı şifreli saklanır ve prompt’a eklenmez.</p></div>
         <label><span>Provider</span><select value={provider.provider} onChange={(e) => setProvider((value) => ({ ...value, provider: e.target.value as ProviderForm["provider"] }))}><option value="openai-compatible">OpenAI Compatible / Local Chatbot</option><option value="ollama">Ollama</option></select></label>
         <label><span>Base URL</span><input value={provider.baseUrl} onChange={(e) => setProvider((value) => ({ ...value, baseUrl: e.target.value }))} placeholder="http://10.10.10.50:11434"/></label>
         <label><span>Model</span><input value={provider.model} onChange={(e) => setProvider((value) => ({ ...value, model: e.target.value }))} placeholder="qwen3:14b"/></label>
         <label><span>API Key</span><input type="password" value={provider.secret} onChange={(e) => setProvider((value) => ({ ...value, secret: e.target.value }))} placeholder={provider.hasSecret ? "Kayıtlı · değiştirmek için yeni değer girin" : "Opsiyonel"}/></label>
         <div className="fornost-ai-setting-row"><label><span>Temperature</span><input type="number" min="0" max="2" step="0.1" value={provider.temperature} onChange={(e) => setProvider((value) => ({ ...value, temperature: Number(e.target.value) }))}/></label><label><span>Timeout (ms)</span><input type="number" min="5000" max="120000" step="1000" value={provider.timeoutMs} onChange={(e) => setProvider((value) => ({ ...value, timeoutMs: Number(e.target.value) }))}/></label></div>
-        <div className="fornost-ai-setting-row"><label><span>Max tokens</span><input type="number" min="128" max="4096" step="128" value={provider.maxTokens} onChange={(e) => setProvider((value) => ({ ...value, maxTokens: Number(e.target.value) }))}/></label><label className="fornost-ai-check"><input type="checkbox" checked={provider.enabled} onChange={(e) => setProvider((value) => ({ ...value, enabled: e.target.checked }))}/><span>Fornost AI'ı etkinleştir</span></label></div>
+        <div className="fornost-ai-setting-row"><label><span>Max tokens</span><input type="number" min="128" max="4096" step="128" value={provider.maxTokens} onChange={(e) => setProvider((value) => ({ ...value, maxTokens: Number(e.target.value) }))}/></label><label className="fornost-ai-check"><input type="checkbox" checked={provider.enabled} onChange={(e) => setProvider((value) => ({ ...value, enabled: e.target.checked }))}/><span>Fornost AI’ı etkinleştir</span></label></div>
         {notice && <div className="fornost-ai-notice">{notice}</div>}
         <div className="fornost-ai-settings-actions"><button className="secondary" disabled={busy} onClick={() => saveProvider(false)}>Kaydet</button><button disabled={busy} onClick={() => saveProvider(true)}>Kaydet & Test Et</button></div>
         <small className="fornost-ai-env-help">Private ağ için <code>FORNOST_AI_ALLOW_PRIVATE_ENDPOINTS=true</code>; aynı host loopback için ayrıca <code>FORNOST_AI_ALLOW_LOOPBACK=true</code> gerekir.</small>
