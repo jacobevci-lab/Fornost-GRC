@@ -24,7 +24,7 @@ export function inferReadModules(question: string) {
   return [...new Set(matched)];
 }
 
-function titleOf(module: string, data: Record<string, unknown>, id: string) {
+function titleOf(moduleName: string, data: Record<string, unknown>, id: string) {
   const candidates = [
     data.title,
     data.process,
@@ -34,7 +34,7 @@ function titleOf(module: string, data: Record<string, unknown>, id: string) {
     data.framework,
     data.service,
   ];
-  return String(candidates.find((value) => typeof value === "string" && value.trim()) || `${module} · ${id}`).slice(0, 180);
+  return String(candidates.find((value) => typeof value === "string" && value.trim()) || `${moduleName} · ${id}`).slice(0, 180);
 }
 
 function parseData(row: GrcRow) {
@@ -65,10 +65,10 @@ export async function buildGrcContext(db: D1Database, question: string) {
 
   const selected: typeof relevant = [];
   if (targetModules.length) {
-    for (const module of targetModules) selected.push(...relevant.filter(({ row }) => row.module === module).slice(0, 12));
+    for (const moduleName of targetModules) selected.push(...relevant.filter(({ row }) => row.module === moduleName).slice(0, 12));
   } else {
-    const modules = [...new Set(relevant.map(({ row }) => row.module))];
-    for (const module of modules) selected.push(...relevant.filter(({ row }) => row.module === module).slice(0, 4));
+    const moduleNames = [...new Set(relevant.map(({ row }) => row.module))];
+    for (const moduleName of moduleNames) selected.push(...relevant.filter(({ row }) => row.module === moduleName).slice(0, 4));
   }
 
   const unique = [...new Map(selected.map((item) => [item.row.id, item])).values()].slice(0, 48);
