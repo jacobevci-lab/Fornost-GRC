@@ -10,6 +10,7 @@ export function redactSensitiveText(value: unknown, max = 1200) {
   return cleanAiText(value, max)
     .replace(/-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----[\s\S]*?-----END [A-Z0-9 ]*PRIVATE KEY-----/gi, "[REDACTED_PRIVATE_KEY]")
     .replace(/\bBearer\s+[A-Za-z0-9._~+/=-]{16,}/gi, "Bearer [REDACTED]")
+    .replace(/\bBasic\s+[A-Za-z0-9+/=]{12,}/gi, "Basic [REDACTED]")
     .replace(/\b(?:sk-[A-Za-z0-9_-]{16,}|gh[pousr]_[A-Za-z0-9_]{16,})\b/g, "[REDACTED_TOKEN]")
     .replace(/\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\b/g, "[REDACTED_JWT]")
     .replace(/\b(password|passwd|token|api[_-]?key|secret)\s*([:=])\s*[^\s,;]+/gi, "$1$2[REDACTED]");
@@ -57,15 +58,23 @@ export function isPrivateHost(input: string) {
   return !host.includes(".") || host.endsWith(".internal") || host.endsWith(".local") || host.endsWith(".lan");
 }
 
+export function isForbiddenAiHost(input: string) {
+  const host = normalizeHost(input);
+  const parts = ipv4Parts(host);
+  if (parts) return parts[0] === 0 || (parts[0] === 169 && parts[1] === 254) || parts[0] >= 224;
+  if (host.includes(":")) return host === "::" || host.startsWith("fe80:") || host.startsWith("ff");
+  return host === "metadata.google.internal";
+}
+
 export function safeAiEndpoint(value: unknown, allowPrivate = false, allowLoopback = false) {
   const input = cleanAiText(value, 2048);
   if (!input) return null;
   try {
     const parsed = new URL(input);
     if (!["http:", "https:"].includes(parsed.protocol)) return null;
-    if (parsed.username || parsed.password || parsed.hash || parsed.port === "0") return null;
+    if (parsed.username || parsed.password || parsed.hash || parsed.search || parsed.port === "0") return null;
     const host = normalizeHost(parsed.hostname);
-    if (!host) return null;
+    if (!host || isForbiddenAiHost(host)) return null;
     const loopback = isLoopbackHost(host);
     const privateHost = isPrivateHost(host);
     if (loopback && !allowLoopback) return null;
@@ -96,7 +105,7 @@ export function sanitizeHistory(value: unknown): AiHistoryMessage[] {
   return value.slice(-6).flatMap((item) => {
     if (!item || typeof item !== "object" || Array.isArray(item)) return [];
     const role = (item as Record<string, unknown>).role;
-    const content = cleanAiText((item as Record<string, unknown>).content, 2000);
+    const content = redactSensitiveText((item as Record<string, unknown>).content, 2000);
     if ((role !== "user" && role !== "assistant") || !content) return [];
     return [{ role, content } as AiHistoryMessage];
   });
