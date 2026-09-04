@@ -89,7 +89,7 @@ export default function FornostAiCopilot() {
 
   useEffect(() => {
     const first = window.setTimeout(() => { void refreshIdentity(); }, 0);
-    const timer = window.setInterval(() => { void refreshIdentity(); }, 5000);
+    const timer = window.setInterval(() => { void refreshIdentity(); }, 60000);
     return () => {
       window.clearTimeout(first);
       window.clearInterval(timer);
