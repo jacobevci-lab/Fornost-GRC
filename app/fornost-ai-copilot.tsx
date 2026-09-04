@@ -7,6 +7,7 @@ type User = { name?: string; email: string; role: "Admin" | "Editor" | "Viewer" 
 type Status = { configured: boolean; enabled: boolean; provider: string | null; model: string | null; mode: string };
 type Source = { id: string; module: string; title: string };
 type Message = { role: "user" | "assistant"; content: string; sources?: Source[] };
+type AuditLog = { id:string;actor:string;action:string;provider:string;model:string;promptHash:string|null;contextRefs:string[];status:string;latencyMs:number;detail:string;createdAt:string };
 type ProviderForm = {
   provider: "openai-compatible" | "ollama";
   baseUrl: string;
@@ -35,13 +36,15 @@ export default function FornostAiCopilot() {
   const [user, setUser] = useState<User | null>(null);
   const [status, setStatus] = useState<Status | null>(null);
   const [open, setOpen] = useState(false);
-  const [tab, setTab] = useState<"chat" | "settings">("chat");
+  const [tab, setTab] = useState<"chat" | "settings" | "audit">("chat");
   const [messages, setMessages] = useState<Message[]>([]);
   const [question, setQuestion] = useState("");
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState("");
   const [provider, setProvider] = useState<ProviderForm>(defaults);
   const [providerLoaded, setProviderLoaded] = useState(false);
+  const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
+  const [auditBusy, setAuditBusy] = useState(false);
 
   const refreshStatus = useCallback(async () => {
     const response = await fetch(withBasePath("/api/ai/status"), { cache: "no-store" }).catch(() => null);
@@ -71,6 +74,17 @@ export default function FornostAiCopilot() {
     }
     setProvider({ ...defaults, ...body, secret: "" });
     setProviderLoaded(true);
+  }, [user?.role]);
+
+  const loadAudit = useCallback(async () => {
+    if (user?.role !== "Admin") return;
+    setAuditBusy(true);
+    const response = await fetch(withBasePath("/api/ai/audit?limit=40"), { cache: "no-store" }).catch(() => null);
+    if (response?.ok) {
+      const body = await response.json().catch(() => ({}));
+      setAuditLogs(Array.isArray(body.logs) ? body.logs : []);
+    }
+    setAuditBusy(false);
   }, [user?.role]);
 
   useEffect(() => {
@@ -139,11 +153,13 @@ export default function FornostAiCopilot() {
       const testBody = await testResponse.json().catch(() => ({}));
       setNotice(testResponse.ok ? String(testBody.message || "Bağlantı testi başarılı.") : String(testBody.error || "Bağlantı testi başarısız."));
     }
+    await loadAudit();
     setBusy(false);
   }
 
   if (!user) return null;
   const aiReady = status?.enabled === true;
+  const activeTab = user.role === "Admin" ? tab : "chat";
 
   return <>
     <button className={`fornost-ai-launcher ${aiReady ? "ready" : ""}`} onClick={() => setOpen((value) => !value)} aria-expanded={open} aria-controls="fornost-ai-panel">
@@ -155,11 +171,12 @@ export default function FornostAiCopilot() {
         <button onClick={() => setOpen(false)} aria-label="Kapat">×</button>
       </header>
       <nav className="fornost-ai-tabs">
-        <button className={tab === "chat" ? "active" : ""} onClick={() => setTab("chat")}>Copilot</button>
-        {user.role === "Admin" && <button className={tab === "settings" ? "active" : ""} onClick={() => setTab("settings")}>AI Ayarları</button>}
+        <button className={activeTab === "chat" ? "active" : ""} onClick={() => setTab("chat")}>Copilot</button>
+        {user.role === "Admin" && <button className={activeTab === "settings" ? "active" : ""} onClick={() => setTab("settings")}>AI Ayarları</button>}
+        {user.role === "Admin" && <button className={activeTab === "audit" ? "active" : ""} onClick={() => { setTab("audit"); void loadAudit(); }}>AI Audit</button>}
       </nav>
 
-      {tab === "chat" ? <>
+      {activeTab === "chat" ? <>
         <div className="fornost-ai-mode"><span className={aiReady ? "online" : "offline"}/><b>{aiReady ? "Hazır" : "Devre dışı"}</b><em>{status?.provider || "Provider yok"}</em></div>
         <div className="fornost-ai-messages">
           {!messages.length && <div className="fornost-ai-welcome"><b>GRC verilerinizi sorun.</b><p>Örn: “Kritik varlıklardaki açık riskleri analiz et” veya “ISO 27001 denetimindeki en büyük boşluklar neler?”</p><small>V1 yalnızca okur ve öneri üretir; kayıt değiştirmez.</small></div>}
@@ -168,13 +185,25 @@ export default function FornostAiCopilot() {
             <div>{message.content}</div>
             {!!message.sources?.length && <footer>{message.sources.slice(0, 12).map((source) => <span key={source.id} title={`${source.module} · ${source.title}`}>{source.id}</span>)}</footer>}
           </article>)}
-          {busy && tab === "chat" && <div className="fornost-ai-thinking">Fornost verileri analiz ediliyor…</div>}
+          {busy && activeTab === "chat" && <div className="fornost-ai-thinking">Fornost verileri analiz ediliyor…</div>}
         </div>
         <form className="fornost-ai-compose" onSubmit={send}>
-          <textarea value={question} onChange={(e) => setQuestion(e.target.value)} maxLength={4000} rows={3} placeholder={aiReady ? "Risk, BIA, varlık, uyum, kanıt veya denetim hakkında sorun…" : "Önce Admin > AI Ayarları bölümünden sağlayıcıyı etkinleştirin."} disabled={!aiReady || busy}/>
+          <textarea value={question} onChange={(e) => setQuestion(e.target.value)} maxLength={4000} rows={3} placeholder={aiReady ? "Risk, BIA, varlık, uyum, kanıt veya denetim hakkında sorun…" : "Ask Fornost > AI Ayarları bölümünden sağlayıcıyı etkinleştirin."} disabled={!aiReady || busy}/>
           <div><small>{question.length}/4000</small><button disabled={!aiReady || busy || !question.trim()}>Gönder</button></div>
         </form>
-      </> : <div className="fornost-ai-settings">
+      </> : activeTab === "audit" ? <div className="fornost-ai-audit">
+        <div className="fornost-ai-security-note"><b>AI kullanım denetim izi</b><p>Ham prompt ve model cevabı saklanmaz. Aktör, model, işlem sonucu, gecikme, prompt hash ve kullanılan Fornost kaynak kimlikleri tutulur.</p></div>
+        <div className="fornost-ai-audit-head"><b>Son aktiviteler</b><button onClick={() => void loadAudit()} disabled={auditBusy}>{auditBusy ? "Yükleniyor…" : "Yenile"}</button></div>
+        {!auditLogs.length && !auditBusy && <div className="fornost-ai-audit-empty">Henüz AI aktivite kaydı yok.</div>}
+        <div className="fornost-ai-audit-list">{auditLogs.map((log) => <article key={log.id}>
+          <header><b>{log.action}</b><span className={log.status}>{log.status}</span></header>
+          <p>{log.actor}</p><small>{log.provider} · {log.model} · {log.latencyMs} ms</small>
+          <time>{new Date(log.createdAt).toLocaleString("tr-TR")}</time>
+          {!!log.contextRefs.length && <footer>{log.contextRefs.slice(0, 8).map((ref) => <span key={ref}>{ref}</span>)}</footer>}
+          {log.detail && <em>{log.detail}</em>}
+          {log.promptHash && <code title={log.promptHash}>hash:{log.promptHash.slice(0, 12)}…</code>}
+        </article>)}</div>
+      </div> : <div className="fornost-ai-settings">
         <div className="fornost-ai-security-note"><b>Güvenli çalışma modeli</b><p>Model DB’ye doğrudan bağlanmaz. Fornost yalnız izin verilen, read-only GRC context’ini modele gönderir; API anahtarı şifreli saklanır ve prompt’a eklenmez.</p></div>
         <label><span>Provider</span><select value={provider.provider} onChange={(e) => setProvider((value) => ({ ...value, provider: e.target.value as ProviderForm["provider"] }))}><option value="openai-compatible">OpenAI Compatible / Local Chatbot</option><option value="ollama">Ollama</option></select></label>
         <label><span>Base URL</span><input value={provider.baseUrl} onChange={(e) => setProvider((value) => ({ ...value, baseUrl: e.target.value }))} placeholder="http://10.10.10.50:11434"/></label>
