@@ -60,6 +60,8 @@ release_wait_interval="${FORNOST_RELEASE_WAIT_INTERVAL:-15}"
   echo "FORNOST_TLS_HOSTNAME must be a valid DNS name." >&2
   exit 64
 }
+allowed_host_pattern="${tls_hostname:-fornost.invalid}"
+allowed_host_pattern="${allowed_host_pattern//./\\.}"
 if [[ -n "${tls_cert_setting}" && -z "${tls_key_setting}" ]] || [[ -z "${tls_cert_setting}" && -n "${tls_key_setting}" ]]; then
   echo "FORNOST_TLS_CERT_FILE and FORNOST_TLS_KEY_FILE must be configured together." >&2
   exit 64
@@ -340,6 +342,7 @@ phase="HTTPS reverse proxy start"
   --publish "${https_port}:8443" \
   --env "FORNOST_BASE_PATH=${base_path}" \
   --env "FORNOST_DNS_RESOLVER=${dns_resolver}" \
+  --env "FORNOST_ALLOWED_HOST_PATTERN=${allowed_host_pattern}" \
   --volume "${project_root}/deploy/nginx/default.conf.template:/etc/nginx/templates/default.conf.template:ro,Z" \
   --volume "${tls_cert_file}:/etc/nginx/fornost-tls.crt:ro,Z" \
   --volume "${tls_key_file}:/etc/nginx/fornost-tls.key:ro,Z" \

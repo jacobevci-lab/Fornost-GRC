@@ -1276,7 +1276,7 @@ function AuthGate() {
             autoComplete={
               state.bootstrapRequired && !showLogin
                 ? "new-password"
-                : "current-password"
+                : "off"
             }
           />
         </label>

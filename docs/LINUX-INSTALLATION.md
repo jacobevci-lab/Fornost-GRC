@@ -149,6 +149,11 @@ FORNOST_TLS_HOSTNAME=
 FORNOST_BUILD_LOCAL=false
 ```
 
+`FORNOST_TLS_HOSTNAME` kullanılıyorsa aynı zamanda reverse proxy Host allowlist'ine
+eklenir. Platforma DNS adıyla erişiyorsanız bu alanı kullandığınız FQDN olarak
+ayarlayın. IP adresi, localhost ve yapılandırılmış bu FQDN dışındaki Host değerleri
+HTTP 421 ile reddedilir.
+
 Örneğin `https://192.168.1.1:9443/grc/` için:
 
 ```dotenv

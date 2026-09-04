@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { NextRequest } from "next/server";
 import { constantTimeEqual, demoAccount, PBKDF2_ITERATIONS, requestIsSecure, sameOrigin, validPassword } from "../app/api/auth/security";
+import { readFileSync } from "node:fs";
 import { decryptSecret, encryptSecret, safeHttpUrl, safeIntegrationConfig, validProvider } from "../app/api/integrations/security";
 import { safeSpreadsheetCell } from "../app/export-security";
 import { cleanText, validDate, validModule, validate } from "../app/api/grc/route";
@@ -16,6 +17,17 @@ test("password policy accepts strong passwords and rejects weak inputs", () => {
   assert.equal(validPassword("NOLOWERCASE-2026!"), false);
   assert.equal(validPassword("NoSpecialCharacter2026"), false);
   assert.equal(validPassword("A".repeat(129) + "1!a"), false);
+});
+
+test("password and integration secret fields declare safe autocomplete behavior", () => {
+  const page = readFileSync("app/page.tsx", "utf8");
+  const settings = readFileSync("app/settings.tsx", "utf8");
+  const integrations = readFileSync("app/integration-settings.tsx", "utf8");
+  const evidenceAutomation = readFileSync("app/evidence-automation.tsx", "utf8");
+  assert.match(page, /\? "new-password"\s*: "off"/);
+  assert.match(settings, /type==="password"\?"new-password":undefined/g);
+  assert.match(integrations, /type="password" autoComplete="new-password"/);
+  assert.match(evidenceAutomation, /type="password" autoComplete="new-password"/);
 });
 
 test("public demo editor account is non-admin and exposes no credential",()=>{

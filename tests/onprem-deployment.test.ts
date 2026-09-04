@@ -53,6 +53,7 @@ test("built runtime config is accepted by current Wrangler", async () => {
 
 test("reverse proxy exposes the configured Fornost path", async () => {
   const nginx = await readFile(new URL("../deploy/nginx/default.conf.template", import.meta.url), "utf8");
+  const installer = await readFile(new URL("../scripts/linux/install.sh", import.meta.url), "utf8");
   const integration = await readFile(new URL("./onprem-container-integration.sh", import.meta.url), "utf8");
   assert.match(nginx, /location \$\{FORNOST_BASE_PATH\}\//);
   assert.match(nginx, /set \$fornost_backend "http:\/\/fornost-grc-app:3000"/);
@@ -63,9 +64,33 @@ test("reverse proxy exposes the configured Fornost path", async () => {
   assert.match(nginx, /listen 8443 ssl default_server/);
   assert.match(nginx, /ssl_protocols TLSv1\.2 TLSv1\.3/);
   assert.match(nginx, /ssl_certificate \/etc\/nginx\/fornost-tls\.crt/);
+  assert.match(nginx, /map \$host \$fornost_host_allowed/);
+  assert.match(nginx, /if \(\$fornost_host_allowed = 0\)/);
+  assert.match(nginx, /return 421/);
+  assert.equal((nginx.match(/proxy_set_header Host fornost-grc-app:3000/g) || []).length, 2);
+  assert.doesNotMatch(nginx, /proxy_set_header Host \$http_host/);
+  assert.match(installer, /FORNOST_ALLOWED_HOST_PATTERN/);
   assert.match(integration, /\/fornost-grc\/assets\/\[\^" \]\*\\\.css/);
   assert.match(integration, /\/fornost-grc\/assets\/\[\^" \]\*\\\.js/);
   assert.match(integration, /browser_assets/);
+});
+
+test("reverse proxy enforces security and privacy headers on every response", async () => {
+  const nginx = await readFile(new URL("../deploy/nginx/default.conf.template", import.meta.url), "utf8");
+  for (const header of [
+    "Cache-Control",
+    "Content-Security-Policy",
+    "Referrer-Policy",
+    "Permissions-Policy",
+    "X-Content-Type-Options",
+    "X-Frame-Options",
+    "Cross-Origin-Opener-Policy",
+    "Cross-Origin-Resource-Policy",
+    "Strict-Transport-Security",
+  ]) assert.match(nginx, new RegExp(`add_header ${header} .* always;`));
+  assert.match(nginx, /frame-ancestors 'none'/);
+  assert.match(nginx, /script-src-attr 'none'/);
+  assert.doesNotMatch(nginx, /unsafe-eval/);
 });
 
 test("Podman install refreshes the product network before recreating containers", async () => {
