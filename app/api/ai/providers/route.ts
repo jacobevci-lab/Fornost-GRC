@@ -75,7 +75,11 @@ export async function PUT(req: NextRequest) {
   const existing = await getAiSettings(env.DB);
   const encryptionKey = envText(env, "FORNOST_SETTINGS_ENCRYPTION_KEY");
   if (secret && encryptionKey.length < 32) return json({ error: "AI API anahtarını saklamak için FORNOST_SETTINGS_ENCRYPTION_KEY en az 32 karakter olmalıdır." }, 503);
-  const encrypted = secret ? await encryptSecret(secret, encryptionKey) : existing?.secret_ciphertext || null;
+  const encrypted = secret
+    ? await encryptSecret(secret, encryptionKey)
+    : existing?.provider === provider
+      ? existing.secret_ciphertext
+      : null;
   const now = new Date().toISOString();
   await env.DB.prepare(`INSERT INTO ai_provider_settings(id,provider,base_url,model,enabled,config_json,secret_ciphertext,created_at,updated_at,updated_by)
     VALUES('default',?,?,?,?,?,?,?,?,?)
