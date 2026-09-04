@@ -15,7 +15,7 @@ const MODULE_HINTS: Array<{ module: string; terms: string[] }> = [
 ];
 
 function normalize(value: string) {
-  return value.toLocaleLowerCase("tr-TR").normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  return value.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 }
 
 export function inferReadModules(question: string) {
