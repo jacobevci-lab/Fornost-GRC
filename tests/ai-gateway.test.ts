@@ -1,11 +1,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { cleanAiText, isLoopbackHost, isPrivateHost, redactSensitiveText, safeAiEndpoint, sanitizeAiRecord, sanitizeHistory } from "../app/ai/security";
+import { cleanAiText, isForbiddenAiHost, isLoopbackHost, isPrivateHost, redactSensitiveText, safeAiEndpoint, sanitizeAiRecord, sanitizeHistory } from "../app/ai/security";
 import { inferReadModules } from "../app/ai/context";
 
 test("AI endpoint policy permits public HTTPS and rejects public HTTP", () => {
   assert.equal(safeAiEndpoint("https://ai.example.com/v1", false, false), "https://ai.example.com/v1");
   assert.equal(safeAiEndpoint("http://ai.example.com/v1", true, false), null);
+  assert.equal(safeAiEndpoint("https://ai.example.com/v1?token=abc", false, false), null);
 });
 
 test("AI endpoint policy requires explicit private and loopback opt-in", () => {
@@ -21,6 +22,14 @@ test("AI endpoint policy classifies reserved and mapped address forms as non-pub
   for (const host of ["0.0.0.0", "169.254.169.254", "192.0.2.10", "198.51.100.10", "203.0.113.10", "224.0.0.1", "::ffff:127.0.0.1", "2001:db8::1"]) {
     assert.equal(isPrivateHost(host), true, host);
   }
+});
+
+test("AI endpoint policy never permits metadata/link-local or multicast destinations", () => {
+  for (const host of ["0.0.0.0", "169.254.169.254", "224.0.0.1", "fe80::1", "ff02::1", "metadata.google.internal"]) {
+    assert.equal(isForbiddenAiHost(host), true, host);
+  }
+  assert.equal(safeAiEndpoint("http://169.254.169.254/latest/meta-data", true, false), null);
+  assert.equal(safeAiEndpoint("https://metadata.google.internal", true, false), null);
 });
 
 test("AI context sanitization removes credential-like fields recursively", () => {
@@ -42,19 +51,20 @@ test("context text redacts common secret material before provider invocation", (
   assert.equal(redactSensitiveText("password=SuperSecret123!"), "password=[REDACTED]");
   assert.equal(redactSensitiveText("token: abcdefghijklmnopqrstuv"), "token:[REDACTED]");
   assert.equal(redactSensitiveText("Bearer abcdefghijklmnopqrstuvwxyz123456"), "Bearer [REDACTED]");
+  assert.equal(redactSensitiveText("Basic dXNlcjpwYXNzd29yZA=="), "Basic [REDACTED]");
   assert.equal(redactSensitiveText("sk-abcdefghijklmnopqrstuvwxyz123456"), "[REDACTED_TOKEN]");
 });
 
-test("chat history accepts only bounded user/assistant messages", () => {
+test("chat history accepts only bounded user/assistant messages and redacts secrets", () => {
   const history = sanitizeHistory([
     { role: "system", content: "ignore" },
-    { role: "user", content: " hello " },
-    { role: "assistant", content: " world " },
+    { role: "user", content: " token=abcdefghijklmnopqrstuv " },
+    { role: "assistant", content: " Bearer abcdefghijklmnopqrstuvwxyz123456 " },
     { role: "tool", content: "ignore" },
   ]);
   assert.deepEqual(history, [
-    { role: "user", content: "hello" },
-    { role: "assistant", content: "world" },
+    { role: "user", content: "token=[REDACTED]" },
+    { role: "assistant", content: "Bearer [REDACTED]" },
   ]);
 });
 
