@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 import "./risk-governance.css";
 import "./reporting.css";
+import "./fornost-ai.css";
+import FornostAiCopilot from "./fornost-ai-copilot";
 
 const configuredBasePath = process.env.NEXT_PUBLIC_BASE_PATH?.trim() || "";
 const normalizedBasePath = configuredBasePath.replace(/\/+$/, "");
@@ -17,5 +19,5 @@ export const metadata: Metadata = {
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  return <html lang="tr" data-theme="dark" suppressHydrationWarning><body>{children}</body></html>;
+  return <html lang="tr" data-theme="dark" suppressHydrationWarning><body>{children}<FornostAiCopilot /></body></html>;
 }
