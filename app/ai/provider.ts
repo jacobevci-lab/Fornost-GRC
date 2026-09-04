@@ -1,4 +1,4 @@
-import { cleanAiText } from "./security";
+import { redactSensitiveText } from "./security";
 import type { AiProviderKind } from "./storage";
 
 export type AiMessage = { role: "system" | "user" | "assistant"; content: string };
@@ -63,7 +63,7 @@ export async function callAiProvider(config: AiProviderConfig, messages: AiMessa
     const payload = await boundedJson(response);
     if (!response.ok) throw new Error(`Local AI isteği başarısız (${response.status}).`);
     const message = payload.message as Record<string, unknown> | undefined;
-    const content = cleanAiText(message?.content, 20_000);
+    const content = redactSensitiveText(message?.content, 20_000);
     if (!content) throw new Error("Local AI boş yanıt döndürdü.");
     return content;
   }
@@ -84,7 +84,7 @@ export async function callAiProvider(config: AiProviderConfig, messages: AiMessa
   const choices = Array.isArray(payload.choices) ? payload.choices : [];
   const first = choices[0] as Record<string, unknown> | undefined;
   const message = first?.message as Record<string, unknown> | undefined;
-  const content = cleanAiText(message?.content, 20_000);
+  const content = redactSensitiveText(message?.content, 20_000);
   if (!content) throw new Error("AI sağlayıcısı boş yanıt döndürdü.");
   return content;
 }
