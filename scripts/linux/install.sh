@@ -309,16 +309,6 @@ if [[ "$(basename "${engine}")" == "podman" ]]; then
   "${engine}" network create "${network}" >/dev/null
 fi
 
-if [[ "$(basename "${engine}")" == "podman" ]]; then
-  dns_resolver="$("${engine}" network inspect --format '{{range .Subnets}}{{.Gateway}}{{end}}' "${network}")"
-else
-  dns_resolver="127.0.0.11"
-fi
-[[ "${dns_resolver}" =~ ^[0-9a-fA-F:.]+$ ]] || {
-  echo "Could not determine the container DNS resolver for ${network}." >&2
-  exit 70
-}
-
 phase="application container start"
 "${engine}" run -d \
   --name fornost-grc-app \
@@ -334,6 +324,12 @@ phase="application container start"
   --volume "${data_volume}:/app/.sites-runtime/data:Z" \
   "${image}" >/dev/null
 
+backend_ip="$("${engine}" inspect --format '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' fornost-grc-app)"
+[[ "${backend_ip}" =~ ^[0-9a-fA-F:.]+$ ]] || {
+  echo "Could not determine the application container address." >&2
+  exit 70
+}
+
 phase="HTTPS reverse proxy start"
 "${engine}" run -d \
   --name fornost-grc-proxy \
@@ -341,7 +337,7 @@ phase="HTTPS reverse proxy start"
   --restart unless-stopped \
   --publish "${https_port}:8443" \
   --env "FORNOST_BASE_PATH=${base_path}" \
-  --env "FORNOST_DNS_RESOLVER=${dns_resolver}" \
+  --env "FORNOST_BACKEND_IP=${backend_ip}" \
   --env "FORNOST_ALLOWED_HOST_PATTERN=${allowed_host_pattern}" \
   --volume "${project_root}/deploy/nginx/default.conf.template:/etc/nginx/templates/default.conf.template:ro,Z" \
   --volume "${tls_cert_file}:/etc/nginx/fornost-tls.crt:ro,Z" \

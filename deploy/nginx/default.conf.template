@@ -41,10 +41,10 @@ server {
     add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
     add_header X-Permitted-Cross-Domain-Policies "none" always;
 
-    # Container addresses can change during a Podman restart/reinstall. Resolve
-    # the service name at request time instead of pinning the first container IP.
-    resolver ${FORNOST_DNS_RESOLVER} valid=2s ipv6=off;
-    set $fornost_backend "http://fornost-grc-app:3000";
+    # The installer recreates both containers together and injects the current
+    # application address. This avoids depending on an unavailable Podman DNS
+    # listener while still refreshing the address on every update.
+    set $fornost_backend "http://${FORNOST_BACKEND_IP}:3000";
 
     # Reject untrusted Host values before redirects or application routing.
     if ($fornost_host_allowed = 0) {

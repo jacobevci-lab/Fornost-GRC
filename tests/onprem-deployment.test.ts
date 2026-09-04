@@ -56,8 +56,8 @@ test("reverse proxy exposes the configured Fornost path", async () => {
   const installer = await readFile(new URL("../scripts/linux/install.sh", import.meta.url), "utf8");
   const integration = await readFile(new URL("./onprem-container-integration.sh", import.meta.url), "utf8");
   assert.match(nginx, /location \$\{FORNOST_BASE_PATH\}\//);
-  assert.match(nginx, /set \$fornost_backend "http:\/\/fornost-grc-app:3000"/);
-  assert.match(nginx, /resolver \$\{FORNOST_DNS_RESOLVER\} valid=2s/);
+  assert.match(nginx, /set \$fornost_backend "http:\/\/\$\{FORNOST_BACKEND_IP\}:3000"/);
+  assert.doesNotMatch(nginx, /resolver \$\{FORNOST_DNS_RESOLVER\}/);
   assert.match(nginx, /proxy_pass \$fornost_backend/);
   assert.match(nginx, /location \$\{FORNOST_BASE_PATH\}\/assets\//);
   assert.match(nginx, /rewrite \^\$\{FORNOST_BASE_PATH\}\/assets\/\(\.\*\)\$ \/assets\/\$1 break/);
@@ -70,6 +70,8 @@ test("reverse proxy exposes the configured Fornost path", async () => {
   assert.equal((nginx.match(/proxy_set_header Host fornost-grc-app:3000/g) || []).length, 2);
   assert.doesNotMatch(nginx, /proxy_set_header Host \$http_host/);
   assert.match(installer, /FORNOST_ALLOWED_HOST_PATTERN/);
+  assert.match(installer, /FORNOST_BACKEND_IP=\$\{backend_ip\}/);
+  assert.match(installer, /NetworkSettings\.Networks/);
   assert.match(integration, /\/fornost-grc\/assets\/\[\^" \]\*\\\.css/);
   assert.match(integration, /\/fornost-grc\/assets\/\[\^" \]\*\\\.js/);
   assert.match(integration, /browser_assets/);

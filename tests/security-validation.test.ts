@@ -30,6 +30,14 @@ test("password and integration secret fields declare safe autocomplete behavior"
   assert.match(evidenceAutomation, /type="password" autoComplete="new-password"/);
 });
 
+test("integration API self-heals missing on-prem schema", () => {
+  const integrationsRoute = readFileSync("app/api/integrations/route.ts", "utf8");
+  assert.match(integrationsRoute, /CREATE TABLE IF NOT EXISTS integration_settings/);
+  assert.match(integrationsRoute, /CREATE TABLE IF NOT EXISTS integration_events/);
+  assert.match(integrationsRoute, /integrationSchemaReady/);
+  assert.match(integrationsRoute, /DB\.batch/);
+});
+
 test("public demo editor account is non-admin and exposes no credential",()=>{
  assert.equal(demoAccount.role,"Editor");
  assert.match(demoAccount.email,/^[^\s@]+@[^\s@]+\.[^\s@]+$/);
