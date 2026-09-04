@@ -21,7 +21,33 @@ jobs:
       - run: npm ci
       - run: npm run lint
       - run: npm test
-      - run: npm audit --omit=dev --audit-level=high
+      - name: Run dependency audit
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in 1 2 3; do
+            audit_log="$(mktemp)"
+            set +e
+            timeout 90s npm audit --omit=dev --audit-level=high 2>&1 | tee "${audit_log}"
+            audit_status=${PIPESTATUS[0]}
+            set -e
+            if [[ ${audit_status} -eq 0 ]]; then
+              rm -f "${audit_log}"
+              exit 0
+            fi
+            if grep -Eqi '503 Service Unavailable|audit endpoint returned an error|ECONNRESET|ETIMEDOUT|EAI_AGAIN|socket hang up' "${audit_log}"; then
+              rm -f "${audit_log}"
+              if [[ ${attempt} -lt 3 ]]; then
+                echo "Transient npm audit service failure; retrying (${attempt}/3)."
+                sleep $((attempt * 5))
+                continue
+              fi
+              echo "npm audit service remained unavailable after 3 attempts." >&2
+              exit ${audit_status}
+            fi
+            rm -f "${audit_log}"
+            exit ${audit_status}
+          done
       - run: npm run validate:artifact
 
   onprem-container-integration:
