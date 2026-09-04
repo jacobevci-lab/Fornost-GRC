@@ -3,11 +3,12 @@ import { requireRole } from "../../auth/security";
 import { decryptSecret } from "../../integrations/security";
 import { buildGrcContext } from "@/app/ai/context";
 import { callAiProvider } from "@/app/ai/provider";
-import { boundedNumber, cleanAiText, envFlag, safeAiEndpoint, sanitizeHistory } from "@/app/ai/security";
+import { boundedNumber, envFlag, redactSensitiveText, safeAiEndpoint, sanitizeHistory } from "@/app/ai/security";
 import { aiRuntime, getAiSettings, recordAiEvent } from "@/app/ai/storage";
 
 const json = (data: unknown, status = 200) => NextResponse.json(data, { status, headers: { "cache-control": "no-store" } });
 const envText = (env: Record<string, unknown>, key: string) => String(env[key] ?? "").trim();
+const AI_REQUESTS_PER_MINUTE = 12;
 
 function parseConfig(configJson: string) {
   try {
@@ -23,16 +24,38 @@ async function sha256(value: string) {
   return [...bytes].map((byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
+async function rateLimited(db: D1Database, actor: string) {
+  const since = new Date(Date.now() - 60_000).toISOString();
+  const recent = await db.prepare("SELECT COUNT(*) AS total FROM ai_activity_logs WHERE actor=? AND action='chat' AND created_at>=?")
+    .bind(actor, since).first<{ total: number }>();
+  return Number(recent?.total || 0) >= AI_REQUESTS_PER_MINUTE;
+}
+
 export async function POST(req: NextRequest) {
   const access = await requireRole(req, ["Admin", "Editor", "Viewer"]);
   if (access.response) return access.response;
   if (Number(req.headers.get("content-length") || 0) > 32_768) return json({ error: "AI isteği izin verilen boyutu aşıyor." }, 413);
   const body = await req.json().catch(() => ({}));
-  const question = cleanAiText(body.question, 4000);
+  const question = redactSensitiveText(body.question, 4000);
   if (question.length < 2) return json({ error: "Bir soru yazın." }, 400);
   const history = sanitizeHistory(body.history);
   const env = await aiRuntime(), row = await getAiSettings(env.DB);
   if (!row || !row.enabled) return json({ error: "Fornost AI henüz etkinleştirilmemiş." }, 409);
+
+  if (await rateLimited(env.DB, access.actor.email)) {
+    await recordAiEvent(env.DB, {
+      actor: access.actor.email,
+      action: "chat-rate-limit",
+      provider: row.provider,
+      model: row.model,
+      status: "denied",
+      detail: `Per-user limit exceeded (${AI_REQUESTS_PER_MINUTE}/minute)`,
+    });
+    return NextResponse.json({ error: "Çok fazla AI isteği gönderildi. Kısa süre sonra tekrar deneyin." }, {
+      status: 429,
+      headers: { "cache-control": "no-store", "retry-after": "60" },
+    });
+  }
 
   const allowPrivate = envFlag(env, "FORNOST_AI_ALLOW_PRIVATE_ENDPOINTS");
   const allowLoopback = envFlag(env, "FORNOST_AI_ALLOW_LOOPBACK");
