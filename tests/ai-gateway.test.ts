@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { cleanAiText, isLoopbackHost, isPrivateHost, safeAiEndpoint, sanitizeAiRecord, sanitizeHistory } from "../app/ai/security";
+import { cleanAiText, isLoopbackHost, isPrivateHost, redactSensitiveText, safeAiEndpoint, sanitizeAiRecord, sanitizeHistory } from "../app/ai/security";
 import { inferReadModules } from "../app/ai/context";
 
 test("AI endpoint policy permits public HTTPS and rejects public HTTP", () => {
@@ -13,8 +13,14 @@ test("AI endpoint policy requires explicit private and loopback opt-in", () => {
   assert.equal(safeAiEndpoint("http://10.10.10.50:11434", true, false), "http://10.10.10.50:11434");
   assert.equal(safeAiEndpoint("http://127.0.0.1:11434", true, false), null);
   assert.equal(safeAiEndpoint("http://127.0.0.1:11434", true, true), "http://127.0.0.1:11434");
-  assert.equal(isLoopbackHost("localhost"), true);
+  assert.equal(isLoopbackHost("localhost."), true);
   assert.equal(isPrivateHost("192.168.1.10"), true);
+});
+
+test("AI endpoint policy classifies reserved and mapped address forms as non-public", () => {
+  for (const host of ["0.0.0.0", "169.254.169.254", "192.0.2.10", "198.51.100.10", "203.0.113.10", "224.0.0.1", "::ffff:127.0.0.1", "2001:db8::1"]) {
+    assert.equal(isPrivateHost(host), true, host);
+  }
 });
 
 test("AI context sanitization removes credential-like fields recursively", () => {
@@ -23,11 +29,20 @@ test("AI context sanitization removes credential-like fields recursively", () =>
     token: "should-not-leak",
     nested: { password: "hidden", owner: "Security" },
     apiKey: "hidden-too",
+    notes: "Authorization: Bearer abcdefghijklmnopqrstuvwxyz123456",
   }) as Record<string, unknown>;
   assert.equal(sanitized.title, "ERP Risk");
   assert.equal("token" in sanitized, false);
   assert.equal("apiKey" in sanitized, false);
   assert.deepEqual(sanitized.nested, { owner: "Security" });
+  assert.equal(sanitized.notes, "Authorization: Bearer [REDACTED]");
+});
+
+test("context text redacts common secret material before provider invocation", () => {
+  assert.equal(redactSensitiveText("password=SuperSecret123!"), "password=[REDACTED]");
+  assert.equal(redactSensitiveText("token: abcdefghijklmnopqrstuv"), "token:[REDACTED]");
+  assert.equal(redactSensitiveText("Bearer abcdefghijklmnopqrstuvwxyz123456"), "Bearer [REDACTED]");
+  assert.equal(redactSensitiveText("sk-abcdefghijklmnopqrstuvwxyz123456"), "[REDACTED_TOKEN]");
 });
 
 test("chat history accepts only bounded user/assistant messages", () => {
