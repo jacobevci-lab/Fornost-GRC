@@ -42,6 +42,8 @@ tls_hostname="$(read_setting FORNOST_TLS_HOSTNAME '')"
 state_dir_setting="${FORNOST_STATE_DIR:-$(read_setting FORNOST_STATE_DIR '')}"
 settings_encryption_key="${FORNOST_SETTINGS_ENCRYPTION_KEY:-$(read_setting FORNOST_SETTINGS_ENCRYPTION_KEY '')}"
 allow_private_connectors="${FORNOST_ALLOW_PRIVATE_CONNECTORS:-$(read_setting FORNOST_ALLOW_PRIVATE_CONNECTORS false)}"
+ai_allow_private_endpoints="${FORNOST_AI_ALLOW_PRIVATE_ENDPOINTS:-$(read_setting FORNOST_AI_ALLOW_PRIVATE_ENDPOINTS false)}"
+ai_allow_loopback="${FORNOST_AI_ALLOW_LOOPBACK:-$(read_setting FORNOST_AI_ALLOW_LOOPBACK false)}"
 minimum_free_mb="${FORNOST_MIN_FREE_MB:-$(read_setting FORNOST_MIN_FREE_MB 8192)}"
 release_wait_attempts="${FORNOST_RELEASE_WAIT_ATTEMPTS:-80}"
 release_wait_interval="${FORNOST_RELEASE_WAIT_INTERVAL:-15}"
@@ -87,6 +89,18 @@ install -d -m 700 "${state_dir}"
   echo "FORNOST_ALLOW_PRIVATE_CONNECTORS must be true or false." >&2
   exit 64
 }
+[[ "${ai_allow_private_endpoints}" == "true" || "${ai_allow_private_endpoints}" == "false" ]] || {
+  echo "FORNOST_AI_ALLOW_PRIVATE_ENDPOINTS must be true or false." >&2
+  exit 64
+}
+[[ "${ai_allow_loopback}" == "true" || "${ai_allow_loopback}" == "false" ]] || {
+  echo "FORNOST_AI_ALLOW_LOOPBACK must be true or false." >&2
+  exit 64
+}
+if [[ "${ai_allow_loopback}" == "true" && "${ai_allow_private_endpoints}" != "true" ]]; then
+  echo "FORNOST_AI_ALLOW_LOOPBACK=true requires FORNOST_AI_ALLOW_PRIVATE_ENDPOINTS=true." >&2
+  exit 64
+fi
 if [[ -z "${settings_encryption_key}" ]]; then
   require_command openssl
   settings_key_file="${state_dir}/settings-encryption.key"
@@ -103,6 +117,8 @@ fi
 }
 export FORNOST_SETTINGS_ENCRYPTION_KEY="${settings_encryption_key}"
 export FORNOST_ALLOW_PRIVATE_CONNECTORS="${allow_private_connectors}"
+export FORNOST_AI_ALLOW_PRIVATE_ENDPOINTS="${ai_allow_private_endpoints}"
+export FORNOST_AI_ALLOW_LOOPBACK="${ai_allow_loopback}"
 
 if ((https_port < 1024)) && [[ "$(id -u)" != "0" ]]; then
   echo "Port ${https_port} requires root privileges." >&2
@@ -310,6 +326,8 @@ phase="application container start"
   --env FORNOST_DEMO_MODE=false \
   --env FORNOST_SETTINGS_ENCRYPTION_KEY \
   --env FORNOST_ALLOW_PRIVATE_CONNECTORS \
+  --env FORNOST_AI_ALLOW_PRIVATE_ENDPOINTS \
+  --env FORNOST_AI_ALLOW_LOOPBACK \
   --env FORNOST_TRUST_PLATFORM_IDENTITY=false \
   --volume "${data_volume}:/app/.sites-runtime/data:Z" \
   "${image}" >/dev/null
