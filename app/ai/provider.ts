@@ -93,17 +93,27 @@ export async function testAiProvider(config: AiProviderConfig) {
   const url = config.provider === "ollama" ? ollamaUrl(config.baseUrl, "/api/tags") : openAiUrl(config.baseUrl, "/models");
   const response = await request(url, { headers: authHeaders(config.apiKey) }, Math.min(config.timeoutMs, 15_000));
   if (response.ok) {
-    await boundedJson(response);
-    return config.provider === "ollama"
+    const payload = await boundedJson(response);
+    const models = extractProviderModels(config.provider, payload);
+    return { message: config.provider === "ollama"
       ? "Ollama bağlantısı ve model servisi erişimi doğrulandı."
-      : "OpenAI-compatible bağlantı ve model servisi erişimi doğrulandı.";
+      : "OpenAI-compatible bağlantı ve model servisi erişimi doğrulandı.", models, selectedModelAvailable: models.length ? models.includes(config.model) : null };
   }
   if (config.provider === "openai-compatible" && [404, 405].includes(response.status)) {
     const reply = await callAiProvider({ ...config, maxTokens: 8 }, [
       { role: "system", content: "Connection test. Reply only OK." },
       { role: "user", content: "OK" },
     ]);
-    if (reply) return "OpenAI-compatible sohbet uç noktası doğrulandı.";
+    if (reply) return { message:"OpenAI-compatible sohbet uç noktası doğrulandı.", models:[], selectedModelAvailable:null };
   }
   throw new Error(`AI bağlantı testi başarısız (${response.status}).`);
+}
+
+export function extractProviderModels(provider:AiProviderKind,payload:Record<string,unknown>){
+  const rows=provider==="ollama"?(Array.isArray(payload.models)?payload.models:[]):(Array.isArray(payload.data)?payload.data:[]);
+  return [...new Set(rows.map((row)=>{
+    if(!row||typeof row!=="object")return "";
+    const item=row as Record<string,unknown>;
+    return redactSensitiveText(provider==="ollama"?(item.name||item.model):item.id,200);
+  }).filter(Boolean))].slice(0,100);
 }

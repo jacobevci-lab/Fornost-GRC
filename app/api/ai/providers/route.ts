@@ -106,9 +106,9 @@ export async function POST(req: NextRequest) {
   }
   const started = Date.now();
   try {
-    const message = await testAiProvider({ ...providerConfig(row, apiKey), baseUrl: safeBaseUrl });
-    await recordAiEvent(env.DB, { actor: access.actor.email, action: "provider-test", provider: row.provider, model: row.model, status: "success", latencyMs: Date.now() - started, detail: message });
-    return json({ ok: true, message });
+    const result = await testAiProvider({ ...providerConfig(row, apiKey), baseUrl: safeBaseUrl });
+    await recordAiEvent(env.DB, { actor: access.actor.email, action: "provider-test", provider: row.provider, model: row.model, status: "success", latencyMs: Date.now() - started, detail: `${result.message} ${result.models.length} model discovered` });
+    return json({ ok: true, ...result });
   } catch (error) {
     const message = error instanceof Error ? error.message : "AI bağlantı testi başarısız.";
     await recordAiEvent(env.DB, { actor: access.actor.email, action: "provider-test", provider: row.provider, model: row.model, status: "error", latencyMs: Date.now() - started, detail: message });

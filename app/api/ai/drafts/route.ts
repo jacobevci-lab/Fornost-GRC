@@ -32,6 +32,7 @@ function mapDraft(row: Record<string, unknown>) {
     provider: row.provider, model: row.model, createdBy: row.created_by, reviewedBy: row.reviewed_by,
     reviewedAt: row.reviewed_at, reviewNote: row.review_note, createdAt: row.created_at, updatedAt: row.updated_at,
     publication: row.published_record_id ? { recordId: row.published_record_id, module: row.published_module, note: row.publication_note, publishedBy: row.published_by, publishedAt: row.published_at } : null,
+    ticket: row.ticket_status ? { status:row.ticket_status, provider:row.ticket_provider, externalId:row.ticket_external_id, url:row.ticket_external_url, note:row.ticket_note, createdBy:row.ticket_created_by, createdAt:row.ticket_created_at, completedAt:row.ticket_completed_at, error:row.ticket_error } : null,
   };
 }
 
@@ -56,8 +57,9 @@ export async function GET(req: NextRequest) {
   const access = await requireRole(req, ["Admin", "Editor", "Viewer"]);
   if (access.response) return access.response;
   const env = await aiRuntime();
-  const result = await env.DB.prepare(`SELECT d.*,p.record_id AS published_record_id,p.module AS published_module,p.publication_note,p.published_by,p.published_at
-    FROM ai_action_drafts d LEFT JOIN ai_draft_publications p ON p.draft_id=d.id ORDER BY d.created_at DESC LIMIT 100`).all<Record<string, unknown>>();
+  const result = await env.DB.prepare(`SELECT d.*,p.record_id AS published_record_id,p.module AS published_module,p.publication_note,p.published_by,p.published_at,
+    t.status AS ticket_status,t.provider AS ticket_provider,t.external_id AS ticket_external_id,t.external_url AS ticket_external_url,t.publication_note AS ticket_note,t.created_by AS ticket_created_by,t.created_at AS ticket_created_at,t.completed_at AS ticket_completed_at,t.last_error AS ticket_error
+    FROM ai_action_drafts d LEFT JOIN ai_draft_publications p ON p.draft_id=d.id LEFT JOIN ai_draft_tickets t ON t.draft_id=d.id ORDER BY d.created_at DESC LIMIT 100`).all<Record<string, unknown>>();
   return json({ drafts: (result.results || []).map(mapDraft) });
 }
 

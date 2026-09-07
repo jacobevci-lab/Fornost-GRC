@@ -8,7 +8,7 @@ Core rule:
 
 > AI proposes and analyzes. Fornost authorizes. Humans approve mutations.
 
-The first release is intentionally **read-only**. V2's first controlled-action slice adds typed drafts and a human review queue while keeping live GRC records immutable.
+The conversational copilot remains read-only. V2 adds typed drafts, human review, explicit controlled publication and measurable operational quality without granting the model autonomous write access.
 
 ## Runtime flow
 
@@ -136,7 +136,9 @@ Migration `0030_fornost_ai_v1.sql` creates:
 
 Migration `0031_fornost_ai_drafts.sql` adds `ai_action_drafts`. Migration `0032_fornost_ai_draft_events.sql` adds the immutable draft revision trail. Drafts are schema-validated, retain only bounded structured output and source references, and move from `pending` to `approved` or `rejected` through an Admin decision. Editors may revise only their own pending drafts; Admins may revise any pending draft. Every edit and decision is separately audited. Approval requires a human review note and does not publish or mutate a live GRC record in this slice.
 
-Migration `0033_fornost_ai_draft_publications.sql` adds idempotent publication receipts. An Admin may publish an approved risk-treatment draft only to an explicitly selected Risk Assessment record, or an approved audit-finding draft only to an explicitly selected Audit Management requirement. Publication requires a separate note and the exact `YAYINLA` confirmation. Optimistic locking protects concurrent record changes and the unique draft receipt prevents replay. Remediation-task drafts remain non-publishable until the Jira/task queue adapter is available.
+Migration `0033_fornost_ai_draft_publications.sql` adds idempotent publication receipts. An Admin may publish an approved risk-treatment draft only to an explicitly selected Risk Assessment record, or an approved audit-finding draft only to an explicitly selected Audit Management requirement. Publication requires a separate note and the exact `YAYINLA` confirmation. Optimistic locking protects concurrent record changes and the unique draft receipt prevents replay.
+
+Migration `0034_fornost_ai_v2.sql` adds controlled remediation ticket receipts. Only an Admin can convert an approved remediation-task draft into a ticket through the configured Jira, ServiceNow, Azure DevOps, GitHub Issues or webhook integration. The exact `OLUŞTUR` confirmation and a publication note are mandatory. A reservation is persisted before the outbound request; failed or uncertain operations are not automatically retried, preventing accidental duplicate external tickets.
 
 Runtime also defensively creates these tables when needed so the API remains resilient in on-prem upgrade scenarios.
 
@@ -157,6 +159,9 @@ The panel provides:
 - schema-validated human editing and mandatory review notes
 - explicit target selection and second-confirmation publication for risk treatments and audit findings
 - immutable publication receipts and replay protection
+- controlled remediation ticket publication through existing integrations
+- Admin-only seven-day quality, latency, approval and output metrics
+- provider model discovery and selected-model availability feedback
 
 ## V1 limitations by design
 
@@ -164,12 +169,10 @@ Not included yet:
 
 - autonomous agents
 - generic or autonomous live-record write tools
-- Jira/task creation from AI
 - vector database / full document RAG
 - PDF/document chunk embedding
 - AI Governance inventory / ISO 42001 module
 - multi-provider failover
-- model evaluation dashboard
 
 ## V2 target
 
