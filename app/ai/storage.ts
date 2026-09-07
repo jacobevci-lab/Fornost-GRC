@@ -125,6 +125,20 @@ const evalRunsSql = `CREATE TABLE IF NOT EXISTS ai_eval_runs (
   output_hash TEXT, failure_reason TEXT NOT NULL, run_by TEXT NOT NULL, created_at TEXT NOT NULL
 )`;
 const evalRunsIndexSql = "CREATE INDEX IF NOT EXISTS ai_eval_runs_case_created_idx ON ai_eval_runs(case_id,created_at)";
+const agentRunsSql = `CREATE TABLE IF NOT EXISTS ai_agent_runs (
+  id TEXT PRIMARY KEY, agent_kind TEXT NOT NULL, objective TEXT NOT NULL, status TEXT NOT NULL,
+  report_json TEXT NOT NULL, source_refs_json TEXT NOT NULL DEFAULT '[]', output_hash TEXT,
+  provider TEXT NOT NULL, model TEXT NOT NULL, provider_profile TEXT NOT NULL,
+  latency_ms INTEGER NOT NULL DEFAULT 0, created_by TEXT NOT NULL, created_at TEXT NOT NULL,
+  completed_at TEXT, reviewed_by TEXT, reviewed_at TEXT, review_note TEXT
+)`;
+const agentRunsIndexSql = "CREATE INDEX IF NOT EXISTS ai_agent_runs_status_created_idx ON ai_agent_runs(status,created_at)";
+const agentDraftLinksSql = `CREATE TABLE IF NOT EXISTS ai_agent_draft_links (
+  id TEXT PRIMARY KEY, run_id TEXT NOT NULL, finding_id TEXT NOT NULL, draft_id TEXT NOT NULL UNIQUE,
+  conversion_note TEXT NOT NULL, created_by TEXT NOT NULL, created_at TEXT NOT NULL,
+  UNIQUE(run_id,finding_id)
+)`;
+const agentDraftLinksIndexSql = "CREATE INDEX IF NOT EXISTS ai_agent_draft_links_run_idx ON ai_agent_draft_links(run_id,created_at)";
 
 let schemaReady: Promise<void> | null = null;
 
@@ -152,6 +166,10 @@ export async function aiRuntime() {
       runtime.DB.prepare(evalCasesSql),
       runtime.DB.prepare(evalRunsSql),
       runtime.DB.prepare(evalRunsIndexSql),
+      runtime.DB.prepare(agentRunsSql),
+      runtime.DB.prepare(agentRunsIndexSql),
+      runtime.DB.prepare(agentDraftLinksSql),
+      runtime.DB.prepare(agentDraftLinksIndexSql),
     ]).then(() => undefined).catch((error) => {
       schemaReady = null;
       throw error;

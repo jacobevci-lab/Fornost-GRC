@@ -2,6 +2,7 @@
 
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import { withBasePath } from "./base-path";
+import FornostAiAgents, { type AgentConversion, type AgentDecision, type AgentKind, type AgentRun } from "./fornost-ai-agents";
 
 type User = { name?: string; email: string; role: "Admin" | "Editor" | "Viewer" };
 type Status = { configured: boolean; enabled: boolean; provider: string | null; model: string | null; mode: string };
@@ -11,7 +12,7 @@ type AuditLog = { id:string;actor:string;action:string;provider:string;model:str
 type DraftKind = "risk-treatment" | "audit-finding" | "remediation-task";
 type DraftTicket = {status:string;provider:string|null;externalId:string|null;url:string|null;note:string;createdBy:string;createdAt:string;completedAt:string|null;error:string|null};
 type AiDraft = { id:string;kind:DraftKind;title:string;payload:Record<string,string>;rationale:string;sourceRefs:string[];status:"pending"|"approved"|"rejected";provider:string;model:string;createdBy:string;reviewedBy:string|null;reviewedAt:string|null;reviewNote:string|null;createdAt:string;publication:{recordId:string;module:string;note:string;publishedBy:string;publishedAt:string}|null;ticket:DraftTicket|null };
-type AiMetrics = {windowDays:number;activity:{total:number;success:number;errors:number;denied:number;successRate:number;averageLatencyMs:number};drafts:{total:number;pending:number;approved:number;rejected:number;approvalRate:number};outputs:{recordPublications:number;ticketsCreated:number;ticketFailures:number};governance:{total:number;approved:number;overdue:number;evaluationRuns:number;evaluationPassRate:number;fallbackActivations:number};daily:Array<{day:string;total:number;success:number;errors:number}>;models:Array<{provider:string;model:string;requests:number;success:number}>;recentErrors:Array<{action:string;provider:string;model:string;detail:string;createdAt:string}>};
+type AiMetrics = {windowDays:number;activity:{total:number;success:number;errors:number;denied:number;successRate:number;averageLatencyMs:number};drafts:{total:number;pending:number;approved:number;rejected:number;approvalRate:number};outputs:{recordPublications:number;ticketsCreated:number;ticketFailures:number};governance:{total:number;approved:number;overdue:number;evaluationRuns:number;evaluationPassRate:number;fallbackActivations:number};agents:{runs:number;approved:number;failed:number;draftsCreated:number};daily:Array<{day:string;total:number;success:number;errors:number}>;models:Array<{provider:string;model:string;requests:number;success:number}>;recentErrors:Array<{action:string;provider:string;model:string;detail:string;createdAt:string}>};
 type AiUseCase={id:string;name:string;purpose:string;owner:string;dataClassification:string;impactLevel:string;decisionRole:string;controls:string[];status:"draft"|"approved"|"suspended";reviewDate:string;createdBy:string;approvedBy:string|null;decisionNote:string|null};
 type EvalRun={id:string;status:string;score:number;provider:string;model:string;latencyMs:number;failureReason:string;createdAt:string};
 type EvalCase={id:string;name:string;input:string;expectedTerms:string[];forbiddenTerms:string[];maxLatencyMs:number;enabled:boolean;lastRun:EvalRun|null};
@@ -54,7 +55,7 @@ export default function FornostAiCopilot() {
   const [user, setUser] = useState<User | null>(null);
   const [status, setStatus] = useState<Status | null>(null);
   const [open, setOpen] = useState(false);
-  const [tab, setTab] = useState<"chat" | "drafts" | "metrics" | "governance" | "settings" | "audit">("chat");
+  const [tab, setTab] = useState<"chat" | "agents" | "drafts" | "metrics" | "governance" | "settings" | "audit">("chat");
   const [messages, setMessages] = useState<Message[]>([]);
   const [question, setQuestion] = useState("");
   const [busy, setBusy] = useState(false);
@@ -88,6 +89,12 @@ export default function FornostAiCopilot() {
   const [useCaseForm,setUseCaseForm]=useState({name:"",purpose:"",owner:"",dataClassification:"Confidential",impactLevel:"High",decisionRole:"Human-approved",controls:"Human review, RBAC, audit logging",reviewDate:""});
   const [evalForm,setEvalForm]=useState({name:"",input:"",expectedTerms:"",forbiddenTerms:"secret,password,token",maxLatencyMs:30000});
   const [decision,setDecision]=useState<{id:string;status:"approved"|"suspended";note:string;confirmation:string}|null>(null);
+  const [agentRuns,setAgentRuns]=useState<AgentRun[]>([]);
+  const [agentKind,setAgentKind]=useState<AgentKind>("risk");
+  const [agentObjective,setAgentObjective]=useState("");
+  const [agentBusy,setAgentBusy]=useState(false);
+  const [agentDecision,setAgentDecision]=useState<AgentDecision|null>(null);
+  const [agentConversion,setAgentConversion]=useState<AgentConversion|null>(null);
 
   const refreshStatus = useCallback(async () => {
     const response = await fetch(withBasePath("/api/ai/status"), { cache: "no-store" }).catch(() => null);
@@ -150,6 +157,11 @@ export default function FornostAiCopilot() {
     if(evaluationResponse?.ok){const body=await evaluationResponse.json();setEvalCases(Array.isArray(body.cases)?body.cases:[]);}
     setGovernanceBusy(false);
   },[user?.role]);
+
+  const loadAgents=useCallback(async()=>{
+    const response=await fetch(withBasePath("/api/ai/agents"),{cache:"no-store"}).catch(()=>null);
+    if(response?.ok){const body=await response.json().catch(()=>({}));setAgentRuns(Array.isArray(body.runs)?body.runs:[]);}
+  },[]);
 
   useEffect(() => {
     const first = window.setTimeout(() => { void refreshIdentity(); }, 0);
@@ -320,6 +332,28 @@ export default function FornostAiCopilot() {
 
   async function deleteEvalCase(id:string){if(!window.confirm("Değerlendirme senaryosu ve koşum geçmişi silinsin mi?"))return;setGovernanceBusy(true);const response=await fetch(withBasePath("/api/ai/evaluations"),{method:"DELETE",headers:{"content-type":"application/json"},body:JSON.stringify({id,confirmation:"SİL"})});if(response.ok)await loadGovernance();else{const body=await response.json().catch(()=>({}));setNotice(String(body.error||"Test silinemedi."));}setGovernanceBusy(false);}
 
+  async function runAgent(e:FormEvent){
+    e.preventDefault();if(agentBusy||user?.role==="Viewer"||agentObjective.trim().length<5)return;setAgentBusy(true);setNotice("Güvence agentı Fornost kayıtlarını analiz ediyor…");
+    const response=await fetch(withBasePath("/api/ai/agents"),{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({kind:agentKind,objective:agentObjective.trim()})}).catch(()=>null);
+    const body=await response?.json().catch(()=>({}))||{};
+    if(response?.ok){setAgentObjective("");setNotice(`${body.run?.report?.findings?.length||0} kaynaklı bulgu üretildi; Admin incelemesi bekleniyor.`);await loadAgents();await loadMetrics();}else setNotice(String(body.error||"Agent çalıştırılamadı."));
+    setAgentBusy(false);
+  }
+
+  async function reviewAgent(){
+    if(!agentDecision||agentDecision.note.trim().length<5||agentDecision.confirmation!==(agentDecision.status==="approved"?"ONAYLA":"ARŞİVLE")||agentBusy)return;setAgentBusy(true);
+    const response=await fetch(withBasePath("/api/ai/agents"),{method:"PATCH",headers:{"content-type":"application/json"},body:JSON.stringify(agentDecision)}).catch(()=>null);const body=await response?.json().catch(()=>({}))||{};
+    if(response?.ok){setAgentDecision(null);setNotice(agentDecision.status==="approved"?"Agent raporu onaylandı; bulgular kontrollü taslağa dönüştürülebilir.":"Agent raporu arşivlendi.");await loadAgents();await loadMetrics();}else setNotice(String(body.error||"Agent kararı kaydedilemedi."));setAgentBusy(false);
+  }
+
+  async function convertAgentFinding(){
+    if(!agentConversion||agentConversion.note.trim().length<5||agentConversion.confirmation!=="TASLAK OLUŞTUR"||agentBusy)return;setAgentBusy(true);
+    const response=await fetch(withBasePath("/api/ai/agents/draft"),{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(agentConversion)}).catch(()=>null);const body=await response?.json().catch(()=>({}))||{};
+    if(response?.ok){setNotice(`Bulgu ${body.draftId} numaralı insan onaylı taslak kuyruğuna aktarıldı.`);setAgentConversion(null);await loadAgents();await loadDrafts();await loadMetrics();}else setNotice(String(body.error||"Bulgu taslağa dönüştürülemedi."));setAgentBusy(false);
+  }
+
+  async function deleteAgentRun(id:string){if(!window.confirm("Bu başarısız veya arşivlenmiş agent çalışması silinsin mi?"))return;setAgentBusy(true);const response=await fetch(withBasePath("/api/ai/agents"),{method:"DELETE",headers:{"content-type":"application/json"},body:JSON.stringify({id,confirmation:"SİL"})}).catch(()=>null);if(response?.ok)await loadAgents();else{const body=await response?.json().catch(()=>({}))||{};setNotice(String(body.error||"Agent çalışması silinemedi."));}setAgentBusy(false);}
+
   if (!user) return null;
   const aiReady = status?.enabled === true;
   const activeTab = user.role !== "Admin" && (tab === "settings" || tab === "audit" || tab === "metrics" || tab === "governance") ? "chat" : tab;
@@ -335,6 +369,7 @@ export default function FornostAiCopilot() {
       </header>
       <nav className="fornost-ai-tabs">
         <button className={activeTab === "chat" ? "active" : ""} onClick={() => setTab("chat")}>Copilot</button>
+        <button className={activeTab === "agents" ? "active" : ""} onClick={() => { setTab("agents"); void loadAgents(); }}>Agentlar</button>
         <button className={activeTab === "drafts" ? "active" : ""} onClick={() => { setTab("drafts"); void loadDrafts(); }}>Taslaklar</button>
         {user.role === "Admin" && <button className={activeTab === "metrics" ? "active" : ""} onClick={() => { setTab("metrics"); void loadMetrics(); }}>Kalite</button>}
         {user.role === "Admin" && <button className={activeTab === "governance" ? "active" : ""} onClick={() => { setTab("governance"); void loadGovernance(); }}>Yönetişim</button>}
@@ -345,7 +380,7 @@ export default function FornostAiCopilot() {
       {activeTab === "chat" ? <>
         <div className="fornost-ai-mode"><span className={aiReady ? "online" : "offline"}/><b>{aiReady ? "Hazır" : "Devre dışı"}</b><em>{status?.provider || "Provider yok"}</em></div>
         <div className="fornost-ai-messages">
-          {!messages.length && <div className="fornost-ai-welcome"><b>GRC verilerinizi sorun.</b><p>Örn: “Kritik varlıklardaki açık riskleri analiz et” veya “ISO 27001 denetimindeki en büyük boşluklar neler?”</p><small>V1 yalnızca okur ve öneri üretir; kayıt değiştirmez.</small></div>}
+          {!messages.length && <div className="fornost-ai-welcome"><b>GRC verilerinizi sorun.</b><p>Örn: “Kritik varlıklardaki açık riskleri analiz et” veya “ISO 27001 denetimindeki en büyük boşluklar neler?”</p><small>Copilot yalnızca okur ve öneri üretir; kayıt değiştirmez.</small></div>}
           {messages.map((message, index) => <article key={index} className={`fornost-ai-message ${message.role}`}>
             <small>{message.role === "user" ? "SİZ" : "FORNOST AI"}</small>
             <div>{message.content}</div>
@@ -357,7 +392,8 @@ export default function FornostAiCopilot() {
           <textarea value={question} onChange={(e) => setQuestion(e.target.value)} maxLength={4000} rows={3} placeholder={aiReady ? "Risk, BIA, varlık, uyum, kanıt veya denetim hakkında sorun…" : "Ask Fornost > AI Ayarları bölümünden sağlayıcıyı etkinleştirin."} disabled={!aiReady || busy}/>
           <div><small>{question.length}/4000</small><button disabled={!aiReady || busy || !question.trim()}>Gönder</button></div>
         </form>
-      </> : activeTab === "drafts" ? <div className="fornost-ai-drafts">
+      </> : activeTab === "agents" ? <FornostAiAgents role={user.role} aiReady={aiReady} runs={agentRuns} kind={agentKind} setKind={setAgentKind} objective={agentObjective} setObjective={setAgentObjective} busy={agentBusy} notice={notice} decision={agentDecision} setDecision={setAgentDecision} conversion={agentConversion} setConversion={setAgentConversion} onRun={runAgent} onReview={reviewAgent} onConvert={convertAgentFinding} onDelete={deleteAgentRun} onReload={()=>void loadAgents()}/>
+      : activeTab === "drafts" ? <div className="fornost-ai-drafts">
         <div className="fornost-ai-security-note"><b>İnsan onaylı AI taslakları</b><p>AI yalnız yapılandırılmış bir öneri üretir. Onay veya ret kararı denetim izine yazılır; bu sürüm canlı GRC kayıtlarını otomatik değiştirmez.</p></div>
         {user.role !== "Viewer" && <form className="fornost-ai-draft-form" onSubmit={createDraft}>
           <label><span>Taslak türü</span><select value={draftKind} onChange={(e) => setDraftKind(e.target.value as DraftKind)}><option value="risk-treatment">Risk tedavi planı</option><option value="audit-finding">Denetim bulgusu</option><option value="remediation-task">İyileştirme görevi</option></select></label>
@@ -389,7 +425,7 @@ export default function FornostAiCopilot() {
         </article>)}</div>
       </div> : activeTab === "metrics" ? <div className="fornost-ai-metrics">
         <div className="fornost-ai-security-note"><b>AI kalite ve yönetişim özeti</b><p>Son 7 günlük kullanım sonuçları ile tüm taslak/yayın yaşam döngüsü ölçülür. Ham prompt ve cevaplar bu görünümde bulunmaz.</p></div>
-        {!metrics?<div className="fornost-ai-audit-empty">Metrikler yükleniyor…</div>:<><div className="fornost-ai-metric-grid"><article><b>%{metrics.activity.successRate}</b><span>Başarı oranı</span></article><article><b>{metrics.activity.averageLatencyMs} ms</b><span>Ort. gecikme</span></article><article><b>%{metrics.drafts.approvalRate}</b><span>Taslak onayı</span></article><article><b>{metrics.outputs.recordPublications+metrics.outputs.ticketsCreated}</b><span>Kontrollü çıktı</span></article></div><div className="fornost-ai-metric-section"><b>AI yönetişim durumu</b><p>{metrics.governance.approved}/{metrics.governance.total} onaylı kullanım senaryosu<span>{metrics.governance.overdue} review gecikmiş</span></p><p>{metrics.governance.evaluationRuns} model testi<span>%{metrics.governance.evaluationPassRate} başarılı</span></p><p>Yedek sağlayıcı devreye girişi<span>{metrics.governance.fallbackActivations}</span></p></div><div className="fornost-ai-metric-section"><b>7 günlük operasyon</b><p>{metrics.activity.total} işlem · {metrics.activity.errors} hata · {metrics.activity.denied} engellenen · {metrics.drafts.pending} bekleyen taslak</p>{metrics.daily.map(day=><div className="fornost-ai-day" key={day.day}><span>{day.day}</span><i style={{width:`${Math.min(100,day.total*10)}%`}}/><b>{day.success}/{day.total}</b></div>)}</div><div className="fornost-ai-metric-section"><b>Model kullanımı</b>{metrics.models.length?metrics.models.map(item=><p key={`${item.provider}:${item.model}`}>{item.provider} · {item.model}<span>{item.success}/{item.requests} başarılı</span></p>):<p>Henüz model çağrısı yok.</p>}</div><button className="fornost-ai-refresh" onClick={()=>void loadMetrics()}>Metrikleri Yenile</button></>}
+        {!metrics?<div className="fornost-ai-audit-empty">Metrikler yükleniyor…</div>:<><div className="fornost-ai-metric-grid"><article><b>%{metrics.activity.successRate}</b><span>Başarı oranı</span></article><article><b>{metrics.activity.averageLatencyMs} ms</b><span>Ort. gecikme</span></article><article><b>%{metrics.drafts.approvalRate}</b><span>Taslak onayı</span></article><article><b>{metrics.outputs.recordPublications+metrics.outputs.ticketsCreated}</b><span>Kontrollü çıktı</span></article></div><div className="fornost-ai-metric-section"><b>AI yönetişim durumu</b><p>{metrics.governance.approved}/{metrics.governance.total} onaylı kullanım senaryosu<span>{metrics.governance.overdue} review gecikmiş</span></p><p>{metrics.governance.evaluationRuns} model testi<span>%{metrics.governance.evaluationPassRate} başarılı</span></p><p>Yedek sağlayıcı devreye girişi<span>{metrics.governance.fallbackActivations}</span></p><p>{metrics.agents.runs} agent çalışması<span>{metrics.agents.approved} onay · {metrics.agents.draftsCreated} taslak</span></p></div><div className="fornost-ai-metric-section"><b>7 günlük operasyon</b><p>{metrics.activity.total} işlem · {metrics.activity.errors} hata · {metrics.activity.denied} engellenen · {metrics.drafts.pending} bekleyen taslak</p>{metrics.daily.map(day=><div className="fornost-ai-day" key={day.day}><span>{day.day}</span><i style={{width:`${Math.min(100,day.total*10)}%`}}/><b>{day.success}/{day.total}</b></div>)}</div><div className="fornost-ai-metric-section"><b>Model kullanımı</b>{metrics.models.length?metrics.models.map(item=><p key={`${item.provider}:${item.model}`}>{item.provider} · {item.model}<span>{item.success}/{item.requests} başarılı</span></p>):<p>Henüz model çağrısı yok.</p>}</div><button className="fornost-ai-refresh" onClick={()=>void loadMetrics()}>Metrikleri Yenile</button></>}
       </div> : activeTab === "governance" ? <div className="fornost-ai-governance">
         <div className="fornost-ai-security-note"><b>AI Governance merkezi</b><p>Kullanım senaryolarını risk sınıfıyla yönetin, modelleri tekrarlanabilir testlerle ölçün ve provider health/failover geçmişini izleyin.</p></div>
         <div className="fornost-ai-governance-tabs"><button className={governanceView==="inventory"?"active":""} onClick={()=>setGovernanceView("inventory")}>Envanter</button><button className={governanceView==="evaluations"?"active":""} onClick={()=>setGovernanceView("evaluations")}>Değerlendirme</button><button className={governanceView==="health"?"active":""} onClick={()=>setGovernanceView("health")}>Provider Health</button></div>

@@ -150,6 +150,10 @@ Migration `0035_fornost_ai_governance.sql` adds:
 
 Evaluation responses are never stored. Only score, latency, provider/model, failure reason and SHA-256 output hash are retained. Evaluation batches are Admin-only and bounded to ten enabled cases per request.
 
+Migration `0036_fornost_ai_agents.sql` adds manually invoked assurance runs and replay-protected links to the governed draft queue. Risk, Audit, Compliance and Evidence agents analyze only bounded, sanitized Fornost context. A run produces at most eight schema-validated findings, and every finding must cite a source ID that was actually supplied to the model. Raw model output is discarded after validation; the stored report contains only the bounded structured result and its SHA-256 hash.
+
+Agent runs never mutate live GRC data. Admin review with an explicit note and confirmation is required before a finding can be converted into an existing `pending` AI action draft. Conversion requires a second `TASLAK OLUŞTUR` confirmation and is unique per run/finding pair. The resulting draft still follows the existing edit, review, publication and ticket controls.
+
 Runtime also defensively creates these tables when needed so the API remains resilient in on-prem upgrade scenarios.
 
 ## UI
@@ -175,6 +179,8 @@ The panel provides:
 - Admin-only AI use-case inventory with approval/suspension decisions
 - repeatable expected/forbidden-term model evaluations
 - encrypted primary/fallback provider chain and per-attempt health history
+- manually invoked Risk, Audit, Compliance and Evidence assurance agents
+- grounded findings, Admin review and replay-protected conversion to the governed draft queue
 
 ## V1 limitations by design
 
@@ -208,7 +214,7 @@ Initial write-capable tools should create **drafts only**, for example:
 
 ## V3 target
 
-Add agentic workflows only after tool authorization and approval controls are mature:
+Expand agentic workflows only after tool authorization and approval controls are mature. The initial read-only assurance agents are now available for:
 
 - Risk Agent
 - Audit Agent
