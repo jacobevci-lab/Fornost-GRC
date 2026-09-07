@@ -3726,7 +3726,13 @@ function AuditModule({
   const tr = lang === "tr",
     templateOptions = auditCatalog,
     [pickerOpen, setPickerOpen] = useState(false),
-    [auditDraft, setAuditDraft] = useState({
+    [auditDraft, setAuditDraft] = useState<{
+      template: string;
+      name: string;
+      auditType: string;
+      auditor: string;
+      auditOwner: string;
+    }>({
       template: auditCatalog[0],
       name: auditCatalog[0],
       auditType: auditKind(auditCatalog[0]),

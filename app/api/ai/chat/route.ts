@@ -1,23 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireRole } from "../../auth/security";
-import { decryptSecret } from "../../integrations/security";
 import { buildGrcContext } from "@/app/ai/context";
-import { callAiProvider } from "@/app/ai/provider";
-import { boundedNumber, envFlag, redactSensitiveText, safeAiEndpoint, sanitizeHistory } from "@/app/ai/security";
+import { callAiWithFailover, getAiProviderChain } from "@/app/ai/runtime-provider";
+import { redactSensitiveText, sanitizeHistory } from "@/app/ai/security";
 import { aiRuntime, getAiSettings, recordAiEvent } from "@/app/ai/storage";
 
 const json = (data: unknown, status = 200) => NextResponse.json(data, { status, headers: { "cache-control": "no-store" } });
-const envText = (env: Record<string, unknown>, key: string) => String(env[key] ?? "").trim();
 const AI_REQUESTS_PER_MINUTE = 12;
-
-function parseConfig(configJson: string) {
-  try {
-    const value = JSON.parse(configJson || "{}");
-    return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
-  } catch {
-    return {};
-  }
-}
 
 async function sha256(value: string) {
   const bytes = new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value)));
@@ -57,19 +46,8 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  const allowPrivate = envFlag(env, "FORNOST_AI_ALLOW_PRIVATE_ENDPOINTS");
-  const allowLoopback = envFlag(env, "FORNOST_AI_ALLOW_LOOPBACK");
-  const baseUrl = safeAiEndpoint(row.base_url, allowPrivate, allowLoopback);
-  if (!baseUrl) return json({ error: "AI sağlayıcı endpoint'i mevcut güvenlik politikasıyla kullanılamıyor." }, 409);
-
-  let apiKey = "";
-  if (row.secret_ciphertext) {
-    const key = envText(env, "FORNOST_SETTINGS_ENCRYPTION_KEY");
-    if (key.length < 32) return json({ error: "AI sağlayıcısının şifreli kimlik bilgileri çözülemiyor." }, 503);
-    apiKey = await decryptSecret(row.secret_ciphertext, key);
-  }
-
-  const config = parseConfig(row.config_json);
+  let chain;
+  try{chain=await getAiProviderChain(env,row);}catch(error){return json({error:error instanceof Error?error.message:"AI sağlayıcı zinciri hazırlanamadı."},409);}
   const context = await buildGrcContext(env.DB, question);
   const promptHash = await sha256(question);
   const started = Date.now();
@@ -86,31 +64,23 @@ Security rules:
   const userWithContext = `USER QUESTION:\n${question}\n\nTRUSTED FORNOST GRC CONTEXT:\n${context.contextText}\n\nINFERRED MODULES:\n${context.inferredModules.join(", ") || "general workspace summary"}`;
 
   try {
-    const answer = await callAiProvider({
-      provider: row.provider,
-      baseUrl,
-      model: row.model,
-      apiKey,
-      temperature: boundedNumber(config.temperature, 0.2, 0, 2),
-      timeoutMs: boundedNumber(config.timeoutMs, 60_000, 5_000, 120_000),
-      maxTokens: Math.round(boundedNumber(config.maxTokens, 1200, 128, 4096)),
-    }, [
+    const result = await callAiWithFailover(env.DB,chain,[
       { role: "system", content: system },
       ...history,
       { role: "user", content: userWithContext },
-    ]);
+    ],"chat");
     await recordAiEvent(env.DB, {
       actor: access.actor.email,
       action: "chat",
-      provider: row.provider,
-      model: row.model,
+      provider: result.provider,
+      model: result.model,
       promptHash,
       contextRefs: context.sources.map((source) => source.id),
       status: "success",
       latencyMs: Date.now() - started,
-      detail: `${context.sources.length} structured GRC sources supplied`,
+      detail: `${context.sources.length} structured GRC sources supplied; ${result.profile} profile used`,
     });
-    return json({ answer, sources: context.sources, provider: row.provider, model: row.model, mode: "read-only-copilot" });
+    return json({ answer:result.content, sources: context.sources, provider: result.provider, model: result.model, profile:result.profile, mode: "read-only-copilot" });
   } catch (error) {
     const message = error instanceof Error ? error.message : "AI isteği başarısız.";
     await recordAiEvent(env.DB, {

@@ -47,7 +47,7 @@ export async function POST(req: NextRequest) {
         SELECT ?,?,?,?,?,?,? FROM simple_grc_records WHERE id=? AND module=? AND updated_at=?
         AND NOT EXISTS(SELECT 1 FROM ai_draft_publications WHERE draft_id=?)`).bind(publicationId,id,targetRecordId,targetModule,note,access.actor.email,now,targetRecordId,targetModule,now,id),
     ]);
-    if (Number(results[0]?.meta.changes || 0) !== 1 || Number(results[1]?.meta.changes || 0) !== 1) return json({ error: "Hedef kayıt yayın sırasında değişti. Yenileyip tekrar deneyin." }, 409);
+    if (Number(results[0]?.meta?.changes || 0) !== 1 || Number(results[1]?.meta?.changes || 0) !== 1) return json({ error: "Hedef kayıt yayın sırasında değişti. Yenileyip tekrar deneyin." }, 409);
   } catch {
     return json({ error: "Taslak daha önce yayınlandı veya hedef kayıt eşzamanlı değişti." }, 409);
   }

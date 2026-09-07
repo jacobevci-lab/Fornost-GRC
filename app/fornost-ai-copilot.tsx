@@ -11,7 +11,11 @@ type AuditLog = { id:string;actor:string;action:string;provider:string;model:str
 type DraftKind = "risk-treatment" | "audit-finding" | "remediation-task";
 type DraftTicket = {status:string;provider:string|null;externalId:string|null;url:string|null;note:string;createdBy:string;createdAt:string;completedAt:string|null;error:string|null};
 type AiDraft = { id:string;kind:DraftKind;title:string;payload:Record<string,string>;rationale:string;sourceRefs:string[];status:"pending"|"approved"|"rejected";provider:string;model:string;createdBy:string;reviewedBy:string|null;reviewedAt:string|null;reviewNote:string|null;createdAt:string;publication:{recordId:string;module:string;note:string;publishedBy:string;publishedAt:string}|null;ticket:DraftTicket|null };
-type AiMetrics = {windowDays:number;activity:{total:number;success:number;errors:number;denied:number;successRate:number;averageLatencyMs:number};drafts:{total:number;pending:number;approved:number;rejected:number;approvalRate:number};outputs:{recordPublications:number;ticketsCreated:number;ticketFailures:number};daily:Array<{day:string;total:number;success:number;errors:number}>;models:Array<{provider:string;model:string;requests:number;success:number}>;recentErrors:Array<{action:string;provider:string;model:string;detail:string;createdAt:string}>};
+type AiMetrics = {windowDays:number;activity:{total:number;success:number;errors:number;denied:number;successRate:number;averageLatencyMs:number};drafts:{total:number;pending:number;approved:number;rejected:number;approvalRate:number};outputs:{recordPublications:number;ticketsCreated:number;ticketFailures:number};governance:{total:number;approved:number;overdue:number;evaluationRuns:number;evaluationPassRate:number;fallbackActivations:number};daily:Array<{day:string;total:number;success:number;errors:number}>;models:Array<{provider:string;model:string;requests:number;success:number}>;recentErrors:Array<{action:string;provider:string;model:string;detail:string;createdAt:string}>};
+type AiUseCase={id:string;name:string;purpose:string;owner:string;dataClassification:string;impactLevel:string;decisionRole:string;controls:string[];status:"draft"|"approved"|"suspended";reviewDate:string;createdBy:string;approvedBy:string|null;decisionNote:string|null};
+type EvalRun={id:string;status:string;score:number;provider:string;model:string;latencyMs:number;failureReason:string;createdAt:string};
+type EvalCase={id:string;name:string;input:string;expectedTerms:string[];forbiddenTerms:string[];maxLatencyMs:number;enabled:boolean;lastRun:EvalRun|null};
+type ProviderHealth={profile:string;provider:string;model:string;operation:string;status:string;latency_ms:number;detail:string;created_at:string};
 type DraftEdit = { id:string;title:string;rationale:string;payload:Record<string,string> };
 type PublishTarget = { id:string;module:string;title:string };
 type ProviderForm = {
@@ -24,6 +28,7 @@ type ProviderForm = {
   maxTokens: number;
   secret: string;
   hasSecret: boolean;
+  fallback:{provider:"openai-compatible"|"ollama";baseUrl:string;model:string;enabled:boolean;secret:string;hasSecret:boolean};
 };
 
 const defaults: ProviderForm = {
@@ -36,6 +41,7 @@ const defaults: ProviderForm = {
   maxTokens: 1200,
   secret: "",
   hasSecret: false,
+  fallback:{provider:"ollama",baseUrl:"",model:"",enabled:false,secret:"",hasSecret:false},
 };
 
 const draftFieldLabels: Record<string,string> = {
@@ -48,7 +54,7 @@ export default function FornostAiCopilot() {
   const [user, setUser] = useState<User | null>(null);
   const [status, setStatus] = useState<Status | null>(null);
   const [open, setOpen] = useState(false);
-  const [tab, setTab] = useState<"chat" | "drafts" | "metrics" | "settings" | "audit">("chat");
+  const [tab, setTab] = useState<"chat" | "drafts" | "metrics" | "governance" | "settings" | "audit">("chat");
   const [messages, setMessages] = useState<Message[]>([]);
   const [question, setQuestion] = useState("");
   const [busy, setBusy] = useState(false);
@@ -74,6 +80,14 @@ export default function FornostAiCopilot() {
   const [metrics, setMetrics] = useState<AiMetrics|null>(null);
   const [discoveredModels, setDiscoveredModels] = useState<string[]>([]);
   const [selectedModelAvailable, setSelectedModelAvailable] = useState<boolean|null>(null);
+  const [useCases,setUseCases]=useState<AiUseCase[]>([]);
+  const [evalCases,setEvalCases]=useState<EvalCase[]>([]);
+  const [providerHealth,setProviderHealth]=useState<ProviderHealth[]>([]);
+  const [governanceBusy,setGovernanceBusy]=useState(false);
+  const [governanceView,setGovernanceView]=useState<"inventory"|"evaluations"|"health">("inventory");
+  const [useCaseForm,setUseCaseForm]=useState({name:"",purpose:"",owner:"",dataClassification:"Confidential",impactLevel:"High",decisionRole:"Human-approved",controls:"Human review, RBAC, audit logging",reviewDate:""});
+  const [evalForm,setEvalForm]=useState({name:"",input:"",expectedTerms:"",forbiddenTerms:"secret,password,token",maxLatencyMs:30000});
+  const [decision,setDecision]=useState<{id:string;status:"approved"|"suspended";note:string;confirmation:string}|null>(null);
 
   const refreshStatus = useCallback(async () => {
     const response = await fetch(withBasePath("/api/ai/status"), { cache: "no-store" }).catch(() => null);
@@ -101,7 +115,7 @@ export default function FornostAiCopilot() {
       setNotice(body.error || "AI ayarları okunamadı.");
       return;
     }
-    setProvider({ ...defaults, ...body, secret: "" });
+    setProvider({ ...defaults, ...body, secret: "",fallback:{...defaults.fallback,...(body.fallback||{}),secret:""} });
     setProviderLoaded(true);
   }, [user?.role]);
 
@@ -127,6 +141,14 @@ export default function FornostAiCopilot() {
     if(user?.role!=="Admin")return;
     const response=await fetch(withBasePath("/api/ai/metrics"),{cache:"no-store"}).catch(()=>null);
     if(response?.ok)setMetrics(await response.json());
+  },[user?.role]);
+
+  const loadGovernance=useCallback(async()=>{
+    if(user?.role!=="Admin")return;setGovernanceBusy(true);
+    const [governanceResponse,evaluationResponse]=await Promise.all([fetch(withBasePath("/api/ai/governance"),{cache:"no-store"}).catch(()=>null),fetch(withBasePath("/api/ai/evaluations"),{cache:"no-store"}).catch(()=>null)]);
+    if(governanceResponse?.ok){const body=await governanceResponse.json();setUseCases(Array.isArray(body.useCases)?body.useCases:[]);setProviderHealth(Array.isArray(body.health)?body.health:[]);}
+    if(evaluationResponse?.ok){const body=await evaluationResponse.json();setEvalCases(Array.isArray(body.cases)?body.cases:[]);}
+    setGovernanceBusy(false);
   },[user?.role]);
 
   useEffect(() => {
@@ -187,13 +209,13 @@ export default function FornostAiCopilot() {
       setBusy(false);
       return;
     }
-    setProvider((value) => ({ ...value, secret: "", hasSecret: body.hasSecret === true }));
+    setProvider((value) => ({ ...value, secret: "", hasSecret: body.hasSecret === true,fallback:{...value.fallback,secret:"",hasSecret:body.fallbackHasSecret===true} }));
     setNotice("AI sağlayıcı ayarları kaydedildi.");
     await refreshStatus();
     if (testAfter) {
       const testResponse = await fetch(withBasePath("/api/ai/providers"), { method: "POST" });
       const testBody = await testResponse.json().catch(() => ({}));
-      setNotice(testResponse.ok ? String(testBody.message || "Bağlantı testi başarılı.") : String(testBody.error || "Bağlantı testi başarısız."));
+      setNotice(testResponse.ok ? String(testBody.message || "Bağlantı testi başarılı.") : String(testBody.error || testBody.message || "Bağlantı testi başarısız."));
       setDiscoveredModels(testResponse.ok&&Array.isArray(testBody.models)?testBody.models:[]);
       setSelectedModelAvailable(testResponse.ok&&typeof testBody.selectedModelAvailable==="boolean"?testBody.selectedModelAvailable:null);
     }
@@ -278,9 +300,29 @@ export default function FornostAiCopilot() {
     setDraftBusy(false);
   }
 
+  async function createUseCase(e:FormEvent){
+    e.preventDefault();if(governanceBusy)return;setGovernanceBusy(true);setNotice("");
+    const response=await fetch(withBasePath("/api/ai/governance"),{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({...useCaseForm,controls:useCaseForm.controls.split(",")})});const body=await response.json().catch(()=>({}));
+    if(response.ok){setUseCaseForm(value=>({...value,name:"",purpose:""}));setNotice("AI kullanım senaryosu taslak envantere eklendi.");await loadGovernance();}else setNotice(String(body.error||"Kullanım senaryosu kaydedilemedi."));setGovernanceBusy(false);
+  }
+
+  async function decideUseCase(){
+    if(!decision||decision.note.trim().length<5||decision.confirmation!==(decision.status==="approved"?"ONAYLA":"ASKIYA AL")||governanceBusy)return;setGovernanceBusy(true);
+    const response=await fetch(withBasePath("/api/ai/governance"),{method:"PATCH",headers:{"content-type":"application/json"},body:JSON.stringify(decision)});const body=await response.json().catch(()=>({}));
+    if(response.ok){setDecision(null);setNotice("AI kullanım senaryosu kararı denetim izine kaydedildi.");await loadGovernance();}else setNotice(String(body.error||"Karar kaydedilemedi."));setGovernanceBusy(false);
+  }
+
+  async function deleteUseCase(id:string){if(!window.confirm("Taslak AI kullanım senaryosu silinsin mi?"))return;setGovernanceBusy(true);const response=await fetch(withBasePath("/api/ai/governance"),{method:"DELETE",headers:{"content-type":"application/json"},body:JSON.stringify({id,confirmation:"SİL"})});if(response.ok)await loadGovernance();else{const body=await response.json().catch(()=>({}));setNotice(String(body.error||"Kayıt silinemedi."));}setGovernanceBusy(false);}
+
+  async function createEvalCase(e:FormEvent){e.preventDefault();if(governanceBusy)return;setGovernanceBusy(true);const response=await fetch(withBasePath("/api/ai/evaluations"),{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({...evalForm,expectedTerms:evalForm.expectedTerms.split(","),forbiddenTerms:evalForm.forbiddenTerms.split(",")})});const body=await response.json().catch(()=>({}));if(response.ok){setEvalForm(value=>({...value,name:"",input:"",expectedTerms:""}));setNotice("Model değerlendirme senaryosu eklendi.");await loadGovernance();}else setNotice(String(body.error||"Test kaydedilemedi."));setGovernanceBusy(false);}
+
+  async function runEvaluations(id?:string){if(governanceBusy)return;setGovernanceBusy(true);setNotice("Model değerlendirmesi çalışıyor…");const response=await fetch(withBasePath("/api/ai/evaluations"),{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({action:"run",id})});const body=await response.json().catch(()=>({}));if(response.ok){const passed=(body.results||[]).filter((item:{status:string})=>item.status==="passed").length;setNotice(`${body.results?.length||0} test tamamlandı; ${passed} başarılı.`);await loadGovernance();await loadMetrics();}else setNotice(String(body.error||"Test çalıştırılamadı."));setGovernanceBusy(false);}
+
+  async function deleteEvalCase(id:string){if(!window.confirm("Değerlendirme senaryosu ve koşum geçmişi silinsin mi?"))return;setGovernanceBusy(true);const response=await fetch(withBasePath("/api/ai/evaluations"),{method:"DELETE",headers:{"content-type":"application/json"},body:JSON.stringify({id,confirmation:"SİL"})});if(response.ok)await loadGovernance();else{const body=await response.json().catch(()=>({}));setNotice(String(body.error||"Test silinemedi."));}setGovernanceBusy(false);}
+
   if (!user) return null;
   const aiReady = status?.enabled === true;
-  const activeTab = user.role !== "Admin" && (tab === "settings" || tab === "audit" || tab === "metrics") ? "chat" : tab;
+  const activeTab = user.role !== "Admin" && (tab === "settings" || tab === "audit" || tab === "metrics" || tab === "governance") ? "chat" : tab;
 
   return <>
     <button className={`fornost-ai-launcher ${aiReady ? "ready" : ""}`} onClick={() => setOpen((value) => !value)} aria-expanded={open} aria-controls="fornost-ai-panel">
@@ -295,6 +337,7 @@ export default function FornostAiCopilot() {
         <button className={activeTab === "chat" ? "active" : ""} onClick={() => setTab("chat")}>Copilot</button>
         <button className={activeTab === "drafts" ? "active" : ""} onClick={() => { setTab("drafts"); void loadDrafts(); }}>Taslaklar</button>
         {user.role === "Admin" && <button className={activeTab === "metrics" ? "active" : ""} onClick={() => { setTab("metrics"); void loadMetrics(); }}>Kalite</button>}
+        {user.role === "Admin" && <button className={activeTab === "governance" ? "active" : ""} onClick={() => { setTab("governance"); void loadGovernance(); }}>Yönetişim</button>}
         {user.role === "Admin" && <button className={activeTab === "settings" ? "active" : ""} onClick={() => setTab("settings")}>AI Ayarları</button>}
         {user.role === "Admin" && <button className={activeTab === "audit" ? "active" : ""} onClick={() => { setTab("audit"); void loadAudit(); }}>AI Audit</button>}
       </nav>
@@ -346,7 +389,12 @@ export default function FornostAiCopilot() {
         </article>)}</div>
       </div> : activeTab === "metrics" ? <div className="fornost-ai-metrics">
         <div className="fornost-ai-security-note"><b>AI kalite ve yönetişim özeti</b><p>Son 7 günlük kullanım sonuçları ile tüm taslak/yayın yaşam döngüsü ölçülür. Ham prompt ve cevaplar bu görünümde bulunmaz.</p></div>
-        {!metrics?<div className="fornost-ai-audit-empty">Metrikler yükleniyor…</div>:<><div className="fornost-ai-metric-grid"><article><b>%{metrics.activity.successRate}</b><span>Başarı oranı</span></article><article><b>{metrics.activity.averageLatencyMs} ms</b><span>Ort. gecikme</span></article><article><b>%{metrics.drafts.approvalRate}</b><span>Taslak onayı</span></article><article><b>{metrics.outputs.recordPublications+metrics.outputs.ticketsCreated}</b><span>Kontrollü çıktı</span></article></div><div className="fornost-ai-metric-section"><b>7 günlük operasyon</b><p>{metrics.activity.total} işlem · {metrics.activity.errors} hata · {metrics.activity.denied} engellenen · {metrics.drafts.pending} bekleyen taslak</p>{metrics.daily.map(day=><div className="fornost-ai-day" key={day.day}><span>{day.day}</span><i style={{width:`${Math.min(100,day.total*10)}%`}}/><b>{day.success}/{day.total}</b></div>)}</div><div className="fornost-ai-metric-section"><b>Model kullanımı</b>{metrics.models.length?metrics.models.map(item=><p key={`${item.provider}:${item.model}`}>{item.provider} · {item.model}<span>{item.success}/{item.requests} başarılı</span></p>):<p>Henüz model çağrısı yok.</p>}</div><button className="fornost-ai-refresh" onClick={()=>void loadMetrics()}>Metrikleri Yenile</button></>}
+        {!metrics?<div className="fornost-ai-audit-empty">Metrikler yükleniyor…</div>:<><div className="fornost-ai-metric-grid"><article><b>%{metrics.activity.successRate}</b><span>Başarı oranı</span></article><article><b>{metrics.activity.averageLatencyMs} ms</b><span>Ort. gecikme</span></article><article><b>%{metrics.drafts.approvalRate}</b><span>Taslak onayı</span></article><article><b>{metrics.outputs.recordPublications+metrics.outputs.ticketsCreated}</b><span>Kontrollü çıktı</span></article></div><div className="fornost-ai-metric-section"><b>AI yönetişim durumu</b><p>{metrics.governance.approved}/{metrics.governance.total} onaylı kullanım senaryosu<span>{metrics.governance.overdue} review gecikmiş</span></p><p>{metrics.governance.evaluationRuns} model testi<span>%{metrics.governance.evaluationPassRate} başarılı</span></p><p>Yedek sağlayıcı devreye girişi<span>{metrics.governance.fallbackActivations}</span></p></div><div className="fornost-ai-metric-section"><b>7 günlük operasyon</b><p>{metrics.activity.total} işlem · {metrics.activity.errors} hata · {metrics.activity.denied} engellenen · {metrics.drafts.pending} bekleyen taslak</p>{metrics.daily.map(day=><div className="fornost-ai-day" key={day.day}><span>{day.day}</span><i style={{width:`${Math.min(100,day.total*10)}%`}}/><b>{day.success}/{day.total}</b></div>)}</div><div className="fornost-ai-metric-section"><b>Model kullanımı</b>{metrics.models.length?metrics.models.map(item=><p key={`${item.provider}:${item.model}`}>{item.provider} · {item.model}<span>{item.success}/{item.requests} başarılı</span></p>):<p>Henüz model çağrısı yok.</p>}</div><button className="fornost-ai-refresh" onClick={()=>void loadMetrics()}>Metrikleri Yenile</button></>}
+      </div> : activeTab === "governance" ? <div className="fornost-ai-governance">
+        <div className="fornost-ai-security-note"><b>AI Governance merkezi</b><p>Kullanım senaryolarını risk sınıfıyla yönetin, modelleri tekrarlanabilir testlerle ölçün ve provider health/failover geçmişini izleyin.</p></div>
+        <div className="fornost-ai-governance-tabs"><button className={governanceView==="inventory"?"active":""} onClick={()=>setGovernanceView("inventory")}>Envanter</button><button className={governanceView==="evaluations"?"active":""} onClick={()=>setGovernanceView("evaluations")}>Değerlendirme</button><button className={governanceView==="health"?"active":""} onClick={()=>setGovernanceView("health")}>Provider Health</button></div>
+        {notice&&<div className="fornost-ai-notice">{notice}</div>}
+        {governanceView==="inventory"?<><form className="fornost-ai-governance-form" onSubmit={createUseCase}><b>Yeni kullanım senaryosu</b><label><span>Ad</span><input maxLength={160} value={useCaseForm.name} onChange={e=>setUseCaseForm(value=>({...value,name:e.target.value}))}/></label><label><span>Amaç</span><textarea rows={3} maxLength={1600} value={useCaseForm.purpose} onChange={e=>setUseCaseForm(value=>({...value,purpose:e.target.value}))}/></label><div><label><span>Sorumlu</span><input maxLength={320} value={useCaseForm.owner} onChange={e=>setUseCaseForm(value=>({...value,owner:e.target.value}))}/></label><label><span>Gözden geçirme</span><input type="date" value={useCaseForm.reviewDate} onChange={e=>setUseCaseForm(value=>({...value,reviewDate:e.target.value}))}/></label></div><div><label><span>Veri sınıfı</span><select value={useCaseForm.dataClassification} onChange={e=>setUseCaseForm(value=>({...value,dataClassification:e.target.value}))}><option>Public</option><option>Internal</option><option>Confidential</option><option>Restricted</option></select></label><label><span>Etki</span><select value={useCaseForm.impactLevel} onChange={e=>setUseCaseForm(value=>({...value,impactLevel:e.target.value}))}><option>Low</option><option>Medium</option><option>High</option><option>Critical</option></select></label></div><label><span>Karar rolü</span><select value={useCaseForm.decisionRole} onChange={e=>setUseCaseForm(value=>({...value,decisionRole:e.target.value}))}><option>Assistive</option><option>Human-reviewed</option><option>Human-approved</option><option>Prohibited</option></select></label><label><span>Kontroller (virgülle)</span><input maxLength={1000} value={useCaseForm.controls} onChange={e=>setUseCaseForm(value=>({...value,controls:e.target.value}))}/></label><button disabled={governanceBusy}>Taslak Ekle</button></form><div className="fornost-ai-governance-list">{useCases.map(item=><article key={item.id}><header><div><b>{item.name}</b><small>{item.id}</small></div><span className={item.status}>{item.status}</span></header><p>{item.purpose}</p><dl><div><dt>Sorumlu</dt><dd>{item.owner}</dd></div><div><dt>Risk</dt><dd>{item.dataClassification} · {item.impactLevel}</dd></div><div><dt>Karar</dt><dd>{item.decisionRole}</dd></div><div><dt>Review</dt><dd>{item.reviewDate}</dd></div></dl><footer>{item.controls.map(control=><span key={control}>{control}</span>)}</footer>{item.decisionNote&&<em>{item.approvedBy} · {item.decisionNote}</em>}<div className="fornost-ai-governance-actions">{item.status!=="approved"&&<button onClick={()=>setDecision({id:item.id,status:"approved",note:"",confirmation:""})}>Onayla</button>}{item.status!=="suspended"&&<button className="warn" onClick={()=>setDecision({id:item.id,status:"suspended",note:"",confirmation:""})}>Askıya Al</button>}{item.status==="draft"&&<button className="danger" onClick={()=>void deleteUseCase(item.id)}>Sil</button>}</div>{decision?.id===item.id&&<div className="fornost-ai-decision"><textarea rows={2} maxLength={800} placeholder="Zorunlu karar notu" value={decision.note} onChange={e=>setDecision(value=>value?{...value,note:e.target.value}:value)}/><input placeholder={decision.status==="approved"?"ONAYLA":"ASKIYA AL"} value={decision.confirmation} onChange={e=>setDecision(value=>value?{...value,confirmation:e.target.value}:value)}/><div><button onClick={()=>setDecision(null)}>Vazgeç</button><button disabled={governanceBusy} onClick={()=>void decideUseCase()}>Kararı Kaydet</button></div></div>}</article>)}</div></>:governanceView==="evaluations"?<><form className="fornost-ai-governance-form" onSubmit={createEvalCase}><b>Yeni model testi</b><label><span>Test adı</span><input maxLength={160} value={evalForm.name} onChange={e=>setEvalForm(value=>({...value,name:e.target.value}))}/></label><label><span>Test girdisi</span><textarea rows={3} maxLength={2000} value={evalForm.input} onChange={e=>setEvalForm(value=>({...value,input:e.target.value}))}/></label><label><span>Beklenen terimler (virgülle)</span><input value={evalForm.expectedTerms} onChange={e=>setEvalForm(value=>({...value,expectedTerms:e.target.value}))}/></label><label><span>Yasaklı terimler (virgülle)</span><input value={evalForm.forbiddenTerms} onChange={e=>setEvalForm(value=>({...value,forbiddenTerms:e.target.value}))}/></label><label><span>Maksimum gecikme (ms)</span><input type="number" min="1000" max="120000" value={evalForm.maxLatencyMs} onChange={e=>setEvalForm(value=>({...value,maxLatencyMs:Number(e.target.value)}))}/></label><button disabled={governanceBusy}>Test Ekle</button></form><div className="fornost-ai-run-all"><b>Değerlendirme paketi</b><button disabled={governanceBusy||!evalCases.length} onClick={()=>void runEvaluations()}>İlk 10 Testi Çalıştır</button></div><div className="fornost-ai-governance-list">{evalCases.map(item=><article key={item.id}><header><div><b>{item.name}</b><small>{item.id}</small></div>{item.lastRun?<span className={item.lastRun.status}>{item.lastRun.score}/100</span>:<span>Yeni</span>}</header><p>{item.input}</p><footer>{item.expectedTerms.map(term=><span key={term}>+ {term}</span>)}{item.forbiddenTerms.map(term=><span className="forbidden" key={term}>− {term}</span>)}</footer>{item.lastRun&&<em>{item.lastRun.provider} · {item.lastRun.model} · {item.lastRun.latencyMs} ms{item.lastRun.failureReason?` · ${item.lastRun.failureReason}`:""}</em>}<div className="fornost-ai-governance-actions"><button disabled={governanceBusy} onClick={()=>void runEvaluations(item.id)}>Çalıştır</button><button className="danger" onClick={()=>void deleteEvalCase(item.id)}>Sil</button></div></article>)}</div></>:<div className="fornost-ai-health-list">{!providerHealth.length?<div className="fornost-ai-audit-empty">Henüz provider health kaydı yok.</div>:providerHealth.map((item,index)=><article key={`${item.created_at}-${index}`}><span className={item.status}/><div><b>{item.profile} · {item.provider}</b><small>{item.model} · {item.operation}</small><em>{item.detail}</em></div><time>{item.latency_ms} ms<br/>{new Date(item.created_at).toLocaleString("tr-TR")}</time></article>)}</div>}
       </div> : activeTab === "audit" ? <div className="fornost-ai-audit">
         <div className="fornost-ai-security-note"><b>AI kullanım denetim izi</b><p>Ham prompt ve model cevabı saklanmaz. Aktör, model, işlem sonucu, gecikme, prompt hash ve kullanılan Fornost kaynak kimlikleri tutulur.</p></div>
         <div className="fornost-ai-audit-head"><b>Son aktiviteler</b><button onClick={() => void loadAudit()} disabled={auditBusy}>{auditBusy ? "Yükleniyor…" : "Yenile"}</button></div>
@@ -370,6 +418,7 @@ export default function FornostAiCopilot() {
         {notice && <div className="fornost-ai-notice">{notice}</div>}
         {selectedModelAvailable!==null&&<div className={`fornost-ai-model-status ${selectedModelAvailable?"ok":"warn"}`}><b>{selectedModelAvailable?"Seçili model erişilebilir":"Seçili model listede bulunamadı"}</b><span>{discoveredModels.length} model keşfedildi</span></div>}
         {!!discoveredModels.length&&<label><span>Keşfedilen modeller</span><select value={provider.model} onChange={(e)=>setProvider(value=>({...value,model:e.target.value}))}><option value={provider.model}>{provider.model}</option>{discoveredModels.filter(model=>model!==provider.model).map(model=><option key={model} value={model}>{model}</option>)}</select></label>}
+        <div className="fornost-ai-fallback"><div><b>Yedek AI sağlayıcısı</b><label className="fornost-ai-check"><input type="checkbox" checked={provider.fallback.enabled} onChange={e=>setProvider(value=>({...value,fallback:{...value.fallback,enabled:e.target.checked}}))}/><span>Birincil hata verirse otomatik kullan</span></label></div>{provider.fallback.enabled&&<><label><span>Provider</span><select value={provider.fallback.provider} onChange={e=>setProvider(value=>({...value,fallback:{...value.fallback,provider:e.target.value as ProviderForm["fallback"]["provider"]}}))}><option value="openai-compatible">OpenAI Compatible</option><option value="ollama">Ollama</option></select></label><label><span>Base URL</span><input value={provider.fallback.baseUrl} onChange={e=>setProvider(value=>({...value,fallback:{...value.fallback,baseUrl:e.target.value}}))}/></label><label><span>Model</span><input value={provider.fallback.model} onChange={e=>setProvider(value=>({...value,fallback:{...value.fallback,model:e.target.value}}))}/></label><label><span>API Key</span><input type="password" value={provider.fallback.secret} onChange={e=>setProvider(value=>({...value,fallback:{...value.fallback,secret:e.target.value}}))} placeholder={provider.fallback.hasSecret?"Kayıtlı · değiştirmek için yeni değer girin":"Opsiyonel"}/></label></>}</div>
         <div className="fornost-ai-settings-actions"><button className="secondary" disabled={busy} onClick={() => saveProvider(false)}>Kaydet</button><button disabled={busy} onClick={() => saveProvider(true)}>Kaydet & Test Et</button></div>
         <small className="fornost-ai-env-help">Private ağ için <code>FORNOST_AI_ALLOW_PRIVATE_ENDPOINTS=true</code>; aynı host loopback için ayrıca <code>FORNOST_AI_ALLOW_LOOPBACK=true</code> gerekir.</small>
       </div>}

@@ -95,6 +95,36 @@ const draftTicketsSql = `CREATE TABLE IF NOT EXISTS ai_draft_tickets (
   last_error TEXT
 )`;
 const draftTicketsStatusIndexSql = "CREATE INDEX IF NOT EXISTS ai_draft_tickets_status_idx ON ai_draft_tickets(status,created_at)";
+const fallbackSql = `CREATE TABLE IF NOT EXISTS ai_provider_fallbacks (
+  id TEXT PRIMARY KEY, provider TEXT NOT NULL, base_url TEXT NOT NULL, model TEXT NOT NULL,
+  enabled INTEGER NOT NULL DEFAULT 0, config_json TEXT NOT NULL DEFAULT '{}', secret_ciphertext TEXT,
+  created_at TEXT NOT NULL, updated_at TEXT NOT NULL, updated_by TEXT NOT NULL
+)`;
+const providerHealthSql = `CREATE TABLE IF NOT EXISTS ai_provider_health (
+  id TEXT PRIMARY KEY, profile TEXT NOT NULL, provider TEXT NOT NULL, model TEXT NOT NULL,
+  operation TEXT NOT NULL, status TEXT NOT NULL, latency_ms INTEGER NOT NULL DEFAULT 0,
+  detail TEXT NOT NULL, created_at TEXT NOT NULL
+)`;
+const providerHealthIndexSql = "CREATE INDEX IF NOT EXISTS ai_provider_health_created_idx ON ai_provider_health(created_at,status)";
+const useCasesSql = `CREATE TABLE IF NOT EXISTS ai_use_cases (
+  id TEXT PRIMARY KEY, name TEXT NOT NULL, purpose TEXT NOT NULL, owner TEXT NOT NULL,
+  data_classification TEXT NOT NULL, impact_level TEXT NOT NULL, decision_role TEXT NOT NULL,
+  controls_json TEXT NOT NULL DEFAULT '[]', status TEXT NOT NULL DEFAULT 'draft', review_date TEXT NOT NULL,
+  created_by TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
+  approved_by TEXT, approved_at TEXT, decision_note TEXT
+)`;
+const useCasesIndexSql = "CREATE INDEX IF NOT EXISTS ai_use_cases_status_review_idx ON ai_use_cases(status,review_date)";
+const evalCasesSql = `CREATE TABLE IF NOT EXISTS ai_eval_cases (
+  id TEXT PRIMARY KEY, name TEXT NOT NULL, input_text TEXT NOT NULL, expected_terms_json TEXT NOT NULL DEFAULT '[]',
+  forbidden_terms_json TEXT NOT NULL DEFAULT '[]', max_latency_ms INTEGER NOT NULL DEFAULT 30000,
+  enabled INTEGER NOT NULL DEFAULT 1, created_by TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL
+)`;
+const evalRunsSql = `CREATE TABLE IF NOT EXISTS ai_eval_runs (
+  id TEXT PRIMARY KEY, case_id TEXT NOT NULL, provider TEXT NOT NULL, model TEXT NOT NULL,
+  status TEXT NOT NULL, score INTEGER NOT NULL, latency_ms INTEGER NOT NULL,
+  output_hash TEXT, failure_reason TEXT NOT NULL, run_by TEXT NOT NULL, created_at TEXT NOT NULL
+)`;
+const evalRunsIndexSql = "CREATE INDEX IF NOT EXISTS ai_eval_runs_case_created_idx ON ai_eval_runs(case_id,created_at)";
 
 let schemaReady: Promise<void> | null = null;
 
@@ -114,6 +144,14 @@ export async function aiRuntime() {
       runtime.DB.prepare(draftPublicationsRecordIndexSql),
       runtime.DB.prepare(draftTicketsSql),
       runtime.DB.prepare(draftTicketsStatusIndexSql),
+      runtime.DB.prepare(fallbackSql),
+      runtime.DB.prepare(providerHealthSql),
+      runtime.DB.prepare(providerHealthIndexSql),
+      runtime.DB.prepare(useCasesSql),
+      runtime.DB.prepare(useCasesIndexSql),
+      runtime.DB.prepare(evalCasesSql),
+      runtime.DB.prepare(evalRunsSql),
+      runtime.DB.prepare(evalRunsIndexSql),
     ]).then(() => undefined).catch((error) => {
       schemaReady = null;
       throw error;

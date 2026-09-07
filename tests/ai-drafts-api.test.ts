@@ -18,7 +18,7 @@ test("AI draft review is Admin-only, single-decision and audited", () => {
   const patchSection = route.slice(route.indexOf("export async function PATCH"));
   assert.match(patchSection, /requireRole\(req, \["Admin"\]\)/);
   assert.match(patchSection, /WHERE id=\? AND status='pending'/);
-  assert.match(patchSection, /mutation\.meta\.changes/);
+  assert.match(patchSection, /mutation\.meta\?\.changes/);
   assert.match(patchSection, /note\.length < 5/);
   assert.match(patchSection, /recordDraftEvent/);
   assert.match(patchSection, /no live GRC record was mutated/);

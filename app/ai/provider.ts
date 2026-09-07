@@ -22,7 +22,7 @@ function ollamaUrl(baseUrl: string, suffix: "/api/tags" | "/api/chat") {
   return `${baseUrl.replace(/\/+$/, "")}${suffix}`;
 }
 
-function authHeaders(apiKey = "") {
+function authHeaders(apiKey = ""):Record<string,string> {
   return apiKey ? { authorization: `Bearer ${apiKey}` } : {};
 }
 

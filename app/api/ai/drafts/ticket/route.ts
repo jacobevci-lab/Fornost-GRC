@@ -20,7 +20,7 @@ export async function POST(req:NextRequest){
   if(existing)return json({error:existing.status==="created"?"Bu taslak için daha önce ticket oluşturuldu.":"Bu taslak için ticket işlemi daha önce başlatıldı; çift kayıt riskini önlemek için otomatik yeniden deneme kapalıdır.",ticket:existing},409);
   const operationId=crypto.randomUUID(),now=new Date().toISOString();
   const reserved=await env.DB.prepare(`INSERT INTO ai_draft_tickets(id,draft_id,status,publication_note,created_by,created_at) SELECT ?,?,'creating',?,?,? WHERE NOT EXISTS(SELECT 1 FROM ai_draft_tickets WHERE draft_id=?)`).bind(operationId,id,note,access.actor.email,now,id).run();
-  if(Number(reserved.meta.changes||0)!==1)return json({error:"Ticket işlemi başka bir kullanıcı tarafından başlatıldı."},409);
+  if(Number(reserved.meta?.changes||0)!==1)return json({error:"Ticket işlemi başka bir kullanıcı tarafından başlatıldı."},409);
   const payload=parseObject(draft.payload_json),refs=parseRefs(draft.source_refs_json);
   const description=[cleanAiText(payload.description,1800),`Sorumlu: ${cleanAiText(payload.owner,200)}`,`Hedef tarih: ${cleanAiText(payload.dueDate,30)}`,`Öncelik: ${cleanAiText(payload.priority,50)}`,`Kabul kriteri: ${cleanAiText(payload.acceptanceCriteria,1000)}`,`İnsan onay notu: ${note}`,`Fornost AI taslak: ${id}`,refs.length?`Kaynaklar: ${refs.join(", ")}`:""].filter(Boolean).join("\n\n");
   try{

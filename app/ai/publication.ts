@@ -9,8 +9,8 @@ export function publicationModule(kind: AiDraftKind) {
   return null;
 }
 
-export function applyAiDraftToRecord(kind: PublishableDraftKind, payload: Record<string, unknown>, current: Record<string, unknown>, draftId: string, publicationNote: string) {
-  const result = { ...current, aiDraftRef: cleanAiText(draftId, 100), aiPublicationNote: redactSensitiveText(publicationNote, 800) };
+export function applyAiDraftToRecord<T extends Record<string, unknown>>(kind: PublishableDraftKind, payload: Record<string, unknown>, current: T, draftId: string, publicationNote: string) {
+  const result:T&Record<string,unknown> = { ...current, aiDraftRef: cleanAiText(draftId, 100), aiPublicationNote: redactSensitiveText(publicationNote, 800) };
   if (kind === "risk-treatment") {
     const values = {
       plannedAction: redactSensitiveText(payload.proposedTreatment, 1600), actionOwner: redactSensitiveText(payload.owner, 320),

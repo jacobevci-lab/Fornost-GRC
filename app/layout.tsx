@@ -8,6 +8,7 @@ import "./fornost-ai-drafts.css";
 import "./fornost-ai-review.css";
 import "./fornost-ai-publication.css";
 import "./fornost-ai-v2.css";
+import "./fornost-ai-governance.css";
 import FornostAiCopilot from "./fornost-ai-copilot";
 
 const configuredBasePath = process.env.NEXT_PUBLIC_BASE_PATH?.trim() || "";

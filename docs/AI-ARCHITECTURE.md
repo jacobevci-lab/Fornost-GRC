@@ -1,4 +1,4 @@
-# Fornost AI Architecture v1
+# Fornost AI Architecture v3
 
 ## Goal
 
@@ -96,6 +96,8 @@ Provider settings include:
 
 Provider secrets use the existing Fornost AES-GCM integration encryption helper and `FORNOST_SETTINGS_ENCRYPTION_KEY`.
 
+An optional encrypted fallback profile may use a different provider, endpoint and model. Chat, typed-draft generation and evaluation calls first use the primary profile, then make at most one fallback attempt. Every attempt writes a bounded `ai_provider_health` result. Redirect blocking, endpoint validation and private/loopback opt-in apply independently to both profiles.
+
 ## Prompt-injection controls
 
 The system prompt explicitly defines retrieved GRC records as untrusted data and instructs the model not to execute or follow instructions embedded in records, evidence metadata or policy text.
@@ -140,6 +142,14 @@ Migration `0033_fornost_ai_draft_publications.sql` adds idempotent publication r
 
 Migration `0034_fornost_ai_v2.sql` adds controlled remediation ticket receipts. Only an Admin can convert an approved remediation-task draft into a ticket through the configured Jira, ServiceNow, Azure DevOps, GitHub Issues or webhook integration. The exact `OLUŞTUR` confirmation and a publication note are mandatory. A reservation is persisted before the outbound request; failed or uncertain operations are not automatically retried, preventing accidental duplicate external tickets.
 
+Migration `0035_fornost_ai_governance.sql` adds:
+
+- `ai_provider_fallbacks` and `ai_provider_health`
+- `ai_use_cases` for AI purpose, owner, data classification, impact, human-decision role, controls and review dates
+- `ai_eval_cases` and `ai_eval_runs` for repeatable model quality and safety checks
+
+Evaluation responses are never stored. Only score, latency, provider/model, failure reason and SHA-256 output hash are retained. Evaluation batches are Admin-only and bounded to ten enabled cases per request.
+
 Runtime also defensively creates these tables when needed so the API remains resilient in on-prem upgrade scenarios.
 
 ## UI
@@ -162,6 +172,9 @@ The panel provides:
 - controlled remediation ticket publication through existing integrations
 - Admin-only seven-day quality, latency, approval and output metrics
 - provider model discovery and selected-model availability feedback
+- Admin-only AI use-case inventory with approval/suspension decisions
+- repeatable expected/forbidden-term model evaluations
+- encrypted primary/fallback provider chain and per-attempt health history
 
 ## V1 limitations by design
 
@@ -171,8 +184,6 @@ Not included yet:
 - generic or autonomous live-record write tools
 - vector database / full document RAG
 - PDF/document chunk embedding
-- AI Governance inventory / ISO 42001 module
-- multi-provider failover
 
 ## V2 target
 

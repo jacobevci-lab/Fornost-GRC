@@ -36,7 +36,7 @@ export async function GET(req: NextRequest) {
   const auth = await requireRole(req, ["Admin", "Editor", "Viewer"]); if (auth.response) return auth.response;
   const db = await catalogDb(); await initialize(db);
   const result = await db.prepare("SELECT catalog,value FROM grc_catalog_values ORDER BY catalog,sort_order,value").all<{catalog:string;value:string}>();
-  const catalogs = Object.fromEntries(catalogKeys.map(key => [key, []])) as CatalogMap;
+  const catalogs = Object.fromEntries(catalogKeys.map(key => [key, [] as string[]])) as unknown as CatalogMap;
   result.results.forEach(row => { if (isCatalogKey(row.catalog)) catalogs[row.catalog].push(row.value); });
   return NextResponse.json({ catalogs });
 }
