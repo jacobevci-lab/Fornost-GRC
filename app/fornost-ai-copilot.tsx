@@ -10,6 +10,7 @@ type Message = { role: "user" | "assistant"; content: string; sources?: Source[]
 type AuditLog = { id:string;actor:string;action:string;provider:string;model:string;promptHash:string|null;contextRefs:string[];status:string;latencyMs:number;detail:string;createdAt:string };
 type DraftKind = "risk-treatment" | "audit-finding" | "remediation-task";
 type AiDraft = { id:string;kind:DraftKind;title:string;payload:Record<string,string>;rationale:string;sourceRefs:string[];status:"pending"|"approved"|"rejected";provider:string;model:string;createdBy:string;reviewedBy:string|null;reviewedAt:string|null;reviewNote:string|null;createdAt:string };
+type DraftEdit = { id:string;title:string;rationale:string;payload:Record<string,string> };
 type ProviderForm = {
   provider: "openai-compatible" | "ollama";
   baseUrl: string;
@@ -34,6 +35,12 @@ const defaults: ProviderForm = {
   hasSecret: false,
 };
 
+const draftFieldLabels: Record<string,string> = {
+  title:"Başlık",riskStatement:"Risk ifadesi",proposedTreatment:"Önerilen tedavi",owner:"Sorumlu",dueDate:"Hedef tarih",
+  priority:"Öncelik",condition:"Mevcut durum",criteria:"Kriter",impact:"Etki",recommendation:"Öneri",severity:"Önem seviyesi",
+  description:"Açıklama",acceptanceCriteria:"Kabul kriteri",
+};
+
 export default function FornostAiCopilot() {
   const [user, setUser] = useState<User | null>(null);
   const [status, setStatus] = useState<Status | null>(null);
@@ -51,6 +58,8 @@ export default function FornostAiCopilot() {
   const [draftKind, setDraftKind] = useState<DraftKind>("risk-treatment");
   const [draftInstruction, setDraftInstruction] = useState("");
   const [draftBusy, setDraftBusy] = useState(false);
+  const [draftEdit, setDraftEdit] = useState<DraftEdit | null>(null);
+  const [reviewNotes, setReviewNotes] = useState<Record<string,string>>({});
 
   const refreshStatus = useCallback(async () => {
     const response = await fetch(withBasePath("/api/ai/status"), { cache: "no-store" }).catch(() => null);
@@ -184,14 +193,29 @@ export default function FornostAiCopilot() {
     setDraftBusy(false);
   }
 
-  async function reviewDraft(id: string, status: "approved" | "rejected") {
-    if (user?.role !== "Admin" || draftBusy) return;
+  async function saveDraftEdit() {
+    if (!draftEdit || draftBusy) return;
     setDraftBusy(true); setNotice("");
     const response = await fetch(withBasePath("/api/ai/drafts"), {
-      method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ id, status }),
+      method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify(draftEdit),
+    });
+    const body = await response.json().catch(() => ({}));
+    if (response.ok) { setDraftEdit(null); setNotice("Taslak güncellendi ve revizyon geçmişine kaydedildi."); }
+    else setNotice(String(body.error || "Taslak güncellenemedi."));
+    await loadDrafts(); setDraftBusy(false);
+  }
+
+  async function reviewDraft(id: string, status: "approved" | "rejected") {
+    if (user?.role !== "Admin" || draftBusy) return;
+    const note = (reviewNotes[id] || "").trim();
+    if (note.length < 5) { setNotice("Onay veya ret için en az 5 karakterlik inceleme notu yazın."); return; }
+    setDraftBusy(true); setNotice("");
+    const response = await fetch(withBasePath("/api/ai/drafts"), {
+      method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ id, status, note }),
     });
     const body = await response.json().catch(() => ({}));
     setNotice(response.ok ? `Taslak ${status === "approved" ? "onaylandı" : "reddedildi"}; canlı GRC kaydı değiştirilmedi.` : String(body.error || "Taslak kararı kaydedilemedi."));
+    if (response.ok) setReviewNotes((notes) => { const next={...notes}; delete next[id]; return next; });
     await loadDrafts(); setDraftBusy(false);
   }
 
@@ -242,11 +266,17 @@ export default function FornostAiCopilot() {
         {!drafts.length && <div className="fornost-ai-audit-empty">Henüz AI taslağı yok.</div>}
         <div className="fornost-ai-draft-list">{drafts.map((draft) => <article key={draft.id}>
           <header><div><small>{draft.kind}</small><b>{draft.title}</b></div><span className={draft.status}>{draft.status}</span></header>
-          <p>{draft.rationale}</p>
-          <dl>{Object.entries(draft.payload).map(([key,value]) => <div key={key}><dt>{key}</dt><dd>{value}</dd></div>)}</dl>
+          {draftEdit?.id === draft.id ? <div className="fornost-ai-draft-editor">
+            <label><span>Başlık</span><input maxLength={180} value={draftEdit.title} onChange={(e) => setDraftEdit((value) => value ? {...value,title:e.target.value} : value)}/></label>
+            <label><span>Gerekçe</span><textarea rows={3} maxLength={1200} value={draftEdit.rationale} onChange={(e) => setDraftEdit((value) => value ? {...value,rationale:e.target.value} : value)}/></label>
+            {Object.entries(draftEdit.payload).map(([key,value]) => <label key={key}><span>{draftFieldLabels[key] || key}</span><textarea rows={key === "description" || key === "recommendation" || key === "acceptanceCriteria" ? 3 : 1} value={value} onChange={(e) => setDraftEdit((current) => current ? {...current,payload:{...current.payload,[key]:e.target.value}} : current)}/></label>)}
+            <div><button type="button" className="reject" onClick={() => setDraftEdit(null)}>Vazgeç</button><button type="button" onClick={() => void saveDraftEdit()} disabled={draftBusy}>Değişiklikleri Kaydet</button></div>
+          </div> : <><p>{draft.rationale}</p><dl>{Object.entries(draft.payload).map(([key,value]) => <div key={key}><dt>{draftFieldLabels[key] || key}</dt><dd>{value}</dd></div>)}</dl></>}
           {!!draft.sourceRefs.length && <footer>{draft.sourceRefs.slice(0,8).map((ref) => <span key={ref}>{ref}</span>)}</footer>}
           <small>{draft.createdBy} · {new Date(draft.createdAt).toLocaleString("tr-TR")}</small>
-          {draft.status === "pending" && user.role === "Admin" && <div className="fornost-ai-draft-actions"><button className="reject" onClick={() => void reviewDraft(draft.id,"rejected")}>Reddet</button><button onClick={() => void reviewDraft(draft.id,"approved")}>Taslağı Onayla</button></div>}
+          {draft.reviewedBy && <div className="fornost-ai-review-result"><b>{draft.reviewedBy}</b><span>{draft.reviewNote}</span></div>}
+          {draft.status === "pending" && draftEdit?.id !== draft.id && user.role !== "Viewer" && (user.role === "Admin" || draft.createdBy === user.email) && <button type="button" className="fornost-ai-edit-button" onClick={() => setDraftEdit({id:draft.id,title:draft.title,rationale:draft.rationale,payload:{...draft.payload}})}>Taslağı Düzenle</button>}
+          {draft.status === "pending" && user.role === "Admin" && draftEdit?.id !== draft.id && <div className="fornost-ai-review-box"><textarea rows={2} maxLength={800} value={reviewNotes[draft.id] || ""} onChange={(e) => setReviewNotes((notes) => ({...notes,[draft.id]:e.target.value}))} placeholder="Zorunlu inceleme notu…"/><div className="fornost-ai-draft-actions"><button type="button" className="reject" disabled={draftBusy || (reviewNotes[draft.id] || "").trim().length < 5} onClick={() => void reviewDraft(draft.id,"rejected")}>Reddet</button><button type="button" disabled={draftBusy || (reviewNotes[draft.id] || "").trim().length < 5} onClick={() => void reviewDraft(draft.id,"approved")}>Taslağı Onayla</button></div></div>}
         </article>)}</div>
       </div> : activeTab === "audit" ? <div className="fornost-ai-audit">
         <div className="fornost-ai-security-note"><b>AI kullanım denetim izi</b><p>Ham prompt ve model cevabı saklanmaz. Aktör, model, işlem sonucu, gecikme, prompt hash ve kullanılan Fornost kaynak kimlikleri tutulur.</p></div>

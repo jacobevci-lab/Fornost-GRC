@@ -17,6 +17,11 @@ export const aiActionDrafts = sqliteTable("ai_action_drafts", {
   reviewNote: text("review_note"), createdAt: text("created_at").notNull(), updatedAt: text("updated_at").notNull(),
 }, (table) => [index("ai_action_drafts_status_idx").on(table.status, table.createdAt), index("ai_action_drafts_creator_idx").on(table.createdBy, table.createdAt)]);
 
+export const aiDraftEvents = sqliteTable("ai_draft_events", {
+  id: text("id").primaryKey(), draftId: text("draft_id").notNull(), action: text("action").notNull(),
+  actor: text("actor").notNull(), detail: text("detail").notNull(), createdAt: text("created_at").notNull(),
+}, (table) => [index("ai_draft_events_draft_idx").on(table.draftId, table.createdAt)]);
+
 export const grcRecords = sqliteTable("grc_records", {
   id: text("id").primaryKey(),
   module: text("module").notNull(),

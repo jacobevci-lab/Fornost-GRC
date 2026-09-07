@@ -62,6 +62,15 @@ const draftsSql = `CREATE TABLE IF NOT EXISTS ai_action_drafts (
 )`;
 const draftsStatusIndexSql = "CREATE INDEX IF NOT EXISTS ai_action_drafts_status_idx ON ai_action_drafts(status,created_at)";
 const draftsCreatorIndexSql = "CREATE INDEX IF NOT EXISTS ai_action_drafts_creator_idx ON ai_action_drafts(created_by,created_at)";
+const draftEventsSql = `CREATE TABLE IF NOT EXISTS ai_draft_events (
+  id TEXT PRIMARY KEY,
+  draft_id TEXT NOT NULL,
+  action TEXT NOT NULL,
+  actor TEXT NOT NULL,
+  detail TEXT NOT NULL,
+  created_at TEXT NOT NULL
+)`;
+const draftEventsIndexSql = "CREATE INDEX IF NOT EXISTS ai_draft_events_draft_idx ON ai_draft_events(draft_id,created_at)";
 
 let schemaReady: Promise<void> | null = null;
 
@@ -75,6 +84,8 @@ export async function aiRuntime() {
       runtime.DB.prepare(draftsSql),
       runtime.DB.prepare(draftsStatusIndexSql),
       runtime.DB.prepare(draftsCreatorIndexSql),
+      runtime.DB.prepare(draftEventsSql),
+      runtime.DB.prepare(draftEventsIndexSql),
     ]).then(() => undefined).catch((error) => {
       schemaReady = null;
       throw error;

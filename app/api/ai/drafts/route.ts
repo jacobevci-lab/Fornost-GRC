@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireRole } from "../../auth/security";
 import { decryptSecret } from "../../integrations/security";
 import { buildGrcContext } from "@/app/ai/context";
-import { draftSchemaInstruction, isAiDraftKind, parseAiDraftResponse, type AiDraftStatus } from "@/app/ai/drafts";
+import { draftSchemaInstruction, isAiDraftKind, parseAiDraftResponse, validateAiDraftInput, type AiDraftStatus } from "@/app/ai/drafts";
 import { callAiProvider } from "@/app/ai/provider";
 import { boundedNumber, cleanAiText, envFlag, redactSensitiveText, safeAiEndpoint } from "@/app/ai/security";
 import { aiRuntime, getAiSettings, recordAiEvent } from "@/app/ai/storage";
@@ -32,6 +32,11 @@ function mapDraft(row: Record<string, unknown>) {
     provider: row.provider, model: row.model, createdBy: row.created_by, reviewedBy: row.reviewed_by,
     reviewedAt: row.reviewed_at, reviewNote: row.review_note, createdAt: row.created_at, updatedAt: row.updated_at,
   };
+}
+
+async function recordDraftEvent(db: D1Database, draftId: string, action: string, actor: string, detail: string) {
+  await db.prepare("INSERT INTO ai_draft_events(id,draft_id,action,actor,detail,created_at) VALUES(?,?,?,?,?,?)")
+    .bind(crypto.randomUUID(), draftId, action, actor, cleanAiText(detail, 500), new Date().toISOString()).run();
 }
 
 async function hash(value: string) {
@@ -92,6 +97,7 @@ export async function POST(req: NextRequest) {
     const draft = parseAiDraftResponse(body.kind, response), id = `AID-${crypto.randomUUID()}`, now = new Date().toISOString();
     await env.DB.prepare(`INSERT INTO ai_action_drafts(id,kind,title,payload_json,rationale,source_refs_json,status,provider,model,prompt_hash,created_by,created_at,updated_at)
       VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)`).bind(id, body.kind, draft.title, JSON.stringify(draft.payload), draft.rationale, JSON.stringify(context.sources.map((source) => source.id)), "pending", row.provider, row.model, promptHash, access.actor.email, now, now).run();
+    await recordDraftEvent(env.DB, id, "created", access.actor.email, "AI-generated draft created for human review");
     await recordAiEvent(env.DB, { actor: access.actor.email, action: "draft-create", provider: row.provider, model: row.model, promptHash, contextRefs: context.sources.map((source) => source.id), status: "success", latencyMs: Date.now() - started, detail: `${body.kind} draft ${id} created for human review` });
     const stored = await env.DB.prepare("SELECT * FROM ai_action_drafts WHERE id=?").bind(id).first<Record<string, unknown>>();
     return json({ draft: mapDraft(stored || {}) }, 201);
@@ -102,13 +108,39 @@ export async function POST(req: NextRequest) {
   }
 }
 
+export async function PUT(req: NextRequest) {
+  const access = await requireRole(req, ["Admin", "Editor"]);
+  if (access.response) return access.response;
+  if (Number(req.headers.get("content-length") || 0) > 16_384) return json({ error: "Taslak güncellemesi izin verilen boyutu aşıyor." }, 413);
+  const body = await req.json().catch(() => ({})), id = cleanAiText(body.id, 100);
+  if (!id) return json({ error: "Geçersiz taslak kimliği." }, 400);
+  const env = await aiRuntime();
+  const existing = await env.DB.prepare("SELECT * FROM ai_action_drafts WHERE id=?").bind(id).first<Record<string, unknown>>();
+  if (!existing) return json({ error: "AI taslağı bulunamadı." }, 404);
+  if (existing.status !== "pending") return json({ error: "Yalnız bekleyen taslaklar düzenlenebilir." }, 409);
+  if (access.actor.role !== "Admin" && existing.created_by !== access.actor.email) return json({ error: "Yalnız kendi oluşturduğunuz taslağı düzenleyebilirsiniz." }, 403);
+  if (!isAiDraftKind(existing.kind)) return json({ error: "Taslak türü desteklenmiyor." }, 409);
+  let draft: ReturnType<typeof validateAiDraftInput>;
+  try { draft = validateAiDraftInput(existing.kind, body); }
+  catch (error) { return json({ error: error instanceof Error ? error.message : "Taslak doğrulanamadı." }, 400); }
+  const now = new Date().toISOString();
+  const mutation = await env.DB.prepare("UPDATE ai_action_drafts SET title=?,payload_json=?,rationale=?,updated_at=? WHERE id=? AND status='pending'")
+    .bind(draft.title, JSON.stringify(draft.payload), draft.rationale, now, id).run();
+  if (Number(mutation.meta.changes || 0) !== 1) return json({ error: "Taslak inceleme sırasında değişti." }, 409);
+  await recordDraftEvent(env.DB, id, "edited", access.actor.email, "Structured draft fields updated by a human");
+  await recordAiEvent(env.DB, { actor: access.actor.email, action: "draft-edit", provider: String(existing.provider || ""), model: String(existing.model || ""), status: "success", detail: `${id} edited before review` });
+  const updated = await env.DB.prepare("SELECT * FROM ai_action_drafts WHERE id=?").bind(id).first<Record<string, unknown>>();
+  return json({ draft: mapDraft(updated || {}) });
+}
+
 export async function PATCH(req: NextRequest) {
   const access = await requireRole(req, ["Admin"]);
   if (access.response) return access.response;
   const body = await req.json().catch(() => ({}));
   const id = cleanAiText(body.id, 100), decision = cleanAiText(body.status, 20) as AiDraftStatus;
-  const note = cleanAiText(body.note, 800);
+  const note = redactSensitiveText(body.note, 800);
   if (!id || !["approved", "rejected"].includes(decision)) return json({ error: "Geçersiz taslak kararı." }, 400);
+  if (note.length < 5) return json({ error: "Onay veya ret için inceleme notu gereklidir." }, 400);
   const env = await aiRuntime();
   const existing = await env.DB.prepare("SELECT * FROM ai_action_drafts WHERE id=?").bind(id).first<Record<string, unknown>>();
   if (!existing) return json({ error: "AI taslağı bulunamadı." }, 404);
@@ -117,6 +149,7 @@ export async function PATCH(req: NextRequest) {
   const mutation = await env.DB.prepare("UPDATE ai_action_drafts SET status=?,reviewed_by=?,reviewed_at=?,review_note=?,updated_at=? WHERE id=? AND status='pending'")
     .bind(decision, access.actor.email, now, note || null, now, id).run();
   if (Number(mutation.meta.changes || 0) !== 1) return json({ error: "Taslak başka bir kullanıcı tarafından incelendi." }, 409);
+  await recordDraftEvent(env.DB, id, decision, access.actor.email, note);
   await recordAiEvent(env.DB, { actor: access.actor.email, action: `draft-${decision}`, provider: String(existing.provider || ""), model: String(existing.model || ""), status: "success", detail: `${id} marked ${decision}; no live GRC record was mutated` });
   const updated = await env.DB.prepare("SELECT * FROM ai_action_drafts WHERE id=?").bind(id).first<Record<string, unknown>>();
   return json({ draft: mapDraft(updated || {}) });

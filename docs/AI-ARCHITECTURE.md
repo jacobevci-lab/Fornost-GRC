@@ -134,7 +134,7 @@ Migration `0030_fornost_ai_v1.sql` creates:
 - `ai_provider_settings`
 - `ai_activity_logs`
 
-Migration `0031_fornost_ai_drafts.sql` adds `ai_action_drafts`. Drafts are schema-validated, retain only bounded structured output and source references, and move from `pending` to `approved` or `rejected` through an Admin decision. Approval does not publish or mutate a live GRC record in this slice.
+Migration `0031_fornost_ai_drafts.sql` adds `ai_action_drafts`. Migration `0032_fornost_ai_draft_events.sql` adds the immutable draft revision trail. Drafts are schema-validated, retain only bounded structured output and source references, and move from `pending` to `approved` or `rejected` through an Admin decision. Editors may revise only their own pending drafts; Admins may revise any pending draft. Every edit and decision is separately audited. Approval requires a human review note and does not publish or mutate a live GRC record in this slice.
 
 Runtime also defensively creates these tables when needed so the API remains resilient in on-prem upgrade scenarios.
 
@@ -152,6 +152,7 @@ The panel provides:
 - explicit read-only mode indicator
 - typed risk treatment, audit finding and remediation task drafts
 - Admin-only approval/rejection queue with audit events
+- schema-validated human editing and mandatory review notes
 
 ## V1 limitations by design
 

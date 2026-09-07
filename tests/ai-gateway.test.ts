@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { cleanAiText, isForbiddenAiHost, isLoopbackHost, isPrivateHost, redactSensitiveText, safeAiEndpoint, sanitizeAiRecord, sanitizeHistory } from "../app/ai/security";
 import { inferReadModules } from "../app/ai/context";
-import { draftSchemaInstruction, parseAiDraftResponse } from "../app/ai/drafts";
+import { draftSchemaInstruction, parseAiDraftResponse, validateAiDraftInput } from "../app/ai/drafts";
 
 test("AI endpoint policy permits public HTTPS and rejects public HTTP", () => {
   assert.equal(safeAiEndpoint("https://ai.example.com/v1", false, false), "https://ai.example.com/v1");
@@ -97,4 +97,13 @@ test("AI draft parser rejects missing fields and malformed dates", () => {
   assert.throws(() => parseAiDraftResponse("remediation-task", JSON.stringify({
     title: "Görev", rationale: "Gerekli", payload: { title: "Görev", description: "Açıklama", owner: "BT", dueDate: "30.10.2026", priority: "Yüksek", acceptanceCriteria: "Test başarılı" },
   })), /YYYY-AA-GG/);
+});
+
+test("human draft edits use the same strict schema and redact submitted secrets", () => {
+  const parsed = validateAiDraftInput("remediation-task", {
+    title: "Token kontrolü", rationale: "api_key=super-secret-value-123456789",
+    payload: { title: "Anahtar rotasyonu", description: "Bearer abcdefghijklmnopqrstuvwxyz", owner: "BT", dueDate: "2026-11-01", priority: "Yüksek", acceptanceCriteria: "Eski anahtar geçersiz" },
+  });
+  assert.match(parsed.rationale, /\[REDACTED\]/);
+  assert.match(parsed.payload.description, /\[REDACTED\]/);
 });
