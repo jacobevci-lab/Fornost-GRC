@@ -97,6 +97,9 @@ test("AI draft parser rejects missing fields and malformed dates", () => {
   assert.throws(() => parseAiDraftResponse("remediation-task", JSON.stringify({
     title: "Görev", rationale: "Gerekli", payload: { title: "Görev", description: "Açıklama", owner: "BT", dueDate: "30.10.2026", priority: "Yüksek", acceptanceCriteria: "Test başarılı" },
   })), /YYYY-AA-GG/);
+  assert.throws(() => parseAiDraftResponse("remediation-task", JSON.stringify({
+    title: "Görev", rationale: "Gerekli", payload: { title: "Görev", description: "Açıklama", owner: "BT", dueDate: "2026-02-30", priority: "Yüksek", acceptanceCriteria: "Test başarılı" },
+  })), /YYYY-AA-GG/);
 });
 
 test("human draft edits use the same strict schema and redact submitted secrets", () => {

@@ -136,6 +136,8 @@ Migration `0030_fornost_ai_v1.sql` creates:
 
 Migration `0031_fornost_ai_drafts.sql` adds `ai_action_drafts`. Migration `0032_fornost_ai_draft_events.sql` adds the immutable draft revision trail. Drafts are schema-validated, retain only bounded structured output and source references, and move from `pending` to `approved` or `rejected` through an Admin decision. Editors may revise only their own pending drafts; Admins may revise any pending draft. Every edit and decision is separately audited. Approval requires a human review note and does not publish or mutate a live GRC record in this slice.
 
+Migration `0033_fornost_ai_draft_publications.sql` adds idempotent publication receipts. An Admin may publish an approved risk-treatment draft only to an explicitly selected Risk Assessment record, or an approved audit-finding draft only to an explicitly selected Audit Management requirement. Publication requires a separate note and the exact `YAYINLA` confirmation. Optimistic locking protects concurrent record changes and the unique draft receipt prevents replay. Remediation-task drafts remain non-publishable until the Jira/task queue adapter is available.
+
 Runtime also defensively creates these tables when needed so the API remains resilient in on-prem upgrade scenarios.
 
 ## UI
@@ -153,13 +155,15 @@ The panel provides:
 - typed risk treatment, audit finding and remediation task drafts
 - Admin-only approval/rejection queue with audit events
 - schema-validated human editing and mandatory review notes
+- explicit target selection and second-confirmation publication for risk treatments and audit findings
+- immutable publication receipts and replay protection
 
 ## V1 limitations by design
 
 Not included yet:
 
 - autonomous agents
-- live-record write tools
+- generic or autonomous live-record write tools
 - Jira/task creation from AI
 - vector database / full document RAG
 - PDF/document chunk embedding

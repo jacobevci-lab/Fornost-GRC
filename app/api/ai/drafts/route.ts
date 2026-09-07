@@ -31,6 +31,7 @@ function mapDraft(row: Record<string, unknown>) {
     rationale: row.rationale, sourceRefs: parseArray(row.source_refs_json), status: row.status,
     provider: row.provider, model: row.model, createdBy: row.created_by, reviewedBy: row.reviewed_by,
     reviewedAt: row.reviewed_at, reviewNote: row.review_note, createdAt: row.created_at, updatedAt: row.updated_at,
+    publication: row.published_record_id ? { recordId: row.published_record_id, module: row.published_module, note: row.publication_note, publishedBy: row.published_by, publishedAt: row.published_at } : null,
   };
 }
 
@@ -55,7 +56,8 @@ export async function GET(req: NextRequest) {
   const access = await requireRole(req, ["Admin", "Editor", "Viewer"]);
   if (access.response) return access.response;
   const env = await aiRuntime();
-  const result = await env.DB.prepare(`SELECT * FROM ai_action_drafts ORDER BY created_at DESC LIMIT 100`).all<Record<string, unknown>>();
+  const result = await env.DB.prepare(`SELECT d.*,p.record_id AS published_record_id,p.module AS published_module,p.publication_note,p.published_by,p.published_at
+    FROM ai_action_drafts d LEFT JOIN ai_draft_publications p ON p.draft_id=d.id ORDER BY d.created_at DESC LIMIT 100`).all<Record<string, unknown>>();
   return json({ drafts: (result.results || []).map(mapDraft) });
 }
 

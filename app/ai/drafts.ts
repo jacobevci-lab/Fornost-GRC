@@ -14,6 +14,12 @@ export function isAiDraftKind(value: unknown): value is AiDraftKind {
   return typeof value === "string" && AI_DRAFT_KINDS.includes(value as AiDraftKind);
 }
 
+function validIsoDate(value: string) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const [year,month,day]=value.split("-").map(Number), date=new Date(Date.UTC(year,month-1,day));
+  return date.getUTCFullYear()===year && date.getUTCMonth()===month-1 && date.getUTCDate()===day;
+}
+
 function extractJson(value: string) {
   const fenced = value.match(/```(?:json)?\s*([\s\S]*?)```/i)?.[1];
   const candidate = fenced || value.slice(value.indexOf("{"), value.lastIndexOf("}") + 1);
@@ -39,7 +45,7 @@ export function validateAiDraftInput(kind: AiDraftKind, input: unknown) {
     if (!value) throw new Error(`AI taslağında zorunlu alan eksik: ${field}`);
     payload[field] = value;
   }
-  if (payload.dueDate && !/^\d{4}-\d{2}-\d{2}$/.test(payload.dueDate)) {
+  if (payload.dueDate && !validIsoDate(payload.dueDate)) {
     throw new Error("AI taslağındaki hedef tarih YYYY-AA-GG biçiminde olmalıdır.");
   }
   const title = redactSensitiveText(parsed.title || payload.title, 180);

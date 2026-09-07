@@ -9,8 +9,9 @@ type Source = { id: string; module: string; title: string };
 type Message = { role: "user" | "assistant"; content: string; sources?: Source[] };
 type AuditLog = { id:string;actor:string;action:string;provider:string;model:string;promptHash:string|null;contextRefs:string[];status:string;latencyMs:number;detail:string;createdAt:string };
 type DraftKind = "risk-treatment" | "audit-finding" | "remediation-task";
-type AiDraft = { id:string;kind:DraftKind;title:string;payload:Record<string,string>;rationale:string;sourceRefs:string[];status:"pending"|"approved"|"rejected";provider:string;model:string;createdBy:string;reviewedBy:string|null;reviewedAt:string|null;reviewNote:string|null;createdAt:string };
+type AiDraft = { id:string;kind:DraftKind;title:string;payload:Record<string,string>;rationale:string;sourceRefs:string[];status:"pending"|"approved"|"rejected";provider:string;model:string;createdBy:string;reviewedBy:string|null;reviewedAt:string|null;reviewNote:string|null;createdAt:string;publication:{recordId:string;module:string;note:string;publishedBy:string;publishedAt:string}|null };
 type DraftEdit = { id:string;title:string;rationale:string;payload:Record<string,string> };
+type PublishTarget = { id:string;module:string;title:string };
 type ProviderForm = {
   provider: "openai-compatible" | "ollama";
   baseUrl: string;
@@ -60,6 +61,11 @@ export default function FornostAiCopilot() {
   const [draftBusy, setDraftBusy] = useState(false);
   const [draftEdit, setDraftEdit] = useState<DraftEdit | null>(null);
   const [reviewNotes, setReviewNotes] = useState<Record<string,string>>({});
+  const [publishDraftId, setPublishDraftId] = useState<string|null>(null);
+  const [publishTargets, setPublishTargets] = useState<PublishTarget[]>([]);
+  const [publishTargetId, setPublishTargetId] = useState("");
+  const [publishNote, setPublishNote] = useState("");
+  const [publishConfirmation, setPublishConfirmation] = useState("");
 
   const refreshStatus = useCallback(async () => {
     const response = await fetch(withBasePath("/api/ai/status"), { cache: "no-store" }).catch(() => null);
@@ -219,6 +225,33 @@ export default function FornostAiCopilot() {
     await loadDrafts(); setDraftBusy(false);
   }
 
+  async function preparePublication(draft: AiDraft) {
+    if (user?.role !== "Admin" || draft.publication || draft.kind === "remediation-task") return;
+    setDraftBusy(true); setNotice("");
+    const response = await fetch(withBasePath(`/api/ai/drafts/targets?kind=${encodeURIComponent(draft.kind)}`), { cache:"no-store" });
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok) setNotice(String(body.error || "Hedef kayıtlar yüklenemedi."));
+    else {
+      const targets = Array.isArray(body.targets) ? body.targets as PublishTarget[] : [];
+      setPublishTargets(targets); setPublishTargetId(targets[0]?.id || ""); setPublishDraftId(draft.id);
+      setPublishNote(""); setPublishConfirmation("");
+    }
+    setDraftBusy(false);
+  }
+
+  async function publishDraft() {
+    if (!publishDraftId || !publishTargetId || publishNote.trim().length < 5 || publishConfirmation !== "YAYINLA" || draftBusy) return;
+    setDraftBusy(true); setNotice("");
+    const response = await fetch(withBasePath("/api/ai/drafts/publish"), {
+      method:"POST", headers:{"content-type":"application/json"},
+      body:JSON.stringify({id:publishDraftId,targetRecordId:publishTargetId,note:publishNote.trim(),confirmation:publishConfirmation}),
+    });
+    const body = await response.json().catch(() => ({}));
+    if (response.ok) { setNotice(`Taslak ${body.publication?.module || "GRC"} kaydına yayınlandı.`); setPublishDraftId(null); await loadDrafts(); }
+    else setNotice(String(body.error || "Taslak yayınlanamadı."));
+    setDraftBusy(false);
+  }
+
   if (!user) return null;
   const aiReady = status?.enabled === true;
   const activeTab = user.role !== "Admin" && (tab === "settings" || tab === "audit") ? "chat" : tab;
@@ -275,8 +308,12 @@ export default function FornostAiCopilot() {
           {!!draft.sourceRefs.length && <footer>{draft.sourceRefs.slice(0,8).map((ref) => <span key={ref}>{ref}</span>)}</footer>}
           <small>{draft.createdBy} · {new Date(draft.createdAt).toLocaleString("tr-TR")}</small>
           {draft.reviewedBy && <div className="fornost-ai-review-result"><b>{draft.reviewedBy}</b><span>{draft.reviewNote}</span></div>}
+          {draft.publication && <div className="fornost-ai-publication-result"><b>Yayınlandı · {draft.publication.module}</b><span>{draft.publication.recordId}</span><small>{draft.publication.publishedBy} · {new Date(draft.publication.publishedAt).toLocaleString("tr-TR")}</small><p>{draft.publication.note}</p></div>}
           {draft.status === "pending" && draftEdit?.id !== draft.id && user.role !== "Viewer" && (user.role === "Admin" || draft.createdBy === user.email) && <button type="button" className="fornost-ai-edit-button" onClick={() => setDraftEdit({id:draft.id,title:draft.title,rationale:draft.rationale,payload:{...draft.payload}})}>Taslağı Düzenle</button>}
           {draft.status === "pending" && user.role === "Admin" && draftEdit?.id !== draft.id && <div className="fornost-ai-review-box"><textarea rows={2} maxLength={800} value={reviewNotes[draft.id] || ""} onChange={(e) => setReviewNotes((notes) => ({...notes,[draft.id]:e.target.value}))} placeholder="Zorunlu inceleme notu…"/><div className="fornost-ai-draft-actions"><button type="button" className="reject" disabled={draftBusy || (reviewNotes[draft.id] || "").trim().length < 5} onClick={() => void reviewDraft(draft.id,"rejected")}>Reddet</button><button type="button" disabled={draftBusy || (reviewNotes[draft.id] || "").trim().length < 5} onClick={() => void reviewDraft(draft.id,"approved")}>Taslağı Onayla</button></div></div>}
+          {draft.status === "approved" && !draft.publication && user.role === "Admin" && draft.kind !== "remediation-task" && publishDraftId !== draft.id && <button type="button" className="fornost-ai-publish-button" disabled={draftBusy} onClick={() => void preparePublication(draft)}>Hedef Kayda Yayınla</button>}
+          {draft.status === "approved" && !draft.publication && draft.kind === "remediation-task" && <div className="fornost-ai-publish-wait">Bu taslak Jira/görev kuyruğu entegrasyonu hazır olduğunda yayınlanabilir.</div>}
+          {publishDraftId === draft.id && <div className="fornost-ai-publish-box"><b>Kontrollü yayın</b><label><span>Hedef kayıt</span><select value={publishTargetId} onChange={(e) => setPublishTargetId(e.target.value)}>{publishTargets.map((target) => <option key={target.id} value={target.id}>{target.id} · {target.title}</option>)}</select></label><label><span>Yayın açıklaması</span><textarea rows={2} maxLength={800} value={publishNote} onChange={(e) => setPublishNote(e.target.value)} placeholder="Bu taslağın neden bu kayda uygulandığını açıklayın…"/></label><label><span>Onay metni</span><input value={publishConfirmation} onChange={(e) => setPublishConfirmation(e.target.value)} placeholder="YAYINLA"/></label><small>Bu işlem seçilen canlı GRC kaydını günceller ve geri izlenebilir yayın kaydı oluşturur.</small><div><button type="button" className="reject" onClick={() => setPublishDraftId(null)}>Vazgeç</button><button type="button" disabled={draftBusy || !publishTargetId || publishNote.trim().length < 5 || publishConfirmation !== "YAYINLA"} onClick={() => void publishDraft()}>Canlı Kayda Uygula</button></div></div>}
         </article>)}</div>
       </div> : activeTab === "audit" ? <div className="fornost-ai-audit">
         <div className="fornost-ai-security-note"><b>AI kullanım denetim izi</b><p>Ham prompt ve model cevabı saklanmaz. Aktör, model, işlem sonucu, gecikme, prompt hash ve kullanılan Fornost kaynak kimlikleri tutulur.</p></div>

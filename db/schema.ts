@@ -22,6 +22,12 @@ export const aiDraftEvents = sqliteTable("ai_draft_events", {
   actor: text("actor").notNull(), detail: text("detail").notNull(), createdAt: text("created_at").notNull(),
 }, (table) => [index("ai_draft_events_draft_idx").on(table.draftId, table.createdAt)]);
 
+export const aiDraftPublications = sqliteTable("ai_draft_publications", {
+  id: text("id").primaryKey(), draftId: text("draft_id").notNull().unique(), recordId: text("record_id").notNull(),
+  module: text("module").notNull(), publicationNote: text("publication_note").notNull(),
+  publishedBy: text("published_by").notNull(), publishedAt: text("published_at").notNull(),
+}, (table) => [index("ai_draft_publications_record_idx").on(table.recordId, table.publishedAt)]);
+
 export const grcRecords = sqliteTable("grc_records", {
   id: text("id").primaryKey(),
   module: text("module").notNull(),
