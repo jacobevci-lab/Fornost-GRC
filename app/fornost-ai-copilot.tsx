@@ -8,6 +8,8 @@ type Status = { configured: boolean; enabled: boolean; provider: string | null; 
 type Source = { id: string; module: string; title: string };
 type Message = { role: "user" | "assistant"; content: string; sources?: Source[] };
 type AuditLog = { id:string;actor:string;action:string;provider:string;model:string;promptHash:string|null;contextRefs:string[];status:string;latencyMs:number;detail:string;createdAt:string };
+type DraftKind = "risk-treatment" | "audit-finding" | "remediation-task";
+type AiDraft = { id:string;kind:DraftKind;title:string;payload:Record<string,string>;rationale:string;sourceRefs:string[];status:"pending"|"approved"|"rejected";provider:string;model:string;createdBy:string;reviewedBy:string|null;reviewedAt:string|null;reviewNote:string|null;createdAt:string };
 type ProviderForm = {
   provider: "openai-compatible" | "ollama";
   baseUrl: string;
@@ -36,7 +38,7 @@ export default function FornostAiCopilot() {
   const [user, setUser] = useState<User | null>(null);
   const [status, setStatus] = useState<Status | null>(null);
   const [open, setOpen] = useState(false);
-  const [tab, setTab] = useState<"chat" | "settings" | "audit">("chat");
+  const [tab, setTab] = useState<"chat" | "drafts" | "settings" | "audit">("chat");
   const [messages, setMessages] = useState<Message[]>([]);
   const [question, setQuestion] = useState("");
   const [busy, setBusy] = useState(false);
@@ -45,6 +47,10 @@ export default function FornostAiCopilot() {
   const [providerLoaded, setProviderLoaded] = useState(false);
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   const [auditBusy, setAuditBusy] = useState(false);
+  const [drafts, setDrafts] = useState<AiDraft[]>([]);
+  const [draftKind, setDraftKind] = useState<DraftKind>("risk-treatment");
+  const [draftInstruction, setDraftInstruction] = useState("");
+  const [draftBusy, setDraftBusy] = useState(false);
 
   const refreshStatus = useCallback(async () => {
     const response = await fetch(withBasePath("/api/ai/status"), { cache: "no-store" }).catch(() => null);
@@ -86,6 +92,13 @@ export default function FornostAiCopilot() {
     }
     setAuditBusy(false);
   }, [user?.role]);
+
+  const loadDrafts = useCallback(async () => {
+    const response = await fetch(withBasePath("/api/ai/drafts"), { cache: "no-store" }).catch(() => null);
+    if (!response?.ok) return;
+    const body = await response.json().catch(() => ({}));
+    setDrafts(Array.isArray(body.drafts) ? body.drafts : []);
+  }, []);
 
   useEffect(() => {
     const first = window.setTimeout(() => { void refreshIdentity(); }, 0);
@@ -157,9 +170,34 @@ export default function FornostAiCopilot() {
     setBusy(false);
   }
 
+  async function createDraft(e: FormEvent) {
+    e.preventDefault();
+    if (draftBusy || !aiReady || user?.role === "Viewer" || draftInstruction.trim().length < 4) return;
+    setDraftBusy(true); setNotice("");
+    const response = await fetch(withBasePath("/api/ai/drafts"), {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ kind: draftKind, instruction: draftInstruction.trim() }),
+    }).catch(() => null);
+    const body = await response?.json().catch(() => ({})) || {};
+    if (!response?.ok) setNotice(String(body.error || "AI taslağı üretilemedi."));
+    else { setDraftInstruction(""); setNotice("AI taslağı insan incelemesine gönderildi."); await loadDrafts(); }
+    setDraftBusy(false);
+  }
+
+  async function reviewDraft(id: string, status: "approved" | "rejected") {
+    if (user?.role !== "Admin" || draftBusy) return;
+    setDraftBusy(true); setNotice("");
+    const response = await fetch(withBasePath("/api/ai/drafts"), {
+      method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ id, status }),
+    });
+    const body = await response.json().catch(() => ({}));
+    setNotice(response.ok ? `Taslak ${status === "approved" ? "onaylandı" : "reddedildi"}; canlı GRC kaydı değiştirilmedi.` : String(body.error || "Taslak kararı kaydedilemedi."));
+    await loadDrafts(); setDraftBusy(false);
+  }
+
   if (!user) return null;
   const aiReady = status?.enabled === true;
-  const activeTab = user.role === "Admin" ? tab : "chat";
+  const activeTab = user.role !== "Admin" && (tab === "settings" || tab === "audit") ? "chat" : tab;
 
   return <>
     <button className={`fornost-ai-launcher ${aiReady ? "ready" : ""}`} onClick={() => setOpen((value) => !value)} aria-expanded={open} aria-controls="fornost-ai-panel">
@@ -172,6 +210,7 @@ export default function FornostAiCopilot() {
       </header>
       <nav className="fornost-ai-tabs">
         <button className={activeTab === "chat" ? "active" : ""} onClick={() => setTab("chat")}>Copilot</button>
+        <button className={activeTab === "drafts" ? "active" : ""} onClick={() => { setTab("drafts"); void loadDrafts(); }}>Taslaklar</button>
         {user.role === "Admin" && <button className={activeTab === "settings" ? "active" : ""} onClick={() => setTab("settings")}>AI Ayarları</button>}
         {user.role === "Admin" && <button className={activeTab === "audit" ? "active" : ""} onClick={() => { setTab("audit"); void loadAudit(); }}>AI Audit</button>}
       </nav>
@@ -191,7 +230,25 @@ export default function FornostAiCopilot() {
           <textarea value={question} onChange={(e) => setQuestion(e.target.value)} maxLength={4000} rows={3} placeholder={aiReady ? "Risk, BIA, varlık, uyum, kanıt veya denetim hakkında sorun…" : "Ask Fornost > AI Ayarları bölümünden sağlayıcıyı etkinleştirin."} disabled={!aiReady || busy}/>
           <div><small>{question.length}/4000</small><button disabled={!aiReady || busy || !question.trim()}>Gönder</button></div>
         </form>
-      </> : activeTab === "audit" ? <div className="fornost-ai-audit">
+      </> : activeTab === "drafts" ? <div className="fornost-ai-drafts">
+        <div className="fornost-ai-security-note"><b>İnsan onaylı AI taslakları</b><p>AI yalnız yapılandırılmış bir öneri üretir. Onay veya ret kararı denetim izine yazılır; bu sürüm canlı GRC kayıtlarını otomatik değiştirmez.</p></div>
+        {user.role !== "Viewer" && <form className="fornost-ai-draft-form" onSubmit={createDraft}>
+          <label><span>Taslak türü</span><select value={draftKind} onChange={(e) => setDraftKind(e.target.value as DraftKind)}><option value="risk-treatment">Risk tedavi planı</option><option value="audit-finding">Denetim bulgusu</option><option value="remediation-task">İyileştirme görevi</option></select></label>
+          <label><span>Amaç / talimat</span><textarea rows={3} maxLength={2400} value={draftInstruction} onChange={(e) => setDraftInstruction(e.target.value)} placeholder="Örn: Kritik varlıklardaki yüksek riskler için sahip ve hedef tarih içeren tedavi taslağı oluştur."/></label>
+          <button disabled={draftBusy || !aiReady || draftInstruction.trim().length < 4}>{draftBusy ? "Üretiliyor…" : "AI Taslağı Oluştur"}</button>
+        </form>}
+        {notice && <div className="fornost-ai-notice">{notice}</div>}
+        <div className="fornost-ai-draft-head"><b>Taslak kuyruğu</b><button onClick={() => void loadDrafts()} disabled={draftBusy}>Yenile</button></div>
+        {!drafts.length && <div className="fornost-ai-audit-empty">Henüz AI taslağı yok.</div>}
+        <div className="fornost-ai-draft-list">{drafts.map((draft) => <article key={draft.id}>
+          <header><div><small>{draft.kind}</small><b>{draft.title}</b></div><span className={draft.status}>{draft.status}</span></header>
+          <p>{draft.rationale}</p>
+          <dl>{Object.entries(draft.payload).map(([key,value]) => <div key={key}><dt>{key}</dt><dd>{value}</dd></div>)}</dl>
+          {!!draft.sourceRefs.length && <footer>{draft.sourceRefs.slice(0,8).map((ref) => <span key={ref}>{ref}</span>)}</footer>}
+          <small>{draft.createdBy} · {new Date(draft.createdAt).toLocaleString("tr-TR")}</small>
+          {draft.status === "pending" && user.role === "Admin" && <div className="fornost-ai-draft-actions"><button className="reject" onClick={() => void reviewDraft(draft.id,"rejected")}>Reddet</button><button onClick={() => void reviewDraft(draft.id,"approved")}>Taslağı Onayla</button></div>}
+        </article>)}</div>
+      </div> : activeTab === "audit" ? <div className="fornost-ai-audit">
         <div className="fornost-ai-security-note"><b>AI kullanım denetim izi</b><p>Ham prompt ve model cevabı saklanmaz. Aktör, model, işlem sonucu, gecikme, prompt hash ve kullanılan Fornost kaynak kimlikleri tutulur.</p></div>
         <div className="fornost-ai-audit-head"><b>Son aktiviteler</b><button onClick={() => void loadAudit()} disabled={auditBusy}>{auditBusy ? "Yükleniyor…" : "Yenile"}</button></div>
         {!auditLogs.length && !auditBusy && <div className="fornost-ai-audit-empty">Henüz AI aktivite kaydı yok.</div>}

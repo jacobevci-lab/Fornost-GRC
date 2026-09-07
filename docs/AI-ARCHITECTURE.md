@@ -8,7 +8,7 @@ Core rule:
 
 > AI proposes and analyzes. Fornost authorizes. Humans approve mutations.
 
-The first release is intentionally **read-only**.
+The first release is intentionally **read-only**. V2's first controlled-action slice adds typed drafts and a human review queue while keeping live GRC records immutable.
 
 ## Runtime flow
 
@@ -134,6 +134,8 @@ Migration `0030_fornost_ai_v1.sql` creates:
 - `ai_provider_settings`
 - `ai_activity_logs`
 
+Migration `0031_fornost_ai_drafts.sql` adds `ai_action_drafts`. Drafts are schema-validated, retain only bounded structured output and source references, and move from `pending` to `approved` or `rejected` through an Admin decision. Approval does not publish or mutate a live GRC record in this slice.
+
 Runtime also defensively creates these tables when needed so the API remains resilient in on-prem upgrade scenarios.
 
 ## UI
@@ -148,13 +150,15 @@ The panel provides:
 - Admin-only provider settings
 - save and connection test
 - explicit read-only mode indicator
+- typed risk treatment, audit finding and remediation task drafts
+- Admin-only approval/rejection queue with audit events
 
 ## V1 limitations by design
 
 Not included yet:
 
 - autonomous agents
-- write tools
+- live-record write tools
 - Jira/task creation from AI
 - vector database / full document RAG
 - PDF/document chunk embedding

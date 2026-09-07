@@ -8,6 +8,15 @@ export const simpleGrcRecords = sqliteTable("simple_grc_records", {
   updatedAt: text("updated_at").notNull(),
 }, (table) => [index("simple_grc_records_module_idx").on(table.module, table.updatedAt)]);
 
+export const aiActionDrafts = sqliteTable("ai_action_drafts", {
+  id: text("id").primaryKey(), kind: text("kind").notNull(), title: text("title").notNull(),
+  payloadJson: text("payload_json").notNull(), rationale: text("rationale").notNull(),
+  sourceRefsJson: text("source_refs_json").notNull().default("[]"), status: text("status").notNull().default("pending"),
+  provider: text("provider").notNull(), model: text("model").notNull(), promptHash: text("prompt_hash"),
+  createdBy: text("created_by").notNull(), reviewedBy: text("reviewed_by"), reviewedAt: text("reviewed_at"),
+  reviewNote: text("review_note"), createdAt: text("created_at").notNull(), updatedAt: text("updated_at").notNull(),
+}, (table) => [index("ai_action_drafts_status_idx").on(table.status, table.createdAt), index("ai_action_drafts_creator_idx").on(table.createdBy, table.createdAt)]);
+
 export const grcRecords = sqliteTable("grc_records", {
   id: text("id").primaryKey(),
   module: text("module").notNull(),

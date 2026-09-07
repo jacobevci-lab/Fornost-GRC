@@ -4,6 +4,7 @@ import "./risk-governance.css";
 import "./reporting.css";
 import "./fornost-ai.css";
 import "./fornost-ai-audit.css";
+import "./fornost-ai-drafts.css";
 import FornostAiCopilot from "./fornost-ai-copilot";
 
 const configuredBasePath = process.env.NEXT_PUBLIC_BASE_PATH?.trim() || "";

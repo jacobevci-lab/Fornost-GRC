@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { cleanAiText, isForbiddenAiHost, isLoopbackHost, isPrivateHost, redactSensitiveText, safeAiEndpoint, sanitizeAiRecord, sanitizeHistory } from "../app/ai/security";
 import { inferReadModules } from "../app/ai/context";
+import { draftSchemaInstruction, parseAiDraftResponse } from "../app/ai/drafts";
 
 test("AI endpoint policy permits public HTTPS and rejects public HTTP", () => {
   assert.equal(safeAiEndpoint("https://ai.example.com/v1", false, false), "https://ai.example.com/v1");
@@ -78,4 +79,22 @@ test("GRC read scope is inferred deterministically from Turkish and English ques
 test("AI text cleanup strips null bytes and enforces bounds", () => {
   assert.equal(cleanAiText("  a\u0000b  ", 20), "ab");
   assert.equal(cleanAiText("abcdef", 3), "abc");
+});
+
+test("AI draft parser accepts fenced structured output and keeps only the selected schema", () => {
+  const parsed = parseAiDraftResponse("risk-treatment", `\`\`\`json\n${JSON.stringify({
+    title: "Kritik erişim riski",
+    rationale: "Yüksek artık risk azaltılmalıdır.",
+    payload: { title: "MFA yaygınlaştırma", riskStatement: "Yönetici hesaplarında MFA eksikliği", proposedTreatment: "MFA zorunlu kılınacak", owner: "IAM Ekibi", dueDate: "2026-10-30", priority: "Yüksek", ignored: "drop-me" },
+  })}\n\`\`\``);
+  assert.equal(parsed.payload.owner, "IAM Ekibi");
+  assert.equal(parsed.payload.ignored, undefined);
+  assert.match(draftSchemaInstruction("risk-treatment"), /proposedTreatment/);
+});
+
+test("AI draft parser rejects missing fields and malformed dates", () => {
+  assert.throws(() => parseAiDraftResponse("audit-finding", "{}"), /taslak içeriği/);
+  assert.throws(() => parseAiDraftResponse("remediation-task", JSON.stringify({
+    title: "Görev", rationale: "Gerekli", payload: { title: "Görev", description: "Açıklama", owner: "BT", dueDate: "30.10.2026", priority: "Yüksek", acceptanceCriteria: "Test başarılı" },
+  })), /YYYY-AA-GG/);
 });

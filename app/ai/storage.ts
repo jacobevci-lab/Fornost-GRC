@@ -42,6 +42,27 @@ const auditSql = `CREATE TABLE IF NOT EXISTS ai_activity_logs (
   created_at TEXT NOT NULL
 )`;
 
+const draftsSql = `CREATE TABLE IF NOT EXISTS ai_action_drafts (
+  id TEXT PRIMARY KEY,
+  kind TEXT NOT NULL,
+  title TEXT NOT NULL,
+  payload_json TEXT NOT NULL,
+  rationale TEXT NOT NULL,
+  source_refs_json TEXT NOT NULL DEFAULT '[]',
+  status TEXT NOT NULL DEFAULT 'pending',
+  provider TEXT NOT NULL,
+  model TEXT NOT NULL,
+  prompt_hash TEXT,
+  created_by TEXT NOT NULL,
+  reviewed_by TEXT,
+  reviewed_at TEXT,
+  review_note TEXT,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+)`;
+const draftsStatusIndexSql = "CREATE INDEX IF NOT EXISTS ai_action_drafts_status_idx ON ai_action_drafts(status,created_at)";
+const draftsCreatorIndexSql = "CREATE INDEX IF NOT EXISTS ai_action_drafts_creator_idx ON ai_action_drafts(created_by,created_at)";
+
 let schemaReady: Promise<void> | null = null;
 
 export async function aiRuntime() {
@@ -51,6 +72,9 @@ export async function aiRuntime() {
     schemaReady = runtime.DB.batch([
       runtime.DB.prepare(settingsSql),
       runtime.DB.prepare(auditSql),
+      runtime.DB.prepare(draftsSql),
+      runtime.DB.prepare(draftsStatusIndexSql),
+      runtime.DB.prepare(draftsCreatorIndexSql),
     ]).then(() => undefined).catch((error) => {
       schemaReady = null;
       throw error;
