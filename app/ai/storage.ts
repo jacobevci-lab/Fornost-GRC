@@ -139,6 +139,26 @@ const agentDraftLinksSql = `CREATE TABLE IF NOT EXISTS ai_agent_draft_links (
   UNIQUE(run_id,finding_id)
 )`;
 const agentDraftLinksIndexSql = "CREATE INDEX IF NOT EXISTS ai_agent_draft_links_run_idx ON ai_agent_draft_links(run_id,created_at)";
+const knowledgeSourcesSql = `CREATE TABLE IF NOT EXISTS ai_knowledge_sources (
+  id TEXT PRIMARY KEY, name TEXT NOT NULL, source_type TEXT NOT NULL, classification TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'draft', current_version INTEGER NOT NULL DEFAULT 1,
+  content_hash TEXT NOT NULL, character_count INTEGER NOT NULL, chunk_count INTEGER NOT NULL,
+  created_by TEXT NOT NULL, created_at TEXT NOT NULL, updated_by TEXT NOT NULL, updated_at TEXT NOT NULL,
+  approved_by TEXT, approved_at TEXT, decision_note TEXT
+)`;
+const knowledgeSourcesIndexSql = "CREATE INDEX IF NOT EXISTS ai_knowledge_sources_status_updated_idx ON ai_knowledge_sources(status,updated_at)";
+const knowledgeVersionsSql = `CREATE TABLE IF NOT EXISTS ai_knowledge_versions (
+  id TEXT PRIMARY KEY, source_id TEXT NOT NULL, version INTEGER NOT NULL, content_hash TEXT NOT NULL,
+  normalized_content TEXT NOT NULL, character_count INTEGER NOT NULL, chunk_count INTEGER NOT NULL,
+  created_by TEXT NOT NULL, created_at TEXT NOT NULL, UNIQUE(source_id,version)
+)`;
+const knowledgeVersionsIndexSql = "CREATE INDEX IF NOT EXISTS ai_knowledge_versions_source_idx ON ai_knowledge_versions(source_id,version)";
+const knowledgeChunksSql = `CREATE TABLE IF NOT EXISTS ai_knowledge_chunks (
+  id TEXT PRIMARY KEY, source_id TEXT NOT NULL, version INTEGER NOT NULL, ordinal INTEGER NOT NULL,
+  content_text TEXT NOT NULL, content_hash TEXT NOT NULL, created_at TEXT NOT NULL,
+  UNIQUE(source_id,version,ordinal)
+)`;
+const knowledgeChunksIndexSql = "CREATE INDEX IF NOT EXISTS ai_knowledge_chunks_source_idx ON ai_knowledge_chunks(source_id,version,ordinal)";
 
 let schemaReady: Promise<void> | null = null;
 
@@ -170,6 +190,12 @@ export async function aiRuntime() {
       runtime.DB.prepare(agentRunsIndexSql),
       runtime.DB.prepare(agentDraftLinksSql),
       runtime.DB.prepare(agentDraftLinksIndexSql),
+      runtime.DB.prepare(knowledgeSourcesSql),
+      runtime.DB.prepare(knowledgeSourcesIndexSql),
+      runtime.DB.prepare(knowledgeVersionsSql),
+      runtime.DB.prepare(knowledgeVersionsIndexSql),
+      runtime.DB.prepare(knowledgeChunksSql),
+      runtime.DB.prepare(knowledgeChunksIndexSql),
     ]).then(() => undefined).catch((error) => {
       schemaReady = null;
       throw error;

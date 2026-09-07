@@ -1,4 +1,5 @@
 import { sanitizeAiRecord } from "./security";
+import { retrieveApprovedKnowledge } from "./knowledge";
 
 export type AiContextSource = { id: string; module: string; title: string };
 type GrcRow = { id: string; module: string; data_json: string; updated_at: string };
@@ -55,6 +56,7 @@ function scoreRow(row: GrcRow, data: Record<string, unknown>, question: string, 
 }
 
 export async function buildGrcContext(db: D1Database, question: string) {
+  const knowledge = await retrieveApprovedKnowledge(db, question);
   const result = await db.prepare("SELECT id,module,data_json,updated_at FROM simple_grc_records ORDER BY updated_at DESC LIMIT 400").all<GrcRow>();
   const rows = result.results || [];
   const targetModules = inferReadModules(question);
@@ -79,15 +81,17 @@ export async function buildGrcContext(db: D1Database, question: string) {
     const sanitized = sanitizeAiRecord(data) as Record<string, unknown>;
     const title = titleOf(row.module, sanitized, row.id);
     const chunk = JSON.stringify({ sourceId: row.id, module: row.module, title, updatedAt: row.updated_at, data: sanitized });
-    if (total + chunk.length > 22_000) break;
+    if (total + chunk.length > 16_000) break;
     total += chunk.length;
     chunks.push(chunk);
     sources.push({ id: row.id, module: row.module, title });
   }
 
+  const combinedSources = [...sources, ...knowledge.sources];
+  const combinedChunks = [...chunks, ...(knowledge.contextText ? [knowledge.contextText] : [])];
   return {
-    sources,
-    contextText: chunks.length ? chunks.join("\n") : "No matching Fornost GRC records were available for this question.",
+    sources: combinedSources,
+    contextText: combinedChunks.length ? combinedChunks.join("\n") : "No matching approved Fornost GRC or knowledge-base records were available for this question.",
     inferredModules: targetModules,
   };
 }

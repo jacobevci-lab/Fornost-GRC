@@ -154,6 +154,10 @@ Migration `0036_fornost_ai_agents.sql` adds manually invoked assurance runs and 
 
 Agent runs never mutate live GRC data. Admin review with an explicit note and confirmation is required before a finding can be converted into an existing `pending` AI action draft. Conversion requires a second `TASLAK OLUŞTUR` confirmation and is unique per run/finding pair. The resulting draft still follows the existing edit, review, publication and ticket controls.
 
+Migration `0037_fornost_ai_knowledge.sql` adds a governed AI knowledge base. Admins may ingest bounded plain text, Markdown, HTML, CSV or JSON content. HTML script/style blocks and tags are removed, content is normalized, SHA-256 hashed, versioned and split into bounded overlapping chunks. New and replacement versions always start as `draft`; only an Admin can approve them with a review note and exact `ONAYLA` confirmation. Approval, archive, new-version and deletion operations are audited.
+
+Copilot, typed drafts and assurance agents use the same deterministic lexical retriever. It selects only chunks from the current approved version, supplies no more than 9,000 knowledge characters, and exposes exact `KB-…-V…-C…` IDs as model citation anchors. `Restricted` sources are intentionally excluded from all model context even when approved. Knowledge text remains untrusted data and never becomes system instructions. No vector service, remote embedding call or autonomous record mutation is introduced.
+
 Runtime also defensively creates these tables when needed so the API remains resilient in on-prem upgrade scenarios.
 
 ## UI
@@ -181,6 +185,7 @@ The panel provides:
 - encrypted primary/fallback provider chain and per-attempt health history
 - manually invoked Risk, Audit, Compliance and Evidence assurance agents
 - grounded findings, Admin review and replay-protected conversion to the governed draft queue
+- versioned and approval-gated AI knowledge sources with grounded chunk citations
 
 ## V1 limitations by design
 
@@ -188,8 +193,8 @@ Not included yet:
 
 - autonomous agents
 - generic or autonomous live-record write tools
-- vector database / full document RAG
-- PDF/document chunk embedding
+- vector database / embedding retrieval (deterministic lexical retrieval is available)
+- native PDF/DOCX extraction (normalized text, Markdown, HTML, CSV and JSON are supported)
 
 ## V2 target
 
