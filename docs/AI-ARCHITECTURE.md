@@ -156,7 +156,7 @@ Migration `0036_fornost_ai_agents.sql` adds manually invoked assurance runs and 
 
 Agent runs never mutate live GRC data. Admin review with an explicit note and confirmation is required before a finding can be converted into an existing `pending` AI action draft. Conversion requires a second `TASLAK OLUŞTUR` confirmation and is unique per run/finding pair. The resulting draft still follows the existing edit, review, publication and ticket controls.
 
-Migration `0037_fornost_ai_knowledge.sql` adds a governed AI knowledge base. Admins may ingest bounded plain text, Markdown, HTML, CSV, JSON, PDF or DOCX content. PDF and DOCX files are converted to plain text inside the administrator's browser; raw files are never uploaded to Fornost or an AI provider. File size, page count and extracted-text limits are enforced before a draft can be created. HTML script/style blocks and tags are removed, content is normalized, SHA-256 hashed, versioned and split into bounded overlapping chunks. New and replacement versions always start as `draft`; only an Admin can approve them with a review note and exact `ONAYLA` confirmation. Approval, archive, new-version and deletion operations are audited.
+Migration `0037_fornost_ai_knowledge.sql` adds a governed AI knowledge base. Admins may ingest bounded plain text, Markdown, HTML, CSV, JSON, PDF or DOCX content. Up to ten files may be staged together with a 30 MB aggregate browser-memory limit. PDF and DOCX files are converted to plain text inside the administrator's browser; raw files are never uploaded to Fornost or an AI provider. Each prepared file is submitted as an independent draft so one failure does not roll back the rest of the batch. File size, page count and extracted-text limits are enforced before a draft can be created, and matching content hashes are blocked as duplicates. HTML script/style blocks and tags are removed, content is normalized, SHA-256 hashed, versioned and split into bounded overlapping chunks. New and replacement versions always start as `draft`; only an Admin can approve them with a review note and exact `ONAYLA` confirmation. Approval, archive, new-version, duplicate-denial and deletion operations are audited.
 
 Copilot, typed drafts and assurance agents use the same deterministic lexical retriever. It selects only chunks from the current approved version, supplies no more than 9,000 knowledge characters, and exposes exact `KB-…-V…-C…` IDs as model citation anchors. `Restricted` sources are intentionally excluded from all model context even when approved. Knowledge text remains untrusted data and never becomes system instructions. No vector service, remote embedding call or autonomous record mutation is introduced.
 
@@ -190,7 +190,7 @@ The panel provides:
 - manually invoked Risk, Audit, Compliance and Evidence assurance agents
 - grounded findings, Admin review and replay-protected conversion to the governed draft queue
 - versioned and approval-gated AI knowledge sources with grounded chunk citations
-- direct TXT, Markdown, HTML, CSV, JSON, PDF and DOCX ingestion, Admin source inspection, immutable version history and retrieval laboratory
+- single and ten-file batch TXT, Markdown, HTML, CSV, JSON, PDF and DOCX ingestion, duplicate prevention, source health/freshness summary, search and filters, Admin source inspection, immutable version history and retrieval laboratory
 - server-side Copilot citation integrity enforcement and invalid-reference removal
 
 ## V1 limitations by design

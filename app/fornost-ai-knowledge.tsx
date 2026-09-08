@@ -1,8 +1,9 @@
 "use client";
 
-import { FormEvent, useCallback, useEffect, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { withBasePath } from "./base-path";
 import { extractKnowledgeDocument } from "./ai/document-extraction";
+import { knowledgeHealthState, summarizeKnowledgeHealth } from "./ai/knowledge-health";
 
 type Role="Admin"|"Editor"|"Viewer";
 type KnowledgeSource={id:string;name:string;sourceType:string;classification:string;status:"draft"|"approved"|"archived";currentVersion:number;contentHash:string;characterCount:number;chunkCount:number;createdBy:string;createdAt:string;updatedBy:string;updatedAt:string;approvedBy:string|null;approvedAt:string|null;decisionNote:string|null};
@@ -10,24 +11,54 @@ type Action={id:string;kind:"approve"|"archive"|"version"|"delete";note:string;c
 type KnowledgeVersion={id:string;version:number;contentHash:string;characterCount:number;chunkCount:number;createdBy:string;createdAt:string};
 type KnowledgeDetail={source:KnowledgeSource;content:string;versions:KnowledgeVersion[]};
 type SearchMatch={ref:string;sourceId:string;name:string;classification:string;version:number;chunk:number;score:number;preview:string};
+type BatchItem={id:string;name:string;sourceType:string;content:string;warning:string;detail:string;status:"ready"|"creating"|"created"|"error";error:string};
 
 export default function FornostAiKnowledge({role}:{role:Role}){
   const [sources,setSources]=useState<KnowledgeSource[]>([]),[busy,setBusy]=useState(false),[notice,setNotice]=useState(""),[action,setAction]=useState<Action>(null);
   const [form,setForm]=useState({name:"",sourceType:"markdown",classification:"Internal",content:""});
-  const [fileBusy,setFileBusy]=useState(false),[fileWarning,setFileWarning]=useState("");
+  const [fileBusy,setFileBusy]=useState(false),[fileWarning,setFileWarning]=useState(""),[batch,setBatch]=useState<BatchItem[]>([]);
   const [detail,setDetail]=useState<KnowledgeDetail|null>(null),[query,setQuery]=useState(""),[matches,setMatches]=useState<SearchMatch[]>([]),[searchBusy,setSearchBusy]=useState(false);
-  const load=useCallback(async()=>{const response=await fetch(withBasePath("/api/ai/knowledge"),{cache:"no-store"}).catch(()=>null);if(response?.ok){const body=await response.json().catch(()=>({}));setSources(Array.isArray(body.sources)?body.sources:[]);}},[]);
+  const [sourceQuery,setSourceQuery]=useState(""),[statusFilter,setStatusFilter]=useState("all"),[classificationFilter,setClassificationFilter]=useState("all");
+  const load=useCallback(async()=>{const response=await fetch(withBasePath("/api/ai/knowledge"),{cache:"no-store"}).catch(()=>null);if(response?.ok){const body=await response.json().catch(()=>({}));setSources(Array.isArray(body.sources)?body.sources:[]);}else setNotice("Bilgi kaynakları yüklenemedi; bağlantıyı kontrol edip yeniden deneyin.");},[]);
   useEffect(()=>{const timer=window.setTimeout(()=>{void load();},0);return()=>window.clearTimeout(timer);},[load]);
 
-  async function selectFile(file?:File){
-    if(!file)return;
-    setFileBusy(true);setFileWarning("");setNotice("Belge güvenli biçimde tarayıcıda işleniyor…");
-    try{
-      const extracted=await extractKnowledgeDocument(file);
-      setForm(value=>({...value,name:file.name.replace(/\.[^.]+$/," ").trim().slice(0,160),sourceType:extracted.sourceType,content:extracted.content}));
-      setFileWarning(extracted.warning);setNotice(`${extracted.detail} Sınıflandırmayı ve metni kontrol edip taslak oluşturun.`);
-    }catch(error){setNotice(error instanceof Error?error.message:"Belge okunamadı.");}
-    finally{setFileBusy(false);}
+  async function selectFiles(files?:FileList){
+    const selected=Array.from(files||[]);
+    if(!selected.length)return;
+    if(selected.length>10){setNotice("Tek seferde en fazla 10 belge seçebilirsiniz.");return;}
+    if(selected.reduce((total,file)=>total+file.size,0)>30*1024*1024){setNotice("Toplu seçim toplam 30 MB sınırını aşıyor.");return;}
+    setFileBusy(true);setFileWarning("");setNotice("Belgeler güvenli biçimde tarayıcıda hazırlanıyor…");
+    const prepared:BatchItem[]=[];
+    for(const file of selected){
+      try{
+        const extracted=await extractKnowledgeDocument(file);
+        prepared.push({id:crypto.randomUUID(),name:file.name.replace(/\.[^.]+$/," ").trim().slice(0,160),sourceType:extracted.sourceType,content:extracted.content,warning:extracted.warning,detail:extracted.detail,status:"ready",error:""});
+      }catch(error){prepared.push({id:crypto.randomUUID(),name:file.name.slice(0,160),sourceType:"",content:"",warning:"",detail:"",status:"error",error:error instanceof Error?error.message:"Belge okunamadı."});}
+    }
+    setBatch(items=>[...items.filter(item=>item.status!=="created"),...prepared].slice(-10));
+    const valid=prepared.filter(item=>item.status==="ready").length;
+    setNotice(`${valid}/${prepared.length} belge taslak oluşturmaya hazır.`);setFileBusy(false);
+  }
+
+  async function editBatchItem(id:string){
+    const item=batch.find(value=>value.id===id);if(!item?.content)return;
+    setForm(value=>({...value,name:item.name,sourceType:item.sourceType,content:item.content}));
+    setFileWarning(item.warning);setBatch(items=>items.filter(value=>value.id!==id));setNotice("Belge düzenleme alanına taşındı.");
+  }
+
+  async function createBatch(){
+    if(role!=="Admin"||fileBusy)return;
+    const pending=batch.filter(item=>(item.status==="ready"||item.status==="error")&&item.content);
+    if(!pending.length)return;
+    setFileBusy(true);let created=0,failed=0;
+    for(const item of pending){
+      setBatch(items=>items.map(value=>value.id===item.id?{...value,status:"creating",error:""}:value));
+      const response=await fetch(withBasePath("/api/ai/knowledge"),{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({name:item.name,sourceType:item.sourceType,classification:form.classification,content:item.content})}).catch(()=>null);
+      const body=await response?.json().catch(()=>({}))||{};
+      if(response?.ok){created+=1;setBatch(items=>items.map(value=>value.id===item.id?{...value,status:"created",content:"",error:""}:value));}
+      else{failed+=1;setBatch(items=>items.map(value=>value.id===item.id?{...value,status:"error",error:String(body.error||"Taslak oluşturulamadı.")}:value));}
+    }
+    if(created)await load();setNotice(`${created} taslak oluşturuldu${failed?`, ${failed} belge hata verdi`:""}. Her kaynak ayrı ayrı onay bekliyor.`);setFileBusy(false);
   }
 
   async function fetchDetail(id:string){const response=await fetch(withBasePath(`/api/ai/knowledge?id=${encodeURIComponent(id)}`),{cache:"no-store"}).catch(()=>null),body=await response?.json().catch(()=>({}))||{};if(!response?.ok){setNotice(String(body.error||"Kaynak ayrıntısı okunamadı."));return null;}return body as KnowledgeDetail;}
@@ -38,18 +69,30 @@ export default function FornostAiKnowledge({role}:{role:Role}){
   async function submitAction(){if(!action||role!=="Admin"||busy)return;setBusy(true);setNotice("");let method="PATCH";const payload:Record<string,string>={id:action.id,note:action.note,confirmation:action.confirmation};if(action.kind==="approve")payload.decision="approved";if(action.kind==="archive")payload.decision="archived";if(action.kind==="version"){method="PUT";payload.content=action.content;}if(action.kind==="delete")method="DELETE";const response=await fetch(withBasePath("/api/ai/knowledge"),{method,headers:{"content-type":"application/json"},body:JSON.stringify(payload)}).catch(()=>null),body=await response?.json().catch(()=>({}))||{};if(response?.ok){setAction(null);setDetail(null);setNotice(action.kind==="version"?"Yeni sürüm taslak olarak oluşturuldu; yeniden onay gerekli.":"İşlem tamamlandı.");await load();}else setNotice(String(body.error||"İşlem tamamlanamadı."));setBusy(false);}
 
   const confirmation=action?.kind==="approve"?"ONAYLA":action?.kind==="archive"?"ARŞİVLE":action?.kind==="version"?"YENİ SÜRÜM":"SİL";
+  const summary=useMemo(()=>summarizeKnowledgeHealth(sources),[sources]);
+  const filteredSources=useMemo(()=>sources.filter(source=>{
+    const text=sourceQuery.trim().toLocaleLowerCase("tr-TR");
+    return (!text||`${source.name} ${source.sourceType} ${source.updatedBy}`.toLocaleLowerCase("tr-TR").includes(text))
+      &&(statusFilter==="all"||source.status===statusFilter)
+      &&(classificationFilter==="all"||source.classification===classificationFilter);
+  }),[sources,sourceQuery,statusFilter,classificationFilter]);
+  const healthLabels={healthy:"Sağlıklı",review:"İnceleme gerekli",stale:"Gözden geçirme zamanı",archived:"Arşiv"} as const;
   return <div className="fornost-ai-knowledge">
     <div className="fornost-ai-security-note"><b>Yönetişimli AI Bilgi Tabanı</b><p>Yalnız onaylı güncel sürümler kaynak gösterilerek kullanılır. Restricted içerik saklanabilir ancak model bağlamına hiçbir zaman gönderilmez.</p></div>
-    {role==="Admin"&&<form className="fornost-ai-knowledge-form" onSubmit={create}><b>Yeni bilgi kaynağı</b><label className={`fornost-ai-file ${fileBusy?"busy":""}`}><span>Dosyadan doldur · TXT, MD, HTML, CSV, JSON, PDF, DOCX</span><input disabled={fileBusy} type="file" accept=".txt,.md,.markdown,.html,.htm,.csv,.json,.pdf,.docx,text/plain,text/markdown,text/html,text/csv,application/json,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" onChange={event=>void selectFile(event.target.files?.[0])}/><small>PDF ve DOCX içeriği tarayıcınızda metne çevrilir; ham dosya sunucuya veya AI sağlayıcısına yüklenmez.</small></label>{fileWarning&&<div className="fornost-ai-file-warning" role="alert">{fileWarning}</div>}<label><span>Kaynak adı</span><input required minLength={3} maxLength={160} value={form.name} onChange={event=>setForm(value=>({...value,name:event.target.value}))} placeholder="Örn. Bilgi Güvenliği Politikası"/></label><div><label><span>İçerik türü</span><select value={form.sourceType} onChange={event=>setForm(value=>({...value,sourceType:event.target.value}))}><option value="text">Metin</option><option value="markdown">Markdown</option><option value="html">HTML</option><option value="csv">CSV</option><option value="json">JSON</option><option value="pdf">PDF metni</option><option value="docx">DOCX metni</option></select></label><label><span>Veri sınıfı</span><select value={form.classification} onChange={event=>setForm(value=>({...value,classification:event.target.value}))}><option>Public</option><option>Internal</option><option>Confidential</option><option>Restricted</option></select></label></div><label><span>Çıkarılan içerik · en fazla 160.000 karakter</span><textarea required minLength={40} maxLength={160000} rows={8} value={form.content} onChange={event=>setForm(value=>({...value,content:event.target.value}))} placeholder="Politika veya referans içeriğini buraya yapıştırın…"/></label><button disabled={busy||fileBusy||form.content.trim().length<40}>{fileBusy?"Belge işleniyor…":"Taslak Kaynak Oluştur"}</button></form>}
+    <div className="fornost-ai-knowledge-summary"><article><b>{summary.approved}</b><span>AI kullanımına hazır</span></article><article><b>{summary.review}</b><span>Onay bekliyor</span></article><article className={summary.stale?"attention":""}><b>{summary.stale}</b><span>Gözden geçirme zamanı</span></article><article><b>{summary.chunks.toLocaleString("tr-TR")}</b><span>Aranabilir parça</span></article></div>
+    {role==="Admin"&&<form className="fornost-ai-knowledge-form" onSubmit={create}><b>Yeni bilgi kaynağı</b><label className={`fornost-ai-file ${fileBusy?"busy":""}`}><span>Toplu belge seç · en fazla 10 dosya</span><input disabled={fileBusy} multiple type="file" accept=".txt,.md,.markdown,.html,.htm,.csv,.json,.pdf,.docx,text/plain,text/markdown,text/html,text/csv,application/json,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" onChange={event=>{void selectFiles(event.currentTarget.files||undefined);event.currentTarget.value="";}}/><small>TXT, MD, HTML, CSV, JSON, PDF ve DOCX tarayıcıda işlenir; ham dosyalar sunucuya veya AI sağlayıcısına yüklenmez.</small></label>
+      {!!batch.length&&<div className="fornost-ai-batch"><header><div><b>Toplu hazırlama kuyruğu</b><small>{batch.filter(item=>item.status==="ready").length} hazır · veri sınıfı: {form.classification}</small></div><button type="button" className="secondary" disabled={fileBusy} onClick={()=>setBatch(items=>items.filter(item=>item.status!=="created"))}>Tamamlananları Temizle</button></header>{batch.map(item=><article key={item.id} className={item.status}><div><b>{item.name}</b><small>{item.error||item.warning||item.detail}</small></div><span>{item.status==="ready"?"Hazır":item.status==="creating"?"Oluşturuluyor":item.status==="created"?"Taslak oluştu":"Hata"}</span>{item.content&&item.status!=="creating"&&<button type="button" className="secondary" onClick={()=>void editBatchItem(item.id)}>Düzenle</button>}<button type="button" className="secondary" disabled={item.status==="creating"} aria-label={`${item.name} belgesini kuyruktan çıkar`} onClick={()=>setBatch(items=>items.filter(value=>value.id!==item.id))}>Kaldır</button></article>)}<button type="button" disabled={fileBusy||!batch.some(item=>(item.status==="ready"||item.status==="error")&&item.content)} onClick={()=>void createBatch()}>{fileBusy?"Taslaklar oluşturuluyor…":"Hazır Belgeleri Taslaklaştır"}</button></div>}
+      {fileWarning&&<div className="fornost-ai-file-warning" role="alert">{fileWarning}</div>}<label><span>Kaynak adı</span><input required minLength={3} maxLength={160} value={form.name} onChange={event=>setForm(value=>({...value,name:event.target.value}))} placeholder="Örn. Bilgi Güvenliği Politikası"/></label><div><label><span>İçerik türü</span><select value={form.sourceType} onChange={event=>setForm(value=>({...value,sourceType:event.target.value}))}><option value="text">Metin</option><option value="markdown">Markdown</option><option value="html">HTML</option><option value="csv">CSV</option><option value="json">JSON</option><option value="pdf">PDF metni</option><option value="docx">DOCX metni</option></select></label><label><span>Veri sınıfı</span><select value={form.classification} onChange={event=>setForm(value=>({...value,classification:event.target.value}))}><option>Public</option><option>Internal</option><option>Confidential</option><option>Restricted</option></select></label></div><label><span>Kaynak içeriği · en fazla 160.000 karakter</span><textarea required minLength={40} maxLength={160000} rows={8} value={form.content} onChange={event=>setForm(value=>({...value,content:event.target.value}))} placeholder="İçeriği yapıştırın veya kuyruktaki bir belgeyi Düzenle ile buraya alın…"/></label><button disabled={busy||fileBusy||form.content.trim().length<40}>{busy?"Oluşturuluyor…":"Tek Taslak Oluştur"}</button></form>}
     {notice&&<div className="fornost-ai-notice">{notice}</div>}
     {role!=="Viewer"&&<form className="fornost-ai-knowledge-search" onSubmit={search}><div><b>Retrieval Laboratuvarı</b><small>Onaylı kaynaklarda model çağrısı yapmadan eşleşme ve citation sırasını test edin.</small></div><input maxLength={1000} value={query} onChange={event=>setQuery(event.target.value)} placeholder="Örn. yönetici hesaplarında MFA politikası"/><button disabled={searchBusy||query.trim().length<3}>{searchBusy?"Aranıyor…":"Retrieval Testi"}</button></form>}
     {!!matches.length&&<div className="fornost-ai-knowledge-matches">{matches.map(match=><article key={match.ref}><header><b>{match.ref}</b><span>{match.score} puan</span></header><small>{match.name} · v{match.version} · parça {match.chunk} · {match.classification}</small><p>{match.preview}</p></article>)}</div>}
-    <div className="fornost-ai-knowledge-head"><b>{sources.length} bilgi kaynağı</b><button disabled={busy} onClick={()=>void load()}>Yenile</button></div>
-    {!sources.length&&<div className="fornost-ai-audit-empty">Henüz bilgi kaynağı yok.</div>}
-    <div className="fornost-ai-knowledge-list">{sources.map(source=><article key={source.id}><header><div><b>{source.name}</b><small>{source.id}</small></div><span className={source.status}>{source.status}</span></header><dl><div><dt>Sürüm</dt><dd>v{source.currentVersion}</dd></div><div><dt>Sınıf</dt><dd>{source.classification}</dd></div><div><dt>Boyut</dt><dd>{source.characterCount.toLocaleString("tr-TR")} karakter</dd></div><div><dt>Parça</dt><dd>{source.chunkCount}</dd></div></dl><p>{source.sourceType.toUpperCase()} · hash:{source.contentHash.slice(0,12)}…</p><small>{source.updatedBy} · {new Date(source.updatedAt).toLocaleString("tr-TR")}</small>{source.decisionNote&&<em>{source.approvedBy||source.updatedBy} · {source.decisionNote}</em>}
+    <div className="fornost-ai-knowledge-head"><div><b>{filteredSources.length} / {sources.length} bilgi kaynağı</b><small>{summary.characters.toLocaleString("tr-TR")} karakter · {summary.restricted} Restricted</small></div><button disabled={busy} onClick={()=>void load()}>Yenile</button></div>
+    <div className="fornost-ai-knowledge-filters"><label><span>Kaynak ara</span><input value={sourceQuery} maxLength={160} onChange={event=>setSourceQuery(event.target.value)} placeholder="Ad, tür veya güncelleyen kişi"/></label><label><span>Durum</span><select value={statusFilter} onChange={event=>setStatusFilter(event.target.value)}><option value="all">Tümü</option><option value="approved">Onaylı</option><option value="draft">Onay bekliyor</option><option value="archived">Arşiv</option></select></label><label><span>Veri sınıfı</span><select value={classificationFilter} onChange={event=>setClassificationFilter(event.target.value)}><option value="all">Tümü</option><option>Public</option><option>Internal</option><option>Confidential</option><option>Restricted</option></select></label></div>
+    {!filteredSources.length&&<div className="fornost-ai-audit-empty">{sources.length?"Filtrelerle eşleşen bilgi kaynağı yok.":"Henüz bilgi kaynağı yok."}</div>}
+    <div className="fornost-ai-knowledge-list">{filteredSources.map(source=>{const health=knowledgeHealthState(source);return <article key={source.id}><header><div><b>{source.name}</b><small>{source.sourceType.toUpperCase()} · v{source.currentVersion}</small></div><span className={source.status}>{source.status==="approved"?"Onaylı":source.status==="draft"?"Onay bekliyor":"Arşiv"}</span></header><div className={`fornost-ai-knowledge-health ${health}`}>{healthLabels[health]}</div><dl><div><dt>Sürüm</dt><dd>v{source.currentVersion}</dd></div><div><dt>Sınıf</dt><dd>{source.classification}</dd></div><div><dt>Boyut</dt><dd>{source.characterCount.toLocaleString("tr-TR")} karakter</dd></div><div><dt>Parça</dt><dd>{source.chunkCount}</dd></div></dl><p>Hash: {source.contentHash.slice(0,12)}…</p><small>{source.updatedBy} · {new Date(source.updatedAt).toLocaleString("tr-TR")}</small>{source.decisionNote&&<em>{source.approvedBy||source.updatedBy} · {source.decisionNote}</em>}
       {role==="Admin"&&<div className="fornost-ai-knowledge-actions"><button className="secondary" onClick={()=>void openDetail(source.id)}>İçerik & Geçmiş</button>{source.status==="draft"&&<button onClick={()=>setAction({id:source.id,kind:"approve",note:"",content:"",confirmation:""})}>Onayla</button>}{source.status!=="archived"&&<button className="secondary" onClick={()=>void prepareVersion(source)}>Yeni Sürüm</button>}{source.status!=="archived"&&<button className="warn" onClick={()=>setAction({id:source.id,kind:"archive",note:"",content:"",confirmation:""})}>Arşivle</button>}{source.status!=="approved"&&<button className="danger" onClick={()=>setAction({id:source.id,kind:"delete",note:"",content:"",confirmation:""})}>Sil</button>}</div>}
       {detail?.source.id===source.id&&<div className="fornost-ai-knowledge-detail"><header><b>Güncel içerik · v{detail.source.currentVersion}</b><button onClick={()=>setDetail(null)}>Kapat</button></header><pre>{detail.content}</pre><b>Sürüm geçmişi</b>{detail.versions.map(version=><p key={version.id}><span>v{version.version} · {version.chunkCount} parça · {version.characterCount.toLocaleString("tr-TR")} karakter</span><small>{version.createdBy} · {new Date(version.createdAt).toLocaleString("tr-TR")} · hash:{version.contentHash.slice(0,10)}…</small></p>)}</div>}
       {action?.id===source.id&&<div className="fornost-ai-knowledge-decision"><b>{action.kind==="approve"?"Kaynağı onayla":action.kind==="archive"?"Kaynağı arşivle":action.kind==="version"?"Yeni içerik sürümü":"Kaynağı kalıcı sil"}</b>{action.kind==="version"?<textarea rows={6} maxLength={160000} value={action.content} onChange={event=>setAction(value=>value?{...value,content:event.target.value}:value)} placeholder="Yeni sürümün tam içeriği…"/>:action.kind!=="delete"&&<textarea rows={2} maxLength={800} value={action.note} onChange={event=>setAction(value=>value?{...value,note:event.target.value}:value)} placeholder="Zorunlu karar notu…"/>}<input value={action.confirmation} onChange={event=>setAction(value=>value?{...value,confirmation:event.target.value}:value)} placeholder={confirmation}/><small>{action.kind==="version"?"Yeni sürüm önceki sürümü korur ve onayı sıfırlar.":action.kind==="delete"?"Tüm sürümler ve parçalar kalıcı olarak silinir.":`İşlemi doğrulamak için ${confirmation} yazın.`}</small><div><button className="secondary" onClick={()=>setAction(null)}>Vazgeç</button><button disabled={busy||action.confirmation!==confirmation||(action.kind==="version"&&action.content.trim().length<40)||(action.kind!=="version"&&action.kind!=="delete"&&action.note.trim().length<5)} onClick={()=>void submitAction()}>İşlemi Uygula</button></div></div>}
-    </article>)}</div>
+    </article>})}</div>
   </div>;
 }

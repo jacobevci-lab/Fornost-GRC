@@ -3,6 +3,7 @@ import test from "node:test";
 import fs from "node:fs";
 import { chunkKnowledgeContent, enforceGroundedCitations, normalizeKnowledgeContent, retrieveApprovedKnowledge, searchApprovedKnowledge, validateKnowledgeInput } from "../app/ai/knowledge";
 import { knowledgeFileType, normalizeExtractedDocumentText, validateKnowledgeFile } from "../app/ai/document-extraction";
+import { knowledgeHealthState, summarizeKnowledgeHealth } from "../app/ai/knowledge-health";
 
 const route=fs.readFileSync("app/api/ai/knowledge/route.ts","utf8"),searchRoute=fs.readFileSync("app/api/ai/knowledge/search/route.ts","utf8"),storage=fs.readFileSync("app/ai/storage.ts","utf8"),migration=fs.readFileSync("drizzle/0037_fornost_ai_knowledge.sql","utf8"),chat=fs.readFileSync("app/api/ai/chat/route.ts","utf8"),ui=fs.readFileSync("app/fornost-ai-knowledge.tsx","utf8");
 
@@ -51,8 +52,18 @@ test("knowledge lifecycle is Admin governed, versioned, confirmed and audited",(
   assert.match(storage,/CREATE TABLE IF NOT EXISTS ai_knowledge_sources/);assert.match(storage,/CREATE TABLE IF NOT EXISTS ai_knowledge_versions/);assert.match(migration,/UNIQUE\(source_id,version,ordinal\)/);
 });
 
-test("knowledge UI and copilot expose the governed citation contract",()=>{
-  for(const label of ["Yönetişimli AI Bilgi Tabanı","Taslak Kaynak Oluştur","Yeni Sürüm","Restricted","Retrieval Laboratuvarı","İçerik & Geçmiş","PDF, DOCX","ham dosya sunucuya veya AI sağlayıcısına yüklenmez"])assert.match(ui,new RegExp(label));
+test("knowledge UI and copilot expose governed citations and bulk ingestion",()=>{
+  for(const label of ["Yönetişimli AI Bilgi Tabanı","Tek Taslak Oluştur","Yeni Sürüm","Restricted","Retrieval Laboratuvarı","İçerik & Geçmiş","Toplu belge seç","ham dosyalar sunucuya veya AI sağlayıcısına yüklenmez","Hazır Belgeleri Taslaklaştır","Gözden geçirme zamanı"])assert.match(ui,new RegExp(label));
+  assert.match(ui,/multiple type="file"/);assert.match(ui,/selected.length>10/);assert.match(ui,/30\*1024\*1024/);
   assert.match(ui,/type="file"/);assert.match(route,/normalized_content/);assert.match(searchRoute,/raw query not stored/);assert.match(searchRoute,/requireRole\(req,\["Admin","Editor"\]\)/);
   assert.match(chat,/knowledge-base chunks/);assert.match(chat,/enforceGroundedCitations/);assert.doesNotMatch(route,/callAiWithFailover|UPDATE simple_grc_records/);
+});
+
+test("knowledge health exposes drafts and stale approvals without sending content to a model",()=>{
+  const now=Date.parse("2026-09-08T00:00:00.000Z"),fresh={status:"approved" as const,classification:"Internal",characterCount:400,chunkCount:2,approvedAt:"2026-08-01T00:00:00.000Z"};
+  assert.equal(knowledgeHealthState(fresh,now),"healthy");
+  assert.equal(knowledgeHealthState({...fresh,approvedAt:"2025-01-01T00:00:00.000Z"},now),"stale");
+  assert.equal(knowledgeHealthState({...fresh,status:"draft",approvedAt:null},now),"review");
+  assert.deepEqual(summarizeKnowledgeHealth([fresh,{...fresh,status:"draft",approvedAt:null,classification:"Restricted"}],now),{total:2,approved:1,review:1,stale:0,archived:0,restricted:1,characters:800,chunks:4});
+  assert.match(route,/knowledge-duplicate-blocked/);assert.match(route,/SELECT id,name,status FROM ai_knowledge_sources WHERE content_hash/);
 });

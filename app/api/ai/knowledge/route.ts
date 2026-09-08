@@ -38,6 +38,11 @@ export async function POST(req:NextRequest){
   const body=await req.json().catch(()=>({}));
   try{
     const value=validateKnowledgeInput(body),chunks=chunkKnowledgeContent(value.content),contentHash=await sha256(value.content),id=crypto.randomUUID(),now=new Date().toISOString(),env=await aiRuntime();
+    const duplicate=await env.DB.prepare("SELECT id,name,status FROM ai_knowledge_sources WHERE content_hash=? LIMIT 1").bind(contentHash).first<{id:string;name:string;status:string}>();
+    if(duplicate){
+      await recordAiEvent(env.DB,{actor:access.actor.email,action:"knowledge-duplicate-blocked",contextRefs:[duplicate.id],status:"denied",detail:`Duplicate content blocked; existing source ${duplicate.name} (${duplicate.status})`});
+      return json({error:`Aynı içerik “${duplicate.name}” kaynağında zaten bulunuyor.`,duplicate:{id:duplicate.id,name:duplicate.name,status:duplicate.status}},409);
+    }
     const statements=[
       env.DB.prepare(`INSERT INTO ai_knowledge_sources(id,name,source_type,classification,status,current_version,content_hash,character_count,chunk_count,created_by,created_at,updated_by,updated_at) VALUES(?,?,?,?,'draft',1,?,?,?,?,?,?,?)`).bind(id,value.name,value.sourceType,value.classification,contentHash,value.content.length,chunks.length,access.actor.email,now,access.actor.email,now),
       env.DB.prepare("INSERT INTO ai_knowledge_versions(id,source_id,version,content_hash,normalized_content,character_count,chunk_count,created_by,created_at) VALUES(?,?,?,?,?,?,?,?,?)").bind(crypto.randomUUID(),id,1,contentHash,value.content,value.content.length,chunks.length,access.actor.email,now),
