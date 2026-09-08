@@ -1,7 +1,7 @@
 import { cleanAiText, redactSensitiveText } from "./security";
 import { dataClassificationAllowed, type AiDataClassification } from "./data-policy";
 
-export const KNOWLEDGE_TYPES = ["text", "markdown", "html", "csv", "json"] as const;
+export const KNOWLEDGE_TYPES = ["text", "markdown", "html", "csv", "json", "pdf", "docx"] as const;
 export const KNOWLEDGE_CLASSIFICATIONS = ["Public", "Internal", "Confidential", "Restricted"] as const;
 export type KnowledgeType = typeof KNOWLEDGE_TYPES[number];
 export type KnowledgeClassification = typeof KNOWLEDGE_CLASSIFICATIONS[number];

@@ -2,6 +2,7 @@
 
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import { withBasePath } from "./base-path";
+import { extractKnowledgeDocument } from "./ai/document-extraction";
 
 type Role="Admin"|"Editor"|"Viewer";
 type KnowledgeSource={id:string;name:string;sourceType:string;classification:string;status:"draft"|"approved"|"archived";currentVersion:number;contentHash:string;characterCount:number;chunkCount:number;createdBy:string;createdAt:string;updatedBy:string;updatedAt:string;approvedBy:string|null;approvedAt:string|null;decisionNote:string|null};
@@ -13,19 +14,20 @@ type SearchMatch={ref:string;sourceId:string;name:string;classification:string;v
 export default function FornostAiKnowledge({role}:{role:Role}){
   const [sources,setSources]=useState<KnowledgeSource[]>([]),[busy,setBusy]=useState(false),[notice,setNotice]=useState(""),[action,setAction]=useState<Action>(null);
   const [form,setForm]=useState({name:"",sourceType:"markdown",classification:"Internal",content:""});
+  const [fileBusy,setFileBusy]=useState(false),[fileWarning,setFileWarning]=useState("");
   const [detail,setDetail]=useState<KnowledgeDetail|null>(null),[query,setQuery]=useState(""),[matches,setMatches]=useState<SearchMatch[]>([]),[searchBusy,setSearchBusy]=useState(false);
   const load=useCallback(async()=>{const response=await fetch(withBasePath("/api/ai/knowledge"),{cache:"no-store"}).catch(()=>null);if(response?.ok){const body=await response.json().catch(()=>({}));setSources(Array.isArray(body.sources)?body.sources:[]);}},[]);
   useEffect(()=>{const timer=window.setTimeout(()=>{void load();},0);return()=>window.clearTimeout(timer);},[load]);
 
   async function selectFile(file?:File){
     if(!file)return;
-    const extension=file.name.toLowerCase().split(".").pop()||"",types:Record<string,string>={txt:"text",md:"markdown",markdown:"markdown",html:"html",htm:"html",csv:"csv",json:"json"},sourceType=types[extension];
-    if(!sourceType){setNotice("Desteklenmeyen dosya türü. TXT, MD, HTML, CSV veya JSON seçin.");return;}
-    if(file.size>180_000){setNotice("Dosya 180 KB sınırını aşıyor.");return;}
-    const content=await file.text().catch(()=>"");
-    if(!content){setNotice("Dosya okunamadı veya boş.");return;}
-    if(content.length>160_000){setNotice("Dosya 160.000 karakter sınırını aşıyor.");return;}
-    setForm(value=>({...value,name:file.name.replace(/\.[^.]+$/," ").trim().slice(0,160),sourceType,content}));setNotice("Dosya okundu; sınıflandırmayı kontrol edip taslak oluşturun.");
+    setFileBusy(true);setFileWarning("");setNotice("Belge güvenli biçimde tarayıcıda işleniyor…");
+    try{
+      const extracted=await extractKnowledgeDocument(file);
+      setForm(value=>({...value,name:file.name.replace(/\.[^.]+$/," ").trim().slice(0,160),sourceType:extracted.sourceType,content:extracted.content}));
+      setFileWarning(extracted.warning);setNotice(`${extracted.detail} Sınıflandırmayı ve metni kontrol edip taslak oluşturun.`);
+    }catch(error){setNotice(error instanceof Error?error.message:"Belge okunamadı.");}
+    finally{setFileBusy(false);}
   }
 
   async function fetchDetail(id:string){const response=await fetch(withBasePath(`/api/ai/knowledge?id=${encodeURIComponent(id)}`),{cache:"no-store"}).catch(()=>null),body=await response?.json().catch(()=>({}))||{};if(!response?.ok){setNotice(String(body.error||"Kaynak ayrıntısı okunamadı."));return null;}return body as KnowledgeDetail;}
@@ -38,7 +40,7 @@ export default function FornostAiKnowledge({role}:{role:Role}){
   const confirmation=action?.kind==="approve"?"ONAYLA":action?.kind==="archive"?"ARŞİVLE":action?.kind==="version"?"YENİ SÜRÜM":"SİL";
   return <div className="fornost-ai-knowledge">
     <div className="fornost-ai-security-note"><b>Yönetişimli AI Bilgi Tabanı</b><p>Yalnız onaylı güncel sürümler kaynak gösterilerek kullanılır. Restricted içerik saklanabilir ancak model bağlamına hiçbir zaman gönderilmez.</p></div>
-    {role==="Admin"&&<form className="fornost-ai-knowledge-form" onSubmit={create}><b>Yeni bilgi kaynağı</b><label className="fornost-ai-file"><span>Dosyadan doldur · TXT, MD, HTML, CSV, JSON</span><input type="file" accept=".txt,.md,.markdown,.html,.htm,.csv,.json,text/plain,text/markdown,text/html,text/csv,application/json" onChange={event=>void selectFile(event.target.files?.[0])}/></label><label><span>Kaynak adı</span><input required minLength={3} maxLength={160} value={form.name} onChange={event=>setForm(value=>({...value,name:event.target.value}))} placeholder="Örn. Bilgi Güvenliği Politikası"/></label><div><label><span>İçerik türü</span><select value={form.sourceType} onChange={event=>setForm(value=>({...value,sourceType:event.target.value}))}><option value="text">Metin</option><option value="markdown">Markdown</option><option value="html">HTML</option><option value="csv">CSV</option><option value="json">JSON</option></select></label><label><span>Veri sınıfı</span><select value={form.classification} onChange={event=>setForm(value=>({...value,classification:event.target.value}))}><option>Public</option><option>Internal</option><option>Confidential</option><option>Restricted</option></select></label></div><label><span>İçerik · en fazla 160.000 karakter</span><textarea required minLength={40} maxLength={160000} rows={6} value={form.content} onChange={event=>setForm(value=>({...value,content:event.target.value}))} placeholder="Politika veya referans içeriğini buraya yapıştırın…"/></label><button disabled={busy||form.content.trim().length<40}>Taslak Kaynak Oluştur</button></form>}
+    {role==="Admin"&&<form className="fornost-ai-knowledge-form" onSubmit={create}><b>Yeni bilgi kaynağı</b><label className={`fornost-ai-file ${fileBusy?"busy":""}`}><span>Dosyadan doldur · TXT, MD, HTML, CSV, JSON, PDF, DOCX</span><input disabled={fileBusy} type="file" accept=".txt,.md,.markdown,.html,.htm,.csv,.json,.pdf,.docx,text/plain,text/markdown,text/html,text/csv,application/json,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" onChange={event=>void selectFile(event.target.files?.[0])}/><small>PDF ve DOCX içeriği tarayıcınızda metne çevrilir; ham dosya sunucuya veya AI sağlayıcısına yüklenmez.</small></label>{fileWarning&&<div className="fornost-ai-file-warning" role="alert">{fileWarning}</div>}<label><span>Kaynak adı</span><input required minLength={3} maxLength={160} value={form.name} onChange={event=>setForm(value=>({...value,name:event.target.value}))} placeholder="Örn. Bilgi Güvenliği Politikası"/></label><div><label><span>İçerik türü</span><select value={form.sourceType} onChange={event=>setForm(value=>({...value,sourceType:event.target.value}))}><option value="text">Metin</option><option value="markdown">Markdown</option><option value="html">HTML</option><option value="csv">CSV</option><option value="json">JSON</option><option value="pdf">PDF metni</option><option value="docx">DOCX metni</option></select></label><label><span>Veri sınıfı</span><select value={form.classification} onChange={event=>setForm(value=>({...value,classification:event.target.value}))}><option>Public</option><option>Internal</option><option>Confidential</option><option>Restricted</option></select></label></div><label><span>Çıkarılan içerik · en fazla 160.000 karakter</span><textarea required minLength={40} maxLength={160000} rows={8} value={form.content} onChange={event=>setForm(value=>({...value,content:event.target.value}))} placeholder="Politika veya referans içeriğini buraya yapıştırın…"/></label><button disabled={busy||fileBusy||form.content.trim().length<40}>{fileBusy?"Belge işleniyor…":"Taslak Kaynak Oluştur"}</button></form>}
     {notice&&<div className="fornost-ai-notice">{notice}</div>}
     {role!=="Viewer"&&<form className="fornost-ai-knowledge-search" onSubmit={search}><div><b>Retrieval Laboratuvarı</b><small>Onaylı kaynaklarda model çağrısı yapmadan eşleşme ve citation sırasını test edin.</small></div><input maxLength={1000} value={query} onChange={event=>setQuery(event.target.value)} placeholder="Örn. yönetici hesaplarında MFA politikası"/><button disabled={searchBusy||query.trim().length<3}>{searchBusy?"Aranıyor…":"Retrieval Testi"}</button></form>}
     {!!matches.length&&<div className="fornost-ai-knowledge-matches">{matches.map(match=><article key={match.ref}><header><b>{match.ref}</b><span>{match.score} puan</span></header><small>{match.name} · v{match.version} · parça {match.chunk} · {match.classification}</small><p>{match.preview}</p></article>)}</div>}

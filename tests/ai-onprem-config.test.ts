@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
 const installer = readFileSync("scripts/linux/install.sh", "utf8");
+const server = readFileSync("scripts/linux/serve.sh", "utf8");
 const envExample = readFileSync(".env.onprem.example", "utf8");
 
 test("on-prem installer reads and exports AI private endpoint flags", () => {
@@ -15,6 +16,8 @@ test("on-prem installer reads and exports AI private endpoint flags", () => {
 test("application container receives AI network policy flags", () => {
   assert.match(installer, /--env FORNOST_AI_ALLOW_PRIVATE_ENDPOINTS \\/);
   assert.match(installer, /--env FORNOST_AI_ALLOW_LOOPBACK \\/);
+  assert.match(server, /--var "FORNOST_AI_ALLOW_PRIVATE_ENDPOINTS:\$\{FORNOST_AI_ALLOW_PRIVATE_ENDPOINTS:-false\}"/);
+  assert.match(server, /--var "FORNOST_AI_ALLOW_LOOPBACK:\$\{FORNOST_AI_ALLOW_LOOPBACK:-false\}"/);
 });
 
 test("loopback policy cannot be enabled without private endpoint policy", () => {

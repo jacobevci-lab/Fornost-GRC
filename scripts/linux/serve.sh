@@ -23,5 +23,7 @@ exec bash scripts/sites-env.sh -- \
   --var "FORNOST_DEMO_MODE:${FORNOST_DEMO_MODE:-false}" \
   --var "FORNOST_SETTINGS_ENCRYPTION_KEY:${FORNOST_SETTINGS_ENCRYPTION_KEY:-development-only-integration-key-change-me}" \
   --var "FORNOST_ALLOW_PRIVATE_CONNECTORS:${FORNOST_ALLOW_PRIVATE_CONNECTORS:-false}" \
+  --var "FORNOST_AI_ALLOW_PRIVATE_ENDPOINTS:${FORNOST_AI_ALLOW_PRIVATE_ENDPOINTS:-false}" \
+  --var "FORNOST_AI_ALLOW_LOOPBACK:${FORNOST_AI_ALLOW_LOOPBACK:-false}" \
   --var "FORNOST_TRUST_PLATFORM_IDENTITY:${FORNOST_TRUST_PLATFORM_IDENTITY:-false}" \
   --show-interactive-dev-session=false
