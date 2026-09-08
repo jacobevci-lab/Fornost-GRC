@@ -161,4 +161,3 @@ test("repository-facing install files contain no legacy product names", async ()
     assert.doesNotMatch(content, legacyPattern, `${file} contains a legacy name`);
   }
 });
-
