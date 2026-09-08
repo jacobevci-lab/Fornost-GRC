@@ -4,6 +4,7 @@ export type KnowledgeHealthSource = {
   characterCount: number;
   chunkCount: number;
   approvedAt: string | null;
+  reviewDueAt?: string | null;
 };
 
 export type KnowledgeHealthState = "healthy" | "review" | "stale" | "archived";
@@ -13,6 +14,10 @@ const STALE_AFTER_DAYS = 180;
 export function knowledgeHealthState(source: KnowledgeHealthSource, now = Date.now()): KnowledgeHealthState {
   if (source.status === "archived") return "archived";
   if (source.status === "draft" || !source.approvedAt) return "review";
+  if (source.reviewDueAt) {
+    const reviewDueAt = Date.parse(`${source.reviewDueAt}T23:59:59.999Z`);
+    return Number.isFinite(reviewDueAt) && now > reviewDueAt ? "stale" : "healthy";
+  }
   const approvedAt = Date.parse(source.approvedAt);
   if (!Number.isFinite(approvedAt)) return "review";
   return now - approvedAt > STALE_AFTER_DAYS * 86_400_000 ? "stale" : "healthy";

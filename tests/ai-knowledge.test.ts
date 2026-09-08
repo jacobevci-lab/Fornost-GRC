@@ -1,11 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import fs from "node:fs";
-import { chunkKnowledgeContent, enforceGroundedCitations, normalizeKnowledgeContent, retrieveApprovedKnowledge, searchApprovedKnowledge, validateKnowledgeInput } from "../app/ai/knowledge";
+import { chunkKnowledgeContent, enforceGroundedCitations, normalizeKnowledgeContent, retrieveApprovedKnowledge, searchApprovedKnowledge, validateKnowledgeGovernance, validateKnowledgeInput } from "../app/ai/knowledge";
 import { knowledgeFileType, normalizeExtractedDocumentText, validateKnowledgeFile } from "../app/ai/document-extraction";
 import { knowledgeHealthState, summarizeKnowledgeHealth } from "../app/ai/knowledge-health";
 
-const route=fs.readFileSync("app/api/ai/knowledge/route.ts","utf8"),searchRoute=fs.readFileSync("app/api/ai/knowledge/search/route.ts","utf8"),storage=fs.readFileSync("app/ai/storage.ts","utf8"),migration=fs.readFileSync("drizzle/0037_fornost_ai_knowledge.sql","utf8"),chat=fs.readFileSync("app/api/ai/chat/route.ts","utf8"),ui=fs.readFileSync("app/fornost-ai-knowledge.tsx","utf8");
+const route=fs.readFileSync("app/api/ai/knowledge/route.ts","utf8"),searchRoute=fs.readFileSync("app/api/ai/knowledge/search/route.ts","utf8"),storage=fs.readFileSync("app/ai/storage.ts","utf8"),migration=fs.readFileSync("drizzle/0037_fornost_ai_knowledge.sql","utf8"),governanceMigration=fs.readFileSync("drizzle/0038_fornost_ai_knowledge_governance.sql","utf8"),chat=fs.readFileSync("app/api/ai/chat/route.ts","utf8"),ui=fs.readFileSync("app/fornost-ai-knowledge.tsx","utf8"),copilot=fs.readFileSync("app/fornost-ai-copilot.tsx","utf8");
 
 test("knowledge ingestion normalizes active HTML and enforces types and bounds",()=>{
   const cleaned=normalizeKnowledgeContent(`<style>secret css</style><script>alert(1)</script><h1>Access Policy</h1><p>${"MFA is required. ".repeat(4)}</p>`,"html");
@@ -13,6 +13,8 @@ test("knowledge ingestion normalizes active HTML and enforces types and bounds",
   assert.equal(validateKnowledgeInput({name:"IAM Policy",sourceType:"markdown",classification:"Internal",content:"MFA policy and access review requirements. ".repeat(2)}).classification,"Internal");
   assert.throws(()=>validateKnowledgeInput({name:"x",sourceType:"pdf",classification:"Secret",content:"x".repeat(100)}),/Kaynak adı|Desteklenmeyen/);
   assert.throws(()=>normalizeKnowledgeContent("x".repeat(160001),"text"),/160.000/);
+  assert.deepEqual(validateKnowledgeGovernance({owner:"BGYS Ekibi",reviewDueAt:"2027-03-01"}),{owner:"BGYS Ekibi",reviewDueAt:"2027-03-01"});
+  assert.throws(()=>validateKnowledgeGovernance({owner:"x",reviewDueAt:"2027-02-30"}),/sorumlusu|tarihi/);
 });
 
 test("PDF and DOCX knowledge ingestion is bounded before browser-side extraction",()=>{
@@ -50,11 +52,15 @@ test("knowledge lifecycle is Admin governed, versioned, confirmed and audited",(
   assert.match(route,/requireRole\(req,\["Admin"\]\)/);assert.match(route,/body\.confirmation!=="YENİ SÜRÜM"/);assert.match(route,/"ONAYLA":"ARŞİVLE"/);assert.match(route,/body\.confirmation!=="SİL"/);assert.match(route,/recordAiEvent/);
   assert.match(route,/status='draft'/);assert.match(route,/Onaylı kaynak önce arşivlenmeli/);
   assert.match(storage,/CREATE TABLE IF NOT EXISTS ai_knowledge_sources/);assert.match(storage,/CREATE TABLE IF NOT EXISTS ai_knowledge_versions/);assert.match(migration,/UNIQUE\(source_id,version,ordinal\)/);
+  assert.match(storage,/CREATE TABLE IF NOT EXISTS ai_knowledge_governance/);assert.match(governanceMigration,/review_due_at TEXT NOT NULL/);
+  assert.match(route,/TOPLU ONAYLA/);assert.match(route,/TOPLU ARŞİVLE/);assert.match(route,/ids\.length>1/);assert.match(route,/ids\.length>50/);
+  assert.match(route,/GÖZDEN GEÇİR/);assert.match(route,/knowledge-bulk-/);assert.match(route,/DELETE FROM ai_knowledge_governance/);
 });
 
 test("knowledge UI and copilot expose governed citations and bulk ingestion",()=>{
-  for(const label of ["Yönetişimli AI Bilgi Tabanı","Tek Taslak Oluştur","Yeni Sürüm","Restricted","Retrieval Laboratuvarı","İçerik & Geçmiş","Toplu belge seç","ham dosyalar sunucuya veya AI sağlayıcısına yüklenmez","Hazır Belgeleri Taslaklaştır","Gözden geçirme zamanı"])assert.match(ui,new RegExp(label));
+  for(const label of ["Yönetişimli AI Bilgi Tabanı","Tek Taslak Oluştur","Yeni Sürüm","Restricted","Retrieval Laboratuvarı","İçerik & Geçmiş","Toplu belge seç","ham dosyalar sunucuya veya AI sağlayıcısına yüklenmez","Hazır Belgeleri Taslaklaştır","Gözden geçirme zamanı","Toplu Onayla","Toplu Arşivle","Kaynak sorumlusu","Yeni sürümü dosyadan yükle"])assert.match(ui,new RegExp(label));
   assert.match(ui,/multiple type="file"/);assert.match(ui,/selected.length>10/);assert.match(ui,/30\*1024\*1024/);
+  assert.match(copilot,/FornostAiKnowledge role=\{user\.role\} actor=\{user\.email\}/);
   assert.match(ui,/type="file"/);assert.match(route,/normalized_content/);assert.match(searchRoute,/raw query not stored/);assert.match(searchRoute,/requireRole\(req,\["Admin","Editor"\]\)/);
   assert.match(chat,/knowledge-base chunks/);assert.match(chat,/enforceGroundedCitations/);assert.doesNotMatch(route,/callAiWithFailover|UPDATE simple_grc_records/);
 });
@@ -63,6 +69,8 @@ test("knowledge health exposes drafts and stale approvals without sending conten
   const now=Date.parse("2026-09-08T00:00:00.000Z"),fresh={status:"approved" as const,classification:"Internal",characterCount:400,chunkCount:2,approvedAt:"2026-08-01T00:00:00.000Z"};
   assert.equal(knowledgeHealthState(fresh,now),"healthy");
   assert.equal(knowledgeHealthState({...fresh,approvedAt:"2025-01-01T00:00:00.000Z"},now),"stale");
+  assert.equal(knowledgeHealthState({...fresh,approvedAt:"2025-01-01T00:00:00.000Z",reviewDueAt:"2026-12-01"},now),"healthy");
+  assert.equal(knowledgeHealthState({...fresh,reviewDueAt:"2026-09-01"},now),"stale");
   assert.equal(knowledgeHealthState({...fresh,status:"draft",approvedAt:null},now),"review");
   assert.deepEqual(summarizeKnowledgeHealth([fresh,{...fresh,status:"draft",approvedAt:null,classification:"Restricted"}],now),{total:2,approved:1,review:1,stale:0,archived:0,restricted:1,characters:800,chunks:4});
   assert.match(route,/knowledge-duplicate-blocked/);assert.match(route,/SELECT id,name,status FROM ai_knowledge_sources WHERE content_hash/);

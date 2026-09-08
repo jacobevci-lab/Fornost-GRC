@@ -10,6 +10,20 @@ const MAX_CONTENT_CHARS = 160_000;
 const CHUNK_SIZE = 2_000;
 const CHUNK_OVERLAP = 200;
 
+function validKnowledgeDate(value: string) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const [year, month, day] = value.split("-").map(Number), date = new Date(Date.UTC(year, month - 1, day));
+  return date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day;
+}
+
+export function validateKnowledgeGovernance(input: Record<string, unknown>, fallbackOwner = "") {
+  const owner = redactSensitiveText(input.owner || fallbackOwner, 320);
+  const reviewDueAt = cleanAiText(input.reviewDueAt, 10);
+  if (owner.length < 3) throw new Error("Bilgi kaynağı sorumlusu zorunludur.");
+  if (!validKnowledgeDate(reviewDueAt)) throw new Error("Geçerli bir gözden geçirme tarihi gereklidir.");
+  return { owner, reviewDueAt };
+}
+
 function stripHtml(value: string) {
   return value
     .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, " ")

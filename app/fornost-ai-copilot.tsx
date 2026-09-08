@@ -401,7 +401,7 @@ export default function FornostAiCopilot() {
           <div><small>{question.length}/4000</small><button disabled={!aiReady || busy || !question.trim()}>Gönder</button></div>
         </form>
       </> : activeTab === "agents" ? <FornostAiAgents role={user.role} aiReady={aiReady} runs={agentRuns} kind={agentKind} setKind={setAgentKind} objective={agentObjective} setObjective={setAgentObjective} busy={agentBusy} notice={notice} decision={agentDecision} setDecision={setAgentDecision} conversion={agentConversion} setConversion={setAgentConversion} onRun={runAgent} onReview={reviewAgent} onConvert={convertAgentFinding} onDelete={deleteAgentRun} onReload={()=>void loadAgents()}/>
-      : activeTab === "knowledge" ? <FornostAiKnowledge role={user.role}/>
+      : activeTab === "knowledge" ? <FornostAiKnowledge role={user.role} actor={user.email}/>
       : activeTab === "drafts" ? <div className="fornost-ai-drafts">
         <div className="fornost-ai-security-note"><b>İnsan onaylı AI taslakları</b><p>AI yalnız yapılandırılmış bir öneri üretir. Onay veya ret kararı denetim izine yazılır; bu sürüm canlı GRC kayıtlarını otomatik değiştirmez.</p></div>
         {user.role !== "Viewer" && <form className="fornost-ai-draft-form" onSubmit={createDraft}>

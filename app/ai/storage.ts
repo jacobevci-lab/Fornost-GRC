@@ -147,6 +147,11 @@ const knowledgeSourcesSql = `CREATE TABLE IF NOT EXISTS ai_knowledge_sources (
   approved_by TEXT, approved_at TEXT, decision_note TEXT
 )`;
 const knowledgeSourcesIndexSql = "CREATE INDEX IF NOT EXISTS ai_knowledge_sources_status_updated_idx ON ai_knowledge_sources(status,updated_at)";
+const knowledgeGovernanceSql = `CREATE TABLE IF NOT EXISTS ai_knowledge_governance (
+  source_id TEXT PRIMARY KEY, owner TEXT NOT NULL, review_due_at TEXT NOT NULL,
+  updated_by TEXT NOT NULL, updated_at TEXT NOT NULL
+)`;
+const knowledgeGovernanceIndexSql = "CREATE INDEX IF NOT EXISTS ai_knowledge_governance_review_idx ON ai_knowledge_governance(review_due_at)";
 const knowledgeVersionsSql = `CREATE TABLE IF NOT EXISTS ai_knowledge_versions (
   id TEXT PRIMARY KEY, source_id TEXT NOT NULL, version INTEGER NOT NULL, content_hash TEXT NOT NULL,
   normalized_content TEXT NOT NULL, character_count INTEGER NOT NULL, chunk_count INTEGER NOT NULL,
@@ -192,6 +197,8 @@ export async function aiRuntime() {
       runtime.DB.prepare(agentDraftLinksIndexSql),
       runtime.DB.prepare(knowledgeSourcesSql),
       runtime.DB.prepare(knowledgeSourcesIndexSql),
+      runtime.DB.prepare(knowledgeGovernanceSql),
+      runtime.DB.prepare(knowledgeGovernanceIndexSql),
       runtime.DB.prepare(knowledgeVersionsSql),
       runtime.DB.prepare(knowledgeVersionsIndexSql),
       runtime.DB.prepare(knowledgeChunksSql),
