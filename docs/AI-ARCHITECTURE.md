@@ -98,6 +98,8 @@ Provider secrets use the existing Fornost AES-GCM integration encryption helper 
 
 An optional encrypted fallback profile may use a different provider, endpoint and model. Chat, typed-draft generation and evaluation calls first use the primary profile, then make at most one fallback attempt. Every attempt writes a bounded `ai_provider_health` result. Redirect blocking, endpoint validation and private/loopback opt-in apply independently to both profiles.
 
+Each provider profile also has a verified trust zone (`external`, `private`, or `local`) and a maximum outbound data classification. The trust zone must match the endpoint hostname; a public endpoint cannot be mislabeled as private. External providers are capped at `Internal`, while private/local profiles may be capped at `Confidential`. `Restricted` content is never eligible for model context. When failover is configured, the strictest maximum across the entire chain is selected before context retrieval, so switching providers can never expand data exposure. Chat, draft generation, governed agents, and the retrieval lab all use this shared policy and write the effective maximum to the bounded audit detail.
+
 ## Prompt-injection controls
 
 The system prompt explicitly defines retrieved GRC records as untrusted data and instructs the model not to execute or follow instructions embedded in records, evidence metadata or policy text.

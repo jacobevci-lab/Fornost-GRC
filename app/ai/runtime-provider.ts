@@ -2,10 +2,11 @@ import { decryptSecret } from "@/app/api/integrations/security";
 import { boundedNumber, envFlag, safeAiEndpoint } from "./security";
 import { callAiProvider, type AiMessage, type AiProviderConfig } from "./provider";
 import type { AiProviderKind, AiSettingsRow } from "./storage";
+import { resolveProviderDataPolicy, strictestDataClassification } from "./data-policy";
 
 type Runtime=Record<string,unknown>&{DB:D1Database};
 type FallbackRow={provider:AiProviderKind;base_url:string;model:string;enabled:number;config_json:string;secret_ciphertext:string|null};
-export type AiRuntimeProfile=AiProviderConfig&{profile:"primary"|"fallback"};
+export type AiRuntimeProfile=AiProviderConfig&{profile:"primary"|"fallback";trustZone:"external"|"private"|"local";maxDataClassification:"Public"|"Internal"|"Confidential"};
 
 function parseConfig(value:string){try{const parsed=JSON.parse(value||"{}");return parsed&&typeof parsed==="object"&&!Array.isArray(parsed)?parsed as Record<string,unknown>:{};}catch{return {};}}
 async function profile(env:Runtime,row:Pick<AiSettingsRow,"provider"|"base_url"|"model"|"config_json"|"secret_ciphertext">,name:"primary"|"fallback"){
@@ -14,7 +15,8 @@ async function profile(env:Runtime,row:Pick<AiSettingsRow,"provider"|"base_url"|
   let apiKey="";
   if(row.secret_ciphertext){const key=String(env.FORNOST_SETTINGS_ENCRYPTION_KEY??"").trim();if(key.length<32)throw new Error("AI kimlik bilgileri çözülemiyor.");apiKey=await decryptSecret(row.secret_ciphertext,key);}
   const config=parseConfig(row.config_json);
-  return {profile:name,provider:row.provider,baseUrl,model:row.model,apiKey,temperature:boundedNumber(config.temperature,0.2,0,2),timeoutMs:boundedNumber(config.timeoutMs,60000,5000,120000),maxTokens:Math.round(boundedNumber(config.maxTokens,1200,128,4096))} as AiRuntimeProfile;
+  const dataPolicy=resolveProviderDataPolicy(baseUrl,config);
+  return {profile:name,provider:row.provider,baseUrl,model:row.model,apiKey,temperature:boundedNumber(config.temperature,0.2,0,2),timeoutMs:boundedNumber(config.timeoutMs,60000,5000,120000),maxTokens:Math.round(boundedNumber(config.maxTokens,1200,128,4096)),...dataPolicy} as AiRuntimeProfile;
 }
 
 export async function getAiProviderChain(env:Runtime,primary:AiSettingsRow){
@@ -22,6 +24,10 @@ export async function getAiProviderChain(env:Runtime,primary:AiSettingsRow){
   const fallback=await env.DB.prepare("SELECT provider,base_url,model,enabled,config_json,secret_ciphertext FROM ai_provider_fallbacks WHERE id='default'").first<FallbackRow>();
   if(fallback?.enabled)chain.push(await profile(env,fallback,"fallback"));
   return chain;
+}
+
+export function getEffectiveAiDataPolicy(chain:AiRuntimeProfile[]){
+  return {maxDataClassification:strictestDataClassification(chain),profiles:chain.map(item=>({profile:item.profile,trustZone:item.trustZone,maxDataClassification:item.maxDataClassification}))};
 }
 
 async function health(db:D1Database,item:AiRuntimeProfile,operation:string,status:"success"|"error",latency:number,detail:string){

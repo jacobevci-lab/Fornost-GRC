@@ -3,7 +3,7 @@ import { requireRole } from "../../auth/security";
 import { agentContextQuery, agentSchemaInstruction, AI_AGENT_DEFINITIONS, parseAgentResponse, validateAgentRequest } from "@/app/ai/agents";
 import { buildGrcContext } from "@/app/ai/context";
 import { sha256 } from "@/app/ai/governance";
-import { callAiWithFailover, getAiProviderChain } from "@/app/ai/runtime-provider";
+import { callAiWithFailover, getAiProviderChain, getEffectiveAiDataPolicy } from "@/app/ai/runtime-provider";
 import { cleanAiText, redactSensitiveText } from "@/app/ai/security";
 import { aiRuntime, getAiSettings, recordAiEvent } from "@/app/ai/storage";
 
@@ -74,7 +74,7 @@ export async function POST(req: NextRequest) {
   try { chain = await getAiProviderChain(env, primary); }
   catch (error) { return json({ error: error instanceof Error ? error.message : "AI sağlayıcı zinciri hazırlanamadı." }, 409); }
   const definition = AI_AGENT_DEFINITIONS[request.kind];
-  const context = await buildGrcContext(env.DB, agentContextQuery(request.kind, request.objective));
+  const dataPolicy=getEffectiveAiDataPolicy(chain),context = await buildGrcContext(env.DB, agentContextQuery(request.kind, request.objective),dataPolicy.maxDataClassification);
   if (!context.sources.length) return json({ error: "Bu agent için analiz edilecek GRC kaydı bulunamadı." }, 409);
   const id = `AIAR-${crypto.randomUUID()}`, now = new Date().toISOString(), started = Date.now();
   await env.DB.prepare(`INSERT INTO ai_agent_runs(id,agent_kind,objective,status,report_json,source_refs_json,provider,model,provider_profile,latency_ms,created_by,created_at)
@@ -89,7 +89,7 @@ export async function POST(req: NextRequest) {
     const completedAt = new Date().toISOString(), latency = Date.now() - started, outputHash = await sha256(response.content);
     await env.DB.prepare("UPDATE ai_agent_runs SET status='completed',report_json=?,output_hash=?,provider=?,model=?,provider_profile=?,latency_ms=?,completed_at=? WHERE id=? AND status='running'")
       .bind(JSON.stringify(report), outputHash, response.provider, response.model, response.profile, latency, completedAt, id).run();
-    await recordAiEvent(env.DB, { actor: access.actor.email, action: "agent-run", provider: response.provider, model: response.model, promptHash, contextRefs: context.sources.map(source => source.id), status: "success", latencyMs: latency, detail: `${definition.label} ${id} produced ${report.findings.length} grounded findings; no live record changed` });
+    await recordAiEvent(env.DB, { actor: access.actor.email, action: "agent-run", provider: response.provider, model: response.model, promptHash, contextRefs: context.sources.map(source => source.id), status: "success", latencyMs: latency, detail: `${definition.label} ${id} produced ${report.findings.length} grounded findings; max ${dataPolicy.maxDataClassification}; no live record changed` });
     return json({ run: { id, kind: request.kind, status: "completed", report, sourceRefs: context.sources.map(source => source.id), provider: response.provider, model: response.model, profile: response.profile, latencyMs: latency, createdBy: access.actor.email, createdAt: now, completedAt, reviewedBy: null, reviewNote: null, draftLinks: [] } }, 201);
   } catch (error) {
     const message = redactSensitiveText(error instanceof Error ? error.message : "Agent çalışması başarısız.", 500), completedAt = new Date().toISOString(), latency = Date.now() - started;

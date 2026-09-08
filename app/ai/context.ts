@@ -1,5 +1,6 @@
 import { sanitizeAiRecord } from "./security";
 import { retrieveApprovedKnowledge } from "./knowledge";
+import { dataClassificationAllowed, type AiDataClassification } from "./data-policy";
 
 export type AiContextSource = { id: string; module: string; title: string };
 type GrcRow = { id: string; module: string; data_json: string; updated_at: string };
@@ -55,12 +56,14 @@ function scoreRow(row: GrcRow, data: Record<string, unknown>, question: string, 
   return score;
 }
 
-export async function buildGrcContext(db: D1Database, question: string) {
-  const knowledge = await retrieveApprovedKnowledge(db, question);
+function recordClassification(data:Record<string,unknown>){return data.dataClassification??data.classification??data.securityClassification??"Internal";}
+
+export async function buildGrcContext(db: D1Database, question: string, maxDataClassification: AiDataClassification = "Confidential") {
+  const knowledge = await retrieveApprovedKnowledge(db, question, 9_000, maxDataClassification);
   const result = await db.prepare("SELECT id,module,data_json,updated_at FROM simple_grc_records ORDER BY updated_at DESC LIMIT 400").all<GrcRow>();
   const rows = result.results || [];
   const targetModules = inferReadModules(question);
-  const parsed = rows.map((row) => ({ row, data: parseData(row) }));
+  const parsed = rows.map((row) => ({ row, data: parseData(row) })).filter(({data})=>dataClassificationAllowed(recordClassification(data),maxDataClassification));
   const relevant = (targetModules.length ? parsed.filter(({ row }) => targetModules.includes(row.module)) : parsed)
     .map((item) => ({ ...item, score: scoreRow(item.row, item.data, question, targetModules) }))
     .sort((a, b) => b.score - a.score || b.row.updated_at.localeCompare(a.row.updated_at));
@@ -93,5 +96,6 @@ export async function buildGrcContext(db: D1Database, question: string) {
     sources: combinedSources,
     contextText: combinedChunks.length ? combinedChunks.join("\n") : "No matching approved Fornost GRC or knowledge-base records were available for this question.",
     inferredModules: targetModules,
+    maxDataClassification,
   };
 }

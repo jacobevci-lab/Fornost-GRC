@@ -1,4 +1,5 @@
 import { cleanAiText, redactSensitiveText } from "./security";
+import { dataClassificationAllowed, type AiDataClassification } from "./data-policy";
 
 export const KNOWLEDGE_TYPES = ["text", "markdown", "html", "csv", "json"] as const;
 export const KNOWLEDGE_CLASSIFICATIONS = ["Public", "Internal", "Confidential", "Restricted"] as const;
@@ -72,13 +73,13 @@ function searchTerms(query: string) {
 
 type KnowledgeChunkRow = { source_id:string;name:string;classification:string;version:number;ordinal:number;content_text:string;updated_at:string };
 
-export async function searchApprovedKnowledge(db: D1Database, query: string) {
+export async function searchApprovedKnowledge(db: D1Database, query: string, maxClassification: AiDataClassification = "Confidential") {
   const result = await db.prepare(`SELECT c.source_id,s.name,s.classification,c.version,c.ordinal,c.content_text,s.updated_at
     FROM ai_knowledge_chunks c JOIN ai_knowledge_sources s ON s.id=c.source_id
     WHERE s.status='approved' AND s.classification!='Restricted' AND c.version=s.current_version
     ORDER BY s.updated_at DESC,c.ordinal ASC LIMIT 600`).all<KnowledgeChunkRow>();
   const terms = searchTerms(query);
-  return (result.results || []).map(row => {
+  return (result.results || []).filter(row=>dataClassificationAllowed(row.classification,maxClassification)).map(row => {
     const title = normalize(`${row.name} ${row.classification}`), content = normalize(row.content_text);
     let score = 0;
     for (const term of terms) {
@@ -90,8 +91,8 @@ export async function searchApprovedKnowledge(db: D1Database, query: string) {
   }).filter(item => item.score > 0).sort((a,b) => b.score-a.score || a.name.localeCompare(b.name) || a.ordinal-b.ordinal).slice(0,16);
 }
 
-export async function retrieveApprovedKnowledge(db: D1Database, query: string, maxChars = 9_000) {
-  const ranked = await searchApprovedKnowledge(db,query);
+export async function retrieveApprovedKnowledge(db: D1Database, query: string, maxChars = 9_000, maxClassification: AiDataClassification = "Confidential") {
+  const ranked = await searchApprovedKnowledge(db,query,maxClassification);
 
   const sources: Array<{id:string;module:string;title:string}> = [], chunks: string[] = [];
   let used = 0;

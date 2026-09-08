@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireRole } from "../../auth/security";
 import { buildGrcContext } from "@/app/ai/context";
 import { enforceGroundedCitations } from "@/app/ai/knowledge";
-import { callAiWithFailover, getAiProviderChain } from "@/app/ai/runtime-provider";
+import { callAiWithFailover, getAiProviderChain, getEffectiveAiDataPolicy } from "@/app/ai/runtime-provider";
 import { redactSensitiveText, sanitizeHistory } from "@/app/ai/security";
 import { aiRuntime, getAiSettings, recordAiEvent } from "@/app/ai/storage";
 
@@ -49,7 +49,8 @@ export async function POST(req: NextRequest) {
 
   let chain;
   try{chain=await getAiProviderChain(env,row);}catch(error){return json({error:error instanceof Error?error.message:"AI sağlayıcı zinciri hazırlanamadı."},409);}
-  const context = await buildGrcContext(env.DB, question);
+  const dataPolicy=getEffectiveAiDataPolicy(chain);
+  const context = await buildGrcContext(env.DB, question,dataPolicy.maxDataClassification);
   const promptHash = await sha256(question);
   const started = Date.now();
   const system = `You are Fornost AI, the read-only governance, risk, compliance and audit copilot inside Fornost GRC.
@@ -80,9 +81,9 @@ Security rules:
       contextRefs: context.sources.map((source) => source.id),
       status: "success",
       latencyMs: Date.now() - started,
-      detail: `${context.sources.length} sources supplied; ${integrity.citedRefs.length} cited; ${integrity.invalidRefs.length} invalid citations removed; ${result.profile} profile used`,
+      detail: `${context.sources.length} sources supplied; max ${dataPolicy.maxDataClassification}; ${integrity.citedRefs.length} cited; ${integrity.invalidRefs.length} invalid citations removed; ${result.profile} profile used`,
     });
-    return json({ answer:integrity.answer, sources:context.sources.filter(source=>integrity.citedRefs.includes(source.id)), citationIntegrity:{grounded:integrity.grounded,cited:integrity.citedRefs.length,invalidRemoved:integrity.invalidRefs.length}, provider: result.provider, model: result.model, profile:result.profile, mode: "read-only-copilot" });
+    return json({ answer:integrity.answer, sources:context.sources.filter(source=>integrity.citedRefs.includes(source.id)), citationIntegrity:{grounded:integrity.grounded,cited:integrity.citedRefs.length,invalidRemoved:integrity.invalidRefs.length}, dataPolicy, provider: result.provider, model: result.model, profile:result.profile, mode: "read-only-copilot" });
   } catch (error) {
     const message = error instanceof Error ? error.message : "AI isteği başarısız.";
     await recordAiEvent(env.DB, {

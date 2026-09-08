@@ -5,6 +5,7 @@ import { boundedNumber, cleanAiText, envFlag, safeAiEndpoint } from "@/app/ai/se
 import { aiRuntime, getAiSettings, recordAiEvent, type AiProviderKind, type AiSettingsRow } from "@/app/ai/storage";
 import { testAiProvider } from "@/app/ai/provider";
 import { getAiProviderChain } from "@/app/ai/runtime-provider";
+import { AI_DATA_CLASSIFICATIONS, AI_PROVIDER_TRUST_ZONES, parseProviderDataPolicy, resolveProviderDataPolicy, type AiDataClassification, type AiProviderTrustZone } from "@/app/ai/data-policy";
 
 const providers: AiProviderKind[] = ["openai-compatible", "ollama"];
 const json = (data: unknown, status = 200) => NextResponse.json(data, { status, headers: { "cache-control": "no-store" } });
@@ -20,12 +21,21 @@ function parseConfig(configJson: string) {
   }
 }
 
+function inactivePolicy(trustZoneValue:unknown,classificationValue:unknown){
+  const trustZone=cleanAiText(trustZoneValue,20) as AiProviderTrustZone,maxDataClassification=cleanAiText(classificationValue,20) as AiDataClassification;
+  if(!AI_PROVIDER_TRUST_ZONES.includes(trustZone)||!AI_DATA_CLASSIFICATIONS.includes(maxDataClassification))throw new Error("Yedek AI veri paylaşım politikası geçersiz.");
+  if(trustZone==="external"&&maxDataClassification==="Confidential")throw new Error("Harici AI provider'a Confidential veri gönderilemez.");
+  return {trustZone,maxDataClassification};
+}
+
 export async function GET(req: NextRequest) {
   const access = await requireRole(req, ["Admin"]);
   if (access.response) return access.response;
   const env = await aiRuntime(), row = await getAiSettings(env.DB), fallback=await env.DB.prepare("SELECT * FROM ai_provider_fallbacks WHERE id='default'").first<AiSettingsRow>();
-  if (!row) return json({ configured: false, provider: "openai-compatible", baseUrl: "", model: "", enabled: false, temperature: 0.2, timeoutMs: 60000, maxTokens: 1200, hasSecret: false, fallback:{provider:"ollama",baseUrl:"",model:"",enabled:false,hasSecret:false} });
+  if (!row) return json({ configured: false, provider: "openai-compatible", baseUrl: "", model: "", enabled: false, temperature: 0.2, timeoutMs: 60000, maxTokens: 1200, trustZone:"external",maxDataClassification:"Internal",hasSecret: false, fallback:{provider:"ollama",baseUrl:"",model:"",enabled:false,trustZone:"private",maxDataClassification:"Confidential",hasSecret:false} });
   const config = parseConfig(row.config_json);
+  const policy=resolveProviderDataPolicy(row.base_url,config),fallbackConfig=fallback?parseConfig(fallback.config_json):{};
+  const fallbackPolicy=fallback?.base_url?resolveProviderDataPolicy(fallback.base_url,fallbackConfig):{trustZone:"private" as const,maxDataClassification:"Confidential" as const};
   return json({
     configured: true,
     provider: row.provider,
@@ -35,10 +45,11 @@ export async function GET(req: NextRequest) {
     temperature: boundedNumber(config.temperature, 0.2, 0, 2),
     timeoutMs: boundedNumber(config.timeoutMs, 60_000, 5_000, 120_000),
     maxTokens: Math.round(boundedNumber(config.maxTokens, 1200, 128, 4096)),
+    ...policy,
     hasSecret: !!row.secret_ciphertext,
     updatedAt: row.updated_at,
     updatedBy: row.updated_by,
-    fallback:fallback?{provider:fallback.provider,baseUrl:fallback.base_url,model:fallback.model,enabled:!!fallback.enabled,hasSecret:!!fallback.secret_ciphertext}: {provider:"ollama",baseUrl:"",model:"",enabled:false,hasSecret:false},
+    fallback:fallback?{provider:fallback.provider,baseUrl:fallback.base_url,model:fallback.model,enabled:!!fallback.enabled,...fallbackPolicy,hasSecret:!!fallback.secret_ciphertext}: {provider:"ollama",baseUrl:"",model:"",enabled:false,trustZone:"private",maxDataClassification:"Confidential",hasSecret:false},
   });
 }
 
@@ -59,6 +70,7 @@ export async function PUT(req: NextRequest) {
   const temperature = boundedNumber(body.temperature, 0.2, 0, 2);
   const timeoutMs = Math.round(boundedNumber(body.timeoutMs, 60_000, 5_000, 120_000));
   const maxTokens = Math.round(boundedNumber(body.maxTokens, 1200, 128, 4096));
+  let policy;try{policy=parseProviderDataPolicy(baseUrl,body.trustZone,body.maxDataClassification);}catch(error){return json({error:error instanceof Error?error.message:"AI veri paylaşım politikası geçersiz."},400);}
   const enabled = body.enabled === true;
   const secret = cleanAiText(body.secret, 4096);
   const existing = await getAiSettings(env.DB);
@@ -75,6 +87,10 @@ export async function PUT(req: NextRequest) {
   const fallbackBaseUrl=fallbackEnabled?safeAiEndpoint(fallbackUrlInput,allowPrivate,allowLoopback):cleanAiText(fallbackUrlInput,1500);
   if(fallbackEnabled&&(!fallbackBaseUrl||!fallbackModel))return json({error:"Etkin yedek sağlayıcı için güvenli endpoint ve model gereklidir."},400);
   const fallbackSecret=cleanAiText(fallbackBody.secret,4096);
+  const existingFallbackConfig=parseConfig(existingFallback?.config_json||"{}");
+  const fallbackTrustZone=fallbackProvided?fallbackBody.trustZone:existingFallbackConfig.trustZone||"private";
+  const fallbackMaxClassification=fallbackProvided?fallbackBody.maxDataClassification:existingFallbackConfig.maxDataClassification||"Confidential";
+  let fallbackPolicy;try{fallbackPolicy=fallbackEnabled?parseProviderDataPolicy(fallbackBaseUrl||"",fallbackTrustZone,fallbackMaxClassification):inactivePolicy(fallbackTrustZone,fallbackMaxClassification);}catch(error){return json({error:error instanceof Error?error.message:"Yedek AI veri paylaşım politikası geçersiz."},400);}
   if(fallbackSecret&&encryptionKey.length<32)return json({error:"Yedek AI API anahtarı için encryption key yapılandırılmamış."},503);
   const encrypted = secret
     ? await encryptSecret(secret, encryptionKey)
@@ -86,9 +102,9 @@ export async function PUT(req: NextRequest) {
   await env.DB.batch([env.DB.prepare(`INSERT INTO ai_provider_settings(id,provider,base_url,model,enabled,config_json,secret_ciphertext,created_at,updated_at,updated_by)
     VALUES('default',?,?,?,?,?,?,?,?,?)
     ON CONFLICT(id) DO UPDATE SET provider=excluded.provider,base_url=excluded.base_url,model=excluded.model,enabled=excluded.enabled,config_json=excluded.config_json,secret_ciphertext=excluded.secret_ciphertext,updated_at=excluded.updated_at,updated_by=excluded.updated_by`)
-    .bind(provider, baseUrl, model, enabled ? 1 : 0, JSON.stringify({ temperature, timeoutMs, maxTokens }), encrypted, existing?.created_at || now, now, access.actor.email),env.DB.prepare(`INSERT INTO ai_provider_fallbacks(id,provider,base_url,model,enabled,config_json,secret_ciphertext,created_at,updated_at,updated_by) VALUES('default',?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET provider=excluded.provider,base_url=excluded.base_url,model=excluded.model,enabled=excluded.enabled,config_json=excluded.config_json,secret_ciphertext=excluded.secret_ciphertext,updated_at=excluded.updated_at,updated_by=excluded.updated_by`)
-    .bind(fallbackProvider||"ollama",fallbackBaseUrl||"",fallbackModel||"",fallbackEnabled?1:0,JSON.stringify({temperature,timeoutMs,maxTokens}),fallbackEncrypted,existingFallback?.created_at||now,now,access.actor.email)]);
-  await recordAiEvent(env.DB, { actor: access.actor.email, action: "provider-save", provider, model, status: "success", detail: enabled ? "AI provider enabled" : "AI provider saved disabled" });
+    .bind(provider, baseUrl, model, enabled ? 1 : 0, JSON.stringify({ temperature, timeoutMs, maxTokens,...policy }), encrypted, existing?.created_at || now, now, access.actor.email),env.DB.prepare(`INSERT INTO ai_provider_fallbacks(id,provider,base_url,model,enabled,config_json,secret_ciphertext,created_at,updated_at,updated_by) VALUES('default',?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET provider=excluded.provider,base_url=excluded.base_url,model=excluded.model,enabled=excluded.enabled,config_json=excluded.config_json,secret_ciphertext=excluded.secret_ciphertext,updated_at=excluded.updated_at,updated_by=excluded.updated_by`)
+    .bind(fallbackProvider||"ollama",fallbackBaseUrl||"",fallbackModel||"",fallbackEnabled?1:0,JSON.stringify({temperature,timeoutMs,maxTokens,...fallbackPolicy}),fallbackEncrypted,existingFallback?.created_at||now,now,access.actor.email)]);
+  await recordAiEvent(env.DB, { actor: access.actor.email, action: "provider-save", provider, model, status: "success", detail: `${enabled?"enabled":"disabled"}; ${policy.trustZone}/${policy.maxDataClassification}; fallback ${fallbackEnabled?`${fallbackPolicy.trustZone}/${fallbackPolicy.maxDataClassification}`:"disabled"}` });
   return json({ ok: true, enabled, hasSecret: !!encrypted, fallbackHasSecret:!!fallbackEncrypted });
 }
 

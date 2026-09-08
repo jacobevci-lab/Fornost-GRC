@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireRole } from "../../auth/security";
 import { buildGrcContext } from "@/app/ai/context";
 import { draftSchemaInstruction, isAiDraftKind, parseAiDraftResponse, validateAiDraftInput, type AiDraftStatus } from "@/app/ai/drafts";
-import { callAiWithFailover, getAiProviderChain } from "@/app/ai/runtime-provider";
+import { callAiWithFailover, getAiProviderChain, getEffectiveAiDataPolicy } from "@/app/ai/runtime-provider";
 import { cleanAiText, redactSensitiveText } from "@/app/ai/security";
 import { aiRuntime, getAiSettings, recordAiEvent } from "@/app/ai/storage";
 
@@ -77,7 +77,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Çok fazla AI taslağı istendi. Kısa süre sonra tekrar deneyin." }, { status: 429, headers: { "cache-control": "no-store", "retry-after": "60" } });
   }
   let chain;try{chain=await getAiProviderChain(env,row);}catch(error){return json({error:error instanceof Error?error.message:"AI sağlayıcı zinciri hazırlanamadı."},409);}
-  const context = await buildGrcContext(env.DB, instruction);
+  const dataPolicy=getEffectiveAiDataPolicy(chain),context = await buildGrcContext(env.DB, instruction,dataPolicy.maxDataClassification);
   const promptHash = await hash(instruction), started = Date.now();
   try {
     const response = await callAiWithFailover(env.DB,chain,[
@@ -88,7 +88,7 @@ export async function POST(req: NextRequest) {
     await env.DB.prepare(`INSERT INTO ai_action_drafts(id,kind,title,payload_json,rationale,source_refs_json,status,provider,model,prompt_hash,created_by,created_at,updated_at)
       VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)`).bind(id, body.kind, draft.title, JSON.stringify(draft.payload), draft.rationale, JSON.stringify(context.sources.map((source) => source.id)), "pending", response.provider, response.model, promptHash, access.actor.email, now, now).run();
     await recordDraftEvent(env.DB, id, "created", access.actor.email, "AI-generated draft created for human review");
-    await recordAiEvent(env.DB, { actor: access.actor.email, action: "draft-create", provider: response.provider, model: response.model, promptHash, contextRefs: context.sources.map((source) => source.id), status: "success", latencyMs: Date.now() - started, detail: `${body.kind} draft ${id} created with ${response.profile} profile` });
+    await recordAiEvent(env.DB, { actor: access.actor.email, action: "draft-create", provider: response.provider, model: response.model, promptHash, contextRefs: context.sources.map((source) => source.id), status: "success", latencyMs: Date.now() - started, detail: `${body.kind} draft ${id} created with ${response.profile} profile; max ${dataPolicy.maxDataClassification}` });
     const stored = await env.DB.prepare("SELECT * FROM ai_action_drafts WHERE id=?").bind(id).first<Record<string, unknown>>();
     return json({ draft: mapDraft(stored || {}) }, 201);
   } catch (error) {
