@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import fs from "node:fs";
-import { chunkKnowledgeContent, normalizeKnowledgeContent, retrieveApprovedKnowledge, validateKnowledgeInput } from "../app/ai/knowledge";
+import { chunkKnowledgeContent, enforceGroundedCitations, normalizeKnowledgeContent, retrieveApprovedKnowledge, searchApprovedKnowledge, validateKnowledgeInput } from "../app/ai/knowledge";
 
-const route=fs.readFileSync("app/api/ai/knowledge/route.ts","utf8"),storage=fs.readFileSync("app/ai/storage.ts","utf8"),migration=fs.readFileSync("drizzle/0037_fornost_ai_knowledge.sql","utf8"),chat=fs.readFileSync("app/api/ai/chat/route.ts","utf8"),ui=fs.readFileSync("app/fornost-ai-knowledge.tsx","utf8");
+const route=fs.readFileSync("app/api/ai/knowledge/route.ts","utf8"),searchRoute=fs.readFileSync("app/api/ai/knowledge/search/route.ts","utf8"),storage=fs.readFileSync("app/ai/storage.ts","utf8"),migration=fs.readFileSync("drizzle/0037_fornost_ai_knowledge.sql","utf8"),chat=fs.readFileSync("app/api/ai/chat/route.ts","utf8"),ui=fs.readFileSync("app/fornost-ai-knowledge.tsx","utf8");
 
 test("knowledge ingestion normalizes active HTML and enforces types and bounds",()=>{
   const cleaned=normalizeKnowledgeContent(`<style>secret css</style><script>alert(1)</script><h1>Access Policy</h1><p>${"MFA is required. ".repeat(4)}</p>`,"html");
@@ -26,6 +26,14 @@ test("retrieval accepts only current approved non-Restricted chunks and returns 
   assert.equal(result.sources[0].id,"KB-ABCDEF12-V2-C1");assert.match(result.contextText,/phishing-resistant MFA/);assert.doesNotMatch(result.contextText,/abcdefghijklmnopqrstuv/);
 });
 
+test("retrieval ranking ignores common filler terms and citation enforcement removes invented IDs",async()=>{
+  const db={prepare:()=>({all:async()=>({results:[{source_id:"abcdef12-0000",name:"IAM Policy",classification:"Internal",version:2,ordinal:0,content_text:"Administrators must use phishing-resistant MFA.",updated_at:"2026-09-07T00:00:00Z"},{source_id:"11111111-0000",name:"Backup Policy",classification:"Internal",version:1,ordinal:0,content_text:"Backups are retained for thirty days.",updated_at:"2026-09-08T00:00:00Z"}]})})} as unknown as D1Database;
+  const matches=await searchApprovedKnowledge(db,"what is the administrator MFA policy");assert.equal(matches[0].ref,"KB-ABCDEF12-V2-C1");
+  const grounded=enforceGroundedCitations("MFA zorunludur [KB-ABCDEF12-V2-C1, RSK-999]. [Öneri]",["KB-ABCDEF12-V2-C1"]);
+  assert.equal(grounded.grounded,true);assert.deepEqual(grounded.citedRefs,["KB-ABCDEF12-V2-C1"]);assert.deepEqual(grounded.invalidRefs,["RSK-999"]);assert.doesNotMatch(grounded.answer,/RSK-999/);assert.match(grounded.answer,/\[Öneri\]/);
+  const ungrounded=enforceGroundedCitations("Genel cevap",["KB-ABCDEF12-V2-C1"]);assert.equal(ungrounded.grounded,false);assert.match(ungrounded.answer,/Kaynak doğrulaması/);
+});
+
 test("knowledge lifecycle is Admin governed, versioned, confirmed and audited",()=>{
   assert.match(route,/requireRole\(req,\["Admin"\]\)/);assert.match(route,/body\.confirmation!=="YENİ SÜRÜM"/);assert.match(route,/"ONAYLA":"ARŞİVLE"/);assert.match(route,/body\.confirmation!=="SİL"/);assert.match(route,/recordAiEvent/);
   assert.match(route,/status='draft'/);assert.match(route,/Onaylı kaynak önce arşivlenmeli/);
@@ -33,6 +41,7 @@ test("knowledge lifecycle is Admin governed, versioned, confirmed and audited",(
 });
 
 test("knowledge UI and copilot expose the governed citation contract",()=>{
-  for(const label of ["Yönetişimli AI Bilgi Tabanı","Taslak Kaynak Oluştur","Yeni Sürüm","Restricted"])assert.match(ui,new RegExp(label));
-  assert.match(chat,/knowledge-base chunks/);assert.doesNotMatch(route,/callAiWithFailover|UPDATE simple_grc_records/);
+  for(const label of ["Yönetişimli AI Bilgi Tabanı","Taslak Kaynak Oluştur","Yeni Sürüm","Restricted","Retrieval Laboratuvarı","İçerik & Geçmiş"])assert.match(ui,new RegExp(label));
+  assert.match(ui,/type="file"/);assert.match(route,/normalized_content/);assert.match(searchRoute,/raw query not stored/);assert.match(searchRoute,/requireRole\(req,\["Admin","Editor"\]\)/);
+  assert.match(chat,/knowledge-base chunks/);assert.match(chat,/enforceGroundedCitations/);assert.doesNotMatch(route,/callAiWithFailover|UPDATE simple_grc_records/);
 });

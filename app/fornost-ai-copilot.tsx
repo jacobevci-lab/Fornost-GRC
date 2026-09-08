@@ -8,7 +8,7 @@ import FornostAiKnowledge from "./fornost-ai-knowledge";
 type User = { name?: string; email: string; role: "Admin" | "Editor" | "Viewer" };
 type Status = { configured: boolean; enabled: boolean; provider: string | null; model: string | null; mode: string };
 type Source = { id: string; module: string; title: string };
-type Message = { role: "user" | "assistant"; content: string; sources?: Source[] };
+type Message = { role: "user" | "assistant"; content: string; sources?: Source[]; citationIntegrity?: {grounded:boolean;cited:number;invalidRemoved:number} };
 type AuditLog = { id:string;actor:string;action:string;provider:string;model:string;promptHash:string|null;contextRefs:string[];status:string;latencyMs:number;detail:string;createdAt:string };
 type DraftKind = "risk-treatment" | "audit-finding" | "remediation-task";
 type DraftTicket = {status:string;provider:string|null;externalId:string|null;url:string|null;note:string;createdBy:string;createdAt:string;completedAt:string|null;error:string|null};
@@ -203,6 +203,7 @@ export default function FornostAiCopilot() {
       role: "assistant",
       content: response.ok ? String(body.answer || "Yanıt alınamadı.") : String(body.error || "AI isteği başarısız."),
       sources: response.ok && Array.isArray(body.sources) ? body.sources : [],
+      citationIntegrity: response.ok && body.citationIntegrity ? body.citationIntegrity : undefined,
     }]);
     setBusy(false);
   }
@@ -386,6 +387,7 @@ export default function FornostAiCopilot() {
           {messages.map((message, index) => <article key={index} className={`fornost-ai-message ${message.role}`}>
             <small>{message.role === "user" ? "SİZ" : "FORNOST AI"}</small>
             <div>{message.content}</div>
+            {message.citationIntegrity&&<aside className={message.citationIntegrity.grounded?"grounded":"ungrounded"}>{message.citationIntegrity.grounded?`${message.citationIntegrity.cited} doğrulanmış citation`:"Citation doğrulaması gerekli"}{message.citationIntegrity.invalidRemoved>0&&` · ${message.citationIntegrity.invalidRemoved} geçersiz referans kaldırıldı`}</aside>}
             {!!message.sources?.length && <footer>{message.sources.slice(0, 12).map((source) => <span key={source.id} title={`${source.module} · ${source.title}`}>{source.id}</span>)}</footer>}
           </article>)}
           {busy && activeTab === "chat" && <div className="fornost-ai-thinking">Fornost verileri analiz ediliyor…</div>}

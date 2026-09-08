@@ -64,38 +64,59 @@ function normalize(value: string) {
   return value.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 }
 
+const STOP_WORDS = new Set(["the","and","for","with","this","that","from","what","which","bir","ile","icin","için","olan","olarak","nedir","neler","hangi"]);
+
 function searchTerms(query: string) {
-  return [...new Set(normalize(query).split(/[^a-z0-9çğıöşü]+/i).filter(term => term.length >= 3))].slice(0, 24);
+  return [...new Set(normalize(query).split(/[^a-z0-9çğıöşü]+/i).filter(term => term.length >= 3 && !STOP_WORDS.has(term)))].slice(0, 24);
 }
 
 type KnowledgeChunkRow = { source_id:string;name:string;classification:string;version:number;ordinal:number;content_text:string;updated_at:string };
 
-export async function retrieveApprovedKnowledge(db: D1Database, query: string, maxChars = 9_000) {
+export async function searchApprovedKnowledge(db: D1Database, query: string) {
   const result = await db.prepare(`SELECT c.source_id,s.name,s.classification,c.version,c.ordinal,c.content_text,s.updated_at
     FROM ai_knowledge_chunks c JOIN ai_knowledge_sources s ON s.id=c.source_id
     WHERE s.status='approved' AND s.classification!='Restricted' AND c.version=s.current_version
     ORDER BY s.updated_at DESC,c.ordinal ASC LIMIT 600`).all<KnowledgeChunkRow>();
   const terms = searchTerms(query);
-  const ranked = (result.results || []).map(row => {
+  return (result.results || []).map(row => {
     const title = normalize(`${row.name} ${row.classification}`), content = normalize(row.content_text);
     let score = 0;
     for (const term of terms) {
       if (title.includes(term)) score += 8;
       if (content.includes(term)) score += term.length >= 6 ? 4 : 2;
     }
-    return { row, score };
-  }).filter(item => item.score > 0).sort((a,b) => b.score-a.score || b.row.updated_at.localeCompare(a.row.updated_at) || a.row.ordinal-b.row.ordinal);
+    const ref = `KB-${row.source_id.slice(0,8).toUpperCase()}-V${row.version}-C${row.ordinal+1}`;
+    return { ref, sourceId:row.source_id, name:row.name, classification:row.classification, version:Number(row.version), ordinal:Number(row.ordinal), content:redactSensitiveText(row.content_text,CHUNK_SIZE), score };
+  }).filter(item => item.score > 0).sort((a,b) => b.score-a.score || a.name.localeCompare(b.name) || a.ordinal-b.ordinal).slice(0,16);
+}
+
+export async function retrieveApprovedKnowledge(db: D1Database, query: string, maxChars = 9_000) {
+  const ranked = await searchApprovedKnowledge(db,query);
 
   const sources: Array<{id:string;module:string;title:string}> = [], chunks: string[] = [];
   let used = 0;
-  for (const { row } of ranked.slice(0, 16)) {
-    const ref = `KB-${row.source_id.slice(0,8).toUpperCase()}-V${row.version}-C${row.ordinal+1}`;
-    const safeContent = redactSensitiveText(row.content_text, CHUNK_SIZE);
-    const chunk = JSON.stringify({sourceId:ref,module:"AI Bilgi Tabanı",title:row.name,classification:row.classification,content:safeContent});
+  for (const item of ranked) {
+    const chunk = JSON.stringify({sourceId:item.ref,module:"AI Bilgi Tabanı",title:item.name,classification:item.classification,content:item.content});
     if (used + chunk.length > maxChars) continue;
     used += chunk.length;
     chunks.push(chunk);
-    sources.push({id:ref,module:"AI Bilgi Tabanı",title:row.name});
+    sources.push({id:item.ref,module:"AI Bilgi Tabanı",title:item.name});
   }
   return { sources, contextText: chunks.join("\n") };
+}
+
+const SOURCE_REF_PATTERN = /\[([^\]\n]{1,300})\]/g;
+const looksLikeSourceRef=(value:string)=>/^(?:KB-|[A-Z]{2,}[A-Z0-9]*[-_:])[A-Z0-9._:-]+$/i.test(value);
+
+export function enforceGroundedCitations(answer: string, allowedRefs: string[]) {
+  const allowed = new Set(allowedRefs), cited = new Set<string>(), invalid = new Set<string>();
+  const cleaned = answer.replace(SOURCE_REF_PATTERN,(whole,group:string)=>{
+    const refs=group.split(/[,;]/).map(value=>value.trim()).filter(Boolean);
+    if(!refs.some(ref=>allowed.has(ref)||looksLikeSourceRef(ref)))return whole;
+    const valid:string[]=[];
+    for(const ref of refs){if(allowed.has(ref)){cited.add(ref);valid.push(ref);}else if(looksLikeSourceRef(ref))invalid.add(ref);}
+    return valid.map(ref=>`[${ref}]`).join(" ");
+  }).replace(/[ \t]+\n/g,"\n").trim();
+  const warning = allowedRefs.length && !cited.size ? "\n\nKaynak doğrulaması: Bu yanıt doğrulanmış bir Fornost kaynak referansı içermedi; karar vermeden önce kaynak kayıtlarını inceleyin." : "";
+  return { answer:`${cleaned}${warning}`.trim(), citedRefs:[...cited], invalidRefs:[...invalid], grounded:cited.size>0 || allowedRefs.length===0 };
 }

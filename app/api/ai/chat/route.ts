@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireRole } from "../../auth/security";
 import { buildGrcContext } from "@/app/ai/context";
+import { enforceGroundedCitations } from "@/app/ai/knowledge";
 import { callAiWithFailover, getAiProviderChain } from "@/app/ai/runtime-provider";
 import { redactSensitiveText, sanitizeHistory } from "@/app/ai/security";
 import { aiRuntime, getAiSettings, recordAiEvent } from "@/app/ai/storage";
@@ -69,6 +70,7 @@ Security rules:
       ...history,
       { role: "user", content: userWithContext },
     ],"chat");
+    const integrity=enforceGroundedCitations(result.content,context.sources.map(source=>source.id));
     await recordAiEvent(env.DB, {
       actor: access.actor.email,
       action: "chat",
@@ -78,9 +80,9 @@ Security rules:
       contextRefs: context.sources.map((source) => source.id),
       status: "success",
       latencyMs: Date.now() - started,
-      detail: `${context.sources.length} structured GRC sources supplied; ${result.profile} profile used`,
+      detail: `${context.sources.length} sources supplied; ${integrity.citedRefs.length} cited; ${integrity.invalidRefs.length} invalid citations removed; ${result.profile} profile used`,
     });
-    return json({ answer:result.content, sources: context.sources, provider: result.provider, model: result.model, profile:result.profile, mode: "read-only-copilot" });
+    return json({ answer:integrity.answer, sources:context.sources.filter(source=>integrity.citedRefs.includes(source.id)), citationIntegrity:{grounded:integrity.grounded,cited:integrity.citedRefs.length,invalidRemoved:integrity.invalidRefs.length}, provider: result.provider, model: result.model, profile:result.profile, mode: "read-only-copilot" });
   } catch (error) {
     const message = error instanceof Error ? error.message : "AI isteği başarısız.";
     await recordAiEvent(env.DB, {

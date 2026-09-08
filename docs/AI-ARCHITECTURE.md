@@ -158,6 +158,8 @@ Migration `0037_fornost_ai_knowledge.sql` adds a governed AI knowledge base. Adm
 
 Copilot, typed drafts and assurance agents use the same deterministic lexical retriever. It selects only chunks from the current approved version, supplies no more than 9,000 knowledge characters, and exposes exact `KB-…-V…-C…` IDs as model citation anchors. `Restricted` sources are intentionally excluded from all model context even when approved. Knowledge text remains untrusted data and never becomes system instructions. No vector service, remote embedding call or autonomous record mutation is introduced.
 
+Knowledge RAG operations also provide browser-side ingestion for TXT, Markdown, HTML, CSV and JSON files, Admin-only current-content inspection and immutable version metadata, plus an Admin/Editor retrieval laboratory. Retrieval tests call no model and retain no raw search string: the audit trail stores only a SHA-256 query hash and returned source references. Copilot post-validates bracketed record references, removes invented source IDs, returns only sources actually cited by the answer and exposes citation-integrity status to the UI.
+
 Runtime also defensively creates these tables when needed so the API remains resilient in on-prem upgrade scenarios.
 
 ## UI
@@ -186,6 +188,8 @@ The panel provides:
 - manually invoked Risk, Audit, Compliance and Evidence assurance agents
 - grounded findings, Admin review and replay-protected conversion to the governed draft queue
 - versioned and approval-gated AI knowledge sources with grounded chunk citations
+- direct text-file ingestion, Admin source inspection, immutable version history and retrieval laboratory
+- server-side Copilot citation integrity enforcement and invalid-reference removal
 
 ## V1 limitations by design
 

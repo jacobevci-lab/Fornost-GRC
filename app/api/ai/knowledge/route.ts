@@ -19,6 +19,15 @@ async function bindChunkHashes(db:D1Database,sourceId:string,version:number,chun
 export async function GET(req:NextRequest){
   const access=await requireRole(req,["Admin","Editor","Viewer"]);if(access.response)return access.response;
   const {DB}=await aiRuntime();
+  const id=cleanAiText(req.nextUrl.searchParams.get("id"),80);
+  if(id){
+    if(access.actor.role!=="Admin")return json({error:"Kaynak içeriğini yalnız Admin görüntüleyebilir."},403);
+    const source=await DB.prepare("SELECT * FROM ai_knowledge_sources WHERE id=?").bind(id).first<SourceRow>();
+    if(!source)return json({error:"Bilgi kaynağı bulunamadı."},404);
+    const versions=await DB.prepare("SELECT id,version,content_hash,character_count,chunk_count,created_by,created_at FROM ai_knowledge_versions WHERE source_id=? ORDER BY version DESC LIMIT 50").bind(id).all<Record<string,unknown>>();
+    const current=await DB.prepare("SELECT normalized_content FROM ai_knowledge_versions WHERE source_id=? AND version=?").bind(id,source.current_version).first<{normalized_content:string}>();
+    return json({source:publicSource(source),content:current?.normalized_content||"",versions:(versions.results||[]).map(row=>({id:row.id,version:Number(row.version),contentHash:row.content_hash,characterCount:Number(row.character_count),chunkCount:Number(row.chunk_count),createdBy:row.created_by,createdAt:row.created_at}))});
+  }
   const result=await DB.prepare("SELECT * FROM ai_knowledge_sources ORDER BY updated_at DESC LIMIT 200").all<SourceRow>();
   return json({sources:(result.results||[]).map(publicSource),retrievalPolicy:{approvedOnly:true,restrictedExcluded:true,maxChunks:16,maxCharacters:9000}});
 }
