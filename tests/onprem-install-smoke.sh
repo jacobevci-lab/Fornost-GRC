@@ -37,6 +37,12 @@ case "${1:-}" in
     fi
     exit 0
     ;;
+  image)
+    if [[ "${2:-}" == "inspect" && " $* " == *" --format "* ]]; then
+      printf 'sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\n'
+    fi
+    exit 0
+    ;;
   info|pull|run|rm|rmi|logs|ps) exit 0 ;;
   network|volume)
     if [[ "${1:-}" == "network" && "${2:-}" == "inspect" && " $* " == *" --format "* ]]; then
@@ -97,6 +103,15 @@ if [[ -n "${output}" ]]; then
     cp "${FORNOST_TEST_REMOTE_BUNDLE}" "${output}"
   fi
   exit 0
+fi
+health_failures="${FORNOST_TEST_HEALTH_FAILURES:-0}"
+if [[ "${health_failures}" =~ ^[0-9]+$ ]] && ((health_failures > 0)); then
+  health_count_file="${FORNOST_TEST_LOG}.health-count"
+  health_count=0
+  [[ -r "${health_count_file}" ]] && health_count="$(<"${health_count_file}")"
+  health_count=$((health_count + 1))
+  printf '%s\n' "${health_count}" >"${health_count_file}"
+  ((health_count <= health_failures)) && exit 22
 fi
 [[ "${FORNOST_TEST_APP_HEALTH_FAIL:-0}" == "1" || "${FORNOST_TEST_PROXY_HEALTH_FAIL:-0}" == "1" ]] && exit 22
 exit 0
@@ -239,6 +254,14 @@ grep -q 'did not become reachable through the reverse proxy' "${app_failure_case
 grep -q 'podman inspect fornost-grc-app' "${app_failure_case}/engine.log" || fail "application diagnostics were not collected"
 grep -q 'podman logs --tail 100 fornost-grc-proxy' "${app_failure_case}/engine.log" || fail "proxy diagnostics were not collected"
 
+rollback_case="$(make_case automatic-rollback podman 8443 /fornost-grc)"
+if FORNOST_TEST_HEALTH_FAILURES=30 run_install "${rollback_case}" podman >"${rollback_case}/output.log" 2>&1; then
+  fail "installer reported success after the candidate application failed health verification"
+fi
+grep -q 'Automatic rollback succeeded' "${rollback_case}/output.log" || fail "previous application image was not restored after failed update"
+grep -q 'Service availability was restored' "${rollback_case}/output.log" || fail "restored availability was not reported"
+grep -q 'sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' "${rollback_case}/engine.log" || fail "rollback did not start the previously installed image"
+
 proxy_failure_case="$(make_case proxy-health-failure podman 8443 /fornost-grc)"
 if FORNOST_TEST_PROXY_HEALTH_FAIL=1 run_install "${proxy_failure_case}" podman >"${proxy_failure_case}/output.log" 2>&1; then
   fail "installer reported success while proxy health failed"
@@ -341,4 +364,4 @@ grep -q 'git clone --branch main --single-branch' "${quick_root}/quick.log" || f
 grep -q 'git -C .* merge --ff-only origin/main' "${quick_root}/quick.log" || fail "quick installer update was not fast-forward only"
 [[ "$(grep -c '^bootstrap ' "${quick_root}/quick.log")" == "2" ]] || fail "quick installer did not run bootstrap after install and update"
 
-echo "On-prem installer smoke tests passed: one-command install/update, clean RHEL bootstrap, 8 GiB disk preflight, verified cache reuse, checksum-verified prebuilt image without server build, HTTPS 8443, persistent/generated TLS, configured TLS, Podman, Docker, rootless guard and phase diagnostics."
+echo "On-prem installer smoke tests passed: one-command install/update, automatic failed-update rollback, clean RHEL bootstrap, 8 GiB disk preflight, verified cache reuse, checksum-verified prebuilt image without server build, HTTPS 8443, persistent/generated TLS, configured TLS, Podman, Docker, rootless guard and phase diagnostics."

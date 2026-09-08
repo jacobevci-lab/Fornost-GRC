@@ -36,6 +36,9 @@ test("container deployment isolates workerd from the host glibc", async () => {
   assert.match(installer, /previously downloaded and checksum-verified image bundle/);
   assert.match(installer, /still being published; waiting for GitHub Release/);
   assert.match(installer, /FORNOST_RELEASE_WAIT_ATTEMPTS/);
+  assert.match(installer, /Attempting automatic rollback/);
+  assert.match(installer, /Automatic rollback succeeded/);
+  assert.match(installer, /previous_image_id/);
   assert.match(bootstrap, /dnf install -y git podman curl openssl firewalld/);
   assert.match(bootstrap, /scripts\/linux\/check\.sh|check\.sh/);
   assert.match(quickInstall, /\/opt\/fornost-grc/);

@@ -9,16 +9,85 @@ cd "${project_root}"
 phase="preflight"
 engine=""
 state_dir=""
+previous_image_id=""
+replacement_started=false
+rollback_succeeded=false
+
+start_runtime_stack() {
+  local app_image="$1" backend_ip
+
+  "${engine}" rm -f fornost-grc-proxy fornost-grc-app >/dev/null 2>&1 || true
+
+  # Podman's DNS backend can briefly retain the removed application's address on
+  # a reused network. Recreate this product-owned network after both containers
+  # are gone so the proxy always resolves the newly created application container.
+  if [[ "$(basename "${engine}")" == "podman" ]]; then
+    phase="Podman runtime network refresh"
+    "${engine}" network rm "${network}" >/dev/null 2>&1 || true
+    "${engine}" network create "${network}" >/dev/null
+  fi
+
+  phase="application container start"
+  "${engine}" run -d \
+    --name fornost-grc-app \
+    --network "${network}" \
+    --restart unless-stopped \
+    --env "NEXT_PUBLIC_BASE_PATH=${base_path}" \
+    --env FORNOST_DEMO_MODE=false \
+    --env FORNOST_SETTINGS_ENCRYPTION_KEY \
+    --env FORNOST_ALLOW_PRIVATE_CONNECTORS \
+    --env FORNOST_AI_ALLOW_PRIVATE_ENDPOINTS \
+    --env FORNOST_AI_ALLOW_LOOPBACK \
+    --env FORNOST_TRUST_PLATFORM_IDENTITY=false \
+    --volume "${data_volume}:/app/.sites-runtime/data:Z" \
+    "${app_image}" >/dev/null
+
+  backend_ip="$("${engine}" inspect --format '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' fornost-grc-app)"
+  [[ "${backend_ip}" =~ ^[0-9a-fA-F:.]+$ ]] || {
+    echo "Could not determine the application container address." >&2
+    return 70
+  }
+
+  phase="HTTPS reverse proxy start"
+  "${engine}" run -d \
+    --name fornost-grc-proxy \
+    --network "${network}" \
+    --restart unless-stopped \
+    --publish "${https_port}:8443" \
+    --env "FORNOST_BASE_PATH=${base_path}" \
+    --env "FORNOST_BACKEND_IP=${backend_ip}" \
+    --env "FORNOST_ALLOWED_HOST_PATTERN=${allowed_host_pattern}" \
+    --volume "${project_root}/deploy/nginx/default.conf.template:/etc/nginx/templates/default.conf.template:ro,Z" \
+    --volume "${tls_cert_file}:/etc/nginx/fornost-tls.crt:ro,Z" \
+    --volume "${tls_key_file}:/etc/nginx/fornost-tls.key:ro,Z" \
+    docker.io/library/nginx:1.27-alpine >/dev/null
+}
+
+rollback_runtime() {
+  [[ "${replacement_started}" == "true" && -n "${previous_image_id}" ]] || return 1
+  echo "Attempting automatic rollback to the previously running application image..." >&2
+  if start_runtime_stack "${previous_image_id}" && \
+    wait_for_url "https://127.0.0.1:${https_port}${base_path}/api/auth" 30 2 true; then
+    rollback_succeeded=true
+    echo "Automatic rollback succeeded; the previous Fornost GRC version is serving traffic." >&2
+    return 0
+  fi
+  echo "Automatic rollback failed; runtime diagnostics follow." >&2
+  print_runtime_diagnostics "${engine}"
+  return 1
+}
 
 on_install_error() {
-  local code="$?" line="$1"
+  local code="${2:-$?}" line="$1"
   trap - ERR
   set +e
   echo >&2
   echo "Fornost GRC installation failed during: ${phase} (line ${line}, exit ${code})." >&2
   [[ -n "${engine}" ]] && print_runtime_diagnostics "${engine}"
+  rollback_runtime || true
   [[ -n "${state_dir}" ]] && echo "Persistent installer state was preserved at: ${state_dir}" >&2
   echo "Application data volume fornost-grc-data was not removed." >&2
+  [[ "${rollback_succeeded}" == "true" ]] && echo "Service availability was restored with the previous application image." >&2
   exit "${code}"
 }
 trap 'on_install_error "${LINENO}"' ERR
@@ -169,6 +238,7 @@ fi
 
 phase="container runtime preflight"
 "${engine}" info >/dev/null
+previous_image_id="$("${engine}" image inspect --format '{{.Id}}' "${image}" 2>/dev/null || true)"
 
 phase="disk capacity preflight"
 storage_root="$(container_storage_root "${engine}")"
@@ -298,51 +368,8 @@ phase="reverse proxy image pull"
 "${engine}" pull docker.io/library/nginx:1.27-alpine >/dev/null
 
 phase="old container replacement"
-"${engine}" rm -f fornost-grc-proxy fornost-grc-app >/dev/null 2>&1 || true
-
-# Podman's DNS backend can briefly retain the removed application's address on
-# a reused network. Recreate this product-owned network after both containers
-# are gone so the proxy always resolves the newly created application container.
-if [[ "$(basename "${engine}")" == "podman" ]]; then
-  phase="Podman runtime network refresh"
-  "${engine}" network rm "${network}" >/dev/null 2>&1 || true
-  "${engine}" network create "${network}" >/dev/null
-fi
-
-phase="application container start"
-"${engine}" run -d \
-  --name fornost-grc-app \
-  --network "${network}" \
-  --restart unless-stopped \
-  --env "NEXT_PUBLIC_BASE_PATH=${base_path}" \
-  --env FORNOST_DEMO_MODE=false \
-  --env FORNOST_SETTINGS_ENCRYPTION_KEY \
-  --env FORNOST_ALLOW_PRIVATE_CONNECTORS \
-  --env FORNOST_AI_ALLOW_PRIVATE_ENDPOINTS \
-  --env FORNOST_AI_ALLOW_LOOPBACK \
-  --env FORNOST_TRUST_PLATFORM_IDENTITY=false \
-  --volume "${data_volume}:/app/.sites-runtime/data:Z" \
-  "${image}" >/dev/null
-
-backend_ip="$("${engine}" inspect --format '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' fornost-grc-app)"
-[[ "${backend_ip}" =~ ^[0-9a-fA-F:.]+$ ]] || {
-  echo "Could not determine the application container address." >&2
-  exit 70
-}
-
-phase="HTTPS reverse proxy start"
-"${engine}" run -d \
-  --name fornost-grc-proxy \
-  --network "${network}" \
-  --restart unless-stopped \
-  --publish "${https_port}:8443" \
-  --env "FORNOST_BASE_PATH=${base_path}" \
-  --env "FORNOST_BACKEND_IP=${backend_ip}" \
-  --env "FORNOST_ALLOWED_HOST_PATTERN=${allowed_host_pattern}" \
-  --volume "${project_root}/deploy/nginx/default.conf.template:/etc/nginx/templates/default.conf.template:ro,Z" \
-  --volume "${tls_cert_file}:/etc/nginx/fornost-tls.crt:ro,Z" \
-  --volume "${tls_key_file}:/etc/nginx/fornost-tls.key:ro,Z" \
-  docker.io/library/nginx:1.27-alpine >/dev/null
+replacement_started=true
+start_runtime_stack "${image}"
 
 echo "Verifying the externally reachable Fornost GRC endpoint..."
 phase="HTTPS health verification"
@@ -356,7 +383,7 @@ wait_for_url "https://127.0.0.1:${https_port}${base_path}/api/auth" 30 2 true ||
   timeout 10 "${engine}" inspect fornost-grc-proxy >&2 || true
   echo "Reverse proxy container logs:" >&2
   timeout 10 "${engine}" logs --tail 100 fornost-grc-proxy >&2 || true
-  exit 70
+  on_install_error "${LINENO}" 70
 }
 
 phase="installation state recording"
