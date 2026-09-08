@@ -11,6 +11,7 @@ import "./fornost-ai-v2.css";
 import "./fornost-ai-governance.css";
 import "./fornost-ai-agents.css";
 import "./fornost-ai-knowledge.css";
+import "./fornost-ai-readability.css";
 import FornostAiCopilot from "./fornost-ai-copilot";
 
 const configuredBasePath = process.env.NEXT_PUBLIC_BASE_PATH?.trim() || "";

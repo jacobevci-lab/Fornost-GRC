@@ -164,6 +164,10 @@ Copilot, typed drafts and assurance agents use the same deterministic lexical re
 
 Knowledge RAG operations also provide browser-side ingestion for TXT, Markdown, HTML, CSV and JSON files, Admin-only current-content inspection and immutable version metadata, plus an Admin/Editor retrieval laboratory. Retrieval tests call no model and retain no raw search string: the audit trail stores only a SHA-256 query hash and returned source references. Copilot post-validates bracketed record references, removes invented source IDs, returns only sources actually cited by the answer and exposes citation-integrity status to the UI.
 
+The quality center supports fixed 7, 30 and 90-day windows. It combines call success, provider health, evaluation results, governed output counts, agent failures and knowledge-review freshness into deterministic control-readiness states; no model is called to calculate these states. The same bounded summary can be exported as CSV, while recent operational errors remain visible without exposing prompts or model responses.
+
+Admins may idempotently install a five-case safety baseline covering human approval boundaries, prompt-injection resistance, Restricted-data egress, evidence grounding and credential handling. Baseline cases use stable identifiers and `INSERT OR IGNORE`, so repeated installation never creates duplicates. They remain ordinary evaluation cases and retain only scores, latency, failure reason and output hashes after execution.
+
 Runtime also defensively creates these tables when needed so the API remains resilient in on-prem upgrade scenarios.
 
 ## UI
@@ -184,10 +188,11 @@ The panel provides:
 - explicit target selection and second-confirmation publication for risk treatments and audit findings
 - immutable publication receipts and replay protection
 - controlled remediation ticket publication through existing integrations
-- Admin-only seven-day quality, latency, approval and output metrics
+- Admin-only 7/30/90-day quality, latency, approval and output metrics with provider health, control-readiness checks, recent-error triage and CSV export
 - provider model discovery and selected-model availability feedback
 - Admin-only AI use-case inventory with approval/suspension decisions
 - repeatable expected/forbidden-term model evaluations
+- idempotent built-in AI safety evaluation baseline
 - encrypted primary/fallback provider chain and per-attempt health history
 - manually invoked Risk, Audit, Compliance and Evidence assurance agents
 - grounded findings, Admin review and replay-protected conversion to the governed draft queue
