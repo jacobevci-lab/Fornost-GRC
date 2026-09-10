@@ -28,8 +28,9 @@ test("AI metrics are admin-only and never select prompt or answer bodies",()=>{
   assert.doesNotMatch(metricsRoute,/prompt_hash|prompt_json|answer|content_refs_json/);
   assert.match(metricsRoute,/successRate/);
   assert.match(metricsRoute,/approvalRate/);
-  assert.match(metricsRoute,/\[7,30,90\]/);assert.match(metricsRoute,/controls=/);assert.match(metricsRoute,/ai_knowledge_governance/);assert.match(metricsRoute,/providerHealth/);
+  assert.match(metricsRoute,/\[7,30,90\]/);assert.match(metricsRoute,/controls=/);assert.match(metricsRoute,/ai_knowledge_governance/);assert.match(metricsRoute,/providerHealth/);assert.match(metricsRoute,/evaluationCurrent/);assert.match(metricsRoute,/latest\.status='passed'/);
   assert.match(copilot,/7,30,90/);assert.match(copilot,/CSV İndir/);assert.match(copilot,/Kontrol hazırlığı/);assert.match(copilot,/Son hatalar/);
+  assert.match(copilot,/Kanıt CSV İndir/);assert.match(copilot,/Regresyon/);assert.match(copilot,/Düzenle/);assert.match(copilot,/Son \{item\.history\.length\} koşum/);
   assert.match(copilot,/\^\[=\+\\-@\]/);
   assert.match(readability,/width:min\(560px/);assert.match(readability,/font-size:13px!important/);
 });

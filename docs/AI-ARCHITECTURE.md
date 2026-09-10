@@ -191,7 +191,9 @@ The panel provides:
 - Admin-only 7/30/90-day quality, latency, approval and output metrics with provider health, control-readiness checks, recent-error triage and CSV export
 - provider model discovery and selected-model availability feedback
 - Admin-only AI use-case inventory with approval/suspension decisions
-- repeatable expected/forbidden-term model evaluations
+- repeatable expected/forbidden-term model evaluations with editable activation state
+- per-test five-run score history, regression detection and formula-safe evidence CSV export
+- readiness computed from the latest result of every enabled test, so historical passes cannot hide a current failure or an untested case
 - idempotent built-in AI safety evaluation baseline
 - encrypted primary/fallback provider chain and per-attempt health history
 - manually invoked Risk, Audit, Compliance and Evidence assurance agents

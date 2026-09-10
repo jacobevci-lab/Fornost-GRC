@@ -25,6 +25,14 @@ test("built-in AI safety baseline is bounded, unique and idempotently installabl
   assert.match(evaluationRoute,/action==="seed-baseline"/);assert.match(evaluationRoute,/INSERT OR IGNORE INTO ai_eval_cases/);assert.match(evaluationRoute,/eval-baseline-install/);
 });
 
+test("evaluation API exposes bounded per-case history and regression metadata",()=>{
+  assert.match(evaluationRoute,/ROW_NUMBER\(\) OVER\(PARTITION BY case_id ORDER BY created_at DESC\)/);
+  assert.match(evaluationRoute,/run_rank<=5/);
+  assert.match(evaluationRoute,/scoreDelta/);
+  assert.match(evaluationRoute,/"regressed"/);
+  assert.match(evaluationRoute,/eval-case-update/);
+});
+
 test("governance and evaluation mutation endpoints are Admin-only and audited",()=>{
   assert.match(governanceRoute,/requireRole\(req,\["Admin"\]\)/);assert.match(governanceRoute,/recordAiEvent/);assert.match(governanceRoute,/confirmation!=="SİL"/);
   assert.match(evaluationRoute,/requireRole\(req,\["Admin"\]\)/);assert.match(evaluationRoute,/output_hash/);assert.doesNotMatch(evaluationRoute,/output_text|response_text/);
