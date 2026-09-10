@@ -164,6 +164,15 @@ const knowledgeChunksSql = `CREATE TABLE IF NOT EXISTS ai_knowledge_chunks (
   UNIQUE(source_id,version,ordinal)
 )`;
 const knowledgeChunksIndexSql = "CREATE INDEX IF NOT EXISTS ai_knowledge_chunks_source_idx ON ai_knowledge_chunks(source_id,version,ordinal)";
+const feedbackSql = `CREATE TABLE IF NOT EXISTS ai_feedback (
+  id TEXT PRIMARY KEY, activity_id TEXT NOT NULL, kind TEXT NOT NULL, severity TEXT NOT NULL,
+  comment TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'open', assigned_to TEXT,
+  resolution_note TEXT, created_by TEXT NOT NULL, created_at TEXT NOT NULL,
+  updated_by TEXT NOT NULL, updated_at TEXT NOT NULL, resolved_by TEXT, resolved_at TEXT,
+  UNIQUE(activity_id,created_by)
+)`;
+const feedbackStatusIndexSql = "CREATE INDEX IF NOT EXISTS ai_feedback_status_severity_created_idx ON ai_feedback(status,severity,created_at)";
+const feedbackCreatorIndexSql = "CREATE INDEX IF NOT EXISTS ai_feedback_creator_created_idx ON ai_feedback(created_by,created_at)";
 
 let schemaReady: Promise<void> | null = null;
 
@@ -203,6 +212,9 @@ export async function aiRuntime() {
       runtime.DB.prepare(knowledgeVersionsIndexSql),
       runtime.DB.prepare(knowledgeChunksSql),
       runtime.DB.prepare(knowledgeChunksIndexSql),
+      runtime.DB.prepare(feedbackSql),
+      runtime.DB.prepare(feedbackStatusIndexSql),
+      runtime.DB.prepare(feedbackCreatorIndexSql),
     ]).then(() => undefined).catch((error) => {
       schemaReady = null;
       throw error;
@@ -227,10 +239,11 @@ export async function recordAiEvent(db: D1Database, input: {
   latencyMs?: number;
   detail?: string;
 }) {
+  const id=crypto.randomUUID();
   await db.prepare(`INSERT INTO ai_activity_logs(
     id,actor,action,provider,model,prompt_hash,context_refs_json,status,latency_ms,detail,created_at
   ) VALUES(?,?,?,?,?,?,?,?,?,?,?)`).bind(
-    crypto.randomUUID(),
+    id,
     cleanAiText(input.actor, 320) || "unknown",
     cleanAiText(input.action, 80),
     cleanAiText(input.provider, 80),
@@ -242,4 +255,5 @@ export async function recordAiEvent(db: D1Database, input: {
     cleanAiText(input.detail, 500),
     new Date().toISOString(),
   ).run();
+  return id;
 }

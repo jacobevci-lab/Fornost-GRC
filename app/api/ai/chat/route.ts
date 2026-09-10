@@ -72,7 +72,7 @@ Security rules:
       { role: "user", content: userWithContext },
     ],"chat");
     const integrity=enforceGroundedCitations(result.content,context.sources.map(source=>source.id));
-    await recordAiEvent(env.DB, {
+    const activityId=await recordAiEvent(env.DB, {
       actor: access.actor.email,
       action: "chat",
       provider: result.provider,
@@ -83,7 +83,7 @@ Security rules:
       latencyMs: Date.now() - started,
       detail: `${context.sources.length} sources supplied; max ${dataPolicy.maxDataClassification}; ${integrity.citedRefs.length} cited; ${integrity.invalidRefs.length} invalid citations removed; ${result.profile} profile used`,
     });
-    return json({ answer:integrity.answer, sources:context.sources.filter(source=>integrity.citedRefs.includes(source.id)), citationIntegrity:{grounded:integrity.grounded,cited:integrity.citedRefs.length,invalidRemoved:integrity.invalidRefs.length}, dataPolicy, provider: result.provider, model: result.model, profile:result.profile, mode: "read-only-copilot" });
+    return json({ answer:integrity.answer, activityId, sources:context.sources.filter(source=>integrity.citedRefs.includes(source.id)), citationIntegrity:{grounded:integrity.grounded,cited:integrity.citedRefs.length,invalidRemoved:integrity.invalidRefs.length}, dataPolicy, provider: result.provider, model: result.model, profile:result.profile, mode: "read-only-copilot" });
   } catch (error) {
     const message = error instanceof Error ? error.message : "AI isteği başarısız.";
     await recordAiEvent(env.DB, {

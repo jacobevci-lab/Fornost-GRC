@@ -131,6 +131,8 @@ Additional controls:
 
 Raw user prompts and model answers are intentionally not persisted by v1 to reduce sensitive-data retention.
 
+Successful chat responses return the identifier of their bounded activity event. A user may attach one quality or safety feedback record only to their own successful chat event. The feedback record retains the event reference, classification and redacted user note, but never copies the prompt or model response.
+
 ## Data model
 
 Migration `0030_fornost_ai_v1.sql` creates:
@@ -159,6 +161,8 @@ Agent runs never mutate live GRC data. Admin review with an explicit note and co
 Migration `0037_fornost_ai_knowledge.sql` adds a governed AI knowledge base. Admins may ingest bounded plain text, Markdown, HTML, CSV, JSON, PDF or DOCX content. Up to ten files may be staged together with a 30 MB aggregate browser-memory limit. PDF and DOCX files are converted to plain text inside the administrator's browser; raw files are never uploaded to Fornost or an AI provider. Each prepared file is submitted as an independent draft so one failure does not roll back the rest of the batch. File size, page count and extracted-text limits are enforced before a draft can be created, and matching content hashes are blocked as duplicates. HTML script/style blocks and tags are removed, content is normalized, SHA-256 hashed, versioned and split into bounded overlapping chunks. New and replacement versions always start as `draft`; only an Admin can approve them with a review note and exact `ONAYLA` confirmation. Approval, archive, new-version, duplicate-denial and deletion operations are audited.
 
 Migration `0038_fornost_ai_knowledge_governance.sql` adds source ownership and an explicit next-review date without changing stored document versions. Existing installations remain compatible through a separate governance table. Approved sources become visually overdue after their planned review date; legacy sources without a plan retain the 180-day approval-age fallback. An Admin can record a completed review without changing the approved document, while a replacement PDF/DOCX or text version always resets approval. Up to 50 selected drafts or active sources can be approved or archived in one explicitly confirmed operation; eligibility is validated for the complete selection before any row changes and one bounded audit event records all affected references.
+
+Migration `0039_fornost_ai_feedback.sql` adds the AI quality and safety feedback register. Each user can create one record per owned successful chat activity. Helpful, incorrect, incomplete and unsafe classifications are validated server-side; unsafe reports are elevated to at least `high`. Admins can assign, triage, resolve, dismiss and reopen records through guarded state transitions. Resolution notes are mandatory when closing a record, every transition is audited, and open high/critical records lower deterministic AI control readiness. The filtered register can be exported as a formula-safe evidence CSV.
 
 Copilot, typed drafts and assurance agents use the same deterministic lexical retriever. It selects only chunks from the current approved version, supplies no more than 9,000 knowledge characters, and exposes exact `KB-…-V…-C…` IDs as model citation anchors. `Restricted` sources are intentionally excluded from all model context even when approved. Knowledge text remains untrusted data and never becomes system instructions. No vector service, remote embedding call or autonomous record mutation is introduced.
 
@@ -201,6 +205,8 @@ The panel provides:
 - versioned and approval-gated AI knowledge sources with grounded chunk citations
 - single and ten-file batch TXT, Markdown, HTML, CSV, JSON, PDF and DOCX ingestion, file-based replacement versions, duplicate prevention, ownership and review scheduling, controlled bulk approval/archive, source health/freshness summary, search and filters, Admin source inspection, immutable version history and retrieval laboratory
 - server-side Copilot citation integrity enforcement and invalid-reference removal
+- response-level user feedback without retaining raw prompts or model answers
+- Admin AI incident triage with ownership, guarded resolution/reopen transitions, readiness impact and evidence CSV export
 
 ## V1 limitations by design
 
