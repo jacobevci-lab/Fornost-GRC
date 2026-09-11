@@ -6,6 +6,7 @@ import { draftSchemaInstruction, isAiDraftKind, parseAiDraftResponse, validateAi
 import { callAiWithFailover, getAiProviderChain, getEffectiveAiDataPolicy } from "@/app/ai/runtime-provider";
 import { cleanAiText, redactSensitiveText } from "@/app/ai/security";
 import { aiRuntime, getAiSettings, recordAiEvent } from "@/app/ai/storage";
+import {checkAiAccess} from "@/app/ai/operating-policy";
 
 const json = (data: unknown, status = 200) => NextResponse.json(data, { status, headers: { "cache-control": "no-store" } });
 const DRAFTS_PER_MINUTE = 3;
@@ -73,6 +74,7 @@ export async function POST(req: NextRequest) {
 
   const env = await aiRuntime(), row = await getAiSettings(env.DB);
   if (!row || !row.enabled) return json({ error: "Fornost AI henüz etkinleştirilmemiş." }, 409);
+  const operating=await checkAiAccess(env.DB,access.actor.role,"drafts");if(!operating.allowed){await recordAiEvent(env.DB,{actor:access.actor.email,action:"draft-policy-denied",provider:row.provider,model:row.model,status:"denied",detail:operating.code});return json({error:operating.message,code:operating.code},423);}
   if (await rateLimited(env.DB, access.actor.email)) {
     await recordAiEvent(env.DB, { actor: access.actor.email, action: "draft-rate-limit", provider: row.provider, model: row.model, status: "denied", detail: `Per-user draft limit exceeded (${DRAFTS_PER_MINUTE}/minute)` });
     return NextResponse.json({ error: "Çok fazla AI taslağı istendi. Kısa süre sonra tekrar deneyin." }, { status: 429, headers: { "cache-control": "no-store", "retry-after": "60" } });

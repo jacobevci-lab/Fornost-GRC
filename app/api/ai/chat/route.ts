@@ -6,6 +6,7 @@ import { isAiBudgetExceeded } from "@/app/ai/budget";
 import { callAiWithFailover, getAiProviderChain, getEffectiveAiDataPolicy } from "@/app/ai/runtime-provider";
 import { redactSensitiveText, sanitizeHistory } from "@/app/ai/security";
 import { aiRuntime, getAiSettings, recordAiEvent } from "@/app/ai/storage";
+import {checkAiAccess} from "@/app/ai/operating-policy";
 
 const json = (data: unknown, status = 200) => NextResponse.json(data, { status, headers: { "cache-control": "no-store" } });
 const AI_REQUESTS_PER_MINUTE = 12;
@@ -32,6 +33,7 @@ export async function POST(req: NextRequest) {
   const history = sanitizeHistory(body.history);
   const env = await aiRuntime(), row = await getAiSettings(env.DB);
   if (!row || !row.enabled) return json({ error: "Fornost AI henüz etkinleştirilmemiş." }, 409);
+  const operating=await checkAiAccess(env.DB,access.actor.role,"chat");if(!operating.allowed){await recordAiEvent(env.DB,{actor:access.actor.email,action:"chat-policy-denied",provider:row.provider,model:row.model,status:"denied",detail:operating.code});return json({error:operating.message,code:operating.code},423);}
 
   if (await rateLimited(env.DB, access.actor.email)) {
     await recordAiEvent(env.DB, {

@@ -6,9 +6,10 @@ import FornostAiAgents, { type AgentConversion, type AgentDecision, type AgentKi
 import FornostAiFeedback from "./fornost-ai-feedback";
 import FornostAiBudget from "./fornost-ai-budget";
 import FornostAiKnowledge from "./fornost-ai-knowledge";
+import FornostAiPolicy from "./fornost-ai-policy";
 
 type User = { name?: string; email: string; role: "Admin" | "Editor" | "Viewer" };
-type Status = { configured: boolean; enabled: boolean; provider: string | null; model: string | null; mode: string };
+type Status = { configured: boolean; enabled: boolean; operational:boolean;operatingState:"ready"|"restricted"|"emergency-stop";operatingMessage:string;capabilities:{chat:boolean;drafts:boolean;agents:boolean;retrieval:boolean;evaluations:boolean}; provider: string | null; model: string | null; mode: string };
 type Source = { id: string; module: string; title: string };
 type Message = { role: "user" | "assistant"; content: string; activityId?:string; feedbackSent?:boolean; sources?: Source[]; citationIntegrity?: {grounded:boolean;cited:number;invalidRemoved:number} };
 type FeedbackDraft={index:number;kind:"incorrect"|"incomplete"|"unsafe";severity:"medium"|"high"|"critical";comment:string};
@@ -65,7 +66,7 @@ export default function FornostAiCopilot() {
   const [user, setUser] = useState<User | null>(null);
   const [status, setStatus] = useState<Status | null>(null);
   const [open, setOpen] = useState(false);
-  const [tab, setTab] = useState<"chat" | "agents" | "knowledge" | "drafts" | "metrics" | "governance" | "feedback" | "budget" | "settings" | "audit">("chat");
+  const [tab, setTab] = useState<"chat" | "agents" | "knowledge" | "drafts" | "metrics" | "governance" | "feedback" | "budget" | "policy" | "settings" | "audit">("chat");
   const [messages, setMessages] = useState<Message[]>([]);
   const [question, setQuestion] = useState("");
   const [busy, setBusy] = useState(false);
@@ -195,7 +196,7 @@ export default function FornostAiCopilot() {
   async function send(e: FormEvent) {
     e.preventDefault();
     const value = question.trim();
-    if (!value || busy || !status?.enabled) return;
+    if (!value || busy || !chatReady) return;
     const history = messages.slice(-6).map(({ role, content }) => ({ role, content }));
     setMessages((items) => [...items, { role: "user", content: value }]);
     setQuestion("");
@@ -255,7 +256,7 @@ export default function FornostAiCopilot() {
 
   async function createDraft(e: FormEvent) {
     e.preventDefault();
-    if (draftBusy || !aiReady || user?.role === "Viewer" || draftInstruction.trim().length < 4) return;
+    if (draftBusy || !draftReady || user?.role === "Viewer" || draftInstruction.trim().length < 4) return;
     setDraftBusy(true); setNotice("");
     const response = await fetch(withBasePath("/api/ai/drafts"), {
       method: "POST", headers: { "content-type": "application/json" },
@@ -383,12 +384,13 @@ export default function FornostAiCopilot() {
   async function deleteAgentRun(id:string){if(!window.confirm("Bu başarısız veya arşivlenmiş agent çalışması silinsin mi?"))return;setAgentBusy(true);const response=await fetch(withBasePath("/api/ai/agents"),{method:"DELETE",headers:{"content-type":"application/json"},body:JSON.stringify({id,confirmation:"SİL"})}).catch(()=>null);if(response?.ok)await loadAgents();else{const body=await response?.json().catch(()=>({}))||{};setNotice(String(body.error||"Agent çalışması silinemedi."));}setAgentBusy(false);}
 
   if (!user) return null;
-  const aiReady = status?.enabled === true;
-  const activeTab = user.role !== "Admin" && (tab === "settings" || tab === "audit" || tab === "metrics" || tab === "governance" || tab === "feedback" || tab === "budget") ? "chat" : tab;
+  const aiReady = status?.enabled === true&&status?.operational!==false;
+  const chatReady=aiReady&&status?.capabilities?.chat!==false,draftReady=aiReady&&status?.capabilities?.drafts!==false,agentReady=aiReady&&status?.capabilities?.agents!==false;
+  const activeTab = user.role !== "Admin" && (tab === "settings" || tab === "audit" || tab === "metrics" || tab === "governance" || tab === "feedback" || tab === "budget" || tab === "policy") ? "chat" : tab;
 
   return <>
     <button className={`fornost-ai-launcher ${aiReady ? "ready" : ""}`} onClick={() => setOpen((value) => !value)} aria-expanded={open} aria-controls="fornost-ai-panel">
-      <span>✦</span><b>Ask Fornost</b><i>{aiReady ? "AI" : "OFF"}</i>
+      <span>✦</span><b>Ask Fornost</b><i>{status?.operatingState==="emergency-stop"?"STOP":aiReady ? "AI" : "OFF"}</i>
     </button>
     {open && <section id="fornost-ai-panel" className="fornost-ai-panel" aria-label="Fornost AI Copilot">
       <header className="fornost-ai-head">
@@ -404,12 +406,13 @@ export default function FornostAiCopilot() {
         {user.role === "Admin" && <button className={activeTab === "governance" ? "active" : ""} onClick={() => { setTab("governance"); void loadGovernance(); }}>Yönetişim</button>}
         {user.role === "Admin" && <button className={activeTab === "feedback" ? "active" : ""} onClick={() => setTab("feedback")}>Olaylar</button>}
         {user.role === "Admin" && <button className={activeTab === "budget" ? "active" : ""} onClick={() => setTab("budget")}>Kullanım</button>}
+        {user.role === "Admin" && <button className={activeTab === "policy" ? "active" : ""} onClick={() => setTab("policy")}>Operasyon</button>}
         {user.role === "Admin" && <button className={activeTab === "settings" ? "active" : ""} onClick={() => setTab("settings")}>AI Ayarları</button>}
         {user.role === "Admin" && <button className={activeTab === "audit" ? "active" : ""} onClick={() => { setTab("audit"); void loadAudit(); }}>AI Audit</button>}
       </nav>
 
       {activeTab === "chat" ? <>
-        <div className="fornost-ai-mode"><span className={aiReady ? "online" : "offline"}/><b>{aiReady ? "Hazır" : "Devre dışı"}</b><em>{status?.provider || "Provider yok"}</em></div>
+        <div className="fornost-ai-mode"><span className={chatReady ? "online" : "offline"}/><b>{status?.operatingState==="emergency-stop"?"Acil durduruldu":chatReady ? "Hazır" : "Erişim kısıtlı"}</b><em>{status?.operatingMessage||status?.provider||"Provider yok"}</em></div>
         <div className="fornost-ai-messages">
           {!messages.length && <div className="fornost-ai-welcome"><b>GRC verilerinizi sorun.</b><p>Örn: “Kritik varlıklardaki açık riskleri analiz et” veya “ISO 27001 denetimindeki en büyük boşluklar neler?”</p><small>Copilot yalnızca okur ve öneri üretir; kayıt değiştirmez.</small></div>}
           {messages.map((message, index) => <article key={index} className={`fornost-ai-message ${message.role}`}>
@@ -422,17 +425,17 @@ export default function FornostAiCopilot() {
           {busy && activeTab === "chat" && <div className="fornost-ai-thinking">Fornost verileri analiz ediliyor…</div>}
         </div>
         <form className="fornost-ai-compose" onSubmit={send}>
-          <textarea value={question} onChange={(e) => setQuestion(e.target.value)} maxLength={4000} rows={3} placeholder={aiReady ? "Risk, BIA, varlık, uyum, kanıt veya denetim hakkında sorun…" : "Ask Fornost > AI Ayarları bölümünden sağlayıcıyı etkinleştirin."} disabled={!aiReady || busy}/>
-          <div><small>{question.length}/4000</small><button disabled={!aiReady || busy || !question.trim()}>Gönder</button></div>
+          <textarea value={question} onChange={(e) => setQuestion(e.target.value)} maxLength={4000} rows={3} placeholder={chatReady ? "Risk, BIA, varlık, uyum, kanıt veya denetim hakkında sorun…" : status?.operatingMessage||"AI sohbet erişimi kapalı."} disabled={!chatReady || busy}/>
+          <div><small>{question.length}/4000</small><button disabled={!chatReady || busy || !question.trim()}>Gönder</button></div>
         </form>
-      </> : activeTab === "agents" ? <FornostAiAgents role={user.role} aiReady={aiReady} runs={agentRuns} kind={agentKind} setKind={setAgentKind} objective={agentObjective} setObjective={setAgentObjective} busy={agentBusy} notice={notice} decision={agentDecision} setDecision={setAgentDecision} conversion={agentConversion} setConversion={setAgentConversion} onRun={runAgent} onReview={reviewAgent} onConvert={convertAgentFinding} onDelete={deleteAgentRun} onReload={()=>void loadAgents()}/>
+      </> : activeTab === "agents" ? <FornostAiAgents role={user.role} aiReady={agentReady} runs={agentRuns} kind={agentKind} setKind={setAgentKind} objective={agentObjective} setObjective={setAgentObjective} busy={agentBusy} notice={notice} decision={agentDecision} setDecision={setAgentDecision} conversion={agentConversion} setConversion={setAgentConversion} onRun={runAgent} onReview={reviewAgent} onConvert={convertAgentFinding} onDelete={deleteAgentRun} onReload={()=>void loadAgents()}/>
       : activeTab === "knowledge" ? <FornostAiKnowledge role={user.role} actor={user.email}/>
       : activeTab === "drafts" ? <div className="fornost-ai-drafts">
         <div className="fornost-ai-security-note"><b>İnsan onaylı AI taslakları</b><p>AI yalnız yapılandırılmış bir öneri üretir. Onay veya ret kararı denetim izine yazılır; bu sürüm canlı GRC kayıtlarını otomatik değiştirmez.</p></div>
         {user.role !== "Viewer" && <form className="fornost-ai-draft-form" onSubmit={createDraft}>
           <label><span>Taslak türü</span><select value={draftKind} onChange={(e) => setDraftKind(e.target.value as DraftKind)}><option value="risk-treatment">Risk tedavi planı</option><option value="audit-finding">Denetim bulgusu</option><option value="remediation-task">İyileştirme görevi</option></select></label>
           <label><span>Amaç / talimat</span><textarea rows={3} maxLength={2400} value={draftInstruction} onChange={(e) => setDraftInstruction(e.target.value)} placeholder="Örn: Kritik varlıklardaki yüksek riskler için sahip ve hedef tarih içeren tedavi taslağı oluştur."/></label>
-          <button disabled={draftBusy || !aiReady || draftInstruction.trim().length < 4}>{draftBusy ? "Üretiliyor…" : "AI Taslağı Oluştur"}</button>
+          <button disabled={draftBusy || !draftReady || draftInstruction.trim().length < 4}>{draftBusy ? "Üretiliyor…" : "AI Taslağı Oluştur"}</button>
         </form>}
         {notice && <div className="fornost-ai-notice">{notice}</div>}
         <div className="fornost-ai-draft-head"><b>Taslak kuyruğu</b><button onClick={() => void loadDrafts()} disabled={draftBusy}>Yenile</button></div>
@@ -476,6 +479,7 @@ export default function FornostAiCopilot() {
         {governanceView==="inventory"?<><form className="fornost-ai-governance-form" onSubmit={createUseCase}><b>Yeni kullanım senaryosu</b><label><span>Ad</span><input maxLength={160} value={useCaseForm.name} onChange={e=>setUseCaseForm(value=>({...value,name:e.target.value}))}/></label><label><span>Amaç</span><textarea rows={3} maxLength={1600} value={useCaseForm.purpose} onChange={e=>setUseCaseForm(value=>({...value,purpose:e.target.value}))}/></label><div><label><span>Sorumlu</span><input maxLength={320} value={useCaseForm.owner} onChange={e=>setUseCaseForm(value=>({...value,owner:e.target.value}))}/></label><label><span>Gözden geçirme</span><input type="date" value={useCaseForm.reviewDate} onChange={e=>setUseCaseForm(value=>({...value,reviewDate:e.target.value}))}/></label></div><div><label><span>Veri sınıfı</span><select value={useCaseForm.dataClassification} onChange={e=>setUseCaseForm(value=>({...value,dataClassification:e.target.value}))}><option>Public</option><option>Internal</option><option>Confidential</option><option>Restricted</option></select></label><label><span>Etki</span><select value={useCaseForm.impactLevel} onChange={e=>setUseCaseForm(value=>({...value,impactLevel:e.target.value}))}><option>Low</option><option>Medium</option><option>High</option><option>Critical</option></select></label></div><label><span>Karar rolü</span><select value={useCaseForm.decisionRole} onChange={e=>setUseCaseForm(value=>({...value,decisionRole:e.target.value}))}><option>Assistive</option><option>Human-reviewed</option><option>Human-approved</option><option>Prohibited</option></select></label><label><span>Kontroller (virgülle)</span><input maxLength={1000} value={useCaseForm.controls} onChange={e=>setUseCaseForm(value=>({...value,controls:e.target.value}))}/></label><button disabled={governanceBusy}>Taslak Ekle</button></form><div className="fornost-ai-governance-list">{useCases.map(item=><article key={item.id}><header><div><b>{item.name}</b><small>{item.id}</small></div><span className={item.status}>{item.status}</span></header><p>{item.purpose}</p><dl><div><dt>Sorumlu</dt><dd>{item.owner}</dd></div><div><dt>Risk</dt><dd>{item.dataClassification} · {item.impactLevel}</dd></div><div><dt>Karar</dt><dd>{item.decisionRole}</dd></div><div><dt>Review</dt><dd>{item.reviewDate}</dd></div></dl><footer>{item.controls.map(control=><span key={control}>{control}</span>)}</footer>{item.decisionNote&&<em>{item.approvedBy} · {item.decisionNote}</em>}<div className="fornost-ai-governance-actions">{item.status!=="approved"&&<button onClick={()=>setDecision({id:item.id,status:"approved",note:"",confirmation:""})}>Onayla</button>}{item.status!=="suspended"&&<button className="warn" onClick={()=>setDecision({id:item.id,status:"suspended",note:"",confirmation:""})}>Askıya Al</button>}{item.status==="draft"&&<button className="danger" onClick={()=>void deleteUseCase(item.id)}>Sil</button>}</div>{decision?.id===item.id&&<div className="fornost-ai-decision"><textarea rows={2} maxLength={800} placeholder="Zorunlu karar notu" value={decision.note} onChange={e=>setDecision(value=>value?{...value,note:e.target.value}:value)}/><input placeholder={decision.status==="approved"?"ONAYLA":"ASKIYA AL"} value={decision.confirmation} onChange={e=>setDecision(value=>value?{...value,confirmation:e.target.value}:value)}/><div><button onClick={()=>setDecision(null)}>Vazgeç</button><button disabled={governanceBusy} onClick={()=>void decideUseCase()}>Kararı Kaydet</button></div></div>}</article>)}</div></>:governanceView==="evaluations"?<><form className="fornost-ai-governance-form" onSubmit={createEvalCase}><b>Yeni model testi</b><label><span>Test adı</span><input maxLength={160} value={evalForm.name} onChange={e=>setEvalForm(value=>({...value,name:e.target.value}))}/></label><label><span>Test girdisi</span><textarea rows={3} maxLength={2000} value={evalForm.input} onChange={e=>setEvalForm(value=>({...value,input:e.target.value}))}/></label><label><span>Beklenen terimler (virgülle)</span><input value={evalForm.expectedTerms} onChange={e=>setEvalForm(value=>({...value,expectedTerms:e.target.value}))}/></label><label><span>Yasaklı terimler (virgülle)</span><input value={evalForm.forbiddenTerms} onChange={e=>setEvalForm(value=>({...value,forbiddenTerms:e.target.value}))}/></label><label><span>Maksimum gecikme (ms)</span><input type="number" min="1000" max="120000" value={evalForm.maxLatencyMs} onChange={e=>setEvalForm(value=>({...value,maxLatencyMs:Number(e.target.value)}))}/></label><button disabled={governanceBusy}>Test Ekle</button></form><div className="fornost-ai-run-all"><b>Değerlendirme paketi</b><div><button className="secondary" disabled={governanceBusy} onClick={()=>void installEvaluationBaseline()}>Hazır Güvenlik Paketini Ekle</button><button className="secondary" disabled={!evalCases.length} onClick={downloadEvaluationEvidence}>Kanıt CSV İndir</button><button disabled={governanceBusy||!evalCases.some(item=>item.enabled)} onClick={()=>void runEvaluations()}>İlk 10 Etkin Testi Çalıştır</button></div></div><div className="fornost-ai-governance-list">{evalCases.map(item=><article key={item.id} className={!item.enabled?"disabled":undefined}><header><div><b>{item.name}</b><small>{item.id} · {item.enabled?"Etkin":"Devre dışı"}</small></div>{item.lastRun?<span className={item.lastRun.status}>{item.lastRun.score}/100</span>:<span>Yeni</span>}</header><p>{item.input}</p><div className={`fornost-ai-eval-trend ${item.trend}`}><b>{item.trend==="regressed"?"Regresyon":item.trend==="improved"?"İyileşme":item.trend==="stable"?"Stabil":"İlk ölçüm"}</b><span>{item.history.length>1?`${item.scoreDelta>0?"+":""}${item.scoreDelta} puan`:"Karşılaştırma için ikinci koşum gerekli"}</span></div><footer>{item.expectedTerms.map(term=><span key={term}>+ {term}</span>)}{item.forbiddenTerms.map(term=><span className="forbidden" key={term}>− {term}</span>)}</footer>{item.history.length>0&&<div className="fornost-ai-eval-history"><b>Son {item.history.length} koşum</b>{item.history.map(run=><div key={run.id}><span className={run.status}>{run.score}</span><small>{run.provider} · {run.model}</small><time>{run.latencyMs} ms · {new Date(run.createdAt).toLocaleString("tr-TR")}</time>{run.failureReason&&<em>{run.failureReason}</em>}</div>)}</div>}<div className="fornost-ai-governance-actions"><button disabled={governanceBusy||!item.enabled} onClick={()=>void runEvaluations(item.id)}>Çalıştır</button><button onClick={()=>editEvalCase(item)}>Düzenle</button><button className="warn" disabled={governanceBusy} onClick={()=>void toggleEvalCase(item)}>{item.enabled?"Devre Dışı":"Etkinleştir"}</button><button className="danger" onClick={()=>void deleteEvalCase(item.id)}>Sil</button></div>{evalEdit?.id===item.id&&<form className="fornost-ai-eval-edit" onSubmit={saveEvalCase}><b>Testi düzenle</b><label><span>Test adı</span><input maxLength={160} value={evalEdit.name} onChange={e=>setEvalEdit(value=>value?{...value,name:e.target.value}:value)}/></label><label><span>Test girdisi</span><textarea rows={3} maxLength={2000} value={evalEdit.input} onChange={e=>setEvalEdit(value=>value?{...value,input:e.target.value}:value)}/></label><label><span>Beklenen terimler</span><input value={evalEdit.expectedTerms} onChange={e=>setEvalEdit(value=>value?{...value,expectedTerms:e.target.value}:value)}/></label><label><span>Yasaklı terimler</span><input value={evalEdit.forbiddenTerms} onChange={e=>setEvalEdit(value=>value?{...value,forbiddenTerms:e.target.value}:value)}/></label><label><span>Maksimum gecikme (ms)</span><input type="number" min="1000" max="120000" value={evalEdit.maxLatencyMs} onChange={e=>setEvalEdit(value=>value?{...value,maxLatencyMs:Number(e.target.value)}:value)}/></label><label className="fornost-ai-checkbox"><input type="checkbox" checked={evalEdit.enabled} onChange={e=>setEvalEdit(value=>value?{...value,enabled:e.target.checked}:value)}/><span>Hazırlık kontrolüne dahil et</span></label><div><button type="button" onClick={()=>setEvalEdit(null)}>Vazgeç</button><button disabled={governanceBusy}>Kaydet</button></div></form>}</article>)}</div></>:<div className="fornost-ai-health-list">{!providerHealth.length?<div className="fornost-ai-audit-empty">Henüz provider health kaydı yok.</div>:providerHealth.map((item,index)=><article key={`${item.created_at}-${index}`}><span className={item.status}/><div><b>{item.profile} · {item.provider}</b><small>{item.model} · {item.operation}</small><em>{item.detail}</em></div><time>{item.latency_ms} ms<br/>{new Date(item.created_at).toLocaleString("tr-TR")}</time></article>)}</div>}
       </div> : activeTab === "feedback" ? <FornostAiFeedback actor={user.email}/>
       : activeTab === "budget" ? <FornostAiBudget/>
+      : activeTab === "policy" ? <FornostAiPolicy onChanged={refreshStatus}/>
       : activeTab === "audit" ? <div className="fornost-ai-audit">
         <div className="fornost-ai-security-note"><b>AI kullanım denetim izi</b><p>Ham prompt ve model cevabı saklanmaz. Aktör, model, işlem sonucu, gecikme, prompt hash ve kullanılan Fornost kaynak kimlikleri tutulur.</p></div>
         <div className="fornost-ai-audit-head"><b>Son aktiviteler</b><button onClick={() => void loadAudit()} disabled={auditBusy}>{auditBusy ? "Yükleniyor…" : "Yenile"}</button></div>

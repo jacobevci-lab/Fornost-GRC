@@ -7,6 +7,7 @@ import { callAiWithFailover, getAiProviderChain, getEffectiveAiDataPolicy } from
 import { cleanAiText, redactSensitiveText } from "@/app/ai/security";
 import { aiRuntime, getAiSettings, recordAiEvent } from "@/app/ai/storage";
 import { isAiBudgetExceeded } from "@/app/ai/budget";
+import {checkAiAccess} from "@/app/ai/operating-policy";
 
 const json = (data: unknown, status = 200) => NextResponse.json(data, { status, headers: { "cache-control": "no-store" } });
 const RUNS_PER_MINUTE = 2;
@@ -67,6 +68,7 @@ export async function POST(req: NextRequest) {
   const staleBefore = new Date(Date.now() - 10 * 60_000).toISOString();
   await env.DB.prepare("UPDATE ai_agent_runs SET status='failed',completed_at=? WHERE status='running' AND created_at<?").bind(new Date().toISOString(), staleBefore).run();
   if (!primary || !primary.enabled) return json({ error: "Fornost AI henüz etkinleştirilmemiş." }, 409);
+  const operating=await checkAiAccess(env.DB,access.actor.role,"agents");if(!operating.allowed){await recordAiEvent(env.DB,{actor:access.actor.email,action:"agent-policy-denied",provider:primary.provider,model:primary.model,status:"denied",detail:operating.code});return json({error:operating.message,code:operating.code},423);}
   if (await rateLimited(env.DB, access.actor.email)) {
     await recordAiEvent(env.DB, { actor: access.actor.email, action: "agent-rate-limit", provider: primary.provider, model: primary.model, status: "denied", detail: `Per-user agent limit exceeded (${RUNS_PER_MINUTE}/minute)` });
     return NextResponse.json({ error: "Çok fazla agent çalıştırması istendi. Kısa süre sonra tekrar deneyin." }, { status: 429, headers: { "cache-control": "no-store", "retry-after": "60" } });

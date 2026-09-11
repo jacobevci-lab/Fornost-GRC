@@ -1,13 +1,14 @@
 import { NextRequest,NextResponse } from "next/server";
 import { requireRole } from "../../auth/security";
 import { aiRuntime,getAiSettings } from "@/app/ai/storage";
+import {getAiOperatingPolicy} from "@/app/ai/operating-policy";
 
 const number=(value:unknown)=>Number(value||0);
 const metricWindow=(value:string|null)=>{const days=Number(value);return [7,30,90].includes(days)?days:7;};
 export async function GET(req:NextRequest){
   const access=await requireRole(req,["Admin"]);if(access.response)return access.response;
   const {DB}=await aiRuntime(),windowDays=metricWindow(req.nextUrl.searchParams.get("days")),since=new Date(Date.now()-windowDays*86400000).toISOString();
-  const [settings,activity,drafts,published,tickets,daily,models,errors,governance,evaluations,evaluationCurrent,failover,providerHealth,agents,agentDrafts,knowledge,feedback,usage]=await Promise.all([
+  const [settings,activity,drafts,published,tickets,daily,models,errors,governance,evaluations,evaluationCurrent,failover,providerHealth,agents,agentDrafts,knowledge,feedback,usage,operatingPolicy]=await Promise.all([
     getAiSettings(DB),
     DB.prepare(`SELECT COUNT(*) total,SUM(CASE WHEN status='success' THEN 1 ELSE 0 END) success,SUM(CASE WHEN status='error' THEN 1 ELSE 0 END) errors,SUM(CASE WHEN status='denied' THEN 1 ELSE 0 END) denied,ROUND(AVG(CASE WHEN latency_ms>0 THEN latency_ms END)) average_latency FROM ai_activity_logs WHERE created_at>=?`).bind(since).first<Record<string,unknown>>(),
     DB.prepare(`SELECT COUNT(*) total,SUM(CASE WHEN status='pending' THEN 1 ELSE 0 END) pending,SUM(CASE WHEN status='approved' THEN 1 ELSE 0 END) approved,SUM(CASE WHEN status='rejected' THEN 1 ELSE 0 END) rejected FROM ai_action_drafts`).first<Record<string,unknown>>(),
@@ -26,10 +27,12 @@ export async function GET(req:NextRequest){
     DB.prepare(`SELECT COUNT(*) total,SUM(CASE WHEN s.status='approved' THEN 1 ELSE 0 END) approved,SUM(CASE WHEN s.status='draft' THEN 1 ELSE 0 END) drafts,SUM(CASE WHEN s.status='archived' THEN 1 ELSE 0 END) archived,SUM(CASE WHEN s.classification='Restricted' THEN 1 ELSE 0 END) restricted,SUM(CASE WHEN s.status='approved' THEN s.chunk_count ELSE 0 END) chunks,SUM(CASE WHEN s.status='approved' AND ((g.review_due_at IS NOT NULL AND g.review_due_at<date('now')) OR (g.review_due_at IS NULL AND s.approved_at<datetime('now','-180 days'))) THEN 1 ELSE 0 END) stale FROM ai_knowledge_sources s LEFT JOIN ai_knowledge_governance g ON g.source_id=s.id`).first<Record<string,unknown>>(),
     DB.prepare(`SELECT COUNT(*) total,SUM(CASE WHEN status IN ('open','in_review') THEN 1 ELSE 0 END) unresolved,SUM(CASE WHEN status IN ('open','in_review') AND severity IN ('high','critical') THEN 1 ELSE 0 END) high_risk,SUM(CASE WHEN status='resolved' THEN 1 ELSE 0 END) resolved FROM ai_feedback`).first<Record<string,unknown>>(),
     DB.prepare(`SELECT COUNT(*) calls,COALESCE(SUM(prompt_tokens+completion_tokens),0) tokens,COALESCE(SUM(estimated_cost_microunits),0) cost,SUM(CASE WHEN metered=0 THEN 1 ELSE 0 END) unmetered,(SELECT COUNT(*) FROM ai_budget_policies) policies,(SELECT COUNT(*) FROM ai_budget_policies p WHERE p.hard_limit=1 AND p.monthly_token_limit>0 AND COALESCE((SELECT SUM(l.prompt_tokens+l.completion_tokens) FROM ai_usage_ledger l WHERE l.profile=p.profile AND l.created_at>=date('now','start of month')),0)>=p.monthly_token_limit) exceeded FROM ai_usage_ledger WHERE created_at>=date('now','start of month')`).first<Record<string,unknown>>(),
+    getAiOperatingPolicy(DB),
   ]);
   const total=number(activity?.total),success=number(activity?.success),reviewed=number(drafts?.approved)+number(drafts?.rejected);
   const evalTotal=number(evaluations?.total),evalPassed=number(evaluations?.passed),currentEvalTotal=number(evaluationCurrent?.total),currentEvalPassed=number(evaluationCurrent?.passed),currentEvalUntested=number(evaluationCurrent?.untested),currentEvalFailing=number(evaluationCurrent?.failing);
   const controls=[
+    {id:"operating-policy",label:"AI operasyon politikası",status:operatingPolicy.emergencyStop?"attention":"ready",detail:operatingPolicy.emergencyStop?"Global acil durdurma etkin.":`Chat ${operatingPolicy.chatEnabled?"açık":"kapalı"} · Taslak ${operatingPolicy.draftsEnabled?"açık":"kapalı"} · Agent ${operatingPolicy.agentsEnabled?"açık":"kapalı"}`},
     {id:"provider",label:"AI sağlayıcısı",status:settings?.enabled?"ready":"missing",detail:settings?.enabled?`${settings.provider} · ${settings.model}`:"Etkin sağlayıcı yapılandırılmadı."},
     {id:"inventory",label:"Kullanım senaryosu envanteri",status:number(governance?.approved)>0&&number(governance?.overdue)===0?"ready":"attention",detail:`${number(governance?.approved)}/${number(governance?.total)} onaylı · ${number(governance?.overdue)} gecikmiş`},
     {id:"evaluations",label:"Model güvenlik testleri",status:currentEvalTotal>0&&currentEvalPassed===currentEvalTotal?"ready":"attention",detail:currentEvalTotal?`${currentEvalPassed}/${currentEvalTotal} etkin testin son koşumu başarılı · ${currentEvalFailing} başarısız · ${currentEvalUntested} çalıştırılmamış`:"Etkin test bulunmuyor."},

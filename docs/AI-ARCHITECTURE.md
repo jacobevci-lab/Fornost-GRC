@@ -214,6 +214,8 @@ The panel provides:
 
 Migration `0040_fornost_ai_budget.sql` adds separate provider-profile budget policies and an append-only usage ledger. OpenAI-compatible usage fields (`prompt_tokens`, `completion_tokens`) and Ollama counters (`prompt_eval_count`, `eval_count`) are normalized. Providers that omit usage metadata remain visible as unmetered calls rather than receiving invented estimates. A hard limit is checked before every provider attempt; an exhausted primary profile may fail over only to an independently budgeted fallback. Accounting failures never replay a provider call after a successful model response.
 
+Migration `0041_fornost_ai_operating_policy.sql` adds centrally enforced operational controls. Admins can independently enable chat, typed draft generation, assurance agents, retrieval-lab searches and model evaluations, plus restrict Viewer and Editor chat access. A global emergency stop denies those operations for every role without deleting provider configuration or governed records. Enforcement occurs in the API, denied attempts are audited, and the current policy appears in readiness reporting.
+
 ## V1 limitations by design
 
 Not included yet:

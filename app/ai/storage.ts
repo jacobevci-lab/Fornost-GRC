@@ -187,6 +187,14 @@ const usageLedgerSql = `CREATE TABLE IF NOT EXISTS ai_usage_ledger (
 )`;
 const usageProfileIndexSql = "CREATE INDEX IF NOT EXISTS ai_usage_ledger_profile_created_idx ON ai_usage_ledger(profile,created_at)";
 const usageCreatedIndexSql = "CREATE INDEX IF NOT EXISTS ai_usage_ledger_created_idx ON ai_usage_ledger(created_at)";
+const operatingPolicySql = `CREATE TABLE IF NOT EXISTS ai_operating_policy (
+  id TEXT PRIMARY KEY, emergency_stop INTEGER NOT NULL DEFAULT 0,
+  chat_enabled INTEGER NOT NULL DEFAULT 1, drafts_enabled INTEGER NOT NULL DEFAULT 1,
+  agents_enabled INTEGER NOT NULL DEFAULT 1, retrieval_enabled INTEGER NOT NULL DEFAULT 1,
+  evaluations_enabled INTEGER NOT NULL DEFAULT 1, viewer_chat INTEGER NOT NULL DEFAULT 1,
+  editor_chat INTEGER NOT NULL DEFAULT 1, maintenance_message TEXT NOT NULL DEFAULT '',
+  updated_by TEXT NOT NULL, updated_at TEXT NOT NULL
+)`;
 
 let schemaReady: Promise<void> | null = null;
 
@@ -233,6 +241,7 @@ export async function aiRuntime() {
       runtime.DB.prepare(usageLedgerSql),
       runtime.DB.prepare(usageProfileIndexSql),
       runtime.DB.prepare(usageCreatedIndexSql),
+      runtime.DB.prepare(operatingPolicySql),
     ]).then(() => undefined).catch((error) => {
       schemaReady = null;
       throw error;
