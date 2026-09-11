@@ -36,6 +36,7 @@ import { automaticAuditTemplates } from "./api/grc/framework-catalogs";
 import "./theme-system.css";
 import "./final-polish.css";
 import "./midnight-graphite.css";
+import "./fornost-enterprise-2026.css";
 import { buildReportHtml, buildReportPdf, downloadBlob, reportMetrics } from "./report-export";
 
 type Lang = "tr" | "en";
