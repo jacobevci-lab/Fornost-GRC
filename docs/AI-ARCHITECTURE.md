@@ -151,6 +151,8 @@ Migration `0035_fornost_ai_governance.sql` adds:
 - `ai_provider_fallbacks` and `ai_provider_health`
 - `ai_use_cases` for AI purpose, owner, data classification, impact, human-decision role, controls and review dates
 - `ai_eval_cases` and `ai_eval_runs` for repeatable model quality and safety checks
+- `ai_budget_policies` and `ai_usage_ledger` for provider-reported token metering, monthly limits and point-in-time cost estimates
+- `ai_budget_policies` and `ai_usage_ledger` for provider-reported token metering, monthly guardrails and cost estimation without prompt or response retention
 
 Evaluation responses are never stored. Only score, latency, provider/model, failure reason and SHA-256 output hash are retained. Evaluation batches are Admin-only and bounded to ten enabled cases per request.
 
@@ -207,6 +209,10 @@ The panel provides:
 - server-side Copilot citation integrity enforcement and invalid-reference removal
 - response-level user feedback without retaining raw prompts or model answers
 - Admin AI incident triage with ownership, guarded resolution/reopen transitions, readiness impact and evidence CSV export
+- Admin monthly token/cost dashboard with independent primary/fallback limits, warning thresholds, hard-stop enforcement and formula-safe evidence CSV export
+- Admin AI usage governance with separate primary/fallback monthly token policies, warning thresholds, optional hard stops, provider price estimates, actor/operation breakdowns and evidence CSV export
+
+Migration `0040_fornost_ai_budget.sql` adds separate provider-profile budget policies and an append-only usage ledger. OpenAI-compatible usage fields (`prompt_tokens`, `completion_tokens`) and Ollama counters (`prompt_eval_count`, `eval_count`) are normalized. Providers that omit usage metadata remain visible as unmetered calls rather than receiving invented estimates. A hard limit is checked before every provider attempt; an exhausted primary profile may fail over only to an independently budgeted fallback. Accounting failures never replay a provider call after a successful model response.
 
 ## V1 limitations by design
 

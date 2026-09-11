@@ -173,6 +173,20 @@ const feedbackSql = `CREATE TABLE IF NOT EXISTS ai_feedback (
 )`;
 const feedbackStatusIndexSql = "CREATE INDEX IF NOT EXISTS ai_feedback_status_severity_created_idx ON ai_feedback(status,severity,created_at)";
 const feedbackCreatorIndexSql = "CREATE INDEX IF NOT EXISTS ai_feedback_creator_created_idx ON ai_feedback(created_by,created_at)";
+const budgetPoliciesSql = `CREATE TABLE IF NOT EXISTS ai_budget_policies (
+  profile TEXT PRIMARY KEY, monthly_token_limit INTEGER NOT NULL DEFAULT 0,
+  warn_percent INTEGER NOT NULL DEFAULT 80, hard_limit INTEGER NOT NULL DEFAULT 0,
+  prompt_cost_per_million REAL NOT NULL DEFAULT 0, completion_cost_per_million REAL NOT NULL DEFAULT 0,
+  currency TEXT NOT NULL DEFAULT 'USD', updated_by TEXT NOT NULL, updated_at TEXT NOT NULL
+)`;
+const usageLedgerSql = `CREATE TABLE IF NOT EXISTS ai_usage_ledger (
+  id TEXT PRIMARY KEY, actor TEXT NOT NULL, operation TEXT NOT NULL, profile TEXT NOT NULL,
+  provider TEXT NOT NULL, model TEXT NOT NULL, prompt_tokens INTEGER NOT NULL DEFAULT 0,
+  completion_tokens INTEGER NOT NULL DEFAULT 0, estimated_cost_microunits INTEGER NOT NULL DEFAULT 0,
+  currency TEXT NOT NULL DEFAULT 'USD', metered INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL
+)`;
+const usageProfileIndexSql = "CREATE INDEX IF NOT EXISTS ai_usage_ledger_profile_created_idx ON ai_usage_ledger(profile,created_at)";
+const usageCreatedIndexSql = "CREATE INDEX IF NOT EXISTS ai_usage_ledger_created_idx ON ai_usage_ledger(created_at)";
 
 let schemaReady: Promise<void> | null = null;
 
@@ -215,6 +229,10 @@ export async function aiRuntime() {
       runtime.DB.prepare(feedbackSql),
       runtime.DB.prepare(feedbackStatusIndexSql),
       runtime.DB.prepare(feedbackCreatorIndexSql),
+      runtime.DB.prepare(budgetPoliciesSql),
+      runtime.DB.prepare(usageLedgerSql),
+      runtime.DB.prepare(usageProfileIndexSql),
+      runtime.DB.prepare(usageCreatedIndexSql),
     ]).then(() => undefined).catch((error) => {
       schemaReady = null;
       throw error;

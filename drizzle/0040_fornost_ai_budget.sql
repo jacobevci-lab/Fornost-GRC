@@ -1,0 +1,5 @@
+CREATE TABLE IF NOT EXISTS ai_budget_policies (profile TEXT PRIMARY KEY, monthly_token_limit INTEGER NOT NULL DEFAULT 0, warn_percent INTEGER NOT NULL DEFAULT 80, hard_limit INTEGER NOT NULL DEFAULT 0, prompt_cost_per_million REAL NOT NULL DEFAULT 0, completion_cost_per_million REAL NOT NULL DEFAULT 0, currency TEXT NOT NULL DEFAULT 'USD', updated_by TEXT NOT NULL, updated_at TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS ai_usage_ledger (id TEXT PRIMARY KEY, actor TEXT NOT NULL, operation TEXT NOT NULL, profile TEXT NOT NULL, provider TEXT NOT NULL, model TEXT NOT NULL, prompt_tokens INTEGER NOT NULL DEFAULT 0, completion_tokens INTEGER NOT NULL DEFAULT 0, estimated_cost_microunits INTEGER NOT NULL DEFAULT 0, currency TEXT NOT NULL DEFAULT 'USD', metered INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL);
+CREATE INDEX IF NOT EXISTS ai_usage_ledger_profile_created_idx ON ai_usage_ledger(profile,created_at);
+CREATE INDEX IF NOT EXISTS ai_usage_ledger_created_idx ON ai_usage_ledger(created_at);
+PRAGMA optimize;

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireRole } from "../../auth/security";
 import { buildGrcContext } from "@/app/ai/context";
 import { enforceGroundedCitations } from "@/app/ai/knowledge";
+import { isAiBudgetExceeded } from "@/app/ai/budget";
 import { callAiWithFailover, getAiProviderChain, getEffectiveAiDataPolicy } from "@/app/ai/runtime-provider";
 import { redactSensitiveText, sanitizeHistory } from "@/app/ai/security";
 import { aiRuntime, getAiSettings, recordAiEvent } from "@/app/ai/storage";
@@ -70,7 +71,7 @@ Security rules:
       { role: "system", content: system },
       ...history,
       { role: "user", content: userWithContext },
-    ],"chat");
+    ],"chat",access.actor.email);
     const integrity=enforceGroundedCitations(result.content,context.sources.map(source=>source.id));
     const activityId=await recordAiEvent(env.DB, {
       actor: access.actor.email,
@@ -86,17 +87,17 @@ Security rules:
     return json({ answer:integrity.answer, activityId, sources:context.sources.filter(source=>integrity.citedRefs.includes(source.id)), citationIntegrity:{grounded:integrity.grounded,cited:integrity.citedRefs.length,invalidRemoved:integrity.invalidRefs.length}, dataPolicy, provider: result.provider, model: result.model, profile:result.profile, mode: "read-only-copilot" });
   } catch (error) {
     const message = error instanceof Error ? error.message : "AI isteği başarısız.";
-    await recordAiEvent(env.DB, {
+    const budgetExceeded=isAiBudgetExceeded(error);await recordAiEvent(env.DB, {
       actor: access.actor.email,
       action: "chat",
       provider: row.provider,
       model: row.model,
       promptHash,
       contextRefs: context.sources.map((source) => source.id),
-      status: "error",
+      status: budgetExceeded?"denied":"error",
       latencyMs: Date.now() - started,
       detail: message,
     });
-    return json({ error: message }, 502);
+    return json({ error: message }, budgetExceeded?429:502);
   }
 }

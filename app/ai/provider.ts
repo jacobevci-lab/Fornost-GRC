@@ -1,4 +1,5 @@
 import { redactSensitiveText } from "./security";
+import { normalizeAiUsage } from "./budget";
 import type { AiProviderKind } from "./storage";
 
 export type AiMessage = { role: "system" | "user" | "assistant"; content: string };
@@ -65,7 +66,7 @@ export async function callAiProvider(config: AiProviderConfig, messages: AiMessa
     const message = payload.message as Record<string, unknown> | undefined;
     const content = redactSensitiveText(message?.content, 20_000);
     if (!content) throw new Error("Local AI boş yanıt döndürdü.");
-    return content;
+    return {content,usage:normalizeAiUsage(payload.prompt_eval_count,payload.eval_count)};
   }
 
   const response = await request(openAiUrl(config.baseUrl, "/chat/completions"), {
@@ -86,7 +87,8 @@ export async function callAiProvider(config: AiProviderConfig, messages: AiMessa
   const message = first?.message as Record<string, unknown> | undefined;
   const content = redactSensitiveText(message?.content, 20_000);
   if (!content) throw new Error("AI sağlayıcısı boş yanıt döndürdü.");
-  return content;
+  const usage=payload.usage as Record<string,unknown>|undefined;
+  return {content,usage:normalizeAiUsage(usage?.prompt_tokens,usage?.completion_tokens)};
 }
 
 export async function testAiProvider(config: AiProviderConfig) {
@@ -104,7 +106,7 @@ export async function testAiProvider(config: AiProviderConfig) {
       { role: "system", content: "Connection test. Reply only OK." },
       { role: "user", content: "OK" },
     ]);
-    if (reply) return { message:"OpenAI-compatible sohbet uç noktası doğrulandı.", models:[], selectedModelAvailable:null };
+    if (reply.content) return { message:"OpenAI-compatible sohbet uç noktası doğrulandı.", models:[], selectedModelAvailable:null };
   }
   throw new Error(`AI bağlantı testi başarısız (${response.status}).`);
 }
