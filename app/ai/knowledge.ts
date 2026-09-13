@@ -1,5 +1,6 @@
 import { cleanAiText, redactSensitiveText } from "./security";
 import { dataClassificationAllowed, type AiDataClassification } from "./data-policy";
+import { DEFAULT_AI_DATA_PROTECTION_POLICY, protectAiText } from "./data-protection";
 
 export const KNOWLEDGE_TYPES = ["text", "markdown", "html", "csv", "json", "pdf", "docx"] as const;
 export const KNOWLEDGE_CLASSIFICATIONS = ["Public", "Internal", "Confidential", "Restricted"] as const;
@@ -42,6 +43,8 @@ export function normalizeKnowledgeContent(value: unknown, type: KnowledgeType) {
   if (type === "html") normalized = stripHtml(normalized);
   normalized = normalized.replace(/[ \t]+/g, " ").replace(/\n{3,}/g, "\n\n").trim();
   if (normalized.length < 40) throw new Error("Bilgi kaynağı en az 40 karakter olmalı.");
+  const inspection=protectAiText(normalized,{...DEFAULT_AI_DATA_PROTECTION_POLICY,mode:"redact",injectionAction:"block"},MAX_CONTENT_CHARS);
+  if(inspection.findings.includes("prompt-injection"))throw new Error("Belgede prompt-injection benzeri talimat bulundu. İçeriği temizleyip tekrar yükleyin.");
   return normalized;
 }
 

@@ -7,6 +7,7 @@ import FornostAiFeedback from "./fornost-ai-feedback";
 import FornostAiBudget from "./fornost-ai-budget";
 import FornostAiKnowledge from "./fornost-ai-knowledge";
 import FornostAiPolicy from "./fornost-ai-policy";
+import FornostAiDataProtection from "./fornost-ai-data-protection";
 
 type User = { name?: string; email: string; role: "Admin" | "Editor" | "Viewer" };
 type Status = { configured: boolean; enabled: boolean; operational:boolean;operatingState:"ready"|"restricted"|"emergency-stop";operatingMessage:string;capabilities:{chat:boolean;drafts:boolean;agents:boolean;retrieval:boolean;evaluations:boolean}; provider: string | null; model: string | null; mode: string };
@@ -66,7 +67,7 @@ export default function FornostAiCopilot() {
   const [user, setUser] = useState<User | null>(null);
   const [status, setStatus] = useState<Status | null>(null);
   const [open, setOpen] = useState(false);
-  const [tab, setTab] = useState<"chat" | "agents" | "knowledge" | "drafts" | "metrics" | "governance" | "feedback" | "budget" | "policy" | "settings" | "audit">("chat");
+  const [tab, setTab] = useState<"chat" | "agents" | "knowledge" | "drafts" | "metrics" | "governance" | "feedback" | "budget" | "policy" | "protection" | "settings" | "audit">("chat");
   const [messages, setMessages] = useState<Message[]>([]);
   const [question, setQuestion] = useState("");
   const [busy, setBusy] = useState(false);
@@ -386,7 +387,7 @@ export default function FornostAiCopilot() {
   if (!user) return null;
   const aiReady = status?.enabled === true&&status?.operational!==false;
   const chatReady=aiReady&&status?.capabilities?.chat!==false,draftReady=aiReady&&status?.capabilities?.drafts!==false,agentReady=aiReady&&status?.capabilities?.agents!==false;
-  const activeTab = user.role !== "Admin" && (tab === "settings" || tab === "audit" || tab === "metrics" || tab === "governance" || tab === "feedback" || tab === "budget" || tab === "policy") ? "chat" : tab;
+  const activeTab = user.role !== "Admin" && (tab === "settings" || tab === "audit" || tab === "metrics" || tab === "governance" || tab === "feedback" || tab === "budget" || tab === "policy" || tab === "protection") ? "chat" : tab;
 
   return <>
     <button className={`fornost-ai-launcher ${aiReady ? "ready" : ""}`} onClick={() => setOpen((value) => !value)} aria-expanded={open} aria-controls="fornost-ai-panel">
@@ -407,6 +408,7 @@ export default function FornostAiCopilot() {
         {user.role === "Admin" && <button className={activeTab === "feedback" ? "active" : ""} onClick={() => setTab("feedback")}>Olaylar</button>}
         {user.role === "Admin" && <button className={activeTab === "budget" ? "active" : ""} onClick={() => setTab("budget")}>Kullanım</button>}
         {user.role === "Admin" && <button className={activeTab === "policy" ? "active" : ""} onClick={() => setTab("policy")}>Operasyon</button>}
+        {user.role === "Admin" && <button className={activeTab === "protection" ? "active" : ""} onClick={() => setTab("protection")}>Veri Koruma</button>}
         {user.role === "Admin" && <button className={activeTab === "settings" ? "active" : ""} onClick={() => setTab("settings")}>AI Ayarları</button>}
         {user.role === "Admin" && <button className={activeTab === "audit" ? "active" : ""} onClick={() => { setTab("audit"); void loadAudit(); }}>AI Audit</button>}
       </nav>
@@ -480,6 +482,7 @@ export default function FornostAiCopilot() {
       </div> : activeTab === "feedback" ? <FornostAiFeedback actor={user.email}/>
       : activeTab === "budget" ? <FornostAiBudget/>
       : activeTab === "policy" ? <FornostAiPolicy onChanged={refreshStatus}/>
+      : activeTab === "protection" ? <FornostAiDataProtection/>
       : activeTab === "audit" ? <div className="fornost-ai-audit">
         <div className="fornost-ai-security-note"><b>AI kullanım denetim izi</b><p>Ham prompt ve model cevabı saklanmaz. Aktör, model, işlem sonucu, gecikme, prompt hash ve kullanılan Fornost kaynak kimlikleri tutulur.</p></div>
         <div className="fornost-ai-audit-head"><b>Son aktiviteler</b><button onClick={() => void loadAudit()} disabled={auditBusy}>{auditBusy ? "Yükleniyor…" : "Yenile"}</button></div>
