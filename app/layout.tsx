@@ -9,6 +9,7 @@ import "./fornost-ai-review.css";
 import "./fornost-ai-publication.css";
 import "./fornost-ai-v2.css";
 import "./fornost-ai-governance.css";
+import "./fornost-ai-model-inventory.css";
 import "./fornost-ai-agents.css";
 import "./fornost-ai-knowledge.css";
 import "./fornost-ai-readability.css";
