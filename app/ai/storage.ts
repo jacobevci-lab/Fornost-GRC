@@ -228,6 +228,21 @@ const aiControlAssessmentsSql=`CREATE TABLE IF NOT EXISTS ai_control_assessments
  UNIQUE(model_id,framework,control_id)
 )`;
 const aiControlAssessmentsIndexSql="CREATE INDEX IF NOT EXISTS ai_control_assessments_model_status_idx ON ai_control_assessments(model_id,status,due_date)";
+const aiModelChangesSql=`CREATE TABLE IF NOT EXISTS ai_model_changes (
+ id TEXT PRIMARY KEY, model_id TEXT NOT NULL, change_type TEXT NOT NULL, from_version TEXT NOT NULL,
+ to_version TEXT NOT NULL, summary TEXT NOT NULL, risk_impact TEXT NOT NULL, rollback_plan TEXT NOT NULL,
+ test_evidence TEXT NOT NULL DEFAULT '', planned_date TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'draft',
+ created_by TEXT NOT NULL, created_at TEXT NOT NULL, updated_by TEXT NOT NULL, updated_at TEXT NOT NULL,
+ decision_note TEXT, approved_by TEXT, approved_at TEXT, deployed_by TEXT, deployed_at TEXT
+)`;
+const aiModelChangesIndexSql="CREATE INDEX IF NOT EXISTS ai_model_changes_model_status_idx ON ai_model_changes(model_id,status,planned_date)";
+const aiModelMonitoringSql=`CREATE TABLE IF NOT EXISTS ai_model_monitoring (
+ id TEXT PRIMARY KEY, model_id TEXT NOT NULL, accuracy REAL NOT NULL, error_rate REAL NOT NULL,
+ drift_score REAL NOT NULL, bias_score REAL NOT NULL, p95_latency_ms INTEGER NOT NULL,
+ sample_size INTEGER NOT NULL, health TEXT NOT NULL, alerts_json TEXT NOT NULL DEFAULT '[]',
+ note TEXT NOT NULL DEFAULT '', recorded_by TEXT NOT NULL, recorded_at TEXT NOT NULL
+)`;
+const aiModelMonitoringIndexSql="CREATE INDEX IF NOT EXISTS ai_model_monitoring_model_created_idx ON ai_model_monitoring(model_id,recorded_at)";
 
 let schemaReady: Promise<void> | null = null;
 
@@ -282,6 +297,10 @@ export async function aiRuntime() {
       runtime.DB.prepare(modelInventoryIndexSql),
       runtime.DB.prepare(aiControlAssessmentsSql),
       runtime.DB.prepare(aiControlAssessmentsIndexSql),
+      runtime.DB.prepare(aiModelChangesSql),
+      runtime.DB.prepare(aiModelChangesIndexSql),
+      runtime.DB.prepare(aiModelMonitoringSql),
+      runtime.DB.prepare(aiModelMonitoringIndexSql),
     ]).then(() => undefined).catch((error) => {
       schemaReady = null;
       throw error;
