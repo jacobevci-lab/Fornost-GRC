@@ -243,6 +243,21 @@ const aiModelMonitoringSql=`CREATE TABLE IF NOT EXISTS ai_model_monitoring (
  note TEXT NOT NULL DEFAULT '', recorded_by TEXT NOT NULL, recorded_at TEXT NOT NULL
 )`;
 const aiModelMonitoringIndexSql="CREATE INDEX IF NOT EXISTS ai_model_monitoring_model_created_idx ON ai_model_monitoring(model_id,recorded_at)";
+const aiIncidentsSql=`CREATE TABLE IF NOT EXISTS ai_incidents (
+ id TEXT PRIMARY KEY, model_id TEXT NOT NULL, change_id TEXT, type TEXT NOT NULL, severity TEXT NOT NULL,
+ title TEXT NOT NULL, description TEXT NOT NULL, detected_by TEXT NOT NULL, impact TEXT NOT NULL,
+ personal_data INTEGER NOT NULL DEFAULT 0, regulatory_impact INTEGER NOT NULL DEFAULT 0,
+ status TEXT NOT NULL DEFAULT 'open', owner TEXT, sla_due_at TEXT NOT NULL, containment TEXT,
+ root_cause TEXT, corrective_action TEXT, notification_decision TEXT, decision_note TEXT,
+ created_by TEXT NOT NULL, created_at TEXT NOT NULL, updated_by TEXT NOT NULL, updated_at TEXT NOT NULL,
+ resolved_by TEXT, resolved_at TEXT
+)`;
+const aiIncidentsIndexSql="CREATE INDEX IF NOT EXISTS ai_incidents_status_severity_idx ON ai_incidents(status,severity,sla_due_at)";
+const aiIncidentEventsSql=`CREATE TABLE IF NOT EXISTS ai_incident_events (
+ id TEXT PRIMARY KEY, incident_id TEXT NOT NULL, action TEXT NOT NULL, actor TEXT NOT NULL,
+ detail TEXT NOT NULL, created_at TEXT NOT NULL
+)`;
+const aiIncidentEventsIndexSql="CREATE INDEX IF NOT EXISTS ai_incident_events_incident_idx ON ai_incident_events(incident_id,created_at)";
 
 let schemaReady: Promise<void> | null = null;
 
@@ -301,6 +316,10 @@ export async function aiRuntime() {
       runtime.DB.prepare(aiModelChangesIndexSql),
       runtime.DB.prepare(aiModelMonitoringSql),
       runtime.DB.prepare(aiModelMonitoringIndexSql),
+      runtime.DB.prepare(aiIncidentsSql),
+      runtime.DB.prepare(aiIncidentsIndexSql),
+      runtime.DB.prepare(aiIncidentEventsSql),
+      runtime.DB.prepare(aiIncidentEventsIndexSql),
     ]).then(() => undefined).catch((error) => {
       schemaReady = null;
       throw error;

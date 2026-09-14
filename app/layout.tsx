@@ -12,6 +12,7 @@ import "./fornost-ai-governance.css";
 import "./fornost-ai-model-inventory.css";
 import "./fornost-ai-compliance.css";
 import "./fornost-ai-lifecycle.css";
+import "./fornost-ai-incidents.css";
 import "./fornost-ai-agents.css";
 import "./fornost-ai-knowledge.css";
 import "./fornost-ai-readability.css";
