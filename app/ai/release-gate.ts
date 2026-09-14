@@ -11,6 +11,7 @@ export type GateInput = {
   accessFindings: number;
   impactCurrent: boolean;
   resilienceCurrent: boolean;
+  datasetCurrent: boolean;
   changeApproved: boolean;
 };
 export function evaluateReleaseGate(input: GateInput) {
@@ -78,6 +79,14 @@ export function evaluateReleaseGate(input: GateInput) {
         detail: input.resilienceCurrent
           ? "Son 180 günde başarılı kritik tatbikat"
           : "Güncel başarılı dayanıklılık tatbikatı yok",
+      },
+      {
+        key: "dataset",
+        label: "Veri seti yönetişimi",
+        passed: input.datasetCurrent,
+        detail: input.datasetCurrent
+          ? "Güncel onaylı veri seti"
+          : "Güncel onaylı veri seti yok",
       },
     ],
     passed = checks.filter((c) => c.passed).length,

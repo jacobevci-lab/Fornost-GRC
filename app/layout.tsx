@@ -24,6 +24,7 @@ import "./fornost-ai-access-governance.css";
 import "./fornost-ai-release-gate.css";
 import "./fornost-ai-impact-assessment.css";
 import "./fornost-ai-resilience.css";
+import "./fornost-ai-datasets.css";
 import FornostAiCopilot from "./fornost-ai-copilot";
 
 const configuredBasePath = process.env.NEXT_PUBLIC_BASE_PATH?.trim() || "";
