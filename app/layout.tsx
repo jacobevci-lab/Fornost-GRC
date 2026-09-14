@@ -23,21 +23,34 @@ import "./fornost-ai-vendor-assurance.css";
 import "./fornost-ai-access-governance.css";
 import "./fornost-ai-release-gate.css";
 import "./fornost-ai-impact-assessment.css";
+import "./fornost-ai-resilience.css";
 import FornostAiCopilot from "./fornost-ai-copilot";
 
 const configuredBasePath = process.env.NEXT_PUBLIC_BASE_PATH?.trim() || "";
 const normalizedBasePath = configuredBasePath.replace(/\/+$/, "");
 const basePath = !normalizedBasePath
   ? ""
-  : normalizedBasePath.startsWith("/") ? normalizedBasePath : `/${normalizedBasePath}`;
+  : normalizedBasePath.startsWith("/")
+    ? normalizedBasePath
+    : `/${normalizedBasePath}`;
 
 export const metadata: Metadata = {
   title: "Fornost GRC",
-  description: "Govern risk, prove compliance and manage resilience from one workspace.",
+  description:
+    "Govern risk, prove compliance and manage resilience from one workspace.",
   applicationName: "Fornost GRC",
   icons: { icon: `${basePath}/favicon.svg` },
 };
 
-export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  return <html lang="tr" data-theme="dark" suppressHydrationWarning><body>{children}<FornostAiCopilot /></body></html>;
+export default function RootLayout({
+  children,
+}: Readonly<{ children: React.ReactNode }>) {
+  return (
+    <html lang="tr" data-theme="dark" suppressHydrationWarning>
+      <body>
+        {children}
+        <FornostAiCopilot />
+      </body>
+    </html>
+  );
 }

@@ -10,6 +10,7 @@ export type GateInput = {
   evidenceCurrent: number;
   accessFindings: number;
   impactCurrent: boolean;
+  resilienceCurrent: boolean;
   changeApproved: boolean;
 };
 export function evaluateReleaseGate(input: GateInput) {
@@ -69,6 +70,14 @@ export function evaluateReleaseGate(input: GateInput) {
         label: "Değişiklik onayı",
         passed: input.changeApproved,
         detail: input.changeApproved ? "Onaylı" : "Onaylı değişiklik yok",
+      },
+      {
+        key: "resilience",
+        label: "Dayanıklılık tatbikatı",
+        passed: input.resilienceCurrent,
+        detail: input.resilienceCurrent
+          ? "Son 180 günde başarılı kritik tatbikat"
+          : "Güncel başarılı dayanıklılık tatbikatı yok",
       },
     ],
     passed = checks.filter((c) => c.passed).length,
