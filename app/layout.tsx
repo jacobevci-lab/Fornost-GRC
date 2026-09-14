@@ -18,6 +18,7 @@ import "./fornost-ai-knowledge.css";
 import "./fornost-ai-readability.css";
 import "./fornost-ai-policy.css";
 import "./fornost-ai-evidence.css";
+import "./fornost-ai-risks.css";
 import FornostAiCopilot from "./fornost-ai-copilot";
 
 const configuredBasePath = process.env.NEXT_PUBLIC_BASE_PATH?.trim() || "";

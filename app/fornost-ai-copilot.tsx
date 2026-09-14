@@ -13,6 +13,7 @@ import FornostAiCompliance from "./fornost-ai-compliance";
 import FornostAiLifecycle from "./fornost-ai-lifecycle";
 import FornostAiIncidents from "./fornost-ai-incidents";
 import FornostAiEvidence from "./fornost-ai-evidence";
+import FornostAiRisks from "./fornost-ai-risks";
 
 type User = { name?: string; email: string; role: "Admin" | "Editor" | "Viewer" };
 type Status = { configured: boolean; enabled: boolean; operational:boolean;operatingState:"ready"|"restricted"|"emergency-stop";operatingMessage:string;capabilities:{chat:boolean;drafts:boolean;agents:boolean;retrieval:boolean;evaluations:boolean}; provider: string | null; model: string | null; mode: string };
@@ -72,7 +73,7 @@ export default function FornostAiCopilot() {
   const [user, setUser] = useState<User | null>(null);
   const [status, setStatus] = useState<Status | null>(null);
   const [open, setOpen] = useState(false);
-  const [tab, setTab] = useState<"chat" | "agents" | "knowledge" | "drafts" | "metrics" | "governance" | "models" | "compliance" | "lifecycle" | "incidents" | "evidence" | "feedback" | "budget" | "policy" | "protection" | "settings" | "audit">("chat");
+  const [tab, setTab] = useState<"chat" | "agents" | "knowledge" | "drafts" | "metrics" | "governance" | "models" | "compliance" | "lifecycle" | "incidents" | "evidence" | "risks" | "feedback" | "budget" | "policy" | "protection" | "settings" | "audit">("chat");
   const [messages, setMessages] = useState<Message[]>([]);
   const [question, setQuestion] = useState("");
   const [busy, setBusy] = useState(false);
@@ -415,6 +416,7 @@ export default function FornostAiCopilot() {
         {user.role === "Admin" && <button className={activeTab === "lifecycle" ? "active" : ""} onClick={() => setTab("lifecycle")}>AI İzleme</button>}
         {user.role === "Admin" && <button className={activeTab === "incidents" ? "active" : ""} onClick={() => setTab("incidents")}>AI Olayları</button>}
         <button className={activeTab === "evidence" ? "active" : ""} onClick={() => setTab("evidence")}>AI Kanıt</button>
+        <button className={activeTab === "risks" ? "active" : ""} onClick={() => setTab("risks")}>AI Riskler</button>
         {user.role === "Admin" && <button className={activeTab === "feedback" ? "active" : ""} onClick={() => setTab("feedback")}>Olaylar</button>}
         {user.role === "Admin" && <button className={activeTab === "budget" ? "active" : ""} onClick={() => setTab("budget")}>Kullanım</button>}
         {user.role === "Admin" && <button className={activeTab === "policy" ? "active" : ""} onClick={() => setTab("policy")}>Operasyon</button>}
@@ -494,6 +496,7 @@ export default function FornostAiCopilot() {
       : activeTab === "lifecycle" ? <FornostAiLifecycle/>
       : activeTab === "incidents" ? <FornostAiIncidents/>
       : activeTab === "evidence" ? <FornostAiEvidence role={user.role}/>
+      : activeTab === "risks" ? <FornostAiRisks role={user.role}/>
       : activeTab === "feedback" ? <FornostAiFeedback actor={user.email}/>
       : activeTab === "budget" ? <FornostAiBudget/>
       : activeTab === "policy" ? <FornostAiPolicy onChanged={refreshStatus}/>
