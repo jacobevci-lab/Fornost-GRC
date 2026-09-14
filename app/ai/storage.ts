@@ -303,6 +303,16 @@ const aiAccessAssignmentsSql=`CREATE TABLE IF NOT EXISTS ai_access_assignments (
 )`;
 const aiAccessPrincipalIndexSql="CREATE UNIQUE INDEX IF NOT EXISTS ai_access_model_principal_idx ON ai_access_assignments(model_id,principal)";
 const aiAccessReviewIndexSql="CREATE INDEX IF NOT EXISTS ai_access_review_idx ON ai_access_assignments(status,review_date,expires_at)";
+const aiReleaseGatesSql=`CREATE TABLE IF NOT EXISTS ai_release_gates (
+ id TEXT PRIMARY KEY, model_id TEXT NOT NULL, change_id TEXT NOT NULL, version TEXT NOT NULL,
+ environment TEXT NOT NULL, release_owner TEXT NOT NULL, rollback_owner TEXT NOT NULL,
+ rollback_plan TEXT NOT NULL, planned_at TEXT NOT NULL, readiness_score INTEGER NOT NULL,
+ checks_json TEXT NOT NULL, blockers_json TEXT NOT NULL, snapshot_json TEXT NOT NULL,
+ status TEXT NOT NULL DEFAULT 'requested', decision_note TEXT, valid_until TEXT,
+ created_by TEXT NOT NULL, created_at TEXT NOT NULL, decided_by TEXT, decided_at TEXT,
+ updated_by TEXT NOT NULL, updated_at TEXT NOT NULL
+)`;
+const aiReleaseGatesIndexSql="CREATE INDEX IF NOT EXISTS ai_release_gate_model_status_idx ON ai_release_gates(model_id,status,planned_at)";
 
 let schemaReady: Promise<void> | null = null;
 
@@ -374,6 +384,8 @@ export async function aiRuntime() {
       runtime.DB.prepare(aiAccessAssignmentsSql),
       runtime.DB.prepare(aiAccessPrincipalIndexSql),
       runtime.DB.prepare(aiAccessReviewIndexSql),
+      runtime.DB.prepare(aiReleaseGatesSql),
+      runtime.DB.prepare(aiReleaseGatesIndexSql),
     ]).then(() => undefined).catch((error) => {
       schemaReady = null;
       throw error;
