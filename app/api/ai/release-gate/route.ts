@@ -52,57 +52,72 @@ const map = (r: Record<string, unknown>) => ({
 });
 async function currentGate(db: D1Database, modelId: string, changeId: string) {
   const today = new Date().toISOString().slice(0, 10),
-    [model, change, controls, risks, incidents, vendors, evidence, access] =
-      await Promise.all([
-        db
-          .prepare(
-            "SELECT status,model_name,risk_tier FROM ai_model_inventory WHERE id=?",
-          )
-          .bind(modelId)
-          .first<Record<string, unknown>>(),
-        db
-          .prepare(
-            "SELECT status,to_version FROM ai_model_changes WHERE id=? AND model_id=?",
-          )
-          .bind(changeId, modelId)
-          .first<Record<string, unknown>>(),
-        db
-          .prepare(
-            "SELECT COUNT(*) total,SUM(CASE WHEN status NOT IN ('implemented','not-applicable') THEN 1 ELSE 0 END) open FROM ai_control_assessments WHERE model_id=?",
-          )
-          .bind(modelId)
-          .first<Record<string, unknown>>(),
-        db
-          .prepare(
-            "SELECT SUM(CASE WHEN risk_tier IN ('Critical','High') AND status NOT IN ('closed','accepted') THEN 1 ELSE 0 END) high_risks,SUM(CASE WHEN status='accepted' AND acceptance_expiry<? THEN 1 ELSE 0 END) expired FROM ai_risks WHERE model_id=?",
-          )
-          .bind(today, modelId)
-          .first<Record<string, unknown>>(),
-        db
-          .prepare(
-            "SELECT COUNT(*) total FROM ai_incidents WHERE model_id=? AND severity IN ('critical','high') AND status!='resolved'",
-          )
-          .bind(modelId)
-          .first<Record<string, unknown>>(),
-        db
-          .prepare(
-            "SELECT COUNT(*) total FROM ai_vendor_assessments WHERE model_id=? AND status IN ('approved','conditional') AND review_date>=?",
-          )
-          .bind(modelId, today)
-          .first<Record<string, unknown>>(),
-        db
-          .prepare(
-            "SELECT COUNT(*) total FROM ai_evidence WHERE model_id=? AND status='approved' AND integrity_status='verified' AND valid_until>=?",
-          )
-          .bind(modelId, today)
-          .first<Record<string, unknown>>(),
-        db
-          .prepare(
-            "SELECT COUNT(*) total FROM ai_access_assignments WHERE model_id=? AND (status='pending' AND risk_tier IN ('Critical','High') OR status='active' AND (expires_at<? OR review_date<? OR last_used<date(?,'-90 day')))",
-          )
-          .bind(modelId, today, today, today)
-          .first<Record<string, unknown>>(),
-      ]);
+    [
+      model,
+      change,
+      controls,
+      risks,
+      incidents,
+      vendors,
+      evidence,
+      access,
+      impact,
+    ] = await Promise.all([
+      db
+        .prepare(
+          "SELECT status,model_name,risk_tier FROM ai_model_inventory WHERE id=?",
+        )
+        .bind(modelId)
+        .first<Record<string, unknown>>(),
+      db
+        .prepare(
+          "SELECT status,to_version FROM ai_model_changes WHERE id=? AND model_id=?",
+        )
+        .bind(changeId, modelId)
+        .first<Record<string, unknown>>(),
+      db
+        .prepare(
+          "SELECT COUNT(*) total,SUM(CASE WHEN status NOT IN ('implemented','not-applicable') THEN 1 ELSE 0 END) open FROM ai_control_assessments WHERE model_id=?",
+        )
+        .bind(modelId)
+        .first<Record<string, unknown>>(),
+      db
+        .prepare(
+          "SELECT SUM(CASE WHEN risk_tier IN ('Critical','High') AND status NOT IN ('closed','accepted') THEN 1 ELSE 0 END) high_risks,SUM(CASE WHEN status='accepted' AND acceptance_expiry<? THEN 1 ELSE 0 END) expired FROM ai_risks WHERE model_id=?",
+        )
+        .bind(today, modelId)
+        .first<Record<string, unknown>>(),
+      db
+        .prepare(
+          "SELECT COUNT(*) total FROM ai_incidents WHERE model_id=? AND severity IN ('critical','high') AND status!='resolved'",
+        )
+        .bind(modelId)
+        .first<Record<string, unknown>>(),
+      db
+        .prepare(
+          "SELECT COUNT(*) total FROM ai_vendor_assessments WHERE model_id=? AND status IN ('approved','conditional') AND review_date>=?",
+        )
+        .bind(modelId, today)
+        .first<Record<string, unknown>>(),
+      db
+        .prepare(
+          "SELECT COUNT(*) total FROM ai_evidence WHERE model_id=? AND status='approved' AND integrity_status='verified' AND valid_until>=?",
+        )
+        .bind(modelId, today)
+        .first<Record<string, unknown>>(),
+      db
+        .prepare(
+          "SELECT COUNT(*) total FROM ai_access_assignments WHERE model_id=? AND (status='pending' AND risk_tier IN ('Critical','High') OR status='active' AND (expires_at<? OR review_date<? OR last_used<date(?,'-90 day')))",
+        )
+        .bind(modelId, today, today, today)
+        .first<Record<string, unknown>>(),
+      db
+        .prepare(
+          "SELECT COUNT(*) total FROM ai_impact_assessments WHERE model_id=? AND status IN ('approved','conditional') AND review_date>=?",
+        )
+        .bind(modelId, today)
+        .first<Record<string, unknown>>(),
+    ]);
   if (!model) throw new Error("AI modeli bulunamadı.");
   if (!change) throw new Error("Değişiklik bu AI modeline ait değil.");
   const input: GateInput = {
@@ -115,6 +130,7 @@ async function currentGate(db: D1Database, modelId: string, changeId: string) {
     vendorCurrent: Number(vendors?.total || 0) > 0,
     evidenceCurrent: Number(evidence?.total || 0),
     accessFindings: Number(access?.total || 0),
+    impactCurrent: Number(impact?.total || 0) > 0,
     changeApproved: change.status === "approved",
   };
   return {

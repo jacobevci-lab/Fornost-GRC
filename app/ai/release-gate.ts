@@ -9,6 +9,7 @@ export type GateInput = {
   vendorCurrent: boolean;
   evidenceCurrent: number;
   accessFindings: number;
+  impactCurrent: boolean;
   changeApproved: boolean;
 };
 export function evaluateReleaseGate(input: GateInput) {
@@ -54,6 +55,14 @@ export function evaluateReleaseGate(input: GateInput) {
         label: "Erişim yönetişimi",
         passed: input.accessFindings === 0,
         detail: `${input.accessFindings} kritik erişim bulgusu`,
+      },
+      {
+        key: "impact",
+        label: "Etki değerlendirmesi",
+        passed: input.impactCurrent,
+        detail: input.impactCurrent
+          ? "Güncel onay"
+          : "Güncel DPIA/FRIA onayı yok",
       },
       {
         key: "change",
