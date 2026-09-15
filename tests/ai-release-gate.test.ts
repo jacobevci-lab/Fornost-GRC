@@ -27,6 +27,7 @@ const ready = {
   transparencyCurrent: true,
   oversightClear: true,
   continuousAssuranceCurrent: true,
+  blockingAssuranceAlerts: 0,
   unresolvedExceptions: 0,
   retirementClear: true,
   changeApproved: true,
@@ -60,6 +61,7 @@ test("high-risk or overdue CAPA findings block the control domain", () => {
   assert.equal(blocked.ready, false);
   assert.deepEqual(blocked.blockers, ["Uyum kontrolleri"]);
 });
+test("open high or critical assurance alerts block continuous assurance",()=>{const blocked=evaluateReleaseGate({...ready,blockingAssuranceAlerts:1});assert.equal(blocked.ready,false);assert.deepEqual(blocked.blockers,["Sürekli model güvencesi"]);});
 test("release request requires approved change identity and rollback ownership", () => {
   const input = {
     modelId: "AIM-1",

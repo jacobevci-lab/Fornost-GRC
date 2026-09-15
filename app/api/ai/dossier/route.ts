@@ -44,6 +44,7 @@ export async function GET(req: NextRequest) {
       ["exceptions", "AI istisna ve waiver", "ai_exceptions", "updated_at", `status='approved' AND expires_at>='${today}' AND review_at>='${today}'`],
       ["decommission", "AI emeklilik ve güvenli imha", "ai_decommission_plans", "updated_at", "status='completed'"],
       ["findings", "AI bulgu ve CAPA", "ai_findings", "updated_at", "status='resolved'"],
+      ["assuranceAlerts", "AI güvence alarmları", "ai_assurance_alerts", "last_seen_at", "status='resolved'"],
     ] as const;
     const rowSets = await Promise.all(specs.map((spec) => DB.prepare(`SELECT id,status,${spec[3]} AS event_at,CASE WHEN ${spec[4]} THEN 1 ELSE 0 END AS is_current FROM ${spec[2]} WHERE model_id=? AND ${spec[3]}>=? ORDER BY ${spec[3]} DESC LIMIT 200`).bind(modelId, since).all<Record<string, unknown>>()));
     const domains = specs.map((spec, index) => dossierDomain({ key: spec[0], label: spec[1], rows: rowSets[index].results || [], current: (row) => Number(row.is_current) === 1, dateKey: "event_at" })),

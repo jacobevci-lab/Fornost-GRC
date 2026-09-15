@@ -41,6 +41,7 @@ Fornost, klasik kayıt ve raporlama işlevlerinin yanında AI sistemlerinin enva
 - Red-team kampanyaları ve OWASP LLM tehdit kapsamı
 - AI sistem kartları, açıklanabilirlik, itiraz kanalı ve insan override kayıtları
 - Model bazlı SLO/KRI baseline’ları ve sürekli güvence ölçümleri
+- Doğruluk, hata, drift, bias, gecikme ve ölçüm tazeliği için tekilleştirilmiş güvence alarmları; sahiplik, çözüm, CAPA ve release-gate bağlantısı
 - Bütçe, token, provider health, kalite trendi ve regresyon takibi
 - 18 bağımsız kontrol alanını değerlendiren üretim release gate
 - Model bazlı yönetim özeti ve öncelikli aksiyon kuyruğu

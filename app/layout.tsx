@@ -31,6 +31,7 @@ import "./fornost-ai-supply-chain.css";
 import "./fornost-ai-red-team.css";
 import "./fornost-ai-transparency.css";
 import "./fornost-ai-continuous-assurance.css";
+import "./fornost-ai-assurance-alerts.css";
 import "./fornost-ai-portfolio.css";
 import "./fornost-ai-exceptions.css";
 import "./fornost-ai-navigation.css";

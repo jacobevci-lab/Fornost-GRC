@@ -20,6 +20,7 @@ export type GateInput = {
   transparencyCurrent: boolean;
   oversightClear: boolean;
   continuousAssuranceCurrent: boolean;
+  blockingAssuranceAlerts: number;
   unresolvedExceptions: number;
   changeApproved: boolean;
   retirementClear: boolean;
@@ -149,10 +150,10 @@ export function evaluateReleaseGate(input: GateInput) {
       {
         key: "continuous-assurance",
         label: "Sürekli model güvencesi",
-        passed: input.continuousAssuranceCurrent,
-        detail: input.continuousAssuranceCurrent
-          ? "Güncel ölçüm onaylı baseline içinde"
-          : "Güncel ve sağlıklı baseline ölçümü yok",
+        passed: input.continuousAssuranceCurrent && input.blockingAssuranceAlerts === 0,
+        detail: input.blockingAssuranceAlerts
+          ? `${input.blockingAssuranceAlerts} açık yüksek/kritik güvence alarmı`
+          : input.continuousAssuranceCurrent ? "Güncel ölçüm onaylı baseline içinde" : "Güncel ve sağlıklı baseline ölçümü yok",
       },
     ],
     passed = checks.filter((c) => c.passed).length,
