@@ -15,6 +15,7 @@ export type GateInput = {
   regulatoryCurrent: boolean;
   literacyCurrent: boolean;
   artifactCurrent: boolean;
+  redTeamCurrent: boolean;
   changeApproved: boolean;
 };
 export function evaluateReleaseGate(input: GateInput) {
@@ -114,6 +115,14 @@ export function evaluateReleaseGate(input: GateInput) {
         detail: input.artifactCurrent
           ? "İmzalı ve temiz artifact"
           : "Güncel onaylı artifact güvencesi yok",
+      },
+      {
+        key: "red-team",
+        label: "AI red-team doğrulaması",
+        passed: input.redTeamCurrent,
+        detail: input.redTeamCurrent
+          ? "Güncel başarılı adversarial test"
+          : "Güncel başarılı red-team kampanyası yok",
       },
     ],
     passed = checks.filter((c) => c.passed).length,

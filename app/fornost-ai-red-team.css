@@ -1,0 +1,165 @@
+.ai-red-team {
+  padding: 22px;
+  color: var(--text-primary);
+}
+.ai-red-team > header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+.ai-red-team h3 {
+  margin: 4px 0;
+  font-size: 23px;
+}
+.ai-red-team p,
+.ai-red-team small {
+  color: var(--text-secondary);
+}
+.ai-red-team a,
+.ai-red-team button {
+  padding: 9px 12px;
+  border: 1px solid #d8782f;
+  border-radius: 7px;
+  background: #a64916;
+  color: #fff;
+  font-weight: 750;
+}
+.ai-red-team .stats {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 8px;
+  margin: 15px 0;
+}
+.ai-red-team .stats article,
+.ai-red-team > form,
+.ai-red-team .list > article {
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface-raised);
+}
+.ai-red-team .stats b {
+  display: block;
+  font-size: 21px;
+}
+.ai-red-team .stats span,
+.ai-red-team small {
+  display: block;
+  font-size: 11px;
+}
+.ai-red-team .grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+.ai-red-team label,
+.ai-red-team .decision {
+  display: grid;
+  gap: 5px;
+  margin: 7px 0;
+  font-size: 11px;
+}
+.ai-red-team input,
+.ai-red-team select,
+.ai-red-team textarea {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text-primary);
+}
+.ai-red-team fieldset {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  margin: 12px 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.ai-red-team fieldset label {
+  display: flex;
+  align-items: center;
+}
+.ai-red-team fieldset input {
+  width: auto;
+}
+.ai-red-team .notice {
+  margin-top: 10px;
+  padding: 10px;
+  border: 1px solid #d8782f;
+  border-radius: 7px;
+}
+.ai-red-team .list {
+  display: grid;
+  gap: 10px;
+  margin-top: 10px;
+}
+.ai-red-team .list header {
+  display: flex;
+  justify-content: space-between;
+}
+.ai-red-team .score {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 10px 0;
+}
+.ai-red-team .score strong {
+  font-size: 27px;
+  color: #f09b55;
+}
+.ai-red-team dl {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+}
+.ai-red-team dt {
+  font-size: 10px;
+  color: var(--text-secondary);
+}
+.ai-red-team dd {
+  margin: 2px 0;
+}
+.ai-red-team .blockers {
+  display: flex;
+  gap: 5px;
+  flex-wrap: wrap;
+  margin: 9px 0;
+}
+.ai-red-team .blockers span {
+  padding: 4px 7px;
+  border: 1px solid #9e4c30;
+  border-radius: 99px;
+  color: #f08b69;
+  font-size: 10px;
+}
+.ai-red-team footer {
+  display: flex;
+  gap: 7px;
+}
+.ai-red-team .warn {
+  background: #7b5920;
+}
+.ai-red-team .danger {
+  background: #782c2c;
+}
+.ai-red-team .decision {
+  border-left: 3px solid #d8782f;
+  padding-left: 10px;
+}
+.ai-red-team .remediation {
+  padding: 9px;
+  background: color-mix(in srgb, var(--surface) 85%, #d8782f);
+  border-radius: 7px;
+}
+@media (max-width: 800px) {
+  .ai-red-team .grid,
+  .ai-red-team dl,
+  .ai-red-team .stats,
+  .ai-red-team fieldset {
+    grid-template-columns: 1fr 1fr;
+  }
+  .ai-red-team > header {
+    display: block;
+  }
+}
