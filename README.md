@@ -41,6 +41,7 @@ Fornost, klasik kayıt ve raporlama işlevlerinin yanında AI sistemlerinin enva
 - Bütçe, token, provider health, kalite trendi ve regresyon takibi
 - 18 bağımsız kontrol alanını değerlendiren üretim release gate
 - Model bazlı yönetim özeti ve öncelikli aksiyon kuyruğu
+- Model bazlı, SHA-256 bütünlük özetli JSON denetim dosyası; güvenli kanıt manifesti ve kontrol CSV'si
 - Ham prompt/model cevabı saklamayan, hash ve kaynak referanslı audit izi
 
 Detaylı güven sınırları ve veri akışı için [Fornost AI Architecture](docs/AI-ARCHITECTURE.md) belgesine bakın.

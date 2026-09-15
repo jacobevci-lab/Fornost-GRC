@@ -41,12 +41,14 @@
 }
 .ai-portfolio .stats article,
 .ai-portfolio .matrix,
+.ai-portfolio .dossier,
 .ai-portfolio .queue {
   padding: 14px;
   border: 1px solid var(--border);
   border-radius: 9px;
   background: var(--surface-raised);
 }
+.ai-portfolio .dossier{margin-top:10px}.ai-portfolio .dossier>header{display:flex;justify-content:space-between;gap:16px}.ai-portfolio .dossier>header>span{padding:5px 8px;border:1px solid var(--border);border-radius:999px;color:#67b58a;font-size:11px;font-weight:800}.ai-portfolio .dossier-controls{display:grid;grid-template-columns:minmax(220px,1fr) 180px auto;align-items:end;gap:10px;margin-top:12px}.ai-portfolio .dossier label span{display:block;margin-bottom:5px;color:var(--text-secondary);font-size:11px;font-weight:700}.ai-portfolio .dossier select{width:100%;min-height:38px;padding:8px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text-primary)}.ai-portfolio .dossier-controls>div{display:flex;gap:7px}.ai-portfolio a.disabled{pointer-events:none;opacity:.45}.ai-portfolio .dossier>p{margin:10px 0 0;font-size:11px}
 .ai-portfolio .stats b {
   display: block;
   font-size: 22px;
@@ -125,6 +127,7 @@
   .ai-portfolio .queue article {
     grid-template-columns: 70px 1fr;
   }
+  .ai-portfolio .dossier-controls{grid-template-columns:1fr}.ai-portfolio .dossier-controls>div{flex-wrap:wrap}
   .ai-portfolio .queue em {
     grid-column: 2;
     text-align: left;

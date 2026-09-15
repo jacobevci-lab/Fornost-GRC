@@ -35,7 +35,9 @@ export default function FornostAiPortfolio() {
       }[];
       summary: Record<string, number>;
     } | null>(null),
-    [loading, setLoading] = useState(true);
+    [loading, setLoading] = useState(true),
+    [dossierModel, setDossierModel] = useState(""),
+    [dossierDays, setDossierDays] = useState<30 | 90 | 365>(90);
   const load = useCallback(async () => {
     setLoading(true);
     const response = await fetch(withBasePath("/api/ai/portfolio"), {
@@ -49,6 +51,7 @@ export default function FornostAiPortfolio() {
     const timer = setTimeout(() => void load(), 0);
     return () => clearTimeout(timer);
   }, [load]);
+  const selectedDossierModel = dossierModel || data?.portfolio[0]?.id || "";
   if (loading && !data)
     return <div className="ai-portfolio empty">AI portföyü hazırlanıyor…</div>;
   return (
@@ -156,6 +159,21 @@ export default function FornostAiPortfolio() {
             </tbody>
           </table>
         </div>
+      </section>
+      <section className="dossier">
+        <header>
+          <div>
+            <b>Denetim güvence dosyası</b>
+            <small>Model kapsamı, kontrol durumu, kanıt hash manifesti ve son release kararını tek dosyada üretir.</small>
+          </div>
+          <span>SHA-256</span>
+        </header>
+        <div className="dossier-controls">
+          <label><span>AI sistemi</span><select value={selectedDossierModel} onChange={(event) => setDossierModel(event.target.value)}>{data?.portfolio.map((row) => <option key={row.id} value={row.id}>{row.systemName} · {row.modelName}</option>)}</select></label>
+          <label><span>Denetim dönemi</span><select value={dossierDays} onChange={(event) => setDossierDays(Number(event.target.value) as 30 | 90 | 365)}><option value={30}>Son 30 gün</option><option value={90}>Son 90 gün</option><option value={365}>Son 365 gün</option></select></label>
+          <div><a className={!selectedDossierModel ? "disabled" : ""} aria-disabled={!selectedDossierModel} href={selectedDossierModel ? withBasePath(`/api/ai/dossier?modelId=${encodeURIComponent(selectedDossierModel)}&days=${dossierDays}&format=json`) : undefined}>Hash doğrulamalı JSON</a><a className={!selectedDossierModel ? "disabled" : ""} aria-disabled={!selectedDossierModel} href={selectedDossierModel ? withBasePath(`/api/ai/dossier?modelId=${encodeURIComponent(selectedDossierModel)}&days=${dossierDays}&format=csv`) : undefined}>Kontrol CSV</a></div>
+        </div>
+        <p>Dosya yalnız yönetişim metadata’sı ve kayıt referanslarını içerir; prompt, model yanıtı, kanıt içeriği veya gizli değer içermez. Üretim işlemi audit izine yazılır.</p>
       </section>
       <section className="queue">
         <header>

@@ -16,6 +16,8 @@ The production release gate evaluates 18 independent control domains from live F
 
 The executive AI portfolio consolidates these records by model and presents current readiness, high-risk findings, incidents, control gaps, evidence coverage and prioritized actions. It is deterministic and does not call a model to calculate readiness.
 
+The Admin-only assurance dossier exports a bounded 30, 90 or 365-day model snapshot across sixteen governance domains. Its JSON manifest contains record references, evidence SHA-256 values, current-state counts, the latest release decision and a canonical SHA-256 digest of the complete payload. A formula-safe CSV is also available. Prompt text, model responses, evidence bodies and secrets are excluded; every export is appended to the AI activity audit trail. The digest proves file integrity, not regulatory certification, and the manifest explicitly preserves that limitation.
+
 ## Runtime flow
 
 ```text
