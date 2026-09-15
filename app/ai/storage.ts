@@ -418,6 +418,15 @@ const aiOversightEventsSql=`CREATE TABLE IF NOT EXISTS ai_oversight_events (
  UNIQUE(model_id,decision_reference,action)
 )`;
 const aiOversightEventsIndexSql="CREATE INDEX IF NOT EXISTS ai_oversight_status_idx ON ai_oversight_events(model_id,status,severity,created_at)";
+const aiAssurancePoliciesSql=`CREATE TABLE IF NOT EXISTS ai_assurance_policies (
+ id TEXT PRIMARY KEY, model_id TEXT NOT NULL UNIQUE, owner TEXT NOT NULL, min_accuracy REAL NOT NULL,
+ max_error_rate REAL NOT NULL, max_drift_score REAL NOT NULL, max_bias_score REAL NOT NULL,
+ max_p95_latency_ms INTEGER NOT NULL, min_sample_size INTEGER NOT NULL, frequency_days INTEGER NOT NULL,
+ evidence_plan TEXT NOT NULL, breach_action TEXT NOT NULL, review_date TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'draft',
+ decision_note TEXT, created_by TEXT NOT NULL, created_at TEXT NOT NULL, updated_by TEXT NOT NULL, updated_at TEXT NOT NULL,
+ approved_by TEXT, approved_at TEXT
+)`;
+const aiAssurancePoliciesIndexSql="CREATE INDEX IF NOT EXISTS ai_assurance_policy_review_idx ON ai_assurance_policies(status,review_date)";
 
 let schemaReady: Promise<void> | null = null;
 
@@ -511,6 +520,8 @@ export async function aiRuntime() {
       runtime.DB.prepare(aiTransparencyProfilesIndexSql),
       runtime.DB.prepare(aiOversightEventsSql),
       runtime.DB.prepare(aiOversightEventsIndexSql),
+      runtime.DB.prepare(aiAssurancePoliciesSql),
+      runtime.DB.prepare(aiAssurancePoliciesIndexSql),
     ]).then(() => undefined).catch((error) => {
       schemaReady = null;
       throw error;

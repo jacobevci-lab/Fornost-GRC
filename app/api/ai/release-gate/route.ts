@@ -70,6 +70,7 @@ async function currentGate(db: D1Database, modelId: string, changeId: string) {
       redTeam,
       transparency,
       oversight,
+      continuousAssurance,
     ] = await Promise.all([
       db
         .prepare(
@@ -173,6 +174,12 @@ async function currentGate(db: D1Database, modelId: string, changeId: string) {
         )
         .bind(modelId)
         .first<Record<string, unknown>>(),
+      db
+        .prepare(
+          "SELECT COUNT(*) total FROM ai_assurance_policies p WHERE p.model_id=? AND p.status='approved' AND p.review_date>=? AND EXISTS (SELECT 1 FROM ai_model_monitoring m WHERE m.model_id=p.model_id AND m.recorded_at>=datetime(?,'-'||p.frequency_days||' day') AND m.accuracy>=p.min_accuracy AND m.error_rate<=p.max_error_rate AND m.drift_score<=p.max_drift_score AND m.bias_score<=p.max_bias_score AND m.p95_latency_ms<=p.max_p95_latency_ms AND m.sample_size>=p.min_sample_size)",
+        )
+        .bind(modelId, today, new Date().toISOString())
+        .first<Record<string, unknown>>(),
     ]);
   if (!model) throw new Error("AI modeli bulunamadı.");
   if (!change) throw new Error("Değişiklik bu AI modeline ait değil.");
@@ -195,6 +202,7 @@ async function currentGate(db: D1Database, modelId: string, changeId: string) {
     redTeamCurrent: Number(redTeam?.total || 0) > 0,
     transparencyCurrent: Number(transparency?.total || 0) > 0,
     oversightClear: Number(oversight?.total || 0) === 0,
+    continuousAssuranceCurrent: Number(continuousAssurance?.total || 0) > 0,
     changeApproved: change.status === "approved",
   };
   return {

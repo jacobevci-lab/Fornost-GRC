@@ -18,6 +18,7 @@ export type GateInput = {
   redTeamCurrent: boolean;
   transparencyCurrent: boolean;
   oversightClear: boolean;
+  continuousAssuranceCurrent: boolean;
   changeApproved: boolean;
 };
 export function evaluateReleaseGate(input: GateInput) {
@@ -141,6 +142,14 @@ export function evaluateReleaseGate(input: GateInput) {
         detail: input.oversightClear
           ? "Açık yüksek/kritik insan gözetimi bulgusu yok"
           : "Açık yüksek/kritik insan gözetimi bulgusu var",
+      },
+      {
+        key: "continuous-assurance",
+        label: "Sürekli model güvencesi",
+        passed: input.continuousAssuranceCurrent,
+        detail: input.continuousAssuranceCurrent
+          ? "Güncel ölçüm onaylı baseline içinde"
+          : "Güncel ve sağlıklı baseline ölçümü yok",
       },
     ],
     passed = checks.filter((c) => c.passed).length,

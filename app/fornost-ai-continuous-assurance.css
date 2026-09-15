@@ -1,0 +1,147 @@
+.ai-assurance {
+  padding: 22px;
+  color: var(--text-primary);
+}
+.ai-assurance > header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+.ai-assurance h3 {
+  margin: 4px 0;
+  font-size: 23px;
+}
+.ai-assurance p,
+.ai-assurance small {
+  color: var(--text-secondary);
+}
+.ai-assurance a,
+.ai-assurance button {
+  padding: 9px 12px;
+  border: 1px solid #cf702c;
+  border-radius: 7px;
+  background: #9f4316;
+  color: #fff;
+  font-weight: 750;
+}
+.ai-assurance .stats {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 8px;
+  margin: 15px 0;
+}
+.ai-assurance .stats article,
+.ai-assurance > form,
+.ai-assurance .list > article {
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--surface-raised);
+}
+.ai-assurance .stats b {
+  display: block;
+  font-size: 21px;
+}
+.ai-assurance .stats span,
+.ai-assurance small {
+  display: block;
+  font-size: 11px;
+}
+.ai-assurance .grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+.ai-assurance label,
+.ai-assurance .decision {
+  display: grid;
+  gap: 5px;
+  margin: 7px 0;
+  font-size: 11px;
+}
+.ai-assurance input,
+.ai-assurance select,
+.ai-assurance textarea {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text-primary);
+}
+.ai-assurance .list {
+  display: grid;
+  gap: 10px;
+  margin-top: 10px;
+}
+.ai-assurance .list > article.breached,
+.ai-assurance .list > article.missing {
+  border-left: 3px solid #cb513e;
+}
+.ai-assurance .list > article.healthy {
+  border-left: 3px solid #4d9b72;
+}
+.ai-assurance .list header {
+  display: flex;
+  justify-content: space-between;
+}
+.ai-assurance .thresholds,
+.ai-assurance .breaches {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin: 10px 0;
+}
+.ai-assurance .thresholds span,
+.ai-assurance .breaches span {
+  padding: 5px 8px;
+  border: 1px solid var(--border);
+  border-radius: 99px;
+  font-size: 10px;
+}
+.ai-assurance .breaches span {
+  border-color: #98503a;
+  color: #ed8b68;
+}
+.ai-assurance dl {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+}
+.ai-assurance dt {
+  font-size: 10px;
+  color: var(--text-secondary);
+}
+.ai-assurance dd {
+  margin: 2px 0;
+}
+.ai-assurance footer {
+  display: flex;
+  gap: 7px;
+}
+.ai-assurance .warn {
+  background: #75551f;
+}
+.ai-assurance .danger {
+  background: #752b2b;
+}
+.ai-assurance .decision {
+  border-left: 3px solid #cf702c;
+  padding-left: 10px;
+}
+.ai-assurance .notice {
+  margin-top: 10px;
+  padding: 10px;
+  border: 1px solid #cf702c;
+  border-radius: 7px;
+}
+@media (max-width: 800px) {
+  .ai-assurance .grid,
+  .ai-assurance dl,
+  .ai-assurance .stats {
+    grid-template-columns: 1fr 1fr;
+  }
+  .ai-assurance > header {
+    display: block;
+  }
+}
