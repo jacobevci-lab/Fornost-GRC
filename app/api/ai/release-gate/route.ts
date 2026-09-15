@@ -68,6 +68,8 @@ async function currentGate(db: D1Database, modelId: string, changeId: string) {
       literacy,
       artifact,
       redTeam,
+      transparency,
+      oversight,
     ] = await Promise.all([
       db
         .prepare(
@@ -159,6 +161,18 @@ async function currentGate(db: D1Database, modelId: string, changeId: string) {
         )
         .bind(modelId, today)
         .first<Record<string, unknown>>(),
+      db
+        .prepare(
+          "SELECT COUNT(*) total FROM ai_transparency_profiles WHERE model_id=? AND status='approved' AND review_date>=? AND gaps_json='[]'",
+        )
+        .bind(modelId, today)
+        .first<Record<string, unknown>>(),
+      db
+        .prepare(
+          "SELECT COUNT(*) total FROM ai_oversight_events WHERE model_id=? AND status='open' AND severity IN ('high','critical')",
+        )
+        .bind(modelId)
+        .first<Record<string, unknown>>(),
     ]);
   if (!model) throw new Error("AI modeli bulunamadı.");
   if (!change) throw new Error("Değişiklik bu AI modeline ait değil.");
@@ -179,6 +193,8 @@ async function currentGate(db: D1Database, modelId: string, changeId: string) {
     literacyCurrent: Number(literacy?.total || 0) > 0,
     artifactCurrent: Number(artifact?.total || 0) > 0,
     redTeamCurrent: Number(redTeam?.total || 0) > 0,
+    transparencyCurrent: Number(transparency?.total || 0) > 0,
+    oversightClear: Number(oversight?.total || 0) === 0,
     changeApproved: change.status === "approved",
   };
   return {

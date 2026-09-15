@@ -16,6 +16,8 @@ export type GateInput = {
   literacyCurrent: boolean;
   artifactCurrent: boolean;
   redTeamCurrent: boolean;
+  transparencyCurrent: boolean;
+  oversightClear: boolean;
   changeApproved: boolean;
 };
 export function evaluateReleaseGate(input: GateInput) {
@@ -123,6 +125,22 @@ export function evaluateReleaseGate(input: GateInput) {
         detail: input.redTeamCurrent
           ? "Güncel başarılı adversarial test"
           : "Güncel başarılı red-team kampanyası yok",
+      },
+      {
+        key: "transparency",
+        label: "AI şeffaflık ve açıklanabilirlik",
+        passed: input.transparencyCurrent,
+        detail: input.transparencyCurrent
+          ? "Güncel onaylı sistem kartı"
+          : "Güncel boşluksuz sistem kartı yok",
+      },
+      {
+        key: "human-oversight",
+        label: "İnsan gözetimi bulguları",
+        passed: input.oversightClear,
+        detail: input.oversightClear
+          ? "Açık yüksek/kritik insan gözetimi bulgusu yok"
+          : "Açık yüksek/kritik insan gözetimi bulgusu var",
       },
     ],
     passed = checks.filter((c) => c.passed).length,
