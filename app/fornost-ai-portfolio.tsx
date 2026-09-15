@@ -18,6 +18,7 @@ type Row = {
   transparencyCurrent: boolean;
   assuranceCurrent: boolean;
   unresolvedExceptions: number;
+  retirementInProgress: boolean;
   releaseStatus: string;
   releaseScore: number;
   actions: string[];
@@ -109,6 +110,7 @@ export default function FornostAiPortfolio() {
                 <th>Şeffaflık</th>
                 <th>Güvence</th>
                 <th>İstisna</th>
+                <th>Emeklilik</th>
                 <th>Release</th>
               </tr>
             </thead>
@@ -152,6 +154,7 @@ export default function FornostAiPortfolio() {
                     {row.assuranceCurrent ? "Hazır" : "Eksik"}
                   </td>
                   <td className={row.unresolvedExceptions ? "bad" : "good"}>{row.unresolvedExceptions || "Temiz"}</td>
+                  <td className={row.retirementInProgress ? "bad" : "good"}>{row.retirementInProgress ? "Devam ediyor" : "Yok"}</td>
                   <td>
                     <span className={`release ${row.releaseStatus}`}>
                       {row.releaseStatus}

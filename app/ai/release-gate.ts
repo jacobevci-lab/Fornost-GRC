@@ -21,6 +21,7 @@ export type GateInput = {
   continuousAssuranceCurrent: boolean;
   unresolvedExceptions: number;
   changeApproved: boolean;
+  retirementClear: boolean;
 };
 export function evaluateReleaseGate(input: GateInput) {
   const checks = [
@@ -77,8 +78,8 @@ export function evaluateReleaseGate(input: GateInput) {
       {
         key: "change",
         label: "Değişiklik onayı",
-        passed: input.changeApproved,
-        detail: input.changeApproved ? "Onaylı" : "Onaylı değişiklik yok",
+        passed: input.changeApproved && input.retirementClear,
+        detail: !input.retirementClear ? "Etkin emeklilik planı var" : input.changeApproved ? "Onaylı" : "Onaylı değişiklik yok",
       },
       {
         key: "resilience",

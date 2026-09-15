@@ -27,6 +27,7 @@ const ready = {
   oversightClear: true,
   continuousAssuranceCurrent: true,
   unresolvedExceptions: 0,
+  retirementClear: true,
   changeApproved: true,
 };
 test("AI release gate requires all eighteen independent assurance domains", () => {
@@ -47,6 +48,11 @@ test("pending or overdue AI exceptions block release through the risk domain", (
   const blocked = evaluateReleaseGate({ ...ready, unresolvedExceptions: 1 });
   assert.equal(blocked.ready, false);
   assert.deepEqual(blocked.blockers, ["AI riskleri"]);
+});
+test("an active retirement plan blocks new production release", () => {
+  const blocked = evaluateReleaseGate({ ...ready, retirementClear: false });
+  assert.equal(blocked.ready, false);
+  assert.deepEqual(blocked.blockers, ["Değişiklik onayı"]);
 });
 test("release request requires approved change identity and rollback ownership", () => {
   const input = {
@@ -108,6 +114,7 @@ test("release API re-evaluates live controls and enforces maker-checker", async 
   assert.match(route, /Kontroller talep sonrasında değişti/);
   assert.match(route, /status='approved' AND integrity_status='verified'/);
   assert.match(route, /ai_exceptions/);
+  assert.match(route, /ai_decommission_plans/);
   assert.match(route, /\^\[=\+\\-@\]/);
   assert.match(migration, /snapshot_json/);
   assert.match(storage, /aiReleaseGatesSql/);

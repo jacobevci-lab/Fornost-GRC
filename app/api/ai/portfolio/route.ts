@@ -30,6 +30,7 @@ export async function GET(req: NextRequest) {
       transparency,
       assurance,
       exceptions,
+      decommission,
     ] = await Promise.all([
       DB.prepare(
         "SELECT id,system_name,model_name,owner,status,risk_tier,review_date FROM ai_model_inventory WHERE status!='retired' ORDER BY risk_score DESC,system_name LIMIT 500",
@@ -71,6 +72,9 @@ export async function GET(req: NextRequest) {
       )
         .bind(today, today)
         .all<Record<string, unknown>>(),
+      DB.prepare(
+        "SELECT model_id,COUNT(*) total FROM ai_decommission_plans WHERE status IN ('draft','approved','executing') GROUP BY model_id",
+      ).all<Record<string, unknown>>(),
     ]),
     riskMap = mapCounts(risks.results || [], "total"),
     incidentMap = mapCounts(incidents.results || [], "total"),
@@ -81,6 +85,7 @@ export async function GET(req: NextRequest) {
     transparencyMap = mapCounts(transparency.results || [], "total"),
     assuranceMap = mapCounts(assurance.results || [], "total"),
     exceptionMap = mapCounts(exceptions.results || [], "total"),
+    decommissionMap = mapCounts(decommission.results || [], "total"),
     latestRelease = new Map<string, Record<string, unknown>>();
   for (const row of releases.results || [])
     if (!latestRelease.has(String(row.model_id)))
@@ -97,6 +102,7 @@ export async function GET(req: NextRequest) {
         transparencyCurrent = (transparencyMap.get(id) || 0) > 0,
         assuranceCurrent = (assuranceMap.get(id) || 0) > 0,
         unresolvedExceptions = exceptionMap.get(id) || 0,
+        retirementInProgress = (decommissionMap.get(id) || 0) > 0,
         actions: string[] = [];
       if (model.status !== "approved") actions.push("Model envanter onayı");
       if (highRisks) actions.push(`${highRisks} yüksek/kritik risk`);
@@ -109,6 +115,7 @@ export async function GET(req: NextRequest) {
       if (!transparencyCurrent) actions.push("AI sistem kartı");
       if (!assuranceCurrent) actions.push("Sürekli güvence baseline'ı");
       if (unresolvedExceptions) actions.push(`${unresolvedExceptions} açık/gecikmiş istisna`);
+      if (retirementInProgress) actions.push("Emeklilik planını tamamla");
       if (!release || release.status !== "approved")
         actions.push("Üretim release onayı");
       return {
@@ -128,12 +135,13 @@ export async function GET(req: NextRequest) {
         transparencyCurrent,
         assuranceCurrent,
         unresolvedExceptions,
+        retirementInProgress,
         releaseStatus: release?.status || "none",
         releaseScore: Number(release?.readiness_score || 0),
         actions,
         readiness: Math.max(
           0,
-          Math.round(((10 - Math.min(10, actions.length)) * 100) / 10),
+          Math.round(((11 - Math.min(11, actions.length)) * 100) / 11),
         ),
       };
     }),
@@ -166,6 +174,7 @@ export async function GET(req: NextRequest) {
         "Şeffaflık",
         "Güvence",
         "İstisna",
+        "Emeklilik",
         "Aksiyonlar",
       ],
       ...portfolio.map((item) => [
@@ -183,6 +192,7 @@ export async function GET(req: NextRequest) {
         item.transparencyCurrent,
         item.assuranceCurrent,
         item.unresolvedExceptions,
+        item.retirementInProgress,
         item.actions.join("; "),
       ]),
     ];
