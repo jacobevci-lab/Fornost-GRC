@@ -14,6 +14,7 @@ export type GateInput = {
   datasetCurrent: boolean;
   regulatoryCurrent: boolean;
   literacyCurrent: boolean;
+  artifactCurrent: boolean;
   changeApproved: boolean;
 };
 export function evaluateReleaseGate(input: GateInput) {
@@ -105,6 +106,14 @@ export function evaluateReleaseGate(input: GateInput) {
         detail: input.literacyCurrent
           ? "Güncel yetkin insan gözetimi"
           : "Güncel onaylı operatör yetkinliği yok",
+      },
+      {
+        key: "artifact",
+        label: "Model tedarik zinciri",
+        passed: input.artifactCurrent,
+        detail: input.artifactCurrent
+          ? "İmzalı ve temiz artifact"
+          : "Güncel onaylı artifact güvencesi yok",
       },
     ],
     passed = checks.filter((c) => c.passed).length,
