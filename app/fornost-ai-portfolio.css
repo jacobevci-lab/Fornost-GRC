@@ -1,0 +1,132 @@
+.ai-portfolio {
+  padding: 22px;
+  color: var(--text-primary);
+}
+.ai-portfolio.empty {
+  color: var(--text-secondary);
+}
+.ai-portfolio > header,
+.ai-portfolio .matrix > header,
+.ai-portfolio .queue > header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+.ai-portfolio h3 {
+  margin: 4px 0;
+  font-size: 24px;
+}
+.ai-portfolio p,
+.ai-portfolio small {
+  color: var(--text-secondary);
+}
+.ai-portfolio > header > div:last-child {
+  display: flex;
+  gap: 7px;
+}
+.ai-portfolio a,
+.ai-portfolio button {
+  padding: 9px 12px;
+  border: 1px solid #cf702c;
+  border-radius: 6px;
+  background: #9f4316;
+  color: #fff;
+  font-weight: 750;
+}
+.ai-portfolio .stats {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 8px;
+  margin: 15px 0;
+}
+.ai-portfolio .stats article,
+.ai-portfolio .matrix,
+.ai-portfolio .queue {
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--surface-raised);
+}
+.ai-portfolio .stats b {
+  display: block;
+  font-size: 22px;
+}
+.ai-portfolio .stats span,
+.ai-portfolio small {
+  display: block;
+  font-size: 11px;
+}
+.ai-portfolio .table {
+  overflow: auto;
+  margin-top: 10px;
+}
+.ai-portfolio table {
+  width: 100%;
+  min-width: 1050px;
+  border-collapse: collapse;
+  font-size: 11px;
+}
+.ai-portfolio th,
+.ai-portfolio td {
+  padding: 9px;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+}
+.ai-portfolio td.good {
+  color: #67b58a;
+}
+.ai-portfolio td.bad {
+  color: #ed8069;
+}
+.ai-portfolio .risk,
+.ai-portfolio .release {
+  display: inline-block;
+  padding: 4px 7px;
+  border: 1px solid var(--border);
+  border-radius: 99px;
+}
+.ai-portfolio .risk.critical,
+.ai-portfolio .risk.high {
+  color: #ed8069;
+}
+.ai-portfolio .release.approved {
+  color: #67b58a;
+}
+.ai-portfolio .queue {
+  margin-top: 10px;
+}
+.ai-portfolio .queue > header > span {
+  font-size: 22px;
+  font-weight: 800;
+}
+.ai-portfolio .queue article {
+  display: grid;
+  grid-template-columns: 80px 1fr minmax(120px, 220px);
+  align-items: center;
+  gap: 10px;
+  padding: 9px;
+  border-top: 1px solid var(--border);
+}
+.ai-portfolio .queue article > span {
+  color: #ed9b63;
+}
+.ai-portfolio .queue em {
+  color: var(--text-secondary);
+  font-style: normal;
+  text-align: right;
+}
+@media (max-width: 800px) {
+  .ai-portfolio .stats {
+    grid-template-columns: 1fr 1fr;
+  }
+  .ai-portfolio > header {
+    display: block;
+  }
+  .ai-portfolio .queue article {
+    grid-template-columns: 70px 1fr;
+  }
+  .ai-portfolio .queue em {
+    grid-column: 2;
+    text-align: left;
+  }
+}

@@ -3,6 +3,16 @@
   "version": "0.1.0",
   "private": true,
   "displayName": "Fornost GRC",
+  "description": "Enterprise GRC and governed AI assurance platform for risk, compliance, evidence, resilience and model lifecycle management.",
+  "keywords": [
+    "grc",
+    "ai-governance",
+    "risk-management",
+    "compliance",
+    "iso-27001",
+    "iso-42001",
+    "on-premises"
+  ],
   "engines": {
     "node": ">=22.13.0"
   },

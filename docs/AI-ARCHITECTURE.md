@@ -1,14 +1,20 @@
-# Fornost AI Architecture v3
+# Fornost AI Architecture
 
 ## Goal
 
-Fornost AI v1 adds a provider-agnostic, on-prem friendly GRC copilot without giving an LLM direct database access or autonomous write privileges.
+Fornost AI is a provider-agnostic, on-prem friendly governance and assurance layer. It combines a grounded GRC copilot with model inventory, risk, compliance, evidence, lifecycle, incident, red-team, transparency, human oversight and continuous assurance controls without giving an LLM direct database access or autonomous write privileges.
 
 Core rule:
 
 > AI proposes and analyzes. Fornost authorizes. Humans approve mutations.
 
-The conversational copilot remains read-only. V2 adds typed drafts, human review, explicit controlled publication and measurable operational quality without granting the model autonomous write access.
+The conversational copilot remains read-only. Typed drafts, governed agents and controlled publications pass through schema validation, RBAC, explicit human confirmation, replay protection and an immutable audit trail.
+
+## Current assurance model
+
+The production release gate evaluates 18 independent control domains from live Fornost records: model approval, compliance controls, AI risks, incidents, vendor assurance, evidence integrity, access governance, impact assessment, approved change, resilience exercise, dataset governance, regulatory classification, operator literacy, signed model artifacts, red-team results, transparency/system cards, human oversight findings and continuous-assurance baselines.
+
+The executive AI portfolio consolidates these records by model and presents current readiness, high-risk findings, incidents, control gaps, evidence coverage and prioritized actions. It is deterministic and does not call a model to calculate readiness.
 
 ## Runtime flow
 

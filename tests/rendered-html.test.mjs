@@ -27,7 +27,7 @@ test("renders production cockpit metadata and dark theme", async () => {
     /^text\/html\b/i,
   );
   const html = await response.text();
-  assert.match(html, /<title>Fornost GRC<\/title>/i);
+  assert.match(html, /<title>Fornost GRC · Enterprise Risk &amp; AI Governance<\/title>/i);
   assert.match(html, /<html[^>]*data-theme=["']dark["']/i);
   assert.doesNotMatch(html, /name=["']codex-preview["']/i);
 });

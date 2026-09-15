@@ -1,8 +1,10 @@
 # Fornost GRC
 
-Fornost GRC; risk, iş etki analizi, varlık, uyum, kontrol, kanıt, tedarikçi ve denetim süreçlerini tek çalışma alanında yöneten Türkçe/İngilizce bir GRC uygulamasıdır.
+Fornost GRC; kurumsal risk, varlık, iş sürekliliği, uyum, denetim, kanıt, üçüncü taraf ve AI yönetişimini tek güvenli çalışma alanında birleştiren cloud/on-premises bir GRC ve AI assurance platformudur.
 
-**Govern Risk. Prove Compliance.**
+**Govern Risk. Prove Compliance. Control AI.**
+
+Fornost, klasik kayıt ve raporlama işlevlerinin yanında AI sistemlerinin envanterden üretime, sürekli izlemeden emekliliğe kadar güvenli yaşam döngüsünü yönetir. Model hiçbir zaman doğrudan veritabanına bağlanmaz; okuma bağlamı sunucu tarafında sınırlandırılır, hassas veri politikası uygulanır ve canlı değişiklikler insan onayı olmadan gerçekleşmez.
 
 ## Modüller
 
@@ -20,6 +22,28 @@ Fornost GRC; risk, iş etki analizi, varlık, uyum, kontrol, kanıt, tedarikçi 
 - Admin / Editor / Viewer rol yönetimi
 - Excel içe aktarma ve CSV/Excel dışa aktarma
 - TR/EN arayüz
+
+## Fornost AI Assurance
+
+- Provider-bağımsız Ask Fornost Copilot: OpenAI-compatible ve Ollama
+- Şifreli birincil/yedek provider, trust-zone ve veri-egress politikaları
+- Restricted veriyi model bağlamından tamamen çıkaran merkezi güvenlik katmanı
+- Kaynak gösterimli, sürümlü ve onaylı PDF/DOCX bilgi tabanı
+- İnsan onaylı risk, denetim ve remediation taslakları
+- Risk, Audit, Compliance ve Evidence güvence agentları
+- AI model envanteri, kullanım senaryosu ve değişiklik yaşam döngüsü
+- ISO/IEC 42001, NIST AI RMF ve EU AI Act kontrol değerlendirmeleri
+- AI riskleri, olay yönetimi, DPIA/FRIA, tedarikçi ve erişim yönetişimi
+- Veri seti lineage/kalite/privacy ve model supply-chain güvencesi
+- Red-team kampanyaları ve OWASP LLM tehdit kapsamı
+- AI sistem kartları, açıklanabilirlik, itiraz kanalı ve insan override kayıtları
+- Model bazlı SLO/KRI baseline’ları ve sürekli güvence ölçümleri
+- Bütçe, token, provider health, kalite trendi ve regresyon takibi
+- 18 bağımsız kontrol alanını değerlendiren üretim release gate
+- Model bazlı yönetim özeti ve öncelikli aksiyon kuyruğu
+- Ham prompt/model cevabı saklamayan, hash ve kaynak referanslı audit izi
+
+Detaylı güven sınırları ve veri akışı için [Fornost AI Architecture](docs/AI-ARCHITECTURE.md) belgesine bakın.
 
 ## Teknoloji
 

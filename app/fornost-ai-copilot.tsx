@@ -26,6 +26,7 @@ import FornostAiSupplyChain from "./fornost-ai-supply-chain";
 import FornostAiRedTeam from "./fornost-ai-red-team";
 import FornostAiTransparency from "./fornost-ai-transparency";
 import FornostAiContinuousAssurance from "./fornost-ai-continuous-assurance";
+import FornostAiPortfolio from "./fornost-ai-portfolio";
 
 type User = { name?: string; email: string; role: "Admin" | "Editor" | "Viewer" };
 type Status = { configured: boolean; enabled: boolean; operational:boolean;operatingState:"ready"|"restricted"|"emergency-stop";operatingMessage:string;capabilities:{chat:boolean;drafts:boolean;agents:boolean;retrieval:boolean;evaluations:boolean}; provider: string | null; model: string | null; mode: string };
@@ -85,7 +86,7 @@ export default function FornostAiCopilot() {
   const [user, setUser] = useState<User | null>(null);
   const [status, setStatus] = useState<Status | null>(null);
   const [open, setOpen] = useState(false);
-  const [tab, setTab] = useState<"chat" | "agents" | "knowledge" | "drafts" | "metrics" | "governance" | "models" | "compliance" | "lifecycle" | "incidents" | "evidence" | "risks" | "vendors" | "access" | "release" | "impact" | "resilience" | "datasets" | "regulatory" | "literacy" | "supply-chain" | "red-team" | "transparency" | "assurance" | "feedback" | "budget" | "policy" | "protection" | "settings" | "audit">("chat");
+  const [tab, setTab] = useState<"chat" | "portfolio" | "agents" | "knowledge" | "drafts" | "metrics" | "governance" | "models" | "compliance" | "lifecycle" | "incidents" | "evidence" | "risks" | "vendors" | "access" | "release" | "impact" | "resilience" | "datasets" | "regulatory" | "literacy" | "supply-chain" | "red-team" | "transparency" | "assurance" | "feedback" | "budget" | "policy" | "protection" | "settings" | "audit">("chat");
   const [messages, setMessages] = useState<Message[]>([]);
   const [question, setQuestion] = useState("");
   const [busy, setBusy] = useState(false);
@@ -405,7 +406,7 @@ export default function FornostAiCopilot() {
   if (!user) return null;
   const aiReady = status?.enabled === true&&status?.operational!==false;
   const chatReady=aiReady&&status?.capabilities?.chat!==false,draftReady=aiReady&&status?.capabilities?.drafts!==false,agentReady=aiReady&&status?.capabilities?.agents!==false;
-  const activeTab = user.role !== "Admin" && (tab === "settings" || tab === "audit" || tab === "metrics" || tab === "governance" || tab === "models" || tab === "compliance" || tab === "lifecycle" || tab === "incidents" || tab === "access" || tab === "release" || tab === "resilience" || tab === "datasets" || tab === "regulatory" || tab === "literacy" || tab === "supply-chain" || tab === "red-team" || tab === "transparency" || tab === "assurance" || tab === "feedback" || tab === "budget" || tab === "policy" || tab === "protection") ? "chat" : tab;
+  const activeTab = user.role !== "Admin" && (tab === "portfolio" || tab === "settings" || tab === "audit" || tab === "metrics" || tab === "governance" || tab === "models" || tab === "compliance" || tab === "lifecycle" || tab === "incidents" || tab === "access" || tab === "release" || tab === "resilience" || tab === "datasets" || tab === "regulatory" || tab === "literacy" || tab === "supply-chain" || tab === "red-team" || tab === "transparency" || tab === "assurance" || tab === "feedback" || tab === "budget" || tab === "policy" || tab === "protection") ? "chat" : tab;
 
   return <>
     <button className={`fornost-ai-launcher ${aiReady ? "ready" : ""}`} onClick={() => setOpen((value) => !value)} aria-expanded={open} aria-controls="fornost-ai-panel">
@@ -417,6 +418,7 @@ export default function FornostAiCopilot() {
         <button onClick={() => setOpen(false)} aria-label="Kapat">×</button>
       </header>
       <nav className="fornost-ai-tabs">
+        {user.role === "Admin" && <button className={activeTab === "portfolio" ? "active" : ""} onClick={() => setTab("portfolio")}>AI Yönetim Özeti</button>}
         <button className={activeTab === "chat" ? "active" : ""} onClick={() => setTab("chat")}>Copilot</button>
         <button className={activeTab === "agents" ? "active" : ""} onClick={() => { setTab("agents"); void loadAgents(); }}>Agentlar</button>
         <button className={activeTab === "knowledge" ? "active" : ""} onClick={() => setTab("knowledge")}>Bilgi Tabanı</button>
@@ -449,7 +451,7 @@ export default function FornostAiCopilot() {
         {user.role === "Admin" && <button className={activeTab === "audit" ? "active" : ""} onClick={() => { setTab("audit"); void loadAudit(); }}>AI Audit</button>}
       </nav>
 
-      {activeTab === "chat" ? <>
+      {activeTab === "portfolio" ? <FornostAiPortfolio/> : activeTab === "chat" ? <>
         <div className="fornost-ai-mode"><span className={chatReady ? "online" : "offline"}/><b>{status?.operatingState==="emergency-stop"?"Acil durduruldu":chatReady ? "Hazır" : "Erişim kısıtlı"}</b><em>{status?.operatingMessage||status?.provider||"Provider yok"}</em></div>
         <div className="fornost-ai-messages">
           {!messages.length && <div className="fornost-ai-welcome"><b>GRC verilerinizi sorun.</b><p>Örn: “Kritik varlıklardaki açık riskleri analiz et” veya “ISO 27001 denetimindeki en büyük boşluklar neler?”</p><small>Copilot yalnızca okur ve öneri üretir; kayıt değiştirmez.</small></div>}

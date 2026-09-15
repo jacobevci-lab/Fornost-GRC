@@ -31,6 +31,7 @@ import "./fornost-ai-supply-chain.css";
 import "./fornost-ai-red-team.css";
 import "./fornost-ai-transparency.css";
 import "./fornost-ai-continuous-assurance.css";
+import "./fornost-ai-portfolio.css";
 import FornostAiCopilot from "./fornost-ai-copilot";
 
 const configuredBasePath = process.env.NEXT_PUBLIC_BASE_PATH?.trim() || "";
@@ -42,9 +43,9 @@ const basePath = !normalizedBasePath
     : `/${normalizedBasePath}`;
 
 export const metadata: Metadata = {
-  title: "Fornost GRC",
+  title: "Fornost GRC · Enterprise Risk & AI Governance",
   description:
-    "Govern risk, prove compliance and manage resilience from one workspace.",
+    "Enterprise risk, compliance, evidence, resilience and governed AI assurance in one secure cloud or on-premises workspace.",
   applicationName: "Fornost GRC",
   icons: { icon: `${basePath}/favicon.svg` },
 };
