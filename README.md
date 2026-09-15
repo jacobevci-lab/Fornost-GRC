@@ -36,6 +36,7 @@ Fornost, klasik kayıt ve raporlama işlevlerinin yanında AI sistemlerinin enva
 - AI riskleri, olay yönetimi, DPIA/FRIA, tedarikçi ve erişim yönetişimi
 - Süreli politika/kontrol/risk/release istisnaları, telafi edici kontroller ve maker-checker kararları
 - Trafik, erişim, veri, model artifact ve bağımlılık kapanışını kanıtlayan kontrollü AI emeklilik süreci
+- Kaynak bağlantılı AI bulguları, kök neden, CAPA, SLA ve bağımsız kanıt doğrulaması
 - Veri seti lineage/kalite/privacy ve model supply-chain güvencesi
 - Red-team kampanyaları ve OWASP LLM tehdit kapsamı
 - AI sistem kartları, açıklanabilirlik, itiraz kanalı ve insan override kayıtları

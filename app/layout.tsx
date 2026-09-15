@@ -35,6 +35,7 @@ import "./fornost-ai-portfolio.css";
 import "./fornost-ai-exceptions.css";
 import "./fornost-ai-navigation.css";
 import "./fornost-ai-decommission.css";
+import "./fornost-ai-findings.css";
 import FornostAiCopilot from "./fornost-ai-copilot";
 
 const configuredBasePath = process.env.NEXT_PUBLIC_BASE_PATH?.trim() || "";

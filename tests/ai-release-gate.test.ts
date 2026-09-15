@@ -10,6 +10,7 @@ const ready = {
   modelApproved: true,
   controlsTotal: 12,
   controlsOpen: 0,
+  blockingFindings: 0,
   highRisks: 0,
   expiredAcceptances: 0,
   criticalIncidents: 0,
@@ -53,6 +54,11 @@ test("an active retirement plan blocks new production release", () => {
   const blocked = evaluateReleaseGate({ ...ready, retirementClear: false });
   assert.equal(blocked.ready, false);
   assert.deepEqual(blocked.blockers, ["Değişiklik onayı"]);
+});
+test("high-risk or overdue CAPA findings block the control domain", () => {
+  const blocked = evaluateReleaseGate({ ...ready, blockingFindings: 2 });
+  assert.equal(blocked.ready, false);
+  assert.deepEqual(blocked.blockers, ["Uyum kontrolleri"]);
 });
 test("release request requires approved change identity and rollback ownership", () => {
   const input = {
@@ -115,6 +121,7 @@ test("release API re-evaluates live controls and enforces maker-checker", async 
   assert.match(route, /status='approved' AND integrity_status='verified'/);
   assert.match(route, /ai_exceptions/);
   assert.match(route, /ai_decommission_plans/);
+  assert.match(route, /ai_findings/);
   assert.match(route, /\^\[=\+\\-@\]/);
   assert.match(migration, /snapshot_json/);
   assert.match(storage, /aiReleaseGatesSql/);

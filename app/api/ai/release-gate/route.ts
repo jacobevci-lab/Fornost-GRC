@@ -56,6 +56,7 @@ async function currentGate(db: D1Database, modelId: string, changeId: string) {
       model,
       change,
       controls,
+      findings,
       risks,
       incidents,
       vendors,
@@ -91,6 +92,10 @@ async function currentGate(db: D1Database, modelId: string, changeId: string) {
           "SELECT COUNT(*) total,SUM(CASE WHEN status NOT IN ('implemented','not-applicable') THEN 1 ELSE 0 END) open FROM ai_control_assessments WHERE model_id=?",
         )
         .bind(modelId)
+        .first<Record<string, unknown>>(),
+      db
+        .prepare("SELECT COUNT(*) total FROM ai_findings WHERE model_id=? AND status!='resolved' AND (severity IN ('High','Critical') OR due_date<?)")
+        .bind(modelId, today)
         .first<Record<string, unknown>>(),
       db
         .prepare(
@@ -197,6 +202,7 @@ async function currentGate(db: D1Database, modelId: string, changeId: string) {
     modelApproved: model.status === "approved",
     controlsTotal: Number(controls?.total || 0),
     controlsOpen: Number(controls?.open || 0),
+    blockingFindings: Number(findings?.total || 0),
     highRisks: Number(risks?.high_risks || 0),
     expiredAcceptances: Number(risks?.expired || 0),
     criticalIncidents: Number(incidents?.total || 0),

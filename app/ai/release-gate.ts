@@ -3,6 +3,7 @@ export type GateInput = {
   modelApproved: boolean;
   controlsTotal: number;
   controlsOpen: number;
+  blockingFindings: number;
   highRisks: number;
   expiredAcceptances: number;
   criticalIncidents: number;
@@ -34,8 +35,8 @@ export function evaluateReleaseGate(input: GateInput) {
       {
         key: "controls",
         label: "Uyum kontrolleri",
-        passed: input.controlsTotal > 0 && input.controlsOpen === 0,
-        detail: `${input.controlsTotal} kapsam / ${input.controlsOpen} açık`,
+        passed: input.controlsTotal > 0 && input.controlsOpen === 0 && input.blockingFindings === 0,
+        detail: `${input.controlsTotal} kapsam / ${input.controlsOpen} açık / ${input.blockingFindings} bloke CAPA`,
       },
       {
         key: "risks",

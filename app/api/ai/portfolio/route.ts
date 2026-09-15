@@ -31,6 +31,7 @@ export async function GET(req: NextRequest) {
       assurance,
       exceptions,
       decommission,
+      findings,
     ] = await Promise.all([
       DB.prepare(
         "SELECT id,system_name,model_name,owner,status,risk_tier,review_date FROM ai_model_inventory WHERE status!='retired' ORDER BY risk_score DESC,system_name LIMIT 500",
@@ -75,6 +76,9 @@ export async function GET(req: NextRequest) {
       DB.prepare(
         "SELECT model_id,COUNT(*) total FROM ai_decommission_plans WHERE status IN ('draft','approved','executing') GROUP BY model_id",
       ).all<Record<string, unknown>>(),
+      DB.prepare(
+        "SELECT model_id,COUNT(*) total FROM ai_findings WHERE status!='resolved' AND (severity IN ('High','Critical') OR due_date<?) GROUP BY model_id",
+      ).bind(today).all<Record<string, unknown>>(),
     ]),
     riskMap = mapCounts(risks.results || [], "total"),
     incidentMap = mapCounts(incidents.results || [], "total"),
@@ -86,6 +90,7 @@ export async function GET(req: NextRequest) {
     assuranceMap = mapCounts(assurance.results || [], "total"),
     exceptionMap = mapCounts(exceptions.results || [], "total"),
     decommissionMap = mapCounts(decommission.results || [], "total"),
+    findingMap = mapCounts(findings.results || [], "total"),
     latestRelease = new Map<string, Record<string, unknown>>();
   for (const row of releases.results || [])
     if (!latestRelease.has(String(row.model_id)))
@@ -103,6 +108,7 @@ export async function GET(req: NextRequest) {
         assuranceCurrent = (assuranceMap.get(id) || 0) > 0,
         unresolvedExceptions = exceptionMap.get(id) || 0,
         retirementInProgress = (decommissionMap.get(id) || 0) > 0,
+        blockingFindings = findingMap.get(id) || 0,
         actions: string[] = [];
       if (model.status !== "approved") actions.push("Model envanter onayı");
       if (highRisks) actions.push(`${highRisks} yüksek/kritik risk`);
@@ -116,6 +122,7 @@ export async function GET(req: NextRequest) {
       if (!assuranceCurrent) actions.push("Sürekli güvence baseline'ı");
       if (unresolvedExceptions) actions.push(`${unresolvedExceptions} açık/gecikmiş istisna`);
       if (retirementInProgress) actions.push("Emeklilik planını tamamla");
+      if (blockingFindings) actions.push(`${blockingFindings} yüksek/gecikmiş CAPA bulgusu`);
       if (!release || release.status !== "approved")
         actions.push("Üretim release onayı");
       return {
@@ -136,12 +143,13 @@ export async function GET(req: NextRequest) {
         assuranceCurrent,
         unresolvedExceptions,
         retirementInProgress,
+        blockingFindings,
         releaseStatus: release?.status || "none",
         releaseScore: Number(release?.readiness_score || 0),
         actions,
         readiness: Math.max(
           0,
-          Math.round(((11 - Math.min(11, actions.length)) * 100) / 11),
+          Math.round(((12 - Math.min(12, actions.length)) * 100) / 12),
         ),
       };
     }),
@@ -175,6 +183,7 @@ export async function GET(req: NextRequest) {
         "Güvence",
         "İstisna",
         "Emeklilik",
+        "CAPA",
         "Aksiyonlar",
       ],
       ...portfolio.map((item) => [
@@ -193,6 +202,7 @@ export async function GET(req: NextRequest) {
         item.assuranceCurrent,
         item.unresolvedExceptions,
         item.retirementInProgress,
+        item.blockingFindings,
         item.actions.join("; "),
       ]),
     ];
