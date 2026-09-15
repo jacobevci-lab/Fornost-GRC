@@ -29,6 +29,7 @@ export async function GET(req: NextRequest) {
       redTeams,
       transparency,
       assurance,
+      exceptions,
     ] = await Promise.all([
       DB.prepare(
         "SELECT id,system_name,model_name,owner,status,risk_tier,review_date FROM ai_model_inventory WHERE status!='retired' ORDER BY risk_score DESC,system_name LIMIT 500",
@@ -65,6 +66,11 @@ export async function GET(req: NextRequest) {
       )
         .bind(today)
         .all<Record<string, unknown>>(),
+      DB.prepare(
+        "SELECT model_id,COUNT(*) total FROM ai_exceptions WHERE status='draft' OR status='approved' AND (expires_at<? OR review_at<?) GROUP BY model_id",
+      )
+        .bind(today, today)
+        .all<Record<string, unknown>>(),
     ]),
     riskMap = mapCounts(risks.results || [], "total"),
     incidentMap = mapCounts(incidents.results || [], "total"),
@@ -74,6 +80,7 @@ export async function GET(req: NextRequest) {
     redMap = mapCounts(redTeams.results || [], "total"),
     transparencyMap = mapCounts(transparency.results || [], "total"),
     assuranceMap = mapCounts(assurance.results || [], "total"),
+    exceptionMap = mapCounts(exceptions.results || [], "total"),
     latestRelease = new Map<string, Record<string, unknown>>();
   for (const row of releases.results || [])
     if (!latestRelease.has(String(row.model_id)))
@@ -89,6 +96,7 @@ export async function GET(req: NextRequest) {
         redTeamCurrent = (redMap.get(id) || 0) > 0,
         transparencyCurrent = (transparencyMap.get(id) || 0) > 0,
         assuranceCurrent = (assuranceMap.get(id) || 0) > 0,
+        unresolvedExceptions = exceptionMap.get(id) || 0,
         actions: string[] = [];
       if (model.status !== "approved") actions.push("Model envanter onayı");
       if (highRisks) actions.push(`${highRisks} yüksek/kritik risk`);
@@ -100,6 +108,7 @@ export async function GET(req: NextRequest) {
       if (!redTeamCurrent) actions.push("Red-team doğrulaması");
       if (!transparencyCurrent) actions.push("AI sistem kartı");
       if (!assuranceCurrent) actions.push("Sürekli güvence baseline'ı");
+      if (unresolvedExceptions) actions.push(`${unresolvedExceptions} açık/gecikmiş istisna`);
       if (!release || release.status !== "approved")
         actions.push("Üretim release onayı");
       return {
@@ -118,12 +127,13 @@ export async function GET(req: NextRequest) {
         redTeamCurrent,
         transparencyCurrent,
         assuranceCurrent,
+        unresolvedExceptions,
         releaseStatus: release?.status || "none",
         releaseScore: Number(release?.readiness_score || 0),
         actions,
         readiness: Math.max(
           0,
-          Math.round(((9 - Math.min(9, actions.length)) * 100) / 9),
+          Math.round(((10 - Math.min(10, actions.length)) * 100) / 10),
         ),
       };
     }),
@@ -155,6 +165,7 @@ export async function GET(req: NextRequest) {
         "Red-team",
         "Şeffaflık",
         "Güvence",
+        "İstisna",
         "Aksiyonlar",
       ],
       ...portfolio.map((item) => [
@@ -171,6 +182,7 @@ export async function GET(req: NextRequest) {
         item.redTeamCurrent,
         item.transparencyCurrent,
         item.assuranceCurrent,
+        item.unresolvedExceptions,
         item.actions.join("; "),
       ]),
     ];

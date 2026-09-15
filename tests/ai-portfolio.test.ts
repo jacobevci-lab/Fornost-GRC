@@ -9,6 +9,7 @@ test("AI executive portfolio aggregates live assurance domains without model cal
   assert.match(route, /ai_red_team_campaigns/);
   assert.match(route, /ai_transparency_profiles/);
   assert.match(route, /ai_assurance_policies/);
+  assert.match(route, /ai_exceptions/);
   assert.doesNotMatch(route, /callProvider|runProviderChain/);
   assert.match(route, /\^\[=\+\\-@\]/);
 });

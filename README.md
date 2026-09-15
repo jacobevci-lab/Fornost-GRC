@@ -34,6 +34,7 @@ Fornost, klasik kayıt ve raporlama işlevlerinin yanında AI sistemlerinin enva
 - AI model envanteri, kullanım senaryosu ve değişiklik yaşam döngüsü
 - ISO/IEC 42001, NIST AI RMF ve EU AI Act kontrol değerlendirmeleri
 - AI riskleri, olay yönetimi, DPIA/FRIA, tedarikçi ve erişim yönetişimi
+- Süreli politika/kontrol/risk/release istisnaları, telafi edici kontroller ve maker-checker kararları
 - Veri seti lineage/kalite/privacy ve model supply-chain güvencesi
 - Red-team kampanyaları ve OWASP LLM tehdit kapsamı
 - AI sistem kartları, açıklanabilirlik, itiraz kanalı ve insan override kayıtları

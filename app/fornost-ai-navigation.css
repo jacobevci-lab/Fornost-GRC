@@ -1,0 +1,2 @@
+.fornost-ai-tabs .fornost-ai-tab-group{align-self:center;padding:0 5px;color:var(--text-secondary);font-size:9px;font-weight:850;letter-spacing:.12em;white-space:nowrap}
+@media(max-width:800px){.fornost-ai-tabs .fornost-ai-tab-group{position:sticky;left:0;padding:0 7px;background:var(--surface);border-radius:4px}}

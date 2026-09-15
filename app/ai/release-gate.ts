@@ -19,6 +19,7 @@ export type GateInput = {
   transparencyCurrent: boolean;
   oversightClear: boolean;
   continuousAssuranceCurrent: boolean;
+  unresolvedExceptions: number;
   changeApproved: boolean;
 };
 export function evaluateReleaseGate(input: GateInput) {
@@ -38,8 +39,8 @@ export function evaluateReleaseGate(input: GateInput) {
       {
         key: "risks",
         label: "AI riskleri",
-        passed: input.highRisks === 0 && input.expiredAcceptances === 0,
-        detail: `${input.highRisks} yüksek-kritik / ${input.expiredAcceptances} süresi biten kabul`,
+        passed: input.highRisks === 0 && input.expiredAcceptances === 0 && input.unresolvedExceptions === 0,
+        detail: `${input.highRisks} yüksek-kritik / ${input.expiredAcceptances} süresi biten kabul / ${input.unresolvedExceptions} açık-gecikmiş istisna`,
       },
       {
         key: "incidents",

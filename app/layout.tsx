@@ -32,6 +32,8 @@ import "./fornost-ai-red-team.css";
 import "./fornost-ai-transparency.css";
 import "./fornost-ai-continuous-assurance.css";
 import "./fornost-ai-portfolio.css";
+import "./fornost-ai-exceptions.css";
+import "./fornost-ai-navigation.css";
 import FornostAiCopilot from "./fornost-ai-copilot";
 
 const configuredBasePath = process.env.NEXT_PUBLIC_BASE_PATH?.trim() || "";

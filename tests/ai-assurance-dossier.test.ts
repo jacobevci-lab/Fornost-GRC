@@ -29,6 +29,7 @@ test("Admin assurance dossier is bounded, privacy-safe, hashed and audited", asy
   assert.match(route, /LIMIT 200/);
   assert.match(route, /sha256Json/);
   assert.match(route, /assurance-dossier-export/);
+  assert.match(route, /ai_exceptions/);
   assert.match(route, /\^\[=\+\\-@\]/);
   assert.doesNotMatch(route, /callAiProvider|runProviderChain/);
   assert.match(ui, /Denetim güvence dosyası/);

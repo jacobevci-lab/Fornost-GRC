@@ -71,6 +71,7 @@ async function currentGate(db: D1Database, modelId: string, changeId: string) {
       transparency,
       oversight,
       continuousAssurance,
+      exceptions,
     ] = await Promise.all([
       db
         .prepare(
@@ -180,6 +181,10 @@ async function currentGate(db: D1Database, modelId: string, changeId: string) {
         )
         .bind(modelId, today, new Date().toISOString())
         .first<Record<string, unknown>>(),
+      db
+        .prepare("SELECT COUNT(*) total FROM ai_exceptions WHERE model_id=? AND (status='draft' OR status='approved' AND (expires_at<? OR review_at<?))")
+        .bind(modelId, today, today)
+        .first<Record<string, unknown>>(),
     ]);
   if (!model) throw new Error("AI modeli bulunamadı.");
   if (!change) throw new Error("Değişiklik bu AI modeline ait değil.");
@@ -203,6 +208,7 @@ async function currentGate(db: D1Database, modelId: string, changeId: string) {
     transparencyCurrent: Number(transparency?.total || 0) > 0,
     oversightClear: Number(oversight?.total || 0) === 0,
     continuousAssuranceCurrent: Number(continuousAssurance?.total || 0) > 0,
+    unresolvedExceptions: Number(exceptions?.total || 0),
     changeApproved: change.status === "approved",
   };
   return {
