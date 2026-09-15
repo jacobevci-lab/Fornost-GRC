@@ -20,20 +20,21 @@ const ready = {
   resilienceCurrent: true,
   datasetCurrent: true,
   regulatoryCurrent: true,
+  literacyCurrent: true,
   changeApproved: true,
 };
-test("AI release gate requires all twelve independent assurance domains", () => {
+test("AI release gate requires all thirteen independent assurance domains", () => {
   const result = evaluateReleaseGate(ready);
   assert.equal(result.ready, true);
   assert.equal(result.score, 100);
-  assert.equal(result.checks.length, 12);
+  assert.equal(result.checks.length, 13);
   const blocked = evaluateReleaseGate({
     ...ready,
     evidenceCurrent: 0,
     highRisks: 1,
   });
   assert.equal(blocked.ready, false);
-  assert.equal(blocked.score, 83);
+  assert.equal(blocked.score, 85);
   assert.deepEqual(blocked.blockers, ["AI riskleri", "Kanıt bütünlüğü"]);
 });
 test("release request requires approved change identity and rollback ownership", () => {

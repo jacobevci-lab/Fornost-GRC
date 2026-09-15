@@ -13,6 +13,7 @@ export type GateInput = {
   resilienceCurrent: boolean;
   datasetCurrent: boolean;
   regulatoryCurrent: boolean;
+  literacyCurrent: boolean;
   changeApproved: boolean;
 };
 export function evaluateReleaseGate(input: GateInput) {
@@ -96,6 +97,14 @@ export function evaluateReleaseGate(input: GateInput) {
         detail: input.regulatoryCurrent
           ? "Güncel onaylı hukuki sınıflandırma"
           : "Güncel onaylı hukuki sınıflandırma yok",
+      },
+      {
+        key: "literacy",
+        label: "AI yetkinlik ve gözetim",
+        passed: input.literacyCurrent,
+        detail: input.literacyCurrent
+          ? "Güncel yetkin insan gözetimi"
+          : "Güncel onaylı operatör yetkinliği yok",
       },
     ],
     passed = checks.filter((c) => c.passed).length,
