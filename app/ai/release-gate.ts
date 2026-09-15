@@ -12,6 +12,7 @@ export type GateInput = {
   impactCurrent: boolean;
   resilienceCurrent: boolean;
   datasetCurrent: boolean;
+  regulatoryCurrent: boolean;
   changeApproved: boolean;
 };
 export function evaluateReleaseGate(input: GateInput) {
@@ -87,6 +88,14 @@ export function evaluateReleaseGate(input: GateInput) {
         detail: input.datasetCurrent
           ? "Güncel onaylı veri seti"
           : "Güncel onaylı veri seti yok",
+      },
+      {
+        key: "regulatory",
+        label: "Regülasyon sınıflandırması",
+        passed: input.regulatoryCurrent,
+        detail: input.regulatoryCurrent
+          ? "Güncel onaylı hukuki sınıflandırma"
+          : "Güncel onaylı hukuki sınıflandırma yok",
       },
     ],
     passed = checks.filter((c) => c.passed).length,

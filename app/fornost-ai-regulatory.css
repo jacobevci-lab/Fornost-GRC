@@ -1,0 +1,168 @@
+.ai-regulatory {
+  padding: 22px;
+  color: var(--text-primary);
+}
+.ai-regulatory > header {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  align-items: flex-start;
+}
+.ai-regulatory h3 {
+  margin: 4px 0;
+  font-size: 23px;
+}
+.ai-regulatory p {
+  color: var(--text-secondary);
+}
+.ai-regulatory a,
+.ai-regulatory button {
+  padding: 9px 12px;
+  border: 1px solid #b7652a;
+  border-radius: 7px;
+  background: #8f451b;
+  color: #fff;
+  font-weight: 750;
+}
+.ai-regulatory .stats {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 8px;
+  margin: 15px 0;
+}
+.ai-regulatory .stats article,
+.ai-regulatory > form,
+.ai-regulatory .list > article {
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface-raised);
+}
+.ai-regulatory .stats b {
+  display: block;
+  font-size: 21px;
+}
+.ai-regulatory .stats span {
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+.ai-regulatory > form {
+  margin-bottom: 12px;
+}
+.ai-regulatory .grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+.ai-regulatory label,
+.ai-regulatory .decision {
+  display: grid;
+  gap: 5px;
+  margin: 7px 0;
+  font-size: 11px;
+}
+.ai-regulatory input,
+.ai-regulatory select,
+.ai-regulatory textarea {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text-primary);
+}
+.ai-regulatory .checks,
+.ai-regulatory fieldset {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.ai-regulatory .checks label,
+.ai-regulatory fieldset label {
+  display: flex;
+  align-items: center;
+}
+.ai-regulatory .checks input,
+.ai-regulatory fieldset input {
+  width: auto;
+}
+.ai-regulatory fieldset {
+  margin: 10px 0;
+  border: 1px solid var(--border);
+}
+.ai-regulatory .notice {
+  padding: 10px;
+  border: 1px solid #b7652a;
+  border-radius: 7px;
+  margin-bottom: 10px;
+}
+.ai-regulatory .list {
+  display: grid;
+  gap: 10px;
+}
+.ai-regulatory .list header {
+  display: flex;
+  justify-content: space-between;
+}
+.ai-regulatory .list small {
+  display: block;
+  color: var(--text-secondary);
+}
+.ai-regulatory .list header span {
+  font-size: 10px;
+}
+.ai-regulatory dl {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+}
+.ai-regulatory dt {
+  font-size: 10px;
+  color: var(--text-secondary);
+}
+.ai-regulatory dd {
+  margin: 2px 0;
+}
+.ai-regulatory .obligations {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin: 9px 0;
+}
+.ai-regulatory .obligations span {
+  padding: 4px 7px;
+  border: 1px solid var(--border);
+  border-radius: 99px;
+  font-size: 10px;
+}
+.ai-regulatory .obligations .gap {
+  color: #e28b61;
+  border-color: #87503b;
+}
+.ai-regulatory .obligations .done {
+  color: #58a98a;
+}
+.ai-regulatory footer {
+  display: flex;
+  gap: 7px;
+}
+.ai-regulatory .warn {
+  background: #765621;
+}
+.ai-regulatory .danger {
+  background: #762f2b;
+}
+.ai-regulatory .decision {
+  border-left: 3px solid #b7652a;
+  padding-left: 10px;
+}
+@media (max-width: 800px) {
+  .ai-regulatory .grid,
+  .ai-regulatory dl,
+  .ai-regulatory .stats {
+    grid-template-columns: 1fr 1fr;
+  }
+  .ai-regulatory > header {
+    display: block;
+  }
+}

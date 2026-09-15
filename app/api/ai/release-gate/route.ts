@@ -64,6 +64,7 @@ async function currentGate(db: D1Database, modelId: string, changeId: string) {
       impact,
       resilience,
       datasets,
+      regulatory,
     ] = await Promise.all([
       db
         .prepare(
@@ -131,6 +132,12 @@ async function currentGate(db: D1Database, modelId: string, changeId: string) {
         )
         .bind(modelId, today)
         .first<Record<string, unknown>>(),
+      db
+        .prepare(
+          "SELECT COUNT(*) total FROM ai_regulatory_profiles WHERE model_id=? AND status='approved' AND review_date>=? AND gaps_json='[]'",
+        )
+        .bind(modelId, today)
+        .first<Record<string, unknown>>(),
     ]);
   if (!model) throw new Error("AI modeli bulunamadı.");
   if (!change) throw new Error("Değişiklik bu AI modeline ait değil.");
@@ -147,6 +154,7 @@ async function currentGate(db: D1Database, modelId: string, changeId: string) {
     impactCurrent: Number(impact?.total || 0) > 0,
     resilienceCurrent: Number(resilience?.total || 0) > 0,
     datasetCurrent: Number(datasets?.total || 0) > 0,
+    regulatoryCurrent: Number(regulatory?.total || 0) > 0,
     changeApproved: change.status === "approved",
   };
   return {
