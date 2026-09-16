@@ -416,3 +416,22 @@ export const regulatoryChangeEvents = sqliteTable("regulatory_change_events", {
   actor: text("actor").notNull(),
   createdAt: text("created_at").notNull(),
 }, (table) => [index("regulatory_events_change_date_idx").on(table.changeId, table.createdAt)]);
+
+export const thirdPartyProfiles = sqliteTable("third_party_profiles", {
+  vendorId: text("vendor_id").primaryKey(), name: text("name").notNull(), service: text("service").notNull(), legalEntity: text("legal_entity").notNull(), category: text("category").notNull(),
+  criticality: text("criticality").notNull(), dataClassification: text("data_classification").notNull(), dataAccess: text("data_access").notNull(), hostingLocation: text("hosting_location").notNull(),
+  businessOwner: text("business_owner").notNull(), riskOwner: text("risk_owner").notNull(), reviewer: text("reviewer").notNull(), contact: text("contact").notNull(), contractEnd: text("contract_end").notNull(), nextReview: text("next_review").notNull(), exitPlan: text("exit_plan").notNull(), status: text("status").notNull().default("onboarding"),
+  createdBy: text("created_by").notNull(), createdAt: text("created_at").notNull(), updatedBy: text("updated_by").notNull(), updatedAt: text("updated_at").notNull(),
+}, (table) => [index("third_party_profiles_status_review_idx").on(table.status, table.criticality, table.nextReview)]);
+
+export const thirdPartyAssessments = sqliteTable("third_party_assessments", {
+  id: text("id").primaryKey(), vendorId: text("vendor_id").notNull(), cycleNumber: integer("cycle_number").notNull(), renewalOfId: text("renewal_of_id"), impact: integer("impact").notNull(), likelihood: integer("likelihood").notNull(), controlMaturity: integer("control_maturity").notNull(), questionnaireJson: text("questionnaire_json").notNull(), coverage: integer("coverage").notNull(), inherentScore: integer("inherent_score").notNull(), residualScore: integer("residual_score").notNull(), riskTier: text("risk_tier").notNull(), criticalGapsJson: text("critical_gaps_json").notNull(), treatmentPlan: text("treatment_plan").notNull(), status: text("status").notNull().default("draft"), evidenceReference: text("evidence_reference"), evidenceSha256: text("evidence_sha256"), decisionNote: text("decision_note"), decisionEvidenceReference: text("decision_evidence_reference"), decisionEvidenceSha256: text("decision_evidence_sha256"), createdBy: text("created_by").notNull(), createdAt: text("created_at").notNull(), updatedBy: text("updated_by").notNull(), updatedAt: text("updated_at").notNull(), submittedBy: text("submitted_by"), submittedAt: text("submitted_at"), decidedBy: text("decided_by"), decidedAt: text("decided_at"),
+}, (table) => [uniqueIndex("third_party_assessment_cycle_idx").on(table.vendorId, table.cycleNumber), index("third_party_assessment_status_risk_idx").on(table.status, table.riskTier, table.updatedAt)]);
+
+export const thirdPartyFindings = sqliteTable("third_party_findings", {
+  id: text("id").primaryKey(), assessmentId: text("assessment_id").notNull(), vendorId: text("vendor_id").notNull(), title: text("title").notNull(), severity: text("severity").notNull(), description: text("description").notNull(), owner: text("owner").notNull(), dueDate: text("due_date").notNull(), status: text("status").notNull().default("open"), actionNote: text("action_note"), evidenceReference: text("evidence_reference"), evidenceSha256: text("evidence_sha256"), verificationEvidenceReference: text("verification_evidence_reference"), verificationEvidenceSha256: text("verification_evidence_sha256"), createdBy: text("created_by").notNull(), createdAt: text("created_at").notNull(), updatedBy: text("updated_by").notNull(), updatedAt: text("updated_at").notNull(), submittedBy: text("submitted_by"), submittedAt: text("submitted_at"), verifiedBy: text("verified_by"), verifiedAt: text("verified_at"), reopenedBy: text("reopened_by"), reopenedAt: text("reopened_at"),
+}, (table) => [index("third_party_findings_status_due_idx").on(table.status, table.severity, table.dueDate), index("third_party_findings_vendor_idx").on(table.vendorId, table.assessmentId)]);
+
+export const thirdPartyEvents = sqliteTable("third_party_events", {
+  id: text("id").primaryKey(), vendorId: text("vendor_id"), assessmentId: text("assessment_id"), findingId: text("finding_id"), action: text("action").notNull(), detail: text("detail").notNull(), actor: text("actor").notNull(), createdAt: text("created_at").notNull(),
+}, (table) => [index("third_party_events_vendor_date_idx").on(table.vendorId, table.createdAt)]);

@@ -16,7 +16,7 @@ Fornost, klasik kayıt ve raporlama işlevlerinin yanında AI sistemlerinin enva
 - Kanıt Yönetimi ve güvenli dosya yükleme
 - Sürekli Kontrol İzleme 2.0: vendor-neutral API collector, zamanlanmış kontrol testleri, kanıt tazeliği, ardışık hata eşiği, otomatik risk/bulgu ve maker-checker CAPA kapanışı
 - Regülasyon Merkezi: kaynak gözetimi, değişiklik triajı, GRC kayıtlarına etki analizi, sorumlu aksiyonlar, SHA-256 kanıt bütünlüğü ve bağımsız maker-checker kapanışı
-- Tedarikçi Yönetimi
+- Third-Party Risk Management 2.0: onboarding, 12 alanlı due diligence, doğal/kalıntı risk, sözleşme ve veri yaşam döngüsü, bulgu/CAPA, maker-checker karar, periyodik yeniden değerlendirme ve kanıtlı offboarding
 - Denetim Yönetimi: ISO 27001, SOC 1/2 Type I/II çalışma alanları
 - Entegrasyon Merkezi: Jira, ServiceNow, Azure DevOps, GitHub Issues ve webhook ticket akışları
 - E-posta bağlantı testi: SMTP bridge, Microsoft Graph Mail veya HTTP email API
@@ -118,6 +118,8 @@ Kanıt dosyaları yalnız PDF, JPEG, PNG veya WebP olabilir; MIME türü ve dosy
 Sürekli kontrol motoru; public API uçlarını varsayılan kabul eder, private/on-prem connector adreslerini ancak açık yönetici politikasıyla etkinleştirir. Redirect kapalıdır, istek ve yanıt boyutları sınırlıdır, token/API anahtarları AES-GCM ile şifrelenir. Her çalışma yanıt hash'i, tetikleyici türü, süre ve hata koduyla değişmez geçmişe yazılır. Ayrıntılı işleyiş için [Continuous Control Monitoring](docs/CONTINUOUS-CONTROL-MONITORING.md) belgesine bakın.
 
 Regülasyon Merkezi, yetkili kaynak sicili ve periyodik horizon-review takvimi üzerinden değişiklikleri izler. Değişiklikler kontrol, politika, risk, varlık, tedarikçi, süreç, denetim ve kanıt kayıtlarına bağlanabilir; kapanış tüm etkiler kanıtla tamamlanıp atanmış bağımsız doğrulayıcı tarafından onaylanana kadar engellenir. Ayrıntılar için [Regulatory Change Intelligence](docs/REGULATORY-CHANGE-INTELLIGENCE.md) belgesine bakın.
+
+TPRM 2.0, mevcut tedarikçi kayıtlarını kontrollü biçimde kapsama alır ve yeni üçüncü tarafları ilk risk değerlendirmesiyle birlikte oluşturur. On iki due-diligence alanı; kritiklik, veri sınıfı, doğal/kalıntı risk, sözleşme bitişi, kritik kontrol boşlukları ve CAPA durumuyla birlikte yönetilir. Tam onay açık yüksek/kritik bulgu veya kritik kontrol boşluğu varken engellenir; karar, bulgu kapanışı ve offboarding bağımsız reviewer ve SHA-256 kanıtı gerektirir. Ayrıntılar için [Third-Party Risk Management 2.0](docs/THIRD-PARTY-RISK-MANAGEMENT.md) belgesine bakın.
 
 ## Production readiness
 

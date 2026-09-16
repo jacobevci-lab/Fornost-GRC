@@ -29,6 +29,7 @@ import "./layout-guardrails.css";
 import Settings from "./settings";
 import EvidenceAutomation from "./evidence-automation";
 import RegulatoryIntelligence from "./regulatory-intelligence";
+import ThirdPartyRisk from "./third-party-risk";
 import { withBasePath } from "./base-path";
 import { calculatedRiskScore, effectiveImpact } from "./risk-methodology";
 import { defaultCatalogs, type CatalogMap } from "./catalogs";
@@ -1819,6 +1820,8 @@ function FornostApp({ currentUser }: { currentUser: any }) {
           <EvidenceAutomation lang={lang} currentUser={currentUser} />
         ) : active === "Regülasyon Merkezi" ? (
           <RegulatoryIntelligence lang={lang} currentUser={currentUser} />
+        ) : active === "Tedarikçiler" ? (
+          <ThirdPartyRisk lang={lang} currentUser={currentUser} />
         ) : adminModules.has(active) ? (
           <Settings
             lang={lang}
