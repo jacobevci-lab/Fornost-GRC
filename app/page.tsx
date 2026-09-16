@@ -42,6 +42,7 @@ import "./final-polish.css";
 import "./midnight-graphite.css";
 import "./fornost-enterprise-2026.css";
 import "./fornost-atelier.css";
+import "./sidebar-collapse.css";
 import { buildReportHtml, buildReportPdf, downloadBlob, reportMetrics } from "./report-export";
 
 type Lang = "tr" | "en";
@@ -1378,7 +1379,8 @@ function FornostApp({ currentUser }: { currentUser: any }) {
       {},
     ),
     [catalogs, setCatalogs] = useState<CatalogMap>(catalogOptions),
-    [theme, setTheme] = useState<"light" | "dark">("dark");
+    [theme, setTheme] = useState<"light" | "dark">("dark"),
+    [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const labels = labelMap[lang],
     u = ui[lang];
   linkedRows = rows;
@@ -1386,6 +1388,9 @@ function FornostApp({ currentUser }: { currentUser: any }) {
   useEffect(() => {
     const saved = localStorage.getItem("fornost-grc-language");
     if (saved === "tr" || saved === "en") setLang(saved);
+    setSidebarCollapsed(
+      localStorage.getItem("fornost-grc-sidebar-collapsed") === "true",
+    );
     try {
       const columns = JSON.parse(
         localStorage.getItem("fornost-grc-columns") || "{}",
@@ -1721,17 +1726,50 @@ function FornostApp({ currentUser }: { currentUser: any }) {
         ]
       : []),
   ];
+  const sidebarToggleLabel = sidebarCollapsed
+    ? lang === "tr"
+      ? "Menüyü genişlet"
+      : "Expand navigation"
+    : lang === "tr"
+      ? "Menüyü daralt"
+      : "Collapse navigation";
+  function toggleSidebar() {
+    setSidebarCollapsed((collapsed) => {
+      const next = !collapsed;
+      localStorage.setItem("fornost-grc-sidebar-collapsed", String(next));
+      return next;
+    });
+  }
   return (
-    <div className="shell">
-      <aside>
+    <div className={`shell${sidebarCollapsed ? " sidebar-collapsed" : ""}`}>
+      <aside aria-label={lang === "tr" ? "Ana menü" : "Main navigation"}>
         <div className="brand">
           <span>F</span>
           <div>
             <b>Fornost GRC</b>
             <small>Governance Intelligence</small>
           </div>
+          <button
+            type="button"
+            className="sidebar-toggle"
+            onClick={toggleSidebar}
+            aria-label={sidebarToggleLabel}
+            aria-expanded={!sidebarCollapsed}
+            aria-controls="fornost-navigation"
+            title={sidebarToggleLabel}
+          >
+            <svg aria-hidden="true" viewBox="0 0 20 20">
+              <path
+                d={
+                  sidebarCollapsed
+                    ? "m7 4 6 6-6 6"
+                    : "m13 4-6 6 6 6"
+                }
+              />
+            </svg>
+          </button>
         </div>
-        <nav>
+        <nav id="fornost-navigation">
           {navGroups.map((group) => (
             <div className="nav-group" key={group.label}>
               <small>{group.label}</small>
@@ -1739,6 +1777,8 @@ function FornostApp({ currentUser }: { currentUser: any }) {
                 return (
                   <button
                     className={active === m ? "active" : ""}
+                    aria-label={names[lang][m]}
+                    title={sidebarCollapsed ? names[lang][m] : undefined}
                     onClick={() => {
                       setActive(m);
                       setQuery("");
