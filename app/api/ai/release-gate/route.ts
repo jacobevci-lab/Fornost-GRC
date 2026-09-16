@@ -66,6 +66,7 @@ async function currentGate(db: D1Database, modelId: string, changeId: string) {
       resilience,
       datasets,
       regulatory,
+      regulatoryObligations,
       literacy,
       artifact,
       redTeam,
@@ -154,6 +155,12 @@ async function currentGate(db: D1Database, modelId: string, changeId: string) {
         .first<Record<string, unknown>>(),
       db
         .prepare(
+          "SELECT COUNT(*) total FROM ai_regulatory_obligations WHERE model_id=? AND status!='completed' AND (priority IN ('High','Critical') OR due_date<?)",
+        )
+        .bind(modelId, today)
+        .first<Record<string, unknown>>(),
+      db
+        .prepare(
           "SELECT COUNT(*) total FROM ai_literacy_records WHERE model_id=? AND status='approved' AND valid_until>=? AND missing_json='[]' AND operator_role IN ('reviewer','approver','operator')",
         )
         .bind(modelId, today)
@@ -215,6 +222,7 @@ async function currentGate(db: D1Database, modelId: string, changeId: string) {
     resilienceCurrent: Number(resilience?.total || 0) > 0,
     datasetCurrent: Number(datasets?.total || 0) > 0,
     regulatoryCurrent: Number(regulatory?.total || 0) > 0,
+    blockingRegulatoryObligations: Number(regulatoryObligations?.total || 0),
     literacyCurrent: Number(literacy?.total || 0) > 0,
     artifactCurrent: Number(artifact?.total || 0) > 0,
     redTeamCurrent: Number(redTeam?.total || 0) > 0,

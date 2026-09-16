@@ -21,6 +21,7 @@ const ready = {
   resilienceCurrent: true,
   datasetCurrent: true,
   regulatoryCurrent: true,
+  blockingRegulatoryObligations: 0,
   literacyCurrent: true,
   artifactCurrent: true,
   redTeamCurrent: true,
@@ -62,6 +63,7 @@ test("high-risk or overdue CAPA findings block the control domain", () => {
   assert.deepEqual(blocked.blockers, ["Uyum kontrolleri"]);
 });
 test("open high or critical assurance alerts block continuous assurance",()=>{const blocked=evaluateReleaseGate({...ready,blockingAssuranceAlerts:1});assert.equal(blocked.ready,false);assert.deepEqual(blocked.blockers,["Sürekli model güvencesi"]);});
+test("open high, critical or overdue obligations block regulatory readiness",()=>{const blocked=evaluateReleaseGate({...ready,blockingRegulatoryObligations:1});assert.equal(blocked.ready,false);assert.deepEqual(blocked.blockers,["Regülasyon ve yükümlülükler"]);});
 test("release request requires approved change identity and rollback ownership", () => {
   const input = {
     modelId: "AIM-1",

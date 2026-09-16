@@ -1,6 +1,7 @@
 "use client";
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import { withBasePath } from "./base-path";
+import FornostAiObligations from "./fornost-ai-obligations";
 const obligationKeys = [
     "inventory",
     "risk-management",
@@ -385,6 +386,7 @@ export default function FornostAiRegulatory() {
           </article>
         ))}
       </div>
+      <FornostAiObligations />
     </div>
   );
 }

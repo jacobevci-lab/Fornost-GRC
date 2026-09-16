@@ -34,6 +34,7 @@ export async function GET(req: NextRequest) {
       ["impact", "Etki değerlendirmesi", "ai_impact_assessments", "updated_at", `status IN ('approved','conditional') AND review_date>='${today}'`],
       ["datasets", "Veri seti yönetişimi", "ai_datasets", "updated_at", `status='approved' AND review_date>='${today}'`],
       ["regulatory", "Regülasyon profili", "ai_regulatory_profiles", "updated_at", `status='approved' AND review_date>='${today}' AND gaps_json='[]'`],
+      ["regulatoryObligations", "Regülasyon yükümlülükleri", "ai_regulatory_obligations", "updated_at", "status='completed'"],
       ["literacy", "Operatör yetkinliği", "ai_literacy_records", "updated_at", `status='approved' AND valid_until>='${today}' AND missing_json='[]'`],
       ["supplyChain", "Model supply chain", "ai_model_artifacts", "updated_at", `status='approved' AND valid_until>='${today}' AND blockers_json='[]'`],
       ["redTeam", "Red-team doğrulaması", "ai_red_team_campaigns", "updated_at", `status='approved' AND retest_at>='${today}' AND blockers_json='[]'`],

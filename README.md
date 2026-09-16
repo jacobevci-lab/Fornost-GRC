@@ -33,6 +33,7 @@ Fornost, klasik kayıt ve raporlama işlevlerinin yanında AI sistemlerinin enva
 - Risk, Audit, Compliance ve Evidence güvence agentları
 - AI model envanteri, kullanım senaryosu ve değişiklik yaşam döngüsü
 - ISO/IEC 42001, NIST AI RMF ve EU AI Act kontrol değerlendirmeleri
+- EU AI Act, ISO/IEC 42001, NIST AI RMF, KVKK/GDPR ve kurum politikaları için sahip, doğrulayıcı, son tarih, kanıt bütünlüğü ve maker-checker kapanışlı operasyonel regülasyon yükümlülük takibi
 - AI riskleri, olay yönetimi, DPIA/FRIA, tedarikçi ve erişim yönetişimi
 - Süreli politika/kontrol/risk/release istisnaları, telafi edici kontroller ve maker-checker kararları
 - Trafik, erişim, veri, model artifact ve bağımlılık kapanışını kanıtlayan kontrollü AI emeklilik süreci
@@ -44,6 +45,7 @@ Fornost, klasik kayıt ve raporlama işlevlerinin yanında AI sistemlerinin enva
 - Doğruluk, hata, drift, bias, gecikme ve ölçüm tazeliği için tekilleştirilmiş güvence alarmları; sahiplik, çözüm, CAPA ve release-gate bağlantısı
 - Bütçe, token, provider health, kalite trendi ve regresyon takibi
 - 18 bağımsız kontrol alanını değerlendiren üretim release gate
+- Açık yüksek/kritik veya gecikmiş regülasyon yükümlülüklerini üretim release gate üzerinde bloke eden fail-closed kontrol
 - Model bazlı yönetim özeti ve öncelikli aksiyon kuyruğu
 - Model bazlı, SHA-256 bütünlük özetli JSON denetim dosyası; güvenli kanıt manifesti ve kontrol CSV'si
 - Ham prompt/model cevabı saklamayan, hash ve kaynak referanslı audit izi

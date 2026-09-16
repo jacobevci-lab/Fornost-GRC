@@ -26,6 +26,7 @@ import "./fornost-ai-impact-assessment.css";
 import "./fornost-ai-resilience.css";
 import "./fornost-ai-datasets.css";
 import "./fornost-ai-regulatory.css";
+import "./fornost-ai-obligations.css";
 import "./fornost-ai-literacy.css";
 import "./fornost-ai-supply-chain.css";
 import "./fornost-ai-red-team.css";

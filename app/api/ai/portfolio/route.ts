@@ -33,6 +33,7 @@ export async function GET(req: NextRequest) {
       decommission,
       findings,
       assuranceAlerts,
+      regulatoryObligations,
     ] = await Promise.all([
       DB.prepare(
         "SELECT id,system_name,model_name,owner,status,risk_tier,review_date FROM ai_model_inventory WHERE status!='retired' ORDER BY risk_score DESC,system_name LIMIT 500",
@@ -81,6 +82,7 @@ export async function GET(req: NextRequest) {
         "SELECT model_id,COUNT(*) total FROM ai_findings WHERE status!='resolved' AND (severity IN ('High','Critical') OR due_date<?) GROUP BY model_id",
       ).bind(today).all<Record<string, unknown>>(),
       DB.prepare("SELECT model_id,COUNT(*) total FROM ai_assurance_alerts WHERE status!='resolved' AND severity IN ('High','Critical') GROUP BY model_id").all<Record<string,unknown>>(),
+      DB.prepare("SELECT model_id,COUNT(*) total FROM ai_regulatory_obligations WHERE status!='completed' AND (priority IN ('High','Critical') OR due_date<?) GROUP BY model_id").bind(today).all<Record<string,unknown>>(),
     ]),
     riskMap = mapCounts(risks.results || [], "total"),
     incidentMap = mapCounts(incidents.results || [], "total"),
@@ -94,6 +96,7 @@ export async function GET(req: NextRequest) {
     decommissionMap = mapCounts(decommission.results || [], "total"),
     findingMap = mapCounts(findings.results || [], "total"),
     assuranceAlertMap = mapCounts(assuranceAlerts.results || [], "total"),
+    regulatoryObligationMap = mapCounts(regulatoryObligations.results || [], "total"),
     latestRelease = new Map<string, Record<string, unknown>>();
   for (const row of releases.results || [])
     if (!latestRelease.has(String(row.model_id)))
@@ -113,6 +116,7 @@ export async function GET(req: NextRequest) {
         retirementInProgress = (decommissionMap.get(id) || 0) > 0,
         blockingFindings = findingMap.get(id) || 0,
         blockingAssuranceAlerts = assuranceAlertMap.get(id) || 0,
+        blockingRegulatoryObligations = regulatoryObligationMap.get(id) || 0,
         actions: string[] = [];
       if (model.status !== "approved") actions.push("Model envanter onayı");
       if (highRisks) actions.push(`${highRisks} yüksek/kritik risk`);
@@ -128,6 +132,7 @@ export async function GET(req: NextRequest) {
       if (retirementInProgress) actions.push("Emeklilik planını tamamla");
       if (blockingFindings) actions.push(`${blockingFindings} yüksek/gecikmiş CAPA bulgusu`);
       if (blockingAssuranceAlerts) actions.push(`${blockingAssuranceAlerts} açık yüksek/kritik güvence alarmı`);
+      if (blockingRegulatoryObligations) actions.push(`${blockingRegulatoryObligations} açık/gecikmiş regülasyon yükümlülüğü`);
       if (!release || release.status !== "approved")
         actions.push("Üretim release onayı");
       return {
@@ -150,12 +155,13 @@ export async function GET(req: NextRequest) {
         retirementInProgress,
         blockingFindings,
         blockingAssuranceAlerts,
+        blockingRegulatoryObligations,
         releaseStatus: release?.status || "none",
         releaseScore: Number(release?.readiness_score || 0),
         actions,
         readiness: Math.max(
           0,
-          Math.round(((13 - Math.min(13, actions.length)) * 100) / 13),
+          Math.round(((14 - Math.min(14, actions.length)) * 100) / 14),
         ),
       };
     }),
@@ -191,6 +197,7 @@ export async function GET(req: NextRequest) {
         "Emeklilik",
         "CAPA",
         "Güvence alarmı",
+        "Regülasyon yükümlülüğü",
         "Aksiyonlar",
       ],
       ...portfolio.map((item) => [
@@ -211,6 +218,7 @@ export async function GET(req: NextRequest) {
         item.retirementInProgress,
         item.blockingFindings,
         item.blockingAssuranceAlerts,
+        item.blockingRegulatoryObligations,
         item.actions.join("; "),
       ]),
     ];

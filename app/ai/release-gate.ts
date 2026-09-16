@@ -14,6 +14,7 @@ export type GateInput = {
   resilienceCurrent: boolean;
   datasetCurrent: boolean;
   regulatoryCurrent: boolean;
+  blockingRegulatoryObligations: number;
   literacyCurrent: boolean;
   artifactCurrent: boolean;
   redTeamCurrent: boolean;
@@ -101,11 +102,13 @@ export function evaluateReleaseGate(input: GateInput) {
       },
       {
         key: "regulatory",
-        label: "Regülasyon sınıflandırması",
-        passed: input.regulatoryCurrent,
-        detail: input.regulatoryCurrent
-          ? "Güncel onaylı hukuki sınıflandırma"
-          : "Güncel onaylı hukuki sınıflandırma yok",
+        label: "Regülasyon ve yükümlülükler",
+        passed: input.regulatoryCurrent && input.blockingRegulatoryObligations === 0,
+        detail: input.blockingRegulatoryObligations
+          ? `${input.blockingRegulatoryObligations} açık yüksek/kritik veya gecikmiş yükümlülük`
+          : input.regulatoryCurrent
+            ? "Güncel sınıflandırma ve bloke eden yükümlülük yok"
+            : "Güncel onaylı hukuki sınıflandırma yok",
       },
       {
         key: "literacy",

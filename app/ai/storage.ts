@@ -372,6 +372,18 @@ const aiRegulatoryProfilesSql=`CREATE TABLE IF NOT EXISTS ai_regulatory_profiles
  created_at TEXT NOT NULL, updated_by TEXT NOT NULL, updated_at TEXT NOT NULL, approved_by TEXT, approved_at TEXT
 )`;
 const aiRegulatoryProfilesIndexSql="CREATE INDEX IF NOT EXISTS ai_regulatory_status_review_idx ON ai_regulatory_profiles(status,review_date)";
+const aiRegulatoryObligationsSql=`CREATE TABLE IF NOT EXISTS ai_regulatory_obligations (
+ id TEXT PRIMARY KEY, model_id TEXT NOT NULL, profile_id TEXT, framework TEXT NOT NULL,
+ obligation_code TEXT NOT NULL, title TEXT NOT NULL, description TEXT NOT NULL, owner TEXT NOT NULL,
+ reviewer TEXT NOT NULL, due_date TEXT NOT NULL, priority TEXT NOT NULL, evidence_plan TEXT NOT NULL,
+ recurring_days INTEGER NOT NULL DEFAULT 0, status TEXT NOT NULL DEFAULT 'open', action_note TEXT,
+ evidence_reference TEXT, evidence_sha256 TEXT, verification_evidence_reference TEXT,
+ verification_evidence_sha256 TEXT, created_by TEXT NOT NULL, created_at TEXT NOT NULL,
+ updated_by TEXT NOT NULL, updated_at TEXT NOT NULL, submitted_by TEXT, submitted_at TEXT,
+ verified_by TEXT, verified_at TEXT, reopened_by TEXT, reopened_at TEXT
+)`;
+const aiRegulatoryObligationsIndexSql="CREATE INDEX IF NOT EXISTS ai_regulatory_obligation_model_status_idx ON ai_regulatory_obligations(model_id,status,priority,due_date)";
+const aiRegulatoryObligationsUniqueSql="CREATE UNIQUE INDEX IF NOT EXISTS ai_regulatory_obligation_open_unique_idx ON ai_regulatory_obligations(model_id,framework,obligation_code) WHERE status!='completed'";
 const aiLiteracyRecordsSql=`CREATE TABLE IF NOT EXISTS ai_literacy_records (
  id TEXT PRIMARY KEY, model_id TEXT NOT NULL, principal TEXT NOT NULL, display_name TEXT NOT NULL, operator_role TEXT NOT NULL,
  manager TEXT NOT NULL, required_modules_json TEXT NOT NULL, completed_modules_json TEXT NOT NULL, missing_json TEXT NOT NULL,
@@ -552,6 +564,9 @@ export async function aiRuntime() {
       runtime.DB.prepare(aiDatasetsIndexSql),
       runtime.DB.prepare(aiRegulatoryProfilesSql),
       runtime.DB.prepare(aiRegulatoryProfilesIndexSql),
+      runtime.DB.prepare(aiRegulatoryObligationsSql),
+      runtime.DB.prepare(aiRegulatoryObligationsIndexSql),
+      runtime.DB.prepare(aiRegulatoryObligationsUniqueSql),
       runtime.DB.prepare(aiLiteracyRecordsSql),
       runtime.DB.prepare(aiLiteracyRecordsIndexSql),
       runtime.DB.prepare(aiModelArtifactsSql),
