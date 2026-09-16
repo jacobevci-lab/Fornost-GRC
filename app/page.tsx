@@ -31,6 +31,7 @@ import EvidenceAutomation from "./evidence-automation";
 import RegulatoryIntelligence from "./regulatory-intelligence";
 import ThirdPartyRisk from "./third-party-risk";
 import PolicyLifecycle from "./policy-lifecycle";
+import RiskAppetite from "./risk-appetite";
 import { withBasePath } from "./base-path";
 import { calculatedRiskScore, effectiveImpact } from "./risk-methodology";
 import { defaultCatalogs, type CatalogMap } from "./catalogs";
@@ -65,6 +66,7 @@ type AuditPortfolioItem = {
 const modules = [
   "Ana Sayfa",
   "Risk Assessment",
+  "Risk İştahı ve KRI",
   "BIA",
   "Varlık Envanteri",
   "Uyum",
@@ -92,6 +94,7 @@ const names: Record<Lang, Record<string, string>> = {
   tr: {
     "Ana Sayfa": "Gösterge Paneli",
     "Risk Assessment": "Risk Değerlendirmesi",
+    "Risk İştahı ve KRI": "Risk İştahı ve KRI",
     BIA: "İş Etki Analizi (BIA)",
     "Varlık Envanteri": "Varlık Envanteri",
     Uyum: "Uyum Yönetimi",
@@ -112,6 +115,7 @@ const names: Record<Lang, Record<string, string>> = {
   en: {
     "Ana Sayfa": "Dashboard",
     "Risk Assessment": "Risk Assessment",
+    "Risk İştahı ve KRI": "Risk Appetite & KRI",
     BIA: "Business Impact Analysis (BIA)",
     "Varlık Envanteri": "Asset Inventory",
     Uyum: "Compliance Management",
@@ -149,6 +153,14 @@ function NavIcon({ module }: { module: string }) {
           <path d="M12 3 2.8 20h18.4L12 3Z" />
           <path d="M12 9v4" />
           <path d="M12 17h.01" />
+        </>
+      );
+      break;
+    case "Risk İştahı ve KRI":
+      paths = (
+        <>
+          <path d="M4 19V9M10 19V5M16 19v-7M22 19H2" />
+          <path d="m4 8 6-4 6 5 5-6" />
         </>
       );
       break;
@@ -1827,6 +1839,8 @@ function FornostApp({ currentUser }: { currentUser: any }) {
         )}
         {active === "Ana Sayfa" ? (
           <Dashboard rows={rows} go={setActive} lang={lang} />
+        ) : active === "Risk İştahı ve KRI" ? (
+          <RiskAppetite lang={lang} currentUser={currentUser} />
         ) : active === "Raporlar" ? (
           <Reports rows={rows} lang={lang} />
         ) : active === "Kanıt Otomasyonu" ? (

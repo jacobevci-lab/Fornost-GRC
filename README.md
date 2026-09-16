@@ -123,6 +123,8 @@ TPRM 2.0, mevcut tedarikçi kayıtlarını kontrollü biçimde kapsama alır ve 
 
 Enterprise Policy Lifecycle Management; benzersiz politika sicili, SHA-256 özetli kontrollü sürümler, kontrol/regülasyon/risk eşlemeleri, maker-checker inceleme ve kanıtlı yayın akışını tek merkezde birleştirir. Yayımdaki sürümlere çalışan attestation kampanyaları ve en fazla 180 günlük bağımsız onaylı istisnalar bağlanabilir. Açık kampanya veya aktif istisna, kontrollü yürürlükten kaldırmayı engeller; Viewer yalnız kendi attestation satırını görebilir. Ayrıntılar için [Policy Lifecycle Management](docs/POLICY-LIFECYCLE-MANAGEMENT.md) belgesine bakın.
 
+Enterprise Risk Appetite & KRI Command Center; üst/alt yönlü hedef, uyarı ve ihlal eşikleriyle ölçülebilir risk toleransı kurar. SHA-256 kanıtlı KRI ölçümü kırmızı banda girdiğinde yüksek/kritik ihlali otomatik açar; müdahale ve kapanış bağımsız maker-checker akışıyla yönetilir. Stres senaryoları ve ana Risk Assessment sicili, canonical JSON ve SHA-256 ile mühürlenen yönetim kurulu risk paketinde birleştirilir. Ayrıntılar için [Enterprise Risk Appetite & KRI](docs/ENTERPRISE-RISK-APPETITE-KRI.md) belgesine bakın.
+
 ## Production readiness
 
 Teknik kalite kapısı, güvenlik kontrolleri ve operasyonel önkoşullar [Production Readiness](docs/PRODUCTION-READINESS.md) belgesinde yer alır. Mimari için [Architecture](docs/ARCHITECTURE.md), güvenlik modeli için [Security](SECURITY.md), test kapsamı için [Test Strategy](docs/TEST-STRATEGY.md) okunmalıdır.
