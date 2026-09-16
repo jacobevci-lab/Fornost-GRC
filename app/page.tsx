@@ -28,6 +28,7 @@ import "./module-registers.css";
 import "./layout-guardrails.css";
 import Settings from "./settings";
 import EvidenceAutomation from "./evidence-automation";
+import RegulatoryIntelligence from "./regulatory-intelligence";
 import { withBasePath } from "./base-path";
 import { calculatedRiskScore, effectiveImpact } from "./risk-methodology";
 import { defaultCatalogs, type CatalogMap } from "./catalogs";
@@ -68,6 +69,7 @@ const modules = [
   "Tedarikçiler",
   "Kanıtlar",
   "Kanıt Otomasyonu",
+  "Regülasyon Merkezi",
   "Denetim Yönetimi",
   "Raporlar",
   "Sistem Ayarları",
@@ -94,6 +96,7 @@ const names: Record<Lang, Record<string, string>> = {
     Kontroller: "Kontrol Kütüphanesi",
     Kanıtlar: "Kanıt Kütüphanesi",
     "Kanıt Otomasyonu": "Kanıt Otomasyonu",
+    "Regülasyon Merkezi": "Regülasyon Merkezi",
     "Denetim Yönetimi": "Denetim Yönetimi",
     Raporlar: "Raporlama",
     "Sistem Ayarları": "Sistem Ayarları",
@@ -112,6 +115,7 @@ const names: Record<Lang, Record<string, string>> = {
     Kontroller: "Control Library",
     Kanıtlar: "Evidence Library",
     "Kanıt Otomasyonu": "Evidence Automation",
+    "Regülasyon Merkezi": "Regulatory Change Center",
     "Denetim Yönetimi": "Audit Management",
     Raporlar: "Reporting",
     "Sistem Ayarları": "System Settings",
@@ -208,6 +212,15 @@ function NavIcon({ module }: { module: string }) {
           <path d="M17 3v8" />
           <rect x="3" y="11" width="18" height="10" rx="2" />
           <path d="m8 16 2 2 5-5" />
+        </>
+      );
+      break;
+    case "Regülasyon Merkezi":
+      paths = (
+        <>
+          <path d="M5 3h10l4 4v14H5V3Z" />
+          <path d="M15 3v5h5" />
+          <path d="M8 12h8M8 16h6" />
         </>
       );
       break;
@@ -1670,7 +1683,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
     { label: lang === "tr" ? "KOMUTA" : "COMMAND", items: modules.slice(0, 1) },
     {
       label: lang === "tr" ? "GRC OPERASYONLARI" : "GRC OPERATIONS",
-      items: modules.slice(1, 9),
+      items: modules.slice(1, modules.indexOf("Raporlar")),
     },
     { label: lang === "tr" ? "İÇGÖRÜ" : "INSIGHTS", items: ["Raporlar"] },
     ...(currentUser.role === "Admin"
@@ -1804,6 +1817,8 @@ function FornostApp({ currentUser }: { currentUser: any }) {
           <Reports rows={rows} lang={lang} />
         ) : active === "Kanıt Otomasyonu" ? (
           <EvidenceAutomation lang={lang} currentUser={currentUser} />
+        ) : active === "Regülasyon Merkezi" ? (
+          <RegulatoryIntelligence lang={lang} currentUser={currentUser} />
         ) : adminModules.has(active) ? (
           <Settings
             lang={lang}

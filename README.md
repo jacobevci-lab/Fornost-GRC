@@ -15,6 +15,7 @@ Fornost, klasik kayıt ve raporlama işlevlerinin yanında AI sistemlerinin enva
 - Uyum ve Kontrol Kütüphanesi
 - Kanıt Yönetimi ve güvenli dosya yükleme
 - Sürekli Kontrol İzleme 2.0: vendor-neutral API collector, zamanlanmış kontrol testleri, kanıt tazeliği, ardışık hata eşiği, otomatik risk/bulgu ve maker-checker CAPA kapanışı
+- Regülasyon Merkezi: kaynak gözetimi, değişiklik triajı, GRC kayıtlarına etki analizi, sorumlu aksiyonlar, SHA-256 kanıt bütünlüğü ve bağımsız maker-checker kapanışı
 - Tedarikçi Yönetimi
 - Denetim Yönetimi: ISO 27001, SOC 1/2 Type I/II çalışma alanları
 - Entegrasyon Merkezi: Jira, ServiceNow, Azure DevOps, GitHub Issues ve webhook ticket akışları
@@ -115,6 +116,8 @@ Hosting kimliği ve D1/R2 binding adları `.openai/hosting.json` içinde tutulur
 Kanıt dosyaları yalnız PDF, JPEG, PNG veya WebP olabilir; MIME türü ve dosya imzası birlikte doğrulanır. Üst sınır 10 MB'dır. Excel import yalnız `.xlsx`, 5 MB ve 1.000 satırla sınırlıdır.
 
 Sürekli kontrol motoru; public API uçlarını varsayılan kabul eder, private/on-prem connector adreslerini ancak açık yönetici politikasıyla etkinleştirir. Redirect kapalıdır, istek ve yanıt boyutları sınırlıdır, token/API anahtarları AES-GCM ile şifrelenir. Her çalışma yanıt hash'i, tetikleyici türü, süre ve hata koduyla değişmez geçmişe yazılır. Ayrıntılı işleyiş için [Continuous Control Monitoring](docs/CONTINUOUS-CONTROL-MONITORING.md) belgesine bakın.
+
+Regülasyon Merkezi, yetkili kaynak sicili ve periyodik horizon-review takvimi üzerinden değişiklikleri izler. Değişiklikler kontrol, politika, risk, varlık, tedarikçi, süreç, denetim ve kanıt kayıtlarına bağlanabilir; kapanış tüm etkiler kanıtla tamamlanıp atanmış bağımsız doğrulayıcı tarafından onaylanana kadar engellenir. Ayrıntılar için [Regulatory Change Intelligence](docs/REGULATORY-CHANGE-INTELLIGENCE.md) belgesine bakın.
 
 ## Production readiness
 
