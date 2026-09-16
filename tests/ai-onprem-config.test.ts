@@ -20,6 +20,14 @@ test("application container receives AI network policy flags", () => {
   assert.match(server, /--var "FORNOST_AI_ALLOW_LOOPBACK:\$\{FORNOST_AI_ALLOW_LOOPBACK:-false\}"/);
 });
 
+test("on-prem installer preserves a dedicated assurance package signing key", () => {
+  assert.match(installer, /read_setting FORNOST_DOSSIER_SIGNING_KEY/);
+  assert.match(installer, /dossier-signing\.key/);
+  assert.match(installer, /--env FORNOST_DOSSIER_SIGNING_KEY \\/);
+  assert.match(server, /--var "FORNOST_DOSSIER_SIGNING_KEY:/);
+  assert.match(envExample, /FORNOST_DOSSIER_SIGNING_KEY=/);
+});
+
 test("loopback policy cannot be enabled without private endpoint policy", () => {
   assert.match(installer, /FORNOST_AI_ALLOW_LOOPBACK=true requires FORNOST_AI_ALLOW_PRIVATE_ENDPOINTS=true/);
 });

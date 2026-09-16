@@ -146,8 +146,12 @@ FORNOST_STATE_DIR=
 FORNOST_TLS_CERT_FILE=
 FORNOST_TLS_KEY_FILE=
 FORNOST_TLS_HOSTNAME=
+FORNOST_SETTINGS_ENCRYPTION_KEY=
+FORNOST_DOSSIER_SIGNING_KEY=
 FORNOST_BUILD_LOCAL=false
 ```
+
+İki anahtar boş bırakıldığında installer bunları ayrı dosyalarda üretir ve `FORNOST_STATE_DIR` altında kalıcı olarak korur. `FORNOST_SETTINGS_ENCRYPTION_KEY` entegrasyon sırlarını şifreler; `FORNOST_DOSSIER_SIGNING_KEY` ise mühürlü AI denetim paketlerinin HMAC-SHA-256 doğrulamasında kullanılır. Yedekleme sırasında state dizini korunmalıdır; imzalama anahtarının kaybı eski paketlerin sunucu tarafında doğrulanmasını engeller.
 
 `FORNOST_TLS_HOSTNAME` kullanılıyorsa aynı zamanda reverse proxy Host allowlist'ine
 eklenir. Platforma DNS adıyla erişiyorsanız bu alanı kullandığınız FQDN olarak

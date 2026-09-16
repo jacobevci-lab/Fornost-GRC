@@ -47,7 +47,7 @@ Fornost, klasik kayıt ve raporlama işlevlerinin yanında AI sistemlerinin enva
 - 18 bağımsız kontrol alanını değerlendiren üretim release gate
 - Açık yüksek/kritik veya gecikmiş regülasyon yükümlülüklerini üretim release gate üzerinde bloke eden fail-closed kontrol
 - Model bazlı yönetim özeti ve öncelikli aksiyon kuyruğu
-- Model bazlı, SHA-256 bütünlük özetli JSON denetim dosyası; güvenli kanıt manifesti ve kontrol CSV'si
+- Model bazlı, değişmez kaydedilen ve sonradan doğrulanabilen HMAC-SHA-256 sunucu mührü taşıyan JSON denetim paketi; güvenli kanıt manifesti, release kararı ve kontrol CSV'si
 - Ham prompt/model cevabı saklamayan, hash ve kaynak referanslı audit izi
 
 Detaylı güven sınırları ve veri akışı için [Fornost AI Architecture](docs/AI-ARCHITECTURE.md) belgesine bakın.

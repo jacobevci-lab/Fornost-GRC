@@ -40,7 +40,11 @@ export default function FornostAiPortfolio() {
     } | null>(null),
     [loading, setLoading] = useState(true),
     [dossierModel, setDossierModel] = useState(""),
-    [dossierDays, setDossierDays] = useState<30 | 90 | 365>(90);
+    [dossierDays, setDossierDays] = useState<30 | 90 | 365>(90),
+    [packageBusy, setPackageBusy] = useState(false),
+    [packageNotice, setPackageNotice] = useState(""),
+    [sealedPackage, setSealedPackage] = useState<{id:string;digest:string;keyId:string}|null>(null),
+    [sealedHistory, setSealedHistory] = useState<{id:string;manifest_sha256:string;signing_key_id:string;generated_by:string;generated_at:string;verification_count:number;last_verified_at:string|null}[]>([]);
   const load = useCallback(async () => {
     setLoading(true);
     const response = await fetch(withBasePath("/api/ai/portfolio"), {
@@ -55,6 +59,19 @@ export default function FornostAiPortfolio() {
     return () => clearTimeout(timer);
   }, [load]);
   const selectedDossierModel = dossierModel || data?.portfolio[0]?.id || "";
+  const loadPackages=useCallback(async(modelId:string)=>{if(!modelId){setSealedHistory([]);return;}const response=await fetch(withBasePath(`/api/ai/dossier?modelId=${encodeURIComponent(modelId)}&list=1`),{cache:"no-store"}),body=await response.json().catch(()=>({}));if(response.ok)setSealedHistory(body.packages||[]);},[]);
+  useEffect(()=>{const timer=setTimeout(()=>void loadPackages(selectedDossierModel),0);return()=>clearTimeout(timer);},[loadPackages,selectedDossierModel]);
+  async function packageAction(action:"seal"|"verify", packageId?:string) {
+    if (!selectedDossierModel || packageBusy) return;
+    if (action === "seal" && !window.confirm("Bu işlem mevcut yönetişim görünümünü değişmez ve sunucu anahtarıyla mühürlü bir denetim paketi olarak kaydeder. Devam edilsin mi?")) return;
+    setPackageBusy(true);setPackageNotice("");
+    const response=await fetch(withBasePath("/api/ai/dossier"),{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(action==="seal"?{action,modelId:selectedDossierModel,days:dossierDays,confirmation:"DENETİM PAKETİNİ MÜHÜRLE"}:{action,packageId:packageId||sealedPackage?.id})}),
+      body=await response.json().catch(()=>({}));
+    if(response.ok&&action==="seal"){setSealedPackage({id:String(body.id),digest:String(body.digest),keyId:String(body.keyId)});setPackageNotice("Denetim paketi değişmez kayıt olarak mühürlendi.");await loadPackages(selectedDossierModel);}
+    else if(response.ok)setPackageNotice(body.valid?"Paket özeti ve sunucu mührü doğrulandı.":"Paket doğrulaması başarısız: içerik veya anahtar eşleşmiyor.");
+    else setPackageNotice(String(body.error||"Denetim paketi işlemi tamamlanamadı."));
+    setPackageBusy(false);
+  }
   if (loading && !data)
     return <div className="ai-portfolio empty">AI portföyü hazırlanıyor…</div>;
   return (
@@ -175,14 +192,17 @@ export default function FornostAiPortfolio() {
             <b>Denetim güvence dosyası</b>
             <small>Model kapsamı, kontrol durumu, kanıt hash manifesti ve son release kararını tek dosyada üretir.</small>
           </div>
-          <span>SHA-256</span>
+          <span>SHA-256 · HMAC</span>
         </header>
         <div className="dossier-controls">
           <label><span>AI sistemi</span><select value={selectedDossierModel} onChange={(event) => setDossierModel(event.target.value)}>{data?.portfolio.map((row) => <option key={row.id} value={row.id}>{row.systemName} · {row.modelName}</option>)}</select></label>
           <label><span>Denetim dönemi</span><select value={dossierDays} onChange={(event) => setDossierDays(Number(event.target.value) as 30 | 90 | 365)}><option value={30}>Son 30 gün</option><option value={90}>Son 90 gün</option><option value={365}>Son 365 gün</option></select></label>
-          <div><a className={!selectedDossierModel ? "disabled" : ""} aria-disabled={!selectedDossierModel} href={selectedDossierModel ? withBasePath(`/api/ai/dossier?modelId=${encodeURIComponent(selectedDossierModel)}&days=${dossierDays}&format=json`) : undefined}>Hash doğrulamalı JSON</a><a className={!selectedDossierModel ? "disabled" : ""} aria-disabled={!selectedDossierModel} href={selectedDossierModel ? withBasePath(`/api/ai/dossier?modelId=${encodeURIComponent(selectedDossierModel)}&days=${dossierDays}&format=csv`) : undefined}>Kontrol CSV</a></div>
+          <div><button disabled={!selectedDossierModel||packageBusy} onClick={()=>void packageAction("seal")}>Mühürlü paket oluştur</button><a className={!selectedDossierModel ? "disabled" : ""} aria-disabled={!selectedDossierModel} href={selectedDossierModel ? withBasePath(`/api/ai/dossier?modelId=${encodeURIComponent(selectedDossierModel)}&days=${dossierDays}&format=json`) : undefined}>Hash JSON</a><a className={!selectedDossierModel ? "disabled" : ""} aria-disabled={!selectedDossierModel} href={selectedDossierModel ? withBasePath(`/api/ai/dossier?modelId=${encodeURIComponent(selectedDossierModel)}&days=${dossierDays}&format=csv`) : undefined}>Kontrol CSV</a></div>
         </div>
-        <p>Dosya yalnız yönetişim metadata’sı ve kayıt referanslarını içerir; prompt, model yanıtı, kanıt içeriği veya gizli değer içermez. Üretim işlemi audit izine yazılır.</p>
+        {sealedPackage&&<div className="sealed-package"><div><b>{sealedPackage.id}</b><code>{sealedPackage.digest}</code><small>Anahtar: {sealedPackage.keyId}</small></div><div><a href={withBasePath(`/api/ai/dossier?packageId=${encodeURIComponent(sealedPackage.id)}`)}>Mühürlü JSON indir</a><button disabled={packageBusy} onClick={()=>void packageAction("verify")}>Sunucuda doğrula</button></div></div>}
+        {!!sealedHistory.length&&<div className="sealed-history"><b>Son mühürlü paketler</b>{sealedHistory.slice(0,5).map(item=><article key={item.id}><div><strong>{item.id}</strong><code>{item.manifest_sha256}</code><small>{new Date(item.generated_at).toLocaleString("tr-TR")} · {item.generated_by} · {item.verification_count} doğrulama</small></div><div><a href={withBasePath(`/api/ai/dossier?packageId=${encodeURIComponent(item.id)}`)}>İndir</a><button disabled={packageBusy} onClick={()=>void packageAction("verify",item.id)}>Doğrula</button></div></article>)}</div>}
+        {packageNotice&&<p className="package-notice">{packageNotice}</p>}
+        <p>Dosya yalnız yönetişim metadata’sı ve kayıt referanslarını içerir; prompt, model yanıtı, kanıt içeriği veya gizli değer içermez. HMAC mührü sunucu kaynaklı bütünlük ve özgünlük kontrolüdür, nitelikli elektronik imza değildir. Üretim ve doğrulama işlemleri audit izine yazılır.</p>
       </section>
       <section className="queue">
         <header>

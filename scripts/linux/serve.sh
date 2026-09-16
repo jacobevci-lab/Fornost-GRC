@@ -22,6 +22,7 @@ exec bash scripts/sites-env.sh -- \
   --persist-to .sites-runtime/data \
   --var "FORNOST_DEMO_MODE:${FORNOST_DEMO_MODE:-false}" \
   --var "FORNOST_SETTINGS_ENCRYPTION_KEY:${FORNOST_SETTINGS_ENCRYPTION_KEY:-development-only-integration-key-change-me}" \
+  --var "FORNOST_DOSSIER_SIGNING_KEY:${FORNOST_DOSSIER_SIGNING_KEY:-development-only-dossier-signing-key-change-me}" \
   --var "FORNOST_ALLOW_PRIVATE_CONNECTORS:${FORNOST_ALLOW_PRIVATE_CONNECTORS:-false}" \
   --var "FORNOST_AI_ALLOW_PRIVATE_ENDPOINTS:${FORNOST_AI_ALLOW_PRIVATE_ENDPOINTS:-false}" \
   --var "FORNOST_AI_ALLOW_LOOPBACK:${FORNOST_AI_ALLOW_LOOPBACK:-false}" \

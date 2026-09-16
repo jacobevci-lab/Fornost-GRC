@@ -35,6 +35,7 @@ start_runtime_stack() {
     --env "NEXT_PUBLIC_BASE_PATH=${base_path}" \
     --env FORNOST_DEMO_MODE=false \
     --env FORNOST_SETTINGS_ENCRYPTION_KEY \
+    --env FORNOST_DOSSIER_SIGNING_KEY \
     --env FORNOST_ALLOW_PRIVATE_CONNECTORS \
     --env FORNOST_AI_ALLOW_PRIVATE_ENDPOINTS \
     --env FORNOST_AI_ALLOW_LOOPBACK \
@@ -110,6 +111,7 @@ tls_key_setting="$(read_setting FORNOST_TLS_KEY_FILE '')"
 tls_hostname="$(read_setting FORNOST_TLS_HOSTNAME '')"
 state_dir_setting="${FORNOST_STATE_DIR:-$(read_setting FORNOST_STATE_DIR '')}"
 settings_encryption_key="${FORNOST_SETTINGS_ENCRYPTION_KEY:-$(read_setting FORNOST_SETTINGS_ENCRYPTION_KEY '')}"
+dossier_signing_key="${FORNOST_DOSSIER_SIGNING_KEY:-$(read_setting FORNOST_DOSSIER_SIGNING_KEY '')}"
 allow_private_connectors="${FORNOST_ALLOW_PRIVATE_CONNECTORS:-$(read_setting FORNOST_ALLOW_PRIVATE_CONNECTORS false)}"
 ai_allow_private_endpoints="${FORNOST_AI_ALLOW_PRIVATE_ENDPOINTS:-$(read_setting FORNOST_AI_ALLOW_PRIVATE_ENDPOINTS false)}"
 ai_allow_loopback="${FORNOST_AI_ALLOW_LOOPBACK:-$(read_setting FORNOST_AI_ALLOW_LOOPBACK false)}"
@@ -187,6 +189,21 @@ fi
   exit 64
 }
 export FORNOST_SETTINGS_ENCRYPTION_KEY="${settings_encryption_key}"
+if [[ -z "${dossier_signing_key}" ]]; then
+  require_command openssl
+  dossier_key_file="${state_dir}/dossier-signing.key"
+  if [[ ! -s "${dossier_key_file}" ]]; then
+    umask 077
+    openssl rand -hex 32 >"${dossier_key_file}"
+    chmod 600 "${dossier_key_file}"
+  fi
+  dossier_signing_key="$(<"${dossier_key_file}")"
+fi
+(( ${#dossier_signing_key} >= 32 )) || {
+  echo "FORNOST_DOSSIER_SIGNING_KEY must contain at least 32 characters." >&2
+  exit 64
+}
+export FORNOST_DOSSIER_SIGNING_KEY="${dossier_signing_key}"
 export FORNOST_ALLOW_PRIVATE_CONNECTORS="${allow_private_connectors}"
 export FORNOST_AI_ALLOW_PRIVATE_ENDPOINTS="${ai_allow_private_endpoints}"
 export FORNOST_AI_ALLOW_LOOPBACK="${ai_allow_loopback}"

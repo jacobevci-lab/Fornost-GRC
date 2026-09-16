@@ -284,3 +284,22 @@ export const aiRegulatoryObligations = sqliteTable("ai_regulatory_obligations", 
   reopenedBy: text("reopened_by"),
   reopenedAt: text("reopened_at"),
 }, (table) => [index("ai_regulatory_obligation_model_status_idx").on(table.modelId, table.status, table.priority, table.dueDate)]);
+
+export const aiAssurancePackages = sqliteTable("ai_assurance_packages", {
+  id: text("id").primaryKey(),
+  modelId: text("model_id").notNull(),
+  periodDays: integer("period_days").notNull(),
+  periodSince: text("period_since").notNull(),
+  periodUntil: text("period_until").notNull(),
+  schemaVersion: text("schema_version").notNull(),
+  manifestJson: text("manifest_json").notNull(),
+  manifestSha256: text("manifest_sha256").notNull().unique(),
+  signatureAlgorithm: text("signature_algorithm").notNull(),
+  signatureValue: text("signature_value").notNull(),
+  signingKeyId: text("signing_key_id").notNull(),
+  generatedBy: text("generated_by").notNull(),
+  generatedAt: text("generated_at").notNull(),
+  verificationCount: integer("verification_count").notNull().default(0),
+  lastVerifiedBy: text("last_verified_by"),
+  lastVerifiedAt: text("last_verified_at"),
+}, (table) => [index("ai_assurance_packages_model_date_idx").on(table.modelId, table.generatedAt)]);

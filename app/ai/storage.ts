@@ -483,6 +483,15 @@ const aiAssuranceAlertsSql=`CREATE TABLE IF NOT EXISTS ai_assurance_alerts (
  resolved_by TEXT, resolved_at TEXT, reopened_by TEXT, reopened_at TEXT
 )`;
 const aiAssuranceAlertsIndexSql="CREATE INDEX IF NOT EXISTS ai_assurance_alerts_model_status_idx ON ai_assurance_alerts(model_id,status,severity,last_seen_at)";
+const aiAssurancePackagesSql=`CREATE TABLE IF NOT EXISTS ai_assurance_packages (
+ id TEXT PRIMARY KEY, model_id TEXT NOT NULL, period_days INTEGER NOT NULL,
+ period_since TEXT NOT NULL, period_until TEXT NOT NULL, schema_version TEXT NOT NULL,
+ manifest_json TEXT NOT NULL, manifest_sha256 TEXT NOT NULL UNIQUE,
+ signature_algorithm TEXT NOT NULL, signature_value TEXT NOT NULL, signing_key_id TEXT NOT NULL,
+ generated_by TEXT NOT NULL, generated_at TEXT NOT NULL, verification_count INTEGER NOT NULL DEFAULT 0,
+ last_verified_by TEXT, last_verified_at TEXT
+)`;
+const aiAssurancePackagesIndexSql="CREATE INDEX IF NOT EXISTS ai_assurance_packages_model_date_idx ON ai_assurance_packages(model_id,generated_at)";
 
 let schemaReady: Promise<void> | null = null;
 
@@ -592,6 +601,8 @@ export async function aiRuntime() {
       runtime.DB.prepare(aiFindingsSourceIndexSql),
       runtime.DB.prepare(aiAssuranceAlertsSql),
       runtime.DB.prepare(aiAssuranceAlertsIndexSql),
+      runtime.DB.prepare(aiAssurancePackagesSql),
+      runtime.DB.prepare(aiAssurancePackagesIndexSql),
     ]).then(() => undefined).catch((error) => {
       schemaReady = null;
       throw error;
