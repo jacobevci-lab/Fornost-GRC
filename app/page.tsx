@@ -30,6 +30,7 @@ import Settings from "./settings";
 import EvidenceAutomation from "./evidence-automation";
 import RegulatoryIntelligence from "./regulatory-intelligence";
 import ThirdPartyRisk from "./third-party-risk";
+import PolicyLifecycle from "./policy-lifecycle";
 import { withBasePath } from "./base-path";
 import { calculatedRiskScore, effectiveImpact } from "./risk-methodology";
 import { defaultCatalogs, type CatalogMap } from "./catalogs";
@@ -67,6 +68,7 @@ const modules = [
   "BIA",
   "Varlık Envanteri",
   "Uyum",
+  "Politika Merkezi",
   "Tedarikçiler",
   "Kanıtlar",
   "Kanıt Otomasyonu",
@@ -93,6 +95,7 @@ const names: Record<Lang, Record<string, string>> = {
     BIA: "İş Etki Analizi (BIA)",
     "Varlık Envanteri": "Varlık Envanteri",
     Uyum: "Uyum Yönetimi",
+    "Politika Merkezi": "Politika Merkezi",
     Tedarikçiler: "Tedarikçi Yönetimi",
     Kontroller: "Kontrol Kütüphanesi",
     Kanıtlar: "Kanıt Kütüphanesi",
@@ -112,6 +115,7 @@ const names: Record<Lang, Record<string, string>> = {
     BIA: "Business Impact Analysis (BIA)",
     "Varlık Envanteri": "Asset Inventory",
     Uyum: "Compliance Management",
+    "Politika Merkezi": "Policy Center",
     Tedarikçiler: "Vendor Management",
     Kontroller: "Control Library",
     Kanıtlar: "Evidence Library",
@@ -172,6 +176,15 @@ function NavIcon({ module }: { module: string }) {
         <>
           <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z" />
           <path d="m9 12 2 2 4-4" />
+        </>
+      );
+      break;
+    case "Politika Merkezi":
+      paths = (
+        <>
+          <path d="M6 3h9l4 4v14H6V3Z" />
+          <path d="M15 3v5h5M9 12h7M9 16h7" />
+          <path d="m3 12 2 2 3-4" />
         </>
       );
       break;
@@ -1820,6 +1833,8 @@ function FornostApp({ currentUser }: { currentUser: any }) {
           <EvidenceAutomation lang={lang} currentUser={currentUser} />
         ) : active === "Regülasyon Merkezi" ? (
           <RegulatoryIntelligence lang={lang} currentUser={currentUser} />
+        ) : active === "Politika Merkezi" ? (
+          <PolicyLifecycle lang={lang} currentUser={currentUser} />
         ) : active === "Tedarikçiler" ? (
           <ThirdPartyRisk lang={lang} currentUser={currentUser} />
         ) : adminModules.has(active) ? (

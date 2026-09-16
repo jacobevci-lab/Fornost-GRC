@@ -121,6 +121,8 @@ Regülasyon Merkezi, yetkili kaynak sicili ve periyodik horizon-review takvimi �
 
 TPRM 2.0, mevcut tedarikçi kayıtlarını kontrollü biçimde kapsama alır ve yeni üçüncü tarafları ilk risk değerlendirmesiyle birlikte oluşturur. On iki due-diligence alanı; kritiklik, veri sınıfı, doğal/kalıntı risk, sözleşme bitişi, kritik kontrol boşlukları ve CAPA durumuyla birlikte yönetilir. Tam onay açık yüksek/kritik bulgu veya kritik kontrol boşluğu varken engellenir; karar, bulgu kapanışı ve offboarding bağımsız reviewer ve SHA-256 kanıtı gerektirir. Ayrıntılar için [Third-Party Risk Management 2.0](docs/THIRD-PARTY-RISK-MANAGEMENT.md) belgesine bakın.
 
+Enterprise Policy Lifecycle Management; benzersiz politika sicili, SHA-256 özetli kontrollü sürümler, kontrol/regülasyon/risk eşlemeleri, maker-checker inceleme ve kanıtlı yayın akışını tek merkezde birleştirir. Yayımdaki sürümlere çalışan attestation kampanyaları ve en fazla 180 günlük bağımsız onaylı istisnalar bağlanabilir. Açık kampanya veya aktif istisna, kontrollü yürürlükten kaldırmayı engeller; Viewer yalnız kendi attestation satırını görebilir. Ayrıntılar için [Policy Lifecycle Management](docs/POLICY-LIFECYCLE-MANAGEMENT.md) belgesine bakın.
+
 ## Production readiness
 
 Teknik kalite kapısı, güvenlik kontrolleri ve operasyonel önkoşullar [Production Readiness](docs/PRODUCTION-READINESS.md) belgesinde yer alır. Mimari için [Architecture](docs/ARCHITECTURE.md), güvenlik modeli için [Security](SECURITY.md), test kapsamı için [Test Strategy](docs/TEST-STRATEGY.md) okunmalıdır.
