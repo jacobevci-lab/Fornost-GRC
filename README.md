@@ -14,6 +14,7 @@ Fornost, klasik kayıt ve raporlama işlevlerinin yanında AI sistemlerinin enva
 - Varlık Envanteri
 - Uyum ve Kontrol Kütüphanesi
 - Kanıt Yönetimi ve güvenli dosya yükleme
+- Sürekli Kontrol İzleme 2.0: vendor-neutral API collector, zamanlanmış kontrol testleri, kanıt tazeliği, ardışık hata eşiği, otomatik risk/bulgu ve maker-checker CAPA kapanışı
 - Tedarikçi Yönetimi
 - Denetim Yönetimi: ISO 27001, SOC 1/2 Type I/II çalışma alanları
 - Entegrasyon Merkezi: Jira, ServiceNow, Azure DevOps, GitHub Issues ve webhook ticket akışları
@@ -112,6 +113,8 @@ npm run validate:artifact
 Hosting kimliği ve D1/R2 binding adları `.openai/hosting.json` içinde tutulur. Gizli değerler repoya yazılmaz. Canlı ortam değerleri hosting platformunun environment-variable yönetiminden verilmelidir. Entegrasyon token'ları D1 içinde AES-GCM ile şifrelenir; anahtar canlı ortam değişkenlerinden veya on-prem kalıcı state dizininden sağlanır. LDAP/LDAPS ham TCP bağlantısı hosted ortamdan açılmaz, şirket içi HTTPS IAM bridge üzerinden çalışır.
 
 Kanıt dosyaları yalnız PDF, JPEG, PNG veya WebP olabilir; MIME türü ve dosya imzası birlikte doğrulanır. Üst sınır 10 MB'dır. Excel import yalnız `.xlsx`, 5 MB ve 1.000 satırla sınırlıdır.
+
+Sürekli kontrol motoru; public API uçlarını varsayılan kabul eder, private/on-prem connector adreslerini ancak açık yönetici politikasıyla etkinleştirir. Redirect kapalıdır, istek ve yanıt boyutları sınırlıdır, token/API anahtarları AES-GCM ile şifrelenir. Her çalışma yanıt hash'i, tetikleyici türü, süre ve hata koduyla değişmez geçmişe yazılır. Ayrıntılı işleyiş için [Continuous Control Monitoring](docs/CONTINUOUS-CONTROL-MONITORING.md) belgesine bakın.
 
 ## Production readiness
 

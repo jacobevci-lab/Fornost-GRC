@@ -12,6 +12,11 @@ cd "${project_root}"
 host="${HOST:-0.0.0.0}"
 port="${PORT:-3000}"
 
+scheduler_token="${FORNOST_SCHEDULER_TOKEN:-}"
+if (( ${#scheduler_token} >= 32 )); then
+  bash scripts/linux/evidence-scheduler.sh &
+fi
+
 exec bash scripts/sites-env.sh -- \
   node_modules/.bin/wrangler dev \
   --config dist/server/wrangler.json \
@@ -23,6 +28,7 @@ exec bash scripts/sites-env.sh -- \
   --var "FORNOST_DEMO_MODE:${FORNOST_DEMO_MODE:-false}" \
   --var "FORNOST_SETTINGS_ENCRYPTION_KEY:${FORNOST_SETTINGS_ENCRYPTION_KEY:-development-only-integration-key-change-me}" \
   --var "FORNOST_DOSSIER_SIGNING_KEY:${FORNOST_DOSSIER_SIGNING_KEY:-development-only-dossier-signing-key-change-me}" \
+  --var "FORNOST_SCHEDULER_TOKEN:${FORNOST_SCHEDULER_TOKEN:-}" \
   --var "FORNOST_ALLOW_PRIVATE_CONNECTORS:${FORNOST_ALLOW_PRIVATE_CONNECTORS:-false}" \
   --var "FORNOST_AI_ALLOW_PRIVATE_ENDPOINTS:${FORNOST_AI_ALLOW_PRIVATE_ENDPOINTS:-false}" \
   --var "FORNOST_AI_ALLOW_LOOPBACK:${FORNOST_AI_ALLOW_LOOPBACK:-false}" \

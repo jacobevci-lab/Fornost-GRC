@@ -36,6 +36,7 @@ start_runtime_stack() {
     --env FORNOST_DEMO_MODE=false \
     --env FORNOST_SETTINGS_ENCRYPTION_KEY \
     --env FORNOST_DOSSIER_SIGNING_KEY \
+    --env FORNOST_SCHEDULER_TOKEN \
     --env FORNOST_ALLOW_PRIVATE_CONNECTORS \
     --env FORNOST_AI_ALLOW_PRIVATE_ENDPOINTS \
     --env FORNOST_AI_ALLOW_LOOPBACK \
@@ -112,6 +113,7 @@ tls_hostname="$(read_setting FORNOST_TLS_HOSTNAME '')"
 state_dir_setting="${FORNOST_STATE_DIR:-$(read_setting FORNOST_STATE_DIR '')}"
 settings_encryption_key="${FORNOST_SETTINGS_ENCRYPTION_KEY:-$(read_setting FORNOST_SETTINGS_ENCRYPTION_KEY '')}"
 dossier_signing_key="${FORNOST_DOSSIER_SIGNING_KEY:-$(read_setting FORNOST_DOSSIER_SIGNING_KEY '')}"
+scheduler_token="${FORNOST_SCHEDULER_TOKEN:-$(read_setting FORNOST_SCHEDULER_TOKEN '')}"
 allow_private_connectors="${FORNOST_ALLOW_PRIVATE_CONNECTORS:-$(read_setting FORNOST_ALLOW_PRIVATE_CONNECTORS false)}"
 ai_allow_private_endpoints="${FORNOST_AI_ALLOW_PRIVATE_ENDPOINTS:-$(read_setting FORNOST_AI_ALLOW_PRIVATE_ENDPOINTS false)}"
 ai_allow_loopback="${FORNOST_AI_ALLOW_LOOPBACK:-$(read_setting FORNOST_AI_ALLOW_LOOPBACK false)}"
@@ -204,6 +206,21 @@ fi
   exit 64
 }
 export FORNOST_DOSSIER_SIGNING_KEY="${dossier_signing_key}"
+if [[ -z "${scheduler_token}" ]]; then
+  require_command openssl
+  scheduler_token_file="${state_dir}/evidence-scheduler.token"
+  if [[ ! -s "${scheduler_token_file}" ]]; then
+    umask 077
+    openssl rand -hex 32 >"${scheduler_token_file}"
+    chmod 600 "${scheduler_token_file}"
+  fi
+  scheduler_token="$(<"${scheduler_token_file}")"
+fi
+(( ${#scheduler_token} >= 32 )) || {
+  echo "FORNOST_SCHEDULER_TOKEN must contain at least 32 characters." >&2
+  exit 64
+}
+export FORNOST_SCHEDULER_TOKEN="${scheduler_token}"
 export FORNOST_ALLOW_PRIVATE_CONNECTORS="${allow_private_connectors}"
 export FORNOST_AI_ALLOW_PRIVATE_ENDPOINTS="${ai_allow_private_endpoints}"
 export FORNOST_AI_ALLOW_LOOPBACK="${ai_allow_loopback}"

@@ -22,6 +22,9 @@ test("collector enforces outbound and payload safety boundaries",()=>{
   assert.match(route,/AbortSignal\.timeout/);
   assert.match(route,/1_000_000/);
   assert.match(route,/encryptSecret/);
+  assert.match(route,/addMissingColumns/);
+  assert.match(route,/trigger_type/);
+  assert.match(route,/duration_ms/);
 });
 
 test("evidence automation keeps Turkish and English UI states consistent",()=>{

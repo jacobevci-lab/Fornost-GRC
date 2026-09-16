@@ -8,6 +8,28 @@ export const simpleGrcRecords = sqliteTable("simple_grc_records", {
   updatedAt: text("updated_at").notNull(),
 }, (table) => [index("simple_grc_records_module_idx").on(table.module, table.updatedAt)]);
 
+export const evidenceAutomationRules = sqliteTable("evidence_automation_rules", {
+  id:text("id").primaryKey(), name:text("name").notNull(), sourceId:text("source_id").notNull(), controlRefs:text("control_refs").notNull(),
+  jsonPath:text("json_path").notNull(), operator:text("operator").notNull(), expected:text("expected").notNull(), schedule:text("schedule").notNull(),
+  enabled:integer("enabled").notNull().default(1), lastStatus:text("last_status"), lastRunAt:text("last_run_at"), freshnessHours:integer("freshness_hours").notNull().default(24),
+  failureThreshold:integer("failure_threshold").notNull().default(1), consecutiveFailures:integer("consecutive_failures").notNull().default(0), autoFinding:integer("auto_finding").notNull().default(1),
+  remediationOwner:text("remediation_owner").notNull().default(""), remediationDueDays:integer("remediation_due_days").notNull().default(7), nextRunAt:text("next_run_at"), lastEvidenceAt:text("last_evidence_at"),
+  createdAt:text("created_at").notNull(), updatedAt:text("updated_at").notNull(), updatedBy:text("updated_by").notNull(),
+},(table)=>[index("evidence_automation_rules_due_idx").on(table.enabled,table.nextRunAt)]);
+
+export const evidenceAutomationRuns = sqliteTable("evidence_automation_runs", {
+  id:text("id").primaryKey(), ruleId:text("rule_id").notNull(), ruleName:text("rule_name").notNull(), sourceName:text("source_name").notNull(), status:text("status").notNull(),
+  score:integer("score").notNull(), detail:text("detail").notNull(), responseHash:text("response_hash").notNull(), evidenceId:text("evidence_id"), createdAt:text("created_at").notNull(), actor:text("actor").notNull(),
+  triggerType:text("trigger_type").notNull().default("manual"), durationMs:integer("duration_ms").notNull().default(0), errorCode:text("error_code"),
+},(table)=>[index("evidence_automation_runs_rule_created_idx").on(table.ruleId,table.createdAt)]);
+
+export const evidenceAutomationFindings = sqliteTable("evidence_automation_findings", {
+  id:text("id").primaryKey(), ruleId:text("rule_id").notNull(), evidenceId:text("evidence_id"), title:text("title").notNull(), severity:text("severity").notNull(), owner:text("owner").notNull(),
+  dueDate:text("due_date").notNull(), status:text("status").notNull().default("open"), detail:text("detail").notNull(), occurrenceCount:integer("occurrence_count").notNull().default(1),
+  createdAt:text("created_at").notNull(), updatedAt:text("updated_at").notNull(), acknowledgedBy:text("acknowledged_by"), acknowledgedAt:text("acknowledged_at"), closureNote:text("closure_note"),
+  closureEvidenceRef:text("closure_evidence_ref"), closureEvidenceSha256:text("closure_evidence_sha256"), closedBy:text("closed_by"), closedAt:text("closed_at"),
+},(table)=>[index("evidence_automation_findings_status_due_idx").on(table.status,table.dueDate),index("evidence_automation_findings_rule_status_idx").on(table.ruleId,table.status)]);
+
 export const aiActionDrafts = sqliteTable("ai_action_drafts", {
   id: text("id").primaryKey(), kind: text("kind").notNull(), title: text("title").notNull(),
   payloadJson: text("payload_json").notNull(), rationale: text("rationale").notNull(),
