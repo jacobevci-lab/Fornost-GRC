@@ -2,6 +2,8 @@ CREATE TABLE IF NOT EXISTS ai_regulatory_obligations (
   id TEXT PRIMARY KEY,
   model_id TEXT NOT NULL,
   profile_id TEXT,
+  renewal_of_id TEXT,
+  cycle_number INTEGER NOT NULL DEFAULT 1,
   framework TEXT NOT NULL,
   obligation_code TEXT NOT NULL,
   title TEXT NOT NULL,
@@ -31,6 +33,8 @@ CREATE TABLE IF NOT EXISTS ai_regulatory_obligations (
 );
 CREATE INDEX IF NOT EXISTS ai_regulatory_obligation_model_status_idx
   ON ai_regulatory_obligations(model_id,status,priority,due_date);
+CREATE INDEX IF NOT EXISTS ai_regulatory_obligation_renewal_idx
+  ON ai_regulatory_obligations(renewal_of_id,cycle_number);
 CREATE UNIQUE INDEX IF NOT EXISTS ai_regulatory_obligation_open_unique_idx
   ON ai_regulatory_obligations(model_id,framework,obligation_code)
   WHERE status!='completed';

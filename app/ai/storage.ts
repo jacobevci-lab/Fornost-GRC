@@ -373,7 +373,8 @@ const aiRegulatoryProfilesSql=`CREATE TABLE IF NOT EXISTS ai_regulatory_profiles
 )`;
 const aiRegulatoryProfilesIndexSql="CREATE INDEX IF NOT EXISTS ai_regulatory_status_review_idx ON ai_regulatory_profiles(status,review_date)";
 const aiRegulatoryObligationsSql=`CREATE TABLE IF NOT EXISTS ai_regulatory_obligations (
- id TEXT PRIMARY KEY, model_id TEXT NOT NULL, profile_id TEXT, framework TEXT NOT NULL,
+ id TEXT PRIMARY KEY, model_id TEXT NOT NULL, profile_id TEXT, renewal_of_id TEXT,
+ cycle_number INTEGER NOT NULL DEFAULT 1, framework TEXT NOT NULL,
  obligation_code TEXT NOT NULL, title TEXT NOT NULL, description TEXT NOT NULL, owner TEXT NOT NULL,
  reviewer TEXT NOT NULL, due_date TEXT NOT NULL, priority TEXT NOT NULL, evidence_plan TEXT NOT NULL,
  recurring_days INTEGER NOT NULL DEFAULT 0, status TEXT NOT NULL DEFAULT 'open', action_note TEXT,
@@ -383,6 +384,7 @@ const aiRegulatoryObligationsSql=`CREATE TABLE IF NOT EXISTS ai_regulatory_oblig
  verified_by TEXT, verified_at TEXT, reopened_by TEXT, reopened_at TEXT
 )`;
 const aiRegulatoryObligationsIndexSql="CREATE INDEX IF NOT EXISTS ai_regulatory_obligation_model_status_idx ON ai_regulatory_obligations(model_id,status,priority,due_date)";
+const aiRegulatoryObligationsRenewalIndexSql="CREATE INDEX IF NOT EXISTS ai_regulatory_obligation_renewal_idx ON ai_regulatory_obligations(renewal_of_id,cycle_number)";
 const aiRegulatoryObligationsUniqueSql="CREATE UNIQUE INDEX IF NOT EXISTS ai_regulatory_obligation_open_unique_idx ON ai_regulatory_obligations(model_id,framework,obligation_code) WHERE status!='completed'";
 const aiLiteracyRecordsSql=`CREATE TABLE IF NOT EXISTS ai_literacy_records (
  id TEXT PRIMARY KEY, model_id TEXT NOT NULL, principal TEXT NOT NULL, display_name TEXT NOT NULL, operator_role TEXT NOT NULL,
@@ -566,6 +568,7 @@ export async function aiRuntime() {
       runtime.DB.prepare(aiRegulatoryProfilesIndexSql),
       runtime.DB.prepare(aiRegulatoryObligationsSql),
       runtime.DB.prepare(aiRegulatoryObligationsIndexSql),
+      runtime.DB.prepare(aiRegulatoryObligationsRenewalIndexSql),
       runtime.DB.prepare(aiRegulatoryObligationsUniqueSql),
       runtime.DB.prepare(aiLiteracyRecordsSql),
       runtime.DB.prepare(aiLiteracyRecordsIndexSql),

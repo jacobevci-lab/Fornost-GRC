@@ -76,7 +76,36 @@ export function obligationAttention(
   dueDate: string,
   today = new Date().toISOString().slice(0, 10),
 ) {
-  if (status !== "completed" && dueDate < today) return "overdue";
-  if (status !== "completed" && ["High", "Critical"].includes(priority)) return "priority";
-  return status;
+  return obligationSchedule(status, priority, dueDate, today).state;
+}
+
+export function obligationSchedule(
+  status: string,
+  priority: string,
+  dueDate: string,
+  today = new Date().toISOString().slice(0, 10),
+) {
+  if (status === "completed") return { state: "completed", daysRemaining: 0, reminderLevel: "none" };
+  const due = new Date(`${dueDate}T00:00:00Z`).valueOf(),
+    current = new Date(`${today}T00:00:00Z`).valueOf(),
+    daysRemaining = Math.ceil((due - current) / 86_400_000);
+  if (daysRemaining < 0) return { state: "overdue", daysRemaining, reminderLevel: "escalation" };
+  if (daysRemaining <= 7) return { state: "due-7", daysRemaining, reminderLevel: "urgent" };
+  if (daysRemaining <= 15) return { state: "due-15", daysRemaining, reminderLevel: "warning" };
+  if (daysRemaining <= 30) return { state: "due-30", daysRemaining, reminderLevel: "notice" };
+  if (["High", "Critical"].includes(priority)) return { state: "priority", daysRemaining, reminderLevel: "priority" };
+  return { state: status, daysRemaining, reminderLevel: "none" };
+}
+
+export function nextObligationDueDate(
+  currentDueDate: string,
+  recurringDays: number,
+  today = new Date().toISOString().slice(0, 10),
+) {
+  if (!realDate(currentDueDate) || !realDate(today) || !Number.isInteger(recurringDays) || recurringDays < 1 || recurringDays > 3650)
+    throw new Error("Ardıl yükümlülük için geçerli tarih ve tekrar süresi zorunludur.");
+  const anchor = currentDueDate > today ? currentDueDate : today,
+    date = new Date(`${anchor}T00:00:00Z`);
+  date.setUTCDate(date.getUTCDate() + recurringDays);
+  return date.toISOString().slice(0, 10);
 }
