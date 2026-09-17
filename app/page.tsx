@@ -33,6 +33,7 @@ import ThirdPartyRisk from "./third-party-risk";
 import PolicyLifecycle from "./policy-lifecycle";
 import RiskAppetite from "./risk-appetite";
 import FindingsCenter from "./findings-center";
+import IncidentCenter from "./incident-center";
 import { withBasePath } from "./base-path";
 import { calculatedRiskScore, effectiveImpact } from "./risk-methodology";
 import { defaultCatalogs, type CatalogMap } from "./catalogs";
@@ -72,6 +73,7 @@ const modules = [
   "Kanıtlar",
   "Kanıt Otomasyonu",
   "Regülasyon Merkezi",
+  "Güvenlik Olayları",
   "Bulgular ve CAPA",
   "Denetim Yönetimi",
   "Raporlar",
@@ -102,6 +104,7 @@ const names: Record<Lang, Record<string, string>> = {
     Kanıtlar: "Kanıt Kütüphanesi",
     "Kanıt Otomasyonu": "Kanıt Otomasyonu",
     "Regülasyon Merkezi": "Regülasyon Merkezi",
+    "Güvenlik Olayları": "Güvenlik Olayları ve Kriz",
     "Bulgular ve CAPA": "Bulgular ve CAPA",
     "Denetim Yönetimi": "Denetim Yönetimi",
     Raporlar: "Raporlama",
@@ -124,6 +127,7 @@ const names: Record<Lang, Record<string, string>> = {
     Kanıtlar: "Evidence Library",
     "Kanıt Otomasyonu": "Evidence Automation",
     "Regülasyon Merkezi": "Regulatory Change Center",
+    "Güvenlik Olayları": "Security Incidents & Crisis",
     "Bulgular ve CAPA": "Findings & CAPA",
     "Denetim Yönetimi": "Audit Management",
     Raporlar: "Reporting",
@@ -2109,6 +2113,8 @@ function FornostApp({ currentUser }: { currentUser: any }) {
           <EvidenceAutomation lang={lang} currentUser={currentUser} />
         ) : active === "Regülasyon Merkezi" ? (
           <RegulatoryIntelligence lang={lang} currentUser={currentUser} />
+        ) : active === "Güvenlik Olayları" ? (
+          <IncidentCenter lang={lang} currentUser={currentUser} />
         ) : active === "Bulgular ve CAPA" ? (
           <FindingsCenter lang={lang} currentUser={currentUser} />
         ) : active === "Politika Merkezi" ? (
