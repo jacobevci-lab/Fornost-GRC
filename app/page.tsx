@@ -44,6 +44,7 @@ import "./midnight-graphite.css";
 import "./fornost-enterprise-2026.css";
 import "./fornost-atelier.css";
 import "./sidebar-collapse.css";
+import "./fornost-horizon.css";
 import { buildReportHtml, buildReportPdf, downloadBlob, reportMetrics } from "./report-export";
 
 type Lang = "tr" | "en";
@@ -1392,7 +1393,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
       {},
     ),
     [catalogs, setCatalogs] = useState<CatalogMap>(catalogOptions),
-    [theme, setTheme] = useState<"light" | "dark">("dark"),
+    [theme, setTheme] = useState<"light" | "dark">("light"),
     [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const labels = labelMap[lang],
     u = ui[lang];
@@ -1416,13 +1417,13 @@ function FornostApp({ currentUser }: { currentUser: any }) {
     document.documentElement.lang = lang;
   }, [lang]);
   useEffect(() => {
-    const saved = localStorage.getItem("fornost-grc-theme");
-    setTheme(saved === "dark" || saved === "light" ? saved : "dark");
+    const saved = localStorage.getItem("fornost-grc-theme-v2");
+    setTheme(saved === "dark" || saved === "light" ? saved : "light");
   }, []);
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
     document.documentElement.style.colorScheme = theme;
-    localStorage.setItem("fornost-grc-theme", theme);
+    localStorage.setItem("fornost-grc-theme-v2", theme);
     return () => {
       delete document.documentElement.dataset.theme;
       document.documentElement.style.colorScheme = "";

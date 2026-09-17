@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-test("renders production cockpit metadata and dark theme", async () => {
+test("renders production cockpit metadata and the light-first theme", async () => {
   const workerUrl = new URL("../dist/server/index.js", import.meta.url);
   workerUrl.searchParams.set("test", `${process.pid}-${Date.now()}`);
   const { default: worker } = await import(workerUrl.href);
@@ -28,6 +28,6 @@ test("renders production cockpit metadata and dark theme", async () => {
   );
   const html = await response.text();
   assert.match(html, /<title>Fornost GRC · Enterprise Risk &amp; AI Governance<\/title>/i);
-  assert.match(html, /<html[^>]*data-theme=["']dark["']/i);
+  assert.match(html, /<html[^>]*data-theme=["']light["']/i);
   assert.doesNotMatch(html, /name=["']codex-preview["']/i);
 });

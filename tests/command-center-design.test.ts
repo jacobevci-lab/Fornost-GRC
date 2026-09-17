@@ -11,8 +11,8 @@ test("enterprise cockpit is the default dashboard experience",async()=>{
  assert.match(page,/className="posture-rail"/);
  assert.match(page,/className="attention-queue"/);
  assert.match(page,/className="workspace-launcher"/);
- assert.match(page,/useState<"light" \| "dark">\("dark"\)/);
- assert.match(layout,/data-theme="dark"/);
+ assert.match(page,/useState<"light" \| "dark">\("light"\)/);
+ assert.match(layout,/data-theme="light"/);
 });
 
 test("enterprise cockpit stylesheet covers both themes and responsive layouts",async()=>{

@@ -25,6 +25,7 @@ Fornost, klasik kayıt ve raporlama işlevlerinin yanında AI sistemlerinin enva
 - Admin / Editor / Viewer rol yönetimi
 - Excel içe aktarma ve CSV/Excel dışa aktarma
 - TR/EN arayüz
+- Açık tema öncelikli Horizon tasarım sistemi, ayrı gerçek koyu mod, dengeli veri yoğunluğu ve daraltılabilir ikon navigasyonu
 
 ## Fornost AI Assurance
 
