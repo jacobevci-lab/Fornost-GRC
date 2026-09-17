@@ -34,6 +34,7 @@ import PolicyLifecycle from "./policy-lifecycle";
 import RiskAppetite from "./risk-appetite";
 import FindingsCenter from "./findings-center";
 import IncidentCenter from "./incident-center";
+import ContinuityCenter from "./continuity-center";
 import { withBasePath } from "./base-path";
 import { calculatedRiskScore, effectiveImpact } from "./risk-methodology";
 import { defaultCatalogs, type CatalogMap } from "./catalogs";
@@ -66,6 +67,7 @@ const modules = [
   "Risk Assessment",
   "Risk İştahı ve KRI",
   "BIA",
+  "İş Sürekliliği",
   "Varlık Envanteri",
   "Uyum",
   "Politika Merkezi",
@@ -96,6 +98,7 @@ const names: Record<Lang, Record<string, string>> = {
     "Risk Assessment": "Risk Değerlendirmesi",
     "Risk İştahı ve KRI": "Risk İştahı ve KRI",
     BIA: "İş Etki Analizi (BIA)",
+    "İş Sürekliliği": "İş Sürekliliği ve Dayanıklılık",
     "Varlık Envanteri": "Varlık Envanteri",
     Uyum: "Uyum Yönetimi",
     "Politika Merkezi": "Politika Merkezi",
@@ -119,6 +122,7 @@ const names: Record<Lang, Record<string, string>> = {
     "Risk Assessment": "Risk Assessment",
     "Risk İştahı ve KRI": "Risk Appetite & KRI",
     BIA: "Business Impact Analysis (BIA)",
+    "İş Sürekliliği": "Business Continuity & Resilience",
     "Varlık Envanteri": "Asset Inventory",
     Uyum: "Compliance Management",
     "Politika Merkezi": "Policy Center",
@@ -184,6 +188,15 @@ function NavIcon({ module }: { module: string }) {
           <path d="M10 19V5" />
           <path d="M16 19v-7" />
           <path d="M22 19H2" />
+        </>
+      );
+      break;
+    case "İş Sürekliliği":
+      paths = (
+        <>
+          <path d="M4 13a8 8 0 1 1 2.3 5.7" />
+          <path d="M4 18v-5h5" />
+          <path d="M12 7v5l3 2" />
         </>
       );
       break;
@@ -2115,6 +2128,8 @@ function FornostApp({ currentUser }: { currentUser: any }) {
           <RegulatoryIntelligence lang={lang} currentUser={currentUser} />
         ) : active === "Güvenlik Olayları" ? (
           <IncidentCenter lang={lang} currentUser={currentUser} />
+        ) : active === "İş Sürekliliği" ? (
+          <ContinuityCenter lang={lang} currentUser={currentUser} />
         ) : active === "Bulgular ve CAPA" ? (
           <FindingsCenter lang={lang} currentUser={currentUser} />
         ) : active === "Politika Merkezi" ? (

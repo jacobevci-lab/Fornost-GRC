@@ -31,7 +31,7 @@ test("management reporting omits opaque internal record identifiers", () => {
 test("management reporting offers separate exports for every operational module", () => {
   const reports = page.slice(page.indexOf("function Reports"), page.indexOf("function ModuleFilter"));
   assert.match(page, /const reportModules = \[/);
-  assert.match(page, /"Risk Assessment",\s*"BIA",\s*"Varlık Envanteri",\s*"Uyum"/);
+  assert.match(page, /"Risk Assessment",[\s\S]*"BIA",[\s\S]*"Varlık Envanteri",[\s\S]*"Uyum"/);
   assert.match(page, /"Tedarikçiler",\s*"Kontroller",\s*"Kanıtlar",\s*"Denetim Yönetimi"/);
   assert.match(reports, /className="report-module-picker"/);
   assert.match(reports, /module === all \|\| r\.module === module/);

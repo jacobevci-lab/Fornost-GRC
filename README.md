@@ -17,6 +17,7 @@ Fornost, klasik kayıt ve raporlama işlevlerinin yanında AI sistemlerinin enva
 - Sürekli Kontrol İzleme 2.0: vendor-neutral API collector, zamanlanmış kontrol testleri, kanıt tazeliği, ardışık hata eşiği, otomatik risk/bulgu ve maker-checker CAPA kapanışı
 - Regülasyon Merkezi: kaynak gözetimi, değişiklik triajı, GRC kayıtlarına etki analizi, sorumlu aksiyonlar, SHA-256 kanıt bütünlüğü ve bağımsız maker-checker kapanışı
 - Enterprise Security Incident & Crisis Management: önem bazlı müdahale/recovery SLA, varlık-risk-BIA bağlantısı, containment/eradication/recovery, KVKK-GDPR bildirim kararı, RCA, lessons learned ve bağımsız kanıtlı kapanış
+- Enterprise Business Continuity & Operational Resilience: BIA bağlantılı RTO/RPO/MTPD planları, maker-checker onay, kanıtlı tatbikatlar, hedef ihlali ölçümü ve otomatik iyileştirme açıkları
 - Third-Party Risk Management 2.0: onboarding, 12 alanlı due diligence, doğal/kalıntı risk, sözleşme ve veri yaşam döngüsü, bulgu/CAPA, maker-checker karar, periyodik yeniden değerlendirme ve kanıtlı offboarding
 - Enterprise Findings & CAPA: denetim, kontrol, tedarikçi, regülasyon, risk, politika, olay, zafiyet ve AI kaynaklı bulgular için önem bazlı SLA, kök neden, düzeltici/önleyici aksiyon, süreli risk kabulü ve bağımsız kanıtlı kapanış
 - Denetim Yönetimi: ISO 27001, SOC 1/2 Type I/II çalışma alanları
@@ -131,6 +132,8 @@ Enterprise Risk Appetite & KRI Command Center; üst/alt yönlü hedef, uyarı ve
 Enterprise Findings & CAPA Management; denetim, sürekli kontrol, tedarikçi, regülasyon, risk, politika, olay, zafiyet ve AI güvence bulgularını ortak kayıt altında birleştirir. Önem bazlı 7/30/60/90 günlük SLA, kök neden, düzeltici ve önleyici aksiyon, en fazla 180 günlük kanıtlı risk kabulü, maker-checker kapanış ve tekrar sayacıyla uçtan uca izlenir. Ayrıntılar için [Enterprise Findings & CAPA](docs/ENTERPRISE-FINDINGS-CAPA.md) belgesine bakın.
 
 Enterprise Security Incident & Crisis Management; olay ilanı, triaj, containment, eradication, recovery, post-incident review ve kapanışı sıralı ve fail-closed bir yaşam döngüsünde yönetir. Critical/High/Medium/Low için 1/4/12/24 saat müdahale ve 24/72/120/240 saat recovery hedefleri izlenir. Etkilenen varlıklar, risk ve BIA kayıtları; veri sınıfı, kişisel veri etkisi, KVKK/GDPR bildirim kararı, RCA, lessons learned ve SHA-256 kanıt zinciriyle birlikte tutulur. Ayrıntılar için [Enterprise Incident & Crisis Management](docs/ENTERPRISE-INCIDENT-CRISIS-MANAGEMENT.md) belgesine bakın.
+
+Enterprise Business Continuity & Operational Resilience; BIA kayıtlarını kontrollü planlara, RTO/RPO/MTPD hedeflerine ve tatbikat sonuçlarına bağlar. Hedef ihlali veya başarısız/kısmi tatbikat otomatik iyileştirme açığı üretir; kapanış SHA-256 kanıtı ve bağımsız reviewer ile fail-closed ilerler. Ayrıntılar için [Enterprise Business Continuity](docs/ENTERPRISE-BUSINESS-CONTINUITY.md) belgesine bakın.
 
 ## Production readiness
 
