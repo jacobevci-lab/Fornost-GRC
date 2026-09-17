@@ -1411,13 +1411,13 @@ function FornostApp({ currentUser }: { currentUser: any }) {
     document.documentElement.lang = lang;
   }, [lang]);
   useEffect(() => {
-    const saved = localStorage.getItem("fornost-grc-theme-v3");
+    const saved = localStorage.getItem("fornost-grc-theme-v4");
     setTheme(saved === "dark" || saved === "light" ? saved : "light");
   }, []);
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
     document.documentElement.style.colorScheme = theme;
-    localStorage.setItem("fornost-grc-theme-v3", theme);
+    localStorage.setItem("fornost-grc-theme-v4", theme);
     return () => {
       delete document.documentElement.dataset.theme;
       document.documentElement.style.colorScheme = "";
