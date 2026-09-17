@@ -38,13 +38,7 @@ import { calculatedRiskScore, effectiveImpact } from "./risk-methodology";
 import { defaultCatalogs, type CatalogMap } from "./catalogs";
 import { safeSpreadsheetCell } from "./export-security";
 import { automaticAuditTemplates } from "./api/grc/framework-catalogs";
-import "./theme-system.css";
-import "./final-polish.css";
-import "./midnight-graphite.css";
-import "./fornost-enterprise-2026.css";
-import "./fornost-atelier.css";
-import "./sidebar-collapse.css";
-import "./fornost-horizon.css";
+import "./fornost-atlas.css";
 import { buildReportHtml, buildReportPdf, downloadBlob, reportMetrics } from "./report-export";
 
 type Lang = "tr" | "en";
@@ -1417,13 +1411,13 @@ function FornostApp({ currentUser }: { currentUser: any }) {
     document.documentElement.lang = lang;
   }, [lang]);
   useEffect(() => {
-    const saved = localStorage.getItem("fornost-grc-theme-v2");
+    const saved = localStorage.getItem("fornost-grc-theme-v3");
     setTheme(saved === "dark" || saved === "light" ? saved : "light");
   }, []);
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
     document.documentElement.style.colorScheme = theme;
-    localStorage.setItem("fornost-grc-theme-v2", theme);
+    localStorage.setItem("fornost-grc-theme-v3", theme);
     return () => {
       delete document.documentElement.dataset.theme;
       document.documentElement.style.colorScheme = "";
@@ -1763,26 +1757,21 @@ function FornostApp({ currentUser }: { currentUser: any }) {
             <b>Fornost GRC</b>
             <small>Governance Intelligence</small>
           </div>
-          <button
-            type="button"
-            className="sidebar-toggle"
-            onClick={toggleSidebar}
-            aria-label={sidebarToggleLabel}
-            aria-expanded={!sidebarCollapsed}
-            aria-controls="fornost-navigation"
-            title={sidebarToggleLabel}
-          >
-            <svg aria-hidden="true" viewBox="0 0 20 20">
-              <path
-                d={
-                  sidebarCollapsed
-                    ? "m7 4 6 6-6 6"
-                    : "m13 4-6 6 6 6"
-                }
-              />
-            </svg>
-          </button>
         </div>
+        <button
+          type="button"
+          className="sidebar-edge-toggle"
+          onClick={toggleSidebar}
+          aria-label={sidebarToggleLabel}
+          aria-expanded={!sidebarCollapsed}
+          aria-controls="fornost-navigation"
+          title={sidebarToggleLabel}
+        >
+          <svg aria-hidden="true" viewBox="0 0 20 20">
+            <path d={sidebarCollapsed ? "m7 4 6 6-6 6" : "m13 4-6 6 6 6"} />
+          </svg>
+          <span>{sidebarToggleLabel}</span>
+        </button>
         <nav id="fornost-navigation">
           {navGroups.map((group) => (
             <div className="nav-group" key={group.label}>
