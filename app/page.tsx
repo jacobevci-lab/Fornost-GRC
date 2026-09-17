@@ -32,6 +32,7 @@ import RegulatoryIntelligence from "./regulatory-intelligence";
 import ThirdPartyRisk from "./third-party-risk";
 import PolicyLifecycle from "./policy-lifecycle";
 import RiskAppetite from "./risk-appetite";
+import FindingsCenter from "./findings-center";
 import { withBasePath } from "./base-path";
 import { calculatedRiskScore, effectiveImpact } from "./risk-methodology";
 import { defaultCatalogs, type CatalogMap } from "./catalogs";
@@ -76,6 +77,7 @@ const modules = [
   "Kanıtlar",
   "Kanıt Otomasyonu",
   "Regülasyon Merkezi",
+  "Bulgular ve CAPA",
   "Denetim Yönetimi",
   "Raporlar",
   "Sistem Ayarları",
@@ -105,6 +107,7 @@ const names: Record<Lang, Record<string, string>> = {
     Kanıtlar: "Kanıt Kütüphanesi",
     "Kanıt Otomasyonu": "Kanıt Otomasyonu",
     "Regülasyon Merkezi": "Regülasyon Merkezi",
+    "Bulgular ve CAPA": "Bulgular ve CAPA",
     "Denetim Yönetimi": "Denetim Yönetimi",
     Raporlar: "Raporlama",
     "Sistem Ayarları": "Sistem Ayarları",
@@ -126,6 +129,7 @@ const names: Record<Lang, Record<string, string>> = {
     Kanıtlar: "Evidence Library",
     "Kanıt Otomasyonu": "Evidence Automation",
     "Regülasyon Merkezi": "Regulatory Change Center",
+    "Bulgular ve CAPA": "Findings & CAPA",
     "Denetim Yönetimi": "Audit Management",
     Raporlar: "Reporting",
     "Sistem Ayarları": "System Settings",
@@ -162,6 +166,15 @@ function NavIcon({ module }: { module: string }) {
         <>
           <path d="M4 19V9M10 19V5M16 19v-7M22 19H2" />
           <path d="m4 8 6-4 6 5 5-6" />
+        </>
+      );
+      break;
+    case "Bulgular ve CAPA":
+      paths = (
+        <>
+          <path d="M9 3h6l1 2h3v16H5V5h3l1-2Z" />
+          <path d="m8 13 2.5 2.5L16 10" />
+          <path d="M9 8h6" />
         </>
       );
       break;
@@ -1887,6 +1900,8 @@ function FornostApp({ currentUser }: { currentUser: any }) {
           <EvidenceAutomation lang={lang} currentUser={currentUser} />
         ) : active === "Regülasyon Merkezi" ? (
           <RegulatoryIntelligence lang={lang} currentUser={currentUser} />
+        ) : active === "Bulgular ve CAPA" ? (
+          <FindingsCenter lang={lang} currentUser={currentUser} />
         ) : active === "Politika Merkezi" ? (
           <PolicyLifecycle lang={lang} currentUser={currentUser} />
         ) : active === "Tedarikçiler" ? (

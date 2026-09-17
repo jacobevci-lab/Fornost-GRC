@@ -17,6 +17,7 @@ Fornost, klasik kayıt ve raporlama işlevlerinin yanında AI sistemlerinin enva
 - Sürekli Kontrol İzleme 2.0: vendor-neutral API collector, zamanlanmış kontrol testleri, kanıt tazeliği, ardışık hata eşiği, otomatik risk/bulgu ve maker-checker CAPA kapanışı
 - Regülasyon Merkezi: kaynak gözetimi, değişiklik triajı, GRC kayıtlarına etki analizi, sorumlu aksiyonlar, SHA-256 kanıt bütünlüğü ve bağımsız maker-checker kapanışı
 - Third-Party Risk Management 2.0: onboarding, 12 alanlı due diligence, doğal/kalıntı risk, sözleşme ve veri yaşam döngüsü, bulgu/CAPA, maker-checker karar, periyodik yeniden değerlendirme ve kanıtlı offboarding
+- Enterprise Findings & CAPA: denetim, kontrol, tedarikçi, regülasyon, risk, politika, olay, zafiyet ve AI kaynaklı bulgular için önem bazlı SLA, kök neden, düzeltici/önleyici aksiyon, süreli risk kabulü ve bağımsız kanıtlı kapanış
 - Denetim Yönetimi: ISO 27001, SOC 1/2 Type I/II çalışma alanları
 - Entegrasyon Merkezi: Jira, ServiceNow, Azure DevOps, GitHub Issues ve webhook ticket akışları
 - E-posta bağlantı testi: SMTP bridge, Microsoft Graph Mail veya HTTP email API
@@ -124,6 +125,8 @@ TPRM 2.0, mevcut tedarikçi kayıtlarını kontrollü biçimde kapsama alır ve 
 Enterprise Policy Lifecycle Management; benzersiz politika sicili, SHA-256 özetli kontrollü sürümler, kontrol/regülasyon/risk eşlemeleri, maker-checker inceleme ve kanıtlı yayın akışını tek merkezde birleştirir. Yayımdaki sürümlere çalışan attestation kampanyaları ve en fazla 180 günlük bağımsız onaylı istisnalar bağlanabilir. Açık kampanya veya aktif istisna, kontrollü yürürlükten kaldırmayı engeller; Viewer yalnız kendi attestation satırını görebilir. Ayrıntılar için [Policy Lifecycle Management](docs/POLICY-LIFECYCLE-MANAGEMENT.md) belgesine bakın.
 
 Enterprise Risk Appetite & KRI Command Center; üst/alt yönlü hedef, uyarı ve ihlal eşikleriyle ölçülebilir risk toleransı kurar. SHA-256 kanıtlı KRI ölçümü kırmızı banda girdiğinde yüksek/kritik ihlali otomatik açar; müdahale ve kapanış bağımsız maker-checker akışıyla yönetilir. Stres senaryoları ve ana Risk Assessment sicili, canonical JSON ve SHA-256 ile mühürlenen yönetim kurulu risk paketinde birleştirilir. Ayrıntılar için [Enterprise Risk Appetite & KRI](docs/ENTERPRISE-RISK-APPETITE-KRI.md) belgesine bakın.
+
+Enterprise Findings & CAPA Management; denetim, sürekli kontrol, tedarikçi, regülasyon, risk, politika, olay, zafiyet ve AI güvence bulgularını ortak kayıt altında birleştirir. Önem bazlı 7/30/60/90 günlük SLA, kök neden, düzeltici ve önleyici aksiyon, en fazla 180 günlük kanıtlı risk kabulü, maker-checker kapanış ve tekrar sayacıyla uçtan uca izlenir. Ayrıntılar için [Enterprise Findings & CAPA](docs/ENTERPRISE-FINDINGS-CAPA.md) belgesine bakın.
 
 ## Production readiness
 
