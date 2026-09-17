@@ -1388,7 +1388,8 @@ function FornostApp({ currentUser }: { currentUser: any }) {
     ),
     [catalogs, setCatalogs] = useState<CatalogMap>(catalogOptions),
     [theme, setTheme] = useState<"light" | "dark">("light"),
-    [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+    [sidebarCollapsed, setSidebarCollapsed] = useState(false),
+    [mobileNavOpen, setMobileNavOpen] = useState(false);
   const labels = labelMap[lang],
     u = ui[lang];
   linkedRows = rows;
@@ -1423,6 +1424,18 @@ function FornostApp({ currentUser }: { currentUser: any }) {
       document.documentElement.style.colorScheme = "";
     };
   }, [theme]);
+  useEffect(() => {
+    if (!mobileNavOpen) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setMobileNavOpen(false);
+    };
+    document.addEventListener("keydown", closeOnEscape);
+    document.body.classList.add("mobile-nav-locked");
+    return () => {
+      document.removeEventListener("keydown", closeOnEscape);
+      document.body.classList.remove("mobile-nav-locked");
+    };
+  }, [mobileNavOpen]);
   useEffect(() => {
     document.title = "Fornost GRC";
     const overview = document.querySelector(".welcome small");
@@ -1749,7 +1762,9 @@ function FornostApp({ currentUser }: { currentUser: any }) {
     });
   }
   return (
-    <div className={`shell${sidebarCollapsed ? " sidebar-collapsed" : ""}`}>
+    <div
+      className={`shell${sidebarCollapsed ? " sidebar-collapsed" : ""}${mobileNavOpen ? " mobile-nav-open" : ""}`}
+    >
       <aside aria-label={lang === "tr" ? "Ana menü" : "Main navigation"}>
         <div className="brand">
           <span>F</span>
@@ -1786,6 +1801,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
                       setActive(m);
                       setQuery("");
                       setNotice("");
+                      setMobileNavOpen(false);
                     }}
                     key={m}
                   >
@@ -1814,11 +1830,32 @@ function FornostApp({ currentUser }: { currentUser: any }) {
           </p>
         </div>
       </aside>
+      <button
+        type="button"
+        className="mobile-nav-backdrop"
+        aria-label={lang === "tr" ? "Menüyü kapat" : "Close navigation"}
+        tabIndex={mobileNavOpen ? 0 : -1}
+        onClick={() => setMobileNavOpen(false)}
+      />
       <main>
         <header>
-          <div className="header-context">
-            <small>FORNOST / {u.workspace}</small>
-            <h1>{names[lang][active]}</h1>
+          <div className="header-leading">
+            <button
+              type="button"
+              className="mobile-nav-toggle"
+              aria-label={lang === "tr" ? "Ana menüyü aç" : "Open navigation"}
+              aria-expanded={mobileNavOpen}
+              aria-controls="fornost-navigation"
+              onClick={() => setMobileNavOpen(true)}
+            >
+              <svg aria-hidden="true" viewBox="0 0 20 20">
+                <path d="M3 5h14M3 10h14M3 15h14" />
+              </svg>
+            </button>
+            <div className="header-context">
+              <small>FORNOST / {u.workspace}</small>
+              <h1>{names[lang][active]}</h1>
+            </div>
           </div>
           <div className="header-actions">
             <div className="header-live">

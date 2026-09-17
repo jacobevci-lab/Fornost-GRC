@@ -21,3 +21,13 @@ test("collapsed mode becomes an accessible icon rail and leaves mobile unchanged
   assert.match(css, /@media\(max-width:900px\)[\s\S]*\.sidebar-edge-toggle\{display:none!important/);
   assert.match(css, /@media\(prefers-reduced-motion:reduce\)/);
 });
+
+test("mobile navigation is a dismissible accessible drawer", () => {
+  assert.match(page, /mobileNavOpen, setMobileNavOpen/);
+  assert.match(page, /className="mobile-nav-toggle"/);
+  assert.match(page, /className="mobile-nav-backdrop"/);
+  assert.match(page, /event\.key === "Escape"/);
+  assert.match(page, /document\.body\.classList\.add\("mobile-nav-locked"\)/);
+  assert.match(css, /\.mobile-nav-open>aside\{transform:translateX\(0\)!important/);
+  assert.match(css, /\.mobile-nav-open \.mobile-nav-backdrop/);
+});
