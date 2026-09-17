@@ -1389,7 +1389,11 @@ function FornostApp({ currentUser }: { currentUser: any }) {
     [catalogs, setCatalogs] = useState<CatalogMap>(catalogOptions),
     [theme, setTheme] = useState<"light" | "dark">("light"),
     [sidebarCollapsed, setSidebarCollapsed] = useState(false),
-    [mobileNavOpen, setMobileNavOpen] = useState(false);
+    [mobileNavOpen, setMobileNavOpen] = useState(false),
+    [commandOpen, setCommandOpen] = useState(false),
+    [commandQuery, setCommandQuery] = useState(""),
+    [commandIndex, setCommandIndex] = useState(0),
+    [recentModules, setRecentModules] = useState<string[]>([]);
   const labels = labelMap[lang],
     u = ui[lang];
   linkedRows = rows;
@@ -1400,6 +1404,15 @@ function FornostApp({ currentUser }: { currentUser: any }) {
     setSidebarCollapsed(
       localStorage.getItem("fornost-grc-sidebar-collapsed") === "true",
     );
+    try {
+      const recent = JSON.parse(
+        localStorage.getItem("fornost-grc-recent-modules") || "[]",
+      );
+      if (Array.isArray(recent))
+        setRecentModules(
+          recent.filter((item) => typeof item === "string").slice(0, 5),
+        );
+    } catch {}
     try {
       const columns = JSON.parse(
         localStorage.getItem("fornost-grc-columns") || "{}",
@@ -1747,6 +1760,73 @@ function FornostApp({ currentUser }: { currentUser: any }) {
         ]
       : []),
   ];
+  const commandModules = modules.filter(
+    (module) => currentUser.role === "Admin" || !adminModules.has(module),
+  );
+  const normalizedCommandQuery = commandQuery.trim().toLocaleLowerCase(
+    lang === "tr" ? "tr-TR" : "en-US",
+  );
+  const commandResults = commandModules
+    .filter((module) =>
+      normalizedCommandQuery
+        ? `${names[lang][module]} ${module}`
+            .toLocaleLowerCase(lang === "tr" ? "tr-TR" : "en-US")
+            .includes(normalizedCommandQuery)
+        : true,
+    )
+    .sort((a, b) => {
+      if (normalizedCommandQuery)
+        return names[lang][a].localeCompare(names[lang][b]);
+      const aRecent = recentModules.indexOf(a);
+      const bRecent = recentModules.indexOf(b);
+      if (aRecent !== -1 || bRecent !== -1)
+        return (aRecent === -1 ? 99 : aRecent) -
+          (bRecent === -1 ? 99 : bRecent);
+      return modules.indexOf(a) - modules.indexOf(b);
+    });
+  function navigateToModule(module: string) {
+    setActive(module);
+    setQuery("");
+    setNotice("");
+    setMobileNavOpen(false);
+    setCommandOpen(false);
+    setCommandQuery("");
+    const recent = [
+      module,
+      ...recentModules.filter((item) => item !== module),
+    ].slice(0, 5);
+    setRecentModules(recent);
+    localStorage.setItem("fornost-grc-recent-modules", JSON.stringify(recent));
+  }
+  useEffect(() => {
+    const onCommandKey = (event: KeyboardEvent) => {
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") {
+        event.preventDefault();
+        setCommandOpen((open) => !open);
+        setCommandQuery("");
+        setCommandIndex(0);
+        return;
+      }
+      if (!commandOpen) return;
+      if (event.key === "Escape") {
+        event.preventDefault();
+        setCommandOpen(false);
+      } else if (event.key === "ArrowDown") {
+        event.preventDefault();
+        setCommandIndex((index) =>
+          Math.min(index + 1, commandResults.length - 1),
+        );
+      } else if (event.key === "ArrowUp") {
+        event.preventDefault();
+        setCommandIndex((index) => Math.max(index - 1, 0));
+      } else if (event.key === "Enter" && commandResults[commandIndex]) {
+        event.preventDefault();
+        navigateToModule(commandResults[commandIndex]);
+      }
+    };
+    document.addEventListener("keydown", onCommandKey);
+    return () => document.removeEventListener("keydown", onCommandKey);
+  });
   const sidebarToggleLabel = sidebarCollapsed
     ? lang === "tr"
       ? "Menüyü genişlet"
@@ -1797,12 +1877,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
                     className={active === m ? "active" : ""}
                     aria-label={names[lang][m]}
                     title={sidebarCollapsed ? names[lang][m] : undefined}
-                    onClick={() => {
-                      setActive(m);
-                      setQuery("");
-                      setNotice("");
-                      setMobileNavOpen(false);
-                    }}
+                    onClick={() => navigateToModule(m)}
                     key={m}
                   >
                     <i>
@@ -1837,6 +1912,91 @@ function FornostApp({ currentUser }: { currentUser: any }) {
         tabIndex={mobileNavOpen ? 0 : -1}
         onClick={() => setMobileNavOpen(false)}
       />
+      {commandOpen && (
+        <div
+          className="command-overlay"
+          role="presentation"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) setCommandOpen(false);
+          }}
+        >
+          <section
+            className="command-palette"
+            role="dialog"
+            aria-modal="true"
+            aria-label={lang === "tr" ? "Hızlı navigasyon" : "Quick navigation"}
+          >
+            <header>
+              <svg aria-hidden="true" viewBox="0 0 20 20">
+                <circle cx="9" cy="9" r="5.5" />
+                <path d="m13 13 4 4" />
+              </svg>
+              <input
+                autoFocus
+                value={commandQuery}
+                onChange={(event) => {
+                  setCommandQuery(event.target.value);
+                  setCommandIndex(0);
+                }}
+                placeholder={
+                  lang === "tr"
+                    ? "Modül veya işlem ara…"
+                    : "Search modules or actions…"
+                }
+                aria-label={lang === "tr" ? "Modül ara" : "Search modules"}
+              />
+              <kbd>ESC</kbd>
+            </header>
+            <div className="command-results" role="listbox">
+              <small>
+                {normalizedCommandQuery
+                  ? lang === "tr"
+                    ? "SONUÇLAR"
+                    : "RESULTS"
+                  : lang === "tr"
+                    ? "HIZLI GEÇİŞ"
+                    : "QUICK ACCESS"}
+              </small>
+              {commandResults.length ? (
+                commandResults.map((module, index) => (
+                  <button
+                    type="button"
+                    role="option"
+                    aria-selected={index === commandIndex}
+                    className={index === commandIndex ? "selected" : ""}
+                    onMouseEnter={() => setCommandIndex(index)}
+                    onClick={() => navigateToModule(module)}
+                    key={module}
+                  >
+                    <i>
+                      <NavIcon module={module} />
+                    </i>
+                    <span>
+                      <b>{names[lang][module]}</b>
+                      <small>{module}</small>
+                    </span>
+                    {recentModules.includes(module) && (
+                      <em>{lang === "tr" ? "Son" : "Recent"}</em>
+                    )}
+                  </button>
+                ))
+              ) : (
+                <p>
+                  {lang === "tr"
+                    ? "Eşleşen modül bulunamadı."
+                    : "No matching module found."}
+                </p>
+              )}
+            </div>
+            <footer>
+              <span>
+                <kbd>↑</kbd><kbd>↓</kbd> {lang === "tr" ? "Gezin" : "Navigate"}
+              </span>
+              <span><kbd>↵</kbd> {lang === "tr" ? "Aç" : "Open"}</span>
+            </footer>
+          </section>
+        </div>
+      )}
       <main>
         <header>
           <div className="header-leading">
@@ -1858,6 +2018,28 @@ function FornostApp({ currentUser }: { currentUser: any }) {
             </div>
           </div>
           <div className="header-actions">
+            <button
+              type="button"
+              className="command-trigger"
+              onClick={() => {
+                setCommandOpen(true);
+                setCommandQuery("");
+                setCommandIndex(0);
+              }}
+              aria-label={
+                lang === "tr"
+                  ? "Hızlı navigasyonu aç"
+                  : "Open quick navigation"
+              }
+              title={lang === "tr" ? "Hızlı navigasyon" : "Quick navigation"}
+            >
+              <svg aria-hidden="true" viewBox="0 0 20 20">
+                <circle cx="8.5" cy="8.5" r="5" />
+                <path d="m12.5 12.5 4 4" />
+              </svg>
+              <span>{lang === "tr" ? "Ara" : "Search"}</span>
+              <kbd>Ctrl K</kbd>
+            </button>
             <div className="header-live">
               <i />
               {lang === "tr" ? "Canlı veri" : "Live data"}
