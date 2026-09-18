@@ -1,9 +1,9 @@
 import type { FormEvent } from "react";
 
 type DraftKind="risk-treatment"|"audit-finding"|"remediation-task";
-export type AgentKind="risk"|"audit"|"compliance"|"evidence";
+export type AgentKind="risk"|"audit"|"compliance"|"evidence"|"vendor"|"reporting";
 export type AgentFinding={id:string;title:string;summary:string;severity:"Low"|"Medium"|"High"|"Critical";confidence:number;sourceRefs:string[];recommendation:string;draft:{kind:DraftKind;title:string;rationale:string;payload:Record<string,string>}};
-export type AgentRun={id:string;kind:AgentKind;objective:string;status:"running"|"completed"|"approved"|"archived"|"failed";report:{executiveSummary:string;findings:AgentFinding[]}|null;sourceRefs:string[];provider:string;model:string;profile:string;latencyMs:number;createdBy:string;createdAt:string;reviewedBy:string|null;reviewNote:string|null;draftLinks:Array<{findingId:string;draftId:string;note:string;createdBy:string;createdAt:string}>};
+export type AgentRun={id:string;kind:AgentKind;objective:string;status:"running"|"completed"|"approved"|"archived"|"failed";report:{executiveSummary:string;findings:AgentFinding[]}|null;sourceRefs:string[];provider:string;model:string;profile:string;latencyMs:number;createdBy:string;createdAt:string;reviewedBy:string|null;reviewNote:string|null;draftLinks:Array<{findingId:string;draftId:string;note:string;createdBy:string;createdAt:string}>;traceId:string|null;policyDecision:string|null;policyCode:string|null;humanApprovalRequired:boolean;sourceCount:number;traceEvents:Array<{stage:string;outcome:string;detail:string;createdAt:string}>};
 export type AgentDecision={id:string;status:"approved"|"archived";note:string;confirmation:string};
 export type AgentConversion={runId:string;findingId:string;note:string;confirmation:string};
 
@@ -13,9 +13,9 @@ export default function FornostAiAgents({role,aiReady,runs,kind,setKind,objectiv
   onRun:(event:FormEvent)=>void;onReview:()=>void;onConvert:()=>void;onDelete:(id:string)=>void;onReload:()=>void;
 }){
   return <div className="fornost-ai-agents">
-    <div className="fornost-ai-security-note"><b>AI Assurance Agentları</b><p>Yalnız insan tarafından başlatılır, en fazla sekiz kaynaklı bulgu üretir ve canlı GRC kaydını değiştirmez. Bir bulgunun taslak kuyruğuna aktarılması ayrıca Admin onayı ister.</p></div>
+    <div className="fornost-ai-security-note"><b>AI Assurance Agentları</b><p>Risk, denetim, uyum, kanıt, tedarikçi ve yönetici raporlama analizleri yalnız insan tarafından başlatılır. Her çalışma tekil trace, sabit kaynak/bulgu bütçesi ve merkezi politika kararıyla yürür; canlı GRC kaydını değiştirmez.</p></div>
     {role!=="Viewer"&&<form className="fornost-ai-agent-form" onSubmit={onRun}>
-      <label><span>Agent</span><select value={kind} onChange={event=>setKind(event.target.value as AgentKind)}><option value="risk">Risk Agent</option><option value="audit">Audit Agent</option><option value="compliance">Compliance Agent</option><option value="evidence">Evidence Agent</option></select></label>
+      <label><span>Agent</span><select value={kind} onChange={event=>setKind(event.target.value as AgentKind)}><option value="risk">Risk Agent</option><option value="audit">Audit Agent</option><option value="compliance">Compliance Agent</option><option value="evidence">Evidence Agent</option><option value="vendor">Vendor Risk Agent</option><option value="reporting">Executive Reporting Agent</option></select></label>
       <label><span>Analiz hedefi</span><textarea rows={3} maxLength={1600} value={objective} onChange={event=>setObjective(event.target.value)} placeholder="Örn: Kritik varlıklardaki yüksek riskleri, gecikmiş aksiyonları ve sahiplik boşluklarını analiz et."/></label>
       <button disabled={busy||!aiReady||objective.trim().length<5}>{busy?"Çalışıyor…":"Agentı Çalıştır"}</button>
     </form>}
@@ -25,7 +25,8 @@ export default function FornostAiAgents({role,aiReady,runs,kind,setKind,objectiv
     <div className="fornost-ai-agent-runs">{runs.map(run=><article key={run.id}>
       <header><div><small>{run.kind} agent · {run.id}</small><b>{run.objective}</b></div><span className={run.status}>{run.status}</span></header>
       <p>{run.report?.executiveSummary||(run.status==="failed"?"Çalışma tamamlanamadı.":"Analiz sürüyor…")}</p>
-      <div className="fornost-ai-agent-meta"><span>{run.provider} · {run.model} · {run.profile}</span><span>{run.latencyMs} ms</span><span>{run.createdBy}</span><span>{new Date(run.createdAt).toLocaleString("tr-TR")}</span></div>
+      <div className="fornost-ai-agent-meta"><span>{run.provider} · {run.model} · {run.profile}</span><span>{run.latencyMs} ms</span><span>{run.sourceCount||run.sourceRefs.length} kaynak</span><span>{run.createdBy}</span><span>{new Date(run.createdAt).toLocaleString("tr-TR")}</span></div>
+      {run.traceId&&<details className="fornost-ai-agent-trace"><summary><b>{run.traceId}</b><span>{run.policyCode} · insan onayı zorunlu</span></summary><div>{run.traceEvents.map((event,index)=><p key={`${event.stage}-${event.createdAt}-${index}`}><strong>{event.stage}</strong><em>{event.outcome}</em><span>{event.detail}</span><small>{new Date(event.createdAt).toLocaleString("tr-TR")}</small></p>)}</div></details>}
       {run.reviewedBy&&<div className="fornost-ai-agent-review"><b>{run.reviewedBy}</b><span>{run.reviewNote}</span></div>}
       <div className="fornost-ai-agent-findings">{run.report?.findings.map(finding=>{
         const linked=run.draftLinks.find(link=>link.findingId===finding.id);

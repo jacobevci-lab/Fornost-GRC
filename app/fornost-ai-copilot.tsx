@@ -137,11 +137,18 @@ export default function FornostAiCopilot() {
 
   useEffect(() => {
     const openContextualCopilot = (event: Event) => {
-      const detail = (event as CustomEvent<{module?:string;prompt?:string}>).detail || {};
+      const detail = (event as CustomEvent<{module?:string;prompt?:string;mode?:"chat"|"agent";agentKind?:AgentKind}>).detail || {};
       setOpen(true);
-      setTab("chat");
-      setNotice(detail.module ? `${detail.module} bağlamı Ask Fornost'a aktarıldı.` : "");
-      if (detail.prompt) setQuestion(detail.prompt.slice(0, 2000));
+      if (detail.mode === "agent" && detail.agentKind) {
+        setTab("agents");
+        setAgentKind(detail.agentKind);
+        if (detail.prompt) setAgentObjective(detail.prompt.slice(0, 1600));
+        setNotice(detail.module ? `${detail.module} kapsamı güvence agentına aktarıldı.` : "");
+      } else {
+        setTab("chat");
+        setNotice(detail.module ? `${detail.module} bağlamı Ask Fornost'a aktarıldı.` : "");
+        if (detail.prompt) setQuestion(detail.prompt.slice(0, 2000));
+      }
     };
     window.addEventListener("fornost:open-ai", openContextualCopilot);
     return () => window.removeEventListener("fornost:open-ai", openContextualCopilot);

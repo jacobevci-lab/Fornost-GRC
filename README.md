@@ -37,7 +37,8 @@ Fornost, klasik kayıt ve raporlama işlevlerinin yanında AI sistemlerinin enva
 - Restricted veriyi model bağlamından tamamen çıkaran merkezi güvenlik katmanı
 - Kaynak gösterimli, sürümlü ve onaylı PDF/DOCX bilgi tabanı
 - İnsan onaylı risk, denetim ve remediation taslakları
-- Risk, Audit, Compliance ve Evidence güvence agentları
+- Risk, Audit, Compliance, Evidence, Vendor Risk ve Executive Reporting güvence agentları
+- Her agent çalışmasında tekil `AITR-*` iz kimliği, merkezî read-only politika kararı, sabit kaynak/bağlam/bulgu bütçeleri ve insan onayı zaman çizelgesi
 - AI model envanteri, kullanım senaryosu ve değişiklik yaşam döngüsü
 - ISO/IEC 42001, NIST AI RMF ve EU AI Act kontrol değerlendirmeleri
 - EU AI Act, ISO/IEC 42001, NIST AI RMF, KVKK/GDPR ve kurum politikaları için sahip, doğrulayıcı, 30/15/7 günlük uyarı kuyruğu, gecikme eskalasyonu, periyodik yenileme, kanıt bütünlüğü ve maker-checker kapanışlı operasyonel regülasyon yükümlülük takibi

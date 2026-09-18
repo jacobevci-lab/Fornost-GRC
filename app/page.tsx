@@ -3681,6 +3681,9 @@ function Reports({ rows, lang }: { rows: Row[]; lang: Lang }) {
           </p>
         </div>
         <div className="report-hero-actions">
+          <button className="ghost" onClick={() => window.dispatchEvent(new CustomEvent("fornost:open-ai", { detail: { module: names[lang].Raporlar, mode: "agent", agentKind: "reporting", prompt: tr ? `${selectedModuleLabel} kapsamında önemli risk, uyum, denetim, kanıt ve tedarikçi eğilimlerini; karar boşluklarını ve öncelikli yönetim aksiyonlarını kaynaklarıyla analiz et.` : `Analyze material risk, compliance, audit, evidence and vendor trends, decision gaps and prioritized management actions for ${selectedModuleLabel} with sources.` } }))}>
+            {tr ? "AI Yönetim Analizi" : "AI Management Analysis"}
+          </button>
           <button className="ghost" onClick={htmlReport} disabled={!filtered.length}>
             HTML
           </button>

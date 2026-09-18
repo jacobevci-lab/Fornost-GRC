@@ -4,6 +4,7 @@ import { isAiAgentKind, parseAgentResponse } from "@/app/ai/agents";
 import { validateAiDraftInput } from "@/app/ai/drafts";
 import { cleanAiText, redactSensitiveText } from "@/app/ai/security";
 import { aiRuntime, recordAiEvent } from "@/app/ai/storage";
+import { recordAgentTraceEvent } from "@/app/ai/orchestration";
 
 const json = (data: unknown, status = 200) => NextResponse.json(data, { status, headers: { "cache-control": "no-store" } });
 function refs(value: unknown) { try { const parsed = JSON.parse(String(value || "[]")); return Array.isArray(parsed) ? parsed.filter(item => typeof item === "string") : []; } catch { return []; } }
@@ -32,5 +33,7 @@ export async function POST(req: NextRequest) {
     ]);
   } catch { return json({ error: "Bu bulgu daha önce taslağa dönüştürülmüş veya eşzamanlı işlem oluşmuş." }, 409); }
   await recordAiEvent(env.DB, { actor: access.actor.email, action: "agent-draft-create", provider: String(run.provider || ""), model: String(run.model || ""), contextRefs: finding.sourceRefs, status: "success", detail: `${runId}/${findingId} converted to governed draft ${draftId}; no live record changed` });
+  const control = await env.DB.prepare("SELECT trace_id FROM ai_agent_controls WHERE run_id=?").bind(runId).first<{ trace_id: string }>();
+  if (control?.trace_id) await recordAgentTraceEvent(env.DB, { traceId: control.trace_id, stage: "draft", outcome: "success", detail: `${findingId} converted to governed draft ${draftId}; publication still requires separate approval` });
   return json({ ok: true, draftId }, 201);
 }

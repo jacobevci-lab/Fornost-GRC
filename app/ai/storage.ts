@@ -139,6 +139,19 @@ const agentDraftLinksSql = `CREATE TABLE IF NOT EXISTS ai_agent_draft_links (
   UNIQUE(run_id,finding_id)
 )`;
 const agentDraftLinksIndexSql = "CREATE INDEX IF NOT EXISTS ai_agent_draft_links_run_idx ON ai_agent_draft_links(run_id,created_at)";
+const agentControlsSql = `CREATE TABLE IF NOT EXISTS ai_agent_controls (
+  trace_id TEXT PRIMARY KEY, run_id TEXT NOT NULL UNIQUE, agent_kind TEXT NOT NULL,
+  policy_decision TEXT NOT NULL, policy_code TEXT NOT NULL, source_count INTEGER NOT NULL,
+  context_char_budget INTEGER NOT NULL, finding_budget INTEGER NOT NULL,
+  human_approval_required INTEGER NOT NULL DEFAULT 1, created_by TEXT NOT NULL,
+  created_at TEXT NOT NULL, updated_at TEXT NOT NULL
+)`;
+const agentControlsIndexSql = "CREATE INDEX IF NOT EXISTS ai_agent_controls_created_idx ON ai_agent_controls(created_at,policy_decision)";
+const agentTraceEventsSql = `CREATE TABLE IF NOT EXISTS ai_agent_trace_events (
+  id TEXT PRIMARY KEY, trace_id TEXT NOT NULL, stage TEXT NOT NULL, outcome TEXT NOT NULL,
+  detail TEXT NOT NULL, created_at TEXT NOT NULL
+)`;
+const agentTraceEventsIndexSql = "CREATE INDEX IF NOT EXISTS ai_agent_trace_events_trace_idx ON ai_agent_trace_events(trace_id,created_at)";
 const knowledgeSourcesSql = `CREATE TABLE IF NOT EXISTS ai_knowledge_sources (
   id TEXT PRIMARY KEY, name TEXT NOT NULL, source_type TEXT NOT NULL, classification TEXT NOT NULL,
   status TEXT NOT NULL DEFAULT 'draft', current_version INTEGER NOT NULL DEFAULT 1,
@@ -523,6 +536,10 @@ export async function aiRuntime() {
       runtime.DB.prepare(agentRunsIndexSql),
       runtime.DB.prepare(agentDraftLinksSql),
       runtime.DB.prepare(agentDraftLinksIndexSql),
+      runtime.DB.prepare(agentControlsSql),
+      runtime.DB.prepare(agentControlsIndexSql),
+      runtime.DB.prepare(agentTraceEventsSql),
+      runtime.DB.prepare(agentTraceEventsIndexSql),
       runtime.DB.prepare(knowledgeSourcesSql),
       runtime.DB.prepare(knowledgeSourcesIndexSql),
       runtime.DB.prepare(knowledgeGovernanceSql),

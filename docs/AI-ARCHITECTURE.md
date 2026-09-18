@@ -174,9 +174,11 @@ Migration `0035_fornost_ai_governance.sql` adds:
 
 Evaluation responses are never stored. Only score, latency, provider/model, failure reason and SHA-256 output hash are retained. Evaluation batches are Admin-only and bounded to ten enabled cases per request.
 
-Migration `0036_fornost_ai_agents.sql` adds manually invoked assurance runs and replay-protected links to the governed draft queue. Risk, Audit, Compliance and Evidence agents analyze only bounded, sanitized Fornost context. A run produces at most eight schema-validated findings, and every finding must cite a source ID that was actually supplied to the model. Raw model output is discarded after validation; the stored report contains only the bounded structured result and its SHA-256 hash.
+Migration `0036_fornost_ai_agents.sql` adds manually invoked assurance runs and replay-protected links to the governed draft queue. Risk, Audit, Compliance, Evidence, Vendor Risk and Executive Reporting agents analyze only bounded, sanitized Fornost context. A run produces at most eight schema-validated findings, and every finding must cite a source ID that was actually supplied to the model. Raw model output is discarded after validation; the stored report contains only the bounded structured result and its SHA-256 hash.
 
 Agent runs never mutate live GRC data. Admin review with an explicit note and confirmation is required before a finding can be converted into an existing `pending` AI action draft. Conversion requires a second `TASLAK OLUŞTUR` confirmation and is unique per run/finding pair. The resulting draft still follows the existing edit, review, publication and ticket controls.
+
+Migration `0075_ai_agent_control_plane.sql` adds the typed read-only agent tool registry and end-to-end execution trace. Every run receives an `AITR-…` identifier and a deterministic central policy decision. The control record freezes the selected agent kind, source count, 16,000-character context budget, eight-finding output budget and mandatory human-approval flag. Retrieval, provider invocation, schema validation, Admin review and controlled draft conversion append bounded events to the same trace. Risk, Audit, Compliance, Evidence, Vendor Risk and Executive Reporting tools declare fixed read scopes and `mutation: false`; the model cannot select arbitrary database queries or call a live-record API.
 
 Migration `0037_fornost_ai_knowledge.sql` adds a governed AI knowledge base. Admins may ingest bounded plain text, Markdown, HTML, CSV, JSON, PDF or DOCX content. Up to ten files may be staged together with a 30 MB aggregate browser-memory limit. PDF and DOCX files are converted to plain text inside the administrator's browser; raw files are never uploaded to Fornost or an AI provider. Each prepared file is submitted as an independent draft so one failure does not roll back the rest of the batch. File size, page count and extracted-text limits are enforced before a draft can be created, and matching content hashes are blocked as duplicates. HTML script/style blocks and tags are removed, content is normalized, SHA-256 hashed, versioned and split into bounded overlapping chunks. New and replacement versions always start as `draft`; only an Admin can approve them with a review note and exact `ONAYLA` confirmation. Approval, archive, new-version, duplicate-denial and deletion operations are audited.
 
@@ -220,7 +222,8 @@ The panel provides:
 - readiness computed from the latest result of every enabled test, so historical passes cannot hide a current failure or an untested case
 - idempotent built-in AI safety evaluation baseline
 - encrypted primary/fallback provider chain and per-attempt health history
-- manually invoked Risk, Audit, Compliance and Evidence assurance agents
+- manually invoked Risk, Audit, Compliance, Evidence, Vendor Risk and Executive Reporting assurance agents
+- per-run `AITR-…` trace, central read-only policy decision, fixed source/context/finding budgets and visible approval timeline
 - grounded findings, Admin review and replay-protected conversion to the governed draft queue
 - versioned and approval-gated AI knowledge sources with grounded chunk citations
 - single and ten-file batch TXT, Markdown, HTML, CSV, JSON, PDF and DOCX ingestion, file-based replacement versions, duplicate prevention, ownership and review scheduling, controlled bulk approval/archive, source health/freshness summary, search and filters, Admin source inspection, immutable version history and retrieval laboratory
@@ -234,7 +237,7 @@ Migration `0040_fornost_ai_budget.sql` adds separate provider-profile budget pol
 
 Migration `0041_fornost_ai_operating_policy.sql` adds centrally enforced operational controls. Admins can independently enable chat, typed draft generation, assurance agents, retrieval-lab searches and model evaluations, plus restrict Viewer and Editor chat access. A global emergency stop denies those operations for every role without deleting provider configuration or governed records. Enforcement occurs in the API, denied attempts are audited, and the current policy appears in readiness reporting.
 
-## V1 limitations by design
+## Deliberate limitations
 
 Not included yet:
 
@@ -242,9 +245,9 @@ Not included yet:
 - generic or autonomous live-record write tools
 - vector database / embedding retrieval (deterministic lexical retrieval is available)
 
-## V2 target
+## Controlled action architecture
 
-Add controlled tool calling with a human approval gate:
+The current controlled draft and publication flow applies a human approval gate:
 
 ```text
 LLM suggestion
@@ -256,20 +259,22 @@ LLM suggestion
    -> audit event
 ```
 
-Initial write-capable tools should create **drafts only**, for example:
+Write-capable operations create **drafts or reserved external ticket requests only**, for example:
 
 - risk treatment draft
 - audit finding draft
 - remediation task draft
 - Jira ticket draft
 
-## V3 target
+## Governed agent coverage
 
-Expand agentic workflows only after tool authorization and approval controls are mature. The initial read-only assurance agents are now available for:
+The read-only assurance agents available behind the tool registry and policy control plane are:
 
 - Risk Agent
 - Audit Agent
 - Compliance Agent
 - Evidence Agent
+- Vendor Risk Agent
+- Executive Reporting Agent
 
 Agents must remain constrained by the same tool allowlists, authorization checks, audit trail and human approval rules.

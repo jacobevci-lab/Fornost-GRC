@@ -1,7 +1,7 @@
 import { cleanAiText, redactSensitiveText } from "./security";
 import { draftSchemaInstruction, isAiDraftKind, validateAiDraftInput, type AiDraftKind } from "./drafts";
 
-export const AI_AGENT_KINDS = ["risk", "audit", "compliance", "evidence"] as const;
+export const AI_AGENT_KINDS = ["risk", "audit", "compliance", "evidence", "vendor", "reporting"] as const;
 export type AiAgentKind = typeof AI_AGENT_KINDS[number];
 export type AiAgentFinding = {
   id: string;
@@ -19,6 +19,8 @@ export const AI_AGENT_DEFINITIONS: Record<AiAgentKind, { label: string; focus: s
   audit: { label: "Audit Agent", focus: "identify unsupported requirements, overdue evidence, control design gaps and audit readiness issues", moduleHint: "denetim kanıt kontrol", draftKind: "audit-finding" },
   compliance: { label: "Compliance Agent", focus: "identify framework coverage gaps, weak control implementation and regulatory follow-up needs", moduleHint: "uyum compliance ISO SOC PCI NIST DORA KVKK GDPR kontrol", draftKind: "remediation-task" },
   evidence: { label: "Evidence Agent", focus: "identify missing, stale, failed or weakly linked evidence and validation gaps", moduleHint: "kanıt evidence denetim kontrol", draftKind: "remediation-task" },
+  vendor: { label: "Vendor Risk Agent", focus: "identify critical third-party exposure, incomplete due diligence, expiring assurance, concentration risk and overdue remediation", moduleHint: "tedarik vendor supplier üçüncü taraf risk kanıt bulgu", draftKind: "remediation-task" },
+  reporting: { label: "Executive Reporting Agent", focus: "produce a source-grounded cross-module management assessment, identify material trends, decision gaps and prioritized executive actions", moduleHint: "risk varlık BIA uyum compliance kontrol kanıt evidence denetim audit tedarik vendor", draftKind: "remediation-task" },
 };
 
 export function isAiAgentKind(value: unknown): value is AiAgentKind {
