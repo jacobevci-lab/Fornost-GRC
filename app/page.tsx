@@ -41,7 +41,7 @@ import { defaultCatalogs, type CatalogMap } from "./catalogs";
 import { safeSpreadsheetCell } from "./export-security";
 import { automaticAuditTemplates } from "./api/grc/framework-catalogs";
 import "./fornost-atlas.css";
-import "./fornost-aegis.css";
+import "./fornost-tabler.css";
 import { buildReportHtml, buildReportPdf, downloadBlob, reportMetrics } from "./report-export";
 
 type Lang = "tr" | "en";
@@ -1406,7 +1406,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
     ),
     [catalogs, setCatalogs] = useState<CatalogMap>(catalogOptions),
     [theme, setTheme] = useState<"light" | "dark">("light"),
-    [sidebarCollapsed, setSidebarCollapsed] = useState(false),
+    [sidebarMode, setSidebarMode] = useState<"expanded" | "compact" | "hidden">("expanded"),
     [mobileNavOpen, setMobileNavOpen] = useState(false),
     [commandOpen, setCommandOpen] = useState(false),
     [commandQuery, setCommandQuery] = useState(""),
@@ -1419,9 +1419,11 @@ function FornostApp({ currentUser }: { currentUser: any }) {
   useEffect(() => {
     const saved = localStorage.getItem("fornost-grc-language");
     if (saved === "tr" || saved === "en") setLang(saved);
-    setSidebarCollapsed(
-      localStorage.getItem("fornost-grc-sidebar-collapsed") === "true",
-    );
+    const savedSidebarMode = localStorage.getItem("fornost-grc-sidebar-mode");
+    if (["expanded", "compact", "hidden"].includes(savedSidebarMode || ""))
+      setSidebarMode(savedSidebarMode as "expanded" | "compact" | "hidden");
+    else if (localStorage.getItem("fornost-grc-sidebar-collapsed") === "true")
+      setSidebarMode("compact");
     try {
       const recent = JSON.parse(
         localStorage.getItem("fornost-grc-recent-modules") || "[]",
@@ -1845,23 +1847,21 @@ function FornostApp({ currentUser }: { currentUser: any }) {
     document.addEventListener("keydown", onCommandKey);
     return () => document.removeEventListener("keydown", onCommandKey);
   });
-  const sidebarToggleLabel = sidebarCollapsed
-    ? lang === "tr"
-      ? "Menüyü göster"
-      : "Show navigation"
-    : lang === "tr"
-      ? "Menüyü gizle"
-      : "Hide navigation";
+  const sidebarToggleLabel = sidebarMode === "expanded"
+    ? lang === "tr" ? "Menüyü daralt" : "Compact navigation"
+    : sidebarMode === "compact"
+      ? lang === "tr" ? "Menüyü gizle" : "Hide navigation"
+      : lang === "tr" ? "Menüyü göster" : "Show navigation";
   function toggleSidebar() {
-    setSidebarCollapsed((collapsed) => {
-      const next = !collapsed;
-      localStorage.setItem("fornost-grc-sidebar-collapsed", String(next));
+    setSidebarMode((mode) => {
+      const next = mode === "expanded" ? "compact" : mode === "compact" ? "hidden" : "expanded";
+      localStorage.setItem("fornost-grc-sidebar-mode", next);
       return next;
     });
   }
   return (
     <div
-      className={`shell${sidebarCollapsed ? " sidebar-collapsed" : ""}${mobileNavOpen ? " mobile-nav-open" : ""}`}
+      className={`shell sidebar-${sidebarMode}${mobileNavOpen ? " mobile-nav-open" : ""}`}
     >
       <aside aria-label={lang === "tr" ? "Ana menü" : "Main navigation"}>
         <div className="brand">
@@ -1876,12 +1876,12 @@ function FornostApp({ currentUser }: { currentUser: any }) {
           className="sidebar-edge-toggle"
           onClick={toggleSidebar}
           aria-label={sidebarToggleLabel}
-          aria-expanded={!sidebarCollapsed}
+          aria-expanded={sidebarMode !== "hidden"}
           aria-controls="fornost-navigation"
           title={sidebarToggleLabel}
         >
           <svg aria-hidden="true" viewBox="0 0 20 20">
-            <path d={sidebarCollapsed ? "m7 4 6 6-6 6" : "m13 4-6 6 6 6"} />
+            <path d={sidebarMode === "expanded" ? "m13 4-6 6 6 6" : "m7 4 6 6-6 6"} />
           </svg>
           <span>{sidebarToggleLabel}</span>
         </button>
@@ -1894,7 +1894,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
                   <button
                     className={active === m ? "active" : ""}
                     aria-label={names[lang][m]}
-                    title={sidebarCollapsed ? names[lang][m] : undefined}
+                    title={sidebarMode !== "expanded" ? names[lang][m] : undefined}
                     onClick={() => navigateToModule(m)}
                     key={m}
                   >

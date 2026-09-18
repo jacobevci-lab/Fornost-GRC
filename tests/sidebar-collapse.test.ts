@@ -3,23 +3,24 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 
 const page = readFileSync("app/page.tsx", "utf8");
-const css = readFileSync("app/fornost-aegis.css", "utf8");
+const css = readFileSync("app/fornost-tabler.css", "utf8");
 
-test("desktop sidebar can collapse and persists the operator preference", () => {
-  assert.match(page, /sidebarCollapsed, setSidebarCollapsed/);
-  assert.match(page, /fornost-grc-sidebar-collapsed/);
-  assert.match(page, /sidebarCollapsed \? " sidebar-collapsed" : ""/);
+test("desktop sidebar has persistent expanded compact and hidden modes", () => {
+  assert.match(page, /sidebarMode, setSidebarMode/);
+  assert.match(page, /fornost-grc-sidebar-mode/);
+  assert.match(page, /"expanded" \| "compact" \| "hidden"/);
+  assert.match(page, /sidebar-\$\{sidebarMode\}/);
   assert.match(page, /className="sidebar-edge-toggle"/);
   assert.match(page, /aria-controls="fornost-navigation"/);
-  assert.match(page, /title=\{sidebarCollapsed \? names\[lang\]\[m\] : undefined\}/);
+  assert.match(page, /title=\{sidebarMode !== "expanded" \? names\[lang\]\[m\] : undefined\}/);
 });
 
-test("collapsed mode fully dismisses desktop navigation and leaves a visible edge control", () => {
-  assert.match(css, /\.shell\.sidebar-collapsed\{grid-template-columns:0 minmax\(0,1fr\)!important/);
-  assert.match(css, /\.sidebar-collapsed \.sidebar-edge-toggle\{left:14px!important/);
-  assert.match(css, /\.sidebar-collapsed>aside\{padding:0!important;opacity:0!important/);
-  assert.match(css, /\.sidebar-collapsed \.brand,\.sidebar-collapsed>aside nav,\.sidebar-collapsed \.aside-note/);
-  assert.match(css, /@media\(max-width:900px\)[\s\S]*\.sidebar-collapsed>aside/);
+test("desktop navigation cycles from full width to icon rail to zero width", () => {
+  assert.match(css, /\.shell\.sidebar-compact\{grid-template-columns:84px minmax\(0,1fr\)!important/);
+  assert.match(css, /\.shell\.sidebar-hidden\{grid-template-columns:0 minmax\(0,1fr\)!important/);
+  assert.match(css, /\.sidebar-hidden \.sidebar-edge-toggle\{left:12px!important/);
+  assert.match(css, /\.sidebar-hidden>aside\{padding:0!important;opacity:0!important/);
+  assert.match(css, /\.shell>aside nav\{[\s\S]*overflow-y:auto!important/);
   assert.match(css, /@media\(prefers-reduced-motion:reduce\)/);
 });
 
