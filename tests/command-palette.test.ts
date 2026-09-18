@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 
 const page = readFileSync("app/page.tsx", "utf8");
-const css = readFileSync("app/fornost-atlas.css", "utf8");
+const css = readFileSync("app/workspace-system.css", "utf8");
 
 test("global command palette provides keyboard and pointer navigation", () => {
   assert.match(page, /event\.ctrlKey \|\| event\.metaKey/);
@@ -34,4 +34,13 @@ test("command palette has responsive theme-owned presentation", () => {
   ])
     assert.ok(css.includes(selector), selector);
   assert.match(css, /@media\(max-width:620px\)[\s\S]*\.command-overlay/);
+});
+
+test("every workspace page can open Ask Fornost with bounded contextual prompt", () => {
+  const copilot = readFileSync("app/fornost-ai-copilot.tsx", "utf8");
+  assert.match(page, /className="context-ai-trigger"/);
+  assert.match(page, /new CustomEvent\("fornost:open-ai"/);
+  assert.match(copilot, /window\.addEventListener\("fornost:open-ai"/);
+  assert.match(copilot, /setTab\("chat"\)/);
+  assert.match(copilot, /detail\.prompt\.slice\(0, 2000\)/);
 });

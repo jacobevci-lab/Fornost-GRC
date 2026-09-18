@@ -135,6 +135,18 @@ export default function FornostAiCopilot() {
   const [agentDecision,setAgentDecision]=useState<AgentDecision|null>(null);
   const [agentConversion,setAgentConversion]=useState<AgentConversion|null>(null);
 
+  useEffect(() => {
+    const openContextualCopilot = (event: Event) => {
+      const detail = (event as CustomEvent<{module?:string;prompt?:string}>).detail || {};
+      setOpen(true);
+      setTab("chat");
+      setNotice(detail.module ? `${detail.module} bağlamı Ask Fornost'a aktarıldı.` : "");
+      if (detail.prompt) setQuestion(detail.prompt.slice(0, 2000));
+    };
+    window.addEventListener("fornost:open-ai", openContextualCopilot);
+    return () => window.removeEventListener("fornost:open-ai", openContextualCopilot);
+  }, []);
+
   const refreshStatus = useCallback(async () => {
     const response = await fetch(withBasePath("/api/ai/status"), { cache: "no-store" }).catch(() => null);
     if (!response?.ok) return;

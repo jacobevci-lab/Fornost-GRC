@@ -35,13 +35,14 @@ import RiskAppetite from "./risk-appetite";
 import FindingsCenter from "./findings-center";
 import IncidentCenter from "./incident-center";
 import ContinuityCenter from "./continuity-center";
+import ConnectedGrc from "./connected-grc";
+import "./connected-grc.css";
 import { withBasePath } from "./base-path";
 import { calculatedRiskScore, effectiveImpact } from "./risk-methodology";
 import { defaultCatalogs, type CatalogMap } from "./catalogs";
 import { safeSpreadsheetCell } from "./export-security";
 import { automaticAuditTemplates } from "./api/grc/framework-catalogs";
-import "./fornost-atlas.css";
-import "./fornost-tabler.css";
+import "./workspace-system.css";
 import { buildReportHtml, buildReportPdf, downloadBlob, reportMetrics } from "./report-export";
 
 type Lang = "tr" | "en";
@@ -79,6 +80,7 @@ const modules = [
   "Güvenlik Olayları",
   "Bulgular ve CAPA",
   "Denetim Yönetimi",
+  "Bağlantılı GRC",
   "Raporlar",
   "Sistem Ayarları",
   "Ana Veri Yönetimi",
@@ -111,6 +113,7 @@ const names: Record<Lang, Record<string, string>> = {
     "Güvenlik Olayları": "Güvenlik Olayları ve Kriz",
     "Bulgular ve CAPA": "Bulgular ve CAPA",
     "Denetim Yönetimi": "Denetim Yönetimi",
+    "Bağlantılı GRC": "Bağlantılı GRC Haritası",
     Raporlar: "Raporlama",
     "Sistem Ayarları": "Sistem Ayarları",
     "Ana Veri Yönetimi": "Ana Veri Yönetimi",
@@ -135,6 +138,7 @@ const names: Record<Lang, Record<string, string>> = {
     "Güvenlik Olayları": "Security Incidents & Crisis",
     "Bulgular ve CAPA": "Findings & CAPA",
     "Denetim Yönetimi": "Audit Management",
+    "Bağlantılı GRC": "Connected GRC Map",
     Raporlar: "Reporting",
     "Sistem Ayarları": "System Settings",
     "Ana Veri Yönetimi": "Master Data",
@@ -292,6 +296,16 @@ function NavIcon({ module }: { module: string }) {
           <path d="M4 19V5" />
           <path d="M4 19h16" />
           <path d="m7 15 4-4 3 2 5-6" />
+        </>
+      );
+      break;
+    case "Bağlantılı GRC":
+      paths = (
+        <>
+          <circle cx="6" cy="6" r="3" />
+          <circle cx="18" cy="7" r="3" />
+          <circle cx="12" cy="18" r="3" />
+          <path d="m8.7 6.3 6.3.4M7.5 8.5l3 6.5M16.5 9.5l-3 5.5" />
         </>
       );
       break;
@@ -1852,12 +1866,9 @@ function FornostApp({ currentUser }: { currentUser: any }) {
     : sidebarMode === "compact"
       ? lang === "tr" ? "Menüyü gizle" : "Hide navigation"
       : lang === "tr" ? "Menüyü göster" : "Show navigation";
-  function toggleSidebar() {
-    setSidebarMode((mode) => {
-      const next = mode === "expanded" ? "compact" : mode === "compact" ? "hidden" : "expanded";
-      localStorage.setItem("fornost-grc-sidebar-mode", next);
-      return next;
-    });
+  function setSidebarPreference(next: "expanded" | "compact" | "hidden") {
+    localStorage.setItem("fornost-grc-sidebar-mode", next);
+    setSidebarMode(next);
   }
   return (
     <div
@@ -1874,7 +1885,15 @@ function FornostApp({ currentUser }: { currentUser: any }) {
         <button
           type="button"
           className="sidebar-edge-toggle"
-          onClick={toggleSidebar}
+          onClick={() =>
+            setSidebarPreference(
+              sidebarMode === "expanded"
+                ? "compact"
+                : sidebarMode === "compact"
+                  ? "hidden"
+                  : "expanded",
+            )
+          }
           aria-label={sidebarToggleLabel}
           aria-expanded={sidebarMode !== "hidden"}
           aria-controls="fornost-navigation"
@@ -1908,6 +1927,41 @@ function FornostApp({ currentUser }: { currentUser: any }) {
             </div>
           ))}
         </nav>
+        <div className="sidebar-view-controls" aria-label={lang === "tr" ? "Menü görünümü" : "Navigation view"}>
+          <span>{lang === "tr" ? "MENÜ GÖRÜNÜMÜ" : "NAVIGATION VIEW"}</span>
+          <div>
+            <button
+              type="button"
+              className={sidebarMode === "expanded" ? "active" : ""}
+              onClick={() => setSidebarPreference("expanded")}
+              aria-label={lang === "tr" ? "Geniş menü" : "Expanded navigation"}
+              title={lang === "tr" ? "Geniş" : "Expanded"}
+            >
+              <svg aria-hidden="true" viewBox="0 0 20 20"><path d="M3 3h14v14H3zM8 3v14M5 6h1M5 10h1M5 14h1" /></svg>
+              <em>{lang === "tr" ? "Geniş" : "Full"}</em>
+            </button>
+            <button
+              type="button"
+              className={sidebarMode === "compact" ? "active" : ""}
+              onClick={() => setSidebarPreference("compact")}
+              aria-label={lang === "tr" ? "İkon menüsü" : "Icon navigation"}
+              title={lang === "tr" ? "İkon" : "Icons"}
+            >
+              <svg aria-hidden="true" viewBox="0 0 20 20"><path d="M5 3h10v14H5zM8 6h4M8 10h4M8 14h4" /></svg>
+              <em>{lang === "tr" ? "İkon" : "Icons"}</em>
+            </button>
+            <button
+              type="button"
+              className={sidebarMode === "hidden" ? "active" : ""}
+              onClick={() => setSidebarPreference("hidden")}
+              aria-label={lang === "tr" ? "Menüyü gizle" : "Hide navigation"}
+              title={lang === "tr" ? "Gizle" : "Hide"}
+            >
+              <svg aria-hidden="true" viewBox="0 0 20 20"><path d="M4 4l12 12M16 4 4 16" /></svg>
+              <em>{lang === "tr" ? "Gizle" : "Hide"}</em>
+            </button>
+          </div>
+        </div>
         <div className="aside-note">
           <div className="platform-state">
             <i />
@@ -1923,6 +1977,17 @@ function FornostApp({ currentUser }: { currentUser: any }) {
           </p>
         </div>
       </aside>
+      {sidebarMode === "hidden" && (
+        <button
+          type="button"
+          className="sidebar-restore"
+          onClick={() => setSidebarPreference("expanded")}
+          aria-label={lang === "tr" ? "Ana menüyü aç" : "Open main navigation"}
+        >
+          <svg aria-hidden="true" viewBox="0 0 20 20"><path d="M4 3h12v14H4zM8 3v14M11 7l3 3-3 3" /></svg>
+          <span>{lang === "tr" ? "Menüyü aç" : "Open menu"}</span>
+        </button>
+      )}
       <button
         type="button"
         className="mobile-nav-backdrop"
@@ -2038,6 +2103,28 @@ function FornostApp({ currentUser }: { currentUser: any }) {
           <div className="header-actions">
             <button
               type="button"
+              className="context-ai-trigger"
+              onClick={() =>
+                window.dispatchEvent(
+                  new CustomEvent("fornost:open-ai", {
+                    detail: {
+                      module: names[lang][active],
+                      prompt:
+                        lang === "tr"
+                          ? `${names[lang][active]} modülündeki öncelikli riskleri, gecikmeleri ve kanıt boşluklarını kaynak göstererek analiz et.`
+                          : `Analyze priority risks, overdue actions and evidence gaps in ${names[lang][active]} with source citations.`,
+                    },
+                  }),
+                )
+              }
+              aria-label={lang === "tr" ? "Bu sayfayı Ask Fornost ile analiz et" : "Analyze this page with Ask Fornost"}
+              title={lang === "tr" ? "Sayfayı AI ile analiz et" : "Analyze page with AI"}
+            >
+              <span aria-hidden="true">✦</span>
+              <b>Ask Fornost</b>
+            </button>
+            <button
+              type="button"
               className="command-trigger"
               onClick={() => {
                 setCommandOpen(true);
@@ -2121,6 +2208,8 @@ function FornostApp({ currentUser }: { currentUser: any }) {
           <Dashboard rows={rows} go={setActive} lang={lang} />
         ) : active === "Risk İştahı ve KRI" ? (
           <RiskAppetite lang={lang} currentUser={currentUser} />
+        ) : active === "Bağlantılı GRC" ? (
+          <ConnectedGrc rows={rows} lang={lang} go={setActive} />
         ) : active === "Raporlar" ? (
           <Reports rows={rows} lang={lang} />
         ) : active === "Kanıt Otomasyonu" ? (
@@ -3056,9 +3145,9 @@ function Dashboard({
       },
     ];
   return (
-    <div className="cockpit">
-      <section className="cockpit-titlebar">
-        <div>
+    <div className="workspace-dashboard">
+      <section className="dashboard-hero">
+        <div className="dashboard-hero-copy">
           <small>
             {tr ? "YÖNETİCİ KOMUTA MERKEZİ" : "EXECUTIVE COMMAND CENTER"}
           </small>
@@ -3069,19 +3158,7 @@ function Dashboard({
               : "Prioritize decisions, surface deviations and manage action from one view."}
           </p>
         </div>
-        <div className="cockpit-actions">
-          <button onClick={() => go("Risk Assessment")}>
-            {tr ? "Risk portföyü" : "Risk portfolio"}
-          </button>
-          <button className="accent" onClick={() => go("Raporlar")}>
-            {tr ? "Yönetim raporu" : "Executive report"}
-            <span>↗</span>
-          </button>
-        </div>
-      </section>
-
-      <section className="posture-rail">
-        <article className="posture-primary">
+        <div className="dashboard-hero-score">
           <div
             className="posture-ring"
             style={
@@ -3093,28 +3170,29 @@ function Dashboard({
               <small>/100</small>
             </div>
           </div>
-          <div>
+          <span>
             <small>{tr ? "KURUMSAL DURUŞ" : "ENTERPRISE POSTURE"}</small>
             <b>
               {posture >= 75
-                ? tr
-                  ? "Güçlü"
-                  : "Strong"
+                ? tr ? "Güçlü" : "Strong"
                 : posture >= 50
-                  ? tr
-                    ? "Gelişiyor"
-                    : "Developing"
-                  : tr
-                    ? "Aksiyon gerekli"
-                    : "Action required"}
+                  ? tr ? "Gelişiyor" : "Developing"
+                  : tr ? "Aksiyon gerekli" : "Action required"}
             </b>
-            <span>
-              {tr
-                ? "Risk, uyum ve kanıt bileşik skoru"
-                : "Composite risk, compliance and evidence score"}
-            </span>
-          </div>
-        </article>
+          </span>
+        </div>
+        <div className="dashboard-hero-actions">
+          <button onClick={() => go("Risk Assessment")}>
+            {tr ? "Risk portföyü" : "Risk portfolio"}
+          </button>
+          <button className="accent" onClick={() => go("Raporlar")}>
+            {tr ? "Yönetim raporu" : "Executive report"}
+            <span>↗</span>
+          </button>
+        </div>
+      </section>
+
+      <section className="dashboard-metrics" aria-label={tr ? "Önemli göstergeler" : "Key metrics"}>
         {[
           [
             high.length,
@@ -3141,17 +3219,16 @@ function Dashboard({
             "evidence",
           ],
         ].map(([value, label, detail, tone]) => (
-          <article className={`rail-metric ${tone}`} key={String(label)}>
-            <small>{label}</small>
+          <article className={`dashboard-metric ${tone}`} key={String(label)}>
+            <div><small>{label}</small><i /></div>
             <strong>{value}</strong>
             <span>{detail}</span>
-            <i />
           </article>
         ))}
       </section>
 
-      <section className="cockpit-grid">
-        <div className="cockpit-panel exposure-panel">
+      <section className="dashboard-intelligence">
+        <div className="dashboard-panel risk-focus-panel">
           <PanelHead
             eyebrow={tr ? "RİSK MARUZİYETİ" : "RISK EXPOSURE"}
             title={tr ? "Portföy yoğunluğu" : "Portfolio concentration"}
@@ -3222,7 +3299,7 @@ function Dashboard({
           </div>
         </div>
 
-        <div className="cockpit-panel attention-panel">
+        <div className="dashboard-panel attention-panel">
           <PanelHead
             eyebrow={tr ? "KARAR KUYRUĞU" : "DECISION QUEUE"}
             title={
@@ -3246,7 +3323,7 @@ function Dashboard({
           </div>
         </div>
 
-        <div className="cockpit-panel assurance-panel">
+        <div className="dashboard-panel assurance-panel">
           <PanelHead
             eyebrow={tr ? "GÜVENCE" : "ASSURANCE"}
             title={
@@ -3301,7 +3378,7 @@ function Dashboard({
           </div>
         </div>
 
-        <div className="cockpit-panel resilience-panel">
+        <div className="dashboard-panel resilience-panel">
           <PanelHead
             eyebrow={tr ? "DAYANIKLILIK" : "RESILIENCE"}
             title={tr ? "Kritik iş hizmetleri" : "Critical business services"}
@@ -3334,7 +3411,7 @@ function Dashboard({
         </div>
       </section>
 
-      <section className="workspace-launcher">
+      <section className="dashboard-shortcuts">
         <div>
           <small>{tr ? "ÇALIŞMA ALANLARI" : "WORKSPACES"}</small>
           <b>{tr ? "Operasyona geç" : "Move to operations"}</b>
@@ -3369,7 +3446,7 @@ function Dashboard({
           </button>
         ))}
       </section>
-      <div className="cockpit-footnote">
+      <div className="dashboard-footnote">
         {tr
           ? `${assets.length} varlık · ${bias.length} süreç · ${controls.length} kontrol · anlık hesaplanır`
           : `${assets.length} assets · ${bias.length} processes · ${controls.length} controls · calculated live`}
@@ -3391,7 +3468,7 @@ function PanelHead({
   badge?: number;
 }) {
   return (
-    <div className="cockpit-panel-head">
+    <div className="dashboard-panel-head">
       <div>
         <small>{eyebrow}</small>
         <h3>{title}</h3>
