@@ -272,7 +272,10 @@ fi
 
 phase="container runtime preflight"
 "${engine}" info >/dev/null
-previous_image_id="$("${engine}" image inspect --format '{{.Id}}' "${image}" 2>/dev/null || true)"
+previous_image_id="$("${engine}" inspect --format '{{.Image}}' fornost-grc-app 2>/dev/null || true)"
+if [[ -z "${previous_image_id}" ]]; then
+  previous_image_id="$("${engine}" image inspect --format '{{.Id}}' "${image}" 2>/dev/null || true)"
+fi
 
 phase="disk capacity preflight"
 storage_root="$(container_storage_root "${engine}")"
@@ -320,7 +323,7 @@ download_commit_release_asset() {
 install_prebuilt_image() {
   local bundle_file="${FORNOST_APP_BUNDLE_FILE:-}"
   local bundle_url="${FORNOST_APP_BUNDLE_URL:-}"
-  local checksum_file checksum_url release_commit="" release_repository architecture loaded_revision
+  local checksum_file checksum_url release_commit="${FORNOST_RELEASE_COMMIT:-}" release_repository architecture loaded_revision
 
   if [[ -z "${bundle_file}" ]]; then
     architecture="$(uname -m)"
@@ -334,7 +337,7 @@ install_prebuilt_image() {
     }
 
     release_repository="${FORNOST_RELEASE_REPOSITORY:-jacobevci-lab/Fornost-GRC}"
-    release_commit="${FORNOST_RELEASE_COMMIT:-$(git -C "${project_root}" rev-parse HEAD 2>/dev/null || true)}"
+    release_commit="${release_commit:-$(git -C "${project_root}" rev-parse HEAD 2>/dev/null || true)}"
     [[ "${release_commit}" =~ ^[0-9a-f]{40}$ ]] || {
       echo "Could not determine the checked-out Git commit for the prebuilt image." >&2
       return 66
@@ -377,17 +380,12 @@ install_prebuilt_image() {
     cd "$(dirname "${bundle_file}")"
     sed "s#  .*#  $(basename "${bundle_file}")#" "${checksum_file}" | sha256sum --check --strict -
   )
-  phase="prebuilt application image load"
-  # Podman may preserve an existing mutable :latest tag when a docker archive
-  # with the same tag is loaded. Detach only the tag; the old image remains
-  # addressable by previous_image_id for automatic rollback.
-  if [[ -n "${previous_image_id}" ]]; then
-    phase="previous application image tag detach"
-    if [[ "$(basename "${engine}")" == "podman" ]]; then
-      "${engine}" untag "${image}" "${image}" >/dev/null 2>&1 || true
-    else
-      "${engine}" image rm "${image}" >/dev/null 2>&1 || true
-    fi
+  if [[ -n "${release_commit}" ]]; then
+    [[ "${release_commit}" =~ ^[0-9a-f]{40}$ ]] || {
+      echo "FORNOST_RELEASE_COMMIT must be a full lowercase Git commit SHA." >&2
+      return 64
+    }
+    image="localhost/fornost-grc-app:${release_commit}"
   fi
   phase="prebuilt application image load"
   "${engine}" load --input "${bundle_file}"

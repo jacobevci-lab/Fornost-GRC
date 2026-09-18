@@ -30,7 +30,9 @@ case "${1:-}" in
     exit 0
     ;;
   inspect)
-    if [[ " $* " == *"NetworkSettings.Networks"* ]]; then
+    if [[ " $* " == *"{{.Image}}"* ]]; then
+      printf 'sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\n'
+    elif [[ " $* " == *"NetworkSettings.Networks"* ]]; then
       printf '10.89.0.46\n'
     elif [[ " $* " == *" --format "* ]]; then
       printf 'true\n'
@@ -47,7 +49,7 @@ case "${1:-}" in
     fi
     exit 0
     ;;
-  info|pull|run|rm|rmi|untag|logs|ps) exit 0 ;;
+  info|pull|run|rm|rmi|logs|ps) exit 0 ;;
   network|volume)
     if [[ "${1:-}" == "network" && "${2:-}" == "inspect" && " $* " == *" --format "* ]]; then
       printf '10.89.0.1\n'
@@ -227,7 +229,6 @@ run_bootstrap "${podman_case}" podman >"${podman_case}/output.log"
 grep -q 'dnf install -y git podman curl openssl firewalld' "${podman_case}/engine.log" || fail "RHEL prerequisites were not installed"
 grep -q 'firewall-cmd --permanent --zone=public --add-port=8443/tcp' "${podman_case}/engine.log" || fail "HTTPS firewall rule was not configured"
 grep -q 'podman load --input .*fornost-grc-amd64.tar.gz' "${podman_case}/engine.log" || fail "verified prebuilt image was not loaded"
-grep -q 'podman untag localhost/fornost-grc-app:latest localhost/fornost-grc-app:latest' "${podman_case}/engine.log" || fail "existing Podman image tag was not detached before loading the update"
 if grep -q 'podman build' "${podman_case}/engine.log"; then fail "normal installation unexpectedly built on the server"; fi
 grep -q 'podman volume create fornost-grc-data' "${podman_case}/engine.log" || fail "persistent volume was not created"
 grep -q 'podman run .*--name fornost-grc-proxy' "${podman_case}/engine.log" || fail "reverse proxy was not started before health verification"
@@ -321,6 +322,7 @@ if grep -Eq 'podman (load|pull|run)' "${low_disk_case}/engine.log"; then fail "i
 cache_case="$(make_case verified-cache podman 8443 /fornost-grc)"
 run_remote_install "${cache_case}" podman >"${cache_case}/first.log"
 run_remote_install "${cache_case}" podman >"${cache_case}/second.log"
+grep -q 'podman run .*localhost/fornost-grc-app:1111111111111111111111111111111111111111' "${cache_case}/engine.log" || fail "commit-pinned image tag was not used to start the application"
 bundle_downloads="$(grep -c '/fornost-grc-amd64.tar.gz$' "${cache_case}/engine.log" || true)"
 [[ "${bundle_downloads}" == "1" ]] || fail "verified image bundle was downloaded ${bundle_downloads} times instead of once"
 grep -q 'Using the previously downloaded and checksum-verified image bundle' "${cache_case}/second.log" || fail "verified cache reuse was not reported"

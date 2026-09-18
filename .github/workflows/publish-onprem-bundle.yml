@@ -28,22 +28,23 @@ jobs:
           docker build
           --build-arg NEXT_PUBLIC_BASE_PATH=/fornost-grc
           --build-arg FORNOST_SOURCE_COMMIT=${SOURCE_SHA}
-          --tag localhost/fornost-grc-app:latest
+          --tag localhost/fornost-grc-app:${SOURCE_SHA}
           .
       - name: Create and verify image bundle
         run: |
-          docker save localhost/fornost-grc-app:latest | gzip -1 > fornost-grc-amd64.tar.gz
+          docker save "localhost/fornost-grc-app:${SOURCE_SHA}" | gzip -1 > fornost-grc-amd64.tar.gz
           sha256sum fornost-grc-amd64.tar.gz > fornost-grc-amd64.tar.gz.sha256
           sha256sum --check fornost-grc-amd64.tar.gz.sha256
-          docker image rm localhost/fornost-grc-app:latest
+          docker image rm "localhost/fornost-grc-app:${SOURCE_SHA}"
           docker load --input fornost-grc-amd64.tar.gz
-          docker image inspect localhost/fornost-grc-app:latest >/dev/null
+          docker image inspect "localhost/fornost-grc-app:${SOURCE_SHA}" >/dev/null
       - name: Test installer using only the prebuilt bundle
         run: >-
           sudo env
           FORNOST_INTEGRATION_TEST=1
           FORNOST_CONTAINER_ENGINE=docker
           FORNOST_INTEGRATION_PORT=18443
+          FORNOST_RELEASE_COMMIT=${SOURCE_SHA}
           FORNOST_APP_BUNDLE_FILE=${{ github.workspace }}/fornost-grc-amd64.tar.gz
           bash tests/onprem-container-integration.sh
       - name: Install Podman for bundle compatibility test
@@ -54,6 +55,7 @@ jobs:
           FORNOST_INTEGRATION_TEST=1
           FORNOST_CONTAINER_ENGINE=podman
           FORNOST_INTEGRATION_PORT=19443
+          FORNOST_RELEASE_COMMIT=${SOURCE_SHA}
           FORNOST_APP_BUNDLE_FILE=${{ github.workspace }}/fornost-grc-amd64.tar.gz
           bash tests/onprem-container-integration.sh
       - name: Publish commit-pinned bundle

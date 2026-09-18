@@ -39,7 +39,8 @@ test("container deployment isolates workerd from the host glibc", async () => {
   assert.match(installer, /Attempting automatic rollback/);
   assert.match(installer, /Automatic rollback succeeded/);
   assert.match(installer, /previous_image_id/);
-  assert.match(installer, /podman".*untag|"podman".*untag|untag "\$\{image\}"/s);
+  assert.match(installer, /localhost\/fornost-grc-app:\$\{release_commit\}/);
+  assert.match(installer, /inspect --format '\{\{\.Image\}\}' fornost-grc-app/);
   assert.match(installer, /org\.opencontainers\.image\.revision/);
   assert.match(dockerfile, /org\.opencontainers\.image\.revision/);
   assert.match(dockerfile, /FORNOST_BUILD_REVISION/);
