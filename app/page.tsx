@@ -3602,11 +3602,11 @@ function Reports({ rows, lang }: { rows: Row[]; lang: Lang }) {
     setOwner(all);
     setStatus(all);
   }, [module]);
+  const moduleRows = rows.filter((r) => module === all || r.module === module);
   const values = (k: string) =>
-    [...new Set(rows.map((r) => r.data[k]).filter(Boolean))].sort();
-  const filtered = rows.filter(
+    [...new Set(moduleRows.map((r) => r.data[k]).filter(Boolean))].sort();
+  const filtered = moduleRows.filter(
     (r) =>
-      (module === all || r.module === module) &&
       (unit === all || r.data.businessUnit === unit) &&
       (owner === all || r.data.owner === owner) &&
       (status === all || r.data.status === status),
@@ -3620,6 +3620,30 @@ function Reports({ rows, lang }: { rows: Row[]; lang: Lang }) {
     return acc;
   }, {})).sort((a, b) => b[1] - a[1]).slice(0, 6);
   const reportTitle = `Fornost GRC — ${selectedModuleLabel}`;
+  const qualitySignals = [
+    {
+      label: tr ? "Sahiplik kapsamı" : "Ownership coverage",
+      value: filtered.length ? Math.round((filtered.filter((r) => r.data.owner).length / filtered.length) * 100) : 0,
+    },
+    {
+      label: tr ? "İş birimi kapsamı" : "Business unit coverage",
+      value: filtered.length ? Math.round((filtered.filter((r) => r.data.businessUnit).length / filtered.length) * 100) : 0,
+    },
+    {
+      label: tr ? "Durum kapsamı" : "Status coverage",
+      value: filtered.length ? Math.round((filtered.filter((r) => r.data.status).length / filtered.length) * 100) : 0,
+    },
+  ];
+  const lastUpdated = filtered
+    .map((r) => r.updatedAt || r.createdAt)
+    .filter(Boolean)
+    .sort()
+    .at(-1);
+  const resetFilters = () => {
+    setUnit(all);
+    setOwner(all);
+    setStatus(all);
+  };
   function htmlReport() {
     downloadBlob(`Fornost-GRC-${exportSlug}.html`, new Blob([buildReportHtml(reportTitle, filtered, metrics, tr)], { type: "text/html;charset=utf-8" }));
   }
@@ -3645,79 +3669,85 @@ function Reports({ rows, lang }: { rows: Row[]; lang: Lang }) {
     );
   }
   return (
-    <>
-      <section className="module-head">
+    <div className="report-workspace">
+      <section className="report-hero">
         <div>
-          <h2>{names[lang].Raporlar}</h2>
+          <small>{tr ? "YÖNETİCİ RAPORLAMA · YÖNETİLEN DIŞA AKTARIM" : "EXECUTIVE REPORTING · GOVERNED EXPORT"}</small>
+          <h2>{tr ? "Yönetim Raporlama Merkezi" : "Management Reporting Center"}</h2>
           <p>
             {tr
-              ? `${selectedModuleLabel} kayıtlarını filtreleyin ve ayrı rapor olarak indirin.`
-              : `Filter ${selectedModuleLabel} records and export them as a separate report.`}
+              ? `${selectedModuleLabel} kapsamını inceleyin, veri kalitesini doğrulayın ve yönetim çıktısını oluşturun.`
+              : `Review the ${selectedModuleLabel} scope, validate data quality and produce a management-ready output.`}
           </p>
         </div>
-        <div className="actions">
-          <button className="ghost" onClick={htmlReport}>
-            {tr ? "HTML Raporu" : "HTML Report"}
+        <div className="report-hero-actions">
+          <button className="ghost" onClick={htmlReport} disabled={!filtered.length}>
+            HTML
           </button>
-          <button className="ghost" onClick={pdfReport}>
+          <button className="ghost" onClick={() => csvDownload(`Fornost-GRC-${exportSlug}.csv`, filtered, lang)} disabled={!filtered.length}>
+            CSV
+          </button>
+          <button className="ghost" onClick={pdfReport} disabled={!filtered.length}>
             {tr ? "PDF Raporu" : "PDF Report"}
           </button>
-          <button
-            className="ghost"
-            onClick={() =>
-              csvDownload(`Fornost-GRC-${exportSlug}.csv`, filtered, lang)
-            }
-          >
-            {ui[lang].csv}
-          </button>
-          <button className="primary" onClick={excel}>
+          <button className="primary" onClick={excel} disabled={!filtered.length}>
             {tr ? "Excel Raporu Al" : "Download Excel Report"}
           </button>
         </div>
       </section>
-      <section className="report-module-picker" aria-label={tr ? "Rapor modülü" : "Report module"}>
-        <button className={module === all ? "active" : ""} onClick={() => setModule(all)}>
-          <span>{allLabel}</span><b>{rows.length}</b>
-        </button>
-        {reportModules.map((item) => (
-          <button key={item} className={module === item ? "active" : ""} onClick={() => setModule(item)}>
-            <span>{names[lang][item] || item}</span><b>{rows.filter((row) => row.module === item).length}</b>
-          </button>
-        ))}
+      <section className="report-scope-strip" aria-label={tr ? "Rapor özeti" : "Report summary"}>
+        <div><small>{tr ? "Kapsam" : "Scope"}</small><b>{selectedModuleLabel}</b></div>
+        <div><small>{tr ? "Dahil edilen" : "Included"}</small><b>{filtered.length} {tr ? "kayıt" : "records"}</b></div>
+        <div><small>{tr ? "Son güncelleme" : "Last update"}</small><b>{lastUpdated ? new Date(lastUpdated).toLocaleDateString(tr ? "tr-TR" : "en-GB") : "—"}</b></div>
+        <div><small>{tr ? "Çıktılar" : "Outputs"}</small><b>PDF · XLSX · CSV · HTML</b></div>
       </section>
-      <section className="report-filters">
-        <Filter
-          label={tr ? "İş Birimi" : "Business Unit"}
-          value={unit}
-          set={setUnit}
-          opts={values("businessUnit")}
-          all={all}
-        />
-        <Filter
-          label={tr ? "Sahip" : "Owner"}
-          value={owner}
-          set={setOwner}
-          opts={values("owner")}
-          all={all}
-        />
-        <Filter
-          label={tr ? "Durum" : "Status"}
-          value={status}
-          set={setStatus}
-          opts={values("status")}
-          all={all}
-        />
+      <section className="report-builder">
+        <header className="report-section-head">
+          <div><small>{tr ? "01 · KAPSAM" : "01 · SCOPE"}</small><h3>{tr ? "Rapor modülünü seçin" : "Choose the reporting module"}</h3></div>
+          <span>{tr ? "Modül seçimi filtre seçeneklerini günceller." : "Module selection updates the available filters."}</span>
+        </header>
+        <div className="report-module-picker" aria-label={tr ? "Rapor modülü" : "Report module"}>
+          <button className={module === all ? "active" : ""} onClick={() => setModule(all)}>
+            <span>{allLabel}</span><b>{rows.length}</b>
+          </button>
+          {reportModules.map((item) => (
+            <button key={item} className={module === item ? "active" : ""} onClick={() => setModule(item)}>
+              <span>{names[lang][item] || item}</span><b>{rows.filter((row) => row.module === item).length}</b>
+            </button>
+          ))}
+        </div>
+      </section>
+      <section className="report-filter-panel">
+        <header className="report-section-head">
+          <div><small>{tr ? "02 · FİLTRELER" : "02 · FILTERS"}</small><h3>{tr ? "Rapor kapsamını daraltın" : "Refine report scope"}</h3></div>
+          <button type="button" onClick={resetFilters} disabled={unit === all && owner === all && status === all}>{tr ? "Filtreleri temizle" : "Clear filters"}</button>
+        </header>
+        <div className="report-filters">
+          <Filter label={tr ? "İş Birimi" : "Business Unit"} value={unit} set={setUnit} opts={values("businessUnit")} all={all} />
+          <Filter label={tr ? "Sahip" : "Owner"} value={owner} set={setOwner} opts={values("owner")} all={all} />
+          <Filter label={tr ? "Durum" : "Status"} value={status} set={setStatus} opts={values("status")} all={all} />
+        </div>
       </section>
       <section className="report-summary">
         {metrics.map((metric) => <Kpi key={metric.label} n={metric.value} t={metric.label} s={metric.note} />)}
       </section>
-      <section className="report-insights">
-        <div>
-          <small>{tr ? "YÖNETİM GÖRÜNÜMÜ" : "MANAGEMENT VIEW"}</small>
-          <h3>{tr ? "Durum dağılımı" : "Status distribution"}</h3>
-          <p>{tr ? "Seçili filtrelerle rapora giren kayıtların güncel dağılımı." : "Current distribution of records included by the selected filters."}</p>
+      <section className="report-analysis-grid">
+        <div className="report-insights">
+          <div>
+            <small>{tr ? "YÖNETİM GÖRÜNÜMÜ" : "MANAGEMENT VIEW"}</small>
+            <h3>{tr ? "Durum dağılımı" : "Status distribution"}</h3>
+            <p>{tr ? "Seçili filtrelerle rapora giren kayıtların güncel dağılımı." : "Current distribution of records included by the selected filters."}</p>
+          </div>
+          {statusDistribution.length ? <Bars items={statusDistribution.map(([label, value], index) => ({ label, value, cls: ["uyumlu", "orta", "yüksek", "kritik"][index % 4] }))} /> : <p className="report-empty-inline">{tr ? "Dağılım için kayıt bulunamadı." : "No records available for distribution."}</p>}
         </div>
-        <Bars items={statusDistribution.map(([label, value], index) => ({ label, value, cls: ["uyumlu", "orta", "yüksek", "kritik"][index % 4] }))} />
+        <div className="report-data-quality">
+          <small>{tr ? "VERİ GÜVENİ" : "DATA CONFIDENCE"}</small>
+          <h3>{tr ? "Rapor veri kalitesi" : "Report data quality"}</h3>
+          <p>{tr ? "Zorunlu yönetim alanlarının doluluk oranı." : "Completion rate of core management fields."}</p>
+          <div>
+            {qualitySignals.map((signal) => <div key={signal.label}><span><b>{signal.label}</b><em>{signal.value}%</em></span><i><u style={{ width: `${signal.value}%` }} /></i></div>)}
+          </div>
+        </div>
       </section>
       <section className="table-card">
         <div className="table-tools">
@@ -3731,12 +3761,14 @@ function Reports({ rows, lang }: { rows: Row[]; lang: Lang }) {
         </div>
         <div className="table-wrap">
           <table>
+            <caption className="sr-only">{tr ? "Rapor kapsamındaki kayıtlar" : "Records included in the report"}</caption>
             <colgroup>
-              {["module","title","businessUnit","owner","status","level"].map((key) => <col key={key} style={{ width: widths.width(key) }} />)}
+              {["code","module","title","businessUnit","owner","status","level"].map((key) => <col key={key} style={{ width: widths.width(key) }} />)}
             </colgroup>
             <thead>
               <tr>
                 {[
+                  ["code", tr ? "Kod" : "Code"],
                   ["module", tr ? "Modül" : "Module"],
                   ["title", tr ? "Başlık" : "Title"],
                   ["businessUnit", tr ? "İş Birimi" : "Business Unit"],
@@ -3751,6 +3783,7 @@ function Reports({ rows, lang }: { rows: Row[]; lang: Lang }) {
             <tbody>
               {filtered.slice(0, 250).map((r) => (
                 <tr key={r.id}>
+                  <td><b className="code" title={r.id}>{displayRecordCode(r)}</b></td>
                   <td>{names[lang][r.module] || r.module}</td>
                   <td>
                     {r.data.title ||
@@ -3773,11 +3806,13 @@ function Reports({ rows, lang }: { rows: Row[]; lang: Lang }) {
                   </td>
                 </tr>
               ))}
+              {!filtered.length && <tr><td className="report-table-empty" colSpan={7}>{tr ? "Seçili kapsamda raporlanacak kayıt bulunamadı." : "No reportable records match the selected scope."}</td></tr>}
             </tbody>
           </table>
         </div>
+        {filtered.length > 250 && <p className="report-limit-note">{tr ? `Önizlemede ilk 250 kayıt gösteriliyor; dışa aktarılan dosya ${filtered.length} kaydın tamamını içerir.` : `The preview shows the first 250 records; exports include all ${filtered.length} records.`}</p>}
       </section>
-    </>
+    </div>
   );
 }
 function ModuleFilter({
