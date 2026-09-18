@@ -1,4 +1,20 @@
 html,body{max-width:100%;overflow-x:hidden}
+.register-search>span{position:static!important;inset:auto!important;display:inline-grid;place-items:center;flex:0 0 18px;transform:none!important}
+.register-search input{min-width:0!important;padding-left:0!important}
+.modal{max-width:calc(100vw - 24px)}
+.modal-head>div{min-width:0}.modal-head h2{overflow-wrap:anywhere}
+.form>label,.form>fieldset{min-width:0;max-width:100%}
+.form label{line-height:1.4;overflow-wrap:anywhere}
+.form input,.form select,.form textarea{width:100%;min-width:0;max-width:100%;font:inherit}
+.form textarea{resize:vertical;overflow-wrap:anywhere}
+.form select{white-space:normal;text-overflow:ellipsis}
+.code{display:inline-block;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.shell main :where(div,section,article,header,footer,form,label,fieldset){min-width:0}
+.shell main :where(h1,h2,h3,h4,p,label,legend,dt,dd,small,b,strong,span,a,button){overflow-wrap:anywhere}
+.shell main :where(input,select,textarea,button){max-width:100%}
+.shell main :where(img,svg,iframe,canvas){max-width:100%}
+.shell main button{white-space:normal}
+.shell main table td,.shell main table th{overflow-wrap:anywhere}
 .shell{min-width:0;width:100%;max-width:100%}
 .shell>main{min-width:0;width:auto;max-width:100%}
 .shell>main>*{min-width:0;max-width:100%}

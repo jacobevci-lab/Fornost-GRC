@@ -6,6 +6,7 @@ import {
   FormEvent,
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
+  useCallback,
   useEffect,
   useMemo,
   useRef,
@@ -42,12 +43,14 @@ import { calculatedRiskScore, effectiveImpact } from "./risk-methodology";
 import { defaultCatalogs, type CatalogMap } from "./catalogs";
 import { safeSpreadsheetCell } from "./export-security";
 import { automaticAuditTemplates } from "./api/grc/framework-catalogs";
+import { displayRecordCode } from "./record-codes";
 import "./workspace-system.css";
 import { buildReportHtml, buildReportPdf, downloadBlob, reportMetrics } from "./report-export";
 
 type Lang = "tr" | "en";
 type Row = {
   id: string;
+  code?: string;
   module: string;
   data: Record<string, any>;
   createdAt?: string;
@@ -1146,7 +1149,30 @@ const valueEN: Record<string, string> = {
   Kaçın: "Avoid",
   Aktif: "Active",
   Açık: "Open",
-  Planlandı: "Planned",
+  "Uygulama Hazırlığında": "Implementation Preparation",
+  "İnceleme Takviminde": "Review Scheduled",
+  "Test Edilmedi": "Not Tested",
+  Değerlendirilmedi: "Not Assessed",
+  Değerlendiriliyor: "Under Assessment",
+  "Aksiyon Devam Ediyor": "Treatment in Progress",
+  "Kabul Edildi": "Accepted",
+  Taslak: "Draft",
+  İncelemede: "Under Review",
+  Onaylandı: "Approved",
+  Arşivlendi: "Archived",
+  Bakımda: "In Maintenance",
+  "Devre Dışı": "Retired",
+  "Kısmi Uyumlu": "Partially Compliant",
+  "Uyumlu Değil": "Non-compliant",
+  Uygulanamaz: "Not Applicable",
+  Askıda: "Suspended",
+  Sonlandırıldı: "Terminated",
+  Uygulanmıyor: "Not Implemented",
+  Reddedildi: "Rejected",
+  "Süresi Doldu": "Expired",
+  Başlanmadı: "Not Started",
+  "Devam Ediyor": "In Progress",
+  Kapatıldı: "Closed",
   Uygulanıyor: "Implemented",
   Uyumlu: "Compliant",
   Kısmi: "Partial",
@@ -1195,6 +1221,26 @@ function band(n: number) {
 function empty(m: string) {
   return Object.fromEntries((fields[m] || []).map((k) => [k, ""]));
 }
+const requiredFieldsByModule: Record<string, string[]> = {
+  "Risk Assessment": ["title", "category", "businessUnit", "owner", "asset", "inherentLikelihood", "inherentImpact", "treatment", "status", "nextReview"],
+  BIA: ["process", "processCategory", "businessUnit", "owner", "criticality", "asset", "rto", "rpo"],
+  "Varlık Envanteri": ["title", "assetType", "businessUnit", "owner", "criticality", "status"],
+  Uyum: ["framework", "controlRef", "controlTitle", "owner", "status"],
+  Tedarikçiler: ["title", "service", "owner", "criticality", "riskLevel", "status"],
+  Kontroller: ["controlRef", "controlTitle", "owner", "frequency", "status"],
+  Kanıtlar: ["evidenceTitle", "controlRef", "owner", "period"],
+  "Denetim Yönetimi": ["auditName", "auditType", "auditOwner", "startDate", "endDate", "requirementRef", "requirementTitle", "owner", "businessUnit", "dueDate", "status", "progress"],
+};
+const statusOptionsByModule: Record<string, string[]> = {
+  "Risk Assessment": ["Açık", "Değerlendiriliyor", "Aksiyon Devam Ediyor", "Kabul Edildi", "Kapalı"],
+  BIA: ["Taslak", "İncelemede", "Onaylandı", "Aktif", "Arşivlendi"],
+  "Varlık Envanteri": ["Aktif", "Bakımda", "Devre Dışı", "Arşivlendi"],
+  Uyum: ["Uyumlu", "Kısmi Uyumlu", "Uyumlu Değil", "Uygulanamaz"],
+  Tedarikçiler: ["Aktif", "İncelemede", "Askıda", "Sonlandırıldı"],
+  Kontroller: ["Uygulanıyor", "Kısmi", "Uygulanmıyor", "Uygulanamaz"],
+  Kanıtlar: ["Taslak", "İncelemede", "Onaylandı", "Reddedildi", "Süresi Doldu"],
+  "Denetim Yönetimi": ["Başlanmadı", "Devam Ediyor", "İncelemede", "Kapatıldı"],
+};
 function csvDownload(name: string, rows: Row[], lang: Lang) {
   const labels = labelMap[lang],
     all = [...new Set(rows.flatMap((r) => fields[r.module] || []))],
@@ -1204,7 +1250,7 @@ function csvDownload(name: string, rows: Row[], lang: Lang) {
       ...all.map((k) => labels[k] || k),
     ],
     body = rows.map((r) => [
-      r.id,
+      displayRecordCode(r),
       names[lang][r.module] || r.module,
       ...all.map((k) => r.data[k] ?? ""),
     ]);
@@ -1400,12 +1446,13 @@ function AuthGate() {
 function FornostApp({ currentUser }: { currentUser: any }) {
   const [lang, setLang] = useState<Lang>("tr"),
     [active, setActive] = useState("Ana Sayfa"),
-    [rows, setRows] = useState<Row[]>(examples),
+    [rows, setRows] = useState<Row[]>([]),
     [query, setQuery] = useState(""),
     [modal, setModal] = useState(false),
     [editing, setEditing] = useState<Row | null>(null),
     [form, setForm] = useState<Record<string, any>>({}),
     [notice, setNotice] = useState(""),
+    [saving, setSaving] = useState(false),
     [importOpen, setImportOpen] = useState(false),
     [previewEvidence, setPreviewEvidence] = useState<Row | null>(null),
     [selectedAudit, setSelectedAudit] = useState(""),
@@ -1490,44 +1537,53 @@ function FornostApp({ currentUser }: { currentUser: any }) {
       overview.textContent =
         lang === "tr" ? "FORNOST GRC GENEL DURUM" : "FORNOST GRC OVERVIEW";
   }, [lang, active]);
-  async function load() {
+  const load = useCallback(async () => {
     try {
-      const r = await fetch(withBasePath("/api/grc"));
-      if (r.ok) {
-        const j = await r.json();
-        setRows(
-          Array.isArray(j.rows)
-            ? j.rows.map((x: any) => ({
-                ...x,
-                data: JSON.parse(x.data_json),
-                createdAt: x.createdAt || x.created_at,
-                updatedAt: x.updatedAt || x.updated_at,
-              }))
-            : [],
-        );
-      }
-    } catch {}
-  }
-  async function loadCatalogs() {
+      const r = await fetch(withBasePath("/api/grc"), { cache: "no-store" }),
+        j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(String(j.error || "GRC kayıtları yüklenemedi."));
+      setRows(
+        Array.isArray(j.rows)
+          ? j.rows.map((x: any) => ({
+              ...x,
+              data: JSON.parse(x.data_json),
+              code: x.recordCode || x.record_code,
+              createdAt: x.createdAt || x.created_at,
+              updatedAt: x.updatedAt || x.updated_at,
+            }))
+          : [],
+      );
+    } catch (error) {
+      setRows([]);
+      setNotice(
+        error instanceof Error
+          ? error.message
+          : lang === "tr"
+            ? "GRC kayıtları yüklenemedi."
+            : "GRC records could not be loaded.",
+      );
+    }
+  }, [lang]);
+  const loadCatalogs = useCallback(async () => {
     try {
       const response = await fetch(withBasePath("/api/catalogs"), {
         cache: "no-store",
       });
       if (response.ok) setCatalogs((await response.json()).catalogs);
     } catch {}
-  }
-  async function loadAudits() {
+  }, []);
+  const loadAudits = useCallback(async () => {
     try {
       const response = await fetch(withBasePath("/api/audits"), {
         cache: "no-store",
       });
       if (response.ok) setAuditPortfolio((await response.json()).audits || []);
     } catch {}
-  }
+  }, []);
   useEffect(() => {
     loadAudits().then(load);
     loadCatalogs();
-  }, []);
+  }, [load, loadAudits, loadCatalogs]);
   useEffect(() => {
     setRegisterFilters({});
     setColumnPickerOpen(false);
@@ -1585,31 +1641,45 @@ function FornostApp({ currentUser }: { currentUser: any }) {
   }
   async function save(e: FormEvent) {
     e.preventDefault();
-    const r = await fetch(withBasePath("/api/grc"), {
-      method: editing ? "PATCH" : "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ id: editing?.id, module: active, data: form }),
-    });
-    if (r.ok) {
+    if (saving) return;
+    setSaving(true);
+    try {
+      const r = await fetch(withBasePath("/api/grc"), {
+        method: editing ? "PATCH" : "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ id: editing?.id, module: active, data: form }),
+      });
+      const result = await r.json().catch(() => ({}));
+      if (!r.ok)
+        throw new Error(
+          String(
+            result.error ||
+              (lang === "tr"
+                ? "Kayıt kaydedilemedi."
+                : "Record could not be saved."),
+          ),
+        );
       setModal(false);
       await load();
       setNotice(
         lang === "tr"
           ? editing
             ? "Kayıt güncellendi."
-            : "Yeni kayıt eklendi."
+            : `Yeni kayıt eklendi${result.code ? `: ${result.code}` : "."}`
           : editing
             ? "Record updated."
-            : "New record added.",
+            : `New record added${result.code ? `: ${result.code}` : "."}`,
       );
-    } else {
-      const j = await r.json().catch(() => ({}));
+    } catch (error) {
       setNotice(
-        j.error ||
-          (lang === "tr"
+        error instanceof Error
+          ? error.message
+          : lang === "tr"
             ? "Kayıt kaydedilemedi."
-            : "Record could not be saved."),
+            : "Record could not be saved.",
       );
+    } finally {
+      setSaving(false);
     }
   }
   async function remove(id: string) {
@@ -1701,7 +1771,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
         kind: "ticketing",
         action: "create-ticket",
         sourceId: row.id,
-        title: `[Fornost GRC] ${row.data.requirementRef || row.id} - ${row.data.requirementTitle || row.data.title || "GRC Aksiyonu"}`,
+        title: `[Fornost GRC] ${row.data.requirementRef || displayRecordCode(row)} - ${row.data.requirementTitle || row.data.title || "GRC Aksiyonu"}`,
         description: [row.data.finding, row.data.responsibleNote]
           .filter(Boolean)
           .join("\n\n"),
@@ -2329,6 +2399,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
                     remove={remove}
                     columns={selectedColumnKeys}
                     canWrite={currentUser.role !== "Viewer"}
+                    canDelete={currentUser.role === "Admin"}
                   />
                 ) : (
                   <SmartRegister
@@ -2340,6 +2411,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
                     viewEvidence={setPreviewEvidence}
                     columns={selectedColumnKeys}
                     canWrite={currentUser.role !== "Viewer"}
+                    canDelete={currentUser.role === "Admin"}
                   />
                 )}
               </div>
@@ -2384,6 +2456,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
                   <Field
                     key={k}
                     k={k}
+                    module={active}
                     form={form}
                     setForm={setForm}
                     nameMode
@@ -2403,6 +2476,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
                   <Field
                     key={k}
                     k={k}
+                    module={active}
                     form={form}
                     setForm={setForm}
                     lang={lang}
@@ -2412,7 +2486,13 @@ function FornostApp({ currentUser }: { currentUser: any }) {
                   <button type="button" onClick={() => setModal(false)}>
                     {u.cancel}
                   </button>
-                  <button className="primary">{u.save}</button>
+                  <button className="primary" disabled={saving} aria-busy={saving}>
+                    {saving
+                      ? lang === "tr"
+                        ? "Kaydediliyor…"
+                        : "Saving…"
+                      : u.save}
+                  </button>
                 </div>
               </form>
             )}
@@ -2634,12 +2714,14 @@ function ImportModal({
 }
 function Field({
   k,
+  module,
   form,
   setForm,
   lang,
   nameMode = false,
 }: {
   k: string;
+  module: string;
   form: any;
   setForm: any;
   lang: Lang;
@@ -2677,7 +2759,7 @@ function Field({
     implementation: [
       "Uygulanıyor",
       "Kısmi",
-      "Planlandı",
+      "Uygulama Hazırlığında",
       "Uygulanmıyor",
       "Uygulanamaz",
     ],
@@ -2710,7 +2792,12 @@ function Field({
     siemStatus: coverage,
     vulnScan: coverage,
     encryptionStatus: ["Kapsamda", "Kısmi", "Kapsam Dışı", "Bilinmiyor"],
-    accessReviewStatus: ["Güncel", "Gecikmiş", "Planlandı", "Bilinmiyor"],
+    accessReviewStatus: [
+      "Güncel",
+      "Gecikmiş",
+      "İnceleme Takviminde",
+      "Bilinmiyor",
+    ],
     patchStatus: ["Güncel", "Gecikmiş", "Muaf", "Bilinmiyor"],
     lifecycleStage: [
       "Planlama",
@@ -2725,42 +2812,26 @@ function Field({
       "Etkili",
       "Kısmen Etkili",
       "Etkisiz",
-      "Test Bekliyor",
+      "Test Edilmedi",
     ],
     operatingEffectiveness: [
       "Etkili",
       "Kısmen Etkili",
       "Etkisiz",
-      "Test Bekliyor",
+      "Test Edilmedi",
     ],
-    auditorResult: ["Bekliyor", "Uygun", "İstisnalı", "Uygun Değil"],
-    status: [
-      "Aktif",
-      "Açık",
-      "Başlanmadı",
-      "Devam Ediyor",
-      "Kanıt Bekleniyor",
-      "Hazır",
-      "İncelemede",
+    auditorResult: [
+      "Değerlendirilmedi",
+      "Uygun",
+      "İstisnalı",
       "Uygun Değil",
-      "Kapatıldı",
-      "Kabul Edildi",
-      "Planlandı",
-      "Uygulanıyor",
-      "Uyumlu",
-      "Kısmi",
-      "Kapalı",
     ],
+    status: statusOptionsByModule[module] || [],
   };
   const value = form[k] || "",
     change = (v: string) => setForm({ ...form, [k]: v }),
     u = ui[lang],
-    requiredField = [
-      "asset",
-      "category",
-      "processCategory",
-      "assetType",
-    ].includes(k);
+    requiredField = (requiredFieldsByModule[module] || []).includes(k);
   if (k === "calculatedImpact") {
     const impact = effectiveImpact(form),
       likelihood = Number(form.inherentLikelihood || 0),
@@ -3045,6 +3116,8 @@ function Field({
           }
           min={numberFields.includes(k) ? 0 : undefined}
           max={k === "progress" ? 100 : undefined}
+          step={numberFields.includes(k) ? 1 : undefined}
+          required={requiredField}
           maxLength={2000}
           value={value}
           onChange={(e) => change(e.target.value)}
@@ -3913,6 +3986,7 @@ function RiskRegister({
   remove,
   columns,
   canWrite = true,
+  canDelete = false,
 }: {
   rows: Row[];
   lang: Lang;
@@ -3920,6 +3994,7 @@ function RiskRegister({
   remove: (id: string) => void;
   columns: string[];
   canWrite?: boolean;
+  canDelete?: boolean;
 }) {
   const u = ui[lang],
     cols = getAvailableRegisterColumns("Risk Assessment").filter((c) =>
@@ -3945,7 +4020,7 @@ function RiskRegister({
         {rows.map((r) => (
           <tr key={r.id} onDoubleClick={() => canWrite && edit(r)}>
             <td>
-              <b className="code">{r.id}</b>
+              <b className="code" title={r.id}>{displayRecordCode(r)}</b>
             </td>
             {cols.map((c) => (
               <td key={c.key}>
@@ -3956,7 +4031,7 @@ function RiskRegister({
               <td className="row-actions-cell">
                 <div className="row-actions">
                   <button onClick={() => edit(r)}>{u.edit}</button>
-                  <button onClick={() => remove(r.id)}>{u.delete}</button>
+                  {canDelete && <button onClick={() => remove(r.id)}>{u.delete}</button>}
                 </div>
               </td>
             )}
@@ -5819,7 +5894,7 @@ function SmartCell({
     return (
       <div className="stack title-stack">
         <b>
-          {row.id} · {d.title || "—"}
+          {displayRecordCode(row)} · {d.title || "—"}
         </b>
         <small>{d.ip || d.location || ""}</small>
       </div>
@@ -5898,7 +5973,7 @@ function SmartCell({
     return (
       <div className="stack title-stack">
         <b>
-          {row.id} · {d.title || "—"}
+          {displayRecordCode(row)} · {d.title || "—"}
         </b>
         <small>{d.service || d.vendorType || "—"}</small>
       </div>
@@ -5910,7 +5985,7 @@ function SmartCell({
       <button className="evidence-link" onClick={() => viewEvidence?.(row)}>
         <span className="evidence-thumb-mark">▣</span>
         <span>
-          <b>{d.evidenceTitle || row.id}</b>
+          <b>{d.evidenceTitle || displayRecordCode(row)}</b>
           <small>
             {d.fileName || (tr ? "Örnek ekran görüntüsü" : "Sample screenshot")}
           </small>
@@ -5974,9 +6049,9 @@ function EvidencePreview({
         <header className="evidence-preview-head">
           <div>
             <small>
-              {row.id} · {tr ? "KANIT ÖNİZLEME" : "EVIDENCE PREVIEW"}
+              {displayRecordCode(row)} · {tr ? "KANIT ÖNİZLEME" : "EVIDENCE PREVIEW"}
             </small>
-            <h2>{d.evidenceTitle || row.id}</h2>
+            <h2>{d.evidenceTitle || displayRecordCode(row)}</h2>
             <p>
               {d.controlRef || "—"} · {d.owner || "—"} · {d.period || "—"}
             </p>
@@ -5992,12 +6067,12 @@ function EvidencePreview({
         <div className="evidence-stage">
           {source ? (
             isPdf ? (
-              <iframe src={source} title={d.evidenceTitle || row.id} />
+              <iframe src={source} title={d.evidenceTitle || displayRecordCode(row)} />
             ) : (
               <>
                 <img
                   src={source}
-                  alt={`${d.evidenceTitle || row.id} ${tr ? "ekran görüntüsü" : "screenshot"}`}
+                  alt={`${d.evidenceTitle || displayRecordCode(row)} ${tr ? "ekran görüntüsü" : "screenshot"}`}
                 />
               </>
             )
@@ -6049,6 +6124,7 @@ function SmartRegister({
   viewEvidence,
   columns,
   canWrite = true,
+  canDelete = false,
 }: {
   module: string;
   rows: Row[];
@@ -6058,6 +6134,7 @@ function SmartRegister({
   viewEvidence?: (row: Row) => void;
   columns?: string[];
   canWrite?: boolean;
+  canDelete?: boolean;
 }) {
   const cols = getAvailableRegisterColumns(module).filter((column) =>
       (columns || defaultRegisterColumnKeys(module)).includes(column.key),
@@ -6101,10 +6178,10 @@ function SmartRegister({
                     className="code code-link"
                     onClick={() => viewEvidence?.(r)}
                   >
-                    {r.id}
+                    {displayRecordCode(r)}
                   </button>
                 ) : (
-                  <b className="code">{r.id}</b>
+                  <b className="code" title={r.id}>{displayRecordCode(r)}</b>
                 )}
               </td>
             )}
@@ -6130,7 +6207,7 @@ function SmartRegister({
               <td className="row-actions-cell">
                 <div className="row-actions">
                   <button onClick={() => edit(r)}>{u.edit}</button>
-                  <button onClick={() => remove(r.id)}>{u.delete}</button>
+                  {canDelete && <button onClick={() => remove(r.id)}>{u.delete}</button>}
                 </div>
               </td>
             )}

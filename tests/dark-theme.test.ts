@@ -23,3 +23,13 @@ test("genuine dark mode uses graphite surfaces and accessible teal interaction",
   assert.doesNotMatch(theme,/#(?:d84b20|ff7849|ff9a76)/i);
   assert.match(theme,/prefers-reduced-motion/);
 });
+
+test("risk workspace resolves legacy indigo and pastel colors in dark mode",()=>{
+  assert.match(theme,/html\[data-theme="dark"\] \.risk-summary\{[^}]*linear-gradient\(135deg,#173432,#102524\)/);
+  assert.match(theme,/html\[data-theme="dark"\] \.risk-register \.register-search\{[^}]*background:var\(--ws-bg\)/);
+  for(const level of ["düşük","orta","yüksek","kritik"]){
+    assert.match(theme,new RegExp(`html\\[data-theme="dark"\\] \\.matrix-row span\\.${level}\\{`));
+  }
+  assert.match(theme,/html\[data-theme="dark"\] \.state-pill\.açık/);
+  assert.match(theme,/html\[data-theme="dark"\] input::placeholder/);
+});

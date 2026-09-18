@@ -69,9 +69,9 @@ function auditTemplateRows(audit: Record<string, unknown>) {
     typeIITestApproach: control.typeIITestApproach,
     isoAnnex: control.isoAnnex,
     isoClauses: control.isoClauses,
-    designEffectiveness: "Test Bekliyor",
-    operatingEffectiveness: "Test Bekliyor",
-    auditorResult: "Bekliyor",
+    designEffectiveness: "Test Edilmedi",
+    operatingEffectiveness: "Test Edilmedi",
+    auditorResult: "Değerlendirilmedi",
   }));
   if (template.startsWith("ISO/IEC 27001")) return iso27001Refs.map((ref) => ({
     ...common,
