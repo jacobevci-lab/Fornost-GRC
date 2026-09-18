@@ -320,7 +320,7 @@ download_commit_release_asset() {
 install_prebuilt_image() {
   local bundle_file="${FORNOST_APP_BUNDLE_FILE:-}"
   local bundle_url="${FORNOST_APP_BUNDLE_URL:-}"
-  local checksum_file checksum_url release_commit release_repository architecture
+  local checksum_file checksum_url release_commit="" release_repository architecture loaded_revision
 
   if [[ -z "${bundle_file}" ]]; then
     architecture="$(uname -m)"
@@ -378,15 +378,37 @@ install_prebuilt_image() {
     sed "s#  .*#  $(basename "${bundle_file}")#" "${checksum_file}" | sha256sum --check --strict -
   )
   phase="prebuilt application image load"
+  # Podman may preserve an existing mutable :latest tag when a docker archive
+  # with the same tag is loaded. Detach only the tag; the old image remains
+  # addressable by previous_image_id for automatic rollback.
+  if [[ -n "${previous_image_id}" ]]; then
+    phase="previous application image tag detach"
+    if [[ "$(basename "${engine}")" == "podman" ]]; then
+      "${engine}" untag "${image}" "${image}" >/dev/null 2>&1 || true
+    else
+      "${engine}" image rm "${image}" >/dev/null 2>&1 || true
+    fi
+  fi
+  phase="prebuilt application image load"
   "${engine}" load --input "${bundle_file}"
   "${engine}" image inspect "${image}" >/dev/null
+  if [[ -n "${release_commit}" ]]; then
+    loaded_revision="$("${engine}" image inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "${image}" 2>/dev/null || true)"
+    [[ "${loaded_revision}" == "${release_commit}" ]] || {
+      echo "Loaded image revision mismatch: expected ${release_commit}, received ${loaded_revision:-missing}." >&2
+      return 66
+    }
+    echo "Verified application image revision ${loaded_revision:0:12}."
+  fi
 }
 
 if [[ "${FORNOST_BUILD_LOCAL:-false}" == "true" ]]; then
   echo "FORNOST_BUILD_LOCAL=true: building Fornost GRC on this server..."
   phase="local application image build"
+  local_source_commit="$(git -C "${project_root}" rev-parse HEAD 2>/dev/null || printf unknown)"
   "${engine}" build \
     --build-arg "NEXT_PUBLIC_BASE_PATH=${base_path}" \
+    --build-arg "FORNOST_SOURCE_COMMIT=${local_source_commit}" \
     --tag "${image}" \
     "${project_root}"
 else

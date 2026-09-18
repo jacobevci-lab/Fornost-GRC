@@ -1,5 +1,7 @@
 FROM node:22-bookworm-slim AS build
 
+ARG FORNOST_SOURCE_COMMIT=unknown
+
 RUN apt-get update \
   && apt-get install -y --no-install-recommends bash ca-certificates coreutils curl util-linux xz-utils \
   && rm -rf /var/lib/apt/lists/*
@@ -17,6 +19,10 @@ RUN npm prune --omit=dev --no-audit --no-fund \
 
 FROM node:22-bookworm-slim AS runtime
 
+ARG FORNOST_SOURCE_COMMIT=unknown
+LABEL org.opencontainers.image.title="Fornost GRC" \
+      org.opencontainers.image.revision="${FORNOST_SOURCE_COMMIT}"
+
 RUN apt-get update \
   && apt-get install -y --no-install-recommends bash ca-certificates coreutils curl util-linux \
   && rm -rf /var/lib/apt/lists/*
@@ -25,6 +31,7 @@ WORKDIR /app
 ARG NEXT_PUBLIC_BASE_PATH=/fornost-grc
 ENV NODE_ENV=production \
     NEXT_PUBLIC_BASE_PATH=${NEXT_PUBLIC_BASE_PATH} \
+    FORNOST_BUILD_REVISION=${FORNOST_SOURCE_COMMIT} \
     HOST=0.0.0.0 \
     PORT=3000 \
     FORNOST_DEMO_MODE=false

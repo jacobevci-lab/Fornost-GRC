@@ -27,6 +27,7 @@ jobs:
         run: >-
           docker build
           --build-arg NEXT_PUBLIC_BASE_PATH=/fornost-grc
+          --build-arg FORNOST_SOURCE_COMMIT=${SOURCE_SHA}
           --tag localhost/fornost-grc-app:latest
           .
       - name: Create and verify image bundle

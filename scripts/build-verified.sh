@@ -19,6 +19,10 @@ if [[ ! -x "${vinext}" ]]; then
 fi
 
 echo "Running bounded vinext build..."
+# Vinext does not guarantee that an existing dist directory is pruned. A stale
+# client chunk can otherwise survive a successful build and be copied into an
+# on-prem image. Always build the deployable artifact from an empty directory.
+rm -rf "${SITES_PROJECT_ROOT}/dist"
 timeout \
   --signal=TERM \
   --kill-after="${SITES_BUILD_KILL_AFTER:-10s}" \
@@ -28,3 +32,12 @@ timeout \
 node "${script_dir}/stage-base-path-assets.mjs"
 node "${script_dir}/normalize-wrangler-config.mjs"
 "${script_dir}/validate-artifact.sh"
+
+if ! grep -Rqs --include='*.js' 'dashboard-hero' "${SITES_PROJECT_ROOT}/dist/client/assets"; then
+  echo "Built browser artifact does not contain the current workspace UI contract (dashboard-hero)." >&2
+  exit 66
+fi
+if grep -Rqs --include='*.js' 'cockpit-titlebar' "${SITES_PROJECT_ROOT}/dist/client/assets"; then
+  echo "Built browser artifact still contains the retired cockpit UI." >&2
+  exit 66
+fi

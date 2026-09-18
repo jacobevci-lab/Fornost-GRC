@@ -39,11 +39,15 @@ case "${1:-}" in
     ;;
   image)
     if [[ "${2:-}" == "inspect" && " $* " == *" --format "* ]]; then
-      printf 'sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\n'
+      if [[ " $* " == *"org.opencontainers.image.revision"* ]]; then
+        printf '%s\n' '1111111111111111111111111111111111111111'
+      else
+        printf 'sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\n'
+      fi
     fi
     exit 0
     ;;
-  info|pull|run|rm|rmi|logs|ps) exit 0 ;;
+  info|pull|run|rm|rmi|untag|logs|ps) exit 0 ;;
   network|volume)
     if [[ "${1:-}" == "network" && "${2:-}" == "inspect" && " $* " == *" --format "* ]]; then
       printf '10.89.0.1\n'
@@ -223,6 +227,7 @@ run_bootstrap "${podman_case}" podman >"${podman_case}/output.log"
 grep -q 'dnf install -y git podman curl openssl firewalld' "${podman_case}/engine.log" || fail "RHEL prerequisites were not installed"
 grep -q 'firewall-cmd --permanent --zone=public --add-port=8443/tcp' "${podman_case}/engine.log" || fail "HTTPS firewall rule was not configured"
 grep -q 'podman load --input .*fornost-grc-amd64.tar.gz' "${podman_case}/engine.log" || fail "verified prebuilt image was not loaded"
+grep -q 'podman untag localhost/fornost-grc-app:latest localhost/fornost-grc-app:latest' "${podman_case}/engine.log" || fail "existing Podman image tag was not detached before loading the update"
 if grep -q 'podman build' "${podman_case}/engine.log"; then fail "normal installation unexpectedly built on the server"; fi
 grep -q 'podman volume create fornost-grc-data' "${podman_case}/engine.log" || fail "persistent volume was not created"
 grep -q 'podman run .*--name fornost-grc-proxy' "${podman_case}/engine.log" || fail "reverse proxy was not started before health verification"
