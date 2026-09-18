@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 
 const page = readFileSync("app/page.tsx", "utf8");
-const css = readFileSync("app/fornost-atlas.css", "utf8");
+const css = readFileSync("app/fornost-aegis.css", "utf8");
 
 test("desktop sidebar can collapse and persists the operator preference", () => {
   assert.match(page, /sidebarCollapsed, setSidebarCollapsed/);
@@ -14,11 +14,12 @@ test("desktop sidebar can collapse and persists the operator preference", () => 
   assert.match(page, /title=\{sidebarCollapsed \? names\[lang\]\[m\] : undefined\}/);
 });
 
-test("collapsed mode becomes an accessible icon rail and leaves mobile unchanged", () => {
-  assert.match(css, /\.shell\.sidebar-collapsed\{grid-template-columns:76px minmax\(0,1fr\)!important/);
-  assert.match(css, /\.sidebar-collapsed \.nav-group button>span/);
-  assert.match(css, /\.sidebar-collapsed \.aside-note\{\s*display:none!important/);
-  assert.match(css, /@media\(max-width:900px\)[\s\S]*\.sidebar-edge-toggle\{display:none!important/);
+test("collapsed mode fully dismisses desktop navigation and leaves a visible edge control", () => {
+  assert.match(css, /\.shell\.sidebar-collapsed\{grid-template-columns:0 minmax\(0,1fr\)!important/);
+  assert.match(css, /\.sidebar-collapsed \.sidebar-edge-toggle\{left:14px!important/);
+  assert.match(css, /\.sidebar-collapsed>aside\{padding:0!important;opacity:0!important/);
+  assert.match(css, /\.sidebar-collapsed \.brand,\.sidebar-collapsed>aside nav,\.sidebar-collapsed \.aside-note/);
+  assert.match(css, /@media\(max-width:900px\)[\s\S]*\.sidebar-collapsed>aside/);
   assert.match(css, /@media\(prefers-reduced-motion:reduce\)/);
 });
 
