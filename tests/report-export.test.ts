@@ -21,6 +21,9 @@ test("HTML report includes KPI, distribution and record table", () => {
   assert.match(html, /<!doctype html>/);
   assert.match(html, /Durum dağılımı/);
   assert.match(html, /M365 Tenant/);
+  assert.match(html, /#087f78/);
+  assert.match(html, /#075e5a/);
+  assert.doesNotMatch(html, /#655cff|#574fe1/i);
 });
 
 test("PDF report is a downloadable multi-object PDF document", async () => {

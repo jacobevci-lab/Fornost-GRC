@@ -33,8 +33,7 @@ body{overflow-x:hidden}
 .fornost-ai-launcher{right:22px!important;bottom:22px!important;border:1px solid color-mix(in srgb,var(--ws-brand) 58%,var(--ws-line))!important;background:var(--ws-brand)!important;background-image:none!important;color:#fff!important;box-shadow:0 16px 42px color-mix(in srgb,var(--ws-brand) 22%,transparent)!important}
 .fornost-ai-launcher i{border-color:rgba(255,255,255,.25)!important}
 .fornost-ai-panel{right:22px!important;bottom:78px!important;border:1px solid var(--ws-line-strong)!important;background:var(--ws-surface)!important;color:var(--ws-ink)!important;box-shadow:0 28px 80px rgba(4,18,18,.28)!important;backdrop-filter:blur(22px)}
-.fornost-ai-panel.is-compact{width:min(450px,calc(100vw - 32px))!important}
-.fornost-ai-panel.is-workspace{width:min(980px,calc(100vw - 40px))!important;height:min(820px,calc(100vh - 104px))!important}
+.fornost-ai-panel.is-compact,.fornost-ai-panel.is-workspace{width:min(450px,calc(100vw - 32px))!important;height:min(720px,calc(100dvh - 104px))!important}
 .fornost-ai-head{flex:0 0 auto;border-color:var(--ws-line)!important;background:var(--ws-surface)!important}
 .fornost-ai-head small{color:var(--ws-brand-2)!important;opacity:1!important}.fornost-ai-head h2{color:var(--ws-ink)!important}.fornost-ai-head p{color:var(--ws-muted)!important;opacity:1!important}
 .fornost-ai-tabs{flex:0 0 auto;max-width:100%;overflow-x:auto;overflow-y:hidden;padding:8px 12px!important;border-bottom:1px solid var(--ws-line)!important;background:var(--ws-surface-2)!important;scrollbar-width:thin;scrollbar-color:var(--ws-line-strong) transparent}
@@ -51,7 +50,7 @@ body{overflow-x:hidden}
 .fornost-ai-compose textarea:focus,.fornost-ai-settings input:focus,.fornost-ai-settings select:focus,.fornost-ai-settings textarea:focus{border-color:var(--ws-brand)!important;box-shadow:0 0 0 3px color-mix(in srgb,var(--ws-brand) 14%,transparent)!important}
 .fornost-ai-compose button,.fornost-ai-settings-actions button{background:var(--ws-brand)!important;color:#fff!important}.fornost-ai-settings-actions button.secondary{border:1px solid var(--ws-line)!important;background:var(--ws-surface-2)!important;color:var(--ws-ink)!important}
 .fornost-ai-security-note{border-color:color-mix(in srgb,var(--ws-positive) 32%,var(--ws-line))!important;background:color-mix(in srgb,var(--ws-positive) 9%,var(--ws-surface))!important;color:var(--ws-ink)!important}
-.fornost-ai-panel.is-workspace>:not(.fornost-ai-head):not(.fornost-ai-tabs){flex:1 1 auto;min-width:0;min-height:0;overflow:auto;overscroll-behavior:contain;scrollbar-width:thin}
+.fornost-ai-panel>:not(.fornost-ai-head):not(.fornost-ai-tabs){flex:1 1 auto;min-width:0;min-height:0;overflow:auto;overscroll-behavior:contain;scrollbar-width:thin}
 
 /* AI Governance module family: neutral surfaces in both palettes. */
 :where(.fornost-ai-agents,.fornost-ai-knowledge,.fornost-ai-drafts,.fornost-ai-metrics,.fornost-ai-governance,.fornost-ai-audit,.fornost-ai-budget,.fornost-ai-feedback,.fornost-ai-policy,.fornost-ai-settings,.ai-model-inventory,.ai-compliance,.ai-lifecycle,.ai-incidents,.ai-evidence-vault,.ai-risk-center,.ai-vendor-assurance,.ai-access-governance,.ai-release-gate,.ai-impact-center,.ai-resilience,.ai-datasets,.ai-regulatory,.ai-literacy,.ai-supply,.ai-red-team,.ai-transparency,.ai-assurance,.ai-alerts,.ai-portfolio,.ai-exceptions,.ai-decommission,.ai-findings,.ai-data-protection){min-width:0!important;max-width:100%!important;color:var(--ws-ink)!important;background:transparent!important}

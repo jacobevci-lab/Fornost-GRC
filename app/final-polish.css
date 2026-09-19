@@ -34,18 +34,18 @@
 .ea-catalog article button{overflow:hidden}
 .ea-catalog article button b,.ea-catalog article button small{min-width:0;overflow-wrap:anywhere}
 .report-insights{display:grid;grid-template-columns:minmax(220px,.55fr) minmax(360px,1.45fr);gap:22px;align-items:center;margin-bottom:16px;padding:20px 22px;border:1px solid var(--line);border-radius:14px;background:#fff}
-.report-insights small{color:#635bff;font-size:9px;font-weight:900;letter-spacing:.15em}
+.report-insights small{color:var(--ws-brand-2);font-size:9px;font-weight:900;letter-spacing:.15em}
 .report-insights h3{margin:7px 0 6px;font-size:18px}
 .report-insights p{margin:0;color:var(--muted);font-size:11px;line-height:1.55}
 .report-insights .bars{padding:0}
 .report-insights .bars>div{grid-template-columns:minmax(100px,180px) minmax(120px,1fr) 32px;font-size:11px}
 .report-insights .bars i{background:#e7eaf0}
 html[data-theme="dark"] .table-wrap table{color:#eef3fb}
-html[data-theme="dark"] .ea-catalog article{background:#151f2f;border-color:#314057}
-html[data-theme="dark"] .ea-catalog article>header{background:#111a29;border-color:#314057}
+html[data-theme="dark"] .ea-catalog article{background:var(--ws-surface);border-color:var(--ws-line)}
+html[data-theme="dark"] .ea-catalog article>header{background:var(--ws-surface-2);border-color:var(--ws-line)}
 html[data-theme="dark"] .ea-catalog button small{color:#aebacf}
-html[data-theme="dark"] .report-insights{background:#151f2f;border-color:#314057;color:#f4f7fb}
-html[data-theme="dark"] .report-insights .bars i{background:#26344b}
+html[data-theme="dark"] .report-insights{background:var(--ws-surface);border-color:var(--ws-line);color:var(--ws-ink)}
+html[data-theme="dark"] .report-insights .bars i{background:var(--ws-surface-2)}
 html[data-theme="dark"] .row-actions button:last-child{border-color:#713943!important;color:#ff91a0!important;background:#271923!important}
 @media(max-width:900px){.report-insights{grid-template-columns:1fr}}
 @media(max-width:560px){.report-insights{padding:16px}.report-insights .bars>div{grid-template-columns:95px 1fr 25px}.smart-table .evidence-column-evidenceTitle{min-width:260px}.evidence-preview-head{padding:14px 16px!important}.evidence-preview-head>div{max-width:calc(100% - 48px)}.evidence-preview-head button{margin-left:10px}.evidence-meta{grid-template-columns:1fr!important;gap:12px!important}}
