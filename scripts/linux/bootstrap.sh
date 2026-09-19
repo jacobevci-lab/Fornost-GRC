@@ -9,6 +9,7 @@ source "${script_dir}/common.sh"
 
 skip_packages="${FORNOST_SKIP_PACKAGE_INSTALL:-false}"
 skip_firewall="${FORNOST_SKIP_FIREWALL:-false}"
+skip_systemd="${FORNOST_SKIP_SYSTEMD:-false}"
 
 if [[ "${skip_packages}" != "true" ]]; then
   [[ "$(id -u)" == "0" ]] || {
@@ -43,5 +44,15 @@ fi
 
 FORNOST_CONTAINER_ENGINE="${engine}" bash "${script_dir}/install.sh"
 FORNOST_CONTAINER_ENGINE="${engine}" bash "${script_dir}/check.sh"
+
+# On a real systemd host, install a Fornost-specific boot unit that starts the
+# application first, waits for readiness, and only then exposes nginx. CI and
+# containerized smoke tests can opt out with FORNOST_SKIP_SYSTEMD=true.
+if [[ "${skip_systemd}" != "true" ]] \
+  && [[ "$(id -u)" == "0" ]] \
+  && command -v systemctl >/dev/null 2>&1 \
+  && [[ -d /run/systemd/system ]]; then
+  FORNOST_CONTAINER_ENGINE="${engine}" bash "${script_dir}/install-systemd-service.sh"
+fi
 
 echo "Fornost GRC clean bootstrap completed successfully."
