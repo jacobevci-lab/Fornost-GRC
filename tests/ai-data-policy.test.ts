@@ -5,7 +5,7 @@ import { dataClassificationAllowed, inferProviderTrustZone, parseProviderDataPol
 import { getEffectiveAiDataPolicy, type AiRuntimeProfile } from "../app/ai/runtime-provider";
 import { searchApprovedKnowledge } from "../app/ai/knowledge";
 
-const providers=fs.readFileSync("app/api/ai/providers/route.ts","utf8"),chat=fs.readFileSync("app/api/ai/chat/route.ts","utf8"),drafts=fs.readFileSync("app/api/ai/drafts/route.ts","utf8"),agents=fs.readFileSync("app/api/ai/agents/route.ts","utf8"),search=fs.readFileSync("app/api/ai/knowledge/search/route.ts","utf8"),ui=fs.readFileSync("app/fornost-ai-copilot.tsx","utf8");
+const providers=fs.readFileSync("app/api/ai/providers/route.ts","utf8"),chat=fs.readFileSync("app/api/ai/chat/route.ts","utf8"),drafts=fs.readFileSync("app/api/ai/drafts/route.ts","utf8"),agents=fs.readFileSync("app/api/ai/agents/route.ts","utf8"),search=fs.readFileSync("app/api/ai/knowledge/search/route.ts","utf8"),aiSettings=fs.readFileSync("app/ai-settings.tsx","utf8"),copilot=fs.readFileSync("app/fornost-ai-copilot.tsx","utf8");
 
 test("provider trust zone is derived from the real endpoint and cannot be mislabeled",()=>{
   assert.equal(inferProviderTrustZone("https://ai.example.com/v1"),"external");
@@ -42,5 +42,6 @@ test("all context-bearing AI operations use and audit the effective policy",()=>
   for(const route of [chat,drafts,agents]){assert.match(route,/getEffectiveAiDataPolicy/);assert.match(route,/dataPolicy\.maxDataClassification/);assert.match(route,/max \$\{dataPolicy\.maxDataClassification\}/);}
   assert.match(search,/getEffectiveAiDataPolicy/);
   assert.match(providers,/parseProviderDataPolicy/);assert.match(providers,/trustZone/);assert.match(providers,/maxDataClassification/);
-  assert.match(ui,/Provider güven bölgesi/);assert.match(ui,/Fallback veri-egress kilidi/);assert.match(ui,/Restricted hiçbir sağlayıcıya gönderilmez/);
+  assert.match(aiSettings,/Güven bölgesi/);assert.match(aiSettings,/Maximum data classification/);assert.match(aiSettings,/external/);assert.match(aiSettings,/Internal/);
+  assert.doesNotMatch(copilot,/ProviderForm/);assert.doesNotMatch(copilot,/fornost-ai-settings/);
 });

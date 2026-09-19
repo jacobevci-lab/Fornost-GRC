@@ -28,6 +28,7 @@ Fornost, klasik kayıt ve raporlama işlevlerinin yanında AI sistemlerinin enva
 - IAM bağlantı profilleri: Entra ID, Okta, OIDC, SAML ve on-prem LDAP/LDAPS bridge
 - Admin / Editor / Viewer rol yönetimi
 - Son aktif Admin koruması, hesap etkinleştirme/devre dışı bırakma ve kilit sıfırlama içeren yerel kimlik yönetimi
+- Admin kontrollü, sunucu tarafında doğrulanan ve değişiklik izi tutulan kuruluş geneli platform ayarları; TLS politikası, yerelleştirme, oturum, audit saklama, telemetri ve risk hatırlatma yönetimi
 - Sekiz çekirdek modülde kurum kayıtlarına dokunmadan kaldırılabilen ve yeniden yüklenebilen kontrollü örnek veri paketi
 - Excel içe aktarma ve CSV/Excel dışa aktarma
 - TR/EN arayüz
@@ -37,6 +38,7 @@ Fornost, klasik kayıt ve raporlama işlevlerinin yanında AI sistemlerinin enva
 
 - Provider-bağımsız Ask Fornost Copilot: OpenAI-compatible ve Ollama
 - Şifreli birincil/yedek provider, trust-zone ve veri-egress politikaları
+- `Administration → AI Settings` altında tek authoritative sağlayıcı/politika yönetimi; operasyon durumu, yetenek kapıları, model keşfi ve yedi günlük güvence kontrol özeti
 - Restricted veriyi model bağlamından tamamen çıkaran merkezi güvenlik katmanı
 - Kaynak gösterimli, sürümlü ve onaylı PDF/DOCX bilgi tabanı
 - İnsan onaylı risk, denetim ve remediation taslakları

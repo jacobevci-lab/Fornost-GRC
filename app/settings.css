@@ -44,6 +44,7 @@
 .reminder-rule p{font-size:10px;line-height:1.5;color:var(--muted);margin:5px 0 0}
 .settings-footer{grid-column:1/-1;display:flex;align-items:center;justify-content:flex-end;gap:14px}
 .settings-footer span{font-size:10px;color:#23735a;font-weight:700}
+.settings-footer>div{min-width:0;margin-right:auto;display:grid;gap:4px}.settings-footer small{color:var(--muted);font-size:9px;overflow-wrap:anywhere}
 .demo-data-manager{margin-top:16px}
 .demo-data-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;padding:16px 20px}
 .demo-data-summary>div{display:flex;align-items:center;justify-content:space-between;gap:8px;min-width:0;padding:9px 10px;border:1px solid var(--line);border-radius:8px;background:var(--cp-panel-2,#f8fafc)}

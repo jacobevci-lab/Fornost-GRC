@@ -27,6 +27,13 @@ test("AI configuration has one administrative home and keeps the governed action
   assert.match(aiSettings, /Action Gateway/);
   assert.match(aiSettings, /human approval/);
   assert.doesNotMatch(copilot, />AI Ayarları<\/button>/);
+  assert.doesNotMatch(copilot, /fornost-ai-settings/);
+  assert.doesNotMatch(copilot, /ProviderForm/);
+  assert.doesNotMatch(copilot, /saveProvider/);
+  assert.match(aiSettings, /ai-control-summary/);
+  assert.match(aiSettings, /\/api\/ai\/metrics\?days=7/);
+  assert.match(aiSettings, /AI Güvence Kontrolleri/);
+  assert.match(aiSettings, /FORNOST_AI_ALLOW_PRIVATE_ENDPOINTS/);
 });
 
 test("core registers open with decision-oriented readable columns", () => {
@@ -47,4 +54,7 @@ test("light, dark, desktop, tablet and mobile share the final experience contrac
   assert.match(css, /@media\(max-width:520px\)/);
   assert.match(css, /font-size:12px!important/);
   assert.match(css, /overflow:auto!important/);
+  assert.match(css, /\.ai-control-summary/);
+  assert.match(css, /\.ai-readiness-list/);
+  assert.match(css, /\.fornost-ai-panel :where\(p,dd,li,label,input,select,textarea,button\)/);
 });

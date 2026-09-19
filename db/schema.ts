@@ -1,5 +1,12 @@
 import { index, integer, real, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
 
+export const platformSettings = sqliteTable("platform_settings", {
+  id:text("id").primaryKey(),configJson:text("config_json").notNull(),updatedBy:text("updated_by").notNull(),updatedAt:text("updated_at").notNull(),
+});
+export const platformSettingEvents = sqliteTable("platform_setting_events", {
+  id:text("id").primaryKey(),action:text("action").notNull(),actor:text("actor").notNull(),detail:text("detail").notNull(),createdAt:text("created_at").notNull(),
+},table=>[index("platform_setting_events_created_idx").on(table.createdAt)]);
+
 export const simpleGrcRecords = sqliteTable("simple_grc_records", {
   id: text("id").primaryKey(),
   module: text("module").notNull(),

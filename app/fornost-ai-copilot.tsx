@@ -49,36 +49,6 @@ type EvalEdit={id:string;name:string;input:string;expectedTerms:string;forbidden
 type ProviderHealth={profile:string;provider:string;model:string;operation:string;status:string;latency_ms:number;detail:string;created_at:string};
 type DraftEdit = { id:string;title:string;rationale:string;payload:Record<string,string> };
 type PublishTarget = { id:string;module:string;title:string };
-type ProviderForm = {
-  provider: "openai-compatible" | "ollama";
-  baseUrl: string;
-  model: string;
-  enabled: boolean;
-  temperature: number;
-  timeoutMs: number;
-  maxTokens: number;
-  secret: string;
-  hasSecret: boolean;
-  trustZone:"external"|"private"|"local";
-  maxDataClassification:"Public"|"Internal"|"Confidential";
-  fallback:{provider:"openai-compatible"|"ollama";baseUrl:string;model:string;enabled:boolean;secret:string;hasSecret:boolean;trustZone:"external"|"private"|"local";maxDataClassification:"Public"|"Internal"|"Confidential"};
-};
-
-const defaults: ProviderForm = {
-  provider: "openai-compatible",
-  baseUrl: "",
-  model: "",
-  enabled: false,
-  temperature: 0.2,
-  timeoutMs: 60000,
-  maxTokens: 1200,
-  secret: "",
-  hasSecret: false,
-  trustZone:"external",
-  maxDataClassification:"Internal",
-  fallback:{provider:"ollama",baseUrl:"",model:"",enabled:false,secret:"",hasSecret:false,trustZone:"private",maxDataClassification:"Confidential"},
-};
-
 const draftFieldLabels: Record<string,string> = {
   title:"Başlık",riskStatement:"Risk ifadesi",proposedTreatment:"Önerilen tedavi",owner:"Sorumlu",dueDate:"Hedef tarih",
   priority:"Öncelik",condition:"Mevcut durum",criteria:"Kriter",impact:"Etki",recommendation:"Öneri",severity:"Önem seviyesi",
@@ -90,15 +60,13 @@ export default function FornostAiCopilot() {
   const [user, setUser] = useState<User | null>(null);
   const [status, setStatus] = useState<Status | null>(null);
   const [open, setOpen] = useState(false);
-  const [tab, setTab] = useState<"chat" | "portfolio" | "agents" | "knowledge" | "drafts" | "metrics" | "governance" | "models" | "compliance" | "lifecycle" | "incidents" | "evidence" | "risks" | "vendors" | "access" | "release" | "impact" | "resilience" | "datasets" | "regulatory" | "literacy" | "supply-chain" | "red-team" | "transparency" | "assurance" | "assurance-alerts" | "exceptions" | "decommission" | "findings" | "feedback" | "budget" | "policy" | "protection" | "settings" | "audit">("chat");
+  const [tab, setTab] = useState<"chat" | "portfolio" | "agents" | "knowledge" | "drafts" | "metrics" | "governance" | "models" | "compliance" | "lifecycle" | "incidents" | "evidence" | "risks" | "vendors" | "access" | "release" | "impact" | "resilience" | "datasets" | "regulatory" | "literacy" | "supply-chain" | "red-team" | "transparency" | "assurance" | "assurance-alerts" | "exceptions" | "decommission" | "findings" | "feedback" | "budget" | "policy" | "protection" | "audit">("chat");
   const [messages, setMessages] = useState<Message[]>([]);
   const [question, setQuestion] = useState("");
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState("");
   const [feedbackDraft,setFeedbackDraft]=useState<FeedbackDraft|null>(null);
   const [feedbackBusy,setFeedbackBusy]=useState(false);
-  const [provider, setProvider] = useState<ProviderForm>(defaults);
-  const [providerLoaded, setProviderLoaded] = useState(false);
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   const [auditBusy, setAuditBusy] = useState(false);
   const [drafts, setDrafts] = useState<AiDraft[]>([]);
@@ -117,8 +85,6 @@ export default function FornostAiCopilot() {
   const [ticketConfirmation, setTicketConfirmation] = useState("");
   const [metrics, setMetrics] = useState<AiMetrics|null>(null);
   const [metricWindow,setMetricWindow]=useState<7|30|90>(7);
-  const [discoveredModels, setDiscoveredModels] = useState<string[]>([]);
-  const [selectedModelAvailable, setSelectedModelAvailable] = useState<boolean|null>(null);
   const [useCases,setUseCases]=useState<AiUseCase[]>([]);
   const [evalCases,setEvalCases]=useState<EvalCase[]>([]);
   const [providerHealth,setProviderHealth]=useState<ProviderHealth[]>([]);
@@ -174,18 +140,6 @@ export default function FornostAiCopilot() {
     if (nextUser) await refreshStatus();
   }, [refreshStatus]);
 
-  const loadProvider = useCallback(async () => {
-    if (user?.role !== "Admin") return;
-    const response = await fetch(withBasePath("/api/ai/providers"), { cache: "no-store" });
-    const body = await response.json().catch(() => ({}));
-    if (!response.ok) {
-      setNotice(body.error || "AI ayarları okunamadı.");
-      return;
-    }
-    setProvider({ ...defaults, ...body, secret: "",fallback:{...defaults.fallback,...(body.fallback||{}),secret:""} });
-    setProviderLoaded(true);
-  }, [user?.role]);
-
   const loadAudit = useCallback(async () => {
     if (user?.role !== "Admin") return;
     setAuditBusy(true);
@@ -232,12 +186,6 @@ export default function FornostAiCopilot() {
     };
   }, [refreshIdentity]);
 
-  useEffect(() => {
-    if (!(open && user?.role === "Admin" && !providerLoaded)) return;
-    const timer = window.setTimeout(() => { void loadProvider(); }, 0);
-    return () => window.clearTimeout(timer);
-  }, [open, user?.role, providerLoaded, loadProvider]);
-
   async function send(e: FormEvent) {
     e.preventDefault();
     const value = question.trim();
@@ -269,35 +217,6 @@ export default function FornostAiCopilot() {
   }
 
   async function submitFeedback(index:number,kind:"helpful"|"incorrect"|"incomplete"|"unsafe",severity:"low"|"medium"|"high"|"critical",comment=""){const message=messages[index];if(!message?.activityId||message.feedbackSent||feedbackBusy)return;setFeedbackBusy(true);const response=await fetch(withBasePath("/api/ai/feedback"),{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({activityId:message.activityId,kind,severity,comment})}).catch(()=>null);const body=await response?.json().catch(()=>({}))||{};if(response?.ok){setMessages(items=>items.map((item,itemIndex)=>itemIndex===index?{...item,feedbackSent:true}:item));setFeedbackDraft(null);setNotice("Geri bildiriminiz AI kalite kaydına alındı.");}else setNotice(String(body.error||"Geri bildirim gönderilemedi."));setFeedbackBusy(false);}
-
-  async function saveProvider(testAfter = false) {
-    if (user?.role !== "Admin" || busy) return;
-    setBusy(true);
-    setNotice("");
-    const response = await fetch(withBasePath("/api/ai/providers"), {
-      method: "PUT",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(provider),
-    });
-    const body = await response.json().catch(() => ({}));
-    if (!response.ok) {
-      setNotice(body.error || "AI ayarları kaydedilemedi.");
-      setBusy(false);
-      return;
-    }
-    setProvider((value) => ({ ...value, secret: "", hasSecret: body.hasSecret === true,fallback:{...value.fallback,secret:"",hasSecret:body.fallbackHasSecret===true} }));
-    setNotice("AI sağlayıcı ayarları kaydedildi.");
-    await refreshStatus();
-    if (testAfter) {
-      const testResponse = await fetch(withBasePath("/api/ai/providers"), { method: "POST" });
-      const testBody = await testResponse.json().catch(() => ({}));
-      setNotice(testResponse.ok ? String(testBody.message || "Bağlantı testi başarılı.") : String(testBody.error || testBody.message || "Bağlantı testi başarısız."));
-      setDiscoveredModels(testResponse.ok&&Array.isArray(testBody.models)?testBody.models:[]);
-      setSelectedModelAvailable(testResponse.ok&&typeof testBody.selectedModelAvailable==="boolean"?testBody.selectedModelAvailable:null);
-    }
-    await loadAudit();
-    setBusy(false);
-  }
 
   async function createDraft(e: FormEvent) {
     e.preventDefault();
@@ -586,23 +505,7 @@ export default function FornostAiCopilot() {
           {log.detail && <em>{log.detail}</em>}
           {log.promptHash && <code title={log.promptHash}>hash:{log.promptHash.slice(0, 12)}…</code>}
         </article>)}</div>
-      </div> : <div className="fornost-ai-settings">
-        <div className="fornost-ai-security-note"><b>Güvenli çalışma modeli</b><p>Model DB’ye doğrudan bağlanmaz. Fornost yalnız izin verilen, read-only GRC context’ini modele gönderir; API anahtarı şifreli saklanır ve prompt’a eklenmez.</p></div>
-        <div className="fornost-ai-security-note"><b>Fallback veri-egress kilidi</b><p>Birincil ve yedek provider zincirindeki en sıkı veri sınıfı tüm çağrıya uygulanır. Restricted hiçbir sağlayıcıya gönderilmez; harici provider en fazla Internal veri alabilir.</p></div>
-        <label><span>Provider</span><select value={provider.provider} onChange={(e) => setProvider((value) => ({ ...value, provider: e.target.value as ProviderForm["provider"] }))}><option value="openai-compatible">OpenAI Compatible / Local Chatbot</option><option value="ollama">Ollama</option></select></label>
-        <label><span>Base URL</span><input value={provider.baseUrl} onChange={(e) => setProvider((value) => ({ ...value, baseUrl: e.target.value }))} placeholder="http://10.10.10.50:11434"/></label>
-        <label><span>Model</span><input value={provider.model} onChange={(e) => setProvider((value) => ({ ...value, model: e.target.value }))} placeholder="qwen3:14b"/></label>
-        <label><span>API Key</span><input type="password" value={provider.secret} onChange={(e) => setProvider((value) => ({ ...value, secret: e.target.value }))} placeholder={provider.hasSecret ? "Kayıtlı · değiştirmek için yeni değer girin" : "Opsiyonel"}/></label>
-        <div className="fornost-ai-setting-row"><label><span>Provider güven bölgesi</span><select value={provider.trustZone} onChange={e=>setProvider(value=>({...value,trustZone:e.target.value as ProviderForm["trustZone"],maxDataClassification:e.target.value==="external"&&value.maxDataClassification==="Confidential"?"Internal":value.maxDataClassification}))}><option value="external">Harici / internet</option><option value="private">Özel ağ / on-prem</option><option value="local">Aynı sunucu / loopback</option></select></label><label><span>Gönderilebilecek en yüksek veri sınıfı</span><select value={provider.maxDataClassification} onChange={e=>setProvider(value=>({...value,maxDataClassification:e.target.value as ProviderForm["maxDataClassification"]}))}><option value="Public">Public</option><option value="Internal">Internal</option><option value="Confidential" disabled={provider.trustZone==="external"}>Confidential</option></select></label></div>
-        <div className="fornost-ai-setting-row"><label><span>Temperature</span><input type="number" min="0" max="2" step="0.1" value={provider.temperature} onChange={(e) => setProvider((value) => ({ ...value, temperature: Number(e.target.value) }))}/></label><label><span>Timeout (ms)</span><input type="number" min="5000" max="120000" step="1000" value={provider.timeoutMs} onChange={(e) => setProvider((value) => ({ ...value, timeoutMs: Number(e.target.value) }))}/></label></div>
-        <div className="fornost-ai-setting-row"><label><span>Max tokens</span><input type="number" min="128" max="4096" step="128" value={provider.maxTokens} onChange={(e) => setProvider((value) => ({ ...value, maxTokens: Number(e.target.value) }))}/></label><label className="fornost-ai-check"><input type="checkbox" checked={provider.enabled} onChange={(e) => setProvider((value) => ({ ...value, enabled: e.target.checked }))}/><span>Fornost AI’ı etkinleştir</span></label></div>
-        {notice && <div className="fornost-ai-notice">{notice}</div>}
-        {selectedModelAvailable!==null&&<div className={`fornost-ai-model-status ${selectedModelAvailable?"ok":"warn"}`}><b>{selectedModelAvailable?"Seçili model erişilebilir":"Seçili model listede bulunamadı"}</b><span>{discoveredModels.length} model keşfedildi</span></div>}
-        {!!discoveredModels.length&&<label><span>Keşfedilen modeller</span><select value={provider.model} onChange={(e)=>setProvider(value=>({...value,model:e.target.value}))}><option value={provider.model}>{provider.model}</option>{discoveredModels.filter(model=>model!==provider.model).map(model=><option key={model} value={model}>{model}</option>)}</select></label>}
-        <div className="fornost-ai-fallback"><div><b>Yedek AI sağlayıcısı</b><label className="fornost-ai-check"><input type="checkbox" checked={provider.fallback.enabled} onChange={e=>setProvider(value=>({...value,fallback:{...value.fallback,enabled:e.target.checked}}))}/><span>Birincil hata verirse otomatik kullan</span></label></div>{provider.fallback.enabled&&<><label><span>Provider</span><select value={provider.fallback.provider} onChange={e=>setProvider(value=>({...value,fallback:{...value.fallback,provider:e.target.value as ProviderForm["fallback"]["provider"]}}))}><option value="openai-compatible">OpenAI Compatible</option><option value="ollama">Ollama</option></select></label><label><span>Base URL</span><input value={provider.fallback.baseUrl} onChange={e=>setProvider(value=>({...value,fallback:{...value.fallback,baseUrl:e.target.value}}))}/></label><label><span>Model</span><input value={provider.fallback.model} onChange={e=>setProvider(value=>({...value,fallback:{...value.fallback,model:e.target.value}}))}/></label><label><span>API Key</span><input type="password" value={provider.fallback.secret} onChange={e=>setProvider(value=>({...value,fallback:{...value.fallback,secret:e.target.value}}))} placeholder={provider.fallback.hasSecret?"Kayıtlı · değiştirmek için yeni değer girin":"Opsiyonel"}/></label><div className="fornost-ai-setting-row"><label><span>Yedek güven bölgesi</span><select value={provider.fallback.trustZone} onChange={e=>setProvider(value=>({...value,fallback:{...value.fallback,trustZone:e.target.value as ProviderForm["fallback"]["trustZone"],maxDataClassification:e.target.value==="external"&&value.fallback.maxDataClassification==="Confidential"?"Internal":value.fallback.maxDataClassification}}))}><option value="external">Harici / internet</option><option value="private">Özel ağ / on-prem</option><option value="local">Aynı sunucu / loopback</option></select></label><label><span>Yedek maksimum veri sınıfı</span><select value={provider.fallback.maxDataClassification} onChange={e=>setProvider(value=>({...value,fallback:{...value.fallback,maxDataClassification:e.target.value as ProviderForm["fallback"]["maxDataClassification"]}}))}><option value="Public">Public</option><option value="Internal">Internal</option><option value="Confidential" disabled={provider.fallback.trustZone==="external"}>Confidential</option></select></label></div></>}</div>
-        <div className="fornost-ai-settings-actions"><button className="secondary" disabled={busy} onClick={() => saveProvider(false)}>Kaydet</button><button disabled={busy} onClick={() => saveProvider(true)}>Kaydet & Test Et</button></div>
-        <small className="fornost-ai-env-help">Private ağ için <code>FORNOST_AI_ALLOW_PRIVATE_ENDPOINTS=true</code>; aynı host loopback için ayrıca <code>FORNOST_AI_ALLOW_LOOPBACK=true</code> gerekir.</small>
-      </div>}
+      </div> : null}
     </section>}
   </>;
 }
