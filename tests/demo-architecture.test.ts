@@ -3,6 +3,7 @@ import test from "node:test";
 import { access,readFile } from "node:fs/promises";
 import { demoSeeds } from "../app/api/grc/demo-seeds";
 import { shouldInsertDemoSeeds,validate } from "../app/api/grc/route";
+import { demoInventory } from "../app/api/grc/demo/route";
 
 test("demo portfolio keeps exactly four neutral samples per module",()=>{
  assert.equal(demoSeeds.length,32);
@@ -61,4 +62,26 @@ test("listing records does not restore or overwrite deleted and edited demo rows
  const source=await readFile("app/api/grc/route.ts","utf8");
  assert.doesNotMatch(source,/seeds\.length\s*===/);
  assert.doesNotMatch(source,/UPDATE simple_grc_records SET data_json=.*Kanıtlar/);
+});
+
+test("sample data lifecycle reports partial, complete and empty inventories without touching organization records",()=>{
+ const ids=demoSeeds.map(([id])=>id);
+ const empty=demoInventory(new Set());
+ assert.deepEqual({present:empty.present,total:empty.total,missing:empty.missing},{present:0,total:32,missing:32});
+ const partial=demoInventory(new Set(ids.slice(0,5)));
+ assert.deepEqual({present:partial.present,total:partial.total,missing:partial.missing},{present:5,total:32,missing:27});
+ const complete=demoInventory(new Set(ids));
+ assert.deepEqual({present:complete.present,total:complete.total,missing:complete.missing},{present:32,total:32,missing:0});
+ assert.equal(Object.keys(complete.modules).length,8);
+});
+
+test("sample lifecycle endpoint is Admin-only, recoverable and ID-scoped",async()=>{
+ const [route,settings]=await Promise.all([readFile("app/api/grc/demo/route.ts","utf8"),readFile("app/settings.tsx","utf8")]);
+ assert.match(route,/requireRole\(req, \["Admin"\]\)/);
+ assert.match(route,/demoSeeds\.filter/);
+ assert.match(route,/DELETE FROM simple_grc_records WHERE id IN/);
+ assert.match(route,/INSERT OR IGNORE INTO simple_grc_records/);
+ assert.doesNotMatch(route,/DELETE FROM simple_grc_records\s*["`]/);
+ assert.match(settings,/ÖRNEKLERİ KALDIR/);
+ assert.match(settings,/onDataChange/);
 });

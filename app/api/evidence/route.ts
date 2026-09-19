@@ -16,10 +16,12 @@ export async function POST(req:NextRequest){
  const valid=file.type==="application/pdf"?String.fromCharCode(...head.slice(0,5))==="%PDF-":file.type==="image/png"?head.slice(0,8).join(",")==="137,80,78,71,13,10,26,10":file.type==="image/jpeg"?head[0]===255&&head[1]===216&&head[2]===255:String.fromCharCode(...head.slice(0,4))==="RIFF"&&String.fromCharCode(...head.slice(8,12))==="WEBP";
  if(!valid)return NextResponse.json({error:"Dosya içeriği bildirilen türle eşleşmiyor."},{status:400});
  for(const field of ["evidenceTitle","controlRef","owner","period"])if(!String(fd.get(field)||"").trim())return NextResponse.json({error:`Zorunlu alan eksik: ${field}`},{status:400});
+ const status=String(fd.get("status")||"Taslak").trim(),allowedStatuses=["Taslak","İncelemede","Onaylandı","Reddedildi","Süresi Doldu"];
+ if(!allowedStatuses.includes(status))return NextResponse.json({error:"Geçersiz kanıt durumu."},{status:400});
  const id=`EVD-${crypto.randomUUID()}`,safeName=file.name.replace(/[^a-zA-Z0-9._-]/g,"_").slice(-120)||"evidence",key=`evidence/${id}/${safeName}`;
  if(env.BUCKET)await env.BUCKET.put(key,bytes,{httpMetadata:{contentType:file.type}});
  else await env.DB.prepare("INSERT INTO simple_evidence_files(file_key,file_name,content_type,content,created_at) VALUES(?,?,?,?,?)").bind(key,safeName,file.type,bytes,new Date().toISOString()).run();
- const data:Record<string,string>={fileKey:key,fileName:safeName,fileType:file.type};for(const [k,v] of fd.entries())if(k!=="file"&&typeof v==="string")data[k]=v.trim().slice(0,2000);
+ const data:Record<string,string>={fileKey:key,fileName:safeName,fileType:file.type,status};for(const [k,v] of fd.entries())if(k!=="file"&&k!=="status"&&typeof v==="string")data[k]=v.trim().slice(0,2000);
  const now=new Date().toISOString();await env.DB.prepare("INSERT INTO simple_grc_records(id,module,data_json,created_at,updated_at) VALUES(?,?,?,?,?)").bind(id,"Kanıtlar",JSON.stringify(data),now,now).run();
  return NextResponse.json({ok:true,id},{status:201});
 }

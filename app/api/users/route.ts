@@ -32,6 +32,6 @@ export async function PATCH(req: NextRequest) {
     const admins = await db.prepare("SELECT COUNT(*) total FROM local_users WHERE role='Admin' AND status='Active'").first<{total:number}>();
     if (Number(admins?.total || 0) <= 1) return NextResponse.json({ error: "Son aktif yönetici devre dışı bırakılamaz veya rolü düşürülemez." }, { status: 409 });
   }
-  await db.prepare("UPDATE local_users SET role=?,status=?,updated_at=? WHERE id=?").bind(role, status, new Date().toISOString(), body.id).run();
+  await db.prepare("UPDATE local_users SET role=?,status=?,failed_attempts=CASE WHEN ?='Active' THEN 0 ELSE failed_attempts END,locked_until=CASE WHEN ?='Active' THEN NULL ELSE locked_until END,updated_at=? WHERE id=?").bind(role, status, status, status, new Date().toISOString(), body.id).run();
   return NextResponse.json({ ok: true });
 }

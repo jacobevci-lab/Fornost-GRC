@@ -78,6 +78,7 @@ const modules = [
   "Uyum",
   "Politika Merkezi",
   "Tedarikçiler",
+  "Kontroller",
   "Kanıtlar",
   "Kanıt Otomasyonu",
   "Regülasyon Merkezi",
@@ -940,6 +941,7 @@ const fields: Record<string, string[]> = {
     "owner",
     "controlType",
     "controlObjective",
+    "implementation",
     "frequency",
     "evidenceOwner",
     "testOwner",
@@ -961,6 +963,7 @@ const fields: Record<string, string[]> = {
     "expiresAt",
     "reviewer",
     "reviewStatus",
+    "status",
     "notes",
   ],
   "Denetim Yönetimi": [
@@ -1082,7 +1085,8 @@ const examples: Row[] = [
       controlTitle: "Ayrıcalıklı hesaplarda güçlü MFA",
       owner: "IAM Ekibi",
       frequency: "Sürekli",
-      status: "Uygulanıyor",
+      implementation: "Uygulanıyor",
+      status: "Aktif",
       frameworks: "ISO 27001 A.5.15, NIST CSF PR.AA-03",
     },
   },
@@ -1224,12 +1228,12 @@ function empty(m: string) {
 }
 const requiredFieldsByModule: Record<string, string[]> = {
   "Risk Assessment": ["title", "category", "businessUnit", "owner", "asset", "inherentLikelihood", "inherentImpact", "treatment", "status", "nextReview"],
-  BIA: ["process", "processCategory", "businessUnit", "owner", "criticality", "asset", "rto", "rpo"],
+  BIA: ["process", "processCategory", "businessUnit", "owner", "criticality", "asset", "rto", "rpo", "status"],
   "Varlık Envanteri": ["title", "assetType", "businessUnit", "owner", "criticality", "status"],
   Uyum: ["framework", "controlRef", "controlTitle", "owner", "status"],
   Tedarikçiler: ["title", "service", "owner", "criticality", "riskLevel", "status"],
-  Kontroller: ["controlRef", "controlTitle", "owner", "frequency", "status"],
-  Kanıtlar: ["evidenceTitle", "controlRef", "owner", "period"],
+  Kontroller: ["controlRef", "controlTitle", "owner", "frequency", "implementation", "status"],
+  Kanıtlar: ["evidenceTitle", "controlRef", "owner", "period", "status"],
   "Denetim Yönetimi": ["auditName", "auditType", "auditOwner", "startDate", "endDate", "requirementRef", "requirementTitle", "owner", "businessUnit", "dueDate", "status", "progress"],
 };
 const statusOptionsByModule: Record<string, string[]> = {
@@ -1238,7 +1242,7 @@ const statusOptionsByModule: Record<string, string[]> = {
   "Varlık Envanteri": ["Aktif", "Bakımda", "Devre Dışı", "Arşivlendi"],
   Uyum: ["Uyumlu", "Kısmi Uyumlu", "Uyumlu Değil", "Uygulanamaz"],
   Tedarikçiler: ["Aktif", "İncelemede", "Askıda", "Sonlandırıldı"],
-  Kontroller: ["Uygulanıyor", "Kısmi", "Uygulanmıyor", "Uygulanamaz"],
+  Kontroller: ["Taslak", "Aktif", "İyileştirme Gerekli", "Devre Dışı"],
   Kanıtlar: ["Taslak", "İncelemede", "Onaylandı", "Reddedildi", "Süresi Doldu"],
   "Denetim Yönetimi": ["Başlanmadı", "Devam Ediyor", "İncelemede", "Kapatıldı"],
 };
@@ -2303,6 +2307,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
             currentUser={currentUser}
             catalogs={catalogs}
             onCatalogChange={loadCatalogs}
+            onDataChange={load}
             page={
               active === "Ana Veri Yönetimi"
                 ? "catalogs"
@@ -3192,8 +3197,8 @@ function Dashboard({
       {
         value: critical.length,
         label: tr
-          ? "Kritik risk karar bekliyor"
-          : "Critical risks need decisions",
+          ? "Kritik risk incelemesi"
+          : "Critical risk reviews",
         module: "Risk Assessment",
         tone: "critical",
       },
@@ -3502,6 +3507,11 @@ function Dashboard({
             audits.length,
           ],
           ["Kanıtlar", tr ? "Kanıt Kasası" : "Evidence Vault", evidence.length],
+          [
+            "Kontroller",
+            tr ? "Kontrol Kütüphanesi" : "Control Library",
+            controls.length,
+          ],
           [
             "Tedarikçiler",
             tr ? "Tedarikçi Riski" : "Vendor Risk",
@@ -5326,6 +5336,7 @@ const registerColumns: Record<
     { key: "owner", tr: "Kontrol Sahibi", en: "Control Owner" },
     { key: "frameworks", tr: "İlgili Standartlar", en: "Applicable Standards" },
     { key: "frequency", tr: "Sıklık", en: "Frequency" },
+    { key: "implementation", tr: "Uygulama", en: "Implementation" },
     { key: "evidence", tr: "Kanıt Kapsamı", en: "Evidence Coverage" },
     { key: "status", tr: "Durum", en: "Status" },
     { key: "updatedAt", tr: "Son Güncelleme", en: "Last Updated" },
@@ -5899,7 +5910,7 @@ function SmartCell({
   if (column === "biaGovernance")
     return (
       <div className="stack">
-        <b>{d.approver || (tr ? "Onay bekliyor" : "Awaiting approval")}</b>
+        <b>{d.approver || (tr ? "Onaylayan atanmamış" : "Approver not assigned")}</b>
         <small>{d.approvalDate || d.nextReview || "—"}</small>
       </div>
     );

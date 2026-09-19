@@ -44,11 +44,21 @@
 .reminder-rule p{font-size:10px;line-height:1.5;color:var(--muted);margin:5px 0 0}
 .settings-footer{grid-column:1/-1;display:flex;align-items:center;justify-content:flex-end;gap:14px}
 .settings-footer span{font-size:10px;color:#23735a;font-weight:700}
+.demo-data-manager{margin-top:16px}
+.demo-data-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;padding:16px 20px}
+.demo-data-summary>div{display:flex;align-items:center;justify-content:space-between;gap:8px;min-width:0;padding:9px 10px;border:1px solid var(--line);border-radius:8px;background:var(--cp-panel-2,#f8fafc)}
+.demo-data-summary b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:9px}.demo-data-summary span{font-size:9px;font-weight:900;color:var(--blue)}
+.demo-data-actions{display:grid;grid-template-columns:auto minmax(220px,1fr) auto;align-items:end;gap:12px;padding:0 20px 16px}
+.demo-data-actions label span{display:block;margin-bottom:6px;color:var(--muted);font-size:9px;font-weight:700}.demo-data-actions input{width:100%;height:38px;padding:0 10px;border:1px solid var(--line);border-radius:8px;background:var(--cp-panel,#fff);color:var(--ink)}
+.demo-data-actions button{min-height:38px;padding:0 14px;border:1px solid var(--line);border-radius:8px;background:var(--cp-panel,#fff);color:var(--ink);font-size:9px;font-weight:800;cursor:pointer}.demo-data-actions button.danger{border-color:#fecaca;background:#fff5f5;color:#b42318}.demo-data-actions button:disabled{cursor:not-allowed;opacity:.45}
+.demo-data-message{margin:0 20px 14px;padding:9px 11px;border-radius:8px;background:#edf7f3;color:#23735a;font-size:9px;font-weight:700}.demo-data-manager>footer{padding:0 20px 16px;color:var(--muted);font-size:9px;line-height:1.5}
 @media(max-width:900px){.settings-grid{grid-template-columns:1fr}
 .catalog-grid{grid-template-columns:1fr}
+.demo-data-summary{grid-template-columns:repeat(2,minmax(0,1fr))}.demo-data-actions{grid-template-columns:1fr}
 .settings-card-wide{grid-column:auto}
 .settings-card:last-of-type{grid-column:auto}
 }
 @media(max-width:560px){.settings-fields{grid-template-columns:1fr}
+.demo-data-summary{grid-template-columns:1fr}
 .setting-field.wide,.setting-toggle.wide,.reminder-rule.wide{grid-column:auto}
 }

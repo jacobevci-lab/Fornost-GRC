@@ -20,12 +20,14 @@ body{overflow-x:hidden}
 .auth-card,.settings-card,.integration-hub,.integration-card,.settings-empty{border-color:var(--ws-line)!important;background:var(--ws-surface)!important;background-image:none!important;color:var(--ws-ink)!important;box-shadow:var(--ws-shadow)!important}
 .settings-card-head,.integration-card>header,.settings-fields,.integration-fields,.local-user-list{border-color:var(--ws-line)!important}
 .settings-card-head>span,.admin-badge,.catalog-message,.integration-hub>header>span{background:var(--ws-brand-soft)!important;color:var(--ws-brand-2)!important}
-.catalog-grid article,.catalog-values>div,.security-note,.reminder-rule,.tls-state,.integration-card,.integration-note{border-color:var(--ws-line)!important;background:var(--ws-surface-2)!important;color:var(--ws-ink)!important}
-.certificate-upload input,.setting-field input,.setting-field select,.catalog-grid form input,.integration-field input,.integration-field select{border-color:var(--ws-line-strong)!important;background:var(--ws-surface)!important;color:var(--ws-ink)!important}
+.catalog-grid article,.catalog-values>div,.security-note,.reminder-rule,.tls-state,.integration-card,.integration-note,.demo-data-summary>div{border-color:var(--ws-line)!important;background:var(--ws-surface-2)!important;color:var(--ws-ink)!important}
+.certificate-upload input,.setting-field input,.setting-field select,.catalog-grid form input,.integration-field input,.integration-field select,.demo-data-actions input{border-color:var(--ws-line-strong)!important;background:var(--ws-surface)!important;color:var(--ws-ink)!important}
 .security-note b,.settings-footer span,.catalog-message{color:var(--ws-positive)!important}
 .catalog-values button:hover{background:color-mix(in srgb,var(--ws-danger) 14%,transparent)!important;color:var(--ws-danger)!important}
+.demo-data-actions button{border-color:var(--ws-line)!important;background:var(--ws-surface-2)!important;color:var(--ws-ink)!important}.demo-data-actions button.danger{border-color:color-mix(in srgb,var(--ws-danger) 42%,var(--ws-line))!important;background:color-mix(in srgb,var(--ws-danger) 10%,var(--ws-surface))!important;color:var(--ws-danger)!important}.demo-data-message{background:color-mix(in srgb,var(--ws-positive) 10%,var(--ws-surface))!important;color:var(--ws-positive)!important}
 .setting-toggle i,.integration-switch i{background:var(--ws-line-strong)!important}.setting-toggle input:checked+i,.integration-switch input:checked+i{background:var(--ws-brand)!important}
 .setting-toggle i::after,.integration-switch i::after{background:var(--ws-surface)!important}
+.local-user-list>div{grid-template-columns:minmax(180px,1.4fr) minmax(90px,.65fr) minmax(110px,.75fr) minmax(120px,1fr) auto!important;align-items:center;min-width:0}.local-user-identity{display:flex;min-width:0;flex-direction:column;gap:4px}.local-user-identity small{overflow:hidden;text-overflow:ellipsis;color:var(--ws-muted)!important}.local-user-list select{width:100%;min-width:0;height:34px;border:1px solid var(--ws-line-strong);border-radius:7px;background:var(--ws-surface);color:var(--ws-ink)}.local-user-security{font-size:9px;color:var(--ws-muted)!important}.local-user-list button{height:34px;padding:0 12px;border:1px solid var(--ws-line);border-radius:7px;background:var(--ws-surface-2);color:var(--ws-ink);font-weight:800}
 
 /* Ask Fornost uses the same petrol/teal system as the main workspace. */
 .fornost-ai-launcher{right:22px!important;bottom:22px!important;border:1px solid color-mix(in srgb,var(--ws-brand) 58%,var(--ws-line))!important;background:var(--ws-brand)!important;background-image:none!important;color:#fff!important;box-shadow:0 16px 42px color-mix(in srgb,var(--ws-brand) 22%,transparent)!important}
@@ -83,12 +85,48 @@ body{overflow-x:hidden}
 
 html[data-theme="dark"] :where(.auth-card,.settings-card,.integration-hub,.integration-card,.settings-empty,.fornost-ai-panel){box-shadow:0 18px 50px rgba(0,0,0,.2)!important}
 
+/* Operational modules: remove the last historical orange/violet skins. */
+:where(.rap-page,.continuity-page,.plm-page,.tprm-page,.ri-page,.incident-page,.finding-page,.ea-page,.connected-grc)
+  :where(.rap-card,.continuity-card,.plm-card,.tprm-card,.ri-change,.ri-source-due,.incident-detail,.incident-form,.incident-action,.finding-detail,.finding-form,.finding-action,.ea-card,.connected-card,
+  .rap-detail,.plm-detail,.tprm-detail,.ri-detail,.continuity-detail,.audit-overview,.audit-card,.audit-detail-head,.audit-detail-kpis article,.soc2-period-card,.audit-scope-grid article,.soc2-work-table,.soc2-findings article){
+  min-width:0!important;border-color:var(--ws-line)!important;background:var(--ws-surface)!important;background-image:none!important;color:var(--ws-ink)!important;box-shadow:var(--ws-shadow)!important
+}
+:where(.rap-page,.continuity-page,.plm-page,.tprm-page,.ri-page,.incident-page,.finding-page,.ea-page,.connected-grc)
+  :where(.rap-card,.continuity-card,.plm-card,.tprm-card,.ri-change,.incident-detail,.incident-form,.incident-action,.finding-detail,.finding-form,.finding-action,.ea-card,.connected-card,
+  .rap-detail,.plm-detail,.tprm-detail,.ri-detail,.continuity-detail) :where(h2,h3,h4,b,strong,dd){color:var(--ws-ink)!important;overflow-wrap:anywhere}
+:where(.rap-page,.continuity-page,.plm-page,.tprm-page,.ri-page,.incident-page,.finding-page,.ea-page,.connected-grc)
+  :where(.rap-card,.continuity-card,.plm-card,.tprm-card,.ri-change,.incident-detail,.incident-form,.incident-action,.finding-detail,.finding-form,.finding-action,.ea-card,.connected-card,
+  .rap-detail,.plm-detail,.tprm-detail,.ri-detail,.continuity-detail) :where(p,small,span,dt,label){color:var(--ws-muted);overflow-wrap:anywhere}
+:where(.rap-page,.continuity-page,.plm-page,.tprm-page,.ri-page,.incident-page,.finding-page,.ea-page,.connected-grc)
+  :where(.rap-card,.continuity-card,.plm-card,.tprm-card,.ri-change,.incident-detail,.incident-form,.incident-action,.finding-detail,.finding-form,.finding-action,.ea-card,.connected-card,
+  .rap-detail,.plm-detail,.tprm-detail,.ri-detail,.continuity-detail) :where(header,footer,section,aside,dl>div){border-color:var(--ws-line)!important}
+:where(.rap-page,.continuity-page,.plm-page,.tprm-page,.ri-page,.incident-page,.finding-page,.ea-page,.connected-grc)
+  :where(button,a){max-width:100%;overflow-wrap:anywhere}
+:where(.rap-page,.continuity-page,.plm-page,.tprm-page,.ri-page,.incident-page,.finding-page,.ea-page,.connected-grc)
+  :where(form footer button:last-child,.primary,button[type="submit"]){border-color:var(--ws-brand)!important;background:var(--ws-brand)!important;background-image:none!important;color:#fff!important;box-shadow:none!important}
+:where(.rap-page,.continuity-page,.plm-page,.tprm-page,.ri-page,.incident-page,.finding-page,.ea-page,.connected-grc)
+  :where(form footer button.secondary,form footer button:first-child,button.secondary){border-color:var(--ws-line)!important;background:var(--ws-surface-2)!important;color:var(--ws-muted)!important}
+:where(.rap-page,.continuity-page,.plm-page,.tprm-page,.ri-page,.incident-page,.finding-page,.ea-page,.connected-grc)
+  :where(.rap-notice,.continuity-notice,.plm-notice,.tprm-notice,.ri-notice,.incident-notice,.finding-notice,.ea-notice){border-color:color-mix(in srgb,var(--ws-positive) 30%,var(--ws-line))!important;background:color-mix(in srgb,var(--ws-positive) 9%,var(--ws-surface))!important;color:var(--ws-positive)!important}
+
+/* Audit/report workspaces participate in the same palette and scale down safely. */
+:where(.audit-overview,.audit-card,.audit-detail-head,.audit-detail-kpis article,.soc2-period-card,.audit-scope-grid article,.soc2-work-table,.soc2-findings article){border-color:var(--ws-line)!important;background-color:var(--ws-surface)!important;color:var(--ws-ink)!important;box-shadow:var(--ws-shadow)!important}
+:where(.audit-overview,.audit-card,.audit-detail-head,.audit-detail-kpis,.soc2-period-card,.audit-scope-grid,.soc2-work-table,.soc2-findings) :where(h2,h3,h4,b,strong,dd){color:var(--ws-ink)!important;overflow-wrap:anywhere}
+:where(.audit-overview,.audit-card,.audit-detail-head,.audit-detail-kpis,.soc2-period-card,.audit-scope-grid,.soc2-work-table,.soc2-findings) :where(p,small,span,dt){color:var(--ws-muted);overflow-wrap:anywhere}
+.audit-workspace-tabs{border-color:var(--ws-line)!important;background:var(--ws-surface)!important}.audit-workspace-tabs button:hover{background:var(--ws-surface-2)!important;color:var(--ws-ink)!important}.audit-workspace-tabs button.active{background:var(--ws-brand)!important;background-image:none!important;color:#fff!important;box-shadow:none!important}
+.audit-progress>span,.audit-card-progress>span{background:var(--ws-line)!important}.audit-progress i,.audit-card-progress i{background:var(--ws-positive)!important;background-image:none!important}.audit-links span,.audit-count-chip{background:var(--ws-brand-soft)!important;color:var(--ws-brand-2)!important}
+.soc2-period-card dl div,.audit-card footer,.soc2-findings footer{border-color:var(--ws-line)!important}.soc2-findings p{background:var(--ws-surface-2)!important;color:var(--ws-muted)!important}.soc2-findings p b{color:var(--ws-ink)!important}
+
 @media(max-width:760px){
   .fornost-ai-panel,.fornost-ai-panel.is-compact,.fornost-ai-panel.is-workspace{right:8px!important;bottom:66px!important;width:calc(100vw - 16px)!important;height:calc(100dvh - 78px)!important;border-radius:14px!important}
   .fornost-ai-launcher{right:12px!important;bottom:12px!important}
   .fornost-ai-head{padding:14px!important}
   .fornost-ai-tabs{padding:7px 9px!important}
   :where(.ai-access-stats,.ai-risk-summary,.ai-vendor-stats,.ai-release-stats,.ai-impact-stats,.ai-inventory-stats,.ai-incident-stats,.ai-evidence-stats,.ai-resilience-stats,.ai-dataset-stats,.fornost-ai-panel .stats){grid-template-columns:repeat(2,minmax(0,1fr))!important}
+  .local-user-list>div{grid-template-columns:1fr 1fr!important}.local-user-identity,.local-user-security{grid-column:1/-1}.local-user-list button{width:100%}
+  :where(.rap-grid,.plm-grid,.tprm-grid,.ri-grid,.connected-layout,.audit-portfolio,.soc2-overview-grid,.audit-scope-grid,.soc2-findings){grid-template-columns:1fr!important}
+  :where(.incident-form-grid,.finding-form-grid,.rap-form,.plm-form,.tprm-form,.ri-form,.ea-form){grid-template-columns:1fr!important}
+  :where(.incident-form-grid,.finding-form-grid,.rap-form,.plm-form,.tprm-form,.ri-form,.ea-form) .wide{grid-column:auto!important}
 }
 @media(max-width:430px){
   :where(.ai-access-stats,.ai-risk-summary,.ai-vendor-stats,.ai-release-stats,.ai-impact-stats,.ai-inventory-stats,.ai-evidence-stats,.ai-resilience-stats,.ai-dataset-stats,.fornost-ai-panel .stats){grid-template-columns:1fr!important}

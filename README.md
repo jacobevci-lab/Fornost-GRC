@@ -13,6 +13,7 @@ Fornost, klasik kayıt ve raporlama işlevlerinin yanında AI sistemlerinin enva
 - Business Impact Analysis (BIA)
 - Varlık Envanteri
 - Uyum ve Kontrol Kütüphanesi
+- Ayrı yaşam döngüsü ve uygulama etkinliği durumları, kanıt kapsamı ve dashboard erişimi bulunan bağımsız Kontrol Kütüphanesi
 - Kanıt Yönetimi ve güvenli dosya yükleme
 - Sürekli Kontrol İzleme 2.0: vendor-neutral API collector, zamanlanmış kontrol testleri, kanıt tazeliği, ardışık hata eşiği, otomatik risk/bulgu ve maker-checker CAPA kapanışı
 - Regülasyon Merkezi: kaynak gözetimi, değişiklik triajı, GRC kayıtlarına etki analizi, sorumlu aksiyonlar, SHA-256 kanıt bütünlüğü ve bağımsız maker-checker kapanışı
@@ -26,6 +27,8 @@ Fornost, klasik kayıt ve raporlama işlevlerinin yanında AI sistemlerinin enva
 - E-posta bağlantı testi: SMTP bridge, Microsoft Graph Mail veya HTTP email API
 - IAM bağlantı profilleri: Entra ID, Okta, OIDC, SAML ve on-prem LDAP/LDAPS bridge
 - Admin / Editor / Viewer rol yönetimi
+- Son aktif Admin koruması, hesap etkinleştirme/devre dışı bırakma ve kilit sıfırlama içeren yerel kimlik yönetimi
+- Sekiz çekirdek modülde kurum kayıtlarına dokunmadan kaldırılabilen ve yeniden yüklenebilen kontrollü örnek veri paketi
 - Excel içe aktarma ve CSV/Excel dışa aktarma
 - TR/EN arayüz
 - Tek otoriteli Fornost Workspace tasarımı; açık ana tema, gerçek grafit koyu mod, tüm AI/yönetim/modül ekranlarında ortak yüzey sözleşmesi, form ve modal kontrastı, responsive taşma koruması, geniş/ikon/gizli sol menü, mobil drawer, rol bazlı global komut paleti ve her sayfadan kaynak gösterimli bağlamsal Ask Fornost analizi

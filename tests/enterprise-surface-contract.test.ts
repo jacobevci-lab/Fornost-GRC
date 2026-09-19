@@ -20,12 +20,19 @@ test("every enterprise and AI surface inherits the shared light/dark contract", 
     ".ai-access-governance",
     ".ai-assurance",
     ".ai-data-protection",
+    ".rap-page",
+    ".incident-page",
+    ".finding-page",
+    ".audit-workspace-tabs",
   ]) assert.ok(css.includes(selector), selector);
 
   for (const token of ["--ws-bg", "--ws-surface", "--ws-ink", "--ws-line", "--ws-brand"])
     assert.ok(css.includes(`var(${token})`), token);
 
   assert.match(css, /overflow-wrap:anywhere/);
+  assert.match(css, /Operational modules: remove the last historical orange\/violet skins/);
+  assert.match(css, /\.audit-workspace-tabs button\.active\{background:var\(--ws-brand\)!important/);
+  assert.match(css, /\.incident-form-grid,\.finding-form-grid/);
   assert.match(css, /@media\(max-width:430px\)/);
   assert.match(copilot, /"assurance-alerts"/);
   assert.match(copilot, /data-ai-view=\{activeTab\}/);

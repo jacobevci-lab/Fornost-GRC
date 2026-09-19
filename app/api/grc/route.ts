@@ -13,13 +13,23 @@ type ModuleName=(typeof modules)[number];
 type Data=Record<string,unknown>;
 const required:Record<ModuleName,string[]>={
  "Risk Assessment":["title","category","businessUnit","owner","asset","inherentLikelihood","inherentImpact","treatment","status","nextReview"],
- BIA:["process","processCategory","businessUnit","owner","criticality","asset","rto","rpo"],
+ BIA:["process","processCategory","businessUnit","owner","criticality","asset","rto","rpo","status"],
  "Varlık Envanteri":["title","assetType","businessUnit","owner","criticality","status"],
  Uyum:["framework","controlRef","controlTitle","owner","status"],
  Tedarikçiler:["title","service","owner","criticality","riskLevel","status"],
- Kontroller:["controlRef","controlTitle","owner","frequency","status"],
- Kanıtlar:["evidenceTitle","controlRef","owner","period"],
+ Kontroller:["controlRef","controlTitle","owner","frequency","implementation","status"],
+ Kanıtlar:["evidenceTitle","controlRef","owner","period","status"],
  "Denetim Yönetimi":["auditName","auditType","auditOwner","startDate","endDate","requirementRef","requirementTitle","owner","businessUnit","dueDate","status","progress"]
+};
+const allowedStatuses:Record<ModuleName,string[]>={
+ "Risk Assessment":["Açık","Değerlendiriliyor","Aksiyon Devam Ediyor","Kabul Edildi","Kapalı"],
+ BIA:["Taslak","İncelemede","Onaylandı","Aktif","Arşivlendi"],
+ "Varlık Envanteri":["Aktif","Bakımda","Devre Dışı","Arşivlendi"],
+ Uyum:["Uyumlu","Kısmi Uyumlu","Uyumlu Değil","Uygulanamaz"],
+ Tedarikçiler:["Aktif","İncelemede","Askıda","Sonlandırıldı"],
+ Kontroller:["Taslak","Aktif","İyileştirme Gerekli","Devre Dışı"],
+ Kanıtlar:["Taslak","İncelemede","Onaylandı","Reddedildi","Süresi Doldu"],
+ "Denetim Yönetimi":["Başlanmadı","Devam Ediyor","İncelemede","Kapatıldı"],
 };
 const seeds:[string,ModuleName,Data][]=demoSeeds;
 const demoSeedMarker="demo_seed_initialized";
@@ -63,15 +73,34 @@ export function validDate(value:unknown){
  const [year,month,day]=value.split("-").map(Number),date=new Date(Date.UTC(year,month-1,day));
  return date.getUTCFullYear()===year&&date.getUTCMonth()===month-1&&date.getUTCDate()===day;
 }
+export function normalizeRecordData(module:unknown,input:Data){
+ const data={...input};
+ if(module==="Risk Assessment"){
+  if(data.inherentLikelihood===undefined&&data.likelihood!==undefined)data.inherentLikelihood=data.likelihood;
+  if(data.inherentImpact===undefined&&data.impact!==undefined)data.inherentImpact=data.impact;
+  delete data.likelihood;delete data.impact;
+ }
+ if(module==="BIA"){if(!data.processCategory)data.processCategory="Operasyonel Süreç";if(!data.status)data.status="Aktif"}
+ if(module==="Risk Assessment"){if(data.status==="Devam Ediyor")data.status="Aksiyon Devam Ediyor";if(data.status==="İzlemede")data.status="Değerlendiriliyor"}
+ if(module==="Uyum"){if(data.status==="Kısmi")data.status="Kısmi Uyumlu";if(data.status==="Uyumsuz")data.status="Uyumlu Değil"}
+ if(module==="Tedarikçiler"&&data.status==="İyileştirme Gerekli")data.status="Askıda";
+ if(module==="Denetim Yönetimi"){if(data.status==="Planlandı")data.status="Başlanmadı";if(data.status==="Tamamlandı")data.status="Kapatıldı";if(data.status==="Gecikmiş")data.status="Devam Ediyor"}
+ if(module==="Kanıtlar"&&!data.status)data.status="Taslak";
+ if(module==="Kontroller"&&!data.implementation&&["Uygulanıyor","Kısmi","Uygulama Hazırlığında","Uygulanmıyor","Uygulanamaz"].includes(String(data.status||""))){
+  data.implementation=data.status;
+  data.status=data.status==="Uygulanıyor"?"Aktif":data.status==="Uygulanamaz"?"Devre Dışı":data.status==="Uygulanmıyor"?"Taslak":"İyileştirme Gerekli";
+ }
+ return data;
+}
 export function validate(module:unknown,input:unknown){
  if(!validModule(module))return {error:"Geçersiz modül."};
  if(!input||typeof input!=="object"||Array.isArray(input))return {error:"Geçersiz kayıt verisi."};
- const source=input as Data,data:Data={};
- for(const [key,value] of Object.entries(source)){if(key.length>60)continue;data[key]=cleanText(value)}
- if(module==="Risk Assessment"){delete data.likelihood;delete data.impact}
- if(module==="BIA"&&!data.processCategory)data.processCategory="Operasyonel Süreç";
+ const source=input as Data,cleaned:Data={};
+ for(const [key,value] of Object.entries(source)){if(key.length>60)continue;cleaned[key]=cleanText(value)}
+ const data=normalizeRecordData(module,cleaned);
  const missing=required[module].filter(key=>data[key]===undefined||data[key]===null||data[key]==="");
  if(missing.length)return {error:`Zorunlu alanlar eksik: ${missing.join(", ")}`};
+ if(!allowedStatuses[module].includes(String(data.status)))return {error:"Geçersiz operasyon durumu."};
  for(const key of ["inherentLikelihood","inherentImpact","confidentialityImpact","integrityImpact","availabilityImpact","confidentialityRating","integrityRating","availabilityRating","financial","operational","legal","reputation","customer","dataImpact"]){
   if(data[key]!==undefined&&data[key]!==""&&(!Number.isInteger(Number(data[key]))||Number(data[key])<1||Number(data[key])>5))return {error:`${key} 1-5 arasında olmalıdır.`};
  }
@@ -85,7 +114,7 @@ export function validate(module:unknown,input:unknown){
 }
 function readJson(req:NextRequest){const len=Number(req.headers.get("content-length")||0);if(len>2_000_000)throw new Error("PAYLOAD_TOO_LARGE");return req.json()}
 
-export async function GET(req:NextRequest){const auth=await requireRole(req,["Admin","Editor","Viewer"]);if(auth.response)return auth.response;const d=await db();const marker=await d.prepare("SELECT value FROM simple_grc_metadata WHERE key=?").bind(demoSeedMarker).first<{value:string}>(),c=await d.prepare("SELECT COUNT(*) total FROM simple_grc_records").first<{total:number}>(),now=new Date().toISOString();if(shouldInsertDemoSeeds(marker,Number(c?.total||0))){await d.batch(seeds.map(s=>d.prepare("INSERT OR IGNORE INTO simple_grc_records(id,module,data_json,created_at,updated_at) VALUES(?,?,?,?,?)").bind(s[0],s[1],JSON.stringify(s[2]),now,now)))}if(!marker){await d.prepare("INSERT OR REPLACE INTO simple_grc_metadata(key,value,updated_at) VALUES(?,?,?)").bind(demoSeedMarker,"1",now).run()}await compactSampleRecords(d,now);const r=await d.prepare("SELECT * FROM simple_grc_records ORDER BY created_at,id LIMIT 5000").all<Record<string,unknown>>(),codes=await ensureRecordCodes(d,r.results,now);const rows:Record<string,unknown>[]=r.results.map(row=>{try{const data=JSON.parse(String(row.data_json)) as Data;if(row.module==="Risk Assessment"){if(data.inherentLikelihood===undefined&&data.likelihood!==undefined)data.inherentLikelihood=data.likelihood;if(data.inherentImpact===undefined&&data.impact!==undefined)data.inherentImpact=data.impact;delete data.likelihood;delete data.impact}if(row.module==="BIA"&&!data.processCategory)data.processCategory="Operasyonel Süreç";return {...row,record_code:codes.get(String(row.id))||String(row.id),data_json:JSON.stringify(data)}}catch{return {...row,record_code:codes.get(String(row.id))||String(row.id)}}});rows.sort((a,b)=>String(b.updated_at).localeCompare(String(a.updated_at)));return NextResponse.json({rows})}
+export async function GET(req:NextRequest){const auth=await requireRole(req,["Admin","Editor","Viewer"]);if(auth.response)return auth.response;const d=await db();const marker=await d.prepare("SELECT value FROM simple_grc_metadata WHERE key=?").bind(demoSeedMarker).first<{value:string}>(),c=await d.prepare("SELECT COUNT(*) total FROM simple_grc_records").first<{total:number}>(),now=new Date().toISOString();if(shouldInsertDemoSeeds(marker,Number(c?.total||0))){await d.batch(seeds.map(s=>d.prepare("INSERT OR IGNORE INTO simple_grc_records(id,module,data_json,created_at,updated_at) VALUES(?,?,?,?,?)").bind(s[0],s[1],JSON.stringify(s[2]),now,now)))}if(!marker){await d.prepare("INSERT OR REPLACE INTO simple_grc_metadata(key,value,updated_at) VALUES(?,?,?)").bind(demoSeedMarker,"1",now).run()}await compactSampleRecords(d,now);const r=await d.prepare("SELECT * FROM simple_grc_records ORDER BY created_at,id LIMIT 5000").all<Record<string,unknown>>(),codes=await ensureRecordCodes(d,r.results,now);const rows:Record<string,unknown>[]=r.results.map(row=>{try{const data=normalizeRecordData(row.module,JSON.parse(String(row.data_json)) as Data);return {...row,record_code:codes.get(String(row.id))||String(row.id),data_json:JSON.stringify(data)}}catch{return {...row,record_code:codes.get(String(row.id))||String(row.id)}}});rows.sort((a,b)=>String(b.updated_at).localeCompare(String(a.updated_at)));return NextResponse.json({rows})}
 export async function POST(req:NextRequest){
  const auth=await requireRole(req,["Admin","Editor"]);if(auth.response)return auth.response;
  try{

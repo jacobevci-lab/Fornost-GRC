@@ -141,7 +141,7 @@ export async function POST(req: NextRequest) {
     const id = `AUDIT-${crypto.randomUUID()}`, now = new Date().toISOString();
     const d = await db();
     await d.prepare("INSERT INTO simple_audits(id,name,template,audit_type,auditor,audit_owner,status,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?)")
-      .bind(id, name, template, text(body.auditType, 100) || "Diğer Denetim", text(body.auditor, 160), text(body.auditOwner, 160), text(body.status, 40) || "Planlandı", now, now).run();
+      .bind(id, name, template, text(body.auditType, 100) || "Diğer Denetim", text(body.auditor, 160), text(body.auditOwner, 160), text(body.status, 40) || "Başlanmadı", now, now).run();
     const audit = await d.prepare("SELECT * FROM simple_audits WHERE id=?").bind(id).first<Record<string, unknown>>();
     const insertedRequirements = audit ? await ensureTemplateRows(d, audit, now) : 0;
     return NextResponse.json({ ok: true, id, insertedRequirements }, { status: 201 });
