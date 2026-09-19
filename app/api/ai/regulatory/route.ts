@@ -16,9 +16,10 @@ const json = (data: unknown, status = 200) =>
       safe = /^[=+\-@]/.test(raw) ? `'${raw}` : raw;
     return `"${safe.replace(/"/g, '""')}"`;
   },
-  parse = (v: unknown) => {
+  parse = <T = unknown>(v: unknown): T[] => {
     try {
-      return JSON.parse(String(v || "[]"));
+      const value = JSON.parse(String(v || "[]"));
+      return Array.isArray(value) ? value as T[] : [];
     } catch {
       return [];
     }
@@ -41,9 +42,9 @@ const json = (data: unknown, status = 200) =>
     classificationRationale: r.classification_rationale,
     transparencyNotice: r.transparency_notice,
     humanOversight: r.human_oversight,
-    obligations: parse(r.obligations_json),
-    completedKeys: parse(r.completed_keys_json),
-    gaps: parse(r.gaps_json),
+    obligations: parse<{ key: string; label: string }>(r.obligations_json),
+    completedKeys: parse<string>(r.completed_keys_json),
+    gaps: parse<string>(r.gaps_json),
     reviewDate: r.review_date,
     status: r.status,
     decisionNote: r.decision_note,
@@ -122,7 +123,7 @@ export async function GET(req: NextRequest) {
         (x) => x.status === "approved" && x.attention !== "overdue",
       ).length,
       highRisk: rows.filter((x) =>
-        ["high-risk", "gpai-systemic"].includes(x.classification),
+        ["high-risk", "gpai-systemic"].includes(String(x.classification)),
       ).length,
       gaps: rows.reduce((n, x) => n + x.gaps.length, 0),
       overdue: rows.filter((x) => x.attention === "overdue").length,

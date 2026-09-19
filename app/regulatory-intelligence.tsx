@@ -30,7 +30,7 @@ export default function RegulatoryIntelligence({lang,currentUser}:{lang:Lang;cur
  function openImpact(change:Change){setSelected(change);setImpactForm({...impactForm,changeId:change.id,actionOwner:change.owner,dueDate:change.effectiveDate});setImpactOpen(true)}
  function chooseRecord(id:string){const row=records.find(x=>x.id===id);setImpactForm({...impactForm,targetRef:id,targetTitle:row?.title||""})}
  async function applyChange(){if(!changeAction)return;if(await api({action:"change-action",changeId:changeAction.change.id,operation:changeAction.operation,note:changeAction.note,confirmation:changeAction.confirmation}))setChangeAction(null)}
- async function applyImpact(){if(!impactAction)return;if(await api({action:"impact-action",impactId:impactAction.impact.id,...impactAction}))setImpactAction(null)}
+ async function applyImpact(){if(!impactAction)return;const {impact,action,...decision}=impactAction;if(await api({action:"impact-action",impactId:impact.id,operation:action,...decision}))setImpactAction(null)}
  const changePhrase=(operation:string)=>operation==="not-applicable"?"KAPSAM DIŞI":operation==="close"?"DEĞİŞİKLİĞİ KAPAT":"DEĞİŞİKLİĞİ YENİDEN AÇ";
  const impactPhrase=(action:string)=>action==="start"?"AKSİYONU BAŞLAT":action==="submit"?"DOĞRULAMAYA GÖNDER":action==="verify"?"ETKİYİ DOĞRULA":"ETKİYİ YENİDEN AÇ";
  return <section className="ri-page">

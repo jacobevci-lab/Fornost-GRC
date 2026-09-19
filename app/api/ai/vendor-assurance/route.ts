@@ -187,7 +187,7 @@ export async function POST(req: NextRequest) {
     );
   const id = `AIV-${crypto.randomUUID()}`,
     now = new Date().toISOString(),
-    flagValues = AI_VENDOR_CONTROLS.map((k) => (v[k] ? 1 : 0));
+    flagValues = AI_VENDOR_CONTROLS.map((k) => ((v as Record<string, unknown>)[k] ? 1 : 0));
   await DB.prepare(
     "INSERT INTO ai_vendor_assessments(id,model_id,risk_id,service_name,legal_entity,service_owner,data_locations,subprocessors,certifications,sla,exit_plan,contract_end,review_date,breach_hours,dpa,training_opt_out,deletion_commitment,audit_rights,security_exhibit,bcdr,subprocessor_notice,data_portability,assurance_score,assurance_tier,gaps,critical_gaps,status,created_by,created_at,updated_by,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'draft',?,?,?,?)",
   )

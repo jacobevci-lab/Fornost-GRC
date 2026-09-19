@@ -18,9 +18,9 @@ const json = (data: unknown, status = 200) =>
     return `"${safe.replace(/"/g, '""')}"`;
   },
   mapPolicy = (row: Record<string, unknown>) => ({
-    id: row.id,
-    modelId: row.model_id,
-    owner: row.owner,
+    id: String(row.id),
+    modelId: String(row.model_id),
+    owner: String(row.owner),
     minAccuracy: Number(row.min_accuracy),
     maxErrorRate: Number(row.max_error_rate),
     maxDriftScore: Number(row.max_drift_score),
@@ -28,12 +28,12 @@ const json = (data: unknown, status = 200) =>
     maxP95LatencyMs: Number(row.max_p95_latency_ms),
     minSampleSize: Number(row.min_sample_size),
     frequencyDays: Number(row.frequency_days),
-    evidencePlan: row.evidence_plan,
-    breachAction: row.breach_action,
-    reviewDate: row.review_date,
-    status: row.status,
-    createdBy: row.created_by,
-    approvedBy: row.approved_by,
+    evidencePlan: String(row.evidence_plan),
+    breachAction: String(row.breach_action),
+    reviewDate: String(row.review_date),
+    status: String(row.status),
+    createdBy: String(row.created_by),
+    approvedBy: row.approved_by ? String(row.approved_by) : null,
   });
 
 export async function GET(req: NextRequest) {

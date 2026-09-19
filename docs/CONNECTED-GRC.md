@@ -4,11 +4,13 @@ Connected GRC, Fornost içindeki risk, varlık, BIA, kontrol, kanıt, denetim, t
 
 ## Davranış
 
-- Kayıt kimliği, kodu, kontrol referansı ve anlamlı başlık alanları üzerinden deterministik bağlantı kurar.
-- Aynı modül içindeki benzer metinleri ilişki saymaz; çapraz alan referanslarını gösterir.
+- Serbest metin benzerliği kullanmaz; `asset`, `processLink`, `controlRef`, `riskRef`, `evidenceRef`, `vendor`, `framework(s)` ve `requirementRef` gibi tanımlı ilişki alanları üzerinden deterministik bağlantı kurar.
+- İlişkileri `risk-asset`, `risk-process`, `control-evidence`, `audit-control`, `audit-risk`, `audit-evidence`, `asset-vendor` ve `control-framework` tipleriyle sınıflandırır.
+- Kaynak modül ve hedef modül kuralları yanlış pozitif eşleşmeleri engeller; aynı ilişki yinelenmez.
 - Kaynak veya hedef düğümden ilgili canlı modüle geçilir.
-- Modül yoğunluğu, toplam düğüm, doğrulanmış bağlantı, bağlı kayıt ve bağlantısız kayıt KPI'ları hesaplanır.
+- Modül yoğunluğu, toplam düğüm, doğrulanmış bağlantı, bağlı kayıt, bağlantısız kayıt ve çözülmeyen referans KPI'ları hesaplanır.
+- Hedefi bulunamayan referanslar ayrı inceleme kuyruğunda kaynak kodu, alan ve değer ile gösterilir.
 - Arama ve alan filtresi istemci tarafında çalışır; veri bir AI sağlayıcısına gönderilmez.
 - Dışa aktarım formül enjeksiyonuna karşı güvenli, UTF-8 CSV üretir.
 
-Bu görünüm bir çıkarım veya otomatik karar motoru değildir. Yalnız mevcut kayıtlardaki açık referansları gösterir; bağlantının yönetişim anlamı kayıt sahibi tarafından doğrulanır.
+Bu görünüm bir çıkarım veya otomatik karar motoru değildir. Yalnız mevcut kayıtlardaki açık ve şeması tanımlı referansları gösterir; bağlantının yönetişim anlamı kayıt sahibi tarafından doğrulanır.

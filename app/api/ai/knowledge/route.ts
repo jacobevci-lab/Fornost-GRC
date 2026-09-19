@@ -86,8 +86,8 @@ export async function PATCH(req:NextRequest){
   const access=await requireRole(req,["Admin"]);if(access.response)return access.response;
   if(Number(req.headers.get("content-length")||0)>64_000)return json({error:"Bilgi kaynağı karar isteği çok büyük."},413);
   const body=await req.json().catch(()=>({})),decision=cleanAiText(body.decision,20),note=cleanAiText(body.note,800);
-  const requestedIds=(Array.isArray(body.ids)?body.ids:[body.id]).map(value=>cleanAiText(value,80)).filter(Boolean);
-  const ids=[...new Set(requestedIds)],bulk=ids.length>1;
+  const requestedIds:string[]=(Array.isArray(body.ids)?body.ids:[body.id]).map((value:unknown)=>cleanAiText(value,80)).filter((value:string)=>Boolean(value));
+  const ids:string[]=[...new Set(requestedIds)],bulk=ids.length>1;
   if(ids.length>50)return json({error:"Tek işlemde en fazla 50 bilgi kaynağı seçilebilir."},400);
   if(!ids.length||!["approved","archived","reviewed"].includes(decision))return json({error:"Geçersiz bilgi kaynağı kararı."},400);
   const confirmation=decision==="reviewed"?"GÖZDEN GEÇİR":bulk?(decision==="approved"?"TOPLU ONAYLA":"TOPLU ARŞİVLE"):(decision==="approved"?"ONAYLA":"ARŞİVLE");

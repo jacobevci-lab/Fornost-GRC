@@ -45,6 +45,7 @@ import { safeSpreadsheetCell } from "./export-security";
 import { automaticAuditTemplates } from "./api/grc/framework-catalogs";
 import { displayRecordCode } from "./record-codes";
 import "./workspace-system.css";
+import "./enterprise-surface-contract.css";
 import { buildReportHtml, buildReportPdf, downloadBlob, reportMetrics } from "./report-export";
 
 type Lang = "tr" | "en";
