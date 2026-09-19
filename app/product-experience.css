@@ -10,24 +10,24 @@
   --ws-shadow:0 1px 2px rgba(19,33,45,.04),0 12px 32px rgba(19,33,45,.055)
 }
 html[data-theme="dark"]{
-  --ws-bg:#0a1220;--ws-surface:#111c2d;--ws-surface-2:#17243a;
-  --ws-ink:#f1f5f9;--ws-muted:#afbdd0;--ws-faint:#8090a6;
-  --ws-line:#27364d;--ws-line-strong:#3b4c66;
+  --ws-bg:#0f1516;--ws-surface:#172021;--ws-surface-2:#1d292a;
+  --ws-ink:#edf4f3;--ws-muted:#a5b4b3;--ws-faint:#748685;
+  --ws-line:#2b3a3b;--ws-line-strong:#425455;
   --ws-brand:#59d0c5;--ws-brand-2:#8be1da;--ws-brand-soft:#153d42;
-  --ws-positive:#63cf98;--ws-warning:#efb265;--ws-danger:#f1818a;--ws-info:#78b8e5;
+  --ws-positive:#63cf98;--ws-warning:#efb265;--ws-danger:#f1818a;--ws-info:#72bdb6;
   --ws-shadow:0 1px 2px rgba(0,0,0,.3),0 18px 44px rgba(0,0,0,.18)
 }
 
 body{font-size:14px!important;line-height:1.5!important;text-rendering:optimizeLegibility}
 .shell>aside{background:#f9fbfb!important}
-html[data-theme="dark"] .shell>aside{background:#0d1827!important}
+html[data-theme="dark"] .shell>aside{background:#121b1c!important}
 .shell>main{background:linear-gradient(180deg,color-mix(in srgb,var(--ws-brand) 2%,var(--ws-bg)),var(--ws-bg) 220px)!important}
 .brand b{font-size:15px!important}.brand small{font-size:10px!important}
 .nav-group{margin-bottom:15px!important}.nav-group>small{font-size:9px!important;color:var(--ws-faint)!important}
 .nav-group button{min-height:40px!important;font-size:12.5px!important;font-weight:650!important}
 .nav-group button i{width:27px!important;height:27px!important}.nav-group button svg{width:17px!important;height:17px!important}
 .nav-group button.active{background:var(--ws-brand-soft)!important;color:var(--ws-brand-2)!important}
-html[data-theme="dark"] .nav-group button.active i{background:#0c1726!important}
+html[data-theme="dark"] .nav-group button.active i{background:#122827!important}
 
 .shell>main>header{background:color-mix(in srgb,var(--ws-surface) 96%,transparent)!important}
 .header-context h1{font-size:18px!important}.header-context small{font-size:9px!important}
@@ -36,8 +36,8 @@ html[data-theme="dark"] .nav-group button.active i{background:#0c1726!important}
 
 /* Executive dashboard: two balanced rows instead of one oversized empty card. */
 .workspace-dashboard{max-width:1680px;margin:0 auto;padding-top:28px!important}
-.dashboard-hero{min-height:210px!important;background:radial-gradient(circle at 88% 10%,rgba(105,224,212,.2),transparent 32%),linear-gradient(135deg,#0c4745 0%,#123a4c 58%,#172745 100%)!important;border-color:rgba(94,208,197,.23)!important}
-html[data-theme="dark"] .dashboard-hero{background:radial-gradient(circle at 88% 10%,rgba(89,208,197,.18),transparent 32%),linear-gradient(135deg,#0c3438,#12243b 58%,#18223a)!important}
+.dashboard-hero{min-height:210px!important;background:radial-gradient(circle at 88% 10%,rgba(105,224,212,.2),transparent 32%),linear-gradient(135deg,#0c4745 0%,#123f3d 58%,#143331 100%)!important;border-color:rgba(94,208,197,.23)!important}
+html[data-theme="dark"] .dashboard-hero{background:radial-gradient(circle at 88% 10%,rgba(89,208,197,.18),transparent 32%),linear-gradient(135deg,#0c3433,#123f3d 58%,#102a29)!important}
 .dashboard-hero-copy>small{font-size:10px!important}.dashboard-hero-copy p{font-size:13px!important}.dashboard-hero-actions button{font-size:11px!important}
 .dashboard-metric small{font-size:10px!important}.dashboard-metric>span{font-size:10px!important}.dashboard-metric strong{font-size:29px!important}
 .dashboard-intelligence{grid-template-columns:minmax(0,1.35fr) minmax(340px,.65fr)!important;align-items:stretch!important}

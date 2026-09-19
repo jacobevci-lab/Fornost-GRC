@@ -58,3 +58,12 @@ test("light, dark, desktop, tablet and mobile share the final experience contrac
   assert.match(css, /\.ai-readiness-list/);
   assert.match(css, /\.fornost-ai-panel :where\(p,dd,li,label,input,select,textarea,button\)/);
 });
+
+test("dark mode keeps the approved green graphite palette instead of navy", () => {
+  assert.match(css, /--ws-bg:#0f1516;--ws-surface:#172021;--ws-surface-2:#1d292a/);
+  assert.match(css, /html\[data-theme="dark"\] \.shell>aside\{background:#121b1c!important\}/);
+  assert.match(css, /linear-gradient\(135deg,#0c3433,#123f3d 58%,#102a29\)/);
+  for (const rejected of ["#0a1220", "#111c2d", "#17243a", "#0d1827", "#12243b", "#18223a"]) {
+    assert.ok(!css.includes(rejected), `navy palette token leaked: ${rejected}`);
+  }
+});
