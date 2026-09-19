@@ -7,6 +7,7 @@ const copilot = readFileSync("app/fornost-ai-copilot.tsx", "utf8");
 const aiSettings = readFileSync("app/ai-settings.tsx", "utf8");
 const settings = readFileSync("app/settings.tsx", "utf8");
 const css = readFileSync("app/product-experience.css", "utf8");
+const registerCss = readFileSync("app/module-registers.css", "utf8");
 
 test("information architecture follows the connected GRC product model", () => {
   for (const group of ["GENEL BAKIŞ", "RİSK", "UYUM", "GÜVENCE", "YÖNETİŞİM", "İÇGÖRÜ", "YÖNETİM"]) {
@@ -66,4 +67,9 @@ test("dark mode keeps the approved green graphite palette instead of navy", () =
   for (const rejected of ["#0a1220", "#111c2d", "#17243a", "#0d1827", "#12243b", "#18223a"]) {
     assert.ok(!css.includes(rejected), `navy palette token leaked: ${rejected}`);
   }
+  for (const rejected of ["#0b1220", "#151f2f", "#101827", "#172235", "#0e1726", "#242452", "#625ae0"]) {
+    assert.ok(!registerCss.includes(rejected), `legacy register navy token leaked: ${rejected}`);
+  }
+  assert.match(css, /html\[data-theme="dark"\] :where\(\.table-card,\.table-wrap,\.risk-register/);
+  assert.match(css, /html\[data-theme="dark"\] :where\(\.register-search,\.register-search input/);
 });

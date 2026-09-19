@@ -4,6 +4,7 @@ import test from "node:test";
 
 const page = readFileSync("app/page.tsx", "utf8");
 const css = readFileSync("app/workspace-system.css", "utf8");
+const productCss = readFileSync("app/product-experience.css", "utf8");
 
 test("desktop sidebar has persistent expanded compact and hidden modes", () => {
   assert.match(page, /sidebarMode, setSidebarMode/);
@@ -33,4 +34,15 @@ test("mobile navigation is a dismissible accessible drawer", () => {
   assert.match(page, /document\.body\.classList\.add\("mobile-nav-locked"\)/);
   assert.match(css, /\.mobile-nav-open>aside\{transform:translateX\(0\)!important/);
   assert.match(css, /\.mobile-nav-open \.mobile-nav-backdrop/);
+});
+
+test("full navigation is a persisted single-section accordion", () => {
+  assert.match(page, /openNavGroup, setOpenNavGroup/);
+  assert.match(page, /fornost-grc-open-nav-group/);
+  assert.match(page, /className="nav-group-trigger"/);
+  assert.match(page, /aria-expanded=\{sidebarMode !== "expanded" \|\| openNavGroup === group\.id\}/);
+  assert.match(page, /aria-controls=\{`nav-group-\$\{group\.id\}`\}/);
+  assert.match(page, /hidden=\{sidebarMode === "expanded" && openNavGroup !== group\.id\}/);
+  assert.match(productCss, /\.nav-group-items\[hidden\]\{display:none!important\}/);
+  assert.match(productCss, /\.sidebar-compact \.nav-group-items/);
 });

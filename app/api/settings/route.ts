@@ -26,6 +26,30 @@ function validate(input:Record<string,unknown>){
 }
 async function database(){const db=await identityDb();await db.batch(tables.map(sql=>db.prepare(sql)));return db;}
 
-export async function GET(req:NextRequest){const access=await requireRole(req,["Admin"]);if(access.response)return access.response;const row=await (await database()).prepare("SELECT config_json,updated_by,updated_at FROM platform_settings WHERE id='default'").first<{config_json:string;updated_by:string;updated_at:string}>();if(!row)return NextResponse.json({...defaults,updatedBy:null,updatedAt:null},{headers:{"cache-control":"no-store"}});let config={};try{config=JSON.parse(row.config_json);}catch{}return NextResponse.json({...defaults,...config,updatedBy:row.updated_by,updatedAt:row.updated_at},{headers:{"cache-control":"no-store"}});}
+export async function GET(req:NextRequest){
+  const access=await requireRole(req,["Admin"]);if(access.response)return access.response;
+  const db=await database();
+  const [row,eventRows]=await Promise.all([
+    db.prepare("SELECT config_json,updated_by,updated_at FROM platform_settings WHERE id='default'").first<{config_json:string;updated_by:string;updated_at:string}>(),
+    db.prepare("SELECT id,action,actor,detail,created_at FROM platform_setting_events ORDER BY created_at DESC LIMIT 12").all<{id:string;action:string;actor:string;detail:string;created_at:string}>(),
+  ]);
+  let config={};if(row)try{config=JSON.parse(row.config_json);}catch{}
+  const events=(eventRows.results||[]).map(event=>{let changedKeys:string[]=[];try{const parsed=JSON.parse(event.detail);if(Array.isArray(parsed.changedKeys))changedKeys=parsed.changedKeys.filter((key:unknown)=>typeof key==="string");}catch{}return {id:event.id,action:event.action,actor:event.actor,changedKeys,createdAt:event.created_at};});
+  return NextResponse.json({...defaults,...config,updatedBy:row?.updated_by||null,updatedAt:row?.updated_at||null,events},{headers:{"cache-control":"no-store"}});
+}
 
-export async function PUT(req:NextRequest){const access=await requireRole(req,["Admin"]);if(access.response)return access.response;if(Number(req.headers.get("content-length")||0)>32_768)return NextResponse.json({error:"İstek boyutu çok büyük."},{status:413});const body=await req.json().catch(()=>({}));let config;try{config=validate(body);}catch(error){return NextResponse.json({error:error instanceof Error?error.message:"Ayarlar doğrulanamadı."},{status:400});}const db=await database(),now=new Date().toISOString();await db.batch([db.prepare("INSERT INTO platform_settings(id,config_json,updated_by,updated_at) VALUES('default',?,?,?) ON CONFLICT(id) DO UPDATE SET config_json=excluded.config_json,updated_by=excluded.updated_by,updated_at=excluded.updated_at").bind(JSON.stringify(config),access.actor.email,now),db.prepare("INSERT INTO platform_setting_events(id,action,actor,detail,created_at) VALUES(?,?,?,?,?)").bind(crypto.randomUUID(),"platform-settings-update",access.actor.email,"Non-secret platform configuration updated",now)]);return NextResponse.json({...config,updatedBy:access.actor.email,updatedAt:now});}
+export async function PUT(req:NextRequest){
+  const access=await requireRole(req,["Admin"]);if(access.response)return access.response;
+  if(Number(req.headers.get("content-length")||0)>32_768)return NextResponse.json({error:"İstek boyutu çok büyük."},{status:413});
+  const body=await req.json().catch(()=>({}));let config;
+  try{config=validate(body);}catch(error){return NextResponse.json({error:error instanceof Error?error.message:"Ayarlar doğrulanamadı."},{status:400});}
+  const db=await database(),now=new Date().toISOString(),eventId=crypto.randomUUID();
+  const previousRow=await db.prepare("SELECT config_json FROM platform_settings WHERE id='default'").first<{config_json:string}>();
+  let previous:Record<string,unknown>={};if(previousRow)try{previous=JSON.parse(previousRow.config_json);}catch{}
+  const changedKeys=Object.keys(config).filter(key=>previous[key]!==config[key as keyof typeof config]);
+  await db.batch([
+    db.prepare("INSERT INTO platform_settings(id,config_json,updated_by,updated_at) VALUES('default',?,?,?) ON CONFLICT(id) DO UPDATE SET config_json=excluded.config_json,updated_by=excluded.updated_by,updated_at=excluded.updated_at").bind(JSON.stringify(config),access.actor.email,now),
+    db.prepare("INSERT INTO platform_setting_events(id,action,actor,detail,created_at) VALUES(?,?,?,?,?)").bind(eventId,"platform-settings-update",access.actor.email,JSON.stringify({changedKeys}),now),
+  ]);
+  return NextResponse.json({...config,updatedBy:access.actor.email,updatedAt:now,event:{id:eventId,action:"platform-settings-update",actor:access.actor.email,changedKeys,createdAt:now}});
+}

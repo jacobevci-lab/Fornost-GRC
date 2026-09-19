@@ -9,6 +9,8 @@ test("platform settings are organization-wide, admin-only and audited",()=>{
   assert.match(route,/platform_settings/);
   assert.match(route,/platform_setting_events/);
   assert.match(route,/platform-settings-update/);
+  assert.match(route,/ORDER BY created_at DESC LIMIT 12/);
+  assert.match(route,/changedKeys/);
   assert.match(route,/content-length/);
   assert.match(route,/Geçerli bir FQDN/);
   assert.match(route,/Oturum süresi/);
@@ -22,6 +24,9 @@ test("system settings use the server contract and never persist secrets locally"
   assert.doesNotMatch(ui,/localStorage\.setItem\("fornost-grc-settings"/);
   assert.match(ui,/setCertPassword\(""\)/);
   assert.match(ui,/setCertFile\(null\)/);
+  assert.match(ui,/GÜVENLİK VE DENETİM DURUŞU/);
+  assert.match(ui,/Ayar Değişiklik Geçmişi/);
+  assert.match(ui,/setAuditEvents/);
 });
 
 test("platform settings schema supports migrations and runtime self-heal",()=>{

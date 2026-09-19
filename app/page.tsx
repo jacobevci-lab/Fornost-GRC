@@ -1501,6 +1501,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
     [catalogs, setCatalogs] = useState<CatalogMap>(catalogOptions),
     [theme, setTheme] = useState<"light" | "dark">("light"),
     [sidebarMode, setSidebarMode] = useState<"expanded" | "compact" | "hidden">("expanded"),
+    [openNavGroup, setOpenNavGroup] = useState("overview"),
     [mobileNavOpen, setMobileNavOpen] = useState(false),
     [commandOpen, setCommandOpen] = useState(false),
     [commandQuery, setCommandQuery] = useState(""),
@@ -1518,6 +1519,8 @@ function FornostApp({ currentUser }: { currentUser: any }) {
       setSidebarMode(savedSidebarMode as "expanded" | "compact" | "hidden");
     else if (localStorage.getItem("fornost-grc-sidebar-collapsed") === "true")
       setSidebarMode("compact");
+    const savedNavGroup = localStorage.getItem("fornost-grc-open-nav-group");
+    if (savedNavGroup) setOpenNavGroup(savedNavGroup);
     try {
       const recent = JSON.parse(
         localStorage.getItem("fornost-grc-recent-modules") || "[]",
@@ -1892,13 +1895,13 @@ function FornostApp({ currentUser }: { currentUser: any }) {
                 ? "Kayıtlarını sade, aranabilir ve raporlanabilir biçimde yönet."
                 : "Manage records in a simple, searchable and reportable format.";
   const navGroups = [
-    { label: lang === "tr" ? "GENEL BAKIŞ" : "OVERVIEW", items: ["Ana Sayfa","Benim İşlerim"] },
-    { label: lang === "tr" ? "RİSK" : "RISK", items: ["Risk Assessment","Varlık Envanteri","BIA","Tedarikçiler","Risk İştahı ve KRI","İş Sürekliliği"] },
-    { label: lang === "tr" ? "UYUM" : "COMPLIANCE", items: ["Uyum","Kontroller","Kanıtlar","Kanıt Otomasyonu"] },
-    { label: lang === "tr" ? "GÜVENCE" : "ASSURANCE", items: ["Denetim Yönetimi","Bulgular ve CAPA","Güvenlik Olayları"] },
-    { label: lang === "tr" ? "YÖNETİŞİM" : "GOVERNANCE", items: ["Politika Merkezi","Regülasyon Merkezi","AI Yönetişimi"] },
-    { label: lang === "tr" ? "İÇGÖRÜ" : "INTELLIGENCE", items: ["Bağlantılı GRC","Raporlar","Ask Fornost"] },
-    ...(currentUser.role === "Admin" ? [{ label: lang === "tr" ? "YÖNETİM" : "ADMINISTRATION", items: ["İş Akışı Entegrasyonları","Kimlik ve Erişim","Sistem Ayarları","AI Ayarları","Ana Veri Yönetimi","E-posta ve Bildirimler"] }] : []),
+    { id: "overview", label: lang === "tr" ? "GENEL BAKIŞ" : "OVERVIEW", items: ["Ana Sayfa","Benim İşlerim"] },
+    { id: "risk", label: lang === "tr" ? "RİSK" : "RISK", items: ["Risk Assessment","Varlık Envanteri","BIA","Tedarikçiler","Risk İştahı ve KRI","İş Sürekliliği"] },
+    { id: "compliance", label: lang === "tr" ? "UYUM" : "COMPLIANCE", items: ["Uyum","Kontroller","Kanıtlar","Kanıt Otomasyonu"] },
+    { id: "assurance", label: lang === "tr" ? "GÜVENCE" : "ASSURANCE", items: ["Denetim Yönetimi","Bulgular ve CAPA","Güvenlik Olayları"] },
+    { id: "governance", label: lang === "tr" ? "YÖNETİŞİM" : "GOVERNANCE", items: ["Politika Merkezi","Regülasyon Merkezi","AI Yönetişimi"] },
+    { id: "intelligence", label: lang === "tr" ? "İÇGÖRÜ" : "INTELLIGENCE", items: ["Bağlantılı GRC","Raporlar","Ask Fornost"] },
+    ...(currentUser.role === "Admin" ? [{ id: "administration", label: lang === "tr" ? "YÖNETİM" : "ADMINISTRATION", items: ["İş Akışı Entegrasyonları","Kimlik ve Erişim","Sistem Ayarları","AI Ayarları","Ana Veri Yönetimi","E-posta ve Bildirimler"] }] : []),
   ];
   const commandModules = modules.filter(
     (module) => currentUser.role === "Admin" || !adminModules.has(module),
@@ -1925,6 +1928,11 @@ function FornostApp({ currentUser }: { currentUser: any }) {
       return modules.indexOf(a) - modules.indexOf(b);
     });
   function navigateToModule(module: string) {
+    const parentGroup = navGroups.find((group) => group.items.includes(module));
+    if (parentGroup) {
+      setOpenNavGroup(parentGroup.id);
+      localStorage.setItem("fornost-grc-open-nav-group", parentGroup.id);
+    }
     if (module === "Ask Fornost" || module === "AI Yönetişimi") {
       window.dispatchEvent(new CustomEvent("fornost:open-ai", { detail: module === "Ask Fornost" ? { mode: "chat" } : { view: "portfolio" } }));
       setMobileNavOpen(false);
@@ -2019,24 +2027,43 @@ function FornostApp({ currentUser }: { currentUser: any }) {
         </button>
         <nav id="fornost-navigation">
           {navGroups.map((group) => (
-            <div className="nav-group" key={group.label}>
-              <small>{group.label}</small>
-              {group.items.map((m) => {
-                return (
-                  <button
-                    className={active === m ? "active" : ""}
-                    aria-label={names[lang][m]}
-                    title={sidebarMode !== "expanded" ? names[lang][m] : undefined}
-                    onClick={() => navigateToModule(m)}
-                    key={m}
-                  >
-                    <i>
-                      <NavIcon module={m} />
-                    </i>
-                    <span>{names[lang][m]}</span>
-                  </button>
-                );
-              })}
+            <div className={`nav-group${openNavGroup === group.id ? " is-open" : ""}`} key={group.id}>
+              <button
+                type="button"
+                className="nav-group-trigger"
+                aria-expanded={sidebarMode !== "expanded" || openNavGroup === group.id}
+                aria-controls={`nav-group-${group.id}`}
+                onClick={() => {
+                  const next = openNavGroup === group.id ? "" : group.id;
+                  setOpenNavGroup(next);
+                  localStorage.setItem("fornost-grc-open-nav-group", next);
+                }}
+              >
+                <span>{group.label}</span>
+                <svg aria-hidden="true" viewBox="0 0 16 16"><path d="m4 6 4 4 4-4" /></svg>
+              </button>
+              <div
+                className="nav-group-items"
+                id={`nav-group-${group.id}`}
+                hidden={sidebarMode === "expanded" && openNavGroup !== group.id}
+              >
+                {group.items.map((m) => {
+                  return (
+                    <button
+                      className={active === m ? "active" : ""}
+                      aria-label={names[lang][m]}
+                      title={sidebarMode !== "expanded" ? names[lang][m] : undefined}
+                      onClick={() => navigateToModule(m)}
+                      key={m}
+                    >
+                      <i>
+                        <NavIcon module={m} />
+                      </i>
+                      <span>{names[lang][m]}</span>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           ))}
         </nav>

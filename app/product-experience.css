@@ -29,6 +29,20 @@ html[data-theme="dark"] .shell>aside{background:#121b1c!important}
 .nav-group button.active{background:var(--ws-brand-soft)!important;color:var(--ws-brand-2)!important}
 html[data-theme="dark"] .nav-group button.active i{background:#122827!important}
 
+/* Navigation groups are a true accordion in the full sidebar. The active
+ * module opens its parent; icon mode intentionally exposes every icon. */
+.nav-group{display:block!important;margin-bottom:5px!important}
+.nav-group-trigger{width:100%!important;min-height:34px!important;display:flex!important;align-items:center!important;justify-content:space-between!important;gap:10px!important;padding:6px 10px!important;border:0!important;border-radius:8px!important;background:transparent!important;color:var(--ws-faint)!important;font-size:9px!important;font-weight:850!important;letter-spacing:.12em!important;text-transform:uppercase!important;cursor:pointer!important}
+.nav-group-trigger:hover{background:var(--ws-surface-2)!important;color:var(--ws-ink)!important}
+.nav-group-trigger span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.nav-group-trigger svg{width:15px!important;height:15px!important;flex:0 0 15px!important;fill:none!important;stroke:currentColor!important;stroke-width:1.8!important;stroke-linecap:round!important;stroke-linejoin:round!important;transition:transform .18s ease!important}
+.nav-group.is-open .nav-group-trigger{color:var(--ws-brand-2)!important}
+.nav-group.is-open .nav-group-trigger svg{transform:rotate(180deg)}
+.nav-group-items{display:grid!important;gap:3px!important;padding:2px 0 7px!important}
+.nav-group-items[hidden]{display:none!important}
+.sidebar-compact .nav-group-trigger{display:none!important}
+.sidebar-compact .nav-group-items,.sidebar-hidden .nav-group-items{display:grid!important;padding:0!important}
+
 .shell>main>header{background:color-mix(in srgb,var(--ws-surface) 96%,transparent)!important}
 .header-context h1{font-size:18px!important}.header-context small{font-size:9px!important}
 .module-head{margin:28px 0 16px!important}.module-head h2{font-size:25px!important;line-height:1.2!important;letter-spacing:-.035em!important}.module-head p{font-size:13px!important;line-height:1.55!important}
@@ -78,6 +92,12 @@ html[data-theme="dark"] .dashboard-hero{background:radial-gradient(circle at 88%
 html[data-theme="dark"] :where(.table-card,.panel,.matrix-card,.settings-card,.report-card,.audit-card,.integration-hub,.integration-card,.catalog-manager,.module-overview,.module-command-hero,.work-queue,.ai-settings-status){background-color:var(--ws-surface)!important;border-color:var(--ws-line)!important;color:var(--ws-ink)!important}
 html[data-theme="dark"] :where(.register-toolbar,.table-tools,.register-filters,.settings-card-head,.modal-head,.form-actions){background:var(--ws-surface-2)!important;border-color:var(--ws-line)!important}
 html[data-theme="dark"] :where(input,select,textarea){background:var(--ws-bg)!important;border-color:var(--ws-line-strong)!important;color:var(--ws-ink)!important}
+html[data-theme="dark"] :where(.table-card,.table-wrap,.risk-register,.audit-table-wrap,.report-workspace,.soc2-work-table){background:var(--ws-surface)!important;background-image:none!important;border-color:var(--ws-line)!important;color:var(--ws-ink)!important}
+html[data-theme="dark"] :where(.register-toolbar,.register-toolbar-main,.register-filters,.table-tools,.table-wrap thead,.table-wrap th){background:var(--ws-surface-2)!important;background-image:none!important;border-color:var(--ws-line)!important;color:var(--ws-muted)!important}
+html[data-theme="dark"] :where(.register-search,.register-search input,.register-filters select,.table-tools input,.form input,.form select,.form textarea,.setting-field input,.setting-field select,.integration-field input,.integration-field select){background:var(--ws-bg)!important;background-image:none!important;border-color:var(--ws-line-strong)!important;color:var(--ws-ink)!important}
+html[data-theme="dark"] :where(.register-view-actions>button,.column-picker-wrap>button,.register-filters>button,.row-actions button,.ghost){background:var(--ws-surface)!important;background-image:none!important;border-color:var(--ws-line)!important;color:var(--ws-muted)!important}
+html[data-theme="dark"] :where(.table-wrap tbody tr:nth-child(even),.smart-table tbody tr:nth-child(even),.risk-table tbody tr:nth-child(even)){background:color-mix(in srgb,var(--ws-surface-2) 52%,transparent)!important}
+html[data-theme="dark"] :where(.table-wrap tbody tr:hover,.smart-table tbody tr:hover,.risk-table tbody tr:hover){background:var(--ws-brand-soft)!important}
 
 /* Specialized modules and reporting inherit the same readable scale. */
 :where(.rap-page,.continuity-page,.plm-page,.tprm-page,.ri-page,.incident-page,.finding-page,.ea-page,.connected-grc) :where(p,td,dd){font-size:12px!important;line-height:1.55!important}
