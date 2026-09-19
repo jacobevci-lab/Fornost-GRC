@@ -46,6 +46,7 @@ import { automaticAuditTemplates } from "./api/grc/framework-catalogs";
 import { displayRecordCode } from "./record-codes";
 import "./workspace-system.css";
 import "./enterprise-surface-contract.css";
+import "./product-experience.css";
 import { buildReportHtml, buildReportPdf, downloadBlob, reportMetrics } from "./report-export";
 
 type Lang = "tr" | "en";
@@ -70,6 +71,7 @@ type AuditPortfolioItem = {
 };
 const modules = [
   "Ana Sayfa",
+  "Benim İşlerim",
   "Risk Assessment",
   "Risk İştahı ve KRI",
   "BIA",
@@ -87,7 +89,10 @@ const modules = [
   "Denetim Yönetimi",
   "Bağlantılı GRC",
   "Raporlar",
+  "AI Yönetişimi",
+  "Ask Fornost",
   "Sistem Ayarları",
+  "AI Ayarları",
   "Ana Veri Yönetimi",
   "İş Akışı Entegrasyonları",
   "E-posta ve Bildirimler",
@@ -95,6 +100,7 @@ const modules = [
 ];
 const adminModules = new Set([
   "Sistem Ayarları",
+  "AI Ayarları",
   "Ana Veri Yönetimi",
   "İş Akışı Entegrasyonları",
   "E-posta ve Bildirimler",
@@ -103,6 +109,7 @@ const adminModules = new Set([
 const names: Record<Lang, Record<string, string>> = {
   tr: {
     "Ana Sayfa": "Gösterge Paneli",
+    "Benim İşlerim": "Benim İşlerim",
     "Risk Assessment": "Risk Değerlendirmesi",
     "Risk İştahı ve KRI": "Risk İştahı ve KRI",
     BIA: "İş Etki Analizi (BIA)",
@@ -120,7 +127,10 @@ const names: Record<Lang, Record<string, string>> = {
     "Denetim Yönetimi": "Denetim Yönetimi",
     "Bağlantılı GRC": "Bağlantılı GRC Haritası",
     Raporlar: "Raporlama",
+    "AI Yönetişimi": "AI Yönetişimi",
+    "Ask Fornost": "Ask Fornost",
     "Sistem Ayarları": "Sistem Ayarları",
+    "AI Ayarları": "AI Ayarları",
     "Ana Veri Yönetimi": "Ana Veri Yönetimi",
     "İş Akışı Entegrasyonları": "İş Akışı Entegrasyonları",
     "E-posta ve Bildirimler": "E-posta ve Bildirimler",
@@ -128,6 +138,7 @@ const names: Record<Lang, Record<string, string>> = {
   },
   en: {
     "Ana Sayfa": "Dashboard",
+    "Benim İşlerim": "My Work",
     "Risk Assessment": "Risk Assessment",
     "Risk İştahı ve KRI": "Risk Appetite & KRI",
     BIA: "Business Impact Analysis (BIA)",
@@ -145,7 +156,10 @@ const names: Record<Lang, Record<string, string>> = {
     "Denetim Yönetimi": "Audit Management",
     "Bağlantılı GRC": "Connected GRC Map",
     Raporlar: "Reporting",
+    "AI Yönetişimi": "AI Governance",
+    "Ask Fornost": "Ask Fornost",
     "Sistem Ayarları": "System Settings",
+    "AI Ayarları": "AI Settings",
     "Ana Veri Yönetimi": "Master Data",
     "İş Akışı Entegrasyonları": "Workflow Integrations",
     "E-posta ve Bildirimler": "Email & Notifications",
@@ -164,6 +178,9 @@ function NavIcon({ module }: { module: string }) {
           <rect x="14" y="14" width="7" height="7" rx="1" />
         </>
       );
+      break;
+    case "Benim İşlerim":
+      paths = (<><path d="M5 4h14v16H5z"/><path d="M8 8h8M8 12h8M8 16h5"/><path d="M9 4V2h6v2"/></>);
       break;
     case "Risk Assessment":
       paths = (
@@ -319,6 +336,17 @@ function NavIcon({ module }: { module: string }) {
         <>
           <circle cx="12" cy="12" r="3" />
           <path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-2.83 2.83-.06-.06a1.7 1.7 0 0 0-1.88-.34 1.7 1.7 0 0 0-1.03 1.56V21h-4v-.08A1.7 1.7 0 0 0 9 19.37a1.7 1.7 0 0 0-1.88.34l-.06.06-2.83-2.83.06-.06A1.7 1.7 0 0 0 4.63 15 1.7 1.7 0 0 0 3.08 14H3v-4h.08A1.7 1.7 0 0 0 4.63 9a1.7 1.7 0 0 0-.34-1.88l-.06-.06 2.83-2.83.06.06A1.7 1.7 0 0 0 9 4.63 1.7 1.7 0 0 0 10 3.08V3h4v.08A1.7 1.7 0 0 0 15 4.63a1.7 1.7 0 0 0 1.88-.34l.06-.06 2.83 2.83-.06.06A1.7 1.7 0 0 0 19.37 9 1.7 1.7 0 0 0 20.92 10H21v4h-.08A1.7 1.7 0 0 0 19.4 15Z" />
+        </>
+      );
+      break;
+    case "AI Ayarları":
+    case "AI Yönetişimi":
+    case "Ask Fornost":
+      paths = (
+        <>
+          <path d="M12 3v3M12 18v3M3 12h3M18 12h3" />
+          <circle cx="12" cy="12" r="4" />
+          <path d="m5.6 5.6 2.1 2.1m8.6 8.6 2.1 2.1m0-12.8-2.1 2.1m-8.6 8.6-2.1 2.1" />
         </>
       );
       break;
@@ -1500,9 +1528,19 @@ function FornostApp({ currentUser }: { currentUser: any }) {
         );
     } catch {}
     try {
-      const columns = JSON.parse(
+      let columns = JSON.parse(
         localStorage.getItem("fornost-grc-columns") || "{}",
       );
+      if (localStorage.getItem("fornost-grc-column-layout") !== "v2") {
+        columns = {
+          ...columns,
+          BIA: defaultRegisterColumnKeys("BIA"),
+          "Varlık Envanteri": defaultRegisterColumnKeys("Varlık Envanteri"),
+          Kontroller: defaultRegisterColumnKeys("Kontroller"),
+        };
+        localStorage.setItem("fornost-grc-columns", JSON.stringify(columns));
+        localStorage.setItem("fornost-grc-column-layout", "v2");
+      }
       if (columns && typeof columns === "object") setColumnPreferences(columns);
     } catch {}
   }, []);
@@ -1854,20 +1892,13 @@ function FornostApp({ currentUser }: { currentUser: any }) {
                 ? "Kayıtlarını sade, aranabilir ve raporlanabilir biçimde yönet."
                 : "Manage records in a simple, searchable and reportable format.";
   const navGroups = [
-    { label: lang === "tr" ? "KOMUTA" : "COMMAND", items: modules.slice(0, 1) },
-    {
-      label: lang === "tr" ? "GRC OPERASYONLARI" : "GRC OPERATIONS",
-      items: modules.slice(1, modules.indexOf("Raporlar")),
-    },
-    { label: lang === "tr" ? "İÇGÖRÜ" : "INSIGHTS", items: ["Raporlar"] },
-    ...(currentUser.role === "Admin"
-      ? [
-          {
-            label: lang === "tr" ? "AYARLAR" : "SETTINGS",
-            items: modules.filter((m) => adminModules.has(m)),
-          },
-        ]
-      : []),
+    { label: lang === "tr" ? "GENEL BAKIŞ" : "OVERVIEW", items: ["Ana Sayfa","Benim İşlerim"] },
+    { label: lang === "tr" ? "RİSK" : "RISK", items: ["Risk Assessment","Varlık Envanteri","BIA","Tedarikçiler","Risk İştahı ve KRI","İş Sürekliliği"] },
+    { label: lang === "tr" ? "UYUM" : "COMPLIANCE", items: ["Uyum","Kontroller","Kanıtlar","Kanıt Otomasyonu"] },
+    { label: lang === "tr" ? "GÜVENCE" : "ASSURANCE", items: ["Denetim Yönetimi","Bulgular ve CAPA","Güvenlik Olayları"] },
+    { label: lang === "tr" ? "YÖNETİŞİM" : "GOVERNANCE", items: ["Politika Merkezi","Regülasyon Merkezi","AI Yönetişimi"] },
+    { label: lang === "tr" ? "İÇGÖRÜ" : "INTELLIGENCE", items: ["Bağlantılı GRC","Raporlar","Ask Fornost"] },
+    ...(currentUser.role === "Admin" ? [{ label: lang === "tr" ? "YÖNETİM" : "ADMINISTRATION", items: ["İş Akışı Entegrasyonları","Kimlik ve Erişim","Sistem Ayarları","AI Ayarları","Ana Veri Yönetimi","E-posta ve Bildirimler"] }] : []),
   ];
   const commandModules = modules.filter(
     (module) => currentUser.role === "Admin" || !adminModules.has(module),
@@ -1894,6 +1925,13 @@ function FornostApp({ currentUser }: { currentUser: any }) {
       return modules.indexOf(a) - modules.indexOf(b);
     });
   function navigateToModule(module: string) {
+    if (module === "Ask Fornost" || module === "AI Yönetişimi") {
+      window.dispatchEvent(new CustomEvent("fornost:open-ai", { detail: module === "Ask Fornost" ? { mode: "chat" } : { view: "portfolio" } }));
+      setMobileNavOpen(false);
+      setCommandOpen(false);
+      setCommandQuery("");
+      return;
+    }
     setActive(module);
     setQuery("");
     setNotice("");
@@ -2281,6 +2319,8 @@ function FornostApp({ currentUser }: { currentUser: any }) {
         )}
         {active === "Ana Sayfa" ? (
           <Dashboard rows={rows} go={setActive} lang={lang} />
+        ) : active === "Benim İşlerim" ? (
+          <MyWork rows={rows} currentUser={currentUser} go={setActive} lang={lang} />
         ) : active === "Risk İştahı ve KRI" ? (
           <RiskAppetite lang={lang} currentUser={currentUser} />
         ) : active === "Bağlantılı GRC" ? (
@@ -2311,6 +2351,8 @@ function FornostApp({ currentUser }: { currentUser: any }) {
             page={
               active === "Ana Veri Yönetimi"
                 ? "catalogs"
+                : active === "AI Ayarları"
+                  ? "ai"
                 : active === "İş Akışı Entegrasyonları"
                   ? "workflow"
                   : active === "E-posta ve Bildirimler"
@@ -2376,6 +2418,9 @@ function FornostApp({ currentUser }: { currentUser: any }) {
             </section>
             {active === "Risk Assessment" && (
               <RiskOverview rows={by("Risk Assessment")} lang={lang} />
+            )}
+            {["BIA","Varlık Envanteri","Uyum","Kontroller","Kanıtlar"].includes(active) && (
+              <CoreModuleOverview module={active} rows={by(active)} allRows={rows} lang={lang}/>
             )}
             <section
               className={`table-card ${active === "Risk Assessment" ? "risk-register" : "smart-register"}`}
@@ -3131,6 +3176,42 @@ function Field({
       )}
     </label>
   );
+}
+
+function MyWork({rows,currentUser,go,lang}:{rows:Row[];currentUser:any;go:(module:string)=>void;lang:Lang}){
+  const tr=lang==="tr",identity=[currentUser?.name,currentUser?.email].filter(Boolean).map((value:string)=>value.toLocaleLowerCase(tr?"tr-TR":"en-US"));
+  const closed=new Set(["Kapalı","Tamamlandı","Onaylandı","Closed","Completed","Approved","Retired"]);
+  const candidates=rows.filter(row=>{
+    if(closed.has(String(row.data.status||"")))return false;
+    const owners=[row.data.owner,row.data.actionOwner,row.data.followUpOwner,row.data.testOwner,row.data.reviewer,row.data.approver].filter(Boolean).map((value:unknown)=>String(value).toLocaleLowerCase(tr?"tr-TR":"en-US"));
+    return currentUser?.role==="Admin"||owners.some(owner=>identity.some(me=>owner.includes(me)||me.includes(owner)));
+  }).map(row=>{
+    const due=String(row.data.dueDate||row.data.nextReview||row.data.nextAssessment||row.data.nextTestDate||row.data.reviewDate||row.data.expiresAt||"");
+    const dueTime=due?new Date(due).getTime():Number.POSITIVE_INFINITY;
+    const title=String(row.data.title||row.data.process||row.data.controlTitle||row.data.requirement||row.data.evidenceTitle||row.data.vendorName||displayRecordCode(row));
+    return {row,due,dueTime,title,status:String(row.data.status||row.data.reviewStatus||row.data.implementation||"—")};
+  }).sort((a,b)=>a.dueTime-b.dueTime).slice(0,12);
+  const now=Date.now(),overdue=candidates.filter(item=>Number.isFinite(item.dueTime)&&item.dueTime<now).length,dueSoon=candidates.filter(item=>Number.isFinite(item.dueTime)&&item.dueTime>=now&&item.dueTime<=now+15*86400000).length;
+  const modulesInQueue=new Set(candidates.map(item=>item.row.module)).size;
+  return <section className="my-work-page">
+    <header className="module-command-hero"><div><small>{tr?"KİŞİSEL KOMUTA MERKEZİ":"PERSONAL COMMAND CENTER"}</small><h2>{tr?"Benim işlerim":"My work"}</h2><p>{tr?"Risk, kontrol, denetim, kanıt ve iyileştirme sorumluluklarını tek karar kuyruğunda yönetin.":"Manage risk, control, audit, evidence and remediation responsibilities in one decision queue."}</p></div><span>{currentUser?.name||currentUser?.email}</span></header>
+    <div className="work-metrics"><article className="danger"><small>{tr?"Geciken":"Overdue"}</small><strong>{overdue}</strong><span>{tr?"Hedef tarihi geçmiş":"Past target date"}</span></article><article className="warning"><small>{tr?"15 gün içinde":"Due in 15 days"}</small><strong>{dueSoon}</strong><span>{tr?"Yaklaşan kararlar":"Upcoming decisions"}</span></article><article className="info"><small>{tr?"Açık iş":"Open work"}</small><strong>{candidates.length}</strong><span>{tr?"Atanmış kayıtlar":"Assigned records"}</span></article><article className="positive"><small>{tr?"Bağlı modül":"Connected modules"}</small><strong>{modulesInQueue}</strong><span>{tr?"Tek GRC omurgası":"One GRC backbone"}</span></article></div>
+    <section className="work-queue"><header><div><small>{tr?"ÖNCELİK SIRASI":"PRIORITY ORDER"}</small><h3>{tr?"Karar ve aksiyon kuyruğu":"Decision and action queue"}</h3></div><span>{candidates.length} {tr?"kayıt":"records"}</span></header>{candidates.length?<div>{candidates.map(({row,title,status,due,dueTime})=><button type="button" key={row.id} onClick={()=>go(row.module)}><i className={dueTime<now?"overdue":""}/><span><b>{title}</b><small>{names[lang][row.module]||row.module} · {displayRecordCode(row)}</small></span><em>{status}</em><time>{due?formatRecordDate(due,lang):tr?"Tarih yok":"No due date"}</time><strong>→</strong></button>)}</div>:<p>{tr?"Size atanmış açık kayıt bulunmuyor.":"No open records are assigned to you."}</p>}</section>
+  </section>
+}
+
+function CoreModuleOverview({module,rows,allRows,lang}:{module:string;rows:Row[];allRows:Row[];lang:Lang}){
+  const tr=lang==="tr",values=(key:string)=>rows.map(row=>String(row.data[key]||"")),count=(key:string,accepted:string[])=>values(key).filter(value=>accepted.includes(value)).length;
+  const evidence=allRows.filter(row=>row.module==="Kanıtlar"),linkedEvidence=new Set(evidence.map(row=>String(row.data.controlRef||"")).filter(Boolean));
+  const configurations:Record<string,{eyebrow:string;title:string;detail:string;metrics:Array<[string|number,string,string,string]>}>={
+    BIA:{eyebrow:tr?"İŞ DAYANIKLILIĞI":"BUSINESS RESILIENCE",title:tr?"Kritik süreç hazırlığı":"Critical process readiness",detail:tr?"Etki, kurtarma hedefi ve test hazırlığını birlikte izleyin.":"Track impact, recovery objectives and test readiness together.",metrics:[[rows.length,tr?"Toplam süreç":"Total processes",tr?"Kapsamdaki iş süreçleri":"Business processes in scope","neutral"],[count("criticality",["Kritik","Critical"]),tr?"Kritik süreç":"Critical processes",tr?"Öncelikli kurtarma kapsamı":"Priority recovery scope","danger"],[rows.filter(row=>row.data.rto&&row.data.rpo).length,tr?"RTO/RPO tanımlı":"RTO/RPO defined",tr?"Kurtarma hedefi bulunan":"With recovery objectives","positive"],[count("status",["Taslak","İncelemede"]),tr?"Karar gereken":"Decision required",tr?"Taslak veya incelemede":"Draft or under review","warning"]]},
+    "Varlık Envanteri":{eyebrow:tr?"TEKNOLOJİ MARUZİYETİ":"TECHNOLOGY EXPOSURE",title:tr?"Varlık güvenlik görünümü":"Asset security posture",detail:tr?"Kritiklik, veri sınıfı, internet maruziyeti ve güvenlik kapsamasını tek bakışta değerlendirin.":"Evaluate criticality, data class, internet exposure and security coverage at a glance.",metrics:[[rows.length,tr?"Toplam varlık":"Total assets",tr?"Yönetilen envanter":"Managed inventory","neutral"],[count("criticality",["Kritik","Critical"]),tr?"Kritik varlık":"Critical assets",tr?"Yüksek iş etkisi":"High business impact","danger"],[rows.filter(row=>row.data.internetFacing===true||String(row.data.internetFacing).toLowerCase()==="evet").length,tr?"İnternete açık":"Internet-facing",tr?"Dış saldırı yüzeyi":"External attack surface","warning"],[rows.filter(row=>["Aktif","Active"].includes(String(row.data.status))).length,tr?"Aktif yaşam döngüsü":"Active lifecycle",tr?"Operasyonda olan":"Currently operational","positive"]]},
+    Uyum:{eyebrow:tr?"KONTROL GÜVENCESİ":"CONTROL ASSURANCE",title:tr?"Uyum uygulama görünümü":"Compliance implementation posture",detail:tr?"Framework maddelerini uygulama ve kanıt durumuyla birlikte yönetin.":"Govern framework requirements together with implementation and evidence state.",metrics:[[rows.length,tr?"Toplam madde":"Total requirements",tr?"Değerlendirilen kapsam":"Assessed scope","neutral"],[count("status",["Uyumlu","Compliant"]),tr?"Uyumlu":"Compliant",tr?"Kanıtlanmış maddeler":"Evidence-backed requirements","positive"],[count("status",["Kısmi Uyumlu","Partially Compliant"]),tr?"Kısmi uyum":"Partial",tr?"İyileştirme gereken":"Needs improvement","warning"],[count("status",["Uyumlu Değil","Noncompliant"]),tr?"Uyumlu değil":"Noncompliant",tr?"Öncelikli sapma":"Priority deviation","danger"]]},
+    Kontroller:{eyebrow:tr?"ORTAK KONTROL KÜTÜPHANESİ":"COMMON CONTROL LIBRARY",title:tr?"Kontrol etkinliği ve kanıt kapsaması":"Control effectiveness and evidence coverage",detail:tr?"Tek bir kontrolü framework, test sahibi ve kanıtlarla uçtan uca bağlayın.":"Connect each control end to end with frameworks, test ownership and evidence.",metrics:[[rows.length,tr?"Toplam kontrol":"Total controls",tr?"Ortak kontrol seti":"Common control set","neutral"],[count("status",["Aktif","Active"]),tr?"Aktif kontrol":"Active controls",tr?"Operasyonel kontroller":"Operational controls","positive"],[count("status",["İyileştirme Gerekli","Needs Improvement"]),tr?"İyileştirme":"Needs improvement",tr?"Etkinlik açığı bulunan":"Effectiveness gaps","warning"],[rows.filter(row=>linkedEvidence.has(String(row.data.controlRef||""))).length,tr?"Kanıt bağlı":"Evidence linked",tr?"En az bir güncel kanıt":"At least one evidence item","info"]]},
+    Kanıtlar:{eyebrow:tr?"KANIT GÜVENİ":"EVIDENCE TRUST",title:tr?"Kanıt güncelliği ve kontrol bağlantısı":"Evidence freshness and control linkage",detail:tr?"Kanıtların sahipliğini, geçerliliğini ve tekrar kullanımını izleyin.":"Track evidence ownership, validity and reusable control mappings.",metrics:[[rows.length,tr?"Toplam kanıt":"Total evidence",tr?"Kanıt kasasındaki kayıt":"Records in evidence vault","neutral"],[count("status",["Onaylandı","Approved"]),tr?"Onaylı":"Approved",tr?"İncelenmiş kanıt":"Reviewed evidence","positive"],[count("status",["İncelemede","In Review"]),tr?"İncelemede":"In review",tr?"Reviewer kararı gereken":"Reviewer decision required","warning"],[count("status",["Süresi Doldu","Expired"]),tr?"Süresi dolmuş":"Expired",tr?"Yenilenmesi gereken":"Renewal required","danger"]]},
+  };
+  const config=configurations[module];if(!config)return null;
+  return <section className="module-overview"><header><div><small>{config.eyebrow}</small><h3>{config.title}</h3><p>{config.detail}</p></div><span>{rows.length} {tr?"kayıt":"records"}</span></header><div>{config.metrics.map(([value,label,detail,tone])=><article className={tone} key={label}><div><small>{label}</small><i/></div><strong>{value}</strong><span>{detail}</span></article>)}</div></section>
 }
 
 function Dashboard({
@@ -5482,7 +5563,12 @@ function getAvailableRegisterColumns(module: string): RegisterColumn[] {
   return [...preferred, ...direct];
 }
 function defaultRegisterColumnKeys(module: string) {
-  return (registerColumns[module] || []).map((column) => column.key);
+  const compactDefaults:Record<string,string[]>={
+    BIA:["process","ownership","criticality","recovery","readiness","test","updatedAt"],
+    "Varlık Envanteri":["title","ownership","criticality","dataClassification","coverage","lifecycle","updatedAt"],
+    Kontroller:["control","owner","frameworks","implementation","evidence","status","updatedAt"],
+  };
+  return compactDefaults[module] || (registerColumns[module] || []).map((column) => column.key);
 }
 function formatPercent(value: number, lang: Lang) {
   return lang === "tr" ? `%${value}` : `${value}%`;

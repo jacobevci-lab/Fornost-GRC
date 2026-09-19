@@ -3,12 +3,13 @@ import { ChangeEvent, FormEvent, useEffect, useState } from "react";
 import { withBasePath } from "./base-path";
 import type { CatalogKey, CatalogMap } from "./catalogs";
 import IntegrationSettings from "./integration-settings";
+import AiSettings from "./ai-settings";
 import "./integration-settings.css";
 
 type Lang = "tr" | "en";
-export type SettingsPage = "system" | "catalogs" | "workflow" | "email" | "identity";
-type Config = { reminderDays:string;remindersEnabled:boolean;tlsMode:string;domain:string;minimumTls:string;forceHttps:boolean;hstsEnabled:boolean };
-const defaults: Config = { reminderDays:"15",remindersEnabled:true,tlsMode:"managed",domain:"",minimumTls:"1.2",forceHttps:true,hstsEnabled:true };
+export type SettingsPage = "system" | "ai" | "catalogs" | "workflow" | "email" | "identity";
+type Config = { reminderDays:string;remindersEnabled:boolean;tlsMode:string;domain:string;minimumTls:string;forceHttps:boolean;hstsEnabled:boolean;organizationName:string;timezone:string;dateFormat:string;sessionTimeoutMinutes:string;auditRetentionDays:string;telemetryEnabled:boolean };
+const defaults: Config = { reminderDays:"15",remindersEnabled:true,tlsMode:"managed",domain:"",minimumTls:"1.2",forceHttps:true,hstsEnabled:true,organizationName:"Fornost Enterprise",timezone:"Europe/Istanbul",dateFormat:"DD.MM.YYYY",sessionTimeoutMinutes:"30",auditRetentionDays:"365",telemetryEnabled:false };
 
 export default function Settings({ lang, currentUser, catalogs, onCatalogChange, onDataChange, page }:{ lang:Lang;currentUser:any;catalogs:CatalogMap;onCatalogChange:()=>Promise<void>;onDataChange?:()=>Promise<void>;page:SettingsPage }) {
   const tr=lang==="tr",[cfg,setCfg]=useState(defaults),[certPassword,setCertPassword]=useState(""),[certFile,setCertFile]=useState<File|null>(null),[certError,setCertError]=useState(""),[message,setMessage]=useState("");
@@ -18,6 +19,7 @@ export default function Settings({ lang, currentUser, catalogs, onCatalogChange,
   function save(e:FormEvent){e.preventDefault();localStorage.setItem("fornost-grc-settings",JSON.stringify(cfg));setCertPassword("");setCertFile(null);setMessage(tr?"Yerel platform tercihleri kaydedildi. Sertifika ve parolalar tarayıcıda saklanmadı.":"Local platform preferences saved. Certificates and passwords were not stored in the browser.")}
   const headings:Record<SettingsPage,{tr:[string,string];en:[string,string]}>= {
     system:{tr:["Sistem Ayarları","HTTPS/TLS güvenliği ve risk hatırlatma kurallarını yönetin."],en:["System Settings","Manage HTTPS/TLS security and risk reminder rules."]},
+    ai:{tr:["AI Ayarları","Model gateway, veri paylaşım sınırları, fallback ve operasyon politikasını yönetin."],en:["AI Settings","Manage the model gateway, data-sharing boundaries, fallback and operating policy."]},
     catalogs:{tr:["Ana Veri Yönetimi","Risk, BIA ve varlık envanterinde kullanılan seçim listelerini yönetin."],en:["Master Data Management","Manage selection lists used across Risk, BIA and Asset Inventory."]},
     workflow:{tr:["İş Akışı Entegrasyonları","Jira ve diğer ticketing sistemleriyle GRC aksiyonlarını bağlayın."],en:["Workflow Integrations","Connect GRC actions with Jira and other ticketing systems."]},
     email:{tr:["E-posta ve Bildirimler","SMTP, Graph veya e-posta API kanalını yapılandırıp test edin."],en:["Email & Notifications","Configure and test SMTP, Graph or email API delivery."]},
@@ -29,6 +31,7 @@ export default function Settings({ lang, currentUser, catalogs, onCatalogChange,
     <section className="module-head settings-head"><div><small>{tr?"YÖNETİM KONSOLU":"ADMIN CONSOLE"}</small><h2>{title}</h2><p>{description}</p></div><span className="admin-badge">{tr?"Yalnızca Yönetici":"Administrators only"}</span></section>
     {page==="workflow"&&<IntegrationSettings lang={lang} kind="ticketing"/>}
     {page==="email"&&<IntegrationSettings lang={lang} kind="email"/>}
+    {page==="ai"&&<AiSettings lang={lang}/>}
     {page==="identity"&&<><IntegrationSettings lang={lang} kind="identity"/><LocalUsers lang={lang}/></>}
     {page==="catalogs"&&<CatalogManager lang={lang} catalogs={catalogs} onChange={onCatalogChange}/>}
     {page==="system"&&<form className="settings-grid" onSubmit={save}>
@@ -39,6 +42,17 @@ export default function Settings({ lang, currentUser, catalogs, onCatalogChange,
         <Toggle checked={cfg.forceHttps} onChange={v=>set("forceHttps",v)} label={tr?"HTTP isteklerini HTTPS'e yönlendir":"Redirect HTTP requests to HTTPS"}/><Toggle checked={cfg.hstsEnabled} onChange={v=>set("hstsEnabled",v)} label={tr?"HSTS güvenlik başlığını etkinleştir":"Enable HSTS security header"}/>
         {cfg.tlsMode==="custom"&&<><label className="setting-field wide certificate-upload"><span>{tr?"SSL Sertifikası":"SSL Certificate"}</span><input type="file" accept=".pfx,.p12,.pem,.crt,.cer,application/x-pkcs12,application/x-pem-file" onChange={chooseCertificate}/><small>{tr?"PFX/P12 veya PEM/CRT/CER · En fazla 5 MB.":"PFX/P12 or PEM/CRT/CER · Maximum 5 MB."}</small>{certError&&<em>{certError}</em>}</label><Input label={tr?"Sertifika Parolası":"Certificate Password"} value={certPassword} onChange={setCertPassword} type="password" placeholder={tr?"Kalıcı olarak saklanmaz":"Never stored persistently"}/><div className="tls-state"><b>{tr?"Seçilen sertifika":"Selected certificate"}</b><span>{certFile?.name||(tr?"Henüz seçilmedi":"Not selected")}</span></div></>}
         <div className="security-note wide"><b>{tr?"Güvenli çalışma modeli":"Secure operating model"}</b><p>{tr?"TLS sonlandırması barındırma katmanında yapılır; sertifika ve parola yerel ayarlara yazılmaz.":"TLS terminates at the hosting layer; certificates and passwords are not written to local settings."}</p></div>
+      </Card>
+      <Card title={tr?"Organizasyon ve Yerelleştirme":"Organization & Localization"} desc={tr?"Kurum adı, saat dilimi ve tarih gösterimi":"Organization name, time zone and date presentation"} status={tr?"Kurumsal":"Enterprise"}>
+        <Input label={tr?"Organizasyon Adı":"Organization Name"} value={cfg.organizationName} onChange={v=>set("organizationName",v)} placeholder="Fornost Enterprise"/>
+        <label className="setting-field"><span>{tr?"Saat Dilimi":"Time Zone"}</span><select value={cfg.timezone} onChange={e=>set("timezone",e.target.value)}><option value="Europe/Istanbul">Europe/Istanbul</option><option value="Europe/London">Europe/London</option><option value="Europe/Berlin">Europe/Berlin</option><option value="UTC">UTC</option></select></label>
+        <label className="setting-field"><span>{tr?"Tarih Biçimi":"Date Format"}</span><select value={cfg.dateFormat} onChange={e=>set("dateFormat",e.target.value)}><option value="DD.MM.YYYY">DD.MM.YYYY</option><option value="YYYY-MM-DD">YYYY-MM-DD</option><option value="MM/DD/YYYY">MM/DD/YYYY</option></select></label>
+      </Card>
+      <Card title={tr?"Oturum ve Veri Saklama":"Session & Data Retention"} desc={tr?"Yönetim oturumu ve denetim izi saklama sınırları":"Administrative session and audit-trail retention boundaries"} status={tr?"Güvenli Varsayılan":"Secure Default"}>
+        <Input label={tr?"Oturum Zaman Aşımı (dk)":"Session Timeout (min)"} value={cfg.sessionTimeoutMinutes} onChange={v=>set("sessionTimeoutMinutes",v)} type="number"/>
+        <Input label={tr?"Audit Saklama (gün)":"Audit Retention (days)"} value={cfg.auditRetentionDays} onChange={v=>set("auditRetentionDays",v)} type="number"/>
+        <Toggle checked={cfg.telemetryEnabled} onChange={v=>set("telemetryEnabled",v)} label={tr?"Anonim ürün telemetrisine izin ver":"Allow anonymous product telemetry"}/>
+        <div className="security-note wide"><b>{tr?"On-prem veri sınırı":"On-prem data boundary"}</b><p>{tr?"Telemetri varsayılan olarak kapalıdır; kayıt içerikleri, kanıtlar ve kullanıcı kimlikleri dışarı gönderilmez.":"Telemetry is disabled by default; record content, evidence and user identities never leave the deployment."}</p></div>
       </Card>
       <Card title={tr?"Risk Hatırlatmaları":"Risk Reminders"} desc={tr?"Sonraki değerlendirme tarihine göre otomatik bildirim":"Automatic notifications based on the next review date"} status={cfg.remindersEnabled?(tr?"Etkin":"Enabled"):(tr?"Kapalı":"Disabled")} wide><Toggle checked={cfg.remindersEnabled} onChange={v=>set("remindersEnabled",v)} label={tr?"Otomatik hatırlatmaları etkinleştir":"Enable automatic reminders"}/><Input label={tr?"Kaç Gün Önce":"Days Before"} value={cfg.reminderDays} onChange={v=>set("reminderDays",v)} type="number"/><div className="reminder-rule wide"><b>{tr?"Alıcı kuralı":"Recipient rule"}</b><p>{tr?`Açık risklerde ${cfg.reminderDays||15} gün önce aktif kullanıcılara ve risk sahibi e-postasına bildirim gönderilir.`:`For open risks, reminders are sent ${cfg.reminderDays||15} days before review to active users and the risk-owner email.`}</p></div></Card>
       <div className="settings-footer">{message&&<span>{message}</span>}<button className="primary">{tr?"Ayarları Kaydet":"Save Settings"}</button></div>

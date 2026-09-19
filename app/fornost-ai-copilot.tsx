@@ -137,9 +137,11 @@ export default function FornostAiCopilot() {
 
   useEffect(() => {
     const openContextualCopilot = (event: Event) => {
-      const detail = (event as CustomEvent<{module?:string;prompt?:string;mode?:"chat"|"agent";agentKind?:AgentKind}>).detail || {};
+      const detail = (event as CustomEvent<{module?:string;prompt?:string;mode?:"chat"|"agent";agentKind?:AgentKind;view?:"portfolio"|"governance"}>).detail || {};
       setOpen(true);
-      if (detail.mode === "agent" && detail.agentKind) {
+      if (detail.view) {
+        setTab(detail.view);
+      } else if (detail.mode === "agent" && detail.agentKind) {
         setTab("agents");
         setAgentKind(detail.agentKind);
         if (detail.prompt) setAgentObjective(detail.prompt.slice(0, 1600));
@@ -429,7 +431,7 @@ export default function FornostAiCopilot() {
   if (!user) return null;
   const aiReady = status?.enabled === true&&status?.operational!==false;
   const chatReady=aiReady&&status?.capabilities?.chat!==false,draftReady=aiReady&&status?.capabilities?.drafts!==false,agentReady=aiReady&&status?.capabilities?.agents!==false;
-  const activeTab = user.role !== "Admin" && (tab === "portfolio" || tab === "settings" || tab === "audit" || tab === "metrics" || tab === "governance" || tab === "models" || tab === "compliance" || tab === "lifecycle" || tab === "incidents" || tab === "access" || tab === "release" || tab === "resilience" || tab === "datasets" || tab === "regulatory" || tab === "literacy" || tab === "supply-chain" || tab === "red-team" || tab === "transparency" || tab === "assurance" || tab === "assurance-alerts" || tab === "exceptions" || tab === "decommission" || tab === "findings" || tab === "feedback" || tab === "budget" || tab === "policy" || tab === "protection") ? "chat" : tab;
+  const activeTab = user.role !== "Admin" && (tab === "portfolio" || tab === "audit" || tab === "metrics" || tab === "governance" || tab === "models" || tab === "compliance" || tab === "lifecycle" || tab === "incidents" || tab === "access" || tab === "release" || tab === "resilience" || tab === "datasets" || tab === "regulatory" || tab === "literacy" || tab === "supply-chain" || tab === "red-team" || tab === "transparency" || tab === "assurance" || tab === "assurance-alerts" || tab === "exceptions" || tab === "decommission" || tab === "findings" || tab === "feedback" || tab === "budget" || tab === "policy" || tab === "protection") ? "chat" : tab;
 
   return <>
     <button className={`fornost-ai-launcher ${aiReady ? "ready" : ""}`} onClick={() => setOpen((value) => !value)} aria-expanded={open} aria-controls="fornost-ai-panel">
@@ -477,7 +479,6 @@ export default function FornostAiCopilot() {
         {user.role === "Admin" && <button className={activeTab === "budget" ? "active" : ""} onClick={() => setTab("budget")}>Kullanım</button>}
         {user.role === "Admin" && <button className={activeTab === "policy" ? "active" : ""} onClick={() => setTab("policy")}>Operasyon</button>}
         {user.role === "Admin" && <button className={activeTab === "protection" ? "active" : ""} onClick={() => setTab("protection")}>Veri Koruma</button>}
-        {user.role === "Admin" && <button className={activeTab === "settings" ? "active" : ""} onClick={() => setTab("settings")}>AI Ayarları</button>}
         {user.role === "Admin" && <button className={activeTab === "audit" ? "active" : ""} onClick={() => { setTab("audit"); void loadAudit(); }}>AI Audit</button>}
       </nav>
 
