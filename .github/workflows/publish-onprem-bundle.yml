@@ -62,9 +62,19 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "onprem-${SOURCE_SHA}" \
-            --target "${SOURCE_SHA}" \
-            --title "Fornost GRC on-prem ${SOURCE_SHA::12}" \
-            --notes "Tested x86_64 on-prem image for source commit ${SOURCE_SHA}." \
-            fornost-grc-amd64.tar.gz \
-            fornost-grc-amd64.tar.gz.sha256
+          set -euo pipefail
+          tag="onprem-${SOURCE_SHA}"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            echo "Release $tag already exists; refreshing bundle assets idempotently."
+            gh release upload "$tag" \
+              fornost-grc-amd64.tar.gz \
+              fornost-grc-amd64.tar.gz.sha256 \
+              --clobber
+          else
+            gh release create "$tag" \
+              --target "${SOURCE_SHA}" \
+              --title "Fornost GRC on-prem ${SOURCE_SHA::12}" \
+              --notes "Tested x86_64 on-prem image for source commit ${SOURCE_SHA}." \
+              fornost-grc-amd64.tar.gz \
+              fornost-grc-amd64.tar.gz.sha256
+          fi

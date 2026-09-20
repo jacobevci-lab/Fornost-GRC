@@ -43,6 +43,8 @@ html[data-theme="dark"] .fornost-ai-welcome > small {
 }
 
 /* Operational footer copy must not render below the product's 11px readability floor. */
+body .shell main footer,
+body .shell main footer *,
 main footer,
 main footer small,
 main footer span,
@@ -54,6 +56,34 @@ main footer span,
 .catalog-grid footer * {
   font-size: 11px !important;
   line-height: 1.4 !important;
+}
+
+/* Tablet navigation should not crop the product identity text. */
+@media (min-width: 701px) and (max-width: 1100px) {
+  .shell > aside .brand,
+  .shell > aside .brand > div {
+    min-width: 0 !important;
+  }
+  .shell > aside .brand b,
+  .shell > aside .brand small {
+    max-width: 100% !important;
+    white-space: normal !important;
+    overflow: visible !important;
+    text-overflow: clip !important;
+    overflow-wrap: anywhere !important;
+  }
+}
+
+/* Horizontal tab rails are intentional on narrow screens and must remain scrollable. */
+.ea-tabs {
+  max-width: 100% !important;
+  overflow-x: auto !important;
+  overflow-y: hidden !important;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+}
+.ea-tabs > * {
+  flex: 0 0 auto;
 }
 
 /* CAPA toolbar was wider than the mobile viewport because the select retained desktop width. */
@@ -79,5 +109,24 @@ main footer span,
   }
   .finding-toolbar span {
     text-align: right !important;
+  }
+
+  /* Legacy compact hero heights clipped real explanatory copy on mobile. */
+  .continuity-hero,
+  .connected-hero,
+  .module-command-hero {
+    height: auto !important;
+    max-height: none !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+  }
+  .continuity-hero p,
+  .connected-hero p,
+  .module-command-hero p {
+    display: block !important;
+    max-height: none !important;
+    overflow: visible !important;
+    text-overflow: clip !important;
+    -webkit-line-clamp: unset !important;
   }
 }
