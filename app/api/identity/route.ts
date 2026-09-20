@@ -1,6 +1,24 @@
 import { NextResponse } from "next/server";
-const retired=()=>NextResponse.json({error:"Bu deneysel API kullanımdan kaldırıldı."},{status:410,headers:{"cache-control":"no-store"}});
-export const GET=retired;
-export const POST=retired;
-export const PATCH=retired;
-export const DELETE=retired;
+
+function retired() {
+  return NextResponse.json(
+    { error: "Bu deneysel API kullanımdan kaldırıldı." },
+    { status: 410, headers: { "cache-control": "no-store" } },
+  );
+}
+
+export function GET() {
+  return retired();
+}
+
+export function POST() {
+  return retired();
+}
+
+export function PATCH() {
+  return retired();
+}
+
+export function DELETE() {
+  return retired();
+}
