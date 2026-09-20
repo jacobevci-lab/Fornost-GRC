@@ -13,6 +13,15 @@ function setActiveNav(label: string) {
   });
 }
 
+function closeAiWorkspaceForModuleNavigation() {
+  const panel = document.getElementById("fornost-ai-panel");
+  if (!panel) return;
+  const closeButton = panel.querySelector<HTMLElement>(
+    'button[aria-label="Kapat"], button[aria-label="Close"]',
+  );
+  closeButton?.click();
+}
+
 export default function NavigationIntegrity() {
   useEffect(() => {
     const onNavClick = (event: MouseEvent) => {
@@ -22,10 +31,12 @@ export default function NavigationIntegrity() {
       if (!label || AI_LABELS.has(label)) return;
 
       /*
-       * The AI workspace can intentionally stay open while the user navigates elsewhere.
-       * ProductionHardening previously kept the AI item selected as long as that panel was
-       * visible. Tell it which real module should be restored, then remove the AI override.
+       * A normal module navigation must restore the real workspace both visually and
+       * interactively. Leaving the full AI panel open on mobile hid the next module
+       * even though the sidebar state had already moved on.
        */
+      closeAiWorkspaceForModuleNavigation();
+
       const root = document.documentElement;
       root.dataset.fornostPrevActiveNav = label;
       delete root.dataset.fornostAiNavTarget;
