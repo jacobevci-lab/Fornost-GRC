@@ -22,7 +22,7 @@ Fornost, klasik kayıt ve raporlama işlevlerinin yanında AI sistemlerinin enva
 - Third-Party Risk Management 2.0: onboarding, 12 alanlı due diligence, doğal/kalıntı risk, sözleşme ve veri yaşam döngüsü, bulgu/CAPA, maker-checker karar, periyodik yeniden değerlendirme ve kanıtlı offboarding
 - Enterprise Findings & CAPA: denetim, kontrol, tedarikçi, regülasyon, risk, politika, olay, zafiyet ve AI kaynaklı bulgular için önem bazlı SLA, kök neden, düzeltici/önleyici aksiyon, süreli risk kabulü ve bağımsız kanıtlı kapanış
 - Denetim Yönetimi: ISO 27001, SOC 1/2 Type I/II çalışma alanları
-- Connected GRC Relationship Intelligence: risk, varlık, BIA, kontrol, kanıt, denetim ve tedarikçi kayıtları arasında alan-tabanlı ve türlendirilmiş referans grafiği; yinelenmeyen ilişkiler, bağlantısız kayıt ve çözülmeyen referans tespiti, alan yoğunluğu ve güvenli CSV dışa aktarımı
+- Connected GRC Relationship Intelligence: risk, varlık, BIA, kontrol, kanıt, denetim ve tedarikçi kayıtları arasında alan-tabanlı ve türlendirilmiş referans grafiği; zorunlu ilişki gruplarıyla tam/kısmi güvence puanı, alan posture kartları, remediation yönlendirmesi, bağlantısız kayıt ve çözülmeyen referans tespiti, alan yoğunluğu ve güvenli CSV dışa aktarımı
 - Entegrasyon Merkezi: Jira, ServiceNow, Azure DevOps, GitHub Issues ve webhook ticket akışları
 - E-posta bağlantı testi: SMTP bridge, Microsoft Graph Mail veya HTTP email API
 - IAM bağlantı profilleri: Entra ID, Okta, OIDC, SAML ve on-prem LDAP/LDAPS bridge

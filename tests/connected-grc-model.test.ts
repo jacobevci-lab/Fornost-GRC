@@ -29,10 +29,15 @@ test("connected GRC scores assurance traceability and prioritizes critical gaps"
   const graph = buildConnectedGrcGraph(rows);
   const coverage = assessConnectedGrcCoverage(rows, graph.links);
   assert.equal(coverage.eligible, 5);
-  assert.equal(coverage.covered, 3);
-  assert.equal(coverage.percent, 60);
+  assert.equal(coverage.covered, 2);
+  assert.equal(coverage.partial, 1);
+  assert.equal(coverage.percent, 50);
   assert.deepEqual(coverage.gaps.map((gap) => [gap.row.code, gap.rule, gap.severity]), [
     ["AUD-001", "audit-traceability", "high"],
     ["RSK-002", "risk-context", "high"],
+    ["CTL-001", "control-assurance", "high"],
   ]);
+  assert.deepEqual(coverage.gaps[0].missingRelations, ["audit-control", "audit-evidence"]);
+  assert.deepEqual(coverage.gaps[2].missingRelations, ["control-framework"]);
+  assert.deepEqual(coverage.domains.map((domain) => [domain.module, domain.percent]), [["Risk Assessment",50],["Kontroller",50],["Kanıtlar",100],["Denetim Yönetimi",0]]);
 });

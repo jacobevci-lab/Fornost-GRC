@@ -2,6 +2,12 @@
 
 Connected GRC, Fornost içindeki risk, varlık, BIA, kontrol, kanıt, denetim, tedarikçi ve diğer operasyonel kayıtların birbirine verdiği kalıcı referansları tek görünümde gösterir.
 
+## Zincir bütünlüğü ve remediation
+
+İlişki güvence motoru yalnızca “en az bir bağlantı” kontrolü yapmaz. Risk için varlık veya süreç bağını; kontrol için kanıt ve framework bağlarını; kanıt için kontrol bağını; denetim için kontrol ve kanıt izini ayrı zorunlu ilişki grupları olarak ölçer. Kayıtlar tam, kısmi veya eksik olarak puanlanır. Her eksik ilişki, tamamlanması gereken doğru modüle yönlendiren aksiyon üretir.
+
+Alan bazlı posture kartları Risk, Kontrol, Kanıt ve Denetim kapsamlarının tamlık yüzdesini; aksiyon kuyruğu ise en düşük puanlı kayıtları önce gösterir. Böylece ilişki sayısı ile gerçek güvence bütünlüğü birbirinden ayrılır.
+
 ## Davranış
 
 - Serbest metin benzerliği kullanmaz; `asset`, `processLink`, `controlRef`, `riskRef`, `evidenceRef`, `vendor`, `framework(s)` ve `requirementRef` gibi tanımlı ilişki alanları üzerinden deterministik bağlantı kurar.
