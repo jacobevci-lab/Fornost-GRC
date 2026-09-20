@@ -1,0 +1,83 @@
+/*
+ * Final production quality guardrails from the full-stack QA matrix.
+ * Keep these rules focused on confirmed runtime issues rather than legacy-source cosmetics.
+ */
+
+/* Row actions must remain readable even when legacy table skins apply muted/disabled opacity. */
+.row-actions-cell,
+.row-actions,
+.row-actions button,
+.row-actions button:disabled {
+  opacity: 1 !important;
+  filter: none !important;
+}
+.row-actions button,
+.row-actions button:disabled {
+  color: #34484b !important;
+  -webkit-text-fill-color: #34484b !important;
+}
+html[data-theme="dark"] .row-actions button,
+html[data-theme="dark"] .row-actions button:disabled {
+  color: #d2dcda !important;
+  -webkit-text-fill-color: #d2dcda !important;
+}
+
+/* Ask Fornost helper copy failed AA in both themes. */
+.fornost-ai-mode > em,
+.fornost-ai-compose > div > small,
+.fornost-ai-panel form > div > small {
+  color: #536568 !important;
+  opacity: 1 !important;
+}
+.fornost-ai-welcome > small {
+  color: #084d4b !important;
+  opacity: 1 !important;
+}
+html[data-theme="dark"] .fornost-ai-mode > em,
+html[data-theme="dark"] .fornost-ai-compose > div > small,
+html[data-theme="dark"] .fornost-ai-panel form > div > small {
+  color: #b6c3c1 !important;
+}
+html[data-theme="dark"] .fornost-ai-welcome > small {
+  color: #9ee3dd !important;
+}
+
+/* Operational footer copy must not render below the product's 11px readability floor. */
+main footer,
+main footer small,
+main footer span,
+.settings-page footer,
+.settings-page footer *,
+.catalog-manager footer,
+.catalog-manager footer *,
+.catalog-grid footer,
+.catalog-grid footer * {
+  font-size: 11px !important;
+  line-height: 1.4 !important;
+}
+
+/* CAPA toolbar was wider than the mobile viewport because the select retained desktop width. */
+@media (max-width: 700px) {
+  .finding-page {
+    width: 100% !important;
+    max-width: 100% !important;
+    overflow-x: hidden !important;
+  }
+  .finding-toolbar {
+    width: 100% !important;
+    max-width: 100% !important;
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) !important;
+    align-items: stretch !important;
+  }
+  .finding-toolbar input,
+  .finding-toolbar select,
+  .finding-toolbar span {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+  }
+  .finding-toolbar span {
+    text-align: right !important;
+  }
+}
