@@ -185,14 +185,24 @@ async function authenticatedCrudTest() {
     assert(updatedData.status === "Değerlendiriliyor", `Risk update did not persist; got ${String(updatedData.status || "")}.`);
     printResult("Risk update persistence", true);
 
-    const deleteRisk = await jsonRequest(`/api/grc?id=${encodeURIComponent(riskId)}`, "DELETE", undefined, cookie);
+    const createdRiskId = riskId;
+    const createdAssetId = assetId;
+
+    const deleteRisk = await jsonRequest(`/api/grc?id=${encodeURIComponent(createdRiskId)}`, "DELETE", undefined, cookie);
     assert(deleteRisk.response.status === 200, `Risk cleanup failed with HTTP ${deleteRisk.response.status}: ${deleteRisk.text.slice(0, 500)}`);
     riskId = "";
 
-    const deleteAsset = await jsonRequest(`/api/grc?id=${encodeURIComponent(assetId)}`, "DELETE", undefined, cookie);
+    const deleteAsset = await jsonRequest(`/api/grc?id=${encodeURIComponent(createdAssetId)}`, "DELETE", undefined, cookie);
     assert(deleteAsset.response.status === 200, `Asset cleanup failed with HTTP ${deleteAsset.response.status}: ${deleteAsset.text.slice(0, 500)}`);
     assetId = "";
 
+    const afterDelete = await request("/api/grc", { headers: { cookie, origin: baseUrl } });
+    assert(afterDelete.response.status === 200, `Post-cleanup read failed with HTTP ${afterDelete.response.status}`);
+    const afterDeletePayload = parseJson(afterDelete, "Post-cleanup read");
+    const remaining = Array.isArray(afterDeletePayload?.rows)
+      ? afterDeletePayload.rows.filter((row) => row.id === createdRiskId || row.id === createdAssetId)
+      : [];
+    assert(remaining.length === 0, "Synthetic records still exist after cleanup.");
     printResult("Synthetic record cleanup", true);
   } finally {
     await cleanup();
