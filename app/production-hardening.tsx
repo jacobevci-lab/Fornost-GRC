@@ -9,14 +9,14 @@ const hardeningCss = `
   --ws-warning:#8f4f12 !important;
   --ws-danger:#b4303c !important;
   --fornost-on-brand:#ffffff;
-  --fornost-row-action:#536568;
+  --fornost-row-action:#425455;
   --fornost-warning-text:#9a4813;
   --fornost-positive-text:#0b6b48;
 }
 html[data-theme="dark"]{
   --ws-faint:#91a19f !important;
   --fornost-on-brand:#0b1717;
-  --fornost-row-action:#aab8b6;
+  --fornost-row-action:#c7d2d0;
   --fornost-warning-text:#f3a269;
   --fornost-positive-text:#65d7a6;
 }
@@ -36,6 +36,23 @@ html[data-theme="dark"]{
 }
 .row-actions button{
   color:var(--fornost-row-action) !important;
+  opacity:1 !important;
+  filter:none !important;
+}
+
+/* Keep operational micro-copy readable. Legacy skins still contain 7-10px values,
+   but the production surface must never render business text below 11px. */
+.platform-state,
+.aside-note b,.aside-note p,
+.sidebar-view-controls>span,.sidebar-view-controls em,
+.settings-page footer,.catalog-grid footer,
+.workspace-dashboard footer{
+  font-size:11px !important;
+  line-height:1.4 !important;
+}
+.workspace-dashboard i:not(:empty){
+  font-size:11px !important;
+  line-height:1 !important;
 }
 
 /* Legacy orange micro-labels failed WCAG contrast on white surfaces. */
@@ -144,6 +161,97 @@ input.fornost-hit-target[type="radio"]{
   min-height:24px !important;
 }
 
+/* Header controls must remain single-line and vertically centered at every width. */
+.context-ai-trigger,.command-trigger,.theme-toggle,.language-switch button{
+  white-space:nowrap !important;
+  line-height:1 !important;
+}
+.language-switch button{
+  min-height:32px !important;
+  height:32px !important;
+  padding:0 8px !important;
+  display:grid !important;
+  place-items:center !important;
+}
+
+/* Risk matrix may be wider than its analytics card. Make the overflow intentional,
+   keyboard reachable and contained instead of clipping the right-most cells. */
+.matrix-card{
+  min-width:0 !important;
+  overflow-x:auto !important;
+  overflow-y:visible !important;
+  overscroll-behavior-inline:contain;
+}
+.matrix-card>.matrix,.matrix-card .matrix{
+  min-width:440px;
+}
+
+/* Long tab sets and data tables scroll inside their own surface instead of clipping text. */
+.fornost-ai-panel,
+.fornost-ai-tabs,
+.rap-tabs,.plm-tabs,.tprm-tabs,.ri-tabs,
+.continuity-table,.incident-table-wrap,.finding-table-wrap{
+  max-width:100% !important;
+  overflow:auto !important;
+  overscroll-behavior:contain;
+}
+
+/* Tablet shell: compact the utility header before it collides with the workspace title. */
+@media (min-width:901px) and (max-width:1180px){
+  .shell:not(.sidebar-compact):not(.sidebar-hidden){
+    grid-template-columns:248px minmax(0,1fr) !important;
+  }
+  .shell>main{padding-left:24px !important;padding-right:24px !important;}
+  .shell>main>header{margin-left:-24px !important;margin-right:-24px !important;padding-left:24px !important;padding-right:24px !important;}
+  .header-actions{gap:6px !important;flex:0 0 auto !important;}
+  .header-live{display:none !important;}
+  .context-ai-trigger b,.command-trigger span,.command-trigger kbd,
+  .user b,.user small,.user>div{display:none !important;}
+  .context-ai-trigger,.command-trigger,.theme-toggle{
+    width:38px !important;
+    min-width:38px !important;
+    min-height:38px !important;
+    padding:0 !important;
+    display:grid !important;
+    place-items:center !important;
+  }
+  .user{
+    width:40px !important;
+    min-width:40px !important;
+    max-width:40px !important;
+    padding:4px !important;
+    justify-content:center !important;
+  }
+  .user>span{margin:0 !important;}
+  :where(.rap-hero,.continuity-hero,.plm-hero,.tprm-hero,.ri-hero,.incident-hero,.finding-hero,.ea-hero,.connected-hero,.report-hero){
+    min-width:0 !important;
+    align-items:flex-start !important;
+    flex-wrap:wrap !important;
+  }
+  :where(.rap-hero,.continuity-hero,.plm-hero,.tprm-hero,.ri-hero,.incident-hero,.finding-hero,.ea-hero,.connected-hero,.report-hero)>:last-child,
+  .report-hero-actions{
+    width:100% !important;
+    max-width:100% !important;
+    justify-content:flex-start !important;
+    flex-wrap:wrap !important;
+  }
+}
+
+/* A closed mobile drawer must be actually hidden, not merely translated off canvas.
+   This prevents keyboard focus and removes phantom viewport-overflow findings. */
+@media (max-width:900px){
+  .shell:not(.mobile-nav-open)>aside{
+    opacity:0 !important;
+    visibility:hidden !important;
+    pointer-events:none !important;
+  }
+  .shell.mobile-nav-open>aside{
+    opacity:1 !important;
+    visibility:visible !important;
+    pointer-events:auto !important;
+  }
+}
+
 /* Keyboard focus for dynamically focusable scroll regions. */
 [data-fornost-scroll-region="true"]:focus-visible{
   outline:2px solid var(--ws-brand) !important;
@@ -173,6 +281,71 @@ function isVisible(element: HTMLElement) {
     && rect.height > 0;
 }
 
+function syncMobileNavigation() {
+  const shell = document.querySelector<HTMLElement>(".shell");
+  const aside = shell?.querySelector<HTMLElement>(":scope > aside");
+  if (!shell || !aside) return;
+  const mobile = window.matchMedia("(max-width: 900px)").matches;
+  if (!mobile) {
+    aside.removeAttribute("aria-hidden");
+    aside.removeAttribute("inert");
+    return;
+  }
+  const open = shell.classList.contains("mobile-nav-open");
+  aside.setAttribute("aria-hidden", open ? "false" : "true");
+  aside.toggleAttribute("inert", !open);
+}
+
+function syncAiNavigation() {
+  const root = document.documentElement;
+  const targetKey = root.dataset.fornostAiNavTarget;
+  const panel = [...document.querySelectorAll<HTMLElement>(".fornost-ai-panel")].find(isVisible);
+  const navButtons = [...document.querySelectorAll<HTMLElement>("nav button[aria-label]")];
+
+  if (!targetKey || !panel) {
+    const previous = root.dataset.fornostPrevActiveNav;
+    if (previous) {
+      navButtons.forEach((button) => {
+        const restore = button.getAttribute("aria-label") === previous;
+        button.classList.toggle("active", restore);
+        if (restore) button.setAttribute("aria-current", "page");
+        else button.removeAttribute("aria-current");
+      });
+      delete root.dataset.fornostPrevActiveNav;
+    }
+    if (!panel) delete root.dataset.fornostAiNavTarget;
+    return;
+  }
+
+  const labels = targetKey === "ai-governance"
+    ? ["AI Yönetişimi", "AI Governance"]
+    : ["Ask Fornost"];
+  const target = navButtons.find((button) => labels.includes(button.getAttribute("aria-label") || ""));
+  if (!target) return;
+
+  if (!root.dataset.fornostPrevActiveNav) {
+    root.dataset.fornostPrevActiveNav = navButtons.find((button) => button.classList.contains("active"))?.getAttribute("aria-label") || "";
+  }
+  navButtons.forEach((button) => {
+    const active = button === target;
+    button.classList.toggle("active", active);
+    if (active) button.setAttribute("aria-current", "page");
+    else button.removeAttribute("aria-current");
+  });
+}
+
+function hardenClippedLabels() {
+  document.querySelectorAll<HTMLElement>("body *").forEach((element) => {
+    if (!isVisible(element) || element.hasAttribute("title") || element.hasAttribute("aria-label")) return;
+    const text = element.textContent?.replace(/\s+/g, " ").trim();
+    if (!text || text.length > 240) return;
+    const style = getComputedStyle(element);
+    const clipped = element.scrollWidth > element.clientWidth + 2 || element.scrollHeight > element.clientHeight + 2;
+    if (!clipped || style.textOverflow !== "ellipsis") return;
+    element.setAttribute("title", text);
+  });
+}
+
 function hardenDom() {
   document.querySelectorAll<HTMLElement>('.column-resizer[role="separator"]').forEach((separator) => {
     const width = Math.max(96, Math.min(640, Math.round(separator.closest("th")?.getBoundingClientRect().width || 190)));
@@ -196,7 +369,7 @@ function hardenDom() {
   });
 
   const candidates = document.querySelectorAll<HTMLElement>(
-    ".fornost-ai-mode,.fornost-ai-messages,.fornost-ai-compose,.ai-portfolio,.table-wrap,.audit-control-list,.connected-table,form",
+    ".fornost-ai-panel,.fornost-ai-mode,.fornost-ai-messages,.fornost-ai-compose,.ai-portfolio,.matrix-card,.fornost-ai-tabs,.rap-tabs,.plm-tabs,.tprm-tabs,.ri-tabs,.table-wrap,.audit-control-list,.connected-table,.continuity-table,.incident-table-wrap,.finding-table-wrap,form",
   );
   candidates.forEach((element) => {
     const style = getComputedStyle(element);
@@ -215,6 +388,10 @@ function hardenDom() {
     const rect = control.getBoundingClientRect();
     if (rect.width < 24 || rect.height < 24) control.classList.add("fornost-hit-target");
   });
+
+  syncMobileNavigation();
+  syncAiNavigation();
+  hardenClippedLabels();
 }
 
 export default function ProductionHardening() {
@@ -236,19 +413,29 @@ export default function ProductionHardening() {
         hardenDom();
       });
     };
+    const onOpenAi = (event: Event) => {
+      const detail = (event as CustomEvent<Record<string, unknown>>).detail || {};
+      if (detail.module) return;
+      if (detail.view === "portfolio") document.documentElement.dataset.fornostAiNavTarget = "ai-governance";
+      else if (detail.mode === "chat") document.documentElement.dataset.fornostAiNavTarget = "ask-fornost";
+      schedule();
+    };
+
     hardenDom();
     const observer = new MutationObserver(schedule);
-    observer.observe(document.body, { childList: true, subtree: true });
+    observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ["class", "style", "aria-hidden"] });
     document.addEventListener("pointerup", schedule, true);
     document.addEventListener("keyup", schedule, true);
     window.addEventListener("resize", schedule);
-    window.addEventListener("fornost:open-ai", schedule as EventListener);
+    window.addEventListener("fornost:open-ai", onOpenAi as EventListener);
     return () => {
       observer.disconnect();
       document.removeEventListener("pointerup", schedule, true);
       document.removeEventListener("keyup", schedule, true);
       window.removeEventListener("resize", schedule);
-      window.removeEventListener("fornost:open-ai", schedule as EventListener);
+      window.removeEventListener("fornost:open-ai", onOpenAi as EventListener);
+      delete document.documentElement.dataset.fornostAiNavTarget;
+      delete document.documentElement.dataset.fornostPrevActiveNav;
       style?.remove();
     };
   }, []);
