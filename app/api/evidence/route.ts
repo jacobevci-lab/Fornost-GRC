@@ -29,7 +29,8 @@ export async function POST(req:NextRequest){
 export async function GET(req:NextRequest){
  const auth=await requireRole(req,["Admin","Editor","Viewer"]);if(auth.response)return auth.response;
  const {env}=await import("cloudflare:workers"),key=req.nextUrl.searchParams.get("key");
- if(!key||!key.startsWith("evidence/")||key.includes(".."))return new NextResponse("Bulunamadı",{status:404});
+ if(!key)return NextResponse.json({error:"key parametresi gerekli."},{status:400,headers:{"cache-control":"no-store"}});
+ if(!key.startsWith("evidence/")||key.includes(".."))return new NextResponse("Bulunamadı",{status:404});
  let body:BodyInit|null=null,type="application/octet-stream",fileName=key.split("/").pop()||"evidence";
  if(env.BUCKET){const obj=await env.BUCKET.get(key);if(obj){body=obj.body;type=obj.httpMetadata?.contentType||type;}}
  if(!body){await env.DB.prepare(filesTable).run();const stored=await env.DB.prepare("SELECT file_name,content_type,content FROM simple_evidence_files WHERE file_key=?").bind(key).first<{file_name:string;content_type:string;content:ArrayBuffer}>();if(stored){body=stored.content;type=stored.content_type;fileName=stored.file_name;}}
