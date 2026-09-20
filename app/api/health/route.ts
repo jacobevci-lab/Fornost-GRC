@@ -18,8 +18,9 @@ export async function GET() {
   }
 
   try {
-    await env.BUCKET.list({ limit: 1 });
-    checks.bucket = { ok: true, detail: "R2 list succeeded" };
+    if (!env.BUCKET) throw new Error("R2 binding missing");
+    await env.BUCKET.get("__fornost_health_probe__");
+    checks.bucket = { ok: true, detail: "R2 read probe succeeded" };
   } catch {
     checks.bucket = { ok: false, detail: "R2 check failed" };
   }
