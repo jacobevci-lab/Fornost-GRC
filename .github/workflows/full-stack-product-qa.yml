@@ -68,6 +68,9 @@ jobs:
       - name: Run deep UI, typography, layout, CSS and API QA
         run: node scripts/product-full-qa.mjs
 
+      - name: Run residual UI regression checks
+        run: node scripts/qa-regressions.mjs
+
       - name: Normalize confirmed harness-only false positives
         run: node scripts/normalize-full-qa.mjs
 
