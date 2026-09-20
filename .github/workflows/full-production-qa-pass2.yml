@@ -1,0 +1,57 @@
+name: Full Production QA Pass 2
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - qa/production-a11y-pass2
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fornost-full-production-qa-pass2
+  cancel-in-progress: true
+
+jobs:
+  qa:
+    name: Browser, visual, accessibility and runtime QA
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      FORNOST_PROD_URL: ${{ vars.FORNOST_PROD_URL }}
+      CF_ACCESS_CLIENT_ID: ${{ secrets.CF_ACCESS_CLIENT_ID }}
+      CF_ACCESS_CLIENT_SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
+      FORNOST_SMOKE_EMAIL: ${{ secrets.FORNOST_SMOKE_EMAIL }}
+      FORNOST_SMOKE_PASSWORD: ${{ secrets.FORNOST_SMOKE_PASSWORD }}
+
+    steps:
+      - name: Checkout QA branch
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.13.0
+          cache: npm
+
+      - name: Install locked application dependencies
+        run: npm ci
+
+      - name: Install QA browser tooling
+        run: npm install --no-save --ignore-scripts @playwright/test@1.55.0 @axe-core/playwright@4.10.1
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Run full production QA
+        run: node scripts/full-production-qa.mjs
+
+      - name: Upload QA report and screenshots
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: fornost-full-production-qa-pass2
+          path: qa-artifacts/
+          if-no-files-found: warn
+          retention-days: 14
