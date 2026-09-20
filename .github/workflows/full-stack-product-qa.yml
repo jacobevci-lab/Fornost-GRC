@@ -1,0 +1,80 @@
+name: Full Stack Product QA
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - qa/full-stack-product-audit-2026-09-20
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fornost-full-stack-product-qa
+  cancel-in-progress: true
+
+jobs:
+  full-product-qa:
+    name: Source, build, backend, frontend, CSS, visual and runtime QA
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    env:
+      FORNOST_PROD_URL: ${{ vars.FORNOST_PROD_URL }}
+      CF_ACCESS_CLIENT_ID: ${{ secrets.CF_ACCESS_CLIENT_ID }}
+      CF_ACCESS_CLIENT_SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
+      FORNOST_SMOKE_EMAIL: ${{ secrets.FORNOST_SMOKE_EMAIL }}
+      FORNOST_SMOKE_PASSWORD: ${{ secrets.FORNOST_SMOKE_PASSWORD }}
+
+    steps:
+      - name: Checkout full QA branch
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.13.0
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Lint source
+        run: npm run lint
+
+      - name: Typecheck source
+        run: npm run typecheck
+
+      - name: Run complete repository test and build suite
+        run: npm test
+
+      - name: Dependency security audit
+        run: npm audit --audit-level=high
+
+      - name: Validate deployable artifact
+        run: npm run validate:artifact
+
+      - name: Install browser QA tooling
+        run: npm install --no-save --ignore-scripts @playwright/test@1.55.0 @axe-core/playwright@4.10.1
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Run production smoke CRUD and storage checks
+        run: node scripts/production-smoke-test.mjs
+
+      - name: Run WCAG, module, responsive and security QA
+        run: node scripts/full-production-qa.mjs
+
+      - name: Run deep UI, typography, layout, CSS and API QA
+        run: node scripts/product-full-qa.mjs
+
+      - name: Upload complete QA evidence
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: fornost-full-stack-product-qa
+          path: |
+            qa-artifacts/
+            qa-artifacts-full-product/
+          if-no-files-found: warn
+          retention-days: 14
