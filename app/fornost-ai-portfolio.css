@@ -48,7 +48,7 @@
   border-radius: 9px;
   background: var(--surface-raised);
 }
-.ai-portfolio .dossier{margin-top:10px}.ai-portfolio .dossier>header{display:flex;justify-content:space-between;gap:16px}.ai-portfolio .dossier>header>span{padding:5px 8px;border:1px solid var(--border);border-radius:999px;color:#67b58a;font-size:11px;font-weight:800}.ai-portfolio .dossier-controls{display:grid;grid-template-columns:minmax(220px,1fr) 180px auto;align-items:end;gap:10px;margin-top:12px}.ai-portfolio .dossier label span{display:block;margin-bottom:5px;color:var(--text-secondary);font-size:11px;font-weight:700}.ai-portfolio .dossier select{width:100%;min-height:38px;padding:8px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text-primary)}.ai-portfolio .dossier-controls>div{display:flex;gap:7px}.ai-portfolio .dossier-controls button{white-space:nowrap}.ai-portfolio a.disabled{pointer-events:none;opacity:.45}.ai-portfolio .dossier>p{margin:10px 0 0;font-size:11px}.ai-portfolio .sealed-package{display:flex;justify-content:space-between;gap:16px;align-items:center;margin-top:12px;padding:12px;border:1px solid rgba(103,181,138,.35);border-radius:8px;background:rgba(103,181,138,.07)}.ai-portfolio .sealed-package>div:first-child{display:grid;gap:4px;min-width:0}.ai-portfolio .sealed-package code,.ai-portfolio .sealed-history code{display:block;max-width:580px;overflow:hidden;text-overflow:ellipsis;color:var(--text-secondary);font-size:10px}.ai-portfolio .sealed-package small{color:var(--text-secondary)}.ai-portfolio .sealed-package>div:last-child{display:flex;gap:7px;flex-shrink:0}.ai-portfolio .sealed-history{display:grid;gap:7px;margin-top:12px}.ai-portfolio .sealed-history article{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:9px 10px;border:1px solid var(--border);border-radius:7px}.ai-portfolio .sealed-history article>div:first-child{min-width:0}.ai-portfolio .sealed-history article>div:last-child{display:flex;gap:6px;flex-shrink:0}.ai-portfolio .sealed-history small{color:var(--text-secondary)}.ai-portfolio .package-notice{padding:8px 10px;border-left:3px solid #67b58a;background:rgba(103,181,138,.08)}
+.ai-portfolio .dossier{margin-top:10px}.ai-portfolio .dossier>header{display:flex;justify-content:space-between;gap:16px}.ai-portfolio .dossier>header>span{padding:5px 8px;border:1px solid var(--border);border-radius:999px;color:#267454;font-size:11px;font-weight:800}.ai-portfolio .dossier-controls{display:grid;grid-template-columns:minmax(220px,1fr) 180px auto;align-items:end;gap:10px;margin-top:12px}.ai-portfolio .dossier label span{display:block;margin-bottom:5px;color:var(--text-secondary);font-size:11px;font-weight:700}.ai-portfolio .dossier select{width:100%;min-height:38px;padding:8px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text-primary)}.ai-portfolio .dossier-controls>div{display:flex;gap:7px}.ai-portfolio .dossier-controls button{white-space:nowrap}.ai-portfolio a.disabled{pointer-events:none;opacity:.45}.ai-portfolio .dossier>p{margin:10px 0 0;font-size:11px}.ai-portfolio .sealed-package{display:flex;justify-content:space-between;gap:16px;align-items:center;margin-top:12px;padding:12px;border:1px solid rgba(103,181,138,.35);border-radius:8px;background:rgba(103,181,138,.07)}.ai-portfolio .sealed-package>div:first-child{display:grid;gap:4px;min-width:0}.ai-portfolio .sealed-package code,.ai-portfolio .sealed-history code{display:block;max-width:580px;overflow:hidden;text-overflow:ellipsis;color:var(--text-secondary);font-size:10px}.ai-portfolio .sealed-package small{color:var(--text-secondary)}.ai-portfolio .sealed-package>div:last-child{display:flex;gap:7px;flex-shrink:0}.ai-portfolio .sealed-history{display:grid;gap:7px;margin-top:12px}.ai-portfolio .sealed-history article{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:9px 10px;border:1px solid var(--border);border-radius:7px}.ai-portfolio .sealed-history article>div:first-child{min-width:0}.ai-portfolio .sealed-history article>div:last-child{display:flex;gap:6px;flex-shrink:0}.ai-portfolio .sealed-history small{color:var(--text-secondary)}.ai-portfolio .package-notice{padding:8px 10px;border-left:3px solid #67b58a;background:rgba(103,181,138,.08)}
 .ai-portfolio .stats b {
   display: block;
   font-size: 22px;
@@ -73,6 +73,10 @@
   padding: 9px;
   border-bottom: 1px solid var(--border);
   text-align: left;
+}
+.ai-portfolio th {
+  font-size: 11px !important;
+  line-height: 1.35;
 }
 .ai-portfolio td.good {
   color: #67b58a;
@@ -116,6 +120,9 @@
   color: var(--text-secondary);
   font-style: normal;
   text-align: right;
+}
+html[data-theme="dark"] .ai-portfolio .dossier>header>span {
+  color: #86d4a7;
 }
 @media (max-width: 800px) {
   .ai-portfolio .stats {
