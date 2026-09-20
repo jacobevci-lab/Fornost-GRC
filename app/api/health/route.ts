@@ -12,23 +12,17 @@ export async function GET() {
     const result = await env.DB.prepare("SELECT 1 AS ok").first<{ ok: number }>();
     checks.database = {
       ok: result?.ok === 1,
-      detail: result?.ok === 1 ? "D1 query succeeded" : "Unexpected D1 response",
+      detail: result?.ok === 1 ? "D1 query succeeded" : "D1 check failed",
     };
-  } catch (error) {
-    checks.database = {
-      ok: false,
-      detail: error instanceof Error ? error.message : "D1 query failed",
-    };
+  } catch {
+    checks.database = { ok: false, detail: "D1 check failed" };
   }
 
   try {
     await env.BUCKET.list({ limit: 1 });
     checks.bucket = { ok: true, detail: "R2 list succeeded" };
-  } catch (error) {
-    checks.bucket = {
-      ok: false,
-      detail: error instanceof Error ? error.message : "R2 check failed",
-    };
+  } catch {
+    checks.bucket = { ok: false, detail: "R2 check failed" };
   }
 
   const ok = checks.database.ok && checks.bucket.ok;
