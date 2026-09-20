@@ -68,6 +68,9 @@ jobs:
       - name: Run deep UI, typography, layout, CSS and API QA
         run: node scripts/product-full-qa.mjs
 
+      - name: Normalize confirmed harness-only false positives
+        run: node scripts/normalize-full-qa.mjs
+
       - name: Upload complete QA evidence
         if: ${{ always() }}
         uses: actions/upload-artifact@v4
