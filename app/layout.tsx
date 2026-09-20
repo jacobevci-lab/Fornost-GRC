@@ -39,6 +39,7 @@ import "./fornost-ai-navigation.css";
 import "./fornost-ai-decommission.css";
 import "./fornost-ai-findings.css";
 import FornostAiCopilot from "./fornost-ai-copilot";
+import ProductionHardening from "./production-hardening";
 
 const configuredBasePath = process.env.NEXT_PUBLIC_BASE_PATH?.trim() || "";
 const normalizedBasePath = configuredBasePath.replace(/\/+$/, "");
@@ -64,6 +65,7 @@ export default function RootLayout({
       <body>
         {children}
         <FornostAiCopilot />
+        <ProductionHardening />
       </body>
     </html>
   );
