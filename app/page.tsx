@@ -38,6 +38,7 @@ import IncidentCenter from "./incident-center";
 import ContinuityCenter from "./continuity-center";
 import ConnectedGrc from "./connected-grc";
 import "./connected-grc.css";
+import { buildAuditEvidenceAssurance } from "./audit-evidence-assurance";
 import { withBasePath } from "./base-path";
 import { calculatedRiskScore, effectiveImpact } from "./risk-methodology";
 import { defaultCatalogs, type CatalogMap } from "./catalogs";
@@ -47,6 +48,7 @@ import { displayRecordCode } from "./record-codes";
 import "./workspace-system.css";
 import "./enterprise-surface-contract.css";
 import "./product-experience.css";
+import "./theme-integrity.css";
 import { buildReportHtml, buildReportPdf, downloadBlob, reportMetrics } from "./report-export";
 
 type Lang = "tr" | "en";
@@ -164,6 +166,24 @@ const names: Record<Lang, Record<string, string>> = {
     "İş Akışı Entegrasyonları": "Workflow Integrations",
     "E-posta ve Bildirimler": "Email & Notifications",
     "Kimlik ve Erişim": "Identity & Access",
+  },
+};
+const moduleEyebrows: Record<Lang, Record<string, string>> = {
+  tr: {
+    "Risk Assessment": "KURUMSAL RİSK",
+    BIA: "İŞ DAYANIKLILIĞI",
+    "Varlık Envanteri": "TEKNOLOJİ MARUZİYETİ",
+    Uyum: "KONTROL GÜVENCESİ",
+    Kontroller: "ORTAK KONTROL KÜTÜPHANESİ",
+    Kanıtlar: "KANIT GÜVENCE ZİNCİRİ",
+  },
+  en: {
+    "Risk Assessment": "ENTERPRISE RISK",
+    BIA: "BUSINESS RESILIENCE",
+    "Varlık Envanteri": "TECHNOLOGY EXPOSURE",
+    Uyum: "CONTROL ASSURANCE",
+    Kontroller: "COMMON CONTROL LIBRARY",
+    Kanıtlar: "EVIDENCE ASSURANCE CHAIN",
   },
 };
 function NavIcon({ module }: { module: string }) {
@@ -2392,6 +2412,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
         ) : active === "Denetim Yönetimi" ? (
           <AuditModule
             rows={by("Denetim Yönetimi")}
+            evidenceRows={by("Kanıtlar")}
             audits={auditPortfolio}
             visible={visible}
             selected={selectedAudit}
@@ -2410,11 +2431,13 @@ function FornostApp({ currentUser }: { currentUser: any }) {
             createAudit={createAudit}
             deleteAudit={deleteAudit}
             canDeleteAudit={currentUser.role === "Admin"}
+            go={navigateToModule}
           />
         ) : (
           <>
             <section className="module-head">
               <div>
+                <small className="module-kicker">{moduleEyebrows[lang][active] || "FORNOST GRC"}</small>
                 <h2>{names[lang][active]}</h2>
                 <p>{desc}</p>
               </div>
@@ -4329,6 +4352,7 @@ function auditKind(name: string) {
 }
 function AuditModule({
   rows,
+  evidenceRows,
   audits,
   visible,
   selected,
@@ -4344,8 +4368,10 @@ function AuditModule({
   createAudit,
   deleteAudit,
   canDeleteAudit,
+  go,
 }: {
   rows: Row[];
+  evidenceRows: Row[];
   audits: AuditPortfolioItem[];
   visible: Row[];
   selected: string;
@@ -4367,6 +4393,7 @@ function AuditModule({
   }) => Promise<boolean>;
   deleteAudit: (audit: AuditPortfolioItem) => Promise<void>;
   canDeleteAudit: boolean;
+  go: (module: string) => void;
 }) {
   const tr = lang === "tr",
     templateOptions = auditCatalog,
@@ -4410,6 +4437,7 @@ function AuditModule({
       <>
         <section className="module-head">
           <div>
+            <small className="module-kicker">{tr ? "DENETİM GÜVENCESİ" : "AUDIT ASSURANCE"}</small>
             <h2>{tr ? "Denetim Portföyü" : "Audit Portfolio"}</h2>
             <p>
               {tr
@@ -4426,6 +4454,7 @@ function AuditModule({
           </div>
         </section>
         <AuditOverview rows={portfolioRows} lang={lang} />
+        <AuditEvidenceAssurance items={portfolioRows} evidence={evidenceRows} lang={lang} go={go} />
         <section className="audit-portfolio">
           {!audits.length && (
             <div className="audit-portfolio-empty">
@@ -4712,6 +4741,7 @@ function AuditModule({
           <span>{tr ? "Kapatılan" : "Closed"}</span>
         </article>
       </section>
+      <AuditEvidenceAssurance items={items} evidence={evidenceRows} lang={lang} go={go} />
       <AuditRequirementsTable
         items={items}
         lang={lang}
@@ -4724,6 +4754,15 @@ function AuditModule({
       />
     </>
   );
+}
+
+function AuditEvidenceAssurance({items,evidence,lang,go}:{items:Row[];evidence:Row[];lang:Lang;go:(module:string)=>void}) {
+  const tr=lang==="tr",assurance=buildAuditEvidenceAssurance(items,evidence);
+  return <section className="audit-evidence-assurance" aria-label={tr?"Denetim kanıt güvence zinciri":"Audit evidence assurance chain"}>
+    <header><div><small>{tr?"KANIT GÜVENCE ZİNCİRİ":"EVIDENCE ASSURANCE CHAIN"}</small><h3>{tr?"Denetim kanıt hazırlığı":"Audit evidence readiness"}</h3></div><button type="button" onClick={()=>go("Kanıtlar")}>{tr?"Kanıt Kütüphanesine Git":"Open Evidence Library"} →</button></header>
+    <div className="audit-evidence-metrics"><article><strong>{assurance.total?`${assurance.coverage}%`:"—"}</strong><span>{tr?"Bağlantı kapsamı":"Link coverage"}</span></article><article><strong>{assurance.current}</strong><span>{tr?"Güncel ve onaylı":"Current and approved"}</span></article><article className={assurance.stale?"warning":""}><strong>{assurance.stale}</strong><span>{tr?"Süresi dolan":"Expired or stale"}</span></article><article className={assurance.missing.length?"danger":""}><strong>{assurance.missing.length}</strong><span>{tr?"Kanıtsız madde":"Requirements without evidence"}</span></article></div>
+    {!assurance.total?<footer><b>{tr?"Kapsama alınmış denetim maddesi yok.":"No audit requirements are in scope yet."}</b></footer>:assurance.missing.length?<footer><b>{tr?"Öncelikli boşluklar":"Priority gaps"}</b><div>{assurance.missing.slice(0,6).map(reference=><span key={reference}>{reference}</span>)}</div>{assurance.missing.length>6&&<em>+{assurance.missing.length-6}</em>}</footer>:<footer className="complete"><b>{tr?"Tüm denetim maddeleri en az bir kanıtla bağlantılı.":"Every audit requirement is linked to at least one evidence item."}</b></footer>}
+  </section>;
 }
 
 function AuditRequirementsTable({

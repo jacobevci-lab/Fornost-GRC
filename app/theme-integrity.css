@@ -1,0 +1,110 @@
+/*
+ * Fornost Theme Integrity Contract
+ *
+ * This is the final visual authority loaded after every historical module
+ * stylesheet. Components may own layout, but colour, typography, focus and
+ * form surfaces must resolve through the graphite–teal workspace tokens.
+ */
+
+/* Core text and interactive colour ------------------------------------------------ */
+html[data-theme="dark"]{--ws-heading-accent:#e8782f;--ws-heading-accent-soft:color-mix(in srgb,#e8782f 14%,var(--ws-surface));--cp-indigo:var(--ws-brand);--cc-violet:var(--ws-brand);--cc-violet-2:var(--ws-brand-2);--ux-accent:var(--ws-brand);--ux-accent-text:var(--ws-brand-2);--at-accent:var(--ws-brand);--at-accent-ink:var(--ws-brand-2)}
+:where(.shell,.modal,.evidence-preview,.command-palette,.fornost-ai-panel) :where(h1,h2,h3,h4,h5,h6,legend){color:var(--ws-ink)!important}
+:where(.module-head,.table-card,.panel,.matrix-card,.settings-card,.report-workspace,.audit-overview,.audit-card,.audit-detail-head,.integration-hub,.catalog-manager,.module-overview) :where(p,small,dt,label){color:var(--ws-muted)!important}
+:where(.code,td>a,.evidence-link>span>b,.modal-head>div>small,.settings-card-head>div>small,.report-section-head>div>small){color:var(--ws-brand-2)!important}
+a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid var(--ws-brand)!important;outline-offset:2px!important}
+::selection{background:var(--ws-brand-soft);color:var(--ws-ink)}
+
+/* Historical skins used 7–10 px labels extensively. Keep compact hierarchy,
+ * but never make operational text depend on sub-12 px rendering. */
+html[data-theme] body .shell>main :where(div,p,span,small,b,strong,label,button,a,td,th,dt,dd,li,em,time,code,input,select,textarea,kbd,summary){font-size:max(12px,.75rem)!important;line-height:1.45!important}
+html[data-theme] body .shell>main :where(label,button,input,select,textarea,td,dd){font-size:max(13px,.8125rem)!important}
+.shell>aside :where(.nav-group button,.nav-section button){font-size:13px!important}
+.shell>aside :where(small,span,b,p,em){font-size:12px!important;line-height:1.4!important}
+.header-context small,.header-live,.command-trigger,.context-ai-trigger,.header-actions :where(b,small,span,kbd){font-size:12px!important}
+.fornost-ai-launcher :where(span,i){font-size:12px!important}
+
+/* Product typography and the restrained dark-mode amber heading language. */
+:where(.module-head,.module-overview,.audit-overview,.audit-detail-head,.audit-evidence-assurance){font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif!important;font-feature-settings:"cv11","ss01"}
+.module-head{align-items:flex-end!important}.module-head>div:first-child{min-width:0}.module-head .module-kicker{display:block;margin-bottom:7px;font-size:12px!important;font-weight:850!important;line-height:1.2!important;letter-spacing:.12em!important;text-transform:uppercase}
+.module-head h2{font-size:26px!important;font-weight:740!important;line-height:1.12!important;letter-spacing:-.035em!important}.module-head p{font-size:14px!important;line-height:1.55!important}
+.module-overview>header h3,.audit-overview h3,.audit-evidence-assurance h3{font-size:20px!important;font-weight:720!important;line-height:1.2!important;letter-spacing:-.025em!important}
+.smart-table .evidence-link b,.audit-requirement-cell b{font-size:14px!important;font-weight:720!important;line-height:1.4!important}.smart-table .evidence-link small,.audit-requirement-cell small{font-size:12px!important;font-weight:500!important;line-height:1.45!important}
+
+/* Forms, filters and editable records --------------------------------------------- */
+:where(.form,.settings-grid,.integration-grid,.catalog-grid,.report-filters,.register-filters,.rap-form,.continuity-form,.plm-form,.tprm-form,.ri-form,.incident-form,.finding-form,.ea-form,.connected-form,.ai-settings-page,.fornost-ai-panel) label{color:var(--ws-muted)!important}
+:where(.form,.settings-grid,.integration-grid,.catalog-grid,.report-filters,.register-filters,.rap-form,.continuity-form,.plm-form,.tprm-form,.ri-form,.incident-form,.finding-form,.ea-form,.connected-form,.ai-settings-page,.fornost-ai-panel) label>span{color:var(--ws-muted)!important}
+body :where(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),select,textarea){border-color:var(--ws-line-strong)!important;background:var(--ws-surface)!important;background-image:none!important;color:var(--ws-ink)!important;caret-color:var(--ws-brand)!important}
+html[data-theme="dark"] body :where(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),select,textarea){background:var(--ws-bg)!important}
+body :where(input,textarea)::placeholder{color:var(--ws-faint)!important;opacity:1!important}
+body :where(input[type="checkbox"],input[type="radio"],input[type="range"]){accent-color:var(--ws-brand)!important}
+body :where(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),select,textarea):focus{outline:0!important;border-color:var(--ws-brand)!important;box-shadow:0 0 0 3px color-mix(in srgb,var(--ws-brand) 15%,transparent)!important}
+:where(.form-actions,.modal-head,.evidence-preview-head,.column-picker header,.table-tools,.register-toolbar,.register-filters,.settings-card-head){border-color:var(--ws-line)!important;background:var(--ws-surface-2)!important;background-image:none!important;color:var(--ws-ink)!important}
+:where(.modal,.evidence-preview,.column-picker,.finding-detail,.finding-form,.finding-action){border-color:var(--ws-line-strong)!important;background:var(--ws-surface)!important;background-image:none!important;color:var(--ws-ink)!important}
+
+/* Registers and evidence ----------------------------------------------------------- */
+:where(.table-card,.table-wrap,.risk-register,.smart-register,.audit-table-wrap,.soc2-work-table){border-color:var(--ws-line)!important;background:var(--ws-surface)!important;background-image:none!important;color:var(--ws-ink)!important}
+:where(.table-wrap,.risk-register,.smart-register,.audit-table-wrap,.soc2-work-table) th{border-color:var(--ws-line)!important;background:var(--ws-surface-2)!important;color:var(--ws-muted)!important}
+:where(.table-wrap,.risk-register,.smart-register,.audit-table-wrap,.soc2-work-table) td{border-color:var(--ws-line)!important;color:var(--ws-muted)!important}
+:where(.table-wrap,.risk-register,.smart-register,.audit-table-wrap,.soc2-work-table) td :where(b,strong){color:var(--ws-ink)!important}
+:where(.table-wrap,.risk-register,.smart-register,.audit-table-wrap,.soc2-work-table) .code{color:var(--ws-brand-2)!important}
+.evidence-link{color:var(--ws-ink)!important}.evidence-link small{color:var(--ws-muted)!important}.evidence-thumb-mark{border:1px solid color-mix(in srgb,var(--ws-brand) 30%,var(--ws-line))!important;background:var(--ws-brand-soft)!important;background-image:none!important;color:var(--ws-brand-2)!important}
+.register-view-actions button:hover,.register-view-actions button.active,.column-picker-wrap>button:hover,.column-picker-wrap>button.active{border-color:var(--ws-brand)!important;background:var(--ws-brand-soft)!important;color:var(--ws-brand-2)!important}
+.tag,.audit-links span,.coverage-count:not(.ok):not(.miss){background:var(--ws-brand-soft)!important;color:var(--ws-brand-2)!important}
+
+/* Audit, compliance and reporting -------------------------------------------------- */
+.audit-overview{border-color:var(--ws-line)!important;background:var(--ws-surface)!important;background-image:radial-gradient(circle at 94% 6%,color-mix(in srgb,var(--ws-brand) 10%,transparent),transparent 35%)!important;color:var(--ws-ink)!important}
+.audit-overview>div:first-child>small,.audit-detail-head small,.soc2-period-card>small,.soc2-work-table>header small{color:var(--ws-brand-2)!important}
+.audit-overview h3,.audit-detail-head h2{color:var(--ws-ink)!important}
+.audit-kpis article,.audit-detail-kpis article{border-color:var(--ws-line)!important;background:var(--ws-surface-2)!important;background-image:none!important;color:var(--ws-ink)!important}
+.audit-kpis article b,.audit-detail-kpis article b{color:var(--ws-brand-2)!important}.audit-kpis article span,.audit-detail-kpis article span{color:var(--ws-muted)!important}
+.audit-kpis article.danger b,.audit-detail-kpis article.danger b{color:var(--ws-danger)!important}
+.audit-progress i,.audit-card-progress i{background:var(--ws-positive)!important;background-image:none!important}
+.audit-card-top>span,.audit-scope-grid article.phase-two>span,.audit-count-chip{background:var(--ws-brand-soft)!important;background-image:none!important;color:var(--ws-brand-2)!important}
+.audit-workspace-tabs button:hover,.audit-workspace-tabs button.active{background:var(--ws-brand-soft)!important;background-image:none!important;color:var(--ws-brand-2)!important;box-shadow:none!important}
+.report-summary .kpi{border-color:var(--ws-line)!important;background:var(--ws-surface)!important;background-image:none!important;color:var(--ws-ink)!important}.report-summary .kpi::before,.report-summary .kpi::after{content:none!important;display:none!important}.report-summary .kpi b,.report-summary .kpi span{color:var(--ws-ink)!important}.report-summary .kpi small{color:var(--ws-faint)!important}
+
+/* Dashboard, shared accents and navigation ---------------------------------------- */
+:where(.primary,.accent,.command-primary){border-color:var(--ws-brand)!important;background:var(--ws-brand)!important;background-image:none!important;color:#fff!important}
+:where(.primary,.accent,.command-primary):hover{border-color:var(--ws-brand-2)!important;background:var(--ws-brand-2)!important;color:#fff!important}
+:where(.quick-actions,.command-launchpad,.dashboard-shortcuts) button>span,:where(.quick-actions,.command-launchpad,.dashboard-shortcuts) button>i{background:var(--ws-brand-soft)!important;background-image:none!important;color:var(--ws-brand-2)!important}
+.theme-toggle,.user>span,.admin-badge{border-color:var(--ws-line)!important;background:var(--ws-brand-soft)!important;background-image:none!important;color:var(--ws-brand-2)!important}
+.nav-group button.active,.nav-section button.active{background:var(--ws-brand-soft)!important;background-image:none!important;color:var(--ws-brand-2)!important}
+
+/* Ask Fornost and every AI workspace ---------------------------------------------- */
+.fornost-ai-panel{--surface:var(--ws-surface);--text:var(--ws-ink);border-color:var(--ws-line-strong)!important;background:var(--ws-surface)!important;background-image:none!important;color:var(--ws-ink)!important}
+.fornost-ai-head,.fornost-ai-tabs,.fornost-ai-compose{border-color:var(--ws-line)!important;background:var(--ws-surface-2)!important;background-image:none!important;color:var(--ws-ink)!important}
+.fornost-ai-tabs button{color:var(--ws-muted)!important}.fornost-ai-tabs button:hover,.fornost-ai-tabs button.active{background:var(--ws-brand-soft)!important;color:var(--ws-brand-2)!important}
+.fornost-ai-message.user,.fornost-ai-welcome,.fornost-ai-notice{border-color:color-mix(in srgb,var(--ws-brand) 30%,var(--ws-line))!important;background:var(--ws-brand-soft)!important;color:var(--ws-ink)!important}
+.fornost-ai-message.assistant{border-color:var(--ws-line)!important;background:var(--ws-surface-2)!important;color:var(--ws-ink)!important}
+html[data-theme] body :where(.fornost-ai-panel,.ai-model-inventory,.ai-compliance,.ai-lifecycle,.ai-incidents,.ai-evidence-vault,.ai-risk-center,.ai-vendor-assurance,.ai-access-governance,.ai-release-gate,.ai-impact-center,.ai-resilience,.ai-datasets,.ai-regulatory,.ai-literacy,.ai-supply,.ai-red-team,.ai-transparency,.ai-assurance,.ai-alerts,.ai-portfolio,.ai-exceptions,.ai-decommission,.ai-findings,.ai-data-protection) :where(p,span,small,label,button,a,dd,dt,li,em,time,code,input,select,textarea){font-size:max(12px,.75rem)!important;line-height:1.45!important}
+:where(.fornost-ai-panel,.ai-model-inventory,.ai-compliance,.ai-lifecycle,.ai-incidents,.ai-evidence-vault,.ai-risk-center,.ai-vendor-assurance,.ai-access-governance,.ai-release-gate,.ai-impact-center,.ai-resilience,.ai-datasets,.ai-regulatory,.ai-literacy,.ai-supply,.ai-red-team,.ai-transparency,.ai-assurance,.ai-alerts,.ai-portfolio,.ai-exceptions,.ai-decommission,.ai-findings,.ai-data-protection) :where(button,a[role="button"]){border-color:var(--ws-line)!important;background:var(--ws-surface-2)!important;background-image:none!important;color:var(--ws-muted)!important}
+.fornost-ai-compose>div>button,.fornost-ai-settings-actions>button:not(.secondary),:where(.fornost-ai-draft-form,.fornost-ai-agent-form,.fornost-ai-knowledge-form,.fornost-ai-governance-form,.ai-inventory-form,.ai-lifecycle-form,.ai-incident-form,.ai-evidence-form,.ai-risk-form,.ai-vendor-form,.ai-release-form,.ai-impact-form,.ai-resilience-form,.ai-dataset-form)>button,:where(.fornost-ai-draft-actions,.fornost-ai-agent-actions,.fornost-ai-knowledge-actions,.fornost-ai-agent-decision,.fornost-ai-knowledge-decision) button:not(.secondary):not(.danger):not(.warn):not(.reject){border-color:color-mix(in srgb,var(--ws-brand) 45%,var(--ws-line))!important;background:var(--ws-brand)!important;color:#fff!important}
+:where(.fornost-ai-panel,.ai-model-inventory,.ai-compliance,.ai-lifecycle,.ai-incidents,.ai-evidence-vault,.ai-risk-center,.ai-vendor-assurance,.ai-access-governance,.ai-release-gate,.ai-impact-center,.ai-resilience,.ai-datasets,.ai-regulatory,.ai-literacy,.ai-supply,.ai-red-team,.ai-transparency,.ai-assurance,.ai-alerts,.ai-portfolio,.ai-exceptions,.ai-decommission,.ai-findings,.ai-data-protection) button:disabled{opacity:.62!important;color:var(--ws-muted)!important}
+:where(.fornost-ai-panel,.ai-model-inventory,.ai-compliance,.ai-lifecycle,.ai-incidents,.ai-evidence-vault,.ai-risk-center,.ai-vendor-assurance,.ai-access-governance,.ai-release-gate,.ai-impact-center,.ai-resilience,.ai-datasets,.ai-regulatory,.ai-literacy,.ai-supply,.ai-red-team,.ai-transparency,.ai-assurance,.ai-alerts,.ai-portfolio,.ai-exceptions,.ai-decommission,.ai-findings,.ai-data-protection) :where(.secondary,button.secondary){border-color:var(--ws-line)!important;background:var(--ws-surface-2)!important;color:var(--ws-muted)!important}
+:where(.fornost-ai-panel,.ai-model-inventory,.ai-compliance,.ai-lifecycle,.ai-incidents,.ai-evidence-vault,.ai-risk-center,.ai-vendor-assurance,.ai-access-governance,.ai-release-gate,.ai-impact-center,.ai-resilience,.ai-datasets,.ai-regulatory,.ai-literacy,.ai-supply,.ai-red-team,.ai-transparency,.ai-assurance,.ai-alerts,.ai-portfolio,.ai-exceptions,.ai-decommission,.ai-findings,.ai-data-protection) :where(.fornost-ai-draft-form,.fornost-ai-draft-list>article,.fornost-ai-agent-form,.fornost-ai-agent-runs>article,.fornost-ai-agent-findings section,.fornost-ai-knowledge-form,.fornost-ai-knowledge-list>article,.fornost-ai-knowledge-search,.fornost-ai-knowledge-detail,.fornost-ai-batch,.fornost-ai-knowledge-filters,.fornost-ai-knowledge-bulkbar){border-color:var(--ws-line)!important;background:var(--ws-surface-2)!important;background-image:none!important;color:var(--ws-ink)!important}
+
+/* Dialogs are centred in the usable workspace, not beneath the desktop rail. */
+.shell>.overlay{z-index:120!important}
+.shell.sidebar-expanded>.overlay{padding-left:316px!important}
+.shell.sidebar-compact>.overlay{padding-left:108px!important}
+.shell.sidebar-hidden>.overlay{padding-left:20px!important}
+
+@media(max-width:900px){.shell.sidebar-expanded>.overlay,.shell.sidebar-compact>.overlay,.shell.sidebar-hidden>.overlay{padding-left:20px!important}.module-head{align-items:flex-start!important}}
+@media(max-width:620px){.audit-kpis,.audit-detail-kpis{grid-template-columns:1fr 1fr!important}}
+
+/* Dark-mode accent guardrail -------------------------------------------------------
+ * This intentionally sits last and uses :is() specificity so no historical module
+ * skin can reintroduce indigo/navy headings after the semantic theme contract. */
+html[data-theme="dark"] body :is(.module-kicker,.module-overview>header>div>small,.risk-summary-head small,.matrix-card>div>small,.audit-overview>div:first-child>small,.audit-detail-head small,.audit-table-heading small,.audit-evidence-assurance header small,.soc2-readiness-card>header small,.soc2-period-card>small,.soc2-work-table>header small,.report-section-head small,.report-insights>div>small,.report-data-quality>small,.connected-assurance header small,.module-command-hero small,.work-queue>header small,.settings-head small,.settings-security-overview small,.integration-hub>header small,.cockpit-titlebar>div>small,.posture-primary>div:last-child>small,.cockpit-panel-head small,.workspace-launcher>div small,.dashboard-hero-copy>small,.rap-hero small,.rap-grid>section>header small,.continuity-hero small,.plm-hero small,.plm-grid>section>header small,.tprm-hero small,.tprm-grid>section>header small,.ri-hero small,.ri-grid>section>header small,.incident-hero small,.finding-hero small,.ea-hero small,.connected-hero small){color:var(--ws-heading-accent)!important}
+html[data-theme="dark"] body :is(.code,td>a,.evidence-link>span>b,.modal-head>div>small,.settings-card-head>div>small,.report-section-head>div>small){color:var(--ws-heading-accent)!important}
+html[data-theme="dark"] body :is(.audit-kpis article b,.audit-detail-kpis article b,.audit-card-progress b,.audit-progress b){color:var(--ws-heading-accent)!important}
+html[data-theme="dark"] body :is(.audit-overview,.module-overview,.integration-hub>header,.settings-card-head,.soc2-readiness-card){background-color:var(--ws-surface)!important;background-image:radial-gradient(circle at 94% 5%,var(--ws-heading-accent-soft),transparent 34%)!important}
+html[data-theme="dark"] body :is(.audit-card-top>span,.audit-scope-grid article.phase-two>span,.audit-count-chip,.evidence-thumb-mark){border-color:color-mix(in srgb,var(--ws-heading-accent) 38%,var(--ws-line))!important;background:var(--ws-heading-accent-soft)!important;background-image:none!important;color:var(--ws-heading-accent)!important}
+html[data-theme="dark"] body :is([class^="ai-"],[class*=" ai-"],[class^="fornost-ai-"],[class*=" fornost-ai-"]) :is(header>small,header>div>small){color:var(--ws-heading-accent)!important}
+
+/* Legacy colour quarantine. These controls used literal indigo/violet values
+ * instead of theme tokens, so alias remapping alone could not reach them. */
+html[data-theme="dark"] body :is(.register-view-actions button b,.column-picker-wrap>button b){border-color:color-mix(in srgb,var(--ws-brand) 35%,var(--ws-line))!important;background:var(--ws-brand-soft)!important;background-image:none!important;color:var(--ws-brand-2)!important}
+html[data-theme="dark"] body :is(.resizable-column:hover .column-resizer:after,.column-resizer:focus:after){background:var(--ws-brand)!important;box-shadow:0 0 0 1px color-mix(in srgb,var(--ws-brand) 18%,transparent)!important}
+html[data-theme="dark"] body :is(.audit-picker-note,.fornost-ai-draft-editor,.fornost-ai-review-box,.fornost-ai-review-result,.fornost-ai-agent-findings section){border-color:var(--ws-line)!important;background:var(--ws-surface-2)!important;background-image:none!important;color:var(--ws-ink)!important}
+html[data-theme="dark"] body :is(.fornost-ai-edit-button,.fornost-ai-knowledge-head button,.fornost-ai-agent-toolbar button){border-color:var(--ws-line)!important;background:var(--ws-brand-soft)!important;background-image:none!important;color:var(--ws-brand-2)!important}

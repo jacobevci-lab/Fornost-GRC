@@ -21,6 +21,13 @@ export type UnresolvedGrcReference = {
   relation: string;
 };
 
+export type ConnectedGrcCoverageGap = {
+  row: ConnectedGrcRow;
+  rule: "risk-context" | "control-assurance" | "evidence-control" | "audit-traceability";
+  severity: "high" | "medium";
+  expectedRelations: string[];
+};
+
 const relationFields: Record<string, { relation: string; modules: string[]; sources?: string[] }> = {
   asset: { relation: "risk-asset", modules: ["Varlık Envanteri"], sources: ["Risk Assessment", "BIA"] },
   processLink: { relation: "risk-process", modules: ["BIA"], sources: ["Risk Assessment", "Kontroller"] },
@@ -64,6 +71,34 @@ export function buildConnectedGrcGraph(rows: ConnectedGrcRow[]) {
     }
   }
   return { links, unresolved };
+}
+
+const coverageRules: Array<{
+  module: string;
+  rule: ConnectedGrcCoverageGap["rule"];
+  severity: ConnectedGrcCoverageGap["severity"];
+  relations: string[];
+}> = [
+  { module: "Risk Assessment", rule: "risk-context", severity: "high", relations: ["risk-asset", "risk-process"] },
+  { module: "Kontroller", rule: "control-assurance", severity: "high", relations: ["control-evidence", "control-framework", "audit-control"] },
+  { module: "Kanıtlar", rule: "evidence-control", severity: "medium", relations: ["control-evidence", "control-framework", "audit-evidence"] },
+  { module: "Denetim Yönetimi", rule: "audit-traceability", severity: "high", relations: ["audit-control", "audit-risk", "audit-evidence"] },
+];
+
+export function assessConnectedGrcCoverage(rows: ConnectedGrcRow[], links: ConnectedGrcLink[]) {
+  const rulesByModule = new Map(coverageRules.map((rule) => [rule.module, rule]));
+  const eligible = rows.filter((row) => rulesByModule.has(row.module));
+  const gaps: ConnectedGrcCoverageGap[] = [];
+  for (const row of eligible) {
+    const rule = rulesByModule.get(row.module)!;
+    const covered = links.some((link) =>
+      (link.source === row || link.target === row) && rule.relations.includes(link.relation),
+    );
+    if (!covered) gaps.push({ row, rule: rule.rule, severity: rule.severity, expectedRelations: rule.relations });
+  }
+  gaps.sort((a, b) => Number(b.severity === "high") - Number(a.severity === "high") || a.row.module.localeCompare(b.row.module, "tr"));
+  const covered = eligible.length - gaps.length;
+  return { eligible: eligible.length, covered, percent: eligible.length ? Math.round((covered / eligible.length) * 100) : 100, gaps };
 }
 
 export const connectedRelationLabels: Record<string, { tr: string; en: string }> = {

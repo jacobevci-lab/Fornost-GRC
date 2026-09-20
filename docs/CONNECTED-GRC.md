@@ -9,6 +9,8 @@ Connected GRC, Fornost içindeki risk, varlık, BIA, kontrol, kanıt, denetim, t
 - Kaynak modül ve hedef modül kuralları yanlış pozitif eşleşmeleri engeller; aynı ilişki yinelenmez.
 - Kaynak veya hedef düğümden ilgili canlı modüle geçilir.
 - Modül yoğunluğu, toplam düğüm, doğrulanmış bağlantı, bağlı kayıt, bağlantısız kayıt ve çözülmeyen referans KPI'ları hesaplanır.
+- Risk, kontrol, kanıt ve denetim kayıtları için beklenen ilişki zinciri ölçülür; güvence izlenebilirliği yüzdesi ve önceliklendirilmiş boşluk kuyruğu üretilir.
+- Boşluk kartı kayıt sahibini ilgili canlı modüle götürür; değerlendirme salt okunur kalır ve otomatik veri değişikliği yapmaz.
 - Hedefi bulunamayan referanslar ayrı inceleme kuyruğunda kaynak kodu, alan ve değer ile gösterilir.
 - Arama ve alan filtresi istemci tarafında çalışır; veri bir AI sağlayıcısına gönderilmez.
 - Dışa aktarım formül enjeksiyonuna karşı güvenli, UTF-8 CSV üretir.

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { buildConnectedGrcGraph } from "../app/connected-grc-model";
+import { assessConnectedGrcCoverage, buildConnectedGrcGraph } from "../app/connected-grc-model";
 
 test("connected GRC builds typed deterministic links and reports unresolved references", () => {
   const rows = [
@@ -15,4 +15,24 @@ test("connected GRC builds typed deterministic links and reports unresolved refe
   assert.equal(graph.unresolved.length, 1);
   assert.equal(graph.unresolved[0].value, "Missing asset");
   assert.equal(new Set(graph.links.map((link) => `${link.source.id}|${link.target.id}|${link.relation}`)).size, graph.links.length);
+});
+
+test("connected GRC scores assurance traceability and prioritizes critical gaps", () => {
+  const rows = [
+    { id: "asset-1", code: "AST-001", module: "Varlık Envanteri", data: { title: "M365" } },
+    { id: "risk-1", code: "RSK-001", module: "Risk Assessment", data: { title: "Outage", asset: "M365" } },
+    { id: "risk-2", code: "RSK-002", module: "Risk Assessment", data: { title: "Unlinked risk" } },
+    { id: "control-1", code: "CTL-001", module: "Kontroller", data: { controlRef: "A.5.15" } },
+    { id: "evidence-1", code: "EVD-001", module: "Kanıtlar", data: { evidenceTitle: "MFA", controlRef: "A.5.15" } },
+    { id: "audit-1", code: "AUD-001", module: "Denetim Yönetimi", data: { auditName: "ISO audit" } },
+  ];
+  const graph = buildConnectedGrcGraph(rows);
+  const coverage = assessConnectedGrcCoverage(rows, graph.links);
+  assert.equal(coverage.eligible, 5);
+  assert.equal(coverage.covered, 3);
+  assert.equal(coverage.percent, 60);
+  assert.deepEqual(coverage.gaps.map((gap) => [gap.row.code, gap.rule, gap.severity]), [
+    ["AUD-001", "audit-traceability", "high"],
+    ["RSK-002", "risk-context", "high"],
+  ]);
 });
