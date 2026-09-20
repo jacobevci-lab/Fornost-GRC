@@ -38,6 +38,7 @@ import IncidentCenter from "./incident-center";
 import ContinuityCenter from "./continuity-center";
 import ConnectedGrc from "./connected-grc";
 import "./connected-grc.css";
+import ControlAssuranceWorkspace from "./control-assurance-workspace";
 import { buildAuditEvidenceAssurance } from "./audit-evidence-assurance";
 import { withBasePath } from "./base-path";
 import { calculatedRiskScore, effectiveImpact } from "./risk-methodology";
@@ -2471,6 +2472,9 @@ function FornostApp({ currentUser }: { currentUser: any }) {
             )}
             {["BIA","Varlık Envanteri","Uyum","Kontroller","Kanıtlar"].includes(active) && (
               <CoreModuleOverview module={active} rows={by(active)} allRows={rows} lang={lang}/>
+            )}
+            {active === "Kontroller" && (
+              <ControlAssuranceWorkspace rows={rows} lang={lang} go={navigateToModule} />
             )}
             <section
               className={`table-card ${active === "Risk Assessment" ? "risk-register" : "smart-register"}`}
