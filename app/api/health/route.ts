@@ -1,7 +1,6 @@
-import { env } from "cloudflare:workers";
-
 export async function GET() {
   const startedAt = Date.now();
+  const { env } = await import("cloudflare:workers");
 
   const checks = {
     database: { ok: false, detail: "not checked" },
