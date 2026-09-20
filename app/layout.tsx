@@ -38,8 +38,10 @@ import "./fornost-ai-exceptions.css";
 import "./fornost-ai-navigation.css";
 import "./fornost-ai-decommission.css";
 import "./fornost-ai-findings.css";
+import "./quality-guardrails.css";
 import FornostAiCopilot from "./fornost-ai-copilot";
 import ProductionHardening from "./production-hardening";
+import NavigationIntegrity from "./navigation-integrity";
 
 const configuredBasePath = process.env.NEXT_PUBLIC_BASE_PATH?.trim() || "";
 const normalizedBasePath = configuredBasePath.replace(/\/+$/, "");
@@ -66,6 +68,7 @@ export default function RootLayout({
         {children}
         <FornostAiCopilot />
         <ProductionHardening />
+        <NavigationIntegrity />
       </body>
     </html>
   );
