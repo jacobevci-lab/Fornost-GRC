@@ -9,7 +9,7 @@ Always:
 - Root application endpoint returns HTTP 200.
 - `/api/health` returns HTTP 200 and `status: ok`.
 - Cloudflare D1 accepts a read-only query.
-- Cloudflare R2 accepts a read-only list operation.
+- Cloudflare R2 accepts a read-only object lookup against a reserved health-probe key.
 - A minimal set of browser security headers is reported.
 
 When a dedicated smoke-test identity is configured:
