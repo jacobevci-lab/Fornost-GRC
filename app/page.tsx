@@ -39,6 +39,8 @@ import ContinuityCenter from "./continuity-center";
 import ConnectedGrc from "./connected-grc";
 import "./connected-grc.css";
 import ControlAssuranceWorkspace from "./control-assurance-workspace";
+import ExecutiveAssurancePanel from "./executive-assurance-panel";
+import { buildAssuranceReportHtml, buildExecutiveAssurance } from "./executive-assurance";
 import { buildAuditEvidenceAssurance } from "./audit-evidence-assurance";
 import { withBasePath } from "./base-path";
 import { calculatedRiskScore, effectiveImpact } from "./risk-methodology";
@@ -2374,7 +2376,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
         ) : active === "Bağlantılı GRC" ? (
           <ConnectedGrc rows={rows} lang={lang} go={setActive} />
         ) : active === "Raporlar" ? (
-          <Reports rows={rows} lang={lang} />
+          <Reports rows={rows} lang={lang} go={navigateToModule} />
         ) : active === "Kanıt Otomasyonu" ? (
           <EvidenceAutomation lang={lang} currentUser={currentUser} />
         ) : active === "Regülasyon Merkezi" ? (
@@ -3441,6 +3443,8 @@ function Dashboard({
         ))}
       </section>
 
+      <ExecutiveAssurancePanel rows={rows} lang={lang} go={go} />
+
       <section className="dashboard-intelligence">
         <div className="dashboard-panel risk-focus-panel">
           <PanelHead
@@ -3734,7 +3738,7 @@ function Bars({
     </div>
   );
 }
-function Reports({ rows, lang }: { rows: Row[]; lang: Lang }) {
+function Reports({ rows, lang, go }: { rows: Row[]; lang: Lang; go: (module: string) => void }) {
   const all = "__all__",
     allLabel = lang === "tr" ? "Tüm Modüller" : "All Modules",
     [module, setModule] = useState<string>(all),
@@ -3760,6 +3764,7 @@ function Reports({ rows, lang }: { rows: Row[]; lang: Lang }) {
   const selectedModuleLabel = module === all ? allLabel : names[lang][module] || module;
   const exportSlug = module === all ? "all-modules" : module.toLocaleLowerCase("tr-TR").replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "");
   const metrics = reportMetrics(module, filtered, tr);
+  const assurance = buildExecutiveAssurance(rows);
   const statusDistribution = Object.entries(filtered.reduce<Record<string, number>>((acc, row) => {
     const key = display(row.data.status, lang) || (tr ? "Belirtilmedi" : "Unspecified");
     acc[key] = (acc[key] || 0) + 1;
@@ -3795,6 +3800,9 @@ function Reports({ rows, lang }: { rows: Row[]; lang: Lang }) {
   }
   function pdfReport() {
     downloadBlob(`Fornost-GRC-${exportSlug}.pdf`, buildReportPdf(reportTitle, metrics, filtered, tr));
+  }
+  function assuranceReport() {
+    downloadBlob(`Fornost-GRC-assurance-pack-${new Date().toISOString().slice(0,10)}.html`, new Blob([buildAssuranceReportHtml(rows, tr)], { type: "text/html;charset=utf-8" }));
   }
   async function excel() {
     const labels = labelMap[lang];
@@ -3833,6 +3841,9 @@ function Reports({ rows, lang }: { rows: Row[]; lang: Lang }) {
           <button className="ghost" onClick={htmlReport} disabled={!filtered.length}>
             HTML
           </button>
+          <button className="ghost" onClick={assuranceReport}>
+            {tr ? "Güvence Paketi" : "Assurance Pack"}
+          </button>
           <button className="ghost" onClick={() => csvDownload(`Fornost-GRC-${exportSlug}.csv`, filtered, lang)} disabled={!filtered.length}>
             CSV
           </button>
@@ -3849,6 +3860,13 @@ function Reports({ rows, lang }: { rows: Row[]; lang: Lang }) {
         <div><small>{tr ? "Dahil edilen" : "Included"}</small><b>{filtered.length} {tr ? "kayıt" : "records"}</b></div>
         <div><small>{tr ? "Son güncelleme" : "Last update"}</small><b>{lastUpdated ? new Date(lastUpdated).toLocaleDateString(tr ? "tr-TR" : "en-GB") : "—"}</b></div>
         <div><small>{tr ? "Çıktılar" : "Outputs"}</small><b>PDF · XLSX · CSV · HTML</b></div>
+      </section>
+      <section className="report-assurance-strip" aria-label={tr ? "Bağlı GRC güvence özeti" : "Connected GRC assurance summary"}>
+        <div><small>{tr ? "Bütünleşik güvence" : "Composite assurance"}</small><b>{assurance.score}/100</b><span>{assurance.state === "strong" ? (tr ? "Güçlü" : "Strong") : assurance.state === "developing" ? (tr ? "Gelişiyor" : "Developing") : (tr ? "Kritik" : "Critical")}</span></div>
+        <div><small>{tr ? "Zincir bütünlüğü" : "Chain integrity"}</small><b>{assurance.traceabilityScore}%</b><span>{assurance.completeChains}/{assurance.totalChains} {tr ? "tam" : "complete"}</span></div>
+        <div><small>{tr ? "Kontrol güvencesi" : "Control assurance"}</small><b>{assurance.controlScore}%</b><span>{tr ? "Test ve kanıt" : "Test and evidence"}</span></div>
+        <div><small>{tr ? "Kanıt güveni" : "Evidence confidence"}</small><b>{assurance.evidenceScore}%</b><span>{assurance.currentEvidence}/{assurance.totalEvidence} {tr ? "güncel" : "current"}</span></div>
+        <div role="button" tabIndex={0} onClick={() => go("Bağlantılı GRC")} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") go("Bağlantılı GRC"); }}><small>{tr ? "Denetim readiness" : "Audit readiness"}</small><b>{assurance.auditScore}%</b><span>{tr ? "Açıkları incele →" : "Review gaps →"}</span></div>
       </section>
       <section className="report-builder">
         <header className="report-section-head">
