@@ -36,7 +36,7 @@ export async function GET(req: NextRequest) {
       regulatoryObligations,
     ] = await Promise.all([
       DB.prepare(
-        "SELECT id,system_name,model_name,owner,status,risk_tier,review_date FROM ai_model_inventory WHERE status!='retired' ORDER BY risk_score DESC,system_name LIMIT 500",
+        "SELECT id,system_name,model_name,owner,status,risk_tier,review_date FROM ai_model_inventory WHERE status!='retired' ORDER BY residual_score DESC,system_name LIMIT 500",
       ).all<Record<string, unknown>>(),
       DB.prepare(
         "SELECT model_id,COUNT(*) total FROM ai_risks WHERE status NOT IN ('closed','accepted') AND risk_tier IN ('Critical','High') GROUP BY model_id",
@@ -71,7 +71,7 @@ export async function GET(req: NextRequest) {
         .bind(today)
         .all<Record<string, unknown>>(),
       DB.prepare(
-        "SELECT model_id,COUNT(*) total FROM ai_exceptions WHERE status='draft' OR status='approved' AND (expires_at<? OR review_at<?) GROUP BY model_id",
+        "SELECT model_id,COUNT(*) total FROM ai_exceptions WHERE status IN ('draft','approved') AND (expires_at<? OR review_at<?) GROUP BY model_id",
       )
         .bind(today, today)
         .all<Record<string, unknown>>(),
@@ -81,8 +81,12 @@ export async function GET(req: NextRequest) {
       DB.prepare(
         "SELECT model_id,COUNT(*) total FROM ai_findings WHERE status!='resolved' AND (severity IN ('High','Critical') OR due_date<?) GROUP BY model_id",
       ).bind(today).all<Record<string, unknown>>(),
-      DB.prepare("SELECT model_id,COUNT(*) total FROM ai_assurance_alerts WHERE status!='resolved' AND severity IN ('High','Critical') GROUP BY model_id").all<Record<string,unknown>>(),
-      DB.prepare("SELECT model_id,COUNT(*) total FROM ai_regulatory_obligations WHERE status!='completed' AND (priority IN ('High','Critical') OR due_date<?) GROUP BY model_id").bind(today).all<Record<string,unknown>>(),
+      DB.prepare(
+        "SELECT model_id,COUNT(*) total FROM ai_assurance_alerts WHERE status!='resolved' AND severity IN ('High','Critical') GROUP BY model_id",
+      ).all<Record<string, unknown>>(),
+      DB.prepare(
+        "SELECT model_id,COUNT(*) total FROM ai_regulatory_obligations WHERE status!='completed' AND (priority IN ('High','Critical') OR due_date<?) GROUP BY model_id",
+      ).bind(today).all<Record<string, unknown>>(),
     ]),
     riskMap = mapCounts(risks.results || [], "total"),
     incidentMap = mapCounts(incidents.results || [], "total"),
@@ -128,11 +132,15 @@ export async function GET(req: NextRequest) {
       if (!redTeamCurrent) actions.push("Red-team doğrulaması");
       if (!transparencyCurrent) actions.push("AI sistem kartı");
       if (!assuranceCurrent) actions.push("Sürekli güvence baseline'ı");
-      if (unresolvedExceptions) actions.push(`${unresolvedExceptions} açık/gecikmiş istisna`);
+      if (unresolvedExceptions)
+        actions.push(`${unresolvedExceptions} açık/gecikmiş istisna`);
       if (retirementInProgress) actions.push("Emeklilik planını tamamla");
-      if (blockingFindings) actions.push(`${blockingFindings} yüksek/gecikmiş CAPA bulgusu`);
-      if (blockingAssuranceAlerts) actions.push(`${blockingAssuranceAlerts} açık yüksek/kritik güvence alarmı`);
-      if (blockingRegulatoryObligations) actions.push(`${blockingRegulatoryObligations} açık/gecikmiş regülasyon yükümlülüğü`);
+      if (blockingFindings)
+        actions.push(`${blockingFindings} yüksek/gecikmiş CAPA bulgusu`);
+      if (blockingAssuranceAlerts)
+        actions.push(`${blockingAssuranceAlerts} açık yüksek/kritik güvence alarmı`);
+      if (blockingRegulatoryObligations)
+        actions.push(`${blockingRegulatoryObligations} açık/gecikmiş regülasyon yükümlülüğü`);
       if (!release || release.status !== "approved")
         actions.push("Üretim release onayı");
       return {
