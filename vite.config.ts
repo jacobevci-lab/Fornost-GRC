@@ -3,8 +3,8 @@ import { defineConfig } from "vite";
 import hostingConfig from "./.openai/hosting.json" with { type: "json" };
 import { sites } from "./build/sites-vite-plugin.ts";
 
-const SITE_CREATOR_PLACEHOLDER_DATABASE_ID =
-  "00000000-0000-4000-8000-000000000000";
+const FORNOST_PROD_DATABASE_ID =
+  "e5c14f0d-9251-4e4c-91ec-7f8b2a1c77e4";
 
 const { d1, r2 } = hostingConfig;
 
@@ -18,8 +18,8 @@ const localBindingConfig = {
     ? [
         {
           binding: d1,
-          database_name: "site-creator-d1",
-          database_id: SITE_CREATOR_PLACEHOLDER_DATABASE_ID,
+          database_name: "fornost-grc-prod",
+          database_id: FORNOST_PROD_DATABASE_ID,
         },
       ]
     : [],
@@ -27,7 +27,8 @@ const localBindingConfig = {
     ? [
         {
           binding: r2,
-          bucket_name: "site-creator-r2",
+          bucket_name: "fornost-grc-prod-files",
+          jurisdiction: "eu",
         },
       ]
     : [],
