@@ -81,7 +81,7 @@ export function buildControlAssurance(rows: AssuranceRow[], today = new Date().t
     const healthyAutomation = linkedAutomationRules.filter((row) => key(row.data.automationHealth || row.data.health) === "healthy");
     const failingAutomation = linkedAutomationRules.filter((row) => key(row.data.automationHealth || row.data.health) === "failing");
     const staleAutomation = linkedAutomationRules.filter((row) => ["stale", "missing"].includes(key(row.data.automationHealth || row.data.health)));
-    const attentionAutomation = linkedAutomationRules.filter((row) => ["expiring", "unknown", "paused"].includes(key(row.data.automationHealth || row.data.health)));
+    const attentionAutomation = linkedAutomationRules.filter((row) => ["", "expiring", "unknown", "paused"].includes(key(row.data.automationHealth || row.data.health)));
     const nextTestDate = clean(control.data.nextTestDate);
     const nextTestTime = dateValue(nextTestDate);
     const testOverdue = Number.isFinite(nextTestTime) && nextTestTime < todayTime;
@@ -92,7 +92,7 @@ export function buildControlAssurance(rows: AssuranceRow[], today = new Date().t
     if (!nextTestDate) { score -= 15; reasons.push("test-date-missing"); }
     else if (testOverdue) { score -= 30; reasons.push("test-overdue"); }
     if (!linkedEvidence.length && !linkedAutomationRules.length) { score -= 35; reasons.push("evidence-missing"); }
-    else if (linkedEvidence.length && !currentEvidence.length) { score -= 25; reasons.push("evidence-stale"); }
+    else if (linkedEvidence.length && !currentEvidence.length && !healthyAutomation.length) { score -= 25; reasons.push("evidence-stale"); }
     if (!linkedAudits.length) { score -= 10; reasons.push("audit-missing"); }
     if (failingAutomation.length) { score -= 25; reasons.push("automation-failing"); }
     else if (staleAutomation.length) { score -= 20; reasons.push("automation-stale"); }
