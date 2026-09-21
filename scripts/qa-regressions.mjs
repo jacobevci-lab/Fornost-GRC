@@ -127,17 +127,21 @@ try {
   if (minFooter >= 11) pass("Master Data footer meets 11px readability floor", `min=${minFooter}px`);
   else fail("Master Data footer meets 11px readability floor", `min=${minFooter}px; ${JSON.stringify(footerSizes.filter((item) => item.size < 11).slice(0, 10))}`);
 
-  // Regression: language control must really update document language and translated navigation.
-  const english = page.getByRole("button", { name: /English|EN|İngilizce/i }).first();
+  // Regression: target the actual language switch, not unrelated controls whose accessible name contains "en".
+  const english = page.locator(".language-switch button").filter({ hasText: /^EN$/ }).first();
   if (await english.count()) {
     await english.click().catch(async () => english.evaluate((element) => element.click()));
     await page.waitForTimeout(350);
     const lang = await page.locator("html").getAttribute("lang");
     const dashboard = await page.locator('nav button[aria-label="Dashboard"]').count();
-    if (lang === "en" && dashboard) pass("English language switch changes HTML and navigation", `lang=${lang}`);
-    else fail("English language switch changes HTML and navigation", `lang=${lang}; dashboard=${dashboard}`);
+    const activeLanguage = await page.locator(".language-switch button.active").first().textContent().catch(() => null);
+    if (lang === "en" && dashboard && activeLanguage?.trim() === "EN") {
+      pass("English language switch changes HTML and navigation", `lang=${lang}; active=${activeLanguage.trim()}`);
+    } else {
+      fail("English language switch changes HTML and navigation", `lang=${lang}; dashboard=${dashboard}; active=${activeLanguage || "none"}`);
+    }
   } else {
-    fail("English language switch changes HTML and navigation", "English control not found");
+    fail("English language switch changes HTML and navigation", "Exact EN language control not found");
   }
 
   await context.close();
