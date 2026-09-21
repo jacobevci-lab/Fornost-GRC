@@ -30,17 +30,16 @@ const list = (value: unknown): string[] => Array.isArray(value)
   : text(value).split(/[;,|\n]+/).map((item) => item.trim()).filter(Boolean);
 const unique = (...values: unknown[]) => Array.from(new Set(values.flatMap(list).filter(Boolean)));
 const updatedAt = (item: JsonRecord) => text(item.updatedAt || item.updated_at || item.recordedAt || item.detectedAt || item.createdAt || item.created_at) || undefined;
-const idOf = (scope: string, kind: string, item: JsonRecord, index: number) => `${scope}:${kind}:${text(item.id || item.code || item.vendorId || item.vendor_id || index)}`;
-const codeOf = (item: JsonRecord) => text(item.code || item.vendorId || item.vendor_id || item.externalRef || item.external_ref) || undefined;
+const idOf = (scope: string, kind: string, item: JsonRecord, index: number) => `${scope}:${kind}:${text(item.id || item.code || index)}`;
 const makeRow = (scope: string, kind: string, module: string, item: JsonRecord, index: number, data: JsonRecord): ConnectedGrcRow => ({
   id: idOf(scope, kind, item, index),
-  code: codeOf(item),
+  code: text(data.publicCode || item.code || item.externalRef || item.external_ref) || undefined,
   module,
   updatedAt: updatedAt(item),
   data: {
     kind,
     ...data,
-    aliasRefs: unique(item.id, item.code, item.vendorId, item.vendor_id, item.externalRef, item.external_ref, data.title, data.name),
+    aliasRefs: unique(item.id, item.code, item.externalRef, item.external_ref, data.title, data.name, data.identityRefs),
   },
 });
 
@@ -48,6 +47,9 @@ function findingsRows(payload: JsonRecord) {
   return records(payload.findings).map((item, index) => {
     const sourceType = text(item.sourceType || item.source_type).toLowerCase();
     const sourceRef = text(item.sourceRef || item.source_ref);
+    const riskRefs = unique(item.riskRef, item.risk_ref, sourceType === "risk" ? sourceRef : "");
+    const controlRefs = unique(item.controlRef, item.control_ref, sourceType === "control" ? sourceRef : "");
+    const traceable = Boolean(sourceRef || riskRefs.length || controlRefs.length);
     const sourceField: Record<string, string> = {
       audit: "findingAuditRef",
       vendor: "findingVendorRef",
@@ -58,11 +60,11 @@ function findingsRows(payload: JsonRecord) {
       control: "findingControlRef",
     };
     const dynamic = sourceRef && sourceField[sourceType] ? { [sourceField[sourceType]]: sourceRef } : {};
-    return makeRow("enterprise", "finding", "Bulgular ve CAPA", item, index, {
+    return makeRow("enterprise", traceable ? "finding" : "finding-manual", "Bulgular ve CAPA", item, index, {
       title: text(item.title),
       sourceType,
-      findingRiskRef: unique(item.riskRef, item.risk_ref, sourceType === "risk" ? sourceRef : ""),
-      findingControlRef: unique(item.controlRef, item.control_ref, sourceType === "control" ? sourceRef : ""),
+      findingRiskRef: riskRefs,
+      findingControlRef: controlRefs,
       ...dynamic,
     });
   });
@@ -172,11 +174,16 @@ function regulatoryRows(payload: JsonRecord) {
 }
 
 function thirdPartyRows(payload: JsonRecord) {
-  const vendors = records(payload.vendors).map((item, index) => makeRow("enterprise", "vendor", "Tedarikçiler", item, index, {
-    title: text(item.name || item.service),
-    name: text(item.name),
-    vendorId: text(item.vendorId || item.vendor_id || item.id),
-  }));
+  const vendors = records(payload.vendors).map((item, index) => {
+    const vendorId = text(item.vendorId || item.vendor_id || item.id);
+    return makeRow("enterprise", "vendor", "Tedarikçiler", item, index, {
+      title: text(item.name || item.service),
+      name: text(item.name),
+      vendorId,
+      identityRefs: unique(vendorId),
+      publicCode: vendorId,
+    });
+  });
   const assessments = records(payload.assessments).map((item, index) => makeRow("enterprise", "vendor-assessment", "Tedarikçiler", item, index, {
     title: text(item.title || `Assessment ${item.cycleNumber || item.cycle_number || index + 1}`),
     vendorRef: unique(item.vendorId, item.vendor_id),
