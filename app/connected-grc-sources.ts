@@ -79,12 +79,16 @@ function findingsRows(payload: JsonRecord) {
       ...dynamic,
     });
   });
-  const remediations = source.map((item, index) => {
+  const remediations = source.filter((item) => Boolean(
+    text(item.status) || text(item.correctiveAction || item.corrective_action) || text(item.preventiveAction || item.preventive_action),
+  )).map((item, index) => {
     const sourceType = text(item.sourceType || item.source_type).toLowerCase();
     const sourceRef = text(item.sourceRef || item.source_ref);
     const riskRefs = unique(item.riskRef, item.risk_ref, sourceType === "risk" ? sourceRef : "");
     const controlRefs = unique(item.controlRef, item.control_ref, sourceType === "control" ? sourceRef : "");
+    const findingCode = text(item.code);
     return makeRow("enterprise", "remediation", "Bulgular ve CAPA", item, index, {
+      publicCode: findingCode ? `${findingCode}-REM` : undefined,
       title: text(item.correctiveAction || item.corrective_action || `Remediation · ${text(item.title)}`),
       remediationFindingRef: unique(item.id, item.code),
       remediationRiskRef: riskRefs,
