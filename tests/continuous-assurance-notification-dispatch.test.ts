@@ -32,11 +32,13 @@ test("dispatcher uses configured secure email integrations and only claims sent 
 });
 
 test("notification dispatcher is Admin-only for policy and delivery while posture remains readable",()=>{
- const route=readFileSync("app/api/continuous-assurance/notifications/route.ts","utf8");
+ const route=readFileSync("app/api/continuous-assurance/notifications/route.ts","utf8"),dispatcher=readFileSync("app/assurance-notification-dispatch.ts","utf8");
  assert.match(route,/GET\(req:NextRequest\)[\s\S]*requireRole\(req,\["Admin","Editor","Viewer"\]\)/);
  assert.match(route,/PUT\(req:NextRequest\)[\s\S]*requireRole\(req,\["Admin"\]\)/);
  assert.match(route,/POST\(req:NextRequest\)[\s\S]*requireRole\(req,\["Admin"\]\)/);
- assert.match(route,/action!=="dispatch"/);assert.match(route,/maxAttempts/);assert.match(route,/state==="sent"/);assert.match(route,/Etkin e-posta entegrasyonu bulunamadı/);
+ assert.match(route,/action!=="dispatch"/);assert.match(route,/maxAttempts/);assert.match(route,/dispatchAssuranceNotifications/);assert.match(route,/Etkin e-posta entegrasyonu bulunamadı/);
+ assert.doesNotMatch(route,/deliverConfiguredEmail/);
+ assert.match(dispatcher,/state==="sent"/);assert.match(dispatcher,/maxAttempts/);assert.match(dispatcher,/continuous_assurance_notification_deliveries/);assert.match(dispatcher,/deliverConfiguredEmail/);
 });
 
 test("SLA policy is ordered, auditable and included in delivery governance",()=>{

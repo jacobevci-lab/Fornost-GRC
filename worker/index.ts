@@ -1,8 +1,9 @@
 /** Cloudflare Worker entry point for the vinext-starter template. */
 import { handleImageOptimization, DEFAULT_DEVICE_SIZES, DEFAULT_IMAGE_SIZES } from "vinext/server/image-optimization";
 import handler from "vinext/server/app-router-entry";
+import {runScheduledAssuranceOperations} from "../app/assurance-scheduled-runtime";
 
-interface Env {
+interface Env extends Record<string, unknown> {
   ASSETS: Fetcher;
   DB: D1Database;
   IMAGES: {
@@ -17,6 +18,11 @@ interface Env {
 interface ExecutionContext {
   waitUntil(promise: Promise<unknown>): void;
   passThroughOnException(): void;
+}
+
+interface ScheduledController {
+  scheduledTime: number;
+  cron: string;
 }
 
 const SECURITY_HEADERS: Readonly<Record<string, string>> = {
@@ -70,6 +76,13 @@ const worker = {
 
     const response = await handler.fetch(request, env, ctx);
     return hardenResponse(response);
+  },
+
+  async scheduled(controller: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
+    const runAt = new Date(controller.scheduledTime);
+    ctx.waitUntil(runScheduledAssuranceOperations(env.DB, env, runAt).catch((error) => {
+      console.error("Scheduled assurance operations failed", error instanceof Error ? error.message : "unknown error");
+    }));
   },
 };
 
