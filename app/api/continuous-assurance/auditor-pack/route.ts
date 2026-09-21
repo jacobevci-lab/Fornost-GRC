@@ -1,6 +1,6 @@
 import {NextRequest,NextResponse} from "next/server";
 import {requireRole} from "../../auth/security";
-import {buildExecutiveOperationsSummary,buildOwnerAccountability,ensureAssuranceNotificationSchema,syncAssuranceNotificationOutbox,type AssuranceEscalationRecord} from "../../../assurance-executive-operations";
+import {buildExecutiveOperationsSummary,buildOwnerAccountability,enrichAssuranceEscalationOwners,ensureAssuranceNotificationSchema,syncAssuranceNotificationOutbox,type AssuranceEscalationRecord} from "../../../assurance-executive-operations";
 import {buildAuditorAssurancePackHtml,buildAuditorManifest,type AuditorOperationsSnapshot} from "../../../auditor-assurance-pack";
 import type {AssuranceRow} from "../../../control-assurance";
 
@@ -15,7 +15,7 @@ async function digest(value:unknown){const data=new TextEncoder().encode(canonic
 export async function GET(req:NextRequest){
  const access=await requireRole(req,["Admin","Editor","Viewer"]);if(access.response)return access.response;
  const env=await runtime(),generatedAt=new Date().toISOString(),config=await settings(env.DB);
- let escalationRows:AssuranceEscalationRecord[]=[];try{escalationRows=(await env.DB.prepare("SELECT id,kind,severity,subject_ref,owner,title,detail,status,first_seen_at,last_seen_at,acknowledged_by,acknowledged_at,resolved_at FROM continuous_assurance_escalations ORDER BY last_seen_at DESC LIMIT 3000").all<AssuranceEscalationRecord>()).results||[]}catch{}
+ let rawEscalations:AssuranceEscalationRecord[]=[];try{rawEscalations=(await env.DB.prepare("SELECT id,kind,severity,subject_ref,owner,title,detail,status,first_seen_at,last_seen_at,acknowledged_by,acknowledged_at,resolved_at,source_json FROM continuous_assurance_escalations ORDER BY last_seen_at DESC LIMIT 3000").all<AssuranceEscalationRecord>()).results||[]}catch{}const escalationRows=await enrichAssuranceEscalationOwners(env.DB,rawEscalations);
  await ensureAssuranceNotificationSchema(env.DB);await syncAssuranceNotificationOutbox(env.DB,escalationRows,config.remindersEnabled);
  const outbox=(await env.DB.prepare("SELECT id,escalation_id,recipient,route,subject,severity,status,reason,created_at,updated_at FROM continuous_assurance_notification_outbox ORDER BY updated_at DESC LIMIT 2000").all<OutboxRow>()).results||[];
  let rows:AssuranceRow[]=[];try{const records=(await env.DB.prepare("SELECT id,module,data_json FROM simple_grc_records ORDER BY updated_at DESC LIMIT 8000").all<{id:string;module:string;data_json:string}>()).results||[];rows=records.map(record=>{const data=parse(record.data_json);return{id:record.id,code:String(data.code||data.controlRef||data.requirementRef||""),module:record.module,data}})}catch{}
