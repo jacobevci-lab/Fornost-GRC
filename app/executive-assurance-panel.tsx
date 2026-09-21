@@ -5,6 +5,7 @@ import {buildExecutiveAssurance} from "./executive-assurance";
 import type {AssuranceRow} from "./control-assurance";
 import {withBasePath} from "./base-path";
 import "./executive-assurance.css";
+import "./assurance-delivery-posture.css";
 
 type Operations={summary:{openEscalations:number;critical:number;high:number;unacknowledged:number;ownerless:number;ownerCoverage:number;overdueRiskReviews:number;mandatoryRetests:number;retestFailures:number;oldestOpenAgeDays:number;queuedNotifications:number};routes:{owner:number;governance:number};owners:Array<{owner:string;assigned:boolean;open:number;critical:number;high:number;unacknowledged:number;oldestAgeDays:number;kinds:string[]}>};
 type DeliveryOps={policy:{criticalSlaMinutes:number;highSlaMinutes:number;mediumSlaMinutes:number;maxAttempts:number};summary:{pending:number;sent:number;failed:number;inAppOnly:number;slaBreaches:number}};
