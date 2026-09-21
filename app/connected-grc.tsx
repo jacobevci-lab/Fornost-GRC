@@ -3,8 +3,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { assessConnectedGrcCoverage, buildConnectedGrcGraph, connectedRelationLabels, connectedRemediationModule, connectedTitle, type ConnectedGrcRow } from "./connected-grc-model";
 import { buildConnectedGrcEnterpriseRows, connectedGrcEnterpriseEndpoints, type ConnectedGrcEnterprisePayloads } from "./connected-grc-sources";
+import { buildContinuousAssuranceChains, summarizeContinuousAssurance } from "./continuous-assurance-chain";
 import { withBasePath } from "./base-path";
 import "./connected-grc-contract.css";
+import "./connected-assurance-posture.css";
 
 type Lang = "tr" | "en";
 const ignored = new Set(["Ana Sayfa","Bağlantılı GRC","Raporlar"]);
@@ -48,6 +50,8 @@ export default function ConnectedGrc({rows,lang,go}:{rows:ConnectedGrcRow[];lang
   },[rows,enterpriseRows]);
   const graph=useMemo(()=>buildConnectedGrcGraph(records),[records]),links=graph.links,unresolved=graph.unresolved;
   const coverage=useMemo(()=>assessConnectedGrcCoverage(records,links),[records,links]);
+  const assuranceChains=useMemo(()=>buildContinuousAssuranceChains(records,links),[records,links]);
+  const assuranceSummary=useMemo(()=>summarizeContinuousAssurance(assuranceChains),[assuranceChains]);
   const modules=useMemo(()=>Array.from(new Set(records.map(row=>row.module))).sort(),[records]);
   const linkedIds=new Set(links.flatMap(link=>[link.source.id,link.target.id]));
   const filtered=links.filter(link=>{
@@ -66,6 +70,14 @@ export default function ConnectedGrc({rows,lang,go}:{rows:ConnectedGrcRow[];lang
     <div className="connected-kpis"><article><b>{records.length}</b><span>{tr?"Toplam düğüm":"Total nodes"}</span></article><article><b>{links.length}</b><span>{tr?"Doğrulanmış bağlantı":"Verified links"}</span></article><article><b>{linkedIds.size}</b><span>{tr?"Bağlı kayıt":"Linked records"}</span></article><article><b>{records.length-linkedIds.size}</b><span>{tr?"Bağlantısız kayıt":"Orphan records"}</span></article><article className={unresolved.length?"attention":""}><b>{unresolved.length}</b><span>{tr?"Çözülmeyen referans":"Unresolved references"}</span></article><article className={coverage.gaps.length?"attention":""}><b>{coverage.percent}%</b><span>{tr?"Güvence izlenebilirliği":"Assurance traceability"}</span></article></div>
     <section className="connected-assurance" aria-label={tr?"İlişki güvence boşlukları":"Relationship assurance gaps"}>
       <header><div><small>{tr?"SÜREKLİ GÜVENCE":"CONTINUOUS ASSURANCE"}</small><h3>{tr?"Zincir bütünlüğü":"Chain integrity"}</h3></div><p>{tr?`${coverage.covered} tam, ${coverage.partial} kısmi · ${coverage.eligible} kritik kayıt için zorunlu ilişki grupları ölçülüyor.`:`${coverage.covered} complete, ${coverage.partial} partial · required relation groups measured across ${coverage.eligible} critical records.`}</p></header>
+      {assuranceSummary.rules>0&&<div className="connected-lifecycle-posture" aria-label={tr?"Sürekli güvence operasyonel duruşu":"Continuous assurance operational posture"}>
+        <article className={assuranceSummary.averageAssuranceScore<70?"attention":"healthy"}><small>{tr?"Ortalama güvence":"Average assurance"}</small><strong>{assuranceSummary.averageAssuranceScore}%</strong><span>{assuranceSummary.rules} {tr?"sürekli kontrol":"continuous controls"}</span></article>
+        <article className="healthy"><small>{tr?"Etkin":"Effective"}</small><strong>{assuranceSummary.effective}</strong><span>{tr?"doğrulanmış kontrol":"validated controls"}</span></article>
+        <article className={assuranceSummary.degraded+assuranceSummary.ineffective?"attention":"healthy"}><small>{tr?"Bozulmuş / Etkisiz":"Degraded / Ineffective"}</small><strong>{assuranceSummary.degraded} / {assuranceSummary.ineffective}</strong><span>{tr?"aksiyon gerektiren":"requiring action"}</span></article>
+        <article className={assuranceSummary.brokenChains?"critical":"healthy"}><small>{tr?"Kırık zincir":"Broken chains"}</small><strong>{assuranceSummary.brokenChains}</strong><span>{tr?"eksik yaşam döngüsü":"incomplete lifecycle"}</span></article>
+        <article className={assuranceSummary.overdueRemediations?"critical":"healthy"}><small>{tr?"Geciken remediation":"Overdue remediation"}</small><strong>{assuranceSummary.overdueRemediations}</strong><span>{tr?"termin aşımı":"past due"}</span></article>
+        <article className={assuranceSummary.riskLinked<assuranceSummary.rules?"attention":"healthy"}><small>{tr?"Riske bağlı":"Risk linked"}</small><strong>{assuranceSummary.riskLinked}/{assuranceSummary.rules}</strong><span>{tr?"güvence zinciri":"assurance chains"}</span></article>
+      </div>}
       <div className="connected-domain-posture">{coverage.domains.map(domain=><button type="button" key={domain.module} onClick={()=>setModule(domain.module)}><span><b>{domain.module}</b><small>{domain.covered} {tr?"tam":"complete"} · {domain.partial} {tr?"kısmi":"partial"}</small></span><strong className={domain.percent<50?"critical":domain.percent<100?"attention":"healthy"}>{domain.percent}%</strong><i><em style={{width:`${domain.percent}%`}}/></i></button>)}</div>
       {coverage.gaps.length?<div className="connected-gap-list">{coverage.gaps.slice(0,12).map((gap)=>{
         const target=connectedRemediationModule[gap.missingRelations[0]]||gap.row.module;
