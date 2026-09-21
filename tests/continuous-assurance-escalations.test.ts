@@ -29,7 +29,7 @@ test("escalation API is durable deduplicated policy-aware and condition resolved
  assert.match(store,/continuous_assurance_escalations/);assert.match(store,/UNIQUE/);assert.match(store,/ON CONFLICT\(fingerprint\)/);
  assert.match(runtime,/platform_settings/);assert.match(runtime,/reminderDays/);assert.match(runtime,/remindersEnabled/);
  assert.match(runtime,/risk-review:/);assert.match(runtime,/exception-expiry:/);assert.match(runtime,/mandatory-retest/);assert.match(runtime,/retest-failure/);
- assert.match(store,/system:condition-cleared/);assert.match(store,/status='resolved'/);assert.match(store,/status='acknowledged'/);
+ assert.match(store,/system:condition-cleared/);assert.match(store,/status='resolved'/);assert.match(store,/status IN \('active','acknowledged'\)/);
  assert.match(route,/requireRole\(req,\["Admin","Editor"\]\)/);assert.match(route,/Acknowledgement notu en az 10 karakter/);
  assert.match(route,/reconcileAssuranceEscalations/);assert.match(route,/readAssuranceEscalationRows/);
 });
