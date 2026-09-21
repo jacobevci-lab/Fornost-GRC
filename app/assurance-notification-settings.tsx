@@ -11,7 +11,7 @@ type Delivery={id:string;outboxId:string;attempt:number;provider:string;state:st
 type PolicyEvent={id:string;actor:string;before:Policy;after:Policy;createdAt:string};
 type DispatchRun={id:string;trigger:"manual"|"scheduled";actor:string;startedAt:string;completedAt:string;status:string;requestedLimit:number;candidates:number;sent:number;failed:number;skipped:number;detail:string};
 type Payload={policy:Policy;summary:Summary;schedule:{enabled:boolean;cadenceMinutes:number};dispatchRuns:DispatchRun[];policyEvents:PolicyEvent[];deliveries:Delivery[]};
-const defaults:Policy={criticalSlaMinutes:60,highSlaMinutes:240,mediumSlaMinutes:1440,maxAttempts:3};
+const defaults:Policy={criticalSlaMinutes:240,highSlaMinutes:1440,mediumSlaMinutes:4320,maxAttempts:3};
 
 export default function AssuranceNotificationSettings({lang}:{lang:Lang}){
  const tr=lang==="tr",[data,setData]=useState<Payload|null>(null),[policy,setPolicy]=useState<Policy>(defaults),[busy,setBusy]=useState(""),[message,setMessage]=useState("");
