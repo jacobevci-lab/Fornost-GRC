@@ -19,12 +19,16 @@ test("recovery evaluation uses stored remediation closure and post-closure re-te
   assert.match(route, /created_at>\?/);
   assert.match(route, /retestResultFor/);
   assert.match(route, /retestEvidenceFreshness/);
+  assert.match(route, /health==="stale"\|\|health==="expiring"/);
+  assert.match(route, /value==="fresh"\|\|value==="expiring"/);
   assert.match(route, /riskLinked:Boolean\(context\.risk\)/);
 });
 
 test("CAPA promotion goes through governed candidate validation before queueing", () => {
   assert.match(route, /buildContinuousAssuranceCapaCandidate/);
+  assert.match(route, /owner:clean\(body\.owner,200\)\|\|context\.finding\.owner/);
   assert.match(route, /reviewer:clean\(body\.reviewer/);
+  assert.match(route, /dueDate:clean\(body\.dueDate,10\)\|\|context\.finding\.due_date/);
   assert.match(route, /rootCause:clean\(body\.rootCause/);
   assert.match(route, /correctiveAction:clean\(body\.correctiveAction/);
   assert.match(route, /preventiveAction:clean\(body\.preventiveAction/);
