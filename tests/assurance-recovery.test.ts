@@ -61,6 +61,21 @@ test("successful re-test cannot recover assurance with stale evidence", () => {
   assert.equal(result.riskAction, "none");
 });
 
+test("expiring evidence stays degraded and cannot close the assurance loop", () => {
+  const result = evaluateAssuranceRecovery({
+    assuranceState: "degraded",
+    remediationStatus: "verified",
+    closureEvidenceRef: "EVD-2026-103B",
+    closureEvidenceSha256: digest,
+    retestResult: "pass",
+    retestEvidenceFreshness: "expiring",
+    riskLinked: true,
+  });
+  assert.equal(result.recoveryState, "evidence-degraded");
+  assert.equal(result.resultingAssuranceState, "degraded");
+  assert.equal(result.findingAction, "keep-open");
+});
+
 test("fresh successful re-test restores assurance and triggers risk reassessment", () => {
   const result = evaluateAssuranceRecovery({
     assuranceState: "ineffective",
