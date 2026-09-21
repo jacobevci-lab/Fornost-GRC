@@ -9,7 +9,7 @@ type OutboxRow={id:string;escalation_id:string;recipient:string;route:string;sub
 const parse=(value:string)=>{try{return JSON.parse(value||"{}") as Record<string,unknown>}catch{return {}}};
 async function runtime(){const{env}=await import("cloudflare:workers");return env as unknown as Env}
 async function settings(db:D1Database){let remindersEnabled=true;try{const row=await db.prepare("SELECT config_json FROM platform_settings WHERE id='default'").first<{config_json:string}>();if(row&&parse(row.config_json).remindersEnabled===false)remindersEnabled=false}catch{}return{remindersEnabled}}
-const canonical=(value:unknown):string=>{if(Array.isArray(value))return`[${value.map(canonical).join(",")}]`;if(value&&typeof value==="object")return`{${Object.entries(value as Record<string,unknown>).sort(([a],[b])=>a.localeCompare(b)).map(([key,item])=>`${JSON.stringify(key)}:${canonical(item)}`).join(",")}}`;return JSON.stringify(value)};
+const canonical=(value:unknown):string=>{if(Array.isArray(value))return`[${value.map(canonical).join(",")}]`;if(value&&typeof value==="object")return`{${Object.entries(value as Record<string,unknown>).sort(([a],[b])=>a.localeCompare(b)).map(([key,item])=>`${JSON.stringify(key)}:${canonical(item)}`).join(",")}}`;return JSON.stringify(value)??"null"};
 async function digest(value:unknown){const data=new TextEncoder().encode(canonical(value)),hash=await crypto.subtle.digest("SHA-256",data);return Array.from(new Uint8Array(hash)).map(byte=>byte.toString(16).padStart(2,"0")).join("")}
 
 export async function GET(req:NextRequest){
