@@ -1,6 +1,6 @@
 export type AssuranceState = "effective" | "degraded" | "ineffective" | "unknown";
 export type RetestResult = "not-run" | "pass" | "fail" | "error";
-export type EvidenceFreshness = "fresh" | "stale" | "missing" | "unknown";
+export type EvidenceFreshness = "fresh" | "expiring" | "stale" | "missing" | "unknown";
 export type RecoveryState =
   | "blocked"
   | "ready-for-retest"
