@@ -5,6 +5,7 @@ import { assessConnectedGrcCoverage, buildConnectedGrcGraph, connectedRelationLa
 import { buildConnectedGrcEnterpriseRows, connectedGrcEnterpriseEndpoints, type ConnectedGrcEnterprisePayloads } from "./connected-grc-sources";
 import { buildContinuousAssuranceChains, summarizeContinuousAssurance } from "./continuous-assurance-chain";
 import ContinuousAssuranceWorkQueue from "./continuous-assurance-work-queue";
+import ContinuousAssuranceGovernance from "./continuous-assurance-governance";
 import { withBasePath } from "./base-path";
 import "./connected-grc-contract.css";
 import "./connected-assurance-posture.css";
@@ -80,6 +81,7 @@ export default function ConnectedGrc({rows,lang,go}:{rows:ConnectedGrcRow[];lang
         <article className={assuranceSummary.riskLinked<assuranceSummary.rules?"attention":"healthy"}><small>{tr?"Riske bağlı":"Risk linked"}</small><strong>{assuranceSummary.riskLinked}/{assuranceSummary.rules}</strong><span>{tr?"güvence zinciri":"assurance chains"}</span></article>
       </div>}
       <ContinuousAssuranceWorkQueue lang={lang} onOpenAutomation={()=>go("Kanıt Otomasyonu")}/>
+      <ContinuousAssuranceGovernance lang={lang}/>
       <div className="connected-domain-posture">{coverage.domains.map(domain=><button type="button" key={domain.module} onClick={()=>setModule(domain.module)}><span><b>{domain.module}</b><small>{domain.covered} {tr?"tam":"complete"} · {domain.partial} {tr?"kısmi":"partial"}</small></span><strong className={domain.percent<50?"critical":domain.percent<100?"attention":"healthy"}>{domain.percent}%</strong><i><em style={{width:`${domain.percent}%`}}/></i></button>)}</div>
       {coverage.gaps.length?<div className="connected-gap-list">{coverage.gaps.slice(0,12).map((gap)=>{
         const target=connectedRemediationModule[gap.missingRelations[0]]||gap.row.module;
