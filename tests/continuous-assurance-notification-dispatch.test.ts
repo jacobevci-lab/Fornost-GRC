@@ -31,26 +31,26 @@ test("dispatcher uses configured secure email integrations and only claims sent 
  assert.doesNotMatch(transport,/console\.log/);
 });
 
-test("notification dispatcher is Admin-only for policy and delivery while posture remains readable",()=>{
+test("notification dispatcher is Admin-only for policy delivery and retry recovery while posture remains readable",()=>{
  const route=readFileSync("app/api/continuous-assurance/notifications/route.ts","utf8"),dispatcher=readFileSync("app/assurance-notification-dispatch.ts","utf8");
  assert.match(route,/GET\(req:NextRequest\)[\s\S]*requireRole\(req,\["Admin","Editor","Viewer"\]\)/);
  assert.match(route,/PUT\(req:NextRequest\)[\s\S]*requireRole\(req,\["Admin"\]\)/);
  assert.match(route,/POST\(req:NextRequest\)[\s\S]*requireRole\(req,\["Admin"\]\)/);
- assert.match(route,/action!=="dispatch"/);assert.match(route,/maxAttempts/);assert.match(route,/dispatchAssuranceNotifications/);assert.match(route,/Etkin e-posta entegrasyonu bulunamadı/);
+ assert.match(route,/action==="dispatch"/);assert.match(route,/action==="reset-retry"/);assert.match(route,/resetAssuranceNotificationRetry/);assert.match(route,/maxAttempts/);assert.match(route,/dispatchAssuranceNotifications/);assert.match(route,/Etkin e-posta entegrasyonu bulunamadı/);
  assert.doesNotMatch(route,/deliverConfiguredEmail/);
  assert.match(dispatcher,/state==="sent"/);assert.match(dispatcher,/maxAttempts/);assert.match(dispatcher,/continuous_assurance_notification_deliveries/);assert.match(dispatcher,/deliverConfiguredEmail/);
 });
 
-test("SLA policy is ordered, auditable and included in delivery governance",()=>{
+test("SLA policy recovery and scheduler state are auditable governance data",()=>{
  const runtime=readFileSync("app/assurance-notification-delivery.ts","utf8"),route=readFileSync("app/api/continuous-assurance/notifications/route.ts","utf8"),packRoute=readFileSync("app/api/continuous-assurance/auditor-pack/route.ts","utf8"),pack=readFileSync("app/auditor-assurance-pack.ts","utf8");
  assert.deepEqual(defaultAssuranceNotificationPolicy,{criticalSlaMinutes:240,highSlaMinutes:1440,mediumSlaMinutes:4320,maxAttempts:3});
- assert.match(runtime,/continuous_assurance_notification_deliveries/);assert.match(runtime,/continuous_assurance_notification_policy_events/);assert.match(runtime,/deliveryRate30d/);assert.match(runtime,/retryExhausted/);
- assert.match(route,/criticalSlaMinutes<=next\.highSlaMinutes/);assert.match(route,/highSlaMinutes<=next\.mediumSlaMinutes/);assert.match(route,/before_json/);assert.match(route,/after_json/);assert.match(route,/attempted_by/);assert.match(route,/attempted_at/);
- assert.match(packRoute,/readAssuranceNotificationPolicyEvents/);assert.match(pack,/Notification policy audit/);assert.match(pack,/schemaVersion:"1\.2"/);
+ assert.match(runtime,/continuous_assurance_notification_deliveries/);assert.match(runtime,/continuous_assurance_notification_policy_events/);assert.match(runtime,/continuous_assurance_notification_retry_resets/);assert.match(runtime,/deliveryRate30d/);assert.match(runtime,/retryExhausted/);
+ assert.match(route,/criticalSlaMinutes<=next\.highSlaMinutes/);assert.match(route,/highSlaMinutes<=next\.mediumSlaMinutes/);assert.match(route,/before_json/);assert.match(route,/after_json/);assert.match(route,/attempted_by/);assert.match(route,/attempted_at/);assert.match(route,/summarizeAssuranceSchedulerHealth/);
+ assert.match(packRoute,/readAssuranceNotificationPolicyEvents/);assert.match(packRoute,/readAssuranceNotificationDispatchRuns/);assert.match(pack,/Notification policy audit/);assert.match(pack,/Retry recovery audit/);assert.match(pack,/schemaVersion:"1\.3"/);
 });
 
-test("Email & Notifications exposes the enterprise assurance dispatch console",()=>{
+test("Email & Notifications exposes scheduler health and governed dead-letter recovery",()=>{
  const integration=readFileSync("app/integration-settings.tsx","utf8"),consoleUi=readFileSync("app/assurance-notification-settings.tsx","utf8"),css=readFileSync("app/assurance-notification-settings.css","utf8");
  assert.match(integration,/AssuranceNotificationSettings/);assert.match(integration,/kind===?"email"/);
- assert.match(consoleUi,/CONTINUOUS ASSURANCE NOTIFICATIONS/);assert.match(consoleUi,/Dispatch Pending/);assert.match(consoleUi,/SLA BREACH REGISTER/);assert.match(consoleUi,/DELIVERY AUDIT TRAIL/);assert.match(consoleUi,/Policy Kaydet/);assert.match(consoleUi,/retryExhausted/);assert.match(css,/assurance-notification-console/);
+ assert.match(consoleUi,/CONTINUOUS ASSURANCE NOTIFICATIONS/);assert.match(consoleUi,/Dispatch Pending/);assert.match(consoleUi,/SLA BREACH REGISTER/);assert.match(consoleUi,/DELIVERY AUDIT TRAIL/);assert.match(consoleUi,/DEAD-LETTER RECOVERY/);assert.match(consoleUi,/RETRY RESET AUDIT/);assert.match(consoleUi,/reset-retry/);assert.match(consoleUi,/Policy Kaydet/);assert.match(consoleUi,/retryExhausted/);assert.match(consoleUi,/health\.state/);assert.match(css,/assurance-notification-console/);assert.match(css,/assurance-recovery-register/);assert.match(css,/assurance-scheduler-status\.stale/);
 });

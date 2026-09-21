@@ -13,14 +13,16 @@ test("notification retry backoff grows exponentially and caps at six hours",()=>
  assert.equal(notificationRetryDelayMinutes(8),360);
 });
 
-test("dispatcher uses durable leases and rechecks sent/max-attempt state after lease acquisition",()=>{
+test("dispatcher uses durable leases and rechecks sent/retry-budget state after lease acquisition",()=>{
  const source=readFileSync("app/assurance-notification-dispatch.ts","utf8");
  assert.match(source,/continuous_assurance_notification_leases/);
  assert.match(source,/lease_token/);
  assert.match(source,/leased_until<=\?/);
  assert.match(source,/liveHistory\(db,item\.id\)/);
+ assert.match(source,/liveRetryReset\(db,item\.id\)/);
  assert.match(source,/!history\.some\(x=>x\.state===?"sent"\)/);
- assert.match(source,/history\.filter\(x=>x\.state===?"failed"\)\.length<maxAttempts/);
+ assert.match(source,/failedAttemptsSinceReset\(history,reset\)\.length<maxAttempts/);
+ assert.match(source,/continuous_assurance_notification_retry_resets/);
  assert.match(source,/continuous_assurance_notification_dispatch_runs/);
  assert.match(source,/trigger:"scheduled"|AssuranceDispatchTrigger/);
 });
