@@ -15,7 +15,7 @@ const coreRows: ConnectedGrcRow[] = [
 
 const payloads: ConnectedGrcEnterprisePayloads = {
   findings: {
-    findings: [{ id: "F-1", code: "FND-001", title: "Firewall gap", sourceType: "audit", sourceRef: "AUD-001", riskRef: "RSK-001", controlRef: "CTL-001" }],
+    findings: [{ id: "F-1", code: "FND-001", title: "Firewall gap", sourceType: "audit", sourceRef: "AUD-001", riskRef: "RSK-001", controlRef: "CTL-001", status: "in-progress", correctiveAction: "Correct firewall policy and validate the control" }],
   },
   incidents: {
     incidents: [{ id: "I-1", code: "INC-001", title: "Payments outage", assetRefs: ["AST-001"], riskRef: "RSK-001", biaRef: "BIA-001" }],
@@ -49,18 +49,18 @@ const payloads: ConnectedGrcEnterprisePayloads = {
 
 test("enterprise source adapters create exactly the expected deterministic namespaced rows", () => {
   const rows = buildConnectedGrcEnterpriseRows(payloads);
-  assert.equal(rows.length, 17);
+  assert.equal(rows.length, 18);
   assert.equal(new Set(rows.map((row) => row.id)).size, rows.length);
   assert.ok(rows.every((row) => row.id.startsWith("enterprise:")));
   assert.deepEqual(rows, buildConnectedGrcEnterpriseRows(payloads));
 });
 
-test("Connected GRC resolves enterprise lineage across findings incidents policies regulation KRI continuity and vendors", () => {
+test("Connected GRC resolves enterprise lineage across findings remediation risk incidents policies regulation KRI continuity and vendors", () => {
   const rows = [...coreRows, ...buildConnectedGrcEnterpriseRows(payloads)];
   const graph = buildConnectedGrcGraph(rows);
   const relations = new Set(graph.links.map((link) => link.relation));
   for (const relation of [
-    "finding-risk", "finding-control", "finding-audit",
+    "finding-risk", "finding-control", "finding-audit", "finding-remediation", "remediation-risk", "remediation-control",
     "incident-asset", "incident-risk", "incident-bia",
     "continuity-bia", "continuity-plan",
     "policy-version", "policy-control", "policy-risk",
@@ -75,6 +75,7 @@ test("Connected GRC resolves enterprise lineage across findings incidents polici
     "Bulgular ve CAPA", "Güvenlik Olayları", "İş Sürekliliği", "Politika Merkezi",
     "Regülasyon Merkezi", "Risk İştahı ve KRI", "Tedarikçiler",
   ]) assert.ok(coverage.domains.some((domain) => domain.module === moduleName), `expected coverage domain ${moduleName}`);
+  assert.equal(coverage.gaps.some((gap) => gap.row.data.kind === "remediation" && gap.missingRelations.includes("remediation-risk")), false);
 });
 
 test("enterprise source adapters tolerate partial malformed and missing payloads", () => {
