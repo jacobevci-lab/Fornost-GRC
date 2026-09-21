@@ -4,6 +4,8 @@ import test from "node:test";
 import {daysUntil,exceptionExpirySeverity,riskReviewSeverity} from "../app/assurance-escalations";
 
 const route=readFileSync("app/api/continuous-assurance/escalations/route.ts","utf8");
+const runtime=readFileSync("app/assurance-escalation-runtime.ts","utf8");
+const store=readFileSync("app/assurance-escalation-store.ts","utf8");
 const panel=readFileSync("app/continuous-assurance-escalation-center.tsx","utf8");
 const connected=readFileSync("app/connected-grc.tsx","utf8");
 
@@ -24,17 +26,18 @@ test("risk review escalation maps governance urgency without inventing severity"
 });
 
 test("escalation API is durable deduplicated policy-aware and condition resolved",()=>{
- assert.match(route,/continuous_assurance_escalations/);assert.match(route,/UNIQUE/);assert.match(route,/ON CONFLICT\(fingerprint\)/);
- assert.match(route,/platform_settings/);assert.match(route,/reminderDays/);assert.match(route,/remindersEnabled/);
- assert.match(route,/risk-review:/);assert.match(route,/exception-expiry:/);assert.match(route,/mandatory-retest/);assert.match(route,/retest-failure/);
- assert.match(route,/system:condition-cleared/);assert.match(route,/status='resolved'/);assert.match(route,/status='acknowledged'/);
+ assert.match(store,/continuous_assurance_escalations/);assert.match(store,/UNIQUE/);assert.match(store,/ON CONFLICT\(fingerprint\)/);
+ assert.match(runtime,/platform_settings/);assert.match(runtime,/reminderDays/);assert.match(runtime,/remindersEnabled/);
+ assert.match(runtime,/risk-review:/);assert.match(runtime,/exception-expiry:/);assert.match(runtime,/mandatory-retest/);assert.match(runtime,/retest-failure/);
+ assert.match(store,/system:condition-cleared/);assert.match(store,/status='resolved'/);assert.match(store,/status='acknowledged'/);
  assert.match(route,/requireRole\(req,\["Admin","Editor"\]\)/);assert.match(route,/Acknowledgement notu en az 10 karakter/);
+ assert.match(route,/reconcileAssuranceEscalations/);assert.match(route,/readAssuranceEscalationRows/);
 });
 
 test("reminder disablement does not suppress overdue or control-failure governance signals",()=>{
- assert.match(route,/!settings\.remindersEnabled&&aging\.state==="due-soon"/);
- assert.match(route,/if\(settings\.remindersEnabled\)for\(const row of rows\.results\)/);
- assert.match(route,/failed\?"critical":"high"/);
+ assert.match(runtime,/!settings\.remindersEnabled&&aging\.state==="due-soon"/);
+ assert.match(runtime,/if\(settings\.remindersEnabled\)for\(const row of rows\.results\)/);
+ assert.match(runtime,/failed\?"critical":"high"/);
 });
 
 test("Connected GRC mounts a role-aware escalation center with acknowledgement lifecycle",()=>{
