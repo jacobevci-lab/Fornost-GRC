@@ -71,6 +71,7 @@ export function buildResidualRiskReassessment(data: Record<string, unknown>, sta
   const residualImpact = status === "fail" ? inherentImpact : previousResidualImpact;
   const residualScore = Math.max(1, Math.round(residualLikelihood * residualImpact));
   const reviewRequired = status !== "pass" || !hasApprovedResidualLikelihood || !hasApprovedResidualImpact;
+  const existingReviewRequestedAt = String(data.riskReviewRequestedAt || "").trim();
   return {
     ...data,
     residualLikelihood: String(residualLikelihood),
@@ -79,6 +80,8 @@ export function buildResidualRiskReassessment(data: Record<string, unknown>, sta
     residualRiskLevel: residualLevel(residualScore),
     assuranceState: status === "pass" ? "effective" : status === "fail" ? "ineffective" : "degraded",
     residualRiskReviewRequired: reviewRequired,
+    riskReviewRequestedAt: reviewRequired ? existingReviewRequestedAt || at : "",
+    riskReviewEscalationState: reviewRequired ? String(data.riskReviewEscalationState || "none") : "none",
     lastReassessedAt: at,
     lastAssuranceRunRef: runId,
     reassessmentSource: "Continuous Assurance",

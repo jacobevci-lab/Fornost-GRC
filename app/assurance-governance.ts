@@ -1,11 +1,18 @@
 export type RiskReviewProposal={riskId:string;residualLikelihood:number;residualImpact:number;rationale:string;evidenceReference:string;evidenceSha256:string};
 export type AssuranceExceptionProposal={findingId:string;ruleId:string;controlRef:string;riskRef:string;reason:string;expiresAt:string;evidenceReference:string;evidenceSha256:string};
+export type RiskReviewEscalationState="none"|"due-soon"|"overdue"|"critical";
 
 const text=(value:unknown,max:number)=>String(value??"").trim().replace(/\u0000/g,"").slice(0,max);
 const digest=(value:unknown)=>/^[a-f0-9]{64}$/i.test(text(value,64));
 const day=(value:unknown)=>{const result=text(value,10);if(!/^\d{4}-\d{2}-\d{2}$/.test(result))return "";const parsed=new Date(`${result}T00:00:00Z`);return Number.isFinite(parsed.getTime())&&parsed.toISOString().slice(0,10)===result?result:""};
 export const assuranceRiskLevel=(score:number)=>score>=16?"Kritik":score>=10?"Yüksek":score>=5?"Orta":"Düşük";
 export const addUtcDays=(value:string,days:number)=>{const date=new Date(`${value}T00:00:00Z`);date.setUTCDate(date.getUTCDate()+days);return date.toISOString().slice(0,10)};
+export const utcAgeDays=(value:string,now=new Date())=>{const parsed=new Date(value);if(!value||!Number.isFinite(parsed.getTime()))return 0;return Math.max(0,Math.floor((now.getTime()-parsed.getTime())/86_400_000))};
+export function riskReviewEscalation(required:boolean,requestedAt:string,now=new Date()){
+ const ageDays=required?utcAgeDays(requestedAt,now):0;
+ const state:RiskReviewEscalationState=!required?"none":ageDays>=14?"critical":ageDays>=7?"overdue":ageDays>=3?"due-soon":"none";
+ return{state,ageDays,reminderDue:required&&ageDays>=3,escalationDue:required&&ageDays>=7,criticalEscalation:required&&ageDays>=14};
+}
 
 export function validateRiskReviewProposal(input:Record<string,unknown>):RiskReviewProposal{
  const riskId=text(input.riskId,120),residualLikelihood=Number(input.residualLikelihood),residualImpact=Number(input.residualImpact),rationale=text(input.rationale,2400),evidenceReference=text(input.evidenceReference,500),evidenceSha256=text(input.evidenceSha256,64).toLowerCase();
@@ -33,5 +40,5 @@ export function exceptionEffectiveStatus(status:string,expiresAt:string,today=ne
 
 export function applyApprovedResidualRisk(data:Record<string,unknown>,proposal:RiskReviewProposal,actor:string,at:string){
  const residualScore=proposal.residualLikelihood*proposal.residualImpact;
- return{...data,residualLikelihood:String(proposal.residualLikelihood),residualImpact:String(proposal.residualImpact),residualScore:String(residualScore),residualRiskLevel:assuranceRiskLevel(residualScore),residualRiskReviewRequired:false,residualRiskApprovedBy:actor,residualRiskApprovedAt:at,residualRiskRationale:proposal.rationale,residualRiskEvidenceReference:proposal.evidenceReference,residualRiskEvidenceSha256:proposal.evidenceSha256,lastReassessedAt:at,reassessmentSource:"Continuous Assurance · Risk Owner Review"};
+ return{...data,residualLikelihood:String(proposal.residualLikelihood),residualImpact:String(proposal.residualImpact),residualScore:String(residualScore),residualRiskLevel:assuranceRiskLevel(residualScore),residualRiskReviewRequired:false,riskReviewRequestedAt:"",riskReviewEscalationState:"none",residualRiskApprovedBy:actor,residualRiskApprovedAt:at,residualRiskRationale:proposal.rationale,residualRiskEvidenceReference:proposal.evidenceReference,residualRiskEvidenceSha256:proposal.evidenceSha256,lastReassessedAt:at,reassessmentSource:"Continuous Assurance · Risk Owner Review"};
 }

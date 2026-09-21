@@ -15,6 +15,7 @@ test("successful re-test preserves an already approved residual rating", () => {
   assert.equal(result.residualRiskLevel, "Yüksek");
   assert.equal(result.assuranceState, "effective");
   assert.equal(result.residualRiskReviewRequired, false);
+  assert.equal(result.riskReviewRequestedAt, "");
   assert.equal(result.lastAssuranceRunRef, "RUN-1");
 });
 
@@ -24,17 +25,19 @@ test("successful re-test never invents a residual reduction when no approved rat
   assert.equal(result.residualImpact, "5");
   assert.equal(result.residualScore, "20");
   assert.equal(result.residualRiskReviewRequired, true);
+  assert.equal(result.riskReviewRequestedAt, "2026-09-21T12:10:00.000Z");
   assert.match(String(result.reassessmentReason), /no approved residual rating/i);
 });
 
-test("failed re-test restores residual exposure to the inherent baseline", () => {
-  const result = buildResidualRiskReassessment({ inherentLikelihood: "4", inherentImpact: "4", residualLikelihood: "2", residualImpact: "3" }, "fail", "RUN-2", "2026-09-21T13:00:00.000Z");
+test("failed re-test restores residual exposure and preserves the original review aging start", () => {
+  const result = buildResidualRiskReassessment({ inherentLikelihood: "4", inherentImpact: "4", residualLikelihood: "2", residualImpact: "3", residualRiskReviewRequired: true, riskReviewRequestedAt: "2026-09-10T09:00:00.000Z" }, "fail", "RUN-2", "2026-09-21T13:00:00.000Z");
   assert.equal(result.residualLikelihood, "4");
   assert.equal(result.residualImpact, "4");
   assert.equal(result.residualScore, "16");
   assert.equal(result.residualRiskLevel, "Kritik");
   assert.equal(result.assuranceState, "ineffective");
   assert.equal(result.residualRiskReviewRequired, true);
+  assert.equal(result.riskReviewRequestedAt, "2026-09-10T09:00:00.000Z");
 });
 
 test("re-test execution errors do not claim a risk reduction", () => {
@@ -43,6 +46,7 @@ test("re-test execution errors do not claim a risk reduction", () => {
   assert.equal(result.residualScore, "12");
   assert.equal(result.assuranceState, "degraded");
   assert.equal(result.residualRiskReviewRequired, true);
+  assert.equal(result.riskReviewRequestedAt, "2026-09-21T14:00:00.000Z");
 });
 
 test("work queue review is Admin-only and enforces maker-checker separation", () => {
@@ -59,6 +63,7 @@ test("GET reconciliation closes approved re-tests and reassesses linked risk", (
   assert.match(runtime, /failed-retest/);
   assert.match(runtime, /retest-error/);
   assert.match(runtime, /buildResidualRiskReassessment/);
+  assert.match(runtime, /riskReviewRequestedAt/);
   assert.match(runtime, /residualRiskReviewRequired/);
   assert.match(runtime, /status='acknowledged'/);
 });
