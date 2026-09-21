@@ -6,6 +6,7 @@ import { buildConnectedGrcEnterpriseRows, connectedGrcEnterpriseEndpoints, type 
 import { buildContinuousAssuranceChains, summarizeContinuousAssurance } from "./continuous-assurance-chain";
 import { withBasePath } from "./base-path";
 import "./connected-grc-contract.css";
+import "./connected-assurance-posture.css";
 
 type Lang = "tr" | "en";
 const ignored = new Set(["Ana Sayfa","Bağlantılı GRC","Raporlar"]);
