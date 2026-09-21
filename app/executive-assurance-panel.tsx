@@ -6,7 +6,7 @@ import type {AssuranceRow} from "./control-assurance";
 import {withBasePath} from "./base-path";
 import "./executive-assurance.css";
 
-type Operations={summary:{openEscalations:number;critical:number;high:number;unacknowledged:number;ownerless:number;ownerCoverage:number;overdueRiskReviews:number;mandatoryRetests:number;retestFailures:number;oldestOpenAgeDays:number;queuedNotifications:number};routes:{owner:number;governance:number}};
+type Operations={summary:{openEscalations:number;critical:number;high:number;unacknowledged:number;ownerless:number;ownerCoverage:number;overdueRiskReviews:number;mandatoryRetests:number;retestFailures:number;oldestOpenAgeDays:number;queuedNotifications:number};routes:{owner:number;governance:number};owners:Array<{owner:string;assigned:boolean;open:number;critical:number;high:number;unacknowledged:number;oldestAgeDays:number;kinds:string[]}>};
 
 export default function ExecutiveAssurancePanel({rows,lang,go}:{rows:AssuranceRow[];lang:"tr"|"en";go:(module:string)=>void}){
  const tr=lang==="tr",assurance=buildExecutiveAssurance(rows),[operations,setOperations]=useState<Operations|null>(null);
@@ -31,5 +31,6 @@ export default function ExecutiveAssurancePanel({rows,lang,go}:{rows:AssuranceRo
    <article className={ops.mandatoryRetests+ops.retestFailures?"attention":""}><small>{tr?"Re-test posture":"Re-test posture"}</small><b>{ops.mandatoryRetests}</b><span>{ops.retestFailures} {tr?"başarısız":"failed"}</span></article>
    <article><small>{tr?"Routing kuyruğu":"Routing queue"}</small><b>{ops.queuedNotifications}</b><span>{operations?.routes.owner||0} owner · {operations?.routes.governance||0} governance</span></article>
   </div>}
+  {!!operations?.owners?.length&&<section className="executive-owner-accountability"><header><div><small>OWNER ACCOUNTABILITY</small><b>{tr?"Açık güvence aksiyonlarının sahiplik görünümü":"Ownership view for open assurance actions"}</b></div><span>{operations.owners.length} owner</span></header><div>{operations.owners.slice(0,5).map(owner=><article key={owner.owner} className={!owner.assigned||owner.critical?"attention":""}><div><b>{owner.assigned?owner.owner:(tr?"Atanmamış":"Unassigned")}</b><small>{owner.kinds.join(" · ")}</small></div><strong>{owner.open}</strong><span>{owner.critical} C · {owner.high} H · {owner.unacknowledged} Ack</span><em>{owner.oldestAgeDays}d</em></article>)}</div></section>}
  </section>;
 }
