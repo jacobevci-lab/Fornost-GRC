@@ -50,15 +50,17 @@ test("control assurance propagates automation health, findings and remediation r
   assert.deepEqual(result.items[0].reasons, ["automation-failing", "automation-finding-open", "remediation-open", "risk-link-missing"]);
 });
 
-test("healthy automated evidence satisfies current assurance when manual evidence is absent", () => {
+test("healthy automated evidence satisfies current assurance even when manual evidence is stale", () => {
   const result = buildControlAssurance([
     { id: "c1", module: "Kontroller", data: { controlRef: "CTL-A", owner: "Security", testOwner: "Assurance", nextTestDate: "2027-01-01", status: "Aktif" } },
+    { id: "e1", module: "Kanıtlar", data: { controlRef: "CTL-A", status: "Süresi Doldu", expiresAt: "2026-01-01" } },
     { id: "a1", module: "Denetim Yönetimi", data: { controlRef: "CTL-A" } },
     { id: "r1", module: "Kanıt Otomasyonu", data: { kind: "automation-rule", identityRefs: ["rule-a"], automationControlRefs: ["CTL-A"], automationHealth: "healthy", automationFreshness: "fresh" } },
   ], "2026-09-20");
 
   assert.equal(result.items[0].score, 100);
   assert.equal(result.items[0].state, "healthy");
+  assert.equal(result.items[0].currentEvidenceCount, 0);
   assert.equal(result.currentEvidence, 1);
   assert.deepEqual(result.items[0].reasons, []);
 });
