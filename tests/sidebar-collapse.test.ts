@@ -5,6 +5,9 @@ import test from "node:test";
 const page = readFileSync("app/page.tsx", "utf8");
 const css = readFileSync("app/workspace-system.css", "utf8");
 const productCss = readFileSync("app/product-experience.css", "utf8");
+const layout = readFileSync("app/layout.tsx", "utf8");
+const tooltip = readFileSync("app/sidebar-icon-tooltip.tsx", "utf8");
+const tooltipCss = readFileSync("app/sidebar-icon-tooltip.css", "utf8");
 
 test("desktop sidebar has persistent expanded compact and hidden modes", () => {
   assert.match(page, /sidebarMode, setSidebarMode/);
@@ -15,6 +18,20 @@ test("desktop sidebar has persistent expanded compact and hidden modes", () => {
   assert.match(page, /className="sidebar-restore"/);
   assert.match(page, /aria-controls="fornost-navigation"/);
   assert.match(page, /title=\{sidebarMode !== "expanded" \? names\[lang\]\[m\] : undefined\}/);
+});
+
+test("compact sidebar exposes immediate branded module tooltips without rail clipping", () => {
+  assert.match(layout, /import SidebarIconTooltip from "\.\/sidebar-icon-tooltip"/);
+  assert.match(layout, /<SidebarIconTooltip \/>/);
+  assert.match(tooltip, /\.sidebar-compact #fornost-navigation button\[title\]/);
+  assert.match(tooltip, /createPortal\(/);
+  assert.match(tooltip, /role="tooltip"/);
+  assert.match(tooltip, /pointerover/);
+  assert.match(tooltip, /focusin/);
+  assert.match(tooltipCss, /\.sidebar-icon-tooltip\{[\s\S]*position:fixed/);
+  assert.match(tooltipCss, /z-index:160/);
+  assert.match(tooltipCss, /var\(--ws-brand\)/);
+  assert.match(tooltipCss, /@media\(max-width:900px\)/);
 });
 
 test("desktop navigation cycles from full width to icon rail to zero width", () => {
