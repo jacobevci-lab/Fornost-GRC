@@ -33,9 +33,9 @@ test("dispatcher uses configured secure email integrations and only claims sent 
 
 test("notification dispatcher is Admin-only for policy and delivery while posture remains readable",()=>{
  const route=readFileSync("app/api/continuous-assurance/notifications/route.ts","utf8");
- assert.match(route,/GET\(req:NextRequest\).*requireRole\(req,\["Admin","Editor","Viewer"\]\)/s);
- assert.match(route,/PUT\(req:NextRequest\).*requireRole\(req,\["Admin"\]\)/s);
- assert.match(route,/POST\(req:NextRequest\).*requireRole\(req,\["Admin"\]\)/s);
+ assert.match(route,/GET\(req:NextRequest\)[\s\S]*requireRole\(req,\["Admin","Editor","Viewer"\]\)/);
+ assert.match(route,/PUT\(req:NextRequest\)[\s\S]*requireRole\(req,\["Admin"\]\)/);
+ assert.match(route,/POST\(req:NextRequest\)[\s\S]*requireRole\(req,\["Admin"\]\)/);
  assert.match(route,/action!=="dispatch"/);assert.match(route,/maxAttempts/);assert.match(route,/state==="sent"/);assert.match(route,/Etkin e-posta entegrasyonu bulunamadı/);
 });
 
