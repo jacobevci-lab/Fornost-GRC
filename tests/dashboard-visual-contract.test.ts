@@ -13,6 +13,6 @@ test("executive assurance score renders as one baseline-safe value", () => {
 test("dashboard workspace shortcut strip is retired from the visible UI", () => {
   assert.match(
     qualityGuardrails,
-    /\.dashboard-shortcuts\s*\{[^}]*display:\s*none\s*!important\s*;/s,
+    /\.dashboard-shortcuts\s*\{[^}]*display:\s*none\s*!important\s*;/,
   );
 });
