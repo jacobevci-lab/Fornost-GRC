@@ -1,0 +1,26 @@
+import {NextRequest,NextResponse} from "next/server";
+import {requireRole} from "../../auth/security";
+import {buildExecutiveOperationsSummary,buildOwnerAccountability,ensureAssuranceNotificationSchema,syncAssuranceNotificationOutbox,type AssuranceEscalationRecord} from "../../../assurance-executive-operations";
+import {buildAuditorAssurancePackHtml,buildAuditorManifest,type AuditorOperationsSnapshot} from "../../../auditor-assurance-pack";
+import type {AssuranceRow} from "../../../control-assurance";
+
+type Env=Record<string,unknown>&{DB:D1Database};
+type OutboxRow={id:string;escalation_id:string;recipient:string;route:string;subject:string;severity:string;status:string;reason:string;created_at:string;updated_at:string};
+const parse=(value:string)=>{try{return JSON.parse(value||"{}") as Record<string,unknown>}catch{return {}}};
+async function runtime(){const{env}=await import("cloudflare:workers");return env as unknown as Env}
+async function settings(db:D1Database){let remindersEnabled=true;try{const row=await db.prepare("SELECT config_json FROM platform_settings WHERE id='default'").first<{config_json:string}>();if(row&&parse(row.config_json).remindersEnabled===false)remindersEnabled=false}catch{}return{remindersEnabled}}
+const canonical=(value:unknown):string=>{if(Array.isArray(value))return`[${value.map(canonical).join(",")}]`;if(value&&typeof value==="object")return`{${Object.entries(value as Record<string,unknown>).sort(([a],[b])=>a.localeCompare(b)).map(([key,item])=>`${JSON.stringify(key)}:${canonical(item)}`).join(",")}}`;return JSON.stringify(value)};
+async function digest(value:unknown){const data=new TextEncoder().encode(canonical(value)),hash=await crypto.subtle.digest("SHA-256",data);return Array.from(new Uint8Array(hash)).map(byte=>byte.toString(16).padStart(2,"0")).join("")}
+
+export async function GET(req:NextRequest){
+ const access=await requireRole(req,["Admin","Editor","Viewer"]);if(access.response)return access.response;
+ const env=await runtime(),generatedAt=new Date().toISOString(),config=await settings(env.DB);
+ let escalationRows:AssuranceEscalationRecord[]=[];try{escalationRows=(await env.DB.prepare("SELECT id,kind,severity,subject_ref,owner,title,detail,status,first_seen_at,last_seen_at,acknowledged_by,acknowledged_at,resolved_at FROM continuous_assurance_escalations ORDER BY last_seen_at DESC LIMIT 3000").all<AssuranceEscalationRecord>()).results||[]}catch{}
+ await ensureAssuranceNotificationSchema(env.DB);await syncAssuranceNotificationOutbox(env.DB,escalationRows,config.remindersEnabled);
+ const outbox=(await env.DB.prepare("SELECT id,escalation_id,recipient,route,subject,severity,status,reason,created_at,updated_at FROM continuous_assurance_notification_outbox ORDER BY updated_at DESC LIMIT 2000").all<OutboxRow>()).results||[];
+ let rows:AssuranceRow[]=[];try{const records=(await env.DB.prepare("SELECT id,module,data_json FROM simple_grc_records ORDER BY updated_at DESC LIMIT 8000").all<{id:string;module:string;data_json:string}>()).results||[];rows=records.map(record=>{const data=parse(record.data_json);return{id:record.id,code:String(data.code||data.controlRef||data.requirementRef||""),module:record.module,data}})}catch{}
+ const operations:AuditorOperationsSnapshot={summary:buildExecutiveOperationsSummary(escalationRows,outbox,new Date(generatedAt)),owners:buildOwnerAccountability(escalationRows,new Date(generatedAt)),escalations:escalationRows.filter(row=>row.status!=="resolved").slice(0,300).map(row=>({id:row.id,kind:row.kind,severity:row.severity,subjectRef:row.subject_ref,owner:row.owner,title:row.title,status:row.status,firstSeenAt:row.first_seen_at,lastSeenAt:row.last_seen_at})),outbox:outbox.slice(0,300).map(row=>({id:row.id,escalationId:row.escalation_id,recipient:row.recipient,route:row.route,subject:row.subject,severity:row.severity,status:row.status,reason:row.reason,createdAt:row.created_at,updatedAt:row.updated_at}))};
+ const snapshotSeed={generatedAt,rows:rows.map(row=>({id:row.id,code:row.code||"",module:row.module,data:row.data})),operations},snapshotId=`SHA256:${await digest(snapshotSeed)}`,manifest=buildAuditorManifest(rows,operations,generatedAt,snapshotId),format=req.nextUrl.searchParams.get("format")||"html";
+ if(format==="json")return NextResponse.json(manifest,{headers:{"cache-control":"no-store","content-disposition":`attachment; filename="fornost-assurance-${generatedAt.slice(0,10)}.json"`}});
+ const tr=req.nextUrl.searchParams.get("lang")!=="en",html=buildAuditorAssurancePackHtml(rows,operations,tr,generatedAt,snapshotId);return new NextResponse(html,{headers:{"content-type":"text/html; charset=utf-8","cache-control":"no-store","content-disposition":`attachment; filename="fornost-auditor-assurance-${generatedAt.slice(0,10)}.html"`}});
+}
