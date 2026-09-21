@@ -42,9 +42,32 @@ function fail(name, detail) {
   report.failures.push({ name, detail });
 }
 
-function topLevelArrayCount(value) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return 0;
-  return Object.values(value).reduce((sum, item) => sum + (Array.isArray(item) ? item.length : 0), 0);
+function arrayLength(payload, key) {
+  return payload && typeof payload === "object" && !Array.isArray(payload) && Array.isArray(payload[key])
+    ? payload[key].length
+    : 0;
+}
+
+function projectableRecordCount(sourceKey, payload) {
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) return 0;
+  switch (sourceKey) {
+    case "findings":
+      return arrayLength(payload, "findings");
+    case "incidents":
+      return arrayLength(payload, "incidents");
+    case "continuity":
+      return arrayLength(payload, "plans") + arrayLength(payload, "exercises") + arrayLength(payload, "gaps");
+    case "policy":
+      return (arrayLength(payload, "documents") || arrayLength(payload, "policies")) + arrayLength(payload, "versions");
+    case "riskAppetite":
+      return arrayLength(payload, "appetites") + arrayLength(payload, "measurements") + arrayLength(payload, "breaches") + arrayLength(payload, "scenarios");
+    case "regulatory":
+      return arrayLength(payload, "sources") + arrayLength(payload, "changes") + arrayLength(payload, "impacts");
+    case "thirdParty":
+      return arrayLength(payload, "vendors") + arrayLength(payload, "assessments") + arrayLength(payload, "findings");
+    default:
+      return 0;
+  }
 }
 
 function isCloudflareInsights(urlOrText) {
@@ -72,14 +95,14 @@ try {
     });
     let payload = null;
     try { payload = await response.json(); } catch {}
-    const arrayRecords = topLevelArrayCount(payload);
+    const projectableRecords = projectableRecordCount(source.key, payload);
     report.endpointChecks.push({
       key: source.key,
       path: source.path,
       module: source.module,
       status: response.status(),
       ok: response.ok(),
-      topLevelArrayRecords: arrayRecords,
+      projectableRecords,
     });
     if (!response.ok()) fail(`Live source ${source.key}`, `${source.path} returned HTTP ${response.status()}`);
   }
@@ -155,35 +178,32 @@ try {
     if (!report.ui.liveSourcesReady) fail("Connected GRC UI source status", sourceStatusText || "status text missing");
     if (relationshipRows < 1) fail("Connected GRC relationship register", "No relationship rows rendered after live sources completed.");
 
-    for (const endpoint of report.endpointChecks.filter((item) => item.ok && item.topLevelArrayRecords > 0)) {
+    for (const endpoint of report.endpointChecks.filter((item) => item.ok && item.projectableRecords > 0)) {
       const represented = domainButtons.some((text) => text.includes(endpoint.module));
-      if (!represented) fail("Connected GRC domain projection", `${endpoint.module} returned ${endpoint.topLevelArrayRecords} top-level records but is absent from domain density.`);
+      if (!represented) fail("Connected GRC domain projection", `${endpoint.module} returned ${endpoint.projectableRecords} adapter-projectable records but is absent from domain density.`);
     }
 
     await page.screenshot({ path: path.join(outDir, "connected-grc-live-sources.png"), fullPage: true, animations: "disabled" });
   }
 
-  const langCandidates = [
-    page.getByRole("button", { name: /English|EN|İngilizce/i }),
-    page.locator('button[title*="English" i], button[aria-label*="English" i], button:has-text("EN")'),
-  ];
+  const languageButton = page.locator(".language-switch button").filter({ hasText: /^EN$/ }).first();
+  const languageButtonFound = Boolean(await languageButton.count());
   let languageSwitched = false;
-  for (const candidate of langCandidates) {
-    if (!(await candidate.count())) continue;
+  if (languageButtonFound) {
     try {
-      await candidate.first().click();
+      await languageButton.click();
       await page.waitForFunction(() => document.documentElement.lang === "en", undefined, { timeout: 5_000 });
       await page.locator('nav button[aria-label="Dashboard"]').first().waitFor({ state: "attached", timeout: 5_000 });
       languageSwitched = true;
-      break;
     } catch {}
   }
   report.language = {
+    languageButtonFound,
     exactEnglishPass: languageSwitched,
     htmlLang: await page.locator("html").getAttribute("lang"),
     dashboardNavPresent: Boolean(await page.locator('nav button[aria-label="Dashboard"]').count()),
   };
-  if (!languageSwitched) fail("English language switch", `html lang=${report.language.htmlLang}; Dashboard nav=${report.language.dashboardNavPresent}`);
+  if (!languageSwitched) fail("English language switch", `button found=${languageButtonFound}; html lang=${report.language.htmlLang}; Dashboard nav=${report.language.dashboardNavPresent}`);
 
   if (report.consoleErrors.length) fail("First-party/runtime console errors", JSON.stringify(report.consoleErrors.slice(0, 5)));
   if (report.pageErrors.length) fail("Page errors", JSON.stringify(report.pageErrors.slice(0, 5)));
