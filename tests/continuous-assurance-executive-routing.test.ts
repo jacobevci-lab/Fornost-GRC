@@ -40,12 +40,15 @@ test("durable outbox never claims external delivery without a transport",()=>{
 
 test("executive API is read-only, role protected and enriches owners from connected lineage",()=>{
  const route=readFileSync("app/api/continuous-assurance/executive/route.ts","utf8");
+ const operations=readFileSync("app/assurance-executive-operations.ts","utf8");
  assert.match(route,/requireRole\(req,\["Admin","Editor","Viewer"\]\)/);
  assert.match(route,/enrichAssuranceEscalationOwners/);
  assert.match(route,/source_json/);
  assert.match(route,/syncAssuranceNotificationOutbox/);
- assert.match(route,/ownerCoverage/);
- assert.match(route,/governance/);
+ assert.match(route,/summary,routes,owners/);
+ assert.match(operations,/ownerCoverage/);
+ assert.match(operations,/continuous_assurance_exceptions/);
+ assert.match(operations,/enterprise_findings/);
  assert.doesNotMatch(route,/export async function POST/);
 });
 
