@@ -5,7 +5,7 @@ type Env = Record<string, unknown> & { DB: D1Database };
 type TimelineEvent = {
   id: string;
   type: string;
-  category: "control" | "review" | "capa" | "finding" | "risk";
+  category: "control" | "review" | "capa" | "finding" | "risk" | "escalation";
   title: string;
   detail: string;
   actor: string;
@@ -50,11 +50,19 @@ export async function GET(req:NextRequest){
 
   const risks=await safeRows<Record<string,unknown>>(env.DB,"SELECT id,data_json,updated_at FROM simple_grc_records WHERE module='Risk Assessment' ORDER BY updated_at DESC LIMIT 300");
   for(const row of risks){
-    const data=parse(String(row.data_json||"{}"));
-    if(String(data.reassessmentSource||"")!=="Continuous Assurance")continue;
+    const data=parse(String(row.data_json||"{}")),source=String(data.reassessmentSource||"");
+    if(!source.startsWith("Continuous Assurance"))continue;
     events.push({id:`risk:${row.id}:${row.updated_at}`,type:"risk-reassessment",category:"risk",title:String(data.title||"Risk reassessment"),detail:String(data.reassessmentReason||"Continuous Assurance risk reassessment"),actor:"system:continuous-assurance",status:String(data.assuranceState||""),reference:String(row.id||""),findingId:String(row.id||""),createdAt:String(data.lastReassessedAt||row.updated_at||"")});
   }
 
+  const escalations=await safeRows<Record<string,unknown>>(env.DB,"SELECT id,kind,severity,subject_ref,title,detail,status,first_seen_at,last_seen_at,acknowledged_by,acknowledged_at,ack_note,resolved_by,resolved_at FROM continuous_assurance_escalations ORDER BY last_seen_at DESC LIMIT 300");
+  for(const row of escalations){
+    const reference=String(row.subject_ref||row.id||""),kind=String(row.kind||"assurance-escalation"),severity=String(row.severity||"medium"),title=String(row.title||"Assurance escalation");
+    events.push({id:`escalation:${row.id}:opened`,type:"escalation-opened",category:"escalation",title,detail:String(row.detail||kind),actor:"system:continuous-assurance",status:severity,reference,createdAt:String(row.first_seen_at||"")});
+    if(row.acknowledged_at)events.push({id:`escalation:${row.id}:acknowledged`,type:"escalation-acknowledged",category:"escalation",title:`${title} · acknowledged`,detail:String(row.ack_note||row.detail||kind),actor:String(row.acknowledged_by||"system"),status:"acknowledged",reference,createdAt:String(row.acknowledged_at)});
+    if(row.resolved_at)events.push({id:`escalation:${row.id}:resolved`,type:"escalation-resolved",category:"escalation",title:`${title} · resolved`,detail:String(row.detail||kind),actor:String(row.resolved_by||"system:condition-cleared"),status:"resolved",reference,createdAt:String(row.resolved_at)});
+  }
+
   const normalized=events.filter(event=>event.createdAt&&Number.isFinite(new Date(event.createdAt).getTime())).sort((a,b)=>new Date(b.createdAt).getTime()-new Date(a.createdAt).getTime()).slice(0,500);
-  return json({events:normalized,summary:{total:normalized.length,controls:normalized.filter(x=>x.category==="control").length,reviews:normalized.filter(x=>x.category==="review").length,capa:normalized.filter(x=>x.category==="capa").length,findings:normalized.filter(x=>x.category==="finding").length,risks:normalized.filter(x=>x.category==="risk").length}});
+  return json({events:normalized,summary:{total:normalized.length,controls:normalized.filter(x=>x.category==="control").length,reviews:normalized.filter(x=>x.category==="review").length,capa:normalized.filter(x=>x.category==="capa").length,findings:normalized.filter(x=>x.category==="finding").length,risks:normalized.filter(x=>x.category==="risk").length,escalations:normalized.filter(x=>x.category==="escalation").length}});
 }
