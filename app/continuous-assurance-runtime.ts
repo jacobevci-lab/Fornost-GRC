@@ -56,31 +56,38 @@ function residualLevel(score: number) {
   return "Düşük";
 }
 
+export function buildResidualRiskReassessment(data: Record<string, unknown>, status: AssuranceRunStatus, runId: string, at: string) {
+  const inherentLikelihood = asNumber(data.inherentLikelihood ?? data.likelihood, 4);
+  const inherentImpact = asNumber(data.inherentImpact ?? data.impact ?? data.calculatedImpact, 4);
+  const previousResidualLikelihood = asNumber(data.residualLikelihood, inherentLikelihood);
+  const residualLikelihood = status === "pass" ? Math.max(1, inherentLikelihood - 2) : status === "fail" ? inherentLikelihood : previousResidualLikelihood;
+  const residualImpact = asNumber(data.residualImpact, inherentImpact);
+  const residualScore = Math.max(1, Math.round(residualLikelihood * residualImpact));
+  return {
+    ...data,
+    residualLikelihood: String(residualLikelihood),
+    residualImpact: String(residualImpact),
+    residualScore: String(residualScore),
+    residualRiskLevel: residualLevel(residualScore),
+    assuranceState: status === "pass" ? "effective" : status === "fail" ? "ineffective" : "degraded",
+    lastReassessedAt: at,
+    lastAssuranceRunRef: runId,
+    reassessmentSource: "Continuous Assurance",
+    reassessmentReason: status === "pass"
+      ? "Verified remediation passed the post-closure control re-test."
+      : status === "fail"
+        ? "Post-closure control re-test failed; residual exposure returned to the inherent baseline."
+        : "Post-closure control re-test returned an execution error; residual exposure was not reduced.",
+  };
+}
+
 async function updateLinkedRiskAfterRetest(db: D1Database, findingId: string, status: AssuranceRunStatus, runId: string, at: string) {
   try {
     const record = await db.prepare("SELECT data_json FROM simple_grc_records WHERE id=? AND module='Risk Assessment'").bind(findingId).first<{ data_json: string }>();
     if (!record) return;
     const data = JSON.parse(record.data_json || "{}") as Record<string, unknown>;
-    const inherentLikelihood = asNumber(data.inherentLikelihood ?? data.likelihood, 4);
-    const inherentImpact = asNumber(data.inherentImpact ?? data.impact ?? data.calculatedImpact, 4);
-    const previousResidualLikelihood = asNumber(data.residualLikelihood, inherentLikelihood);
-    const residualLikelihood = status === "pass" ? Math.max(1, inherentLikelihood - 2) : status === "fail" ? inherentLikelihood : previousResidualLikelihood;
-    const residualImpact = asNumber(data.residualImpact, inherentImpact);
-    const residualScore = Math.max(1, Math.round(residualLikelihood * residualImpact));
-    data.residualLikelihood = String(residualLikelihood);
-    data.residualImpact = String(residualImpact);
-    data.residualScore = String(residualScore);
-    data.residualRiskLevel = residualLevel(residualScore);
-    data.assuranceState = status === "pass" ? "effective" : status === "fail" ? "ineffective" : "degraded";
-    data.lastReassessedAt = at;
-    data.lastAssuranceRunRef = runId;
-    data.reassessmentSource = "Continuous Assurance";
-    data.reassessmentReason = status === "pass"
-      ? "Verified remediation passed the post-closure control re-test."
-      : status === "fail"
-        ? "Post-closure control re-test failed; residual exposure returned to the inherent baseline."
-        : "Post-closure control re-test returned an execution error; residual exposure was not reduced.";
-    await db.prepare("UPDATE simple_grc_records SET data_json=?,updated_at=? WHERE id=?").bind(JSON.stringify(data), at, findingId).run();
+    const reassessed = buildResidualRiskReassessment(data, status, runId, at);
+    await db.prepare("UPDATE simple_grc_records SET data_json=?,updated_at=? WHERE id=?").bind(JSON.stringify(reassessed), at, findingId).run();
   } catch {
     // Risk linkage is best-effort here; the work item still records the re-test outcome for investigation.
   }
