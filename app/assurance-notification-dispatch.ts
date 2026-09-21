@@ -1,5 +1,5 @@
 import {deliverConfiguredEmail} from "./api/integrations/email-transport";
-import {ensureAssuranceNotificationDeliverySchema,readAssuranceDeliveryData,readAssuranceNotificationPolicy,type AssuranceDeliveryRecord,type AssuranceNotificationOutboxRecord} from "./assurance-notification-delivery";
+import {ensureAssuranceNotificationDeliverySchema,readAssuranceDeliveryData,readAssuranceNotificationPolicy,type AssuranceDeliveryRecord,type AssuranceDeliveryOutbox} from "./assurance-notification-delivery";
 
 type Env=Record<string,unknown>;
 export type AssuranceDispatchTrigger="manual"|"scheduled";
@@ -25,7 +25,7 @@ export async function readAssuranceNotificationDispatchRuns(db:D1Database,limit=
 const historyByOutbox=(deliveries:AssuranceDeliveryRecord[])=>{const map=new Map<string,AssuranceDeliveryRecord[]>();for(const item of deliveries)map.set(item.outbox_id,[...(map.get(item.outbox_id)||[]),item]);return map};
 const severityRank=(value:string)=>({critical:0,high:1,medium:2}[value as "critical"|"high"|"medium"]??3);
 const eligibleAfter=(history:AssuranceDeliveryRecord[])=>{const failed=history.filter(item=>item.state==="failed");if(!failed.length)return 0;const latest=failed.reduce((a,b)=>a.attempted_at>b.attempted_at?a:b),delay=notificationRetryDelayMinutes(failed.length);return new Date(latest.attempted_at).getTime()+delay*60_000};
-const isCandidate=(item:AssuranceNotificationOutboxRecord,history:AssuranceDeliveryRecord[],maxAttempts:number,nowMs:number)=>item.status==="queued"&&!!item.recipient&&!history.some(x=>x.state==="sent")&&history.filter(x=>x.state==="failed").length<maxAttempts&&eligibleAfter(history)<=nowMs;
+const isCandidate=(item:AssuranceDeliveryOutbox,history:AssuranceDeliveryRecord[],maxAttempts:number,nowMs:number)=>item.status==="queued"&&!!item.recipient&&!history.some(x=>x.state==="sent")&&history.filter(x=>x.state==="failed").length<maxAttempts&&eligibleAfter(history)<=nowMs;
 
 async function acquireLease(db:D1Database,outboxId:string,now:Date){
  const token=crypto.randomUUID(),stamp=now.toISOString(),leasedUntil=new Date(now.getTime()+120_000).toISOString();
