@@ -4,12 +4,13 @@ import test from "node:test";
 
 const route = readFileSync("app/api/continuous-assurance/route.ts", "utf8");
 
-test("continuous assurance API exposes an auditable work queue", () => {
+test("continuous assurance API exposes an auditable role-aware work queue", () => {
   assert.match(route, /continuous_assurance_work_items/);
   assert.match(route, /pending-review/);
   assert.match(route, /queue-retest/);
   assert.match(route, /queue-capa-promotion/);
-  assert.match(route, /requireRole\(req,\["Admin","Editor"\]\)/);
+  assert.match(route, /action==="review-work-item"\?\["Admin"\]:\["Admin","Editor"\]/);
+  assert.match(route, /requireRole\(req,roles\)/);
 });
 
 test("recovery evaluation uses stored remediation closure and post-closure re-test evidence", () => {
@@ -36,7 +37,7 @@ test("CAPA promotion goes through governed candidate validation before queueing"
   assert.match(route, /if\(!candidate\.eligible\)/);
 });
 
-test("work queue prevents duplicate pending re-test and CAPA jobs", () => {
-  assert.match(route, /action='control-retest' AND status='pending-review'/);
-  assert.match(route, /action='capa-promotion' AND status='pending-review'/);
+test("work queue prevents duplicate active re-tests and repeated CAPA promotion", () => {
+  assert.match(route, /action='control-retest' AND status IN \('pending-review','approved-awaiting-retest'\)/);
+  assert.match(route, /action='capa-promotion' AND status IN \('pending-review','completed'\)/);
 });
