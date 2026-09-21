@@ -28,3 +28,37 @@ test("control assurance treats missing test and evidence as actionable gaps", ()
   assert.equal(result.items[0].score, 40);
   assert.deepEqual(result.items[0].reasons, ["test-date-missing", "evidence-missing", "audit-missing"]);
 });
+
+test("control assurance propagates automation health, findings and remediation risk lineage", () => {
+  const result = buildControlAssurance([
+    { id: "c1", code: "CTL-001", module: "Kontroller", data: { controlRef: "A.5.15", controlTitle: "Access control", owner: "IAM", testOwner: "Assurance", nextTestDate: "2027-02-01", status: "Aktif" } },
+    { id: "a1", module: "Denetim Yönetimi", data: { controlRef: "A.5.15" } },
+    { id: "rule-row", module: "Kanıt Otomasyonu", data: { kind: "automation-rule", identityRefs: ["rule-1"], automationControlRefs: ["A.5.15"], automationHealth: "failing", automationFreshness: "fresh" } },
+    { id: "automation-finding", module: "Kanıt Otomasyonu", data: { kind: "automation-finding", automationRuleRef: "rule-1", status: "open" } },
+    { id: "finding-1", module: "Bulgular ve CAPA", data: { kind: "finding", findingControlRef: "A.5.15", findingRiskRef: "", status: "in-progress" } },
+  ], "2026-09-20");
+
+  assert.equal(result.currentEvidence, 0);
+  assert.equal(result.automationCovered, 1);
+  assert.equal(result.automationHealthy, 0);
+  assert.equal(result.openFindings, 2);
+  assert.equal(result.items[0].score, 40);
+  assert.equal(result.items[0].state, "critical");
+  assert.equal(result.items[0].automationRuleCount, 1);
+  assert.equal(result.items[0].automationOpenFindingCount, 1);
+  assert.equal(result.items[0].openFindingCount, 1);
+  assert.deepEqual(result.items[0].reasons, ["automation-failing", "automation-finding-open", "remediation-open", "risk-link-missing"]);
+});
+
+test("healthy automated evidence satisfies current assurance when manual evidence is absent", () => {
+  const result = buildControlAssurance([
+    { id: "c1", module: "Kontroller", data: { controlRef: "CTL-A", owner: "Security", testOwner: "Assurance", nextTestDate: "2027-01-01", status: "Aktif" } },
+    { id: "a1", module: "Denetim Yönetimi", data: { controlRef: "CTL-A" } },
+    { id: "r1", module: "Kanıt Otomasyonu", data: { kind: "automation-rule", identityRefs: ["rule-a"], automationControlRefs: ["CTL-A"], automationHealth: "healthy", automationFreshness: "fresh" } },
+  ], "2026-09-20");
+
+  assert.equal(result.items[0].score, 100);
+  assert.equal(result.items[0].state, "healthy");
+  assert.equal(result.currentEvidence, 1);
+  assert.deepEqual(result.items[0].reasons, []);
+});
