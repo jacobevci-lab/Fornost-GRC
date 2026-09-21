@@ -21,7 +21,8 @@ async function event(db: D1Database, input: { findingId: string; action: string;
 export async function promoteContinuousAssuranceFinding(
   db: D1Database,
   candidate: CapaPromotionCandidate,
-  actor: string,
+  approvalActor: string,
+  queueActor: string,
   workItemId: string,
   now = new Date(),
 ) {
@@ -36,6 +37,7 @@ export async function promoteContinuousAssuranceFinding(
   const id = `FND-${crypto.randomUUID()}`;
   const code = `FND-${now.getUTCFullYear()}-${crypto.randomUUID().replace(/-/g, "").slice(0, 8).toUpperCase()}`;
   const stamp = now.toISOString();
+  const detectedBy = "system:continuous-assurance";
   await db.prepare("INSERT INTO enterprise_findings(id,code,source_type,source_ref,source_title,finding_type,title,description,severity,owner,reviewer,root_cause,corrective_action,preventive_action,due_date,status,risk_ref,control_ref,evidence_reference,evidence_sha256,detected_by,detected_at,updated_by,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'open',?,?,?,?,?,?,?,?)")
     .bind(
       id,
@@ -57,18 +59,18 @@ export async function promoteContinuousAssuranceFinding(
       validated.controlRef || null,
       candidate.lineage.originEvidenceReference,
       candidate.lineage.originEvidenceSha256,
-      actor,
+      detectedBy,
       stamp,
-      actor,
+      approvalActor,
       stamp,
     ).run();
   await event(db, {
     findingId: id,
     action: "continuous-assurance-promotion",
-    detail: `Promoted from ${candidate.lineage.automationFindingRef}; rule ${candidate.lineage.automationRuleRef}; work item ${workItemId}`,
+    detail: `Promoted from ${candidate.lineage.automationFindingRef}; rule ${candidate.lineage.automationRuleRef}; work item ${workItemId}; queued by ${queueActor}; approved by ${approvalActor}`,
     evidenceReference: candidate.lineage.originEvidenceReference,
     evidenceSha256: candidate.lineage.originEvidenceSha256,
-    actor,
+    actor: approvalActor,
     createdAt: stamp,
   });
   return { id, code, status: "open", created: true };
