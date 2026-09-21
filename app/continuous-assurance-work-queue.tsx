@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { withBasePath } from "./base-path";
 import { assuranceWorkAgeHours, assuranceWorkSlaHours, assuranceWorkSlaState, summarizeAssuranceQueue } from "./assurance-work-queue-metrics";
+import ContinuousAssuranceTimeline from "./continuous-assurance-timeline";
 import "./continuous-assurance-work-queue.css";
 import "./assurance-work-queue-operations.css";
 
@@ -86,6 +87,7 @@ export default function ContinuousAssuranceWorkQueue({lang,onOpenAutomation}:{la
         {(item.status==="failed-retest"||item.status==="retest-error")&&<button type="button" onClick={onOpenAutomation}>{tr?"Kontrolü İncele":"Inspect Control"}</button>}
       </div>
     </article>})}</div>:<div className="assurance-work-empty">{loading?(tr?"Güvence işleri yükleniyor…":"Loading assurance work…"):(tr?"Bu filtrede güvence işi yok.":"No assurance work in this filter.")}</div>}
+    <ContinuousAssuranceTimeline lang={lang}/>
     {reviewing&&<div className="assurance-review-overlay" role="presentation" onMouseDown={event=>{if(event.target===event.currentTarget&&!busy)setReviewing(null)}}><section className="assurance-review-dialog" role="dialog" aria-modal="true" aria-label={tr?"Güvence işini incele":"Review assurance work"}><header><div><small>{reviewing.decision==="approve"?(tr?"ONAY":"APPROVAL"):(tr?"RET":"REJECTION")}</small><h4>{reviewing.item.findingTitle}</h4></div><button type="button" disabled={busy} onClick={()=>setReviewing(null)}>×</button></header><p>{reviewing.item.action==="capa-promotion"?(tr?"Onay CAPA adayını canonical Bulgular & CAPA yaşam döngüsüne aktarır.":"Approval promotes this candidate into the canonical Findings & CAPA lifecycle."):(tr?"Onay sonrası bir sonraki kontrol çalışması re-test olarak otomatik uzlaştırılır ve bağlı risk yeniden değerlendirilir.":"After approval, the next control run is reconciled as the re-test and the linked risk is reassessed automatically.")}</p><label>{tr?"İnceleme notu":"Review note"}<textarea autoFocus value={reviewing.note} onChange={event=>setReviewing({...reviewing,note:event.target.value})} placeholder={reviewing.decision==="reject"?(tr?"Ret gerekçesi (zorunlu)…":"Rejection reason (required)…"):(tr?"Onay notu (isteğe bağlı)…":"Approval note (optional)…")}/></label><footer><button type="button" disabled={busy} onClick={()=>setReviewing(null)}>{tr?"Vazgeç":"Cancel"}</button><button type="button" className={reviewing.decision==="approve"?"approve":"reject"} disabled={busy||(reviewing.decision==="reject"&&reviewing.note.trim().length<10)} onClick={submitReview}>{busy?(tr?"İşleniyor…":"Processing…"):(reviewing.decision==="approve"?(tr?"Onayı Uygula":"Apply Approval"):(tr?"Reddet":"Reject"))}</button></footer></section></div>}
   </section>;
 }
