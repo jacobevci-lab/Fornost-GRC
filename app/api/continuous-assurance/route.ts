@@ -31,7 +31,10 @@ type FindingRow = {
   closed_at: string | null;
 };
 type RunRow = { status: string; evidence_id: string | null; created_at: string };
-type WorkRow = { id:string; finding_id:string; rule_id:string; action:string; status:string; decision_json:string; created_at:string; updated_at:string; actor:string };
+type WorkRow = {
+  id:string;finding_id:string;rule_id:string;action:string;status:string;decision_json:string;created_at:string;updated_at:string;actor:string;
+  finding_title?:string|null;finding_severity?:string|null;finding_owner?:string|null;finding_due_date?:string|null;rule_name?:string|null;control_refs?:string|null;
+};
 
 const workSchema = [
   `CREATE TABLE IF NOT EXISTS continuous_assurance_work_items(id TEXT PRIMARY KEY,finding_id TEXT NOT NULL,rule_id TEXT NOT NULL,action TEXT NOT NULL,status TEXT NOT NULL,decision_json TEXT NOT NULL,created_at TEXT NOT NULL,updated_at TEXT NOT NULL,actor TEXT NOT NULL)`,
@@ -72,12 +75,19 @@ async function loadContext(db:D1Database,findingId:string){
   const retest=finding.closed_at?await db.prepare("SELECT status,evidence_id,created_at FROM evidence_automation_runs WHERE rule_id=? AND created_at>? ORDER BY created_at DESC LIMIT 1").bind(rule.id,finding.closed_at).first<RunRow>():null;
   return {finding,rule,risk,evidence,retest};
 }
+async function listWork(db:D1Database){
+  try{
+    return await db.prepare("SELECT w.*,f.title finding_title,f.severity finding_severity,f.owner finding_owner,f.due_date finding_due_date,r.name rule_name,r.control_refs control_refs FROM continuous_assurance_work_items w LEFT JOIN evidence_automation_findings f ON f.id=w.finding_id LEFT JOIN evidence_automation_rules r ON r.id=w.rule_id ORDER BY CASE w.status WHEN 'pending-review' THEN 0 ELSE 1 END,w.updated_at DESC LIMIT 500").all<WorkRow>();
+  }catch{
+    return db.prepare("SELECT * FROM continuous_assurance_work_items ORDER BY CASE status WHEN 'pending-review' THEN 0 ELSE 1 END,updated_at DESC LIMIT 500").all<WorkRow>();
+  }
+}
 
 export async function GET(req:NextRequest){
   const access=await requireRole(req,["Admin","Editor","Viewer"]);if(access.response)return access.response;
   const env=await runtime();await ready(env.DB);
-  const result=await env.DB.prepare("SELECT * FROM continuous_assurance_work_items ORDER BY CASE status WHEN 'pending-review' THEN 0 ELSE 1 END,updated_at DESC LIMIT 500").all<WorkRow>();
-  const items=result.results.map(row=>({id:row.id,findingId:row.finding_id,ruleId:row.rule_id,action:row.action,status:row.status,decision:parseData(row.decision_json),createdAt:row.created_at,updatedAt:row.updated_at,actor:row.actor}));
+  const result=await listWork(env.DB);
+  const items=result.results.map(row=>({id:row.id,findingId:row.finding_id,ruleId:row.rule_id,action:row.action,status:row.status,decision:parseData(row.decision_json),createdAt:row.created_at,updatedAt:row.updated_at,actor:row.actor,findingTitle:row.finding_title||row.finding_id,severity:row.finding_severity||"",owner:row.finding_owner||"",dueDate:row.finding_due_date||"",ruleName:row.rule_name||row.rule_id,controlRefs:row.control_refs||""}));
   return json({items,summary:{total:items.length,pendingReview:items.filter(item=>item.status==="pending-review").length,capaPromotion:items.filter(item=>item.action==="capa-promotion"&&item.status==="pending-review").length,retest:items.filter(item=>item.action==="control-retest"&&item.status==="pending-review").length}});
 }
 
