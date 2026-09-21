@@ -8,7 +8,8 @@ export type ConnectedGrcEnterprisePayloads = Partial<Record<
   | "policy"
   | "riskAppetite"
   | "regulatory"
-  | "thirdParty",
+  | "thirdParty"
+  | "evidenceAutomation",
   JsonRecord
 >>;
 
@@ -20,6 +21,7 @@ export const connectedGrcEnterpriseEndpoints = [
   { key: "riskAppetite", path: "/api/risk-appetite" },
   { key: "regulatory", path: "/api/regulatory-intelligence" },
   { key: "thirdParty", path: "/api/third-party-risk" },
+  { key: "evidenceAutomation", path: "/api/evidence-automation" },
 ] as const;
 
 const record = (value: unknown): JsonRecord | null => value && typeof value === "object" && !Array.isArray(value) ? value as JsonRecord : null;
@@ -196,6 +198,32 @@ function thirdPartyRows(payload: JsonRecord) {
   return [...vendors, ...assessments, ...findings];
 }
 
+function evidenceAutomationRows(payload: JsonRecord) {
+  const sources = records(payload.sources).map((item, index) => makeRow("enterprise", "automation-source", "Kanıt Otomasyonu", item, index, {
+    title: text(item.name || item.vendor || `Automation source ${index + 1}`),
+    name: text(item.name),
+    identityRefs: unique(item.id),
+    automationHealth: text(item.lastTestStatus || item.last_test_status),
+  }));
+  const rules = records(payload.rules).map((item, index) => makeRow("enterprise", "automation-rule", "Kanıt Otomasyonu", item, index, {
+    title: text(item.name || `Continuous control ${index + 1}`),
+    name: text(item.name),
+    identityRefs: unique(item.id),
+    automationSourceRef: unique(item.sourceId, item.source_id),
+    automationControlRefs: unique(item.controlRefs, item.control_refs),
+    automationHealth: text(item.health || item.lastStatus || item.last_status),
+    automationFreshness: text(item.freshness),
+  }));
+  const findings = records(payload.findings).map((item, index) => makeRow("enterprise", "automation-finding", "Kanıt Otomasyonu", item, index, {
+    title: text(item.title || `Continuous assurance finding ${index + 1}`),
+    automationRuleRef: unique(item.ruleId, item.rule_id),
+    automationEvidenceRef: unique(item.evidenceId, item.evidence_id),
+    severity: text(item.severity),
+    status: text(item.status),
+  }));
+  return [...sources, ...rules, ...findings];
+}
+
 export function buildConnectedGrcEnterpriseRows(payloads: ConnectedGrcEnterprisePayloads): ConnectedGrcRow[] {
   const rows = [
     ...findingsRows(payloads.findings || {}),
@@ -205,6 +233,7 @@ export function buildConnectedGrcEnterpriseRows(payloads: ConnectedGrcEnterprise
     ...riskAppetiteRows(payloads.riskAppetite || {}),
     ...regulatoryRows(payloads.regulatory || {}),
     ...thirdPartyRows(payloads.thirdParty || {}),
+    ...evidenceAutomationRows(payloads.evidenceAutomation || {}),
   ];
   const deduped = new Map<string, ConnectedGrcRow>();
   for (const row of rows) deduped.set(row.id, row);
