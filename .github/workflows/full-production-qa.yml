@@ -47,6 +47,9 @@ jobs:
       - name: Run full production QA
         run: node scripts/full-production-qa.mjs
 
+      - name: Validate Connected GRC live-source graph
+        run: node scripts/connected-grc-production-qa.mjs
+
       - name: Upload QA report and screenshots
         if: ${{ always() }}
         uses: actions/upload-artifact@v4
