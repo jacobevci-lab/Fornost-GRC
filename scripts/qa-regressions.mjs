@@ -65,6 +65,44 @@ async function textClipState(page, selector) {
   });
 }
 
+async function dashboardVisualState(page, theme) {
+  await page.evaluate((nextTheme) => {
+    document.documentElement.dataset.theme = nextTheme;
+  }, theme);
+  await page.waitForTimeout(120);
+
+  const score = await page.locator(".executive-assurance-score strong").first().evaluate((element) => {
+    const text = (element.textContent || "").trim();
+    const rect = element.getBoundingClientRect();
+    return {
+      text,
+      childElements: element.children.length,
+      width: Math.round(rect.width),
+      height: Math.round(rect.height),
+      clientWidth: element.clientWidth,
+      scrollWidth: element.scrollWidth,
+      clientHeight: element.clientHeight,
+      scrollHeight: element.scrollHeight,
+      overflowX: element.scrollWidth > element.clientWidth + 1,
+      overflowY: element.scrollHeight > element.clientHeight + 1,
+    };
+  }).catch(() => null);
+
+  const workspace = await page.locator(".dashboard-shortcuts").first().evaluate((element) => {
+    const style = getComputedStyle(element);
+    const rect = element.getBoundingClientRect();
+    return {
+      display: style.display,
+      visibility: style.visibility,
+      width: Math.round(rect.width),
+      height: Math.round(rect.height),
+      visible: style.display !== "none" && style.visibility !== "hidden" && rect.width > 0 && rect.height > 0,
+    };
+  }).catch(() => ({ display: "absent", visibility: "absent", width: 0, height: 0, visible: false }));
+
+  return { score, workspace };
+}
+
 const browser = await chromium.launch({ headless: true });
 try {
   const context = await browser.newContext({ viewport: { width: 390, height: 844 }, colorScheme: "light" });
@@ -73,6 +111,25 @@ try {
   const page = await context.newPage();
   await page.goto(baseUrl, { waitUntil: "networkidle", timeout: 60_000 });
   await page.waitForTimeout(900);
+
+  // Regression: the dashboard score must be a single baseline-safe token in both themes,
+  // and the retired WORKSPACES launcher must not occupy any visible layout space.
+  for (const theme of ["light", "dark"]) {
+    const dashboard = await dashboardVisualState(page, theme);
+    const scoreOk = dashboard.score
+      && /^\d+\/100$/.test(dashboard.score.text)
+      && dashboard.score.childElements === 0
+      && !dashboard.score.overflowX
+      && !dashboard.score.overflowY;
+    if (scoreOk) pass(`Composite assurance score is baseline-safe [${theme}]`, JSON.stringify(dashboard.score));
+    else fail(`Composite assurance score is baseline-safe [${theme}]`, JSON.stringify(dashboard.score));
+
+    if (!dashboard.workspace.visible) pass(`Dashboard WORKSPACES strip is absent from visible UI [${theme}]`, JSON.stringify(dashboard.workspace));
+    else fail(`Dashboard WORKSPACES strip is absent from visible UI [${theme}]`, JSON.stringify(dashboard.workspace));
+
+    await page.screenshot({ path: path.join(outDir, `dashboard-visual-contract-${theme}.png`), fullPage: true, animations: "disabled" });
+  }
+  await page.evaluate(() => { document.documentElement.dataset.theme = "light"; });
 
   // Regression: Ask Fornost must not cover a normal module after navigation.
   await clickModule(page, "Ask Fornost");
