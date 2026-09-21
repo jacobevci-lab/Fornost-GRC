@@ -78,5 +78,7 @@ test("dashboard executive panel surfaces operations delivery posture and auditor
  assert.match(panel,/mandatoryRetests/);
  assert.match(panel,/queuedNotifications/);
  assert.match(panel,/slaBreaches/);
- assert.match(panel,/Transport sent/);
+ assert.match(panel,/30d transport sent/);
+ assert.match(panel,/deliveryRate30d/);
+ assert.match(panel,/retryExhausted/);
 });
