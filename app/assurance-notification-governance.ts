@@ -1,0 +1,19 @@
+import {ensureAssuranceNotificationDeliverySchema,readAssuranceDeliveryData,readAssuranceNotificationPolicy,summarizeAssuranceDelivery,type AssuranceDeliveryOutbox,type AssuranceDeliveryRecord,type AssuranceNotificationPolicy} from "./assurance-notification-delivery";
+import type {AssuranceEscalationSeverity,AssuranceEscalationSignal} from "./assurance-escalation-store";
+
+export const notificationGovernanceKinds=["notification-transport-unconfigured","notification-delivery-sla","notification-delivery-exhausted"] as const;
+const severityOf=(value:string):AssuranceEscalationSeverity=>value==="critical"?"critical":value==="high"?"high":"medium";
+const exhaustedSeverity=(value:string):AssuranceEscalationSeverity=>value==="critical"?"critical":"high";
+
+export function buildNotificationGovernanceSignalsFromData(outbox:AssuranceDeliveryOutbox[],deliveries:AssuranceDeliveryRecord[],policy:AssuranceNotificationPolicy,emailConfigured:boolean,now=new Date()):AssuranceEscalationSignal[]{
+ const signals:AssuranceEscalationSignal[]=[],externalQueue=outbox.filter(item=>item.status==="queued"&&item.recipient),history=new Map<string,AssuranceDeliveryRecord[]>();for(const item of deliveries)history.set(item.outbox_id,[...(history.get(item.outbox_id)||[]),item]);
+ const exhausted=new Set<string>();for(const item of externalQueue){const attempts=history.get(item.id)||[],sent=attempts.some(attempt=>attempt.state==="sent"),failed=attempts.filter(attempt=>attempt.state==="failed").length;if(!sent&&failed>=policy.maxAttempts){exhausted.add(item.id);signals.push({fingerprint:`notification-retry:${item.id}`,kind:"notification-delivery-exhausted",severity:exhaustedSeverity(item.severity),subjectRef:item.id,owner:"",title:"Notification delivery retry exhausted",detail:`${item.severity} notification to ${item.recipient} exhausted ${failed}/${policy.maxAttempts} delivery attempts.`,source:{outboxId:item.id,escalationId:item.escalation_id,recipient:item.recipient,severity:item.severity,failedAttempts:failed,maxAttempts:policy.maxAttempts,governanceOnly:true}})}}
+ const summary=summarizeAssuranceDelivery(outbox,deliveries,policy,now);for(const breach of summary.breaches){if(exhausted.has(breach.id))continue;const item=outbox.find(row=>row.id===breach.id);signals.push({fingerprint:`notification-sla:${breach.id}`,kind:"notification-delivery-sla",severity:severityOf(breach.severity),subjectRef:breach.id,owner:"",title:"Notification delivery SLA breached",detail:`${breach.severity} notification to ${breach.recipient} is ${breach.ageMinutes} minute(s) old; SLA is ${breach.slaMinutes} minute(s).`,source:{outboxId:breach.id,escalationId:item?.escalation_id||"",recipient:breach.recipient,severity:breach.severity,ageMinutes:breach.ageMinutes,slaMinutes:breach.slaMinutes,governanceOnly:true}})}
+ if(externalQueue.length&&!emailConfigured)signals.push({fingerprint:"notification-transport:unconfigured",kind:"notification-transport-unconfigured",severity:"high",subjectRef:"email-integration",owner:"",title:"Notification transport is not configured",detail:`${externalQueue.length} external Continuous Assurance notification(s) are queued without an enabled email transport.`,source:{queued:externalQueue.length,governanceOnly:true}});
+ return signals;
+}
+
+export async function buildNotificationGovernanceSignals(db:D1Database,now=new Date()){
+ await ensureAssuranceNotificationDeliverySchema(db);const [policy,data]=await Promise.all([readAssuranceNotificationPolicy(db),readAssuranceDeliveryData(db)]);let emailConfigured=false;try{const row=await db.prepare("SELECT enabled FROM integration_settings WHERE kind='email'").first<{enabled:number}>();emailConfigured=!!row?.enabled}catch{}
+ return buildNotificationGovernanceSignalsFromData(data.outbox,data.deliveries,policy,emailConfigured,now);
+}
