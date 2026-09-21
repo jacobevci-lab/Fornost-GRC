@@ -1,6 +1,6 @@
 export type AssuranceEscalationSeverity="medium"|"high"|"critical";
 
-const validDay=(value:string)=>/^\d{4}-\d{2}-\d{2}$/.test(value)&&new Date(`${value}T00:00:00Z`).toISOString().slice(0,10)===value;
+const validDay=(value:string)=>{if(!/^\d{4}-\d{2}-\d{2}$/.test(value))return false;const parsed=new Date(`${value}T00:00:00Z`);return Number.isFinite(parsed.getTime())&&parsed.toISOString().slice(0,10)===value};
 export const daysUntil=(target:string,today:string)=>{
  if(!validDay(target)||!validDay(today))return Number.POSITIVE_INFINITY;
  return Math.ceil((new Date(`${target}T00:00:00Z`).getTime()-new Date(`${today}T00:00:00Z`).getTime())/86_400_000);
