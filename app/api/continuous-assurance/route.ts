@@ -131,7 +131,7 @@ export async function POST(req:NextRequest){
       if(work.action==="capa-promotion"){
         const stored=parseData(work.decision_json),candidate=stored.candidate as CapaPromotionCandidate|undefined;
         if(!candidate?.eligible||!candidate.payload)return json({error:"Kuyruktaki CAPA adayı artık doğrulanabilir durumda değil."},409);
-        const promoted=await promoteContinuousAssuranceFinding(env.DB,candidate,access.actor.email,work.id,new Date(stamp));
+        const promoted=await promoteContinuousAssuranceFinding(env.DB,candidate,access.actor.email,work.actor,work.id,new Date(stamp));
         await env.DB.prepare("UPDATE continuous_assurance_work_items SET status='completed',reviewed_by=?,reviewed_at=?,review_note=?,result_ref=?,completed_at=?,updated_at=? WHERE id=? AND status='pending-review'").bind(access.actor.email,stamp,note||"CAPA promotion approved.",promoted.id,stamp,stamp,work.id).run();
         return json({ok:true,status:"completed",resultRef:promoted.id,code:promoted.code,created:promoted.created,message:promoted.created?"CAPA promotion onaylandı ve canonical Findings & CAPA kaydı oluşturuldu.":"CAPA promotion onaylandı; mevcut canonical bulgu ile eşleştirildi."});
       }
