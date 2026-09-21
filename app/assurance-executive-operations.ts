@@ -1,10 +1,23 @@
 export type AssuranceEscalationRecord={
- id:string;kind:string;severity:"medium"|"high"|"critical"|string;subject_ref:string;owner:string;title:string;detail:string;status:string;first_seen_at:string;last_seen_at:string;acknowledged_by?:string|null;acknowledged_at?:string|null;resolved_at?:string|null;
+ id:string;kind:string;severity:"medium"|"high"|"critical"|string;subject_ref:string;owner:string;title:string;detail:string;status:string;first_seen_at:string;last_seen_at:string;acknowledged_by?:string|null;acknowledged_at?:string|null;resolved_at?:string|null;source_json?:string;
 };
 export type AssuranceNotificationRoute={route:"in-app-owner"|"in-app-governance";recipient:string;reason:string};
 
 const open=(row:AssuranceEscalationRecord)=>row.status!=="resolved";
 const ageDays=(iso:string,now:Date)=>{const stamp=new Date(iso).getTime();return Number.isFinite(stamp)?Math.max(0,Math.floor((now.getTime()-stamp)/86_400_000)):0};
+const parse=(value:unknown)=>{try{return JSON.parse(String(value||"{}")) as Record<string,unknown>}catch{return {}}};
+
+export async function enrichAssuranceEscalationOwners(db:D1Database,rows:AssuranceEscalationRecord[]){
+ const riskOwners=new Map<string,string>(),exceptionRisks=new Map<string,string>(),findingRisks=new Map<string,string>();
+ try{const risks=(await db.prepare("SELECT id,data_json FROM simple_grc_records WHERE module='Risk Assessment' LIMIT 5000").all<{id:string;data_json:string}>()).results||[];for(const row of risks){const data=parse(row.data_json),owner=String(data.owner||"").trim();if(owner)riskOwners.set(row.id,owner)}}catch{}
+ try{const exceptions=(await db.prepare("SELECT id,risk_ref FROM continuous_assurance_exceptions LIMIT 3000").all<{id:string;risk_ref:string}>()).results||[];for(const row of exceptions)if(row.risk_ref)exceptionRisks.set(row.id,row.risk_ref)}catch{}
+ try{const findings=(await db.prepare("SELECT id,risk_ref FROM enterprise_findings LIMIT 5000").all<{id:string;risk_ref:string}>()).results||[];for(const row of findings)if(row.risk_ref)findingRisks.set(row.id,row.risk_ref)}catch{}
+ return rows.map(row=>{
+  if(String(row.owner||"").trim())return row;
+  const source=parse(row.source_json),exceptionId=String(source.exceptionId||""),findingId=String(source.findingId||""),riskRef=String(source.riskId||source.riskRef||exceptionRisks.get(exceptionId||row.subject_ref)||findingRisks.get(findingId||row.subject_ref)||"");
+  return riskRef&&riskOwners.get(riskRef)?{...row,owner:riskOwners.get(riskRef)!}:row;
+ });
+}
 
 export function notificationRoutes(row:AssuranceEscalationRecord,remindersEnabled=true):AssuranceNotificationRoute[]{
  if(row.status!=="active")return [];
@@ -61,7 +74,6 @@ export async function syncAssuranceNotificationOutbox(db:D1Database,rows:Assuran
    await db.prepare("INSERT INTO continuous_assurance_notification_outbox(id,fingerprint,escalation_id,recipient,route,subject,body,severity,status,reason,created_at,updated_at,last_routed_at,closed_at,source_json) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(fingerprint) DO UPDATE SET recipient=excluded.recipient,route=excluded.route,subject=excluded.subject,body=excluded.body,severity=excluded.severity,status=CASE WHEN continuous_assurance_notification_outbox.status='cancelled' THEN 'queued' ELSE continuous_assurance_notification_outbox.status END,reason=excluded.reason,updated_at=excluded.updated_at,last_routed_at=excluded.last_routed_at,closed_at=CASE WHEN continuous_assurance_notification_outbox.status='cancelled' THEN NULL ELSE continuous_assurance_notification_outbox.closed_at END,source_json=excluded.source_json").bind(id,fingerprint,row.id,target.recipient,target.route,row.title,row.detail,row.severity,"queued",target.reason,stamp,stamp,stamp,null,JSON.stringify({kind:row.kind,subjectRef:row.subject_ref,escalationStatus:row.status})).run();
   }
  }
- // Rows left queued after an escalation was acknowledged/resolved or a reminder policy was disabled are no longer actionable.
  const queued=(await db.prepare("SELECT id,fingerprint,escalation_id FROM continuous_assurance_notification_outbox WHERE status='queued'").all<{id:string;fingerprint:string;escalation_id:string}>()).results||[];
  const valid=new Set(activeFingerprints);for(const item of queued)if(!valid.has(item.fingerprint))await db.prepare("UPDATE continuous_assurance_notification_outbox SET status='cancelled',updated_at=?,closed_at=? WHERE id=? AND status='queued'").bind(stamp,stamp,item.id).run();
 }
