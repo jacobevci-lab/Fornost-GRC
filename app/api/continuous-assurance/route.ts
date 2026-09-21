@@ -49,7 +49,7 @@ function assuranceStateFor(rule:RuleRow,now=new Date()):AssuranceState{
   const health=controlHealth({enabled:!!rule.enabled,lastStatus:rule.last_status,lastEvidenceAt:rule.last_evidence_at,freshnessHours:rule.freshness_hours,consecutiveFailures:rule.consecutive_failures},now);
   if(health==="healthy")return "effective";
   if(health==="failing")return "ineffective";
-  if(health==="stale")return "degraded";
+  if(health==="stale"||health==="expiring")return "degraded";
   return "unknown";
 }
 function retestResultFor(run:RunRow|null):RetestResult{
@@ -60,7 +60,7 @@ function retestResultFor(run:RunRow|null):RetestResult{
 }
 function freshnessFor(rule:RuleRow,now=new Date()):EvidenceFreshness{
   const value=String(evidenceFreshness(rule.last_evidence_at,rule.freshness_hours,now));
-  return value==="fresh"||value==="stale"||value==="missing"?value:"unknown";
+  return value==="fresh"||value==="expiring"||value==="stale"||value==="missing"?value:"unknown";
 }
 async function loadContext(db:D1Database,findingId:string){
   const finding=await db.prepare("SELECT * FROM evidence_automation_findings WHERE id=?").bind(findingId).first<FindingRow>();
