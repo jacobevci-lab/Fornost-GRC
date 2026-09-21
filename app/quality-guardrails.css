@@ -3,6 +3,12 @@
  * Keep these rules focused on confirmed runtime issues rather than legacy-source cosmetics.
  */
 
+/* The dashboard workspace launcher duplicated the primary navigation and consumed a full
+ * horizontal band without adding decision value. It is intentionally retired from the UI. */
+.dashboard-shortcuts {
+  display: none !important;
+}
+
 /* Row actions must remain readable even when legacy table skins apply muted/disabled opacity. */
 .row-actions-cell,
 .row-actions,
