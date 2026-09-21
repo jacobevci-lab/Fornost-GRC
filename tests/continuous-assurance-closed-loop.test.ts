@@ -7,22 +7,34 @@ const route = readFileSync("app/api/continuous-assurance/route.ts", "utf8");
 const promotion = readFileSync("app/findings/promotion.ts", "utf8");
 const queueUi = readFileSync("app/continuous-assurance-work-queue.tsx", "utf8");
 
-test("successful re-test lowers residual likelihood while preserving impact", () => {
-  const result = buildResidualRiskReassessment({ inherentLikelihood: "4", inherentImpact: "5" }, "pass", "RUN-1", "2026-09-21T12:00:00.000Z");
+test("successful re-test preserves an already approved residual rating", () => {
+  const result = buildResidualRiskReassessment({ inherentLikelihood: "4", inherentImpact: "5", residualLikelihood: "2", residualImpact: "5" }, "pass", "RUN-1", "2026-09-21T12:00:00.000Z");
   assert.equal(result.residualLikelihood, "2");
   assert.equal(result.residualImpact, "5");
   assert.equal(result.residualScore, "10");
   assert.equal(result.residualRiskLevel, "Yüksek");
   assert.equal(result.assuranceState, "effective");
+  assert.equal(result.residualRiskReviewRequired, false);
   assert.equal(result.lastAssuranceRunRef, "RUN-1");
 });
 
-test("failed re-test restores residual exposure to the inherent baseline", () => {
-  const result = buildResidualRiskReassessment({ inherentLikelihood: "4", inherentImpact: "4", residualLikelihood: "2" }, "fail", "RUN-2", "2026-09-21T13:00:00.000Z");
+test("successful re-test never invents a residual reduction when no approved rating exists", () => {
+  const result = buildResidualRiskReassessment({ inherentLikelihood: "4", inherentImpact: "5" }, "pass", "RUN-1B", "2026-09-21T12:10:00.000Z");
   assert.equal(result.residualLikelihood, "4");
+  assert.equal(result.residualImpact, "5");
+  assert.equal(result.residualScore, "20");
+  assert.equal(result.residualRiskReviewRequired, true);
+  assert.match(String(result.reassessmentReason), /no approved residual rating/i);
+});
+
+test("failed re-test restores residual exposure to the inherent baseline", () => {
+  const result = buildResidualRiskReassessment({ inherentLikelihood: "4", inherentImpact: "4", residualLikelihood: "2", residualImpact: "3" }, "fail", "RUN-2", "2026-09-21T13:00:00.000Z");
+  assert.equal(result.residualLikelihood, "4");
+  assert.equal(result.residualImpact, "4");
   assert.equal(result.residualScore, "16");
   assert.equal(result.residualRiskLevel, "Kritik");
   assert.equal(result.assuranceState, "ineffective");
+  assert.equal(result.residualRiskReviewRequired, true);
 });
 
 test("re-test execution errors do not claim a risk reduction", () => {
@@ -30,6 +42,7 @@ test("re-test execution errors do not claim a risk reduction", () => {
   assert.equal(result.residualLikelihood, "3");
   assert.equal(result.residualScore, "12");
   assert.equal(result.assuranceState, "degraded");
+  assert.equal(result.residualRiskReviewRequired, true);
 });
 
 test("work queue review is Admin-only and enforces maker-checker separation", () => {
@@ -46,15 +59,18 @@ test("GET reconciliation closes approved re-tests and reassesses linked risk", (
   assert.match(runtime, /failed-retest/);
   assert.match(runtime, /retest-error/);
   assert.match(runtime, /buildResidualRiskReassessment/);
+  assert.match(runtime, /residualRiskReviewRequired/);
   assert.match(runtime, /status='acknowledged'/);
 });
 
-test("approved CAPA promotion creates a canonical enterprise finding with immutable origin evidence", () => {
-  assert.match(route, /promoteContinuousAssuranceFinding/);
+test("approved CAPA promotion creates a canonical enterprise finding with immutable origin evidence and system detection lineage", () => {
+  assert.match(route, /promoteContinuousAssuranceFinding\(env\.DB,candidate,access\.actor\.email,work\.actor,work\.id/);
   assert.match(promotion, /enterprise_findings/);
   assert.match(promotion, /continuous-assurance-promotion/);
   assert.match(promotion, /originEvidenceReference/);
   assert.match(promotion, /originEvidenceSha256/);
+  assert.match(promotion, /system:continuous-assurance/);
+  assert.match(promotion, /queued by \$\{queueActor\}; approved by \$\{approvalActor\}/);
   assert.match(promotion, /source_type='control' AND source_ref=\?/);
 });
 
