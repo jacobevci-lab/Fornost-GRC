@@ -59,10 +59,18 @@ function residualLevel(score: number) {
 export function buildResidualRiskReassessment(data: Record<string, unknown>, status: AssuranceRunStatus, runId: string, at: string) {
   const inherentLikelihood = asNumber(data.inherentLikelihood ?? data.likelihood, 4);
   const inherentImpact = asNumber(data.inherentImpact ?? data.impact ?? data.calculatedImpact, 4);
-  const previousResidualLikelihood = asNumber(data.residualLikelihood, inherentLikelihood);
-  const residualLikelihood = status === "pass" ? Math.max(1, inherentLikelihood - 2) : status === "fail" ? inherentLikelihood : previousResidualLikelihood;
-  const residualImpact = asNumber(data.residualImpact, inherentImpact);
+  const hasApprovedResidualLikelihood = Number.isFinite(Number(data.residualLikelihood)) && Number(data.residualLikelihood) > 0;
+  const hasApprovedResidualImpact = Number.isFinite(Number(data.residualImpact)) && Number(data.residualImpact) > 0;
+  const previousResidualLikelihood = hasApprovedResidualLikelihood ? Number(data.residualLikelihood) : inherentLikelihood;
+  const previousResidualImpact = hasApprovedResidualImpact ? Number(data.residualImpact) : inherentImpact;
+
+  // A passing automated control proves the assurance signal recovered; it does not, by itself,
+  // justify inventing a new risk-reduction factor. Preserve an already approved residual rating.
+  // If no residual rating exists, remain at the inherent baseline and require human reassessment.
+  const residualLikelihood = status === "fail" ? inherentLikelihood : previousResidualLikelihood;
+  const residualImpact = status === "fail" ? inherentImpact : previousResidualImpact;
   const residualScore = Math.max(1, Math.round(residualLikelihood * residualImpact));
+  const reviewRequired = status !== "pass" || !hasApprovedResidualLikelihood || !hasApprovedResidualImpact;
   return {
     ...data,
     residualLikelihood: String(residualLikelihood),
@@ -70,14 +78,17 @@ export function buildResidualRiskReassessment(data: Record<string, unknown>, sta
     residualScore: String(residualScore),
     residualRiskLevel: residualLevel(residualScore),
     assuranceState: status === "pass" ? "effective" : status === "fail" ? "ineffective" : "degraded",
+    residualRiskReviewRequired: reviewRequired,
     lastReassessedAt: at,
     lastAssuranceRunRef: runId,
     reassessmentSource: "Continuous Assurance",
     reassessmentReason: status === "pass"
-      ? "Verified remediation passed the post-closure control re-test."
+      ? hasApprovedResidualLikelihood && hasApprovedResidualImpact
+        ? "Verified remediation passed the post-closure control re-test; the previously approved residual rating was preserved."
+        : "Verified remediation passed the post-closure control re-test; no approved residual rating existed, so no automatic risk reduction was inferred."
       : status === "fail"
-        ? "Post-closure control re-test failed; residual exposure returned to the inherent baseline."
-        : "Post-closure control re-test returned an execution error; residual exposure was not reduced.",
+        ? "Post-closure control re-test failed; residual exposure returned to the inherent baseline and requires risk-owner review."
+        : "Post-closure control re-test returned an execution error; residual exposure was not reduced and requires review.",
   };
 }
 
