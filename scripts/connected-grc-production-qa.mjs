@@ -18,7 +18,9 @@ const sourceDefinitions = [
   { key: "riskAppetite", path: "/api/risk-appetite", module: "Risk İştahı ve KRI" },
   { key: "regulatory", path: "/api/regulatory-intelligence", module: "Regülasyon Merkezi" },
   { key: "thirdParty", path: "/api/third-party-risk", module: "Tedarikçiler" },
+  { key: "evidenceAutomation", path: "/api/evidence-automation", module: "Kanıt Otomasyonu" },
 ];
+const expectedLiveSourceText = `${sourceDefinitions.length}/${sourceDefinitions.length}`;
 
 const accessHeaders = {};
 if (accessClientId && accessClientSecret) {
@@ -65,6 +67,8 @@ function projectableRecordCount(sourceKey, payload) {
       return arrayLength(payload, "sources") + arrayLength(payload, "changes") + arrayLength(payload, "impacts");
     case "thirdParty":
       return arrayLength(payload, "vendors") + arrayLength(payload, "assessments") + arrayLength(payload, "findings");
+    case "evidenceAutomation":
+      return arrayLength(payload, "sources") + arrayLength(payload, "rules") + arrayLength(payload, "findings");
     default:
       return 0;
   }
@@ -151,12 +155,12 @@ try {
     const liveStatus = page.locator(".connected-hero small").first();
     try {
       await liveStatus.waitFor({ state: "visible", timeout: 5_000 });
-      await page.waitForFunction(() => {
+      await page.waitForFunction((expected) => {
         const text = document.querySelector(".connected-hero small")?.textContent || "";
-        return /7\/7/.test(text) && !/YÜKLENİYOR|LOADING LIVE SOURCES/i.test(text);
-      }, undefined, { timeout: 20_000 });
+        return text.includes(expected) && !/YÜKLENİYOR|LOADING LIVE SOURCES/i.test(text);
+      }, expectedLiveSourceText, { timeout: 20_000 });
     } catch {
-      fail("Connected GRC live-source readiness", `Expected 7/7 live sources, observed: ${(await liveStatus.textContent().catch(() => "")) || "missing status"}`);
+      fail("Connected GRC live-source readiness", `Expected ${expectedLiveSourceText} live sources, observed: ${(await liveStatus.textContent().catch(() => "")) || "missing status"}`);
     }
 
     const sourceStatusText = (await liveStatus.textContent().catch(() => ""))?.trim() || "";
@@ -168,7 +172,7 @@ try {
 
     report.ui = {
       sourceStatusText,
-      liveSourcesReady: /7\/7/.test(sourceStatusText) && !loadingVisible,
+      liveSourcesReady: sourceStatusText.includes(expectedLiveSourceText) && !loadingVisible,
       relationshipRows,
       unresolvedRows,
       domainButtons: domainButtons.map((value) => value.replace(/\s+/g, " ").trim()),

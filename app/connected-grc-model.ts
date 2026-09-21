@@ -35,7 +35,8 @@ export type ConnectedGrcCoverageGap = {
     | "policy-mapping"
     | "regulatory-impact"
     | "kri-lineage"
-    | "vendor-lineage";
+    | "vendor-lineage"
+    | "continuous-assurance";
   severity: "high" | "medium";
   expectedRelations: string[];
   missingRelations: string[];
@@ -102,6 +103,11 @@ const relationFields: Record<string, RelationDefinition> = {
 
   vendorRef: { relation: "vendor-assessment", modules: ["Tedarikçiler"], sources: ["Tedarikçiler"] },
   vendorAssessmentRef: { relation: "assessment-finding", modules: ["Tedarikçiler"], sources: ["Tedarikçiler"] },
+
+  automationSourceRef: { relation: "automation-source", modules: ["Kanıt Otomasyonu"], sources: ["Kanıt Otomasyonu"] },
+  automationControlRefs: { relation: "automation-control", modules: ["Kontroller", "Uyum"], sources: ["Kanıt Otomasyonu"] },
+  automationRuleRef: { relation: "automation-rule", modules: ["Kanıt Otomasyonu"], sources: ["Kanıt Otomasyonu"] },
+  automationEvidenceRef: { relation: "automation-evidence", modules: ["Kanıtlar"], sources: ["Kanıt Otomasyonu"] },
 };
 
 const titleFields = [
@@ -180,6 +186,8 @@ const coverageRules: CoverageRule[] = [
   { module: "Risk İştahı ve KRI", kind: "risk-scenario", rule: "kri-lineage", severity: "medium", relationGroups: [["kri-appetite"]] },
   { module: "Tedarikçiler", kind: "vendor-assessment", rule: "vendor-lineage", severity: "medium", relationGroups: [["vendor-assessment"]] },
   { module: "Tedarikçiler", kind: "vendor-finding", rule: "vendor-lineage", severity: "high", relationGroups: [["vendor-assessment"], ["assessment-finding"]] },
+  { module: "Kanıt Otomasyonu", kind: "automation-rule", rule: "continuous-assurance", severity: "high", relationGroups: [["automation-source"], ["automation-control"]] },
+  { module: "Kanıt Otomasyonu", kind: "automation-finding", rule: "continuous-assurance", severity: "high", relationGroups: [["automation-rule"]] },
 ];
 
 const ruleForRow = (row: ConnectedGrcRow) => coverageRules.find((rule) =>
@@ -264,6 +272,10 @@ export const connectedRemediationModule: Record<string, string> = {
   "kri-measurement": "Risk İştahı ve KRI",
   "vendor-assessment": "Tedarikçiler",
   "assessment-finding": "Tedarikçiler",
+  "automation-source": "Kanıt Otomasyonu",
+  "automation-control": "Kontroller",
+  "automation-rule": "Kanıt Otomasyonu",
+  "automation-evidence": "Kanıtlar",
 };
 
 export const connectedRelationLabels: Record<string, { tr: string; en: string }> = {
@@ -306,4 +318,8 @@ export const connectedRelationLabels: Record<string, { tr: string; en: string }>
   "kri-measurement": { tr: "ölçüme bağlı", en: "linked to measurement" },
   "vendor-assessment": { tr: "tedarikçi değerlendirmesi", en: "vendor assessment" },
   "assessment-finding": { tr: "değerlendirme bulgusu", en: "assessment finding" },
+  "automation-source": { tr: "otomasyon kaynağına bağlı", en: "linked to automation source" },
+  "automation-control": { tr: "kontrolü sürekli doğrular", en: "continuously validates control" },
+  "automation-rule": { tr: "otomasyon kuralından doğar", en: "originates from automation rule" },
+  "automation-evidence": { tr: "otomatik kanıta bağlı", en: "linked to automated evidence" },
 };

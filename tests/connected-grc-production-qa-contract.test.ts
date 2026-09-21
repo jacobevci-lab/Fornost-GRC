@@ -12,6 +12,7 @@ function projectableRecordCount(sourceKey: string, payload: Record<string, unkno
     case "riskAppetite": return count(payload, "appetites") + count(payload, "measurements") + count(payload, "breaches") + count(payload, "scenarios");
     case "regulatory": return count(payload, "sources") + count(payload, "changes") + count(payload, "impacts");
     case "thirdParty": return count(payload, "vendors") + count(payload, "assessments") + count(payload, "findings");
+    case "evidenceAutomation": return count(payload, "sources") + count(payload, "rules") + count(payload, "findings");
     default: return 0;
   }
 }
@@ -20,6 +21,7 @@ test("Connected GRC QA ignores auxiliary API arrays that adapters do not project
   assert.equal(projectableRecordCount("findings", { findings: [], events: [1, 2], sourceSignals: [1, 2, 3, 4] }), 0);
   assert.equal(projectableRecordCount("riskAppetite", { appetites: [], measurements: [], breaches: [], scenarios: [], linkedRisks: [1], snapshots: [1] }), 0);
   assert.equal(projectableRecordCount("regulatory", { sources: [], changes: [], impacts: [], records: Array.from({ length: 26 }) }), 0);
+  assert.equal(projectableRecordCount("evidenceAutomation", { sources: [], rules: [], findings: [], runs: [1, 2, 3] }), 0);
 });
 
 test("Connected GRC QA counts exactly the enterprise adapter collections", () => {
@@ -29,4 +31,5 @@ test("Connected GRC QA counts exactly the enterprise adapter collections", () =>
   assert.equal(projectableRecordCount("riskAppetite", { appetites: [1], measurements: [1], breaches: [1], scenarios: [1] }), 4);
   assert.equal(projectableRecordCount("regulatory", { sources: [1], changes: [1, 2], impacts: [1] }), 4);
   assert.equal(projectableRecordCount("thirdParty", { vendors: [1], assessments: [1], findings: [1, 2] }), 4);
+  assert.equal(projectableRecordCount("evidenceAutomation", { sources: [1], rules: [1, 2], findings: [1], runs: [1, 2] }), 4);
 });
