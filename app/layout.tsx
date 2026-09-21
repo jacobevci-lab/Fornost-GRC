@@ -42,6 +42,7 @@ import "./quality-guardrails.css";
 import FornostAiCopilot from "./fornost-ai-copilot";
 import ProductionHardening from "./production-hardening";
 import NavigationIntegrity from "./navigation-integrity";
+import DashboardRetirement from "./dashboard-retirement";
 
 const configuredBasePath = process.env.NEXT_PUBLIC_BASE_PATH?.trim() || "";
 const normalizedBasePath = configuredBasePath.replace(/\/+$/, "");
@@ -66,6 +67,7 @@ export default function RootLayout({
     <html lang="tr" data-theme="light" suppressHydrationWarning>
       <body>
         {children}
+        <DashboardRetirement />
         <FornostAiCopilot />
         <ProductionHardening />
         <NavigationIntegrity />
