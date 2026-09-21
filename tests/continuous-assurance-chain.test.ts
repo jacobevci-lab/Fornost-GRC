@@ -21,6 +21,22 @@ function fixture(health: "healthy" | "stale" | "failing", withFinding = false, w
   return [...rows, ...enterprise];
 }
 
+function namespaceFixture(rows: ConnectedGrcRow[], prefix: string) {
+  const refs = ["CTL-001", "EVD-1", "SRC-1", "RULE-1", "FIND-1", "RSK-1"];
+  const rewrite = (value: unknown): unknown => {
+    if (typeof value === "string") return refs.reduce((text, ref) => text.replaceAll(ref, `${prefix}${ref}`), value);
+    if (Array.isArray(value)) return value.map(rewrite);
+    if (value && typeof value === "object") return Object.fromEntries(Object.entries(value as Record<string, unknown>).map(([key, nested]) => [key, rewrite(nested)]));
+    return value;
+  };
+  return rows.map((row) => ({
+    ...row,
+    id: rewrite(row.id) as string,
+    code: row.code ? rewrite(row.code) as string : row.code,
+    data: rewrite(row.data) as Record<string, unknown>,
+  }));
+}
+
 test("effective assurance is a complete chain without forcing findings or remediation", () => {
   const rows = fixture("healthy");
   const graph = buildConnectedGrcGraph(rows);
@@ -76,7 +92,7 @@ test("overdue remediation is surfaced independently of graph completeness", () =
 
 test("summary exposes assurance posture and broken-chain pressure", () => {
   const healthyRows = fixture("healthy");
-  const failingRows = fixture("failing", true, false).map((row) => ({ ...row, id: `b:${row.id}`, code: row.code ? `B-${row.code}` : row.code, data: { ...row.data } }));
+  const failingRows = namespaceFixture(fixture("failing", true, false), "B-");
   const rows = [...healthyRows, ...failingRows];
   const graph = buildConnectedGrcGraph(rows);
   const chains = buildContinuousAssuranceChains(rows, graph.links, new Date("2026-09-21T12:00:00Z"));
