@@ -198,30 +198,92 @@ function thirdPartyRows(payload: JsonRecord) {
   return [...vendors, ...assessments, ...findings];
 }
 
+function assuranceScore(health: string) {
+  if (health === "healthy") return 100;
+  if (health === "stale") return 65;
+  if (health === "failing") return 25;
+  return 0;
+}
+
 function evidenceAutomationRows(payload: JsonRecord) {
+  const rawRules = records(payload.rules);
+  const rawFindings = records(payload.findings);
+  const findingRefsByRule = new Map<string, string[]>();
+  for (const finding of rawFindings) {
+    const ruleId = text(finding.ruleId || finding.rule_id);
+    const findingId = text(finding.id);
+    if (!ruleId || !findingId) continue;
+    findingRefsByRule.set(ruleId, unique(findingRefsByRule.get(ruleId), `FINDING:${findingId}`));
+  }
+
   const sources = records(payload.sources).map((item, index) => makeRow("enterprise", "automation-source", "Kanıt Otomasyonu", item, index, {
     title: text(item.name || item.vendor || `Automation source ${index + 1}`),
     name: text(item.name),
     identityRefs: unique(item.id),
     automationHealth: text(item.lastTestStatus || item.last_test_status),
   }));
-  const rules = records(payload.rules).map((item, index) => makeRow("enterprise", "automation-rule", "Kanıt Otomasyonu", item, index, {
-    title: text(item.name || `Continuous control ${index + 1}`),
-    name: text(item.name),
-    identityRefs: unique(item.id),
-    automationSourceRef: unique(item.sourceId, item.source_id),
-    automationControlRefs: unique(item.controlRefs, item.control_refs),
-    automationHealth: text(item.health || item.lastStatus || item.last_status),
-    automationFreshness: text(item.freshness),
-  }));
-  const findings = records(payload.findings).map((item, index) => makeRow("enterprise", "automation-finding", "Kanıt Otomasyonu", item, index, {
-    title: text(item.title || `Continuous assurance finding ${index + 1}`),
-    automationRuleRef: unique(item.ruleId, item.rule_id),
-    automationEvidenceRef: unique(item.evidenceId, item.evidence_id),
-    severity: text(item.severity),
-    status: text(item.status),
-  }));
-  return [...sources, ...rules, ...findings];
+
+  const rules = rawRules.map((item, index) => {
+    const ruleId = text(item.id);
+    return makeRow("enterprise", "automation-rule", "Kanıt Otomasyonu", item, index, {
+      title: text(item.name || `Continuous control ${index + 1}`),
+      name: text(item.name),
+      identityRefs: unique(item.id, `RULE:${ruleId}`),
+      automationSourceRef: unique(item.sourceId, item.source_id),
+      automationControlRefs: unique(item.controlRefs, item.control_refs),
+      automationAssuranceRef: unique(`ASSURANCE:${ruleId}`),
+      automationHealth: text(item.health || item.lastStatus || item.last_status),
+      automationFreshness: text(item.freshness),
+    });
+  });
+
+  const assurances = rawRules.map((item, index) => {
+    const ruleId = text(item.id);
+    const health = text(item.health || item.lastStatus || item.last_status).toLowerCase();
+    const freshness = text(item.freshness).toLowerCase();
+    const score = assuranceScore(health);
+    return makeRow("enterprise", "automation-assurance", "Kanıt Otomasyonu", { ...item, id: `ASSURANCE:${ruleId}` }, index, {
+      title: `Control Assurance · ${text(item.name || `Continuous control ${index + 1}`)}`,
+      identityRefs: unique(`ASSURANCE:${ruleId}`),
+      automationRuleRef: unique(ruleId, `RULE:${ruleId}`),
+      automationControlRefs: unique(item.controlRefs, item.control_refs),
+      automationFindingRefs: findingRefsByRule.get(ruleId) || [],
+      automationHealth: health,
+      automationFreshness: freshness,
+      assuranceState: health === "healthy" ? "effective" : health === "stale" ? "degraded" : health === "failing" ? "ineffective" : "unknown",
+      assuranceScore: score,
+    });
+  });
+
+  const findings = rawFindings.map((item, index) => {
+    const findingId = text(item.id);
+    const ruleId = text(item.ruleId || item.rule_id);
+    return makeRow("enterprise", "automation-finding", "Kanıt Otomasyonu", item, index, {
+      title: text(item.title || `Continuous assurance finding ${index + 1}`),
+      identityRefs: unique(item.id, `FINDING:${findingId}`),
+      automationAssuranceRef: unique(`ASSURANCE:${ruleId}`),
+      automationEvidenceRef: unique(item.evidenceId, item.evidence_id),
+      automationRemediationRef: unique(`REMEDIATION:${findingId}`),
+      severity: text(item.severity),
+      status: text(item.status),
+    });
+  });
+
+  const remediations = rawFindings.map((item, index) => {
+    const findingId = text(item.id);
+    return makeRow("enterprise", "automation-remediation", "Kanıt Otomasyonu", { ...item, id: `REMEDIATION:${findingId}` }, index, {
+      title: `Remediation · ${text(item.title || `Continuous assurance finding ${index + 1}`)}`,
+      identityRefs: unique(`REMEDIATION:${findingId}`),
+      automationFindingRef: unique(`FINDING:${findingId}`, findingId),
+      automationRiskRef: unique(item.riskId, item.risk_id, findingId),
+      owner: text(item.owner),
+      dueDate: text(item.dueDate || item.due_date),
+      status: text(item.status),
+      closureEvidenceRef: text(item.closureEvidenceRef || item.closure_evidence_ref),
+    });
+  });
+
+  return [...sources, ...rules, ...assurances, ...findings, ...remediations];
 }
 
 export function buildConnectedGrcEnterpriseRows(payloads: ConnectedGrcEnterprisePayloads): ConnectedGrcRow[] {

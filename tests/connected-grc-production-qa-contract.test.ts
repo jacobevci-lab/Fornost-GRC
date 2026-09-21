@@ -12,7 +12,7 @@ function projectableRecordCount(sourceKey: string, payload: Record<string, unkno
     case "riskAppetite": return count(payload, "appetites") + count(payload, "measurements") + count(payload, "breaches") + count(payload, "scenarios");
     case "regulatory": return count(payload, "sources") + count(payload, "changes") + count(payload, "impacts");
     case "thirdParty": return count(payload, "vendors") + count(payload, "assessments") + count(payload, "findings");
-    case "evidenceAutomation": return count(payload, "sources") + count(payload, "rules") + count(payload, "findings");
+    case "evidenceAutomation": return count(payload, "sources") + (count(payload, "rules") * 2) + (count(payload, "findings") * 2);
     default: return 0;
   }
 }
@@ -31,5 +31,11 @@ test("Connected GRC QA counts exactly the enterprise adapter collections", () =>
   assert.equal(projectableRecordCount("riskAppetite", { appetites: [1], measurements: [1], breaches: [1], scenarios: [1] }), 4);
   assert.equal(projectableRecordCount("regulatory", { sources: [1], changes: [1, 2], impacts: [1] }), 4);
   assert.equal(projectableRecordCount("thirdParty", { vendors: [1], assessments: [1], findings: [1, 2] }), 4);
-  assert.equal(projectableRecordCount("evidenceAutomation", { sources: [1], rules: [1, 2], findings: [1], runs: [1, 2] }), 4);
+  assert.equal(projectableRecordCount("evidenceAutomation", { sources: [1], rules: [1, 2], findings: [1], runs: [1, 2] }), 7);
+});
+
+test("Evidence Automation projection reserves one assurance per rule and one remediation per finding", () => {
+  assert.equal(projectableRecordCount("evidenceAutomation", { rules: [1] }), 2);
+  assert.equal(projectableRecordCount("evidenceAutomation", { findings: [1] }), 2);
+  assert.equal(projectableRecordCount("evidenceAutomation", { sources: [1], rules: [1], findings: [1] }), 5);
 });
