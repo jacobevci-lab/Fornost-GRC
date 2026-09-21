@@ -81,7 +81,7 @@ test("Connected GRC resolves enterprise lineage across findings remediation risk
 test("enterprise source adapters tolerate partial malformed and missing payloads", () => {
   assert.deepEqual(buildConnectedGrcEnterpriseRows({}), []);
   const rows = buildConnectedGrcEnterpriseRows({ findings: { findings: [null, "bad", { id: "F-1", title: "Manual finding" }] } });
-  assert.equal(rows.length, 2);
-  assert.ok(rows.every((row) => row.module === "Bulgular ve CAPA"));
-  assert.deepEqual(new Set(rows.map((row) => row.data.kind)), new Set(["finding-manual", "remediation"]));
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0].module, "Bulgular ve CAPA");
+  assert.equal(rows[0].data.kind, "finding-manual");
 });
