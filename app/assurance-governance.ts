@@ -20,7 +20,7 @@ export function validateRiskReviewProposal(input:Record<string,unknown>):RiskRev
  if(!Number.isInteger(residualLikelihood)||residualLikelihood<1||residualLikelihood>5||!Number.isInteger(residualImpact)||residualImpact<1||residualImpact>5)throw new Error("Residual likelihood ve impact 1-5 arasında olmalıdır.");
  if(rationale.length<20)throw new Error("Risk yeniden değerlendirme gerekçesi en az 20 karakter olmalıdır.");
  if(!evidenceReference||!digest(evidenceSha256))throw new Error("Kanıt referansı ve 64 karakter SHA-256 zorunludur.");
- return{riskId,residualLikelihood,resualImpact:residualImpact,rationale,evidenceReference,evidenceSha256} as RiskReviewProposal;
+ return{riskId,residualLikelihood,residualImpact,rationale,evidenceReference,evidenceSha256};
 }
 
 export function validateAssuranceException(input:Record<string,unknown>,today=new Date().toISOString().slice(0,10)):AssuranceExceptionProposal{
