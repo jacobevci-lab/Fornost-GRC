@@ -108,6 +108,10 @@ const relationFields: Record<string, RelationDefinition> = {
   automationControlRefs: { relation: "automation-control", modules: ["Kontroller", "Uyum"], sources: ["Kanıt Otomasyonu"] },
   automationRuleRef: { relation: "automation-rule", modules: ["Kanıt Otomasyonu"], sources: ["Kanıt Otomasyonu"] },
   automationEvidenceRef: { relation: "automation-evidence", modules: ["Kanıtlar"], sources: ["Kanıt Otomasyonu"] },
+  automationAssuranceRef: { relation: "control-assurance", modules: ["Kanıt Otomasyonu"], sources: ["Kanıt Otomasyonu"] },
+  automationFindingRefs: { relation: "assurance-finding", modules: ["Kanıt Otomasyonu"], sources: ["Kanıt Otomasyonu"] },
+  automationRemediationRef: { relation: "finding-remediation", modules: ["Kanıt Otomasyonu"], sources: ["Kanıt Otomasyonu"] },
+  automationRiskRef: { relation: "remediation-risk", modules: ["Risk Assessment"], sources: ["Kanıt Otomasyonu"] },
 };
 
 const titleFields = [
@@ -186,8 +190,10 @@ const coverageRules: CoverageRule[] = [
   { module: "Risk İştahı ve KRI", kind: "risk-scenario", rule: "kri-lineage", severity: "medium", relationGroups: [["kri-appetite"]] },
   { module: "Tedarikçiler", kind: "vendor-assessment", rule: "vendor-lineage", severity: "medium", relationGroups: [["vendor-assessment"]] },
   { module: "Tedarikçiler", kind: "vendor-finding", rule: "vendor-lineage", severity: "high", relationGroups: [["vendor-assessment"], ["assessment-finding"]] },
-  { module: "Kanıt Otomasyonu", kind: "automation-rule", rule: "continuous-assurance", severity: "high", relationGroups: [["automation-source"], ["automation-control"]] },
-  { module: "Kanıt Otomasyonu", kind: "automation-finding", rule: "continuous-assurance", severity: "high", relationGroups: [["automation-rule"]] },
+  { module: "Kanıt Otomasyonu", kind: "automation-rule", rule: "continuous-assurance", severity: "high", relationGroups: [["automation-source"], ["automation-control"], ["control-assurance"]] },
+  { module: "Kanıt Otomasyonu", kind: "automation-assurance", rule: "continuous-assurance", severity: "high", relationGroups: [["automation-rule"], ["automation-control"]] },
+  { module: "Kanıt Otomasyonu", kind: "automation-finding", rule: "continuous-assurance", severity: "high", relationGroups: [["assurance-finding"], ["finding-remediation"]] },
+  { module: "Kanıt Otomasyonu", kind: "automation-remediation", rule: "continuous-assurance", severity: "high", relationGroups: [["finding-remediation"], ["remediation-risk"]] },
 ];
 
 const ruleForRow = (row: ConnectedGrcRow) => coverageRules.find((rule) =>
@@ -276,6 +282,10 @@ export const connectedRemediationModule: Record<string, string> = {
   "automation-control": "Kontroller",
   "automation-rule": "Kanıt Otomasyonu",
   "automation-evidence": "Kanıtlar",
+  "control-assurance": "Kanıt Otomasyonu",
+  "assurance-finding": "Kanıt Otomasyonu",
+  "finding-remediation": "Kanıt Otomasyonu",
+  "remediation-risk": "Risk Assessment",
 };
 
 export const connectedRelationLabels: Record<string, { tr: string; en: string }> = {
@@ -322,4 +332,8 @@ export const connectedRelationLabels: Record<string, { tr: string; en: string }>
   "automation-control": { tr: "kontrolü sürekli doğrular", en: "continuously validates control" },
   "automation-rule": { tr: "otomasyon kuralından doğar", en: "originates from automation rule" },
   "automation-evidence": { tr: "otomatik kanıta bağlı", en: "linked to automated evidence" },
+  "control-assurance": { tr: "kontrol güvencesini üretir", en: "produces control assurance" },
+  "assurance-finding": { tr: "güvence düşüşü bulgu üretir", en: "assurance degradation creates finding" },
+  "finding-remediation": { tr: "düzeltme aksiyonuna dönüşür", en: "drives remediation action" },
+  "remediation-risk": { tr: "artık riske bağlanır", en: "links to residual risk" },
 };
