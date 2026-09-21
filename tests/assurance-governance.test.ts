@@ -11,7 +11,7 @@ test("risk reassessment requires bounded residual ratings and immutable evidence
 
 test("approved residual decision is explicit and does not rewrite inherent risk",()=>{
  const proposal=validateRiskReviewProposal({riskId:"RSK-1",residualLikelihood:2,residualImpact:3,rationale:"Independent review accepted the documented residual exposure.",evidenceReference:"EVD-2",evidenceSha256:sha});
- const result=applyApprovedResidualRisk({inherentLikelihood:"4",inherentImpact:"5",residualRiskReviewRequired:true},proposal,"reviewer@example.com","2026-09-21T12:00:00.000Z");
+ const result=applyApprovedResidualRisk({inherentLikelihood:"4",inherentImpact:"5",residualRiskReviewRequired:true},proposal,"reviewer@example.com","2026-09-21T12:00:00.000Z") as Record<string,unknown>;
  assert.equal(result.inherentLikelihood,"4");assert.equal(result.inherentImpact,"5");assert.equal(result.residualScore,"6");assert.equal(result.residualRiskLevel,"Orta");assert.equal(result.residualRiskReviewRequired,false);
  assert.equal(assuranceRiskLevel(16),"Kritik");assert.equal(assuranceRiskLevel(10),"Yüksek");
 });
