@@ -308,7 +308,7 @@ export const connectedRelationLabels: Record<string, { tr: string; en: string }>
   "finding-policy": { tr: "politikaya bağlı", en: "linked to policy" },
   "finding-incident": { tr: "olaya bağlı", en: "linked to incident" },
   "finding-automation-rule": { tr: "sürekli kontrolden doğar", en: "originates from continuous control" },
-  "finding-remediation": { tr: "remediation planına bağlı", en: "linked to remediation plan" },
+  "finding-remediation": { tr: "bulguyu giderir", en: "remediates finding" },
   "remediation-risk": { tr: "riski tedavi eder", en: "treats risk" },
   "remediation-control": { tr: "kontrolü iyileştirir", en: "improves control" },
   "remediation-automation-rule": { tr: "sürekli kontrolü iyileştirir", en: "remediates continuous control" },
