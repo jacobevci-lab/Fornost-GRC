@@ -5,7 +5,7 @@ type Env = Record<string, unknown> & { DB: D1Database };
 type TimelineEvent = {
   id: string;
   type: string;
-  category: "control" | "review" | "capa" | "finding" | "risk";
+  category: "control" | "review" | "capa" | "finding" | "risk" | "alert";
   title: string;
   detail: string;
   actor: string;
@@ -48,13 +48,16 @@ export async function GET(req:NextRequest){
   const findingEvents=await safeRows<Record<string,unknown>>(env.DB,"SELECT id,finding_id,action,from_status,to_status,detail,actor,created_at FROM enterprise_finding_events ORDER BY created_at DESC LIMIT 300");
   for(const row of findingEvents)events.push({id:`finding:${row.id}`,type:String(row.action||"finding-event"),category:"finding",title:`Finding ${String(row.action||"event")}`,detail:String(row.detail||`${row.from_status||""} → ${row.to_status||""}`),actor:String(row.actor||"system"),status:String(row.to_status||row.from_status||""),reference:String(row.finding_id||""),findingId:String(row.finding_id||""),createdAt:String(row.created_at||"")});
 
+  const alertEvents=await safeRows<Record<string,unknown>>(env.DB,"SELECT e.id,e.alert_id,e.action,e.from_status,e.to_status,e.actor,e.note,e.created_at,a.title,a.ref_id FROM continuous_assurance_alert_events e LEFT JOIN continuous_assurance_alerts a ON a.id=e.alert_id ORDER BY e.created_at DESC LIMIT 300");
+  for(const row of alertEvents)events.push({id:`alert:${row.id}`,type:String(row.action||"alert-event"),category:"alert",title:String(row.title||"Continuous Assurance alert"),detail:String(row.note||""),actor:String(row.actor||"system"),status:String(row.to_status||row.from_status||""),reference:String(row.ref_id||row.alert_id||""),createdAt:String(row.created_at||"")});
+
   const risks=await safeRows<Record<string,unknown>>(env.DB,"SELECT id,data_json,updated_at FROM simple_grc_records WHERE module='Risk Assessment' ORDER BY updated_at DESC LIMIT 300");
   for(const row of risks){
-    const data=parse(String(row.data_json||"{}"));
-    if(String(data.reassessmentSource||"")!=="Continuous Assurance")continue;
-    events.push({id:`risk:${row.id}:${row.updated_at}`,type:"risk-reassessment",category:"risk",title:String(data.title||"Risk reassessment"),detail:String(data.reassessmentReason||"Continuous Assurance risk reassessment"),actor:"system:continuous-assurance",status:String(data.assuranceState||""),reference:String(row.id||""),findingId:String(row.id||""),createdAt:String(data.lastReassessedAt||row.updated_at||"")});
+    const data=parse(String(row.data_json||"{}")),source=String(data.reassessmentSource||"");
+    if(!source.startsWith("Continuous Assurance"))continue;
+    events.push({id:`risk:${row.id}:${row.updated_at}`,type:"risk-reassessment",category:"risk",title:String(data.title||"Risk reassessment"),detail:String(data.reassessmentReason||data.residualRiskRationale||"Continuous Assurance risk reassessment"),actor:String(data.residualRiskApprovedBy||"system:continuous-assurance"),status:String(data.assuranceState||""),reference:String(row.id||""),findingId:String(row.id||""),createdAt:String(data.residualRiskApprovedAt||data.lastReassessedAt||row.updated_at||"")});
   }
 
   const normalized=events.filter(event=>event.createdAt&&Number.isFinite(new Date(event.createdAt).getTime())).sort((a,b)=>new Date(b.createdAt).getTime()-new Date(a.createdAt).getTime()).slice(0,500);
-  return json({events:normalized,summary:{total:normalized.length,controls:normalized.filter(x=>x.category==="control").length,reviews:normalized.filter(x=>x.category==="review").length,capa:normalized.filter(x=>x.category==="capa").length,findings:normalized.filter(x=>x.category==="finding").length,risks:normalized.filter(x=>x.category==="risk").length}});
+  return json({events:normalized,summary:{total:normalized.length,controls:normalized.filter(x=>x.category==="control").length,reviews:normalized.filter(x=>x.category==="review").length,capa:normalized.filter(x=>x.category==="capa").length,findings:normalized.filter(x=>x.category==="finding").length,risks:normalized.filter(x=>x.category==="risk").length,alerts:normalized.filter(x=>x.category==="alert").length}});
 }
