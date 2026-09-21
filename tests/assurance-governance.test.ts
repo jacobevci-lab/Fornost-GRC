@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import {applyApprovedResidualRisk,assuranceRiskLevel,exceptionEffectiveStatus,validateAssuranceException,validateRiskReviewProposal} from "../app/assurance-governance";
+import {applyApprovedResidualRisk,assuranceRiskLevel,exceptionEffectiveStatus,riskReviewEscalation,validateAssuranceException,validateRiskReviewProposal} from "../app/assurance-governance";
 const sha="a".repeat(64);
 
 test("risk reassessment requires bounded residual ratings and immutable evidence",()=>{
@@ -9,11 +9,20 @@ test("risk reassessment requires bounded residual ratings and immutable evidence
  assert.throws(()=>validateRiskReviewProposal({riskId:"RSK-1",residualLikelihood:0,residualImpact:6,rationale:"too short",evidenceReference:"",evidenceSha256:""}));
 });
 
-test("approved residual decision is explicit and does not rewrite inherent risk",()=>{
+test("approved residual decision is explicit and clears pending review aging",()=>{
  const proposal=validateRiskReviewProposal({riskId:"RSK-1",residualLikelihood:2,residualImpact:3,rationale:"Independent review accepted the documented residual exposure.",evidenceReference:"EVD-2",evidenceSha256:sha});
- const result=applyApprovedResidualRisk({inherentLikelihood:"4",inherentImpact:"5",residualRiskReviewRequired:true},proposal,"reviewer@example.com","2026-09-21T12:00:00.000Z") as Record<string,unknown>;
- assert.equal(result.inherentLikelihood,"4");assert.equal(result.inherentImpact,"5");assert.equal(result.residualScore,"6");assert.equal(result.residualRiskLevel,"Orta");assert.equal(result.residualRiskReviewRequired,false);
+ const result=applyApprovedResidualRisk({inherentLikelihood:"4",inherentImpact:"5",residualRiskReviewRequired:true,riskReviewRequestedAt:"2026-09-01T00:00:00.000Z"},proposal,"reviewer@example.com","2026-09-21T12:00:00.000Z") as Record<string,unknown>;
+ assert.equal(result.inherentLikelihood,"4");assert.equal(result.inherentImpact,"5");assert.equal(result.residualScore,"6");assert.equal(result.residualRiskLevel,"Orta");assert.equal(result.residualRiskReviewRequired,false);assert.equal(result.riskReviewRequestedAt,"");assert.equal(result.riskReviewEscalationState,"none");
  assert.equal(assuranceRiskLevel(16),"Kritik");assert.equal(assuranceRiskLevel(10),"Yüksek");
+});
+
+test("risk review reminders and escalation use deterministic aging thresholds",()=>{
+ const now=new Date("2026-09-21T12:00:00.000Z");
+ assert.equal(riskReviewEscalation(true,"2026-09-20T12:00:00.000Z",now).state,"none");
+ assert.equal(riskReviewEscalation(true,"2026-09-18T12:00:00.000Z",now).state,"due-soon");
+ assert.equal(riskReviewEscalation(true,"2026-09-14T12:00:00.000Z",now).state,"overdue");
+ const critical=riskReviewEscalation(true,"2026-09-07T12:00:00.000Z",now);assert.equal(critical.state,"critical");assert.equal(critical.ageDays,14);assert.equal(critical.criticalEscalation,true);
+ assert.equal(riskReviewEscalation(false,"2026-01-01T00:00:00.000Z",now).state,"none");
 });
 
 test("assurance exceptions are evidence backed and capped at 180 days",()=>{
