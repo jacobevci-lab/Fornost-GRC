@@ -86,6 +86,28 @@ main footer span,
   flex: 0 0 auto;
 }
 
+/* Responsive heroes may wrap their action rail below the copy from tablet width downward.
+ * Legacy compact/fixed heights must therefore never constrain the resulting content height. */
+@media (max-width: 1180px) {
+  .continuity-hero,
+  .connected-hero,
+  .module-command-hero {
+    height: auto !important;
+    max-height: none !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+  }
+  .continuity-hero p,
+  .connected-hero p,
+  .module-command-hero p {
+    display: block !important;
+    max-height: none !important;
+    overflow: visible !important;
+    text-overflow: clip !important;
+    -webkit-line-clamp: unset !important;
+  }
+}
+
 /* CAPA toolbar was wider than the mobile viewport because the select retained desktop width. */
 @media (max-width: 700px) {
   .finding-page {
@@ -109,24 +131,5 @@ main footer span,
   }
   .finding-toolbar span {
     text-align: right !important;
-  }
-
-  /* Legacy compact hero heights clipped real explanatory copy on mobile. */
-  .continuity-hero,
-  .connected-hero,
-  .module-command-hero {
-    height: auto !important;
-    max-height: none !important;
-    min-height: 0 !important;
-    overflow: visible !important;
-  }
-  .continuity-hero p,
-  .connected-hero p,
-  .module-command-hero p {
-    display: block !important;
-    max-height: none !important;
-    overflow: visible !important;
-    text-overflow: clip !important;
-    -webkit-line-clamp: unset !important;
   }
 }
