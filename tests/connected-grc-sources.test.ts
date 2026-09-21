@@ -71,10 +71,10 @@ test("Connected GRC resolves enterprise lineage across findings incidents polici
 
   const coverage = assessConnectedGrcCoverage(rows, graph.links);
   assert.ok(coverage.eligible > 10);
-  for (const module of [
+  for (const moduleName of [
     "Bulgular ve CAPA", "Güvenlik Olayları", "İş Sürekliliği", "Politika Merkezi",
     "Regülasyon Merkezi", "Risk İştahı ve KRI", "Tedarikçiler",
-  ]) assert.ok(coverage.domains.some((domain) => domain.module === module), `expected coverage domain ${module}`);
+  ]) assert.ok(coverage.domains.some((domain) => domain.module === moduleName), `expected coverage domain ${moduleName}`);
 });
 
 test("enterprise source adapters tolerate partial malformed and missing payloads", () => {
