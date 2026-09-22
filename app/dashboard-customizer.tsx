@@ -59,14 +59,11 @@ function dashboardLanguage(){
 }
 
 export default function DashboardCustomizer(){
-  const [preferences,setPreferences]=useState<DashboardPreferences>(()=>clonePreferences(PRESETS.executive));
+  const [preferences,setPreferences]=useState<DashboardPreferences>(()=>loadPreferences());
   const [dashboard,setDashboard]=useState<HTMLElement|null>(null);
   const [actionHost,setActionHost]=useState<HTMLElement|null>(null);
   const [open,setOpen]=useState(false);
   const [lang,setLang]=useState<"tr"|"en">("tr");
-  const [hydrated,setHydrated]=useState(false);
-
-  useEffect(()=>{setPreferences(loadPreferences());setHydrated(true)},[]);
 
   const apply=useCallback((target:HTMLElement|null,prefs:DashboardPreferences)=>{
     if(!target)return;
@@ -102,10 +99,9 @@ export default function DashboardCustomizer(){
   },[apply,preferences]);
 
   useEffect(()=>{
-    if(!hydrated)return;
     window.localStorage.setItem(STORAGE_KEY,JSON.stringify(preferences));
     apply(dashboard,preferences);
-  },[apply,dashboard,hydrated,preferences]);
+  },[apply,dashboard,preferences]);
 
   useEffect(()=>{
     if(!dashboard)return;
