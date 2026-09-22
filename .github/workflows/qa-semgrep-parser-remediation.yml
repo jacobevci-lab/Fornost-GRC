@@ -6,6 +6,7 @@ on:
       - qa/full-product-security-audit-2026-09-22
     paths:
       - .github/workflows/qa-semgrep-parser-remediation.yml
+      - .github/remediation-trigger
 
 permissions:
   contents: write
