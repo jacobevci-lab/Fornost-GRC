@@ -26,7 +26,6 @@ jobs:
         run: |
           python3 - <<'PY'
           from pathlib import Path
-          import re
 
           replacements = {
               "app/executive-assurance-panel.tsx": [
@@ -41,7 +40,7 @@ jobs:
               ],
               "app/fornost-ai-lifecycle.tsx": [
                   ("<small>MODEL OPS · CHANGE & DRIFT</small>", "<small>MODEL OPS · CHANGE &amp; DRIFT</small>"),
-                  (">Monitoring & Drift</button>", ">Monitoring &amp; Drift</button>"),
+                  ("Monitoring & Drift", "Monitoring &amp; Drift"),
               ],
               "app/risk-appetite.tsx": [
                   ("<small>FORNOST RISK APPETITE & KRI</small>", "<small>FORNOST RISK APPETITE &amp; KRI</small>"),
@@ -62,13 +61,17 @@ jobs:
 
           workflow = Path(".github/workflows/full-security-audit.yml")
           text = workflow.read_text()
-          allowlist_pattern = re.compile(
-              r"          accepted_partial_paths=\{\n(?:            .*\n)+?          \}\n",
-              re.MULTILINE,
-          )
-          text, count = allowlist_pattern.subn("          accepted_partial_paths=set()\n", text, count=1)
-          if count != 1:
-              raise SystemExit(f"Expected one Semgrep partial-parse allowlist block; replaced {count}")
+          old_allowlist = """          accepted_partial_paths={
+            'app/executive-assurance-panel.tsx',
+            'app/fornost-ai-copilot.tsx',
+            'app/fornost-ai-knowledge.tsx',
+            'app/fornost-ai-lifecycle.tsx',
+            'app/risk-appetite.tsx',
+          }
+"""
+          if text.count(old_allowlist) != 1:
+              raise SystemExit("Semgrep partial-parse allowlist block was not found exactly once")
+          text = text.replace(old_allowlist, "          accepted_partial_paths=set()\n", 1)
           old_gate = "          raise SystemExit(2 if high or unexpected else 0)"
           new_gate = "          raise SystemExit(2 if high or errors else 0)"
           if text.count(old_gate) != 1:
