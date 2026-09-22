@@ -48,8 +48,8 @@ jobs:
       - name: Run legacy production QA baseline
         run: node scripts/full-production-qa.mjs
 
-      - name: Run bilingual full-product QA v2
-        run: node scripts/full-product-qa-v2.mjs
+      - name: Run bilingual full-product QA and production gate
+        run: node scripts/full-product-qa-gate.mjs
 
       - name: Validate Connected GRC live-source graph
         run: node scripts/connected-grc-production-qa.mjs
