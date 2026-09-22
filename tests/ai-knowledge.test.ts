@@ -58,7 +58,7 @@ test("knowledge lifecycle is Admin governed, versioned, confirmed and audited",(
 });
 
 test("knowledge UI and copilot expose governed citations and bulk ingestion",()=>{
-  for(const label of ["Yönetişimli AI Bilgi Tabanı","Tek Taslak Oluştur","Yeni Sürüm","Restricted","Retrieval Laboratuvarı","İçerik & Geçmiş","Toplu belge seç","ham dosyalar sunucuya veya AI sağlayıcısına yüklenmez","Hazır Belgeleri Taslaklaştır","Gözden geçirme zamanı","Toplu Onayla","Toplu Arşivle","Kaynak sorumlusu","Yeni sürümü dosyadan yükle"])assert.match(ui,new RegExp(label));
+  for(const label of ["Yönetişimli AI Bilgi Tabanı","Tek Taslak Oluştur","Yeni Sürüm","Restricted","Retrieval Laboratuvarı","İçerik &amp; Geçmiş","Toplu belge seç","ham dosyalar sunucuya veya AI sağlayıcısına yüklenmez","Hazır Belgeleri Taslaklaştır","Gözden geçirme zamanı","Toplu Onayla","Toplu Arşivle","Kaynak sorumlusu","Yeni sürümü dosyadan yükle"])assert.match(ui,new RegExp(label));
   assert.match(ui,/multiple type="file"/);assert.match(ui,/selected.length>10/);assert.match(ui,/30\*1024\*1024/);
   assert.match(copilot,/FornostAiKnowledge role=\{user\.role\} actor=\{user\.email\}/);
   assert.match(ui,/type="file"/);assert.match(route,/normalized_content/);assert.match(searchRoute,/raw query not stored/);assert.match(searchRoute,/requireRole\(req,\["Admin","Editor"\]\)/);

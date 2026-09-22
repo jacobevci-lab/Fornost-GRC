@@ -47,7 +47,7 @@ export default function AiSettings({lang}:{lang:Lang}){
     <div className="ai-settings-layout">
       <section className="settings-card ai-provider-card"><div className="settings-card-head"><div><h3>{tr?"Birincil AI Sağlayıcısı":"Primary AI Provider"}</h3><p>{tr?"Model gateway bağlantısı ve güvenli veri paylaşım politikası":"Model gateway connection and secure data-sharing policy"}</p></div><span>{settings.provider}</span></div><div className="settings-fields">
         <Select label="Provider" value={settings.provider} set={value=>update("provider",value)} options={[["openai-compatible","OpenAI Compatible / Local Chatbot"],["ollama","Ollama"]]}/>
-        <Field label="Base URL" value={settings.baseUrl} set={value=>update("baseUrl",value)} placeholder="http://10.10.10.50:11434"/>
+        <Field label="Base URL" value={settings.baseUrl} set={value=>update("baseUrl",value)} placeholder="http://ollama.internal:11434"/>
         <Field label="Model" value={settings.model} set={value=>update("model",value)} placeholder="qwen3:14b"/>
         <Field label="API Key" type="password" value={settings.secret} set={value=>update("secret",value)} placeholder={settings.hasSecret?(tr?"Kayıtlı · değiştirmek için yeni değer girin":"Saved · enter a new value to replace"):tr?"Opsiyonel":"Optional"}/>
         <Select label={tr?"Güven bölgesi":"Trust zone"} value={settings.trustZone} set={value=>{update("trustZone",value);if(value==="external"&&settings.maxDataClassification==="Confidential")update("maxDataClassification","Internal")}} options={[["external",tr?"Harici / internet":"External / internet"],["private",tr?"Özel ağ / on-prem":"Private network / on-prem"],["local",tr?"Aynı sunucu / loopback":"Same host / loopback"]]}/>

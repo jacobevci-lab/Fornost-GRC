@@ -1,0 +1,109 @@
+name: Branch Runtime QA
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - qa/full-product-security-audit-2026-09-22
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fornost-branch-runtime-qa-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qa:
+    name: Local branch browser, i18n, accessibility and runtime QA
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      FORNOST_PROD_URL: http://127.0.0.1:4173
+      CF_ACCESS_CLIENT_ID: local-qa
+      CF_ACCESS_CLIENT_SECRET: local-qa
+      FORNOST_SMOKE_EMAIL: qa-admin@fornost.test
+      FORNOST_SMOKE_PASSWORD: Fornost-QA!2026-Branch
+      QA_FAIL_ON_HIGH: "1"
+
+    steps:
+      - name: Checkout audit branch
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.13.0
+          cache: npm
+
+      - name: Install locked application dependencies
+        run: npm ci
+
+      - name: Install QA browser tooling
+        run: npm install --no-save --ignore-scripts @playwright/test@1.55.0 @axe-core/playwright@4.10.1
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Start branch runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm run dev -- --host 127.0.0.1 --port 4173 --strictPort > /tmp/fornost-branch-runtime.log 2>&1 &
+          echo $! > /tmp/fornost-branch-runtime.pid
+          for attempt in $(seq 1 90); do
+            if curl --fail --silent --show-error http://127.0.0.1:4173/api/health >/tmp/fornost-health.json 2>/dev/null; then
+              cat /tmp/fornost-health.json
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "Branch runtime did not become healthy" >&2
+          cat /tmp/fornost-branch-runtime.log >&2 || true
+          exit 1
+
+      - name: Bootstrap isolated local admin
+        shell: bash
+        run: |
+          set -euo pipefail
+          state=$(curl --fail --silent --show-error -H 'Origin: http://127.0.0.1:4173' http://127.0.0.1:4173/api/auth)
+          echo "$state" > /tmp/fornost-auth-state.json
+          node -e 'const x=JSON.parse(process.argv[1]); if(x.bootstrapRequired!==true) process.exit(2)' "$state" || {
+            echo "Expected a fresh local bootstrap-required database" >&2
+            cat /tmp/fornost-auth-state.json >&2
+            exit 1
+          }
+          code=$(curl --silent --show-error -o /tmp/fornost-bootstrap.json -w '%{http_code}' \
+            -X POST http://127.0.0.1:4173/api/auth \
+            -H 'Origin: http://127.0.0.1:4173' \
+            -H 'Content-Type: application/json' \
+            --data '{"action":"bootstrap","name":"QA Admin","email":"qa-admin@fornost.test","password":"Fornost-QA!2026-Branch"}')
+          cat /tmp/fornost-bootstrap.json
+          test "$code" = "200"
+
+      - name: Run legacy branch browser baseline
+        run: node scripts/full-production-qa.mjs
+
+      - name: Run bilingual full-product branch QA gate
+        run: node scripts/full-product-qa-gate.mjs
+
+      - name: Upload branch QA evidence
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: fornost-branch-runtime-qa
+          path: |
+            qa-artifacts/
+            qa-artifacts-v2/
+            /tmp/fornost-branch-runtime.log
+            /tmp/fornost-health.json
+          if-no-files-found: warn
+          retention-days: 21
+
+      - name: Stop branch runtime
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          if [ -f /tmp/fornost-branch-runtime.pid ]; then
+            kill "$(cat /tmp/fornost-branch-runtime.pid)" 2>/dev/null || true
+          fi

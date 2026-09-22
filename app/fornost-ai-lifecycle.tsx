@@ -187,7 +187,7 @@ export default function FornostAiLifecycle() {
     <div className="ai-lifecycle">
       <header>
         <div>
-          <small>MODEL OPS · CHANGE & DRIFT</small>
+          <small>MODEL OPS · CHANGE &amp; DRIFT</small>
           <h3>AI Değişiklik ve Sürekli İzleme</h3>
           <p>
             Model değişikliklerini test–onay–devreye alma–rollback zinciriyle,
@@ -244,7 +244,7 @@ export default function FornostAiLifecycle() {
           className={view === "monitoring" ? "active" : ""}
           onClick={() => setView("monitoring")}
         >
-          Monitoring & Drift
+          Monitoring &amp; Drift
         </button>
       </nav>
       {notice && <p className="ai-lifecycle-notice">{notice}</p>}

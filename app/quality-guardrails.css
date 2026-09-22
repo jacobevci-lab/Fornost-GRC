@@ -48,6 +48,12 @@ html[data-theme="dark"] .fornost-ai-welcome > small {
   color: #9ee3dd !important;
 }
 
+/* Risk Appetite linked-count metric used a bright orange (#e8782f) that only reached
+ * 2.93:1 on white. Keep the orange semantic while meeting WCAG AA for normal text. */
+html:not([data-theme="dark"]) .rap-linked:nth-child(2) > strong {
+  color: #b54708 !important;
+}
+
 /* Operational footer copy must not render below the product's 11px readability floor. */
 body .shell main footer,
 body .shell main footer *,

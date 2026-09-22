@@ -4,29 +4,30 @@ on:
   workflow_dispatch:
   push:
     branches:
-      - qa/full-production-audit-2026-09-20
+      - main
 
 permissions:
   contents: read
 
 concurrency:
-  group: fornost-full-production-qa
+  group: fornost-full-production-qa-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
   qa:
-    name: Browser, visual, accessibility and runtime QA
+    name: Browser, visual, accessibility, i18n and runtime QA
     runs-on: ubuntu-latest
-    timeout-minutes: 35
+    timeout-minutes: 45
     env:
       FORNOST_PROD_URL: ${{ vars.FORNOST_PROD_URL }}
       CF_ACCESS_CLIENT_ID: ${{ secrets.CF_ACCESS_CLIENT_ID }}
       CF_ACCESS_CLIENT_SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
       FORNOST_SMOKE_EMAIL: ${{ secrets.FORNOST_SMOKE_EMAIL }}
       FORNOST_SMOKE_PASSWORD: ${{ secrets.FORNOST_SMOKE_PASSWORD }}
+      QA_FAIL_ON_HIGH: "1"
 
     steps:
-      - name: Checkout QA branch
+      - name: Checkout deployed revision
         uses: actions/checkout@v4
 
       - name: Set up Node.js
@@ -44,17 +45,22 @@ jobs:
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
 
-      - name: Run full production QA
+      - name: Run legacy production QA baseline
         run: node scripts/full-production-qa.mjs
+
+      - name: Run bilingual full-product QA and production gate
+        run: node scripts/full-product-qa-gate.mjs
 
       - name: Validate Connected GRC live-source graph
         run: node scripts/connected-grc-production-qa.mjs
 
-      - name: Upload QA report and screenshots
+      - name: Upload QA reports and screenshots
         if: ${{ always() }}
         uses: actions/upload-artifact@v4
         with:
           name: fornost-full-production-qa
-          path: qa-artifacts/
+          path: |
+            qa-artifacts/
+            qa-artifacts-v2/
           if-no-files-found: warn
-          retention-days: 14
+          retention-days: 21

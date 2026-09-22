@@ -3,9 +3,13 @@ import { NextRequest, NextResponse } from "next/server";
 export type AppRole = "Admin" | "Editor" | "Viewer";
 export type Actor = { id: string; email: string; name: string; role: AppRole; source: "local" | "entra" };
 
+export const PBKDF2_LEGACY_ITERATIONS=100_000;
+export const PBKDF2_ITERATIONS=600_000;
+
 const usersSql = `CREATE TABLE IF NOT EXISTS local_users (
   id TEXT PRIMARY KEY, name TEXT NOT NULL, email TEXT NOT NULL UNIQUE,
-  password_hash TEXT NOT NULL, password_salt TEXT NOT NULL, role TEXT NOT NULL,
+  password_hash TEXT NOT NULL, password_salt TEXT NOT NULL,
+  password_iterations INTEGER NOT NULL DEFAULT ${PBKDF2_ITERATIONS}, role TEXT NOT NULL,
   status TEXT NOT NULL DEFAULT 'Active', failed_attempts INTEGER NOT NULL DEFAULT 0,
   locked_until TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL)`;
 const sessionsSql = `CREATE TABLE IF NOT EXISTS local_sessions (
@@ -17,10 +21,16 @@ let identitySchemaReady: Promise<void> | null = null;
 export async function identityDb() {
   const { env } = await import("cloudflare:workers");
   if (!identitySchemaReady) {
-    identitySchemaReady = env.DB.batch([
-      env.DB.prepare(usersSql),
-      env.DB.prepare(sessionsSql),
-    ]).then(() => undefined).catch((error) => {
+    identitySchemaReady = (async()=>{
+      await env.DB.batch([
+        env.DB.prepare(usersSql),
+        env.DB.prepare(sessionsSql),
+      ]);
+      const columns=await env.DB.prepare("PRAGMA table_info(local_users)").all<{name:string}>();
+      if (!(columns.results || []).some((column)=>column.name==="password_iterations")) {
+        await env.DB.prepare(`ALTER TABLE local_users ADD COLUMN password_iterations INTEGER NOT NULL DEFAULT ${PBKDF2_LEGACY_ITERATIONS}`).run();
+      }
+    })().catch((error) => {
       identitySchemaReady = null;
       throw error;
     });
@@ -36,20 +46,25 @@ export async function ensureDemoUser(db: Awaited<ReturnType<typeof identityDb>>)
  if(existing)return;
  const oneTimeSecret=`${bytesToHex(crypto.getRandomValues(new Uint8Array(24)))}Aa1!`;
  const p=await passwordHash(oneTimeSecret),now=new Date().toISOString();
- await db.prepare("INSERT INTO local_users(id,name,email,password_hash,password_salt,role,status,created_at,updated_at) VALUES(?,?,?,?,?,?,'Active',?,?)").bind("demo-editor",demoAccount.name,demoAccount.email,p.hash,p.salt,demoAccount.role,now,now).run();
+ await db.prepare("INSERT INTO local_users(id,name,email,password_hash,password_salt,password_iterations,role,status,created_at,updated_at) VALUES(?,?,?,?,?,?,?,'Active',?,?)").bind("demo-editor",demoAccount.name,demoAccount.email,p.hash,p.salt,p.iterations,demoAccount.role,now,now).run();
 }
 
 function bytesToHex(bytes: Uint8Array) { return [...bytes].map(x => x.toString(16).padStart(2, "0")).join(""); }
 function hexToBytes(hex: string) { return new Uint8Array(hex.match(/.{2}/g)?.map(x => parseInt(x, 16)) || []); }
 async function sha256(value: string) { return bytesToHex(new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value)))); }
 
-export const PBKDF2_ITERATIONS=100_000;
+export function passwordIterations(value: unknown) {
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed < PBKDF2_LEGACY_ITERATIONS || parsed > PBKDF2_ITERATIONS) return PBKDF2_LEGACY_ITERATIONS;
+  return parsed;
+}
 
-export async function passwordHash(password: string, saltHex?: string) {
+export async function passwordHash(password: string, saltHex?: string, iterations = PBKDF2_ITERATIONS) {
+  const workFactor=passwordIterations(iterations);
   const salt = saltHex ? hexToBytes(saltHex) : crypto.getRandomValues(new Uint8Array(16));
   const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(password), "PBKDF2", false, ["deriveBits"]);
-  const bits = await crypto.subtle.deriveBits({ name: "PBKDF2", hash: "SHA-256", salt, iterations: PBKDF2_ITERATIONS }, key, 256);
-  return { hash: bytesToHex(new Uint8Array(bits)), salt: bytesToHex(salt) };
+  const bits = await crypto.subtle.deriveBits({ name: "PBKDF2", hash: "SHA-256", salt, iterations: workFactor }, key, 256);
+  return { hash: bytesToHex(new Uint8Array(bits)), salt: bytesToHex(salt), iterations: workFactor };
 }
 
 export function validPassword(password: string) {

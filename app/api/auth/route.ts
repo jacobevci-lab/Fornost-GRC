@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { actor, constantTimeEqual, createSession, demoAccount, destroySession, ensureDemoUser, identityDb, passwordHash, requestIsSecure, sameOrigin, validPassword } from "./security";
+import { actor, constantTimeEqual, createSession, demoAccount, destroySession, ensureDemoUser, identityDb, passwordHash, passwordIterations, PBKDF2_ITERATIONS, PBKDF2_LEGACY_ITERATIONS, requestIsSecure, sameOrigin, validPassword } from "./security";
 
 const configuredBasePath = process.env.NEXT_PUBLIC_BASE_PATH?.trim().replace(/\/+$/, "") || "";
 const cookie = (req: NextRequest) => ({ httpOnly: true, secure: requestIsSecure(req), sameSite: "strict" as const, path: configuredBasePath || "/", maxAge: 8 * 3600 });
@@ -44,21 +44,27 @@ export async function POST(req: NextRequest) {
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || !validPassword(password)) return NextResponse.json({ error: "Geçerli e-posta ve en az 12 karakterlik güçlü parola gerekli." }, { status: 400 });
     const now = new Date().toISOString(), id = "bootstrap-admin", p = await passwordHash(password);
     try {
-      await db.prepare("INSERT INTO local_users(id,name,email,password_hash,password_salt,role,status,created_at,updated_at) VALUES(?,?,?,?,?,'Admin','Active',?,?)").bind(id, normalize(body.name) || email, email, p.hash, p.salt, now, now).run();
+      await db.prepare("INSERT INTO local_users(id,name,email,password_hash,password_salt,password_iterations,role,status,created_at,updated_at) VALUES(?,?,?,?,?,?,'Admin','Active',?,?)").bind(id, normalize(body.name) || email, email, p.hash, p.salt, p.iterations, now, now).run();
     } catch {
       return NextResponse.json({ error: "İlk yönetici hesabı başka bir oturum tarafından oluşturuldu." }, { status: 409 });
     }
     const session = await createSession(db, id), res = NextResponse.json({ ok: true }); res.cookies.set("fornost_session", session.token, cookie(req)); return res;
   }
   if (action !== "login") return NextResponse.json({ error: "Geçersiz işlem." }, { status: 400 });
-  const row = await db.prepare("SELECT * FROM local_users WHERE email=?").bind(email).first<{id:string;status:string;locked_until:string|null;password_salt:string;password_hash:string;failed_attempts:number}>();
+  const row = await db.prepare("SELECT * FROM local_users WHERE email=?").bind(email).first<{id:string;status:string;locked_until:string|null;password_salt:string;password_hash:string;password_iterations:number|null;failed_attempts:number}>();
   const now = new Date(), generic = NextResponse.json({ error: "E-posta veya parola hatalı." }, { status: 401 });
   if (!row || row.status !== "Active" || (row.locked_until && new Date(row.locked_until) > now)) return generic;
-  const candidate = await passwordHash(password, row.password_salt);
+  const storedIterations = passwordIterations(row.password_iterations ?? PBKDF2_LEGACY_ITERATIONS);
+  const candidate = await passwordHash(password, row.password_salt, storedIterations);
   if (!constantTimeEqual(candidate.hash, row.password_hash)) {
     const attempts = Number(row.failed_attempts || 0) + 1, locked = attempts >= 5 ? new Date(now.getTime() + 15 * 60_000).toISOString() : null;
     await db.prepare("UPDATE local_users SET failed_attempts=?,locked_until=?,updated_at=? WHERE id=?").bind(locked ? 0 : attempts, locked, now.toISOString(), row.id).run(); return generic;
   }
-  await db.prepare("UPDATE local_users SET failed_attempts=0,locked_until=NULL,updated_at=? WHERE id=?").bind(now.toISOString(), row.id).run();
+  if (storedIterations < PBKDF2_ITERATIONS) {
+    const upgraded=await passwordHash(password);
+    await db.prepare("UPDATE local_users SET password_hash=?,password_salt=?,password_iterations=?,failed_attempts=0,locked_until=NULL,updated_at=? WHERE id=?").bind(upgraded.hash,upgraded.salt,upgraded.iterations,now.toISOString(),row.id).run();
+  } else {
+    await db.prepare("UPDATE local_users SET failed_attempts=0,locked_until=NULL,updated_at=? WHERE id=?").bind(now.toISOString(), row.id).run();
+  }
   const session = await createSession(db, row.id), res = NextResponse.json({ ok: true }); res.cookies.set("fornost_session", session.token, cookie(req)); return res;
 }

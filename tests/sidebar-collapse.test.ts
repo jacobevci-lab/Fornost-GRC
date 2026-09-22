@@ -23,15 +23,19 @@ test("desktop sidebar has persistent expanded compact and hidden modes", () => {
 test("compact sidebar exposes immediate branded module tooltips without rail clipping", () => {
   assert.match(layout, /import SidebarIconTooltip from "\.\/sidebar-icon-tooltip"/);
   assert.match(layout, /<SidebarIconTooltip \/>/);
-  assert.match(tooltip, /\.sidebar-compact #fornost-navigation button\[title\]/);
+  assert.match(tooltip, /\.sidebar-compact #fornost-navigation button\[aria-label\]/);
+  assert.match(tooltip, /getAttribute\("aria-label"\)/);
+  assert.match(tooltip, /removeAttribute\("title"\)/);
+  assert.match(tooltip, /setAttribute\("aria-describedby", tooltipId\)/);
   assert.match(tooltip, /createPortal\(/);
   assert.match(tooltip, /role="tooltip"/);
   assert.match(tooltip, /pointerover/);
   assert.match(tooltip, /focusin/);
+  assert.match(tooltip, /event\.key === "Escape"/);
   assert.match(tooltipCss, /\.sidebar-icon-tooltip\{[\s\S]*position:fixed/);
   assert.match(tooltipCss, /z-index:160/);
   assert.match(tooltipCss, /var\(--ws-brand\)/);
-  assert.match(tooltipCss, /@media\(max-width:900px\)/);
+  assert.match(tooltipCss, /@media\(max-width:620px\)\{[\s\S]*\.sidebar-icon-tooltip\{display:none!important\}/);
 });
 
 test("desktop navigation cycles from full width to icon rail to zero width", () => {

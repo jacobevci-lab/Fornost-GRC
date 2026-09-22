@@ -9,32 +9,46 @@ type TooltipState = {
   top: number;
 };
 
-const navigationSelector = ".sidebar-compact #fornost-navigation button[title]";
+const navigationSelector = ".sidebar-compact #fornost-navigation button[aria-label]";
 const activeSelector = ".sidebar-compact #fornost-navigation button[data-fornost-sidebar-tooltip]";
+const tooltipId = "fornost-sidebar-icon-tooltip";
 
 export default function SidebarIconTooltip() {
   const [tooltip, setTooltip] = useState<TooltipState | null>(null);
   const sourceRef = useRef<HTMLButtonElement | null>(null);
+  const previousDescribedByRef = useRef<string | null>(null);
 
   useEffect(() => {
-    const restoreTitle = () => {
+    const restoreSource = () => {
       const source = sourceRef.current;
       if (source) {
-        const label = source.dataset.fornostSidebarTooltip;
-        if (label && !source.hasAttribute("title")) source.setAttribute("title", label);
+        const nativeTitle = source.dataset.fornostSidebarNativeTitle;
+        if (nativeTitle && !source.hasAttribute("title")) source.setAttribute("title", nativeTitle);
+        delete source.dataset.fornostSidebarNativeTitle;
         delete source.dataset.fornostSidebarTooltip;
+
+        const previous = previousDescribedByRef.current;
+        if (previous) source.setAttribute("aria-describedby", previous);
+        else source.removeAttribute("aria-describedby");
       }
       sourceRef.current = null;
+      previousDescribedByRef.current = null;
       setTooltip(null);
     };
 
     const show = (button: HTMLButtonElement) => {
-      const label = button.getAttribute("title") || button.dataset.fornostSidebarTooltip || "";
+      const label = button.getAttribute("aria-label") || button.getAttribute("title") || "";
       if (!label) return;
-      if (sourceRef.current && sourceRef.current !== button) restoreTitle();
+      if (sourceRef.current && sourceRef.current !== button) restoreSource();
 
+      const nativeTitle = button.getAttribute("title");
+      if (nativeTitle) {
+        button.dataset.fornostSidebarNativeTitle = nativeTitle;
+        button.removeAttribute("title");
+      }
       button.dataset.fornostSidebarTooltip = label;
-      button.removeAttribute("title");
+      previousDescribedByRef.current = button.getAttribute("aria-describedby");
+      button.setAttribute("aria-describedby", tooltipId);
       sourceRef.current = button;
 
       const rect = button.getBoundingClientRect();
@@ -56,7 +70,7 @@ export default function SidebarIconTooltip() {
       const button = buttonFrom(event.target, activeSelector);
       if (!button) return;
       if (event.relatedTarget instanceof Node && button.contains(event.relatedTarget)) return;
-      restoreTitle();
+      restoreSource();
     };
     const onFocusIn = (event: FocusEvent) => {
       const button = buttonFrom(event.target, navigationSelector);
@@ -66,14 +80,18 @@ export default function SidebarIconTooltip() {
       const button = buttonFrom(event.target, activeSelector);
       if (!button) return;
       if (event.relatedTarget instanceof Node && button.contains(event.relatedTarget)) return;
-      restoreTitle();
+      restoreSource();
     };
-    const onViewportChange = () => restoreTitle();
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") restoreSource();
+    };
+    const onViewportChange = () => restoreSource();
 
     document.addEventListener("pointerover", onPointerOver);
     document.addEventListener("pointerout", onPointerOut);
     document.addEventListener("focusin", onFocusIn);
     document.addEventListener("focusout", onFocusOut);
+    document.addEventListener("keydown", onKeyDown);
     window.addEventListener("resize", onViewportChange);
     window.addEventListener("scroll", onViewportChange, true);
 
@@ -82,9 +100,10 @@ export default function SidebarIconTooltip() {
       document.removeEventListener("pointerout", onPointerOut);
       document.removeEventListener("focusin", onFocusIn);
       document.removeEventListener("focusout", onFocusOut);
+      document.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("resize", onViewportChange);
       window.removeEventListener("scroll", onViewportChange, true);
-      restoreTitle();
+      restoreSource();
     };
   }, []);
 
@@ -92,7 +111,7 @@ export default function SidebarIconTooltip() {
 
   return createPortal(
     <div
-      id="fornost-sidebar-icon-tooltip"
+      id={tooltipId}
       className="sidebar-icon-tooltip"
       role="tooltip"
       style={{ left: tooltip.left, top: tooltip.top }}
