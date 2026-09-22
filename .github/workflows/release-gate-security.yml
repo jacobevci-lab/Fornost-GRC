@@ -1,0 +1,155 @@
+name: Release Gate QA and Security Assurance
+
+on:
+  push:
+    branches:
+      - qa/release-gate-2026-09-22
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fornost-release-gate-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  product-qa:
+    name: Deep bilingual product and runtime QA
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      FORNOST_PROD_URL: ${{ vars.FORNOST_PROD_URL }}
+      CF_ACCESS_CLIENT_ID: ${{ secrets.CF_ACCESS_CLIENT_ID }}
+      CF_ACCESS_CLIENT_SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
+      FORNOST_SMOKE_EMAIL: ${{ secrets.FORNOST_SMOKE_EMAIL }}
+      FORNOST_SMOKE_PASSWORD: ${{ secrets.FORNOST_SMOKE_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.13.0
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Lint
+        run: npm run lint
+      - name: Full application test/build suite
+        run: npm test
+      - name: Install browser QA tooling
+        run: npm install --no-save --ignore-scripts @playwright/test@1.55.0 @axe-core/playwright@4.10.1
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Existing full production visual/a11y/runtime QA
+        continue-on-error: true
+        run: node scripts/full-production-qa.mjs
+      - name: Connected GRC live-source QA
+        continue-on-error: true
+        run: node scripts/connected-grc-production-qa.mjs
+      - name: Deep TR/EN forms tables records interface QA
+        continue-on-error: true
+        run: node scripts/release-gate-qa.mjs
+      - name: Authenticated OWASP runtime probes
+        continue-on-error: true
+        run: node scripts/release-gate-dast.mjs
+      - name: Upload product QA evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fornost-release-gate-product-qa
+          path: |
+            qa-artifacts/
+            qa-artifacts-release-gate/
+            qa-security-artifacts/authenticated-dast.json
+          if-no-files-found: warn
+          retention-days: 14
+
+  security-static:
+    name: SAST SCA SBOM secrets IaC container
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.13.0
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Prepare artifact directory
+        run: mkdir -p qa-security-artifacts
+      - name: SCA - npm audit all dependencies
+        continue-on-error: true
+        run: npm audit --audit-level=low --json > qa-security-artifacts/npm-audit-all.json
+      - name: SCA - npm audit production dependencies
+        continue-on-error: true
+        run: npm audit --omit=dev --audit-level=low --json > qa-security-artifacts/npm-audit-prod.json
+      - name: Native CycloneDX SBOM
+        continue-on-error: true
+        run: npm sbom --sbom-format=cyclonedx > qa-security-artifacts/npm-sbom.cdx.json
+      - name: Install Semgrep and Checkov
+        run: python -m pip install --disable-pip-version-check semgrep checkov
+      - name: SAST - Semgrep OWASP Node TypeScript
+        continue-on-error: true
+        run: semgrep scan --config p/owasp-top-ten --config p/nodejs --config p/typescript --json --output qa-security-artifacts/semgrep.json .
+      - name: IaC - Checkov Dockerfile and GitHub Actions
+        continue-on-error: true
+        run: checkov -d . --framework dockerfile,github_actions -o json > qa-security-artifacts/checkov.json
+      - name: Install Trivy
+        run: curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sudo sh -s -- -b /usr/local/bin v0.66.0
+      - name: SCA secrets and IaC - Trivy filesystem
+        continue-on-error: true
+        run: trivy fs --scanners vuln,secret,misconfig --format json --output qa-security-artifacts/trivy-fs.json .
+      - name: Install Syft
+        run: curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sudo sh -s -- -b /usr/local/bin v1.32.0
+      - name: Generate CycloneDX and SPDX SBOM with Syft
+        run: |
+          syft dir:. -o cyclonedx-json=qa-security-artifacts/sbom.cdx.json
+          syft dir:. -o spdx-json=qa-security-artifacts/sbom.spdx.json
+      - name: Build production container
+        continue-on-error: true
+        run: docker build -t fornost-release-gate:qa .
+      - name: Scan production container
+        continue-on-error: true
+        run: trivy image --scanners vuln,secret,misconfig --format json --output qa-security-artifacts/trivy-image.json fornost-release-gate:qa
+      - name: Upload static security evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fornost-release-gate-static-security
+          path: qa-security-artifacts/
+          if-no-files-found: warn
+          retention-days: 14
+
+  zap-dast:
+    name: OWASP ZAP unauthenticated baseline DAST
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      FORNOST_PROD_URL: ${{ vars.FORNOST_PROD_URL }}
+      CF_ACCESS_CLIENT_ID: ${{ secrets.CF_ACCESS_CLIENT_ID }}
+      CF_ACCESS_CLIENT_SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prepare DAST evidence
+        run: mkdir -p qa-security-artifacts
+      - name: OWASP ZAP baseline with Cloudflare Access headers
+        continue-on-error: true
+        run: |
+          docker run --rm \
+            -v "$PWD/qa-security-artifacts:/zap/wrk/:rw" \
+            ghcr.io/zaproxy/zaproxy:stable \
+            zap-baseline.py -t "$FORNOST_PROD_URL" -J zap-report.json -r zap-report.html -I \
+            -z "-config replacer.full_list(0).description=cf-access-id -config replacer.full_list(0).enabled=true -config replacer.full_list(0).matchtype=REQ_HEADER -config replacer.full_list(0).matchstr=CF-Access-Client-Id -config replacer.full_list(0).replacement=$CF_ACCESS_CLIENT_ID -config replacer.full_list(1).description=cf-access-secret -config replacer.full_list(1).enabled=true -config replacer.full_list(1).matchtype=REQ_HEADER -config replacer.full_list(1).matchstr=CF-Access-Client-Secret -config replacer.full_list(1).replacement=$CF_ACCESS_CLIENT_SECRET"
+      - name: Upload ZAP evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fornost-release-gate-zap-dast
+          path: qa-security-artifacts/
+          if-no-files-found: warn
+          retention-days: 14
