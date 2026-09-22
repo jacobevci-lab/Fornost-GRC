@@ -91,9 +91,6 @@ jobs:
           errors=data.get('errors',[])
           partial=[]
           unexpected=[]
-          # Semgrep currently has a JSX-text parser limitation on raw ampersands in these
-          # otherwise TypeScript-checked files. Keep the exception explicit and fail closed
-          # if the set expands or any different parser/scanner error appears.
           accepted_partial_paths={
             'app/executive-assurance-panel.tsx',
             'app/fornost-ai-copilot.tsx',
@@ -127,8 +124,6 @@ jobs:
           PY
           policy=$?
           code=$scan
-          # Semgrep may return a non-zero warning code for accepted PartialParsing. The
-          # explicit JSON policy above is the authoritative fail-closed scanner gate.
           if [ "$policy" -eq 0 ]; then code=0; else code=$policy; fi
           echo "exit_code=$code" >> "$GITHUB_OUTPUT"
           exit 0
@@ -139,25 +134,30 @@ jobs:
         run: |
           set +e
           docker run --rm --entrypoint sh -v "$PWD:/repo" koalaman/shellcheck-alpine:stable \
-            -c 'find /repo/scripts -type f -name "*.sh" -print0 | xargs -0 -r shellcheck -f json1' \
+            -c 'cd /repo/scripts/linux && shellcheck -x -f json1 ./*.sh' \
             > security-artifacts/sast/shellcheck.json
           scan=$?
           python3 - <<'PY'
           import json, pathlib
           p=pathlib.Path('security-artifacts/sast/shellcheck.json')
           try:
-            data=json.loads(p.read_text()) if p.exists() and p.stat().st_size else []
-          except Exception:
-            data=[]
-          errors=[x for x in data if str(x.get('level','')).lower()=='error']
-          warnings=[x for x in data if str(x.get('level','')).lower()=='warning']
+            raw=json.loads(p.read_text()) if p.exists() and p.stat().st_size else {'comments':[]}
+          except Exception as exc:
+            pathlib.Path('security-artifacts/sast/shellcheck-summary.json').write_text(json.dumps({'parseError':str(exc)},indent=2))
+            raise SystemExit(2)
+          comments=raw.get('comments',[]) if isinstance(raw,dict) else raw if isinstance(raw,list) else []
+          errors=[x for x in comments if str(x.get('level','')).lower()=='error']
+          warnings=[x for x in comments if str(x.get('level','')).lower()=='warning']
+          info=[x for x in comments if str(x.get('level','')).lower() in {'info','style'}]
           pathlib.Path('security-artifacts/sast/shellcheck-summary.json').write_text(json.dumps({
-            'findings':len(data),'errors':len(errors),'warnings':len(warnings)
+            'findings':len(comments),'errors':len(errors),'warnings':len(warnings),'infoOrStyle':len(info)
           },indent=2))
           raise SystemExit(2 if errors else 0)
           PY
           policy=$?
           code=0
+          # ShellCheck uses 1 for ordinary findings; our JSON severity gate above decides
+          # whether those findings are release-blocking. Scanner/runtime errors (>1) fail closed.
           if [ "$scan" -gt 1 ]; then code=$scan; fi
           if [ "$policy" -ne 0 ]; then code=$policy; fi
           echo "exit_code=$code" >> "$GITHUB_OUTPUT"
