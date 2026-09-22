@@ -29,16 +29,32 @@ function addResult(id, owasp, title, passed, detail, severity = "high", evidence
 function headersObject(headers) {
   return Object.fromEntries([...headers.entries()].map(([k, v]) => [k.toLowerCase(), v]));
 }
-async function request(url, options = {}) {
-  const response = await fetch(url, { redirect: "manual", ...options, headers: { ...accessHeaders, ...(options.headers || {}) } });
-  const text = await response.text();
-  return { response, text, headers: headersObject(response.headers) };
+function splitCombinedSetCookie(value) {
+  return String(value || "").split(/,(?=\s*[^;,\s]+=)/g).map((item) => item.trim()).filter(Boolean);
+}
+function responseSetCookies(headers) {
+  if (typeof headers.getSetCookie === "function") {
+    const values = headers.getSetCookie();
+    if (Array.isArray(values) && values.length) return values;
+  }
+  return splitCombinedSetCookie(headers.get("set-cookie") || "");
+}
+function appSessionSetCookie(values) {
+  return values.find((value) => /^\s*fornost_session=/i.test(value)) || "";
 }
 function cookieFrom(setCookie) {
   return String(setCookie || "").split(";", 1)[0];
 }
+function redactCookie(setCookie) {
+  if (!setCookie) return "missing fornost_session cookie";
+  return setCookie.replace(/^(\s*fornost_session=)[^;]+/i, "$1<redacted>");
+}
+async function request(url, options = {}) {
+  const response = await fetch(url, { redirect: "manual", ...options, headers: { ...accessHeaders, ...(options.headers || {}) } });
+  const text = await response.text();
+  return { response, text, headers: headersObject(response.headers), setCookies: responseSetCookies(response.headers) };
+}
 
-// A05 Security Misconfiguration: response hardening headers and CORS.
 const root = await request(baseUrl);
 const requiredHeaders = [
   "content-security-policy", "strict-transport-security", "x-content-type-options", "referrer-policy",
@@ -52,7 +68,6 @@ const corsRoot = await request(baseUrl, { headers: { Origin: "https://attacker.i
 const acao = corsRoot.headers["access-control-allow-origin"] || "";
 addResult("CORS-ROOT", "A01", "Hostile Origin is not trusted by root response", acao !== "*" && acao !== "https://attacker.invalid", `ACAO=${acao || "<none>"}`, "high");
 
-// A01 Broken Access Control: API must reject anonymous and hostile-origin access.
 const unauthGrc = await request(`${baseUrl}/api/grc`, { headers: { Origin: baseUrl } });
 addResult("AUTHZ-ANON-GRC", "A01", "Anonymous GRC API access is denied", [401, 403].includes(unauthGrc.response.status), `HTTP ${unauthGrc.response.status}`, "critical");
 const hostileLogin = await request(`${baseUrl}/api/auth`, {
@@ -61,7 +76,6 @@ const hostileLogin = await request(`${baseUrl}/api/auth`, {
 });
 addResult("CSRF-AUTH", "A01", "Cross-origin authentication POST is rejected", hostileLogin.response.status === 403, `HTTP ${hostileLogin.response.status}`, "high");
 
-// A07 Identification and Authentication Failures: production auth posture.
 const authState = await request(`${baseUrl}/api/auth`, { headers: { Origin: baseUrl } });
 let authJson = {};
 try { authJson = JSON.parse(authState.text); } catch {}
@@ -103,17 +117,20 @@ const oversized = await request(`${baseUrl}/api/auth`, {
 });
 addResult("INPUT-LIMIT", "A04", "Authentication request size is bounded", oversized.response.status === 413, `HTTP ${oversized.response.status}`, "medium");
 
-// Valid smoke session: cookie flags, authenticated access, hostile-origin denial, logout invalidation.
+// Cloudflare Access can also emit CF_Authorization on this response. Audit only
+// the application session cookie and never persist the Access JWT in artifacts.
 const login = await request(`${baseUrl}/api/auth`, {
   method: "POST", headers: { Origin: baseUrl, "content-type": "application/json" },
   body: JSON.stringify({ action: "login", email: smokeEmail, password: smokePassword }),
 });
-const setCookie = login.headers["set-cookie"] || "";
+const appSetCookie = appSessionSetCookie(login.setCookies);
+const cookieDetail = redactCookie(appSetCookie);
 addResult("AUTH-LOGIN", "A07", "Smoke account can authenticate", login.response.status === 200, `HTTP ${login.response.status}`, "critical");
-addResult("COOKIE-HTTPONLY", "A07", "Session cookie is HttpOnly", /httponly/i.test(setCookie), setCookie.replace(/fornost_session=[^;]+/i, "fornost_session=<redacted>"), "high");
-addResult("COOKIE-SECURE", "A07", "Session cookie is Secure", /secure/i.test(setCookie), setCookie.replace(/fornost_session=[^;]+/i, "fornost_session=<redacted>"), "high");
-addResult("COOKIE-SAMESITE", "A07", "Session cookie uses SameSite=Strict", /samesite=strict/i.test(setCookie), setCookie.replace(/fornost_session=[^;]+/i, "fornost_session=<redacted>"), "high");
-const cookie = cookieFrom(setCookie);
+addResult("COOKIE-PRESENT", "A07", "Application session cookie is issued", Boolean(appSetCookie), cookieDetail, "critical");
+addResult("COOKIE-HTTPONLY", "A07", "Session cookie is HttpOnly", /httponly/i.test(appSetCookie), cookieDetail, "high");
+addResult("COOKIE-SECURE", "A07", "Session cookie is Secure", /secure/i.test(appSetCookie), cookieDetail, "high");
+addResult("COOKIE-SAMESITE", "A07", "Session cookie uses SameSite=Strict", /samesite=strict/i.test(appSetCookie), cookieDetail, "high");
+const cookie = cookieFrom(appSetCookie);
 
 if (cookie) {
   const authGrc = await request(`${baseUrl}/api/grc`, { headers: { Origin: baseUrl, Cookie: cookie } });
@@ -139,9 +156,13 @@ if (cookie) {
   addResult("AUTH-LOGOUT", "A07", "Logout succeeds", logout.response.status === 200, `HTTP ${logout.response.status}`, "high");
   const stale = await request(`${baseUrl}/api/grc`, { headers: { Origin: baseUrl, Cookie: cookie } });
   addResult("AUTH-SESSION-INVALIDATION", "A07", "Server-side session is invalid after logout", [401, 403].includes(stale.response.status), `HTTP ${stale.response.status}`, "critical");
+} else {
+  addResult("AUTHZ-AUTH-GRC", "A01", "Authenticated smoke account can read GRC API", false, "fornost_session cookie missing", "high");
+  addResult("AUTHZ-HOSTILE-GET", "A01", "Authenticated API request with hostile Origin is denied", false, "fornost_session cookie missing", "high");
+  addResult("AUTHZ-HOSTILE-POST", "A01", "Cross-origin authenticated write is denied", false, "fornost_session cookie missing", "critical");
+  addResult("INPUT-GRC-VALIDATION", "A04", "Invalid same-origin GRC record is rejected", false, "fornost_session cookie missing", "high");
 }
 
-// A05/A06 common exposure checks.
 for (const exposedPath of ["/.env", "/.env.production", "/.git/config", "/package.json", "/wrangler.toml", "/tsconfig.json", "/server.js.map"]) {
   const res = await request(`${baseUrl}${exposedPath}`);
   addResult(`EXPOSURE-${exposedPath}`, "A05", `Sensitive deployment file is not publicly served: ${exposedPath}`, ![200, 206].includes(res.response.status), `HTTP ${res.response.status}`, "high");
@@ -149,7 +170,6 @@ for (const exposedPath of ["/.env", "/.env.production", "/.git/config", "/packag
 const trace = await request(baseUrl, { method: "TRACE" });
 addResult("HTTP-TRACE", "A05", "HTTP TRACE is disabled", trace.response.status !== 200, `HTTP ${trace.response.status}`, "medium");
 
-// A09 logging/monitoring cannot be fully proven externally; prove errors are generic and do not leak stack/source paths.
 const invalidAction = await request(`${baseUrl}/api/auth`, {
   method: "POST", headers: { Origin: baseUrl, "content-type": "application/json" }, body: JSON.stringify({ action: "__invalid__" }),
 });
@@ -164,7 +184,7 @@ const summary = {
   bySeverity: findings.reduce((acc, item) => ({ ...acc, [item.severity]: (acc[item.severity] || 0) + 1 }), {}),
   owaspCoverage: [...new Set(results.map((x) => x.owasp))].sort(),
 };
-const artifact = { version: "1.0", startedAt, finishedAt: new Date().toISOString(), baseUrl, summary, results, findings };
+const artifact = { version: "1.1", startedAt, finishedAt: new Date().toISOString(), baseUrl, summary, results, findings };
 await fs.writeFile(path.join(outDir, "runtime-security-audit.json"), JSON.stringify(artifact, null, 2));
 const esc = (value) => String(value ?? "").replace(/[&<>\"']/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '\"': "&quot;", "'": "&#39;" }[ch]));
 const rows = results.map((r) => `<tr><td>${esc(r.passed ? "PASS" : "FAIL")}</td><td>${esc(r.owasp)}</td><td>${esc(r.id)}</td><td>${esc(r.title)}</td><td>${esc(r.detail)}</td></tr>`).join("");
