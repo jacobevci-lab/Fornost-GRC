@@ -2,6 +2,7 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { withBasePath } from "./base-path";
 import AssuranceNotificationSettings from "./assurance-notification-settings";
+import AssuranceNotificationStormSettings from "./assurance-notification-storm-settings";
 
 type Lang="tr"|"en";
 type Kind="ticketing"|"email"|"identity";
@@ -49,7 +50,7 @@ export default function IntegrationSettings({lang,kind}:{lang:Lang;kind:Kind}){
   {kind==="ticketing"&&<IntegrationCard kind="ticketing" title={tr?"İş Takibi / Ticketing":"Work Tracking / Ticketing"} desc={tr?"GRC gap ve aksiyonlarından izlenebilir ticket üretin.":"Create traceable tickets from GRC gaps and actions."} form={forms.ticketing} tr={tr} busy={busy} setForm={setForm} setConfig={setConfig} save={save} test={()=>action("ticketing","test")} wide/>}
   {kind==="email"&&<IntegrationCard kind="email" title={tr?"E-posta / SMTP":"Email / SMTP"} desc={tr?"Risk bildirimleri ve test e-postaları için güvenli gönderim kanalı.":"Secure delivery for risk notifications and test messages."} form={forms.email} tr={tr} busy={busy} setForm={setForm} setConfig={setConfig} save={save} test={()=>action("email","test")} wide extra={<label className="integration-field"><span>{tr?"Test Alıcısı":"Test Recipient"}</span><input type="email" value={testEmail} onChange={e=>setTestEmail(e.target.value)} placeholder="name@company.com"/><button type="button" className="integration-test-mail" disabled={!forms.email.enabled||!testEmail||!!busy} onClick={()=>action("email","send-test")}>{busy==="email:send-test"?(tr?"Gönderiliyor…":"Sending…"):(tr?"Test E-postası Gönder":"Send Test Email")}</button></label>}/>}
   {kind==="identity"&&<IntegrationCard kind="identity" title={tr?"IAM / SSO Federasyonu":"IAM / SSO Federation"} desc={tr?"Entra, Okta, OIDC, SAML ve şirket içi LDAP/LDAPS profilleri.":"Entra, Okta, OIDC, SAML and on-prem LDAP/LDAPS profiles."} form={forms.identity} tr={tr} busy={busy} setForm={setForm} setConfig={setConfig} save={save} test={()=>action("identity","test")} wide note={tr?"LDAP/LDAPS, güvenlik nedeniyle platformdan ham TCP ile bağlanmaz; şirket içi IAM bridge üzerinden doğrulanır. Entra/Okta profilleri OIDC discovery ile test edilir.":"LDAP/LDAPS uses an on-prem IAM bridge instead of raw TCP. Entra/Okta profiles are verified through OIDC discovery."}/>}
- </div></section>{kind==="email"&&<AssuranceNotificationSettings lang={lang}/>}</>;
+ </div></section>{kind==="email"&&<><AssuranceNotificationSettings lang={lang}/><AssuranceNotificationStormSettings lang={lang}/></>}</>;
 }
 
 function IntegrationCard({kind,title,desc,form,tr,busy,setForm,setConfig,save,test,extra,wide,note}:{kind:Kind;title:string;desc:string;form:Form;tr:boolean;busy:string;setForm:(k:Kind,p:Partial<Form>)=>void;setConfig:(k:Kind,key:string,value:string|boolean)=>void;save:(k:Kind,e:FormEvent)=>void;test:()=>void;extra?:React.ReactNode;wide?:boolean;note?:string}){
