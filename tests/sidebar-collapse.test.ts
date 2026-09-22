@@ -35,7 +35,7 @@ test("compact sidebar exposes immediate branded module tooltips without rail cli
   assert.match(tooltipCss, /\.sidebar-icon-tooltip\{[\s\S]*position:fixed/);
   assert.match(tooltipCss, /z-index:160/);
   assert.match(tooltipCss, /var\(--ws-brand\)/);
-  assert.match(tooltipCss, /@media\(max-width:900px\)/);
+  assert.match(tooltipCss, /@media\(max-width:620px\)\{[\s\S]*\.sidebar-icon-tooltip\{display:none!important\}/);
 });
 
 test("desktop navigation cycles from full width to icon rail to zero width", () => {
