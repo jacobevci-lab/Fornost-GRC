@@ -90,37 +90,25 @@ jobs:
           high=[r for r in results if str(r.get('extra',{}).get('severity','')).upper() in {'ERROR','CRITICAL','HIGH'}]
           errors=data.get('errors',[])
           partial=[]
-          unexpected=[]
-          accepted_partial_paths={
-            'app/executive-assurance-panel.tsx',
-            'app/fornost-ai-copilot.tsx',
-            'app/fornost-ai-knowledge.tsx',
-            'app/fornost-ai-lifecycle.tsx',
-            'app/risk-appetite.tsx',
-          }
+          fatal=[]
           for err in errors:
             path=str(err.get('path') or '')
             kind=err.get('type')
             is_partial=isinstance(kind,list) and bool(kind) and kind[0]=='PartialParsing'
             if is_partial:
               partial.append(path)
-              if path not in accepted_partial_paths:
-                unexpected.append({'path':path,'message':err.get('message'),'type':'PartialParsing'})
-            elif str(err.get('level','')).lower() in {'error','fatal'}:
-              unexpected.append({'path':path,'message':err.get('message'),'type':kind})
-          missing_expected=sorted(accepted_partial_paths-set(partial))
+            if is_partial or str(err.get('level','')).lower() in {'error','fatal'}:
+              fatal.append({'path':path,'message':err.get('message'),'type':kind})
           summary={
             'results':len(results),
             'high':len(high),
             'scannerErrors':len(errors),
             'partialParsing':len(partial),
-            'acceptedPartialParsePaths':sorted(set(partial)&accepted_partial_paths),
-            'unexpectedParserErrors':unexpected,
-            'acceptedParserLimitationsNoLongerObserved':missing_expected,
-            'coverageCompensation':'All TS/TSX is additionally gated by npm run typecheck; shell files are scanned by ShellCheck.',
+            'parserErrors':fatal,
+            'coveragePolicy':'Semgrep parser errors fail closed. All TS/TSX is additionally gated by npm run typecheck; shell files are scanned by ShellCheck.',
           }
           pathlib.Path('security-artifacts/sast/semgrep-summary.json').write_text(json.dumps(summary,indent=2,ensure_ascii=False))
-          raise SystemExit(2 if high or unexpected else 0)
+          raise SystemExit(2 if high or errors else 0)
           PY
           policy=$?
           code=$scan
