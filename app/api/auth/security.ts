@@ -3,8 +3,10 @@ import { NextRequest, NextResponse } from "next/server";
 export type AppRole = "Admin" | "Editor" | "Viewer";
 export type Actor = { id: string; email: string; name: string; role: AppRole; source: "local" | "entra" };
 
+// Cloudflare Workers WebCrypto rejects PBKDF2 requests above 100,000 iterations in production.
+// Keep the local credential format at that runtime ceiling until the password KDF is migrated.
 export const PBKDF2_LEGACY_ITERATIONS=100_000;
-export const PBKDF2_ITERATIONS=600_000;
+export const PBKDF2_ITERATIONS=100_000;
 
 const usersSql = `CREATE TABLE IF NOT EXISTS local_users (
   id TEXT PRIMARY KEY, name TEXT NOT NULL, email TEXT NOT NULL UNIQUE,

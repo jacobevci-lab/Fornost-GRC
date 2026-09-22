@@ -44,11 +44,12 @@ test("public demo editor account is non-admin and exposes no credential",()=>{
  assert.equal("password" in demoAccount,false);
 });
 
-test("PBKDF2 uses the hardened current cost while retaining the explicit legacy floor", async()=>{
+test("PBKDF2 stays within the Cloudflare Workers WebCrypto production ceiling", async()=>{
   assert.equal(PBKDF2_LEGACY_ITERATIONS,100_000);
-  assert.equal(PBKDF2_ITERATIONS,600_000);
+  assert.equal(PBKDF2_ITERATIONS,100_000);
   assert.equal(passwordIterations(PBKDF2_LEGACY_ITERATIONS),PBKDF2_LEGACY_ITERATIONS);
   assert.equal(passwordIterations(PBKDF2_ITERATIONS),PBKDF2_ITERATIONS);
+  assert.equal(passwordIterations(600_000),PBKDF2_LEGACY_ITERATIONS);
   assert.equal(passwordIterations(1),PBKDF2_LEGACY_ITERATIONS);
   const current=await passwordHash("Strong-Passphrase-2026!");
   assert.equal(current.iterations,PBKDF2_ITERATIONS);

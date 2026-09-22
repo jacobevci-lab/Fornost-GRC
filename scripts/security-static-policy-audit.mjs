@@ -33,7 +33,7 @@ const dockerfile = await text("Dockerfile");
 
 const iterationMatch = authSecurity.match(/PBKDF2_ITERATIONS\s*=\s*([\d_]+)/);
 const iterations = iterationMatch ? Number(iterationMatch[1].replaceAll("_", "")) : 0;
-add("CRYPTO-PBKDF2", "A02", "PBKDF2-HMAC-SHA256 work factor meets OWASP guidance", iterations >= 600_000, "high", `configured iterations=${iterations || "not found"}; policy floor=600000`, "app/api/auth/security.ts");
+add("CRYPTO-PBKDF2", "A02", "PBKDF2-HMAC-SHA256 work factor matches the Cloudflare Workers WebCrypto runtime ceiling", iterations === 100_000, "high", `configured iterations=${iterations || "not found"}; Cloudflare Workers runtime ceiling=100000; stronger KDF migration remains a separate hardening item`, "app/api/auth/security.ts");
 add("CRYPTO-SALT", "A02", "Password hashing uses random per-password salt", /getRandomValues\(new Uint8Array\(16\)\)/.test(authSecurity), "high", "Expected 16-byte random salt", "app/api/auth/security.ts");
 add("SESSION-ENTROPY", "A07", "Session tokens use at least 32 random bytes", /getRandomValues\(new Uint8Array\((3[2-9]|[4-9]\d|\d{3,})\)\)/.test(authSecurity), "critical", "Expected >=32 random bytes", "app/api/auth/security.ts");
 add("COOKIE-HTTPONLY", "A07", "Session cookie is HttpOnly", /httpOnly:\s*true/.test(authRoute), "high", "Cookie policy must set HttpOnly", "app/api/auth/route.ts");
