@@ -368,7 +368,7 @@ export default function FornostAiCopilot() {
         <button className={activeTab === "agents" ? "active" : ""} onClick={() => { setTab("agents"); void loadAgents(); }}>Agentlar</button>
         <button className={activeTab === "knowledge" ? "active" : ""} onClick={() => setTab("knowledge")}>Bilgi Tabanı</button>
         <button className={activeTab === "drafts" ? "active" : ""} onClick={() => { setTab("drafts"); void loadDrafts(); }}>Taslaklar</button>
-        {user.role === "Admin" && <small className="fornost-ai-tab-group">YÖNETİŞİM & GÜVENCE</small>}
+        {user.role === "Admin" && <small className="fornost-ai-tab-group">YÖNETİŞİM &amp; GÜVENCE</small>}
         {user.role === "Admin" && <button className={activeTab === "metrics" ? "active" : ""} onClick={() => { setTab("metrics"); void loadMetrics(); }}>Kalite</button>}
         {user.role === "Admin" && <button className={activeTab === "governance" ? "active" : ""} onClick={() => { setTab("governance"); void loadGovernance(); }}>Yönetişim</button>}
         {user.role === "Admin" && <button className={activeTab === "models" ? "active" : ""} onClick={() => setTab("models")}>AI Envanteri</button>}
@@ -393,7 +393,7 @@ export default function FornostAiCopilot() {
         {user.role === "Admin" && <button className={activeTab === "exceptions" ? "active" : ""} onClick={() => setTab("exceptions")}>AI İstisnalar</button>}
         {user.role === "Admin" && <button className={activeTab === "decommission" ? "active" : ""} onClick={() => setTab("decommission")}>AI Emeklilik</button>}
         {user.role === "Admin" && <button className={activeTab === "findings" ? "active" : ""} onClick={() => setTab("findings")}>AI Bulgular</button>}
-        {user.role === "Admin" && <small className="fornost-ai-tab-group">OPERASYON & SİSTEM</small>}
+        {user.role === "Admin" && <small className="fornost-ai-tab-group">OPERASYON &amp; SİSTEM</small>}
         {user.role === "Admin" && <button className={activeTab === "feedback" ? "active" : ""} onClick={() => setTab("feedback")}>Olaylar</button>}
         {user.role === "Admin" && <button className={activeTab === "budget" ? "active" : ""} onClick={() => setTab("budget")}>Kullanım</button>}
         {user.role === "Admin" && <button className={activeTab === "policy" ? "active" : ""} onClick={() => setTab("policy")}>Operasyon</button>}
