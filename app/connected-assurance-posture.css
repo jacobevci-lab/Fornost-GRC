@@ -36,10 +36,57 @@
   white-space:nowrap;
 }
 .connected-lifecycle-posture article.healthy{border-color:color-mix(in srgb,var(--ws-positive) 26%,var(--ws-line))}
-.connected-lifecycle-posture article.healthy strong{color:var(--ws-positive)}
+.connected-lifecycle-posture article.healthy strong{color:#26725f}
 .connected-lifecycle-posture article.attention{border-color:color-mix(in srgb,var(--ws-warning) 32%,var(--ws-line));background:color-mix(in srgb,var(--ws-warning) 5%,var(--ws-surface-2))}
-.connected-lifecycle-posture article.attention strong{color:var(--ws-warning)}
+.connected-lifecycle-posture article.attention strong{color:#85580a}
 .connected-lifecycle-posture article.critical{border-color:color-mix(in srgb,var(--ws-danger) 34%,var(--ws-line));background:color-mix(in srgb,var(--ws-danger) 5%,var(--ws-surface-2))}
-.connected-lifecycle-posture article.critical strong{color:var(--ws-danger)}
+.connected-lifecycle-posture article.critical strong{color:#a23b43}
+html[data-theme="dark"] .connected-lifecycle-posture article.healthy strong{color:var(--ws-positive)}
+html[data-theme="dark"] .connected-lifecycle-posture article.attention strong{color:var(--ws-warning)}
+html[data-theme="dark"] .connected-lifecycle-posture article.critical strong{color:var(--ws-danger)}
+
+/* Compact navigation remains icon-first, but every icon exposes its accessible
+ * module name as a custom tooltip on pointer hover and keyboard focus. */
+.sidebar-compact>aside,
+.sidebar-compact>aside nav,
+.sidebar-compact>aside .nav-group,
+.sidebar-compact>aside .nav-group-items{overflow:visible!important}
+.sidebar-compact>aside .nav-group-items>button[aria-label]{position:relative!important}
+.sidebar-compact>aside .nav-group-items>button[aria-label]::after{
+  content:attr(aria-label);
+  position:absolute;
+  left:calc(100% + 10px);
+  top:50%;
+  z-index:1000;
+  width:max-content;
+  max-width:260px;
+  padding:7px 10px;
+  border:1px solid color-mix(in srgb,var(--ws-brand) 34%,var(--ws-line));
+  border-radius:8px;
+  background:#142121;
+  color:#eef8f6;
+  box-shadow:0 10px 28px rgba(5,18,18,.24);
+  font-size:12px!important;
+  font-weight:700;
+  line-height:1.2;
+  letter-spacing:0;
+  white-space:nowrap;
+  pointer-events:none;
+  opacity:0;
+  visibility:hidden;
+  transform:translate(4px,-50%);
+  transition:opacity .14s ease,transform .14s ease,visibility .14s ease;
+}
+.sidebar-compact>aside .nav-group-items>button[aria-label]:hover::after,
+.sidebar-compact>aside .nav-group-items>button[aria-label]:focus-visible::after{
+  opacity:1;
+  visibility:visible;
+  transform:translate(0,-50%);
+}
+
+/* Language selection must remain reachable on touch layouts. */
+@media(max-width:900px){
+  .language-switch{display:flex!important;visibility:visible!important;opacity:1!important}
+}
 @media(max-width:1200px){.connected-lifecycle-posture{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media(max-width:620px){.connected-lifecycle-posture{grid-template-columns:1fr 1fr}}
