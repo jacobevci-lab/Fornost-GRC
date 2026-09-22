@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { NextRequest } from "next/server";
-import { constantTimeEqual, demoAccount, PBKDF2_ITERATIONS, requestIsSecure, sameOrigin, validPassword } from "../app/api/auth/security";
+import { constantTimeEqual, demoAccount, passwordHash, passwordIterations, PBKDF2_ITERATIONS, PBKDF2_LEGACY_ITERATIONS, requestIsSecure, sameOrigin, validPassword } from "../app/api/auth/security";
 import { readFileSync } from "node:fs";
 import { decryptSecret, encryptSecret, safeHttpUrl, safeIntegrationConfig, validProvider } from "../app/api/integrations/security";
 import { safeSpreadsheetCell } from "../app/export-security";
@@ -44,8 +44,16 @@ test("public demo editor account is non-admin and exposes no credential",()=>{
  assert.equal("password" in demoAccount,false);
 });
 
-test("PBKDF2 cost stays within the Cloudflare runtime limit",()=>{
- assert.equal(PBKDF2_ITERATIONS,100_000);
+test("PBKDF2 uses the hardened current cost while retaining the explicit legacy floor", async()=>{
+  assert.equal(PBKDF2_LEGACY_ITERATIONS,100_000);
+  assert.equal(PBKDF2_ITERATIONS,600_000);
+  assert.equal(passwordIterations(PBKDF2_LEGACY_ITERATIONS),PBKDF2_LEGACY_ITERATIONS);
+  assert.equal(passwordIterations(PBKDF2_ITERATIONS),PBKDF2_ITERATIONS);
+  assert.equal(passwordIterations(1),PBKDF2_LEGACY_ITERATIONS);
+  const current=await passwordHash("Strong-Passphrase-2026!");
+  assert.equal(current.iterations,PBKDF2_ITERATIONS);
+  const legacy=await passwordHash("Strong-Passphrase-2026!",undefined,PBKDF2_LEGACY_ITERATIONS);
+  assert.equal(legacy.iterations,PBKDF2_LEGACY_ITERATIONS);
 });
 
 test("constant-time comparison handles equal, unequal and different-length inputs", () => {
