@@ -34,8 +34,31 @@
 @keyframes fornost-sidebar-tooltip-in{
   to{opacity:1;transform:translateY(-50%) translateX(0)}
 }
-@media(max-width:900px){
+
+/* Confirmed WCAG AA remediation for Connected GRC continuous-assurance states on
+ * light surfaces. The values keep semantic green/amber/red while remaining well
+ * above the 4.5:1 text contrast threshold against white cards. */
+html:not([data-theme="dark"]) body .connected-grc .effective{color:#126b53!important}
+html:not([data-theme="dark"]) body .connected-grc .degraded{color:#80510b!important}
+html:not([data-theme="dark"]) body .connected-grc .ineffective{color:#9f3038!important}
+
+/* Locale selection is a product-level control and must remain reachable on mobile.
+ * Compact sizing preserves the header without introducing horizontal overflow. */
+@media(max-width:620px){
   .sidebar-icon-tooltip{display:none!important}
+  html body .shell>main>header .header-actions .language-switch{
+    display:flex!important;
+    flex:0 0 auto!important;
+    padding:2px!important;
+  }
+  html body .shell>main>header .header-actions .language-switch button{
+    min-width:26px!important;
+    min-height:32px!important;
+    padding:0 5px!important;
+    font-size:10px!important;
+  }
+  html body .shell>main>header .header-context>small{display:none!important}
+  html body .shell>main>header .header-context h1{max-width:116px!important}
 }
 @media(prefers-reduced-motion:reduce){
   .sidebar-icon-tooltip{animation:none!important;opacity:1!important;transform:translateY(-50%)!important}
