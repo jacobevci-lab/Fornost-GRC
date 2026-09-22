@@ -99,23 +99,26 @@ jobs:
       - name: IaC - Checkov Dockerfile and GitHub Actions
         continue-on-error: true
         run: checkov -d . --framework dockerfile,github_actions -o json > qa-security-artifacts/checkov.json
-      - name: Install Trivy
-        run: curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sudo sh -s -- -b /usr/local/bin v0.66.0
       - name: SCA secrets and IaC - Trivy filesystem
         continue-on-error: true
-        run: trivy fs --scanners vuln,secret,misconfig --format json --output qa-security-artifacts/trivy-fs.json .
-      - name: Install Syft
-        run: curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sudo sh -s -- -b /usr/local/bin v1.32.0
+        run: |
+          docker run --rm -v "$PWD:/work" aquasec/trivy:0.66.0 fs \
+            --scanners vuln,secret,misconfig --format json \
+            --output /work/qa-security-artifacts/trivy-fs.json /work
       - name: Generate CycloneDX and SPDX SBOM with Syft
         run: |
-          syft dir:. -o cyclonedx-json=qa-security-artifacts/sbom.cdx.json
-          syft dir:. -o spdx-json=qa-security-artifacts/sbom.spdx.json
+          docker run --rm -v "$PWD:/work" anchore/syft:v1.32.0 dir:/work -o cyclonedx-json=/work/qa-security-artifacts/sbom.cdx.json
+          docker run --rm -v "$PWD:/work" anchore/syft:v1.32.0 dir:/work -o spdx-json=/work/qa-security-artifacts/sbom.spdx.json
       - name: Build production container
         continue-on-error: true
         run: docker build -t fornost-release-gate:qa .
       - name: Scan production container
         continue-on-error: true
-        run: trivy image --scanners vuln,secret,misconfig --format json --output qa-security-artifacts/trivy-image.json fornost-release-gate:qa
+        run: |
+          docker save fornost-release-gate:qa -o /tmp/fornost-release-gate.tar
+          docker run --rm -v /tmp:/scan -v "$PWD/qa-security-artifacts:/out" aquasec/trivy:0.66.0 image \
+            --input /scan/fornost-release-gate.tar --scanners vuln,secret,misconfig \
+            --format json --output /out/trivy-image.json
       - name: Upload static security evidence
         if: always()
         uses: actions/upload-artifact@v4
