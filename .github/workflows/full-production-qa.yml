@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
   push:
     branches:
-      - qa/full-product-security-audit-2026-09-22
+      - main
 
 permissions:
   contents: read
@@ -27,7 +27,7 @@ jobs:
       QA_FAIL_ON_HIGH: "1"
 
     steps:
-      - name: Checkout QA branch
+      - name: Checkout deployed revision
         uses: actions/checkout@v4
 
       - name: Set up Node.js
