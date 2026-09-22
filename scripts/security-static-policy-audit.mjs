@@ -48,11 +48,12 @@ const textFiles = [];
 for (const file of allFiles) {
   try { textFiles.push({ file: path.relative(root, file), content: await fs.readFile(file, "utf8") }); } catch {}
 }
-const evalHits = textFiles.filter(({ content }) => /\beval\s*\(|new\s+Function\s*\(/.test(content)).map(({ file }) => file);
+const genericCodeFiles = textFiles.filter(({ file }) => file !== "scripts/security-static-policy-audit.mjs");
+const evalHits = genericCodeFiles.filter(({ content }) => /\beval\s*\(|new\s+Function\s*\(/.test(content)).map(({ file }) => file);
 add("CODE-EVAL", "A03", "No dynamic eval/new Function in application code", evalHits.length === 0, "high", evalHits.length ? evalHits.join(", ") : "none", evalHits.join(", "));
-const weakHashHits = textFiles.filter(({ content }) => /(createHash\s*\(\s*["'](?:md5|sha1)["']|subtle\.digest\s*\(\s*["']SHA-1["'])/i.test(content)).map(({ file }) => file);
+const weakHashHits = genericCodeFiles.filter(({ content }) => /(createHash\s*\(\s*["'](?:md5|sha1)["']|subtle\.digest\s*\(\s*["']SHA-1["'])/i.test(content)).map(({ file }) => file);
 add("CRYPTO-WEAK-HASH", "A02", "No MD5/SHA-1 cryptographic hashing in application code", weakHashHits.length === 0, "high", weakHashHits.length ? weakHashHits.join(", ") : "none", weakHashHits.join(", "));
-const htmlHits = textFiles.filter(({ content }) => /dangerouslySetInnerHTML/.test(content)).map(({ file }) => file);
+const htmlHits = genericCodeFiles.filter(({ content }) => /dangerouslySetInnerHTML/.test(content)).map(({ file }) => file);
 add("XSS-DANGEROUS-HTML", "A03", "No React dangerouslySetInnerHTML sinks", htmlHits.length === 0, "medium", htmlHits.length ? htmlHits.join(", ") : "none", htmlHits.join(", "));
 const sourceMapHits = textFiles.filter(({ file, content }) => /\.map\b/.test(file) && !file.endsWith("package-lock.json") && content.length > 0).map(({ file }) => file);
 add("SOURCE-MAPS", "A05", "Repository does not contain generated JavaScript source maps", sourceMapHits.length === 0, "low", sourceMapHits.length ? sourceMapHits.slice(0, 20).join(", ") : "none");
