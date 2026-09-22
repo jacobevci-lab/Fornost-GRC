@@ -3,7 +3,8 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 
 const assurancePanel = readFileSync(new URL("../app/executive-assurance-panel.tsx", import.meta.url), "utf8");
-const dashboardRetirement = readFileSync(new URL("../app/dashboard-retirement.tsx", import.meta.url), "utf8");
+const dashboardCustomizer = readFileSync(new URL("../app/dashboard-customizer.tsx", import.meta.url), "utf8");
+const dashboardCustomizerCss = readFileSync(new URL("../app/dashboard-customizer.css", import.meta.url), "utf8");
 const layout = readFileSync(new URL("../app/layout.tsx", import.meta.url), "utf8");
 
 test("executive assurance score renders as one baseline-safe value", () => {
@@ -11,11 +12,29 @@ test("executive assurance score renders as one baseline-safe value", () => {
   assert.doesNotMatch(assurancePanel, /<sup>\s*\/100\s*<\/sup>/);
 });
 
-test("dashboard workspace shortcut strip is removed from the runtime DOM", () => {
-  assert.match(dashboardRetirement, /\.dashboard-shortcuts/);
-  assert.match(dashboardRetirement, /querySelectorAll\(RETIRED_DASHBOARD_SELECTOR\)/);
-  assert.match(dashboardRetirement, /element\.remove\(\)/);
-  assert.match(dashboardRetirement, /MutationObserver/);
-  assert.match(layout, /import DashboardRetirement from "\.\/dashboard-retirement"/);
-  assert.match(layout, /<DashboardRetirement \/>/);
+test("dashboard mounts the customizable executive workspace instead of the retired DOM cleanup", () => {
+  assert.match(layout, /import DashboardCustomizer from "\.\/dashboard-customizer"/);
+  assert.match(layout, /<DashboardCustomizer \/>/);
+  assert.doesNotMatch(layout, /DashboardRetirement/);
+
+  assert.match(dashboardCustomizer, /fornost:dashboard-preferences:v1/);
+  assert.match(dashboardCustomizer, /type PresetId="executive"\|"risk"\|"assurance"\|"operations"/);
+  assert.match(dashboardCustomizer, /Dashboard'ı Özelleştir/);
+  assert.match(dashboardCustomizer, /\.dashboard-metrics/);
+  assert.match(dashboardCustomizer, /\.executive-assurance-panel/);
+  assert.match(dashboardCustomizer, /\.risk-focus-panel/);
+  assert.match(dashboardCustomizer, /\.attention-panel/);
+  assert.match(dashboardCustomizer, /\.assurance-panel/);
+  assert.match(dashboardCustomizer, /\.resilience-panel/);
+  assert.match(dashboardCustomizer, /\.dashboard-shortcuts/);
+  assert.match(dashboardCustomizer, /window\.localStorage\.setItem\(STORAGE_KEY/);
+});
+
+test("custom dashboard keeps enterprise responsive and compact layout contracts", () => {
+  assert.match(dashboardCustomizerCss, /grid-template-columns:repeat\(12,minmax\(0,1fr\)\)/);
+  assert.match(dashboardCustomizerCss, /\.fornost-dashboard-compact/);
+  assert.match(dashboardCustomizerCss, /\.dashboard-customizer-drawer/);
+  assert.match(dashboardCustomizerCss, /@media\(max-width:1200px\)/);
+  assert.match(dashboardCustomizerCss, /@media\(max-width:820px\)/);
+  assert.match(dashboardCustomizerCss, /html\[data-theme="dark"\]/);
 });
