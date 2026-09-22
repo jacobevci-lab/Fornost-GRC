@@ -1,0 +1,260 @@
+name: Full Security Audit
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - qa/full-product-security-audit-2026-09-22
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fornost-full-security-audit-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  sast-sca-sbom-iac:
+    name: SAST, secrets, SCA, SBOM and IaC
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.13.0
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Prepare security artifact directories
+        run: mkdir -p security-artifacts/{sast,secrets,sca,sbom,iac,static-policy}
+
+      - name: Fornost static security policy audit
+        id: static_policy
+        shell: bash
+        run: |
+          set +e
+          node scripts/security-static-policy-audit.mjs
+          code=$?
+          echo "exit_code=$code" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: npm production dependency audit
+        id: npm_audit
+        shell: bash
+        run: |
+          set +e
+          npm audit --omit=dev --audit-level=high --json > security-artifacts/sca/npm-audit.json
+          code=$?
+          echo "exit_code=$code" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Install Semgrep
+        run: python3 -m pip install --disable-pip-version-check semgrep
+
+      - name: Semgrep OWASP and security audit
+        id: semgrep
+        shell: bash
+        run: |
+          set +e
+          semgrep scan \
+            --config p/owasp-top-ten \
+            --config p/security-audit \
+            --json \
+            --output security-artifacts/sast/semgrep.json \
+            app worker scripts
+          scan=$?
+          python3 - <<'PY'
+          import json, pathlib
+          p=pathlib.Path('security-artifacts/sast/semgrep.json')
+          data=json.loads(p.read_text()) if p.exists() else {'results':[]}
+          high=[r for r in data.get('results',[]) if str(r.get('extra',{}).get('severity','')).upper() in {'ERROR','CRITICAL','HIGH'}]
+          pathlib.Path('security-artifacts/sast/semgrep-summary.json').write_text(json.dumps({'results':len(data.get('results',[])),'high':len(high)},indent=2))
+          raise SystemExit(2 if high else 0)
+          PY
+          policy=$?
+          code=$scan
+          if [ "$policy" -ne 0 ]; then code=$policy; fi
+          echo "exit_code=$code" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Gitleaks secret scan
+        id: gitleaks
+        shell: bash
+        run: |
+          set +e
+          docker run --rm -v "$PWD:/repo" zricethezav/gitleaks:latest detect \
+            --source=/repo --no-banner --redact \
+            --report-format=json \
+            --report-path=/repo/security-artifacts/secrets/gitleaks.json \
+            --exit-code=2
+          code=$?
+          echo "exit_code=$code" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Trivy filesystem vulnerability and misconfiguration scan
+        id: trivy
+        shell: bash
+        run: |
+          set +e
+          docker run --rm -v "$PWD:/repo" aquasec/trivy:latest fs \
+            --scanners vuln,misconfig \
+            --severity HIGH,CRITICAL \
+            --ignore-unfixed \
+            --format json \
+            --output /repo/security-artifacts/sca/trivy.json \
+            --exit-code 2 \
+            /repo
+          code=$?
+          echo "exit_code=$code" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Checkov IaC scan
+        id: checkov
+        shell: bash
+        run: |
+          set +e
+          docker run --rm -v "$PWD:/repo" bridgecrew/checkov:latest \
+            -d /repo \
+            --framework dockerfile github_actions \
+            --quiet \
+            -o json > security-artifacts/iac/checkov.json
+          code=$?
+          echo "exit_code=$code" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Generate CycloneDX and SPDX SBOMs
+        id: syft
+        shell: bash
+        run: |
+          set +e
+          docker run --rm -v "$PWD:/repo" anchore/syft:latest dir:/repo \
+            -o cyclonedx-json=/repo/security-artifacts/sbom/fornost.cdx.json \
+            -o spdx-json=/repo/security-artifacts/sbom/fornost.spdx.json
+          code=$?
+          echo "exit_code=$code" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Write static scan status
+        if: always()
+        shell: bash
+        run: |
+          cat > security-artifacts/static-scan-status.txt <<EOF
+          static_policy=${{ steps.static_policy.outputs.exit_code }}
+          npm_audit=${{ steps.npm_audit.outputs.exit_code }}
+          semgrep=${{ steps.semgrep.outputs.exit_code }}
+          gitleaks=${{ steps.gitleaks.outputs.exit_code }}
+          trivy=${{ steps.trivy.outputs.exit_code }}
+          checkov=${{ steps.checkov.outputs.exit_code }}
+          syft=${{ steps.syft.outputs.exit_code }}
+          EOF
+
+      - name: Upload static security artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fornost-static-security-audit
+          path: security-artifacts/
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Enforce static security gate
+        if: always()
+        shell: bash
+        run: |
+          failed=0
+          for code in \
+            "${{ steps.static_policy.outputs.exit_code }}" \
+            "${{ steps.npm_audit.outputs.exit_code }}" \
+            "${{ steps.semgrep.outputs.exit_code }}" \
+            "${{ steps.gitleaks.outputs.exit_code }}" \
+            "${{ steps.trivy.outputs.exit_code }}" \
+            "${{ steps.checkov.outputs.exit_code }}" \
+            "${{ steps.syft.outputs.exit_code }}"; do
+            if [ -n "$code" ] && [ "$code" != "0" ]; then failed=1; fi
+          done
+          exit "$failed"
+
+  dast-owasp:
+    name: Safe production DAST and OWASP runtime checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      FORNOST_PROD_URL: ${{ vars.FORNOST_PROD_URL }}
+      CF_ACCESS_CLIENT_ID: ${{ secrets.CF_ACCESS_CLIENT_ID }}
+      CF_ACCESS_CLIENT_SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
+      FORNOST_SMOKE_EMAIL: ${{ secrets.FORNOST_SMOKE_EMAIL }}
+      FORNOST_SMOKE_PASSWORD: ${{ secrets.FORNOST_SMOKE_PASSWORD }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.13.0
+
+      - name: Prepare DAST artifacts
+        run: mkdir -p security-artifacts/{runtime,zap}
+
+      - name: Run safe authenticated OWASP runtime audit
+        id: runtime_audit
+        shell: bash
+        run: |
+          set +e
+          node scripts/security-runtime-audit.mjs
+          code=$?
+          echo "exit_code=$code" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: ZAP passive/baseline scan through Cloudflare Access
+        id: zap
+        shell: bash
+        run: |
+          set +e
+          docker run --rm \
+            --entrypoint sh \
+            -e TARGET_URL="$FORNOST_PROD_URL" \
+            -e CF_ACCESS_CLIENT_ID \
+            -e CF_ACCESS_CLIENT_SECRET \
+            -v "$PWD/security-artifacts/zap:/zap/wrk:rw" \
+            ghcr.io/zaproxy/zaproxy:stable \
+            -lc '/zap/zap-baseline.py -t "$TARGET_URL" -a -m 3 -I -J zap-baseline.json -w zap-baseline.md -r zap-baseline.html -z "-config replacer.full_list\(0\).description=cf-access-id -config replacer.full_list\(0\).enabled=true -config replacer.full_list\(0\).matchtype=REQ_HEADER -config replacer.full_list\(0\).matchstr=CF-Access-Client-Id -config replacer.full_list\(0\).replacement=$CF_ACCESS_CLIENT_ID -config replacer.full_list\(1\).description=cf-access-secret -config replacer.full_list\(1\).enabled=true -config replacer.full_list\(1\).matchtype=REQ_HEADER -config replacer.full_list\(1\).matchstr=CF-Access-Client-Secret -config replacer.full_list\(1\).replacement=$CF_ACCESS_CLIENT_SECRET"'
+          code=$?
+          echo "exit_code=$code" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Write DAST status
+        if: always()
+        shell: bash
+        run: |
+          cat > security-artifacts/dast-scan-status.txt <<EOF
+          runtime_audit=${{ steps.runtime_audit.outputs.exit_code }}
+          zap=${{ steps.zap.outputs.exit_code }}
+          EOF
+
+      - name: Upload DAST and OWASP artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fornost-dast-owasp-audit
+          path: security-artifacts/
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Enforce DAST security gate
+        if: always()
+        shell: bash
+        run: |
+          failed=0
+          for code in "${{ steps.runtime_audit.outputs.exit_code }}" "${{ steps.zap.outputs.exit_code }}"; do
+            if [ -n "$code" ] && [ "$code" != "0" ]; then failed=1; fi
+          done
+          exit "$failed"
