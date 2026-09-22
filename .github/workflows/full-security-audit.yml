@@ -207,14 +207,16 @@ jobs:
           chmod 0777 security-artifacts/zap
 
       - name: Validate runtime audit syntax
-        run: node --check scripts/security-runtime-audit.mjs
+        run: |
+          node --check scripts/trace-fetch-polyfill.mjs
+          node --check scripts/security-runtime-audit.mjs
 
       - name: Run safe authenticated OWASP runtime audit
         id: runtime_audit
         shell: bash
         run: |
           set +e
-          node scripts/security-runtime-audit.mjs
+          node --import ./scripts/trace-fetch-polyfill.mjs scripts/security-runtime-audit.mjs
           code=$?
           echo "exit_code=$code" >> "$GITHUB_OUTPUT"
           exit 0
