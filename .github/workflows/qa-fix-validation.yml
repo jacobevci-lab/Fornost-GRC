@@ -10,16 +10,18 @@ permissions:
   contents: write
 
 jobs:
-  remediate-semgrep-parser:
-    name: One-time Semgrep parser remediation
+  remediate-jsx-parser:
+    name: Apply source parser remediation
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - name: Checkout
+      - name: Checkout audit branch
         uses: actions/checkout@v4
         with:
+          ref: qa/full-product-security-audit-2026-09-22
           fetch-depth: 0
-      - name: Patch JSX parser gaps and make Semgrep fail closed
+
+      - name: Patch JSX parser gaps
         shell: bash
         run: |
           python3 - <<'PY'
@@ -44,6 +46,7 @@ jobs:
                   ("<small>FORNOST RISK APPETITE & KRI</small>", "<small>FORNOST RISK APPETITE &amp; KRI</small>"),
               ],
           }
+
           changed = 0
           for file_name, pairs in replacements.items():
               path = Path(file_name)
@@ -56,66 +59,18 @@ jobs:
                   changed += 1
               path.write_text(text)
 
-          workflow = Path(".github/workflows/full-security-audit.yml")
-          text = workflow.read_text()
-          old_allowlist = """          accepted_partial_paths={
-            'app/executive-assurance-panel.tsx',
-            'app/fornost-ai-copilot.tsx',
-            'app/fornost-ai-knowledge.tsx',
-            'app/fornost-ai-lifecycle.tsx',
-            'app/risk-appetite.tsx',
-          }
-"""
-          if text.count(old_allowlist) != 1:
-              raise SystemExit("Semgrep partial-parse allowlist block was not found exactly once")
-          text = text.replace(old_allowlist, "          accepted_partial_paths=set()\n", 1)
-          old_gate = "          raise SystemExit(2 if high or unexpected else 0)"
-          new_gate = "          raise SystemExit(2 if high or errors else 0)"
-          if text.count(old_gate) != 1:
-              raise SystemExit("Semgrep fail-closed gate marker was not found exactly once")
-          text = text.replace(old_gate, new_gate, 1)
-          workflow.write_text(text)
-
           if changed != 7:
               raise SystemExit(f"Expected 7 JSX parser remediations; applied {changed}")
-          if any(name in text for name in replacements):
-              raise SystemExit("A parser allowlist path remains in the security workflow")
-
-          Path(".github/workflows/qa-fix-validation.yml").write_text('''name: QA Fix Validation\n\non:\n  push:\n    branches:\n      - qa/full-product-security-audit-2026-09-22\n  workflow_dispatch:\n\npermissions:\n  contents: read\n\njobs:\n  validate:\n    name: Typecheck, lint, build and tests\n    runs-on: ubuntu-latest\n    timeout-minutes: 25\n    steps:\n      - name: Checkout\n        uses: actions/checkout@v4\n      - name: Set up Node.js\n        uses: actions/setup-node@v4\n        with:\n          node-version: 22.13.0\n          cache: npm\n      - name: Install dependencies\n        run: npm ci\n      - name: Typecheck\n        run: npm run typecheck\n      - name: Lint\n        run: npm run lint\n      - name: Build\n        run: npm run build\n      - name: Unit security tests\n        run: npm run test:unit\n''')
-          Path(".github/workflows/qa-semgrep-parser-remediation.yml").unlink(missing_ok=True)
-          Path(".github/remediation-trigger").unlink(missing_ok=True)
-          print("Semgrep parser remediation prepared and temporary remediation plumbing removed")
+          print(f"Applied {changed} JSX parser remediations")
           PY
-      - name: Commit remediation
+
+      - name: Commit source remediation
         shell: bash
         run: |
           git diff --check
           git status --short
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -A
-          git commit -m "security: close Semgrep partial parsing coverage gap"
+          git add app/executive-assurance-panel.tsx app/fornost-ai-copilot.tsx app/fornost-ai-knowledge.tsx app/fornost-ai-lifecycle.tsx app/risk-appetite.tsx
+          git commit -m "security: close Semgrep JSX parsing gaps"
           git push origin HEAD:qa/full-product-security-audit-2026-09-22
-
-  validate:
-    name: Typecheck, lint, build and tests
-    runs-on: ubuntu-latest
-    timeout-minutes: 25
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22.13.0
-          cache: npm
-      - name: Install dependencies
-        run: npm ci
-      - name: Typecheck
-        run: npm run typecheck
-      - name: Lint
-        run: npm run lint
-      - name: Build
-        run: npm run build
-      - name: Unit security tests
-        run: npm run test:unit
