@@ -19,6 +19,7 @@ const accessHeaders = {
 const results = [];
 const findings = [];
 const weight = { critical: 5, high: 4, medium: 3, low: 2, info: 1 };
+const startedAt = new Date().toISOString();
 
 function addResult(id, owasp, title, passed, detail, severity = "high", evidence = {}) {
   const item = { id, owasp, title, passed, severity, detail, evidence };
@@ -160,10 +161,10 @@ const summary = {
   checks: results.length,
   passed: results.filter((x) => x.passed).length,
   failed: findings.length,
-  bySeverity: findings.reduce((acc, item) => ({ ...acc, [item.severity]: (acc[item.severity] || 0) + 1 }), {},
+  bySeverity: findings.reduce((acc, item) => ({ ...acc, [item.severity]: (acc[item.severity] || 0) + 1 }), {}),
   owaspCoverage: [...new Set(results.map((x) => x.owasp))].sort(),
 };
-const artifact = { version: "1.0", startedAt: new Date().toISOString(), baseUrl, summary, results, findings };
+const artifact = { version: "1.0", startedAt, finishedAt: new Date().toISOString(), baseUrl, summary, results, findings };
 await fs.writeFile(path.join(outDir, "runtime-security-audit.json"), JSON.stringify(artifact, null, 2));
 const esc = (value) => String(value ?? "").replace(/[&<>\"']/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '\"': "&quot;", "'": "&#39;" }[ch]));
 const rows = results.map((r) => `<tr><td>${esc(r.passed ? "PASS" : "FAIL")}</td><td>${esc(r.owasp)}</td><td>${esc(r.id)}</td><td>${esc(r.title)}</td><td>${esc(r.detail)}</td></tr>`).join("");
