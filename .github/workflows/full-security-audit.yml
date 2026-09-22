@@ -202,7 +202,12 @@ jobs:
           node-version: 22.13.0
 
       - name: Prepare DAST artifacts
-        run: mkdir -p security-artifacts/{runtime,zap}
+        run: |
+          mkdir -p security-artifacts/{runtime,zap}
+          chmod 0777 security-artifacts/zap
+
+      - name: Validate runtime audit syntax
+        run: node --check scripts/security-runtime-audit.mjs
 
       - name: Run safe authenticated OWASP runtime audit
         id: runtime_audit
