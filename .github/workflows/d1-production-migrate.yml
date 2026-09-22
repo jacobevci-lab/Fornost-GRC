@@ -1,6 +1,7 @@
 name: Production D1 Migration
 
 on:
+  #checkov:skip=CKV_GHA_7: Inputs are constrained to a fixed plan/apply choice and an exact confirmation token; they never alter checkout refs, source paths, build entrypoints, or shell command text.
   workflow_dispatch:
     inputs:
       operation:
