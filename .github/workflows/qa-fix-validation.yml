@@ -7,70 +7,28 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  remediate-jsx-parser:
-    name: Apply source parser remediation
+  validate:
+    name: Typecheck, lint, build and tests
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 25
     steps:
-      - name: Checkout audit branch
+      - name: Checkout
         uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
         with:
-          ref: qa/full-product-security-audit-2026-09-22
-          fetch-depth: 0
-
-      - name: Patch JSX parser gaps
-        shell: bash
-        run: |
-          python3 - <<'PY'
-          from pathlib import Path
-
-          replacements = {
-              "app/executive-assurance-panel.tsx": [
-                  ("<small>DELIVERY & SLA</small>", "<small>DELIVERY &amp; SLA</small>"),
-              ],
-              "app/fornost-ai-copilot.tsx": [
-                  (">YÖNETİŞİM & GÜVENCE</small>", ">YÖNETİŞİM &amp; GÜVENCE</small>"),
-                  (">OPERASYON & SİSTEM</small>", ">OPERASYON &amp; SİSTEM</small>"),
-              ],
-              "app/fornost-ai-knowledge.tsx": [
-                  (">İçerik & Geçmiş</button>", ">İçerik &amp; Geçmiş</button>"),
-              ],
-              "app/fornost-ai-lifecycle.tsx": [
-                  ("<small>MODEL OPS · CHANGE & DRIFT</small>", "<small>MODEL OPS · CHANGE &amp; DRIFT</small>"),
-                  ("Monitoring & Drift", "Monitoring &amp; Drift"),
-              ],
-              "app/risk-appetite.tsx": [
-                  ("<small>FORNOST RISK APPETITE & KRI</small>", "<small>FORNOST RISK APPETITE &amp; KRI</small>"),
-              ],
-          }
-
-          changed = 0
-          for file_name, pairs in replacements.items():
-              path = Path(file_name)
-              text = path.read_text()
-              for old, new in pairs:
-                  count = text.count(old)
-                  if count != 1:
-                      raise SystemExit(f"Expected exactly one occurrence in {file_name}: {old!r}; found {count}")
-                  text = text.replace(old, new, 1)
-                  changed += 1
-              path.write_text(text)
-
-          if changed != 7:
-              raise SystemExit(f"Expected 7 JSX parser remediations; applied {changed}")
-          print(f"Applied {changed} JSX parser remediations")
-          PY
-
-      - name: Commit source remediation
-        shell: bash
-        run: |
-          git diff --check
-          git status --short
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add app/executive-assurance-panel.tsx app/fornost-ai-copilot.tsx app/fornost-ai-knowledge.tsx app/fornost-ai-lifecycle.tsx app/risk-appetite.tsx
-          git commit -m "security: close Semgrep JSX parsing gaps"
-          git push origin HEAD:qa/full-product-security-audit-2026-09-22
+          node-version: 22.13.0
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Lint
+        run: npm run lint
+      - name: Build
+        run: npm run build
+      - name: Unit security tests
+        run: npm run test:unit
