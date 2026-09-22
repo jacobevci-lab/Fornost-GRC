@@ -3,7 +3,7 @@ name: QA Fix Validation
 on:
   push:
     branches:
-      - qa/full-production-audit-2026-09-20
+      - qa/full-product-security-audit-2026-09-22
   workflow_dispatch:
 
 permissions:
