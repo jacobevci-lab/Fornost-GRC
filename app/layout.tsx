@@ -47,6 +47,7 @@ import "./dashboard-command-center-v6.css";
 import "./dashboard-command-center-v7.css";
 import "./dashboard-command-center-v8.css";
 import "./dashboard-command-center-v9.css";
+import "./dashboard-readability-v11.css";
 import FornostAiCopilot from "./fornost-ai-copilot";
 import ProductionHardening from "./production-hardening";
 import NavigationIntegrity from "./navigation-integrity";
