@@ -1,0 +1,218 @@
+/* Dashboard v12 — final executive polish.
+   Presentation-only overrides for the V9/V10 executive cockpit. The Fornost theme,
+   palette, navigation, data sources and risk methodology remain unchanged. */
+
+/* One-glance metrics: numbers lead, labels support. */
+.workspace-dashboard.fornost-dashboard-v9 .ed9-health-item{
+  min-height:108px;
+  padding:15px 17px 14px;
+}
+.workspace-dashboard.fornost-dashboard-v9 .ed9-health-item small{
+  font-size:10px;
+  line-height:1.2;
+  letter-spacing:.105em;
+}
+.workspace-dashboard.fornost-dashboard-v9 .ed9-health-item strong{
+  margin-top:8px;
+  font-size:25px;
+  line-height:1;
+  font-weight:900;
+  letter-spacing:-.025em;
+}
+.workspace-dashboard.fornost-dashboard-v9 .ed9-health-item span{
+  margin-top:8px;
+  font-size:10.5px;
+  line-height:1.35;
+}
+.workspace-dashboard.fornost-dashboard-v9 .ed9-health-item em{
+  margin-top:9px;
+  font-size:9.5px;
+  padding:4px 8px;
+}
+
+/* Keep one clear heading hierarchy: the decision surface is primary, domain cards secondary. */
+.workspace-dashboard.fornost-dashboard-v9 .ed7-decision-head h3{
+  font-size:18px;
+  letter-spacing:-.015em;
+}
+.workspace-dashboard.fornost-dashboard-v9 .ed7-decision-head p{
+  font-size:11px;
+  line-height:1.45;
+}
+.workspace-dashboard.fornost-dashboard-v9 .ed7-decision-head small{
+  font-size:10px;
+  letter-spacing:.105em;
+}
+.workspace-dashboard.fornost-dashboard-v9 .ed9-risk-domain .ed4-panel-head small,
+.workspace-dashboard.fornost-dashboard-v9 .ed4-frameworks .ed4-panel-head small,
+.workspace-dashboard.fornost-dashboard-v9 .ed4-assurance .ed4-panel-head small,
+.workspace-dashboard.fornost-dashboard-v9 .ed4-audit .ed4-panel-head small,
+.workspace-dashboard.fornost-dashboard-v9 .ed9-kpi-table .ed4-panel-head small{
+  font-size:10px;
+  letter-spacing:.095em;
+}
+.workspace-dashboard.fornost-dashboard-v9 .ed9-risk-domain .ed4-panel-head h3,
+.workspace-dashboard.fornost-dashboard-v9 .ed4-frameworks .ed4-panel-head h3,
+.workspace-dashboard.fornost-dashboard-v9 .ed4-assurance .ed4-panel-head h3,
+.workspace-dashboard.fornost-dashboard-v9 .ed4-audit .ed4-panel-head h3,
+.workspace-dashboard.fornost-dashboard-v9 .ed9-kpi-table .ed4-panel-head h3{
+  font-size:11px;
+  color:var(--cp-muted);
+  font-weight:700;
+}
+.workspace-dashboard.fornost-dashboard-v9 .ed9-risk-domain .ed4-panel-head button,
+.workspace-dashboard.fornost-dashboard-v9 .ed4-frameworks .ed4-panel-head button,
+.workspace-dashboard.fornost-dashboard-v9 .ed4-assurance .ed4-panel-head button,
+.workspace-dashboard.fornost-dashboard-v9 .ed4-audit .ed4-panel-head button,
+.workspace-dashboard.fornost-dashboard-v9 .ed9-kpi-table .ed4-panel-head button{
+  font-size:10.5px;
+}
+
+/* Adaptive domain cards: do not reserve blank dashboard real estate when data is sparse. */
+.workspace-dashboard.fornost-dashboard-v9 .ed9-risk-domain,
+.workspace-dashboard.fornost-dashboard-v9 .ed4-frameworks{
+  min-height:0!important;
+  height:auto!important;
+  align-self:start;
+}
+.workspace-dashboard.fornost-dashboard-v9 .ed9-domain-metrics{
+  min-height:0!important;
+}
+.workspace-dashboard.fornost-dashboard-v9 .ed9-domain-metrics button{
+  min-height:112px;
+  padding:14px 16px 13px;
+}
+.workspace-dashboard.fornost-dashboard-v9 .ed9-domain-metrics small{
+  font-size:10px;
+}
+.workspace-dashboard.fornost-dashboard-v9 .ed9-domain-metrics strong{
+  margin-top:7px;
+  font-size:21px;
+  line-height:1;
+}
+.workspace-dashboard.fornost-dashboard-v9 .ed9-domain-metrics span{
+  margin-top:7px;
+  font-size:9.5px;
+  line-height:1.35;
+}
+.workspace-dashboard.fornost-dashboard-v9 .ed4-framework-list{
+  max-height:none;
+  overflow:visible;
+}
+.workspace-dashboard.fornost-dashboard-v9 .ed4-framework-list button{
+  min-height:82px;
+  padding:14px 16px;
+}
+
+/* Assurance and audit keep their management density without forced dead space. */
+.workspace-dashboard.fornost-dashboard-v9 .ed4-assurance,
+.workspace-dashboard.fornost-dashboard-v9 .ed4-audit{
+  min-height:0!important;
+  height:auto!important;
+  align-self:start;
+}
+.workspace-dashboard.fornost-dashboard-v9 .ed4-assurance-score{
+  min-height:102px;
+}
+.workspace-dashboard.fornost-dashboard-v9 .ed4-assurance-grid button{
+  min-height:66px;
+}
+.workspace-dashboard.fornost-dashboard-v9 .ed4-audit-summary>div{
+  min-height:78px;
+}
+.workspace-dashboard.fornost-dashboard-v9 .ed4-next-milestone{
+  min-height:70px;
+}
+
+/* Outlook and decision rows stay scannable at executive distance. */
+.workspace-dashboard.fornost-dashboard-v9 .ed10-outlook-list button{
+  min-height:94px!important;
+}
+.workspace-dashboard.fornost-dashboard-v9 .ed10-outlook-list span b{
+  font-size:10.5px!important;
+}
+.workspace-dashboard.fornost-dashboard-v9 .ed10-outlook-list span small{
+  font-size:9.5px!important;
+}
+.workspace-dashboard.fornost-dashboard-v9 button.ed7-decision-row{
+  min-height:64px;
+}
+.workspace-dashboard.fornost-dashboard-v9 button.ed7-decision-row>span:nth-child(2) b{
+  font-size:12.5px;
+}
+.workspace-dashboard.fornost-dashboard-v9 button.ed7-decision-row>span:nth-child(2) small,
+.workspace-dashboard.fornost-dashboard-v9 button.ed7-decision-row>span{
+  font-size:10px;
+}
+
+/* KPI/KRI is a management table, not a log viewer. */
+.workspace-dashboard.fornost-dashboard-v9 .ed9-kpi-head{
+  min-height:40px;
+  font-size:9.5px;
+  letter-spacing:.09em;
+}
+.workspace-dashboard.fornost-dashboard-v9 .ed9-kpi-row{
+  min-height:54px;
+}
+.workspace-dashboard.fornost-dashboard-v9 .ed9-kpi-row>span:first-child{
+  font-size:11px;
+}
+.workspace-dashboard.fornost-dashboard-v9 .ed9-kpi-row>strong{
+  font-size:12px;
+}
+.workspace-dashboard.fornost-dashboard-v9 .ed9-kpi-row>span:nth-child(3){
+  font-size:10.5px;
+}
+.workspace-dashboard.fornost-dashboard-v9 .ed10-status{
+  min-width:124px;
+  font-size:10px;
+  padding:5px 10px;
+}
+
+/* Eliminate the decorative splash artifact around the floating Ask Fornost control.
+   Clipping is intentional: all launcher decoration must remain inside its pill. */
+body:has(.workspace-dashboard.fornost-dashboard-v9) .fornost-ai-launcher{
+  overflow:hidden!important;
+  isolation:isolate;
+  contain:paint;
+}
+body:has(.workspace-dashboard.fornost-dashboard-v9) .fornost-ai-launcher::before,
+body:has(.workspace-dashboard.fornost-dashboard-v9) .fornost-ai-launcher::after,
+body:has(.workspace-dashboard.fornost-dashboard-v9) .fornost-ai-launcher *::before,
+body:has(.workspace-dashboard.fornost-dashboard-v9) .fornost-ai-launcher *::after{
+  display:none!important;
+  content:none!important;
+  animation:none!important;
+}
+
+/* At large desktop sizes use the available canvas but preserve comfortable gutters. */
+@media(min-width:1700px){
+  .workspace-dashboard.fornost-dashboard-v9 .ed4-shell{
+    width:min(calc(100% - 28px),1700px);
+    max-width:1700px;
+  }
+}
+
+@media(max-width:1200px){
+  .workspace-dashboard.fornost-dashboard-v9 .ed9-health-item strong{font-size:22px}
+  .workspace-dashboard.fornost-dashboard-v9 .ed9-domain-metrics button{min-height:104px}
+}
+
+@media(max-width:760px){
+  .workspace-dashboard.fornost-dashboard-v9 .ed9-health-item{
+    min-height:96px;
+    padding:13px 14px;
+  }
+  .workspace-dashboard.fornost-dashboard-v9 .ed9-health-item strong{font-size:20px}
+  .workspace-dashboard.fornost-dashboard-v9 .ed9-health-item span{font-size:9.5px}
+  .workspace-dashboard.fornost-dashboard-v9 .ed9-domain-metrics button{min-height:96px}
+  .workspace-dashboard.fornost-dashboard-v9 .ed10-status{min-width:108px}
+}
+
+@media(prefers-reduced-motion:reduce){
+  body:has(.workspace-dashboard.fornost-dashboard-v9) .fornost-ai-launcher,
+  body:has(.workspace-dashboard.fornost-dashboard-v9) .fornost-ai-launcher *{
+    animation:none!important;
+    transition:none!important;
+  }
+}
