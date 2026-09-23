@@ -8,8 +8,10 @@ type WidgetId="metrics"|"executiveAssurance"|"riskExposure"|"decisionQueue"|"con
 type PresetId="executive"|"risk"|"assurance"|"operations";
 type DashboardPreferences={preset:PresetId;visible:Record<WidgetId,boolean>;order:WidgetId[];compact:boolean};
 
-const STORAGE_KEY="fornost:dashboard-preferences:v1";
-const DEFAULT_ORDER:WidgetId[]=["metrics","riskExposure","decisionQueue","controlEvidence","resilience","executiveAssurance","workspaces"];
+/* v2 intentionally resets the first dashboard experiment so the improved layout is
+   visible immediately instead of inheriting stale localStorage ordering. */
+const STORAGE_KEY="fornost:dashboard-preferences:v2";
+const DEFAULT_ORDER:WidgetId[]=["metrics","riskExposure","decisionQueue","executiveAssurance","resilience","controlEvidence","workspaces"];
 const WIDGETS:Array<{id:WidgetId;selector:string;tr:string;en:string;descriptionTr:string;descriptionEn:string}>=[
   {id:"metrics",selector:".dashboard-metrics",tr:"Yönetici KPI'ları",en:"Executive KPIs",descriptionTr:"Risk, uyum, denetim ve kanıt özetleri",descriptionEn:"Risk, compliance, audit and evidence summary"},
   {id:"executiveAssurance",selector:".executive-assurance-panel",tr:"Bütünleşik Güvence",en:"Composite Assurance",descriptionTr:"Connected GRC güvence skoru ve operasyon görünümü",descriptionEn:"Connected GRC assurance score and operations posture"},
@@ -21,10 +23,10 @@ const WIDGETS:Array<{id:WidgetId;selector:string;tr:string;en:string;description
 ];
 
 const PRESETS:Record<PresetId,DashboardPreferences>={
-  executive:{preset:"executive",compact:false,order:DEFAULT_ORDER,visible:{metrics:true,executiveAssurance:true,riskExposure:true,decisionQueue:true,controlEvidence:true,resilience:true,workspaces:false}},
-  risk:{preset:"risk",compact:false,order:["metrics","riskExposure","decisionQueue","controlEvidence","resilience","executiveAssurance","workspaces"],visible:{metrics:true,executiveAssurance:false,riskExposure:true,decisionQueue:true,controlEvidence:true,resilience:false,workspaces:false}},
-  assurance:{preset:"assurance",compact:false,order:["metrics","controlEvidence","decisionQueue","riskExposure","resilience","executiveAssurance","workspaces"],visible:{metrics:true,executiveAssurance:true,riskExposure:false,decisionQueue:true,controlEvidence:true,resilience:false,workspaces:false}},
-  operations:{preset:"operations",compact:true,order:["metrics","decisionQueue","riskExposure","resilience","controlEvidence","executiveAssurance","workspaces"],visible:{metrics:true,executiveAssurance:false,riskExposure:true,decisionQueue:true,controlEvidence:true,resilience:true,workspaces:true}},
+  executive:{preset:"executive",compact:false,order:DEFAULT_ORDER,visible:{metrics:true,executiveAssurance:true,riskExposure:true,decisionQueue:true,controlEvidence:false,resilience:true,workspaces:false}},
+  risk:{preset:"risk",compact:false,order:["metrics","riskExposure","decisionQueue","executiveAssurance","resilience","controlEvidence","workspaces"],visible:{metrics:true,executiveAssurance:false,riskExposure:true,decisionQueue:true,controlEvidence:false,resilience:true,workspaces:false}},
+  assurance:{preset:"assurance",compact:false,order:["metrics","executiveAssurance","controlEvidence","decisionQueue","riskExposure","resilience","workspaces"],visible:{metrics:true,executiveAssurance:true,riskExposure:false,decisionQueue:true,controlEvidence:true,resilience:false,workspaces:false}},
+  operations:{preset:"operations",compact:true,order:["metrics","decisionQueue","riskExposure","resilience","executiveAssurance","controlEvidence","workspaces"],visible:{metrics:true,executiveAssurance:true,riskExposure:true,decisionQueue:true,controlEvidence:false,resilience:true,workspaces:true}},
 };
 
 function clonePreferences(source:DashboardPreferences):DashboardPreferences{return {...source,order:[...source.order],visible:{...source.visible}}}
@@ -60,8 +62,6 @@ export default function DashboardCustomizer(){
     if(intelligence){
       const intelligenceWidgets=WIDGETS.filter(widget=>widget.selector.includes("dashboard-intelligence")&&prefs.visible[widget.id]);
       intelligence.hidden=intelligenceWidgets.length===0;
-      const firstOrder=intelligenceWidgets.reduce((minimum,widget)=>Math.min(minimum,prefs.order.indexOf(widget.id)),999);
-      intelligence.style.order=String(firstOrder===999?99:firstOrder);
     }
   },[]);
 
@@ -77,7 +77,7 @@ export default function DashboardCustomizer(){
     discover();
     const observer=new MutationObserver(discover);
     observer.observe(document.body,{childList:true,subtree:true});
-    const onLanguage=()=>{setLang(dashboardLanguage())};
+    const onLanguage=()=>setLang(dashboardLanguage());
     document.addEventListener("click",onLanguage);
     return()=>{observer.disconnect();document.removeEventListener("click",onLanguage)};
   },[apply,preferences]);
