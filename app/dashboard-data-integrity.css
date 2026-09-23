@@ -1,0 +1,245 @@
+/* Executive dashboard data integrity layer.
+   Reuses Fornost cockpit tokens and does not redefine the product palette. */
+
+.eddi-toolbar-mount{
+  position:relative;
+  display:inline-flex;
+  align-items:center;
+  min-width:0;
+}
+
+.eddi-trigger{
+  min-height:31px;
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  padding:0 9px;
+  border:1px solid var(--cp-line);
+  border-radius:8px;
+  background:var(--cp-panel);
+  color:var(--cp-ink);
+  box-shadow:var(--cp-shadow);
+  cursor:pointer;
+  font-size:7.5px;
+  font-weight:800;
+  white-space:nowrap;
+}
+.eddi-trigger>i{
+  width:7px;
+  height:7px;
+  border-radius:50%;
+  background:var(--cp-faint);
+  box-shadow:0 0 0 3px color-mix(in srgb,var(--cp-faint) 10%,transparent);
+}
+.eddi-trigger>b{
+  min-width:26px;
+  display:inline-grid;
+  place-items:center;
+  padding:3px 5px;
+  border-radius:6px;
+  background:var(--cp-panel-2);
+  color:var(--cp-muted);
+  font-size:7px;
+}
+.eddi-trigger.live>i{background:var(--cp-mint);box-shadow:0 0 0 3px color-mix(in srgb,var(--cp-mint) 14%,transparent)}
+.eddi-trigger.degraded>i,.eddi-trigger.stale>i{background:var(--cp-amber);box-shadow:0 0 0 3px color-mix(in srgb,var(--cp-amber) 14%,transparent)}
+.eddi-trigger.offline>i{background:var(--cp-red);box-shadow:0 0 0 3px color-mix(in srgb,var(--cp-red) 14%,transparent)}
+.eddi-trigger:focus-visible,
+.eddi-popover button:focus-visible,
+.eddi-banner button:focus-visible{
+  outline:2px solid var(--cp-mint);
+  outline-offset:2px;
+}
+
+.eddi-popover{
+  width:min(430px,calc(100vw - 28px));
+  position:absolute;
+  z-index:80;
+  top:calc(100% + 9px);
+  right:0;
+  overflow:hidden;
+  border:1px solid var(--cp-line);
+  border-radius:13px;
+  background:var(--cp-panel);
+  box-shadow:0 16px 42px color-mix(in srgb,var(--cp-ink) 16%,transparent);
+}
+.eddi-popover>header{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:16px;
+  padding:14px 15px 12px;
+  border-bottom:1px solid var(--cp-line);
+}
+.eddi-popover>header small{
+  color:var(--cp-mint);
+  font-size:6.5px;
+  font-weight:900;
+  letter-spacing:.12em;
+}
+.eddi-popover>header h3{
+  margin:5px 0 3px;
+  color:var(--cp-ink);
+  font-size:12px;
+}
+.eddi-popover>header p{
+  max-width:320px;
+  margin:0;
+  color:var(--cp-muted);
+  font-size:7px;
+  line-height:1.45;
+}
+.eddi-popover>header>button{
+  width:27px;
+  height:27px;
+  flex:0 0 auto;
+  display:grid;
+  place-items:center;
+  border:1px solid var(--cp-line);
+  border-radius:8px;
+  background:var(--cp-panel-2);
+  color:var(--cp-muted);
+  cursor:pointer;
+  font-size:14px;
+}
+
+.eddi-source-list{padding:6px 10px}
+.eddi-source{
+  min-height:49px;
+  display:grid;
+  grid-template-columns:9px minmax(0,1fr) 36px 58px;
+  align-items:center;
+  gap:9px;
+  padding:7px 5px;
+  border-bottom:1px solid var(--cp-line);
+}
+.eddi-source:last-child{border-bottom:0}
+.eddi-source>i{
+  width:7px;
+  height:7px;
+  border-radius:50%;
+  background:var(--cp-faint);
+}
+.eddi-source.ok>i{background:var(--cp-mint)}
+.eddi-source.error>i{background:var(--cp-red)}
+.eddi-source.checking>i{background:var(--cp-cyan)}
+.eddi-source>span>*{display:block}
+.eddi-source>span>b{color:var(--cp-ink);font-size:8px}
+.eddi-source>span>small{margin-top:2px;color:var(--cp-muted);font-size:6.5px}
+.eddi-source>em{
+  justify-self:end;
+  color:var(--cp-muted);
+  font-size:7px;
+  font-style:normal;
+}
+.eddi-source>strong{
+  justify-self:end;
+  color:var(--cp-faint);
+  font-size:7px;
+  font-weight:750;
+}
+
+.eddi-popover>footer{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  padding:10px 12px;
+  border-top:1px solid var(--cp-line);
+  background:var(--cp-panel-2);
+}
+.eddi-popover>footer>span{color:var(--cp-muted);font-size:6.5px}
+.eddi-popover>footer>span b{color:var(--cp-ink)}
+.eddi-popover>footer>button{
+  min-height:29px;
+  padding:0 9px;
+  border:1px solid var(--cp-line);
+  border-radius:7px;
+  background:var(--cp-panel);
+  color:var(--cp-ink);
+  cursor:pointer;
+  font-size:7px;
+  font-weight:800;
+}
+.eddi-popover>footer>button:disabled{opacity:.55;cursor:wait}
+
+.eddi-banner-mount:empty{display:none}
+.eddi-banner{
+  min-height:41px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:14px;
+  margin:0 0 2px;
+  padding:8px 12px;
+  border:1px solid color-mix(in srgb,var(--cp-amber) 36%,var(--cp-line));
+  border-radius:10px;
+  background:color-mix(in srgb,var(--cp-amber) 7%,var(--cp-panel));
+}
+.eddi-banner.offline{
+  border-color:color-mix(in srgb,var(--cp-red) 40%,var(--cp-line));
+  background:color-mix(in srgb,var(--cp-red) 7%,var(--cp-panel));
+}
+.eddi-banner>span{
+  min-width:0;
+  display:grid;
+  grid-template-columns:8px minmax(0,1fr);
+  grid-template-rows:auto auto;
+  column-gap:9px;
+}
+.eddi-banner>span>i{
+  grid-row:1/3;
+  width:7px;
+  height:7px;
+  align-self:center;
+  border-radius:50%;
+  background:var(--cp-amber);
+}
+.eddi-banner.offline>span>i{background:var(--cp-red)}
+.eddi-banner>span>b{color:var(--cp-ink);font-size:8px}
+.eddi-banner>span>small{margin-top:2px;color:var(--cp-muted);font-size:6.7px;line-height:1.35}
+.eddi-banner>button{
+  min-height:29px;
+  flex:0 0 auto;
+  padding:0 10px;
+  border:1px solid var(--cp-line);
+  border-radius:7px;
+  background:var(--cp-panel);
+  color:var(--cp-ink);
+  cursor:pointer;
+  font-size:7px;
+  font-weight:800;
+}
+
+@media(max-width:1180px){
+  .eddi-trigger>span{display:none}
+}
+
+@media(max-width:760px){
+  .eddi-toolbar-mount{order:9}
+  .eddi-trigger{min-height:32px}
+  .eddi-popover{
+    position:fixed;
+    top:auto;
+    right:10px;
+    bottom:10px;
+    left:10px;
+    width:auto;
+    max-height:80vh;
+    overflow:auto;
+  }
+  .eddi-banner{
+    align-items:flex-start;
+    flex-direction:column;
+  }
+  .eddi-banner>button{width:100%}
+}
+
+@media(prefers-reduced-motion:reduce){
+  .eddi-popover *,
+  .eddi-banner *,
+  .eddi-trigger{
+    transition:none!important;
+    animation:none!important;
+  }
+}
