@@ -68,6 +68,7 @@ export default function DashboardDataIntegrity() {
   const [checking, setChecking] = useState(false);
   const [open, setOpen] = useState(false);
   const [online, setOnline] = useState(true);
+  const [clock, setClock] = useState(0);
 
   const checkAll = useCallback(async () => {
     if (!dashboardVisible()) return;
@@ -128,6 +129,7 @@ export default function DashboardDataIntegrity() {
       }
       return next;
     });
+    setClock(now);
     setChecking(false);
   }, []);
 
@@ -180,8 +182,7 @@ export default function DashboardDataIntegrity() {
 
   useEffect(() => {
     if (!toolbarMount) return;
-    void checkAll();
-
+    const first = window.setTimeout(() => void checkAll(), 0);
     const timer = window.setInterval(() => void checkAll(), CHECK_INTERVAL_MS);
     const onVisibility = () => {
       if (dashboardVisible()) void checkAll();
@@ -197,6 +198,7 @@ export default function DashboardDataIntegrity() {
     window.addEventListener("offline", onOffline);
 
     return () => {
+      window.clearTimeout(first);
       window.clearInterval(timer);
       document.removeEventListener("visibilitychange", onVisibility);
       window.removeEventListener("online", onOnline);
@@ -227,14 +229,14 @@ export default function DashboardDataIntegrity() {
     const criticalError = values.some(item => item.source.critical && item.status.state === "error");
     const anyError = values.some(item => item.status.state === "error");
     const coreLastSuccess = statuses.grc.lastSuccessAt;
-    const stale = Boolean(coreLastSuccess && Date.now() - coreLastSuccess > STALE_AFTER_MS);
+    const stale = Boolean(clock && coreLastSuccess && clock - coreLastSuccess > STALE_AFTER_MS);
     let state: IntegrityState = "checking";
     if (!online) state = "offline";
     else if (stale) state = "stale";
     else if (criticalError || anyError) state = "degraded";
     else if (okCount === SOURCES.length) state = "live";
     return { state, okCount, coreLastSuccess, values };
-  }, [statuses, online]);
+  }, [statuses, online, clock]);
 
   if (!toolbarMount) return null;
   const tr = lang === "tr";
