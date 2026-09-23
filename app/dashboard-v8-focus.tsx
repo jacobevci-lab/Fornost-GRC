@@ -11,17 +11,22 @@ function currentLanguage(): Lang {
   return document.querySelector(".language-switch button.active")?.textContent?.trim().toLowerCase() === "en" ? "en" : "tr";
 }
 
+function initialAnalysisState() {
+  if (typeof window === "undefined") return false;
+  try {
+    return window.localStorage.getItem(STORAGE_KEY) === "open";
+  } catch {
+    return false;
+  }
+}
+
 export default function DashboardV8Focus() {
   const [root, setRoot] = useState<HTMLElement | null>(null);
   const [toolbar, setToolbar] = useState<HTMLElement | null>(null);
   const [lang, setLang] = useState<Lang>("tr");
-  const [analysisOpen, setAnalysisOpen] = useState(false);
+  const [analysisOpen, setAnalysisOpen] = useState(initialAnalysisState);
 
   useEffect(() => {
-    try {
-      setAnalysisOpen(window.localStorage.getItem(STORAGE_KEY) === "open");
-    } catch {}
-
     const discover = () => {
       const dashboard = document.querySelector<HTMLElement>(".workspace-dashboard.fornost-dashboard-v4");
       if (!dashboard) return;
