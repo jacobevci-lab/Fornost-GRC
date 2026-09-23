@@ -96,6 +96,7 @@ export default function DashboardDataIntegrity() {
           signal: controller.signal,
           headers: { Accept: "application/json" },
         });
+        await response.arrayBuffer();
         return {
           id: source.id,
           ok: response.ok,
