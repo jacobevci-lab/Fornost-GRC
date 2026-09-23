@@ -1,85 +1,191 @@
-/* Structural dashboard refinement only.
-   Uses the existing Fornost theme tokens and component styling; no palette overrides. */
+/* Dashboard composition v3.
+   Structural/layout refinement only: no palette, surface or theme token overrides. */
 
 .workspace-dashboard{
   display:grid!important;
   grid-template-columns:repeat(12,minmax(0,1fr));
-  gap:14px!important;
+  column-gap:14px!important;
+  row-gap:12px!important;
   align-items:start;
 }
+.workspace-dashboard>[hidden],
+.workspace-dashboard .dashboard-intelligence[hidden],
+.workspace-dashboard .dashboard-intelligence>[hidden]{display:none!important}
+
+/* Compact executive header: keep the existing Fornost hero, but stop it behaving like a billboard. */
 .workspace-dashboard>.dashboard-hero{
   grid-column:1/-1;
-  order:-20!important;
-  margin-bottom:0!important;
+  order:-100!important;
+  min-height:112px!important;
+  margin:0!important;
+  padding:18px 20px!important;
+  grid-template-columns:minmax(0,1fr) auto auto!important;
+  align-items:center!important;
+  gap:18px!important;
 }
+.workspace-dashboard .dashboard-hero-copy{min-width:0}
+.workspace-dashboard .dashboard-hero-copy p{max-width:680px!important}
+.workspace-dashboard .dashboard-hero-score{
+  min-width:176px!important;
+  padding:8px 11px!important;
+}
+.workspace-dashboard .posture-ring{
+  width:58px!important;
+  height:58px!important;
+  flex-basis:58px!important;
+}
+.workspace-dashboard .dashboard-hero-actions{
+  min-width:0!important;
+  max-width:390px;
+  display:flex!important;
+  flex-direction:row!important;
+  align-items:center!important;
+  justify-content:flex-end!important;
+  flex-wrap:wrap!important;
+  gap:7px!important;
+}
+.workspace-dashboard .dashboard-hero-actions button{min-height:34px!important}
+
+/* KPI strip: useful at a glance, without consuming a quarter of the first viewport. */
 .workspace-dashboard>.dashboard-metrics{
   grid-column:1/-1;
   margin:0!important;
-}
-.workspace-dashboard>.dashboard-intelligence{
-  grid-column:1/-1;
-  margin:0!important;
   display:grid!important;
-  grid-template-columns:repeat(12,minmax(0,1fr))!important;
-  gap:14px!important;
-  align-items:start!important;
+  grid-template-columns:repeat(4,minmax(0,1fr))!important;
+  gap:10px!important;
 }
-.workspace-dashboard>.dashboard-intelligence>.risk-focus-panel{grid-column:span 8}
-.workspace-dashboard>.dashboard-intelligence>.attention-panel{grid-column:span 4}
-.workspace-dashboard>.dashboard-intelligence>.assurance-panel{grid-column:span 7}
-.workspace-dashboard>.dashboard-intelligence>.resilience-panel{grid-column:span 5}
+.workspace-dashboard .dashboard-metric{
+  min-height:84px!important;
+  padding:12px 14px!important;
+}
+
+/* Flatten the intelligence wrapper so every dashboard widget can participate in one
+   real 12-column executive grid. This fixes the old nested-grid ordering problem. */
+.workspace-dashboard>.dashboard-intelligence{display:contents!important}
+.workspace-dashboard>.dashboard-intelligence>.risk-focus-panel{
+  grid-column:span 8;
+  align-self:stretch;
+}
+.workspace-dashboard>.dashboard-intelligence>.attention-panel{
+  grid-column:span 4;
+  align-self:stretch;
+}
 .workspace-dashboard>.executive-assurance-panel{
-  grid-column:1/-1;
+  grid-column:span 8;
   margin:0!important;
+  align-self:stretch;
 }
-.workspace-dashboard>.dashboard-shortcuts,
+.workspace-dashboard>.dashboard-intelligence>.resilience-panel{
+  grid-column:span 4;
+  align-self:stretch;
+}
+.workspace-dashboard>.dashboard-intelligence>.assurance-panel{
+  grid-column:1/-1;
+}
+.workspace-dashboard>.dashboard-shortcuts{grid-column:1/-1}
 .workspace-dashboard>.dashboard-footnote{
   grid-column:1/-1;
+  order:90!important;
+  margin-top:0!important;
 }
-
-/* Keep the first screen focused on decisions: KPIs -> risk/action -> assurance. */
-.workspace-dashboard .dashboard-metric{min-height:102px!important}
 .workspace-dashboard .dashboard-panel{height:100%}
+
+/* Primary decision row: wide risk picture + narrow action queue. */
 .workspace-dashboard .risk-focus-panel,
-.workspace-dashboard .attention-panel{min-height:330px}
-.workspace-dashboard .assurance-panel,
-.workspace-dashboard .resilience-panel{min-height:300px}
-
-/* Executive assurance keeps summary visible and moves operational detail behind disclosure. */
-.executive-assurance-panel>header{align-items:flex-start}
-.executive-assurance-actions{align-items:center}
-.executive-assurance-details-toggle{white-space:nowrap}
-.executive-assurance-details[hidden]{display:none!important}
-.executive-assurance-details{
-  border-top:1px solid var(--ws-line);
+.workspace-dashboard .attention-panel{min-height:320px}
+.workspace-dashboard .exposure-body{
+  grid-template-columns:110px minmax(0,1fr)!important;
+  gap:12px 16px!important;
+  padding:15px 16px!important;
 }
-.executive-assurance-details>.executive-owner-accountability:first-child,
-.executive-assurance-details>.executive-delivery-posture:first-child{border-top:0}
+.workspace-dashboard .risk-legend{gap:7px!important}
+.workspace-dashboard .priority-table{padding-bottom:8px!important}
+.workspace-dashboard .priority-head,
+.workspace-dashboard .priority-table>button{
+  grid-template-columns:minmax(0,1fr) 95px 44px!important;
+}
+.workspace-dashboard .attention-queue{padding-bottom:7px!important}
+.workspace-dashboard .attention-queue button{padding-top:9px!important;padding-bottom:9px!important}
 
-.fornost-dashboard-compact.workspace-dashboard{gap:9px!important}
-.fornost-dashboard-compact .dashboard-intelligence{gap:9px!important}
+/* Connected assurance becomes a supporting decision card instead of a full-width report. */
+.workspace-dashboard .executive-assurance-panel>header{
+  align-items:flex-start!important;
+  gap:14px!important;
+  padding:14px 16px!important;
+}
+.workspace-dashboard .executive-assurance-panel>header p{max-width:640px}
+.workspace-dashboard .executive-assurance-actions{
+  align-items:center!important;
+  gap:6px!important;
+}
+.workspace-dashboard .executive-assurance-body{
+  grid-template-columns:170px minmax(0,1fr)!important;
+}
+.workspace-dashboard .executive-assurance-score{padding:17px!important}
+.workspace-dashboard .executive-assurance-metrics article{padding:13px 14px!important}
+.workspace-dashboard .executive-assurance-operations{
+  grid-template-columns:repeat(3,minmax(0,1fr))!important;
+}
+.workspace-dashboard .executive-assurance-operations article{padding:11px 12px!important}
+.workspace-dashboard .executive-assurance-details-toggle{white-space:nowrap}
+.workspace-dashboard .executive-assurance-details[hidden]{display:none!important}
+.workspace-dashboard .executive-assurance-details{border-top:1px solid var(--ws-line)}
+.workspace-dashboard .executive-assurance-details>.executive-owner-accountability:first-child,
+.workspace-dashboard .executive-assurance-details>.executive-delivery-posture:first-child{border-top:0}
+
+/* Resilience is the companion card to Connected Assurance on the executive view. */
+.workspace-dashboard .resilience-panel{min-height:0}
+.workspace-dashboard .resilience-list button{padding-top:10px!important;padding-bottom:10px!important}
+
+/* User-selected compact mode changes density only, never the product theme. */
+.fornost-dashboard-compact.workspace-dashboard{column-gap:9px!important;row-gap:9px!important}
+.fornost-dashboard-compact .dashboard-hero{min-height:96px!important;padding-top:14px!important;padding-bottom:14px!important}
+.fornost-dashboard-compact .dashboard-metrics{gap:8px!important}
+.fornost-dashboard-compact .dashboard-metric{min-height:74px!important;padding:10px 12px!important}
 .fornost-dashboard-compact .risk-focus-panel,
-.fornost-dashboard-compact .attention-panel,
-.fornost-dashboard-compact .assurance-panel,
-.fornost-dashboard-compact .resilience-panel{min-height:0}
+.fornost-dashboard-compact .attention-panel{min-height:0}
+.fornost-dashboard-compact .executive-assurance-panel>header{padding:11px 13px!important}
+.fornost-dashboard-compact .executive-assurance-metrics article{padding:10px 11px!important}
+.fornost-dashboard-compact .executive-assurance-operations article{padding:9px 10px!important}
 
-@media(max-width:1200px){
-  .workspace-dashboard>.dashboard-intelligence>.risk-focus-panel{grid-column:span 7}
-  .workspace-dashboard>.dashboard-intelligence>.attention-panel{grid-column:span 5}
-  .workspace-dashboard>.dashboard-intelligence>.assurance-panel,
-  .workspace-dashboard>.dashboard-intelligence>.resilience-panel{grid-column:span 6}
+@media(max-width:1320px){
+  .workspace-dashboard>.dashboard-intelligence>.risk-focus-panel,
+  .workspace-dashboard>.executive-assurance-panel{grid-column:span 7}
+  .workspace-dashboard>.dashboard-intelligence>.attention-panel,
+  .workspace-dashboard>.dashboard-intelligence>.resilience-panel{grid-column:span 5}
+  .workspace-dashboard .dashboard-hero{grid-template-columns:minmax(0,1fr) auto!important}
+  .workspace-dashboard .dashboard-hero-actions{grid-column:1/-1;max-width:none;justify-content:flex-start!important}
+  .workspace-dashboard .executive-assurance-operations{grid-template-columns:repeat(2,minmax(0,1fr))!important}
 }
-@media(max-width:900px){
+
+@media(max-width:980px){
+  .workspace-dashboard>.dashboard-intelligence>.risk-focus-panel,
+  .workspace-dashboard>.dashboard-intelligence>.attention-panel,
+  .workspace-dashboard>.executive-assurance-panel,
+  .workspace-dashboard>.dashboard-intelligence>.resilience-panel,
+  .workspace-dashboard>.dashboard-intelligence>.assurance-panel{grid-column:1/-1}
+  .workspace-dashboard .dashboard-metrics{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+  .workspace-dashboard .risk-focus-panel,
+  .workspace-dashboard .attention-panel{min-height:0}
+  .workspace-dashboard .executive-assurance-operations{grid-template-columns:repeat(3,minmax(0,1fr))!important}
+}
+
+@media(max-width:720px){
   .workspace-dashboard{grid-template-columns:1fr}
   .workspace-dashboard>.dashboard-hero,
   .workspace-dashboard>.dashboard-metrics,
-  .workspace-dashboard>.dashboard-intelligence,
   .workspace-dashboard>.executive-assurance-panel,
   .workspace-dashboard>.dashboard-shortcuts,
-  .workspace-dashboard>.dashboard-footnote{grid-column:1}
-  .workspace-dashboard>.dashboard-intelligence{grid-template-columns:1fr!important}
+  .workspace-dashboard>.dashboard-footnote,
   .workspace-dashboard>.dashboard-intelligence>.risk-focus-panel,
   .workspace-dashboard>.dashboard-intelligence>.attention-panel,
   .workspace-dashboard>.dashboard-intelligence>.assurance-panel,
-  .workspace-dashboard>.dashboard-intelligence>.resilience-panel{grid-column:1;min-height:0}
+  .workspace-dashboard>.dashboard-intelligence>.resilience-panel{grid-column:1}
+  .workspace-dashboard .dashboard-hero{grid-template-columns:1fr!important}
+  .workspace-dashboard .dashboard-hero-actions{grid-column:auto;justify-content:flex-start!important}
+  .workspace-dashboard .dashboard-metrics{grid-template-columns:1fr!important}
+  .workspace-dashboard .executive-assurance-body{grid-template-columns:1fr!important}
+  .workspace-dashboard .executive-assurance-operations{grid-template-columns:1fr!important}
+  .workspace-dashboard .exposure-body{grid-template-columns:1fr!important}
+  .workspace-dashboard .risk-legend{grid-column:1!important}
 }
