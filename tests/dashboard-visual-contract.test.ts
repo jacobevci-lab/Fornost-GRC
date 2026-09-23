@@ -5,6 +5,7 @@ import test from "node:test";
 const assurancePanel = readFileSync(new URL("../app/executive-assurance-panel.tsx", import.meta.url), "utf8");
 const dashboardCustomizer = readFileSync(new URL("../app/dashboard-customizer.tsx", import.meta.url), "utf8");
 const dashboardCustomizerCss = readFileSync(new URL("../app/dashboard-customizer.css", import.meta.url), "utf8");
+const dashboardStructureCss = readFileSync(new URL("../app/dashboard-structure-v2.css", import.meta.url), "utf8");
 const layout = readFileSync(new URL("../app/layout.tsx", import.meta.url), "utf8");
 
 test("executive assurance score renders as one baseline-safe value", () => {
@@ -17,7 +18,8 @@ test("dashboard mounts the customizable executive workspace instead of the retir
   assert.match(layout, /<DashboardCustomizer \/>/);
   assert.doesNotMatch(layout, /DashboardRetirement/);
 
-  assert.match(dashboardCustomizer, /fornost:dashboard-preferences:v1/);
+  assert.match(dashboardCustomizer, /fornost:dashboard-preferences:v2/);
+  assert.doesNotMatch(dashboardCustomizer, /fornost:dashboard-preferences:v1/);
   assert.match(dashboardCustomizer, /type PresetId="executive"\|"risk"\|"assurance"\|"operations"/);
   assert.match(dashboardCustomizer, /Dashboard'ı Özelleştir/);
   assert.match(dashboardCustomizer, /\.dashboard-metrics/);
@@ -28,6 +30,15 @@ test("dashboard mounts the customizable executive workspace instead of the retir
   assert.match(dashboardCustomizer, /\.resilience-panel/);
   assert.match(dashboardCustomizer, /\.dashboard-shortcuts/);
   assert.match(dashboardCustomizer, /window\.localStorage\.setItem\(STORAGE_KEY/);
+});
+
+test("dashboard uses the decision-first executive grid without redefining the product palette", () => {
+  assert.match(dashboardStructureCss, /dashboard-intelligence\{display:contents!important\}/);
+  assert.match(dashboardStructureCss, /risk-focus-panel\{\s*grid-column:span 8/);
+  assert.match(dashboardStructureCss, /attention-panel\{\s*grid-column:span 4/);
+  assert.match(dashboardStructureCss, /executive-assurance-panel\{\s*grid-column:span 8/);
+  assert.match(dashboardStructureCss, /resilience-panel\{\s*grid-column:span 4/);
+  assert.doesNotMatch(dashboardStructureCss, /--(?:ws|cp|fd)-(?:bg|surface|brand|ink|green|teal|orange)\s*:/);
 });
 
 test("custom dashboard keeps enterprise responsive and compact layout contracts", () => {
