@@ -41,11 +41,13 @@ import "./fornost-ai-findings.css";
 import "./quality-guardrails.css";
 import "./sidebar-icon-tooltip.css";
 import "./dashboard-structure-v2.css";
+import "./dashboard-qa-hardening.css";
 import FornostAiCopilot from "./fornost-ai-copilot";
 import ProductionHardening from "./production-hardening";
 import NavigationIntegrity from "./navigation-integrity";
 import ExecutiveDashboard from "./executive-dashboard";
 import ExecutiveHealthLayer from "./executive-health-layer";
+import DashboardRuntimeQa from "./dashboard-runtime-qa";
 import SidebarIconTooltip from "./sidebar-icon-tooltip";
 
 const configuredBasePath = process.env.NEXT_PUBLIC_BASE_PATH?.trim() || "";
@@ -73,6 +75,7 @@ export default function RootLayout({
         {children}
         <ExecutiveDashboard />
         <ExecutiveHealthLayer />
+        <DashboardRuntimeQa />
         <SidebarIconTooltip />
         <FornostAiCopilot />
         <ProductionHardening />
