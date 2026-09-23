@@ -45,6 +45,7 @@ import "./dashboard-qa-hardening.css";
 import "./dashboard-command-center-v5.css";
 import "./dashboard-command-center-v6.css";
 import "./dashboard-command-center-v7.css";
+import "./dashboard-command-center-v8.css";
 import FornostAiCopilot from "./fornost-ai-copilot";
 import ProductionHardening from "./production-hardening";
 import NavigationIntegrity from "./navigation-integrity";
@@ -52,6 +53,7 @@ import ExecutiveDashboard from "./executive-dashboard";
 import DashboardV6Summary from "./dashboard-v6-summary";
 import DashboardV6Insights from "./dashboard-v6-insights";
 import DashboardV7DecisionBoard from "./dashboard-v7-decision-board";
+import DashboardV8Focus from "./dashboard-v8-focus";
 import DashboardRuntimeQa from "./dashboard-runtime-qa";
 import DashboardDataIntegrityDeferred from "./dashboard-data-integrity-deferred";
 import SidebarIconTooltip from "./sidebar-icon-tooltip";
@@ -83,6 +85,7 @@ export default function RootLayout({
         <DashboardV6Summary />
         <DashboardV6Insights />
         <DashboardV7DecisionBoard />
+        <DashboardV8Focus />
         <DashboardRuntimeQa />
         <DashboardDataIntegrityDeferred />
         <SidebarIconTooltip />
