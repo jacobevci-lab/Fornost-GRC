@@ -1,0 +1,132 @@
+/* Dashboard v7 — decision-first executive composition.
+   Layout-only layer: existing Fornost tokens, palette, dark mode and module data remain unchanged. */
+
+/* Reduce headline noise. The executive posture + decision board now carry the first-view hierarchy. */
+.workspace-dashboard.fornost-dashboard-v4 .ed4-metrics{display:none!important}
+.workspace-dashboard.fornost-dashboard-v4 .ed4-ai-brief{order:1;min-height:44px;border-radius:11px}
+.workspace-dashboard.fornost-dashboard-v4 .ed6-summary-mount{order:2;width:100%}
+.workspace-dashboard.fornost-dashboard-v4 .ed4-grid{order:3;display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:12px;align-items:start}
+
+/* Make the posture summary feel like one executive header, not four equal cards. */
+.ed6-summary{grid-template-columns:minmax(360px,1.7fr) repeat(3,minmax(145px,.75fr));border-radius:12px;background:var(--cp-panel)}
+.ed6-posture,.ed6-summary-item{min-height:68px}
+.ed6-posture{padding:8px 13px;gap:11px}
+.ed6-posture-score{width:46px;height:46px;border-width:3px}
+.ed6-posture-score b{font-size:15px}
+.ed6-posture>span:nth-child(2)>small{font-size:6.3px}
+.ed6-posture>span:nth-child(2)>strong{font-size:11px}
+.ed6-posture>span:nth-child(2)>em{font-size:6.4px}
+.ed6-summary-item{padding:8px 11px;gap:4px}
+.ed6-summary-item>span strong{font-size:17px}
+.ed6-summary-item p{font-size:6.4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* Primary row: the management decision table is the main surface, Action Center is the companion rail. */
+.workspace-dashboard.fornost-dashboard-v4 .ed7-decisions-mount{order:0;grid-column:span 8;min-width:0}
+.workspace-dashboard.fornost-dashboard-v4 .ed4-action-center{order:1!important;grid-column:span 4!important;min-width:0}
+.ed7-decision-board{overflow:hidden;border:1px solid var(--cp-line);border-radius:14px;background:var(--cp-panel)}
+.ed7-decision-head{min-height:78px;display:flex;align-items:center;justify-content:space-between;gap:18px;padding:12px 14px;border-bottom:1px solid var(--cp-line)}
+.ed7-decision-head>div:first-child{min-width:0}
+.ed7-decision-head small{color:var(--cp-mint);font-size:6.5px;font-weight:900;letter-spacing:.12em}
+.ed7-decision-head h3{margin:4px 0 2px;font-size:13px;line-height:1.15}
+.ed7-decision-head p{margin:0;max-width:620px;color:var(--cp-muted);font-size:6.8px;line-height:1.4}
+.ed7-decision-stats{display:flex;align-items:stretch;gap:1px;border:1px solid var(--cp-line);border-radius:9px;overflow:hidden;background:var(--cp-panel-2);flex:none}
+.ed7-decision-stats span{min-width:62px;padding:7px 8px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;border-right:1px solid var(--cp-line)}
+.ed7-decision-stats span:last-child{border-right:0}
+.ed7-decision-stats b{font-size:12px;line-height:1}
+.ed7-decision-stats small{color:var(--cp-muted);font-size:5.5px;font-weight:800;letter-spacing:.04em}
+.ed7-decision-table{width:100%}
+.ed7-decision-row{display:grid;grid-template-columns:82px minmax(0,2.3fr) minmax(90px,.9fr) 58px 68px;align-items:center;gap:10px;padding:0 13px}
+.ed7-decision-labels{min-height:28px;border-bottom:1px solid var(--cp-line);color:var(--cp-muted);font-size:5.7px;font-weight:900;letter-spacing:.08em;text-transform:uppercase}
+button.ed7-decision-row{width:100%;min-height:46px;border:0;border-bottom:1px solid var(--cp-line);background:transparent;color:var(--cp-ink);font:inherit;text-align:left;cursor:pointer;position:relative}
+button.ed7-decision-row:last-child{border-bottom:0}
+button.ed7-decision-row:hover{background:color-mix(in srgb,var(--cp-mint) 4%,transparent)}
+button.ed7-decision-row:focus-visible{outline:2px solid var(--cp-mint);outline-offset:-2px}
+button.ed7-decision-row>span{min-width:0;font-size:6.7px}
+button.ed7-decision-row>span:first-child{display:flex;align-items:center;gap:6px;color:var(--cp-muted);font-weight:800}
+button.ed7-decision-row>span:first-child i{width:6px;height:6px;border-radius:50%;background:var(--cp-muted);flex:none}
+button.ed7-decision-row.critical>span:first-child i{background:var(--cp-red)}
+button.ed7-decision-row.high>span:first-child i{background:var(--cp-amber)}
+button.ed7-decision-row.watch>span:first-child i{background:var(--cp-amber)}
+button.ed7-decision-row.healthy>span:first-child i{background:var(--cp-mint)}
+button.ed7-decision-row>span:nth-child(2){display:flex;flex-direction:column;gap:2px}
+button.ed7-decision-row>span:nth-child(2) b{font-size:7.2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+button.ed7-decision-row>span:nth-child(2) small{color:var(--cp-muted);font-size:5.9px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+button.ed7-decision-row>span:nth-child(3),button.ed7-decision-row>span:nth-child(5){color:var(--cp-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+button.ed7-decision-row>span:nth-child(4) strong{display:grid;place-items:center;min-width:28px;height:22px;border-radius:6px;background:var(--cp-panel-2);font-size:7px}
+button.ed7-decision-row.critical>span:nth-child(4) strong{color:var(--cp-red);background:color-mix(in srgb,var(--cp-red) 9%,var(--cp-panel))}
+button.ed7-decision-row.high>span:nth-child(4) strong,button.ed7-decision-row.watch>span:nth-child(4) strong{color:var(--cp-amber);background:color-mix(in srgb,var(--cp-amber) 9%,var(--cp-panel))}
+.ed7-arrow{color:var(--cp-mint)!important;background:transparent!important}
+.ed7-decision-empty{padding:28px 14px;color:var(--cp-muted);font-size:7px;text-align:center}
+
+/* The Action Center becomes a short command rail beside the decision table. */
+.workspace-dashboard.fornost-dashboard-v4 .ed4-action-center{min-height:100%;align-self:stretch}
+.workspace-dashboard.fornost-dashboard-v4 .ed4-action-center .ed4-panel-head{min-height:54px}
+.workspace-dashboard.fornost-dashboard-v4 .ed4-action-summary{min-height:58px}
+.workspace-dashboard.fornost-dashboard-v4 .ed4-action-list button{min-height:40px}
+
+/* Monitoring row: three equal executive modules rather than another long card wall. */
+.workspace-dashboard.fornost-dashboard-v4 .ed4-frameworks{order:2!important;grid-column:span 4!important;min-width:0;align-self:stretch}
+.workspace-dashboard.fornost-dashboard-v4 .ed4-audit{order:3!important;grid-column:span 4!important;min-width:0;align-self:stretch}
+.workspace-dashboard.fornost-dashboard-v4 .ed6-watch-mount{order:4;grid-column:span 4;min-width:0;align-self:stretch}
+.ed6-watch-list{grid-template-columns:1fr}
+.ed6-watch-list>button{min-height:45px;border-right:0!important;padding:7px 9px}
+.ed6-watch-list>button:nth-last-child(-n+2){border-bottom:1px solid var(--cp-line)}
+.ed6-watch-list>button:last-child{border-bottom:0!important}
+.ed6-watch-list>button b{font-size:6.5px}
+.ed6-watch-list>button small{font-size:5.6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ed6-watch-list>button>strong{font-size:10px}
+
+/* Context row: assurance is primary; movement is secondary and compact. */
+.workspace-dashboard.fornost-dashboard-v4 .ed4-assurance{order:5!important;grid-column:span 7!important;min-width:0}
+.workspace-dashboard.fornost-dashboard-v4 .ed4-changes{order:6!important;grid-column:span 5!important;min-width:0}
+.workspace-dashboard.fornost-dashboard-v4 .ed4-change-list{grid-template-columns:1fr!important}
+.workspace-dashboard.fornost-dashboard-v4 .ed4-change-list button{min-height:34px!important;border-right:0!important;border-bottom:1px solid var(--cp-line)!important;padding:6px 9px!important}
+.workspace-dashboard.fornost-dashboard-v4 .ed4-change-list button:last-child{border-bottom:0!important}
+.workspace-dashboard.fornost-dashboard-v4 .ed4-change-list strong{font-size:10px}
+.workspace-dashboard.fornost-dashboard-v4 .ed4-change-list span{font-size:6px}
+
+/* Risk heatmap is analysis context now, not the first thing an executive must decode. */
+.workspace-dashboard.fornost-dashboard-v4 .ed4-risk-map{order:7!important;grid-column:1/-1!important;min-width:0}
+.workspace-dashboard.fornost-dashboard-v4 .ed4-risk-map .ed6-top-risks{display:none!important}
+.workspace-dashboard.fornost-dashboard-v4 .ed4-risk-map .ed4-panel-head{min-height:46px}
+.workspace-dashboard.fornost-dashboard-v4 .ed4-risk-map .ed4-heatmap-row button{min-height:23px}
+.workspace-dashboard.fornost-dashboard-v4 .ed4-risk-map .ed4-heatmap-wrap{padding-top:5px;padding-bottom:4px}
+.workspace-dashboard.fornost-dashboard-v4 .ed4-risk-map-foot>div{padding-top:4px;padding-bottom:4px}
+
+/* Keep the page tight and readable on wide screens. */
+.workspace-dashboard.fornost-dashboard-v4 .ed4-shell{max-width:1540px}
+.workspace-dashboard.fornost-dashboard-v4 .ed4-grid>.ed4-panel,.workspace-dashboard.fornost-dashboard-v4 .ed6-watch{border-radius:12px}
+
+@media(max-width:1220px){
+  .workspace-dashboard.fornost-dashboard-v4 .ed7-decisions-mount{grid-column:span 7}
+  .workspace-dashboard.fornost-dashboard-v4 .ed4-action-center{grid-column:span 5!important}
+  .workspace-dashboard.fornost-dashboard-v4 .ed4-frameworks,.workspace-dashboard.fornost-dashboard-v4 .ed4-audit,.workspace-dashboard.fornost-dashboard-v4 .ed6-watch-mount{grid-column:span 6!important}
+  .workspace-dashboard.fornost-dashboard-v4 .ed6-watch-mount{grid-column:1/-1!important}
+  .ed6-watch-list{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .ed6-watch-list>button{border-right:1px solid var(--cp-line)!important}
+  .ed6-watch-list>button:nth-child(3n){border-right:0!important}
+  .ed7-decision-row{grid-template-columns:72px minmax(0,2fr) minmax(78px,.8fr) 50px 60px}
+}
+
+@media(max-width:920px){
+  .ed6-summary{grid-template-columns:1fr 1fr}
+  .ed6-posture{grid-column:1/-1}
+  .workspace-dashboard.fornost-dashboard-v4 .ed7-decisions-mount,.workspace-dashboard.fornost-dashboard-v4 .ed4-action-center,.workspace-dashboard.fornost-dashboard-v4 .ed4-frameworks,.workspace-dashboard.fornost-dashboard-v4 .ed4-audit,.workspace-dashboard.fornost-dashboard-v4 .ed6-watch-mount,.workspace-dashboard.fornost-dashboard-v4 .ed4-assurance,.workspace-dashboard.fornost-dashboard-v4 .ed4-changes{grid-column:1/-1!important}
+  .ed7-decision-head{align-items:flex-start;flex-direction:column}
+  .ed7-decision-stats{width:100%}
+  .ed7-decision-stats span{flex:1}
+}
+
+@media(max-width:680px){
+  .ed6-summary{grid-template-columns:1fr}
+  .ed7-decision-row{grid-template-columns:64px minmax(0,1fr) 52px}
+  .ed7-decision-row>span:nth-child(3),.ed7-decision-row>span:nth-child(5){display:none}
+  .ed7-decision-head{padding:10px}
+  .ed7-decision-stats{display:grid;grid-template-columns:1fr 1fr}
+  .ed7-decision-stats span:nth-child(2){border-right:0}
+  .ed7-decision-stats span:nth-child(-n+2){border-bottom:1px solid var(--cp-line)}
+  .ed6-watch-list{grid-template-columns:1fr}
+  .ed6-watch-list>button{border-right:0!important}
+}
+
+@media(prefers-reduced-motion:reduce){.ed7-decision-board *{scroll-behavior:auto!important;transition:none!important;animation:none!important}}
