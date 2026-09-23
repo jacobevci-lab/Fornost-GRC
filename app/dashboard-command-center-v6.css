@@ -1,0 +1,213 @@
+/* Dashboard Command Center v6
+   Clarity-first composition only. It deliberately uses the existing Fornost theme tokens and does not redefine the palette. */
+
+/* Put the decision hierarchy in a predictable order. */
+.workspace-dashboard.fornost-dashboard-v4 .ed4-toolbar{order:0}
+.workspace-dashboard.fornost-dashboard-v4 .eddi-banner-mount{order:0}
+.workspace-dashboard.fornost-dashboard-v4 .ed4-ai-brief{order:1}
+.workspace-dashboard.fornost-dashboard-v4 .ed6-summary-mount{order:2;width:100%}
+.workspace-dashboard.fornost-dashboard-v4 .ed4-metrics{order:3}
+.workspace-dashboard.fornost-dashboard-v4 .ed4-grid{order:4}
+.workspace-dashboard.fornost-dashboard-v4 .ed4-footer{order:5}
+
+/* One executive posture rail: overall posture + only the three decisions a leader needs first. */
+.ed6-summary{
+  width:100%;
+  display:grid;
+  grid-template-columns:minmax(330px,1.45fr) repeat(3,minmax(180px,1fr));
+  overflow:hidden;
+  border:1px solid var(--cp-line);
+  border-radius:14px;
+  background:var(--cp-panel);
+}
+.ed6-summary button{font:inherit}
+.ed6-posture,.ed6-summary-item{
+  min-width:0;
+  min-height:78px;
+  border:0;
+  border-right:1px solid var(--cp-line);
+  background:transparent;
+  color:var(--cp-ink);
+  text-align:left;
+  cursor:pointer;
+  position:relative;
+}
+.ed6-summary-item:last-child{border-right:0}
+.ed6-posture{
+  display:grid;
+  grid-template-columns:auto minmax(0,1fr) auto;
+  align-items:center;
+  gap:12px;
+  padding:10px 13px;
+}
+.ed6-posture:after,.ed6-summary-item>i{
+  content:"";
+  position:absolute;
+  left:0;
+  right:0;
+  bottom:0;
+  height:2px;
+  background:var(--cp-line);
+}
+.ed6-posture.healthy:after,.ed6-summary-item.healthy>i{background:var(--cp-mint)}
+.ed6-posture.watch:after,.ed6-summary-item.watch>i{background:var(--cp-amber)}
+.ed6-posture.critical:after,.ed6-summary-item.critical>i{background:var(--cp-red)}
+.ed6-posture-score{
+  width:52px;
+  height:52px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:1px;
+  border:4px solid var(--cp-line);
+  border-radius:50%;
+  background:var(--cp-panel-2);
+}
+.ed6-posture.healthy .ed6-posture-score{border-color:color-mix(in srgb,var(--cp-mint) 75%,var(--cp-line))}
+.ed6-posture.watch .ed6-posture-score{border-color:color-mix(in srgb,var(--cp-amber) 75%,var(--cp-line))}
+.ed6-posture.critical .ed6-posture-score{border-color:color-mix(in srgb,var(--cp-red) 75%,var(--cp-line))}
+.ed6-posture-score b{font-size:16px;line-height:1;font-weight:850;letter-spacing:-.04em}
+.ed6-posture-score small{color:var(--cp-muted);font-size:6px;font-weight:800}
+.ed6-posture>span:nth-child(2){min-width:0;display:flex;flex-direction:column;gap:3px}
+.ed6-posture>span:nth-child(2)>small{color:var(--cp-muted);font-size:6.5px;font-weight:900;letter-spacing:.1em}
+.ed6-posture>span:nth-child(2)>strong{font-size:10px;line-height:1.1}
+.ed6-posture>span:nth-child(2)>em{color:var(--cp-muted);font-size:6.8px;line-height:1.35;font-style:normal}
+.ed6-posture>i{color:var(--cp-mint);font-size:12px;font-style:normal}
+.ed6-summary-item{display:flex;flex-direction:column;justify-content:center;gap:6px;padding:10px 12px}
+.ed6-summary-item>span{display:flex;align-items:flex-end;justify-content:space-between;gap:12px}
+.ed6-summary-item>span small{color:var(--cp-muted);font-size:6.5px;font-weight:900;letter-spacing:.08em;text-transform:uppercase}
+.ed6-summary-item>span strong{font-size:20px;line-height:1;font-weight:820;letter-spacing:-.04em}
+.ed6-summary-item p{margin:0;color:var(--cp-muted);font-size:6.8px;line-height:1.35}
+.ed6-summary button:hover{background:color-mix(in srgb,var(--cp-mint) 3%,transparent)}
+
+/* Existing telemetry is secondary context now, so keep it compact and quiet. */
+.workspace-dashboard.fornost-dashboard-v4 .ed4-metrics{border-radius:11px}
+.workspace-dashboard.fornost-dashboard-v4 .ed4-metric{min-height:58px;padding:7px 10px 6px;grid-template-columns:minmax(0,1fr) 36px}
+.workspace-dashboard.fornost-dashboard-v4 .ed4-metric>strong{margin-top:5px;font-size:16px}
+.workspace-dashboard.fornost-dashboard-v4 .ed4-metric>p{font-size:6.6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.workspace-dashboard.fornost-dashboard-v4 .ed4-metric>div:first-child small{font-size:6.3px}
+.workspace-dashboard.fornost-dashboard-v4 .ed4-spark{height:23px}
+.workspace-dashboard.fornost-dashboard-v4 .ed4-spark i{width:3px}
+
+/* Deliberate page rhythm: Risk/Action, Compliance+Change/KPI-KRI, Assurance/Audit. */
+.workspace-dashboard.fornost-dashboard-v4 .ed4-risk-map{order:0!important;grid-column:span 8!important}
+.workspace-dashboard.fornost-dashboard-v4 .ed4-action-center{order:1!important;grid-column:span 4!important}
+.workspace-dashboard.fornost-dashboard-v4 .ed4-frameworks{order:2!important;grid-column:span 8!important}
+.workspace-dashboard.fornost-dashboard-v4 .ed6-watch-mount{order:3;grid-column:span 4;grid-row:span 2;min-width:0}
+.workspace-dashboard.fornost-dashboard-v4 .ed4-changes{order:4!important;grid-column:span 8!important}
+.workspace-dashboard.fornost-dashboard-v4 .ed4-assurance{order:5!important;grid-column:span 8!important}
+.workspace-dashboard.fornost-dashboard-v4 .ed4-audit{order:6!important;grid-column:span 4!important}
+
+/* The heatmap remains useful, but no longer consumes most of the first viewport. */
+.workspace-dashboard.fornost-dashboard-v4 .ed4-heatmap-row button{min-height:27px}
+.workspace-dashboard.fornost-dashboard-v4 .ed4-heatmap-wrap{padding-top:7px;padding-bottom:5px}
+.workspace-dashboard.fornost-dashboard-v4 .ed4-risk-map-foot>div{padding-top:5px;padding-bottom:5px}
+
+/* Top risks turn concentration into a decision list. */
+.ed6-top-risks{border-top:1px solid var(--cp-line);background:color-mix(in srgb,var(--cp-panel-2) 32%,var(--cp-panel))}
+.ed6-top-risks>header{min-height:42px;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:7px 12px;border-bottom:1px solid var(--cp-line)}
+.ed6-top-risks>header>div{min-width:0;display:flex;align-items:baseline;gap:9px}
+.ed6-top-risks>header small{color:var(--cp-mint);font-size:6.2px;font-weight:900;letter-spacing:.11em}
+.ed6-top-risks>header strong{font-size:8px}
+.ed6-top-risks>header button{border:0;background:transparent;color:var(--cp-mint);font:inherit;font-size:7px;font-weight:850;cursor:pointer}
+.ed6-risk-table{width:100%}
+.ed6-risk-head,.ed6-risk-table>button{display:grid;grid-template-columns:minmax(0,2.2fr) minmax(90px,.9fr) 54px minmax(110px,1fr);align-items:center;gap:10px;padding-inline:12px}
+.ed6-risk-head{min-height:26px;color:var(--cp-muted);font-size:5.8px;font-weight:900;letter-spacing:.08em;text-transform:uppercase;border-bottom:1px solid var(--cp-line)}
+.ed6-risk-table>button{width:100%;min-height:39px;border:0;border-bottom:1px solid var(--cp-line);background:transparent;color:var(--cp-ink);font:inherit;text-align:left;cursor:pointer}
+.ed6-risk-table>button:last-child{border-bottom:0}
+.ed6-risk-table>button:hover{background:color-mix(in srgb,var(--cp-mint) 4%,transparent)}
+.ed6-risk-table>button>span{min-width:0}
+.ed6-risk-table>button>span:first-child,.ed6-risk-table>button>span:last-child{display:flex;flex-direction:column;gap:2px}
+.ed6-risk-table>button b{font-size:7px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ed6-risk-table>button small{color:var(--cp-muted);font-size:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ed6-risk-table>button>span:nth-child(2){color:var(--cp-muted);font-size:6.7px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ed6-risk-table i{min-width:30px;height:22px;display:grid;place-items:center;border-radius:6px;background:var(--cp-panel-2);font-style:normal;font-size:7px;font-weight:850}
+.ed6-risk-table i.critical{color:var(--cp-red);background:color-mix(in srgb,var(--cp-red) 10%,var(--cp-panel))}
+.ed6-risk-table i.high,.ed6-risk-table i.medium{color:var(--cp-amber);background:color-mix(in srgb,var(--cp-amber) 10%,var(--cp-panel))}
+.ed6-risk-table i.low{color:var(--cp-mint);background:color-mix(in srgb,var(--cp-mint) 9%,var(--cp-panel))}
+.ed6-empty{margin:0;padding:13px;color:var(--cp-muted);font-size:7px}
+
+/* KPI/KRI watchlist: threshold-oriented, compact, and visible beside compliance/change context. */
+.ed6-watch{height:100%;min-height:0}
+.ed6-watch .ed4-panel-head button{border:0;background:transparent;color:var(--cp-mint);font-size:7px;font-weight:850;cursor:pointer}
+.ed6-watch .ed4-panel-head button span{margin-left:4px}
+.ed6-watch-list{display:grid;grid-template-columns:1fr 1fr}
+.ed6-watch-list>button{min-width:0;min-height:67px;display:grid;grid-template-columns:7px minmax(0,1fr) auto;grid-template-rows:auto auto;column-gap:8px;align-items:center;padding:9px 10px;border:0;border-right:1px solid var(--cp-line);border-bottom:1px solid var(--cp-line);background:transparent;color:var(--cp-ink);font:inherit;text-align:left;cursor:pointer}
+.ed6-watch-list>button:nth-child(2n){border-right:0}
+.ed6-watch-list>button:nth-last-child(-n+2){border-bottom:0}
+.ed6-watch-list>button:hover{background:color-mix(in srgb,var(--cp-mint) 4%,transparent)}
+.ed6-watch-list>button>i{grid-row:1/3;width:6px;height:6px;border-radius:50%;background:var(--cp-muted)}
+.ed6-watch-list>button>i.healthy{background:var(--cp-mint)}
+.ed6-watch-list>button>i.watch{background:var(--cp-amber)}
+.ed6-watch-list>button>i.critical{background:var(--cp-red)}
+.ed6-watch-list>button>span{min-width:0;display:flex;flex-direction:column;gap:3px}
+.ed6-watch-list>button b{font-size:6.8px}
+.ed6-watch-list>button small{color:var(--cp-muted);font-size:5.9px;line-height:1.3;overflow:hidden;text-overflow:ellipsis}
+.ed6-watch-list>button>strong{grid-row:1/3;font-size:11px;white-space:nowrap}
+.ed6-watch-list>button>strong.healthy{color:var(--cp-mint)}
+.ed6-watch-list>button>strong.watch{color:var(--cp-amber)}
+.ed6-watch-list>button>strong.critical{color:var(--cp-red)}
+.ed6-watch-list>button>strong.neutral{color:var(--cp-muted)}
+.ed6-watch-list>button>em{display:none}
+
+/* Change Radar becomes movement context, not another headline card. */
+.workspace-dashboard.fornost-dashboard-v4 .ed4-changes .ed4-panel-head{min-height:43px}
+.workspace-dashboard.fornost-dashboard-v4 .ed4-change-list{display:grid;grid-template-columns:repeat(5,minmax(0,1fr))}
+.workspace-dashboard.fornost-dashboard-v4 .ed4-change-list button{min-height:50px;border-bottom:0;border-right:1px solid var(--cp-line);padding:8px 9px}
+.workspace-dashboard.fornost-dashboard-v4 .ed4-change-list button:last-child{border-right:0}
+.workspace-dashboard.fornost-dashboard-v4 .ed4-change-list strong{font-size:12px}
+.workspace-dashboard.fornost-dashboard-v4 .ed4-change-list span{font-size:6.4px;line-height:1.25}
+
+/* Improve scanning without changing the visual language. */
+.ed6-summary button:focus-visible,.ed6-top-risks button:focus-visible,.ed6-watch button:focus-visible{outline:2px solid var(--cp-mint);outline-offset:-2px}
+
+@media(max-width:1280px){
+  .ed6-summary{grid-template-columns:minmax(280px,1.35fr) repeat(3,minmax(145px,1fr))}
+  .ed6-posture{gap:9px;padding-inline:10px}
+  .ed6-summary-item{padding-inline:9px}
+  .workspace-dashboard.fornost-dashboard-v4 .ed4-risk-map,
+  .workspace-dashboard.fornost-dashboard-v4 .ed4-frameworks,
+  .workspace-dashboard.fornost-dashboard-v4 .ed4-changes,
+  .workspace-dashboard.fornost-dashboard-v4 .ed4-assurance{grid-column:span 7!important}
+  .workspace-dashboard.fornost-dashboard-v4 .ed4-action-center,
+  .workspace-dashboard.fornost-dashboard-v4 .ed4-audit{grid-column:span 5!important}
+  .workspace-dashboard.fornost-dashboard-v4 .ed6-watch-mount{grid-column:span 5}
+}
+
+@media(max-width:980px){
+  .ed6-summary{grid-template-columns:1fr 1fr}
+  .ed6-posture{grid-column:1/-1;border-right:0;border-bottom:1px solid var(--cp-line)}
+  .ed6-summary-item:nth-child(3){border-right:0}
+  .workspace-dashboard.fornost-dashboard-v4 .ed6-watch-mount{grid-row:auto}
+  .workspace-dashboard.fornost-dashboard-v4 .ed4-risk-map,
+  .workspace-dashboard.fornost-dashboard-v4 .ed4-action-center,
+  .workspace-dashboard.fornost-dashboard-v4 .ed4-frameworks,
+  .workspace-dashboard.fornost-dashboard-v4 .ed4-changes,
+  .workspace-dashboard.fornost-dashboard-v4 .ed4-assurance,
+  .workspace-dashboard.fornost-dashboard-v4 .ed4-audit,
+  .workspace-dashboard.fornost-dashboard-v4 .ed6-watch-mount{grid-column:1/-1!important}
+  .ed6-watch-list{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .ed6-watch-list>button:nth-child(n){border-right:1px solid var(--cp-line);border-bottom:1px solid var(--cp-line)}
+  .ed6-watch-list>button:nth-child(3n){border-right:0}
+  .ed6-watch-list>button:nth-last-child(-n+3){border-bottom:0}
+}
+
+@media(max-width:720px){
+  .ed6-summary{grid-template-columns:1fr}
+  .ed6-posture,.ed6-summary-item{border-right:0;border-bottom:1px solid var(--cp-line)}
+  .ed6-summary-item:last-child{border-bottom:0}
+  .ed6-watch-list{grid-template-columns:1fr}
+  .ed6-watch-list>button:nth-child(n){border-right:0;border-bottom:1px solid var(--cp-line)}
+  .ed6-watch-list>button:last-child{border-bottom:0}
+  .ed6-risk-head{display:none}
+  .ed6-risk-table>button{grid-template-columns:minmax(0,1fr) auto auto;padding-block:7px}
+  .ed6-risk-table>button>span:nth-child(2){display:none}
+  .ed6-risk-table>button>span:last-child{align-items:flex-end}
+  .workspace-dashboard.fornost-dashboard-v4 .ed4-change-list{grid-template-columns:1fr}
+  .workspace-dashboard.fornost-dashboard-v4 .ed4-change-list button{border-right:0;border-bottom:1px solid var(--cp-line)}
+  .workspace-dashboard.fornost-dashboard-v4 .ed4-change-list button:last-child{border-bottom:0}
+}
+
+@media(prefers-reduced-motion:reduce){
+  .ed6-summary button,.ed6-top-risks button,.ed6-watch button{scroll-behavior:auto!important;transition:none!important}
+}
