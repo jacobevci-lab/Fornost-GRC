@@ -71,7 +71,7 @@ function navigateTo(module:string){
 }
 
 export default function DashboardV6Summary(){
-  const [mount,setMount]=useState<HTMLElement|null>(null),[lang,setLang]=useState<Lang>("tr"),[rows,setRows]=useState<Row[]>([]),[findings,setFindings]=useState<FindingsPayload>({}),[appetite,setAppetite]=useState<AppetitePayload>({});
+  const [mount,setMount]=useState<HTMLElement|null>(null),[lang,setLang]=useState<Lang>("tr"),[rows,setRows]=useState<Row[]>([]),[findings,setFindings]=useState<FindingsPayload>({}),[appetite,setAppetite]=useState<AppetitePayload>({}),[asOf,setAsOf]=useState(0);
 
   useEffect(()=>{
     let created:HTMLDivElement|null=null;
@@ -109,6 +109,7 @@ export default function DashboardV6Summary(){
       if(grcResult.status==="fulfilled")setRows(normalizeRows(grcResult.value));
       if(findingsResult.status==="fulfilled")setFindings(findingsResult.value as FindingsPayload);
       if(appetiteResult.status==="fulfilled")setAppetite(appetiteResult.value as AppetitePayload);
+      setAsOf(Date.now());
     };
     void load();
     const timer=window.setInterval(()=>void load(),300000);
@@ -116,14 +117,14 @@ export default function DashboardV6Summary(){
   },[mount]);
 
   const summary=useMemo(()=>{
-    const now=Date.now(),by=(module:string)=>rows.filter(row=>row.module===module),risks=by("Risk Assessment"),controls=by("Kontroller"),compliance=by("Uyum"),evidence=by("Kanıtlar"),audits=by("Denetim Yönetimi"),bia=by("BIA"),controlAssurance=buildControlAssurance(rows),assurance=buildExecutiveAssurance(rows);
+    const now=asOf,by=(module:string)=>rows.filter(row=>row.module===module),risks=by("Risk Assessment"),compliance=by("Uyum"),evidence=by("Kanıtlar"),audits=by("Denetim Yönetimi"),bia=by("BIA"),controlAssurance=buildControlAssurance(rows),assurance=buildExecutiveAssurance(rows);
     const avgRisk=risks.length?risks.reduce((sum,row)=>sum+calculatedRiskScore(row.data),0)/risks.length:0,riskHealth=risks.length?clamp(100-(avgRisk/25)*100):null,controlHealth=controlAssurance.total?clamp(controlAssurance.score):null,complianceHealth=complianceReadiness(compliance),stale=evidence.filter(row=>evidenceExpired(row,now)).length,evidenceHealth=evidence.length?clamp(((evidence.length-stale)/evidence.length)*100):null,auditHealth=assurance.totalAudits?clamp(assurance.auditScore):null;
     const appetiteSummary=appetite.summary||{},appetiteTotal=num(appetiteSummary.total),breached=num(appetiteSummary.breached),openBreaches=num(appetiteSummary.openBreaches),warning=num(appetiteSummary.warning),overdueBreaches=num(appetiteSummary.overdueBreaches),kriBreaches=Math.max(breached,openBreaches),appetiteHealth=appetiteTotal?clamp(((appetiteTotal-breached-warning*.5)/appetiteTotal)*100):null;
     const completeBia=bia.filter(row=>clean(row.data.rto)&&clean(row.data.rpo)&&ownerOf(row)).length,biaHealth=bia.length?clamp((completeBia/bia.length)*100):null;
     const domains=[{value:riskHealth,weight:25},{value:controlHealth,weight:20},{value:complianceHealth,weight:15},{value:evidenceHealth,weight:15},{value:auditHealth,weight:10},{value:appetiteHealth,weight:10},{value:biaHealth,weight:5}].filter((item):item is {value:number;weight:number}=>item.value!==null),weight=domains.reduce((sum,item)=>sum+item.weight,0),overall=weight?clamp(domains.reduce((sum,item)=>sum+item.value*item.weight,0)/weight):null;
     const findingSummary=findings.summary||{},criticalFindings=num(findingSummary.critical),overdueFindings=num(findingSummary.overdue),criticalRisks=risks.filter(row=>calculatedRiskScore(row.data)>=17).length,auditOverdue=audits.filter(row=>{const due=dateValue(row.data.dueDate);return Number.isFinite(due)&&due<now&&!isClosed(row.data.status)}).length,decisions=criticalRisks+criticalFindings+kriBreaches,overdue=auditOverdue+overdueFindings+overdueBreaches;
     return {overall,domains:domains.length,decisions,overdue,kriBreaches,kriAvailable:appetiteTotal>0||kriBreaches>0};
-  },[rows,findings,appetite]);
+  },[rows,findings,appetite,asOf]);
 
   if(!mount)return null;
   const tr=lang==="tr",postureState=summary.overall===null?(tr?"VERİ BEKLENİYOR":"AWAITING DATA"):summary.overall>=85?(tr?"GÜÇLÜ":"STRONG"):summary.overall>=65?(tr?"İZLE":"WATCH"):(tr?"AKSİYON GEREKLİ":"ACTION REQUIRED");
