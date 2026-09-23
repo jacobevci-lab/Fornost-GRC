@@ -48,6 +48,7 @@ import NavigationIntegrity from "./navigation-integrity";
 import ExecutiveDashboard from "./executive-dashboard";
 import ExecutiveHealthLayer from "./executive-health-layer";
 import DashboardRuntimeQa from "./dashboard-runtime-qa";
+import DashboardDataIntegrity from "./dashboard-data-integrity";
 import SidebarIconTooltip from "./sidebar-icon-tooltip";
 
 const configuredBasePath = process.env.NEXT_PUBLIC_BASE_PATH?.trim() || "";
@@ -76,6 +77,7 @@ export default function RootLayout({
         <ExecutiveDashboard />
         <ExecutiveHealthLayer />
         <DashboardRuntimeQa />
+        <DashboardDataIntegrity />
         <SidebarIconTooltip />
         <FornostAiCopilot />
         <ProductionHardening />
