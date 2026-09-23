@@ -44,7 +44,7 @@ import "./dashboard-structure-v2.css";
 import FornostAiCopilot from "./fornost-ai-copilot";
 import ProductionHardening from "./production-hardening";
 import NavigationIntegrity from "./navigation-integrity";
-import DashboardCustomizer from "./dashboard-customizer";
+import ExecutiveDashboard from "./executive-dashboard";
 import SidebarIconTooltip from "./sidebar-icon-tooltip";
 
 const configuredBasePath = process.env.NEXT_PUBLIC_BASE_PATH?.trim() || "";
@@ -70,7 +70,7 @@ export default function RootLayout({
     <html lang="tr" data-theme="light" suppressHydrationWarning>
       <body>
         {children}
-        <DashboardCustomizer />
+        <ExecutiveDashboard />
         <SidebarIconTooltip />
         <FornostAiCopilot />
         <ProductionHardening />

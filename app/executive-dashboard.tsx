@@ -1,0 +1,381 @@
+"use client";
+
+import {useCallback,useEffect,useMemo,useState,type CSSProperties} from "react";
+import {createPortal} from "react-dom";
+import {withBasePath} from "./base-path";
+import {buildExecutiveAssurance} from "./executive-assurance";
+import {buildControlAssurance} from "./control-assurance";
+import {calculatedRiskScore,effectiveImpact} from "./risk-methodology";
+import "./executive-dashboard.css";
+
+type Lang="tr"|"en";
+type Period=30|90|365;
+type RiskMode="inherent"|"residual";
+type WidgetId="riskHeatmap"|"actionCenter"|"recentChanges"|"frameworkReadiness"|"assuranceHealth"|"auditRemediation";
+type PresetId="executive"|"risk"|"assurance";
+type Row={id:string;code?:string;module:string;data:Record<string,unknown>;createdAt?:string;updatedAt?:string};
+type RawRow={id?:unknown;code?:unknown;recordCode?:unknown;record_code?:unknown;module?:unknown;data?:unknown;data_json?:unknown;createdAt?:unknown;created_at?:unknown;updatedAt?:unknown;updated_at?:unknown};
+type Finding={id:string;code:string;title:string;severity:string;owner:string;dueDate:string;status:string;attention:string;updatedAt:string};
+type FindingsPayload={findings?:Finding[];summary?:{total?:number;open?:number;critical?:number;overdue?:number;verification?:number;accepted?:number;closed?:number;recurring?:number}};
+type AppetitePayload={
+  summary?:{total?:number;approved?:number;breached?:number;warning?:number;measurementDue?:number;openBreaches?:number;overdueBreaches?:number;scenarioAtRisk?:number};
+  measurements?:Array<{recordedAt?:string;periodEnd?:string}>;
+  breaches?:Array<{severity?:string;dueDate?:string;status?:string;overdue?:boolean}>;
+};
+type Preferences={preset:PresetId;visible:Record<WidgetId,boolean>;order:WidgetId[];compact:boolean};
+
+type ActionSignal={key:string;count:number;titleTr:string;titleEn:string;detailTr:string;detailEn:string;module:string;tone:string};
+
+type FrameworkReadiness={name:string;score:number;total:number;ready:number};
+
+const STORAGE_KEY="fornost:executive-dashboard:v4";
+const DEFAULT_ORDER:WidgetId[]=["riskHeatmap","actionCenter","recentChanges","frameworkReadiness","assuranceHealth","auditRemediation"];
+const WIDGETS:Array<{id:WidgetId;tr:string;en:string;descriptionTr:string;descriptionEn:string}>=[
+  {id:"riskHeatmap",tr:"Risk Isı Haritası",en:"Risk Heatmap",descriptionTr:"Olasılık × etki yoğunluğu ve iştah ihlalleri",descriptionEn:"Likelihood × impact concentration and appetite breaches"},
+  {id:"actionCenter",tr:"Aksiyon Merkezi",en:"Action Center",descriptionTr:"Kritik, gecikmiş ve yakın terminli kararlar",descriptionEn:"Critical, overdue and near-term decisions"},
+  {id:"recentChanges",tr:"Neler Değişti?",en:"What Changed?",descriptionTr:"Seçili dönemdeki risk, kontrol, kanıt ve bulgu hareketi",descriptionEn:"Risk, control, evidence and finding activity in the selected period"},
+  {id:"frameworkReadiness",tr:"Framework Hazırlığı",en:"Framework Readiness",descriptionTr:"Uyum kayıtlarından hesaplanan framework ilerlemesi",descriptionEn:"Framework progress calculated from compliance records"},
+  {id:"assuranceHealth",tr:"Güvence Sağlığı",en:"Assurance Health",descriptionTr:"Kontrol, kanıt ve Connected GRC zincir sağlığı",descriptionEn:"Control, evidence and Connected GRC chain health"},
+  {id:"auditRemediation",tr:"Denetim & İyileştirme",en:"Audit & Remediation",descriptionTr:"Aktif denetimler, bulgular, gecikmeler ve sonraki kilometre taşı",descriptionEn:"Active audits, findings, overdue work and next milestone"},
+];
+
+const PRESETS:Record<PresetId,Preferences>={
+  executive:{preset:"executive",compact:false,order:DEFAULT_ORDER,visible:{riskHeatmap:true,actionCenter:true,recentChanges:true,frameworkReadiness:true,assuranceHealth:true,auditRemediation:true}},
+  risk:{preset:"risk",compact:false,order:["riskHeatmap","actionCenter","recentChanges","frameworkReadiness","assuranceHealth","auditRemediation"],visible:{riskHeatmap:true,actionCenter:true,recentChanges:true,frameworkReadiness:true,assuranceHealth:false,auditRemediation:false}},
+  assurance:{preset:"assurance",compact:false,order:["actionCenter","frameworkReadiness","assuranceHealth","auditRemediation","recentChanges","riskHeatmap"],visible:{riskHeatmap:false,actionCenter:true,recentChanges:true,frameworkReadiness:true,assuranceHealth:true,auditRemediation:true}},
+};
+
+const NAV_LABELS:Record<string,string[]>={
+  "Risk Assessment":["Risk Assessment","Risk Değerlendirmesi"],
+  "Risk İştahı ve KRI":["Risk İştahı ve KRI","Risk Appetite & KRI"],
+  "Uyum":["Uyum Yönetimi","Compliance Management"],
+  "Kontroller":["Kontrol Kütüphanesi","Control Library"],
+  "Kanıtlar":["Kanıt Kütüphanesi","Evidence Library"],
+  "Denetim Yönetimi":["Denetim Yönetimi","Audit Management"],
+  "Bulgular ve CAPA":["Bulgular ve CAPA","Findings & CAPA"],
+  "Tedarikçiler":["Tedarikçi Yönetimi","Vendor Management"],
+  "Raporlar":["Raporlama","Reporting"],
+  "Bağlantılı GRC":["Bağlantılı GRC Haritası","Connected GRC Map"],
+};
+
+const clonePreferences=(source:Preferences):Preferences=>({...source,order:[...source.order],visible:{...source.visible}});
+function loadPreferences():Preferences{
+  if(typeof window==="undefined")return clonePreferences(PRESETS.executive);
+  try{
+    const parsed=JSON.parse(window.localStorage.getItem(STORAGE_KEY)||"") as Partial<Preferences>;
+    const preset=parsed.preset&&PRESETS[parsed.preset]?parsed.preset:"executive";
+    const order=[...DEFAULT_ORDER].sort((a,b)=>{
+      const ai=parsed.order?.indexOf(a)??-1,bi=parsed.order?.indexOf(b)??-1;
+      return (ai<0?999:ai)-(bi<0?999:bi);
+    });
+    return {preset,compact:Boolean(parsed.compact),order,visible:{...PRESETS[preset].visible,...(parsed.visible||{})}};
+  }catch{return clonePreferences(PRESETS.executive)}
+}
+
+const clean=(value:unknown)=>String(value??"").trim();
+const normalized=(value:unknown)=>clean(value).normalize("NFKC").toLocaleLowerCase("tr-TR");
+const number=(value:unknown)=>{const parsed=Number(value);return Number.isFinite(parsed)?parsed:0};
+const dateValue=(value:unknown)=>{const time=new Date(clean(value)).getTime();return Number.isFinite(time)?time:Number.NaN};
+const clamp=(value:number,min:number,max:number)=>Math.min(max,Math.max(min,value));
+const isClosed=(value:unknown)=>["kapalı","kapatıldı","tamamlandı","closed","completed","approved","onaylandı","retired"].includes(normalized(value));
+const isCompliant=(value:unknown)=>["uyumlu","compliant","implemented","uygulanıyor"].includes(normalized(value));
+const isPartial=(value:unknown)=>["kısmi uyumlu","partially compliant","partial","kısmi"].includes(normalized(value));
+const isExpiredEvidence=(row:Row,now:number)=>{
+  const state=normalized(row.data.status||row.data.reviewStatus);
+  const expiry=dateValue(row.data.expiresAt);
+  return ["süresi doldu","expired","reddedildi","rejected"].includes(state)||(Number.isFinite(expiry)&&expiry<now);
+};
+
+function dashboardLanguage():Lang{
+  const active=document.querySelector(".language-switch button.active")?.textContent?.trim().toLowerCase();
+  return active==="en"?"en":"tr";
+}
+
+function normalizeRows(body:unknown):Row[]{
+  if(!body||typeof body!=="object")return [];
+  const source=Array.isArray((body as {rows?:unknown}).rows)?((body as {rows:RawRow[]}).rows):[];
+  return source.map((raw,index)=>{
+    let data:Record<string,unknown>={};
+    if(raw.data&&typeof raw.data==="object"&&!Array.isArray(raw.data))data=raw.data as Record<string,unknown>;
+    else if(typeof raw.data_json==="string"){
+      try{const parsed=JSON.parse(raw.data_json);if(parsed&&typeof parsed==="object"&&!Array.isArray(parsed))data=parsed as Record<string,unknown>}catch{}
+    }
+    return {
+      id:clean(raw.id)||`row-${index}`,
+      code:clean(raw.code||raw.recordCode||raw.record_code)||undefined,
+      module:clean(raw.module),
+      data,
+      createdAt:clean(raw.createdAt||raw.created_at)||undefined,
+      updatedAt:clean(raw.updatedAt||raw.updated_at)||undefined,
+    };
+  }).filter(row=>row.module);
+}
+
+function readiness(rows:Row[]){
+  const applicable=rows.filter(row=>!["uygulanamaz","not applicable","n/a"].includes(normalized(row.data.status)));
+  if(!applicable.length)return 0;
+  const points=applicable.reduce((sum,row)=>sum+(isCompliant(row.data.status||row.data.implementation)?100:isPartial(row.data.status||row.data.implementation)?60:0),0);
+  return Math.round(points/applicable.length);
+}
+
+function frameworkReadiness(rows:Row[]):FrameworkReadiness[]{
+  const groups=new Map<string,Row[]>();
+  rows.forEach(row=>{
+    const name=clean(row.data.framework)||"Unspecified";
+    groups.set(name,[...(groups.get(name)||[]),row]);
+  });
+  return [...groups.entries()].map(([name,items])=>({name,score:readiness(items),total:items.length,ready:items.filter(row=>isCompliant(row.data.status||row.data.implementation)).length})).sort((a,b)=>b.total-a.total||b.score-a.score).slice(0,5);
+}
+
+function shortFramework(value:string){
+  return value.replace("ISO/IEC ","ISO ").replace("NIST Cybersecurity Framework (CSF) 2.0","NIST CSF 2.0").replace("BDDK Bilgi Sistemleri ve Elektronik Bankacılık Hizmetleri Yönetmeliği","BDDK");
+}
+
+function activityBuckets(rows:Row[],days:number){
+  const now=Date.now(),bucketMs=(days*86400000)/6,buckets=[0,0,0,0,0,0];
+  rows.forEach(row=>{
+    const time=dateValue(row.updatedAt||row.createdAt);
+    if(!Number.isFinite(time)||time>now||time<now-days*86400000)return;
+    const age=now-time,index=5-Math.min(5,Math.floor(age/bucketMs));
+    buckets[index]+=1;
+  });
+  return buckets;
+}
+
+function formatDate(value:string,lang:Lang){
+  if(!value)return "—";
+  const time=dateValue(value);if(!Number.isFinite(time))return value;
+  return new Intl.DateTimeFormat(lang==="tr"?"tr-TR":"en-GB",{day:"2-digit",month:"short"}).format(new Date(time));
+}
+
+function navigateTo(module:string){
+  const labels=NAV_LABELS[module]||[module];
+  const buttons=Array.from(document.querySelectorAll<HTMLButtonElement>("#fornost-navigation button, aside button"));
+  const target=buttons.find(button=>labels.some(label=>normalized(button.textContent).includes(normalized(label))));
+  if(target){target.click();return}
+  const search=document.querySelector<HTMLButtonElement>(".command-trigger");
+  search?.click();
+}
+
+function openAskFornost(prompt:string,module="Dashboard"){
+  window.dispatchEvent(new CustomEvent("fornost:open-ai",{detail:{module,prompt,mode:"agent",agentKind:"reporting"}}));
+}
+
+function Sparkline({values}:{values:number[]}){
+  const max=Math.max(1,...values);
+  return <div className="ed4-spark" aria-hidden="true">{values.map((value,index)=><i key={index} style={{height:`${Math.max(12,(value/max)*100)}%`}}/>)}</div>;
+}
+
+function MetricCard({label,value,detail,tone,activity}:{label:string;value:string|number;detail:string;tone:string;activity:number[]}){
+  return <article className={`ed4-metric ${tone}`}><div><small>{label}</small><span/></div><strong>{value}</strong><p>{detail}</p><Sparkline values={activity}/></article>;
+}
+
+function PanelHeader({eyebrow,title,action,onAction,badge}:{eyebrow:string;title:string;action?:string;onAction?:()=>void;badge?:string|number}){
+  return <header className="ed4-panel-head"><div><small>{eyebrow}</small><h3>{title}</h3></div>{action?<button type="button" onClick={onAction}>{action}<span>→</span></button>:badge!==undefined?<b>{badge}</b>:null}</header>;
+}
+
+export default function ExecutiveDashboard(){
+  const [host,setHost]=useState<HTMLElement|null>(null);
+  const [lang,setLang]=useState<Lang>("tr");
+  const [rows,setRows]=useState<Row[]>([]);
+  const [findings,setFindings]=useState<FindingsPayload>({});
+  const [appetite,setAppetite]=useState<AppetitePayload>({});
+  const [period,setPeriod]=useState<Period>(30);
+  const [riskMode,setRiskMode]=useState<RiskMode>("inherent");
+  const [preferences,setPreferences]=useState<Preferences>(()=>loadPreferences());
+  const [customize,setCustomize]=useState(false);
+  const [loading,setLoading]=useState(false);
+  const [lastUpdated,setLastUpdated]=useState<Date|null>(null);
+
+  const refresh=useCallback(async()=>{
+    setLoading(true);
+    try{
+      const [grcResult,findingsResult,appetiteResult]=await Promise.allSettled([
+        fetch(withBasePath("/api/grc"),{cache:"no-store"}).then(async response=>response.ok?response.json():Promise.reject(new Error("grc"))),
+        fetch(withBasePath("/api/findings"),{cache:"no-store"}).then(async response=>response.ok?response.json():{}),
+        fetch(withBasePath("/api/risk-appetite"),{cache:"no-store"}).then(async response=>response.ok?response.json():{}),
+      ]);
+      if(grcResult.status==="fulfilled")setRows(normalizeRows(grcResult.value));
+      if(findingsResult.status==="fulfilled")setFindings(findingsResult.value as FindingsPayload);
+      if(appetiteResult.status==="fulfilled")setAppetite(appetiteResult.value as AppetitePayload);
+      setLastUpdated(new Date());
+    }finally{setLoading(false)}
+  },[]);
+
+  useEffect(()=>{
+    const discover=()=>{
+      const root=document.querySelector(".workspace-dashboard") as HTMLElement|null;
+      if(root){root.classList.add("fornost-dashboard-v4");setHost(current=>current===root?current:root)}
+      setLang(dashboardLanguage());
+    };
+    discover();
+    const observer=new MutationObserver(discover);
+    observer.observe(document.body,{childList:true,subtree:true});
+    const onClick=()=>setLang(dashboardLanguage());
+    document.addEventListener("click",onClick);
+    return()=>{observer.disconnect();document.removeEventListener("click",onClick);document.querySelector(".workspace-dashboard")?.classList.remove("fornost-dashboard-v4")};
+  },[]);
+
+  useEffect(()=>{if(host)void refresh()},[host,refresh]);
+  useEffect(()=>{window.localStorage.setItem(STORAGE_KEY,JSON.stringify(preferences))},[preferences]);
+  useEffect(()=>{if(!customize)return;const onKey=(event:KeyboardEvent)=>{if(event.key==="Escape")setCustomize(false)};window.addEventListener("keydown",onKey);return()=>window.removeEventListener("keydown",onKey)},[customize]);
+
+  const tr=lang==="tr",now=Date.now();
+  const data=useMemo(()=>{
+    const by=(module:string)=>rows.filter(row=>row.module===module);
+    const risks=by("Risk Assessment"),controls=by("Kontroller"),compliance=by("Uyum"),evidence=by("Kanıtlar"),audits=by("Denetim Yönetimi"),vendors=by("Tedarikçiler");
+    const controlAssurance=buildControlAssurance(rows),assurance=buildExecutiveAssurance(rows);
+    const highRisks=risks.filter(row=>calculatedRiskScore(row.data)>=10),criticalRisks=risks.filter(row=>calculatedRiskScore(row.data)>=17);
+    const averageRisk=risks.length?Math.round(risks.reduce((sum,row)=>sum+calculatedRiskScore(row.data),0)/risks.length):0;
+    const complianceScore=readiness(compliance);
+    const findingSummary=findings.summary||{},appetiteSummary=appetite.summary||{};
+    const findingRows=findings.findings||[];
+    const auditOverdue=audits.filter(row=>{const due=dateValue(row.data.dueDate);return Number.isFinite(due)&&due<now&&!isClosed(row.data.status)}).length;
+    const auditDueSoon=audits.filter(row=>{const due=dateValue(row.data.dueDate);return Number.isFinite(due)&&due>=now&&due<=now+7*86400000&&!isClosed(row.data.status)}).length;
+    const staleEvidence=evidence.filter(row=>isExpiredEvidence(row,now)).length;
+    const highVendors=vendors.filter(row=>["yüksek","kritik","high","critical"].includes(normalized(row.data.riskLevel))).length;
+    const failedTests=controlAssurance.items.filter(item=>item.state==="critical"||["başarısız","failed","ineffective","etkisiz"].includes(normalized(item.control.data.testResult))).length;
+    const openFindings=number(findingSummary.open),criticalFindings=number(findingSummary.critical),overdueFindings=number(findingSummary.overdue);
+    const appetiteBreaches=number(appetiteSummary.breached),openBreaches=number(appetiteSummary.openBreaches),overdueBreaches=number(appetiteSummary.overdueBreaches);
+    const dueSoonFindings=findingRows.filter(item=>{const due=dateValue(item.dueDate);return Number.isFinite(due)&&due>=now&&due<=now+7*86400000&&!isClosed(item.status)}).length;
+    const unassigned=[...risks,...audits,...controls].filter(row=>!clean(row.data.owner||row.data.actionOwner||row.data.auditOwner||row.data.testOwner)&&!isClosed(row.data.status)).length+findingRows.filter(item=>!clean(item.owner)&&!isClosed(item.status)).length;
+    const criticalNow=criticalRisks.length+criticalFindings+appetiteBreaches;
+    const overdueTotal=auditOverdue+overdueFindings+overdueBreaches;
+    const dueSoon=auditDueSoon+dueSoonFindings;
+    const signals:ActionSignal[]=[
+      {key:"critical-risk",count:criticalRisks.length,titleTr:"Kritik riskler",titleEn:"Critical risks",detailTr:"Skoru 17+ olan riskler",detailEn:"Risks scoring 17+",module:"Risk Assessment",tone:"critical"},
+      {key:"kri-breach",count:Math.max(appetiteBreaches,openBreaches),titleTr:"Risk iştahı / KRI ihlalleri",titleEn:"Risk appetite / KRI breaches",detailTr:"Müdahale veya sahip kararı bekliyor",detailEn:"Awaiting intervention or owner decision",module:"Risk İştahı ve KRI",tone:"critical"},
+      {key:"finding-overdue",count:overdueFindings,titleTr:"Gecikmiş CAPA bulguları",titleEn:"Overdue CAPA findings",detailTr:"SLA tarihi geçmiş iyileştirmeler",detailEn:"Remediation work past SLA",module:"Bulgular ve CAPA",tone:"warning"},
+      {key:"audit-overdue",count:auditOverdue,titleTr:"Gecikmiş denetim maddeleri",titleEn:"Overdue audit requirements",detailTr:"Denetim terminini aşmış kayıtlar",detailEn:"Audit requirements past due",module:"Denetim Yönetimi",tone:"warning"},
+      {key:"evidence-stale",count:staleEvidence,titleTr:"Güncelliğini yitiren kanıtlar",titleEn:"Stale evidence",detailTr:"Süresi dolmuş veya reddedilmiş kanıt",detailEn:"Expired or rejected evidence",module:"Kanıtlar",tone:"info"},
+      {key:"vendor-high",count:highVendors,titleTr:"Yüksek riskli tedarikçiler",titleEn:"High-risk vendors",detailTr:"Yüksek veya kritik risk seviyesinde",detailEn:"Rated high or critical",module:"Tedarikçiler",tone:"info"},
+    ].sort((a,b)=>b.count-a.count);
+    const frameworks=frameworkReadiness(compliance);
+    const uniqueAudits=new Set(audits.map(row=>clean(row.data.auditName)).filter(Boolean));
+    const activeAudits=new Set(audits.filter(row=>!isClosed(row.data.status)).map(row=>clean(row.data.auditName)).filter(Boolean));
+    const futureAuditDates=audits.map(row=>clean(row.data.dueDate)).filter(Boolean).filter(value=>dateValue(value)>=now).sort((a,b)=>dateValue(a)-dateValue(b));
+    const auditProgress=audits.length?Math.round(audits.reduce((sum,row)=>sum+clamp(number(row.data.progress),0,100),0)/audits.length):0;
+    const windowStart=now-period*86400000;
+    const changed=(source:Row[],mode:"created"|"updated"="updated")=>source.filter(row=>{const value=mode==="created"?row.createdAt:(row.updatedAt||row.createdAt);const time=dateValue(value);return Number.isFinite(time)&&time>=windowStart&&time<=now}).length;
+    const recentChanges=[
+      {key:"risk",count:changed(risks),labelTr:"Risk kaydı değerlendirildi veya güncellendi",labelEn:"Risk records reviewed or updated",module:"Risk Assessment"},
+      {key:"evidence",count:changed(evidence,"created"),labelTr:"Yeni kanıt kaydı eklendi",labelEn:"New evidence records captured",module:"Kanıtlar"},
+      {key:"control",count:changed(controls),labelTr:"Kontrol kaydı değişti",labelEn:"Control records changed",module:"Kontroller"},
+      {key:"finding",count:findingRows.filter(item=>{const time=dateValue(item.updatedAt);return Number.isFinite(time)&&time>=windowStart&&time<=now}).length,labelTr:"Bulgu / CAPA kaydı değişti",labelEn:"Finding / CAPA records changed",module:"Bulgular ve CAPA"},
+      {key:"kri",count:(appetite.measurements||[]).filter(item=>{const time=dateValue(item.recordedAt||item.periodEnd);return Number.isFinite(time)&&time>=windowStart&&time<=now}).length,labelTr:"KRI ölçümü kaydedildi",labelEn:"KRI measurements recorded",module:"Risk İştahı ve KRI"},
+    ];
+    return {risks,controls,compliance,evidence,audits,vendors,controlAssurance,assurance,highRisks,criticalRisks,averageRisk,complianceScore,openFindings,criticalFindings,overdueFindings,auditOverdue,auditDueSoon,staleEvidence,highVendors,failedTests,appetiteBreaches,openBreaches,overdueBreaches,criticalNow,overdueTotal,dueSoon,unassigned,signals,frameworks,uniqueAudits,activeAudits,futureAuditDates,auditProgress,recentChanges};
+  },[rows,findings,appetite,period,now]);
+
+  const residualAvailable=useMemo(()=>data.risks.some(row=>number(row.data.residualLikelihood)>0||number(row.data.residualImpact)>0),[data.risks]);
+  useEffect(()=>{if(!residualAvailable&&riskMode==="residual")setRiskMode("inherent")},[residualAvailable,riskMode]);
+
+  const heatmap=useMemo(()=>{
+    const cells=Array.from({length:5},()=>Array(5).fill(0) as number[]);
+    data.risks.forEach(row=>{
+      const likelihood=clamp(Math.round(riskMode==="residual"?number(row.data.residualLikelihood||row.data.likelihood||row.data.inherentLikelihood):number(row.data.inherentLikelihood||row.data.likelihood)),1,5);
+      const impact=clamp(Math.round(riskMode==="residual"?number(row.data.residualImpact||row.data.impact||row.data.inherentImpact||effectiveImpact(row.data)):number(row.data.inherentImpact||row.data.impact||effectiveImpact(row.data))),1,5);
+      if(likelihood&&impact)cells[impact-1][likelihood-1]+=1;
+    });
+    return cells;
+  },[data.risks,riskMode]);
+
+  const riskActivity=activityBuckets(data.risks,period),controlActivity=activityBuckets(data.controls,period),complianceActivity=activityBuckets(data.compliance,period),auditActivity=activityBuckets(data.audits,period);
+  const findingActivity=useMemo(()=>{
+    const synthetic=(findings.findings||[]).map(item=>({id:item.id,module:"Bulgular ve CAPA",data:{},updatedAt:item.updatedAt} as Row));
+    return activityBuckets(synthetic,period);
+  },[findings.findings,period]);
+
+  const visibleCount=Object.values(preferences.visible).filter(Boolean).length;
+  const setPreset=(preset:PresetId)=>setPreferences(clonePreferences(PRESETS[preset]));
+  const toggle=(id:WidgetId)=>setPreferences(current=>({...current,visible:{...current.visible,[id]:!current.visible[id]}}));
+  const move=(id:WidgetId,direction:-1|1)=>setPreferences(current=>{const order=[...current.order],index=order.indexOf(id),next=index+direction;if(index<0||next<0||next>=order.length)return current;[order[index],order[next]]=[order[next],order[index]];return {...current,order}});
+  const orderStyle=(id:WidgetId):CSSProperties=>({order:preferences.order.indexOf(id)});
+  const topSignals=data.signals.filter(signal=>signal.count>0).slice(0,3);
+  const askPrompt=tr
+    ? `Fornost GRC executive dashboard verilerini analiz et. Kritik durum: ${data.criticalNow}, gecikmiş aksiyon: ${data.overdueTotal}, 7 gün içinde: ${data.dueSoon}, atanmadı: ${data.unassigned}, risk iştahı ihlali: ${data.appetiteBreaches}, assurance skoru: ${data.assurance.score}/100. Öncelikli yönetim kararlarını ve hangi kayıtlara bakılması gerektiğini kaynaklarıyla açıkla.`
+    : `Analyze the Fornost GRC executive dashboard. Critical now: ${data.criticalNow}, overdue actions: ${data.overdueTotal}, due in 7 days: ${data.dueSoon}, unassigned: ${data.unassigned}, risk appetite breaches: ${data.appetiteBreaches}, assurance score: ${data.assurance.score}/100. Explain the priority management decisions and which source records require review.`;
+
+  if(!host)return null;
+
+  const dashboard=createPortal(
+    <div className={`ed4-shell ${preferences.compact?"compact":""}`}>
+      <section className="ed4-toolbar">
+        <div>
+          <small>{tr?"YÖNETİCİ ÖZETİ · BAĞLANTILI GRC":"EXECUTIVE BRIEF · CONNECTED GRC"}</small>
+          <h2>{tr?"Kurumsal risk ve güvence görünümü":"Enterprise risk & assurance posture"}</h2>
+          <p>{tr?"Ne riskli, ne değişti ve hangi karar şimdi alınmalı — tek karar yüzeyinde.":"See what is risky, what changed and what requires a decision now — in one decision surface."}</p>
+        </div>
+        <div className="ed4-toolbar-controls">
+          <span className="ed4-scope"><i/>{tr?"Kurumsal kapsam":"Enterprise scope"}</span>
+          <div className="ed4-period" aria-label={tr?"Dashboard dönemi":"Dashboard period"}>{([30,90,365] as Period[]).map(value=><button type="button" key={value} className={period===value?"active":""} onClick={()=>setPeriod(value)}>{value===365?"12m":`${value}d`}</button>)}</div>
+          <button type="button" className="ed4-refresh" onClick={()=>void refresh()} disabled={loading}>{loading?"…":"↻"}<span>{lastUpdated?(tr?"Güncellendi":"Updated")+` ${lastUpdated.toLocaleTimeString(tr?"tr-TR":"en-GB",{hour:"2-digit",minute:"2-digit"})}`:(tr?"Yenile":"Refresh")}</span></button>
+          <button type="button" className="ed4-customize" onClick={()=>setCustomize(true)}>⌘ <span>{tr?"Özelleştir":"Customize"}</span></button>
+        </div>
+      </section>
+
+      <section className="ed4-ai-brief">
+        <button type="button" onClick={()=>openAskFornost(askPrompt)}>
+          <span className="ed4-ai-mark">✦</span>
+          <span><small>ASK FORNOST · {tr?"YÖNETİCİ BRIEF":"EXECUTIVE BRIEF"}</small><b>{topSignals.length?tr?`${topSignals.reduce((sum,item)=>sum+item.count,0)} öncelikli sinyal yönetim dikkati gerektiriyor`:`${topSignals.reduce((sum,item)=>sum+item.count,0)} priority signals require management attention`:tr?"Kritik yönetim sinyali bulunmuyor":"No critical management signals detected"}</b></span>
+          <em>{tr?"Analiz et":"Analyze"} →</em>
+        </button>
+        <div>{topSignals.map(signal=><span key={signal.key} className={signal.tone}><b>{signal.count}</b>{tr?signal.titleTr:signal.titleEn}</span>)}</div>
+      </section>
+
+      <section className="ed4-metrics" aria-label={tr?"Yönetici göstergeleri":"Executive metrics"}>
+        <MetricCard label={tr?"Risk maruziyeti":"Risk exposure"} value={`${data.highRisks.length}/${data.risks.length}`} detail={tr?`Ort. skor ${data.averageRisk}/25 · ${data.criticalRisks.length} kritik`:`Avg score ${data.averageRisk}/25 · ${data.criticalRisks.length} critical`} tone="risk" activity={riskActivity}/>
+        <MetricCard label={tr?"Kontrol etkinliği":"Control effectiveness"} value={`${data.controlAssurance.score}%`} detail={`${data.controlAssurance.healthy}/${data.controlAssurance.total} ${tr?"sağlıklı kontrol":"healthy controls"}`} tone="control" activity={controlActivity}/>
+        <MetricCard label={tr?"Uyum hazırlığı":"Compliance readiness"} value={`${data.complianceScore}%`} detail={`${data.compliance.filter(row=>isCompliant(row.data.status||row.data.implementation)).length}/${data.compliance.length} ${tr?"hazır madde":"ready requirements"}`} tone="compliance" activity={complianceActivity}/>
+        <MetricCard label={tr?"Açık bulgu":"Open findings"} value={data.openFindings} detail={`${data.criticalFindings} ${tr?"kritik":"critical"} · ${data.overdueFindings} ${tr?"gecikmiş":"overdue"}`} tone="finding" activity={findingActivity}/>
+        <MetricCard label={tr?"Denetim hazırlığı":"Audit readiness"} value={`${data.assurance.auditScore}%`} detail={`${data.assurance.readyAudits}/${data.assurance.totalAudits} ${tr?"hazır madde":"ready items"}`} tone="audit" activity={auditActivity}/>
+      </section>
+
+      <section className="ed4-grid">
+        {preferences.visible.riskHeatmap&&<article className="ed4-panel ed4-risk-map" style={orderStyle("riskHeatmap")}>
+          <PanelHeader eyebrow={tr?"RİSK YOĞUNLUĞU":"RISK CONCENTRATION"} title={tr?"Olasılık × Etki Isı Haritası":"Likelihood × Impact Heatmap"} action={tr?"Risk portföyü":"Risk portfolio"} onAction={()=>navigateTo("Risk Assessment")}/>
+          <div className="ed4-risk-map-tools"><div className="ed4-risk-mode"><button type="button" className={riskMode==="inherent"?"active":""} onClick={()=>setRiskMode("inherent")}>{tr?"Doğal":"Inherent"}</button><button type="button" disabled={!residualAvailable} title={!residualAvailable?(tr?"Residual risk alanları henüz kayıtlı değil":"Residual risk fields are not yet recorded"):undefined} className={riskMode==="residual"?"active":""} onClick={()=>setRiskMode("residual")}>{tr?"Artık":"Residual"}</button></div><span>{tr?"İştah ihlali":"Appetite breaches"}<b>{data.appetiteBreaches}</b></span></div>
+          <div className="ed4-heatmap-wrap"><div className="ed4-impact-label">{tr?"ETKİ":"IMPACT"}</div><div className="ed4-heatmap">
+            {[5,4,3,2,1].map(impact=><div className="ed4-heatmap-row" key={impact}><b>{impact}</b>{[1,2,3,4,5].map(likelihood=>{const count=heatmap[impact-1][likelihood-1],score=impact*likelihood,tone=score>=17?"critical":score>=10?"high":score>=5?"medium":"low";return <button type="button" className={tone} key={`${impact}-${likelihood}`} onClick={()=>navigateTo("Risk Assessment")} aria-label={`${tr?"Etki":"Impact"} ${impact}, ${tr?"Olasılık":"Likelihood"} ${likelihood}: ${count}`}><strong>{count||""}</strong><small>{score}</small></button>})}</div>)}
+            <div className="ed4-heatmap-axis"><i/>{[1,2,3,4,5].map(value=><b key={value}>{value}</b>)}</div>
+          </div><div className="ed4-likelihood-label">{tr?"OLASILIK":"LIKELIHOOD"} →</div></div>
+          <div className="ed4-risk-map-foot"><div><span className="critical"/><b>{data.criticalRisks.length}</b><small>{tr?"Kritik":"Critical"}</small></div><div><span className="high"/><b>{data.highRisks.length-data.criticalRisks.length}</b><small>{tr?"Yüksek":"High"}</small></div><div><span className="medium"/><b>{data.risks.filter(row=>{const value=calculatedRiskScore(row.data);return value>=5&&value<10}).length}</b><small>{tr?"Orta":"Medium"}</small></div><div><span className="low"/><b>{data.risks.filter(row=>calculatedRiskScore(row.data)<5).length}</b><small>{tr?"Düşük":"Low"}</small></div></div>
+        </article>}
+
+        {preferences.visible.actionCenter&&<article className="ed4-panel ed4-action-center" style={orderStyle("actionCenter")}>
+          <PanelHeader eyebrow={tr?"AKSİYON MERKEZİ":"ACTION CENTER"} title={tr?"Şimdi karar gerektirenler":"Decisions required now"} badge={data.criticalNow+data.overdueTotal}/>
+          <div className="ed4-action-counters"><button type="button" onClick={()=>navigateTo("Bulgular ve CAPA")}><small>{tr?"Kritik şimdi":"Critical now"}</small><strong>{data.criticalNow}</strong></button><button type="button" onClick={()=>navigateTo("Denetim Yönetimi")}><small>{tr?"Gecikmiş":"Overdue"}</small><strong>{data.overdueTotal}</strong></button><button type="button" onClick={()=>navigateTo("Denetim Yönetimi")}><small>{tr?"7 gün içinde":"Due in 7 days"}</small><strong>{data.dueSoon}</strong></button><button type="button"><small>{tr?"Atanmamış":"Unassigned"}</small><strong>{data.unassigned}</strong></button></div>
+          <div className="ed4-action-list">{data.signals.slice(0,6).map(signal=><button type="button" key={signal.key} onClick={()=>navigateTo(signal.module)}><i className={signal.tone}>{signal.count}</i><span><b>{tr?signal.titleTr:signal.titleEn}</b><small>{tr?signal.detailTr:signal.detailEn}</small></span><em>→</em></button>)}</div>
+        </article>}
+
+        {preferences.visible.recentChanges&&<article className="ed4-panel ed4-changes" style={orderStyle("recentChanges")}>
+          <PanelHeader eyebrow={tr?"DEĞİŞİM RADARI":"CHANGE RADAR"} title={tr?`Son ${period===365?12:`${period}`} ${period===365?"ay":"günde"} neler değişti?`:`What changed in the last ${period===365?"12 months":`${period} days`}?`}/>
+          <div className="ed4-change-list">{data.recentChanges.map(item=><button type="button" key={item.key} onClick={()=>navigateTo(item.module)}><strong>{item.count}</strong><span>{tr?item.labelTr:item.labelEn}</span><em>→</em></button>)}</div>
+        </article>}
+
+        {preferences.visible.frameworkReadiness&&<article className="ed4-panel ed4-frameworks" style={orderStyle("frameworkReadiness")}>
+          <PanelHeader eyebrow={tr?"UYUM PORTFÖYÜ":"COMPLIANCE PORTFOLIO"} title={tr?"Framework hazırlığı":"Framework readiness"} action={tr?"Uyum merkezi":"Compliance center"} onAction={()=>navigateTo("Uyum")}/>
+          <div className="ed4-framework-list">{data.frameworks.length?data.frameworks.map(item=><button type="button" key={item.name} onClick={()=>navigateTo("Uyum")}><div><b>{shortFramework(item.name)}</b><span>{item.ready}/{item.total} {tr?"hazır":"ready"}</span></div><strong>{item.score}%</strong><i><em style={{width:`${item.score}%`}}/></i></button>):<p>{tr?"Framework hazırlığı hesaplamak için uyum kaydı bulunmuyor.":"No compliance records are available to calculate framework readiness."}</p>}</div>
+        </article>}
+
+        {preferences.visible.assuranceHealth&&<article className="ed4-panel ed4-assurance" style={orderStyle("assuranceHealth")}>
+          <PanelHeader eyebrow={tr?"SÜREKLİ GÜVENCE":"CONTINUOUS ASSURANCE"} title={tr?"Güvence sağlığı":"Assurance health"} action={tr?"Connected GRC":"Connected GRC"} onAction={()=>navigateTo("Bağlantılı GRC")}/>
+          <div className="ed4-assurance-score"><div className="ed4-score-ring" style={{"--score":`${data.assurance.score*3.6}deg`} as CSSProperties}><span><b>{data.assurance.score}</b><small>/100</small></span></div><div><small>{tr?"BİLEŞİK GÜVENCE":"COMPOSITE ASSURANCE"}</small><b>{data.assurance.score>=80?(tr?"Güçlü":"Strong"):data.assurance.score>=55?(tr?"Gelişiyor":"Developing"):(tr?"Aksiyon gerekli":"Action required")}</b><span>{tr?"Risk → kontrol → kanıt → denetim zinciri":"Risk → control → evidence → audit chain"}</span></div></div>
+          <div className="ed4-assurance-grid"><button type="button" onClick={()=>navigateTo("Kontroller")}><small>{tr?"Kontrol güvencesi":"Control assurance"}</small><strong>{data.controlAssurance.score}%</strong><span>{data.controlAssurance.healthy}/{data.controlAssurance.total} {tr?"sağlıklı":"healthy"}</span></button><button type="button" onClick={()=>navigateTo("Kontroller")}><small>{tr?"Kritik test açığı":"Critical test gaps"}</small><strong>{data.failedTests}</strong><span>{tr?"Kontrol testi / kanıt":"Control test / evidence"}</span></button><button type="button" onClick={()=>navigateTo("Kanıtlar")}><small>{tr?"Güncel olmayan kanıt":"Stale evidence"}</small><strong>{data.staleEvidence}</strong><span>{data.assurance.evidenceScore}% {tr?"kanıt güveni":"evidence confidence"}</span></button><button type="button" onClick={()=>navigateTo("Bağlantılı GRC")}><small>{tr?"Zincir bütünlüğü":"Chain integrity"}</small><strong>{data.assurance.traceabilityScore}%</strong><span>{data.assurance.completeChains}/{data.assurance.totalChains} {tr?"tam zincir":"complete chains"}</span></button></div>
+        </article>}
+
+        {preferences.visible.auditRemediation&&<article className="ed4-panel ed4-audit" style={orderStyle("auditRemediation")}>
+          <PanelHeader eyebrow={tr?"DENETİM & İYİLEŞTİRME":"AUDIT & REMEDIATION"} title={tr?"Gözetim takvimi":"Oversight timeline"} action={tr?"Denetim merkezi":"Audit center"} onAction={()=>navigateTo("Denetim Yönetimi")}/>
+          <div className="ed4-audit-summary"><div><small>{tr?"Aktif denetim":"Active audits"}</small><strong>{data.activeAudits.size}</strong><span>{data.uniqueAudits.size} {tr?"toplam denetim":"total audits"}</span></div><div><small>{tr?"Açık bulgu":"Open findings"}</small><strong>{data.openFindings}</strong><span>{data.overdueFindings} {tr?"gecikmiş":"overdue"}</span></div><div><small>{tr?"Denetim ilerlemesi":"Audit progress"}</small><strong>{data.auditProgress}%</strong><span>{data.auditOverdue} {tr?"gecikmiş madde":"overdue items"}</span></div></div>
+          <div className="ed4-next-milestone"><small>{tr?"SONRAKİ KİLOMETRE TAŞI":"NEXT MILESTONE"}</small><b>{data.futureAuditDates[0]?formatDate(data.futureAuditDates[0],lang):(tr?"Planlı termin yok":"No scheduled due date")}</b><span>{data.futureAuditDates[0]?(tr?"En yakın açık denetim maddesi":"Nearest open audit requirement"):(tr?"Denetim planında açık termin bulunmuyor":"No open due date in the audit plan")}</span></div>
+          <div className="ed4-audit-links"><button type="button" onClick={()=>navigateTo("Bulgular ve CAPA")}>{tr?"Bulgular & CAPA":"Findings & CAPA"}<span>{data.openFindings} →</span></button><button type="button" onClick={()=>navigateTo("Denetim Yönetimi")}>{tr?"Denetim maddeleri":"Audit requirements"}<span>{data.audits.length} →</span></button></div>
+        </article>}
+      </section>
+
+      <footer className="ed4-footer"><span>{rows.length} {tr?"bağlı GRC kaydı":"connected GRC records"} · {data.assurance.totalChains} {tr?"güvence zinciri":"assurance chains"}</span><div><button type="button" onClick={()=>navigateTo("Risk Assessment")}>{tr?"Risk portföyü":"Risk portfolio"}</button><button type="button" onClick={()=>navigateTo("Raporlar")}>{tr?"Yönetim raporu":"Executive report"} ↗</button></div></footer>
+    </div>,host);
+
+  const drawer=customize?createPortal(<div className="ed4-customizer-backdrop" role="presentation" onMouseDown={event=>{if(event.target===event.currentTarget)setCustomize(false)}}><aside className="ed4-customizer" role="dialog" aria-modal="true" aria-labelledby="ed4-customizer-title"><header><div><small>FORNOST GRC · {tr?"KİŞİSEL YÖNETİCİ GÖRÜNÜMÜ":"PERSONAL EXECUTIVE VIEW"}</small><h2 id="ed4-customizer-title">{tr?"Dashboard'ı Özelleştir":"Customize Dashboard"}</h2><p>{tr?"Yönetici karar yüzeyini role, odağa ve ekran yoğunluğuna göre düzenleyin.":"Shape the executive decision surface around role, focus and information density."}</p></div><button type="button" onClick={()=>setCustomize(false)} aria-label={tr?"Kapat":"Close"}>×</button></header><section className="ed4-customizer-summary"><div><small>{tr?"PROFİL":"PROFILE"}</small><b>{preferences.preset==="executive"?"CISO / Executive":preferences.preset==="risk"?(tr?"Risk Odaklı":"Risk Focus"):(tr?"Güvence Odaklı":"Assurance Focus")}</b></div><div><small>{tr?"GÖRÜNÜR":"VISIBLE"}</small><b>{visibleCount}/{WIDGETS.length}</b></div><div><small>{tr?"YOĞUNLUK":"DENSITY"}</small><b>{preferences.compact?(tr?"Kompakt":"Compact"):(tr?"Rahat":"Comfortable")}</b></div></section><section><div className="ed4-customizer-title"><small>01</small><div><h3>{tr?"Yönetici profili":"Executive profile"}</h3><p>{tr?"Karar odağını tek tıkla değiştirin.":"Switch decision focus in one click."}</p></div></div><div className="ed4-preset-grid">{(["executive","risk","assurance"] as PresetId[]).map(id=><button type="button" key={id} className={preferences.preset===id?"active":""} onClick={()=>setPreset(id)}><span><b>{id==="executive"?"CISO / Executive":id==="risk"?(tr?"Risk Odaklı":"Risk Focus"):(tr?"Güvence Odaklı":"Assurance Focus")}</b><small>{id==="executive"?(tr?"Risk + aksiyon + güvence + uyum":"Risk + action + assurance + compliance"):id==="risk"?(tr?"Isı haritası + aksiyon + değişim":"Heatmap + action + change"):(tr?"Framework + güvence + denetim":"Framework + assurance + audit")}</small></span><em>{preferences.preset===id?"✓":"→"}</em></button>)}</div></section><section><div className="ed4-customizer-title"><small>02</small><div><h3>{tr?"Widget görünürlüğü ve sırası":"Widget visibility & order"}</h3><p>{tr?"Göster, gizle ve önceliklendir.":"Show, hide and prioritize."}</p></div></div><div className="ed4-widget-list">{preferences.order.map((id,index)=>{const widget=WIDGETS.find(item=>item.id===id)!;return <article key={id} className={preferences.visible[id]?"enabled":"disabled"}><button type="button" className="ed4-widget-toggle" onClick={()=>toggle(id)} aria-pressed={preferences.visible[id]}><i>{preferences.visible[id]?"✓":""}</i></button><div><b>{tr?widget.tr:widget.en}</b><small>{tr?widget.descriptionTr:widget.descriptionEn}</small></div><span>{String(index+1).padStart(2,"0")}</span><div><button type="button" disabled={index===0} onClick={()=>move(id,-1)} aria-label={tr?"Yukarı taşı":"Move up"}>↑</button><button type="button" disabled={index===preferences.order.length-1} onClick={()=>move(id,1)} aria-label={tr?"Aşağı taşı":"Move down"}>↓</button></div></article>})}</div></section><section className="ed4-density"><div><small>03</small><span><b>{tr?"Kompakt yoğunluk":"Compact density"}</b><em>{tr?"Aynı ekranda daha fazla karar bilgisi gösterir.":"Shows more decision information in the same viewport."}</em></span></div><button type="button" className={preferences.compact?"on":""} onClick={()=>setPreferences(current=>({...current,compact:!current.compact}))} aria-pressed={preferences.compact}><i/></button></section><footer><button type="button" className="ghost" onClick={()=>setPreferences(clonePreferences(PRESETS.executive))}>{tr?"Varsayılana dön":"Reset to default"}</button><button type="button" className="primary" onClick={()=>setCustomize(false)}>{tr?"Görünümü Kaydet":"Save View"}</button></footer></aside></div>,document.body):null;
+
+  return <>{dashboard}{drawer}</>;
+}

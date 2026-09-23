@@ -3,9 +3,8 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 
 const assurancePanel = readFileSync(new URL("../app/executive-assurance-panel.tsx", import.meta.url), "utf8");
-const dashboardCustomizer = readFileSync(new URL("../app/dashboard-customizer.tsx", import.meta.url), "utf8");
-const dashboardCustomizerCss = readFileSync(new URL("../app/dashboard-customizer.css", import.meta.url), "utf8");
-const dashboardStructureCss = readFileSync(new URL("../app/dashboard-structure-v2.css", import.meta.url), "utf8");
+const executiveDashboard = readFileSync(new URL("../app/executive-dashboard.tsx", import.meta.url), "utf8");
+const executiveDashboardCss = readFileSync(new URL("../app/executive-dashboard.css", import.meta.url), "utf8");
 const layout = readFileSync(new URL("../app/layout.tsx", import.meta.url), "utf8");
 
 test("executive assurance score renders as one baseline-safe value", () => {
@@ -13,39 +12,41 @@ test("executive assurance score renders as one baseline-safe value", () => {
   assert.doesNotMatch(assurancePanel, /<sup>\s*\/100\s*<\/sup>/);
 });
 
-test("dashboard mounts the customizable executive workspace instead of the retired DOM cleanup", () => {
-  assert.match(layout, /import DashboardCustomizer from "\.\/dashboard-customizer"/);
-  assert.match(layout, /<DashboardCustomizer \/>/);
-  assert.doesNotMatch(layout, /DashboardRetirement/);
+test("layout mounts the v4 executive decision surface", () => {
+  assert.match(layout, /import ExecutiveDashboard from "\.\/executive-dashboard"/);
+  assert.match(layout, /<ExecutiveDashboard \/>/);
+  assert.doesNotMatch(layout, /<DashboardCustomizer \/>/);
 
-  assert.match(dashboardCustomizer, /fornost:dashboard-preferences:v2/);
-  assert.doesNotMatch(dashboardCustomizer, /fornost:dashboard-preferences:v1/);
-  assert.match(dashboardCustomizer, /type PresetId="executive"\|"risk"\|"assurance"\|"operations"/);
-  assert.match(dashboardCustomizer, /Dashboard'ı Özelleştir/);
-  assert.match(dashboardCustomizer, /\.dashboard-metrics/);
-  assert.match(dashboardCustomizer, /\.executive-assurance-panel/);
-  assert.match(dashboardCustomizer, /\.risk-focus-panel/);
-  assert.match(dashboardCustomizer, /\.attention-panel/);
-  assert.match(dashboardCustomizer, /\.assurance-panel/);
-  assert.match(dashboardCustomizer, /\.resilience-panel/);
-  assert.match(dashboardCustomizer, /\.dashboard-shortcuts/);
-  assert.match(dashboardCustomizer, /window\.localStorage\.setItem\(STORAGE_KEY/);
+  assert.match(executiveDashboard, /fornost:executive-dashboard:v4/);
+  assert.match(executiveDashboard, /type WidgetId="riskHeatmap"\|"actionCenter"\|"recentChanges"\|"frameworkReadiness"\|"assuranceHealth"\|"auditRemediation"/);
+  assert.match(executiveDashboard, /\/api\/risk-appetite/);
+  assert.match(executiveDashboard, /\/api\/findings/);
+  assert.match(executiveDashboard, /buildExecutiveAssurance/);
+  assert.match(executiveDashboard, /buildControlAssurance/);
+  assert.match(executiveDashboard, /Olasılık × Etki Isı Haritası/);
+  assert.match(executiveDashboard, /Neler Değişti\?/);
+  assert.match(executiveDashboard, /Framework hazırlığı/);
+  assert.match(executiveDashboard, /Güvence sağlığı/);
+  assert.match(executiveDashboard, /Denetim & İyileştirme/);
 });
 
-test("dashboard uses the decision-first executive grid without redefining the product palette", () => {
-  assert.match(dashboardStructureCss, /dashboard-intelligence\{display:contents!important\}/);
-  assert.match(dashboardStructureCss, /risk-focus-panel\{\s*grid-column:span 8/);
-  assert.match(dashboardStructureCss, /attention-panel\{\s*grid-column:span 4/);
-  assert.match(dashboardStructureCss, /executive-assurance-panel\{\s*grid-column:span 8/);
-  assert.match(dashboardStructureCss, /resilience-panel\{\s*grid-column:span 4/);
-  assert.doesNotMatch(dashboardStructureCss, /--(?:ws|cp|fd)-(?:bg|surface|brand|ink|green|teal|orange)\s*:/);
+test("dashboard v4 replaces report stacking with an executive 12-column decision grid", () => {
+  assert.match(executiveDashboardCss, /\.ed4-grid\{display:grid;grid-template-columns:repeat\(12,minmax\(0,1fr\)\)/);
+  assert.match(executiveDashboardCss, /\.ed4-risk-map\{grid-column:span 8\}/);
+  assert.match(executiveDashboardCss, /\.ed4-action-center\{grid-column:span 4\}/);
+  assert.match(executiveDashboardCss, /\.ed4-changes\{grid-column:span 5\}/);
+  assert.match(executiveDashboardCss, /\.ed4-frameworks\{grid-column:span 7\}/);
+  assert.match(executiveDashboardCss, /\.ed4-assurance\{grid-column:span 7/);
+  assert.match(executiveDashboardCss, /\.ed4-audit\{grid-column:span 5\}/);
 });
 
-test("custom dashboard keeps enterprise responsive and compact layout contracts", () => {
-  assert.match(dashboardCustomizerCss, /grid-template-columns:repeat\(12,minmax\(0,1fr\)\)/);
-  assert.match(dashboardCustomizerCss, /\.fornost-dashboard-compact/);
-  assert.match(dashboardCustomizerCss, /\.dashboard-customizer-drawer/);
-  assert.match(dashboardCustomizerCss, /@media\(max-width:1200px\)/);
-  assert.match(dashboardCustomizerCss, /@media\(max-width:820px\)/);
-  assert.match(dashboardCustomizerCss, /html\[data-theme="dark"\]/);
+test("dashboard v4 preserves the Fornost palette and responsive contracts", () => {
+  assert.doesNotMatch(executiveDashboardCss, /:root\s*\{/);
+  assert.doesNotMatch(executiveDashboardCss, /html\[data-theme="dark"\]\s*\{/);
+  assert.doesNotMatch(executiveDashboardCss, /--(?:ws|cp|fd)-(?:bg|panel|surface|brand|ink|green|teal|orange)\s*:/);
+  assert.match(executiveDashboardCss, /var\(--cp-panel\)/);
+  assert.match(executiveDashboardCss, /var\(--cp-line\)/);
+  assert.match(executiveDashboardCss, /@media\(max-width:1450px\)/);
+  assert.match(executiveDashboardCss, /@media\(max-width:1120px\)/);
+  assert.match(executiveDashboardCss, /@media\(max-width:720px\)/);
 });
