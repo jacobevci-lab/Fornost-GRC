@@ -1,0 +1,133 @@
+/* Dashboard v9 — executive cockpit. Preserves Fornost theme tokens and palette. */
+.workspace-dashboard.fornost-dashboard-v9 .ed4-shell{max-width:1540px;gap:16px}
+.workspace-dashboard.fornost-dashboard-v9 .ed6-summary-mount,
+.workspace-dashboard.fornost-dashboard-v9 .ed6-watch-mount,
+.workspace-dashboard.fornost-dashboard-v9 .ed4-action-center,
+.workspace-dashboard.fornost-dashboard-v9 .ed4-metrics{display:none!important}
+
+/* Executive health strip */
+.workspace-dashboard.fornost-dashboard-v9 .ed9-health-mount{order:1;width:100%}
+.ed9-health-strip{display:grid;grid-template-columns:1.1fr repeat(5,1fr);border:1px solid var(--cp-line);border-radius:14px;overflow:hidden;background:var(--cp-panel);box-shadow:none}
+.ed9-health-item{position:relative;min-height:94px;padding:12px 14px;border:0;border-right:1px solid var(--cp-line);background:transparent;color:var(--cp-ink);text-align:left;cursor:pointer}
+.ed9-health-item:last-child{border-right:0}
+.ed9-health-item:after{content:"";position:absolute;left:0;right:0;bottom:0;height:2px;background:var(--cp-line)}
+.ed9-health-item.healthy:after{background:var(--cp-mint)}
+.ed9-health-item.watch:after{background:#e9b949}
+.ed9-health-item.critical:after{background:#ef6b86}
+.ed9-health-item small{display:block;font-size:7px;font-weight:900;letter-spacing:.14em;text-transform:uppercase;color:var(--cp-muted)}
+.ed9-health-item strong{display:block;margin-top:6px;font-size:23px;line-height:1;font-weight:900;color:var(--cp-ink)}
+.ed9-health-item span{display:block;margin-top:6px;font-size:7px;color:var(--cp-muted)}
+.ed9-health-item em{display:inline-flex;margin-top:8px;font-style:normal;font-size:6.4px;font-weight:800;color:var(--cp-muted);padding:3px 6px;border:1px solid var(--cp-line);border-radius:999px}
+.ed9-health-item:hover{background:color-mix(in srgb,var(--cp-mint) 4%,var(--cp-panel))}
+.ed9-health-item:focus-visible{outline:2px solid var(--cp-mint);outline-offset:-2px}
+
+/* Main grid: decision board 8/12 + signals 4/12 */
+.workspace-dashboard.fornost-dashboard-v9 .ed4-grid{order:2;display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:16px;align-items:start}
+.workspace-dashboard.fornost-dashboard-v9 .ed7-decisions-mount{order:0;grid-column:span 8!important;min-width:0}
+.workspace-dashboard.fornost-dashboard-v9 .ed9-signals-mount{order:1;grid-column:span 4!important;min-width:0}
+.workspace-dashboard.fornost-dashboard-v9 .ed7-decision-board,.workspace-dashboard.fornost-dashboard-v9 .ed9-signals{height:100%;border-radius:14px;box-shadow:none}
+.workspace-dashboard.fornost-dashboard-v9 .ed7-decision-head{min-height:72px;padding:12px 16px}
+.workspace-dashboard.fornost-dashboard-v9 .ed7-decision-head h3{font-size:15px}
+.workspace-dashboard.fornost-dashboard-v9 .ed7-decision-head p{font-size:7px;max-width:560px}
+.workspace-dashboard.fornost-dashboard-v9 .ed7-decision-stats{display:none}
+.workspace-dashboard.fornost-dashboard-v9 .ed7-decision-row{grid-template-columns:88px minmax(0,2.35fr) minmax(120px,.8fr) 74px 82px;padding-inline:16px}
+.workspace-dashboard.fornost-dashboard-v9 button.ed7-decision-row{min-height:54px}
+
+.ed9-signals .ed4-panel-head{min-height:72px}
+.ed9-signal-list{display:flex;flex-direction:column}
+.ed9-signal-list button{min-height:58px;display:grid;grid-template-columns:34px 1fr 20px;gap:10px;align-items:center;padding:9px 12px;border:0;border-top:1px solid var(--cp-line);background:transparent;color:var(--cp-ink);text-align:left;cursor:pointer}
+.ed9-signal-list button:hover{background:color-mix(in srgb,var(--cp-mint) 4%,transparent)}
+.ed9-signal-list i{width:28px;height:28px;border-radius:8px;display:grid;place-items:center;font-style:normal;font-size:8px;font-weight:900;background:var(--cp-panel-2);color:var(--cp-muted)}
+.ed9-signal-list i.watch{color:#e9b949;background:color-mix(in srgb,#e9b949 10%,var(--cp-panel-2))}
+.ed9-signal-list i.critical{color:#ef6b86;background:color-mix(in srgb,#ef6b86 10%,var(--cp-panel-2))}
+.ed9-signal-list span b{display:block;font-size:7px}
+.ed9-signal-list span small{display:block;margin-top:3px;font-size:6.2px;color:var(--cp-muted);line-height:1.35}
+.ed9-signal-list em{font-style:normal;color:var(--cp-mint);font-size:12px}
+.ed9-signal-list p{padding:18px;font-size:7px;color:var(--cp-muted)}
+
+/* Four balanced governance domains */
+.workspace-dashboard.fornost-dashboard-v9 .ed9-risk-domain-mount{order:2;grid-column:span 3!important;min-width:0}
+.workspace-dashboard.fornost-dashboard-v9 .ed4-frameworks{order:3!important;grid-column:span 3!important;min-width:0}
+.workspace-dashboard.fornost-dashboard-v9 .ed4-assurance{order:4!important;grid-column:span 3!important;min-width:0}
+.workspace-dashboard.fornost-dashboard-v9 .ed4-audit{order:5!important;grid-column:span 3!important;min-width:0}
+.workspace-dashboard.fornost-dashboard-v9 .ed9-risk-domain,.workspace-dashboard.fornost-dashboard-v9 .ed4-frameworks,.workspace-dashboard.fornost-dashboard-v9 .ed4-assurance,.workspace-dashboard.fornost-dashboard-v9 .ed4-audit{height:224px;border-radius:14px;box-shadow:none;overflow:hidden}
+.workspace-dashboard.fornost-dashboard-v9 .ed9-risk-domain .ed4-panel-head,.workspace-dashboard.fornost-dashboard-v9 .ed4-frameworks .ed4-panel-head,.workspace-dashboard.fornost-dashboard-v9 .ed4-assurance .ed4-panel-head,.workspace-dashboard.fornost-dashboard-v9 .ed4-audit .ed4-panel-head{min-height:58px;padding:10px 12px}
+.workspace-dashboard.fornost-dashboard-v9 .ed4-panel-head h3{font-size:8px}
+.workspace-dashboard.fornost-dashboard-v9 .ed4-panel-head small{font-size:6.7px}
+.workspace-dashboard.fornost-dashboard-v9 .ed4-panel-head button{font-size:6.4px}
+
+.ed9-domain-metrics{display:grid;grid-template-columns:1fr;min-height:164px}
+.ed9-domain-metrics button{display:grid;grid-template-columns:1fr auto;grid-template-areas:"label value" "detail value";align-items:center;padding:9px 12px;border:0;border-top:1px solid var(--cp-line);background:transparent;color:var(--cp-ink);text-align:left;cursor:pointer}
+.ed9-domain-metrics button:hover{background:color-mix(in srgb,var(--cp-mint) 4%,transparent)}
+.ed9-domain-metrics small{grid-area:label;font-size:6.5px;font-weight:800;color:var(--cp-muted)}
+.ed9-domain-metrics strong{grid-area:value;font-size:15px;font-weight:900}
+.ed9-domain-metrics span{grid-area:detail;margin-top:3px;font-size:5.9px;color:var(--cp-muted)}
+
+/* Make the legacy domain cards executive-summary sized rather than module pages. */
+.workspace-dashboard.fornost-dashboard-v9 .ed4-framework-list{max-height:164px;overflow:auto}
+.workspace-dashboard.fornost-dashboard-v9 .ed4-framework-list button{padding:10px 12px}
+.workspace-dashboard.fornost-dashboard-v9 .ed4-framework-list button div b{font-size:6.8px}
+.workspace-dashboard.fornost-dashboard-v9 .ed4-framework-list button div span{font-size:5.8px}
+.workspace-dashboard.fornost-dashboard-v9 .ed4-framework-list button>strong{font-size:9px}
+.workspace-dashboard.fornost-dashboard-v9 .ed4-assurance{display:grid;grid-template-rows:auto 1fr}
+.workspace-dashboard.fornost-dashboard-v9 .ed4-assurance-score{padding:10px 12px;gap:10px;border-bottom:1px solid var(--cp-line)}
+.workspace-dashboard.fornost-dashboard-v9 .ed4-score-ring{width:64px;height:64px}
+.workspace-dashboard.fornost-dashboard-v9 .ed4-assurance-score>div:nth-child(2) span{display:none}
+.workspace-dashboard.fornost-dashboard-v9 .ed4-assurance-grid{grid-template-columns:1fr 1fr}
+.workspace-dashboard.fornost-dashboard-v9 .ed4-assurance-grid button{min-height:48px;padding:8px 10px}
+.workspace-dashboard.fornost-dashboard-v9 .ed4-assurance-grid button:nth-child(n+3){display:none}
+.workspace-dashboard.fornost-dashboard-v9 .ed4-audit-summary{grid-template-columns:repeat(3,1fr)}
+.workspace-dashboard.fornost-dashboard-v9 .ed4-audit-summary>div{padding:10px 9px}
+.workspace-dashboard.fornost-dashboard-v9 .ed4-next-milestone{padding:10px 12px}
+.workspace-dashboard.fornost-dashboard-v9 .ed4-audit-links{display:none}
+
+/* Full-width KPI/KRI threshold table */
+.workspace-dashboard.fornost-dashboard-v9 .ed9-kpi-table-mount{order:6;grid-column:1/-1!important;min-width:0}
+.ed9-kpi-table{border-radius:14px;box-shadow:none;overflow:hidden}
+.ed9-kpi-table .ed4-panel-head{min-height:58px}
+.ed9-kpi-head,.ed9-kpi-row{display:grid;grid-template-columns:minmax(220px,2fr) 120px 120px 140px 90px;align-items:center;gap:12px;padding:0 14px}
+.ed9-kpi-head{min-height:34px;border-top:1px solid var(--cp-line);border-bottom:1px solid var(--cp-line);background:var(--cp-panel-2);font-size:6.2px;font-weight:900;letter-spacing:.1em;text-transform:uppercase;color:var(--cp-muted)}
+.ed9-kpi-row{min-height:48px;width:100%;border:0;border-bottom:1px solid var(--cp-line);background:transparent;color:var(--cp-ink);text-align:left;cursor:pointer}
+.ed9-kpi-row:last-child{border-bottom:0}
+.ed9-kpi-row:hover{background:color-mix(in srgb,var(--cp-mint) 4%,transparent)}
+.ed9-kpi-row>span:first-child{font-size:7px;font-weight:800}
+.ed9-kpi-row>strong{font-size:9px}
+.ed9-kpi-row>span:nth-child(3){font-size:7px;color:var(--cp-muted)}
+.ed9-baseline{font-size:6.5px;color:var(--cp-muted)}
+.ed9-baseline small{font-size:5.8px}
+.ed9-kpi-row>i{justify-self:start;width:52px;height:6px;border-radius:999px;background:var(--cp-line);overflow:hidden}
+.ed9-kpi-row>i b{display:block;width:100%;height:100%;background:var(--cp-muted)}
+.ed9-kpi-row.healthy>i b{background:var(--cp-mint)}
+.ed9-kpi-row.watch>i b{background:#e9b949}
+.ed9-kpi-row.critical>i b{background:#ef6b86}
+
+/* Progressive analysis remains available but secondary. */
+.workspace-dashboard.fornost-dashboard-v9 .ed4-changes,.workspace-dashboard.fornost-dashboard-v9 .ed4-risk-map{display:none!important}
+.workspace-dashboard.fornost-dashboard-v9.ed8-analysis-open .ed4-risk-map{display:block!important;order:7!important;grid-column:span 8!important}
+.workspace-dashboard.fornost-dashboard-v9.ed8-analysis-open .ed4-changes{display:block!important;order:8!important;grid-column:span 4!important}
+.workspace-dashboard.fornost-dashboard-v9.ed8-analysis-open .ed4-change-list{grid-template-columns:1fr!important}
+.workspace-dashboard.fornost-dashboard-v9.ed8-analysis-open .ed4-change-list button{min-height:40px!important;border-right:0!important;border-bottom:1px solid var(--cp-line)!important}
+.workspace-dashboard.fornost-dashboard-v9.ed8-analysis-open .ed4-risk-map .ed6-top-risks{display:none!important}
+
+@media(max-width:1280px){
+  .ed9-health-strip{grid-template-columns:repeat(3,1fr)}
+  .ed9-health-item:nth-child(3){border-right:0}
+  .ed9-health-item:nth-child(-n+3){border-bottom:1px solid var(--cp-line)}
+  .workspace-dashboard.fornost-dashboard-v9 .ed7-decisions-mount{grid-column:span 7!important}
+  .workspace-dashboard.fornost-dashboard-v9 .ed9-signals-mount{grid-column:span 5!important}
+  .workspace-dashboard.fornost-dashboard-v9 .ed9-risk-domain-mount,.workspace-dashboard.fornost-dashboard-v9 .ed4-frameworks,.workspace-dashboard.fornost-dashboard-v9 .ed4-assurance,.workspace-dashboard.fornost-dashboard-v9 .ed4-audit{grid-column:span 6!important}
+}
+@media(max-width:920px){
+  .workspace-dashboard.fornost-dashboard-v9 .ed7-decisions-mount,.workspace-dashboard.fornost-dashboard-v9 .ed9-signals-mount,.workspace-dashboard.fornost-dashboard-v9 .ed9-risk-domain-mount,.workspace-dashboard.fornost-dashboard-v9 .ed4-frameworks,.workspace-dashboard.fornost-dashboard-v9 .ed4-assurance,.workspace-dashboard.fornost-dashboard-v9 .ed4-audit,.workspace-dashboard.fornost-dashboard-v9.ed8-analysis-open .ed4-risk-map,.workspace-dashboard.fornost-dashboard-v9.ed8-analysis-open .ed4-changes{grid-column:1/-1!important}
+  .ed9-kpi-head,.ed9-kpi-row{grid-template-columns:minmax(180px,1.7fr) 90px 90px 110px 70px}
+}
+@media(max-width:680px){
+  .ed9-health-strip{grid-template-columns:1fr 1fr}
+  .ed9-health-item:nth-child(n){border-right:1px solid var(--cp-line);border-bottom:1px solid var(--cp-line)}
+  .ed9-health-item:nth-child(2n){border-right:0}
+  .ed9-health-item:nth-last-child(-n+2){border-bottom:0}
+  .ed9-kpi-head{display:none}
+  .ed9-kpi-row{grid-template-columns:1fr auto;grid-template-areas:"metric current" "target state";padding:9px 12px;gap:5px 10px}
+  .ed9-kpi-row>span:first-child{grid-area:metric}.ed9-kpi-row>strong{grid-area:current}.ed9-kpi-row>span:nth-child(3){grid-area:target}.ed9-kpi-row>.ed9-baseline{display:none}.ed9-kpi-row>i{grid-area:state;justify-self:end}
+}
+@media(prefers-reduced-motion:reduce){.workspace-dashboard.fornost-dashboard-v9 *{transition:none!important;animation:none!important}}
