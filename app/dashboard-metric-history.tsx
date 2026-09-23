@@ -122,7 +122,8 @@ export default function DashboardMetricHistory() {
 
   useEffect(() => {
     if (!mount) return;
-    void loadHistory(period);
+    const timer = window.setTimeout(() => void loadHistory(period), 0);
+    return () => window.clearTimeout(timer);
   }, [mount, period, loadHistory]);
 
   useEffect(() => {
