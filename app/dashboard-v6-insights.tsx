@@ -55,7 +55,7 @@ function navigateTo(module:string){
 }
 
 export default function DashboardV6Insights(){
-  const [riskMount,setRiskMount]=useState<HTMLElement|null>(null),[watchMount,setWatchMount]=useState<HTMLElement|null>(null),[lang,setLang]=useState<Lang>("tr"),[rows,setRows]=useState<Row[]>([]),[findings,setFindings]=useState<FindingsPayload>({}),[appetite,setAppetite]=useState<AppetitePayload>({});
+  const [riskMount,setRiskMount]=useState<HTMLElement|null>(null),[watchMount,setWatchMount]=useState<HTMLElement|null>(null),[lang,setLang]=useState<Lang>("tr"),[rows,setRows]=useState<Row[]>([]),[findings,setFindings]=useState<FindingsPayload>({}),[appetite,setAppetite]=useState<AppetitePayload>({}),[asOf,setAsOf]=useState(0);
 
   useEffect(()=>{
     let createdRisk:HTMLDivElement|null=null,createdWatch:HTMLDivElement|null=null;
@@ -94,6 +94,7 @@ export default function DashboardV6Insights(){
       if(grcResult.status==="fulfilled")setRows(normalizeRows(grcResult.value));
       if(findingsResult.status==="fulfilled")setFindings(findingsResult.value as FindingsPayload);
       if(appetiteResult.status==="fulfilled")setAppetite(appetiteResult.value as AppetitePayload);
+      setAsOf(Date.now());
     };
     void load();const timer=window.setInterval(()=>void load(),300000);
     return()=>{active=false;window.clearInterval(timer)};
@@ -105,7 +106,7 @@ export default function DashboardV6Insights(){
   }).sort((a,b)=>b.score-a.score||a.title.localeCompare(b.title,"tr")).slice(0,5),[rows]);
 
   const watch=useMemo<WatchItem[]>(()=>{
-    const now=Date.now(),by=(module:string)=>rows.filter(row=>row.module===module),controls=by("Kontroller"),evidence=by("Kanıtlar"),bia=by("BIA"),risks=by("Risk Assessment"),audits=by("Denetim Yönetimi"),controlAssurance=buildControlAssurance(rows),stale=evidence.filter(row=>evidenceExpired(row,now)).length,evidenceFreshness=evidence.length?clamp(((evidence.length-stale)/evidence.length)*100):null;
+    const now=asOf,by=(module:string)=>rows.filter(row=>row.module===module),controls=by("Kontroller"),evidence=by("Kanıtlar"),bia=by("BIA"),risks=by("Risk Assessment"),audits=by("Denetim Yönetimi"),controlAssurance=buildControlAssurance(rows),stale=evidence.filter(row=>evidenceExpired(row,now)).length,evidenceFreshness=evidence.length?clamp(((evidence.length-stale)/evidence.length)*100):null;
     const findingSummary=findings.summary||{},findingTotal=num(findingSummary.total),open=num(findingSummary.open),overdue=num(findingSummary.overdue),remediation=open?clamp(((open-overdue)/open)*100):findingTotal?100:null;
     const appetiteSummary=appetite.summary||{},appetiteTotal=num(appetiteSummary.total),kriBreaches=Math.max(num(appetiteSummary.breached),num(appetiteSummary.openBreaches)),kriAvailable=appetiteTotal>0||kriBreaches>0;
     const completeBia=bia.filter(row=>clean(row.data.rto)&&clean(row.data.rpo)&&ownerOf(row)).length,biaCoverage=bia.length?clamp((completeBia/bia.length)*100):null;
@@ -119,7 +120,7 @@ export default function DashboardV6Insights(){
       {key:"bia",labelTr:"BIA Dayanıklılık",labelEn:"BIA Resilience",value:biaCoverage===null?"—":`${biaCoverage}%`,detailTr:bia.length?`${completeBia}/${bia.length} süreçte RTO + RPO + sahip tamam`:"BIA verisi bulunmuyor",detailEn:bia.length?`${completeBia}/${bia.length} processes have RTO + RPO + owner`:"No BIA data",tone:percentageTone(biaCoverage),module:"BIA"},
       {key:"ownership",labelTr:"Sahiplik Kapsamı",labelEn:"Ownership Coverage",value:ownership===null?"—":`${ownership}%`,detailTr:governed.length?`${assigned}/${governed.length} aktif kayıt atanmış`:"Aktif yönetişim kaydı bulunmuyor",detailEn:governed.length?`${assigned}/${governed.length} active records assigned`:"No active governed records",tone:percentageTone(ownership),module:"Risk Assessment"},
     ];
-  },[rows,findings,appetite]);
+  },[rows,findings,appetite,asOf]);
 
   const tr=lang==="tr";
   const riskPortal=riskMount?createPortal(<section className="ed6-top-risks" aria-label={tr?"Öncelikli riskler":"Priority risks"}>
