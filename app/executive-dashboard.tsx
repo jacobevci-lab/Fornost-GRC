@@ -24,7 +24,7 @@ type AppetitePayload={
 };
 type Preferences={preset:PresetId;visible:Record<WidgetId,boolean>;order:WidgetId[];compact:boolean};
 
-type ActionSignal={key:string;count:number;titleTr:string;titleEn:string;detailTr:string;detailEn:string;module:string;tone:"critical"|"warning"|"info"|"positive"};
+type ActionSignal={key:string;count:number;titleTr:string;titleEn:string;detailTr:string;detailEn:string;module:string;tone:string};
 
 type FrameworkReadiness={name:string;score:number;total:number;ready:number};
 
