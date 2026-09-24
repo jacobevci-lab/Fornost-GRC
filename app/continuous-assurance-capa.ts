@@ -33,8 +33,52 @@ export type CapaPromotionCandidate = {
   };
 };
 
+export type TargetControlResolution = {
+  ok: boolean;
+  controlRef: string;
+  availableControlRefs: string[];
+  reason: "" | "control-mapping-missing" | "target-control-required" | "target-control-not-mapped";
+};
+
 const text = (value: unknown) => String(value ?? "").trim();
+const controlKey = (value: unknown) => text(value).normalize("NFKC").toLocaleLowerCase("tr-TR");
 const digest = (value: unknown) => /^[a-f0-9]{64}$/i.test(text(value));
+
+export function splitContinuousAssuranceControlRefs(value: unknown) {
+  const refs: string[] = [];
+  const seen = new Set<string>();
+  for (const part of text(value).split(/[;,|\n]+/).map((entry) => entry.trim()).filter(Boolean)) {
+    const key = controlKey(part);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    refs.push(part);
+  }
+  return refs;
+}
+
+export function resolveContinuousAssuranceTargetControl(
+  mappedControlRefs: unknown,
+  requestedControlRef: unknown,
+): TargetControlResolution {
+  const availableControlRefs = splitContinuousAssuranceControlRefs(mappedControlRefs);
+  if (!availableControlRefs.length) {
+    return { ok: false, controlRef: "", availableControlRefs, reason: "control-mapping-missing" };
+  }
+
+  const requested = text(requestedControlRef);
+  if (!requested) {
+    if (availableControlRefs.length === 1) {
+      return { ok: true, controlRef: availableControlRefs[0], availableControlRefs, reason: "" };
+    }
+    return { ok: false, controlRef: "", availableControlRefs, reason: "target-control-required" };
+  }
+
+  const match = availableControlRefs.find((controlRef) => controlKey(controlRef) === controlKey(requested));
+  if (!match) {
+    return { ok: false, controlRef: "", availableControlRefs, reason: "target-control-not-mapped" };
+  }
+  return { ok: true, controlRef: match, availableControlRefs, reason: "" };
+}
 
 export function buildContinuousAssuranceCapaCandidate(
   input: ContinuousAssuranceCapaInput,

@@ -31,16 +31,34 @@ test("collector enforces outbound and payload safety boundaries",()=>{
 test("continuous assurance findings enter the governed CAPA review queue instead of bypassing approval",()=>{
   assert.match(ui,/CAPA İncelemesine Gönder/);
   assert.match(ui,/Queue CAPA Review/);
+  assert.match(ui,/Hedef kontrol/);
+  assert.match(ui,/Target control/);
+  assert.match(ui,/targetControlRef/);
+  assert.match(ui,/splitControlRefs/);
   assert.match(ui,/\/api\/continuous-assurance/);
   assert.match(ui,/action:"queue-capa-promotion"/);
   assert.match(ui,/independent Admin must approve it/);
   assert.doesNotMatch(ui,/\/api\/findings\/promote-continuous-assurance/);
   assert.match(assuranceRoute,/buildContinuousAssuranceCapaCandidate/);
+  assert.match(assuranceRoute,/resolveContinuousAssuranceTargetControl/);
+  assert.match(assuranceRoute,/body\.targetControlRef/);
+  assert.match(assuranceRoute,/target-control-required/);
+  assert.match(assuranceRoute,/target-control-not-mapped/);
+  assert.match(assuranceRoute,/targetControlRef:targetControl\.controlRef/);
   assert.match(assuranceRoute,/action==="queue-capa-promotion"/);
   assert.match(assuranceRoute,/action='capa-promotion'/);
   assert.match(assuranceRoute,/pending-review/);
   assert.match(assuranceRoute,/simple_grc_records WHERE id=\? AND module='Risk Assessment'/);
   assert.match(assuranceRoute,/simple_grc_records WHERE id=\? AND module='Kanıtlar'/);
+});
+
+test("continuous assurance retest inherits the governed target control instead of choosing the first mapped control",()=>{
+  assert.match(assuranceRoute,/resolveRetestTargetControl/);
+  assert.match(assuranceRoute,/action='capa-promotion' AND status='completed'/);
+  assert.match(assuranceRoute,/targetControlFromDecision\(parseData\(promoted\.decision_json\)\)/);
+  assert.match(assuranceRoute,/resolveContinuousAssuranceTargetControl\(mappedControlRefs,selected\)/);
+  assert.match(assuranceRoute,/decision=\{recovery,ruleId:context\.rule\.id,controlRef:targetControl\.controlRef,targetControlRef:targetControl\.controlRef\}/);
+  assert.doesNotMatch(assuranceRoute,/controlRef:firstRef\(context\.rule\.control_refs\)/);
 });
 
 test("evidence automation keeps Turkish and English UI states consistent",()=>{

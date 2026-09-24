@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { buildContinuousAssuranceCapaCandidate } from "../app/continuous-assurance-capa";
+import {
+  buildContinuousAssuranceCapaCandidate,
+  resolveContinuousAssuranceTargetControl,
+  splitContinuousAssuranceControlRefs,
+} from "../app/continuous-assurance-capa";
 
 const base = {
   findingId: "CCM-FINDING-1",
@@ -65,4 +69,35 @@ test("promotion reuses canonical finding SLA validation", () => {
   }, "2026-09-21");
   assert.equal(result.eligible, false);
   assert.ok(result.reasons.some((reason) => reason.includes("30 gün")));
+});
+
+test("single mapped control is resolved automatically", () => {
+  const result = resolveContinuousAssuranceTargetControl("CTL-001", "");
+  assert.equal(result.ok, true);
+  assert.equal(result.controlRef, "CTL-001");
+  assert.deepEqual(result.availableControlRefs, ["CTL-001"]);
+});
+
+test("multi-control assurance rule requires an explicit target control", () => {
+  const result = resolveContinuousAssuranceTargetControl("CTL-001, CTL-002", "");
+  assert.equal(result.ok, false);
+  assert.equal(result.reason, "target-control-required");
+  assert.deepEqual(result.availableControlRefs, ["CTL-001", "CTL-002"]);
+});
+
+test("explicit target control must belong to the assurance rule mapping", () => {
+  const accepted = resolveContinuousAssuranceTargetControl("CTL-001; CTL-002", "ctl-002");
+  assert.equal(accepted.ok, true);
+  assert.equal(accepted.controlRef, "CTL-002");
+
+  const rejected = resolveContinuousAssuranceTargetControl("CTL-001; CTL-002", "CTL-999");
+  assert.equal(rejected.ok, false);
+  assert.equal(rejected.reason, "target-control-not-mapped");
+});
+
+test("mapped control parser supports all accepted separators and removes case-insensitive duplicates", () => {
+  assert.deepEqual(
+    splitContinuousAssuranceControlRefs("CTL-001, ctl-001; CTL-002|CTL-003\nCTL-004"),
+    ["CTL-001", "CTL-002", "CTL-003", "CTL-004"],
+  );
 });
