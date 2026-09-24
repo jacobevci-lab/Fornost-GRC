@@ -46,6 +46,9 @@ function isCloudflareAnalyticsFailure(item) {
 function verificationKey(viewport, locale) {
   return `${viewport}:${locale}`;
 }
+function isLocaleSwitchFinding(item) {
+  return /^Locale switch failed(?::\s*(?:tr|en))?$/i.test(String(item?.title || "").trim());
+}
 
 async function configureContext(context) {
   if (!Object.keys(accessHeaders).length) return;
@@ -264,9 +267,10 @@ function targetedResponsivePasses(item) {
   if (!areaMatch) return false;
   const viewport = areaMatch[1];
   let locale = areaMatch[2] || "";
-  if (!locale && item?.title === "Locale switch failed") {
-    const detailMatch = String(item?.detail || "").match(/:\s*(tr|en)\s*$/i);
-    locale = detailMatch?.[1]?.toLowerCase() || "";
+  if (!locale && isLocaleSwitchFinding(item)) {
+    const combined = `${String(item?.title || "")} ${String(item?.detail || "")}`.trim();
+    const localeMatch = combined.match(/(?:^|[:\s])(tr|en)\s*$/i);
+    locale = localeMatch?.[1]?.toLowerCase() || "";
   }
   if (!locale) return false;
   return responsiveLocaleVerifications[verificationKey(viewport, locale)]?.passed === true;
@@ -278,7 +282,7 @@ for (const item of report.findings || []) {
   let reason = "";
   if (isSharedBrandNoise(item)) reason = "shared-brand-label";
   else if (sidebarVerification.passed && item?.area === "sidebar" && item?.title === "Collapse control not found") reason = "superseded-by-current-sidebar-view-contract";
-  else if (targetedResponsivePasses(item) && item?.title === "Locale switch failed") reason = "superseded-by-visible-responsive-locale-contract";
+  else if (targetedResponsivePasses(item) && isLocaleSwitchFinding(item)) reason = "superseded-by-visible-responsive-locale-contract";
   else if (targetedResponsivePasses(item) && item?.title === "HTML lang does not match selected locale") reason = "superseded-by-responsive-html-lang-contract";
   else if (!effectiveConsoleErrors.length && item?.area === "runtime" && item?.title === "Browser console errors detected") reason = "cloudflare-analytics-harness-noise";
   else if (!effectiveFailedRequests.length && item?.area === "network" && item?.title === "Failed browser requests detected") reason = "expected-third-party-or-navigation-abort";
