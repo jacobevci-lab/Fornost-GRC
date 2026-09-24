@@ -226,7 +226,6 @@ export async function POST(req: NextRequest) {
   const fileKey = `evidence/${evidenceId}/history/${crypto.randomUUID()}-${fileName}`;
   const contentSha256 = await sha256HexBytes(bytes);
   await putEvidenceObject(env, fileKey, fileName, file.type, bytes, createdAt);
-  let appendedVersionId = "";
   try {
     const version = await appendEvidenceVersion(env.DB, {
       evidenceId,
@@ -243,31 +242,27 @@ export async function POST(req: NextRequest) {
       changeNote,
       createdBy: access.actor.email,
       createdAt,
+    }, {
+      additionalStatements: (commit) => {
+        const nextData = {
+          ...data,
+          fileKey,
+          fileName,
+          fileType: file.type,
+          fileSize: String(file.size),
+          contentSha256,
+          versionNo: String(commit.versionNo),
+          versionChainSha256: commit.chainSha256,
+          versionUpdatedAt: createdAt,
+          controlRef: refs[0],
+          controlRefs: refs.join(", "),
+        };
+        return [env.DB.prepare("UPDATE simple_grc_records SET data_json=?,updated_at=? WHERE id=? AND module='Kanıtlar'")
+          .bind(JSON.stringify(nextData), createdAt, evidenceId)];
+      },
     });
-    appendedVersionId = version.id;
-    const nextData = {
-      ...data,
-      fileKey,
-      fileName,
-      fileType: file.type,
-      fileSize: String(file.size),
-      contentSha256,
-      versionNo: String(version.versionNo),
-      versionChainSha256: version.chainSha256,
-      versionUpdatedAt: createdAt,
-      controlRef: refs[0],
-      controlRefs: refs.join(", "),
-    };
-    await env.DB.prepare("UPDATE simple_grc_records SET data_json=?,updated_at=? WHERE id=? AND module='Kanıtlar'")
-      .bind(JSON.stringify(nextData), createdAt, evidenceId).run();
     return json({ ok: true, message: `Kanıt v${version.versionNo} olarak versiyonlandı.`, version: { ...version, evidenceId, fileKey, fileName, contentSha256, controlRefs: refs } }, 201);
   } catch (error) {
-    if (appendedVersionId) {
-      try {
-        await env.DB.prepare("DELETE FROM evidence_version_controls WHERE version_id=?").bind(appendedVersionId).run();
-        await env.DB.prepare("DELETE FROM evidence_versions WHERE id=?").bind(appendedVersionId).run();
-      } catch {}
-    }
     await removeEvidenceObject(env, fileKey);
     return json({ error: error instanceof Error ? error.message : "Kanıt versiyonu kaydedilemedi." }, 500);
   }
