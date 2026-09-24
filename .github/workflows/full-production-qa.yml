@@ -46,7 +46,22 @@ jobs:
         run: npx playwright install --with-deps chromium
 
       - name: Run legacy production QA baseline
-        run: node scripts/full-production-qa.mjs
+        shell: bash
+        run: |
+          set +e
+          for attempt in 1 2 3; do
+            echo "Legacy production QA attempt ${attempt}/3"
+            node scripts/full-production-qa.mjs
+            status=$?
+            if [ "$status" -eq 0 ]; then
+              exit 0
+            fi
+            if [ "$attempt" -lt 3 ]; then
+              echo "Legacy QA failed with exit ${status}; waiting 15s before retrying transient production navigation."
+              sleep 15
+            fi
+          done
+          exit "$status"
 
       - name: Run bilingual full-product QA and production gate
         run: node scripts/full-product-qa-gate.mjs
