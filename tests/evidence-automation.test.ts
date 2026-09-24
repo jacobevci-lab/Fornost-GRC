@@ -31,11 +31,20 @@ test("collector enforces outbound and payload safety boundaries",()=>{
 test("continuous assurance findings enter the governed CAPA review queue instead of bypassing approval",()=>{
   assert.match(ui,/CAPA İncelemesine Gönder/);
   assert.match(ui,/Queue CAPA Review/);
+  assert.match(ui,/Hedef kontrol/);
+  assert.match(ui,/Target control/);
+  assert.match(ui,/targetControlRef/);
+  assert.match(ui,/splitControlRefs/);
   assert.match(ui,/\/api\/continuous-assurance/);
   assert.match(ui,/action:"queue-capa-promotion"/);
   assert.match(ui,/independent Admin must approve it/);
   assert.doesNotMatch(ui,/\/api\/findings\/promote-continuous-assurance/);
   assert.match(assuranceRoute,/buildContinuousAssuranceCapaCandidate/);
+  assert.match(assuranceRoute,/resolveContinuousAssuranceTargetControl/);
+  assert.match(assuranceRoute,/body\.targetControlRef/);
+  assert.match(assuranceRoute,/target-control-required/);
+  assert.match(assuranceRoute,/target-control-not-mapped/);
+  assert.match(assuranceRoute,/targetControlRef:targetControl\.controlRef/);
   assert.match(assuranceRoute,/action==="queue-capa-promotion"/);
   assert.match(assuranceRoute,/action='capa-promotion'/);
   assert.match(assuranceRoute,/pending-review/);
