@@ -30,7 +30,13 @@ export async function POST(req:NextRequest){
   await env.DB.prepare("UPDATE simple_grc_records SET data_json=?,updated_at=? WHERE id=?").bind(JSON.stringify(data),now,id).run();
   return NextResponse.json({ok:true,id,versionNo:version.versionNo,contentSha256,chainSha256:version.chainSha256},{status:201});
  }catch(error){
-  try{await env.DB.prepare("DELETE FROM simple_grc_records WHERE id=?").bind(id).run();if(env.BUCKET)await env.BUCKET.delete(key);else await env.DB.prepare("DELETE FROM simple_evidence_files WHERE file_key=?").bind(key).run();}catch{}
+  try{
+   await env.DB.prepare("DELETE FROM evidence_version_controls WHERE evidence_id=?").bind(id).run();
+   await env.DB.prepare("DELETE FROM evidence_versions WHERE evidence_id=?").bind(id).run();
+   await env.DB.prepare("DELETE FROM simple_grc_records WHERE id=?").bind(id).run();
+   if(env.BUCKET){const bucket=env.BUCKET as unknown as {delete?:(objectKey:string)=>Promise<unknown>};if(bucket.delete)await bucket.delete(key);}
+   else await env.DB.prepare("DELETE FROM simple_evidence_files WHERE file_key=?").bind(key).run();
+  }catch{}
   return NextResponse.json({error:error instanceof Error?error.message:"Kanıt kaydı oluşturulamadı."},{status:500});
  }
 }
