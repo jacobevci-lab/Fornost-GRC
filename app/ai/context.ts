@@ -2,6 +2,7 @@ import { sanitizeAiRecord } from "./security";
 import { retrieveApprovedKnowledge } from "./knowledge";
 import { dataClassificationAllowed, type AiDataClassification } from "./data-policy";
 import { buildOperationalAssuranceAiContext } from "./operational-assurance-context";
+import { buildEvidenceLineageAiContext } from "./evidence-lineage-context";
 
 export type AiContextSource = { id: string; module: string; title: string };
 type GrcRow = { id: string; module: string; data_json: string; updated_at: string };
@@ -12,7 +13,11 @@ const MODULE_HINTS: Array<{ module: string; terms: string[] }> = [
   { module: "BIA", terms: ["bia", "rto", "rpo", "is etki", "iş etki", "business impact", "kritik surec", "kritik süreç"] },
   { module: "Uyum", terms: ["uyum", "compliance", "iso", "soc", "pci", "nist", "dora", "kvkk", "gdpr"] },
   { module: "Kontroller", terms: ["kontrol", "control", "control gap", "kontrol acigi", "kontrol açığı"] },
-  { module: "Kanıtlar", terms: ["kanit", "kanıt", "evidence", "dokuman", "doküman"] },
+  { module: "Kanıtlar", terms: [
+    "kanit", "kanıt", "evidence", "dokuman", "doküman", "kanıt geçmişi", "kanit gecmisi", "evidence history",
+    "kanıt versiyonu", "kanit versiyonu", "evidence version", "evidence lineage", "kanıt zinciri", "kanit zinciri",
+    "bütünlük zinciri", "butunluk zinciri", "integrity chain", "evidence timeline", "sha-256", "sha256",
+  ] },
   { module: "Kanıt Otomasyonu", terms: ["sürekli güvence", "surekli guvence", "continuous assurance", "kanıt otomasyonu", "kanit otomasyonu", "evidence automation", "evidence freshness", "kanıt tazeliği", "kanit tazeligi", "failed retest", "retest", "yeniden test"] },
   { module: "Bulgular ve CAPA", terms: ["capa", "remediation", "düzeltme", "duzeltme", "düzeltici aksiyon", "duzeltici aksiyon", "corrective action", "bulgu", "finding"] },
   { module: "Denetim Yönetimi", terms: ["denetim", "audit", "auditor"] },
@@ -64,12 +69,17 @@ function recordClassification(data:Record<string,unknown>){return data.dataClass
 export async function buildGrcContext(db: D1Database, question: string, maxDataClassification: AiDataClassification = "Confidential") {
   const targetModules = inferReadModules(question);
   const includeOperationalAssurance = targetModules.includes("Kanıt Otomasyonu") || targetModules.includes("Bulgular ve CAPA");
-  const [knowledge, result, operationalAssurance] = await Promise.all([
+  const includeEvidenceLineage = targetModules.includes("Kanıtlar");
+  const specialContextBudget = includeOperationalAssurance && includeEvidenceLineage ? 5_000 : 6_500;
+  const [knowledge, result, operationalAssurance, evidenceLineage] = await Promise.all([
     retrieveApprovedKnowledge(db, question, 9_000, maxDataClassification),
     db.prepare("SELECT id,module,data_json,updated_at FROM simple_grc_records ORDER BY updated_at DESC LIMIT 400").all<GrcRow>(),
     includeOperationalAssurance
-      ? buildOperationalAssuranceAiContext(db, maxDataClassification, 6_500)
+      ? buildOperationalAssuranceAiContext(db, maxDataClassification, specialContextBudget)
       : Promise.resolve({ sources: [], contextText: "", summaryAvailable: false }),
+    includeEvidenceLineage
+      ? buildEvidenceLineageAiContext(db, question, maxDataClassification, specialContextBudget)
+      : Promise.resolve({ sources: [], contextText: "", summaryAvailable: false, integrityComplete: false }),
   ]);
   const rows = result.results || [];
   const parsed = rows.map((row) => ({ row, data: parseData(row) })).filter(({data})=>dataClassificationAllowed(recordClassification(data),maxDataClassification));
@@ -89,7 +99,8 @@ export async function buildGrcContext(db: D1Database, question: string, maxDataC
   const sources: AiContextSource[] = [];
   const chunks: string[] = [];
   let total = 0;
-  const recordBudget = operationalAssurance.contextText ? 11_000 : 16_000;
+  const specialContexts = [operationalAssurance.contextText, evidenceLineage.contextText].filter(Boolean).length;
+  const recordBudget = specialContexts >= 2 ? 7_000 : specialContexts === 1 ? 10_500 : 16_000;
   for (const { row, data } of unique) {
     const sanitized = sanitizeAiRecord(data) as Record<string, unknown>;
     const title = titleOf(row.module, sanitized, row.id);
@@ -100,9 +111,10 @@ export async function buildGrcContext(db: D1Database, question: string, maxDataC
     sources.push({ id: row.id, module: row.module, title });
   }
 
-  const combinedSources = [...operationalAssurance.sources, ...sources, ...knowledge.sources];
+  const combinedSources = [...operationalAssurance.sources, ...evidenceLineage.sources, ...sources, ...knowledge.sources];
   const combinedChunks = [
     ...(operationalAssurance.contextText ? [operationalAssurance.contextText] : []),
+    ...(evidenceLineage.contextText ? [evidenceLineage.contextText] : []),
     ...chunks,
     ...(knowledge.contextText ? [knowledge.contextText] : []),
   ];
