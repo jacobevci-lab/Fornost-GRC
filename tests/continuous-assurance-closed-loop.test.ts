@@ -68,7 +68,7 @@ test("GET reconciliation closes approved re-tests and reassesses linked risk", (
   assert.match(runtime, /status='acknowledged'/);
 });
 
-test("approved CAPA promotion creates a canonical enterprise finding with immutable origin evidence and system detection lineage", () => {
+test("approved CAPA promotion creates a canonical Connected GRC finding with immutable origin evidence and system detection lineage", () => {
   assert.match(route, /promoteContinuousAssuranceFinding\(env\.DB,candidate,access\.actor\.email,work\.actor,work\.id/);
   assert.match(promotion, /enterprise_findings/);
   assert.match(promotion, /continuous-assurance-promotion/);
@@ -76,7 +76,10 @@ test("approved CAPA promotion creates a canonical enterprise finding with immuta
   assert.match(promotion, /originEvidenceSha256/);
   assert.match(promotion, /system:continuous-assurance/);
   assert.match(promotion, /queued by \$\{queueActor\}; approved by \$\{approvalActor\}/);
-  assert.match(promotion, /source_type='control' AND source_ref=\?/);
+  assert.match(promotion, /source_type='continuous-control'/);
+  assert.match(promotion, /source_ref=\? AND control_ref=\?/);
+  assert.match(promotion, /status NOT IN \('closed','accepted'\)/);
+  assert.match(promotion, /validateFinding\(candidate\.payload, today\)/);
 });
 
 test("Connected GRC queue exposes approval and rejection controls only after role discovery", () => {
