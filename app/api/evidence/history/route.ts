@@ -15,6 +15,18 @@ import {
 type Env = Record<string, unknown> & { DB: D1Database; BUCKET?: R2Bucket };
 type EvidenceRecord = { id: string; data_json: string; created_at: string; updated_at: string };
 
+type EvidenceItem = {
+  id: string;
+  title: string;
+  owner: string;
+  period: string;
+  controlRefs: string[];
+  currentVersion: number;
+  headHash: string;
+  updatedAt: string;
+  tracked: boolean;
+};
+
 const recordTable = `CREATE TABLE IF NOT EXISTS simple_grc_records (id TEXT PRIMARY KEY,module TEXT NOT NULL,data_json TEXT NOT NULL,created_at TEXT NOT NULL,updated_at TEXT NOT NULL)`;
 const filesTable = `CREATE TABLE IF NOT EXISTS simple_evidence_files (file_key TEXT PRIMARY KEY,file_name TEXT NOT NULL,content_type TEXT NOT NULL,content BLOB NOT NULL,created_at TEXT NOT NULL)`;
 const json = (data: unknown, status = 200) => NextResponse.json(data, { status, headers: { "cache-control": "no-store" } });
@@ -54,8 +66,10 @@ async function putEvidenceObject(env: Env, key: string, fileName: string, fileTy
 
 async function removeEvidenceObject(env: Env, key: string) {
   try {
-    if (env.BUCKET) await env.BUCKET.delete(key);
-    else await env.DB.prepare("DELETE FROM simple_evidence_files WHERE file_key=?").bind(key).run();
+    if (env.BUCKET) {
+      const bucket = env.BUCKET as unknown as { delete?: (objectKey: string) => Promise<unknown> };
+      if (bucket.delete) await bucket.delete(key);
+    } else await env.DB.prepare("DELETE FROM simple_evidence_files WHERE file_key=?").bind(key).run();
   } catch {
     // Best-effort orphan cleanup after a failed metadata transaction.
   }
@@ -66,7 +80,7 @@ async function recordById(db: D1Database, evidenceId: string) {
     .bind(evidenceId).first<EvidenceRecord>();
 }
 
-async function listEvidenceItems(db: D1Database) {
+async function listEvidenceItems(db: D1Database): Promise<EvidenceItem[]> {
   const rows = await db.prepare("SELECT id,data_json,created_at,updated_at FROM simple_grc_records WHERE module='Kanıtlar' ORDER BY updated_at DESC LIMIT 500").all<EvidenceRecord>();
   return rows.results.map((row) => {
     const data = parse(row.data_json);
@@ -78,6 +92,7 @@ async function listEvidenceItems(db: D1Database) {
       period: text(data.period, 120),
       controlRefs: refs,
       currentVersion: Number(data.versionNo || 0),
+      headHash: text(data.versionChainSha256, 64),
       updatedAt: row.updated_at,
       tracked: Number(data.versionNo || 0) > 0,
     };
@@ -109,6 +124,19 @@ function legacySnapshot(record: EvidenceRecord) {
   };
 }
 
+async function integrityWithAnchor(record: EvidenceRecord, rows: EvidenceVersionRow[]) {
+  const integrity = await verifyEvidenceVersionChain(rows);
+  if (integrity.state !== "verified" || !rows.length) return integrity;
+  const data = parse(record.data_json);
+  const expectedVersion = Number(data.versionNo || 0);
+  const expectedHead = text(data.versionChainSha256, 64);
+  const last = rows[rows.length - 1];
+  if (!expectedVersion || !expectedHead || expectedVersion !== last.version_no || expectedHead !== last.chain_sha256) {
+    return { state: "broken" as const, checked: rows.length, failedVersion: expectedVersion || last.version_no };
+  }
+  return integrity;
+}
+
 export async function GET(req: NextRequest) {
   const access = await requireRole(req, ["Admin", "Editor", "Viewer"]);
   if (access.response) return access.response;
@@ -122,7 +150,7 @@ export async function GET(req: NextRequest) {
     if (!record) return json({ error: "Kanıt kaydı bulunamadı." }, 404);
     const rows = await env.DB.prepare("SELECT * FROM evidence_versions WHERE evidence_id=? ORDER BY version_no ASC LIMIT 500")
       .bind(evidenceId).all<EvidenceVersionRow>();
-    const integrity = await verifyEvidenceVersionChain(rows.results);
+    const integrity = await integrityWithAnchor(record, rows.results);
     const versions = rows.results.length ? rows.results.map(publicEvidenceVersion).reverse() : [legacySnapshot(record)];
     return json({ evidence: { id: record.id, ...parse(record.data_json) }, versions, integrity });
   }
@@ -145,16 +173,20 @@ export async function GET(req: NextRequest) {
   ]);
   const grouped = new Map<string, EvidenceVersionRow[]>();
   for (const row of allVersions.results) grouped.set(row.evidence_id, [...(grouped.get(row.evidence_id) || []), row]);
+  const itemById = new Map(items.map((item) => [item.id, item]));
   let verified = 0;
   let broken = 0;
-  for (const rows of grouped.values()) {
+  for (const [id, rows] of grouped) {
     const state = await verifyEvidenceVersionChain(rows);
-    if (state.state === "verified") verified += 1;
-    if (state.state === "broken") broken += 1;
+    const item = itemById.get(id);
+    const last = rows[rows.length - 1];
+    const anchorBroken = !item || !item.currentVersion || !item.headHash || item.currentVersion !== last.version_no || item.headHash !== last.chain_sha256;
+    if (state.state === "verified" && !anchorBroken) verified += 1;
+    else broken += 1;
   }
   const linkedControls = await env.DB.prepare("SELECT COUNT(DISTINCT normalized_ref) total FROM evidence_version_controls").first<{ total: number }>();
   return json({
-    evidenceItems: items,
+    evidenceItems: items.map(({ headHash: _headHash, ...item }) => item),
     recentVersions: recent.results.map(publicEvidenceVersion),
     summary: {
       evidenceRecords: items.length,
@@ -194,6 +226,7 @@ export async function POST(req: NextRequest) {
   const fileKey = `evidence/${evidenceId}/history/${crypto.randomUUID()}-${fileName}`;
   const contentSha256 = await sha256HexBytes(bytes);
   await putEvidenceObject(env, fileKey, fileName, file.type, bytes, createdAt);
+  let appendedVersionId = "";
   try {
     const version = await appendEvidenceVersion(env.DB, {
       evidenceId,
@@ -211,6 +244,7 @@ export async function POST(req: NextRequest) {
       createdBy: access.actor.email,
       createdAt,
     });
+    appendedVersionId = version.id;
     const nextData = {
       ...data,
       fileKey,
@@ -228,6 +262,12 @@ export async function POST(req: NextRequest) {
       .bind(JSON.stringify(nextData), createdAt, evidenceId).run();
     return json({ ok: true, message: `Kanıt v${version.versionNo} olarak versiyonlandı.`, version: { ...version, evidenceId, fileKey, fileName, contentSha256, controlRefs: refs } }, 201);
   } catch (error) {
+    if (appendedVersionId) {
+      try {
+        await env.DB.prepare("DELETE FROM evidence_version_controls WHERE version_id=?").bind(appendedVersionId).run();
+        await env.DB.prepare("DELETE FROM evidence_versions WHERE id=?").bind(appendedVersionId).run();
+      } catch {}
+    }
     await removeEvidenceObject(env, fileKey);
     return json({ error: error instanceof Error ? error.message : "Kanıt versiyonu kaydedilemedi." }, 500);
   }
