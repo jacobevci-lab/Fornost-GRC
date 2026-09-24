@@ -54,6 +54,7 @@ export async function buildOperationalAssuranceAiContext(
       totalControls: dashboard.summary.totalControls,
       healthyControls: dashboard.summary.healthy,
       failingControls: dashboard.summary.failing,
+      evidenceIntegrityFailures: dashboard.summary.integrityFailures,
       staleOrMissingEvidence: dashboard.summary.stale,
       evidenceExpiring: dashboard.summary.expiring,
       controlsDue: dashboard.summary.due,
@@ -89,6 +90,8 @@ export async function buildOperationalAssuranceAiContext(
       owner: compact(item.owner, 160),
       dueDate: compact(item.dueDate, 40),
       reason: compact(item.reason, 100),
+      evidenceIntegrity: compact(item.evidenceIntegrity, 40),
+      linkedEvidenceCount: Number(item.linkedEvidenceCount || 0),
       updatedAt: compact(item.updatedAt, 60),
     })) break;
   }

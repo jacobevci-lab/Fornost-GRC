@@ -25,6 +25,7 @@ test("dashboard summarizes control health, work queue and remediation debt", () 
   assert.equal(result.summary.totalControls, 3);
   assert.equal(result.summary.healthy, 1);
   assert.equal(result.summary.failing, 1);
+  assert.equal(result.summary.integrityFailures, 0);
   assert.equal(result.summary.stale, 1);
   assert.equal(result.summary.due, 1);
   assert.equal(result.summary.openFindings, 1);
@@ -34,6 +35,39 @@ test("dashboard summarizes control health, work queue and remediation debt", () 
   assert.equal(result.summary.assuranceCoverage, 83);
   assert.equal(result.priorities[0]?.id, "work:w2");
   assert.equal(result.priorities[0]?.targetControlRef, "CC6.1");
+});
+
+test("broken Evidence Library chains override fresh passing control health", () => {
+  const result = buildContinuousAssuranceDashboard({
+    now,
+    rules: [
+      {
+        id: "r1",
+        name: "Privileged access review",
+        controlRefs: "A.5.15",
+        enabled: true,
+        lastStatus: "pass",
+        lastEvidenceAt: "2026-09-24T10:00:00.000Z",
+        freshnessHours: 24,
+        consecutiveFailures: 0,
+        nextRunAt: "2026-09-25T10:00:00.000Z",
+        evidenceIntegrity: "broken",
+        linkedEvidenceCount: 2,
+      },
+    ],
+    findings: [],
+    workItems: [],
+  });
+
+  assert.equal(result.summary.healthy, 0);
+  assert.equal(result.summary.failing, 1);
+  assert.equal(result.summary.integrityFailures, 1);
+  assert.equal(result.summary.assuranceCoverage, 50);
+  assert.equal(result.priorities[0]?.state, "integrity-failed");
+  assert.equal(result.priorities[0]?.priority, 90);
+  assert.equal(result.priorities[0]?.reason, "evidence-integrity-failed");
+  assert.equal(result.priorities[0]?.evidenceIntegrity, "broken");
+  assert.equal(result.priorities[0]?.linkedEvidenceCount, 2);
 });
 
 test("dashboard keeps multi-control target context from governed work item", () => {

@@ -127,6 +127,11 @@ type EvidenceVersionStatement = ReturnType<D1Database["prepare"]>;
 export type EvidenceVersionBatchOptions = {
   additionalStatements?: (commit: EvidenceVersionCommit) => EvidenceVersionStatement[];
 };
+export type EvidenceChainAnchor = {
+  versionNo?: unknown;
+  chainSha256?: unknown;
+};
+export type EvidenceIntegrityState = "verified" | "broken" | "legacy-unverified";
 
 export function evidenceChainMaterial(input: EvidenceChainInput) {
   return JSON.stringify({
@@ -242,6 +247,19 @@ export async function verifyEvidenceVersionChain(rows: EvidenceVersionRow[]) {
     previousChain = row.chain_sha256;
   }
   return { state: ordered.length ? "verified" as const : "legacy-unverified" as const, checked: ordered.length, failedVersion: 0 };
+}
+
+export async function verifyEvidenceVersionChainWithAnchor(rows: EvidenceVersionRow[], anchor: EvidenceChainAnchor = {}) {
+  const integrity = await verifyEvidenceVersionChain(rows);
+  if (integrity.state !== "verified" || !rows.length) return integrity;
+  const ordered = [...rows].sort((a, b) => a.version_no - b.version_no);
+  const last = ordered[ordered.length - 1];
+  const expectedVersion = Number(anchor.versionNo || 0);
+  const expectedHead = String(anchor.chainSha256 ?? "").trim();
+  if (!expectedVersion || !expectedHead || expectedVersion !== last.version_no || expectedHead !== last.chain_sha256) {
+    return { state: "broken" as const, checked: ordered.length, failedVersion: expectedVersion || last.version_no };
+  }
+  return integrity;
 }
 
 export function publicEvidenceVersion(row: EvidenceVersionRow) {

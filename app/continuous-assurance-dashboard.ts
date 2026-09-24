@@ -10,6 +10,8 @@ export type AssuranceRuleSnapshot = {
   freshnessHours: number;
   consecutiveFailures: number;
   nextRunAt?: string | null;
+  evidenceIntegrity?: "verified" | "broken" | "legacy-unverified";
+  linkedEvidenceCount?: number;
 };
 
 export type AssuranceFindingSnapshot = {
@@ -48,6 +50,8 @@ export type AssurancePriority = {
   dueDate: string;
   reason: string;
   updatedAt: string;
+  evidenceIntegrity?: "verified" | "broken" | "legacy-unverified";
+  linkedEvidenceCount?: number;
 };
 
 const clean = (value: unknown) => String(value ?? "").trim();
@@ -75,23 +79,26 @@ export function buildContinuousAssuranceDashboard(input: {
   const ruleById = new Map(input.rules.map((rule) => [rule.id, rule]));
   const findingById = new Map(input.findings.map((finding) => [finding.id, finding]));
 
-  const health = input.rules.map((rule) => ({
-    rule,
-    health: controlHealth({
+  const health = input.rules.map((rule) => {
+    const baseHealth = controlHealth({
       enabled: rule.enabled,
       lastStatus: rule.lastStatus,
       lastEvidenceAt: rule.lastEvidenceAt,
       freshnessHours: rule.freshnessHours,
       consecutiveFailures: rule.consecutiveFailures,
-    }, now),
-    freshness: evidenceFreshness(rule.lastEvidenceAt, rule.freshnessHours, now),
-    due: Number.isFinite(time(rule.nextRunAt)) && time(rule.nextRunAt) <= nowTime,
-  }));
+    }, now);
+    return {
+      rule,
+      health: rule.evidenceIntegrity === "broken" ? "integrity-failed" as const : baseHealth,
+      freshness: evidenceFreshness(rule.lastEvidenceAt, rule.freshnessHours, now),
+      due: Number.isFinite(time(rule.nextRunAt)) && time(rule.nextRunAt) <= nowTime,
+    };
+  });
 
   const openFindings = input.findings.filter((finding) => !isClosed(finding.status));
   const overdueRemediation = openFindings.filter((finding) => Number.isFinite(time(finding.dueDate)) && time(finding.dueDate) < nowTime);
   const mappedRules = input.rules.filter((rule) => splitControlRefs(rule.controlRefs).length > 0);
-  const evidenceBacked = health.filter(({ freshness }) => freshness === "fresh" || freshness === "expiring");
+  const evidenceBacked = health.filter(({ freshness, rule }) => (freshness === "fresh" || freshness === "expiring") && rule.evidenceIntegrity !== "broken");
   const assuranceCoverage = input.rules.length
     ? Math.round(((mappedRules.length + evidenceBacked.length) / (input.rules.length * 2)) * 100)
     : 100;
@@ -99,9 +106,9 @@ export function buildContinuousAssuranceDashboard(input: {
   const priorities: AssurancePriority[] = [];
 
   for (const row of health) {
-    if (!["failing", "stale", "missing", "expiring"].includes(row.health) && !row.due) continue;
+    if (!["integrity-failed", "failing", "stale", "missing", "expiring"].includes(row.health) && !row.due) continue;
     const refs = splitControlRefs(row.rule.controlRefs);
-    const severity = row.health === "failing" ? 80 : row.health === "missing" ? 70 : row.health === "stale" ? 60 : row.due ? 45 : 35;
+    const severity = row.health === "integrity-failed" ? 90 : row.health === "failing" ? 80 : row.health === "missing" ? 70 : row.health === "stale" ? 60 : row.due ? 45 : 35;
     priorities.push({
       id: `rule:${row.rule.id}`,
       kind: "control",
@@ -114,8 +121,10 @@ export function buildContinuousAssuranceDashboard(input: {
       targetControlRef: refs[0] || "",
       owner: "",
       dueDate: clean(row.rule.nextRunAt),
-      reason: row.health === "failing" ? "control-failing" : row.health === "missing" ? "evidence-missing" : row.health === "stale" ? "evidence-stale" : row.due ? "test-due" : "evidence-expiring",
+      reason: row.health === "integrity-failed" ? "evidence-integrity-failed" : row.health === "failing" ? "control-failing" : row.health === "missing" ? "evidence-missing" : row.health === "stale" ? "evidence-stale" : row.due ? "test-due" : "evidence-expiring",
       updatedAt: clean(row.rule.lastEvidenceAt || row.rule.nextRunAt),
+      evidenceIntegrity: row.rule.evidenceIntegrity,
+      linkedEvidenceCount: row.rule.linkedEvidenceCount,
     });
   }
 
@@ -136,6 +145,8 @@ export function buildContinuousAssuranceDashboard(input: {
       dueDate: finding.dueDate,
       reason: overdue ? "remediation-overdue" : "open-finding",
       updatedAt: finding.dueDate,
+      evidenceIntegrity: rule?.evidenceIntegrity,
+      linkedEvidenceCount: rule?.linkedEvidenceCount,
     });
   }
 
@@ -158,6 +169,8 @@ export function buildContinuousAssuranceDashboard(input: {
       dueDate: finding?.dueDate || "",
       reason: work.status,
       updatedAt: work.updatedAt,
+      evidenceIntegrity: rule?.evidenceIntegrity,
+      linkedEvidenceCount: rule?.linkedEvidenceCount,
     });
   }
 
@@ -167,7 +180,8 @@ export function buildContinuousAssuranceDashboard(input: {
     summary: {
       totalControls: input.rules.length,
       healthy: health.filter((item) => item.health === "healthy").length,
-      failing: health.filter((item) => item.health === "failing").length,
+      failing: health.filter((item) => item.health === "failing" || item.health === "integrity-failed").length,
+      integrityFailures: health.filter((item) => item.health === "integrity-failed").length,
       stale: health.filter((item) => item.health === "stale" || item.health === "missing").length,
       expiring: health.filter((item) => item.health === "expiring").length,
       due: health.filter((item) => item.due).length,
