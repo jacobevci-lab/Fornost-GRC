@@ -4,7 +4,7 @@ import { buildControlAssurance, type AssuranceRow } from "../app/control-assuran
 
 const row = (id: string, module: string, data: Record<string, unknown>, code?: string): AssuranceRow => ({ id, module, data, code });
 
-test("resolves control evidence, audit, framework and automation through Connected GRC aliases", () => {
+test("resolves control evidence, audit, framework and healthy automation through Connected GRC aliases", () => {
   const rows: AssuranceRow[] = [
     row("control-1", "Kontroller", {
       controlRef: "AC-01",
@@ -18,7 +18,7 @@ test("resolves control evidence, audit, framework and automation through Connect
     row("evidence-1", "Kanıtlar", { controlRef: "CTRL-001", status: "Approved", expiresAt: "2027-01-01" }, "EVD-001"),
     row("audit-1", "Denetim Yönetimi", { requirementRef: "AC-01", status: "Open" }, "AUD-001"),
     row("framework-1", "Uyum", { framework: "ISO 27001 A.5.15", status: "Uyumlu" }, "ISO-A515"),
-    row("automation-1", "Kanıt Otomasyonu", { kind: "automation-rule", automationControlRefs: "AC-01" }, "AUTO-001"),
+    row("automation-1", "Kanıt Otomasyonu", { kind: "automation-rule", automationControlRefs: "AC-01", automationHealth: "healthy" }, "AUTO-001"),
   ];
 
   const result = buildControlAssurance(rows, "2026-09-24");
@@ -32,11 +32,12 @@ test("resolves control evidence, audit, framework and automation through Connect
   assert.equal(result.items[0].score, 100);
   assert.equal(result.items[0].state, "healthy");
   assert.equal(result.automated, 1);
+  assert.equal(result.automationHealthy, 1);
   assert.equal(result.frameworkMapped, 1);
   assert.equal(result.connected, 1);
 });
 
-test("failed tests and linked open findings reduce assurance without losing lineage", () => {
+test("failed tests and open findings without risk lineage reduce assurance without losing control lineage", () => {
   const rows: AssuranceRow[] = [
     row("control-2", "Kontroller", {
       controlRef: "LOG-01",
@@ -55,9 +56,10 @@ test("failed tests and linked open findings reduce assurance without losing line
   const item = result.items[0];
   assert.equal(item.testFailed, true);
   assert.equal(item.openFindingCount, 1);
-  assert.equal(item.score, 60);
+  assert.equal(item.riskLinkedFindingCount, 0);
+  assert.equal(item.score, 50);
   assert.equal(item.state, "attention");
-  assert.deepEqual(item.reasons, ["test-failed", "open-findings"]);
+  assert.deepEqual(item.reasons, ["test-failed", "open-findings", "risk-link-missing"]);
   assert.equal(result.failedTests, 1);
   assert.equal(result.openFindings, 1);
 });
