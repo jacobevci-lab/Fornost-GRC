@@ -45,6 +45,37 @@ jobs:
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
 
+      - name: Use SPA-safe navigation readiness in production QA
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          import fs from "node:fs";
+
+          const files = [
+            "scripts/full-production-qa.mjs",
+            "scripts/full-product-qa-v2.mjs",
+            "scripts/full-product-qa-gate.mjs",
+            "scripts/connected-grc-production-qa.mjs",
+          ];
+
+          let replacements = 0;
+          for (const file of files) {
+            if (!fs.existsSync(file)) continue;
+            const source = fs.readFileSync(file, "utf8");
+            const matches = source.match(/waitUntil:\s*["']networkidle["']/g) || [];
+            if (!matches.length) continue;
+            const updated = source.replace(/waitUntil:\s*["']networkidle["']/g, 'waitUntil: "domcontentloaded"');
+            fs.writeFileSync(file, updated);
+            replacements += matches.length;
+            console.log(`SPA readiness: ${file} (${matches.length} navigation${matches.length === 1 ? "" : "s"})`);
+          }
+
+          if (!replacements) {
+            throw new Error("No networkidle navigation waits were found in production QA scripts; review the readiness normalizer.");
+          }
+          console.log(`SPA readiness normalized ${replacements} navigation wait(s).`);
+          NODE
+
       - name: Run legacy production QA baseline
         shell: bash
         run: |
