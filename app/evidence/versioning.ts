@@ -116,6 +116,18 @@ export type EvidenceChainInput = {
   createdAt: string;
 };
 
+export type EvidenceVersionCommit = {
+  id: string;
+  versionNo: number;
+  chainSha256: string;
+  previousVersionId: string;
+  previousChainSha256: string;
+};
+type EvidenceVersionStatement = ReturnType<D1Database["prepare"]>;
+export type EvidenceVersionBatchOptions = {
+  additionalStatements?: (commit: EvidenceVersionCommit) => EvidenceVersionStatement[];
+};
+
 export function evidenceChainMaterial(input: EvidenceChainInput) {
   return JSON.stringify({
     evidenceId: input.evidenceId,
@@ -148,7 +160,11 @@ export async function ensureEvidenceHistorySchema(db: D1Database) {
   for (const sql of indexes) await db.prepare(sql).run();
 }
 
-export async function appendEvidenceVersion(db: D1Database, input: Omit<EvidenceChainInput, "versionNo" | "previousVersionId" | "previousChainSha256">) {
+export async function appendEvidenceVersion(
+  db: D1Database,
+  input: Omit<EvidenceChainInput, "versionNo" | "previousVersionId" | "previousChainSha256">,
+  options: EvidenceVersionBatchOptions = {},
+) {
   await ensureEvidenceHistorySchema(db);
   for (let attempt = 0; attempt < 3; attempt += 1) {
     const previous = await db.prepare("SELECT id,version_no,chain_sha256 FROM evidence_versions WHERE evidence_id=? ORDER BY version_no DESC LIMIT 1")
@@ -163,6 +179,13 @@ export async function appendEvidenceVersion(db: D1Database, input: Omit<Evidence
       controlRefs: splitEvidenceControlRefs(input.controlRefs).join(", "),
     };
     const chainSha256 = await computeEvidenceChainHash(chainInput);
+    const commit: EvidenceVersionCommit = {
+      id,
+      versionNo,
+      chainSha256,
+      previousVersionId: previous?.id || "",
+      previousChainSha256: previous?.chain_sha256 || "",
+    };
     try {
       const versionStatement = db.prepare(`INSERT INTO evidence_versions(
         id,evidence_id,version_no,file_key,file_name,file_type,file_size,content_sha256,chain_sha256,
@@ -177,8 +200,9 @@ export async function appendEvidenceVersion(db: D1Database, input: Omit<Evidence
       const controlStatements = refs.map((controlRef) => db.prepare(
         "INSERT OR IGNORE INTO evidence_version_controls(version_id,evidence_id,control_ref,normalized_ref,version_no,created_at) VALUES(?,?,?,?,?,?)",
       ).bind(id, input.evidenceId, controlRef, normalizeEvidenceControlRef(controlRef), versionNo, input.createdAt));
-      await db.batch([versionStatement, ...controlStatements]);
-      return { id, versionNo, chainSha256, previousVersionId: previous?.id || "", previousChainSha256: previous?.chain_sha256 || "" };
+      const additionalStatements = options.additionalStatements?.(commit) || [];
+      await db.batch([versionStatement, ...controlStatements, ...additionalStatements]);
+      return commit;
     } catch (error) {
       if (attempt === 2) throw error;
     }
