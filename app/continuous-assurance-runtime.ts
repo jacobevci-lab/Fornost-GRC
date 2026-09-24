@@ -17,8 +17,9 @@ export type AssuranceWorkRow = {
   completed_at?: string | null;
 };
 
-const workSchema = [
-  `CREATE TABLE IF NOT EXISTS continuous_assurance_work_items(id TEXT PRIMARY KEY,finding_id TEXT NOT NULL,rule_id TEXT NOT NULL,action TEXT NOT NULL,status TEXT NOT NULL,decision_json TEXT NOT NULL,created_at TEXT NOT NULL,updated_at TEXT NOT NULL,actor TEXT NOT NULL)`,
+const createWorkTable = `CREATE TABLE IF NOT EXISTS continuous_assurance_work_items(id TEXT PRIMARY KEY,finding_id TEXT NOT NULL,rule_id TEXT NOT NULL,action TEXT NOT NULL,status TEXT NOT NULL,decision_json TEXT NOT NULL,created_at TEXT NOT NULL,updated_at TEXT NOT NULL,actor TEXT NOT NULL)`;
+
+const workIndexes = [
   `CREATE INDEX IF NOT EXISTS continuous_assurance_work_items_status_idx ON continuous_assurance_work_items(status,action,updated_at)`,
   `CREATE INDEX IF NOT EXISTS continuous_assurance_work_items_finding_idx ON continuous_assurance_work_items(finding_id,action,status)`,
 ];
@@ -31,17 +32,37 @@ const workColumns: Record<string, string> = {
   completed_at: "TEXT",
 };
 
+async function tableHasColumn(db: D1Database, table: string, name: string) {
+  const info = await db.prepare(`PRAGMA table_info(${table})`).all<{ name: string }>();
+  return info.results.some((row) => row.name === name);
+}
+
 async function addMissingColumns(db: D1Database, table: string, columns: Record<string, string>) {
   const info = await db.prepare(`PRAGMA table_info(${table})`).all<{ name: string }>();
   const present = new Set(info.results.map((row) => row.name));
   for (const [name, definition] of Object.entries(columns)) {
-    if (!present.has(name)) await db.prepare(`ALTER TABLE ${table} ADD COLUMN ${name} ${definition}`).run();
+    if (present.has(name)) continue;
+    try {
+      await db.prepare(`ALTER TABLE ${table} ADD COLUMN ${name} ${definition}`).run();
+      present.add(name);
+    } catch (error) {
+      // D1/SQLite has no ADD COLUMN IF NOT EXISTS. Two cold-start requests can both
+      // observe a legacy column as missing and race to add it; if the other request
+      // won the race, re-read the schema and treat the migration as successful.
+      if (await tableHasColumn(db, table, name)) {
+        present.add(name);
+        continue;
+      }
+      throw error;
+    }
   }
 }
 
 export async function ensureAssuranceWorkSchema(db: D1Database) {
-  for (const sql of workSchema) await db.prepare(sql).run();
+  await db.prepare(createWorkTable).run();
   await addMissingColumns(db, "continuous_assurance_work_items", workColumns);
+  // Create indexes only after all legacy columns required by current queries exist.
+  for (const sql of workIndexes) await db.prepare(sql).run();
 }
 
 function asNumber(value: unknown, fallback: number) {
