@@ -1,5 +1,5 @@
 export const FINDING_SEVERITIES=["low","medium","high","critical"] as const;
-export const FINDING_SOURCES=["audit","control","vendor","regulatory","risk","policy","incident","vulnerability","ai","manual"] as const;
+export const FINDING_SOURCES=["audit","control","continuous-control","vendor","regulatory","risk","policy","incident","vulnerability","ai","manual"] as const;
 export const FINDING_TYPES=["nonconformity","control-deficiency","observation","vulnerability","incident-action","improvement"] as const;
 const clean=(value:unknown,max:number)=>String(value??"").trim().replace(/\u0000/g,"").slice(0,max);
 const email=(value:unknown,label:string)=>{const result=clean(value,200).toLowerCase();if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(result))throw new Error(`${label} için geçerli e-posta zorunludur.`);return result};
