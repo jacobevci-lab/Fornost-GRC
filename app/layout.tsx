@@ -54,6 +54,7 @@ import FornostAiCopilot from "./fornost-ai-copilot";
 import ProductionHardening from "./production-hardening";
 import NavigationIntegrity from "./navigation-integrity";
 import ExecutiveDashboard from "./executive-dashboard";
+import ExecutiveDashboardPreferenceSync from "./executive-dashboard-preference-sync";
 import DashboardV7DecisionBoard from "./dashboard-v7-decision-board";
 import DashboardV8Focus from "./dashboard-v8-focus";
 import DashboardV9Executive from "./dashboard-v9-executive";
@@ -86,6 +87,7 @@ export default function RootLayout({
       <body>
         {children}
         <ExecutiveDashboard />
+        <ExecutiveDashboardPreferenceSync />
         <DashboardV7DecisionBoard />
         <DashboardV8Focus />
         <DashboardV9Executive />
