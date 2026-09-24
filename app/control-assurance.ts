@@ -27,6 +27,32 @@ export type ControlAssuranceItem = {
   reasons: string[];
 };
 
+export type ControlAssuranceTest = {
+  owner: string;
+  frequency: string;
+  lastTestDate: string;
+  nextTestDate: string;
+  result: string;
+  overdue: boolean;
+  failed: boolean;
+  status: "not-planned" | "planned" | "overdue" | "failed";
+};
+
+export type ControlAssuranceDetail = {
+  item: ControlAssuranceItem;
+  frameworks: AssuranceRow[];
+  evidence: AssuranceRow[];
+  automations: AssuranceRow[];
+  audits: AssuranceRow[];
+  findings: AssuranceRow[];
+  risks: AssuranceRow[];
+  test: ControlAssuranceTest;
+  unresolved: Array<{ sourceId: string; field: string; value: string; relation: string }>;
+  connectedStages: number;
+  totalStages: number;
+  lineagePercent: number;
+};
+
 const clean = (value: unknown) => String(value ?? "").normalize("NFKC").trim();
 const key = (value: unknown) => clean(value).toLocaleLowerCase("tr-TR");
 const dateValue = (value: unknown) => {
@@ -52,6 +78,39 @@ function relatedRows(control: AssuranceRow, links: ConnectedGrcLink[], module: s
   return uniqueRows(rows);
 }
 
+function relatedFromRows(sources: AssuranceRow[], links: ConnectedGrcLink[], module: string, relations: string[]) {
+  const sourceIds = new Set(sources.map((row) => row.id));
+  const rows: AssuranceRow[] = [];
+  for (const link of links) {
+    if (!relations.includes(link.relation)) continue;
+    if (sourceIds.has(link.source.id) && link.target.module === module) rows.push(link.target as AssuranceRow);
+    if (sourceIds.has(link.target.id) && link.source.module === module) rows.push(link.source as AssuranceRow);
+  }
+  return uniqueRows(rows);
+}
+
+function testForControl(control: AssuranceRow, today: string): ControlAssuranceTest {
+  const nextTestDate = clean(control.data.nextTestDate);
+  const lastTestDate = clean(control.data.lastTestDate || control.data.testDate || control.data.lastAssessmentDate);
+  const result = clean(control.data.testResult || control.data.lastTestResult || control.data.effectiveness);
+  const nextTestTime = dateValue(nextTestDate);
+  const todayTime = dateValue(today);
+  const overdue = Number.isFinite(nextTestTime) && nextTestTime < todayTime;
+  const failed = includes(result, [
+    "başarısız", "failed", "ineffective", "etkisiz", "not effective", "fail", "failed test",
+  ]);
+  return {
+    owner: clean(control.data.testOwner),
+    frequency: clean(control.data.frequency),
+    lastTestDate,
+    nextTestDate,
+    result,
+    overdue,
+    failed,
+    status: failed ? "failed" : overdue ? "overdue" : nextTestDate || lastTestDate || result ? "planned" : "not-planned",
+  };
+}
+
 export function buildControlAssurance(rows: AssuranceRow[], today = new Date().toISOString().slice(0, 10)) {
   const controls = rows.filter((row) => row.module === "Kontroller");
   const graph = buildConnectedGrcGraph(rows);
@@ -63,7 +122,8 @@ export function buildControlAssurance(rows: AssuranceRow[], today = new Date().t
     // Legacy audit rows can carry controlRef. The shared graph still resolves those rows,
     // historically under control-evidence, so accept both graph relation labels here.
     const linkedAudits = relatedRows(control, graph.links, "Denetim Yönetimi", ["audit-control", "control-evidence"]);
-    const linkedFrameworks = relatedRows(control, graph.links, "Uyum", ["control-framework"]);
+    // Compliance requirements can be linked through framework tags or directly through controlRef.
+    const linkedFrameworks = relatedRows(control, graph.links, "Uyum", ["control-framework", "control-evidence"]);
     const linkedFindings = relatedRows(control, graph.links, "Bulgular ve CAPA", ["finding-control"])
       .filter((row) => !isClosed(row.data.status));
     const linkedAutomation = relatedRows(control, graph.links, "Kanıt Otomasyonu", ["automation-control", "control-assurance"]);
@@ -77,21 +137,14 @@ export function buildControlAssurance(rows: AssuranceRow[], today = new Date().t
       return !expired && (!Number.isFinite(expiresAt) || expiresAt >= todayTime);
     });
 
-    const nextTestDate = clean(control.data.nextTestDate);
-    const nextTestTime = dateValue(nextTestDate);
-    const testOverdue = Number.isFinite(nextTestTime) && nextTestTime < todayTime;
-    const testResult = control.data.testResult || control.data.lastTestResult || control.data.effectiveness;
-    const testFailed = includes(testResult, [
-      "başarısız", "failed", "ineffective", "etkisiz", "not effective", "fail", "failed test",
-    ]);
-
+    const test = testForControl(control, today);
     const reasons: string[] = [];
     let score = 100;
     if (!clean(control.data.owner)) { score -= 15; reasons.push("owner-missing"); }
-    if (!clean(control.data.testOwner)) { score -= 10; reasons.push("test-owner-missing"); }
-    if (!nextTestDate) { score -= 15; reasons.push("test-date-missing"); }
-    else if (testOverdue) { score -= 30; reasons.push("test-overdue"); }
-    if (testFailed) { score -= 35; reasons.push("test-failed"); }
+    if (!test.owner) { score -= 10; reasons.push("test-owner-missing"); }
+    if (!test.nextTestDate) { score -= 15; reasons.push("test-date-missing"); }
+    else if (test.overdue) { score -= 30; reasons.push("test-overdue"); }
+    if (test.failed) { score -= 35; reasons.push("test-failed"); }
     if (!linkedEvidence.length) { score -= 35; reasons.push("evidence-missing"); }
     else if (!currentEvidence.length) { score -= 25; reasons.push("evidence-stale"); }
     if (!linkedAudits.length) { score -= 10; reasons.push("audit-missing"); }
@@ -117,9 +170,9 @@ export function buildControlAssurance(rows: AssuranceRow[], today = new Date().t
       openFindingCount: linkedFindings.length,
       automationCount: linkedAutomation.length,
       relationCount: controlRelations.length,
-      nextTestDate,
-      testOverdue,
-      testFailed,
+      nextTestDate: test.nextTestDate,
+      testOverdue: test.overdue,
+      testFailed: test.failed,
       score,
       state: score >= 80 ? "healthy" : score >= 50 ? "attention" : "critical",
       reasons,
@@ -148,5 +201,66 @@ export function buildControlAssurance(rows: AssuranceRow[], today = new Date().t
     frameworkMapped,
     connected,
     score,
+  };
+}
+
+export function buildControlAssuranceDetail(
+  rows: AssuranceRow[],
+  controlId: string,
+  today = new Date().toISOString().slice(0, 10),
+): ControlAssuranceDetail | null {
+  const summary = buildControlAssurance(rows, today);
+  const item = summary.items.find((candidate) => candidate.control.id === controlId);
+  if (!item) return null;
+
+  const graph = buildConnectedGrcGraph(rows);
+  const control = item.control;
+  const frameworks = relatedRows(control, graph.links, "Uyum", ["control-framework", "control-evidence"]);
+  const evidence = relatedRows(control, graph.links, "Kanıtlar", ["control-evidence"]);
+  const automations = relatedRows(control, graph.links, "Kanıt Otomasyonu", ["automation-control", "control-assurance"]);
+  const audits = relatedRows(control, graph.links, "Denetim Yönetimi", ["audit-control", "control-evidence"]);
+  const findings = relatedRows(control, graph.links, "Bulgular ve CAPA", ["finding-control"])
+    .filter((row) => !isClosed(row.data.status));
+  const riskSources = uniqueRows([...findings, ...audits, ...automations]);
+  const risks = relatedFromRows(riskSources, graph.links, "Risk Assessment", ["finding-risk", "audit-risk", "remediation-risk"]);
+  const test = testForControl(control, today);
+
+  const chainIds = new Set([
+    control.id,
+    ...frameworks.map((row) => row.id),
+    ...evidence.map((row) => row.id),
+    ...automations.map((row) => row.id),
+    ...audits.map((row) => row.id),
+    ...findings.map((row) => row.id),
+    ...risks.map((row) => row.id),
+  ]);
+  const unresolved = graph.unresolved
+    .filter((entry) => chainIds.has(entry.source.id))
+    .map((entry) => ({ sourceId: entry.source.id, field: entry.field, value: entry.value, relation: entry.relation }));
+
+  const stageChecks = [
+    frameworks.length > 0,
+    evidence.length > 0,
+    automations.length > 0,
+    test.status !== "not-planned",
+    findings.length > 0,
+    risks.length > 0,
+  ];
+  const connectedStages = stageChecks.filter(Boolean).length;
+  const totalStages = stageChecks.length;
+
+  return {
+    item,
+    frameworks,
+    evidence,
+    automations,
+    audits,
+    findings,
+    risks,
+    test,
+    unresolved,
+    connectedStages,
+    totalStages,
+    lineagePercent: Math.round((connectedStages / totalStages) * 100),
   };
 }
