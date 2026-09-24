@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import { withBasePath } from "./base-path";
+import ContinuousAssuranceDashboardPanel from "./continuous-assurance-dashboard-panel";
 import "./evidence-automation.css";
 
 type Lang = "tr" | "en";
@@ -122,6 +123,7 @@ export default function EvidenceAutomation({lang,currentUser}:{lang:Lang;current
     <div className="ea-hero"><div><small>{tr?"SÜREKLİ GÜVENCE":"CONTINUOUS ASSURANCE"}</small><h2>{tr?"Kanıt Otomasyonu":"Evidence Automation"}</h2><p>{tr?"Her üreticiden API kanıtı topla, kuralla doğrula, kontrol maddelerine bağla ve başarısız sinyali bağımsız onaylı CAPA akışına taşı.":"Collect API evidence from any vendor, validate it, map it to controls and route failed assurance signals through independently approved CAPA governance."}</p></div><div className="ea-hero-actions"><span className="ea-live"><i/>{tr?"Collector hazır":"Collector ready"}</span>{currentUser.role==="Admin"&&<button className="primary" onClick={()=>setSourceOpen(true)}>+ {tr?"Kaynak Ekle":"Add Source"}</button>}</div></div>
     {message&&<div className="ea-message" onClick={()=>setMessage("")}>{message}<b>×</b></div>}
     <div className="ea-stats ea-stats-wide"><Metric value={summary.healthy} label={tr?"Sağlıklı kontrol":"Healthy controls"}/><Metric value={summary.failing} label={tr?"Başarısız kontrol":"Failing controls"}/><Metric value={summary.stale} label={tr?"Eski/eksik kanıt":"Stale/missing evidence"}/><Metric value={summary.due} label={tr?"Çalışması gereken":"Due controls"}/><Metric value={summary.openFindings} label={tr?"Açık bulgu":"Open findings"}/></div>
+    <ContinuousAssuranceDashboardPanel lang={lang} currentUser={currentUser}/>
     <div className="ea-tabs">{(["overview","sources","rules","runs","findings"] as const).map(x=><button key={x} className={tab===x?"active":""} onClick={()=>setTab(x)}>{x==="overview"?(tr?"Connector Kataloğu":"Connector Catalog"):x==="sources"?(tr?"Kanıt Kaynakları":"Evidence Sources"):x==="rules"?(tr?"Sürekli Kontroller":"Continuous Controls"):x==="runs"?(tr?"Çalıştırma Geçmişi":"Run History"):(tr?"Bulgular ve CAPA":"Findings & CAPA")}</button>)}</div>
 
     {tab==="overview"&&<div className="ea-catalog">{Array.from(new Set(catalog.map(x=>x[0]))).map(group=><article key={group}><header><h3>{categoryLabel(group)}</h3><span>{catalog.filter(x=>x[0]===group).length}</span></header><div>{catalog.filter(x=>x[0]===group).map(entry=><button key={entry[1]} onClick={()=>pick(entry)}><b>{entry[1]}</b><small>{entry[2]==="https-bridge"?(tr?"Şirket içi köprü":"On-prem bridge"):(tr?"API şablonu":"API template")}</small><i>+</i></button>)}</div></article>)}</div>}
