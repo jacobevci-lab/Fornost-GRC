@@ -1,6 +1,7 @@
 import { sanitizeAiRecord } from "./security";
 import { retrieveApprovedKnowledge } from "./knowledge";
 import { dataClassificationAllowed, type AiDataClassification } from "./data-policy";
+import { buildOperationalAssuranceAiContext } from "./operational-assurance-context";
 
 export type AiContextSource = { id: string; module: string; title: string };
 type GrcRow = { id: string; module: string; data_json: string; updated_at: string };
@@ -12,7 +13,9 @@ const MODULE_HINTS: Array<{ module: string; terms: string[] }> = [
   { module: "Uyum", terms: ["uyum", "compliance", "iso", "soc", "pci", "nist", "dora", "kvkk", "gdpr"] },
   { module: "Kontroller", terms: ["kontrol", "control", "control gap", "kontrol acigi", "kontrol açığı"] },
   { module: "Kanıtlar", terms: ["kanit", "kanıt", "evidence", "dokuman", "doküman"] },
-  { module: "Denetim Yönetimi", terms: ["denetim", "audit", "bulgu", "finding", "auditor"] },
+  { module: "Kanıt Otomasyonu", terms: ["sürekli güvence", "surekli guvence", "continuous assurance", "kanıt otomasyonu", "kanit otomasyonu", "evidence automation", "evidence freshness", "kanıt tazeliği", "kanit tazeligi", "failed retest", "retest", "yeniden test"] },
+  { module: "Bulgular ve CAPA", terms: ["capa", "remediation", "düzeltme", "duzeltme", "düzeltici aksiyon", "duzeltici aksiyon", "corrective action", "bulgu", "finding"] },
+  { module: "Denetim Yönetimi", terms: ["denetim", "audit", "auditor"] },
   { module: "Tedarikçiler", terms: ["tedarik", "vendor", "supplier", "ucuncu taraf", "üçüncü taraf"] },
 ];
 
@@ -59,10 +62,16 @@ function scoreRow(row: GrcRow, data: Record<string, unknown>, question: string, 
 function recordClassification(data:Record<string,unknown>){return data.dataClassification??data.classification??data.securityClassification??"Internal";}
 
 export async function buildGrcContext(db: D1Database, question: string, maxDataClassification: AiDataClassification = "Confidential") {
-  const knowledge = await retrieveApprovedKnowledge(db, question, 9_000, maxDataClassification);
-  const result = await db.prepare("SELECT id,module,data_json,updated_at FROM simple_grc_records ORDER BY updated_at DESC LIMIT 400").all<GrcRow>();
-  const rows = result.results || [];
   const targetModules = inferReadModules(question);
+  const includeOperationalAssurance = targetModules.includes("Kanıt Otomasyonu") || targetModules.includes("Bulgular ve CAPA");
+  const [knowledge, result, operationalAssurance] = await Promise.all([
+    retrieveApprovedKnowledge(db, question, 9_000, maxDataClassification),
+    db.prepare("SELECT id,module,data_json,updated_at FROM simple_grc_records ORDER BY updated_at DESC LIMIT 400").all<GrcRow>(),
+    includeOperationalAssurance
+      ? buildOperationalAssuranceAiContext(db, maxDataClassification, 6_500)
+      : Promise.resolve({ sources: [], contextText: "", summaryAvailable: false }),
+  ]);
+  const rows = result.results || [];
   const parsed = rows.map((row) => ({ row, data: parseData(row) })).filter(({data})=>dataClassificationAllowed(recordClassification(data),maxDataClassification));
   const relevant = (targetModules.length ? parsed.filter(({ row }) => targetModules.includes(row.module)) : parsed)
     .map((item) => ({ ...item, score: scoreRow(item.row, item.data, question, targetModules) }))
@@ -80,18 +89,23 @@ export async function buildGrcContext(db: D1Database, question: string, maxDataC
   const sources: AiContextSource[] = [];
   const chunks: string[] = [];
   let total = 0;
+  const recordBudget = operationalAssurance.contextText ? 11_000 : 16_000;
   for (const { row, data } of unique) {
     const sanitized = sanitizeAiRecord(data) as Record<string, unknown>;
     const title = titleOf(row.module, sanitized, row.id);
     const chunk = JSON.stringify({ sourceId: row.id, module: row.module, title, updatedAt: row.updated_at, data: sanitized });
-    if (total + chunk.length > 16_000) break;
+    if (total + chunk.length > recordBudget) break;
     total += chunk.length;
     chunks.push(chunk);
     sources.push({ id: row.id, module: row.module, title });
   }
 
-  const combinedSources = [...sources, ...knowledge.sources];
-  const combinedChunks = [...chunks, ...(knowledge.contextText ? [knowledge.contextText] : [])];
+  const combinedSources = [...operationalAssurance.sources, ...sources, ...knowledge.sources];
+  const combinedChunks = [
+    ...(operationalAssurance.contextText ? [operationalAssurance.contextText] : []),
+    ...chunks,
+    ...(knowledge.contextText ? [knowledge.contextText] : []),
+  ];
   return {
     sources: combinedSources,
     contextText: combinedChunks.length ? combinedChunks.join("\n") : "No matching approved Fornost GRC or knowledge-base records were available for this question.",
