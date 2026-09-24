@@ -48,7 +48,6 @@ type WorkRow = AssuranceWorkRow & {
 
 async function runtime(){const {env}=await import("cloudflare:workers");return env as unknown as Env}
 const json=(data:unknown,status=200)=>NextResponse.json(data,{status,headers:{"cache-control":"no-store"}});
-const firstRef=(value:string)=>String(value||"").split(/[;,|\n]+/).map(item=>item.trim()).find(Boolean)||"";
 const parseData=(raw:string|undefined|null)=>{try{return JSON.parse(raw||"{}") as Record<string,unknown>}catch{return {}}};
 const asObject=(value:unknown)=>value&&typeof value==="object"&&!Array.isArray(value)?value as Record<string,unknown>:{};
 const targetControlFromDecision=(decision:Record<string,unknown>)=>{
@@ -89,6 +88,15 @@ async function listWork(db:D1Database){
   }catch{
     return db.prepare("SELECT * FROM continuous_assurance_work_items ORDER BY updated_at DESC LIMIT 500").all<WorkRow>();
   }
+}
+async function resolveRetestTargetControl(db:D1Database,findingId:string,mappedControlRefs:string){
+  const promoted=await db.prepare("SELECT decision_json FROM continuous_assurance_work_items WHERE finding_id=? AND action='capa-promotion' AND status='completed' ORDER BY completed_at DESC,updated_at DESC LIMIT 1").bind(findingId).first<{decision_json:string}>();
+  if(promoted){
+    const selected=targetControlFromDecision(parseData(promoted.decision_json));
+    const inherited=resolveContinuousAssuranceTargetControl(mappedControlRefs,selected);
+    if(inherited.ok)return inherited;
+  }
+  return resolveContinuousAssuranceTargetControl(mappedControlRefs,"");
 }
 
 export async function GET(req:NextRequest){
@@ -170,9 +178,11 @@ export async function POST(req:NextRequest){
       if(!recovery.readyForRetest||recovery.recoveryState!=="ready-for-retest")return json({error:"Kontrol henüz yeniden teste hazır değil.",recovery},409);
       const existing=await env.DB.prepare("SELECT id,status FROM continuous_assurance_work_items WHERE finding_id=? AND action='control-retest' AND status IN ('pending-review','approved-awaiting-retest') ORDER BY created_at DESC LIMIT 1").bind(findingId).first<{id:string;status:string}>();
       if(existing)return json({ok:true,id:existing.id,status:existing.status,message:"Yeniden test işi zaten aktif.",recovery});
-      const id=`CAW-${crypto.randomUUID()}`,stamp=now.toISOString(),decision={recovery,ruleId:context.rule.id,controlRef:firstRef(context.rule.control_refs)};
+      const targetControl=await resolveRetestTargetControl(env.DB,findingId,context.rule.control_refs);
+      if(!targetControl.ok)return json({error:"Yeniden test hedef kontrolü güvenli biçimde çözümlenemedi.",code:targetControl.reason,availableControlRefs:targetControl.availableControlRefs},409);
+      const id=`CAW-${crypto.randomUUID()}`,stamp=now.toISOString(),decision={recovery,ruleId:context.rule.id,controlRef:targetControl.controlRef,targetControlRef:targetControl.controlRef};
       await env.DB.prepare("INSERT INTO continuous_assurance_work_items(id,finding_id,rule_id,action,status,decision_json,created_at,updated_at,actor) VALUES(?,?,?,'control-retest','pending-review',?,?,?,?)").bind(id,findingId,context.rule.id,JSON.stringify(decision),stamp,stamp,access.actor.email).run();
-      return json({ok:true,id,message:"Kontrol yeniden test işi güvence kuyruğuna alındı.",recovery},201);
+      return json({ok:true,id,targetControlRef:targetControl.controlRef,message:"Kontrol yeniden test işi güvence kuyruğuna alındı.",recovery},201);
     }
 
     if(action==="queue-capa-promotion"){
