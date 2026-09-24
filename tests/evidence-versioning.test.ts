@@ -101,10 +101,11 @@ test("empty chain is explicitly legacy-unverified", async () => {
   assert.deepEqual(await verifyEvidenceVersionChain([]), { state: "legacy-unverified", checked: 0, failedVersion: 0 });
 });
 
-test("version row and control mappings are committed in one D1 batch", async () => {
+test("version row, control mappings and caller anchor statements share one D1 batch", async () => {
   const source = await readFile("app/evidence/versioning.ts", "utf8");
   assert.match(source, /const versionStatement = db\.prepare/);
   assert.match(source, /const controlStatements = refs\.map/);
-  assert.match(source, /await db\.batch\(\[versionStatement, \.\.\.controlStatements\]\)/);
+  assert.match(source, /const additionalStatements = options\.additionalStatements\?\.\(commit\) \|\| \[\]/);
+  assert.match(source, /await db\.batch\(\[versionStatement, \.\.\.controlStatements, \.\.\.additionalStatements\]\)/);
   assert.doesNotMatch(source, /VALUES\(\?,\?,\?,\?,\?,\?,\?,\?,\?,\?,\?,\?,\?,\?,\?,\?,\?,\?,\?\)`\)\.bind\([\s\S]*?\)\.run\(\)/);
 });
