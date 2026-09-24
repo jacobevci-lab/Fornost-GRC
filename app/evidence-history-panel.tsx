@@ -28,6 +28,7 @@ export default function EvidenceHistoryPanel({lang,currentUser}:{lang:Lang;curre
   const [timeline,setTimeline]=useState<Version[]|null>(null);
   const [selected,setSelected]=useState("");
   const [detail,setDetail]=useState<Detail|null>(null);
+  const [detailRevision,setDetailRevision]=useState(0);
   const [controlRef,setControlRef]=useState("");
   const [versionRefs,setVersionRefs]=useState("");
   const [message,setMessage]=useState("");
@@ -41,7 +42,13 @@ export default function EvidenceHistoryPanel({lang,currentUser}:{lang:Lang;curre
       const body=await response.json().catch(()=>({})) as Overview&{error?:string};
       if(!response.ok)throw new Error(body.error||(tr?"Kanıt geçmişi alınamadı.":"Unable to load evidence history."));
       setOverview(body);setTimeline(null);
-      if(!selected&&body.evidenceItems[0]){setSelected(body.evidenceItems[0].id);setVersionRefs(body.evidenceItems[0].controlRefs.join(", "))}
+      const current=body.evidenceItems.find(item=>item.id===selected);
+      if(!current){
+        const first=body.evidenceItems[0];
+        if(first){setSelected(first.id);setVersionRefs(first.controlRefs.join(", "))}
+        else{setSelected("");setVersionRefs("");setDetail(null)}
+      }
+      setDetailRevision(value=>value+1);
     }catch(error){setMessage(error instanceof Error?error.message:(tr?"Kanıt geçmişi alınamadı.":"Unable to load evidence history."))}
     finally{setLoading(false)}
   }
@@ -64,7 +71,7 @@ export default function EvidenceHistoryPanel({lang,currentUser}:{lang:Lang;curre
       .then(body=>{if(live)setDetail(body)})
       .catch(()=>{if(live&&!controller.signal.aborted)setDetail(null)});
     return()=>{live=false;controller.abort()};
-  },[selected,tr]);
+  },[selected,tr,detailRevision]);
 
   async function searchControl(event:FormEvent){
     event.preventDefault();const query=controlRef.trim();
@@ -81,14 +88,15 @@ export default function EvidenceHistoryPanel({lang,currentUser}:{lang:Lang;curre
 
   async function appendVersion(event:FormEvent<HTMLFormElement>){
     event.preventDefault();if(!selected)return;
-    const form=new FormData(event.currentTarget);form.set("evidenceId",selected);form.set("controlRefs",versionRefs);
+    const formElement=event.currentTarget;
+    const form=new FormData(formElement);form.set("evidenceId",selected);form.set("controlRefs",versionRefs);
     setBusy(true);setMessage("");
     try{
       const response=await fetch(withBasePath("/api/evidence/history"),{method:"POST",body:form});
       const body=await response.json().catch(()=>({})) as {message?:string;error?:string};
       if(!response.ok)throw new Error(body.error||(tr?"Yeni kanıt versiyonu kaydedilemedi.":"Unable to save evidence version."));
       setMessage(body.message||(tr?"Yeni kanıt versiyonu kaydedildi.":"Evidence version saved."));
-      event.currentTarget.reset();await loadOverview();
+      formElement.reset();await loadOverview();
     }catch(error){setMessage(error instanceof Error?error.message:(tr?"Yeni kanıt versiyonu kaydedilemedi.":"Unable to save evidence version."))}
     finally{setBusy(false)}
   }
