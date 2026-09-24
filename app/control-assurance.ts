@@ -60,7 +60,9 @@ export function buildControlAssurance(rows: AssuranceRow[], today = new Date().t
   const items: ControlAssuranceItem[] = controls.map((control) => {
     const reference = clean(control.data.controlRef || control.code || control.id);
     const linkedEvidence = relatedRows(control, graph.links, "Kanıtlar", ["control-evidence"]);
-    const linkedAudits = relatedRows(control, graph.links, "Denetim Yönetimi", ["audit-control"]);
+    // Legacy audit rows can carry controlRef. The shared graph still resolves those rows,
+    // historically under control-evidence, so accept both graph relation labels here.
+    const linkedAudits = relatedRows(control, graph.links, "Denetim Yönetimi", ["audit-control", "control-evidence"]);
     const linkedFrameworks = relatedRows(control, graph.links, "Uyum", ["control-framework"]);
     const linkedFindings = relatedRows(control, graph.links, "Bulgular ve CAPA", ["finding-control"])
       .filter((row) => !isClosed(row.data.status));
