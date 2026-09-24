@@ -3,7 +3,11 @@ import { requireRole, type AppRole } from "../auth/security";
 import { clean } from "../integrations/security";
 import { controlHealth, evidenceFreshness } from "../../evidence/continuous-controls";
 import { evaluateAssuranceRecovery, type AssuranceState, type EvidenceFreshness, type RetestResult } from "../../assurance-recovery";
-import { buildContinuousAssuranceCapaCandidate, type CapaPromotionCandidate } from "../../continuous-assurance-capa";
+import {
+  buildContinuousAssuranceCapaCandidate,
+  resolveContinuousAssuranceTargetControl,
+  type CapaPromotionCandidate,
+} from "../../continuous-assurance-capa";
 import { ensureAssuranceWorkSchema, reconcileApprovedRetests, type AssuranceWorkRow } from "../../continuous-assurance-runtime";
 import { promoteContinuousAssuranceFinding } from "../../findings/promotion";
 
@@ -46,6 +50,11 @@ async function runtime(){const {env}=await import("cloudflare:workers");return e
 const json=(data:unknown,status=200)=>NextResponse.json(data,{status,headers:{"cache-control":"no-store"}});
 const firstRef=(value:string)=>String(value||"").split(/[;,|\n]+/).map(item=>item.trim()).find(Boolean)||"";
 const parseData=(raw:string|undefined|null)=>{try{return JSON.parse(raw||"{}") as Record<string,unknown>}catch{return {}}};
+const asObject=(value:unknown)=>value&&typeof value==="object"&&!Array.isArray(value)?value as Record<string,unknown>:{};
+const targetControlFromDecision=(decision:Record<string,unknown>)=>{
+  const candidate=asObject(decision.candidate),lineage=asObject(candidate.lineage),payload=asObject(candidate.payload);
+  return String(payload.controlRef||lineage.controlRef||decision.targetControlRef||decision.controlRef||"");
+};
 
 function assuranceStateFor(rule:RuleRow,now=new Date()):AssuranceState{
   const health=controlHealth({enabled:!!rule.enabled,lastStatus:rule.last_status,lastEvidenceAt:rule.last_evidence_at,freshnessHours:rule.freshness_hours,consecutiveFailures:rule.consecutive_failures},now);
@@ -86,11 +95,15 @@ export async function GET(req:NextRequest){
   const access=await requireRole(req,["Admin","Editor","Viewer"]);if(access.response)return access.response;
   const env=await runtime();await ensureAssuranceWorkSchema(env.DB);await reconcileApprovedRetests(env.DB);
   const result=await listWork(env.DB);
-  const items=result.results.map(row=>({
-    id:row.id,findingId:row.finding_id,ruleId:row.rule_id,action:row.action,status:row.status,decision:parseData(row.decision_json),createdAt:row.created_at,updatedAt:row.updated_at,actor:row.actor,
-    reviewedBy:row.reviewed_by||"",reviewedAt:row.reviewed_at||"",reviewNote:row.review_note||"",resultRef:row.result_ref||"",completedAt:row.completed_at||"",
-    findingTitle:row.finding_title||row.finding_id,severity:row.finding_severity||"",owner:row.finding_owner||"",dueDate:row.finding_due_date||"",ruleName:row.rule_name||row.rule_id,controlRefs:row.control_refs||""
-  }));
+  const items=result.results.map(row=>{
+    const decision=parseData(row.decision_json);
+    return {
+      id:row.id,findingId:row.finding_id,ruleId:row.rule_id,action:row.action,status:row.status,decision,createdAt:row.created_at,updatedAt:row.updated_at,actor:row.actor,
+      reviewedBy:row.reviewed_by||"",reviewedAt:row.reviewed_at||"",reviewNote:row.review_note||"",resultRef:row.result_ref||"",completedAt:row.completed_at||"",
+      findingTitle:row.finding_title||row.finding_id,severity:row.finding_severity||"",owner:row.finding_owner||"",dueDate:row.finding_due_date||"",ruleName:row.rule_name||row.rule_id,controlRefs:row.control_refs||"",
+      targetControlRef:targetControlFromDecision(decision),
+    };
+  });
   return json({items,summary:{
     total:items.length,
     pendingReview:items.filter(item=>item.status==="pending-review").length,
@@ -163,6 +176,15 @@ export async function POST(req:NextRequest){
     }
 
     if(action==="queue-capa-promotion"){
+      const targetControl=resolveContinuousAssuranceTargetControl(context.rule.control_refs,body.targetControlRef);
+      if(!targetControl.ok){
+        const error=targetControl.reason==="target-control-required"
+          ?"Bu sürekli kontrol birden fazla kontrole bağlı. Hedef kontrol seçimi zorunludur."
+          :targetControl.reason==="target-control-not-mapped"
+            ?"Seçilen hedef kontrol bu otomasyon kuralına bağlı değil."
+            :"Sürekli kontrol için bağlı kontrol bulunamadı.";
+        return json({error,code:targetControl.reason,availableControlRefs:targetControl.availableControlRefs},409);
+      }
       const evidenceData=parseData(context.evidence?.data_json),candidate=buildContinuousAssuranceCapaCandidate({
         findingId:context.finding.id,
         ruleId:context.rule.id,
@@ -173,7 +195,7 @@ export async function POST(req:NextRequest){
         owner:clean(body.owner,200)||context.finding.owner,
         reviewer:clean(body.reviewer,200),
         dueDate:clean(body.dueDate,10)||context.finding.due_date,
-        controlRef:firstRef(context.rule.control_refs),
+        controlRef:targetControl.controlRef,
         riskRef:context.risk?.id||"",
         rootCause:clean(body.rootCause,2400),
         correctiveAction:clean(body.correctiveAction,2400),
@@ -184,9 +206,9 @@ export async function POST(req:NextRequest){
       if(!candidate.eligible)return json({error:"CAPA promotion governance koşulları tamamlanmadı.",candidate},409);
       const existing=await env.DB.prepare("SELECT id,status,result_ref FROM continuous_assurance_work_items WHERE finding_id=? AND action='capa-promotion' AND status IN ('pending-review','completed') ORDER BY created_at DESC LIMIT 1").bind(findingId).first<{id:string;status:string;result_ref:string|null}>();
       if(existing)return json({ok:true,id:existing.id,status:existing.status,resultRef:existing.result_ref||"",message:existing.status==="completed"?"CAPA promotion daha önce tamamlandı.":"CAPA promotion işi zaten beklemede.",candidate});
-      const id=`CAW-${crypto.randomUUID()}`,stamp=now.toISOString(),decision={candidate,recovery};
+      const id=`CAW-${crypto.randomUUID()}`,stamp=now.toISOString(),decision={candidate,recovery,targetControlRef:targetControl.controlRef};
       await env.DB.prepare("INSERT INTO continuous_assurance_work_items(id,finding_id,rule_id,action,status,decision_json,created_at,updated_at,actor) VALUES(?,?,?,'capa-promotion','pending-review',?,?,?,?)").bind(id,findingId,context.rule.id,JSON.stringify(decision),stamp,stamp,access.actor.email).run();
-      return json({ok:true,id,message:"Governed CAPA promotion işi inceleme kuyruğuna alındı.",candidate},201);
+      return json({ok:true,id,message:"Governed CAPA promotion işi inceleme kuyruğuna alındı.",candidate,targetControlRef:targetControl.controlRef},201);
     }
 
     return json({error:"Geçersiz sürekli güvence işlemi."},400);
