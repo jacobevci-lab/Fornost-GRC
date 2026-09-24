@@ -1,7 +1,5 @@
 import { validateFinding } from "./findings/domain";
 
-type JsonRecord = Record<string, unknown>;
-
 export type ContinuousAssuranceCapaInput = {
   findingId: string;
   ruleId: string;
@@ -24,7 +22,7 @@ export type ContinuousAssuranceCapaInput = {
 export type CapaPromotionCandidate = {
   eligible: boolean;
   reasons: string[];
-  payload?: JsonRecord;
+  payload?: ReturnType<typeof validateFinding>;
   lineage: {
     automationFindingRef: string;
     automationRuleRef: string;
@@ -60,9 +58,9 @@ export function buildContinuousAssuranceCapaCandidate(
   if (!text(input.reviewer)) reasons.push("independent-reviewer-required");
   if (text(input.owner).toLowerCase() === text(input.reviewer).toLowerCase() && text(input.owner)) reasons.push("maker-checker-separation-required");
 
-  const rawPayload: JsonRecord = {
-    sourceType: "control",
-    sourceRef: lineage.controlRef || lineage.automationRuleRef,
+  const rawPayload: Record<string, unknown> = {
+    sourceType: "continuous-control",
+    sourceRef: lineage.automationRuleRef,
     sourceTitle: text(input.ruleName) || `Continuous control ${lineage.automationRuleRef}`,
     findingType: "control-deficiency",
     title: text(input.title),
