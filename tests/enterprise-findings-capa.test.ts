@@ -15,9 +15,11 @@ test("severity drives bounded CAPA SLA and complete independent ownership",()=>{
 
 test("continuous-control is a canonical source but generic finding creation cannot forge that lineage",async()=>{
  assert.ok(FINDING_SOURCES.includes("continuous-control"));
- const route=await readFile("app/api/findings/route.ts","utf8");
+ const[route,ui]=await Promise.all([readFile("app/api/findings/route.ts","utf8"),readFile("app/findings-center.tsx","utf8")]);
  assert.match(route,/finding\.sourceType === "continuous-control"/);
  assert.match(route,/yalnız yönetişimli Continuous Assurance inceleme kuyruğu üzerinden oluşturulabilir/);
+ assert.match(ui,/manualFindingSources=FINDING_SOURCES\.filter\(source=>source!=="continuous-control"\)/);
+ assert.match(ui,/manualFindingSources\.map/);
 });
 
 test("closure and time-bound risk acceptance require exact evidence-backed confirmation",()=>{
