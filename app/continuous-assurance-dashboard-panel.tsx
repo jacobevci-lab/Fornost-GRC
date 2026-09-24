@@ -87,7 +87,27 @@ export default function ContinuousAssuranceDashboardPanel({
     }
   }, [tr]);
 
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    let live = true;
+    const controller = new AbortController();
+    fetch(withBasePath("/api/continuous-assurance/dashboard"), { cache: "no-store", signal: controller.signal })
+      .then(async (response) => {
+        const body = await response.json().catch(() => ({})) as Dashboard & { error?: string };
+        if (!response.ok) throw new Error(body.error || (tr ? "Güvence özeti alınamadı." : "Unable to load assurance dashboard."));
+        return body;
+      })
+      .then((body) => {
+        if (!live) return;
+        setDashboard(body);
+        setError("");
+      })
+      .catch((cause) => {
+        if (!live || controller.signal.aborted) return;
+        setError(cause instanceof Error ? cause.message : (tr ? "Güvence özeti alınamadı." : "Unable to load assurance dashboard."));
+      })
+      .finally(() => { if (live) setLoading(false); });
+    return () => { live = false; controller.abort(); };
+  }, [tr]);
 
   const priorities = useMemo(() => dashboard.priorities.filter((item) => {
     if (filter === "all") return true;
@@ -107,7 +127,7 @@ export default function ContinuousAssuranceDashboardPanel({
   return <section className="ca-dashboard" aria-label={tr ? "Sürekli güvence merkezi" : "Continuous Assurance center"}>
     <header className="ca-dashboard-head">
       <div>
-        <small>{tr ? "CONNECTED GRC · CONTINUOUS ASSURANCE" : "CONNECTED GRC · CONTINUOUS ASSURANCE"}</small>
+        <small>CONNECTED GRC · CONTINUOUS ASSURANCE</small>
         <h3>{tr ? "Sürekli Güvence Merkezi" : "Continuous Assurance Center"}</h3>
         <p>{tr ? "Kontrol sağlığı, kanıt tazeliği, CAPA yönetişimi, yeniden test ve düzeltme borcunu tek aksiyon kuyruğunda birleştirir." : "Unifies control health, evidence freshness, CAPA governance, retest and remediation debt in one action queue."}</p>
       </div>
