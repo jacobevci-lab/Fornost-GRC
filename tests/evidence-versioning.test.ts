@@ -6,6 +6,7 @@ import {
   splitEvidenceControlRefs,
   validateEvidenceFile,
   verifyEvidenceVersionChain,
+  verifyEvidenceVersionChainWithAnchor,
   type EvidenceChainInput,
   type EvidenceVersionRow,
 } from "../app/evidence/versioning";
@@ -95,6 +96,23 @@ test("version chain verifies valid lineage and detects metadata tampering", asyn
   const tampered = valid.map((item) => ({ ...item }));
   tampered[1].change_note = "silently changed note";
   assert.deepEqual(await verifyEvidenceVersionChain(tampered), { state: "broken", checked: 2, failedVersion: 2 });
+});
+
+test("anchored verification detects stale or forged Evidence Library heads", async () => {
+  const firstHash = await computeEvidenceChainHash(base);
+  const rows = [row(base, "EVV-1", firstHash)];
+  assert.deepEqual(
+    await verifyEvidenceVersionChainWithAnchor(rows, { versionNo: 1, chainSha256: firstHash }),
+    { state: "verified", checked: 1, failedVersion: 0 },
+  );
+  assert.deepEqual(
+    await verifyEvidenceVersionChainWithAnchor(rows, { versionNo: 1, chainSha256: "b".repeat(64) }),
+    { state: "broken", checked: 1, failedVersion: 1 },
+  );
+  assert.deepEqual(
+    await verifyEvidenceVersionChainWithAnchor(rows, { versionNo: 2, chainSha256: firstHash }),
+    { state: "broken", checked: 1, failedVersion: 2 },
+  );
 });
 
 test("empty chain is explicitly legacy-unverified", async () => {
