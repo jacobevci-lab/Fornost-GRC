@@ -55,8 +55,13 @@ const time = (value: unknown) => {
   const parsed = new Date(clean(value)).getTime();
   return Number.isFinite(parsed) ? parsed : Number.NaN;
 };
+const sortTime = (value: unknown) => {
+  const parsed = time(value);
+  return Number.isFinite(parsed) ? parsed : Number.MAX_SAFE_INTEGER;
+};
 const isClosed = (status: string) => ["closed", "completed", "resolved", "rejected"].includes(clean(status).toLowerCase());
-const severityWeight = (severity: string) => ({ critical: 40, high: 30, medium: 20, low: 10 }[clean(severity).toLowerCase()] || 5);
+const severityWeights: Record<string, number> = { critical: 40, high: 30, medium: 20, low: 10 };
+const severityWeight = (severity: string) => severityWeights[clean(severity).toLowerCase()] ?? 5;
 const splitControlRefs = (value: string) => [...new Set(value.split(/[;,|\n]+/).map((entry) => entry.trim()).filter(Boolean))];
 
 export function buildContinuousAssuranceDashboard(input: {
@@ -156,7 +161,7 @@ export function buildContinuousAssuranceDashboard(input: {
     });
   }
 
-  priorities.sort((a, b) => b.priority - a.priority || time(a.dueDate) - time(b.dueDate) || b.updatedAt.localeCompare(a.updatedAt));
+  priorities.sort((a, b) => b.priority - a.priority || sortTime(a.dueDate) - sortTime(b.dueDate) || b.updatedAt.localeCompare(a.updatedAt));
 
   return {
     summary: {
