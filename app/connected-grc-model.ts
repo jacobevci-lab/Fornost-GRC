@@ -29,6 +29,7 @@ export type ConnectedGrcCoverageGap = {
     | "evidence-control"
     | "audit-traceability"
     | "finding-traceability"
+    | "remediation-traceability"
     | "incident-context"
     | "continuity-bia"
     | "continuity-execution"
@@ -74,6 +75,11 @@ const relationFields: Record<string, RelationDefinition> = {
   findingRegulatoryRef: { relation: "finding-regulatory", modules: ["Regülasyon Merkezi"], sources: ["Bulgular ve CAPA"] },
   findingPolicyRef: { relation: "finding-policy", modules: ["Politika Merkezi"], sources: ["Bulgular ve CAPA"] },
   findingIncidentRef: { relation: "finding-incident", modules: ["Güvenlik Olayları"], sources: ["Bulgular ve CAPA"] },
+  findingAutomationRuleRef: { relation: "finding-automation-rule", modules: ["Kanıt Otomasyonu"], sources: ["Bulgular ve CAPA"] },
+  remediationFindingRef: { relation: "finding-remediation", modules: ["Bulgular ve CAPA"], sources: ["Bulgular ve CAPA"] },
+  remediationRiskRef: { relation: "remediation-risk", modules: ["Risk Assessment"], sources: ["Bulgular ve CAPA"] },
+  remediationControlRef: { relation: "remediation-control", modules: ["Kontroller", "Uyum"], sources: ["Bulgular ve CAPA"] },
+  remediationAutomationRuleRef: { relation: "remediation-automation-rule", modules: ["Kanıt Otomasyonu"], sources: ["Bulgular ve CAPA"] },
 
   incidentAssetRefs: { relation: "incident-asset", modules: ["Varlık Envanteri"], sources: ["Güvenlik Olayları"] },
   incidentRiskRef: { relation: "incident-risk", modules: ["Risk Assessment"], sources: ["Güvenlik Olayları"] },
@@ -175,10 +181,11 @@ type CoverageRule = {
 
 const coverageRules: CoverageRule[] = [
   { module: "Risk Assessment", rule: "risk-context", severity: "high", relationGroups: [["risk-asset", "risk-process"]] },
-  { module: "Kontroller", rule: "control-assurance", severity: "high", relationGroups: [["control-evidence"], ["control-framework"]] },
+  { module: "Kontroller", rule: "control-assurance", severity: "high", relationGroups: [["control-evidence", "automation-control"], ["control-framework"]] },
   { module: "Kanıtlar", rule: "evidence-control", severity: "medium", relationGroups: [["control-evidence"]] },
   { module: "Denetim Yönetimi", rule: "audit-traceability", severity: "high", relationGroups: [["audit-control"], ["audit-evidence"]] },
-  { module: "Bulgular ve CAPA", kind: "finding", rule: "finding-traceability", severity: "high", relationGroups: [["finding-risk", "finding-control", "finding-audit", "finding-vendor", "finding-regulatory", "finding-policy", "finding-incident"]] },
+  { module: "Bulgular ve CAPA", kind: "finding", rule: "finding-traceability", severity: "high", relationGroups: [["finding-risk", "finding-control", "finding-audit", "finding-vendor", "finding-regulatory", "finding-policy", "finding-incident", "finding-automation-rule"], ["finding-remediation"]] },
+  { module: "Bulgular ve CAPA", kind: "remediation", rule: "remediation-traceability", severity: "high", relationGroups: [["finding-remediation"], ["remediation-risk"]] },
   { module: "Güvenlik Olayları", kind: "incident", rule: "incident-context", severity: "high", relationGroups: [["incident-asset", "incident-risk", "incident-bia"]] },
   { module: "İş Sürekliliği", kind: "continuity-plan", rule: "continuity-bia", severity: "high", relationGroups: [["continuity-bia"]] },
   { module: "İş Sürekliliği", kind: "continuity-exercise", rule: "continuity-execution", severity: "medium", relationGroups: [["continuity-plan"]] },
@@ -256,6 +263,11 @@ export const connectedRemediationModule: Record<string, string> = {
   "finding-regulatory": "Regülasyon Merkezi",
   "finding-policy": "Politika Merkezi",
   "finding-incident": "Güvenlik Olayları",
+  "finding-automation-rule": "Kanıt Otomasyonu",
+  "finding-remediation": "Bulgular ve CAPA",
+  "remediation-risk": "Risk Assessment",
+  "remediation-control": "Kontroller",
+  "remediation-automation-rule": "Kanıt Otomasyonu",
   "incident-asset": "Varlık Envanteri",
   "incident-risk": "Risk Assessment",
   "incident-bia": "BIA",
@@ -284,8 +296,6 @@ export const connectedRemediationModule: Record<string, string> = {
   "automation-evidence": "Kanıtlar",
   "control-assurance": "Kanıt Otomasyonu",
   "assurance-finding": "Kanıt Otomasyonu",
-  "finding-remediation": "Kanıt Otomasyonu",
-  "remediation-risk": "Risk Assessment",
 };
 
 export const connectedRelationLabels: Record<string, { tr: string; en: string }> = {
@@ -305,6 +315,11 @@ export const connectedRelationLabels: Record<string, { tr: string; en: string }>
   "finding-regulatory": { tr: "regülasyondan doğar", en: "originates from regulation" },
   "finding-policy": { tr: "politikaya bağlı", en: "linked to policy" },
   "finding-incident": { tr: "olaya bağlı", en: "linked to incident" },
+  "finding-automation-rule": { tr: "sürekli kontrolden doğar", en: "originates from continuous control" },
+  "finding-remediation": { tr: "bulguyu giderir", en: "remediates finding" },
+  "remediation-risk": { tr: "riski tedavi eder", en: "treats risk" },
+  "remediation-control": { tr: "kontrolü iyileştirir", en: "improves control" },
+  "remediation-automation-rule": { tr: "sürekli kontrolü iyileştirir", en: "remediates continuous control" },
   "incident-asset": { tr: "varlığı etkiler", en: "impacts asset" },
   "incident-risk": { tr: "riski tetikler", en: "triggers risk" },
   "incident-bia": { tr: "kritik süreci etkiler", en: "impacts critical process" },
@@ -334,6 +349,4 @@ export const connectedRelationLabels: Record<string, { tr: string; en: string }>
   "automation-evidence": { tr: "otomatik kanıta bağlı", en: "linked to automated evidence" },
   "control-assurance": { tr: "kontrol güvencesini üretir", en: "produces control assurance" },
   "assurance-finding": { tr: "güvence düşüşü bulgu üretir", en: "assurance degradation creates finding" },
-  "finding-remediation": { tr: "düzeltme aksiyonuna dönüşür", en: "drives remediation action" },
-  "remediation-risk": { tr: "artık riske bağlanır", en: "links to residual risk" },
 };
