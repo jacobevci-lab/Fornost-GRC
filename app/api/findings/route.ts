@@ -1,30 +1,214 @@
-import {NextRequest,NextResponse} from "next/server";
-import {requireRole} from "../auth/security";
-import {clean} from "../integrations/security";
-import {findingAttention,validateFinding,validateFindingAction} from "../../findings/domain";
-type Env=Record<string,unknown>&{DB:D1Database};
-const schema=[
-`CREATE TABLE IF NOT EXISTS enterprise_findings(id TEXT PRIMARY KEY NOT NULL,code TEXT NOT NULL UNIQUE,source_type TEXT NOT NULL,source_ref TEXT NOT NULL,source_title TEXT NOT NULL,finding_type TEXT NOT NULL,title TEXT NOT NULL,description TEXT NOT NULL,severity TEXT NOT NULL,owner TEXT NOT NULL,reviewer TEXT NOT NULL,root_cause TEXT NOT NULL,corrective_action TEXT NOT NULL,preventive_action TEXT NOT NULL,due_date TEXT NOT NULL,status TEXT NOT NULL DEFAULT 'open',risk_ref TEXT,control_ref TEXT,evidence_reference TEXT,evidence_sha256 TEXT,verification_evidence_reference TEXT,verification_evidence_sha256 TEXT,acceptance_rationale TEXT,accept_until TEXT,recurrence_count INTEGER NOT NULL DEFAULT 0,detected_by TEXT NOT NULL,detected_at TEXT NOT NULL,updated_by TEXT NOT NULL,updated_at TEXT NOT NULL,started_by TEXT,started_at TEXT,submitted_by TEXT,submitted_at TEXT,verified_by TEXT,verified_at TEXT,reopened_by TEXT,reopened_at TEXT)`,
-`CREATE INDEX IF NOT EXISTS enterprise_findings_status_due_idx ON enterprise_findings(status,severity,due_date)`,`CREATE INDEX IF NOT EXISTS enterprise_findings_source_idx ON enterprise_findings(source_type,source_ref)`,
-`CREATE TABLE IF NOT EXISTS enterprise_finding_events(id TEXT PRIMARY KEY NOT NULL,finding_id TEXT NOT NULL,action TEXT NOT NULL,from_status TEXT,to_status TEXT,detail TEXT NOT NULL,evidence_reference TEXT,evidence_sha256 TEXT,actor TEXT NOT NULL,created_at TEXT NOT NULL)`,`CREATE INDEX IF NOT EXISTS enterprise_finding_events_finding_date_idx ON enterprise_finding_events(finding_id,created_at)`];
-async function runtime(){const{env}=await import("cloudflare:workers");return env as unknown as Env}async function ready(db:D1Database){for(const sql of schema)await db.prepare(sql).run()}
-const json=(data:unknown,status=200)=>NextResponse.json(data,{status,headers:{"cache-control":"no-store"}}),csvCell=(value:unknown)=>{const raw=String(value??""),safe=/^[=+\-@]/.test(raw)?`'${raw}`:raw;return`"${safe.replace(/"/g,'""')}"`};
-async function event(db:D1Database,input:{findingId:string;action:string;from?:string;to?:string;detail:string;evidenceReference?:string;evidenceSha256?:string;actor:string}){await db.prepare("INSERT INTO enterprise_finding_events(id,finding_id,action,from_status,to_status,detail,evidence_reference,evidence_sha256,actor,created_at) VALUES(?,?,?,?,?,?,?,?,?,?)").bind(crypto.randomUUID(),input.findingId,input.action,input.from||null,input.to||null,input.detail.slice(0,2000),input.evidenceReference||null,input.evidenceSha256||null,input.actor,new Date().toISOString()).run()}
-function map(row:Record<string,unknown>){return{id:row.id,code:row.code,sourceType:row.source_type,sourceRef:row.source_ref,sourceTitle:row.source_title,findingType:row.finding_type,title:row.title,description:row.description,severity:row.severity,owner:row.owner,reviewer:row.reviewer,rootCause:row.root_cause,correctiveAction:row.corrective_action,preventiveAction:row.preventive_action,dueDate:row.due_date,status:row.status,riskRef:row.risk_ref,controlRef:row.control_ref,evidenceReference:row.evidence_reference,verificationEvidenceReference:row.verification_evidence_reference,acceptanceRationale:row.acceptance_rationale,acceptUntil:row.accept_until,recurrenceCount:Number(row.recurrence_count||0),detectedBy:row.detected_by,detectedAt:row.detected_at,updatedAt:row.updated_at,submittedBy:row.submitted_by,verifiedBy:row.verified_by,attention:findingAttention(String(row.status),String(row.severity),String(row.due_date),String(row.accept_until||""))}}
-async function sourceCount(db:D1Database,source:string,sql:string){try{const x=await db.prepare(sql).first<{n:number}>();return{source,count:Number(x?.n||0)}}catch{return{source,count:0}}}
+import { NextRequest, NextResponse } from "next/server";
+import { requireRole } from "../auth/security";
+import { clean } from "../integrations/security";
+import { findingAttention, validateFinding, validateFindingAction } from "../../findings/domain";
 
-export async function GET(req:NextRequest){const access=await requireRole(req,["Admin","Editor","Viewer"]);if(access.response)return access.response;const env=await runtime();await ready(env.DB);const[result,eventResult,sourceSignals]=await Promise.all([env.DB.prepare("SELECT * FROM enterprise_findings ORDER BY CASE severity WHEN 'critical' THEN 0 WHEN 'high' THEN 1 WHEN 'medium' THEN 2 ELSE 3 END,due_date,updated_at DESC LIMIT 3000").all<Record<string,unknown>>(),env.DB.prepare("SELECT * FROM enterprise_finding_events ORDER BY created_at DESC LIMIT 1000").all<Record<string,unknown>>(),Promise.all([sourceCount(env.DB,"continuous-control","SELECT COUNT(*) n FROM evidence_automation_findings WHERE status!='closed'"),sourceCount(env.DB,"third-party","SELECT COUNT(*) n FROM third_party_findings WHERE status!='closed'"),sourceCount(env.DB,"ai-assurance","SELECT COUNT(*) n FROM ai_findings WHERE status!='closed'"),sourceCount(env.DB,"regulatory","SELECT COUNT(*) n FROM regulatory_change_impacts WHERE status!='completed'")])]);const findings=result.results.map(map),summary={total:findings.length,open:findings.filter(x=>!["closed","accepted"].includes(String(x.status))).length,critical:findings.filter(x=>x.severity==="critical"&&x.status!=="closed").length,overdue:findings.filter(x=>x.attention==="overdue"||x.attention==="acceptance-expired").length,verification:findings.filter(x=>x.status==="verification").length,accepted:findings.filter(x=>x.status==="accepted").length,closed:findings.filter(x=>x.status==="closed").length,recurring:findings.filter(x=>x.recurrenceCount>0).length};
- if(req.nextUrl.searchParams.get("format")==="csv"){if(access.actor.role!=="Admin")return json({error:"Bulgu çıktısı yalnız Admin tarafından alınabilir."},403);const rows=[["Kod","Kaynak","Kaynak Ref","Başlık","Tür","Önem","Durum","Sahip","Reviewer","Termin","Risk","Kontrol","Tekrar","Dikkat"],...findings.map(x=>[x.code,x.sourceType,x.sourceRef,x.title,x.findingType,x.severity,x.status,x.owner,x.reviewer,x.dueDate,x.riskRef||"",x.controlRef||"",x.recurrenceCount,x.attention])];await event(env.DB,{findingId:"EXPORT",action:"finding-export",detail:`${findings.length} bounded formula-safe records`,actor:access.actor.email});return new NextResponse(`\uFEFF${rows.map(row=>row.map(csvCell).join(",")).join("\n")}`,{headers:{"cache-control":"no-store","content-type":"text/csv; charset=utf-8","content-disposition":"attachment; filename=fornost-findings-capa.csv"}})}
- return json({findings,events:eventResult.results.map(x=>({id:x.id,findingId:x.finding_id,action:x.action,fromStatus:x.from_status,toStatus:x.to_status,detail:x.detail,actor:x.actor,createdAt:x.created_at})),sourceSignals,summary})}
+type Env = Record<string, unknown> & { DB: D1Database };
 
-export async function POST(req:NextRequest){if(Number(req.headers.get("content-length")||0)>262_144)return json({error:"İstek boyutu çok büyük."},413);const body=await req.json().catch(()=>({})) as Record<string,unknown>,action=clean(body.action,40),access=await requireRole(req,["Admin","Editor"]);if(access.response)return access.response;const env=await runtime();await ready(env.DB);try{
- if(action==="create"){const x=validateFinding(body),id=`FND-${crypto.randomUUID()}`,code=`FND-${new Date().getUTCFullYear()}-${crypto.randomUUID().replace(/-/g,"").slice(0,8).toUpperCase()}`,now=new Date().toISOString();await env.DB.prepare("INSERT INTO enterprise_findings(id,code,source_type,source_ref,source_title,finding_type,title,description,severity,owner,reviewer,root_cause,corrective_action,preventive_action,due_date,status,risk_ref,control_ref,detected_by,detected_at,updated_by,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'open',?,?,?,?,?,?)").bind(id,code,x.sourceType,x.sourceRef,x.sourceTitle,x.findingType,x.title,x.description,x.severity,x.owner,x.reviewer,x.rootCause,x.correctiveAction,x.preventiveAction,x.dueDate,x.riskRef||null,x.controlRef||null,access.actor.email,now,access.actor.email,now).run();await event(env.DB,{findingId:id,action:"finding-create",to:"open",detail:`${code}; ${x.sourceType}/${x.sourceRef}; ${x.severity}; due ${x.dueDate}`,actor:access.actor.email});return json({id,code,message:"Kurumsal bulgu ve CAPA planı oluşturuldu."},201)}
- if(action==="transition"){const id=clean(body.findingId,100),a=validateFindingAction(body),x=await env.DB.prepare("SELECT * FROM enterprise_findings WHERE id=?").bind(id).first<Record<string,unknown>>();if(!x)return json({error:"Bulgu bulunamadı."},404);const status=String(x.status),now=new Date().toISOString();let next="";
-  if(a.operation==="start"){if(status!=="open"||access.actor.role!=="Admin"&&x.owner!==access.actor.email)return json({error:"CAPA'yı yalnız atanmış aksiyon sahibi veya Admin başlatabilir."},403);next="in-progress";await env.DB.prepare("UPDATE enterprise_findings SET status=?,started_by=?,started_at=?,updated_by=?,updated_at=? WHERE id=?").bind(next,access.actor.email,now,access.actor.email,now,id).run()}
-  else if(a.operation==="submit"){if(status!=="in-progress"||access.actor.role!=="Admin"&&x.owner!==access.actor.email)return json({error:"CAPA'yı yalnız atanmış aksiyon sahibi doğrulamaya gönderebilir."},403);next="verification";await env.DB.prepare("UPDATE enterprise_findings SET status=?,evidence_reference=?,evidence_sha256=?,submitted_by=?,submitted_at=?,updated_by=?,updated_at=? WHERE id=?").bind(next,a.evidenceReference,a.evidenceSha256,access.actor.email,now,access.actor.email,now,id).run()}
-  else if(a.operation==="verify"){if(access.actor.role!=="Admin"||status!=="verification"||x.reviewer!==access.actor.email)return json({error:"Bulguyu yalnız atanmış bağımsız Admin reviewer kapatabilir."},403);if([x.detected_by,x.owner,x.submitted_by].includes(access.actor.email))return json({error:"Maker-checker: tespit eden, aksiyon sahibi veya gönderen kişi kapatamaz."},409);next="closed";await env.DB.prepare("UPDATE enterprise_findings SET status=?,verification_evidence_reference=?,verification_evidence_sha256=?,verified_by=?,verified_at=?,acceptance_rationale=NULL,accept_until=NULL,updated_by=?,updated_at=? WHERE id=?").bind(next,a.evidenceReference,a.evidenceSha256,access.actor.email,now,access.actor.email,now,id).run()}
-  else if(a.operation==="accept-risk"){if(access.actor.role!=="Admin"||!["open","in-progress"].includes(status)||x.reviewer!==access.actor.email)return json({error:"Risk kabulünü yalnız atanmış bağımsız Admin reviewer verebilir."},403);if([x.detected_by,x.owner].includes(access.actor.email))return json({error:"Maker-checker: tespit eden veya aksiyon sahibi riski kabul edemez."},409);next="accepted";await env.DB.prepare("UPDATE enterprise_findings SET status=?,acceptance_rationale=?,accept_until=?,verification_evidence_reference=?,verification_evidence_sha256=?,verified_by=?,verified_at=?,updated_by=?,updated_at=? WHERE id=?").bind(next,a.acceptanceRationale,a.acceptUntil,a.evidenceReference,a.evidenceSha256,access.actor.email,now,access.actor.email,now,id).run()}
-  else if(a.operation==="reopen"){if(access.actor.role!=="Admin"||!["verification","closed","accepted"].includes(status))return json({error:"Bulguyu yalnız Admin yeniden açabilir."},403);next="in-progress";await env.DB.prepare("UPDATE enterprise_findings SET status=?,recurrence_count=recurrence_count+1,reopened_by=?,reopened_at=?,verified_by=NULL,verified_at=NULL,acceptance_rationale=NULL,accept_until=NULL,updated_by=?,updated_at=? WHERE id=?").bind(next,access.actor.email,now,access.actor.email,now,id).run()}
-  else return json({error:"Geçersiz bulgu işlemi."},400);
-  await event(env.DB,{findingId:id,action:a.operation,from:status,to:next,detail:a.operation==="accept-risk"?`${a.note}; ${a.acceptanceRationale}; until ${a.acceptUntil}`:a.note,evidenceReference:a.evidenceReference,evidenceSha256:a.evidenceSha256,actor:access.actor.email});return json({message:"Bulgu ve CAPA yaşam döngüsü güncellendi.",status:next})}
- return json({error:"Geçersiz işlem."},400)}catch(error){return json({error:error instanceof Error?error.message:"İşlem tamamlanamadı."},400)}}
+const schema = [
+  `CREATE TABLE IF NOT EXISTS enterprise_findings(id TEXT PRIMARY KEY NOT NULL,code TEXT NOT NULL UNIQUE,source_type TEXT NOT NULL,source_ref TEXT NOT NULL,source_title TEXT NOT NULL,finding_type TEXT NOT NULL,title TEXT NOT NULL,description TEXT NOT NULL,severity TEXT NOT NULL,owner TEXT NOT NULL,reviewer TEXT NOT NULL,root_cause TEXT NOT NULL,corrective_action TEXT NOT NULL,preventive_action TEXT NOT NULL,due_date TEXT NOT NULL,status TEXT NOT NULL DEFAULT 'open',risk_ref TEXT,control_ref TEXT,evidence_reference TEXT,evidence_sha256 TEXT,verification_evidence_reference TEXT,verification_evidence_sha256 TEXT,acceptance_rationale TEXT,accept_until TEXT,recurrence_count INTEGER NOT NULL DEFAULT 0,detected_by TEXT NOT NULL,detected_at TEXT NOT NULL,updated_by TEXT NOT NULL,updated_at TEXT NOT NULL,started_by TEXT,started_at TEXT,submitted_by TEXT,submitted_at TEXT,verified_by TEXT,verified_at TEXT,reopened_by TEXT,reopened_at TEXT)`,
+  `CREATE INDEX IF NOT EXISTS enterprise_findings_status_due_idx ON enterprise_findings(status,severity,due_date)`,
+  `CREATE INDEX IF NOT EXISTS enterprise_findings_source_idx ON enterprise_findings(source_type,source_ref)`,
+  `CREATE TABLE IF NOT EXISTS enterprise_finding_events(id TEXT PRIMARY KEY NOT NULL,finding_id TEXT NOT NULL,action TEXT NOT NULL,from_status TEXT,to_status TEXT,detail TEXT NOT NULL,evidence_reference TEXT,evidence_sha256 TEXT,actor TEXT NOT NULL,created_at TEXT NOT NULL)`,
+  `CREATE INDEX IF NOT EXISTS enterprise_finding_events_finding_date_idx ON enterprise_finding_events(finding_id,created_at)`,
+];
+
+async function runtime() {
+  const { env } = await import("cloudflare:workers");
+  return env as unknown as Env;
+}
+
+async function ready(db: D1Database) {
+  for (const sql of schema) await db.prepare(sql).run();
+}
+
+const json = (data: unknown, status = 200) => NextResponse.json(data, { status, headers: { "cache-control": "no-store" } });
+const csvCell = (value: unknown) => {
+  const raw = String(value ?? "");
+  const safe = /^[=+\-@]/.test(raw) ? `'${raw}` : raw;
+  return `"${safe.replace(/"/g, '""')}"`;
+};
+
+async function event(db: D1Database, input: { findingId: string; action: string; from?: string; to?: string; detail: string; evidenceReference?: string; evidenceSha256?: string; actor: string }) {
+  await db.prepare("INSERT INTO enterprise_finding_events(id,finding_id,action,from_status,to_status,detail,evidence_reference,evidence_sha256,actor,created_at) VALUES(?,?,?,?,?,?,?,?,?,?)")
+    .bind(crypto.randomUUID(), input.findingId, input.action, input.from || null, input.to || null, input.detail.slice(0, 2000), input.evidenceReference || null, input.evidenceSha256 || null, input.actor, new Date().toISOString()).run();
+}
+
+function map(row: Record<string, unknown>) {
+  return {
+    id: row.id,
+    code: row.code,
+    sourceType: row.source_type,
+    sourceRef: row.source_ref,
+    sourceTitle: row.source_title,
+    findingType: row.finding_type,
+    title: row.title,
+    description: row.description,
+    severity: row.severity,
+    owner: row.owner,
+    reviewer: row.reviewer,
+    rootCause: row.root_cause,
+    correctiveAction: row.corrective_action,
+    preventiveAction: row.preventive_action,
+    dueDate: row.due_date,
+    status: row.status,
+    riskRef: row.risk_ref,
+    controlRef: row.control_ref,
+    evidenceReference: row.evidence_reference,
+    verificationEvidenceReference: row.verification_evidence_reference,
+    acceptanceRationale: row.acceptance_rationale,
+    acceptUntil: row.accept_until,
+    recurrenceCount: Number(row.recurrence_count || 0),
+    detectedBy: row.detected_by,
+    detectedAt: row.detected_at,
+    updatedAt: row.updated_at,
+    submittedBy: row.submitted_by,
+    verifiedBy: row.verified_by,
+    attention: findingAttention(String(row.status), String(row.severity), String(row.due_date), String(row.accept_until || "")),
+  };
+}
+
+async function sourceCount(db: D1Database, source: string, sql: string) {
+  try {
+    const value = await db.prepare(sql).first<{ n: number }>();
+    return { source, count: Number(value?.n || 0) };
+  } catch {
+    return { source, count: 0 };
+  }
+}
+
+export async function GET(req: NextRequest) {
+  const access = await requireRole(req, ["Admin", "Editor", "Viewer"]);
+  if (access.response) return access.response;
+  const env = await runtime();
+  await ready(env.DB);
+
+  const [result, eventResult, sourceSignals] = await Promise.all([
+    env.DB.prepare("SELECT * FROM enterprise_findings ORDER BY CASE severity WHEN 'critical' THEN 0 WHEN 'high' THEN 1 WHEN 'medium' THEN 2 ELSE 3 END,due_date,updated_at DESC LIMIT 3000").all<Record<string, unknown>>(),
+    env.DB.prepare("SELECT * FROM enterprise_finding_events ORDER BY created_at DESC LIMIT 1000").all<Record<string, unknown>>(),
+    Promise.all([
+      sourceCount(env.DB, "continuous-control", "SELECT COUNT(*) n FROM evidence_automation_findings WHERE status!='closed'"),
+      sourceCount(env.DB, "third-party", "SELECT COUNT(*) n FROM third_party_findings WHERE status!='closed'"),
+      sourceCount(env.DB, "ai-assurance", "SELECT COUNT(*) n FROM ai_findings WHERE status!='closed'"),
+      sourceCount(env.DB, "regulatory", "SELECT COUNT(*) n FROM regulatory_change_impacts WHERE status!='completed'"),
+    ]),
+  ]);
+
+  const findings = result.results.map(map);
+  const summary = {
+    total: findings.length,
+    open: findings.filter((item) => !["closed", "accepted"].includes(String(item.status))).length,
+    critical: findings.filter((item) => item.severity === "critical" && item.status !== "closed").length,
+    overdue: findings.filter((item) => item.attention === "overdue" || item.attention === "acceptance-expired").length,
+    verification: findings.filter((item) => item.status === "verification").length,
+    accepted: findings.filter((item) => item.status === "accepted").length,
+    closed: findings.filter((item) => item.status === "closed").length,
+    recurring: findings.filter((item) => item.recurrenceCount > 0).length,
+  };
+
+  if (req.nextUrl.searchParams.get("format") === "csv") {
+    if (access.actor.role !== "Admin") return json({ error: "Bulgu çıktısı yalnız Admin tarafından alınabilir." }, 403);
+    const rows = [
+      ["Kod", "Kaynak", "Kaynak Ref", "Başlık", "Tür", "Önem", "Durum", "Sahip", "Reviewer", "Termin", "Risk", "Kontrol", "Tekrar", "Dikkat"],
+      ...findings.map((item) => [item.code, item.sourceType, item.sourceRef, item.title, item.findingType, item.severity, item.status, item.owner, item.reviewer, item.dueDate, item.riskRef || "", item.controlRef || "", item.recurrenceCount, item.attention]),
+    ];
+    await event(env.DB, { findingId: "EXPORT", action: "finding-export", detail: `${findings.length} bounded formula-safe records`, actor: access.actor.email });
+    return new NextResponse(`\uFEFF${rows.map((row) => row.map(csvCell).join(",")).join("\n")}`, {
+      headers: {
+        "cache-control": "no-store",
+        "content-type": "text/csv; charset=utf-8",
+        "content-disposition": "attachment; filename=fornost-findings-capa.csv",
+      },
+    });
+  }
+
+  return json({
+    findings,
+    events: eventResult.results.map((item) => ({ id: item.id, findingId: item.finding_id, action: item.action, fromStatus: item.from_status, toStatus: item.to_status, detail: item.detail, actor: item.actor, createdAt: item.created_at })),
+    sourceSignals,
+    summary,
+  });
+}
+
+export async function POST(req: NextRequest) {
+  if (Number(req.headers.get("content-length") || 0) > 262_144) return json({ error: "İstek boyutu çok büyük." }, 413);
+  const body = await req.json().catch(() => ({})) as Record<string, unknown>;
+  const action = clean(body.action, 40);
+  const access = await requireRole(req, ["Admin", "Editor"]);
+  if (access.response) return access.response;
+  const env = await runtime();
+  await ready(env.DB);
+
+  try {
+    if (action === "create") {
+      const finding = validateFinding(body);
+      if (finding.sourceType === "continuous-control") {
+        return json({ error: "Sürekli kontrol bulguları yalnız yönetişimli Continuous Assurance inceleme kuyruğu üzerinden oluşturulabilir." }, 409);
+      }
+      const id = `FND-${crypto.randomUUID()}`;
+      const code = `FND-${new Date().getUTCFullYear()}-${crypto.randomUUID().replace(/-/g, "").slice(0, 8).toUpperCase()}`;
+      const now = new Date().toISOString();
+      await env.DB.prepare("INSERT INTO enterprise_findings(id,code,source_type,source_ref,source_title,finding_type,title,description,severity,owner,reviewer,root_cause,corrective_action,preventive_action,due_date,status,risk_ref,control_ref,detected_by,detected_at,updated_by,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'open',?,?,?,?,?,?)")
+        .bind(id, code, finding.sourceType, finding.sourceRef, finding.sourceTitle, finding.findingType, finding.title, finding.description, finding.severity, finding.owner, finding.reviewer, finding.rootCause, finding.correctiveAction, finding.preventiveAction, finding.dueDate, finding.riskRef || null, finding.controlRef || null, access.actor.email, now, access.actor.email, now).run();
+      await event(env.DB, { findingId: id, action: "finding-create", to: "open", detail: `${code}; ${finding.sourceType}/${finding.sourceRef}; ${finding.severity}; due ${finding.dueDate}`, actor: access.actor.email });
+      return json({ id, code, message: "Kurumsal bulgu ve CAPA planı oluşturuldu." }, 201);
+    }
+
+    if (action === "transition") {
+      const id = clean(body.findingId, 100);
+      const operation = validateFindingAction(body);
+      const finding = await env.DB.prepare("SELECT * FROM enterprise_findings WHERE id=?").bind(id).first<Record<string, unknown>>();
+      if (!finding) return json({ error: "Bulgu bulunamadı." }, 404);
+      const status = String(finding.status);
+      const now = new Date().toISOString();
+      let next = "";
+
+      if (operation.operation === "start") {
+        if (status !== "open" || access.actor.role !== "Admin" && finding.owner !== access.actor.email) return json({ error: "CAPA'yı yalnız atanmış aksiyon sahibi veya Admin başlatabilir." }, 403);
+        next = "in-progress";
+        await env.DB.prepare("UPDATE enterprise_findings SET status=?,started_by=?,started_at=?,updated_by=?,updated_at=? WHERE id=?")
+          .bind(next, access.actor.email, now, access.actor.email, now, id).run();
+      } else if (operation.operation === "submit") {
+        if (status !== "in-progress" || access.actor.role !== "Admin" && finding.owner !== access.actor.email) return json({ error: "CAPA'yı yalnız atanmış aksiyon sahibi doğrulamaya gönderebilir." }, 403);
+        next = "verification";
+        await env.DB.prepare("UPDATE enterprise_findings SET status=?,evidence_reference=?,evidence_sha256=?,submitted_by=?,submitted_at=?,updated_by=?,updated_at=? WHERE id=?")
+          .bind(next, operation.evidenceReference, operation.evidenceSha256, access.actor.email, now, access.actor.email, now, id).run();
+      } else if (operation.operation === "verify") {
+        if (access.actor.role !== "Admin" || status !== "verification" || finding.reviewer !== access.actor.email) return json({ error: "Bulguyu yalnız atanmış bağımsız Admin reviewer kapatabilir." }, 403);
+        if ([finding.detected_by, finding.owner, finding.submitted_by].includes(access.actor.email)) return json({ error: "Maker-checker: tespit eden, aksiyon sahibi veya gönderen kişi kapatamaz." }, 409);
+        next = "closed";
+        await env.DB.prepare("UPDATE enterprise_findings SET status=?,verification_evidence_reference=?,verification_evidence_sha256=?,verified_by=?,verified_at=?,acceptance_rationale=NULL,accept_until=NULL,updated_by=?,updated_at=? WHERE id=?")
+          .bind(next, operation.evidenceReference, operation.evidenceSha256, access.actor.email, now, access.actor.email, now, id).run();
+      } else if (operation.operation === "accept-risk") {
+        if (access.actor.role !== "Admin" || !["open", "in-progress"].includes(status) || finding.reviewer !== access.actor.email) return json({ error: "Risk kabulünü yalnız atanmış bağımsız Admin reviewer verebilir." }, 403);
+        if ([finding.detected_by, finding.owner].includes(access.actor.email)) return json({ error: "Maker-checker: tespit eden veya aksiyon sahibi riski kabul edemez." }, 409);
+        next = "accepted";
+        await env.DB.prepare("UPDATE enterprise_findings SET status=?,acceptance_rationale=?,accept_until=?,verification_evidence_reference=?,verification_evidence_sha256=?,verified_by=?,verified_at=?,updated_by=?,updated_at=? WHERE id=?")
+          .bind(next, operation.acceptanceRationale, operation.acceptUntil, operation.evidenceReference, operation.evidenceSha256, access.actor.email, now, access.actor.email, now, id).run();
+      } else if (operation.operation === "reopen") {
+        if (access.actor.role !== "Admin" || !["verification", "closed", "accepted"].includes(status)) return json({ error: "Bulguyu yalnız Admin yeniden açabilir." }, 403);
+        next = "in-progress";
+        await env.DB.prepare("UPDATE enterprise_findings SET status=?,recurrence_count=recurrence_count+1,reopened_by=?,reopened_at=?,verified_by=NULL,verified_at=NULL,acceptance_rationale=NULL,accept_until=NULL,updated_by=?,updated_at=? WHERE id=?")
+          .bind(next, access.actor.email, now, access.actor.email, now, id).run();
+      } else {
+        return json({ error: "Geçersiz bulgu işlemi." }, 400);
+      }
+
+      await event(env.DB, {
+        findingId: id,
+        action: operation.operation,
+        from: status,
+        to: next,
+        detail: operation.operation === "accept-risk" ? `${operation.note}; ${operation.acceptanceRationale}; until ${operation.acceptUntil}` : operation.note,
+        evidenceReference: operation.evidenceReference,
+        evidenceSha256: operation.evidenceSha256,
+        actor: access.actor.email,
+      });
+      return json({ message: "Bulgu ve CAPA yaşam döngüsü güncellendi.", status: next });
+    }
+
+    return json({ error: "Geçersiz işlem." }, 400);
+  } catch (error) {
+    return json({ error: error instanceof Error ? error.message : "İşlem tamamlanamadı." }, 400);
+  }
+}

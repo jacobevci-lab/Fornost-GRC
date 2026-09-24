@@ -29,9 +29,9 @@ export async function promoteContinuousAssuranceFinding(
   if (!candidate.eligible || !candidate.payload) throw new Error("CAPA promotion adayı doğrulanmış değil.");
   await ready(db);
   const today = now.toISOString().slice(0, 10);
-  const uniqueSourceRef = candidate.lineage.automationFindingRef;
-  const validated = validateFinding({ ...candidate.payload, sourceRef: uniqueSourceRef }, today);
-  const existing = await db.prepare("SELECT id,code,status FROM enterprise_findings WHERE source_type='control' AND source_ref=? ORDER BY detected_at DESC LIMIT 1").bind(uniqueSourceRef).first<{ id: string; code: string; status: string }>();
+  const validated = validateFinding(candidate.payload, today);
+  const existing = await db.prepare("SELECT id,code,status FROM enterprise_findings WHERE source_type='continuous-control' AND source_ref=? AND control_ref=? AND status NOT IN ('closed','accepted') ORDER BY detected_at DESC LIMIT 1")
+    .bind(validated.sourceRef, validated.controlRef).first<{ id: string; code: string; status: string }>();
   if (existing) return { id: existing.id, code: existing.code, status: existing.status, created: false };
 
   const id = `FND-${crypto.randomUUID()}`;
@@ -67,7 +67,7 @@ export async function promoteContinuousAssuranceFinding(
   await event(db, {
     findingId: id,
     action: "continuous-assurance-promotion",
-    detail: `Promoted from ${candidate.lineage.automationFindingRef}; rule ${candidate.lineage.automationRuleRef}; work item ${workItemId}; queued by ${queueActor}; approved by ${approvalActor}`,
+    detail: `Promoted from ${candidate.lineage.automationFindingRef}; rule ${candidate.lineage.automationRuleRef}; control ${candidate.lineage.controlRef}; risk ${candidate.lineage.riskRef}; work item ${workItemId}; queued by ${queueActor}; approved by ${approvalActor}`,
     evidenceReference: candidate.lineage.originEvidenceReference,
     evidenceSha256: candidate.lineage.originEvidenceSha256,
     actor: approvalActor,

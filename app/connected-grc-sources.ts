@@ -46,7 +46,8 @@ const makeRow = (scope: string, kind: string, module: string, item: JsonRecord, 
 });
 
 function findingsRows(payload: JsonRecord) {
-  return records(payload.findings).map((item, index) => {
+  const source = records(payload.findings);
+  const findings = source.map((item, index) => {
     const sourceType = text(item.sourceType || item.source_type).toLowerCase();
     const sourceRef = text(item.sourceRef || item.source_ref);
     const riskRefs = unique(item.riskRef, item.risk_ref, sourceType === "risk" ? sourceRef : "");
@@ -60,16 +61,54 @@ function findingsRows(payload: JsonRecord) {
       incident: "findingIncidentRef",
       risk: "findingRiskRef",
       control: "findingControlRef",
+      "continuous-control": "findingAutomationRuleRef",
     };
     const dynamic = sourceRef && sourceField[sourceType] ? { [sourceField[sourceType]]: sourceRef } : {};
     return makeRow("enterprise", traceable ? "finding" : "finding-manual", "Bulgular ve CAPA", item, index, {
       title: text(item.title),
       sourceType,
+      sourceRef,
       findingRiskRef: riskRefs,
       findingControlRef: controlRefs,
+      status: text(item.status),
+      severity: text(item.severity),
+      owner: text(item.owner),
+      dueDate: text(item.dueDate || item.due_date),
+      correctiveAction: text(item.correctiveAction || item.corrective_action),
+      preventiveAction: text(item.preventiveAction || item.preventive_action),
       ...dynamic,
     });
   });
+
+  const remediations = source.filter((item) => Boolean(
+    text(item.status)
+    || text(item.owner)
+    || text(item.dueDate || item.due_date)
+    || text(item.correctiveAction || item.corrective_action)
+    || text(item.preventiveAction || item.preventive_action),
+  )).map((item, index) => {
+    const sourceType = text(item.sourceType || item.source_type).toLowerCase();
+    const sourceRef = text(item.sourceRef || item.source_ref);
+    const riskRefs = unique(item.riskRef, item.risk_ref, sourceType === "risk" ? sourceRef : "");
+    const controlRefs = unique(item.controlRef, item.control_ref, sourceType === "control" ? sourceRef : "");
+    const findingCode = text(item.code);
+    return makeRow("enterprise", "remediation", "Bulgular ve CAPA", { ...item, id: `REMEDIATION:${text(item.id || item.code || index)}` }, index, {
+      publicCode: findingCode ? `${findingCode}-REM` : undefined,
+      title: text(item.correctiveAction || item.corrective_action || `Remediation · ${text(item.title)}`),
+      identityRefs: unique(`REMEDIATION:${text(item.id || item.code || index)}`),
+      remediationFindingRef: unique(item.id, item.code),
+      remediationRiskRef: riskRefs,
+      remediationControlRef: controlRefs,
+      remediationAutomationRuleRef: sourceType === "continuous-control" ? unique(sourceRef) : [],
+      status: text(item.status),
+      owner: text(item.owner),
+      dueDate: text(item.dueDate || item.due_date),
+      correctiveAction: text(item.correctiveAction || item.corrective_action),
+      preventiveAction: text(item.preventiveAction || item.preventive_action),
+    });
+  });
+
+  return [...findings, ...remediations];
 }
 
 function incidentRows(payload: JsonRecord) {
@@ -208,6 +247,7 @@ function assuranceScore(health: string) {
 function evidenceAutomationRows(payload: JsonRecord) {
   const rawRules = records(payload.rules);
   const rawFindings = records(payload.findings);
+  const ruleById = new Map(rawRules.map((item) => [text(item.id), item]));
   const findingRefsByRule = new Map<string, string[]>();
   for (const finding of rawFindings) {
     const ruleId = text(finding.ruleId || finding.rule_id);
@@ -234,6 +274,7 @@ function evidenceAutomationRows(payload: JsonRecord) {
       automationAssuranceRef: unique(`ASSURANCE:${ruleId}`),
       automationHealth: text(item.health || item.lastStatus || item.last_status),
       automationFreshness: text(item.freshness),
+      lastEvidenceAt: text(item.lastEvidenceAt || item.last_evidence_at),
     });
   });
 
@@ -258,23 +299,32 @@ function evidenceAutomationRows(payload: JsonRecord) {
   const findings = rawFindings.map((item, index) => {
     const findingId = text(item.id);
     const ruleId = text(item.ruleId || item.rule_id);
+    const rule = ruleById.get(ruleId);
     return makeRow("enterprise", "automation-finding", "Kanıt Otomasyonu", item, index, {
       title: text(item.title || `Continuous assurance finding ${index + 1}`),
       identityRefs: unique(item.id, `FINDING:${findingId}`),
+      automationRuleRef: unique(ruleId, `RULE:${ruleId}`),
       automationAssuranceRef: unique(`ASSURANCE:${ruleId}`),
+      automationControlRefs: unique(rule?.controlRefs, rule?.control_refs),
       automationEvidenceRef: unique(item.evidenceId, item.evidence_id),
       automationRemediationRef: unique(`REMEDIATION:${findingId}`),
       severity: text(item.severity),
       status: text(item.status),
+      owner: text(item.owner),
+      dueDate: text(item.dueDate || item.due_date),
     });
   });
 
   const remediations = rawFindings.map((item, index) => {
     const findingId = text(item.id);
+    const ruleId = text(item.ruleId || item.rule_id);
+    const rule = ruleById.get(ruleId);
     return makeRow("enterprise", "automation-remediation", "Kanıt Otomasyonu", { ...item, id: `REMEDIATION:${findingId}` }, index, {
       title: `Remediation · ${text(item.title || `Continuous assurance finding ${index + 1}`)}`,
       identityRefs: unique(`REMEDIATION:${findingId}`),
       automationFindingRef: unique(`FINDING:${findingId}`, findingId),
+      automationRuleRef: unique(ruleId, `RULE:${ruleId}`),
+      automationControlRefs: unique(rule?.controlRefs, rule?.control_refs),
       automationRiskRef: unique(item.riskId, item.risk_id, findingId),
       owner: text(item.owner),
       dueDate: text(item.dueDate || item.due_date),

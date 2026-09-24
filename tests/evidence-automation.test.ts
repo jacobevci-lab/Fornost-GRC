@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 
 const ui=readFileSync("app/evidence-automation.tsx","utf8");
 const route=readFileSync("app/api/evidence-automation/route.ts","utf8");
+const assuranceRoute=readFileSync("app/api/continuous-assurance/route.ts","utf8");
 const premiumCss=readFileSync("app/fornost-premium.css","utf8");
 const refreshCss=readFileSync("app/fornost-refresh.css","utf8");
 const finalCss=readFileSync("app/final-polish.css","utf8");
@@ -25,6 +26,21 @@ test("collector enforces outbound and payload safety boundaries",()=>{
   assert.match(route,/addMissingColumns/);
   assert.match(route,/trigger_type/);
   assert.match(route,/duration_ms/);
+});
+
+test("continuous assurance findings enter the governed CAPA review queue instead of bypassing approval",()=>{
+  assert.match(ui,/CAPA İncelemesine Gönder/);
+  assert.match(ui,/Queue CAPA Review/);
+  assert.match(ui,/\/api\/continuous-assurance/);
+  assert.match(ui,/action:"queue-capa-promotion"/);
+  assert.match(ui,/independent Admin must approve it/);
+  assert.doesNotMatch(ui,/\/api\/findings\/promote-continuous-assurance/);
+  assert.match(assuranceRoute,/buildContinuousAssuranceCapaCandidate/);
+  assert.match(assuranceRoute,/action==="queue-capa-promotion"/);
+  assert.match(assuranceRoute,/action='capa-promotion'/);
+  assert.match(assuranceRoute,/pending-review/);
+  assert.match(assuranceRoute,/simple_grc_records WHERE id=\? AND module='Risk Assessment'/);
+  assert.match(assuranceRoute,/simple_grc_records WHERE id=\? AND module='Kanıtlar'/);
 });
 
 test("evidence automation keeps Turkish and English UI states consistent",()=>{

@@ -18,6 +18,11 @@ export type ControlAssuranceItem = {
   frameworkCount: number;
   openFindingCount: number;
   automationCount: number;
+  automationRuleCount: number;
+  automationHealthyCount: number;
+  automationOpenFindingCount: number;
+  openRemediationCount: number;
+  riskLinkedFindingCount: number;
   relationCount: number;
   nextTestDate: string;
   testOverdue: boolean;
@@ -45,6 +50,7 @@ export type ControlAssuranceDetail = {
   automations: AssuranceRow[];
   audits: AssuranceRow[];
   findings: AssuranceRow[];
+  remediations: AssuranceRow[];
   risks: AssuranceRow[];
   test: ControlAssuranceTest;
   unresolved: Array<{ sourceId: string; field: string; value: string; relation: string }>;
@@ -62,7 +68,10 @@ const dateValue = (value: unknown) => {
   return Number.isFinite(time) ? time : Number.NaN;
 };
 const includes = (value: unknown, accepted: string[]) => accepted.includes(key(value));
-const isClosed = (value: unknown) => includes(value, ["kapalı", "kapatıldı", "tamamlandı", "closed", "completed", "resolved", "accepted", "kabul edildi"]);
+const isClosed = (value: unknown) => includes(value, [
+  "kapalı", "kapatıldı", "tamamlandı", "closed", "completed", "resolved", "accepted", "kabul edildi", "cancelled", "canceled",
+]);
+const kindOf = (row: AssuranceRow) => key(row.data.kind);
 
 function uniqueRows(rows: AssuranceRow[]) {
   return [...new Map(rows.map((row) => [row.id, row])).values()];
@@ -111,6 +120,17 @@ function testForControl(control: AssuranceRow, today: string): ControlAssuranceT
   };
 }
 
+function automationHealth(row: AssuranceRow) {
+  return key(row.data.automationHealth || row.data.health || row.data.assuranceState);
+}
+
+function hasRiskLink(row: AssuranceRow, links: ConnectedGrcLink[]) {
+  return links.some((link) =>
+    link.relation === "finding-risk"
+    && (link.source.id === row.id || link.target.id === row.id),
+  );
+}
+
 export function buildControlAssurance(rows: AssuranceRow[], today = new Date().toISOString().slice(0, 10)) {
   const controls = rows.filter((row) => row.module === "Kontroller");
   const graph = buildConnectedGrcGraph(rows);
@@ -119,14 +139,32 @@ export function buildControlAssurance(rows: AssuranceRow[], today = new Date().t
   const items: ControlAssuranceItem[] = controls.map((control) => {
     const reference = clean(control.data.controlRef || control.code || control.id);
     const linkedEvidence = relatedRows(control, graph.links, "Kanıtlar", ["control-evidence"]);
-    // Legacy audit rows can carry controlRef. The shared graph still resolves those rows,
-    // historically under control-evidence, so accept both graph relation labels here.
     const linkedAudits = relatedRows(control, graph.links, "Denetim Yönetimi", ["audit-control", "control-evidence"]);
-    // Compliance requirements can be linked through framework tags or directly through controlRef.
     const linkedFrameworks = relatedRows(control, graph.links, "Uyum", ["control-framework", "control-evidence"]);
     const linkedFindings = relatedRows(control, graph.links, "Bulgular ve CAPA", ["finding-control"])
-      .filter((row) => !isClosed(row.data.status));
+      .filter((row) => kindOf(row) !== "remediation" && !isClosed(row.data.status));
+    const directRemediations = relatedRows(control, graph.links, "Bulgular ve CAPA", ["remediation-control"])
+      .filter((row) => kindOf(row) === "remediation");
+    const findingRemediations = relatedFromRows(linkedFindings, graph.links, "Bulgular ve CAPA", ["finding-remediation"])
+      .filter((row) => kindOf(row) === "remediation");
+    const linkedRemediations = uniqueRows([...directRemediations, ...findingRemediations]);
+    const openRemediations = linkedRemediations.filter((row) => !isClosed(row.data.status));
+
     const linkedAutomation = relatedRows(control, graph.links, "Kanıt Otomasyonu", ["automation-control", "control-assurance"]);
+    const automationRules = linkedAutomation.filter((row) => kindOf(row) === "automation-rule");
+    const automationAssurance = linkedAutomation.filter((row) => kindOf(row) === "automation-assurance");
+    const automationFindings = linkedAutomation.filter((row) => kindOf(row) === "automation-finding");
+    const openAutomationFindings = automationFindings.filter((row) => !isClosed(row.data.status));
+    const automationRemediations = linkedAutomation.filter((row) => kindOf(row) === "automation-remediation" && !isClosed(row.data.status));
+
+    const healthyAutomation = automationRules.filter((row) => includes(automationHealth(row), ["healthy", "effective"]));
+    const failingAutomation = automationRules.filter((row) => includes(automationHealth(row), ["failing", "failed", "ineffective"]));
+    const staleAutomation = automationRules.filter((row) => includes(automationHealth(row), ["stale", "missing"]));
+    const attentionAutomation = automationRules.filter((row) => includes(automationHealth(row), ["", "expiring", "unknown", "paused", "degraded"]));
+    const healthyAssurance = automationAssurance.filter((row) => includes(automationHealth(row), ["healthy", "effective"]));
+    const automationHealthyCount = Math.max(healthyAutomation.length, healthyAssurance.length);
+
+    const riskLinkedFindings = linkedFindings.filter((row) => hasRiskLink(row, graph.links));
     const controlRelations = graph.links.filter((link) => link.source.id === control.id || link.target.id === control.id);
 
     const currentEvidence = linkedEvidence.filter((row) => {
@@ -137,6 +175,7 @@ export function buildControlAssurance(rows: AssuranceRow[], today = new Date().t
       return !expired && (!Number.isFinite(expiresAt) || expiresAt >= todayTime);
     });
 
+    const hasHealthyAutomatedAssurance = automationHealthyCount > 0;
     const test = testForControl(control, today);
     const reasons: string[] = [];
     let score = 100;
@@ -145,13 +184,19 @@ export function buildControlAssurance(rows: AssuranceRow[], today = new Date().t
     if (!test.nextTestDate) { score -= 15; reasons.push("test-date-missing"); }
     else if (test.overdue) { score -= 30; reasons.push("test-overdue"); }
     if (test.failed) { score -= 35; reasons.push("test-failed"); }
-    if (!linkedEvidence.length) { score -= 35; reasons.push("evidence-missing"); }
-    else if (!currentEvidence.length) { score -= 25; reasons.push("evidence-stale"); }
+    if (!linkedEvidence.length && !hasHealthyAutomatedAssurance) { score -= 35; reasons.push("evidence-missing"); }
+    else if (linkedEvidence.length && !currentEvidence.length && !hasHealthyAutomatedAssurance) { score -= 25; reasons.push("evidence-stale"); }
     if (!linkedAudits.length) { score -= 10; reasons.push("audit-missing"); }
     if (linkedFindings.length) {
       score -= Math.min(20, linkedFindings.length * 5);
       reasons.push("open-findings");
     }
+    if (failingAutomation.length) { score -= 25; reasons.push("automation-failing"); }
+    else if (staleAutomation.length) { score -= 20; reasons.push("automation-stale"); }
+    else if (attentionAutomation.length && automationRules.length) { score -= 10; reasons.push("automation-attention"); }
+    if (openAutomationFindings.length) { score -= 10; reasons.push("automation-finding-open"); }
+    if (openRemediations.length || automationRemediations.length) { score -= 10; reasons.push("remediation-open"); }
+    if (linkedFindings.length && riskLinkedFindings.length < linkedFindings.length) { score -= 10; reasons.push("risk-link-missing"); }
     if (includes(control.data.status, ["iyileştirme gerekli", "needs improvement", "devre dışı", "inactive"])) {
       score -= 20;
       reasons.push("control-needs-improvement");
@@ -169,6 +214,11 @@ export function buildControlAssurance(rows: AssuranceRow[], today = new Date().t
       frameworkCount: linkedFrameworks.length,
       openFindingCount: linkedFindings.length,
       automationCount: linkedAutomation.length,
+      automationRuleCount: automationRules.length,
+      automationHealthyCount,
+      automationOpenFindingCount: openAutomationFindings.length,
+      openRemediationCount: openRemediations.length + automationRemediations.length,
+      riskLinkedFindingCount: riskLinkedFindings.length,
       relationCount: controlRelations.length,
       nextTestDate: test.nextTestDate,
       testOverdue: test.overdue,
@@ -181,11 +231,13 @@ export function buildControlAssurance(rows: AssuranceRow[], today = new Date().t
 
   items.sort((a, b) => a.score - b.score || a.reference.localeCompare(b.reference, "tr"));
   const healthy = items.filter((item) => item.state === "healthy").length;
-  const currentEvidence = items.filter((item) => item.currentEvidenceCount > 0).length;
+  const currentEvidence = items.filter((item) => item.currentEvidenceCount > 0 || item.automationHealthyCount > 0).length;
   const overdueTests = items.filter((item) => item.testOverdue).length;
   const failedTests = items.filter((item) => item.testFailed).length;
-  const openFindings = items.reduce((sum, item) => sum + item.openFindingCount, 0);
+  const openFindings = items.reduce((sum, item) => sum + item.openFindingCount + item.automationOpenFindingCount + item.openRemediationCount, 0);
   const automated = items.filter((item) => item.automationCount > 0).length;
+  const automationCovered = items.filter((item) => item.automationRuleCount > 0).length;
+  const automationHealthy = items.filter((item) => item.automationRuleCount > 0 && item.automationHealthyCount >= item.automationRuleCount).length;
   const frameworkMapped = items.filter((item) => item.frameworkCount > 0).length;
   const connected = items.filter((item) => item.relationCount > 0).length;
   const score = items.length ? Math.round(items.reduce((sum, item) => sum + item.score, 0) / items.length) : 100;
@@ -198,6 +250,8 @@ export function buildControlAssurance(rows: AssuranceRow[], today = new Date().t
     failedTests,
     openFindings,
     automated,
+    automationCovered,
+    automationHealthy,
     frameworkMapped,
     connected,
     score,
@@ -220,8 +274,13 @@ export function buildControlAssuranceDetail(
   const automations = relatedRows(control, graph.links, "Kanıt Otomasyonu", ["automation-control", "control-assurance"]);
   const audits = relatedRows(control, graph.links, "Denetim Yönetimi", ["audit-control", "control-evidence"]);
   const findings = relatedRows(control, graph.links, "Bulgular ve CAPA", ["finding-control"])
-    .filter((row) => !isClosed(row.data.status));
-  const riskSources = uniqueRows([...findings, ...audits, ...automations]);
+    .filter((row) => kindOf(row) !== "remediation" && !isClosed(row.data.status));
+  const directRemediations = relatedRows(control, graph.links, "Bulgular ve CAPA", ["remediation-control"])
+    .filter((row) => kindOf(row) === "remediation");
+  const findingRemediations = relatedFromRows(findings, graph.links, "Bulgular ve CAPA", ["finding-remediation"])
+    .filter((row) => kindOf(row) === "remediation");
+  const remediations = uniqueRows([...directRemediations, ...findingRemediations]);
+  const riskSources = uniqueRows([...findings, ...remediations, ...audits, ...automations]);
   const risks = relatedFromRows(riskSources, graph.links, "Risk Assessment", ["finding-risk", "audit-risk", "remediation-risk"]);
   const test = testForControl(control, today);
 
@@ -232,6 +291,7 @@ export function buildControlAssuranceDetail(
     ...automations.map((row) => row.id),
     ...audits.map((row) => row.id),
     ...findings.map((row) => row.id),
+    ...remediations.map((row) => row.id),
     ...risks.map((row) => row.id),
   ]);
   const unresolved = graph.unresolved
@@ -243,7 +303,7 @@ export function buildControlAssuranceDetail(
     evidence.length > 0,
     automations.length > 0,
     test.status !== "not-planned",
-    findings.length > 0,
+    findings.length > 0 || remediations.length > 0,
     risks.length > 0,
   ];
   const connectedStages = stageChecks.filter(Boolean).length;
@@ -256,6 +316,7 @@ export function buildControlAssuranceDetail(
     automations,
     audits,
     findings,
+    remediations,
     risks,
     test,
     unresolved,
