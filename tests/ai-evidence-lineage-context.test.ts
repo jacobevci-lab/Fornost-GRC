@@ -9,6 +9,7 @@ import {
 } from "../app/ai/evidence-lineage-context";
 
 type Candidate = Parameters<typeof scoreEvidenceLineageRecord>[0];
+type LineageRecords = Parameters<typeof selectEvidenceLineageCandidates>[0];
 
 const records: Candidate[] = [
   {
@@ -32,6 +33,11 @@ const records: Candidate[] = [
     updatedAt: "2026-09-24T11:00:00.000Z",
   },
 ];
+const lineageRecords: LineageRecords = records.map((record) => ({
+  ...record,
+  createdAt: record.updatedAt,
+  classification: "Internal",
+}));
 
 test("Ask Fornost routes evidence version, lineage and SHA-256 questions to Evidence Library", () => {
   for (const question of [
@@ -46,9 +52,9 @@ test("Ask Fornost routes evidence version, lineage and SHA-256 questions to Evid
 test("evidence lineage candidate selection strongly prefers exact evidence IDs and control references", () => {
   assert.ok(scoreEvidenceLineageRecord(records[0], "EVD-alpha geçmişini göster") > 900);
   assert.ok(scoreEvidenceLineageRecord(records[0], "CC6.1 evidence history") > scoreEvidenceLineageRecord(records[1], "CC6.1 evidence history"));
-  const exact = selectEvidenceLineageCandidates(records as any, "Show EVD-alpha evidence history", 5);
+  const exact = selectEvidenceLineageCandidates(lineageRecords, "Show EVD-alpha evidence history", 5);
   assert.deepEqual(exact.map((record) => record.id), ["EVD-alpha"]);
-  const control = selectEvidenceLineageCandidates(records as any, "CC6.1 kanıt zinciri", 1);
+  const control = selectEvidenceLineageCandidates(lineageRecords, "CC6.1 kanıt zinciri", 1);
   assert.equal(control[0]?.id, "EVD-alpha");
 });
 
