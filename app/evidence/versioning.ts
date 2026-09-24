@@ -164,7 +164,7 @@ export async function appendEvidenceVersion(db: D1Database, input: Omit<Evidence
     };
     const chainSha256 = await computeEvidenceChainHash(chainInput);
     try {
-      await db.prepare(`INSERT INTO evidence_versions(
+      const versionStatement = db.prepare(`INSERT INTO evidence_versions(
         id,evidence_id,version_no,file_key,file_name,file_type,file_size,content_sha256,chain_sha256,
         previous_version_id,previous_chain_sha256,evidence_title,owner,period,frameworks,control_refs,change_note,created_by,created_at
       ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).bind(
@@ -172,13 +172,12 @@ export async function appendEvidenceVersion(db: D1Database, input: Omit<Evidence
         input.contentSha256, chainSha256, previous?.id || null, previous?.chain_sha256 || null,
         input.evidenceTitle, input.owner, input.period, input.frameworks, chainInput.controlRefs,
         input.changeNote, input.createdBy, input.createdAt,
-      ).run();
+      );
       const refs = splitEvidenceControlRefs(chainInput.controlRefs);
-      if (refs.length) {
-        await db.batch(refs.map((controlRef) => db.prepare(
-          "INSERT OR IGNORE INTO evidence_version_controls(version_id,evidence_id,control_ref,normalized_ref,version_no,created_at) VALUES(?,?,?,?,?,?)",
-        ).bind(id, input.evidenceId, controlRef, normalizeEvidenceControlRef(controlRef), versionNo, input.createdAt)));
-      }
+      const controlStatements = refs.map((controlRef) => db.prepare(
+        "INSERT OR IGNORE INTO evidence_version_controls(version_id,evidence_id,control_ref,normalized_ref,version_no,created_at) VALUES(?,?,?,?,?,?)",
+      ).bind(id, input.evidenceId, controlRef, normalizeEvidenceControlRef(controlRef), versionNo, input.createdAt));
+      await db.batch([versionStatement, ...controlStatements]);
       return { id, versionNo, chainSha256, previousVersionId: previous?.id || "", previousChainSha256: previous?.chain_sha256 || "" };
     } catch (error) {
       if (attempt === 2) throw error;
