@@ -24,16 +24,15 @@ export async function POST(req:NextRequest){
  const data:Record<string,string>={fileKey:key,fileName:safeName,fileType:file.type,fileSize:String(file.size),contentSha256,status};for(const [k,v] of fd.entries())if(k!=="file"&&k!=="status"&&typeof v==="string")data[k]=v.trim().slice(0,2000);
  const refs=splitEvidenceControlRefs(data.controlRefs||data.controlRef);data.controlRef=refs[0]||data.controlRef;data.controlRefs=refs.join(", ");
  try{
-  await env.DB.prepare("INSERT INTO simple_grc_records(id,module,data_json,created_at,updated_at) VALUES(?,?,?,?,?)").bind(id,"Kanıtlar",JSON.stringify(data),now,now).run();
-  const version=await appendEvidenceVersion(env.DB,{evidenceId:id,fileKey:key,fileName:safeName,fileType:file.type,fileSize:file.size,contentSha256,evidenceTitle:data.evidenceTitle,owner:data.owner,period:data.period,frameworks:data.frameworks||"",controlRefs:data.controlRefs,changeNote:"Initial evidence upload",createdBy:auth.actor.email,createdAt:now});
-  data.versionNo=String(version.versionNo);data.versionChainSha256=version.chainSha256;data.versionUpdatedAt=now;
-  await env.DB.prepare("UPDATE simple_grc_records SET data_json=?,updated_at=? WHERE id=?").bind(JSON.stringify(data),now,id).run();
+  const version=await appendEvidenceVersion(env.DB,{evidenceId:id,fileKey:key,fileName:safeName,fileType:file.type,fileSize:file.size,contentSha256,evidenceTitle:data.evidenceTitle,owner:data.owner,period:data.period,frameworks:data.frameworks||"",controlRefs:data.controlRefs,changeNote:"Initial evidence upload",createdBy:auth.actor.email,createdAt:now},{
+   additionalStatements:(commit)=>{
+    const anchoredData={...data,versionNo:String(commit.versionNo),versionChainSha256:commit.chainSha256,versionUpdatedAt:now};
+    return [env.DB.prepare("INSERT INTO simple_grc_records(id,module,data_json,created_at,updated_at) VALUES(?,?,?,?,?)").bind(id,"Kanıtlar",JSON.stringify(anchoredData),now,now)];
+   },
+  });
   return NextResponse.json({ok:true,id,versionNo:version.versionNo,contentSha256,chainSha256:version.chainSha256},{status:201});
  }catch(error){
   try{
-   await env.DB.prepare("DELETE FROM evidence_version_controls WHERE evidence_id=?").bind(id).run();
-   await env.DB.prepare("DELETE FROM evidence_versions WHERE evidence_id=?").bind(id).run();
-   await env.DB.prepare("DELETE FROM simple_grc_records WHERE id=?").bind(id).run();
    if(env.BUCKET){const bucket=env.BUCKET as unknown as {delete?:(objectKey:string)=>Promise<unknown>};if(bucket.delete)await bucket.delete(key);}
    else await env.DB.prepare("DELETE FROM simple_evidence_files WHERE file_key=?").bind(key).run();
   }catch{}
