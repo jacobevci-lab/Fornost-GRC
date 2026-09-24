@@ -1,4 +1,11 @@
 import { ensureAssuranceWorkSchema } from "./continuous-assurance-runtime";
+import {
+  normalizeEvidenceControlRef,
+  splitEvidenceControlRefs,
+  verifyEvidenceVersionChainWithAnchor,
+  type EvidenceIntegrityState,
+  type EvidenceVersionRow,
+} from "./evidence/versioning";
 import type {
   AssuranceFindingSnapshot,
   AssuranceRuleSnapshot,
@@ -36,6 +43,12 @@ type WorkRow = {
   reviewed_by: string | null;
   updated_at: string;
 };
+type EvidenceLinkRow = { evidence_id: string; normalized_ref: string };
+type EvidenceRecordRow = { id: string; data_json: string };
+
+const MAX_EVIDENCE_RECORDS = 200;
+const MAX_EVIDENCE_VERSION_ROWS = 5_000;
+const QUERY_CHUNK_SIZE = 80;
 
 const parse = (value: string | null | undefined) => {
   try { return JSON.parse(value || "{}") as Record<string, unknown>; }
@@ -44,6 +57,12 @@ const parse = (value: string | null | undefined) => {
 const asObject = (value: unknown) => value && typeof value === "object" && !Array.isArray(value)
   ? value as Record<string, unknown>
   : {};
+const chunks = <T,>(values: T[], size = QUERY_CHUNK_SIZE) => {
+  const output: T[][] = [];
+  for (let index = 0; index < values.length; index += size) output.push(values.slice(index, index + size));
+  return output;
+};
+const placeholders = (count: number) => Array.from({ length: count }, () => "?").join(",");
 
 export function targetControlRefFromDecision(value: string | null | undefined) {
   const decision = parse(value);
@@ -51,6 +70,26 @@ export function targetControlRefFromDecision(value: string | null | undefined) {
   const lineage = asObject(candidate.lineage);
   const payload = asObject(candidate.payload);
   return String(payload.controlRef || lineage.controlRef || decision.targetControlRef || decision.controlRef || "").trim();
+}
+
+export function evidenceIntegrityForRule(
+  controlRefs: string,
+  evidenceIdsByControlRef: ReadonlyMap<string, ReadonlySet<string>>,
+  integrityByEvidenceId: ReadonlyMap<string, EvidenceIntegrityState>,
+) {
+  const evidenceIds = new Set<string>();
+  for (const ref of splitEvidenceControlRefs(controlRefs)) {
+    const normalized = normalizeEvidenceControlRef(ref);
+    for (const evidenceId of evidenceIdsByControlRef.get(normalized) || []) evidenceIds.add(evidenceId);
+  }
+  if (!evidenceIds.size) return { linkedEvidenceCount: 0 };
+  const states = [...evidenceIds].map((id) => integrityByEvidenceId.get(id) || "broken");
+  const evidenceIntegrity: EvidenceIntegrityState = states.includes("broken")
+    ? "broken"
+    : states.includes("legacy-unverified")
+      ? "legacy-unverified"
+      : "verified";
+  return { evidenceIntegrity, linkedEvidenceCount: evidenceIds.size };
 }
 
 async function loadRules(db: D1Database): Promise<AssuranceRuleSnapshot[]> {
@@ -103,20 +142,121 @@ async function loadWorkItems(db: D1Database): Promise<AssuranceWorkSnapshot[]> {
   } catch { return []; }
 }
 
+async function enrichRulesWithEvidenceIntegrity(db: D1Database, rules: AssuranceRuleSnapshot[]) {
+  const normalizedRefs = [...new Set(rules.flatMap((rule) => splitEvidenceControlRefs(rule.controlRefs).map(normalizeEvidenceControlRef)).filter(Boolean))];
+  const baseQuality = {
+    evidenceIntegrityAvailable: true,
+    evidenceIntegrityComplete: true,
+    evidenceIntegrityLinkedRules: 0,
+    evidenceIntegrityVerifiedEvidence: 0,
+    evidenceIntegrityBrokenEvidence: 0,
+    evidenceIntegrityLegacyEvidence: 0,
+  };
+  if (!normalizedRefs.length) return { rules, quality: baseQuality };
+
+  try {
+    const evidenceIdsByControlRef = new Map<string, Set<string>>();
+    for (const group of chunks(normalizedRefs)) {
+      const rows = await db.prepare(`SELECT DISTINCT evidence_id,normalized_ref FROM evidence_version_controls WHERE normalized_ref IN (${placeholders(group.length)})`)
+        .bind(...group).all<EvidenceLinkRow>();
+      for (const row of rows.results) {
+        const ids = evidenceIdsByControlRef.get(row.normalized_ref) || new Set<string>();
+        ids.add(row.evidence_id);
+        evidenceIdsByControlRef.set(row.normalized_ref, ids);
+      }
+    }
+
+    const evidenceIds = [...new Set([...evidenceIdsByControlRef.values()].flatMap((ids) => [...ids]))];
+    const linkedRules = rules.filter((rule) => splitEvidenceControlRefs(rule.controlRefs)
+      .some((ref) => (evidenceIdsByControlRef.get(normalizeEvidenceControlRef(ref))?.size || 0) > 0)).length;
+    if (!evidenceIds.length) return { rules, quality: { ...baseQuality, evidenceIntegrityLinkedRules: linkedRules } };
+    if (evidenceIds.length > MAX_EVIDENCE_RECORDS) {
+      return {
+        rules,
+        quality: { ...baseQuality, evidenceIntegrityComplete: false, evidenceIntegrityLinkedRules: linkedRules },
+      };
+    }
+
+    let versionCount = 0;
+    for (const group of chunks(evidenceIds)) {
+      const count = await db.prepare(`SELECT COUNT(*) total FROM evidence_versions WHERE evidence_id IN (${placeholders(group.length)})`)
+        .bind(...group).first<{ total: number }>();
+      versionCount += Number(count?.total || 0);
+    }
+    if (versionCount > MAX_EVIDENCE_VERSION_ROWS) {
+      return {
+        rules,
+        quality: { ...baseQuality, evidenceIntegrityComplete: false, evidenceIntegrityLinkedRules: linkedRules },
+      };
+    }
+
+    const records = new Map<string, Record<string, unknown>>();
+    const versions = new Map<string, EvidenceVersionRow[]>();
+    for (const group of chunks(evidenceIds)) {
+      const [recordRows, versionRows] = await Promise.all([
+        db.prepare(`SELECT id,data_json FROM simple_grc_records WHERE module='Kanıtlar' AND id IN (${placeholders(group.length)})`)
+          .bind(...group).all<EvidenceRecordRow>(),
+        db.prepare(`SELECT * FROM evidence_versions WHERE evidence_id IN (${placeholders(group.length)}) ORDER BY evidence_id,version_no`)
+          .bind(...group).all<EvidenceVersionRow>(),
+      ]);
+      for (const row of recordRows.results) records.set(row.id, parse(row.data_json));
+      for (const row of versionRows.results) versions.set(row.evidence_id, [...(versions.get(row.evidence_id) || []), row]);
+    }
+
+    const integrityByEvidenceId = new Map<string, EvidenceIntegrityState>();
+    for (const evidenceId of evidenceIds) {
+      const record = records.get(evidenceId);
+      const rows = versions.get(evidenceId) || [];
+      if (!record || !rows.length) {
+        integrityByEvidenceId.set(evidenceId, "broken");
+        continue;
+      }
+      const result = await verifyEvidenceVersionChainWithAnchor(rows, {
+        versionNo: record.versionNo,
+        chainSha256: record.versionChainSha256,
+      });
+      integrityByEvidenceId.set(evidenceId, result.state);
+    }
+
+    const enriched = rules.map((rule) => ({
+      ...rule,
+      ...evidenceIntegrityForRule(rule.controlRefs, evidenceIdsByControlRef, integrityByEvidenceId),
+    }));
+    const states = [...integrityByEvidenceId.values()];
+    return {
+      rules: enriched,
+      quality: {
+        ...baseQuality,
+        evidenceIntegrityLinkedRules: linkedRules,
+        evidenceIntegrityVerifiedEvidence: states.filter((state) => state === "verified").length,
+        evidenceIntegrityBrokenEvidence: states.filter((state) => state === "broken").length,
+        evidenceIntegrityLegacyEvidence: states.filter((state) => state === "legacy-unverified").length,
+      },
+    };
+  } catch {
+    return {
+      rules,
+      quality: { ...baseQuality, evidenceIntegrityAvailable: false, evidenceIntegrityComplete: false },
+    };
+  }
+}
+
 export async function loadContinuousAssuranceSnapshots(db: D1Database) {
-  const [rules, findings, workItems] = await Promise.all([
+  const [baseRules, findings, workItems] = await Promise.all([
     loadRules(db),
     loadFindings(db),
     loadWorkItems(db),
   ]);
+  const integrity = await enrichRulesWithEvidenceIntegrity(db, baseRules);
   return {
-    rules,
+    rules: integrity.rules,
     findings,
     workItems,
     dataQuality: {
-      rulesAvailable: rules.length > 0,
+      rulesAvailable: baseRules.length > 0,
       findingsAvailable: findings.length > 0,
       workQueueAvailable: workItems.length > 0,
+      ...integrity.quality,
     },
   };
 }
