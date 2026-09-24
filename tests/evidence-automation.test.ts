@@ -52,6 +52,15 @@ test("continuous assurance findings enter the governed CAPA review queue instead
   assert.match(assuranceRoute,/simple_grc_records WHERE id=\? AND module='Kanıtlar'/);
 });
 
+test("continuous assurance retest inherits the governed target control instead of choosing the first mapped control",()=>{
+  assert.match(assuranceRoute,/resolveRetestTargetControl/);
+  assert.match(assuranceRoute,/action='capa-promotion' AND status='completed'/);
+  assert.match(assuranceRoute,/targetControlFromDecision\(parseData\(promoted\.decision_json\)\)/);
+  assert.match(assuranceRoute,/resolveContinuousAssuranceTargetControl\(mappedControlRefs,selected\)/);
+  assert.match(assuranceRoute,/decision=\{recovery,ruleId:context\.rule\.id,controlRef:targetControl\.controlRef,targetControlRef:targetControl\.controlRef\}/);
+  assert.doesNotMatch(assuranceRoute,/controlRef:firstRef\(context\.rule\.control_refs\)/);
+});
+
 test("evidence automation keeps Turkish and English UI states consistent",()=>{
   assert.match(ui,/lang:Lang/);
   assert.match(ui,/tr\?"Uygun":"Passed"/);
