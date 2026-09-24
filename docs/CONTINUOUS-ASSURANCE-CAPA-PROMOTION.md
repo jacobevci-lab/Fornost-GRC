@@ -1,18 +1,17 @@
 # Continuous Assurance → Enterprise CAPA Promotion
 
-Fornost keeps raw continuous-control findings separate from governed enterprise findings. A failed automated control is only promoted when the organization adds the governance context required for a real CAPA record.
+Fornost keeps raw continuous-control findings separate from governed enterprise findings. A failed automated control is promoted only through the Continuous Assurance review queue, so operational automation cannot bypass maker-checker governance.
 
-## Promotion endpoint
+## Queue a CAPA promotion
 
-`POST /api/findings/promote-continuous-assurance`
+`POST /api/continuous-assurance`
 
-The caller must be an `Admin` or `Editor`. The request supplies governance context only; trusted automation lineage is loaded server-side.
+`Admin` and `Editor` users can submit the governance context required to create a CAPA candidate:
 
 ```json
 {
+  "action": "queue-capa-promotion",
   "findingId": "<evidence_automation_findings.id>",
-  "controlRef": "CTL-001",
-  "riskRef": "RSK-001",
   "reviewer": "independent.reviewer@example.com",
   "dueDate": "2026-10-15",
   "rootCause": "Root cause with sufficient detail",
@@ -21,40 +20,60 @@ The caller must be an `Admin` or `Editor`. The request supplies governance conte
 }
 ```
 
-`controlRef` may be omitted when the source rule maps to exactly one control. If a rule maps to multiple controls, the target control is mandatory and must already belong to that rule.
+The request does not provide trusted rule, control, risk, source evidence, owner, severity, or finding-detail lineage. The server loads those references from the Continuous Assurance runtime and Connected GRC records before it builds the canonical candidate.
 
-## Trusted lineage
+The queue derives:
 
-The API does **not** trust the client to provide the automation rule, source evidence reference, evidence digest, owner, severity, title, or finding detail. It resolves them from:
+- the automation finding from `evidence_automation_findings`
+- the automation rule and mapped control from `evidence_automation_rules`
+- the linked risk from `simple_grc_records` / `Risk Assessment`
+- the immutable origin evidence from `simple_grc_records` / `Kanıtlar`
+- the evidence SHA-256 from the stored `responseHash`
 
-- `evidence_automation_findings`
-- `evidence_automation_rules`
-- `evidence_automation_runs`
+A candidate that lacks control, risk, independent reviewer, valid source evidence integrity, root cause, corrective action, preventive action, or a severity-bounded SLA is rejected before it enters the review queue.
 
-The source evidence must have a 64-character SHA-256 `response_hash`. Promotion is rejected when the evidence record or integrity digest cannot be resolved.
+## Independent approval
 
-The canonical finding is created with:
+A queued promotion is written to `continuous_assurance_work_items` with `action = capa-promotion` and `status = pending-review`.
+
+Only an `Admin` may approve or reject it:
+
+```json
+{
+  "action": "review-work-item",
+  "workItemId": "<continuous_assurance_work_items.id>",
+  "decision": "approve",
+  "note": "Independent review completed."
+}
+```
+
+The user who queued the work item cannot approve the same item. This maker-checker rule is enforced server-side. Rejections require a documented reason.
+
+Only after independent approval does `promoteContinuousAssuranceFinding` create or resolve the canonical Enterprise Findings & CAPA record.
+
+## Canonical Connected GRC lineage
+
+The approved enterprise finding uses:
 
 - `source_type = continuous-control`
 - `source_ref = <automation rule id>`
 - `control_ref = <governed control>`
 - `risk_ref = <governed risk>`
 - `finding_type = control-deficiency`
+- `evidence_reference = <origin evidence id>`
+- `evidence_sha256 = <origin evidence SHA-256>`
+- `detected_by = system:continuous-assurance`
 
-This keeps the automation rule, control, risk, source finding, and immutable evidence as distinct lineage anchors in Connected GRC.
+Keeping the automation rule, control, risk, source finding, and evidence references distinct lets Connected GRC reconstruct `finding-automation-rule`, `finding-control`, `finding-risk`, `finding-remediation`, `remediation-control`, `remediation-risk`, and related assurance edges without title matching.
 
-## Governance gates
+An active canonical CAPA for the same continuous-control rule and target control blocks duplicate creation. Closed or formally accepted records do not prevent a later newly governed finding from being promoted.
 
-Promotion reuses the Enterprise Findings & CAPA validation rules. It therefore enforces severity-based SLA, a valid action owner and independent reviewer, maker-checker separation, complete root cause, corrective action, preventive action, control mapping, risk mapping, and immutable source evidence.
+## Audit trail and closed loop
 
-An open/active canonical CAPA for the same continuous-control rule and target control blocks duplicate promotion. The source automation finding is acknowledged only after the canonical finding and immutable promotion event are committed in the same D1 batch.
+Approved promotion writes an immutable `continuous-assurance-promotion` event to `enterprise_finding_events`, including the source evidence reference and SHA-256 digest together with the queue actor, approving actor, automation finding, rule, control, risk, and work item references.
 
-## Audit trail
+The resulting lifecycle is:
 
-The promotion writes `finding-promote-continuous-assurance` to `enterprise_finding_events`. The event stores the source evidence reference and SHA-256 digest in the dedicated evidence fields and records automation finding, rule, control, risk, and evidence capture time in bounded event detail.
+`Continuous Control → Automated Evidence → Automation Finding → Review Queue → Enterprise Finding/CAPA → Remediation → Re-test → Residual Risk Reassessment`
 
-The resulting flow is:
-
-`Continuous Control → Automated Evidence → Automation Finding → Enterprise Finding/CAPA → Remediation → Residual Risk`
-
-Connected GRC source adapters use these references to reconstruct the end-to-end assurance chain without relying on title matching.
+After remediation, the governed Continuous Assurance flow can queue a re-test. Approved re-tests are reconciled against subsequent automation runs; the residual-risk state is then updated without inventing a risk reduction when there is no approved residual rating or successful evidence-backed re-test.
