@@ -69,6 +69,17 @@ async function firstVisible(locator) {
   }
   return null;
 }
+async function visibleLanguageControl(page, label) {
+  await page.locator(".language-switch").first().waitFor({ state: "attached", timeout: 5_000 }).catch(() => {});
+  const buttons = page.locator(".language-switch button");
+  const count = await buttons.count();
+  for (let i = 0; i < count; i += 1) {
+    const candidate = buttons.nth(i);
+    const text = ((await candidate.textContent().catch(() => "")) || "").trim();
+    if (text === label && await candidate.isVisible().catch(() => false)) return candidate;
+  }
+  return firstVisible(page.getByRole("button", { name: label, exact: true }));
+}
 async function waitForApp(page) {
   await page.goto(baseUrl, { waitUntil: "domcontentloaded", timeout: 60_000 });
   await page.locator("body").waitFor({ state: "visible", timeout: 15_000 });
@@ -80,7 +91,7 @@ async function switchLocale(page, locale) {
   if (current.startsWith(expectedLang)) return { changed: false, control: "already-selected" };
 
   const targetLabel = locale === "en" ? "EN" : "TR";
-  const control = await firstVisible(page.getByRole("button", { name: targetLabel, exact: true }));
+  const control = await visibleLanguageControl(page, targetLabel);
   if (!control) throw new Error(`${targetLabel} language control is not visible`);
   await control.click();
   await page.waitForFunction(
@@ -143,7 +154,7 @@ async function verifySidebarContract(browser) {
       throw new Error("Sidebar did not enter Hide mode");
     }
 
-    const restore = await firstVisible(page.getByRole("button", { name: /Menüyü göster|Show navigation/i }));
+    const restore = await firstVisible(page.getByRole("button", { name: /Ana menüyü aç|Open main navigation|Menüyü göster|Show navigation/i }));
     if (!restore) throw new Error("Hidden sidebar cannot be restored");
     await restore.click();
     await page.waitForTimeout(220);
