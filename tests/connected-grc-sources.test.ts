@@ -15,7 +15,20 @@ const coreRows: ConnectedGrcRow[] = [
 
 const payloads: ConnectedGrcEnterprisePayloads = {
   findings: {
-    findings: [{ id: "F-1", code: "FND-001", title: "Firewall gap", sourceType: "audit", sourceRef: "AUD-001", riskRef: "RSK-001", controlRef: "CTL-001" }],
+    findings: [{
+      id: "F-1",
+      code: "FND-001",
+      title: "Firewall gap",
+      sourceType: "audit",
+      sourceRef: "AUD-001",
+      riskRef: "RSK-001",
+      controlRef: "CTL-001",
+      status: "open",
+      owner: "security@example.test",
+      dueDate: "2026-10-15",
+      correctiveAction: "Harden the firewall review approval workflow",
+      preventiveAction: "Continuously verify approval evidence",
+    }],
   },
   incidents: {
     incidents: [{ id: "I-1", code: "INC-001", title: "Payments outage", assetRefs: ["AST-001"], riskRef: "RSK-001", biaRef: "BIA-001" }],
@@ -49,18 +62,22 @@ const payloads: ConnectedGrcEnterprisePayloads = {
 
 test("enterprise source adapters create exactly the expected deterministic namespaced rows", () => {
   const rows = buildConnectedGrcEnterpriseRows(payloads);
-  assert.equal(rows.length, 17);
+  assert.equal(rows.length, 18);
   assert.equal(new Set(rows.map((row) => row.id)).size, rows.length);
   assert.ok(rows.every((row) => row.id.startsWith("enterprise:")));
   assert.deepEqual(rows, buildConnectedGrcEnterpriseRows(payloads));
+  const remediation = rows.find((row) => row.data.kind === "remediation");
+  assert.ok(remediation);
+  assert.equal(remediation?.code, "FND-001-REM");
+  assert.equal(remediation?.data.owner, "security@example.test");
 });
 
-test("Connected GRC resolves enterprise lineage across findings incidents policies regulation KRI continuity and vendors", () => {
+test("Connected GRC resolves enterprise lineage across findings remediation incidents policies regulation KRI continuity and vendors", () => {
   const rows = [...coreRows, ...buildConnectedGrcEnterpriseRows(payloads)];
   const graph = buildConnectedGrcGraph(rows);
   const relations = new Set(graph.links.map((link) => link.relation));
   for (const relation of [
-    "finding-risk", "finding-control", "finding-audit",
+    "finding-risk", "finding-control", "finding-audit", "finding-remediation", "remediation-risk", "remediation-control",
     "incident-asset", "incident-risk", "incident-bia",
     "continuity-bia", "continuity-plan",
     "policy-version", "policy-control", "policy-risk",
@@ -71,10 +88,41 @@ test("Connected GRC resolves enterprise lineage across findings incidents polici
 
   const coverage = assessConnectedGrcCoverage(rows, graph.links);
   assert.ok(coverage.eligible > 10);
+  const remediationGap = coverage.gaps.find((gap) => gap.row.data.kind === "remediation");
+  assert.equal(remediationGap, undefined);
   for (const moduleName of [
     "Bulgular ve CAPA", "Güvenlik Olayları", "İş Sürekliliği", "Politika Merkezi",
     "Regülasyon Merkezi", "Risk İştahı ve KRI", "Tedarikçiler",
   ]) assert.ok(coverage.domains.some((domain) => domain.module === moduleName), `expected coverage domain ${moduleName}`);
+});
+
+test("continuous-control findings link automation to governed CAPA remediation and risk", () => {
+  const enterprise = buildConnectedGrcEnterpriseRows({
+    evidenceAutomation: {
+      sources: [{ id: "SRC-1", name: "Microsoft Defender" }],
+      rules: [{ id: "RULE-1", name: "MFA continuous check", sourceId: "SRC-1", controlRefs: ["CTL-001"], health: "failing" }],
+    },
+    findings: {
+      findings: [{
+        id: "F-CC-1",
+        code: "FND-CC-1",
+        title: "MFA continuous control below threshold",
+        sourceType: "continuous-control",
+        sourceRef: "RULE-1",
+        controlRef: "CTL-001",
+        riskRef: "RSK-001",
+        status: "in-progress",
+        owner: "security@example.test",
+        dueDate: "2026-10-01",
+        correctiveAction: "Restore MFA coverage above the governed threshold",
+      }],
+    },
+  });
+  const graph = buildConnectedGrcGraph([...coreRows, ...enterprise]);
+  const relations = new Set(graph.links.map((link) => link.relation));
+  for (const relation of [
+    "finding-automation-rule", "finding-remediation", "remediation-risk", "remediation-control", "remediation-automation-rule",
+  ]) assert.ok(relations.has(relation), `expected continuous-control relationship ${relation}`);
 });
 
 test("enterprise source adapters tolerate partial malformed and missing payloads", () => {
