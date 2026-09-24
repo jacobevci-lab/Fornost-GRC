@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import {readFile} from "node:fs/promises";
 import test from "node:test";
-import {addDays,findingAttention,findingSlaDays,validateFinding,validateFindingAction} from "../app/findings/domain";
+import {FINDING_SOURCES,addDays,findingAttention,findingSlaDays,validateFinding,validateFindingAction} from "../app/findings/domain";
 
 const valid={sourceType:"audit",sourceRef:"AUD-2027-01",sourceTitle:"ISO 27001 Internal Audit",findingType:"nonconformity",title:"Privileged access review is incomplete",description:"Quarterly privileged access review evidence does not cover all production administrators.",severity:"high",owner:"action@example.com",reviewer:"reviewer@example.com",rootCause:"Ownership changes were not reflected in the review workflow.",correctiveAction:"Complete the missing review population and remove unjustified privileged access.",preventiveAction:"Automate the population reconciliation and require owner attestation before closure.",dueDate:"2027-01-31",riskRef:"RSK-001",controlRef:"A.5.18"};
 
@@ -11,6 +11,13 @@ test("severity drives bounded CAPA SLA and complete independent ownership",()=>{
  assert.throws(()=>validateFinding({...valid,dueDate:"2027-02-01"},"2027-01-01"),/en fazla 30 gün/);
  assert.throws(()=>validateFinding({...valid,reviewer:valid.owner},"2027-01-01"),/farklı/);
  assert.throws(()=>validateFinding({...valid,rootCause:"unknown"},"2027-01-01"),/eksiksiz/);
+});
+
+test("continuous-control is a canonical source but generic finding creation cannot forge that lineage",async()=>{
+ assert.ok(FINDING_SOURCES.includes("continuous-control"));
+ const route=await readFile("app/api/findings/route.ts","utf8");
+ assert.match(route,/finding\.sourceType === "continuous-control"/);
+ assert.match(route,/yalnız yönetişimli Continuous Assurance inceleme kuyruğu üzerinden oluşturulabilir/);
 });
 
 test("closure and time-bound risk acceptance require exact evidence-backed confirmation",()=>{
