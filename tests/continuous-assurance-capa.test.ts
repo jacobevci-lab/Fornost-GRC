@@ -21,15 +21,17 @@ const base = {
   originEvidenceSha256: "b".repeat(64),
 };
 
-test("continuous assurance finding becomes a canonical control-deficiency only after governance enrichment", () => {
+test("continuous assurance finding becomes a canonical control-deficiency while preserving automation lineage", () => {
   const result = buildContinuousAssuranceCapaCandidate(base, "2026-09-21");
   assert.equal(result.eligible, true);
   assert.deepEqual(result.reasons, []);
-  assert.equal(result.payload?.sourceType, "control");
+  assert.equal(result.payload?.sourceType, "continuous-control");
+  assert.equal(result.payload?.sourceRef, "RULE-1");
   assert.equal(result.payload?.findingType, "control-deficiency");
   assert.equal(result.payload?.controlRef, "CTL-001");
   assert.equal(result.payload?.riskRef, "RSK-001");
   assert.equal(result.lineage.automationFindingRef, "CCM-FINDING-1");
+  assert.equal(result.lineage.automationRuleRef, "RULE-1");
   assert.equal(result.lineage.originEvidenceReference, "EVD-AUTO-1");
 });
 
