@@ -8,7 +8,7 @@ import {
   sha256HexBytes,
   splitEvidenceControlRefs,
   validateEvidenceFile,
-  verifyEvidenceVersionChain,
+  verifyEvidenceVersionChainWithAnchor,
   type EvidenceVersionRow,
 } from "../../../evidence/versioning";
 
@@ -124,19 +124,6 @@ function legacySnapshot(record: EvidenceRecord) {
   };
 }
 
-async function integrityWithAnchor(record: EvidenceRecord, rows: EvidenceVersionRow[]) {
-  const integrity = await verifyEvidenceVersionChain(rows);
-  if (integrity.state !== "verified" || !rows.length) return integrity;
-  const data = parse(record.data_json);
-  const expectedVersion = Number(data.versionNo || 0);
-  const expectedHead = text(data.versionChainSha256, 64);
-  const last = rows[rows.length - 1];
-  if (!expectedVersion || !expectedHead || expectedVersion !== last.version_no || expectedHead !== last.chain_sha256) {
-    return { state: "broken" as const, checked: rows.length, failedVersion: expectedVersion || last.version_no };
-  }
-  return integrity;
-}
-
 export async function GET(req: NextRequest) {
   const access = await requireRole(req, ["Admin", "Editor", "Viewer"]);
   if (access.response) return access.response;
@@ -150,9 +137,13 @@ export async function GET(req: NextRequest) {
     if (!record) return json({ error: "Kanıt kaydı bulunamadı." }, 404);
     const rows = await env.DB.prepare("SELECT * FROM evidence_versions WHERE evidence_id=? ORDER BY version_no ASC LIMIT 500")
       .bind(evidenceId).all<EvidenceVersionRow>();
-    const integrity = await integrityWithAnchor(record, rows.results);
+    const data = parse(record.data_json);
+    const integrity = await verifyEvidenceVersionChainWithAnchor(rows.results, {
+      versionNo: data.versionNo,
+      chainSha256: data.versionChainSha256,
+    });
     const versions = rows.results.length ? rows.results.map(publicEvidenceVersion).reverse() : [legacySnapshot(record)];
-    return json({ evidence: { id: record.id, ...parse(record.data_json) }, versions, integrity });
+    return json({ evidence: { id: record.id, ...data }, versions, integrity });
   }
 
   if (controlRef) {
@@ -177,11 +168,12 @@ export async function GET(req: NextRequest) {
   let verified = 0;
   let broken = 0;
   for (const [id, rows] of grouped) {
-    const state = await verifyEvidenceVersionChain(rows);
     const item = itemById.get(id);
-    const last = rows[rows.length - 1];
-    const anchorBroken = !item || !item.currentVersion || !item.headHash || item.currentVersion !== last.version_no || item.headHash !== last.chain_sha256;
-    if (state.state === "verified" && !anchorBroken) verified += 1;
+    const state = await verifyEvidenceVersionChainWithAnchor(rows, {
+      versionNo: item?.currentVersion,
+      chainSha256: item?.headHash,
+    });
+    if (state.state === "verified") verified += 1;
     else broken += 1;
   }
   const linkedControls = await env.DB.prepare("SELECT COUNT(DISTINCT normalized_ref) total FROM evidence_version_controls").first<{ total: number }>();
