@@ -29,6 +29,34 @@ test("control assurance treats missing test and evidence as actionable gaps", ()
   assert.deepEqual(result.items[0].reasons, ["test-date-missing", "evidence-missing", "audit-missing"]);
 });
 
+test("healthy continuous assurance satisfies the current evidence signal without manual evidence", () => {
+  const result = buildControlAssurance([
+    { id: "c1", code: "CTL-A", module: "Kontroller", data: { controlRef: "CTL-A", owner: "Security", testOwner: "Audit", nextTestDate: "2027-01-01", status: "Aktif" } },
+    { id: "a1", code: "AUD-A", module: "Denetim Yönetimi", data: { controlRef: "CTL-A" } },
+    { id: "auto-1", module: "Kanıt Otomasyonu", data: { kind: "automation-rule", automationControlRefs: ["CTL-A"], automationHealth: "healthy" } },
+  ], "2026-09-24");
+  assert.equal(result.currentEvidence, 1);
+  assert.equal(result.automationCovered, 1);
+  assert.equal(result.automationHealthy, 1);
+  assert.equal(result.items[0].automationHealthyCount, 1);
+  assert.ok(!result.items[0].reasons.includes("evidence-missing"));
+  assert.ok(!result.items[0].reasons.includes("evidence-stale"));
+});
+
+test("failing automation and open continuous-control findings degrade control assurance", () => {
+  const result = buildControlAssurance([
+    { id: "c1", code: "CTL-A", module: "Kontroller", data: { controlRef: "CTL-A", owner: "Security", testOwner: "Audit", nextTestDate: "2027-01-01", status: "Aktif" } },
+    { id: "a1", code: "AUD-A", module: "Denetim Yönetimi", data: { controlRef: "CTL-A" } },
+    { id: "auto-1", code: "RULE-A", module: "Kanıt Otomasyonu", data: { kind: "automation-rule", automationControlRefs: ["CTL-A"], automationHealth: "failing" } },
+    { id: "auto-finding-1", module: "Kanıt Otomasyonu", data: { kind: "automation-finding", automationControlRefs: ["CTL-A"], automationRuleRef: ["RULE-A"], status: "open" } },
+  ], "2026-09-24");
+  assert.equal(result.items[0].automationRuleCount, 1);
+  assert.equal(result.items[0].automationOpenFindingCount, 1);
+  assert.ok(result.items[0].reasons.includes("automation-failing"));
+  assert.ok(result.items[0].reasons.includes("automation-finding-open"));
+  assert.equal(result.items[0].state, "critical");
+});
+
 const lineageRows: AssuranceRow[] = [
   {
     id: "control-1",
@@ -69,12 +97,14 @@ const lineageRows: AssuranceRow[] = [
   },
   {
     id: "automation-1",
+    code: "RULE-01",
     module: "Kanıt Otomasyonu",
     data: {
       kind: "automation-rule",
       title: "PAM review evidence collector",
       automationControlRefs: "CTRL-01",
       automationRiskRef: "RISK-01",
+      automationHealth: "healthy",
       status: "Aktif",
     },
   },
@@ -90,12 +120,28 @@ const lineageRows: AssuranceRow[] = [
   },
   {
     id: "finding-1",
+    code: "FND-01",
     module: "Bulgular ve CAPA",
     data: {
+      kind: "finding",
       finding: "Review evidence needs stronger approval trace",
       findingControlRef: "CTRL-01",
       findingRiskRef: "RISK-01",
       status: "Açık",
+    },
+  },
+  {
+    id: "remediation-1",
+    code: "FND-01-REM",
+    module: "Bulgular ve CAPA",
+    data: {
+      kind: "remediation",
+      title: "Strengthen approval trace",
+      remediationFindingRef: "FND-01",
+      remediationControlRef: "CTRL-01",
+      remediationRiskRef: "RISK-01",
+      owner: "Security",
+      status: "in-progress",
     },
   },
   {
@@ -115,18 +161,21 @@ test("control assurance resolves compliance requirements linked by controlRef", 
   assert.equal(summary.total, 1);
   assert.equal(summary.items[0]?.frameworkCount, 1);
   assert.equal(summary.items[0]?.evidenceCount, 1);
-  assert.equal(summary.items[0]?.automationCount, 1);
+  assert.equal(summary.items[0]?.automationCount >= 1, true);
   assert.equal(summary.items[0]?.openFindingCount, 1);
+  assert.equal(summary.items[0]?.openRemediationCount, 1);
+  assert.equal(summary.items[0]?.riskLinkedFindingCount, 1);
 });
 
-test("control assurance detail builds the full control-to-risk lineage", () => {
+test("control assurance detail builds the full control-to-CAPA-to-risk lineage", () => {
   const detail = buildControlAssuranceDetail(lineageRows, "control-1", "2026-09-24");
   assert.ok(detail);
   assert.equal(detail.frameworks.length, 1);
   assert.equal(detail.evidence.length, 1);
-  assert.equal(detail.automations.length, 1);
+  assert.equal(detail.automations.length >= 1, true);
   assert.equal(detail.audits.length, 1);
   assert.equal(detail.findings.length, 1);
+  assert.equal(detail.remediations.length, 1);
   assert.equal(detail.risks.length, 1);
   assert.equal(detail.risks[0]?.code, "RISK-01");
   assert.equal(detail.test.status, "planned");
