@@ -2,6 +2,7 @@
 
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { withBasePath } from "./base-path";
+import EvidenceHistoryPanel from "./evidence-history-panel";
 import "./continuous-assurance-dashboard.css";
 
 type Lang = "tr" | "en";
@@ -234,6 +235,8 @@ export default function ContinuousAssuranceDashboardPanel({
         </div>
       </article>) : <div className="ca-empty"><b>{tr ? "Aksiyon bekleyen güvence işi yok." : "No assurance work requires action."}</b><span>{tr ? "Kontrol, kanıt ve düzeltme sağlığı izlenmeye devam ediyor." : "Control, evidence and remediation health remain monitored."}</span></div>}
     </div>
+
+    <EvidenceHistoryPanel lang={lang} currentUser={currentUser} />
 
     {review && <div className="ca-overlay" onMouseDown={() => !busy && setReview(null)}>
       <form className="ca-review-modal" onSubmit={submitReview} onMouseDown={(event) => event.stopPropagation()}>
