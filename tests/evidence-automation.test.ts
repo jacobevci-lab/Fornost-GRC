@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 
 const ui=readFileSync("app/evidence-automation.tsx","utf8");
 const route=readFileSync("app/api/evidence-automation/route.ts","utf8");
+const promotionRoute=readFileSync("app/api/findings/promote-continuous-assurance/route.ts","utf8");
 const premiumCss=readFileSync("app/fornost-premium.css","utf8");
 const refreshCss=readFileSync("app/fornost-refresh.css","utf8");
 const finalCss=readFileSync("app/final-polish.css","utf8");
@@ -25,6 +26,17 @@ test("collector enforces outbound and payload safety boundaries",()=>{
   assert.match(route,/addMissingColumns/);
   assert.match(route,/trigger_type/);
   assert.match(route,/duration_ms/);
+});
+
+test("continuous assurance findings expose governed CAPA promotion without trusting client evidence lineage",()=>{
+  assert.match(ui,/CAPA'ya Aktar/);
+  assert.match(ui,/Promote to CAPA/);
+  assert.match(ui,/\/api\/findings\/promote-continuous-assurance/);
+  assert.match(ui,/Kurumsal CAPA Oluştur/);
+  assert.match(ui,/SHA-256 source evidence lineage are verified server-side/);
+  assert.match(promotionRoute,/evidence_automation_runs/);
+  assert.match(promotionRoute,/response_hash IS NOT NULL/);
+  assert.match(promotionRoute,/finding-promote-continuous-assurance/);
 });
 
 test("evidence automation keeps Turkish and English UI states consistent",()=>{
