@@ -106,12 +106,38 @@ function applyFindingFocus(value: string) {
   return true;
 }
 
-function evidenceAutomationTab(request: FornostNavigationRequest) {
-  if (clean(request.filter?.findingRef)) return 4;
-  if (clean(request.filter?.ruleRef)) return 2;
-  if (clean(request.filter?.sourceRef)) return 1;
-  if (clean(request.filter?.evidenceRef)) return 3;
-  return 4;
+type AutomationTabKind = "finding" | "rule" | "source" | "evidence";
+
+function evidenceAutomationTabKind(request: FornostNavigationRequest): AutomationTabKind {
+  if (clean(request.filter?.findingRef)) return "finding";
+  if (clean(request.filter?.ruleRef)) return "rule";
+  if (clean(request.filter?.sourceRef)) return "source";
+  if (clean(request.filter?.evidenceRef)) return "evidence";
+  return "finding";
+}
+
+const evidenceAutomationTabAliases: Record<AutomationTabKind, string[]> = {
+  finding: ["bulgular & capa", "bulgular", "findings & capa", "findings"],
+  rule: ["sürekli kontroller", "continuous controls"],
+  source: ["kaynaklar", "sources"],
+  evidence: ["kanıt akışı", "kanıt", "evidence runs", "evidence"],
+};
+
+const evidenceAutomationTabFallback: Record<AutomationTabKind, number> = {
+  finding: 4,
+  rule: 2,
+  source: 1,
+  evidence: 3,
+};
+
+function evidenceAutomationTab(tabs: HTMLButtonElement[], request: FornostNavigationRequest) {
+  const kind = evidenceAutomationTabKind(request);
+  const aliases = evidenceAutomationTabAliases[kind];
+  const semantic = tabs.find((button) => {
+    const label = normalize(button.textContent);
+    return aliases.some((alias) => label === normalize(alias) || label.includes(normalize(alias)));
+  });
+  return semantic || tabs[evidenceAutomationTabFallback[kind]] || null;
 }
 
 function refreshAutomationFindingAliases() {
@@ -144,8 +170,7 @@ function applyEvidenceAutomationFocus(request: FornostNavigationRequest, value: 
   const page = document.querySelector<HTMLElement>("main .ea-page");
   if (!page) return false;
   const tabs = Array.from(page.querySelectorAll<HTMLButtonElement>(".ea-tabs > button"));
-  const index = evidenceAutomationTab(request);
-  const targetTab = tabs[index];
+  const targetTab = evidenceAutomationTab(tabs, request);
   if (!targetTab) return false;
   if (!targetTab.classList.contains("active")) {
     targetTab.click();
