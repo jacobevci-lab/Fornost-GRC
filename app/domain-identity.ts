@@ -65,7 +65,7 @@ type StatusIdentity = {
 };
 
 export const DOMAIN_MODULES: readonly ModuleIdentity[] = [
-  { key: "dashboard", legacy: "Ana Sayfa", tr: "Ana Sayfa", en: "Dashboard" },
+  { key: "dashboard", legacy: "Ana Sayfa", tr: "Ana Sayfa", en: "Dashboard", aliases: ["Gösterge Paneli"] },
   { key: "my-work", legacy: "Benim İşlerim", tr: "Benim İşlerim", en: "My Work" },
   { key: "risk", legacy: "Risk Assessment", tr: "Risk Değerlendirmesi", en: "Risk Assessment" },
   { key: "risk-appetite", legacy: "Risk İştahı ve KRI", tr: "Risk İştahı ve KRI", en: "Risk Appetite & KRI" },
@@ -142,6 +142,12 @@ export function domainModuleLabel(value: unknown, lang: "tr" | "en") {
   const identity = moduleIndex.get(normalize(value));
   if (!identity) return String(value ?? "").trim();
   return identity[lang];
+}
+
+export function domainModuleSearchLabels(value: unknown) {
+  const identity = moduleIndex.get(normalize(value));
+  if (!identity) return [String(value ?? "").trim()].filter(Boolean);
+  return [...new Set([identity.legacy, identity.tr, identity.en, ...(identity.aliases || [])])];
 }
 
 export function domainStatusKey(value: unknown): DomainStatusKey | null {
