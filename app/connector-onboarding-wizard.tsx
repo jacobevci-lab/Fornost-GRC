@@ -348,6 +348,25 @@ export default function ConnectorOnboardingWizard() {
     }
   }
 
+  function openSource() {
+    if (!sourceId) return;
+    reset();
+    navigateToFornost({ module: "Kanıt Otomasyonu", ref: sourceId, source: "connector-onboarding", filter: { sourceRef: sourceId } });
+  }
+
+  function openRule() {
+    if (!ruleId) return;
+    reset();
+    navigateToFornost({ module: "Kanıt Otomasyonu", ref: ruleId, source: "connector-onboarding", filter: { ruleRef: ruleId } });
+  }
+
+  function openControl(ref: string) {
+    const controlRef = clean(ref);
+    if (!controlRef) return;
+    reset();
+    navigateToFornost({ module: "Kontroller", ref: controlRef, source: "connector-onboarding", filter: { controlRef } });
+  }
+
   function openEvidence() {
     if (!runEvidenceId) return;
     reset();
@@ -465,9 +484,10 @@ export default function ConnectorOnboardingWizard() {
               <div className="cow-complete-mark">✓</div>
               <small>CONTINUOUS ASSURANCE ACTIVE</small>
               <h4>{tr ? "Connector izlemeye alındı" : "Connector monitoring is active"}</h4>
-              <p>{tr ? "Kaynak doğrulandı, kontrol eşleştirmesi kaydedildi ve ilk kanıt toplama çalışması tamamlandı." : "The source was validated, control mappings were saved and the first evidence collection run completed."}</p>
+              <p>{tr ? "Kaynak doğrulandı, kontrol eşleştirmesi kaydedildi ve ilk kanıt toplama çalışması tamamlandı. Aşağıdaki kayıtların tamamı Connected GRC zincirinde doğrudan izlenebilir." : "The source was validated, control mappings were saved and the first evidence collection run completed. Every record below is directly traceable in the Connected GRC chain."}</p>
               <div className="cow-monitor-summary"><span><small>{tr ? "Kaynak" : "Source"}</small><b>{draft.name}</b></span><span><small>{tr ? "Kontrol" : "Controls"}</small><b>{selectedControls.length}</b></span><span><small>{tr ? "İlk çalışma" : "First run"}</small><b>{runStatus || "—"}</b></span><span><small>Rule ID</small><b>{ruleId.slice(0, 12) || "—"}</b></span></div>
-              <footer className="cow-actions"><span>{runFindingId ? (tr ? "İlk çalışma eşik aştı; bağlı risk/bulgu akışı oluştu." : "The first run crossed the threshold; the linked risk/finding flow was created.") : (tr ? "Başarısızlık eşiğinde Fornost bulgu/CAPA ve risk sinyalini bağlı modele taşır." : "At the failure threshold, Fornost feeds finding/CAPA and risk signals into the connected model.")}</span><div>{runEvidenceId&&<button type="button" className="ghost" onClick={openEvidence}>{tr ? "Kanıtı Aç" : "Open Evidence"}</button>}{runFindingId&&<button type="button" className="ghost" onClick={openFinding}>{tr ? "Bulguyu Aç" : "Open Finding"}</button>}<button type="button" className="primary" onClick={reset}>{tr ? "Tamam" : "Done"}</button></div></footer>
+              <div className="cow-control-chips cow-linked-controls">{selectedControls.map((ref) => <button type="button" key={ref} onClick={() => openControl(ref)} aria-label={`${tr ? "Kontrolü aç" : "Open control"} ${ref}`}>{ref}</button>)}</div>
+              <footer className="cow-actions"><span>{runFindingId ? (tr ? "İlk çalışma eşik aştı; bağlı risk/bulgu akışı oluştu." : "The first run crossed the threshold; the linked risk/finding flow was created.") : (tr ? "Başarısızlık eşiğinde Fornost bulgu/CAPA ve risk sinyalini bağlı modele taşır." : "At the failure threshold, Fornost feeds finding/CAPA and risk signals into the connected model.")}</span><div>{sourceId&&<button type="button" className="ghost" onClick={openSource}>{tr ? "Kaynağı Aç" : "Open Source"}</button>}{ruleId&&<button type="button" className="ghost" onClick={openRule}>{tr ? "Kuralı Aç" : "Open Rule"}</button>}{runEvidenceId&&<button type="button" className="ghost" onClick={openEvidence}>{tr ? "Kanıtı Aç" : "Open Evidence"}</button>}{runFindingId&&<button type="button" className="ghost" onClick={openFinding}>{tr ? "Bulguyu Aç" : "Open Finding"}</button>}<button type="button" className="primary" onClick={reset}>{tr ? "Tamam" : "Done"}</button></div></footer>
             </div>
           )}
         </div>
