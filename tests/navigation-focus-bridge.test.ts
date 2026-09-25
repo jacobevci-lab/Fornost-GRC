@@ -63,6 +63,14 @@ test("evidence automation focus selects the correct native tab before highlighti
   assert.match(bridge, /highlightRows\(rows, match\)/);
 });
 
+test("automation finding ids resolve to rendered titles without exposing hidden raw data", () => {
+  assert.match(bridge, /automationFindingTitles = new Map<string, string>\(\)/);
+  assert.match(bridge, /fetch\(withBasePath\("\/api\/evidence-automation"\)/);
+  assert.match(bridge, /automationFindingTitles\.set\(id, title\)/);
+  assert.match(bridge, /evidenceAutomationFocusValue\(request, value\)/);
+  assert.match(bridge, /attempts >= 30/);
+});
+
 test("finding focus remains pending until the matching row is available", () => {
   const start = bridge.indexOf("function applyFindingFocus");
   const end = bridge.indexOf("function evidenceAutomationTab");
