@@ -19,7 +19,7 @@ function activeModuleMatches(module: string) {
 }
 
 function focusValue(request: FornostNavigationRequest) {
-  const preferredFilterKeys = ["recordRef", "controlRef", "riskRef", "evidenceRef", "findingRef", "sourceRef", "id"];
+  const preferredFilterKeys = ["recordRef", "controlRef", "riskRef", "evidenceRef", "findingRef", "sourceRef", "ruleRef", "id"];
   for (const key of preferredFilterKeys) {
     const value = clean(request.filter?.[key]);
     if (value) return value;
@@ -48,15 +48,18 @@ function matchingRow(rows: HTMLTableRowElement[], value: string) {
   return exact || rows.find((row) => normalize(row.textContent).includes(needle)) || null;
 }
 
-function highlightMatchingRow(value: string) {
-  const rows = Array.from(document.querySelectorAll<HTMLTableRowElement>("main .table-card .table-wrap tbody tr"));
-  const match = matchingRow(rows, value);
-  if (!match) return false;
-
+function highlightRows(rows: HTMLTableRowElement[], match: HTMLTableRowElement) {
   for (const row of rows) row.classList.remove("fornost-focus-row");
   match.classList.add("fornost-focus-row");
   match.scrollIntoView({ behavior: "smooth", block: "center", inline: "nearest" });
   window.setTimeout(() => match.classList.remove("fornost-focus-row"), 6_000);
+}
+
+function highlightMatchingRow(value: string) {
+  const rows = Array.from(document.querySelectorAll<HTMLTableRowElement>("main .table-card .table-wrap tbody tr"));
+  const match = matchingRow(rows, value);
+  if (!match) return false;
+  highlightRows(rows, match);
   return true;
 }
 
@@ -81,11 +84,34 @@ function applyFindingFocus(value: string) {
   const match = matchingRow(rows, value);
   if (!match) return false;
 
-  for (const row of rows) row.classList.remove("fornost-focus-row");
-  match.classList.add("fornost-focus-row");
-  match.scrollIntoView({ behavior: "smooth", block: "center", inline: "nearest" });
+  highlightRows(rows, match);
   match.click();
-  window.setTimeout(() => match.classList.remove("fornost-focus-row"), 6_000);
+  return true;
+}
+
+function evidenceAutomationTab(request: FornostNavigationRequest) {
+  if (clean(request.filter?.findingRef)) return 4;
+  if (clean(request.filter?.ruleRef)) return 2;
+  if (clean(request.filter?.sourceRef)) return 1;
+  if (clean(request.filter?.evidenceRef)) return 3;
+  return 4;
+}
+
+function applyEvidenceAutomationFocus(request: FornostNavigationRequest, value: string) {
+  const page = document.querySelector<HTMLElement>("main .ea-page");
+  if (!page) return false;
+  const tabs = Array.from(page.querySelectorAll<HTMLButtonElement>(".ea-tabs > button"));
+  const index = evidenceAutomationTab(request);
+  const targetTab = tabs[index];
+  if (!targetTab) return false;
+  if (!targetTab.classList.contains("active")) {
+    targetTab.click();
+    return false;
+  }
+  const rows = Array.from(page.querySelectorAll<HTMLTableRowElement>(".ea-table tbody tr"));
+  const match = matchingRow(rows, value);
+  if (!match) return false;
+  highlightRows(rows, match);
   return true;
 }
 
@@ -96,6 +122,9 @@ function applyFocus(request: FornostNavigationRequest) {
 
   if (sameDomainModule(request.module, "Bulgular ve CAPA")) {
     return applyFindingFocus(value);
+  }
+  if (sameDomainModule(request.module, "Kanıt Otomasyonu")) {
+    return applyEvidenceAutomationFocus(request, value);
   }
 
   const search = document.querySelector<HTMLInputElement>("main .table-card .register-search input");
