@@ -13,6 +13,9 @@ type TimelineEvent = {
   reference: string;
   findingId?: string;
   ruleId?: string;
+  module?: string;
+  recordRef?: string;
+  filterKey?: "ruleRef" | "findingRef" | "riskRef";
   createdAt: string;
 };
 
@@ -24,17 +27,24 @@ async function safeRows<T>(db:D1Database,sql:string){try{return (await db.prepar
 export async function GET(req:NextRequest){
   const access=await requireRole(req,["Admin","Editor","Viewer"]);if(access.response)return access.response;
   const env=await runtime(),events:TimelineEvent[]=[];
+  const enterpriseFindings=await safeRows<{id:string;code:string}>(env.DB,"SELECT id,code FROM enterprise_findings");
+  const findingCodeById=new Map(enterpriseFindings.map(row=>[String(row.id||""),String(row.code||"")]));
+
   const work=await safeRows<Record<string,unknown>>(env.DB,"SELECT id,finding_id,rule_id,action,status,actor,reviewed_by,reviewed_at,review_note,result_ref,completed_at,created_at,updated_at FROM continuous_assurance_work_items ORDER BY updated_at DESC LIMIT 300");
-  for(const row of work)events.push({id:`work:${row.id}`,type:String(row.action||"assurance-work"),category:String(row.action)==="capa-promotion"?"capa":"review",title:String(row.action)==="capa-promotion"?"CAPA promotion work":"Control re-test work",detail:String(row.review_note||`${row.action||"assurance"} · ${row.status||"unknown"}`),actor:String(row.reviewed_by||row.actor||"system"),status:String(row.status||""),reference:String(row.result_ref||row.id||""),findingId:String(row.finding_id||""),ruleId:String(row.rule_id||""),createdAt:String(row.reviewed_at||row.completed_at||row.updated_at||row.created_at||"")});
+  for(const row of work){
+    const action=String(row.action||"assurance-work"),ruleId=String(row.rule_id||""),resultRef=String(row.result_ref||""),resultCode=findingCodeById.get(resultRef)||"";
+    const canonicalCapa=action==="capa-promotion"&&resultCode;
+    events.push({id:`work:${row.id}`,type:action,category:action==="capa-promotion"?"capa":"review",title:action==="capa-promotion"?"CAPA promotion work":"Control re-test work",detail:String(row.review_note||`${action} · ${row.status||"unknown"}`),actor:String(row.reviewed_by||row.actor||"system"),status:String(row.status||""),reference:resultCode||resultRef||String(row.id||""),findingId:String(row.finding_id||""),ruleId, ...(canonicalCapa?{module:"Bulgular ve CAPA",recordRef:resultCode,filterKey:"findingRef" as const}:ruleId?{module:"Kanıt Otomasyonu",recordRef:ruleId,filterKey:"ruleRef" as const}:{}),createdAt:String(row.reviewed_at||row.completed_at||row.updated_at||row.created_at||"")});
+  }
 
   const runs=await safeRows<Record<string,unknown>>(env.DB,"SELECT id,rule_id,rule_name,status,detail,evidence_id,created_at,actor,trigger_type FROM evidence_automation_runs ORDER BY created_at DESC LIMIT 300");
-  for(const row of runs)events.push({id:`run:${row.id}`,type:"control-run",category:"control",title:String(row.rule_name||"Continuous control run"),detail:String(row.detail||""),actor:String(row.actor||"system"),status:String(row.status||""),reference:String(row.evidence_id||row.id||""),ruleId:String(row.rule_id||""),createdAt:String(row.created_at||"")});
+  for(const row of runs){const ruleId=String(row.rule_id||"");events.push({id:`run:${row.id}`,type:"control-run",category:"control",title:String(row.rule_name||"Continuous control run"),detail:String(row.detail||""),actor:String(row.actor||"system"),status:String(row.status||""),reference:String(row.evidence_id||row.id||""),ruleId,...(ruleId?{module:"Kanıt Otomasyonu",recordRef:ruleId,filterKey:"ruleRef" as const}:{}),createdAt:String(row.created_at||"")})}
 
   const findingEvents=await safeRows<Record<string,unknown>>(env.DB,"SELECT id,finding_id,action,from_status,to_status,detail,actor,created_at FROM enterprise_finding_events ORDER BY created_at DESC LIMIT 300");
-  for(const row of findingEvents)events.push({id:`finding:${row.id}`,type:String(row.action||"finding-event"),category:"finding",title:`Finding ${String(row.action||"event")}`,detail:String(row.detail||`${row.from_status||""} → ${row.to_status||""}`),actor:String(row.actor||"system"),status:String(row.to_status||row.from_status||""),reference:String(row.finding_id||""),findingId:String(row.finding_id||""),createdAt:String(row.created_at||"")});
+  for(const row of findingEvents){const findingId=String(row.finding_id||""),findingCode=findingCodeById.get(findingId)||"";events.push({id:`finding:${row.id}`,type:String(row.action||"finding-event"),category:"finding",title:`Finding ${String(row.action||"event")}`,detail:String(row.detail||`${row.from_status||""} → ${row.to_status||""}`),actor:String(row.actor||"system"),status:String(row.to_status||row.from_status||""),reference:findingCode||findingId,findingId,...(findingCode?{module:"Bulgular ve CAPA",recordRef:findingCode,filterKey:"findingRef" as const}:{}),createdAt:String(row.created_at||"")})}
 
   const risks=await safeRows<Record<string,unknown>>(env.DB,"SELECT id,data_json,updated_at FROM simple_grc_records WHERE module='Risk Assessment' ORDER BY updated_at DESC LIMIT 300");
-  for(const row of risks){const data=parse(String(row.data_json||"{}")),source=String(data.reassessmentSource||"");if(!source.startsWith("Continuous Assurance"))continue;events.push({id:`risk:${row.id}:${row.updated_at}`,type:"risk-reassessment",category:"risk",title:String(data.title||"Risk reassessment"),detail:String(data.reassessmentReason||"Continuous Assurance risk reassessment"),actor:"system:continuous-assurance",status:String(data.assuranceState||""),reference:String(row.id||""),findingId:String(row.id||""),createdAt:String(data.lastReassessedAt||row.updated_at||"")})}
+  for(const row of risks){const data=parse(String(row.data_json||"{}")),source=String(data.reassessmentSource||"");if(!source.startsWith("Continuous Assurance"))continue;const riskRef=String(row.id||"");events.push({id:`risk:${row.id}:${row.updated_at}`,type:"risk-reassessment",category:"risk",title:String(data.title||"Risk reassessment"),detail:String(data.reassessmentReason||"Continuous Assurance risk reassessment"),actor:"system:continuous-assurance",status:String(data.assuranceState||""),reference:riskRef,...(riskRef?{module:"Risk Assessment",recordRef:riskRef,filterKey:"riskRef" as const}:{}),createdAt:String(data.lastReassessedAt||row.updated_at||"")})}
 
   const escalations=await safeRows<Record<string,unknown>>(env.DB,"SELECT id,kind,severity,subject_ref,title,detail,status,first_seen_at,last_seen_at,acknowledged_by,acknowledged_at,ack_note,resolved_by,resolved_at FROM continuous_assurance_escalations ORDER BY last_seen_at DESC LIMIT 300");
   for(const row of escalations){const reference=String(row.subject_ref||row.id||""),kind=String(row.kind||"assurance-escalation"),severity=String(row.severity||"medium"),title=String(row.title||"Assurance escalation");events.push({id:`escalation:${row.id}:opened`,type:"escalation-opened",category:"escalation",title,detail:String(row.detail||kind),actor:"system:continuous-assurance",status:severity,reference,createdAt:String(row.first_seen_at||"")});if(row.acknowledged_at)events.push({id:`escalation:${row.id}:acknowledged`,type:"escalation-acknowledged",category:"escalation",title:`${title} · acknowledged`,detail:String(row.ack_note||row.detail||kind),actor:String(row.acknowledged_by||"system"),status:"acknowledged",reference,createdAt:String(row.acknowledged_at)});if(row.resolved_at)events.push({id:`escalation:${row.id}:resolved`,type:"escalation-resolved",category:"escalation",title:`${title} · resolved`,detail:String(row.detail||kind),actor:String(row.resolved_by||"system:condition-cleared"),status:"resolved",reference,createdAt:String(row.resolved_at)})}
