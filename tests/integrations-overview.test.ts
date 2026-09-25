@@ -48,6 +48,16 @@ test("integration overview routes users to specialist workspaces instead of dupl
   assert.match(overview, /module: "E-posta ve Bildirimler"/);
 });
 
+test("new security connector action opens the guided wizard after module navigation", () => {
+  assert.match(overview, /function openConnectorWizard\(\)/);
+  assert.match(overview, /navigateToFornost\("Kanıt Otomasyonu"\)/);
+  assert.match(overview, /querySelector<HTMLButtonElement>\("main \.cow-launch"\)/);
+  assert.match(overview, /launch\.click\(\)/);
+  assert.match(overview, /attempts < 24/);
+  assert.match(overview, /window\.setTimeout\(open, 90\)/);
+  assert.match(overview, /onClick=\{openConnectorWizard\}/);
+});
+
 test("workflow integration settings owns the single overview surface", () => {
   assert.match(settings, /import IntegrationsOverview from "\.\/integrations-overview"/);
   assert.match(settings, /kind==="ticketing"&&<IntegrationsOverview lang=\{lang\}\/>/);
