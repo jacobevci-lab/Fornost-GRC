@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { withBasePath } from "./base-path";
+import { navigateToFornost } from "./navigation-focus";
 import "./evidence-quality-lens.css";
 
 type Lang = "tr" | "en";
@@ -10,7 +11,7 @@ type RawRow = { id?: unknown; module?: unknown; data?: unknown; data_json?: unkn
 type Row = { id: string; module: string; data: Record<string, unknown> };
 type IntegrityItem = { id?: unknown; integrity?: unknown; checkedVersions?: unknown; failedVersion?: unknown; tracked?: unknown };
 type HistoryPayload = { evidenceItems?: IntegrityItem[] };
-type QualityIssue = { id: string; title: string; owner: string; controlRefs: string[]; kind: "broken" | "stale" | "legacy" | "unlinked" | "owner" | "unknown"; detail: string };
+type QualityIssue = { id: string; recordRef: string; title: string; owner: string; controlRefs: string[]; kind: "broken" | "stale" | "legacy" | "unlinked" | "owner" | "unknown"; detail: string };
 
 const text = (value: unknown) => String(value ?? "").trim();
 const normalized = (value: unknown) => text(value).normalize("NFKC").toLocaleLowerCase("tr-TR");
@@ -166,7 +167,7 @@ export default function EvidenceQualityLens() {
       if (!owner) issueKinds.push("owner");
 
       for (const kind of issueKinds) {
-        issues.push({ id: `${row.id}:${kind}`, title, owner, controlRefs, kind, detail: formatIssue(kind, lang, integrityState.failedVersion) });
+        issues.push({ id: `${row.id}:${kind}`, recordRef: title, title, owner, controlRefs, kind, detail: formatIssue(kind, lang, integrityState.failedVersion) });
       }
     }
 
@@ -204,10 +205,10 @@ export default function EvidenceQualityLens() {
           <div className="eql-issues-head"><div><small>{tr ? "ÖNCELİKLİ KALİTE SİNYALLERİ" : "PRIORITY QUALITY SIGNALS"}</small><b>{tr ? "Önce en yüksek güvence risklerini düzelt" : "Fix the highest assurance risks first"}</b></div><span>{quality.issues.length}</span></div>
           <div className="eql-list">
             {quality.issues.slice(0, 6).map((issue) => (
-              <article key={issue.id} className={issue.kind}>
+              <button type="button" key={issue.id} className={`eql-issue ${issue.kind}`} onClick={() => navigateToFornost({ module: "Kanıtlar", ref: issue.recordRef, kind: "evidence", source: "evidence-quality", filter: { recordRef: issue.recordRef } })}>
                 <i aria-hidden="true" />
-                <div><b>{issue.title}</b><span>{issue.detail}</span><small>{issue.owner || (tr ? "Sahip yok" : "No owner")} · {issue.controlRefs.length ? issue.controlRefs.join(", ") : (tr ? "Kontrol bağlantısı yok" : "No control linkage")}</small></div>
-              </article>
+                <div><b>{issue.title}</b><span>{issue.detail}</span><small>{issue.owner || (tr ? "Sahip yok" : "No owner")} · {issue.controlRefs.length ? issue.controlRefs.join(", ") : (tr ? "Kontrol bağlantısı yok" : "No control linkage")} · →</small></div>
+              </button>
             ))}
           </div>
           {quality.issues.length > 6 && <small className="eql-more">+{quality.issues.length - 6} {tr ? "ek kalite sinyali" : "more quality signals"}</small>}
