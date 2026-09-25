@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireRole } from "../../auth/security";
+import { assuranceEscalationNavigation, type AssuranceEscalationFilterKey } from "../../../assurance-escalation-navigation";
 
 type Env = Record<string, unknown> & { DB: D1Database };
-type FilterKey = "ruleRef" | "findingRef" | "riskRef" | "controlRef";
-type NavigationContext = { module:string; recordRef:string; filterKey:FilterKey };
 type TimelineEvent = {
   id: string;
   type: string;
@@ -17,7 +16,7 @@ type TimelineEvent = {
   ruleId?: string;
   module?: string;
   recordRef?: string;
-  filterKey?: FilterKey;
+  filterKey?: AssuranceEscalationFilterKey;
   createdAt: string;
 };
 
@@ -25,20 +24,6 @@ async function runtime(){const {env}=await import("cloudflare:workers");return e
 const json=(data:unknown,status=200)=>NextResponse.json(data,{status,headers:{"cache-control":"no-store"}});
 const parse=(raw:string|undefined|null)=>{try{return JSON.parse(raw||"{}") as Record<string,unknown>}catch{return {}}};
 async function safeRows<T>(db:D1Database,sql:string){try{return (await db.prepare(sql).all<T>()).results}catch{return [] as T[]}}
-
-function escalationNavigation(kind:string,source:Record<string,unknown>):NavigationContext|undefined{
-  const riskRef=String(source.riskId||source.riskRef||"").trim();
-  const controlRef=String(source.controlRef||"").trim();
-  const ruleRef=String(source.ruleId||"").trim();
-  if(kind==="risk-review"&&riskRef)return{module:"Risk Assessment",recordRef:riskRef,filterKey:"riskRef"};
-  if(kind==="exception-expiry"){
-    if(controlRef)return{module:"Kontroller",recordRef:controlRef,filterKey:"controlRef"};
-    if(riskRef)return{module:"Risk Assessment",recordRef:riskRef,filterKey:"riskRef"};
-    if(ruleRef)return{module:"Kanıt Otomasyonu",recordRef:ruleRef,filterKey:"ruleRef"};
-  }
-  if((kind==="mandatory-retest"||kind==="retest-failure")&&ruleRef)return{module:"Kanıt Otomasyonu",recordRef:ruleRef,filterKey:"ruleRef"};
-  return undefined;
-}
 
 export async function GET(req:NextRequest){
   const access=await requireRole(req,["Admin","Editor","Viewer"]);if(access.response)return access.response;
@@ -64,7 +49,7 @@ export async function GET(req:NextRequest){
 
   const escalations=await safeRows<Record<string,unknown>>(env.DB,"SELECT id,kind,severity,subject_ref,title,detail,status,first_seen_at,last_seen_at,acknowledged_by,acknowledged_at,ack_note,resolved_by,resolved_at,source_json FROM continuous_assurance_escalations ORDER BY last_seen_at DESC LIMIT 300");
   for(const row of escalations){
-    const reference=String(row.subject_ref||row.id||""),kind=String(row.kind||"assurance-escalation"),severity=String(row.severity||"medium"),title=String(row.title||"Assurance escalation"),source=parse(String(row.source_json||"{}")),navigation=escalationNavigation(kind,source),nav=navigation?navigation:{};
+    const reference=String(row.subject_ref||row.id||""),kind=String(row.kind||"assurance-escalation"),severity=String(row.severity||"medium"),title=String(row.title||"Assurance escalation"),source=parse(String(row.source_json||"{}")),navigation=assuranceEscalationNavigation(kind,source),nav=navigation?navigation:{};
     events.push({id:`escalation:${row.id}:opened`,type:"escalation-opened",category:"escalation",title,detail:String(row.detail||kind),actor:"system:continuous-assurance",status:severity,reference,...nav,createdAt:String(row.first_seen_at||"")});
     if(row.acknowledged_at)events.push({id:`escalation:${row.id}:acknowledged`,type:"escalation-acknowledged",category:"escalation",title:`${title} · acknowledged`,detail:String(row.ack_note||row.detail||kind),actor:String(row.acknowledged_by||"system"),status:"acknowledged",reference,...nav,createdAt:String(row.acknowledged_at)});
     if(row.resolved_at)events.push({id:`escalation:${row.id}:resolved`,type:"escalation-resolved",category:"escalation",title:`${title} · resolved`,detail:String(row.detail||kind),actor:String(row.resolved_by||"system:condition-cleared"),status:"resolved",reference,...nav,createdAt:String(row.resolved_at)});
