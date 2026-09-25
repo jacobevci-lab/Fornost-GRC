@@ -71,6 +71,12 @@ test("automation finding ids resolve to rendered titles without exposing hidden 
   assert.match(bridge, /attempts >= 30/);
 });
 
+test("automation finding alias retries are throttled instead of refetching on every focus attempt", () => {
+  assert.match(bridge, /let automationFindingLookupAt = 0/);
+  assert.match(bridge, /now - automationFindingLookupAt < 5_000/);
+  assert.match(bridge, /automationFindingLookupAt = now/);
+});
+
 test("finding focus remains pending until the matching row is available", () => {
   const start = bridge.indexOf("function applyFindingFocus");
   const end = bridge.indexOf("function evidenceAutomationTab");
