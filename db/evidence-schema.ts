@@ -1,4 +1,4 @@
-import { blob, index, integer, primaryKey, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
+import { blob, index, integer, primaryKey, sqliteTable, text, unique } from "drizzle-orm/sqlite-core";
 
 /**
  * Canonical storage model for auditable evidence version history.
@@ -29,7 +29,7 @@ export const evidenceVersions = sqliteTable("evidence_versions", {
   createdBy: text("created_by").notNull(),
   createdAt: text("created_at").notNull(),
 }, (table) => [
-  uniqueIndex("evidence_versions_number_idx").on(table.evidenceId, table.versionNo),
+  unique().on(table.evidenceId, table.versionNo),
   index("evidence_versions_evidence_idx").on(table.evidenceId, table.versionNo),
   index("evidence_versions_created_idx").on(table.createdAt),
 ]);
