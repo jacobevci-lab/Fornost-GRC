@@ -2,13 +2,14 @@ import {NextRequest,NextResponse} from "next/server";
 import {requireRole} from "../../auth/security";
 import {clean} from "../../integrations/security";
 import {readAssuranceEscalationRows,reconcileAssuranceEscalations} from "../../../assurance-escalation-runtime";
+import {assuranceEscalationNavigation} from "../../../assurance-escalation-navigation";
 import type {AssuranceEscalationDbRow} from "../../../assurance-escalation-store";
 
 type Env=Record<string,unknown>&{DB:D1Database};
 const json=(data:unknown,status=200)=>NextResponse.json(data,{status,headers:{"cache-control":"no-store"}});
 const parse=(value:string)=>{try{return JSON.parse(value||"{}") as Record<string,unknown>}catch{return {}}};
 async function runtime(){const{env}=await import("cloudflare:workers");return env as unknown as Env}
-const publicRow=(row:AssuranceEscalationDbRow)=>({id:row.id,fingerprint:row.fingerprint,kind:row.kind,severity:row.severity,subjectRef:row.subject_ref,owner:row.owner,title:row.title,detail:row.detail,status:row.status,firstSeenAt:row.first_seen_at,lastSeenAt:row.last_seen_at,acknowledgedBy:row.acknowledged_by||"",acknowledgedAt:row.acknowledged_at||"",ackNote:row.ack_note||"",resolvedBy:row.resolved_by||"",resolvedAt:row.resolved_at||"",source:parse(row.source_json)});
+const publicRow=(row:AssuranceEscalationDbRow)=>{const source=parse(row.source_json),navigation=assuranceEscalationNavigation(row.kind,source);return{id:row.id,fingerprint:row.fingerprint,kind:row.kind,severity:row.severity,subjectRef:row.subject_ref,owner:row.owner,title:row.title,detail:row.detail,status:row.status,firstSeenAt:row.first_seen_at,lastSeenAt:row.last_seen_at,acknowledgedBy:row.acknowledged_by||"",acknowledgedAt:row.acknowledged_at||"",ackNote:row.ack_note||"",resolvedBy:row.resolved_by||"",resolvedAt:row.resolved_at||"",source,navigation:navigation||null}};
 const statusRank=(status:string)=>status==="active"?0:status==="acknowledged"?1:2;
 const severityRank=(severity:string)=>severity==="critical"?0:severity==="high"?1:2;
 
