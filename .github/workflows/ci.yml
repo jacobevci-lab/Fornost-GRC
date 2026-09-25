@@ -26,7 +26,20 @@ jobs:
       - name: Build
         run: npm run build
       - name: Unit and regression tests
-        run: node --import tsx --test tests/*.test.*
+        shell: bash
+        run: |
+          set -euo pipefail
+          test_log="$(mktemp)"
+          trap 'rm -f "${test_log}"' EXIT
+          for test_file in tests/*.test.*; do
+            : > "${test_log}"
+            if ! node --import tsx --test "${test_file}" >"${test_log}" 2>&1; then
+              echo "Regression test failed: ${test_file}" >&2
+              cat "${test_log}" >&2
+              exit 1
+            fi
+          done
+          echo "All regression test files passed."
       - name: On-prem installer smoke test
         run: bash tests/onprem-install-smoke.sh
       - name: Run dependency audit
