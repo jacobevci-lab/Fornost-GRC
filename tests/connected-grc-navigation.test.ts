@@ -37,3 +37,12 @@ test("relationship register and unresolved references use contextual record navi
  assert.match(connected,/onClick=\{\(\)=>openRecord\(link\.target\)\}/);
  assert.match(connected,/onClick=\{\(\)=>openRecord\(item\.source\)\}/);
 });
+
+test("assurance gaps open the governed source record when it can be fixed in context",()=>{
+ assert.match(connected,/focusable=Boolean\(connectedGrcNavigation\(gap\.row\)\)/);
+ assert.match(connected,/onClick=\{\(\)=>focusable\?openRecord\(gap\.row\):go\(target\)\}/);
+ assert.match(connected,/Kaydı düzelt/);
+ assert.match(connected,/Fix record/);
+ assert.match(connected,/Bağlantıyı tamamla/);
+ assert.match(connected,/Complete link/);
+});
