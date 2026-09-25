@@ -9,14 +9,15 @@ type Env=Record<string,unknown>&{DB:D1Database};
 const json=(data:unknown,status=200)=>NextResponse.json(data,{status,headers:{"cache-control":"no-store"}});
 const parse=(value:string)=>{try{return JSON.parse(value||"{}") as Record<string,unknown>}catch{return {}}};
 async function runtime(){const{env}=await import("cloudflare:workers");return env as unknown as Env}
-const publicRow=(row:AssuranceEscalationDbRow)=>{const source=parse(row.source_json),navigation=assuranceEscalationNavigation(row.kind,source);return{id:row.id,fingerprint:row.fingerprint,kind:row.kind,severity:row.severity,subjectRef:row.subject_ref,owner:row.owner,title:row.title,detail:row.detail,status:row.status,firstSeenAt:row.first_seen_at,lastSeenAt:row.last_seen_at,acknowledgedBy:row.acknowledged_by||"",acknowledgedAt:row.acknowledged_at||"",ackNote:row.ack_note||"",resolvedBy:row.resolved_by||"",resolvedAt:row.resolved_at||"",source,navigation:navigation||null}};
+async function findingCodes(db:D1Database){try{const rows=await db.prepare("SELECT id,code FROM enterprise_findings").all<{id:string;code:string}>();return new Map(rows.results.map(row=>[String(row.id||""),String(row.code||"")]))}catch{return new Map<string,string>()}}
+const publicRow=(row:AssuranceEscalationDbRow,codes:Map<string,string>)=>{const rawSource=parse(row.source_json),findingCode=codes.get(String(rawSource.findingId||""))||String(rawSource.findingCode||""),source=findingCode?{...rawSource,findingCode}:rawSource,navigation=assuranceEscalationNavigation(row.kind,source);return{id:row.id,fingerprint:row.fingerprint,kind:row.kind,severity:row.severity,subjectRef:row.subject_ref,owner:row.owner,title:row.title,detail:row.detail,status:row.status,firstSeenAt:row.first_seen_at,lastSeenAt:row.last_seen_at,acknowledgedBy:row.acknowledged_by||"",acknowledgedAt:row.acknowledged_at||"",ackNote:row.ack_note||"",resolvedBy:row.resolved_by||"",resolvedAt:row.resolved_at||"",source,navigation:navigation||null}};
 const statusRank=(status:string)=>status==="active"?0:status==="acknowledged"?1:2;
 const severityRank=(severity:string)=>severity==="critical"?0:severity==="high"?1:2;
 
 export async function GET(req:NextRequest){
  const access=await requireRole(req,["Admin","Editor","Viewer"]);if(access.response)return access.response;
- const env=await runtime(),policy=await reconcileAssuranceEscalations(env.DB),cutoff=new Date(Date.now()-30*86_400_000).toISOString();
- const rows=(await readAssuranceEscalationRows(env.DB,500)).sort((a,b)=>statusRank(a.status)-statusRank(b.status)||severityRank(a.severity)-severityRank(b.severity)||b.last_seen_at.localeCompare(a.last_seen_at)),records=rows.map(publicRow),open=records.filter(item=>item.status!=="resolved");
+ const env=await runtime(),policy=await reconcileAssuranceEscalations(env.DB),cutoff=new Date(Date.now()-30*86_400_000).toISOString(),codes=await findingCodes(env.DB);
+ const rows=(await readAssuranceEscalationRows(env.DB,500)).sort((a,b)=>statusRank(a.status)-statusRank(b.status)||severityRank(a.severity)-severityRank(b.severity)||b.last_seen_at.localeCompare(a.last_seen_at)),records=rows.map(row=>publicRow(row,codes)),open=records.filter(item=>item.status!=="resolved");
  return json({records,policy,summary:{active:open.filter(item=>item.status==="active").length,acknowledged:open.filter(item=>item.status==="acknowledged").length,critical:open.filter(item=>item.severity==="critical").length,high:open.filter(item=>item.severity==="high").length,medium:open.filter(item=>item.severity==="medium").length,resolved30d:records.filter(item=>item.status==="resolved"&&item.resolvedAt>=cutoff).length}});
 }
 
