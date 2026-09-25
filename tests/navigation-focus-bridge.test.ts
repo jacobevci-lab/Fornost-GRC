@@ -51,9 +51,21 @@ test("finding focus resets local filters and opens the native finding detail", (
   assert.match(bridge, /match\.click\(\)/);
 });
 
+test("evidence automation focus selects the correct native tab before highlighting", () => {
+  assert.match(bridge, /sameDomainModule\(request\.module, "Kanıt Otomasyonu"\)/);
+  assert.match(bridge, /function evidenceAutomationTab/);
+  assert.match(bridge, /filter\?\.findingRef/);
+  assert.match(bridge, /filter\?\.ruleRef/);
+  assert.match(bridge, /filter\?\.sourceRef/);
+  assert.match(bridge, /\.ea-tabs > button/);
+  assert.match(bridge, /targetTab\.click\(\)/);
+  assert.match(bridge, /\.ea-table tbody tr/);
+  assert.match(bridge, /highlightRows\(rows, match\)/);
+});
+
 test("finding focus remains pending until the matching row is available", () => {
   const start = bridge.indexOf("function applyFindingFocus");
-  const end = bridge.indexOf("function applyFocus");
+  const end = bridge.indexOf("function evidenceAutomationTab");
   const adapter = bridge.slice(start, end);
   assert.match(adapter, /if \(!match\) return false/);
   assert.match(adapter, /return true/);
