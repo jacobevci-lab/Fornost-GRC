@@ -14,6 +14,10 @@ export type ControlAssuranceItem = {
   owner: string;
   evidenceCount: number;
   currentEvidenceCount: number;
+  verifiedEvidenceCount: number;
+  brokenEvidenceCount: number;
+  legacyEvidenceCount: number;
+  unavailableEvidenceCount: number;
   auditCount: number;
   frameworkCount: number;
   openFindingCount: number;
@@ -72,6 +76,7 @@ const isClosed = (value: unknown) => includes(value, [
   "kapalı", "kapatıldı", "tamamlandı", "closed", "completed", "resolved", "accepted", "kabul edildi", "cancelled", "canceled",
 ]);
 const kindOf = (row: AssuranceRow) => key(row.data.kind);
+const evidenceIntegrityOf = (row: AssuranceRow) => key(row.data.evidenceIntegrity);
 
 function uniqueRows(rows: AssuranceRow[]) {
   return [...new Map(rows.map((row) => [row.id, row])).values()];
@@ -139,6 +144,10 @@ export function buildControlAssurance(rows: AssuranceRow[], today = new Date().t
   const items: ControlAssuranceItem[] = controls.map((control) => {
     const reference = clean(control.data.controlRef || control.code || control.id);
     const linkedEvidence = relatedRows(control, graph.links, "Kanıtlar", ["control-evidence"]);
+    const verifiedEvidence = linkedEvidence.filter((row) => evidenceIntegrityOf(row) === "verified");
+    const brokenEvidence = linkedEvidence.filter((row) => evidenceIntegrityOf(row) === "broken");
+    const legacyEvidence = linkedEvidence.filter((row) => evidenceIntegrityOf(row) === "legacy-unverified");
+    const unavailableEvidence = linkedEvidence.filter((row) => evidenceIntegrityOf(row) === "unavailable");
     const linkedAudits = relatedRows(control, graph.links, "Denetim Yönetimi", ["audit-control", "control-evidence"]);
     const linkedFrameworks = relatedRows(control, graph.links, "Uyum", ["control-framework", "control-evidence"]);
     const linkedFindings = relatedRows(control, graph.links, "Bulgular ve CAPA", ["finding-control"])
@@ -172,7 +181,8 @@ export function buildControlAssurance(rows: AssuranceRow[], today = new Date().t
         includes(value, ["süresi doldu", "expired", "reddedildi", "rejected"]),
       );
       const expiresAt = dateValue(row.data.expiresAt);
-      return !expired && (!Number.isFinite(expiresAt) || expiresAt >= todayTime);
+      const integrityBroken = evidenceIntegrityOf(row) === "broken";
+      return !expired && !integrityBroken && (!Number.isFinite(expiresAt) || expiresAt >= todayTime);
     });
 
     const hasHealthyAutomatedAssurance = automationHealthyCount > 0;
@@ -186,6 +196,9 @@ export function buildControlAssurance(rows: AssuranceRow[], today = new Date().t
     if (test.failed) { score -= 35; reasons.push("test-failed"); }
     if (!linkedEvidence.length && !hasHealthyAutomatedAssurance) { score -= 35; reasons.push("evidence-missing"); }
     else if (linkedEvidence.length && !currentEvidence.length && !hasHealthyAutomatedAssurance) { score -= 25; reasons.push("evidence-stale"); }
+    if (brokenEvidence.length) { score -= 40; reasons.push("evidence-integrity-broken"); }
+    if (legacyEvidence.length) { score -= 10; reasons.push("evidence-integrity-legacy"); }
+    if (unavailableEvidence.length) reasons.push("evidence-integrity-unavailable");
     if (!linkedAudits.length) { score -= 10; reasons.push("audit-missing"); }
     if (linkedFindings.length) {
       score -= Math.min(20, linkedFindings.length * 5);
@@ -201,7 +214,7 @@ export function buildControlAssurance(rows: AssuranceRow[], today = new Date().t
       score -= 20;
       reasons.push("control-needs-improvement");
     }
-    score = Math.max(0, score);
+    score = Math.max(0, brokenEvidence.length ? Math.min(score, 45) : score);
 
     return {
       control,
@@ -210,6 +223,10 @@ export function buildControlAssurance(rows: AssuranceRow[], today = new Date().t
       owner: clean(control.data.owner),
       evidenceCount: linkedEvidence.length,
       currentEvidenceCount: currentEvidence.length,
+      verifiedEvidenceCount: verifiedEvidence.length,
+      brokenEvidenceCount: brokenEvidence.length,
+      legacyEvidenceCount: legacyEvidence.length,
+      unavailableEvidenceCount: unavailableEvidence.length,
       auditCount: linkedAudits.length,
       frameworkCount: linkedFrameworks.length,
       openFindingCount: linkedFindings.length,
@@ -240,6 +257,10 @@ export function buildControlAssurance(rows: AssuranceRow[], today = new Date().t
   const automationHealthy = items.filter((item) => item.automationRuleCount > 0 && item.automationHealthyCount >= item.automationRuleCount).length;
   const frameworkMapped = items.filter((item) => item.frameworkCount > 0).length;
   const connected = items.filter((item) => item.relationCount > 0).length;
+  const integrityFailures = items.filter((item) => item.brokenEvidenceCount > 0).length;
+  const verifiedEvidenceControls = items.filter((item) => item.evidenceCount > 0 && item.verifiedEvidenceCount === item.evidenceCount).length;
+  const legacyEvidenceControls = items.filter((item) => item.legacyEvidenceCount > 0).length;
+  const integrityUnknownControls = items.filter((item) => item.unavailableEvidenceCount > 0).length;
   const score = items.length ? Math.round(items.reduce((sum, item) => sum + item.score, 0) / items.length) : 100;
   return {
     items,
@@ -254,6 +275,10 @@ export function buildControlAssurance(rows: AssuranceRow[], today = new Date().t
     automationHealthy,
     frameworkMapped,
     connected,
+    integrityFailures,
+    verifiedEvidenceControls,
+    legacyEvidenceControls,
+    integrityUnknownControls,
     score,
   };
 }
