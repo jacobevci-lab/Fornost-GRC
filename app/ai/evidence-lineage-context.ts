@@ -45,21 +45,6 @@ function chunks<T>(items: T[], size = BIND_CHUNK_SIZE) {
   return result;
 }
 
-function evidenceSearchText(record: EvidenceRecord) {
-  const d = record.data;
-  return normalize([
-    record.id,
-    d.evidenceTitle,
-    d.controlRef,
-    d.controlRefs,
-    d.owner,
-    d.period,
-    d.frameworks,
-    d.fileName,
-    d.status,
-  ].filter(Boolean).join(" "));
-}
-
 export function isGlobalEvidenceIntegrityQuestion(question: string) {
   const value = normalize(question);
   const integrityTerms = [
