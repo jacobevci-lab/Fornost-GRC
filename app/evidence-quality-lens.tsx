@@ -148,6 +148,7 @@ export default function EvidenceQualityLens() {
 
     for (const row of rows) {
       const title = text(row.data.evidenceTitle || row.id);
+      const recordRef = text(row.data.evidenceId || row.id);
       const owner = text(row.data.owner);
       const controlRefs = [...new Set([...splitRefs(row.data.controlRefs), ...splitRefs(row.data.controlRef)])];
       const integrityState = integrity.get(row.id) || { state: "legacy-unverified", failedVersion: 0 };
@@ -167,7 +168,7 @@ export default function EvidenceQualityLens() {
       if (!owner) issueKinds.push("owner");
 
       for (const kind of issueKinds) {
-        issues.push({ id: `${row.id}:${kind}`, recordRef: row.id, title, owner, controlRefs, kind, detail: formatIssue(kind, lang, integrityState.failedVersion) });
+        issues.push({ id: `${row.id}:${kind}`, recordRef, title, owner, controlRefs, kind, detail: formatIssue(kind, lang, integrityState.failedVersion) });
       }
     }
 
