@@ -15,6 +15,7 @@ const clean = (value: unknown) => String(value ?? "").normalize("NFKC").trim();
 const normalize = (value: unknown) => clean(value).toLocaleLowerCase("tr-TR");
 const automationFindingTitles = new Map<string, string>();
 let automationFindingLookupPending = false;
+let automationFindingLookupAt = 0;
 
 function activeModuleMatches(module: string) {
   const active = document.querySelector<HTMLButtonElement>("#fornost-navigation .nav-group-items > button.active[aria-label]");
@@ -101,8 +102,10 @@ function evidenceAutomationTab(request: FornostNavigationRequest) {
 }
 
 function refreshAutomationFindingAliases() {
-  if (automationFindingLookupPending) return;
+  const now = Date.now();
+  if (automationFindingLookupPending || now - automationFindingLookupAt < 5_000) return;
   automationFindingLookupPending = true;
+  automationFindingLookupAt = now;
   void fetch(withBasePath("/api/evidence-automation"), { cache: "no-store", headers: { accept: "application/json" } })
     .then(async (response) => response.ok ? response.json() : {})
     .then((body: { findings?: Array<{ id?: string; title?: string }> }) => {
