@@ -31,8 +31,19 @@ test("timeline UI uses the shared focus bridge instead of generic module navigat
   assert.match(timeline, /source:"continuous-assurance-timeline"/);
   assert.match(timeline, /filter:\{\[key\]:ref\}/);
   assert.match(timeline, /onClick=\{\(\)=>openTimelineRecord\(event\)\}/);
-  assert.match(timeline, /Kayda git/);
-  assert.match(timeline, /Open record/);
+});
+
+test("timeline exposes explicit bilingual action labels for governed destinations", () => {
+  assert.match(timeline, /function recordActionLabel\(event:TimelineEvent,tr:boolean\)/);
+  assert.match(timeline, /CAPA'yı Aç/);
+  assert.match(timeline, /Open CAPA/);
+  assert.match(timeline, /Kuralı Aç/);
+  assert.match(timeline, /Open Rule/);
+  assert.match(timeline, /Riski Aç/);
+  assert.match(timeline, /Open Risk/);
+  assert.match(timeline, /Kontrolü Aç/);
+  assert.match(timeline, /Open Control/);
+  assert.match(timeline, /aria-label=\{actionLabel\}/);
 });
 
 test("timeline only renders record actions when the API supplied safe navigation context", () => {
