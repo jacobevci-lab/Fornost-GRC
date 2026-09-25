@@ -2,24 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireRole } from "../auth/security";
 import { clean } from "../integrations/security";
 import { findingAttention, validateFinding, validateFindingAction, validateFindingGovernanceGate } from "../../findings/domain";
+import { ensureFindingsSchemaCompatibility } from "./schema-compat";
 
 type Env = Record<string, unknown> & { DB: D1Database };
-
-const schema = [
-  `CREATE TABLE IF NOT EXISTS enterprise_findings(id TEXT PRIMARY KEY NOT NULL,code TEXT NOT NULL UNIQUE,source_type TEXT NOT NULL,source_ref TEXT NOT NULL,source_title TEXT NOT NULL,finding_type TEXT NOT NULL,title TEXT NOT NULL,description TEXT NOT NULL,severity TEXT NOT NULL,owner TEXT NOT NULL,reviewer TEXT NOT NULL,root_cause TEXT NOT NULL,corrective_action TEXT NOT NULL,preventive_action TEXT NOT NULL,due_date TEXT NOT NULL,status TEXT NOT NULL DEFAULT 'open',risk_ref TEXT,control_ref TEXT,evidence_reference TEXT,evidence_sha256 TEXT,verification_evidence_reference TEXT,verification_evidence_sha256 TEXT,acceptance_rationale TEXT,accept_until TEXT,recurrence_count INTEGER NOT NULL DEFAULT 0,detected_by TEXT NOT NULL,detected_at TEXT NOT NULL,updated_by TEXT NOT NULL,updated_at TEXT NOT NULL,started_by TEXT,started_at TEXT,submitted_by TEXT,submitted_at TEXT,verified_by TEXT,verified_at TEXT,reopened_by TEXT,reopened_at TEXT)`,
-  `CREATE INDEX IF NOT EXISTS enterprise_findings_status_due_idx ON enterprise_findings(status,severity,due_date)`,
-  `CREATE INDEX IF NOT EXISTS enterprise_findings_source_idx ON enterprise_findings(source_type,source_ref)`,
-  `CREATE TABLE IF NOT EXISTS enterprise_finding_events(id TEXT PRIMARY KEY NOT NULL,finding_id TEXT NOT NULL,action TEXT NOT NULL,from_status TEXT,to_status TEXT,detail TEXT NOT NULL,evidence_reference TEXT,evidence_sha256 TEXT,actor TEXT NOT NULL,created_at TEXT NOT NULL)`,
-  `CREATE INDEX IF NOT EXISTS enterprise_finding_events_finding_date_idx ON enterprise_finding_events(finding_id,created_at)`,
-];
 
 async function runtime() {
   const { env } = await import("cloudflare:workers");
   return env as unknown as Env;
-}
-
-async function ready(db: D1Database) {
-  for (const sql of schema) await db.prepare(sql).run();
 }
 
 const json = (data: unknown, status = 200) => NextResponse.json(data, { status, headers: { "cache-control": "no-store" } });
@@ -81,7 +70,7 @@ export async function GET(req: NextRequest) {
   const access = await requireRole(req, ["Admin", "Editor", "Viewer"]);
   if (access.response) return access.response;
   const env = await runtime();
-  await ready(env.DB);
+  await ensureFindingsSchemaCompatibility(env.DB);
 
   const [result, eventResult, sourceSignals] = await Promise.all([
     env.DB.prepare("SELECT * FROM enterprise_findings ORDER BY CASE severity WHEN 'critical' THEN 0 WHEN 'high' THEN 1 WHEN 'medium' THEN 2 ELSE 3 END,due_date,updated_at DESC LIMIT 3000").all<Record<string, unknown>>(),
@@ -137,7 +126,7 @@ export async function POST(req: NextRequest) {
   const access = await requireRole(req, ["Admin", "Editor"]);
   if (access.response) return access.response;
   const env = await runtime();
-  await ready(env.DB);
+  await ensureFindingsSchemaCompatibility(env.DB);
 
   try {
     if (action === "create") {
