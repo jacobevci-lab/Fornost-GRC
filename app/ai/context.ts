@@ -18,7 +18,12 @@ const MODULE_HINTS: Array<{ module: string; terms: string[] }> = [
     "kanıt versiyonu", "kanit versiyonu", "evidence version", "evidence lineage", "kanıt zinciri", "kanit zinciri",
     "bütünlük zinciri", "butunluk zinciri", "integrity chain", "evidence timeline", "sha-256", "sha256",
   ] },
-  { module: "Kanıt Otomasyonu", terms: ["sürekli güvence", "surekli guvence", "continuous assurance", "kanıt otomasyonu", "kanit otomasyonu", "evidence automation", "evidence freshness", "kanıt tazeliği", "kanit tazeligi", "failed retest", "retest", "yeniden test"] },
+  { module: "Kanıt Otomasyonu", terms: [
+    "sürekli güvence", "surekli guvence", "continuous assurance", "kanıt otomasyonu", "kanit otomasyonu", "evidence automation",
+    "evidence freshness", "kanıt tazeliği", "kanit tazeligi", "failed retest", "retest", "yeniden test",
+    "assurance exception", "exception", "waiver", "istisna", "risk review", "residual risk review", "residual risk",
+    "escalation", "eskalasyon", "mandatory retest", "zorunlu re-test", "zorunlu retest",
+  ] },
   { module: "Bulgular ve CAPA", terms: ["capa", "remediation", "düzeltme", "duzeltme", "düzeltici aksiyon", "duzeltici aksiyon", "corrective action", "bulgu", "finding"] },
   { module: "Denetim Yönetimi", terms: ["denetim", "audit", "auditor"] },
   { module: "Tedarikçiler", terms: ["tedarik", "vendor", "supplier", "ucuncu taraf", "üçüncü taraf"] },
