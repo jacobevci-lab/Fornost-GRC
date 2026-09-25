@@ -5,13 +5,24 @@ import { createPortal } from "react-dom";
 import { buildAuditEvidenceAssurance } from "./audit-evidence-assurance";
 import { buildControlAssurance, type AssuranceRow } from "./control-assurance";
 import { withBasePath } from "./base-path";
+import { navigateToFornost } from "./navigation-focus";
 import "./my-work-assurance-signals.css";
 
 type Lang = "tr" | "en";
 type RawRow = { id?: unknown; code?: unknown; module?: unknown; data?: unknown; data_json?: unknown };
 type User = { name?: string; email?: string; role?: string };
-type HistoryItem = { id?: unknown; integrity?: unknown };
+type HistoryItem = { id?: unknown; integrity?: unknown; checkedVersions?: unknown; failedVersion?: unknown };
 type HistoryPayload = { evidenceItems?: HistoryItem[] };
+type Finding = {
+  id?: unknown;
+  code?: unknown;
+  severity?: unknown;
+  owner?: unknown;
+  reviewer?: unknown;
+  status?: unknown;
+  attention?: unknown;
+};
+type FindingsPayload = { findings?: Finding[] };
 
 type Signal = {
   key: string;
@@ -61,14 +72,22 @@ function staleEvidence(row: AssuranceRow, today: string) {
   return ["süresi doldu", "expired", "stale", "reddedildi", "rejected"].includes(status) || (!!expiry && expiry < today);
 }
 
-function navigateTo(module: string) {
-  const labels: Record<string, string[]> = {
-    Kontroller: ["Kontrol Kütüphanesi", "Control Library"],
-    Kanıtlar: ["Kanıt Kütüphanesi", "Evidence Library"],
-    "Denetim Yönetimi": ["Denetim Yönetimi", "Audit Management"],
-  };
-  const buttons = Array.from(document.querySelectorAll<HTMLButtonElement>("#fornost-navigation button[aria-label]"));
-  buttons.find((button) => (labels[module] || [module]).some((label) => normalized(button.getAttribute("aria-label")).includes(normalized(label))))?.click();
+function applyEvidenceIntegrity(rows: AssuranceRow[], history: HistoryPayload) {
+  const snapshots = new Map((history.evidenceItems || []).map((item) => [text(item.id), item]));
+  return rows.map((row) => {
+    if (row.module !== "Kanıtlar") return row;
+    const snapshot = snapshots.get(row.id);
+    if (!snapshot || !text(snapshot.integrity)) return row;
+    return {
+      ...row,
+      data: {
+        ...row.data,
+        evidenceIntegrity: text(snapshot.integrity),
+        evidenceIntegrityCheckedVersions: Number(snapshot.checkedVersions || 0),
+        evidenceIntegrityFailedVersion: Number(snapshot.failedVersion || 0),
+      },
+    };
+  });
 }
 
 export default function MyWorkAssuranceSignals() {
@@ -76,6 +95,7 @@ export default function MyWorkAssuranceSignals() {
   const [lang, setLang] = useState<Lang>("tr");
   const [rows, setRows] = useState<AssuranceRow[]>([]);
   const [history, setHistory] = useState<HistoryPayload>({});
+  const [findings, setFindings] = useState<FindingsPayload>({});
   const [user, setUser] = useState<User>({});
 
   useEffect(() => {
@@ -112,14 +132,16 @@ export default function MyWorkAssuranceSignals() {
     if (!mount) return;
     let active = true;
     const load = async () => {
-      const [grcResult, historyResult, authResult] = await Promise.allSettled([
+      const [grcResult, historyResult, findingsResult, authResult] = await Promise.allSettled([
         fetch(withBasePath("/api/grc"), { cache: "no-store" }).then(async (response) => response.ok ? response.json() : Promise.reject(new Error("grc"))),
         fetch(withBasePath("/api/evidence/history"), { cache: "no-store" }).then(async (response) => response.ok ? response.json() : Promise.reject(new Error("history"))),
+        fetch(withBasePath("/api/findings"), { cache: "no-store" }).then(async (response) => response.ok ? response.json() : Promise.reject(new Error("findings"))),
         fetch(withBasePath("/api/auth"), { cache: "no-store" }).then(async (response) => response.ok ? response.json() : Promise.reject(new Error("auth"))),
       ]);
       if (!active) return;
       if (grcResult.status === "fulfilled") setRows(normalizeRows(grcResult.value));
       if (historyResult.status === "fulfilled") setHistory(historyResult.value as HistoryPayload);
+      if (findingsResult.status === "fulfilled") setFindings(findingsResult.value as FindingsPayload);
       if (authResult.status === "fulfilled") setUser((authResult.value as { user?: User }).user || {});
     };
     void load();
@@ -132,7 +154,8 @@ export default function MyWorkAssuranceSignals() {
 
   const signals = useMemo<Signal[]>(() => {
     const result: Signal[] = [];
-    const controls = buildControlAssurance(rows).items.filter((item) => item.state === "critical" && identityMatches(item.owner, user));
+    const assuranceRows = applyEvidenceIntegrity(rows, history);
+    const controls = buildControlAssurance(assuranceRows).items.filter((item) => item.state === "critical" && identityMatches(item.owner, user));
     if (controls.length) result.push({
       key: "control",
       module: "Kontroller",
@@ -144,8 +167,8 @@ export default function MyWorkAssuranceSignals() {
       detailEn: "Evidence, testing, automation or CAPA signals are critical.",
     });
 
-    const auditRows = rows.filter((row) => row.module === "Denetim Yönetimi");
-    const evidenceRows = rows.filter((row) => row.module === "Kanıtlar");
+    const auditRows = assuranceRows.filter((row) => row.module === "Denetim Yönetimi");
+    const evidenceRows = assuranceRows.filter((row) => row.module === "Kanıtlar");
     const audit = buildAuditEvidenceAssurance(auditRows, evidenceRows);
     const auditGaps = audit.gaps.filter((gap) => identityMatches(gap.owner, user));
     if (auditGaps.length) result.push({
@@ -177,8 +200,24 @@ export default function MyWorkAssuranceSignals() {
       detailEn: "Stale evidence or integrity-chain issues need action.",
     });
 
+    const assignedFindings = (findings.findings || []).filter((finding) => {
+      const status = normalized(finding.status);
+      if (["closed", "accepted", "kapalı", "kabul edildi"].includes(status)) return false;
+      return identityMatches(finding.owner, user) || identityMatches(finding.reviewer, user);
+    });
+    if (assignedFindings.length) result.push({
+      key: "finding",
+      module: "Bulgular ve CAPA",
+      count: assignedFindings.length,
+      tone: assignedFindings.some((finding) => normalized(finding.severity) === "critical" || ["overdue", "acceptance-expired"].includes(normalized(finding.attention))) ? "critical" : "warning",
+      titleTr: "Bulgu / CAPA aksiyonu",
+      titleEn: "Finding / CAPA action",
+      detailTr: "Size atanmış açık bulgu, doğrulama veya CAPA kararı var.",
+      detailEn: "Open findings, verification or CAPA decisions are assigned to you.",
+    });
+
     return result;
-  }, [rows, history, user]);
+  }, [rows, history, findings, user]);
 
   if (!mount || !signals.length) return null;
   const tr = lang === "tr";
@@ -188,7 +227,7 @@ export default function MyWorkAssuranceSignals() {
       <header><div><small>{tr ? "SİSTEM ÜRETİMLİ AKSİYONLAR" : "SYSTEM-GENERATED ACTIONS"}</small><b>{tr ? "Fornost'un otomatik olarak tespit ettiği işler" : "Work detected automatically by Fornost"}</b></div><span>{signals.reduce((sum, signal) => sum + signal.count, 0)}</span></header>
       <div>
         {signals.map((signal) => (
-          <button type="button" key={signal.key} className={signal.tone} onClick={() => navigateTo(signal.module)}>
+          <button type="button" key={signal.key} className={signal.tone} onClick={() => navigateToFornost({ module: signal.module, source: "my-work-assurance" })}>
             <i aria-hidden="true" />
             <strong>{signal.count}</strong>
             <span><b>{tr ? signal.titleTr : signal.titleEn}</b><small>{tr ? signal.detailTr : signal.detailEn}</small></span>
