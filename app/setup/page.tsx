@@ -97,8 +97,9 @@ export default function SetupPage() {
           />
         </label>
         <em>
-          On-prem kurulumda sunucuda <code>sudo bash scripts/linux/setup-token.sh</code>
-          {" "}komutunu çalıştırarak kodu görüntüleyin.
+          On-prem kurulumda Fornost&apos;u kuran OS kullanıcısıyla sunucuda{" "}
+          <code>bash scripts/linux/setup-token.sh</code> komutunu çalıştırın.
+          Root kurulumu yaptıysanız komutu sudo ile çalıştırın.
         </em>
         {error && <div className="auth-error">{error}</div>}
         <button className="primary" disabled={submitting} aria-busy={submitting}>
