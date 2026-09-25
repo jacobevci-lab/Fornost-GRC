@@ -4,6 +4,7 @@ import test from "node:test";
 
 const overview = readFileSync("app/integrations-overview.tsx", "utf8");
 const settings = readFileSync("app/integration-settings.tsx", "utf8");
+const healthRoute = readFileSync("app/api/integrations/health/route.ts", "utf8");
 
 test("integration overview reads configuration and continuous assurance from their real backends", () => {
   assert.match(overview, /fetch\(withBasePath\("\/api\/integrations"\)/);
@@ -22,6 +23,13 @@ test("verified integration health expires instead of remaining green forever", (
   assert.match(overview, /Verification is stale/);
   assert.match(overview, /Son doğrulama:/);
   assert.match(overview, /Last verified:/);
+});
+
+test("integration health returns the latest test for every integration kind", () => {
+  assert.match(healthRoute, /ROW_NUMBER\(\) OVER \(PARTITION BY kind ORDER BY created_at DESC, id DESC\)/);
+  assert.match(healthRoute, /WHERE action='test'/);
+  assert.match(healthRoute, /WHERE row_rank=1/);
+  assert.doesNotMatch(healthRoute, /LIMIT 100/);
 });
 
 test("integration overview routes users to specialist workspaces instead of duplicating configuration", () => {
