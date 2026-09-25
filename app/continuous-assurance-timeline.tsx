@@ -17,6 +17,15 @@ function openTimelineRecord(event:TimelineEvent){
  return navigateToFornost({module:targetModule,ref,source:"continuous-assurance-timeline",filter:{[key]:ref}});
 }
 
+function recordActionLabel(event:TimelineEvent,tr:boolean){
+ const targetModule=String(event.module||"");
+ if(targetModule==="Bulgular ve CAPA")return tr?"CAPA'yı Aç":"Open CAPA";
+ if(targetModule==="Kanıt Otomasyonu")return tr?"Kuralı Aç":"Open Rule";
+ if(targetModule==="Risk Assessment")return tr?"Riski Aç":"Open Risk";
+ if(targetModule==="Kontroller")return tr?"Kontrolü Aç":"Open Control";
+ return tr?"Kayda Git":"Open Record";
+}
+
 export default function ContinuousAssuranceTimeline({lang}:{lang:Lang}){
  const tr=lang==="tr",[events,setEvents]=useState<TimelineEvent[]>([]),[loading,setLoading]=useState(true),[category,setCategory]=useState<"all"|Category>("all"),[expanded,setExpanded]=useState(false);
  useEffect(()=>{let live=true;fetch(withBasePath("/api/continuous-assurance/timeline"),{cache:"no-store",headers:{accept:"application/json"}}).then(r=>r.ok?r.json():null).then(data=>{if(live&&data)setEvents(Array.isArray(data.events)?data.events:[])}).catch(()=>{}).finally(()=>{if(live)setLoading(false)});return()=>{live=false}},[]);
@@ -26,7 +35,7 @@ export default function ContinuousAssuranceTimeline({lang}:{lang:Lang}){
  return <section className="assurance-timeline">
   <header><div><small>ASSURANCE TIMELINE</small><h4>{tr?"Uçtan uca güvence geçmişi":"End-to-end assurance history"}</h4><p>{tr?"Kontrol, inceleme, CAPA, bulgu, risk, escalation ve gerçek notification delivery yaşam döngüsünü tek kronolojide izleyin.":"Trace control, review, CAPA, finding, risk, escalation and real notification delivery lifecycles in one chronology."}</p></div><span>{events.length}</span></header>
   <div className="assurance-timeline-filters"><button className={category==="all"?"active":""} onClick={()=>setCategory("all")}>{tr?"Tümü":"All"}</button>{categories.map(value=><button key={value} className={category===value?"active":""} onClick={()=>setCategory(value)}>{label(value)}</button>)}</div>
-  {visible.length?<div className="assurance-timeline-list">{visible.map(event=><article key={event.id}><i className={event.category}/><div><div className="timeline-title"><span>{label(event.category)}</span><b>{event.title}</b><em>{fmt(event.createdAt)}</em></div><p>{event.detail||"—"}</p><footer><small>{event.actor||"system"}</small>{event.status&&<span>{event.status}</span>}{event.reference&&<code>{event.reference}</code>}{event.module&&event.recordRef&&event.filterKey&&<button type="button" onClick={()=>openTimelineRecord(event)}>{tr?"Kayda git":"Open record"} →</button>}</footer></div></article>)}</div>:<div className="assurance-timeline-empty">{loading?(tr?"Güvence geçmişi yükleniyor…":"Loading assurance history…"):(tr?"Bu filtrede olay yok.":"No events in this filter.")}</div>}
+  {visible.length?<div className="assurance-timeline-list">{visible.map(event=>{const actionLabel=recordActionLabel(event,tr);return <article key={event.id}><i className={event.category}/><div><div className="timeline-title"><span>{label(event.category)}</span><b>{event.title}</b><em>{fmt(event.createdAt)}</em></div><p>{event.detail||"—"}</p><footer><small>{event.actor||"system"}</small>{event.status&&<span>{event.status}</span>}{event.reference&&<code>{event.reference}</code>}{event.module&&event.recordRef&&event.filterKey&&<button type="button" aria-label={actionLabel} onClick={()=>openTimelineRecord(event)}>{actionLabel} →</button>}</footer></div></article>})}</div>:<div className="assurance-timeline-empty">{loading?(tr?"Güvence geçmişi yükleniyor…":"Loading assurance history…"):(tr?"Bu filtrede olay yok.":"No events in this filter.")}</div>}
   {events.length>12&&<button className="assurance-timeline-more" type="button" onClick={()=>setExpanded(value=>!value)}>{expanded?(tr?"Daralt":"Show less"):(tr?"Daha Fazla Göster":"Show more")}</button>}
  </section>;
 }
