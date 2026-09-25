@@ -15,6 +15,18 @@ test("timeline API enriches governed records with canonical navigation context",
   assert.match(route, /module:"Risk Assessment",recordRef:riskRef,filterKey:"riskRef"/);
 });
 
+test("timeline preserves exact evidence lineage for continuous control runs", () => {
+  assert.match(route, /evidenceId\?: string/);
+  assert.match(route, /evidenceId=String\(row\.evidence_id\|\|""\)/);
+  assert.match(route, /reference:evidenceId\|\|String\(row\.id\|\|""\),evidenceId,ruleId/);
+  assert.match(timeline, /function openTimelineEvidence\(event:TimelineEvent\)/);
+  assert.match(timeline, /module:"Kanıtlar"/);
+  assert.match(timeline, /filter:\{evidenceRef:ref\}/);
+  assert.match(timeline, /event\.evidenceId&&<button/);
+  assert.match(timeline, /Kanıtı Aç/);
+  assert.match(timeline, /Open Evidence/);
+});
+
 test("timeline reuses the governed escalation destination mapper", () => {
   assert.match(route, /source_json FROM continuous_assurance_escalations/);
   assert.match(route, /assuranceEscalationNavigation\(kind,source\)/);
