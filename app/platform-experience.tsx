@@ -1,6 +1,7 @@
 import FornostAiCopilot from "./fornost-ai-copilot";
 import ProductionHardening from "./production-hardening";
 import NavigationIntegrity from "./navigation-integrity";
+import NavigationFocusBridge from "./navigation-focus-bridge";
 import ExecutiveDashboard from "./executive-dashboard";
 import ExecutiveDashboardPreferenceSync from "./executive-dashboard-preference-sync";
 import DashboardV7DecisionBoard from "./dashboard-v7-decision-board";
@@ -49,6 +50,7 @@ export default function PlatformExperience() {
       <FindingLineageLens />
       <AuditReadinessGate />
       <EvidenceQualityLens />
+      <NavigationFocusBridge />
 
       {/* One visible AI surface; specialist capabilities remain behind Ask Fornost. */}
       <FornostAiCopilot />
