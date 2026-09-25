@@ -39,6 +39,7 @@ export type AssuranceWorkSnapshot = {
 export type AssurancePriority = {
   id: string;
   kind: "control" | "finding" | "work-item";
+  action: string;
   priority: number;
   state: string;
   title: string;
@@ -112,6 +113,7 @@ export function buildContinuousAssuranceDashboard(input: {
     priorities.push({
       id: `rule:${row.rule.id}`,
       kind: "control",
+      action: "",
       priority: severity,
       state: row.health,
       title: row.rule.name,
@@ -134,6 +136,7 @@ export function buildContinuousAssuranceDashboard(input: {
     priorities.push({
       id: `finding:${finding.id}`,
       kind: "finding",
+      action: "",
       priority: 50 + severityWeight(finding.severity) + (overdue ? 20 : 0),
       state: overdue ? "overdue-remediation" : finding.status,
       title: finding.title,
@@ -158,6 +161,7 @@ export function buildContinuousAssuranceDashboard(input: {
     priorities.push({
       id: `work:${work.id}`,
       kind: "work-item",
+      action: work.action,
       priority: stateWeight,
       state: work.status,
       title: work.action === "control-retest" ? `Retest · ${finding?.title || rule?.name || work.findingId}` : `CAPA · ${finding?.title || rule?.name || work.findingId}`,
