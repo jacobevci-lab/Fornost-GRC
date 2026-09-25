@@ -54,9 +54,9 @@ export default function SetupPage() {
 
   if (checking) {
     return (
-      <main className="auth-screen">
-        <div className="auth-card">
-          <div className="auth-mark">F</div>
+      <main className="secure-setup" aria-busy="true" aria-live="polite">
+        <div className="secure-setup-card">
+          <div className="auth-mark" aria-hidden="true">F</div>
           <small>FORNOST GRC · SECURE SETUP</small>
           <h1>İlk kurulum doğrulanıyor</h1>
           <p>Kurulum durumu güvenli biçimde kontrol ediliyor.</p>
@@ -66,9 +66,9 @@ export default function SetupPage() {
   }
 
   return (
-    <main className="auth-screen">
-      <form className="auth-card" onSubmit={authorize}>
-        <div className="auth-mark">F</div>
+    <main className="secure-setup">
+      <form className="secure-setup-card" onSubmit={authorize} noValidate={false}>
+        <div className="auth-mark" aria-hidden="true">F</div>
         <small>FORNOST GRC · SECURE SETUP</small>
         <h1>İlk Kurulum Yetkilendirmesi</h1>
         <p>
@@ -77,13 +77,14 @@ export default function SetupPage() {
           ele geçirmesini engeller.
         </p>
         <div className="setup-progress" aria-label="İlk kurulum adımları">
-          <span className="active"><b>1</b> Doğrulama</span>
+          <span className="active" aria-current="step"><b>1</b> Doğrulama</span>
           <span><b>2</b> Yönetici</span>
           <span><b>3</b> Ayarlar</span>
         </div>
-        <label>
+        <label htmlFor="setup-token">
           Kurulum Kodu
           <input
+            id="setup-token"
             name="setupToken"
             type="password"
             required
@@ -94,14 +95,15 @@ export default function SetupPage() {
             autoComplete="off"
             spellCheck={false}
             autoFocus
+            aria-describedby="setup-token-help"
           />
         </label>
-        <em>
+        <em id="setup-token-help">
           On-prem kurulumda Fornost&apos;u kuran OS kullanıcısıyla sunucuda{" "}
           <code>bash scripts/linux/setup-token.sh</code> komutunu çalıştırın.
           Root kurulumu yaptıysanız komutu sudo ile çalıştırın.
         </em>
-        {error && <div className="auth-error">{error}</div>}
+        {error && <div className="auth-error" role="alert">{error}</div>}
         <button className="primary" disabled={submitting} aria-busy={submitting}>
           {submitting ? "Doğrulanıyor…" : "Kurulumu Yetkilendir"}
         </button>
