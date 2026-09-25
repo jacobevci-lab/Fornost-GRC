@@ -167,7 +167,7 @@ export default function EvidenceQualityLens() {
       if (!owner) issueKinds.push("owner");
 
       for (const kind of issueKinds) {
-        issues.push({ id: `${row.id}:${kind}`, recordRef: title, title, owner, controlRefs, kind, detail: formatIssue(kind, lang, integrityState.failedVersion) });
+        issues.push({ id: `${row.id}:${kind}`, recordRef: row.id, title, owner, controlRefs, kind, detail: formatIssue(kind, lang, integrityState.failedVersion) });
       }
     }
 
