@@ -38,6 +38,18 @@ test("control suggestions require explicit human approval before monitoring", ()
   assert.match(wizard, /controlRefs\s*:\s*selectedControls\.join/);
 });
 
+test("completed onboarding keeps the first run connected to evidence and generated findings", () => {
+  assert.match(wizard, /import \{ navigateToFornost \} from "\.\/navigation-focus"/);
+  assert.match(wizard, /setRunEvidenceId\(clean\(run\.evidenceId\)\)/);
+  assert.match(wizard, /context\?\.findings\?\.find\(\(item\) => item\.ruleId === id && item\.status !== "closed"\)/);
+  assert.match(wizard, /module: "Kanıtlar"/);
+  assert.match(wizard, /filter: \{ evidenceRef: runEvidenceId \}/);
+  assert.match(wizard, /module: "Kanıt Otomasyonu"/);
+  assert.match(wizard, /filter: \{ findingRef: runFindingId \}/);
+  assert.match(wizard, /Kanıtı Aç/);
+  assert.match(wizard, /Bulguyu Aç/);
+});
+
 test("wizard is mounted once through PlatformExperience", () => {
   assert.match(platform, /import ConnectorOnboardingWizard from "\.\/connector-onboarding-wizard"/);
   assert.match(platform, /<ConnectorOnboardingWizard \/>/);
