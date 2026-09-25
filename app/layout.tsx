@@ -62,6 +62,7 @@ import DashboardMetricHistory from "./dashboard-metric-history";
 import DashboardRuntimeQa from "./dashboard-runtime-qa";
 import DashboardDataIntegrityDeferred from "./dashboard-data-integrity-deferred";
 import SidebarIconTooltip from "./sidebar-icon-tooltip";
+import MyWorkV2 from "./my-work-v2";
 
 const configuredBasePath = process.env.NEXT_PUBLIC_BASE_PATH?.trim() || "";
 const normalizedBasePath = configuredBasePath.replace(/\/+$/, "");
@@ -95,6 +96,7 @@ export default function RootLayout({
         <DashboardRuntimeQa />
         <DashboardDataIntegrityDeferred />
         <SidebarIconTooltip />
+        <MyWorkV2 />
         <FornostAiCopilot />
         <ProductionHardening />
         <NavigationIntegrity />
