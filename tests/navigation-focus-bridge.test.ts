@@ -55,12 +55,20 @@ test("finding focus resets local filters and opens the native finding detail", (
   assert.match(bridge, /match\.click\(\)/);
 });
 
-test("evidence automation focus selects the correct native tab before highlighting", () => {
+test("evidence automation focus resolves semantic bilingual tabs before index fallback", () => {
   assert.match(bridge, /sameDomainModule\(request\.module, "Kanıt Otomasyonu"\)/);
-  assert.match(bridge, /function evidenceAutomationTab/);
+  assert.match(bridge, /type AutomationTabKind = "finding" \| "rule" \| "source" \| "evidence"/);
+  assert.match(bridge, /function evidenceAutomationTabKind/);
   assert.match(bridge, /filter\?\.findingRef/);
   assert.match(bridge, /filter\?\.ruleRef/);
   assert.match(bridge, /filter\?\.sourceRef/);
+  assert.match(bridge, /filter\?\.evidenceRef/);
+  assert.match(bridge, /evidenceAutomationTabAliases/);
+  assert.match(bridge, /"sürekli kontroller"/);
+  assert.match(bridge, /"continuous controls"/);
+  assert.match(bridge, /"kanıt akışı"/);
+  assert.match(bridge, /"evidence runs"/);
+  assert.match(bridge, /semantic \|\| tabs\[evidenceAutomationTabFallback\[kind\]\]/);
   assert.match(bridge, /\.ea-tabs > button/);
   assert.match(bridge, /targetTab\.click\(\)/);
   assert.match(bridge, /\.ea-table tbody tr/);
@@ -83,7 +91,7 @@ test("automation finding alias retries are throttled instead of refetching on ev
 
 test("finding focus remains pending until the matching row is available", () => {
   const start = bridge.indexOf("function applyFindingFocus");
-  const end = bridge.indexOf("function evidenceAutomationTab");
+  const end = bridge.indexOf("type AutomationTabKind");
   const adapter = bridge.slice(start, end);
   assert.match(adapter, /if \(!match\) return false/);
   assert.match(adapter, /return true/);
