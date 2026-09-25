@@ -13,6 +13,7 @@ import {
   connectedGrcEnterpriseEndpoints,
   type ConnectedGrcEnterprisePayloads,
 } from "./connected-grc-sources";
+import { navigateToFornost } from "./navigation-focus";
 import "./control-impact-lens.css";
 
 type Lang = "tr" | "en";
@@ -41,18 +42,6 @@ type ImpactStage = {
 };
 
 const clean = (value: unknown) => String(value ?? "").normalize("NFKC").trim();
-const normalized = (value: unknown) => clean(value).toLocaleLowerCase("tr-TR");
-
-const NAV_LABELS: Record<string, string[]> = {
-  Kontroller: ["Kontrol Kütüphanesi", "Control Library"],
-  Uyum: ["Uyum Yönetimi", "Compliance Management"],
-  Kanıtlar: ["Kanıt Kütüphanesi", "Evidence Library"],
-  "Kanıt Otomasyonu": ["Kanıt Otomasyonu", "Evidence Automation"],
-  "Denetim Yönetimi": ["Denetim Yönetimi", "Audit Management"],
-  "Bulgular ve CAPA": ["Bulgular ve CAPA", "Findings & CAPA"],
-  "Risk Assessment": ["Risk Değerlendirmesi", "Risk Assessment"],
-  "Bağlantılı GRC": ["Bağlantılı GRC Haritası", "Connected GRC Map"],
-};
 
 const REASON_LABELS: Record<string, { tr: string; en: string }> = {
   "owner-missing": { tr: "Kontrol sahibi eksik", en: "Control owner missing" },
@@ -78,13 +67,6 @@ const REASON_LABELS: Record<string, { tr: string; en: string }> = {
 
 function currentLanguage(): Lang {
   return document.querySelector(".language-switch button.active")?.textContent?.trim().toLowerCase() === "en" ? "en" : "tr";
-}
-
-function navigateTo(module: string) {
-  const labels = NAV_LABELS[module] || [module];
-  const buttons = Array.from(document.querySelectorAll<HTMLButtonElement>("#fornost-navigation button[aria-label]"));
-  const target = buttons.find((button) => labels.some((label) => normalized(button.getAttribute("aria-label")).includes(normalized(label))));
-  target?.click();
 }
 
 function normalizeRows(body: unknown): AssuranceRow[] {
@@ -257,6 +239,13 @@ export default function ControlImpactLens() {
     : control?.state === "critical"
       ? (tr ? "Kritik" : "Critical")
       : (tr ? "Aksiyon gerekli" : "Action required");
+  const openStage = (stage: ImpactStage) => navigateToFornost({
+    module: stage.module,
+    ref: control?.reference,
+    kind: stage.key,
+    source: "control-impact",
+    filter: control?.reference ? { controlRef: control.reference } : undefined,
+  });
 
   const content = <section className="control-impact-lens" aria-label={tr ? "Kontrol etki görünümü" : "Control impact lens"}>
     <div className="cil-head">
@@ -266,7 +255,7 @@ export default function ControlImpactLens() {
         <p>{tr ? "Framework, kanıt, denetim, bulgu/CAPA ve risk ilişkilerini tek etki zincirinde gösterir." : "Shows framework, evidence, audit, finding/CAPA and risk relationships in one impact chain."}</p>
       </div>
       <div className="cil-actions">
-        <button type="button" onClick={() => navigateTo("Bağlantılı GRC")}>{tr ? "GRC haritası" : "GRC map"}<span>→</span></button>
+        <button type="button" onClick={() => navigateToFornost({ module: "Bağlantılı GRC", ref: control?.reference, kind: "control", source: "control-impact" })}>{tr ? "GRC haritası" : "GRC map"}<span>→</span></button>
         <button type="button" className="cil-refresh" disabled={loading} onClick={() => void load()}>{loading ? "…" : "↻"}</button>
       </div>
     </div>
@@ -305,7 +294,7 @@ export default function ControlImpactLens() {
       </div>}
 
       <div className="cil-stage-grid">
-        {stages.map((stage) => <button type="button" key={stage.key} className={`${stage.count ? "connected" : "missing"} ${stage.expected ? "required" : "optional"}`} onClick={() => navigateTo(stage.module)}>
+        {stages.map((stage) => <button type="button" key={stage.key} className={`${stage.count ? "connected" : "missing"} ${stage.expected ? "required" : "optional"}`} onClick={() => openStage(stage)}>
           <small>{tr ? stage.labelTr : stage.labelEn}</small>
           <strong>{stage.count}</strong>
           <span>{stage.count ? (tr ? "bağlı kayıt" : "linked records") : stage.expected ? (tr ? "bağlantı eksik" : "link missing") : (tr ? "kayıt yok" : "none")}</span>
@@ -319,7 +308,7 @@ export default function ControlImpactLens() {
           <strong>{tr ? "Bağlantı ve güvence aksiyonları" : "Lineage and assurance actions"}</strong>
         </div>
         <div className="cil-gap-list">
-          {missingRequired.map((stage) => <button type="button" key={`missing-${stage.key}`} onClick={() => navigateTo(stage.module)}>
+          {missingRequired.map((stage) => <button type="button" key={`missing-${stage.key}`} onClick={() => openStage(stage)}>
             <b>{tr ? stage.labelTr : stage.labelEn}</b>
             <span>{tr ? "Zorunlu güvence bağlantısı kurulmamış." : "Required assurance relationship is not connected."}</span>
             <em>→</em>
@@ -338,7 +327,7 @@ export default function ControlImpactLens() {
 
       <footer>
         <span>{lastUpdated ? `${tr ? "Güncellendi" : "Updated"}: ${lastUpdated.toLocaleTimeString(tr ? "tr-TR" : "en-GB", { hour: "2-digit", minute: "2-digit" })}` : ""}</span>
-        <button type="button" onClick={() => navigateTo("Kontroller")}>{tr ? "Kontrol kaydına dön" : "Back to control record"}<span>→</span></button>
+        <button type="button" onClick={() => navigateToFornost({ module: "Kontroller", ref: control?.reference, kind: "control", source: "control-impact" })}>{tr ? "Kontrol kaydına dön" : "Back to control record"}<span>→</span></button>
       </footer>
     </>}
   </section>;
