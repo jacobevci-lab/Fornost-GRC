@@ -5,6 +5,7 @@ const clean=(value:unknown,max:number)=>String(value??"").trim().replace(/\u0000
 const email=(value:unknown,label:string)=>{const result=clean(value,200).toLowerCase();if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(result))throw new Error(`${label} için geçerli e-posta zorunludur.`);return result};
 const date=(value:unknown,label:string)=>{const result=clean(value,10);if(!/^\d{4}-\d{2}-\d{2}$/.test(result)||new Date(`${result}T00:00:00Z`).toISOString().slice(0,10)!==result)throw new Error(`${label} için geçerli tarih zorunludur.`);return result};
 const sha=(value:unknown)=>{const result=clean(value,64).toLowerCase();if(!/^[a-f0-9]{64}$/.test(result))throw new Error("64 karakter SHA-256 kanıt özeti zorunludur.");return result};
+const rowValue=(input:Record<string,unknown>,snake:string,camel:string)=>input[snake]??input[camel];
 
 export function findingSlaDays(severity:string){return({critical:7,high:30,medium:60,low:90} as Record<string,number>)[severity]||0}
 export function addDays(day:string,days:number){const value=new Date(`${day}T00:00:00Z`);value.setUTCDate(value.getUTCDate()+days);return value.toISOString().slice(0,10)}
@@ -16,6 +17,37 @@ export function validateFinding(input:Record<string,unknown>,today=new Date().to
  if(owner===reviewer)throw new Error("Aksiyon sahibi ve bağımsız reviewer farklı olmalıdır.");
  const maximum=addDays(today,findingSlaDays(severity));if(dueDate<today||dueDate>maximum)throw new Error(`${severity} bulgu termini en fazla ${findingSlaDays(severity)} gün içinde olmalıdır.`);
  return{sourceType,sourceRef,sourceTitle,findingType,title,description,severity,owner,reviewer,rootCause,correctiveAction,preventiveAction,dueDate,riskRef,controlRef};
+}
+
+export function validateFindingGovernanceGate(input:Record<string,unknown>,operation:"submit"|"verify"|"accept-risk"){
+ const sourceType=clean(rowValue(input,"source_type","sourceType"),30);
+ const sourceRef=clean(rowValue(input,"source_ref","sourceRef"),120);
+ const findingType=clean(rowValue(input,"finding_type","findingType"),40);
+ const owner=email(rowValue(input,"owner","owner"),"Aksiyon sahibi");
+ const reviewer=email(rowValue(input,"reviewer","reviewer"),"Bağımsız reviewer");
+ const rootCause=clean(rowValue(input,"root_cause","rootCause"),2400);
+ const correctiveAction=clean(rowValue(input,"corrective_action","correctiveAction"),2400);
+ const preventiveAction=clean(rowValue(input,"preventive_action","preventiveAction"),2400);
+ const dueDate=date(rowValue(input,"due_date","dueDate"),"Termin");
+ const riskRef=clean(rowValue(input,"risk_ref","riskRef"),120);
+ const controlRef=clean(rowValue(input,"control_ref","controlRef"),120);
+ const evidenceReference=clean(rowValue(input,"evidence_reference","evidenceReference"),500);
+ const evidenceSha256=clean(rowValue(input,"evidence_sha256","evidenceSha256"),64);
+ if(!FINDING_SOURCES.includes(sourceType as typeof FINDING_SOURCES[number])||!FINDING_TYPES.includes(findingType as typeof FINDING_TYPES[number]))throw new Error("Bulgu yönetişim kapısı: kaynak veya bulgu türü geçersiz.");
+ if(sourceRef.length<2||rootCause.length<10||correctiveAction.length<20||preventiveAction.length<20)throw new Error("Bulgu yönetişim kapısı: kaynak izi, kök neden ve CAPA planı eksiksiz olmalıdır.");
+ if(owner===reviewer)throw new Error("Bulgu yönetişim kapısı: aksiyon sahibi ve bağımsız reviewer farklı olmalıdır.");
+ if(!dueDate)throw new Error("Bulgu yönetişim kapısı: geçerli termin zorunludur.");
+ const controlRequired=findingType==="control-deficiency"||["control","continuous-control"].includes(sourceType);
+ const riskRequired=sourceType==="risk"||operation==="accept-risk";
+ const connectedLineageRequired=["audit","vendor","regulatory","policy","incident","vulnerability","ai"].includes(sourceType);
+ if(controlRequired&&!controlRef)throw new Error("Bulgu yönetişim kapısı: kontrol kaynaklı bulgu için Control bağlantısı zorunludur.");
+ if(riskRequired&&!riskRef)throw new Error(operation==="accept-risk"?"Risk kabulü için Risk Assessment bağlantısı zorunludur.":"Bulgu yönetişim kapısı: risk kaynaklı bulgu için Risk bağlantısı zorunludur.");
+ if(connectedLineageRequired&&!riskRef&&!controlRef)throw new Error("Bulgu yönetişim kapısı: bu bulgu kapanmadan önce en az bir Risk veya Control bağlantısı kurulmalıdır.");
+ if(operation==="verify"){
+  if(!evidenceReference||!evidenceSha256)throw new Error("Bulgu yönetişim kapısı: doğrulamadan önce CAPA gönderim kanıtı zorunludur.");
+  sha(evidenceSha256);
+ }
+ return{sourceType,sourceRef,findingType,owner,reviewer,dueDate,riskRef,controlRef};
 }
 
 export function validateFindingAction(input:Record<string,unknown>,today=new Date().toISOString().slice(0,10)){
