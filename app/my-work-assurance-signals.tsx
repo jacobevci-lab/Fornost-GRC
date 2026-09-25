@@ -9,6 +9,7 @@ import { navigateToFornost } from "./navigation-focus";
 import "./my-work-assurance-signals.css";
 
 type Lang = "tr" | "en";
+type Scope = "mine" | "organization";
 type RawRow = { id?: unknown; code?: unknown; module?: unknown; data?: unknown; data_json?: unknown };
 type User = { name?: string; email?: string; role?: string };
 type HistoryItem = { id?: unknown; integrity?: unknown; checkedVersions?: unknown; failedVersion?: unknown };
@@ -41,6 +42,10 @@ const normalized = (value: unknown) => text(value).normalize("NFKC").toLocaleLow
 function currentLanguage(): Lang {
   return document.querySelector(".language-switch button.active")?.textContent?.trim().toLowerCase() === "en" ? "en" : "tr";
 }
+function currentScope(): Scope {
+  const active = document.querySelector<HTMLButtonElement>(".my-work-v2 .mw2-scope button.active")?.textContent || "";
+  return ["organizasyon", "organization"].includes(normalized(active)) ? "organization" : "mine";
+}
 
 function normalizeRows(body: unknown): AssuranceRow[] {
   if (!body || typeof body !== "object") return [];
@@ -58,8 +63,8 @@ function normalizeRows(body: unknown): AssuranceRow[] {
   }).filter((row) => row.module);
 }
 
-function identityMatches(value: unknown, user: User) {
-  if (user.role === "Admin") return true;
+function identityMatches(value: unknown, user: User, scope: Scope) {
+  if (scope === "organization" && user.role === "Admin") return true;
   const candidate = normalized(value);
   if (!candidate) return false;
   const identities = [user.name, user.email].map(normalized).filter(Boolean);
@@ -93,6 +98,7 @@ function applyEvidenceIntegrity(rows: AssuranceRow[], history: HistoryPayload) {
 export default function MyWorkAssuranceSignals() {
   const [mount, setMount] = useState<HTMLElement | null>(null);
   const [lang, setLang] = useState<Lang>("tr");
+  const [scope, setScope] = useState<Scope>("mine");
   const [rows, setRows] = useState<AssuranceRow[]>([]);
   const [history, setHistory] = useState<HistoryPayload>({});
   const [findings, setFindings] = useState<FindingsPayload>({});
@@ -101,6 +107,7 @@ export default function MyWorkAssuranceSignals() {
   useEffect(() => {
     const discover = () => {
       setLang(currentLanguage());
+      setScope(currentScope());
       const queue = document.querySelector<HTMLElement>(".my-work-v2 .mw2-queue");
       if (!queue) {
         setMount(null);
@@ -155,7 +162,7 @@ export default function MyWorkAssuranceSignals() {
   const signals = useMemo<Signal[]>(() => {
     const result: Signal[] = [];
     const assuranceRows = applyEvidenceIntegrity(rows, history);
-    const controls = buildControlAssurance(assuranceRows).items.filter((item) => item.state === "critical" && identityMatches(item.owner, user));
+    const controls = buildControlAssurance(assuranceRows).items.filter((item) => item.state === "critical" && identityMatches(item.owner, user, scope));
     if (controls.length) result.push({
       key: "control",
       module: "Kontroller",
@@ -170,7 +177,7 @@ export default function MyWorkAssuranceSignals() {
     const auditRows = assuranceRows.filter((row) => row.module === "Denetim Yönetimi");
     const evidenceRows = assuranceRows.filter((row) => row.module === "Kanıtlar");
     const audit = buildAuditEvidenceAssurance(auditRows, evidenceRows);
-    const auditGaps = audit.gaps.filter((gap) => identityMatches(gap.owner, user));
+    const auditGaps = audit.gaps.filter((gap) => identityMatches(gap.owner, user, scope));
     if (auditGaps.length) result.push({
       key: "audit",
       module: "Denetim Yönetimi",
@@ -185,7 +192,7 @@ export default function MyWorkAssuranceSignals() {
     const today = new Date().toISOString().slice(0, 10);
     const integrity = new Map((history.evidenceItems || []).map((item) => [text(item.id), normalized(item.integrity)]));
     const evidenceIssues = evidenceRows.filter((row) => {
-      if (!identityMatches(row.data.owner, user)) return false;
+      if (!identityMatches(row.data.owner, user, scope)) return false;
       const state = integrity.get(row.id) || "legacy-unverified";
       return staleEvidence(row, today) || state === "broken";
     });
@@ -203,7 +210,7 @@ export default function MyWorkAssuranceSignals() {
     const assignedFindings = (findings.findings || []).filter((finding) => {
       const status = normalized(finding.status);
       if (["closed", "accepted", "kapalı", "kabul edildi"].includes(status)) return false;
-      return identityMatches(finding.owner, user) || identityMatches(finding.reviewer, user);
+      return identityMatches(finding.owner, user, scope) || identityMatches(finding.reviewer, user, scope);
     });
     if (assignedFindings.length) result.push({
       key: "finding",
@@ -217,7 +224,7 @@ export default function MyWorkAssuranceSignals() {
     });
 
     return result;
-  }, [rows, history, findings, user]);
+  }, [rows, history, findings, user, scope]);
 
   if (!mount || !signals.length) return null;
   const tr = lang === "tr";
