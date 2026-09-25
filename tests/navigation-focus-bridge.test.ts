@@ -23,6 +23,25 @@ test("focus bridge applies pending context to the active register", () => {
   assert.match(bridge, /scrollIntoView/);
 });
 
+test("finding focus resets local filters and opens the native finding detail", () => {
+  assert.match(bridge, /sameDomainModule\(request\.module, "Bulgular ve CAPA"\)/);
+  assert.match(bridge, /function applyFindingFocus/);
+  assert.match(bridge, /\.finding-toolbar input/);
+  assert.match(bridge, /\.finding-toolbar select/);
+  assert.match(bridge, /setControlledSelectValue\(status, "all"\)/);
+  assert.match(bridge, /\.finding-table tbody tr/);
+  assert.match(bridge, /match\.click\(\)/);
+});
+
+test("finding focus remains pending until the matching row is available", () => {
+  const start = bridge.indexOf("function applyFindingFocus");
+  const end = bridge.indexOf("function applyFocus");
+  const adapter = bridge.slice(start, end);
+  assert.match(adapter, /if \(!match\) return false/);
+  assert.match(adapter, /return true/);
+  assert.match(bridge, /if \(applyFocus\(current\)\) \{/);
+});
+
 test("PlatformExperience owns the single navigation focus consumer", () => {
   assert.match(platformExperience, /import NavigationFocusBridge from "\.\/navigation-focus-bridge"/);
   assert.match(platformExperience, /<NavigationFocusBridge \/>/);
