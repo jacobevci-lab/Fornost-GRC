@@ -45,10 +45,19 @@ function setControlledSelectValue(select: HTMLSelectElement, value: string) {
   select.dispatchEvent(new Event("change", { bubbles: true }));
 }
 
+function exactMatchingRow(rows: HTMLTableRowElement[], value: string) {
+  const needle = normalize(value);
+  if (!needle) return null;
+  return rows.find((row) => {
+    if (Array.from(row.cells).some((cell) => normalize(cell.textContent) === needle)) return true;
+    return Array.from(row.querySelectorAll<HTMLElement>("[title]")).some((node) => normalize(node.getAttribute("title")) === needle);
+  }) || null;
+}
+
 function matchingRow(rows: HTMLTableRowElement[], value: string) {
   const needle = normalize(value);
   if (!needle) return null;
-  const exact = rows.find((row) => Array.from(row.cells).some((cell) => normalize(cell.textContent) === needle));
+  const exact = exactMatchingRow(rows, value);
   return exact || rows.find((row) => normalize(row.textContent).includes(needle)) || null;
 }
 
@@ -59,9 +68,13 @@ function highlightRows(rows: HTMLTableRowElement[], match: HTMLTableRowElement) 
   window.setTimeout(() => match.classList.remove("fornost-focus-row"), 6_000);
 }
 
-function highlightMatchingRow(value: string) {
-  const rows = Array.from(document.querySelectorAll<HTMLTableRowElement>("main .table-card .table-wrap tbody tr"));
-  const match = matchingRow(rows, value);
+function registerRows() {
+  return Array.from(document.querySelectorAll<HTMLTableRowElement>("main .table-card .table-wrap tbody tr"));
+}
+
+function highlightMatchingRow(value: string, exactOnly = false) {
+  const rows = registerRows();
+  const match = exactOnly ? exactMatchingRow(rows, value) : matchingRow(rows, value);
   if (!match) return false;
   highlightRows(rows, match);
   return true;
@@ -160,6 +173,13 @@ function applyFocus(request: FornostNavigationRequest) {
 
   const search = document.querySelector<HTMLInputElement>("main .table-card .register-search input");
   if (!search) return false;
+
+  // Governed record ids are intentionally not rendered as visible text in every register.
+  // Resolve the row from exact cell text or hidden title metadata before changing the local search filter.
+  if (highlightMatchingRow(value, true)) {
+    search.focus({ preventScroll: true });
+    return true;
+  }
 
   if (search.value !== value) {
     setControlledInputValue(search, value);
