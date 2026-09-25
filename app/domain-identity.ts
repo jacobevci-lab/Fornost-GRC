@@ -117,9 +117,9 @@ const normalize = (value: unknown) => String(value ?? "")
   .toLocaleLowerCase("tr-TR");
 
 const moduleIndex = new Map<string, ModuleIdentity>();
-for (const module of DOMAIN_MODULES) {
-  for (const candidate of [module.key, module.legacy, module.tr, module.en, ...(module.aliases || [])]) {
-    moduleIndex.set(normalize(candidate), module);
+for (const identity of DOMAIN_MODULES) {
+  for (const candidate of [identity.key, identity.legacy, identity.tr, identity.en, ...(identity.aliases || [])]) {
+    moduleIndex.set(normalize(candidate), identity);
   }
 }
 
