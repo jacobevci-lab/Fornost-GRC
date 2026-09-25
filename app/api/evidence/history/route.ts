@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireRole } from "../../auth/security";
+import { ensureCoreGrcSchemaCompatibility } from "../../grc/schema-compat";
 import {
   appendEvidenceVersion,
   ensureEvidenceHistorySchema,
@@ -34,8 +35,6 @@ type EvidenceItem = {
   tracked: boolean;
 };
 
-const recordTable = `CREATE TABLE IF NOT EXISTS simple_grc_records (id TEXT PRIMARY KEY,module TEXT NOT NULL,data_json TEXT NOT NULL,created_at TEXT NOT NULL,updated_at TEXT NOT NULL)`;
-const filesTable = `CREATE TABLE IF NOT EXISTS simple_evidence_files (file_key TEXT PRIMARY KEY,file_name TEXT NOT NULL,content_type TEXT NOT NULL,content BLOB NOT NULL,created_at TEXT NOT NULL)`;
 const json = (data: unknown, status = 200) => NextResponse.json(data, { status, headers: { "cache-control": "no-store" } });
 const text = (value: unknown, max = 2000) => String(value ?? "").trim().slice(0, max);
 const parse = (raw: string) => {
@@ -53,8 +52,7 @@ async function runtime() {
 }
 
 async function ready(env: Env) {
-  await env.DB.prepare(recordTable).run();
-  await env.DB.prepare(filesTable).run();
+  await ensureCoreGrcSchemaCompatibility(env.DB);
   await ensureEvidenceHistorySchema(env.DB);
 }
 
