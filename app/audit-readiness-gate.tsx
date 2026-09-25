@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { buildAuditEvidenceAssurance, type AssuranceRecord } from "./audit-evidence-assurance";
 import { withBasePath } from "./base-path";
+import { navigateToFornost } from "./navigation-focus";
 import "./audit-readiness-gate.css";
 
 type Lang = "tr" | "en";
@@ -50,17 +51,6 @@ function activeAuditName() {
   const detail = document.querySelector<HTMLElement>(".audit-detail-head");
   if (!detail || detail.getClientRects().length === 0) return "";
   return text(detail.querySelector("h1,h2,h3")?.textContent);
-}
-
-function navigateTo(module: string) {
-  const labels: Record<string, string[]> = {
-    Kanıtlar: ["Kanıt Kütüphanesi", "Evidence Library"],
-    Kontroller: ["Kontrol Kütüphanesi", "Control Library"],
-    "Bulgular ve CAPA": ["Bulgular ve CAPA", "Findings & CAPA"],
-  };
-  const buttons = Array.from(document.querySelectorAll<HTMLButtonElement>("#fornost-navigation button[aria-label]"));
-  const target = buttons.find((button) => (labels[module] || [module]).some((label) => normalized(button.getAttribute("aria-label")).includes(normalized(label))));
-  target?.click();
 }
 
 function formatDate(value: string, lang: Lang) {
@@ -159,6 +149,19 @@ export default function AuditReadinessGate() {
         ? `${assurance.gaps.length} madde denetim öncesi aksiyon istiyor`
         : `${assurance.gaps.length} requirements need action before audit`;
 
+  const openGap = (reference: string, status: "current" | "stale" | "missing") => {
+    if (status === "missing") {
+      navigateToFornost({ module: "Kontroller", ref: reference, kind: "control", source: "audit-readiness" });
+      return;
+    }
+    navigateToFornost({
+      module: "Kanıtlar",
+      kind: "evidence",
+      source: "audit-readiness",
+      filter: { controlRef: reference },
+    });
+  };
+
   return createPortal(
     <section className={`audit-readiness-gate ${assurance.gate}`} aria-label={tr ? "Denetim hazırlık kapısı" : "Audit readiness gate"}>
       <header className="audit-readiness-head">
@@ -175,9 +178,9 @@ export default function AuditReadinessGate() {
       </header>
 
       <div className="audit-readiness-metrics">
-        <button type="button" onClick={() => navigateTo("Kanıtlar")}><small>{tr ? "Güncel" : "Current"}</small><strong>{assurance.current}</strong><span>{tr ? "onaylı kanıt" : "approved evidence"}</span></button>
-        <button type="button" className={assurance.stale ? "warning" : ""} onClick={() => navigateTo("Kanıtlar")}><small>{tr ? "Bayat / süresi dolan" : "Stale / expired"}</small><strong>{assurance.stale}</strong><span>{tr ? "yenilenmeli" : "needs refresh"}</span></button>
-        <button type="button" className={assurance.missing.length ? "danger" : ""} onClick={() => navigateTo("Kanıtlar")}><small>{tr ? "Kanıtsız" : "Missing"}</small><strong>{assurance.missing.length}</strong><span>{tr ? "kanıt bekliyor" : "needs evidence"}</span></button>
+        <button type="button" onClick={() => navigateToFornost("Kanıtlar")}><small>{tr ? "Güncel" : "Current"}</small><strong>{assurance.current}</strong><span>{tr ? "onaylı kanıt" : "approved evidence"}</span></button>
+        <button type="button" className={assurance.stale ? "warning" : ""} onClick={() => navigateToFornost("Kanıtlar")}><small>{tr ? "Bayat / süresi dolan" : "Stale / expired"}</small><strong>{assurance.stale}</strong><span>{tr ? "yenilenmeli" : "needs refresh"}</span></button>
+        <button type="button" className={assurance.missing.length ? "danger" : ""} onClick={() => navigateToFornost("Kanıtlar")}><small>{tr ? "Kanıtsız" : "Missing"}</small><strong>{assurance.missing.length}</strong><span>{tr ? "kanıt bekliyor" : "needs evidence"}</span></button>
         <article><small>{tr ? "Bağlantı kapsamı" : "Link coverage"}</small><strong>{assurance.total ? `${assurance.coverage}%` : "—"}</strong><span>{tr ? "en az bir kanıt bağlı" : "at least one evidence linked"}</span></article>
       </div>
 
@@ -189,7 +192,7 @@ export default function AuditReadinessGate() {
           </div>
           <div className="audit-readiness-list">
             {assurance.gaps.slice(0, 8).map((gap) => (
-              <article key={gap.reference} className={gap.status}>
+              <button type="button" key={gap.reference} className={`audit-readiness-gap ${gap.status}`} onClick={() => openGap(gap.reference, gap.status)}>
                 <i aria-hidden="true" />
                 <div className="audit-readiness-gap-copy">
                   <b>{gap.reference}</b>
@@ -197,10 +200,10 @@ export default function AuditReadinessGate() {
                   <small>{gap.owner || (tr ? "Sahip atanmadı" : "Owner unassigned")} · {gap.dueDate ? formatDate(gap.dueDate, lang) : (tr ? "Termin yok" : "No due date")}</small>
                 </div>
                 <div className="audit-readiness-gap-state">
-                  <strong>{gap.status === "missing" ? (tr ? "Kanıt yok" : "Missing") : (tr ? "Güncel değil" : "Stale")}</strong>
-                  <small>{gap.linkedEvidence} {tr ? "bağlı" : "linked"}</small>
+                  <strong>{gap.status === "missing" ? (tr ? "Kontrol / kanıt aç" : "Open control / evidence") : (tr ? "Kanıtı yenile" : "Refresh evidence")}</strong>
+                  <small>{gap.linkedEvidence} {tr ? "bağlı" : "linked"} · →</small>
                 </div>
-              </article>
+              </button>
             ))}
           </div>
           {assurance.gaps.length > 8 && <div className="audit-readiness-more">+{assurance.gaps.length - 8} {tr ? "ek boşluk" : "more gaps"}</div>}
@@ -212,9 +215,9 @@ export default function AuditReadinessGate() {
       <footer className="audit-readiness-actions">
         <div><small>{lastUpdated ? `${tr ? "Son kontrol" : "Last check"}: ${lastUpdated.toLocaleTimeString(tr ? "tr-TR" : "en-GB", { hour: "2-digit", minute: "2-digit" })}` : ""}</small></div>
         <div>
-          <button type="button" className="secondary" onClick={() => navigateTo("Kontroller")}>{tr ? "Kontroller" : "Controls"}</button>
-          <button type="button" className="secondary" onClick={() => navigateTo("Bulgular ve CAPA")}>{tr ? "Bulgular / CAPA" : "Findings / CAPA"}</button>
-          <button type="button" onClick={() => navigateTo("Kanıtlar")}>{tr ? "Kanıtları Tamamla" : "Complete Evidence"}</button>
+          <button type="button" className="secondary" onClick={() => navigateToFornost("Kontroller")}>{tr ? "Kontroller" : "Controls"}</button>
+          <button type="button" className="secondary" onClick={() => navigateToFornost("Bulgular ve CAPA")}>{tr ? "Bulgular / CAPA" : "Findings / CAPA"}</button>
+          <button type="button" onClick={() => navigateToFornost("Kanıtlar")}>{tr ? "Kanıtları Tamamla" : "Complete Evidence"}</button>
           <button type="button" className="refresh" disabled={loading} onClick={() => void load()}>{loading ? "…" : "↻"}</button>
         </div>
       </footer>
