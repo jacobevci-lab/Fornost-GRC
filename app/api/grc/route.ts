@@ -8,7 +8,7 @@ const modules=["Risk Assessment","BIA","Varlık Envanteri","Uyum","Tedarikçiler
 type ModuleName=(typeof modules)[number];
 type Data=Record<string,unknown>;
 const required:Record<ModuleName,string[]>={
- "Risk Assessment":["title","category","businessUnit","owner","asset","inherentLikelihood","inherentImpact","treatment","status","nextReview"],
+ "Risk Assessment":["title","owner","asset"],
  BIA:["process","processCategory","businessUnit","owner","criticality","asset","rto","rpo","status"],
  "Varlık Envanteri":["title","assetType","businessUnit","owner","criticality","status"],
  Uyum:["framework","controlRef","controlTitle","owner","status"],
@@ -17,6 +17,7 @@ const required:Record<ModuleName,string[]>={
  Kanıtlar:["evidenceTitle","controlRef","owner","period","status"],
  "Denetim Yönetimi":["auditName","auditType","auditOwner","startDate","endDate","requirementRef","requirementTitle","owner","businessUnit","dueDate","status","progress"]
 };
+const riskAssessmentFields=["category","businessUnit","inherentLikelihood","inherentImpact","treatment","nextReview"] as const;
 const allowedStatuses:Record<ModuleName,string[]>={
  "Risk Assessment":["Açık","Değerlendiriliyor","Aksiyon Devam Ediyor","Kabul Edildi","Kapalı"],
  BIA:["Taslak","İncelemede","Onaylandı","Aktif","Arşivlendi"],
@@ -75,9 +76,11 @@ export function normalizeRecordData(module:unknown,input:Data){
   if(data.inherentLikelihood===undefined&&data.likelihood!==undefined)data.inherentLikelihood=data.likelihood;
   if(data.inherentImpact===undefined&&data.impact!==undefined)data.inherentImpact=data.impact;
   delete data.likelihood;delete data.impact;
+  if(data.status==="Devam Ediyor")data.status="Aksiyon Devam Ediyor";
+  if(data.status==="İzlemede")data.status="Değerlendiriliyor";
+  if(!data.status)data.status="Değerlendiriliyor";
  }
  if(module==="BIA"){if(!data.processCategory)data.processCategory="Operasyonel Süreç";if(!data.status)data.status="Aktif"}
- if(module==="Risk Assessment"){if(data.status==="Devam Ediyor")data.status="Aksiyon Devam Ediyor";if(data.status==="İzlemede")data.status="Değerlendiriliyor"}
  if(module==="Uyum"){if(data.status==="Kısmi")data.status="Kısmi Uyumlu";if(data.status==="Uyumsuz")data.status="Uyumlu Değil"}
  if(module==="Tedarikçiler"&&data.status==="İyileştirme Gerekli")data.status="Askıda";
  if(module==="Denetim Yönetimi"){if(data.status==="Planlandı")data.status="Başlanmadı";if(data.status==="Tamamlandı")data.status="Kapatıldı";if(data.status==="Gecikmiş")data.status="Devam Ediyor"}
@@ -97,6 +100,10 @@ export function validate(module:unknown,input:unknown){
  const missing=required[module].filter(key=>data[key]===undefined||data[key]===null||data[key]==="");
  if(missing.length)return {error:`Zorunlu alanlar eksik: ${missing.join(", ")}`};
  if(!allowedStatuses[module].includes(String(data.status)))return {error:"Geçersiz operasyon durumu."};
+ if(module==="Risk Assessment"&&data.status!=="Değerlendiriliyor"){
+  const assessmentMissing=riskAssessmentFields.filter(key=>data[key]===undefined||data[key]===null||data[key]==="");
+  if(assessmentMissing.length)return {error:`Risk değerlendirmesi tamamlanmadan bu duruma geçilemez. Eksik alanlar: ${assessmentMissing.join(", ")}`};
+ }
  for(const key of ["inherentLikelihood","inherentImpact","confidentialityImpact","integrityImpact","availabilityImpact","confidentialityRating","integrityRating","availabilityRating","financial","operational","legal","reputation","customer","dataImpact"]){
   if(data[key]!==undefined&&data[key]!==""&&(!Number.isInteger(Number(data[key]))||Number(data[key])<1||Number(data[key])>5))return {error:`${key} 1-5 arasında olmalıdır.`};
  }
