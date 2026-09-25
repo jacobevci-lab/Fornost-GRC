@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import "./setup.css";
 import "./risk-governance.css";
 import "./reporting.css";
 import "./fornost-ai.css";
