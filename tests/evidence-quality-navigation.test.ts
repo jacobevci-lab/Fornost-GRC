@@ -5,10 +5,11 @@ import test from "node:test";
 const lens = readFileSync("app/evidence-quality-lens.tsx", "utf8");
 const css = readFileSync("app/evidence-quality-lens.css", "utf8");
 
-test("evidence quality signals use immutable record ids with shared focus navigation", () => {
+test("evidence quality signals use stable rendered evidence ids with shared focus navigation", () => {
   assert.match(lens, /import \{ navigateToFornost \} from "\.\/navigation-focus"/);
   assert.match(lens, /recordRef: string/);
-  assert.match(lens, /issues\.push\(\{ id: `\$\{row\.id\}:\$\{kind\}`, recordRef: row\.id, title/);
+  assert.match(lens, /const recordRef = text\(row\.data\.evidenceId \|\| row\.id\)/);
+  assert.match(lens, /issues\.push\(\{ id: `\$\{row\.id\}:\$\{kind\}`, recordRef, title/);
   assert.match(lens, /module: "Kanıtlar"/);
   assert.match(lens, /source: "evidence-quality"/);
   assert.match(lens, /filter: \{ recordRef: issue\.recordRef \}/);
