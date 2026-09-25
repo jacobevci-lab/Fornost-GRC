@@ -23,6 +23,16 @@ test("focus bridge applies pending context to the active register", () => {
   assert.match(bridge, /scrollIntoView/);
 });
 
+test("generic register focus stays pending until the matching row is mounted", () => {
+  const start = bridge.indexOf("function applyFocus");
+  const end = bridge.indexOf("export default function NavigationFocusBridge");
+  const adapter = bridge.slice(start, end);
+  assert.match(adapter, /if \(search\.value !== value\) \{[\s\S]*setControlledInputValue\(search, value\);[\s\S]*return false;/);
+  assert.match(adapter, /return highlightMatchingRow\(value\);/);
+  assert.doesNotMatch(adapter, /setTimeout\(\(\) => highlightMatchingRow/);
+  assert.match(bridge, /retryTimer = window\.setTimeout\(tryApply, 90\)/);
+});
+
 test("finding focus resets local filters and opens the native finding detail", () => {
   assert.match(bridge, /sameDomainModule\(request\.module, "Bulgular ve CAPA"\)/);
   assert.match(bridge, /function applyFindingFocus/);
