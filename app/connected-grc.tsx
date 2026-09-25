@@ -2,11 +2,13 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { assessConnectedGrcCoverage, buildConnectedGrcGraph, connectedRelationLabels, connectedRemediationModule, connectedTitle, type ConnectedGrcRow } from "./connected-grc-model";
+import { connectedGrcNavigation } from "./connected-grc-navigation";
 import { buildConnectedGrcEnterpriseRows, connectedGrcEnterpriseEndpoints, type ConnectedGrcEnterprisePayloads } from "./connected-grc-sources";
 import { buildContinuousAssuranceChains, summarizeContinuousAssurance } from "./continuous-assurance-chain";
 import ContinuousAssuranceWorkQueue from "./continuous-assurance-work-queue";
 import ContinuousAssuranceGovernance from "./continuous-assurance-governance";
 import ContinuousAssuranceEscalationCenter from "./continuous-assurance-escalation-center";
+import { navigateToFornost } from "./navigation-focus";
 import { withBasePath } from "./base-path";
 import "./connected-grc-contract.css";
 import "./connected-assurance-posture.css";
@@ -63,6 +65,11 @@ export default function ConnectedGrc({rows,lang,go}:{rows:ConnectedGrcRow[];lang
     return matchesModule&&(!needle||`${connectedTitle(link.source)} ${connectedTitle(link.target)} ${link.source.module} ${link.target.module} ${link.relation}`.toLocaleLowerCase(tr?"tr-TR":"en-US").includes(needle));
   });
   const moduleStats=modules.map(name=>({name,count:records.filter(row=>row.module===name).length,links:links.filter(link=>link.source.module===name||link.target.module===name).length})).sort((a,b)=>b.links-a.links);
+  function openRecord(row:ConnectedGrcRow){
+    const target=connectedGrcNavigation(row);
+    if(!target){go(row.module);return;}
+    navigateToFornost({module:target.module,ref:target.ref,source:"connected-grc-register",filter:{[target.filterKey]:target.ref}});
+  }
   function download(){
     const data=[["Source module","Source code","Source title","Relationship","Field","Target module","Target code","Target title","Matched reference"],...filtered.map(link=>[link.source.module,link.source.code||link.source.id,connectedTitle(link.source),link.relation,link.field,link.target.module,link.target.code||link.target.id,connectedTitle(link.target),link.matched])];
     const blob=new Blob(["\uFEFF"+data.map(row=>row.map(csv).join(";")).join("\n")],{type:"text/csv;charset=utf-8"});
@@ -92,7 +99,7 @@ export default function ConnectedGrc({rows,lang,go}:{rows:ConnectedGrcRow[];lang
     </section>
     <div className="connected-layout">
       <aside><div><b>{tr?"Alan yoğunluğu":"Domain density"}</b><small>{tr?"Modülü filtrelemek için seçin":"Select a module to filter"}</small></div><button className={module==="all"?"active":""} onClick={()=>setModule("all")}><span>{tr?"Tüm alanlar":"All domains"}</span><em>{links.length}</em></button>{moduleStats.map(item=><button className={module===item.name?"active":""} key={item.name} onClick={()=>setModule(item.name)}><span>{item.name}<small>{item.count} {tr?"kayıt":"records"}</small></span><em>{item.links}</em></button>)}</aside>
-      <div className="connected-register"><div className="connected-toolbar"><div><b>{tr?"İlişki sicili":"Relationship register"}</b><small>{filtered.length} / {links.length} · {tr?"alan-tabanlı + canlı modül verisi":"field-based + live module data"}</small></div><input value={query} onChange={event=>setQuery(event.target.value)} placeholder={tr?"Kayıt, ilişki veya modül ara…":"Search record, relation or module…"}/></div><div className="connected-table"><div className="connected-table-head"><span>{tr?"Kaynak":"Source"}</span><span>{tr?"Bağlantı":"Relationship"}</span><span>{tr?"Hedef":"Target"}</span></div>{filtered.slice(0,200).map((link,index)=><article key={`${link.source.id}-${link.target.id}-${link.relation}-${index}`}><button onClick={()=>go(link.source.module)}><small>{link.source.module}</small><b>{connectedTitle(link.source)}</b><em>{link.source.code||link.source.id}</em></button><div><i/><span>{connectedRelationLabels[link.relation]?.[lang]||link.relation}</span><code>{link.field}: {link.matched}</code></div><button onClick={()=>go(link.target.module)}><small>{link.target.module}</small><b>{connectedTitle(link.target)}</b><em>{link.target.code||link.target.id}</em></button></article>)}{!filtered.length&&<p>{tr?"Filtreyle eşleşen ilişki bulunamadı. Kayıtların referans alanlarını kontrol edin.":"No relationship matches this filter. Review record reference fields."}</p>}</div>{!!unresolved.length&&<details className="connected-unresolved"><summary>{tr?`${unresolved.length} çözülmeyen referansı incele`:`Review ${unresolved.length} unresolved references`}</summary>{unresolved.slice(0,75).map((item,index)=><div key={`${item.source.id}-${item.field}-${index}`}><button onClick={()=>go(item.source.module)}>{item.source.code||item.source.id}</button><span>{item.field}</span><code>{item.value}</code></div>)}</details>}</div>
+      <div className="connected-register"><div className="connected-toolbar"><div><b>{tr?"İlişki sicili":"Relationship register"}</b><small>{filtered.length} / {links.length} · {tr?"alan-tabanlı + canlı modül verisi":"field-based + live module data"}</small></div><input value={query} onChange={event=>setQuery(event.target.value)} placeholder={tr?"Kayıt, ilişki veya modül ara…":"Search record, relation or module…"}/></div><div className="connected-table"><div className="connected-table-head"><span>{tr?"Kaynak":"Source"}</span><span>{tr?"Bağlantı":"Relationship"}</span><span>{tr?"Hedef":"Target"}</span></div>{filtered.slice(0,200).map((link,index)=><article key={`${link.source.id}-${link.target.id}-${link.relation}-${index}`}><button onClick={()=>openRecord(link.source)}><small>{link.source.module}</small><b>{connectedTitle(link.source)}</b><em>{link.source.code||link.source.id}</em></button><div><i/><span>{connectedRelationLabels[link.relation]?.[lang]||link.relation}</span><code>{link.field}: {link.matched}</code></div><button onClick={()=>openRecord(link.target)}><small>{link.target.module}</small><b>{connectedTitle(link.target)}</b><em>{link.target.code||link.target.id}</em></button></article>)}{!filtered.length&&<p>{tr?"Filtreyle eşleşen ilişki bulunamadı. Kayıtların referans alanlarını kontrol edin.":"No relationship matches this filter. Review record reference fields."}</p>}</div>{!!unresolved.length&&<details className="connected-unresolved"><summary>{tr?`${unresolved.length} çözülmeyen referansı incele`:`Review ${unresolved.length} unresolved references`}</summary>{unresolved.slice(0,75).map((item,index)=><div key={`${item.source.id}-${item.field}-${index}`}><button onClick={()=>openRecord(item.source)}>{item.source.code||item.source.id}</button><span>{item.field}</span><code>{item.value}</code></div>)}</details>}</div>
     </div>
   </section>;
 }
