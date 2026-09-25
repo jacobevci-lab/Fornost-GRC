@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { withBasePath } from "./base-path";
 import { sameDomainModule } from "./domain-identity";
 import {
   FORNOST_FOCUS_EVENT,
@@ -12,6 +13,8 @@ import "./navigation-focus-bridge.css";
 
 const clean = (value: unknown) => String(value ?? "").normalize("NFKC").trim();
 const normalize = (value: unknown) => clean(value).toLocaleLowerCase("tr-TR");
+const automationFindingTitles = new Map<string, string>();
+let automationFindingLookupPending = false;
 
 function activeModuleMatches(module: string) {
   const active = document.querySelector<HTMLButtonElement>("#fornost-navigation .nav-group-items > button.active[aria-label]");
@@ -97,6 +100,30 @@ function evidenceAutomationTab(request: FornostNavigationRequest) {
   return 4;
 }
 
+function refreshAutomationFindingAliases() {
+  if (automationFindingLookupPending) return;
+  automationFindingLookupPending = true;
+  void fetch(withBasePath("/api/evidence-automation"), { cache: "no-store", headers: { accept: "application/json" } })
+    .then(async (response) => response.ok ? response.json() : {})
+    .then((body: { findings?: Array<{ id?: string; title?: string }> }) => {
+      for (const finding of body.findings || []) {
+        const id = clean(finding.id);
+        const title = clean(finding.title);
+        if (id && title) automationFindingTitles.set(id, title);
+      }
+    })
+    .catch(() => {})
+    .finally(() => { automationFindingLookupPending = false; });
+}
+
+function evidenceAutomationFocusValue(request: FornostNavigationRequest, value: string) {
+  if (!clean(request.filter?.findingRef)) return value;
+  const resolved = automationFindingTitles.get(value);
+  if (resolved) return resolved;
+  refreshAutomationFindingAliases();
+  return value;
+}
+
 function applyEvidenceAutomationFocus(request: FornostNavigationRequest, value: string) {
   const page = document.querySelector<HTMLElement>("main .ea-page");
   if (!page) return false;
@@ -109,7 +136,8 @@ function applyEvidenceAutomationFocus(request: FornostNavigationRequest, value: 
     return false;
   }
   const rows = Array.from(page.querySelectorAll<HTMLTableRowElement>(".ea-table tbody tr"));
-  const match = matchingRow(rows, value);
+  const resolvedValue = evidenceAutomationFocusValue(request, value);
+  const match = matchingRow(rows, resolvedValue);
   if (!match) return false;
   highlightRows(rows, match);
   return true;
@@ -160,7 +188,7 @@ export default function NavigationFocusBridge() {
         stop();
         return;
       }
-      if (attempts >= 18) {
+      if (attempts >= 30) {
         stop();
         return;
       }
