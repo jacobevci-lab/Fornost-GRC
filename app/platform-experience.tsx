@@ -1,4 +1,5 @@
 import FornostAiCopilot from "./fornost-ai-copilot";
+import FornostAiSourceNavigation from "./fornost-ai-source-navigation";
 import ProductionHardening from "./production-hardening";
 import NavigationIntegrity from "./navigation-integrity";
 import NavigationFocusBridge from "./navigation-focus-bridge";
@@ -56,6 +57,7 @@ export default function PlatformExperience() {
 
       {/* One visible AI surface; specialist capabilities remain behind Ask Fornost. */}
       <FornostAiCopilot />
+      <FornostAiSourceNavigation />
 
       {/* Compatibility safety nets. Do not add new product functionality here. */}
       <ProductionHardening />
