@@ -18,6 +18,7 @@ import ControlImpactLens from "./control-impact-lens";
 import FindingLineageLens from "./finding-lineage-lens";
 import AuditReadinessGate from "./audit-readiness-gate";
 import EvidenceQualityLens from "./evidence-quality-lens";
+import ConnectorOnboardingWizard from "./connector-onboarding-wizard";
 
 /**
  * Transitional composition root for experience layers that currently augment
@@ -50,6 +51,7 @@ export default function PlatformExperience() {
       <FindingLineageLens />
       <AuditReadinessGate />
       <EvidenceQualityLens />
+      <ConnectorOnboardingWizard />
       <NavigationFocusBridge />
 
       {/* One visible AI surface; specialist capabilities remain behind Ask Fornost. */}
