@@ -7,10 +7,21 @@ const settings = readFileSync("app/integration-settings.tsx", "utf8");
 
 test("integration overview reads configuration and continuous assurance from their real backends", () => {
   assert.match(overview, /fetch\(withBasePath\("\/api\/integrations"\)/);
+  assert.match(overview, /fetch\(withBasePath\("\/api\/integrations\/health"\)/);
   assert.match(overview, /fetch\(withBasePath\("\/api\/evidence-automation"\)/);
   assert.match(overview, /workflow = integrations\.find\(\(item\) => item\.kind === "ticketing"\)/);
   assert.match(overview, /identity = integrations\.find\(\(item\) => item\.kind === "identity"\)/);
   assert.match(overview, /email = integrations\.find\(\(item\) => item\.kind === "email"\)/);
+});
+
+test("verified integration health expires instead of remaining green forever", () => {
+  assert.match(overview, /VERIFICATION_FRESHNESS_MS = 7 \* 24 \* 60 \* 60 \* 1000/);
+  assert.match(overview, /function verificationAgeMs/);
+  assert.match(overview, /age > VERIFICATION_FRESHNESS_MS \? "watch" : "healthy"/);
+  assert.match(overview, /Doğrulama yenilenmeli/);
+  assert.match(overview, /Verification is stale/);
+  assert.match(overview, /Son doğrulama:/);
+  assert.match(overview, /Last verified:/);
 });
 
 test("integration overview routes users to specialist workspaces instead of duplicating configuration", () => {
