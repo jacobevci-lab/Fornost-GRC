@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { withBasePath } from "./base-path";
+import { navigateToFornost } from "./navigation-focus";
 import "./finding-lineage-lens.css";
 
 type Lang = "tr" | "en";
@@ -32,18 +33,6 @@ type Check = { key: string; labelTr: string; labelEn: string; ok: boolean };
 const clean = (value: unknown) => String(value ?? "").normalize("NFKC").trim();
 const normalized = (value: unknown) => clean(value).toLocaleLowerCase("tr-TR");
 
-const NAV_LABELS: Record<string, string[]> = {
-  "Risk Assessment": ["Risk Değerlendirmesi", "Risk Assessment"],
-  Kontroller: ["Kontrol Kütüphanesi", "Control Library"],
-  "Denetim Yönetimi": ["Denetim Yönetimi", "Audit Management"],
-  Tedarikçiler: ["Tedarikçi Yönetimi", "Vendor Management"],
-  "Regülasyon Merkezi": ["Regülasyon Merkezi", "Regulatory Change Center"],
-  "Politika Merkezi": ["Politika Merkezi", "Policy Center"],
-  "Güvenlik Olayları": ["Güvenlik Olayları ve Kriz", "Security Incidents & Crisis"],
-  "Kanıt Otomasyonu": ["Kanıt Otomasyonu", "Evidence Automation"],
-  "Bulgular ve CAPA": ["Bulgular ve CAPA", "Findings & CAPA"],
-};
-
 const SOURCE_MODULE: Record<string, string> = {
   audit: "Denetim Yönetimi",
   control: "Kontroller",
@@ -57,13 +46,6 @@ const SOURCE_MODULE: Record<string, string> = {
 
 function currentLanguage(): Lang {
   return document.querySelector(".language-switch button.active")?.textContent?.trim().toLowerCase() === "en" ? "en" : "tr";
-}
-
-function navigateTo(module: string) {
-  const labels = NAV_LABELS[module] || [module];
-  const buttons = Array.from(document.querySelectorAll<HTMLButtonElement>("#fornost-navigation button[aria-label]"));
-  const target = buttons.find((button) => labels.some((label) => normalized(button.getAttribute("aria-label")).includes(normalized(label))));
-  target?.click();
 }
 
 function selectedFindingCode() {
@@ -151,13 +133,13 @@ export default function FindingLineageLens() {
     </header>
 
     <div className="fll-route">
-      <button type="button" disabled={!sourceModule} onClick={() => sourceModule && navigateTo(sourceModule)}>
+      <button type="button" disabled={!sourceModule} onClick={() => sourceModule && navigateToFornost({ module: sourceModule, ref: finding.sourceRef, kind: finding.sourceType, source: "finding-lineage" })}>
         <small>{tr ? "Kaynak" : "Source"}</small><b>{finding.sourceType || "—"}</b><span>{finding.sourceRef || (tr ? "Referans yok" : "No reference")}</span><em>→</em>
       </button>
-      <button type="button" disabled={!finding.controlRef} onClick={() => finding.controlRef && navigateTo("Kontroller")}>
+      <button type="button" disabled={!finding.controlRef} onClick={() => finding.controlRef && navigateToFornost({ module: "Kontroller", ref: finding.controlRef, kind: "control", source: "finding-lineage" })}>
         <small>{tr ? "Kontrol" : "Control"}</small><b>{finding.controlRef || "—"}</b><span>{finding.controlRef ? (tr ? "Kontrol izini aç" : "Open control lineage") : (tr ? "Bağlantı yok" : "Not linked")}</span><em>→</em>
       </button>
-      <button type="button" disabled={!finding.riskRef} onClick={() => finding.riskRef && navigateTo("Risk Assessment")}>
+      <button type="button" disabled={!finding.riskRef} onClick={() => finding.riskRef && navigateToFornost({ module: "Risk Assessment", ref: finding.riskRef, kind: "risk", source: "finding-lineage" })}>
         <small>{tr ? "Risk" : "Risk"}</small><b>{finding.riskRef || "—"}</b><span>{finding.riskRef ? (tr ? "Risk geri beslemesini aç" : "Open risk feedback") : (tr ? "Bağlantı yok" : "Not linked")}</span><em>→</em>
       </button>
     </div>
