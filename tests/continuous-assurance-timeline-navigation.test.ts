@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 
 const route = readFileSync("app/api/continuous-assurance/timeline/route.ts", "utf8");
+const navigation = readFileSync("app/assurance-escalation-navigation.ts", "utf8");
 const timeline = readFileSync("app/continuous-assurance-timeline.tsx", "utf8");
 const css = readFileSync("app/continuous-assurance-timeline.css", "utf8");
 
@@ -14,14 +15,14 @@ test("timeline API enriches governed records with canonical navigation context",
   assert.match(route, /module:"Risk Assessment",recordRef:riskRef,filterKey:"riskRef"/);
 });
 
-test("timeline turns actionable escalation lineage into safe governed record links", () => {
+test("timeline reuses the governed escalation destination mapper", () => {
   assert.match(route, /source_json FROM continuous_assurance_escalations/);
-  assert.match(route, /function escalationNavigation\(kind:string,source:Record<string,unknown>\)/);
-  assert.match(route, /kind==="risk-review"&&riskRef/);
-  assert.match(route, /module:"Kontroller",recordRef:controlRef,filterKey:"controlRef"/);
-  assert.match(route, /kind==="mandatory-retest"\|\|kind==="retest-failure"/);
-  assert.match(route, /module:"Kanıt Otomasyonu",recordRef:ruleRef,filterKey:"ruleRef"/);
-  assert.match(route, /navigation=escalationNavigation\(kind,source\)/);
+  assert.match(route, /assuranceEscalationNavigation\(kind,source\)/);
+  assert.match(navigation, /function assuranceEscalationNavigation\(kind:string,source:Record<string,unknown>\)/);
+  assert.match(navigation, /kind==="risk-review"&&riskRef/);
+  assert.match(navigation, /module:"Kontroller",recordRef:controlRef,filterKey:"controlRef"/);
+  assert.match(navigation, /kind==="mandatory-retest"\|\|kind==="retest-failure"/);
+  assert.match(navigation, /module:"Kanıt Otomasyonu",recordRef:ruleRef,filterKey:"ruleRef"/);
 });
 
 test("timeline UI uses the shared focus bridge instead of generic module navigation", () => {
