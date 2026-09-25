@@ -3,6 +3,7 @@ import {readFileSync} from "node:fs";
 import test from "node:test";
 const route=readFileSync("app/api/continuous-assurance/governance/route.ts","utf8");
 const panel=readFileSync("app/continuous-assurance-governance.tsx","utf8");
+const css=readFileSync("app/continuous-assurance-governance.css","utf8");
 const connected=readFileSync("app/connected-grc.tsx","utf8");
 
 test("governance API enforces maker-checker for risk and exceptions",()=>{
@@ -40,6 +41,12 @@ test("assurance governance rows deep-link to the exact governed risk control rul
  assert.match(panel,/module:"Kanıt Otomasyonu"/);assert.match(panel,/filter:\{ruleRef:value\}/);assert.match(panel,/filter:\{findingRef:value\}/);
  assert.match(panel,/openRisk\(x\.riskRef\)/);assert.match(panel,/openControl\(x\.controlRef\)/);assert.match(panel,/openRule\(x\.ruleId\)/);assert.match(panel,/openFinding\(x\.findingId\)/);
  assert.match(panel,/Riski Aç/);assert.match(panel,/Open Risk/);
+});
+
+test("governance action groups wrap and stack on narrow screens",()=>{
+ assert.match(css,/\.ag-row>div\{display:flex;flex:0 1 auto;flex-wrap:wrap;justify-content:flex-end;gap:5px\}/);
+ assert.match(css,/@media\(max-width:620px\)[\s\S]*\.ag-row\{align-items:flex-start;flex-direction:column\}/);
+ assert.match(css,/\.ag-row>div\{width:100%;justify-content:flex-start\}/);
 });
 
 test("Connected GRC mounts executive assurance governance below the work queue",()=>{
