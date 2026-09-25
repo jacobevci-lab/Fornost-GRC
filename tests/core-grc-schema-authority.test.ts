@@ -24,3 +24,16 @@ test("migration validator includes all canonical schema modules", () => {
   assert.match(validator, /db["'], ["']identity-schema\.ts/);
   assert.match(validator, /db["'], ["']core-grc-schema\.ts/);
 });
+
+test("core GRC API delegates legacy self-heal instead of executing DDL per request", () => {
+  const route = readFileSync("app/api/grc/route.ts", "utf8");
+  const compatibility = readFileSync("app/api/grc/schema-compat.ts", "utf8");
+
+  assert.match(route, /ensureCoreGrcSchemaCompatibility/);
+  assert.doesNotMatch(route, /CREATE TABLE IF NOT EXISTS simple_grc_records/);
+  assert.doesNotMatch(route, /CREATE TABLE IF NOT EXISTS simple_grc_metadata/);
+  assert.match(compatibility, /Canonical schema authority lives in db\/schema\.ts/);
+  assert.match(compatibility, /sqlite_master/);
+  assert.match(compatibility, /coreGrcSchemaReady/);
+  assert.match(compatibility, /db\.batch/);
+});
