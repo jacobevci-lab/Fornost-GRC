@@ -12,8 +12,10 @@ test("Connected GRC mounts the operational assurance work queue", () => {
   assert.match(connected, /onOpenAutomation=\{\(\)=>go\("Kanıt Otomasyonu"\)\}/);
   assert.match(queue, /\/api\/continuous-assurance/);
   assert.match(queue, /pending-review/);
-  assert.match(queue, /CAPA Promotion/);
-  assert.match(queue, /Control Re-test/);
+  assert.match(queue, /capa-promotion/);
+  assert.match(queue, /Complete review, CAPA and re-test work from one focused queue/);
+  assert.match(queue, /Approval promotes this candidate into the Findings & CAPA lifecycle/);
+  assert.match(queue, /Control Re-test|Re-test/);
   assert.match(queue, /approved-awaiting-retest/);
   assert.match(queue, /review-work-item/);
 });
