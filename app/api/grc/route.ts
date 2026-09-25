@@ -1,13 +1,9 @@
 import { NextRequest,NextResponse } from "next/server";
 import { requireRole } from "../auth/security";
 import { demoSeeds } from "./demo-seeds";
+import { ensureCoreGrcSchemaCompatibility } from "./schema-compat";
 import { formatRecordCode,recordCodePrefixes,type RecordCodeModule } from "../../record-codes";
 
-const table=`CREATE TABLE IF NOT EXISTS simple_grc_records (id TEXT PRIMARY KEY,module TEXT NOT NULL,data_json TEXT NOT NULL,created_at TEXT NOT NULL,updated_at TEXT NOT NULL)`;
-const metadataTable=`CREATE TABLE IF NOT EXISTS simple_grc_metadata (key TEXT PRIMARY KEY,value TEXT NOT NULL,updated_at TEXT NOT NULL)`;
-const auditsTable=`CREATE TABLE IF NOT EXISTS simple_audits (id TEXT PRIMARY KEY,name TEXT NOT NULL UNIQUE,template TEXT NOT NULL,audit_type TEXT NOT NULL,auditor TEXT NOT NULL,audit_owner TEXT NOT NULL,status TEXT NOT NULL,created_at TEXT NOT NULL,updated_at TEXT NOT NULL)`;
-const recordCodesTable=`CREATE TABLE IF NOT EXISTS simple_grc_record_codes (record_id TEXT PRIMARY KEY,module TEXT NOT NULL,code TEXT NOT NULL UNIQUE,created_at TEXT NOT NULL)`;
-const recordCodeCountersTable=`CREATE TABLE IF NOT EXISTS simple_grc_record_code_counters (module TEXT PRIMARY KEY,value INTEGER NOT NULL DEFAULT 0,updated_at TEXT NOT NULL)`;
 const modules=["Risk Assessment","BIA","Varlık Envanteri","Uyum","Tedarikçiler","Kontroller","Kanıtlar","Denetim Yönetimi"] as const;
 type ModuleName=(typeof modules)[number];
 type Data=Record<string,unknown>;
@@ -34,7 +30,7 @@ const allowedStatuses:Record<ModuleName,string[]>={
 const seeds:[string,ModuleName,Data][]=demoSeeds;
 const demoSeedMarker="demo_seed_initialized";
 const compactDataMarker="remove_imported_workbook_and_compact_samples_2026_08";
-async function db(){const {env}=await import("cloudflare:workers");await env.DB.batch([env.DB.prepare(table),env.DB.prepare(metadataTable),env.DB.prepare(auditsTable),env.DB.prepare(recordCodesTable),env.DB.prepare(recordCodeCountersTable)]);return env.DB}
+async function db(){const {env}=await import("cloudflare:workers");await ensureCoreGrcSchemaCompatibility(env.DB);return env.DB}
 export function shouldInsertDemoSeeds(marker:unknown,total:number){return !marker&&total===0}
 async function reserveRecordCodes(d:Awaited<ReturnType<typeof db>>,module:ModuleName,count:number,now:string){
  if(count<1)return [];
