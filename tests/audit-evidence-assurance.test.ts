@@ -14,7 +14,24 @@ test("audit evidence assurance resolves current, stale and missing control evide
     { id: "EVD-2", data: { controlRef: "CTL-002", status: "Onaylandı", expiresAt: "2026-01-01" } },
   ];
   const result = buildAuditEvidenceAssurance(requirements, evidence, new Date("2026-09-20T00:00:00Z"));
-  assert.deepEqual(result, { total: 3, linked: 2, current: 1, stale: 1, missing: ["CTL-003"], coverage: 67 });
+  assert.equal(result.total, 3);
+  assert.equal(result.linked, 2);
+  assert.equal(result.current, 1);
+  assert.equal(result.stale, 1);
+  assert.deepEqual(result.missing, ["CTL-003"]);
+  assert.deepEqual(result.staleReferences, ["CTL-002"]);
+  assert.equal(result.coverage, 67);
+  assert.equal(result.readiness, 33);
+  assert.equal(result.gate, "not-ready");
+  assert.deepEqual(result.requirements.map((item) => [item.reference, item.status]), [
+    ["CTL-003", "missing"],
+    ["CTL-002", "stale"],
+    ["CTL-001", "current"],
+  ]);
+  assert.deepEqual(result.gaps.map((item) => [item.reference, item.status]), [
+    ["CTL-003", "missing"],
+    ["CTL-002", "stale"],
+  ]);
 });
 
 test("audit management exposes the live evidence assurance chain", () => {
