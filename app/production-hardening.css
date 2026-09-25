@@ -1,0 +1,234 @@
+:root{
+  --ws-faint:#607071 !important;
+  --ws-positive:#117a52 !important;
+  --ws-warning:#8f4f12 !important;
+  --ws-danger:#b4303c !important;
+  --fornost-on-brand:#ffffff;
+  --fornost-row-action:#425455;
+  --fornost-warning-text:#9a4813;
+  --fornost-positive-text:#0b6b48;
+}
+html[data-theme="dark"]{
+  --ws-faint:#91a19f !important;
+  --fornost-on-brand:#0b1717;
+  --fornost-row-action:#c7d2d0;
+  --fornost-warning-text:#f3a269;
+  --fornost-positive-text:#65d7a6;
+}
+
+/* Transitional static guardrails extracted from the former runtime style injector.
+   New product styling belongs in the enterprise design system, not in this file. */
+.brand small,.sidebar-view-controls>span,kbd,
+.warning>span,.positive>span,.neutral>span,.danger>span,.info>span,
+.risk>span,.compliance>span,.audit>span,.evidence>span,
+.report-assurance-strip span,.fornost-ai-tab-group,
+.exposure-total>small,.priority-head>span,
+.incident-toolbar>span,.finding-toolbar>span,.finding-source-strip small,
+.readiness .miss,.coverage-count.miss,
+.connected-grc :where(p,small,em,code),
+.connected-grc aside :where(span,small),
+.connected-grc .connected-table-head span{
+  color:var(--ws-muted) !important;
+}
+.row-actions button{
+  color:var(--fornost-row-action) !important;
+  opacity:1 !important;
+  filter:none !important;
+}
+
+.platform-state,
+.aside-note b,.aside-note p,
+.sidebar-view-controls>span,.sidebar-view-controls em,
+.settings-page footer,.catalog-grid footer,
+.workspace-dashboard footer{
+  font-size:11px !important;
+  line-height:1.4 !important;
+}
+.workspace-dashboard i:not(:empty){
+  font-size:11px !important;
+  line-height:1 !important;
+}
+
+.rap-grid>section>header small,
+.plm-grid>section>header small{
+  color:#a64b0b !important;
+}
+.priority-table em.yüksek{
+  color:#9a4315 !important;
+}
+.fornost-ai-policy-grid small,
+.fornost-ai-policy-roles>small{
+  opacity:1 !important;
+  color:#586b6c !important;
+}
+.catalog-grid article>header span{
+  color:#075f5a !important;
+  background:color-mix(in srgb,var(--ws-brand) 16%,var(--ws-surface)) !important;
+}
+
+:where(.primary,.accent,.command-primary,.card-action){
+  color:var(--fornost-on-brand) !important;
+}
+html[data-theme="dark"] :where(.primary,.accent,.command-primary,.card-action){
+  text-shadow:none !important;
+}
+html[data-theme="dark"] button.primary,
+html[data-theme="dark"] a.primary,
+html[data-theme="dark"] .actions>.primary,
+html[data-theme="dark"] .audit-portfolio-empty>.primary,
+html[data-theme="dark"] footer>.primary,
+html[data-theme="dark"] button.card-action,
+html[data-theme="dark"] .report-module-picker button.active>b,
+html[data-theme="dark"] button.active>b{
+  color:#0b1717 !important;
+  text-shadow:none !important;
+}
+
+html[data-theme="dark"] :where(.module-kicker,.connected-hero small,.connected-assurance>header small,.module-command-hero small){
+  color:#f3a269 !important;
+}
+html:not([data-theme="dark"]) :where(.connected-hero small,.connected-assurance>header small,.module-command-hero small){
+  color:var(--ws-brand-2) !important;
+}
+.executive-assurance-score>b{color:var(--ws-warning) !important;}
+.off{color:var(--ws-danger) !important;}
+html[data-theme="dark"] .executive-assurance-score>b,
+html[data-theme="dark"] .assurance-state.attention,
+html[data-theme="dark"] .control-assurance-reasons>span{
+  color:var(--fornost-warning-text) !important;
+}
+html[data-theme="dark"] .priority-table em.yüksek{
+  color:#ffb27a !important;
+}
+html[data-theme="dark"] .fornost-ai-policy-grid small,
+html[data-theme="dark"] .fornost-ai-policy-roles>small{
+  color:#aab8b6 !important;
+}
+html[data-theme="dark"] .settings-security-overview li>b,
+html[data-theme="dark"] .security-note>b{
+  color:var(--fornost-positive-text) !important;
+}
+
+.connected-grc{
+  color:var(--ws-ink) !important;
+}
+.connected-grc :where(h2,h3,b,strong){color:var(--ws-ink) !important;}
+.connected-grc :where(button,input,article,aside,.connected-register,.connected-assurance){
+  border-color:var(--ws-line) !important;
+}
+.connected-grc :where(input,.connected-register,.connected-assurance,article){
+  background-color:var(--ws-surface) !important;
+}
+.connected-grc button.active,
+.connected-grc button:hover{
+  color:var(--ws-brand-2) !important;
+}
+
+.row-actions button,.modal-head>button,.evidence-preview-head>button,
+.theme-toggle,.language-switch button,.column-picker header button,
+.connected-grc .connected-toolbar input{
+  min-height:28px !important;
+}
+.fornost-hit-target{
+  min-width:28px !important;
+  min-height:28px !important;
+}
+input.fornost-hit-target[type="checkbox"],
+input.fornost-hit-target[type="radio"]{
+  width:24px !important;
+  height:24px !important;
+}
+.column-resizer{
+  width:24px !important;
+  right:-12px !important;
+  min-height:24px !important;
+}
+
+.context-ai-trigger,.command-trigger,.theme-toggle,.language-switch button{
+  white-space:nowrap !important;
+  line-height:1 !important;
+}
+.language-switch button{
+  min-height:32px !important;
+  height:32px !important;
+  padding:0 8px !important;
+  display:grid !important;
+  place-items:center !important;
+}
+
+.matrix-card{
+  min-width:0 !important;
+  overflow-x:auto !important;
+  overflow-y:visible !important;
+  overscroll-behavior-inline:contain;
+}
+.matrix-card>.matrix,.matrix-card .matrix{
+  min-width:440px;
+}
+
+.fornost-ai-panel,
+.fornost-ai-tabs,
+.rap-tabs,.plm-tabs,.tprm-tabs,.ri-tabs,
+.continuity-table,.incident-table-wrap,.finding-table-wrap{
+  max-width:100% !important;
+  overflow:auto !important;
+  overscroll-behavior:contain;
+}
+
+@media (min-width:901px) and (max-width:1180px){
+  .shell:not(.sidebar-compact):not(.sidebar-hidden){
+    grid-template-columns:248px minmax(0,1fr) !important;
+  }
+  .shell>main{padding-left:24px !important;padding-right:24px !important;}
+  .shell>main>header{margin-left:-24px !important;margin-right:-24px !important;padding-left:24px !important;padding-right:24px !important;}
+  .header-actions{gap:6px !important;flex:0 0 auto !important;}
+  .header-live{display:none !important;}
+  .context-ai-trigger b,.command-trigger span,.command-trigger kbd,
+  .user b,.user small,.user>div{display:none !important;}
+  .context-ai-trigger,.command-trigger,.theme-toggle{
+    width:38px !important;
+    min-width:38px !important;
+    min-height:38px !important;
+    padding:0 !important;
+    display:grid !important;
+    place-items:center !important;
+  }
+  .user{
+    width:40px !important;
+    min-width:40px !important;
+    max-width:40px !important;
+    padding:4px !important;
+    justify-content:center !important;
+  }
+  .user>span{margin:0 !important;}
+  :where(.rap-hero,.continuity-hero,.plm-hero,.tprm-hero,.ri-hero,.incident-hero,.finding-hero,.ea-hero,.connected-hero,.report-hero){
+    min-width:0 !important;
+    align-items:flex-start !important;
+    flex-wrap:wrap !important;
+  }
+  :where(.rap-hero,.continuity-hero,.plm-hero,.tprm-hero,.ri-hero,.incident-hero,.finding-hero,.ea-hero,.connected-hero,.report-hero)>:last-child,
+  .report-hero-actions{
+    width:100% !important;
+    max-width:100% !important;
+    justify-content:flex-start !important;
+    flex-wrap:wrap !important;
+  }
+}
+
+@media (max-width:900px){
+  .shell:not(.mobile-nav-open)>aside{
+    opacity:0 !important;
+    visibility:hidden !important;
+    pointer-events:none !important;
+  }
+  .shell.mobile-nav-open>aside{
+    opacity:1 !important;
+    visibility:visible !important;
+    pointer-events:auto !important;
+  }
+}
+
+[data-fornost-scroll-region="true"]:focus-visible{
+  outline:2px solid var(--ws-brand) !important;
+  outline-offset:-2px !important;
+}
