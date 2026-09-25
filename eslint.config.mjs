@@ -13,6 +13,8 @@ const eslintConfig = defineConfig([
       "app/control-impact-lens.tsx",
       "app/my-work-v2.tsx",
       "app/progressive-form-experience.tsx",
+      "app/audit-readiness-gate.tsx",
+      "app/evidence-quality-lens.tsx",
     ],
     rules: {
       "@typescript-eslint/no-explicit-any": "off",
