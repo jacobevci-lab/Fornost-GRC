@@ -12,9 +12,9 @@ type TimelineEvent={id:string;type:string;category:Category;title:string;detail:
 const categories:Category[]=["control","review","capa","finding","risk","escalation","delivery"];
 
 function openTimelineRecord(event:TimelineEvent){
- const module=String(event.module||"").trim(),ref=String(event.recordRef||"").trim(),key=event.filterKey;
- if(!module||!ref||!key)return false;
- return navigateToFornost({module,ref,source:"continuous-assurance-timeline",filter:{[key]:ref}});
+ const targetModule=String(event.module||"").trim(),ref=String(event.recordRef||"").trim(),key=event.filterKey;
+ if(!targetModule||!ref||!key)return false;
+ return navigateToFornost({module:targetModule,ref,source:"continuous-assurance-timeline",filter:{[key]:ref}});
 }
 
 export default function ContinuousAssuranceTimeline({lang}:{lang:Lang}){
