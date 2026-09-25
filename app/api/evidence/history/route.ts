@@ -189,7 +189,9 @@ export async function GET(req: NextRequest) {
     if (state.state === "verified") verified += 1;
     else if (state.state === "broken") broken += 1;
   }
-  const evidenceItems = items.map(({ headHash: _headHash, ...item }) => {
+  const evidenceItems = items.map(({ headHash, ...item }) => {
+    // headHash anchors integrity verification internally; never expose it in list responses.
+    void headHash;
     const integrity = item.tracked
       ? integrityByEvidenceId.get(item.id) || { state: "unavailable" as const, checked: 0, failedVersion: 0 }
       : { state: "legacy-unverified" as const, checked: 0, failedVersion: 0 };
