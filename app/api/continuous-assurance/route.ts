@@ -44,6 +44,7 @@ type WorkRow = AssuranceWorkRow & {
   finding_due_date?: string | null;
   rule_name?: string | null;
   control_refs?: string | null;
+  result_code?: string | null;
 };
 
 async function runtime(){const {env}=await import("cloudflare:workers");return env as unknown as Env}
@@ -83,10 +84,15 @@ async function loadContext(db:D1Database,findingId:string){
   return {finding,rule,risk,evidence,retest};
 }
 async function listWork(db:D1Database){
+  const order="ORDER BY CASE w.status WHEN 'pending-review' THEN 0 WHEN 'approved-awaiting-retest' THEN 1 WHEN 'failed-retest' THEN 2 WHEN 'retest-error' THEN 3 ELSE 4 END,w.updated_at DESC LIMIT 500";
   try{
-    return await db.prepare("SELECT w.*,f.title finding_title,f.severity finding_severity,f.owner finding_owner,f.due_date finding_due_date,r.name rule_name,r.control_refs control_refs FROM continuous_assurance_work_items w LEFT JOIN evidence_automation_findings f ON f.id=w.finding_id LEFT JOIN evidence_automation_rules r ON r.id=w.rule_id ORDER BY CASE w.status WHEN 'pending-review' THEN 0 WHEN 'approved-awaiting-retest' THEN 1 WHEN 'failed-retest' THEN 2 WHEN 'retest-error' THEN 3 ELSE 4 END,w.updated_at DESC LIMIT 500").all<WorkRow>();
+    return await db.prepare(`SELECT w.*,f.title finding_title,f.severity finding_severity,f.owner finding_owner,f.due_date finding_due_date,r.name rule_name,r.control_refs control_refs,ef.code result_code FROM continuous_assurance_work_items w LEFT JOIN evidence_automation_findings f ON f.id=w.finding_id LEFT JOIN evidence_automation_rules r ON r.id=w.rule_id LEFT JOIN enterprise_findings ef ON ef.id=w.result_ref ${order}`).all<WorkRow>();
   }catch{
-    return db.prepare("SELECT * FROM continuous_assurance_work_items ORDER BY updated_at DESC LIMIT 500").all<WorkRow>();
+    try{
+      return await db.prepare(`SELECT w.*,f.title finding_title,f.severity finding_severity,f.owner finding_owner,f.due_date finding_due_date,r.name rule_name,r.control_refs control_refs FROM continuous_assurance_work_items w LEFT JOIN evidence_automation_findings f ON f.id=w.finding_id LEFT JOIN evidence_automation_rules r ON r.id=w.rule_id ${order}`).all<WorkRow>();
+    }catch{
+      return db.prepare("SELECT * FROM continuous_assurance_work_items ORDER BY updated_at DESC LIMIT 500").all<WorkRow>();
+    }
   }
 }
 async function resolveRetestTargetControl(db:D1Database,findingId:string,mappedControlRefs:string){
@@ -107,7 +113,7 @@ export async function GET(req:NextRequest){
     const decision=parseData(row.decision_json);
     return {
       id:row.id,findingId:row.finding_id,ruleId:row.rule_id,action:row.action,status:row.status,decision,createdAt:row.created_at,updatedAt:row.updated_at,actor:row.actor,
-      reviewedBy:row.reviewed_by||"",reviewedAt:row.reviewed_at||"",reviewNote:row.review_note||"",resultRef:row.result_ref||"",completedAt:row.completed_at||"",
+      reviewedBy:row.reviewed_by||"",reviewedAt:row.reviewed_at||"",reviewNote:row.review_note||"",resultRef:row.result_ref||"",resultCode:row.result_code||"",completedAt:row.completed_at||"",
       findingTitle:row.finding_title||row.finding_id,severity:row.finding_severity||"",owner:row.finding_owner||"",dueDate:row.finding_due_date||"",ruleName:row.rule_name||row.rule_id,controlRefs:row.control_refs||"",
       targetControlRef:targetControlFromDecision(decision),
     };
