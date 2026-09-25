@@ -23,6 +23,13 @@ test("focus bridge applies pending context to the active register", () => {
   assert.match(bridge, /scrollIntoView/);
 });
 
+test("deep-link row matching prefers an exact cell reference before fuzzy text", () => {
+  assert.match(bridge, /function matchingRow\(rows: HTMLTableRowElement\[], value: string\)/);
+  assert.match(bridge, /Array\.from\(row\.cells\)\.some\(\(cell\) => normalize\(cell\.textContent\) === needle\)/);
+  assert.match(bridge, /return exact \|\| rows\.find\(\(row\) => normalize\(row\.textContent\)\.includes\(needle\)\) \|\| null/);
+  assert.match(bridge, /const match = matchingRow\(rows, value\)/);
+});
+
 test("generic register focus stays pending until the matching row is mounted", () => {
   const start = bridge.indexOf("function applyFocus");
   const end = bridge.indexOf("export default function NavigationFocusBridge");
@@ -40,6 +47,7 @@ test("finding focus resets local filters and opens the native finding detail", (
   assert.match(bridge, /\.finding-toolbar select/);
   assert.match(bridge, /setControlledSelectValue\(status, "all"\)/);
   assert.match(bridge, /\.finding-table tbody tr/);
+  assert.match(bridge, /matchingRow\(rows, value\)/);
   assert.match(bridge, /match\.click\(\)/);
 });
 
