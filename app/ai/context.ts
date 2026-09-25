@@ -4,7 +4,9 @@ import { dataClassificationAllowed, type AiDataClassification } from "./data-pol
 import { buildOperationalAssuranceAiContext } from "./operational-assurance-context";
 import { buildEvidenceLineageAiContext } from "./evidence-lineage-context";
 
-export type AiContextSource = { id: string; module: string; title: string };
+export type AiContextFilterKey = "recordRef" | "riskRef" | "controlRef" | "evidenceRef" | "findingRef" | "ruleRef" | "sourceRef";
+export type AiContextNavigation = { module: string; ref: string; filterKey: AiContextFilterKey };
+export type AiContextSource = { id: string; module: string; title: string; navigation?: AiContextNavigation };
 type GrcRow = { id: string; module: string; data_json: string; updated_at: string };
 
 const MODULE_HINTS: Array<{ module: string; terms: string[] }> = [
@@ -33,6 +35,8 @@ function normalize(value: string) {
   return value.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 }
 
+const ref = (value: unknown) => String(value ?? "").normalize("NFKC").trim();
+
 export function inferReadModules(question: string) {
   const normalized = normalize(question);
   const matched = MODULE_HINTS.filter((hint) => hint.terms.some((term) => normalized.includes(normalize(term)))).map((hint) => hint.module);
@@ -59,6 +63,26 @@ function parseData(row: GrcRow) {
   } catch {
     return {};
   }
+}
+
+export function aiRecordNavigation(row: Pick<GrcRow, "id" | "module">, data: Record<string, unknown>): AiContextNavigation | undefined {
+  if (row.module === "Risk Assessment") {
+    const value = ref(data.riskId || data.code || row.id);
+    return value ? { module: "Risk Assessment", ref: value, filterKey: "riskRef" } : undefined;
+  }
+  if (row.module === "Kontroller") {
+    const value = ref(data.controlId || data.controlCode || data.code || data.reference || row.id);
+    return value ? { module: "Kontroller", ref: value, filterKey: "controlRef" } : undefined;
+  }
+  if (row.module === "Kanıtlar") {
+    const value = ref(data.evidenceId || data.code || row.id);
+    return value ? { module: "Kanıtlar", ref: value, filterKey: "evidenceRef" } : undefined;
+  }
+  if (row.module === "Bulgular ve CAPA") {
+    const value = ref(data.findingCode || data.code || data.findingId || "");
+    return value ? { module: "Bulgular ve CAPA", ref: value, filterKey: "findingRef" } : undefined;
+  }
+  return undefined;
 }
 
 function scoreRow(row: GrcRow, data: Record<string, unknown>, question: string, targetModules: string[]) {
@@ -113,10 +137,11 @@ export async function buildGrcContext(db: D1Database, question: string, maxDataC
     if (total + chunk.length > recordBudget) break;
     total += chunk.length;
     chunks.push(chunk);
-    sources.push({ id: row.id, module: row.module, title });
+    const navigation = aiRecordNavigation(row, sanitized);
+    sources.push({ id: row.id, module: row.module, title, ...(navigation ? { navigation } : {}) });
   }
 
-  const combinedSources = [...operationalAssurance.sources, ...evidenceLineage.sources, ...sources, ...knowledge.sources];
+  const combinedSources: AiContextSource[] = [...operationalAssurance.sources, ...evidenceLineage.sources, ...sources, ...knowledge.sources];
   const combinedChunks = [
     ...(operationalAssurance.contextText ? [operationalAssurance.contextText] : []),
     ...(evidenceLineage.contextText ? [evidenceLineage.contextText] : []),
