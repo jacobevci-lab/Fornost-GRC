@@ -21,6 +21,7 @@ type WorkItem = {
   dueDate:string;
   ruleName:string;
   controlRefs:string;
+  targetControlRef?:string;
   createdAt?:string;
   updatedAt:string;
   actor:string;
@@ -45,6 +46,28 @@ function openPromotedCapa(code:string){
     ref:findingCode,
     source:"continuous-assurance-work-queue",
     filter:{findingRef:findingCode},
+  });
+}
+
+function openAutomationRule(ruleId:string){
+  const ref=String(ruleId||"").trim();
+  if(!ref)return false;
+  return navigateToFornost({
+    module:"Kanıt Otomasyonu",
+    ref,
+    source:"continuous-assurance-work-queue",
+    filter:{ruleRef:ref},
+  });
+}
+
+function openMappedControl(controlRef:string){
+  const ref=String(controlRef||"").trim();
+  if(!ref)return false;
+  return navigateToFornost({
+    module:"Kontroller",
+    ref,
+    source:"continuous-assurance-work-queue",
+    filter:{controlRef:ref},
   });
 }
 
@@ -97,13 +120,14 @@ export default function ContinuousAssuranceWorkQueue({lang,onOpenAutomation}:{la
       <article><b>{queueHealth.withinSlaPercent}%</b><small>{tr?"SLA içinde":"Within SLA"}</small></article>
     </div>}
     {visible.length?<div className="assurance-work-list">{visible.map(item=>{const slaState=assuranceWorkSlaState(item);return <article key={item.id} className={`work-${item.status}`}>
-      <div className="assurance-work-kind"><span className={item.action==="capa-promotion"?"capa":"retest"}>{item.action==="capa-promotion"?"CAPA":(tr?"Re-test":"Re-test")}</span><small>{item.controlRefs||item.ruleId}</small></div>
+      <div className="assurance-work-kind"><span className={item.action==="capa-promotion"?"capa":"retest"}>{item.action==="capa-promotion"?"CAPA":(tr?"Re-test":"Re-test")}</span><small>{item.targetControlRef||item.controlRefs||item.ruleId}</small></div>
       <div className="assurance-work-main"><b>{item.findingTitle||item.findingId}</b><small>{item.ruleName||item.ruleId}</small>{(item.resultCode||item.resultRef)&&<em>{tr?"Sonuç: ":"Result: "}{item.resultCode||item.resultRef}</em>}<em className={`assurance-work-sla ${slaState}`}>{slaLabel(item)}</em></div>
       <div className="assurance-work-meta"><span className={`work-status ${item.status}`}>{statusLabel(item.status)}</span><span className={`severity ${item.severity||"medium"}`}>{item.severity||"—"}</span><small>{item.owner||"—"}{item.dueDate?` · ${item.dueDate}`:""}</small></div>
       <div className="assurance-work-actions">
         {item.status==="pending-review"&&canReview&&<><button type="button" className="approve" onClick={()=>setReviewing({item,decision:"approve",note:""})}>{tr?"Onayla":"Approve"}</button><button type="button" className="reject" onClick={()=>setReviewing({item,decision:"reject",note:""})}>{tr?"Reddet":"Reject"}</button></>}
-        {item.status==="approved-awaiting-retest"&&<button type="button" onClick={onOpenAutomation}>{tr?"Re-test Çalıştır":"Run Re-test"}</button>}
-        {(item.status==="failed-retest"||item.status==="retest-error")&&<button type="button" onClick={onOpenAutomation}>{tr?"Kontrolü İncele":"Inspect Control"}</button>}
+        {item.status==="approved-awaiting-retest"&&<button type="button" onClick={()=>openAutomationRule(item.ruleId)}>{tr?"Re-test Kuralına Git":"Open Retest Rule"}</button>}
+        {(item.status==="failed-retest"||item.status==="retest-error")&&<button type="button" onClick={()=>openAutomationRule(item.ruleId)}>{tr?"Kuralı İncele":"Inspect Rule"}</button>}
+        {item.targetControlRef&&<button type="button" onClick={()=>openMappedControl(item.targetControlRef||"")}>{tr?"Kontrolü Aç":"Open Control"}</button>}
         {item.status==="completed"&&item.action==="capa-promotion"&&item.resultCode&&<button type="button" onClick={()=>openPromotedCapa(item.resultCode||"")}>{tr?"CAPA'yı Aç":"Open CAPA"}</button>}
       </div>
     </article>})}</div>:<div className="assurance-work-empty">{loading?(tr?"Güvence işleri yükleniyor…":"Loading assurance work…"):(tr?"Bu filtrede yapmanız gereken bir güvence işi yok.":"There is no assurance work requiring your action in this filter.")}</div>}
