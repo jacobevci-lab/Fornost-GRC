@@ -67,6 +67,7 @@ import ProgressiveFormExperience from "./progressive-form-experience";
 import ControlImpactLens from "./control-impact-lens";
 import FindingLineageLens from "./finding-lineage-lens";
 import AuditReadinessGate from "./audit-readiness-gate";
+import EvidenceQualityLens from "./evidence-quality-lens";
 
 const configuredBasePath = process.env.NEXT_PUBLIC_BASE_PATH?.trim() || "";
 const normalizedBasePath = configuredBasePath.replace(/\/+$/, "");
@@ -105,6 +106,7 @@ export default function RootLayout({
         <ControlImpactLens />
         <FindingLineageLens />
         <AuditReadinessGate />
+        <EvidenceQualityLens />
         <FornostAiCopilot />
         <ProductionHardening />
         <NavigationIntegrity />
