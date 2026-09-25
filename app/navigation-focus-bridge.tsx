@@ -96,13 +96,14 @@ function applyFocus(request: FornostNavigationRequest) {
   const search = document.querySelector<HTMLInputElement>("main .table-card .register-search input");
   if (!search) return false;
 
-  if (search.value !== value) setControlledInputValue(search, value);
-  search.focus({ preventScroll: true });
+  if (search.value !== value) {
+    setControlledInputValue(search, value);
+    search.focus({ preventScroll: true });
+    return false;
+  }
 
-  // React needs one render turn to apply the controlled query and narrow the register.
-  window.setTimeout(() => highlightMatchingRow(value), 80);
-  window.setTimeout(() => highlightMatchingRow(value), 240);
-  return true;
+  search.focus({ preventScroll: true });
+  return highlightMatchingRow(value);
 }
 
 export default function NavigationFocusBridge() {
