@@ -21,7 +21,14 @@ jobs:
       - run: npm ci
       - run: npm run lint
       - run: npm run db:validate
-      - run: npm test
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Build
+        run: npm run build
+      - name: Unit and regression tests
+        run: node --import tsx --test tests/*.test.*
+      - name: On-prem installer smoke test
+        run: bash tests/onprem-install-smoke.sh
       - name: Run dependency audit
         shell: bash
         run: |
