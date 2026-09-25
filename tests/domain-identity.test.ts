@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   domainModuleKey,
   domainModuleLabel,
+  domainModuleSearchLabels,
   domainStatusKey,
   domainStatusLabel,
   legacyModuleName,
@@ -16,16 +17,19 @@ test("localized and legacy module names resolve to stable domain keys", () => {
   assert.equal(domainModuleKey("control"), "control");
   assert.equal(domainModuleKey("Kanıt Kütüphanesi"), "evidence");
   assert.equal(domainModuleKey("Risk Assessment"), "risk");
+  assert.equal(domainModuleKey("Gösterge Paneli"), "dashboard");
   assert.equal(domainModuleKey("unknown-module"), null);
 });
 
-test("stable module identity preserves current persistence compatibility", () => {
+test("stable module identity preserves current persistence and navigation compatibility", () => {
   assert.equal(legacyModuleName("control"), "Kontroller");
   assert.equal(legacyModuleName("Evidence Library"), "Kanıtlar");
   assert.equal(domainModuleLabel("audit", "tr"), "Denetim Yönetimi");
   assert.equal(domainModuleLabel("audit", "en"), "Audit Management");
   assert.equal(sameDomainModule("Kontroller", "Control Library"), true);
   assert.equal(sameDomainModule("Kontroller", "Kanıtlar"), false);
+  assert.deepEqual(domainModuleSearchLabels("dashboard"), ["Ana Sayfa", "Dashboard", "Gösterge Paneli"]);
+  assert.deepEqual(domainModuleSearchLabels("control"), ["Kontroller", "Kontrol Kütüphanesi", "Control Library"]);
 });
 
 test("localized statuses resolve to locale-independent status keys", () => {
