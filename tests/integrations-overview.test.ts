@@ -25,6 +25,15 @@ test("verified integration health expires instead of remaining green forever", (
   assert.match(overview, /Last verified:/);
 });
 
+test("health telemetry outages are not misrepresented as pending connection tests", () => {
+  assert.match(overview, /const \[healthAvailable, setHealthAvailable\] = useState\(true\)/);
+  assert.match(overview, /if \(!response\.ok\) return \{ health: \{\}, available: false \}/);
+  assert.match(overview, /setHealthAvailable\(healthPayload\.available !== false\)/);
+  assert.match(overview, /if \(!configured\(item\) \|\| !healthAvailable\) return "neutral"/);
+  assert.match(overview, /Sağlık verisi alınamadı/);
+  assert.match(overview, /Health telemetry unavailable/);
+});
+
 test("integration health returns the latest test for every integration kind", () => {
   assert.match(healthRoute, /ROW_NUMBER\(\) OVER \(PARTITION BY kind ORDER BY created_at DESC, id DESC\)/);
   assert.match(healthRoute, /WHERE action='test'/);
