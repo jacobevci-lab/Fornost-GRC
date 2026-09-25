@@ -3,7 +3,10 @@ import path from "node:path";
 
 const root = process.cwd();
 const migrationsDir = path.join(root, "drizzle");
-const schemaPath = path.join(root, "db", "schema.ts");
+const schemaPaths = [
+  path.join(root, "db", "schema.ts"),
+  path.join(root, "db", "identity-schema.ts"),
+];
 
 const migrationFiles = (await readdir(migrationsDir))
   .filter((name) => name.endsWith(".sql"))
@@ -44,15 +47,16 @@ for (const file of migrationFiles) {
   }
 }
 
-const schemaSource = await readFile(schemaPath, "utf8");
-const schemaTables = new Set(
-  [...schemaSource.matchAll(/sqliteTable\(\s*["'`]([^"'`]+)["'`]/g)].map(
-    (match) => match[1].toLowerCase()
-  )
-);
+const schemaTables = new Set();
+for (const schemaPath of schemaPaths) {
+  const schemaSource = await readFile(schemaPath, "utf8");
+  for (const match of schemaSource.matchAll(/sqliteTable\(\s*["'`]([^"'`]+)["'`]/g)) {
+    schemaTables.add(match[1].toLowerCase());
+  }
+}
 
 if (schemaTables.size === 0) {
-  throw new Error("No sqliteTable declarations found in db/schema.ts.");
+  throw new Error("No sqliteTable declarations found in canonical schema modules.");
 }
 
 const missingTables = [...schemaTables]
@@ -73,7 +77,7 @@ const historicalOnlyTables = [...createdTables.keys()]
 
 console.log(`Validated ${migrationFiles.length} SQL migration file(s).`);
 console.log(`Migration CREATE TABLE coverage: ${createdTables.size} table(s).`);
-console.log(`Current Drizzle schema: ${schemaTables.size} table(s).`);
+console.log(`Current Drizzle schema: ${schemaTables.size} table(s) across ${schemaPaths.length} module(s).`);
 console.log("Migration order:");
 for (const file of migrationFiles) console.log(`  - ${file}`);
 
