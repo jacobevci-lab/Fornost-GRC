@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireRole } from "../auth/security";
 import { clean } from "../integrations/security";
-import { findingAttention, validateFinding, validateFindingAction } from "../../findings/domain";
+import { findingAttention, validateFinding, validateFindingAction, validateFindingGovernanceGate } from "../../findings/domain";
 
 type Env = Record<string, unknown> & { DB: D1Database };
 
@@ -170,18 +170,21 @@ export async function POST(req: NextRequest) {
           .bind(next, access.actor.email, now, access.actor.email, now, id).run();
       } else if (operation.operation === "submit") {
         if (status !== "in-progress" || access.actor.role !== "Admin" && finding.owner !== access.actor.email) return json({ error: "CAPA'yı yalnız atanmış aksiyon sahibi doğrulamaya gönderebilir." }, 403);
+        validateFindingGovernanceGate(finding, "submit");
         next = "verification";
         await env.DB.prepare("UPDATE enterprise_findings SET status=?,evidence_reference=?,evidence_sha256=?,submitted_by=?,submitted_at=?,updated_by=?,updated_at=? WHERE id=?")
           .bind(next, operation.evidenceReference, operation.evidenceSha256, access.actor.email, now, access.actor.email, now, id).run();
       } else if (operation.operation === "verify") {
         if (access.actor.role !== "Admin" || status !== "verification" || finding.reviewer !== access.actor.email) return json({ error: "Bulguyu yalnız atanmış bağımsız Admin reviewer kapatabilir." }, 403);
         if ([finding.detected_by, finding.owner, finding.submitted_by].includes(access.actor.email)) return json({ error: "Maker-checker: tespit eden, aksiyon sahibi veya gönderen kişi kapatamaz." }, 409);
+        validateFindingGovernanceGate(finding, "verify");
         next = "closed";
         await env.DB.prepare("UPDATE enterprise_findings SET status=?,verification_evidence_reference=?,verification_evidence_sha256=?,verified_by=?,verified_at=?,acceptance_rationale=NULL,accept_until=NULL,updated_by=?,updated_at=? WHERE id=?")
           .bind(next, operation.evidenceReference, operation.evidenceSha256, access.actor.email, now, access.actor.email, now, id).run();
       } else if (operation.operation === "accept-risk") {
         if (access.actor.role !== "Admin" || !["open", "in-progress"].includes(status) || finding.reviewer !== access.actor.email) return json({ error: "Risk kabulünü yalnız atanmış bağımsız Admin reviewer verebilir." }, 403);
         if ([finding.detected_by, finding.owner].includes(access.actor.email)) return json({ error: "Maker-checker: tespit eden veya aksiyon sahibi riski kabul edemez." }, 409);
+        validateFindingGovernanceGate(finding, "accept-risk");
         next = "accepted";
         await env.DB.prepare("UPDATE enterprise_findings SET status=?,acceptance_rationale=?,accept_until=?,verification_evidence_reference=?,verification_evidence_sha256=?,verified_by=?,verified_at=?,updated_by=?,updated_at=? WHERE id=?")
           .bind(next, operation.acceptanceRationale, operation.acceptUntil, operation.evidenceReference, operation.evidenceSha256, access.actor.email, now, access.actor.email, now, id).run();
