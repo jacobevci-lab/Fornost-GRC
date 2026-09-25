@@ -3,12 +3,13 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { withBasePath } from "./base-path";
-import { calculatedRiskScore } from "./risk-methodology";
+import { assessedRiskScore } from "./risk-methodology";
+import { navigateToFornost } from "./navigation-focus";
 import "./my-work-v2.css";
 
 type Lang = "tr" | "en";
 type Scope = "mine" | "organization";
-type QueueFilter = "priority" | "overdue" | "soon" | "undated" | "all";
+type QueueFilter = "priority" | "overdue" | "soon" | "waiting" | "undated" | "completed" | "all";
 type RawRow = {
   id?: unknown;
   code?: unknown;
@@ -41,6 +42,7 @@ type QueueItem = {
   priority: number;
   reason: string;
   tone: "critical" | "warning" | "normal" | "muted";
+  waiting: boolean;
 };
 
 const DAY = 86_400_000;
@@ -57,19 +59,17 @@ const CLOSED = new Set([
   "archived",
   "arşivlendi",
 ]);
-const NAV_LABELS: Record<string, string[]> = {
-  "Risk Assessment": ["Risk Değerlendirmesi", "Risk Assessment"],
-  BIA: ["İş Etki Analizi", "Business Impact Analysis"],
-  "Varlık Envanteri": ["Varlık Envanteri", "Asset Inventory"],
-  Uyum: ["Uyum Yönetimi", "Compliance Management"],
-  Kontroller: ["Kontrol Kütüphanesi", "Control Library"],
-  Kanıtlar: ["Kanıt Kütüphanesi", "Evidence Library"],
-  Tedarikçiler: ["Tedarikçi Yönetimi", "Vendor Management"],
-  "Denetim Yönetimi": ["Denetim Yönetimi", "Audit Management"],
-  "Bulgular ve CAPA": ["Bulgular ve CAPA", "Findings & CAPA"],
-  "Risk İştahı ve KRI": ["Risk İştahı ve KRI", "Risk Appetite & KRI"],
-  "İş Sürekliliği": ["İş Sürekliliği ve Dayanıklılık", "Business Continuity & Resilience"],
-};
+const REVIEW_STATES = [
+  "incelemede",
+  "under review",
+  "review",
+  "submitted",
+  "gönderildi",
+  "verification pending",
+  "doğrulama bekliyor",
+  "approval pending",
+  "onay bekliyor",
+];
 const MODULE_LABELS: Record<string, { tr: string; en: string }> = {
   "Risk Assessment": { tr: "Risk", en: "Risk" },
   BIA: { tr: "BIA", en: "BIA" },
@@ -131,6 +131,10 @@ function ownerValues(row: Row) {
     d.custodian,
   ].map(clean).filter(Boolean);
 }
+function primaryOwnerValues(row: Row) {
+  const d = row.data;
+  return [d.owner, d.ownerEmail, d.actionOwner, d.testOwner, d.evidenceOwner, d.auditOwner, d.technicalOwner, d.custodian].map(clean).filter(Boolean);
+}
 function dueValue(row: Row) {
   const d = row.data;
   return clean(
@@ -161,24 +165,37 @@ function formatDate(value: string, lang: Lang) {
   if (!Number.isFinite(time)) return value;
   return new Intl.DateTimeFormat(lang === "tr" ? "tr-TR" : "en-GB", { day: "2-digit", month: "short", year: "numeric" }).format(new Date(time));
 }
-function navigateTo(module: string) {
-  const labels = NAV_LABELS[module] || [module];
-  const buttons = Array.from(document.querySelectorAll<HTMLButtonElement>("#fornost-navigation button[aria-label]"));
-  const target = buttons.find(button => labels.some(label => normalized(button.getAttribute("aria-label")).includes(normalized(label))));
-  target?.click();
+function identitiesFor(user: User) {
+  return [user.name, user.email].map(normalized).filter(Boolean);
+}
+function valuesMatchIdentity(values: string[], user: User) {
+  const identities = identitiesFor(user);
+  if (!identities.length) return false;
+  return values.some(value => {
+    const candidate = normalized(value);
+    return identities.some(identity => candidate === identity || candidate.includes(identity) || identity.includes(candidate));
+  });
 }
 function matchesIdentity(row: Row, user: User) {
-  const identities = [user.name, user.email].map(normalized).filter(Boolean);
-  if (!identities.length) return false;
-  return ownerValues(row).some(owner => {
-    const normalizedOwner = normalized(owner);
-    return identities.some(identity => normalizedOwner === identity || normalizedOwner.includes(identity) || identity.includes(normalizedOwner));
-  });
+  return valuesMatchIdentity(ownerValues(row), user);
+}
+function isClosed(row: Row) {
+  return CLOSED.has(normalized(row.data.status || row.data.reviewStatus));
+}
+function isWaitingForOthers(row: Row, user: User) {
+  if (!valuesMatchIdentity(primaryOwnerValues(row), user)) return false;
+  const counterparties = [row.data.reviewer, row.data.approver, row.data.followUpOwner].map(clean).filter(Boolean);
+  if (!counterparties.length || valuesMatchIdentity(counterparties, user)) return false;
+  const state = normalized(row.data.reviewStatus || row.data.status);
+  return REVIEW_STATES.some(candidate => state.includes(candidate)) || Boolean(row.data.submittedAt || row.data.submittedBy || row.data.reviewStatus);
 }
 function priorityFor(row: Row, dueTime: number, now: number) {
   if (Number.isFinite(dueTime) && dueTime < now) return 0;
   if (Number.isFinite(dueTime) && dueTime <= now + 7 * DAY) return 1;
-  if (row.module === "Risk Assessment" && calculatedRiskScore(row.data) >= 17) return 1;
+  if (row.module === "Risk Assessment") {
+    const riskScore = assessedRiskScore(row.data);
+    if (riskScore === null || riskScore >= 17) return 1;
+  }
   if (["kritik", "critical"].includes(normalized(row.data.criticality || row.data.riskLevel))) return 1;
   if (Number.isFinite(dueTime) && dueTime <= now + 30 * DAY) return 2;
   if (!Number.isFinite(dueTime)) return 4;
@@ -188,7 +205,11 @@ function reasonFor(row: Row, dueTime: number, now: number, lang: Lang) {
   const tr = lang === "tr";
   if (Number.isFinite(dueTime) && dueTime < now) return tr ? "Termin geçti" : "Overdue";
   if (Number.isFinite(dueTime) && dueTime <= now + 7 * DAY) return tr ? "7 gün içinde" : "Due within 7 days";
-  if (row.module === "Risk Assessment" && calculatedRiskScore(row.data) >= 17) return tr ? "Kritik risk" : "Critical risk";
+  if (row.module === "Risk Assessment") {
+    const riskScore = assessedRiskScore(row.data);
+    if (riskScore === null) return tr ? "Risk değerlendirmesi bekliyor" : "Risk assessment pending";
+    if (riskScore >= 17) return tr ? "Kritik risk" : "Critical risk";
+  }
   if (["kritik", "critical"].includes(normalized(row.data.criticality || row.data.riskLevel))) return tr ? "Kritik kapsam" : "Critical scope";
   if (Number.isFinite(dueTime) && dueTime <= now + 30 * DAY) return tr ? "30 gün içinde" : "Due within 30 days";
   if (!Number.isFinite(dueTime)) return tr ? "Termin tanımsız" : "No due date";
@@ -196,6 +217,32 @@ function reasonFor(row: Row, dueTime: number, now: number, lang: Lang) {
 }
 function toneFor(priority: number): QueueItem["tone"] {
   return priority === 0 ? "critical" : priority === 1 ? "warning" : priority === 4 ? "muted" : "normal";
+}
+function itemFromRow(row: Row, user: User, now: number, lang: Lang, completed = false): QueueItem {
+  const due = dueValue(row);
+  const dueTime = dateValue(due);
+  const priority = completed ? 4 : priorityFor(row, dueTime, now);
+  return {
+    row,
+    title: rowTitle(row),
+    owner: rowOwner(row),
+    status: rowStatus(row),
+    due,
+    dueTime,
+    priority,
+    reason: completed ? (lang === "tr" ? "Tamamlandı" : "Completed") : reasonFor(row, dueTime, now, lang),
+    tone: completed ? "muted" : toneFor(priority),
+    waiting: !completed && isWaitingForOthers(row, user),
+  };
+}
+function navigateToRecord(row: Row) {
+  navigateToFornost({
+    module: row.module,
+    ref: recordCode(row),
+    kind: "record",
+    source: "my-work",
+    filter: { recordRef: recordCode(row) },
+  });
 }
 
 export default function MyWorkV2() {
@@ -264,40 +311,32 @@ export default function MyWorkV2() {
 
   const data = useMemo(() => {
     const now = Date.now();
-    const scoped = rows.filter(row => {
-      if (CLOSED.has(normalized(row.data.status || row.data.reviewStatus))) return false;
-      return scope === "organization" && user.role === "Admin" ? true : matchesIdentity(row, user);
+    const scoped = rows.filter(row => scope === "organization" && user.role === "Admin" ? true : matchesIdentity(row, user));
+    const openRows = scoped.filter(row => !isClosed(row));
+    const completedRows = scoped.filter(row => {
+      if (!isClosed(row)) return false;
+      const completedAt = new Date(row.updatedAt || row.createdAt || "").getTime();
+      return Number.isFinite(completedAt) && completedAt >= now - 30 * DAY;
     });
-    const items: QueueItem[] = scoped.map(row => {
-      const due = dueValue(row);
-      const dueTime = dateValue(due);
-      const priority = priorityFor(row, dueTime, now);
-      return {
-        row,
-        title: rowTitle(row),
-        owner: rowOwner(row),
-        status: rowStatus(row),
-        due,
-        dueTime,
-        priority,
-        reason: reasonFor(row, dueTime, now, lang),
-        tone: toneFor(priority),
-      };
-    }).sort((a, b) => a.priority - b.priority || a.dueTime - b.dueTime || a.title.localeCompare(b.title, lang === "tr" ? "tr" : "en"));
+    const items = openRows.map(row => itemFromRow(row, user, now, lang)).sort((a, b) => a.priority - b.priority || a.dueTime - b.dueTime || a.title.localeCompare(b.title, lang === "tr" ? "tr" : "en"));
+    const completedItems = completedRows.map(row => itemFromRow(row, user, now, lang, true)).sort((a, b) => new Date(b.row.updatedAt || b.row.createdAt || 0).getTime() - new Date(a.row.updatedAt || a.row.createdAt || 0).getTime());
     const overdue = items.filter(item => Number.isFinite(item.dueTime) && item.dueTime < now).length;
     const soon = items.filter(item => Number.isFinite(item.dueTime) && item.dueTime >= now && item.dueTime <= now + 14 * DAY).length;
     const undated = items.filter(item => !Number.isFinite(item.dueTime)).length;
     const priority = items.filter(item => item.priority <= 1).length;
+    const waiting = items.filter(item => item.waiting).length;
     const modules = [...new Set(items.map(item => item.row.module))].length;
-    return { items, overdue, soon, undated, priority, modules, now };
+    return { items, completedItems, overdue, soon, undated, priority, waiting, modules, now };
   }, [rows, user, scope, lang]);
 
   const visible = useMemo(() => {
     const needle = normalized(query);
-    return data.items.filter(item => {
+    const source = filter === "completed" ? data.completedItems : data.items;
+    return source.filter(item => {
       if (filter === "priority" && item.priority > 1) return false;
       if (filter === "overdue" && !(Number.isFinite(item.dueTime) && item.dueTime < data.now)) return false;
       if (filter === "soon" && !(Number.isFinite(item.dueTime) && item.dueTime >= data.now && item.dueTime <= data.now + 14 * DAY)) return false;
+      if (filter === "waiting" && !item.waiting) return false;
       if (filter === "undated" && Number.isFinite(item.dueTime)) return false;
       if (!needle) return true;
       return normalized(`${item.title} ${item.owner} ${item.status} ${item.row.module} ${recordCode(item.row)}`).includes(needle);
@@ -310,7 +349,9 @@ export default function MyWorkV2() {
     ["priority", tr ? "Öncelik" : "Priority", data.priority],
     ["overdue", tr ? "Geciken" : "Overdue", data.overdue],
     ["soon", tr ? "14 gün" : "14 days", data.soon],
+    ["waiting", tr ? "Başkalarında bekleyen" : "Waiting for others", data.waiting],
     ["undated", tr ? "Tarihsiz" : "Undated", data.undated],
+    ["completed", tr ? "Tamamlanan" : "Completed", data.completedItems.length],
     ["all", tr ? "Tümü" : "All", data.items.length],
   ];
 
@@ -333,9 +374,9 @@ export default function MyWorkV2() {
 
       <div className="mw2-metrics">
         <button type="button" className={data.overdue ? "critical" : ""} onClick={() => setFilter("overdue")}><small>{tr ? "Geciken" : "Overdue"}</small><strong>{data.overdue}</strong><span>{tr ? "Termin geçmiş işler" : "Past-due work"}</span></button>
-        <button type="button" className={data.priority ? "warning" : ""} onClick={() => setFilter("priority")}><small>{tr ? "Öncelikli" : "Priority"}</small><strong>{data.priority}</strong><span>{tr ? "Kritik veya 7 gün içinde" : "Critical or due within 7 days"}</span></button>
-        <button type="button" onClick={() => setFilter("soon")}><small>{tr ? "14 gün içinde" : "Due in 14 days"}</small><strong>{data.soon}</strong><span>{tr ? "Yaklaşan kararlar" : "Upcoming decisions"}</span></button>
-        <button type="button" className={data.undated ? "muted" : ""} onClick={() => setFilter("undated")}><small>{tr ? "Tarihsiz" : "Undated"}</small><strong>{data.undated}</strong><span>{tr ? "Termin tanımlanmalı" : "Needs a due date"}</span></button>
+        <button type="button" className={data.priority ? "warning" : ""} onClick={() => setFilter("priority")}><small>{tr ? "Dikkat gerekiyor" : "Needs attention"}</small><strong>{data.priority}</strong><span>{tr ? "Kritik, 7 gün içinde veya değerlendirme bekliyor" : "Critical, due within 7 days or awaiting assessment"}</span></button>
+        <button type="button" className={data.waiting ? "muted" : ""} onClick={() => setFilter("waiting")}><small>{tr ? "Başkalarında bekleyen" : "Waiting for others"}</small><strong>{data.waiting}</strong><span>{tr ? "Reviewer / onay bekleyen" : "Reviewer / approval pending"}</span></button>
+        <button type="button" onClick={() => setFilter("completed")}><small>{tr ? "30 günde tamamlanan" : "Completed in 30 days"}</small><strong>{data.completedItems.length}</strong><span>{tr ? "Yakın zamanda kapanan işler" : "Recently closed work"}</span></button>
       </div>
 
       <section className="mw2-queue">
@@ -348,12 +389,12 @@ export default function MyWorkV2() {
           <label className="mw2-search"><span aria-hidden="true">⌕</span><input value={query} onChange={event => setQuery(event.target.value)} placeholder={tr ? "İşlerde ara…" : "Search work…"} /></label>
         </div>
 
-        {visible.length ? <div className="mw2-list">{visible.slice(0, 80).map(item => <button type="button" key={item.row.id} className={`mw2-item ${item.tone}`} onClick={() => navigateTo(item.row.module)}>
+        {visible.length ? <div className="mw2-list">{visible.slice(0, 80).map(item => <button type="button" key={item.row.id} className={`mw2-item ${item.tone}`} onClick={() => navigateToRecord(item.row)}>
           <span className="mw2-priority-dot" />
           <span className="mw2-title"><b>{item.title}</b><small>{MODULE_LABELS[item.row.module]?.[lang] || item.row.module} · {recordCode(item.row)}</small></span>
           <span className="mw2-owner"><small>{tr ? "Sahip" : "Owner"}</small><b>{item.owner}</b></span>
-          <span className="mw2-state"><em>{item.status}</em><small>{item.reason}</small></span>
-          <time className={!Number.isFinite(item.dueTime) ? "undated" : item.dueTime < data.now ? "overdue" : ""}>{formatDate(item.due, lang)}</time>
+          <span className="mw2-state"><em>{item.status}</em><small>{item.waiting ? (tr ? "Başkalarında bekliyor" : "Waiting for others") : item.reason}</small></span>
+          <time className={!Number.isFinite(item.dueTime) ? "undated" : item.dueTime < data.now ? "overdue" : ""}>{filter === "completed" ? formatDate(item.row.updatedAt || item.row.createdAt || "", lang) : formatDate(item.due, lang)}</time>
           <strong className="mw2-arrow">→</strong>
         </button>)}</div> : <div className="mw2-empty"><span>✓</span><div><b>{tr ? "Bu görünümde aksiyon yok." : "No actions in this view."}</b><p>{tr ? "Filtreyi değiştirin veya kapsamı kontrol edin." : "Change the filter or review the selected scope."}</p></div></div>}
         {visible.length > 80 && <footer className="mw2-limit">{tr ? `İlk 80 iş gösteriliyor · toplam ${visible.length}` : `Showing first 80 items · ${visible.length} total`}</footer>}
