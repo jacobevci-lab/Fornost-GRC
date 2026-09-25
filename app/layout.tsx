@@ -64,6 +64,7 @@ import DashboardDataIntegrityDeferred from "./dashboard-data-integrity-deferred"
 import SidebarIconTooltip from "./sidebar-icon-tooltip";
 import MyWorkV2 from "./my-work-v2";
 import ProgressiveFormExperience from "./progressive-form-experience";
+import ControlImpactLens from "./control-impact-lens";
 
 const configuredBasePath = process.env.NEXT_PUBLIC_BASE_PATH?.trim() || "";
 const normalizedBasePath = configuredBasePath.replace(/\/+$/, "");
@@ -99,6 +100,7 @@ export default function RootLayout({
         <SidebarIconTooltip />
         <MyWorkV2 />
         <ProgressiveFormExperience />
+        <ControlImpactLens />
         <FornostAiCopilot />
         <ProductionHardening />
         <NavigationIntegrity />
