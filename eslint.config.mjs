@@ -6,7 +6,14 @@ const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
   {
-    files: ["app/page.tsx", "app/settings.tsx", "app/executive-dashboard.tsx"],
+    files: [
+      "app/page.tsx",
+      "app/settings.tsx",
+      "app/executive-dashboard.tsx",
+      "app/control-impact-lens.tsx",
+      "app/my-work-v2.tsx",
+      "app/progressive-form-experience.tsx",
+    ],
     rules: {
       "@typescript-eslint/no-explicit-any": "off",
       "@typescript-eslint/no-unused-vars": "off",
