@@ -201,6 +201,21 @@ export default function IntegrationsOverview({ lang }: { lang: Lang }) {
   const readyCount = cards.filter((card) => card.tone === "healthy").length;
   const attentionCount = cards.filter((card) => card.tone === "watch").length;
 
+  function openConnectorWizard() {
+    navigateToFornost("Kanıt Otomasyonu");
+    let attempts = 0;
+    const open = () => {
+      attempts += 1;
+      const launch = document.querySelector<HTMLButtonElement>("main .cow-launch");
+      if (launch) {
+        launch.click();
+        return;
+      }
+      if (attempts < 24) window.setTimeout(open, 90);
+    };
+    window.setTimeout(open, 0);
+  }
+
   return (
     <section className="integrations-overview" aria-label={tr ? "Entegrasyon genel görünümü" : "Integrations overview"}>
       <header className="iov-head">
@@ -237,7 +252,7 @@ export default function IntegrationsOverview({ lang }: { lang: Lang }) {
 
       <footer>
         <span>{updatedAt ? `${tr ? "Son kontrol" : "Last check"}: ${updatedAt.toLocaleTimeString(tr ? "tr-TR" : "en-GB", { hour: "2-digit", minute: "2-digit" })}` : ""}</span>
-        <button type="button" onClick={() => navigateToFornost("Kanıt Otomasyonu")}>{tr ? "Yeni güvenlik connector'ı kur" : "Set up a security connector"} →</button>
+        <button type="button" onClick={openConnectorWizard}>{tr ? "Yeni güvenlik connector'ı kur" : "Set up a security connector"} →</button>
       </footer>
     </section>
   );
