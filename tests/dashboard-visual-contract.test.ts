@@ -6,16 +6,21 @@ const assurancePanel = readFileSync(new URL("../app/executive-assurance-panel.ts
 const executiveDashboard = readFileSync(new URL("../app/executive-dashboard.tsx", import.meta.url), "utf8");
 const executiveDashboardCss = readFileSync(new URL("../app/executive-dashboard.css", import.meta.url), "utf8");
 const layout = readFileSync(new URL("../app/layout.tsx", import.meta.url), "utf8");
+const platformExperience = readFileSync(new URL("../app/platform-experience.tsx", import.meta.url), "utf8");
 
 test("executive assurance score renders as one baseline-safe value", () => {
   assert.match(assurancePanel, /\{assurance\.score\}\/100/);
   assert.doesNotMatch(assurancePanel, /<sup>\s*\/100\s*<\/sup>/);
 });
 
-test("layout mounts the v4 executive decision surface", () => {
-  assert.match(layout, /import ExecutiveDashboard from "\.\/executive-dashboard"/);
-  assert.match(layout, /<ExecutiveDashboard \/>/);
+test("layout composes the v4 executive decision surface through PlatformExperience", () => {
+  assert.match(layout, /import PlatformExperience from "\.\/platform-experience"/);
+  assert.match(layout, /<PlatformExperience \/>/);
+  assert.doesNotMatch(layout, /import ExecutiveDashboard from "\.\/executive-dashboard"/);
   assert.doesNotMatch(layout, /<DashboardCustomizer \/>/);
+
+  assert.match(platformExperience, /import ExecutiveDashboard from "\.\/executive-dashboard"/);
+  assert.match(platformExperience, /<ExecutiveDashboard \/>/);
 
   assert.match(executiveDashboard, /fornost:executive-dashboard:v4/);
   assert.match(executiveDashboard, /type WidgetId="riskHeatmap"\|"actionCenter"\|"recentChanges"\|"frameworkReadiness"\|"assuranceHealth"\|"auditRemediation"/);
