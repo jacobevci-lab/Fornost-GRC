@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { withBasePath } from "./base-path";
+import { navigateToFornost } from "./navigation-focus";
 import "./connector-onboarding-wizard.css";
 
 type Lang = "tr" | "en";
@@ -11,6 +12,8 @@ type Suggestion = { ref: string; title: string; score: number; matches: string[]
 type Control = { ref: string; title: string };
 type Source = { id: string };
 type Rule = { id: string; sourceId: string; controlRefs: string; enabled: boolean; autoFinding?: boolean };
+type Finding = { id: string; ruleId: string; status: string };
+type AutomationContext = { sources?: Source[]; rules?: Rule[]; findings?: Finding[] };
 type Template = { label: string; category: string; driver: string };
 type SourceDraft = {
   name: string;
@@ -93,6 +96,8 @@ export default function ConnectorOnboardingWizard() {
   const [template, setTemplate] = useState(initialTemplate);
   const [sourceId, setSourceId] = useState("");
   const [ruleId, setRuleId] = useState("");
+  const [runEvidenceId, setRunEvidenceId] = useState("");
+  const [runFindingId, setRunFindingId] = useState("");
   const [draft, setDraft] = useState<SourceDraft>({
     name: initialTemplate.label,
     vendor: initialTemplate.label,
@@ -155,7 +160,7 @@ export default function ConnectorOnboardingWizard() {
     };
   }, []);
 
-  const loadContext = useCallback(async () => {
+  const loadContext = useCallback(async (): Promise<AutomationContext | null> => {
     const [authResult, automationResult, grcResult] = await Promise.allSettled([
       fetch(withBasePath("/api/auth"), { cache: "no-store" }).then(async (response) => response.ok ? response.json() : {}),
       fetch(withBasePath("/api/evidence-automation"), { cache: "no-store" }).then(async (response) => response.ok ? response.json() : {}),
@@ -166,12 +171,14 @@ export default function ConnectorOnboardingWizard() {
       setRole(clean(user.role));
       setActor(clean(user.email));
     }
+    let automation: AutomationContext | null = null;
     if (automationResult.status === "fulfilled") {
-      const body = automationResult.value as { sources?: Source[]; rules?: Rule[] };
-      setSourceCount(body.sources?.length || 0);
-      setRules(body.rules || []);
+      automation = automationResult.value as AutomationContext;
+      setSourceCount(automation.sources?.length || 0);
+      setRules(automation.rules || []);
     }
     if (grcResult.status === "fulfilled") setControls(controlRows(grcResult.value));
+    return automation;
   }, []);
 
   useEffect(() => {
@@ -237,6 +244,8 @@ export default function ConnectorOnboardingWizard() {
     setMessage("");
     setSourceId("");
     setRuleId("");
+    setRunEvidenceId("");
+    setRunFindingId("");
     setPaths([]);
     setRootType("");
     setTruncated(false);
@@ -303,6 +312,8 @@ export default function ConnectorOnboardingWizard() {
     setBusy("enable");
     setError("");
     setMessage("");
+    setRunEvidenceId("");
+    setRunFindingId("");
     try {
       const saved = await post({
         action: "save-rule",
@@ -324,14 +335,29 @@ export default function ConnectorOnboardingWizard() {
       setRuleId(id);
       const run = await post({ action: "run-rule", ruleId: id });
       setRunStatus(clean(run.status) || "unknown");
+      setRunEvidenceId(clean(run.evidenceId));
       setMessage(clean(run.message) || clean(saved.message));
+      const context = await loadContext();
+      const generatedFinding = context?.findings?.find((item) => item.ruleId === id && item.status !== "closed");
+      setRunFindingId(clean(generatedFinding?.id));
       setStep(5);
-      await loadContext();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : (tr ? "İzleme etkinleştirilemedi." : "Monitoring could not be enabled."));
     } finally {
       setBusy("");
     }
+  }
+
+  function openEvidence() {
+    if (!runEvidenceId) return;
+    reset();
+    navigateToFornost({ module: "Kanıtlar", ref: runEvidenceId, source: "connector-onboarding", filter: { evidenceRef: runEvidenceId } });
+  }
+
+  function openFinding() {
+    if (!runFindingId) return;
+    reset();
+    navigateToFornost({ module: "Kanıt Otomasyonu", ref: runFindingId, source: "connector-onboarding", filter: { findingRef: runFindingId } });
   }
 
   if (!mount || role !== "Admin") return null;
@@ -441,7 +467,7 @@ export default function ConnectorOnboardingWizard() {
               <h4>{tr ? "Connector izlemeye alındı" : "Connector monitoring is active"}</h4>
               <p>{tr ? "Kaynak doğrulandı, kontrol eşleştirmesi kaydedildi ve ilk kanıt toplama çalışması tamamlandı." : "The source was validated, control mappings were saved and the first evidence collection run completed."}</p>
               <div className="cow-monitor-summary"><span><small>{tr ? "Kaynak" : "Source"}</small><b>{draft.name}</b></span><span><small>{tr ? "Kontrol" : "Controls"}</small><b>{selectedControls.length}</b></span><span><small>{tr ? "İlk çalışma" : "First run"}</small><b>{runStatus || "—"}</b></span><span><small>Rule ID</small><b>{ruleId.slice(0, 12) || "—"}</b></span></div>
-              <footer className="cow-actions"><span>{tr ? "Başarısızlık eşiğinde Fornost bulgu/CAPA ve risk sinyalini bağlı modele taşır." : "At the failure threshold, Fornost feeds finding/CAPA and risk signals into the connected model."}</span><button type="button" className="primary" onClick={reset}>{tr ? "Tamam" : "Done"}</button></footer>
+              <footer className="cow-actions"><span>{runFindingId ? (tr ? "İlk çalışma eşik aştı; bağlı risk/bulgu akışı oluştu." : "The first run crossed the threshold; the linked risk/finding flow was created.") : (tr ? "Başarısızlık eşiğinde Fornost bulgu/CAPA ve risk sinyalini bağlı modele taşır." : "At the failure threshold, Fornost feeds finding/CAPA and risk signals into the connected model.")}</span><div>{runEvidenceId&&<button type="button" className="ghost" onClick={openEvidence}>{tr ? "Kanıtı Aç" : "Open Evidence"}</button>}{runFindingId&&<button type="button" className="ghost" onClick={openFinding}>{tr ? "Bulguyu Aç" : "Open Finding"}</button>}<button type="button" className="primary" onClick={reset}>{tr ? "Tamam" : "Done"}</button></div></footer>
             </div>
           )}
         </div>
