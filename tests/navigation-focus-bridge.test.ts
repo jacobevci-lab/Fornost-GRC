@@ -23,17 +23,21 @@ test("focus bridge applies pending context to the active register", () => {
   assert.match(bridge, /scrollIntoView/);
 });
 
-test("deep-link row matching prefers an exact cell reference before fuzzy text", () => {
-  assert.match(bridge, /function matchingRow\(rows: HTMLTableRowElement\[], value: string\)/);
+test("deep-link row matching prefers exact visible or hidden record references before fuzzy text", () => {
+  assert.match(bridge, /function exactMatchingRow\(rows: HTMLTableRowElement\[], value: string\)/);
   assert.match(bridge, /Array\.from\(row\.cells\)\.some\(\(cell\) => normalize\(cell\.textContent\) === needle\)/);
+  assert.match(bridge, /row\.querySelectorAll<HTMLElement>\("\[title\]"\)/);
+  assert.match(bridge, /normalize\(node\.getAttribute\("title"\)\) === needle/);
+  assert.match(bridge, /const exact = exactMatchingRow\(rows, value\)/);
   assert.match(bridge, /return exact \|\| rows\.find\(\(row\) => normalize\(row\.textContent\)\.includes\(needle\)\) \|\| null/);
-  assert.match(bridge, /const match = matchingRow\(rows, value\)/);
 });
 
-test("generic register focus stays pending until the matching row is mounted", () => {
+test("generic register resolves hidden governed ids before applying a lossy local search filter", () => {
   const start = bridge.indexOf("function applyFocus");
   const end = bridge.indexOf("export default function NavigationFocusBridge");
   const adapter = bridge.slice(start, end);
+  assert.match(adapter, /if \(highlightMatchingRow\(value, true\)\) \{/);
+  assert.match(adapter, /search\.focus\(\{ preventScroll: true \}\);[\s\S]*return true;/);
   assert.match(adapter, /if \(search\.value !== value\) \{[\s\S]*setControlledInputValue\(search, value\);[\s\S]*return false;/);
   assert.match(adapter, /return highlightMatchingRow\(value\);/);
   assert.doesNotMatch(adapter, /setTimeout\(\(\) => highlightMatchingRow/);
