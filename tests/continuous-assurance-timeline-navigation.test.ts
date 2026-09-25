@@ -26,7 +26,7 @@ test("timeline UI uses the shared focus bridge instead of generic module navigat
 
 test("timeline only renders record actions when the API supplied safe navigation context", () => {
   assert.match(timeline, /event\.module&&event\.recordRef&&event\.filterKey/);
-  assert.match(timeline, /if\(!module\|\|!ref\|\|!key\)return false/);
+  assert.match(timeline, /if\(!targetModule\|\|!ref\|\|!key\)return false/);
   assert.match(css, /\.assurance-timeline-list footer button/);
   assert.match(css, /:focus-visible/);
 });
