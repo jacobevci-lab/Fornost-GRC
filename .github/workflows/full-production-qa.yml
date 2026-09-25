@@ -45,7 +45,7 @@ jobs:
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
 
-      - name: Use SPA-safe navigation readiness in production QA
+      - name: Normalize SPA navigation and authenticated shell readiness
         shell: bash
         run: |
           node --input-type=module <<'NODE'
@@ -58,7 +58,7 @@ jobs:
             "scripts/connected-grc-production-qa.mjs",
           ];
 
-          let replacements = 0;
+          let navigationReplacements = 0;
           for (const file of files) {
             if (!fs.existsSync(file)) continue;
             const source = fs.readFileSync(file, "utf8");
@@ -66,14 +66,43 @@ jobs:
             if (!matches.length) continue;
             const updated = source.replace(/waitUntil:\s*["']networkidle["']/g, 'waitUntil: "domcontentloaded"');
             fs.writeFileSync(file, updated);
-            replacements += matches.length;
+            navigationReplacements += matches.length;
             console.log(`SPA readiness: ${file} (${matches.length} navigation${matches.length === 1 ? "" : "s"})`);
           }
 
-          if (!replacements) {
+          const shellWait = 'await page.locator(".shell").first().waitFor({ state: "visible", timeout: 15_000 });\n  await page.locator("#fornost-navigation").first().waitFor({ state: "attached", timeout: 15_000 });\n  await page.locator("h1").first().waitFor({ state: "visible", timeout: 15_000 });';
+          let shellReadinessReplacements = 0;
+
+          const v2File = "scripts/full-product-qa-v2.mjs";
+          if (fs.existsSync(v2File)) {
+            let source = fs.readFileSync(v2File, "utf8");
+            for (const legacyWait of ["await page.waitForTimeout(900);", "await page.waitForTimeout(800);"]) {
+              if (!source.includes(legacyWait)) continue;
+              source = source.replaceAll(legacyWait, shellWait);
+              shellReadinessReplacements += 1;
+            }
+            source = source.replace(/Menüyü daralt\|Collapse menu/g, "Menüyü daralt|Compact navigation|Collapse menu");
+            fs.writeFileSync(v2File, source);
+          }
+
+          const gateFile = "scripts/full-product-qa-gate.mjs";
+          if (fs.existsSync(gateFile)) {
+            let source = fs.readFileSync(gateFile, "utf8");
+            const oldReady = 'await page.locator("body").waitFor({ state: "visible", timeout: 15_000 });\n  await page.waitForTimeout(700);';
+            if (source.includes(oldReady)) {
+              source = source.replace(oldReady, shellWait);
+              shellReadinessReplacements += 1;
+            }
+            fs.writeFileSync(gateFile, source);
+          }
+
+          if (!navigationReplacements) {
             throw new Error("No networkidle navigation waits were found in production QA scripts; review the readiness normalizer.");
           }
-          console.log(`SPA readiness normalized ${replacements} navigation wait(s).`);
+          if (shellReadinessReplacements < 3) {
+            throw new Error(`Authenticated shell readiness patch incomplete: expected at least 3 replacements, got ${shellReadinessReplacements}.`);
+          }
+          console.log(`SPA readiness normalized ${navigationReplacements} navigation wait(s) and ${shellReadinessReplacements} authenticated shell wait(s).`);
           NODE
 
       - name: Run legacy production QA baseline
