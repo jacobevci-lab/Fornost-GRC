@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { withBasePath } from "./base-path";
+import { navigateToFornost } from "./navigation-focus";
 import { assuranceWorkAgeHours, assuranceWorkSlaHours, assuranceWorkSlaState, summarizeAssuranceQueue } from "./assurance-work-queue-metrics";
 import ContinuousAssuranceTimeline from "./continuous-assurance-timeline";
 import "./continuous-assurance-work-queue.css";
@@ -31,8 +32,20 @@ type WorkItem = {
 };
 type Summary = { total:number; pendingReview:number; awaitingRetest:number; capaPromotion:number; retest:number; failedRetest:number; retestError:number; completed:number; rejected:number };
 type ReviewState = { item:WorkItem; decision:"approve"|"reject"; note:string };
+type ReviewResponse = { message?:string; error?:string; code?:string; findingId?:string };
 type QueueFilter = "active"|"review"|"retest"|"attention"|"all";
 const emptySummary:Summary={total:0,pendingReview:0,awaitingRetest:0,capaPromotion:0,retest:0,failedRetest:0,retestError:0,completed:0,rejected:0};
+
+function openPromotedCapa(code:string){
+  const findingCode=String(code||"").trim();
+  if(!findingCode)return false;
+  return navigateToFornost({
+    module:"Bulgular ve CAPA",
+    ref:findingCode,
+    source:"continuous-assurance-work-queue",
+    filter:{findingRef:findingCode},
+  });
+}
 
 export default function ContinuousAssuranceWorkQueue({lang,onOpenAutomation}:{lang:Lang;onOpenAutomation:()=>void}){
   const tr=lang==="tr",[items,setItems]=useState<WorkItem[]>([]),[summary,setSummary]=useState<Summary>(emptySummary),[loading,setLoading]=useState(true),[canReview,setCanReview]=useState(false),[reviewing,setReviewing]=useState<ReviewState|null>(null),[busy,setBusy]=useState(false),[message,setMessage]=useState(""),[filter,setFilter]=useState<QueueFilter>("active"),[detailsOpen,setDetailsOpen]=useState(false);
@@ -47,12 +60,17 @@ export default function ContinuousAssuranceWorkQueue({lang,onOpenAutomation}:{la
   useEffect(()=>{let live=true;(async()=>{try{await load()}catch{}finally{if(live)setLoading(false)}})();return()=>{live=false}},[load]);
   async function submitReview(){
     if(!reviewing)return;
+    const review=reviewing;
     setBusy(true);setMessage("");
     try{
-      const response=await fetch(withBasePath("/api/continuous-assurance"),{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({action:"review-work-item",workItemId:reviewing.item.id,decision:reviewing.decision,note:reviewing.note})});
-      const data=await response.json().catch(()=>({}));
+      const response=await fetch(withBasePath("/api/continuous-assurance"),{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({action:"review-work-item",workItemId:review.item.id,decision:review.decision,note:review.note})});
+      const data=await response.json().catch(()=>({})) as ReviewResponse;
       setMessage(response.ok?(data.message||(tr?"İnceleme tamamlandı.":"Review completed.")):(data.error||(tr?"İnceleme tamamlanamadı.":"Review failed.")));
-      if(response.ok){setReviewing(null);await load()}
+      if(response.ok){
+        setReviewing(null);
+        await load();
+        if(review.decision==="approve"&&review.item.action==="capa-promotion"&&data.code)openPromotedCapa(data.code);
+      }
     }finally{setBusy(false)}
   }
   const queueHealth=useMemo(()=>summarizeAssuranceQueue(items),[items]);
