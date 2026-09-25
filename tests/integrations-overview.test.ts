@@ -29,9 +29,22 @@ test("health telemetry outages are not misrepresented as pending connection test
   assert.match(overview, /const \[healthAvailable, setHealthAvailable\] = useState\(true\)/);
   assert.match(overview, /if \(!response\.ok\) return \{ health: \{\}, available: false \}/);
   assert.match(overview, /setHealthAvailable\(healthPayload\.available !== false\)/);
-  assert.match(overview, /if \(!configured\(item\) \|\| !healthAvailable\) return "neutral"/);
+  assert.match(overview, /if \(!configAvailable \|\| !configured\(item\) \|\| !healthAvailable\) return "neutral"/);
   assert.match(overview, /Sağlık verisi alınamadı/);
   assert.match(overview, /Health telemetry unavailable/);
+});
+
+test("configuration and assurance API outages render unknown instead of false zero states", () => {
+  assert.match(overview, /const \[configAvailable, setConfigAvailable\] = useState\(true\)/);
+  assert.match(overview, /const \[automationAvailable, setAutomationAvailable\] = useState\(true\)/);
+  assert.match(overview, /setConfigAvailable\(integrationResponse\.ok\)/);
+  assert.match(overview, /setAutomationAvailable\(available\)/);
+  assert.match(overview, /Yapılandırma verisi alınamadı/);
+  assert.match(overview, /Configuration unavailable/);
+  assert.match(overview, /Sürekli güvence verisi alınamadı/);
+  assert.match(overview, /Continuous assurance data unavailable/);
+  assert.match(overview, /metric: !configAvailable \? "—"/);
+  assert.match(overview, /metric: automationAvailable \? String\(enabledRules\.length\) : "—"/);
 });
 
 test("integration health returns the latest test for every integration kind", () => {
