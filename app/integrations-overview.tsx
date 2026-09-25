@@ -24,6 +24,7 @@ type AutomationPayload = {
 };
 type HealthPayload = {
   health?: Record<string, { status?: string; detail?: string; testedAt?: string }>;
+  available?: boolean;
 };
 type Tone = "healthy" | "watch" | "neutral";
 
@@ -55,6 +56,7 @@ export default function IntegrationsOverview({ lang }: { lang: Lang }) {
   const tr = lang === "tr";
   const [integrations, setIntegrations] = useState<Integration[]>([]);
   const [automation, setAutomation] = useState<AutomationPayload>({});
+  const [healthAvailable, setHealthAvailable] = useState(true);
   const [loading, setLoading] = useState(false);
   const [updatedAt, setUpdatedAt] = useState<Date | null>(null);
 
@@ -68,13 +70,19 @@ export default function IntegrationsOverview({ lang }: { lang: Lang }) {
       const baseIntegrations = Array.isArray(integrationBody.integrations) ? integrationBody.integrations : [];
 
       const [healthResult, automationResult] = await Promise.allSettled([
-        fetch(withBasePath("/api/integrations/health"), { cache: "no-store" }).then(async (response) => response.ok ? response.json() : {}),
+        fetch(withBasePath("/api/integrations/health"), { cache: "no-store" }).then(async (response) => {
+          if (!response.ok) return { health: {}, available: false } as HealthPayload;
+          const body = await response.json() as HealthPayload;
+          return { ...body, available: body.available !== false };
+        }),
         fetch(withBasePath("/api/evidence-automation"), { cache: "no-store" }).then(async (response) => response.ok ? response.json() : {}),
       ]);
 
-      const health = healthResult.status === "fulfilled"
-        ? ((healthResult.value as HealthPayload).health || {})
-        : {};
+      const healthPayload = healthResult.status === "fulfilled"
+        ? healthResult.value as HealthPayload
+        : { health: {}, available: false } as HealthPayload;
+      const health = healthPayload.health || {};
+      setHealthAvailable(healthPayload.available !== false);
       setIntegrations(baseIntegrations.map((item) => {
         const snapshot = health[clean(item.kind)];
         return {
@@ -107,7 +115,7 @@ export default function IntegrationsOverview({ lang }: { lang: Lang }) {
 
   const configured = (item: Integration | undefined) => Boolean(item?.enabled && (item.configured !== false));
   const tone = (item: Integration | undefined): Tone => {
-    if (!configured(item)) return "neutral";
+    if (!configured(item) || !healthAvailable) return "neutral";
     if (item?.lastTestStatus === "error") return "watch";
     if (item?.lastTestStatus !== "success") return "neutral";
     const age = verificationAgeMs(item);
@@ -116,6 +124,7 @@ export default function IntegrationsOverview({ lang }: { lang: Lang }) {
   };
   const statusLabel = (item: Integration | undefined) => {
     if (!configured(item)) return tr ? "Yapılandırılmadı" : "Not configured";
+    if (!healthAvailable) return tr ? "Sağlık verisi alınamadı" : "Health telemetry unavailable";
     if (item?.lastTestStatus === "error") return tr ? "Bağlantı testi başarısız" : "Connection test failed";
     if (item?.lastTestStatus === "success") {
       const age = verificationAgeMs(item);
@@ -126,6 +135,7 @@ export default function IntegrationsOverview({ lang }: { lang: Lang }) {
     return tr ? "Etkin · test bekliyor" : "Enabled · test pending";
   };
   const verifiedAtLabel = (item: Integration | undefined) => {
+    if (!healthAvailable) return "";
     const relative = relativeVerificationAge(item, tr);
     if (!relative) return "";
     return tr ? `Son doğrulama: ${relative}` : `Last verified: ${relative}`;
