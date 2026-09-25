@@ -9,11 +9,18 @@ import {
   splitEvidenceControlRefs,
   validateEvidenceFile,
   verifyEvidenceVersionChainWithAnchor,
+  type EvidenceIntegrityState,
   type EvidenceVersionRow,
 } from "../../../evidence/versioning";
 
 type Env = Record<string, unknown> & { DB: D1Database; BUCKET?: R2Bucket };
 type EvidenceRecord = { id: string; data_json: string; created_at: string; updated_at: string };
+type EvidenceIntegrityOverviewState = EvidenceIntegrityState | "unavailable";
+type EvidenceIntegrityOverview = {
+  state: EvidenceIntegrityOverviewState;
+  checked: number;
+  failedVersion: number;
+};
 
 type EvidenceItem = {
   id: string;
@@ -157,7 +164,7 @@ export async function GET(req: NextRequest) {
   }
 
   const [recent, allVersions, items, totals] = await Promise.all([
-    env.DB.prepare("SELECT * FROM evidence_versions ORDER BY created_at DESC,version_no DESC LIMIT 100").all<EvidenceVersionRow>(),
+    env.DB.prepare("SELECT * FROM evidence_versions ORDER BY evidence_id,version_no DESC LIMIT 100").all<EvidenceVersionRow>(),
     env.DB.prepare("SELECT * FROM evidence_versions ORDER BY evidence_id,version_no LIMIT 2000").all<EvidenceVersionRow>(),
     listEvidenceItems(env.DB),
     env.DB.prepare("SELECT COUNT(*) total,COUNT(DISTINCT evidence_id) evidence_count FROM evidence_versions").first<{ total: number; evidence_count: number }>(),
@@ -165,20 +172,33 @@ export async function GET(req: NextRequest) {
   const grouped = new Map<string, EvidenceVersionRow[]>();
   for (const row of allVersions.results) grouped.set(row.evidence_id, [...(grouped.get(row.evidence_id) || []), row]);
   const itemById = new Map(items.map((item) => [item.id, item]));
+  const integrityByEvidenceId = new Map<string, EvidenceIntegrityOverview>();
   let verified = 0;
   let broken = 0;
   for (const [id, rows] of grouped) {
     const item = itemById.get(id);
+    if (!item || !item.tracked || rows.length !== item.currentVersion) {
+      integrityByEvidenceId.set(id, { state: "unavailable", checked: rows.length, failedVersion: 0 });
+      continue;
+    }
     const state = await verifyEvidenceVersionChainWithAnchor(rows, {
-      versionNo: item?.currentVersion,
-      chainSha256: item?.headHash,
+      versionNo: item.currentVersion,
+      chainSha256: item.headHash,
     });
+    integrityByEvidenceId.set(id, state);
     if (state.state === "verified") verified += 1;
-    else broken += 1;
+    else if (state.state === "broken") broken += 1;
   }
+  const evidenceItems = items.map(({ headHash: _headHash, ...item }) => {
+    const integrity = item.tracked
+      ? integrityByEvidenceId.get(item.id) || { state: "unavailable" as const, checked: 0, failedVersion: 0 }
+      : { state: "legacy-unverified" as const, checked: 0, failedVersion: 0 };
+    return { ...item, integrity: integrity.state, checkedVersions: integrity.checked, failedVersion: integrity.failedVersion };
+  });
+  const integrityScanComplete = evidenceItems.filter((item) => item.tracked).every((item) => item.integrity !== "unavailable");
   const linkedControls = await env.DB.prepare("SELECT COUNT(DISTINCT normalized_ref) total FROM evidence_version_controls").first<{ total: number }>();
   return json({
-    evidenceItems: items.map(({ headHash: _headHash, ...item }) => item),
+    evidenceItems,
     recentVersions: recent.results.map(publicEvidenceVersion),
     summary: {
       evidenceRecords: items.length,
@@ -188,6 +208,7 @@ export async function GET(req: NextRequest) {
       linkedControls: Number(linkedControls?.total || 0),
       verifiedChains: verified,
       brokenChains: broken,
+      integrityScanComplete,
     },
   });
 }
