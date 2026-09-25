@@ -30,6 +30,20 @@ test("approved CAPA promotion opens the governed enterprise finding in context",
   assert.match(queue, /openPromotedCapa\(data\.code\)/);
 });
 
+test("retest work deep-links to the exact automation rule and mapped control", () => {
+  assert.match(queue, /targetControlRef\?:string/);
+  assert.match(queue, /function openAutomationRule\(ruleId:string\)/);
+  assert.match(queue, /module:"Kanıt Otomasyonu"/);
+  assert.match(queue, /filter:\{ruleRef:ref\}/);
+  assert.match(queue, /function openMappedControl\(controlRef:string\)/);
+  assert.match(queue, /module:"Kontroller"/);
+  assert.match(queue, /filter:\{controlRef:ref\}/);
+  assert.match(queue, /openAutomationRule\(item\.ruleId\)/);
+  assert.match(queue, /openMappedControl\(item\.targetControlRef\|\|""\)/);
+  assert.match(queue, /Re-test Kuralına Git/);
+  assert.match(queue, /Open Retest Rule/);
+});
+
 test("completed CAPA queue items preserve human-readable canonical result codes", () => {
   assert.match(route, /LEFT JOIN enterprise_findings ef ON ef\.id=w\.result_ref/);
   assert.match(route, /ef\.code result_code/);
@@ -48,6 +62,7 @@ test("work queue API enriches queue rows with finding and control context", () =
   assert.match(route, /severity:row\.finding_severity/);
   assert.match(route, /ruleName:row\.rule_name/);
   assert.match(route, /controlRefs:row\.control_refs/);
+  assert.match(route, /targetControlRef:targetControlFromDecision\(decision\)/);
   assert.match(route, /catch\{[\s\S]*SELECT \* FROM continuous_assurance_work_items/);
 });
 
