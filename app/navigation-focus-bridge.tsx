@@ -34,6 +34,13 @@ function setControlledInputValue(input: HTMLInputElement, value: string) {
   input.dispatchEvent(new Event("change", { bubbles: true }));
 }
 
+function setControlledSelectValue(select: HTMLSelectElement, value: string) {
+  const descriptor = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, "value");
+  descriptor?.set?.call(select, value);
+  select.dispatchEvent(new Event("input", { bubbles: true }));
+  select.dispatchEvent(new Event("change", { bubbles: true }));
+}
+
 function highlightMatchingRow(value: string) {
   const needle = normalize(value);
   if (!needle) return false;
@@ -48,10 +55,43 @@ function highlightMatchingRow(value: string) {
   return true;
 }
 
+function applyFindingFocus(value: string) {
+  const page = document.querySelector<HTMLElement>("main .finding-page");
+  if (!page) return false;
+
+  const search = page.querySelector<HTMLInputElement>(".finding-toolbar input");
+  const status = page.querySelector<HTMLSelectElement>(".finding-toolbar select");
+  if (!search || !status) return false;
+
+  if (status.value !== "all") {
+    setControlledSelectValue(status, "all");
+    return false;
+  }
+  if (search.value !== value) {
+    setControlledInputValue(search, value);
+    return false;
+  }
+
+  const needle = normalize(value);
+  const rows = Array.from(page.querySelectorAll<HTMLTableRowElement>(".finding-table tbody tr"));
+  const match = rows.find((row) => normalize(row.textContent).includes(needle));
+  if (!match) return false;
+
+  match.classList.add("fornost-focus-row");
+  match.scrollIntoView({ behavior: "smooth", block: "center", inline: "nearest" });
+  match.click();
+  window.setTimeout(() => match.classList.remove("fornost-focus-row"), 6_000);
+  return true;
+}
+
 function applyFocus(request: FornostNavigationRequest) {
   if (!activeModuleMatches(request.module)) return false;
   const value = focusValue(request);
   if (!value) return false;
+
+  if (sameDomainModule(request.module, "Bulgular ve CAPA")) {
+    return applyFindingFocus(value);
+  }
 
   const search = document.querySelector<HTMLInputElement>("main .table-card .register-search input");
   if (!search) return false;
