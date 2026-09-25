@@ -40,6 +40,7 @@ import "./fornost-ai-navigation.css";
 import "./fornost-ai-decommission.css";
 import "./fornost-ai-findings.css";
 import "./quality-guardrails.css";
+import "./production-hardening.css";
 import "./sidebar-icon-tooltip.css";
 import "./dashboard-structure-v2.css";
 import "./dashboard-qa-hardening.css";
