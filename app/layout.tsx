@@ -68,6 +68,7 @@ import ControlImpactLens from "./control-impact-lens";
 import FindingLineageLens from "./finding-lineage-lens";
 import AuditReadinessGate from "./audit-readiness-gate";
 import EvidenceQualityLens from "./evidence-quality-lens";
+import MyWorkAssuranceSignals from "./my-work-assurance-signals";
 
 const configuredBasePath = process.env.NEXT_PUBLIC_BASE_PATH?.trim() || "";
 const normalizedBasePath = configuredBasePath.replace(/\/+$/, "");
@@ -102,6 +103,7 @@ export default function RootLayout({
         <DashboardDataIntegrityDeferred />
         <SidebarIconTooltip />
         <MyWorkV2 />
+        <MyWorkAssuranceSignals />
         <ProgressiveFormExperience />
         <ControlImpactLens />
         <FindingLineageLens />
