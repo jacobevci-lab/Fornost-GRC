@@ -66,6 +66,7 @@ import MyWorkV2 from "./my-work-v2";
 import ProgressiveFormExperience from "./progressive-form-experience";
 import ControlImpactLens from "./control-impact-lens";
 import FindingLineageLens from "./finding-lineage-lens";
+import AuditReadinessGate from "./audit-readiness-gate";
 
 const configuredBasePath = process.env.NEXT_PUBLIC_BASE_PATH?.trim() || "";
 const normalizedBasePath = configuredBasePath.replace(/\/+$/, "");
@@ -103,6 +104,7 @@ export default function RootLayout({
         <ProgressiveFormExperience />
         <ControlImpactLens />
         <FindingLineageLens />
+        <AuditReadinessGate />
         <FornostAiCopilot />
         <ProductionHardening />
         <NavigationIntegrity />
