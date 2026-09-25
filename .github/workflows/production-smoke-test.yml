@@ -12,14 +12,14 @@ permissions:
   contents: read
 
 concurrency:
-  group: fornost-production-smoke-test
-  cancel-in-progress: true
+  group: fornost-production-smoke-test-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'push' }}
 
 jobs:
   smoke:
     name: Verify production runtime
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     env:
       FORNOST_PROD_URL: ${{ vars.FORNOST_PROD_URL }}
       CF_ACCESS_CLIENT_ID: ${{ secrets.CF_ACCESS_CLIENT_ID }}
@@ -41,4 +41,19 @@ jobs:
         run: sleep 75
 
       - name: Run production smoke tests
-        run: node scripts/production-smoke-test.mjs
+        shell: bash
+        run: |
+          set +e
+          for attempt in 1 2 3; do
+            echo "Production smoke attempt ${attempt}/3"
+            node scripts/production-smoke-test.mjs
+            status=$?
+            if [ "$status" -eq 0 ]; then
+              exit 0
+            fi
+            if [ "$attempt" -lt 3 ]; then
+              echo "Smoke test failed with exit ${status}; allowing production deployment/runtime to settle for 30s before retry."
+              sleep 30
+            fi
+          done
+          exit "$status"
