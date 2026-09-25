@@ -1,3 +1,5 @@
+import { ensureEvidenceStorageSchemaCompatibility } from "./schema-compat";
+
 export const EVIDENCE_ALLOWED_TYPES = ["application/pdf", "image/png", "image/jpeg", "image/webp"] as const;
 
 export type EvidenceVersionRow = {
@@ -21,44 +23,6 @@ export type EvidenceVersionRow = {
   created_by: string;
   created_at: string;
 };
-
-const versionTable = `CREATE TABLE IF NOT EXISTS evidence_versions(
-  id TEXT PRIMARY KEY,
-  evidence_id TEXT NOT NULL,
-  version_no INTEGER NOT NULL,
-  file_key TEXT NOT NULL,
-  file_name TEXT NOT NULL,
-  file_type TEXT NOT NULL,
-  file_size INTEGER NOT NULL,
-  content_sha256 TEXT NOT NULL,
-  chain_sha256 TEXT NOT NULL,
-  previous_version_id TEXT,
-  previous_chain_sha256 TEXT,
-  evidence_title TEXT NOT NULL,
-  owner TEXT NOT NULL,
-  period TEXT NOT NULL,
-  frameworks TEXT NOT NULL,
-  control_refs TEXT NOT NULL,
-  change_note TEXT NOT NULL,
-  created_by TEXT NOT NULL,
-  created_at TEXT NOT NULL,
-  UNIQUE(evidence_id,version_no)
-)`;
-const controlTable = `CREATE TABLE IF NOT EXISTS evidence_version_controls(
-  version_id TEXT NOT NULL,
-  evidence_id TEXT NOT NULL,
-  control_ref TEXT NOT NULL,
-  normalized_ref TEXT NOT NULL,
-  version_no INTEGER NOT NULL,
-  created_at TEXT NOT NULL,
-  PRIMARY KEY(version_id,normalized_ref)
-)`;
-const indexes = [
-  "CREATE INDEX IF NOT EXISTS evidence_versions_evidence_idx ON evidence_versions(evidence_id,version_no)",
-  "CREATE INDEX IF NOT EXISTS evidence_versions_created_idx ON evidence_versions(created_at)",
-  "CREATE INDEX IF NOT EXISTS evidence_version_controls_ref_idx ON evidence_version_controls(normalized_ref,created_at)",
-  "CREATE INDEX IF NOT EXISTS evidence_version_controls_evidence_idx ON evidence_version_controls(evidence_id,version_no)",
-];
 
 export function normalizeEvidenceControlRef(value: unknown) {
   return String(value ?? "").normalize("NFKC").trim().toLocaleLowerCase("tr-TR");
@@ -160,9 +124,7 @@ export function computeEvidenceChainHash(input: EvidenceChainInput) {
 }
 
 export async function ensureEvidenceHistorySchema(db: D1Database) {
-  await db.prepare(versionTable).run();
-  await db.prepare(controlTable).run();
-  for (const sql of indexes) await db.prepare(sql).run();
+  await ensureEvidenceStorageSchemaCompatibility(db);
 }
 
 export async function appendEvidenceVersion(
