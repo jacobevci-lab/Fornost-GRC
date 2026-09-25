@@ -63,6 +63,7 @@ import DashboardRuntimeQa from "./dashboard-runtime-qa";
 import DashboardDataIntegrityDeferred from "./dashboard-data-integrity-deferred";
 import SidebarIconTooltip from "./sidebar-icon-tooltip";
 import MyWorkV2 from "./my-work-v2";
+import ProgressiveFormExperience from "./progressive-form-experience";
 
 const configuredBasePath = process.env.NEXT_PUBLIC_BASE_PATH?.trim() || "";
 const normalizedBasePath = configuredBasePath.replace(/\/+$/, "");
@@ -97,6 +98,7 @@ export default function RootLayout({
         <DashboardDataIntegrityDeferred />
         <SidebarIconTooltip />
         <MyWorkV2 />
+        <ProgressiveFormExperience />
         <FornostAiCopilot />
         <ProductionHardening />
         <NavigationIntegrity />
