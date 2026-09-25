@@ -4,6 +4,7 @@ import test from "node:test";
 
 const api = readFileSync("app/api/evidence-automation/route.ts", "utf8");
 const wizard = readFileSync("app/connector-onboarding-wizard.tsx", "utf8");
+const css = readFileSync("app/connector-onboarding-wizard.css", "utf8");
 const platform = readFileSync("app/platform-experience.tsx", "utf8");
 
 test("connector discovery exposes structure without returning raw API values", () => {
@@ -38,16 +39,27 @@ test("control suggestions require explicit human approval before monitoring", ()
   assert.match(wizard, /controlRefs\s*:\s*selectedControls\.join/);
 });
 
-test("completed onboarding keeps the first run connected to evidence and generated findings", () => {
+test("completed onboarding keeps the first run connected to source rule controls evidence and findings", () => {
   assert.match(wizard, /import \{ navigateToFornost \} from "\.\/navigation-focus"/);
   assert.match(wizard, /setRunEvidenceId\(clean\(run\.evidenceId\)\)/);
   assert.match(wizard, /context\?\.findings\?\.find\(\(item\) => item\.ruleId === id && item\.status !== "closed"\)/);
+  assert.match(wizard, /function openSource\(\)/);
+  assert.match(wizard, /filter: \{ sourceRef: sourceId \}/);
+  assert.match(wizard, /function openRule\(\)/);
+  assert.match(wizard, /filter: \{ ruleRef: ruleId \}/);
+  assert.match(wizard, /function openControl\(ref: string\)/);
+  assert.match(wizard, /module: "Kontroller"/);
+  assert.match(wizard, /filter: \{ controlRef \}/);
   assert.match(wizard, /module: "Kanıtlar"/);
   assert.match(wizard, /filter: \{ evidenceRef: runEvidenceId \}/);
-  assert.match(wizard, /module: "Kanıt Otomasyonu"/);
   assert.match(wizard, /filter: \{ findingRef: runFindingId \}/);
+  assert.match(wizard, /Kaynağı Aç/);
+  assert.match(wizard, /Kuralı Aç/);
   assert.match(wizard, /Kanıtı Aç/);
   assert.match(wizard, /Bulguyu Aç/);
+  assert.match(wizard, /selectedControls\.map\(\(ref\) => <button/);
+  assert.match(css, /\.cow-linked-controls button/);
+  assert.match(css, /:focus-visible/);
 });
 
 test("wizard is mounted once through PlatformExperience", () => {
