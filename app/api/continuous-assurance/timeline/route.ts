@@ -12,6 +12,7 @@ type TimelineEvent = {
   actor: string;
   status: string;
   reference: string;
+  evidenceId?: string;
   findingId?: string;
   ruleId?: string;
   module?: string;
@@ -39,13 +40,13 @@ export async function GET(req:NextRequest){
   }
 
   const runs=await safeRows<Record<string,unknown>>(env.DB,"SELECT id,rule_id,rule_name,status,detail,evidence_id,created_at,actor,trigger_type FROM evidence_automation_runs ORDER BY created_at DESC LIMIT 300");
-  for(const row of runs){const ruleId=String(row.rule_id||"");events.push({id:`run:${row.id}`,type:"control-run",category:"control",title:String(row.rule_name||"Continuous control run"),detail:String(row.detail||""),actor:String(row.actor||"system"),status:String(row.status||""),reference:String(row.evidence_id||row.id||""),ruleId,...(ruleId?{module:"Kanıt Otomasyonu",recordRef:ruleId,filterKey:"ruleRef" as const}:{}),createdAt:String(row.created_at||"")})}
+  for(const row of runs){const ruleId=String(row.rule_id||""),evidenceId=String(row.evidence_id||"");events.push({id:`run:${row.id}`,type:"control-run",category:"control",title:String(row.rule_name||"Continuous control run"),detail:String(row.detail||""),actor:String(row.actor||"system"),status:String(row.status||""),reference:evidenceId||String(row.id||""),evidenceId,ruleId,...(ruleId?{module:"Kanıt Otomasyonu",recordRef:ruleId,filterKey:"ruleRef" as const}:{}),createdAt:String(row.created_at||"")})}
 
   const findingEvents=await safeRows<Record<string,unknown>>(env.DB,"SELECT id,finding_id,action,from_status,to_status,detail,actor,created_at FROM enterprise_finding_events ORDER BY created_at DESC LIMIT 300");
   for(const row of findingEvents){const findingId=String(row.finding_id||""),findingCode=findingCodeById.get(findingId)||"";events.push({id:`finding:${row.id}`,type:String(row.action||"finding-event"),category:"finding",title:`Finding ${String(row.action||"event")}`,detail:String(row.detail||`${row.from_status||""} → ${row.to_status||""}`),actor:String(row.actor||"system"),status:String(row.to_status||row.from_status||""),reference:findingCode||findingId,findingId,...(findingCode?{module:"Bulgular ve CAPA",recordRef:findingCode,filterKey:"findingRef" as const}:{}),createdAt:String(row.created_at||"")})}
 
   const risks=await safeRows<Record<string,unknown>>(env.DB,"SELECT id,data_json,updated_at FROM simple_grc_records WHERE module='Risk Assessment' ORDER BY updated_at DESC LIMIT 300");
-  for(const row of risks){const data=parse(String(row.data_json||"{}")),source=String(data.reassessmentSource||"");if(!source.startsWith("Continuous Assurance"))continue;const riskRef=String(row.id||"");events.push({id:`risk:${row.id}:${row.updated_at}`,type:"risk-reassessment",category:"risk",title:String(data.title||"Risk reassessment"),detail:String(data.reassessmentReason||"Continuous Assurance risk reassessment"),actor:"system:continuous-assurance",status:String(data.assuranceState||""),reference:riskRef,...(riskRef?{module:"Risk Assessment",recordRef:riskRef,filterKey:"riskRef" as const}:{}),createdAt:String(data.lastReassessedAt||row.updated_at||"")})}
+  for(const row of risks){const data=parse(String(row.data_json||"{}")),source=String(data.reassessmentSource||"");if(!source.startsWith("Continuous Assurance"))continue;const riskRef=String(data.riskId||data.code||row.id||"");events.push({id:`risk:${row.id}:${row.updated_at}`,type:"risk-reassessment",category:"risk",title:String(data.title||"Risk reassessment"),detail:String(data.reassessmentReason||"Continuous Assurance risk reassessment"),actor:"system:continuous-assurance",status:String(data.assuranceState||""),reference:riskRef,...(riskRef?{module:"Risk Assessment",recordRef:riskRef,filterKey:"riskRef" as const}:{}),createdAt:String(data.lastReassessedAt||row.updated_at||"")})}
 
   const escalations=await safeRows<Record<string,unknown>>(env.DB,"SELECT id,kind,severity,subject_ref,title,detail,status,first_seen_at,last_seen_at,acknowledged_by,acknowledged_at,ack_note,resolved_by,resolved_at,source_json FROM continuous_assurance_escalations ORDER BY last_seen_at DESC LIMIT 300");
   for(const row of escalations){
