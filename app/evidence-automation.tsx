@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useCallback, useEffect, useState } from "react";
 import { withBasePath } from "./base-path";
 import ContinuousAssuranceDashboardPanel from "./continuous-assurance-dashboard-panel";
 import "./evidence-automation.css";
@@ -75,11 +75,11 @@ export default function EvidenceAutomation({lang,currentUser}:{lang:Lang;current
   const [source,setSource]=useState({name:"",vendor:"Generic REST / JSON API",category:"Work & Custom",driver:"rest-json",baseUrl:"",authType:"bearer",headerName:"x-api-key",secret:""});
   const [rule,setRule]=useState({name:"",sourceId:"",controlRefs:"",jsonPath:"",operator:"exists",expected:"",schedule:"daily",freshnessHours:24,failureThreshold:2,remediationOwner:"",remediationDueDays:7,autoFinding:true});
 
-  const applyData=(j:{sources?:Source[];rules?:Rule[];runs?:Run[];findings?:Finding[];summary?:typeof summary})=>{
+  const applyData=useCallback((j:{sources?:Source[];rules?:Rule[];runs?:Run[];findings?:Finding[];summary?:typeof summary})=>{
     setSources(j.sources||[]);setRules(j.rules||[]);setRuns(j.runs||[]);setFindings(j.findings||[]);if(j.summary)setSummary(j.summary);
-  };
+  },[]);
   async function load(){const r=await fetch(withBasePath("/api/evidence-automation"),{cache:"no-store"});if(r.ok)applyData(await r.json())}
-  useEffect(()=>{let live=true;fetch(withBasePath("/api/evidence-automation"),{cache:"no-store"}).then(r=>r.ok?r.json():null).then(j=>{if(live&&j)applyData(j)}).catch(()=>{});return()=>{live=false}},[]);
+  useEffect(()=>{let live=true;fetch(withBasePath("/api/evidence-automation"),{cache:"no-store"}).then(r=>r.ok?r.json():null).then(j=>{if(live&&j)applyData(j)}).catch(()=>{});return()=>{live=false}},[applyData]);
 
   async function api(body:Record<string,unknown>){
     setBusy(String(body.action||"save"));setMessage("");
