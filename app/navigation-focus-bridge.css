@@ -1,0 +1,16 @@
+.fornost-focus-row {
+  position: relative;
+  outline: 2px solid var(--cp-orange, #f59e0b);
+  outline-offset: -2px;
+  box-shadow: inset 4px 0 0 var(--cp-orange, #f59e0b);
+}
+
+.fornost-focus-row > td {
+  background: color-mix(in srgb, var(--cp-orange, #f59e0b) 8%, transparent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fornost-focus-row {
+    scroll-behavior: auto;
+  }
+}
