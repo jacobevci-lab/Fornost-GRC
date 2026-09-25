@@ -26,16 +26,16 @@ test("guided wizard follows authenticate detect map and monitor stages", () => {
   assert.match(wizard, /Detect/);
   assert.match(wizard, /Map Controls/);
   assert.match(wizard, /Enable Monitoring/);
-  assert.match(wizard, /action:"discover-source"/);
-  assert.match(wizard, /action:"save-rule"/);
-  assert.match(wizard, /action:"run-rule"/);
+  assert.match(wizard, /action\s*:\s*"discover-source"/);
+  assert.match(wizard, /action\s*:\s*"save-rule"/);
+  assert.match(wizard, /action\s*:\s*"run-rule"/);
 });
 
 test("control suggestions require explicit human approval before monitoring", () => {
   assert.match(wizard, /selectedControls/);
   assert.match(wizard, /type="checkbox"/);
   assert.match(wizard, /disabled=\{!selectedControls\.length\}/);
-  assert.match(wizard, /controlRefs:selectedControls\.join/);
+  assert.match(wizard, /controlRefs\s*:\s*selectedControls\.join/);
 });
 
 test("wizard is mounted once through PlatformExperience", () => {
