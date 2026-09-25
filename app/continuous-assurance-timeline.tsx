@@ -7,7 +7,7 @@ import "./continuous-assurance-timeline.css";
 
 type Lang="tr"|"en";
 type Category="control"|"review"|"capa"|"finding"|"risk"|"escalation"|"delivery";
-type FilterKey="ruleRef"|"findingRef"|"riskRef";
+type FilterKey="ruleRef"|"findingRef"|"riskRef"|"controlRef";
 type TimelineEvent={id:string;type:string;category:Category;title:string;detail:string;actor:string;status:string;reference:string;findingId?:string;ruleId?:string;module?:string;recordRef?:string;filterKey?:FilterKey;createdAt:string};
 const categories:Category[]=["control","review","capa","finding","risk","escalation","delivery"];
 
