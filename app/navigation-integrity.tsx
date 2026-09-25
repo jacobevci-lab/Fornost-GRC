@@ -22,8 +22,27 @@ function closeAiWorkspaceForModuleNavigation() {
   closeButton?.click();
 }
 
+function simplifyPrimaryNavigation() {
+  /*
+   * Ask Fornost is a global action in the workspace header. Keeping the same action
+   * as a sidebar module creates two competing entry points and makes the product
+   * look more complex than it is. Preserve the underlying module and command-palette
+   * route, but remove the redundant sidebar button from the primary navigation.
+   */
+  document
+    .querySelectorAll<HTMLButtonElement>('nav button[aria-label="Ask Fornost"]')
+    .forEach((button) => {
+      button.hidden = true;
+      button.dataset.fornostRedundantNav = "true";
+    });
+}
+
 export default function NavigationIntegrity() {
   useEffect(() => {
+    simplifyPrimaryNavigation();
+    const navigationObserver = new MutationObserver(simplifyPrimaryNavigation);
+    navigationObserver.observe(document.body, { childList: true, subtree: true });
+
     const onNavClick = (event: MouseEvent) => {
       const target = event.target instanceof Element ? event.target.closest<HTMLElement>("nav button[aria-label]") : null;
       if (!target) return;
@@ -48,7 +67,10 @@ export default function NavigationIntegrity() {
     };
 
     document.addEventListener("click", onNavClick, true);
-    return () => document.removeEventListener("click", onNavClick, true);
+    return () => {
+      navigationObserver.disconnect();
+      document.removeEventListener("click", onNavClick, true);
+    };
   }, []);
 
   return null;
