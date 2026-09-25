@@ -7,7 +7,7 @@ import {
 import { dataClassificationAllowed, type AiDataClassification } from "./data-policy";
 import { sanitizeAiRecord } from "./security";
 
-export type EvidenceLineageContextSource = { id: string; module: string; title: string };
+export type EvidenceLineageContextSource = { id: string; module: string; title: string; navigation?: {module:"Kanıtlar";ref:string;filterKey:"evidenceRef"} };
 type EvidenceRecordRow = { id: string; data_json: string; created_at: string; updated_at: string };
 type EvidenceRecord = {
   id: string;
@@ -47,9 +47,7 @@ function chunks<T>(items: T[], size = BIND_CHUNK_SIZE) {
 
 export function isGlobalEvidenceIntegrityQuestion(question: string) {
   const value = normalize(question);
-  const integrityTerms = [
-    "integrity", "butunluk", "chain", "zincir", "tamper", "kurcalan", "sha-256", "sha256",
-  ];
+  const integrityTerms = ["integrity", "butunluk", "chain", "zincir", "tamper", "kurcalan", "sha-256", "sha256"];
   if (!integrityTerms.some((term) => value.includes(term))) return false;
   if (/evd-[a-z0-9-]+/i.test(question)) return false;
   const controlSpecific = /\b(?:cc\d+(?:\.\d+)*|a\.\d+(?:\.\d+)*|pci[-.\s]?\d+(?:\.\d+)*|nist[-.\s]?[a-z0-9.:-]+)\b/i.test(question);
@@ -158,8 +156,7 @@ export async function buildEvidenceLineageAiContext(
     return { sources: [] as EvidenceLineageContextSource[], contextText: "", summaryAvailable: false };
   }
 
-  const records = rawRecords.map(parseRecord)
-    .filter((record) => dataClassificationAllowed(record.classification, maxDataClassification));
+  const records = rawRecords.map(parseRecord).filter((record) => dataClassificationAllowed(record.classification, maxDataClassification));
   if (!records.length) return { sources: [] as EvidenceLineageContextSource[], contextText: "", summaryAvailable: false };
 
   const candidates = selectEvidenceLineageCandidates(records, question);
@@ -211,9 +208,7 @@ export async function buildEvidenceLineageAiContext(
   }
 
   const detailIntegrity = new Map<string, IntegrityResult>();
-  for (const record of detailRecords) {
-    detailIntegrity.set(record.id, globalIntegrity.get(record.id) || await integrityFor(record, grouped.get(record.id) || []));
-  }
+  for (const record of detailRecords) detailIntegrity.set(record.id, globalIntegrity.get(record.id) || await integrityFor(record, grouped.get(record.id) || []));
 
   const integrityValues = globalComplete ? [...globalIntegrity.values()] : [...detailIntegrity.values()];
   const summary = {
@@ -238,13 +233,7 @@ export async function buildEvidenceLineageAiContext(
   const chunksOut: string[] = [];
   let used = 0;
   const add = (source: EvidenceLineageContextSource, data: Record<string, unknown>) => {
-    const chunk = JSON.stringify({
-      sourceId: source.id,
-      module: source.module,
-      title: source.title,
-      dataClassification: "Policy-filtered from evidence record",
-      data: sanitizeAiRecord(data),
-    });
+    const chunk = JSON.stringify({sourceId:source.id,module:source.module,title:source.title,dataClassification:"Policy-filtered from evidence record",data:sanitizeAiRecord(data)});
     if (used + chunk.length > maxChars) return false;
     used += chunk.length;
     sources.push(source);
@@ -275,7 +264,7 @@ export async function buildEvidenceLineageAiContext(
       versionsTotal: rows.length,
       versionsIncluded: versions.length,
     };
-    const source = { id: record.id, module: "Kanıtlar", title: titleOf(record) };
+    const source:EvidenceLineageContextSource={id:record.id,module:"Kanıtlar",title:titleOf(record),navigation:{module:"Kanıtlar",ref:record.id,filterKey:"evidenceRef"}};
     let added = false;
     while (!added) {
       added = add(source, { ...base, versionsIncluded: versions.length, versions });
@@ -285,10 +274,5 @@ export async function buildEvidenceLineageAiContext(
     if (!added) break;
   }
 
-  return {
-    sources,
-    contextText: chunksOut.join("\n"),
-    summaryAvailable: chunksOut.length > 0,
-    integrityComplete: globalComplete,
-  };
+  return {sources,contextText:chunksOut.join("\n"),summaryAvailable:chunksOut.length>0,integrityComplete:globalComplete};
 }
