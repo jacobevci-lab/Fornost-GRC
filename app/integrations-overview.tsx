@@ -56,7 +56,9 @@ export default function IntegrationsOverview({ lang }: { lang: Lang }) {
   const tr = lang === "tr";
   const [integrations, setIntegrations] = useState<Integration[]>([]);
   const [automation, setAutomation] = useState<AutomationPayload>({});
+  const [configAvailable, setConfigAvailable] = useState(true);
   const [healthAvailable, setHealthAvailable] = useState(true);
+  const [automationAvailable, setAutomationAvailable] = useState(true);
   const [loading, setLoading] = useState(false);
   const [updatedAt, setUpdatedAt] = useState<Date | null>(null);
 
@@ -64,6 +66,7 @@ export default function IntegrationsOverview({ lang }: { lang: Lang }) {
     setLoading(true);
     try {
       const integrationResponse = await fetch(withBasePath("/api/integrations"), { cache: "no-store" });
+      setConfigAvailable(integrationResponse.ok);
       const integrationBody = integrationResponse.ok
         ? await integrationResponse.json() as { integrations?: Integration[] }
         : { integrations: [] as Integration[] };
@@ -75,7 +78,10 @@ export default function IntegrationsOverview({ lang }: { lang: Lang }) {
           const body = await response.json() as HealthPayload;
           return { ...body, available: body.available !== false };
         }),
-        fetch(withBasePath("/api/evidence-automation"), { cache: "no-store" }).then(async (response) => response.ok ? response.json() : {}),
+        fetch(withBasePath("/api/evidence-automation"), { cache: "no-store" }).then(async (response) => {
+          if (!response.ok) return { available: false } as AutomationPayload & { available: boolean };
+          return { ...(await response.json() as AutomationPayload), available: true } as AutomationPayload & { available: boolean };
+        }),
       ]);
 
       const healthPayload = healthResult.status === "fulfilled"
@@ -91,7 +97,15 @@ export default function IntegrationsOverview({ lang }: { lang: Lang }) {
           lastTestAt: clean(snapshot?.testedAt) || undefined,
         };
       }));
-      if (automationResult.status === "fulfilled") setAutomation(automationResult.value as AutomationPayload);
+
+      if (automationResult.status === "fulfilled") {
+        const payload = automationResult.value as AutomationPayload & { available?: boolean };
+        const available = payload.available !== false;
+        setAutomationAvailable(available);
+        if (available) setAutomation(payload);
+      } else {
+        setAutomationAvailable(false);
+      }
       setUpdatedAt(new Date());
     } finally {
       setLoading(false);
@@ -115,7 +129,7 @@ export default function IntegrationsOverview({ lang }: { lang: Lang }) {
 
   const configured = (item: Integration | undefined) => Boolean(item?.enabled && (item.configured !== false));
   const tone = (item: Integration | undefined): Tone => {
-    if (!configured(item) || !healthAvailable) return "neutral";
+    if (!configAvailable || !configured(item) || !healthAvailable) return "neutral";
     if (item?.lastTestStatus === "error") return "watch";
     if (item?.lastTestStatus !== "success") return "neutral";
     const age = verificationAgeMs(item);
@@ -123,6 +137,7 @@ export default function IntegrationsOverview({ lang }: { lang: Lang }) {
     return age > VERIFICATION_FRESHNESS_MS ? "watch" : "healthy";
   };
   const statusLabel = (item: Integration | undefined) => {
+    if (!configAvailable) return tr ? "Yapılandırma verisi alınamadı" : "Configuration unavailable";
     if (!configured(item)) return tr ? "Yapılandırılmadı" : "Not configured";
     if (!healthAvailable) return tr ? "Sağlık verisi alınamadı" : "Health telemetry unavailable";
     if (item?.lastTestStatus === "error") return tr ? "Bağlantı testi başarısız" : "Connection test failed";
@@ -135,7 +150,7 @@ export default function IntegrationsOverview({ lang }: { lang: Lang }) {
     return tr ? "Etkin · test bekliyor" : "Enabled · test pending";
   };
   const verifiedAtLabel = (item: Integration | undefined) => {
-    if (!healthAvailable) return "";
+    if (!configAvailable || !healthAvailable) return "";
     const relative = relativeVerificationAge(item, tr);
     if (!relative) return "";
     return tr ? `Son doğrulama: ${relative}` : `Last verified: ${relative}`;
@@ -150,7 +165,7 @@ export default function IntegrationsOverview({ lang }: { lang: Lang }) {
       detail: workflow?.provider ? clean(workflow.provider) : "Jira, ServiceNow, Azure DevOps, GitHub",
       status: statusLabel(workflow),
       tone: tone(workflow),
-      metric: configured(workflow) ? "1" : "0",
+      metric: !configAvailable ? "—" : configured(workflow) ? "1" : "0",
       metricLabel: tr ? "aktif profil" : "active profile",
       verifiedAt: verifiedAtLabel(workflow),
     },
@@ -162,7 +177,7 @@ export default function IntegrationsOverview({ lang }: { lang: Lang }) {
       detail: identity?.provider ? clean(identity.provider) : "Entra, Okta, OIDC, SAML, LDAP/LDAPS",
       status: statusLabel(identity),
       tone: tone(identity),
-      metric: configured(identity) ? "1" : "0",
+      metric: !configAvailable ? "—" : configured(identity) ? "1" : "0",
       metricLabel: tr ? "aktif profil" : "active profile",
       verifiedAt: verifiedAtLabel(identity),
     },
@@ -174,7 +189,7 @@ export default function IntegrationsOverview({ lang }: { lang: Lang }) {
       detail: email?.provider ? clean(email.provider) : (tr ? "SMTP bridge, Graph Mail veya Email API" : "SMTP bridge, Graph Mail or Email API"),
       status: statusLabel(email),
       tone: tone(email),
-      metric: configured(email) ? "1" : "0",
+      metric: !configAvailable ? "—" : configured(email) ? "1" : "0",
       metricLabel: tr ? "aktif kanal" : "active channel",
       verifiedAt: verifiedAtLabel(email),
     },
@@ -186,13 +201,15 @@ export default function IntegrationsOverview({ lang }: { lang: Lang }) {
       detail: tr
         ? `${sources.length} kaynak · ${monitoredControls} kontrol · ${riskAware} risk-aware kural`
         : `${sources.length} sources · ${monitoredControls} controls · ${riskAware} risk-aware rules`,
-      status: !sources.length
-        ? (tr ? "Kaynak bekliyor" : "No sources")
-        : unhealthy
-          ? (tr ? `${unhealthy} sinyal dikkat istiyor` : `${unhealthy} signals need attention`)
-          : (tr ? "İzleme aktif" : "Monitoring active"),
-      tone: (!sources.length ? "neutral" : unhealthy ? "watch" : "healthy") as Tone,
-      metric: String(enabledRules.length),
+      status: !automationAvailable
+        ? (tr ? "Sürekli güvence verisi alınamadı" : "Continuous assurance data unavailable")
+        : !sources.length
+          ? (tr ? "Kaynak bekliyor" : "No sources")
+          : unhealthy
+            ? (tr ? `${unhealthy} sinyal dikkat istiyor` : `${unhealthy} signals need attention`)
+            : (tr ? "İzleme aktif" : "Monitoring active"),
+      tone: (!automationAvailable || !sources.length ? "neutral" : unhealthy ? "watch" : "healthy") as Tone,
+      metric: automationAvailable ? String(enabledRules.length) : "—",
       metricLabel: tr ? "aktif sürekli kontrol" : "active continuous controls",
       verifiedAt: "",
     },
