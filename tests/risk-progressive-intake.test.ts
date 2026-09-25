@@ -11,11 +11,11 @@ const quickRisk = {
 
 test("risk intake accepts event, affected asset and owner without inventing assessment scores", () => {
   const result = validate("Risk Assessment", quickRisk);
-  assert.equal("error" in result, false);
-  assert.equal("data" in result ? result.data.status : "", "Değerlendiriliyor");
-  assert.equal("data" in result ? result.data.inherentLikelihood : undefined, undefined);
-  assert.equal("data" in result ? result.data.inherentImpact : undefined, undefined);
-  assert.equal("data" in result ? result.data.treatment : undefined, undefined);
+  if ("error" in result) assert.fail(result.error);
+  assert.equal(result.data.status, "Değerlendiriliyor");
+  assert.equal(result.data.inherentLikelihood, undefined);
+  assert.equal(result.data.inherentImpact, undefined);
+  assert.equal(result.data.treatment, undefined);
 });
 
 test("risk intake still requires the three business-critical identification fields", () => {
