@@ -30,7 +30,9 @@ test("governed escalation destinations prefer the most precise safe record",()=>
  assert.deepEqual(assuranceEscalationNavigation("risk-review",{riskId:"RISK-1"}),{module:"Risk Assessment",recordRef:"RISK-1",filterKey:"riskRef"});
  assert.deepEqual(assuranceEscalationNavigation("exception-expiry",{controlRef:"CTRL-1",riskRef:"RISK-1",ruleId:"RULE-1"}),{module:"Kontroller",recordRef:"CTRL-1",filterKey:"controlRef"});
  assert.deepEqual(assuranceEscalationNavigation("exception-expiry",{ruleId:"RULE-1"}),{module:"Kanıt Otomasyonu",recordRef:"RULE-1",filterKey:"ruleRef"});
+ assert.deepEqual(assuranceEscalationNavigation("exception-expiry",{findingCode:"FND-101"}),{module:"Bulgular ve CAPA",recordRef:"FND-101",filterKey:"findingRef"});
  assert.deepEqual(assuranceEscalationNavigation("retest-failure",{ruleId:"RULE-2"}),{module:"Kanıt Otomasyonu",recordRef:"RULE-2",filterKey:"ruleRef"});
+ assert.deepEqual(assuranceEscalationNavigation("retest-failure",{findingCode:"FND-102"}),{module:"Bulgular ve CAPA",recordRef:"FND-102",filterKey:"findingRef"});
  assert.equal(assuranceEscalationNavigation("notification-delivery",{outboxId:"OUT-1"}),undefined);
 });
 
@@ -45,6 +47,8 @@ test("escalation API is durable deduplicated policy-aware and condition resolved
 
 test("exception escalation source preserves control risk rule and finding lineage",()=>{
  assert.match(runtime,/controlRef:row\.control_ref,riskRef:row\.risk_ref,ruleId:row\.rule_id,findingId:row\.finding_id/);
+ assert.match(route,/SELECT id,code FROM enterprise_findings/);
+ assert.match(route,/codes\.get\(String\(rawSource\.findingId\|\|""\)\)/);
  assert.match(route,/assuranceEscalationNavigation\(row\.kind,source\)/);
  assert.match(route,/navigation:navigation\|\|null/);
 });
