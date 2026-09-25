@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { withBasePath } from "./base-path";
+import { navigateToFornost } from "./navigation-focus";
 import "./evidence-history.css";
 
 type Lang = "tr" | "en";
@@ -21,6 +22,8 @@ const empty:Overview={evidenceItems:[],recentVersions:[],summary:{evidenceRecord
 
 function formatDate(value:string,lang:Lang){const date=new Date(value);return Number.isNaN(date.getTime())?value:new Intl.DateTimeFormat(lang==="tr"?"tr-TR":"en-GB",{dateStyle:"short",timeStyle:"short"}).format(date)}
 function shortHash(value:string){return value?`${value.slice(0,10)}…${value.slice(-6)}`:"—"}
+function openEvidenceRecord(id:string){const ref=id.trim();if(!ref)return;navigateToFornost({module:"Kanıtlar",ref,source:"evidence-history",filter:{evidenceRef:ref}})}
+function openControlRecord(controlRef:string){const ref=controlRef.trim();if(!ref)return;navigateToFornost({module:"Kontroller",ref,source:"evidence-history",filter:{controlRef:ref}})}
 
 export default function EvidenceHistoryPanel({lang,currentUser}:{lang:Lang;currentUser?:{role:string}}){
   const tr=lang==="tr",canWrite=currentUser?.role==="Admin"||currentUser?.role==="Editor";
@@ -120,7 +123,7 @@ export default function EvidenceHistoryPanel({lang,currentUser}:{lang:Lang;curre
       <Metric value={overview.summary.brokenChains} label={tr?"Bütünlük hatası":"Integrity failures"} danger={overview.summary.brokenChains>0}/>
     </div>
     <div className="eh-tools">
-      <form className="eh-search" onSubmit={searchControl}><label>{tr?"Kontrol referansına göre drill-down":"Drill down by control reference"}<div><input value={controlRef} onChange={event=>setControlRef(event.target.value)} placeholder="A.5.15, CC6.1, PCI 8.4.2"/><button disabled={loading}>{tr?"Zaman çizelgesi":"Timeline"}</button>{timeline&&<button type="button" className="ghost" onClick={()=>{setTimeline(null);setControlRef("")}}>{tr?"Temizle":"Clear"}</button>}</div></label></form>
+      <form className="eh-search" onSubmit={searchControl}><label>{tr?"Kontrol referansına göre drill-down":"Drill down by control reference"}<div><input value={controlRef} onChange={event=>setControlRef(event.target.value)} placeholder="A.5.15, CC6.1, PCI 8.4.2"/><button disabled={loading}>{tr?"Zaman çizelgesi":"Timeline"}</button>{controlRef.trim()&&<button type="button" className="ghost" onClick={()=>openControlRecord(controlRef)}>{tr?"Kontrolü Aç":"Open Control"}</button>}{timeline&&<button type="button" className="ghost" onClick={()=>{setTimeline(null);setControlRef("")}}>{tr?"Temizle":"Clear"}</button>}</div></label></form>
       <div className={`eh-integrity ${integrity}`}><small>{tr?"SEÇİLİ KANIT ZİNCİRİ":"SELECTED EVIDENCE CHAIN"}</small><b>{integrity==="verified"?(tr?"SHA-256 zinciri doğrulandı":"SHA-256 chain verified"):integrity==="broken"?(tr?"Bütünlük doğrulaması başarısız":"Integrity verification failed"):integrity==="legacy-unverified"?(tr?"Legacy · zincirlenmemiş":"Legacy · not chained"):(tr?"Kontrol ediliyor":"Checking")}</b><span>{detail?.versions?.length||0} {tr?"versiyon":"versions"}</span></div>
     </div>
     {canWrite&&<form className="eh-version-form" onSubmit={appendVersion}>
@@ -136,7 +139,7 @@ export default function EvidenceHistoryPanel({lang,currentUser}:{lang:Lang;curre
       <div className="eh-version"><b>{version.versionNo?`v${version.versionNo}`:"—"}</b><span>{version.evidenceId}</span></div>
       <div className="eh-copy"><div><strong>{version.evidenceTitle}</strong><span>{version.controlRefs.join(" · ")||"—"}</span></div><p>{version.changeNote||"—"}</p><small>{version.fileName} · {version.createdBy} · {formatDate(version.createdAt,lang)}</small></div>
       <div className="eh-hashes"><span><small>CONTENT SHA-256</small><code title={version.contentSha256}>{shortHash(version.contentSha256)}</code></span><span><small>CHAIN SHA-256</small><code title={version.chainSha256}>{shortHash(version.chainSha256)}</code></span></div>
-      {version.fileKey?<a href={withBasePath(`/api/evidence?key=${encodeURIComponent(version.fileKey)}`)}>{tr?"Dosyayı indir":"Download"}</a>:<span>—</span>}
+      <div className="eh-row-actions"><button type="button" onClick={()=>openEvidenceRecord(version.evidenceId)}>{tr?"Kanıtı Aç":"Open Evidence"}</button>{version.fileKey?<a href={withBasePath(`/api/evidence?key=${encodeURIComponent(version.fileKey)}`)}>{tr?"Dosyayı indir":"Download"}</a>:<span>—</span>}</div>
     </article>):<div className="eh-empty"><b>{tr?"Eşleşen kanıt versiyonu yok.":"No matching evidence versions."}</b><span>{tr?"Yeni yüklenen kanıtlar otomatik olarak versiyon zincirine alınır.":"New evidence uploads are automatically added to the version chain."}</span></div>}</div>
   </section>
 }
