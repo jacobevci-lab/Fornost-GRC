@@ -8,6 +8,7 @@ import {
   buildControlAssuranceDetail,
   type AssuranceRow,
 } from "./control-assurance";
+import { applyEvidenceIntegrityHistory } from "./control-assurance-evidence";
 import {
   buildConnectedGrcEnterpriseRows,
   connectedGrcEnterpriseEndpoints,
@@ -25,11 +26,6 @@ type RawRow = {
   module?: unknown;
   data?: unknown;
   data_json?: unknown;
-};
-type EvidenceIntegritySnapshot = {
-  integrity: string;
-  checkedVersions: number;
-  failedVersion: number;
 };
 
 type ImpactStage = {
@@ -88,40 +84,6 @@ function normalizeRows(body: unknown): AssuranceRow[] {
       data,
     };
   }).filter((row) => row.module);
-}
-
-function evidenceIntegritySnapshots(history: Record<string, unknown>) {
-  const snapshots: Record<string, EvidenceIntegritySnapshot> = {};
-  const items = Array.isArray(history.evidenceItems) ? history.evidenceItems as Record<string, unknown>[] : [];
-  for (const item of items) {
-    const id = clean(item.id);
-    const integrity = clean(item.integrity);
-    if (!id || !integrity) continue;
-    snapshots[id] = {
-      integrity,
-      checkedVersions: Number(item.checkedVersions || 0),
-      failedVersion: Number(item.failedVersion || 0),
-    };
-  }
-  return snapshots;
-}
-
-function applyEvidenceIntegrity(rows: AssuranceRow[], history: Record<string, unknown>) {
-  const snapshots = evidenceIntegritySnapshots(history);
-  return rows.map((row) => {
-    if (row.module !== "Kanıtlar") return row;
-    const snapshot = snapshots[row.id];
-    if (!snapshot) return row;
-    return {
-      ...row,
-      data: {
-        ...row.data,
-        evidenceIntegrity: snapshot.integrity,
-        evidenceIntegrityCheckedVersions: snapshot.checkedVersions,
-        evidenceIntegrityFailedVersion: snapshot.failedVersion,
-      },
-    };
-  });
 }
 
 async function fetchJson(path: string) {
@@ -186,7 +148,7 @@ export default function ControlImpactLens() {
       const projected = buildConnectedGrcEnterpriseRows(payloads) as AssuranceRow[];
       const merged = new Map<string, AssuranceRow>();
       for (const row of [...core, ...projected]) merged.set(row.id, row);
-      setRows(applyEvidenceIntegrity(Array.from(merged.values()), history));
+      setRows(applyEvidenceIntegrityHistory(Array.from(merged.values()), history));
       setLastUpdated(new Date());
     } catch {
       setRows([]);
