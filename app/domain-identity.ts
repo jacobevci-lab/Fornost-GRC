@@ -20,6 +20,12 @@ export const DOMAIN_MODULE_KEYS = [
   "reporting",
   "ai-governance",
   "ask-fornost",
+  "system-settings",
+  "ai-settings",
+  "master-data",
+  "workflow-integrations",
+  "email-notifications",
+  "identity-access",
 ] as const;
 
 export type DomainModuleKey = typeof DOMAIN_MODULE_KEYS[number];
@@ -86,6 +92,12 @@ export const DOMAIN_MODULES: readonly ModuleIdentity[] = [
   { key: "reporting", legacy: "Raporlar", tr: "Raporlama", en: "Reporting" },
   { key: "ai-governance", legacy: "AI Yönetişimi", tr: "AI Yönetişimi", en: "AI Governance" },
   { key: "ask-fornost", legacy: "Ask Fornost", tr: "Ask Fornost", en: "Ask Fornost" },
+  { key: "system-settings", legacy: "Sistem Ayarları", tr: "Sistem Ayarları", en: "System Settings" },
+  { key: "ai-settings", legacy: "AI Ayarları", tr: "AI Ayarları", en: "AI Settings" },
+  { key: "master-data", legacy: "Ana Veri Yönetimi", tr: "Ana Veri Yönetimi", en: "Master Data" },
+  { key: "workflow-integrations", legacy: "İş Akışı Entegrasyonları", tr: "İş Akışı Entegrasyonları", en: "Workflow Integrations", aliases: ["Integrations", "Entegrasyonlar"] },
+  { key: "email-notifications", legacy: "E-posta ve Bildirimler", tr: "E-posta ve Bildirimler", en: "Email & Notifications", aliases: ["Email and Notifications"] },
+  { key: "identity-access", legacy: "Kimlik ve Erişim", tr: "Kimlik ve Erişim", en: "Identity & Access", aliases: ["Identity and Access", "IAM / SSO"] },
 ] as const;
 
 export const DOMAIN_STATUSES: readonly StatusIdentity[] = [
