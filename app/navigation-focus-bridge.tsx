@@ -41,11 +41,16 @@ function setControlledSelectValue(select: HTMLSelectElement, value: string) {
   select.dispatchEvent(new Event("change", { bubbles: true }));
 }
 
-function highlightMatchingRow(value: string) {
+function matchingRow(rows: HTMLTableRowElement[], value: string) {
   const needle = normalize(value);
-  if (!needle) return false;
+  if (!needle) return null;
+  const exact = rows.find((row) => Array.from(row.cells).some((cell) => normalize(cell.textContent) === needle));
+  return exact || rows.find((row) => normalize(row.textContent).includes(needle)) || null;
+}
+
+function highlightMatchingRow(value: string) {
   const rows = Array.from(document.querySelectorAll<HTMLTableRowElement>("main .table-card .table-wrap tbody tr"));
-  const match = rows.find((row) => normalize(row.textContent).includes(needle));
+  const match = matchingRow(rows, value);
   if (!match) return false;
 
   for (const row of rows) row.classList.remove("fornost-focus-row");
@@ -72,11 +77,11 @@ function applyFindingFocus(value: string) {
     return false;
   }
 
-  const needle = normalize(value);
   const rows = Array.from(page.querySelectorAll<HTMLTableRowElement>(".finding-table tbody tr"));
-  const match = rows.find((row) => normalize(row.textContent).includes(needle));
+  const match = matchingRow(rows, value);
   if (!match) return false;
 
+  for (const row of rows) row.classList.remove("fornost-focus-row");
   match.classList.add("fornost-focus-row");
   match.scrollIntoView({ behavior: "smooth", block: "center", inline: "nearest" });
   match.click();
