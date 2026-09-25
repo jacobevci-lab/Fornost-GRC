@@ -164,7 +164,7 @@ export async function GET(req: NextRequest) {
   }
 
   const [recent, allVersions, items, totals] = await Promise.all([
-    env.DB.prepare("SELECT * FROM evidence_versions ORDER BY evidence_id,version_no DESC LIMIT 100").all<EvidenceVersionRow>(),
+    env.DB.prepare("SELECT * FROM evidence_versions ORDER BY created_at DESC,version_no DESC LIMIT 100").all<EvidenceVersionRow>(),
     env.DB.prepare("SELECT * FROM evidence_versions ORDER BY evidence_id,version_no LIMIT 2000").all<EvidenceVersionRow>(),
     listEvidenceItems(env.DB),
     env.DB.prepare("SELECT COUNT(*) total,COUNT(DISTINCT evidence_id) evidence_count FROM evidence_versions").first<{ total: number; evidence_count: number }>(),
