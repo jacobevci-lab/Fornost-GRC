@@ -1,13 +1,18 @@
 "use client";
 import {useCallback,useEffect,useMemo,useState} from "react";
 import {withBasePath} from "./base-path";
+import {navigateToFornost} from "./navigation-focus";
 import "./continuous-assurance-escalation-center.css";
 
 type Lang="tr"|"en";
-type Escalation={id:string;kind:string;severity:string;subjectRef:string;owner:string;title:string;detail:string;status:string;firstSeenAt:string;lastSeenAt:string;acknowledgedBy:string;acknowledgedAt:string;ackNote:string;resolvedAt:string};
+type Navigation={module:string;recordRef:string;filterKey:"ruleRef"|"findingRef"|"riskRef"|"controlRef"};
+type Escalation={id:string;kind:string;severity:string;subjectRef:string;owner:string;title:string;detail:string;status:string;firstSeenAt:string;lastSeenAt:string;acknowledgedBy:string;acknowledgedAt:string;ackNote:string;resolvedAt:string;navigation?:Navigation|null};
 type Summary={active:number;acknowledged:number;critical:number;high:number;medium:number;resolved30d:number};
 type Policy={reminderDays:number;remindersEnabled:boolean;signals:number};
 const empty:Summary={active:0,acknowledged:0,critical:0,high:0,medium:0,resolved30d:0};
+
+function openEscalationRecord(item:Escalation){const target=item.navigation;if(!target?.module||!target.recordRef||!target.filterKey)return false;return navigateToFornost({module:target.module,ref:target.recordRef,source:"assurance-escalation-center",filter:{[target.filterKey]:target.recordRef}})}
+function recordLabel(item:Escalation,tr:boolean){const target=item.navigation?.module||"";if(target==="Risk Assessment")return tr?"Riski Aç":"Open Risk";if(target==="Kontroller")return tr?"Kontrolü Aç":"Open Control";if(target==="Kanıt Otomasyonu")return tr?"Kuralı Aç":"Open Rule";if(target==="Bulgular ve CAPA")return tr?"CAPA'yı Aç":"Open CAPA";return tr?"Kayda Git":"Open Record"}
 
 export default function ContinuousAssuranceEscalationCenter({lang}:{lang:Lang}){
  const tr=lang==="tr",[records,setRecords]=useState<Escalation[]>([]),[summary,setSummary]=useState<Summary>(empty),[policy,setPolicy]=useState<Policy>({reminderDays:15,remindersEnabled:true,signals:0}),[role,setRole]=useState("Viewer"),[filter,setFilter]=useState("open"),[busy,setBusy]=useState(false),[message,setMessage]=useState("");
@@ -21,6 +26,6 @@ export default function ContinuousAssuranceEscalationCenter({lang}:{lang:Lang}){
   {message&&<div className="aec-message" onClick={()=>setMessage("")}>{message}<b>×</b></div>}
   <div className="aec-metrics"><article className={summary.critical?"critical":"healthy"}><b>{summary.critical}</b><span>{tr?"Kritik açık":"Critical open"}</span></article><article className={summary.high?"attention":"healthy"}><b>{summary.high}</b><span>{tr?"Yüksek açık":"High open"}</span></article><article><b>{summary.active}</b><span>{tr?"Aksiyon bekliyor":"Needs action"}</span></article><article><b>{summary.acknowledged}</b><span>{tr?"Takibe alındı":"Acknowledged"}</span></article><article><b>{summary.resolved30d}</b><span>{tr?"30 günde çözüldü":"Resolved in 30d"}</span></article><article><b>{policy.remindersEnabled?`${policy.reminderDays}d`:"OFF"}</b><span>{tr?"Reminder politikası":"Reminder policy"}</span></article></div>
   <div className="aec-toolbar"><div>{filters.map(item=><button key={item.id} className={filter===item.id?"active":""} onClick={()=>setFilter(item.id)}>{tr?item.tr:item.en}</button>)}</div><small>{policy.signals} {tr?"canlı koşul":"live conditions"}</small></div>
-  <div className="aec-list">{visible.map(item=><article key={item.id} className={`${item.severity} ${item.status}`}><div className="aec-severity"><b>{item.severity.toUpperCase()}</b><small>{item.kind.replaceAll("-"," ")}</small></div><div className="aec-copy"><span><b>{item.title}</b><em>{item.status}</em></span><p>{item.detail}</p><small>{item.subjectRef} · {item.owner||"unassigned"} · {new Date(item.lastSeenAt).toLocaleString(tr?"tr-TR":"en-GB")}</small>{item.status==="acknowledged"&&<small>{tr?"Takip":"Follow-up"}: {item.acknowledgedBy} · {item.ackNote}</small>}</div>{item.status==="active"&&role!=="Viewer"&&<button disabled={busy} onClick={()=>acknowledge(item)}>{tr?"Acknowledge":"Acknowledge"}</button>}</article>)}{!visible.length&&<p className="aec-empty">{tr?"Bu filtrede aktif escalation bulunmuyor.":"No escalation matches this filter."}</p>}</div>
+  <div className="aec-list">{visible.map(item=>{const actionLabel=recordLabel(item,tr);return <article key={item.id} className={`${item.severity} ${item.status}`}><div className="aec-severity"><b>{item.severity.toUpperCase()}</b><small>{item.kind.replaceAll("-"," ")}</small></div><div className="aec-copy"><span><b>{item.title}</b><em>{item.status}</em></span><p>{item.detail}</p><small>{item.subjectRef} · {item.owner||"unassigned"} · {new Date(item.lastSeenAt).toLocaleString(tr?"tr-TR":"en-GB")}</small>{item.status==="acknowledged"&&<small>{tr?"Takip":"Follow-up"}: {item.acknowledgedBy} · {item.ackNote}</small>}</div><div className="aec-actions">{item.navigation&&<button aria-label={actionLabel} onClick={()=>openEscalationRecord(item)}>{actionLabel}</button>}{item.status==="active"&&role!=="Viewer"&&<button disabled={busy} onClick={()=>acknowledge(item)}>{tr?"Takibe Al":"Acknowledge"}</button>}</div></article>})}{!visible.length&&<p className="aec-empty">{tr?"Bu filtrede aktif escalation bulunmuyor.":"No escalation matches this filter."}</p>}</div>
  </section>;
 }
