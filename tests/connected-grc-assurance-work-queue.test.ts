@@ -30,6 +30,17 @@ test("approved CAPA promotion opens the governed enterprise finding in context",
   assert.match(queue, /openPromotedCapa\(data\.code\)/);
 });
 
+test("completed CAPA queue items preserve human-readable canonical result codes", () => {
+  assert.match(route, /LEFT JOIN enterprise_findings ef ON ef\.id=w\.result_ref/);
+  assert.match(route, /ef\.code result_code/);
+  assert.match(route, /resultCode:row\.result_code\|\|""/);
+  assert.match(queue, /resultCode\?:string/);
+  assert.match(queue, /item\.resultCode\|\|item\.resultRef/);
+  assert.match(queue, /item\.status==="completed"&&item\.action==="capa-promotion"&&item\.resultCode/);
+  assert.match(queue, /CAPA'yı Aç/);
+  assert.match(queue, /Open CAPA/);
+});
+
 test("work queue API enriches queue rows with finding and control context", () => {
   assert.match(route, /LEFT JOIN evidence_automation_findings/);
   assert.match(route, /LEFT JOIN evidence_automation_rules/);
