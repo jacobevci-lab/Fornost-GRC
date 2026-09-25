@@ -2,13 +2,22 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
+import { sameDomainModule } from "./domain-identity";
 import "./progressive-form-experience.css";
 
 type Lang = "tr" | "en";
-type Target = { form: HTMLFormElement; actions: HTMLElement; labels: HTMLLabelElement[] };
+type Target = { form: HTMLFormElement; actions: HTMLElement; labels: HTMLLabelElement[]; quickRisk: boolean };
 
 function currentLanguage(): Lang {
   return document.querySelector(".language-switch button.active")?.textContent?.trim().toLowerCase() === "en" ? "en" : "tr";
+}
+
+function labelCaption(label: HTMLLabelElement) {
+  return String(label.childNodes[0]?.textContent || "").normalize("NFKC").trim().toLocaleLowerCase("tr-TR");
+}
+
+function isQuickRiskCoreLabel(label: HTMLLabelElement) {
+  return ["başlık / ad", "title / name", "sahibi", "owner"].includes(labelCaption(label));
 }
 
 function discoverTarget(): Target | null {
@@ -21,10 +30,19 @@ function discoverTarget(): Target | null {
   if (!actions) return null;
   const labels = Array.from(form.children).filter((child): child is HTMLLabelElement => child instanceof HTMLLabelElement);
   if (labels.length < 10) return null;
-  return { form, actions, labels };
+  const heading = form.closest(".modal")?.querySelector(".modal-head h2")?.textContent || "";
+  return { form, actions, labels, quickRisk: sameDomainModule(heading, "Risk Assessment") };
 }
 
-function partition(labels: HTMLLabelElement[]) {
+function partition(target: Target) {
+  const { labels, quickRisk } = target;
+  if (quickRisk) {
+    const core = new Set(labels.filter(isQuickRiskCoreLabel));
+    return {
+      core: labels.filter(label => core.has(label)),
+      advanced: labels.filter(label => !core.has(label)),
+    };
+  }
   const required = labels.filter(label => Boolean(label.querySelector("input[required],select[required],textarea[required]")));
   const core = new Set<HTMLLabelElement>(required);
   for (const label of labels) {
@@ -37,6 +55,24 @@ function partition(labels: HTMLLabelElement[]) {
   };
 }
 
+function relaxQuickRiskRequirements(labels: HTMLLabelElement[]) {
+  for (const label of labels) {
+    for (const field of label.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>("input[required],select[required],textarea[required]")) {
+      field.dataset.fornostProgressiveRequired = "true";
+      field.removeAttribute("required");
+    }
+  }
+}
+
+function restoreQuickRiskRequirements(labels: HTMLLabelElement[]) {
+  for (const label of labels) {
+    for (const field of label.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>("[data-fornost-progressive-required='true']")) {
+      field.required = true;
+      delete field.dataset.fornostProgressiveRequired;
+    }
+  }
+}
+
 export default function ProgressiveFormExperience() {
   const [target, setTarget] = useState<Target | null>(null);
   const [advancedOpen, setAdvancedOpen] = useState(false);
@@ -46,7 +82,7 @@ export default function ProgressiveFormExperience() {
     const discover = () => {
       setLang(currentLanguage());
       const next = discoverTarget();
-      setTarget(current => current?.form === next?.form && current?.labels.length === next?.labels.length ? current : next);
+      setTarget(current => current?.form === next?.form && current?.labels.length === next?.labels.length && current?.quickRisk === next?.quickRisk ? current : next);
     };
     discover();
     const observer = new MutationObserver(discover);
@@ -63,11 +99,12 @@ export default function ProgressiveFormExperience() {
     setAdvancedOpen(false);
   }, [target?.form]);
 
-  const groups = useMemo(() => target ? partition(target.labels) : null, [target]);
+  const groups = useMemo(() => target ? partition(target) : null, [target]);
 
   useEffect(() => {
     if (!target || !groups) return;
     target.form.classList.add("fornost-progressive-form");
+    if (target.quickRisk) relaxQuickRiskRequirements(groups.advanced);
     groups.core.forEach(label => {
       label.classList.add("fornost-core-field");
       label.classList.remove("fornost-advanced-field", "fornost-progressive-hidden");
@@ -77,6 +114,7 @@ export default function ProgressiveFormExperience() {
       label.classList.toggle("fornost-progressive-hidden", !advancedOpen);
     });
     return () => {
+      if (target.quickRisk) restoreQuickRiskRequirements(groups.advanced);
       target.form.classList.remove("fornost-progressive-form");
       target.labels.forEach(label => label.classList.remove("fornost-core-field", "fornost-advanced-field", "fornost-progressive-hidden"));
     };
@@ -87,11 +125,13 @@ export default function ProgressiveFormExperience() {
   return createPortal(
     <div className="fornost-progressive-controls">
       <div>
-        <b>{tr ? "Temel alanlar" : "Core fields"}</b>
+        <b>{target.quickRisk ? (tr ? "Hızlı risk kaydı" : "Quick risk intake") : (tr ? "Temel alanlar" : "Core fields")}</b>
         <small>
-          {tr
-            ? `${groups.core.length} temel · ${groups.advanced.length} gelişmiş alan`
-            : `${groups.core.length} core · ${groups.advanced.length} advanced fields`}
+          {target.quickRisk
+            ? (tr ? "Olay · etkilenen varlık · sahip ile kaydet; değerlendirmeyi sonra tamamla" : "Save with event · affected asset · owner; complete assessment later")
+            : (tr
+                ? `${groups.core.length} temel · ${groups.advanced.length} gelişmiş alan`
+                : `${groups.core.length} core · ${groups.advanced.length} advanced fields`)}
         </small>
       </div>
       <button
