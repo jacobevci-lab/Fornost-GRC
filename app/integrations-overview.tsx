@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { withBasePath } from "./base-path";
 import { navigateToFornost } from "./navigation-focus";
 import "./integrations-overview.css";
@@ -63,10 +63,7 @@ export default function IntegrationsOverview({ lang }: { lang: Lang }) {
   const sources = automation.sources || [];
   const rules = automation.rules || [];
   const enabledRules = rules.filter((item) => item.enabled);
-  const monitoredControls = useMemo(
-    () => new Set(enabledRules.flatMap((item) => splitRefs(item.controlRefs))).size,
-    [enabledRules],
-  );
+  const monitoredControls = new Set(enabledRules.flatMap((item) => splitRefs(item.controlRefs))).size;
   const riskAware = enabledRules.filter((item) => item.autoFinding !== false).length;
   const unhealthy = Number(automation.summary?.failing || 0) + Number(automation.summary?.stale || 0);
 
