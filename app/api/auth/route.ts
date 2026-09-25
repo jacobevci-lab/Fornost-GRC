@@ -2,13 +2,45 @@ import { NextRequest, NextResponse } from "next/server";
 import { actor, constantTimeEqual, createSession, demoAccount, destroySession, ensureDemoUser, identityDb, passwordHash, passwordIterations, PBKDF2_ITERATIONS, PBKDF2_LEGACY_ITERATIONS, requestIsSecure, sameOrigin, validPassword } from "./security";
 
 const configuredBasePath = process.env.NEXT_PUBLIC_BASE_PATH?.trim().replace(/\/+$/, "") || "";
+const bootstrapCookieName = "fornost_bootstrap_auth";
+const bootstrapContext = "fornost-bootstrap-v1";
 const cookie = (req: NextRequest) => ({ httpOnly: true, secure: requestIsSecure(req), sameSite: "strict" as const, path: configuredBasePath || "/", maxAge: 8 * 3600 });
+const bootstrapCookie = (req: NextRequest) => ({ ...cookie(req), maxAge: 15 * 60 });
 const normalize = (v: unknown) => String(v || "").trim();
+
+async function runtimeEnvValue(name: string) {
+  try {
+    const { env } = await import("cloudflare:workers");
+    const value = (env as unknown as Record<string, unknown>)[name];
+    if (value !== undefined && value !== null) return String(value).trim();
+  } catch {
+    // Node-based tests and local build validation may not expose cloudflare:workers.
+  }
+  return String(process.env[name] || "").trim();
+}
+
+async function expectedBootstrapToken() {
+  const explicit = await runtimeEnvValue("FORNOST_BOOTSTRAP_TOKEN");
+  if (explicit) return explicit;
+  const settingsKey = await runtimeEnvValue("FORNOST_SETTINGS_ENCRYPTION_KEY");
+  if (!settingsKey) return "";
+  const digest = await crypto.subtle.digest(
+    "SHA-256",
+    new TextEncoder().encode(`${bootstrapContext}:${settingsKey}`),
+  );
+  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+async function bootstrapAuthorized(req: NextRequest) {
+  if (process.env.NODE_ENV === "development") return true;
+  const expected = await expectedBootstrapToken();
+  if (!expected) return false;
+  return constantTimeEqual(req.cookies.get(bootstrapCookieName)?.value || "", expected);
+}
 
 async function demoMode(req: NextRequest) {
   if (process.env.NODE_ENV === "development") return true;
-  const { env } = await import("cloudflare:workers");
-  const configured = String((env as unknown as Record<string, unknown>).FORNOST_DEMO_MODE ?? "").trim().toLowerCase();
+  const configured = (await runtimeEnvValue("FORNOST_DEMO_MODE")).toLowerCase();
   if (configured) return configured === "true" || configured === "1";
   return req.nextUrl.hostname.endsWith(".chatgpt.site");
 }
@@ -18,7 +50,17 @@ export async function GET(req: NextRequest) {
   const allowDemo = await demoMode(req);
   if (allowDemo) await ensureDemoUser(db);
   const count = await db.prepare("SELECT COUNT(*) total FROM local_users WHERE role='Admin'").first<{ total: number }>();
-  return NextResponse.json({ authenticated: !!current, user: current, bootstrapRequired: !count?.total, demoAccount:allowDemo?{email:demoAccount.email,role:demoAccount.role}:null }, { headers: { "cache-control": "no-store" } });
+  const bootstrapRequired = !count?.total;
+  const authorized = bootstrapRequired ? await bootstrapAuthorized(req) : false;
+  const bootstrapProtectionConfigured = process.env.NODE_ENV === "development" || !!(await expectedBootstrapToken());
+  return NextResponse.json({
+    authenticated: !!current,
+    user: current,
+    bootstrapRequired,
+    bootstrapAuthorizationRequired: bootstrapRequired && !allowDemo && !authorized,
+    bootstrapProtectionConfigured,
+    demoAccount: allowDemo ? { email: demoAccount.email, role: demoAccount.role } : null,
+  }, { headers: { "cache-control": "no-store" } });
 }
 
 export async function POST(req: NextRequest) {
@@ -27,6 +69,20 @@ export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => ({})), action = normalize(body.action), db = await identityDb();
   if (action === "logout") {
     await destroySession(req); const res = NextResponse.json({ ok: true }); res.cookies.set("fornost_session", "", { ...cookie(req), maxAge: 0 }); return res;
+  }
+  if (action === "authorize_bootstrap") {
+    const count = await db.prepare("SELECT COUNT(*) total FROM local_users WHERE role='Admin'").first<{ total: number }>();
+    if (count?.total) return NextResponse.json({ error: "İlk yönetici hesabı zaten oluşturulmuş." }, { status: 409 });
+    if (process.env.NODE_ENV === "development") return NextResponse.json({ ok: true });
+    const expected = await expectedBootstrapToken();
+    if (!expected) return NextResponse.json({ error: "Güvenli ilk kurulum anahtarı yapılandırılmamış. FORNOST_BOOTSTRAP_TOKEN veya FORNOST_SETTINGS_ENCRYPTION_KEY gerekli." }, { status: 503 });
+    const presented = normalize(body.token);
+    if (!presented || presented.length > 512 || !constantTimeEqual(presented, expected)) {
+      return NextResponse.json({ error: "Kurulum kodu doğrulanamadı." }, { status: 403 });
+    }
+    const res = NextResponse.json({ ok: true });
+    res.cookies.set(bootstrapCookieName, expected, bootstrapCookie(req));
+    return res;
   }
   if (action === "demo_login") {
     if (!(await demoMode(req))) return NextResponse.json({ error: "Demo girişi bu kurulumda etkin değil." }, { status: 403 });
@@ -41,6 +97,7 @@ export async function POST(req: NextRequest) {
   if (action === "bootstrap") {
     const count = await db.prepare("SELECT COUNT(*) total FROM local_users WHERE role='Admin'").first<{ total: number }>();
     if (count?.total) return NextResponse.json({ error: "İlk yönetici hesabı zaten oluşturulmuş." }, { status: 409 });
+    if (!(await bootstrapAuthorized(req))) return NextResponse.json({ error: "İlk kurulum yetkilendirmesi gerekli. Sunucuda scripts/linux/setup-token.sh komutuyla kurulum kodunu alın ve /setup ekranından doğrulayın." }, { status: 403 });
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || !validPassword(password)) return NextResponse.json({ error: "Geçerli e-posta ve en az 12 karakterlik güçlü parola gerekli." }, { status: 400 });
     const now = new Date().toISOString(), id = "bootstrap-admin", p = await passwordHash(password);
     try {
@@ -48,7 +105,10 @@ export async function POST(req: NextRequest) {
     } catch {
       return NextResponse.json({ error: "İlk yönetici hesabı başka bir oturum tarafından oluşturuldu." }, { status: 409 });
     }
-    const session = await createSession(db, id), res = NextResponse.json({ ok: true }); res.cookies.set("fornost_session", session.token, cookie(req)); return res;
+    const session = await createSession(db, id), res = NextResponse.json({ ok: true });
+    res.cookies.set("fornost_session", session.token, cookie(req));
+    res.cookies.set(bootstrapCookieName, "", { ...bootstrapCookie(req), maxAge: 0 });
+    return res;
   }
   if (action !== "login") return NextResponse.json({ error: "Geçersiz işlem." }, { status: 400 });
   const row = await db.prepare("SELECT * FROM local_users WHERE email=?").bind(email).first<{id:string;status:string;locked_until:string|null;password_salt:string;password_hash:string;password_iterations:number|null;failed_attempts:number}>();
