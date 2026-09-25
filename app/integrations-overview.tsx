@@ -29,6 +29,27 @@ type Tone = "healthy" | "watch" | "neutral";
 
 const clean = (value: unknown) => String(value ?? "").trim();
 const splitRefs = (value: unknown) => clean(value).split(/[;,|\n]+/).map((item) => item.trim()).filter(Boolean);
+const VERIFICATION_FRESHNESS_MS = 7 * 24 * 60 * 60 * 1000;
+
+function verificationAgeMs(item: Integration | undefined) {
+  const testedAt = clean(item?.lastTestAt);
+  if (!testedAt) return null;
+  const timestamp = Date.parse(testedAt);
+  if (!Number.isFinite(timestamp)) return null;
+  return Math.max(0, Date.now() - timestamp);
+}
+
+function relativeVerificationAge(item: Integration | undefined, tr: boolean) {
+  const age = verificationAgeMs(item);
+  if (age === null) return "";
+  const minutes = Math.floor(age / 60_000);
+  if (minutes < 1) return tr ? "az önce" : "just now";
+  if (minutes < 60) return tr ? `${minutes} dk önce` : `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return tr ? `${hours} sa önce` : `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return tr ? `${days} gün önce` : `${days}d ago`;
+}
 
 export default function IntegrationsOverview({ lang }: { lang: Lang }) {
   const tr = lang === "tr";
@@ -87,15 +108,27 @@ export default function IntegrationsOverview({ lang }: { lang: Lang }) {
   const configured = (item: Integration | undefined) => Boolean(item?.enabled && (item.configured !== false));
   const tone = (item: Integration | undefined): Tone => {
     if (!configured(item)) return "neutral";
-    if (item?.lastTestStatus === "success") return "healthy";
     if (item?.lastTestStatus === "error") return "watch";
-    return "neutral";
+    if (item?.lastTestStatus !== "success") return "neutral";
+    const age = verificationAgeMs(item);
+    if (age === null) return "neutral";
+    return age > VERIFICATION_FRESHNESS_MS ? "watch" : "healthy";
   };
   const statusLabel = (item: Integration | undefined) => {
     if (!configured(item)) return tr ? "Yapılandırılmadı" : "Not configured";
     if (item?.lastTestStatus === "error") return tr ? "Bağlantı testi başarısız" : "Connection test failed";
-    if (item?.lastTestStatus === "success") return tr ? "Bağlantı doğrulandı" : "Connection verified";
+    if (item?.lastTestStatus === "success") {
+      const age = verificationAgeMs(item);
+      if (age === null) return tr ? "Doğrulandı · zaman bilinmiyor" : "Verified · time unknown";
+      if (age > VERIFICATION_FRESHNESS_MS) return tr ? "Doğrulama yenilenmeli" : "Verification is stale";
+      return tr ? "Bağlantı doğrulandı" : "Connection verified";
+    }
     return tr ? "Etkin · test bekliyor" : "Enabled · test pending";
+  };
+  const verifiedAtLabel = (item: Integration | undefined) => {
+    const relative = relativeVerificationAge(item, tr);
+    if (!relative) return "";
+    return tr ? `Son doğrulama: ${relative}` : `Last verified: ${relative}`;
   };
 
   const cards = [
@@ -109,6 +142,7 @@ export default function IntegrationsOverview({ lang }: { lang: Lang }) {
       tone: tone(workflow),
       metric: configured(workflow) ? "1" : "0",
       metricLabel: tr ? "aktif profil" : "active profile",
+      verifiedAt: verifiedAtLabel(workflow),
     },
     {
       key: "identity",
@@ -120,6 +154,7 @@ export default function IntegrationsOverview({ lang }: { lang: Lang }) {
       tone: tone(identity),
       metric: configured(identity) ? "1" : "0",
       metricLabel: tr ? "aktif profil" : "active profile",
+      verifiedAt: verifiedAtLabel(identity),
     },
     {
       key: "email",
@@ -131,6 +166,7 @@ export default function IntegrationsOverview({ lang }: { lang: Lang }) {
       tone: tone(email),
       metric: configured(email) ? "1" : "0",
       metricLabel: tr ? "aktif kanal" : "active channel",
+      verifiedAt: verifiedAtLabel(email),
     },
     {
       key: "assurance",
@@ -148,6 +184,7 @@ export default function IntegrationsOverview({ lang }: { lang: Lang }) {
       tone: (!sources.length ? "neutral" : unhealthy ? "watch" : "healthy") as Tone,
       metric: String(enabledRules.length),
       metricLabel: tr ? "aktif sürekli kontrol" : "active continuous controls",
+      verifiedAt: "",
     },
   ];
 
@@ -181,6 +218,7 @@ export default function IntegrationsOverview({ lang }: { lang: Lang }) {
               <i>{card.status}</i>
               <strong>{card.metric}</strong>
               <small>{card.metricLabel}</small>
+              {card.verifiedAt && <small>{card.verifiedAt}</small>}
               <b>→</b>
             </span>
           </button>
