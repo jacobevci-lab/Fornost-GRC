@@ -69,6 +69,7 @@ import FindingLineageLens from "./finding-lineage-lens";
 import AuditReadinessGate from "./audit-readiness-gate";
 import EvidenceQualityLens from "./evidence-quality-lens";
 import MyWorkAssuranceSignals from "./my-work-assurance-signals";
+import BootstrapSecurityGate from "./bootstrap-security-gate";
 
 const configuredBasePath = process.env.NEXT_PUBLIC_BASE_PATH?.trim() || "";
 const normalizedBasePath = configuredBasePath.replace(/\/+$/, "");
@@ -93,6 +94,7 @@ export default function RootLayout({
     <html lang="tr" data-theme="light" suppressHydrationWarning>
       <body>
         {children}
+        <BootstrapSecurityGate />
         <ExecutiveDashboard />
         <ExecutiveDashboardPreferenceSync />
         <DashboardV7DecisionBoard />
