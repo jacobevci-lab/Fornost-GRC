@@ -6,6 +6,7 @@ const page = readFileSync("app/page.tsx", "utf8");
 const css = readFileSync("app/workspace-system.css", "utf8");
 const productCss = readFileSync("app/product-experience.css", "utf8");
 const layout = readFileSync("app/layout.tsx", "utf8");
+const platformExperience = readFileSync("app/platform-experience.tsx", "utf8");
 const tooltip = readFileSync("app/sidebar-icon-tooltip.tsx", "utf8");
 const tooltipCss = readFileSync("app/sidebar-icon-tooltip.css", "utf8");
 
@@ -21,8 +22,10 @@ test("desktop sidebar has persistent expanded compact and hidden modes", () => {
 });
 
 test("compact sidebar exposes immediate branded module tooltips without rail clipping", () => {
-  assert.match(layout, /import SidebarIconTooltip from "\.\/sidebar-icon-tooltip"/);
-  assert.match(layout, /<SidebarIconTooltip \/>/);
+  assert.match(layout, /import PlatformExperience from "\.\/platform-experience"/);
+  assert.match(layout, /<PlatformExperience \/>/);
+  assert.match(platformExperience, /import SidebarIconTooltip from "\.\/sidebar-icon-tooltip"/);
+  assert.match(platformExperience, /<SidebarIconTooltip \/>/);
   assert.match(tooltip, /\.sidebar-compact #fornost-navigation button\[aria-label\]/);
   assert.match(tooltip, /getAttribute\("aria-label"\)/);
   assert.match(tooltip, /removeAttribute\("title"\)/);
