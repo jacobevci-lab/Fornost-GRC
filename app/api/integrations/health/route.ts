@@ -22,19 +22,25 @@ export async function GET(req: NextRequest) {
   const runtime = env as unknown as Env;
 
   try {
-    const result = await runtime.DB.prepare(
-      "SELECT kind,status,detail,created_at FROM integration_events WHERE action='test' ORDER BY created_at DESC LIMIT 100",
-    ).all<HealthEvent>();
+    const result = await runtime.DB.prepare(`
+      SELECT kind,status,detail,created_at
+      FROM (
+        SELECT kind,status,detail,created_at,
+          ROW_NUMBER() OVER (PARTITION BY kind ORDER BY created_at DESC, id DESC) AS row_rank
+        FROM integration_events
+        WHERE action='test'
+      ) ranked
+      WHERE row_rank=1
+      ORDER BY created_at DESC
+    `).all<HealthEvent>();
 
     const latest: Record<string, { status: string; detail: string; testedAt: string }> = {};
     for (const row of result.results) {
-      if (!latest[row.kind]) {
-        latest[row.kind] = {
-          status: row.status === "success" ? "success" : "error",
-          detail: row.detail,
-          testedAt: row.created_at,
-        };
-      }
+      latest[row.kind] = {
+        status: row.status === "success" ? "success" : "error",
+        detail: row.detail,
+        testedAt: row.created_at,
+      };
     }
 
     return json({ health: latest });
