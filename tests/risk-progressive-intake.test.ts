@@ -46,11 +46,22 @@ test("risk lifecycle blocks operational states until assessment fields are compl
   assert.equal("error" in validate("Risk Assessment", complete), false);
 });
 
-test("risk form exposes quick intake while keeping the detailed assessment progressively available", () => {
+test("risk form exposes title, affected asset and owner while keeping assessment details progressive", () => {
   const progressiveForm = readFileSync("app/progressive-form-experience.tsx", "utf8");
   assert.match(progressiveForm, /sameDomainModule\(heading, "Risk Assessment"\)/);
+  assert.match(progressiveForm, /"başlık \/ ad", "title \/ name", "sahibi", "owner", "ilgili varlık", "related asset"/);
   assert.match(progressiveForm, /Hızlı risk kaydı/);
   assert.match(progressiveForm, /Olay · etkilenen varlık · sahip ile kaydet/);
   assert.match(progressiveForm, /relaxQuickRiskRequirements\(groups\.advanced\)/);
   assert.match(progressiveForm, /restoreQuickRiskRequirements\(groups\.advanced\)/);
+});
+
+test("new quick risk primes Under Assessment without overwriting edit-state governance", () => {
+  const progressiveForm = readFileSync("app/progressive-form-experience.tsx", "utf8");
+  const page = readFileSync("app/page.tsx", "utf8");
+  assert.match(progressiveForm, /newRecord: \["yeni kayıt", "new record"\]\.includes\(mode\)/);
+  assert.match(progressiveForm, /if \(!target\.quickRisk \|\| !target\.newRecord\) return/);
+  assert.match(progressiveForm, /const intakeStatus = "Değerlendiriliyor"/);
+  assert.match(progressiveForm, /setSelectValue\(status, intakeStatus\)/);
+  assert.match(page, /"Risk Assessment": \["Açık", "Değerlendiriliyor", "Aksiyon Devam Ediyor", "Kabul Edildi", "Kapalı"\]/);
 });
