@@ -51,26 +51,8 @@ import "./dashboard-command-center-v9.css";
 import "./dashboard-readability-v11.css";
 import "./dashboard-final-polish-v12.css";
 import "./dashboard-metric-history.css";
-import FornostAiCopilot from "./fornost-ai-copilot";
-import ProductionHardening from "./production-hardening";
-import NavigationIntegrity from "./navigation-integrity";
-import ExecutiveDashboard from "./executive-dashboard";
-import ExecutiveDashboardPreferenceSync from "./executive-dashboard-preference-sync";
-import DashboardV7DecisionBoard from "./dashboard-v7-decision-board";
-import DashboardV8Focus from "./dashboard-v8-focus";
-import DashboardV9Executive from "./dashboard-v9-executive";
-import DashboardMetricHistory from "./dashboard-metric-history";
-import DashboardRuntimeQa from "./dashboard-runtime-qa";
-import DashboardDataIntegrityDeferred from "./dashboard-data-integrity-deferred";
-import SidebarIconTooltip from "./sidebar-icon-tooltip";
-import MyWorkV2 from "./my-work-v2";
-import ProgressiveFormExperience from "./progressive-form-experience";
-import ControlImpactLens from "./control-impact-lens";
-import FindingLineageLens from "./finding-lineage-lens";
-import AuditReadinessGate from "./audit-readiness-gate";
-import EvidenceQualityLens from "./evidence-quality-lens";
-import MyWorkAssuranceSignals from "./my-work-assurance-signals";
 import BootstrapSecurityGate from "./bootstrap-security-gate";
+import PlatformExperience from "./platform-experience";
 
 const configuredBasePath = process.env.NEXT_PUBLIC_BASE_PATH?.trim() || "";
 const normalizedBasePath = configuredBasePath.replace(/\/+$/, "");
@@ -96,25 +78,7 @@ export default function RootLayout({
       <body>
         {children}
         <BootstrapSecurityGate />
-        <ExecutiveDashboard />
-        <ExecutiveDashboardPreferenceSync />
-        <DashboardV7DecisionBoard />
-        <DashboardV8Focus />
-        <DashboardV9Executive />
-        <DashboardMetricHistory />
-        <DashboardRuntimeQa />
-        <DashboardDataIntegrityDeferred />
-        <SidebarIconTooltip />
-        <MyWorkV2 />
-        <MyWorkAssuranceSignals />
-        <ProgressiveFormExperience />
-        <ControlImpactLens />
-        <FindingLineageLens />
-        <AuditReadinessGate />
-        <EvidenceQualityLens />
-        <FornostAiCopilot />
-        <ProductionHardening />
-        <NavigationIntegrity />
+        <PlatformExperience />
       </body>
     </html>
   );
