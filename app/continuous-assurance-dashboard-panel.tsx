@@ -2,6 +2,7 @@
 
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { withBasePath } from "./base-path";
+import { navigateToFornost } from "./navigation-focus";
 import EvidenceHistoryPanel from "./evidence-history-panel";
 import "./continuous-assurance-dashboard.css";
 
@@ -23,6 +24,7 @@ type Summary = {
 type Priority = {
   id: string;
   kind: "control" | "finding" | "work-item";
+  action: string;
   priority: number;
   state: string;
   title: string;
@@ -127,33 +129,77 @@ export default function ContinuousAssuranceDashboardPanel({
 
   const scoreState = dashboard.summary.assuranceCoverage >= 85 ? "healthy" : dashboard.summary.assuranceCoverage >= 65 ? "attention" : "critical";
   const open = (item: Priority) => {
-    if (!onOpenModule) return;
-    if (item.kind === "control") onOpenModule("Kanıt Otomasyonu");
-    else if (item.kind === "finding") onOpenModule("Bulgular ve CAPA");
-    else onOpenModule(item.reason.includes("retest") ? "Kanıt Otomasyonu" : "Bulgular ve CAPA");
+    if (item.kind === "control" && item.ruleId) {
+      navigateToFornost({
+        module: "Kanıt Otomasyonu",
+        ref: item.ruleId,
+        source: "continuous-assurance-dashboard",
+        filter: { ruleRef: item.ruleId },
+      });
+      return;
+    }
+    if (item.kind === "finding" && item.findingId) {
+      navigateToFornost({
+        module: "Kanıt Otomasyonu",
+        ref: item.findingId,
+        source: "continuous-assurance-dashboard",
+        filter: { findingRef: item.findingId },
+      });
+      return;
+    }
+    if (item.kind === "work-item") {
+      if (item.action === "control-retest" && item.ruleId) {
+        navigateToFornost({
+          module: "Kanıt Otomasyonu",
+          ref: item.ruleId,
+          source: "continuous-assurance-dashboard",
+          filter: { ruleRef: item.ruleId },
+        });
+        return;
+      }
+      if (item.findingId) {
+        navigateToFornost({
+          module: "Kanıt Otomasyonu",
+          ref: item.findingId,
+          source: "continuous-assurance-dashboard",
+          filter: { findingRef: item.findingId },
+        });
+        return;
+      }
+    }
+    onOpenModule?.("Kanıt Otomasyonu");
   };
 
   async function submitReview(event: FormEvent) {
     event.preventDefault();
     if (!review) return;
-    if (review.decision === "reject" && review.note.trim().length < 10) {
+    const reviewed = review;
+    if (reviewed.decision === "reject" && reviewed.note.trim().length < 10) {
       setMessage(tr ? "Ret kararı için en az 10 karakter açıklama girin." : "Enter at least 10 characters for a rejection reason.");
       return;
     }
-    const workItemId = review.item.id.replace(/^work:/, "");
+    const workItemId = reviewed.item.id.replace(/^work:/, "");
     setBusy(`review:${workItemId}`);
     setMessage("");
     try {
       const response = await fetch(withBasePath("/api/continuous-assurance"), {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ action: "review-work-item", workItemId, decision: review.decision, note: review.note.trim() }),
+        body: JSON.stringify({ action: "review-work-item", workItemId, decision: reviewed.decision, note: reviewed.note.trim() }),
       });
-      const body = await response.json().catch(() => ({})) as { error?: string; message?: string };
+      const body = await response.json().catch(() => ({})) as { error?: string; message?: string; code?: string };
       if (!response.ok) throw new Error(body.error || (tr ? "Güvence kararı uygulanamadı." : "Unable to apply assurance decision."));
-      setMessage(body.message || (review.decision === "approve" ? (tr ? "Güvence işi onaylandı." : "Assurance work approved.") : (tr ? "Güvence işi reddedildi." : "Assurance work rejected.")));
+      setMessage(body.message || (reviewed.decision === "approve" ? (tr ? "Güvence işi onaylandı." : "Assurance work approved.") : (tr ? "Güvence işi reddedildi." : "Assurance work rejected.")));
       setReview(null);
       await load();
+      if (reviewed.decision === "approve" && reviewed.item.action === "capa-promotion" && body.code) {
+        navigateToFornost({
+          module: "Bulgular ve CAPA",
+          ref: body.code,
+          source: "continuous-assurance-dashboard",
+          filter: { findingRef: body.code },
+        });
+      }
     } catch (cause) {
       setMessage(cause instanceof Error ? cause.message : (tr ? "Güvence kararı uygulanamadı." : "Unable to apply assurance decision."));
     } finally {
@@ -221,7 +267,7 @@ export default function ContinuousAssuranceDashboardPanel({
           <p>{item.ruleName}{item.owner ? ` · ${item.owner}` : ""}</p>
         </div>
         <div className="ca-work-meta">
-          <span><b>{item.kind === "work-item" ? (tr ? "Yönetişim" : "Governance") : item.kind === "finding" ? "CAPA" : (tr ? "Kontrol" : "Control")}</b>{tr ? "iş türü" : "work type"}</span>
+          <span><b>{item.kind === "work-item" ? (item.action === "capa-promotion" ? "CAPA" : (tr ? "Re-test" : "Retest")) : item.kind === "finding" ? (tr ? "Bulgu" : "Finding") : (tr ? "Kontrol" : "Control")}</b>{tr ? "iş türü" : "work type"}</span>
           <span><b>{item.dueDate || "—"}</b>{tr ? "termin / çalışma" : "due / run"}</span>
           <span><b>{item.reason}</b>{tr ? "neden" : "reason"}</span>
         </div>
@@ -231,7 +277,7 @@ export default function ContinuousAssuranceDashboardPanel({
             <button type="button" className="reject" disabled={!!busy} onClick={() => setReview({ item, decision: "reject", note: "" })}>{tr ? "Reddet" : "Reject"}</button>
           </>}
           {item.kind === "work-item" && item.state === "approved-awaiting-retest" && canRunRetest && <button type="button" className="approve" disabled={!!busy} onClick={() => void runRetest(item)}>{busy === `retest:${item.id}` ? "…" : (tr ? "Yeniden testi çalıştır" : "Run retest")}</button>}
-          {onOpenModule && <button type="button" className="ca-open" onClick={() => open(item)}>{tr ? "Kayda git" : "Open record"}<span>→</span></button>}
+          <button type="button" className="ca-open" onClick={() => open(item)}>{tr ? "Kayda git" : "Open record"}<span>→</span></button>
         </div>
       </article>) : <div className="ca-empty"><b>{tr ? "Aksiyon bekleyen güvence işi yok." : "No assurance work requires action."}</b><span>{tr ? "Kontrol, kanıt ve düzeltme sağlığı izlenmeye devam ediyor." : "Control, evidence and remediation health remain monitored."}</span></div>}
     </div>
