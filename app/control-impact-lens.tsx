@@ -25,6 +25,11 @@ type RawRow = {
   data?: unknown;
   data_json?: unknown;
 };
+type EvidenceIntegritySnapshot = {
+  integrity: string;
+  checkedVersions: number;
+  failedVersion: number;
+};
 
 type ImpactStage = {
   key: string;
@@ -47,6 +52,28 @@ const NAV_LABELS: Record<string, string[]> = {
   "Bulgular ve CAPA": ["Bulgular ve CAPA", "Findings & CAPA"],
   "Risk Assessment": ["Risk Değerlendirmesi", "Risk Assessment"],
   "Bağlantılı GRC": ["Bağlantılı GRC Haritası", "Connected GRC Map"],
+};
+
+const REASON_LABELS: Record<string, { tr: string; en: string }> = {
+  "owner-missing": { tr: "Kontrol sahibi eksik", en: "Control owner missing" },
+  "test-owner-missing": { tr: "Test sahibi eksik", en: "Test owner missing" },
+  "test-date-missing": { tr: "Test tarihi planlanmamış", en: "Test date not planned" },
+  "test-overdue": { tr: "Kontrol testi gecikmiş", en: "Control test overdue" },
+  "test-failed": { tr: "Son kontrol testi başarısız", en: "Latest control test failed" },
+  "evidence-missing": { tr: "Bağlı kanıt yok", en: "No linked evidence" },
+  "evidence-stale": { tr: "Kanıt güncel değil", en: "Evidence is not current" },
+  "evidence-integrity-broken": { tr: "Kanıt bütünlük zinciri bozuk", en: "Evidence integrity chain broken" },
+  "evidence-integrity-legacy": { tr: "Kanıt bütünlüğü eski formatta doğrulanamıyor", en: "Legacy evidence integrity is unverified" },
+  "evidence-integrity-unavailable": { tr: "Kanıt bütünlük doğrulaması kullanılamıyor", en: "Evidence integrity verification unavailable" },
+  "audit-missing": { tr: "Denetim izi yok", en: "No audit trace" },
+  "open-findings": { tr: "Açık bulgu var", en: "Open finding exists" },
+  "automation-failing": { tr: "Otomatik kontrol başarısız", en: "Automated control failing" },
+  "automation-stale": { tr: "Otomatik kanıt bayat/eksik", en: "Automated evidence stale/missing" },
+  "automation-attention": { tr: "Otomasyon sinyali dikkat istiyor", en: "Automation signal needs attention" },
+  "automation-finding-open": { tr: "Açık otomasyon bulgusu", en: "Open automation finding" },
+  "remediation-open": { tr: "Açık CAPA / remediation", en: "Open CAPA / remediation" },
+  "risk-link-missing": { tr: "Bulgu risk bağlantısı eksik", en: "Finding risk link missing" },
+  "control-needs-improvement": { tr: "Kontrol iyileştirme bekliyor", en: "Control needs improvement" },
 };
 
 function currentLanguage(): Lang {
@@ -79,6 +106,40 @@ function normalizeRows(body: unknown): AssuranceRow[] {
       data,
     };
   }).filter((row) => row.module);
+}
+
+function evidenceIntegritySnapshots(history: Record<string, unknown>) {
+  const snapshots: Record<string, EvidenceIntegritySnapshot> = {};
+  const items = Array.isArray(history.evidenceItems) ? history.evidenceItems as Record<string, unknown>[] : [];
+  for (const item of items) {
+    const id = clean(item.id);
+    const integrity = clean(item.integrity);
+    if (!id || !integrity) continue;
+    snapshots[id] = {
+      integrity,
+      checkedVersions: Number(item.checkedVersions || 0),
+      failedVersion: Number(item.failedVersion || 0),
+    };
+  }
+  return snapshots;
+}
+
+function applyEvidenceIntegrity(rows: AssuranceRow[], history: Record<string, unknown>) {
+  const snapshots = evidenceIntegritySnapshots(history);
+  return rows.map((row) => {
+    if (row.module !== "Kanıtlar") return row;
+    const snapshot = snapshots[row.id];
+    if (!snapshot) return row;
+    return {
+      ...row,
+      data: {
+        ...row.data,
+        evidenceIntegrity: snapshot.integrity,
+        evidenceIntegrityCheckedVersions: snapshot.checkedVersions,
+        evidenceIntegrityFailedVersion: snapshot.failedVersion,
+      },
+    };
+  });
 }
 
 async function fetchJson(path: string) {
@@ -130,6 +191,7 @@ export default function ControlImpactLens() {
     setLoading(true);
     try {
       const grcPromise = fetchJson("/api/grc");
+      const historyPromise = fetchJson("/api/evidence/history").catch(() => ({}));
       const enterpriseResults = await Promise.allSettled(
         connectedGrcEnterpriseEndpoints.map(async ({ key, path }) => ({ key, body: await fetchJson(path) })),
       );
@@ -137,11 +199,12 @@ export default function ControlImpactLens() {
       for (const result of enterpriseResults) {
         if (result.status === "fulfilled") payloads[result.value.key] = result.value.body;
       }
-      const core = normalizeRows(await grcPromise);
+      const [grcBody, history] = await Promise.all([grcPromise, historyPromise]);
+      const core = normalizeRows(grcBody);
       const projected = buildConnectedGrcEnterpriseRows(payloads) as AssuranceRow[];
       const merged = new Map<string, AssuranceRow>();
       for (const row of [...core, ...projected]) merged.set(row.id, row);
-      setRows(Array.from(merged.values()));
+      setRows(applyEvidenceIntegrity(Array.from(merged.values()), history));
       setLastUpdated(new Date());
     } catch {
       setRows([]);
@@ -267,7 +330,7 @@ export default function ControlImpactLens() {
             <em>{tr ? "çözümlenemedi" : "unresolved"}</em>
           </div>)}
           {control?.reasons.slice(0, 5).map((reason) => <div key={reason}>
-            <b>{reason.replaceAll("-", " ")}</b>
+            <b>{REASON_LABELS[reason]?.[lang] || reason.replaceAll("-", " ")}</b>
             <span>{tr ? "Kontrol güvence skorunu düşürüyor." : "Reduces the control assurance score."}</span>
           </div>)}
         </div>
