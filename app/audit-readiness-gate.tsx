@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { buildAuditEvidenceAssurance, type AssuranceRecord } from "./audit-evidence-assurance";
+import { downloadAuditReadinessReport } from "./audit-readiness-export";
 import { withBasePath } from "./base-path";
 import { navigateToFornost } from "./navigation-focus";
 import "./audit-readiness-gate.css";
@@ -134,6 +135,12 @@ export default function AuditReadinessGate() {
     if(priority.ruleId){navigateToFornost({module:"Kanıt Otomasyonu",ref:priority.ruleId,source:"audit-readiness-assurance",filter:{ruleRef:priority.ruleId}});return}
     if(priority.targetControlRef)navigateToFornost({module:"Kontroller",ref:priority.targetControlRef,source:"audit-readiness-assurance",filter:{controlRef:priority.targetControlRef}});
   };
+  const exportSnapshot=(format:"html"|"csv")=>downloadAuditReadinessReport({
+    auditName:auditName||(tr?"Denetim Portföyü":"Audit Portfolio"),generatedAt:new Date().toISOString(),gateLabel,
+    readiness:assurance.total?assurance.readiness:null,coverage:assurance.total?assurance.coverage:null,total:assurance.total,current:assurance.current,stale:assurance.stale,missing:assurance.missing.length,
+    requirements:assurance.requirements,
+    assuranceSignals:scopedPriorities.map(item=>({id:item.id,state:item.state,title:item.title,targetControlRef:item.targetControlRef,owner:item.owner,dueDate:item.dueDate,reason:item.reason,blocking:priorityBlocksAudit(item)})),
+  },format);
 
   return createPortal(
     <section className={`audit-readiness-gate ${effectiveGate}`} aria-label={tr ? "Denetim hazırlık kapısı" : "Audit readiness gate"}>
@@ -151,7 +158,7 @@ export default function AuditReadinessGate() {
 
       {scopedPriorities.length>0&&<div className="audit-readiness-assurance"><div className="audit-readiness-gaps-head"><div><small>CONTINUOUS ASSURANCE</small><b>{tr?"Denetim kapsamındaki kontrollerin canlı güvence sinyalleri":"Live assurance signals for in-scope controls"}</b></div><span>{scopedPriorities.length}</span></div><div className="audit-readiness-list">{scopedPriorities.slice(0,6).map(priority=><button type="button" key={priority.id} className={`audit-readiness-gap ${priorityBlocksAudit(priority)?"assurance-blocker":"assurance-attention"}`} onClick={()=>openAssurancePriority(priority)}><i aria-hidden="true"/><div className="audit-readiness-gap-copy"><b>{priority.targetControlRef||priority.ruleId}</b><span>{priority.title}</span><small>{priority.state} · {priority.reason}{priority.owner?` · ${priority.owner}`:""}</small></div><div className="audit-readiness-gap-state"><strong>{priorityBlocksAudit(priority)?(tr?"Engeli incele":"Review blocker"):(tr?"Sinyali incele":"Review signal")}</strong><small>{tr?"Canlı kayda git":"Open live record"} · →</small></div></button>)}</div></div>}
 
-      <footer className="audit-readiness-actions"><div><small>{lastUpdated ? `${tr ? "Son kontrol" : "Last check"}: ${lastUpdated.toLocaleTimeString(tr ? "tr-TR" : "en-GB", { hour: "2-digit", minute: "2-digit" })}` : ""}</small></div><div><button type="button" className="secondary" onClick={() => navigateToFornost("Kontroller")}>{tr ? "Kontroller" : "Controls"}</button><button type="button" className="secondary" onClick={() => navigateToFornost("Bulgular ve CAPA")}>{tr ? "Bulgular / CAPA" : "Findings / CAPA"}</button><button type="button" className="secondary" onClick={()=>navigateToFornost("Kanıt Otomasyonu")}>Continuous Assurance</button><button type="button" onClick={() => navigateToFornost("Kanıtlar")}>{tr ? "Kanıtları Tamamla" : "Complete Evidence"}</button><button type="button" className="refresh" disabled={loading} onClick={() => void load()}>{loading ? "…" : "↻"}</button></div></footer>
+      <footer className="audit-readiness-actions"><div><small>{lastUpdated ? `${tr ? "Son kontrol" : "Last check"}: ${lastUpdated.toLocaleTimeString(tr ? "tr-TR" : "en-GB", { hour: "2-digit", minute: "2-digit" })}` : ""}</small></div><div><button type="button" className="secondary" onClick={()=>exportSnapshot("html")}>{tr?"HTML Özeti":"HTML Snapshot"}</button><button type="button" className="secondary" onClick={()=>exportSnapshot("csv")}>CSV</button><button type="button" className="secondary" onClick={() => navigateToFornost("Kontroller")}>{tr ? "Kontroller" : "Controls"}</button><button type="button" className="secondary" onClick={() => navigateToFornost("Bulgular ve CAPA")}>{tr ? "Bulgular / CAPA" : "Findings / CAPA"}</button><button type="button" className="secondary" onClick={()=>navigateToFornost("Kanıt Otomasyonu")}>Continuous Assurance</button><button type="button" onClick={() => navigateToFornost("Kanıtlar")}>{tr ? "Kanıtları Tamamla" : "Complete Evidence"}</button><button type="button" className="refresh" disabled={loading} onClick={() => void load()}>{loading ? "…" : "↻"}</button></div></footer>
     </section>,mount,
   );
 }
