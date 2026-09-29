@@ -89,7 +89,10 @@ test("connector operations handoff is built from live source, rule, run and find
 });
 
 test("connector operations deep links use authoritative record IDs without deriving fake evidence or finding refs", () => {
-  assert.match(overview, /kind === "source" \? \{ sourceRef: ref \} : kind === "rule" \? \{ ruleRef: ref \} : \{ findingRef: ref \}/);
+  assert.match(overview, /const filter: Record<string, string>/);
+  assert.match(overview, /\{ sourceRef: ref \}/);
+  assert.match(overview, /\{ ruleRef: ref \}/);
+  assert.match(overview, /\{ findingRef: ref \}/);
   assert.match(overview, /source: "integrations-overview", filter/);
   assert.match(overview, /filter: \{ controlRef \}/);
   assert.match(overview, /filter: \{ evidenceRef \}/);
