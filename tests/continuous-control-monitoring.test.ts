@@ -23,10 +23,10 @@ test("evidence freshness and control health expose missing, expiring and failing
 });
 
 test("CCM 2.0 persists schedules, immutable runs and independently closed CAPA",async()=>{
- const[route,migration,ui,schema,installer,server,scheduler]=await Promise.all([readFile("app/api/evidence-automation/route.ts","utf8"),readFile("drizzle/0067_continuous_control_monitoring.sql","utf8"),readFile("app/evidence-automation.tsx","utf8"),readFile("db/schema.ts","utf8"),readFile("scripts/linux/install.sh","utf8"),readFile("scripts/linux/serve.sh","utf8"),readFile("scripts/linux/evidence-scheduler.sh","utf8")]);
- assert.match(route,/run-due/);assert.match(route,/SOURCE_REQUEST_FAILED/);assert.match(route,/consecutive_failures/);assert.match(route,/BULGUYU KAPAT/);
- assert.match(route,/Bulguyu sahiplenen kişi aynı bulguyu kapatamaz/);assert.match(route,/Risk Assessment/);assert.match(route,/response_hash/);
+ const[core,migration,ui,schema,installer,server,scheduler]=await Promise.all([readFile("app/api/evidence-automation/core.ts","utf8"),readFile("drizzle/0067_continuous_control_monitoring.sql","utf8"),readFile("app/evidence-automation.tsx","utf8"),readFile("db/schema.ts","utf8"),readFile("scripts/linux/install.sh","utf8"),readFile("scripts/linux/serve.sh","utf8"),readFile("scripts/linux/evidence-scheduler.sh","utf8")]);
+ assert.match(core,/run-due/);assert.match(core,/SOURCE_REQUEST_FAILED/);assert.match(core,/consecutive_failures/);assert.match(core,/BULGUYU KAPAT/);
+ assert.match(core,/Bulguyu sahiplenen kişi aynı bulguyu kapatamaz/);assert.match(core,/Risk Assessment/);assert.match(core,/response_hash/);
  assert.match(migration,/evidence_automation_rules_due_idx/);assert.match(migration,/evidence_automation_findings_open_idx/);assert.match(migration,/closure_evidence_sha256/);
  assert.match(schema,/evidenceAutomationFindings/);assert.match(ui,/Sürekli Kontroller/);assert.match(ui,/Bulgular ve CAPA/);assert.match(ui,/Kanıt tazeliği/);
- assert.match(route,/constantTimeEqual\(configuredToken,presentedToken\)/);assert.match(installer,/evidence-scheduler\.token/);assert.match(server,/evidence-scheduler\.sh/);assert.match(scheduler,/x-fornost-scheduler-token/);
+ assert.match(core,/constantTimeEqual\(configuredToken,presentedToken\)/);assert.match(installer,/evidence-scheduler\.token/);assert.match(server,/evidence-scheduler\.sh/);assert.match(scheduler,/x-fornost-scheduler-token/);
 });
