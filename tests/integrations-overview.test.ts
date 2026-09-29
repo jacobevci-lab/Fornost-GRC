@@ -5,6 +5,7 @@ import test from "node:test";
 const overview = readFileSync("app/integrations-overview.tsx", "utf8");
 const settings = readFileSync("app/integration-settings.tsx", "utf8");
 const healthRoute = readFileSync("app/api/integrations/health/route.ts", "utf8");
+const automationRoute = readFileSync("app/api/evidence-automation/route.ts", "utf8");
 
 test("integration overview reads configuration and continuous assurance from their real backends", () => {
   assert.match(overview, /fetch\(withBasePath\("\/api\/integrations"\)/);
@@ -71,12 +72,18 @@ test("new security connector action opens the guided wizard after module navigat
   assert.match(overview, /onClick=\{openConnectorWizard\}/);
 });
 
+test("automation GET exposes authoritative rule identity for recent runs", () => {
+  assert.match(automationRoute, /SELECT id,rule_id FROM evidence_automation_runs ORDER BY created_at DESC LIMIT 100/);
+  assert.match(automationRoute, /new Map\(rows\.results\.map\(\(row\) => \[text\(row\.id\), text\(row\.rule_id\)\]\)\)/);
+  assert.match(automationRoute, /ruleId: ruleIds\.get\(text\(run\.id\)\) \|\| ""/);
+});
+
 test("connector operations handoff is built from live source, rule, run and finding records", () => {
   assert.match(overview, /runs\?: Run\[\]/);
   assert.match(overview, /findings\?: Finding\[\]/);
   assert.match(overview, /rules\.filter\(\(item\) => clean\(item\.sourceId\) === sourceId\)/);
   assert.match(overview, /ruleIds\.has\(clean\(item\.ruleId\)\)/);
-  assert.match(overview, /normalized\(item\.sourceName\) === normalized\(source\.name\)/);
+  assert.match(overview, /clean\(item\.ruleId\) && ruleIds\.has\(clean\(item\.ruleId\)\)/);
   assert.match(overview, /Kaynak → Kural → Kontrol → Kanıt → Bulgu/);
   assert.match(overview, /Source → Rule → Control → Evidence → Finding/);
 });
