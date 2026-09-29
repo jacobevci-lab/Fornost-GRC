@@ -277,6 +277,15 @@ export default function IntegrationsOverview({ lang }: { lang: Lang }) {
       .sort((a, b) => timestamp(b.createdAt) - timestamp(a.createdAt));
     const latestRun = sourceRuns[0];
     const latestFinding = openFindings[0];
+    const focusRuleId = clean(latestFinding?.ruleId || latestRun?.ruleId);
+    const focusRule = linkedRules.find((item) => clean(item.id) === focusRuleId) || activeRules[0] || linkedRules[0];
+    const focusControl = splitRefs(focusRule?.controlRefs)[0] || "";
+    const focusEvidenceId = latestFinding
+      ? clean(latestFinding.evidenceId)
+      : clean(latestRun?.ruleId) === clean(focusRule?.id)
+        ? clean(latestRun?.evidenceId)
+        : "";
+    const focusFindingId = clean(latestFinding?.id);
     const warningRules = activeRules.filter((item) => ["failing", "stale", "missing"].includes(clean(item.health)));
     const sourceTone: Tone = !source.enabled
       ? "neutral"
@@ -301,8 +310,10 @@ export default function IntegrationsOverview({ lang }: { lang: Lang }) {
       sourceId,
       activeRules,
       controlRefs,
-      latestRun,
-      latestFinding,
+      focusRule,
+      focusControl,
+      focusEvidenceId,
+      focusFindingId,
       openFindingCount: openFindings.length,
       tone: sourceTone,
       status,
@@ -392,10 +403,7 @@ export default function IntegrationsOverview({ lang }: { lang: Lang }) {
           </header>
           <div className="iov-connector-list">
             {connectorRows.map((row) => {
-              const primaryRule = row.activeRules[0];
-              const primaryControl = row.controlRefs[0];
-              const latestEvidenceId = clean(row.latestRun?.evidenceId || row.latestFinding?.evidenceId);
-              const latestFindingId = clean(row.latestFinding?.id);
+              const focusRuleId = clean(row.focusRule?.id);
               return (
                 <article key={row.sourceId || clean(row.source.name)} className={`iov-connector-row ${row.tone}`}>
                   <div className="iov-connector-copy">
@@ -410,10 +418,10 @@ export default function IntegrationsOverview({ lang }: { lang: Lang }) {
                   </div>
                   <div className="iov-connector-links" aria-label={tr ? "Bağlı kayıtlar" : "Linked records"}>
                     <button type="button" disabled={!row.sourceId} onClick={() => openAutomationRef("source", row.sourceId)}>{tr ? "Kaynak" : "Source"}</button>
-                    <button type="button" disabled={!clean(primaryRule?.id)} onClick={() => openAutomationRef("rule", clean(primaryRule?.id))}>{tr ? "Kural" : "Rule"}</button>
-                    <button type="button" disabled={!primaryControl} onClick={() => openControl(primaryControl)}>{tr ? "Kontrol" : "Control"}</button>
-                    <button type="button" disabled={!latestEvidenceId} onClick={() => openEvidence(latestEvidenceId)}>{tr ? "Kanıt" : "Evidence"}</button>
-                    <button type="button" disabled={!latestFindingId} onClick={() => openAutomationRef("finding", latestFindingId)}>{tr ? "Bulgu" : "Finding"}</button>
+                    <button type="button" disabled={!focusRuleId} onClick={() => openAutomationRef("rule", focusRuleId)}>{tr ? "Kural" : "Rule"}</button>
+                    <button type="button" disabled={!row.focusControl} onClick={() => openControl(row.focusControl)}>{tr ? "Kontrol" : "Control"}</button>
+                    <button type="button" disabled={!row.focusEvidenceId} onClick={() => openEvidence(row.focusEvidenceId)}>{tr ? "Kanıt" : "Evidence"}</button>
+                    <button type="button" disabled={!row.focusFindingId} onClick={() => openAutomationRef("finding", row.focusFindingId)}>{tr ? "Bulgu" : "Finding"}</button>
                   </div>
                 </article>
               );
