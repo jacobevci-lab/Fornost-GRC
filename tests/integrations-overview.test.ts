@@ -5,6 +5,7 @@ import test from "node:test";
 const overview = readFileSync("app/integrations-overview.tsx", "utf8");
 const settings = readFileSync("app/integration-settings.tsx", "utf8");
 const healthRoute = readFileSync("app/api/integrations/health/route.ts", "utf8");
+const automationRoute = readFileSync("app/api/evidence-automation/route.ts", "utf8");
 
 test("integration overview reads configuration and continuous assurance from their real backends", () => {
   assert.match(overview, /fetch\(withBasePath\("\/api\/integrations"\)/);
@@ -69,6 +70,38 @@ test("new security connector action opens the guided wizard after module navigat
   assert.match(overview, /attempts < 24/);
   assert.match(overview, /window\.setTimeout\(open, 90\)/);
   assert.match(overview, /onClick=\{openConnectorWizard\}/);
+});
+
+test("automation GET exposes authoritative rule identity for recent runs", () => {
+  assert.match(automationRoute, /SELECT id,rule_id FROM evidence_automation_runs ORDER BY created_at DESC LIMIT 100/);
+  assert.match(automationRoute, /new Map\(rows\.results\.map\(\(row\) => \[text\(row\.id\), text\(row\.rule_id\)\]\)\)/);
+  assert.match(automationRoute, /ruleId: ruleIds\.get\(text\(run\.id\)\) \|\| ""/);
+});
+
+test("connector operations handoff is built from live source, rule, run and finding records", () => {
+  assert.match(overview, /runs\?: Run\[\]/);
+  assert.match(overview, /findings\?: Finding\[\]/);
+  assert.match(overview, /rules\.filter\(\(item\) => clean\(item\.sourceId\) === sourceId\)/);
+  assert.match(overview, /ruleIds\.has\(clean\(item\.ruleId\)\)/);
+  assert.match(overview, /clean\(item\.ruleId\) && ruleIds\.has\(clean\(item\.ruleId\)\)/);
+  assert.match(overview, /Kaynak → Kural → Kontrol → Kanıt → Bulgu/);
+  assert.match(overview, /Source → Rule → Control → Evidence → Finding/);
+});
+
+test("connector operations deep links use authoritative record IDs without deriving fake evidence or finding refs", () => {
+  assert.match(overview, /const filter: Record<string, string>/);
+  assert.match(overview, /\{ sourceRef: ref \}/);
+  assert.match(overview, /\{ ruleRef: ref \}/);
+  assert.match(overview, /\{ findingRef: ref \}/);
+  assert.match(overview, /source: "integrations-overview", filter/);
+  assert.match(overview, /filter: \{ controlRef \}/);
+  assert.match(overview, /filter: \{ evidenceRef \}/);
+  assert.match(overview, /latestEvidenceId = clean\(row\.latestRun\?\.evidenceId \|\| row\.latestFinding\?\.evidenceId\)/);
+  assert.match(overview, /latestFindingId = clean\(row\.latestFinding\?\.id\)/);
+  assert.match(overview, /disabled=\{!latestEvidenceId\}/);
+  assert.match(overview, /disabled=\{!latestFindingId\}/);
+  assert.doesNotMatch(overview, /`CCM-\$\{/);
+  assert.doesNotMatch(overview, /`EVD-AUTO-\$\{/);
 });
 
 test("workflow integration settings owns the single overview surface", () => {

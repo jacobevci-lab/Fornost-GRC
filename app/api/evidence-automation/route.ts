@@ -8,10 +8,37 @@ type RunPayload = Record<string, unknown> & {
   status?: string;
   failures?: number;
 };
+type AutomationGetPayload = Record<string, unknown> & {
+  runs?: Array<Record<string, unknown>>;
+};
 
 const text = (value: unknown) => String(value ?? "").trim();
 
-export const GET = coreGET;
+/**
+ * Adds the authoritative rule ID to each recent run returned by the core API.
+ * Consumers must not join runs to sources by display names because connector
+ * names and rule names are not identity fields.
+ */
+export async function GET(req: NextRequest) {
+  const response = await coreGET(req);
+  if (!response.ok) return response;
+
+  const payload = await response.clone().json().catch(() => ({})) as AutomationGetPayload;
+  const runs = Array.isArray(payload.runs) ? payload.runs : [];
+  if (!runs.length) return response;
+
+  const { env } = await import("cloudflare:workers");
+  const runtime = env as unknown as Env;
+  const rows = await runtime.DB.prepare(
+    "SELECT id,rule_id FROM evidence_automation_runs ORDER BY created_at DESC LIMIT 100",
+  ).all<{ id: string; rule_id: string }>();
+  const ruleIds = new Map(rows.results.map((row) => [text(row.id), text(row.rule_id)]));
+
+  return NextResponse.json(
+    { ...payload, runs: runs.map((run) => ({ ...run, ruleId: ruleIds.get(text(run.id)) || "" })) },
+    { status: response.status, headers: { "cache-control": "no-store" } },
+  );
+}
 
 /**
  * Decorates the evidence-automation core response with the exact finding ID
