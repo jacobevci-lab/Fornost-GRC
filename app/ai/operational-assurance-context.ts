@@ -1,9 +1,10 @@
 import { assuranceEscalationNavigation } from "../assurance-escalation-navigation";
 import { buildContinuousAssuranceDashboard, type AssurancePriority } from "../continuous-assurance-dashboard";
 import { loadContinuousAssuranceSnapshots } from "../continuous-assurance-store";
+import { loadContinuousAssuranceOperationsHealth } from "../evidence/operations-health";
 import { dataClassificationAllowed, type AiDataClassification } from "./data-policy";
 
-export type OperationalAssuranceNavigation = {module:string;ref:string;filterKey:"riskRef"|"controlRef"|"ruleRef"|"findingRef"};
+export type OperationalAssuranceNavigation = {module:string;ref:string;filterKey:"riskRef"|"controlRef"|"ruleRef"|"findingRef"|"sourceRef"};
 export type OperationalAssuranceContextSource = { id: string; module: string; title: string; navigation?: OperationalAssuranceNavigation };
 
 type RiskReviewRow = { id:string;risk_id:string;status:string;submitted_at:string };
@@ -57,16 +58,18 @@ export async function buildOperationalAssuranceAiContext(
   maxChars = 6_500,
 ) {
   if (!dataClassificationAllowed("Internal", maxDataClassification)) {
-    return { sources: [] as OperationalAssuranceContextSource[], contextText: "", summaryAvailable: false, governance:emptyGovernance };
+    return { sources: [] as OperationalAssuranceContextSource[], contextText: "", summaryAvailable: false, operationsAvailable:false, governance:emptyGovernance };
   }
 
-  const [snapshots,riskReviews,exceptions,escalations]=await Promise.all([
+  const now=new Date();
+  const [snapshots,riskReviews,exceptions,escalations,operationsHealth]=await Promise.all([
     loadContinuousAssuranceSnapshots(db),
     safeRows<RiskReviewRow>(db,"SELECT id,risk_id,status,submitted_at FROM continuous_assurance_risk_reviews WHERE status='pending-review' ORDER BY submitted_at ASC LIMIT 12"),
     exceptionRows(db),
     safeRows<EscalationRow>(db,"SELECT id,kind,severity,subject_ref,owner,title,detail,status,first_seen_at,last_seen_at,source_json FROM continuous_assurance_escalations WHERE status IN ('active','acknowledged') ORDER BY CASE severity WHEN 'critical' THEN 0 WHEN 'high' THEN 1 ELSE 2 END,last_seen_at DESC LIMIT 20"),
+    loadContinuousAssuranceOperationsHealth(db,now).catch(()=>null),
   ]);
-  const now=new Date(),today=now.toISOString().slice(0,10),in14=new Date(now.getTime()+14*86_400_000).toISOString().slice(0,10);
+  const today=now.toISOString().slice(0,10),in14=new Date(now.getTime()+14*86_400_000).toISOString().slice(0,10);
   const governance:OperationalAssuranceGovernanceSummary={
     pendingRiskReviews:riskReviews.length,
     pendingExceptions:exceptions.filter(row=>row.status==="pending-review").length,
@@ -79,7 +82,8 @@ export async function buildOperationalAssuranceAiContext(
   };
   const snapshotAvailable=Boolean(snapshots.rules.length||snapshots.findings.length||snapshots.workItems.length);
   const governanceAvailable=Object.values(governance).some(value=>value>0);
-  if(!snapshotAvailable&&!governanceAvailable)return{sources:[] as OperationalAssuranceContextSource[],contextText:"",summaryAvailable:false,governance};
+  const operationsAvailable=Boolean(operationsHealth);
+  if(!snapshotAvailable&&!governanceAvailable&&!operationsAvailable)return{sources:[] as OperationalAssuranceContextSource[],contextText:"",summaryAvailable:false,operationsAvailable:false,governance};
 
   const dashboard = buildContinuousAssuranceDashboard({rules:snapshots.rules,findings:snapshots.findings,workItems:snapshots.workItems,now});
   const sources: OperationalAssuranceContextSource[] = [];
@@ -96,6 +100,56 @@ export async function buildOperationalAssuranceAiContext(
   };
 
   add({id:"CA-GOVERNANCE-SUMMARY",module:"Bağlantılı GRC",title:"Continuous Assurance governance queue"},{generatedAt:now.toISOString(),...governance});
+
+  if(operationsHealth){
+    const summary=operationsHealth.summary;
+    add({id:"CA-OPERATIONS-HEALTH",module:"Kanıt Otomasyonu",title:"Continuous Assurance 24h operations health"},{
+      generatedAt:operationsHealth.generatedAt,
+      windowHours:operationsHealth.windowHours,
+      enabledSources:summary.enabledSources,
+      operationalRules:summary.operationalRules,
+      healthyRules:summary.healthyRules,
+      unhealthyRules:summary.unhealthyRules,
+      dueRules:summary.dueRules,
+      evidenceReadyRules:summary.evidenceReadyRules,
+      runs24h:summary.runs24h,
+      passRuns24h:summary.passRuns24h,
+      failRuns24h:summary.failRuns24h,
+      errorRuns24h:summary.errorRuns24h,
+      successRate24h:summary.successRate24h,
+      averageDurationMs24h:summary.averageDurationMs24h,
+      p95DurationMs24h:summary.p95DurationMs24h,
+    });
+
+    const connectorHealth=[...operationsHealth.connectors]
+      .sort((a,b)=>b.unhealthyRules-a.unhealthyRules||(b.failRuns24h+b.errorRuns24h)-(a.failRuns24h+a.errorRuns24h)||b.runs24h-a.runs24h)
+      .slice(0,8);
+    for(const connector of connectorHealth){
+      const sourceRef=compact(connector.sourceId,120);
+      const navigation:OperationalAssuranceNavigation|undefined=sourceRef?{module:"Kanıt Otomasyonu",ref:sourceRef,filterKey:"sourceRef"}:undefined;
+      if(!add({id:`CA-CONNECTOR-HEALTH-${safeIdPart(sourceRef||connector.sourceName)}`,module:"Kanıt Otomasyonu",title:`Connector health · ${compact(connector.sourceName)||sourceRef}`,...(navigation?{navigation}:{})},{
+        sourceId:sourceRef,
+        sourceName:compact(connector.sourceName),
+        vendor:compact(connector.vendor),
+        category:compact(connector.category),
+        activeRules:connector.activeRules,
+        healthyRules:connector.healthyRules,
+        unhealthyRules:connector.unhealthyRules,
+        dueRules:connector.dueRules,
+        evidenceReadyRules:connector.evidenceReadyRules,
+        runs24h:connector.runs24h,
+        passRuns24h:connector.passRuns24h,
+        failRuns24h:connector.failRuns24h,
+        errorRuns24h:connector.errorRuns24h,
+        successRate24h:connector.successRate24h,
+        averageDurationMs24h:connector.averageDurationMs24h,
+        p95DurationMs24h:connector.p95DurationMs24h,
+        lastRunAt:compact(connector.lastRunAt,60),
+        lastRunStatus:compact(connector.lastRunStatus,40),
+      }))break;
+    }
+  }
+
   for(const review of riskReviews.slice(0,5)){
     const riskRef=compact(review.risk_id,120),navigation=riskRef?{module:"Risk Assessment",ref:riskRef,filterKey:"riskRef" as const}:undefined;
     if(!add({id:`CA-RISK-REVIEW-${safeIdPart(review.id)}`,module:"Risk Assessment",title:`Pending residual risk review · ${riskRef||compact(review.id)}`,...(navigation?{navigation}:{})},{reviewId:compact(review.id),riskRef,status:compact(review.status),submittedAt:compact(review.submitted_at)}))break;
@@ -120,5 +174,5 @@ export async function buildOperationalAssuranceAiContext(
     if (!add(source,{kind:item.kind,action:compact(item.action,80),state:compact(item.state,80),priority:item.priority,ruleId:compact(item.ruleId,120),ruleName:compact(item.ruleName),findingId:compact(item.findingId,120),targetControlRef:compact(item.targetControlRef,120),owner:compact(item.owner,160),dueDate:compact(item.dueDate,40),reason:compact(item.reason,100),evidenceIntegrity:compact(item.evidenceIntegrity,40),linkedEvidenceCount:Number(item.linkedEvidenceCount||0),updatedAt:compact(item.updatedAt,60)}))break;
   }
 
-  return {sources,contextText:chunks.join("\n"),summaryAvailable:chunks.length>0,governance};
+  return {sources,contextText:chunks.join("\n"),summaryAvailable:chunks.length>0,operationsAvailable,governance};
 }
