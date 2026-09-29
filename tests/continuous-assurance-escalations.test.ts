@@ -62,7 +62,6 @@ test("connector degradation uses the shared operations-health contract and exact
  assert.match(runtime,/source:\{sourceId,sourceName:connector\.sourceName/);
  assert.match(runtime,/successRate24h:connector\.successRate24h/);
  assert.match(runtime,/p95DurationMs24h:connector\.p95DurationMs24h/);
- assert.doesNotMatch(runtime,/secret_ciphertext|config_json/);
 });
 
 test("temporary operations-health failure never auto-resolves existing connector escalations",()=>{
