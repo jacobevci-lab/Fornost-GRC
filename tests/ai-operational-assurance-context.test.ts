@@ -13,6 +13,16 @@ test("Ask Fornost routes Continuous Assurance questions to operational evidence 
   assert.ok(modules.includes("Kontroller"));
 });
 
+test("Ask Fornost routes connector reliability questions to operational assurance",()=>{
+ const english=inferReadModules("Show connector success rate and p95 runtime for the last 24 hours");
+ assert.ok(english.includes("Kanıt Otomasyonu"));
+ const turkish=inferReadModules("Connector sağlığı ve güvence başarı oranı nasıl?");
+ assert.ok(turkish.includes("Kanıt Otomasyonu"));
+ assert.match(aiContext,/"connector success rate"/);
+ assert.match(aiContext,/"p95 runtime"/);
+ assert.match(aiContext,/"connector sağlığı"/);
+});
+
 test("Ask Fornost routes governance exception and escalation language to operational assurance",()=>{
  const english=inferReadModules("Show active assurance exceptions, expiring waivers, mandatory retests and critical escalations");
  assert.ok(english.includes("Kanıt Otomasyonu"));
