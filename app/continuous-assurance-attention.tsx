@@ -40,8 +40,17 @@ type InsightPayload = {
   insights?: Insight[];
 };
 type Source = { id?: string; name?: string; vendor?: string; enabled?: boolean };
-type Rule = { id?: string; sourceId?: string; enabled?: boolean; controlRefs?: string; lastRunAt?: string };
-type Run = { ruleId?: string; evidenceId?: string; createdAt?: string };
+type Rule = {
+  id?: string;
+  sourceId?: string;
+  enabled?: boolean;
+  controlRefs?: string;
+  health?: string;
+  lastRunAt?: string;
+  nextRunAt?: string;
+  lastEvidenceAt?: string;
+};
+type Run = { ruleId?: string; status?: string; evidenceId?: string; createdAt?: string };
 type Finding = { id?: string; ruleId?: string; evidenceId?: string; status?: string; updatedAt?: string; createdAt?: string };
 type AutomationPayload = { sources?: Source[]; rules?: Rule[]; runs?: Run[]; findings?: Finding[] };
 type Chain = { sourceId: string; ruleId: string; controlRef: string; evidenceRef: string; findingRef: string };
@@ -52,6 +61,7 @@ const timestamp = (value: unknown) => {
   return Number.isFinite(parsed) ? parsed : 0;
 };
 const splitRefs = (value: unknown) => clean(value).split(/[;,|\n]+/).map((item) => item.trim()).filter(Boolean);
+const chainKey = (sourceId: string, code: unknown) => `${sourceId}:${clean(code)}`;
 
 function reasonCopy(insight: Insight, tr: boolean) {
   const affected = Number(insight.affectedRules || 0);
@@ -91,8 +101,9 @@ export default function ContinuousAssuranceAttention({ lang }: { lang: Lang }) {
   const tr = lang === "tr";
   const [insights, setInsights] = useState<InsightPayload | null>(null);
   const [automation, setAutomation] = useState<AutomationPayload>({});
-  const [available, setAvailable] = useState(true);
-  const [loading, setLoading] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+  const [available, setAvailable] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -120,6 +131,7 @@ export default function ContinuousAssuranceAttention({ lang }: { lang: Lang }) {
       setAvailable(false);
       setInsights(null);
     } finally {
+      setLoaded(true);
       setLoading(false);
     }
   }, []);
@@ -129,45 +141,64 @@ export default function ContinuousAssuranceAttention({ lang }: { lang: Lang }) {
     return () => window.clearTimeout(timer);
   }, [load]);
 
-  const chainBySource = useMemo(() => {
+  const chainByInsight = useMemo(() => {
     const sources = automation.sources || [];
     const rules = automation.rules || [];
     const runs = automation.runs || [];
     const findings = automation.findings || [];
+    const insightRows = insights?.insights || [];
+    const snapshotNow = timestamp(insights?.generatedAt) || Date.now();
     const chains = new Map<string, Chain>();
 
-    for (const source of sources) {
-      const sourceId = clean(source.id);
-      if (!sourceId) continue;
-      const activeRules = source.enabled
+    for (const insight of insightRows) {
+      const sourceId = clean(insight.sourceId);
+      if (!sourceId || chains.has(chainKey(sourceId, insight.code))) continue;
+      const source = sources.find((item) => clean(item.id) === sourceId);
+      const activeRules = source?.enabled
         ? rules.filter((rule) => rule.enabled && clean(rule.sourceId) === sourceId)
         : [];
       const activeRuleIds = new Set(activeRules.map((rule) => clean(rule.id)).filter(Boolean));
-      const latestRule = [...activeRules].sort((a, b) => timestamp(b.lastRunAt) - timestamp(a.lastRunAt))[0];
+      const latestActiveRule = [...activeRules].sort((a, b) => timestamp(b.lastRunAt) - timestamp(a.lastRunAt))[0];
+      const latestErrorRun = runs
+        .filter((run) => clean(run.status) === "error" && activeRuleIds.has(clean(run.ruleId)))
+        .sort((a, b) => timestamp(b.createdAt) - timestamp(a.createdAt))[0];
+      const unhealthyRule = [...activeRules]
+        .filter((rule) => ["failing", "stale", "missing"].includes(clean(rule.health)))
+        .sort((a, b) => timestamp(b.lastRunAt) - timestamp(a.lastRunAt))[0];
+      const evidenceGapRule = [...activeRules]
+        .filter((rule) => !clean(rule.lastEvidenceAt))
+        .sort((a, b) => timestamp(b.lastRunAt) - timestamp(a.lastRunAt))[0];
+      const dueRule = [...activeRules]
+        .filter((rule) => !clean(rule.nextRunAt) || (timestamp(rule.nextRunAt) > 0 && timestamp(rule.nextRunAt) <= snapshotNow))
+        .sort((a, b) => timestamp(a.nextRunAt) - timestamp(b.nextRunAt))[0];
+
+      const preferredRuleId = insight.code === "connector-errors"
+        ? clean(latestErrorRun?.ruleId)
+        : insight.code === "control-health"
+          ? clean(unhealthyRule?.id)
+          : insight.code === "evidence-gap"
+            ? clean(evidenceGapRule?.id)
+            : insight.code === "due-backlog"
+              ? clean(dueRule?.id)
+              : "";
+      const focusRule = activeRules.find((rule) => clean(rule.id) === preferredRuleId) || (insight.code === "no-active-rules" ? undefined : latestActiveRule);
+      const ruleId = clean(focusRule?.id);
       const latestFinding = findings
-        .filter((finding) => clean(finding.status) !== "closed" && activeRuleIds.has(clean(finding.ruleId)))
+        .filter((finding) => ruleId && clean(finding.ruleId) === ruleId && clean(finding.status) !== "closed")
         .sort((a, b) => timestamp(b.updatedAt || b.createdAt) - timestamp(a.updatedAt || a.createdAt))[0];
       const latestRun = runs
-        .filter((run) => activeRuleIds.has(clean(run.ruleId)))
+        .filter((run) => ruleId && clean(run.ruleId) === ruleId)
         .sort((a, b) => timestamp(b.createdAt) - timestamp(a.createdAt))[0];
-      const ruleId = clean(latestFinding?.ruleId || latestRun?.ruleId || latestRule?.id);
-      const focusRule = activeRules.find((rule) => clean(rule.id) === ruleId) || latestRule;
-      const controlRef = splitRefs(focusRule?.controlRefs)[0] || "";
-      const evidenceRef = latestFinding
-        ? clean(latestFinding.evidenceId)
-        : clean(latestRun?.ruleId) === clean(focusRule?.id)
-          ? clean(latestRun?.evidenceId)
-          : "";
-      chains.set(sourceId, {
+      chains.set(chainKey(sourceId, insight.code), {
         sourceId,
-        ruleId: clean(focusRule?.id),
-        controlRef,
-        evidenceRef,
+        ruleId,
+        controlRef: splitRefs(focusRule?.controlRefs)[0] || "",
+        evidenceRef: latestFinding ? clean(latestFinding.evidenceId) : clean(latestRun?.evidenceId),
         findingRef: clean(latestFinding?.id),
       });
     }
     return chains;
-  }, [automation]);
+  }, [automation, insights]);
 
   const attention = useMemo(() => (insights?.insights || []).filter((item) => item.state !== "healthy"), [insights]);
   const summary = insights?.summary;
@@ -175,7 +206,7 @@ export default function ContinuousAssuranceAttention({ lang }: { lang: Lang }) {
   function openAutomationRef(kind: "source" | "rule" | "finding", id: string) {
     const ref = clean(id);
     if (!ref) return;
-    const filter = kind === "source" ? { sourceRef: ref } : kind === "rule" ? { ruleRef: ref } : { findingRef: ref };
+    const filter: Record<string, string> = kind === "source" ? { sourceRef: ref } : kind === "rule" ? { ruleRef: ref } : { findingRef: ref };
     navigateToFornost({ module: "Kanıt Otomasyonu", ref, kind, source: "continuous-assurance-attention", filter });
   }
 
@@ -191,8 +222,10 @@ export default function ContinuousAssuranceAttention({ lang }: { lang: Lang }) {
     navigateToFornost({ module: "Kanıtlar", ref: evidenceRef, kind: "evidence", source: "continuous-assurance-attention", filter: { evidenceRef } });
   }
 
+  const surfaceState = !loaded ? "loading" : available ? clean(insights?.state) || "healthy" : "unknown";
+
   return (
-    <section className={`ca-attention ${available ? clean(insights?.state) || "healthy" : "unknown"}`} aria-label={tr ? "Continuous Assurance dikkat görünümü" : "Continuous Assurance attention view"}>
+    <section className={`ca-attention ${surfaceState}`} aria-label={tr ? "Continuous Assurance dikkat görünümü" : "Continuous Assurance attention view"}>
       <header className="ca-attention-head">
         <div>
           <small>CONTINUOUS ASSURANCE HEALTH</small>
@@ -202,7 +235,12 @@ export default function ContinuousAssuranceAttention({ lang }: { lang: Lang }) {
         <button type="button" disabled={loading} onClick={() => void load()}>{loading ? "…" : "↻"}</button>
       </header>
 
-      {!available ? (
+      {!loaded ? (
+        <div className="ca-attention-loading" role="status">
+          <b>{tr ? "Continuous Assurance durumu okunuyor" : "Reading Continuous Assurance state"}</b>
+          <span>{tr ? "Operasyonel durum doğrulanana kadar sağlıklı veya sorunlu olarak işaretlenmez." : "The surface is not marked healthy or unhealthy until operational state is verified."}</span>
+        </div>
+      ) : !available ? (
         <div className="ca-attention-unavailable" role="status">
           <b>{tr ? "Operasyonel insight verisi alınamadı" : "Operational insight data unavailable"}</b>
           <span>{tr ? "Bu durum sağlıklı olarak yorumlanmaz; veri tekrar okunana kadar durum bilinmiyor." : "This is not treated as healthy; state remains unknown until data can be read again."}</span>
@@ -226,7 +264,7 @@ export default function ContinuousAssuranceAttention({ lang }: { lang: Lang }) {
             <div className="ca-attention-list">
               {attention.map((insight, index) => {
                 const sourceId = clean(insight.sourceId);
-                const chain = chainBySource.get(sourceId) || { sourceId, ruleId: "", controlRef: "", evidenceRef: "", findingRef: "" };
+                const chain = chainByInsight.get(chainKey(sourceId, insight.code)) || { sourceId, ruleId: "", controlRef: "", evidenceRef: "", findingRef: "" };
                 const copy = reasonCopy(insight, tr);
                 return (
                   <article key={`${sourceId}:${clean(insight.code)}:${index}`} className={`ca-attention-row ${clean(insight.state) || "watch"}`}>
