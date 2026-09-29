@@ -167,12 +167,12 @@ test("connector operations deep links use authoritative record IDs without deriv
 test("connector run-now executes only an authoritative active rule and refreshes telemetry", () => {
   assert.match(overview, /const actionRuleId = activeRuleIds\.has\(focusRuleId\) \? focusRuleId : clean\(latestActiveRule\?\.id\)/);
   assert.match(overview, /async function runContinuousControl\(ruleId: string\)/);
-  assert.match(overview, /if \(!ref \|\| runningRuleId\) return/);
+  assert.match(overview, /if \(!ref \|\| runningRuleId \|\| runningDue\) return/);
   assert.match(overview, /method: "POST"/);
   assert.match(overview, /body: JSON\.stringify\(\{ action: "run-rule", ruleId: ref \}\)/);
   assert.match(overview, /const isExecutionError = status === "error"/);
   assert.match(overview, /await load\(\)/);
-  assert.match(overview, /disabled=\{!row\.actionRuleId \|\| Boolean\(runningRuleId\)\}/);
+  assert.match(overview, /disabled=\{!row\.actionRuleId \|\| Boolean\(runningRuleId\) \|\| runningDue\}/);
   assert.match(overview, /onClick=\{\(\) => void runContinuousControl\(row\.actionRuleId\)\}/);
   assert.match(overview, /runNotice\?\.ruleId === row\.actionRuleId/);
   assert.match(overview, /Şimdi çalıştır/);
@@ -186,6 +186,33 @@ test("connector run-now cannot execute inactive fallback rules or derive evidenc
   assert.doesNotMatch(overview, /runContinuousControl\(row\.focusRule/);
   assert.doesNotMatch(overview, /`CCM-\$\{/);
   assert.doesNotMatch(overview, /`EVD-AUTO-\$\{/);
+});
+
+test("bulk due execution is scoped to operational rules and reuses authoritative run-rule execution", () => {
+  assert.match(overview, /const operationalDueRules = operationalRules\.filter/);
+  assert.match(overview, /if \(!nextRunAt\) return true/);
+  assert.match(overview, /snapshotNow > 0 && nextRun > 0 && nextRun <= snapshotNow/);
+  assert.match(overview, /const operationalDueRuleIds = operationalDueRules\.map\(\(item\) => clean\(item\.id\)\)\.filter\(Boolean\)/);
+  assert.match(overview, /async function runDueControls\(\)/);
+  assert.match(overview, /if \(!operationalDueRuleIds\.length \|\| runningDue \|\| runningRuleId\) return/);
+  assert.match(overview, /const dueRuleIds = \[\.\.\.operationalDueRuleIds\]/);
+  assert.match(overview, /for \(const ruleId of dueRuleIds\)/);
+  assert.match(overview, /body: JSON\.stringify\(\{ action: "run-rule", ruleId \}\)/);
+  assert.match(overview, /if \(clean\(payload\.status\) === "error"\) connectorErrors \+= 1/);
+  assert.doesNotMatch(overview, /payload\.status[^\n]*=== "fail"[^\n]*connectorErrors/);
+  assert.match(overview, /await load\(\)/);
+  assert.match(overview, /Zamanı gelenleri çalıştır/);
+  assert.match(overview, /Run due/);
+});
+
+test("bulk due execution and row execution are mutually exclusive", () => {
+  assert.match(overview, /const \[runningDue, setRunningDue\] = useState\(false\)/);
+  assert.match(overview, /if \(!ref \|\| runningRuleId \|\| runningDue\) return/);
+  assert.match(overview, /if \(!operationalDueRuleIds\.length \|\| runningDue \|\| runningRuleId\) return/);
+  assert.match(overview, /disabled=\{!operationalDueRuleIds\.length \|\| runningDue \|\| Boolean\(runningRuleId\)\}/);
+  assert.match(overview, /disabled=\{!row\.actionRuleId \|\| Boolean\(runningRuleId\) \|\| runningDue\}/);
+  assert.match(overview, /setBulkRunNotice\(null\)/);
+  assert.match(overview, /iov-bulk-feedback/);
 });
 
 test("workflow integration settings owns the single overview surface", () => {
