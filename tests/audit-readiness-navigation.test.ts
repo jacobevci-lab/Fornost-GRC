@@ -12,12 +12,12 @@ test("audit readiness uses the shared navigation focus contract", () => {
 
 test("missing audit evidence routes to the exact control reference", () => {
   assert.match(gate, /status === "missing"/);
-  assert.match(gate, /module: "Kontroller", ref: reference, kind: "control", source: "audit-readiness"/);
+  assert.match(gate, /module:\s*"Kontroller"\s*,\s*ref:\s*reference\s*,\s*kind:\s*"control"\s*,\s*source:\s*"audit-readiness"/);
 });
 
 test("stale audit evidence filters the evidence library by linked control", () => {
-  assert.match(gate, /module: "Kanıtlar"/);
-  assert.match(gate, /filter: \{ controlRef: reference \}/);
+  assert.match(gate, /module:\s*"Kanıtlar"/);
+  assert.match(gate, /filter:\s*\{\s*controlRef:\s*reference\s*\}/);
   assert.match(gate, /className=\{`audit-readiness-gap \$\{gap\.status\}`\}/);
   assert.match(css, /\.audit-readiness-list \.audit-readiness-gap/);
   assert.match(css, /cursor:pointer/);

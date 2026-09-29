@@ -44,6 +44,6 @@ test("Continuous Assurance and Ask Fornost expose evidence integrity without loa
   assert.match(store, /MAX_EVIDENCE_VERSION_ROWS/);
   assert.doesNotMatch(store, /simple_evidence_files/);
   assert.match(context, /evidenceIntegrityFailures/);
-  assert.match(context, /evidenceIntegrity: compact\(item\.evidenceIntegrity/);
+  assert.match(context, /evidenceIntegrity:\s*compact\(item\.evidenceIntegrity/);
   assert.match(context, /linkedEvidenceCount/);
 });
