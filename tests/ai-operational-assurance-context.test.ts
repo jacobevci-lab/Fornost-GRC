@@ -94,7 +94,7 @@ test("governed target control parsing prefers candidate payload lineage", () => 
 });
 
 test("governed target control parsing supports lineage and legacy explicit fallback", () => {
-  assert.equal(targetControlRefFromDecision(JSON.stringify({ candidate: { lineage: { controlRef: "CC6.1" } })), "CC6.1");
+  assert.equal(targetControlRefFromDecision(JSON.stringify({ candidate: { lineage: { controlRef: "CC6.1" } } })), "CC6.1");
   assert.equal(targetControlRefFromDecision(JSON.stringify({ targetControlRef: "PCI-8.4.2" })), "PCI-8.4.2");
   assert.equal(targetControlRefFromDecision("not-json"), "");
 });
