@@ -1,4 +1,4 @@
-export type AssuranceEscalationFilterKey="ruleRef"|"findingRef"|"riskRef"|"controlRef";
+export type AssuranceEscalationFilterKey="ruleRef"|"findingRef"|"riskRef"|"controlRef"|"sourceRef";
 export type AssuranceEscalationNavigation={module:string;recordRef:string;filterKey:AssuranceEscalationFilterKey};
 
 const text=(value:unknown)=>String(value||"").trim();
@@ -8,7 +8,9 @@ export function assuranceEscalationNavigation(kind:string,source:Record<string,u
  const controlRef=text(source.controlRef);
  const ruleRef=text(source.ruleId);
  const findingRef=text(source.findingCode||source.findingRef);
+ const sourceRef=text(source.sourceId||source.sourceRef);
  if(kind==="risk-review"&&riskRef)return{module:"Risk Assessment",recordRef:riskRef,filterKey:"riskRef"};
+ if(kind==="connector-reliability"&&sourceRef)return{module:"Kanıt Otomasyonu",recordRef:sourceRef,filterKey:"sourceRef"};
  if(kind==="exception-expiry"){
   if(controlRef)return{module:"Kontroller",recordRef:controlRef,filterKey:"controlRef"};
   if(riskRef)return{module:"Risk Assessment",recordRef:riskRef,filterKey:"riskRef"};
