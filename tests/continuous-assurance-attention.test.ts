@@ -30,7 +30,7 @@ test("attention panel selects the affected active rule for each operational reas
   assert.match(attention, /clean\(run\.status\) === "error" && activeRuleIds\.has\(clean\(run\.ruleId\)\)/);
   assert.match(attention, /\["failing", "stale", "missing"\]\.includes\(clean\(rule\.health\)\)/);
   assert.match(attention, /\.filter\(\(rule\) => !clean\(rule\.lastEvidenceAt\)\)/);
-  assert.match(attention, /!clean\(rule\.nextRunAt\) \|\| \(timestamp\(rule\.nextRunAt\) > 0 && timestamp\(rule\.nextRunAt\) <= snapshotNow\)/);
+  assert.match(attention, /!clean\(rule\.nextRunAt\) \|\| \(snapshotNow > 0 && timestamp\(rule\.nextRunAt\) > 0 && timestamp\(rule\.nextRunAt\) <= snapshotNow\)/);
   assert.match(attention, /insight\.code === "connector-errors"[\s\S]*latestErrorRun\?\.ruleId/);
   assert.match(attention, /insight\.code === "control-health"[\s\S]*unhealthyRule\?\.id/);
   assert.match(attention, /insight\.code === "evidence-gap"[\s\S]*evidenceGapRule\?\.id/);
@@ -39,6 +39,8 @@ test("attention panel selects the affected active rule for each operational reas
 });
 
 test("attention record chain remains on the selected rule and uses only live identities", () => {
+  assert.match(attention, /const snapshotNow = timestamp\(insights\?\.generatedAt\)/);
+  assert.doesNotMatch(attention, /Date\.now\(\)/);
   assert.match(attention, /clean\(finding\.ruleId\) === ruleId && clean\(finding\.status\) !== "closed"/);
   assert.match(attention, /clean\(run\.ruleId\) === ruleId/);
   assert.match(attention, /controlRef: splitRefs\(focusRule\?\.controlRefs\)\[0\] \|\| ""/);
