@@ -71,6 +71,29 @@ test("new security connector action opens the guided wizard after module navigat
   assert.match(overview, /onClick=\{openConnectorWizard\}/);
 });
 
+test("connector operations handoff is built from live source, rule, run and finding records", () => {
+  assert.match(overview, /runs\?: Run\[\]/);
+  assert.match(overview, /findings\?: Finding\[\]/);
+  assert.match(overview, /rules\.filter\(\(item\) => clean\(item\.sourceId\) === sourceId\)/);
+  assert.match(overview, /ruleIds\.has\(clean\(item\.ruleId\)\)/);
+  assert.match(overview, /normalized\(item\.sourceName\) === normalized\(source\.name\)/);
+  assert.match(overview, /Kaynak → Kural → Kontrol → Kanıt → Bulgu/);
+  assert.match(overview, /Source → Rule → Control → Evidence → Finding/);
+});
+
+test("connector operations deep links use authoritative record IDs without deriving fake evidence or finding refs", () => {
+  assert.match(overview, /kind === "source" \? \{ sourceRef: ref \} : kind === "rule" \? \{ ruleRef: ref \} : \{ findingRef: ref \}/);
+  assert.match(overview, /source: "integrations-overview", filter/);
+  assert.match(overview, /filter: \{ controlRef \}/);
+  assert.match(overview, /filter: \{ evidenceRef \}/);
+  assert.match(overview, /latestEvidenceId = clean\(row\.latestRun\?\.evidenceId \|\| row\.latestFinding\?\.evidenceId\)/);
+  assert.match(overview, /latestFindingId = clean\(row\.latestFinding\?\.id\)/);
+  assert.match(overview, /disabled=\{!latestEvidenceId\}/);
+  assert.match(overview, /disabled=\{!latestFindingId\}/);
+  assert.doesNotMatch(overview, /`CCM-\$\{/);
+  assert.doesNotMatch(overview, /`EVD-AUTO-\$\{/);
+});
+
 test("workflow integration settings owns the single overview surface", () => {
   assert.match(settings, /import IntegrationsOverview from "\.\/integrations-overview"/);
   assert.match(settings, /kind==="ticketing"&&<IntegrationsOverview lang=\{lang\}\/>/);
