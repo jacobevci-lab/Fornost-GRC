@@ -39,6 +39,7 @@ type Rule = {
 };
 type Run = {
   id?: string;
+  ruleId?: string;
   ruleName?: string;
   sourceName?: string;
   status?: string;
@@ -69,7 +70,6 @@ type HealthPayload = {
 type Tone = "healthy" | "watch" | "neutral";
 
 const clean = (value: unknown) => String(value ?? "").trim();
-const normalized = (value: unknown) => clean(value).normalize("NFKC").toLocaleLowerCase("tr-TR");
 const splitRefs = (value: unknown) => clean(value).split(/[;,|\n]+/).map((item) => item.trim()).filter(Boolean);
 const VERIFICATION_FRESHNESS_MS = 7 * 24 * 60 * 60 * 1000;
 
@@ -273,7 +273,7 @@ export default function IntegrationsOverview({ lang }: { lang: Lang }) {
       .filter((item) => clean(item.id) && clean(item.status) !== "closed" && ruleIds.has(clean(item.ruleId)))
       .sort((a, b) => timestamp(b.updatedAt || b.createdAt) - timestamp(a.updatedAt || a.createdAt));
     const sourceRuns = runs
-      .filter((item) => normalized(item.sourceName) === normalized(source.name))
+      .filter((item) => clean(item.ruleId) && ruleIds.has(clean(item.ruleId)))
       .sort((a, b) => timestamp(b.createdAt) - timestamp(a.createdAt));
     const latestRun = sourceRuns[0];
     const latestFinding = openFindings[0];
@@ -303,6 +303,7 @@ export default function IntegrationsOverview({ lang }: { lang: Lang }) {
       controlRefs,
       latestRun,
       latestFinding,
+      openFindingCount: openFindings.length,
       tone: sourceTone,
       status,
     };
@@ -401,7 +402,7 @@ export default function IntegrationsOverview({ lang }: { lang: Lang }) {
                   <div className="iov-connector-metrics">
                     <span><strong>{row.activeRules.length}</strong><small>{tr ? "aktif kural" : "active rules"}</small></span>
                     <span><strong>{row.controlRefs.length}</strong><small>{tr ? "kontrol" : "controls"}</small></span>
-                    <span><strong>{latestFindingId ? "1+" : "0"}</strong><small>{tr ? "açık bulgu" : "open finding"}</small></span>
+                    <span><strong>{row.openFindingCount}</strong><small>{tr ? "açık bulgu" : "open findings"}</small></span>
                   </div>
                   <div className="iov-connector-links" aria-label={tr ? "Bağlı kayıtlar" : "Linked records"}>
                     <button type="button" disabled={!row.sourceId} onClick={() => openAutomationRef("source", row.sourceId)}>{tr ? "Kaynak" : "Source"}</button>
