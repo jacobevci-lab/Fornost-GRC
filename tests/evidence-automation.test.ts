@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
 const ui=readFileSync("app/evidence-automation.tsx","utf8");
-const route=readFileSync("app/api/evidence-automation/route.ts","utf8");
+const route=readFileSync("app/api/evidence-automation/core.ts","utf8");
 const assuranceRoute=readFileSync("app/api/continuous-assurance/route.ts","utf8");
 const premiumCss=readFileSync("app/fornost-premium.css","utf8");
 const refreshCss=readFileSync("app/fornost-refresh.css","utf8");
