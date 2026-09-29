@@ -164,6 +164,30 @@ test("connector operations deep links use authoritative record IDs without deriv
   assert.doesNotMatch(overview, /`EVD-AUTO-\$\{/);
 });
 
+test("connector run-now executes only an authoritative active rule and refreshes telemetry", () => {
+  assert.match(overview, /const actionRuleId = activeRuleIds\.has\(focusRuleId\) \? focusRuleId : clean\(latestActiveRule\?\.id\)/);
+  assert.match(overview, /async function runContinuousControl\(ruleId: string\)/);
+  assert.match(overview, /if \(!ref \|\| runningRuleId\) return/);
+  assert.match(overview, /method: "POST"/);
+  assert.match(overview, /body: JSON\.stringify\(\{ action: "run-rule", ruleId: ref \}\)/);
+  assert.match(overview, /const isExecutionError = status === "error"/);
+  assert.match(overview, /await load\(\)/);
+  assert.match(overview, /disabled=\{!row\.actionRuleId \|\| Boolean\(runningRuleId\)\}/);
+  assert.match(overview, /onClick=\{\(\) => void runContinuousControl\(row\.actionRuleId\)\}/);
+  assert.match(overview, /runNotice\?\.ruleId === row\.actionRuleId/);
+  assert.match(overview, /Şimdi çalıştır/);
+  assert.match(overview, /Run now/);
+});
+
+test("connector run-now cannot execute inactive fallback rules or derive evidence and finding ids", () => {
+  assert.match(overview, /const activeRules = source\.enabled \? linkedRules\.filter\(\(item\) => item\.enabled\) : \[\]/);
+  assert.match(overview, /const actionRuleId = activeRuleIds\.has\(focusRuleId\) \? focusRuleId : clean\(latestActiveRule\?\.id\)/);
+  assert.doesNotMatch(overview, /runContinuousControl\(focusRuleId\)/);
+  assert.doesNotMatch(overview, /runContinuousControl\(row\.focusRule/);
+  assert.doesNotMatch(overview, /`CCM-\$\{/);
+  assert.doesNotMatch(overview, /`EVD-AUTO-\$\{/);
+});
+
 test("workflow integration settings owns the single overview surface", () => {
   assert.match(settings, /import IntegrationsOverview from "\.\/integrations-overview"/);
   assert.match(settings, /kind==="ticketing"&&<IntegrationsOverview lang=\{lang\}\/>/);
