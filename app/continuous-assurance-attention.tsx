@@ -147,7 +147,7 @@ export default function ContinuousAssuranceAttention({ lang }: { lang: Lang }) {
     const runs = automation.runs || [];
     const findings = automation.findings || [];
     const insightRows = insights?.insights || [];
-    const snapshotNow = timestamp(insights?.generatedAt) || Date.now();
+    const snapshotNow = timestamp(insights?.generatedAt);
     const chains = new Map<string, Chain>();
 
     for (const insight of insightRows) {
@@ -169,7 +169,7 @@ export default function ContinuousAssuranceAttention({ lang }: { lang: Lang }) {
         .filter((rule) => !clean(rule.lastEvidenceAt))
         .sort((a, b) => timestamp(b.lastRunAt) - timestamp(a.lastRunAt))[0];
       const dueRule = [...activeRules]
-        .filter((rule) => !clean(rule.nextRunAt) || (timestamp(rule.nextRunAt) > 0 && timestamp(rule.nextRunAt) <= snapshotNow))
+        .filter((rule) => !clean(rule.nextRunAt) || (snapshotNow > 0 && timestamp(rule.nextRunAt) > 0 && timestamp(rule.nextRunAt) <= snapshotNow))
         .sort((a, b) => timestamp(a.nextRunAt) - timestamp(b.nextRunAt))[0];
 
       const preferredRuleId = insight.code === "connector-errors"
