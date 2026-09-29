@@ -34,8 +34,11 @@ type Rule = {
   controlRefs?: string;
   health?: string;
   autoFinding?: boolean;
+  schedule?: string;
   lastRunAt?: string;
+  nextRunAt?: string;
   lastEvidenceAt?: string;
+  freshness?: string;
 };
 type Run = {
   id?: string;
@@ -96,6 +99,28 @@ function relativeVerificationAge(item: Integration | undefined, tr: boolean) {
 function timestamp(value: unknown) {
   const parsed = Date.parse(clean(value));
   return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function relativeAutomationTime(value: unknown, nowMs: number, tr: boolean) {
+  const target = timestamp(value);
+  if (!target || !nowMs) return "";
+  const diffMs = target - nowMs;
+  const future = diffMs > 0;
+  const minutes = Math.max(0, Math.round(Math.abs(diffMs) / 60_000));
+  if (minutes < 1) return tr ? "şimdi" : "now";
+  const amount = minutes < 60
+    ? minutes
+    : minutes < 1440
+      ? Math.round(minutes / 60)
+      : Math.round(minutes / 1440);
+  const unit = minutes < 60
+    ? (tr ? "dk" : "m")
+    : minutes < 1440
+      ? (tr ? "sa" : "h")
+      : (tr ? "gün" : "d");
+  return future
+    ? (tr ? `${amount} ${unit} sonra` : `in ${amount}${unit}`)
+    : (tr ? `${amount} ${unit} önce` : `${amount}${unit} ago`);
 }
 
 export default function IntegrationsOverview({ lang }: { lang: Lang }) {
@@ -170,6 +195,7 @@ export default function IntegrationsOverview({ lang }: { lang: Lang }) {
   const rules = useMemo(() => automation.rules || [], [automation.rules]);
   const runs = useMemo(() => automation.runs || [], [automation.runs]);
   const findings = useMemo(() => automation.findings || [], [automation.findings]);
+  const snapshotNow = updatedAt?.getTime() || 0;
   const enabledSources = sources.filter((item) => item.enabled);
   const enabledSourceIds = new Set(enabledSources.map((item) => clean(item.id)).filter(Boolean));
   const operationalRules = rules.filter((item) => item.enabled && enabledSourceIds.has(clean(item.sourceId)));
@@ -290,13 +316,28 @@ export default function IntegrationsOverview({ lang }: { lang: Lang }) {
   const connectorRows = useMemo(() => sources.map((source) => {
     const sourceId = clean(source.id);
     const linkedRules = rules.filter((item) => clean(item.sourceId) === sourceId);
-    const activeRules = linkedRules.filter((item) => item.enabled);
+    const activeRules = source.enabled ? linkedRules.filter((item) => item.enabled) : [];
     const controlRefs = [...new Set(activeRules.flatMap((item) => splitRefs(item.controlRefs)))];
     const ruleIds = new Set(linkedRules.map((item) => clean(item.id)).filter(Boolean));
     const activeRuleIds = new Set(activeRules.map((item) => clean(item.id)).filter(Boolean));
     const latestActiveRule = [...activeRules]
       .sort((a, b) => timestamp(b.lastRunAt) - timestamp(a.lastRunAt))[0];
     const hasActiveRunHistory = activeRules.some((item) => Boolean(clean(item.lastRunAt)));
+    const latestRunAt = clean(latestActiveRule?.lastRunAt);
+    const evidenceReadyCount = activeRules.filter((item) => Boolean(clean(item.lastEvidenceAt))).length;
+    const scheduledRules = activeRules
+      .filter((item) => Boolean(clean(item.nextRunAt)))
+      .sort((a, b) => timestamp(a.nextRunAt) - timestamp(b.nextRunAt));
+    const dueRuleCount = snapshotNow
+      ? scheduledRules.filter((item) => {
+        const next = timestamp(item.nextRunAt);
+        return next > 0 && next <= snapshotNow;
+      }).length
+      : 0;
+    const nextActiveRule = snapshotNow
+      ? scheduledRules.find((item) => timestamp(item.nextRunAt) > snapshotNow)
+      : scheduledRules[0];
+    const nextRunAt = clean(nextActiveRule?.nextRunAt);
     const openFindings = findings
       .filter((item) => clean(item.id) && clean(item.status) !== "closed" && ruleIds.has(clean(item.ruleId)))
       .sort((a, b) => timestamp(b.updatedAt || b.createdAt) - timestamp(a.updatedAt || a.createdAt));
@@ -346,11 +387,15 @@ export default function IntegrationsOverview({ lang }: { lang: Lang }) {
       focusControl,
       focusEvidenceId,
       focusFindingId,
+      latestRunAt,
+      nextRunAt,
+      dueRuleCount,
+      evidenceReadyCount,
       openFindingCount: openFindings.length,
       tone: sourceTone,
       status,
     };
-  }), [findings, rules, runs, sources, tr]);
+  }), [findings, rules, runs, snapshotNow, sources, tr]);
 
   const readyCount = cards.filter((card) => card.tone === "healthy").length;
   const attentionCount = cards.filter((card) => card.tone === "watch").length;
@@ -443,10 +488,32 @@ export default function IntegrationsOverview({ lang }: { lang: Lang }) {
                     <b>{clean(row.source.name) || clean(row.source.vendor) || row.sourceId}</b>
                     <span>{row.status}</span>
                   </div>
-                  <div className="iov-connector-metrics">
-                    <span><strong>{row.activeRules.length}</strong><small>{tr ? "aktif kural" : "active rules"}</small></span>
-                    <span><strong>{row.controlRefs.length}</strong><small>{tr ? "kontrol" : "controls"}</small></span>
-                    <span><strong>{row.openFindingCount}</strong><small>{tr ? "açık bulgu" : "open findings"}</small></span>
+                  <div className="iov-connector-health">
+                    <div className="iov-connector-metrics">
+                      <span><strong>{row.activeRules.length}</strong><small>{tr ? "aktif kural" : "active rules"}</small></span>
+                      <span><strong>{row.controlRefs.length}</strong><small>{tr ? "kontrol" : "controls"}</small></span>
+                      <span><strong>{row.openFindingCount}</strong><small>{tr ? "açık bulgu" : "open findings"}</small></span>
+                    </div>
+                    <div className="iov-connector-runtime" aria-label={tr ? "Çalışma zamanlaması" : "Runtime schedule"}>
+                      <span title={row.latestRunAt || undefined}>
+                        <small>{tr ? "Son çalışma" : "Last run"}</small>
+                        <b>{row.latestRunAt ? relativeAutomationTime(row.latestRunAt, snapshotNow, tr) || "—" : "—"}</b>
+                      </span>
+                      <span title={row.nextRunAt || undefined}>
+                        <small>{tr ? "Sıradaki" : "Next"}</small>
+                        <b>{row.dueRuleCount
+                          ? (tr ? `${row.dueRuleCount} çalışma zamanı geldi` : `${row.dueRuleCount} due now`)
+                          : row.nextRunAt
+                            ? relativeAutomationTime(row.nextRunAt, snapshotNow, tr) || "—"
+                            : row.activeRules.length
+                              ? (tr ? "Planlanmadı" : "Not scheduled")
+                              : "—"}</b>
+                      </span>
+                      <span>
+                        <small>{tr ? "Kanıt kapsamı" : "Evidence coverage"}</small>
+                        <b>{row.activeRules.length ? `${row.evidenceReadyCount}/${row.activeRules.length}` : "—"}</b>
+                      </span>
+                    </div>
                   </div>
                   <div className="iov-connector-links" aria-label={tr ? "Bağlı kayıtlar" : "Linked records"}>
                     <button type="button" disabled={!row.sourceId} onClick={() => openAutomationRef("source", row.sourceId)}>{tr ? "Kaynak" : "Source"}</button>
