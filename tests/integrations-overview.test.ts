@@ -83,16 +83,27 @@ test("connector operations handoff is built from live source, rule, run and find
   assert.match(overview, /findings\?: Finding\[\]/);
   assert.match(overview, /rules\.filter\(\(item\) => clean\(item\.sourceId\) === sourceId\)/);
   assert.match(overview, /ruleIds\.has\(clean\(item\.ruleId\)\)/);
-  assert.match(overview, /clean\(item\.ruleId\) && ruleIds\.has\(clean\(item\.ruleId\)\)/);
+  assert.match(overview, /clean\(item\.ruleId\) && activeRuleIds\.has\(clean\(item\.ruleId\)\)/);
   assert.match(overview, /Kaynak → Kural → Kontrol → Kanıt → Bulgu/);
   assert.match(overview, /Source → Rule → Control → Evidence → Finding/);
 });
 
+test("connector readiness is based on active-rule execution rather than disabled-rule history", () => {
+  assert.match(overview, /const activeRuleIds = new Set\(activeRules\.map\(\(item\) => clean\(item\.id\)\)\.filter\(Boolean\)\)/);
+  assert.match(overview, /const latestActiveRule = \[\.\.\.activeRules\][\s\S]*timestamp\(b\.lastRunAt\) - timestamp\(a\.lastRunAt\)/);
+  assert.match(overview, /const hasActiveRunHistory = activeRules\.some\(\(item\) => Boolean\(clean\(item\.lastRunAt\)\)\)/);
+  assert.match(overview, /const activeRuns = runs[\s\S]*activeRuleIds\.has\(clean\(item\.ruleId\)\)/);
+  assert.match(overview, /activeRules\.length && !hasActiveRunHistory/);
+  assert.match(overview, /İlk kontrol çalıştırması bekliyor/);
+  assert.match(overview, /First control run pending/);
+  assert.doesNotMatch(overview, /const sourceRuns = runs/);
+});
+
 test("connector operational links stay on one authoritative assurance chain", () => {
-  assert.match(overview, /const focusRuleId = clean\(latestFinding\?\.ruleId \|\| latestRun\?\.ruleId\)/);
-  assert.match(overview, /linkedRules\.find\(\(item\) => clean\(item\.id\) === focusRuleId\) \|\| activeRules\[0\] \|\| linkedRules\[0\]/);
+  assert.match(overview, /const focusRuleId = clean\(latestFinding\?\.ruleId \|\| latestActiveRun\?\.ruleId \|\| latestActiveRule\?\.id\)/);
+  assert.match(overview, /linkedRules\.find\(\(item\) => clean\(item\.id\) === focusRuleId\) \|\| latestActiveRule \|\| linkedRules\[0\]/);
   assert.match(overview, /const focusControl = splitRefs\(focusRule\?\.controlRefs\)\[0\] \|\| ""/);
-  assert.match(overview, /const focusEvidenceId = latestFinding[\s\S]*clean\(latestFinding\.evidenceId\)[\s\S]*clean\(latestRun\?\.ruleId\) === clean\(focusRule\?\.id\)[\s\S]*clean\(latestRun\?\.evidenceId\)/);
+  assert.match(overview, /const focusEvidenceId = latestFinding[\s\S]*clean\(latestFinding\.evidenceId\)[\s\S]*clean\(latestActiveRun\?\.ruleId\) === clean\(focusRule\?\.id\)[\s\S]*clean\(latestActiveRun\?\.evidenceId\)/);
   assert.match(overview, /const focusFindingId = clean\(latestFinding\?\.id\)/);
   assert.match(overview, /disabled=\{!focusRuleId\}/);
   assert.match(overview, /disabled=\{!row\.focusControl\}/);
