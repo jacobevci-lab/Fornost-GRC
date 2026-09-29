@@ -106,6 +106,7 @@ test("connector operations handoff is built from live source, rule, run and find
 });
 
 test("connector readiness is based on active-rule execution rather than disabled-rule history", () => {
+  assert.match(overview, /const activeRules = source\.enabled \? linkedRules\.filter\(\(item\) => item\.enabled\) : \[\]/);
   assert.match(overview, /const activeRuleIds = new Set\(activeRules\.map\(\(item\) => clean\(item\.id\)\)\.filter\(Boolean\)\)/);
   assert.match(overview, /const latestActiveRule = \[\.\.\.activeRules\][\s\S]*timestamp\(b\.lastRunAt\) - timestamp\(a\.lastRunAt\)/);
   assert.match(overview, /const hasActiveRunHistory = activeRules\.some\(\(item\) => Boolean\(clean\(item\.lastRunAt\)\)\)/);
@@ -114,6 +115,27 @@ test("connector readiness is based on active-rule execution rather than disabled
   assert.match(overview, /İlk kontrol çalıştırması bekliyor/);
   assert.match(overview, /First control run pending/);
   assert.doesNotMatch(overview, /const sourceRuns = runs/);
+});
+
+test("connector rows expose runtime telemetry without treating due schedules as health failures", () => {
+  assert.match(overview, /schedule\?: string/);
+  assert.match(overview, /nextRunAt\?: string/);
+  assert.match(overview, /freshness\?: string/);
+  assert.match(overview, /function relativeAutomationTime/);
+  assert.match(overview, /const snapshotNow = updatedAt\?\.getTime\(\) \|\| 0/);
+  assert.match(overview, /const evidenceReadyCount = activeRules\.filter\(\(item\) => Boolean\(clean\(item\.lastEvidenceAt\)\)\)\.length/);
+  assert.match(overview, /const scheduledRules = activeRules[\s\S]*clean\(item\.nextRunAt\)/);
+  assert.match(overview, /const dueRuleCount = snapshotNow[\s\S]*next > 0 && next <= snapshotNow/);
+  assert.match(overview, /const nextActiveRule = snapshotNow[\s\S]*timestamp\(item\.nextRunAt\) > snapshotNow/);
+  assert.match(overview, /Son çalışma/);
+  assert.match(overview, /Last run/);
+  assert.match(overview, /çalışma zamanı geldi/);
+  assert.match(overview, /due now/);
+  assert.match(overview, /Kanıt kapsamı/);
+  assert.match(overview, /Evidence coverage/);
+  const toneBlock = overview.match(/const sourceTone: Tone =[\s\S]*?;\n    const status/)?.[0] || "";
+  assert.doesNotMatch(toneBlock, /dueRuleCount/);
+  assert.doesNotMatch(overview, /operationalUnhealthy[^;]*dueRuleCount/);
 });
 
 test("connector operational links stay on one authoritative assurance chain", () => {
