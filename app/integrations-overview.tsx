@@ -166,10 +166,10 @@ export default function IntegrationsOverview({ lang }: { lang: Lang }) {
   const workflow = integrations.find((item) => item.kind === "ticketing");
   const email = integrations.find((item) => item.kind === "email");
   const identity = integrations.find((item) => item.kind === "identity");
-  const sources = automation.sources || [];
-  const rules = automation.rules || [];
-  const runs = automation.runs || [];
-  const findings = automation.findings || [];
+  const sources = useMemo(() => automation.sources || [], [automation.sources]);
+  const rules = useMemo(() => automation.rules || [], [automation.rules]);
+  const runs = useMemo(() => automation.runs || [], [automation.runs]);
+  const findings = useMemo(() => automation.findings || [], [automation.findings]);
   const enabledRules = rules.filter((item) => item.enabled);
   const monitoredControls = new Set(enabledRules.flatMap((item) => splitRefs(item.controlRefs))).size;
   const riskAware = enabledRules.filter((item) => item.autoFinding !== false).length;
@@ -330,7 +330,11 @@ export default function IntegrationsOverview({ lang }: { lang: Lang }) {
   function openAutomationRef(kind: "source" | "rule" | "finding", id: string) {
     const ref = clean(id);
     if (!ref) return;
-    const filter = kind === "source" ? { sourceRef: ref } : kind === "rule" ? { ruleRef: ref } : { findingRef: ref };
+    const filter: Record<string, string> = kind === "source"
+      ? { sourceRef: ref }
+      : kind === "rule"
+        ? { ruleRef: ref }
+        : { findingRef: ref };
     navigateToFornost({ module: "Kanıt Otomasyonu", ref, kind, source: "integrations-overview", filter });
   }
 
