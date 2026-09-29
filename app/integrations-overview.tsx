@@ -269,21 +269,25 @@ export default function IntegrationsOverview({ lang }: { lang: Lang }) {
     const activeRules = linkedRules.filter((item) => item.enabled);
     const controlRefs = [...new Set(activeRules.flatMap((item) => splitRefs(item.controlRefs)))];
     const ruleIds = new Set(linkedRules.map((item) => clean(item.id)).filter(Boolean));
+    const activeRuleIds = new Set(activeRules.map((item) => clean(item.id)).filter(Boolean));
+    const latestActiveRule = [...activeRules]
+      .sort((a, b) => timestamp(b.lastRunAt) - timestamp(a.lastRunAt))[0];
+    const hasActiveRunHistory = activeRules.some((item) => Boolean(clean(item.lastRunAt)));
     const openFindings = findings
       .filter((item) => clean(item.id) && clean(item.status) !== "closed" && ruleIds.has(clean(item.ruleId)))
       .sort((a, b) => timestamp(b.updatedAt || b.createdAt) - timestamp(a.updatedAt || a.createdAt));
-    const sourceRuns = runs
-      .filter((item) => clean(item.ruleId) && ruleIds.has(clean(item.ruleId)))
+    const activeRuns = runs
+      .filter((item) => clean(item.ruleId) && activeRuleIds.has(clean(item.ruleId)))
       .sort((a, b) => timestamp(b.createdAt) - timestamp(a.createdAt));
-    const latestRun = sourceRuns[0];
+    const latestActiveRun = activeRuns[0];
     const latestFinding = openFindings[0];
-    const focusRuleId = clean(latestFinding?.ruleId || latestRun?.ruleId);
-    const focusRule = linkedRules.find((item) => clean(item.id) === focusRuleId) || activeRules[0] || linkedRules[0];
+    const focusRuleId = clean(latestFinding?.ruleId || latestActiveRun?.ruleId || latestActiveRule?.id);
+    const focusRule = linkedRules.find((item) => clean(item.id) === focusRuleId) || latestActiveRule || linkedRules[0];
     const focusControl = splitRefs(focusRule?.controlRefs)[0] || "";
     const focusEvidenceId = latestFinding
       ? clean(latestFinding.evidenceId)
-      : clean(latestRun?.ruleId) === clean(focusRule?.id)
-        ? clean(latestRun?.evidenceId)
+      : clean(latestActiveRun?.ruleId) === clean(focusRule?.id)
+        ? clean(latestActiveRun?.evidenceId)
         : "";
     const focusFindingId = clean(latestFinding?.id);
     const warningRules = activeRules.filter((item) => ["failing", "stale", "missing"].includes(clean(item.health)));
@@ -291,9 +295,11 @@ export default function IntegrationsOverview({ lang }: { lang: Lang }) {
       ? "neutral"
       : source.lastTestStatus === "error" || warningRules.length || openFindings.length
         ? "watch"
-        : activeRules.length && source.lastTestStatus === "success"
-          ? "healthy"
-          : "neutral";
+        : activeRules.length && !hasActiveRunHistory
+          ? "watch"
+          : activeRules.length && source.lastTestStatus === "success"
+            ? "healthy"
+            : "neutral";
     const status = !source.enabled
       ? (tr ? "Devre dışı" : "Disabled")
       : source.lastTestStatus === "error"
@@ -302,9 +308,11 @@ export default function IntegrationsOverview({ lang }: { lang: Lang }) {
           ? (tr ? `${warningRules.length} kontrol dikkat istiyor` : `${warningRules.length} controls need attention`)
           : openFindings.length
             ? (tr ? `${openFindings.length} açık bulgu` : `${openFindings.length} open findings`)
-            : activeRules.length
-              ? (tr ? "İzleme aktif" : "Monitoring active")
-              : (tr ? "Kural bekliyor" : "No active rules");
+            : activeRules.length && !hasActiveRunHistory
+              ? (tr ? "İlk kontrol çalıştırması bekliyor" : "First control run pending")
+              : activeRules.length
+                ? (tr ? "İzleme aktif" : "Monitoring active")
+                : (tr ? "Kural bekliyor" : "No active rules");
     return {
       source,
       sourceId,
