@@ -222,6 +222,11 @@ export default function ContinuousAssuranceAttention({ lang }: { lang: Lang }) {
     navigateToFornost({ module: "Kanıtlar", ref: evidenceRef, kind: "evidence", source: "continuous-assurance-attention", filter: { evidenceRef } });
   }
 
+  function exportReport(format: "html" | "csv" | "json") {
+    const url = withBasePath(`/api/evidence-automation/operations-report?format=${format}&lang=${lang}`);
+    window.open(url, "_blank", "noopener,noreferrer");
+  }
+
   const surfaceState = !loaded ? "loading" : available ? clean(insights?.state) || "healthy" : "unknown";
 
   return (
@@ -232,7 +237,12 @@ export default function ContinuousAssuranceAttention({ lang }: { lang: Lang }) {
           <h3>{tr ? "Dikkat Gerektirenler" : "Attention Required"}</h3>
           <p>{tr ? "Connector, continuous control, kanıt ve bulgu sinyallerini tek operasyon kuyruğunda birleştirir." : "Combines connector, continuous-control, evidence, and finding signals into one operational queue."}</p>
         </div>
-        <button type="button" disabled={loading} onClick={() => void load()}>{loading ? "…" : "↻"}</button>
+        <div className="ca-attention-actions">
+          <button type="button" className="ca-report-button" disabled={!loaded || !available} onClick={() => exportReport("html")}>HTML</button>
+          <button type="button" className="ca-report-button" disabled={!loaded || !available} onClick={() => exportReport("csv")}>CSV</button>
+          <button type="button" className="ca-report-button" disabled={!loaded || !available} onClick={() => exportReport("json")}>JSON</button>
+          <button type="button" className="ca-refresh-button" disabled={loading} onClick={() => void load()} aria-label={tr ? "Yenile" : "Refresh"}>{loading ? "…" : "↻"}</button>
+        </div>
       </header>
 
       {!loaded ? (
