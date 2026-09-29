@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
 import test from "node:test";
-import {daysUntil,exceptionExpirySeverity,riskReviewSeverity} from "../app/assurance-escalations";
+import {connectorReliabilitySeverity,daysUntil,exceptionExpirySeverity,riskReviewSeverity} from "../app/assurance-escalations";
 import {assuranceEscalationNavigation} from "../app/assurance-escalation-navigation";
 
 const route=readFileSync("app/api/continuous-assurance/escalations/route.ts","utf8");
@@ -26,8 +26,17 @@ test("risk review escalation maps governance urgency without inventing severity"
  assert.equal(riskReviewSeverity("none"),null);
 });
 
+test("connector reliability escalates observed degradation without alarming on idle or recovered connectors",()=>{
+ assert.equal(connectorReliabilitySeverity({runs24h:0,failRuns24h:0,errorRuns24h:0,successRate24h:null,unhealthyRules:2}),null);
+ assert.equal(connectorReliabilitySeverity({runs24h:6,failRuns24h:2,errorRuns24h:0,successRate24h:66.7,unhealthyRules:0}),null);
+ assert.equal(connectorReliabilitySeverity({runs24h:2,failRuns24h:1,errorRuns24h:0,successRate24h:50,unhealthyRules:1}),"high");
+ assert.equal(connectorReliabilitySeverity({runs24h:5,failRuns24h:3,errorRuns24h:0,successRate24h:40,unhealthyRules:2}),"critical");
+ assert.equal(connectorReliabilitySeverity({runs24h:5,failRuns24h:0,errorRuns24h:3,successRate24h:40,unhealthyRules:1}),"critical");
+});
+
 test("governed escalation destinations prefer the most precise safe record",()=>{
  assert.deepEqual(assuranceEscalationNavigation("risk-review",{riskId:"RISK-1"}),{module:"Risk Assessment",recordRef:"RISK-1",filterKey:"riskRef"});
+ assert.deepEqual(assuranceEscalationNavigation("connector-reliability",{sourceId:"SRC-1",sourceName:"Firewall"}),{module:"Kanıt Otomasyonu",recordRef:"SRC-1",filterKey:"sourceRef"});
  assert.deepEqual(assuranceEscalationNavigation("exception-expiry",{controlRef:"CTRL-1",riskRef:"RISK-1",ruleId:"RULE-1"}),{module:"Kontroller",recordRef:"CTRL-1",filterKey:"controlRef"});
  assert.deepEqual(assuranceEscalationNavigation("exception-expiry",{ruleId:"RULE-1"}),{module:"Kanıt Otomasyonu",recordRef:"RULE-1",filterKey:"ruleRef"});
  assert.deepEqual(assuranceEscalationNavigation("exception-expiry",{findingCode:"FND-101"}),{module:"Bulgular ve CAPA",recordRef:"FND-101",filterKey:"findingRef"});
@@ -39,10 +48,28 @@ test("governed escalation destinations prefer the most precise safe record",()=>
 test("escalation API is durable deduplicated policy-aware and condition resolved",()=>{
  assert.match(store,/continuous_assurance_escalations/);assert.match(store,/UNIQUE/);assert.match(store,/ON CONFLICT\(fingerprint\)/);
  assert.match(runtime,/platform_settings/);assert.match(runtime,/reminderDays/);assert.match(runtime,/remindersEnabled/);
- assert.match(runtime,/risk-review:/);assert.match(runtime,/exception-expiry:/);assert.match(runtime,/mandatory-retest/);assert.match(runtime,/retest-failure/);
+ assert.match(runtime,/risk-review:/);assert.match(runtime,/exception-expiry:/);assert.match(runtime,/mandatory-retest/);assert.match(runtime,/retest-failure/);assert.match(runtime,/connector-reliability/);
  assert.match(store,/system:condition-cleared/);assert.match(store,/status='resolved'/);assert.match(store,/status IN \('active','acknowledged'\)/);
  assert.match(route,/requireRole\(req,\["Admin","Editor"\]\)/);assert.match(route,/Acknowledgement notu en az 10 karakter/);
  assert.match(route,/reconcileAssuranceEscalations/);assert.match(route,/readAssuranceEscalationRows/);
+});
+
+test("connector degradation uses the shared operations-health contract and exact source lineage",()=>{
+ assert.match(runtime,/loadContinuousAssuranceOperationsHealth\(db,now\)/);
+ assert.match(runtime,/connectorReliabilitySeverity\(connector\)/);
+ assert.match(runtime,/fingerprint:`\$\{connectorReliabilityKind\}:\$\{sourceId\}`/);
+ assert.match(runtime,/subjectRef:sourceId/);
+ assert.match(runtime,/source:\{sourceId,sourceName:connector\.sourceName/);
+ assert.match(runtime,/successRate24h:connector\.successRate24h/);
+ assert.match(runtime,/p95DurationMs24h:connector\.p95DurationMs24h/);
+ assert.doesNotMatch(runtime,/secret_ciphertext|config_json/);
+});
+
+test("temporary operations-health failure never auto-resolves existing connector escalations",()=>{
+ assert.match(runtime,/let connectorHealthAvailable=false/);
+ assert.match(runtime,/connectorHealthAvailable=true/);
+ assert.match(runtime,/connectorHealthAvailable\?managedAssuranceEscalationKinds:managedAssuranceEscalationKinds\.filter\(kind=>kind!==connectorReliabilityKind\)/);
+ assert.match(runtime,/return\{signals:signals\.length,connectorHealthAvailable/);
 });
 
 test("exception escalation source preserves control risk rule and finding lineage",()=>{
@@ -57,12 +84,14 @@ test("reminder disablement does not suppress overdue or control-failure governan
  assert.match(runtime,/!settings\.remindersEnabled&&aging\.state==="due-soon"/);
  assert.match(runtime,/if\(settings\.remindersEnabled\)for\(const row of rows\.results\)/);
  assert.match(runtime,/failed\?"critical":"high"/);
+ assert.match(runtime,/connectorReliabilitySeverity\(connector\)/);
 });
 
 test("Connected GRC mounts a role-aware actionable escalation center with acknowledgement lifecycle",()=>{
  assert.match(connected,/import ContinuousAssuranceEscalationCenter/);assert.match(connected,/<ContinuousAssuranceEscalationCenter lang=\{lang\}\/>/);
  assert.match(panel,/ASSURANCE ESCALATION CENTER/);assert.match(panel,/\/api\/continuous-assurance\/escalations/);assert.match(panel,/action:"acknowledge"/);assert.match(panel,/role!=="Viewer"/);
  assert.match(panel,/navigateToFornost/);assert.match(panel,/source:"assurance-escalation-center"/);assert.match(panel,/item\.navigation&&<button/);
+ assert.match(panel,/sourceRef/);assert.match(panel,/connector-reliability/);assert.match(panel,/Connector'ı Aç/);assert.match(panel,/Open Connector/);
  assert.match(panel,/Riski Aç/);assert.match(panel,/Kontrolü Aç/);assert.match(panel,/Kuralı Aç/);assert.match(panel,/CAPA'yı Aç/);
  assert.match(panel,/Critical open/);assert.match(panel,/Resolved in 30d/);assert.match(panel,/Reminder policy/);
 });
