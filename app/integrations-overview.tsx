@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { withBasePath } from "./base-path";
 import { navigateToFornost } from "./navigation-focus";
 import "./integrations-overview.css";
@@ -15,11 +15,51 @@ type Integration = {
   lastTestStatus?: string;
   lastTestAt?: string;
 };
-type Source = { id?: string; enabled?: boolean; lastTestStatus?: string };
-type Rule = { id?: string; enabled?: boolean; controlRefs?: string; health?: string; autoFinding?: boolean };
+type Source = {
+  id?: string;
+  name?: string;
+  vendor?: string;
+  category?: string;
+  driver?: string;
+  enabled?: boolean;
+  hasSecret?: boolean;
+  lastTestStatus?: string;
+  lastTestAt?: string;
+};
+type Rule = {
+  id?: string;
+  name?: string;
+  sourceId?: string;
+  enabled?: boolean;
+  controlRefs?: string;
+  health?: string;
+  autoFinding?: boolean;
+  lastRunAt?: string;
+  lastEvidenceAt?: string;
+};
+type Run = {
+  id?: string;
+  ruleName?: string;
+  sourceName?: string;
+  status?: string;
+  evidenceId?: string;
+  createdAt?: string;
+};
+type Finding = {
+  id?: string;
+  ruleId?: string;
+  evidenceId?: string;
+  title?: string;
+  severity?: string;
+  status?: string;
+  updatedAt?: string;
+  createdAt?: string;
+};
 type AutomationPayload = {
   sources?: Source[];
   rules?: Rule[];
+  runs?: Run[];
+  findings?: Finding[];
   summary?: { healthy?: number; failing?: number; stale?: number; due?: number; openFindings?: number };
 };
 type HealthPayload = {
@@ -29,6 +69,7 @@ type HealthPayload = {
 type Tone = "healthy" | "watch" | "neutral";
 
 const clean = (value: unknown) => String(value ?? "").trim();
+const normalized = (value: unknown) => clean(value).normalize("NFKC").toLocaleLowerCase("tr-TR");
 const splitRefs = (value: unknown) => clean(value).split(/[;,|\n]+/).map((item) => item.trim()).filter(Boolean);
 const VERIFICATION_FRESHNESS_MS = 7 * 24 * 60 * 60 * 1000;
 
@@ -50,6 +91,11 @@ function relativeVerificationAge(item: Integration | undefined, tr: boolean) {
   if (hours < 24) return tr ? `${hours} sa önce` : `${hours}h ago`;
   const days = Math.floor(hours / 24);
   return tr ? `${days} gün önce` : `${days}d ago`;
+}
+
+function timestamp(value: unknown) {
+  const parsed = Date.parse(clean(value));
+  return Number.isFinite(parsed) ? parsed : 0;
 }
 
 export default function IntegrationsOverview({ lang }: { lang: Lang }) {
@@ -122,6 +168,8 @@ export default function IntegrationsOverview({ lang }: { lang: Lang }) {
   const identity = integrations.find((item) => item.kind === "identity");
   const sources = automation.sources || [];
   const rules = automation.rules || [];
+  const runs = automation.runs || [];
+  const findings = automation.findings || [];
   const enabledRules = rules.filter((item) => item.enabled);
   const monitoredControls = new Set(enabledRules.flatMap((item) => splitRefs(item.controlRefs))).size;
   const riskAware = enabledRules.filter((item) => item.autoFinding !== false).length;
@@ -215,6 +263,51 @@ export default function IntegrationsOverview({ lang }: { lang: Lang }) {
     },
   ];
 
+  const connectorRows = useMemo(() => sources.map((source) => {
+    const sourceId = clean(source.id);
+    const linkedRules = rules.filter((item) => clean(item.sourceId) === sourceId);
+    const activeRules = linkedRules.filter((item) => item.enabled);
+    const controlRefs = [...new Set(activeRules.flatMap((item) => splitRefs(item.controlRefs)))];
+    const ruleIds = new Set(linkedRules.map((item) => clean(item.id)).filter(Boolean));
+    const openFindings = findings
+      .filter((item) => clean(item.id) && clean(item.status) !== "closed" && ruleIds.has(clean(item.ruleId)))
+      .sort((a, b) => timestamp(b.updatedAt || b.createdAt) - timestamp(a.updatedAt || a.createdAt));
+    const sourceRuns = runs
+      .filter((item) => normalized(item.sourceName) === normalized(source.name))
+      .sort((a, b) => timestamp(b.createdAt) - timestamp(a.createdAt));
+    const latestRun = sourceRuns[0];
+    const latestFinding = openFindings[0];
+    const warningRules = activeRules.filter((item) => ["failing", "stale", "missing"].includes(clean(item.health)));
+    const sourceTone: Tone = !source.enabled
+      ? "neutral"
+      : source.lastTestStatus === "error" || warningRules.length || openFindings.length
+        ? "watch"
+        : activeRules.length && source.lastTestStatus === "success"
+          ? "healthy"
+          : "neutral";
+    const status = !source.enabled
+      ? (tr ? "Devre dışı" : "Disabled")
+      : source.lastTestStatus === "error"
+        ? (tr ? "Bağlantı hatası" : "Connection error")
+        : warningRules.length
+          ? (tr ? `${warningRules.length} kontrol dikkat istiyor` : `${warningRules.length} controls need attention`)
+          : openFindings.length
+            ? (tr ? `${openFindings.length} açık bulgu` : `${openFindings.length} open findings`)
+            : activeRules.length
+              ? (tr ? "İzleme aktif" : "Monitoring active")
+              : (tr ? "Kural bekliyor" : "No active rules");
+    return {
+      source,
+      sourceId,
+      activeRules,
+      controlRefs,
+      latestRun,
+      latestFinding,
+      tone: sourceTone,
+      status,
+    };
+  }), [findings, rules, runs, sources, tr]);
+
   const readyCount = cards.filter((card) => card.tone === "healthy").length;
   const attentionCount = cards.filter((card) => card.tone === "watch").length;
 
@@ -231,6 +324,25 @@ export default function IntegrationsOverview({ lang }: { lang: Lang }) {
       if (attempts < 24) window.setTimeout(open, 90);
     };
     window.setTimeout(open, 0);
+  }
+
+  function openAutomationRef(kind: "source" | "rule" | "finding", id: string) {
+    const ref = clean(id);
+    if (!ref) return;
+    const filter = kind === "source" ? { sourceRef: ref } : kind === "rule" ? { ruleRef: ref } : { findingRef: ref };
+    navigateToFornost({ module: "Kanıt Otomasyonu", ref, kind, source: "integrations-overview", filter });
+  }
+
+  function openControl(ref: string) {
+    const controlRef = clean(ref);
+    if (!controlRef) return;
+    navigateToFornost({ module: "Kontroller", ref: controlRef, kind: "control", source: "integrations-overview", filter: { controlRef } });
+  }
+
+  function openEvidence(id: string) {
+    const evidenceRef = clean(id);
+    if (!evidenceRef) return;
+    navigateToFornost({ module: "Kanıtlar", ref: evidenceRef, kind: "evidence", source: "integrations-overview", filter: { evidenceRef } });
   }
 
   return (
@@ -266,6 +378,44 @@ export default function IntegrationsOverview({ lang }: { lang: Lang }) {
           </button>
         ))}
       </div>
+
+      {automationAvailable && connectorRows.length > 0 && (
+        <section className="iov-connector-ops" aria-label={tr ? "Connector operasyon görünümü" : "Connector operations view"}>
+          <header>
+            <div><small>OPERATIONAL HANDOFF</small><b>{tr ? "Güvenlik connector'ları" : "Security connectors"}</b></div>
+            <span>{tr ? "Kaynak → Kural → Kontrol → Kanıt → Bulgu" : "Source → Rule → Control → Evidence → Finding"}</span>
+          </header>
+          <div className="iov-connector-list">
+            {connectorRows.map((row) => {
+              const primaryRule = row.activeRules[0];
+              const primaryControl = row.controlRefs[0];
+              const latestEvidenceId = clean(row.latestRun?.evidenceId || row.latestFinding?.evidenceId);
+              const latestFindingId = clean(row.latestFinding?.id);
+              return (
+                <article key={row.sourceId || clean(row.source.name)} className={`iov-connector-row ${row.tone}`}>
+                  <div className="iov-connector-copy">
+                    <small>{clean(row.source.category) || "SECURITY CONNECTOR"}</small>
+                    <b>{clean(row.source.name) || clean(row.source.vendor) || row.sourceId}</b>
+                    <span>{row.status}</span>
+                  </div>
+                  <div className="iov-connector-metrics">
+                    <span><strong>{row.activeRules.length}</strong><small>{tr ? "aktif kural" : "active rules"}</small></span>
+                    <span><strong>{row.controlRefs.length}</strong><small>{tr ? "kontrol" : "controls"}</small></span>
+                    <span><strong>{latestFindingId ? "1+" : "0"}</strong><small>{tr ? "açık bulgu" : "open finding"}</small></span>
+                  </div>
+                  <div className="iov-connector-links" aria-label={tr ? "Bağlı kayıtlar" : "Linked records"}>
+                    <button type="button" disabled={!row.sourceId} onClick={() => openAutomationRef("source", row.sourceId)}>{tr ? "Kaynak" : "Source"}</button>
+                    <button type="button" disabled={!clean(primaryRule?.id)} onClick={() => openAutomationRef("rule", clean(primaryRule?.id))}>{tr ? "Kural" : "Rule"}</button>
+                    <button type="button" disabled={!primaryControl} onClick={() => openControl(primaryControl)}>{tr ? "Kontrol" : "Control"}</button>
+                    <button type="button" disabled={!latestEvidenceId} onClick={() => openEvidence(latestEvidenceId)}>{tr ? "Kanıt" : "Evidence"}</button>
+                    <button type="button" disabled={!latestFindingId} onClick={() => openAutomationRef("finding", latestFindingId)}>{tr ? "Bulgu" : "Finding"}</button>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        </section>
+      )}
 
       <footer>
         <span>{updatedAt ? `${tr ? "Son kontrol" : "Last check"}: ${updatedAt.toLocaleTimeString(tr ? "tr-TR" : "en-GB", { hour: "2-digit", minute: "2-digit" })}` : ""}</span>
