@@ -14,6 +14,7 @@ import "./navigation-focus-bridge.css";
 const clean = (value: unknown) => String(value ?? "").normalize("NFKC").trim();
 const normalize = (value: unknown) => clean(value).toLocaleLowerCase("tr-TR");
 const automationFindingTitles = new Map<string, string>();
+const automationRowIndexes = new Map<string, number>();
 let automationFindingLookupPending = false;
 let automationFindingLookupAt = 0;
 
@@ -108,6 +109,13 @@ function applyFindingFocus(value: string) {
 
 type AutomationTabKind = "finding" | "rule" | "source" | "evidence";
 
+type AutomationIndexPayload = {
+  sources?: Array<{ id?: string }>;
+  rules?: Array<{ id?: string }>;
+  runs?: Array<{ evidenceId?: string }>;
+  findings?: Array<{ id?: string; title?: string }>;
+};
+
 function evidenceAutomationTabKind(request: FornostNavigationRequest): AutomationTabKind {
   if (clean(request.filter?.findingRef)) return "finding";
   if (clean(request.filter?.ruleRef)) return "rule";
@@ -120,7 +128,7 @@ const evidenceAutomationTabAliases: Record<AutomationTabKind, string[]> = {
   finding: ["bulgular & capa", "bulgular", "findings & capa", "findings"],
   rule: ["sürekli kontroller", "continuous controls"],
   source: ["kaynaklar", "sources"],
-  evidence: ["kanıt akışı", "kanıt", "evidence runs", "evidence"],
+  evidence: ["kanıt akışı", "kanıt", "çalıştırma geçmişi", "evidence runs", "run history", "evidence"],
 };
 
 const evidenceAutomationTabFallback: Record<AutomationTabKind, number> = {
@@ -140,6 +148,31 @@ function evidenceAutomationTab(tabs: HTMLButtonElement[], request: FornostNaviga
   return semantic || tabs[evidenceAutomationTabFallback[kind]] || null;
 }
 
+function automationRowKey(kind: AutomationTabKind, id: unknown) {
+  const value = clean(id);
+  return value ? `${kind}:${value}` : "";
+}
+
+function cacheAutomationRowIndexes(body: AutomationIndexPayload) {
+  automationRowIndexes.clear();
+  for (const [index, source] of (body.sources || []).entries()) {
+    const key = automationRowKey("source", source.id);
+    if (key) automationRowIndexes.set(key, index);
+  }
+  for (const [index, rule] of (body.rules || []).entries()) {
+    const key = automationRowKey("rule", rule.id);
+    if (key) automationRowIndexes.set(key, index);
+  }
+  for (const [index, run] of (body.runs || []).entries()) {
+    const key = automationRowKey("evidence", run.evidenceId);
+    if (key) automationRowIndexes.set(key, index);
+  }
+  for (const [index, finding] of (body.findings || []).entries()) {
+    const key = automationRowKey("finding", finding.id);
+    if (key) automationRowIndexes.set(key, index);
+  }
+}
+
 function refreshAutomationFindingAliases() {
   const now = Date.now();
   if (automationFindingLookupPending || now - automationFindingLookupAt < 5_000) return;
@@ -147,7 +180,8 @@ function refreshAutomationFindingAliases() {
   automationFindingLookupAt = now;
   void fetch(withBasePath("/api/evidence-automation"), { cache: "no-store", headers: { accept: "application/json" } })
     .then(async (response) => response.ok ? response.json() : {})
-    .then((body: { findings?: Array<{ id?: string; title?: string }> }) => {
+    .then((body: AutomationIndexPayload) => {
+      cacheAutomationRowIndexes(body);
       for (const finding of body.findings || []) {
         const id = clean(finding.id);
         const title = clean(finding.title);
@@ -166,6 +200,14 @@ function evidenceAutomationFocusValue(request: FornostNavigationRequest, value: 
   return value;
 }
 
+function evidenceAutomationExactRow(request: FornostNavigationRequest, value: string, rows: HTMLTableRowElement[]) {
+  const kind = evidenceAutomationTabKind(request);
+  const index = automationRowIndexes.get(automationRowKey(kind, value));
+  if (index !== undefined && rows[index]) return rows[index];
+  refreshAutomationFindingAliases();
+  return null;
+}
+
 function applyEvidenceAutomationFocus(request: FornostNavigationRequest, value: string) {
   const page = document.querySelector<HTMLElement>("main .ea-page");
   if (!page) return false;
@@ -177,6 +219,11 @@ function applyEvidenceAutomationFocus(request: FornostNavigationRequest, value: 
     return false;
   }
   const rows = Array.from(page.querySelectorAll<HTMLTableRowElement>(".ea-table tbody tr"));
+  const exact = evidenceAutomationExactRow(request, value, rows);
+  if (exact) {
+    highlightRows(rows, exact);
+    return true;
+  }
   const resolvedValue = evidenceAutomationFocusValue(request, value);
   const match = matchingRow(rows, resolvedValue);
   if (!match) return false;
