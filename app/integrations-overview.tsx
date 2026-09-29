@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { withBasePath } from "./base-path";
 import { navigateToFornost } from "./navigation-focus";
 import "./integrations-overview.css";
+import "./integrations-overview-run-now.css";
 
 type Lang = "tr" | "en";
 type Integration = {
@@ -71,6 +72,11 @@ type HealthPayload = {
   available?: boolean;
 };
 type Tone = "healthy" | "watch" | "neutral";
+type RunActionNotice = {
+  ruleId: string;
+  tone: "success" | "error";
+  text: string;
+};
 
 const clean = (value: unknown) => String(value ?? "").trim();
 const splitRefs = (value: unknown) => clean(value).split(/[;,|\n]+/).map((item) => item.trim()).filter(Boolean);
@@ -132,6 +138,8 @@ export default function IntegrationsOverview({ lang }: { lang: Lang }) {
   const [automationAvailable, setAutomationAvailable] = useState(true);
   const [loading, setLoading] = useState(false);
   const [updatedAt, setUpdatedAt] = useState<Date | null>(null);
+  const [runningRuleId, setRunningRuleId] = useState("");
+  const [runNotice, setRunNotice] = useState<RunActionNotice | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -348,6 +356,7 @@ export default function IntegrationsOverview({ lang }: { lang: Lang }) {
     const latestFinding = openFindings[0];
     const focusRuleId = clean(latestFinding?.ruleId || latestActiveRun?.ruleId || latestActiveRule?.id);
     const focusRule = linkedRules.find((item) => clean(item.id) === focusRuleId) || latestActiveRule || linkedRules[0];
+    const actionRuleId = activeRuleIds.has(focusRuleId) ? focusRuleId : clean(latestActiveRule?.id);
     const focusControl = splitRefs(focusRule?.controlRefs)[0] || "";
     const focusEvidenceId = latestFinding
       ? clean(latestFinding.evidenceId)
@@ -384,6 +393,7 @@ export default function IntegrationsOverview({ lang }: { lang: Lang }) {
       activeRules,
       controlRefs,
       focusRule,
+      actionRuleId,
       focusControl,
       focusEvidenceId,
       focusFindingId,
@@ -438,6 +448,43 @@ export default function IntegrationsOverview({ lang }: { lang: Lang }) {
     navigateToFornost({ module: "Kanıtlar", ref: evidenceRef, kind: "evidence", source: "integrations-overview", filter: { evidenceRef } });
   }
 
+  async function runContinuousControl(ruleId: string) {
+    const ref = clean(ruleId);
+    if (!ref || runningRuleId) return;
+    setRunningRuleId(ref);
+    setRunNotice(null);
+    try {
+      const response = await fetch(withBasePath("/api/evidence-automation"), {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ action: "run-rule", ruleId: ref }),
+      });
+      const payload = await response.json().catch(() => ({})) as Record<string, unknown>;
+      if (!response.ok) throw new Error(clean(payload.error) || (tr ? "Kontrol çalıştırılamadı." : "Control run failed."));
+
+      const status = clean(payload.status) || "unknown";
+      const isExecutionError = status === "error";
+      setRunNotice({
+        ruleId: ref,
+        tone: isExecutionError ? "error" : "success",
+        text: status === "success"
+          ? (tr ? "Kontrol çalıştı; kanıt ve bulgular yenilendi." : "Control ran; evidence and findings refreshed.")
+          : isExecutionError
+            ? (tr ? "Çalıştırma tamamlandı ancak connector hatası oluştu; telemetri yenilendi." : "Run completed with a connector error; telemetry was refreshed.")
+            : (tr ? `Çalıştırma tamamlandı: ${status}. Telemetri yenilendi.` : `Run completed: ${status}. Telemetry refreshed.`),
+      });
+      await load();
+    } catch (caught) {
+      setRunNotice({
+        ruleId: ref,
+        tone: "error",
+        text: caught instanceof Error ? caught.message : (tr ? "Kontrol çalıştırılamadı." : "Control run failed."),
+      });
+    } finally {
+      setRunningRuleId("");
+    }
+  }
+
   return (
     <section className="integrations-overview" aria-label={tr ? "Entegrasyon genel görünümü" : "Integrations overview"}>
       <header className="iov-head">
@@ -481,6 +528,7 @@ export default function IntegrationsOverview({ lang }: { lang: Lang }) {
           <div className="iov-connector-list">
             {connectorRows.map((row) => {
               const focusRuleId = clean(row.focusRule?.id);
+              const notice = runNotice?.ruleId === row.actionRuleId ? runNotice : null;
               return (
                 <article key={row.sourceId || clean(row.source.name)} className={`iov-connector-row ${row.tone}`}>
                   <div className="iov-connector-copy">
@@ -515,12 +563,24 @@ export default function IntegrationsOverview({ lang }: { lang: Lang }) {
                       </span>
                     </div>
                   </div>
-                  <div className="iov-connector-links" aria-label={tr ? "Bağlı kayıtlar" : "Linked records"}>
-                    <button type="button" disabled={!row.sourceId} onClick={() => openAutomationRef("source", row.sourceId)}>{tr ? "Kaynak" : "Source"}</button>
-                    <button type="button" disabled={!focusRuleId} onClick={() => openAutomationRef("rule", focusRuleId)}>{tr ? "Kural" : "Rule"}</button>
-                    <button type="button" disabled={!row.focusControl} onClick={() => openControl(row.focusControl)}>{tr ? "Kontrol" : "Control"}</button>
-                    <button type="button" disabled={!row.focusEvidenceId} onClick={() => openEvidence(row.focusEvidenceId)}>{tr ? "Kanıt" : "Evidence"}</button>
-                    <button type="button" disabled={!row.focusFindingId} onClick={() => openAutomationRef("finding", row.focusFindingId)}>{tr ? "Bulgu" : "Finding"}</button>
+                  <div className="iov-connector-actions">
+                    <button
+                      className="iov-run-now"
+                      type="button"
+                      disabled={!row.actionRuleId || Boolean(runningRuleId)}
+                      onClick={() => void runContinuousControl(row.actionRuleId)}
+                      title={row.actionRuleId ? (tr ? "Aktif Continuous Control Rule'u şimdi çalıştır" : "Run the active Continuous Control Rule now") : undefined}
+                    >
+                      {runningRuleId === row.actionRuleId ? (tr ? "Çalışıyor…" : "Running…") : (tr ? "Şimdi çalıştır" : "Run now")}
+                    </button>
+                    {notice && <span className={`iov-run-feedback ${notice.tone}`} role="status">{notice.text}</span>}
+                    <div className="iov-connector-links" aria-label={tr ? "Bağlı kayıtlar" : "Linked records"}>
+                      <button type="button" disabled={!row.sourceId} onClick={() => openAutomationRef("source", row.sourceId)}>{tr ? "Kaynak" : "Source"}</button>
+                      <button type="button" disabled={!focusRuleId} onClick={() => openAutomationRef("rule", focusRuleId)}>{tr ? "Kural" : "Rule"}</button>
+                      <button type="button" disabled={!row.focusControl} onClick={() => openControl(row.focusControl)}>{tr ? "Kontrol" : "Control"}</button>
+                      <button type="button" disabled={!row.focusEvidenceId} onClick={() => openEvidence(row.focusEvidenceId)}>{tr ? "Kanıt" : "Evidence"}</button>
+                      <button type="button" disabled={!row.focusFindingId} onClick={() => openAutomationRef("finding", row.focusFindingId)}>{tr ? "Bulgu" : "Finding"}</button>
+                    </div>
                   </div>
                 </article>
               );
