@@ -72,9 +72,14 @@ type HealthPayload = {
   available?: boolean;
 };
 type Tone = "healthy" | "watch" | "neutral";
+type NoticeTone = "success" | "error";
 type RunActionNotice = {
   ruleId: string;
-  tone: "success" | "error";
+  tone: NoticeTone;
+  text: string;
+};
+type BulkRunNotice = {
+  tone: NoticeTone;
   text: string;
 };
 
@@ -140,6 +145,8 @@ export default function IntegrationsOverview({ lang }: { lang: Lang }) {
   const [updatedAt, setUpdatedAt] = useState<Date | null>(null);
   const [runningRuleId, setRunningRuleId] = useState("");
   const [runNotice, setRunNotice] = useState<RunActionNotice | null>(null);
+  const [runningDue, setRunningDue] = useState(false);
+  const [bulkRunNotice, setBulkRunNotice] = useState<BulkRunNotice | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -207,6 +214,13 @@ export default function IntegrationsOverview({ lang }: { lang: Lang }) {
   const enabledSources = sources.filter((item) => item.enabled);
   const enabledSourceIds = new Set(enabledSources.map((item) => clean(item.id)).filter(Boolean));
   const operationalRules = rules.filter((item) => item.enabled && enabledSourceIds.has(clean(item.sourceId)));
+  const operationalDueRules = operationalRules.filter((item) => {
+    const nextRunAt = clean(item.nextRunAt);
+    if (!nextRunAt) return true;
+    const nextRun = timestamp(nextRunAt);
+    return snapshotNow > 0 && nextRun > 0 && nextRun <= snapshotNow;
+  });
+  const operationalDueRuleIds = operationalDueRules.map((item) => clean(item.id)).filter(Boolean);
   const operationalRuleSourceIds = new Set(operationalRules.map((item) => clean(item.sourceId)).filter(Boolean));
   const monitoredControls = new Set(operationalRules.flatMap((item) => splitRefs(item.controlRefs))).size;
   const riskAware = operationalRules.filter((item) => item.autoFinding !== false).length;
@@ -450,9 +464,10 @@ export default function IntegrationsOverview({ lang }: { lang: Lang }) {
 
   async function runContinuousControl(ruleId: string) {
     const ref = clean(ruleId);
-    if (!ref || runningRuleId) return;
+    if (!ref || runningRuleId || runningDue) return;
     setRunningRuleId(ref);
     setRunNotice(null);
+    setBulkRunNotice(null);
     try {
       const response = await fetch(withBasePath("/api/evidence-automation"), {
         method: "POST",
@@ -482,6 +497,46 @@ export default function IntegrationsOverview({ lang }: { lang: Lang }) {
       });
     } finally {
       setRunningRuleId("");
+    }
+  }
+
+  async function runDueControls() {
+    if (!operationalDueRuleIds.length || runningDue || runningRuleId) return;
+    const dueRuleIds = [...operationalDueRuleIds];
+    setRunningDue(true);
+    setRunNotice(null);
+    setBulkRunNotice(null);
+    let completed = 0;
+    let connectorErrors = 0;
+    try {
+      for (const ruleId of dueRuleIds) {
+        const response = await fetch(withBasePath("/api/evidence-automation"), {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ action: "run-rule", ruleId }),
+        });
+        const payload = await response.json().catch(() => ({})) as Record<string, unknown>;
+        if (!response.ok) throw new Error(clean(payload.error) || (tr ? "Zamanı gelen kontroller çalıştırılamadı." : "Due controls could not be run."));
+        completed += 1;
+        if (clean(payload.status) === "error") connectorErrors += 1;
+      }
+      setBulkRunNotice({
+        tone: connectorErrors ? "error" : "success",
+        text: connectorErrors
+          ? (tr ? `${completed} kontrol çalıştı; ${connectorErrors} connector hatası oluştu.` : `${completed} controls ran; ${connectorErrors} connector errors occurred.`)
+          : (tr ? `${completed} zamanı gelen kontrol çalıştırıldı; telemetri yenilendi.` : `${completed} due controls ran; telemetry refreshed.`),
+      });
+      await load();
+    } catch (caught) {
+      await load();
+      setBulkRunNotice({
+        tone: "error",
+        text: completed
+          ? (tr ? `${completed} kontrol çalıştı; kalan işlem durdu. ${caught instanceof Error ? caught.message : ""}`.trim() : `${completed} controls ran; remaining execution stopped. ${caught instanceof Error ? caught.message : ""}`.trim())
+          : (caught instanceof Error ? caught.message : (tr ? "Zamanı gelen kontroller çalıştırılamadı." : "Due controls could not be run.")),
+      });
+    } finally {
+      setRunningDue(false);
     }
   }
 
@@ -523,7 +578,20 @@ export default function IntegrationsOverview({ lang }: { lang: Lang }) {
         <section className="iov-connector-ops" aria-label={tr ? "Connector operasyon görünümü" : "Connector operations view"}>
           <header>
             <div><small>OPERATIONAL HANDOFF</small><b>{tr ? "Güvenlik connector'ları" : "Security connectors"}</b></div>
-            <span>{tr ? "Kaynak → Kural → Kontrol → Kanıt → Bulgu" : "Source → Rule → Control → Evidence → Finding"}</span>
+            <div className="iov-ops-actions">
+              <span>{tr ? "Kaynak → Kural → Kontrol → Kanıt → Bulgu" : "Source → Rule → Control → Evidence → Finding"}</span>
+              <button
+                className="iov-run-due"
+                type="button"
+                disabled={!operationalDueRuleIds.length || runningDue || Boolean(runningRuleId)}
+                onClick={() => void runDueControls()}
+              >
+                {runningDue
+                  ? (tr ? "Çalıştırılıyor…" : "Running due…")
+                  : (tr ? `Zamanı gelenleri çalıştır (${operationalDueRuleIds.length})` : `Run due (${operationalDueRuleIds.length})`)}
+              </button>
+              {bulkRunNotice && <span className={`iov-bulk-feedback ${bulkRunNotice.tone}`} role="status">{bulkRunNotice.text}</span>}
+            </div>
           </header>
           <div className="iov-connector-list">
             {connectorRows.map((row) => {
@@ -567,7 +635,7 @@ export default function IntegrationsOverview({ lang }: { lang: Lang }) {
                     <button
                       className="iov-run-now"
                       type="button"
-                      disabled={!row.actionRuleId || Boolean(runningRuleId)}
+                      disabled={!row.actionRuleId || Boolean(runningRuleId) || runningDue}
                       onClick={() => void runContinuousControl(row.actionRuleId)}
                       title={row.actionRuleId ? (tr ? "Aktif Continuous Control Rule'u şimdi çalıştır" : "Run the active Continuous Control Rule now") : undefined}
                     >
