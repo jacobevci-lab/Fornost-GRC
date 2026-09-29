@@ -35,6 +35,8 @@ export type ContinuousAssuranceConnectorHealth = {
   activeRules: number;
   healthyRules: number;
   unhealthyRules: number;
+  controlFailingRules: number;
+  collectionErrorRules: number;
   dueRules: number;
   evidenceReadyRules: number;
   runs24h: number;
@@ -56,6 +58,8 @@ export type ContinuousAssuranceOperationsHealth = {
     operationalRules: number;
     healthyRules: number;
     unhealthyRules: number;
+    controlFailingRules: number;
+    collectionErrorRules: number;
     dueRules: number;
     evidenceReadyRules: number;
     runs24h: number;
@@ -142,6 +146,8 @@ export async function loadContinuousAssuranceOperationsHealth(
       activeRules: sourceRules.length,
       healthyRules: sourceRules.filter((rule) => rule.health === "healthy").length,
       unhealthyRules: sourceRules.filter((rule) => ["failing", "stale", "missing"].includes(String(rule.health || ""))).length,
+      controlFailingRules: sourceRules.filter((rule) => rule.last_status === "fail").length,
+      collectionErrorRules: sourceRules.filter((rule) => rule.last_status === "error").length,
       dueRules: sourceRules.filter((rule) => !rule.next_run_at || timestamp(rule.next_run_at) <= now.getTime()).length,
       evidenceReadyRules: sourceRules.filter((rule) => Boolean(rule.last_evidence_at)).length,
       runs24h: sourceRuns.length,
@@ -171,6 +177,8 @@ export async function loadContinuousAssuranceOperationsHealth(
       operationalRules: operationalRules.length,
       healthyRules: operationalRules.filter((rule) => rule.health === "healthy").length,
       unhealthyRules: operationalRules.filter((rule) => ["failing", "stale", "missing"].includes(String(rule.health || ""))).length,
+      controlFailingRules: operationalRules.filter((rule) => rule.last_status === "fail").length,
+      collectionErrorRules: operationalRules.filter((rule) => rule.last_status === "error").length,
       dueRules: operationalRules.filter((rule) => !rule.next_run_at || timestamp(rule.next_run_at) <= now.getTime()).length,
       evidenceReadyRules: operationalRules.filter((rule) => Boolean(rule.last_evidence_at)).length,
       runs24h: operationalRuns.length,
