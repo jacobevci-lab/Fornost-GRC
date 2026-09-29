@@ -26,12 +26,12 @@ test("risk review escalation maps governance urgency without inventing severity"
  assert.equal(riskReviewSeverity("none"),null);
 });
 
-test("connector reliability escalates observed degradation without alarming on idle or recovered connectors",()=>{
- assert.equal(connectorReliabilitySeverity({runs24h:0,failRuns24h:0,errorRuns24h:0,successRate24h:null,unhealthyRules:2}),null);
- assert.equal(connectorReliabilitySeverity({runs24h:6,failRuns24h:2,errorRuns24h:0,successRate24h:66.7,unhealthyRules:0}),null);
- assert.equal(connectorReliabilitySeverity({runs24h:2,failRuns24h:1,errorRuns24h:0,successRate24h:50,unhealthyRules:1}),"high");
- assert.equal(connectorReliabilitySeverity({runs24h:5,failRuns24h:3,errorRuns24h:0,successRate24h:40,unhealthyRules:2}),"critical");
- assert.equal(connectorReliabilitySeverity({runs24h:5,failRuns24h:0,errorRuns24h:3,successRate24h:40,unhealthyRules:1}),"critical");
+test("connector reliability escalates active collection degradation without alarming on idle or recovered connectors",()=>{
+ assert.equal(connectorReliabilitySeverity({runs24h:0,errorRuns24h:0,collectionErrorRules:2}),null);
+ assert.equal(connectorReliabilitySeverity({runs24h:6,errorRuns24h:2,collectionErrorRules:0}),null);
+ assert.equal(connectorReliabilitySeverity({runs24h:2,errorRuns24h:1,collectionErrorRules:1}),"high");
+ assert.equal(connectorReliabilitySeverity({runs24h:5,errorRuns24h:3,collectionErrorRules:1}),"critical");
+ assert.equal(connectorReliabilitySeverity({runs24h:5,errorRuns24h:2,collectionErrorRules:2}),"critical");
 });
 
 test("governed escalation destinations prefer the most precise safe record",()=>{
