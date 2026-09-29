@@ -67,7 +67,8 @@ test("evidence automation focus resolves semantic bilingual tabs before index fa
   assert.match(bridge, /"sürekli kontroller"/);
   assert.match(bridge, /"continuous controls"/);
   assert.match(bridge, /"kanıt akışı"/);
-  assert.match(bridge, /"evidence runs"/);
+  assert.match(bridge, /"çalıştırma geçmişi"/);
+  assert.match(bridge, /"run history"/);
   assert.match(bridge, /semantic \|\| tabs\[evidenceAutomationTabFallback\[kind\]\]/);
   assert.match(bridge, /\.ea-tabs > button/);
   assert.match(bridge, /targetTab\.click\(\)/);
@@ -75,18 +76,32 @@ test("evidence automation focus resolves semantic bilingual tabs before index fa
   assert.match(bridge, /highlightRows\(rows, match\)/);
 });
 
-test("automation finding ids resolve to rendered titles without exposing hidden raw data", () => {
-  assert.match(bridge, /automationFindingTitles = new Map<string, string>\(\)/);
-  assert.match(bridge, /fetch\(withBasePath\("\/api\/evidence-automation"\)/);
-  assert.match(bridge, /automationFindingTitles\.set\(id, title\)/);
-  assert.match(bridge, /evidenceAutomationFocusValue\(request, value\)/);
-  assert.match(bridge, /attempts >= 30/);
+test("automation source, rule, evidence and finding ids resolve to exact API row positions", () => {
+  assert.match(bridge, /const automationRowIndexes = new Map<string, number>\(\)/);
+  assert.match(bridge, /function cacheAutomationRowIndexes\(body: AutomationIndexPayload\)/);
+  assert.match(bridge, /automationRowKey\("source", source\.id\)/);
+  assert.match(bridge, /automationRowKey\("rule", rule\.id\)/);
+  assert.match(bridge, /automationRowKey\("evidence", run\.evidenceId\)/);
+  assert.match(bridge, /automationRowKey\("finding", finding\.id\)/);
+  assert.match(bridge, /const index = automationRowIndexes\.get\(automationRowKey\(kind, value\)\)/);
+  assert.match(bridge, /if \(index !== undefined && rows\[index\]\) return rows\[index\]/);
+  assert.match(bridge, /const exact = evidenceAutomationExactRow\(request, value, rows\)/);
+  assert.match(bridge, /if \(exact\) \{[\s\S]*highlightRows\(rows, exact\);[\s\S]*return true;/);
 });
 
-test("automation finding alias retries are throttled instead of refetching on every focus attempt", () => {
+test("automation exact-record lookup shares the existing throttled API refresh", () => {
+  assert.match(bridge, /fetch\(withBasePath\("\/api\/evidence-automation"\)/);
+  assert.match(bridge, /cacheAutomationRowIndexes\(body\)/);
   assert.match(bridge, /let automationFindingLookupAt = 0/);
   assert.match(bridge, /now - automationFindingLookupAt < 5_000/);
   assert.match(bridge, /automationFindingLookupAt = now/);
+  assert.match(bridge, /attempts >= 30/);
+});
+
+test("automation finding ids retain title fallback without exposing hidden raw data", () => {
+  assert.match(bridge, /automationFindingTitles = new Map<string, string>\(\)/);
+  assert.match(bridge, /automationFindingTitles\.set\(id, title\)/);
+  assert.match(bridge, /evidenceAutomationFocusValue\(request, value\)/);
 });
 
 test("finding focus remains pending until the matching row is available", () => {
