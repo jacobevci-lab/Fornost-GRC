@@ -45,7 +45,24 @@ test("configuration and assurance API outages render unknown instead of false ze
   assert.match(overview, /Sürekli güvence verisi alınamadı/);
   assert.match(overview, /Continuous assurance data unavailable/);
   assert.match(overview, /metric: !configAvailable \? "—"/);
-  assert.match(overview, /metric: automationAvailable \? String\(enabledRules\.length\) : "—"/);
+  assert.match(overview, /metric: automationAvailable \? String\(operationalRules\.length\) : "—"/);
+});
+
+test("aggregate connector readiness only counts enabled sources with active rules", () => {
+  assert.match(overview, /const enabledSources = sources\.filter\(\(item\) => item\.enabled\)/);
+  assert.match(overview, /const enabledSourceIds = new Set\(enabledSources\.map\(\(item\) => clean\(item\.id\)\)\.filter\(Boolean\)\)/);
+  assert.match(overview, /const operationalRules = rules\.filter\(\(item\) => item\.enabled && enabledSourceIds\.has\(clean\(item\.sourceId\)\)\)/);
+  assert.match(overview, /const operationalUnhealthy = operationalRules\.filter\(\(item\) => \["failing", "stale", "missing"\]\.includes\(clean\(item\.health\)\)\)\.length/);
+  assert.match(overview, /const pendingRuleRuns = operationalRules\.filter\(\(item\) => !clean\(item\.lastRunAt\)\)\.length/);
+  assert.match(overview, /const sourcesWithoutActiveRules = enabledSources\.filter/);
+  assert.match(overview, /Etkin güvenlik kaynağı yok/);
+  assert.match(overview, /No enabled security sources/);
+  assert.match(overview, /kontrol ilk çalıştırmayı bekliyor/);
+  assert.match(overview, /controls await first run/);
+  assert.match(overview, /kaynakta aktif kural yok/);
+  assert.match(overview, /sources have no active rule/);
+  assert.match(overview, /metric: automationAvailable \? String\(operationalRules\.length\) : "—"/);
+  assert.doesNotMatch(overview, /const enabledRules = rules\.filter/);
 });
 
 test("integration health returns the latest test for every integration kind", () => {

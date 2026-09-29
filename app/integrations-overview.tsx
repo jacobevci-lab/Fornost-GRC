@@ -170,10 +170,40 @@ export default function IntegrationsOverview({ lang }: { lang: Lang }) {
   const rules = useMemo(() => automation.rules || [], [automation.rules]);
   const runs = useMemo(() => automation.runs || [], [automation.runs]);
   const findings = useMemo(() => automation.findings || [], [automation.findings]);
-  const enabledRules = rules.filter((item) => item.enabled);
-  const monitoredControls = new Set(enabledRules.flatMap((item) => splitRefs(item.controlRefs))).size;
-  const riskAware = enabledRules.filter((item) => item.autoFinding !== false).length;
-  const unhealthy = Number(automation.summary?.failing || 0) + Number(automation.summary?.stale || 0);
+  const enabledSources = sources.filter((item) => item.enabled);
+  const enabledSourceIds = new Set(enabledSources.map((item) => clean(item.id)).filter(Boolean));
+  const operationalRules = rules.filter((item) => item.enabled && enabledSourceIds.has(clean(item.sourceId)));
+  const operationalRuleSourceIds = new Set(operationalRules.map((item) => clean(item.sourceId)).filter(Boolean));
+  const monitoredControls = new Set(operationalRules.flatMap((item) => splitRefs(item.controlRefs))).size;
+  const riskAware = operationalRules.filter((item) => item.autoFinding !== false).length;
+  const operationalUnhealthy = operationalRules.filter((item) => ["failing", "stale", "missing"].includes(clean(item.health))).length;
+  const pendingRuleRuns = operationalRules.filter((item) => !clean(item.lastRunAt)).length;
+  const sourcesWithoutActiveRules = enabledSources.filter((item) => {
+    const sourceId = clean(item.id);
+    return !sourceId || !operationalRuleSourceIds.has(sourceId);
+  }).length;
+  const assuranceTone: Tone = !automationAvailable || !sources.length || !enabledSources.length
+    ? "neutral"
+    : operationalUnhealthy || pendingRuleRuns || sourcesWithoutActiveRules
+      ? "watch"
+      : operationalRules.length
+        ? "healthy"
+        : "neutral";
+  const assuranceStatus = !automationAvailable
+    ? (tr ? "Sürekli güvence verisi alınamadı" : "Continuous assurance data unavailable")
+    : !sources.length
+      ? (tr ? "Kaynak bekliyor" : "No sources")
+      : !enabledSources.length
+        ? (tr ? "Etkin güvenlik kaynağı yok" : "No enabled security sources")
+        : operationalUnhealthy
+          ? (tr ? `${operationalUnhealthy} aktif kontrol dikkat istiyor` : `${operationalUnhealthy} active controls need attention`)
+          : pendingRuleRuns
+            ? (tr ? `${pendingRuleRuns} kontrol ilk çalıştırmayı bekliyor` : `${pendingRuleRuns} controls await first run`)
+            : sourcesWithoutActiveRules
+              ? (tr ? `${sourcesWithoutActiveRules} kaynakta aktif kural yok` : `${sourcesWithoutActiveRules} sources have no active rule`)
+              : operationalRules.length
+                ? (tr ? "İzleme aktif" : "Monitoring active")
+                : (tr ? "Aktif sürekli kontrol yok" : "No active continuous controls");
 
   const configured = (item: Integration | undefined) => Boolean(item?.enabled && (item.configured !== false));
   const tone = (item: Integration | undefined): Tone => {
@@ -247,17 +277,11 @@ export default function IntegrationsOverview({ lang }: { lang: Lang }) {
       eyebrow: "CONTINUOUS ASSURANCE",
       title: tr ? "Kanıt / Güvenlik Connector'ları" : "Evidence / Security Connectors",
       detail: tr
-        ? `${sources.length} kaynak · ${monitoredControls} kontrol · ${riskAware} risk-aware kural`
-        : `${sources.length} sources · ${monitoredControls} controls · ${riskAware} risk-aware rules`,
-      status: !automationAvailable
-        ? (tr ? "Sürekli güvence verisi alınamadı" : "Continuous assurance data unavailable")
-        : !sources.length
-          ? (tr ? "Kaynak bekliyor" : "No sources")
-          : unhealthy
-            ? (tr ? `${unhealthy} sinyal dikkat istiyor` : `${unhealthy} signals need attention`)
-            : (tr ? "İzleme aktif" : "Monitoring active"),
-      tone: (!automationAvailable || !sources.length ? "neutral" : unhealthy ? "watch" : "healthy") as Tone,
-      metric: automationAvailable ? String(enabledRules.length) : "—",
+        ? `${enabledSources.length} aktif kaynak · ${monitoredControls} kontrol · ${riskAware} risk-aware kural`
+        : `${enabledSources.length} active sources · ${monitoredControls} controls · ${riskAware} risk-aware rules`,
+      status: assuranceStatus,
+      tone: assuranceTone,
+      metric: automationAvailable ? String(operationalRules.length) : "—",
       metricLabel: tr ? "aktif sürekli kontrol" : "active continuous controls",
       verifiedAt: "",
     },
