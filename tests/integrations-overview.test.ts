@@ -88,6 +88,20 @@ test("connector operations handoff is built from live source, rule, run and find
   assert.match(overview, /Source → Rule → Control → Evidence → Finding/);
 });
 
+test("connector operational links stay on one authoritative assurance chain", () => {
+  assert.match(overview, /const focusRuleId = clean\(latestFinding\?\.ruleId \|\| latestRun\?\.ruleId\)/);
+  assert.match(overview, /linkedRules\.find\(\(item\) => clean\(item\.id\) === focusRuleId\) \|\| activeRules\[0\] \|\| linkedRules\[0\]/);
+  assert.match(overview, /const focusControl = splitRefs\(focusRule\?\.controlRefs\)\[0\] \|\| ""/);
+  assert.match(overview, /const focusEvidenceId = latestFinding[\s\S]*clean\(latestFinding\.evidenceId\)[\s\S]*clean\(latestRun\?\.ruleId\) === clean\(focusRule\?\.id\)[\s\S]*clean\(latestRun\?\.evidenceId\)/);
+  assert.match(overview, /const focusFindingId = clean\(latestFinding\?\.id\)/);
+  assert.match(overview, /disabled=\{!focusRuleId\}/);
+  assert.match(overview, /disabled=\{!row\.focusControl\}/);
+  assert.match(overview, /disabled=\{!row\.focusEvidenceId\}/);
+  assert.match(overview, /disabled=\{!row\.focusFindingId\}/);
+  assert.doesNotMatch(overview, /const primaryRule = row\.activeRules\[0\]/);
+  assert.doesNotMatch(overview, /const primaryControl = row\.controlRefs\[0\]/);
+});
+
 test("connector operations deep links use authoritative record IDs without deriving fake evidence or finding refs", () => {
   assert.match(overview, /const filter: Record<string, string>/);
   assert.match(overview, /\{ sourceRef: ref \}/);
@@ -96,10 +110,6 @@ test("connector operations deep links use authoritative record IDs without deriv
   assert.match(overview, /source: "integrations-overview", filter/);
   assert.match(overview, /filter: \{ controlRef \}/);
   assert.match(overview, /filter: \{ evidenceRef \}/);
-  assert.match(overview, /latestEvidenceId = clean\(row\.latestRun\?\.evidenceId \|\| row\.latestFinding\?\.evidenceId\)/);
-  assert.match(overview, /latestFindingId = clean\(row\.latestFinding\?\.id\)/);
-  assert.match(overview, /disabled=\{!latestEvidenceId\}/);
-  assert.match(overview, /disabled=\{!latestFindingId\}/);
   assert.doesNotMatch(overview, /`CCM-\$\{/);
   assert.doesNotMatch(overview, /`EVD-AUTO-\$\{/);
 });
