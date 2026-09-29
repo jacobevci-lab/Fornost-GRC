@@ -22,7 +22,7 @@ export function riskReviewSeverity(urgency:string):AssuranceEscalationSeverity|n
 export function connectorReliabilitySeverity(snapshot:ConnectorReliabilitySnapshot):AssuranceEscalationSeverity|null{
  const runs=Math.max(0,Number(snapshot.runs24h)||0),failures=Math.max(0,Number(snapshot.failRuns24h)||0)+Math.max(0,Number(snapshot.errorRuns24h)||0),unhealthy=Math.max(0,Number(snapshot.unhealthyRules)||0);
  if(runs<1||failures<1||unhealthy<1)return null;
- const measured=Number(snapshot.successRate24h),rate=Number.isFinite(measured)?measured:Math.max(0,Math.min(100,((runs-failures)/runs)*100));
+ const measured=snapshot.successRate24h,rate=measured!==null&&Number.isFinite(Number(measured))?Number(measured):Math.max(0,Math.min(100,((runs-failures)/runs)*100));
  if(Number(snapshot.errorRuns24h)>=3||(runs>=5&&rate<50))return "critical";
  return "high";
 }
