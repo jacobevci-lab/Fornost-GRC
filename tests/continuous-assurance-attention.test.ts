@@ -15,20 +15,42 @@ test("attention panel consumes the authoritative operational insights and automa
   assert.match(attention, /Operational insight data unavailable/);
 });
 
-test("attention panel builds one record chain only from live active-rule identities", () => {
-  assert.match(attention, /const activeRules = source\.enabled[\s\S]*rules\.filter\(\(rule\) => rule\.enabled && clean\(rule\.sourceId\) === sourceId\)/);
+test("attention panel does not render an unverified first load as healthy", () => {
+  assert.match(attention, /const \[loaded, setLoaded\] = useState\(false\)/);
+  assert.match(attention, /const \[available, setAvailable\] = useState\(false\)/);
+  assert.match(attention, /setLoaded\(true\)/);
+  assert.match(attention, /const surfaceState = !loaded \? "loading"/);
+  assert.match(attention, /Continuous Assurance durumu okunuyor/);
+  assert.match(attention, /Reading Continuous Assurance state/);
+});
+
+test("attention panel selects the affected active rule for each operational reason", () => {
+  assert.match(attention, /const activeRules = source\?\.enabled[\s\S]*rules\.filter\(\(rule\) => rule\.enabled && clean\(rule\.sourceId\) === sourceId\)/);
   assert.match(attention, /const activeRuleIds = new Set\(activeRules\.map\(\(rule\) => clean\(rule\.id\)\)\.filter\(Boolean\)\)/);
-  assert.match(attention, /activeRuleIds\.has\(clean\(finding\.ruleId\)\)/);
-  assert.match(attention, /activeRuleIds\.has\(clean\(run\.ruleId\)\)/);
-  assert.match(attention, /const ruleId = clean\(latestFinding\?\.ruleId \|\| latestRun\?\.ruleId \|\| latestRule\?\.id\)/);
-  assert.match(attention, /const controlRef = splitRefs\(focusRule\?\.controlRefs\)\[0\] \|\| ""/);
-  assert.match(attention, /evidenceRef = latestFinding[\s\S]*clean\(latestFinding\.evidenceId\)[\s\S]*clean\(latestRun\?\.evidenceId\)/);
+  assert.match(attention, /clean\(run\.status\) === "error" && activeRuleIds\.has\(clean\(run\.ruleId\)\)/);
+  assert.match(attention, /\["failing", "stale", "missing"\]\.includes\(clean\(rule\.health\)\)/);
+  assert.match(attention, /\.filter\(\(rule\) => !clean\(rule\.lastEvidenceAt\)\)/);
+  assert.match(attention, /!clean\(rule\.nextRunAt\) \|\| \(timestamp\(rule\.nextRunAt\) > 0 && timestamp\(rule\.nextRunAt\) <= snapshotNow\)/);
+  assert.match(attention, /insight\.code === "connector-errors"[\s\S]*latestErrorRun\?\.ruleId/);
+  assert.match(attention, /insight\.code === "control-health"[\s\S]*unhealthyRule\?\.id/);
+  assert.match(attention, /insight\.code === "evidence-gap"[\s\S]*evidenceGapRule\?\.id/);
+  assert.match(attention, /insight\.code === "due-backlog"[\s\S]*dueRule\?\.id/);
+  assert.match(attention, /insight\.code === "no-active-rules" \? undefined : latestActiveRule/);
+});
+
+test("attention record chain remains on the selected rule and uses only live identities", () => {
+  assert.match(attention, /clean\(finding\.ruleId\) === ruleId && clean\(finding\.status\) !== "closed"/);
+  assert.match(attention, /clean\(run\.ruleId\) === ruleId/);
+  assert.match(attention, /controlRef: splitRefs\(focusRule\?\.controlRefs\)\[0\] \|\| ""/);
+  assert.match(attention, /evidenceRef: latestFinding \? clean\(latestFinding\.evidenceId\) : clean\(latestRun\?\.evidenceId\)/);
   assert.match(attention, /findingRef: clean\(latestFinding\?\.id\)/);
+  assert.match(attention, /chainByInsight\.get\(chainKey\(sourceId, insight\.code\)\)/);
   assert.doesNotMatch(attention, /`CCM-\$\{/);
   assert.doesNotMatch(attention, /`EVD-AUTO-\$\{/);
 });
 
 test("attention actions deep-link with exact source, rule, control, evidence and finding refs", () => {
+  assert.match(attention, /const filter: Record<string, string>/);
   assert.match(attention, /\{ sourceRef: ref \}/);
   assert.match(attention, /\{ ruleRef: ref \}/);
   assert.match(attention, /\{ findingRef: ref \}/);
