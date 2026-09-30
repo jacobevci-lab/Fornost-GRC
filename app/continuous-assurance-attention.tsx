@@ -5,11 +5,15 @@ import { withBasePath } from "./base-path";
 import {
   capaGovernanceState,
   capaTraceabilityIntegrity,
+  retestAttentionState,
   selectCapaWorkItem,
+  selectRetestWorkItem,
   type CapaGovernanceState,
   type CapaTraceabilityState,
   type CapaWorkItem,
   type EnterpriseFindingSnapshot,
+  type RecoveryDecisionSnapshot,
+  type RetestAttentionState,
 } from "./continuous-assurance-attention-state";
 import { navigateToFornost } from "./navigation-focus";
 import "./continuous-assurance-attention.css";
@@ -94,7 +98,7 @@ type GovernanceForm = {
   correctiveAction: string;
   preventiveAction: string;
 };
-type GovernanceNotice = { findingId: string; tone: "success" | "error"; message: string };
+type ActionNotice = { findingId: string; tone: "success" | "error"; message: string };
 
 const clean = (value: unknown) => String(value ?? "").trim();
 const timestamp = (value: unknown) => {
@@ -166,6 +170,44 @@ function traceabilityTone(state: CapaTraceabilityState) {
   return "unavailable";
 }
 
+function retestCopy(state: RetestAttentionState, tr: boolean) {
+  if (state === "evaluate") return tr ? "Re-test uygunluğu değerlendirilmedi" : "Re-test readiness not evaluated";
+  if (state === "blocked") return tr ? "Re-test için remediation/evidence eksik" : "Re-test blocked by remediation/evidence";
+  if (state === "ready") return tr ? "Kontrol re-test review hazır" : "Control re-test ready for review";
+  if (state === "pending-review") return tr ? "Re-test review bekliyor" : "Re-test review pending";
+  if (state === "awaiting-run") return tr ? "Re-test onaylandı; sonraki control run bekleniyor" : "Re-test approved; awaiting the next control run";
+  if (state === "completed") return tr ? "Re-test geçti ve uzlaştırıldı" : "Re-test passed and reconciled";
+  if (state === "failed") return tr ? "Re-test başarısız; teknik bulgu yeniden açıldı" : "Re-test failed; technical finding reopened";
+  if (state === "error") return tr ? "Re-test çalışma veya evidence hatası" : "Re-test execution or evidence error";
+  if (state === "rejected") return tr ? "Re-test review reddedildi" : "Re-test review rejected";
+  if (state === "recovered") return tr ? "Kontrol recovered durumda" : "Control is recovered";
+  if (state === "unavailable") return tr ? "Re-test governance durumu alınamadı" : "Re-test governance state unavailable";
+  if (state === "not-applicable") return tr ? "Re-test için teknik bulgu yok" : "No technical finding for re-test";
+  return tr ? "Re-test durumu izleniyor" : "Re-test state monitored";
+}
+
+function retestTone(state: RetestAttentionState) {
+  if (state === "completed" || state === "recovered") return "completed";
+  if (state === "ready") return "ready";
+  if (state === "pending-review" || state === "awaiting-run") return "pending-review";
+  if (state === "failed" || state === "error" || state === "rejected") return "rejected";
+  return "unavailable";
+}
+
+function recoveryActionCopy(action: string, tr: boolean) {
+  const labels: Record<string, [string, string]> = {
+    "verify-remediation": ["Teknik remediation doğrulamasını tamamla", "Complete technical remediation verification"],
+    "attach-verified-closure-evidence": ["SHA-256 doğrulanmış closure evidence ekle", "Attach SHA-256 verified closure evidence"],
+    "run-control-retest": ["Kontrol re-test çalışmasını başlat", "Run the control re-test"],
+    "resolve-retest-error": ["Re-test çalışma hatasını çöz", "Resolve the re-test execution error"],
+    "reopen-remediation": ["Remediation'ı yeniden aç", "Reopen remediation"],
+    "reassess-linked-risk": ["Bağlı riski yeniden değerlendir", "Reassess linked risk"],
+    "collect-fresh-retest-evidence": ["Güncel re-test evidence topla", "Collect fresh re-test evidence"],
+    "link-risk-if-material": ["Material ise risk bağla", "Link a risk if material"],
+  };
+  return labels[action]?.[tr ? 0 : 1] || action;
+}
+
 function candidateReasons(payload: Record<string, unknown>, tr: boolean) {
   const candidate = payload.candidate && typeof payload.candidate === "object" ? payload.candidate as { reasons?: unknown[] } : null;
   const reasons = Array.isArray(candidate?.reasons) ? candidate.reasons.map(clean).filter(Boolean) : [];
@@ -195,7 +237,10 @@ export default function ContinuousAssuranceAttention({ lang }: { lang: Lang }) {
   const [activeGovernanceFinding, setActiveGovernanceFinding] = useState("");
   const [governanceForm, setGovernanceForm] = useState<GovernanceForm | null>(null);
   const [submittingFinding, setSubmittingFinding] = useState("");
-  const [governanceNotice, setGovernanceNotice] = useState<GovernanceNotice | null>(null);
+  const [governanceNotice, setGovernanceNotice] = useState<ActionNotice | null>(null);
+  const [recoveryByFinding, setRecoveryByFinding] = useState<Record<string, RecoveryDecisionSnapshot>>({});
+  const [retestBusyFinding, setRetestBusyFinding] = useState("");
+  const [retestNotice, setRetestNotice] = useState<ActionNotice | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -283,6 +328,12 @@ export default function ContinuousAssuranceAttention({ lang }: { lang: Lang }) {
     const findings = automation.findings || [];
     const insightRows = insights?.insights || [];
     const snapshotNow = timestamp(insights?.generatedAt);
+    const governedFindingIds = new Set(
+      workItems
+        .filter((item) => ["capa-promotion", "control-retest"].includes(clean(item.action).toLowerCase()))
+        .map((item) => clean(item.findingId))
+        .filter(Boolean),
+    );
     const chains = new Map<string, Chain>();
 
     for (const insight of insightRows) {
@@ -319,8 +370,12 @@ export default function ContinuousAssuranceAttention({ lang }: { lang: Lang }) {
       const focusRule = activeRules.find((rule) => clean(rule.id) === preferredRuleId) || (insight.code === "no-active-rules" ? undefined : latestActiveRule);
       const ruleId = clean(focusRule?.id);
       const latestFinding = findings
-        .filter((finding) => ruleId && clean(finding.ruleId) === ruleId && clean(finding.status) !== "closed")
-        .sort((a, b) => timestamp(b.updatedAt || b.createdAt) - timestamp(a.updatedAt || a.createdAt))[0];
+        .filter((finding) => ruleId && clean(finding.ruleId) === ruleId)
+        .filter((finding) => clean(finding.status) !== "closed" || governedFindingIds.has(clean(finding.id)))
+        .sort((a, b) => {
+          const openPriority = Number(clean(b.status) !== "closed") - Number(clean(a.status) !== "closed");
+          return openPriority || timestamp(b.updatedAt || b.createdAt) - timestamp(a.updatedAt || a.createdAt);
+        })[0];
       const latestRun = runs
         .filter((run) => ruleId && clean(run.ruleId) === ruleId)
         .sort((a, b) => timestamp(b.createdAt) - timestamp(a.createdAt))[0];
@@ -335,7 +390,7 @@ export default function ContinuousAssuranceAttention({ lang }: { lang: Lang }) {
       });
     }
     return chains;
-  }, [automation, insights]);
+  }, [automation, insights, workItems]);
 
   const attention = useMemo(() => (insights?.insights || []).filter((item) => item.state !== "healthy"), [insights]);
   const summary = insights?.summary;
@@ -437,6 +492,66 @@ export default function ContinuousAssuranceAttention({ lang }: { lang: Lang }) {
     }
   }
 
+  async function evaluateRetest(chain: Chain) {
+    const findingId = clean(chain.findingRef);
+    if (!findingId || !governanceAvailable) return;
+    setRetestBusyFinding(findingId);
+    setRetestNotice(null);
+    try {
+      const response = await fetch(withBasePath("/api/continuous-assurance"), {
+        method: "POST",
+        headers: { "content-type": "application/json", accept: "application/json" },
+        body: JSON.stringify({ action: "evaluate-recovery", findingId }),
+      });
+      const payload = await response.json().catch(() => ({})) as Record<string, unknown>;
+      const recovery = payload.recovery && typeof payload.recovery === "object" ? payload.recovery as RecoveryDecisionSnapshot : undefined;
+      if (recovery) setRecoveryByFinding((current) => ({ ...current, [findingId]: recovery }));
+      if (!response.ok) {
+        setRetestNotice({ findingId, tone: "error", message: clean(payload.error) || (tr ? "Re-test uygunluğu değerlendirilemedi." : "Re-test readiness could not be evaluated.") });
+        return;
+      }
+      setRetestNotice({
+        findingId,
+        tone: "success",
+        message: recovery?.readyForRetest && clean(recovery.recoveryState) === "ready-for-retest"
+          ? (tr ? "Remediation ve closure evidence doğrulandı; governed re-test review açılabilir." : "Remediation and closure evidence are verified; governed re-test review can be queued.")
+          : (tr ? "Recovery değerlendirmesi güncellendi; eksik koşullar tamamlanmadan re-test kuyruğa alınmaz." : "Recovery evaluation updated; re-test will not be queued until prerequisites are complete."),
+      });
+    } catch {
+      setRetestNotice({ findingId, tone: "error", message: tr ? "Recovery değerlendirme servisine ulaşılamadı." : "Recovery evaluation service is unavailable." });
+    } finally {
+      setRetestBusyFinding("");
+    }
+  }
+
+  async function queueRetest(chain: Chain) {
+    const findingId = clean(chain.findingRef);
+    const recovery = recoveryByFinding[findingId];
+    if (!findingId || recovery?.recoveryState !== "ready-for-retest" || !recovery.readyForRetest) return;
+    setRetestBusyFinding(findingId);
+    setRetestNotice(null);
+    try {
+      const response = await fetch(withBasePath("/api/continuous-assurance"), {
+        method: "POST",
+        headers: { "content-type": "application/json", accept: "application/json" },
+        body: JSON.stringify({ action: "queue-retest", findingId }),
+      });
+      const payload = await response.json().catch(() => ({})) as Record<string, unknown>;
+      const latestRecovery = payload.recovery && typeof payload.recovery === "object" ? payload.recovery as RecoveryDecisionSnapshot : undefined;
+      if (latestRecovery) setRecoveryByFinding((current) => ({ ...current, [findingId]: latestRecovery }));
+      if (!response.ok) {
+        setRetestNotice({ findingId, tone: "error", message: clean(payload.error) || (tr ? "Re-test governance işi oluşturulamadı." : "Re-test governance work item could not be created.") });
+        return;
+      }
+      setRetestNotice({ findingId, tone: "success", message: clean(payload.message) || (tr ? "Re-test bağımsız review kuyruğuna alındı." : "Re-test was queued for independent review.") });
+      await load();
+    } catch {
+      setRetestNotice({ findingId, tone: "error", message: tr ? "Re-test governance servisine ulaşılamadı; kayıt gönderilmedi." : "Re-test governance service is unavailable; nothing was submitted." });
+    } finally {
+      setRetestBusyFinding("");
+    }
+  }
+
   const surfaceState = !loaded ? "loading" : available ? clean(insights?.state) || "healthy" : "unknown";
 
   return (
@@ -445,7 +560,7 @@ export default function ContinuousAssuranceAttention({ lang }: { lang: Lang }) {
         <div>
           <small>CONTINUOUS ASSURANCE HEALTH</small>
           <h3>{tr ? "Dikkat Gerektirenler" : "Attention Required"}</h3>
-          <p>{tr ? "Connector, continuous control, kanıt, bulgu, governance ve remediation durumunu tek operasyon kuyruğunda birleştirir." : "Combines connector, continuous-control, evidence, finding, governance, and remediation state in one operational queue."}</p>
+          <p>{tr ? "Connector, continuous control, kanıt, bulgu, governance, remediation ve re-test durumunu tek operasyon kuyruğunda birleştirir." : "Combines connector, continuous-control, evidence, finding, governance, remediation, and re-test state in one operational queue."}</p>
         </div>
         <button type="button" disabled={loading} onClick={() => void load()}>{loading ? "…" : "↻"}</button>
       </header>
@@ -489,8 +604,14 @@ export default function ContinuousAssuranceAttention({ lang }: { lang: Lang }) {
                 const lifecycleCopy = findingLifecycleAvailable
                   ? traceabilityCopy(traceability.state, tr)
                   : (tr ? "Remediation durumu alınamadı" : "Remediation state unavailable");
+                const retestItem = selectRetestWorkItem(workItems, chain.findingRef);
+                const recovery = recoveryByFinding[chain.findingRef];
+                const retestState = retestAttentionState(Boolean(chain.findingRef), governanceAvailable, retestItem, recovery);
+                const showRetest = governanceState === "completed" || Boolean(retestItem);
+                const retestBusy = retestBusyFinding === chain.findingRef;
                 const formOpen = activeGovernanceFinding === chain.findingRef && governanceForm?.findingId === chain.findingRef;
                 const notice = governanceNotice?.findingId === chain.findingRef ? governanceNotice : null;
+                const currentRetestNotice = retestNotice?.findingId === chain.findingRef ? retestNotice : null;
                 return (
                   <article key={`${sourceId}:${clean(insight.code)}:${index}`} className={`ca-attention-row ${clean(insight.state) || "watch"}`}>
                     <div className="ca-attention-copy">
@@ -500,7 +621,7 @@ export default function ContinuousAssuranceAttention({ lang }: { lang: Lang }) {
                       <span>{copy.detail}</span>
                     </div>
                     <div className="ca-attention-chain">
-                      <small>{tr ? "Kaynak → Kural → Kontrol → Kanıt → Bulgu → Governance → Remediation" : "Source → Rule → Control → Evidence → Finding → Governance → Remediation"}</small>
+                      <small>{tr ? "Kaynak → Kural → Kontrol → Kanıt → Bulgu → Governance → Remediation → Re-test" : "Source → Rule → Control → Evidence → Finding → Governance → Remediation → Re-test"}</small>
                       <div>
                         <button type="button" disabled={!chain.sourceId} onClick={() => openAutomationRef("source", chain.sourceId)}>{tr ? "Kaynak" : "Source"}</button>
                         <button type="button" disabled={!chain.ruleId} onClick={() => openAutomationRef("rule", chain.ruleId)}>{tr ? "Kural" : "Rule"}</button>
@@ -525,9 +646,28 @@ export default function ContinuousAssuranceAttention({ lang }: { lang: Lang }) {
                           {findingLifecycleAvailable && traceability.recurrenceCount > 0 && <span>{tr ? `Tekrar ×${traceability.recurrenceCount}` : `Recurrence ×${traceability.recurrenceCount}`}</span>}
                         </div>
                       )}
+                      {showRetest && (
+                        <div className={`ca-attention-governance-state ${retestTone(retestState)}`} aria-label={tr ? "Governed control re-test durumu" : "Governed control re-test state"}>
+                          <span>{retestCopy(retestState, tr)}</span>
+                          {(retestState === "evaluate" || retestState === "blocked" || retestState === "rejected" || retestState === "failed" || retestState === "error") && (
+                            <button type="button" disabled={retestBusy} onClick={() => void evaluateRetest(chain)}>{retestBusy ? "…" : (tr ? "Uygunluğu kontrol et" : "Check readiness")}</button>
+                          )}
+                          {retestState === "ready" && (
+                            <button type="button" disabled={retestBusy} onClick={() => void queueRetest(chain)}>{retestBusy ? "…" : "Re-test review"}</button>
+                          )}
+                          {retestState === "awaiting-run" && (
+                            <button type="button" disabled={!chain.ruleId} onClick={() => openAutomationRef("rule", chain.ruleId)}>{tr ? "Kontrolü aç" : "Open control"}</button>
+                          )}
+                          {(retestState === "completed" || retestState === "recovered") && chain.ruleId && (
+                            <button type="button" onClick={() => openAutomationRef("rule", chain.ruleId)}>{retestItem?.resultRef ? `Run ${retestItem.resultRef.slice(0, 12)}` : (tr ? "Kontrolü aç" : "Open control")}</button>
+                          )}
+                          {recovery?.nextActions?.slice(0, 3).map((action) => <span key={action}>{recoveryActionCopy(action, tr)}</span>)}
+                        </div>
+                      )}
                     </div>
 
                     {notice && <div className={`ca-attention-governance-notice ${notice.tone}`} role="status">{notice.message}</div>}
+                    {currentRetestNotice && <div className={`ca-attention-governance-notice ${currentRetestNotice.tone}`} role="status">{currentRetestNotice.message}</div>}
 
                     {formOpen && governanceForm && (
                       <form className="ca-attention-governance-form" onSubmit={(event) => { event.preventDefault(); void queueCapa(chain); }}>
