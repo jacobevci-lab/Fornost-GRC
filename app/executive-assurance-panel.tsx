@@ -110,10 +110,10 @@ export default function ExecutiveAssurancePanel({
       <summary>
         <span>
           <small>{tr ? "OPERASYONEL GÜVENCE DETAYI" : "OPERATIONAL ASSURANCE DETAIL"}</small>
-          <b>{tr ? "Owner accountability, delivery SLA ve teknik attention kuyruğu" : "Owner accountability, delivery SLA and technical attention queue"}</b>
+          <b>{tr ? "Sorumlu atamaları, bildirim SLA ve operasyonel işler" : "Owner accountability, delivery SLA and technical attention queue"}</b>
         </span>
         <span className={operationalSignals ? "attention" : "healthy"}>
-          {assurance.score}/100 · {operationalSignals} {tr ? "aktif sinyal" : "active signals"}
+          {rows.length ? `${assurance.score}/100` : (tr ? "Veri yok" : "No data")} · {operationalSignals} {tr ? "aktif sinyal" : "active signals"}
         </span>
       </summary>
 

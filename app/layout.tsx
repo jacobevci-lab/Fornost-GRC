@@ -42,16 +42,6 @@ import "./fornost-ai-findings.css";
 import "./quality-guardrails.css";
 import "./production-hardening.css";
 import "./sidebar-icon-tooltip.css";
-import "./dashboard-structure-v2.css";
-import "./dashboard-qa-hardening.css";
-import "./dashboard-command-center-v5.css";
-import "./dashboard-command-center-v6.css";
-import "./dashboard-command-center-v7.css";
-import "./dashboard-command-center-v8.css";
-import "./dashboard-command-center-v9.css";
-import "./dashboard-readability-v11.css";
-import "./dashboard-final-polish-v12.css";
-import "./dashboard-metric-history.css";
 import BootstrapSecurityGate from "./bootstrap-security-gate";
 import PlatformExperience from "./platform-experience";
 

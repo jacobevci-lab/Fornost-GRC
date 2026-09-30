@@ -2,56 +2,36 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 
-const assurancePanel = readFileSync(new URL("../app/executive-assurance-panel.tsx", import.meta.url), "utf8");
-const executiveDashboard = readFileSync(new URL("../app/executive-dashboard.tsx", import.meta.url), "utf8");
-const executiveDashboardCss = readFileSync(new URL("../app/executive-dashboard.css", import.meta.url), "utf8");
-const layout = readFileSync(new URL("../app/layout.tsx", import.meta.url), "utf8");
-const platformExperience = readFileSync(new URL("../app/platform-experience.tsx", import.meta.url), "utf8");
+const page = readFileSync("app/page.tsx", "utf8");
+const platform = readFileSync("app/platform-experience.tsx", "utf8");
+const layout = readFileSync("app/layout.tsx", "utf8");
+const dashboard = readFileSync("app/executive-dashboard-reference.tsx", "utf8");
+const css = readFileSync("app/executive-assurance.css", "utf8");
 
-test("executive assurance score renders as one baseline-safe value", () => {
-  assert.match(assurancePanel, /\{assurance\.score\}\/100/);
-  assert.doesNotMatch(assurancePanel, /<sup>\s*\/100\s*<\/sup>/);
+test("native dashboard replaces the old surface instead of stacking above it", () => {
+  const native = page.slice(page.indexOf("function Dashboard("), page.indexOf("function Kpi("));
+  assert.equal((native.match(/<ExecutiveAssurancePanel /g) || []).length, 1);
+  assert.doesNotMatch(native, /dashboard-hero|dashboard-metrics|dashboard-intelligence|dashboard-shortcuts/);
+  assert.doesNotMatch(platform, /<ExecutiveDashboard|<DashboardV|<DashboardMetric|<DashboardRuntime|<DashboardData/);
+  assert.doesNotMatch(layout, /import "\.\/dashboard-/);
 });
 
-test("layout composes the v4 executive decision surface through PlatformExperience", () => {
-  assert.match(layout, /import PlatformExperience from "\.\/platform-experience"/);
-  assert.match(layout, /<PlatformExperience \/>/);
-  assert.doesNotMatch(layout, /import ExecutiveDashboard from "\.\/executive-dashboard"/);
-  assert.doesNotMatch(layout, /<DashboardCustomizer \/>/);
-
-  assert.match(platformExperience, /import ExecutiveDashboard from "\.\/executive-dashboard"/);
-  assert.match(platformExperience, /<ExecutiveDashboard \/>/);
-
-  assert.match(executiveDashboard, /fornost:executive-dashboard:v4/);
-  assert.match(executiveDashboard, /type WidgetId="riskHeatmap"\|"actionCenter"\|"recentChanges"\|"frameworkReadiness"\|"assuranceHealth"\|"auditRemediation"/);
-  assert.match(executiveDashboard, /\/api\/risk-appetite/);
-  assert.match(executiveDashboard, /\/api\/findings/);
-  assert.match(executiveDashboard, /buildExecutiveAssurance/);
-  assert.match(executiveDashboard, /buildControlAssurance/);
-  assert.match(executiveDashboard, /Olasılık × Etki Isı Haritası/);
-  assert.match(executiveDashboard, /Neler Değişti\?/);
-  assert.match(executiveDashboard, /Framework hazırlığı/);
-  assert.match(executiveDashboard, /Güvence sağlığı/);
-  assert.match(executiveDashboard, /Denetim & İyileştirme/);
+test("dashboard uses the shared palette and responsive cards", () => {
+  for (const token of ["bg", "surface", "ink", "muted", "brand", "line"])
+    assert.ok(css.includes(`var(--ws-${token})`));
+  assert.match(css, /repeat\(6,minmax\(0,1fr\)\)/);
+  assert.match(css, /@media\(max-width:900px\)/);
+  assert.match(css, /@media\(max-width:600px\)/);
+  assert.doesNotMatch(css, /font-size:(?:7(?:\.5)?|8|9)px/);
+  assert.doesNotMatch(css, /:has\(> \.executive-dashboard-reference\)/);
 });
 
-test("dashboard v4 replaces report stacking with an executive 12-column decision grid", () => {
-  assert.match(executiveDashboardCss, /\.ed4-grid\{display:grid;grid-template-columns:repeat\(12,minmax\(0,1fr\)\)/);
-  assert.match(executiveDashboardCss, /\.ed4-risk-map\{grid-column:span 8\}/);
-  assert.match(executiveDashboardCss, /\.ed4-action-center\{grid-column:span 4\}/);
-  assert.match(executiveDashboardCss, /\.ed4-changes\{grid-column:span 5\}/);
-  assert.match(executiveDashboardCss, /\.ed4-frameworks\{grid-column:span 7\}/);
-  assert.match(executiveDashboardCss, /\.ed4-assurance\{grid-column:span 7/);
-  assert.match(executiveDashboardCss, /\.ed4-audit\{grid-column:span 5\}/);
-});
-
-test("dashboard v4 preserves the Fornost palette and responsive contracts", () => {
-  assert.doesNotMatch(executiveDashboardCss, /:root\s*\{/);
-  assert.doesNotMatch(executiveDashboardCss, /html\[data-theme="dark"\]\s*\{/);
-  assert.doesNotMatch(executiveDashboardCss, /--(?:ws|cp|fd)-(?:bg|panel|surface|brand|ink|green|teal|orange)\s*:/);
-  assert.match(executiveDashboardCss, /var\(--cp-panel\)/);
-  assert.match(executiveDashboardCss, /var\(--cp-line\)/);
-  assert.match(executiveDashboardCss, /@media\(max-width:1450px\)/);
-  assert.match(executiveDashboardCss, /@media\(max-width:1120px\)/);
-  assert.match(executiveDashboardCss, /@media\(max-width:720px\)/);
+test("executive metrics retain authoritative data and honest empty states", () => {
+  assert.match(dashboard, /assessedRiskScore\(row.data\)/);
+  assert.match(dashboard, /score === null \? \[\]/);
+  assert.match(dashboard, /\/api\/findings/);
+  assert.match(dashboard, /Promise.allSettled/);
+  assert.match(dashboard, /role="status"/);
+  assert.match(dashboard, /total \? .* : "—"/);
+  assert.match(dashboard, /decisionItems.filter\(\(item\) => item.value > 0\).slice\(0, 4\)/);
 });
