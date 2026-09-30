@@ -43,7 +43,8 @@ test("attention record chain remains on the selected rule and uses only live ide
   assert.doesNotMatch(attention, /Date\.now\(\)/);
   assert.match(attention, /clean\(finding\.ruleId\) === ruleId && clean\(finding\.status\) !== "closed"/);
   assert.match(attention, /clean\(run\.ruleId\) === ruleId/);
-  assert.match(attention, /controlRef: splitRefs\(focusRule\?\.controlRefs\)\[0\] \|\| ""/);
+  assert.match(attention, /const controlRefs = splitRefs\(focusRule\?\.controlRefs\)/);
+  assert.match(attention, /controlRef: controlRefs\[0\] \|\| ""/);
   assert.match(attention, /evidenceRef: latestFinding \? clean\(latestFinding\.evidenceId\) : clean\(latestRun\?\.evidenceId\)/);
   assert.match(attention, /findingRef: clean\(latestFinding\?\.id\)/);
   assert.match(attention, /chainByInsight\.get\(chainKey\(sourceId, insight\.code\)\)/);
@@ -81,6 +82,23 @@ test("attention queue exposes operational reasons and summary counters without i
   assert.match(attention, /summary\?\.errorRuns24h/);
   assert.match(attention, /Aksiyon gerektiren Continuous Assurance sinyali yok/);
   assert.match(attention, /No Continuous Assurance signal currently requires action/);
+});
+
+test("promoted CAPA state is projected from canonical enterprise findings without mutating the lifecycle", () => {
+  assert.match(attention, /fetch\(withBasePath\("\/api\/findings"\)/);
+  assert.match(attention, /const enterpriseFindingById = useMemo/);
+  assert.match(attention, /capaTraceabilityIntegrity\(workItem, enterpriseFinding\)/);
+  assert.match(attention, /governanceState === "completed"/);
+  assert.match(attention, /Remediation açık/);
+  assert.match(attention, /Remediation sürüyor/);
+  assert.match(attention, /Bağımsız doğrulama bekliyor/);
+  assert.match(attention, /Kapatıldı ve doğrulandı/);
+  assert.match(attention, /Risk kabulü aktif/);
+  assert.match(attention, /Remediation kanıtı ✓/);
+  assert.match(attention, /Doğrulama kanıtı ✓/);
+  assert.match(attention, /Tekrar ×/);
+  assert.match(attention, /Remediation durumu alınamadı/);
+  assert.doesNotMatch(attention, /action:\s*"transition"/);
 });
 
 test("workflow integrations surface the attention panel next to the existing overview", () => {
