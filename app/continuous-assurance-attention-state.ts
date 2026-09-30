@@ -41,6 +41,29 @@ export type CapaTraceabilityState =
   | "accepted"
   | "unresolved";
 
+export type RecoveryDecisionSnapshot = {
+  recoveryState?: string;
+  readyForRetest?: boolean;
+  findingAction?: string;
+  riskAction?: string;
+  nextActions?: string[];
+};
+
+export type RetestAttentionState =
+  | "not-applicable"
+  | "unavailable"
+  | "evaluate"
+  | "blocked"
+  | "ready"
+  | "pending-review"
+  | "awaiting-run"
+  | "completed"
+  | "failed"
+  | "error"
+  | "rejected"
+  | "recovered"
+  | "other";
+
 const clean = (value: unknown) => String(value ?? "").trim();
 const normalized = (value: unknown) => clean(value).toLowerCase();
 const timestamp = (value: unknown) => {
@@ -50,22 +73,32 @@ const timestamp = (value: unknown) => {
 
 const workItemStatePriority = (item: CapaWorkItem) => {
   const status = normalized(item.status);
-  if (status === "pending-review") return 4;
-  if (status === "completed" && clean(item.resultRef)) return 3;
+  if (status === "pending-review") return 8;
+  if (status === "approved-awaiting-retest") return 7;
+  if (status === "failed-retest" || status === "retest-error") return 6;
+  if (status === "completed" && clean(item.resultRef)) return 5;
   if (status === "rejected") return 2;
   return 1;
 };
 
-export function selectCapaWorkItem(items: CapaWorkItem[], findingId: string) {
+function selectWorkItem(items: CapaWorkItem[], findingId: string, action: string) {
   const ref = clean(findingId);
   if (!ref) return undefined;
   return items
-    .filter((item) => normalized(item.action) === "capa-promotion" && clean(item.findingId) === ref)
+    .filter((item) => normalized(item.action) === action && clean(item.findingId) === ref)
     .sort((a, b) => {
       const byTime = timestamp(b.updatedAt || b.createdAt) - timestamp(a.updatedAt || a.createdAt);
       if (byTime !== 0) return byTime;
       return workItemStatePriority(b) - workItemStatePriority(a);
     })[0];
+}
+
+export function selectCapaWorkItem(items: CapaWorkItem[], findingId: string) {
+  return selectWorkItem(items, findingId, "capa-promotion");
+}
+
+export function selectRetestWorkItem(items: CapaWorkItem[], findingId: string) {
+  return selectWorkItem(items, findingId, "control-retest");
 }
 
 export function capaGovernanceState(
@@ -80,6 +113,36 @@ export function capaGovernanceState(
   if (status === "pending-review") return "pending-review";
   if (status === "completed") return clean(item.resultRef) ? "completed" : "other";
   if (status === "rejected") return "rejected";
+  return "other";
+}
+
+export function retestAttentionState(
+  hasFinding: boolean,
+  governanceAvailable: boolean,
+  item?: CapaWorkItem,
+  recovery?: RecoveryDecisionSnapshot,
+): RetestAttentionState {
+  if (!hasFinding) return "not-applicable";
+  if (!governanceAvailable) return "unavailable";
+
+  if (item) {
+    const status = normalized(item.status);
+    if (status === "pending-review") return "pending-review";
+    if (status === "approved-awaiting-retest") return "awaiting-run";
+    if (status === "completed") return clean(item.resultRef) ? "completed" : "other";
+    if (status === "failed-retest") return "failed";
+    if (status === "retest-error") return "error";
+    if (status === "rejected") return "rejected";
+  }
+
+  if (!recovery) return "evaluate";
+  const state = normalized(recovery.recoveryState);
+  if (state === "blocked" || !recovery.readyForRetest) return "blocked";
+  if (state === "ready-for-retest" && recovery.readyForRetest) return "ready";
+  if (state === "recovered") return "recovered";
+  if (state === "retest-failed") return "failed";
+  if (state === "retest-error") return "error";
+  if (state === "evidence-degraded") return "error";
   return "other";
 }
 
