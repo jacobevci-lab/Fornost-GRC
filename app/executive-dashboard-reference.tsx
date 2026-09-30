@@ -238,7 +238,7 @@ export default function ExecutiveAssurancePanel({
             <span className="executive-kpi-label"><NavIcon module={metric.module} /><small>{metric.label}</small></span>
             <strong>{metric.value}</strong>
             <MiniBar value={Number.parseFloat(metric.value) || 0} />
-            <em>{metric.detail}</em>
+            <em title={metric.detail}>{metric.detail}</em>
           </button>
         ))}
       </div>
@@ -259,7 +259,7 @@ export default function ExecutiveAssurancePanel({
 
       <div className="executive-dashboard-grid">
         <article className="executive-cockpit-panel risk-posture-panel">
-          <header><span className="executive-panel-icon"><NavIcon module="Risk Assessment" /></span><div><small>{tr ? "RİSK GÖRÜNÜMÜ" : "RISK POSTURE"}</small><h3>{tr ? "Kurumsal risk maruziyeti" : "Enterprise risk exposure"}</h3></div><button onClick={() => go("Risk Assessment")}>{tr ? "Risk Merkezi" : "Risk Center"} →</button></header>
+          <header><span className="executive-panel-icon"><NavIcon module="Risk Assessment" /></span><div><small>{tr ? "RİSK GÖRÜNÜMÜ" : "RISK POSTURE"}</small><h3>{risks.length} {tr ? "risk" : "risks"} · {unassessedRisks} {tr ? "değerlendirme bekliyor" : "awaiting assessment"}</h3></div><button onClick={() => go("Risk Assessment")}>{tr ? "Risk Merkezi" : "Risk Center"} →</button></header>
           <div className="risk-posture-body">
             <div className="risk-segmented-bar" role="img" aria-label={riskRows.map(item => `${item.label}: ${item.value}`).join(", ")}>
               {riskRows.map(item => <i key={item.label} className={item.tone} style={{ width: `${scoredRisks.length ? item.value / scoredRisks.length * 100 : 0}%` }} />)}
@@ -267,7 +267,6 @@ export default function ExecutiveAssurancePanel({
             <div className="risk-distribution">
               {riskRows.map(item => <span key={item.label}><i className={item.tone} />{item.label}<b>{percent(scoredRisks.length ? item.value / scoredRisks.length * 100 : 0, scoredRisks.length)}</b></span>)}
             </div>
-            <p>{risks.length} {tr ? "risk" : "risks"} · {unassessedRisks} {tr ? "değerlendirme bekliyor" : "awaiting assessment"}</p>
           </div>
         </article>
 
@@ -282,14 +281,14 @@ export default function ExecutiveAssurancePanel({
         <article className="executive-cockpit-panel continuous-assurance-panel">
           <header><span className="executive-panel-icon"><NavIcon module="Kanıtlar" /></span><div><small>{tr ? "SÜREKLİ GÜVENCE" : "CONTINUOUS ASSURANCE"}</small><h3>{tr ? "Kontrol ve kanıt güveni" : "Control & evidence confidence"}</h3></div><button onClick={() => go("Kanıt Otomasyonu")}>{tr ? "Operasyon" : "Operations"} →</button></header>
           <div className="assurance-score-row">
-            <div><strong>{rows.length ? assurance.score : "—"}</strong><span> /100</span><MiniBar value={rows.length ? assurance.score : 0} /><small>{tr ? "Bütünleşik Güvence" : "Composite Assurance"}</small></div>
+            <div><strong>{rows.length ? assurance.score : "—"}</strong><span> /100</span><MiniBar value={rows.length ? assurance.score : 0} /><small>{integrityPending} {tr ? "kanıt doğrulama bekliyor" : "evidence awaiting verification"}</small></div>
             <div className="assurance-score-bars">
               <label><span>{tr ? "Zincir bütünlüğü" : "Chain integrity"}<b>{percent(assurance.traceabilityScore, rows.length)}</b></span></label>
               <label><span>{tr ? "Kontrol güvencesi" : "Control assurance"}<b>{percent(assurance.controlScore, assurance.totalControls)}</b></span></label>
               <label><span>{tr ? "Kanıt güveni" : "Evidence confidence"}<b>{percent(assurance.evidenceScore, assurance.totalEvidence)}</b></span></label>
+              <label><span>{tr ? "Başarısız test" : "Failed tests"}<b>{assurance.failedControlTests}</b></span></label>
             </div>
           </div>
-          <p className="executive-panel-note">{integrityPending} {tr ? "kanıt doğrulama bekliyor" : "evidence items awaiting verification"} · {assurance.failedControlTests} {tr ? "başarısız kontrol testi" : "failed control tests"}</p>
         </article>
 
         <article className="executive-cockpit-panel audit-remediation-panel">
@@ -310,7 +309,7 @@ export default function ExecutiveAssurancePanel({
             <thead><tr>{(tr ? ["Tür", "Karar konusu", "Öncelik", "Sorumlu", "Hedef tarih", "Karar nedeni", "İşlem"] : ["Type", "Decision", "Priority", "Owner", "Due date", "Decision reason", "Action"]).map(label => <th scope="col" key={label}>{label}</th>)}</tr></thead>
             <tbody>{recordDecisions.map(({ row, tone, type, reason }) => <tr key={row.id}>
               <td><span className={`executive-type-dot ${tone}`} />{type}</td>
-              <td><b>{row.code || connectedTitle(row)}</b><small>{connectedTitle(row)}</small></td>
+              <td><div className="executive-record-title"><b>{row.code || "—"}</b><span title={connectedTitle(row)}>{connectedTitle(row)}</span></div></td>
               <td><span className={`executive-priority ${tone}`}>{tone === "critical" ? (tr ? "Kritik" : "Critical") : tone === "warning" ? (tr ? "Yüksek" : "High") : (tr ? "İncele" : "Review")}</span></td>
               <td>{clean(row.data.owner || row.data.responsible || row.data.auditOwner) || (tr ? "Atanmamış" : "Unassigned")}</td>
               <td>{formatDue(row)}</td>
