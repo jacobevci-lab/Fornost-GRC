@@ -73,19 +73,16 @@ type Finding = {
   updatedAt?: string;
   createdAt?: string;
 };
-type EnterpriseFinding = EnterpriseFindingSnapshot & {
-  title?: string;
-  owner?: string;
-  reviewer?: string;
-  dueDate?: string;
-  updatedAt?: string;
-  attention?: string;
-  acceptanceRationale?: string;
-  acceptUntil?: string;
+type TraceabilityItem = {
+  workItemId?: string;
+  findingId?: string;
+  resultRef?: string;
+  completedAt?: string;
+  enterpriseFinding?: EnterpriseFindingSnapshot | null;
 };
 type AutomationPayload = { sources?: Source[]; rules?: Rule[]; runs?: Run[]; findings?: Finding[] };
 type WorkPayload = { items?: CapaWorkItem[] };
-type FindingPayload = { findings?: EnterpriseFinding[] };
+type TraceabilityPayload = { available?: boolean; items?: TraceabilityItem[] };
 type Chain = { sourceId: string; ruleId: string; controlRef: string; controlRefs: string[]; evidenceRef: string; findingRef: string };
 type GovernanceForm = {
   findingId: string;
@@ -189,7 +186,7 @@ export default function ContinuousAssuranceAttention({ lang }: { lang: Lang }) {
   const [insights, setInsights] = useState<InsightPayload | null>(null);
   const [automation, setAutomation] = useState<AutomationPayload>({});
   const [workItems, setWorkItems] = useState<CapaWorkItem[]>([]);
-  const [enterpriseFindings, setEnterpriseFindings] = useState<EnterpriseFinding[]>([]);
+  const [traceabilityItems, setTraceabilityItems] = useState<TraceabilityItem[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [available, setAvailable] = useState(false);
   const [governanceAvailable, setGovernanceAvailable] = useState(false);
@@ -203,11 +200,11 @@ export default function ContinuousAssuranceAttention({ lang }: { lang: Lang }) {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [insightResponse, automationResponse, workResponse, findingResponse] = await Promise.all([
+      const [insightResponse, automationResponse, workResponse, traceabilityResponse] = await Promise.all([
         fetch(withBasePath("/api/evidence-automation/operations-insights"), { cache: "no-store" }),
         fetch(withBasePath("/api/evidence-automation"), { cache: "no-store" }),
         fetch(withBasePath("/api/continuous-assurance"), { cache: "no-store", headers: { accept: "application/json" } }),
-        fetch(withBasePath("/api/findings"), { cache: "no-store", headers: { accept: "application/json" } }),
+        fetch(withBasePath("/api/continuous-assurance/traceability"), { cache: "no-store", headers: { accept: "application/json" } }),
       ]);
 
       if (workResponse.ok) {
@@ -219,12 +216,13 @@ export default function ContinuousAssuranceAttention({ lang }: { lang: Lang }) {
         setGovernanceAvailable(false);
       }
 
-      if (findingResponse.ok) {
-        const findingPayload = await findingResponse.json() as FindingPayload;
-        setEnterpriseFindings(Array.isArray(findingPayload.findings) ? findingPayload.findings : []);
-        setFindingLifecycleAvailable(true);
+      if (traceabilityResponse.ok) {
+        const traceabilityPayload = await traceabilityResponse.json() as TraceabilityPayload;
+        const lifecycleAvailable = traceabilityPayload.available !== false;
+        setTraceabilityItems(lifecycleAvailable && Array.isArray(traceabilityPayload.items) ? traceabilityPayload.items : []);
+        setFindingLifecycleAvailable(lifecycleAvailable);
       } else {
-        setEnterpriseFindings([]);
+        setTraceabilityItems([]);
         setFindingLifecycleAvailable(false);
       }
 
@@ -247,7 +245,7 @@ export default function ContinuousAssuranceAttention({ lang }: { lang: Lang }) {
       setAvailable(false);
       setGovernanceAvailable(false);
       setFindingLifecycleAvailable(false);
-      setEnterpriseFindings([]);
+      setTraceabilityItems([]);
       setInsights(null);
     } finally {
       setLoaded(true);
@@ -270,13 +268,13 @@ export default function ContinuousAssuranceAttention({ lang }: { lang: Lang }) {
   }, [automation.findings]);
 
   const enterpriseFindingById = useMemo(() => {
-    const map = new Map<string, EnterpriseFinding>();
-    for (const finding of enterpriseFindings) {
-      const id = clean(finding.id);
-      if (id) map.set(id, finding);
+    const map = new Map<string, EnterpriseFindingSnapshot>();
+    for (const item of traceabilityItems) {
+      const resultRef = clean(item.resultRef);
+      if (resultRef && item.enterpriseFinding) map.set(resultRef, item.enterpriseFinding);
     }
     return map;
-  }, [enterpriseFindings]);
+  }, [traceabilityItems]);
 
   const chainByInsight = useMemo(() => {
     const sources = automation.sources || [];
