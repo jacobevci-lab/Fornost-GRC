@@ -2,6 +2,12 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { withBasePath } from "./base-path";
+import {
+  capaGovernanceState,
+  selectCapaWorkItem,
+  type CapaGovernanceState,
+  type CapaWorkItem,
+} from "./continuous-assurance-attention-state";
 import { navigateToFornost } from "./navigation-focus";
 import "./continuous-assurance-attention.css";
 
@@ -51,9 +57,33 @@ type Rule = {
   lastEvidenceAt?: string;
 };
 type Run = { ruleId?: string; status?: string; evidenceId?: string; createdAt?: string };
-type Finding = { id?: string; ruleId?: string; evidenceId?: string; status?: string; updatedAt?: string; createdAt?: string };
+type Finding = {
+  id?: string;
+  ruleId?: string;
+  evidenceId?: string;
+  title?: string;
+  severity?: string;
+  owner?: string;
+  dueDate?: string;
+  detail?: string;
+  status?: string;
+  updatedAt?: string;
+  createdAt?: string;
+};
 type AutomationPayload = { sources?: Source[]; rules?: Rule[]; runs?: Run[]; findings?: Finding[] };
-type Chain = { sourceId: string; ruleId: string; controlRef: string; evidenceRef: string; findingRef: string };
+type WorkPayload = { items?: CapaWorkItem[] };
+type Chain = { sourceId: string; ruleId: string; controlRef: string; controlRefs: string[]; evidenceRef: string; findingRef: string };
+type GovernanceForm = {
+  findingId: string;
+  reviewer: string;
+  owner: string;
+  dueDate: string;
+  targetControlRef: string;
+  rootCause: string;
+  correctiveAction: string;
+  preventiveAction: string;
+};
+type GovernanceNotice = { findingId: string; tone: "success" | "error"; message: string };
 
 const clean = (value: unknown) => String(value ?? "").trim();
 const timestamp = (value: unknown) => {
@@ -97,21 +127,63 @@ function reasonCopy(insight: Insight, tr: boolean) {
   }
 }
 
+function governanceCopy(state: CapaGovernanceState, tr: boolean) {
+  if (state === "pending-review") return tr ? "CAPA review bekliyor" : "CAPA review pending";
+  if (state === "completed") return tr ? "CAPA oluşturuldu" : "CAPA promoted";
+  if (state === "rejected") return tr ? "CAPA review reddedildi" : "CAPA review rejected";
+  if (state === "ready") return tr ? "Governance review hazır" : "Ready for governance review";
+  if (state === "unavailable") return tr ? "Governance durumu alınamadı" : "Governance state unavailable";
+  if (state === "not-applicable") return tr ? "Teknik bulgu oluşmadı" : "No technical finding yet";
+  return tr ? "Governance durumu izleniyor" : "Governance state monitored";
+}
+
+function candidateReasons(payload: Record<string, unknown>, tr: boolean) {
+  const candidate = payload.candidate && typeof payload.candidate === "object" ? payload.candidate as { reasons?: unknown[] } : null;
+  const reasons = Array.isArray(candidate?.reasons) ? candidate?.reasons.map(clean).filter(Boolean) : [];
+  const labels: Record<string, [string, string]> = {
+    "automation-finding-reference-required": ["Otomasyon bulgu referansı eksik", "Automation finding reference is missing"],
+    "automation-rule-reference-required": ["Otomasyon kural referansı eksik", "Automation rule reference is missing"],
+    "control-link-required": ["Kontrol bağlantısı eksik", "Control link is missing"],
+    "risk-link-required": ["Risk bağlantısı eksik", "Risk link is missing"],
+    "origin-evidence-integrity-required": ["Kaynak kanıt bütünlük hash'i eksik", "Origin evidence integrity hash is missing"],
+    "independent-reviewer-required": ["Bağımsız reviewer zorunlu", "Independent reviewer is required"],
+    "maker-checker-separation-required": ["Owner ve reviewer farklı olmalı", "Owner and reviewer must be different"],
+  };
+  return reasons.map((reason) => labels[reason]?.[tr ? 0 : 1] || reason).join(" · ");
+}
+
 export default function ContinuousAssuranceAttention({ lang }: { lang: Lang }) {
   const tr = lang === "tr";
   const [insights, setInsights] = useState<InsightPayload | null>(null);
   const [automation, setAutomation] = useState<AutomationPayload>({});
+  const [workItems, setWorkItems] = useState<CapaWorkItem[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [available, setAvailable] = useState(false);
+  const [governanceAvailable, setGovernanceAvailable] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [activeGovernanceFinding, setActiveGovernanceFinding] = useState("");
+  const [governanceForm, setGovernanceForm] = useState<GovernanceForm | null>(null);
+  const [submittingFinding, setSubmittingFinding] = useState("");
+  const [governanceNotice, setGovernanceNotice] = useState<GovernanceNotice | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [insightResponse, automationResponse] = await Promise.all([
+      const [insightResponse, automationResponse, workResponse] = await Promise.all([
         fetch(withBasePath("/api/evidence-automation/operations-insights"), { cache: "no-store" }),
         fetch(withBasePath("/api/evidence-automation"), { cache: "no-store" }),
+        fetch(withBasePath("/api/continuous-assurance"), { cache: "no-store", headers: { accept: "application/json" } }),
       ]);
+
+      if (workResponse.ok) {
+        const workPayload = await workResponse.json() as WorkPayload;
+        setWorkItems(Array.isArray(workPayload.items) ? workPayload.items : []);
+        setGovernanceAvailable(true);
+      } else {
+        setWorkItems([]);
+        setGovernanceAvailable(false);
+      }
+
       if (!insightResponse.ok || !automationResponse.ok) {
         setAvailable(false);
         setInsights(null);
@@ -129,6 +201,7 @@ export default function ContinuousAssuranceAttention({ lang }: { lang: Lang }) {
       setAvailable(true);
     } catch {
       setAvailable(false);
+      setGovernanceAvailable(false);
       setInsights(null);
     } finally {
       setLoaded(true);
@@ -140,6 +213,15 @@ export default function ContinuousAssuranceAttention({ lang }: { lang: Lang }) {
     const timer = window.setTimeout(() => void load(), 0);
     return () => window.clearTimeout(timer);
   }, [load]);
+
+  const findingById = useMemo(() => {
+    const map = new Map<string, Finding>();
+    for (const finding of automation.findings || []) {
+      const id = clean(finding.id);
+      if (id) map.set(id, finding);
+    }
+    return map;
+  }, [automation.findings]);
 
   const chainByInsight = useMemo(() => {
     const sources = automation.sources || [];
@@ -189,10 +271,12 @@ export default function ContinuousAssuranceAttention({ lang }: { lang: Lang }) {
       const latestRun = runs
         .filter((run) => ruleId && clean(run.ruleId) === ruleId)
         .sort((a, b) => timestamp(b.createdAt) - timestamp(a.createdAt))[0];
+      const controlRefs = splitRefs(focusRule?.controlRefs);
       chains.set(chainKey(sourceId, insight.code), {
         sourceId,
         ruleId,
         controlRef: splitRefs(focusRule?.controlRefs)[0] || "",
+        controlRefs,
         evidenceRef: latestFinding ? clean(latestFinding.evidenceId) : clean(latestRun?.evidenceId),
         findingRef: clean(latestFinding?.id),
       });
@@ -222,6 +306,84 @@ export default function ContinuousAssuranceAttention({ lang }: { lang: Lang }) {
     navigateToFornost({ module: "Kanıtlar", ref: evidenceRef, kind: "evidence", source: "continuous-assurance-attention", filter: { evidenceRef } });
   }
 
+  function openEnterpriseFinding(id: string) {
+    const findingRef = clean(id);
+    if (!findingRef) return;
+    navigateToFornost({ module: "Bulgular ve CAPA", ref: findingRef, kind: "finding", source: "continuous-assurance-attention", filter: { findingRef } });
+  }
+
+  function startGovernance(chain: Chain) {
+    if (!chain.findingRef || !governanceAvailable) return;
+    const finding = findingById.get(chain.findingRef);
+    setActiveGovernanceFinding(chain.findingRef);
+    setGovernanceNotice(null);
+    setGovernanceForm({
+      findingId: chain.findingRef,
+      reviewer: "",
+      owner: clean(finding?.owner),
+      dueDate: clean(finding?.dueDate),
+      targetControlRef: chain.controlRefs.length === 1 ? chain.controlRefs[0] : "",
+      rootCause: "",
+      correctiveAction: "",
+      preventiveAction: "",
+    });
+  }
+
+  function closeGovernance() {
+    if (submittingFinding) return;
+    setActiveGovernanceFinding("");
+    setGovernanceForm(null);
+  }
+
+  async function queueCapa(chain: Chain) {
+    const form = governanceForm;
+    if (!form || form.findingId !== chain.findingRef) return;
+    const required = [form.reviewer, form.owner, form.dueDate, form.targetControlRef, form.rootCause, form.correctiveAction, form.preventiveAction].every((value) => clean(value));
+    if (!required) {
+      setGovernanceNotice({ findingId: form.findingId, tone: "error", message: tr ? "Reviewer, owner, tarih, hedef kontrol, kök neden ve CAPA aksiyonları zorunludur." : "Reviewer, owner, due date, target control, root cause and CAPA actions are required." });
+      return;
+    }
+    if (clean(form.reviewer).toLowerCase() === clean(form.owner).toLowerCase()) {
+      setGovernanceNotice({ findingId: form.findingId, tone: "error", message: tr ? "Maker-checker için owner ve reviewer farklı olmalıdır." : "Owner and reviewer must be different for maker-checker separation." });
+      return;
+    }
+
+    setSubmittingFinding(form.findingId);
+    setGovernanceNotice(null);
+    try {
+      const response = await fetch(withBasePath("/api/continuous-assurance"), {
+        method: "POST",
+        headers: { "content-type": "application/json", accept: "application/json" },
+        body: JSON.stringify({
+          action: "queue-capa-promotion",
+          findingId: form.findingId,
+          reviewer: form.reviewer,
+          owner: form.owner,
+          dueDate: form.dueDate,
+          targetControlRef: form.targetControlRef,
+          rootCause: form.rootCause,
+          correctiveAction: form.correctiveAction,
+          preventiveAction: form.preventiveAction,
+        }),
+      });
+      const payload = await response.json().catch(() => ({})) as Record<string, unknown>;
+      if (!response.ok) {
+        const reasons = candidateReasons(payload, tr);
+        const message = clean(payload.error) || (tr ? "CAPA governance işi oluşturulamadı." : "CAPA governance work item could not be created.");
+        setGovernanceNotice({ findingId: form.findingId, tone: "error", message: reasons ? `${message} ${reasons}` : message });
+        return;
+      }
+      setActiveGovernanceFinding("");
+      setGovernanceForm(null);
+      setGovernanceNotice({ findingId: form.findingId, tone: "success", message: clean(payload.message) || (tr ? "CAPA governance işi review kuyruğuna alındı." : "CAPA governance work item was queued for review.") });
+      await load();
+    } catch {
+      setGovernanceNotice({ findingId: form.findingId, tone: "error", message: tr ? "Governance servisine ulaşılamadı; kayıt gönderilmedi." : "Governance service is unavailable; nothing was submitted." });
+    } finally {
+      setSubmittingFinding("");
+    }
+  }
+
   const surfaceState = !loaded ? "loading" : available ? clean(insights?.state) || "healthy" : "unknown";
 
   return (
@@ -230,7 +392,7 @@ export default function ContinuousAssuranceAttention({ lang }: { lang: Lang }) {
         <div>
           <small>CONTINUOUS ASSURANCE HEALTH</small>
           <h3>{tr ? "Dikkat Gerektirenler" : "Attention Required"}</h3>
-          <p>{tr ? "Connector, continuous control, kanıt ve bulgu sinyallerini tek operasyon kuyruğunda birleştirir." : "Combines connector, continuous-control, evidence, and finding signals into one operational queue."}</p>
+          <p>{tr ? "Connector, continuous control, kanıt, bulgu ve governance durumunu tek operasyon kuyruğunda birleştirir." : "Combines connector, continuous-control, evidence, finding, and governance state in one operational queue."}</p>
         </div>
         <button type="button" disabled={loading} onClick={() => void load()}>{loading ? "…" : "↻"}</button>
       </header>
@@ -264,8 +426,12 @@ export default function ContinuousAssuranceAttention({ lang }: { lang: Lang }) {
             <div className="ca-attention-list">
               {attention.map((insight, index) => {
                 const sourceId = clean(insight.sourceId);
-                const chain = chainByInsight.get(chainKey(sourceId, insight.code)) || { sourceId, ruleId: "", controlRef: "", evidenceRef: "", findingRef: "" };
+                const chain = chainByInsight.get(chainKey(sourceId, insight.code)) || { sourceId, ruleId: "", controlRef: "", controlRefs: [], evidenceRef: "", findingRef: "" };
                 const copy = reasonCopy(insight, tr);
+                const workItem = selectCapaWorkItem(workItems, chain.findingRef);
+                const governanceState = capaGovernanceState(Boolean(chain.findingRef), governanceAvailable, workItem);
+                const formOpen = activeGovernanceFinding === chain.findingRef && governanceForm?.findingId === chain.findingRef;
+                const notice = governanceNotice?.findingId === chain.findingRef ? governanceNotice : null;
                 return (
                   <article key={`${sourceId}:${clean(insight.code)}:${index}`} className={`ca-attention-row ${clean(insight.state) || "watch"}`}>
                     <div className="ca-attention-copy">
@@ -275,7 +441,7 @@ export default function ContinuousAssuranceAttention({ lang }: { lang: Lang }) {
                       <span>{copy.detail}</span>
                     </div>
                     <div className="ca-attention-chain">
-                      <small>{tr ? "Kaynak → Kural → Kontrol → Kanıt → Bulgu" : "Source → Rule → Control → Evidence → Finding"}</small>
+                      <small>{tr ? "Kaynak → Kural → Kontrol → Kanıt → Bulgu → Governance" : "Source → Rule → Control → Evidence → Finding → Governance"}</small>
                       <div>
                         <button type="button" disabled={!chain.sourceId} onClick={() => openAutomationRef("source", chain.sourceId)}>{tr ? "Kaynak" : "Source"}</button>
                         <button type="button" disabled={!chain.ruleId} onClick={() => openAutomationRef("rule", chain.ruleId)}>{tr ? "Kural" : "Rule"}</button>
@@ -283,7 +449,51 @@ export default function ContinuousAssuranceAttention({ lang }: { lang: Lang }) {
                         <button type="button" disabled={!chain.evidenceRef} onClick={() => openEvidence(chain.evidenceRef)}>{tr ? "Kanıt" : "Evidence"}</button>
                         <button type="button" disabled={!chain.findingRef} onClick={() => openAutomationRef("finding", chain.findingRef)}>{tr ? "Bulgu" : "Finding"}</button>
                       </div>
+                      <div className={`ca-attention-governance-state ${governanceState}`}>
+                        <span>{governanceCopy(governanceState, tr)}</span>
+                        {(governanceState === "ready" || governanceState === "rejected") && (
+                          <button type="button" onClick={() => startGovernance(chain)}>{governanceState === "rejected" ? (tr ? "Yeniden hazırla" : "Prepare again") : (tr ? "CAPA review" : "CAPA review")}</button>
+                        )}
+                        {governanceState === "completed" && workItem?.resultRef && (
+                          <button type="button" onClick={() => openEnterpriseFinding(workItem.resultRef || "")}>{workItem.resultCode || (tr ? "CAPA kaydı" : "CAPA record")}</button>
+                        )}
+                      </div>
                     </div>
+
+                    {notice && <div className={`ca-attention-governance-notice ${notice.tone}`} role="status">{notice.message}</div>}
+
+                    {formOpen && governanceForm && (
+                      <form className="ca-attention-governance-form" onSubmit={(event) => { event.preventDefault(); void queueCapa(chain); }}>
+                        <header>
+                          <div>
+                            <small>{tr ? "GOVERNED CAPA PROMOTION" : "GOVERNED CAPA PROMOTION"}</small>
+                            <b>{findingById.get(chain.findingRef)?.title || chain.findingRef}</b>
+                            <span>{tr ? "Bu işlem doğrudan enterprise finding oluşturmaz; bağımsız review kuyruğuna gönderir." : "This does not directly create an enterprise finding; it queues an independent review."}</span>
+                          </div>
+                          <button type="button" onClick={closeGovernance} disabled={Boolean(submittingFinding)} aria-label={tr ? "Formu kapat" : "Close form"}>×</button>
+                        </header>
+                        <div className="ca-attention-governance-grid">
+                          <label><span>{tr ? "Owner" : "Owner"}</span><input value={governanceForm.owner} onChange={(event) => setGovernanceForm({ ...governanceForm, owner: event.target.value })} required /></label>
+                          <label><span>{tr ? "Bağımsız reviewer" : "Independent reviewer"}</span><input value={governanceForm.reviewer} onChange={(event) => setGovernanceForm({ ...governanceForm, reviewer: event.target.value })} placeholder="reviewer@company.com" required /></label>
+                          <label><span>{tr ? "Due date" : "Due date"}</span><input type="date" value={governanceForm.dueDate} onChange={(event) => setGovernanceForm({ ...governanceForm, dueDate: event.target.value })} required /></label>
+                          <label><span>{tr ? "Hedef kontrol" : "Target control"}</span>
+                            {chain.controlRefs.length > 1 ? (
+                              <select value={governanceForm.targetControlRef} onChange={(event) => setGovernanceForm({ ...governanceForm, targetControlRef: event.target.value })} required>
+                                <option value="">{tr ? "Kontrol seç" : "Select control"}</option>
+                                {chain.controlRefs.map((ref) => <option key={ref} value={ref}>{ref}</option>)}
+                              </select>
+                            ) : <input value={governanceForm.targetControlRef} readOnly placeholder={tr ? "Bağlı kontrol yok" : "No mapped control"} required />}
+                          </label>
+                          <label className="wide"><span>{tr ? "Kök neden" : "Root cause"}</span><textarea value={governanceForm.rootCause} onChange={(event) => setGovernanceForm({ ...governanceForm, rootCause: event.target.value })} required /></label>
+                          <label className="wide"><span>{tr ? "Düzeltici aksiyon" : "Corrective action"}</span><textarea value={governanceForm.correctiveAction} onChange={(event) => setGovernanceForm({ ...governanceForm, correctiveAction: event.target.value })} required /></label>
+                          <label className="wide"><span>{tr ? "Önleyici aksiyon" : "Preventive action"}</span><textarea value={governanceForm.preventiveAction} onChange={(event) => setGovernanceForm({ ...governanceForm, preventiveAction: event.target.value })} required /></label>
+                        </div>
+                        <footer>
+                          <span>{tr ? "Maker-checker ve duplicate kontrolü server tarafında uygulanır." : "Maker-checker and duplicate controls are enforced server-side."}</span>
+                          <div><button type="button" onClick={closeGovernance} disabled={Boolean(submittingFinding)}>{tr ? "Vazgeç" : "Cancel"}</button><button className="primary" type="submit" disabled={submittingFinding === chain.findingRef}>{submittingFinding === chain.findingRef ? (tr ? "Gönderiliyor…" : "Submitting…") : (tr ? "Review kuyruğuna gönder" : "Queue for review")}</button></div>
+                        </footer>
+                      </form>
+                    )}
                   </article>
                 );
               })}
