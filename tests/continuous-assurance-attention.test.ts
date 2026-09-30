@@ -38,16 +38,21 @@ test("attention panel selects the affected active rule for each operational reas
   assert.match(attention, /insight\.code === "no-active-rules" \? undefined : latestActiveRule/);
 });
 
-test("attention record chain remains on the selected rule and uses only live identities", () => {
+test("attention record chain remains on the selected rule and preserves only governed closed findings", () => {
   assert.match(attention, /const snapshotNow = timestamp\(insights\?\.generatedAt\)/);
   assert.doesNotMatch(attention, /Date\.now\(\)/);
-  assert.match(attention, /clean\(finding\.ruleId\) === ruleId && clean\(finding\.status\) !== "closed"/);
+  assert.match(attention, /const governedFindingIds = new Set/);
+  assert.match(attention, /\["capa-promotion", "control-retest"\]\.includes\(clean\(item\.action\)\.toLowerCase\(\)\)/);
+  assert.match(attention, /clean\(finding\.ruleId\) === ruleId/);
+  assert.match(attention, /clean\(finding\.status\) !== "closed" \|\| governedFindingIds\.has\(clean\(finding\.id\)\)/);
+  assert.match(attention, /Number\(clean\(b\.status\) !== "closed"\) - Number\(clean\(a\.status\) !== "closed"\)/);
   assert.match(attention, /clean\(run\.ruleId\) === ruleId/);
   assert.match(attention, /const controlRefs = splitRefs\(focusRule\?\.controlRefs\)/);
   assert.match(attention, /controlRef: controlRefs\[0\] \|\| ""/);
   assert.match(attention, /evidenceRef: latestFinding \? clean\(latestFinding\.evidenceId\) : clean\(latestRun\?\.evidenceId\)/);
   assert.match(attention, /findingRef: clean\(latestFinding\?\.id\)/);
   assert.match(attention, /chainByInsight\.get\(chainKey\(sourceId, insight\.code\)\)/);
+  assert.match(attention, /\[automation, insights, workItems\]/);
   assert.doesNotMatch(attention, /`CCM-\$\{/);
   assert.doesNotMatch(attention, /`EVD-AUTO-\$\{/);
 });
