@@ -8,6 +8,7 @@ import ContinuousAssuranceAttention from "./continuous-assurance-attention";
 import ExecutiveDashboardReference from "./executive-dashboard-reference";
 import "./executive-assurance.css";
 import "./assurance-delivery-posture.css";
+import "./executive-operational-detail.css";
 
 type Operations = {
   summary: {
