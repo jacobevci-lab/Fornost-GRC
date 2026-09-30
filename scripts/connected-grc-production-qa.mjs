@@ -37,6 +37,7 @@ const report = {
   consoleErrors: [],
   pageErrors: [],
   firstPartyFailedRequests: [],
+  dashboardNavigationCancellations: [],
   failures: [],
 };
 
@@ -130,10 +131,20 @@ try {
     report.consoleErrors.push({ text, sourceUrl: locationUrl, pageUrl: page.url() });
   });
   page.on("pageerror", (error) => report.pageErrors.push({ message: error.message, pageUrl: page.url() }));
+  let leavingDashboard = false;
   page.on("requestfailed", (request) => {
     const url = request.url();
     if (isCloudflareInsights(url)) return;
     if (new URL(url).origin !== baseOrigin) return;
+    // Dashboard effects explicitly abort these reads on unmount. Preserve the
+    // event as evidence, but do not call intentional navigation cancellation a
+    // Connected GRC transport failure. Other endpoints/errors/writes still fail.
+    const dashboardReads = ["/api/continuous-assurance/executive", "/api/evidence/history", "/api/findings", "/api/dashboard-preferences"];
+    if (leavingDashboard && request.method() === "GET" && request.failure()?.errorText === "net::ERR_ABORTED"
+      && dashboardReads.includes(new URL(url).pathname)) {
+      report.dashboardNavigationCancellations.push({ url, method: request.method(), failure: request.failure()?.errorText });
+      return;
+    }
     report.firstPartyFailedRequests.push({
       url,
       method: request.method(),
@@ -149,6 +160,7 @@ try {
   if (!(await connectedButton.count())) {
     fail("Connected GRC navigation", "Bağlantılı GRC Haritası navigation button was not found.");
   } else {
+    leavingDashboard = true;
     await connectedButton.evaluate((element) => element.click());
     await page.locator(".connected-grc").waitFor({ state: "visible", timeout: 10_000 });
 
@@ -163,6 +175,7 @@ try {
       fail("Connected GRC live-source readiness", `Expected ${expectedLiveSourceText} live sources, observed: ${(await liveStatus.textContent().catch(() => "")) || "missing status"}`);
     }
 
+    leavingDashboard = false;
     const sourceStatusText = (await liveStatus.textContent().catch(() => ""))?.trim() || "";
     const relationshipRows = await page.locator(".connected-table article").count();
     const unresolvedRows = await page.locator(".connected-unresolved div").count();

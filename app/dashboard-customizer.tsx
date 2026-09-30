@@ -27,7 +27,14 @@ export function useDashboardView() {
         if (!response.ok) throw new Error("preferences");
         const payload = await response.json();
         if (controller.signal.aborted) return;
-        setPreferences(payload.preferences ? normalize(payload.preferences) : defaultDashboardView());
+        const loaded = payload.preferences ? normalize(payload.preferences) : defaultDashboardView();
+        // The retired customizer persisted its default risk-first order. Migrate only
+        // that untouched preset; preserve explicit visibility, density and ordering.
+        const legacy = EXECUTIVE_DASHBOARD_PRESETS.executive;
+        const isLegacyDefault = loaded.preset === "executive" && !loaded.compact
+          && Object.values(loaded.visible).every(Boolean)
+          && loaded.order.join() === legacy.order.join();
+        setPreferences(isLegacyDefault ? defaultDashboardView() : loaded);
         setLoadFailed(false); setStatus("ready");
       }).catch(() => { if (!controller.signal.aborted) { setLoadFailed(true); setStatus("error"); } });
     return () => controller.abort();
@@ -75,10 +82,10 @@ export default function DashboardCustomizer({ lang, view }: { lang: "tr" | "en";
       <header><div><h2 id="dashboard-customizer-title">{tr ? "Dashboard'u özelleştir" : "Customize dashboard"}</h2><p>{tr ? "Bölümleri seçin, kartların sırasını ve yoğunluğunu düzenleyin." : "Choose sections, arrange cards and adjust density."}</p></div><button type="button" onClick={close} aria-label={tr ? "Kapat" : "Close"}>×</button></header>
       <div className="dashboard-customizer-body">
         {view.status === "error" && <p role="alert">{view.loadFailed ? (tr ? "Hesap tercihleri yüklenemedi. Tekrar deneyin." : "Account preferences could not be loaded. Retry.") : (tr ? "Kaydedilemedi. Değişiklikleriniz uygulanmadı; tekrar deneyin." : "Save failed. Your changes were not applied; retry.")}{view.loadFailed && <button type="button" onClick={view.reload}>{tr ? "Tekrar yükle" : "Reload"}</button>}</p>}
-        <label className="dashboard-profile">{tr ? "Görünüm" : "View"}<select value={draft.preset} onChange={event => {
+        <div className="dashboard-profile"><label htmlFor="dashboard-profile-select">{tr ? "Görünüm" : "View"}</label><select id="dashboard-profile-select" value={draft.preset} onChange={event => {
           const id = event.target.value as Preferences["preset"];
           setDraft(id === "executive" ? defaultDashboardView() : { ...clone(EXECUTIVE_DASHBOARD_PRESETS[id]), order: [...PANEL_ORDER, "actionCenter", "recentChanges"] });
-        }}><option value="executive">{tr ? "Yönetici" : "Executive"}</option><option value="risk">{tr ? "Risk odaklı" : "Risk focus"}</option><option value="assurance">{tr ? "Güvence odaklı" : "Assurance focus"}</option></select></label>
+        }}><option value="executive">{tr ? "Yönetici" : "Executive"}</option><option value="risk">{tr ? "Risk odaklı" : "Risk focus"}</option><option value="assurance">{tr ? "Güvence odaklı" : "Assurance focus"}</option></select></div>
         <fieldset><legend>{tr ? "Özet kartları" : "Overview cards"}</legend>{panels.map((id, index) => <div className="dashboard-customizer-row" key={id}>
           <label><input type="checkbox" checked={draft.visible[id]} onChange={event => setDraft(current => ({ ...current, visible: { ...current.visible, [id]: event.target.checked } }))} />{names[id]}</label>
           <div><button type="button" disabled={index === 0} onClick={() => move(id, -1)} aria-label={`${names[id]} — ${tr ? "Yukarı taşı" : "Move up"}`}>↑</button><button type="button" disabled={index === panels.length - 1} onClick={() => move(id, 1)} aria-label={`${names[id]} — ${tr ? "Aşağı taşı" : "Move down"}`}>↓</button></div>
