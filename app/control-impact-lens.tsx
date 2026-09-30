@@ -294,5 +294,5 @@ export default function ControlImpactLens() {
     </>}
   </section>;
 
-  return createPortal(content, mount);
+  return createPortal(<details className="control-impact-disclosure"><summary>{tr ? "Seçili kontrolün etki zincirini incele" : "Explore the selected control’s impact chain"}</summary>{content}</details>, mount);
 }

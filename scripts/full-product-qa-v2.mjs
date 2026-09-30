@@ -143,11 +143,16 @@ async function domAudit(page, area, locale) {
       const clippedWithoutScroller = !!wrapperRect && rect.width > wrapperRect.width + 4 && getComputedStyle(wrapper).overflowX === "visible";
       return { index, rows, headers, clippedWithoutScroller, caption: table.querySelector("caption")?.textContent?.trim() || "", ariaLabel: table.getAttribute("aria-label") || "" };
     });
+    const headingSizes = [...document.querySelectorAll(".shell>main h1,.shell>main h2,.shell>main h3")].filter(visible).map(el => ({ tag: el.tagName, text: el.textContent?.trim(), size: parseFloat(getComputedStyle(el).fontSize) }));
+    const clippedHeaders = [...document.querySelectorAll(".shell>main header")].filter(visible).filter(header => {
+      const bounds = header.getBoundingClientRect();
+      return [...header.children].filter(visible).some(child => getComputedStyle(child).position !== "absolute" && getComputedStyle(child).position !== "fixed" && child.getBoundingClientRect().bottom > bounds.bottom + 8);
+    }).map(el => el.className || el.parentElement?.className);
     const pageOverflow = document.documentElement.scrollWidth > innerWidth + 4;
     const navLabels = [...document.querySelectorAll("nav button[aria-label]")].filter(visible).map((el) => el.getAttribute("aria-label"));
     const visibleUiText = [...document.querySelectorAll("button,label,th,[role=tab],[role=menuitem]")].filter(visible).map((el) => (el.textContent || el.getAttribute("aria-label") || "").trim()).filter(Boolean);
     return {
-      title: document.title, lang: document.documentElement.lang, h1: [...document.querySelectorAll("h1")].find(visible)?.textContent?.trim() || "",
+      headingSizes, clippedHeaders, title: document.title, lang: document.documentElement.lang, h1: [...document.querySelectorAll("h1")].find(visible)?.textContent?.trim() || "",
       controls: controls.length, emptyButtons, emptyLinks, unlabeled, duplicateIds, orphanLabels, invalidNumericRanges, brokenImages, dialogs, tables,
       pageOverflow, overflowPx: Math.max(0, document.documentElement.scrollWidth - innerWidth), navLabels, visibleUiText,
       forms: document.querySelectorAll("form").length,
@@ -155,6 +160,8 @@ async function domAudit(page, area, locale) {
     };
   });
 
+  if (data.headingSizes.some(item => item.size > (item.tag === "H2" ? 24 : item.tag === "H1" ? 20 : 18))) finding("high", area, "Oversized workspace headings", JSON.stringify(data.headingSizes));
+  if (data.clippedHeaders.length) finding("high", area, "Header content overflows its container", JSON.stringify(data.clippedHeaders));
   if (data.pageOverflow) finding("high", area, "Horizontal page overflow", `${data.overflowPx}px beyond viewport`);
   if (data.emptyButtons.length) finding("high", area, "Visible buttons without accessible name", JSON.stringify(data.emptyButtons.slice(0, 6)));
   if (data.emptyLinks.length) finding("medium", area, "Visible links without accessible name", JSON.stringify(data.emptyLinks.slice(0, 6)));
@@ -245,11 +252,28 @@ async function auditLocale(page, locale) {
           };
         });
         if (hierarchy.surfaces !== 1 || hierarchy.layout !== 'calm-executive' || hierarchy.metrics !== 6
-          || hierarchy.metricFontSizes.some(size => size < 24) || hierarchy.headerOverlapsMetrics) {
+          || hierarchy.metricFontSizes.some(size => size < 20 || size > 24) || hierarchy.headerOverlapsMetrics) {
           finding('high', area, 'Dashboard layout or metric hierarchy regressed', JSON.stringify(hierarchy));
         }
       }
       if (representativeIndexes.includes(i)) screenshot = await snap(page, `${locale}-${label}`, i === 0);
+      for (const selector of [".module-analysis-disclosure", ".eql-issues", ".audit-readiness-gaps"]) {
+        const disclosure = page.locator(selector).first();
+        if (await disclosure.count()) {
+          await disclosure.locator(":scope>summary").click();
+          if (!(await disclosure.getAttribute("open") !== null)) throw new Error(`${selector} did not expand`);
+          await domAudit(page, `${area}:expanded`, locale);
+          await disclosure.locator(":scope>summary").click();
+        }
+      }
+      if (await page.locator(".matrix").count()) {
+        const matrix = await page.locator(".matrix").evaluate(el => {
+          const bounds = el.closest(".matrix-card").getBoundingClientRect();
+          const cells = [...el.querySelectorAll(".matrix-row span")];
+          return { count: cells.length, clipped: cells.some(cell => { const r = cell.getBoundingClientRect(); return r.left < bounds.left || r.right > bounds.right || r.width < 10; }) };
+        });
+        if (matrix.count !== 25 || matrix.clipped) finding("high", area, "Risk matrix cells are clipped", JSON.stringify(matrix));
+      }
       report.locales[locale].push({ label, status: "ok", dom, a11y, screenshot });
     } catch (error) {
       report.locales[locale].push({ label, status: "error", error: error.message });
@@ -366,6 +390,89 @@ async function apiAndHeaderAudit(browser) {
   await context.close();
 }
 
+async function waitForCurrentDashboard(page) {
+  for (let attempt = 0; attempt < 18; attempt += 1) {
+    try {
+      await page.locator('[data-ui-revision="density-customize-v1"]').waitFor({ state: "visible", timeout: 10_000 });
+      await page.locator('.dashboard-customize-trigger:enabled').waitFor({ timeout: 15_000 });
+      return;
+    } catch {
+      if (attempt === 17) throw new Error("The expected dashboard revision is not deployed; refusing to verify an older UI.");
+      await page.reload({ waitUntil: "domcontentloaded" });
+    }
+  }
+}
+
+async function auditDashboardCustomization(browser) {
+  const context = await browser.newContext({ viewport: { width: 1536, height: 960 }, extraHTTPHeaders: accessHeaders });
+  let original;
+  try {
+    await login(context);
+    const response = await context.request.get(`${baseUrl}/api/dashboard-preferences`);
+    if (!response.ok()) throw new Error("Cannot back up the smoke account preferences");
+    original = (await response.json()).preferences || {
+      preset: "executive", compact: false,
+      order: ["frameworkReadiness", "riskHeatmap", "assuranceHealth", "auditRemediation", "actionCenter", "recentChanges"],
+      visible: { frameworkReadiness: true, riskHeatmap: true, assuranceHealth: true, auditRemediation: true, actionCenter: true, recentChanges: true },
+    };
+    const page = await context.newPage();
+    await page.goto(baseUrl, { waitUntil: "domcontentloaded" });
+    await waitForCurrentDashboard(page);
+    await setLocale(page, "en");
+    const trigger = page.getByRole("button", { name: "Customize", exact: true });
+    const dialog = page.getByRole("dialog", { name: "Customize dashboard", exact: true });
+    await trigger.click();
+    await dialog.waitFor({ state: "visible" });
+    await page.keyboard.press("Escape");
+    if (await dialog.isVisible()) throw new Error("Escape did not close the customizer");
+    await trigger.click();
+    await dialog.getByLabel("View", { exact: true }).selectOption("executive");
+    await dialog.getByLabel("Risk posture", { exact: true }).uncheck();
+    await dialog.getByRole("button", { name: "Continuous assurance — Move up", exact: true }).click();
+    await dialog.getByLabel("Compact density", { exact: true }).check();
+    await snap(page, "dashboard-customizer-en");
+    await dialog.getByRole("button", { name: "Save view", exact: true }).click();
+    await dialog.waitFor({ state: "hidden" });
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForCurrentDashboard(page);
+    if (await page.locator(".risk-posture-panel").count()) throw new Error("Hidden risk card did not persist after reload");
+    if (!(await page.locator(".executive-dashboard-reference.is-compact").count())) throw new Error("Density did not persist after reload");
+    const classes = await page.locator(".executive-dashboard-grid>article").evaluateAll(nodes => nodes.map(node => node.className));
+    if (!classes[1]?.includes("continuous-assurance-panel")) throw new Error("Card ordering did not persist");
+    await setLocale(page, "en");
+    await trigger.click();
+    await dialog.getByLabel("Risk posture", { exact: true }).check();
+    await page.route("**/api/dashboard-preferences", route => route.request().method() === "PUT" ? route.fulfill({ status: 503, contentType: "application/json", body: "{}" }) : route.continue());
+    await dialog.getByRole("button", { name: "Save view", exact: true }).click();
+    await dialog.getByRole("alert").waitFor({ state: "visible" });
+    if (await page.locator(".risk-posture-panel").count()) throw new Error("Failed save incorrectly changed the applied layout");
+    await page.unroute("**/api/dashboard-preferences");
+    await page.keyboard.press("Escape");
+    await trigger.click();
+    await dialog.getByRole("button", { name: "Reset to default", exact: true }).click();
+    await dialog.getByRole("button", { name: "Save view", exact: true }).click();
+    await dialog.waitFor({ state: "hidden" });
+    if (!(await page.locator('.executive-dashboard-grid[data-layout-mode="reference"]').count())) throw new Error("Reset did not restore the B layout");
+    await page.setViewportSize({ width: 360, height: 800 });
+    await trigger.click();
+    const bounds = await dialog.boundingBox();
+    if (!bounds || bounds.x < 0 || bounds.x + bounds.width > 361 || bounds.height > 800) throw new Error("Mobile customizer exceeds the viewport");
+    await axeAudit(page, "dashboard-customization:mobile");
+    await snap(page, "dashboard-customizer-mobile");
+    await page.keyboard.press("Escape");
+    report.customization = { passed: true, checks: ["open", "escape", "visibility", "ordering", "density", "account persistence", "failed save", "reset", "mobile dialog"] };
+  } catch (error) {
+    finding("high", "dashboard-customization", "Dashboard customization failed", error.message);
+    report.customization = { passed: false, error: error.message };
+  } finally {
+    if (original) {
+      const restored = await context.request.put(`${baseUrl}/api/dashboard-preferences`, { data: { preferences: original } });
+      if (!restored.ok()) finding("high", "dashboard-customization", "Smoke account preference restore failed", String(restored.status()));
+    }
+    await context.close();
+  }
+}
+
 const browser = await chromium.launch({ headless: true });
 try {
   if (!smokeEmail || !smokePassword) throw new Error("Fornost smoke credentials are required.");
@@ -377,6 +484,7 @@ try {
   observe(page);
   await page.goto(baseUrl, { waitUntil: "networkidle", timeout: 60_000 });
   await page.waitForTimeout(900);
+  await waitForCurrentDashboard(page);
   report.environment = await page.evaluate(() => ({ userAgent: navigator.userAgent, width: innerWidth, height: innerHeight, dpr: devicePixelRatio, title: document.title, lang: document.documentElement.lang }));
   await auditLocale(page, "tr");
   await auditSidebar(page);
@@ -384,6 +492,7 @@ try {
   await auditLocale(page, "en");
   await context.close();
   await auditResponsive(browser);
+  await auditDashboardCustomization(browser);
 } finally {
   await browser.close();
 }
