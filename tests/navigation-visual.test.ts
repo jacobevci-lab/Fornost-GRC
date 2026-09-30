@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 
 const page = readFileSync("app/page.tsx", "utf8");
+const icons = readFileSync("app/nav-icon.tsx", "utf8");
 const settings = readFileSync("app/settings.tsx", "utf8");
 const integrations = readFileSync("app/integration-settings.tsx", "utf8");
 const ui = readFileSync("app/ui-accessibility.css", "utf8");
@@ -22,8 +23,9 @@ test("admin configuration is split into focused navigation pages", () => {
 });
 
 test("navigation uses scalable icons and the final UI layer restores readable type", () => {
-  assert.match(page, /function NavIcon/);
-  assert.match(page, /<svg\s+viewBox="0 0 24 24"/);
+  assert.match(page, /import NavIcon from "\.\/nav-icon"/);
+  assert.match(icons, /function NavIcon/);
+  assert.match(icons, /<svg\s+viewBox="0 0 24 24"/);
   assert.match(ui, /\.nav-group button\{[^}]*font-size:12px!important/);
   assert.match(ui, /table\{font-size:12px!important/);
   assert.match(ui, /\.evidence-stage img\{[^}]*object-fit:contain/);

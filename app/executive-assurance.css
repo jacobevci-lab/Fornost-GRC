@@ -1,90 +1,98 @@
-/* Concept B changes layout only; palette and typography belong to the shared workspace. */
+/* Concept B geometry uses the existing workspace palette, font and icon system. */
 .executive-dashboard-reference {
-  --ed-bg:var(--ws-bg); --ed-surface:var(--ws-surface); --ed-surface-2:var(--ws-surface-2);
-  --ed-line:var(--ws-line); --ed-ink:var(--ws-ink); --ed-muted:var(--ws-muted);
-  --ed-brand:var(--ws-brand); --ed-warning:var(--ws-warning); --ed-danger:var(--ws-danger);
-  --ed-positive:var(--ws-positive);
-  color:var(--ed-ink); font:inherit; min-width:0;
+  --ed-bg:var(--ws-bg);--ed-surface:var(--ws-surface);--ed-surface-2:var(--ws-surface-2);
+  --ed-line:var(--ws-line);--ed-ink:var(--ws-ink);--ed-muted:var(--ws-muted);
+  --ed-brand:var(--ws-brand);--ed-warning:var(--ws-warning);--ed-danger:var(--ws-danger);--ed-positive:var(--ws-positive);
+  color:var(--ed-ink);font:inherit;min-width:0;
 }
-.workspace-dashboard[data-dashboard="executive"]{display:block!important;max-width:1600px;margin:0 auto;min-width:0}
+.workspace-dashboard[data-dashboard="executive"]{display:block!important;width:100%;max-width:none;margin:0;min-width:0}
 .executive-dashboard-reference button{font:inherit;cursor:pointer;line-height:1.45}
 .executive-dashboard-reference :is(h2,h3,p,span,small,b){overflow-wrap:anywhere}
-.executive-dashboard-reference button:focus-visible{outline:2px solid var(--ed-brand);outline-offset:3px}
-.executive-dashboard-header{height:auto;border-bottom:0;display:flex;align-items:center;justify-content:space-between;gap:24px;flex-wrap:wrap;margin-bottom:24px}
+.executive-dashboard-reference :is(button,.executive-decision-table-wrap):focus-visible{outline:2px solid var(--ed-brand);outline-offset:3px}
+.executive-dashboard-reference svg{width:24px;height:24px;flex:none}
+.executive-dashboard-header{height:auto;border-bottom:0;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:18px}
 .executive-dashboard-header small,.executive-cockpit-panel>header small,.executive-decision-board>header small{display:block;color:var(--ws-brand-2);font-size:12px;font-weight:750;letter-spacing:.08em}
-.executive-dashboard-header h2{margin:7px 0;font-size:clamp(22px,2.1vw,30px);line-height:1.2;color:var(--ed-ink)}
-.executive-dashboard-header p{margin:0;max-width:72ch;font-size:13px;color:var(--ed-muted);line-height:1.6}
+.executive-dashboard-header h2{margin:7px 0;font-size:clamp(24px,2.1vw,32px);line-height:1.2;color:var(--ed-ink)}
+.executive-dashboard-header p{margin:0;font-size:13px;color:var(--ed-muted);line-height:1.6}
 .executive-dashboard-header-actions{display:flex;gap:8px;flex-wrap:wrap}
 .executive-dashboard-header-actions button{display:flex;gap:10px;align-items:center;border:1px solid var(--ed-line);border-radius:8px;padding:9px 12px;color:var(--ed-ink);background:var(--ed-surface);font-size:12px}
-.executive-dashboard-kpis{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));border:1px solid var(--ed-line);border-radius:12px;background:var(--ed-surface);margin-bottom:16px;overflow:hidden}
-.executive-kpi{display:flex;flex-direction:column;min-width:0;border:0;border-right:1px solid var(--ed-line);padding:18px 16px;text-align:left;background:transparent;color:var(--ed-ink)}
-.executive-kpi:last-child{border-right:0}
-.executive-kpi:hover{background:var(--ed-surface-2)}
-.executive-kpi>span{width:100%;display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:36px}
-.executive-kpi small{font-size:12px;font-weight:650;color:var(--ed-muted);line-height:1.5}
-.executive-kpi>span>i{height:6px;width:6px;flex:none;border-radius:50%;background:var(--ed-brand)}
-.executive-kpi.warning>span>i{background:var(--ed-warning)}
-.executive-kpi.critical>span>i{background:var(--ed-danger)}
-.executive-kpi strong{display:block;font-size:30px;font-variant-numeric:tabular-nums;line-height:1.2;margin:10px 0 12px}
-.executive-kpi em{display:block;font-style:normal;font-size:12px;color:var(--ed-muted);margin-top:9px;line-height:1.5}
-.executive-mini-bar{width:100%;display:block;height:6px;border-radius:8px;background:var(--ed-line);overflow:hidden}
+.executive-dashboard-kpis{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));border:1px solid var(--ed-line);border-radius:10px;background:var(--ed-surface);margin-bottom:12px;overflow:hidden;padding:16px 0}
+.executive-kpi{display:grid;grid-template-columns:34px minmax(0,1fr);align-content:start;gap:6px 10px;min-width:0;border:0;border-right:1px solid var(--ed-line);padding:0 18px;text-align:left;background:transparent;color:var(--ed-ink)}
+.executive-kpi:last-child{border-right:0}.executive-kpi:hover{background:var(--ed-surface-2)}
+.executive-kpi-label{grid-column:1/-1;display:grid;grid-template-columns:34px minmax(0,1fr);align-items:center;gap:10px;min-height:30px}
+.executive-kpi-label svg{color:var(--ws-brand-2)}.executive-kpi.critical svg{color:var(--ed-warning)}
+.executive-kpi small{font-size:12px;font-weight:650;color:var(--ed-muted);line-height:1.35}
+.executive-kpi strong{grid-column:2;display:block;font-size:30px;font-variant-numeric:tabular-nums;line-height:1.2;margin:0}
+.executive-kpi>.executive-mini-bar,.executive-kpi>em{grid-column:1/-1;width:100%}
+.executive-kpi>em{display:block;font-style:normal;font-size:12px;color:var(--ed-muted);margin-top:2px;line-height:1.4}
+.executive-mini-bar{width:100%;display:block;height:8px;border-radius:8px;background:var(--ed-line);overflow:hidden}
 .executive-mini-bar>em{display:block;height:100%;margin:0;background:var(--ed-brand);border-radius:inherit}
-.executive-attention-band{display:grid;grid-template-columns:auto minmax(0,1fr) auto auto;align-items:center;gap:14px;width:100%;padding:16px;margin-bottom:16px;text-align:left;border:1px solid var(--ed-line);border-left:3px solid var(--ed-warning);border-radius:10px;color:var(--ed-ink);background:var(--ed-surface)}
+.executive-kpi.critical .executive-mini-bar>em{background:var(--ed-warning)}
+.executive-attention-band{display:grid;grid-template-columns:44px minmax(220px,.9fr) minmax(0,1.2fr);align-items:center;gap:16px;width:100%;padding:14px 18px;margin-bottom:14px;text-align:left;border:1px solid var(--ed-line);border-left:3px solid var(--ed-warning);border-radius:10px;color:var(--ed-ink);background:var(--ed-surface)}
 .executive-attention-band.clear{border-left-color:var(--ed-positive)}
-.attention-icon{display:grid;place-items:center;width:32px;height:32px;border-radius:8px;color:var(--ed-warning);background:var(--ed-surface-2);font-weight:750}
+.attention-icon{display:grid;place-items:center;width:42px;height:42px;border-radius:50%;color:var(--ed-warning);background:var(--ed-surface-2)}
 .attention-copy small{display:block;color:var(--ed-warning);font-size:12px;font-weight:750;letter-spacing:.06em}
-.attention-copy b{display:block;font-size:14px;margin-top:4px}
-.attention-breakdown{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:8px 16px;max-width:400px}
-.attention-breakdown em{font-size:12px;font-style:normal;color:var(--ed-muted)}
-.executive-dashboard-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-areas:"compliance risk" "compliance assurance" "compliance audit";gap:14px}
-.compliance-portfolio-panel{grid-area:compliance}.risk-posture-panel{grid-area:risk}.continuous-assurance-panel{grid-area:assurance}.audit-remediation-panel{grid-area:audit}
-.executive-cockpit-panel{min-width:0;background:var(--ed-surface);border:1px solid var(--ed-line);border-radius:12px;overflow:hidden}
-.executive-cockpit-panel>header{height:auto;min-height:0;border-bottom:0;display:flex;align-items:flex-start;justify-content:space-between;gap:14px;padding:16px 18px 10px}
-.executive-cockpit-panel>header>div{min-width:0}
-.executive-cockpit-panel>header h3{margin:5px 0 0;font-size:13px;font-weight:400;line-height:1.5;color:var(--ed-muted)}
+.attention-copy b{display:block;font-size:16px;margin-top:5px;line-height:1.4}
+.attention-breakdown{display:flex;justify-content:flex-end;min-width:0}
+.attention-breakdown button{display:flex;align-items:center;gap:10px;min-width:0;flex:1;padding:4px 14px;border:0;border-left:1px solid var(--ed-line);background:transparent;text-align:left;color:var(--ed-ink)}
+.attention-breakdown button:hover{background:var(--ed-surface-2)}
+.attention-breakdown strong{font-size:26px;font-variant-numeric:tabular-nums;align-self:flex-start}
+.attention-breakdown b{font-size:12px;font-weight:500;display:block}.attention-breakdown small{font-size:12px;color:var(--ed-muted);display:block;margin-top:3px}
+.attention-signal-icon{display:grid;place-items:center;color:var(--ed-warning)}.attention-signal-icon.critical{color:var(--ed-danger)}
+.attention-signal-icon svg{width:20px;height:20px}
+.executive-dashboard-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-areas:"compliance risk" "compliance assurance" "compliance audit";gap:10px 16px;align-items:stretch}
+.compliance-portfolio-panel{grid-area:compliance;display:flex;flex-direction:column}.risk-posture-panel{grid-area:risk}.continuous-assurance-panel{grid-area:assurance}.audit-remediation-panel{grid-area:audit}
+.executive-cockpit-panel{min-width:0;background:var(--ed-surface);border:1px solid var(--ed-line);border-radius:10px;overflow:hidden}
+.executive-cockpit-panel>header{height:auto;min-height:0;border-bottom:0;display:flex;align-items:center;gap:12px;padding:12px 18px 8px}
+.executive-cockpit-panel>header>div{min-width:0;flex:1}
+.executive-panel-icon{display:grid;place-items:center;flex:none;width:36px;height:36px;border-radius:8px;background:var(--ed-surface-2);color:var(--ws-brand-2)}
+.executive-cockpit-panel>header h3{margin:3px 0 0;font-size:12px;font-weight:400;line-height:1.4;color:var(--ed-muted)}
 .executive-cockpit-panel>header button{flex-shrink:0;border:0;background:transparent;color:var(--ws-brand-2);font-size:12px;padding:0}
-.compliance-score-strip{display:flex;align-items:center;gap:16px;margin:8px 20px 12px;padding:14px 0 22px;border-bottom:1px solid var(--ed-line)}
-.compliance-score-strip>strong{font-size:32px;font-variant-numeric:tabular-nums}
-.compliance-score-strip>span{font-size:13px;color:var(--ed-muted)}
-.compliance-score-strip small{display:block;font-size:12px;margin-top:5px}
-.compliance-framework-list{display:grid;gap:12px;padding:0 20px 20px}
-.compliance-framework-list button{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;padding:16px 0;text-align:left;border:0;background:transparent;color:var(--ed-ink)}
+.compliance-framework-list{display:grid;align-content:start;gap:0;padding:4px 22px 12px}
+.compliance-framework-list button{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;padding:18px 0;text-align:left;border:0;border-bottom:1px solid var(--ed-line);background:transparent;color:var(--ed-ink)}
 .compliance-framework-list b{font-size:14px}.compliance-framework-list small{display:block;font-size:12px;color:var(--ed-muted);margin-top:4px}
 .compliance-framework-list strong{font-size:14px}.compliance-framework-list .executive-mini-bar{grid-column:1/-1}
 .compliance-framework-list>p{font-size:13px;color:var(--ed-muted);line-height:1.6}
-.risk-posture-body{padding:4px 18px 12px}
-.risk-segmented-bar{display:flex;height:12px;overflow:hidden;background:var(--ed-line);border-radius:6px}
-.risk-segmented-bar>i{display:block;height:100%}
-.risk-distribution{display:flex;gap:8px 16px;flex-wrap:wrap;margin-top:10px}
+.compliance-summary{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:auto;padding:14px 22px;border-top:1px solid var(--ed-line);color:var(--ed-muted)}
+.compliance-summary b{color:var(--ed-ink)}.compliance-summary small{margin-left:auto}
+.risk-posture-body{padding:0 18px 10px}.risk-segmented-bar{display:flex;height:16px;overflow:hidden;background:var(--ed-line);border-radius:5px}
+.risk-segmented-bar>i{display:block;height:100%}.risk-distribution{display:flex;justify-content:space-between;gap:8px 16px;flex-wrap:wrap;margin-top:8px}
 .risk-distribution>span{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--ed-muted)}
-.risk-distribution b{color:var(--ed-ink);font-variant-numeric:tabular-nums}
-.risk-distribution i{width:6px;height:6px;border-radius:50%}
+.risk-distribution b{color:var(--ed-ink);font-variant-numeric:tabular-nums}.risk-distribution i{width:7px;height:7px;border-radius:50%}
 .risk-posture-body i.critical{background:var(--ed-danger)}.risk-posture-body i.warning{background:var(--ed-warning)}.risk-posture-body i.neutral{background:var(--ws-info)}.risk-posture-body i.positive{background:var(--ed-positive)}
-.risk-posture-body p,.executive-panel-note{margin:8px 0 0;color:var(--ed-muted);font-size:12px;line-height:1.5}
-.assurance-score-row{display:grid;grid-template-columns:minmax(100px,.65fr) minmax(0,1fr);gap:20px;padding:4px 18px 8px}
-.assurance-score-row>div:first-child{align-self:center}
-.assurance-score-row strong{font-size:30px;line-height:1.2}.assurance-score-row>div>span{font-size:12px;color:var(--ed-muted)}
-.assurance-score-row small{display:block;font-size:12px;color:var(--ed-muted);margin-top:5px}
-.assurance-score-bars{display:grid;gap:7px}.assurance-score-bars label>span{display:flex;justify-content:space-between;gap:12px;font-size:12px;color:var(--ed-muted);margin-bottom:4px}.assurance-score-bars b{color:var(--ed-ink)}
-.executive-panel-note{padding:0 18px 12px}
-.audit-remediation-metrics{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px 22px;padding:4px 18px 16px;align-items:center}
-.audit-remediation-metrics>div{grid-row:span 2}.audit-remediation-metrics strong{display:block;font-size:28px;line-height:1.2}.audit-remediation-metrics>div>span{display:block;font-size:12px;color:var(--ed-muted);margin:5px 0 9px}
-.audit-remediation-metrics button{display:flex;justify-content:space-between;gap:8px;align-items:center;padding:0;border:0;background:transparent;color:var(--ed-muted);font-size:12px}.audit-remediation-metrics b{color:var(--ed-ink)}
-.executive-decision-board{margin-top:16px;border:1px solid var(--ed-line);border-radius:12px;background:var(--ed-surface);overflow:hidden}
-.executive-decision-board>header{height:auto;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;padding:16px 18px}
-.executive-decision-board h3{font-size:13px;font-weight:400;color:var(--ed-muted);margin:5px 0 0}.executive-decision-board>header>span{font-size:12px;color:var(--ed-muted)}
+.risk-posture-body p,.executive-panel-note{margin:6px 0 0;color:var(--ed-muted);font-size:12px;line-height:1.4}
+.assurance-score-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,.9fr);align-items:center;gap:24px;padding:0 18px 6px}
+.assurance-score-row strong{font-size:28px;line-height:1.2}.assurance-score-row>div>span{font-size:12px;color:var(--ed-muted)}
+.assurance-score-row>div>.executive-mini-bar{margin-top:8px}
+.assurance-score-row small{display:block;font-size:12px;color:var(--ed-muted);margin-top:4px}
+.assurance-score-bars{display:grid;gap:6px;border-left:1px solid var(--ed-line);padding-left:18px}
+.assurance-score-bars label>span{display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:12px;color:var(--ed-muted)}
+.assurance-score-bars b{color:var(--ed-ink)}.executive-panel-note{padding:0 18px 10px}
+.audit-remediation-metrics{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,.9fr);gap:6px 24px;padding:0 18px 12px;align-items:center}
+.audit-remediation-metrics>div{grid-row:span 2;display:grid;grid-template-columns:auto minmax(0,1fr);align-items:center;gap:5px 16px}
+.audit-remediation-metrics strong{display:block;font-size:28px;line-height:1.2}.audit-remediation-metrics>div>span{grid-column:1/-1;grid-row:2;display:block;font-size:12px;color:var(--ed-muted)}
+.audit-remediation-metrics button{display:flex;justify-content:space-between;gap:8px;align-items:center;padding:0 0 0 18px;border:0;border-left:1px solid var(--ed-line);background:transparent;color:var(--ed-muted);font-size:12px}.audit-remediation-metrics b{color:var(--ed-ink)}
+.executive-decision-board{margin-top:14px;border:1px solid var(--ed-line);border-radius:10px;background:var(--ed-surface);overflow:hidden}
+.executive-decision-board>header{height:auto;display:flex;align-items:center;gap:12px;padding:12px 18px}
+.executive-decision-board>header>div{flex:1}.executive-decision-board h3{font-size:12px;font-weight:400;color:var(--ed-muted);margin:3px 0 0}.executive-decision-board>header>span:last-child{font-size:12px;color:var(--ed-muted)}
 .executive-decision-board>p{padding:0 18px 16px;font-size:13px;color:var(--ed-muted)}
-.executive-decision-table-wrap{overflow-x:auto}.executive-decision-table{width:100%;border-collapse:collapse;font-size:13px;text-align:left}
-.executive-decision-table :is(th,td){padding:10px 18px;border-top:1px solid var(--ed-line)}
-.executive-decision-table th{font-size:12px;font-weight:650;color:var(--ed-muted);background:var(--ed-surface-2)}
+.executive-decision-table-wrap{overflow-x:auto}.executive-decision-table{width:100%;border-collapse:collapse;font-size:12px;text-align:left;min-width:850px}
+.executive-decision-table :is(th,td){padding:8px 18px;border-top:1px solid var(--ed-line)}
+.executive-decision-table th{font-size:12px;font-weight:650;color:var(--ed-muted);background:var(--ed-surface-2);white-space:nowrap}
+.executive-decision-table td:nth-child(2){min-width:200px;max-width:420px}.executive-decision-table td:nth-child(5){white-space:nowrap}
 .executive-decision-table small{display:block;margin-top:3px;font-size:12px;color:var(--ed-muted)}
 .executive-decision-table button{white-space:nowrap;border:0;background:transparent;color:var(--ws-brand-2);padding:4px 0;font-size:12px}
-.executive-priority{display:inline-block;white-space:nowrap;padding:3px 8px;border:1px solid currentColor;border-radius:6px;font-size:12px;color:var(--ed-warning)}.executive-priority.critical{color:var(--ed-danger)}
-.executive-dashboard-footer{display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;padding:12px 0;font-size:12px;color:var(--ed-muted);line-height:1.5}
+.executive-priority,.executive-status{display:inline-block;padding:3px 8px;border:1px solid currentColor;border-radius:20px;font-size:12px;color:var(--ed-warning);background:var(--ed-surface-2)}
+.executive-priority.critical,.executive-status.critical{color:var(--ed-danger)}.executive-priority.neutral,.executive-status.neutral{color:var(--ws-brand-2)}
+.executive-type-dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--ed-warning);margin-right:7px}.executive-type-dot.critical{background:var(--ed-danger)}.executive-type-dot.neutral{background:var(--ed-brand)}
+.executive-dashboard-footer{display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;padding:10px 0;font-size:12px;color:var(--ed-muted);line-height:1.5}
 .executive-data-warning{padding:12px 16px;border:1px solid var(--ed-warning);border-radius:8px;color:var(--ed-ink);background:var(--ed-surface);font-size:13px}
-@media(max-width:1250px){.executive-dashboard-kpis{grid-template-columns:repeat(3,minmax(0,1fr))}.executive-kpi:nth-child(3){border-right:0}.executive-kpi:nth-child(-n+3){border-bottom:1px solid var(--ed-line)}.executive-attention-band{grid-template-columns:auto minmax(0,1fr) auto}.attention-breakdown{grid-column:2;grid-row:2;justify-content:flex-start;max-width:none}.executive-attention-band>strong{grid-column:3;grid-row:1}.executive-cockpit-panel>header{flex-wrap:wrap}}
-@media(max-width:900px){.executive-dashboard-grid{grid-template-columns:minmax(0,1fr);grid-template-areas:"compliance" "risk" "assurance" "audit"}.executive-dashboard-header-actions{width:100%}.executive-cockpit-panel>header{flex-wrap:nowrap}}
-@media(max-width:600px){.executive-dashboard-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.executive-kpi:nth-child(n){border-right:1px solid var(--ed-line);border-bottom:1px solid var(--ed-line)}.executive-kpi:nth-child(2n){border-right:0}.executive-kpi:nth-last-child(-n+2){border-bottom:0}.executive-kpi{padding:14px 12px}.executive-kpi strong{font-size:26px}.executive-cockpit-panel>header{flex-wrap:wrap}.assurance-score-row{grid-template-columns:1fr}.executive-decision-table :is(th,td){padding:10px}.executive-decision-table{min-width:480px}.executive-dashboard-header-actions button{flex:1;justify-content:center}.attention-breakdown{gap:6px 12px}}
+/* Only metric numerals override the legacy global text floor. */
+html[data-theme] .executive-dashboard-reference :is(.executive-kpi>strong,.assurance-score-row strong,.audit-remediation-metrics strong){font-size:28px!important;line-height:1.2!important}
+html[data-theme] .executive-dashboard-reference .attention-breakdown strong{font-size:26px!important;line-height:1.2!important}
+@media(max-width:1250px){.executive-dashboard-kpis{grid-template-columns:repeat(3,minmax(0,1fr));padding:0}.executive-kpi{padding:14px 18px}.executive-kpi:nth-child(3){border-right:0}.executive-kpi:nth-child(-n+3){border-bottom:1px solid var(--ed-line)}.executive-attention-band{grid-template-columns:44px minmax(0,1fr)}.attention-breakdown{grid-column:1/-1;justify-content:flex-start}.attention-breakdown button:first-child{border-left:0;padding-left:0}.executive-cockpit-panel>header{flex-wrap:wrap}.executive-cockpit-panel>header button{margin-left:48px}}
+@media(max-width:900px){.executive-dashboard-grid{grid-template-columns:minmax(0,1fr);grid-template-areas:"compliance" "risk" "assurance" "audit"}.executive-dashboard-header-actions{width:100%}.executive-cockpit-panel>header{flex-wrap:nowrap}.executive-cockpit-panel>header button{margin-left:0}.attention-breakdown button{flex-wrap:wrap}.attention-signal-icon{display:none}}
+@media(max-width:600px){.executive-dashboard-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.executive-kpi:nth-child(n){border-right:1px solid var(--ed-line);border-bottom:1px solid var(--ed-line)}.executive-kpi:nth-child(2n){border-right:0}.executive-kpi:nth-last-child(-n+2){border-bottom:0}.executive-kpi{padding:12px;gap:6px}.executive-kpi-label{grid-template-columns:24px minmax(0,1fr);gap:8px;min-height:36px}.executive-kpi{grid-template-columns:24px minmax(0,1fr)}.executive-kpi-label svg{width:21px;height:21px}.executive-cockpit-panel>header{flex-wrap:wrap}.executive-cockpit-panel>header button{margin-left:48px}.assurance-score-row{gap:12px}.executive-decision-table :is(th,td){padding:8px 12px}.executive-dashboard-header-actions button{flex:1;justify-content:center}.attention-breakdown{flex-direction:column;gap:10px}.attention-breakdown button{padding:8px 0;border:0;border-top:1px solid var(--ed-line)}.attention-breakdown button:first-child{border-top:1px solid var(--ed-line)}.attention-signal-icon{display:grid}.executive-decision-board>header{flex-wrap:wrap}.executive-decision-board>header>span:last-child{margin-left:48px}.executive-attention-band{padding:12px;gap:10px}.compliance-summary small{margin-left:0}}
 .report-assurance-strip{display:grid;grid-template-columns:1.2fr repeat(4,1fr);overflow:hidden;border:1px solid var(--ws-line);border-radius:12px;background:var(--ws-surface);box-shadow:var(--ws-shadow)}
 .report-assurance-strip>div{padding:15px 16px;border-right:1px solid var(--ws-line)}
 .report-assurance-strip>div:last-child{border-right:0}
@@ -95,12 +103,3 @@
 .report-assurance-strip span{color:var(--ws-faint);font-size:12px}
 @media(max-width:900px){.report-assurance-strip{grid-template-columns:1fr 1fr}.report-assurance-strip>div{border-bottom:1px solid var(--ws-line)}}
 @media(max-width:600px){.report-assurance-strip{grid-template-columns:1fr}.report-assurance-strip>div{border-right:0}}
-
-/* Preserve metric hierarchy against the legacy global 12px text floor. */
-html[data-theme] .executive-dashboard-reference .executive-kpi>strong,
-html[data-theme] .executive-dashboard-reference .compliance-score-strip>strong,
-html[data-theme] .executive-dashboard-reference .assurance-score-row strong,
-html[data-theme] .executive-dashboard-reference .audit-remediation-metrics strong{font-size:30px!important;line-height:1.2!important}
-@media(max-width:600px){html[data-theme] .executive-dashboard-reference .executive-kpi>strong{font-size:26px!important}}
-
-.executive-decision-table-wrap:focus-visible{outline:2px solid var(--ed-brand);outline-offset:-2px}
