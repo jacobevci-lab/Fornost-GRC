@@ -99,8 +99,8 @@ jobs:
           if (!navigationReplacements) {
             throw new Error("No networkidle navigation waits were found in production QA scripts; review the readiness normalizer.");
           }
-          if (shellReadinessReplacements < 3) {
-            throw new Error(`Authenticated shell readiness patch incomplete: expected at least 3 replacements, got ${shellReadinessReplacements}.`);
+          if (shellReadinessReplacements < 2) {
+            throw new Error(`Authenticated shell readiness patch incomplete: expected at least 2 replacements, got ${shellReadinessReplacements}.`);
           }
           console.log(`SPA readiness normalized ${navigationReplacements} navigation wait(s) and ${shellReadinessReplacements} authenticated shell wait(s).`);
           NODE

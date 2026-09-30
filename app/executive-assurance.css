@@ -10,7 +10,7 @@
 .executive-dashboard-reference button{font:inherit;cursor:pointer;line-height:1.45}
 .executive-dashboard-reference :is(h2,h3,p,span,small,b){overflow-wrap:anywhere}
 .executive-dashboard-reference button:focus-visible{outline:2px solid var(--ed-brand);outline-offset:3px}
-.executive-dashboard-header{display:flex;align-items:center;justify-content:space-between;gap:24px;flex-wrap:wrap;margin-bottom:24px}
+.executive-dashboard-header{height:auto;border-bottom:0;display:flex;align-items:center;justify-content:space-between;gap:24px;flex-wrap:wrap;margin-bottom:24px}
 .executive-dashboard-header small,.executive-cockpit-panel>header small,.executive-decision-board>header small{display:block;color:var(--ws-brand-2);font-size:12px;font-weight:750;letter-spacing:.08em}
 .executive-dashboard-header h2{margin:7px 0;font-size:clamp(22px,2.1vw,30px);line-height:1.2;color:var(--ed-ink)}
 .executive-dashboard-header p{margin:0;max-width:72ch;font-size:13px;color:var(--ed-muted);line-height:1.6}
@@ -39,7 +39,7 @@
 .executive-dashboard-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-areas:"compliance risk" "compliance assurance" "compliance audit";gap:14px}
 .compliance-portfolio-panel{grid-area:compliance}.risk-posture-panel{grid-area:risk}.continuous-assurance-panel{grid-area:assurance}.audit-remediation-panel{grid-area:audit}
 .executive-cockpit-panel{min-width:0;background:var(--ed-surface);border:1px solid var(--ed-line);border-radius:12px;overflow:hidden}
-.executive-cockpit-panel>header{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;padding:16px 18px 10px}
+.executive-cockpit-panel>header{height:auto;min-height:0;border-bottom:0;display:flex;align-items:flex-start;justify-content:space-between;gap:14px;padding:16px 18px 10px}
 .executive-cockpit-panel>header>div{min-width:0}
 .executive-cockpit-panel>header h3{margin:5px 0 0;font-size:13px;font-weight:400;line-height:1.5;color:var(--ed-muted)}
 .executive-cockpit-panel>header button{flex-shrink:0;border:0;background:transparent;color:var(--ws-brand-2);font-size:12px;padding:0}
@@ -71,7 +71,7 @@
 .audit-remediation-metrics>div{grid-row:span 2}.audit-remediation-metrics strong{display:block;font-size:28px;line-height:1.2}.audit-remediation-metrics>div>span{display:block;font-size:12px;color:var(--ed-muted);margin:5px 0 9px}
 .audit-remediation-metrics button{display:flex;justify-content:space-between;gap:8px;align-items:center;padding:0;border:0;background:transparent;color:var(--ed-muted);font-size:12px}.audit-remediation-metrics b{color:var(--ed-ink)}
 .executive-decision-board{margin-top:16px;border:1px solid var(--ed-line);border-radius:12px;background:var(--ed-surface);overflow:hidden}
-.executive-decision-board>header{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;padding:16px 18px}
+.executive-decision-board>header{height:auto;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;padding:16px 18px}
 .executive-decision-board h3{font-size:13px;font-weight:400;color:var(--ed-muted);margin:5px 0 0}.executive-decision-board>header>span{font-size:12px;color:var(--ed-muted)}
 .executive-decision-board>p{padding:0 18px 16px;font-size:13px;color:var(--ed-muted)}
 .executive-decision-table-wrap{overflow-x:auto}.executive-decision-table{width:100%;border-collapse:collapse;font-size:13px;text-align:left}
@@ -95,3 +95,10 @@
 .report-assurance-strip span{color:var(--ws-faint);font-size:12px}
 @media(max-width:900px){.report-assurance-strip{grid-template-columns:1fr 1fr}.report-assurance-strip>div{border-bottom:1px solid var(--ws-line)}}
 @media(max-width:600px){.report-assurance-strip{grid-template-columns:1fr}.report-assurance-strip>div{border-right:0}}
+
+/* Preserve metric hierarchy against the legacy global 12px text floor. */
+html[data-theme] .executive-dashboard-reference .executive-kpi>strong,
+html[data-theme] .executive-dashboard-reference .compliance-score-strip>strong,
+html[data-theme] .executive-dashboard-reference .assurance-score-row strong,
+html[data-theme] .executive-dashboard-reference .audit-remediation-metrics strong{font-size:30px!important;line-height:1.2!important}
+@media(max-width:600px){html[data-theme] .executive-dashboard-reference .executive-kpi>strong{font-size:26px!important}}

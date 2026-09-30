@@ -1,4 +1,5 @@
-:root{
+/* Light-only contrast adjustments must not override the existing dark palette. */
+html:not([data-theme="dark"]){
   --ws-faint:#607071 !important;
   --ws-positive:#117a52 !important;
   --ws-warning:#8f4f12 !important;
