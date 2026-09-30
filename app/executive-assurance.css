@@ -16,15 +16,15 @@
 .executive-dashboard-header p{margin:0;font-size:13px;color:var(--ed-muted);line-height:1.6}
 .executive-dashboard-header-actions{display:flex;gap:8px;flex-wrap:wrap}
 .executive-dashboard-header-actions button{display:flex;gap:10px;align-items:center;border:1px solid var(--ed-line);border-radius:8px;padding:9px 12px;color:var(--ed-ink);background:var(--ed-surface);font-size:12px}
-.executive-dashboard-kpis{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));border:1px solid var(--ed-line);border-radius:10px;background:var(--ed-surface);margin-bottom:12px;overflow:hidden;padding:16px 0}
+.executive-dashboard-kpis{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));border:1px solid var(--ed-line);border-radius:10px;background:var(--ed-surface);margin-bottom:12px;overflow:hidden;padding:12px 0}
 .executive-kpi{display:grid;grid-template-columns:34px minmax(0,1fr);align-content:start;gap:6px 10px;min-width:0;border:0;border-right:1px solid var(--ed-line);padding:0 18px;text-align:left;background:transparent;color:var(--ed-ink)}
 .executive-kpi:last-child{border-right:0}.executive-kpi:hover{background:var(--ed-surface-2)}
-.executive-kpi-label{grid-column:1/-1;display:grid;grid-template-columns:34px minmax(0,1fr);align-items:center;gap:10px;min-height:30px}
+.executive-kpi-label{grid-column:1/-1;display:grid;grid-template-columns:34px minmax(0,1fr);align-items:center;gap:10px;min-height:36px;height:36px}
 .executive-kpi-label svg{color:var(--ws-brand-2)}.executive-kpi.critical svg{color:var(--ed-warning)}
 .executive-kpi small{font-size:12px;font-weight:650;color:var(--ed-muted);line-height:1.35}
 .executive-kpi strong{grid-column:2;display:block;font-size:30px;font-variant-numeric:tabular-nums;line-height:1.2;margin:0}
 .executive-kpi>.executive-mini-bar,.executive-kpi>em{grid-column:1/-1;width:100%}
-.executive-kpi>em{display:block;font-style:normal;font-size:12px;color:var(--ed-muted);margin-top:2px;line-height:1.4}
+.executive-kpi>em{display:block;font-style:normal;font-size:12px;color:var(--ed-muted);margin-top:2px;line-height:1.4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .executive-mini-bar{width:100%;display:block;height:8px;border-radius:8px;background:var(--ed-line);overflow:hidden}
 .executive-mini-bar>em{display:block;height:100%;margin:0;background:var(--ed-brand);border-radius:inherit}
 .executive-kpi.critical .executive-mini-bar>em{background:var(--ed-warning)}
@@ -43,9 +43,9 @@
 .executive-dashboard-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-areas:"compliance risk" "compliance assurance" "compliance audit";gap:10px 16px;align-items:stretch}
 .compliance-portfolio-panel{grid-area:compliance;display:flex;flex-direction:column}.risk-posture-panel{grid-area:risk}.continuous-assurance-panel{grid-area:assurance}.audit-remediation-panel{grid-area:audit}
 .executive-cockpit-panel{min-width:0;background:var(--ed-surface);border:1px solid var(--ed-line);border-radius:10px;overflow:hidden}
-.executive-cockpit-panel>header{height:auto;min-height:0;border-bottom:0;display:flex;align-items:center;gap:12px;padding:12px 18px 8px}
+.executive-cockpit-panel>header{height:auto;min-height:0;border-bottom:0;display:flex;align-items:center;gap:12px;padding:10px 18px 6px}
 .executive-cockpit-panel>header>div{min-width:0;flex:1}
-.executive-panel-icon{display:grid;place-items:center;flex:none;width:36px;height:36px;border-radius:8px;background:var(--ed-surface-2);color:var(--ws-brand-2)}
+.executive-panel-icon{display:grid;place-items:center;flex:none;width:30px;height:30px;border-radius:8px;background:var(--ed-surface-2);color:var(--ws-brand-2)}
 .executive-cockpit-panel>header h3{margin:3px 0 0;font-size:12px;font-weight:400;line-height:1.4;color:var(--ed-muted)}
 .executive-cockpit-panel>header button{flex-shrink:0;border:0;background:transparent;color:var(--ws-brand-2);font-size:12px;padding:0}
 .compliance-framework-list{display:grid;align-content:start;gap:0;padding:4px 22px 12px}
@@ -61,11 +61,11 @@
 .risk-distribution b{color:var(--ed-ink);font-variant-numeric:tabular-nums}.risk-distribution i{width:7px;height:7px;border-radius:50%}
 .risk-posture-body i.critical{background:var(--ed-danger)}.risk-posture-body i.warning{background:var(--ed-warning)}.risk-posture-body i.neutral{background:var(--ws-info)}.risk-posture-body i.positive{background:var(--ed-positive)}
 .risk-posture-body p,.executive-panel-note{margin:6px 0 0;color:var(--ed-muted);font-size:12px;line-height:1.4}
-.assurance-score-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,.9fr);align-items:center;gap:24px;padding:0 18px 6px}
+.assurance-score-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,.9fr);align-items:center;gap:24px;padding:0 18px 10px}
 .assurance-score-row strong{font-size:28px;line-height:1.2}.assurance-score-row>div>span{font-size:12px;color:var(--ed-muted)}
 .assurance-score-row>div>.executive-mini-bar{margin-top:8px}
 .assurance-score-row small{display:block;font-size:12px;color:var(--ed-muted);margin-top:4px}
-.assurance-score-bars{display:grid;gap:6px;border-left:1px solid var(--ed-line);padding-left:18px}
+.assurance-score-bars{display:grid;gap:3px;border-left:1px solid var(--ed-line);padding-left:18px}
 .assurance-score-bars label>span{display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:12px;color:var(--ed-muted)}
 .assurance-score-bars b{color:var(--ed-ink)}.executive-panel-note{padding:0 18px 10px}
 .audit-remediation-metrics{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,.9fr);gap:6px 24px;padding:0 18px 12px;align-items:center}
@@ -77,9 +77,9 @@
 .executive-decision-board>header>div{flex:1}.executive-decision-board h3{font-size:12px;font-weight:400;color:var(--ed-muted);margin:3px 0 0}.executive-decision-board>header>span:last-child{font-size:12px;color:var(--ed-muted)}
 .executive-decision-board>p{padding:0 18px 16px;font-size:13px;color:var(--ed-muted)}
 .executive-decision-table-wrap{overflow-x:auto}.executive-decision-table{width:100%;border-collapse:collapse;font-size:12px;text-align:left;min-width:850px}
-.executive-decision-table :is(th,td){padding:8px 18px;border-top:1px solid var(--ed-line)}
+.executive-decision-table :is(th,td){padding:6px 18px;border-top:1px solid var(--ed-line)}
 .executive-decision-table th{font-size:12px;font-weight:650;color:var(--ed-muted);background:var(--ed-surface-2);white-space:nowrap}
-.executive-decision-table td:nth-child(2){min-width:200px;max-width:420px}.executive-decision-table td:nth-child(5){white-space:nowrap}
+.executive-decision-table td:nth-child(2){min-width:200px;max-width:380px}.executive-decision-table td:nth-child(5){white-space:nowrap}
 .executive-decision-table small{display:block;margin-top:3px;font-size:12px;color:var(--ed-muted)}
 .executive-decision-table button{white-space:nowrap;border:0;background:transparent;color:var(--ws-brand-2);padding:4px 0;font-size:12px}
 .executive-priority,.executive-status{display:inline-block;padding:3px 8px;border:1px solid currentColor;border-radius:20px;font-size:12px;color:var(--ed-warning);background:var(--ed-surface-2)}
@@ -103,3 +103,10 @@ html[data-theme] .executive-dashboard-reference .attention-breakdown strong{font
 .report-assurance-strip span{color:var(--ws-faint);font-size:12px}
 @media(max-width:900px){.report-assurance-strip{grid-template-columns:1fr 1fr}.report-assurance-strip>div{border-bottom:1px solid var(--ws-line)}}
 @media(max-width:600px){.report-assurance-strip{grid-template-columns:1fr}.report-assurance-strip>div{border-right:0}}
+
+/* Keep the record board as a compact single-line overview, as in concept B. */
+.executive-record-title{display:flex;align-items:center;gap:12px;min-width:0}
+.executive-record-title b{flex:none}.executive-record-title span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--ed-muted)}
+html[data-theme] .executive-dashboard-reference .executive-decision-table :is(th,td){height:auto!important;min-height:0;padding-top:6px!important;padding-bottom:6px!important;line-height:1.4!important}
+html[data-theme] .executive-dashboard-reference .executive-cockpit-panel label{margin:0;min-height:0;line-height:1.4}
+@media(min-width:901px){.executive-dashboard-reference .risk-posture-panel>header,.executive-dashboard-reference .continuous-assurance-panel>header,.executive-dashboard-reference .audit-remediation-panel>header{padding-top:8px;padding-bottom:4px}.executive-dashboard-reference .executive-cockpit-panel>header h3{margin-top:2px}.executive-dashboard-reference .assurance-score-row small{font-size:12px}.executive-dashboard-reference .audit-remediation-metrics{padding-bottom:10px}}
