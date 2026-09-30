@@ -202,8 +202,8 @@ export default function EvidenceQualityLens() {
       </div>
 
       {quality.issues.length > 0 ? (
-        <div className="eql-issues">
-          <div className="eql-issues-head"><div><small>{tr ? "ÖNCELİKLİ KALİTE SİNYALLERİ" : "PRIORITY QUALITY SIGNALS"}</small><b>{tr ? "Önce en yüksek güvence risklerini düzelt" : "Fix the highest assurance risks first"}</b></div><span>{quality.issues.length}</span></div>
+        <details className="eql-issues">
+          <summary className="eql-issues-head"><div><small>{tr ? "ÖNCELİKLİ KALİTE SİNYALLERİ" : "PRIORITY QUALITY SIGNALS"}</small><b>{tr ? "Önce en yüksek güvence risklerini düzelt" : "Fix the highest assurance risks first"}</b></div><span>{quality.issues.length}</span></summary>
           <div className="eql-list">
             {quality.issues.slice(0, 6).map((issue) => (
               <button type="button" key={issue.id} className={`eql-issue ${issue.kind}`} onClick={() => navigateToFornost({ module: "Kanıtlar", ref: issue.recordRef, kind: "evidence", source: "evidence-quality", filter: { recordRef: issue.recordRef } })}>
@@ -213,7 +213,7 @@ export default function EvidenceQualityLens() {
             ))}
           </div>
           {quality.issues.length > 6 && <small className="eql-more">+{quality.issues.length - 6} {tr ? "ek kalite sinyali" : "more quality signals"}</small>}
-        </div>
+        </details>
       ) : quality.total > 0 ? <div className="eql-complete">✓ {tr ? "Kanıt portföyünde açık kalite sinyali yok." : "No open quality signals in the evidence portfolio."}</div> : null}
 
       <footer><small>{lastUpdated ? `${tr ? "Son kontrol" : "Last check"}: ${lastUpdated.toLocaleTimeString(tr ? "tr-TR" : "en-GB", { hour: "2-digit", minute: "2-digit" })}` : ""}</small><button type="button" disabled={loading} onClick={() => void load()}>{loading ? "…" : (tr ? "Yenile" : "Refresh")}</button></footer>

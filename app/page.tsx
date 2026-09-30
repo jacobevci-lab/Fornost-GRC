@@ -2235,11 +2235,14 @@ function FornostApp({ currentUser }: { currentUser: any }) {
             {active === "Risk Assessment" && (
               <RiskOverview rows={by("Risk Assessment")} lang={lang} />
             )}
-            {["BIA","Varlık Envanteri","Uyum","Kontroller","Kanıtlar"].includes(active) && (
+            {["BIA","Varlık Envanteri","Uyum","Kontroller"].includes(active) && (
               <CoreModuleOverview module={active} rows={by(active)} allRows={rows} lang={lang}/>
             )}
             {active === "Kontroller" && (
-              <ControlAssuranceWorkspace rows={rows} lang={lang} go={navigateToModule} />
+              <details className="module-analysis-disclosure" key="control-analysis">
+                <summary><span><b>{lang === "tr" ? "Kontrol güvencesi ve etki analizi" : "Control assurance & impact analysis"}</b><small>{lang === "tr" ? "Güvence skorları, kanıt zinciri ve öncelikli aksiyonlar" : "Assurance scores, evidence lineage and priority actions"}</small></span></summary>
+                <ControlAssuranceWorkspace rows={rows} lang={lang} go={navigateToModule} />
+              </details>
             )}
             <section
               className={`table-card ${active === "Risk Assessment" ? "risk-register" : "smart-register"}`}
@@ -2260,7 +2263,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
                 filterPanelOpen={filterPanelOpen}
                 setFilterPanelOpen={setFilterPanelOpen}
               />
-              <div className="table-wrap">
+              <div className="table-wrap" tabIndex={0} role="region" aria-label={lang === "tr" ? "Kayıt tablosu" : "Record table"}>
                 {active === "Risk Assessment" ? (
                   <RiskRegister
                     rows={visible}
@@ -3269,7 +3272,7 @@ function Reports({ rows, lang, go }: { rows: Row[]; lang: Lang; go: (module: str
             {new Date().toLocaleDateString(tr ? "tr-TR" : "en-GB")}
           </span>
         </div>
-        <div className="table-wrap">
+        <div className="table-wrap" tabIndex={0} role="region" aria-label={lang === "tr" ? "Kayıt tablosu" : "Record table"}>
           <table>
             <caption className="sr-only">{tr ? "Rapor kapsamındaki kayıtlar" : "Records included in the report"}</caption>
             <colgroup>
@@ -4175,7 +4178,7 @@ function AuditRequirementsTable({
         {canWrite && <button className="ghost" onClick={() => openNew()}>{tr ? "+ Özel Madde" : "+ Custom Item"}</button>}
       </div>
       <RegisterToolbar module="Denetim Yönetimi" lang={lang} rows={items} resultCount={filtered.length} query={query} setQuery={setQuery} selectedColumnKeys={columns} setSelectedColumnKeys={saveColumns} filters={filters} setFilters={setFilters} columnPickerOpen={columnPickerOpen} setColumnPickerOpen={setColumnPickerOpen} filterPanelOpen={filterPanelOpen} setFilterPanelOpen={setFilterPanelOpen} />
-      <div className="table-wrap">
+      <div className="table-wrap" tabIndex={0} role="region" aria-label={lang === "tr" ? "Kayıt tablosu" : "Record table"}>
         {items.length ? <SmartRegister module="Denetim Yönetimi" rows={filtered} lang={lang} edit={edit} remove={remove} canWrite={canWrite} columns={columns} /> : <div className="audit-empty"><b>{tr ? "Bu şablon için otomatik madde bulunamadı." : "No automatic requirements are available for this template."}</b><p>{tr ? "Excel ile içe aktarabilir veya özel madde ekleyebilirsiniz." : "Import from Excel or add a custom item."}</p></div>}
       </div>
     </section>
@@ -4485,7 +4488,7 @@ function AuditWorkspaceTabs({
                 filterPanelOpen={auditFilterPanel}
                 setFilterPanelOpen={setAuditFilterPanel}
               />
-              <div className="table-wrap">
+              <div className="table-wrap" tabIndex={0} role="region" aria-label={lang === "tr" ? "Kayıt tablosu" : "Record table"}>
                 <SmartRegister
                   module="Denetim Yönetimi"
                   rows={filteredAuditItems}
@@ -4530,7 +4533,7 @@ function AuditWorkspaceTabs({
               {evidence.length} {tr ? "kütüphane kaydı" : "library records"}
             </b>
           </header>
-          <div className="table-wrap">
+          <div className="table-wrap" tabIndex={0} role="region" aria-label={lang === "tr" ? "Kayıt tablosu" : "Record table"}>
             <table>
               <thead>
                 <tr>
@@ -4594,7 +4597,7 @@ function AuditWorkspaceTabs({
               {tested}/{items.length} {tr ? "tamamlandı" : "complete"}
             </b>
           </header>
-          <div className="table-wrap">
+          <div className="table-wrap" tabIndex={0} role="region" aria-label={lang === "tr" ? "Kayıt tablosu" : "Record table"}>
             <table>
               <thead>
                 <tr>

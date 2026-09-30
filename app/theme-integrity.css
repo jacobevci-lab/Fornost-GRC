@@ -17,8 +17,8 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
 /* Historical skins used 7–10 px labels extensively. Keep compact hierarchy,
  * but never make operational text depend on sub-12 px rendering. */
 html[data-theme] body .shell>main :where(div,p,span,small,b,strong,label,button,a,td,th,dt,dd,li,em,time,code,input,select,textarea,kbd,summary){font-size:max(12px,.75rem)!important;line-height:1.45!important}
-html[data-theme] body .shell>main :where(label,button,input,select,textarea,td,dd){font-size:max(13px,.8125rem)!important}
-.shell>aside :where(.nav-group button,.nav-section button){font-size:13px!important}
+html[data-theme] body .shell>main :where(input,select,textarea){font-size:max(13px,.8125rem)!important}
+.shell>aside :where(.nav-group button,.nav-section button){font-size:12px!important}
 .shell>aside :where(small,span,b,p,em){font-size:12px!important;line-height:1.4!important}
 .header-context small,.header-live,.command-trigger,.context-ai-trigger,.header-actions :where(b,small,span,kbd){font-size:12px!important}
 .fornost-ai-launcher :where(span,i){font-size:12px!important}
@@ -26,9 +26,9 @@ html[data-theme] body .shell>main :where(label,button,input,select,textarea,td,d
 /* Product typography and the restrained dark-mode amber heading language. */
 :where(.module-head,.module-overview,.audit-overview,.audit-detail-head,.audit-evidence-assurance){font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif!important;font-feature-settings:"cv11","ss01"}
 .module-head{align-items:flex-end!important}.module-head>div:first-child{min-width:0}.module-head .module-kicker{display:block;margin-bottom:7px;font-size:12px!important;font-weight:850!important;line-height:1.2!important;letter-spacing:.12em!important;text-transform:uppercase}
-.module-head h2{font-size:26px!important;font-weight:740!important;line-height:1.12!important;letter-spacing:-.035em!important}.module-head p{font-size:14px!important;line-height:1.55!important}
-.module-overview>header h3,.audit-overview h3,.audit-evidence-assurance h3{font-size:20px!important;font-weight:720!important;line-height:1.2!important;letter-spacing:-.025em!important}
-.smart-table .evidence-link b,.audit-requirement-cell b{font-size:14px!important;font-weight:720!important;line-height:1.4!important}.smart-table .evidence-link small,.audit-requirement-cell small{font-size:12px!important;font-weight:500!important;line-height:1.45!important}
+.module-head h2{font-size:22px!important;font-weight:740!important;line-height:1.12!important;letter-spacing:-.035em!important}.module-head p{font-size:12px!important;line-height:1.55!important}
+.module-overview>header h3,.audit-overview h3,.audit-evidence-assurance h3{font-size:16px!important;font-weight:720!important;line-height:1.3!important;letter-spacing:-.015em!important}
+.smart-table .evidence-link b,.audit-requirement-cell b{font-size:12px!important;font-weight:720!important;line-height:1.4!important}.smart-table .evidence-link small,.audit-requirement-cell small{font-size:12px!important;font-weight:500!important;line-height:1.45!important}
 
 /* Forms, filters and editable records --------------------------------------------- */
 :where(.form,.settings-grid,.integration-grid,.catalog-grid,.report-filters,.register-filters,.rap-form,.continuity-form,.plm-form,.tprm-form,.ri-form,.incident-form,.finding-form,.ea-form,.connected-form,.ai-settings-page,.fornost-ai-panel) label{color:var(--ws-muted)!important}
@@ -108,3 +108,49 @@ html[data-theme="dark"] body :is(.register-view-actions button b,.column-picker-
 html[data-theme="dark"] body :is(.resizable-column:hover .column-resizer:after,.column-resizer:focus:after){background:var(--ws-brand)!important;box-shadow:0 0 0 1px color-mix(in srgb,var(--ws-brand) 18%,transparent)!important}
 html[data-theme="dark"] body :is(.audit-picker-note,.fornost-ai-draft-editor,.fornost-ai-review-box,.fornost-ai-review-result,.fornost-ai-agent-findings section){border-color:var(--ws-line)!important;background:var(--ws-surface-2)!important;background-image:none!important;color:var(--ws-ink)!important}
 html[data-theme="dark"] body :is(.fornost-ai-edit-button,.fornost-ai-knowledge-head button,.fornost-ai-agent-toolbar button){border-color:var(--ws-line)!important;background:var(--ws-brand-soft)!important;background-image:none!important;color:var(--ws-brand-2)!important}
+
+/* One restrained heading scale across all operational workspaces. */
+html[data-theme] body .shell>main h1{font-size:18px!important;line-height:1.3!important}
+html[data-theme] body .shell>main h2{font-size:22px!important;line-height:1.25!important}
+html[data-theme] body .shell>main h3{font-size:16px!important;line-height:1.35!important}
+html[data-theme] body .shell>main :is(h4,h5,h6){font-size:13px!important;line-height:1.4!important}
+html[data-theme] body .shell>main .executive-cockpit-panel h3,html[data-theme] body .shell>main .executive-decision-board h3{font-size:12px!important}
+html[data-theme] body .shell>main .module-head{margin:20px 0 14px!important;gap:16px;flex-wrap:wrap}
+html[data-theme] body .shell>main .module-head .actions{display:flex;gap:8px;flex-wrap:wrap;margin-left:auto}
+html[data-theme] body .shell>main :is(.module-overview,.evidence-quality-lens,.control-assurance-workspace,.audit-overview,.audit-evidence-assurance,.report-workspace)>header{height:auto;min-height:0;gap:16px;padding:14px 18px;flex-wrap:wrap}
+html[data-theme] body .shell>main :is(.module-overview,.evidence-quality-lens,.control-assurance-workspace)>header p{margin:4px 0 0;max-width:90ch}
+html[data-theme] body .shell>main .table-wrap th{height:34px!important;padding:8px 12px!important}
+html[data-theme] body .shell>main .table-wrap td{height:42px!important;padding:8px 12px!important}
+html[data-theme] body .shell>main :is(.control-assurance-kpis,.eql-metrics)>article{padding:12px 14px}
+html[data-theme] body .shell>main :is(.control-assurance-kpis,.eql-metrics) strong{font-size:20px!important;line-height:1.2!important}
+html[data-theme] body .shell>main .control-assurance-workspace{--ws-border:var(--ws-line);--ws-panel:var(--ws-surface);--ws-elevated:var(--ws-surface-2);--ws-text:var(--ws-ink);--ws-accent:var(--ws-brand-2);margin:0;border-radius:10px;background:var(--ws-surface)}
+.module-analysis-disclosure{margin:0 0 14px;border:1px solid var(--ws-line);border-radius:10px;background:var(--ws-surface);overflow:hidden}
+.module-analysis-disclosure>summary{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 18px;cursor:pointer;list-style:none;color:var(--ws-ink)}
+.module-analysis-disclosure>summary::-webkit-details-marker{display:none}.module-analysis-disclosure>summary::after{content:"+";color:var(--ws-brand-2);font-weight:700}.module-analysis-disclosure[open]>summary::after{content:"−"}.module-analysis-disclosure>summary>span{display:grid;gap:3px}.module-analysis-disclosure>summary small{color:var(--ws-muted)}
+.module-analysis-disclosure[open]>summary{border-bottom:1px solid var(--ws-line)}
+.eql-issues>summary{display:flex;align-items:center;justify-content:space-between;gap:12px;cursor:pointer;color:var(--ws-ink);padding:2px 0;list-style:none}.eql-issues>summary::-webkit-details-marker{display:none}.eql-issues>summary::after{content:"+";color:var(--ws-brand-2)}.eql-issues[open]>summary::after{content:"−"}.eql-issues[open] .eql-list{margin-top:12px;max-height:330px;overflow:auto}
+.evidence-quality-lens>footer{padding:8px 16px}.evidence-quality-lens>footer button{min-height:30px}
+.control-impact-disclosure{border:1px solid var(--ws-line);border-radius:8px;margin:12px 16px;background:var(--ws-surface)}.control-impact-disclosure>summary{padding:12px;cursor:pointer;color:var(--ws-brand-2)}.control-impact-disclosure .control-impact-lens{margin:0;border:0}
+@media(max-width:900px){html[data-theme] body .shell>main h2{font-size:20px!important}.module-head .actions{width:100%;margin:0}.module-analysis-disclosure>summary{padding:12px}.control-assurance-list>article{grid-template-columns:48px minmax(0,1fr)}.control-assurance-links,.control-assurance-reasons,.control-assurance-actions{grid-column:1/-1}.control-assurance-copy>div{flex-wrap:wrap}.cil-stage-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.cil-selector-row{flex-wrap:wrap}.cil-selector-row label{min-width:0;width:100%}}
+@media(max-width:600px){html[data-theme] body .shell>main :is(input,select,textarea){font-size:16px!important}.cil-stage-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.eql-health{min-width:0}.evidence-quality-lens>header{gap:10px}.dashboard-customizer-dialog>header{gap:10px}}
+
+/* Wide register columns remain scrollable instead of shrinking into broken words. */
+html[data-theme] body .shell>main .table-wrap :is(.risk-table,.smart-table){max-width:none;width:max-content;min-width:100%}
+html[data-theme] body .shell>main .table-wrap th{white-space:nowrap;overflow-wrap:normal;word-break:normal}
+html[data-theme] body .shell>main .row-actions button{white-space:nowrap}
+html[data-theme] body .shell>main .risk-overview{grid-template-columns:minmax(0,1fr) minmax(0,1fr)!important;align-items:start}
+html[data-theme] body .shell>main .risk-summary{min-width:0;padding:18px;min-height:0}
+html[data-theme] body .shell>main .risk-metrics{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:18px}
+html[data-theme] body .shell>main .risk-overview .matrix-card{min-height:0;padding:16px;display:grid;grid-template-columns:1fr!important;gap:12px}
+html[data-theme] body .shell>main .matrix-card h3{margin:4px 0}.matrix-card p{margin:0}
+html[data-theme] body .shell>main .matrix{width:100%;max-width:440px;min-width:0;padding:0 0 26px 28px;justify-self:center}
+html[data-theme] body .shell>main :is(.matrix-row,.xlabels){grid-template-columns:20px repeat(5,minmax(0,1fr));gap:5px;margin-bottom:5px}
+html[data-theme] body .shell>main .matrix-row span{height:32px;min-width:0;border-radius:5px}
+html[data-theme] body .shell>main .axis.y{top:50%;left:0;transform:translate(-40%,-50%) rotate(-90deg);white-space:nowrap}
+html[data-theme] body .shell>main .axis.x{bottom:0;left:40px;right:0;text-align:center;white-space:normal;letter-spacing:.04em}
+html[data-theme] body .shell>main .report-hero{min-height:0;display:grid;grid-template-columns:1fr;gap:14px;padding:18px}
+html[data-theme] body .shell>main .report-hero-actions{justify-content:flex-start;min-width:0}
+html[data-theme] body .shell>main .report-section-head{height:auto;min-height:0;padding:12px 16px}
+html[data-theme] body .shell>main .audit-readiness-head{height:auto;padding:14px 18px}
+.audit-readiness-gaps>summary{list-style:none;cursor:pointer}.audit-readiness-gaps>summary::-webkit-details-marker{display:none}.audit-readiness-gaps>summary::after{content:"+";color:var(--ws-brand-2)}.audit-readiness-gaps[open]>summary::after{content:"−"}.audit-readiness-gaps[open] .audit-readiness-list{max-height:330px;overflow:auto}
+@media(max-width:1100px){html[data-theme] body .shell>main .risk-overview{grid-template-columns:minmax(0,1fr)!important}}

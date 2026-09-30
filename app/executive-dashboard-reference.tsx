@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import {
   applyEvidenceIntegrityOverview,
   buildExecutiveAssurance,
@@ -10,6 +10,7 @@ import { assessedRiskScore } from "./risk-methodology";
 import type { AssuranceRow } from "./control-assurance";
 import { withBasePath } from "./base-path";
 import NavIcon from "./nav-icon";
+import DashboardCustomizer, { useDashboardView, PANEL_ORDER } from "./dashboard-customizer";
 import { connectedTitle } from "./connected-grc-model";
 import "./executive-assurance.css";
 
@@ -79,6 +80,9 @@ export default function ExecutiveAssurancePanel({
   go: (module: string) => void;
 }) {
   const tr = lang === "tr";
+  const view = useDashboardView();
+  const panelOrder = view.preferences.order.filter(id => PANEL_ORDER.includes(id));
+  const referenceLayout = panelOrder.every((id, index) => id === PANEL_ORDER[index]) && PANEL_ORDER.every(id => view.preferences.visible[id]);
   const [loadError, setLoadError] = useState(false);
   const [findingSummary, setFindingSummary] = useState<{open: number} | null>(null);
   const [operations, setOperations] = useState<Operations | null>(null);
@@ -208,10 +212,51 @@ export default function ExecutiveAssurancePanel({
     return value && Number.isFinite(date.getTime()) ? date.toLocaleDateString(tr ? "tr-TR" : "en-GB", { day: "2-digit", month: "short", year: "numeric" }) : "—";
   };
 
+  const panels: Partial<Record<(typeof PANEL_ORDER)[number], React.ReactNode>> = {
+    riskHeatmap: (<article className="executive-cockpit-panel risk-posture-panel">
+          <header><span className="executive-panel-icon"><NavIcon module="Risk Assessment" /></span><div><small>{tr ? "RİSK GÖRÜNÜMÜ" : "RISK POSTURE"}</small><h3>{risks.length} {tr ? "risk" : "risks"} · {unassessedRisks} {tr ? "değerlendirme bekliyor" : "awaiting assessment"}</h3></div><button onClick={() => go("Risk Assessment")}>{tr ? "Risk Merkezi" : "Risk Center"} →</button></header>
+          <div className="risk-posture-body">
+            <div className="risk-segmented-bar" role="img" aria-label={riskRows.map(item => `${item.label}: ${item.value}`).join(", ")}>
+              {riskRows.map(item => <i key={item.label} className={item.tone} style={{ width: `${scoredRisks.length ? item.value / scoredRisks.length * 100 : 0}%` }} />)}
+            </div>
+            <div className="risk-distribution">
+              {riskRows.map(item => <span key={item.label}><i className={item.tone} />{item.label}<b>{percent(scoredRisks.length ? item.value / scoredRisks.length * 100 : 0, scoredRisks.length)}</b></span>)}
+            </div>
+          </div>
+        </article>),
+    frameworkReadiness: (<article className="executive-cockpit-panel compliance-portfolio-panel">
+          <header><span className="executive-panel-icon"><NavIcon module="Uyum" /></span><div><small>{tr ? "UYUM PORTFÖYÜ" : "COMPLIANCE PORTFOLIO"}</small><h3>{tr ? "Çerçeve uygulama görünümü" : "Framework implementation posture"}</h3></div><button onClick={() => go("Uyum")}>{tr ? "Uyum Merkezi" : "Compliance"} →</button></header>
+          <div className="compliance-framework-list">
+            {complianceStats.length ? complianceStats.map((item) => <button type="button" key={item.name} onClick={() => go("Uyum")}><span><b>{item.name}</b><small>{item.total} {tr ? "gereksinim" : "requirements"}</small></span><strong>{item.score}%</strong><MiniBar value={item.score} tone={item.score >= 80 ? "positive" : item.score >= 60 ? "warning" : "critical"} /></button>) : <p>{tr ? "Henüz framework/uyum kaydı bulunmuyor." : "No framework/compliance records yet."}</p>}
+          </div>
+          <footer className="compliance-summary"><span>{tr ? "Toplam uyum" : "Overall compliance"}</span><b>{percent(complianceScore, complianceTotal)}</b><small>{compliantTotal}/{complianceTotal} {tr ? "gereksinim uyumlu" : "requirements compliant"}</small></footer>
+        </article>),
+    assuranceHealth: (<article className="executive-cockpit-panel continuous-assurance-panel">
+          <header><span className="executive-panel-icon"><NavIcon module="Kanıtlar" /></span><div><small>{tr ? "SÜREKLİ GÜVENCE" : "CONTINUOUS ASSURANCE"}</small><h3>{tr ? "Kontrol ve kanıt güveni" : "Control & evidence confidence"}</h3></div><button onClick={() => go("Kanıt Otomasyonu")}>{tr ? "Operasyon" : "Operations"} →</button></header>
+          <div className="assurance-score-row">
+            <div><strong>{rows.length ? assurance.score : "—"}</strong><span> /100</span><MiniBar value={rows.length ? assurance.score : 0} /><small>{integrityPending} {tr ? "kanıt doğrulama bekliyor" : "evidence awaiting verification"}</small></div>
+            <div className="assurance-score-bars">
+              <label><span>{tr ? "Zincir bütünlüğü" : "Chain integrity"}<b>{percent(assurance.traceabilityScore, rows.length)}</b></span></label>
+              <label><span>{tr ? "Kontrol güvencesi" : "Control assurance"}<b>{percent(assurance.controlScore, assurance.totalControls)}</b></span></label>
+              <label><span>{tr ? "Kanıt güveni" : "Evidence confidence"}<b>{percent(assurance.evidenceScore, assurance.totalEvidence)}</b></span></label>
+              <label><span>{tr ? "Başarısız test" : "Failed tests"}<b>{assurance.failedControlTests}</b></span></label>
+            </div>
+          </div>
+        </article>),
+    auditRemediation: (<article className="executive-cockpit-panel audit-remediation-panel">
+          <header><span className="executive-panel-icon"><NavIcon module="Denetim Yönetimi" /></span><div><small>{tr ? "DENETİM VE İYİLEŞTİRME" : "AUDIT & REMEDIATION"}</small><h3>{tr ? "Denetim ve kapanış görünümü" : "Audit & closure posture"}</h3></div><button onClick={() => go("Denetim Yönetimi")}>{tr ? "Denetimler" : "Audits"} →</button></header>
+          <div className="audit-remediation-metrics">
+            <div><strong>{percent(assurance.auditScore, assurance.totalAudits)}</strong><span>{assurance.readyAudits}/{assurance.totalAudits} {tr ? "hazır denetim" : "ready audits"}</span><MiniBar value={assurance.totalAudits ? assurance.auditScore : 0} /></div>
+            <button type="button" onClick={() => go("Bulgular ve CAPA")}><span>{tr ? "Açık bulgu" : "Open findings"}</span><b>{openFindings}</b></button>
+            <button type="button" onClick={() => go("Denetim Yönetimi")}><span>{tr ? "Geciken denetim" : "Overdue audits"}</span><b>{overdueAudits}</b></button>
+          </div>
+        </article>)
+  };
+
   const auditorPack = () => window.open(withBasePath(`/api/continuous-assurance/auditor-pack?lang=${lang}`), "_blank", "noopener,noreferrer");
 
   return (
-    <section className="executive-dashboard-reference" data-layout="calm-executive" aria-label={tr ? "Fornost GRC yönetici gösterge paneli" : "Fornost GRC executive dashboard"}>
+    <section className={`executive-dashboard-reference${view.preferences.compact ? " is-compact" : ""}`} data-ui-revision="density-customize-v1" data-layout="calm-executive" aria-label={tr ? "Fornost GRC yönetici gösterge paneli" : "Fornost GRC executive dashboard"}>
       <header className="executive-dashboard-header">
         <div>
           <small>{tr ? "YÖNETİCİ GÜVENCE MERKEZİ" : "EXECUTIVE ASSURANCE CENTER"}</small>
@@ -219,6 +264,7 @@ export default function ExecutiveAssurancePanel({
           <p>{tr ? "Risk, uyum, sürekli güvence, denetim ve iyileştirme durumunu tek karar ekranında yönetin." : "Manage risk, compliance, continuous assurance, audit and remediation from one decision surface."}</p>
         </div>
         <div className="executive-dashboard-header-actions">
+          <DashboardCustomizer lang={lang} view={view} />
           <button type="button" onClick={auditorPack}>{tr ? "Denetçi Paketi" : "Auditor Pack"}<span>↗</span></button>
           <button type="button" className="primary" onClick={() => go("Raporlar")}>{tr ? "Yönetim Raporu" : "Executive Report"}<span>→</span></button>
         </div>
@@ -243,7 +289,7 @@ export default function ExecutiveAssurancePanel({
         ))}
       </div>
 
-      <section className={`executive-attention-band ${attentionTotal ? "active" : "clear"}`} aria-label={tr ? "Yönetim dikkati" : "Management attention"}>
+      <section hidden={!view.preferences.visible.recentChanges} className={`executive-attention-band ${attentionTotal ? "active" : "clear"}`} aria-label={tr ? "Yönetim dikkati" : "Management attention"}>
         <span className="attention-icon"><NavIcon module="Risk Assessment" /></span>
         <span className="attention-copy">
           <small>{tr ? "YÖNETİM DİKKATİ" : "ATTENTION REQUIRED"}</small>
@@ -257,51 +303,11 @@ export default function ExecutiveAssurancePanel({
         </div>
       </section>
 
-      <div className="executive-dashboard-grid">
-        <article className="executive-cockpit-panel risk-posture-panel">
-          <header><span className="executive-panel-icon"><NavIcon module="Risk Assessment" /></span><div><small>{tr ? "RİSK GÖRÜNÜMÜ" : "RISK POSTURE"}</small><h3>{risks.length} {tr ? "risk" : "risks"} · {unassessedRisks} {tr ? "değerlendirme bekliyor" : "awaiting assessment"}</h3></div><button onClick={() => go("Risk Assessment")}>{tr ? "Risk Merkezi" : "Risk Center"} →</button></header>
-          <div className="risk-posture-body">
-            <div className="risk-segmented-bar" role="img" aria-label={riskRows.map(item => `${item.label}: ${item.value}`).join(", ")}>
-              {riskRows.map(item => <i key={item.label} className={item.tone} style={{ width: `${scoredRisks.length ? item.value / scoredRisks.length * 100 : 0}%` }} />)}
-            </div>
-            <div className="risk-distribution">
-              {riskRows.map(item => <span key={item.label}><i className={item.tone} />{item.label}<b>{percent(scoredRisks.length ? item.value / scoredRisks.length * 100 : 0, scoredRisks.length)}</b></span>)}
-            </div>
-          </div>
-        </article>
-
-        <article className="executive-cockpit-panel compliance-portfolio-panel">
-          <header><span className="executive-panel-icon"><NavIcon module="Uyum" /></span><div><small>{tr ? "UYUM PORTFÖYÜ" : "COMPLIANCE PORTFOLIO"}</small><h3>{tr ? "Çerçeve uygulama görünümü" : "Framework implementation posture"}</h3></div><button onClick={() => go("Uyum")}>{tr ? "Uyum Merkezi" : "Compliance"} →</button></header>
-          <div className="compliance-framework-list">
-            {complianceStats.length ? complianceStats.map((item) => <button type="button" key={item.name} onClick={() => go("Uyum")}><span><b>{item.name}</b><small>{item.total} {tr ? "gereksinim" : "requirements"}</small></span><strong>{item.score}%</strong><MiniBar value={item.score} tone={item.score >= 80 ? "positive" : item.score >= 60 ? "warning" : "critical"} /></button>) : <p>{tr ? "Henüz framework/uyum kaydı bulunmuyor." : "No framework/compliance records yet."}</p>}
-          </div>
-          <footer className="compliance-summary"><span>{tr ? "Toplam uyum" : "Overall compliance"}</span><b>{percent(complianceScore, complianceTotal)}</b><small>{compliantTotal}/{complianceTotal} {tr ? "gereksinim uyumlu" : "requirements compliant"}</small></footer>
-        </article>
-
-        <article className="executive-cockpit-panel continuous-assurance-panel">
-          <header><span className="executive-panel-icon"><NavIcon module="Kanıtlar" /></span><div><small>{tr ? "SÜREKLİ GÜVENCE" : "CONTINUOUS ASSURANCE"}</small><h3>{tr ? "Kontrol ve kanıt güveni" : "Control & evidence confidence"}</h3></div><button onClick={() => go("Kanıt Otomasyonu")}>{tr ? "Operasyon" : "Operations"} →</button></header>
-          <div className="assurance-score-row">
-            <div><strong>{rows.length ? assurance.score : "—"}</strong><span> /100</span><MiniBar value={rows.length ? assurance.score : 0} /><small>{integrityPending} {tr ? "kanıt doğrulama bekliyor" : "evidence awaiting verification"}</small></div>
-            <div className="assurance-score-bars">
-              <label><span>{tr ? "Zincir bütünlüğü" : "Chain integrity"}<b>{percent(assurance.traceabilityScore, rows.length)}</b></span></label>
-              <label><span>{tr ? "Kontrol güvencesi" : "Control assurance"}<b>{percent(assurance.controlScore, assurance.totalControls)}</b></span></label>
-              <label><span>{tr ? "Kanıt güveni" : "Evidence confidence"}<b>{percent(assurance.evidenceScore, assurance.totalEvidence)}</b></span></label>
-              <label><span>{tr ? "Başarısız test" : "Failed tests"}<b>{assurance.failedControlTests}</b></span></label>
-            </div>
-          </div>
-        </article>
-
-        <article className="executive-cockpit-panel audit-remediation-panel">
-          <header><span className="executive-panel-icon"><NavIcon module="Denetim Yönetimi" /></span><div><small>{tr ? "DENETİM VE İYİLEŞTİRME" : "AUDIT & REMEDIATION"}</small><h3>{tr ? "Denetim ve kapanış görünümü" : "Audit & closure posture"}</h3></div><button onClick={() => go("Denetim Yönetimi")}>{tr ? "Denetimler" : "Audits"} →</button></header>
-          <div className="audit-remediation-metrics">
-            <div><strong>{percent(assurance.auditScore, assurance.totalAudits)}</strong><span>{assurance.readyAudits}/{assurance.totalAudits} {tr ? "hazır denetim" : "ready audits"}</span><MiniBar value={assurance.totalAudits ? assurance.auditScore : 0} /></div>
-            <button type="button" onClick={() => go("Bulgular ve CAPA")}><span>{tr ? "Açık bulgu" : "Open findings"}</span><b>{openFindings}</b></button>
-            <button type="button" onClick={() => go("Denetim Yönetimi")}><span>{tr ? "Geciken denetim" : "Overdue audits"}</span><b>{overdueAudits}</b></button>
-          </div>
-        </article>
+      <div className="executive-dashboard-grid" data-layout-mode={referenceLayout ? "reference" : "tiles"}>
+        {panelOrder.filter(id => view.preferences.visible[id]).map(id => <Fragment key={id}>{panels[id]}</Fragment>)}
       </div>
 
-      <section id="executive-decisions" className="executive-decision-board">
+      <section hidden={!view.preferences.visible.actionCenter} id="executive-decisions" className="executive-decision-board">
         <header><span className="executive-panel-icon"><NavIcon module="Ana Sayfa" /></span><div><small>{tr ? "YÖNETİCİ KARAR TABLOSU" : "EXECUTIVE DECISION BOARD"}</small><h3>{tr ? "Bugün yönetim kararı gerektiren işler" : "Items requiring management decisions today"}</h3></div><span>{decisionItems.reduce((sum, item) => sum + item.value, 0)} {tr ? "açık sinyal" : "open signals"}</span></header>
         {!recordDecisions.length && !decisionItems.some((item) => item.value > 0) && <p>{tr ? "Öncelikli karar bekleyen kayıt bulunmuyor." : "No priority decisions pending."}</p>}
         <div className="executive-decision-table-wrap" tabIndex={0} role="region" aria-label={tr ? "Yönetici karar tablosu" : "Executive decision table"}>
