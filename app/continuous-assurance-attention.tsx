@@ -275,7 +275,7 @@ export default function ContinuousAssuranceAttention({ lang }: { lang: Lang }) {
       chains.set(chainKey(sourceId, insight.code), {
         sourceId,
         ruleId,
-        controlRef: controlRefs[0] || "",
+        controlRef: splitRefs(focusRule?.controlRefs)[0] || "",
         controlRefs,
         evidenceRef: latestFinding ? clean(latestFinding.evidenceId) : clean(latestRun?.evidenceId),
         findingRef: clean(latestFinding?.id),
