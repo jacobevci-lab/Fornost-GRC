@@ -230,7 +230,26 @@ async function auditLocale(page, locale) {
       const dom = await domAudit(page, area, locale);
       const a11y = await axeAudit(page, area);
       let screenshot = "";
-      if (representativeIndexes.includes(i)) screenshot = await snap(page, `${locale}-${label}`);
+      if (i === 0) {
+        const hierarchy = await page.evaluate(() => {
+          const root = document.querySelector('.executive-dashboard-reference');
+          const metrics = [...document.querySelectorAll('.executive-kpi>strong')];
+          const header = root?.querySelector('.executive-dashboard-header')?.getBoundingClientRect();
+          const strip = root?.querySelector('.executive-dashboard-kpis')?.getBoundingClientRect();
+          return {
+            surfaces: document.querySelectorAll('.executive-dashboard-reference').length,
+            layout: root?.getAttribute('data-layout'),
+            metrics: metrics.length,
+            metricFontSizes: metrics.map(el => parseFloat(getComputedStyle(el).fontSize)),
+            headerOverlapsMetrics: Boolean(header && strip && header.bottom > strip.top),
+          };
+        });
+        if (hierarchy.surfaces !== 1 || hierarchy.layout !== 'calm-executive' || hierarchy.metrics !== 6
+          || hierarchy.metricFontSizes.some(size => size < 24) || hierarchy.headerOverlapsMetrics) {
+          finding('high', area, 'Dashboard layout or metric hierarchy regressed', JSON.stringify(hierarchy));
+        }
+      }
+      if (representativeIndexes.includes(i)) screenshot = await snap(page, `${locale}-${label}`, i === 0);
       report.locales[locale].push({ label, status: "ok", dom, a11y, screenshot });
     } catch (error) {
       report.locales[locale].push({ label, status: "error", error: error.message });
@@ -283,6 +302,9 @@ async function auditSidebar(page) {
 
 async function auditTheme(page) {
   await setLocale(page, "tr");
+  const dashboard = page.locator('nav button[aria-label="Gösterge Paneli"]').first();
+  await dashboard.evaluate(el => el.click());
+  await page.locator('.executive-dashboard-reference').waitFor({ state: "visible", timeout: 15_000 });
   const toggle = page.getByRole("button", { name: /Koyu temaya geç|Switch to dark|Dark theme/i }).first();
   if (!(await toggle.count())) {
     finding("high", "theme", "Dark theme toggle not found");
@@ -291,7 +313,7 @@ async function auditTheme(page) {
   await toggle.click();
   await page.waitForTimeout(350);
   const computed = await page.evaluate(() => ({ bg: getComputedStyle(document.body).backgroundColor, color: getComputedStyle(document.body).color, className: document.documentElement.className }));
-  report.themes.push({ theme: "dark", computed, screenshot: await snap(page, "theme-dark-dashboard") });
+  report.themes.push({ theme: "dark", computed, screenshot: await snap(page, "theme-dark-dashboard", true), a11y: await axeAudit(page, "theme:dark:dashboard") });
   const lightToggle = page.getByRole("button", { name: /Açık temaya geç|Switch to light|Light theme/i }).first();
   if (await lightToggle.count()) await lightToggle.click();
 }
@@ -305,17 +327,24 @@ async function auditResponsive(browser) {
   for (const vp of viewports) {
     for (const locale of ["tr", "en"]) {
       const context = await browser.newContext({ viewport: { width: vp.width, height: vp.height }, extraHTTPHeaders: accessHeaders, colorScheme: "light" });
-      await login(context);
       const page = await context.newPage();
       observe(page);
-      await page.goto(baseUrl, { waitUntil: "networkidle", timeout: 60_000 });
-      await page.waitForTimeout(800);
-      if (!(await setLocale(page, locale))) finding("high", `responsive:${vp.name}`, `Locale switch failed: ${locale}`);
-      const dom = await domAudit(page, `responsive:${vp.name}:${locale}`, locale);
-      const a11y = await axeAudit(page, `responsive:${vp.name}:${locale}`);
-      const screenshot = await snap(page, `responsive-${vp.name}-${locale}`);
-      report.responsive.push({ ...vp, locale, dom, a11y, screenshot });
-      await context.close();
+      try {
+        await login(context);
+        const response = await page.goto(baseUrl, { waitUntil: "domcontentloaded", timeout: 60_000 });
+        await page.locator(".shell").first().waitFor({ state: "visible", timeout: 15_000 });
+        if (!(await setLocale(page, locale))) finding("high", `responsive:${vp.name}`, `Locale switch failed: ${locale}`);
+        const dom = await domAudit(page, `responsive:${vp.name}:${locale}`, locale);
+        const a11y = await axeAudit(page, `responsive:${vp.name}:${locale}`);
+        const screenshot = await snap(page, `responsive-${vp.name}-${locale}`);
+        report.responsive.push({ ...vp, locale, status: "ok", httpStatus: response?.status(), dom, a11y, screenshot });
+      } catch (error) {
+        const screenshot = await snap(page, `responsive-${vp.name}-${locale}-failed`).catch(() => null);
+        report.responsive.push({ ...vp, locale, status: "failed", url: page.url(), error: error.message, screenshot });
+        finding("high", `responsive:${vp.name}:${locale}`, "Responsive screen could not be verified", error.message);
+      } finally {
+        await context.close();
+      }
     }
   }
 }
