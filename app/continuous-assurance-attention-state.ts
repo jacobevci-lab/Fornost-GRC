@@ -116,6 +116,17 @@ export function capaGovernanceState(
   return "other";
 }
 
+function recoveryAttentionState(recovery?: RecoveryDecisionSnapshot): RetestAttentionState | undefined {
+  if (!recovery) return undefined;
+  const state = normalized(recovery.recoveryState);
+  if (state === "blocked" || !recovery.readyForRetest) return "blocked";
+  if (state === "ready-for-retest" && recovery.readyForRetest) return "ready";
+  if (state === "recovered") return "recovered";
+  if (state === "retest-failed") return "failed";
+  if (state === "retest-error" || state === "evidence-degraded") return "error";
+  return "other";
+}
+
 export function retestAttentionState(
   hasFinding: boolean,
   governanceAvailable: boolean,
@@ -125,25 +136,19 @@ export function retestAttentionState(
   if (!hasFinding) return "not-applicable";
   if (!governanceAvailable) return "unavailable";
 
-  if (item) {
-    const status = normalized(item.status);
-    if (status === "pending-review") return "pending-review";
-    if (status === "approved-awaiting-retest") return "awaiting-run";
-    if (status === "completed") return clean(item.resultRef) ? "completed" : "other";
-    if (status === "failed-retest") return "failed";
-    if (status === "retest-error") return "error";
-    if (status === "rejected") return "rejected";
-  }
+  const status = normalized(item?.status);
+  if (status === "pending-review") return "pending-review";
+  if (status === "approved-awaiting-retest") return "awaiting-run";
+  if (status === "completed") return clean(item?.resultRef) ? "completed" : "other";
 
-  if (!recovery) return "evaluate";
-  const state = normalized(recovery.recoveryState);
-  if (state === "blocked" || !recovery.readyForRetest) return "blocked";
-  if (state === "ready-for-retest" && recovery.readyForRetest) return "ready";
-  if (state === "recovered") return "recovered";
-  if (state === "retest-failed") return "failed";
-  if (state === "retest-error") return "error";
-  if (state === "evidence-degraded") return "error";
-  return "other";
+  const evaluated = recoveryAttentionState(recovery);
+  if (evaluated) return evaluated;
+
+  if (status === "failed-retest") return "failed";
+  if (status === "retest-error") return "error";
+  if (status === "rejected") return "rejected";
+  if (item) return "other";
+  return "evaluate";
 }
 
 export function capaTraceabilityState(
