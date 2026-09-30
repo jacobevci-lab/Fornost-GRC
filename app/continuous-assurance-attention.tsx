@@ -4,9 +4,12 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { withBasePath } from "./base-path";
 import {
   capaGovernanceState,
+  capaTraceabilityIntegrity,
   selectCapaWorkItem,
   type CapaGovernanceState,
+  type CapaTraceabilityState,
   type CapaWorkItem,
+  type EnterpriseFindingSnapshot,
 } from "./continuous-assurance-attention-state";
 import { navigateToFornost } from "./navigation-focus";
 import "./continuous-assurance-attention.css";
@@ -70,8 +73,19 @@ type Finding = {
   updatedAt?: string;
   createdAt?: string;
 };
+type EnterpriseFinding = EnterpriseFindingSnapshot & {
+  title?: string;
+  owner?: string;
+  reviewer?: string;
+  dueDate?: string;
+  updatedAt?: string;
+  attention?: string;
+  acceptanceRationale?: string;
+  acceptUntil?: string;
+};
 type AutomationPayload = { sources?: Source[]; rules?: Rule[]; runs?: Run[]; findings?: Finding[] };
 type WorkPayload = { items?: CapaWorkItem[] };
+type FindingPayload = { findings?: EnterpriseFinding[] };
 type Chain = { sourceId: string; ruleId: string; controlRef: string; controlRefs: string[]; evidenceRef: string; findingRef: string };
 type GovernanceForm = {
   findingId: string;
@@ -137,9 +151,27 @@ function governanceCopy(state: CapaGovernanceState, tr: boolean) {
   return tr ? "Governance durumu izleniyor" : "Governance state monitored";
 }
 
+function traceabilityCopy(state: CapaTraceabilityState, tr: boolean) {
+  if (state === "remediation-open") return tr ? "Remediation açık" : "Remediation open";
+  if (state === "remediation-active") return tr ? "Remediation sürüyor" : "Remediation in progress";
+  if (state === "verification") return tr ? "Bağımsız doğrulama bekliyor" : "Independent verification pending";
+  if (state === "closed") return tr ? "Kapatıldı ve doğrulandı" : "Closed and verified";
+  if (state === "accepted") return tr ? "Risk kabulü aktif" : "Risk acceptance active";
+  if (state === "unresolved") return tr ? "Enterprise finding bağlantısı doğrulanamadı" : "Enterprise finding linkage unresolved";
+  return tr ? "Remediation henüz başlamadı" : "Remediation not started";
+}
+
+function traceabilityTone(state: CapaTraceabilityState) {
+  if (state === "closed" || state === "accepted") return "completed";
+  if (state === "verification" || state === "remediation-active") return "pending-review";
+  if (state === "remediation-open") return "ready";
+  if (state === "unresolved") return "rejected";
+  return "unavailable";
+}
+
 function candidateReasons(payload: Record<string, unknown>, tr: boolean) {
   const candidate = payload.candidate && typeof payload.candidate === "object" ? payload.candidate as { reasons?: unknown[] } : null;
-  const reasons = Array.isArray(candidate?.reasons) ? candidate?.reasons.map(clean).filter(Boolean) : [];
+  const reasons = Array.isArray(candidate?.reasons) ? candidate.reasons.map(clean).filter(Boolean) : [];
   const labels: Record<string, [string, string]> = {
     "automation-finding-reference-required": ["Otomasyon bulgu referansı eksik", "Automation finding reference is missing"],
     "automation-rule-reference-required": ["Otomasyon kural referansı eksik", "Automation rule reference is missing"],
@@ -157,9 +189,11 @@ export default function ContinuousAssuranceAttention({ lang }: { lang: Lang }) {
   const [insights, setInsights] = useState<InsightPayload | null>(null);
   const [automation, setAutomation] = useState<AutomationPayload>({});
   const [workItems, setWorkItems] = useState<CapaWorkItem[]>([]);
+  const [enterpriseFindings, setEnterpriseFindings] = useState<EnterpriseFinding[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [available, setAvailable] = useState(false);
   const [governanceAvailable, setGovernanceAvailable] = useState(false);
+  const [findingLifecycleAvailable, setFindingLifecycleAvailable] = useState(false);
   const [loading, setLoading] = useState(true);
   const [activeGovernanceFinding, setActiveGovernanceFinding] = useState("");
   const [governanceForm, setGovernanceForm] = useState<GovernanceForm | null>(null);
@@ -169,10 +203,11 @@ export default function ContinuousAssuranceAttention({ lang }: { lang: Lang }) {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [insightResponse, automationResponse, workResponse] = await Promise.all([
+      const [insightResponse, automationResponse, workResponse, findingResponse] = await Promise.all([
         fetch(withBasePath("/api/evidence-automation/operations-insights"), { cache: "no-store" }),
         fetch(withBasePath("/api/evidence-automation"), { cache: "no-store" }),
         fetch(withBasePath("/api/continuous-assurance"), { cache: "no-store", headers: { accept: "application/json" } }),
+        fetch(withBasePath("/api/findings"), { cache: "no-store", headers: { accept: "application/json" } }),
       ]);
 
       if (workResponse.ok) {
@@ -182,6 +217,15 @@ export default function ContinuousAssuranceAttention({ lang }: { lang: Lang }) {
       } else {
         setWorkItems([]);
         setGovernanceAvailable(false);
+      }
+
+      if (findingResponse.ok) {
+        const findingPayload = await findingResponse.json() as FindingPayload;
+        setEnterpriseFindings(Array.isArray(findingPayload.findings) ? findingPayload.findings : []);
+        setFindingLifecycleAvailable(true);
+      } else {
+        setEnterpriseFindings([]);
+        setFindingLifecycleAvailable(false);
       }
 
       if (!insightResponse.ok || !automationResponse.ok) {
@@ -202,6 +246,8 @@ export default function ContinuousAssuranceAttention({ lang }: { lang: Lang }) {
     } catch {
       setAvailable(false);
       setGovernanceAvailable(false);
+      setFindingLifecycleAvailable(false);
+      setEnterpriseFindings([]);
       setInsights(null);
     } finally {
       setLoaded(true);
@@ -222,6 +268,15 @@ export default function ContinuousAssuranceAttention({ lang }: { lang: Lang }) {
     }
     return map;
   }, [automation.findings]);
+
+  const enterpriseFindingById = useMemo(() => {
+    const map = new Map<string, EnterpriseFinding>();
+    for (const finding of enterpriseFindings) {
+      const id = clean(finding.id);
+      if (id) map.set(id, finding);
+    }
+    return map;
+  }, [enterpriseFindings]);
 
   const chainByInsight = useMemo(() => {
     const sources = automation.sources || [];
@@ -275,7 +330,7 @@ export default function ContinuousAssuranceAttention({ lang }: { lang: Lang }) {
       chains.set(chainKey(sourceId, insight.code), {
         sourceId,
         ruleId,
-        controlRef: splitRefs(focusRule?.controlRefs)[0] || "",
+        controlRef: controlRefs[0] || "",
         controlRefs,
         evidenceRef: latestFinding ? clean(latestFinding.evidenceId) : clean(latestRun?.evidenceId),
         findingRef: clean(latestFinding?.id),
@@ -392,7 +447,7 @@ export default function ContinuousAssuranceAttention({ lang }: { lang: Lang }) {
         <div>
           <small>CONTINUOUS ASSURANCE HEALTH</small>
           <h3>{tr ? "Dikkat Gerektirenler" : "Attention Required"}</h3>
-          <p>{tr ? "Connector, continuous control, kanıt, bulgu ve governance durumunu tek operasyon kuyruğunda birleştirir." : "Combines connector, continuous-control, evidence, finding, and governance state in one operational queue."}</p>
+          <p>{tr ? "Connector, continuous control, kanıt, bulgu, governance ve remediation durumunu tek operasyon kuyruğunda birleştirir." : "Combines connector, continuous-control, evidence, finding, governance, and remediation state in one operational queue."}</p>
         </div>
         <button type="button" disabled={loading} onClick={() => void load()}>{loading ? "…" : "↻"}</button>
       </header>
@@ -430,6 +485,12 @@ export default function ContinuousAssuranceAttention({ lang }: { lang: Lang }) {
                 const copy = reasonCopy(insight, tr);
                 const workItem = selectCapaWorkItem(workItems, chain.findingRef);
                 const governanceState = capaGovernanceState(Boolean(chain.findingRef), governanceAvailable, workItem);
+                const enterpriseFinding = workItem?.resultRef ? enterpriseFindingById.get(clean(workItem.resultRef)) : undefined;
+                const traceability = capaTraceabilityIntegrity(workItem, enterpriseFinding);
+                const lifecycleTone = findingLifecycleAvailable ? traceabilityTone(traceability.state) : "unavailable";
+                const lifecycleCopy = findingLifecycleAvailable
+                  ? traceabilityCopy(traceability.state, tr)
+                  : (tr ? "Remediation durumu alınamadı" : "Remediation state unavailable");
                 const formOpen = activeGovernanceFinding === chain.findingRef && governanceForm?.findingId === chain.findingRef;
                 const notice = governanceNotice?.findingId === chain.findingRef ? governanceNotice : null;
                 return (
@@ -441,7 +502,7 @@ export default function ContinuousAssuranceAttention({ lang }: { lang: Lang }) {
                       <span>{copy.detail}</span>
                     </div>
                     <div className="ca-attention-chain">
-                      <small>{tr ? "Kaynak → Kural → Kontrol → Kanıt → Bulgu → Governance" : "Source → Rule → Control → Evidence → Finding → Governance"}</small>
+                      <small>{tr ? "Kaynak → Kural → Kontrol → Kanıt → Bulgu → Governance → Remediation" : "Source → Rule → Control → Evidence → Finding → Governance → Remediation"}</small>
                       <div>
                         <button type="button" disabled={!chain.sourceId} onClick={() => openAutomationRef("source", chain.sourceId)}>{tr ? "Kaynak" : "Source"}</button>
                         <button type="button" disabled={!chain.ruleId} onClick={() => openAutomationRef("rule", chain.ruleId)}>{tr ? "Kural" : "Rule"}</button>
@@ -452,12 +513,20 @@ export default function ContinuousAssuranceAttention({ lang }: { lang: Lang }) {
                       <div className={`ca-attention-governance-state ${governanceState}`}>
                         <span>{governanceCopy(governanceState, tr)}</span>
                         {(governanceState === "ready" || governanceState === "rejected") && (
-                          <button type="button" onClick={() => startGovernance(chain)}>{governanceState === "rejected" ? (tr ? "Yeniden hazırla" : "Prepare again") : (tr ? "CAPA review" : "CAPA review")}</button>
+                          <button type="button" onClick={() => startGovernance(chain)}>{governanceState === "rejected" ? (tr ? "Yeniden hazırla" : "Prepare again") : "CAPA review"}</button>
                         )}
                         {governanceState === "completed" && workItem?.resultRef && (
-                          <button type="button" onClick={() => openEnterpriseFinding(workItem.resultRef || "")}>{workItem.resultCode || (tr ? "CAPA kaydı" : "CAPA record")}</button>
+                          <button type="button" onClick={() => openEnterpriseFinding(workItem.resultRef || "")}>{workItem.resultCode || enterpriseFinding?.code || (tr ? "CAPA kaydı" : "CAPA record")}</button>
                         )}
                       </div>
+                      {governanceState === "completed" && (
+                        <div className={`ca-attention-governance-state ${lifecycleTone}`} aria-label={tr ? "CAPA remediation yaşam döngüsü" : "CAPA remediation lifecycle"}>
+                          <span>{lifecycleCopy}</span>
+                          {findingLifecycleAvailable && traceability.remediationEvidencePresent && <span>{tr ? "Remediation kanıtı ✓" : "Remediation evidence ✓"}</span>}
+                          {findingLifecycleAvailable && traceability.verificationEvidencePresent && <span>{tr ? "Doğrulama kanıtı ✓" : "Verification evidence ✓"}</span>}
+                          {findingLifecycleAvailable && traceability.recurrenceCount > 0 && <span>{tr ? `Tekrar ×${traceability.recurrenceCount}` : `Recurrence ×${traceability.recurrenceCount}`}</span>}
+                        </div>
+                      )}
                     </div>
 
                     {notice && <div className={`ca-attention-governance-notice ${notice.tone}`} role="status">{notice.message}</div>}
@@ -466,16 +535,16 @@ export default function ContinuousAssuranceAttention({ lang }: { lang: Lang }) {
                       <form className="ca-attention-governance-form" onSubmit={(event) => { event.preventDefault(); void queueCapa(chain); }}>
                         <header>
                           <div>
-                            <small>{tr ? "GOVERNED CAPA PROMOTION" : "GOVERNED CAPA PROMOTION"}</small>
+                            <small>GOVERNED CAPA PROMOTION</small>
                             <b>{findingById.get(chain.findingRef)?.title || chain.findingRef}</b>
                             <span>{tr ? "Bu işlem doğrudan enterprise finding oluşturmaz; bağımsız review kuyruğuna gönderir." : "This does not directly create an enterprise finding; it queues an independent review."}</span>
                           </div>
                           <button type="button" onClick={closeGovernance} disabled={Boolean(submittingFinding)} aria-label={tr ? "Formu kapat" : "Close form"}>×</button>
                         </header>
                         <div className="ca-attention-governance-grid">
-                          <label><span>{tr ? "Owner" : "Owner"}</span><input value={governanceForm.owner} onChange={(event) => setGovernanceForm({ ...governanceForm, owner: event.target.value })} required /></label>
+                          <label><span>Owner</span><input value={governanceForm.owner} onChange={(event) => setGovernanceForm({ ...governanceForm, owner: event.target.value })} required /></label>
                           <label><span>{tr ? "Bağımsız reviewer" : "Independent reviewer"}</span><input value={governanceForm.reviewer} onChange={(event) => setGovernanceForm({ ...governanceForm, reviewer: event.target.value })} placeholder="reviewer@company.com" required /></label>
-                          <label><span>{tr ? "Due date" : "Due date"}</span><input type="date" value={governanceForm.dueDate} onChange={(event) => setGovernanceForm({ ...governanceForm, dueDate: event.target.value })} required /></label>
+                          <label><span>Due date</span><input type="date" value={governanceForm.dueDate} onChange={(event) => setGovernanceForm({ ...governanceForm, dueDate: event.target.value })} required /></label>
                           <label><span>{tr ? "Hedef kontrol" : "Target control"}</span>
                             {chain.controlRefs.length > 1 ? (
                               <select value={governanceForm.targetControlRef} onChange={(event) => setGovernanceForm({ ...governanceForm, targetControlRef: event.target.value })} required>
