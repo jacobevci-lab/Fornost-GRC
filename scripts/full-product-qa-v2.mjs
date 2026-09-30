@@ -393,7 +393,7 @@ async function apiAndHeaderAudit(browser) {
 async function waitForCurrentDashboard(page) {
   for (let attempt = 0; attempt < 18; attempt += 1) {
     try {
-      await page.locator('[data-ui-revision="density-customize-v1"]').waitFor({ state: "visible", timeout: 10_000 });
+      await page.locator('[data-ui-revision="density-customize-v2"]').waitFor({ state: "visible", timeout: 10_000 });
       await page.locator('.dashboard-customize-trigger:enabled').waitFor({ timeout: 15_000 });
       return;
     } catch {
@@ -462,6 +462,8 @@ async function auditDashboardCustomization(browser) {
     await page.keyboard.press("Escape");
     report.customization = { passed: true, checks: ["open", "escape", "visibility", "ordering", "density", "account persistence", "failed save", "reset", "mobile dialog"] };
   } catch (error) {
+    const failedPage = context.pages()[0];
+    if (failedPage) await snap(failedPage, "dashboard-customizer-failure").catch(() => {});
     finding("high", "dashboard-customization", "Dashboard customization failed", error.message);
     report.customization = { passed: false, error: error.message };
   } finally {

@@ -3236,9 +3236,9 @@ function Reports({ rows, lang, go }: { rows: Row[]; lang: Lang; go: (module: str
           <button type="button" onClick={resetFilters} disabled={unit === all && owner === all && status === all}>{tr ? "Filtreleri temizle" : "Clear filters"}</button>
         </header>
         <div className="report-filters">
-          <Filter label={tr ? "İş Birimi" : "Business Unit"} value={unit} set={setUnit} opts={values("businessUnit")} all={all} />
-          <Filter label={tr ? "Sahip" : "Owner"} value={owner} set={setOwner} opts={values("owner")} all={all} />
-          <Filter label={tr ? "Durum" : "Status"} value={status} set={setStatus} opts={values("status")} all={all} />
+          <Filter label={tr ? "İş Birimi" : "Business Unit"} value={unit} set={setUnit} opts={values("businessUnit")} all={all} allLabel={tr ? "Tümü" : "All"} />
+          <Filter label={tr ? "Sahip" : "Owner"} value={owner} set={setOwner} opts={values("owner")} all={all} allLabel={tr ? "Tümü" : "All"} />
+          <Filter label={tr ? "Durum" : "Status"} value={status} set={setStatus} opts={values("status")} all={all} allLabel={tr ? "Tümü" : "All"} />
         </div>
       </section>
       <section className="report-summary">
@@ -3343,7 +3343,7 @@ function ModuleFilter({
     <label>
       <span>{lang === "tr" ? "Modül" : "Module"}</span>
       <select value={value} onChange={(e) => set(e.target.value)}>
-        <option value={all}>{all}</option>
+        <option value={all}>{lang === "tr" ? "Tümü" : "All"}</option>
         {dataModules.map((x) => (
           <option key={x} value={x}>
             {names[lang][x]}
@@ -3359,18 +3359,20 @@ function Filter({
   set,
   opts,
   all,
+  allLabel,
 }: {
   label: string;
   value: string;
   set: (x: string) => void;
   opts: string[];
   all: string;
+  allLabel: string;
 }) {
   return (
     <label>
       <span>{label}</span>
       <select value={value} onChange={(e) => set(e.target.value)}>
-        <option value={all}>{all}</option>
+        <option value={all}>{allLabel}</option>
         {opts.map((x) => (
           <option key={x}>{x}</option>
         ))}
