@@ -4,9 +4,12 @@ import {
   capaGovernanceState,
   capaTraceabilityIntegrity,
   capaTraceabilityState,
+  retestAttentionState,
   selectCapaWorkItem,
+  selectRetestWorkItem,
   type CapaWorkItem,
   type EnterpriseFindingSnapshot,
+  type RecoveryDecisionSnapshot,
 } from "../app/continuous-assurance-attention-state";
 
 const work = (overrides: Partial<CapaWorkItem> = {}): CapaWorkItem => ({
@@ -25,6 +28,13 @@ const enterpriseFinding = (overrides: Partial<EnterpriseFindingSnapshot> = {}): 
   code: "FND-2026-ABCDEF12",
   status: "open",
   recurrenceCount: 0,
+  ...overrides,
+});
+
+const recovery = (overrides: Partial<RecoveryDecisionSnapshot> = {}): RecoveryDecisionSnapshot => ({
+  recoveryState: "ready-for-retest",
+  readyForRetest: true,
+  nextActions: ["run-control-retest"],
   ...overrides,
 });
 
@@ -47,6 +57,16 @@ test("attention deterministically prefers active governance state when timestamp
   assert.equal(selectCapaWorkItem(items, "CCM-1")?.id, "pending");
 });
 
+test("attention selects re-test work independently from CAPA promotion", () => {
+  const items = [
+    work({ id: "capa", status: "completed", resultRef: "FND-1" }),
+    work({ id: "old-retest", action: "control-retest", status: "rejected", updatedAt: "2026-09-29T07:00:00.000Z" }),
+    work({ id: "active-retest", action: "control-retest", status: "approved-awaiting-retest", updatedAt: "2026-09-30T07:00:00.000Z" }),
+  ];
+  assert.equal(selectRetestWorkItem(items, "CCM-1")?.id, "active-retest");
+  assert.equal(selectCapaWorkItem(items, "CCM-1")?.id, "capa");
+});
+
 test("attention does not expose a governance action without a real technical finding", () => {
   assert.equal(capaGovernanceState(false, true), "not-applicable");
   assert.equal(capaGovernanceState(true, false), "unavailable");
@@ -59,6 +79,28 @@ test("attention mirrors server-side governed CAPA lifecycle", () => {
   assert.equal(capaGovernanceState(true, true, work({ status: "completed" })), "other");
   assert.equal(capaGovernanceState(true, true, work({ status: "rejected" })), "rejected");
   assert.equal(capaGovernanceState(true, true, work({ status: "unexpected" })), "other");
+});
+
+test("re-test attention mirrors the governed review and real-run reconciliation states", () => {
+  const retest = (status: string, resultRef = "") => work({ action: "control-retest", status, resultRef });
+  assert.equal(retestAttentionState(false, true), "not-applicable");
+  assert.equal(retestAttentionState(true, false), "unavailable");
+  assert.equal(retestAttentionState(true, true), "evaluate");
+  assert.equal(retestAttentionState(true, true, retest("pending-review")), "pending-review");
+  assert.equal(retestAttentionState(true, true, retest("approved-awaiting-retest")), "awaiting-run");
+  assert.equal(retestAttentionState(true, true, retest("completed", "RUN-1")), "completed");
+  assert.equal(retestAttentionState(true, true, retest("failed-retest", "RUN-2")), "failed");
+  assert.equal(retestAttentionState(true, true, retest("retest-error", "RUN-3")), "error");
+  assert.equal(retestAttentionState(true, true, retest("rejected")), "rejected");
+});
+
+test("re-test readiness is derived from authoritative recovery evaluation only", () => {
+  assert.equal(retestAttentionState(true, true, undefined, recovery()), "ready");
+  assert.equal(retestAttentionState(true, true, undefined, recovery({ recoveryState: "blocked", readyForRetest: false })), "blocked");
+  assert.equal(retestAttentionState(true, true, undefined, recovery({ recoveryState: "recovered" })), "recovered");
+  assert.equal(retestAttentionState(true, true, undefined, recovery({ recoveryState: "retest-failed" })), "failed");
+  assert.equal(retestAttentionState(true, true, undefined, recovery({ recoveryState: "retest-error" })), "error");
+  assert.equal(retestAttentionState(true, true, undefined, recovery({ recoveryState: "evidence-degraded" })), "error");
 });
 
 test("CAPA traceability follows the canonical enterprise finding lifecycle", () => {
