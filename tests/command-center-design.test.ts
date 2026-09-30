@@ -8,10 +8,8 @@ test("structural executive workspace is the default dashboard experience",async(
   readFile("app/layout.tsx","utf8"),
  ]);
  assert.match(page,/className="workspace-dashboard"/);
- assert.match(page,/className="dashboard-hero"/);
- assert.match(page,/className="dashboard-metrics"/);
- assert.match(page,/className="attention-queue"/);
- assert.match(page,/className="dashboard-shortcuts"/);
+ assert.match(page,/<ExecutiveAssurancePanel rows=\{rows\} lang=\{lang\} go=\{go\} \/>/);
+ assert.doesNotMatch(page,/className="dashboard-(hero|metrics|intelligence|shortcuts)"/);
  assert.match(page,/useState<"light" \| "dark">\("light"\)/);
  assert.match(layout,/data-theme="light"/);
 });

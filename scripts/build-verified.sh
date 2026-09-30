@@ -33,8 +33,8 @@ node "${script_dir}/stage-base-path-assets.mjs"
 node "${script_dir}/normalize-wrangler-config.mjs"
 "${script_dir}/validate-artifact.sh"
 
-if ! grep -Rqs --include='*.js' 'dashboard-hero' "${SITES_PROJECT_ROOT}/dist/client/assets"; then
-  echo "Built browser artifact does not contain the current workspace UI contract (dashboard-hero)." >&2
+if ! grep -Rqs --include='*.js' 'executive-dashboard-reference' "${SITES_PROJECT_ROOT}/dist/client/assets"; then
+  echo "Built browser artifact does not contain the current workspace UI contract (executive-dashboard-reference)." >&2
   exit 66
 fi
 if grep -Rqs --include='*.js' 'cockpit-titlebar' "${SITES_PROJECT_ROOT}/dist/client/assets"; then

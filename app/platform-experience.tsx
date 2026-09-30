@@ -3,14 +3,6 @@ import FornostAiSourceNavigation from "./fornost-ai-source-navigation";
 import ProductionHardening from "./production-hardening";
 import NavigationIntegrity from "./navigation-integrity";
 import NavigationFocusBridge from "./navigation-focus-bridge";
-import ExecutiveDashboard from "./executive-dashboard";
-import ExecutiveDashboardPreferenceSync from "./executive-dashboard-preference-sync";
-import DashboardV7DecisionBoard from "./dashboard-v7-decision-board";
-import DashboardV8Focus from "./dashboard-v8-focus";
-import DashboardV9Executive from "./dashboard-v9-executive";
-import DashboardMetricHistory from "./dashboard-metric-history";
-import DashboardRuntimeQa from "./dashboard-runtime-qa";
-import DashboardDataIntegrityDeferred from "./dashboard-data-integrity-deferred";
 import SidebarIconTooltip from "./sidebar-icon-tooltip";
 import MyWorkV2 from "./my-work-v2";
 import MyWorkAssuranceSignals from "./my-work-assurance-signals";
@@ -33,15 +25,7 @@ import ConnectorOnboardingWizard from "./connector-onboarding-wizard";
 export default function PlatformExperience() {
   return (
     <>
-      {/* Executive posture. New dashboard work should converge on V9 rather than add another version. */}
-      <ExecutiveDashboard />
-      <ExecutiveDashboardPreferenceSync />
-      <DashboardV7DecisionBoard />
-      <DashboardV8Focus />
-      <DashboardV9Executive />
-      <DashboardMetricHistory />
-      <DashboardRuntimeQa />
-      <DashboardDataIntegrityDeferred />
+      {/* Dashboard is rendered natively by the page; no DOM-injected versions. */}
 
       {/* Daily work and connected-assurance experience. */}
       <SidebarIconTooltip />

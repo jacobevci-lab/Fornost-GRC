@@ -18,7 +18,7 @@ test("desktop sidebar has persistent expanded compact and hidden modes", () => {
   assert.match(page, /className="sidebar-view-controls"/);
   assert.match(page, /className="sidebar-restore"/);
   assert.match(page, /aria-controls="fornost-navigation"/);
-  assert.match(page, /title=\{sidebarMode !== "expanded" \? names\[lang\]\[m\] : undefined\}/);
+  assert.match(page, /title=\{names\[lang\]\[m\]\}/);
 });
 
 test("compact sidebar exposes immediate branded module tooltips without rail clipping", () => {
