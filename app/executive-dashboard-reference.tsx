@@ -9,6 +9,8 @@ import {
 import { assessedRiskScore } from "./risk-methodology";
 import type { AssuranceRow } from "./control-assurance";
 import { withBasePath } from "./base-path";
+import NavIcon from "./nav-icon";
+import { connectedTitle } from "./connected-grc-model";
 import "./executive-assurance.css";
 
 type Operations = {
@@ -128,10 +130,11 @@ export default function ExecutiveAssurancePanel({
     assurance.openControlFindings,
     findingSummary?.open ?? findings.filter((row) => !isClosed(row.data.status)).length,
   );
-  const overdueAudits = audits.filter((row) => {
+  const overdueAuditRows = audits.filter((row) => {
     const due = clean(row.data.dueDate || row.data.targetDate || row.data.endDate);
     return Boolean(due) && new Date(due).getTime() < new Date().getTime() && !isClosed(row.data.status);
-  }).length;
+  });
+  const overdueAudits = overdueAuditRows.length;
 
   const complianceStats = useMemo(() => {
     const grouped = new Map<string, { total: number; compliant: number }>();
@@ -193,6 +196,18 @@ export default function ExecutiveAssurancePanel({
     },
   ];
 
+  const recordDecisions = [
+    ...scoredRisks.filter(item => item.score >= 10 && !isClosed(item.row.data.status)).sort((a, b) => b.score - a.score).map(({ row, score }) => ({ row, tone: score >= 17 ? "critical" : "warning", type: tr ? "Risk" : "Risk", reason: tr ? "Yüksek risk maruziyeti" : "High risk exposure" })),
+    ...overdueAuditRows.map(row => ({ row, tone: "warning", type: tr ? "Denetim" : "Audit", reason: tr ? "Hedef tarihi geçti" : "Past due date" })),
+    ...findings.filter(row => !isClosed(row.data.status)).map(row => ({ row, tone: "warning", type: tr ? "Bulgu" : "Finding", reason: tr ? "İyileştirme bekliyor" : "Remediation pending" })),
+    ...compliance.filter(row => !["uyumlu", "compliant", "implemented", "uygulandı", "onaylandı", "approved"].includes(normalized(row.data.status || row.data.implementation))).map(row => ({ row, tone: "neutral", type: tr ? "Uyum" : "Compliance", reason: tr ? "Uyum açığı" : "Compliance gap" })),
+  ].slice(0, 4);
+  const formatDue = (row: AssuranceRow) => {
+    const value = clean(row.data.dueDate || row.data.targetDate || row.data.endDate);
+    const date = new Date(value);
+    return value && Number.isFinite(date.getTime()) ? date.toLocaleDateString(tr ? "tr-TR" : "en-GB", { day: "2-digit", month: "short", year: "numeric" }) : "—";
+  };
+
   const auditorPack = () => window.open(withBasePath(`/api/continuous-assurance/auditor-pack?lang=${lang}`), "_blank", "noopener,noreferrer");
 
   return (
@@ -220,7 +235,7 @@ export default function ExecutiveAssurancePanel({
           { label: tr ? "Uyum Sağlığı" : "Compliance Health", value: percent(complianceScore, complianceTotal), detail: `${compliantTotal}/${complianceTotal} ${tr ? "uyumlu" : "compliant"}`, tone: complianceScore >= 80 ? "positive" : "warning", module: "Uyum" },
         ].map((metric) => (
           <button type="button" className={`executive-kpi ${metric.tone}`} key={metric.label} onClick={() => go(metric.module)}>
-            <span><small>{metric.label}</small><i /></span>
+            <span className="executive-kpi-label"><NavIcon module={metric.module} /><small>{metric.label}</small></span>
             <strong>{metric.value}</strong>
             <MiniBar value={Number.parseFloat(metric.value) || 0} />
             <em>{metric.detail}</em>
@@ -228,24 +243,23 @@ export default function ExecutiveAssurancePanel({
         ))}
       </div>
 
-      <button type="button" className={`executive-attention-band ${attentionTotal ? "active" : "clear"}`} onClick={() => document.getElementById("executive-decisions")?.scrollIntoView({ behavior: "smooth", block: "center" })}>
-        <span className="attention-icon">!</span>
+      <section className={`executive-attention-band ${attentionTotal ? "active" : "clear"}`} aria-label={tr ? "Yönetim dikkati" : "Management attention"}>
+        <span className="attention-icon"><NavIcon module="Risk Assessment" /></span>
         <span className="attention-copy">
           <small>{tr ? "YÖNETİM DİKKATİ" : "ATTENTION REQUIRED"}</small>
           <b>{attentionTotal ? (tr ? `${attentionTotal} öncelikli yönetim sinyali karar bekliyor` : `${attentionTotal} priority management signals need review`) : (tr ? "Kritik yönetim sinyali bulunmuyor" : "No critical management signals")}</b>
         </span>
-        <span className="attention-breakdown">
-          <em>{riskBands.critical} {tr ? "kritik risk" : "critical risk"}</em>
-          <em>{ops?.openEscalations || 0} {tr ? "eskalasyon" : "escalations"}</em>
-          <em>{overdueAudits} {tr ? "geciken denetim" : "overdue audit"}</em>
-          <em>{openFindings} {tr ? "açık bulgu" : "open findings"}</em>
-        </span>
-        <strong>→</strong>
-      </button>
+        <div className="attention-breakdown">
+          {decisionItems.filter(item => item.value > 0).slice(0, 3).map(item => <button type="button" key={item.module} onClick={() => go(item.module)}>
+            <span className={`attention-signal-icon ${item.tone}`}><NavIcon module={item.module} /></span>
+            <strong>{item.value}</strong><span><b>{item.label}</b><small>{tr ? "İnceleme bekliyor" : "Needs review"}</small></span><span aria-hidden="true">›</span>
+          </button>)}
+        </div>
+      </section>
 
       <div className="executive-dashboard-grid">
         <article className="executive-cockpit-panel risk-posture-panel">
-          <header><div><small>{tr ? "RİSK GÖRÜNÜMÜ" : "RISK POSTURE"}</small><h3>{tr ? "Kurumsal risk maruziyeti" : "Enterprise risk exposure"}</h3></div><button onClick={() => go("Risk Assessment")}>{tr ? "Risk Merkezi" : "Risk Center"} →</button></header>
+          <header><span className="executive-panel-icon"><NavIcon module="Risk Assessment" /></span><div><small>{tr ? "RİSK GÖRÜNÜMÜ" : "RISK POSTURE"}</small><h3>{tr ? "Kurumsal risk maruziyeti" : "Enterprise risk exposure"}</h3></div><button onClick={() => go("Risk Assessment")}>{tr ? "Risk Merkezi" : "Risk Center"} →</button></header>
           <div className="risk-posture-body">
             <div className="risk-segmented-bar" role="img" aria-label={riskRows.map(item => `${item.label}: ${item.value}`).join(", ")}>
               {riskRows.map(item => <i key={item.label} className={item.tone} style={{ width: `${scoredRisks.length ? item.value / scoredRisks.length * 100 : 0}%` }} />)}
@@ -258,28 +272,28 @@ export default function ExecutiveAssurancePanel({
         </article>
 
         <article className="executive-cockpit-panel compliance-portfolio-panel">
-          <header><div><small>{tr ? "UYUM PORTFÖYÜ" : "COMPLIANCE PORTFOLIO"}</small><h3>{tr ? "Çerçeve uygulama görünümü" : "Framework implementation posture"}</h3></div><button onClick={() => go("Uyum")}>{tr ? "Uyum Merkezi" : "Compliance"} →</button></header>
-          <div className="compliance-score-strip"><strong>{percent(complianceScore, complianceTotal)}</strong><span>{tr ? "Toplam uyum sağlığı" : "Overall compliance health"}<small>{compliantTotal}/{complianceTotal} {tr ? "uyumlu gereksinim" : "compliant requirements"}</small></span></div>
+          <header><span className="executive-panel-icon"><NavIcon module="Uyum" /></span><div><small>{tr ? "UYUM PORTFÖYÜ" : "COMPLIANCE PORTFOLIO"}</small><h3>{tr ? "Çerçeve uygulama görünümü" : "Framework implementation posture"}</h3></div><button onClick={() => go("Uyum")}>{tr ? "Uyum Merkezi" : "Compliance"} →</button></header>
           <div className="compliance-framework-list">
             {complianceStats.length ? complianceStats.map((item) => <button type="button" key={item.name} onClick={() => go("Uyum")}><span><b>{item.name}</b><small>{item.total} {tr ? "gereksinim" : "requirements"}</small></span><strong>{item.score}%</strong><MiniBar value={item.score} tone={item.score >= 80 ? "positive" : item.score >= 60 ? "warning" : "critical"} /></button>) : <p>{tr ? "Henüz framework/uyum kaydı bulunmuyor." : "No framework/compliance records yet."}</p>}
           </div>
+          <footer className="compliance-summary"><span>{tr ? "Toplam uyum" : "Overall compliance"}</span><b>{percent(complianceScore, complianceTotal)}</b><small>{compliantTotal}/{complianceTotal} {tr ? "gereksinim uyumlu" : "requirements compliant"}</small></footer>
         </article>
 
         <article className="executive-cockpit-panel continuous-assurance-panel">
-          <header><div><small>{tr ? "SÜREKLİ GÜVENCE" : "CONTINUOUS ASSURANCE"}</small><h3>{tr ? "Kontrol ve kanıt güveni" : "Control & evidence confidence"}</h3></div><button onClick={() => go("Kanıt Otomasyonu")}>{tr ? "Operasyon" : "Operations"} →</button></header>
+          <header><span className="executive-panel-icon"><NavIcon module="Kanıtlar" /></span><div><small>{tr ? "SÜREKLİ GÜVENCE" : "CONTINUOUS ASSURANCE"}</small><h3>{tr ? "Kontrol ve kanıt güveni" : "Control & evidence confidence"}</h3></div><button onClick={() => go("Kanıt Otomasyonu")}>{tr ? "Operasyon" : "Operations"} →</button></header>
           <div className="assurance-score-row">
-            <div><strong>{rows.length ? assurance.score : "—"}</strong><span>/100</span><small>{tr ? "Bütünleşik Güvence" : "Composite Assurance"}</small></div>
+            <div><strong>{rows.length ? assurance.score : "—"}</strong><span> /100</span><MiniBar value={rows.length ? assurance.score : 0} /><small>{tr ? "Bütünleşik Güvence" : "Composite Assurance"}</small></div>
             <div className="assurance-score-bars">
-              <label><span>{tr ? "Zincir bütünlüğü" : "Chain integrity"}<b>{percent(assurance.traceabilityScore, rows.length)}</b></span><MiniBar value={assurance.traceabilityScore} tone={assurance.traceabilityScore >= 80 ? "positive" : "warning"} /></label>
-              <label><span>{tr ? "Kontrol güvencesi" : "Control assurance"}<b>{percent(assurance.controlScore, assurance.totalControls)}</b></span><MiniBar value={assurance.totalControls ? assurance.controlScore : 0} tone={assurance.controlScore >= 80 ? "positive" : "warning"} /></label>
-              <label><span>{tr ? "Kanıt güveni" : "Evidence confidence"}<b>{percent(assurance.evidenceScore, assurance.totalEvidence)}</b></span><MiniBar value={assurance.totalEvidence ? assurance.evidenceScore : 0} tone={assurance.evidenceScore >= 80 ? "positive" : "warning"} /></label>
+              <label><span>{tr ? "Zincir bütünlüğü" : "Chain integrity"}<b>{percent(assurance.traceabilityScore, rows.length)}</b></span></label>
+              <label><span>{tr ? "Kontrol güvencesi" : "Control assurance"}<b>{percent(assurance.controlScore, assurance.totalControls)}</b></span></label>
+              <label><span>{tr ? "Kanıt güveni" : "Evidence confidence"}<b>{percent(assurance.evidenceScore, assurance.totalEvidence)}</b></span></label>
             </div>
           </div>
           <p className="executive-panel-note">{integrityPending} {tr ? "kanıt doğrulama bekliyor" : "evidence items awaiting verification"} · {assurance.failedControlTests} {tr ? "başarısız kontrol testi" : "failed control tests"}</p>
         </article>
 
         <article className="executive-cockpit-panel audit-remediation-panel">
-          <header><div><small>{tr ? "DENETİM VE İYİLEŞTİRME" : "AUDIT & REMEDIATION"}</small><h3>{tr ? "Denetim ve kapanış görünümü" : "Audit & closure posture"}</h3></div><button onClick={() => go("Denetim Yönetimi")}>{tr ? "Denetimler" : "Audits"} →</button></header>
+          <header><span className="executive-panel-icon"><NavIcon module="Denetim Yönetimi" /></span><div><small>{tr ? "DENETİM VE İYİLEŞTİRME" : "AUDIT & REMEDIATION"}</small><h3>{tr ? "Denetim ve kapanış görünümü" : "Audit & closure posture"}</h3></div><button onClick={() => go("Denetim Yönetimi")}>{tr ? "Denetimler" : "Audits"} →</button></header>
           <div className="audit-remediation-metrics">
             <div><strong>{percent(assurance.auditScore, assurance.totalAudits)}</strong><span>{assurance.readyAudits}/{assurance.totalAudits} {tr ? "hazır denetim" : "ready audits"}</span><MiniBar value={assurance.totalAudits ? assurance.auditScore : 0} /></div>
             <button type="button" onClick={() => go("Bulgular ve CAPA")}><span>{tr ? "Açık bulgu" : "Open findings"}</span><b>{openFindings}</b></button>
@@ -289,15 +303,22 @@ export default function ExecutiveAssurancePanel({
       </div>
 
       <section id="executive-decisions" className="executive-decision-board">
-        <header><div><small>{tr ? "YÖNETİCİ KARAR TABLOSU" : "EXECUTIVE DECISION BOARD"}</small><h3>{tr ? "Bugün yönetim kararı gerektiren işler" : "Items requiring management decisions today"}</h3></div><span>{decisionItems.reduce((sum, item) => sum + item.value, 0)} {tr ? "açık sinyal" : "open signals"}</span></header>
-        {!decisionItems.some((item) => item.value > 0) && <p>{tr ? "Öncelikli karar bekleyen kayıt bulunmuyor." : "No priority decisions pending."}</p>}
+        <header><span className="executive-panel-icon"><NavIcon module="Ana Sayfa" /></span><div><small>{tr ? "YÖNETİCİ KARAR TABLOSU" : "EXECUTIVE DECISION BOARD"}</small><h3>{tr ? "Bugün yönetim kararı gerektiren işler" : "Items requiring management decisions today"}</h3></div><span>{decisionItems.reduce((sum, item) => sum + item.value, 0)} {tr ? "açık sinyal" : "open signals"}</span></header>
+        {!recordDecisions.length && !decisionItems.some((item) => item.value > 0) && <p>{tr ? "Öncelikli karar bekleyen kayıt bulunmuyor." : "No priority decisions pending."}</p>}
         <div className="executive-decision-table-wrap" tabIndex={0} role="region" aria-label={tr ? "Yönetici karar tablosu" : "Executive decision table"}>
           <table className="executive-decision-table">
-            <thead><tr><th scope="col">{tr ? "Öncelik" : "Priority"}</th><th scope="col">{tr ? "Karar konusu" : "Decision"}</th><th scope="col">{tr ? "Açık kayıt" : "Open items"}</th><th scope="col">{tr ? "İşlem" : "Action"}</th></tr></thead>
-            <tbody>{decisionItems.filter((item) => item.value > 0).slice(0, 4).map(item => <tr key={item.label}>
-              <td><span className={`executive-priority ${item.tone}`}>{item.tone === "critical" ? (tr ? "Yüksek" : "High") : (tr ? "İncele" : "Review")}</span></td>
-              <td><b>{item.label}</b><small>{item.detail}</small></td>
-              <td>{item.value}</td>
+            <thead><tr>{(tr ? ["Tür", "Karar konusu", "Öncelik", "Sorumlu", "Hedef tarih", "Karar nedeni", "İşlem"] : ["Type", "Decision", "Priority", "Owner", "Due date", "Decision reason", "Action"]).map(label => <th scope="col" key={label}>{label}</th>)}</tr></thead>
+            <tbody>{recordDecisions.map(({ row, tone, type, reason }) => <tr key={row.id}>
+              <td><span className={`executive-type-dot ${tone}`} />{type}</td>
+              <td><b>{row.code || connectedTitle(row)}</b><small>{connectedTitle(row)}</small></td>
+              <td><span className={`executive-priority ${tone}`}>{tone === "critical" ? (tr ? "Kritik" : "Critical") : tone === "warning" ? (tr ? "Yüksek" : "High") : (tr ? "İncele" : "Review")}</span></td>
+              <td>{clean(row.data.owner || row.data.responsible || row.data.auditOwner) || (tr ? "Atanmamış" : "Unassigned")}</td>
+              <td>{formatDue(row)}</td>
+              <td><span className={`executive-status ${tone}`}>{reason}</span></td>
+              <td><button type="button" onClick={() => go(row.module)} aria-label={`${row.code || connectedTitle(row)} — ${tr ? "Modülde incele" : "Review in module"}`}>{tr ? "İncele" : "Review"} →</button></td>
+            </tr>)}{decisionItems.filter((item) => item.value > 0).slice(0, 4).filter(item => item.module === "Kanıt Otomasyonu" || !recordDecisions.length).map(item => <tr key={item.label}>
+              <td>{tr ? "Sinyal" : "Signal"}</td><td><b>{item.label}</b><small>{item.detail}</small></td>
+              <td><span className={`executive-priority ${item.tone}`}>{tr ? "İncele" : "Review"}</span></td><td>—</td><td>—</td><td>{item.value} {tr ? "açık kayıt" : "open items"}</td>
               <td><button type="button" onClick={() => go(item.module)} aria-label={`${item.label} — ${tr ? "İncele" : "Review"}`}>{tr ? "İncele" : "Review"} →</button></td>
             </tr>)}</tbody>
           </table>
