@@ -103,6 +103,37 @@ test("promoted CAPA state uses the bounded traceability projection without mutat
   assert.doesNotMatch(attention, /action:\s*"transition"/);
 });
 
+test("governed re-test readiness is evaluated by the existing server recovery contract", () => {
+  assert.match(attention, /action: "evaluate-recovery", findingId/);
+  assert.match(attention, /payload\.recovery && typeof payload\.recovery === "object"/);
+  assert.match(attention, /recovery\?\.readyForRetest && clean\(recovery\.recoveryState\) === "ready-for-retest"/);
+  assert.match(attention, /Recovery değerlendirmesi güncellendi/);
+  assert.match(attention, /SHA-256 doğrulanmış closure evidence ekle/);
+  assert.match(attention, /selectRetestWorkItem\(workItems, chain\.findingRef\)/);
+  assert.match(attention, /retestAttentionState\(Boolean\(chain\.findingRef\), governanceAvailable, retestItem, recovery\)/);
+});
+
+test("attention queues re-test only after authoritative ready-for-retest evaluation", () => {
+  assert.match(attention, /recovery\?\.recoveryState !== "ready-for-retest" \|\| !recovery\.readyForRetest/);
+  assert.match(attention, /action: "queue-retest", findingId/);
+  assert.match(attention, /Re-test bağımsız review kuyruğuna alındı/);
+  assert.match(attention, /Re-test onaylandı; sonraki control run bekleniyor/);
+  assert.match(attention, /Re-test geçti ve uzlaştırıldı/);
+  assert.match(attention, /Re-test başarısız; teknik bulgu yeniden açıldı/);
+  assert.match(attention, /Re-test çalışma veya evidence hatası/);
+  assert.match(attention, /governanceState === "completed" \|\| Boolean\(retestItem\)/);
+});
+
+test("attention re-test workflow preserves maker-checker ownership and real-run reconciliation", () => {
+  assert.doesNotMatch(attention, /action:\s*"review-work-item"/);
+  assert.doesNotMatch(attention, /approved-awaiting-retest[\s\S]*setWorkItems/);
+  assert.doesNotMatch(attention, /status:\s*"completed"/);
+  assert.match(attention, /await load\(\)/);
+  assert.match(attention, /retestItem\?\.resultRef/);
+  assert.match(attention, /openAutomationRef\("rule", chain\.ruleId\)/);
+  assert.match(attention, /Governance → Remediation → Re-test/);
+});
+
 test("workflow integrations surface the attention panel next to the existing overview", () => {
   assert.match(settings, /import ContinuousAssuranceAttention from "\.\/continuous-assurance-attention"/);
   assert.match(settings, /kind==="ticketing"&&<IntegrationsOverview lang=\{lang\}\/\>/);
