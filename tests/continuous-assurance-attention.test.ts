@@ -84,9 +84,11 @@ test("attention queue exposes operational reasons and summary counters without i
   assert.match(attention, /No Continuous Assurance signal currently requires action/);
 });
 
-test("promoted CAPA state is projected from canonical enterprise findings without mutating the lifecycle", () => {
-  assert.match(attention, /fetch\(withBasePath\("\/api\/findings"\)/);
+test("promoted CAPA state uses the bounded traceability projection without mutating the lifecycle", () => {
+  assert.match(attention, /fetch\(withBasePath\("\/api\/continuous-assurance\/traceability"\)/);
+  assert.doesNotMatch(attention, /fetch\(withBasePath\("\/api\/findings"\)/);
   assert.match(attention, /const enterpriseFindingById = useMemo/);
+  assert.match(attention, /for \(const item of traceabilityItems\)/);
   assert.match(attention, /capaTraceabilityIntegrity\(workItem, enterpriseFinding\)/);
   assert.match(attention, /governanceState === "completed"/);
   assert.match(attention, /Remediation açık/);
