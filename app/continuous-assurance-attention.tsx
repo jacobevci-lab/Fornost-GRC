@@ -328,6 +328,12 @@ export default function ContinuousAssuranceAttention({ lang }: { lang: Lang }) {
     const findings = automation.findings || [];
     const insightRows = insights?.insights || [];
     const snapshotNow = timestamp(insights?.generatedAt);
+    const governedFindingIds = new Set(
+      workItems
+        .filter((item) => ["capa-promotion", "control-retest"].includes(clean(item.action).toLowerCase()))
+        .map((item) => clean(item.findingId))
+        .filter(Boolean),
+    );
     const chains = new Map<string, Chain>();
 
     for (const insight of insightRows) {
@@ -364,8 +370,12 @@ export default function ContinuousAssuranceAttention({ lang }: { lang: Lang }) {
       const focusRule = activeRules.find((rule) => clean(rule.id) === preferredRuleId) || (insight.code === "no-active-rules" ? undefined : latestActiveRule);
       const ruleId = clean(focusRule?.id);
       const latestFinding = findings
-        .filter((finding) => ruleId && clean(finding.ruleId) === ruleId && clean(finding.status) !== "closed")
-        .sort((a, b) => timestamp(b.updatedAt || b.createdAt) - timestamp(a.updatedAt || a.createdAt))[0];
+        .filter((finding) => ruleId && clean(finding.ruleId) === ruleId)
+        .filter((finding) => clean(finding.status) !== "closed" || governedFindingIds.has(clean(finding.id)))
+        .sort((a, b) => {
+          const openPriority = Number(clean(b.status) !== "closed") - Number(clean(a.status) !== "closed");
+          return openPriority || timestamp(b.updatedAt || b.createdAt) - timestamp(a.updatedAt || a.createdAt);
+        })[0];
       const latestRun = runs
         .filter((run) => ruleId && clean(run.ruleId) === ruleId)
         .sort((a, b) => timestamp(b.createdAt) - timestamp(a.createdAt))[0];
@@ -380,7 +390,7 @@ export default function ContinuousAssuranceAttention({ lang }: { lang: Lang }) {
       });
     }
     return chains;
-  }, [automation, insights]);
+  }, [automation, insights, workItems]);
 
   const attention = useMemo(() => (insights?.insights || []).filter((item) => item.state !== "healthy"), [insights]);
   const summary = insights?.summary;
@@ -643,13 +653,13 @@ export default function ContinuousAssuranceAttention({ lang }: { lang: Lang }) {
                             <button type="button" disabled={retestBusy} onClick={() => void evaluateRetest(chain)}>{retestBusy ? "…" : (tr ? "Uygunluğu kontrol et" : "Check readiness")}</button>
                           )}
                           {retestState === "ready" && (
-                            <button type="button" disabled={retestBusy} onClick={() => void queueRetest(chain)}>{retestBusy ? "…" : (tr ? "Re-test review" : "Re-test review")}</button>
+                            <button type="button" disabled={retestBusy} onClick={() => void queueRetest(chain)}>{retestBusy ? "…" : "Re-test review"}</button>
                           )}
                           {retestState === "awaiting-run" && (
                             <button type="button" disabled={!chain.ruleId} onClick={() => openAutomationRef("rule", chain.ruleId)}>{tr ? "Kontrolü aç" : "Open control"}</button>
                           )}
                           {(retestState === "completed" || retestState === "recovered") && chain.ruleId && (
-                            <button type="button" onClick={() => openAutomationRef("rule", chain.ruleId)}>{retestItem?.resultRef ? `${tr ? "Run" : "Run"} ${retestItem.resultRef.slice(0, 12)}` : (tr ? "Kontrolü aç" : "Open control")}</button>
+                            <button type="button" onClick={() => openAutomationRef("rule", chain.ruleId)}>{retestItem?.resultRef ? `Run ${retestItem.resultRef.slice(0, 12)}` : (tr ? "Kontrolü aç" : "Open control")}</button>
                           )}
                           {recovery?.nextActions?.slice(0, 3).map((action) => <span key={action}>{recoveryActionCopy(action, tr)}</span>)}
                         </div>
