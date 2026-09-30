@@ -201,7 +201,7 @@ export default function ExecutiveAssurancePanel({
         <div>
           <small>{tr ? "YÖNETİCİ GÜVENCE MERKEZİ" : "EXECUTIVE ASSURANCE CENTER"}</small>
           <h2>{tr ? "Kurumsal risk ve güvence görünümü" : "Enterprise risk & assurance posture"}</h2>
-          <p>{tr ? "Risk, uyum, sürekli güvence, denetim ve remediation durumunu tek karar ekranında yönetin." : "Manage risk, compliance, continuous assurance, audit and remediation from one decision surface."}</p>
+          <p>{tr ? "Risk, uyum, sürekli güvence, denetim ve iyileştirme durumunu tek karar ekranında yönetin." : "Manage risk, compliance, continuous assurance, audit and remediation from one decision surface."}</p>
         </div>
         <div className="executive-dashboard-header-actions">
           <button type="button" onClick={auditorPack}>{tr ? "Denetçi Paketi" : "Auditor Pack"}<span>↗</span></button>
@@ -245,7 +245,7 @@ export default function ExecutiveAssurancePanel({
 
       <div className="executive-dashboard-grid">
         <article className="executive-cockpit-panel risk-posture-panel">
-          <header><div><small>RISK POSTURE</small><h3>{tr ? "Kurumsal risk maruziyeti" : "Enterprise risk exposure"}</h3></div><button onClick={() => go("Risk Assessment")}>{tr ? "Risk Merkezi" : "Risk Center"} →</button></header>
+          <header><div><small>{tr ? "RİSK GÖRÜNÜMÜ" : "RISK POSTURE"}</small><h3>{tr ? "Kurumsal risk maruziyeti" : "Enterprise risk exposure"}</h3></div><button onClick={() => go("Risk Assessment")}>{tr ? "Risk Merkezi" : "Risk Center"} →</button></header>
           <div className="risk-posture-body">
             <div className="risk-segmented-bar" role="img" aria-label={riskRows.map(item => `${item.label}: ${item.value}`).join(", ")}>
               {riskRows.map(item => <i key={item.label} className={item.tone} style={{ width: `${scoredRisks.length ? item.value / scoredRisks.length * 100 : 0}%` }} />)}
@@ -258,7 +258,7 @@ export default function ExecutiveAssurancePanel({
         </article>
 
         <article className="executive-cockpit-panel compliance-portfolio-panel">
-          <header><div><small>COMPLIANCE PORTFOLIO</small><h3>{tr ? "Çerçeve uygulama görünümü" : "Framework implementation posture"}</h3></div><button onClick={() => go("Uyum")}>{tr ? "Uyum Merkezi" : "Compliance"} →</button></header>
+          <header><div><small>{tr ? "UYUM PORTFÖYÜ" : "COMPLIANCE PORTFOLIO"}</small><h3>{tr ? "Çerçeve uygulama görünümü" : "Framework implementation posture"}</h3></div><button onClick={() => go("Uyum")}>{tr ? "Uyum Merkezi" : "Compliance"} →</button></header>
           <div className="compliance-score-strip"><strong>{percent(complianceScore, complianceTotal)}</strong><span>{tr ? "Toplam uyum sağlığı" : "Overall compliance health"}<small>{compliantTotal}/{complianceTotal} {tr ? "uyumlu gereksinim" : "compliant requirements"}</small></span></div>
           <div className="compliance-framework-list">
             {complianceStats.length ? complianceStats.map((item) => <button type="button" key={item.name} onClick={() => go("Uyum")}><span><b>{item.name}</b><small>{item.total} {tr ? "gereksinim" : "requirements"}</small></span><strong>{item.score}%</strong><MiniBar value={item.score} tone={item.score >= 80 ? "positive" : item.score >= 60 ? "warning" : "critical"} /></button>) : <p>{tr ? "Henüz framework/uyum kaydı bulunmuyor." : "No framework/compliance records yet."}</p>}
@@ -266,7 +266,7 @@ export default function ExecutiveAssurancePanel({
         </article>
 
         <article className="executive-cockpit-panel continuous-assurance-panel">
-          <header><div><small>CONTINUOUS ASSURANCE</small><h3>{tr ? "Kontrol ve kanıt güveni" : "Control & evidence confidence"}</h3></div><button onClick={() => go("Kanıt Otomasyonu")}>{tr ? "Operasyon" : "Operations"} →</button></header>
+          <header><div><small>{tr ? "SÜREKLİ GÜVENCE" : "CONTINUOUS ASSURANCE"}</small><h3>{tr ? "Kontrol ve kanıt güveni" : "Control & evidence confidence"}</h3></div><button onClick={() => go("Kanıt Otomasyonu")}>{tr ? "Operasyon" : "Operations"} →</button></header>
           <div className="assurance-score-row">
             <div><strong>{rows.length ? assurance.score : "—"}</strong><span>/100</span><small>{tr ? "Bütünleşik Güvence" : "Composite Assurance"}</small></div>
             <div className="assurance-score-bars">
@@ -279,7 +279,7 @@ export default function ExecutiveAssurancePanel({
         </article>
 
         <article className="executive-cockpit-panel audit-remediation-panel">
-          <header><div><small>AUDIT &amp; REMEDIATION</small><h3>{tr ? "Denetim ve kapanış görünümü" : "Audit & closure posture"}</h3></div><button onClick={() => go("Denetim Yönetimi")}>{tr ? "Denetimler" : "Audits"} →</button></header>
+          <header><div><small>{tr ? "DENETİM VE İYİLEŞTİRME" : "AUDIT & REMEDIATION"}</small><h3>{tr ? "Denetim ve kapanış görünümü" : "Audit & closure posture"}</h3></div><button onClick={() => go("Denetim Yönetimi")}>{tr ? "Denetimler" : "Audits"} →</button></header>
           <div className="audit-remediation-metrics">
             <div><strong>{percent(assurance.auditScore, assurance.totalAudits)}</strong><span>{assurance.readyAudits}/{assurance.totalAudits} {tr ? "hazır denetim" : "ready audits"}</span><MiniBar value={assurance.totalAudits ? assurance.auditScore : 0} /></div>
             <button type="button" onClick={() => go("Bulgular ve CAPA")}><span>{tr ? "Açık bulgu" : "Open findings"}</span><b>{openFindings}</b></button>
@@ -289,9 +289,9 @@ export default function ExecutiveAssurancePanel({
       </div>
 
       <section id="executive-decisions" className="executive-decision-board">
-        <header><div><small>EXECUTIVE DECISION BOARD</small><h3>{tr ? "Bugün yönetim kararı gerektiren işler" : "Items requiring management decisions today"}</h3></div><span>{decisionItems.reduce((sum, item) => sum + item.value, 0)} {tr ? "açık sinyal" : "open signals"}</span></header>
+        <header><div><small>{tr ? "YÖNETİCİ KARAR TABLOSU" : "EXECUTIVE DECISION BOARD"}</small><h3>{tr ? "Bugün yönetim kararı gerektiren işler" : "Items requiring management decisions today"}</h3></div><span>{decisionItems.reduce((sum, item) => sum + item.value, 0)} {tr ? "açık sinyal" : "open signals"}</span></header>
         {!decisionItems.some((item) => item.value > 0) && <p>{tr ? "Öncelikli karar bekleyen kayıt bulunmuyor." : "No priority decisions pending."}</p>}
-        <div className="executive-decision-table-wrap">
+        <div className="executive-decision-table-wrap" tabIndex={0} role="region" aria-label={tr ? "Yönetici karar tablosu" : "Executive decision table"}>
           <table className="executive-decision-table">
             <thead><tr><th scope="col">{tr ? "Öncelik" : "Priority"}</th><th scope="col">{tr ? "Karar konusu" : "Decision"}</th><th scope="col">{tr ? "Açık kayıt" : "Open items"}</th><th scope="col">{tr ? "İşlem" : "Action"}</th></tr></thead>
             <tbody>{decisionItems.filter((item) => item.value > 0).slice(0, 4).map(item => <tr key={item.label}>

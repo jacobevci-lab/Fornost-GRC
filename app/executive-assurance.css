@@ -17,17 +17,17 @@
 .executive-dashboard-header-actions{display:flex;gap:8px;flex-wrap:wrap}
 .executive-dashboard-header-actions button{display:flex;gap:10px;align-items:center;border:1px solid var(--ed-line);border-radius:8px;padding:9px 12px;color:var(--ed-ink);background:var(--ed-surface);font-size:12px}
 .executive-dashboard-kpis{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));border:1px solid var(--ed-line);border-radius:12px;background:var(--ed-surface);margin-bottom:16px;overflow:hidden}
-.executive-kpi{min-width:0;border:0;border-right:1px solid var(--ed-line);padding:18px 16px;text-align:left;background:transparent;color:var(--ed-ink)}
+.executive-kpi{display:flex;flex-direction:column;min-width:0;border:0;border-right:1px solid var(--ed-line);padding:18px 16px;text-align:left;background:transparent;color:var(--ed-ink)}
 .executive-kpi:last-child{border-right:0}
 .executive-kpi:hover{background:var(--ed-surface-2)}
-.executive-kpi>span{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:36px}
+.executive-kpi>span{width:100%;display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:36px}
 .executive-kpi small{font-size:12px;font-weight:650;color:var(--ed-muted);line-height:1.5}
 .executive-kpi>span>i{height:6px;width:6px;flex:none;border-radius:50%;background:var(--ed-brand)}
 .executive-kpi.warning>span>i{background:var(--ed-warning)}
 .executive-kpi.critical>span>i{background:var(--ed-danger)}
 .executive-kpi strong{display:block;font-size:30px;font-variant-numeric:tabular-nums;line-height:1.2;margin:10px 0 12px}
 .executive-kpi em{display:block;font-style:normal;font-size:12px;color:var(--ed-muted);margin-top:9px;line-height:1.5}
-.executive-mini-bar{display:block;height:6px;border-radius:8px;background:var(--ed-line);overflow:hidden}
+.executive-mini-bar{width:100%;display:block;height:6px;border-radius:8px;background:var(--ed-line);overflow:hidden}
 .executive-mini-bar>em{display:block;height:100%;margin:0;background:var(--ed-brand);border-radius:inherit}
 .executive-attention-band{display:grid;grid-template-columns:auto minmax(0,1fr) auto auto;align-items:center;gap:14px;width:100%;padding:16px;margin-bottom:16px;text-align:left;border:1px solid var(--ed-line);border-left:3px solid var(--ed-warning);border-radius:10px;color:var(--ed-ink);background:var(--ed-surface)}
 .executive-attention-band.clear{border-left-color:var(--ed-positive)}
@@ -102,3 +102,5 @@ html[data-theme] .executive-dashboard-reference .compliance-score-strip>strong,
 html[data-theme] .executive-dashboard-reference .assurance-score-row strong,
 html[data-theme] .executive-dashboard-reference .audit-remediation-metrics strong{font-size:30px!important;line-height:1.2!important}
 @media(max-width:600px){html[data-theme] .executive-dashboard-reference .executive-kpi>strong{font-size:26px!important}}
+
+.executive-decision-table-wrap:focus-visible{outline:2px solid var(--ed-brand);outline-offset:-2px}
