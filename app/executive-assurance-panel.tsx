@@ -113,7 +113,7 @@ export default function ExecutiveAssurancePanel({
           <b>{tr ? "Owner accountability, delivery SLA ve teknik attention kuyruğu" : "Owner accountability, delivery SLA and technical attention queue"}</b>
         </span>
         <span className={operationalSignals ? "attention" : "healthy"}>
-          {operationalSignals} {tr ? "aktif sinyal" : "active signals"}
+          {assurance.score}/100 · {operationalSignals} {tr ? "aktif sinyal" : "active signals"}
         </span>
       </summary>
 
