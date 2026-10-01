@@ -32,11 +32,11 @@ test("the final authority contains no retired blue, navy or violet literals", ()
   assert.doesNotMatch(css, retired);
 });
 
-test("operational text cannot regress to the historical 7–10 px scale", () => {
-  assert.match(css, /html\[data-theme\] body \.shell>main :where\(div,p,span,small,b,strong,label,button,a,td,th,dt,dd,li,em,time,code,input,select,textarea,kbd,summary\)\{font-size:max\(11px,\.6875rem\)!important/);
-  assert.match(css, /html\[data-theme\] body \.shell>main :where\(input,select,textarea\)\{font-size:max\(12px,\.75rem\)!important/);
-  assert.match(css, /\.shell>aside :where\(small,span,b,p,em\)\{font-size:11px!important/);
-  assert.match(css, /\.fornost-ai-launcher :where\(span,i\)\{font-size:11px!important/);
+test("desktop typography follows the requested compact scale", () => {
+  assert.match(css, /html\[data-theme\] body \.shell>main :where\(div,p,span,small,b,strong,label,button,a,td,th,dt,dd,li,em,time,code,input,select,textarea,kbd,summary\)\{font-size:max\(10px,\.625rem\)!important/);
+  assert.match(css, /html\[data-theme\] body \.shell>main :where\(input,select,textarea\)\{font-size:max\(11px,\.6875rem\)!important/);
+  assert.match(css, /\.shell>aside :where\(small,span,b,p,em\)\{font-size:10px!important/);
+  assert.match(css, /\.fornost-ai-launcher :where\(span,i\)\{font-size:10px!important/);
 });
 
 test("dark modules use the approved amber heading accent without changing body copy", () => {
@@ -51,8 +51,8 @@ test("dark modules use the approved amber heading accent without changing body c
   ]) assert.ok(css.includes(selector), selector);
   assert.match(css, /html\[data-theme="dark"\] body :is\(\.code,td>a,/);
   assert.match(css, /html\[data-theme="dark"\] body :is\(\.audit-overview,\.module-overview,\.integration-hub>header,\.settings-card-head,\.soc2-readiness-card\)/);
-  assert.match(css, /\.module-head h2\{font-size:20px!important;font-weight:740!important/);
-  assert.match(css, /\.smart-table \.evidence-link b,\.audit-requirement-cell b\{font-size:11px!important/);
+  assert.match(css, /\.module-head h2\{font-size:18px!important;font-weight:740!important/);
+  assert.match(css, /\.smart-table \.evidence-link b,\.audit-requirement-cell b\{font-size:10px!important/);
   assert.match(page, /className="module-kicker"/);
 });
 
