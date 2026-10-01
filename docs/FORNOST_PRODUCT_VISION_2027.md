@@ -2,6 +2,10 @@
 
 ## Product promise
 
+### Delivery model — confirmed 2026-10-01
+
+Fornost is a commercial product installed in each customer's own environment, with customer-controlled application data, evidence and secrets. RHEL-family on-prem installation, upgrades, backup/restore, corporate identity and reliable local scheduled operations are product priorities. Shared multi-customer SaaS tenancy, tenant billing and tenant provisioning are out of scope. Department-level access control and separation of duties remain necessary within each installation. External collectors and AI providers are optional integrations, not a dependency for core GRC use.
+
 **Fornost should understand complexity so the user does not have to.**
 
 Fornost is an AI-native Connected Risk and Continuous Assurance platform. The product should connect organizational context, risk, controls, frameworks, evidence, findings and remediation while keeping day-to-day interaction simple for non-GRC users.
