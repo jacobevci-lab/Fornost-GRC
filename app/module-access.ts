@@ -46,6 +46,6 @@ export function scopedApiAllowed(subject: AccessSubject, pathname: string, metho
   if (path === "/api/catalogs") return read; // Shared field choices, no business records.
   if (path === "/api/ai/status" || path === "/api/ai/source-target") return read;
   if (path === "/api/ai/chat") return method === "POST";
-  const module = path === "/api/audits" ? "Denetim Yönetimi" : ["/api/evidence", "/api/evidence/history"].includes(path) ? "Kanıtlar" : null;
-  return !!module && (read ? canReadModule(subject, module) : canWriteModule(subject, module));
+  const moduleName = path === "/api/audits" ? "Denetim Yönetimi" : ["/api/evidence", "/api/evidence/history"].includes(path) ? "Kanıtlar" : null;
+  return !!moduleName && (read ? canReadModule(subject, moduleName) : canWriteModule(subject, moduleName));
 }

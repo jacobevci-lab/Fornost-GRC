@@ -1437,7 +1437,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
       });
       if (response.ok) setAuditPortfolio((await response.json()).audits || []);
     } catch {}
-  }, []);
+  }, [currentUser]);
   useEffect(() => {
     loadAudits().then(load);
     loadCatalogs();

@@ -28,14 +28,15 @@ try{
  await api(restricted,'/api/grc','PATCH',{id:hidden.id,module:'Risk Assessment',data:{}},403);
  for(const body of [{module:'BIA',data:{}},{module:'BIA',rows:[{}]},{module:'Kanıtlar',data:{}}])await api(restricted,'/api/grc','POST',body,403);
  await api(restricted,`/api/grc?id=${record.id}`,'DELETE',undefined,403);
- for(const path of ['/api/evidence?key=evidence/hidden','/api/evidence/history','/api/audits','/api/third-party-risk','/api/findings','/api/executive-metrics','/api/continuous-assurance/dashboard','/api/evidence-automation','/api/ai/knowledge/search?q=risk','/api/ai/drafts','/api/ai/agents','/api/users'])await api(restricted,path,'GET',undefined,403);
+ for(const path of ['/api/evidence?key=evidence/hidden','/api/evidence/history','/api/audits','/api/third-party-risk','/api/findings','/api/executive-metrics','/api/continuous-assurance/dashboard','/api/evidence-automation','/api/ai/drafts','/api/ai/agents','/api/users'])await api(restricted,path,'GET',undefined,403);
+ await api(restricted,"/api/ai/knowledge/search","POST",{query:"risk"},403);
  await api(restricted,`/api/ai/source-target?sourceId=${encodeURIComponent(hidden.id)}`,'GET',undefined,404);
  await api(restricted,`/api/ai/source-target?sourceId=${encodeURIComponent(risk.id)}`);
  const status=await api(restricted,'/api/ai/status');assert.equal(status.moduleScope,'scoped');assert.equal(status.capabilities.agents,false);assert.equal(status.capabilities.retrieval,false);
  await userPage.goto(base);await expect(userPage.locator('.shell[data-module-scope="scoped"]')).toBeVisible();
  await userPage.locator('.language-switch:visible').getByRole('button',{name:'EN',exact:true}).click();
- await expect(userPage.locator('.module-scope-home')).toContainText('My workspace');await expect(userPage.locator('nav button[aria-label="Reports"]')).toHaveCount(0);await expect(userPage.locator('nav button[aria-label="Evidence Library"]')).toHaveCount(0);
- await userPage.locator('nav button[aria-label="BIA"]').evaluate(el=>el.click());await expect(userPage.locator('.module-head')).toContainText('BIA');await expect(userPage.locator('.module-head .primary')).toHaveCount(0);
+ await expect(userPage.locator('.module-scope-home')).toContainText('My workspace');await expect(userPage.locator('nav button[aria-label="Reporting"]')).toHaveCount(0);await expect(userPage.locator('nav button[aria-label="Evidence Library"]')).toHaveCount(0);
+ await userPage.locator('nav button[aria-label="Business Impact Analysis (BIA)"]').evaluate(el=>el.click());await expect(userPage.locator('.module-head')).toContainText('BIA');await expect(userPage.locator('.module-head .primary')).toHaveCount(0);
  await userPage.locator('nav button[aria-label="Risk Assessment"]').evaluate(el=>el.click());await expect(userPage.locator('.module-head .primary')).toBeVisible();
  await userPage.locator('.context-ai-trigger').click();await expect(userPage.locator('#fornost-ai-panel')).toBeVisible();await expect(userPage.locator('.fornost-ai-tabs')).toHaveCount(0);await expect(userPage.locator('#fornost-ai-panel')).toContainText('izinli modüllerdeki');await userPage.getByRole('button',{name:'Kapat',exact:true}).click();
  await page.goto(base);await expect(page.locator('.shell')).toBeVisible();await page.locator('.language-switch:visible').getByRole('button',{name:'EN',exact:true}).click();await page.locator('nav button[aria-label="Identity & Access"]').evaluate(el=>el.click());
@@ -53,12 +54,12 @@ try{
  await api(restricted,'/api/grc','GET',undefined,401);await login(restricted,email);await api(restricted,'/api/grc','POST',{module:'Risk Assessment',data:riskData},403);
  const after=await api(admin,'/api/users');assert.ok(after.events.some(event=>event.user_id===user.id&&JSON.parse(event.after_json).moduleAccess.modules['Risk Assessment']==='read'));
  // Check every register through the real scoped read path and UI, including audit and vendor fallback.
- for(const module of ['Risk Assessment','BIA','Varlık Envanteri','Uyum','Tedarikçiler','Kontroller','Kanıtlar','Denetim Yönetimi']){
-  await api(admin,'/api/users','PATCH',{id:user.id,role:'Editor',status:'Active',moduleAccess:{mode:'scoped',modules:{[module]:'read'}}});await login(restricted,email);
-  const result=(await api(restricted,'/api/grc')).rows;assert.ok(result.length,module);assert.ok(result.every(row=>row.module===module),module);
+ for(const moduleName of ['Risk Assessment','BIA','Varlık Envanteri','Uyum','Tedarikçiler','Kontroller','Kanıtlar','Denetim Yönetimi']){
+  await api(admin,'/api/users','PATCH',{id:user.id,role:'Editor',status:'Active',moduleAccess:{mode:'scoped',modules:{[moduleName]:'read'}}});await login(restricted,email);
+  const result=(await api(restricted,'/api/grc')).rows;assert.ok(result.length,moduleName);assert.ok(result.every(row=>row.module===moduleName),moduleName);
   await userPage.reload();await expect(userPage.locator('.module-scope-cards button')).toHaveCount(1);await userPage.locator('.module-scope-cards button').click();await expect(userPage.locator('.module-scope-home')).toHaveCount(0);
-  if(module==='Denetim Yönetimi')await api(restricted,'/api/audits');
-  if(module==='Kanıtlar'){await api(restricted,'/api/evidence/history');await api(restricted,'/api/evidence?key=evidence/not-found','GET',undefined,404);}
+  if(moduleName==='Denetim Yönetimi')await api(restricted,'/api/audits');
+  if(moduleName==='Kanıtlar'){await api(restricted,'/api/evidence/history');await api(restricted,'/api/evidence?key=evidence/not-found','GET',undefined,404);}
  }
  await api(admin,'/api/users','PATCH',{id:user.id,role:'Viewer',status:'Active',moduleAccess:{mode:'scoped',modules:{'Risk Assessment':'write'}}});await login(restricted,email);await api(restricted,'/api/grc','POST',{module:'Risk Assessment',data:riskData},403);
  await api(admin,'/api/users','PATCH',{id:user.id,role:'Editor',status:'Active',moduleAccess:{mode:'scoped',modules:{}}});await login(restricted,email);assert.deepEqual((await api(restricted,'/api/grc')).rows,[]);
