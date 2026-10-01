@@ -38,7 +38,7 @@ try {
     // Close any copilot left open by the navigation sweep by reloading the shell.
     await page.reload({waitUntil:'domcontentloaded'});
     await page.locator('.shell').waitFor();
-    await open(locale === 'tr' ? 'Kanıtlar' : 'Evidence Library');
+    await open(locale === 'tr' ? 'Kanıt Kütüphanesi' : 'Evidence Library');
     await page.locator('.evidence-link').first().waitFor();
     if (await page.locator('html').getAttribute('data-theme') !== 'dark') {
       await page.locator('.theme-toggle:visible').click();
