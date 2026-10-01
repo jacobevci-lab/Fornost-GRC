@@ -128,7 +128,7 @@ export async function GET(req: NextRequest) {
   if (auth.response) return auth.response;
   const d = await db(), result = await d.prepare("SELECT * FROM simple_audits ORDER BY updated_at DESC").all(), now = new Date().toISOString();
   for (const audit of result.results as Record<string, unknown>[]) await ensureTemplateRows(d, audit, now);
-  return NextResponse.json({ audits: result.results });
+  return NextResponse.json({ audits: result.results }, { headers: { "cache-control": "private, no-store" } });
 }
 
 export async function POST(req: NextRequest) {

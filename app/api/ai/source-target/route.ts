@@ -1,3 +1,4 @@
+import { canReadModule, isScoped } from "../../../module-access";
 import { NextRequest, NextResponse } from "next/server";
 import { requireRole } from "../../auth/security";
 import { clean } from "../../integrations/security";
@@ -50,6 +51,12 @@ async function resolveTarget(db:D1Database,sourceId:string):Promise<Target|undef
 export async function GET(req:NextRequest){
  const access=await requireRole(req,["Admin","Editor","Viewer"]);if(access.response)return access.response;
  const sourceId=clean(req.nextUrl.searchParams.get("sourceId"),180);if(!sourceId)return json({error:"Source ID gerekli."},400);
- const env=await runtime(),target=await resolveTarget(env.DB,sourceId);if(!target)return json({target:null},404);
+ const env=await runtime();
+ if(isScoped(access.actor)){
+  const row=await env.DB.prepare("SELECT id,module,data_json FROM simple_grc_records WHERE id=? LIMIT 1").bind(sourceId).first<SimpleRow>();
+  const target=row&&canReadModule(access.actor,row.module)?simpleTarget(row):undefined;
+  return target?json({target}):json({target:null},404);
+ }
+ const target=await resolveTarget(env.DB,sourceId);if(!target)return json({target:null},404);
  return json({target});
 }

@@ -1,6 +1,7 @@
 "use client";
 
-import { FormEvent, useCallback, useEffect, useState } from "react";
+import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
+import { isScoped, type ModuleAccess } from "./module-access";
 import { withBasePath } from "./base-path";
 import { navigateToFornost } from "./navigation-focus";
 import FornostAiAgents, { type AgentConversion, type AgentDecision, type AgentKind, type AgentRun } from "./fornost-ai-agents";
@@ -33,7 +34,7 @@ import FornostAiExceptions from "./fornost-ai-exceptions";
 import FornostAiDecommission from "./fornost-ai-decommission";
 import FornostAiFindings from "./fornost-ai-findings";
 
-type User = { name?: string; email: string; role: "Admin" | "Editor" | "Viewer" };
+type User = { id?: string; moduleAccess?: ModuleAccess; name?: string; email: string; role: "Admin" | "Editor" | "Viewer" };
 type Status = { configured: boolean; enabled: boolean; operational:boolean;operatingState:"ready"|"restricted"|"emergency-stop";operatingMessage:string;capabilities:{chat:boolean;drafts:boolean;agents:boolean;retrieval:boolean;evaluations:boolean}; provider: string | null; model: string | null; mode: string };
 type Source = { id: string; module: string; title: string };
 type Message = { role: "user" | "assistant"; content: string; activityId?:string; feedbackSent?:boolean; sources?: Source[]; citationIntegrity?: {grounded:boolean;cited:number;invalidRemoved:number} };
@@ -58,6 +59,7 @@ const draftFieldLabels: Record<string,string> = {
 const csvCell=(value:unknown)=>{const text=String(value??""),safe=/^[=+\-@]/.test(text)?`'${text}`:text;return `"${safe.replace(/"/g,'""')}"`;};
 
 export default function FornostAiCopilot() {
+  const identityKey = useRef("");
   const [user, setUser] = useState<User | null>(null);
   const [status, setStatus] = useState<Status | null>(null);
   const [statusError, setStatusError] = useState("");
@@ -129,6 +131,9 @@ export default function FornostAiCopilot() {
     }
     const body = await response.json().catch(() => ({}));
     const nextUser = body.authenticated ? body.user as User : null;
+    const nextKey=nextUser?JSON.stringify([nextUser.id,nextUser.email,nextUser.role,nextUser.moduleAccess]):"";
+    if(identityKey.current && identityKey.current!==nextKey){setMessages([]);setDrafts([]);setAgentRuns([]);setQuestion("");setFeedbackDraft(null);setTab("chat");}
+    identityKey.current=nextKey;
     setUser(nextUser);
     setIdentityLoading(false);
     if (!nextUser) setIdentityError("Ask Fornost için oturum açmanız gerekiyor.");
@@ -371,7 +376,8 @@ export default function FornostAiCopilot() {
   </section> : null;
   const aiReady = status?.enabled === true&&status?.operational!==false;
   const chatReady=aiReady&&status?.capabilities?.chat!==false,draftReady=aiReady&&status?.capabilities?.drafts!==false,agentReady=aiReady&&status?.capabilities?.agents!==false;
-  const activeTab = user.role !== "Admin" && (tab === "portfolio" || tab === "audit" || tab === "metrics" || tab === "governance" || tab === "models" || tab === "compliance" || tab === "lifecycle" || tab === "incidents" || tab === "access" || tab === "release" || tab === "resilience" || tab === "datasets" || tab === "regulatory" || tab === "literacy" || tab === "supply-chain" || tab === "red-team" || tab === "transparency" || tab === "assurance" || tab === "assurance-alerts" || tab === "exceptions" || tab === "decommission" || tab === "findings" || tab === "feedback" || tab === "budget" || tab === "policy" || tab === "protection") ? "chat" : tab;
+  const scoped = isScoped(user);
+  const activeTab = scoped ? "chat" : user.role !== "Admin" && (tab === "portfolio" || tab === "audit" || tab === "metrics" || tab === "governance" || tab === "models" || tab === "compliance" || tab === "lifecycle" || tab === "incidents" || tab === "access" || tab === "release" || tab === "resilience" || tab === "datasets" || tab === "regulatory" || tab === "literacy" || tab === "supply-chain" || tab === "red-team" || tab === "transparency" || tab === "assurance" || tab === "assurance-alerts" || tab === "exceptions" || tab === "decommission" || tab === "findings" || tab === "feedback" || tab === "budget" || tab === "policy" || tab === "protection") ? "chat" : tab;
 
   return <>
     <button className={`fornost-ai-launcher ${aiReady ? "ready" : ""}`} onClick={() => { if (!open) void refreshIdentity(); setOpen((value) => !value); }} aria-expanded={open} aria-controls="fornost-ai-panel">
@@ -382,7 +388,7 @@ export default function FornostAiCopilot() {
         <div><small>FORNOST AI · READ-ONLY COPILOT</small><h2>Ask Fornost</h2><p>{status?.model || "AI sağlayıcısı bekleniyor"}</p></div>
         <button onClick={() => setOpen(false)} aria-label="Kapat">×</button>
       </header>
-      <div className="fornost-ai-tabs" role="group" aria-label="AI workspace sections">
+      {!scoped && <div className="fornost-ai-tabs" role="group" aria-label="AI workspace sections">
         <small className="fornost-ai-tab-group">KOMUTA</small>
         {user.role === "Admin" && <button className={activeTab === "portfolio" ? "active" : ""} onClick={() => setTab("portfolio")}>AI Yönetim Özeti</button>}
         <button className={activeTab === "chat" ? "active" : ""} onClick={() => setTab("chat")}>Copilot</button>
@@ -420,8 +426,9 @@ export default function FornostAiCopilot() {
         {user.role === "Admin" && <button className={activeTab === "policy" ? "active" : ""} onClick={() => setTab("policy")}>Operasyon</button>}
         {user.role === "Admin" && <button className={activeTab === "protection" ? "active" : ""} onClick={() => setTab("protection")}>Veri Koruma</button>}
         {user.role === "Admin" && <button className={activeTab === "audit" ? "active" : ""} onClick={() => { setTab("audit"); void loadAudit(); }}>AI Audit</button>}
-      </div>
+      </div>}
 
+      {scoped && <p className="fornost-ai-notice">Ask Fornost yalnız izinli modüllerdeki kayıtları kullanır. Ortak bilgi tabanı ve agent iş akışları bu hesap için kapalıdır.</p>}
       {activeTab === "portfolio" ? <FornostAiPortfolio/> : activeTab === "chat" ? <>
         <div className="fornost-ai-mode"><span className={chatReady ? "online" : "offline"}/><b>{status?.operatingState==="emergency-stop"?"Acil durduruldu":chatReady ? "Hazır" : "Erişim kısıtlı"}</b><em>{status?.operatingMessage||status?.provider||"Provider yok"}</em></div>
         {(statusError || (status && (!status.configured || !status.enabled))) && <div className="fornost-ai-notice" role="status">
@@ -435,7 +442,7 @@ export default function FornostAiCopilot() {
             <div>{message.content}</div>
             {message.citationIntegrity&&<aside className={message.citationIntegrity.grounded?"grounded":"ungrounded"}>{message.citationIntegrity.grounded?`${message.citationIntegrity.cited} doğrulanmış citation`:"Citation doğrulaması gerekli"}{message.citationIntegrity.invalidRemoved>0&&` · ${message.citationIntegrity.invalidRemoved} geçersiz referans kaldırıldı`}</aside>}
             {!!message.sources?.length && <footer>{message.sources.slice(0, 12).map((source) => <span key={source.id} title={`${source.module} · ${source.title}`}>{source.id}</span>)}</footer>}
-            {message.role==="assistant"&&message.activityId&&<div className="fornost-ai-message-feedback">{message.feedbackSent?<span>Geri bildirim alındı</span>:<><small>Bu yanıt nasıldı?</small><div><button disabled={feedbackBusy} onClick={()=>void submitFeedback(index,"helpful","low")}>Yararlı</button><button disabled={feedbackBusy} onClick={()=>setFeedbackDraft({index,kind:"incorrect",severity:"medium",comment:""})}>Yanlış / Eksik</button><button className="danger" disabled={feedbackBusy} onClick={()=>setFeedbackDraft({index,kind:"unsafe",severity:"high",comment:""})}>Güvenlik Olayı</button></div></>}{feedbackDraft?.index===index&&!message.feedbackSent&&<div className="fornost-ai-feedback-compose"><label><span>Bildirim türü</span><select value={feedbackDraft.kind} onChange={event=>setFeedbackDraft(value=>value?{...value,kind:event.target.value as FeedbackDraft["kind"]}:value)}><option value="incorrect">Yanlış sonuç</option><option value="incomplete">Eksik sonuç</option><option value="unsafe">Güvenlik olayı</option></select></label><label><span>Önem</span><select value={feedbackDraft.severity} onChange={event=>setFeedbackDraft(value=>value?{...value,severity:event.target.value as FeedbackDraft["severity"]}:value)}><option value="medium">Orta</option><option value="high">Yüksek</option><option value="critical">Kritik</option></select></label><textarea rows={2} maxLength={1200} placeholder="Sorunu veya beklenen davranışı açıklayın…" value={feedbackDraft.comment} onChange={event=>setFeedbackDraft(value=>value?{...value,comment:event.target.value}:value)}/><div><button onClick={()=>setFeedbackDraft(null)}>Vazgeç</button><button disabled={feedbackBusy||feedbackDraft.comment.trim().length<5} onClick={()=>void submitFeedback(index,feedbackDraft.kind,feedbackDraft.severity,feedbackDraft.comment)}>Kaydet</button></div></div>}</div>}
+            {!scoped&&message.role==="assistant"&&message.activityId&&<div className="fornost-ai-message-feedback">{message.feedbackSent?<span>Geri bildirim alındı</span>:<><small>Bu yanıt nasıldı?</small><div><button disabled={feedbackBusy} onClick={()=>void submitFeedback(index,"helpful","low")}>Yararlı</button><button disabled={feedbackBusy} onClick={()=>setFeedbackDraft({index,kind:"incorrect",severity:"medium",comment:""})}>Yanlış / Eksik</button><button className="danger" disabled={feedbackBusy} onClick={()=>setFeedbackDraft({index,kind:"unsafe",severity:"high",comment:""})}>Güvenlik Olayı</button></div></>}{feedbackDraft?.index===index&&!message.feedbackSent&&<div className="fornost-ai-feedback-compose"><label><span>Bildirim türü</span><select value={feedbackDraft.kind} onChange={event=>setFeedbackDraft(value=>value?{...value,kind:event.target.value as FeedbackDraft["kind"]}:value)}><option value="incorrect">Yanlış sonuç</option><option value="incomplete">Eksik sonuç</option><option value="unsafe">Güvenlik olayı</option></select></label><label><span>Önem</span><select value={feedbackDraft.severity} onChange={event=>setFeedbackDraft(value=>value?{...value,severity:event.target.value as FeedbackDraft["severity"]}:value)}><option value="medium">Orta</option><option value="high">Yüksek</option><option value="critical">Kritik</option></select></label><textarea rows={2} maxLength={1200} placeholder="Sorunu veya beklenen davranışı açıklayın…" value={feedbackDraft.comment} onChange={event=>setFeedbackDraft(value=>value?{...value,comment:event.target.value}:value)}/><div><button onClick={()=>setFeedbackDraft(null)}>Vazgeç</button><button disabled={feedbackBusy||feedbackDraft.comment.trim().length<5} onClick={()=>void submitFeedback(index,feedbackDraft.kind,feedbackDraft.severity,feedbackDraft.comment)}>Kaydet</button></div></div>}</div>}
           </article>)}
           {busy && activeTab === "chat" && <div className="fornost-ai-thinking">Fornost verileri analiz ediliyor…</div>}
         </div>

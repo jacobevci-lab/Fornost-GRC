@@ -1,3 +1,4 @@
+import { canReadModule, isScoped, readableModules, type AccessSubject } from "../module-access";
 import { sanitizeAiRecord } from "./security";
 import { retrieveApprovedKnowledge } from "./knowledge";
 import { dataClassificationAllowed, type AiDataClassification } from "./data-policy";
@@ -98,14 +99,16 @@ function scoreRow(row: GrcRow, data: Record<string, unknown>, question: string, 
 
 function recordClassification(data:Record<string,unknown>){return data.dataClassification??data.classification??data.securityClassification??"Internal";}
 
-export async function buildGrcContext(db: D1Database, question: string, maxDataClassification: AiDataClassification = "Confidential") {
+export async function buildGrcContext(db: D1Database, question: string, maxDataClassification: AiDataClassification = "Confidential", subject?: AccessSubject) {
+  const scoped = !!subject && isScoped(subject);
+  const allowed = subject ? readableModules(subject) : [];
   const targetModules = inferReadModules(question);
-  const includeOperationalAssurance = targetModules.includes("Kanıt Otomasyonu") || targetModules.includes("Bulgular ve CAPA");
-  const includeEvidenceLineage = targetModules.includes("Kanıtlar");
+  const includeOperationalAssurance = !scoped && (targetModules.includes("Kanıt Otomasyonu") || targetModules.includes("Bulgular ve CAPA"));
+  const includeEvidenceLineage = !scoped && targetModules.includes("Kanıtlar");
   const specialContextBudget = includeOperationalAssurance && includeEvidenceLineage ? 5_000 : 6_500;
   const [knowledge, result, operationalAssurance, evidenceLineage] = await Promise.all([
-    retrieveApprovedKnowledge(db, question, 9_000, maxDataClassification),
-    db.prepare("SELECT id,module,data_json,updated_at FROM simple_grc_records ORDER BY updated_at DESC LIMIT 400").all<GrcRow>(),
+    scoped ? Promise.resolve({ sources: [], contextText: "" }) : retrieveApprovedKnowledge(db, question, 9_000, maxDataClassification),
+    (scoped ? db.prepare(`SELECT id,module,data_json,updated_at FROM simple_grc_records WHERE module IN (${allowed.map(() => "?").join(",") || "NULL"}) ORDER BY updated_at DESC LIMIT 400`).bind(...allowed) : db.prepare("SELECT id,module,data_json,updated_at FROM simple_grc_records ORDER BY updated_at DESC LIMIT 400")).all<GrcRow>(),
     includeOperationalAssurance
       ? buildOperationalAssuranceAiContext(db, maxDataClassification, specialContextBudget)
       : Promise.resolve({ sources: [], contextText: "", summaryAvailable: false }),
@@ -113,7 +116,7 @@ export async function buildGrcContext(db: D1Database, question: string, maxDataC
       ? buildEvidenceLineageAiContext(db, question, maxDataClassification, specialContextBudget)
       : Promise.resolve({ sources: [], contextText: "", summaryAvailable: false, integrityComplete: false }),
   ]);
-  const rows = result.results || [];
+  const rows = (result.results || []).filter(row => !subject || canReadModule(subject, row.module));
   const parsed = rows.map((row) => ({ row, data: parseData(row) })).filter(({data})=>dataClassificationAllowed(recordClassification(data),maxDataClassification));
   const relevant = (targetModules.length ? parsed.filter(({ row }) => targetModules.includes(row.module)) : parsed)
     .map((item) => ({ ...item, score: scoreRow(item.row, item.data, question, targetModules) }))
