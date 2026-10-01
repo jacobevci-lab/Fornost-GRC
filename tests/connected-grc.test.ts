@@ -11,7 +11,7 @@ test("connected GRC is wired into navigation, UI and documentation",async()=>{
   ]);
   assert.match(page,/"Bağlantılı GRC"/);
   assert.match(page,/ConnectedGrc rows=\{rows\}/);
-  assert.match(component,/CONNECTED GRC · RELATIONSHIP INTELLIGENCE/);
+  assert.match(component,/CONNECTED GRC/);
   assert.match(component,/records\.length-linkedIds\.size/);
   assert.match(component,/assessConnectedGrcCoverage/);
   assert.match(component,/connected-assurance/);

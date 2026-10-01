@@ -12,13 +12,21 @@ import { navigateToFornost } from "./navigation-focus";
 import { withBasePath } from "./base-path";
 import "./connected-grc-contract.css";
 import "./connected-assurance-posture.css";
+import "./connected-grc-explorer.css";
 
 type Lang = "tr" | "en";
+const moduleNames:Record<string,string>={"Varlık Envanteri":"Asset Inventory","Kontroller":"Control Library","Kanıtlar":"Evidence Library","Denetim Yönetimi":"Audit Management","Uyum":"Compliance Management","Tedarikçiler":"Vendor Management","Politika Merkezi":"Policy Center","Bulgular ve CAPA":"Findings & CAPA","Kanıt Otomasyonu":"Evidence Automation","İş Sürekliliği":"Business Continuity","Güvenlik Olayları":"Security Incidents","Regülasyon Merkezi":"Regulatory Change","Risk İştahı ve KRI":"Risk Appetite & KRI"};
 const ignored = new Set(["Ana Sayfa","Bağlantılı GRC","Raporlar"]);
 const csv = (value:unknown) => { const text=String(value??""); const safe=/^[=+\-@]/.test(text)?`'${text}`:text; return `"${safe.replace(/"/g,'""')}"`; };
 
 export default function ConnectedGrc({rows,lang,go}:{rows:ConnectedGrcRow[];lang:Lang;go:(module:string)=>void}){
   const tr=lang==="tr",[module,setModule]=useState("all"),[query,setQuery]=useState("");
+  const moduleLabel=(name:string)=>tr?name:(moduleNames[name]||name);
+  const [view,setView]=useState<"explore"|"gaps"|"assurance">("explore");
+  const [selectedId,setSelectedId]=useState("");
+  const [page,setPage]=useState(0);
+  const [linkLimit,setLinkLimit]=useState(8);
+  const [gapLimit,setGapLimit]=useState(12);
   const [enterpriseRows,setEnterpriseRows]=useState<ConnectedGrcRow[]>([]);
   const [sourceState,setSourceState]=useState({ready:0,total:connectedGrcEnterpriseEndpoints.length,loading:true});
 
@@ -59,12 +67,15 @@ export default function ConnectedGrc({rows,lang,go}:{rows:ConnectedGrcRow[];lang
   const assuranceSummary=useMemo(()=>summarizeContinuousAssurance(assuranceChains),[assuranceChains]);
   const modules=useMemo(()=>Array.from(new Set(records.map(row=>row.module))).sort(),[records]);
   const linkedIds=new Set(links.flatMap(link=>[link.source.id,link.target.id]));
-  const filtered=links.filter(link=>{
-    const matchesModule=module==="all"||link.source.module===module||link.target.module===module;
-    const needle=query.trim().toLocaleLowerCase(tr?"tr-TR":"en-US");
-    return matchesModule&&(!needle||`${connectedTitle(link.source)} ${connectedTitle(link.target)} ${link.source.module} ${link.target.module} ${link.relation}`.toLocaleLowerCase(tr?"tr-TR":"en-US").includes(needle));
-  });
-  const moduleStats=modules.map(name=>({name,count:records.filter(row=>row.module===name).length,links:links.filter(link=>link.source.module===name||link.target.module===name).length})).sort((a,b)=>b.links-a.links);
+  const needle=query.trim().toLocaleLowerCase(tr?"tr-TR":"en-US");
+  const matchingRecords=records.filter(row=>(module==="all"||row.module===module)&&(!needle||`${row.code||row.id} ${connectedTitle(row)} ${row.module} ${moduleLabel(row.module)}`.toLocaleLowerCase(tr?"tr-TR":"en-US").includes(needle)));
+  const currentPage=Math.min(page,Math.max(0,Math.ceil(matchingRecords.length/10)-1));
+  const visibleRecords=matchingRecords.slice(currentPage*10,currentPage*10+10);
+  const selected=visibleRecords.find(row=>row.id===selectedId)||visibleRecords[0];
+  const selectedLinks=selected?links.filter(link=>link.source.id===selected.id||link.target.id===selected.id):[];
+  const filtered=links.filter(link=>(module==="all"||link.source.module===module||link.target.module===module)&&(!needle||[link.source,link.target].some(row=>`${row.code||row.id} ${connectedTitle(row)} ${row.module} ${moduleLabel(row.module)}`.toLocaleLowerCase(tr?"tr-TR":"en-US").includes(needle))));
+  function selectRecord(id:string){setSelectedId(id);setLinkLimit(8)}
+  function resetFilters(){setModule("all");setQuery("");setPage(0);setLinkLimit(8)}
   function openRecord(row:ConnectedGrcRow){
     const target=connectedGrcNavigation(row);
     if(!target){go(row.module);return;}
@@ -75,11 +86,57 @@ export default function ConnectedGrc({rows,lang,go}:{rows:ConnectedGrcRow[];lang
     const blob=new Blob(["\uFEFF"+data.map(row=>row.map(csv).join(";")).join("\n")],{type:"text/csv;charset=utf-8"});
     const url=URL.createObjectURL(blob),anchor=document.createElement("a");anchor.href=url;anchor.download="fornost-connected-grc.csv";anchor.click();URL.revokeObjectURL(url);
   }
-  return <section className="connected-grc">
-    <header className="connected-hero"><div><small>CONNECTED GRC · RELATIONSHIP INTELLIGENCE · {sourceState.loading?(tr?"CANLI KAYNAKLAR YÜKLENİYOR":"LOADING LIVE SOURCES"):`${sourceState.ready}/${sourceState.total} ${tr?"CANLI KAYNAK":"LIVE SOURCES"}`}</small><h2>{tr?"Bağlantılı GRC Haritası":"Connected GRC Map"}</h2><p>{tr?"Risk, varlık, kontrol, kanıt, denetim, bulgu, olay, politika, regülasyon ve tedarikçi kayıtlarının birbirini nasıl etkilediğini tek görünümde izleyin.":"Trace how risks, assets, controls, evidence, audits, findings, incidents, policies, regulations and vendors affect one another."}</p></div><button onClick={download}>{tr?"İlişki CSV":"Relationship CSV"}</button></header>
-    <div className="connected-kpis"><article><b>{records.length}</b><span>{tr?"Toplam düğüm":"Total nodes"}</span></article><article><b>{links.length}</b><span>{tr?"Doğrulanmış bağlantı":"Verified links"}</span></article><article><b>{linkedIds.size}</b><span>{tr?"Bağlı kayıt":"Linked records"}</span></article><article><b>{records.length-linkedIds.size}</b><span>{tr?"Bağlantısız kayıt":"Orphan records"}</span></article><article className={unresolved.length?"attention":""}><b>{unresolved.length}</b><span>{tr?"Çözülmeyen referans":"Unresolved references"}</span></article><article className={coverage.gaps.length?"attention":""}><b>{coverage.percent}%</b><span>{tr?"Güvence izlenebilirliği":"Assurance traceability"}</span></article></div>
-    <section className="connected-assurance" aria-label={tr?"İlişki güvence boşlukları":"Relationship assurance gaps"}>
-      <header><div><small>{tr?"SÜREKLİ GÜVENCE":"CONTINUOUS ASSURANCE"}</small><h3>{tr?"Zincir bütünlüğü":"Chain integrity"}</h3></div><p>{tr?`${coverage.covered} tam, ${coverage.partial} kısmi · ${coverage.eligible} kritik kayıt için zorunlu ilişki grupları ölçülüyor.`:`${coverage.covered} complete, ${coverage.partial} partial · required relation groups measured across ${coverage.eligible} critical records.`}</p></header>
+  return <section className="connected-grc connected-explorer">
+    <header className="cg-heading">
+      <div><small>CONNECTED GRC</small><h2>{tr?"Bağlantılı GRC Haritası":"Connected GRC Map"}</h2><p>{tr?"Bir kayıt seçin; hangi kayıtlarla bağlantılı olduğunu görün.":"Choose a record to see what it connects to."}</p></div>
+      <span className="cg-source-state" role="status">{sourceState.loading?(tr?"Bağlantılar yükleniyor…":"Loading connections…"):sourceState.ready<sourceState.total?(tr?"Bazı kaynaklara erişilemiyor; görünüm eksik olabilir.":"Some sources are unavailable; this view may be incomplete."):(tr?"Kaynaklar güncel":"Sources loaded")}</span>
+    </header>
+    <div className="cg-summary" aria-label={tr?"Genel durum":"Overview"}>
+      <span><b>{records.length}</b> {tr?"kayıt":"records"}</span>
+      <span><b>{links.length}</b> {tr?"bağlantı":"connections"}</span>
+      <span><b>{records.length-linkedIds.size}</b> {tr?"bağlantısız kayıt":"unlinked records"}</span>
+    </div>
+    <nav className="cg-tabs" aria-label={tr?"Harita görünümü":"Map view"}>
+      {([['explore',tr?'Bağlantıları keşfet':'Explore connections'],['gaps',tr?'Eksik bağlantılar':'Missing connections'],['assurance',tr?'Güvence işlemleri':'Assurance operations']] as const).map(([id,label])=><button type="button" key={id} aria-pressed={view===id} onClick={()=>setView(id)}>{label}{id==='gaps'&&<span>{coverage.gaps.length}</span>}</button>)}
+    </nav>
+    {view==="explore"&&<section className="cg-explore" aria-label={tr?"Bağlantıları keşfet":"Explore connections"}>
+      <div className="cg-filters">
+        <label>{tr?"Kayıt ara":"Find a record"}<input value={query} onChange={event=>{setQuery(event.target.value);setPage(0);setLinkLimit(8)}} placeholder={tr?"Ad veya kod…":"Name or code…"}/></label>
+        <label>{tr?"Modül":"Module"}<select value={module} onChange={event=>{setModule(event.target.value);setPage(0);setLinkLimit(8)}}><option value="all">{tr?"Tüm modüller":"All modules"}</option>{modules.map(name=><option key={name} value={name}>{moduleLabel(name)}</option>)}</select></label>
+        {(query||module!=="all")&&<button type="button" onClick={resetFilters}>{tr?"Temizle":"Clear"}</button>}
+        <button type="button" className="cg-export" onClick={download}>{tr?"Bağlantıları indir · CSV":"Export connections · CSV"}</button>
+      </div>
+      <div className="cg-workspace">
+        <section className="cg-records" aria-label={tr?"Kayıt seçimi":"Record selection"}>
+          <header><b>{tr?"1. Kayıt seç":"1. Choose a record"}</b><span>{matchingRecords.length}</span></header>
+          {visibleRecords.map(row=><button type="button" key={row.id} aria-pressed={selected?.id===row.id} onClick={()=>selectRecord(row.id)}><small>{row.code||row.id} · {moduleLabel(row.module)}</small><b>{connectedTitle(row)}</b></button>)}
+          {!visibleRecords.length&&<p className="cg-empty">{tr?"Eşleşen kayıt yok. Aramayı veya modül filtresini değiştirin.":"No matching records. Change your search or module filter."}</p>}
+          {matchingRecords.length>10&&<footer><button type="button" disabled={currentPage===0} onClick={()=>{setPage(currentPage-1);setLinkLimit(8)}}>{tr?"Önceki":"Previous"}</button><span>{currentPage+1} / {Math.ceil(matchingRecords.length/10)}</span><button type="button" disabled={(currentPage+1)*10>=matchingRecords.length} onClick={()=>{setPage(currentPage+1);setLinkLimit(8)}}>{tr?"Sonraki":"Next"}</button></footer>}
+        </section>
+        <section className="cg-detail" aria-label={tr?"Seçili kaydın bağlantıları":"Selected record connections"}>
+          <header><small>{tr?"2. Bağlantıları incele":"2. Explore its connections"}</small>{selected?<><h3>{connectedTitle(selected)}</h3><p>{selected.code||selected.id} · {moduleLabel(selected.module)}</p><button type="button" onClick={()=>openRecord(selected)}>{tr?"Kaydı aç":"Open record"} ↗</button></>:<h3>{tr?"Bir kayıt seçin":"Choose a record"}</h3>}</header>
+          {selected&&<><div className="cg-connection-count">{selectedLinks.length} {tr?"doğrudan bağlantı":"direct connections"}</div>
+          <div className="cg-connections">{selectedLinks.slice(0,linkLimit).map((link,index)=>{
+            const outgoing=link.source.id===selected.id,other=outgoing?link.target:link.source;
+            return <article key={`${other.id}-${link.relation}-${index}`}><div><small>{outgoing?(tr?"Bu kayıttan →":"From this record →"):(tr?"Bu kayda ←":"To this record ←")} {connectedRelationLabels[link.relation]?.[lang]||link.relation}</small><b>{connectedTitle(other)}</b><span>{other.code||other.id} · {moduleLabel(other.module)}</span></div><button type="button" onClick={()=>openRecord(other)} aria-label={`${tr?'Kaydı aç':'Open record'}: ${connectedTitle(other)}`}>{tr?"Aç":"Open"} ↗</button></article>;
+          })}</div>
+          {!selectedLinks.length&&<p className="cg-empty">{tr?"Bu kaydın henüz bağlantısı yok. Kaydı açarak ilgili varlık, risk veya kontrol referanslarını ekleyebilirsiniz.":"This record has no connections yet. Open it to add the relevant asset, risk or control references."}</p>}
+          {selectedLinks.length>linkLimit&&<button type="button" className="cg-more" onClick={()=>setLinkLimit(linkLimit+8)}>{tr?"Daha fazla bağlantı göster":"Show more connections"} ({selectedLinks.length-linkLimit})</button>}
+          </>}
+        </section>
+      </div>
+    </section>}
+    {view==="gaps"&&<section className="connected-assurance cg-gaps">
+      <header><div><h3>{tr?"Tamamlanması gereken bağlantılar":"Connections to complete"}</h3><p>{tr?"Eksik ilişkiyi inceleyin ve ilgili kaydı açarak tamamlayın.":"Review the missing relationship, then open the record to complete it."}</p></div><span>{coverage.eligible?`${coverage.percent}%`:'—'} {tr?"tamlık":"complete"}</span></header>
+      {coverage.gaps.length?<div className="connected-gap-list">{coverage.gaps.slice(0,gapLimit).map((gap)=>{
+        const target=connectedRemediationModule[gap.missingRelations[0]]||gap.row.module,focusable=Boolean(connectedGrcNavigation(gap.row));
+        return <article key={`${gap.row.module}-${gap.row.id}-${gap.rule}`}><div className="connected-gap-score"><strong>{gap.percent}%</strong><small>{tr?"tamlık":"complete"}</small></div><div><span className={gap.severity}>{gap.severity==="high"?(tr?"Yüksek":"High"):(tr?"Orta":"Medium")}</span><b>{gap.row.code||gap.row.id}</b><em>{connectedTitle(gap.row)}</em><small>{tr?"Eksik: ":"Missing: "}{gap.missingRelations.map(relation=>connectedRelationLabels[relation]?.[lang]||relation).join(" · ")}</small></div><button type="button" onClick={()=>focusable?openRecord(gap.row):go(target)}>{focusable?(tr?"Kaydı düzelt":"Fix record"):(tr?"Bağlantıyı tamamla":"Complete link")}<span>→</span></button></article>;
+      })}</div>:<div className="connected-assurance-ok">{tr?"Yüklenen kayıtlarda eksik zorunlu bağlantı bulunamadı.":"No missing required connections were found in the loaded records."}</div>}
+      {coverage.gaps.length>gapLimit&&<button type="button" className="cg-more" onClick={()=>setGapLimit(gapLimit+12)}>{tr?"Daha fazla göster":"Show more"} ({coverage.gaps.length-gapLimit})</button>}
+      {!!unresolved.length&&<details className="connected-unresolved"><summary>{tr?`${unresolved.length} eşleşmeyen referans`:`${unresolved.length} unmatched references`}</summary>{unresolved.map((item,index)=><div key={`${item.source.id}-${item.field}-${index}`}><button type="button" onClick={()=>openRecord(item.source)}>{item.source.code||item.source.id}</button><span>{connectedRelationLabels[item.relation]?.[lang]||item.relation}</span><code>{item.value}</code></div>)}</details>}
+    </section>}
+    {view==="assurance"&&<section className="connected-assurance cg-operations">
+      <header><div><h3>{tr?"Güvence işlemleri":"Assurance operations"}</h3><p>{tr?"Kontrol sonuçlarını, onayları ve takip işlerini yönetin.":"Manage control results, approvals and follow-up work."}</p></div></header>
       {assuranceSummary.rules>0&&<div className="connected-lifecycle-posture" aria-label={tr?"Sürekli güvence operasyonel duruşu":"Continuous assurance operational posture"}>
         <article className={assuranceSummary.averageAssuranceScore<70?"attention":"healthy"}><small>{tr?"Ortalama güvence":"Average assurance"}</small><strong>{assuranceSummary.averageAssuranceScore}%</strong><span>{assuranceSummary.rules} {tr?"sürekli kontrol":"continuous controls"}</span></article>
         <article className="healthy"><small>{tr?"Etkin":"Effective"}</small><strong>{assuranceSummary.effective}</strong><span>{tr?"doğrulanmış kontrol":"validated controls"}</span></article>
@@ -94,15 +151,7 @@ export default function ConnectedGrc({rows,lang,go}:{rows:ConnectedGrcRow[];lang
         <ContinuousAssuranceGovernance lang={lang}/>
         <ContinuousAssuranceEscalationCenter lang={lang}/>
       </details>
-      <div className="connected-domain-posture">{coverage.domains.map(domain=><button type="button" key={domain.module} onClick={()=>setModule(domain.module)}><span><b>{domain.module}</b><small>{domain.covered} {tr?"tam":"complete"} · {domain.partial} {tr?"kısmi":"partial"}</small></span><strong className={domain.percent<50?"critical":domain.percent<100?"attention":"healthy"}>{domain.percent}%</strong><i><em style={{width:`${domain.percent}%`}}/></i></button>)}</div>
-      {coverage.gaps.length?<div className="connected-gap-list">{coverage.gaps.slice(0,12).map((gap)=>{
-        const target=connectedRemediationModule[gap.missingRelations[0]]||gap.row.module,focusable=Boolean(connectedGrcNavigation(gap.row));
-        return <article key={`${gap.row.module}-${gap.row.id}-${gap.rule}`}><div className="connected-gap-score"><strong>{gap.percent}%</strong><small>{tr?"tamlık":"complete"}</small></div><div><span className={gap.severity}>{gap.severity==="high"?(tr?"Yüksek":"High"):(tr?"Orta":"Medium")}</span><b>{gap.row.code||gap.row.id}</b><em>{connectedTitle(gap.row)}</em><small>{tr?"Eksik: ":"Missing: "}{gap.missingRelations.map(relation=>connectedRelationLabels[relation]?.[lang]||relation).join(" · ")}</small></div><button type="button" onClick={()=>focusable?openRecord(gap.row):go(target)}>{focusable?(tr?"Kaydı düzelt":"Fix record"):(tr?"Bağlantıyı tamamla":"Complete link")}<span>→</span></button></article>;
-      })}</div>:<div className="connected-assurance-ok">{tr?"Tüm zorunlu GRC bağlantıları tamamlandı.":"All required GRC relationships are complete."}</div>}
-    </section>
-    <div className="connected-layout">
-      <aside><div><b>{tr?"Alan yoğunluğu":"Domain density"}</b><small>{tr?"Modülü filtrelemek için seçin":"Select a module to filter"}</small></div><button className={module==="all"?"active":""} onClick={()=>setModule("all")}><span>{tr?"Tüm alanlar":"All domains"}</span><em>{links.length}</em></button>{moduleStats.map(item=><button className={module===item.name?"active":""} key={item.name} onClick={()=>setModule(item.name)}><span>{item.name}<small>{item.count} {tr?"kayıt":"records"}</small></span><em>{item.links}</em></button>)}</aside>
-      <div className="connected-register"><div className="connected-toolbar"><div><b>{tr?"İlişki sicili":"Relationship register"}</b><small>{filtered.length} / {links.length} · {tr?"alan-tabanlı + canlı modül verisi":"field-based + live module data"}</small></div><input value={query} onChange={event=>setQuery(event.target.value)} placeholder={tr?"Kayıt, ilişki veya modül ara…":"Search record, relation or module…"}/></div><div className="connected-table"><div className="connected-table-head"><span>{tr?"Kaynak":"Source"}</span><span>{tr?"Bağlantı":"Relationship"}</span><span>{tr?"Hedef":"Target"}</span></div>{filtered.slice(0,200).map((link,index)=><article key={`${link.source.id}-${link.target.id}-${link.relation}-${index}`}><button onClick={()=>openRecord(link.source)}><small>{link.source.module}</small><b>{connectedTitle(link.source)}</b><em>{link.source.code||link.source.id}</em></button><div><i/><span>{connectedRelationLabels[link.relation]?.[lang]||link.relation}</span><code>{link.field}: {link.matched}</code></div><button onClick={()=>openRecord(link.target)}><small>{link.target.module}</small><b>{connectedTitle(link.target)}</b><em>{link.target.code||link.target.id}</em></button></article>)}{!filtered.length&&<p>{tr?"Filtreyle eşleşen ilişki bulunamadı. Kayıtların referans alanlarını kontrol edin.":"No relationship matches this filter. Review record reference fields."}</p>}</div>{!!unresolved.length&&<details className="connected-unresolved"><summary>{tr?`${unresolved.length} çözülmeyen referansı incele`:`Review ${unresolved.length} unresolved references`}</summary>{unresolved.slice(0,75).map((item,index)=><div key={`${item.source.id}-${item.field}-${index}`}><button onClick={()=>openRecord(item.source)}>{item.source.code||item.source.id}</button><span>{item.field}</span><code>{item.value}</code></div>)}</details>}</div>
-    </div>
+
+    </section>}
   </section>;
 }
