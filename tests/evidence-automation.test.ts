@@ -57,7 +57,7 @@ test("continuous assurance retest inherits the governed target control instead o
   assert.match(assuranceRoute,/action='capa-promotion' AND status='completed'/);
   assert.match(assuranceRoute,/targetControlFromDecision\(parseData\(promoted\.decision_json\)\)/);
   assert.match(assuranceRoute,/resolveContinuousAssuranceTargetControl\(mappedControlRefs,selected\)/);
-  assert.match(assuranceRoute,/decision=\{recovery,ruleId:context\.rule\.id,riskRef:context\.risk\?\.id\|\|findingId,controlRef:targetControl\.controlRef,targetControlRef:targetControl\.controlRef\}/);
+  assert.match(assuranceRoute,/decision=\{recovery,ruleId:context\.rule\.id,riskRef:context\.risk\?\.id\|\|findingId,controlRef:targetControl\.controlRef,targetControlRef:targetControl\.controlRef,/);
   assert.doesNotMatch(assuranceRoute,/controlRef:firstRef\(context\.rule\.control_refs\)/);
 });
 

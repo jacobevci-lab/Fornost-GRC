@@ -108,7 +108,7 @@ export default function ContinuousAssuranceWorkQueue({lang,onOpenAutomation}:{la
   async function requestAnotherTest(item:WorkItem){
     setBusy(true);setMessage("");
     try{
-      const response=await fetch(withBasePath("/api/continuous-assurance"),{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({action:"queue-retest",findingId:item.findingId})});
+      const response=await fetch(withBasePath("/api/continuous-assurance"),{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({action:"queue-retest",findingId:item.findingId,previousWorkItemId:item.id})});
       const data=await response.json().catch(()=>({}));
       setMessage(response.ok?(tr?"Yeni test bağımsız onay kuyruğunda. Onaydan sonraki çalışma değerlendirilecek.":"The new test is queued for independent approval. A run after approval will be evaluated."):(data.error||(tr?"Yeni test isteği oluşturulamadı.":"Could not request another test.")));
       if(response.ok)await load();

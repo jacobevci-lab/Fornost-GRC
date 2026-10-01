@@ -9,7 +9,7 @@ The existing Connected GRC → Assurance work queue now opens the exact result o
 3. An independent Admin approves. The API rechecks the finding/rule/target-control relationship and closure prerequisites at approval time. The maker cannot approve their own request; stale approval/rejection attempts return conflict.
 4. The first completed run timestamp after approval is selected, with insertion order as the deterministic tie-break. A later pass cannot replace an earlier failed or errored re-test. Future-dated runs are not consumed.
 5. A pass needs its own available evidence, matching response-hash metadata, passing validation status, matching collection timestamp and fresh/unexpired evidence. Missing, mismatched or stale evidence produces an explicit re-test error, not recovery. Metadata matching does not itself provide external certification or cryptographic proof of an upstream system.
-6. A normal pass cannot certify remediation that has since reopened or lost closure proof. Mandatory exception expiry/revocation re-tests retain their explicit governed exception path, which may test an open finding.
+6. A normal pass cannot certify remediation that has since reopened or lost closure proof. Mandatory exception expiry/revocation re-tests retain their explicit governed exception path, which may test an open finding. Retrying such a result must reference a previously approved error work item for the same rule and finding; the server inherits its target control and exception context and requires new independent approval.
 
 ## Persistence and concurrency
 

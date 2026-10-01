@@ -86,6 +86,13 @@ try {
   await queue.getByRole('button', { name: 'Refresh', exact: true }).click(); await expect(queue.getByRole('alert')).toContainText('could not be loaded');
   await expect(queue.locator('.assurance-work-empty')).toHaveCount(0);
   await page.unroute('**/api/continuous-assurance'); await queue.getByRole('button', { name: 'Refresh', exact: true }).click(); await expect(queue.getByRole('alert')).toHaveCount(0);
+  // Mandatory exception retries may test an open finding, but must inherit an approved error work item.
+  await seed(`UPDATE evidence_automation_findings SET status='acknowledged' WHERE id=${q(findingId)};
+    INSERT INTO continuous_assurance_work_items(id,finding_id,rule_id,action,status,decision_json,created_at,updated_at,actor,reviewed_by,reviewed_at) VALUES('QA-MANDATORY-ERROR',${q(findingId)},${q(ruleId)},'control-retest','retest-error',${q(JSON.stringify({source:'assurance-exception',mandatory:true,exceptionId:'QA-EXCEPTION',riskRef:findingId,controlRef:'A.8.1'}))},${q(stamp)},${q(stamp)},'qa-original-maker@fornost.test','qa-original-checker@fornost.test',${q(stamp)});`);
+  await api(admin, route, 'POST', {action:'queue-retest',findingId},409);
+  await api(admin, route, 'POST', {action:'queue-retest',findingId,previousWorkItemId:'not-the-approved-work'},409);
+  const mandatory=await api(admin, route, 'POST', {action:'queue-retest',findingId,previousWorkItemId:'QA-MANDATORY-ERROR'},201);
+  await api(checker, route, 'POST', {action:'review-work-item',workItemId:mandatory.id,decision:'approve'});
   assert.deepEqual(errors, []);
   console.log(`ASSURANCE_RETEST_QA_PASS: ${checks} API checks; real reconciliation, UI results and retry, independent approval/revalidation, fresh proof, preserved risk review, pagination, load failure recovery and desktop/mobile in both themes`);
 } catch (error) { await page.screenshot({ path: `${out}/failure.png` }).catch(() => {}); throw error; }

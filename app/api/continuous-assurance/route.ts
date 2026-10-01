@@ -195,12 +195,17 @@ export async function POST(req:NextRequest){
     if(action==="evaluate-recovery")return json({findingId,ruleId:context.rule.id,recovery,retest:context.retest||null,riskLinked:Boolean(context.risk)});
 
     if(action==="queue-retest"){
-      if(!canQueueAssuranceRetest(recovery))return json({error:"Kontrol henüz yeniden teste hazır değil.",recovery},409);
+      const previousWorkItemId=clean(body.previousWorkItemId,120);
+      const previous=previousWorkItemId?await env.DB.prepare("SELECT * FROM continuous_assurance_work_items WHERE id=? AND finding_id=? AND rule_id=? AND action='control-retest' AND status='retest-error' AND reviewed_by IS NOT NULL AND reviewed_at IS NOT NULL").bind(previousWorkItemId,findingId,context.rule.id).first<AssuranceWorkRow>():null;
+      if(previousWorkItemId&&!previous)return json({error:"Yeniden denenecek onaylı test kaydı eşleşmiyor."},409);
+      const previousDecision=previous?parseData(previous.decision_json):{};
+      const mandatoryRetry=previousDecision.source==="assurance-exception"&&previousDecision.mandatory===true;
+      if(!mandatoryRetry&&!canQueueAssuranceRetest(recovery))return json({error:"Kontrol henüz yeniden teste hazır değil.",recovery},409);
       const existing=await env.DB.prepare("SELECT id,status FROM continuous_assurance_work_items WHERE finding_id=? AND action='control-retest' AND status IN ('pending-review','approved-awaiting-retest') ORDER BY created_at DESC LIMIT 1").bind(findingId).first<{id:string;status:string}>();
       if(existing)return json({ok:true,id:existing.id,status:existing.status,message:"Yeniden test işi zaten aktif.",recovery});
-      const targetControl=await resolveRetestTargetControl(env.DB,findingId,context.rule.control_refs);
+      const targetControl=previous?resolveContinuousAssuranceTargetControl(context.rule.control_refs,targetControlFromDecision(previousDecision)):await resolveRetestTargetControl(env.DB,findingId,context.rule.control_refs);
       if(!targetControl.ok)return json({error:"Yeniden test hedef kontrolü güvenli biçimde çözümlenemedi.",code:targetControl.reason,availableControlRefs:targetControl.availableControlRefs},409);
-      const id=`CAW-${crypto.randomUUID()}`,stamp=now.toISOString(),decision={recovery,ruleId:context.rule.id,riskRef:context.risk?.id||findingId,controlRef:targetControl.controlRef,targetControlRef:targetControl.controlRef};
+      const id=`CAW-${crypto.randomUUID()}`,stamp=now.toISOString(),decision={recovery,ruleId:context.rule.id,riskRef:context.risk?.id||findingId,controlRef:targetControl.controlRef,targetControlRef:targetControl.controlRef,...(previous?{retryOf:previous.id}:{}),...(mandatoryRetry?{source:"assurance-exception",mandatory:true,exceptionId:clean(previousDecision.exceptionId,120),lifecycleReason:clean(previousDecision.lifecycleReason,40),riskRef:clean(previousDecision.riskRef,120)||context.risk?.id||findingId}:{})};
       await env.DB.prepare("INSERT INTO continuous_assurance_work_items(id,finding_id,rule_id,action,status,decision_json,created_at,updated_at,actor) VALUES(?,?,?,'control-retest','pending-review',?,?,?,?)").bind(id,findingId,context.rule.id,JSON.stringify(decision),stamp,stamp,access.actor.email).run();
       return json({ok:true,id,targetControlRef:targetControl.controlRef,message:"Kontrol yeniden test işi güvence kuyruğuna alındı.",recovery},201);
     }
