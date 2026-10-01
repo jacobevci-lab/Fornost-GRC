@@ -11,7 +11,7 @@ const finalCss=readFileSync("app/final-polish.css","utf8");
 
 test("evidence automation is vendor neutral and maps results to controls",()=>{
   for(const vendor of ["Fortinet","Palo Alto","CrowdStrike","Cortex XDR","CyberArk","Purview DLP","Guardium","Generic REST"])
-    assert.match(ui,new RegExp(vendor.replace(" / ",".*")));
+    assert.match(ui+readFileSync("app/connectors/catalog.ts","utf8")+readFileSync("app/connectors/guides.ts","utf8"),new RegExp(vendor.replace(" / ",".*")));
   assert.match(route,/control_refs/);
   assert.match(route,/simple_grc_records/);
   assert.match(route,/response_hash/);

@@ -136,6 +136,41 @@ await check('Evidence automation: source creation, edit, rule creation and disab
  const {ruleId}=await request(admin,'/api/evidence-automation','POST',{action:'save-rule',name:'QA evidence policy',sourceId,controlRefs:'A.5.18',jsonPath:'status',operator:'exists',expected:'',schedule:'monthly',freshnessHours:24,failureThreshold:1,remediationDueDays:7,autoFinding:false,remediationOwner:owner});assert.ok(ruleId);await request(admin,'/api/evidence-automation','POST',{action:'toggle-rule',ruleId,enabled:false});
 });
 
+await check('Native source persistence: validation, credential rotation, redaction and role boundaries',async()=>{
+ const guid='11111111-1111-4111-8111-111111111111';
+ const source={action:'save-source',name:'QA native Graph',providerId:'microsoft-graph',dataset:'secure-scores',providerConfig:{tenantId:guid,clientId:guid,clientSecret:'MUST_NOT_ENTER_CONFIG'},credentials:{clientSecret:'ISOLATED_QA_NOT_A_VENDOR_SECRET'}};
+ await request(viewer,'/api/evidence-automation','POST',source,403);await request(editor,'/api/evidence-automation','POST',source,403);
+ await request(admin,'/api/evidence-automation','POST',{...source,providerConfig:{tenantId:'common',clientId:guid}},400);
+ await request(admin,'/api/evidence-automation','POST',{...source,credentials:{}},400);
+ const {sourceId}=await request(admin,'/api/evidence-automation','POST',source);
+ const updated=await request(admin,'/api/evidence-automation','POST',{...source,sourceId,dataset:'score-controls',credentials:{}});assert.equal(updated.sourceId,sourceId);
+ await request(admin,'/api/evidence-automation','POST',{...source,sourceId,providerConfig:{tenantId:guid,clientId:'22222222-2222-4222-8222-222222222222'},credentials:{}},400);
+ await request(admin,'/api/evidence-automation','POST',{...source,sourceId,credentials:{clientSecret:'ISOLATED_QA_ROTATED_DUMMY'}});
+ const state=await request(viewer,'/api/evidence-automation'),saved=state.sources.find(x=>x.id===sourceId);assert.equal(saved.hasSecret,true);assert.equal(saved.driver,'provider-v1');assert.equal(saved.config.baseUrl,'https://graph.microsoft.com/v1.0/security/secureScores');
+ assert.ok(!JSON.stringify(state).includes('ISOLATED_QA'));assert.equal(saved.config.clientSecret,undefined);assert.equal(saved.secret_ciphertext,undefined);
+});
+await check('Product-specific connector forms: fields, permissions, secret reset and responsive themes',async()=>{
+ await reset();await open('Evidence Automation');
+ const dialog=page.locator('.ea-modal[role=dialog]');
+ for(const theme of ['light','dark']){
+  if(await page.locator('html').getAttribute('data-theme')!==theme)await page.locator('.theme-toggle:visible').click();
+  await page.locator('.ea-catalog button').filter({hasText:'Microsoft 365 / Graph'}).click();
+  await expect(dialog.getByLabel('Directory (Tenant) ID',{exact:true})).toBeVisible();await expect(dialog.getByLabel('Application (Client) ID',{exact:true})).toBeVisible();await expect(dialog.getByLabel('HTTPS JSON URL',{exact:true})).toHaveCount(0);
+  await expect(dialog.locator('.connector-guide code').first()).toHaveText('SecurityEvents.Read.All');
+  await dialog.getByLabel('Client secret VALUE',{exact:true}).fill('QA_SECRET_RESET_ONLY');
+  for(const width of [1536,390]){await page.setViewportSize({width,height:960});assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)<=4);await page.screenshot({path:`${out}/connector-graph-${theme}-${width}.png`});}
+  await dialog.getByRole('button',{name:'Cancel',exact:true}).click();await page.setViewportSize({width:1536,height:960});
+ }
+ await page.locator('.ea-catalog button').filter({hasText:'Microsoft 365 / Graph'}).click();await expect(dialog.getByLabel('Client secret VALUE',{exact:true})).toHaveValue('');
+ for(const [id,field,permission] of [['intune','Directory (Tenant) ID','DeviceManagementManagedDevices.Read.All'],['sentinel','Log Analytics workspace','Microsoft Sentinel Reader'],['tenable','Access key','CAN VIEW'],['okta','Okta org URL','Read-only admin'],['sonarqube','Project key','Browse project']]){
+  await dialog.getByLabel('Product',{exact:true}).selectOption(id);await expect(dialog.getByLabel(field,{exact:true})).toBeVisible();await expect(dialog.locator('.connector-guide code').first()).toContainText(permission);
+ }
+ await dialog.getByLabel('Product',{exact:true}).selectOption('tenable');await expect(dialog.locator('input[type=password]')).toHaveCount(2);await page.screenshot({path:`${out}/connector-tenable-dark.png`});
+ await dialog.getByRole('button',{name:'Cancel',exact:true}).click();
+ await page.getByRole('textbox',{name:'Search connectors',exact:true}).fill('AWS');await page.locator('.ea-catalog button').filter({hasText:'AWS'}).click();await expect(dialog).toContainText('There is no native driver');await dialog.getByRole('button',{name:'Close',exact:true}).click();
+ await page.getByRole('textbox',{name:'Search connectors',exact:true}).fill('');
+});
+
 await check('Read routes, invalid writes, exports and Viewer write boundaries',async()=>{
  for(const route of ['continuity','risk-appetite','policy-lifecycle','incidents','findings']){await request(viewer,`/api/${route}`);await request(viewer,`/api/${route}`,'POST',{action:'invalid'},403);await request(admin,`/api/${route}`,'POST',{action:'invalid'},400);const csv=await request(admin,`/api/${route}?format=csv`);assert.equal(typeof csv,'string');}
 });

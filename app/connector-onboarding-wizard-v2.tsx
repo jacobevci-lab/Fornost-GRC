@@ -5,6 +5,8 @@ import { createPortal } from "react-dom";
 import { withBasePath } from "./base-path";
 import { navigateToFornost } from "./navigation-focus";
 import "./connector-onboarding-wizard.css";
+import ConnectorFields from "./connectors/fields";
+import { connectorProfiles, newConnectorDraft, type ConnectorDraft } from "./connectors/catalog";
 
 type Lang = "tr" | "en";
 type DetectedPath = { path: string; type: string };
@@ -13,17 +15,8 @@ type Control = { ref: string; title: string };
 type Source = { id: string };
 type Rule = { id: string; sourceId: string; controlRefs: string; enabled: boolean; autoFinding?: boolean };
 type AutomationContext = { sources?: Source[]; rules?: Rule[] };
-type Template = { label: string; category: string; driver: string };
-type SourceDraft = {
-  name: string;
-  vendor: string;
-  category: string;
-  driver: string;
-  baseUrl: string;
-  authType: string;
-  headerName: string;
-  secret: string;
-};
+type Template = { label: string; category: string; driver: string; providerId?: string };
+type SourceDraft = ConnectorDraft;
 
 type RunResult = Record<string, unknown> & {
   status?: string;
@@ -33,17 +26,9 @@ type RunResult = Record<string, unknown> & {
 };
 
 const templates: Template[] = [
-  { label: "Microsoft Defender XDR / Sentinel API", category: "XDR, EDR & SIEM", driver: "rest-json" },
-  { label: "Microsoft 365 / Graph API", category: "Cloud & SaaS", driver: "microsoft-graph" },
-  { label: "Microsoft Entra ID / Graph API", category: "IAM, PAM & IGA", driver: "microsoft-graph" },
-  { label: "Tenable / Qualys / Rapid7 API", category: "Data, DB & Application", driver: "rest-json" },
-  { label: "CrowdStrike Falcon API", category: "XDR, EDR & SIEM", driver: "rest-json" },
-  { label: "Palo Alto Cortex XDR API", category: "XDR, EDR & SIEM", driver: "rest-json" },
-  { label: "Cloudflare API", category: "Cloud & SaaS", driver: "cloudflare-api" },
-  { label: "Azure REST API", category: "Cloud & SaaS", driver: "azure-rest" },
-  { label: "Jira / ServiceNow / Azure DevOps API", category: "Work & Custom", driver: "rest-json" },
-  { label: "Generic REST / JSON API", category: "Work & Custom", driver: "rest-json" },
-  { label: "On-prem HTTPS Collector Bridge", category: "Work & Custom", driver: "https-bridge" },
+  ...connectorProfiles.map(p=>({label:p.name,category:p.category,driver:"provider-v1",providerId:p.id})),
+  {label:"Generic REST / JSON API",category:"Work & Custom",driver:"rest-json"},
+  {label:"On-prem HTTPS Collector Bridge",category:"Work & Custom",driver:"https-bridge"},
 ];
 
 const initialTemplate = templates[0]!;
@@ -105,16 +90,7 @@ export default function ConnectorOnboardingWizard() {
   const [ruleId, setRuleId] = useState("");
   const [runEvidenceId, setRunEvidenceId] = useState("");
   const [runFindingId, setRunFindingId] = useState("");
-  const [draft, setDraft] = useState<SourceDraft>({
-    name: initialTemplate.label,
-    vendor: initialTemplate.label,
-    category: initialTemplate.category,
-    driver: initialTemplate.driver,
-    baseUrl: "",
-    authType: "bearer",
-    headerName: "x-api-key",
-    secret: "",
-  });
+  const [draft, setDraft] = useState<SourceDraft>(newConnectorDraft(initialTemplate.providerId));
   const [paths, setPaths] = useState<DetectedPath[]>([]);
   const [rootType, setRootType] = useState("");
   const [truncated, setTruncated] = useState(false);
@@ -226,15 +202,7 @@ export default function ConnectorOnboardingWizard() {
     setSuggestions([]);
     setSelectedControls([]);
     setSelectedPath("");
-    setDraft((current) => ({
-      ...current,
-      name: next.label,
-      vendor: next.label,
-      category: next.category,
-      driver: next.driver,
-      baseUrl: "",
-      secret: "",
-    }));
+    setDraft({...newConnectorDraft(next.providerId),name:next.label,vendor:next.label,category:next.category,driver:next.driver});
     setError("");
   }
 
@@ -262,20 +230,11 @@ export default function ConnectorOnboardingWizard() {
     setSelectedPath("");
     setControlQuery("");
     setRunStatus("");
-    setDraft({
-      name: template.label,
-      vendor: template.label,
-      category: template.category,
-      driver: template.driver,
-      baseUrl: "",
-      authType: "bearer",
-      headerName: "x-api-key",
-      secret: "",
-    });
+    setDraft({...newConnectorDraft(template.providerId),name:template.label,vendor:template.label,category:template.category,driver:template.driver});
   }
 
   async function authenticate() {
-    if (!draft.name.trim() || !draft.baseUrl.trim()) {
+    if (!draft.name.trim() || (!draft.providerId && !draft.baseUrl.trim())) {
       setError(tr ? "Kaynak adı ve HTTPS API adresi gerekli." : "Source name and an HTTPS API URL are required.");
       return;
     }
@@ -297,7 +256,7 @@ export default function ConnectorOnboardingWizard() {
       setSuggestions(nextSuggestions);
       const preferred = nextPaths.find((item) => !["object", "array"].includes(item.type)) || nextPaths[0];
       setSelectedPath(preferred?.path || "");
-      setDraft((current) => ({ ...current, secret: "" }));
+      setDraft((current) => ({ ...current, secret: "", credentials: {} }));
       setStep(2);
       setMessage(clean(discovered.message));
       await loadContext();
@@ -436,11 +395,8 @@ export default function ConnectorOnboardingWizard() {
               <div className="cow-copy"><small>1 · {tr ? "BAĞLAN" : "AUTHENTICATE"}</small><h4>{tr ? "Kanıt kaynağını doğrula" : "Validate the evidence source"}</h4><p>{tr ? "Kimlik bilgisi şifreli saklanır. HTTPS JSON collector ile bağlantı ve veri yapısı güvenli biçimde doğrulanır." : "Credentials are stored encrypted. The HTTPS JSON collector validates the connection and data shape safely."}</p></div>
               <div className="cow-form-grid">
                 <label className="wide"><span>{tr ? "Connector şablonu" : "Connector template"}</span><select value={template.label} onChange={(event) => chooseTemplate(event.target.value)}>{templates.map((item) => <option key={item.label}>{item.label}</option>)}</select></label>
-                <label><span>{tr ? "Kaynak adı" : "Source name"}</span><input value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} /></label>
-                <label><span>API / Collector URL</span><input value={draft.baseUrl} placeholder="https://..." onChange={(event) => setDraft({ ...draft, baseUrl: event.target.value })} /></label>
-                <label><span>{tr ? "Kimlik doğrulama" : "Authentication"}</span><select value={draft.authType} onChange={(event) => setDraft({ ...draft, authType: event.target.value })}><option value="bearer">Bearer token</option><option value="api-key">API key</option><option value="basic">Basic secret</option></select></label>
-                {draft.authType === "api-key" && <label><span>{tr ? "Header adı" : "Header name"}</span><input value={draft.headerName} onChange={(event) => setDraft({ ...draft, headerName: event.target.value })} /></label>}
-                <label className={draft.authType === "api-key" ? "" : "wide"}><span>{draft.authType === "basic" ? "Basic credential" : "Token / Secret"}</span><input type="password" autoComplete="new-password" value={draft.secret} placeholder={sourceId ? (tr ? "Boş bırakılırsa mevcut secret korunur" : "Leave blank to keep the saved secret") : "••••••••"} onChange={(event) => setDraft({ ...draft, secret: event.target.value })} /></label>
+                <ConnectorFields value={draft} onChange={setDraft} lang={lang} existing={!!sourceId} choose={false}/>
+
               </div>
               <footer className="cow-actions"><span>{sourceId ? (tr ? "Mevcut taslak güvenli biçimde güncellenecek." : "The existing draft source will be updated securely.") : ""}</span><button type="button" className="primary" disabled={!!busy} onClick={() => void authenticate()}>{busy === "connect" ? (tr ? "Doğrulanıyor…" : "Validating…") : (tr ? "Bağlan ve Algıla" : "Authenticate & Detect")}</button></footer>
             </div>
