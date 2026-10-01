@@ -53,6 +53,9 @@ try {
     await page.screenshot({path:`${output}/${locale}-evidence-library-light.png`});
     await open(locale === 'tr' ? 'Bağlantılı GRC Haritası' : 'Connected GRC Map');
     await page.locator('.cg-records>button').first().waitFor();
+    assert.equal(await page.locator('.cg-heading h2').evaluate(el=>getComputedStyle(el).fontSize),'20px','Compact desktop page heading');
+    assert.equal(await page.locator('.cg-records>button b').first().evaluate(el=>getComputedStyle(el).fontSize),'11px','Compact desktop record text');
+    assert.equal(await page.locator('.cg-filters input').evaluate(el=>getComputedStyle(el).fontSize),'12px','Compact desktop form text');
     assert.equal(await page.locator('.cg-operations').count(), 0, 'Assurance operations do not crowd the initial map');
     assert.equal(await page.locator('.cg-gaps').count(), 0, 'Missing connections have their own view');
     assert.ok((await page.locator('.cg-workspace').boundingBox()).y < 600, 'Record explorer is above the fold');
@@ -88,6 +91,7 @@ try {
     await page.screenshot({path:`${output}/${locale}-connected-alternate-theme.png`});
     await page.setViewportSize({width:390,height:900});
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth-innerWidth) <= 4, 'Connected explorer fits mobile');
+    assert.equal(await page.locator('.cg-records>button b').first().evaluate(el=>getComputedStyle(el).fontSize),'12px','Mobile record text remains readable');
     await page.screenshot({path:`${output}/${locale}-connected-mobile.png`});
     await page.setViewportSize({width:1536,height:960});
     await open(locale === 'tr' ? 'Denetim Yönetimi' : 'Audit Management');
