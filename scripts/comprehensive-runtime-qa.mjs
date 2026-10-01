@@ -171,6 +171,14 @@ await check('Product-specific connector forms: fields, permissions, secret reset
  await page.getByRole('textbox',{name:'Search connectors',exact:true}).fill('');
 });
 
+await check('Guided connector setup uses the same provider fields and resets credentials',async()=>{
+ await reset();await open('Evidence Automation');await page.locator('.cow-launch').click();const wizard=page.locator('.cow-shell');
+ await expect(wizard.getByLabel('Directory (Tenant) ID',{exact:true})).toBeVisible();await expect(wizard.getByLabel('HTTPS JSON URL',{exact:true})).toHaveCount(0);
+ await wizard.getByLabel('Client secret VALUE',{exact:true}).fill('QA_WIZARD_RESET_ONLY');await wizard.getByRole('button',{name:'Close wizard',exact:true}).click();await page.locator('.cow-launch').click();await expect(wizard.getByLabel('Client secret VALUE',{exact:true})).toHaveValue('');
+ await wizard.getByLabel('Connector template',{exact:true}).selectOption({label:'Microsoft Sentinel'});await expect(wizard.getByLabel('Log Analytics workspace',{exact:true})).toBeVisible();await expect(wizard).toContainText('Azure RBAC');
+ await page.setViewportSize({width:390,height:960});assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)<=4);await page.screenshot({path:`${out}/connector-wizard-sentinel-mobile.png`});await wizard.getByRole('button',{name:'Close wizard',exact:true}).click();await page.setViewportSize({width:1536,height:960});
+});
+
 await check('Read routes, invalid writes, exports and Viewer write boundaries',async()=>{
  for(const route of ['continuity','risk-appetite','policy-lifecycle','incidents','findings']){await request(viewer,`/api/${route}`);await request(viewer,`/api/${route}`,'POST',{action:'invalid'},403);await request(admin,`/api/${route}`,'POST',{action:'invalid'},400);const csv=await request(admin,`/api/${route}?format=csv`);assert.equal(typeof csv,'string');}
 });
