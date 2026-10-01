@@ -38,6 +38,19 @@ try {
     // Close any copilot left open by the navigation sweep by reloading the shell.
     await page.reload({waitUntil:'domcontentloaded'});
     await page.locator('.shell').waitFor();
+    await open(locale === 'tr' ? 'Kanıtlar' : 'Evidence Library');
+    await page.locator('.evidence-link').first().waitFor();
+    if (await page.locator('html').getAttribute('data-theme') !== 'dark') {
+      await page.locator('.theme-toggle:visible').click();
+    }
+    await page.waitForTimeout(400);
+    assert.equal(await page.locator('.evidence-link>span>b').first().evaluate(el => getComputedStyle(el).color), 'rgb(237, 244, 243)', 'Evidence titles stay white in dark mode');
+    assert.equal(await page.locator('.table-wrap .code').first().evaluate(el => getComputedStyle(el).color), 'rgb(232, 120, 47)', 'Record codes stay orange in dark mode');
+    await page.screenshot({path:`${output}/${locale}-evidence-library-dark.png`});
+    await page.locator('.theme-toggle:visible').click();
+    await page.waitForTimeout(400);
+    assert.equal(await page.locator('.table-wrap').first().evaluate(el => getComputedStyle(el).backgroundColor), 'rgb(244, 241, 235)', 'Light surfaces match the supplied warm neutral reference');
+    await page.screenshot({path:`${output}/${locale}-evidence-library-light.png`});
     await open(locale === 'tr' ? 'Denetim Yönetimi' : 'Audit Management');
     await page.locator('.audit-readiness-gate').waitFor();
     await page.waitForTimeout(800);

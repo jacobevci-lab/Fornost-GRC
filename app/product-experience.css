@@ -2,9 +2,9 @@
  * Final visual authority for hierarchy, density, theme parity and responsive QA.
  */
 :root{
-  --ws-bg:#f3f5f7;--ws-surface:#ffffff;--ws-surface-2:#f7f9fa;
+  --ws-bg:#eeeae3;--ws-surface:#f4f1eb;--ws-surface-2:#ebe7df;
   --ws-ink:#17212b;--ws-muted:#596878;--ws-faint:#7d8996;
-  --ws-line:#dce2e7;--ws-line-strong:#bec9d2;
+  --ws-line:#dad5cb;--ws-line-strong:#bdb6aa;
   --ws-brand:#087f78;--ws-brand-2:#075e5a;--ws-brand-soft:#e0f2f0;
   --ws-positive:#16845b;--ws-warning:#b76a13;--ws-danger:#c13f4a;--ws-info:#2d6fa3;
   --ws-shadow:0 1px 2px rgba(19,33,45,.04),0 12px 32px rgba(19,33,45,.055)
@@ -19,7 +19,7 @@ html[data-theme="dark"]{
 }
 
 body{font-size:14px!important;line-height:1.5!important;text-rendering:optimizeLegibility}
-.shell>aside{background:#f9fbfb!important}
+.shell>aside{background:var(--ws-surface)!important}
 html[data-theme="dark"] .shell>aside{background:#121b1c!important}
 .shell>main{background:linear-gradient(180deg,color-mix(in srgb,var(--ws-brand) 2%,var(--ws-bg)),var(--ws-bg) 220px)!important}
 .brand b{font-size:15px!important}.brand small{font-size:10px!important}
