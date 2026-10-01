@@ -38,9 +38,11 @@ test("audit management exposes the live evidence assurance chain", () => {
   const page = readFileSync("app/page.tsx", "utf8");
   const css = readFileSync("app/soc2-audit.css", "utf8");
   assert.match(page, /evidenceRows=\{by\("Kanıtlar"\)\}/);
-  assert.match(page, /<AuditEvidenceAssurance items=\{portfolioRows\}/);
-  assert.match(page, /<AuditEvidenceAssurance items=\{items\}/);
-  assert.match(page, /Kanıt Kütüphanesine Git/);
+  assert.match(page, /<AuditReadinessGate lang=\{lang\} records=\{\[\.\.\.portfolioRows,\.\.\.evidenceRows\]\}/);
+  assert.match(page, /<AuditReadinessGate key=\{selected\} lang=\{lang\} auditName=\{selected\}/);
+  const gate = readFileSync("app/audit-readiness-gate.tsx", "utf8");
+  assert.doesNotMatch(gate, /MutationObserver|createPortal|insertAdjacentElement|classList/);
+  assert.doesNotMatch(readFileSync("app/platform-experience.tsx", "utf8"), /<AuditReadinessGate/);
+  assert.match(gate, /records \|\| rows/);
   assert.match(css, /\.audit-evidence-assurance/);
-  assert.match(css, /\.audit-evidence-metrics/);
 });

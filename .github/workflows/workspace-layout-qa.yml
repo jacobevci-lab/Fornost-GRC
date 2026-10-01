@@ -1,0 +1,43 @@
+name: Workspace Layout QA
+on:
+  pull_request:
+    paths:
+      - 'app/**'
+      - 'scripts/workspace-layout-qa.mjs'
+      - '.github/workflows/workspace-layout-qa.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  layout:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.13.0
+          cache: npm
+      - run: npm ci
+      - run: npm install --no-save --ignore-scripts @playwright/test@1.55.0
+      - run: npx playwright install --with-deps chromium
+      - name: Start isolated app and create QA account
+        shell: bash
+        run: |
+          npm run dev -- --host 127.0.0.1 --port 4173 --strictPort > /tmp/layout-runtime.log 2>&1 &
+          for attempt in $(seq 1 90); do
+            if curl --fail --silent http://127.0.0.1:4173/api/health >/dev/null; then break; fi
+            sleep 2
+          done
+          curl --fail --silent --show-error http://127.0.0.1:4173/api/auth \
+            -H 'Origin: http://127.0.0.1:4173' -H 'Content-Type: application/json' \
+            --data '{"action":"bootstrap","name":"QA Admin","email":"qa-admin@fornost.test","password":"Fornost-QA!2026-Branch"}'
+      - name: Check module layouts and audit stability
+        run: node scripts/workspace-layout-qa.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: workspace-layout-qa
+          path: |
+            layout-qa-artifacts/
+            /tmp/layout-runtime.log

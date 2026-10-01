@@ -9,7 +9,6 @@ import MyWorkAssuranceSignals from "./my-work-assurance-signals";
 import ProgressiveFormExperience from "./progressive-form-experience";
 import ControlImpactLens from "./control-impact-lens";
 import FindingLineageLens from "./finding-lineage-lens";
-import AuditReadinessGate from "./audit-readiness-gate";
 import EvidenceQualityLens from "./evidence-quality-lens";
 import ConnectorOnboardingWizard from "./connector-onboarding-wizard";
 
@@ -34,7 +33,6 @@ export default function PlatformExperience() {
       <ProgressiveFormExperience />
       <ControlImpactLens />
       <FindingLineageLens />
-      <AuditReadinessGate />
       <EvidenceQualityLens />
       <ConnectorOnboardingWizard />
       <NavigationFocusBridge />

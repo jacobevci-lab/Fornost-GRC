@@ -397,7 +397,7 @@ export default function ConnectorOnboardingWizard() {
       {!open ? (
         <button type="button" className="cow-launch" onClick={() => setOpen(true)}>
           <span className="cow-launch-copy">
-            <small>GUIDED CONNECTOR SETUP</small>
+            <small>{tr ? "ADIM ADIM BAĞLANTI KURULUMU" : "GUIDED CONNECTOR SETUP"}</small>
             <b>{tr ? "Bağla → algıla → kontrolle eşleştir → izle" : "Authenticate → detect → map → monitor"}</b>
             <em>{tr ? "API cevabını güvenli biçimde keşfeder; kanıtı seçtiğiniz kontrollere bağlar." : "Safely discovers the API shape and maps evidence to controls you approve."}</em>
           </span>
