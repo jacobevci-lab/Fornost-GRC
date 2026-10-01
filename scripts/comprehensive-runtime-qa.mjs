@@ -155,10 +155,11 @@ await check('Connected GRC opens exact core records and clears contextual filter
 });
 await check('My Work: exact ownership, Today, pagination after 80, mobile due dates and CAPA navigation',async()=>{
  const seed=JSON.parse(seedRows.find(x=>x.module==='Kontroller').data_json),prefix=`QA Inbox ${Date.now()}`;
+ await reset();
  const fixtures=Array.from({length:83},(_,i)=>({...seed,controlTitle:`${prefix} ${String(i).padStart(3,'0')}`,owner:i===82?`not-${owner}`:owner,status:'Aktif',dueDate:today}));
  await request(admin,'/api/grc','POST',{module:'Kontroller',rows:fixtures},201);
  try {
-  await reset();await open('My Work');await page.locator('.mw2-refresh').waitFor();await expect(page.locator('.mw2-refresh')).toBeEnabled();
+  await open('My Work');await page.locator('.mw2-refresh').waitFor();await expect(page.locator('.mw2-refresh')).toBeEnabled();
   await page.getByRole('textbox',{name:'Search work',exact:true}).fill(prefix);await page.locator('.mw2-filters').getByRole('button',{name:/^Today/}).click();
   await expect(page.locator('.mw2-pagination')).toContainText('1–20 / 82');
   for(let i=0;i<4;i++)await page.locator('.mw2-pagination').getByRole('button',{name:'Next',exact:true}).click();

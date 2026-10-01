@@ -1301,7 +1301,6 @@ function FornostApp({ currentUser }: { currentUser: any }) {
     [recentModules, setRecentModules] = useState<string[]>([]);
   const labels = labelMap[lang],
     u = ui[lang];
-  const [recordsLoaded, setRecordsLoaded] = useState(false);
   const [recordRequest, setRecordRequest] = useState<FornostNavigationRequest | null>(null);
   const [focusedRecord, setFocusedRecord] = useState<{ id: string; ref: string } | null>(null);
   useEffect(() => {
@@ -1392,8 +1391,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
       const r = await fetch(withBasePath("/api/grc"), { cache: "no-store" }),
         j = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(String(j.error || "GRC kayıtları yüklenemedi."));
-      setRows(
-        Array.isArray(j.rows)
+      const nextRows: Row[] = Array.isArray(j.rows)
           ? j.rows.map((x: any) => ({
               ...x,
               data: JSON.parse(x.data_json),
@@ -1401,8 +1399,9 @@ function FornostApp({ currentUser }: { currentUser: any }) {
               createdAt: x.createdAt || x.created_at,
               updatedAt: x.updatedAt || x.updated_at,
             }))
-          : [],
-      );
+          : [];
+      setRows(nextRows);
+      return nextRows;
     } catch (error) {
       setRows([]);
       setNotice(
@@ -1412,8 +1411,8 @@ function FornostApp({ currentUser }: { currentUser: any }) {
             ? "GRC kayıtları yüklenemedi."
             : "GRC records could not be loaded.",
       );
+      return null;
     }
-    finally { setRecordsLoaded(true); }
   }, [lang]);
   const loadCatalogs = useCallback(async () => {
     try {
@@ -1443,15 +1442,22 @@ function FornostApp({ currentUser }: { currentUser: any }) {
     setFocusedRecord(null);
   }, [active]);
   useEffect(() => {
-    if (!recordRequest || !recordsLoaded || !sameDomainModule(recordRequest.module, active)) return;
-    const target = resolveCoreRecord(rows, recordRequest);
-    setRegisterFilters({});
-    setQuery("");
-    setFocusedRecord({ id: target?.id || "", ref: target?.code || coreRecordReference(recordRequest) });
-    if (target?.module === "Denetim Yönetimi") setSelectedAudit(String(target.data.auditName || ""));
-    consumePendingFornostFocus(recordRequest.module);
-    setRecordRequest(null);
-  }, [recordRequest, recordsLoaded, rows, active]);
+    if (!recordRequest || !sameDomainModule(recordRequest.module, active)) return;
+    let cancelled = false;
+    void load().then(freshRows => {
+      if (cancelled) return;
+      if (freshRows) {
+        const target = resolveCoreRecord(freshRows, recordRequest);
+        setRegisterFilters({});
+        setQuery("");
+        setFocusedRecord({ id: target?.id || "", ref: target?.code || coreRecordReference(recordRequest) });
+        if (target?.module === "Denetim Yönetimi") setSelectedAudit(String(target.data.auditName || ""));
+      }
+      consumePendingFornostFocus(recordRequest.module);
+      setRecordRequest(null);
+    });
+    return () => { cancelled = true; };
+  }, [recordRequest, active, load]);
   const selectedColumnKeys =
     columnPreferences[active] || defaultRegisterColumnKeys(active);
   const visible = useMemo(
@@ -2197,7 +2203,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
             currentUser={currentUser}
             catalogs={catalogs}
             onCatalogChange={loadCatalogs}
-            onDataChange={load}
+            onDataChange={async () => { await load(); }}
             page={
               active === "Ana Veri Yönetimi"
                 ? "catalogs"

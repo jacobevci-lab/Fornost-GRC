@@ -5,6 +5,7 @@ This increment implements the product promise that an owner can reach the releva
 ## User-facing changes
 
 - Connected GRC and My Work can focus the exact Risk, BIA, Asset, Compliance, Control, Evidence or Audit requirement record. The audit's workspace opens automatically. A compact selected-record banner provides one action to return to the full register.
+- Contextual navigation refreshes the authoritative core register before resolving the target, so records created in another session are reachable without reloading the whole app.
 - Exact identifiers/public codes are resolved within the intended module. Ambiguous/deleted references produce an explicit unavailable message instead of selecting a similarly named record. Existing evidence-by-control searches and enterprise module handlers remain separate.
 - Audit summary/readiness keeps the full audit scope when a single requirement or search result is focused. Filtering the table no longer changes audit-wide progress metrics.
 - Core register searches include visible record codes and internal identifiers as well as record data.
