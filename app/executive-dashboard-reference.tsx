@@ -85,6 +85,7 @@ export default function ExecutiveAssurancePanel({
   const panelOrder = view.preferences.order.filter(id => PANEL_ORDER.includes(id));
   const referenceLayout = panelOrder.every((id, index) => id === PANEL_ORDER[index]) && PANEL_ORDER.every(id => view.preferences.visible[id]);
   const [loadError, setLoadError] = useState(false);
+  const [now, setNow] = useState(() => Date.now());
   const [findingSummary, setFindingSummary] = useState<{open: number} | null>(null);
   const [operations, setOperations] = useState<Operations | null>(null);
   const [evidenceIntegrity, setEvidenceIntegrity] = useState<EvidenceIntegrityOverviewItem[]>([]);
@@ -102,6 +103,7 @@ export default function ExecutiveAssurancePanel({
         return response.json();
       }));
       if (!live) return;
+      setNow(Date.now());
       setLoadError(results.some(result => result.status === "rejected"));
       const [executive, history, finding] = results;
       if (executive.status === "fulfilled") setOperations(executive.value);
@@ -137,7 +139,7 @@ export default function ExecutiveAssurancePanel({
   );
   const overdueAuditRows = audits.filter((row) => {
     const due = clean(row.data.dueDate || row.data.targetDate || row.data.endDate);
-    return Boolean(due) && dueTimestamp(due) < Date.now() && !isClosed(row.data.status);
+    return Boolean(due) && dueTimestamp(due) < now && !isClosed(row.data.status);
   });
   const overdueAudits = overdueAuditRows.length;
 
