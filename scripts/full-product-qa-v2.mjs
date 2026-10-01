@@ -32,7 +32,7 @@ const moduleLabels = {
   ],
 };
 
-const representativeIndexes = [0, 2, 4, 6, 7, 10, 11, 16, 17, 18, 19, 21, 25, 26];
+const representativeIndexes = Array.from({ length: 27 }, (_, index) => index);
 const accessHeaders = {};
 if (accessClientId && accessClientSecret) {
   accessHeaders["CF-Access-Client-Id"] = accessClientId;
@@ -255,6 +255,41 @@ async function auditLocale(page, locale) {
           || hierarchy.metricFontSizes.some(size => size < 20 || size > 24) || hierarchy.headerOverlapsMetrics) {
           finding('high', area, 'Dashboard layout or metric hierarchy regressed', JSON.stringify(hierarchy));
         }
+      }
+      if (i === 16) {
+        // Sample node identity and geometry after loading. A hide/discover portal
+        // loop recreates the panel continuously even when the page looks loaded.
+        await page.locator('.audit-readiness-gate').waitFor({ state: 'visible' });
+        const stability = await page.evaluate(async () => {
+          const first = document.querySelector('.audit-readiness-gate');
+          const samples = [];
+          for (let sample = 0; sample < 12; sample++) {
+            await new Promise(resolve => setTimeout(resolve, 150));
+            const node = document.querySelector('.audit-readiness-gate');
+            const box = node?.getBoundingClientRect();
+            samples.push({ same: node === first, y: box?.y, height: box?.height });
+          }
+          return samples;
+        });
+        const settled = stability.slice(4);
+        if (stability.some(sample => !sample.same) || new Set(settled.map(sample => `${sample.y}:${sample.height}`)).size > 1) {
+          finding('high', area, 'Audit readiness panel remounts or shifts while idle', JSON.stringify(stability));
+        }
+      }
+      if (i === 12) {
+        const tabs = page.locator('.ea-tabs');
+        const box = await tabs.boundingBox();
+        if (!box || box.y > 560) finding('high', area, 'Evidence navigation is buried below secondary panels', JSON.stringify(box));
+        if (await page.locator('.ea-page>.ca-dashboard,.ea-page>.eh-panel').count()) {
+          finding('high', area, 'Evidence catalog is stacked with secondary workspaces');
+        }
+        for (const name of locale === 'tr' ? ['Güvence', 'Kanıt Geçmişi'] : ['Assurance', 'Evidence History']) {
+          await tabs.getByRole('button', {name, exact:true}).click();
+          await page.waitForTimeout(450);
+          await domAudit(page, `${area}:${name}`, locale);
+          await snap(page, `${locale}-evidence-${name}`);
+        }
+        await tabs.getByRole('button', {name: locale === 'tr' ? 'Connector Kataloğu' : 'Connector Catalog', exact:true}).click();
       }
       if (representativeIndexes.includes(i)) screenshot = await snap(page, `${locale}-${label}`, i === 0);
       for (const selector of [".module-analysis-disclosure", ".eql-issues", ".audit-readiness-gaps"]) {

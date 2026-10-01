@@ -42,7 +42,7 @@ import "./connected-grc.css";
 import ControlAssuranceWorkspace from "./control-assurance-workspace";
 import ExecutiveAssurancePanel from "./executive-assurance-panel";
 import { buildAssuranceReportHtml, buildExecutiveAssurance } from "./executive-assurance";
-import { buildAuditEvidenceAssurance } from "./audit-evidence-assurance";
+import AuditReadinessGate from "./audit-readiness-gate";
 import { withBasePath } from "./base-path";
 import { calculatedRiskScore, effectiveImpact } from "./risk-methodology";
 import { defaultCatalogs, type CatalogMap } from "./catalogs";
@@ -3824,7 +3824,7 @@ function AuditModule({
           </div>
         </section>
         <AuditOverview rows={portfolioRows} lang={lang} />
-        <AuditEvidenceAssurance items={portfolioRows} evidence={evidenceRows} lang={lang} go={go} />
+        <AuditReadinessGate lang={lang} records={[...portfolioRows,...evidenceRows]} />
         <section className="audit-portfolio">
           {!audits.length && (
             <div className="audit-portfolio-empty">
@@ -4111,7 +4111,7 @@ function AuditModule({
           <span>{tr ? "Kapatılan" : "Closed"}</span>
         </article>
       </section>
-      <AuditEvidenceAssurance items={items} evidence={evidenceRows} lang={lang} go={go} />
+      <AuditReadinessGate key={selected} lang={lang} auditName={selected} records={[...items,...evidenceRows]} />
       <AuditRequirementsTable
         items={items}
         lang={lang}
@@ -4124,15 +4124,6 @@ function AuditModule({
       />
     </>
   );
-}
-
-function AuditEvidenceAssurance({items,evidence,lang,go}:{items:Row[];evidence:Row[];lang:Lang;go:(module:string)=>void}) {
-  const tr=lang==="tr",assurance=buildAuditEvidenceAssurance(items,evidence);
-  return <section className="audit-evidence-assurance" aria-label={tr?"Denetim kanıt güvence zinciri":"Audit evidence assurance chain"}>
-    <header><div><small>{tr?"KANIT GÜVENCE ZİNCİRİ":"EVIDENCE ASSURANCE CHAIN"}</small><h3>{tr?"Denetim kanıt hazırlığı":"Audit evidence readiness"}</h3></div><button type="button" onClick={()=>go("Kanıtlar")}>{tr?"Kanıt Kütüphanesine Git":"Open Evidence Library"} →</button></header>
-    <div className="audit-evidence-metrics"><article><strong>{assurance.total?`${assurance.coverage}%`:"—"}</strong><span>{tr?"Bağlantı kapsamı":"Link coverage"}</span></article><article><strong>{assurance.current}</strong><span>{tr?"Güncel ve onaylı":"Current and approved"}</span></article><article className={assurance.stale?"warning":""}><strong>{assurance.stale}</strong><span>{tr?"Süresi dolan":"Expired or stale"}</span></article><article className={assurance.missing.length?"danger":""}><strong>{assurance.missing.length}</strong><span>{tr?"Kanıtsız madde":"Requirements without evidence"}</span></article></div>
-    {!assurance.total?<footer><b>{tr?"Kapsama alınmış denetim maddesi yok.":"No audit requirements are in scope yet."}</b></footer>:assurance.missing.length?<footer><b>{tr?"Öncelikli boşluklar":"Priority gaps"}</b><div>{assurance.missing.slice(0,6).map(reference=><span key={reference}>{reference}</span>)}</div>{assurance.missing.length>6&&<em>+{assurance.missing.length-6}</em>}</footer>:<footer className="complete"><b>{tr?"Tüm denetim maddeleri en az bir kanıtla bağlantılı.":"Every audit requirement is linked to at least one evidence item."}</b></footer>}
-  </section>;
 }
 
 function AuditRequirementsTable({

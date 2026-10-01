@@ -35,7 +35,8 @@ function syncMobileNavigation() {
     return;
   }
   const open = shell.classList.contains("mobile-nav-open");
-  aside.setAttribute("aria-hidden", open ? "false" : "true");
+  const hidden = open ? "false" : "true";
+  if (aside.getAttribute("aria-hidden") !== hidden) aside.setAttribute("aria-hidden", hidden);
   aside.toggleAttribute("inert", !open);
 }
 

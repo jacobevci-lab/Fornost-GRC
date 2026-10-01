@@ -48,7 +48,7 @@ export async function ensureDemoUser(db: Awaited<ReturnType<typeof identityDb>>)
  if(existing)return;
  const oneTimeSecret=`${bytesToHex(crypto.getRandomValues(new Uint8Array(24)))}Aa1!`;
  const p=await passwordHash(oneTimeSecret),now=new Date().toISOString();
- await db.prepare("INSERT INTO local_users(id,name,email,password_hash,password_salt,password_iterations,role,status,created_at,updated_at) VALUES(?,?,?,?,?,?,?,'Active',?,?)").bind("demo-editor",demoAccount.name,demoAccount.email,p.hash,p.salt,p.iterations,demoAccount.role,now,now).run();
+ await db.prepare("INSERT INTO local_users(id,name,email,password_hash,password_salt,password_iterations,role,status,created_at,updated_at) VALUES(?,?,?,?,?,?,?,'Active',?,?) ON CONFLICT(email) DO NOTHING").bind("demo-editor",demoAccount.name,demoAccount.email,p.hash,p.salt,p.iterations,demoAccount.role,now,now).run();
 }
 
 function bytesToHex(bytes: Uint8Array) { return [...bytes].map(x => x.toString(16).padStart(2, "0")).join(""); }

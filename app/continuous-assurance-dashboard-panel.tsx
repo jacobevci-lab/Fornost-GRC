@@ -66,8 +66,10 @@ export default function ContinuousAssuranceDashboardPanel({
   lang,
   currentUser,
   onOpenModule,
+  showHistory = true,
 }: {
   lang: Lang;
+  showHistory?: boolean;
   currentUser?: { role: string };
   onOpenModule?: (module: string) => void;
 }) {
@@ -235,7 +237,7 @@ export default function ContinuousAssuranceDashboardPanel({
         <h3>{tr ? "Sürekli Güvence Merkezi" : "Continuous Assurance Center"}</h3>
         <p>{tr ? "Kontrol sağlığı, kanıt tazeliği, CAPA yönetişimi, yeniden test ve düzeltme borcunu tek aksiyon kuyruğunda birleştirir." : "Unifies control health, evidence freshness, CAPA governance, retest and remediation debt in one action queue."}</p>
       </div>
-      <div className={`ca-score ${scoreState}`}><strong>{dashboard.summary.assuranceCoverage}<sup>%</sup></strong><span>{tr ? "güvence kapsaması" : "assurance coverage"}</span></div>
+      <div className={`ca-score ${scoreState}`}><strong>{dashboard.summary.totalControls ? <>{dashboard.summary.assuranceCoverage}<sup>%</sup></> : "—"}</strong><span>{tr ? "güvence kapsaması" : "assurance coverage"}</span></div>
     </header>
 
     {error && <div className="ca-error"><span>{error}</span><button type="button" onClick={() => void load()}>{tr ? "Tekrar dene" : "Retry"}</button></div>}
@@ -282,7 +284,7 @@ export default function ContinuousAssuranceDashboardPanel({
       </article>) : <div className="ca-empty"><b>{tr ? "Aksiyon bekleyen güvence işi yok." : "No assurance work requires action."}</b><span>{tr ? "Kontrol, kanıt ve düzeltme sağlığı izlenmeye devam ediyor." : "Control, evidence and remediation health remain monitored."}</span></div>}
     </div>
 
-    <EvidenceHistoryPanel lang={lang} currentUser={currentUser} />
+    {showHistory && <EvidenceHistoryPanel lang={lang} currentUser={currentUser} />}
 
     {review && <div className="ca-overlay" onMouseDown={() => !busy && setReview(null)}>
       <form className="ca-review-modal" onSubmit={submitReview} onMouseDown={(event) => event.stopPropagation()}>

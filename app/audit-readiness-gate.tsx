@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { createPortal } from "react-dom";
 import { buildAuditEvidenceAssurance, type AssuranceRecord } from "./audit-evidence-assurance";
 import { downloadAuditReadinessReport } from "./audit-readiness-export";
 import { withBasePath } from "./base-path";
@@ -19,10 +18,6 @@ const normalized = (value: unknown) => text(value).normalize("NFKC").toLocaleLow
 const blockingStates=new Set(["integrity-failed","failing","failed-retest","retest-error","overdue-remediation"]);
 const blockingReasons=new Set(["evidence-integrity-failed","control-failing","failed-retest","retest-error","remediation-overdue"]);
 
-function currentLanguage(): Lang {
-  return document.querySelector(".language-switch button.active")?.textContent?.trim().toLowerCase() === "en" ? "en" : "tr";
-}
-
 function normalizeRows(body: unknown): Row[] {
   if (!body || typeof body !== "object") return [];
   const source = Array.isArray((body as { rows?: unknown }).rows) ? (body as { rows: RawRow[] }).rows : [];
@@ -36,12 +31,6 @@ function normalizeRows(body: unknown): Row[] {
   }).filter((row) => row.module);
 }
 
-function activeAuditName() {
-  const detail = document.querySelector<HTMLElement>(".audit-detail-head");
-  if (!detail || detail.getClientRects().length === 0) return "";
-  return text(detail.querySelector("h1,h2,h3")?.textContent);
-}
-
 function formatDate(value: string, lang: Lang) {
   if (!value) return "—";
   const date = new Date(`${value.slice(0, 10)}T12:00:00Z`);
@@ -51,42 +40,11 @@ function formatDate(value: string, lang: Lang) {
 
 function priorityBlocksAudit(priority:AssurancePriority){return blockingStates.has(normalized(priority.state))||blockingReasons.has(normalized(priority.reason))}
 
-export default function AuditReadinessGate() {
-  const [target, setTarget] = useState<HTMLElement | null>(null);
-  const [mount, setMount] = useState<HTMLElement | null>(null);
-  const [lang, setLang] = useState<Lang>("tr");
+export default function AuditReadinessGate({lang, auditName = "", records}: {lang: Lang; auditName?: string; records?: Row[]}) {
   const [rows, setRows] = useState<Row[]>([]);
   const [assuranceDashboard,setAssuranceDashboard]=useState<AssuranceDashboard>({});
   const [loading, setLoading] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
-  const [auditName, setAuditName] = useState("");
-
-  useEffect(() => {
-    const discover = () => {
-      setLang(currentLanguage());
-      setAuditName(activeAuditName());
-      const candidates = Array.from(document.querySelectorAll<HTMLElement>(".audit-evidence-assurance"));
-      const visible = candidates.find((candidate) => candidate.getClientRects().length > 0) || null;
-      setTarget((current) => current === visible ? current : visible);
-    };
-    discover();
-    const observer = new MutationObserver(discover);
-    observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ["class", "style"] });
-    const onClick = () => window.setTimeout(discover, 0);
-    document.addEventListener("click", onClick);
-    return () => {observer.disconnect();document.removeEventListener("click", onClick);};
-  }, []);
-
-  useEffect(() => {
-    if (!target) {setMount(null);return;}
-    target.classList.add("audit-readiness-legacy-hidden");
-    const created = document.createElement("div");
-    created.className = "audit-readiness-gate-mount";
-    target.insertAdjacentElement("afterend", created);
-    setMount(created);
-    return () => {target.classList.remove("audit-readiness-legacy-hidden");created.remove();setMount(null);};
-  }, [target]);
-
   const load = useCallback(async () => {
     setLoading(true);
     try {
@@ -101,18 +59,18 @@ export default function AuditReadinessGate() {
   }, []);
 
   useEffect(() => {
-    if (!mount) return;
     void load();
     const timer = window.setInterval(() => void load(), 300_000);
     return () => window.clearInterval(timer);
-  }, [mount, load]);
+  }, [load]);
 
   const assurance = useMemo(() => {
-    const allAuditRows = rows.filter((row) => row.module === "Denetim Yönetimi");
+    const scopedRows = records || rows;
+    const allAuditRows = scopedRows.filter((row) => row.module === "Denetim Yönetimi");
     const auditRows = auditName ? allAuditRows.filter((row) => normalized(row.data.auditName) === normalized(auditName)) : allAuditRows;
-    const evidence = rows.filter((row) => row.module === "Kanıtlar");
+    const evidence = scopedRows.filter((row) => row.module === "Kanıtlar");
     return buildAuditEvidenceAssurance(auditRows, evidence);
-  }, [rows, auditName]);
+  }, [rows, records, auditName]);
   const scopedPriorities=useMemo(()=>{
     const refs=new Set(assurance.requirements.map(item=>normalized(item.reference)).filter(Boolean));
     if(!refs.size)return[];
@@ -121,7 +79,6 @@ export default function AuditReadinessGate() {
   const assuranceBlockers=useMemo(()=>scopedPriorities.filter(priorityBlocksAudit),[scopedPriorities]);
   const effectiveGate=assurance.gate!=="empty"&&assuranceBlockers.length?"not-ready":assurance.gate==="ready"&&scopedPriorities.length?"attention":assurance.gate;
 
-  if (!mount) return null;
   const tr = lang === "tr";
   const gateLabel = effectiveGate === "ready" ? (tr ? "DENETİME HAZIR" : "AUDIT READY") : effectiveGate === "attention" ? (tr ? "GÖZDEN GEÇİR" : "REVIEW") : effectiveGate === "empty" ? (tr ? "KAPSAM BEKLİYOR" : "WAITING FOR SCOPE") : (tr ? "HAZIR DEĞİL" : "NOT READY");
   const headline = assuranceBlockers.length ? (tr?`${assuranceBlockers.length} Continuous Assurance engeli çözülmeli`:`${assuranceBlockers.length} Continuous Assurance blockers must be resolved`) : effectiveGate === "ready" ? (tr ? "Kanıt zinciri ve sürekli güvence hazır" : "Evidence chain and continuous assurance are ready") : effectiveGate === "empty" ? (tr ? "Önce denetim maddelerini kapsama alın" : "Add audit requirements to scope first") : tr ? `${assurance.gaps.length} madde denetim öncesi aksiyon istiyor` : `${assurance.gaps.length} requirements need action before audit`;
@@ -142,8 +99,8 @@ export default function AuditReadinessGate() {
     assuranceSignals:scopedPriorities.map(item=>({id:item.id,state:item.state,title:item.title,targetControlRef:item.targetControlRef,owner:item.owner,dueDate:item.dueDate,reason:item.reason,blocking:priorityBlocksAudit(item)})),
   },format);
 
-  return createPortal(
-    <section className={`audit-readiness-gate ${effectiveGate}`} aria-label={tr ? "Denetim hazırlık kapısı" : "Audit readiness gate"}>
+  return (
+    <section className={`audit-readiness-gate gate-${effectiveGate}`} aria-label={tr ? "Denetim hazırlık kapısı" : "Audit readiness gate"}>
       <header className="audit-readiness-head"><div><small>AUDIT READINESS GATE</small><h3>{headline}</h3><p>{auditName ? `${tr ? "Kapsam" : "Scope"}: ${auditName}` : (tr ? "Denetim portföyündeki kanıt hazırlığını ve aynı kontrollere bağlı Continuous Assurance sinyallerini birlikte değerlendirir." : "Evaluates audit evidence readiness together with Continuous Assurance signals mapped to the same controls.")}</p></div><div className="audit-readiness-state"><span>{gateLabel}</span><strong>{assurance.total ? `${assurance.readiness}%` : "—"}</strong><small>{tr ? "kanıt hazırlığı" : "evidence readiness"}</small></div></header>
 
       <div className="audit-readiness-metrics">
@@ -159,6 +116,6 @@ export default function AuditReadinessGate() {
       {scopedPriorities.length>0&&<div className="audit-readiness-assurance"><div className="audit-readiness-gaps-head"><div><small>CONTINUOUS ASSURANCE</small><b>{tr?"Denetim kapsamındaki kontrollerin canlı güvence sinyalleri":"Live assurance signals for in-scope controls"}</b></div><span>{scopedPriorities.length}</span></div><div className="audit-readiness-list">{scopedPriorities.slice(0,6).map(priority=><button type="button" key={priority.id} className={`audit-readiness-gap ${priorityBlocksAudit(priority)?"assurance-blocker":"assurance-attention"}`} onClick={()=>openAssurancePriority(priority)}><i aria-hidden="true"/><div className="audit-readiness-gap-copy"><b>{priority.targetControlRef||priority.ruleId}</b><span>{priority.title}</span><small>{priority.state} · {priority.reason}{priority.owner?` · ${priority.owner}`:""}</small></div><div className="audit-readiness-gap-state"><strong>{priorityBlocksAudit(priority)?(tr?"Engeli incele":"Review blocker"):(tr?"Sinyali incele":"Review signal")}</strong><small>{tr?"Canlı kayda git":"Open live record"} · →</small></div></button>)}</div></div>}
 
       <footer className="audit-readiness-actions"><div><small>{lastUpdated ? `${tr ? "Son kontrol" : "Last check"}: ${lastUpdated.toLocaleTimeString(tr ? "tr-TR" : "en-GB", { hour: "2-digit", minute: "2-digit" })}` : ""}</small></div><div><button type="button" className="secondary" onClick={()=>exportSnapshot("html")}>{tr?"HTML Özeti":"HTML Snapshot"}</button><button type="button" className="secondary" onClick={()=>exportSnapshot("csv")}>CSV</button><button type="button" className="secondary" onClick={() => navigateToFornost("Kontroller")}>{tr ? "Kontroller" : "Controls"}</button><button type="button" className="secondary" onClick={() => navigateToFornost("Bulgular ve CAPA")}>{tr ? "Bulgular / CAPA" : "Findings / CAPA"}</button><button type="button" className="secondary" onClick={()=>navigateToFornost("Kanıt Otomasyonu")}>Continuous Assurance</button><button type="button" onClick={() => navigateToFornost("Kanıtlar")}>{tr ? "Kanıtları Tamamla" : "Complete Evidence"}</button><button type="button" className="refresh" disabled={loading} onClick={() => void load()}>{loading ? "…" : "↻"}</button></div></footer>
-    </section>,mount,
+    </section>
   );
 }
