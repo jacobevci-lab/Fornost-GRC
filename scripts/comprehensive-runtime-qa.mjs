@@ -30,7 +30,7 @@ async function open(label){await page.locator(`nav button[aria-label=${JSON.stri
 async function reset(){await page.setViewportSize({width:1536,height:960});await page.goto(base);await page.locator('.shell').waitFor();await page.locator('.language-switch:visible').getByRole('button',{name:'EN',exact:true}).click();}
 await reset();
 for(const [moduleName,label,key] of [['Risk Assessment','Risk Assessment','title'],['BIA','Business Impact Analysis (BIA)','process'],['Varlık Envanteri','Asset Inventory','title'],['Uyum','Compliance Management','controlTitle'],['Kontroller','Control Library','controlTitle']])await check(`UI create/edit/delete: ${label}`,async()=>{
- await reset();await open(label);await page.locator('.actions .primary').click();const dialog=page.locator('.modal[role=dialog]');await dialog.waitFor();await dialog.getByRole('button',{name:/Show advanced/}).click();
+ await reset();await open(label);await page.getByPlaceholder('Search records').fill('QA-no-match-20261001');assert.match(await page.locator('.table-wrap').innerText(),/No records in this view/);await page.getByPlaceholder('Search records').fill('');await page.locator('.actions .primary').click();const dialog=page.locator('.modal[role=dialog]');await dialog.waitFor();await dialog.getByRole('button',{name:/Show advanced/}).click();
  const data=JSON.parse(seedRows.find(x=>x.module===moduleName).data_json);data[key]=`QA UI ${moduleName} ${Date.now()}`;
  const inputs=dialog.locator('input[name]:not([type=hidden]),textarea[name],select[name]');
  for(let i=0;i<await inputs.count();i++){const input=inputs.nth(i),name=await input.getAttribute('name'),tag=await input.evaluate(e=>e.tagName),value=data[name];if(value===undefined||value===null)continue;
