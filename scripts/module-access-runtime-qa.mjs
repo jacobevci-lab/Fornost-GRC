@@ -35,7 +35,7 @@ try{
  const status=await api(restricted,'/api/ai/status');assert.equal(status.moduleScope,'scoped');assert.equal(status.capabilities.agents,false);assert.equal(status.capabilities.retrieval,false);
  await userPage.goto(base);await expect(userPage.locator('.shell[data-module-scope="scoped"]')).toBeVisible();
  await userPage.locator('.language-switch:visible').getByRole('button',{name:'EN',exact:true}).click();
- await expect(userPage.locator('.module-scope-home')).toContainText('My workspace');await expect(userPage.locator('nav button[aria-label="Reporting"]')).toHaveCount(0);await expect(userPage.locator('nav button[aria-label="Evidence Library"]')).toHaveCount(0);
+ await expect(userPage.locator('.module-scope-home')).toContainText('My workspace');await expect(userPage.locator('nav')).not.toContainText('INTELLIGENCE');await expect(userPage.locator('nav button[aria-label="Reporting"]')).toHaveCount(0);await expect(userPage.locator('nav button[aria-label="Evidence Library"]')).toHaveCount(0);
  await userPage.locator('nav button[aria-label="Business Impact Analysis (BIA)"]').evaluate(el=>el.click());await expect(userPage.locator('.module-head')).toContainText('BIA');await expect(userPage.locator('.module-head .primary')).toHaveCount(0);
  await userPage.locator('nav button[aria-label="Risk Assessment"]').evaluate(el=>el.click());await expect(userPage.locator('.module-head .primary')).toBeVisible();
  await userPage.locator('.context-ai-trigger').click();await expect(userPage.locator('#fornost-ai-panel')).toBeVisible();await expect(userPage.locator('.fornost-ai-tabs')).toHaveCount(0);await expect(userPage.locator('#fornost-ai-panel')).toContainText('izinli modüllerdeki');await userPage.getByRole('button',{name:'Kapat',exact:true}).click();
@@ -45,7 +45,7 @@ try{
   for(const p of [page,userPage])await p.evaluate(theme=>{document.documentElement.dataset.theme=theme},theme);
   for(const width of [1536,390]){
    for(const p of [page,userPage])await p.setViewportSize({width,height:960});
-   await editor.scrollIntoViewIfNeeded();assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)<=4);await page.screenshot({path:`${out}/editor-${theme}-${width}.png`});
+   await editor.scrollIntoViewIfNeeded();for(const label of await editor.locator(".module-access-grid label>span").all())assert.ok((await label.boundingBox()).height<26,"Module labels must remain readable on one line");assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)<=4);await page.screenshot({path:`${out}/editor-${theme}-${width}.png`});
    assert.ok(await userPage.evaluate(()=>document.documentElement.scrollWidth-innerWidth)<=4);await userPage.screenshot({path:`${out}/scoped-risk-${theme}-${width}.png`});
   }
  }

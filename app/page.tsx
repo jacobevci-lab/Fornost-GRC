@@ -1733,7 +1733,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
     { id: "governance", label: lang === "tr" ? "YÖNETİŞİM" : "GOVERNANCE", items: ["Politika Merkezi","Regülasyon Merkezi","AI Yönetişimi"] },
     { id: "intelligence", label: lang === "tr" ? "İÇGÖRÜ" : "INTELLIGENCE", items: ["Bağlantılı GRC","Raporlar","Ask Fornost"] },
     ...(currentUser.role === "Admin" ? [{ id: "administration", label: lang === "tr" ? "YÖNETİM" : "ADMINISTRATION", items: ["İş Akışı Entegrasyonları","Kimlik ve Erişim","Sistem Ayarları","AI Ayarları","Ana Veri Yönetimi","E-posta ve Bildirimler"] }] : []),
-  ].map(group=>({...group,items:group.items.filter(module=>canOpenModule(currentUser,module))})).filter(group=>group.items.length);
+  ].map(group=>({...group,items:group.items.filter(module=>canOpenModule(currentUser,module)&&(!scoped||module!=="Ask Fornost"))})).filter(group=>group.items.length);
   const commandModules = modules.filter(
     (module) => (currentUser.role === "Admin" || !adminModules.has(module)) && canOpenModule(currentUser,module),
   );
