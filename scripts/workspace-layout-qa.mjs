@@ -61,15 +61,16 @@ try {
     assert.equal(await page.locator('.ea-page>.ca-dashboard,.ea-page>.eh-panel').count(), 0);
     await page.screenshot({path:`${output}/${locale}-evidence-desktop.png`});
     await page.locator('.theme-toggle:visible').click();
+    await page.waitForTimeout(400);
     await page.screenshot({path:`${output}/${locale}-evidence-alternate-theme.png`});
     for (const name of locale === 'tr' ? ['Güvence','Kanıt Geçmişi'] : ['Assurance','Evidence History']) {
       await tabs.getByRole('button', {name,exact:true}).click();
       await page.waitForTimeout(600);
       const themed = await page.locator('.ea-page>.ca-dashboard,.ea-page>.eh-panel').evaluate(el => {
         const style = getComputedStyle(el);
-        return {background:style.backgroundColor,border:style.borderTopColor};
+        return {background:style.backgroundColor,image:style.backgroundImage,border:style.borderTopColor};
       });
-      assert.notEqual(themed.background,'rgba(0, 0, 0, 0)','Operational panel has a theme surface');
+      assert.ok(themed.background !== 'rgba(0, 0, 0, 0)' || themed.image !== 'none','Operational panel has a theme surface');
       await page.screenshot({path:`${output}/${locale}-${name === 'Güvence' || name === 'Assurance' ? 'assurance' : 'history'}-desktop.png`});
     }
     for (const width of [768,390]) {
