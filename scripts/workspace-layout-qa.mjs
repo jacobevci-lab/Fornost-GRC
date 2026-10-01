@@ -32,10 +32,16 @@ try {
       if (await page.locator('html').getAttribute('data-theme') !== theme) await page.locator('.theme-toggle:visible').click();
       for (const label of labels) {
         await open(label);
-        const overflow = await page.evaluate(() => document.documentElement.scrollWidth - innerWidth);
-        assert.ok(overflow <= 4, `${locale}:${theme}:${label} page overflow ${overflow}px`);
-        results.push({ locale, theme, label, overflow });
-        await page.screenshot({path:`${output}/${locale}-${theme}-module-${results.length}.png`});
+        for (const width of [1536,768,390]) {
+          await page.setViewportSize({width,height:960});
+          await page.waitForTimeout(100);
+          const overflow = await page.evaluate(() => document.documentElement.scrollWidth - innerWidth);
+          results.push({ locale, theme, label, width, overflow });
+          await page.screenshot({path:`${output}/${locale}-${theme}-${width}-module-${results.length}.jpg`,type:"jpeg",quality:70});
+        }
+        await page.setViewportSize({width:1536,height:960});
+        const copilotClose=page.locator('.fornost-ai-panel button[aria-label="Kapat"]');
+        if (await copilotClose.isVisible()) await copilotClose.click();
       }
       await page.reload({waitUntil:'domcontentloaded'});
       await page.locator('.shell').waitFor();
@@ -143,6 +149,7 @@ try {
     await page.setViewportSize({width:1536,height:960});
   }
   assert.deepEqual(errors, [], 'No unhandled UI errors');
+  assert.deepEqual(results.filter(r=>r.overflow>4), [], 'Every module fits desktop, tablet and mobile in both themes and languages');
   await fs.writeFile(`${output}/results.json`,JSON.stringify({results,errors},null,2));
 } catch (error) {
   const pages = context.pages();

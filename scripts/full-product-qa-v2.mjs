@@ -301,8 +301,8 @@ async function auditLocale(page, locale) {
           await disclosure.locator(":scope>summary").click();
         }
       }
-      if (await page.locator(".matrix").count()) {
-        const matrix = await page.locator(".matrix").evaluate(el => {
+      if (await page.locator(".matrix-card .matrix").count()) {
+        const matrix = await page.locator(".matrix-card .matrix").evaluate(el => {
           const bounds = el.closest(".matrix-card").getBoundingClientRect();
           const cells = [...el.querySelectorAll(".matrix-row span")];
           return { count: cells.length, clipped: cells.some(cell => { const r = cell.getBoundingClientRect(); return r.left < bounds.left || r.right > bounds.right || r.width < 10; }) };

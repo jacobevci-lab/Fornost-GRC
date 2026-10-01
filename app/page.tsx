@@ -2701,7 +2701,7 @@ function Field({
     ],
     status: statusOptionsByModule[module] || [],
   };
-  const value = form[k] || "",
+  const value = form[k] ?? "",
     change = (v: string) => setForm({ ...form, [k]: v }),
     u = ui[lang],
     requiredField = (requiredFieldsByModule[module] || []).includes(k);
@@ -2860,9 +2860,9 @@ function Field({
               : "Select one or more assets affected by the risk."}
           </p>
           <select
+            multiple
             name={k}
             aria-label={labelMap[lang][k]}
-            multiple
             required
             value={selected}
             onChange={(e) =>

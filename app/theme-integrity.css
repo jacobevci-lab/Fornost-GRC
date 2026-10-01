@@ -173,3 +173,7 @@ html[data-theme] body .shell>main .audit-readiness-state strong{margin-top:6px}
   html[data-theme] body .shell>main :where(div,p,span,small,b,strong,label,button,a,td,th,dt,dd,li,em,time,code,input,select,textarea,kbd,summary){font-size:max(12px,.75rem)!important}
   html[data-theme] body .shell>main :where(input,select,textarea){font-size:max(13px,.8125rem)!important}
 }
+
+/* Keep small text readable on the approved warm light surfaces. */
+html:not([data-theme="dark"]){--ws-muted:#526163!important;--ws-faint:#526163!important;--ws-brand:#087169!important;--ws-positive:#0e7049!important;--ws-danger:#a22b36!important}
+html:not([data-theme="dark"]) .assurance-scheduler-status :is(span,small){color:var(--ws-muted)!important}
