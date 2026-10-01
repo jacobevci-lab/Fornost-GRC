@@ -6,9 +6,11 @@
 2. A BIA search returning no matches displayed “No records yet,” incorrectly suggesting that the existing records were absent. Core register empty states now describe the current view and direct users to check search and filters.
 3. Live BIA-001 displayed a linked asset in its table but “Select” in the edit form because that asset was absent from the current inventory. Asset/process pickers now retain existing references and explicitly label unavailable links. Existing data is not silently presented as empty; this does not recreate deleted inventory records. Risk multi-selection retains the same behavior for existing references.
 
+4. Numeric zero RPO was retained by the edit form but still displayed as missing in BIA rows, readiness warnings and KPI counts. A shared recovery-target predicate now recognizes zero hours as defined, while absent, negative and invalid values remain incomplete. Date-only BIA exercise deadlines also use the shared end-of-day rule.
+
 ## Reproducible validation
 
-- 691 unit/regression tests, including UTC deadline boundaries, exact timestamp offsets and invalid dates.
+- 693 unit/regression tests, including UTC deadline boundaries, exact timestamp offsets and invalid dates.
 - TypeScript, ESLint, production build, 83 SQL migration preflight and on-prem installer smoke checks.
 - `workspace-layout-qa.mjs`: 27 module navigation entries × two languages × two themes × three viewport widths = 324 screen states; overflow, audit stability, evidence colors, warm surfaces, compact fonts and Connected GRC interactions.
 - `comprehensive-runtime-qa.mjs`: API CRUD/role boundaries for all eight core record types; browser Risk/BIA/Asset/Compliance/Control CRUD; evidence file integrity and CRUD; governance lifecycle checks and AI workspace render coverage. Added actual dashboard count assertions for today's/yesterday's/completed audit requirements, empty search assertions and retained BIA references with zero RPO.
