@@ -62,6 +62,9 @@ try {
     await recordButtons.nth(1).click();
     assert.equal(await page.locator('.cg-detail h3').innerText(), await recordButtons.nth(1).locator('b').innerText(), 'Selection controls the relationship detail');
     assert.ok(await page.locator('.cg-connections article').count() > 0, 'Selected evidence shows actual control connections');
+    const relatedTitle = await page.locator('.cg-follow').first().innerText();
+    await page.locator('.cg-follow').first().click();
+    assert.equal(await page.locator('.cg-detail h3').innerText(), relatedTitle, 'Follow a connection within the map');
     await page.locator('.cg-filters input').fill('no-such-record-qa');
     assert.equal(await recordButtons.count(), 0, 'Search has a useful empty state');
     await page.locator('.cg-filters').getByRole('button', {name:locale==='tr'?'Temizle':'Clear',exact:true}).click();

@@ -75,6 +75,7 @@ export default function ConnectedGrc({rows,lang,go}:{rows:ConnectedGrcRow[];lang
   const selectedLinks=selected?links.filter(link=>link.source.id===selected.id||link.target.id===selected.id):[];
   const filtered=links.filter(link=>(module==="all"||link.source.module===module||link.target.module===module)&&(!needle||[link.source,link.target].some(row=>`${row.code||row.id} ${connectedTitle(row)} ${row.module} ${moduleLabel(row.module)}`.toLocaleLowerCase(tr?"tr-TR":"en-US").includes(needle))));
   function selectRecord(id:string){setSelectedId(id);setLinkLimit(8)}
+  function followConnection(row:ConnectedGrcRow){setModule("all");setQuery("");setPage(Math.max(0,Math.floor(records.findIndex(item=>item.id===row.id)/10)));selectRecord(row.id)}
   function resetFilters(){setModule("all");setQuery("");setPage(0);setLinkLimit(8)}
   function openRecord(row:ConnectedGrcRow){
     const target=connectedGrcNavigation(row);
@@ -118,7 +119,7 @@ export default function ConnectedGrc({rows,lang,go}:{rows:ConnectedGrcRow[];lang
           {selected&&<><div className="cg-connection-count">{selectedLinks.length} {tr?"doğrudan bağlantı":"direct connections"}</div>
           <div className="cg-connections">{selectedLinks.slice(0,linkLimit).map((link,index)=>{
             const outgoing=link.source.id===selected.id,other=outgoing?link.target:link.source;
-            return <article key={`${other.id}-${link.relation}-${index}`}><div><small>{outgoing?(tr?"Bu kayıttan →":"From this record →"):(tr?"Bu kayda ←":"To this record ←")} {connectedRelationLabels[link.relation]?.[lang]||link.relation}</small><b>{connectedTitle(other)}</b><span>{other.code||other.id} · {moduleLabel(other.module)}</span></div><button type="button" onClick={()=>openRecord(other)} aria-label={`${tr?'Kaydı aç':'Open record'}: ${connectedTitle(other)}`}>{tr?"Aç":"Open"} ↗</button></article>;
+            return <article key={`${other.id}-${link.relation}-${index}`}><div><small>{outgoing?(tr?"Bu kayıttan →":"From this record →"):(tr?"Bu kayda ←":"To this record ←")} {connectedRelationLabels[link.relation]?.[lang]||link.relation}</small><button type="button" className="cg-follow" onClick={()=>followConnection(other)} aria-label={`${tr?'Bağlantılarını göster':'Explore connections'}: ${connectedTitle(other)}`}>{connectedTitle(other)}</button><span>{other.code||other.id} · {moduleLabel(other.module)}</span></div><button type="button" onClick={()=>openRecord(other)} aria-label={`${tr?'Kaydı aç':'Open record'}: ${connectedTitle(other)}`}>{tr?"Aç":"Open"} ↗</button></article>;
           })}</div>
           {!selectedLinks.length&&<p className="cg-empty">{tr?"Bu kaydın henüz bağlantısı yok. Kaydı açarak ilgili varlık, risk veya kontrol referanslarını ekleyebilirsiniz.":"This record has no connections yet. Open it to add the relevant asset, risk or control references."}</p>}
           {selectedLinks.length>linkLimit&&<button type="button" className="cg-more" onClick={()=>setLinkLimit(linkLimit+8)}>{tr?"Daha fazla bağlantı göster":"Show more connections"} ({selectedLinks.length-linkLimit})</button>}
