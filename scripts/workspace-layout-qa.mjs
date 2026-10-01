@@ -33,6 +33,7 @@ try {
       const overflow = await page.evaluate(() => document.documentElement.scrollWidth - innerWidth);
       assert.ok(overflow <= 4, `${locale}:${label} page overflow ${overflow}px`);
       results.push({ locale, label, overflow });
+      await page.screenshot({path:`${output}/${locale}-module-${results.length}.png`});
     }
     // Close any copilot left open by the navigation sweep by reloading the shell.
     await page.reload({waitUntil:'domcontentloaded'});
@@ -81,6 +82,11 @@ try {
   }
   assert.deepEqual(errors, [], 'No unhandled UI errors');
   await fs.writeFile(`${output}/results.json`,JSON.stringify({results,errors},null,2));
+} catch (error) {
+  const pages = context.pages();
+  if (pages.length) await pages[pages.length-1].screenshot({path:`${output}/failure.png`}).catch(()=>{});
+  await fs.writeFile(`${output}/failure.json`,JSON.stringify({message:error.message,results},null,2));
+  throw error;
 } finally {
   await browser.close();
 }
