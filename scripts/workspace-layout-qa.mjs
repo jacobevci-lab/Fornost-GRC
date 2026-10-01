@@ -71,9 +71,13 @@ try {
     assert.equal(await recordButtons.count(), 10, 'Record list is paginated');
     await page.locator('.cg-records footer').getByRole('button', {name:locale==='tr'?'Sonraki':'Next',exact:true}).click();
     assert.match(await page.locator('.cg-records footer span').innerText(), /^2 \/ /);
+    const tabBoxes = await page.locator('.cg-tabs button').evaluateAll(elements=>elements.map(el=>el.getBoundingClientRect().y));
+    assert.equal(new Set(tabBoxes).size,1,'Map views share one compact tab row on desktop');
+    await page.evaluate(()=>window.scrollTo(0,0));
     await page.screenshot({path:`${output}/${locale}-connected-explorer.png`});
     await page.locator('.cg-tabs button').nth(1).click();
     await page.locator('.cg-gaps').waitFor();
+    assert.equal(await page.locator('.cg-tabs button[aria-pressed="true"]').count(),1,'Exactly one view is selected');
     assert.equal(await page.locator('.cg-workspace').count(), 0, 'Only the selected map view is mounted');
     await page.screenshot({path:`${output}/${locale}-connected-gaps.png`});
     await page.locator('.cg-tabs button').nth(2).click();

@@ -97,9 +97,9 @@ export default function ConnectedGrc({rows,lang,go}:{rows:ConnectedGrcRow[];lang
       <span><b>{links.length}</b> {tr?"bağlantı":"connections"}</span>
       <span><b>{records.length-linkedIds.size}</b> {tr?"bağlantısız kayıt":"unlinked records"}</span>
     </div>
-    <nav className="cg-tabs" aria-label={tr?"Harita görünümü":"Map view"}>
-      {([['explore',tr?'Bağlantıları keşfet':'Explore connections'],['gaps',tr?'Eksik bağlantılar':'Missing connections'],['assurance',tr?'Güvence işlemleri':'Assurance operations']] as const).map(([id,label])=><button type="button" key={id} aria-pressed={view===id} onClick={()=>setView(id)}>{label}{id==='gaps'&&<span>{coverage.gaps.length}</span>}</button>)}
-    </nav>
+    <div className="cg-tabs" role="group" aria-label={tr?"Harita görünümü":"Map view"}>
+      {([['explore',tr?'Bağlantılar':'Connections'],['gaps',tr?'Eksikler':'Gaps'],['assurance',tr?'Güvence':'Assurance']] as const).map(([id,label])=><button type="button" key={id} aria-pressed={view===id} onClick={()=>setView(id)}>{label}{id==='gaps'&&<span>{coverage.gaps.length+unresolved.length}</span>}</button>)}
+    </div>
     {view==="explore"&&<section className="cg-explore" aria-label={tr?"Bağlantıları keşfet":"Explore connections"}>
       <div className="cg-filters">
         <label>{tr?"Kayıt ara":"Find a record"}<input value={query} onChange={event=>{setQuery(event.target.value);setPage(0);setLinkLimit(8)}} placeholder={tr?"Ad veya kod…":"Name or code…"}/></label>
