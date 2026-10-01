@@ -1,3 +1,5 @@
+"use client";
+import { useEffect, useState } from "react";
 import FornostAiCopilot from "./fornost-ai-copilot";
 import FornostAiSourceNavigation from "./fornost-ai-source-navigation";
 import ProductionHardening from "./production-hardening";
@@ -22,19 +24,25 @@ import ConnectorOnboardingWizard from "./connector-onboarding-wizard";
  * compatibility/QA group at the bottom should shrink rather than grow.
  */
 export default function PlatformExperience() {
+  const [fullWorkspace,setFullWorkspace] = useState(false);
+  useEffect(()=>{
+    const sync=()=>setFullWorkspace(document.querySelector('.shell[data-module-scope="full"]')!==null);
+    sync();const observer=new MutationObserver(sync);observer.observe(document.body,{childList:true,subtree:true,attributes:true,attributeFilter:["data-module-scope"]});
+    return()=>observer.disconnect();
+  },[]);
   return (
     <>
       {/* Dashboard is rendered natively by the page; no DOM-injected versions. */}
 
       {/* Daily work and connected-assurance experience. */}
       <SidebarIconTooltip />
-      <MyWorkV2 />
-      <MyWorkAssuranceSignals />
+      {fullWorkspace && <MyWorkV2 />}
+      {fullWorkspace && <MyWorkAssuranceSignals />}
       <ProgressiveFormExperience />
-      <ControlImpactLens />
-      <FindingLineageLens />
-      <EvidenceQualityLens />
-      <ConnectorOnboardingWizard />
+      {fullWorkspace && <ControlImpactLens />}
+      {fullWorkspace && <FindingLineageLens />}
+      {fullWorkspace && <EvidenceQualityLens />}
+      {fullWorkspace && <ConnectorOnboardingWizard />}
       <NavigationFocusBridge />
 
       {/* One visible AI surface; specialist capabilities remain behind Ask Fornost. */}

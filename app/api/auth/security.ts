@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
+import { BASE_PATH } from "../../base-path";
+import { scopedApiAllowed, type ModuleAccess } from "../../module-access";
+import { ensureModuleAccessSchema, readModuleAccess } from "../users/access-storage";
 
 export type AppRole = "Admin" | "Editor" | "Viewer";
-export type Actor = { id: string; email: string; name: string; role: AppRole; source: "local" | "entra" };
+export type Actor = { id: string; email: string; name: string; role: AppRole; source: "local" | "entra"; moduleAccess?: ModuleAccess };
 
 // Cloudflare Workers WebCrypto rejects PBKDF2 requests above 100,000 iterations in production.
 // Keep the local credential format at that runtime ceiling until the password KDF is migrated.
@@ -28,6 +31,7 @@ export async function identityDb() {
         env.DB.prepare(usersSql),
         env.DB.prepare(sessionsSql),
       ]);
+      await ensureModuleAccessSchema(env.DB);
       const columns=await env.DB.prepare("PRAGMA table_info(local_users)").all<{name:string}>();
       if (!(columns.results || []).some((column)=>column.name==="password_iterations")) {
         await env.DB.prepare(`ALTER TABLE local_users ADD COLUMN password_iterations INTEGER NOT NULL DEFAULT ${PBKDF2_LEGACY_ITERATIONS}`).run();
@@ -119,7 +123,8 @@ export async function actor(req: NextRequest): Promise<Actor | null> {
   if (platformEmail && trustPlatformIdentity) {
     const db = await identityDb();
     const mapped = await db.prepare("SELECT id,name,email,role,status FROM local_users WHERE email=?").bind(platformEmail).first<{id:string;name:string;email:string;role:string;status:string}>();
-    if (mapped?.status === "Active") return { id:mapped.id, email:mapped.email, name:mapped.name, role:mapped.role as AppRole, source:"entra" };
+    if (mapped?.status === "Active") return { id:mapped.id, email:mapped.email, name:mapped.name, role:mapped.role as AppRole, source:"entra", moduleAccess:await readModuleAccess(db,mapped.id) };
+    if (mapped) return null; // A disabled mapped account must not fall back to an unmapped Viewer.
     const admins = await db.prepare("SELECT COUNT(*) total FROM local_users WHERE role='Admin'").first<{total:number}>();
     if (!admins?.total) return null;
     return { id:`platform:${platformEmail}`, email:platformEmail, name:platformEmail, role:"Viewer", source:"entra" };
@@ -131,7 +136,7 @@ export async function actor(req: NextRequest): Promise<Actor | null> {
     FROM local_sessions s JOIN local_users u ON u.id=s.user_id WHERE s.id_hash=?`).bind(tokenHash).first<{id:string;name:string;email:string;role:string;status:string;expires_at:string}>();
   if (!row || row.status !== "Active" || row.expires_at <= now) return null;
   await db.prepare("UPDATE local_sessions SET last_seen_at=? WHERE id_hash=?").bind(now, tokenHash).run();
-  return { id: row.id, email: row.email, name: row.name, role: row.role as AppRole, source: "local" };
+  return { id: row.id, email: row.email, name: row.name, role: row.role as AppRole, source: "local", moduleAccess: await readModuleAccess(db, row.id) };
 }
 
 export async function requireRole(req: NextRequest, roles: AppRole[]) {
@@ -139,6 +144,9 @@ export async function requireRole(req: NextRequest, roles: AppRole[]) {
   if (!current) return { response: NextResponse.json({ error: "Oturum gerekli." }, { status: 401 }) };
   if (!roles.includes(current.role)) return { response: NextResponse.json({ error: "Bu işlem için yetkiniz yok." }, { status: 403 }) };
   if (!sameOrigin(req)) return { response: NextResponse.json({ error: "Geçersiz istek kaynağı." }, { status: 403 }) };
+  const path = req.nextUrl.pathname;
+  const apiPath = BASE_PATH && path.startsWith(`${BASE_PATH}/`) ? path.slice(BASE_PATH.length) : path;
+  if (!scopedApiAllowed(current, apiPath, req.method)) return { response: NextResponse.json({ error: "Bu çalışma alanı için modül erişiminiz yok." }, { status: 403 }) };
   return { actor: current };
 }
 

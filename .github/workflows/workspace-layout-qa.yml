@@ -47,6 +47,8 @@ jobs:
         run: node scripts/ask-fornost-runtime-qa.mjs
       - name: Ready control templates and result drill-down QA
         run: node scripts/ready-controls-runtime-qa.mjs
+      - name: Module boundaries, access editor and session revocation QA
+        run: node scripts/module-access-runtime-qa.mjs
       - name: Check module layouts and audit stability
         run: node scripts/workspace-layout-qa.mjs
       - name: Core CRUD, forms, continuity and governance lifecycle QA
@@ -68,6 +70,7 @@ jobs:
           path: |
             ask-fornost-qa-artifacts/
             ready-controls-qa-artifacts/
+            module-access-qa-artifacts/
             layout-qa-artifacts/
             runtime-qa-artifacts/
             qa-artifacts-v2/

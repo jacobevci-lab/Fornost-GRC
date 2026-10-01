@@ -1,4 +1,6 @@
 "use client";
+import { canOpenModule, canReadModule, canWriteModule, isScoped, readableModules } from "./module-access";
+import "./module-access.css";
 import { dueTimestamp } from "./due-date";
 import { hasRecoveryTarget } from "./bia-recovery";
 import { isCoreRecordRequest, resolveCoreRecord, coreRecordReference } from "./core-record-focus";
@@ -1117,7 +1119,11 @@ function AuthGate() {
     }
   }
   useEffect(() => {
-    check();
+    void check();
+    const refresh = () => { void check(); };
+    const timer = window.setInterval(refresh,60000);
+    window.addEventListener("focus",refresh);
+    return () => {window.clearInterval(timer);window.removeEventListener("focus",refresh);};
   }, []);
   async function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -1181,7 +1187,7 @@ function AuthGate() {
         </div>
       </div>
     );
-  if (state.authenticated) return <FornostApp currentUser={state.user} />;
+  if (state.authenticated) return <FornostApp key={JSON.stringify([state.user.id,state.user.role,state.user.moduleAccess])} currentUser={state.user} />;
   return (
     <div className="auth-screen">
       <form className="auth-card" onSubmit={submit}>
@@ -1269,6 +1275,7 @@ function AuthGate() {
 }
 
 function FornostApp({ currentUser }: { currentUser: any }) {
+  const scoped = isScoped(currentUser);
   const [lang, setLang] = useState<Lang>("tr"),
     [active, setActive] = useState("Ana Sayfa"),
     [rows, setRows] = useState<Row[]>([]),
@@ -1423,6 +1430,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
     } catch {}
   }, []);
   const loadAudits = useCallback(async () => {
+    if(!canReadModule(currentUser,"Denetim Yönetimi")) {setAuditPortfolio([]);return;}
     try {
       const response = await fetch(withBasePath("/api/audits"), {
         cache: "no-store",
@@ -1725,9 +1733,9 @@ function FornostApp({ currentUser }: { currentUser: any }) {
     { id: "governance", label: lang === "tr" ? "YÖNETİŞİM" : "GOVERNANCE", items: ["Politika Merkezi","Regülasyon Merkezi","AI Yönetişimi"] },
     { id: "intelligence", label: lang === "tr" ? "İÇGÖRÜ" : "INTELLIGENCE", items: ["Bağlantılı GRC","Raporlar","Ask Fornost"] },
     ...(currentUser.role === "Admin" ? [{ id: "administration", label: lang === "tr" ? "YÖNETİM" : "ADMINISTRATION", items: ["İş Akışı Entegrasyonları","Kimlik ve Erişim","Sistem Ayarları","AI Ayarları","Ana Veri Yönetimi","E-posta ve Bildirimler"] }] : []),
-  ];
+  ].map(group=>({...group,items:group.items.filter(module=>canOpenModule(currentUser,module))})).filter(group=>group.items.length);
   const commandModules = modules.filter(
-    (module) => currentUser.role === "Admin" || !adminModules.has(module),
+    (module) => (currentUser.role === "Admin" || !adminModules.has(module)) && canOpenModule(currentUser,module),
   );
   const normalizedCommandQuery = commandQuery.trim().toLocaleLowerCase(
     lang === "tr" ? "tr-TR" : "en-US",
@@ -1751,6 +1759,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
       return modules.indexOf(a) - modules.indexOf(b);
     });
   function navigateToModule(module: string) {
+    if (!canOpenModule(currentUser,module)) return;
     const parentGroup = navGroups.find((group) => group.items.includes(module));
     if (parentGroup) {
       setOpenNavGroup(parentGroup.id);
@@ -1816,6 +1825,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
   }
   return (
     <div
+      data-module-scope={scoped?"scoped":"full"}
       className={`shell sidebar-${sidebarMode}${mobileNavOpen ? " mobile-nav-open" : ""}`}
     >
       <aside aria-label={lang === "tr" ? "Ana menü" : "Main navigation"}>
@@ -2173,7 +2183,9 @@ function FornostApp({ currentUser }: { currentUser: any }) {
             : (lang === "tr" ? "Kayıt bulunamadı veya artık erişilemiyor" : "Record not found or no longer available")}</strong><span>{focusedRecord.ref}</span></div>
           <button type="button" onClick={() => { setFocusedRecord(null); setQuery(""); setRegisterFilters({}); }}>{lang === "tr" ? "Tüm kayıtları göster" : "Show all records"}</button>
         </section>}
-        {active === "Ana Sayfa" ? (
+        {!canOpenModule(currentUser,active) ? <section className="module-scope-home"><h2>{lang==="tr"?"Bu modüle erişiminiz yok":"Module access is unavailable"}</h2><button onClick={()=>navigateToModule("Ana Sayfa")}>{lang==="tr"?"Ana sayfa":"Home"}</button></section> : active === "Ana Sayfa" && scoped ? (
+          <section className="module-scope-home"><h2>{lang==="tr"?"Çalışma alanım":"My workspace"}</h2><p>{lang==="tr"?"İzin verilen modüllerdeki kayıtları görüntüleyin ve yönetin. Ortak raporlar ve gelişmiş iş akışları için tam çalışma alanı erişimi gerekir.":"View and manage records in your permitted modules. Shared reports and advanced workflows require full workspace access."}</p><div className="module-scope-cards">{readableModules(currentUser).map(module=><button key={module} onClick={()=>navigateToModule(module)}><b>{names[lang][module]}</b><small>{by(module).length} {lang==="tr"?"kayıt":"records"} · {canWriteModule(currentUser,module)?(lang==="tr"?"Okuma ve düzenleme":"Read and edit"):(lang==="tr"?"Okuma":"Read")}</small></button>)}</div>{!readableModules(currentUser).length&&<p>{lang==="tr"?"Henüz modül erişimi atanmadı. Yöneticinizle iletişime geçin.":"No module access has been assigned. Contact your administrator."}</p>}</section>
+        ) : active === "Ana Sayfa" ? (
           <Dashboard rows={rows} go={setActive} lang={lang} />
         ) : active === "Benim İşlerim" ? (
           <MyWork rows={rows} currentUser={currentUser} go={setActive} lang={lang} />
@@ -2195,7 +2207,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
           <FindingsCenter lang={lang} currentUser={currentUser} />
         ) : active === "Politika Merkezi" ? (
           <PolicyLifecycle lang={lang} currentUser={currentUser} />
-        ) : active === "Tedarikçiler" ? (
+        ) : active === "Tedarikçiler" && !scoped ? (
           <ThirdPartyRisk lang={lang} currentUser={currentUser} />
         ) : adminModules.has(active) ? (
           <Settings
@@ -2236,10 +2248,11 @@ function FornostApp({ currentUser }: { currentUser: any }) {
             edit={openEdit}
             remove={remove}
             openImport={() => setImportOpen(true)}
-            canWrite={currentUser.role !== "Viewer"}
+            canWrite={canWriteModule(currentUser,active)}
             createAudit={createAudit}
             deleteAudit={deleteAudit}
             canDeleteAudit={currentUser.role === "Admin"}
+            showReadiness={!scoped}
             go={navigateToModule}
           />
         ) : (
@@ -2252,7 +2265,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
               </div>
               <div className="actions">
                 {dataModules.includes(active) &&
-                  currentUser.role !== "Viewer" && (
+                  canWriteModule(currentUser,active) && (
                     <button
                       className="ghost"
                       onClick={() => setImportOpen(true)}
@@ -2268,7 +2281,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
                 >
                   {u.csv}
                 </button>
-                {currentUser.role !== "Viewer" && (
+                {canWriteModule(currentUser,active) && (
                   <button className="primary" onClick={() => openNew()}>
                     {u.new}
                   </button>
@@ -2278,10 +2291,10 @@ function FornostApp({ currentUser }: { currentUser: any }) {
             {active === "Risk Assessment" && (
               <RiskOverview rows={by("Risk Assessment")} lang={lang} />
             )}
-            {["BIA","Varlık Envanteri","Uyum","Kontroller"].includes(active) && (
+            {!scoped && ["BIA","Varlık Envanteri","Uyum","Kontroller"].includes(active) && (
               <CoreModuleOverview module={active} rows={by(active)} allRows={rows} lang={lang}/>
             )}
-            {active === "Kontroller" && (
+            {!scoped && active === "Kontroller" && (
               <details className="module-analysis-disclosure" key="control-analysis">
                 <summary><span><b>{lang === "tr" ? "Kontrol güvencesi ve etki analizi" : "Control assurance & impact analysis"}</b><small>{lang === "tr" ? "Güvence skorları, kanıt zinciri ve öncelikli aksiyonlar" : "Assurance scores, evidence lineage and priority actions"}</small></span></summary>
                 <ControlAssuranceWorkspace rows={rows} lang={lang} go={navigateToModule} />
@@ -2314,7 +2327,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
                     edit={openEdit}
                     remove={remove}
                     columns={selectedColumnKeys}
-                    canWrite={currentUser.role !== "Viewer"}
+                    canWrite={canWriteModule(currentUser,active)}
                     canDelete={currentUser.role === "Admin"}
                   />
                 ) : (
@@ -2326,7 +2339,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
                     remove={remove}
                     viewEvidence={setPreviewEvidence}
                     columns={selectedColumnKeys}
-                    canWrite={currentUser.role !== "Viewer"}
+                    canWrite={canWriteModule(currentUser,active)}
                     canDelete={currentUser.role === "Admin"}
                   />
                 )}
@@ -3790,6 +3803,7 @@ function AuditModule({
   createAudit,
   deleteAudit,
   canDeleteAudit,
+  showReadiness = true,
   go,
 }: {
   rows: Row[];
@@ -3815,6 +3829,7 @@ function AuditModule({
   }) => Promise<boolean>;
   deleteAudit: (audit: AuditPortfolioItem) => Promise<void>;
   canDeleteAudit: boolean;
+  showReadiness?: boolean;
   go: (module: string) => void;
 }) {
   const tr = lang === "tr",
@@ -3876,7 +3891,7 @@ function AuditModule({
           </div>
         </section>
         <AuditOverview rows={portfolioRows} lang={lang} />
-        <AuditReadinessGate lang={lang} records={[...portfolioRows,...evidenceRows]} />
+        {showReadiness && <AuditReadinessGate lang={lang} records={[...portfolioRows,...evidenceRows]} />}
         <section className="audit-portfolio">
           {!audits.length && (
             <div className="audit-portfolio-empty">

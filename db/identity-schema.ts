@@ -30,3 +30,12 @@ export const localSessions = sqliteTable("local_sessions", {
   createdAt: text("created_at").notNull(),
   lastSeenAt: text("last_seen_at").notNull(),
 });
+
+export const userModuleAccess = sqliteTable("user_module_access", {
+  userId: text("user_id").primaryKey(), policyJson: text("policy_json").notNull(),
+  updatedAt: text("updated_at").notNull(), updatedBy: text("updated_by").notNull(),
+});
+export const userAccessEvents = sqliteTable("user_access_events", {
+  id: text("id").primaryKey(), userId: text("user_id").notNull(), actor: text("actor").notNull(),
+  beforeJson: text("before_json").notNull(), afterJson: text("after_json").notNull(), createdAt: text("created_at").notNull(),
+});

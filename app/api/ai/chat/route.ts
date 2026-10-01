@@ -59,7 +59,7 @@ export async function POST(req: NextRequest) {
   let chain;
   try{chain=await getAiProviderChain(env,row);}catch(error){return json({error:error instanceof Error?error.message:"AI sağlayıcı zinciri hazırlanamadı."},409);}
   const dataPolicy=getEffectiveAiDataPolicy(chain);
-  const context = await buildGrcContext(env.DB, question,dataPolicy.maxDataClassification);
+  const context = await buildGrcContext(env.DB, question,dataPolicy.maxDataClassification, access.actor);
   const promptHash = await sha256(question);
   const started = Date.now();
   const system = `You are Fornost AI, the read-only governance, risk, compliance and audit copilot inside Fornost GRC.
