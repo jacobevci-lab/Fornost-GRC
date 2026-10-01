@@ -2846,7 +2846,13 @@ function Field({
         : linkedRows
             .filter((r) => r.module === "BIA")
             .map((r) => r.data.process);
-    const options = [...new Set(source.filter(Boolean))];
+    const retainedValues = (k === "asset" && "category" in form
+      ? String(value).split(",").map((item) => item.trim())
+      : [String(value)]).filter(Boolean);
+    const options = [...new Set([...source.filter(Boolean), ...retainedValues])];
+    const optionLabel = (option: string) => source.includes(option)
+      ? option
+      : `${option} (${lang === "tr" ? "bağlı kayıt bulunamadı" : "linked record unavailable"})`;
     if (k === "asset" && "category" in form) {
       const selected = String(value)
         .split(",")
@@ -2876,7 +2882,7 @@ function Field({
           >
             {options.map((x) => (
               <option key={x} value={x}>
-                {x}
+                {optionLabel(x)}
               </option>
             ))}
           </select>
@@ -2900,7 +2906,7 @@ function Field({
           <option value="">{u.select}</option>
           {options.map((x) => (
             <option key={x} value={x}>
-              {x}
+              {optionLabel(x)}
             </option>
           ))}
         </select>
