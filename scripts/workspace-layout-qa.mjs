@@ -28,12 +28,17 @@ try {
     await page.locator('.language-switch:visible').getByRole('button', {name: locale.toUpperCase(), exact:true}).click();
     await page.waitForTimeout(200);
     const labels = await page.locator('nav button[aria-label]').evaluateAll(elements => elements.map(el => el.getAttribute('aria-label')));
-    for (const label of labels) {
-      await open(label);
-      const overflow = await page.evaluate(() => document.documentElement.scrollWidth - innerWidth);
-      assert.ok(overflow <= 4, `${locale}:${label} page overflow ${overflow}px`);
-      results.push({ locale, label, overflow });
-      await page.screenshot({path:`${output}/${locale}-module-${results.length}.png`});
+    for (const theme of ['dark','light']) {
+      if (await page.locator('html').getAttribute('data-theme') !== theme) await page.locator('.theme-toggle:visible').click();
+      for (const label of labels) {
+        await open(label);
+        const overflow = await page.evaluate(() => document.documentElement.scrollWidth - innerWidth);
+        assert.ok(overflow <= 4, `${locale}:${theme}:${label} page overflow ${overflow}px`);
+        results.push({ locale, theme, label, overflow });
+        await page.screenshot({path:`${output}/${locale}-${theme}-module-${results.length}.png`});
+      }
+      await page.reload({waitUntil:'domcontentloaded'});
+      await page.locator('.shell').waitFor();
     }
     // Close any copilot left open by the navigation sweep by reloading the shell.
     await page.reload({waitUntil:'domcontentloaded'});

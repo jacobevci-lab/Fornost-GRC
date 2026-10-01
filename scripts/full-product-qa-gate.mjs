@@ -225,7 +225,7 @@ if (!accessClientId || !accessClientSecret || !smokeEmail || !smokePassword) {
   throw new Error("Production QA gate requires Cloudflare Access and smoke-account credentials.");
 }
 
-const browser = await chromium.launch({ headless: true });
+const browser = await chromium.launch({ headless: true, executablePath: process.env.QA_CHROMIUM_PATH || undefined });
 let sidebarVerification = { passed: false, error: "not-run" };
 const responsiveLocaleVerifications = {};
 try {
