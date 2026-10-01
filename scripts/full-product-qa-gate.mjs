@@ -85,8 +85,7 @@ async function visibleLanguageControl(page, label) {
 }
 async function waitForApp(page) {
   await page.goto(baseUrl, { waitUntil: "domcontentloaded", timeout: 60_000 });
-  await page.locator("body").waitFor({ state: "visible", timeout: 15_000 });
-  await page.waitForTimeout(700);
+  await page.locator(".shell").waitFor({ state: "visible", timeout: 15_000 });
 }
 async function switchLocale(page, locale) {
   const expectedLang = locale === "en" ? "en" : "tr";

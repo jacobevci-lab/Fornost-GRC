@@ -139,6 +139,41 @@ await check('Evidence automation: source creation, edit, rule creation and disab
 await check('Read routes, invalid writes, exports and Viewer write boundaries',async()=>{
  for(const route of ['continuity','risk-appetite','policy-lifecycle','incidents','findings']){await request(viewer,`/api/${route}`);await request(viewer,`/api/${route}`,'POST',{action:'invalid'},403);await request(admin,`/api/${route}`,'POST',{action:'invalid'},400);const csv=await request(admin,`/api/${route}?format=csv`);assert.equal(typeof csv,'string');}
 });
+await check('Connected GRC opens exact core records and clears contextual filters',async()=>{
+ for(const moduleName of ['Risk Assessment','BIA','Varlık Envanteri','Uyum','Kontroller','Kanıtlar','Denetim Yönetimi']){
+  const seed=seedRows.find(x=>x.module===moduleName),code=seed.record_code;
+  await reset();await open('Connected GRC Map');await page.locator('.cg-filters select').selectOption(moduleName);await page.locator('.cg-filters input').fill(code);
+  const entry=page.locator('.cg-records>button').filter({hasText:code});await expect(entry).toHaveCount(1);await entry.click();
+  await page.locator('.cg-detail').getByRole('button',{name:'Open record ↗',exact:true}).click();
+  await expect(page.locator('.core-record-focus')).toContainText(code);
+  if(moduleName==='Denetim Yönetimi'){const name=JSON.parse(seed.data_json).auditName,total=seedRows.filter(x=>x.module===moduleName&&JSON.parse(x.data_json).auditName===name).length;await expect(page.locator('.audit-detail-kpis article').first().locator('b')).toHaveText(String(total))}
+  await expect(page.locator('.table-card .table-wrap tbody tr')).toHaveCount(1);
+  await page.locator('.table-card .table-wrap tbody tr').getByRole('button',{name:'Edit',exact:true}).click();
+  await expect(page.locator('.modal[role=dialog]')).toBeVisible();await page.locator('.modal[role=dialog]').getByRole('button',{name:'Cancel',exact:true}).click();
+  await page.locator('.core-record-focus').getByRole('button',{name:'Show all records',exact:true}).click();await expect(page.locator('.core-record-focus')).toHaveCount(0);
+ }
+});
+await check('My Work: exact ownership, Today, pagination after 80, mobile due dates and CAPA navigation',async()=>{
+ const seed=JSON.parse(seedRows.find(x=>x.module==='Kontroller').data_json),prefix=`QA Inbox ${Date.now()}`;
+ await reset();
+ const fixtures=Array.from({length:83},(_,i)=>({...seed,controlTitle:`${prefix} ${String(i).padStart(3,'0')}`,owner:i===82?`not-${owner}`:owner,status:'Aktif',dueDate:today}));
+ await request(admin,'/api/grc','POST',{module:'Kontroller',rows:fixtures},201);
+ try {
+  await open('My Work');await page.locator('.mw2-refresh').waitFor();await expect(page.locator('.mw2-refresh')).toBeEnabled();
+  await page.getByRole('textbox',{name:'Search work',exact:true}).fill(prefix);await page.locator('.mw2-filters').getByRole('button',{name:/^Today/}).click();
+  await expect(page.locator('.mw2-pagination')).toContainText('1–20 / 82');
+  for(let i=0;i<4;i++)await page.locator('.mw2-pagination').getByRole('button',{name:'Next',exact:true}).click();
+  await expect(page.locator('.mw2-pagination')).toContainText('81–82 / 82');await expect(page.locator('.mw2-item')).toHaveCount(2);
+  await expect(page.locator('.mw2-list')).not.toContainText(`${prefix} 082`);
+  await page.setViewportSize({width:390,height:844});await expect(page.locator('.mw2-item time').first()).toBeVisible();await page.screenshot({path:`${out}/my-work-mobile-due.png`});await page.setViewportSize({width:1536,height:960});
+  await page.locator('.mw2-item').filter({hasText:`${prefix} 081`}).click();await expect(page.locator('.core-record-focus')).toBeVisible();await expect(page.locator('.table-card .table-wrap tbody tr')).toHaveCount(1);await expect(page.locator('.table-card .table-wrap')).toContainText(`${prefix} 081`);
+  await open('My Work');await expect(page.locator('.mw2-refresh')).toBeEnabled();await page.getByRole('textbox',{name:'Search work',exact:true}).fill('QA access review incomplete');await page.locator('.mw2-filters').getByRole('button',{name:/^All/}).click();
+  await expect(page.locator('.mw2-item')).toHaveCount(1);await page.locator('.mw2-item').click();await expect(page.locator('.finding-page')).toBeVisible();await expect(page.locator('.finding-table tbody tr')).toHaveCount(1);
+ } finally {
+  const rows=(await request(admin,'/api/grc')).rows.filter(x=>JSON.parse(x.data_json).controlTitle?.startsWith(prefix));
+  for(const row of rows)await request(admin,`/api/grc?id=${row.id}`,'DELETE');
+ }
+});
 await reset();await open('AI Governance');
 const aiTabs=page.locator('.fornost-ai-tabs>button'),aiCount=await aiTabs.count();
 await check('AI governance exposes its complete navigation',()=>assert.ok(aiCount>=30));

@@ -1,6 +1,10 @@
 "use client";
 import { dueTimestamp } from "./due-date";
 import { hasRecoveryTarget } from "./bia-recovery";
+import { isCoreRecordRequest, resolveCoreRecord, coreRecordReference } from "./core-record-focus";
+import { FORNOST_FOCUS_EVENT, peekPendingFornostFocus, consumePendingFornostFocus, type FornostNavigationRequest } from "./navigation-focus";
+import { sameDomainModule } from "./domain-identity";
+import "./core-record-focus.css";
 /* eslint-disable @next/next/no-img-element -- evidence images are authenticated runtime URLs and cannot use the static image optimizer */
 
 import NavIcon from "./nav-icon";
@@ -1297,6 +1301,17 @@ function FornostApp({ currentUser }: { currentUser: any }) {
     [recentModules, setRecentModules] = useState<string[]>([]);
   const labels = labelMap[lang],
     u = ui[lang];
+  const [recordRequest, setRecordRequest] = useState<FornostNavigationRequest | null>(null);
+  const [focusedRecord, setFocusedRecord] = useState<{ id: string; ref: string } | null>(null);
+  useEffect(() => {
+    const accept = (request: FornostNavigationRequest | null) => {
+      if (request && isCoreRecordRequest(request)) setRecordRequest(request);
+    };
+    const listener = (event: Event) => accept((event as CustomEvent<FornostNavigationRequest>).detail);
+    window.addEventListener(FORNOST_FOCUS_EVENT, listener);
+    accept(peekPendingFornostFocus());
+    return () => window.removeEventListener(FORNOST_FOCUS_EVENT, listener);
+  }, []);
   linkedRows = rows;
   catalogOptions = catalogs;
   useEffect(() => {
@@ -1376,8 +1391,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
       const r = await fetch(withBasePath("/api/grc"), { cache: "no-store" }),
         j = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(String(j.error || "GRC kayıtları yüklenemedi."));
-      setRows(
-        Array.isArray(j.rows)
+      const nextRows: Row[] = Array.isArray(j.rows)
           ? j.rows.map((x: any) => ({
               ...x,
               data: JSON.parse(x.data_json),
@@ -1385,8 +1399,9 @@ function FornostApp({ currentUser }: { currentUser: any }) {
               createdAt: x.createdAt || x.created_at,
               updatedAt: x.updatedAt || x.updated_at,
             }))
-          : [],
-      );
+          : [];
+      setRows(nextRows);
+      return nextRows;
     } catch (error) {
       setRows([]);
       setNotice(
@@ -1396,6 +1411,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
             ? "GRC kayıtları yüklenemedi."
             : "GRC records could not be loaded.",
       );
+      return null;
     }
   }, [lang]);
   const loadCatalogs = useCallback(async () => {
@@ -1423,7 +1439,25 @@ function FornostApp({ currentUser }: { currentUser: any }) {
     setColumnPickerOpen(false);
     setFilterPanelOpen(false);
     setQuery("");
+    setFocusedRecord(null);
   }, [active]);
+  useEffect(() => {
+    if (!recordRequest || !sameDomainModule(recordRequest.module, active)) return;
+    let cancelled = false;
+    void load().then(freshRows => {
+      if (cancelled) return;
+      if (freshRows) {
+        const target = resolveCoreRecord(freshRows, recordRequest);
+        setRegisterFilters({});
+        setQuery("");
+        setFocusedRecord({ id: target?.id || "", ref: target?.code || coreRecordReference(recordRequest) });
+        if (target?.module === "Denetim Yönetimi") setSelectedAudit(String(target.data.auditName || ""));
+      }
+      consumePendingFornostFocus(recordRequest.module);
+      setRecordRequest(null);
+    });
+    return () => { cancelled = true; };
+  }, [recordRequest, active, load]);
   const selectedColumnKeys =
     columnPreferences[active] || defaultRegisterColumnKeys(active);
   const visible = useMemo(
@@ -1431,10 +1465,11 @@ function FornostApp({ currentUser }: { currentUser: any }) {
       rows.filter(
         (r) =>
           r.module === active &&
+          (!focusedRecord?.id || r.id === focusedRecord.id) &&
           (!selectedAudit ||
             active !== "Denetim Yönetimi" ||
             r.data.auditName === selectedAudit) &&
-          JSON.stringify(r.data)
+          `${r.id} ${displayRecordCode(r)} ${JSON.stringify(r.data)}`
             .toLocaleLowerCase(lang === "tr" ? "tr-TR" : "en-US")
             .includes(
               query.toLocaleLowerCase(lang === "tr" ? "tr-TR" : "en-US"),
@@ -1443,7 +1478,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
             ([key, value]) => !value || String(r.data[key] ?? "") === value,
           ),
       ),
-    [rows, active, query, lang, selectedAudit, registerFilters],
+    [rows, active, query, lang, selectedAudit, registerFilters, focusedRecord],
   );
   function setModuleColumns(keys: string[]) {
     if (!keys.length) return;
@@ -2132,6 +2167,12 @@ function FornostApp({ currentUser }: { currentUser: any }) {
             <b>×</b>
           </div>
         )}
+        {focusedRecord && <section className="core-record-focus" role="status" aria-live="polite">
+          <div><strong>{focusedRecord.id && rows.some(row => row.id === focusedRecord.id)
+            ? (lang === "tr" ? "Seçili kayıt" : "Selected record")
+            : (lang === "tr" ? "Kayıt bulunamadı veya artık erişilemiyor" : "Record not found or no longer available")}</strong><span>{focusedRecord.ref}</span></div>
+          <button type="button" onClick={() => { setFocusedRecord(null); setQuery(""); setRegisterFilters({}); }}>{lang === "tr" ? "Tüm kayıtları göster" : "Show all records"}</button>
+        </section>}
         {active === "Ana Sayfa" ? (
           <Dashboard rows={rows} go={setActive} lang={lang} />
         ) : active === "Benim İşlerim" ? (
@@ -2162,7 +2203,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
             currentUser={currentUser}
             catalogs={catalogs}
             onCatalogChange={loadCatalogs}
-            onDataChange={load}
+            onDataChange={async () => { await load(); }}
             page={
               active === "Ana Veri Yönetimi"
                 ? "catalogs"
@@ -4054,7 +4095,7 @@ function AuditModule({
         )}
       </>
     );
-  const items = visible,
+  const items = rows.filter(row => row.data.auditName === selected),
     avg = items.length
       ? Math.round(
           items.reduce((n, r) => n + Number(r.data.progress || 0), 0) /
@@ -4124,7 +4165,7 @@ function AuditModule({
       </section>
       <AuditReadinessGate key={selected} lang={lang} auditName={selected} records={[...items,...evidenceRows]} />
       <AuditRequirementsTable
-        items={items}
+        items={visible}
         lang={lang}
         query={query}
         setQuery={setQuery}

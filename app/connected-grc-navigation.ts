@@ -1,6 +1,6 @@
 import type { ConnectedGrcRow } from "./connected-grc-model";
 
-export type ConnectedGrcFilterKey="riskRef"|"findingRef"|"controlRef"|"ruleRef";
+export type ConnectedGrcFilterKey="riskRef"|"findingRef"|"controlRef"|"ruleRef"|"recordRef";
 export type ConnectedGrcNavigation={module:string;ref:string;filterKey:ConnectedGrcFilterKey};
 
 const value=(input:unknown)=>String(input||"").trim();
@@ -10,6 +10,9 @@ const canonicalRuleRef=(input:unknown)=>first(input).replace(/^RULE:/i,"");
 export function connectedGrcNavigation(row:ConnectedGrcRow):ConnectedGrcNavigation|undefined{
  const targetModule=value(row.module),kind=value(row.data?.kind);
  if(!targetModule)return undefined;
+ if(["BIA","Varlık Envanteri","Uyum","Kanıtlar","Denetim Yönetimi"].includes(targetModule)&&!value(row.id).startsWith("enterprise:")){
+  const ref=value(row.id)||value(row.code);return ref?{module:targetModule,ref,filterKey:"recordRef"}:undefined;
+ }
  if(targetModule==="Risk Assessment"){
   const ref=value(row.id);return ref&&!ref.startsWith("enterprise:")?{module:targetModule,ref,filterKey:"riskRef"}:undefined;
  }
