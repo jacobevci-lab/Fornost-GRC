@@ -2,7 +2,7 @@
 
 The continuity workspace now uses a compact three-view toolbar, a labelled search, contextual empty states and grouped plan fields. Lifecycle actions are localized and respect role/assignment boundaries. Confirmation dialogs show the exact required phrase and only request evidence when required. Native dialogs provide modal focus and Escape dismissal. Accepted compact typography, orange dark accents and warm light surfaces are retained.
 
-QA uncovered and corrected two functional issues: regulatory impact transitions passed the routing action into the domain validator instead of the selected operation; numeric zero was rendered as an empty field in core record forms. Contrast was strengthened for small text on warm light surfaces. The continuity modal position and phone metric grid were corrected after screenshot review.
+QA uncovered and corrected two functional issues: regulatory impact transitions passed the routing action into the domain validator instead of the selected operation; numeric zero was rendered as an empty field in core record forms. Contrast was strengthened for small text on warm light surfaces. The continuity modal position and phone metric grid were corrected after screenshot review. The same sidebar-style collision in the AI section chooser was removed so that workspace content remains visible below a bounded horizontal selector.
 
 ## Reproducible scope
 

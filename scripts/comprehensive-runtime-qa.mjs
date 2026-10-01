@@ -46,6 +46,7 @@ await check('Evidence Library UI upload, file integrity, edit and delete',async(
  const bytes=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=','base64');
  await dialog.locator('input[type=file]').setInputFiles({name:'qa-evidence.png',mimeType:'image/png',buffer:bytes});
  for(const [name,value] of Object.entries({evidenceTitle:'QA uploaded evidence',controlRef:'A.5.18',owner,period:today.slice(0,7)}))await dialog.locator(`[name=${name}]`).fill(value);
+ await dialog.locator('[name=status]').selectOption('Taslak');
  const response=page.waitForResponse(r=>r.url().endsWith('/api/evidence')&&r.request().method()==='POST').catch(()=>null);await dialog.locator('.form-actions .primary').click();const r=await response;assert.equal(r.status(),201,await r.text());const created=await r.json();assert.match(created.contentSha256,/^[a-f0-9]{64}$/);await dialog.waitFor({state:'hidden'});
  const saved=(await request(admin,'/api/grc')).rows.find(x=>x.id===created.id),data=JSON.parse(saved.data_json);const downloaded=await admin.request.get(`${base}/api/evidence?key=${encodeURIComponent(data.fileKey)}`);assert.equal(downloaded.status(),200);assert.deepEqual(await downloaded.body(),bytes);
  const row=page.locator('tr').filter({has:page.getByRole('button',{name:saved.record_code,exact:true})});await row.getByRole('button',{name:'Edit',exact:true}).click();await dialog.locator('[name=evidenceTitle]').fill('QA evidence updated');const update=page.waitForResponse(r=>r.url().endsWith('/api/grc')&&r.request().method()==='PATCH').catch(()=>null);await dialog.locator('.form-actions .primary').click();assert.equal((await update).status(),200);await dialog.waitFor({state:'hidden'});await page.screenshot({path:`${out}/evidence-uploaded.png`});
@@ -133,7 +134,7 @@ await check('AI governance exposes its complete navigation',()=>assert.ok(aiCoun
 for(const theme of ['light','dark']){
  if(await page.locator('html').getAttribute('data-theme')!==theme)await page.locator('.theme-toggle:visible').click();
  for(let i=0;i<aiCount;i++)await check(`AI workspace render: ${theme} / ${i+1}`,async()=>{
-  await aiTabs.nth(i).click();await page.waitForTimeout(450);const panel=page.locator('.fornost-ai-panel');assert.equal(await aiTabs.nth(i).getAttribute('class'),'active');assert.ok(await panel.getAttribute('data-ai-view'));assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)<=4);await page.screenshot({path:`${out}/ai-${theme}-${i+1}.jpg`,type:'jpeg',quality:65});
+  await aiTabs.nth(i).click();await page.waitForTimeout(450);const panel=page.locator('.fornost-ai-panel');assert.equal(await aiTabs.nth(i).getAttribute('class'),'active');assert.ok(await panel.getAttribute('data-ai-view'));assert.ok((await page.locator('.fornost-ai-tabs').boundingBox()).height<=64,'AI chooser leaves room for workspace content');assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)<=4);await page.screenshot({path:`${out}/ai-${theme}-${i+1}.jpg`,type:'jpeg',quality:65});
  });
 }
 await page.locator('.fornost-ai-panel button[aria-label="Kapat"]').click();
