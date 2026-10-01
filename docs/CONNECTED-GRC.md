@@ -6,7 +6,7 @@ Connected GRC, Fornost içindeki risk, varlık, BIA, kontrol, kanıt, denetim, t
 
 İlişki güvence motoru yalnızca “en az bir bağlantı” kontrolü yapmaz. Risk için varlık veya süreç bağını; kontrol için kanıt ve framework bağlarını; kanıt için kontrol bağını; denetim için kontrol ve kanıt izini ayrı zorunlu ilişki grupları olarak ölçer. Kayıtlar tam, kısmi veya eksik olarak puanlanır. Her eksik ilişki, tamamlanması gereken doğru modüle yönlendiren aksiyon üretir.
 
-Alan bazlı posture kartları Risk, Kontrol, Kanıt ve Denetim kapsamlarının tamlık yüzdesini; aksiyon kuyruğu ise en düşük puanlı kayıtları önce gösterir. Böylece ilişki sayısı ile gerçek güvence bütünlüğü birbirinden ayrılır.
+Eksik bağlantılar sekmesi, tamamlanması gereken ilişkileri ve ilgili kaydı açan aksiyonları gösterir. Böylece ilişki sayısı ile gerçek güvence bütünlüğü birbirinden ayrılır.
 
 ## Davranış
 
@@ -14,7 +14,9 @@ Alan bazlı posture kartları Risk, Kontrol, Kanıt ve Denetim kapsamlarının t
 - İlişkileri `risk-asset`, `risk-process`, `control-evidence`, `audit-control`, `audit-risk`, `audit-evidence`, `asset-vendor` ve `control-framework` tipleriyle sınıflandırır.
 - Kaynak modül ve hedef modül kuralları yanlış pozitif eşleşmeleri engeller; aynı ilişki yinelenmez.
 - Kaynak veya hedef düğümden ilgili canlı modüle geçilir.
-- Modül yoğunluğu, toplam düğüm, doğrulanmış bağlantı, bağlı kayıt, bağlantısız kayıt ve çözülmeyen referans KPI'ları hesaplanır.
+- İlk görünümde kayıt, bağlantı ve bağlantısız kayıt sayıları özetlenir. Kayıt listesi ad/kod ve modülle filtrelenir; 10 kayıtlık sayfalar halinde gezilir.
+- Seçili kaydın doğrudan gelen/giden ilişkileri gösterilir; bağlantılar sekizerli açılır. Kayıt açma eylemleri mevcut odaklı navigasyonu kullanır.
+- Eksik bağlantılar ve güvence işlemleri ayrı sekmelerdedir. Operasyonel iş kuyruğu ve yönetişim bileşenleri yalnız güvence sekmesi açıldığında yüklenir.
 - Risk, kontrol, kanıt ve denetim kayıtları için beklenen ilişki zinciri ölçülür; güvence izlenebilirliği yüzdesi ve önceliklendirilmiş boşluk kuyruğu üretilir.
 - Boşluk kartı kayıt sahibini ilgili canlı modüle götürür; değerlendirme salt okunur kalır ve otomatik veri değişikliği yapmaz.
 - Hedefi bulunamayan referanslar ayrı inceleme kuyruğunda kaynak kodu, alan ve değer ile gösterilir.

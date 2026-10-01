@@ -27,14 +27,14 @@ test("Connected GRC keeps unsupported or ambiguous records on safe module-level 
  assert.equal(connectedGrcNavigation(row("","missing")),undefined);
 });
 
-test("relationship register and unresolved references use contextual record navigation",()=>{
+test("record explorer and unresolved references use contextual record navigation",()=>{
  assert.match(connected,/import \{ connectedGrcNavigation \} from "\.\/connected-grc-navigation"/);
  assert.match(connected,/import \{ navigateToFornost \} from "\.\/navigation-focus"/);
  assert.match(connected,/function openRecord\(row:ConnectedGrcRow\)/);
  assert.match(connected,/source:"connected-grc-register"/);
  assert.match(connected,/filter:\{\[target\.filterKey\]:target\.ref\}/);
- assert.match(connected,/onClick=\{\(\)=>openRecord\(link\.source\)\}/);
- assert.match(connected,/onClick=\{\(\)=>openRecord\(link\.target\)\}/);
+ assert.match(connected,/onClick=\{\(\)=>openRecord\(selected\)\}/);
+ assert.match(connected,/onClick=\{\(\)=>openRecord\(other\)\}/);
  assert.match(connected,/onClick=\{\(\)=>openRecord\(item\.source\)\}/);
 });
 
