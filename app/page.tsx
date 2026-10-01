@@ -1,4 +1,5 @@
 "use client";
+import { dueTimestamp } from "./due-date";
 /* eslint-disable @next/next/no-img-element -- evidence images are authenticated runtime URLs and cannot use the static image optimizer */
 
 import NavIcon from "./nav-icon";
@@ -3012,7 +3013,7 @@ function MyWork({rows,currentUser,go,lang}:{rows:Row[];currentUser:any;go:(modul
     return currentUser?.role==="Admin"||owners.some(owner=>identity.some(me=>owner.includes(me)||me.includes(owner)));
   }).map(row=>{
     const due=String(row.data.dueDate||row.data.nextReview||row.data.nextAssessment||row.data.nextTestDate||row.data.reviewDate||row.data.expiresAt||"");
-    const dueTime=due?new Date(due).getTime():Number.POSITIVE_INFINITY;
+    const dueTime=dueTimestamp(due);
     const title=String(row.data.title||row.data.process||row.data.controlTitle||row.data.requirement||row.data.evidenceTitle||row.data.vendorName||displayRecordCode(row));
     return {row,due,dueTime,title,status:String(row.data.status||row.data.reviewStatus||row.data.implementation||"—")};
   }).sort((a,b)=>a.dueTime-b.dueTime).slice(0,12);

@@ -1,4 +1,5 @@
 "use client";
+import { dueTimestamp } from "./due-date";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
@@ -86,10 +87,6 @@ const MODULE_LABELS: Record<string, { tr: string; en: string }> = {
 
 const clean = (value: unknown) => String(value ?? "").trim();
 const normalized = (value: unknown) => clean(value).normalize("NFKC").toLocaleLowerCase("tr-TR");
-const dateValue = (value: unknown) => {
-  const time = new Date(clean(value)).getTime();
-  return Number.isFinite(time) ? time : Number.POSITIVE_INFINITY;
-};
 function currentLanguage(): Lang {
   return document.querySelector(".language-switch button.active")?.textContent?.trim().toLowerCase() === "en" ? "en" : "tr";
 }
@@ -220,7 +217,7 @@ function toneFor(priority: number): QueueItem["tone"] {
 }
 function itemFromRow(row: Row, user: User, now: number, lang: Lang, completed = false): QueueItem {
   const due = dueValue(row);
-  const dueTime = dateValue(due);
+  const dueTime = dueTimestamp(due);
   const priority = completed ? 4 : priorityFor(row, dueTime, now);
   return {
     row,

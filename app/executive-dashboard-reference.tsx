@@ -1,4 +1,5 @@
 "use client";
+import { dueTimestamp } from "./due-date";
 
 import { Fragment, useEffect, useMemo, useState } from "react";
 import {
@@ -136,7 +137,7 @@ export default function ExecutiveAssurancePanel({
   );
   const overdueAuditRows = audits.filter((row) => {
     const due = clean(row.data.dueDate || row.data.targetDate || row.data.endDate);
-    return Boolean(due) && new Date(due).getTime() < new Date().getTime() && !isClosed(row.data.status);
+    return Boolean(due) && dueTimestamp(due) < Date.now() && !isClosed(row.data.status);
   });
   const overdueAudits = overdueAuditRows.length;
 

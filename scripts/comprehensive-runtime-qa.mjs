@@ -41,6 +41,17 @@ for(const [moduleName,label,key] of [['Risk Assessment','Risk Assessment','title
  const found=(await request(admin,'/api/grc')).rows.find(x=>x.id===created.id);assert.equal(JSON.parse(found.data_json)[key],data[key]+' edited');
  await page.screenshot({path:`${out}/ui-${moduleName.replaceAll(' ','-')}.png`});page.once('dialog',d=>d.accept());const del=page.waitForResponse(r=>r.url().includes('/api/grc?id=')&&r.request().method()==='DELETE').catch(()=>null);await row.getByRole('button',{name:'Delete',exact:true}).click();assert.equal((await del).status(),200);assert.ok(!(await request(admin,'/api/grc')).rows.some(x=>x.id===created.id));
 });
+await check('Dashboard audit deadlines: today remains current, yesterday overdue, closed excluded',async()=>{
+ const seed=seedRows.find(x=>x.module==='Denetim Yönetimi');assert.ok(seed);
+ const data={...JSON.parse(seed.data_json),auditName:'QA deadline regression',requirementTitle:'QA deadline regression',dueDate:today,status:'Devam Ediyor'};
+ async function count(){await reset();await open('Dashboard');return Number(await page.locator('.audit-remediation-metrics button').filter({hasText:'Overdue audits'}).locator('b').innerText())}
+ const baseline=await count();const created=await request(admin,'/api/grc','POST',{module:'Denetim Yönetimi',data},201);
+ try {
+  assert.equal(await count(),baseline,'Today is not overdue');
+  data.dueDate=future(-1);await request(admin,'/api/grc','PATCH',{id:created.id,data});assert.equal(await count(),baseline+1,'Yesterday is overdue');
+  data.status='Tamamlandı';await request(admin,'/api/grc','PATCH',{id:created.id,data});assert.equal(await count(),baseline,'Completed requirements are excluded');
+ } finally {await request(admin,`/api/grc?id=${created.id}`,'DELETE')}
+});
 await check('Evidence Library UI upload, file integrity, edit and delete',async()=>{
  await reset();await open('Evidence Library');await page.locator('.actions .primary').click();const dialog=page.locator('.modal[role=dialog]');await dialog.waitFor();
  const bytes=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=','base64');
