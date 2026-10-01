@@ -26,7 +26,8 @@ async function queueMandatoryRetest(db:D1Database,exception:ExceptionRow,reason:
  if(!exception.finding_id||!exception.rule_id)return "";
  const existing=await db.prepare("SELECT id FROM continuous_assurance_work_items WHERE finding_id=? AND action='control-retest' AND status IN ('pending-review','approved-awaiting-retest') ORDER BY created_at DESC LIMIT 1").bind(exception.finding_id).first<{id:string}>();
  if(existing)return existing.id;
- const id=`CAW-${crypto.randomUUID()}`,decision={source:"assurance-exception",exceptionId:exception.id,lifecycleReason:reason,mandatory:true,controlRef:exception.control_ref,riskRef:exception.risk_ref};
+ const linkedRisk=await riskRecord(db,exception.risk_ref||exception.finding_id);
+ const id=`CAW-${crypto.randomUUID()}`,decision={source:"assurance-exception",exceptionId:exception.id,lifecycleReason:reason,mandatory:true,controlRef:exception.control_ref,riskRef:linkedRisk?.id||exception.risk_ref||exception.finding_id};
  await db.prepare("INSERT INTO continuous_assurance_work_items(id,finding_id,rule_id,action,status,decision_json,created_at,updated_at,actor) VALUES(?,?,?,'control-retest','pending-review',?,?,?,?)").bind(id,exception.finding_id,exception.rule_id,JSON.stringify(decision),stamp,stamp,actor).run();
  return id;
 }

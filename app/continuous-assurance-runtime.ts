@@ -1,3 +1,5 @@
+import { assessRetestRun, parseAssuranceObject, type RetestOutcome, type RetestRun } from "./assurance-retest";
+
 export type AssuranceRunStatus = "pass" | "fail" | "error";
 
 export type AssuranceWorkRow = {
@@ -66,8 +68,8 @@ export async function ensureAssuranceWorkSchema(db: D1Database) {
 }
 
 function asNumber(value: unknown, fallback: number) {
-  const parsed = Number(value);
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+  const parsed = typeof value === "number" || typeof value === "string" && value.trim() ? Number(value) : NaN;
+  return Number.isInteger(parsed) && parsed >= 1 && parsed <= 5 ? parsed : fallback;
 }
 
 function residualLevel(score: number) {
@@ -79,9 +81,9 @@ function residualLevel(score: number) {
 
 export function buildResidualRiskReassessment(data: Record<string, unknown>, status: AssuranceRunStatus, runId: string, at: string) {
   const inherentLikelihood = asNumber(data.inherentLikelihood ?? data.likelihood, 4);
-  const inherentImpact = asNumber(data.inherentImpact ?? data.impact ?? data.calculatedImpact, 4);
-  const hasApprovedResidualLikelihood = Number.isFinite(Number(data.residualLikelihood)) && Number(data.residualLikelihood) > 0;
-  const hasApprovedResidualImpact = Number.isFinite(Number(data.residualImpact)) && Number(data.residualImpact) > 0;
+  const inherentImpact = asNumber(data.inherentImpact ?? data.impact, 4);
+  const hasApprovedResidualLikelihood = asNumber(data.residualLikelihood, 0) > 0;
+  const hasApprovedResidualImpact = asNumber(data.residualImpact, 0) > 0;
   const previousResidualLikelihood = hasApprovedResidualLikelihood ? Number(data.residualLikelihood) : inherentLikelihood;
   const previousResidualImpact = hasApprovedResidualImpact ? Number(data.residualImpact) : inherentImpact;
 
@@ -91,7 +93,7 @@ export function buildResidualRiskReassessment(data: Record<string, unknown>, sta
   const residualLikelihood = status === "fail" ? inherentLikelihood : previousResidualLikelihood;
   const residualImpact = status === "fail" ? inherentImpact : previousResidualImpact;
   const residualScore = Math.max(1, Math.round(residualLikelihood * residualImpact));
-  const reviewRequired = status !== "pass" || !hasApprovedResidualLikelihood || !hasApprovedResidualImpact;
+  const reviewRequired = status !== "pass" || data.residualRiskReviewRequired === true || !hasApprovedResidualLikelihood || !hasApprovedResidualImpact;
   const existingReviewRequestedAt = String(data.riskReviewRequestedAt || "").trim();
   return {
     ...data,
@@ -108,7 +110,7 @@ export function buildResidualRiskReassessment(data: Record<string, unknown>, sta
     reassessmentSource: "Continuous Assurance",
     reassessmentReason: status === "pass"
       ? hasApprovedResidualLikelihood && hasApprovedResidualImpact
-        ? "Verified remediation passed the post-closure control re-test; the previously approved residual rating was preserved."
+        ? "Verified remediation passed the post-closure control re-test; the previous residual rating and any pending independent review were preserved."
         : "Verified remediation passed the post-closure control re-test; no approved residual rating existed, so no automatic risk reduction was inferred."
       : status === "fail"
         ? "Post-closure control re-test failed; residual exposure returned to the inherent baseline and requires risk-owner review."
@@ -116,25 +118,7 @@ export function buildResidualRiskReassessment(data: Record<string, unknown>, sta
   };
 }
 
-async function updateLinkedRiskAfterRetest(db: D1Database, findingId: string, status: AssuranceRunStatus, runId: string, at: string) {
-  try {
-    const record = await db.prepare("SELECT data_json FROM simple_grc_records WHERE id=? AND module='Risk Assessment'").bind(findingId).first<{ data_json: string }>();
-    if (!record) return;
-    const data = JSON.parse(record.data_json || "{}") as Record<string, unknown>;
-    const reassessed = buildResidualRiskReassessment(data, status, runId, at);
-    await db.prepare("UPDATE simple_grc_records SET data_json=?,updated_at=? WHERE id=?").bind(JSON.stringify(reassessed), at, findingId).run();
-  } catch {
-    // Risk linkage is best-effort here; the work item still records the re-test outcome for investigation.
-  }
-}
-
-async function reopenAutomationFindingAfterFailedRetest(db: D1Database, findingId: string, at: string) {
-  try {
-    await db.prepare("UPDATE evidence_automation_findings SET status='acknowledged',occurrence_count=occurrence_count+1,updated_at=? WHERE id=? AND status='closed'").bind(at, findingId).run();
-  } catch {
-    // Older deployments may not have the automation finding table yet.
-  }
-}
+type RetestFinding = { id: string; rule_id: string; status: string; closed_at: string | null; updated_at: string; closure_evidence_ref: string | null; closure_evidence_sha256: string | null };
 
 export async function reconcileApprovedRetests(db: D1Database, now = new Date()) {
   await ensureAssuranceWorkSchema(db);
@@ -142,20 +126,66 @@ export async function reconcileApprovedRetests(db: D1Database, now = new Date())
   let reconciled = 0;
   for (const item of approved.results) {
     const since = item.reviewed_at || item.updated_at || item.created_at;
-    let run: { id: string; status: string; evidence_id: string | null; created_at: string } | null = null;
-    try {
-      run = await db.prepare("SELECT id,status,evidence_id,created_at FROM evidence_automation_runs WHERE rule_id=? AND created_at>? ORDER BY created_at ASC LIMIT 1").bind(item.rule_id, since).first<{ id: string; status: string; evidence_id: string | null; created_at: string }>();
-    } catch {
-      continue;
-    }
+    const run = await db.prepare("SELECT id,status,evidence_id,created_at,response_hash,detail,error_code FROM evidence_automation_runs WHERE rule_id=? AND created_at>? AND created_at<=? ORDER BY created_at ASC,rowid ASC LIMIT 1")
+      .bind(item.rule_id, since, now.toISOString()).first<RetestRun>();
     if (!run) continue;
-    const normalized: AssuranceRunStatus = run.status === "pass" ? "pass" : run.status === "fail" ? "fail" : "error";
-    const finalStatus = normalized === "pass" ? "completed" : normalized === "fail" ? "failed-retest" : "retest-error";
-    const at = run.created_at || now.toISOString();
-    await db.prepare("UPDATE continuous_assurance_work_items SET status=?,result_ref=?,completed_at=?,updated_at=? WHERE id=? AND status='approved-awaiting-retest'").bind(finalStatus, run.id, at, at, item.id).run();
-    await updateLinkedRiskAfterRetest(db, item.finding_id, normalized, run.id, at);
-    if (normalized === "fail") await reopenAutomationFindingAfterFailedRetest(db, item.finding_id, at);
-    reconciled += 1;
+    const decision = parseAssuranceObject(item.decision_json) || {};
+    const riskRef = typeof decision.riskRef === "string" && decision.riskRef ? decision.riskRef : item.finding_id;
+    const [rule, finding, risk, evidence, active] = await Promise.all([
+      db.prepare("SELECT freshness_hours FROM evidence_automation_rules WHERE id=?").bind(item.rule_id).first<{ freshness_hours: number }>(),
+      db.prepare("SELECT id,rule_id,status,closed_at,updated_at,closure_evidence_ref,closure_evidence_sha256 FROM evidence_automation_findings WHERE id=?").bind(item.finding_id).first<RetestFinding>(),
+      db.prepare("SELECT id,data_json,updated_at FROM simple_grc_records WHERE id=? AND module='Risk Assessment'").bind(riskRef).first<{ id: string; data_json: string; updated_at: string }>(),
+      run.evidence_id ? db.prepare("SELECT data_json FROM simple_grc_records WHERE id=? AND module='Kanıtlar'").bind(run.evidence_id).first<{ data_json: string }>() : Promise.resolve(null),
+      db.prepare("SELECT id FROM evidence_automation_findings WHERE rule_id=? AND status!='closed'").bind(item.rule_id).first<{ id: string }>(),
+    ]);
+    const riskData = risk ? parseAssuranceObject(risk.data_json) : null;
+    const assessment = assessRetestRun(run, evidence?.data_json || null, Number(rule?.freshness_hours), now);
+    const outcome: RetestOutcome = { runId: run.id, testStatus: run.status, ...assessment,
+      evidenceId: run.evidence_id, evaluatedAt: run.created_at, riskId: risk?.id || null,
+      riskUpdate: !risk ? "missing" : !riskData ? "invalid" : Date.parse(String(riskData.lastReassessedAt || "")) > Date.parse(run.created_at) ? "newer-review-preserved" : "applied",
+      findingAction: "none", followUpFindingId: null };
+    if (!rule || !finding || finding.rule_id !== item.rule_id) { outcome.status = "error"; outcome.reason = "source-unavailable"; outcome.riskUpdate = "not-applied"; }
+    else if (!risk) { outcome.status = "error"; outcome.reason = "risk-missing"; }
+    else if (!riskData) { outcome.status = "error"; outcome.reason = "risk-data-invalid"; }
+    if (outcome.status === "pass" && !(decision.source === "assurance-exception" && decision.mandatory === true)
+      && (finding?.status !== "closed" || !finding.closure_evidence_ref || !/^[a-f0-9]{64}$/i.test(finding.closure_evidence_sha256 || ""))) {
+      outcome.status = "error"; outcome.reason = "remediation-unverified";
+    }
+    const reopen = outcome.status === "fail" && finding?.status === "closed" && !active
+      && (!finding.closed_at || finding.closed_at <= run.created_at);
+    if (outcome.status === "fail") {
+      if (active) { outcome.findingAction = "linked-open-finding"; outcome.followUpFindingId = active.id; }
+      else if (reopen) { outcome.findingAction = "reopened"; outcome.followUpFindingId = item.finding_id; }
+      else if (finding?.closed_at && finding.closed_at > run.created_at) outcome.findingAction = "newer-closure-preserved";
+    }
+    const finalStatus = outcome.status === "pass" ? "completed" : outcome.status === "fail" ? "failed-retest" : "retest-error";
+    // A unique claim token plus snapshot guards make concurrent reconciliation idempotent.
+    // A write failure rolls back the work status as well as the risk/finding changes.
+    const token = crypto.randomUUID(), at = now.toISOString();
+    const decisionJson = JSON.stringify({ ...decision, retestOutcome: outcome, reconciliationToken: token });
+    const guards: string[] = [], guardValues: (string | number | null)[] = [];
+    if (rule) { guards.push("EXISTS(SELECT 1 FROM evidence_automation_rules WHERE id=? AND freshness_hours=?)"); guardValues.push(item.rule_id, rule.freshness_hours); }
+    else { guards.push("NOT EXISTS(SELECT 1 FROM evidence_automation_rules WHERE id=?)"); guardValues.push(item.rule_id); }
+    if (evidence && run.evidence_id) { guards.push("EXISTS(SELECT 1 FROM simple_grc_records WHERE id=? AND module='Kanıtlar' AND data_json=?)"); guardValues.push(run.evidence_id, evidence.data_json); }
+    else if (run.evidence_id) { guards.push("NOT EXISTS(SELECT 1 FROM simple_grc_records WHERE id=? AND module='Kanıtlar')"); guardValues.push(run.evidence_id); }
+    if (risk) { guards.push("EXISTS(SELECT 1 FROM simple_grc_records WHERE id=? AND module='Risk Assessment' AND data_json=? AND updated_at=?)"); guardValues.push(risk.id, risk.data_json, risk.updated_at); }
+    else { guards.push("NOT EXISTS(SELECT 1 FROM simple_grc_records WHERE id=? AND module='Risk Assessment')"); guardValues.push(riskRef); }
+    if (finding) { guards.push("EXISTS(SELECT 1 FROM evidence_automation_findings WHERE id=? AND rule_id=? AND status=? AND updated_at=?)"); guardValues.push(finding.id, finding.rule_id, finding.status, finding.updated_at); }
+    else { guards.push("NOT EXISTS(SELECT 1 FROM evidence_automation_findings WHERE id=?)"); guardValues.push(item.finding_id); }
+    if (active) { guards.push("EXISTS(SELECT 1 FROM evidence_automation_findings WHERE rule_id=? AND id=? AND status!='closed')"); guardValues.push(item.rule_id, active.id); }
+    else { guards.push("NOT EXISTS(SELECT 1 FROM evidence_automation_findings WHERE rule_id=? AND status!='closed')"); guardValues.push(item.rule_id); }
+    const statements = [db.prepare(`UPDATE continuous_assurance_work_items SET status=?,result_ref=?,completed_at=?,updated_at=?,decision_json=? WHERE id=? AND status='approved-awaiting-retest' AND decision_json=? AND ${guards.join(" AND ")}`)
+      .bind(finalStatus, run.id, at, at, decisionJson, item.id, item.decision_json, ...guardValues)];
+    const claimed = "EXISTS(SELECT 1 FROM continuous_assurance_work_items WHERE id=? AND json_extract(decision_json,'$.reconciliationToken')=?)";
+    if (risk && riskData && outcome.riskUpdate === "applied") {
+      const reassessed = buildResidualRiskReassessment(riskData, outcome.status, run.id, run.created_at);
+      statements.push(db.prepare(`UPDATE simple_grc_records SET data_json=?,updated_at=? WHERE id=? AND ${claimed}`)
+        .bind(JSON.stringify(reassessed), at, risk.id, item.id, token));
+    }
+    if (reopen) statements.push(db.prepare(`UPDATE evidence_automation_findings SET status='acknowledged',evidence_id=?,detail=?,occurrence_count=occurrence_count+1,updated_at=? WHERE id=? AND status='closed' AND ${claimed}`)
+      .bind(run.evidence_id, run.detail, at, item.finding_id, item.id, token));
+    const results = await db.batch(statements);
+    if (Number(results[0]?.meta?.changes || 0) > 0) reconciled += 1;
   }
   return reconciled;
 }
