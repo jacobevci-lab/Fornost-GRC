@@ -111,11 +111,33 @@ export async function executeRule(env:Env,ruleId:string,actor:string,triggerType
   statements.push(env.DB.prepare("INSERT INTO simple_grc_records(id,module,data_json,created_at,updated_at) VALUES(?,?,?,?,?)").bind(evidenceId,"Kanıtlar",JSON.stringify(evidence),nowIso,nowIso));
  }
  statements.push(env.DB.prepare("UPDATE evidence_automation_rules SET last_status=?,last_run_at=?,last_evidence_at=COALESCE(?,last_evidence_at),consecutive_failures=?,next_run_at=?,updated_at=?,updated_by=? WHERE id=?").bind(status,nowIso,evidenceId?nowIso:null,failures,nextControlRun(rule.schedule,now),nowIso,actor,rule.id));
+ if(!passed&&rule.auto_finding&&failures>=rule.failure_threshold)statements.push(...findingStatements(env.DB,rule,evidenceId,detail,actor,now,runId,status,errorCode));
  await env.DB.batch(statements);
- if(!passed&&rule.auto_finding&&failures>=rule.failure_threshold)await upsertFinding(env,rule,evidenceId,detail,actor,now);
  return {ruleId,runId,evidenceId,status,failures,errorCode};
 }
 
-async function upsertFinding(env:Env,rule:RuleRow,evidenceId:string|null,detail:string,actor:string,now:Date){const existing=await env.DB.prepare("SELECT * FROM evidence_automation_findings WHERE rule_id=? AND status!='closed'").bind(rule.id).first<FindingRow>(),nowIso=now.toISOString();if(existing){await env.DB.prepare("UPDATE evidence_automation_findings SET evidence_id=?,detail=?,occurrence_count=occurrence_count+1,updated_at=? WHERE id=?").bind(evidenceId,detail,nowIso,existing.id).run();return existing.id}const id=`CCM-${crypto.randomUUID()}`,owner=rule.remediation_owner||actor,dueDate=remediationDueDate(rule.remediation_due_days,now),severity=rule.consecutive_failures+1>=Math.max(3,rule.failure_threshold)?"critical":"high",title=`Sürekli kontrol başarısız: ${rule.name}`;await env.DB.prepare("INSERT INTO evidence_automation_findings(id,rule_id,evidence_id,title,severity,owner,due_date,status,detail,occurrence_count,created_at,updated_at) VALUES(?,?,?,?,?,?,?,'open',?,1,?,?)").bind(id,rule.id,evidenceId,title,severity,owner,dueDate,detail,nowIso,nowIso).run();const risk={title,category:"Compliance",owner,status:"Açık",riskLevel:severity==="critical"?"Kritik":"Yüksek",asset:"Continuous Control Monitoring",description:detail,treatment:`${rule.control_refs} kontrolleri için kaynağı ve doğrulama eşiğini düzeltin.`,nextReview:dueDate,source:"Continuous Control Monitoring",sourceRef:rule.id,evidenceRef:evidenceId||"",inherentLikelihood:"4",inherentImpact:severity==="critical"?"5":"4",calculatedImpact:severity==="critical"?"20":"16"};await env.DB.prepare("INSERT INTO simple_grc_records(id,module,data_json,created_at,updated_at) VALUES(?,?,?,?,?)").bind(id,"Risk Assessment",JSON.stringify(risk),nowIso,nowIso).run();return id}
+// One transaction stores the run, evidence, rule state, finding and mirrored risk. The
+// partial unique index arbitrates repeat/concurrent findings; no read-then-insert race.
+function findingStatements(db:D1Database,rule:RuleRow,evidenceId:string|null,detail:string,actor:string,now:Date,runId:string,status:string,errorCode:string|null){
+ const id=`CCM-${crypto.randomUUID()}`,stamp=now.toISOString(),owner=rule.remediation_owner||actor,dueDate=remediationDueDate(rule.remediation_due_days,now),severity=rule.consecutive_failures+1>=Math.max(3,rule.failure_threshold)?"critical":"high",title=`Sürekli kontrol başarısız: ${rule.name}`;
+ const risk={category:"Compliance",status:"Açık",asset:"Continuous Control Monitoring",description:detail,treatment:`${rule.control_refs} kontrolleri için kaynağı ve doğrulama eşiğini düzeltin.`,source:"Continuous Control Monitoring",sourceRef:rule.id,inherentLikelihood:"4"};
+ const monitoring={runId,status,errorCode,detail,lastObservedAt:stamp};
+ return [
+  db.prepare("INSERT INTO evidence_automation_findings(id,rule_id,evidence_id,title,severity,owner,due_date,status,detail,occurrence_count,created_at,updated_at) VALUES(?,?,?,?,?,?,?,'open',?,1,?,?) ON CONFLICT(rule_id) WHERE status!='closed' DO UPDATE SET evidence_id=excluded.evidence_id,detail=excluded.detail,occurrence_count=evidence_automation_findings.occurrence_count+1,updated_at=excluded.updated_at")
+   .bind(id,rule.id,evidenceId,title,severity,owner,dueDate,detail,stamp,stamp),
+  db.prepare(`INSERT INTO simple_grc_records(id,module,data_json,created_at,updated_at)
+   SELECT id,'Risk Assessment',json_set(?,'$.title',title,'$.owner',owner,'$.nextReview',due_date,
+    '$.riskLevel',CASE severity WHEN 'critical' THEN 'Kritik' ELSE 'Yüksek' END,
+    '$.inherentImpact',CASE severity WHEN 'critical' THEN '5' ELSE '4' END,
+    '$.calculatedImpact',CASE severity WHEN 'critical' THEN '20' ELSE '16' END,
+    '$.evidenceRef',coalesce(evidence_id,''),'$.monitoring',json_set(?,'$.occurrenceCount',occurrence_count)),created_at,?
+   FROM evidence_automation_findings WHERE rule_id=? AND status!='closed'
+   ON CONFLICT(id) DO UPDATE SET data_json=json_set(simple_grc_records.data_json,
+    '$.evidenceRef',json_extract(excluded.data_json,'$.evidenceRef'),
+    '$.monitoring',json_extract(excluded.data_json,'$.monitoring')),updated_at=excluded.updated_at
+   WHERE simple_grc_records.module='Risk Assessment'`)
+   .bind(JSON.stringify(risk),JSON.stringify(monitoring),stamp,rule.id),
+ ];
+}
 
 async function requestSource(source:SourceRow,env:Env,keepPayload:boolean,fetcher?:ExecutionOptions["fetcher"]){const cfg=JSON.parse(source.config_json||"{}") as Record<string,string>,url=safeHttpUrl(cfg.baseUrl,privateAllowed(env));if(!url)throw new Error("Kaynak adresi güvenlik politikasına uygun değil.");let secret="";if(source.secret_ciphertext){const key=envText(env,"FORNOST_SETTINGS_ENCRYPTION_KEY");if(!key)throw new Error("Entegrasyon şifreleme anahtarı eksik.");secret=await decryptSecret(source.secret_ciphertext,key)}if(source.driver==="provider-v1"){const payload=await collectProvider(cfg,secret,{allowPrivate:privateAllowed(env),fetcher});return keepPayload?payload:{ok:true,collection:payload.fornostCollection}}const headers:Record<string,string>={accept:"application/json","user-agent":"Fornost-GRC-Evidence-Collector/1.0"};if(cfg.authType==="bearer"&&secret)headers.authorization=`Bearer ${secret}`;else if(cfg.authType==="api-key"&&secret)headers[cfg.headerName||"x-api-key"]=secret;else if(cfg.authType==="basic"&&secret)headers.authorization=`Basic ${btoa(secret)}`;const response=await (fetcher||fetch)(url,{method:"GET",headers,redirect:"error",signal:AbortSignal.timeout(12_000)});if(!response.ok)throw new Error(`Kaynak API yanıt vermedi (${response.status}).`);const type=response.headers.get("content-type")||"";if(!type.includes("json"))throw new Error("Kaynak JSON yanıtı döndürmedi.");const text=await response.text();if(text.length>1_000_000)throw new Error("API yanıtı 1 MB sınırını aşıyor.");const payload=JSON.parse(text);return keepPayload?payload:{ok:true}}
