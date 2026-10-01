@@ -144,7 +144,7 @@ await check('Connected GRC opens exact core records and clears contextual filter
   const seed=seedRows.find(x=>x.module===moduleName),code=seed.record_code;
   await reset();await open('Connected GRC Map');await page.locator('.cg-filters select').selectOption(moduleName);await page.locator('.cg-filters input').fill(code);
   const entry=page.locator('.cg-records>button').filter({hasText:code});await expect(entry).toHaveCount(1);await entry.click();
-  await page.locator('.cg-detail').getByRole('button',{name:'Open record',exact:true}).click();
+  await page.locator('.cg-detail').getByRole('button',{name:/^Open record/}).click();
   await expect(page.locator('.core-record-focus')).toContainText(code);
   if(moduleName==='Denetim Yönetimi'){const name=JSON.parse(seed.data_json).auditName,total=seedRows.filter(x=>x.module===moduleName&&JSON.parse(x.data_json).auditName===name).length;await expect(page.locator('.audit-detail-kpis article').first().locator('b')).toHaveText(String(total))}
   await expect(page.locator('.table-card .table-wrap tbody tr')).toHaveCount(1);
