@@ -1,4 +1,6 @@
 "use client";
+import { dueTimestamp } from "./due-date";
+import { hasRecoveryTarget } from "./bia-recovery";
 /* eslint-disable @next/next/no-img-element -- evidence images are authenticated runtime URLs and cannot use the static image optimizer */
 
 import NavIcon from "./nav-icon";
@@ -504,7 +506,7 @@ const ui: Record<Lang, Record<string, string>> = {
     record: "kayıt",
     edit: "Düzenle",
     delete: "Sil",
-    empty: "Henüz kayıt yok.",
+    empty: "Bu görünümde kayıt yok. Arama ve filtreleri kontrol edin.",
     cancel: "Vazgeç",
     save: "Kaydet",
     upload: "Kanıtı Yükle",
@@ -527,7 +529,7 @@ const ui: Record<Lang, Record<string, string>> = {
     record: "records",
     edit: "Edit",
     delete: "Delete",
-    empty: "No records yet.",
+    empty: "No records in this view. Check your search and filters.",
     cancel: "Cancel",
     save: "Save",
     upload: "Upload Evidence",
@@ -2845,7 +2847,13 @@ function Field({
         : linkedRows
             .filter((r) => r.module === "BIA")
             .map((r) => r.data.process);
-    const options = [...new Set(source.filter(Boolean))];
+    const retainedValues = (k === "asset" && "category" in form
+      ? String(value).split(",").map((item) => item.trim())
+      : [String(value)]).filter(Boolean);
+    const options = [...new Set([...source.filter(Boolean), ...retainedValues])];
+    const optionLabel = (option: string) => source.includes(option)
+      ? option
+      : `${option} (${lang === "tr" ? "bağlı kayıt bulunamadı" : "linked record unavailable"})`;
     if (k === "asset" && "category" in form) {
       const selected = String(value)
         .split(",")
@@ -2875,7 +2883,7 @@ function Field({
           >
             {options.map((x) => (
               <option key={x} value={x}>
-                {x}
+                {optionLabel(x)}
               </option>
             ))}
           </select>
@@ -2899,7 +2907,7 @@ function Field({
           <option value="">{u.select}</option>
           {options.map((x) => (
             <option key={x} value={x}>
-              {x}
+              {optionLabel(x)}
             </option>
           ))}
         </select>
@@ -3012,7 +3020,7 @@ function MyWork({rows,currentUser,go,lang}:{rows:Row[];currentUser:any;go:(modul
     return currentUser?.role==="Admin"||owners.some(owner=>identity.some(me=>owner.includes(me)||me.includes(owner)));
   }).map(row=>{
     const due=String(row.data.dueDate||row.data.nextReview||row.data.nextAssessment||row.data.nextTestDate||row.data.reviewDate||row.data.expiresAt||"");
-    const dueTime=due?new Date(due).getTime():Number.POSITIVE_INFINITY;
+    const dueTime=dueTimestamp(due);
     const title=String(row.data.title||row.data.process||row.data.controlTitle||row.data.requirement||row.data.evidenceTitle||row.data.vendorName||displayRecordCode(row));
     return {row,due,dueTime,title,status:String(row.data.status||row.data.reviewStatus||row.data.implementation||"—")};
   }).sort((a,b)=>a.dueTime-b.dueTime).slice(0,12);
@@ -3029,7 +3037,7 @@ function CoreModuleOverview({module,rows,allRows,lang}:{module:string;rows:Row[]
   const tr=lang==="tr",values=(key:string)=>rows.map(row=>String(row.data[key]||"")),count=(key:string,accepted:string[])=>values(key).filter(value=>accepted.includes(value)).length;
   const evidence=allRows.filter(row=>row.module==="Kanıtlar"),linkedEvidence=new Set(evidence.map(row=>String(row.data.controlRef||"")).filter(Boolean));
   const configurations:Record<string,{eyebrow:string;title:string;detail:string;metrics:Array<[string|number,string,string,string]>}>={
-    BIA:{eyebrow:tr?"İŞ DAYANIKLILIĞI":"BUSINESS RESILIENCE",title:tr?"Kritik süreç hazırlığı":"Critical process readiness",detail:tr?"Etki, kurtarma hedefi ve test hazırlığını birlikte izleyin.":"Track impact, recovery objectives and test readiness together.",metrics:[[rows.length,tr?"Toplam süreç":"Total processes",tr?"Kapsamdaki iş süreçleri":"Business processes in scope","neutral"],[count("criticality",["Kritik","Critical"]),tr?"Kritik süreç":"Critical processes",tr?"Öncelikli kurtarma kapsamı":"Priority recovery scope","danger"],[rows.filter(row=>row.data.rto&&row.data.rpo).length,tr?"RTO/RPO tanımlı":"RTO/RPO defined",tr?"Kurtarma hedefi bulunan":"With recovery objectives","positive"],[count("status",["Taslak","İncelemede"]),tr?"Karar gereken":"Decision required",tr?"Taslak veya incelemede":"Draft or under review","warning"]]},
+    BIA:{eyebrow:tr?"İŞ DAYANIKLILIĞI":"BUSINESS RESILIENCE",title:tr?"Kritik süreç hazırlığı":"Critical process readiness",detail:tr?"Etki, kurtarma hedefi ve test hazırlığını birlikte izleyin.":"Track impact, recovery objectives and test readiness together.",metrics:[[rows.length,tr?"Toplam süreç":"Total processes",tr?"Kapsamdaki iş süreçleri":"Business processes in scope","neutral"],[count("criticality",["Kritik","Critical"]),tr?"Kritik süreç":"Critical processes",tr?"Öncelikli kurtarma kapsamı":"Priority recovery scope","danger"],[rows.filter(row=>hasRecoveryTarget(row.data.rto)&&hasRecoveryTarget(row.data.rpo)).length,tr?"RTO/RPO tanımlı":"RTO/RPO defined",tr?"Kurtarma hedefi bulunan":"With recovery objectives","positive"],[count("status",["Taslak","İncelemede"]),tr?"Karar gereken":"Decision required",tr?"Taslak veya incelemede":"Draft or under review","warning"]]},
     "Varlık Envanteri":{eyebrow:tr?"TEKNOLOJİ MARUZİYETİ":"TECHNOLOGY EXPOSURE",title:tr?"Varlık güvenlik görünümü":"Asset security posture",detail:tr?"Kritiklik, veri sınıfı, internet maruziyeti ve güvenlik kapsamasını tek bakışta değerlendirin.":"Evaluate criticality, data class, internet exposure and security coverage at a glance.",metrics:[[rows.length,tr?"Toplam varlık":"Total assets",tr?"Yönetilen envanter":"Managed inventory","neutral"],[count("criticality",["Kritik","Critical"]),tr?"Kritik varlık":"Critical assets",tr?"Yüksek iş etkisi":"High business impact","danger"],[rows.filter(row=>row.data.internetFacing===true||String(row.data.internetFacing).toLowerCase()==="evet").length,tr?"İnternete açık":"Internet-facing",tr?"Dış saldırı yüzeyi":"External attack surface","warning"],[rows.filter(row=>["Aktif","Active"].includes(String(row.data.status))).length,tr?"Aktif yaşam döngüsü":"Active lifecycle",tr?"Operasyonda olan":"Currently operational","positive"]]},
     Uyum:{eyebrow:tr?"KONTROL GÜVENCESİ":"CONTROL ASSURANCE",title:tr?"Uyum uygulama görünümü":"Compliance implementation posture",detail:tr?"Framework maddelerini uygulama ve kanıt durumuyla birlikte yönetin.":"Govern framework requirements together with implementation and evidence state.",metrics:[[rows.length,tr?"Toplam madde":"Total requirements",tr?"Değerlendirilen kapsam":"Assessed scope","neutral"],[count("status",["Uyumlu","Compliant"]),tr?"Uyumlu":"Compliant",tr?"Kanıtlanmış maddeler":"Evidence-backed requirements","positive"],[count("status",["Kısmi Uyumlu","Partially Compliant"]),tr?"Kısmi uyum":"Partial",tr?"İyileştirme gereken":"Needs improvement","warning"],[count("status",["Uyumlu Değil","Noncompliant"]),tr?"Uyumlu değil":"Noncompliant",tr?"Öncelikli sapma":"Priority deviation","danger"]]},
     Kontroller:{eyebrow:tr?"ORTAK KONTROL KÜTÜPHANESİ":"COMMON CONTROL LIBRARY",title:tr?"Kontrol etkinliği ve kanıt kapsaması":"Control effectiveness and evidence coverage",detail:tr?"Tek bir kontrolü framework, test sahibi ve kanıtlarla uçtan uca bağlayın.":"Connect each control end to end with frameworks, test ownership and evidence.",metrics:[[rows.length,tr?"Toplam kontrol":"Total controls",tr?"Ortak kontrol seti":"Common control set","neutral"],[count("status",["Aktif","Active"]),tr?"Aktif kontrol":"Active controls",tr?"Operasyonel kontroller":"Operational controls","positive"],[count("status",["İyileştirme Gerekli","Needs Improvement"]),tr?"İyileştirme":"Needs improvement",tr?"Etkinlik açığı bulunan":"Effectiveness gaps","warning"],[rows.filter(row=>linkedEvidence.has(String(row.data.controlRef||""))).length,tr?"Kanıt bağlı":"Evidence linked",tr?"En az bir güncel kanıt":"At least one evidence item","info"]]},
@@ -5257,12 +5265,12 @@ function biaWarnings(r: Row, lang: Lang) {
   const tr = lang === "tr",
     d = r.data,
     out: string[] = [];
-  if (!d.rto || !d.rpo) out.push(tr ? "Eksik Bilgi" : "Missing Data");
+  if (!hasRecoveryTarget(d.rto) || !hasRecoveryTarget(d.rpo)) out.push(tr ? "Eksik Bilgi" : "Missing Data");
   if (Number(d.rto) > Number(d.mtpd) && d.mtpd)
     out.push(tr ? "Hedef Uyumsuz" : "Target Conflict");
   if (d.criticality === "Kritik" && d.drStatus !== "Mevcut")
     out.push(tr ? "DR Eksik" : "DR Gap");
-  if (d.nextTestDate && new Date(d.nextTestDate) < new Date())
+  if (d.nextTestDate && dueTimestamp(d.nextTestDate) < Date.now())
     out.push(tr ? "Test Gecikmiş" : "Test Overdue");
   const reviewAge = ageInDays(d.lastReview);
   if (reviewAge !== null && reviewAge > 365)
@@ -5419,8 +5427,8 @@ function SmartCell({
   if (column === "recovery")
     return (
       <div className="stack">
-        <b>RTO {d.rto || "—"}h</b>
-        <small>RPO {d.rpo || "—"}h</small>
+        <b>RTO {hasRecoveryTarget(d.rto) ? d.rto : "—"}h</b>
+        <small>RPO {hasRecoveryTarget(d.rpo) ? d.rpo : "—"}h</small>
       </div>
     );
   if (column === "biaGovernance")

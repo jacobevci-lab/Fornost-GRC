@@ -1,4 +1,4 @@
-import { chromium } from '@playwright/test';
+import { chromium, expect } from '@playwright/test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 // This runner deliberately has no configurable remote URL: CRUD is isolated only.
@@ -30,16 +30,27 @@ async function open(label){await page.locator(`nav button[aria-label=${JSON.stri
 async function reset(){await page.setViewportSize({width:1536,height:960});await page.goto(base);await page.locator('.shell').waitFor();await page.locator('.language-switch:visible').getByRole('button',{name:'EN',exact:true}).click();}
 await reset();
 for(const [moduleName,label,key] of [['Risk Assessment','Risk Assessment','title'],['BIA','Business Impact Analysis (BIA)','process'],['Varlık Envanteri','Asset Inventory','title'],['Uyum','Compliance Management','controlTitle'],['Kontroller','Control Library','controlTitle']])await check(`UI create/edit/delete: ${label}`,async()=>{
- await reset();await open(label);await page.locator('.actions .primary').click();const dialog=page.locator('.modal[role=dialog]');await dialog.waitFor();await dialog.getByRole('button',{name:/Show advanced/}).click();
+ await reset();await open(label);await page.getByPlaceholder('Search records').fill('QA-no-match-20261001');assert.match(await page.locator('.table-wrap').innerText(),/No records in this view/);await page.getByPlaceholder('Search records').fill('');await page.locator('.actions .primary').click();const dialog=page.locator('.modal[role=dialog]');await dialog.waitFor();await dialog.getByRole('button',{name:/Show advanced/}).click();
  const data=JSON.parse(seedRows.find(x=>x.module===moduleName).data_json);data[key]=`QA UI ${moduleName} ${Date.now()}`;
  const inputs=dialog.locator('input[name]:not([type=hidden]),textarea[name],select[name]');
  for(let i=0;i<await inputs.count();i++){const input=inputs.nth(i),name=await input.getAttribute('name'),tag=await input.evaluate(e=>e.tagName),value=data[name];if(value===undefined||value===null)continue;
  if(tag==='SELECT'){const options=await input.locator('option').evaluateAll(es=>es.map(e=>e.value));const multi=await input.getAttribute('multiple')!==null;const chosen=multi?String(value).split(',').map(v=>v.trim()).filter(v=>options.includes(v)):String(value);if(multi?chosen.length:options.includes(chosen))await input.selectOption(chosen)}else await input.fill(String(value));}
  const response=page.waitForResponse(r=>r.url().endsWith('/api/grc')&&r.request().method()==='POST').catch(()=>null);await dialog.locator('.form-actions .primary').click();const r=await response;assert.equal(r.status(),201,await r.text());const created=await r.json();await dialog.waitFor({state:'hidden'});
- if(moduleName==='BIA'){const saved=(await request(admin,'/api/grc')).rows.find(x=>x.id===created.id);await request(admin,'/api/grc','PATCH',{id:created.id,data:{...JSON.parse(saved.data_json),rpo:0}});await reset();await open(label)}
- const row=page.locator('tr').filter({has:page.locator(`.code[title="${created.id}"]`)});await row.getByRole('button',{name:'Edit',exact:true}).click();if(moduleName==='BIA')assert.equal(await dialog.locator('[name=rpo]').inputValue(),'0','Zero RPO survives edit');await dialog.locator(`[name="${key}"]`).fill(data[key]+' edited');const update=page.waitForResponse(r=>r.url().endsWith('/api/grc')&&r.request().method()==='PATCH').catch(()=>null);await dialog.locator('.form-actions .primary').click();assert.equal((await update).status(),200);await dialog.waitFor({state:'hidden'});
- const found=(await request(admin,'/api/grc')).rows.find(x=>x.id===created.id);assert.equal(JSON.parse(found.data_json)[key],data[key]+' edited');
+ if(moduleName==='BIA'){const saved=(await request(admin,'/api/grc')).rows.find(x=>x.id===created.id);await request(admin,'/api/grc','PATCH',{id:created.id,data:{...JSON.parse(saved.data_json),rpo:0,asset:"QA archived asset reference"}});await reset();await open(label)}
+ const row=page.locator('tr').filter({has:page.locator(`.code[title="${created.id}"]`)});await row.getByRole('button',{name:'Edit',exact:true}).click();if(moduleName==='BIA'){assert.equal(await dialog.locator('[name=rpo]').inputValue(),'0','Zero RPO survives edit');assert.equal(await dialog.locator('[name=asset]').inputValue(),'QA archived asset reference','Missing linked assets remain visible');assert.match(await dialog.locator('[name=asset] option:checked').innerText(),/linked record unavailable/)}await dialog.locator(`[name="${key}"]`).fill(data[key]+' edited');const update=page.waitForResponse(r=>r.url().endsWith('/api/grc')&&r.request().method()==='PATCH').catch(()=>null);await dialog.locator('.form-actions .primary').click();assert.equal((await update).status(),200);await dialog.waitFor({state:'hidden'});
+ const found=(await request(admin,'/api/grc')).rows.find(x=>x.id===created.id);assert.equal(JSON.parse(found.data_json)[key],data[key]+' edited');if(moduleName==='BIA'){assert.match(await row.innerText(),/RPO 0h/);assert.doesNotMatch(await row.innerText(),/Missing Data/)}
  await page.screenshot({path:`${out}/ui-${moduleName.replaceAll(' ','-')}.png`});page.once('dialog',d=>d.accept());const del=page.waitForResponse(r=>r.url().includes('/api/grc?id=')&&r.request().method()==='DELETE').catch(()=>null);await row.getByRole('button',{name:'Delete',exact:true}).click();assert.equal((await del).status(),200);assert.ok(!(await request(admin,'/api/grc')).rows.some(x=>x.id===created.id));
+});
+await check('Dashboard audit deadlines: today remains current, yesterday overdue, closed excluded',async()=>{
+ const seed=seedRows.find(x=>x.module==='Denetim Yönetimi');assert.ok(seed);
+ const data={...JSON.parse(seed.data_json),auditName:'QA deadline regression',requirementTitle:'QA deadline regression',dueDate:today,status:'Devam Ediyor'};
+ async function count(expected){const loaded=page.waitForResponse(r=>r.url().endsWith('/api/grc')&&r.request().method()==='GET');await reset();await (await loaded).finished();await open('Dashboard');const metric=page.locator('.audit-remediation-metrics button').filter({hasText:'Overdue audits'}).locator('b');if(expected!==undefined)await expect(metric).toHaveText(String(expected));return Number(await metric.innerText())}
+ const baseline=await count();const created=await request(admin,'/api/grc','POST',{module:'Denetim Yönetimi',data},201);
+ try {
+  assert.equal(await count(baseline),baseline,'Today is not overdue');
+  data.dueDate=future(-1);await request(admin,'/api/grc','PATCH',{id:created.id,data});assert.equal(await count(baseline+1),baseline+1,'Yesterday is overdue');
+  data.status='Tamamlandı';await request(admin,'/api/grc','PATCH',{id:created.id,data});assert.equal(await count(baseline),baseline,'Completed requirements are excluded');
+ } finally {await request(admin,`/api/grc?id=${created.id}`,'DELETE')}
 });
 await check('Evidence Library UI upload, file integrity, edit and delete',async()=>{
  await reset();await open('Evidence Library');await page.locator('.actions .primary').click();const dialog=page.locator('.modal[role=dialog]');await dialog.waitFor();
