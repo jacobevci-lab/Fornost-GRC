@@ -4089,7 +4089,7 @@ function AuditModule({
         )}
       </>
     );
-  const items = visible,
+  const items = rows.filter(row => row.data.auditName === selected),
     avg = items.length
       ? Math.round(
           items.reduce((n, r) => n + Number(r.data.progress || 0), 0) /
@@ -4159,7 +4159,7 @@ function AuditModule({
       </section>
       <AuditReadinessGate key={selected} lang={lang} auditName={selected} records={[...items,...evidenceRows]} />
       <AuditRequirementsTable
-        items={items}
+        items={visible}
         lang={lang}
         query={query}
         setQuery={setQuery}
