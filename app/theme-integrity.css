@@ -141,6 +141,12 @@ html[data-theme] body .shell>main .table-wrap th{white-space:nowrap;overflow-wra
 html[data-theme] body .shell>main .row-actions button{white-space:nowrap}
 html[data-theme] body .shell>main .risk-overview{grid-template-columns:minmax(0,1fr) minmax(0,1fr)!important;align-items:start}
 html[data-theme] body .shell>main .risk-summary{min-width:0;padding:18px;min-height:0}
+/* The risk summary follows the light workspace instead of retaining the legacy dark hero. */
+html[data-theme="light"] .risk-summary{background:var(--ws-surface)!important;border-color:var(--ws-line)!important;color:var(--ws-ink)!important}
+html[data-theme="light"] .risk-summary :is(h3,b,strong){color:var(--ws-ink)!important}
+html[data-theme="light"] .risk-summary :is(p,small,span){color:var(--ws-muted)!important}
+html[data-theme="light"] .risk-summary-head>span{background:var(--ws-brand-soft)!important;border-color:var(--ws-line)!important;color:var(--ws-brand-2)!important}
+html[data-theme="light"] .risk-metrics article{background:var(--ws-surface-2)!important;border-color:var(--ws-line)!important}
 html[data-theme] body .shell>main .risk-metrics{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:18px}
 html[data-theme] body .shell>main .risk-overview .matrix-card{min-height:0;padding:16px;display:grid;grid-template-columns:1fr!important;gap:12px}
 html[data-theme] body .shell>main .matrix-card h3{margin:4px 0}.matrix-card p{margin:0}

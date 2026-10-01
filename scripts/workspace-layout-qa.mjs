@@ -32,6 +32,9 @@ try {
       if (await page.locator('html').getAttribute('data-theme') !== theme) await page.locator('.theme-toggle:visible').click();
       for (const label of labels) {
         await open(label);
+        // A module can restore its saved appearance; verify the actual theme before capture.
+        if (await page.locator('html').getAttribute('data-theme') !== theme) await page.locator('.theme-toggle:visible').click();
+        await page.waitForFunction(expected => document.documentElement.dataset.theme === expected, theme);
         for (const width of [1536,768,390]) {
           await page.setViewportSize({width,height:960});
           await page.waitForTimeout(100);
