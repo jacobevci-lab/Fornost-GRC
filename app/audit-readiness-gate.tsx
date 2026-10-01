@@ -100,7 +100,7 @@ export default function AuditReadinessGate({lang, auditName = "", records}: {lan
   },format);
 
   return (
-    <section className={`audit-readiness-gate ${effectiveGate}`} aria-label={tr ? "Denetim hazırlık kapısı" : "Audit readiness gate"}>
+    <section className={`audit-readiness-gate gate-${effectiveGate}`} aria-label={tr ? "Denetim hazırlık kapısı" : "Audit readiness gate"}>
       <header className="audit-readiness-head"><div><small>AUDIT READINESS GATE</small><h3>{headline}</h3><p>{auditName ? `${tr ? "Kapsam" : "Scope"}: ${auditName}` : (tr ? "Denetim portföyündeki kanıt hazırlığını ve aynı kontrollere bağlı Continuous Assurance sinyallerini birlikte değerlendirir." : "Evaluates audit evidence readiness together with Continuous Assurance signals mapped to the same controls.")}</p></div><div className="audit-readiness-state"><span>{gateLabel}</span><strong>{assurance.total ? `${assurance.readiness}%` : "—"}</strong><small>{tr ? "kanıt hazırlığı" : "evidence readiness"}</small></div></header>
 
       <div className="audit-readiness-metrics">
