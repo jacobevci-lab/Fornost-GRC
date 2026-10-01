@@ -43,6 +43,8 @@ jobs:
           curl --fail --silent --show-error http://127.0.0.1:4173/api/auth \
             -H 'Origin: http://127.0.0.1:4173' -H 'Content-Type: application/json' \
             --data '{"action":"bootstrap","name":"QA Admin","email":"qa-admin@fornost.test","password":"Fornost-QA!2026-Branch"}'
+      - name: Ask Fornost immediate post-login and recovery QA
+        run: node scripts/ask-fornost-runtime-qa.mjs
       - name: Check module layouts and audit stability
         run: node scripts/workspace-layout-qa.mjs
       - name: Core CRUD, forms, continuity and governance lifecycle QA
@@ -62,6 +64,7 @@ jobs:
         with:
           name: workspace-layout-qa
           path: |
+            ask-fornost-qa-artifacts/
             layout-qa-artifacts/
             runtime-qa-artifacts/
             qa-artifacts-v2/

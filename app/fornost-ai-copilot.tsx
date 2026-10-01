@@ -2,6 +2,7 @@
 
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import { withBasePath } from "./base-path";
+import { navigateToFornost } from "./navigation-focus";
 import FornostAiAgents, { type AgentConversion, type AgentDecision, type AgentKind, type AgentRun } from "./fornost-ai-agents";
 import FornostAiFeedback from "./fornost-ai-feedback";
 import FornostAiBudget from "./fornost-ai-budget";
@@ -59,7 +60,10 @@ const csvCell=(value:unknown)=>{const text=String(value??""),safe=/^[=+\-@]/.tes
 export default function FornostAiCopilot() {
   const [user, setUser] = useState<User | null>(null);
   const [status, setStatus] = useState<Status | null>(null);
+  const [statusError, setStatusError] = useState("");
   const [open, setOpen] = useState(false);
+  const [identityLoading, setIdentityLoading] = useState(false);
+  const [identityError, setIdentityError] = useState("");
   const [tab, setTab] = useState<"chat" | "portfolio" | "agents" | "knowledge" | "drafts" | "metrics" | "governance" | "models" | "compliance" | "lifecycle" | "incidents" | "evidence" | "risks" | "vendors" | "access" | "release" | "impact" | "resilience" | "datasets" | "regulatory" | "literacy" | "supply-chain" | "red-team" | "transparency" | "assurance" | "assurance-alerts" | "exceptions" | "decommission" | "findings" | "feedback" | "budget" | "policy" | "protection" | "audit">("chat");
   const [messages, setMessages] = useState<Message[]>([]);
   const [question, setQuestion] = useState("");
@@ -101,10 +105,41 @@ export default function FornostAiCopilot() {
   const [agentDecision,setAgentDecision]=useState<AgentDecision|null>(null);
   const [agentConversion,setAgentConversion]=useState<AgentConversion|null>(null);
 
+  const refreshStatus = useCallback(async () => {
+    setStatusError("");
+    const response = await fetch(withBasePath("/api/ai/status"), { cache: "no-store", signal: AbortSignal.timeout(10000) }).catch(() => null);
+    const body = await response?.json().catch(() => null);
+    if (!response?.ok || !body || typeof body.configured !== "boolean" || typeof body.enabled !== "boolean") {
+      setStatus(null);
+      setStatusError("AI bağlantı durumu alınamadı. Yeniden deneyin.");
+      return;
+    }
+    setStatus(body);
+  }, []);
+
+  const refreshIdentity = useCallback(async () => {
+    setIdentityLoading(true);
+    setIdentityError("");
+    const response = await fetch(withBasePath("/api/auth"), { cache: "no-store", signal: AbortSignal.timeout(10000) }).catch(() => null);
+    if (!response?.ok) {
+      setUser(null);
+      setIdentityLoading(false);
+      setIdentityError("Oturum doğrulanamadı. Bağlantınızı kontrol edip yeniden deneyin.");
+      return;
+    }
+    const body = await response.json().catch(() => ({}));
+    const nextUser = body.authenticated ? body.user as User : null;
+    setUser(nextUser);
+    setIdentityLoading(false);
+    if (!nextUser) setIdentityError("Ask Fornost için oturum açmanız gerekiyor.");
+    if (nextUser) await refreshStatus();
+  }, [refreshStatus]);
+
   useEffect(() => {
     const openContextualCopilot = (event: Event) => {
       const detail = (event as CustomEvent<{module?:string;prompt?:string;mode?:"chat"|"agent";agentKind?:AgentKind;view?:"portfolio"|"governance"}>).detail || {};
       setOpen(true);
+      void refreshIdentity();
       if (detail.view) {
         setTab(detail.view);
       } else if (detail.mode === "agent" && detail.agentKind) {
@@ -120,25 +155,8 @@ export default function FornostAiCopilot() {
     };
     window.addEventListener("fornost:open-ai", openContextualCopilot);
     return () => window.removeEventListener("fornost:open-ai", openContextualCopilot);
-  }, []);
+  }, [refreshIdentity]);
 
-  const refreshStatus = useCallback(async () => {
-    const response = await fetch(withBasePath("/api/ai/status"), { cache: "no-store" }).catch(() => null);
-    if (!response?.ok) return;
-    setStatus(await response.json());
-  }, []);
-
-  const refreshIdentity = useCallback(async () => {
-    const response = await fetch(withBasePath("/api/auth"), { cache: "no-store" }).catch(() => null);
-    if (!response?.ok) {
-      setUser(null);
-      return;
-    }
-    const body = await response.json().catch(() => ({}));
-    const nextUser = body.authenticated ? body.user as User : null;
-    setUser(nextUser);
-    if (nextUser) await refreshStatus();
-  }, [refreshStatus]);
 
   const loadAudit = useCallback(async () => {
     if (user?.role !== "Admin") return;
@@ -347,13 +365,16 @@ export default function FornostAiCopilot() {
 
   async function deleteAgentRun(id:string){if(!window.confirm("Bu başarısız veya arşivlenmiş agent çalışması silinsin mi?"))return;setAgentBusy(true);const response=await fetch(withBasePath("/api/ai/agents"),{method:"DELETE",headers:{"content-type":"application/json"},body:JSON.stringify({id,confirmation:"SİL"})}).catch(()=>null);if(response?.ok)await loadAgents();else{const body=await response?.json().catch(()=>({}))||{};setNotice(String(body.error||"Agent çalışması silinemedi."));}setAgentBusy(false);}
 
-  if (!user) return null;
+  if (!user) return open ? <section id="fornost-ai-panel" className="fornost-ai-panel is-compact" aria-label="Fornost AI Copilot" aria-busy={identityLoading}>
+    <header className="fornost-ai-head"><div><h2>Ask Fornost</h2></div><button onClick={() => setOpen(false)} aria-label="Kapat">×</button></header>
+    <div className="fornost-ai-welcome" role="status"><p>{identityLoading ? "Oturum doğrulanıyor…" : identityError || "Oturum bilgisi bekleniyor…"}</p><button disabled={identityLoading} onClick={() => void refreshIdentity()}>Yeniden dene</button></div>
+  </section> : null;
   const aiReady = status?.enabled === true&&status?.operational!==false;
   const chatReady=aiReady&&status?.capabilities?.chat!==false,draftReady=aiReady&&status?.capabilities?.drafts!==false,agentReady=aiReady&&status?.capabilities?.agents!==false;
   const activeTab = user.role !== "Admin" && (tab === "portfolio" || tab === "audit" || tab === "metrics" || tab === "governance" || tab === "models" || tab === "compliance" || tab === "lifecycle" || tab === "incidents" || tab === "access" || tab === "release" || tab === "resilience" || tab === "datasets" || tab === "regulatory" || tab === "literacy" || tab === "supply-chain" || tab === "red-team" || tab === "transparency" || tab === "assurance" || tab === "assurance-alerts" || tab === "exceptions" || tab === "decommission" || tab === "findings" || tab === "feedback" || tab === "budget" || tab === "policy" || tab === "protection") ? "chat" : tab;
 
   return <>
-    <button className={`fornost-ai-launcher ${aiReady ? "ready" : ""}`} onClick={() => setOpen((value) => !value)} aria-expanded={open} aria-controls="fornost-ai-panel">
+    <button className={`fornost-ai-launcher ${aiReady ? "ready" : ""}`} onClick={() => { if (!open) void refreshIdentity(); setOpen((value) => !value); }} aria-expanded={open} aria-controls="fornost-ai-panel">
       <span>✦</span><b>Ask Fornost</b><i>{status?.operatingState==="emergency-stop"?"STOP":aiReady ? "AI" : "OFF"}</i>
     </button>
     {open && <section id="fornost-ai-panel" className={`fornost-ai-panel ${activeTab === "chat" ? "is-compact" : "is-workspace"}`} data-ai-view={activeTab} aria-label="Fornost AI Copilot">
@@ -403,6 +424,10 @@ export default function FornostAiCopilot() {
 
       {activeTab === "portfolio" ? <FornostAiPortfolio/> : activeTab === "chat" ? <>
         <div className="fornost-ai-mode"><span className={chatReady ? "online" : "offline"}/><b>{status?.operatingState==="emergency-stop"?"Acil durduruldu":chatReady ? "Hazır" : "Erişim kısıtlı"}</b><em>{status?.operatingMessage||status?.provider||"Provider yok"}</em></div>
+        {(statusError || (status && (!status.configured || !status.enabled))) && <div className="fornost-ai-notice" role="status">
+          <p>{statusError || (!status?.configured ? "AI sağlayıcısı henüz yapılandırılmamış. Copilot ve AI çalışma alanları korunuyor; yanıt üretmek için sağlayıcı bağlantısı gerekiyor." : "AI sağlayıcısı devre dışı. Yanıt üretmek için AI ayarlarından etkinleştirin.")}</p>
+          {statusError ? <button onClick={() => void refreshStatus()}>Bağlantıyı yeniden kontrol et</button> : user.role === "Admin" ? <button onClick={() => { setOpen(false); navigateToFornost({module:"AI Ayarları",source:"ask-fornost-setup"}); }}>AI Ayarlarını Aç</button> : <span>Sağlayıcı ayarları için yöneticinize başvurun.</span>}
+        </div>}
         <div className="fornost-ai-messages">
           {!messages.length && <div className="fornost-ai-welcome"><b>GRC verilerinizi sorun.</b><p>Örn: “Kritik varlıklardaki açık riskleri analiz et” veya “ISO 27001 denetimindeki en büyük boşluklar neler?”</p><small>Copilot yalnızca okur ve öneri üretir; kayıt değiştirmez.</small></div>}
           {messages.map((message, index) => <article key={index} className={`fornost-ai-message ${message.role}`}>
