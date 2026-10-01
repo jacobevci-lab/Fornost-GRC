@@ -46,3 +46,8 @@ test("assurance gaps open the governed source record when it can be fixed in con
  assert.match(connected,/Bağlantıyı tamamla/);
  assert.match(connected,/Complete link/);
 });
+
+ test("all core records open in context, including audit requirements and evidence",()=>{
+ for(const moduleName of ["BIA","Varlık Envanteri","Uyum","Kanıtlar","Denetim Yönetimi"])
+  assert.deepEqual(connectedGrcNavigation(row(moduleName,"internal-id","CODE-1")),{module:moduleName,ref:"internal-id",filterKey:"recordRef"});
+ });

@@ -1,5 +1,6 @@
 "use client";
 import { dueTimestamp } from "./due-date";
+import { matchesWorkIdentity, isDueToday, paginateWork, findingWorkRows } from "./work-queue";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
@@ -10,7 +11,7 @@ import "./my-work-v2.css";
 
 type Lang = "tr" | "en";
 type Scope = "mine" | "organization";
-type QueueFilter = "priority" | "overdue" | "soon" | "waiting" | "undated" | "completed" | "all";
+type QueueFilter = "today" | "priority" | "overdue" | "soon" | "waiting" | "undated" | "completed" | "all";
 type RawRow = {
   id?: unknown;
   code?: unknown;
@@ -57,6 +58,7 @@ const CLOSED = new Set([
   "approved",
   "retired",
   "resolved",
+  "risk-accepted",
   "archived",
   "arşivlendi",
 ]);
@@ -67,6 +69,7 @@ const REVIEW_STATES = [
   "submitted",
   "gönderildi",
   "verification pending",
+  "verification",
   "doğrulama bekliyor",
   "approval pending",
   "onay bekliyor",
@@ -160,18 +163,10 @@ function formatDate(value: string, lang: Lang) {
   if (!value) return lang === "tr" ? "Tarih yok" : "No due date";
   const time = new Date(value).getTime();
   if (!Number.isFinite(time)) return value;
-  return new Intl.DateTimeFormat(lang === "tr" ? "tr-TR" : "en-GB", { day: "2-digit", month: "short", year: "numeric" }).format(new Date(time));
-}
-function identitiesFor(user: User) {
-  return [user.name, user.email].map(normalized).filter(Boolean);
+  return new Intl.DateTimeFormat(lang === "tr" ? "tr-TR" : "en-GB", { day: "2-digit", month: "short", year: "numeric", ...(/^\d{4}-\d{2}-\d{2}$/.test(value) ? { timeZone: "UTC" } : {}) }).format(new Date(time));
 }
 function valuesMatchIdentity(values: string[], user: User) {
-  const identities = identitiesFor(user);
-  if (!identities.length) return false;
-  return values.some(value => {
-    const candidate = normalized(value);
-    return identities.some(identity => candidate === identity || candidate.includes(identity) || identity.includes(candidate));
-  });
+  return matchesWorkIdentity(values, user);
 }
 function matchesIdentity(row: Row, user: User) {
   return valuesMatchIdentity(ownerValues(row), user);
@@ -193,7 +188,7 @@ function priorityFor(row: Row, dueTime: number, now: number) {
     const riskScore = assessedRiskScore(row.data);
     if (riskScore === null || riskScore >= 17) return 1;
   }
-  if (["kritik", "critical"].includes(normalized(row.data.criticality || row.data.riskLevel))) return 1;
+  if (["kritik", "critical"].includes(normalized(row.data.criticality || row.data.riskLevel || row.data.severity))) return 1;
   if (Number.isFinite(dueTime) && dueTime <= now + 30 * DAY) return 2;
   if (!Number.isFinite(dueTime)) return 4;
   return 3;
@@ -207,7 +202,7 @@ function reasonFor(row: Row, dueTime: number, now: number, lang: Lang) {
     if (riskScore === null) return tr ? "Risk değerlendirmesi bekliyor" : "Risk assessment pending";
     if (riskScore >= 17) return tr ? "Kritik risk" : "Critical risk";
   }
-  if (["kritik", "critical"].includes(normalized(row.data.criticality || row.data.riskLevel))) return tr ? "Kritik kapsam" : "Critical scope";
+  if (["kritik", "critical"].includes(normalized(row.data.criticality || row.data.riskLevel || row.data.severity))) return tr ? "Kritik kapsam" : "Critical scope";
   if (Number.isFinite(dueTime) && dueTime <= now + 30 * DAY) return tr ? "30 gün içinde" : "Due within 30 days";
   if (!Number.isFinite(dueTime)) return tr ? "Termin tanımsız" : "No due date";
   return tr ? "Açık sorumluluk" : "Open responsibility";
@@ -251,6 +246,8 @@ export default function MyWorkV2() {
   const [filter, setFilter] = useState<QueueFilter>("priority");
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(false);
+  const [loadError, setLoadError] = useState(false);
+  const [pageIndex, setPageIndex] = useState(0);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
   useEffect(() => {
@@ -287,13 +284,19 @@ export default function MyWorkV2() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [grcResult, authResult] = await Promise.allSettled([
+      const [grcResult, authResult, findingsResult] = await Promise.allSettled([
         fetch(withBasePath("/api/grc"), { cache: "no-store" }).then(async response => response.ok ? response.json() : Promise.reject(new Error("grc"))),
         fetch(withBasePath("/api/auth"), { cache: "no-store" }).then(async response => response.ok ? response.json() : Promise.reject(new Error("auth"))),
+        fetch(withBasePath("/api/findings"), { cache: "no-store" }).then(async response => response.ok ? response.json() : Promise.reject(new Error("findings"))),
       ]);
-      if (grcResult.status === "fulfilled") setRows(normalizeRows(grcResult.value));
+      setRows(previous => [
+        ...(grcResult.status === "fulfilled" ? normalizeRows(grcResult.value) : previous.filter(row => row.module !== "Bulgular ve CAPA")),
+        ...(findingsResult.status === "fulfilled" ? findingWorkRows(findingsResult.value) : previous.filter(row => row.module === "Bulgular ve CAPA")),
+      ]);
       if (authResult.status === "fulfilled") setUser((authResult.value as { user?: User }).user || {});
-      setLastUpdated(new Date());
+      const failed = grcResult.status === "rejected" || authResult.status === "rejected" || findingsResult.status === "rejected";
+      setLoadError(failed);
+      if (!failed) setLastUpdated(new Date());
     } finally {
       setLoading(false);
     }
@@ -317,32 +320,38 @@ export default function MyWorkV2() {
     });
     const items = openRows.map(row => itemFromRow(row, user, now, lang)).sort((a, b) => a.priority - b.priority || a.dueTime - b.dueTime || a.title.localeCompare(b.title, lang === "tr" ? "tr" : "en"));
     const completedItems = completedRows.map(row => itemFromRow(row, user, now, lang, true)).sort((a, b) => new Date(b.row.updatedAt || b.row.createdAt || 0).getTime() - new Date(a.row.updatedAt || a.row.createdAt || 0).getTime());
+    const today = items.filter(item => isDueToday(item.due, now)).length;
     const overdue = items.filter(item => Number.isFinite(item.dueTime) && item.dueTime < now).length;
     const soon = items.filter(item => Number.isFinite(item.dueTime) && item.dueTime >= now && item.dueTime <= now + 14 * DAY).length;
     const undated = items.filter(item => !Number.isFinite(item.dueTime)).length;
     const priority = items.filter(item => item.priority <= 1).length;
     const waiting = items.filter(item => item.waiting).length;
     const modules = [...new Set(items.map(item => item.row.module))].length;
-    return { items, completedItems, overdue, soon, undated, priority, waiting, modules, now };
+    return { items, completedItems, today, overdue, soon, undated, priority, waiting, modules, now };
   }, [rows, user, scope, lang]);
 
   const visible = useMemo(() => {
     const needle = normalized(query);
     const source = filter === "completed" ? data.completedItems : data.items;
     return source.filter(item => {
+      if (filter === "today" && !isDueToday(item.due, data.now)) return false;
       if (filter === "priority" && item.priority > 1) return false;
       if (filter === "overdue" && !(Number.isFinite(item.dueTime) && item.dueTime < data.now)) return false;
       if (filter === "soon" && !(Number.isFinite(item.dueTime) && item.dueTime >= data.now && item.dueTime <= data.now + 14 * DAY)) return false;
       if (filter === "waiting" && !item.waiting) return false;
       if (filter === "undated" && Number.isFinite(item.dueTime)) return false;
       if (!needle) return true;
-      return normalized(`${item.title} ${item.owner} ${item.status} ${item.row.module} ${recordCode(item.row)}`).includes(needle);
+      return normalized(`${item.title} ${item.owner} ${item.status} ${item.row.module} ${MODULE_LABELS[item.row.module]?.[lang] || ""} ${recordCode(item.row)}`).includes(needle);
     });
-  }, [data, filter, query]);
+  }, [data, filter, query, lang]);
+
+  useEffect(() => { setPageIndex(0); }, [filter, query, scope]);
+  const page = paginateWork(visible, pageIndex);
 
   if (!mount) return null;
   const tr = lang === "tr";
   const filters: Array<[QueueFilter, string, number]> = [
+    ["today", tr ? "Bugün" : "Today", data.today],
     ["priority", tr ? "Öncelik" : "Priority", data.priority],
     ["overdue", tr ? "Geciken" : "Overdue", data.overdue],
     ["soon", tr ? "14 gün" : "14 days", data.soon],
@@ -354,6 +363,7 @@ export default function MyWorkV2() {
 
   return createPortal(
     <section className="my-work-v2" aria-label={tr ? "Benim işlerim" : "My Work"}>
+      {loadError && <p className="mw2-load-error" role="alert">{tr ? "İş listesi güncellenemedi. Görünen bilgiler güncel olmayabilir; Yenile ile tekrar deneyin." : "Work could not be refreshed. Displayed data may be outdated; use Refresh to retry."}</p>}
       <header className="mw2-hero">
         <div>
           <small>{tr ? "AKSİYON INBOX" : "ACTION INBOX"}</small>
@@ -362,8 +372,8 @@ export default function MyWorkV2() {
         </div>
         <div className="mw2-hero-actions">
           {user.role === "Admin" && <div className="mw2-scope" aria-label={tr ? "İş kapsamı" : "Work scope"}>
-            <button type="button" className={scope === "mine" ? "active" : ""} onClick={() => setScope("mine")}>{tr ? "Benim" : "Mine"}</button>
-            <button type="button" className={scope === "organization" ? "active" : ""} onClick={() => setScope("organization")}>{tr ? "Organizasyon" : "Organization"}</button>
+            <button type="button" aria-pressed={scope === "mine"} className={scope === "mine" ? "active" : ""} onClick={() => setScope("mine")}>{tr ? "Benim" : "Mine"}</button>
+            <button type="button" aria-pressed={scope === "organization"} className={scope === "organization" ? "active" : ""} onClick={() => setScope("organization")}>{tr ? "Organizasyon" : "Organization"}</button>
           </div>}
           <button type="button" className="mw2-refresh" disabled={loading} onClick={() => void load()}>{loading ? (tr ? "Yenileniyor…" : "Refreshing…") : (tr ? "Yenile" : "Refresh")}</button>
         </div>
@@ -382,11 +392,11 @@ export default function MyWorkV2() {
           <div className="mw2-meta"><b>{data.items.length}</b><span>{tr ? "açık iş" : "open items"}</span><i>·</i><b>{data.modules}</b><span>{tr ? "modül" : "modules"}</span></div>
         </header>
         <div className="mw2-toolbar">
-          <div className="mw2-filters">{filters.map(([value, label, count]) => <button type="button" className={filter === value ? "active" : ""} onClick={() => setFilter(value)} key={value}>{label}<b>{count}</b></button>)}</div>
-          <label className="mw2-search"><span aria-hidden="true">⌕</span><input value={query} onChange={event => setQuery(event.target.value)} placeholder={tr ? "İşlerde ara…" : "Search work…"} /></label>
+          <div className="mw2-filters">{filters.map(([value, label, count]) => <button type="button" aria-pressed={filter === value} className={filter === value ? "active" : ""} onClick={() => setFilter(value)} key={value}>{label}<b>{count}</b></button>)}</div>
+          <label className="mw2-search"><span aria-hidden="true">⌕</span><input aria-label={tr ? "İşlerde ara" : "Search work"} value={query} onChange={event => setQuery(event.target.value)} placeholder={tr ? "İşlerde ara…" : "Search work…"} /></label>
         </div>
 
-        {visible.length ? <div className="mw2-list">{visible.slice(0, 80).map(item => <button type="button" key={item.row.id} className={`mw2-item ${item.tone}`} onClick={() => navigateToRecord(item.row)}>
+        {visible.length ? <div className="mw2-list">{page.items.map(item => <button type="button" key={item.row.id} className={`mw2-item ${item.tone}`} onClick={() => navigateToRecord(item.row)}>
           <span className="mw2-priority-dot" />
           <span className="mw2-title"><b>{item.title}</b><small>{MODULE_LABELS[item.row.module]?.[lang] || item.row.module} · {recordCode(item.row)}</small></span>
           <span className="mw2-owner"><small>{tr ? "Sahip" : "Owner"}</small><b>{item.owner}</b></span>
@@ -394,7 +404,10 @@ export default function MyWorkV2() {
           <time className={!Number.isFinite(item.dueTime) ? "undated" : item.dueTime < data.now ? "overdue" : ""}>{filter === "completed" ? formatDate(item.row.updatedAt || item.row.createdAt || "", lang) : formatDate(item.due, lang)}</time>
           <strong className="mw2-arrow">→</strong>
         </button>)}</div> : <div className="mw2-empty"><span>✓</span><div><b>{tr ? "Bu görünümde aksiyon yok." : "No actions in this view."}</b><p>{tr ? "Filtreyi değiştirin veya kapsamı kontrol edin." : "Change the filter or review the selected scope."}</p></div></div>}
-        {visible.length > 80 && <footer className="mw2-limit">{tr ? `İlk 80 iş gösteriliyor · toplam ${visible.length}` : `Showing first 80 items · ${visible.length} total`}</footer>}
+        {visible.length > 0 && <footer className="mw2-pagination" aria-label={tr ? "İş listesi sayfaları" : "Work list pages"}>
+          <span aria-live="polite">{page.start}–{page.end} / {page.total}</span>
+          <div><button type="button" disabled={page.page === 0} onClick={() => setPageIndex(page.page - 1)}>{tr ? "Önceki" : "Previous"}</button><span>{page.page + 1} / {page.pages}</span><button type="button" disabled={page.page + 1 >= page.pages} onClick={() => setPageIndex(page.page + 1)}>{tr ? "Sonraki" : "Next"}</button></div>
+        </footer>}
       </section>
       <footer className="mw2-footnote">{lastUpdated ? (tr ? `Son güncelleme ${lastUpdated.toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" })}` : `Last updated ${lastUpdated.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}`) : ""}</footer>
     </section>,

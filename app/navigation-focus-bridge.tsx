@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { withBasePath } from "./base-path";
 import { sameDomainModule } from "./domain-identity";
+import { isCoreRecordRequest } from "./core-record-focus";
 import {
   FORNOST_FOCUS_EVENT,
   consumePendingFornostFocus,
@@ -292,6 +293,7 @@ export default function NavigationFocusBridge() {
 
     const schedule = (request: FornostNavigationRequest | null) => {
       if (!request || !clean(request.module) || !focusValue(request)) return;
+      if (isCoreRecordRequest(request)) { stop(); current = null; return; }
       stop();
       current = request;
       tryApply();

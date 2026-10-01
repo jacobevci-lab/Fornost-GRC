@@ -5,7 +5,7 @@ import test from "node:test";
 const source = readFileSync("app/my-work-v2.tsx", "utf8");
 
 test("My Work separates attention, waiting, completed and undated lifecycle views", () => {
-  assert.match(source, /type QueueFilter = "priority" \| "overdue" \| "soon" \| "waiting" \| "undated" \| "completed" \| "all"/);
+  assert.match(source, /type QueueFilter = "today" \| "priority" \| "overdue" \| "soon" \| "waiting" \| "undated" \| "completed" \| "all"/);
   assert.match(source, /Waiting for others/);
   assert.match(source, /Completed in 30 days/);
   assert.match(source, /completedAt >= now - 30 \* DAY/);
