@@ -17,29 +17,41 @@ for(const [email,role] of [[reviewer,'Admin'],['qa-editor@fornost.test','Editor'
 const checker=await login(reviewer), editor=await login('qa-editor@fornost.test'),viewer=await login('qa-viewer@fornost.test');
 let seedRows=(await request(admin,'/api/grc')).rows;
 const modules=[...new Set(seedRows.map(x=>x.module))];
-for(const module of modules)await check(`API CRUD and role boundaries: ${module}`,async()=>{
- const seed=seedRows.find(x=>x.module===module),data=JSON.parse(seed.data_json),key=['title','process','evidenceTitle','controlTitle','requirementTitle'].find(k=>data[k]);
- data[key]=`QA ${module} ${Date.now()}`;const created=await request(editor,'/api/grc','POST',{module,data},201);
+for(const moduleName of modules)await check(`API CRUD and role boundaries: ${moduleName}`,async()=>{
+ const seed=seedRows.find(x=>x.module===moduleName),data=JSON.parse(seed.data_json),key=['title','process','evidenceTitle','controlTitle','requirementTitle'].find(k=>data[k]);
+ data[key]=`QA ${moduleName} ${Date.now()}`;const created=await request(editor,'/api/grc','POST',{module:moduleName,data},201);
  assert.ok(created.id);assert.ok(created.code);let found=(await request(admin,'/api/grc')).rows.find(x=>x.id===created.id);assert.equal(JSON.parse(found.data_json)[key],data[key]);
  data[key]+=' updated';await request(editor,'/api/grc','PATCH',{id:created.id,data});found=(await request(admin,'/api/grc')).rows.find(x=>x.id===created.id);assert.equal(JSON.parse(found.data_json)[key],data[key]);
- await request(viewer,'/api/grc','POST',{module,data},403);await request(viewer,'/api/grc','PATCH',{id:created.id,data},403);await request(editor,`/api/grc?id=${created.id}`,'DELETE',undefined,403);
- await request(admin,'/api/grc','POST',{module,data:{}},400);await request(admin,`/api/grc?id=${created.id}`,'DELETE');assert.ok(!(await request(admin,'/api/grc')).rows.some(x=>x.id===created.id));
+ await request(viewer,'/api/grc','POST',{module:moduleName,data},403);await request(viewer,'/api/grc','PATCH',{id:created.id,data},403);await request(editor,`/api/grc?id=${created.id}`,'DELETE',undefined,403);
+ await request(admin,'/api/grc','POST',{module:moduleName,data:{}},400);await request(admin,`/api/grc?id=${created.id}`,'DELETE');assert.ok(!(await request(admin,'/api/grc')).rows.some(x=>x.id===created.id));
 });
-const page=await admin.newPage();currentPage=page;page.setDefaultTimeout(10000);const errors=[];page.on('pageerror',e=>errors.push(e.message));
+const page=await admin.newPage();currentPage=page;page.setDefaultTimeout(10000);const errors=[];page.on('pageerror',e=>errors.push(e.message));page.on('response',r=>{if(r.status()>=500&&r.url().startsWith(base))errors.push(`HTTP ${r.status()} ${r.url()}`)});
 async function open(label){await page.locator(`nav button[aria-label=${JSON.stringify(label)}]`).evaluate(el=>el.click());await page.waitForTimeout(500)}
-async function reset(){await page.goto(base);await page.locator('.shell').waitFor();await page.locator('.language-switch:visible').getByRole('button',{name:'EN',exact:true}).click();}
+async function reset(){await page.setViewportSize({width:1536,height:960});await page.goto(base);await page.locator('.shell').waitFor();await page.locator('.language-switch:visible').getByRole('button',{name:'EN',exact:true}).click();}
 await reset();
-for(const [module,label,key] of [['Risk Assessment','Risk Assessment','title'],['BIA','Business Impact Analysis (BIA)','process'],['Varlık Envanteri','Asset Inventory','title'],['Uyum','Compliance Management','controlTitle'],['Kontroller','Control Library','controlTitle']])await check(`UI create/edit/delete: ${label}`,async()=>{
+for(const [moduleName,label,key] of [['Risk Assessment','Risk Assessment','title'],['BIA','Business Impact Analysis (BIA)','process'],['Varlık Envanteri','Asset Inventory','title'],['Uyum','Compliance Management','controlTitle'],['Kontroller','Control Library','controlTitle']])await check(`UI create/edit/delete: ${label}`,async()=>{
  await reset();await open(label);await page.locator('.actions .primary').click();const dialog=page.locator('.modal[role=dialog]');await dialog.waitFor();await dialog.getByRole('button',{name:/Show advanced/}).click();
- const data=JSON.parse(seedRows.find(x=>x.module===module).data_json);data[key]=`QA UI ${module} ${Date.now()}`;
+ const data=JSON.parse(seedRows.find(x=>x.module===moduleName).data_json);data[key]=`QA UI ${moduleName} ${Date.now()}`;
  const inputs=dialog.locator('input[name]:not([type=hidden]),textarea[name],select[name]');
  for(let i=0;i<await inputs.count();i++){const input=inputs.nth(i),name=await input.getAttribute('name'),tag=await input.evaluate(e=>e.tagName),value=data[name];if(value===undefined||value===null)continue;
  if(tag==='SELECT'){const options=await input.locator('option').evaluateAll(es=>es.map(e=>e.value));const multi=await input.getAttribute('multiple')!==null;const chosen=multi?String(value).split(',').map(v=>v.trim()).filter(v=>options.includes(v)):String(value);if(multi?chosen.length:options.includes(chosen))await input.selectOption(chosen)}else await input.fill(String(value));}
  const response=page.waitForResponse(r=>r.url().endsWith('/api/grc')&&r.request().method()==='POST').catch(()=>null);await dialog.locator('.form-actions .primary').click();const r=await response;assert.equal(r.status(),201,await r.text());const created=await r.json();await dialog.waitFor({state:'hidden'});
- const row=page.locator('tr').filter({has:page.locator(`.code[title="${created.id}"]`)});await row.getByRole('button',{name:'Edit',exact:true}).click();await dialog.locator(`[name="${key}"]`).fill(data[key]+' edited');const update=page.waitForResponse(r=>r.url().endsWith('/api/grc')&&r.request().method()==='PATCH').catch(()=>null);await dialog.locator('.form-actions .primary').click();assert.equal((await update).status(),200);await dialog.waitFor({state:'hidden'});
+ if(moduleName==='BIA'){const saved=(await request(admin,'/api/grc')).rows.find(x=>x.id===created.id);await request(admin,'/api/grc','PATCH',{id:created.id,data:{...JSON.parse(saved.data_json),rpo:0}});await reset();await open(label)}
+ const row=page.locator('tr').filter({has:page.locator(`.code[title="${created.id}"]`)});await row.getByRole('button',{name:'Edit',exact:true}).click();if(moduleName==='BIA')assert.equal(await dialog.locator('[name=rpo]').inputValue(),'0','Zero RPO survives edit');await dialog.locator(`[name="${key}"]`).fill(data[key]+' edited');const update=page.waitForResponse(r=>r.url().endsWith('/api/grc')&&r.request().method()==='PATCH').catch(()=>null);await dialog.locator('.form-actions .primary').click();assert.equal((await update).status(),200);await dialog.waitFor({state:'hidden'});
  const found=(await request(admin,'/api/grc')).rows.find(x=>x.id===created.id);assert.equal(JSON.parse(found.data_json)[key],data[key]+' edited');
- await page.screenshot({path:`${out}/ui-${module.replaceAll(' ','-')}.png`});page.once('dialog',d=>d.accept());const del=page.waitForResponse(r=>r.url().includes('/api/grc?id=')&&r.request().method()==='DELETE').catch(()=>null);await row.getByRole('button',{name:'Delete',exact:true}).click();assert.equal((await del).status(),200);assert.ok(!(await request(admin,'/api/grc')).rows.some(x=>x.id===created.id));
+ await page.screenshot({path:`${out}/ui-${moduleName.replaceAll(' ','-')}.png`});page.once('dialog',d=>d.accept());const del=page.waitForResponse(r=>r.url().includes('/api/grc?id=')&&r.request().method()==='DELETE').catch(()=>null);await row.getByRole('button',{name:'Delete',exact:true}).click();assert.equal((await del).status(),200);assert.ok(!(await request(admin,'/api/grc')).rows.some(x=>x.id===created.id));
 });
+await check('Evidence Library UI upload, file integrity, edit and delete',async()=>{
+ await reset();await open('Evidence Library');await page.locator('.actions .primary').click();const dialog=page.locator('.modal[role=dialog]');await dialog.waitFor();
+ const bytes=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=','base64');
+ await dialog.locator('input[type=file]').setInputFiles({name:'qa-evidence.png',mimeType:'image/png',buffer:bytes});
+ for(const [name,value] of Object.entries({evidenceTitle:'QA uploaded evidence',controlRef:'A.5.18',owner,period:today.slice(0,7)}))await dialog.locator(`[name=${name}]`).fill(value);
+ const response=page.waitForResponse(r=>r.url().endsWith('/api/evidence')&&r.request().method()==='POST').catch(()=>null);await dialog.locator('.form-actions .primary').click();const r=await response;assert.equal(r.status(),201,await r.text());const created=await r.json();assert.match(created.contentSha256,/^[a-f0-9]{64}$/);await dialog.waitFor({state:'hidden'});
+ const saved=(await request(admin,'/api/grc')).rows.find(x=>x.id===created.id),data=JSON.parse(saved.data_json);const downloaded=await admin.request.get(`${base}/api/evidence?key=${encodeURIComponent(data.fileKey)}`);assert.equal(downloaded.status(),200);assert.deepEqual(await downloaded.body(),bytes);
+ const row=page.locator('tr').filter({has:page.getByRole('button',{name:saved.record_code,exact:true})});await row.getByRole('button',{name:'Edit',exact:true}).click();await dialog.locator('[name=evidenceTitle]').fill('QA evidence updated');const update=page.waitForResponse(r=>r.url().endsWith('/api/grc')&&r.request().method()==='PATCH').catch(()=>null);await dialog.locator('.form-actions .primary').click();assert.equal((await update).status(),200);await dialog.waitFor({state:'hidden'});await page.screenshot({path:`${out}/evidence-uploaded.png`});
+ page.once('dialog',d=>d.accept());const deletion=page.waitForResponse(r=>r.url().includes('/api/grc?id=')&&r.request().method()==='DELETE').catch(()=>null);await row.getByRole('button',{name:'Delete',exact:true}).click();assert.equal((await deletion).status(),200);assert.ok(!(await request(admin,'/api/grc')).rows.some(x=>x.id===created.id));
+});
+
 await check('Continuity UI form, layout, modal, maker-checker, exercise breach and gap closure',async()=>{
  await reset();await open('Business Continuity & Resilience');await page.locator('.continuity-page').waitFor();assert.equal(await page.locator('nav.continuity-tabs').count(),0);assert.ok((await page.locator('.continuity-tabs').boundingBox()).height<100);
  await page.locator('.continuity-hero').getByRole('button',{name:'New Plan'}).click();let dialog=page.locator('dialog.continuity-overlay');await dialog.waitFor();const bounds=await dialog.boundingBox();assert.ok(bounds.x>250&&bounds.y>=20,'Continuity dialog is centered with viewport margins');await page.keyboard.press('Escape');await dialog.waitFor({state:'hidden'});await page.locator('.continuity-hero').getByRole('button',{name:'New Plan'}).click();await dialog.waitFor();assert.equal(await dialog.locator('fieldset').count(),3);
@@ -80,7 +92,7 @@ await check('CAPA lifecycle: create, start, submit, independent verify and reope
  for(const [operation,confirmation] of [['start','CAPA AKSİYONUNU BAŞLAT'],['submit','CAPA DOĞRULAMAYA GÖNDER'],['verify','BULGUYU KAPAT'],['reopen','BULGUYU YENİDEN AÇ']])await request(operation==='verify'?checker:admin,'/api/findings','POST',{action:'transition',findingId:id,operation,confirmation,...evidence});
 });
 await check('Audit portfolio: template creation, duplicate protection, archive/delete and requirement cleanup',async()=>{
- const body={name:`QA ISO audit ${Date.now()}`,template:'ISO 27001:2022',auditType:'İç Denetim',auditor:reviewer,auditOwner:owner};
+ const body={name:`QA ISO audit ${Date.now()}`,template:'ISO/IEC 27001:2022',auditType:'İç Denetim',auditor:reviewer,auditOwner:owner};
  const created=await request(admin,'/api/audits','POST',body,201);assert.ok(created.insertedRequirements>0);await request(admin,'/api/audits','POST',body,409);await request(viewer,'/api/audits','POST',{...body,name:'QA denied'},403);
  assert.ok((await request(admin,'/api/audits')).audits.some(x=>x.id===created.id));await request(editor,`/api/audits?id=${created.id}`,'DELETE',undefined,403);const removed=await request(admin,`/api/audits?id=${created.id}`,'DELETE');assert.equal(removed.deletedRequirements,created.insertedRequirements);assert.ok(!(await request(admin,'/api/grc')).rows.some(x=>JSON.parse(x.data_json).auditName===body.name));
 });
@@ -115,6 +127,17 @@ await check('Evidence automation: source creation, edit, rule creation and disab
 await check('Read routes, invalid writes, exports and Viewer write boundaries',async()=>{
  for(const route of ['continuity','risk-appetite','policy-lifecycle','incidents','findings']){await request(viewer,`/api/${route}`);await request(viewer,`/api/${route}`,'POST',{action:'invalid'},403);await request(admin,`/api/${route}`,'POST',{action:'invalid'},400);const csv=await request(admin,`/api/${route}?format=csv`);assert.equal(typeof csv,'string');}
 });
+await reset();await open('AI Governance');
+const aiTabs=page.locator('.fornost-ai-tabs>button'),aiCount=await aiTabs.count();
+await check('AI governance exposes its complete navigation',()=>assert.ok(aiCount>=30));
+for(const theme of ['light','dark']){
+ if(await page.locator('html').getAttribute('data-theme')!==theme)await page.locator('.theme-toggle:visible').click();
+ for(let i=0;i<aiCount;i++)await check(`AI workspace render: ${theme} / ${i+1}`,async()=>{
+  await aiTabs.nth(i).click();await page.waitForTimeout(450);const panel=page.locator('.fornost-ai-panel');assert.equal(await aiTabs.nth(i).getAttribute('class'),'active');assert.ok(await panel.getAttribute('data-ai-view'));assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)<=4);await page.screenshot({path:`${out}/ai-${theme}-${i+1}.jpg`,type:'jpeg',quality:65});
+ });
+}
+await page.locator('.fornost-ai-panel button[aria-label="Kapat"]').click();
+
 await check('No unhandled UI errors',()=>assert.deepEqual(errors,[]));
 await fs.writeFile(`${out}/results.json`,JSON.stringify({environment:base,results,limitations:['External SMTP, SSO, webhook delivery and third-party credentials are not configured in this isolated environment.','Lifecycle modules retain audit history and use retirement/closure rather than unsupported hard deletion.']},null,2));
 for(const ctx of contexts)await ctx.close();await browser.close();if(results.some(x=>x.status==='failed'))process.exitCode=1;
