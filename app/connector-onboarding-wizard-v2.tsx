@@ -395,7 +395,7 @@ export default function ConnectorOnboardingWizard() {
             <div className="cow-body">
               <div className="cow-copy"><small>1 · {tr ? "BAĞLAN" : "AUTHENTICATE"}</small><h4>{tr ? "Kanıt kaynağını doğrula" : "Validate the evidence source"}</h4><p>{tr ? "Kimlik bilgisi şifreli saklanır. HTTPS JSON collector ile bağlantı ve veri yapısı güvenli biçimde doğrulanır." : "Credentials are stored encrypted. The HTTPS JSON collector validates the connection and data shape safely."}</p></div>
               <div className="cow-form-grid">
-                <label className="wide"><span>{tr ? "Connector şablonu" : "Connector template"}</span><select value={template.label} onChange={(event) => chooseTemplate(event.target.value)}>{templates.map((item) => <option key={item.label}>{item.label}</option>)}</select></label>
+                <label className="wide"><span>{tr ? "Connector şablonu" : "Connector template"}</span><select aria-label={tr ? "Connector şablonu" : "Connector template"} value={template.label} onChange={(event) => chooseTemplate(event.target.value)}>{templates.map((item) => <option key={item.label}>{item.label}</option>)}</select></label>
                 <ConnectorFields value={draft} onChange={setDraft} lang={lang} existing={!!sourceId} choose={false}/>
 
               </div>
