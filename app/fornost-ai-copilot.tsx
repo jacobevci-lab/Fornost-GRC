@@ -361,7 +361,7 @@ export default function FornostAiCopilot() {
         <div><small>FORNOST AI · READ-ONLY COPILOT</small><h2>Ask Fornost</h2><p>{status?.model || "AI sağlayıcısı bekleniyor"}</p></div>
         <button onClick={() => setOpen(false)} aria-label="Kapat">×</button>
       </header>
-      <nav className="fornost-ai-tabs">
+      <div className="fornost-ai-tabs" role="group" aria-label="AI workspace sections">
         <small className="fornost-ai-tab-group">KOMUTA</small>
         {user.role === "Admin" && <button className={activeTab === "portfolio" ? "active" : ""} onClick={() => setTab("portfolio")}>AI Yönetim Özeti</button>}
         <button className={activeTab === "chat" ? "active" : ""} onClick={() => setTab("chat")}>Copilot</button>
@@ -399,7 +399,7 @@ export default function FornostAiCopilot() {
         {user.role === "Admin" && <button className={activeTab === "policy" ? "active" : ""} onClick={() => setTab("policy")}>Operasyon</button>}
         {user.role === "Admin" && <button className={activeTab === "protection" ? "active" : ""} onClick={() => setTab("protection")}>Veri Koruma</button>}
         {user.role === "Admin" && <button className={activeTab === "audit" ? "active" : ""} onClick={() => { setTab("audit"); void loadAudit(); }}>AI Audit</button>}
-      </nav>
+      </div>
 
       {activeTab === "portfolio" ? <FornostAiPortfolio/> : activeTab === "chat" ? <>
         <div className="fornost-ai-mode"><span className={chatReady ? "online" : "offline"}/><b>{status?.operatingState==="emergency-stop"?"Acil durduruldu":chatReady ? "Hazır" : "Erişim kısıtlı"}</b><em>{status?.operatingMessage||status?.provider||"Provider yok"}</em></div>

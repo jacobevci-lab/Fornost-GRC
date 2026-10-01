@@ -2701,7 +2701,7 @@ function Field({
     ],
     status: statusOptionsByModule[module] || [],
   };
-  const value = form[k] || "",
+  const value = form[k] ?? "",
     change = (v: string) => setForm({ ...form, [k]: v }),
     u = ui[lang],
     requiredField = (requiredFieldsByModule[module] || []).includes(k);
@@ -2861,6 +2861,8 @@ function Field({
           </p>
           <select
             multiple
+            name={k}
+            aria-label={labelMap[lang][k]}
             required
             value={selected}
             onChange={(e) =>
@@ -2889,6 +2891,7 @@ function Field({
       <label>
         {labelMap[lang][k]}
         <select
+          name={k}
           required={requiredField}
           value={value}
           onChange={(e) => change(e.target.value)}
@@ -2916,7 +2919,7 @@ function Field({
       <label>
         {labelMap[lang][k]}
         <input
-          name={nameMode ? k : undefined}
+          name={k}
           list="fornost-control-refs"
           value={value}
           onChange={(e) => change(e.target.value)}
@@ -2934,7 +2937,7 @@ function Field({
       {labelMap[lang][k]}
       {k === "framework" ? (
         <select
-          name={nameMode ? k : undefined}
+          name={k}
           value={value}
           onChange={(e) => change(e.target.value)}
           required
@@ -2952,7 +2955,7 @@ function Field({
         </select>
       ) : select[k] ? (
         <select
-          name={nameMode ? k : undefined}
+          name={k}
           value={value}
           required={requiredField}
           onChange={(e) => change(e.target.value)}
@@ -2969,7 +2972,7 @@ function Field({
         </select>
       ) : wide ? (
         <textarea
-          name={nameMode ? k : undefined}
+          name={k}
           rows={3}
           maxLength={2000}
           value={value}
@@ -2977,7 +2980,7 @@ function Field({
         />
       ) : (
         <input
-          name={nameMode ? k : undefined}
+          name={k}
           type={
             k === "ownerEmail"
               ? "email"
