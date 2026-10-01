@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { canQueueAssuranceRetest } from "./assurance-recovery";
 import { withBasePath } from "./base-path";
 import {
   capaGovernanceState,
@@ -177,7 +178,7 @@ function retestCopy(state: RetestAttentionState, tr: boolean) {
   if (state === "pending-review") return tr ? "Re-test review bekliyor" : "Re-test review pending";
   if (state === "awaiting-run") return tr ? "Re-test onaylandı; sonraki control run bekleniyor" : "Re-test approved; awaiting the next control run";
   if (state === "completed") return tr ? "Re-test geçti ve uzlaştırıldı" : "Re-test passed and reconciled";
-  if (state === "failed") return tr ? "Re-test başarısız; teknik bulgu yeniden açıldı" : "Re-test failed; technical finding reopened";
+  if (state === "failed") return tr ? "Re-test başarısız; ilgili açık bulguyu takip et" : "Re-test failed; follow up on the related open finding";
   if (state === "error") return tr ? "Re-test çalışma veya evidence hatası" : "Re-test execution or evidence error";
   if (state === "rejected") return tr ? "Re-test review reddedildi" : "Re-test review rejected";
   if (state === "recovered") return tr ? "Kontrol recovered durumda" : "Control is recovered";
@@ -513,7 +514,7 @@ export default function ContinuousAssuranceAttention({ lang }: { lang: Lang }) {
       setRetestNotice({
         findingId,
         tone: "success",
-        message: recovery?.readyForRetest && clean(recovery.recoveryState) === "ready-for-retest"
+        message: canQueueAssuranceRetest(recovery)
           ? (tr ? "Remediation ve closure evidence doğrulandı; governed re-test review açılabilir." : "Remediation and closure evidence are verified; governed re-test review can be queued.")
           : (tr ? "Recovery değerlendirmesi güncellendi; eksik koşullar tamamlanmadan re-test kuyruğa alınmaz." : "Recovery evaluation updated; re-test will not be queued until prerequisites are complete."),
       });
@@ -527,7 +528,7 @@ export default function ContinuousAssuranceAttention({ lang }: { lang: Lang }) {
   async function queueRetest(chain: Chain) {
     const findingId = clean(chain.findingRef);
     const recovery = recoveryByFinding[findingId];
-    if (!findingId || recovery?.recoveryState !== "ready-for-retest" || !recovery.readyForRetest) return;
+    if (!findingId || !canQueueAssuranceRetest(recovery)) return;
     setRetestBusyFinding(findingId);
     setRetestNotice(null);
     try {
@@ -652,7 +653,7 @@ export default function ContinuousAssuranceAttention({ lang }: { lang: Lang }) {
                           {(retestState === "evaluate" || retestState === "blocked" || retestState === "rejected" || retestState === "failed" || retestState === "error") && (
                             <button type="button" disabled={retestBusy} onClick={() => void evaluateRetest(chain)}>{retestBusy ? "…" : (tr ? "Uygunluğu kontrol et" : "Check readiness")}</button>
                           )}
-                          {retestState === "ready" && (
+                          {canQueueAssuranceRetest(recoveryByFinding[clean(chain.findingRef)]) && !["pending-review","awaiting-run"].includes(retestState) && (
                             <button type="button" disabled={retestBusy} onClick={() => void queueRetest(chain)}>{retestBusy ? "…" : "Re-test review"}</button>
                           )}
                           {retestState === "awaiting-run" && (

@@ -2,13 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireRole, type AppRole } from "../auth/security";
 import { clean } from "../integrations/security";
 import { controlHealth, evidenceFreshness } from "../../evidence/continuous-controls";
-import { evaluateAssuranceRecovery, type AssuranceState, type EvidenceFreshness, type RetestResult } from "../../assurance-recovery";
+import { canQueueAssuranceRetest, evaluateAssuranceRecovery, type AssuranceState, type EvidenceFreshness, type RetestResult } from "../../assurance-recovery";
 import {
   buildContinuousAssuranceCapaCandidate,
   resolveContinuousAssuranceTargetControl,
   type CapaPromotionCandidate,
 } from "../../continuous-assurance-capa";
 import { ensureAssuranceWorkSchema, reconcileApprovedRetests, type AssuranceWorkRow } from "../../continuous-assurance-runtime";
+import { assessRetestRun, type RetestRun, type RetestOutcome } from "../../assurance-retest";
 import { promoteContinuousAssuranceFinding } from "../../findings/promotion";
 
 type Env = Record<string, unknown> & { DB: D1Database };
@@ -36,7 +37,7 @@ type FindingRow = {
   closure_evidence_sha256: string | null;
   closed_at: string | null;
 };
-type RunRow = { status: string; evidence_id: string | null; created_at: string };
+type RunRow = RetestRun;
 type WorkRow = AssuranceWorkRow & {
   finding_title?: string | null;
   finding_severity?: string | null;
@@ -80,8 +81,10 @@ async function loadContext(db:D1Database,findingId:string){
   if(!rule)throw new Error("Sürekli kontrol kuralı bulunamadı.");
   const risk=await db.prepare("SELECT id,data_json FROM simple_grc_records WHERE id=? AND module='Risk Assessment'").bind(finding.id).first<{id:string;data_json:string}>();
   const evidence=finding.evidence_id?await db.prepare("SELECT data_json FROM simple_grc_records WHERE id=? AND module='Kanıtlar'").bind(finding.evidence_id).first<{data_json:string}>():null;
-  const retest=finding.closed_at?await db.prepare("SELECT status,evidence_id,created_at FROM evidence_automation_runs WHERE rule_id=? AND created_at>? ORDER BY created_at DESC LIMIT 1").bind(rule.id,finding.closed_at).first<RunRow>():null;
-  return {finding,rule,risk,evidence,retest};
+  const retest=finding.closed_at?await db.prepare("SELECT id,status,evidence_id,created_at,response_hash,detail,error_code FROM evidence_automation_runs WHERE rule_id=? AND created_at>? ORDER BY created_at DESC,rowid DESC LIMIT 1").bind(rule.id,finding.closed_at).first<RunRow>():null;
+  const retestEvidence=retest?.evidence_id?await db.prepare("SELECT data_json FROM simple_grc_records WHERE id=? AND module='Kanıtlar'").bind(retest.evidence_id).first<{data_json:string}>():null;
+  const retestCheck=retest?assessRetestRun(retest,retestEvidence?.data_json||null,rule.freshness_hours):null;
+  return {finding,rule,risk,evidence,retest,retestCheck};
 }
 async function listWork(db:D1Database){
   const order="ORDER BY CASE w.status WHEN 'pending-review' THEN 0 WHEN 'approved-awaiting-retest' THEN 1 WHEN 'failed-retest' THEN 2 WHEN 'retest-error' THEN 3 ELSE 4 END,w.updated_at DESC LIMIT 500";
@@ -116,6 +119,7 @@ export async function GET(req:NextRequest){
       reviewedBy:row.reviewed_by||"",reviewedAt:row.reviewed_at||"",reviewNote:row.review_note||"",resultRef:row.result_ref||"",resultCode:row.result_code||"",completedAt:row.completed_at||"",
       findingTitle:row.finding_title||row.finding_id,severity:row.finding_severity||"",owner:row.finding_owner||"",dueDate:row.finding_due_date||"",ruleName:row.rule_name||row.rule_id,controlRefs:row.control_refs||"",
       targetControlRef:targetControlFromDecision(decision),
+      retestOutcome:row.action==="control-retest"&&asObject(decision.retestOutcome).runId===row.result_ref?decision.retestOutcome as RetestOutcome:undefined,
     };
   });
   return json({items,summary:{
@@ -148,11 +152,21 @@ export async function POST(req:NextRequest){
       if(String(work.actor).toLowerCase()===access.actor.email.toLowerCase())return json({error:"Maker-checker: işi kuyruğa alan kullanıcı aynı işi onaylayamaz."},409);
       const stamp=new Date().toISOString();
       if(decision==="reject"){
-        await env.DB.prepare("UPDATE continuous_assurance_work_items SET status='rejected',reviewed_by=?,reviewed_at=?,review_note=?,completed_at=?,updated_at=? WHERE id=? AND status='pending-review'").bind(access.actor.email,stamp,note,stamp,stamp,work.id).run();
+        const changed=await env.DB.prepare("UPDATE continuous_assurance_work_items SET status='rejected',reviewed_by=?,reviewed_at=?,review_note=?,completed_at=?,updated_at=? WHERE id=? AND status='pending-review'").bind(access.actor.email,stamp,note,stamp,stamp,work.id).run();
+        if(!changed.meta?.changes)return json({error:"İş kaydı başka bir işlem tarafından güncellendi. Kuyruğu yenileyin."},409);
         return json({ok:true,status:"rejected",message:"Güvence işi gerekçesiyle reddedildi."});
       }
       if(work.action==="control-retest"){
-        await env.DB.prepare("UPDATE continuous_assurance_work_items SET status='approved-awaiting-retest',reviewed_by=?,reviewed_at=?,review_note=?,updated_at=? WHERE id=? AND status='pending-review'").bind(access.actor.email,stamp,note||"Re-test approved.",stamp,work.id).run();
+        const context=await loadContext(env.DB,work.finding_id),stored=parseData(work.decision_json);
+        if(context.rule.id!==work.rule_id)return json({error:"İş ve kaynak kontrol eşleşmiyor."},409);
+        const target=resolveContinuousAssuranceTargetControl(context.rule.control_refs,targetControlFromDecision(stored));
+        if(!target.ok)return json({error:"Kuyruktaki hedef kontrol eşlemesi değişmiş. Kaynak bağlantısını düzeltin."},409);
+        if(!(stored.source==="assurance-exception"&&stored.mandatory===true)){
+          const readiness=evaluateAssuranceRecovery({assuranceState:assuranceStateFor(context.rule),remediationStatus:context.finding.status,closureEvidenceRef:context.finding.closure_evidence_ref||"",closureEvidenceSha256:context.finding.closure_evidence_sha256||"",riskLinked:Boolean(context.risk)});
+          if(!readiness.readyForRetest)return json({error:"Düzeltme veya kapanış kanıtı artık yeniden teste uygun değil."},409);
+        }
+        const changed=await env.DB.prepare("UPDATE continuous_assurance_work_items SET status='approved-awaiting-retest',reviewed_by=?,reviewed_at=?,review_note=?,updated_at=? WHERE id=? AND status='pending-review'").bind(access.actor.email,stamp,note||"Re-test approved.",stamp,work.id).run();
+        if(!changed.meta?.changes)return json({error:"İş kaydı başka bir işlem tarafından güncellendi. Kuyruğu yenileyin."},409);
         return json({ok:true,status:"approved-awaiting-retest",message:"Re-test onaylandı. Bir sonraki kontrol çalışması bu iş kaydıyla otomatik uzlaştırılacak."});
       }
       if(work.action==="capa-promotion"){
@@ -173,20 +187,20 @@ export async function POST(req:NextRequest){
       remediationStatus:context.finding.status,
       closureEvidenceRef:context.finding.closure_evidence_ref||"",
       closureEvidenceSha256:context.finding.closure_evidence_sha256||"",
-      retestResult:retestResultFor(context.retest),
-      retestEvidenceFreshness:freshnessFor(context.rule,now),
+      retestResult:context.retestCheck?.status||retestResultFor(context.retest),
+      retestEvidenceFreshness:context.retestCheck?.status==="pass"?"fresh":freshnessFor(context.rule,now),
       riskLinked:Boolean(context.risk),
     });
 
     if(action==="evaluate-recovery")return json({findingId,ruleId:context.rule.id,recovery,retest:context.retest||null,riskLinked:Boolean(context.risk)});
 
     if(action==="queue-retest"){
-      if(!recovery.readyForRetest||recovery.recoveryState!=="ready-for-retest")return json({error:"Kontrol henüz yeniden teste hazır değil.",recovery},409);
+      if(!canQueueAssuranceRetest(recovery))return json({error:"Kontrol henüz yeniden teste hazır değil.",recovery},409);
       const existing=await env.DB.prepare("SELECT id,status FROM continuous_assurance_work_items WHERE finding_id=? AND action='control-retest' AND status IN ('pending-review','approved-awaiting-retest') ORDER BY created_at DESC LIMIT 1").bind(findingId).first<{id:string;status:string}>();
       if(existing)return json({ok:true,id:existing.id,status:existing.status,message:"Yeniden test işi zaten aktif.",recovery});
       const targetControl=await resolveRetestTargetControl(env.DB,findingId,context.rule.control_refs);
       if(!targetControl.ok)return json({error:"Yeniden test hedef kontrolü güvenli biçimde çözümlenemedi.",code:targetControl.reason,availableControlRefs:targetControl.availableControlRefs},409);
-      const id=`CAW-${crypto.randomUUID()}`,stamp=now.toISOString(),decision={recovery,ruleId:context.rule.id,controlRef:targetControl.controlRef,targetControlRef:targetControl.controlRef};
+      const id=`CAW-${crypto.randomUUID()}`,stamp=now.toISOString(),decision={recovery,ruleId:context.rule.id,riskRef:context.risk?.id||findingId,controlRef:targetControl.controlRef,targetControlRef:targetControl.controlRef};
       await env.DB.prepare("INSERT INTO continuous_assurance_work_items(id,finding_id,rule_id,action,status,decision_json,created_at,updated_at,actor) VALUES(?,?,?,'control-retest','pending-review',?,?,?,?)").bind(id,findingId,context.rule.id,JSON.stringify(decision),stamp,stamp,access.actor.email).run();
       return json({ok:true,id,targetControlRef:targetControl.controlRef,message:"Kontrol yeniden test işi güvence kuyruğuna alındı.",recovery},201);
     }

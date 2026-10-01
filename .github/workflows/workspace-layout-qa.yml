@@ -51,6 +51,8 @@ jobs:
         run: node scripts/module-access-runtime-qa.mjs
       - name: CAPA control context, diagnostics and recovery QA
         run: node scripts/capa-control-context-qa.mjs
+      - name: Re-test recovery, independent approval and risk reconciliation QA
+        run: node scripts/assurance-retest-runtime-qa.mjs
       - name: Check module layouts and audit stability
         run: node scripts/workspace-layout-qa.mjs
       - name: Core CRUD, forms, continuity and governance lifecycle QA
@@ -74,6 +76,7 @@ jobs:
             ready-controls-qa-artifacts/
             module-access-qa-artifacts/
             capa-control-qa-artifacts/
+            assurance-retest-qa-artifacts/
             layout-qa-artifacts/
             runtime-qa-artifacts/
             qa-artifacts-v2/

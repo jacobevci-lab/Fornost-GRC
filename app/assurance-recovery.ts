@@ -124,3 +124,9 @@ export function evaluateAssuranceRecovery(input: AssuranceRecoveryInput): Assura
     nextActions: riskLinked ? ["reassess-linked-risk"] : [],
   };
 }
+
+// Retrying an inconclusive or stale result still requires verified remediation
+// and independent approval; a failed control must be remediated first.
+export function canQueueAssuranceRetest(recovery: { readyForRetest?: boolean; recoveryState?: string } | null | undefined) {
+  return !!recovery?.readyForRetest && ["ready-for-retest", "retest-error", "evidence-degraded"].includes(recovery.recoveryState || "");
+}
