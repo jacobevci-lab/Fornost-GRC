@@ -15,20 +15,20 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
 ::selection{background:var(--ws-brand-soft);color:var(--ws-ink)}
 
 /* Historical skins used 7–10 px labels extensively. Keep compact hierarchy,
- * but never make operational text depend on sub-12 px rendering. */
-html[data-theme] body .shell>main :where(div,p,span,small,b,strong,label,button,a,td,th,dt,dd,li,em,time,code,input,select,textarea,kbd,summary){font-size:max(12px,.75rem)!important;line-height:1.45!important}
-html[data-theme] body .shell>main :where(input,select,textarea){font-size:max(13px,.8125rem)!important}
-.shell>aside :where(.nav-group button,.nav-section button){font-size:12px!important}
-.shell>aside :where(small,span,b,p,em){font-size:12px!important;line-height:1.4!important}
-.header-context small,.header-live,.command-trigger,.context-ai-trigger,.header-actions :where(b,small,span,kbd){font-size:12px!important}
-.fornost-ai-launcher :where(span,i){font-size:12px!important}
+ * with an 11 px desktop baseline and a roomier mobile reading size. */
+html[data-theme] body .shell>main :where(div,p,span,small,b,strong,label,button,a,td,th,dt,dd,li,em,time,code,input,select,textarea,kbd,summary){font-size:max(11px,.6875rem)!important;line-height:1.45!important}
+html[data-theme] body .shell>main :where(input,select,textarea){font-size:max(12px,.75rem)!important}
+.shell>aside :where(.nav-group button,.nav-section button){font-size:11px!important}
+.shell>aside :where(small,span,b,p,em){font-size:11px!important;line-height:1.4!important}
+.header-context small,.header-live,.command-trigger,.context-ai-trigger,.header-actions :where(b,small,span,kbd){font-size:11px!important}
+.fornost-ai-launcher :where(span,i){font-size:11px!important}
 
 /* Product typography and the restrained dark-mode amber heading language. */
 :where(.module-head,.module-overview,.audit-overview,.audit-detail-head,.audit-evidence-assurance){font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif!important;font-feature-settings:"cv11","ss01"}
-.module-head{align-items:flex-end!important}.module-head>div:first-child{min-width:0}.module-head .module-kicker{display:block;margin-bottom:7px;font-size:12px!important;font-weight:850!important;line-height:1.2!important;letter-spacing:.12em!important;text-transform:uppercase}
-.module-head h2{font-size:22px!important;font-weight:740!important;line-height:1.12!important;letter-spacing:-.035em!important}.module-head p{font-size:12px!important;line-height:1.55!important}
-.module-overview>header h3,.audit-overview h3,.audit-evidence-assurance h3{font-size:16px!important;font-weight:720!important;line-height:1.3!important;letter-spacing:-.015em!important}
-.smart-table .evidence-link b,.audit-requirement-cell b{font-size:12px!important;font-weight:720!important;line-height:1.4!important}.smart-table .evidence-link small,.audit-requirement-cell small{font-size:12px!important;font-weight:500!important;line-height:1.45!important}
+.module-head{align-items:flex-end!important}.module-head>div:first-child{min-width:0}.module-head .module-kicker{display:block;margin-bottom:7px;font-size:11px!important;font-weight:850!important;line-height:1.2!important;letter-spacing:.12em!important;text-transform:uppercase}
+.module-head h2{font-size:20px!important;font-weight:740!important;line-height:1.12!important;letter-spacing:-.035em!important}.module-head p{font-size:11px!important;line-height:1.55!important}
+.module-overview>header h3,.audit-overview h3,.audit-evidence-assurance h3{font-size:14px!important;font-weight:720!important;line-height:1.3!important;letter-spacing:-.015em!important}
+.smart-table .evidence-link b,.audit-requirement-cell b{font-size:11px!important;font-weight:720!important;line-height:1.4!important}.smart-table .evidence-link small,.audit-requirement-cell small{font-size:11px!important;font-weight:500!important;line-height:1.45!important}
 
 /* Forms, filters and editable records --------------------------------------------- */
 :where(.form,.settings-grid,.integration-grid,.catalog-grid,.report-filters,.register-filters,.rap-form,.continuity-form,.plm-form,.tprm-form,.ri-form,.incident-form,.finding-form,.ea-form,.connected-form,.ai-settings-page,.fornost-ai-panel) label{color:var(--ws-muted)!important}
@@ -76,7 +76,7 @@ body :where(input:not([type="checkbox"]):not([type="radio"]):not([type="range"])
 .fornost-ai-tabs button{color:var(--ws-muted)!important}.fornost-ai-tabs button:hover,.fornost-ai-tabs button.active{background:var(--ws-brand-soft)!important;color:var(--ws-brand-2)!important}
 .fornost-ai-message.user,.fornost-ai-welcome,.fornost-ai-notice{border-color:color-mix(in srgb,var(--ws-brand) 30%,var(--ws-line))!important;background:var(--ws-brand-soft)!important;color:var(--ws-ink)!important}
 .fornost-ai-message.assistant{border-color:var(--ws-line)!important;background:var(--ws-surface-2)!important;color:var(--ws-ink)!important}
-html[data-theme] body :where(.fornost-ai-panel,.ai-model-inventory,.ai-compliance,.ai-lifecycle,.ai-incidents,.ai-evidence-vault,.ai-risk-center,.ai-vendor-assurance,.ai-access-governance,.ai-release-gate,.ai-impact-center,.ai-resilience,.ai-datasets,.ai-regulatory,.ai-literacy,.ai-supply,.ai-red-team,.ai-transparency,.ai-assurance,.ai-alerts,.ai-portfolio,.ai-exceptions,.ai-decommission,.ai-findings,.ai-data-protection) :where(p,span,small,label,button,a,dd,dt,li,em,time,code,input,select,textarea){font-size:max(12px,.75rem)!important;line-height:1.45!important}
+html[data-theme] body :where(.fornost-ai-panel,.ai-model-inventory,.ai-compliance,.ai-lifecycle,.ai-incidents,.ai-evidence-vault,.ai-risk-center,.ai-vendor-assurance,.ai-access-governance,.ai-release-gate,.ai-impact-center,.ai-resilience,.ai-datasets,.ai-regulatory,.ai-literacy,.ai-supply,.ai-red-team,.ai-transparency,.ai-assurance,.ai-alerts,.ai-portfolio,.ai-exceptions,.ai-decommission,.ai-findings,.ai-data-protection) :where(p,span,small,label,button,a,dd,dt,li,em,time,code,input,select,textarea){font-size:max(11px,.6875rem)!important;line-height:1.45!important}
 :where(.fornost-ai-panel,.ai-model-inventory,.ai-compliance,.ai-lifecycle,.ai-incidents,.ai-evidence-vault,.ai-risk-center,.ai-vendor-assurance,.ai-access-governance,.ai-release-gate,.ai-impact-center,.ai-resilience,.ai-datasets,.ai-regulatory,.ai-literacy,.ai-supply,.ai-red-team,.ai-transparency,.ai-assurance,.ai-alerts,.ai-portfolio,.ai-exceptions,.ai-decommission,.ai-findings,.ai-data-protection) :where(button,a[role="button"]){border-color:var(--ws-line)!important;background:var(--ws-surface-2)!important;background-image:none!important;color:var(--ws-muted)!important}
 .fornost-ai-compose>div>button,.fornost-ai-settings-actions>button:not(.secondary),:where(.fornost-ai-draft-form,.fornost-ai-agent-form,.fornost-ai-knowledge-form,.fornost-ai-governance-form,.ai-inventory-form,.ai-lifecycle-form,.ai-incident-form,.ai-evidence-form,.ai-risk-form,.ai-vendor-form,.ai-release-form,.ai-impact-form,.ai-resilience-form,.ai-dataset-form)>button,:where(.fornost-ai-draft-actions,.fornost-ai-agent-actions,.fornost-ai-knowledge-actions,.fornost-ai-agent-decision,.fornost-ai-knowledge-decision) button:not(.secondary):not(.danger):not(.warn):not(.reject){border-color:color-mix(in srgb,var(--ws-brand) 45%,var(--ws-line))!important;background:var(--ws-brand)!important;color:#fff!important}
 :where(.fornost-ai-panel,.ai-model-inventory,.ai-compliance,.ai-lifecycle,.ai-incidents,.ai-evidence-vault,.ai-risk-center,.ai-vendor-assurance,.ai-access-governance,.ai-release-gate,.ai-impact-center,.ai-resilience,.ai-datasets,.ai-regulatory,.ai-literacy,.ai-supply,.ai-red-team,.ai-transparency,.ai-assurance,.ai-alerts,.ai-portfolio,.ai-exceptions,.ai-decommission,.ai-findings,.ai-data-protection) button:disabled{opacity:.62!important;color:var(--ws-muted)!important}
@@ -111,11 +111,11 @@ html[data-theme="dark"] body :is(.audit-picker-note,.fornost-ai-draft-editor,.fo
 html[data-theme="dark"] body :is(.fornost-ai-edit-button,.fornost-ai-knowledge-head button,.fornost-ai-agent-toolbar button){border-color:var(--ws-line)!important;background:var(--ws-brand-soft)!important;background-image:none!important;color:var(--ws-brand-2)!important}
 
 /* One restrained heading scale across all operational workspaces. */
-html[data-theme] body .shell>main h1{font-size:18px!important;line-height:1.3!important}
-html[data-theme] body .shell>main h2{font-size:22px!important;line-height:1.25!important}
-html[data-theme] body .shell>main h3{font-size:16px!important;line-height:1.35!important}
-html[data-theme] body .shell>main :is(h4,h5,h6){font-size:13px!important;line-height:1.4!important}
-html[data-theme] body .shell>main .executive-cockpit-panel h3,html[data-theme] body .shell>main .executive-decision-board h3{font-size:12px!important}
+html[data-theme] body .shell>main h1{font-size:17px!important;line-height:1.3!important}
+html[data-theme] body .shell>main h2{font-size:20px!important;line-height:1.25!important}
+html[data-theme] body .shell>main h3{font-size:14px!important;line-height:1.35!important}
+html[data-theme] body .shell>main :is(h4,h5,h6){font-size:12px!important;line-height:1.4!important}
+html[data-theme] body .shell>main .executive-cockpit-panel h3,html[data-theme] body .shell>main .executive-decision-board h3{font-size:11px!important}
 html[data-theme] body .shell>main .module-head{margin:20px 0 14px!important;gap:16px;flex-wrap:wrap}
 html[data-theme] body .shell>main .module-head .actions{display:flex;gap:8px;flex-wrap:wrap;margin-left:auto}
 html[data-theme] body .shell>main :is(.module-overview,.evidence-quality-lens,.control-assurance-workspace,.audit-overview,.audit-evidence-assurance,.report-workspace)>header{height:auto;min-height:0;gap:16px;padding:14px 18px;flex-wrap:wrap}
@@ -123,7 +123,7 @@ html[data-theme] body .shell>main :is(.module-overview,.evidence-quality-lens,.c
 html[data-theme] body .shell>main .table-wrap th{height:34px!important;padding:8px 12px!important}
 html[data-theme] body .shell>main .table-wrap td{height:42px!important;padding:8px 12px!important}
 html[data-theme] body .shell>main :is(.control-assurance-kpis,.eql-metrics)>article{padding:12px 14px}
-html[data-theme] body .shell>main :is(.control-assurance-kpis,.eql-metrics) strong{font-size:20px!important;line-height:1.2!important}
+html[data-theme] body .shell>main :is(.control-assurance-kpis,.eql-metrics) strong{font-size:18px!important;line-height:1.2!important}
 html[data-theme] body .shell>main .control-assurance-workspace{--ws-border:var(--ws-line);--ws-panel:var(--ws-surface);--ws-elevated:var(--ws-surface-2);--ws-text:var(--ws-ink);--ws-accent:var(--ws-brand-2);margin:0;border-radius:10px;background:var(--ws-surface)}
 .module-analysis-disclosure{margin:0 0 14px;border:1px solid var(--ws-line);border-radius:10px;background:var(--ws-surface);overflow:hidden}
 .module-analysis-disclosure>summary{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 18px;cursor:pointer;list-style:none;color:var(--ws-ink)}
@@ -132,8 +132,8 @@ html[data-theme] body .shell>main .control-assurance-workspace{--ws-border:var(-
 .eql-issues>summary{display:flex;align-items:center;justify-content:space-between;gap:12px;cursor:pointer;color:var(--ws-ink);padding:2px 0;list-style:none}.eql-issues>summary::-webkit-details-marker{display:none}.eql-issues>summary::after{content:"+";color:var(--ws-brand-2)}.eql-issues[open]>summary::after{content:"−"}.eql-issues[open] .eql-list{margin-top:12px;max-height:330px;overflow:auto}
 .evidence-quality-lens>footer{padding:8px 16px}.evidence-quality-lens>footer button{min-height:30px}
 .control-impact-disclosure{border:1px solid var(--ws-line);border-radius:8px;margin:12px 16px;background:var(--ws-surface)}.control-impact-disclosure>summary{padding:12px;cursor:pointer;color:var(--ws-brand-2)}.control-impact-disclosure .control-impact-lens{margin:0;border:0}
-@media(max-width:900px){html[data-theme] body .shell>main h2{font-size:20px!important}.module-head .actions{width:100%;margin:0}.module-analysis-disclosure>summary{padding:12px}.control-assurance-list>article{grid-template-columns:48px minmax(0,1fr)}.control-assurance-links,.control-assurance-reasons,.control-assurance-actions{grid-column:1/-1}.control-assurance-copy>div{flex-wrap:wrap}.cil-stage-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.cil-selector-row{flex-wrap:wrap}.cil-selector-row label{min-width:0;width:100%}}
-@media(max-width:600px){html[data-theme] body .shell>main :is(input,select,textarea){font-size:16px!important}.cil-stage-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.eql-health{min-width:0}.evidence-quality-lens>header{gap:10px}.dashboard-customizer-dialog>header{gap:10px}}
+@media(max-width:900px){html[data-theme] body .shell>main h2{font-size:18px!important}.module-head .actions{width:100%;margin:0}.module-analysis-disclosure>summary{padding:12px}.control-assurance-list>article{grid-template-columns:48px minmax(0,1fr)}.control-assurance-links,.control-assurance-reasons,.control-assurance-actions{grid-column:1/-1}.control-assurance-copy>div{flex-wrap:wrap}.cil-stage-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.cil-selector-row{flex-wrap:wrap}.cil-selector-row label{min-width:0;width:100%}}
+@media(max-width:600px){html[data-theme] body .shell>main :is(input,select,textarea){font-size:14px!important}.cil-stage-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.eql-health{min-width:0}.evidence-quality-lens>header{gap:10px}.dashboard-customizer-dialog>header{gap:10px}}
 
 /* Wide register columns remain scrollable instead of shrinking into broken words. */
 html[data-theme] body .shell>main .table-wrap :is(.risk-table,.smart-table){max-width:none;width:max-content;min-width:100%}
@@ -159,11 +159,17 @@ html[data-theme] body .shell>main .audit-readiness-head{height:auto;padding:14px
 html[data-theme] body .shell>main .iov-card-state>small{color:var(--ws-ink)!important}
 
 /* Operational panels share the same restrained hierarchy as the registers. */
-html[data-theme] body .shell>main :is(.ea-stats b,.ca-metrics strong,.eh-metrics strong,.audit-readiness-metrics strong){font-size:20px!important;line-height:1.2!important}
-html[data-theme] body .shell>main :is(.ca-score strong,.audit-readiness-state strong){font-size:24px!important;line-height:1.2!important}
+html[data-theme] body .shell>main :is(.ea-stats b,.ca-metrics strong,.eh-metrics strong,.audit-readiness-metrics strong){font-size:18px!important;line-height:1.2!important}
+html[data-theme] body .shell>main :is(.ca-score strong,.audit-readiness-state strong){font-size:22px!important;line-height:1.2!important}
 html[data-theme] body .shell>main :is(.ca-dashboard-head,.ca-work-head,.eh-head,.eh-list-head){height:auto;min-height:0;position:static;gap:12px;padding:14px 18px;flex-wrap:wrap}
 html[data-theme] body .shell>main :is(.ca-metrics,.eh-metrics)>div{padding:12px 14px}
 html[data-theme] body .shell>main .audit-readiness-head h3{margin:3px 0}
 html[data-theme] body .shell>main .audit-readiness-metrics :is(button,article){padding:10px 14px}
 html[data-theme] body .shell>main .audit-readiness-state strong{margin-top:6px}
 @media(max-width:700px){.ca-score{min-width:0;justify-items:start}.ca-metrics,.eh-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.ca-filter{width:100%}.ea-hero-actions{flex-wrap:wrap}}
+
+/* Keep the compact desktop scale readable on narrow touch screens. */
+@media(max-width:700px){
+  html[data-theme] body .shell>main :where(div,p,span,small,b,strong,label,button,a,td,th,dt,dd,li,em,time,code,input,select,textarea,kbd,summary){font-size:max(12px,.75rem)!important}
+  html[data-theme] body .shell>main :where(input,select,textarea){font-size:max(13px,.8125rem)!important}
+}
