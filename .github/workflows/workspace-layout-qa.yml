@@ -45,6 +45,8 @@ jobs:
             --data '{"action":"bootstrap","name":"QA Admin","email":"qa-admin@fornost.test","password":"Fornost-QA!2026-Branch"}'
       - name: Ask Fornost immediate post-login and recovery QA
         run: node scripts/ask-fornost-runtime-qa.mjs
+      - name: Ready control templates and result drill-down QA
+        run: node scripts/ready-controls-runtime-qa.mjs
       - name: Check module layouts and audit stability
         run: node scripts/workspace-layout-qa.mjs
       - name: Core CRUD, forms, continuity and governance lifecycle QA
@@ -65,6 +67,7 @@ jobs:
           name: workspace-layout-qa
           path: |
             ask-fornost-qa-artifacts/
+            ready-controls-qa-artifacts/
             layout-qa-artifacts/
             runtime-qa-artifacts/
             qa-artifacts-v2/

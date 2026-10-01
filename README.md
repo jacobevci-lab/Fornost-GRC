@@ -1,6 +1,6 @@
 # Fornost GRC
 
-Fornost GRC; kurumsal risk, varlık, iş sürekliliği, uyum, denetim, kanıt, üçüncü taraf ve AI yönetişimini tek güvenli çalışma alanında birleştiren cloud/on-premises bir GRC ve AI assurance platformudur.
+Fornost GRC; kurumsal risk, varlık, iş sürekliliği, uyum, denetim, kanıt, üçüncü taraf ve AI yönetişimini tek güvenli çalışma alanında birleştiren, müşterinin kendi ortamına kurulan ticari bir GRC ve AI assurance ürünüdür. Ürün yönü on-prem kurulumdur; paylaşımlı çok müşterili SaaS hizmeti kapsam dışıdır.
 
 **Govern Risk. Prove Compliance. Control AI.**
 
@@ -16,6 +16,7 @@ Fornost, klasik kayıt ve raporlama işlevlerinin yanında AI sistemlerinin enva
 - Ayrı yaşam döngüsü ve uygulama etkinliği durumları, kanıt kapsamı ve dashboard erişimi bulunan bağımsız Kontrol Kütüphanesi
 - Kanıt Yönetimi ve güvenli dosya yükleme
 - Sürekli Kontrol İzleme 2.0: vendor-neutral API collector, zamanlanmış kontrol testleri, kanıt tazeliği, ardışık hata eşiği, otomatik risk/bulgu ve maker-checker CAPA kapanışı
+- Intune uyumluluk/şifreleme, Defender sensör sağlığı ve SonarQube kalite kapısı için [hazır kontrol testleri](docs/integrations/ready-control-tests.md); kayıt bazında başarısızlık nedenleri ve doğrulanamayan veriyi başarılı saymayan değerlendirme
 - Regülasyon Merkezi: kaynak gözetimi, değişiklik triajı, GRC kayıtlarına etki analizi, sorumlu aksiyonlar, SHA-256 kanıt bütünlüğü ve bağımsız maker-checker kapanışı
 - Enterprise Security Incident & Crisis Management: önem bazlı müdahale/recovery SLA, varlık-risk-BIA bağlantısı, containment/eradication/recovery, KVKK-GDPR bildirim kararı, RCA, lessons learned ve bağımsız kanıtlı kapanış
 - Enterprise Business Continuity & Operational Resilience: BIA bağlantılı RTO/RPO/MTPD planları, maker-checker onay, kanıtlı tatbikatlar, hedef ihlali ölçümü ve otomatik iyileştirme açıkları

@@ -70,6 +70,8 @@ Some catalog families deliberately group several products. Their guide is a disc
 
 ## Follow-up product work
 
+Intune compliance/encryption, Defender sensor health and SonarQube quality gate now have [ready control tests](ready-control-tests.md) with versioned evaluation and affected-record results. Other products still require manually configured rules or future product-specific tests.
+
 Prioritise AWS role-based and GCP workload-identity collectors, then a version-verified Cortex adapter and Microsoft certificate authentication. Large-tenant incremental cursors/export jobs, backoff with Retry-After, credential-expiry reminders and normalised control templates need separate implementations and end-to-end vendor fixtures. An inbound webhook feature additionally needs signature verification, replay protection, schema/version selection and delivery history; the present card does not expose a fake receiver URL.
 
 ## Primary references

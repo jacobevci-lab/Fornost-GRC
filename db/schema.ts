@@ -16,15 +16,17 @@ export const simpleGrcRecords = sqliteTable("simple_grc_records", {
 }, (table) => [index("simple_grc_records_module_idx").on(table.module, table.updatedAt)]);
 
 export const evidenceAutomationRules = sqliteTable("evidence_automation_rules", {
+  templateId:text("template_id"), templateVersion:integer("template_version"),
   id:text("id").primaryKey(), name:text("name").notNull(), sourceId:text("source_id").notNull(), controlRefs:text("control_refs").notNull(),
   jsonPath:text("json_path").notNull(), operator:text("operator").notNull(), expected:text("expected").notNull(), schedule:text("schedule").notNull(),
   enabled:integer("enabled").notNull().default(1), lastStatus:text("last_status"), lastRunAt:text("last_run_at"), freshnessHours:integer("freshness_hours").notNull().default(24),
   failureThreshold:integer("failure_threshold").notNull().default(1), consecutiveFailures:integer("consecutive_failures").notNull().default(0), autoFinding:integer("auto_finding").notNull().default(1),
   remediationOwner:text("remediation_owner").notNull().default(""), remediationDueDays:integer("remediation_due_days").notNull().default(7), nextRunAt:text("next_run_at"), lastEvidenceAt:text("last_evidence_at"),
   createdAt:text("created_at").notNull(), updatedAt:text("updated_at").notNull(), updatedBy:text("updated_by").notNull(),
-},(table)=>[index("evidence_automation_rules_due_idx").on(table.enabled,table.nextRunAt)]);
+},(table)=>[index("evidence_automation_rules_due_idx").on(table.enabled,table.nextRunAt),uniqueIndex("evidence_automation_rules_template_idx").on(table.sourceId,table.templateId)]);
 
 export const evidenceAutomationRuns = sqliteTable("evidence_automation_runs", {
+  assessmentJson:text("assessment_json"),
   id:text("id").primaryKey(), ruleId:text("rule_id").notNull(), ruleName:text("rule_name").notNull(), sourceName:text("source_name").notNull(), status:text("status").notNull(),
   score:integer("score").notNull(), detail:text("detail").notNull(), responseHash:text("response_hash").notNull(), evidenceId:text("evidence_id"), createdAt:text("created_at").notNull(), actor:text("actor").notNull(),
   triggerType:text("trigger_type").notNull().default("manual"), durationMs:integer("duration_ms").notNull().default(0), errorCode:text("error_code"),
