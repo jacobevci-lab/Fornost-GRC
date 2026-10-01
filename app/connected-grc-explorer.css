@@ -1,6 +1,6 @@
 /* Record-focused Connected GRC: one selection and its immediate relationships. */
 .connected-grc.connected-explorer{display:grid;gap:16px;padding-top:16px;min-width:0}
-.cg-heading{display:flex;align-items:center;justify-content:space-between;gap:20px}.cg-heading h2{margin:5px 0 6px}.cg-heading p{margin:0;color:var(--ws-muted)}.cg-heading small{color:var(--ws-brand-2);font-weight:750;letter-spacing:.08em}html[data-theme="dark"] .cg-heading small{color:var(--ws-heading-accent)}
+.cg-heading{display:flex;align-items:center;justify-content:space-between;gap:20px}.cg-heading h2{margin:5px 0 6px}.cg-heading p{margin:0;color:var(--ws-muted)}.cg-heading small{color:var(--ws-brand-2);font-weight:750;letter-spacing:.08em}html[data-theme="dark"] .cg-heading small{color:var(--ws-heading-accent)!important}
 .cg-source-state{max-width:290px;color:var(--ws-muted);text-align:right}
 .cg-summary{display:flex;flex-wrap:wrap;gap:12px 28px;color:var(--ws-muted)}.cg-summary b{color:var(--ws-ink);margin-right:4px}
 .cg-tabs{display:flex;flex-wrap:wrap;gap:6px;border-bottom:1px solid var(--ws-line);padding-bottom:10px}.cg-tabs button{display:flex;align-items:center;gap:9px;padding:10px 14px;border:1px solid transparent;border-radius:8px;background:transparent;color:var(--ws-muted);cursor:pointer}.cg-tabs button[aria-pressed="true"]{background:var(--ws-brand-soft);border-color:var(--ws-brand);color:var(--ws-brand-2);font-weight:750}.cg-tabs button span{border-radius:5px;padding:1px 6px;background:var(--ws-surface-2)}
@@ -13,5 +13,5 @@
 
 .cg-connections button.cg-follow{border:0;border-radius:0;min-height:0;padding:0;background:transparent;color:var(--ws-ink);font-weight:750;text-align:left;overflow-wrap:anywhere}.cg-connections button.cg-follow:hover{color:var(--ws-brand-2);text-decoration:underline}
 
-.cg-records{max-height:560px;overflow:auto;scrollbar-width:thin}.cg-records>header{position:sticky;top:0;z-index:1}.cg-records>footer{position:sticky;bottom:0;background:var(--ws-surface)}
+.cg-records{position:relative;max-height:560px;overflow:auto;scrollbar-width:thin}.cg-records>header{position:sticky;top:0;z-index:1}.cg-records>footer{position:sticky;bottom:0;background:var(--ws-surface)}
 @media(max-width:700px){.cg-records{max-height:300px}.cg-tabs{flex-wrap:nowrap}.cg-tabs button{padding:9px 10px;gap:5px;white-space:nowrap}}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { assessConnectedGrcCoverage, buildConnectedGrcGraph, connectedRelationLabels, connectedRemediationModule, connectedTitle, type ConnectedGrcRow } from "./connected-grc-model";
 import { connectedGrcNavigation } from "./connected-grc-navigation";
 import { buildConnectedGrcEnterpriseRows, connectedGrcEnterpriseEndpoints, type ConnectedGrcEnterprisePayloads } from "./connected-grc-sources";
@@ -23,6 +23,7 @@ export default function ConnectedGrc({rows,lang,go}:{rows:ConnectedGrcRow[];lang
   const tr=lang==="tr",[module,setModule]=useState("all"),[query,setQuery]=useState("");
   const moduleLabel=(name:string)=>tr?name:(moduleNames[name]||name);
   const [view,setView]=useState<"explore"|"gaps"|"assurance">("explore");
+  const recordList=useRef<HTMLElement>(null);
   const [selectedId,setSelectedId]=useState("");
   const [page,setPage]=useState(0);
   const [linkLimit,setLinkLimit]=useState(8);
@@ -72,6 +73,12 @@ export default function ConnectedGrc({rows,lang,go}:{rows:ConnectedGrcRow[];lang
   const currentPage=Math.min(page,Math.max(0,Math.ceil(matchingRecords.length/10)-1));
   const visibleRecords=matchingRecords.slice(currentPage*10,currentPage*10+10);
   const selected=visibleRecords.find(row=>row.id===selectedId)||visibleRecords[0];
+  useEffect(()=>{
+    const list=recordList.current,active=list?.querySelector<HTMLElement>('button[aria-pressed="true"]');
+    if(!list||!active)return;
+    if(active.offsetTop<list.scrollTop+50)list.scrollTop=Math.max(0,active.offsetTop-50);
+    else if(active.offsetTop+active.offsetHeight>list.scrollTop+list.clientHeight-65)list.scrollTop=active.offsetTop+active.offsetHeight-list.clientHeight+65;
+  },[selected?.id,view]);
   const selectedLinks=selected?links.filter(link=>link.source.id===selected.id||link.target.id===selected.id):[];
   const filtered=links.filter(link=>(module==="all"||link.source.module===module||link.target.module===module)&&(!needle||[link.source,link.target].some(row=>`${row.code||row.id} ${connectedTitle(row)} ${row.module} ${moduleLabel(row.module)}`.toLocaleLowerCase(tr?"tr-TR":"en-US").includes(needle))));
   function selectRecord(id:string){setSelectedId(id);setLinkLimit(8)}
@@ -108,7 +115,7 @@ export default function ConnectedGrc({rows,lang,go}:{rows:ConnectedGrcRow[];lang
         <button type="button" className="cg-export" onClick={download}>{tr?"Bağlantıları indir · CSV":"Export connections · CSV"}</button>
       </div>
       <div className="cg-workspace">
-        <section className="cg-records" aria-label={tr?"Kayıt seçimi":"Record selection"}>
+        <section ref={recordList} className="cg-records" aria-label={tr?"Kayıt seçimi":"Record selection"}>
           <header><b>{tr?"1. Kayıt seç":"1. Choose a record"}</b><span>{matchingRecords.length}</span></header>
           {visibleRecords.map(row=><button type="button" key={row.id} aria-pressed={selected?.id===row.id} onClick={()=>selectRecord(row.id)}><small>{row.code||row.id} · {moduleLabel(row.module)}</small><b>{connectedTitle(row)}</b></button>)}
           {!visibleRecords.length&&<p className="cg-empty">{tr?"Eşleşen kayıt yok. Aramayı veya modül filtresini değiştirin.":"No matching records. Change your search or module filter."}</p>}
