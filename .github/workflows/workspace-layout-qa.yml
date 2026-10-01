@@ -34,6 +34,7 @@ jobs:
       - name: Start isolated app and create QA account
         shell: bash
         run: |
+          node -e 'require("fs").writeFileSync(".dev.vars", "FORNOST_SETTINGS_ENCRYPTION_KEY=" + require("crypto").randomBytes(32).toString("hex") + "\n")'
           npm run dev -- --host 127.0.0.1 --port 4173 --strictPort > /tmp/layout-runtime.log 2>&1 &
           for attempt in $(seq 1 90); do
             if curl --fail --silent http://127.0.0.1:4173/api/health >/dev/null; then break; fi

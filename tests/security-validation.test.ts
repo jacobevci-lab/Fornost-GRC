@@ -23,7 +23,7 @@ test("password and integration secret fields declare safe autocomplete behavior"
   const page = readFileSync("app/page.tsx", "utf8");
   const settings = readFileSync("app/settings.tsx", "utf8");
   const integrations = readFileSync("app/integration-settings.tsx", "utf8");
-  const evidenceAutomation = readFileSync("app/evidence-automation.tsx", "utf8");
+  const evidenceAutomation = readFileSync("app/connectors/fields.tsx", "utf8");
   assert.match(page, /\? "new-password"\s*: "off"/);
   assert.match(settings, /type==="password"\?"new-password":undefined/g);
   assert.match(integrations, /type="password" autoComplete="new-password"/);
