@@ -254,7 +254,8 @@ export default function ConnectorOnboardingWizard() {
       setRootType(clean(detected.rootType));
       setTruncated(detected.truncated === true);
       setSuggestions(nextSuggestions);
-      const preferred = nextPaths.find((item) => !["object", "array"].includes(item.type)) || nextPaths[0];
+      const evidencePaths = nextPaths.filter((item) => !/^\$\.fornostCollection(?:\.|$)/.test(item.path));
+      const preferred = evidencePaths.find((item) => !["object", "array"].includes(item.type));
       setSelectedPath(preferred?.path || "");
       setDraft((current) => ({ ...current, secret: "", credentials: {} }));
       setStep(2);

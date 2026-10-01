@@ -20,7 +20,7 @@ Each product card opens its own setup requirements; the same fields are used in 
 | GitLab.com | Token-visible membership projects | Personal/group access token with `read_api` |
 | Tenable Vulnerability Management | Cloud VM scan inventory/status | Access key AND secret key, CAN VIEW access to scans |
 | CrowdStrike Falcon | Host IDs | Region US-1/US-2/EU-1, client ID/secret, Hosts READ |
-| Okta | User lifecycle inventory | Original org URL and SSWS token owned by a least-privilege read-only administrator |
+| Okta | User lifecycle inventory (default API excludes DEPROVISIONED users) | Original org URL and SSWS token owned by a least-privilege read-only administrator |
 | SonarQube Server | One project's quality gate status | HTTPS root origin, project key, user token with Browse permission |
 
 There are 14 profiles and 15 selectable datasets. Inventory visibility is always bounded by the credential's permissions. An empty result does not prove that the tenant has no assets/incidents; it only describes this credential's response. CrowdStrike host IDs are not sensor posture, Tenable scans are not the full vulnerability export, and GitHub repositories are not branch-protection results.
@@ -80,7 +80,7 @@ The native profiles carry endpoint-specific links in `app/connectors/catalog.ts`
 - [Defender for Endpoint app-only access and token audience](https://learn.microsoft.com/en-us/defender-endpoint/api/exposed-apis-create-app-webapp)
 - [Graph Secure Score](https://learn.microsoft.com/en-us/graph/api/security-list-securescores?view=graph-rest-1.0) and [control profiles](https://learn.microsoft.com/en-us/graph/api/security-list-securescorecontrolprofiles?view=graph-rest-1.0)
 - [Tenable API authorization](https://developer.tenable.com/docs/authorization)
-- [CrowdStrike OAuth2](https://developer.crowdstrike.com/api-reference/oauth2/)
+- [CrowdStrike OAuth2](https://developer.crowdstrike.com/api-reference/collections/oauth2/)
 - [Cloudflare API token permissions](https://developers.cloudflare.com/fundamentals/api/reference/permissions/)
 - [GitHub organisation repositories](https://docs.github.com/en/rest/repos/repos#list-organization-repositories)
 - [GitLab REST authentication](https://docs.gitlab.com/api/rest/authentication/)

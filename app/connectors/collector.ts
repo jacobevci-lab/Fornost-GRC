@@ -79,7 +79,7 @@ export async function collectProvider(saved:Record<string,string>,encryptedPlain
   else if(d.pagination==='crowdstrike'){const page=object(object(data.meta).pagination);if(!Number.isInteger(page.total)||Number(page.total)<0||(!Array.isArray(list))||(list.length===0&&items.length<Number(page.total)))throw new ConnectorError('INVALID_RESPONSE','Missing pagination metadata.');if(items.length<Number(page.total)){const u=new URL(url);u.searchParams.set('offset',String(items.length));next=u.href;}}
   if(next){try{url=new URL(next,cfg.baseUrl).href;}catch{throw new ConnectorError('UNSAFE_PAGINATION','Invalid continuation URL.');}}else more=false;
  }
- // Expose only known response fields from read-only datasets; never auth responses.
+ // Preserve the read-only dataset response, never the authentication response.
  const result:Record<string,unknown>=d.root==='$'?{items}: {...object(first)};
  if(Array.isArray(d.root==='$'?first:object(first)[d.root]))result[d.root==='$'?'items':d.root]=items;
  delete result['@odata.nextLink'];delete result.nextLink;
