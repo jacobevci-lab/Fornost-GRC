@@ -9,7 +9,7 @@ const browser = await chromium.launch({ executablePath: process.env.QA_CHROMIUM_
 const admin = await browser.newContext({ viewport: { width: 1536, height: 960 } }), checker = await browser.newContext(), page = await admin.newPage();
 page.setDefaultTimeout(15000);
 const errors = []; page.on('pageerror', error => errors.push(error.message));
-let checks = 0;
+let checks = 0, schemasReady = false;
 async function api(context, path, method = 'GET', data, expected = 200) {
   const response = await context.request.fetch(base + path, { method, data, headers: { origin: base } });
   assert.equal(response.status(), expected, `${path}: ${await response.text()}`); checks++; return response.json();
@@ -23,6 +23,7 @@ const route = '/api/continuous-assurance', findingId = 'QA-RETEST-FINDING', rule
 try {
   await api(admin, '/api/auth', 'POST', { action: 'login', email: 'qa-admin@fornost.test', password });
   await api(admin, '/api/evidence-automation'); await api(admin, route);
+  schemasReady = true;
   const email = 'qa-retest-checker@fornost.test';
   await api(admin, '/api/users', 'POST', { name: 'QA Retest Checker', email, password, role: 'Admin' }, 201);
   await api(checker, '/api/auth', 'POST', { action: 'login', email, password });
@@ -94,6 +95,26 @@ try {
   const mandatory=await api(admin, route, 'POST', {action:'queue-retest',findingId,previousWorkItemId:'QA-MANDATORY-ERROR'},201);
   await api(checker, route, 'POST', {action:'review-work-item',workItemId:mandatory.id,decision:'approve'});
   assert.deepEqual(errors, []);
-  console.log(`ASSURANCE_RETEST_QA_PASS: ${checks} API checks; real reconciliation, UI results and retry, independent approval/revalidation, fresh proof, preserved risk review, pagination, load failure recovery and desktop/mobile in both themes`);
 } catch (error) { await page.screenshot({ path: `${out}/failure.png` }).catch(() => {}); throw error; }
-finally { await browser.close(); }
+finally {
+  try {
+    await page.close();
+    if (schemasReady) {
+      // These deliberately minimal local fixtures must not become seeds for later CRUD suites.
+      // Include API-generated work IDs; never delete other scenarios' records.
+      await seed(`
+        DELETE FROM continuous_assurance_work_items WHERE finding_id=${q(findingId)} AND rule_id=${q(ruleId)};
+        DELETE FROM evidence_automation_runs WHERE rule_id=${q(ruleId)};
+        DELETE FROM simple_grc_record_codes WHERE record_id IN (${q(findingId)},'QA-RETEST-PASS-EVD');
+        DELETE FROM simple_grc_records WHERE id IN (${q(findingId)},'QA-RETEST-PASS-EVD');
+        DELETE FROM evidence_automation_findings WHERE id=${q(findingId)} AND rule_id=${q(ruleId)};
+        DELETE FROM evidence_automation_rules WHERE id=${q(ruleId)};
+      `);
+      const remainingWork = (await api(admin, route)).items;
+      assert.ok(!remainingWork.some(row => row.findingId === findingId || row.ruleId === ruleId));
+      const remainingRecords = (await api(admin, '/api/grc')).rows;
+      assert.ok(!remainingRecords.some(row => [findingId, 'QA-RETEST-PASS-EVD'].includes(row.id)));
+    }
+  } finally { await browser.close(); }
+}
+console.log(`ASSURANCE_RETEST_QA_PASS: ${checks} API checks; real reconciliation, UI results and retry, independent approval/revalidation, fresh proof, preserved risk review, pagination, load failure recovery, desktop/mobile in both themes and fixture cleanup`);
