@@ -150,7 +150,7 @@ await check('Native source persistence: validation, credential rotation, redacti
  assert.ok(!JSON.stringify(state).includes('ISOLATED_QA'));assert.equal(saved.config.clientSecret,undefined);assert.equal(saved.secret_ciphertext,undefined);
 });
 await check('Product-specific connector forms: fields, permissions, secret reset and responsive themes',async()=>{
- await reset();await open('Evidence Automation');
+ await reset();await open('Evidence Automation');await page.locator('.ea-tabs').getByRole('button',{name:'Connector Catalog',exact:true}).click();
  const dialog=page.locator('.ea-modal[role=dialog]');
  for(const theme of ['light','dark']){
   if(await page.locator('html').getAttribute('data-theme')!==theme)await page.locator('.theme-toggle:visible').click();
