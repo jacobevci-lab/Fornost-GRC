@@ -13,3 +13,11 @@ Outstanding re-tests are reused only for the same finding AND rule. Ending an ol
 The existing runtime schema upgrade adds `lifecycle_token TEXT NOT NULL DEFAULT ''` to legacy exception tables and tolerates concurrent cold-start upgrades. No historic rows are removed. This does not introduce a background scheduler or change the existing re-test completion policy.
 
 Verification: real SQLite functional tests cover competing decisions, concurrent edits, rollback at both task and risk writes, retries, expiry boundaries, duplicate reconciliation, shared tasks, manual cases and overlapping exception summaries. The isolated local-D1 browser/API suite checks authorization, transaction failure/recovery, expiry, task linkage and rendering. Fixtures and intentional write-failure triggers are restricted to loopback/local D1 and cleaned up afterward.
+
+## Completing mandatory re-tests
+
+A verified passing re-test now discharges the linked ended exception's re-test requirement in the same transaction that finalizes the work and risk/finding changes. The exception remains expired/revoked, records the completing work ID, run ID and completion timestamp, and the UI shows “RE-TEST COMPLETED”. Independent risk-owner review is preserved.
+
+Error retries may complete the original requirement through their persisted `retryOf` ancestry (up to 32 predecessors, matched to the same finding/rule and error status). Unrelated work, mismatched control scope, failed runs and unverifiable evidence cannot clear the flag. Shared linked requirements can be completed together. Reused approved work waits for a run collected after the latest linked exception ended, so an earlier passing run cannot discharge a later obligation.
+
+The shared runtime schema upgrade adds nullable `retest_completed_at` and `retest_result_ref` columns without changing historical state. A failing exception write rolls back work completion and risk updates; refresh/retry can recover. Completion is historical proof: subsequent control failures remain governed by the existing assurance/finding workflows.

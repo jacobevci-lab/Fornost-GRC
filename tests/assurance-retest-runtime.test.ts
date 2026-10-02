@@ -1,3 +1,4 @@
+import {ensureAssuranceExceptionSchema} from '../app/assurance-exception-schema';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { DatabaseSync } from 'node:sqlite';
@@ -170,4 +171,33 @@ test('evidence deleted during reconciliation prevents a stale success claim', as
     assert.equal(await reconcileApprovedRetests(f.db, at(4)), 0); assert.equal(f.work().status, 'approved-awaiting-retest');
     assert.equal(await reconcileApprovedRetests(f.db, at(5)), 1); assert.equal(f.work().status, 'retest-error'); assert.equal(f.outcome().reason, 'evidence-missing');
   } finally { f.sqlite.close(); }
+});
+
+async function linkedException(f:Awaited<ReturnType<typeof fixture>>,id='EX',workId='WORK',endedAt=at(1).toISOString()){
+ await ensureAssuranceExceptionSchema(f.db);
+ f.sqlite.prepare("INSERT INTO continuous_assurance_exceptions(id,finding_id,rule_id,control_ref,risk_ref,reason,expires_at,evidence_reference,evidence_sha256,status,submitted_by,submitted_at,retest_required,retest_work_item_id,lifecycle_updated_at) VALUES(?,?,'RULE','A.8.1',?,'Documented exception','2026-09-30','EVD',?,'expired','maker',?,1,?,?)").run(id,f.findingId,f.findingId,'a'.repeat(64),at(0).toISOString(),workId,endedAt);
+ return()=>f.sqlite.prepare('SELECT * FROM continuous_assurance_exceptions WHERE id=?').get(id)!;
+}
+test('verified re-test discharges linked exception requirements atomically without approving residual risk',async()=>{
+ const f=await fixture();try{const ex=await linkedException(f),other=await linkedException(f,'SHARED');const run=await f.execute(95);assert.equal(await reconcileApprovedRetests(f.db,at(4)),1);assert.equal(ex().retest_required,0);assert.equal(ex().retest_result_ref,run.runId);assert.equal(ex().retest_completed_at,at(4).toISOString());assert.equal(ex().status,'expired');assert.equal(other().retest_required,0);assert.equal(f.risk().residualRiskReviewRequired,true);assert.equal(await reconcileApprovedRetests(f.db,at(5)),0);}finally{f.sqlite.close()}
+});
+test('failed, errored, unmatched and differently scoped re-tests cannot discharge an exception',async()=>{
+ for(const variant of ['fail','error','unmatched','control']){const f=await fixture();try{const ex=await linkedException(f,'EX',variant==='unmatched'?'UNRELATED':'WORK');if(variant==='control')f.sqlite.exec("UPDATE continuous_assurance_exceptions SET control_ref='OTHER'");await f.execute(variant==='fail'?40:95,3,variant==='error');await reconcileApprovedRetests(f.db,at(4));assert.equal(ex().retest_required,1);assert.equal(ex().retest_completed_at,null);assert.equal(ex().retest_result_ref,null);}finally{f.sqlite.close()}}
+});
+test('a successful retry resolves the original linked error lineage and records the completing work',async()=>{
+ const f=await fixture();try{
+  f.sqlite.prepare("INSERT INTO continuous_assurance_work_items(id,finding_id,rule_id,action,status,decision_json,created_at,updated_at,actor,reviewed_by,reviewed_at) VALUES('ORIGINAL',?,'RULE','control-retest','retest-error','{}',?,?,'maker','checker',?)").run(f.findingId,at(0).toISOString(),at(1).toISOString(),at(0).toISOString());
+  f.sqlite.exec("UPDATE continuous_assurance_work_items SET decision_json=json_set(decision_json,'$.retryOf','ORIGINAL') WHERE id='WORK'");
+  const ex=await linkedException(f,'EX','ORIGINAL');await f.execute(95);await reconcileApprovedRetests(f.db,at(4));assert.equal(ex().retest_required,0);assert.equal(ex().retest_work_item_id,'WORK');assert.equal(f.risk().residualRiskReviewRequired,true);
+ }finally{f.sqlite.close()}
+});
+test('exception completion write failure rolls back work and risk changes and permits a clean retry',async()=>{
+ const f=await fixture();try{const ex=await linkedException(f);await f.execute(95);f.sqlite.exec("CREATE TRIGGER fail_exception BEFORE UPDATE ON continuous_assurance_exceptions BEGIN SELECT RAISE(ABORT,'exception completion failure'); END");await assert.rejects(reconcileApprovedRetests(f.db,at(4)),/exception completion failure/);assert.equal(f.work().status,'approved-awaiting-retest');assert.equal(ex().retest_required,1);assert.notEqual(f.risk().assuranceState,'effective');f.sqlite.exec('DROP TRIGGER fail_exception');await reconcileApprovedRetests(f.db,at(5));assert.equal(ex().retest_required,0);}finally{f.sqlite.close()}
+});
+test('a reused approved task must consume a run after the exception ended, not a previously collected pass',async()=>{
+ const f=await fixture();try{const ex=await linkedException(f,'EX','WORK',at(4).toISOString());await f.execute(95,3);assert.equal(await reconcileApprovedRetests(f.db,at(4)),0);assert.equal(ex().retest_required,1);const latest=await f.execute(95,5);await reconcileApprovedRetests(f.db,at(6));assert.equal(ex().retest_result_ref,latest.runId);assert.equal(ex().retest_required,0);}finally{f.sqlite.close()}
+});
+
+test('an exception linked or extended during reconciliation invalidates the selected older run',async()=>{
+ const f=await fixture();try{const ex=await linkedException(f);await f.execute(95,3);f.beforeBatch(()=>f.sqlite.prepare("UPDATE continuous_assurance_exceptions SET lifecycle_updated_at=? WHERE id='EX'").run(at(4).toISOString()));assert.equal(await reconcileApprovedRetests(f.db,at(4)),0);assert.equal(f.work().status,'approved-awaiting-retest');assert.equal(ex().retest_required,1);await f.execute(95,5);assert.equal(await reconcileApprovedRetests(f.db,at(6)),1);assert.equal(ex().retest_required,0);}finally{f.sqlite.close()}
 });

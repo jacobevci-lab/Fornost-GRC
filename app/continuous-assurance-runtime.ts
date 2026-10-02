@@ -1,3 +1,4 @@
+import {ensureAssuranceExceptionSchema} from "./assurance-exception-schema";
 import { assessRetestRun, parseAssuranceObject, type RetestOutcome, type RetestRun } from "./assurance-retest";
 
 export type AssuranceRunStatus = "pass" | "fail" | "error";
@@ -122,10 +123,13 @@ type RetestFinding = { id: string; rule_id: string; status: string; closed_at: s
 
 export async function reconcileApprovedRetests(db: D1Database, now = new Date()) {
   await ensureAssuranceWorkSchema(db);
+  await ensureAssuranceExceptionSchema(db);
   const approved = await db.prepare("SELECT * FROM continuous_assurance_work_items WHERE action='control-retest' AND status='approved-awaiting-retest' ORDER BY reviewed_at,created_at LIMIT 200").all<AssuranceWorkRow>();
   let reconciled = 0;
   for (const item of approved.results) {
-    const since = item.reviewed_at || item.updated_at || item.created_at;
+    const approvedAt = item.reviewed_at || item.updated_at || item.created_at;
+    const boundary = await db.prepare("SELECT MAX(lifecycle_updated_at) ended_at FROM continuous_assurance_exceptions WHERE retest_work_item_id=? AND retest_required=1 AND status IN ('expired','revoked')").bind(item.id).first<{ended_at:string|null}>();
+    const since = boundary?.ended_at && Date.parse(boundary.ended_at)>Date.parse(approvedAt) ? boundary.ended_at : approvedAt;
     const run = await db.prepare("SELECT id,status,evidence_id,created_at,response_hash,detail,error_code FROM evidence_automation_runs WHERE rule_id=? AND created_at>? AND created_at<=? ORDER BY created_at ASC,rowid ASC LIMIT 1")
       .bind(item.rule_id, since, now.toISOString()).first<RetestRun>();
     if (!run) continue;
@@ -164,6 +168,9 @@ export async function reconcileApprovedRetests(db: D1Database, now = new Date())
     const token = crypto.randomUUID(), at = now.toISOString();
     const decisionJson = JSON.stringify({ ...decision, retestOutcome: outcome, reconciliationToken: token });
     const guards: string[] = [], guardValues: (string | number | null)[] = [];
+    // A newly linked/later-ended exception must invalidate a run selected before that obligation.
+    guards.push("NOT EXISTS(SELECT 1 FROM continuous_assurance_exceptions WHERE retest_work_item_id=? AND retest_required=1 AND status IN ('expired','revoked') AND (julianday(lifecycle_updated_at) IS NULL OR julianday(lifecycle_updated_at)>=julianday(?)))");
+    guardValues.push(item.id,run.created_at);
     if (rule) { guards.push("EXISTS(SELECT 1 FROM evidence_automation_rules WHERE id=? AND freshness_hours=?)"); guardValues.push(item.rule_id, rule.freshness_hours); }
     else { guards.push("NOT EXISTS(SELECT 1 FROM evidence_automation_rules WHERE id=?)"); guardValues.push(item.rule_id); }
     if (evidence && run.evidence_id) { guards.push("EXISTS(SELECT 1 FROM simple_grc_records WHERE id=? AND module='Kanıtlar' AND data_json=?)"); guardValues.push(run.evidence_id, evidence.data_json); }
@@ -184,6 +191,24 @@ export async function reconcileApprovedRetests(db: D1Database, now = new Date())
     }
     if (reopen) statements.push(db.prepare(`UPDATE evidence_automation_findings SET status='acknowledged',evidence_id=?,detail=?,occurrence_count=occurrence_count+1,updated_at=? WHERE id=? AND status='closed' AND ${claimed}`)
       .bind(run.evidence_id, run.detail, at, item.finding_id, item.id, token));
+    if (outcome.status === "pass") {
+      // Completion is historical proof, not a fresh risk approval. Only the linked
+      // work or its verified retry ancestry can discharge this requirement.
+      statements.push(db.prepare(`WITH RECURSIVE lineage(id,decision_json,depth) AS (
+        SELECT id,decision_json,0 FROM continuous_assurance_work_items WHERE id=?
+        UNION ALL
+        SELECT parent.id,parent.decision_json,lineage.depth+1 FROM lineage
+        JOIN continuous_assurance_work_items parent ON parent.id=CASE WHEN json_valid(lineage.decision_json) THEN json_extract(lineage.decision_json,'$.retryOf') END
+        WHERE lineage.depth<32 AND parent.action='control-retest' AND parent.status='retest-error'
+          AND parent.finding_id=? AND parent.rule_id=?
+      ) UPDATE continuous_assurance_exceptions SET retest_required=0,retest_completed_at=?,retest_result_ref=?,retest_work_item_id=?
+        WHERE status IN ('expired','revoked') AND retest_required=1 AND finding_id=? AND rule_id=?
+          AND lifecycle_updated_at IS NOT NULL AND julianday(lifecycle_updated_at)<julianday(?)
+          AND (control_ref='' OR lower(trim(control_ref))=lower(trim(?)))
+          AND retest_work_item_id IN (SELECT id FROM lineage) AND ${claimed}`)
+        .bind(item.id,item.finding_id,item.rule_id,at,run.id,item.id,item.finding_id,item.rule_id,run.created_at,
+          String(decision.targetControlRef||decision.controlRef||""),item.id,token));
+    }
     const results = await db.batch(statements);
     if (Number(results[0]?.meta?.changes || 0) > 0) reconciled += 1;
   }

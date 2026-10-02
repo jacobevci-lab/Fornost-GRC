@@ -5,7 +5,7 @@ export type ExceptionRow = {
   expires_at:string; evidence_reference:string; evidence_sha256:string; status:string;
   submitted_by:string; submitted_at:string; reviewed_by:string|null; reviewed_at:string|null;
   review_note:string|null; revoked_by:string|null; revoked_at:string|null; retest_required:number|null;
-  retest_work_item_id:string|null; lifecycle_updated_at:string|null; lifecycle_token:string;
+  retest_work_item_id:string|null; lifecycle_updated_at:string|null; lifecycle_token:string; retest_completed_at:string|null; retest_result_ref:string|null;
 };
 type Transition = 'approve'|'reject'|'revoke'|'expire';
 const snapshotFields = ['status','finding_id','rule_id','control_ref','risk_ref','reason','expires_at','evidence_reference','evidence_sha256','submitted_by','submitted_at','reviewed_by','reviewed_at','review_note','revoked_by','revoked_at','retest_required','retest_work_item_id','lifecycle_updated_at','lifecycle_token'] as const;
