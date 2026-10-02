@@ -381,10 +381,12 @@ jobs:
               ssl_certificate /scan/cert.pem;
               ssl_certificate_key /scan/key.pem;
               ssl_protocols TLSv1.2 TLSv1.3;
+              server_tokens off;
+              client_max_body_size 10m;
               location / {
                 proxy_pass http://127.0.0.1:4174;
                 proxy_http_version 1.1;
-                proxy_request_buffering off;
+                # Match the shipped proxy: default request buffering is enabled.
                 proxy_set_header Host $http_host;
                 proxy_set_header X-Forwarded-Host $http_host;
                 proxy_set_header X-Forwarded-Proto $scheme;
@@ -454,3 +456,44 @@ jobs:
           test "$ZAP_EXIT" = 0 -o "$ZAP_EXIT" = 1 -o "$ZAP_EXIT" = 2
           test -s security-artifacts/zap/zap-active.json
           node scripts/security-zap-gate.mjs security-artifacts/zap/zap-active.json
+
+  onprem-image-security:
+    name: Deployable image vulnerabilities and SBOM
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build the exact revision's on-prem image
+        run: docker build --build-arg FORNOST_SOURCE_COMMIT="$GITHUB_SHA" -t fornost-security:scan .
+      - name: Export immutable scan input
+        run: |
+          mkdir -p security-artifacts/image
+          docker image inspect fornost-security:scan --format '{{.Id}}' > security-artifacts/image/image-id.txt
+          docker save fornost-security:scan -o /tmp/fornost-security-image.tar
+      - name: Scan OS and application packages including unfixed CVEs
+        run: |
+          docker run --rm -v /tmp/fornost-security-image.tar:/scan/image.tar:ro \
+            -v "$PWD/security-artifacts/image:/out" aquasec/trivy:latest image \
+            --input /scan/image.tar --scanners vuln --format json --output /out/trivy-image.json
+      - name: Generate deployable-image CycloneDX and SPDX
+        run: |
+          docker run --rm -v /tmp/fornost-security-image.tar:/scan/image.tar:ro \
+            -v "$PWD/security-artifacts/image:/out" anchore/syft:latest docker-archive:/scan/image.tar \
+            -o cyclonedx-json=/out/image.cdx.json -o spdx-json=/out/image.spdx.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: fornost-image-security-sbom
+          path: security-artifacts/image/
+          retention-days: 30
+      - name: Report image release blockers
+        run: |
+          python3 - <<'PY'
+          import json
+          data=json.load(open('security-artifacts/image/trivy-image.json'))
+          findings=[v for result in data.get('Results',[]) for v in result.get('Vulnerabilities',[])]
+          high=[v for v in findings if v.get('Severity') in ('HIGH','CRITICAL')]
+          print('IMAGE_SECURITY_SUMMARY',json.dumps({'total':len(findings),'highCritical':len(high),'fixableHighCritical':sum(bool(v.get('FixedVersion')) for v in high)}))
+          for v in high: print(v['VulnerabilityID'],v['PkgName'],v['InstalledVersion'],v.get('FixedVersion','unfixed'))
+          raise SystemExit(2 if high else 0)
+          PY

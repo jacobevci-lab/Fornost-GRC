@@ -66,7 +66,6 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   if (!sameOrigin(req)) return NextResponse.json({ error: "Geçersiz istek kaynağı." }, { status: 403 });
-  if (Number(req.headers.get("content-length") || 0) > 16_384) return NextResponse.json({ error: "İstek boyutu çok büyük." }, { status: 413 });
   let body: Record<string, unknown>;
   try { body = await readBoundedJsonObject(req, 16_384); }
   catch (error) { if (error instanceof JsonBodyError) return NextResponse.json({ error: error.message }, { status: error.status }); throw error; }
