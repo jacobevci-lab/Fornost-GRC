@@ -3,6 +3,7 @@ FROM node:22-trixie-slim AS build
 ARG FORNOST_SOURCE_COMMIT=unknown
 
 RUN apt-get update \
+  && apt-get upgrade -y \
   && apt-get install -y --no-install-recommends bash ca-certificates coreutils curl util-linux xz-utils \
   && rm -rf /var/lib/apt/lists/*
 
@@ -24,6 +25,7 @@ LABEL org.opencontainers.image.title="Fornost GRC" \
       org.opencontainers.image.revision="${FORNOST_SOURCE_COMMIT}"
 
 RUN apt-get update \
+  && apt-get upgrade -y \
   && apt-get install -y --no-install-recommends bash ca-certificates coreutils curl util-linux \
   && rm -rf /var/lib/apt/lists/*
 
