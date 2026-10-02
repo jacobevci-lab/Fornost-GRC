@@ -1,13 +1,12 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import {readFileSync} from 'node:fs';
+import {exceptionTableSql} from '../app/assurance-exception-schema';
 import {DatabaseSync} from 'node:sqlite';
 import {transitionAssuranceException, reconcileExpiredExceptions, type ExceptionRow} from '../app/assurance-exception-runtime';
 const now=new Date('2026-10-02T10:00:00.000Z'),maker='maker@fornost.test',checker='checker@fornost.test';
 function fixture(){
  const sqlite=new DatabaseSync(':memory:');
- const route=readFileSync('app/api/continuous-assurance/governance/route.ts','utf8');
- sqlite.exec(route.match(/`(CREATE TABLE IF NOT EXISTS continuous_assurance_exceptions[^`]+)`/)![1]);
+ sqlite.exec(exceptionTableSql);
  sqlite.exec(`CREATE TABLE simple_grc_records(id TEXT PRIMARY KEY,module TEXT,data_json TEXT,updated_at TEXT);
  CREATE TABLE simple_grc_record_codes(record_id TEXT PRIMARY KEY,code TEXT);
  CREATE TABLE continuous_assurance_work_items(id TEXT PRIMARY KEY,finding_id TEXT,rule_id TEXT,action TEXT,status TEXT,decision_json TEXT,created_at TEXT,updated_at TEXT,actor TEXT);`);

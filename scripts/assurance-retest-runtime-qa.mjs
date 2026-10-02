@@ -36,7 +36,9 @@ try {
     INSERT INTO continuous_assurance_work_items(id,finding_id,rule_id,action,status,decision_json,created_at,updated_at,actor,reviewed_by,reviewed_at) VALUES('QA-RETEST-WORK',${q(findingId)},${q(ruleId)},'control-retest','approved-awaiting-retest',${q(JSON.stringify({ riskRef: findingId, targetControlRef: 'A.8.1' }))},${q(earlier(160))},${q(earlier(120))},'qa-maker@fornost.test','qa-checker@fornost.test',${q(earlier(120))});
     INSERT INTO evidence_automation_runs(id,rule_id,rule_name,source_name,status,score,detail,response_hash,created_at,actor,error_code) VALUES('QA-RETEST-ERROR',${q(ruleId)},'QA Retest Coverage','Synthetic QA','error',0,'QA connector unavailable',${q(hash)},${q(earlier(60))},'qa','SOURCE_REQUEST_FAILED');
   `);
+  await seed(`INSERT INTO continuous_assurance_exceptions(id,finding_id,rule_id,control_ref,risk_ref,reason,expires_at,evidence_reference,evidence_sha256,status,submitted_by,submitted_at,retest_required,retest_work_item_id,lifecycle_updated_at) VALUES('QA-RETEST-EXCEPTION',${q(findingId)},${q(ruleId)},'A.8.1',${q(findingId)},'Synthetic expired exception for retry closure',${q(due)},'QA-EVD',${q(hash)},'expired','qa',${q(earlier(240))},1,'QA-RETEST-WORK',${q(earlier(150))});`);
   let work = (await api(admin, route)).items.find(row => row.id === 'QA-RETEST-WORK');
+  assert.equal((await api(admin,route+'/governance')).exceptions.find(row=>row.id==='QA-RETEST-EXCEPTION').retestRequired,true);
   assert.equal(work.status, 'retest-error'); assert.equal(work.retestOutcome.reason, 'collection-error'); assert.equal(work.retestOutcome.riskUpdate, 'applied');
   await page.goto(base); await expect(page.locator('.shell')).toBeVisible();
   await page.locator('.language-switch:visible').getByRole('button', { name: 'EN', exact: true }).click();
@@ -76,6 +78,10 @@ try {
   `);
   work = (await api(admin, route)).items.find(row => row.id === queued.id);
   assert.equal(work.status, 'completed'); assert.equal(work.resultRef, 'QA-RETEST-PASS'); assert.equal(work.retestOutcome.reason, 'passed');
+  const completedException=(await api(admin,route+'/governance')).exceptions.find(row=>row.id==='QA-RETEST-EXCEPTION');
+  assert.equal(completedException.retestRequired,false);assert.equal(completedException.retestResultRef,'QA-RETEST-PASS');assert.equal(completedException.retestWorkItemId,queued.id);assert.ok(completedException.retestCompletedAt);assert.equal(completedException.status,'expired');
+  const governance=page.locator('.assurance-governance'),disclosure=governance.locator('xpath=ancestor::details[1]');if(!(await disclosure.evaluate(el=>el.open)))await disclosure.locator(':scope > summary').click();
+  await governance.getByRole('button',{name:'Refresh governance',exact:true}).click();await expect(governance.getByRole('button',{name:'Refresh governance',exact:true})).toBeEnabled();await governance.getByLabel('Search risks, proposals or exceptions').fill('QA-RETEST-EXCEPTION');await expect(governance).toContainText('RE-TEST COMPLETED');await governance.locator('.ag-grid>article').nth(1).screenshot({path:`${out}/exception-completed.png`});
   const riskAfter = JSON.parse((await api(admin, '/api/grc')).rows.find(row => row.id === findingId).data_json);
   assert.equal(riskAfter.residualRiskReviewRequired, true); assert.equal(riskAfter.residualScore, '6'); assert.equal(riskAfter.riskReviewRequestedAt, risk.riskReviewRequestedAt);
   await queue.getByRole('button', { name: 'Refresh', exact: true }).click();
@@ -103,6 +109,7 @@ finally {
       // These deliberately minimal local fixtures must not become seeds for later CRUD suites.
       // Include API-generated work IDs; never delete other scenarios' records.
       await seed(`
+        DELETE FROM continuous_assurance_exceptions WHERE id='QA-RETEST-EXCEPTION';
         DELETE FROM continuous_assurance_work_items WHERE finding_id=${q(findingId)} AND rule_id=${q(ruleId)};
         DELETE FROM evidence_automation_runs WHERE rule_id=${q(ruleId)};
         DELETE FROM simple_grc_record_codes WHERE record_id IN (${q(findingId)},'QA-RETEST-PASS-EVD');
@@ -117,4 +124,4 @@ finally {
     }
   } finally { await browser.close(); }
 }
-console.log(`ASSURANCE_RETEST_QA_PASS: ${checks} API checks; real reconciliation, UI results and retry, independent approval/revalidation, fresh proof, preserved risk review, pagination, load failure recovery, desktop/mobile in both themes and fixture cleanup`);
+console.log(`ASSURANCE_RETEST_QA_PASS: ${checks} API checks; real reconciliation, UI results and retry, independent approval/revalidation, fresh proof, completed exception retry lineage, preserved risk review, pagination, load failure recovery, desktop/mobile in both themes and fixture cleanup`);

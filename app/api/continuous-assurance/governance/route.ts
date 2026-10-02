@@ -8,19 +8,18 @@ import {decideRiskReview,submitRiskReview,riskRevision,riskDecisionContext,riskO
 
 import {transitionAssuranceException,reconcileExpiredExceptions,type ExceptionRow} from "../../../assurance-exception-runtime";
 
+import {ensureAssuranceExceptionSchema} from "../../../assurance-exception-schema";
+
 type Env=Record<string,unknown>&{DB:D1Database};
 type ReviewRow=RiskReviewRow;
 const schema=[
  `CREATE TABLE IF NOT EXISTS continuous_assurance_risk_reviews(id TEXT PRIMARY KEY,risk_id TEXT NOT NULL,status TEXT NOT NULL,proposal_json TEXT NOT NULL,submitted_by TEXT NOT NULL,submitted_at TEXT NOT NULL,reviewed_by TEXT,reviewed_at TEXT,review_note TEXT)`,
  `CREATE INDEX IF NOT EXISTS ca_risk_reviews_status_idx ON continuous_assurance_risk_reviews(status,submitted_at)`,
  `CREATE INDEX IF NOT EXISTS ca_risk_reviews_risk_idx ON continuous_assurance_risk_reviews(risk_id,status)`,
- `CREATE TABLE IF NOT EXISTS continuous_assurance_exceptions(id TEXT PRIMARY KEY,finding_id TEXT NOT NULL DEFAULT '',rule_id TEXT NOT NULL DEFAULT '',control_ref TEXT NOT NULL DEFAULT '',risk_ref TEXT NOT NULL DEFAULT '',reason TEXT NOT NULL,expires_at TEXT NOT NULL,evidence_reference TEXT NOT NULL,evidence_sha256 TEXT NOT NULL,status TEXT NOT NULL,submitted_by TEXT NOT NULL,submitted_at TEXT NOT NULL,reviewed_by TEXT,reviewed_at TEXT,review_note TEXT,revoked_by TEXT,revoked_at TEXT,retest_required INTEGER NOT NULL DEFAULT 0,retest_work_item_id TEXT,lifecycle_updated_at TEXT,lifecycle_token TEXT NOT NULL DEFAULT '')`,
- `CREATE INDEX IF NOT EXISTS ca_exceptions_status_expiry_idx ON continuous_assurance_exceptions(status,expires_at)`,
+
 ];
-const exceptionColumns:Record<string,string>={retest_required:"INTEGER NOT NULL DEFAULT 0",retest_work_item_id:"TEXT",lifecycle_updated_at:"TEXT",lifecycle_token:"TEXT NOT NULL DEFAULT ''"};
 async function runtime(){const{env}=await import("cloudflare:workers");return env as unknown as Env}
-async function addMissingColumns(db:D1Database,table:string,columns:Record<string,string>){const info=await db.prepare(`PRAGMA table_info(${table})`).all<{name:string}>(),present=new Set(info.results.map(row=>row.name));for(const[name,definition]of Object.entries(columns)){if(!present.has(name)){try{await db.prepare(`ALTER TABLE ${table} ADD COLUMN ${name} ${definition}`).run()}catch(error){const current=await db.prepare(`PRAGMA table_info(${table})`).all<{name:string}>();if(!current.results.some(row=>row.name===name))throw error}}}}
-async function ready(db:D1Database){for(const sql of schema)await db.prepare(sql).run();await addMissingColumns(db,"continuous_assurance_exceptions",exceptionColumns);await ensureAssuranceWorkSchema(db)}
+async function ready(db:D1Database){for(const sql of schema)await db.prepare(sql).run();await ensureAssuranceExceptionSchema(db);await ensureAssuranceWorkSchema(db)}
 const json=(data:unknown,status=200)=>NextResponse.json(data,{status,headers:{"cache-control":"no-store"}});
 const parse=(value:string)=>{try{return JSON.parse(value||"{}") as Record<string,unknown>}catch{return {}}};
 const today=()=>new Date().toISOString().slice(0,10);
@@ -53,7 +52,7 @@ export async function GET(req:NextRequest){
   const risk=riskIndex.get(row.risk_id)||null;
   return{id:row.id,riskId:row.risk_id,status:row.status,proposal,currentRisk:risk?riskDecisionContext(risk):null,approvalBlocker:row.status==="pending-review"?await riskReviewBlocker(row,risk):null,submittedBy:row.submitted_by,submittedAt:row.submitted_at,reviewedBy:row.reviewed_by||"",reviewedAt:row.reviewed_at||"",reviewNote:row.review_note||""};
  }));
- const exceptions=exceptionsResult.results.slice(0,500).map(row=>({id:row.id,findingId:row.finding_id,ruleId:row.rule_id,controlRef:row.control_ref,riskRef:row.risk_ref,reason:row.reason,expiresAt:row.expires_at,evidenceReference:row.evidence_reference,evidenceSha256:row.evidence_sha256,status:exceptionEffectiveStatus(row.status,row.expires_at,nowDay),storedStatus:row.status,submittedBy:row.submitted_by,submittedAt:row.submitted_at,reviewedBy:row.reviewed_by||"",reviewedAt:row.reviewed_at||"",reviewNote:row.review_note||"",revokedBy:row.revoked_by||"",revokedAt:row.revoked_at||"",retestRequired:Boolean(row.retest_required),retestWorkItemId:row.retest_work_item_id||"",lifecycleUpdatedAt:row.lifecycle_updated_at||""}));
+ const exceptions=exceptionsResult.results.slice(0,500).map(row=>({id:row.id,findingId:row.finding_id,ruleId:row.rule_id,controlRef:row.control_ref,riskRef:row.risk_ref,reason:row.reason,expiresAt:row.expires_at,evidenceReference:row.evidence_reference,evidenceSha256:row.evidence_sha256,status:exceptionEffectiveStatus(row.status,row.expires_at,nowDay),storedStatus:row.status,submittedBy:row.submitted_by,submittedAt:row.submitted_at,reviewedBy:row.reviewed_by||"",reviewedAt:row.reviewed_at||"",reviewNote:row.review_note||"",revokedBy:row.revoked_by||"",revokedAt:row.revoked_at||"",retestRequired:Boolean(row.retest_required),retestWorkItemId:row.retest_work_item_id||"",lifecycleUpdatedAt:row.lifecycle_updated_at||"",retestCompletedAt:row.retest_completed_at||"",retestResultRef:row.retest_result_ref||""}));
  const risksRequiringReview=risks.filter(item=>item.data.residualRiskReviewRequired===true).map(item=>{const requestedAt=String(item.data.riskReviewRequestedAt||item.data.lastReassessedAt||item.updatedAt||""),escalation=riskReviewEscalation(true,requestedAt,now),riskRef=String(item.code||item.data.riskId||item.data.code||item.id);return{id:item.id,riskRef,context:item.context,title:String(item.data.title||item.id),owner:String(item.data.owner||""),riskLevel:String(item.data.riskLevel||item.data.residualRiskLevel||""),assuranceState:String(item.data.assuranceState||"unknown"),lastAssuranceRunRef:String(item.data.lastAssuranceRunRef||""),reason:String(item.data.reassessmentReason||""),requestedAt,reviewAgeDays:escalation.ageDays,reviewUrgency:escalation.state,reminderDue:escalation.reminderDue,escalationDue:escalation.escalationDue}});
  const ages=risksRequiringReview.map(item=>item.reviewAgeDays),reviewRequired=risksRequiringReview.length;
  const effective=risks.filter(item=>item.data.assuranceState==="effective").length,degraded=risks.filter(item=>item.data.assuranceState==="degraded").length,ineffective=risks.filter(item=>item.data.assuranceState==="ineffective").length;
