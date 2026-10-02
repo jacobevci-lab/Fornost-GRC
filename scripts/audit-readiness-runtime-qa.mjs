@@ -16,9 +16,9 @@ await page.addInitScript(() => {
     window.__qaDownloadTrace.push({ action: 'create-blob', type: blob.type, size: blob.size, active: navigator.userActivation.isActive });
     return original(blob);
   };
-  document.addEventListener('click', event => {
-    const target = event.target.closest?.('.audit-readiness-actions button,a[download]');
-    if (target) window.__qaDownloadTrace.push({ action: 'click', label: target.textContent, file: target.getAttribute('download'), trusted: event.isTrusted, active: navigator.userActivation.isActive });
+  for (const action of ['pointerdown', 'pointerup', 'click']) document.addEventListener(action, event => {
+    const target = event.target.closest?.('button,a[download]');
+    if (target) window.__qaDownloadTrace.push({ action, label: target.textContent, file: target.getAttribute('download'), trusted: event.isTrusted, active: navigator.userActivation.isActive, x: event.clientX, y: event.clientY, scroll: scrollY });
   }, true);
 });
 let checks = 0, auditId = '', seeded = false;
@@ -102,7 +102,11 @@ try {
   await gate.getByRole('button', { name: 'Recheck readiness', exact: true }).click(); await expect(gate.locator('.audit-readiness-state>span')).toHaveText('AUDIT READY');
   await expect(gate.getByRole('button', { name: 'HTML Snapshot', exact: true })).toBeEnabled();
   await page.locator('.language-switch:visible').getByRole('button', { name: 'TR', exact: true }).click(); await expect(gate.locator('.audit-readiness-state>span')).toHaveText('DENETİME HAZIR');
-  const [turkishDownload] = await Promise.all([page.waitForEvent('download'), gate.getByRole('button', { name: 'HTML Özeti', exact: true }).click()]);
+  // Keep the click error visible instead of masking it with an earlier download timeout.
+  const pendingTurkish = page.waitForEvent('download', { timeout: 30000 }).catch(() => null);
+  await gate.getByRole('button', { name: 'HTML Özeti', exact: true }).click();
+  const turkishDownload = await pendingTurkish;
+  assert.ok(turkishDownload, 'Turkish report click completed but no download was emitted');
   await turkishDownload.saveAs(`${out}/readiness-tr.html`); assert.ok((await fs.readFile(`${out}/readiness-tr.html`, 'utf8')).includes('Denetim Hazırlık Özeti'));
   const [csvDownload] = await Promise.all([page.waitForEvent('download'), gate.getByRole('button', { name: 'CSV', exact: true }).click()]);
   await csvDownload.saveAs(`${out}/readiness.csv`);

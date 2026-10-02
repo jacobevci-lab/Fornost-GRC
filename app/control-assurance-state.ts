@@ -49,4 +49,3 @@ export const controlAssuranceReasonLabels: Record<string, { tr: string; en: stri
   "risk-link-missing": { tr: "Bulgu risk bağlantısı eksik", en: "Finding risk link missing" },
   "control-needs-improvement": { tr: "Kontrol iyileştirme bekliyor", en: "Control needs improvement" },
 };
-
