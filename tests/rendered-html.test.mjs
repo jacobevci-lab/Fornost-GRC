@@ -1,7 +1,19 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-test("renders production cockpit metadata and the light-first theme", async () => {
+test("renders production cockpit metadata and the light-first theme", async (t) => {
+  // This Node-only test verifies SSR metadata, not Cloudflare's HTML parser.
+  // Real nonce rewriting/hydration is exercised by security-browser-qa.mjs
+  // against the built Worker runtime.
+  const original = globalThis.HTMLRewriter;
+  globalThis.HTMLRewriter = class {
+    on() { return this; }
+    transform(response) { return response; }
+  };
+  t.after(() => {
+    if (original) globalThis.HTMLRewriter = original;
+    else delete globalThis.HTMLRewriter;
+  });
   const workerUrl = new URL("../dist/server/index.js", import.meta.url);
   workerUrl.searchParams.set("test", `${process.pid}-${Date.now()}`);
   const { default: worker } = await import(workerUrl.href);

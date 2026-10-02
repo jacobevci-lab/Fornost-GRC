@@ -1,4 +1,4 @@
-FROM node:22-bookworm-slim AS build
+FROM node:22-trixie-slim AS build
 
 ARG FORNOST_SOURCE_COMMIT=unknown
 
@@ -17,7 +17,7 @@ RUN npm run build
 RUN npm prune --omit=dev --no-audit --no-fund \
   && npm cache clean --force
 
-FROM node:22-bookworm-slim AS runtime
+FROM node:22-trixie-slim AS runtime
 
 ARG FORNOST_SOURCE_COMMIT=unknown
 LABEL org.opencontainers.image.title="Fornost GRC" \
@@ -26,6 +26,12 @@ LABEL org.opencontainers.image.title="Fornost GRC" \
 RUN apt-get update \
   && apt-get install -y --no-install-recommends bash ca-certificates coreutils curl util-linux \
   && rm -rf /var/lib/apt/lists/*
+
+# Runtime uses the pinned local Wrangler binary, not global package managers.
+# Keep build tooling and its independently bundled dependencies out of the image.
+RUN rm -rf /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/corepack \
+    /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack \
+    /usr/local/bin/yarn /usr/local/bin/yarnpkg /opt/yarn-*
 
 WORKDIR /app
 ARG NEXT_PUBLIC_BASE_PATH=/fornost-grc

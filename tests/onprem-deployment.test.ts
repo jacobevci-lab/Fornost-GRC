@@ -19,7 +19,7 @@ test("container deployment isolates workerd from the host glibc", async () => {
   const common = await readFile(new URL("../scripts/linux/common.sh", import.meta.url), "utf8");
   const bootstrap = await readFile(new URL("../scripts/linux/bootstrap.sh", import.meta.url), "utf8");
   const quickInstall = await readFile(new URL("../scripts/linux/quick-install.sh", import.meta.url), "utf8");
-  assert.match(dockerfile, /node:22-bookworm-slim/);
+  assert.match(dockerfile, /node:22-trixie-slim/);
   assert.match(common, /podman/);
   assert.match(installer, /fornost-grc-data/);
   assert.match(installer, /FORNOST_HTTPS_PORT=8443/);
