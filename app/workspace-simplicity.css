@@ -48,5 +48,5 @@
 .workspace-empty p{margin:0;color:var(--ws-muted);line-height:1.5}
 .workspace-empty button{padding:9px 12px;border:1px solid var(--ws-line);border-radius:8px;background:var(--ws-brand-soft);color:var(--ws-brand-2);cursor:pointer}
 /* Keep save actions in reach when long forms scroll. */
-.shell~.overlay .form-actions{position:sticky;bottom:0;background:var(--ws-surface);padding-block:12px;border-top:1px solid var(--ws-line);z-index:2}
+.shell>.overlay .form-actions{position:sticky;bottom:0;background:var(--ws-surface);padding-block:12px;border-top:1px solid var(--ws-line);z-index:2}
 #ai-governance-workspace .ai-portfolio>.matrix{width:100%!important;max-width:none!important;margin-inline:0!important}
