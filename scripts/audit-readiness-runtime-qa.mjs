@@ -9,6 +9,18 @@ await fs.mkdir(out, { recursive: true });
 const browser = await chromium.launch({ executablePath: process.env.QA_CHROMIUM_PATH || undefined });
 const admin = await browser.newContext({ viewport: { width: 1536, height: 960 } }), page = await admin.newPage();
 page.setDefaultTimeout(15000);
+await page.addInitScript(() => {
+  window.__qaDownloadTrace = [];
+  const original = URL.createObjectURL.bind(URL);
+  URL.createObjectURL = blob => {
+    window.__qaDownloadTrace.push({ action: 'create-blob', type: blob.type, size: blob.size, active: navigator.userActivation.isActive });
+    return original(blob);
+  };
+  document.addEventListener('click', event => {
+    const target = event.target.closest?.('.audit-readiness-actions button,a[download]');
+    if (target) window.__qaDownloadTrace.push({ action: 'click', label: target.textContent, file: target.getAttribute('download'), trusted: event.isTrusted, active: navigator.userActivation.isActive });
+  }, true);
+});
 let checks = 0, auditId = '', seeded = false;
 const errors = []; page.on('pageerror', error => errors.push(error.message));
 const q = value => `'${String(value).replaceAll("'", "''")}'`;
@@ -98,7 +110,9 @@ try {
   assert.deepEqual(errors, []);
 } catch (error) {
   await page.screenshot({ path: `${out}/failure.png` }).catch(() => {});
-  await fs.writeFile(`${out}/failure.json`, JSON.stringify({ message: String(error), pageErrors: errors, buttons: await page.locator('.audit-readiness-actions button').allTextContents().catch(() => []) }, null, 2));
+  const diagnostics = { message: String(error), pageErrors: errors, trace: await page.evaluate(() => window.__qaDownloadTrace).catch(() => []), buttons: await page.locator('.audit-readiness-actions button').allTextContents().catch(() => []) };
+  console.log('AUDIT_READINESS_FAILURE', JSON.stringify(diagnostics));
+  await fs.writeFile(`${out}/failure.json`, JSON.stringify(diagnostics, null, 2));
   throw error;
 }
 finally {
