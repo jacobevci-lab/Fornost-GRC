@@ -1,5 +1,6 @@
 import { chromium, expect } from '@playwright/test';
 import assert from 'node:assert/strict';
+import AxeBuilder from '@axe-core/playwright';
 import fs from 'node:fs/promises';
 const base='http://127.0.0.1:4173',out='simplicity-qa-artifacts';
 await fs.mkdir(out,{recursive:true});
@@ -9,6 +10,16 @@ const response=await context.request.post(`${base}/api/auth`,{headers:{origin:ba
 assert.equal(response.status(),200);
 const page=await context.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message));
 try{
+ for(const theme of ['light','dark']){
+  const anonymous=await browser.newContext(),loginPage=await anonymous.newPage();
+  try{
+   await loginPage.goto(base);await expect(loginPage.locator('.auth-card')).toBeVisible();
+   await loginPage.evaluate(theme=>document.documentElement.dataset.theme=theme,theme);
+   await loginPage.waitForTimeout(400);
+   const audit=await new AxeBuilder({page:loginPage}).include('.auth-card').withRules(['color-contrast']).analyze();
+   assert.deepEqual(audit.violations,[],`Login contrast: ${theme}`);
+  }finally{await anonymous.close();}
+ }
  await page.goto(base);await expect(page.locator('.shell')).toBeVisible();
  async function open(name){await page.locator(`nav button[aria-label="${name}"]`).evaluate(el=>el.click());}
  for(const locale of ['tr','en']){
@@ -35,6 +46,12 @@ try{
   await open(tr?'Denetim Yönetimi':'Audit Management');
   const portfolio=await page.locator('.audit-portfolio').boundingBox(),gate=await page.locator('.audit-readiness-gate').boundingBox();
   assert.ok(portfolio.y<gate.y,'Portfolio precedes readiness analysis');
+  for(const theme of ['light','dark']){
+   await page.evaluate(theme=>document.documentElement.dataset.theme=theme,theme);
+   await page.waitForTimeout(400);
+   const audit=await new AxeBuilder({page}).include('.audit-readiness-gate').withRules(['color-contrast']).analyze();
+   assert.deepEqual(audit.violations,[],`Audit readiness contrast: ${locale}/${theme}`);
+  }
   await open(tr?'Raporlama':'Reporting');
   await page.locator('.workspace-export summary').click();
   await expect(page.locator('.workspace-export').getByRole('button',{name:'HTML',exact:true})).toBeVisible();
