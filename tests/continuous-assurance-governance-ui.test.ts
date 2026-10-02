@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
 import test from "node:test";
-const route=readFileSync("app/api/continuous-assurance/governance/route.ts","utf8");
+const route=readFileSync("app/api/continuous-assurance/governance/route.ts","utf8")+readFileSync("app/risk-review-runtime.ts","utf8");
 const panel=readFileSync("app/continuous-assurance-governance.tsx","utf8");
 const css=readFileSync("app/continuous-assurance-governance.css","utf8");
 const connected=readFileSync("app/connected-grc.tsx","utf8");
@@ -13,13 +13,9 @@ test("governance API enforces maker-checker for risk and exceptions",()=>{
  assert.match(route,/Süresi geçmiş exception onaylanamaz/);
 });
 
-test("governance resolves visible risk references without exposing database ids as the workflow contract",()=>{
- assert.match(route,/json_extract\(data_json,'\$\.riskId'\)=\?/);
- assert.match(route,/json_extract\(data_json,'\$\.code'\)=\?/);
- assert.match(route,/ORDER BY CASE WHEN id=\? THEN 0 ELSE 1 END LIMIT 1/);
- assert.match(route,/riskRef=String\(item\.data\.riskId\|\|item\.data\.code\|\|`RSK-\$\{item\.id\.slice\(0,6\)\.toUpperCase\(\)\}`\)/);
- assert.match(route,/bind\(JSON\.stringify\(data\),stamp,risk\.id\)/);
- assert.match(route,/bind\(JSON\.stringify\(updated\),stamp,risk\.id\)/);
+test("governance uses canonical risk references and guarded independent decisions",()=>{
+ assert.match(route,/findRiskRecord/);assert.match(route,/c\.code=\?/);assert.match(route,/riskReviewBlocker/);assert.match(route,/db\.batch/);
+ assert.match(route,/proposal_json=\?/);assert.match(route,/approvalToken/);
 });
 
 test("expired and revoked exceptions require re-test and risk-owner reassessment",()=>{
@@ -39,7 +35,7 @@ test("assurance governance rows deep-link to the exact governed risk control rul
  assert.match(panel,/module:"Risk Assessment"/);assert.match(panel,/filter:\{riskRef:value\}/);
  assert.match(panel,/module:"Kontroller"/);assert.match(panel,/filter:\{controlRef:value\}/);
  assert.match(panel,/module:"Kanıt Otomasyonu"/);assert.match(panel,/filter:\{ruleRef:value\}/);assert.match(panel,/filter:\{findingRef:value\}/);
- assert.match(panel,/openRisk\(x\.riskRef\)/);assert.match(panel,/openControl\(x\.controlRef\)/);assert.match(panel,/openRule\(x\.ruleId\)/);assert.match(panel,/openFinding\(x\.findingId\)/);
+ assert.match(panel,/openRisk\(x\.id\)/);assert.match(panel,/openControl\(x\.controlRef\)/);assert.match(panel,/openRule\(x\.ruleId\)/);assert.match(panel,/openFinding\(x\.findingId\)/);
  assert.match(panel,/Riski Aç/);assert.match(panel,/Open Risk/);
 });
 

@@ -1,3 +1,4 @@
+import { preserveRiskGovernance } from "../../risk-governance-write";
 import { canWriteModule, isScoped, readableModules } from "../../module-access";
 import { NextRequest,NextResponse } from "next/server";
 import { requireRole } from "../auth/security";
@@ -128,15 +129,27 @@ export async function POST(req:NextRequest){
   if(!canWriteModule(auth.actor,moduleName))return NextResponse.json({error:"Bu modülde yazma yetkiniz yok."},{status:403});
   if(Array.isArray(b.rows)){
    if(b.rows.length<1||b.rows.length>1000)return NextResponse.json({error:"İçe aktarma 1-1000 satır arasında olmalıdır."},{status:400});
-   const validated=b.rows.map((row:unknown)=>validate(moduleName,row));const bad=validated.findIndex((x:ReturnType<typeof validate>)=>"error" in x);
+   const validated=b.rows.map((row:unknown)=>validate(moduleName,moduleName==="Risk Assessment"&&row&&typeof row==="object"&&!Array.isArray(row)?preserveRiskGovernance(row as Data):row));const bad=validated.findIndex((x:ReturnType<typeof validate>)=>"error" in x);
    if(bad>=0)return NextResponse.json({error:`Satır ${bad+1}: ${validated[bad].error}`},{status:400});
    const codes=await reserveRecordCodes(d,moduleName,validated.length,now),records:{id:string;code:string;data:Data}[]=validated.map((x:ReturnType<typeof validate>,index:number)=>({id:`${recordCodePrefixes[moduleName]}-${crypto.randomUUID()}`,code:codes[index],data:"data" in x?x.data:{}}));
    for(let i=0;i<records.length;i+=35)await d.batch(records.slice(i,i+35).flatMap((record:{id:string;code:string;data:Data})=>[d.prepare("INSERT INTO simple_grc_records(id,module,data_json,created_at,updated_at) VALUES(?,?,?,?,?)").bind(record.id,moduleName,JSON.stringify(record.data),now,now),d.prepare("INSERT INTO simple_grc_record_codes(record_id,module,code,created_at) VALUES(?,?,?,?)").bind(record.id,moduleName,record.code,now)]));
    return NextResponse.json({ok:true,imported:records.length},{status:201});
   }
-  const checked=validate(moduleName,b.data);if("error" in checked)return NextResponse.json({error:checked.error},{status:400});
+  const checked=validate(moduleName,moduleName==="Risk Assessment"&&b.data&&typeof b.data==="object"&&!Array.isArray(b.data)?preserveRiskGovernance(b.data):b.data);if("error" in checked)return NextResponse.json({error:checked.error},{status:400});
   const id=`${recordCodePrefixes[moduleName]}-${crypto.randomUUID()}`,code=(await reserveRecordCodes(d,moduleName,1,now))[0];await d.batch([d.prepare("INSERT INTO simple_grc_records(id,module,data_json,created_at,updated_at) VALUES(?,?,?,?,?)").bind(id,moduleName,JSON.stringify(checked.data),now,now),d.prepare("INSERT INTO simple_grc_record_codes(record_id,module,code,created_at) VALUES(?,?,?,?)").bind(id,moduleName,code,now)]);return NextResponse.json({ok:true,id,code},{status:201});
  }catch(error){return NextResponse.json({error:error instanceof Error&&error.message==="PAYLOAD_TOO_LARGE"?"İstek boyutu çok büyük.":"Geçersiz JSON isteği."},{status:400})}
 }
-export async function PATCH(req:NextRequest){const auth=await requireRole(req,["Admin","Editor"]);if(auth.response)return auth.response;try{const d=await db(),b=await readJson(req);if(typeof b.id!=="string"||b.id.length>100)return NextResponse.json({error:"Geçersiz kayıt kimliği."},{status:400});const existing=await d.prepare("SELECT module FROM simple_grc_records WHERE id=?").bind(b.id).first<{module:string}>();if(!existing)return NextResponse.json({error:"Kayıt bulunamadı."},{status:404});if(!canWriteModule(auth.actor,existing.module))return NextResponse.json({error:"Bu modülde yazma yetkiniz yok."},{status:403});const checked=validate(existing.module,b.data);if("error" in checked)return NextResponse.json({error:checked.error},{status:400});await d.prepare("UPDATE simple_grc_records SET data_json=?,updated_at=? WHERE id=?").bind(JSON.stringify(checked.data),new Date().toISOString(),b.id).run();return NextResponse.json({ok:true})}catch{return NextResponse.json({error:"Geçersiz JSON isteği."},{status:400})}}
+export async function PATCH(req:NextRequest){
+ const auth=await requireRole(req,["Admin","Editor"]);if(auth.response)return auth.response;
+ try{
+  const d=await db(),b=await readJson(req);if(typeof b.id!=="string"||b.id.length>100)return NextResponse.json({error:"Geçersiz kayıt kimliği."},{status:400});
+  const existing=await d.prepare("SELECT module,data_json,updated_at FROM simple_grc_records WHERE id=?").bind(b.id).first<{module:string;data_json:string;updated_at:string}>();
+  if(!existing)return NextResponse.json({error:"Kayıt bulunamadı."},{status:404});if(!canWriteModule(auth.actor,existing.module))return NextResponse.json({error:"Bu modülde yazma yetkiniz yok."},{status:403});
+  const input=existing.module==="Risk Assessment"&&b.data&&typeof b.data==="object"&&!Array.isArray(b.data)?preserveRiskGovernance(b.data,JSON.parse(existing.data_json)):b.data;
+  const checked=validate(existing.module,input);if("error" in checked)return NextResponse.json({error:checked.error},{status:400});
+  const result=await d.prepare("UPDATE simple_grc_records SET data_json=?,updated_at=? WHERE id=? AND data_json=? AND updated_at=?").bind(JSON.stringify(checked.data),new Date().toISOString(),b.id,existing.data_json,existing.updated_at).run();
+  if(!result.meta?.changes)return NextResponse.json({error:"Kayıt başka bir işlemde değişti; yenileyip yeniden deneyin."},{status:409});
+  return NextResponse.json({ok:true});
+ }catch{return NextResponse.json({error:"Geçersiz JSON isteği veya okunamayan kayıt."},{status:400})}
+}
 export async function DELETE(req:NextRequest){const auth=await requireRole(req,["Admin"]);if(auth.response)return auth.response;const id=req.nextUrl.searchParams.get("id");if(!id||id.length>100)return NextResponse.json({error:"Geçersiz kayıt kimliği."},{status:400});const d=await db(),existing=await d.prepare("SELECT id FROM simple_grc_records WHERE id=?").bind(id).first();if(!existing)return NextResponse.json({error:"Kayıt bulunamadı."},{status:404});await d.batch([d.prepare("DELETE FROM simple_grc_record_codes WHERE record_id=?").bind(id),d.prepare("DELETE FROM simple_grc_records WHERE id=?").bind(id)]);return NextResponse.json({ok:true})}
