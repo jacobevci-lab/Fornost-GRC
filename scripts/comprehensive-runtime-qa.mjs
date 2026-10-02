@@ -34,8 +34,11 @@ for(const [moduleName,label,key] of [['Risk Assessment','Risk Assessment','title
  const data=JSON.parse(seedRows.find(x=>x.module===moduleName).data_json);data[key]=`QA UI ${moduleName} ${Date.now()}`;
  const inputs=dialog.locator('input[name]:not([type=hidden]),textarea[name],select[name]');
  for(let i=0;i<await inputs.count();i++){const input=inputs.nth(i),name=await input.getAttribute('name'),tag=await input.evaluate(e=>e.tagName),value=data[name];if(value===undefined||value===null)continue;
- if(tag==='SELECT'){const options=await input.locator('option').evaluateAll(es=>es.map(e=>e.value));const multi=await input.getAttribute('multiple')!==null;const chosen=multi?String(value).split(',').map(v=>v.trim()).filter(v=>options.includes(v)):String(value);if(multi?chosen.length:options.includes(chosen))await input.selectOption(chosen)}else await input.fill(String(value));}
- const response=page.waitForResponse(r=>r.url().endsWith('/api/grc')&&r.request().method()==='POST').catch(()=>null);await dialog.locator('.form-actions .primary').click();const r=await response;assert.equal(r.status(),201,await r.text());const created=await r.json();await dialog.waitFor({state:'hidden'});
+ if(tag==='SELECT'){
+ // Linked options arrive asynchronously; never silently skip a required selection.
+ if(name==='asset')await expect.poll(async()=>input.locator('option').evaluateAll(es=>es.map(e=>e.value))).toEqual(expect.arrayContaining(String(value).split(',').map(v=>v.trim())));
+ const options=await input.locator('option').evaluateAll(es=>es.map(e=>e.value));const multi=await input.getAttribute('multiple')!==null;const chosen=multi?String(value).split(',').map(v=>v.trim()).filter(v=>options.includes(v)):String(value);if(multi?chosen.length:options.includes(chosen))await input.selectOption(chosen)}else await input.fill(String(value));}
+ const response=page.waitForResponse(r=>r.url().endsWith('/api/grc')&&r.request().method()==='POST').catch(()=>null);await dialog.locator('.form-actions .primary').click();const r=await response;assert.ok(r,'Submitting the valid form must issue a create request');assert.equal(r.status(),201,await r.text());const created=await r.json();await dialog.waitFor({state:'hidden'});
  if(moduleName==='BIA'){const saved=(await request(admin,'/api/grc')).rows.find(x=>x.id===created.id);await request(admin,'/api/grc','PATCH',{id:created.id,data:{...JSON.parse(saved.data_json),rpo:0,asset:"QA archived asset reference"}});await reset();await open(label)}
  const row=page.locator('tr').filter({has:page.locator(`.code[title="${created.id}"]`)});await row.getByRole('button',{name:'Edit',exact:true}).click();if(moduleName==='BIA'){assert.equal(await dialog.locator('[name=rpo]').inputValue(),'0','Zero RPO survives edit');assert.equal(await dialog.locator('[name=asset]').inputValue(),'QA archived asset reference','Missing linked assets remain visible');assert.match(await dialog.locator('[name=asset] option:checked').innerText(),/linked record unavailable/)}await dialog.locator(`[name="${key}"]`).fill(data[key]+' edited');const update=page.waitForResponse(r=>r.url().endsWith('/api/grc')&&r.request().method()==='PATCH').catch(()=>null);await dialog.locator('.form-actions .primary').click();assert.equal((await update).status(),200);await dialog.waitFor({state:'hidden'});
  const found=(await request(admin,'/api/grc')).rows.find(x=>x.id===created.id);assert.equal(JSON.parse(found.data_json)[key],data[key]+' edited');if(moduleName==='BIA'){assert.match(await row.innerText(),/RPO 0h/);assert.doesNotMatch(await row.innerText(),/Missing Data/)}
@@ -150,7 +153,7 @@ await check('Native source persistence: validation, credential rotation, redacti
  assert.ok(!JSON.stringify(state).includes('ISOLATED_QA'));assert.equal(saved.config.clientSecret,undefined);assert.equal(saved.secret_ciphertext,undefined);
 });
 await check('Product-specific connector forms: fields, permissions, secret reset and responsive themes',async()=>{
- await reset();await open('Evidence Automation');
+ await reset();await open('Evidence Automation');await page.locator('.ea-tabs').getByRole('button',{name:'Connector Catalog',exact:true}).click();
  const dialog=page.locator('.ea-modal[role=dialog]');
  for(const theme of ['light','dark']){
   if(await page.locator('html').getAttribute('data-theme')!==theme)await page.locator('.theme-toggle:visible').click();
@@ -223,10 +226,10 @@ await check('AI governance exposes its complete navigation',()=>assert.ok(aiCoun
 for(const theme of ['light','dark']){
  if(await page.locator('html').getAttribute('data-theme')!==theme)await page.locator('.theme-toggle:visible').click();
  for(let i=0;i<aiCount;i++)await check(`AI workspace render: ${theme} / ${i+1}`,async()=>{
-  await aiTabs.nth(i).click();await page.waitForTimeout(450);const panel=page.locator('.fornost-ai-panel');assert.equal(await aiTabs.nth(i).getAttribute('class'),'active');assert.ok(await panel.getAttribute('data-ai-view'));assert.ok((await page.locator('.fornost-ai-tabs').boundingBox()).height<=64,'AI chooser leaves room for workspace content');assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)<=4);await page.screenshot({path:`${out}/ai-${theme}-${i+1}.jpg`,type:'jpeg',quality:65});
+  await page.locator(".ai-section-picker>summary").click();await aiTabs.nth(i).click();await page.waitForTimeout(450);const panel=page.locator('.fornost-ai-panel');assert.equal(await aiTabs.nth(i).getAttribute('class'),'active');assert.ok(await panel.getAttribute('data-ai-view'));assert.equal(await page.locator('.ai-section-picker').getAttribute('open'),null,'AI chooser closes after selection');assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)<=4);await page.screenshot({path:`${out}/ai-${theme}-${i+1}.jpg`,type:'jpeg',quality:65});
  });
 }
-await page.locator('.fornost-ai-panel button[aria-label="Kapat"]').click();
+await open('Risk Assessment');await expect(page.locator('#fornost-ai-panel')).toHaveCount(0);
 
 await check('No unhandled UI errors',()=>assert.deepEqual(errors,[]));
 await fs.writeFile(`${out}/results.json`,JSON.stringify({environment:base,results,limitations:['External SMTP, SSO, webhook delivery and third-party credentials are not configured in this isolated environment.','Lifecycle modules retain audit history and use retirement/closure rather than unsupported hard deletion.']},null,2));

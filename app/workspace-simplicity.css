@@ -1,0 +1,52 @@
+/* Shared page rhythm. Preserve theme tokens and the accepted compact type scale. */
+.shell main :is(.module-head,.ea-hero,.tprm-hero,.rap-hero,.incident-hero,.finding-hero,.plm-hero,.ri-hero,.continuity-hero,.report-hero){
+  min-height:0!important;padding:12px 0!important;margin-bottom:14px!important;background:none!important;border:0!important;border-radius:0!important;box-shadow:none!important;
+}
+.shell main :is(.module-head,.ea-hero,.tprm-hero,.rap-hero,.incident-hero,.finding-hero,.plm-hero,.ri-hero,.continuity-hero,.report-hero)>div>small{display:none!important}
+.shell main :is(.module-head,.ea-hero,.tprm-hero,.rap-hero,.incident-hero,.finding-hero,.plm-hero,.ri-hero,.continuity-hero,.report-hero) p{max-width:85ch!important;margin:5px 0 0!important}
+.shell main :is(.tprm-metrics,.rap-metrics,.incident-kpis,.finding-kpis,.plm-metrics,.ri-metrics,.continuity-kpis,.ea-stats){gap:0!important;overflow:hidden!important;border:1px solid var(--ws-line)!important;border-radius:9px!important;background:var(--ws-surface)!important;box-shadow:none!important;margin-block:12px!important}
+.shell main :is(.tprm-metrics,.rap-metrics,.incident-kpis,.finding-kpis,.plm-metrics,.ri-metrics,.continuity-kpis,.ea-stats)>article{min-height:0!important;padding:12px!important;border:0!important;border-inline-end:1px solid var(--ws-line)!important;border-radius:0!important;background:none!important;box-shadow:none!important}
+.shell .module-overview{padding:12px 14px!important;box-shadow:none!important}
+.shell .module-overview>header{display:none!important}
+.shell .module-overview>div>article{padding:8px 12px!important}
+.shell .risk-overview{display:block!important;margin-block:12px!important}
+.shell .risk-summary{padding:12px 14px!important;box-shadow:none!important}
+.shell .risk-summary-head{display:none!important}
+.shell .risk-metrics{grid-template-columns:repeat(4,minmax(0,1fr))!important;gap:8px!important}
+.shell .risk-metrics article{padding:10px!important;min-height:0!important}
+.risk-analysis-disclosure{margin-top:8px!important;border:1px solid var(--ws-line)!important;border-radius:9px!important;background:var(--ws-surface)!important}
+.risk-analysis-disclosure>summary{padding:12px 14px!important;cursor:pointer!important;font-weight:600!important;color:var(--ws-ink)!important}
+.risk-analysis-disclosure>.matrix{box-shadow:none!important}
+.shell .audit-overview{padding:12px 14px!important;box-shadow:none!important}
+.shell .audit-overview>div:first-child{display:none!important}
+.shell .audit-portfolio{margin-bottom:16px!important}
+.shell .table-card{box-shadow:none!important}
+.shell .cow-launch{padding:10px 12px!important;min-height:0!important;box-shadow:none!important}
+.shell .cow-launch-copy>small,.shell .cow-launch-copy>em,.shell .cow-launch-metrics>i{display:none!important}
+/* Header is the single global AI entry point; never obscure row or dialog actions. */
+.fornost-ai-launcher{display:none!important}
+#ai-governance-workspace{min-width:0!important;min-height:65vh!important}
+#ai-governance-workspace .fornost-ai-panel{position:relative!important;inset:auto!important;width:100%!important;max-width:none!important;height:auto!important;min-height:65vh!important;max-height:none!important;box-shadow:none!important;z-index:auto!important}
+#ai-governance-workspace .fornost-ai-tabs{flex-wrap:wrap!important;overflow:visible!important;max-height:none!important}
+#ai-governance-workspace .fornost-ai-tab-group{flex-basis:100%!important}
+#ai-governance-workspace .fornost-ai-head{padding:14px 16px!important}
+.workspace-export{position:relative!important}
+.workspace-export>summary{cursor:pointer!important;padding:10px 14px!important;border-radius:8px!important;background:var(--ws-brand)!important;color:var(--ws-surface)!important;font-weight:600!important;list-style-position:inside!important}
+.workspace-export>div{position:absolute!important;right:0!important;top:100%!important;z-index:30!important;display:grid!important;gap:6px!important;min-width:190px!important;padding:10px!important;background:var(--ws-surface)!important;border:1px solid var(--ws-line)!important;border-radius:9px!important;box-shadow:var(--ws-shadow)!important}
+@media(max-width:640px){
+ .shell .risk-metrics{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+ .shell .cow-launch{flex-wrap:wrap!important;gap:8px!important}
+ #ai-governance-workspace .fornost-ai-tabs{gap:5px!important}
+ .workspace-export>div{max-width:calc(100vw - 48px)!important}
+}
+
+.shell main .risk-summary{background:var(--ws-surface)!important;border:1px solid var(--ws-line)!important}
+.shell .ea-stats>div{padding:12px!important;border:0!important;border-inline-end:1px solid var(--ws-line)!important;border-radius:0!important;background:none!important;box-shadow:none!important}
+.ai-section-picker>summary{cursor:pointer;padding:12px 16px;color:var(--ws-ink);font-size:12px;font-weight:600;border-bottom:1px solid var(--ws-line)}
+#ai-governance-workspace .fornost-ai-tabs{display:flex!important;flex-wrap:wrap!important;overflow:visible!important}
+.workspace-empty{display:grid;justify-items:start;gap:8px;padding:24px;border:1px solid var(--ws-line);border-radius:9px;background:var(--ws-surface);color:var(--ws-ink)}
+.workspace-empty p{margin:0;color:var(--ws-muted);line-height:1.5}
+.workspace-empty button{padding:9px 12px;border:1px solid var(--ws-line);border-radius:8px;background:var(--ws-brand-soft);color:var(--ws-brand-2);cursor:pointer}
+/* Keep save actions in reach when long forms scroll. */
+.shell>.overlay .form-actions{position:sticky;bottom:0;background:var(--ws-surface);padding-block:12px;border-top:1px solid var(--ws-line);z-index:2}
+#ai-governance-workspace .ai-portfolio>.matrix{width:100%!important;max-width:none!important;margin-inline:0!important}

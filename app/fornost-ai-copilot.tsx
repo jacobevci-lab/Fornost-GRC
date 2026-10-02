@@ -1,6 +1,7 @@
 "use client";
 
-import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import { type ReactNode, FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import { isScoped, type ModuleAccess } from "./module-access";
 import { withBasePath } from "./base-path";
 import { navigateToFornost } from "./navigation-focus";
@@ -58,6 +59,16 @@ const draftFieldLabels: Record<string,string> = {
 };
 const csvCell=(value:unknown)=>{const text=String(value??""),safe=/^[=+\-@]/.test(text)?`'${text}`:text;return `"${safe.replace(/"/g,'""')}"`;};
 
+function AiSectionPicker({ embedded, label, children }: { embedded: boolean; label: string; children: ReactNode }) {
+  if (!embedded) return <div className="ai-section-picker">{children}</div>;
+  return <details className="ai-section-picker" onClick={event => {
+    if (event.target instanceof Element && event.target.closest("button")) {
+      event.currentTarget.open = false;
+      event.currentTarget.querySelector("summary")?.focus();
+    }
+  }}><summary>{label}</summary>{children}</details>;
+}
+
 export default function FornostAiCopilot() {
   const identityKey = useRef("");
   const identityRequest = useRef(0);
@@ -66,6 +77,8 @@ export default function FornostAiCopilot() {
   const [status, setStatus] = useState<Status | null>(null);
   const [statusError, setStatusError] = useState("");
   const [open, setOpen] = useState(false);
+  const [workspaceLocale, setWorkspaceLocale] = useState("tr");
+  const [workspaceHost, setWorkspaceHost] = useState<HTMLElement | null>(null);
   const [identityLoading, setIdentityLoading] = useState(false);
   const [identityError, setIdentityError] = useState("");
   const [tab, setTab] = useState<"chat" | "portfolio" | "agents" | "knowledge" | "drafts" | "metrics" | "governance" | "models" | "compliance" | "lifecycle" | "incidents" | "evidence" | "risks" | "vendors" | "access" | "release" | "impact" | "resilience" | "datasets" | "regulatory" | "literacy" | "supply-chain" | "red-team" | "transparency" | "assurance" | "assurance-alerts" | "exceptions" | "decommission" | "findings" | "feedback" | "budget" | "policy" | "protection" | "audit">("chat");
@@ -153,6 +166,7 @@ export default function FornostAiCopilot() {
   useEffect(() => {
     const openContextualCopilot = (event: Event) => {
       const detail = (event as CustomEvent<{module?:string;prompt?:string;mode?:"chat"|"agent";agentKind?:AgentKind;view?:"portfolio"|"governance"}>).detail || {};
+      setWorkspaceHost(document.getElementById("ai-governance-workspace"));
       setOpen(true);
       void refreshIdentity();
       if (detail.view) {
@@ -168,8 +182,16 @@ export default function FornostAiCopilot() {
         if (detail.prompt) setQuestion(detail.prompt.slice(0, 2000));
       }
     };
+    const syncLocale = (event: Event) => setWorkspaceLocale((event as CustomEvent<string>).detail);
+    window.addEventListener("fornost:ai-workspace-locale", syncLocale);
+    const closeWorkspace = () => { setWorkspaceHost(null); setOpen(false); };
     window.addEventListener("fornost:open-ai", openContextualCopilot);
-    return () => window.removeEventListener("fornost:open-ai", openContextualCopilot);
+    window.addEventListener("fornost:close-ai-workspace", closeWorkspace);
+    return () => {
+      window.removeEventListener("fornost:open-ai", openContextualCopilot);
+      window.removeEventListener("fornost:close-ai-workspace", closeWorkspace);
+      window.removeEventListener("fornost:ai-workspace-locale", syncLocale);
+    };
   }, [refreshIdentity]);
 
 
@@ -391,16 +413,16 @@ export default function FornostAiCopilot() {
   const scoped = isScoped(user);
   const activeTab = scoped ? "chat" : user.role !== "Admin" && (tab === "portfolio" || tab === "audit" || tab === "metrics" || tab === "governance" || tab === "models" || tab === "compliance" || tab === "lifecycle" || tab === "incidents" || tab === "access" || tab === "release" || tab === "resilience" || tab === "datasets" || tab === "regulatory" || tab === "literacy" || tab === "supply-chain" || tab === "red-team" || tab === "transparency" || tab === "assurance" || tab === "assurance-alerts" || tab === "exceptions" || tab === "decommission" || tab === "findings" || tab === "feedback" || tab === "budget" || tab === "policy" || tab === "protection") ? "chat" : tab;
 
-  return <>
+  const panel = <>
     <button className={`fornost-ai-launcher ${aiReady ? "ready" : ""}`} onClick={() => { if (!open) void refreshIdentity(); setOpen((value) => !value); }} aria-expanded={open} aria-controls="fornost-ai-panel">
       <span>✦</span><b>Ask Fornost</b><i>{status?.operatingState==="emergency-stop"?"STOP":aiReady ? "AI" : "OFF"}</i>
     </button>
     {open && <section id="fornost-ai-panel" className={`fornost-ai-panel ${activeTab === "chat" ? "is-compact" : "is-workspace"}`} data-ai-view={activeTab} aria-label="Fornost AI Copilot">
       <header className="fornost-ai-head">
-        <div><small>FORNOST AI · READ-ONLY COPILOT</small><h2>Ask Fornost</h2><p>{status?.model || "AI sağlayıcısı bekleniyor"}</p></div>
-        <button onClick={() => setOpen(false)} aria-label="Kapat">×</button>
+        <div><small>FORNOST AI · READ-ONLY COPILOT</small><h2>{workspaceHost ? (workspaceLocale === "tr" ? "AI Yönetişimi" : "AI Governance") : "Ask Fornost"}</h2><p>{status?.model || "AI sağlayıcısı bekleniyor"}</p></div>
+        {!workspaceHost && <button onClick={() => setOpen(false)} aria-label="Kapat">×</button>}
       </header>
-      {!scoped && <div className="fornost-ai-tabs" role="group" aria-label="AI workspace sections">
+      {!scoped && <AiSectionPicker embedded={!!workspaceHost} label={workspaceLocale === "tr" ? "AI çalışma alanları" : "AI workspaces"}><div className="fornost-ai-tabs" role="group" aria-label="AI workspace sections">
         <small className="fornost-ai-tab-group">KOMUTA</small>
         {user.role === "Admin" && <button className={activeTab === "portfolio" ? "active" : ""} onClick={() => setTab("portfolio")}>AI Yönetim Özeti</button>}
         <button className={activeTab === "chat" ? "active" : ""} onClick={() => setTab("chat")}>Copilot</button>
@@ -438,7 +460,7 @@ export default function FornostAiCopilot() {
         {user.role === "Admin" && <button className={activeTab === "policy" ? "active" : ""} onClick={() => setTab("policy")}>Operasyon</button>}
         {user.role === "Admin" && <button className={activeTab === "protection" ? "active" : ""} onClick={() => setTab("protection")}>Veri Koruma</button>}
         {user.role === "Admin" && <button className={activeTab === "audit" ? "active" : ""} onClick={() => { setTab("audit"); void loadAudit(); }}>AI Audit</button>}
-      </div>}
+      </div></AiSectionPicker>}
 
       {scoped && <p className="fornost-ai-notice">Ask Fornost yalnız izinli modüllerdeki kayıtları kullanır. Ortak bilgi tabanı ve agent iş akışları bu hesap için kapalıdır.</p>}
       {activeTab === "portfolio" ? <FornostAiPortfolio/> : activeTab === "chat" ? <>
@@ -552,4 +574,5 @@ export default function FornostAiCopilot() {
       </div> : null}
     </section>}
   </>;
+  return workspaceHost ? createPortal(panel, workspaceHost) : panel;
 }
