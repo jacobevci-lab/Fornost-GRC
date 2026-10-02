@@ -131,9 +131,8 @@ html[data-theme] body .shell>main .control-assurance-workspace{--ws-border:var(-
 .module-analysis-disclosure[open]>summary{border-bottom:1px solid var(--ws-line)}
 .eql-issues>summary{display:flex;align-items:center;justify-content:space-between;gap:12px;cursor:pointer;color:var(--ws-ink);padding:2px 0;list-style:none}.eql-issues>summary::-webkit-details-marker{display:none}.eql-issues>summary::after{content:"+";color:var(--ws-brand-2)}.eql-issues[open]>summary::after{content:"−"}.eql-issues[open] .eql-list{margin-top:12px;max-height:330px;overflow:auto}
 .evidence-quality-lens>footer{padding:8px 16px}.evidence-quality-lens>footer button{min-height:30px}
-.control-impact-disclosure{border:1px solid var(--ws-line);border-radius:8px;margin:12px 16px;background:var(--ws-surface)}.control-impact-disclosure>summary{padding:12px;cursor:pointer;color:var(--ws-brand-2)}.control-impact-disclosure .control-impact-lens{margin:0;border:0}
-@media(max-width:900px){html[data-theme] body .shell>main h2{font-size:16px!important}.module-head .actions{width:100%;margin:0}.module-analysis-disclosure>summary{padding:12px}.control-assurance-list>article{grid-template-columns:48px minmax(0,1fr)}.control-assurance-links,.control-assurance-reasons,.control-assurance-actions{grid-column:1/-1}.control-assurance-copy>div{flex-wrap:wrap}.cil-stage-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.cil-selector-row{flex-wrap:wrap}.cil-selector-row label{min-width:0;width:100%}}
-@media(max-width:600px){html[data-theme] body .shell>main :is(input,select,textarea){font-size:13px!important}.cil-stage-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.eql-health{min-width:0}.evidence-quality-lens>header{gap:10px}.dashboard-customizer-dialog>header{gap:10px}}
+@media(max-width:900px){html[data-theme] body .shell>main h2{font-size:16px!important}.module-head .actions{width:100%;margin:0}.module-analysis-disclosure>summary{padding:12px}}
+@media(max-width:600px){html[data-theme] body .shell>main :is(input,select,textarea){font-size:13px!important}.eql-health{min-width:0}.evidence-quality-lens>header{gap:10px}.dashboard-customizer-dialog>header{gap:10px}}
 
 /* Wide register columns remain scrollable instead of shrinking into broken words. */
 html[data-theme] body .shell>main .table-wrap :is(.risk-table,.smart-table){max-width:none;width:max-content;min-width:100%}

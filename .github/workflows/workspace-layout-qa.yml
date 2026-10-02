@@ -53,6 +53,8 @@ jobs:
         run: node scripts/capa-control-context-qa.mjs
       - name: Re-test recovery, independent approval and risk reconciliation QA
         run: node scripts/assurance-retest-runtime-qa.mjs
+      - name: Unified control assurance, record navigation and recovery QA
+        run: node scripts/control-assurance-runtime-qa.mjs
       - name: Scoped audit readiness, evidence and export QA
         run: node scripts/audit-readiness-runtime-qa.mjs
       - name: Check module layouts and audit stability
@@ -78,6 +80,7 @@ jobs:
             capa-control-qa-artifacts/
             assurance-retest-qa-artifacts/
             audit-readiness-qa-artifacts/
+            control-assurance-qa-artifacts/
             layout-qa-artifacts/
             runtime-qa-artifacts/
             qa-artifacts-v2/
