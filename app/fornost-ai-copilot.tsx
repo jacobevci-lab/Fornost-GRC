@@ -60,6 +60,8 @@ const csvCell=(value:unknown)=>{const text=String(value??""),safe=/^[=+\-@]/.tes
 
 export default function FornostAiCopilot() {
   const identityKey = useRef("");
+  const identityRequest = useRef(0);
+  const statusRequest = useRef(0);
   const [user, setUser] = useState<User | null>(null);
   const [status, setStatus] = useState<Status | null>(null);
   const [statusError, setStatusError] = useState("");
@@ -108,9 +110,12 @@ export default function FornostAiCopilot() {
   const [agentConversion,setAgentConversion]=useState<AgentConversion|null>(null);
 
   const refreshStatus = useCallback(async () => {
+    const request = ++statusRequest.current;
+    setStatus(null);
     setStatusError("");
     const response = await fetch(withBasePath("/api/ai/status"), { cache: "no-store", signal: AbortSignal.timeout(10000) }).catch(() => null);
     const body = await response?.json().catch(() => null);
+    if (request !== statusRequest.current) return;
     if (!response?.ok || !body || typeof body.configured !== "boolean" || typeof body.enabled !== "boolean") {
       setStatus(null);
       setStatusError("AI bağlantı durumu alınamadı. Yeniden deneyin.");
@@ -120,9 +125,13 @@ export default function FornostAiCopilot() {
   }, []);
 
   const refreshIdentity = useCallback(async () => {
+    const request = ++identityRequest.current;
+    ++statusRequest.current;
+    setStatus(null);
     setIdentityLoading(true);
     setIdentityError("");
     const response = await fetch(withBasePath("/api/auth"), { cache: "no-store", signal: AbortSignal.timeout(10000) }).catch(() => null);
+    if (request !== identityRequest.current) return;
     if (!response?.ok) {
       setUser(null);
       setIdentityLoading(false);
@@ -130,6 +139,7 @@ export default function FornostAiCopilot() {
       return;
     }
     const body = await response.json().catch(() => ({}));
+    if (request !== identityRequest.current) return;
     const nextUser = body.authenticated ? body.user as User : null;
     const nextKey=nextUser?JSON.stringify([nextUser.id,nextUser.email,nextUser.role,nextUser.moduleAccess]):"";
     if(identityKey.current && identityKey.current!==nextKey){setMessages([]);setDrafts([]);setAgentRuns([]);setQuestion("");setFeedbackDraft(null);setTab("chat");}
@@ -206,6 +216,8 @@ export default function FornostAiCopilot() {
     return () => {
       window.clearTimeout(first);
       window.clearInterval(timer);
+      ++identityRequest.current;
+      ++statusRequest.current;
     };
   }, [refreshIdentity]);
 

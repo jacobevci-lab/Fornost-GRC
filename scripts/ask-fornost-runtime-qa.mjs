@@ -20,14 +20,28 @@ try{
  await page.screenshot({path:`${out}/signed-in-immediate-open.png`});
  await panel.getByRole('button',{name:'AI Ayarlarını Aç',exact:true}).click();await expect(panel).toBeHidden();await expect(page.locator('.ai-settings-page')).toBeVisible();
  await page.locator('.fornost-ai-launcher').click();await expect(panel).toBeVisible();await panel.getByRole('button',{name:'Kapat',exact:true}).click();await expect(panel).toBeHidden();
- // A failed identity refresh must explain the failure and allow recovery.
- await page.route('**/api/auth',route=>route.fulfill({status:503,contentType:'application/json',body:'{}'}));
- await page.locator('.context-ai-trigger').click();await expect(panel).toContainText('Oturum doğrulanamadı');
- await page.unroute('**/api/auth');await panel.getByRole('button',{name:'Yeniden dene',exact:true}).click();await expect(panel.locator('.fornost-ai-tabs')).toBeVisible();
- // Provider status errors must not reuse an old ready state or silently disable chat.
- await page.route('**/api/ai/status',route=>route.fulfill({status:503,contentType:'application/json',body:'{}'}));
- await page.locator('.context-ai-trigger').click();await expect(panel).toContainText('AI bağlantı durumu alınamadı');await expect(panel.locator('.fornost-ai-compose button')).toBeDisabled();
- await page.unroute('**/api/ai/status');await panel.getByRole('button',{name:'Bağlantıyı yeniden kontrol et',exact:true}).click();await expect(panel).toContainText('AI sağlayıcısı henüz yapılandırılmamış');
+ // Hold an older successful response until a newer refresh fails. It must not erase the error.
+ async function staleRefresh(path,errorText,retryLabel,recovered){
+  let release,observed=0,delivered=false;
+  const held=new Promise(resolve=>{release=resolve;});
+  const pattern=`**${path}`;
+  await page.route(pattern,async route=>{
+   if(++observed===1){const response=await route.fetch();await held;await route.fulfill({response});delivered=true;}
+   else await route.fulfill({status:503,contentType:'application/json',body:'{}'});
+  });
+  try{
+   await page.locator('.context-ai-trigger').click();await expect.poll(()=>observed).toBeGreaterThanOrEqual(1);
+   await page.locator('.context-ai-trigger').click();await expect(panel).toContainText(errorText);
+   release();await expect.poll(()=>delivered).toBe(true);
+   // Let the released network response and React commit reach the next painted frame.
+   await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
+   await expect(panel).toContainText(errorText);await expect(panel.getByRole('button',{name:retryLabel,exact:true})).toBeEnabled();
+  }finally{release();await page.unroute(pattern);}
+  await panel.getByRole('button',{name:retryLabel,exact:true}).click();await recovered();
+ }
+ await staleRefresh('/api/auth','Oturum doğrulanamadı','Yeniden dene',()=>expect(panel.locator('.fornost-ai-tabs')).toBeVisible());
+ await staleRefresh('/api/ai/status','AI bağlantı durumu alınamadı','Bağlantıyı yeniden kontrol et',()=>expect(panel).toContainText('AI sağlayıcısı henüz yapılandırılmamış'));
+ await expect(panel.locator('.fornost-ai-compose button')).toBeDisabled();
  await page.setViewportSize({width:390,height:844});assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)<=4);await page.screenshot({path:`${out}/copilot-mobile.png`});
- assert.deepEqual(errors,[]);console.log('ASK_FORNOST_QA_PASS: immediate post-login header, launcher, setup navigation, identity/status failure recovery, capabilities and mobile');
+ assert.deepEqual(errors,[]);console.log('ASK_FORNOST_QA_PASS: immediate post-login header, launcher, setup navigation, out-of-order identity/status responses, failure recovery, capabilities and mobile');
 }catch(error){await page.screenshot({path:`${out}/failure.png`}).catch(()=>{});throw error;}finally{await browser.close();}
