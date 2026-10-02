@@ -19,7 +19,7 @@ try{
  await expect(panel.locator('.fornost-ai-compose textarea')).not.toHaveValue('');
  await page.screenshot({path:`${out}/signed-in-immediate-open.png`});
  await panel.getByRole('button',{name:'AI Ayarlarını Aç',exact:true}).click();await expect(panel).toBeHidden();await expect(page.locator('.ai-settings-page')).toBeVisible();
- await page.locator('.fornost-ai-launcher').click();await expect(panel).toBeVisible();await panel.getByRole('button',{name:'Kapat',exact:true}).click();await expect(panel).toBeHidden();
+ await page.locator('.context-ai-trigger').click();await expect(panel).toBeVisible();await panel.getByRole('button',{name:'Kapat',exact:true}).click();await expect(panel).toBeHidden();
  // Hold an older successful response until a newer refresh fails. It must not erase the error.
  async function staleRefresh(path,errorText,retryLabel,recovered){
   let release,observed=0,delivered=false;
@@ -43,5 +43,5 @@ try{
  await staleRefresh('/api/ai/status','AI bağlantı durumu alınamadı','Bağlantıyı yeniden kontrol et',()=>expect(panel).toContainText('AI sağlayıcısı henüz yapılandırılmamış'));
  await expect(panel.locator('.fornost-ai-compose button')).toBeDisabled();
  await page.setViewportSize({width:390,height:844});assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)<=4);await page.screenshot({path:`${out}/copilot-mobile.png`});
- assert.deepEqual(errors,[]);console.log('ASK_FORNOST_QA_PASS: immediate post-login header, launcher, setup navigation, out-of-order identity/status responses, failure recovery, capabilities and mobile');
+ assert.deepEqual(errors,[]);console.log('ASK_FORNOST_QA_PASS: immediate post-login header, setup navigation, out-of-order identity/status responses, failure recovery, capabilities and mobile');
 }catch(error){await page.screenshot({path:`${out}/failure.png`}).catch(()=>{});throw error;}finally{await browser.close();}

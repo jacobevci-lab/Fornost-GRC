@@ -61,6 +61,8 @@ import "./workspace-system.css";
 import "./enterprise-surface-contract.css";
 import "./product-experience.css";
 import "./theme-integrity.css";
+import "./workspace-simplicity.css";
+import AiWorkspaceHost from "./ai-workspace-host";
 import { buildReportHtml, buildReportPdf, downloadBlob, reportMetrics } from "./report-export";
 
 type Lang = "tr" | "en";
@@ -1767,7 +1769,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
       setOpenNavGroup(parentGroup.id);
       localStorage.setItem("fornost-grc-open-nav-group", parentGroup.id);
     }
-    if (module === "Ask Fornost" || module === "AI Yönetişimi") {
+    if (module === "Ask Fornost") {
       window.dispatchEvent(new CustomEvent("fornost:open-ai", { detail: module === "Ask Fornost" ? { mode: "chat" } : { view: "portfolio" } }));
       setMobileNavOpen(false);
       setCommandOpen(false);
@@ -2189,6 +2191,8 @@ function FornostApp({ currentUser }: { currentUser: any }) {
           <section className="module-scope-home"><h2>{lang==="tr"?"Çalışma alanım":"My workspace"}</h2><p>{lang==="tr"?"İzin verilen modüllerdeki kayıtları görüntüleyin ve yönetin. Ortak raporlar ve gelişmiş iş akışları için tam çalışma alanı erişimi gerekir.":"View and manage records in your permitted modules. Shared reports and advanced workflows require full workspace access."}</p><div className="module-scope-cards">{readableModules(currentUser).map(module=><button key={module} onClick={()=>navigateToModule(module)}><b>{names[lang][module]}</b><small>{by(module).length} {lang==="tr"?"kayıt":"records"} · {canWriteModule(currentUser,module)?(lang==="tr"?"Okuma ve düzenleme":"Read and edit"):(lang==="tr"?"Okuma":"Read")}</small></button>)}</div>{!readableModules(currentUser).length&&<p>{lang==="tr"?"Henüz modül erişimi atanmadı. Yöneticinizle iletişime geçin.":"No module access has been assigned. Contact your administrator."}</p>}</section>
         ) : active === "Ana Sayfa" ? (
           <Dashboard rows={rows} go={setActive} lang={lang} />
+        ) : active === "AI Yönetişimi" ? (
+          <AiWorkspaceHost lang={lang} />
         ) : active === "Benim İşlerim" ? (
           <MyWork rows={rows} currentUser={currentUser} go={setActive} lang={lang} />
         ) : active === "Risk İştahı ve KRI" ? (
@@ -3251,6 +3255,7 @@ function Reports({ rows, lang, go }: { rows: Row[]; lang: Lang; go: (module: str
           <button className="ghost" onClick={() => window.dispatchEvent(new CustomEvent("fornost:open-ai", { detail: { module: names[lang].Raporlar, mode: "agent", agentKind: "reporting", prompt: tr ? `${selectedModuleLabel} kapsamında önemli risk, uyum, denetim, kanıt ve tedarikçi eğilimlerini; karar boşluklarını ve öncelikli yönetim aksiyonlarını kaynaklarıyla analiz et.` : `Analyze material risk, compliance, audit, evidence and vendor trends, decision gaps and prioritized management actions for ${selectedModuleLabel} with sources.` } }))}>
             {tr ? "AI Yönetim Analizi" : "AI Management Analysis"}
           </button>
+          <details className="workspace-export"><summary>{tr ? "Dışa aktar" : "Export"}</summary><div>
           <button className="ghost" onClick={htmlReport} disabled={!filtered.length}>
             HTML
           </button>
@@ -3266,6 +3271,7 @@ function Reports({ rows, lang, go }: { rows: Row[]; lang: Lang; go: (module: str
           <button className="primary" onClick={excel} disabled={!filtered.length}>
             {tr ? "Excel Raporu Al" : "Download Excel Report"}
           </button>
+          </div></details>
         </div>
       </section>
       <section className="report-scope-strip" aria-label={tr ? "Rapor özeti" : "Report summary"}>
@@ -3534,7 +3540,7 @@ function RiskOverview({ rows, lang }: { rows: Row[]; lang: Lang }) {
           ))}
         </div>
       </div>
-      <RiskMatrix rows={rows} lang={lang} />
+      <details className="risk-analysis-disclosure"><summary>{tr ? "Risk matrisi ve dağılımı" : "Risk matrix and distribution"}</summary><RiskMatrix rows={rows} lang={lang} /></details>
     </section>
   );
 }
@@ -3893,7 +3899,6 @@ function AuditModule({
           </div>
         </section>
         <AuditOverview rows={portfolioRows} lang={lang} />
-        {showReadiness && <AuditReadinessGate lang={lang} records={[...portfolioRows,...evidenceRows]} />}
         <section className="audit-portfolio">
           {!audits.length && (
             <div className="audit-portfolio-empty">
@@ -3997,6 +4002,7 @@ function AuditModule({
             );
           })}
         </section>
+        {showReadiness && <AuditReadinessGate lang={lang} records={[...portfolioRows,...evidenceRows]} />}
         {pickerOpen && (
           <div
             className="overlay"

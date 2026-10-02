@@ -73,11 +73,14 @@ jobs:
           CF_ACCESS_CLIENT_ID: local-qa
           CF_ACCESS_CLIENT_SECRET: local-qa
         run: node scripts/full-product-qa-gate.mjs
+      - name: Workspace simplicity flows
+        run: node scripts/workspace-simplicity-qa.mjs
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: workspace-layout-qa
           path: |
+            simplicity-qa-artifacts/
             ask-fornost-qa-artifacts/
             ready-controls-qa-artifacts/
             module-access-qa-artifacts/

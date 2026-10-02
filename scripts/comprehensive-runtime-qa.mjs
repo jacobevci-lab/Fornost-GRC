@@ -223,10 +223,10 @@ await check('AI governance exposes its complete navigation',()=>assert.ok(aiCoun
 for(const theme of ['light','dark']){
  if(await page.locator('html').getAttribute('data-theme')!==theme)await page.locator('.theme-toggle:visible').click();
  for(let i=0;i<aiCount;i++)await check(`AI workspace render: ${theme} / ${i+1}`,async()=>{
-  await aiTabs.nth(i).click();await page.waitForTimeout(450);const panel=page.locator('.fornost-ai-panel');assert.equal(await aiTabs.nth(i).getAttribute('class'),'active');assert.ok(await panel.getAttribute('data-ai-view'));assert.ok((await page.locator('.fornost-ai-tabs').boundingBox()).height<=64,'AI chooser leaves room for workspace content');assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)<=4);await page.screenshot({path:`${out}/ai-${theme}-${i+1}.jpg`,type:'jpeg',quality:65});
+  await page.locator(".ai-section-picker>summary").click();await aiTabs.nth(i).click();await page.waitForTimeout(450);const panel=page.locator('.fornost-ai-panel');assert.equal(await aiTabs.nth(i).getAttribute('class'),'active');assert.ok(await panel.getAttribute('data-ai-view'));assert.equal(await page.locator('.ai-section-picker').getAttribute('open'),null,'AI chooser closes after selection');assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)<=4);await page.screenshot({path:`${out}/ai-${theme}-${i+1}.jpg`,type:'jpeg',quality:65});
  });
 }
-await page.locator('.fornost-ai-panel button[aria-label="Kapat"]').click();
+await open('Risk Assessment');await expect(page.locator('#fornost-ai-panel')).toHaveCount(0);
 
 await check('No unhandled UI errors',()=>assert.deepEqual(errors,[]));
 await fs.writeFile(`${out}/results.json`,JSON.stringify({environment:base,results,limitations:['External SMTP, SSO, webhook delivery and third-party credentials are not configured in this isolated environment.','Lifecycle modules retain audit history and use retirement/closure rather than unsupported hard deletion.']},null,2));
