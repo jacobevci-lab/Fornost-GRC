@@ -55,6 +55,8 @@ jobs:
         run: node scripts/assurance-retest-runtime-qa.mjs
       - name: Versioned risk decisions, independent approval and conflict recovery QA
         run: node scripts/risk-decisions-runtime-qa.mjs
+      - name: Atomic exception decisions, expiration and rollback QA
+        run: node scripts/exception-lifecycle-runtime-qa.mjs
       - name: Unified control assurance, record navigation and recovery QA
         run: node scripts/control-assurance-runtime-qa.mjs
       - name: Scoped audit readiness, evidence and export QA
@@ -84,6 +86,7 @@ jobs:
             audit-readiness-qa-artifacts/
             control-assurance-qa-artifacts/
             risk-decisions-qa-artifacts/
+            exception-lifecycle-qa-artifacts/
             layout-qa-artifacts/
             runtime-qa-artifacts/
             qa-artifacts-v2/
