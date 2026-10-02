@@ -35,3 +35,14 @@ test("production QA normalizes locale-switch findings only after the targeted co
   assert.match(gate, /targetedResponsivePasses\(item\) && isLocaleSwitchFinding\(item\)/);
   assert.match(gate, /superseded-by-visible-responsive-locale-contract/);
 });
+
+test("production QA checks application readiness in source without workflow-time patches", () => {
+  const workflow = readFileSync(".github/workflows/full-production-qa.yml", "utf8");
+  assert.doesNotMatch(workflow, /shellReadinessReplacements|navigationReplacements/);
+  for (const file of ["full-production-qa.mjs", "full-product-qa-v2.mjs", "full-product-qa-gate.mjs"]) {
+    const source = readFileSync(`scripts/${file}`, "utf8");
+    assert.doesNotMatch(source, /waitUntil:\s*["']networkidle["']/);
+    assert.match(source, /locator\("\.shell"\)[\s\S]*state: "visible"/);
+    assert.match(source, /locator\("#fornost-navigation"\)/);
+  }
+});

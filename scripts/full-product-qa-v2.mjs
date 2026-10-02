@@ -319,7 +319,7 @@ async function auditLocale(page, locale) {
 
 async function auditSidebar(page) {
   await setLocale(page, "tr");
-  const collapse = page.getByRole("button", { name: /Menüyü daralt|Collapse menu/i }).first();
+  const collapse = page.getByRole("button", { name: /Menüyü daralt|Compact navigation|Collapse menu/i }).first();
   if (!(await collapse.count())) {
     finding("high", "sidebar", "Collapse control not found");
     return;
@@ -519,8 +519,10 @@ try {
   await login(context);
   const page = await context.newPage();
   observe(page);
-  await page.goto(baseUrl, { waitUntil: "networkidle", timeout: 60_000 });
-  await page.waitForTimeout(900);
+  await page.goto(baseUrl, { waitUntil: "domcontentloaded", timeout: 60_000 });
+  await page.locator(".shell").first().waitFor({ state: "visible", timeout: 15_000 });
+  await page.locator("#fornost-navigation").first().waitFor({ state: "attached", timeout: 15_000 });
+  await page.locator("h1").first().waitFor({ state: "visible", timeout: 15_000 });
   await waitForCurrentDashboard(page);
   report.environment = await page.evaluate(() => ({ userAgent: navigator.userAgent, width: innerWidth, height: innerHeight, dpr: devicePixelRatio, title: document.title, lang: document.documentElement.lang }));
   await auditLocale(page, "tr");

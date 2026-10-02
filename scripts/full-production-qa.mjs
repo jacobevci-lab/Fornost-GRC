@@ -239,7 +239,8 @@ async function checkLoginScreen(browser) {
   });
   const page = await context.newPage();
   attachRuntimeObservers(page);
-  const response = await page.goto(baseUrl, { waitUntil: "networkidle", timeout: 60_000 });
+  const response = await page.goto(baseUrl, { waitUntil: "domcontentloaded", timeout: 60_000 });
+  await page.locator('input[name="email"]').waitFor({ state: "visible", timeout: 15_000 });
   report.login.status = response?.status() || 0;
   report.login.screenshot = await screenshot(page, "00-login-light", true);
   report.login.dom = await domAudit(page, "login");
@@ -259,8 +260,10 @@ async function auditDesktop(browser) {
   await loginViaApi(context);
   const page = await context.newPage();
   attachRuntimeObservers(page);
-  await page.goto(baseUrl, { waitUntil: "networkidle", timeout: 60_000 });
-  await page.waitForTimeout(1200);
+  await page.goto(baseUrl, { waitUntil: "domcontentloaded", timeout: 60_000 });
+  await page.locator(".shell").first().waitFor({ state: "visible", timeout: 15_000 });
+  await page.locator("#fornost-navigation").first().waitFor({ state: "attached", timeout: 15_000 });
+  await page.locator("h1").first().waitFor({ state: "visible", timeout: 15_000 });
 
   report.environment = await page.evaluate(() => ({
     userAgent: navigator.userAgent,
@@ -371,8 +374,10 @@ async function auditResponsive(browser) {
     await loginViaApi(context);
     const page = await context.newPage();
     attachRuntimeObservers(page);
-    await page.goto(baseUrl, { waitUntil: "networkidle", timeout: 60_000 });
-    await page.waitForTimeout(900);
+    await page.goto(baseUrl, { waitUntil: "domcontentloaded", timeout: 60_000 });
+    await page.locator(".shell").first().waitFor({ state: "visible", timeout: 15_000 });
+    await page.locator("#fornost-navigation").first().waitFor({ state: "attached", timeout: 15_000 });
+    await page.locator("h1").first().waitFor({ state: "visible", timeout: 15_000 });
     const dom = await domAudit(page, `responsive:${vp.name}`);
     const file = await screenshot(page, `responsive-${vp.name}`);
     const violations = await axeAudit(page, `responsive:${vp.name}`);
