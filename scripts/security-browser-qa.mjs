@@ -17,7 +17,7 @@ try {
  assert.ok(await page.locator('script').evaluateAll((scripts,nonce)=>scripts.every(script=>script.nonce===nonce),nonce));
  await page.locator('input[name="email"]').fill(process.env.FORNOST_SMOKE_EMAIL);
  await page.locator('input[name="password"]').fill(process.env.FORNOST_SMOKE_PASSWORD);
- await page.locator('.auth-card button[type="submit"]').click();
+ await page.locator('.auth-card button.primary').click();
  await expect(page.locator('.shell')).toBeVisible({timeout:20000});
  await page.locator('.language-switch:visible').getByRole('button',{name:'EN',exact:true}).click();
  await page.locator('nav button[aria-label="Risk Assessment"]').evaluate(el=>el.click());

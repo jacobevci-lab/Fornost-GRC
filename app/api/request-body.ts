@@ -17,8 +17,8 @@ export async function readBoundedJsonObject(request: Request, maxBytes: number):
       if (done) break;
       size += value.byteLength;
       if (size > maxBytes) {
-        // Do not await cancellation: a cloned/tee'd stream may retain its other reader.
-        void reader.cancel().catch(() => {});
+        // Stop reading; the HTTP runtime owns disposal of the unread body.
+        // Cancelling a server request stream can abort its 413 response.
         throw new JsonBodyError(413);
       }
       chunks.push(value);

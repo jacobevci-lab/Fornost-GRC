@@ -360,15 +360,43 @@ jobs:
           echo "::add-mask::$scan_key"
           echo "SCAN_BOOTSTRAP_TOKEN=$scan_key" >> "$GITHUB_ENV"
           node_modules/.bin/wrangler dev --config dist/server/wrangler.json \
-            --ip 127.0.0.1 --port 4173 --local --local-protocol https \
+            --ip 127.0.0.1 --port 4174 --local \
             --persist-to /tmp/fornost-security-data \
             --var "FORNOST_BOOTSTRAP_TOKEN:$scan_key" \
             --var "FORNOST_SETTINGS_ENCRYPTION_KEY:$scan_key" \
             --var "FORNOST_DEMO_MODE:false" \
             --show-interactive-dev-session=false > /tmp/security-runtime.log 2>&1 &
           for attempt in $(seq 1 90); do
-            if curl --insecure --fail --silent https://127.0.0.1:4173/api/auth >/dev/null; then break; fi
+            if curl --fail --silent http://127.0.0.1:4174/api/auth >/dev/null; then break; fi
             sleep 2
+          done
+          mkdir -p /tmp/security-proxy
+          openssl req -x509 -newkey rsa:2048 -nodes -days 1 -subj '/CN=localhost' \
+            -keyout /tmp/security-proxy/key.pem -out /tmp/security-proxy/cert.pem 2>/dev/null
+          cat > /tmp/security-proxy/nginx.conf <<'NGINX'
+          events {}
+          http {
+            server {
+              listen 127.0.0.1:4173 ssl;
+              ssl_certificate /scan/cert.pem;
+              ssl_certificate_key /scan/key.pem;
+              ssl_protocols TLSv1.2 TLSv1.3;
+              location / {
+                proxy_pass http://127.0.0.1:4174;
+                proxy_http_version 1.1;
+                proxy_request_buffering off;
+                proxy_set_header Host $http_host;
+                proxy_set_header X-Forwarded-Host $http_host;
+                proxy_set_header X-Forwarded-Proto $scheme;
+              }
+            }
+          }
+          NGINX
+          docker run -d --name security-proxy --network host \
+            -v /tmp/security-proxy:/scan:ro nginx:stable-alpine nginx -c /scan/nginx.conf -g 'daemon off;'
+          for attempt in $(seq 1 30); do
+            if curl --insecure --fail --silent https://127.0.0.1:4173/api/auth >/dev/null; then break; fi
+            sleep 1
           done
           curl --insecure --fail --silent https://127.0.0.1:4173/api/auth >/dev/null
       - name: Bootstrap synthetic security account
@@ -384,6 +412,10 @@ jobs:
           set +e
           node --import ./scripts/trace-fetch-polyfill.mjs scripts/security-runtime-audit.mjs
           echo "exit_code=$?" >> "$GITHUB_OUTPUT"
+      - name: Full API inventory authorization and CSRF matrix
+        env:
+          NODE_TLS_REJECT_UNAUTHORIZED: '0'
+        run: node scripts/security-api-matrix.mjs
       - name: Browser CSP and hydration checks
         id: browser
         shell: bash
