@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
 import test from "node:test";
-const route=readFileSync("app/api/continuous-assurance/governance/route.ts","utf8")+readFileSync("app/risk-review-runtime.ts","utf8");
+const route=readFileSync("app/api/continuous-assurance/governance/route.ts","utf8")+readFileSync("app/risk-review-runtime.ts","utf8")+readFileSync("app/assurance-exception-runtime.ts","utf8");
 const panel=readFileSync("app/continuous-assurance-governance.tsx","utf8");
 const css=readFileSync("app/continuous-assurance-governance.css","utf8");
 const connected=readFileSync("app/connected-grc.tsx","utf8");
@@ -9,7 +9,7 @@ const connected=readFileSync("app/connected-grc.tsx","utf8");
 test("governance API enforces maker-checker for risk and exceptions",()=>{
  assert.match(route,/continuous_assurance_risk_reviews/);assert.match(route,/continuous_assurance_exceptions/);
  assert.match(route,/Maker-checker: review'u gönderen kişi onaylayamaz/);assert.match(route,/Maker-checker: exception talebini oluşturan kişi onaylayamaz/);
- assert.match(route,/applyApprovedResidualRisk/);assert.match(route,/assuranceExceptionStatus="active"/);
+ assert.match(route,/applyApprovedResidualRisk/);assert.match(route,/assuranceExceptionStatus='active'/);
  assert.match(route,/Süresi geçmiş exception onaylanamaz/);
 });
 
@@ -19,8 +19,8 @@ test("governance uses canonical risk references and guarded independent decision
 });
 
 test("expired and revoked exceptions require re-test and risk-owner reassessment",()=>{
- assert.match(route,/retest_required/);assert.match(route,/queueMandatoryRetest/);assert.match(route,/reconcileExpiredExceptions/);
- assert.match(route,/source:"assurance-exception"/);assert.match(route,/mandatory:true/);assert.match(route,/markRiskForReview/);
+ assert.match(route,/retest_required/);assert.match(route,/transitionAssuranceException/);assert.match(route,/reconcileExpiredExceptions/);
+ assert.match(route,/source:'assurance-exception'/);assert.match(route,/mandatory:true/);assert.match(route,/lifecycle_token/);
  assert.match(route,/residualRiskReviewRequired=true/);assert.match(route,/riskReviewRequestedAt/);assert.match(route,/revoke-exception/);
 });
 

@@ -1357,7 +1357,9 @@ function FornostApp({ currentUser }: { currentUser: any }) {
       if (columns && typeof columns === "object") setColumnPreferences(columns);
     } catch {}
   }, []);
+  const languageRef = useRef(lang);
   useEffect(() => {
+    languageRef.current = lang;
     localStorage.setItem("fornost-grc-language", lang);
     document.documentElement.lang = lang;
   }, [lang]);
@@ -1414,13 +1416,13 @@ function FornostApp({ currentUser }: { currentUser: any }) {
       setNotice(
         error instanceof Error
           ? error.message
-          : lang === "tr"
+          : languageRef.current === "tr"
             ? "GRC kayıtları yüklenemedi."
             : "GRC records could not be loaded.",
       );
       return null;
     }
-  }, [lang]);
+  }, []);
   const loadCatalogs = useCallback(async () => {
     try {
       const response = await fetch(withBasePath("/api/catalogs"), {

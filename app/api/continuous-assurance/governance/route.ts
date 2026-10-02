@@ -4,47 +4,26 @@ import {clean} from "../../integrations/security";
 import {exceptionEffectiveStatus,riskReviewEscalation,validateAssuranceException} from "../../../assurance-governance";
 import {ensureAssuranceWorkSchema} from "../../../continuous-assurance-runtime";
 
-import {decideRiskReview,submitRiskReview,findRiskRecord,riskRevision,riskDecisionContext,riskObject,riskReviewBlocker,RiskReviewError,type RiskReviewRow} from "../../../risk-review-runtime";
+import {decideRiskReview,submitRiskReview,riskRevision,riskDecisionContext,riskObject,riskReviewBlocker,RiskReviewError,type RiskReviewRow} from "../../../risk-review-runtime";
+
+import {transitionAssuranceException,reconcileExpiredExceptions,type ExceptionRow} from "../../../assurance-exception-runtime";
 
 type Env=Record<string,unknown>&{DB:D1Database};
 type ReviewRow=RiskReviewRow;
-type ExceptionRow={id:string;finding_id:string;rule_id:string;control_ref:string;risk_ref:string;reason:string;expires_at:string;evidence_reference:string;evidence_sha256:string;status:string;submitted_by:string;submitted_at:string;reviewed_by:string|null;reviewed_at:string|null;review_note:string|null;revoked_by:string|null;revoked_at:string|null;retest_required:number|null;retest_work_item_id:string|null;lifecycle_updated_at:string|null};
 const schema=[
  `CREATE TABLE IF NOT EXISTS continuous_assurance_risk_reviews(id TEXT PRIMARY KEY,risk_id TEXT NOT NULL,status TEXT NOT NULL,proposal_json TEXT NOT NULL,submitted_by TEXT NOT NULL,submitted_at TEXT NOT NULL,reviewed_by TEXT,reviewed_at TEXT,review_note TEXT)`,
  `CREATE INDEX IF NOT EXISTS ca_risk_reviews_status_idx ON continuous_assurance_risk_reviews(status,submitted_at)`,
  `CREATE INDEX IF NOT EXISTS ca_risk_reviews_risk_idx ON continuous_assurance_risk_reviews(risk_id,status)`,
- `CREATE TABLE IF NOT EXISTS continuous_assurance_exceptions(id TEXT PRIMARY KEY,finding_id TEXT NOT NULL DEFAULT '',rule_id TEXT NOT NULL DEFAULT '',control_ref TEXT NOT NULL DEFAULT '',risk_ref TEXT NOT NULL DEFAULT '',reason TEXT NOT NULL,expires_at TEXT NOT NULL,evidence_reference TEXT NOT NULL,evidence_sha256 TEXT NOT NULL,status TEXT NOT NULL,submitted_by TEXT NOT NULL,submitted_at TEXT NOT NULL,reviewed_by TEXT,reviewed_at TEXT,review_note TEXT,revoked_by TEXT,revoked_at TEXT,retest_required INTEGER NOT NULL DEFAULT 0,retest_work_item_id TEXT,lifecycle_updated_at TEXT)`,
+ `CREATE TABLE IF NOT EXISTS continuous_assurance_exceptions(id TEXT PRIMARY KEY,finding_id TEXT NOT NULL DEFAULT '',rule_id TEXT NOT NULL DEFAULT '',control_ref TEXT NOT NULL DEFAULT '',risk_ref TEXT NOT NULL DEFAULT '',reason TEXT NOT NULL,expires_at TEXT NOT NULL,evidence_reference TEXT NOT NULL,evidence_sha256 TEXT NOT NULL,status TEXT NOT NULL,submitted_by TEXT NOT NULL,submitted_at TEXT NOT NULL,reviewed_by TEXT,reviewed_at TEXT,review_note TEXT,revoked_by TEXT,revoked_at TEXT,retest_required INTEGER NOT NULL DEFAULT 0,retest_work_item_id TEXT,lifecycle_updated_at TEXT,lifecycle_token TEXT NOT NULL DEFAULT '')`,
  `CREATE INDEX IF NOT EXISTS ca_exceptions_status_expiry_idx ON continuous_assurance_exceptions(status,expires_at)`,
 ];
-const exceptionColumns:Record<string,string>={retest_required:"INTEGER NOT NULL DEFAULT 0",retest_work_item_id:"TEXT",lifecycle_updated_at:"TEXT"};
+const exceptionColumns:Record<string,string>={retest_required:"INTEGER NOT NULL DEFAULT 0",retest_work_item_id:"TEXT",lifecycle_updated_at:"TEXT",lifecycle_token:"TEXT NOT NULL DEFAULT ''"};
 async function runtime(){const{env}=await import("cloudflare:workers");return env as unknown as Env}
-async function addMissingColumns(db:D1Database,table:string,columns:Record<string,string>){const info=await db.prepare(`PRAGMA table_info(${table})`).all<{name:string}>(),present=new Set(info.results.map(row=>row.name));for(const[name,definition]of Object.entries(columns)){if(!present.has(name))await db.prepare(`ALTER TABLE ${table} ADD COLUMN ${name} ${definition}`).run()}}
+async function addMissingColumns(db:D1Database,table:string,columns:Record<string,string>){const info=await db.prepare(`PRAGMA table_info(${table})`).all<{name:string}>(),present=new Set(info.results.map(row=>row.name));for(const[name,definition]of Object.entries(columns)){if(!present.has(name)){try{await db.prepare(`ALTER TABLE ${table} ADD COLUMN ${name} ${definition}`).run()}catch(error){const current=await db.prepare(`PRAGMA table_info(${table})`).all<{name:string}>();if(!current.results.some(row=>row.name===name))throw error}}}}
 async function ready(db:D1Database){for(const sql of schema)await db.prepare(sql).run();await addMissingColumns(db,"continuous_assurance_exceptions",exceptionColumns);await ensureAssuranceWorkSchema(db)}
 const json=(data:unknown,status=200)=>NextResponse.json(data,{status,headers:{"cache-control":"no-store"}});
 const parse=(value:string)=>{try{return JSON.parse(value||"{}") as Record<string,unknown>}catch{return {}}};
 const today=()=>new Date().toISOString().slice(0,10);
-async function riskRecord(db:D1Database,idOrRef:string){return findRiskRecord(db,clean(idOrRef,160))}
-async function queueMandatoryRetest(db:D1Database,exception:ExceptionRow,reason:"expired"|"revoked",actor:string,stamp:string){
- if(!exception.finding_id||!exception.rule_id)return "";
- const existing=await db.prepare("SELECT id FROM continuous_assurance_work_items WHERE finding_id=? AND action='control-retest' AND status IN ('pending-review','approved-awaiting-retest') ORDER BY created_at DESC LIMIT 1").bind(exception.finding_id).first<{id:string}>();
- if(existing)return existing.id;
- const linkedRisk=await riskRecord(db,exception.risk_ref||exception.finding_id);
- const id=`CAW-${crypto.randomUUID()}`,decision={source:"assurance-exception",exceptionId:exception.id,lifecycleReason:reason,mandatory:true,controlRef:exception.control_ref,riskRef:linkedRisk?.id||exception.risk_ref||exception.finding_id};
- await db.prepare("INSERT INTO continuous_assurance_work_items(id,finding_id,rule_id,action,status,decision_json,created_at,updated_at,actor) VALUES(?,?,?,'control-retest','pending-review',?,?,?,?)").bind(id,exception.finding_id,exception.rule_id,JSON.stringify(decision),stamp,stamp,actor).run();
- return id;
-}
-async function markRiskForReview(db:D1Database,riskId:string,exceptionId:string,reason:"expired"|"revoked",stamp:string){
- if(!riskId)return;
- const risk=await riskRecord(db,riskId);if(!risk)return;
- const data=parse(risk.data_json),requestedAt=String(data.riskReviewRequestedAt||"").trim()||stamp;
- data.assuranceExceptionStatus=reason;data.assuranceExceptionRef=exceptionId;data.residualRiskReviewRequired=true;data.riskReviewRequestedAt=requestedAt;data.riskReviewEscalationState="none";data.reassessmentReason=`Assurance exception ${reason}; mandatory control re-test and risk-owner reassessment are required.`;data.reassessmentSource="Continuous Assurance · Exception Lifecycle";
- await db.prepare("UPDATE simple_grc_records SET data_json=?,updated_at=? WHERE id=?").bind(JSON.stringify(data),stamp,risk.id).run();
-}
-async function reconcileExpiredExceptions(db:D1Database,now=new Date()){
- const stamp=now.toISOString(),day=stamp.slice(0,10),result=await db.prepare("SELECT * FROM continuous_assurance_exceptions WHERE status='active' AND expires_at<? ORDER BY expires_at LIMIT 200").bind(day).all<ExceptionRow>();
- for(const exception of result.results){const workId=await queueMandatoryRetest(db,exception,"expired","system:exception-lifecycle",stamp);await db.prepare("UPDATE continuous_assurance_exceptions SET status='expired',retest_required=1,retest_work_item_id=?,lifecycle_updated_at=? WHERE id=? AND status='active'").bind(workId||null,stamp,exception.id).run();await markRiskForReview(db,exception.risk_ref,exception.id,"expired",stamp)}
- return result.results.length;
-}
 async function counts(db:D1Database,cutoff:string){
  const sourceIssues:string[]=[];
  let pendingWork=0,failedRetest=0,openFindings=0,retestCompleted30d=0,retestFailed30d=0;
@@ -64,6 +43,7 @@ export async function GET(req:NextRequest){
   counts(env.DB,cutoff30),
  ]);
  const issues:string[]=[...operational.sourceIssues];
+ if(exceptionsResult.results.some(row=>row.status==="active"&&row.expires_at<nowDay))issues.push("exception-lifecycle-pending");
  if(reviewsResult.results.length>500)issues.push("reviews-incomplete");if(exceptionsResult.results.length>500)issues.push("exceptions-incomplete");if(risksResult.results.length>2000)issues.push("risks-incomplete");
  if(risksResult.results.some(row=>!riskObject(row.data_json)))issues.push("risks-invalid");
  const sourceRisks=risksResult.results.slice(0,2000),riskIndex=new Map(sourceRisks.map(row=>[row.id,row]));
@@ -102,14 +82,13 @@ export async function POST(req:NextRequest){
   }
   if(action==="review-exception"){
    const id=clean(body.exceptionId,120),decision=clean(body.decision,20),note=clean(body.note,1200);if(!id||!["approve","reject"].includes(decision))return json({error:"Exception ID ve approve/reject kararı zorunludur."},400);if(decision==="reject"&&note.length<10)return json({error:"Ret gerekçesi en az 10 karakter olmalıdır."},400);
-   const exception=await env.DB.prepare("SELECT * FROM continuous_assurance_exceptions WHERE id=?").bind(id).first<ExceptionRow>();if(!exception)return json({error:"Exception bulunamadı."},404);if(exception.status!=="pending-review")return json({error:"Exception artık inceleme beklemiyor."},409);if(exception.submitted_by.toLowerCase()===access.actor.email.toLowerCase())return json({error:"Maker-checker: exception talebini oluşturan kişi onaylayamaz."},409);if(decision==="approve"&&exception.expires_at<today())return json({error:"Süresi geçmiş exception onaylanamaz; yeni bir talep oluşturun."},409);
-   const status=decision==="approve"?"active":"rejected";await env.DB.prepare("UPDATE continuous_assurance_exceptions SET status=?,reviewed_by=?,reviewed_at=?,review_note=?,retest_required=0,retest_work_item_id=NULL,lifecycle_updated_at=? WHERE id=?").bind(status,access.actor.email,stamp,note||"Assurance exception approved.",stamp,id).run();
-   if(status==="active"&&exception.risk_ref){const risk=await riskRecord(env.DB,exception.risk_ref);if(risk){const data=parse(risk.data_json);data.assuranceExceptionStatus="active";data.assuranceExceptionRef=id;data.assuranceExceptionExpiresAt=exception.expires_at;data.assuranceExceptionReason=exception.reason;await env.DB.prepare("UPDATE simple_grc_records SET data_json=?,updated_at=? WHERE id=?").bind(JSON.stringify(data),stamp,risk.id).run()}}
-   return json({ok:true,status,message:status==="active"?"Assurance exception onaylandı; assurance state değiştirilmedi.":"Assurance exception reddedildi."});
+   const result=await transitionAssuranceException(env.DB,id,decision as "approve"|"reject",access.actor.email,note);
+   return json({ok:true,...result,message:result.status==="active"?"Assurance exception onaylandı; assurance state değiştirilmedi.":"Assurance exception reddedildi."});
   }
   if(action==="revoke-exception"){
-   const id=clean(body.exceptionId,120),note=clean(body.note,1200);if(note.length<10)return json({error:"Revocation gerekçesi en az 10 karakter olmalıdır."},400);const exception=await env.DB.prepare("SELECT * FROM continuous_assurance_exceptions WHERE id=?").bind(id).first<ExceptionRow>();if(!exception||exception.status!=="active")return json({error:"Aktif exception bulunamadı."},404);if(exception.submitted_by.toLowerCase()===access.actor.email.toLowerCase())return json({error:"Maker-checker: talebi oluşturan kişi exception'ı revoke edemez."},409);
-   const workId=await queueMandatoryRetest(env.DB,exception,"revoked",access.actor.email,stamp);await env.DB.prepare("UPDATE continuous_assurance_exceptions SET status='revoked',revoked_by=?,revoked_at=?,review_note=?,retest_required=1,retest_work_item_id=?,lifecycle_updated_at=? WHERE id=?").bind(access.actor.email,stamp,note,workId||null,stamp,id).run();await markRiskForReview(env.DB,exception.risk_ref,id,"revoked",stamp);return json({ok:true,status:"revoked",retestWorkItemId:workId,message:workId?"Assurance exception revoke edildi; zorunlu re-test inceleme kuyruğuna alındı.":"Assurance exception revoke edildi; bağlı otomasyon finding/rule olmadığı için manuel re-test takibi gerekiyor."});
+   const id=clean(body.exceptionId,120),note=clean(body.note,1200);
+   const result=await transitionAssuranceException(env.DB,id,"revoke",access.actor.email,note);
+   return json({ok:true,...result,message:result.retestWorkItemId?"Assurance exception revoke edildi; zorunlu re-test inceleme kuyruğuna alındı.":"Assurance exception revoke edildi; bağlı otomasyon finding/rule olmadığı için manuel re-test takibi gerekiyor."});
   }
   return json({error:"Geçersiz governance işlemi."},400);
  }catch(error){if(error instanceof RiskReviewError)return json({error:error.message},error.status);return json({error:error instanceof Error?error.message:"Assurance governance işlemi tamamlanamadı."},400)}

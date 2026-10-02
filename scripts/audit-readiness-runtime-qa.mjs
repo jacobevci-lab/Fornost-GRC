@@ -103,6 +103,7 @@ try {
     UPDATE evidence_automation_rules SET last_status='pass' WHERE id GLOB 'QA-READY-RULE-*';`);
   await gate.getByRole('button', { name: 'Recheck readiness', exact: true }).click(); await expect(gate.locator('.audit-readiness-state>span')).toHaveText('AUDIT READY');
   await expect(gate.getByRole('button', { name: 'HTML Snapshot', exact: true })).toBeEnabled();
+  let localeReloads=0;const countLocaleReload=request=>{if(new URL(request.url()).pathname==='/api/grc')localeReloads++;};page.on('request',countLocaleReload);
   await page.locator('.language-switch:visible').getByRole('button', { name: 'TR', exact: true }).click(); await expect(gate.locator('.audit-readiness-state>span')).toHaveText('DENETİME HAZIR');
   // Keep the click error visible instead of masking it with an earlier download timeout.
   const pendingTurkish = page.waitForEvent('download', { timeout: 30000 }).catch(() => null);
@@ -110,6 +111,7 @@ try {
   const turkishDownload = await pendingTurkish;
   assert.ok(turkishDownload, 'Turkish report click completed but no download was emitted');
   await turkishDownload.saveAs(`${out}/readiness-tr.html`); assert.ok((await fs.readFile(`${out}/readiness-tr.html`, 'utf8')).includes('Denetim Hazırlık Özeti'));
+  assert.equal(localeReloads,0,'Changing display language must not reload records or invalidate the readiness snapshot');page.off('request',countLocaleReload);
   const [csvDownload] = await Promise.all([page.waitForEvent('download'), gate.getByRole('button', { name: 'CSV', exact: true }).click()]);
   await csvDownload.saveAs(`${out}/readiness.csv`);
   const csv = await fs.readFile(`${out}/readiness.csv`, 'utf8'); assert.ok(csv.includes('QA-READY-CONTROL-9')); assert.ok(csv.includes('"audit_name","evaluated_at","gate"'));
