@@ -9,7 +9,6 @@ import SidebarIconTooltip from "./sidebar-icon-tooltip";
 import MyWorkV2 from "./my-work-v2";
 import MyWorkAssuranceSignals from "./my-work-assurance-signals";
 import ProgressiveFormExperience from "./progressive-form-experience";
-import ControlImpactLens from "./control-impact-lens";
 import FindingLineageLens from "./finding-lineage-lens";
 import EvidenceQualityLens from "./evidence-quality-lens";
 import ConnectorOnboardingWizard from "./connector-onboarding-wizard";
@@ -39,7 +38,6 @@ export default function PlatformExperience() {
       {fullWorkspace && <MyWorkV2 />}
       {fullWorkspace && <MyWorkAssuranceSignals />}
       <ProgressiveFormExperience />
-      {fullWorkspace && <ControlImpactLens />}
       {fullWorkspace && <FindingLineageLens />}
       {fullWorkspace && <EvidenceQualityLens />}
       {fullWorkspace && <ConnectorOnboardingWizard />}

@@ -1,331 +1,107 @@
 "use client";
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { buildControlAssurance, buildControlAssuranceDetail, type AssuranceRow } from './control-assurance';
+import { controlAssuranceIssueLabel, controlAssuranceReasonLabels, controlAssuranceRecordTarget, type ControlAssuranceSnapshot } from './control-assurance-state';
+import { withBasePath } from './base-path';
+import { navigateToFornost } from './navigation-focus';
+import { evaluateEvidenceEligibility } from './evidence/eligibility';
+import ControlImpactLens from './control-impact-lens';
+import './control-assurance.css';
 
-import { useEffect, useMemo, useState } from "react";
-import {
-  buildControlAssurance,
-  buildControlAssuranceDetail,
-  type AssuranceRow,
-  type ControlAssuranceDetail,
-} from "./control-assurance";
-import { buildConnectedGrcEnterpriseRows } from "./connected-grc-sources";
-import { withBasePath } from "./base-path";
-import "./control-assurance.css";
+const text = (value: unknown) => String(value ?? '').normalize('NFKC').trim();
+const title = (row: AssuranceRow) => text(row.data.controlTitle || row.data.requirementTitle || row.data.evidenceTitle || row.data.riskTitle || row.data.riskName || row.data.title || row.data.name || row.data.framework || row.code || row.id);
+const reference = (row: AssuranceRow) => text(row.code || row.data.controlRef || row.data.requirementRef || row.id);
 
-type Props = { rows: AssuranceRow[]; lang: "tr" | "en"; go: (module: string) => void };
-type JsonRecord = Record<string, unknown>;
-type EvidenceIntegritySnapshot = {
-  integrity: string;
-  checkedVersions: number;
-  failedVersion: number;
-};
-
-type StageDefinition = {
-  key: string;
-  title: string;
-  eyebrow: string;
-  module: string;
-  rows?: AssuranceRow[];
-  status?: string;
-  meta?: string[];
-};
-
-const reasonLabels: Record<string, { tr: string; en: string }> = {
-  "owner-missing": { tr: "Kontrol sahibi eksik", en: "Control owner missing" },
-  "test-owner-missing": { tr: "Test sahibi eksik", en: "Test owner missing" },
-  "test-date-missing": { tr: "Test tarihi planlanmamış", en: "Test date not planned" },
-  "test-overdue": { tr: "Kontrol testi gecikmiş", en: "Control test overdue" },
-  "test-failed": { tr: "Son kontrol testi başarısız", en: "Latest control test failed" },
-  "evidence-missing": { tr: "Bağlı kanıt yok", en: "No linked evidence" },
-  "evidence-stale": { tr: "Kanıt güncel değil", en: "Evidence is not current" },
-  "evidence-integrity-broken": { tr: "Kanıt bütünlük zinciri bozuk", en: "Evidence integrity chain broken" },
-  "evidence-integrity-legacy": { tr: "Kanıt bütünlüğü eski formatta doğrulanamıyor", en: "Legacy evidence integrity is unverified" },
-  "evidence-integrity-unavailable": { tr: "Kanıt bütünlük doğrulaması kullanılamıyor", en: "Evidence integrity verification unavailable" },
-  "audit-missing": { tr: "Denetim izi yok", en: "No audit trace" },
-  "open-findings": { tr: "Açık bulgu var", en: "Open finding exists" },
-  "automation-failing": { tr: "Otomatik kontrol başarısız", en: "Automated control failing" },
-  "automation-stale": { tr: "Otomatik kanıt bayat/eksik", en: "Automated evidence stale/missing" },
-  "automation-attention": { tr: "Otomasyon sinyali dikkat istiyor", en: "Automation signal needs attention" },
-  "automation-finding-open": { tr: "Açık otomasyon bulgusu", en: "Open automation finding" },
-  "remediation-open": { tr: "Açık CAPA / remediation", en: "Open CAPA / remediation" },
-  "risk-link-missing": { tr: "Bulgu risk bağlantısı eksik", en: "Finding risk link missing" },
-  "control-needs-improvement": { tr: "Kontrol iyileştirme bekliyor", en: "Control needs improvement" },
-};
-
-const text = (value: unknown) => String(value ?? "").trim();
-const uniqueRows = (rows: AssuranceRow[]) => [...new Map(rows.map((row) => [row.id, row])).values()];
-const rowReference = (row: AssuranceRow) => text(
-  row.data.controlRef
-  || row.data.requirementRef
-  || row.data.evidenceRef
-  || row.data.findingRef
-  || row.data.riskRef
-  || row.data.sourceRef
-  || row.data.ruleId
-  || row.code
-  || row.id,
-);
-const rowTitle = (row: AssuranceRow) => text(
-  row.data.controlTitle
-  || row.data.requirementTitle
-  || row.data.evidenceTitle
-  || row.data.finding
-  || row.data.riskTitle
-  || row.data.riskName
-  || row.data.title
-  || row.data.name
-  || row.data.framework
-  || rowReference(row),
-);
-const rowOwner = (row: AssuranceRow) => text(row.data.owner || row.data.assignee || row.data.auditOwner || row.data.testOwner);
-const rowStatus = (row: AssuranceRow, lang: "tr" | "en") => {
-  const integrity = text(row.data.evidenceIntegrity).toLowerCase();
-  if (integrity === "verified") return lang === "tr" ? "Bütünlük doğrulandı" : "Integrity verified";
-  if (integrity === "broken") return lang === "tr" ? "Bütünlük bozuk" : "Integrity broken";
-  if (integrity === "legacy-unverified") return lang === "tr" ? "Eski kanıt · doğrulanmamış" : "Legacy · unverified";
-  if (integrity === "unavailable") return lang === "tr" ? "Doğrulama kullanılamıyor" : "Verification unavailable";
-  return text(row.data.status || row.data.result || row.data.reviewStatus || row.data.assuranceState || row.data.automationHealth);
-};
-
-function stageDefinitions(detail: ControlAssuranceDetail, lang: "tr" | "en"): StageDefinition[] {
-  const tr = lang === "tr";
-  const test = detail.test;
-  const testStatus = test.status === "failed"
-    ? (tr ? "Başarısız" : "Failed")
-    : test.status === "overdue"
-      ? (tr ? "Gecikmiş" : "Overdue")
-      : test.status === "planned"
-        ? (tr ? "Planlı / izleniyor" : "Planned / monitored")
-        : (tr ? "Planlanmamış" : "Not planned");
-  const findingCapaRows = uniqueRows([...detail.findings, ...detail.remediations]);
-
-  return [
-    {
-      key: "control",
-      eyebrow: tr ? "01 · KONTROL" : "01 · CONTROL",
-      title: detail.item.reference,
-      module: "Kontroller",
-      rows: [detail.item.control],
-      status: detail.item.state === "healthy" ? (tr ? "Güçlü" : "Healthy") : detail.item.state === "critical" ? (tr ? "Kritik" : "Critical") : (tr ? "Aksiyon" : "Action"),
-      meta: [detail.item.owner || (tr ? "Sahip atanmamış" : "Owner unassigned"), `${detail.item.score}/100`],
-    },
-    {
-      key: "framework",
-      eyebrow: tr ? "02 · FRAMEWORK GEREKSİNİMİ" : "02 · FRAMEWORK REQUIREMENT",
-      title: tr ? "Framework eşlemeleri" : "Framework mappings",
-      module: "Uyum",
-      rows: detail.frameworks,
-    },
-    {
-      key: "evidence",
-      eyebrow: tr ? "03 · KANIT" : "03 · EVIDENCE",
-      title: tr ? "Kanıt zinciri ve bütünlük" : "Evidence chain and integrity",
-      module: "Kanıtlar",
-      rows: detail.evidence,
-      meta: [
-        `${detail.item.currentEvidenceCount}/${detail.item.evidenceCount} ${tr ? "güncel" : "current"}`,
-        `${detail.item.verifiedEvidenceCount} ${tr ? "doğrulanmış" : "verified"}`,
-        `${detail.item.brokenEvidenceCount} ${tr ? "bozuk zincir" : "broken chains"}`,
-        `${detail.item.legacyEvidenceCount + detail.item.unavailableEvidenceCount} ${tr ? "doğrulanmamış" : "unverified"}`,
-      ],
-    },
-    {
-      key: "automation",
-      eyebrow: tr ? "04 · OTOMASYON" : "04 · AUTOMATION",
-      title: tr ? "Sürekli güvence ve kanıt" : "Continuous assurance and evidence",
-      module: "Kanıt Otomasyonu",
-      rows: detail.automations,
-      meta: [
-        `${detail.item.automationHealthyCount}/${detail.item.automationRuleCount} ${tr ? "sağlıklı kural" : "healthy rules"}`,
-        `${detail.item.automationOpenFindingCount} ${tr ? "açık otomasyon bulgusu" : "open automation findings"}`,
-      ],
-    },
-    {
-      key: "test",
-      eyebrow: tr ? "05 · KONTROL TESTİ" : "05 · CONTROL TEST",
-      title: testStatus,
-      module: "Denetim Yönetimi",
-      status: testStatus,
-      meta: [
-        test.owner || (tr ? "Test sahibi yok" : "No test owner"),
-        test.frequency || (tr ? "Frekans tanımsız" : "Frequency undefined"),
-        test.nextTestDate ? `${tr ? "Sonraki" : "Next"}: ${test.nextTestDate}` : (tr ? "Tarih yok" : "No date"),
-        `${detail.audits.length} ${tr ? "denetim izi" : "audit traces"}`,
-      ],
-    },
-    {
-      key: "finding",
-      eyebrow: tr ? "06 · BULGU / CAPA" : "06 · FINDING / CAPA",
-      title: tr ? "Açık bulgular ve iyileştirme" : "Open findings and remediation",
-      module: "Bulgular ve CAPA",
-      rows: findingCapaRows,
-      meta: [`${detail.remediations.length} ${tr ? "CAPA / remediation" : "CAPA / remediation"}`],
-    },
-    {
-      key: "risk",
-      eyebrow: tr ? "07 · RİSK" : "07 · RISK",
-      title: tr ? "Risk etkisi ve geri besleme" : "Risk impact and feedback",
-      module: "Risk Assessment",
-      rows: detail.risks,
-    },
-  ];
-}
-
-export default function ControlAssuranceWorkspace({ rows, lang, go }: Props) {
-  const tr = lang === "tr";
-  const [liveRows, setLiveRows] = useState<AssuranceRow[]>([]);
-  const [evidenceIntegrity, setEvidenceIntegrity] = useState<Record<string, EvidenceIntegritySnapshot>>({});
-  const [selectedControlId, setSelectedControlId] = useState<string>("");
-
-  useEffect(() => {
-    const controller = new AbortController();
-    let active = true;
-    Promise.all([
-      fetch(withBasePath("/api/evidence-automation"), { cache: "no-store", signal: controller.signal }).then((response) => response.ok ? response.json() : {}),
-      fetch(withBasePath("/api/findings"), { cache: "no-store", signal: controller.signal }).then((response) => response.ok ? response.json() : {}),
-      fetch(withBasePath("/api/evidence/history"), { cache: "no-store", signal: controller.signal }).then((response) => response.ok ? response.json() : {}),
-    ]).then(([evidenceAutomation, findings, history]) => {
-      if (!active) return;
-      const projected = buildConnectedGrcEnterpriseRows({
-        evidenceAutomation: evidenceAutomation as JsonRecord,
-        findings: findings as JsonRecord,
-      });
-      const snapshots: Record<string, EvidenceIntegritySnapshot> = {};
-      const items = Array.isArray((history as JsonRecord).evidenceItems) ? (history as JsonRecord).evidenceItems as JsonRecord[] : [];
-      for (const item of items) {
-        const id = text(item.id);
-        const integrity = text(item.integrity);
-        if (!id || !integrity) continue;
-        snapshots[id] = {
-          integrity,
-          checkedVersions: Number(item.checkedVersions || 0),
-          failedVersion: Number(item.failedVersion || 0),
-        };
-      }
-      setLiveRows(projected as AssuranceRow[]);
-      setEvidenceIntegrity(snapshots);
-    }).catch((error: unknown) => {
-      if (active && (error as { name?: string })?.name !== "AbortError") {
-        setLiveRows([]);
-        setEvidenceIntegrity({});
-      }
-    });
-    return () => {
-      active = false;
-      controller.abort();
-    };
+export default function ControlAssuranceWorkspace({ rows, lang, go }: { rows: AssuranceRow[]; lang: 'tr' | 'en'; go: (module: string) => void }) {
+  const tr = lang === 'tr';
+  const [snapshot, setSnapshot] = useState<ControlAssuranceSnapshot | null>(null);
+  const [loading, setLoading] = useState(true), [error, setError] = useState(false);
+  const [selectedId, setSelectedId] = useState(''), [search, setSearch] = useState('');
+  const [filter, setFilter] = useState('attention'), [page, setPage] = useState(0);
+  const controller = useRef<AbortController | null>(null), request = useRef(0);
+  const detailRef = useRef<HTMLElement | null>(null);
+  // Content changes trigger evaluation; parent re-renders do not create reload loops.
+  const recordsKey = JSON.stringify(rows);
+  const load = useCallback(async () => {
+    controller.current?.abort();
+    const pending = new AbortController(); controller.current = pending;
+    const id = ++request.current;
+    setLoading(true); setError(false);
+    const timeout = window.setTimeout(() => pending.abort(), 20000);
+    try {
+      const response = await fetch(withBasePath('/api/controls/assurance'), { cache: 'no-store', signal: pending.signal });
+      if (!response.ok) throw new Error('Unavailable');
+      const body = await response.json() as ControlAssuranceSnapshot;
+      if (!Array.isArray(body.rows) || !Array.isArray(body.issues) || typeof body.verified !== 'boolean' || !Number.isFinite(Date.parse(body.generatedAt))) throw new Error('Invalid evaluation');
+      if (request.current === id) setSnapshot(body);
+    } catch { if (request.current === id) setError(true); }
+    finally { window.clearTimeout(timeout); if (request.current === id) setLoading(false); }
   }, []);
-
-  const mergedRows = useMemo(() => {
-    const merged = new Map<string, AssuranceRow>();
-    for (const row of [...rows, ...liveRows]) merged.set(row.id, row);
-    return Array.from(merged.values()).map((row) => {
-      if (row.module !== "Kanıtlar") return row;
-      const snapshot = evidenceIntegrity[row.id];
-      if (!snapshot) return row;
-      return {
-        ...row,
-        data: {
-          ...row.data,
-          evidenceIntegrity: snapshot.integrity,
-          evidenceIntegrityCheckedVersions: snapshot.checkedVersions,
-          evidenceIntegrityFailedVersion: snapshot.failedVersion,
-        },
-      };
-    });
-  }, [rows, liveRows, evidenceIntegrity]);
-  const summary = useMemo(() => buildControlAssurance(mergedRows), [mergedRows]);
-  const queue = summary.items.filter((item) => item.state !== "healthy").slice(0, 8);
-  const detail = useMemo(
-    () => selectedControlId ? buildControlAssuranceDetail(mergedRows, selectedControlId) : null,
-    [mergedRows, selectedControlId],
-  );
-  const stages = detail ? stageDefinitions(detail, lang) : [];
-  const stateLabel = (state: string) => state === "healthy" ? (tr ? "Güçlü" : "Healthy") : state === "critical" ? (tr ? "Kritik" : "Critical") : (tr ? "Aksiyon" : "Action");
-
-  return <section className="control-assurance-workspace">
+  const cancel = useCallback(() => { request.current++; controller.current?.abort(); }, []);
+  useEffect(() => {
+    const initial = window.setTimeout(() => void load(), 0);
+    const timer = window.setInterval(() => void load(), 300000);
+    return () => { window.clearTimeout(initial); window.clearInterval(timer); cancel(); };
+  }, [load, cancel, recordsKey]);
+  const summary = useMemo(() => snapshot ? buildControlAssurance(snapshot.rows, snapshot.generatedAt) : null, [snapshot]);
+  const reliable = !!snapshot?.verified && !loading && !error;
+  const matches = (summary?.items || []).filter(item => (filter === 'all' || (filter === 'attention' ? item.state !== 'healthy' : item.state === filter))
+    && `${item.reference} ${item.title} ${item.owner}`.toLocaleLowerCase(lang === 'tr' ? 'tr-TR' : 'en').includes(search.trim().toLocaleLowerCase(lang === 'tr' ? 'tr-TR' : 'en')));
+  const pages = Math.max(1, Math.ceil(matches.length / 8)), currentPage = Math.min(page, pages - 1), queue = matches.slice(currentPage * 8, currentPage * 8 + 8);
+  const detail = useMemo(() => snapshot && selectedId ? buildControlAssuranceDetail(snapshot.rows, selectedId, snapshot.generatedAt) : null, [snapshot, selectedId]);
+  const stateLabel = (state: string) => state === 'healthy' ? (tr ? 'Güçlü' : 'Healthy') : state === 'critical' ? (tr ? 'Kritik' : 'Critical') : state === 'unverified' ? (tr ? 'Doğrulanamadı' : 'Unverified') : (tr ? 'Aksiyon gerekli' : 'Action required');
+  const reasonLabel = (reason: string) => controlAssuranceReasonLabels[reason]?.[lang] || reason;
+  const stages = detail ? [
+    { key: 'evidence', label: tr ? 'Kanıtlar' : 'Evidence', rows: detail.evidence },
+    { key: 'automation', label: tr ? 'Otomasyon' : 'Automation', rows: detail.automations.filter(row => row.data.kind !== 'automation-assurance' && row.data.kind !== 'automation-remediation') },
+    { key: 'framework', label: 'Framework', rows: detail.frameworks },
+    { key: 'audit', label: tr ? 'Denetim gereksinimleri' : 'Audit requirements', rows: detail.audits },
+    { key: 'finding', label: tr ? 'Açık bulgular ve CAPA' : 'Open findings and CAPA', rows: detail.findings },
+    { key: 'risk', label: tr ? 'Riskler' : 'Risks', rows: detail.risks },
+  ] : [];
+  const openRow = (row: AssuranceRow) => { const target = controlAssuranceRecordTarget(row); if (target) navigateToFornost(target); };
+  const select = (id: string) => { setSelectedId(id); window.requestAnimationFrame(() => detailRef.current?.focus({ preventScroll: false })); };
+  const showScore = reliable && summary && !summary.unverified;
+  return <section className="control-assurance-workspace" aria-label={tr ? 'Kontrol güvencesi' : 'Control assurance'} aria-busy={loading}>
     <header>
-      <div><small>{tr ? "SÜREKLİ KONTROL GÜVENCESİ" : "CONTINUOUS CONTROL ASSURANCE"}</small><h3>{tr ? "Güvence sağlığı ve aksiyon kuyruğu" : "Assurance health and action queue"}</h3><p>{tr ? "Kanıt tazeliği ve kriptografik bütünlüğü, otomatik kontrol sağlığı, test, CAPA ve risk izini kontrol bazında tek güvence sinyalinde birleştirir." : "Combines evidence freshness and cryptographic integrity, automated control health, testing, CAPA and risk lineage into one assurance signal per control."}</p></div>
-      <button type="button" onClick={() => go("Bağlantılı GRC")}>{tr ? "GRC haritasını aç" : "Open GRC map"}<span>→</span></button>
+      <div><small>{tr ? 'KONTROL GÜVENCESİ' : 'CONTROL ASSURANCE'}</small><h3>{tr ? 'Hangi kontrol aksiyon bekliyor?' : 'Which control needs attention?'}</h3><p>{tr ? 'Kanıt, test ve bulgu durumunu inceleyin; ilgili kayda geçin.' : 'Review evidence, test and finding status, then open the relevant record.'}</p></div>
+      <div className="control-assurance-header-actions"><button type="button" disabled={loading} onClick={() => void load()}>{loading ? (tr ? 'Kontrol ediliyor…' : 'Checking…') : (tr ? 'Güvenceyi yenile' : 'Refresh assurance')}</button><button type="button" onClick={() => go('Bağlantılı GRC')}>{tr ? 'GRC haritası' : 'GRC map'}</button></div>
     </header>
+    <div className="control-assurance-evaluation" role="status">{loading ? (tr ? 'Güncel kaynaklar değerlendiriliyor.' : 'Evaluating current sources.') : snapshot ? `${tr ? 'Değerlendirme' : 'Evaluated'}: ${new Date(snapshot.generatedAt).toLocaleString(tr ? 'tr-TR' : 'en-GB')}${!reliable ? (tr ? ' · Sonuç doğrulanamadı' : ' · Result unverified') : ''}` : (tr ? 'Henüz değerlendirilmedi.' : 'Not evaluated yet.')}</div>
+    {error && <div className="control-assurance-notice" role="alert">{tr ? 'Kontrol güvencesi yüklenemedi. Yeniden deneyin; önceki veriler güncel sonuç olarak gösterilmiyor.' : 'Control assurance could not be loaded. Retry; previous data is not shown as a current result.'}</div>}
+    {!loading && !error && snapshot && !snapshot.verified && <div className="control-assurance-notice" role="alert"><b>{tr ? 'Değerlendirme tamamlanamadı.' : 'Evaluation could not be completed.'}</b><ul>{snapshot.issues.map(issue => <li key={issue}>{controlAssuranceIssueLabel(issue, lang)}</li>)}</ul></div>}
     <div className="control-assurance-kpis">
-      <article><small>{tr ? "Güvence skoru" : "Assurance score"}</small><strong>{summary.score}<sup>/100</sup></strong><span>{tr ? "Portföy ortalaması" : "Portfolio average"}</span></article>
-      <article><small>{tr ? "Güçlü kontroller" : "Healthy controls"}</small><strong>{summary.healthy}<sup>/{summary.total}</sup></strong><span>{tr ? "Tüm güvence sinyalleri yeterli" : "All assurance signals sufficient"}</span></article>
-      <article><small>{tr ? "Güncel güvence" : "Current assurance"}</small><strong>{summary.currentEvidence}<sup>/{summary.total}</sup></strong><span>{tr ? "Manuel veya otomatik güncel kanıt" : "Current manual or automated evidence"}</span></article>
-      <article><small>{tr ? "Doğrulanmış kanıt" : "Verified evidence"}</small><strong>{summary.verifiedEvidenceControls}<sup>/{summary.total}</sup></strong><span>{tr ? "Tüm bağlı manuel kanıt zincirleri doğrulanmış" : "All linked manual evidence chains verified"}</span></article>
-      <article className={summary.integrityFailures ? "danger" : ""}><small>{tr ? "Bütünlük hatası" : "Integrity failures"}</small><strong>{summary.integrityFailures}</strong><span>{tr ? "Bozuk kanıt zinciri bağlı kontrol" : "Controls linked to broken evidence chains"}</span></article>
-      <article><small>{tr ? "Otomasyon sağlığı" : "Automation health"}</small><strong>{summary.automationHealthy}<sup>/{summary.automationCovered}</sup></strong><span>{tr ? "Tam sağlıklı / otomasyona bağlı" : "Fully healthy / automation-linked"}</span></article>
-      <article className={summary.openFindings ? "danger" : ""}><small>{tr ? "Açık bulgu/CAPA" : "Open finding/CAPA"}</small><strong>{summary.openFindings}</strong><span>{tr ? "Güvence zincirinde" : "In assurance lineage"}</span></article>
+      <article><small>{tr ? 'Güvence skoru' : 'Assurance score'}</small><strong>{showScore ? summary.score : '—'}</strong><span>{tr ? 'Portföy ortalaması /100' : 'Portfolio average /100'}</span></article>
+      <article><small>{tr ? 'Güçlü kontroller' : 'Healthy controls'}</small><strong>{reliable ? `${summary!.healthy}/${summary!.total}` : '—'}</strong><span>{tr ? 'Skor ≥80, engelleyici sinyal yok' : 'Score ≥80, no blocking signal'}</span></article>
+      <article><small>{tr ? 'Güncel güvence' : 'Current assurance'}</small><strong>{reliable ? `${summary!.currentEvidence}/${summary!.total}` : '—'}</strong><span>{tr ? 'Geçerli kanıt veya otomasyon' : 'Eligible evidence or automation'}</span></article>
+      <article><small>{tr ? 'Başarısız / gecikmiş test' : 'Failed / overdue tests'}</small><strong>{reliable ? `${summary!.failedTests} / ${summary!.overdueTests}` : '—'}</strong><span>{tr ? 'Planlı kontrol testleri' : 'Scheduled control tests'}</span></article>
+      <article><small>{tr ? 'Kanıt bütünlüğü' : 'Evidence integrity'}</small><strong>{reliable ? `${summary!.integrityFailures} / ${summary!.unverified}` : '—'}</strong><span>{tr ? 'Bozuk / doğrulanamayan kontrol' : 'Broken / unverified controls'}</span></article>
     </div>
-    <div className="control-assurance-queue">
-      <div className="control-assurance-queue-head"><div><small>{tr ? "ÖNCELİKLİ İŞ LİSTESİ" : "PRIORITY WORKLIST"}</small><h4>{tr ? "Güvence açığı bulunan kontroller" : "Controls with assurance gaps"}</h4></div><span>{queue.length} {tr ? "öncelik" : "priorities"}</span></div>
-      {queue.length ? <div className="control-assurance-list">{queue.map((item) => <article key={item.control.id} className={selectedControlId === item.control.id ? "selected" : ""}>
-        <div className="control-assurance-score"><strong>{item.score}</strong><span>/100</span></div>
-        <div className="control-assurance-copy"><div><span className={`assurance-state ${item.state}`}>{stateLabel(item.state)}</span><b>{item.reference}</b></div><h5>{item.title}</h5><p>{item.owner || (tr ? "Sahip atanmamış" : "Owner unassigned")}</p></div>
-        <div className="control-assurance-links">
-          <span><b>{item.currentEvidenceCount}/{item.evidenceCount}</b>{tr ? "güncel kanıt" : "current evidence"}</span>
-          <span className={item.brokenEvidenceCount ? "overdue" : ""}><b>{item.verifiedEvidenceCount}/{item.evidenceCount}</b>{tr ? "bütünlük doğrulandı" : "integrity verified"}</span>
-          <span><b>{item.automationHealthyCount}/{item.automationRuleCount}</b>{tr ? "sağlıklı otomasyon" : "healthy automation"}</span>
-          <span className={item.openFindingCount + item.automationOpenFindingCount + item.openRemediationCount ? "overdue" : ""}><b>{item.openFindingCount + item.automationOpenFindingCount + item.openRemediationCount}</b>{tr ? "açık bulgu/CAPA" : "open finding/CAPA"}</span>
-        </div>
-        <div className="control-assurance-reasons">{item.reasons.slice(0, 5).map((reason) => <span key={reason}>{reasonLabels[reason]?.[lang] || reason}</span>)}</div>
-        <div className="control-assurance-actions">
-          <button type="button" className="primary" aria-expanded={selectedControlId === item.control.id} aria-controls="control-assurance-drilldown" onClick={() => setSelectedControlId((current) => current === item.control.id ? "" : item.control.id)}>{selectedControlId === item.control.id ? (tr ? "Zinciri kapat" : "Close chain") : (tr ? "Zinciri aç" : "Open chain")}</button>
-          <button type="button" onClick={() => go("Kanıtlar")}>{tr ? "Kanıt" : "Evidence"}</button>
-          <button type="button" onClick={() => go("Kanıt Otomasyonu")}>{tr ? "Otomasyon" : "Automation"}</button>
-          <button type="button" onClick={() => go("Denetim Yönetimi")}>{tr ? "Denetim" : "Audit"}</button>
-          <button type="button" onClick={() => go("Bulgular ve CAPA")}>CAPA</button>
-          <button type="button" onClick={() => go("Risk Assessment")}>{tr ? "Risk" : "Risk"}</button>
-        </div>
-      </article>)}</div> : <div className="control-assurance-empty"><b>{tr ? "Tüm kontroller güvence hedefini karşılıyor." : "All controls meet the assurance target."}</b><span>{tr ? "Kanıt bütünlüğü, otomasyon, CAPA ve test sağlığı izlenmeye devam ediyor." : "Evidence integrity, automation, CAPA and test health remain under monitoring."}</span></div>}
-    </div>
-
-    {detail && <section id="control-assurance-drilldown" className="control-assurance-drilldown" aria-label={tr ? "Kontrol güvence zinciri" : "Control assurance chain"}>
-      <div className="control-assurance-detail-head">
-        <div>
-          <small>{tr ? "UÇTAN UCA GÜVENCE ZİNCİRİ" : "END-TO-END ASSURANCE CHAIN"}</small>
-          <h4>{detail.item.reference} · {detail.item.title}</h4>
-          <p>{tr ? "Kontrolden framework gereksinimine, kriptografik kanıt bütünlüğünden otomasyona, testten bulgu/CAPA ve riske kadar izlenebilirlik." : "Traceability from control to framework requirement, cryptographic evidence integrity, automation, testing, finding/CAPA and risk."}</p>
-        </div>
-        <div className="control-assurance-detail-health">
-          <strong>{detail.lineagePercent}<sup>%</sup></strong>
-          <span>{tr ? "zincir kapsaması" : "chain coverage"}</span>
-          <small>{detail.connectedStages}/{detail.totalStages} {tr ? "bağlı aşama" : "connected stages"}</small>
-        </div>
-        <button type="button" className="control-assurance-close" onClick={() => setSelectedControlId("")} aria-label={tr ? "Güvence zincirini kapat" : "Close assurance chain"}>×</button>
+    {snapshot && <div className="control-assurance-queue">
+      <div className="control-assurance-toolbar">
+        <label><span>{tr ? 'Kontrol ara' : 'Search controls'}</span><input value={search} onChange={event => { setSearch(event.target.value); setPage(0); }} placeholder={tr ? 'Kod, başlık veya sahip' : 'Code, title or owner'} /></label>
+        <label><span>{tr ? 'Görünüm' : 'View'}</span><select value={filter} onChange={event => { setFilter(event.target.value); setPage(0); }}><option value="attention">{tr ? 'Aksiyon bekleyenler' : 'Needs attention'}</option><option value="all">{tr ? 'Tüm kontroller' : 'All controls'}</option><option value="healthy">{tr ? 'Güçlü kontroller' : 'Healthy controls'}</option><option value="unverified">{tr ? 'Doğrulanamayanlar' : 'Unverified'}</option></select></label>
       </div>
-
-      <div className="control-assurance-chain">
-        {stages.map((stage, index) => {
-          const stageRows = stage.rows || [];
-          const connected = stage.key === "control" || stage.key === "test" ? stage.key === "control" || detail.test.status !== "not-planned" : stageRows.length > 0;
-          return <div className="control-assurance-chain-wrap" key={stage.key}>
-            <article className={`control-assurance-stage ${connected ? "connected" : "missing"}`}>
-              <header>
-                <div><small>{stage.eyebrow}</small><h5>{stage.title}</h5></div>
-                <button type="button" onClick={() => go(stage.module)}>{tr ? "Modüle git" : "Open module"} <span>↗</span></button>
-              </header>
-              {stage.status && <span className={`control-assurance-stage-status ${stage.key === "test" ? detail.test.status : detail.item.state}`}>{stage.status}</span>}
-              {stage.meta?.length ? <div className="control-assurance-stage-meta">{stage.meta.filter(Boolean).map((entry) => <span key={entry}>{entry}</span>)}</div> : null}
-              {stageRows.length ? <div className="control-assurance-stage-records">{stageRows.slice(0, 4).map((row) => <div key={row.id}>
-                <b>{rowReference(row)}</b>
-                <span>{rowTitle(row)}</span>
-                <small>{[rowOwner(row), rowStatus(row, lang)].filter(Boolean).join(" · ") || (tr ? "Bağlı kayıt" : "Linked record")}</small>
-              </div>)}</div> : stage.key !== "test" && <div className="control-assurance-stage-empty"><b>{tr ? "Bağlantı yok" : "No linkage"}</b><span>{tr ? "Bu aşama için ilişki kurulmamış." : "No relationship is mapped for this stage."}</span></div>}
-              {stageRows.length > 4 && <small className="control-assurance-stage-more">+{stageRows.length - 4} {tr ? "kayıt daha" : "more records"}</small>}
-            </article>
-            {index < stages.length - 1 && <div className={`control-assurance-chain-arrow ${connected ? "connected" : ""}`} aria-hidden="true"><span>→</span></div>}
-          </div>;
-        })}
-      </div>
-
-      <footer className="control-assurance-detail-footer">
-        <div><b>{detail.audits.length}</b><span>{tr ? "denetim izi" : "audit traces"}</span></div>
-        <div><b>{detail.findings.length}</b><span>{tr ? "açık bulgu" : "open findings"}</span></div>
-        <div><b>{detail.remediations.length}</b><span>{tr ? "CAPA / remediation" : "CAPA / remediation"}</span></div>
-        <div><b>{detail.risks.length}</b><span>{tr ? "bağlı risk" : "linked risks"}</span></div>
-        <div className={detail.item.brokenEvidenceCount ? "danger" : ""}><b>{detail.item.brokenEvidenceCount}</b><span>{tr ? "bozuk kanıt zinciri" : "broken evidence chains"}</span></div>
-        <div className={detail.unresolved.length ? "warning" : ""}><b>{detail.unresolved.length}</b><span>{tr ? "çözümlenmemiş referans" : "unresolved references"}</span></div>
-      </footer>
+      {!reliable && <p className="control-assurance-muted">{tr ? 'Aşağıdaki kayıtlar son yüklenen değerlendirmeye aittir.' : 'The records below belong to the last loaded evaluation.'}</p>}
+      <div className="control-assurance-list">{queue.map(item => <article key={item.control.id} className={selectedId === item.control.id ? 'selected' : ''}>
+        <div className="control-assurance-copy"><b>{item.reference}</b><h4>{item.title}</h4><p>{item.owner || (tr ? 'Sahip atanmamış' : 'Owner unassigned')}</p></div>
+        <div className="control-assurance-list-state"><span className={`assurance-state ${reliable ? item.state : 'unverified'}`}>{stateLabel(reliable ? item.state : 'unverified')}</span><small>{reliable && item.state !== 'unverified' ? `${item.score}/100` : '—'}</small></div>
+        <p className="control-assurance-primary-reason">{reliable ? reasonLabel(item.reasons[0] || '') : (tr ? 'Güncel sonuç bekleniyor' : 'Awaiting current result')}</p>
+        <button type="button" aria-label={`${tr ? 'İncele' : 'Review'} ${item.reference}`} onClick={() => select(item.control.id)}>{tr ? 'İncele' : 'Review'} →</button>
+      </article>)}</div>
+      {!queue.length && <div className="control-assurance-empty">{!summary?.total ? (tr ? 'Henüz kontrol kaydı yok.' : 'No control records yet.') : search || filter !== 'attention' ? (tr ? 'Filtreye uygun kontrol yok.' : 'No controls match this filter.') : reliable ? (tr ? 'Aksiyon bekleyen kontrol yok. Tüm kontroller görünümünden kayıtları inceleyebilirsiniz.' : 'No controls need attention. Use All controls to review records.') : (tr ? 'Güncel güvence sonucu doğrulanamadı.' : 'Current assurance could not be verified.')}</div>}
+      <div className="control-assurance-pagination"><span>{matches.length} {tr ? 'kontrol' : 'controls'} · {currentPage + 1}/{pages}</span><button type="button" disabled={currentPage === 0} onClick={() => setPage(currentPage - 1)}>{tr ? 'Önceki' : 'Previous'}</button><button type="button" disabled={currentPage + 1 >= pages} onClick={() => setPage(currentPage + 1)}>{tr ? 'Sonraki' : 'Next'}</button></div>
+    </div>}
+    {detail && <section key={detail.item.control.id} ref={detailRef} tabIndex={-1} className="control-assurance-drilldown" aria-label={tr ? 'Kontrol güvence ayrıntısı' : 'Control assurance detail'}>
+      <div className="control-assurance-detail-head"><div><b>{detail.item.reference}</b><h4>{detail.item.title}</h4></div><button type="button" onClick={() => openRow(detail.item.control)}>{tr ? 'Kontrol kaydını aç' : 'Open control record'}</button><button type="button" onClick={() => setSelectedId('')}>{tr ? 'Kapat' : 'Close'}</button></div>
+      <ControlImpactLens detail={detail} lang={lang} />
+      <div className="control-assurance-test"><span>{tr ? 'Test sahibi' : 'Test owner'}: <b>{detail.test.owner || '—'}</b></span><span>{tr ? 'Sonraki test' : 'Next test'}: <b>{detail.test.nextTestDate || '—'}</b></span><span>{tr ? 'Son test sonucu' : 'Last test result'}: <b>{detail.test.result || '—'}</b></span></div>
+      {!!detail.item.reasons.length && <ul className="control-assurance-reasons">{detail.item.reasons.map(reason => <li key={reason}>{reasonLabel(reason)}</li>)}</ul>}
+      <div className="control-assurance-stages">{stages.map(stage => <details key={stage.key} className="control-assurance-stage"><summary>{stage.label}<span>{stage.rows.length}</span></summary><div className="control-assurance-stage-records">{stage.rows.map(row => {
+        const target = controlAssuranceRecordTarget(row), eligible = row.module === 'Kanıtlar' ? evaluateEvidenceEligibility(row.data, new Date(snapshot!.generatedAt)).current : null;
+        return <article key={row.id}><div><b>{reference(row)}</b><span>{title(row)}</span><small>{eligible === null ? text(row.data.status || row.data.automationHealth || row.data.owner) : `${eligible ? (tr ? 'Güncel kanıt' : 'Current evidence') : (tr ? 'Kullanılabilirliği doğrulanmadı' : 'Eligibility not established')} · ${text(row.data.evidenceIntegrity)}`}</small></div>{target && <button type="button" onClick={() => openRow(row)} aria-label={`${tr ? 'Kaydı aç' : 'Open record'} ${reference(row)}`}>{tr ? 'Kaydı aç' : 'Open record'} →</button>}</article>;
+      })}{!stage.rows.length && <p className="control-assurance-muted">{tr ? 'Bağlı kayıt yok.' : 'No linked records.'}</p>}</div></details>)}</div>
+      {!!detail.unresolved.length && <details className="control-assurance-unresolved"><summary>{tr ? 'Çözümlenemeyen bağlantılar' : 'Unresolved references'} ({detail.unresolved.length})</summary><ul>{detail.unresolved.map((gap, i) => <li key={i}>{gap.field}: {gap.value}</li>)}</ul></details>}
     </section>}
   </section>;
 }

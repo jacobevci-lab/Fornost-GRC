@@ -67,14 +67,14 @@ test("verified evidence lineage contributes current trusted evidence without a p
   assert.ok(!item.reasons.includes("evidence-integrity-broken"));
 });
 
-test("unavailable integrity verification is visible but does not falsely downgrade assurance", () => {
+test("unavailable integrity cannot certify healthy current assurance", () => {
   const result = buildControlAssurance(assuranceRows("unavailable"), "2026-09-25");
   const item = result.items[0];
 
   assert.equal(item.unavailableEvidenceCount, 1);
-  assert.equal(item.currentEvidenceCount, 1);
-  assert.equal(item.score, 100);
-  assert.equal(item.state, "healthy");
+  assert.equal(item.currentEvidenceCount, 0);
+  assert.equal(result.currentEvidence, 0);
+  assert.equal(item.state, "unverified");
   assert.ok(item.reasons.includes("evidence-integrity-unavailable"));
   assert.equal(result.integrityUnknownControls, 1);
   assert.equal(result.integrityFailures, 0);

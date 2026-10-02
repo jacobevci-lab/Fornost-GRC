@@ -55,6 +55,8 @@ jobs:
         run: node scripts/assurance-retest-runtime-qa.mjs
       - name: Scoped audit readiness, evidence and export QA
         run: node scripts/audit-readiness-runtime-qa.mjs
+      - name: Unified control assurance, record navigation and recovery QA
+        run: node scripts/control-assurance-runtime-qa.mjs
       - name: Check module layouts and audit stability
         run: node scripts/workspace-layout-qa.mjs
       - name: Core CRUD, forms, continuity and governance lifecycle QA
@@ -78,6 +80,7 @@ jobs:
             capa-control-qa-artifacts/
             assurance-retest-qa-artifacts/
             audit-readiness-qa-artifacts/
+            control-assurance-qa-artifacts/
             layout-qa-artifacts/
             runtime-qa-artifacts/
             qa-artifacts-v2/

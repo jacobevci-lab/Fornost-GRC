@@ -1,3 +1,5 @@
+import { evaluateEvidenceEligibility } from "./evidence/eligibility";
+
 export type AssuranceRecord = {
   id: string;
   data: Record<string, unknown>;
@@ -20,20 +22,6 @@ const references = (row: AssuranceRecord) => [...new Map([row.data.controlRef, r
   .flatMap((value) => String(value ?? "").split(/[;,|\n]+/))
   .map((value) => value.trim())
   .filter(Boolean).map(value => [normalized(value), value])).values()];
-
-// Date-only expiry covers that UTC calendar day; timestamps expire at the exact instant.
-// Invalid supplied dates cannot establish current evidence.
-function expiryTime(value: unknown) {
-  const raw = clean(value);
-  if (!raw) return null;
-  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
-    const parsed = Date.parse(`${raw}T00:00:00.000Z`);
-    return Number.isFinite(parsed) && new Date(parsed).toISOString().slice(0, 10) === raw ? parsed + 86400000 : NaN;
-  }
-  const day = raw.slice(0, 10), calendar = Date.parse(`${day}T00:00:00.000Z`);
-  return Number.isFinite(calendar) && new Date(calendar).toISOString().slice(0, 10) === day
-    && /^\d{4}-\d{2}-\d{2}T.*(?:Z|[+-]\d{2}:\d{2})$/i.test(raw) ? Date.parse(raw) : NaN;
-}
 
 export function buildAuditEvidenceAssurance(
   requirements: AssuranceRecord[],
@@ -58,16 +46,8 @@ export function buildAuditEvidenceAssurance(
     }
   }
 
-  const isExpired = (row: AssuranceRecord) => {
-    const status = normalized(row.data.status);
-    const expiries = [row.data.expiresAt, row.data.freshUntil].map(expiryTime).filter(value => value !== null);
-    const validation = normalized(row.data.validationStatus);
-    return ["süresi doldu", "expired", "stale", "reddedildi", "rejected"].includes(status)
-      || ["fail", "failed", "error", "invalid"].includes(validation)
-      || expiries.some(expiry => !Number.isFinite(expiry) || expiry! <= now.getTime());
-  };
-  const isApproved = (row: AssuranceRecord) =>
-    !isExpired(row) && ["onaylandı", "approved", "güncel", "current", "kabul edildi", "accepted", "valid", "geçerli"].includes(normalized(row.data.status));
+  const isExpired = (row: AssuranceRecord) => evaluateEvidenceEligibility(row.data, now).invalid;
+  const isApproved = (row: AssuranceRecord) => evaluateEvidenceEligibility(row.data, now).current;
 
   const requirementStates: AuditEvidenceRequirementState[] = Array.from(requirementByReference.values()).map(({ reference, rows }) => {
     const linked = evidenceByReference.get(normalized(reference)) || [];

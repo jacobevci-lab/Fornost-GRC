@@ -1,3 +1,4 @@
+import { evaluateEvidenceEligibility } from "./evidence/eligibility";
 import { buildConnectedGrcGraph, type ConnectedGrcLink } from "./connected-grc-model";
 
 export type AssuranceRow = {
@@ -32,7 +33,7 @@ export type ControlAssuranceItem = {
   testOverdue: boolean;
   testFailed: boolean;
   score: number;
-  state: "healthy" | "attention" | "critical";
+  state: "healthy" | "attention" | "critical" | "unverified";
   reasons: string[];
 };
 
@@ -136,11 +137,9 @@ function hasRiskLink(row: AssuranceRow, links: ConnectedGrcLink[]) {
   );
 }
 
-export function buildControlAssurance(rows: AssuranceRow[], today = new Date().toISOString().slice(0, 10)) {
+export function buildControlAssurance(rows: AssuranceRow[], today = new Date().toISOString()) {
   const controls = rows.filter((row) => row.module === "Kontroller");
   const graph = buildConnectedGrcGraph(rows);
-  const todayTime = dateValue(today);
-
   const items: ControlAssuranceItem[] = controls.map((control) => {
     const reference = clean(control.data.controlRef || control.code || control.id);
     const linkedEvidence = relatedRows(control, graph.links, "Kanıtlar", ["control-evidence"]);
@@ -161,32 +160,25 @@ export function buildControlAssurance(rows: AssuranceRow[], today = new Date().t
 
     const linkedAutomation = relatedRows(control, graph.links, "Kanıt Otomasyonu", ["automation-control", "control-assurance"]);
     const automationRules = linkedAutomation.filter((row) => kindOf(row) === "automation-rule");
-    const automationAssurance = linkedAutomation.filter((row) => kindOf(row) === "automation-assurance");
     const automationFindings = linkedAutomation.filter((row) => kindOf(row) === "automation-finding");
     const openAutomationFindings = automationFindings.filter((row) => !isClosed(row.data.status));
     const automationRemediations = linkedAutomation.filter((row) => kindOf(row) === "automation-remediation" && !isClosed(row.data.status));
 
     const healthyAutomation = automationRules.filter((row) => includes(automationHealth(row), ["healthy", "effective"]));
-    const failingAutomation = automationRules.filter((row) => includes(automationHealth(row), ["failing", "failed", "ineffective"]));
+    const failingAutomation = automationRules.filter((row) => includes(automationHealth(row), ["failing", "failed", "ineffective", "integrity-failed"]));
     const staleAutomation = automationRules.filter((row) => includes(automationHealth(row), ["stale", "missing"]));
     const attentionAutomation = automationRules.filter((row) => includes(automationHealth(row), ["", "expiring", "unknown", "paused", "degraded"]));
-    const healthyAssurance = automationAssurance.filter((row) => includes(automationHealth(row), ["healthy", "effective"]));
-    const automationHealthyCount = Math.max(healthyAutomation.length, healthyAssurance.length);
+    const automationHealthyCount = healthyAutomation.length;
 
     const riskLinkedFindings = linkedFindings.filter((row) => hasRiskLink(row, graph.links));
     const controlRelations = graph.links.filter((link) => link.source.id === control.id || link.target.id === control.id);
 
-    const currentEvidence = linkedEvidence.filter((row) => {
-      const expired = [row.data.status, row.data.reviewStatus].some((value) =>
-        includes(value, ["süresi doldu", "expired", "reddedildi", "rejected"]),
-      );
-      const expiresAt = dateValue(row.data.expiresAt);
-      const integrityBroken = evidenceIntegrityOf(row) === "broken";
-      return !expired && !integrityBroken && (!Number.isFinite(expiresAt) || expiresAt >= todayTime);
-    });
+    const currentEvidence = linkedEvidence.filter(row => evaluateEvidenceEligibility(row.data, new Date(today)).current);
+    const unresolvedRetests = linkedAutomation.filter(row => kindOf(row) === "automation-work"
+      && ["failed-retest", "retest-error"].includes(key(row.data.status)));
 
     const hasHealthyAutomatedAssurance = automationHealthyCount > 0;
-    const test = testForControl(control, today);
+    const test = testForControl(control, today.slice(0, 10));
     const reasons: string[] = [];
     let score = 100;
     if (!clean(control.data.owner)) { score -= 15; reasons.push("owner-missing"); }
@@ -207,6 +199,7 @@ export function buildControlAssurance(rows: AssuranceRow[], today = new Date().t
     if (failingAutomation.length) { score -= 25; reasons.push("automation-failing"); }
     else if (staleAutomation.length) { score -= 20; reasons.push("automation-stale"); }
     else if (attentionAutomation.length && automationRules.length) { score -= 10; reasons.push("automation-attention"); }
+    if (unresolvedRetests.length) { score -= 30; reasons.push("retest-unresolved"); }
     if (openAutomationFindings.length) { score -= 10; reasons.push("automation-finding-open"); }
     if (openRemediations.length || automationRemediations.length) { score -= 10; reasons.push("remediation-open"); }
     if (linkedFindings.length && riskLinkedFindings.length < linkedFindings.length) { score -= 10; reasons.push("risk-link-missing"); }
@@ -241,14 +234,14 @@ export function buildControlAssurance(rows: AssuranceRow[], today = new Date().t
       testOverdue: test.overdue,
       testFailed: test.failed,
       score,
-      state: score >= 80 ? "healthy" : score >= 50 ? "attention" : "critical",
+      state: unavailableEvidence.length ? "unverified" : score >= 80 && !unresolvedRetests.length ? "healthy" : score >= 50 ? "attention" : "critical",
       reasons,
     };
   });
 
   items.sort((a, b) => a.score - b.score || a.reference.localeCompare(b.reference, "tr"));
   const healthy = items.filter((item) => item.state === "healthy").length;
-  const currentEvidence = items.filter((item) => item.currentEvidenceCount > 0 || item.automationHealthyCount > 0).length;
+  const currentEvidence = items.filter((item) => !item.brokenEvidenceCount && !item.unavailableEvidenceCount && !item.reasons.includes("retest-unresolved") && (item.currentEvidenceCount > 0 || item.automationHealthyCount > 0)).length;
   const overdueTests = items.filter((item) => item.testOverdue).length;
   const failedTests = items.filter((item) => item.testFailed).length;
   const openFindings = items.reduce((sum, item) => sum + item.openFindingCount + item.automationOpenFindingCount + item.openRemediationCount, 0);
@@ -266,6 +259,7 @@ export function buildControlAssurance(rows: AssuranceRow[], today = new Date().t
     items,
     total: items.length,
     healthy,
+    unverified: items.filter(item => item.state === "unverified").length,
     currentEvidence,
     overdueTests,
     failedTests,
@@ -286,7 +280,7 @@ export function buildControlAssurance(rows: AssuranceRow[], today = new Date().t
 export function buildControlAssuranceDetail(
   rows: AssuranceRow[],
   controlId: string,
-  today = new Date().toISOString().slice(0, 10),
+  today = new Date().toISOString(),
 ): ControlAssuranceDetail | null {
   const summary = buildControlAssurance(rows, today);
   const item = summary.items.find((candidate) => candidate.control.id === controlId);
@@ -307,7 +301,7 @@ export function buildControlAssuranceDetail(
   const remediations = uniqueRows([...directRemediations, ...findingRemediations]);
   const riskSources = uniqueRows([...findings, ...remediations, ...audits, ...automations]);
   const risks = relatedFromRows(riskSources, graph.links, "Risk Assessment", ["finding-risk", "audit-risk", "remediation-risk"]);
-  const test = testForControl(control, today);
+  const test = testForControl(control, today.slice(0, 10));
 
   const chainIds = new Set([
     control.id,
