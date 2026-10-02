@@ -56,11 +56,13 @@ try {
   await gate.locator('.audit-readiness-gaps>summary').click();
   await expect(gate.locator('.audit-readiness-gaps .audit-readiness-gap')).toHaveCount(8);
   await gate.getByRole('button', { name: /Show more gaps/ }).click(); await expect(gate.locator('.audit-readiness-gaps .audit-readiness-gap')).toHaveCount(9);
+  await gate.locator('.audit-readiness-gaps .audit-readiness-gap').last().scrollIntoViewIfNeeded();
+  await expect(gate.locator('.audit-readiness-gaps .audit-readiness-gap').last()).toBeInViewport();
   await gate.locator('.audit-readiness-assurance>summary').click();
   await expect(gate.locator('.audit-readiness-assurance .audit-readiness-gap')).toHaveCount(6);
   await gate.getByRole('button', { name: /Show more signals/ }).click(); await expect(gate.locator('.audit-readiness-assurance .audit-readiness-gap')).toHaveCount(7);
-  const downloading = page.waitForEvent('download'); await gate.getByRole('button', { name: 'HTML Snapshot', exact: true }).click();
-  const download = await downloading; await download.saveAs(`${out}/readiness.html`);
+  const [download] = await Promise.all([page.waitForEvent('download'), gate.getByRole('button', { name: 'HTML Snapshot', exact: true }).click()]);
+  await download.saveAs(`${out}/readiness.html`);
   const report = await fs.readFile(`${out}/readiness.html`, 'utf8'); assert.ok(report.includes(visibleSnapshot.generatedAt)); assert.ok(report.includes('QA readiness rule 116'));
   for (const theme of ['light', 'dark']) {
     await page.evaluate(theme => { document.documentElement.dataset.theme = theme; }, theme);
@@ -88,10 +90,17 @@ try {
   await gate.getByRole('button', { name: 'Recheck readiness', exact: true }).click(); await expect(gate.locator('.audit-readiness-state>span')).toHaveText('AUDIT READY');
   await expect(gate.getByRole('button', { name: 'HTML Snapshot', exact: true })).toBeEnabled();
   await page.locator('.language-switch:visible').getByRole('button', { name: 'TR', exact: true }).click(); await expect(gate.locator('.audit-readiness-state>span')).toHaveText('DENETİME HAZIR');
-  const turkishDownload = page.waitForEvent('download'); await gate.getByRole('button', { name: 'HTML Özeti', exact: true }).click();
-  await (await turkishDownload).saveAs(`${out}/readiness-tr.html`); assert.ok((await fs.readFile(`${out}/readiness-tr.html`, 'utf8')).includes('Denetim Hazırlık Özeti'));
+  const [turkishDownload] = await Promise.all([page.waitForEvent('download'), gate.getByRole('button', { name: 'HTML Özeti', exact: true }).click()]);
+  await turkishDownload.saveAs(`${out}/readiness-tr.html`); assert.ok((await fs.readFile(`${out}/readiness-tr.html`, 'utf8')).includes('Denetim Hazırlık Özeti'));
+  const [csvDownload] = await Promise.all([page.waitForEvent('download'), gate.getByRole('button', { name: 'CSV', exact: true }).click()]);
+  await csvDownload.saveAs(`${out}/readiness.csv`);
+  const csv = await fs.readFile(`${out}/readiness.csv`, 'utf8'); assert.ok(csv.includes('QA-READY-CONTROL-9')); assert.ok(csv.includes('"audit_name","evaluated_at","gate"'));
   assert.deepEqual(errors, []);
-} catch (error) { await page.screenshot({ path: `${out}/failure.png` }).catch(() => {}); throw error; }
+} catch (error) {
+  await page.screenshot({ path: `${out}/failure.png` }).catch(() => {});
+  await fs.writeFile(`${out}/failure.json`, JSON.stringify({ message: String(error), pageErrors: errors, buttons: await page.locator('.audit-readiness-actions button').allTextContents().catch(() => []) }, null, 2));
+  throw error;
+}
 finally {
   try {
     await page.close();

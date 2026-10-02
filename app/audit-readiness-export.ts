@@ -96,6 +96,8 @@ export function downloadAuditReadinessReport(snapshot: AuditReadinessSnapshot, f
   document.body.appendChild(anchor);
   anchor.click();
   anchor.remove();
-  window.setTimeout(() => URL.revokeObjectURL(url), 0);
+  // The browser may start reading a download after this click handler returns.
+  // Retain the blob briefly so repeated exports cannot race immediate revocation.
+  window.setTimeout(() => URL.revokeObjectURL(url), 30_000);
   return true;
 }
