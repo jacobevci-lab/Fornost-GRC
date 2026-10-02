@@ -61,9 +61,7 @@ try {
   await page.goto(base); await expect(page.locator('.shell')).toBeVisible();
   await page.locator('.language-switch:visible').getByRole('button', { name: 'EN', exact: true }).click();
   await page.locator('nav button[aria-label="Audit Management"]').evaluate(el => el.click());
-  const scopedResponse = page.waitForResponse(response => response.url().includes('/api/audits/readiness?') && response.url().includes(encodeURIComponent(name)));
   await page.locator('.audit-card-open').filter({ hasText: name }).click();
-  const visibleSnapshot = await (await scopedResponse).json();
   const gate = page.locator('.audit-readiness-gate'); await expect(gate.locator('.audit-readiness-state>span')).toHaveText('NOT READY');
   await gate.locator('.audit-readiness-gaps>summary').click();
   await expect(gate.locator('.audit-readiness-gaps .audit-readiness-gap')).toHaveCount(8);
@@ -73,9 +71,13 @@ try {
   await gate.locator('.audit-readiness-assurance>summary').click();
   await expect(gate.locator('.audit-readiness-assurance .audit-readiness-gap')).toHaveCount(6);
   await gate.getByRole('button', { name: /Show more signals/ }).click(); await expect(gate.locator('.audit-readiness-assurance .audit-readiness-gap')).toHaveCount(7);
+  // Compare the report with the evaluation actually rendered, not a request that may be superseded.
+  await expect(gate).toContainText(`Scope: ${name}`);
+  const evaluatedAt = await gate.locator('.audit-readiness-actions time').getAttribute('datetime');
+  assert.ok(Number.isFinite(Date.parse(evaluatedAt)));
   const [download] = await Promise.all([page.waitForEvent('download'), gate.getByRole('button', { name: 'HTML Snapshot', exact: true }).click()]);
   await download.saveAs(`${out}/readiness.html`);
-  const report = await fs.readFile(`${out}/readiness.html`, 'utf8'); assert.ok(report.includes(visibleSnapshot.generatedAt)); assert.ok(report.includes('QA readiness rule 116'));
+  const report = await fs.readFile(`${out}/readiness.html`, 'utf8'); assert.ok(report.includes(evaluatedAt)); assert.ok(report.includes('QA readiness rule 116'));
   for (const theme of ['light', 'dark']) {
     await page.evaluate(theme => { document.documentElement.dataset.theme = theme; }, theme);
     for (const width of [1536, 390]) {
