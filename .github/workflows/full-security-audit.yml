@@ -384,6 +384,13 @@ jobs:
           set +e
           node --import ./scripts/trace-fetch-polyfill.mjs scripts/security-runtime-audit.mjs
           echo "exit_code=$?" >> "$GITHUB_OUTPUT"
+      - name: Browser CSP and hydration checks
+        id: browser
+        shell: bash
+        run: |
+          npm install --no-save --ignore-scripts @playwright/test@1.55.0
+          export QA_CHROMIUM_PATH="$(command -v google-chrome)"
+          node scripts/security-browser-qa.mjs
       - name: Active ZAP scan against disposable target only
         id: zap
         shell: bash

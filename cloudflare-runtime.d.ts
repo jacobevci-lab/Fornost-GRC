@@ -36,3 +36,11 @@ declare module "cloudflare:workers" {
     BUCKET?: R2Bucket;
   };
 }
+
+interface HTMLRewriterElement {
+  setAttribute(name: string, value: string): void;
+}
+declare class HTMLRewriter {
+  on(selector: string, handlers: { element(element: HTMLRewriterElement): void }): HTMLRewriter;
+  transform(response: Response): Response;
+}

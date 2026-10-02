@@ -50,7 +50,7 @@ function redactCookie(setCookie) {
   return setCookie.replace(/^(\s*fornost_session=)[^;]+/i, "$1<redacted>");
 }
 async function request(url, options = {}) {
-  const response = await fetch(url, { redirect: "manual", ...options, headers: { ...accessHeaders, ...(options.headers || {}) } });
+  const response = await fetch(url, { redirect: "manual", ...options, headers: { Connection: "close", ...accessHeaders, ...(options.headers || {}) } });
   const text = await response.text();
   return { response, text, headers: headersObject(response.headers), setCookies: responseSetCookies(response.headers) };
 }
@@ -116,6 +116,19 @@ const oversized = await request(`${baseUrl}/api/auth`, {
   method: "POST", headers: { Origin: baseUrl, "content-type": "application/json" }, body: oversizedBody,
 });
 addResult("INPUT-LIMIT", "A04", "Authentication request size is bounded", oversized.response.status === 413, `HTTP ${oversized.response.status}`, "medium");
+
+// Exercise the actual byte bound: streaming bodies do not provide Content-Length.
+const streamed = await request(`${baseUrl}/api/auth`, {
+  method: "POST", duplex: "half", headers: { Origin: baseUrl, "content-type": "application/json" },
+  body: new ReadableStream({ start(controller) { controller.enqueue(new TextEncoder().encode(oversizedBody)); controller.close(); } }),
+});
+addResult("INPUT-STREAM-LIMIT", "A04", "Chunked authentication body cannot bypass the size limit", streamed.response.status === 413, `HTTP ${streamed.response.status}`, "high");
+for (const value of [null, [], true]) {
+  const invalidShape = await request(`${baseUrl}/api/auth`, {
+    method: "POST", headers: { Origin: baseUrl, "content-type": "application/json" }, body: JSON.stringify(value),
+  });
+  addResult(`INPUT-JSON-SHAPE-${JSON.stringify(value)}`, "A04", "Non-object authentication JSON is rejected without a server error", invalidShape.response.status === 400, `HTTP ${invalidShape.response.status}`, "medium");
+}
 
 // Cloudflare Access can also emit CF_Authorization on this response. Audit only
 // the application session cookie and never persist the Access JWT in artifacts.

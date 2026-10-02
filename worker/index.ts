@@ -26,7 +26,7 @@ interface ScheduledController {
 }
 
 const SECURITY_HEADERS: Readonly<Record<string, string>> = {
-  "Content-Security-Policy": "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'unsafe-inline' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' https://cloudflareinsights.com; worker-src 'self' blob:; frame-src 'self' blob:; media-src 'self' blob:; manifest-src 'self'; upgrade-insecure-requests",
+  "Content-Security-Policy": "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' https://cloudflareinsights.com; worker-src 'self' blob:; frame-src 'self' blob:; media-src 'self' blob:; manifest-src 'self'; upgrade-insecure-requests",
   "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
   "X-Content-Type-Options": "nosniff",
   "Referrer-Policy": "strict-origin-when-cross-origin",
@@ -40,16 +40,28 @@ const SECURITY_HEADERS: Readonly<Record<string, string>> = {
 function hardenResponse(response: Response): Response {
   if (response.status === 101) return response;
 
+  const html = response.headers.get("content-type")?.includes("text/html") === true;
+  const nonce = html ? btoa(String.fromCharCode(...crypto.getRandomValues(new Uint8Array(24)))) : "";
   const headers = new Headers(response.headers);
   for (const [name, value] of Object.entries(SECURITY_HEADERS)) {
-    headers.set(name, value);
+    // File downloads can intentionally carry a stricter CSP; never loosen it.
+    if (name === "Content-Security-Policy" && headers.has(name)) continue;
+    headers.set(name, name === "Content-Security-Policy" && nonce
+      ? value.replace("script-src 'self'", `script-src 'self' 'nonce-${nonce}'`) : value);
   }
 
-  return new Response(response.body, {
+  const hardened = new Response(response.body, {
     status: response.status,
     statusText: response.statusText,
     headers,
   });
+  if (!html) return hardened;
+  // Streaming SSR emits inline hydration scripts. Authorize those individually
+  // instead of permitting every inline script in the page.
+  hardened.headers.set("cache-control", "private, no-store");
+  return new HTMLRewriter().on("script", {
+    element(element) { element.setAttribute("nonce", nonce); },
+  }).transform(hardened);
 }
 
 // Image security config. SVG sources with .svg extension auto-skip the

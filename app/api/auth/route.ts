@@ -1,3 +1,4 @@
+import { JsonBodyError, readBoundedJsonObject } from "../request-body";
 import { NextRequest, NextResponse } from "next/server";
 import { actor, constantTimeEqual, createSession, demoAccount, destroySession, ensureDemoUser, identityDb, passwordHash, passwordIterations, PBKDF2_ITERATIONS, PBKDF2_LEGACY_ITERATIONS, requestIsSecure, sameOrigin, validPassword } from "./security";
 
@@ -66,7 +67,10 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   if (!sameOrigin(req)) return NextResponse.json({ error: "Geçersiz istek kaynağı." }, { status: 403 });
   if (Number(req.headers.get("content-length") || 0) > 16_384) return NextResponse.json({ error: "İstek boyutu çok büyük." }, { status: 413 });
-  const body = await req.json().catch(() => ({})), action = normalize(body.action), db = await identityDb();
+  let body: Record<string, unknown>;
+  try { body = await readBoundedJsonObject(req, 16_384); }
+  catch (error) { if (error instanceof JsonBodyError) return NextResponse.json({ error: error.message }, { status: error.status }); throw error; }
+  const action = normalize(body.action), db = await identityDb();
   if (action === "logout") {
     await destroySession(req); const res = NextResponse.json({ ok: true }); res.cookies.set("fornost_session", "", { ...cookie(req), maxAge: 0 }); return res;
   }
