@@ -41,3 +41,18 @@ test("audit readiness CSV snapshot exports requirements and live assurance signa
   assert.match(report,/"continuous-assurance","A\.8\.8","Vulnerability SLA"/);
   assert.match(report,/"control-failing","true"/);
 });
+
+test("readiness exports retain evaluation time and audit scope, including an empty snapshot",()=>{
+  const csv=buildAuditReadinessReportCsv(snapshot);
+  assert.match(csv,/"audit_name","evaluated_at","gate"/);
+  assert.match(csv,/"ISO 27001 <Q3>","2026-09-26T18:00:00.000Z","NOT READY"/);
+  assert.match(buildAuditReadinessReportCsv({...snapshot,requirements:[],assuranceSignals:[]}),/"snapshot"/);
+});
+
+test("readiness exports localize Turkish report labels and neutralize spreadsheet formula cells",()=>{
+  const html=buildAuditReadinessReportHtml({...snapshot,lang:'tr'});
+  assert.match(html,/<html lang="tr">/); assert.match(html,/Denetim Hazırlık Özeti/); assert.match(html,/Değerlendirme zamanı/);
+  assert.match(html,/@media print/);
+  const csv=buildAuditReadinessReportCsv({...snapshot,auditName:'=DDE()',requirements:[{...snapshot.requirements[0],title:' \t=HYPERLINK("url")',owner:'+formula'}]});
+  assert.match(csv,/"'=DDE\(\)"/); assert.match(csv,/"' \t=HYPERLINK/); assert.match(csv,/"'\+formula"/);
+});

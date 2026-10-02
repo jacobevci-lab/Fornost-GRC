@@ -34,6 +34,7 @@ export type AssuranceWorkSnapshot = {
   actor?: string;
   reviewedBy?: string;
   updatedAt: string;
+  verifiedRetestPassed?: boolean;
 };
 
 export type AssurancePriority = {
@@ -47,6 +48,7 @@ export type AssurancePriority = {
   ruleName: string;
   findingId: string;
   targetControlRef: string;
+  targetControlRefs?: string[];
   owner: string;
   dueDate: string;
   reason: string;
@@ -74,6 +76,7 @@ export function buildContinuousAssuranceDashboard(input: {
   findings: AssuranceFindingSnapshot[];
   workItems: AssuranceWorkSnapshot[];
   now?: Date;
+  priorityLimit?: number | null;
 }) {
   const now = input.now || new Date();
   const nowTime = now.getTime();
@@ -121,6 +124,7 @@ export function buildContinuousAssuranceDashboard(input: {
       ruleName: row.rule.name,
       findingId: "",
       targetControlRef: refs[0] || "",
+      targetControlRefs: refs,
       owner: "",
       dueDate: clean(row.rule.nextRunAt),
       reason: row.health === "integrity-failed" ? "evidence-integrity-failed" : row.health === "failing" ? "control-failing" : row.health === "missing" ? "evidence-missing" : row.health === "stale" ? "evidence-stale" : row.due ? "test-due" : "evidence-expiring",
@@ -144,6 +148,7 @@ export function buildContinuousAssuranceDashboard(input: {
       ruleName: rule?.name || finding.ruleId,
       findingId: finding.id,
       targetControlRef: splitControlRefs(rule?.controlRefs || "")[0] || "",
+      targetControlRefs: splitControlRefs(rule?.controlRefs || ""),
       owner: finding.owner,
       dueDate: finding.dueDate,
       reason: overdue ? "remediation-overdue" : "open-finding",
@@ -153,7 +158,19 @@ export function buildContinuousAssuranceDashboard(input: {
     });
   }
 
+  const workKey = (work: AssuranceWorkSnapshot) => JSON.stringify([work.findingId, work.ruleId,
+    splitControlRefs(work.targetControlRef || ruleById.get(work.ruleId)?.controlRefs || '').map(ref => ref.normalize('NFKC').toLocaleLowerCase('tr-TR')).sort()]);
+  const recovered = new Map<string, number>();
   for (const work of input.workItems) {
+    if (work.action === 'control-retest' && work.status === 'completed' && work.verifiedRetestPassed && Number.isFinite(time(work.updatedAt))) {
+      recovered.set(workKey(work), Math.max(recovered.get(workKey(work)) || 0, time(work.updatedAt)));
+    }
+  }
+  // Keep history in the work queue, but a later verified pass resolves its earlier error
+  // signal for the same finding, rule and governed target. Pending/legacy work cannot do so.
+  const currentWork = input.workItems.filter(work => !(['failed-retest', 'retest-error'].includes(work.status)
+    && work.action === 'control-retest' && (recovered.get(workKey(work)) || 0) > time(work.updatedAt)));
+  for (const work of currentWork) {
     if (["completed", "rejected"].includes(work.status)) continue;
     const rule = ruleById.get(work.ruleId);
     const finding = findingById.get(work.findingId);
@@ -169,6 +186,7 @@ export function buildContinuousAssuranceDashboard(input: {
       ruleName: rule?.name || work.ruleId,
       findingId: work.findingId,
       targetControlRef: clean(work.targetControlRef) || splitControlRefs(rule?.controlRefs || "")[0] || "",
+      targetControlRefs: clean(work.targetControlRef) ? splitControlRefs(work.targetControlRef!) : splitControlRefs(rule?.controlRefs || ""),
       owner: finding?.owner || "",
       dueDate: finding?.dueDate || "",
       reason: work.status,
@@ -193,10 +211,10 @@ export function buildContinuousAssuranceDashboard(input: {
       overdueRemediation: overdueRemediation.length,
       pendingReview: input.workItems.filter((item) => item.status === "pending-review").length,
       awaitingRetest: input.workItems.filter((item) => item.status === "approved-awaiting-retest").length,
-      failedRetest: input.workItems.filter((item) => item.status === "failed-retest" || item.status === "retest-error").length,
+      failedRetest: currentWork.filter((item) => item.status === "failed-retest" || item.status === "retest-error").length,
       assuranceCoverage,
     },
-    priorities: priorities.slice(0, 100),
+    priorities: input.priorityLimit === null ? priorities : priorities.slice(0, input.priorityLimit ?? 100),
     generatedAt: now.toISOString(),
   };
 }
