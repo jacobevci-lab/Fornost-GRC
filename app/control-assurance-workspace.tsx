@@ -81,7 +81,7 @@ export default function ControlAssuranceWorkspace({ rows, lang, go }: { rows: As
     {snapshot && <div className="control-assurance-queue">
       <div className="control-assurance-toolbar">
         <label><span>{tr ? 'Kontrol ara' : 'Search controls'}</span><input value={search} onChange={event => { setSearch(event.target.value); setPage(0); }} placeholder={tr ? 'Kod, başlık veya sahip' : 'Code, title or owner'} /></label>
-        <label><span>{tr ? 'Görünüm' : 'View'}</span><select value={filter} onChange={event => { setFilter(event.target.value); setPage(0); }}><option value="attention">{tr ? 'Aksiyon bekleyenler' : 'Needs attention'}</option><option value="all">{tr ? 'Tüm kontroller' : 'All controls'}</option><option value="healthy">{tr ? 'Güçlü kontroller' : 'Healthy controls'}</option><option value="unverified">{tr ? 'Doğrulanamayanlar' : 'Unverified'}</option></select></label>
+        <label><span>{tr ? 'Görünüm' : 'View'}</span><select aria-label={tr ? 'Görünüm' : 'View'} value={filter} onChange={event => { setFilter(event.target.value); setPage(0); }}><option value="attention">{tr ? 'Aksiyon bekleyenler' : 'Needs attention'}</option><option value="all">{tr ? 'Tüm kontroller' : 'All controls'}</option><option value="healthy">{tr ? 'Güçlü kontroller' : 'Healthy controls'}</option><option value="unverified">{tr ? 'Doğrulanamayanlar' : 'Unverified'}</option></select></label>
       </div>
       {!reliable && <p className="control-assurance-muted">{tr ? 'Aşağıdaki kayıtlar son yüklenen değerlendirmeye aittir.' : 'The records below belong to the last loaded evaluation.'}</p>}
       <div className="control-assurance-list">{queue.map(item => <article key={item.control.id} className={selectedId === item.control.id ? 'selected' : ''}>

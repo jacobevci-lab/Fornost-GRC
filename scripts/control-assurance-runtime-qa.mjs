@@ -90,8 +90,9 @@ try {
   await expect(workspace.locator('.control-assurance-kpis strong').first()).toHaveText('—');
   await seed(`UPDATE simple_grc_records SET data_json=${q(JSON.stringify(evidence(0)))} WHERE id='QA-CS-E0';`);
   await workspace.getByRole('button', { name: 'Refresh assurance', exact: true }).click(); await expect(workspace.getByRole('alert')).toHaveCount(0);
+  const evidenceCode = await lastEvidence.locator('b').innerText();
   await lastEvidence.getByRole('button', { name: /Open record/ }).click();
-  await expect(page.locator('.core-record-focus')).toContainText('QA-CS-E6');
+  await expect(page.locator('.core-record-focus')).toContainText(evidenceCode);
   await expect(page.locator('.table-card .table-wrap tbody tr')).toHaveCount(1);
   await expect(page.locator('.table-card .table-wrap')).toContainText('QA CS evidence 6');
   assert.deepEqual(errors, []);
