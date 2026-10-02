@@ -16,17 +16,30 @@ export type AuditEvidenceRequirementState = {
 
 const normalized = (value: unknown) => String(value ?? "").normalize("NFKC").trim().toLocaleLowerCase("tr-TR");
 const clean = (value: unknown) => String(value ?? "").trim();
-const references = (row: AssuranceRecord) => [row.data.controlRef, row.data.requirementRef]
+const references = (row: AssuranceRecord) => [...new Map([row.data.controlRef, row.data.requirementRef]
   .flatMap((value) => String(value ?? "").split(/[;,|\n]+/))
   .map((value) => value.trim())
-  .filter(Boolean);
+  .filter(Boolean).map(value => [normalized(value), value])).values()];
+
+// Date-only expiry covers that UTC calendar day; timestamps expire at the exact instant.
+// Invalid supplied dates cannot establish current evidence.
+function expiryTime(value: unknown) {
+  const raw = clean(value);
+  if (!raw) return null;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+    const parsed = Date.parse(`${raw}T00:00:00.000Z`);
+    return Number.isFinite(parsed) && new Date(parsed).toISOString().slice(0, 10) === raw ? parsed + 86400000 : NaN;
+  }
+  const day = raw.slice(0, 10), calendar = Date.parse(`${day}T00:00:00.000Z`);
+  return Number.isFinite(calendar) && new Date(calendar).toISOString().slice(0, 10) === day
+    && /^\d{4}-\d{2}-\d{2}T.*(?:Z|[+-]\d{2}:\d{2})$/i.test(raw) ? Date.parse(raw) : NaN;
+}
 
 export function buildAuditEvidenceAssurance(
   requirements: AssuranceRecord[],
   evidence: AssuranceRecord[],
   now = new Date(),
 ) {
-  const today = now.toISOString().slice(0, 10);
   const evidenceByReference = new Map<string, AssuranceRecord[]>();
   for (const item of evidence) {
     for (const reference of references(item)) {
@@ -47,8 +60,11 @@ export function buildAuditEvidenceAssurance(
 
   const isExpired = (row: AssuranceRecord) => {
     const status = normalized(row.data.status);
-    const expiry = String(row.data.expiresAt || row.data.freshUntil || "").slice(0, 10);
-    return ["süresi doldu", "expired", "stale", "reddedildi", "rejected"].includes(status) || (!!expiry && expiry < today);
+    const expiries = [row.data.expiresAt, row.data.freshUntil].map(expiryTime).filter(value => value !== null);
+    const validation = normalized(row.data.validationStatus);
+    return ["süresi doldu", "expired", "stale", "reddedildi", "rejected"].includes(status)
+      || ["fail", "failed", "error", "invalid"].includes(validation)
+      || expiries.some(expiry => !Number.isFinite(expiry) || expiry! <= now.getTime());
   };
   const isApproved = (row: AssuranceRecord) =>
     !isExpired(row) && ["onaylandı", "approved", "güncel", "current", "kabul edildi", "accepted", "valid", "geçerli"].includes(normalized(row.data.status));

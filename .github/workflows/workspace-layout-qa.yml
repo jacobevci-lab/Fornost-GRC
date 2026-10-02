@@ -53,13 +53,13 @@ jobs:
         run: node scripts/capa-control-context-qa.mjs
       - name: Re-test recovery, independent approval and risk reconciliation QA
         run: node scripts/assurance-retest-runtime-qa.mjs
+      - name: Scoped audit readiness, evidence and export QA
+        run: node scripts/audit-readiness-runtime-qa.mjs
       - name: Check module layouts and audit stability
         run: node scripts/workspace-layout-qa.mjs
       - name: Core CRUD, forms, continuity and governance lifecycle QA
-        if: always()
         run: node scripts/comprehensive-runtime-qa.mjs
       - name: Accessibility, localization and responsive product QA
-        if: always()
         env:
           FORNOST_PROD_URL: http://127.0.0.1:4173
           FORNOST_SMOKE_EMAIL: qa-admin@fornost.test
@@ -77,6 +77,7 @@ jobs:
             module-access-qa-artifacts/
             capa-control-qa-artifacts/
             assurance-retest-qa-artifacts/
+            audit-readiness-qa-artifacts/
             layout-qa-artifacts/
             runtime-qa-artifacts/
             qa-artifacts-v2/

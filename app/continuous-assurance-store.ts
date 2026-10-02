@@ -42,6 +42,7 @@ type WorkRow = {
   actor: string;
   reviewed_by: string | null;
   updated_at: string;
+  result_ref: string | null;
 };
 type EvidenceLinkRow = { evidence_id: string; normalized_ref: string };
 type EvidenceRecordRow = { id: string; data_json: string };
@@ -92,10 +93,10 @@ export function evidenceIntegrityForRule(
   return { evidenceIntegrity, linkedEvidenceCount: evidenceIds.size };
 }
 
-async function loadRules(db: D1Database): Promise<AssuranceRuleSnapshot[]> {
+async function loadRules(db: D1Database) {
   try {
-    const rows = await db.prepare("SELECT id,name,control_refs,enabled,last_status,last_evidence_at,freshness_hours,consecutive_failures,next_run_at FROM evidence_automation_rules ORDER BY name").all<RuleRow>();
-    return rows.results.map((row) => ({
+    const rows = await db.prepare("SELECT id,name,control_refs,enabled,last_status,last_evidence_at,freshness_hours,consecutive_failures,next_run_at FROM evidence_automation_rules ORDER BY name LIMIT 10001").all<RuleRow>();
+    return { available: true, complete: rows.results.length <= 10000, rows: rows.results.slice(0, 10000).map((row): AssuranceRuleSnapshot => ({
       id: row.id,
       name: row.name,
       controlRefs: row.control_refs || "",
@@ -105,14 +106,14 @@ async function loadRules(db: D1Database): Promise<AssuranceRuleSnapshot[]> {
       freshnessHours: Number(row.freshness_hours || 24),
       consecutiveFailures: Number(row.consecutive_failures || 0),
       nextRunAt: row.next_run_at,
-    }));
-  } catch { return []; }
+    })) };
+  } catch { return { rows: [] as AssuranceRuleSnapshot[], available: false, complete: false }; }
 }
 
-async function loadFindings(db: D1Database): Promise<AssuranceFindingSnapshot[]> {
+async function loadFindings(db: D1Database) {
   try {
-    const rows = await db.prepare("SELECT id,rule_id,title,severity,owner,due_date,status FROM evidence_automation_findings ORDER BY due_date,updated_at DESC LIMIT 1000").all<FindingRow>();
-    return rows.results.map((row) => ({
+    const rows = await db.prepare("SELECT id,rule_id,title,severity,owner,due_date,status FROM evidence_automation_findings ORDER BY due_date,updated_at DESC LIMIT 1001").all<FindingRow>();
+    return { available: true, complete: rows.results.length <= 1000, rows: rows.results.slice(0, 1000).map((row): AssuranceFindingSnapshot => ({
       id: row.id,
       ruleId: row.rule_id,
       title: row.title,
@@ -120,15 +121,15 @@ async function loadFindings(db: D1Database): Promise<AssuranceFindingSnapshot[]>
       owner: row.owner,
       dueDate: row.due_date,
       status: row.status,
-    }));
-  } catch { return []; }
+    })) };
+  } catch { return { rows: [] as AssuranceFindingSnapshot[], available: false, complete: false }; }
 }
 
-async function loadWorkItems(db: D1Database): Promise<AssuranceWorkSnapshot[]> {
+async function loadWorkItems(db: D1Database) {
   try {
     await ensureAssuranceWorkSchema(db);
-    const rows = await db.prepare("SELECT id,finding_id,rule_id,action,status,decision_json,actor,reviewed_by,updated_at FROM continuous_assurance_work_items ORDER BY updated_at DESC LIMIT 1000").all<WorkRow>();
-    return rows.results.map((row) => ({
+    const rows = await db.prepare("SELECT id,finding_id,rule_id,action,status,decision_json,actor,reviewed_by,updated_at,result_ref FROM continuous_assurance_work_items ORDER BY updated_at DESC LIMIT 1001").all<WorkRow>();
+    return { available: true, complete: rows.results.length <= 1000, rows: rows.results.slice(0, 1000).map((row): AssuranceWorkSnapshot => ({
       id: row.id,
       findingId: row.finding_id,
       ruleId: row.rule_id,
@@ -138,8 +139,9 @@ async function loadWorkItems(db: D1Database): Promise<AssuranceWorkSnapshot[]> {
       actor: row.actor,
       reviewedBy: row.reviewed_by || "",
       updatedAt: row.updated_at,
-    }));
-  } catch { return []; }
+      verifiedRetestPassed: row.status === 'completed' && !!row.result_ref && asObject(parse(row.decision_json).retestOutcome).runId === row.result_ref && asObject(parse(row.decision_json).retestOutcome).status === 'pass',
+    })) };
+  } catch { return { rows: [] as AssuranceWorkSnapshot[], available: false, complete: false }; }
 }
 
 async function enrichRulesWithEvidenceIntegrity(db: D1Database, rules: AssuranceRuleSnapshot[]) {
@@ -241,21 +243,27 @@ async function enrichRulesWithEvidenceIntegrity(db: D1Database, rules: Assurance
   }
 }
 
-export async function loadContinuousAssuranceSnapshots(db: D1Database) {
+export async function loadContinuousAssuranceSnapshots(db: D1Database, options: { integrityControlRefs?: string[] } = {}) {
   const [baseRules, findings, workItems] = await Promise.all([
     loadRules(db),
     loadFindings(db),
     loadWorkItems(db),
   ]);
-  const integrity = await enrichRulesWithEvidenceIntegrity(db, baseRules);
+  const scope = options.integrityControlRefs && new Set(options.integrityControlRefs.map(normalizeEvidenceControlRef));
+  const integrityRules = scope ? baseRules.rows.filter(rule => splitEvidenceControlRefs(rule.controlRefs).some(ref => scope.has(normalizeEvidenceControlRef(ref)))) : baseRules.rows;
+  const integrity = await enrichRulesWithEvidenceIntegrity(db, integrityRules);
+  const enrichedById = new Map(integrity.rules.map(rule => [rule.id, rule]));
   return {
-    rules: integrity.rules,
-    findings,
-    workItems,
+    rules: baseRules.rows.map(rule => enrichedById.get(rule.id) || rule),
+    findings: findings.rows,
+    workItems: workItems.rows,
     dataQuality: {
-      rulesAvailable: baseRules.length > 0,
-      findingsAvailable: findings.length > 0,
-      workQueueAvailable: workItems.length > 0,
+      rulesAvailable: baseRules.available,
+      rulesComplete: baseRules.complete,
+      findingsAvailable: findings.available,
+      findingsComplete: findings.complete,
+      workQueueAvailable: workItems.available,
+      workQueueComplete: workItems.complete,
       ...integrity.quality,
     },
   };

@@ -43,6 +43,7 @@ test("audit management exposes the live evidence assurance chain", () => {
   const gate = readFileSync("app/audit-readiness-gate.tsx", "utf8");
   assert.doesNotMatch(gate, /MutationObserver|createPortal|insertAdjacentElement|classList/);
   assert.doesNotMatch(readFileSync("app/platform-experience.tsx", "utf8"), /<AuditReadinessGate/);
-  assert.match(gate, /records \|\| rows/);
+  assert.match(gate, /recordsKey/);
+  assert.match(gate, /\/api\/audits\/readiness/);
   assert.match(css, /\.audit-evidence-assurance/);
 });
