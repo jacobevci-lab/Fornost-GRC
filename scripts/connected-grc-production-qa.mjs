@@ -69,7 +69,7 @@ function projectableRecordCount(sourceKey, payload) {
     case "thirdParty":
       return arrayLength(payload, "vendors") + arrayLength(payload, "assessments") + arrayLength(payload, "findings");
     case "evidenceAutomation":
-      return arrayLength(payload, "sources") + arrayLength(payload, "rules") + arrayLength(payload, "findings");
+      return arrayLength(payload, "sources") + arrayLength(payload, "rules") + arrayLength(payload, "findings") + (Array.isArray(payload.runs) ? payload.runs.filter(run => run && typeof run === "object" && String(run.id ?? "").trim()).length : 0);
     default:
       return 0;
   }
