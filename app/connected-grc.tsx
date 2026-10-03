@@ -97,7 +97,7 @@ export default function ConnectedGrc({rows,lang,go}:{rows:ConnectedGrcRow[];lang
   return <section className="connected-grc connected-explorer">
     <header className="cg-heading">
       <div><small>CONNECTED GRC</small><h2>{tr?"Bağlantılı GRC Haritası":"Connected GRC Map"}</h2><p>{tr?"Bir kayıt seçin; hangi kayıtlarla bağlantılı olduğunu görün.":"Choose a record to see what it connects to."}</p></div>
-      <span className="cg-source-state" role="status">{sourceState.loading?(tr?"Bağlantılar yükleniyor…":"Loading connections…"):sourceState.ready<sourceState.total?(tr?"Bazı kaynaklara erişilemiyor; görünüm eksik olabilir.":"Some sources are unavailable; this view may be incomplete."):(tr?"Kaynaklar güncel":"Sources loaded")}</span>
+      <span className="cg-source-state" role="status" data-ready={sourceState.ready} data-total={sourceState.total} data-loading={sourceState.loading}>{sourceState.loading?(tr?"Bağlantılar yükleniyor…":"Loading connections…"):sourceState.ready<sourceState.total?(tr?"Bazı kaynaklara erişilemiyor; görünüm eksik olabilir.":"Some sources are unavailable; this view may be incomplete."):(tr?"Kaynaklar güncel":"Sources loaded")}</span>
     </header>
     <div className="cg-summary" aria-label={tr?"Genel durum":"Overview"}>
       <span><b>{records.length}</b> {tr?"kayıt":"records"}</span>
