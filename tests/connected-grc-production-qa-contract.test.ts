@@ -12,7 +12,7 @@ function projectableRecordCount(sourceKey: string, payload: Record<string, unkno
     case "riskAppetite": return count(payload, "appetites") + count(payload, "measurements") + count(payload, "breaches") + count(payload, "scenarios");
     case "regulatory": return count(payload, "sources") + count(payload, "changes") + count(payload, "impacts");
     case "thirdParty": return count(payload, "vendors") + count(payload, "assessments") + count(payload, "findings");
-    case "evidenceAutomation": return count(payload, "sources") + (count(payload, "rules") * 2) + (count(payload, "findings") * 2);
+    case "evidenceAutomation": return count(payload, "sources") + (count(payload, "rules") * 2) + (count(payload, "findings") * 2) + (Array.isArray(payload.runs) ? payload.runs.filter(run => run && typeof run === "object" && String(run.id ?? "").trim()).length : 0);
     default: return 0;
   }
 }
@@ -39,3 +39,7 @@ test("Evidence Automation projection reserves one assurance per rule and one rem
   assert.equal(projectableRecordCount("evidenceAutomation", { findings: [1] }), 2);
   assert.equal(projectableRecordCount("evidenceAutomation", { sources: [1], rules: [1], findings: [1] }), 5);
 });
+
+ test("Connected GRC counts stable run records but ignores malformed history", () => {
+  assert.equal(projectableRecordCount("evidenceAutomation", { runs: [{ id: "run-1" }, {}, null, 1] }), 1);
+ });

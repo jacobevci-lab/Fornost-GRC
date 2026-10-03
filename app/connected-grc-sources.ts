@@ -333,7 +333,25 @@ function evidenceAutomationRows(payload: JsonRecord) {
     });
   });
 
-  return [...sources, ...rules, ...assurances, ...findings, ...remediations];
+  // A run is historical evidence of execution, not a new current assurance
+  // score. Resolve by immutable IDs; never guess a rule from its display name.
+  const runs = records(payload.runs).filter((item) => text(item.id)).map((item, index) => {
+    const ruleId = text(item.ruleId || item.rule_id);
+    const rule = ruleById.get(ruleId);
+    return makeRow("enterprise", "automation-run", "Kanıt Otomasyonu", item, index, {
+      title: `Run · ${text(item.ruleName || item.rule_name || item.id)}`,
+      identityRefs: unique(item.id),
+      automationRuleRef: ruleId ? unique(ruleId, `RULE:${ruleId}`) : [],
+      automationControlRefs: unique(rule?.controlRefs, rule?.control_refs),
+      automationEvidenceRef: unique(item.evidenceId, item.evidence_id),
+      status: text(item.status),
+      executedAt: text(item.createdAt || item.created_at),
+      triggerType: text(item.triggerType || item.trigger_type),
+      errorCode: text(item.errorCode || item.error_code),
+    });
+  });
+
+  return [...sources, ...rules, ...assurances, ...findings, ...remediations, ...runs];
 }
 
 export function buildConnectedGrcEnterpriseRows(payloads: ConnectedGrcEnterprisePayloads): ConnectedGrcRow[] {

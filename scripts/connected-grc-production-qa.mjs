@@ -69,7 +69,7 @@ function projectableRecordCount(sourceKey, payload) {
     case "thirdParty":
       return arrayLength(payload, "vendors") + arrayLength(payload, "assessments") + arrayLength(payload, "findings");
     case "evidenceAutomation":
-      return arrayLength(payload, "sources") + arrayLength(payload, "rules") + arrayLength(payload, "findings");
+      return arrayLength(payload, "sources") + arrayLength(payload, "rules") + arrayLength(payload, "findings") + (Array.isArray(payload.runs) ? payload.runs.filter(run => run && typeof run === "object" && String(run.id ?? "").trim()).length : 0);
     default:
       return 0;
   }
@@ -81,7 +81,7 @@ function isCloudflareInsights(urlOrText) {
 
 await fs.mkdir(outDir, { recursive: true });
 
-const browser = await chromium.launch({ headless: true });
+const browser = await chromium.launch({ headless: true, executablePath: process.env.QA_CHROMIUM_PATH });
 const context = await browser.newContext({ viewport: { width: 1536, height: 960 }, colorScheme: "light" });
 
 try {
@@ -131,7 +131,7 @@ try {
     report.consoleErrors.push({ text, sourceUrl: locationUrl, pageUrl: page.url() });
   });
   page.on("pageerror", (error) => report.pageErrors.push({ message: error.message, pageUrl: page.url() }));
-  let leavingDashboard = false;
+  let leavingDashboard = true;
   page.on("requestfailed", (request) => {
     const url = request.url();
     if (isCloudflareInsights(url)) return;
@@ -164,12 +164,13 @@ try {
     await connectedButton.evaluate((element) => element.click());
     await page.locator(".connected-grc").waitFor({ state: "visible", timeout: 10_000 });
 
-    const liveStatus = page.locator(".connected-hero small").first();
+    const liveStatus = page.locator(".cg-source-state").first();
     try {
       await liveStatus.waitFor({ state: "visible", timeout: 5_000 });
       await page.waitForFunction((expected) => {
-        const text = document.querySelector(".connected-hero small")?.textContent || "";
-        return text.includes(expected) && !/YÜKLENİYOR|LOADING LIVE SOURCES/i.test(text);
+        const status = document.querySelector(".cg-source-state");
+        return status?.getAttribute("data-loading") === "false"
+          && `${status.getAttribute("data-ready")}/${status.getAttribute("data-total")}` === expected;
       }, expectedLiveSourceText, { timeout: 20_000 });
     } catch {
       fail("Connected GRC live-source readiness", `Expected ${expectedLiveSourceText} live sources, observed: ${(await liveStatus.textContent().catch(() => "")) || "missing status"}`);
@@ -177,15 +178,16 @@ try {
 
     leavingDashboard = false;
     const sourceStatusText = (await liveStatus.textContent().catch(() => ""))?.trim() || "";
-    const relationshipRows = await page.locator(".connected-table article").count();
+    const relationshipRows = Number(await page.locator(".cg-summary > span:nth-child(2) b").textContent());
     const unresolvedRows = await page.locator(".connected-unresolved div").count();
-    const domainButtons = await page.locator(".connected-layout aside button").allTextContents();
-    const kpiValues = await page.locator(".connected-kpis article b").allTextContents();
-    const loadingVisible = /YÜKLENİYOR|LOADING LIVE SOURCES/i.test(sourceStatusText);
+    const domainButtons = await page.locator(".cg-filters select option").allTextContents();
+    const kpiValues = await page.locator(".cg-summary b").allTextContents();
+    const loadingVisible = await liveStatus.getAttribute("data-loading") !== "false";
+    const ready = `${await liveStatus.getAttribute("data-ready")}/${await liveStatus.getAttribute("data-total")}`;
 
     report.ui = {
       sourceStatusText,
-      liveSourcesReady: sourceStatusText.includes(expectedLiveSourceText) && !loadingVisible,
+      liveSourcesReady: ready === expectedLiveSourceText && !loadingVisible,
       relationshipRows,
       unresolvedRows,
       domainButtons: domainButtons.map((value) => value.replace(/\s+/g, " ").trim()),
@@ -193,7 +195,7 @@ try {
     };
 
     if (!report.ui.liveSourcesReady) fail("Connected GRC UI source status", sourceStatusText || "status text missing");
-    if (relationshipRows < 1) fail("Connected GRC relationship register", "No relationship rows rendered after live sources completed.");
+    if (!Number.isFinite(relationshipRows) || relationshipRows < 1) fail("Connected GRC relationship register", "No connections reported in the explorer summary after live sources completed.");
 
     for (const endpoint of report.endpointChecks.filter((item) => item.ok && item.projectableRecords > 0)) {
       const represented = domainButtons.some((text) => text.includes(endpoint.module));
@@ -208,6 +210,7 @@ try {
   let languageSwitched = false;
   if (languageButtonFound) {
     try {
+      leavingDashboard = true;
       await languageButton.click();
       await page.waitForFunction(() => document.documentElement.lang === "en", undefined, { timeout: 5_000 });
       await page.locator('nav button[aria-label="Dashboard"]').first().waitFor({ state: "attached", timeout: 5_000 });

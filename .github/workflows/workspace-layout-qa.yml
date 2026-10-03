@@ -47,6 +47,12 @@ jobs:
         run: node scripts/ask-fornost-runtime-qa.mjs
       - name: Ready control templates and result drill-down QA
         run: node scripts/ready-controls-runtime-qa.mjs
+      - name: Connected GRC live sources and explorer contract
+        env:
+          FORNOST_PROD_URL: http://127.0.0.1:4173
+          FORNOST_SMOKE_EMAIL: qa-admin@fornost.test
+          FORNOST_SMOKE_PASSWORD: Fornost-QA!2026-Branch
+        run: node scripts/connected-grc-production-qa.mjs
       - name: Module boundaries, access editor and session revocation QA
         run: node scripts/module-access-runtime-qa.mjs
       - name: CAPA control context, diagnostics and recovery QA
