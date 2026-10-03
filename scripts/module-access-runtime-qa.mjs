@@ -1,8 +1,9 @@
+import { qaPassword } from "./qa-credentials.mjs";
 import {chromium,expect} from '@playwright/test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 // Fixed loopback origin: these account and record mutations must never target production.
-const base='http://127.0.0.1:4173',out='module-access-qa-artifacts',password='Fornost-QA!2026-Branch';
+const base='http://127.0.0.1:4173',out='module-access-qa-artifacts',password=qaPassword();
 await fs.mkdir(out,{recursive:true});
 const browser=await chromium.launch({executablePath:process.env.QA_CHROMIUM_PATH||undefined});
 const admin=await browser.newContext({viewport:{width:1536,height:960}}),restricted=await browser.newContext({viewport:{width:1536,height:960}});

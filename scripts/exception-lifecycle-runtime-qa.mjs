@@ -1,9 +1,10 @@
+import { qaPassword } from "./qa-credentials.mjs";
 import {chromium,expect} from '@playwright/test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import {execFileSync} from 'node:child_process';
 // These mutation/failure fixtures are restricted to loopback and local D1.
-const base='http://127.0.0.1:4173',endpoint='/api/continuous-assurance/governance',out='exception-lifecycle-qa-artifacts',password='Fornost-QA!2026-Branch';
+const base='http://127.0.0.1:4173',endpoint='/api/continuous-assurance/governance',out='exception-lifecycle-qa-artifacts',password=qaPassword();
 await fs.mkdir(out,{recursive:true});
 const browser=await chromium.launch({executablePath:process.env.QA_CHROMIUM_PATH||undefined}),admin=await browser.newContext(),maker=await browser.newContext(),viewer=await browser.newContext();
 let checks=0;

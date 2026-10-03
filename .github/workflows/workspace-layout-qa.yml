@@ -31,6 +31,8 @@ jobs:
           else
             npx playwright install chromium
           fi
+      - name: Generate isolated QA credentials
+        run: node scripts/prepare-local-qa.mjs
       - name: Start isolated app and create QA account
         shell: bash
         run: |
@@ -42,7 +44,7 @@ jobs:
           done
           curl --fail --silent --show-error http://127.0.0.1:4173/api/auth \
             -H 'Origin: http://127.0.0.1:4173' -H 'Content-Type: application/json' \
-            --data '{"action":"bootstrap","name":"QA Admin","email":"qa-admin@fornost.test","password":"Fornost-QA!2026-Branch"}'
+            --data-binary @/tmp/fornost-qa-bootstrap.json
       - name: Ask Fornost immediate post-login and recovery QA
         run: node scripts/ask-fornost-runtime-qa.mjs
       - name: Ready control templates and result drill-down QA
@@ -51,7 +53,6 @@ jobs:
         env:
           FORNOST_PROD_URL: http://127.0.0.1:4173
           FORNOST_SMOKE_EMAIL: qa-admin@fornost.test
-          FORNOST_SMOKE_PASSWORD: Fornost-QA!2026-Branch
         run: node scripts/connected-grc-production-qa.mjs
       - name: Module boundaries, access editor and session revocation QA
         run: node scripts/module-access-runtime-qa.mjs
@@ -75,7 +76,6 @@ jobs:
         env:
           FORNOST_PROD_URL: http://127.0.0.1:4173
           FORNOST_SMOKE_EMAIL: qa-admin@fornost.test
-          FORNOST_SMOKE_PASSWORD: Fornost-QA!2026-Branch
           CF_ACCESS_CLIENT_ID: local-qa
           CF_ACCESS_CLIENT_SECRET: local-qa
         run: node scripts/full-product-qa-gate.mjs

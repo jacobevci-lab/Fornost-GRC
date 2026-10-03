@@ -1,3 +1,4 @@
+import { qaPassword } from "./qa-credentials.mjs";
 import {chromium,expect} from '@playwright/test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
@@ -11,7 +12,7 @@ try{
  await page.goto(base);await expect(page.locator('input[name=email]')).toBeVisible();
  // Let the independently mounted copilot observe the signed-out state first.
  await page.waitForTimeout(500);
- await page.locator('input[name=email]').fill('qa-admin@fornost.test');await page.locator('input[name=password]').fill('Fornost-QA!2026-Branch');await page.getByRole('button',{name:'Giriş Yap',exact:true}).click();
+ await page.locator('input[name=email]').fill('qa-admin@fornost.test');await page.locator('input[name=password]').fill(qaPassword());await page.getByRole('button',{name:'Giriş Yap',exact:true}).click();
  await expect(page.locator('.shell')).toBeVisible();await page.locator('.context-ai-trigger').click();
  const panel=page.locator('#fornost-ai-panel');await expect(panel).toBeVisible({timeout:5000});await expect(panel.locator('.fornost-ai-tabs')).toBeVisible({timeout:5000});
  assert.ok(await panel.locator('.fornost-ai-tabs>button').count()>=30,'Specialist AI capabilities are retained');

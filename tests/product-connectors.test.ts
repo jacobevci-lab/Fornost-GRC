@@ -4,13 +4,14 @@ import {connectorProfiles,newConnectorDraft,connectorProfile} from '../app/conne
 import {collectProvider,providerConfiguration,providerCredentials,mayReuseProviderCredentials} from '../app/connectors/collector';
 const guid='11111111-1111-4111-8111-111111111111';
 const config=(id='microsoft-graph',extra:Record<string,string>={})=>providerConfiguration({...newConnectorDraft(id),providerConfig:{tenantId:guid,clientId:guid,subscriptionId:guid,resourceGroup:'rg',workspace:'sentinel',...extra}}).config;
-const secret=JSON.stringify({clientSecret:'TEST_SECRET_NOT_REAL'});
+const clientSecret=crypto.randomUUID(), ephemeralToken=crypto.randomUUID();
+const secret=JSON.stringify({clientSecret});
 const json=(body:unknown,status=200,headers:Record<string,string>={})=>new Response(JSON.stringify(body),{status,headers:{'content-type':'application/json',...headers}});
 
 test('product config rejects invalid identity, unknown datasets and attacker-defined origins',()=>{
  assert.throws(()=>config('microsoft-graph',{tenantId:'common'}),/GUID/);
  assert.throws(()=>providerConfiguration({...newConnectorDraft('microsoft-graph'),dataset:'arbitrary',providerConfig:{}}),/dataset/);
- const cfg=config('microsoft-graph',{baseUrl:'https://evil.example',tokenUrl:'https://evil.example',clientSecret:'DO_NOT_STORE'});
+ const cfg=config('microsoft-graph',{baseUrl:'https://evil.example',tokenUrl:'https://evil.example',clientSecret:crypto.randomUUID()});
  assert.equal(cfg.baseUrl,'https://graph.microsoft.com/v1.0/security/secureScores');
  assert.equal(cfg.clientSecret,undefined);assert.equal(cfg.tokenUrl,undefined);
  assert.throws(()=>config('okta',{serviceUrl:'https://example.okta.com.evil.test'}),/Okta/);
@@ -31,16 +32,16 @@ test('Microsoft app-only credentials use correct audience, renew per run, and ex
   const run=()=>collectProvider(cfg,secret,{fetcher:async(url,init)=>{
    calls.push({url,init});
    assert.equal(init?.redirect,'error');assert.ok(init?.signal);
-   if(url.includes('/token'))return json({access_token:'EPHEMERAL_TOKEN'});
-   const h=new Headers(init?.headers);assert.equal(h.get('authorization'),'Bearer EPHEMERAL_TOKEN');
+   if(url.includes('/token'))return json({access_token:ephemeralToken});
+   const h=new Headers(init?.headers);assert.equal(h.get('authorization'),`Bearer ${ephemeralToken}`);
    return url.includes('next=2')?json({value:[{id:'two'}]}):json({value:[{id:'one'}],'@odata.nextLink':cfg.baseUrl+(cfg.baseUrl.includes('?')?'&':'?')+'next=2'});
   }});
   const result=await run();assert.equal((result.value as unknown[]).length,2);
   assert.deepEqual((result.fornostCollection as Record<string,unknown>).recordCount,2);
   const tokenCall=calls[0],form=new URLSearchParams(String(tokenCall.init?.body));
-  assert.equal(form.get('grant_type'),'client_credentials');assert.equal(form.get('client_secret'),'TEST_SECRET_NOT_REAL');
+  assert.equal(form.get('grant_type'),'client_credentials');assert.equal(form.get('client_secret'),clientSecret);
   assert.equal(form.get('scope'),id==='defender-endpoint'?'https://api.securitycenter.microsoft.com/.default':id==='sentinel'||id==='azure-resources'?'https://management.azure.com/.default':'https://graph.microsoft.com/.default');
-  assert.ok(!JSON.stringify(result).includes('EPHEMERAL_TOKEN'));
+  assert.ok(!JSON.stringify(result).includes(ephemeralToken));
   await run();assert.equal(calls.filter(c=>c.url.includes('/token')).length,2);
  }
 });

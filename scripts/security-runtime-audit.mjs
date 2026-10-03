@@ -72,7 +72,7 @@ const unauthGrc = await request(`${baseUrl}/api/grc`, { headers: { Origin: baseU
 addResult("AUTHZ-ANON-GRC", "A01", "Anonymous GRC API access is denied", [401, 403].includes(unauthGrc.response.status), `HTTP ${unauthGrc.response.status}`, "critical");
 const hostileLogin = await request(`${baseUrl}/api/auth`, {
   method: "POST", headers: { Origin: "https://attacker.invalid", "content-type": "application/json" },
-  body: JSON.stringify({ action: "login", email: "nobody@example.invalid", password: "InvalidPassword1!" }),
+  body: JSON.stringify({ action: "login", email: "nobody@example.invalid", password: crypto.randomUUID() }),
 });
 addResult("CSRF-AUTH", "A01", "Cross-origin authentication POST is rejected", hostileLogin.response.status === 403, `HTTP ${hostileLogin.response.status}`, "high");
 
@@ -85,11 +85,11 @@ addResult("AUTH-NOSTORE", "A07", "Auth state response is non-cacheable", /no-sto
 
 const bad1 = await request(`${baseUrl}/api/auth`, {
   method: "POST", headers: { Origin: baseUrl, "content-type": "application/json" },
-  body: JSON.stringify({ action: "login", email: "not-a-user-1@example.invalid", password: "InvalidPassword1!" }),
+  body: JSON.stringify({ action: "login", email: "not-a-user-1@example.invalid", password: crypto.randomUUID() }),
 });
 const bad2 = await request(`${baseUrl}/api/auth`, {
   method: "POST", headers: { Origin: baseUrl, "content-type": "application/json" },
-  body: JSON.stringify({ action: "login", email: "not-a-user-2@example.invalid", password: "InvalidPassword2!" }),
+  body: JSON.stringify({ action: "login", email: "not-a-user-2@example.invalid", password: crypto.randomUUID() }),
 });
 addResult("AUTH-ENUM", "A07", "Unknown-user login failures are generic", bad1.response.status === 401 && bad2.response.status === 401 && bad1.text === bad2.text, `status=${bad1.response.status}/${bad2.response.status}; equalBody=${bad1.text === bad2.text}`, "high");
 
@@ -103,7 +103,7 @@ addResult("INJ-AUTH-SQL", "A03", "SQL-injection style credentials do not bypass 
 const xssPayload = `<svg onload=alert(1337)>`;
 const xss = await request(`${baseUrl}/api/auth`, {
   method: "POST", headers: { Origin: baseUrl, "content-type": "application/json" },
-  body: JSON.stringify({ action: "login", email: `${xssPayload}@example.invalid`, password: "InvalidPassword1!" }),
+  body: JSON.stringify({ action: "login", email: `${xssPayload}@example.invalid`, password: crypto.randomUUID() }),
 });
 addResult("INJ-AUTH-XSS", "A03", "Auth errors do not reflect raw active XSS payload", !xss.text.includes(xssPayload), `HTTP ${xss.response.status}`, "high");
 

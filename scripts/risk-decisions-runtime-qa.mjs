@@ -1,9 +1,10 @@
+import { qaPassword } from "./qa-credentials.mjs";
 import { chromium, expect } from '@playwright/test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import { execFileSync } from 'node:child_process';
 // Every fixture and mutation is confined to fixed loopback and explicit local D1.
-const base='http://127.0.0.1:4173',out='risk-decisions-qa-artifacts',password='Fornost-QA!2026-Branch',endpoint='/api/continuous-assurance/governance';
+const base='http://127.0.0.1:4173',out='risk-decisions-qa-artifacts',password=qaPassword(),endpoint='/api/continuous-assurance/governance';
 await fs.mkdir(out,{recursive:true});
 const browser=await chromium.launch({executablePath:process.env.QA_CHROMIUM_PATH||undefined});
 const admin=await browser.newContext({viewport:{width:1536,height:960}}),page=await admin.newPage();

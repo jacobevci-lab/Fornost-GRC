@@ -36,9 +36,9 @@ test("AI endpoint policy never permits metadata/link-local or multicast destinat
 test("AI context sanitization removes credential-like fields recursively", () => {
   const sanitized = sanitizeAiRecord({
     title: "ERP Risk",
-    token: "should-not-leak",
-    nested: { password: "hidden", owner: "Security" },
-    apiKey: "hidden-too",
+    token: crypto.randomUUID(),
+    nested: { password: crypto.randomUUID(), owner: "Security" },
+    apiKey: crypto.randomUUID(),
     notes: "Authorization: Bearer abcdefghijklmnopqrstuvwxyz123456",
   }) as Record<string, unknown>;
   assert.equal(sanitized.title, "ERP Risk");

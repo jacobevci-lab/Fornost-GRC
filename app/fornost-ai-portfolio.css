@@ -140,3 +140,5 @@ html[data-theme="dark"] .ai-portfolio .dossier>header>span {
     text-align: left;
   }
 }
+
+.ai-portfolio .dossier-download-form{display:flex;gap:7px;flex-wrap:wrap}

@@ -1,8 +1,9 @@
+import { qaPassword } from "./qa-credentials.mjs";
 import { chromium, expect } from '@playwright/test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 // This runner deliberately has no configurable remote URL: CRUD is isolated only.
-const base='http://127.0.0.1:4173', out='runtime-qa-artifacts', password='Fornost-QA!2026-Branch';
+const base='http://127.0.0.1:4173', out='runtime-qa-artifacts', password=qaPassword();
 const owner='qa-admin@fornost.test', reviewer='qa-reviewer@fornost.test';
 const today=new Date().toISOString().slice(0,10), future=n=>new Date(Date.now()+n*86400000).toISOString().slice(0,10);
 const evidence={note:'Independent QA evidence and verification completed.',evidenceReference:'QA-EVIDENCE-001',evidenceSha256:'a'.repeat(64)};

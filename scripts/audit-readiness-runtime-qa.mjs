@@ -1,9 +1,10 @@
+import { qaPassword } from "./qa-credentials.mjs";
 import { chromium, expect } from '@playwright/test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import { execFileSync } from 'node:child_process';
 // Synthetic fixtures are confined to the fixed loopback app and explicitly local D1.
-const base = 'http://127.0.0.1:4173', out = 'audit-readiness-qa-artifacts', password = 'Fornost-QA!2026-Branch';
+const base = 'http://127.0.0.1:4173', out = 'audit-readiness-qa-artifacts', password = qaPassword();
 const name = 'QA Audit Readiness', endpoint = `/api/audits/readiness?auditName=${encodeURIComponent(name)}`;
 await fs.mkdir(out, { recursive: true });
 const browser = await chromium.launch({ executablePath: process.env.QA_CHROMIUM_PATH || undefined });

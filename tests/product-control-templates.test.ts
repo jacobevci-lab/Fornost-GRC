@@ -56,9 +56,10 @@ test('template identity, version and complete dataset are mandatory', () => {
   assert.equal(templatesForSource({ driver: 'provider-v1', config: intune }).length, 2);
 });
 test('diagnostics are bounded and do not copy unrelated provider data', () => {
-  const result = assess(Array.from({ length: 150 }, (_, i) => device(String(i), { complianceState: 'noncompliant', secret: 'DO_NOT_RETAIN' })));
+ const excludedSecret=crypto.randomUUID();
+  const result = assess(Array.from({ length: 150 }, (_, i) => device(String(i), { complianceState: 'noncompliant', secret: excludedSecret })));
   assert.equal(result.total, 150); assert.equal(result.failed, 150); assert.equal(result.issues.length, 100); assert.equal(result.issuesTruncated, true);
-  assert.ok(!JSON.stringify(result).includes('DO_NOT_RETAIN'));
+  assert.ok(!JSON.stringify(result).includes(excludedSecret));
 });
 
 // Execute the real persistence/orchestration code against SQLite, with only vendor HTTP substituted.
@@ -92,14 +93,14 @@ test('native fail -> repeat -> pass persists evidence, deduplicates findings and
   const { sqlite, db } = database();
   try {
     await ensureEvidenceAutomationSchema(db);
-    const key = 'qa-only-encryption-key-32-characters-long', guid = '11111111-1111-4111-8111-111111111111';
+    const key = crypto.randomUUID(), guid = '11111111-1111-4111-8111-111111111111';
     const cfg = providerConfiguration({ ...newConnectorDraft('intune'), providerConfig: { tenantId: guid, clientId: guid } }).config;
-    const encrypted = await encryptSecret(JSON.stringify({ clientSecret: 'LOCAL_TEST_ONLY' }), key);
+    const encrypted = await encryptSecret(JSON.stringify({ clientSecret: crypto.randomUUID() }), key);
     sqlite.prepare("INSERT INTO evidence_automation_sources(id,name,vendor,category,driver,config_json,secret_ciphertext,created_at,updated_at,updated_by) VALUES('source','Intune','Microsoft','Cloud','provider-v1',?,?,?,?,'qa')").run(JSON.stringify(cfg), encrypted, now.toISOString(), now.toISOString());
     sqlite.prepare("INSERT INTO evidence_automation_rules(id,name,source_id,control_refs,json_path,operator,expected,schedule,created_at,updated_at,updated_by,template_id,template_version,failure_threshold) VALUES('rule','Compliance','source','A.8.1','$','template','','daily',?,?,'qa','intune-compliance',1,1)").run(now.toISOString(), now.toISOString());
     const env = { DB: db, FORNOST_SETTINGS_ENCRYPTION_KEY: key };
     let devices = [device('bad', { complianceState: 'noncompliant' }), device('good')], upstreamStatus = 200;
-    const fetcher = async (url: string) => new Response(JSON.stringify(url.includes('/token') ? { access_token: 'ephemeral' } : { value: devices }), { status: upstreamStatus, headers: { 'content-type': 'application/json' } });
+    const fetcher = async (url: string) => new Response(JSON.stringify(url.includes('/token') ? { access_token: crypto.randomUUID() } : { value: devices }), { status: upstreamStatus, headers: { 'content-type': 'application/json' } });
     const first = await executeRule(env, 'rule', 'qa@fornost.test', 'manual', { fetcher, now }); assert.equal(first.status, 'fail'); assert.ok(first.evidenceId);
     const evidence = JSON.parse(String(sqlite.prepare("SELECT data_json FROM simple_grc_records WHERE id=?").get(first.evidenceId!)!.data_json));
     assert.equal(evidence.controlAssessment.failed, 1); assert.equal(evidence.controlAssessment.issues[0].id, 'bad'); assert.match(evidence.responseHash, /^[a-f0-9]{64}$/);

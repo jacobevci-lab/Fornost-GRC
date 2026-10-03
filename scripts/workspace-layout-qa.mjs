@@ -1,3 +1,4 @@
+import { qaPassword } from "./qa-credentials.mjs";
 import { chromium } from '@playwright/test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
@@ -12,7 +13,7 @@ const results = [];
 try {
   const response = await context.request.post(`${base}/api/auth`, {
     headers: { origin: base },
-    data: { action: 'login', email: 'qa-admin@fornost.test', password: 'Fornost-QA!2026-Branch' },
+    data: { action: 'login', email: 'qa-admin@fornost.test', password: qaPassword() },
   });
   assert.equal(response.status(), 200, 'Isolated QA login');
   const page = await context.newPage();

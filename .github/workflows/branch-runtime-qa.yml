@@ -23,7 +23,6 @@ jobs:
       CF_ACCESS_CLIENT_ID: local-qa
       CF_ACCESS_CLIENT_SECRET: local-qa
       FORNOST_SMOKE_EMAIL: qa-admin@fornost.test
-      FORNOST_SMOKE_PASSWORD: Fornost-QA!2026-Branch
       QA_FAIL_ON_HIGH: "1"
 
     steps:
@@ -62,6 +61,8 @@ jobs:
           cat /tmp/fornost-branch-runtime.log >&2 || true
           exit 1
 
+      - name: Generate isolated QA credentials
+        run: node scripts/prepare-local-qa.mjs
       - name: Bootstrap isolated local admin
         shell: bash
         run: |
@@ -77,7 +78,7 @@ jobs:
             -X POST http://127.0.0.1:4173/api/auth \
             -H 'Origin: http://127.0.0.1:4173' \
             -H 'Content-Type: application/json' \
-            --data '{"action":"bootstrap","name":"QA Admin","email":"qa-admin@fornost.test","password":"Fornost-QA!2026-Branch"}')
+            --data-binary @/tmp/fornost-qa-bootstrap.json)
           cat /tmp/fornost-bootstrap.json
           test "$code" = "200"
 
