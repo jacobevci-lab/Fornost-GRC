@@ -18,7 +18,7 @@ test("assurance dossier domain distinguishes ready, attention and missing eviden
 });
 
 test("assurance dossier seals are deterministic and reject altered digests", async () => {
-  const secret="test-only-dossier-signing-key-0123456789abcdef", digest="a".repeat(64), signature=await signDossierDigest(digest,secret);
+  const secret=crypto.randomUUID(), digest="a".repeat(64), signature=await signDossierDigest(digest,secret);
   assert.equal(await verifyDossierDigest(digest,signature,secret),true);
   assert.equal(await verifyDossierDigest("b".repeat(64),signature,secret),false);
   assert.match(await dossierSigningKeyId(secret),/^fornost-hmac-[a-f0-9]{16}$/);

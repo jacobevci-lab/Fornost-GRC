@@ -1,8 +1,9 @@
+import { qaPassword } from "./qa-credentials.mjs";
 import {chromium,expect} from '@playwright/test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 // Isolated UI/API contract QA only; vendor behaviour and real persistence are tested in product-control-templates.test.ts.
-const base='http://127.0.0.1:4173',out='ready-controls-qa-artifacts',password='Fornost-QA!2026-Branch';
+const base='http://127.0.0.1:4173',out='ready-controls-qa-artifacts',password=qaPassword();
 await fs.mkdir(out,{recursive:true});
 const browser=await chromium.launch({executablePath:process.env.QA_CHROMIUM_PATH||undefined});
 const context=await browser.newContext({viewport:{width:1536,height:960}}),page=await context.newPage();page.setDefaultTimeout(15000);
@@ -11,7 +12,7 @@ async function api(ctx,path,method='GET',data,status=200){const r=await ctx.requ
 const path='/api/evidence-automation',guid='11111111-1111-4111-8111-111111111111';
 try{
  await api(context,'/api/auth','POST',{action:'login',email:'qa-admin@fornost.test',password});
- const source=await api(context,path,'POST',{action:'save-source',name:'QA Ready Intune',vendor:'Microsoft Intune',category:'Cloud & SaaS',providerId:'intune',dataset:'managed-devices',providerConfig:{tenantId:guid,clientId:guid},credentials:{clientSecret:'QA_SYNTHETIC_NOT_REAL'}});
+ const source=await api(context,path,'POST',{action:'save-source',name:'QA Ready Intune',vendor:'Microsoft Intune',category:'Cloud & SaaS',providerId:'intune',dataset:'managed-devices',providerConfig:{tenantId:guid,clientId:guid},credentials:{clientSecret:crypto.randomUUID()}});
  await page.goto(base);await expect(page.locator('.shell')).toBeVisible();await page.locator('.language-switch:visible').getByRole('button',{name:'EN',exact:true}).click();
  await page.locator('nav button[aria-label="Evidence Automation"]').evaluate(el=>el.click());
  await page.locator('.ea-tabs').getByRole('button',{name:'Continuous Controls',exact:true}).click();

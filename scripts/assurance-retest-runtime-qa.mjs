@@ -1,9 +1,10 @@
+import { qaPassword } from "./qa-credentials.mjs";
 import { chromium, expect } from '@playwright/test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import { execFileSync } from 'node:child_process';
 // Fixed localhost origin and --local D1. Vendor HTTP is substituted in SQLite unit tests.
-const base = 'http://127.0.0.1:4173', out = 'assurance-retest-qa-artifacts', password = 'Fornost-QA!2026-Branch';
+const base = 'http://127.0.0.1:4173', out = 'assurance-retest-qa-artifacts', password = qaPassword();
 await fs.mkdir(out, { recursive: true });
 const browser = await chromium.launch({ executablePath: process.env.QA_CHROMIUM_PATH || undefined });
 const admin = await browser.newContext({ viewport: { width: 1536, height: 960 } }), checker = await browser.newContext(), page = await admin.newPage();

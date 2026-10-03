@@ -1,3 +1,4 @@
+import { qaPassword } from "./qa-credentials.mjs";
 import { chromium, expect } from '@playwright/test';
 import assert from 'node:assert/strict';
 import AxeBuilder from '@axe-core/playwright';
@@ -6,7 +7,7 @@ const base='http://127.0.0.1:4173',out='simplicity-qa-artifacts';
 await fs.mkdir(out,{recursive:true});
 const browser=await chromium.launch({executablePath:process.env.QA_CHROMIUM_PATH||undefined});
 const context=await browser.newContext({viewport:{width:1536,height:960}});
-const response=await context.request.post(`${base}/api/auth`,{headers:{origin:base},data:{action:'login',email:'qa-admin@fornost.test',password:'Fornost-QA!2026-Branch'}});
+const response=await context.request.post(`${base}/api/auth`,{headers:{origin:base},data:{action:'login',email:'qa-admin@fornost.test',password:qaPassword()}});
 assert.equal(response.status(),200);
 const page=await context.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message));
 try{
