@@ -1,3 +1,5 @@
+import { sameOrigin } from "../auth/security";
+import { JsonBodyError, readBoundedJsonObject } from "../request-body";
 import { NextRequest, NextResponse } from "next/server";
 import { GET as coreGET, POST as corePOST } from "./core";
 
@@ -46,7 +48,10 @@ export async function GET(req: NextRequest) {
  * finding identifiers from a rule ID; it consumes this response directly.
  */
 export async function POST(req: NextRequest) {
-  const body = await req.clone().json().catch(() => ({})) as Record<string, unknown>;
+  if (!sameOrigin(req)) return NextResponse.json({ error: "Geçersiz istek kaynağı." }, { status: 403 });
+  let body: Record<string, unknown>;
+  try { body = await readBoundedJsonObject(req.clone(), 65_536); }
+  catch (error) { if (error instanceof JsonBodyError) return NextResponse.json({ error: error.message }, { status: error.status }); throw error; }
   const action = text(body.action);
   const response = await corePOST(req);
 

@@ -1,0 +1,33 @@
+import { chromium, expect } from '@playwright/test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs/promises';
+const base = process.env.FORNOST_PROD_URL;
+assert.equal(base, 'https://127.0.0.1:4173');
+const browser = await chromium.launch({executablePath:process.env.QA_CHROMIUM_PATH});
+const context = await browser.newContext({ignoreHTTPSErrors:true});
+const page = await context.newPage(), errors=[];
+page.on('pageerror',error=>errors.push(error.message));
+page.on('console',message=>{if(message.type()==='error') errors.push(message.text());});
+try {
+ const response = await page.goto(base, {waitUntil:'domcontentloaded'});
+ const csp=response.headers()['content-security-policy'];
+ assert.ok(!csp.match(/script-src[^;]*'unsafe-inline'/));
+ const nonce=csp.match(/'nonce-([^']+)'/)?.[1];assert.ok(nonce);
+ await expect(page.locator('.auth-card')).toBeVisible();
+ assert.ok(await page.locator('script').evaluateAll((scripts,nonce)=>scripts.every(script=>script.nonce===nonce),nonce));
+ await page.locator('input[name="email"]').fill(process.env.FORNOST_SMOKE_EMAIL);
+ await page.locator('input[name="password"]').fill(process.env.FORNOST_SMOKE_PASSWORD);
+ await page.locator('.auth-card button.primary').click();
+ await expect(page.locator('.shell')).toBeVisible({timeout:20000});
+ await page.locator('.language-switch:visible').getByRole('button',{name:'EN',exact:true}).click();
+ await page.locator('nav button[aria-label="Risk Assessment"]').evaluate(el=>el.click());
+ await expect(page.locator('.risk-analysis-disclosure')).toBeVisible();
+ await page.locator('.context-ai-trigger').click();
+ await expect(page.locator('#fornost-ai-panel')).toBeVisible();
+ await page.locator('#fornost-ai-panel button[aria-label="Kapat"]').click();
+ await page.reload({waitUntil:'domcontentloaded'});
+ await expect(page.locator('.shell')).toBeVisible();
+ assert.deepEqual(errors,[]);
+ await fs.writeFile('security-artifacts/runtime/browser-security.json',JSON.stringify({passed:true,checks:['nonce CSP','SSR script nonces','login hydration','risk navigation','AI lazy loading','authenticated reload','no console/page errors']}));
+ console.log('SECURITY_BROWSER_PASS');
+}finally{await browser.close();}

@@ -40,7 +40,7 @@ add("COOKIE-HTTPONLY", "A07", "Session cookie is HttpOnly", /httpOnly:\s*true/.t
 add("COOKIE-SAMESITE", "A07", "Session cookie is SameSite Strict", /sameSite:\s*["']strict["']/.test(authRoute), "high", "Cookie policy must use SameSite=Strict", "app/api/auth/route.ts");
 add("AUTH-LOCKOUT", "A07", "Local login has bounded failed-attempt lockout", /failed_attempts/.test(authRoute) && /attempts\s*>=\s*5/.test(authRoute) && /15\s*\*\s*60_000/.test(authRoute), "high", "Expected lockout after five failures for 15 minutes", "app/api/auth/route.ts");
 add("AUTH-ORIGIN", "A01", "Authentication writes enforce same-origin", /if\s*\(!sameOrigin\(req\)\)/.test(authRoute), "critical", "Expected sameOrigin guard before auth mutations", "app/api/auth/route.ts");
-add("AUTH-SIZE", "A04", "Authentication request body size is bounded", /content-length/.test(authRoute) && /16_384/.test(authRoute), "medium", "Expected explicit auth request size limit", "app/api/auth/route.ts");
+add("AUTH-SIZE", "A04", "Authentication request body size is bounded", /readBoundedJsonObject\(req, 16_384\)/.test(authRoute), "medium", "Expected explicit auth request size limit", "app/api/auth/route.ts");
 add("TRUST-IDENTITY", "A01", "Platform identity trust is explicitly feature-gated", /FORNOST_TRUST_PLATFORM_IDENTITY/.test(authSecurity), "critical", "Expected explicit deployment flag before trusting forwarded identity", "app/api/auth/security.ts");
 
 const allFiles = await walk(root);

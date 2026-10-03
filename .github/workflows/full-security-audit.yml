@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - qa/full-product-security-audit-2026-09-22
+      - security/**
 
 permissions:
   contents: read
@@ -61,7 +62,7 @@ jobs:
         shell: bash
         run: |
           set +e
-          npm audit --omit=dev --audit-level=high --json > security-artifacts/sca/npm-audit.json
+          npm audit --audit-level=high --json > security-artifacts/sca/npm-audit.json
           code=$?
           echo "exit_code=$code" >> "$GITHUB_OUTPUT"
           exit 0
@@ -85,7 +86,7 @@ jobs:
           python3 - <<'PY'
           import json, pathlib
           p=pathlib.Path('security-artifacts/sast/semgrep.json')
-          data=json.loads(p.read_text()) if p.exists() else {'results':[],'errors':[]}
+          data=json.loads(p.read_text())
           results=data.get('results',[])
           high=[r for r in results if str(r.get('extra',{}).get('severity','')).upper() in {'ERROR','CRITICAL','HIGH'}]
           errors=data.get('errors',[])
@@ -112,7 +113,7 @@ jobs:
           PY
           policy=$?
           code=$scan
-          if [ "$policy" -eq 0 ]; then code=0; else code=$policy; fi
+          if [ "$policy" -ne 0 ]; then code=$policy; fi
           echo "exit_code=$code" >> "$GITHUB_OUTPUT"
           exit 0
 
@@ -172,8 +173,6 @@ jobs:
           set +e
           docker run --rm -v "$PWD:/repo" aquasec/trivy:latest fs \
             --scanners vuln,misconfig \
-            --severity HIGH,CRITICAL \
-            --ignore-unfixed \
             --format json \
             --output /repo/security-artifacts/sca/trivy.json \
             --exit-code 2 \
@@ -248,7 +247,7 @@ jobs:
             "${{ steps.trivy.outputs.exit_code }}" \
             "${{ steps.checkov.outputs.exit_code }}" \
             "${{ steps.syft.outputs.exit_code }}"; do
-            if [ -n "$code" ] && [ "$code" != "0" ]; then failed=1; fi
+            if [ "$code" != "0" ]; then failed=1; fi
           done
           exit "$failed"
 
@@ -332,6 +331,178 @@ jobs:
         run: |
           failed=0
           for code in "${{ steps.runtime_audit.outputs.exit_code }}" "${{ steps.zap.outputs.exit_code }}"; do
-            if [ -n "$code" ] && [ "$code" != "0" ]; then failed=1; fi
+            if [ "$code" != "0" ]; then failed=1; fi
           done
           exit "$failed"
+
+  isolated-active-dast:
+    name: Isolated production-build API and active DAST
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      FORNOST_PROD_URL: https://127.0.0.1:4173
+      FORNOST_SMOKE_EMAIL: security-admin@fornost.test
+      FORNOST_SMOKE_PASSWORD: Security-QA!2026-Isolated
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.13.0
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - name: Start isolated HTTPS production artifact
+        shell: bash
+        run: |
+          mkdir -p security-artifacts/{runtime,zap}
+          chmod 0777 security-artifacts/zap
+          scan_key="$(openssl rand -hex 32)"
+          echo "::add-mask::$scan_key"
+          echo "SCAN_BOOTSTRAP_TOKEN=$scan_key" >> "$GITHUB_ENV"
+          node_modules/.bin/wrangler dev --config dist/server/wrangler.json \
+            --ip 127.0.0.1 --port 4174 --local \
+            --persist-to /tmp/fornost-security-data \
+            --var "FORNOST_BOOTSTRAP_TOKEN:$scan_key" \
+            --var "FORNOST_SETTINGS_ENCRYPTION_KEY:$scan_key" \
+            --var "FORNOST_DEMO_MODE:false" \
+            --show-interactive-dev-session=false > /tmp/security-runtime.log 2>&1 &
+          for attempt in $(seq 1 90); do
+            if curl --fail --silent http://127.0.0.1:4174/api/auth >/dev/null; then break; fi
+            sleep 2
+          done
+          mkdir -p /tmp/security-proxy
+          openssl req -x509 -newkey rsa:2048 -nodes -days 1 -subj '/CN=localhost' \
+            -keyout /tmp/security-proxy/key.pem -out /tmp/security-proxy/cert.pem 2>/dev/null
+          cat > /tmp/security-proxy/nginx.conf <<'NGINX'
+          events {}
+          http {
+            server {
+              listen 127.0.0.1:4173 ssl;
+              ssl_certificate /scan/cert.pem;
+              ssl_certificate_key /scan/key.pem;
+              ssl_protocols TLSv1.2 TLSv1.3;
+              server_tokens off;
+              # Match production policy on static assets and proxy errors too.
+              proxy_hide_header Strict-Transport-Security;
+              proxy_hide_header X-Content-Type-Options;
+              proxy_hide_header Cross-Origin-Resource-Policy;
+              proxy_hide_header Cross-Origin-Embedder-Policy;
+              add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+              add_header X-Content-Type-Options "nosniff" always;
+              add_header Cross-Origin-Resource-Policy "same-origin" always;
+              add_header Cross-Origin-Embedder-Policy "credentialless" always;
+              client_max_body_size 10m;
+              location / {
+                proxy_pass http://127.0.0.1:4174;
+                proxy_http_version 1.1;
+                # Match the shipped proxy: default request buffering is enabled.
+                proxy_set_header Host $http_host;
+                proxy_set_header X-Forwarded-Host $http_host;
+                proxy_set_header X-Forwarded-Proto $scheme;
+              }
+            }
+          }
+          NGINX
+          docker run -d --name security-proxy --network host \
+            -v /tmp/security-proxy:/scan:ro nginx:stable-alpine nginx -c /scan/nginx.conf -g 'daemon off;'
+          for attempt in $(seq 1 30); do
+            if curl --insecure --fail --silent https://127.0.0.1:4173/api/auth >/dev/null; then break; fi
+            sleep 1
+          done
+          curl --insecure --fail --silent https://127.0.0.1:4173/api/auth >/dev/null
+      - name: Bootstrap synthetic security account
+        env:
+          NODE_TLS_REJECT_UNAUTHORIZED: '0'
+        run: node scripts/security-isolated-bootstrap.mjs
+      - name: Authenticated OWASP API checks
+        id: runtime
+        env:
+          NODE_TLS_REJECT_UNAUTHORIZED: '0'
+        shell: bash
+        run: |
+          set +e
+          node --import ./scripts/trace-fetch-polyfill.mjs scripts/security-runtime-audit.mjs
+          echo "exit_code=$?" >> "$GITHUB_OUTPUT"
+      - name: Full API inventory authorization and CSRF matrix
+        env:
+          NODE_TLS_REJECT_UNAUTHORIZED: '0'
+        run: node scripts/security-api-matrix.mjs
+      - name: Browser CSP and hydration checks
+        id: browser
+        shell: bash
+        run: |
+          npm install --no-save --ignore-scripts @playwright/test@1.55.0
+          export QA_CHROMIUM_PATH="$(command -v google-chrome)"
+          node scripts/security-browser-qa.mjs
+      - name: Active ZAP scan against disposable target only
+        id: zap
+        shell: bash
+        run: |
+          set +e
+          timeout 20m docker run --rm --network host \
+            -v "$PWD/security-artifacts/zap:/zap/wrk:rw" \
+            ghcr.io/zaproxy/zaproxy:stable zap-full-scan.py \
+            -t https://127.0.0.1:4173 -m 2 -T 15 \
+            -J zap-active.json -r zap-active.html -w zap-active.md
+          echo "exit_code=$?" >> "$GITHUB_OUTPUT"
+      - name: Upload isolated security evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fornost-isolated-active-security
+          path: |
+            security-artifacts/
+            /tmp/security-runtime.log
+          retention-days: 30
+      - name: Enforce isolated scan completion
+        if: always()
+        env:
+          RUNTIME_EXIT: ${{ steps.runtime.outputs.exit_code }}
+          ZAP_EXIT: ${{ steps.zap.outputs.exit_code }}
+        run: |
+          test "$RUNTIME_EXIT" = 0
+          # ZAP 1/2 are findings, not scanner failures; retain and triage the report.
+          test "$ZAP_EXIT" = 0 -o "$ZAP_EXIT" = 1 -o "$ZAP_EXIT" = 2
+          test -s security-artifacts/zap/zap-active.json
+          node scripts/security-zap-gate.mjs security-artifacts/zap/zap-active.json
+
+  onprem-image-security:
+    name: Deployable image vulnerabilities and SBOM
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build the exact revision's on-prem image
+        run: docker build --build-arg FORNOST_SOURCE_COMMIT="$GITHUB_SHA" -t fornost-security:scan .
+      - name: Export immutable scan input
+        run: |
+          mkdir -p security-artifacts/image
+          docker image inspect fornost-security:scan --format '{{.Id}}' > security-artifacts/image/image-id.txt
+          docker save fornost-security:scan -o /tmp/fornost-security-image.tar
+      - name: Scan OS and application packages including unfixed CVEs
+        run: |
+          docker run --rm -v /tmp/fornost-security-image.tar:/scan/image.tar:ro \
+            -v "$PWD/security-artifacts/image:/out" aquasec/trivy:latest image \
+            --input /scan/image.tar --scanners vuln --format json --output /out/trivy-image.json
+      - name: Generate deployable-image CycloneDX and SPDX
+        run: |
+          docker run --rm -v /tmp/fornost-security-image.tar:/scan/image.tar:ro \
+            -v "$PWD/security-artifacts/image:/out" anchore/syft:latest docker-archive:/scan/image.tar \
+            -o cyclonedx-json=/out/image.cdx.json -o spdx-json=/out/image.spdx.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: fornost-image-security-sbom
+          path: security-artifacts/image/
+          retention-days: 30
+      - name: Report image release blockers
+        run: |
+          python3 - <<'PY'
+          import json
+          data=json.load(open('security-artifacts/image/trivy-image.json'))
+          findings=[v for result in data.get('Results',[]) for v in result.get('Vulnerabilities',[])]
+          high=[v for v in findings if v.get('Severity') in ('HIGH','CRITICAL')]
+          print('IMAGE_SECURITY_SUMMARY',json.dumps({'total':len(findings),'highCritical':len(high),'fixableHighCritical':sum(bool(v.get('FixedVersion')) for v in high)}))
+          for v in high: print(v['VulnerabilityID'],v['PkgName'],v['InstalledVersion'],v.get('FixedVersion','unfixed'))
+          raise SystemExit(2 if high else 0)
+          PY

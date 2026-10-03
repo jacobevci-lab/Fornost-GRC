@@ -22,6 +22,7 @@ test("dynamic responses retain the enterprise security header contract", () => {
     "X-Frame-Options",
     "Permissions-Policy",
     "Cross-Origin-Opener-Policy",
+    "Cross-Origin-Embedder-Policy",
     "Cross-Origin-Resource-Policy",
     "X-Permitted-Cross-Domain-Policies",
   ]) {
@@ -30,7 +31,7 @@ test("dynamic responses retain the enterprise security header contract", () => {
 });
 
 test("static asset responses inherit critical security headers", () => {
-  assert.match(staticHeaders, /^\/assets\/\*/m);
+  assert.match(staticHeaders, /^\/\*/m);
   assert.match(staticHeaders, /Strict-Transport-Security: max-age=31536000; includeSubDomains/);
   assert.match(staticHeaders, /X-Content-Type-Options: nosniff/);
   assert.match(staticHeaders, /Referrer-Policy: strict-origin-when-cross-origin/);

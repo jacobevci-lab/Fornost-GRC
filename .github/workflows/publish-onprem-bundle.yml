@@ -30,6 +30,21 @@ jobs:
           --build-arg FORNOST_SOURCE_COMMIT=${SOURCE_SHA}
           --tag localhost/fornost-grc-app:${SOURCE_SHA}
           .
+      - name: Block publication of vulnerable images
+        run: |
+          mkdir -p security-artifacts
+          docker save "localhost/fornost-grc-app:${SOURCE_SHA}" -o /tmp/release-image.tar
+          docker run --rm -v /tmp/release-image.tar:/scan/image.tar:ro \
+            -v "$PWD/security-artifacts:/out" aquasec/trivy:latest image \
+            --input /scan/image.tar --scanners vuln --severity HIGH,CRITICAL \
+            --exit-code 1 --format json --output /out/release-image.json
+      - name: Preserve release security evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-image-security
+          path: security-artifacts/
+          if-no-files-found: warn
       - name: Create and verify image bundle
         run: |
           docker save "localhost/fornost-grc-app:${SOURCE_SHA}" | gzip -1 > fornost-grc-amd64.tar.gz

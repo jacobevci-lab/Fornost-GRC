@@ -1,3 +1,10 @@
+# Preserve the application nonce (and stricter download CSPs). Proxy-generated
+# errors and redirects receive a closed fallback policy instead of unsafe-inline.
+map $upstream_http_content_security_policy $fornost_response_csp {
+    default $upstream_http_content_security_policy;
+    "" "default-src 'none'; base-uri 'none'; object-src 'none'; frame-ancestors 'none'; form-action 'none'; script-src-attr 'none'";
+}
+
 map $host $fornost_host_allowed {
     default 0;
     localhost 1;
@@ -28,15 +35,17 @@ server {
     proxy_hide_header X-Content-Type-Options;
     proxy_hide_header X-Frame-Options;
     proxy_hide_header Cross-Origin-Opener-Policy;
+    proxy_hide_header Cross-Origin-Embedder-Policy;
     proxy_hide_header Cross-Origin-Resource-Policy;
     proxy_hide_header Strict-Transport-Security;
     add_header Cache-Control "private, no-store, max-age=0" always;
-    add_header Content-Security-Policy "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; img-src 'self' data: blob:; font-src 'self'; style-src-elem 'self'; style-src-attr 'unsafe-inline'; script-src 'self' 'unsafe-inline'; script-src-attr 'none'; connect-src 'self'; frame-src 'self' blob:; worker-src 'self' blob:; manifest-src 'self'; upgrade-insecure-requests" always;
+    add_header Content-Security-Policy $fornost_response_csp always;
     add_header Referrer-Policy "strict-origin-when-cross-origin" always;
     add_header Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=(), usb=()" always;
     add_header X-Content-Type-Options "nosniff" always;
     add_header X-Frame-Options "DENY" always;
     add_header Cross-Origin-Opener-Policy "same-origin" always;
+    add_header Cross-Origin-Embedder-Policy "credentialless" always;
     add_header Cross-Origin-Resource-Policy "same-origin" always;
     add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
     add_header X-Permitted-Cross-Domain-Policies "none" always;
