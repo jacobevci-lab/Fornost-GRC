@@ -35,6 +35,7 @@ server {
     proxy_hide_header X-Content-Type-Options;
     proxy_hide_header X-Frame-Options;
     proxy_hide_header Cross-Origin-Opener-Policy;
+    proxy_hide_header Cross-Origin-Embedder-Policy;
     proxy_hide_header Cross-Origin-Resource-Policy;
     proxy_hide_header Strict-Transport-Security;
     add_header Cache-Control "private, no-store, max-age=0" always;
@@ -44,6 +45,7 @@ server {
     add_header X-Content-Type-Options "nosniff" always;
     add_header X-Frame-Options "DENY" always;
     add_header Cross-Origin-Opener-Policy "same-origin" always;
+    add_header Cross-Origin-Embedder-Policy "credentialless" always;
     add_header Cross-Origin-Resource-Policy "same-origin" always;
     add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
     add_header X-Permitted-Cross-Domain-Policies "none" always;

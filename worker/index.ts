@@ -33,6 +33,7 @@ const SECURITY_HEADERS: Readonly<Record<string, string>> = {
   "X-Frame-Options": "DENY",
   "Permissions-Policy": "camera=(), microphone=(), geolocation=(), payment=(), usb=(), browsing-topics=()",
   "Cross-Origin-Opener-Policy": "same-origin",
+  "Cross-Origin-Embedder-Policy": "credentialless",
   "Cross-Origin-Resource-Policy": "same-origin",
   "X-Permitted-Cross-Domain-Policies": "none",
 };

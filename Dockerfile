@@ -18,23 +18,15 @@ RUN npm run build
 RUN npm prune --omit=dev --no-audit --no-fund \
   && npm cache clean --force
 
-FROM node:22-trixie-slim AS runtime
+# Prepare writable directories with the historical UID so existing volumes work.
+RUN mkdir -p /app/.sites-runtime/data /app/.sites-runtime/home /app/.sites-runtime/tmp \
+  && chown -R 1000:1000 /app/.sites-runtime
 
+# No shell, curl, util-linux, package manager or build tools in production.
+FROM gcr.io/distroless/nodejs22-debian13:nonroot AS runtime
 ARG FORNOST_SOURCE_COMMIT=unknown
 LABEL org.opencontainers.image.title="Fornost GRC" \
       org.opencontainers.image.revision="${FORNOST_SOURCE_COMMIT}"
-
-RUN apt-get update \
-  && apt-get upgrade -y \
-  && apt-get install -y --no-install-recommends bash ca-certificates coreutils curl util-linux \
-  && rm -rf /var/lib/apt/lists/*
-
-# Runtime uses the pinned local Wrangler binary, not global package managers.
-# Keep build tooling and its independently bundled dependencies out of the image.
-RUN rm -rf /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/corepack \
-    /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack \
-    /usr/local/bin/yarn /usr/local/bin/yarnpkg /opt/yarn-*
-
 WORKDIR /app
 ARG NEXT_PUBLIC_BASE_PATH=/fornost-grc
 ENV NODE_ENV=production \
@@ -43,18 +35,14 @@ ENV NODE_ENV=production \
     HOST=0.0.0.0 \
     PORT=3000 \
     FORNOST_DEMO_MODE=false
-
-COPY --from=build --chown=node:node /app/node_modules ./node_modules
-COPY --from=build --chown=node:node /app/dist ./dist
-COPY --from=build --chown=node:node /app/scripts ./scripts
-COPY --from=build --chown=node:node /app/package.json ./package.json
-
-RUN mkdir -p /app/.sites-runtime/data /app/.sites-runtime/home /app/.sites-runtime/tmp \
-  && chown -R node:node /app/.sites-runtime
-
-USER node
+COPY --from=build --chown=1000:1000 /app/node_modules ./node_modules
+COPY --from=build --chown=1000:1000 /app/dist ./dist
+COPY --from=build --chown=1000:1000 /app/scripts ./scripts
+COPY --from=build --chown=1000:1000 /app/package.json ./package.json
+COPY --from=build --chown=1000:1000 /app/.sites-runtime ./.sites-runtime
+USER 1000:1000
 EXPOSE 3000
 HEALTHCHECK --interval=20s --timeout=5s --start-period=30s --retries=5 \
-  CMD curl --fail --silent "http://127.0.0.1:3000${NEXT_PUBLIC_BASE_PATH}/api/auth" >/dev/null || exit 1
-
-CMD ["bash", "scripts/linux/serve.sh"]
+  CMD ["/nodejs/bin/node", "scripts/linux/container-health.mjs"]
+ENTRYPOINT ["/nodejs/bin/node"]
+CMD ["scripts/linux/container-runtime.mjs"]
