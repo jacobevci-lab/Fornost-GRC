@@ -20,11 +20,11 @@ test("Evidence Automation projects the full assurance lifecycle into Connected G
       sources: [{ id: "SRC-1", name: "Microsoft Defender", lastTestStatus: "success" }],
       rules: [{ id: "RULE-1", name: "MFA continuous check", sourceId: "SRC-1", controlRefs: "CTL-001", health: "failing", freshness: "fresh" }],
       findings: [{ id: "CCM-1", ruleId: "RULE-1", evidenceId: "EVD-AUTO-1", title: "MFA coverage below threshold", severity: "high", status: "open", owner: "security@example.test", dueDate: "2026-09-30" }],
-      runs: [{ id: "RUN-1", ruleName: "MFA continuous check" }],
+      runs: [{ id: "RUN-1", ruleId: "RULE-1", evidenceId: "EVD-AUTO-1", ruleName: "MFA continuous check" }],
     },
   });
 
-  assert.equal(enterprise.filter((row) => row.module === "Kanıt Otomasyonu").length, 5);
+  assert.equal(enterprise.filter((row) => row.module === "Kanıt Otomasyonu").length, 6);
   const assurance = enterprise.find((row) => row.data.kind === "automation-assurance");
   assert.ok(assurance);
   assert.equal(assurance?.data.assuranceState, "ineffective");
@@ -73,5 +73,8 @@ test("healthy and stale rules expose deterministic assurance state without inven
 
 test("Evidence Automation adapters tolerate partial payloads without inventing nodes", () => {
   const rows = buildConnectedGrcEnterpriseRows({ evidenceAutomation: { runs: [{ id: "RUN-ONLY" }], sources: [null, "bad"] } });
-  assert.equal(rows.length, 0);
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0].data.kind, "automation-run");
+  assert.deepEqual(rows[0].data.automationRuleRef, []);
+  assert.deepEqual(rows[0].data.automationEvidenceRef, []);
 });
