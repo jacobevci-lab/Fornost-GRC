@@ -71,3 +71,16 @@
 .demo-data-summary{grid-template-columns:1fr}
 .setting-field.wide,.setting-toggle.wide,.reminder-rule.wide{grid-column:auto}
 }
+
+.settings-subnav{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px}
+.settings-subnav button,.settings-status-panel button,.settings-load-state button{padding:8px 12px;border:1px solid var(--ws-line,var(--line));border-radius:8px;background:var(--ws-surface,var(--cp-panel,#fff));color:var(--ws-ink,var(--ink));font:inherit;font-size:11px;cursor:pointer}
+.settings-subnav button[aria-current]{border-color:var(--blue);background:color-mix(in srgb,var(--blue) 10%,transparent);color:var(--blue)}
+.settings-subnav button:focus-visible,.settings-status-panel button:focus-visible,.settings-load-state button:focus-visible{outline:2px solid var(--blue);outline-offset:3px}
+.settings-status-panel{padding:20px;border:1px solid var(--ws-line,var(--line));border-radius:12px;background:var(--ws-surface,var(--cp-panel,#fff));color:var(--ws-ink,var(--ink))}
+.settings-status-panel header{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.settings-status-panel h3{margin:0 0 8px;font-size:13px}.settings-status-panel p{font-size:11px;line-height:1.6;color:var(--ws-muted,var(--muted));margin:0 0 16px}
+.settings-status-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(220px,100%),1fr));gap:12px;margin-bottom:16px}
+.settings-status-grid article{display:grid;align-content:start;gap:8px;min-width:0;padding:14px;border:1px solid var(--ws-line,var(--line));border-radius:9px}
+.settings-status-grid b,.settings-status-grid span{font-size:11px}.settings-status-grid small{font-size:10px;line-height:1.5;color:var(--ws-muted,var(--muted))}
+.settings-status-grid [data-state=ok]{color:var(--ws-positive,#16845b)}.settings-status-grid [data-state=error]{color:var(--ws-negative,#b42318)}.settings-status-grid [data-state=unknown]{color:var(--ws-muted,var(--muted))}
+.settings-status-panel button:disabled{opacity:.6;cursor:wait}.settings-load-state{display:flex;align-items:center;gap:12px;padding:16px;font-size:12px;color:var(--ws-ink,var(--ink))}
