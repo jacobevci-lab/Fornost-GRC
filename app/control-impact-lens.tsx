@@ -24,7 +24,7 @@ export default function ControlImpactLens({ detail, lang, reliable }: { reliable
       : `${detail.frameworks.length} framework mappings · ${detail.audits.length} audit requirements · ${detail.risks.length} risks`}</p>
     <p>{tr ? `${impact.assets.length} varlık · ${impact.processes.length} süreç · ${impact.processes.filter(item => item.critical).length} kritik süreç` : `${impact.assets.length} assets · ${impact.processes.length} processes · ${impact.processes.filter(item => item.critical).length} critical processes`}</p>
     <span>{tr ? 'Kontrol başarısız olduğunda bu bağımlılıklar önceliklendirmeye yardımcı olur. Bağlantılar, gerçekleşmiş kesinti veya otomatik risk kararı anlamına gelmez.' : 'These dependencies help prioritize a control failure. Links do not establish an actual outage or an automatic risk decision.'}</span>
-    {groups.map(group => <details className="control-impact-group" key={group.label}><summary>{group.label} ({group.items.length})</summary>
+    {groups.map(group => <details className="control-impact-group" key={group.processes ? 'processes' : 'assets'}><summary>{group.label} ({group.items.length})</summary>
       {group.items.length ? <div className="control-impact-records">{group.items.map(item => <article key={item.row.id}>
         <div><button type="button" onClick={() => open(item)}>{item.row.code || item.row.id} · {title(item.row)}</button>{item.critical && <b>{tr ? 'Kritik' : 'Critical'}</b>}</div>
         <small>{tr ? 'Sahip: ' : 'Owner: '}{String(item.row.data.owner || item.row.data.businessOwner || (tr ? 'Atanmamış' : 'Unassigned'))}</small>
