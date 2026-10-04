@@ -45,6 +45,8 @@ jobs:
           curl --fail --silent --show-error http://127.0.0.1:4173/api/auth \
             -H 'Origin: http://127.0.0.1:4173' -H 'Content-Type: application/json' \
             --data-binary @/tmp/fornost-qa-bootstrap.json
+      - name: Connected AI graph and source recovery QA
+        run: node scripts/connected-ai-grc-qa.mjs
       - name: Control business impact and dependency navigation QA
         run: node scripts/control-business-impact-qa.mjs
       - name: Enterprise My Work lifecycle navigation and recovery QA
@@ -100,6 +102,7 @@ jobs:
         with:
           name: workspace-layout-qa
           path: |
+            connected-ai-qa-artifacts/
             control-business-impact-qa-artifacts/
             enterprise-work-qa-artifacts/
             connected-reference-qa-artifacts/
