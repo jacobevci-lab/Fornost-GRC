@@ -88,7 +88,7 @@ on_install_error() {
   [[ -n "${engine}" ]] && print_runtime_diagnostics "${engine}"
   rollback_runtime || true
   [[ -n "${state_dir}" ]] && echo "Persistent installer state was preserved at: ${state_dir}" >&2
-  echo "Application data volume fornost-grc-data was not removed." >&2
+  echo "Application data volume ${data_volume:-fornost-grc-data} was not removed." >&2
   [[ "${rollback_succeeded}" == "true" ]] && echo "Service availability was restored with the previous application image." >&2
   exit "${code}"
 }
@@ -99,6 +99,9 @@ require_command curl
 require_command timeout
 require_command sha256sum
 require_command df
+require_command flock
+exec 9>"${project_root}/.fornost-maintenance.lock"
+flock -n 9 || { echo "Another installation or recovery operation is in progress." >&2; exit 75; }
 
 if [[ ! -f "${env_file}" ]]; then
   cp .env.onprem.example "${env_file}"
@@ -155,7 +158,11 @@ fi
 engine="$(container_engine)"
 image="localhost/fornost-grc-app:latest"
 network="fornost-grc-net"
-data_volume="fornost-grc-data"
+data_volume="${FORNOST_DATA_VOLUME:-$(read_setting FORNOST_DATA_VOLUME fornost-grc-data)}"
+[[ "${data_volume}" =~ ^fornost-grc-[A-Za-z0-9][A-Za-z0-9_.-]{0,99}$ ]] || {
+  echo "FORNOST_DATA_VOLUME must be a valid fornost-grc-* volume name." >&2
+  exit 64
+}
 state_dir="${state_dir_setting:-$(default_state_dir)}"
 [[ "${state_dir}" == /* ]] || state_dir="$(resolve_project_path "${state_dir}")"
 install -d -m 700 "${state_dir}"
@@ -445,6 +452,7 @@ phase="installation state recording"
   printf 'FORNOST_CONTAINER_ENGINE=%s\n' "${engine}"
   printf 'FORNOST_BASE_PATH=%s\n' "${base_path}"
   printf 'FORNOST_HTTPS_PORT=%s\n' "${https_port}"
+  printf 'FORNOST_DATA_VOLUME=%s\n' "${data_volume}"
   printf 'FORNOST_INSTALLED_AT=%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 } >"${state_dir}/install-state.env"
 chmod 600 "${state_dir}/install-state.env"

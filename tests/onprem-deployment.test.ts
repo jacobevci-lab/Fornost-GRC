@@ -142,7 +142,7 @@ test("on-prem defaults to HTTPS 8443 with generated or configured TLS", async ()
 
 test("clean uninstall preserves data unless purge is explicitly confirmed", async () => {
   const uninstall = await readFile(new URL("../scripts/linux/uninstall.sh", import.meta.url), "utf8");
-  assert.match(uninstall, /volume fornost-grc-data was preserved/);
+  assert.match(uninstall, /volume \$\{data_volume\} was preserved/);
   assert.match(uninstall, /FORNOST_CONFIRM_PURGE/);
   assert.match(uninstall, /--purge-data/);
 });

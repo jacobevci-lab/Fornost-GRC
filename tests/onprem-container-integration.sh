@@ -33,6 +33,7 @@ cleanup() {
   "${engine}" rm -f fornost-grc-proxy fornost-grc-app >/dev/null 2>&1 || true
   "${engine}" network rm fornost-grc-net >/dev/null 2>&1 || true
   "${engine}" volume rm fornost-grc-data >/dev/null 2>&1 || true
+  "${engine}" volume rm fornost-grc-restore-integration >/dev/null 2>&1 || true
   rm -f .env.onprem
   rm -rf "${state_dir}"
 }
@@ -161,3 +162,22 @@ persisted="$("${engine}" run --rm \
 }
 
 echo "On-prem ${engine} clean bootstrap passed: empty runtime, verified image install, two running containers, HTTPS page assets, same-origin auth POST and API, plus reinstall data persistence."
+
+# Round-trip an offline snapshot into a distinct volume and boot the recovered data.
+python3 scripts/linux/backup.py --engine "${engine}" backup "${state_dir}/backup"
+python3 scripts/linux/backup.py verify "${state_dir}/backup"
+python3 scripts/linux/backup.py --engine "${engine}" restore "${state_dir}/backup" fornost-grc-restore-integration "${state_dir}/recovery"
+restored="$("${engine}" run --rm --volume fornost-grc-restore-integration:/data:ro,Z --entrypoint cat "${volume_helper_image}" /data/integration-marker)"
+[[ "${restored}" == "${marker}" ]] || { echo "Backup round-trip lost data" >&2; exit 1; }
+# Existing target rejection must not change the recovered data.
+if python3 scripts/linux/backup.py --engine "${engine}" restore "${state_dir}/backup" fornost-grc-restore-integration "${state_dir}/refused"; then
+  echo "Restore accepted an existing volume" >&2; exit 1
+fi
+cp "${state_dir}/recovery/recovery.env" .env.onprem
+printf 'FORNOST_HTTPS_PORT=%s\n' "${port}" >>.env.onprem
+FORNOST_CONTAINER_ENGINE="${engine}" FORNOST_STATE_DIR="${state_dir}" FORNOST_APP_BUNDLE_FILE="${FORNOST_APP_BUNDLE_FILE:-}" FORNOST_BUILD_LOCAL="${FORNOST_BUILD_LOCAL:-false}" bash scripts/linux/install.sh
+FORNOST_CONTAINER_ENGINE="${engine}" FORNOST_STATE_DIR="${state_dir}" bash scripts/linux/check.sh
+"${engine}" volume inspect fornost-grc-data >/dev/null
+# Keys must survive the round-trip; never print their values.
+"${engine}" inspect fornost-grc-app | python3 -c 'import json,sys; from pathlib import Path; expected=dict(line.split("=",1) for line in Path(sys.argv[1]).read_text().splitlines()); actual=dict(line.split("=",1) for line in json.load(sys.stdin)[0]["Config"]["Env"]); assert all(actual[key]==expected[key] for key in ("FORNOST_SETTINGS_ENCRYPTION_KEY","FORNOST_DOSSIER_SIGNING_KEY","FORNOST_SCHEDULER_TOKEN"))' "${state_dir}/recovery/recovery.env"
+echo "On-prem backup/recovery passed: consistent snapshot, verified archive, separate restored volume, preserved keys, running recovered app, untouched original volume."
