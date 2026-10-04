@@ -1,4 +1,5 @@
 "use client";
+import { enterpriseWorkSources, enterpriseWorkKinds, projectEnterpriseWork, type EnterpriseWorkSource } from "./enterprise-work";
 import MyWorkAssuranceSignals from "./my-work-assurance-signals";
 import { dueTimestamp } from "./due-date";
 import { matchesWorkIdentity, isDueToday, paginateWork, findingWorkRows, findingWorkDisposition, workSourcesComplete } from "./work-queue";
@@ -29,6 +30,9 @@ type RawRow = {
   updated_at?: unknown;
 };
 type Row = {
+  workSource?: EnterpriseWorkSource;
+  workKind?: string;
+  nativeRef?: string;
   id: string;
   code?: string;
   module: string;
@@ -88,6 +92,8 @@ const MODULE_LABELS: Record<string, { tr: string; en: string }> = {
   "Denetim Yönetimi": { tr: "Denetim", en: "Audit" },
   "Bulgular ve CAPA": { tr: "Bulgu / CAPA", en: "Finding / CAPA" },
   "Risk İştahı ve KRI": { tr: "KRI", en: "KRI" },
+  "Politika Merkezi": { tr: "Politika", en: "Policy" },
+  "Regülasyon Merkezi": { tr: "Regülasyon", en: "Regulatory" },
   "İş Sürekliliği": { tr: "Süreklilik", en: "Continuity" },
 };
 
@@ -176,6 +182,7 @@ function matchesIdentity(row: Row, user: User) {
   return valuesMatchIdentity(ownerValues(row), user);
 }
 function isClosed(row: Row) {
+  if (row.workSource) return row.data.workClosed === true;
   if (row.module === "Bulgular ve CAPA") return normalized(row.data.status) === "closed";
   return CLOSED.has(normalized(row.data.status || row.data.reviewStatus));
 }
@@ -184,7 +191,7 @@ function isWaitingForOthers(row: Row, user: User) {
   const counterparties = [row.data.reviewer, row.data.approver, row.data.followUpOwner].map(clean).filter(Boolean);
   if (!counterparties.length || valuesMatchIdentity(counterparties, user)) return false;
   const state = normalized(row.data.reviewStatus || row.data.status);
-  return REVIEW_STATES.some(candidate => state.includes(candidate)) || Boolean(row.data.submittedAt || row.data.submittedBy || row.data.reviewStatus);
+  return (row.workKind === "policy-version" && state === "approved") || REVIEW_STATES.some(candidate => state.includes(candidate)) || Boolean(row.data.submittedAt || row.data.submittedBy || row.data.reviewStatus);
 }
 function priorityFor(row: Row, dueTime: number, now: number) {
   if (row.module === "Bulgular ve CAPA") {
@@ -231,7 +238,7 @@ function itemFromRow(row: Row, user: User, now: number, lang: Lang, completed = 
   const priority = completed ? 4 : priorityFor(row, dueTime, now);
   return {
     row,
-    title: rowTitle(row),
+    title: row.workKind ? `${enterpriseWorkKinds[row.workKind]?.[lang] || row.workKind} · ${rowTitle(row)}` : rowTitle(row),
     owner: rowOwner(row),
     status: rowStatus(row),
     due,
@@ -243,6 +250,10 @@ function itemFromRow(row: Row, user: User, now: number, lang: Lang, completed = 
   };
 }
 function navigateToRecord(row: Row) {
+  if (row.workSource && row.workKind && row.nativeRef) {
+    navigateToFornost({ module: row.module, ref: row.nativeRef, kind: row.workKind, source: "my-work-enterprise" });
+    return;
+  }
   navigateToFornost({
     module: row.module,
     ref: recordCode(row),
@@ -305,21 +316,32 @@ export default function MyWorkV2() {
     const timeout = window.setTimeout(() => pending.abort(), 20000);
     setLoading(true); setRefreshKey(value => value + 1);
     try {
-      const [grcResult, authResult, findingsResult] = await Promise.allSettled([
+      const [grcResult, authResult, findingsResult, ...enterpriseResults] = await Promise.allSettled([
         fetch(withBasePath("/api/grc"), { cache: "no-store", signal: pending.signal }).then(async response => response.ok ? response.json() : Promise.reject(new Error("grc"))),
         fetch(withBasePath("/api/auth"), { cache: "no-store", signal: pending.signal }).then(async response => response.ok ? response.json() : Promise.reject(new Error("auth"))),
         fetch(withBasePath("/api/findings"), { cache: "no-store", signal: pending.signal }).then(async response => response.ok ? response.json() : Promise.reject(new Error("findings"))),
+        ...enterpriseWorkSources.map(source => fetch(withBasePath(source.path), { cache: "no-store", signal: pending.signal }).then(async response => response.ok ? response.json() : Promise.reject(new Error(source.key)))),
       ]);
       if (request.current !== id) return;
       if (authResult.status === "rejected" || !authResult.value?.user?.email) {
         setUser({}); setRows([]); setLoadError(true); return;
       }
-      setRows(previous => [
-        ...(grcResult.status === "fulfilled" ? normalizeRows(grcResult.value) : previous.filter(row => row.module !== "Bulgular ve CAPA")),
-        ...(findingsResult.status === "fulfilled" ? findingWorkRows(findingsResult.value) : previous.filter(row => row.module === "Bulgular ve CAPA")),
-      ]);
-      if (authResult.status === "fulfilled") setUser((authResult.value as { user?: User }).user || {});
-      const failed = grcResult.status === "rejected" || findingsResult.status === "rejected" || !workSourcesComplete(grcResult.value, findingsResult.value);
+      const enterprise = enterpriseResults.map((result, index) => ({
+        source: enterpriseWorkSources[index].key,
+        projection: result.status === "fulfilled" ? projectEnterpriseWork(enterpriseWorkSources[index].key, result.value) : null,
+      }));
+      setRows(previous => {
+        const tasks = enterprise.flatMap(({ source, projection }) => projection ? projection.rows : previous.filter(row => row.workSource === source));
+        const managedVendors = new Set(tasks.filter(row => row.workKind === 'vendor-review').map(row => row.nativeRef));
+        const core = grcResult.status === "fulfilled" ? normalizeRows(grcResult.value) : previous.filter(row => !row.workSource && row.module !== "Bulgular ve CAPA");
+        return [
+          ...core.filter(row => row.module !== 'Tedarikçiler' || !managedVendors.has(row.id)),
+          ...(findingsResult.status === "fulfilled" ? findingWorkRows(findingsResult.value) : previous.filter(row => !row.workSource && row.module === "Bulgular ve CAPA")),
+          ...tasks,
+        ];
+      });
+      setUser((authResult.value as { user?: User }).user || {});
+      const failed = grcResult.status === "rejected" || findingsResult.status === "rejected" || !workSourcesComplete(grcResult.value, findingsResult.value) || enterprise.some(item => !item.projection?.complete);
       setLoadError(failed);
       if (!failed) setLastUpdated(new Date());
     } finally {
