@@ -2,7 +2,7 @@ import { buildControlAssurance, type AssuranceRow } from './control-assurance';
 import { buildAuditEvidenceAssurance } from './audit-evidence-assurance';
 import { evaluateEvidenceEligibility } from './evidence/eligibility';
 import { findingAttention } from './findings/domain';
-import { matchesWorkIdentity } from './work-queue';
+import { matchesWorkIdentity, findingWorkDisposition } from './work-queue';
 import type { ControlAssuranceSnapshot } from './control-assurance-state';
 
 export type WorkIdentity = { name?: string; email?: string; role?: string };
@@ -44,7 +44,8 @@ export function buildWorkAssuranceActions(snapshot: ControlAssuranceSnapshot, us
     }
     if (row.module === 'Bulgular ve CAPA' && ['finding', 'finding-manual'].includes(text(row.data.kind)) && assigned([row.data.owner, row.data.reviewer])) {
       const attention = findingAttention(text(row.data.status), text(row.data.severity), text(row.data.dueDate), text(row.data.acceptUntil), now);
-      if (!['closed', 'accepted'].includes(attention)) actions.push({ row, group: 'finding', critical: ['overdue', 'acceptance-expired'].includes(attention) || key(row.data.severity) === 'critical', reasons: [attention === 'acceptance-expired' ? 'acceptance-expired' : 'open-findings'] });
+      const disposition = findingWorkDisposition(row.data, now.getTime());
+      if (!['closed', 'accepted'].includes(disposition)) actions.push({ row, group: 'finding', critical: ['overdue', 'acceptance-expired'].includes(attention) || key(row.data.severity) === 'critical', reasons: [disposition === 'acceptance-review' ? 'acceptance-review' : disposition === 'acceptance-expired' ? 'acceptance-expired' : 'open-findings'] });
     }
   }
   return actions.sort((a, b) => Number(b.critical) - Number(a.critical) || a.row.id.localeCompare(b.row.id));

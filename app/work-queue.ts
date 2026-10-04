@@ -32,7 +32,27 @@ export function findingWorkRows(payload: unknown) {
     if (!value || typeof value !== "object" || !clean(value.id)) return [];
     return [{ id: `finding:${clean(value.id)}`, code: clean(value.code) || clean(value.id), module: "Bulgular ve CAPA", data: {
       title: clean(value.title), owner: clean(value.owner), reviewer: clean(value.reviewer),
-      dueDate: clean(value.dueDate), status: clean(value.status), severity: clean(value.severity),
+      dueDate: clean(value.dueDate), acceptUntil: clean(value.acceptUntil), status: clean(value.status), severity: clean(value.severity),
     }, createdAt: clean(value.detectedAt || value.createdAt), updatedAt: clean(value.updatedAt) }];
   });
+}
+
+/** Acceptance pauses work; it is neither completion nor a permanent exemption. */
+export function findingWorkDisposition(data: Record<string, unknown>, now: number): 'open' | 'closed' | 'accepted' | 'acceptance-expired' | 'acceptance-review' {
+  const status = clean(data.status).toLowerCase();
+  if (status === 'closed') return 'closed';
+  if (status !== 'accepted') return 'open';
+  const expiry = dueTimestamp(data.acceptUntil);
+  if (!Number.isFinite(expiry)) return 'acceptance-review';
+  return expiry < now ? 'acceptance-expired' : 'accepted';
+}
+
+/** Existing APIs are bounded. Reaching a bound or malformed data cannot establish a complete inbox. */
+export function workSourcesComplete(grc: unknown, findings: unknown): boolean {
+  const rows = (grc as {rows?: unknown})?.rows, items = (findings as {findings?: unknown})?.findings;
+  if (!Array.isArray(rows) || rows.length >= 5000 || !Array.isArray(items) || items.length >= 3000) return false;
+  return rows.every(row => {
+    if (!row || typeof row.id !== 'string' || !row.id || typeof row.module !== 'string' || !row.module) return false;
+    try { const data = row.data ?? JSON.parse(row.data_json); return data && typeof data === 'object' && !Array.isArray(data); } catch { return false; }
+  }) && items.every(item => item && typeof item.id === 'string' && !!item.id && typeof item.status === 'string');
 }

@@ -11,6 +11,7 @@ const labels = { control: ['Kritik kontroller', 'Critical controls'], audit: ['D
 const reasons: Record<string, [string, string]> = {
   'audit-unmapped': ['Kontrol veya gereksinim bağlantısı eksik', 'Control or requirement mapping missing'],
   'evidence-review': ['Kanıt onayı veya doğrulaması gerekiyor', 'Evidence approval or verification needed'],
+  'acceptance-review': ['Risk kabul süresi doğrulanmalı', 'Risk acceptance expiry needs review'],
   'acceptance-expired': ['Risk kabul süresi dolmuş', 'Risk acceptance expired'],
 };
 const title = (action: AssuranceAction) => String(action.row.data.controlTitle || action.row.data.requirementTitle || action.row.data.evidenceTitle || action.row.data.title || action.row.code || action.row.id);

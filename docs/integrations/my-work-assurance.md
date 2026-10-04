@@ -13,3 +13,11 @@ Loading, transport errors, malformed snapshots and incomplete sources are explic
 The endpoint's existing read bounds and metadata-chain verification limits remain unchanged. These are read-time actions, not immutable audit opinions, automatic approvals or live provider verification. A server update is reflected on refresh or the periodic reload.
 
 Validation: behavioral unit tests cover exact ownership, organization restrictions, reviewer assignment, expired acceptance, repeated audit controls with different owners, evidence eligibility, malformed/incomplete data, canonical navigation and pagination. The localhost-only browser scenario uses local D1 fixtures for pagination, Mine/Organization, record navigation, malformed source/recovery, both themes and mobile; only the transport-outage case is substituted.
+
+## Filtered work-list export and accepted CAPA lifecycle
+
+The inbox offers CSV export for its current Mine/Organization scope, search and filter. The file includes every matching loaded item across pages, stable column identifiers, localized module/reason text, evaluation time and the last successful source refresh time. It contains the list projection, not hidden record fields. UTF-8 BOM, quoted cells and formula neutralization support spreadsheet use.
+
+Exports are disabled while refreshing, after source/auth failure, for malformed source records and when an existing API read bound is reached (5,000 GRC rows or 3,000 findings). A dataset exactly at a bound is conservatively unverified; this increment does not implement server pagination or claim an unbounded organization export. The source refresh time is a client read-completion timestamp, not a cross-source transaction timestamp.
+
+A currently valid CAPA risk acceptance is paused work and is excluded from both open actions and completed work. Its record remains in Findings/CAPA. The final UTC acceptance day is included; expiry returns it to priority work with the acceptance deadline and an explicit reason. Missing or invalid acceptance expiry requires review and cannot hide the finding indefinitely. The assurance action panel shares the same disposition rules. Closed findings remain completed.
