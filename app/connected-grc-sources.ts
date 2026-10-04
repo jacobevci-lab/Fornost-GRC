@@ -73,6 +73,8 @@ function findingsRows(payload: JsonRecord) {
       status: text(item.status),
       severity: text(item.severity),
       owner: text(item.owner),
+      reviewer: text(item.reviewer),
+      acceptUntil: text(item.acceptUntil || item.accept_until),
       dueDate: text(item.dueDate || item.due_date),
       correctiveAction: text(item.correctiveAction || item.corrective_action),
       preventiveAction: text(item.preventiveAction || item.preventive_action),

@@ -7,7 +7,6 @@ import NavigationIntegrity from "./navigation-integrity";
 import NavigationFocusBridge from "./navigation-focus-bridge";
 import SidebarIconTooltip from "./sidebar-icon-tooltip";
 import MyWorkV2 from "./my-work-v2";
-import MyWorkAssuranceSignals from "./my-work-assurance-signals";
 import ProgressiveFormExperience from "./progressive-form-experience";
 import FindingLineageLens from "./finding-lineage-lens";
 import EvidenceQualityLens from "./evidence-quality-lens";
@@ -36,7 +35,6 @@ export default function PlatformExperience() {
       {/* Daily work and connected-assurance experience. */}
       <SidebarIconTooltip />
       {fullWorkspace && <MyWorkV2 />}
-      {fullWorkspace && <MyWorkAssuranceSignals />}
       <ProgressiveFormExperience />
       {fullWorkspace && <FindingLineageLens />}
       {fullWorkspace && <EvidenceQualityLens />}
