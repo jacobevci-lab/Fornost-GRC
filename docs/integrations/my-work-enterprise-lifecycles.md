@@ -1,0 +1,13 @@
+# Enterprise lifecycle work in My Work
+
+My Work now reads the existing policy lifecycle, third-party risk and regulatory intelligence APIs alongside core records, CAPA and assurance. No sidebar item, schema, approval endpoint or wider permission is added.
+
+The inbox includes policy reviews, version review/release, personal attestations, policy exceptions, managed vendor reviews, vendor assessments/findings, regulatory reviews and impact actions. Owners and active reviewers use exact identity matching. Organization scope remains Admin-only in the UI; API authorization remains authoritative. Managed vendor profiles replace the matching legacy vendor inbox row. Separate assessment/finding tasks are intentional.
+
+Approved policy versions remain open until publication. Submitted policy exceptions and vendor assessments include their designated reviewers. Approved/expired exceptions remain active with expiry deadlines. Completed/closed/superseded decisions use the native lifecycle status; no completion timestamp is invented. Closed campaigns do not generate pending attestation tasks. This is a bounded current-source inbox, not an exhaustive historical task ledger.
+
+Opening an enterprise item selects the relevant native module tab and filters to its exact ID. A compact banner restores the full list; switching tabs also clears focus. Missing targets are explicit, with no fallback to another similarly named record. All edits and decisions remain in the existing module and its server-enforced maker/checker workflow. Source loading failure cannot certify that a record is available.
+
+Missing/malformed collections, duplicate IDs, missing parents, or reaching an existing API read limit mark the inbox incomplete. Transport failures retain the previous source rows as unverified data. The existing warning is shown and CSV export is disabled until all sources recover. Current API bounds are unchanged: policy documents/campaigns 1,000, versions 3,000, attestations 5,000, exceptions 2,000; vendor profiles 1,000, assessments 2,000, findings 3,000; regulatory changes 1,000 and impacts 2,000. Scoped users retain existing API access restrictions.
+
+Validation covers lifecycle status distinctions, exact assignments, native IDs, orphan/malformed/bounded sources, and an isolated browser suite with substituted API responses for nine record transitions, missing-target recovery, personal/organization scope, source failures and recovery, TR/EN and light/dark desktop/mobile layouts. Existing comprehensive runtime QA continues to exercise actual API authorization and lifecycle mutations. No live customer or upstream integration validation is implied.

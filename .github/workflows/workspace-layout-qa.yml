@@ -45,6 +45,8 @@ jobs:
           curl --fail --silent --show-error http://127.0.0.1:4173/api/auth \
             -H 'Origin: http://127.0.0.1:4173' -H 'Content-Type: application/json' \
             --data-binary @/tmp/fornost-qa-bootstrap.json
+      - name: Enterprise My Work lifecycle navigation and recovery QA
+        run: node scripts/enterprise-work-runtime-qa.mjs
       - name: Connected reference ambiguity and correction QA
         run: node scripts/connected-reference-integrity-qa.mjs
       - name: User session revocation and identity load recovery QA
@@ -96,6 +98,7 @@ jobs:
         with:
           name: workspace-layout-qa
           path: |
+            enterprise-work-qa-artifacts/
             connected-reference-qa-artifacts/
             user-session-revocation-qa-artifacts/
             session-policy-qa-artifacts/
