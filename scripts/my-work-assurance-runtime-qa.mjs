@@ -19,7 +19,7 @@ try{
  const login=await context.request.post(`${base}/api/auth`,{headers:{origin:base},data:{action:'login',email:'qa-admin@fornost.test',password:qaPassword()}});assert.equal(login.status(),200);
  for(const path of ['/api/evidence-automation','/api/continuous-assurance','/api/findings'])assert.equal((await context.request.get(base+path)).status(),200);
  const stamp=new Date().toISOString();
- const rows=Array.from({length:10},(_,i)=>({id:`qa-work-assurance-${String(i).padStart(2,'0')}`,data:{evidenceTitle:`QA WORK ${i}`,owner:i===9?'qa-admin@fornost.test.other':'qa-admin@fornost.test',status:'Draft'}}));
+ const rows=Array.from({length:24},(_,i)=>({id:`qa-work-assurance-${String(i).padStart(2,'0')}`,data:{evidenceTitle:`QA WORK ${i}`,owner:i===23?'qa-admin@fornost.test.other':'qa-admin@fornost.test',status:'Draft'}}));
  seeded=true;await seed(rows.map(row=>`INSERT INTO simple_grc_records VALUES(${q(row.id)},'Kanıtlar',${q(JSON.stringify(row.data))},${q(stamp)},${q(stamp)});`).join('\n'));
  await page.goto(base);await expect(page.locator('.shell')).toBeVisible();await page.locator('.language-switch:visible').getByRole('button',{name:'EN',exact:true}).click();await open();await evidenceList();
  const seen=new Set();
@@ -27,14 +27,25 @@ try{
   for(const title of await panel.locator('.mw-assurance-records article b').allTextContents())seen.add(title);
   const next=panel.getByRole('button',{name:'Next',exact:true});if(!await next.count()||await next.isDisabled())break;await next.click();
  }
- for(let i=0;i<9;i++)assert.ok(seen.has(`QA WORK ${i}`));assert.ok(!seen.has('QA WORK 9'),'substring owner must not be assigned');
+ for(let i=0;i<23;i++)assert.ok(seen.has(`QA WORK ${i}`));assert.ok(!seen.has('QA WORK 23'),'substring owner must not be assigned');
+ const inbox=page.locator('.my-work-v2');
+ await inbox.locator('.mw2-filters').getByRole('button',{name:/^All/}).click();
+ await inbox.getByRole('textbox',{name:'Search work',exact:true}).fill('QA WORK ');
+ await expect(inbox.locator('.mw2-list .mw2-item')).toHaveCount(20);
+ const [download]=await Promise.all([page.waitForEvent('download'),inbox.getByRole('button',{name:'Download list (CSV)',exact:true}).click()]);
+ await download.saveAs(`${out}/work-list.csv`);const csv=await fs.readFile(`${out}/work-list.csv`,'utf8');
+ assert.equal(csv.trimEnd().split('\r\n').length,24);assert.ok(csv.includes('"QA WORK 22"'));assert.ok(!csv.includes('"QA WORK 23"'));
+ await page.route('**/api/grc',route=>route.fulfill({status:503,contentType:'application/json',body:'{}'}));
+ await inbox.getByRole('button',{name:'Refresh',exact:true}).click();await expect(inbox.locator('.mw2-load-error')).toBeVisible();await expect(inbox.getByRole('button',{name:'Download list (CSV)',exact:true})).toBeDisabled();
+ await page.unroute('**/api/grc');await inbox.getByRole('button',{name:'Refresh',exact:true}).click();await expect(inbox.getByRole('button',{name:'Download list (CSV)',exact:true})).toBeEnabled();
+ await inbox.getByRole('textbox',{name:'Search work',exact:true}).fill('');
  await page.locator('.mw2-scope').getByRole('button',{name:'Organization',exact:true}).click();await evidenceList();
- let found=false;for(let p=0;p<30;p++){const item=panel.getByRole('button',{name:'Open record: QA WORK 9',exact:true});if(await item.count()){found=true;await item.click();break;}const next=panel.getByRole('button',{name:'Next',exact:true});if(!await next.count()||await next.isDisabled())break;await next.click();}assert.ok(found);
+ let found=false;for(let p=0;p<30;p++){const item=panel.getByRole('button',{name:'Open record: QA WORK 23',exact:true});if(await item.count()){found=true;await item.click();break;}const next=panel.getByRole('button',{name:'Next',exact:true});if(!await next.count()||await next.isDisabled())break;await next.click();}assert.ok(found);
  const records=await (await context.request.get(base+'/api/grc')).json();
- const target=records.rows.find(row=>row.id==='qa-work-assurance-09');assert.ok(target);
+ const target=records.rows.find(row=>row.id==='qa-work-assurance-23');assert.ok(target);
  await expect(page.locator('.core-record-focus')).toContainText(target.recordCode||target.record_code||target.code||target.id);
  await expect(page.locator('.table-card .table-wrap tbody tr')).toHaveCount(1);
- await expect(page.locator('.table-card .table-wrap')).toContainText('QA WORK 9');
+ await expect(page.locator('.table-card .table-wrap')).toContainText('QA WORK 23');
  await open();
  await page.route('**/api/controls/assurance',route=>route.fulfill({status:503,contentType:'application/json',body:'{}'}));
  await panel.getByRole('button',{name:'Refresh assurance',exact:true}).click();await expect(panel.getByRole('alert')).toContainText('could not be loaded');await expect(panel.locator('.mw-assurance-groups')).toHaveCount(0);

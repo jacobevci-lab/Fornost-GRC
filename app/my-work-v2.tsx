@@ -1,7 +1,7 @@
 "use client";
 import MyWorkAssuranceSignals from "./my-work-assurance-signals";
 import { dueTimestamp } from "./due-date";
-import { matchesWorkIdentity, isDueToday, paginateWork, findingWorkRows } from "./work-queue";
+import { matchesWorkIdentity, isDueToday, paginateWork, findingWorkRows, findingWorkDisposition, workSourcesComplete } from "./work-queue";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -9,6 +9,8 @@ import { withBasePath } from "./base-path";
 import { assessedRiskScore } from "./risk-methodology";
 import { navigateToFornost } from "./navigation-focus";
 import "./my-work-v2.css";
+import { buildWorkQueueCsv } from "./work-queue-export";
+import { downloadBlob } from "./report-export";
 
 type Lang = "tr" | "en";
 type Scope = "mine" | "organization";
@@ -138,6 +140,7 @@ function primaryOwnerValues(row: Row) {
 }
 function dueValue(row: Row) {
   const d = row.data;
+  if (row.module === "Bulgular ve CAPA" && normalized(d.status) === "accepted") return clean(d.acceptUntil);
   return clean(
     d.dueDate || d.targetDate || d.nextReview || d.nextAssessment || d.nextTestDate ||
       d.reviewDate || d.expiresAt || d.contractEnd || d.endDate,
@@ -173,6 +176,7 @@ function matchesIdentity(row: Row, user: User) {
   return valuesMatchIdentity(ownerValues(row), user);
 }
 function isClosed(row: Row) {
+  if (row.module === "Bulgular ve CAPA") return normalized(row.data.status) === "closed";
   return CLOSED.has(normalized(row.data.status || row.data.reviewStatus));
 }
 function isWaitingForOthers(row: Row, user: User) {
@@ -183,6 +187,11 @@ function isWaitingForOthers(row: Row, user: User) {
   return REVIEW_STATES.some(candidate => state.includes(candidate)) || Boolean(row.data.submittedAt || row.data.submittedBy || row.data.reviewStatus);
 }
 function priorityFor(row: Row, dueTime: number, now: number) {
+  if (row.module === "Bulgular ve CAPA") {
+    const disposition = findingWorkDisposition(row.data, now);
+    if (disposition === "acceptance-expired") return 0;
+    if (disposition === "acceptance-review") return 1;
+  }
   if (Number.isFinite(dueTime) && dueTime < now) return 0;
   if (Number.isFinite(dueTime) && dueTime <= now + 7 * DAY) return 1;
   if (row.module === "Risk Assessment") {
@@ -196,6 +205,11 @@ function priorityFor(row: Row, dueTime: number, now: number) {
 }
 function reasonFor(row: Row, dueTime: number, now: number, lang: Lang) {
   const tr = lang === "tr";
+  if (row.module === "Bulgular ve CAPA") {
+    const disposition = findingWorkDisposition(row.data, now);
+    if (disposition === "acceptance-expired") return tr ? "Risk kabul süresi dolmuş" : "Risk acceptance expired";
+    if (disposition === "acceptance-review") return tr ? "Risk kabul süresi doğrulanmalı" : "Risk acceptance expiry needs review";
+  }
   if (Number.isFinite(dueTime) && dueTime < now) return tr ? "Termin geçti" : "Overdue";
   if (Number.isFinite(dueTime) && dueTime <= now + 7 * DAY) return tr ? "7 gün içinde" : "Due within 7 days";
   if (row.module === "Risk Assessment") {
@@ -305,7 +319,7 @@ export default function MyWorkV2() {
         ...(findingsResult.status === "fulfilled" ? findingWorkRows(findingsResult.value) : previous.filter(row => row.module === "Bulgular ve CAPA")),
       ]);
       if (authResult.status === "fulfilled") setUser((authResult.value as { user?: User }).user || {});
-      const failed = grcResult.status === "rejected" || findingsResult.status === "rejected";
+      const failed = grcResult.status === "rejected" || findingsResult.status === "rejected" || !workSourcesComplete(grcResult.value, findingsResult.value);
       setLoadError(failed);
       if (!failed) setLastUpdated(new Date());
     } finally {
@@ -325,7 +339,7 @@ export default function MyWorkV2() {
   const data = useMemo(() => {
     const now = Date.now();
     const scoped = rows.filter(row => scope === "organization" && user.role === "Admin" ? true : matchesIdentity(row, user));
-    const openRows = scoped.filter(row => !isClosed(row));
+    const openRows = scoped.filter(row => !isClosed(row) && !(row.module === "Bulgular ve CAPA" && findingWorkDisposition(row.data, now) === "accepted"));
     const completedRows = scoped.filter(row => {
       if (!isClosed(row)) return false;
       const completedAt = new Date(row.updatedAt || row.createdAt || "").getTime();
@@ -361,6 +375,14 @@ export default function MyWorkV2() {
   useEffect(() => { setPageIndex(0); }, [filter, query, scope]);
   const page = paginateWork(visible, pageIndex);
 
+  const exportView = () => {
+    if (loading || loadError || !lastUpdated || !visible.length) return;
+    const csv = buildWorkQueueCsv(visible.map(item => ({ reference: recordCode(item.row), module: MODULE_LABELS[item.row.module]?.[lang] || item.row.module,
+      title: item.title, owner: item.owner, status: item.status, due: item.due, reason: item.reason, updatedAt: item.row.updatedAt || "" })),
+      { scope: scope === "organization" && user.role === "Admin" ? "organization" : "mine", filter, query, evaluatedAt: new Date(data.now).toISOString(), refreshedAt: lastUpdated.toISOString() });
+    downloadBlob(`fornost-work-${filter}-${lastUpdated.toISOString().slice(0, 10)}.csv`, new Blob([csv], { type: "text/csv;charset=utf-8" }));
+  };
+
   if (!mount) return null;
   const tr = lang === "tr";
   const filters: Array<[QueueFilter, string, number]> = [
@@ -376,7 +398,7 @@ export default function MyWorkV2() {
 
   return createPortal(
     <section className="my-work-v2" aria-label={tr ? "Benim işlerim" : "My Work"}>
-      {loadError && <p className="mw2-load-error" role="alert">{tr ? "İş listesi güncellenemedi. Görünen bilgiler güncel olmayabilir; Yenile ile tekrar deneyin." : "Work could not be refreshed. Displayed data may be outdated; use Refresh to retry."}</p>}
+      {loadError && <p className="mw2-load-error" role="alert">{tr ? "İş listesi tamamen doğrulanamadı. Kaynak hatası, eksik veri veya okuma sınırı olabilir; dışa aktarma kapalı. Yenile ile tekrar deneyin." : "The complete work list could not be verified. A source failed, data is malformed or a read limit was reached; export is disabled. Use Refresh to retry."}</p>}
       <header className="mw2-hero">
         <div>
           <small>{tr ? "AKSİYON INBOX" : "ACTION INBOX"}</small>
@@ -388,6 +410,7 @@ export default function MyWorkV2() {
             <button type="button" aria-pressed={scope === "mine"} className={scope === "mine" ? "active" : ""} onClick={() => setScope("mine")}>{tr ? "Benim" : "Mine"}</button>
             <button type="button" aria-pressed={scope === "organization"} className={scope === "organization" ? "active" : ""} onClick={() => setScope("organization")}>{tr ? "Organizasyon" : "Organization"}</button>
           </div>}
+          <button type="button" className="mw2-refresh" disabled={loading || loadError || !lastUpdated || !visible.length} onClick={exportView} title={tr ? "Seçili kapsam ve filtredeki tüm yüklenen işleri indir" : "Download all loaded work matching the selected scope and filter"}>{tr ? "Listeyi indir (CSV)" : "Download list (CSV)"}</button>
           <button type="button" className="mw2-refresh" disabled={loading} onClick={() => void load()}>{loading ? (tr ? "Yenileniyor…" : "Refreshing…") : (tr ? "Yenile" : "Refresh")}</button>
         </div>
       </header>
