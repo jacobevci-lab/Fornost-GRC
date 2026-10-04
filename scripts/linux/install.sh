@@ -102,6 +102,8 @@ require_command df
 require_command flock
 exec 9>"${project_root}/.fornost-maintenance.lock"
 flock -n 9 || { echo "Another installation or recovery operation is in progress." >&2; exit 75; }
+# Podman monitor processes can inherit descriptors; release the shared lock explicitly.
+trap 'flock -u 9' EXIT
 
 if [[ ! -f "${env_file}" ]]; then
   cp .env.onprem.example "${env_file}"

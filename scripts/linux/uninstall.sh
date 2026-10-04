@@ -9,6 +9,8 @@ engine="$(container_engine)"
 require_command flock
 exec 9>"${project_root}/.fornost-maintenance.lock"
 flock -n 9 || { echo "Another installation or recovery operation is in progress." >&2; exit 75; }
+# Podman monitor processes can inherit descriptors; release the shared lock explicitly.
+trap 'flock -u 9' EXIT
 data_volume="${FORNOST_DATA_VOLUME:-$(read_setting FORNOST_DATA_VOLUME fornost-grc-data)}"
 [[ "${data_volume}" =~ ^fornost-grc-[A-Za-z0-9][A-Za-z0-9_.-]{0,99}$ ]] || { echo "Invalid data volume." >&2; exit 64; }
 purge_data="false"
