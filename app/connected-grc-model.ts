@@ -56,9 +56,11 @@ export type ConnectedGrcDomainPosture = {
   percent: number;
 };
 
-type RelationDefinition = { relation: string; modules: string[]; sources?: string[] };
+type RelationDefinition = { relation: string; modules: string[]; sources?: string[]; targetKind?: string; canonicalOnly?: boolean };
 
 const relationFields: Record<string, RelationDefinition> = {
+  aiModelRef: { relation: "ai-model", modules: ["AI Yönetişimi"], sources: ["AI Yönetişimi"], targetKind: "ai-model", canonicalOnly: true },
+  aiFindingRef: { relation: "ai-finding", modules: ["AI Yönetişimi"], sources: ["AI Yönetişimi"], targetKind: "ai-finding", canonicalOnly: true },
   asset: { relation: "risk-asset", modules: ["Varlık Envanteri"], sources: ["Risk Assessment", "BIA"] },
   processLink: { relation: "risk-process", modules: ["BIA"], sources: ["Risk Assessment", "Kontroller"] },
   biaRef: { relation: "continuity-process", modules: ["BIA"] },
@@ -166,8 +168,8 @@ export function buildConnectedGrcGraph(rows: ConnectedGrcRow[]) {
       for (const reference of values(source.data[field])) {
         const key = normalize(reference);
         let matches: ConnectedGrcRow[] = [];
-        for (const tier of tiers) {
-          matches = (tier.get(key) || []).filter(candidate => candidate.id !== source.id && definition.modules.includes(candidate.module));
+        for (const tier of definition.canonicalOnly ? tiers.slice(0, 1) : tiers) {
+          matches = (tier.get(key) || []).filter(candidate => candidate.id !== source.id && definition.modules.includes(candidate.module) && (!definition.targetKind || candidate.data.kind === definition.targetKind));
           if (matches.length) break;
         }
         if (matches.length !== 1) {
@@ -318,6 +320,8 @@ export const connectedRemediationModule: Record<string, string> = {
 };
 
 export const connectedRelationLabels: Record<string, { tr: string; en: string }> = {
+  "ai-model": { tr: "AI modeline bağlı", en: "linked to AI model" },
+  "ai-finding": { tr: "AI bulgusuna aktarılmış", en: "escalated to AI finding" },
   "risk-asset": { tr: "varlığı etkiler", en: "affects asset" },
   "risk-process": { tr: "süreci etkiler", en: "affects process" },
   "continuity-process": { tr: "BIA’ya dayanır", en: "depends on BIA" },

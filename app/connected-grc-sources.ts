@@ -9,7 +9,8 @@ export type ConnectedGrcEnterprisePayloads = Partial<Record<
   | "riskAppetite"
   | "regulatory"
   | "thirdParty"
-  | "evidenceAutomation",
+  | "evidenceAutomation"
+  | "aiModels" | "aiAlerts" | "aiFindings",
   JsonRecord
 >>;
 
@@ -23,6 +24,27 @@ export const connectedGrcEnterpriseEndpoints = [
   { key: "thirdParty", path: "/api/third-party-risk" },
   { key: "evidenceAutomation", path: "/api/evidence-automation" },
 ] as const;
+
+// AI inventory and alerts are Admin-only; do not request them for other roles.
+export const connectedAiEndpoints = [
+  { key: "aiModels", path: "/api/ai/models" },
+  { key: "aiAlerts", path: "/api/ai/assurance-alerts" },
+  { key: "aiFindings", path: "/api/ai/findings" },
+] as const;
+export function connectedGrcEndpoints(includeAi: boolean) {
+  return includeAi ? [...connectedGrcEnterpriseEndpoints, ...connectedAiEndpoints] : [...connectedGrcEnterpriseEndpoints];
+}
+
+// These APIs currently return at most 500 rows. At the boundary we cannot
+// distinguish an exact fit from truncation, so never label the source complete.
+export function connectedAiSourceComplete(key: string, body: unknown): boolean {
+  const collection = { aiModels: "models", aiAlerts: "alerts", aiFindings: "findings" }[key];
+  if (!collection) return true;
+  const items = record(body)?.[collection];
+  if (!Array.isArray(items) || items.length >= 500) return false;
+  const ids = items.map(item => record(item)?.id);
+  return ids.every(id => typeof id === "string" && id.trim().length > 0) && new Set(ids).size === ids.length;
+}
 
 const record = (value: unknown): JsonRecord | null => value && typeof value === "object" && !Array.isArray(value) ? value as JsonRecord : null;
 const records = (value: unknown) => Array.isArray(value) ? value.map(record).filter((item): item is JsonRecord => Boolean(item)) : [];
@@ -357,8 +379,25 @@ function evidenceAutomationRows(payload: JsonRecord) {
   return [...sources, ...rules, ...assurances, ...findings, ...remediations, ...runs];
 }
 
+function aiRows(payloads: ConnectedGrcEnterprisePayloads): ConnectedGrcRow[] {
+  const project = (key: "aiModels" | "aiAlerts" | "aiFindings", collection: string, kind: string) =>
+    records(payloads[key]?.[collection]).filter(item => typeof item.id === "string" && item.id.trim()).slice(0, 500).map((item, index) =>
+      makeRow("enterprise", kind, "AI Yönetişimi", item, index, {
+        title: text(item.systemName || item.title || item.id),
+        owner: text(item.owner), status: text(item.status), severity: text(item.severity || item.riskTier),
+        dueDate: text(item.dueDate || item.reviewDate),
+        modelName: text(item.modelName),
+        // Only explicit native IDs are relationships. Control prose, evidence
+        // descriptions and arbitrary sourceRef values are not GRC references.
+        aiModelRef: kind === "ai-model" ? [] : unique(item.modelId),
+        aiFindingRef: kind === "ai-alert" ? unique(item.findingId) : [],
+      }));
+  return [...project("aiModels", "models", "ai-model"), ...project("aiAlerts", "alerts", "ai-alert"), ...project("aiFindings", "findings", "ai-finding")];
+}
+
 export function buildConnectedGrcEnterpriseRows(payloads: ConnectedGrcEnterprisePayloads): ConnectedGrcRow[] {
   const rows = [
+    ...aiRows(payloads),
     ...findingsRows(payloads.findings || {}),
     ...incidentRows(payloads.incidents || {}),
     ...continuityRows(payloads.continuity || {}),

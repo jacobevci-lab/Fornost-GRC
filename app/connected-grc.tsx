@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { assessConnectedGrcCoverage, buildConnectedGrcGraph, connectedRelationLabels, connectedRemediationModule, connectedTitle, type ConnectedGrcRow } from "./connected-grc-model";
 import { connectedGrcNavigation } from "./connected-grc-navigation";
-import { buildConnectedGrcEnterpriseRows, connectedGrcEnterpriseEndpoints, type ConnectedGrcEnterprisePayloads } from "./connected-grc-sources";
+import { buildConnectedGrcEnterpriseRows, connectedGrcEndpoints, connectedAiSourceComplete, type ConnectedGrcEnterprisePayloads } from "./connected-grc-sources";
 import { buildContinuousAssuranceChains, summarizeContinuousAssurance } from "./continuous-assurance-chain";
 import ContinuousAssuranceWorkQueue from "./continuous-assurance-work-queue";
 import ContinuousAssuranceGovernance from "./continuous-assurance-governance";
@@ -15,11 +15,11 @@ import "./connected-assurance-posture.css";
 import "./connected-grc-explorer.css";
 
 type Lang = "tr" | "en";
-const moduleNames:Record<string,string>={"Varlık Envanteri":"Asset Inventory","Kontroller":"Control Library","Kanıtlar":"Evidence Library","Denetim Yönetimi":"Audit Management","Uyum":"Compliance Management","Tedarikçiler":"Vendor Management","Politika Merkezi":"Policy Center","Bulgular ve CAPA":"Findings & CAPA","Kanıt Otomasyonu":"Evidence Automation","İş Sürekliliği":"Business Continuity","Güvenlik Olayları":"Security Incidents","Regülasyon Merkezi":"Regulatory Change","Risk İştahı ve KRI":"Risk Appetite & KRI"};
+const moduleNames:Record<string,string>={"Varlık Envanteri":"Asset Inventory","Kontroller":"Control Library","Kanıtlar":"Evidence Library","Denetim Yönetimi":"Audit Management","Uyum":"Compliance Management","Tedarikçiler":"Vendor Management","Politika Merkezi":"Policy Center","Bulgular ve CAPA":"Findings & CAPA","Kanıt Otomasyonu":"Evidence Automation","İş Sürekliliği":"Business Continuity","Güvenlik Olayları":"Security Incidents","Regülasyon Merkezi":"Regulatory Change","Risk İştahı ve KRI":"Risk Appetite & KRI","AI Yönetişimi":"AI Governance"};
 const ignored = new Set(["Ana Sayfa","Bağlantılı GRC","Raporlar"]);
 const csv = (value:unknown) => { const text=String(value??""); const safe=/^[=+\-@]/.test(text)?`'${text}`:text; return `"${safe.replace(/"/g,'""')}"`; };
 
-export default function ConnectedGrc({rows,lang,go}:{rows:ConnectedGrcRow[];lang:Lang;go:(module:string)=>void}){
+export default function ConnectedGrc({rows,lang,go,includeAi=false}:{rows:ConnectedGrcRow[];lang:Lang;go:(module:string)=>void;includeAi?:boolean}){
   const tr=lang==="tr",[module,setModule]=useState("all"),[query,setQuery]=useState("");
   const moduleLabel=(name:string)=>tr?name:(moduleNames[name]||name);
   const [view,setView]=useState<"explore"|"gaps"|"assurance">("explore");
@@ -29,7 +29,7 @@ export default function ConnectedGrc({rows,lang,go}:{rows:ConnectedGrcRow[];lang
   const [linkLimit,setLinkLimit]=useState(8);
   const [gapLimit,setGapLimit]=useState(12);
   const [enterpriseRows,setEnterpriseRows]=useState<ConnectedGrcRow[]>([]);
-  const [sourceState,setSourceState]=useState({ready:0,total:connectedGrcEnterpriseEndpoints.length,loading:true});
+  const [sourceState,setSourceState]=useState({ready:0,total:connectedGrcEndpoints(includeAi).length,loading:true});
 
   useEffect(()=>{
     const controller=new AbortController();
@@ -37,14 +37,14 @@ export default function ConnectedGrc({rows,lang,go}:{rows:ConnectedGrcRow[];lang
     (async()=>{
       const payloads:ConnectedGrcEnterprisePayloads={};
       let ready=0;
-      await Promise.all(connectedGrcEnterpriseEndpoints.map(async endpoint=>{
+      await Promise.all(connectedGrcEndpoints(includeAi).map(async endpoint=>{
         try{
           const response=await fetch(withBasePath(endpoint.path),{signal:controller.signal,headers:{accept:"application/json"},cache:"no-store"});
           if(!response.ok)return;
           const body=await response.json();
           if(body&&typeof body==="object"&&!Array.isArray(body)){
             (payloads as Record<string,unknown>)[endpoint.key]=body;
-            ready+=1;
+            if(connectedAiSourceComplete(endpoint.key,body))ready+=1;
           }
         }catch(error){
           if((error as {name?:string})?.name!=="AbortError") console.warn(`Connected GRC source unavailable: ${endpoint.path}`);
@@ -52,16 +52,16 @@ export default function ConnectedGrc({rows,lang,go}:{rows:ConnectedGrcRow[];lang
       }));
       if(!current)return;
       setEnterpriseRows(buildConnectedGrcEnterpriseRows(payloads));
-      setSourceState({ready,total:connectedGrcEnterpriseEndpoints.length,loading:false});
+      setSourceState({ready,total:connectedGrcEndpoints(includeAi).length,loading:false});
     })();
     return()=>{current=false;controller.abort();};
-  },[]);
+  },[includeAi]);
 
   const records=useMemo(()=>{
     const merged=new Map<string,ConnectedGrcRow>();
-    for(const row of [...rows,...enterpriseRows]) if(!ignored.has(row.module)) merged.set(row.id,row);
+    for(const row of [...rows,...enterpriseRows]) if(!ignored.has(row.module) && (includeAi || row.module!=="AI Yönetişimi")) merged.set(row.id,row);
     return Array.from(merged.values());
-  },[rows,enterpriseRows]);
+  },[rows,enterpriseRows,includeAi]);
   const graph=useMemo(()=>buildConnectedGrcGraph(records),[records]),links=graph.links,unresolved=graph.unresolved;
   const coverage=useMemo(()=>assessConnectedGrcCoverage(records,links),[records,links]);
   const assuranceChains=useMemo(()=>buildContinuousAssuranceChains(records,links),[records,links]);
@@ -97,7 +97,7 @@ export default function ConnectedGrc({rows,lang,go}:{rows:ConnectedGrcRow[];lang
   return <section className="connected-grc connected-explorer">
     <header className="cg-heading">
       <div><small>CONNECTED GRC</small><h2>{tr?"Bağlantılı GRC Haritası":"Connected GRC Map"}</h2><p>{tr?"Bir kayıt seçin; hangi kayıtlarla bağlantılı olduğunu görün.":"Choose a record to see what it connects to."}</p></div>
-      <span className="cg-source-state" role="status" data-ready={sourceState.ready} data-total={sourceState.total} data-loading={sourceState.loading}>{sourceState.loading?(tr?"Bağlantılar yükleniyor…":"Loading connections…"):sourceState.ready<sourceState.total?(tr?"Bazı kaynaklara erişilemiyor; görünüm eksik olabilir.":"Some sources are unavailable; this view may be incomplete."):(tr?"Kaynaklar güncel":"Sources loaded")}</span>
+      <span className="cg-source-state" role="status" data-ready={sourceState.ready} data-total={sourceState.total} data-loading={sourceState.loading}>{sourceState.loading?(tr?"Bağlantılar yükleniyor…":"Loading connections…"):sourceState.ready<sourceState.total?(tr?"Bazı kaynaklar eksik veya erişilemiyor; görünüm kısmi olabilir.":"Some sources are unavailable or incomplete; this view may be partial."):(tr?"Kaynaklar güncel":"Sources loaded")}</span>
     </header>
     <div className="cg-summary" aria-label={tr?"Genel durum":"Overview"}>
       <span><b>{records.length}</b> {tr?"kayıt":"records"}</span>
@@ -122,7 +122,7 @@ export default function ConnectedGrc({rows,lang,go}:{rows:ConnectedGrcRow[];lang
           {matchingRecords.length>10&&<footer><button type="button" disabled={currentPage===0} onClick={()=>{setPage(currentPage-1);setLinkLimit(8)}}>{tr?"Önceki":"Previous"}</button><span>{currentPage+1} / {Math.ceil(matchingRecords.length/10)}</span><button type="button" disabled={(currentPage+1)*10>=matchingRecords.length} onClick={()=>{setPage(currentPage+1);setLinkLimit(8)}}>{tr?"Sonraki":"Next"}</button></footer>}
         </section>
         <section className="cg-detail" aria-label={tr?"Seçili kaydın bağlantıları":"Selected record connections"}>
-          <header><small>{tr?"2. Bağlantıları incele":"2. Explore its connections"}</small>{selected?<><h3>{connectedTitle(selected)}</h3><p>{selected.code||selected.id} · {moduleLabel(selected.module)}</p><button type="button" onClick={()=>openRecord(selected)}>{tr?"Kaydı aç":"Open record"} ↗</button></>:<h3>{tr?"Bir kayıt seçin":"Choose a record"}</h3>}</header>
+          <header><small>{tr?"2. Bağlantıları incele":"2. Explore its connections"}</small>{selected?<><h3>{connectedTitle(selected)}</h3><p>{selected.code||selected.id} · {moduleLabel(selected.module)}</p><button type="button" onClick={()=>openRecord(selected)}>{selected.module==="AI Yönetişimi"?(tr?"AI Yönetişimini aç":"Open AI Governance"):(tr?"Kaydı aç":"Open record")} ↗</button></>:<h3>{tr?"Bir kayıt seçin":"Choose a record"}</h3>}</header>
           {selected&&<><div className="cg-connection-count">{selectedLinks.length} {tr?"doğrudan bağlantı":"direct connections"}</div>
           <div className="cg-connections">{selectedLinks.slice(0,linkLimit).map((link,index)=>{
             const outgoing=link.source.id===selected.id,other=outgoing?link.target:link.source;
