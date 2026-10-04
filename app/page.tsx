@@ -1,6 +1,7 @@
 "use client";
 import { canOpenModule, canReadModule, canWriteModule, isScoped, readableModules } from "./module-access";
 import "./module-access.css";
+import { linkedRecordOptions } from "./linked-record-options";
 import { dueTimestamp } from "./due-date";
 import { hasRecoveryTarget } from "./bia-recovery";
 import { isCoreRecordRequest, resolveCoreRecord, coreRecordReference } from "./core-record-focus";
@@ -2899,21 +2900,15 @@ function Field({
     "exceptions",
   ];
   if (k === "asset" || k === "processLink") {
-    const source =
-      k === "asset"
-        ? linkedRows
-            .filter((r) => r.module === "Varlık Envanteri")
-            .map((r) => r.data.title)
-        : linkedRows
-            .filter((r) => r.module === "BIA")
-            .map((r) => r.data.process);
     const retainedValues = (k === "asset" && "category" in form
       ? String(value).split(",").map((item) => item.trim())
       : [String(value)]).filter(Boolean);
-    const options = [...new Set([...source.filter(Boolean), ...retainedValues])];
-    const optionLabel = (option: string) => source.includes(option)
-      ? option
-      : `${option} (${lang === "tr" ? "bağlı kayıt bulunamadı" : "linked record unavailable"})`;
+    const choices = linkedRecordOptions(
+      linkedRows.filter(r => r.module === (k === "asset" ? "Varlık Envanteri" : "BIA")),
+      k === "asset" ? "title" : "process", retainedValues, lang === "tr",
+    );
+    const options = choices.map(choice => choice.value);
+    const optionLabel = (option: string) => choices.find(choice => choice.value === option)?.label || option;
     if (k === "asset" && "category" in form) {
       const selected = String(value)
         .split(",")

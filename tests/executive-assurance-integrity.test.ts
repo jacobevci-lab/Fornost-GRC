@@ -8,8 +8,8 @@ const rows: AssuranceRow[] = [
   { id: "asset-1", code: "AST-001", module: "Varlık Envanteri", data: { title: "M365" } },
   { id: "control-1", code: "CTL-001", module: "Kontroller", data: { controlRef: "A.5.15", controlTitle: "Access control", owner: "IAM", testOwner: "Audit", nextTestDate: "2027-01-01", frameworks: "ISO 27001", status: "Aktif" } },
   { id: "framework-1", code: "CMP-001", module: "Uyum", data: { framework: "ISO 27001", controlRef: "A.5.15", status: "Uyumlu" } },
-  { id: "evidence-1", code: "EVD-001", module: "Kanıtlar", data: { evidenceTitle: "MFA export", controlRef: "A.5.15", status: "Onaylandı", expiresAt: "2027-01-01" } },
-  { id: "audit-1", code: "AUD-001", module: "Denetim Yönetimi", data: { auditName: "ISO audit", requirementRef: "A.5.15", evidenceRef: "EVD-001", evidenceStatus: "Kanıt Tamam", status: "Açık" } },
+  { id: "evidence-1", code: "EVD-001", module: "Kanıtlar", data: { evidenceTitle: "MFA export", controlRef: "CTL-001", status: "Onaylandı", expiresAt: "2027-01-01" } },
+  { id: "audit-1", code: "AUD-001", module: "Denetim Yönetimi", data: { auditName: "ISO audit", requirementRef: "CTL-001", evidenceRef: "EVD-001", evidenceStatus: "Kanıt Tamam", status: "Açık" } },
 ];
 
 test("evidence history overview decorates only matching evidence records", () => {

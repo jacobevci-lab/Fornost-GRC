@@ -19,6 +19,8 @@ export type UnresolvedGrcReference = {
   field: string;
   value: string;
   relation: string;
+  reason: "missing" | "ambiguous";
+  candidates: ConnectedGrcRow[];
 };
 
 export type ConnectedGrcCoverageGap = {
@@ -141,25 +143,42 @@ const aliases = (row: ConnectedGrcRow) => new Set(
 );
 
 export function buildConnectedGrcGraph(rows: ConnectedGrcRow[]) {
-  const index = rows.map((row) => ({ row, aliases: aliases(row) }));
+  // Resolve explicit identities before legacy labels. Never fan out an ambiguous reference.
+  const tiers = [new Map<string, ConnectedGrcRow[]>(), new Map<string, ConnectedGrcRow[]>(), new Map<string, ConnectedGrcRow[]>()];
+  for (const row of rows) {
+    const keys = [
+      new Set([row.id, ...values(row.data.canonicalRefs)].map(normalize).filter(Boolean)),
+      new Set([normalize(row.code)].filter(Boolean)),
+      aliases(row),
+    ];
+    keys.forEach((entries, tier) => {
+      for (const key of entries) {
+        const bucket = tiers[tier].get(key) || [];
+        bucket.push(row);
+        tiers[tier].set(key, bucket);
+      }
+    });
+  }
   const links: ConnectedGrcLink[] = [], unresolved: UnresolvedGrcReference[] = [], seen = new Set<string>(), unresolvedSeen = new Set<string>();
   for (const source of rows) {
     for (const [field, definition] of Object.entries(relationFields)) {
       if (definition.sources && !definition.sources.includes(source.module)) continue;
       for (const reference of values(source.data[field])) {
         const key = normalize(reference);
-        const matches = index.filter((candidate) =>
-          candidate.row.id !== source.id && definition.modules.includes(candidate.row.module) && candidate.aliases.has(key),
-        );
-        if (!matches.length) {
+        let matches: ConnectedGrcRow[] = [];
+        for (const tier of tiers) {
+          matches = (tier.get(key) || []).filter(candidate => candidate.id !== source.id && definition.modules.includes(candidate.module));
+          if (matches.length) break;
+        }
+        if (matches.length !== 1) {
           const unresolvedKey = `${source.id}|${field}|${definition.relation}|${key}`;
           if (!unresolvedSeen.has(unresolvedKey)) {
             unresolvedSeen.add(unresolvedKey);
-            unresolved.push({ source, field, value: reference, relation: definition.relation });
+            unresolved.push({ source, field, value: reference, relation: definition.relation, reason: matches.length ? "ambiguous" : "missing", candidates: matches });
           }
           continue;
         }
-        for (const { row: target } of matches) {
+        for (const target of matches) {
           const edgeKey = `${source.id}|${target.id}|${definition.relation}|${field}`;
           if (seen.has(edgeKey)) continue;
           seen.add(edgeKey);
