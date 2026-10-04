@@ -279,25 +279,24 @@ sudo podman logs --tail 200 fornost-grc-proxy
 
 Docker kullanıyorsanız komutlardaki `podman` yerine `docker` yazın veya `FORNOST_CONTAINER_ENGINE=docker` değişkenini kullanın.
 
-## 11. Yedekleme
+## 11. Yedekleme ve geri yükleme
 
-Önce bir yedek klasörü oluşturun:
-
-```bash
-mkdir -p "$PWD/backups"
-```
-
-Podman ile kalıcı volume yedeği:
+Yeni akış kayıtları, kanıtları ve gerekli uygulama anahtarlarını birlikte yedekler.
+Tutarlı snapshot için uygulama kısa süre durdurulur ve işlem sonunda tekrar başlatılır.
 
 ```bash
-sudo podman run --rm \
-  --volume fornost-grc-data:/data:ro \
-  --volume "$PWD/backups:/backup:Z" \
-  docker.io/library/alpine:3.21 \
-  tar czf /backup/fornost-grc-data-$(date +%F-%H%M).tar.gz -C /data .
+sudo mkdir -p /srv/fornost-backups
+sudo python3 scripts/linux/backup.py backup /srv/fornost-backups/backup-2026-10-04
+sudo python3 scripts/linux/backup.py verify /srv/fornost-backups/backup-2026-10-04
 ```
 
-Yedek dosyasını sunucu dışında şifreli ve erişim kontrollü bir alana aktarın. Geri yükleme veri üzerine yazan bir işlemdir; önce mevcut volume'ün ayrıca yedeğini alın ve uygulama container'larını durdurun.
+Yedek dizini yeni olmalıdır. Yedek açık metin kurtarma anahtarları içerir; şifreli,
+kurumun erişim kontrolü uyguladığı depolamada tutulmalıdır. `verify` checksum ve
+arşiv yapısını doğrular; gerçek geri yükleme tatbikatının yerini tutmaz.
+Geri yükleme yalnız **yeni bir volume'a** yapılır.
+
+Ayrıntılı kapsam, Docker/Podman seçimi, geri yükleme, sürüm gereksinimleri ve
+kontrollü geçiş için [Yedekleme ve Kurtarma](onprem/backup-recovery.md) rehberini izleyin.
 
 ## 12. Kaldırma
 

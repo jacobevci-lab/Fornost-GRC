@@ -113,4 +113,4 @@ jobs:
           --volume "$PWD:/src:ro"
           --workdir /src
           "${{ matrix.image }}"
-          bash -lc 'bash -n scripts/linux/*.sh tests/onprem-install-smoke.sh && bash tests/onprem-install-smoke.sh'
+          bash -lc 'dnf -q -y install python3 >/dev/null && bash -n scripts/linux/*.sh tests/onprem-install-smoke.sh && bash tests/onprem-install-smoke.sh && python3 tests/onprem-backup-test.py'

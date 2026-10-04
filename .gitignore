@@ -43,3 +43,6 @@ next-env.d.ts
 /.sites-runtime/
 /outputs/
 /work/
+
+.fornost-maintenance.lock
+__pycache__/
