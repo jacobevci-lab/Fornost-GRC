@@ -32,7 +32,9 @@ try{
  let found=false;for(let p=0;p<30;p++){const item=panel.getByRole('button',{name:'Open record: QA WORK 9',exact:true});if(await item.count()){found=true;await item.click();break;}const next=panel.getByRole('button',{name:'Next',exact:true});if(!await next.count()||await next.isDisabled())break;await next.click();}assert.ok(found);
  const records=await (await context.request.get(base+'/api/grc')).json();
  const target=records.rows.find(row=>row.id==='qa-work-assurance-09');assert.ok(target);
- await expect(page.locator('.core-record-focus')).toContainText(target.code||target.id);
+ await expect(page.locator('.core-record-focus')).toContainText(target.recordCode||target.record_code||target.code||target.id);
+ await expect(page.locator('.table-card .table-wrap tbody tr')).toHaveCount(1);
+ await expect(page.locator('.table-card .table-wrap')).toContainText('QA WORK 9');
  await open();
  await page.route('**/api/controls/assurance',route=>route.fulfill({status:503,contentType:'application/json',body:'{}'}));
  await panel.getByRole('button',{name:'Refresh assurance',exact:true}).click();await expect(panel.getByRole('alert')).toContainText('could not be loaded');await expect(panel.locator('.mw-assurance-groups')).toHaveCount(0);
