@@ -1,7 +1,8 @@
+import { aiRecordViews } from "./ai-record-navigation";
 import type { ConnectedGrcRow } from "./connected-grc-model";
 
 export type ConnectedGrcFilterKey="riskRef"|"findingRef"|"controlRef"|"ruleRef"|"recordRef";
-export type ConnectedGrcNavigation={module:string;ref:string;filterKey:ConnectedGrcFilterKey};
+export type ConnectedGrcNavigation={module:string;ref:string;filterKey:ConnectedGrcFilterKey;kind?:string};
 
 const value=(input:unknown)=>String(input||"").trim();
 const first=(input:unknown)=>Array.isArray(input)?input.map(value).find(Boolean)||"":value(input);
@@ -10,6 +11,11 @@ const canonicalRuleRef=(input:unknown)=>first(input).replace(/^RULE:/i,"");
 export function connectedGrcNavigation(row:ConnectedGrcRow):ConnectedGrcNavigation|undefined{
  const targetModule=value(row.module),kind=value(row.data?.kind);
  if(!targetModule)return undefined;
+ if(targetModule==="AI Yönetişimi" && Object.hasOwn(aiRecordViews,kind)){
+  const refs=row.data.canonicalRefs;
+  const ref=Array.isArray(refs)&&refs.length===1&&typeof refs[0]==="string"?refs[0]:"";
+  return ref&&ref.length<=100?{module:targetModule,ref,kind,filterKey:"recordRef"}:undefined;
+ }
  if(["BIA","Varlık Envanteri","Uyum","Kanıtlar","Denetim Yönetimi"].includes(targetModule)&&!value(row.id).startsWith("enterprise:")){
   const ref=value(row.id)||value(row.code);return ref?{module:targetModule,ref,filterKey:"recordRef"}:undefined;
  }

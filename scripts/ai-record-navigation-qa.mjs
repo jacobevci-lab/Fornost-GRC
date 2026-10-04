@@ -1,0 +1,75 @@
+import { chromium, expect } from '@playwright/test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs/promises';
+import { qaPassword } from './qa-credentials.mjs';
+const base='http://127.0.0.1:4173',out='ai-record-navigation-qa-artifacts';
+await fs.mkdir(out,{recursive:true});
+const browser=await chromium.launch({executablePath:process.env.QA_CHROMIUM_PATH||undefined});
+const context=await browser.newContext({viewport:{width:1536,height:960}});
+const page=await context.newPage();page.setDefaultTimeout(20000);
+const errors=[];page.on('pageerror',error=>errors.push(error.message));
+const model={id:'QA-AIM-focus-1',systemName:'QA same model',modelName:'Local model',vendor:'Internal',purpose:'QA model navigation fixture',owner:'qa@fornost.test',deployment:'On-Prem',region:'TR',dataClassification:'Internal',autonomy:'Advisory',riskTier:'Medium',residualScore:8,controls:'Human approval',status:'draft',reviewDate:'2027-01-01'};
+const alert={id:'QA-AIA-focus-1',modelId:model.id,title:'QA same alert',severity:'High',status:'open',metric:'drift',occurrenceCount:1,lastSeenAt:'2026-10-04T12:00:00Z'};
+const finding={id:'QA-AIF-focus-1',modelId:model.id,title:'QA same finding',domain:'assurance',sourceRef:alert.id,severity:'High',status:'open',state:'priority',owner:'qa@fornost.test',dueDate:'2027-01-01',description:'QA controlled finding fixture',rootCause:'QA root cause',correctiveAction:'QA corrective action',preventiveAction:'QA preventive action'};
+const definitions=[
+ {path:'/api/ai/models',collection:'models',view:'models',root:'.ai-model-inventory',item:model},
+ {path:'/api/ai/assurance-alerts',collection:'alerts',view:'assurance-alerts',root:'.ai-alerts',item:alert},
+ {path:'/api/ai/findings',collection:'findings',view:'findings',root:'.ai-findings',item:finding},
+];
+let mode='complete',affected='';
+for(const def of definitions)await page.route(`**${def.path}`,route=>{
+ const items=[def.item,{...def.item,id:def.item.id.replace('-1','-2')}];
+ const payload={summary:{total:2},models:[model],domains:['assurance'],[def.collection]:mode==='missing'&&affected===def.path?items.slice(1):items};
+ if(affected===def.path&&mode==='error')return route.fulfill({status:503,json:{error:'QA unavailable'}});
+ if(affected===def.path&&mode==='malformed')payload[def.collection]=[null];
+ return route.fulfill({json:payload});
+});
+async function prepare(def){
+ mode='complete';affected='';await page.goto(base);await expect(page.locator('.shell')).toBeVisible();
+ await page.locator('.language-switch:visible').getByRole('button',{name:'EN',exact:true}).click();
+ await page.locator('nav button[aria-label="Connected GRC Map"]').evaluate(el=>el.click());
+ await expect(page.locator('.cg-source-state')).toHaveAttribute('data-loading','false');
+ await page.locator('.cg-filters input').fill(def.item.id);
+ await expect(page.locator('.cg-records>button')).toHaveCount(1);
+}
+async function open(def){
+ await page.locator('.cg-detail>header').getByRole('button',{name:'Open record',exact:false}).click();
+ await expect(page.locator('#fornost-ai-panel')).toHaveAttribute('data-ai-view',def.view);
+ await expect(page.locator(def.root)).toBeVisible();
+}
+try{
+ const login=await context.request.post(`${base}/api/auth`,{headers:{origin:base},data:{action:'login',email:'qa-admin@fornost.test',password:qaPassword()}});assert.equal(login.status(),200);
+ for(const def of definitions){
+  await prepare(def);await open(def);
+  const root=page.locator(def.root),banner=root.locator('.ai-record-focus');
+  await expect(banner).toHaveAttribute('data-state','found');
+  await expect(root.locator('[data-record-id]')).toHaveCount(1);
+  await expect(root.locator('[data-record-id]')).toHaveAttribute('data-record-id',def.item.id);
+  await expect(root.locator('form')).toHaveCount(0);
+  await banner.getByRole('button',{name:'Show all records'}).click();
+  await expect(root.locator('[data-record-id]')).toHaveCount(2);
+  await expect(banner).toHaveCount(0);
+  for(const failure of ['missing','error','malformed']){
+   await prepare(def);mode=failure;affected=def.path;await open(def);
+   await expect(banner).toHaveAttribute('data-state',failure==='missing'?'missing':'error');
+   await expect(root.locator('[data-record-id]')).toHaveCount(0);
+   if(failure!=='missing'){
+    mode='complete';await banner.getByRole('button',{name:'Retry'}).click();
+    await expect(banner).toHaveAttribute('data-state','found');
+    await expect(root.locator('[data-record-id]')).toHaveCount(1);
+   }
+  }
+ }
+ for(const lang of ['EN','TR']){
+  await page.locator('.language-switch:visible').getByRole('button',{name:lang,exact:true}).click();
+  await expect(page.locator('.ai-record-focus')).toContainText(lang==='EN'?'Selected record':'Seçili kayıt');
+  for(const theme of ['light','dark'])for(const width of [1536,390]){
+   await page.evaluate(theme=>{document.documentElement.dataset.theme=theme;},theme);
+   await page.setViewportSize({width,height:960});
+   assert.ok(await page.locator('.ai-record-focus').evaluate(el=>el.scrollWidth<=el.clientWidth+1));
+   await page.screenshot({path:`${out}/${lang}-${theme}-${width}.png`});
+  }
+ }
+ assert.deepEqual(errors,[]);
+ await fs.writeFile(`${out}/result.json`,JSON.stringify({status:'passed',exactRecordPaths:3,sameTitleIsolation:true,sourceFailuresAndRecovery:9,layouts:8,fixtureTransport:true}));
+}finally{await browser.close();}
