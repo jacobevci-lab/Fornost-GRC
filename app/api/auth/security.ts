@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { sessionExpired, sessionTimeoutMinutes } from "../../session-policy";
 import { BASE_PATH } from "../../base-path";
 import { scopedApiAllowed, type ModuleAccess } from "../../module-access";
 import { ensureModuleAccessSchema, readModuleAccess } from "../users/access-storage";
@@ -30,6 +31,7 @@ export async function identityDb() {
       await env.DB.batch([
         env.DB.prepare(usersSql),
         env.DB.prepare(sessionsSql),
+        env.DB.prepare(`CREATE TABLE IF NOT EXISTS platform_settings (id TEXT PRIMARY KEY, config_json TEXT NOT NULL, updated_by TEXT NOT NULL, updated_at TEXT NOT NULL)`),
       ]);
       await ensureModuleAccessSchema(env.DB);
       const columns=await env.DB.prepare("PRAGMA table_info(local_users)").all<{name:string}>();
@@ -132,9 +134,14 @@ export async function actor(req: NextRequest): Promise<Actor | null> {
   const token = req.cookies.get("fornost_session")?.value;
   if (!token) return null;
   const db = await identityDb(), now = new Date().toISOString(), tokenHash = await sha256(token);
-  const row = await db.prepare(`SELECT u.id,u.name,u.email,u.role,u.status,s.expires_at
-    FROM local_sessions s JOIN local_users u ON u.id=s.user_id WHERE s.id_hash=?`).bind(tokenHash).first<{id:string;name:string;email:string;role:string;status:string;expires_at:string}>();
-  if (!row || row.status !== "Active" || row.expires_at <= now) return null;
+  const row = await db.prepare(`SELECT u.id,u.name,u.email,u.role,u.status,s.expires_at,s.created_at,p.config_json
+    FROM local_sessions s JOIN local_users u ON u.id=s.user_id LEFT JOIN platform_settings p ON p.id='default' WHERE s.id_hash=?`).bind(tokenHash).first<{id:string;name:string;email:string;role:string;status:string;expires_at:string;created_at:string;config_json:string|null}>();
+  if (!row || row.status !== "Active") return null;
+  const minutes = sessionTimeoutMinutes(row.config_json);
+  if (sessionExpired(row.created_at, row.expires_at, minutes, Date.parse(now))) {
+    await db.prepare("DELETE FROM local_sessions WHERE id_hash=?").bind(tokenHash).run();
+    return null;
+  }
   await db.prepare("UPDATE local_sessions SET last_seen_at=? WHERE id_hash=?").bind(now, tokenHash).run();
   return { id: row.id, email: row.email, name: row.name, role: row.role as AppRole, source: "local", moduleAccess: await readModuleAccess(db, row.id) };
 }
@@ -150,8 +157,14 @@ export async function requireRole(req: NextRequest, roles: AppRole[]) {
   return { actor: current };
 }
 
+async function readSessionTimeout(db: Awaited<ReturnType<typeof identityDb>>) {
+  const row = await db.prepare("SELECT config_json FROM platform_settings WHERE id='default'").first<{config_json:string}>();
+  return sessionTimeoutMinutes(row?.config_json);
+}
+
 export async function createSession(db: Awaited<ReturnType<typeof identityDb>>, userId: string) {
-  const token = bytesToHex(crypto.getRandomValues(new Uint8Array(32))), now = new Date(), expires = new Date(now.getTime() + 8 * 3600_000);
+  const minutes = await readSessionTimeout(db);
+  const token = bytesToHex(crypto.getRandomValues(new Uint8Array(32))), now = new Date(), expires = new Date(now.getTime() + minutes * 60_000);
   await db.prepare("DELETE FROM local_sessions WHERE expires_at<=?").bind(now.toISOString()).run();
   await db.prepare("INSERT INTO local_sessions VALUES(?,?,?,?,?)").bind(await sha256(token), userId, expires.toISOString(), now.toISOString(), now.toISOString()).run();
   return { token, expires };

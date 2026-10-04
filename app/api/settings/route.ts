@@ -49,6 +49,8 @@ export async function PUT(req:NextRequest){
   const changedKeys=Object.keys(config).filter(key=>previous[key]!==config[key as keyof typeof config]);
   await db.batch([
     db.prepare("INSERT INTO platform_settings(id,config_json,updated_by,updated_at) VALUES('default',?,?,?) ON CONFLICT(id) DO UPDATE SET config_json=excluded.config_json,updated_by=excluded.updated_by,updated_at=excluded.updated_at").bind(JSON.stringify(config),access.actor.email,now),
+    // Persist shorter deadlines atomically with the policy so later increases cannot revive them.
+    db.prepare("UPDATE local_sessions SET expires_at=strftime('%Y-%m-%dT%H:%M:%fZ',created_at,?) WHERE expires_at>strftime('%Y-%m-%dT%H:%M:%fZ',created_at,?)").bind(`+${config.sessionTimeoutMinutes} minutes`,`+${config.sessionTimeoutMinutes} minutes`),
     db.prepare("INSERT INTO platform_setting_events(id,action,actor,detail,created_at) VALUES(?,?,?,?,?)").bind(eventId,"platform-settings-update",access.actor.email,JSON.stringify({changedKeys}),now),
   ]);
   return NextResponse.json({...config,updatedBy:access.actor.email,updatedAt:now,event:{id:eventId,action:"platform-settings-update",actor:access.actor.email,changedKeys,createdAt:now}});
