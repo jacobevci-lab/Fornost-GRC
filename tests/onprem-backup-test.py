@@ -76,7 +76,7 @@ class Backups(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, 'already exists'):
                 backup.restore('docker', self.bundle, 'fornost-grc-restore-test', self.root/'recovery')
             self.assertEqual(run.call_count, 1)
-            self.assertEqual(run.call_args.args[1:3], ('volume', 'inspect'))
+            self.assertEqual(run.call_args[0][1:3], ('volume', 'inspect'))
 
     def test_normal_volume_refused(self):
         with self.assertRaises(ValueError): backup.restore('docker', self.bundle, 'fornost-grc-data', self.root/'recovery')
