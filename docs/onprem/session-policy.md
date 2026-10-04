@@ -32,3 +32,21 @@ continue to use the administrator-only settings endpoint and settings audit trai
 Isolated runtime QA exercises policy reduction, non-extension, cookie deadlines,
 malformed state and browser return to sign-in. No production sessions are altered
 by these tests.
+
+## Administrator session termination
+
+Identity & Access → Local User Accounts → Session security provides **End All Local
+Sessions** for an individual account. The operation deletes all of that user's
+local session records and records the administrator's action in access history in
+one transaction. Account status, role, password and module grants remain unchanged;
+the user may sign in again. Use account disablement when further sign-in must be
+blocked. External identity-provider sessions are outside this action's scope.
+
+Only administrators may call `DELETE /api/users/sessions` with a single `userId`.
+The endpoint applies the usual same-origin and authentication checks, a bounded
+4 KiB JSON body, and target existence validation. It does not return session tokens
+or hashes. Requests with no matching sessions still record the administrator's
+explicit action. A failed or timed-out request must not be presented as success:
+check access history or retry. Revoking one's own local sessions returns that
+browser to sign-in; other browsers detect revocation on their next authenticated
+request or regular authentication check.
