@@ -2,7 +2,7 @@
 
 This workflow supports the Docker/Podman installation, not hosted Cloudflare data.
 Run with the same OS account and engine used for installation (rootless and root
-engines have different storage). Requires Python 3.7+ and the container CLI.
+engines have different storage). Requires Python 3.6+ and the container CLI.
 
 ## What is protected
 

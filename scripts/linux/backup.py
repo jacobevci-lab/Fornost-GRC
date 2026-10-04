@@ -195,7 +195,7 @@ def main():
     signal.signal(signal.SIGTERM, interrupted)
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--engine', choices=['docker', 'podman'], default=os.environ.get('FORNOST_CONTAINER_ENGINE'))
-    sub = parser.add_subparsers(dest='action', required=True)
+    sub = parser.add_subparsers(dest='action')
     for action in ('backup', 'verify', 'restore'):
         command = sub.add_parser(action)
         command.add_argument('directory', type=Path)
@@ -203,6 +203,8 @@ def main():
             command.add_argument('volume')
             command.add_argument('recovery', type=Path)
     args = parser.parse_args()
+    if not args.action:
+        parser.error('Choose backup, verify or restore')
     if args.action == 'verify':
         verify(args.directory)
         print('Backup checksums and archive structure verified. This is not an application restore drill.')
