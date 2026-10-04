@@ -45,6 +45,8 @@ jobs:
           curl --fail --silent --show-error http://127.0.0.1:4173/api/auth \
             -H 'Origin: http://127.0.0.1:4173' -H 'Content-Type: application/json' \
             --data-binary @/tmp/fornost-qa-bootstrap.json
+      - name: Server session lifetime and sign-in recovery QA
+        run: node scripts/session-policy-runtime-qa.mjs
       - name: Administration settings status and recovery QA
         run: node scripts/admin-settings-runtime-qa.mjs
       - name: Ask Fornost immediate post-login and recovery QA
@@ -90,6 +92,7 @@ jobs:
         with:
           name: workspace-layout-qa
           path: |
+            session-policy-qa-artifacts/
             admin-settings-qa-artifacts/
             simplicity-qa-artifacts/
             ask-fornost-qa-artifacts/

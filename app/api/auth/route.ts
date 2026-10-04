@@ -5,7 +5,8 @@ import { actor, constantTimeEqual, createSession, demoAccount, destroySession, e
 const configuredBasePath = process.env.NEXT_PUBLIC_BASE_PATH?.trim().replace(/\/+$/, "") || "";
 const bootstrapCookieName = "fornost_bootstrap_auth";
 const bootstrapContext = "fornost-bootstrap-v1";
-const cookie = (req: NextRequest) => ({ httpOnly: true, secure: requestIsSecure(req), sameSite: "strict" as const, path: configuredBasePath || "/", maxAge: 8 * 3600 });
+const cookie = (req: NextRequest) => ({ httpOnly: true, secure: requestIsSecure(req), sameSite: "strict" as const, path: configuredBasePath || "/" });
+const sessionCookie = (req: NextRequest, expires: Date) => ({ ...cookie(req), expires, maxAge: Math.max(0, Math.floor((expires.getTime() - Date.now()) / 1000)) });
 const bootstrapCookie = (req: NextRequest) => ({ ...cookie(req), maxAge: 15 * 60 });
 const normalize = (v: unknown) => String(v || "").trim();
 
@@ -93,7 +94,7 @@ export async function POST(req: NextRequest) {
     const demo = await db.prepare("SELECT id,status FROM local_users WHERE email=?").bind(demoAccount.email).first<{id:string;status:string}>();
     if (!demo || demo.status !== "Active") return NextResponse.json({ error: "Demo hesabı kullanılamıyor." }, { status: 503 });
     const session = await createSession(db, demo.id), res = NextResponse.json({ ok: true });
-    res.cookies.set("fornost_session", session.token, cookie(req));
+    res.cookies.set("fornost_session", session.token, sessionCookie(req, session.expires));
     return res;
   }
   const email = normalize(body.email).toLowerCase(), password = normalize(body.password);
@@ -109,7 +110,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "İlk yönetici hesabı başka bir oturum tarafından oluşturuldu." }, { status: 409 });
     }
     const session = await createSession(db, id), res = NextResponse.json({ ok: true });
-    res.cookies.set("fornost_session", session.token, cookie(req));
+    res.cookies.set("fornost_session", session.token, sessionCookie(req, session.expires));
     res.cookies.set(bootstrapCookieName, "", { ...bootstrapCookie(req), maxAge: 0 });
     return res;
   }
@@ -129,5 +130,5 @@ export async function POST(req: NextRequest) {
   } else {
     await db.prepare("UPDATE local_users SET failed_attempts=0,locked_until=NULL,updated_at=? WHERE id=?").bind(now.toISOString(), row.id).run();
   }
-  const session = await createSession(db, row.id), res = NextResponse.json({ ok: true }); res.cookies.set("fornost_session", session.token, cookie(req)); return res;
+  const session = await createSession(db, row.id), res = NextResponse.json({ ok: true }); res.cookies.set("fornost_session", session.token, sessionCookie(req, session.expires)); return res;
 }
