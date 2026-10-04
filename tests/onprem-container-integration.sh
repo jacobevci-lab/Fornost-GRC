@@ -163,6 +163,8 @@ persisted="$("${engine}" run --rm \
 
 echo "On-prem ${engine} clean bootstrap passed: empty runtime, verified image install, two running containers, HTTPS page assets, same-origin auth POST and API, plus reinstall data persistence."
 
+python3 tests/onprem-backup-auth.py init "${state_dir}" "${port}"
+
 # Round-trip an offline snapshot into a distinct volume and boot the recovered data.
 python3 scripts/linux/backup.py --engine "${engine}" backup "${state_dir}/backup"
 python3 scripts/linux/backup.py verify "${state_dir}/backup"
@@ -180,4 +182,5 @@ FORNOST_CONTAINER_ENGINE="${engine}" FORNOST_STATE_DIR="${state_dir}" bash scrip
 "${engine}" volume inspect fornost-grc-data >/dev/null
 # Keys must survive the round-trip; never print their values.
 "${engine}" inspect fornost-grc-app | python3 -c 'import json,sys; from pathlib import Path; expected=dict(line.split("=",1) for line in Path(sys.argv[1]).read_text().splitlines()); actual=dict(line.split("=",1) for line in json.load(sys.stdin)[0]["Config"]["Env"]); assert all(actual[key]==expected[key] for key in ("FORNOST_SETTINGS_ENCRYPTION_KEY","FORNOST_DOSSIER_SIGNING_KEY","FORNOST_SCHEDULER_TOKEN"))' "${state_dir}/recovery/recovery.env"
+python3 tests/onprem-backup-auth.py check "${state_dir}" "${port}"
 echo "On-prem backup/recovery passed: consistent snapshot, verified archive, separate restored volume, preserved keys, running recovered app, untouched original volume."
