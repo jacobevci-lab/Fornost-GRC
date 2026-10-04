@@ -87,7 +87,7 @@ export default function ConnectedGrc({rows,lang,go,includeAi=false}:{rows:Connec
   function openRecord(row:ConnectedGrcRow){
     const target=connectedGrcNavigation(row);
     if(!target){go(row.module);return;}
-    navigateToFornost({module:target.module,ref:target.ref,source:"connected-grc-register",filter:{[target.filterKey]:target.ref}});
+    navigateToFornost({module:target.module,ref:target.ref,kind:target.kind,source:"connected-grc-register",filter:{[target.filterKey]:target.ref}});
   }
   function download(){
     const data=[["Source module","Source code","Source title","Relationship","Field","Target module","Target code","Target title","Matched reference"],...filtered.map(link=>[link.source.module,link.source.code||link.source.id,connectedTitle(link.source),link.relation,link.field,link.target.module,link.target.code||link.target.id,connectedTitle(link.target),link.matched])];
@@ -122,7 +122,7 @@ export default function ConnectedGrc({rows,lang,go,includeAi=false}:{rows:Connec
           {matchingRecords.length>10&&<footer><button type="button" disabled={currentPage===0} onClick={()=>{setPage(currentPage-1);setLinkLimit(8)}}>{tr?"Önceki":"Previous"}</button><span>{currentPage+1} / {Math.ceil(matchingRecords.length/10)}</span><button type="button" disabled={(currentPage+1)*10>=matchingRecords.length} onClick={()=>{setPage(currentPage+1);setLinkLimit(8)}}>{tr?"Sonraki":"Next"}</button></footer>}
         </section>
         <section className="cg-detail" aria-label={tr?"Seçili kaydın bağlantıları":"Selected record connections"}>
-          <header><small>{tr?"2. Bağlantıları incele":"2. Explore its connections"}</small>{selected?<><h3>{connectedTitle(selected)}</h3><p>{selected.code||selected.id} · {moduleLabel(selected.module)}</p><button type="button" onClick={()=>openRecord(selected)}>{selected.module==="AI Yönetişimi"?(tr?"AI Yönetişimini aç":"Open AI Governance"):(tr?"Kaydı aç":"Open record")} ↗</button></>:<h3>{tr?"Bir kayıt seçin":"Choose a record"}</h3>}</header>
+          <header><small>{tr?"2. Bağlantıları incele":"2. Explore its connections"}</small>{selected?<><h3>{connectedTitle(selected)}</h3><p>{selected.code||selected.id} · {moduleLabel(selected.module)}</p><button type="button" onClick={()=>openRecord(selected)}>{tr?"Kaydı aç":"Open record"} ↗</button></>:<h3>{tr?"Bir kayıt seçin":"Choose a record"}</h3>}</header>
           {selected&&<><div className="cg-connection-count">{selectedLinks.length} {tr?"doğrudan bağlantı":"direct connections"}</div>
           <div className="cg-connections">{selectedLinks.slice(0,linkLimit).map((link,index)=>{
             const outgoing=link.source.id===selected.id,other=outgoing?link.target:link.source;

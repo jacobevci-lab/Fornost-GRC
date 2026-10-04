@@ -45,6 +45,10 @@ jobs:
           curl --fail --silent --show-error http://127.0.0.1:4173/api/auth \
             -H 'Origin: http://127.0.0.1:4173' -H 'Content-Type: application/json' \
             --data-binary @/tmp/fornost-qa-bootstrap.json
+      - name: Workspace simplicity flows
+        run: node scripts/workspace-simplicity-qa.mjs
+      - name: AI exact record navigation and recovery QA
+        run: node scripts/ai-record-navigation-qa.mjs
       - name: Connected AI graph and source recovery QA
         run: node scripts/connected-ai-grc-qa.mjs
       - name: Control business impact and dependency navigation QA
@@ -95,13 +99,12 @@ jobs:
           CF_ACCESS_CLIENT_ID: local-qa
           CF_ACCESS_CLIENT_SECRET: local-qa
         run: node scripts/full-product-qa-gate.mjs
-      - name: Workspace simplicity flows
-        run: node scripts/workspace-simplicity-qa.mjs
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: workspace-layout-qa
           path: |
+            ai-record-navigation-qa-artifacts/
             connected-ai-qa-artifacts/
             control-business-impact-qa-artifacts/
             enterprise-work-qa-artifacts/

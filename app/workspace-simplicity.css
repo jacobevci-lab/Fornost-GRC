@@ -54,4 +54,5 @@
 /* Contrast on warm authentication surfaces and bright dark-theme audit actions. */
 .auth-card>small{color:var(--ws-brand-2)!important}
 .auth-card>p,.auth-card em{color:var(--ws-muted)!important}
+html[data-theme] .auth-card label{color:var(--ws-ink)!important}
 html[data-theme="dark"] .audit-readiness-actions button:not(.secondary):not(.refresh){color:var(--ws-bg)!important}

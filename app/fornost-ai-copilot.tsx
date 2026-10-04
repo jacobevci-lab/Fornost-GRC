@@ -1,4 +1,5 @@
 "use client";
+import { type AiRecordFocus } from "./ai-record-navigation";
 import { safeWebHref } from "./safe-web-href";
 
 import { createPortal } from "react-dom";
@@ -79,6 +80,7 @@ export default function FornostAiCopilot() {
   const [statusError, setStatusError] = useState("");
   const [open, setOpen] = useState(false);
   const [workspaceLocale, setWorkspaceLocale] = useState("tr");
+  const [recordFocus, setRecordFocus] = useState<AiRecordFocus | null>(null);
   const [workspaceHost, setWorkspaceHost] = useState<HTMLElement | null>(null);
   const [identityLoading, setIdentityLoading] = useState(false);
   const [identityError, setIdentityError] = useState("");
@@ -156,7 +158,7 @@ export default function FornostAiCopilot() {
     if (request !== identityRequest.current) return;
     const nextUser = body.authenticated ? body.user as User : null;
     const nextKey=nextUser?JSON.stringify([nextUser.id,nextUser.email,nextUser.role,nextUser.moduleAccess]):"";
-    if(identityKey.current && identityKey.current!==nextKey){setMessages([]);setDrafts([]);setAgentRuns([]);setQuestion("");setFeedbackDraft(null);setTab("chat");}
+    if(identityKey.current && identityKey.current!==nextKey){setRecordFocus(null);setMessages([]);setDrafts([]);setAgentRuns([]);setQuestion("");setFeedbackDraft(null);setTab("chat");}
     identityKey.current=nextKey;
     setUser(nextUser);
     setIdentityLoading(false);
@@ -166,9 +168,10 @@ export default function FornostAiCopilot() {
 
   useEffect(() => {
     const openContextualCopilot = (event: Event) => {
-      const detail = (event as CustomEvent<{module?:string;prompt?:string;mode?:"chat"|"agent";agentKind?:AgentKind;view?:"portfolio"|"governance"}>).detail || {};
+      const detail = (event as CustomEvent<{module?:string;prompt?:string;mode?:"chat"|"agent";agentKind?:AgentKind;view?:"portfolio"|"governance"|"models"|"assurance-alerts"|"findings";recordFocus?:AiRecordFocus}>).detail || {};
       setWorkspaceHost(document.getElementById("ai-governance-workspace"));
       setOpen(true);
+      setRecordFocus(detail.recordFocus || null);
       void refreshIdentity();
       if (detail.view) {
         setTab(detail.view);
@@ -185,7 +188,7 @@ export default function FornostAiCopilot() {
     };
     const syncLocale = (event: Event) => setWorkspaceLocale((event as CustomEvent<string>).detail);
     window.addEventListener("fornost:ai-workspace-locale", syncLocale);
-    const closeWorkspace = () => { setWorkspaceHost(null); setOpen(false); };
+    const closeWorkspace = () => { setRecordFocus(null); setWorkspaceHost(null); setOpen(false); };
     window.addEventListener("fornost:open-ai", openContextualCopilot);
     window.addEventListener("fornost:close-ai-workspace", closeWorkspace);
     return () => {
@@ -423,7 +426,7 @@ export default function FornostAiCopilot() {
         <div><small>FORNOST AI · READ-ONLY COPILOT</small><h2>{workspaceHost ? (workspaceLocale === "tr" ? "AI Yönetişimi" : "AI Governance") : "Ask Fornost"}</h2><p>{status?.model || "AI sağlayıcısı bekleniyor"}</p></div>
         {!workspaceHost && <button onClick={() => setOpen(false)} aria-label="Kapat">×</button>}
       </header>
-      {!scoped && <AiSectionPicker embedded={!!workspaceHost} label={workspaceLocale === "tr" ? "AI çalışma alanları" : "AI workspaces"}><div className="fornost-ai-tabs" role="group" aria-label="AI workspace sections">
+      {!scoped && <AiSectionPicker embedded={!!workspaceHost} label={workspaceLocale === "tr" ? "AI çalışma alanları" : "AI workspaces"}><div className="fornost-ai-tabs" onClick={()=>setRecordFocus(null)} role="group" aria-label="AI workspace sections">
         <small className="fornost-ai-tab-group">KOMUTA</small>
         {user.role === "Admin" && <button className={activeTab === "portfolio" ? "active" : ""} onClick={() => setTab("portfolio")}>AI Yönetim Özeti</button>}
         <button className={activeTab === "chat" ? "active" : ""} onClick={() => setTab("chat")}>Copilot</button>
@@ -534,7 +537,7 @@ export default function FornostAiCopilot() {
         <div className="fornost-ai-governance-tabs"><button className={governanceView==="inventory"?"active":""} onClick={()=>setGovernanceView("inventory")}>Envanter</button><button className={governanceView==="evaluations"?"active":""} onClick={()=>setGovernanceView("evaluations")}>Değerlendirme</button><button className={governanceView==="health"?"active":""} onClick={()=>setGovernanceView("health")}>Provider Health</button></div>
         {notice&&<div className="fornost-ai-notice">{notice}</div>}
         {governanceView==="inventory"?<><form className="fornost-ai-governance-form" onSubmit={createUseCase}><b>Yeni kullanım senaryosu</b><label><span>Ad</span><input maxLength={160} value={useCaseForm.name} onChange={e=>setUseCaseForm(value=>({...value,name:e.target.value}))}/></label><label><span>Amaç</span><textarea rows={3} maxLength={1600} value={useCaseForm.purpose} onChange={e=>setUseCaseForm(value=>({...value,purpose:e.target.value}))}/></label><div><label><span>Sorumlu</span><input maxLength={320} value={useCaseForm.owner} onChange={e=>setUseCaseForm(value=>({...value,owner:e.target.value}))}/></label><label><span>Gözden geçirme</span><input type="date" value={useCaseForm.reviewDate} onChange={e=>setUseCaseForm(value=>({...value,reviewDate:e.target.value}))}/></label></div><div><label><span>Veri sınıfı</span><select value={useCaseForm.dataClassification} onChange={e=>setUseCaseForm(value=>({...value,dataClassification:e.target.value}))}><option>Public</option><option>Internal</option><option>Confidential</option><option>Restricted</option></select></label><label><span>Etki</span><select value={useCaseForm.impactLevel} onChange={e=>setUseCaseForm(value=>({...value,impactLevel:e.target.value}))}><option>Low</option><option>Medium</option><option>High</option><option>Critical</option></select></label></div><label><span>Karar rolü</span><select value={useCaseForm.decisionRole} onChange={e=>setUseCaseForm(value=>({...value,decisionRole:e.target.value}))}><option>Assistive</option><option>Human-reviewed</option><option>Human-approved</option><option>Prohibited</option></select></label><label><span>Kontroller (virgülle)</span><input maxLength={1000} value={useCaseForm.controls} onChange={e=>setUseCaseForm(value=>({...value,controls:e.target.value}))}/></label><button disabled={governanceBusy}>Taslak Ekle</button></form><div className="fornost-ai-governance-list">{useCases.map(item=><article key={item.id}><header><div><b>{item.name}</b><small>{item.id}</small></div><span className={item.status}>{item.status}</span></header><p>{item.purpose}</p><dl><div><dt>Sorumlu</dt><dd>{item.owner}</dd></div><div><dt>Risk</dt><dd>{item.dataClassification} · {item.impactLevel}</dd></div><div><dt>Karar</dt><dd>{item.decisionRole}</dd></div><div><dt>Review</dt><dd>{item.reviewDate}</dd></div></dl><footer>{item.controls.map(control=><span key={control}>{control}</span>)}</footer>{item.decisionNote&&<em>{item.approvedBy} · {item.decisionNote}</em>}<div className="fornost-ai-governance-actions">{item.status!=="approved"&&<button onClick={()=>setDecision({id:item.id,status:"approved",note:"",confirmation:""})}>Onayla</button>}{item.status!=="suspended"&&<button className="warn" onClick={()=>setDecision({id:item.id,status:"suspended",note:"",confirmation:""})}>Askıya Al</button>}{item.status==="draft"&&<button className="danger" onClick={()=>void deleteUseCase(item.id)}>Sil</button>}</div>{decision?.id===item.id&&<div className="fornost-ai-decision"><textarea rows={2} maxLength={800} placeholder="Zorunlu karar notu" value={decision.note} onChange={e=>setDecision(value=>value?{...value,note:e.target.value}:value)}/><input placeholder={decision.status==="approved"?"ONAYLA":"ASKIYA AL"} value={decision.confirmation} onChange={e=>setDecision(value=>value?{...value,confirmation:e.target.value}:value)}/><div><button onClick={()=>setDecision(null)}>Vazgeç</button><button disabled={governanceBusy} onClick={()=>void decideUseCase()}>Kararı Kaydet</button></div></div>}</article>)}</div></>:governanceView==="evaluations"?<><form className="fornost-ai-governance-form" onSubmit={createEvalCase}><b>Yeni model testi</b><label><span>Test adı</span><input maxLength={160} value={evalForm.name} onChange={e=>setEvalForm(value=>({...value,name:e.target.value}))}/></label><label><span>Test girdisi</span><textarea rows={3} maxLength={2000} value={evalForm.input} onChange={e=>setEvalForm(value=>({...value,input:e.target.value}))}/></label><label><span>Beklenen terimler (virgülle)</span><input value={evalForm.expectedTerms} onChange={e=>setEvalForm(value=>({...value,expectedTerms:e.target.value}))}/></label><label><span>Yasaklı terimler (virgülle)</span><input value={evalForm.forbiddenTerms} onChange={e=>setEvalForm(value=>({...value,forbiddenTerms:e.target.value}))}/></label><label><span>Maksimum gecikme (ms)</span><input type="number" min="1000" max="120000" value={evalForm.maxLatencyMs} onChange={e=>setEvalForm(value=>({...value,maxLatencyMs:Number(e.target.value)}))}/></label><button disabled={governanceBusy}>Test Ekle</button></form><div className="fornost-ai-run-all"><b>Değerlendirme paketi</b><div><button className="secondary" disabled={governanceBusy} onClick={()=>void installEvaluationBaseline()}>Hazır Güvenlik Paketini Ekle</button><button className="secondary" disabled={!evalCases.length} onClick={downloadEvaluationEvidence}>Kanıt CSV İndir</button><button disabled={governanceBusy||!evalCases.some(item=>item.enabled)} onClick={()=>void runEvaluations()}>İlk 10 Etkin Testi Çalıştır</button></div></div><div className="fornost-ai-governance-list">{evalCases.map(item=><article key={item.id} className={!item.enabled?"disabled":undefined}><header><div><b>{item.name}</b><small>{item.id} · {item.enabled?"Etkin":"Devre dışı"}</small></div>{item.lastRun?<span className={item.lastRun.status}>{item.lastRun.score}/100</span>:<span>Yeni</span>}</header><p>{item.input}</p><div className={`fornost-ai-eval-trend ${item.trend}`}><b>{item.trend==="regressed"?"Regresyon":item.trend==="improved"?"İyileşme":item.trend==="stable"?"Stabil":"İlk ölçüm"}</b><span>{item.history.length>1?`${item.scoreDelta>0?"+":""}${item.scoreDelta} puan`:"Karşılaştırma için ikinci koşum gerekli"}</span></div><footer>{item.expectedTerms.map(term=><span key={term}>+ {term}</span>)}{item.forbiddenTerms.map(term=><span className="forbidden" key={term}>− {term}</span>)}</footer>{item.history.length>0&&<div className="fornost-ai-eval-history"><b>Son {item.history.length} koşum</b>{item.history.map(run=><div key={run.id}><span className={run.status}>{run.score}</span><small>{run.provider} · {run.model}</small><time>{run.latencyMs} ms · {new Date(run.createdAt).toLocaleString("tr-TR")}</time>{run.failureReason&&<em>{run.failureReason}</em>}</div>)}</div>}<div className="fornost-ai-governance-actions"><button disabled={governanceBusy||!item.enabled} onClick={()=>void runEvaluations(item.id)}>Çalıştır</button><button onClick={()=>editEvalCase(item)}>Düzenle</button><button className="warn" disabled={governanceBusy} onClick={()=>void toggleEvalCase(item)}>{item.enabled?"Devre Dışı":"Etkinleştir"}</button><button className="danger" onClick={()=>void deleteEvalCase(item.id)}>Sil</button></div>{evalEdit?.id===item.id&&<form className="fornost-ai-eval-edit" onSubmit={saveEvalCase}><b>Testi düzenle</b><label><span>Test adı</span><input maxLength={160} value={evalEdit.name} onChange={e=>setEvalEdit(value=>value?{...value,name:e.target.value}:value)}/></label><label><span>Test girdisi</span><textarea rows={3} maxLength={2000} value={evalEdit.input} onChange={e=>setEvalEdit(value=>value?{...value,input:e.target.value}:value)}/></label><label><span>Beklenen terimler</span><input value={evalEdit.expectedTerms} onChange={e=>setEvalEdit(value=>value?{...value,expectedTerms:e.target.value}:value)}/></label><label><span>Yasaklı terimler</span><input value={evalEdit.forbiddenTerms} onChange={e=>setEvalEdit(value=>value?{...value,forbiddenTerms:e.target.value}:value)}/></label><label><span>Maksimum gecikme (ms)</span><input type="number" min="1000" max="120000" value={evalEdit.maxLatencyMs} onChange={e=>setEvalEdit(value=>value?{...value,maxLatencyMs:Number(e.target.value)}:value)}/></label><label className="fornost-ai-checkbox"><input type="checkbox" checked={evalEdit.enabled} onChange={e=>setEvalEdit(value=>value?{...value,enabled:e.target.checked}:value)}/><span>Hazırlık kontrolüne dahil et</span></label><div><button type="button" onClick={()=>setEvalEdit(null)}>Vazgeç</button><button disabled={governanceBusy}>Kaydet</button></div></form>}</article>)}</div></>:<div className="fornost-ai-health-list">{!providerHealth.length?<div className="fornost-ai-audit-empty">Henüz provider health kaydı yok.</div>:providerHealth.map((item,index)=><article key={`${item.created_at}-${index}`}><span className={item.status}/><div><b>{item.profile} · {item.provider}</b><small>{item.model} · {item.operation}</small><em>{item.detail}</em></div><time>{item.latency_ms} ms<br/>{new Date(item.created_at).toLocaleString("tr-TR")}</time></article>)}</div>}
-      </div> : activeTab === "models" ? <FornostAiModelInventory/>
+      </div> : activeTab === "models" ? <FornostAiModelInventory key={recordFocus?.ref||"all"} focusRef={recordFocus?.kind==="ai-model"?recordFocus.ref:undefined} clearFocus={()=>setRecordFocus(null)} lang={workspaceLocale==="en"?"en":"tr"}/>
       : activeTab === "compliance" ? <FornostAiCompliance/>
       : activeTab === "lifecycle" ? <FornostAiLifecycle/>
       : activeTab === "incidents" ? <FornostAiIncidents/>
@@ -552,10 +555,10 @@ export default function FornostAiCopilot() {
       : activeTab === "red-team" ? <FornostAiRedTeam/>
       : activeTab === "transparency" ? <FornostAiTransparency/>
       : activeTab === "assurance" ? <FornostAiContinuousAssurance/>
-      : activeTab === "assurance-alerts" ? <FornostAiAssuranceAlerts/>
+      : activeTab === "assurance-alerts" ? <FornostAiAssuranceAlerts key={recordFocus?.ref||"all"} focusRef={recordFocus?.kind==="ai-alert"?recordFocus.ref:undefined} clearFocus={()=>setRecordFocus(null)} lang={workspaceLocale==="en"?"en":"tr"}/>
       : activeTab === "exceptions" ? <FornostAiExceptions role={user.role}/>
       : activeTab === "decommission" ? <FornostAiDecommission/>
-      : activeTab === "findings" ? <FornostAiFindings role={user.role}/>
+      : activeTab === "findings" ? <FornostAiFindings key={recordFocus?.ref||"all"} role={user.role} focusRef={recordFocus?.kind==="ai-finding"?recordFocus.ref:undefined} clearFocus={()=>setRecordFocus(null)} lang={workspaceLocale==="en"?"en":"tr"}/>
       : activeTab === "feedback" ? <FornostAiFeedback actor={user.email}/>
       : activeTab === "budget" ? <FornostAiBudget/>
       : activeTab === "policy" ? <FornostAiPolicy onChanged={refreshStatus}/>
