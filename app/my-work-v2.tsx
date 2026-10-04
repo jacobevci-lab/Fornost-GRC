@@ -1,8 +1,9 @@
 "use client";
+import MyWorkAssuranceSignals from "./my-work-assurance-signals";
 import { dueTimestamp } from "./due-date";
 import { matchesWorkIdentity, isDueToday, paginateWork, findingWorkRows } from "./work-queue";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { withBasePath } from "./base-path";
 import { assessedRiskScore } from "./risk-methodology";
@@ -248,6 +249,8 @@ export default function MyWorkV2() {
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState(false);
   const [pageIndex, setPageIndex] = useState(0);
+  const controller = useRef<AbortController | null>(null), request = useRef(0);
+  const [refreshKey, setRefreshKey] = useState(0);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
   useEffect(() => {
@@ -282,32 +285,42 @@ export default function MyWorkV2() {
   }, []);
 
   const load = useCallback(async () => {
-    setLoading(true);
+    controller.current?.abort();
+    const pending = new AbortController(); controller.current = pending;
+    const id = ++request.current;
+    const timeout = window.setTimeout(() => pending.abort(), 20000);
+    setLoading(true); setRefreshKey(value => value + 1);
     try {
       const [grcResult, authResult, findingsResult] = await Promise.allSettled([
-        fetch(withBasePath("/api/grc"), { cache: "no-store" }).then(async response => response.ok ? response.json() : Promise.reject(new Error("grc"))),
-        fetch(withBasePath("/api/auth"), { cache: "no-store" }).then(async response => response.ok ? response.json() : Promise.reject(new Error("auth"))),
-        fetch(withBasePath("/api/findings"), { cache: "no-store" }).then(async response => response.ok ? response.json() : Promise.reject(new Error("findings"))),
+        fetch(withBasePath("/api/grc"), { cache: "no-store", signal: pending.signal }).then(async response => response.ok ? response.json() : Promise.reject(new Error("grc"))),
+        fetch(withBasePath("/api/auth"), { cache: "no-store", signal: pending.signal }).then(async response => response.ok ? response.json() : Promise.reject(new Error("auth"))),
+        fetch(withBasePath("/api/findings"), { cache: "no-store", signal: pending.signal }).then(async response => response.ok ? response.json() : Promise.reject(new Error("findings"))),
       ]);
+      if (request.current !== id) return;
+      if (authResult.status === "rejected" || !authResult.value?.user?.email) {
+        setUser({}); setRows([]); setLoadError(true); return;
+      }
       setRows(previous => [
         ...(grcResult.status === "fulfilled" ? normalizeRows(grcResult.value) : previous.filter(row => row.module !== "Bulgular ve CAPA")),
         ...(findingsResult.status === "fulfilled" ? findingWorkRows(findingsResult.value) : previous.filter(row => row.module === "Bulgular ve CAPA")),
       ]);
       if (authResult.status === "fulfilled") setUser((authResult.value as { user?: User }).user || {});
-      const failed = grcResult.status === "rejected" || authResult.status === "rejected" || findingsResult.status === "rejected";
+      const failed = grcResult.status === "rejected" || findingsResult.status === "rejected";
       setLoadError(failed);
       if (!failed) setLastUpdated(new Date());
     } finally {
-      setLoading(false);
+      window.clearTimeout(timeout);
+      if (request.current === id) setLoading(false);
     }
   }, []);
 
+  const cancelLoad = useCallback(() => { request.current++; controller.current?.abort(); }, []);
   useEffect(() => {
     if (!mount) return;
     void load();
     const timer = window.setInterval(() => void load(), 300_000);
-    return () => window.clearInterval(timer);
-  }, [mount, load]);
+    return () => { window.clearInterval(timer); cancelLoad(); };
+  }, [mount, load, cancelLoad]);
 
   const data = useMemo(() => {
     const now = Date.now();
@@ -386,6 +399,8 @@ export default function MyWorkV2() {
         <button type="button" onClick={() => setFilter("completed")}><small>{tr ? "30 günde tamamlanan" : "Completed in 30 days"}</small><strong>{data.completedItems.length}</strong><span>{tr ? "Yakın zamanda kapanan işler" : "Recently closed work"}</span></button>
       </div>
 
+      <MyWorkAssuranceSignals lang={lang} scope={scope} user={user} refreshKey={refreshKey} identityAvailable={!loadError && !!user.email} />
+
       <section className="mw2-queue">
         <header>
           <div><small>{tr ? "KİŞİSEL İŞ KUYRUĞU" : "PERSONAL WORK QUEUE"}</small><h3>{scope === "organization" ? (tr ? "Organizasyon aksiyonları" : "Organization actions") : (tr ? "Bana atanmış işler" : "Work assigned to me")}</h3></div>
@@ -403,7 +418,7 @@ export default function MyWorkV2() {
           <span className="mw2-state"><em>{item.status}</em><small>{item.waiting ? (tr ? "Başkalarında bekliyor" : "Waiting for others") : item.reason}</small></span>
           <time className={!Number.isFinite(item.dueTime) ? "undated" : item.dueTime < data.now ? "overdue" : ""}>{filter === "completed" ? formatDate(item.row.updatedAt || item.row.createdAt || "", lang) : formatDate(item.due, lang)}</time>
           <strong className="mw2-arrow">→</strong>
-        </button>)}</div> : <div className="mw2-empty"><span>✓</span><div><b>{tr ? "Bu görünümde aksiyon yok." : "No actions in this view."}</b><p>{tr ? "Filtreyi değiştirin veya kapsamı kontrol edin." : "Change the filter or review the selected scope."}</p></div></div>}
+        </button>)}</div> : <div className="mw2-empty"><span>{loadError ? "!" : loading ? "…" : "✓"}</span><div><b>{loadError ? (tr ? "İş listesi doğrulanamadı." : "Work list could not be verified.") : loading ? (tr ? "İşler yükleniyor…" : "Loading work…") : (tr ? "Bu görünümde aksiyon yok." : "No actions in this view.")}</b><p>{tr ? "Filtreyi değiştirin veya kapsamı kontrol edin." : "Change the filter or review the selected scope."}</p></div></div>}
         {visible.length > 0 && <footer className="mw2-pagination" aria-label={tr ? "İş listesi sayfaları" : "Work list pages"}>
           <span aria-live="polite">{page.start}–{page.end} / {page.total}</span>
           <div><button type="button" disabled={page.page === 0} onClick={() => setPageIndex(page.page - 1)}>{tr ? "Önceki" : "Previous"}</button><span>{page.page + 1} / {page.pages}</span><button type="button" disabled={page.page + 1 >= page.pages} onClick={() => setPageIndex(page.page + 1)}>{tr ? "Sonraki" : "Next"}</button></div>
