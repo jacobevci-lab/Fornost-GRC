@@ -30,7 +30,9 @@ try{
  for(let i=0;i<9;i++)assert.ok(seen.has(`QA WORK ${i}`));assert.ok(!seen.has('QA WORK 9'),'substring owner must not be assigned');
  await page.locator('.mw2-scope').getByRole('button',{name:'Organization',exact:true}).click();await evidenceList();
  let found=false;for(let p=0;p<30;p++){const item=panel.getByRole('button',{name:'Open record: QA WORK 9',exact:true});if(await item.count()){found=true;await item.click();break;}const next=panel.getByRole('button',{name:'Next',exact:true});if(!await next.count()||await next.isDisabled())break;await next.click();}assert.ok(found);
- await expect(page.locator('.core-record-focus')).toContainText('qa-work-assurance-09');
+ const records=await (await context.request.get(base+'/api/grc')).json();
+ const target=records.rows.find(row=>row.id==='qa-work-assurance-09');assert.ok(target);
+ await expect(page.locator('.core-record-focus')).toContainText(target.code||target.id);
  await open();
  await page.route('**/api/controls/assurance',route=>route.fulfill({status:503,contentType:'application/json',body:'{}'}));
  await panel.getByRole('button',{name:'Refresh assurance',exact:true}).click();await expect(panel.getByRole('alert')).toContainText('could not be loaded');await expect(panel.locator('.mw-assurance-groups')).toHaveCount(0);
