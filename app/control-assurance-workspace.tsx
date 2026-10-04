@@ -95,7 +95,7 @@ export default function ControlAssuranceWorkspace({ rows, lang, go }: { rows: As
     </div>}
     {detail && <section key={detail.item.control.id} ref={detailRef} tabIndex={-1} className="control-assurance-drilldown" aria-label={tr ? 'Kontrol güvence ayrıntısı' : 'Control assurance detail'}>
       <div className="control-assurance-detail-head"><div><b>{detail.item.reference}</b><h4>{detail.item.title}</h4></div><button type="button" onClick={() => openRow(detail.item.control)}>{tr ? 'Kontrol kaydını aç' : 'Open control record'}</button><button type="button" onClick={() => setSelectedId('')}>{tr ? 'Kapat' : 'Close'}</button></div>
-      <ControlImpactLens detail={detail} lang={lang} />
+      <ControlImpactLens detail={detail} lang={lang} reliable={reliable} />
       <div className="control-assurance-test"><span>{tr ? 'Test sahibi' : 'Test owner'}: <b>{detail.test.owner || '—'}</b></span><span>{tr ? 'Sonraki test' : 'Next test'}: <b>{detail.test.nextTestDate || '—'}</b></span><span>{tr ? 'Son test sonucu' : 'Last test result'}: <b>{detail.test.result || '—'}</b></span></div>
       {!!detail.item.reasons.length && <ul className="control-assurance-reasons">{detail.item.reasons.map(reason => <li key={reason}>{reasonLabel(reason)}</li>)}</ul>}
       <div className="control-assurance-stages">{stages.map(stage => <details key={stage.key} className="control-assurance-stage"><summary>{stage.label}<span>{stage.rows.length}</span></summary><div className="control-assurance-stage-records">{stage.rows.map(row => {

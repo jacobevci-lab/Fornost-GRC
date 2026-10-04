@@ -1,3 +1,4 @@
+import { buildControlBusinessImpact, type ControlBusinessImpact } from "./control-business-impact";
 import { evaluateEvidenceEligibility } from "./evidence/eligibility";
 import { buildConnectedGrcGraph, type ConnectedGrcLink } from "./connected-grc-model";
 
@@ -49,6 +50,7 @@ export type ControlAssuranceTest = {
 };
 
 export type ControlAssuranceDetail = {
+  businessImpact: ControlBusinessImpact;
   item: ControlAssuranceItem;
   frameworks: AssuranceRow[];
   evidence: AssuranceRow[];
@@ -301,6 +303,7 @@ export function buildControlAssuranceDetail(
   const remediations = uniqueRows([...directRemediations, ...findingRemediations]);
   const riskSources = uniqueRows([...findings, ...remediations, ...audits, ...automations]);
   const risks = relatedFromRows(riskSources, graph.links, "Risk Assessment", ["finding-risk", "audit-risk", "remediation-risk"]);
+  const businessImpact = buildControlBusinessImpact(control, risks, graph.links, graph.unresolved);
   const test = testForControl(control, today.slice(0, 10));
 
   const chainIds = new Set([
@@ -312,6 +315,8 @@ export function buildControlAssuranceDetail(
     ...findings.map((row) => row.id),
     ...remediations.map((row) => row.id),
     ...risks.map((row) => row.id),
+    ...businessImpact.assets.map(item => item.row.id),
+    ...businessImpact.processes.map(item => item.row.id),
   ]);
   const unresolved = graph.unresolved
     .filter((entry) => chainIds.has(entry.source.id))
@@ -329,6 +334,7 @@ export function buildControlAssuranceDetail(
   const totalStages = stageChecks.length;
 
   return {
+    businessImpact,
     item,
     frameworks,
     evidence,
