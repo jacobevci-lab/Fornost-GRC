@@ -31,6 +31,7 @@ async function openMap() {
 try {
   const login = await context.request.post(`${base}/api/auth`, { headers: { origin: base }, data: { action: 'login', email: 'qa-admin@fornost.test', password: qaPassword() } });
   assert.equal(login.status(), 200);
+  assert.equal((await context.request.get(`${base}/api/grc`)).status(), 200);
   const stamp = new Date().toISOString();
   const rows = [
     { id: ids[0], module: 'Varlık Envanteri', data: { title } },
