@@ -24,3 +24,9 @@ Eksik bağlantılar sekmesi, tamamlanması gereken ilişkileri ve ilgili kaydı 
 - Dışa aktarım formül enjeksiyonuna karşı güvenli, UTF-8 CSV üretir.
 
 Bu görünüm bir çıkarım veya otomatik karar motoru değildir. Yalnız mevcut kayıtlardaki açık ve şeması tanımlı referansları gösterir; bağlantının yönetişim anlamı kayıt sahibi tarafından doğrulanır.
+
+## Reference integrity
+
+Graph resolution now prefers canonical record IDs (including native IDs retained by enterprise projections), then public record codes, then unique legacy aliases. Each tier is restricted to the relationship's allowed target modules. A collision at a stronger tier cannot fall through to a weaker label match. Explicit reference lists still support multiple targets; an individual ambiguous reference creates no links and contributes no coverage or assurance credit.
+
+The existing Gaps view distinguishes missing targets from ambiguous targets, lists candidate codes/titles, and opens the authoritative source record for correction with a unique code or ID. No records are automatically rewritten. Shared framework names that identify several requirements need explicit requirement references; the graph does not infer that every requirement is covered. This change does not migrate legacy references, enforce database foreign keys, or change permissions.

@@ -41,3 +41,54 @@ test("connected GRC scores assurance traceability and prioritizes critical gaps"
   assert.deepEqual(coverage.gaps[2].missingRelations, ["control-framework"]);
   assert.deepEqual(coverage.domains.map((domain) => [domain.module, domain.percent]), [["Risk Assessment",50],["Kontroller",50],["Kanıtlar",100],["Denetim Yönetimi",0]]);
 });
+
+test("duplicate labels remain ambiguous and cannot certify coverage", () => {
+  const rows = [
+    { id: "asset-a", code: "AST-A", module: "Varlık Envanteri", data: { title: "Shared service" } },
+    { id: "asset-b", code: "AST-B", module: "Varlık Envanteri", data: { title: "Shared service" } },
+    { id: "risk-a", module: "Risk Assessment", data: { asset: "Shared service" } },
+  ];
+  const graph = buildConnectedGrcGraph(rows);
+  assert.equal(graph.links.length, 0);
+  assert.equal(graph.unresolved[0].reason, "ambiguous");
+  assert.deepEqual(graph.unresolved[0].candidates.map(row => row.id), ["asset-a", "asset-b"]);
+  assert.equal(assessConnectedGrcCoverage(rows, graph.links).covered, 0);
+});
+
+test("canonical IDs outrank codes and labels; unique codes outrank labels", () => {
+  const assets = [
+    { id: "asset-a", code: "AST-A", module: "Varlık Envanteri", data: { title: "Production" } },
+    { id: "asset-b", code: "asset-a", module: "Varlık Envanteri", data: { title: "AST-A" } },
+    { id: "asset-c", code: "AST-C", module: "Varlık Envanteri", data: { title: "asset-a" } },
+  ];
+  for (const reference of ["asset-a", "AST-A"]) {
+    const graph = buildConnectedGrcGraph([...assets, { id: "risk-a", module: "Risk Assessment", data: { asset: reference } }]);
+    assert.deepEqual(graph.links.map(link => link.target.id), ["asset-a"]);
+    assert.equal(graph.unresolved.length, 0);
+  }
+});
+
+test("duplicate codes never fall through to a unique label and targets stay module scoped", () => {
+  const rows = [
+    { id: "asset-a", code: "DUP", module: "Varlık Envanteri", data: {} },
+    { id: "asset-b", code: "DUP", module: "Varlık Envanteri", data: {} },
+    { id: "asset-c", module: "Varlık Envanteri", data: { title: "DUP" } },
+    { id: "DUP", module: "Kontroller", data: {} },
+    { id: "risk-a", module: "Risk Assessment", data: { asset: "DUP" } },
+  ];
+  const graph = buildConnectedGrcGraph(rows);
+  assert.equal(graph.links.length, 0);
+  assert.equal(graph.unresolved[0].reason, "ambiguous");
+  assert.deepEqual(graph.unresolved[0].candidates.map(row => row.id), ["asset-a", "asset-b"]);
+});
+
+test("projected native IDs outrank colliding legacy aliases and explicit lists retain multiple links", () => {
+  const graph = buildConnectedGrcGraph([
+    { id: "enterprise:vendor:vendor-1", module: "Tedarikçiler", data: { canonicalRefs: ["vendor-1"], title: "Supplier" } },
+    { id: "enterprise:vendor:vendor-2", module: "Tedarikçiler", data: { canonicalRefs: ["vendor-2"], title: "vendor-1" } },
+    { id: "asset-a", module: "Varlık Envanteri", data: { vendor: ["vendor-1", "vendor-2", "absent"] } },
+  ]);
+  assert.deepEqual(graph.links.map(link => link.target.id), ["enterprise:vendor:vendor-1", "enterprise:vendor:vendor-2"]);
+  assert.equal(graph.unresolved[0].reason, "missing");
+  assert.deepEqual(graph.unresolved[0].candidates, []);
+});

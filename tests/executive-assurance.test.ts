@@ -7,8 +7,8 @@ const rows = [
   { id:"asset-1", code:"AST-001", module:"Varlık Envanteri", data:{ title:"M365" } },
   { id:"control-1", code:"CTL-001", module:"Kontroller", data:{ controlRef:"A.5.15", controlTitle:"Access control", owner:"IAM", testOwner:"Audit", nextTestDate:"2027-01-01", frameworks:"ISO 27001", status:"Aktif" } },
   { id:"framework-1", code:"CMP-001", module:"Uyum", data:{ framework:"ISO 27001", controlRef:"A.5.15", status:"Uyumlu" } },
-  { id:"evidence-1", code:"EVD-001", module:"Kanıtlar", data:{ evidenceTitle:"MFA export", controlRef:"A.5.15", status:"Onaylandı", expiresAt:"2027-01-01" } },
-  { id:"audit-1", code:"AUD-001", module:"Denetim Yönetimi", data:{ auditName:"ISO audit", requirementRef:"A.5.15", evidenceRef:"EVD-001", evidenceStatus:"Kanıt Tamam", status:"Açık" } },
+  { id:"evidence-1", code:"EVD-001", module:"Kanıtlar", data:{ evidenceTitle:"MFA export", controlRef:"CTL-001", status:"Onaylandı", expiresAt:"2027-01-01" } },
+  { id:"audit-1", code:"AUD-001", module:"Denetim Yönetimi", data:{ auditName:"ISO audit", requirementRef:"CTL-001", evidenceRef:"EVD-001", evidenceStatus:"Kanıt Tamam", status:"Açık" } },
 ];
 
 test("executive assurance combines traceability, controls, evidence and audit readiness", () => {
@@ -25,4 +25,11 @@ test("assurance pack is escaped, bilingual and includes priority evidence", () =
   assert.match(html, /RSK-X/);
   assert.doesNotMatch(html, /<script>alert/);
   assert.match(html, /&lt;script&gt;alert\(1\)&lt;\/script&gt;/);
+});
+
+test("ambiguous legacy control references do not inflate executive assurance", () => {
+  const ambiguous = rows.map(row => row.module === "Kanıtlar" ? { ...row, data: { ...row.data, controlRef: "A.5.15" } } : row);
+  const report = buildExecutiveAssurance(ambiguous, "2026-09-20");
+  assert.ok(report.score < buildExecutiveAssurance(rows, "2026-09-20").score);
+  assert.ok(report.controlPriorities.length > 0);
 });
