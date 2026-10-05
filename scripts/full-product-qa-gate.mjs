@@ -277,9 +277,17 @@ function targetedResponsivePasses(item) {
   return responsiveLocaleVerifications[verificationKey(viewport, locale)]?.passed === true;
 }
 
+// The legacy scanner covers module-specific dark themes that v2 does not.
+// Carry its accessibility failures into the gate instead of losing that coverage.
+const legacyReportPath = path.resolve("qa-artifacts/qa-report.json");
+const legacyReport = JSON.parse(await fs.readFile(legacyReportPath, "utf8"));
+const legacyAccessibilityFindings = (legacyReport.findings || []).filter(
+  (item) => String(item.title || "").startsWith("Accessibility:"),
+);
+
 const excluded = [];
 const effectiveFindings = [];
-for (const item of report.findings || []) {
+for (const item of [...(report.findings || []), ...legacyAccessibilityFindings]) {
   let reason = "";
   if (isSharedBrandNoise(item)) reason = "shared-brand-label";
   else if (sidebarVerification.passed && item?.area === "sidebar" && item?.title === "Collapse control not found") reason = "superseded-by-current-sidebar-view-contract";
