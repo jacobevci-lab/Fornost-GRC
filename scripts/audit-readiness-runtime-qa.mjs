@@ -24,6 +24,7 @@ await page.addInitScript(() => {
 });
 let checks = 0, auditId = '', seeded = false;
 const errors = []; page.on('pageerror', error => errors.push(error.message));
+page.on('console', message => { if (message.type() === 'error' && /same key/.test(message.text())) errors.push(message.text()); });
 const q = value => `'${String(value).replaceAll("'", "''")}'`;
 async function seed(sql) {
   const file = `${out}/local-fixture.sql`; await fs.writeFile(file, sql);
