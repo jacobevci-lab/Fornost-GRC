@@ -1,3 +1,5 @@
+import { aiRecordQueryId } from "@/app/ai/record-reads";
+import { readAiRecordHistory } from "@/app/ai/record-history";
 import { NextRequest, NextResponse } from "next/server";
 import { requireRole } from "../../auth/security";
 import { aiRuntime } from "@/app/ai/storage";
@@ -19,11 +21,12 @@ function parseRefs(value: string) {
 export async function GET(req: NextRequest) {
   const access = await requireRole(req, ["Admin"]);
   if (access.response) return access.response;
+  let id:string|null;try{id=aiRecordQueryId(req.nextUrl.searchParams);}catch{return NextResponse.json({error:"Geçerli bir kayıt kimliği gereklidir."},{status:400,headers:{"cache-control":"no-store"}});}
   const env = await aiRuntime(), limit = safeLimit(req.nextUrl.searchParams.get("limit"));
-  const result = await env.DB.prepare(`SELECT id,actor,action,provider,model,prompt_hash,context_refs_json,status,latency_ms,detail,created_at
-    FROM ai_activity_logs ORDER BY created_at DESC LIMIT ?`).bind(limit).all<Record<string, unknown>>();
+  const result = await readAiRecordHistory(env.DB,id,limit);
   return NextResponse.json({
-    logs: (result.results || []).map((row) => ({
+    hasMore: (result.results || []).length>limit,
+    logs: (result.results || []).slice(0,limit).map((row) => ({
       id: row.id,
       actor: row.actor,
       action: row.action,
