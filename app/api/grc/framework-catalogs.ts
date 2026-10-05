@@ -1,5 +1,7 @@
+import asvsCatalog from "./catalog-data/owasp-asvs.json";
+import { nistRequirementCatalogs } from "./nist-catalogs";
 import { nistCsf2Requirements } from "./nist-csf2-catalog";
-export type FrameworkRequirement = { ref: string; title: string; category: string; owner?: string };
+export type FrameworkRequirement = { ref: string; title: string; category: string; owner?: string; statement?: string; guidance?: string; assessment?: string; parentRef?: string };
 
 const rows = (category: string, owner: string, values: Array<[string, string]>): FrameworkRequirement[] =>
   values.map(([ref, title]) => ({ ref, title, category, owner }));
@@ -10,6 +12,8 @@ export const pciDssRequirements = rows("PCI DSS — ana gereksinimler", "Bilgi G
 ]);
 
 export const frameworkTemplateCatalogs: Record<string, FrameworkRequirement[]> = {
+  ...nistRequirementCatalogs,
+  [asvsCatalog.name]: asvsCatalog.requirements,
   "PCI DSS 4.0.1": pciDssRequirements,
   "NIST Cybersecurity Framework (CSF) 2.0": nistCsf2Requirements,
   "CIS Controls v8.1": rows("CIS Controls", "Siber Güvenlik", [
@@ -35,9 +39,4 @@ export const frameworkTemplateCatalogs: Record<string, FrameworkRequirement[]> =
   "GDPR (EU 2016/679)": rows("GDPR", "Privacy / Hukuk", [["Art.5","Kişisel veri işleme ilkeleri"],["Art.6","İşlemenin hukuka uygunluğu"],["Art.7-8","Rıza koşulları ve çocukların verisi"],["Art.9-10","Özel nitelikli veri ve mahkûmiyet verisi"],["Art.12-14","Şeffaflık ve bilgilendirme"],["Art.15-22","İlgili kişi hakları"],["Art.24","Veri sorumlusunun sorumluluğu"],["Art.25","Privacy by design ve varsayılan gizlilik"],["Art.26-28","Ortak sorumluluk ve veri işleyen yönetimi"],["Art.30","İşleme faaliyetleri kayıtları"],["Art.32","İşleme güvenliği"],["Art.33-34","Veri ihlali bildirimi"],["Art.35-36","DPIA ve ön danışma"],["Art.37-39","Veri koruma görevlisi"],["Art.44-49","Uluslararası veri aktarımları"],["Art.50","Uluslararası iş birliği"],["Art.83","İdari para cezaları"]]),
 };
 
-export const automaticAuditTemplates = [
-  "ISO/IEC 27001:2022", "SOC 2 Type I", "SOC 2 Type II", "PCI DSS 4.0.1",
-  "NIST Cybersecurity Framework (CSF) 2.0", "CIS Controls v8.1", "ISO 22301:2019",
-  "ISO/IEC 27701:2025", "ISO/IEC 27017:2026", "ISO/IEC 27018:2025", "COBIT 2019",
-  "DORA (EU 2022/2554)", "NIS2 (EU 2022/2555)", "KVKK (6698)", "GDPR (EU 2016/679)",
-] as const;
+export { automaticAuditTemplates } from "../../framework-templates";

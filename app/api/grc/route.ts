@@ -1,3 +1,4 @@
+import {parseGrcCursor} from "../../grc-pagination";
 import { preserveRiskGovernance } from "../../risk-governance-write";
 import { canWriteModule, isScoped, readableModules } from "../../module-access";
 import { NextRequest,NextResponse } from "next/server";
@@ -51,8 +52,9 @@ async function ensureRecordCodes(d:Awaited<ReturnType<typeof db>>,rows:Record<st
   const missing=rows.filter(row=>row.module===moduleName&&!known.has(String(row.id)));
   if(!missing.length)continue;
   const codes=await reserveRecordCodes(d,moduleName,missing.length,now);
-  for(let index=0;index<missing.length;index+=75){
-   await d.batch(missing.slice(index,index+75).map((row,offset)=>d.prepare("INSERT OR IGNORE INTO simple_grc_record_codes(record_id,module,code,created_at) VALUES(?,?,?,?)").bind(String(row.id),moduleName,codes[index+offset],now)));
+  for(let index=0;index<missing.length;index+=25){
+   const chunk=missing.slice(index,index+25);
+   await d.prepare(`INSERT OR IGNORE INTO simple_grc_record_codes(record_id,module,code,created_at) VALUES ${chunk.map(()=>"(?,?,?,?)").join(",")}`).bind(...chunk.flatMap((row,offset)=>[String(row.id),moduleName,codes[index+offset],now])).run();
   }
  }
  const result=await d.prepare("SELECT record_id,code FROM simple_grc_record_codes").all<{record_id:string;code:string}>();
@@ -97,7 +99,7 @@ export function validate(module:unknown,input:unknown){
  if(!validModule(module))return {error:"Geçersiz modül."};
  if(!input||typeof input!=="object"||Array.isArray(input))return {error:"Geçersiz kayıt verisi."};
  const source=input as Data,cleaned:Data={};
- for(const [key,value] of Object.entries(source)){if(key.length>60)continue;cleaned[key]=cleanText(value)}
+ for(const [key,value] of Object.entries(source)){if(key.length>60)continue;cleaned[key]=cleanText(value,module==="Denetim Yönetimi"&&["requirementStatement","requirementGuidance","requirementAssessment"].includes(key)?100000:1000)}
  const data=normalizeRecordData(module,cleaned);
  const missing=required[module].filter(key=>data[key]===undefined||data[key]===null||data[key]==="");
  if(missing.length)return {error:`Zorunlu alanlar eksik: ${missing.join(", ")}`};
@@ -119,7 +121,7 @@ export function validate(module:unknown,input:unknown){
 }
 function readJson(req:NextRequest){const len=Number(req.headers.get("content-length")||0);if(len>2_000_000)throw new Error("PAYLOAD_TOO_LARGE");return req.json()}
 
-export async function GET(req:NextRequest){const auth=await requireRole(req,["Admin","Editor","Viewer"]);if(auth.response)return auth.response;const d=await db();const marker=await d.prepare("SELECT value FROM simple_grc_metadata WHERE key=?").bind(demoSeedMarker).first<{value:string}>(),c=await d.prepare("SELECT COUNT(*) total FROM simple_grc_records").first<{total:number}>(),now=new Date().toISOString();if(shouldInsertDemoSeeds(marker,Number(c?.total||0))){await d.batch(seeds.map(s=>d.prepare("INSERT OR IGNORE INTO simple_grc_records(id,module,data_json,created_at,updated_at) VALUES(?,?,?,?,?)").bind(s[0],s[1],JSON.stringify(s[2]),now,now)))}if(!marker){await d.prepare("INSERT OR REPLACE INTO simple_grc_metadata(key,value,updated_at) VALUES(?,?,?)").bind(demoSeedMarker,"1",now).run()}await compactSampleRecords(d,now);const allowed=readableModules(auth.actor);const query=isScoped(auth.actor)?d.prepare(`SELECT * FROM simple_grc_records WHERE module IN (${allowed.map(()=>"?").join(",")||"NULL"}) ORDER BY created_at,id LIMIT 5000`).bind(...allowed):d.prepare("SELECT * FROM simple_grc_records ORDER BY created_at,id LIMIT 5000");const r=await query.all<Record<string,unknown>>(),codes=await ensureRecordCodes(d,r.results,now);const rows:Record<string,unknown>[]=r.results.map(row=>{try{const data=normalizeRecordData(row.module,JSON.parse(String(row.data_json)) as Data);return {...row,record_code:codes.get(String(row.id))||String(row.id),data_json:JSON.stringify(data)}}catch{return {...row,record_code:codes.get(String(row.id))||String(row.id)}}});rows.sort((a,b)=>String(b.updated_at).localeCompare(String(a.updated_at)));return NextResponse.json({rows},{headers:{"cache-control":"private, no-store"}})}
+export async function GET(req:NextRequest){const auth=await requireRole(req,["Admin","Editor","Viewer"]);if(auth.response)return auth.response;let cursor;try{cursor=parseGrcCursor(req.nextUrl.searchParams.get("cursor"));}catch{return NextResponse.json({error:"Geçersiz sayfalama imleci."},{status:400})}const d=await db();const marker=await d.prepare("SELECT value FROM simple_grc_metadata WHERE key=?").bind(demoSeedMarker).first<{value:string}>(),c=await d.prepare("SELECT COUNT(*) total FROM simple_grc_records").first<{total:number}>(),now=new Date().toISOString();if(shouldInsertDemoSeeds(marker,Number(c?.total||0))){await d.batch(seeds.map(s=>d.prepare("INSERT OR IGNORE INTO simple_grc_records(id,module,data_json,created_at,updated_at) VALUES(?,?,?,?,?)").bind(s[0],s[1],JSON.stringify(s[2]),now,now)))}if(!marker){await d.prepare("INSERT OR REPLACE INTO simple_grc_metadata(key,value,updated_at) VALUES(?,?,?)").bind(demoSeedMarker,"1",now).run()}await compactSampleRecords(d,now);const allowed=readableModules(auth.actor);const clauses:string[]=[],values:string[]=[];if(isScoped(auth.actor)){clauses.push(`module IN (${allowed.map(()=>"?").join(",")||"NULL"})`);values.push(...allowed)}if(cursor){clauses.push("(created_at>? OR (created_at=? AND id>?))");values.push(cursor.createdAt,cursor.createdAt,cursor.id)}const query=d.prepare(`SELECT * FROM simple_grc_records ${clauses.length?"WHERE "+clauses.join(" AND "):""} ORDER BY created_at,id LIMIT 5001`).bind(...values);const r=await query.all<Record<string,unknown>>(),hasMore=r.results.length>5000;if(hasMore)r.results.pop();const last=r.results.at(-1),nextCursor=hasMore&&last?JSON.stringify({createdAt:String(last.created_at),id:String(last.id)}):null;const codes=await ensureRecordCodes(d,r.results,now);const rows:Record<string,unknown>[]=r.results.map(row=>{try{const data=normalizeRecordData(row.module,JSON.parse(String(row.data_json)) as Data);return {...row,record_code:codes.get(String(row.id))||String(row.id),data_json:JSON.stringify(data)}}catch{return {...row,record_code:codes.get(String(row.id))||String(row.id)}}});rows.sort((a,b)=>String(b.updated_at).localeCompare(String(a.updated_at)));return NextResponse.json({rows,nextCursor},{headers:{"cache-control":"private, no-store"}})}
 export async function POST(req:NextRequest){
  const auth=await requireRole(req,["Admin","Editor"]);if(auth.response)return auth.response;
  try{

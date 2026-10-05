@@ -33,10 +33,10 @@ test("standard audit cards automatically receive their control requirements", ()
   assert.match(route, /iso27001Refs/);
   assert.match(catalogs, /pciDssRequirements/);
   assert.match(route, /frameworkTemplateCatalogs/);
-  assert.match(route, /ensureTemplateRows/);
+  assert.match(route, /auditRequirementInserts/);
   assert.match(route, /insertedRequirements/);
-  assert.match(route, /const missing = rows\.filter/);
-  assert.match(route, /DELETE FROM simple_grc_records WHERE id='AUD-006'/);
+  assert.match(route, /await d\.batch/);
+  assert.doesNotMatch(route, /DELETE FROM simple_grc_records WHERE id='AUD-006'/);
   assert.match(page, /katalog kapsamındaki özetler çalışma tablosuna yüklenir/);
 });
 
@@ -54,7 +54,7 @@ test("audit requirements show framework references without internal record codes
   assert.doesNotMatch(page, /<b>{d\.auditName \|\| "—"}<\/b>/);
   assert.match(route, /requirementTitle: iso27001Titles\[ref\]/);
   assert.match(route, /Bilgi güvenliği politikaları/);
-  assert.match(route, /UPDATE simple_grc_records SET data_json/);
+  assert.match(route, /audit_catalog_/);
 });
 
 test("layout guardrails prevent settings cards from widening the page", () => {
