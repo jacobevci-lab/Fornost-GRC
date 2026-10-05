@@ -1,0 +1,21 @@
+export type CatalogStatus = { tr: string; en: string; source?: string; reviewed?: string };
+const reviewed = "2026-10-05";
+const iso = (id: string): CatalogStatus => ({ reviewed, source: `https://www.iso.org/standard/${id}`, tr: "Baskı doğrulandı. Yalnızca yerel hazırlık konuları içerir; LOCAL referansları standart maddesi değildir. Lisanslı metinle madde eşlemesi henüz tamamlanmadı.", en: "Edition verified. Local preparation topics only; LOCAL references are not standard clauses. Mapping against the licensed text is not complete." });
+export const catalogStatuses: Record<string, CatalogStatus> = {
+  "ISO/IEC 27701:2025": iso("27701"),
+  "ISO/IEC 27017:2026": iso("27017"),
+  "ISO/IEC 27018:2025": iso("27018"),
+  "NIST Cybersecurity Framework (CSF) 2.0": { reviewed, source: "https://nvlpubs.nist.gov/nistpubs/CSWP/NIST.CSWP.29.pdf", tr: "Core kapsamı: 6 fonksiyon, 22 kategori, 106 alt kategorinin tamamı. Türkçe özetlerdir; resmî çeviri veya sertifikasyon kontrol listesi değildir.", en: "Core coverage: all 106 subcategories across 22 categories and 6 functions. Turkish summaries, not an official translation or certification checklist." },
+  "PCI DSS 4.0.1": { reviewed, source: "https://www.pcisecuritystandards.org/document_library/", tr: "12 ana gereksinim özeti. Alt gereksinimler, test prosedürleri ve uygulanabilirlik koşulları dahil değildir.", en: "Overview of 12 principal requirements. Subrequirements, testing procedures and applicability conditions are not included." },
+  "CIS Controls v8.1": { reviewed, source: "https://www.cisecurity.org/controls/v8-1", tr: "18 ana kontrol özeti; 153 safeguard düzeyinde tam kapsam sağlanmaz.", en: "18 principal control summaries; does not cover all 153 safeguards individually." },
+  "KVKK (6698)": { reviewed, source: "https://www.kvkk.gov.tr/Icerik/8170/Yurt-Disina-Kisisel-Veri-Aktariminda-Kullanilacak-Standart-Sozlesmelerde-Dikkat-Edilmesi-Gereken-Hususlara-Iliskin-Kamuoyu-Duyurusu", tr: "Seçilmiş yükümlülükler. 2024 yurt dışına aktarım değişikliği ve standart sözleşme bildirim süresi işlendi. Tüm ikincil düzenlemeler ve Kurul kararları dahil değildir; LOCAL referansları yerel konulardır.", en: "Selected obligations, including the 2024 cross-border transfer change and standard-contract notification deadline. Not all secondary legislation or Board decisions are included; LOCAL references are local topics." },
+};
+for (const [previous, current] of [["ISO/IEC 27701:2019", "ISO/IEC 27701:2025"], ["ISO/IEC 27017:2015", "ISO/IEC 27017:2026"], ["ISO/IEC 27018:2019", "ISO/IEC 27018:2025"]]) {
+  catalogStatuses[previous] = { source: catalogStatuses[current].source, reviewed, tr: `Eski katalog. Yeni baskı: ${current}. Mevcut kayıtlar korunur; otomatik madde dönüşümü yapılmaz.`, en: `Legacy catalog. New edition: ${current}. Existing records are preserved; clauses are not automatically migrated.` };
+}
+export function getCatalogStatus(framework: string): CatalogStatus {
+  if (catalogStatuses[framework]) return catalogStatuses[framework];
+  if (framework.startsWith("SOC 2")) return { source: "https://www.aicpa-cima.com/resources/download/2017-trust-services-criteria-with-revised-points-of-focus-2022", tr: "2017 TSC / 2022 points of focus referansı. Genel Security, Availability ve Confidentiality özeti; Processing Integrity ve Privacy dahil değildir. Tam kriter metni doğrulanmadı.", en: "2017 TSC / revised 2022 points of focus reference. Generic Security, Availability and Confidentiality summaries; excludes Processing Integrity and Privacy. Full criterion text has not been verified." };
+  if (framework === "ISO/IEC 27001:2022") return { source: "https://www.iso.org/standard/27001", tr: "93 Ek A kontrol başlığı. Yönetim sistemi maddeleri 4–10 ve Amd 1:2024 değişikliği bu katalogda henüz tam eşlenmedi.", en: "93 Annex A control headings. Management system clauses 4–10 and Amd 1:2024 have not yet been fully mapped in this catalog." };
+  return { tr: "Kısmi veya kullanıcı tanımlı kapsam. Güncel baskı, tüm maddeler ve ikincil düzenlemeler için doğrulama tamamlanmadı. Seçenek olarak bulunması tam kapsam anlamına gelmez.", en: "Partial or user-defined coverage. Current edition, full clauses and secondary legislation have not been fully verified. Availability in the selector does not imply complete coverage." };
+}

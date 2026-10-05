@@ -42,6 +42,7 @@ const iso27001Titles = Object.fromEntries([
 function auditTemplateRows(audit: Record<string, unknown>) {
   const template = String(audit.template || ""), name = String(audit.name || ""), nowDate = new Date().toISOString().slice(0, 10);
   const common = {
+    catalogRevision: "2026-10-05",
     auditName: name,
     auditType: String(audit.audit_type || ""),
     auditor: String(audit.auditor || ""),
@@ -126,8 +127,8 @@ async function ensureTemplateRows(d: Awaited<ReturnType<typeof db>>, audit: Reco
 export async function GET(req: NextRequest) {
   const auth = await requireRole(req, ["Admin", "Editor", "Viewer"]);
   if (auth.response) return auth.response;
-  const d = await db(), result = await d.prepare("SELECT * FROM simple_audits ORDER BY updated_at DESC").all(), now = new Date().toISOString();
-  for (const audit of result.results as Record<string, unknown>[]) await ensureTemplateRows(d, audit, now);
+  const d = await db(), result = await d.prepare("SELECT * FROM simple_audits ORDER BY updated_at DESC").all();
+  // Reads must not migrate historical audit snapshots to a newer catalog.
   return NextResponse.json({ audits: result.results }, { headers: { "cache-control": "private, no-store" } });
 }
 
