@@ -1,3 +1,4 @@
+import {getCatalogStatus} from "../../framework-catalog-status";
 import asvsManifest from "../../asvs-catalog-manifest.json";
 import { iso27001Management } from "../grc/iso27001-management";
 import { readCatalogRequest, validateCatalogImport, type AuditCatalogImport } from "../../audit-catalog-import";
@@ -100,7 +101,7 @@ function auditTemplateRows(audit: Record<string, unknown>, imported?: AuditCatal
     requirementGuidance: requirement.guidance || "",
     requirementAssessment: requirement.assessment || "",
     parentRequirementRef: requirement.parentRef || "",
-    catalogSource: nistCatalogs.find(c => c.name === template)?.source || (template===asvsManifest.name?asvsManifest.source:""),
+    catalogSource: nistCatalogs.find(c => c.name === template)?.source || (template===asvsManifest.name?asvsManifest.source:getCatalogStatus(template).source || ""),
     controlRef: requirement.ref,
     owner: requirement.owner || String(audit.audit_owner || "Bilgi Güvenliği"),
     businessUnit: requirement.owner || "Bilgi Güvenliği",
@@ -130,7 +131,7 @@ export async function POST(req: NextRequest) {
     const d = await db();
     const audit = {id,name,template,audit_type:text(body.auditType,100)||"Diğer Denetim",auditor:text(body.auditor,160),audit_owner:text(body.auditOwner,160)};
     const rows = auditTemplateRows(audit, imported);
-    const provenance = {template,revision:imported?.version || "2026-10-05-full-packs",source:imported?.source || nistCatalogs.find(c=>c.name===template)?.source || (template===asvsManifest.name?asvsManifest.source:""),count:rows.length,imported:!!imported,rightsConfirmed:imported?.rightsConfirmed || false,createdBy:auth.actor.email,createdAt:now};
+    const provenance = {template,revision:imported?.version || "2026-10-05-full-packs",source:imported?.source || nistCatalogs.find(c=>c.name===template)?.source || (template===asvsManifest.name?asvsManifest.source:getCatalogStatus(template).source || ""),count:rows.length,imported:!!imported,rightsConfirmed:imported?.rightsConfirmed || false,createdBy:auth.actor.email,createdAt:now};
     await d.batch([
       d.prepare("INSERT INTO simple_audits(id,name,template,audit_type,auditor,audit_owner,status,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?)").bind(id,name,template,audit.audit_type,audit.auditor,audit.audit_owner,text(body.status,40) || "Başlanmadı",now,now),
       d.prepare("INSERT INTO simple_grc_metadata(key,value,updated_at) VALUES(?,?,?)").bind(`audit_catalog_${id}`,JSON.stringify(provenance),now),

@@ -52,3 +52,12 @@ for slug,name,relative in specs:
  manifest.append({k:v for k,v in payload.items() if k!='requirements'}|dict(slug=slug,count=len(rows),families=len(catalog.get('groups',[]))))
  print(name,len(rows),'active',len(withdrawn),'withdrawn')
 Path('app/nist-catalog-manifest.json').write_text(json.dumps(manifest,ensure_ascii=False,indent=2)+'\n')
+# Preserve the full CSF Core subcategory statements alongside the Turkish labels.
+csf_path=root/'nist.gov/CSF/v2.0/json/NIST_CSF_v2.0_catalog.json';raw=csf_path.read_bytes();csf=json.loads(raw)['catalog'];statements={}
+for function in csf['groups']:
+ for category in function['controls']:
+  for subcategory in category['controls']:
+   if any(p['name']=='status' and p['value']=='withdrawn' for p in subcategory.get('props',[])):continue
+   statements[subcategory['id']]='\n'.join(p.get('prose','') for p in subcategory.get('parts',[]) if p['name']=='statement')
+assert len(statements)==106 and all(statements.values())
+(out/'nist-csf-statements.json').write_text(json.dumps(dict(source=f'https://github.com/usnistgov/oscal-content/blob/{commit}/nist.gov/CSF/v2.0/json/NIST_CSF_v2.0_catalog.json',sourceSha256=hashlib.sha256(raw).hexdigest(),statements=statements),ensure_ascii=False,indent=2)+'\n')

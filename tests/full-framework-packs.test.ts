@@ -1,3 +1,4 @@
+import {frameworkTemplateCatalogs} from "../app/api/grc/framework-catalogs";
 import {parseGrcCursor,readAllGrcPages} from "../app/grc-pagination";
 import asvs from "../app/api/grc/catalog-data/owasp-asvs.json";
 import test from 'node:test';
@@ -37,3 +38,5 @@ test('record pagination reads past 5000 without accepting repeated cursors',asyn
  const rows=await readAllGrcPages(async cursor=>cursor?{rows:[5001],nextCursor:null}:{rows:Array.from({length:5000},(_,i)=>i+1),nextCursor:'next'});assert.equal(rows.length,5001);assert.equal(rows.at(-1),5001);
  await assert.rejects(readAllGrcPages(async()=>({rows:[],nextCursor:'same'})),/Repeated/);
 });
+
+test("CSF has full English statements alongside all Turkish topic summaries",()=>{assert.ok(frameworkTemplateCatalogs["NIST Cybersecurity Framework (CSF) 2.0"].every(r=>r.statement&&r.statement.length>10));});

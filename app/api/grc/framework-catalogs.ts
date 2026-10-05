@@ -1,3 +1,4 @@
+import csfStatements from "./catalog-data/nist-csf-statements.json";
 import asvsCatalog from "./catalog-data/owasp-asvs.json";
 import { nistRequirementCatalogs } from "./nist-catalogs";
 import { nistCsf2Requirements } from "./nist-csf2-catalog";
@@ -15,7 +16,7 @@ export const frameworkTemplateCatalogs: Record<string, FrameworkRequirement[]> =
   ...nistRequirementCatalogs,
   [asvsCatalog.name]: asvsCatalog.requirements,
   "PCI DSS 4.0.1": pciDssRequirements,
-  "NIST Cybersecurity Framework (CSF) 2.0": nistCsf2Requirements,
+  "NIST Cybersecurity Framework (CSF) 2.0": nistCsf2Requirements.map(row=>({...row,statement:(csfStatements.statements as Record<string,string>)[row.ref]})),
   "CIS Controls v8.1": rows("CIS Controls", "Siber Güvenlik", [
     ["CIS-1","Kurumsal varlıkların envanteri ve kontrolü"],["CIS-2","Yazılım varlıklarının envanteri ve kontrolü"],["CIS-3","Veri koruma"],["CIS-4","Kurumsal varlık ve yazılımların güvenli yapılandırılması"],["CIS-5","Hesap yönetimi"],["CIS-6","Erişim kontrolü yönetimi"],["CIS-7","Sürekli zafiyet yönetimi"],["CIS-8","Denetim kayıtlarının yönetimi"],["CIS-9","E-posta ve web tarayıcı korumaları"],["CIS-10","Kötü amaçlı yazılım savunmaları"],["CIS-11","Veri kurtarma"],["CIS-12","Ağ altyapısı yönetimi"],["CIS-13","Ağ izleme ve savunma"],["CIS-14","Güvenlik farkındalığı ve beceri eğitimi"],["CIS-15","Hizmet sağlayıcı yönetimi"],["CIS-16","Uygulama yazılımı güvenliği"],["CIS-17","Olay müdahale yönetimi"],["CIS-18","Sızma testi"],
   ]),
