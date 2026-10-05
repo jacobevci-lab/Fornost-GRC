@@ -1,0 +1,10 @@
+import type { validateFindingAction } from './findings';
+/** Commit only the revision and submitter that the route authorized. */
+export async function writeAiFindingTransition(db:D1Database,row:Record<string,unknown>,action:ReturnType<typeof validateFindingAction>,next:string,actor:string,expectedUpdatedAt:string){
+ const previous=Date.parse(expectedUpdatedAt);
+ if(!expectedUpdatedAt||row.updated_at!==expectedUpdatedAt||!Number.isFinite(previous))return {status:409,error:"Bulgu sürümü doğrulanamadı. Güncel kaydı yeniden açın."};
+ const now=new Date(Math.max(Date.now(),previous+1)).toISOString(),submittedBy=action.action==="submit"?actor:row.submitted_by,submittedAt=action.action==="submit"?now:row.submitted_at,verifiedBy=action.action==="resolve"?actor:action.action==="reopen"?null:row.verified_by,verifiedAt=action.action==="resolve"?now:action.action==="reopen"?null:row.verified_at,reopenedBy=action.action==="reopen"?actor:row.reopened_by,reopenedAt=action.action==="reopen"?now:row.reopened_at;
+ const result=await db.prepare("UPDATE ai_findings SET status=?,action_note=?,evidence_reference=?,evidence_sha256=?,verification_evidence_reference=?,verification_evidence_sha256=?,updated_by=?,updated_at=?,submitted_by=?,submitted_at=?,verified_by=?,verified_at=?,reopened_by=?,reopened_at=? WHERE id=? AND status=? AND updated_at=? AND submitted_by IS ?").bind(next,action.note,action.action==="submit"?action.evidenceReference:row.evidence_reference,action.action==="submit"?action.evidenceSha256:row.evidence_sha256,action.action==="resolve"?action.evidenceReference:row.verification_evidence_reference,action.action==="resolve"?action.evidenceSha256:row.verification_evidence_sha256,actor,now,submittedBy,submittedAt,verifiedBy,verifiedAt,reopenedBy,reopenedAt,row.id,row.status,expectedUpdatedAt,row.submitted_by).run();
+ if(Number(result.meta?.changes||0)!==1)return {status:409,error:"Bulgu işlem sırasında değişti. Güncel kaydı inceleyip işlemi yeniden açın."};
+ return {status:200,updatedAt:now};
+}

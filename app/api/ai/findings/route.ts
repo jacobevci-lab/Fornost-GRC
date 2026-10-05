@@ -1,3 +1,4 @@
+import { writeAiFindingTransition } from "@/app/ai/finding-transitions";
 import { aiRecordQueryId,readAiRecords } from "@/app/ai/record-reads";
 import { NextRequest,NextResponse } from "next/server";
 import { requireRole } from "../../auth/security";
@@ -12,12 +13,12 @@ export async function PATCH(req:NextRequest){
  const body=await req.json().catch(()=>({})),id=cleanAiText(body.id,100);let action;
  try{action=validateFindingAction(body);}catch(error){return json({error:error instanceof Error?error.message:"İşlem geçersiz."},400);}
  const{DB}=await aiRuntime(),row=await DB.prepare("SELECT * FROM ai_findings WHERE id=?").bind(id).first<Record<string,unknown>>();if(!row)return json({error:"AI bulgusu bulunamadı."},404);
+ const expectedUpdatedAt=cleanAiText(body.expectedUpdatedAt,40);if(!expectedUpdatedAt||row.updated_at!==expectedUpdatedAt)return json({error:"Bulgu değişti. Güncel kaydı inceleyip işlemi yeniden açın."},409);
  const transitions:Record<string,Record<string,string>>={open:{start:"in-progress"},"in-progress":{submit:"verification"},verification:{resolve:"resolved",reopen:"in-progress"},resolved:{reopen:"in-progress"}},next=transitions[String(row.status)]?.[action.action];
  if(!next)return json({error:`${action.action} işlemi ${row.status} durumundan uygulanamaz.`},409);
  if(["resolve","reopen"].includes(action.action)&&access.actor.role!=="Admin")return json({error:"Doğrulama ve yeniden açma yalnız Admin tarafından yapılabilir."},403);
- if(action.action==="resolve"&&row.submitted_by===access.actor.email)return json({error:"Aksiyonu doğrulamaya gönderen kişi aynı bulguyu kapatamaz."},409);
+ if(action.action==="resolve"&&String(row.submitted_by||"").trim().toLowerCase()===access.actor.email.trim().toLowerCase())return json({error:"Aksiyonu doğrulamaya gönderen kişi aynı bulguyu kapatamaz."},409);
  if(action.action==="reopen"&&await DB.prepare("SELECT id FROM ai_findings WHERE model_id=? AND domain=? AND source_ref=? AND status!='resolved' AND id!=?").bind(row.model_id,row.domain,row.source_ref,id).first())return json({error:"Bu kaynak için başka bir çözülmemiş bulgu varken eski kayıt açılamaz."},409);
- const now=new Date().toISOString(),submittedBy=action.action==="submit"?access.actor.email:row.submitted_by,submittedAt=action.action==="submit"?now:row.submitted_at,verifiedBy=action.action==="resolve"?access.actor.email:action.action==="reopen"?null:row.verified_by,verifiedAt=action.action==="resolve"?now:action.action==="reopen"?null:row.verified_at,reopenedBy=action.action==="reopen"?access.actor.email:row.reopened_by,reopenedAt=action.action==="reopen"?now:row.reopened_at;
- await DB.prepare("UPDATE ai_findings SET status=?,action_note=?,evidence_reference=?,evidence_sha256=?,verification_evidence_reference=?,verification_evidence_sha256=?,updated_by=?,updated_at=?,submitted_by=?,submitted_at=?,verified_by=?,verified_at=?,reopened_by=?,reopened_at=? WHERE id=?").bind(next,action.note,action.action==="submit"?action.evidenceReference:row.evidence_reference,action.action==="submit"?action.evidenceSha256:row.evidence_sha256,action.action==="resolve"?action.evidenceReference:row.verification_evidence_reference,action.action==="resolve"?action.evidenceSha256:row.verification_evidence_sha256,access.actor.email,now,submittedBy,submittedAt,verifiedBy,verifiedAt,reopenedBy,reopenedAt,id).run();
- await recordAiEvent(DB,{actor:access.actor.email,action:`ai-finding-${action.action}`,promptHash:(["submit","resolve"].includes(action.action)?action.evidenceSha256:String(row.evidence_sha256||""))||undefined,contextRefs:[String(row.model_id),String(row.source_ref),id],status:"success",detail:`${row.severity}; ${row.status}->${next}; separation-of-duties`});return json({ok:true,status:next});
+ const result=await writeAiFindingTransition(DB,row,action,next,access.actor.email,expectedUpdatedAt);if(result.status!==200)return json({error:result.error},result.status);
+ await recordAiEvent(DB,{actor:access.actor.email,action:`ai-finding-${action.action}`,promptHash:(["submit","resolve"].includes(action.action)?action.evidenceSha256:String(row.evidence_sha256||""))||undefined,contextRefs:[String(row.model_id),String(row.source_ref),id],status:"success",detail:`${row.severity}; ${row.status}->${next}; separation-of-duties`});return json({ok:true,status:next,updatedAt:result.updatedAt});
 }
