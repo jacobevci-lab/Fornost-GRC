@@ -1520,7 +1520,11 @@ function FornostApp({ currentUser }: { currentUser: any }) {
     const next = empty(active);
     if (active === "Denetim Yönetimi" && selectedAudit) {
       next.auditName = selectedAudit;
-      next.auditType = auditKind(selectedAudit);
+      const audit = auditPortfolio.find((item) => item.name === selectedAudit);
+      next.auditType = audit?.audit_type || auditKind(selectedAudit);
+      next.auditOwner = audit?.audit_owner || "";
+      next.auditor = audit?.auditor || "";
+      next.frameworkTemplate = audit?.template || "";
       next.progress = "0";
       next.status = "Başlanmadı";
       next.evidenceStatus = "Kanıt Bekleniyor";
@@ -4137,6 +4141,7 @@ function AuditModule({
         )}
       </>
     );
+  const selectedPortfolio = audits.find((audit) => audit.name === selected);
   const items = rows.filter(row => row.data.auditName === selected),
     avg = items.length
       ? Math.round(
@@ -4154,8 +4159,8 @@ function AuditModule({
           <small>{tr ? "DENETİM ÇALIŞMA ALANI" : "AUDIT WORKSPACE"}</small>
           <h2>{selected}</h2>
           <p>
-            {items[0]?.data.auditor || auditKind(selected)} ·{" "}
-            {items[0]?.data.auditOwner ||
+            {selectedPortfolio?.auditor || items[0]?.data.auditor || selectedPortfolio?.audit_type || auditKind(selected)} ·{" "}
+            {selectedPortfolio?.audit_owner || items[0]?.data.auditOwner ||
               (tr ? "Sorumlu henüz atanmadı" : "Owner not assigned")}
           </p>
         </div>
