@@ -9,7 +9,7 @@ const context=await browser.newContext({viewport:{width:1536,height:960}});
 const page=await context.newPage();page.setDefaultTimeout(20000);
 const errors=[];page.on('pageerror',error=>errors.push(error.message));
 const model={id:'QA-AIM-focus-1',systemName:'QA same model',modelName:'Local model',vendor:'Internal',purpose:'QA model navigation fixture',owner:'qa@fornost.test',deployment:'On-Prem',region:'TR',dataClassification:'Internal',autonomy:'Advisory',riskTier:'Medium',residualScore:8,controls:'Human approval',status:'draft',reviewDate:'2027-01-01'};
-const alert={id:'QA-AIA-focus-1',modelId:model.id,title:'QA same alert',severity:'High',status:'open',metric:'drift',occurrenceCount:1,lastSeenAt:'2026-10-04T12:00:00Z'};
+const alert={id:'QA-AIA-focus-1',modelId:model.id,title:'QA same alert',severity:'High',status:'open',findingId:'QA-AIF-focus-1',metric:'drift',occurrenceCount:1,lastSeenAt:'2026-10-04T12:00:00Z'};
 const finding={id:'QA-AIF-focus-1',modelId:model.id,title:'QA same finding',domain:'assurance',sourceRef:alert.id,severity:'High',status:'open',state:'priority',owner:'qa@fornost.test',dueDate:'2027-01-01',description:'QA controlled finding fixture',rootCause:'QA root cause',correctiveAction:'QA corrective action',preventiveAction:'QA preventive action'};
 const definitions=[
  {path:'/api/ai/models',collection:'models',view:'models',root:'.ai-model-inventory',item:model},
@@ -92,6 +92,16 @@ try{
     await prepare(def);await open(def);
    }
    mutationMode='';
+   // Follow authoritative native relations, including a missing target with no fallback record.
+   await prepare(def);await open(def);
+   if(def.view==='assurance-alerts'){
+    await root.getByRole('button',{name:'Bağlı bulguyu aç',exact:true}).click();await expect(page.locator('#fornost-ai-panel')).toHaveAttribute('data-ai-view','findings');await expect(page.locator('.ai-findings [data-record-id]')).toHaveCount(1);await expect(page.locator('.ai-findings [data-record-id]')).toHaveAttribute('data-record-id',finding.id);
+    await page.locator('.ai-findings').getByRole('button',{name:'Bağlı modeli aç',exact:true}).click();await expect(page.locator('.ai-model-inventory [data-record-id]')).toHaveCount(1);await expect(page.locator('.ai-model-inventory [data-record-id]')).toHaveAttribute('data-record-id',model.id);
+    await prepare(def);await open(def);mode='missing';affected='/api/ai/findings';await root.getByRole('button',{name:'Bağlı bulguyu aç',exact:true}).click();await expect(page.locator('.ai-findings .ai-record-focus')).toHaveAttribute('data-state','missing');await expect(page.locator('.ai-findings [data-record-id]')).toHaveCount(0);
+   }else{
+    await root.getByRole('button',{name:'Bağlı modeli aç',exact:true}).click();await expect(page.locator('.ai-model-inventory [data-record-id]')).toHaveCount(1);await expect(page.locator('.ai-model-inventory [data-record-id]')).toHaveAttribute('data-record-id',model.id);
+   }
+   await prepare(def);await open(def);
   }
  }
  for(const lang of ['EN','TR']){
@@ -105,5 +115,5 @@ try{
   }
  }
  assert.deepEqual(errors,[]);
- await fs.writeFile(`${out}/result.json`,JSON.stringify({status:'passed',exactRecordPaths:3,sameTitleIsolation:true,sourceFailuresAndRecovery:9,layouts:8,listFiltersAndPagination:true,mutationRecovery:true,noAutomaticWriteRetries:true,fixtureTransport:true}));
+ await fs.writeFile(`${out}/result.json`,JSON.stringify({status:'passed',exactRecordPaths:3,sameTitleIsolation:true,sourceFailuresAndRecovery:9,layouts:8,nativeRelationsAndMissingTargets:true,listFiltersAndPagination:true,mutationRecovery:true,noAutomaticWriteRetries:true,fixtureTransport:true}));
 }finally{await browser.close();}
