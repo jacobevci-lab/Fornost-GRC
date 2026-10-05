@@ -21,7 +21,7 @@ let failRefresh=false;
 for(const def of definitions)await page.route(`**${def.path}`,route=>{
  if(route.request().method()!=='GET'){mutationCount++;if(mutationMode==='abort')return route.abort('failed');return route.fulfill({status:Number(mutationMode)||400,json:{error:'QA mutation rejected'}});}
  if(failRefresh&&affected===def.path)return route.fulfill({status:503,json:{error:'QA refresh failed'}});
- const items=[def.item,{...def.item,id:def.item.id.replace('-1','-2')}];
+ const items=mode==='many'?Array.from({length:12},(_,i)=>({...def.item,id:def.item.id.replace('-1',`-${i+1}`),severity:i===11?'Critical':'High'})):[def.item,{...def.item,id:def.item.id.replace('-1','-2')}];
  const payload={summary:{total:2},models:[model],domains:['assurance'],[def.collection]:mode==='missing'&&affected===def.path?items.slice(1):items};
  if(affected===def.path&&mode==='error')return route.fulfill({status:503,json:{error:'QA unavailable'}});
  if(affected===def.path&&mode==='malformed')payload[def.collection]=[null];
@@ -63,6 +63,15 @@ try{
    }
   }
   if(def.view!=='models'){
+   await prepare(def);mode='many';await open(def);await expect(root.locator('[data-record-id]')).toHaveCount(1);await expect(root.locator('.ai-action-list-filters')).toHaveCount(0);
+   await banner.getByRole('button',{name:'Show all records',exact:true}).click();await expect(root.locator('[data-record-id]')).toHaveCount(10);await expect(root.locator('form')).toHaveCount(0);
+   await root.getByRole('button',{name:'Sonraki',exact:true}).click();await expect(root.locator('[data-record-id]')).toHaveCount(2);
+   await root.getByRole('textbox',{name:'Kayıt ara',exact:true}).fill(def.item.id.replace('-1','-12'));await expect(root.locator('[data-record-id]')).toHaveCount(1);await expect(root.locator('[data-record-id]')).toHaveAttribute('data-record-id',def.item.id.replace('-1','-12'));
+   await root.getByRole('combobox',{name:'Kayıt önemi',exact:true}).selectOption('High');await expect(root.locator('[data-record-id]')).toHaveCount(0);await expect(root.locator('.ai-action-list-empty')).toBeVisible();
+   await root.getByRole('button',{name:'Filtreleri temizle',exact:true}).click();await expect(root.locator('[data-record-id]')).toHaveCount(10);
+   await root.getByRole('combobox',{name:'Kayıt durumu',exact:true}).selectOption('resolved');await expect(root.locator('[data-record-id]')).toHaveCount(0);await root.getByRole('button',{name:'Filtreleri temizle',exact:true}).click();
+   for(const theme of ['light','dark'])for(const width of [1536,390]){await page.evaluate(value=>{document.documentElement.dataset.theme=value;},theme);await page.setViewportSize({width,height:960});assert.ok(await root.locator('.ai-action-list-filters').evaluate(el=>el.scrollWidth<=el.clientWidth+1));await page.screenshot({path:`${out}/${def.view}-list-${theme}-${width}.png`});}
+   await page.setViewportSize({width:1536,height:960});await prepare(def);await open(def);
    const isFinding=def.view==='findings';
    const actionBox=root.locator(isFinding?'.action':'.dialog');
    async function edit(){await root.getByRole('button',{name:isFinding?'Başlat':'Kabul et',exact:true}).click();await actionBox.locator('textarea').fill('QA recovery action note');if(isFinding){await actionBox.getByPlaceholder('AKSİYONU BAŞLAT',{exact:true}).fill('AKSİYONU BAŞLAT');}else{await actionBox.locator('input').first().fill('qa@fornost.test');await actionBox.locator('input').last().fill('ALARMI KABUL ET');}}
@@ -78,7 +87,7 @@ try{
    failRefresh=false;await banner.getByRole('button',{name:'Retry',exact:true}).click();await expect(banner).toHaveAttribute('data-state','found');
    if(!isFinding){const before=mutationCount;await root.getByRole('button',{name:'Ölçümleri Tara',exact:true}).click();await expect(root.locator('.notice')).toContainText('Tarama sonucu doğrulanamadı');await expect(root.getByRole('button',{name:'Ölçümleri Tara',exact:true})).toBeEnabled();assert.equal(mutationCount,before+1);}
    else{
-    await banner.getByRole('button',{name:'Show all records',exact:true}).click();const form=root.locator('form');await form.locator('select').nth(0).selectOption(model.id);await form.locator('input').nth(0).fill('QA-source');await form.locator('input[type="date"]').fill('2027-01-01');await form.locator('input').nth(2).fill('qa@fornost.test');await form.locator('input').nth(3).fill('QA preserved finding draft');for(const area of await form.locator('textarea').all())await area.fill('QA required explanation for finding creation');
+    await banner.getByRole('button',{name:'Show all records',exact:true}).click();await root.getByRole('button',{name:'Yeni bulgu',exact:true}).click();const form=root.locator('form');await form.locator('select').nth(0).selectOption(model.id);await form.locator('input').nth(0).fill('QA-source');await form.locator('input[type="date"]').fill('2027-01-01');await form.locator('input').nth(2).fill('qa@fornost.test');await form.locator('input').nth(3).fill('QA preserved finding draft');for(const area of await form.locator('textarea').all())await area.fill('QA required explanation for finding creation');
     const before=mutationCount;await form.getByRole('button',{name:'Bulgu Oluştur',exact:true}).click();await expect(root.locator('.notice')).toContainText('Kayıt sonucu doğrulanamadı');await expect(form.getByRole('button',{name:'Bulgu Oluştur',exact:true})).toBeEnabled();await expect(form.locator('input').nth(3)).toHaveValue('QA preserved finding draft');assert.equal(mutationCount,before+1);
     await prepare(def);await open(def);
    }
@@ -96,5 +105,5 @@ try{
   }
  }
  assert.deepEqual(errors,[]);
- await fs.writeFile(`${out}/result.json`,JSON.stringify({status:'passed',exactRecordPaths:3,sameTitleIsolation:true,sourceFailuresAndRecovery:9,layouts:8,mutationRecovery:true,noAutomaticWriteRetries:true,fixtureTransport:true}));
+ await fs.writeFile(`${out}/result.json`,JSON.stringify({status:'passed',exactRecordPaths:3,sameTitleIsolation:true,sourceFailuresAndRecovery:9,layouts:8,listFiltersAndPagination:true,mutationRecovery:true,noAutomaticWriteRetries:true,fixtureTransport:true}));
 }finally{await browser.close();}
