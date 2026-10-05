@@ -16,8 +16,11 @@ const definitions=[
  {path:'/api/ai/assurance-alerts',collection:'alerts',view:'assurance-alerts',root:'.ai-alerts',item:alert},
  {path:'/api/ai/findings',collection:'findings',view:'findings',root:'.ai-findings',item:finding},
 ];
-let mode='complete',affected='';
+let mode='complete',affected='',mutationMode='',mutationCount=0;
+let failRefresh=false;
 for(const def of definitions)await page.route(`**${def.path}`,route=>{
+ if(route.request().method()!=='GET'){mutationCount++;if(mutationMode==='abort')return route.abort('failed');return route.fulfill({status:Number(mutationMode)||400,json:{error:'QA mutation rejected'}});}
+ if(failRefresh&&affected===def.path)return route.fulfill({status:503,json:{error:'QA refresh failed'}});
  const items=[def.item,{...def.item,id:def.item.id.replace('-1','-2')}];
  const payload={summary:{total:2},models:[model],domains:['assurance'],[def.collection]:mode==='missing'&&affected===def.path?items.slice(1):items};
  if(affected===def.path&&mode==='error')return route.fulfill({status:503,json:{error:'QA unavailable'}});
@@ -59,6 +62,28 @@ try{
     await expect(root.locator('[data-record-id]')).toHaveCount(1);
    }
   }
+  if(def.view!=='models'){
+   const isFinding=def.view==='findings';
+   const actionBox=root.locator(isFinding?'.action':'.dialog');
+   async function edit(){await root.getByRole('button',{name:isFinding?'Başlat':'Kabul et',exact:true}).click();await actionBox.locator('textarea').fill('QA recovery action note');if(isFinding){await actionBox.getByPlaceholder('AKSİYONU BAŞLAT',{exact:true}).fill('AKSİYONU BAŞLAT');}else{await actionBox.locator('input').first().fill('qa@fornost.test');await actionBox.locator('input').last().fill('ALARMI KABUL ET');}}
+   for(const failure of ['400','409','500','abort']){
+    mutationMode=failure;const before=mutationCount;await edit();await actionBox.getByRole('button',{name:isFinding?'İşlemi Uygula':'Kaydet',exact:true}).click();
+    await expect(root.locator('.notice')).toContainText(failure==='abort'?'doğrulanamadı':'QA mutation rejected');
+    if(failure==='400'){await expect(actionBox).toBeVisible();await expect(actionBox.locator('textarea')).toHaveValue('QA recovery action note');await expect(actionBox.getByRole('button',{name:isFinding?'İşlemi Uygula':'Kaydet',exact:true})).toBeEnabled();await actionBox.getByRole('button',{name:'Vazgeç',exact:true}).click();}
+    else{await expect(actionBox).toHaveCount(0);await expect(root.getByRole('button',{name:isFinding?'Başlat':'Kabul et',exact:true})).toBeEnabled();}
+    assert.equal(mutationCount,before+1,'Failed mutations must never be automatically repeated');
+   }
+   // An uncertain write followed by a failed refresh must block more mutations until retry succeeds.
+   mutationMode='abort';await edit();failRefresh=true;affected=def.path;await actionBox.getByRole('button',{name:isFinding?'İşlemi Uygula':'Kaydet',exact:true}).click();await expect(banner).toHaveAttribute('data-state','error');await expect(root.locator('.stats b').first()).toHaveText('—');await expect(root.locator('[data-record-id]')).toHaveCount(0);
+   failRefresh=false;await banner.getByRole('button',{name:'Retry',exact:true}).click();await expect(banner).toHaveAttribute('data-state','found');
+   if(!isFinding){const before=mutationCount;await root.getByRole('button',{name:'Ölçümleri Tara',exact:true}).click();await expect(root.locator('.notice')).toContainText('Tarama sonucu doğrulanamadı');await expect(root.getByRole('button',{name:'Ölçümleri Tara',exact:true})).toBeEnabled();assert.equal(mutationCount,before+1);}
+   else{
+    await banner.getByRole('button',{name:'Show all records',exact:true}).click();const form=root.locator('form');await form.locator('select').nth(0).selectOption(model.id);await form.locator('input').nth(0).fill('QA-source');await form.locator('input[type="date"]').fill('2027-01-01');await form.locator('input').nth(2).fill('qa@fornost.test');await form.locator('input').nth(3).fill('QA preserved finding draft');for(const area of await form.locator('textarea').all())await area.fill('QA required explanation for finding creation');
+    const before=mutationCount;await form.getByRole('button',{name:'Bulgu Oluştur',exact:true}).click();await expect(root.locator('.notice')).toContainText('Kayıt sonucu doğrulanamadı');await expect(form.getByRole('button',{name:'Bulgu Oluştur',exact:true})).toBeEnabled();await expect(form.locator('input').nth(3)).toHaveValue('QA preserved finding draft');assert.equal(mutationCount,before+1);
+    await prepare(def);await open(def);
+   }
+   mutationMode='';
+  }
  }
  for(const lang of ['EN','TR']){
   await page.locator('.language-switch:visible').getByRole('button',{name:lang,exact:true}).click();
@@ -71,5 +96,5 @@ try{
   }
  }
  assert.deepEqual(errors,[]);
- await fs.writeFile(`${out}/result.json`,JSON.stringify({status:'passed',exactRecordPaths:3,sameTitleIsolation:true,sourceFailuresAndRecovery:9,layouts:8,fixtureTransport:true}));
+ await fs.writeFile(`${out}/result.json`,JSON.stringify({status:'passed',exactRecordPaths:3,sameTitleIsolation:true,sourceFailuresAndRecovery:9,layouts:8,mutationRecovery:true,noAutomaticWriteRetries:true,fixtureTransport:true}));
 }finally{await browser.close();}
