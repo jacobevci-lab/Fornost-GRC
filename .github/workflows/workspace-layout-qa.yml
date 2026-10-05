@@ -45,6 +45,8 @@ jobs:
           curl --fail --silent --show-error http://127.0.0.1:4173/api/auth \
             -H 'Origin: http://127.0.0.1:4173' -H 'Content-Type: application/json' \
             --data-binary @/tmp/fornost-qa-bootstrap.json
+      - name: Audit requirement pagination and export QA
+        run: node scripts/audit-requirement-page-qa.mjs
       - name: Local login write and recovery QA
         run: node scripts/local-login-recovery-qa.mjs
       - name: Session startup timeout and stale-response QA

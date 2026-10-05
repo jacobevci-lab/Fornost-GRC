@@ -1,4 +1,6 @@
 "use client";
+import { auditRequirementPage } from "./audit-requirement-page";
+import "./audit-requirement-page.css";
 import { submitLocalAuthentication, type LocalAuthInput } from "./local-auth-submit";
 import { readSessionSnapshot } from "./session-snapshot";
 import { getCatalogStatus } from "./framework-catalog-status";
@@ -4207,6 +4209,8 @@ function AuditModule({
       {audits.find(audit=>audit.name===selected)&&<AuditPlanPanel key={`plan:${selected}`} auditId={audits.find(audit=>audit.name===selected)!.id} canWrite={canWrite} lang={lang}/>}
       <AuditReadinessGate key={selected} lang={lang} auditName={selected} records={[...items,...evidenceRows]} />
       <AuditRequirementsTable
+        key={`requirements:${selected}`}
+        allItems={items}
         items={visible}
         lang={lang}
         query={query}
@@ -4222,6 +4226,7 @@ function AuditModule({
 
 function AuditRequirementsTable({
   items,
+  allItems,
   lang,
   query,
   setQuery,
@@ -4231,6 +4236,7 @@ function AuditRequirementsTable({
   canWrite,
 }: {
   items: Row[];
+  allItems: Row[];
   lang: Lang;
   query: string;
   setQuery: (x: string) => void;
@@ -4243,7 +4249,8 @@ function AuditRequirementsTable({
     [columns, setColumns] = useState(defaultRegisterColumnKeys("Denetim Yönetimi")),
     [filters, setFilters] = useState<Record<string, string>>({}),
     [columnPickerOpen, setColumnPickerOpen] = useState(false),
-    [filterPanelOpen, setFilterPanelOpen] = useState(false);
+    [filterPanelOpen, setFilterPanelOpen] = useState(false),
+    [pagination, setPagination] = useState({ key: "", page: 1, size: 50 });
   useEffect(() => {
     try {
       const saved = JSON.parse(localStorage.getItem("fornost-grc-columns") || "{}");
@@ -4258,15 +4265,26 @@ function AuditRequirementsTable({
     } catch {}
   };
   const filtered = items.filter((row) => Object.entries(filters).every(([key, value]) => !value || String(row.data[key] ?? "") === value));
+  const filterKey = JSON.stringify([query, filters]);
+  useEffect(() => { setPagination(value => ({ ...value, key: filterKey, page: 1 })); }, [filterKey]);
+  const page = auditRequirementPage(filtered, pagination.key === filterKey ? pagination.page : 1, pagination.size);
+  const goPage = (value: number) => setPagination({ key: filterKey, page: value, size: page.size });
+  const clearFilters = () => { setFilters({}); setQuery(""); };
   return (
     <section className="table-card smart-register audit-requirements-register">
       <div className="audit-table-heading">
         <div><small>{tr ? "STANDART MADDELERİ" : "STANDARD REQUIREMENTS"}</small><h3>{tr ? "Denetim maddeleri ve sorumluluk takibi" : "Audit requirements and ownership tracking"}</h3></div>
         {canWrite && <button className="ghost" onClick={() => openNew()}>{tr ? "+ Özel Madde" : "+ Custom Item"}</button>}
       </div>
-      <RegisterToolbar module="Denetim Yönetimi" lang={lang} rows={items} resultCount={filtered.length} query={query} setQuery={setQuery} selectedColumnKeys={columns} setSelectedColumnKeys={saveColumns} filters={filters} setFilters={setFilters} columnPickerOpen={columnPickerOpen} setColumnPickerOpen={setColumnPickerOpen} filterPanelOpen={filterPanelOpen} setFilterPanelOpen={setFilterPanelOpen} />
+      <RegisterToolbar module="Denetim Yönetimi" lang={lang} rows={allItems} resultCount={filtered.length} query={query} setQuery={setQuery} selectedColumnKeys={columns} setSelectedColumnKeys={saveColumns} filters={filters} setFilters={setFilters} columnPickerOpen={columnPickerOpen} setColumnPickerOpen={setColumnPickerOpen} filterPanelOpen={filterPanelOpen} setFilterPanelOpen={setFilterPanelOpen} />
+      <div className="audit-requirement-pager" aria-label={tr ? "Madde sayfalaması" : "Requirement pagination"}>
+        <span role="status">{page.start}–{page.end} / {page.total} {tr ? "madde" : "requirements"}</span>
+        <label>{tr ? "Sayfa başına" : "Per page"}<select value={page.size} onChange={event => setPagination({ key: filterKey, page: 1, size: Number(event.target.value) })}>{[50, 100, 200].map(size => <option key={size} value={size}>{size}</option>)}</select></label>
+        <div><button type="button" disabled={page.page === 1} onClick={() => goPage(1)}>{tr ? "İlk" : "First"}</button><button type="button" disabled={page.page === 1} onClick={() => goPage(page.page - 1)}>{tr ? "Önceki" : "Previous"}</button><span>{page.page} / {page.pages}</span><button type="button" disabled={page.page === page.pages} onClick={() => goPage(page.page + 1)}>{tr ? "Sonraki" : "Next"}</button><button type="button" disabled={page.page === page.pages} onClick={() => goPage(page.pages)}>{tr ? "Son" : "Last"}</button></div>
+        <button type="button" disabled={!filtered.length} onClick={() => csvDownload("audit-filtered-requirements.csv", filtered, lang)}>{tr ? "Sonuçları indir" : "Export results"} ({filtered.length})</button>
+      </div>
       <div className="table-wrap" tabIndex={0} role="region" aria-label={lang === "tr" ? "Kayıt tablosu" : "Record table"}>
-        {items.length ? <SmartRegister module="Denetim Yönetimi" rows={filtered} lang={lang} edit={edit} remove={remove} canWrite={canWrite} columns={columns} /> : <div className="audit-empty"><b>{tr ? "Bu şablon için otomatik madde bulunamadı." : "No automatic requirements are available for this template."}</b><p>{tr ? "Excel ile içe aktarabilir veya özel madde ekleyebilirsiniz." : "Import from Excel or add a custom item."}</p></div>}
+        {filtered.length ? <SmartRegister module="Denetim Yönetimi" rows={page.rows} lang={lang} edit={edit} remove={remove} canWrite={canWrite} columns={columns} /> : allItems.length ? <div className="audit-empty" role="status"><b>{tr ? "Arama veya filtrelerle eşleşen madde yok." : "No requirements match your search or filters."}</b><button type="button" className="ghost" onClick={clearFilters}>{tr ? "Arama ve filtreleri temizle" : "Clear search and filters"}</button></div> : <div className="audit-empty"><b>{tr ? "Bu şablon için otomatik madde bulunamadı." : "No automatic requirements are available for this template."}</b><p>{tr ? "Excel ile içe aktarabilir veya özel madde ekleyebilirsiniz." : "Import from Excel or add a custom item."}</p></div>}
       </div>
     </section>
   );
