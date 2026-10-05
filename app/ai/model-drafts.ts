@@ -1,3 +1,4 @@
+import { unreferencedAiModelSql } from './model-relations';
 import { commitAiModelWrite } from './model-audit';
 import type { validateAiModel } from './model-inventory';
 
@@ -13,8 +14,8 @@ export async function editAiModelDraft(db:D1Database,input:{id:string;expectedUp
 
 export async function deleteAiModelDraft(db:D1Database,input:{id:string;expectedUpdatedAt:string;actor:string}) {
   if(!input.expectedUpdatedAt||!Number.isFinite(Date.parse(input.expectedUpdatedAt)))return {status:409,error:'Model sürümü eksik veya geçersiz. Güncel kaydı yeniden açın.'};
-  const write=db.prepare("DELETE FROM ai_model_inventory WHERE id=? AND status='draft' AND updated_at=?").bind(input.id,input.expectedUpdatedAt);
-  if(!await commitAiModelWrite(db,write,{id:input.id,actor:input.actor,action:'model-inventory-delete',detail:`${input.id} deleted`,at:new Date().toISOString()}))return {status:409,error:'Model değişti veya artık taslak değil. Güncel kaydı incelemeden silinemez.'};
+  const write=db.prepare(`DELETE FROM ai_model_inventory WHERE id=? AND status='draft' AND updated_at=? AND ${unreferencedAiModelSql}`).bind(input.id,input.expectedUpdatedAt);
+  if(!await commitAiModelWrite(db,write,{id:input.id,actor:input.actor,action:'model-inventory-delete',detail:`${input.id} deleted`,at:new Date().toISOString()}))return {status:409,error:'Model değişti, artık taslak değil veya bağlı kayıtları var. Bağlı bulgu, kanıt ve geçmişi korumak için emeklilik sürecini kullanın.'};
   return {status:200};
 }
 

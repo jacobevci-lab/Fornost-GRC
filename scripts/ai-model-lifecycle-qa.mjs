@@ -37,6 +37,13 @@ try{
  await page.locator('.cg-detail>header').getByRole('button',{name:/Open record/}).click();
  const root=page.locator('.ai-model-inventory'),record=root.locator(`[data-record-id="${id}"]`);
  await expect(root.locator('.ai-record-focus')).toHaveAttribute('data-state','found');
+ // A linked draft must remain available, including after an accepted delete confirmation.
+ const measurementId=`QA-DELETE-GUARD-${crypto.randomUUID()}`;
+ await sql(`INSERT INTO ai_model_monitoring(id,model_id,accuracy,error_rate,drift_score,bias_score,p95_latency_ms,sample_size,health,recorded_by,recorded_at) VALUES(${q(measurementId)},${q(id)},99,1,1,1,10,100,'healthy','QA',${q(new Date().toISOString())});`);
+ await call('DELETE',{id,expectedUpdatedAt:original.updatedAt,confirmation:'SİL'},409);assert.deepEqual(await model(id),original);
+ page.once('dialog',dialog=>dialog.accept());await record.getByRole('button',{name:'Sil',exact:true}).click();await expect(root.locator('.ai-inventory-notice')).toContainText('bağlı kayıtları var');await expect(record.getByRole('button',{name:'Düzenle',exact:true})).toBeEnabled();assert.deepEqual(await model(id),original);
+ await sql(`DELETE FROM ai_model_monitoring WHERE id=${q(measurementId)};`);
+
  // Two editors cannot overwrite or delete a newer draft; the UI retains unsaved text.
  await record.getByRole('button',{name:'Düzenle',exact:true}).click();const form=root.locator('form');await form.locator('input').first().fill('QA local unsaved edit');
  await call('PUT',{...values,id,systemName:'QA newer editor',expectedUpdatedAt:original.updatedAt});
@@ -83,5 +90,5 @@ try{
  const deletable=await call('POST',{...values,systemName:'QA atomic deletion'},201);ids.push(deletable.id);await call('DELETE',{id:deletable.id,expectedUpdatedAt:(await model(deletable.id)).updatedAt,confirmation:'SİL'});assert.equal(await model(deletable.id),undefined);
  await page.screenshot({path:`${out}/decision-recovery.png`});
  assert.deepEqual(errors,[]);
- await fs.writeFile(`${out}/result.json`,JSON.stringify({status:'passed',realApi:true,atomicModelWrites:true,auditFailureRollback:true,uiApprovalAuditRecovery:true,versionedDraftEditDelete:true,preservedStaleDraft:true,failedEditRecovered:true,uiStaleDecisionRecovery:true,retiredDecisionsBlocked:4,criticalRiskBlocked:true}));
-}finally{try{await page.close();await sql('DROP TRIGGER IF EXISTS qa_model_audit_failure;');if(ids.length)await sql(`DELETE FROM ai_model_inventory WHERE id IN (${ids.map(q).join(',')}); DELETE FROM ai_activity_logs WHERE ${ids.map(id=>`detail LIKE ${q(id+' %')}`).join(' OR ')};`);}finally{await browser.close();}}
+ await fs.writeFile(`${out}/result.json`,JSON.stringify({status:'passed',realApi:true,linkedDraftDeletionBlocked:true,linkedDeletionUiRecovery:true,atomicModelWrites:true,auditFailureRollback:true,uiApprovalAuditRecovery:true,versionedDraftEditDelete:true,preservedStaleDraft:true,failedEditRecovered:true,uiStaleDecisionRecovery:true,retiredDecisionsBlocked:4,criticalRiskBlocked:true}));
+}finally{try{await page.close();await sql('DROP TRIGGER IF EXISTS qa_model_audit_failure;');if(ids.length)await sql(`DELETE FROM ai_model_monitoring WHERE model_id IN (${ids.map(q).join(',')});DELETE FROM ai_model_inventory WHERE id IN (${ids.map(q).join(',')}); DELETE FROM ai_activity_logs WHERE ${ids.map(id=>`detail LIKE ${q(id+' %')}`).join(' OR ')};`);}finally{await browser.close();}}
