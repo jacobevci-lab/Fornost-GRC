@@ -1,4 +1,5 @@
 "use client";
+import { readSessionSnapshot } from "./session-snapshot";
 import { getCatalogStatus } from "./framework-catalog-status";
 import { FrameworkCatalogNotice, type CatalogSnapshot } from "./framework-catalog-notice";
 import { AuditCatalogUpload } from "./audit-catalog-upload";
@@ -1118,18 +1119,20 @@ function AuthGate() {
   const [state, setState] = useState<any>(null),
     [error, setError] = useState(""),
     [showLogin, setShowLogin] = useState(false);
+  const identityRequest = useRef<{ id: number; controller?: AbortController }>({ id: 0 });
   async function check() {
+    identityRequest.current.controller?.abort();
+    const controller = new AbortController(), id = identityRequest.current.id + 1;
+    identityRequest.current = { id, controller };
     try {
-      const r = await fetch(withBasePath("/api/auth"), { cache: "no-store" });
-      const j = await r.json().catch(() => ({}));
-      if (!r.ok) throw new Error(j.error || "Kimlik servisine ulaşılamadı.");
+      const j = await readSessionSnapshot(withBasePath("/api/auth"), { signal: controller.signal });
+      if (id !== identityRequest.current.id) return;
       setState(j);
       setError("");
     } catch (e) {
+      if (id !== identityRequest.current.id) return;
       setState({ loadFailed: true });
-      setError(
-        e instanceof Error ? e.message : "Kimlik servisine ulaşılamadı.",
-      );
+      setError(e instanceof Error ? e.message : "Kimlik servisine ulaşılamadı.");
     }
   }
   useEffect(() => {
@@ -1137,7 +1140,7 @@ function AuthGate() {
     const refresh = () => { void check(); };
     const timer = window.setInterval(refresh,60000);
     window.addEventListener("focus",refresh);
-    return () => {window.clearInterval(timer);window.removeEventListener("focus",refresh);};
+    return () => {window.clearInterval(timer);window.removeEventListener("focus",refresh);identityRequest.current.id++;identityRequest.current.controller?.abort();};
   }, []);
   async function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
