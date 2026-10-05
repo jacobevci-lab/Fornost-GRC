@@ -1,0 +1,4 @@
+.framework-catalog-notice{display:block;position:static;min-height:0;height:auto;width:100%;align-self:start;overflow-wrap:anywhere}
+.framework-catalog-notice p{margin:6px 0}
+.framework-catalog-notice p:last-child{margin-bottom:0}
+.framework-catalog-notice a{color:var(--ws-brand);text-underline-offset:2px}
