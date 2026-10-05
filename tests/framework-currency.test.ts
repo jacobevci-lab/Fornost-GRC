@@ -31,6 +31,6 @@ test("catalog reads never mutate historical audits and unknown scopes are explic
   const source = readFileSync("app/api/audits/route.ts","utf8");
   const get = source.split("export async function GET")[1].split("export async function POST")[0];
   assert.doesNotMatch(get,/ensureTemplateRows|INSERT|UPDATE|DELETE/);
-  assert.match(source,/catalogRevision: "2026-10-05"/);
+  assert.match(source,/2026-10-05-full-packs/);
   assert.match(getCatalogStatus("Unknown").en,/not been fully verified/);
 });

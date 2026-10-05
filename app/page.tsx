@@ -1,6 +1,9 @@
 "use client";
 import { getCatalogStatus } from "./framework-catalog-status";
-import { FrameworkCatalogNotice } from "./framework-catalog-notice";
+import { FrameworkCatalogNotice, type CatalogSnapshot } from "./framework-catalog-notice";
+import { AuditCatalogUpload } from "./audit-catalog-upload";
+import type { AuditCatalogImport } from "./audit-catalog-import";
+import { readAllGrcPages } from "./grc-pagination";
 import { AuditPlanPanel } from "./audit-plan-panel";
 import { canOpenModule, canReadModule, canWriteModule, isScoped, readableModules } from "./module-access";
 import "./module-access.css";
@@ -59,7 +62,7 @@ import { withBasePath } from "./base-path";
 import { calculatedRiskScore, effectiveImpact } from "./risk-methodology";
 import { defaultCatalogs, type CatalogMap } from "./catalogs";
 import { safeSpreadsheetCell } from "./export-security";
-import { automaticAuditTemplates } from "./api/grc/framework-catalogs";
+import { automaticAuditTemplates } from "./framework-templates";
 import { displayRecordCode } from "./record-codes";
 import "./workspace-system.css";
 import "./enterprise-surface-contract.css";
@@ -79,6 +82,7 @@ type Row = {
   updatedAt?: string;
 };
 type AuditPortfolioItem = {
+  catalog?: CatalogSnapshot|null;
   id: string;
   name: string;
   template: string;
@@ -589,10 +593,14 @@ const frameworkGroups = [
     items: [
       "PCI DSS 4.0.1",
       "NIST Cybersecurity Framework (CSF) 2.0",
-      "NIST SP 800-53",
+      "NIST SP 800-53 Rev. 5 (5.2.0)",
+      "NIST SP 800-171 Rev. 3",
+      "NIST SP 800-172 Rev. 3",
+      "NIST SSDF 1.1 (SP 800-218)",
       "CIS Controls v8.1",
       "COBIT 2019",
       "CSA Cloud Controls Matrix (CCM)",
+      "OWASP ASVS 5.0.0",
     ],
   },
   {
@@ -1403,18 +1411,13 @@ function FornostApp({ currentUser }: { currentUser: any }) {
   }, [lang, active]);
   const load = useCallback(async () => {
     try {
-      const r = await fetch(withBasePath("/api/grc"), { cache: "no-store" }),
-        j = await r.json().catch(() => ({}));
-      if (!r.ok) throw new Error(String(j.error || "GRC kayıtları yüklenemedi."));
-      const nextRows: Row[] = Array.isArray(j.rows)
-          ? j.rows.map((x: any) => ({
-              ...x,
-              data: JSON.parse(x.data_json),
-              code: x.recordCode || x.record_code,
-              createdAt: x.createdAt || x.created_at,
-              updatedAt: x.updatedAt || x.updated_at,
-            }))
-          : [];
+      const rawRows = await readAllGrcPages<any>(async cursor => {
+        const response = await fetch(withBasePath(`/api/grc${cursor ? `?cursor=${encodeURIComponent(cursor)}` : ""}`),{cache:"no-store"});
+        const page = await response.json().catch(()=>({}));
+        if(!response.ok)throw new Error(String(page.error || "GRC kayıtları yüklenemedi."));
+        return page;
+      });
+      const nextRows:Row[]=rawRows.map(x=>({...x,data:JSON.parse(x.data_json),code:x.recordCode||x.record_code,createdAt: x.createdAt || x.created_at,updatedAt: x.updatedAt || x.updated_at})).sort((a,b)=>String(b.updatedAt).localeCompare(String(a.updatedAt)));
       setRows(nextRows);
       return nextRows;
     } catch (error) {
@@ -1592,6 +1595,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
     auditType: string;
     auditor: string;
     auditOwner: string;
+    catalogImport?: AuditCatalogImport;
   }) {
     const response = await fetch(withBasePath("/api/audits"), {
       method: "POST",
@@ -3835,6 +3839,7 @@ function AuditModule({
     auditType: string;
     auditor: string;
     auditOwner: string;
+    catalogImport?: AuditCatalogImport;
   }) => Promise<boolean>;
   deleteAudit: (audit: AuditPortfolioItem) => Promise<void>;
   canDeleteAudit: boolean;
@@ -3858,16 +3863,19 @@ function AuditModule({
       auditOwner: "",
     }),
     [savingAudit, setSavingAudit] = useState(false);
+  const [catalogImport, setCatalogImport] = useState<AuditCatalogImport|null>(null);
+  const [auditCreateError,setAuditCreateError] = useState("");
   const portfolioNames = new Set(audits.map((audit) => audit.name)),
     portfolioRows = rows.filter((row) =>
       portfolioNames.has(String(row.data.auditName || "")),
     );
   async function submitAudit(event: FormEvent) {
-    event.preventDefault();
+    event.preventDefault();setAuditCreateError("");
+    if(catalogImport && !catalogImport.rightsConfirmed)return;
     setSavingAudit(true);
-    const ok = await createAudit(auditDraft);
-    setSavingAudit(false);
-    if (ok) setPickerOpen(false);
+    try { const ok=await createAudit({...auditDraft,...(catalogImport?{catalogImport}:{})});
+      if(ok){setPickerOpen(false);setCatalogImport(null);}else setAuditCreateError(tr?"Denetim oluşturulamadı. Adı ve katalog alanlarını kontrol edin.":"Audit could not be created. Check the name and catalog fields.");
+    }catch{setAuditCreateError(tr?"Bağlantı kesildi. Tekrar denemeden önce portföyü yenileyerek kaydı kontrol edin.":"Connection lost. Refresh the portfolio and check for the audit before retrying.");}finally{setSavingAudit(false);}
   }
   function chooseTemplate(template: string) {
     const custom = template === "Özel Denetim" || template === "Custom Audit";
@@ -4032,6 +4040,7 @@ function AuditModule({
                 </button>
               </div>
               <form className="form" onSubmit={submitAudit}>
+                {auditCreateError && <p className="wide" role="alert">{auditCreateError}</p>}
                 <label className="wide">
                   {tr ? "Şablon / seçenek" : "Template / option"}
                   <select
@@ -4044,7 +4053,8 @@ function AuditModule({
                     <option>{tr ? "Özel Denetim" : "Custom Audit"}</option>
                   </select>
                 </label>
-                <FrameworkCatalogNotice framework={auditDraft.template} lang={lang} />
+                {!catalogImport && <FrameworkCatalogNotice framework={auditDraft.template} lang={lang} />}
+                <AuditCatalogUpload lang={lang} value={catalogImport} onChange={setCatalogImport} />
                 <label className="wide">
                   {tr ? "Denetim adı" : "Audit name"}
                   <input
@@ -4104,7 +4114,7 @@ function AuditModule({
                   >
                     {tr ? "Vazgeç" : "Cancel"}
                   </button>
-                  <button className="primary" disabled={savingAudit}>
+                  <button className="primary" disabled={savingAudit || !!(catalogImport && !catalogImport.rightsConfirmed)}>
                     {savingAudit
                       ? tr
                         ? "Ekleniyor…"
@@ -4188,7 +4198,7 @@ function AuditModule({
           <span>{tr ? "Kapatılan" : "Closed"}</span>
         </article>
       </section>
-      <FrameworkCatalogNotice framework={audits.find(audit=>audit.name===selected)?.template || ""} lang={lang} />
+      <FrameworkCatalogNotice framework={audits.find(audit=>audit.name===selected)?.template || ""} snapshot={audits.find(audit=>audit.name===selected)?.catalog} lang={lang} />
       {audits.find(audit=>audit.name===selected)&&<AuditPlanPanel key={selected} auditId={audits.find(audit=>audit.name===selected)!.id} canWrite={canWrite} lang={lang}/>}
       <AuditReadinessGate key={selected} lang={lang} auditName={selected} records={[...items,...evidenceRows]} />
       <AuditRequirementsTable
@@ -5393,6 +5403,8 @@ function SmartCell({
         <div className="stack title-stack audit-requirement-cell">
           <b>{reference}</b>
           {rawTitle && !redundantTitle && <small>{rawTitle}</small>}
+          {!!d.requirementStatement && <details onClick={event=>event.stopPropagation()}><summary>{tr ? "Gereksinim ve test ayrıntıları" : "Requirement and assessment details"}</summary><p style={{whiteSpace:"pre-wrap"}}>{String(d.requirementStatement)}</p>{d.requirementGuidance && <p style={{whiteSpace:"pre-wrap"}}>{String(d.requirementGuidance)}</p>}{d.requirementAssessment && <p style={{whiteSpace:"pre-wrap"}}>{String(d.requirementAssessment)}</p>}{d.catalogSource && /^https:\/\//.test(String(d.catalogSource)) && <a href={String(d.catalogSource)} target="_blank" rel="noreferrer">{tr ? "Katalog kaynağı" : "Catalog source"}</a>}</details>}
+
         </div>
       );
     }
