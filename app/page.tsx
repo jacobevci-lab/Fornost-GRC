@@ -1,4 +1,5 @@
 "use client";
+import { submitLocalAuthentication, type LocalAuthInput } from "./local-auth-submit";
 import { readSessionSnapshot } from "./session-snapshot";
 import { getCatalogStatus } from "./framework-catalog-status";
 import { FrameworkCatalogNotice, type CatalogSnapshot } from "./framework-catalog-notice";
@@ -1120,7 +1121,10 @@ function AuthGate() {
     [error, setError] = useState(""),
     [showLogin, setShowLogin] = useState(false);
   const identityRequest = useRef<{ id: number; controller?: AbortController }>({ id: 0 });
-  async function check() {
+  const submission = useRef<AbortController | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  async function check(force = false) {
+    if (submission.current && !force) return;
     identityRequest.current.controller?.abort();
     const controller = new AbortController(), id = identityRequest.current.id + 1;
     identityRequest.current = { id, controller };
@@ -1140,37 +1144,34 @@ function AuthGate() {
     const refresh = () => { void check(); };
     const timer = window.setInterval(refresh,60000);
     window.addEventListener("focus",refresh);
-    return () => {window.clearInterval(timer);window.removeEventListener("focus",refresh);identityRequest.current.id++;identityRequest.current.controller?.abort();};
+    return () => {window.clearInterval(timer);window.removeEventListener("focus",refresh);identityRequest.current.id++;identityRequest.current.controller?.abort();submission.current?.abort();};
   }, []);
+  async function authenticate(input: LocalAuthInput) {
+    if (submission.current) return;
+    const controller = new AbortController();
+    submission.current = controller;
+    identityRequest.current.id++;
+    identityRequest.current.controller?.abort();
+    setSubmitting(true); setError("");
+    try {
+      await submitLocalAuthentication(withBasePath("/api/auth"), input, { signal: controller.signal });
+      if (!controller.signal.aborted) await check(true);
+    } catch (e) {
+      if (!controller.signal.aborted) setError(e instanceof Error ? e.message : "Giriş başarısız. Oturum durumunu kontrol edin.");
+    } finally {
+      if (submission.current === controller) submission.current = null;
+      if (!controller.signal.aborted) setSubmitting(false);
+    }
+  }
   async function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    setError("");
-    const fd = new FormData(e.currentTarget),
-      r = await fetch(withBasePath("/api/auth"), {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          action: state.bootstrapRequired && !showLogin ? "bootstrap" : "login",
-          name: fd.get("name"),
-          email: fd.get("email"),
-          password: fd.get("password"),
-        }),
-      }),
-      j = await r.json();
-    if (!r.ok) setError(j.error || "Giriş başarısız.");
-    else check();
+    const fd = new FormData(e.currentTarget);
+    await authenticate({
+      action: state.bootstrapRequired && !showLogin ? "bootstrap" : "login",
+      name: String(fd.get("name") || ""), email: String(fd.get("email") || ""), password: String(fd.get("password") || ""),
+    });
   }
-  async function demoLogin() {
-    setError("");
-    const r = await fetch(withBasePath("/api/auth"), {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ action: "demo_login" }),
-      }),
-      j = await r.json();
-    if (!r.ok) setError(j.error || "Demo hesabıyla giriş başarısız.");
-    else check();
-  }
+  async function demoLogin() { await authenticate({ action: "demo_login" }); }
   if (!state)
     return (
       <div className="auth-screen">
@@ -1207,7 +1208,7 @@ function AuthGate() {
   if (state.authenticated) return <FornostApp key={JSON.stringify([state.user.id,state.user.role,state.user.moduleAccess])} currentUser={state.user} />;
   return (
     <div className="auth-screen">
-      <form className="auth-card" onSubmit={submit}>
+      <form className="auth-card" onSubmit={submit} aria-busy={submitting}>
         <div className="auth-mark">F</div>
         <small>FORNOST GRC</small>
         <h1>
@@ -1260,9 +1261,9 @@ function AuthGate() {
         {state.bootstrapRequired && !showLogin && (
           <em>En az 12 karakter; büyük/küçük harf, sayı ve özel karakter.</em>
         )}
-        {error && <div className="auth-error">{error}</div>}
-        <button className="primary">
-          {state.bootstrapRequired && !showLogin
+        {error && <div className="auth-error" role="alert">{error}<button type="button" className="ghost" disabled={submitting} onClick={() => void check()}>Oturum Durumunu Kontrol Et</button></div>}
+        <button className="primary" disabled={submitting}>
+          {submitting ? "İşlem sürüyor…" : state.bootstrapRequired && !showLogin
             ? "Yönetici Hesabını Oluştur"
             : "Giriş Yap"}
         </button>
@@ -1270,7 +1271,7 @@ function AuthGate() {
           <div className="demo-login-box">
             <b>Demo Editor Hesabı</b>
             <span>{state.demoAccount.email}</span>
-            <button type="button" className="ghost" onClick={demoLogin}>
+            <button type="button" className="ghost" disabled={submitting} onClick={demoLogin}>
               Demo Hesapla Giriş Yap
             </button>
           </div>
@@ -1279,6 +1280,7 @@ function AuthGate() {
           <button
             type="button"
             className="auth-switch"
+            disabled={submitting}
             onClick={() => setShowLogin((x) => !x)}
           >
             {showLogin
