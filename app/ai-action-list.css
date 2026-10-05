@@ -1,0 +1,8 @@
+.ai-action-list-filters{display:flex;align-items:end;flex-wrap:wrap;gap:10px;margin:12px 0}
+.ai-action-list-filters>label{flex:1 1 160px;min-width:0;margin:0!important;display:grid!important;gap:5px;font-size:11px}
+.ai-action-list-filters input,.ai-action-list-filters select{box-sizing:border-box;width:100%;min-width:0;margin:0;padding:8px;border:1px solid var(--ws-border);border-radius:6px;background:var(--ws-surface);color:var(--ws-ink);font-size:12px}
+.ai-action-list-pages{display:flex;align-items:center;justify-content:flex-end;flex-wrap:wrap;gap:12px;margin-top:12px;font-size:12px}
+.ai-action-list-count,.ai-action-list-empty{font-size:12px;overflow-wrap:anywhere}
+.ai-action-list-empty{padding:16px;border:1px solid var(--ws-border);border-radius:8px;background:var(--ws-surface)}
+.ai-findings .list>article,.ai-alerts .list>article{min-width:0;overflow-wrap:anywhere}
+.ai-findings .list header,.ai-alerts .list article>header,.ai-alerts footer div{flex-wrap:wrap}
