@@ -11,3 +11,7 @@ No schema migration. This panel covers native alerts and findings, not every mod
 The panel starts with open actions and offers Closed actions / All records independently for alerts and findings. Filters load from the API, reset pagination and discard previous requests on selection changes. Resolved alerts are closed; resolved or dismissed findings are closed. Acknowledged/escalated alerts and findings awaiting verification remain open.
 
 Both endpoints accept optional `workState=all|open|closed` (default `all` for existing consumers). Invalid, empty and repeated values return 400. Status, model and record predicates are intersected before the 500-record limit, including CSV exports. Counts describe only the selected bounded view. No schema changes.
+
+## Ownership and deadlines
+
+Linked rows show the owner (or explicit Unassigned fallback) and record ID, helping distinguish records with identical titles. Findings also show the API due date and textual Overdue indicator from the API attention state. Closed findings never receive an overdue marker; alerts have no invented deadline. Missing dates display an em dash. The display uses existing API data without extra requests or mutation controls. Actual browser QA verifies overdue open and closed findings and narrow layouts.
