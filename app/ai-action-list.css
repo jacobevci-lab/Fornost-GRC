@@ -6,3 +6,5 @@
 .ai-action-list-empty{padding:16px;border:1px solid var(--ws-border);border-radius:8px;background:var(--ws-surface)}
 .ai-findings .list>article,.ai-alerts .list>article{min-width:0;overflow-wrap:anywhere}
 .ai-findings .list header,.ai-alerts .list article>header,.ai-alerts footer div{flex-wrap:wrap}
+
+.ai-model-inventory .ai-inventory-list>article{min-width:0;overflow-wrap:anywhere}.ai-model-inventory .ai-inventory-list>article>header{flex-wrap:wrap}
