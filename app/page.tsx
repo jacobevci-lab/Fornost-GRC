@@ -4199,7 +4199,7 @@ function AuditModule({
         </article>
       </section>
       <FrameworkCatalogNotice framework={audits.find(audit=>audit.name===selected)?.template || ""} snapshot={audits.find(audit=>audit.name===selected)?.catalog} lang={lang} />
-      {audits.find(audit=>audit.name===selected)&&<AuditPlanPanel key={selected} auditId={audits.find(audit=>audit.name===selected)!.id} canWrite={canWrite} lang={lang}/>}
+      {audits.find(audit=>audit.name===selected)&&<AuditPlanPanel key={`plan:${selected}`} auditId={audits.find(audit=>audit.name===selected)!.id} canWrite={canWrite} lang={lang}/>}
       <AuditReadinessGate key={selected} lang={lang} auditName={selected} records={[...items,...evidenceRows]} />
       <AuditRequirementsTable
         items={visible}
