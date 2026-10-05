@@ -1,3 +1,4 @@
+import { commitAiModelWrite } from './model-audit';
 /** Conditional writes protect lifecycle decisions from retirement and stale reads. */
 export async function applyAiModelDecision(db: D1Database, input: {
   id: string; status: 'approved' | 'suspended'; expectedUpdatedAt: string; note: string; actor: string;
@@ -13,12 +14,12 @@ export async function applyAiModelDecision(db: D1Database, input: {
   const previousTime = Date.parse(input.expectedUpdatedAt);
   if (!Number.isFinite(previousTime)) return { status: 409, error: 'Model sürümü doğrulanamadı. Kaydı yeniden yükleyin.' };
   const now = new Date(Math.max(Date.now(), previousTime + 1)).toISOString();
-  const result = await db.prepare(`UPDATE ai_model_inventory SET status=?,approved_by=?,approved_at=?,decision_note=?,updated_by=?,updated_at=?
+  const write = db.prepare(`UPDATE ai_model_inventory SET status=?,approved_by=?,approved_at=?,decision_note=?,updated_by=?,updated_at=?
     WHERE id=? AND status=? AND status IN ('draft','approved','suspended') AND updated_at=?
     AND risk_tier=? AND control_maturity=?
     AND (? <> 'approved' OR risk_tier <> 'Critical' OR control_maturity >= 4)`)
     .bind(input.status,input.status==='approved'?input.actor:null,input.status==='approved'?now:null,input.note,input.actor,now,
-      input.id,existing.status,input.expectedUpdatedAt,existing.risk_tier,existing.control_maturity,input.status).run();
-  if (Number(result.meta?.changes || 0) !== 1) return { status: 409, error: 'Model işlem sırasında değişti. Güncel kaydı inceleyip tekrar deneyin.' };
+      input.id,existing.status,input.expectedUpdatedAt,existing.risk_tier,existing.control_maturity,input.status);
+  if (!await commitAiModelWrite(db,write,{id:input.id,actor:input.actor,action:`model-inventory-${input.status}`,detail:`${input.id} ${input.status}`,at:now})) return { status: 409, error: 'Model işlem sırasında değişti. Güncel kaydı inceleyip tekrar deneyin.' };
   return { status: 200, updatedAt: now };
 }

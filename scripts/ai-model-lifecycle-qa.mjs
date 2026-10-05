@@ -14,10 +14,14 @@ async function call(method,data,expected=200){const response=await context.reque
 const values={systemName:'QA lifecycle assistant',modelName:'QA local model',vendor:'Internal',purpose:'Validate governed model decision safety',owner:'qa-admin@fornost.test',deployment:'On-Prem',region:'TR',dataClassification:'Internal',autonomy:'Advisory',affectedUsers:1,impact:3,likelihood:3,dataSensitivity:3,autonomyRisk:2,controlMaturity:3,controls:'RBAC and human approval',reviewDate:'2027-01-01'};
 const model=async id=>(await call('GET')).models.find(row=>row.id===id);
 const decision=(id,status,version)=>({id,status,expectedUpdatedAt:version,note:'QA reviewed current model',confirmation:status==='approved'?'ONAYLA':'ASKIYA AL'});
+async function failAudit(action){await sql(`CREATE TRIGGER qa_model_audit_failure BEFORE INSERT ON ai_activity_logs WHEN NEW.action=${q(action)} BEGIN SELECT RAISE(ABORT,'QA model audit failure'); END;`);}
+const restoreAudit=()=>sql('DROP TRIGGER qa_model_audit_failure;');
 try{
  assert.equal((await context.request.post(base+'/api/auth',{headers:{origin:base},data:{action:'login',email:'qa-admin@fornost.test',password:qaPassword()}})).status(),200);
+ const beforeCreate=(await call('GET')).models;await failAudit('model-inventory-create');await call('POST',values,503);assert.deepEqual((await call('GET')).models,beforeCreate);await restoreAudit();
  const {id}=await call('POST',values,201);ids.push(id);
  const original=await model(id);
+ for(const [method,action,data] of [['PUT','model-inventory-edit',{...values,id,expectedUpdatedAt:original.updatedAt,systemName:'QA should roll back'}],['DELETE','model-inventory-delete',{id,expectedUpdatedAt:original.updatedAt,confirmation:'SİL'}]]){await failAudit(action);await call(method,data,503);assert.deepEqual(await model(id),original);await restoreAudit();}
  for(const [path,key] of [['models','models'],['assurance-alerts','alerts'],['findings','findings']]){
   const missing=await context.request.get(`${base}/api/ai/${path}?id=QA-missing-exact`);assert.equal(missing.status(),200);assert.deepEqual((await missing.json())[key],[]);
   const invalid=await context.request.get(`${base}/api/ai/${path}?id=one&id=two`);assert.equal(invalid.status(),400);
@@ -56,11 +60,15 @@ try{
  await record.getByRole('button',{name:'Onayla',exact:true}).click();
  await record.locator('.ai-inventory-decision textarea').fill('QA reviewed the updated model');
  await record.locator('.ai-inventory-decision input').fill('ONAYLA');
+ const beforeFailedApproval=await model(id);await failAudit('model-inventory-approved');
+ await record.getByRole('button',{name:'Kararı uygula'}).click();await expect(root.locator('.ai-inventory-notice')).toContainText('Model kararı kaydedilemedi');await expect(record.locator('.ai-inventory-decision')).toHaveCount(0);await expect(record.getByRole('button',{name:'Onayla',exact:true})).toBeEnabled();assert.deepEqual(await model(id),beforeFailedApproval);await restoreAudit();
+ await record.getByRole('button',{name:'Onayla',exact:true}).click();await record.locator('.ai-inventory-decision textarea').fill('QA retry after audit recovery');await record.locator('.ai-inventory-decision input').fill('ONAYLA');
  await record.getByRole('button',{name:'Kararı uygula'}).click();
  await expect(record.locator('strong.approved')).toBeVisible();
  await expect(record.getByRole('button',{name:'Onayla',exact:true})).toBeDisabled();
  const approved=await model(id);assert.equal(approved.status,'approved');
  await call('PATCH',decision(id,'suspended',original.updatedAt),409);
+ await failAudit('model-inventory-suspended');await call('PATCH',decision(id,'suspended',approved.updatedAt),503);assert.deepEqual(await model(id),approved);await restoreAudit();
  await call('PATCH',decision(id,'suspended',approved.updatedAt));
  const suspended=await model(id);await call('PATCH',decision(id,'approved',suspended.updatedAt));
  const beforeRetire=await model(id);
@@ -72,7 +80,8 @@ try{
  const criticalModel=await model(critical.id);assert.equal(criticalModel.riskTier,'Critical');
  await call('PATCH',decision(critical.id,'approved',criticalModel.updatedAt),409);
  await call('PATCH',decision(critical.id,'suspended',criticalModel.updatedAt));
+ const deletable=await call('POST',{...values,systemName:'QA atomic deletion'},201);ids.push(deletable.id);await call('DELETE',{id:deletable.id,expectedUpdatedAt:(await model(deletable.id)).updatedAt,confirmation:'SİL'});assert.equal(await model(deletable.id),undefined);
  await page.screenshot({path:`${out}/decision-recovery.png`});
  assert.deepEqual(errors,[]);
- await fs.writeFile(`${out}/result.json`,JSON.stringify({status:'passed',realApi:true,versionedDraftEditDelete:true,preservedStaleDraft:true,failedEditRecovered:true,uiStaleDecisionRecovery:true,retiredDecisionsBlocked:4,criticalRiskBlocked:true}));
-}finally{try{await page.close();if(ids.length)await sql(`DELETE FROM ai_model_inventory WHERE id IN (${ids.map(q).join(',')}); DELETE FROM ai_activity_logs WHERE ${ids.map(id=>`detail LIKE ${q(id+' %')}`).join(' OR ')};`);}finally{await browser.close();}}
+ await fs.writeFile(`${out}/result.json`,JSON.stringify({status:'passed',realApi:true,atomicModelWrites:true,auditFailureRollback:true,uiApprovalAuditRecovery:true,versionedDraftEditDelete:true,preservedStaleDraft:true,failedEditRecovered:true,uiStaleDecisionRecovery:true,retiredDecisionsBlocked:4,criticalRiskBlocked:true}));
+}finally{try{await page.close();await sql('DROP TRIGGER IF EXISTS qa_model_audit_failure;');if(ids.length)await sql(`DELETE FROM ai_model_inventory WHERE id IN (${ids.map(q).join(',')}); DELETE FROM ai_activity_logs WHERE ${ids.map(id=>`detail LIKE ${q(id+' %')}`).join(' OR ')};`);}finally{await browser.close();}}

@@ -12,9 +12,10 @@ function fixture(status='draft',risk='Medium',maturity=3){
  function prepare(sql:string,values:(string|number|null)[]=[]){return{
   bind(...args:(string|number|null)[]){return prepare(sql,args);},
   async first(){return sqlite.prepare(sql).get(...values)||null;},
-  async run(){const hook=beforeWrite;beforeWrite=undefined;hook?.();const result=sqlite.prepare(sql).run(...values);return {meta:{changes:Number(result.changes)}};},
+  exec(){const result=sqlite.prepare(sql).run(...values);return {meta:{changes:Number(result.changes)}};},
  };}
- const db={prepare} as unknown as D1Database;
+ sqlite.exec('CREATE TABLE ai_activity_logs(id TEXT PRIMARY KEY,actor TEXT,action TEXT,provider TEXT,model TEXT,prompt_hash TEXT,context_refs_json TEXT,status TEXT,latency_ms INTEGER,detail TEXT,created_at TEXT)');
+ const db={prepare,async batch(statements:ReturnType<typeof prepare>[]){const hook=beforeWrite;beforeWrite=undefined;hook?.();sqlite.exec('BEGIN');try{const results=statements.map(s=>s.exec());sqlite.exec('COMMIT');return results;}catch(e){sqlite.exec('ROLLBACK');throw e;}}} as unknown as D1Database;
  const decide=(status:'approved'|'suspended',expectedUpdatedAt=stamp)=>applyAiModelDecision(db,{id:'AIM-1',status,expectedUpdatedAt,note:'Reviewed current model',actor:'reviewer@test.example'});
  return{sqlite,decide,row:()=>sqlite.prepare('SELECT * FROM ai_model_inventory').get()!,beforeWrite:(hook:()=>void)=>{beforeWrite=hook;}};
 }
@@ -53,4 +54,11 @@ test('retirement, concurrent edits and policy changes between read and write def
 });
 test('missing models return not found without inserting a replacement',async()=>{
  const f=fixture();try{f.sqlite.exec('DELETE FROM ai_model_inventory');assert.equal((await f.decide('approved')).status,404);}finally{f.sqlite.close();}
+});
+
+test('audit failure rolls back model approval and suspension without losing prior approval metadata',async()=>{
+ for(const state of ['draft','approved','suspended']){const f=fixture(state);try{const before=f.row();f.sqlite.exec("CREATE TRIGGER fail_audit BEFORE INSERT ON ai_activity_logs BEGIN SELECT RAISE(ABORT,'injected audit failure'); END");await assert.rejects(f.decide(state==='approved'?'suspended':'approved'),/injected audit failure/);assert.deepEqual(f.row(),before);assert.equal(f.sqlite.prepare('SELECT count(*) n FROM ai_activity_logs').get()!.n,0);}finally{f.sqlite.close();}}
+});
+test('successful decisions record their model reference once and conflicts produce no success audit',async()=>{
+ const f=fixture();try{await f.decide('approved');await f.decide('suspended');const logs=f.sqlite.prepare('SELECT * FROM ai_activity_logs').all();assert.equal(logs.length,1);assert.equal(logs[0].action,'model-inventory-approved');assert.equal(logs[0].actor,'reviewer@test.example');assert.deepEqual(JSON.parse(String(logs[0].context_refs_json)),['AIM-1']);}finally{f.sqlite.close();}
 });
