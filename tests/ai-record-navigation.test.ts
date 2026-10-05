@@ -1,7 +1,7 @@
 import test from 'node:test';
 import type { FornostNavigationRequest } from '../app/navigation-focus';
 import assert from 'node:assert/strict';
-import { resolveAiRecordFocus, aiRecordViews, validAiCollection } from '../app/ai-record-navigation';
+import { aiRecordTarget, resolveAiRecordFocus, aiRecordViews, validAiCollection } from '../app/ai-record-navigation';
 import { connectedGrcNavigation } from '../app/connected-grc-navigation';
 import { buildConnectedGrcEnterpriseRows } from '../app/connected-grc-sources';
 
@@ -31,4 +31,10 @@ test('malformed and duplicate AI collections fail closed while empty lists are v
  assert.equal(validAiCollection([]),true);
  assert.equal(validAiCollection([{id:'AIM-1'}]),true);
  for(const value of [null,{},[null],[[]],[{id:''}],[{id:1}],[{id:'a'},{id:'a'}]])assert.equal(validAiCollection(value),false);
+});
+
+test('native related-record targets retain exact identity and reject missing or malformed references',()=>{
+ for(const [kind,view] of Object.entries(aiRecordViews))assert.deepEqual(aiRecordTarget(kind,'QA-native-1'),{view,recordFocus:{kind,ref:'QA-native-1'}});
+ for(const kind of ['__proto__','constructor','model',null,42])assert.equal(aiRecordTarget(kind,'QA-native-1'),null);
+ for(const ref of [undefined,null,42,'','  ',' QA-native-1','QA-native-1 ','x'.repeat(101)])assert.equal(aiRecordTarget('ai-model',ref),null);
 });

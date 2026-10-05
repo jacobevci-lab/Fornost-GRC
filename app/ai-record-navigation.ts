@@ -8,6 +8,12 @@ export const aiRecordViews = {
 } as const;
 export type AiRecordKind = keyof typeof aiRecordViews;
 export type AiRecordFocus = { kind: AiRecordKind; ref: string };
+/** Only native record identity is accepted; display names and free-text references are not resolved here. */
+export function aiRecordTarget(kind:unknown,ref:unknown): { view: typeof aiRecordViews[AiRecordKind]; recordFocus:AiRecordFocus } | null {
+  if(typeof kind!=="string"||!Object.hasOwn(aiRecordViews,kind)||typeof ref!=="string"||!ref.trim()||ref!==ref.trim()||ref.length>100)return null;
+  const recordFocus={kind:kind as AiRecordKind,ref};
+  return {view:aiRecordViews[recordFocus.kind],recordFocus};
+}
 export function resolveAiRecordFocus(request: FornostNavigationRequest | null): AiRecordFocus | null {
   if (!request || request.source !== 'connected-grc-register' || !sameDomainModule(request.module, 'AI Yönetişimi')) return null;
   const kind = request.kind;
