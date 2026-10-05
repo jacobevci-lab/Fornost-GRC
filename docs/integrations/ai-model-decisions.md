@@ -71,3 +71,26 @@ result, users should inspect the refreshed list before manually retrying creatio
 Tests inject audit failures for every operation and verify unchanged model data,
 version and approval metadata. Isolated API/browser QA covers full rollback and
 recovery from a failed approval. Production deployment is not asserted.
+
+## Linked draft deletion
+
+DELETE is limited to unused drafts. Its conditional SQL checks 27 native relation
+columns across 26 AI tables, including the replacement model in a retirement plan.
+Any linked row blocks deletion regardless of completion status, preserving historical
+findings, evidence, measurements and assurance packages. The API returns 409 and
+the UI keeps the model visible, explains the restriction and points to controlled
+retirement. No linked records are cascaded or automatically removed.
+
+A relation committed before the DELETE executes also blocks it. The version and
+draft-state conditions and atomic deletion audit remain in force. Other models'
+records and activity logs do not block an otherwise unused draft; successful
+removal keeps its audit history. Fixed schema identifiers come from an explicit
+registry, and tests check that new native model relation columns are not omitted.
+
+This is a deletion-path safeguard, not new database foreign keys. Free-text/JSON
+references and pre-existing orphan records are outside this registry. Writers
+creating relations must still check parent existence at their own write boundary;
+this change does not retrofit all relation-creation endpoints. No migration is
+required. SQLite checks cover every registered relation and a concurrent insert;
+isolated API/browser QA covers blocked deletion and recovery, plus successful
+removal of an unused draft.
