@@ -4279,7 +4279,7 @@ function AuditRequirementsTable({
       <RegisterToolbar module="Denetim Yönetimi" lang={lang} rows={allItems} resultCount={filtered.length} query={query} setQuery={setQuery} selectedColumnKeys={columns} setSelectedColumnKeys={saveColumns} filters={filters} setFilters={setFilters} columnPickerOpen={columnPickerOpen} setColumnPickerOpen={setColumnPickerOpen} filterPanelOpen={filterPanelOpen} setFilterPanelOpen={setFilterPanelOpen} />
       <div className="audit-requirement-pager" aria-label={tr ? "Madde sayfalaması" : "Requirement pagination"}>
         <span role="status">{page.start}–{page.end} / {page.total} {tr ? "madde" : "requirements"}</span>
-        <label>{tr ? "Sayfa başına" : "Per page"}<select value={page.size} onChange={event => setPagination({ key: filterKey, page: 1, size: Number(event.target.value) })}>{[50, 100, 200].map(size => <option key={size} value={size}>{size}</option>)}</select></label>
+        <label>{tr ? "Sayfa başına" : "Per page"}<select aria-label={tr ? "Sayfa başına" : "Per page"} value={page.size} onChange={event => setPagination({ key: filterKey, page: 1, size: Number(event.target.value) })}>{[50, 100, 200].map(size => <option key={size} value={size}>{size}</option>)}</select></label>
         <div><button type="button" disabled={page.page === 1} onClick={() => goPage(1)}>{tr ? "İlk" : "First"}</button><button type="button" disabled={page.page === 1} onClick={() => goPage(page.page - 1)}>{tr ? "Önceki" : "Previous"}</button><span>{page.page} / {page.pages}</span><button type="button" disabled={page.page === page.pages} onClick={() => goPage(page.page + 1)}>{tr ? "Sonraki" : "Next"}</button><button type="button" disabled={page.page === page.pages} onClick={() => goPage(page.pages)}>{tr ? "Son" : "Last"}</button></div>
         <button type="button" disabled={!filtered.length} onClick={() => csvDownload("audit-filtered-requirements.csv", filtered, lang)}>{tr ? "Sonuçları indir" : "Export results"} ({filtered.length})</button>
       </div>
@@ -5320,6 +5320,7 @@ function RegisterToolbar({
             <label key={key}>
               <span>{labelMap[lang][key] || key}</span>
               <select
+                aria-label={labelMap[lang][key] || key}
                 value={filters[key] || ""}
                 onChange={(event) =>
                   setFilters({ ...filters, [key]: event.target.value })
