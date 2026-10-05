@@ -34,5 +34,20 @@ try{
  await fill();await sql(`UPDATE ai_decommission_plans SET updated_at=${q(new Date().toISOString())} WHERE id=${q(planId)};`);
  await record.getByRole('button',{name:'İşlemi Uygula'}).click();await expect(root.locator('.notice')).toContainText('planı değişti');await expect(record.locator('.action')).toHaveCount(0);
  await fill();await record.getByRole('button',{name:'İşlemi Uygula'}).click();await expect(record).toHaveClass('completed');assert.equal((await model()).status,'retired');await act(reviewer,'verify',409);
- await page.screenshot({path:`${out}/completed.png`});assert.deepEqual(errors,[]);await fs.writeFile(`${out}/result.json`,JSON.stringify({status:'passed',realApi:true,independentAccounts:2,auditFailureRolledBack:true,staleUiRecovered:true}));
+ // UI-only response fixtures exercise pagination, empty/error states and retry without extra writes.
+ const payload=await api(reviewer,'/api/ai/decommission');const completed=payload.plans.find(p=>p.id===planId);
+ await expect(root.locator('form')).toHaveCount(0);
+ await root.getByRole('button',{name:'Yeni emeklilik planı',exact:true}).click();await expect(root.locator('form')).toBeVisible();
+ await root.getByRole('button',{name:'Formu kapat',exact:true}).click();await expect(root.locator('form')).toHaveCount(0);
+ const route='**/api/ai/decommission';
+ await page.route(route,r=>r.fulfill({json:{...payload,plans:Array.from({length:12},(_,i)=>({...completed,id:`QA-UI-${i}`,reason:`Workspace test ${i}`}))}}));
+ await root.getByRole('button',{name:'Listeyi yenile',exact:true}).click();await expect(root.locator('.list>article')).toHaveCount(10);
+ await root.getByRole('button',{name:'Sonraki',exact:true}).click();await expect(root.locator('.list>article')).toHaveCount(2);
+ await root.getByRole('textbox',{name:'Plan ara',exact:true}).fill('QA-UI-11');await expect(root.locator('.list>article')).toHaveCount(1);
+ await root.getByRole('combobox',{name:'Plan durumu',exact:true}).selectOption('draft');await expect(root.locator('.list>article')).toHaveCount(0);await expect(root.locator('.retirement-empty')).toContainText('Aramanıza uygun');
+ await root.getByRole('textbox',{name:'Plan ara',exact:true}).fill('');await root.getByRole('combobox',{name:'Plan durumu',exact:true}).selectOption('all');
+ await page.unroute(route);await page.route(route,r=>r.fulfill({status:503,json:{error:'QA load failure'}}));
+ await root.getByRole('button',{name:'Listeyi yenile',exact:true}).click();await expect(root.getByRole('alert')).toContainText('yüklenemedi');await expect(root.locator('.list>article')).toHaveCount(0);await expect(root.locator('.stats b').first()).toHaveText('—');await expect(root.getByRole('button',{name:'Yeni emeklilik planı',exact:true})).toBeDisabled();
+ await page.unroute(route);await root.getByRole('button',{name:'Listeyi yenile',exact:true}).click();await expect(record).toHaveCount(1);await expect(root.getByRole('alert')).toHaveCount(0);
+ await page.screenshot({path:`${out}/completed.png`});assert.deepEqual(errors,[]);await fs.writeFile(`${out}/result.json`,JSON.stringify({status:'passed',realApi:true,independentAccounts:2,auditFailureRolledBack:true,staleUiRecovered:true,workspaceFiltersPaginationAndRetry:true}));
 }finally{try{await page.close();await sql(`DROP TRIGGER IF EXISTS qa_retirement_audit_failure;${planId?`DELETE FROM ai_decommission_plans WHERE id=${q(planId)};`:''}${modelId?`DELETE FROM ai_model_inventory WHERE id=${q(modelId)};DELETE FROM ai_activity_logs WHERE context_refs_json LIKE ${q('%'+modelId+'%')} OR detail LIKE ${q(modelId+' %')};`:''}${userId?`DELETE FROM local_sessions WHERE user_id=${q(userId)};DELETE FROM user_module_access WHERE user_id=${q(userId)};DELETE FROM user_access_events WHERE user_id=${q(userId)};DELETE FROM local_users WHERE id=${q(userId)};`:''}`);}finally{await browser.close();}}
