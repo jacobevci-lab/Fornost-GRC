@@ -21,7 +21,7 @@ let failRefresh=false;
 for(const def of definitions)await page.route(`**${def.path}`,route=>{
  if(route.request().method()!=='GET'){mutationCount++;if(mutationMode==='abort')return route.abort('failed');return route.fulfill({status:Number(mutationMode)||400,json:{error:'QA mutation rejected'}});}
  if(failRefresh&&affected===def.path)return route.fulfill({status:503,json:{error:'QA refresh failed'}});
- const items=mode==='many'?Array.from({length:12},(_,i)=>({...def.item,id:def.item.id.replace('-1',`-${i+1}`),severity:i===11?'Critical':'High'})):[def.item,{...def.item,id:def.item.id.replace('-1','-2')}];
+ const items=mode==='many'?Array.from({length:12},(_,i)=>({...def.item,id:def.item.id.replace('-1',`-${i+1}`),severity:i===11?'Critical':'High',riskTier:i===11?'Critical':'High'})):[def.item,{...def.item,id:def.item.id.replace('-1','-2')}];
  const payload={summary:{total:2},models:[model],domains:['assurance'],[def.collection]:mode==='missing'&&affected===def.path?items.slice(1):items};
  if(affected===def.path&&mode==='error')return route.fulfill({status:503,json:{error:'QA unavailable'}});
  if(affected===def.path&&mode==='malformed')payload[def.collection]=[null];
@@ -61,6 +61,18 @@ try{
     await expect(banner).toHaveAttribute('data-state','found');
     await expect(root.locator('[data-record-id]')).toHaveCount(1);
    }
+  }
+  if(def.view==='models'){
+   await prepare(def);mode='many';await open(def);await expect(root.locator('[data-record-id]')).toHaveCount(1);await expect(root.locator('.ai-action-list-filters')).toHaveCount(0);
+   await banner.getByRole('button',{name:'Show all records',exact:true}).click();await expect(root.locator('[data-record-id]')).toHaveCount(10);await expect(root.locator('form')).toHaveCount(0);
+   await root.getByRole('button',{name:'Yeni model',exact:true}).click();await expect(root.locator('form')).toBeVisible();await root.locator('form input').first().fill('QA unsaved new model');await root.getByRole('button',{name:'Formu kapat',exact:true}).click();await expect(root.locator('form')).toHaveCount(0);await root.getByRole('button',{name:'Yeni model',exact:true}).click();await expect(root.locator('form input').first()).toHaveValue('QA unsaved new model');await root.getByRole('button',{name:'Formu kapat',exact:true}).click();
+   await root.getByRole('button',{name:'Sonraki',exact:true}).click();await expect(root.locator('[data-record-id]')).toHaveCount(2);
+   await root.getByRole('textbox',{name:'Kayıt ara',exact:true}).fill(model.id.replace('-1','-12'));await expect(root.locator('[data-record-id]')).toHaveCount(1);
+   await root.getByRole('combobox',{name:'Kayıt önemi',exact:true}).selectOption('High');await expect(root.locator('[data-record-id]')).toHaveCount(0);await expect(root.locator('.ai-action-list-empty')).toBeVisible();
+   await root.getByRole('button',{name:'Filtreleri temizle',exact:true}).click();await expect(root.locator('[data-record-id]')).toHaveCount(10);await root.getByRole('combobox',{name:'Kayıt durumu',exact:true}).selectOption('retired');await expect(root.locator('[data-record-id]')).toHaveCount(0);await root.getByRole('button',{name:'Filtreleri temizle',exact:true}).click();
+   await root.getByRole('textbox',{name:'Kayıt ara',exact:true}).fill('Internal');await expect(root.locator('[data-record-id]')).toHaveCount(10);
+   for(const theme of ['light','dark'])for(const width of [1536,390]){await page.evaluate(value=>{document.documentElement.dataset.theme=value;},theme);await page.setViewportSize({width,height:960});assert.ok(await root.locator('.ai-action-list-filters').evaluate(el=>el.scrollWidth<=el.clientWidth+1));await page.screenshot({path:`${out}/models-list-${theme}-${width}.png`});}
+   await page.setViewportSize({width:1536,height:960});await prepare(def);await open(def);
   }
   if(def.view!=='models'){
    await prepare(def);mode='many';await open(def);await expect(root.locator('[data-record-id]')).toHaveCount(1);await expect(root.locator('.ai-action-list-filters')).toHaveCount(0);
@@ -115,5 +127,5 @@ try{
   }
  }
  assert.deepEqual(errors,[]);
- await fs.writeFile(`${out}/result.json`,JSON.stringify({status:'passed',exactRecordPaths:3,sameTitleIsolation:true,sourceFailuresAndRecovery:9,layouts:8,nativeRelationsAndMissingTargets:true,listFiltersAndPagination:true,mutationRecovery:true,noAutomaticWriteRetries:true,fixtureTransport:true}));
+ await fs.writeFile(`${out}/result.json`,JSON.stringify({status:'passed',exactRecordPaths:3,sameTitleIsolation:true,sourceFailuresAndRecovery:9,layouts:8,nativeRelationsAndMissingTargets:true,modelListFiltersAndPagination:true,listFiltersAndPagination:true,mutationRecovery:true,noAutomaticWriteRetries:true,fixtureTransport:true}));
 }finally{await browser.close();}

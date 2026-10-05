@@ -3,7 +3,7 @@ import { useState } from "react";
 import "./ai-action-list.css";
 
 type RecordItem = { id: string; title: string; modelId: string; status: string; severity: string; owner?: string; sourceRef?: string; findingId?: string; state?: string };
-export const aiStatusLabels: Record<string,string> = { open:"Açık", "in-progress":"Aksiyonda", verification:"Doğrulamada", resolved:"Kapatılan", dismissed:"Reddedilen", acknowledged:"Kabul edilen", escalated:"CAPA'ya aktarılan", overdue:"Geciken", priority:"Öncelikli" };
+export const aiStatusLabels: Record<string,string> = { draft:"Taslak",approved:"Onaylı",suspended:"Askıda",retired:"Emekli",open:"Açık", "in-progress":"Aksiyonda", verification:"Doğrulamada", resolved:"Kapatılan", dismissed:"Reddedilen", acknowledged:"Kabul edilen", escalated:"CAPA'ya aktarılan", overdue:"Geciken", priority:"Öncelikli" };
 export const aiSeverityLabels: Record<string,string> = { Low:"Düşük", Medium:"Orta", High:"Yüksek", Critical:"Kritik" };
 
 export function useAiActionList<T extends RecordItem>(items:T[], focusRef:string|undefined, closeAction:()=>void) {
@@ -20,11 +20,11 @@ export function useAiActionList<T extends RecordItem>(items:T[], focusRef:string
 }
 
 type ListControls = Pick<ReturnType<typeof useAiActionList>,"query"|"status"|"severity"|"change"|"reset"|"page"|"pages"|"setPage">;
-export function AiActionListFilters({list,statuses,disabled}:{list:ListControls;statuses:string[];disabled:boolean}) {
+export function AiActionListFilters({list,statuses,disabled,severityLabel="Önem"}:{list:ListControls;statuses:string[];disabled:boolean;severityLabel?:string}) {
   return <div className="ai-action-list-filters">
     <label><span>Kayıt ara</span><input aria-label="Kayıt ara" placeholder="Başlık, sorumlu veya kayıt referansı" value={list.query} disabled={disabled} onChange={e=>list.change("query",e.target.value)}/></label>
     <label><span>Durum</span><select aria-label="Kayıt durumu" value={list.status} disabled={disabled} onChange={e=>list.change("status",e.target.value)}><option value="all">Tüm durumlar</option>{statuses.map(status=><option key={status} value={status}>{aiStatusLabels[status]||status}</option>)}</select></label>
-    <label><span>Önem</span><select aria-label="Kayıt önemi" value={list.severity} disabled={disabled} onChange={e=>list.change("severity",e.target.value)}><option value="all">Tüm önem düzeyleri</option>{Object.entries(aiSeverityLabels).map(([value,label])=><option key={value} value={value}>{label}</option>)}</select></label>
+    <label><span>{severityLabel}</span><select aria-label="Kayıt önemi" value={list.severity} disabled={disabled} onChange={e=>list.change("severity",e.target.value)}><option value="all">Tüm düzeyler</option>{Object.entries(aiSeverityLabels).map(([value,label])=><option key={value} value={value}>{label}</option>)}</select></label>
     <button disabled={disabled||(!list.query&&list.status==="all"&&list.severity==="all")} onClick={list.reset}>Filtreleri temizle</button>
   </div>;
 }
