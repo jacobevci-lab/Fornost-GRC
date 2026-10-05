@@ -18,11 +18,12 @@ const definitions=[
 ];
 let mode='complete',affected='',mutationMode='',mutationCount=0;
 let failRefresh=false;
-for(const def of definitions)await page.route(`**${def.path}`,route=>{
+for(const def of definitions)await page.route(`**${def.path}*`,route=>{
  if(route.request().method()!=='GET'){mutationCount++;if(mutationMode==='abort')return route.abort('failed');return route.fulfill({status:Number(mutationMode)||400,json:{error:'QA mutation rejected'}});}
  if(failRefresh&&affected===def.path)return route.fulfill({status:503,json:{error:'QA refresh failed'}});
  const items=mode==='many'?Array.from({length:12},(_,i)=>({...def.item,id:def.item.id.replace('-1',`-${i+1}`),severity:i===11?'Critical':'High',riskTier:i===11?'Critical':'High'})):[def.item,{...def.item,id:def.item.id.replace('-1','-2')}];
  const payload={summary:{total:2},models:[model],domains:['assurance'],[def.collection]:mode==='missing'&&affected===def.path?items.slice(1):items};
+ const requestedId=new URL(route.request().url()).searchParams.get('id');if(requestedId)payload[def.collection]=payload[def.collection].filter(item=>item.id===requestedId);else if(mode==='outside'&&affected===def.path)payload[def.collection]=items.slice(1);
  if(affected===def.path&&mode==='error')return route.fulfill({status:503,json:{error:'QA unavailable'}});
  if(affected===def.path&&mode==='malformed')payload[def.collection]=[null];
  return route.fulfill({json:payload});
@@ -52,6 +53,7 @@ try{
   await banner.getByRole('button',{name:'Show all records'}).click();
   await expect(root.locator('[data-record-id]')).toHaveCount(2);
   await expect(banner).toHaveCount(0);
+  await prepare(def);mode='outside';affected=def.path;await open(def);await expect(banner).toHaveAttribute('data-state','found');await expect(root.locator('[data-record-id]')).toHaveAttribute('data-record-id',def.item.id);
   for(const failure of ['missing','error','malformed']){
    await prepare(def);mode=failure;affected=def.path;await open(def);
    await expect(banner).toHaveAttribute('data-state',failure==='missing'?'missing':'error');
@@ -127,5 +129,5 @@ try{
   }
  }
  assert.deepEqual(errors,[]);
- await fs.writeFile(`${out}/result.json`,JSON.stringify({status:'passed',exactRecordPaths:3,sameTitleIsolation:true,sourceFailuresAndRecovery:9,layouts:8,nativeRelationsAndMissingTargets:true,modelListFiltersAndPagination:true,listFiltersAndPagination:true,mutationRecovery:true,noAutomaticWriteRetries:true,fixtureTransport:true}));
+ await fs.writeFile(`${out}/result.json`,JSON.stringify({status:'passed',exactRecordPaths:3,sameTitleIsolation:true,sourceFailuresAndRecovery:9,layouts:8,exactReadsBeyondList:true,nativeRelationsAndMissingTargets:true,modelListFiltersAndPagination:true,listFiltersAndPagination:true,mutationRecovery:true,noAutomaticWriteRetries:true,fixtureTransport:true}));
 }finally{await browser.close();}

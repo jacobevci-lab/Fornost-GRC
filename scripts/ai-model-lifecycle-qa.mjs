@@ -18,6 +18,12 @@ try{
  assert.equal((await context.request.post(base+'/api/auth',{headers:{origin:base},data:{action:'login',email:'qa-admin@fornost.test',password:qaPassword()}})).status(),200);
  const {id}=await call('POST',values,201);ids.push(id);
  const original=await model(id);
+ for(const [path,key] of [['models','models'],['assurance-alerts','alerts'],['findings','findings']]){
+  const missing=await context.request.get(`${base}/api/ai/${path}?id=QA-missing-exact`);assert.equal(missing.status(),200);assert.deepEqual((await missing.json())[key],[]);
+  const invalid=await context.request.get(`${base}/api/ai/${path}?id=one&id=two`);assert.equal(invalid.status(),400);
+ }
+ const exact=await context.request.get(`${base}/api/ai/models?id=${encodeURIComponent(id)}`);assert.equal(exact.status(),200);assert.deepEqual((await exact.json()).models.map(m=>m.id),[id]);
+
  await call('PATCH',decision(id,'approved',undefined),409);
  await page.goto(base);await expect(page.locator('.shell')).toBeVisible();
  await page.locator('.language-switch:visible').getByRole('button',{name:'EN',exact:true}).click();
