@@ -38,3 +38,20 @@ read/write races, terminal-state and critical-risk checks, and isolated browser
 QA using real model APIs. Browser QA opens a decision, changes the draft through
 the API, verifies rejection and refresh, then explicitly approves the new version.
 Retired fixtures reject both operations and retain their stored metadata.
+
+## Draft editing and deletion
+
+`PUT /api/ai/models` and `DELETE /api/ai/models` also require `expectedUpdatedAt`
+from the displayed model's `GET /api/ai/models` response. PUT includes the complete
+validated model fields; DELETE still requires `confirmation: "SİL"`.
+Missing, invalid or stale versions return 409. Both operations condition their
+write on the exact version and `draft` status, so concurrent edits and lifecycle
+changes cannot be overwritten or deleted. Successful edits advance the timestamp
+monotonically, including when the previous timestamp is ahead of the local clock.
+
+The native editor preserves entered fields after a conflict or ambiguous write,
+blocks resubmission of that stale revision, and reloads the list. Reopen the current
+record with **Düzenle** to review its latest values. Network failures release busy
+state; writes are not automatically retried. Creation and audit logging retain
+their existing separate-write behavior; this change does not make audit writes
+transactional with draft mutations.
