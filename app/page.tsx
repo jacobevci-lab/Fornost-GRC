@@ -1,4 +1,5 @@
 "use client";
+import { AuditPlanPanel } from "./audit-plan-panel";
 import { canOpenModule, canReadModule, canWriteModule, isScoped, readableModules } from "./module-access";
 import "./module-access.css";
 import { linkedRecordOptions } from "./linked-record-options";
@@ -4181,6 +4182,7 @@ function AuditModule({
           <span>{tr ? "Kapatılan" : "Closed"}</span>
         </article>
       </section>
+      {audits.find(audit=>audit.name===selected)&&<AuditPlanPanel key={selected} auditId={audits.find(audit=>audit.name===selected)!.id} canWrite={canWrite} lang={lang}/>}
       <AuditReadinessGate key={selected} lang={lang} auditName={selected} records={[...items,...evidenceRows]} />
       <AuditRequirementsTable
         items={visible}
