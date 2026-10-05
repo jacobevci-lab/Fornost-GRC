@@ -26,7 +26,7 @@ control maturity, and repeats the active-state and critical-risk guards. A
 concurrent retirement, edit or policy change therefore rejects the stale write.
 Successful decisions advance the timestamp beyond the reviewed version, even
 within the same clock millisecond. Only successful updates emit the existing
-model decision activity event; the activity write remains a separate operation.
+model decision activity event in the same database transaction.
 
 On conflict, the UI dismisses the old confirmation and reloads the model. It does
 not automatically reapply the decision to the newly loaded record. Network errors
@@ -52,6 +52,22 @@ monotonically, including when the previous timestamp is ahead of the local clock
 The native editor preserves entered fields after a conflict or ambiguous write,
 blocks resubmission of that stale revision, and reloads the list. Reopen the current
 record with **Düzenle** to review its latest values. Network failures release busy
-state; writes are not automatically retried. Creation and audit logging retain
-their existing separate-write behavior; this change does not make audit writes
-transactional with draft mutations.
+state; writes are not automatically retried.
+
+## Atomic persistence and audit
+
+Model creation, draft editing/deletion, approval and suspension each use a single
+D1 batch for the model write and activity event. The audit INSERT is conditional
+on the immediately preceding write changing exactly one row. Conflicts emit no
+success event. An audit failure rolls back the model write, including deletion,
+and the API returns a structured 503 for the existing UI recovery path.
+
+Events preserve their existing names and details and additionally carry the
+model ID in `context_refs_json`. Successful API response shapes, Admin role,
+confirmation strings and critical-risk policy are unchanged. No migration is
+required. This does not add request idempotency: after an ambiguous network
+result, users should inspect the refreshed list before manually retrying creation.
+
+Tests inject audit failures for every operation and verify unchanged model data,
+version and approval metadata. Isolated API/browser QA covers full rollback and
+recovery from a failed approval. Production deployment is not asserted.
