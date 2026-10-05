@@ -27,10 +27,20 @@ try{
  await page.locator('.cg-detail>header').getByRole('button',{name:/Open record/}).click();
  const root=page.locator('.ai-model-inventory'),record=root.locator(`[data-record-id="${id}"]`);
  await expect(root.locator('.ai-record-focus')).toHaveAttribute('data-state','found');
+ // Two editors cannot overwrite or delete a newer draft; the UI retains unsaved text.
+ await record.getByRole('button',{name:'Düzenle',exact:true}).click();const form=root.locator('form');await form.locator('input').first().fill('QA local unsaved edit');
+ await call('PUT',{...values,id,systemName:'QA newer editor',expectedUpdatedAt:original.updatedAt});
+ await form.getByRole('button',{name:'Güncelle',exact:true}).click();await expect(root.locator('.ai-inventory-notice')).toContainText('Model değişti');await expect(form.locator('input').first()).toHaveValue('QA local unsaved edit');await expect(form.getByRole('button',{name:'Güncelle',exact:true})).toBeDisabled();
+ await call('DELETE',{id,expectedUpdatedAt:original.updatedAt,confirmation:'SİL'},409);await call('PUT',{...values,id},409);
+ await record.getByRole('button',{name:'Düzenle',exact:true}).click();await expect(form.locator('input').first()).toHaveValue('QA newer editor');await form.locator('input').first().fill('QA corrected draft');await form.getByRole('button',{name:'Güncelle',exact:true}).click();await expect(form).toHaveCount(0);await expect(record).toContainText('QA corrected draft');
+ // Aborted writes must release busy state without replaying the request.
+ let intercepted=0;const path='**/api/ai/models';await page.route(path,route=>{if(route.request().method()==='PUT'){intercepted++;return route.abort('failed');}return route.continue();});
+ await record.getByRole('button',{name:'Düzenle',exact:true}).click();await form.getByRole('button',{name:'Güncelle',exact:true}).click();await expect(root.locator('.ai-inventory-notice')).toContainText('Kayıt sonucu doğrulanamadı');await expect(form.getByRole('button',{name:'Güncelle',exact:true})).toBeDisabled();await expect(record.getByRole('button',{name:'Düzenle',exact:true})).toBeEnabled();assert.equal(intercepted,1);await page.unroute(path);await form.getByRole('button',{name:'Vazgeç',exact:true}).click();
+ const current=await model(id);
  await record.getByRole('button',{name:'Onayla',exact:true}).click();
  await record.locator('.ai-inventory-decision textarea').fill('QA approve the displayed revision');
  await record.locator('.ai-inventory-decision input').fill('ONAYLA');
- await call('PUT',{...values,id,systemName:'QA lifecycle changed assistant'});
+ await call('PUT',{...values,id,expectedUpdatedAt:current.updatedAt,systemName:'QA lifecycle changed assistant'});
  assert.notEqual((await model(id)).updatedAt,original.updatedAt);
  await record.getByRole('button',{name:'Kararı uygula'}).click();
  await expect(root.locator('.ai-inventory-notice')).toContainText('Model değişti');
@@ -58,5 +68,5 @@ try{
  await call('PATCH',decision(critical.id,'suspended',criticalModel.updatedAt));
  await page.screenshot({path:`${out}/decision-recovery.png`});
  assert.deepEqual(errors,[]);
- await fs.writeFile(`${out}/result.json`,JSON.stringify({status:'passed',realApi:true,uiStaleDecisionRecovery:true,retiredDecisionsBlocked:4,criticalRiskBlocked:true}));
+ await fs.writeFile(`${out}/result.json`,JSON.stringify({status:'passed',realApi:true,versionedDraftEditDelete:true,preservedStaleDraft:true,failedEditRecovered:true,uiStaleDecisionRecovery:true,retiredDecisionsBlocked:4,criticalRiskBlocked:true}));
 }finally{try{await page.close();if(ids.length)await sql(`DELETE FROM ai_model_inventory WHERE id IN (${ids.map(q).join(',')}); DELETE FROM ai_activity_logs WHERE ${ids.map(id=>`detail LIKE ${q(id+' %')}`).join(' OR ')};`);}finally{await browser.close();}}
