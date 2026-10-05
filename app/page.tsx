@@ -1,4 +1,6 @@
 "use client";
+import { getCatalogStatus } from "./framework-catalog-status";
+import { FrameworkCatalogNotice } from "./framework-catalog-notice";
 import { AuditPlanPanel } from "./audit-plan-panel";
 import { canOpenModule, canReadModule, canWriteModule, isScoped, readableModules } from "./module-access";
 import "./module-access.css";
@@ -558,9 +560,9 @@ const frameworkGroups = [
     items: [
       "ISO/IEC 27001:2022",
       "ISO/IEC 27002:2022",
-      "ISO/IEC 27017",
-      "ISO/IEC 27018",
-      "ISO/IEC 27701",
+      "ISO/IEC 27017:2026",
+      "ISO/IEC 27018:2025",
+      "ISO/IEC 27701:2025",
       "ISO 22301",
       "ISO/IEC 20000-1",
       "ISO 31000",
@@ -2826,6 +2828,7 @@ function Field({
             ? "Bu kanıt veya kontrol için geçerli olan tüm standartları seçin."
             : "Select every standard that applies to this evidence or control."}
         </p>
+        {selected.map(framework => <FrameworkCatalogNotice key={framework} framework={framework} lang={lang} />)}
         {nameMode && <input type="hidden" name={k} value={value} />}
         <div>
           {frameworkGroups.map((group) => (
@@ -2999,6 +3002,7 @@ function Field({
   return (
     <label className={wide ? "wide" : ""}>
       {labelMap[lang][k]}
+      {k === "framework" && <span style={{display:"block",fontWeight:400}}>{getCatalogStatus(String(value))[lang]}</span>}
       {k === "framework" ? (
         <select
           name={k}
@@ -3007,6 +3011,7 @@ function Field({
           required
         >
           <option value="">{u.selectFramework}</option>
+          {value && !frameworkGroups.some(group => group.items.includes(String(value))) && <option value={String(value)}>{String(value)}</option>}
           {frameworkGroups.map((group) => (
             <optgroup key={group.en} label={group[lang]}>
               {group.items.map((x) => (
@@ -4039,6 +4044,7 @@ function AuditModule({
                     <option>{tr ? "Özel Denetim" : "Custom Audit"}</option>
                   </select>
                 </label>
+                <FrameworkCatalogNotice framework={auditDraft.template} lang={lang} />
                 <label className="wide">
                   {tr ? "Denetim adı" : "Audit name"}
                   <input
@@ -4087,8 +4093,8 @@ function AuditModule({
                 </label>
                 <p className="audit-picker-note">
                   {tr
-                    ? "Seçilen standart portföye kart olarak eklenir ve standart maddeleri çalışma tablosuna otomatik yüklenir."
-                    : "The selected standard is added as a portfolio card and its requirements are loaded into the workspace table automatically."}
+                    ? "Seçilen standart portföye kart olarak eklenir ve katalog kapsamındaki özetler çalışma tablosuna yüklenir."
+                    : "The selected standard is added as a portfolio card and the available catalog summaries are loaded into the workspace table."}
                 </p>
                 <div className="form-actions">
                   <button
@@ -4182,6 +4188,7 @@ function AuditModule({
           <span>{tr ? "Kapatılan" : "Closed"}</span>
         </article>
       </section>
+      <FrameworkCatalogNotice framework={audits.find(audit=>audit.name===selected)?.template || ""} lang={lang} />
       {audits.find(audit=>audit.name===selected)&&<AuditPlanPanel key={selected} auditId={audits.find(audit=>audit.name===selected)!.id} canWrite={canWrite} lang={lang}/>}
       <AuditReadinessGate key={selected} lang={lang} auditName={selected} records={[...items,...evidenceRows]} />
       <AuditRequirementsTable

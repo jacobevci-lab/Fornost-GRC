@@ -37,7 +37,7 @@ test("standard audit cards automatically receive their control requirements", ()
   assert.match(route, /insertedRequirements/);
   assert.match(route, /const missing = rows\.filter/);
   assert.match(route, /DELETE FROM simple_grc_records WHERE id='AUD-006'/);
-  assert.match(page, /standart maddeleri çalışma tablosuna otomatik yüklenir/);
+  assert.match(page, /katalog kapsamındaki özetler çalışma tablosuna yüklenir/);
 });
 
 test("all advertised standards and regulations have automatic requirement catalogs", () => {
