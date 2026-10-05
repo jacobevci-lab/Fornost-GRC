@@ -99,7 +99,7 @@ export function validate(module:unknown,input:unknown){
  if(!validModule(module))return {error:"Geçersiz modül."};
  if(!input||typeof input!=="object"||Array.isArray(input))return {error:"Geçersiz kayıt verisi."};
  const source=input as Data,cleaned:Data={};
- for(const [key,value] of Object.entries(source)){if(key.length>60)continue;cleaned[key]=cleanText(value,module==="Denetim Yönetimi"&&["requirementStatement","requirementGuidance","requirementAssessment"].includes(key)?100000:1000)}
+ for(const [key,value] of Object.entries(source)){if(key.length>60)continue;cleaned[key]=module==="Denetim Yönetimi"&&["requirementStatement","requirementGuidance","requirementAssessment"].includes(key)&&typeof value==="string"?value.slice(0,100000):cleanText(value)}
  const data=normalizeRecordData(module,cleaned);
  const missing=required[module].filter(key=>data[key]===undefined||data[key]===null||data[key]==="");
  if(missing.length)return {error:`Zorunlu alanlar eksik: ${missing.join(", ")}`};
