@@ -15,3 +15,6 @@
 
 .cg-records{position:relative;max-height:560px;overflow:auto;scrollbar-width:thin}.cg-records>header{position:sticky;top:0;z-index:1}.cg-records>footer{position:sticky;bottom:0;background:var(--ws-surface)}
 @media(max-width:700px){.cg-records{max-height:300px}.cg-tabs{flex-wrap:nowrap}.cg-tabs button{padding:9px 10px;gap:5px;white-space:nowrap}}
+
+.cg-source-controls{display:flex;align-items:center;gap:10px;max-width:400px}.cg-source-controls button{flex-shrink:0}
+@media(max-width:700px){.cg-source-controls{max-width:100%;flex-wrap:wrap}}

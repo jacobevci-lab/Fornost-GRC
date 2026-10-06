@@ -3,13 +3,13 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { assessConnectedGrcCoverage, buildConnectedGrcGraph, connectedRelationLabels, connectedRemediationModule, connectedTitle, type ConnectedGrcRow } from "./connected-grc-model";
 import { connectedGrcNavigation } from "./connected-grc-navigation";
-import { buildConnectedGrcEnterpriseRows, connectedGrcEndpoints, connectedAiSourceComplete, type ConnectedGrcEnterprisePayloads } from "./connected-grc-sources";
+import { buildConnectedGrcEnterpriseRows, connectedGrcEndpoints } from "./connected-grc-sources";
 import { buildContinuousAssuranceChains, summarizeContinuousAssurance } from "./continuous-assurance-chain";
 import ContinuousAssuranceWorkQueue from "./continuous-assurance-work-queue";
 import ContinuousAssuranceGovernance from "./continuous-assurance-governance";
 import ContinuousAssuranceEscalationCenter from "./continuous-assurance-escalation-center";
 import { navigateToFornost } from "./navigation-focus";
-import { withBasePath } from "./base-path";
+import { loadConnectedGrcSources } from "./connected-grc-loader";
 import "./connected-grc-contract.css";
 import "./connected-assurance-posture.css";
 import "./connected-grc-explorer.css";
@@ -31,31 +31,19 @@ export default function ConnectedGrc({rows,lang,go,includeAi=false}:{rows:Connec
   const [enterpriseRows,setEnterpriseRows]=useState<ConnectedGrcRow[]>([]);
   const [sourceState,setSourceState]=useState({ready:0,total:connectedGrcEndpoints(includeAi).length,loading:true});
 
+  const [sourceReload,setSourceReload]=useState(0);
   useEffect(()=>{
     const controller=new AbortController();
     let current=true;
-    (async()=>{
-      const payloads:ConnectedGrcEnterprisePayloads={};
-      let ready=0;
-      await Promise.all(connectedGrcEndpoints(includeAi).map(async endpoint=>{
-        try{
-          const response=await fetch(withBasePath(endpoint.path),{signal:controller.signal,headers:{accept:"application/json"},cache:"no-store"});
-          if(!response.ok)return;
-          const body=await response.json();
-          if(body&&typeof body==="object"&&!Array.isArray(body)){
-            (payloads as Record<string,unknown>)[endpoint.key]=body;
-            if(connectedAiSourceComplete(endpoint.key,body))ready+=1;
-          }
-        }catch(error){
-          if((error as {name?:string})?.name!=="AbortError") console.warn(`Connected GRC source unavailable: ${endpoint.path}`);
-        }
-      }));
+    setEnterpriseRows([]);
+    setSourceState({ready:0,total:connectedGrcEndpoints(includeAi).length,loading:true});
+    void loadConnectedGrcSources({includeAi,signal:controller.signal}).then(({payloads,ready,total})=>{
       if(!current)return;
       setEnterpriseRows(buildConnectedGrcEnterpriseRows(payloads));
-      setSourceState({ready,total:connectedGrcEndpoints(includeAi).length,loading:false});
-    })();
+      setSourceState({ready,total,loading:false});
+    });
     return()=>{current=false;controller.abort();};
-  },[includeAi]);
+  },[includeAi,sourceReload]);
 
   const records=useMemo(()=>{
     const merged=new Map<string,ConnectedGrcRow>();
@@ -97,7 +85,7 @@ export default function ConnectedGrc({rows,lang,go,includeAi=false}:{rows:Connec
   return <section className="connected-grc connected-explorer">
     <header className="cg-heading">
       <div><small>CONNECTED GRC</small><h2>{tr?"Bağlantılı GRC Haritası":"Connected GRC Map"}</h2><p>{tr?"Bir kayıt seçin; hangi kayıtlarla bağlantılı olduğunu görün.":"Choose a record to see what it connects to."}</p></div>
-      <span className="cg-source-state" role="status" data-ready={sourceState.ready} data-total={sourceState.total} data-loading={sourceState.loading}>{sourceState.loading?(tr?"Bağlantılar yükleniyor…":"Loading connections…"):sourceState.ready<sourceState.total?(tr?"Bazı kaynaklar eksik veya erişilemiyor; görünüm kısmi olabilir.":"Some sources are unavailable or incomplete; this view may be partial."):(tr?"Kaynaklar güncel":"Sources loaded")}</span>
+      <div className="cg-source-controls"><span className="cg-source-state" role="status" data-ready={sourceState.ready} data-total={sourceState.total} data-loading={sourceState.loading}>{sourceState.loading?(tr?"Bağlantılar yükleniyor…":"Loading connections…"):sourceState.ready<sourceState.total?(tr?"Bazı kaynaklar eksik veya erişilemiyor; görünüm kısmi olabilir.":"Some sources are unavailable or incomplete; this view may be partial."):(tr?"Kaynaklar güncel":"Sources loaded")}</span><button type="button" disabled={sourceState.loading} onClick={()=>setSourceReload(value=>value+1)}>{sourceState.loading?(tr?"Yükleniyor…":"Loading…"):sourceState.ready<sourceState.total?(tr?"Tekrar dene":"Try again"):(tr?"Yenile":"Refresh")}</button></div>
     </header>
     <div className="cg-summary" aria-label={tr?"Genel durum":"Overview"}>
       <span><b>{records.length}</b> {tr?"kayıt":"records"}</span>
