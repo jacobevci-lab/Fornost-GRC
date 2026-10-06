@@ -26,7 +26,7 @@
 .report-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));border:1px solid var(--ws-line);border-radius:8px;background:var(--ws-surface);overflow:hidden;gap:0}
 .report-summary .kpi{min-width:0;min-height:0;padding:14px 16px;border:0;border-right:1px solid var(--ws-line);border-radius:0;background:transparent;box-shadow:none!important}
 .report-summary .kpi:last-child{border-right:0}
-.report-summary .kpi::before,.report-summary .kpi::after{display:none!important}
+.report-summary .kpi::before,.report-summary .kpi::after{content:none!important;display:none!important}
 .report-summary .kpi b{font-size:22px;line-height:1.2;color:var(--ws-ink)}
 .report-summary .kpi span{font-size:11px;color:var(--ws-ink);margin-top:5px}
 .report-summary .kpi small{font-size:10px;color:var(--ws-muted);line-height:1.4;margin-top:3px}
