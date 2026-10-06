@@ -22,3 +22,37 @@ test('DOCX styles cannot enable external file access through Object.prototype', 
     delete Object.prototype.externalFileAccess;
   }
 });
+
+// The scoped argparse override must preserve Mammoth's legacy CLI as well as
+// the library API used by document import. Exercise real files and option parsing.
+test('Mammoth CLI retains DOCX conversion and legacy argument compatibility', async () => {
+  const {mkdtemp, writeFile, readFile, rm} = await import('node:fs/promises');
+  const {tmpdir} = await import('node:os');
+  const {join} = await import('node:path');
+  const {createRequire} = await import('node:module');
+  const {execFileSync} = await import('node:child_process');
+  const require = createRequire(import.meta.url);
+  const cli = require.resolve('mammoth/bin/mammoth');
+  const run = (...args) => execFileSync(process.execPath, [cli, ...args], {encoding: 'utf8', timeout: 10000, stdio: ['ignore', 'pipe', 'pipe']});
+  const directory = await mkdtemp(join(tmpdir(), 'fornost-docx-'));
+  try {
+    const zip = new JSZip();
+    zip.file('[Content_Types].xml', '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="xml" ContentType="application/xml"/></Types>');
+    zip.file('word/document.xml', '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body><w:p><w:r><w:t>Denetim kanıtı &amp; evidence</w:t></w:r></w:p></w:body></w:document>');
+    const input = join(directory, 'evidence.docx');
+    const output = join(directory, 'converted.html');
+    const styles = join(directory, 'styles.txt');
+    await writeFile(input, await zip.generateAsync({type: 'nodebuffer'}));
+    await writeFile(styles, 'p => h2:fresh');
+    assert.match(run('--help'), /--output-format/);
+    assert.equal(run(input), '<p>Denetim kanıtı &amp; evidence</p>');
+    run(input, output, '--style-map', styles, '--output-format', 'html');
+    assert.equal(await readFile(output, 'utf8'), '<h2>Denetim kanıtı &amp; evidence</h2>');
+    run(input, '--output-dir', directory);
+    assert.equal(await readFile(join(directory, 'evidence.html'), 'utf8'), '<p>Denetim kanıtı &amp; evidence</p>');
+    assert.throws(() => run(input, '--output-format', 'invalid'), error => error.status === 2);
+    assert.throws(() => run(input, output, '--output-dir', directory), error => error.status === 2);
+  } finally {
+    await rm(directory, {recursive: true, force: true});
+  }
+});
