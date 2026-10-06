@@ -23,3 +23,9 @@ export async function syncAssuranceEscalationSignals(db:D1Database,signals:Assur
 }
 
 export async function readAssuranceEscalationRows(db:D1Database,limit=3000){await ensureAssuranceEscalationSchema(db);return (await db.prepare("SELECT * FROM continuous_assurance_escalations ORDER BY last_seen_at DESC LIMIT ?").bind(limit).all<AssuranceEscalationDbRow>()).results||[]}
+
+/** Compare-and-set: only the request that updates the observed active row succeeds. */
+export async function acknowledgeAssuranceEscalation(db:D1Database,input:{id:string;expectedLastSeenAt:string;actor:string;note:string;stamp:string}){
+ const changed=await db.prepare("UPDATE continuous_assurance_escalations SET status='acknowledged',acknowledged_by=?,acknowledged_at=?,ack_note=?,last_seen_at=? WHERE id=? AND status='active' AND last_seen_at=?").bind(input.actor,input.stamp,input.note,input.stamp,input.id,input.expectedLastSeenAt).run();
+ return changed.success===true&&Number(changed.meta?.changes)===1;
+}
