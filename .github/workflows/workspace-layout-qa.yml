@@ -106,6 +106,8 @@ jobs:
         run: node scripts/control-assurance-runtime-qa.mjs
       - name: Scoped audit readiness, evidence and export QA
         run: node scripts/audit-readiness-runtime-qa.mjs
+      - name: Findings workspace recovery and pagination
+        run: node scripts/findings-workspace-qa.mjs
       - name: Check module layouts and audit stability
         run: node scripts/workspace-layout-qa.mjs
       - name: Core CRUD, forms, continuity and governance lifecycle QA

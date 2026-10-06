@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireRole } from "../auth/security";
 import { clean } from "../integrations/security";
 import { findingAttention, validateFinding, validateFindingAction, validateFindingGovernanceGate } from "../../findings/domain";
+import { findingCsvCell as csvCell } from "../../findings/export";
 import { ensureFindingsSchemaCompatibility } from "./schema-compat";
 
 type Env = Record<string, unknown> & { DB: D1Database };
@@ -12,11 +13,6 @@ async function runtime() {
 }
 
 const json = (data: unknown, status = 200) => NextResponse.json(data, { status, headers: { "cache-control": "no-store" } });
-const csvCell = (value: unknown) => {
-  const raw = String(value ?? "");
-  const safe = /^[=+\-@]/.test(raw) ? `'${raw}` : raw;
-  return `"${safe.replace(/"/g, '""')}"`;
-};
 
 async function event(db: D1Database, input: { findingId: string; action: string; from?: string; to?: string; detail: string; evidenceReference?: string; evidenceSha256?: string; actor: string }) {
   await db.prepare("INSERT INTO enterprise_finding_events(id,finding_id,action,from_status,to_status,detail,evidence_reference,evidence_sha256,actor,created_at) VALUES(?,?,?,?,?,?,?,?,?,?)")
@@ -60,9 +56,9 @@ function map(row: Record<string, unknown>) {
 async function sourceCount(db: D1Database, source: string, sql: string) {
   try {
     const value = await db.prepare(sql).first<{ n: number }>();
-    return { source, count: Number(value?.n || 0) };
+    return { source, count: Number(value?.n || 0), available: true };
   } catch {
-    return { source, count: 0 };
+    return { source, count: 0, available: false };
   }
 }
 
