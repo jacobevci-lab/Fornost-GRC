@@ -37,3 +37,13 @@ Açık veya devam eden bir bulgu yalnız atanmış bağımsız Admin reviewer ta
 - API gövdeleri 256 KiB, sorgular 3.000 bulgu ve 1.000 olay ile sınırlandırılır.
 - CSV yalnız Admin tarafından alınabilir, cache dışıdır ve formül enjeksiyonuna karşı güvenlidir.
 - Runtime self-heal şeması, Drizzle migration ve tipli şema aynı veri modelini taşır.
+
+## Workspace recovery (2026-10-06)
+
+- Reads and writes have a 15-second deadline covering response headers and JSON parsing. Superseded reads and unmounted requests are cancelled; writes are never automatically retried.
+- Failed or malformed loads show an explicit retry state and suppress KPI values. Existing rows may remain visible as stale context, but mutations are blocked until a successful refresh.
+- An uncertain write closes the action/create dialog and performs a read-only refresh. The user must inspect current records before starting another operation. A synchronous submission guard prevents duplicate requests before React re-renders.
+- Tables page through 20 records and search the full loaded list. The API's existing 3,000-record limit is disclosed when reached; summaries and CSV remain scoped to that result set.
+- Source-count failures carry `available: false`, displayed as unavailable rather than zero. CSV export neutralizes formula markers after leading whitespace.
+- `scripts/findings-workspace-qa.mjs` exercises outage recovery, pagination, search, keyboard access, duplicate submissions and uncertain outcomes with isolated fixtures.
+- Lifecycle transitions additionally compare the persisted status and update timestamp. The guarded update and its audit event run in one D1 transaction; stale writers receive 409 and audit-write failure rolls back the state change. SQLite regression tests verify competing writers, same-status edits and rollback.

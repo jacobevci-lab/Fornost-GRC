@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireRole } from "../auth/security";
 import { clean } from "../integrations/security";
 import { findingAttention, validateFinding, validateFindingAction, validateFindingGovernanceGate } from "../../findings/domain";
+import { commitFindingTransition } from "../../findings/transition-store";
+import { findingCsvCell as csvCell } from "../../findings/export";
 import { ensureFindingsSchemaCompatibility } from "./schema-compat";
 
 type Env = Record<string, unknown> & { DB: D1Database };
@@ -12,11 +14,6 @@ async function runtime() {
 }
 
 const json = (data: unknown, status = 200) => NextResponse.json(data, { status, headers: { "cache-control": "no-store" } });
-const csvCell = (value: unknown) => {
-  const raw = String(value ?? "");
-  const safe = /^[=+\-@]/.test(raw) ? `'${raw}` : raw;
-  return `"${safe.replace(/"/g, '""')}"`;
-};
 
 async function event(db: D1Database, input: { findingId: string; action: string; from?: string; to?: string; detail: string; evidenceReference?: string; evidenceSha256?: string; actor: string }) {
   await db.prepare("INSERT INTO enterprise_finding_events(id,finding_id,action,from_status,to_status,detail,evidence_reference,evidence_sha256,actor,created_at) VALUES(?,?,?,?,?,?,?,?,?,?)")
@@ -60,9 +57,9 @@ function map(row: Record<string, unknown>) {
 async function sourceCount(db: D1Database, source: string, sql: string) {
   try {
     const value = await db.prepare(sql).first<{ n: number }>();
-    return { source, count: Number(value?.n || 0) };
+    return { source, count: Number(value?.n || 0), available: true };
   } catch {
-    return { source, count: 0 };
+    return { source, count: 0, available: false };
   }
 }
 
@@ -151,42 +148,43 @@ export async function POST(req: NextRequest) {
       const status = String(finding.status);
       const now = new Date().toISOString();
       let next = "";
+      let update: D1PreparedStatement;
 
       if (operation.operation === "start") {
         if (status !== "open" || access.actor.role !== "Admin" && finding.owner !== access.actor.email) return json({ error: "CAPA'yı yalnız atanmış aksiyon sahibi veya Admin başlatabilir." }, 403);
         next = "in-progress";
-        await env.DB.prepare("UPDATE enterprise_findings SET status=?,started_by=?,started_at=?,updated_by=?,updated_at=? WHERE id=?")
-          .bind(next, access.actor.email, now, access.actor.email, now, id).run();
+        update = env.DB.prepare("UPDATE enterprise_findings SET status=?,started_by=?,started_at=?,updated_by=?,updated_at=? WHERE id=? AND status=? AND updated_at=?")
+          .bind(next, access.actor.email, now, access.actor.email, now, id, status, finding.updated_at);
       } else if (operation.operation === "submit") {
         if (status !== "in-progress" || access.actor.role !== "Admin" && finding.owner !== access.actor.email) return json({ error: "CAPA'yı yalnız atanmış aksiyon sahibi doğrulamaya gönderebilir." }, 403);
         validateFindingGovernanceGate(finding, "submit");
         next = "verification";
-        await env.DB.prepare("UPDATE enterprise_findings SET status=?,evidence_reference=?,evidence_sha256=?,submitted_by=?,submitted_at=?,updated_by=?,updated_at=? WHERE id=?")
-          .bind(next, operation.evidenceReference, operation.evidenceSha256, access.actor.email, now, access.actor.email, now, id).run();
+        update = env.DB.prepare("UPDATE enterprise_findings SET status=?,evidence_reference=?,evidence_sha256=?,submitted_by=?,submitted_at=?,updated_by=?,updated_at=? WHERE id=? AND status=? AND updated_at=?")
+          .bind(next, operation.evidenceReference, operation.evidenceSha256, access.actor.email, now, access.actor.email, now, id, status, finding.updated_at);
       } else if (operation.operation === "verify") {
         if (access.actor.role !== "Admin" || status !== "verification" || finding.reviewer !== access.actor.email) return json({ error: "Bulguyu yalnız atanmış bağımsız Admin reviewer kapatabilir." }, 403);
         if ([finding.detected_by, finding.owner, finding.submitted_by].includes(access.actor.email)) return json({ error: "Maker-checker: tespit eden, aksiyon sahibi veya gönderen kişi kapatamaz." }, 409);
         validateFindingGovernanceGate(finding, "verify");
         next = "closed";
-        await env.DB.prepare("UPDATE enterprise_findings SET status=?,verification_evidence_reference=?,verification_evidence_sha256=?,verified_by=?,verified_at=?,acceptance_rationale=NULL,accept_until=NULL,updated_by=?,updated_at=? WHERE id=?")
-          .bind(next, operation.evidenceReference, operation.evidenceSha256, access.actor.email, now, access.actor.email, now, id).run();
+        update = env.DB.prepare("UPDATE enterprise_findings SET status=?,verification_evidence_reference=?,verification_evidence_sha256=?,verified_by=?,verified_at=?,acceptance_rationale=NULL,accept_until=NULL,updated_by=?,updated_at=? WHERE id=? AND status=? AND updated_at=?")
+          .bind(next, operation.evidenceReference, operation.evidenceSha256, access.actor.email, now, access.actor.email, now, id, status, finding.updated_at);
       } else if (operation.operation === "accept-risk") {
         if (access.actor.role !== "Admin" || !["open", "in-progress"].includes(status) || finding.reviewer !== access.actor.email) return json({ error: "Risk kabulünü yalnız atanmış bağımsız Admin reviewer verebilir." }, 403);
         if ([finding.detected_by, finding.owner].includes(access.actor.email)) return json({ error: "Maker-checker: tespit eden veya aksiyon sahibi riski kabul edemez." }, 409);
         validateFindingGovernanceGate(finding, "accept-risk");
         next = "accepted";
-        await env.DB.prepare("UPDATE enterprise_findings SET status=?,acceptance_rationale=?,accept_until=?,verification_evidence_reference=?,verification_evidence_sha256=?,verified_by=?,verified_at=?,updated_by=?,updated_at=? WHERE id=?")
-          .bind(next, operation.acceptanceRationale, operation.acceptUntil, operation.evidenceReference, operation.evidenceSha256, access.actor.email, now, access.actor.email, now, id).run();
+        update = env.DB.prepare("UPDATE enterprise_findings SET status=?,acceptance_rationale=?,accept_until=?,verification_evidence_reference=?,verification_evidence_sha256=?,verified_by=?,verified_at=?,updated_by=?,updated_at=? WHERE id=? AND status=? AND updated_at=?")
+          .bind(next, operation.acceptanceRationale, operation.acceptUntil, operation.evidenceReference, operation.evidenceSha256, access.actor.email, now, access.actor.email, now, id, status, finding.updated_at);
       } else if (operation.operation === "reopen") {
         if (access.actor.role !== "Admin" || !["verification", "closed", "accepted"].includes(status)) return json({ error: "Bulguyu yalnız Admin yeniden açabilir." }, 403);
         next = "in-progress";
-        await env.DB.prepare("UPDATE enterprise_findings SET status=?,recurrence_count=recurrence_count+1,reopened_by=?,reopened_at=?,verified_by=NULL,verified_at=NULL,acceptance_rationale=NULL,accept_until=NULL,updated_by=?,updated_at=? WHERE id=?")
-          .bind(next, access.actor.email, now, access.actor.email, now, id).run();
+        update = env.DB.prepare("UPDATE enterprise_findings SET status=?,recurrence_count=recurrence_count+1,reopened_by=?,reopened_at=?,verified_by=NULL,verified_at=NULL,acceptance_rationale=NULL,accept_until=NULL,updated_by=?,updated_at=? WHERE id=? AND status=? AND updated_at=?")
+          .bind(next, access.actor.email, now, access.actor.email, now, id, status, finding.updated_at);
       } else {
         return json({ error: "Geçersiz bulgu işlemi." }, 400);
       }
 
-      await event(env.DB, {
+      const changed = await commitFindingTransition(env.DB, update, {
         findingId: id,
         action: operation.operation,
         from: status,
@@ -195,7 +193,9 @@ export async function POST(req: NextRequest) {
         evidenceReference: operation.evidenceReference,
         evidenceSha256: operation.evidenceSha256,
         actor: access.actor.email,
+        stamp: now,
       });
+      if (!changed) return json({ error: "Bulgu başka bir işlemle değişti. Güncel kaydı yenileyip tekrar değerlendirin." }, 409);
       return json({ message: "Bulgu ve CAPA yaşam döngüsü güncellendi.", status: next });
     }
 
