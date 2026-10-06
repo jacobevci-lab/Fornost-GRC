@@ -1,83 +1,56 @@
-export type ReportRecord = { module: string; data: Record<string, string> };
-export type ReportMetric = { label: string; value: string | number; note: string };
-
-const num = (value?: string) => Number.parseFloat(String(value || "").replace(",", ".")) || 0;
-const truthy = (value?: string) => /^(evet|yes|true|var|aktif|active|uyumlu|compliant|implemented)$/i.test(value || "");
-const isOpen = (value?: string) => !/^(kapalı|closed|tamamlandı|completed|uyumlu|compliant|accepted|kabul edildi)$/i.test(value || "");
-const riskScore = (row: ReportRecord) => num(row.data.calculatedImpact) || num(row.data.inherentLikelihood) * num(row.data.inherentImpact);
-const average = (values: number[]) => values.length ? values.reduce((a, b) => a + b, 0) / values.length : 0;
-
-export function reportMetrics(module: string, rows: ReportRecord[], tr: boolean): ReportMetric[] {
-  const total = rows.length;
-  const count = (fn: (row: ReportRecord) => boolean) => rows.filter(fn).length;
-  const base: ReportMetric = { label: tr ? "Toplam kayıt" : "Total records", value: total, note: tr ? "Seçili rapor kapsamı" : "Selected report scope" };
-  if (module === "Risk Assessment") {
-    const scores = rows.map(riskScore);
-    return [base,
-      { label: tr ? "Ortalama risk skoru" : "Average risk score", value: average(scores).toFixed(1), note: tr ? "Olasılık × etki" : "Likelihood × impact" },
-      { label: tr ? "Yüksek / kritik" : "High / critical", value: scores.filter((x) => x >= 10).length, note: tr ? "Skor 10 ve üzeri" : "Score 10 or above" },
-      { label: tr ? "Açık risk" : "Open risks", value: count((r) => isOpen(r.data.status)), note: tr ? "Kapatılmamış kayıt" : "Not closed" },
-    ];
-  }
-  if (module === "BIA") {
-    const impacts = rows.map((r) => Math.max(num(r.data.financial), num(r.data.operational), num(r.data.legal), num(r.data.reputation), num(r.data.customer), num(r.data.dataImpact)));
-    return [base,
-      { label: tr ? "Kritik süreç" : "Critical processes", value: count((r) => /kritik|critical/i.test(r.data.criticality || "")), note: tr ? "İş sürekliliği önceliği" : "Continuity priority" },
-      { label: tr ? "Ortalama etki" : "Average impact", value: average(impacts).toFixed(1), note: tr ? "En yüksek etki boyutu" : "Highest impact dimension" },
-      { label: "RTO ≤ 24s", value: count((r) => num(r.data.rto) > 0 && num(r.data.rto) <= 24), note: tr ? "Hızlı kurtarma hedefi" : "Fast recovery target" },
-    ];
-  }
-  if (module === "Varlık Envanteri") return [base,
-    { label: tr ? "Kritik varlık" : "Critical assets", value: count((r) => /kritik|critical/i.test(r.data.criticality || "")), note: tr ? "En yüksek kritiklik" : "Highest criticality" },
-    { label: tr ? "İnternete açık" : "Internet exposed", value: count((r) => truthy(r.data.internetFacing) || /internet/i.test(r.data.exposure || "")), note: tr ? "Dış saldırı yüzeyi" : "External attack surface" },
-    { label: tr ? "Aktif varlık" : "Active assets", value: count((r) => /aktif|active/i.test(r.data.status || r.data.lifecycle || "")), note: tr ? "Kullanımdaki envanter" : "In-use inventory" },
-  ];
-  if (module === "Uyum" || module === "Kontroller") return [base,
-    { label: tr ? "Uygulanan / uyumlu" : "Implemented / compliant", value: count((r) => /uygulandı|implemented|uyumlu|compliant|aktif|active/i.test(r.data.status || r.data.implementation || "")), note: tr ? "Olumlu kontrol sonucu" : "Positive control result" },
-    { label: tr ? "Açık / kısmi" : "Open / partial", value: count((r) => /açık|open|kısmi|partial|eksik|missing/i.test(r.data.status || r.data.implementation || "")), note: tr ? "İyileştirme gerektirir" : "Requires improvement" },
-    { label: tr ? "Kanıtlı kayıt" : "Records with evidence", value: count((r) => num(r.data.evidenceCount) > 0 || truthy(r.data.hasEvidence)), note: tr ? "Kanıt kapsamı" : "Evidence coverage" },
-  ];
-  if (module === "Tedarikçiler") return [base,
-    { label: tr ? "Kritik tedarikçi" : "Critical vendors", value: count((r) => /kritik|critical/i.test(r.data.criticality || "")), note: tr ? "Yüksek bağımlılık" : "High dependency" },
-    { label: tr ? "Yüksek risk" : "High risk", value: count((r) => /yüksek|high|kritik|critical/i.test(r.data.riskLevel || "")), note: tr ? "Risk takibi gerekir" : "Requires risk tracking" },
-    { label: tr ? "Aktif hizmet" : "Active services", value: count((r) => /aktif|active/i.test(r.data.status || "")), note: tr ? "Devam eden sözleşme" : "Ongoing engagement" },
-  ];
-  if (module === "Denetim Yönetimi") return [base,
-    { label: tr ? "Ortalama ilerleme" : "Average progress", value: `%${average(rows.map((r) => num(r.data.progress))).toFixed(0)}`, note: tr ? "Denetim maddeleri" : "Audit requirements" },
-    { label: tr ? "Kanıt bekleyen" : "Awaiting evidence", value: count((r) => /kanıt bekliyor|awaiting evidence/i.test(r.data.evidenceStatus || "")), note: tr ? "Açık kanıt talebi" : "Open evidence request" },
-    { label: tr ? "Kapatılan" : "Closed", value: count((r) => /kapalı|closed|tamamlandı|completed/i.test(r.data.status || "")), note: tr ? "Tamamlanan madde" : "Completed requirement" },
-  ];
-  if (module === "Kanıtlar") return [base,
-    { label: tr ? "Güncel kanıt" : "Current evidence", value: count((r) => /güncel|current|kabul|accepted/i.test(r.data.status || "")), note: tr ? "Geçerli kanıt" : "Valid evidence" },
-    { label: tr ? "İnceleme gerekli" : "Needs review", value: count((r) => /inceleme|review|bekliyor|pending/i.test(r.data.status || "")), note: tr ? "Doğrulama kuyruğu" : "Validation queue" },
-    { label: tr ? "Bağlantılı" : "Linked", value: count((r) => Boolean(r.data.control || r.data.controlRef || r.data.requirementRef)), note: tr ? "Kontrole bağlı kanıt" : "Evidence linked to control" },
-  ];
-  return [base,
-    { label: tr ? "Aktif" : "Active", value: count((r) => /aktif|active|açık|open/i.test(r.data.status || "")), note: tr ? "Aktif kayıtlar" : "Active records" },
-    { label: tr ? "Sahibi atanmış" : "Owner assigned", value: count((r) => Boolean(r.data.owner)), note: tr ? "Sorumluluk kapsamı" : "Accountability coverage" },
-    { label: tr ? "İş birimi atanmış" : "Business unit assigned", value: count((r) => Boolean(r.data.businessUnit)), note: tr ? "Organizasyon kapsamı" : "Organization coverage" },
-  ];
+import { calculatedRiskScore, isRiskAssessed } from './risk-methodology';
+import { safeSpreadsheetCell } from './export-security';
+export type ReportRecord = { id?:string;code?:string;module:string;data:Record<string,unknown>;createdAt?:string;updatedAt?:string };
+export type ReportMetric = {label:string;value:string|number;note:string};
+export type ReportOptions = {template?:'management'|'detailed';reportId?:string;generatedAt?:string;preparedBy?:string;classification?:string;scope?:string;filters?:Array<{label:string;value:string}>;fieldLabels?:Record<string,string>;moduleLabels?:Record<string,string>;fontBytes?:Uint8Array};
+const text=(value:unknown)=>value==null?'':typeof value==='object'?JSON.stringify(value):String(value);
+const norm=(value:unknown)=>text(value).trim().toLocaleLowerCase('tr-TR');
+const matches=(value:unknown,values:string[])=>values.map(norm).includes(norm(value));
+const num=(value:unknown)=>{const parsed=Number(text(value).replace(',','.'));return text(value).trim()&&Number.isFinite(parsed)?parsed:null;};
+const average=(values:number[])=>values.length?(values.reduce((a,b)=>a+b,0)/values.length).toFixed(1):'—';
+export const reportTitleOf=(row:ReportRecord)=>text(row.data.title||row.data.process||row.data.assetName||row.data.vendor||row.data.evidenceTitle||row.data.controlTitle||row.data.requirementTitle||row.data.auditName||row.data.requirementRef)||'—';
+export function reportMetrics(module:string,rows:ReportRecord[],tr:boolean):ReportMetric[]{
+ const count=(fn:(row:ReportRecord)=>boolean)=>rows.filter(fn).length;
+ const metric=(label:string,en:string,value:string|number,note:string,enNote:string):ReportMetric=>({label:tr?label:en,value,note:tr?note:enNote});
+ const base=metric('Toplam kayıt','Total records',rows.length,'Seçili rapor kapsamı','Selected report scope');
+ if(module==='Risk Assessment'){
+  const scores=rows.filter(row=>isRiskAssessed(row.data)).map(row=>calculatedRiskScore(row.data)).filter(Number.isFinite);
+  return [base,metric('Ortalama risk skoru','Average risk score',average(scores),`${scores.length} değerlendirilmiş kayıt; olasılık × en yüksek etki`,`${scores.length} assessed records; likelihood × highest impact`),metric('Yüksek / kritik','High / critical',scores.filter(score=>score>=10).length,'Skor 10 ve üzeri','Score 10 or above'),metric('Değerlendirilmemiş','Unassessed',rows.length-scores.length,'Eksik değerlendirme sıfır risk sayılmaz','Missing assessments are not zero risk')];
+ }
+ if(module==='BIA')return [base,metric('Kritik süreç','Critical processes',count(r=>matches(r.data.criticality,['kritik','critical'])),'İş sürekliliği önceliği','Continuity priority'),metric('Ortalama etki','Average impact',average(rows.map(r=>['financial','operational','legal','reputation','customer','dataImpact'].map(k=>num(r.data[k])).filter((v):v is number=>v!==null)).filter(v=>v.length).map(v=>Math.max(...v))),'En yüksek etki boyutu','Highest impact dimension'),metric('RTO ≤ 24 saat','RTO ≤ 24 hours',count(r=>num(r.data.rto)!==null&&num(r.data.rto)!>0&&num(r.data.rto)!<=24),'Saat cinsinden hedef','Target measured in hours')];
+ if(module==='Varlık Envanteri')return [base,metric('Kritik varlık','Critical assets',count(r=>matches(r.data.criticality,['kritik','critical'])),'En yüksek kritiklik','Highest criticality'),metric('İnternete açık','Internet exposed',count(r=>matches(r.data.internetFacing,['evet','yes','true'])||matches(r.data.exposure,['internet','internet-facing','internete açık'])),'Bildirilen dış saldırı yüzeyi','Reported external attack surface'),metric('Aktif varlık','Active assets',count(r=>matches(r.data.status||r.data.lifecycle,['aktif','active'])),'Kullanımdaki envanter','In-use inventory')];
+ if(module==='Tedarikçiler')return [base,metric('Kritik tedarikçi','Critical vendors',count(r=>matches(r.data.criticality,['kritik','critical'])),'Yüksek bağımlılık','High dependency'),metric('Yüksek risk','High risk',count(r=>matches(r.data.riskLevel,['yüksek','high','kritik','critical'])),'Risk takibi gerekir','Requires risk tracking'),metric('Aktif hizmet','Active services',count(r=>matches(r.data.status,['aktif','active'])),'Devam eden sözleşme','Ongoing engagement')];
+ if(module==='Uyum'||module==='Kontroller')return [base,metric('Uygulanan / uyumlu','Implemented / compliant',count(r=>matches(r.data.status||r.data.implementation,['uygulandı','implemented','uyumlu','compliant','aktif','active'])),'Tam eşleşen olumlu durumlar','Exact positive status matches'),metric('Açık / kısmi','Open / partial',count(r=>matches(r.data.status||r.data.implementation,['açık','open','kısmi','partial','kısmi uyumlu','partially compliant','uyumlu değil','non-compliant','iyileştirme gerekli','needs improvement'])),'İyileştirme gerektirir','Requires improvement'),metric('Kanıtlı kayıt','Records with evidence',count(r=>(num(r.data.evidenceCount)||0)>0||matches(r.data.hasEvidence,['evet','yes','true'])),'Bildirilen kanıt bağlantısı','Reported evidence linkage')];
+ if(module==='Denetim Yönetimi')return [base,metric('Ortalama ilerleme','Average progress',(rows.some(r=>num(r.data.progress)!==null)?average(rows.map(r=>num(r.data.progress)).filter((v):v is number=>v!==null))+'%':'—'),'İlerleme alanı dolu kayıtlar','Records with a progress value'),metric('Kanıt bekleyen','Awaiting evidence',count(r=>matches(r.data.evidenceStatus,['kanıt bekliyor','awaiting evidence'])),'Açık kanıt talebi','Open evidence request'),metric('Kapatılan','Closed',count(r=>matches(r.data.status,['kapalı','kapatıldı','closed','tamamlandı','completed'])),'Tamamlanan madde','Completed requirement')];
+ if(module==='Kanıtlar')return [base,metric('Onaylı kanıt','Approved evidence',count(r=>matches(r.data.status,['onaylandı','approved','accepted','kabul edildi'])),'Onay durumu; güncellik garantisi değildir','Approval status; does not establish freshness'),metric('İnceleme gerekli','Needs review',count(r=>matches(r.data.status,['incelemede','in review','pending','taslak','draft'])),'Doğrulama kuyruğu','Validation queue'),metric('Bağlantılı','Linked',count(r=>!!(r.data.control||r.data.controlRef||r.data.requirementRef)),'Bildirilen kontrol bağlantısı','Reported control linkage')];
+ return [base,metric('Aktif','Active',count(r=>matches(r.data.status,['aktif','active','açık','open'])),'Tam eşleşen aktif durumlar','Exact active status matches'),metric('Sahibi atanmış','Owner assigned',count(r=>!!text(r.data.owner).trim()),'Sorumluluk kapsamı','Accountability coverage'),metric('Kritik kayıt','Critical records',count(r=>matches(r.data.criticality||r.data.riskLevel,['kritik','critical'])),'Kritiklik alanına göre','Based on the criticality field')];
 }
-
-const escapeHtml = (value: unknown) => String(value ?? "—").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
-const titleOf = (row: ReportRecord) => row.data.title || row.data.process || row.data.assetName || row.data.vendor || row.data.controlTitle || row.data.requirementTitle || row.data.requirementRef || "—";
-
-export function buildReportHtml(title: string, rows: ReportRecord[], metrics: ReportMetric[], tr: boolean) {
-  const statuses = Object.entries(rows.reduce<Record<string, number>>((acc, row) => { const key = row.data.status || (tr ? "Belirtilmedi" : "Unspecified"); acc[key] = (acc[key] || 0) + 1; return acc; }, {})).sort((a, b) => b[1] - a[1]);
-  const max = Math.max(1, ...statuses.map(([, value]) => value));
-  return `<!doctype html><html lang="${tr ? "tr" : "en"}"><meta charset="utf-8"><title>${escapeHtml(title)}</title><style>body{font-family:Arial,sans-serif;color:#17212b;margin:38px}header{border-bottom:3px solid #087f78;padding-bottom:18px}h1{margin:0 0 7px;font-size:27px}small{color:#596878}.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:24px 0}.kpi{border:1px solid #dce2e7;border-radius:12px;padding:16px;background:#fff}.kpi b,.kpi span,.kpi small{display:block}.kpi b{font-size:24px;color:#075e5a}.kpi span{margin:7px 0 4px;font-weight:700}.bars{margin:20px 0}.bar{display:grid;grid-template-columns:160px 1fr 35px;gap:10px;align-items:center;margin:8px 0}.track{height:9px;background:#eef3f3;border-radius:9px}.track i{display:block;height:100%;background:#087f78;border-radius:9px}table{width:100%;border-collapse:collapse;margin-top:22px;font-size:11px}th,td{padding:10px;border-bottom:1px solid #dce2e7;text-align:left;vertical-align:top;overflow-wrap:anywhere}th{background:#f7f9fa;text-transform:uppercase;font-size:9px;letter-spacing:.06em}@media print{body{margin:18mm}.kpi{break-inside:avoid}tr{break-inside:avoid}}@media(max-width:760px){.kpis{grid-template-columns:1fr 1fr}}</style><body><header><h1>${escapeHtml(title)}</h1><small>${tr ? "Oluşturma tarihi" : "Generated"}: ${new Date().toLocaleString(tr ? "tr-TR" : "en-GB")}</small></header><section class="kpis">${metrics.map((m) => `<div class="kpi"><b>${escapeHtml(m.value)}</b><span>${escapeHtml(m.label)}</span><small>${escapeHtml(m.note)}</small></div>`).join("")}</section><h2>${tr ? "Durum dağılımı" : "Status distribution"}</h2><section class="bars">${statuses.map(([label, value]) => `<div class="bar"><span>${escapeHtml(label)}</span><span class="track"><i style="width:${value / max * 100}%"></i></span><b>${value}</b></div>`).join("") || `<small>${tr ? "Dağılım verisi yok." : "No distribution data."}</small>`}</section><table><thead><tr><th>${tr ? "Modül" : "Module"}</th><th>${tr ? "Başlık" : "Title"}</th><th>${tr ? "İş birimi" : "Business unit"}</th><th>${tr ? "Sahip" : "Owner"}</th><th>${tr ? "Durum" : "Status"}</th></tr></thead><tbody>${rows.slice(0, 500).map((r) => `<tr><td>${escapeHtml(r.module)}</td><td>${escapeHtml(titleOf(r))}</td><td>${escapeHtml(r.data.businessUnit)}</td><td>${escapeHtml(r.data.owner)}</td><td>${escapeHtml(r.data.status)}</td></tr>`).join("")}</tbody></table></body></html>`;
+export const escapeReportHtml=(value:unknown)=>text(value).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]!));
+export function reportSnapshot(title:string,rows:ReportRecord[],metrics:ReportMetric[],tr:boolean,options:ReportOptions={}){
+ const generatedAt=options.generatedAt||new Date().toISOString();
+ const id=options.reportId||`FR-${generatedAt.replace(/\D/g,'').slice(0,14)}-${crypto.randomUUID().slice(0,8)}`;
+ const labels=tr?['Kod','Modül','Başlık','İş birimi','Sahip','Durum','Seviye']:['Code','Module','Title','Business unit','Owner','Status','Level'];
+ const records=rows.map(row=>({cells:[text(row.code||row.data.code||row.id)||'—',options.moduleLabels?.[row.module]||row.module,reportTitleOf(row),text(row.data.businessUnit)||'—',text(row.data.owner)||'—',text(row.data.status)||'—',row.module==='Risk Assessment'?(isRiskAssessed(row.data)?String(calculatedRiskScore(row.data)):'—'):text(row.data.riskLevel||row.data.criticality)||'—'],fields:Object.entries(row.data).sort(([a],[b])=>a.localeCompare(b)).map(([key,value])=>({key,label:options.fieldLabels?.[key]||key,value:text(value)}))}));
+ const scope=options.scope||(tr?'Yüklenmiş çekirdek GRC kayıtları; ayrı modül iş akışları dahil değildir.':'Loaded core GRC records; separate module workflows are not included.');
+ return {title,tr,id,generatedAt,preparedBy:options.preparedBy||'—',classification:options.classification||(tr?'Kurum İçi':'Internal'),template:options.template||'management',scope,filters:options.filters||[],labels,records,metrics,quality:['owner','businessUnit','status'].map(key=>({key,label:options.fieldLabels?.[key]||({owner:tr?'Sahip':'Owner',businessUnit:tr?'İş birimi':'Business unit',status:tr?'Durum':'Status'}[key]),missing:rows.filter(row=>!text(row.data[key]).trim()).length}))};
 }
-
-function pdfSafe(value: unknown) { return String(value ?? "—").normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/ı/g, "i").replace(/İ/g, "I").replace(/ş/g, "s").replace(/Ş/g, "S").replace(/ğ/g, "g").replace(/Ğ/g, "G").replace(/ç/g, "c").replace(/Ç/g, "C").replace(/ö/g, "o").replace(/Ö/g, "O").replace(/ü/g, "u").replace(/Ü/g, "U").replace(/[^\x20-\x7E]/g, " ").replace(/[()\\]/g, "\\$&"); }
-export function buildReportPdf(title: string, metrics: ReportMetric[], rows: ReportRecord[], tr: boolean) {
-  const lines = [title, `${tr ? "Olusturma" : "Generated"}: ${new Date().toLocaleString(tr ? "tr-TR" : "en-GB")}`, "", ...metrics.map((m) => `${m.label}: ${m.value} - ${m.note}`), "", tr ? "Kayit ozeti" : "Record summary", ...rows.slice(0, 80).map((r) => `${r.module} | ${titleOf(r)} | ${r.data.status || "—"}`)];
-  const pages: string[][] = []; for (let i = 0; i < lines.length; i += 42) pages.push(lines.slice(i, i + 42));
-  const objects: string[] = ["", "<< /Type /Catalog /Pages 2 0 R >>", "", "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>"];
-  const pageIds: number[] = [];
-  pages.forEach((page) => { const stream = `BT /F1 11 Tf 42 800 Td 14 TL ${page.map((line, i) => `${i ? "T* " : ""}(${pdfSafe(line).slice(0, 105)}) Tj`).join(" ")} ET`; const streamId = objects.push(`<< /Length ${stream.length} >>\nstream\n${stream}\nendstream`) - 1; const pageId = objects.push(`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R >> >> /Contents ${streamId} 0 R >>`) - 1; pageIds.push(pageId); });
-  objects[2] = `<< /Type /Pages /Kids [${pageIds.map((id) => `${id} 0 R`).join(" ")}] /Count ${pageIds.length} >>`;
-  let pdf = "%PDF-1.4\n"; const offsets = [0]; for (let i = 1; i < objects.length; i++) { offsets[i] = pdf.length; pdf += `${i} 0 obj\n${objects[i]}\nendobj\n`; } const xref = pdf.length; pdf += `xref\n0 ${objects.length}\n0000000000 65535 f \n${offsets.slice(1).map((o) => `${String(o).padStart(10, "0")} 00000 n `).join("\n")}\ntrailer << /Size ${objects.length} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF`;
-  return new Blob([pdf], { type: "application/pdf" });
+export function buildReportHtml(title:string,rows:ReportRecord[],metrics:ReportMetric[],tr:boolean,options:ReportOptions={}){
+ const s=reportSnapshot(title,rows,metrics,tr,options),esc=escapeReportHtml;
+ const distribution=Array.from(rows.reduce((map,row)=>{const key=text(row.data.status)||(tr?'Belirtilmedi':'Unspecified');map.set(key,(map.get(key)||0)+1);return map;},new Map<string,number>()));
+ const details=s.template==='detailed'?`<section><h2>${tr?'Kayıt ayrıntıları':'Record details'}</h2>${s.records.map(row=>`<article class="detail"><h3>${esc(row.cells[0])} · ${esc(row.cells[2])}</h3><dl>${row.fields.map(f=>`<div><dt>${esc(f.label)} <small>(${esc(f.key)})</small></dt><dd>${esc(f.value)||'—'}</dd></div>`).join('')}</dl></article>`).join('')}</section>`:'';
+ return `<!doctype html><html lang="${tr?'tr':'en'}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src data:; base-uri 'none'; form-action 'none'"><title>${esc(title)}</title><style>
+ :root{color-scheme:light}*{box-sizing:border-box}body{margin:0;background:#eeeae5;color:#262626;font:13px/1.5 Arial,sans-serif}.report{max-width:1200px;margin:28px auto;background:white;padding:36px}header{border-top:5px solid #c65b19;border-bottom:1px solid #d9d3cc;padding:20px 0}.brand{letter-spacing:.16em;font-size:11px;font-weight:bold;color:#934210}h1{font-size:25px;line-height:1.25;margin:10px 0}h2{font-size:17px;margin-top:28px}h3{font-size:14px}small,.muted{color:#595959}.meta{display:grid;grid-template-columns:1fr 1fr;gap:6px 24px;overflow-wrap:anywhere}.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:24px 0}.kpi{border:1px solid #d9d3cc;border-radius:5px;padding:14px}.kpi b,.kpi span,.kpi small{display:block}.kpi b{font-size:24px;color:#934210}.kpi span{font-weight:bold;margin:4px 0}.scope{background:#f6f3ef;border-left:3px solid #c65b19;padding:12px;margin:18px 0}.distribution{display:flex;flex-wrap:wrap;gap:8px}.distribution span{padding:5px 9px;background:#f6f3ef;border:1px solid #ded8d1;border-radius:4px}table{width:100%;border-collapse:collapse;font-size:11px;table-layout:fixed}th,td{text-align:left;vertical-align:top;padding:8px;border-bottom:1px solid #ded8d1;overflow-wrap:anywhere;white-space:pre-wrap}th{background:#f1ede7}thead{display:table-header-group}tbody tr:nth-child(even){background:#faf8f5}caption{text-align:left;font-weight:bold;margin-bottom:8px}.detail{border-top:1px solid #ded8d1;padding-top:8px}dl>div{display:grid;grid-template-columns:220px 1fr;border-bottom:1px solid #eee;padding:6px 0}dt{font-weight:bold}dd{margin:0;white-space:pre-wrap;overflow-wrap:anywhere}footer{margin-top:24px;border-top:1px solid #ded8d1;padding-top:12px;font-size:10px;color:#595959}@page{size:A4 landscape;margin:14mm}@media print{body{background:white}.report{margin:0;padding:0;max-width:none}.kpi,tr{break-inside:avoid}h2,h3{break-after:avoid}a{color:inherit}thead{display:table-header-group}}@media(max-width:760px){.report{margin:0;padding:16px}.kpis,.meta{grid-template-columns:1fr 1fr}.table-wrap{overflow:auto}table{min-width:800px}dl>div{grid-template-columns:1fr}}
+ </style></head><body><main class="report"><header><div class="brand">FORNOST GRC · ${tr?'YÖNETİM RAPORU':'MANAGEMENT REPORT'}</div><h1>${esc(title)}</h1><div class="meta"><span>${tr?'Rapor kimliği':'Report ID'}: ${esc(s.id)}</span><span>${tr?'Sınıflandırma':'Classification'}: ${esc(s.classification)}</span><span>${tr?'Oluşturma (UTC)':'Generated (UTC)'}: ${esc(s.generatedAt)}</span><span>${tr?'Hazırlayan':'Prepared by'}: ${esc(s.preparedBy)}</span></div></header><div class="scope"><b>${tr?'Kapsam':'Scope'}: ${s.records.length} ${tr?'kayıt':'records'}</b><p>${esc(s.scope)}</p><p>${s.filters.map(f=>`${esc(f.label)}: ${esc(f.value)}`).join(' · ')|| (tr?'Ek filtre yok':'No additional filters')}</p><small>${tr?'Şablon':'Template'}: ${s.template==='detailed'?(tr?'Detaylı kayıt dökümü':'Detailed register'):(tr?'Yönetim özeti':'Management summary')}</small></div><section class="kpis">${metrics.map(m=>`<div class="kpi"><b>${esc(m.value)}</b><span>${esc(m.label)}</span><small>${esc(m.note)}</small></div>`).join('')}</section><h2>${tr?'Veri kalitesi':'Data quality'}</h2><p>${s.quality.map(q=>`${esc(q.label)}: ${q.missing} ${tr?'eksik':'missing'}`).join(' · ')}</p><h2>${tr?'Durum dağılımı':'Status distribution'}</h2><div class="distribution">${distribution.map(([key,value])=>`<span>${esc(key)}: <b>${value}</b></span>`).join('')||'—'}</div><h2>${tr?'Kayıt dökümü':'Record register'}</h2><div class="table-wrap"><table><caption>${s.records.length} ${tr?'kaydın tamamı':'records included in full'}</caption><thead><tr>${s.labels.map(label=>`<th scope="col">${esc(label)}</th>`).join('')}</tr></thead><tbody>${s.records.map(row=>`<tr>${row.cells.map(cell=>`<td>${esc(cell)}</td>`).join('')}</tr>`).join('')||`<tr><td colspan="7">${tr?'Seçili kapsamda kayıt yok.':'No records in the selected scope.'}</td></tr>`}</tbody></table></div>${details}<footer>${esc(s.classification)} · ${esc(s.id)} · ${tr?'Anlık görüntü; geçmiş dönem eğilimi veya bağımsız denetim görüşü değildir.':'Point-in-time snapshot; not a historical trend or an independent audit opinion.'}</footer></main></body></html>`;
 }
-
-export function downloadBlob(name: string, blob: Blob) { const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(url), 1000); }
+export function buildReportCsv(title:string,rows:ReportRecord[],metrics:ReportMetric[],tr:boolean,options:ReportOptions={}){
+ const s=reportSnapshot(title,rows,metrics,tr,options),keys=s.template==='detailed'?[...new Set(s.records.flatMap(r=>r.fields.map(f=>f.key)))].sort():[];
+ const header=[...s.labels,...keys.map(k=>`${options.fieldLabels?.[k]||k} [${k}]`),'Report ID','Generated UTC','Classification','Scope','Filters'];
+ const filters=s.filters.map(f=>`${f.label}: ${f.value}`).join(' | ');
+ const lines=[header,...s.records.map(r=>[...r.cells,...keys.map(k=>r.fields.find(f=>f.key===k)?.value||''),s.id,s.generatedAt,s.classification,s.scope,filters])];
+ return '\uFEFF'+lines.map(row=>row.map(value=>`"${safeSpreadsheetCell(value).replaceAll('"','""')}"`).join(';')).join('\r\n');
+}
+export async function buildReportPdf(title:string,metrics:ReportMetric[],rows:ReportRecord[],tr:boolean,options:ReportOptions={}){
+ const {renderReportPdf}=await import('./report-pdf');
+ return renderReportPdf(reportSnapshot(title,rows,metrics,tr,options),options.fontBytes);
+}
+export function downloadBlob(name:string,blob:Blob){const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
