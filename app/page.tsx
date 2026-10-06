@@ -3332,10 +3332,9 @@ function Reports({ rows, lang, go, preparedBy }: { rows: Row[]; lang: Lang; go: 
           </span>
         </div>
         <div className="table-wrap" tabIndex={0} role="region" aria-label={lang === "tr" ? "Kayıt tablosu" : "Record table"}>
-          <table>
-            <caption className="sr-only">{tr ? "Rapor kapsamındaki kayıtlar" : "Records included in the report"}</caption>
+          <table aria-label={tr ? "Rapor kapsamındaki kayıtlar" : "Records included in the report"}>
             <colgroup>
-              {["code","module","title","businessUnit","owner","status","level"].map((key) => <col key={key} style={{ width: widths.width(key) }} />)}
+              {[["code",80],["module",120],["title",260],["businessUnit",120],["owner",120],["status",140],["level",70]].map(([key,fallback],_,columns) => <col key={key} style={{ width: `${100*widths.width(String(key),Number(fallback))/columns.reduce((total,[k,v])=>total+widths.width(String(k),Number(v)),0)}%` }} />)}
             </colgroup>
             <thead>
               <tr>
@@ -3377,7 +3376,7 @@ function Reports({ rows, lang, go, preparedBy }: { rows: Row[]; lang: Lang; go: 
             </tbody>
           </table>
         </div>
-        <nav className="report-pagination" aria-label={tr?"Rapor önizleme sayfaları":"Report preview pages"}><span>{tr?"Sayfa":"Page"} {currentPage}/{pages} · {filtered.length} {tr?"kayıt; dışa aktarım tümünü içerir":"records; all are included in exports"}</span><button type="button" disabled={currentPage<=1} onClick={()=>setPreviewPage(currentPage-1)}>{tr?"Önceki":"Previous"}</button><button type="button" disabled={currentPage>=pages} onClick={()=>setPreviewPage(currentPage+1)}>{tr?"Sonraki":"Next"}</button></nav>
+        <div role="navigation" className="report-pagination" aria-label={tr?"Rapor önizleme sayfaları":"Report preview pages"}><span>{tr?"Sayfa":"Page"} {currentPage}/{pages} · {filtered.length} {tr?"kayıt; dışa aktarım tümünü içerir":"records; all are included in exports"}</span><button type="button" disabled={currentPage<=1} onClick={()=>setPreviewPage(currentPage-1)}>{tr?"Önceki":"Previous"}</button><button type="button" disabled={currentPage>=pages} onClick={()=>setPreviewPage(currentPage+1)}>{tr?"Sonraki":"Next"}</button></div>
       </section>
       <details className="report-secondary"><summary>{tr?"Veri kalitesi ve durum dağılımı":"Data quality and status distribution"}</summary>
       <section className="report-analysis-grid">
