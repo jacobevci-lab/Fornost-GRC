@@ -46,3 +46,4 @@ Açık veya devam eden bir bulgu yalnız atanmış bağımsız Admin reviewer ta
 - Tables page through 20 records and search the full loaded list. The API's existing 3,000-record limit is disclosed when reached; summaries and CSV remain scoped to that result set.
 - Source-count failures carry `available: false`, displayed as unavailable rather than zero. CSV export neutralizes formula markers after leading whitespace.
 - `scripts/findings-workspace-qa.mjs` exercises outage recovery, pagination, search, keyboard access, duplicate submissions and uncertain outcomes with isolated fixtures.
+- Lifecycle transitions additionally compare the persisted status and update timestamp. The guarded update and its audit event run in one D1 transaction; stale writers receive 409 and audit-write failure rolls back the state change. SQLite regression tests verify competing writers, same-status edits and rollback.
