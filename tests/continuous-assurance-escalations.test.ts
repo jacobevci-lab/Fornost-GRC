@@ -88,7 +88,7 @@ test("reminder disablement does not suppress overdue or control-failure governan
 
 test("Connected GRC mounts a role-aware actionable escalation center with acknowledgement lifecycle",()=>{
  assert.match(connected,/import ContinuousAssuranceEscalationCenter/);assert.match(connected,/<ContinuousAssuranceEscalationCenter lang=\{lang\}\/>/);
- assert.match(panel,/ASSURANCE ESCALATION CENTER/);assert.match(panel,/\/api\/continuous-assurance\/escalations/);assert.match(panel,/action:"acknowledge"/);assert.match(panel,/role!=="Viewer"/);
+ assert.match(panel,/ASSURANCE ESCALATION CENTER/);assert.match(panel,/\/api\/continuous-assurance\/escalations/);assert.match(panel,/action:"acknowledge"/);assert.match(panel,/role==="Admin"\|\|role==="Editor"/);
  assert.match(panel,/navigateToFornost/);assert.match(panel,/source:"assurance-escalation-center"/);assert.match(panel,/item\.navigation&&<button/);
  assert.match(panel,/sourceRef/);assert.match(panel,/connector-reliability/);assert.match(panel,/Connector'ı Aç/);assert.match(panel,/Open Connector/);
  assert.match(panel,/Riski Aç/);assert.match(panel,/Kontrolü Aç/);assert.match(panel,/Kuralı Aç/);assert.match(panel,/CAPA'yı Aç/);
