@@ -67,3 +67,4 @@ html[data-theme] body .shell>main .report-workspace .report-pagination{display:f
 html[data-theme] body .shell>main .report-workspace .report-pagination button{width:auto!important;min-width:72px;max-width:none;min-height:32px;height:32px;flex:0 0 auto;margin:0;padding:6px 12px}
 html[data-theme] body .shell>main .report-workspace .table-wrap table{width:100%!important;min-width:720px!important;table-layout:fixed}
 html[data-theme] body .shell>main .report-workspace .table-wrap :is(th,td){min-width:0;overflow-wrap:anywhere}
+html[data-theme] body .shell>main .report-workspace .column-resizer{right:0!important;width:12px!important}
