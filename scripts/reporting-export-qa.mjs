@@ -27,6 +27,9 @@ try{
  await panel.screenshot({path:'layout-qa-artifacts/reporting-mobile.png'});
  await page.setViewportSize({width:1536,height:960});
  await expect(panel.locator('tbody tr')).toHaveCount(50);
+ const geometry=await panel.evaluate(el=>{const controls=[...el.querySelectorAll('.report-pagination button')].map(b=>{const r=b.getBoundingClientRect();return {width:r.width,height:r.height,y:r.y}});const wrap=el.querySelector('.table-wrap');const heads=[...el.querySelectorAll('th')];return {controls,overflow:wrap.scrollWidth-wrap.clientWidth,valueFont:parseFloat(getComputedStyle(el.querySelector('.kpi>b')).fontSize),caption:el.querySelector('caption')!==null,titleWidth:heads[2].getBoundingClientRect().width,codeWidth:heads[0].getBoundingClientRect().width}});
+ assert.ok(geometry.controls.every(b=>b.width<130&&b.height<=40));assert.ok(Math.abs(geometry.controls[0].y-geometry.controls[1].y)<2);assert.ok(geometry.overflow<=2);assert.ok(geometry.valueFont>=20);assert.equal(geometry.caption,false);assert.ok(geometry.titleWidth>geometry.codeWidth*2);
+
  await panel.getByRole('button',{name:'Next',exact:true}).click();await panel.getByRole('button',{name:'Next',exact:true}).click();await expect(panel.locator('tbody tr')).toHaveCount(21);
  await panel.locator('.report-filters select').nth(1).selectOption('Çağrı');await expect(panel.locator('.report-pagination')).toContainText('Page 1/3');
  await panel.getByLabel('Template',{exact:true}).selectOption('detailed');await panel.getByLabel('Classification',{exact:true}).selectOption('confidential');
