@@ -5,7 +5,7 @@
 - [x] Lint ve production build başarılı
 - [x] Bağımsız TypeScript doğrulaması başarılı
 - [x] Otomatik güvenlik/validasyon testleri başarılı
-- [x] Production bağımlılıklarında bilinen açık yok
+- [x] 2026-10-06 bağımlılık taraması: `npm audit --omit=dev --json` production bağımlılıklarında 0 bulgu. Her sürümde yeniden taranmalı; bu sonuç kaynak kodu veya canlı ortam için zafiyetsizlik garantisi değildir.
 - [x] D1/R2 artifact ve binding doğrulaması başarılı
 - [x] RBAC, same-origin, payload ve dosya kontrolleri mevcut
 - [x] Güvenlik başlıkları mevcut
@@ -34,3 +34,11 @@ Teknik kapının geçmesi uygulamayı kontrollü pilot için uygun hale getirir.
 3. R2 kanıt deposunu silme; yalnız uygulama sürümünü geri al.
 4. Olay kaydı aç, etkilenen işlemleri ve zaman aralığını belirle.
 5. Düzeltme sonrası smoke, RBAC ve veri bütünlüğü testlerini yeniden çalıştır.
+
+## Geliştirme bağımlılıklarında açık takip
+
+2026-10-06 tarihli tam `npm audit --json` taramasında `braces <=3.0.3` kaynaklı GHSA-vfj7-8cjw-p6xm, geliştirme araçları üzerinden 8 yüksek seviyeli bağımlılık bulgusu üretmektedir. Production-only taramada yer almaz; build/lint ortamı için açık takip maddesidir. Resmi advisory henüz yamalı sürüm belirtmiyor. Framework/lint araçlarını eski majör sürümlere düşüren `npm audit fix --force` uygulanmamalı. Bu kayıt kapatılmadan tam bağımlılık taraması temiz kabul edilmez.
+
+## Belge dönüştürme bağımlılığı
+
+Mammoth 1.12.3 için kapsamlı `argparse: 2.0.1` override uygulanır. Bu sürüm eski CLI API uyumluluğunu korurken `sprintf-js` bağımlılığını kaldırır (GHSA-hp3w-g68c-fv3c). Argparse 3 eski API uyumluluğunu kaldırdığı için kullanılmaz. `tests/mammoth-security.test.mjs` DOCX metin/HTML dönüşümünü, stil haritasını, çıktı dosyası/dizinini ve geçersiz argüman reddini doğrular. Mammoth yükseltilirken override ihtiyacı tekrar değerlendirilmeli.
