@@ -46,7 +46,7 @@ test("reporting is an enterprise workflow and remains theme-token driven", async
 
   assert.match(page, /displayRecordCode\(r\)/);
   assert.match(page, /qualitySignals/);
-  assert.match(page, /filtered\.length > 250/);
+  assert.match(page, /className="report-pagination"/);
   assert.match(css, /var\(--ws-surface\)/);
   assert.match(css, /var\(--ws-brand-soft\)/);
   assert.doesNotMatch(css, /#(?:746cff|655cff|817aff|242452|635bff)/i);

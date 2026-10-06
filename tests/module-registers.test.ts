@@ -35,7 +35,7 @@ test("management reporting offers separate exports for every operational module"
   assert.match(page, /"Tedarikçiler",\s*"Kontroller",\s*"Kanıtlar",\s*"Denetim Yönetimi"/);
   assert.match(reports, /className="report-module-picker"/);
   assert.match(reports, /module === all \|\| r\.module === module/);
-  assert.match(reports, /csvDownload\(`Fornost-GRC-\$\{exportSlug\}\.csv`, filtered, lang\)/);
+  assert.match(reports, /buildReportCsv\(reportTitle,filtered,metrics,tr,options\(\)\)/);
 });
 
 test("record timestamps are mapped from the API and visible in every register", () => {

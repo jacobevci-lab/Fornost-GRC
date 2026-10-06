@@ -74,7 +74,7 @@ import "./product-experience.css";
 import "./theme-integrity.css";
 import "./workspace-simplicity.css";
 import AiWorkspaceHost from "./ai-workspace-host";
-import { buildReportHtml, buildReportPdf, downloadBlob, reportMetrics } from "./report-export";
+import { buildReportHtml, buildReportPdf, buildReportCsv, reportTitleOf, downloadBlob, reportMetrics, type ReportOptions } from "./report-export";
 
 type Lang = "tr" | "en";
 type Row = {
@@ -2219,7 +2219,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
         ) : active === "Bağlantılı GRC" ? (
           <ConnectedGrc rows={rows} lang={lang} go={setActive} includeAi={currentUser.role === "Admin"} />
         ) : active === "Raporlar" ? (
-          <Reports rows={rows} lang={lang} go={navigateToModule} />
+          <Reports rows={rows} lang={lang} go={navigateToModule} preparedBy={currentUser.email} />
         ) : active === "Kanıt Otomasyonu" ? (
           <EvidenceAutomation lang={lang} currentUser={currentUser} />
         ) : active === "Regülasyon Merkezi" ? (
@@ -3171,20 +3171,28 @@ function Bars({
     </div>
   );
 }
-function Reports({ rows, lang, go }: { rows: Row[]; lang: Lang; go: (module: string) => void }) {
+function Reports({ rows, lang, go, preparedBy }: { rows: Row[]; lang: Lang; go: (module: string) => void; preparedBy:string }) {
   const all = "__all__",
     allLabel = lang === "tr" ? "Tüm Modüller" : "All Modules",
     [module, setModule] = useState<string>(all),
     [unit, setUnit] = useState(all),
     [owner, setOwner] = useState(all),
     [status, setStatus] = useState(all),
+    [template,setTemplate] = useState<"management"|"detailed">("management"),
+    [classification,setClassification] = useState("internal"),
+    [exporting,setExporting] = useState(false),
+    [exportError,setExportError] = useState(""),
+    [previewPage,setPreviewPage] = useState(1),
     tr = lang === "tr",
     widths = useColumnWidths("Raporlar");
   useEffect(() => {
     setUnit(all);
     setOwner(all);
     setStatus(all);
+    setPreviewPage(1);
   }, [module]);
+  const exportInFlight = useRef(false);
+  useEffect(() => { setPreviewPage(1); }, [unit, owner, status]);
   const moduleRows = rows.filter((r) => module === all || r.module === module);
   const values = (k: string) =>
     [...new Set(moduleRows.map((r) => r.data[k]).filter(Boolean))].sort();
@@ -3202,7 +3210,7 @@ function Reports({ rows, lang, go }: { rows: Row[]; lang: Lang; go: (module: str
     const key = display(row.data.status, lang) || (tr ? "Belirtilmedi" : "Unspecified");
     acc[key] = (acc[key] || 0) + 1;
     return acc;
-  }, {})).sort((a, b) => b[1] - a[1]).slice(0, 6);
+  }, Object.create(null))).sort((a, b) => b[1] - a[1]).slice(0, 6);
   const reportTitle = `Fornost GRC — ${selectedModuleLabel}`;
   const qualitySignals = [
     {
@@ -3227,13 +3235,19 @@ function Reports({ rows, lang, go }: { rows: Row[]; lang: Lang; go: (module: str
     setUnit(all);
     setOwner(all);
     setStatus(all);
+    setPreviewPage(1);
   };
+  const options=():ReportOptions=>({template,preparedBy,classification:classification==="confidential"?(tr?"Gizli":"Confidential"):(tr?"Kurum İçi":"Internal"),fieldLabels:labelMap[lang],moduleLabels:names[lang],scope:tr?"Yüklenmiş çekirdek GRC kayıtları. CAPA, AI ve ayrı iş akışı depoları bu döküme dahil değildir.":"Loaded core GRC records. CAPA, AI and separate workflow stores are not included in this register.",filters:[{label:tr?"Modül":"Module",value:selectedModuleLabel},{label:tr?"İş birimi":"Business unit",value:unit===all?allLabel:unit},{label:tr?"Sahip":"Owner",value:owner===all?allLabel:owner},{label:tr?"Durum":"Status",value:status===all?allLabel:status}]});
   function htmlReport() {
-    downloadBlob(`Fornost-GRC-${exportSlug}.html`, new Blob([buildReportHtml(reportTitle, filtered, metrics, tr)], { type: "text/html;charset=utf-8" }));
+    downloadBlob(`Fornost-GRC-${exportSlug}.html`, new Blob([buildReportHtml(reportTitle, filtered, metrics, tr,options())], { type: "text/html;charset=utf-8" }));
   }
-  function pdfReport() {
-    downloadBlob(`Fornost-GRC-${exportSlug}.pdf`, buildReportPdf(reportTitle, metrics, filtered, tr));
+  async function pdfReport() {
+    if(exportInFlight.current)return;exportInFlight.current=true;setExporting(true);setExportError("");
+    try{downloadBlob(`Fornost-GRC-${exportSlug}.pdf`,await buildReportPdf(reportTitle,metrics,filtered,tr,options()));}
+    catch{setExportError(tr?"PDF oluşturulamadı. Türkçe/Latin dışı desteklenmeyen karakter veya font yükleme sorunu olabilir. Veriyi korumak için HTML veya CSV kullanın.":"PDF could not be generated. Unsupported characters or a font loading failure may be involved. Use HTML or CSV to preserve the data.");}
+    finally{exportInFlight.current=false;setExporting(false);}
   }
+  const pages=Math.max(1,Math.ceil(filtered.length/50)),currentPage=Math.min(previewPage,pages);
   function assuranceReport() {
     downloadBlob(`Fornost-GRC-assurance-pack-${new Date().toISOString().slice(0,10)}.html`, new Blob([buildAssuranceReportHtml(rows, tr)], { type: "text/html;charset=utf-8" }));
   }
@@ -3276,13 +3290,13 @@ function Reports({ rows, lang, go }: { rows: Row[]; lang: Lang; go: (module: str
             HTML
           </button>
           <button className="ghost" onClick={assuranceReport}>
-            {tr ? "Güvence Paketi" : "Assurance Pack"}
+            {tr ? "Genel Güvence Paketi (ayrı kapsam)" : "Global Assurance Pack (separate scope)"}
           </button>
-          <button className="ghost" onClick={() => csvDownload(`Fornost-GRC-${exportSlug}.csv`, filtered, lang)} disabled={!filtered.length}>
+          <button className="ghost" onClick={() => downloadBlob(`Fornost-GRC-${exportSlug}.csv`,new Blob([buildReportCsv(reportTitle,filtered,metrics,tr,options())],{type:"text/csv;charset=utf-8"}))} disabled={!filtered.length}>
             CSV
           </button>
-          <button className="ghost" onClick={pdfReport} disabled={!filtered.length}>
-            {tr ? "PDF Raporu" : "PDF Report"}
+          <button className="ghost" onClick={()=>void pdfReport()} disabled={!filtered.length||exporting}>
+            {exporting?(tr?"PDF hazırlanıyor…":"Preparing PDF…"):(tr ? "PDF Raporu" : "PDF Report")}
           </button>
           <button className="primary" onClick={excel} disabled={!filtered.length}>
             {tr ? "Excel Raporu Al" : "Download Excel Report"}
@@ -3290,6 +3304,9 @@ function Reports({ rows, lang, go }: { rows: Row[]; lang: Lang; go: (module: str
           </div></details>
         </div>
       </section>
+      {exportError&&<p className="report-export-error" role="alert">{exportError}</p>}
+      <div className="report-template-settings"><label>{tr?"Şablon":"Template"}<select value={template} onChange={e=>setTemplate(e.target.value as "management"|"detailed")}><option value="management">{tr?"Yönetim özeti":"Management summary"}</option><option value="detailed">{tr?"Detaylı kayıt dökümü":"Detailed register"}</option></select></label><label>{tr?"Sınıflandırma":"Classification"}<select value={classification} onChange={e=>setClassification(e.target.value)}><option value="internal">{tr?"Kurum İçi":"Internal"}</option><option value="confidential">{tr?"Gizli":"Confidential"}</option></select></label><p>{tr?"HTML, PDF ve CSV aynı filtreli kayıtları içerir. Detaylı şablon tüm kayıt alanlarını ekler; PDF fontu uygulamayla birlikte gelir.":"HTML, PDF and CSV include the same filtered records. The detailed template adds all record fields; the PDF font is bundled with the application."}</p></div>
+      <p className="report-limit-note">{tr?"Kapsam: Yüklenmiş çekirdek GRC kayıtları. Ayrı CAPA/AI iş akışı depoları dahil değildir. Aşağıdaki bütünleşik güvence özeti tüm yüklü kayıtları kullanır; filtreli rapor kapsamından ayrıdır.":"Scope: Loaded core GRC records. Separate CAPA/AI workflow stores are excluded. The composite assurance summary below uses all loaded records and is separate from the filtered report scope."}</p>
       <section className="report-scope-strip" aria-label={tr ? "Rapor özeti" : "Report summary"}>
         <div><small>{tr ? "Kapsam" : "Scope"}</small><b>{selectedModuleLabel}</b></div>
         <div><small>{tr ? "Dahil edilen" : "Included"}</small><b>{filtered.length} {tr ? "kayıt" : "records"}</b></div>
@@ -3383,17 +3400,12 @@ function Reports({ rows, lang, go }: { rows: Row[]; lang: Lang; go: (module: str
               </tr>
             </thead>
             <tbody>
-              {filtered.slice(0, 250).map((r) => (
+              {filtered.slice((currentPage-1)*50,currentPage*50).map((r) => (
                 <tr key={r.id}>
                   <td><b className="code" title={r.id}>{displayRecordCode(r)}</b></td>
                   <td>{names[lang][r.module] || r.module}</td>
                   <td>
-                    {r.data.title ||
-                      r.data.process ||
-                      r.data.controlTitle ||
-                      r.data.requirementTitle ||
-                      r.data.requirementRef ||
-                      "—"}
+                    {reportTitleOf(r)}
                   </td>
                   <td>{r.data.businessUnit || "—"}</td>
                   <td>{r.data.owner || "—"}</td>
@@ -3412,7 +3424,7 @@ function Reports({ rows, lang, go }: { rows: Row[]; lang: Lang; go: (module: str
             </tbody>
           </table>
         </div>
-        {filtered.length > 250 && <p className="report-limit-note">{tr ? `Önizlemede ilk 250 kayıt gösteriliyor; dışa aktarılan dosya ${filtered.length} kaydın tamamını içerir.` : `The preview shows the first 250 records; exports include all ${filtered.length} records.`}</p>}
+        <nav className="report-pagination" aria-label={tr?"Rapor önizleme sayfaları":"Report preview pages"}><span>{tr?"Sayfa":"Page"} {currentPage}/{pages} · {filtered.length} {tr?"kayıt; dışa aktarım tümünü içerir":"records; all are included in exports"}</span><button type="button" disabled={currentPage<=1} onClick={()=>setPreviewPage(currentPage-1)}>{tr?"Önceki":"Previous"}</button><button type="button" disabled={currentPage>=pages} onClick={()=>setPreviewPage(currentPage+1)}>{tr?"Sonraki":"Next"}</button></nav>
       </section>
     </div>
   );
