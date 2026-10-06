@@ -1,6 +1,6 @@
 import {chromium,expect} from '@playwright/test';
 import assert from 'node:assert/strict';
-import {readFile} from 'node:fs/promises';
+import {readFile,mkdir} from 'node:fs/promises';
 import {PDFDocument} from 'pdf-lib';
 import {qaPassword} from './qa-credentials.mjs';
 const base='http://127.0.0.1:4173';
@@ -16,6 +16,16 @@ try{
  const group=page.locator('nav button[aria-controls="nav-group-intelligence"]');if(await group.getAttribute('aria-expanded')!=='true')await group.click();
  await page.locator('nav button[aria-label="Reporting"]').click();
  const panel=page.locator('.report-workspace');await expect(panel).toBeVisible();
+ await expect(panel.locator('.report-secondary[open]')).toHaveCount(0);
+ await panel.getByLabel('Report module',{exact:true}).selectOption('BIA');
+ await expect(panel.getByRole('button',{name:'PDF Report',exact:true})).toBeVisible();
+ const headerBox=await panel.boundingBox(),tableBox=await panel.locator('.table-card').boundingBox();assert.ok(tableBox.y-headerBox.y<700,'Register must be close to the scope controls');
+ await mkdir('layout-qa-artifacts',{recursive:true});
+ await panel.screenshot({path:'layout-qa-artifacts/reporting-desktop.png'});
+ await page.setViewportSize({width:390,height:844});
+ assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+2),'Page must not overflow horizontally');
+ await panel.screenshot({path:'layout-qa-artifacts/reporting-mobile.png'});
+ await page.setViewportSize({width:1536,height:960});
  await expect(panel.locator('tbody tr')).toHaveCount(50);
  await panel.getByRole('button',{name:'Next',exact:true}).click();await panel.getByRole('button',{name:'Next',exact:true}).click();await expect(panel.locator('tbody tr')).toHaveCount(21);
  await panel.locator('.report-filters select').nth(1).selectOption('Çağrı');await expect(panel.locator('.report-pagination')).toContainText('Page 1/3');

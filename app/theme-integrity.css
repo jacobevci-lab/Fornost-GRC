@@ -154,7 +154,7 @@ html[data-theme] body .shell>main :is(.matrix-row,.xlabels){grid-template-column
 html[data-theme] body .shell>main .matrix-row span{height:32px;min-width:0;border-radius:5px}
 html[data-theme] body .shell>main .axis.y{top:50%;left:0;transform:translate(-40%,-50%) rotate(-90deg);white-space:nowrap}
 html[data-theme] body .shell>main .axis.x{bottom:0;left:40px;right:0;text-align:center;white-space:normal;letter-spacing:.04em}
-html[data-theme] body .shell>main .report-hero{min-height:0;display:grid;grid-template-columns:1fr;gap:14px;padding:18px}
+html[data-theme] body .shell>main .report-hero{min-height:0;display:flex;flex-wrap:wrap;gap:18px;padding:12px 0}
 html[data-theme] body .shell>main .report-hero-actions{justify-content:flex-start;min-width:0}
 html[data-theme] body .shell>main .report-section-head{height:auto;min-height:0;padding:12px 16px}
 html[data-theme] body .shell>main .audit-readiness-head{height:auto;padding:14px 18px}

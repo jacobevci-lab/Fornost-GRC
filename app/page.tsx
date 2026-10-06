@@ -3273,17 +3273,20 @@ function Reports({ rows, lang, go, preparedBy }: { rows: Row[]; lang: Lang; go: 
     <div className="report-workspace">
       <section className="report-hero">
         <div>
-          <small>{tr ? "YÖNETİCİ RAPORLAMA · YÖNETİLEN DIŞA AKTARIM" : "EXECUTIVE REPORTING · GOVERNED EXPORT"}</small>
-          <h2>{tr ? "Yönetim Raporlama Merkezi" : "Management Reporting Center"}</h2>
+          <small>{tr ? "RAPORLAMA" : "REPORTING"}</small>
+          <h2>{tr ? "Rapor oluştur" : "Create a report"}</h2>
           <p>
             {tr
-              ? `${selectedModuleLabel} kapsamını inceleyin, veri kalitesini doğrulayın ve yönetim çıktısını oluşturun.`
-              : `Review the ${selectedModuleLabel} scope, validate data quality and produce a management-ready output.`}
+              ? "Kapsamı seçin, kayıtları inceleyin ve raporunuzu indirin."
+              : "Choose a scope, review the records and download your report."}
           </p>
         </div>
         <div className="report-hero-actions">
           <button className="ghost" onClick={() => window.dispatchEvent(new CustomEvent("fornost:open-ai", { detail: { module: names[lang].Raporlar, mode: "agent", agentKind: "reporting", prompt: tr ? `${selectedModuleLabel} kapsamında önemli risk, uyum, denetim, kanıt ve tedarikçi eğilimlerini; karar boşluklarını ve öncelikli yönetim aksiyonlarını kaynaklarıyla analiz et.` : `Analyze material risk, compliance, audit, evidence and vendor trends, decision gaps and prioritized management actions for ${selectedModuleLabel} with sources.` } }))}>
             {tr ? "AI Yönetim Analizi" : "AI Management Analysis"}
+          </button>
+          <button className="primary" onClick={()=>void pdfReport()} disabled={!filtered.length||exporting}>
+            {exporting?(tr?"PDF hazırlanıyor…":"Preparing PDF…"):(tr ? "PDF Raporu" : "PDF Report")}
           </button>
           <details className="workspace-export"><summary>{tr ? "Dışa aktar" : "Export"}</summary><div>
           <button className="ghost" onClick={htmlReport} disabled={!filtered.length}>
@@ -3295,78 +3298,28 @@ function Reports({ rows, lang, go, preparedBy }: { rows: Row[]; lang: Lang; go: 
           <button className="ghost" onClick={() => downloadBlob(`Fornost-GRC-${exportSlug}.csv`,new Blob([buildReportCsv(reportTitle,filtered,metrics,tr,options())],{type:"text/csv;charset=utf-8"}))} disabled={!filtered.length}>
             CSV
           </button>
-          <button className="ghost" onClick={()=>void pdfReport()} disabled={!filtered.length||exporting}>
-            {exporting?(tr?"PDF hazırlanıyor…":"Preparing PDF…"):(tr ? "PDF Raporu" : "PDF Report")}
-          </button>
-          <button className="primary" onClick={excel} disabled={!filtered.length}>
+          <button className="ghost" onClick={excel} disabled={!filtered.length}>
             {tr ? "Excel Raporu Al" : "Download Excel Report"}
           </button>
           </div></details>
         </div>
       </section>
       {exportError&&<p className="report-export-error" role="alert">{exportError}</p>}
-      <div className="report-template-settings"><label>{tr?"Şablon":"Template"}<select aria-label={tr?"Şablon":"Template"} value={template} onChange={e=>setTemplate(e.target.value as "management"|"detailed")}><option value="management">{tr?"Yönetim özeti":"Management summary"}</option><option value="detailed">{tr?"Detaylı kayıt dökümü":"Detailed register"}</option></select></label><label>{tr?"Sınıflandırma":"Classification"}<select aria-label={tr?"Sınıflandırma":"Classification"} value={classification} onChange={e=>setClassification(e.target.value)}><option value="internal">{tr?"Kurum İçi":"Internal"}</option><option value="confidential">{tr?"Gizli":"Confidential"}</option></select></label><p>{tr?"HTML, PDF ve CSV aynı filtreli kayıtları içerir. Detaylı şablon tüm kayıt alanlarını ekler; PDF fontu uygulamayla birlikte gelir.":"HTML, PDF and CSV include the same filtered records. The detailed template adds all record fields; the PDF font is bundled with the application."}</p></div>
-      <p className="report-limit-note">{tr?"Kapsam: Yüklenmiş çekirdek GRC kayıtları. Ayrı CAPA/AI iş akışı depoları dahil değildir. Aşağıdaki bütünleşik güvence özeti tüm yüklü kayıtları kullanır; filtreli rapor kapsamından ayrıdır.":"Scope: Loaded core GRC records. Separate CAPA/AI workflow stores are excluded. The composite assurance summary below uses all loaded records and is separate from the filtered report scope."}</p>
-      <section className="report-scope-strip" aria-label={tr ? "Rapor özeti" : "Report summary"}>
-        <div><small>{tr ? "Kapsam" : "Scope"}</small><b>{selectedModuleLabel}</b></div>
-        <div><small>{tr ? "Dahil edilen" : "Included"}</small><b>{filtered.length} {tr ? "kayıt" : "records"}</b></div>
-        <div><small>{tr ? "Son güncelleme" : "Last update"}</small><b>{lastUpdated ? new Date(lastUpdated).toLocaleDateString(tr ? "tr-TR" : "en-GB") : "—"}</b></div>
-        <div><small>{tr ? "Çıktılar" : "Outputs"}</small><b>PDF · XLSX · CSV · HTML</b></div>
-      </section>
-      <section className="report-assurance-strip" aria-label={tr ? "Bağlı GRC güvence özeti" : "Connected GRC assurance summary"}>
-        <div><small>{tr ? "Bütünleşik güvence" : "Composite assurance"}</small><b>{assurance.score}/100</b><span>{assurance.state === "strong" ? (tr ? "Güçlü" : "Strong") : assurance.state === "developing" ? (tr ? "Gelişiyor" : "Developing") : (tr ? "Kritik" : "Critical")}</span></div>
-        <div><small>{tr ? "Zincir bütünlüğü" : "Chain integrity"}</small><b>{assurance.traceabilityScore}%</b><span>{assurance.completeChains}/{assurance.totalChains} {tr ? "tam" : "complete"}</span></div>
-        <div><small>{tr ? "Kontrol güvencesi" : "Control assurance"}</small><b>{assurance.controlScore}%</b><span>{tr ? "Test ve kanıt" : "Test and evidence"}</span></div>
-        <div><small>{tr ? "Kanıt güveni" : "Evidence confidence"}</small><b>{assurance.evidenceScore}%</b><span>{assurance.currentEvidence}/{assurance.totalEvidence} {tr ? "güncel" : "current"}</span></div>
-        <div role="button" tabIndex={0} onClick={() => go("Bağlantılı GRC")} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") go("Bağlantılı GRC"); }}><small>{tr ? "Denetim readiness" : "Audit readiness"}</small><b>{assurance.auditScore}%</b><span>{tr ? "Açıkları incele →" : "Review gaps →"}</span></div>
-      </section>
-      <section className="report-builder">
-        <header className="report-section-head">
-          <div><small>{tr ? "01 · KAPSAM" : "01 · SCOPE"}</small><h3>{tr ? "Rapor modülünü seçin" : "Choose the reporting module"}</h3></div>
-          <span>{tr ? "Modül seçimi filtre seçeneklerini günceller." : "Module selection updates the available filters."}</span>
-        </header>
-        <div className="report-module-picker" aria-label={tr ? "Rapor modülü" : "Report module"}>
-          <button className={module === all ? "active" : ""} onClick={() => setModule(all)}>
-            <span>{allLabel}</span><b>{rows.length}</b>
-          </button>
-          {reportModules.map((item) => (
-            <button key={item} className={module === item ? "active" : ""} onClick={() => setModule(item)}>
-              <span>{names[lang][item] || item}</span><b>{rows.filter((row) => row.module === item).length}</b>
-            </button>
-          ))}
-        </div>
-      </section>
       <section className="report-filter-panel">
-        <header className="report-section-head">
-          <div><small>{tr ? "02 · FİLTRELER" : "02 · FILTERS"}</small><h3>{tr ? "Rapor kapsamını daraltın" : "Refine report scope"}</h3></div>
-          <button type="button" onClick={resetFilters} disabled={unit === all && owner === all && status === all}>{tr ? "Filtreleri temizle" : "Clear filters"}</button>
-        </header>
-        <div className="report-filters">
-          <Filter label={tr ? "İş Birimi" : "Business Unit"} value={unit} set={setUnit} opts={values("businessUnit")} all={all} allLabel={tr ? "Tümü" : "All"} />
-          <Filter label={tr ? "Sahip" : "Owner"} value={owner} set={setOwner} opts={values("owner")} all={all} allLabel={tr ? "Tümü" : "All"} />
-          <Filter label={tr ? "Durum" : "Status"} value={status} set={setStatus} opts={values("status")} all={all} allLabel={tr ? "Tümü" : "All"} />
+        <header className="report-section-head"><h3>{tr?"Rapor kapsamı":"Report scope"}</h3><button type="button" onClick={resetFilters} disabled={unit===all&&owner===all&&status===all}>{tr?"Filtreleri temizle":"Clear filters"}</button></header>
+        <div className="report-scope-controls">
+          <label className="report-module-picker"><span>{tr?"Modül":"Module"}</span><select aria-label={tr?"Rapor modülü":"Report module"} value={module} onChange={e=>setModule(e.target.value)}><option value={all}>{allLabel} ({rows.length})</option>{reportModules.map(item=><option key={item} value={item}>{names[lang][item]||item} ({rows.filter(row=>row.module===item).length})</option>)}</select></label>
+          <div className="report-filters">
+            <Filter label={tr?"İş Birimi":"Business Unit"} value={unit} set={setUnit} opts={values("businessUnit")} all={all} allLabel={tr?"Tümü":"All"}/>
+            <Filter label={tr?"Sahip":"Owner"} value={owner} set={setOwner} opts={values("owner")} all={all} allLabel={tr?"Tümü":"All"}/>
+            <Filter label={tr?"Durum":"Status"} value={status} set={setStatus} opts={values("status")} all={all} allLabel={tr?"Tümü":"All"}/>
+          </div>
         </div>
+      <div className="report-template-settings"><label>{tr?"Şablon":"Template"}<select aria-label={tr?"Şablon":"Template"} value={template} onChange={e=>setTemplate(e.target.value as "management"|"detailed")}><option value="management">{tr?"Yönetim özeti":"Management summary"}</option><option value="detailed">{tr?"Detaylı kayıt dökümü":"Detailed register"}</option></select></label><label>{tr?"Sınıflandırma":"Classification"}<select aria-label={tr?"Sınıflandırma":"Classification"} value={classification} onChange={e=>setClassification(e.target.value)}><option value="internal">{tr?"Kurum İçi":"Internal"}</option><option value="confidential">{tr?"Gizli":"Confidential"}</option></select></label><p>{tr?"Özet: temel alanlar. Detaylı döküm: tüm kayıt alanları.":"Summary: key fields. Detailed register: every record field."}</p></div>
+        <div className="report-scope-strip"><span><b>{filtered.length}</b> {tr?"kayıt seçildi":"records selected"} · {selectedModuleLabel}</span><span>{tr?"Son güncelleme":"Last updated"}: {lastUpdated?new Date(lastUpdated).toLocaleDateString(tr?'tr-TR':'en-GB'):'—'}</span></div>
       </section>
       <section className="report-summary">
         {metrics.map((metric) => <Kpi key={metric.label} n={metric.value} t={metric.label} s={metric.note} />)}
-      </section>
-      <section className="report-analysis-grid">
-        <div className="report-insights">
-          <div>
-            <small>{tr ? "YÖNETİM GÖRÜNÜMÜ" : "MANAGEMENT VIEW"}</small>
-            <h3>{tr ? "Durum dağılımı" : "Status distribution"}</h3>
-            <p>{tr ? "Seçili filtrelerle rapora giren kayıtların güncel dağılımı." : "Current distribution of records included by the selected filters."}</p>
-          </div>
-          {statusDistribution.length ? <Bars items={statusDistribution.map(([label, value], index) => ({ label, value, cls: ["uyumlu", "orta", "yüksek", "kritik"][index % 4] }))} /> : <p className="report-empty-inline">{tr ? "Dağılım için kayıt bulunamadı." : "No records available for distribution."}</p>}
-        </div>
-        <div className="report-data-quality">
-          <small>{tr ? "VERİ GÜVENİ" : "DATA CONFIDENCE"}</small>
-          <h3>{tr ? "Rapor veri kalitesi" : "Report data quality"}</h3>
-          <p>{tr ? "Zorunlu yönetim alanlarının doluluk oranı." : "Completion rate of core management fields."}</p>
-          <div>
-            {qualitySignals.map((signal) => <div key={signal.label}><span><b>{signal.label}</b><em>{signal.value}%</em></span><i><u style={{ width: `${signal.value}%` }} /></i></div>)}
-          </div>
-        </div>
       </section>
       <section className="table-card">
         <div className="table-tools">
@@ -3426,6 +3379,36 @@ function Reports({ rows, lang, go, preparedBy }: { rows: Row[]; lang: Lang; go: 
         </div>
         <nav className="report-pagination" aria-label={tr?"Rapor önizleme sayfaları":"Report preview pages"}><span>{tr?"Sayfa":"Page"} {currentPage}/{pages} · {filtered.length} {tr?"kayıt; dışa aktarım tümünü içerir":"records; all are included in exports"}</span><button type="button" disabled={currentPage<=1} onClick={()=>setPreviewPage(currentPage-1)}>{tr?"Önceki":"Previous"}</button><button type="button" disabled={currentPage>=pages} onClick={()=>setPreviewPage(currentPage+1)}>{tr?"Sonraki":"Next"}</button></nav>
       </section>
+      <details className="report-secondary"><summary>{tr?"Veri kalitesi ve durum dağılımı":"Data quality and status distribution"}</summary>
+      <section className="report-analysis-grid">
+        <div className="report-insights">
+          <div>
+            <small>{tr ? "YÖNETİM GÖRÜNÜMÜ" : "MANAGEMENT VIEW"}</small>
+            <h3>{tr ? "Durum dağılımı" : "Status distribution"}</h3>
+            <p>{tr ? "Seçili filtrelerle rapora giren kayıtların güncel dağılımı." : "Current distribution of records included by the selected filters."}</p>
+          </div>
+          {statusDistribution.length ? <Bars items={statusDistribution.map(([label, value], index) => ({ label, value, cls: ["uyumlu", "orta", "yüksek", "kritik"][index % 4] }))} /> : <p className="report-empty-inline">{tr ? "Dağılım için kayıt bulunamadı." : "No records available for distribution."}</p>}
+        </div>
+        <div className="report-data-quality">
+          <small>{tr ? "VERİ GÜVENİ" : "DATA CONFIDENCE"}</small>
+          <h3>{tr ? "Rapor veri kalitesi" : "Report data quality"}</h3>
+          <p>{tr ? "Zorunlu yönetim alanlarının doluluk oranı." : "Completion rate of core management fields."}</p>
+          <div>
+            {qualitySignals.map((signal) => <div key={signal.label}><span><b>{signal.label}</b><em>{signal.value}%</em></span><i><u style={{ width: `${signal.value}%` }} /></i></div>)}
+          </div>
+        </div>
+      </section>
+      </details>
+      <details className="report-secondary"><summary>{tr?"Genel GRC güvencesi · ayrı kapsam":"Global GRC assurance · separate scope"}</summary><p className="report-limit-note">{tr?"Tüm yüklü kayıtları kapsar; yukarıdaki filtreler uygulanmaz.":"Includes all loaded records; the filters above do not apply."}</p>
+      <section className="report-assurance-strip" aria-label={tr ? "Bağlı GRC güvence özeti" : "Connected GRC assurance summary"}>
+        <div><small>{tr ? "Bütünleşik güvence" : "Composite assurance"}</small><b>{assurance.score}/100</b><span>{assurance.state === "strong" ? (tr ? "Güçlü" : "Strong") : assurance.state === "developing" ? (tr ? "Gelişiyor" : "Developing") : (tr ? "Kritik" : "Critical")}</span></div>
+        <div><small>{tr ? "Zincir bütünlüğü" : "Chain integrity"}</small><b>{assurance.traceabilityScore}%</b><span>{assurance.completeChains}/{assurance.totalChains} {tr ? "tam" : "complete"}</span></div>
+        <div><small>{tr ? "Kontrol güvencesi" : "Control assurance"}</small><b>{assurance.controlScore}%</b><span>{tr ? "Test ve kanıt" : "Test and evidence"}</span></div>
+        <div><small>{tr ? "Kanıt güveni" : "Evidence confidence"}</small><b>{assurance.evidenceScore}%</b><span>{assurance.currentEvidence}/{assurance.totalEvidence} {tr ? "güncel" : "current"}</span></div>
+        <div role="button" tabIndex={0} onClick={() => go("Bağlantılı GRC")} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") go("Bağlantılı GRC"); }}><small>{tr ? "Denetim readiness" : "Audit readiness"}</small><b>{assurance.auditScore}%</b><span>{tr ? "Açıkları incele →" : "Review gaps →"}</span></div>
+      </section>
+      </details>
+      <p className="report-limit-note">{tr?"Rapor kapsamı: çekirdek GRC kayıtları. Ayrı CAPA ve AI iş akışları dahil değildir.":"Report scope: core GRC records. Separate CAPA and AI workflows are excluded."}</p>
     </div>
   );
 }
