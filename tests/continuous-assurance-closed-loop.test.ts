@@ -83,8 +83,8 @@ test("approved CAPA promotion creates a canonical Connected GRC finding with imm
 });
 
 test("Connected GRC queue exposes approval/rejection after role discovery and routes approved retests to the exact rule", () => {
-  assert.match(queueUi, /fetch\(withBasePath\("\/api\/auth"\)/);
-  assert.match(queueUi, /setCanReview\(auth\?\.user\?\.role==="Admin"\)/);
+  assert.match(queueUi, /requestJsonWithDeadline\(withBasePath\("\/api\/auth"\)/);
+  assert.match(queueUi, /setCanReview\(user\.role==="Admin"\)/);
   assert.match(queueUi, /decision:"approve"/);
   assert.match(queueUi, /decision:"reject"/);
   assert.match(queueUi, /Open Retest Rule/);
