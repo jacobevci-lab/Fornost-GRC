@@ -36,7 +36,7 @@ try{
  uncertain=false;await panel.getByRole('searchbox').fill('CTRL-QA-2');
  await panel.locator('.assurance-work-list>article').first().getByRole('button',{name:'Approve',exact:true}).click();
  const dialog=panel.getByRole('dialog',{name:'Review assurance work'});
- await dialog.getByRole('button',{name:'Approve',exact:true}).dispatchEvent('click');await dialog.getByRole('button',{name:'Approve',exact:true}).dispatchEvent('click');
+ await dialog.locator('footer button.approve').evaluate(button=>{button.dispatchEvent(new MouseEvent('click',{bubbles:true}));button.dispatchEvent(new MouseEvent('click',{bubbles:true}));});
  await expect(dialog).toHaveCount(0);assert.equal(writes,2);
  unavailable=true;await panel.getByRole('button',{name:'Refresh',exact:true}).click();await expect(panel.getByRole('alert')).toBeVisible();await expect(panel.getByRole('button',{name:'Approve',exact:true})).toHaveCount(0);
  console.log('Assurance queue recovery QA passed: unknown counters, retry, full-list search, independent review, duplicate review/retest guards and ambiguous write recovery without retry.');
