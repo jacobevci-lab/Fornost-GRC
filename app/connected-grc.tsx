@@ -2,14 +2,16 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { assessConnectedGrcCoverage, buildConnectedGrcGraph, connectedRelationLabels, connectedRemediationModule, connectedTitle, type ConnectedGrcRow } from "./connected-grc-model";
+import { connectedGrcExport } from "./connected-grc-export";
 import { connectedGrcNavigation } from "./connected-grc-navigation";
-import { buildConnectedGrcEnterpriseRows, connectedGrcEndpoints, connectedAiSourceComplete, type ConnectedGrcEnterprisePayloads } from "./connected-grc-sources";
+import { buildConnectedGrcEnterpriseRows, connectedGrcEndpoints } from "./connected-grc-sources";
 import { buildContinuousAssuranceChains, summarizeContinuousAssurance } from "./continuous-assurance-chain";
 import ContinuousAssuranceWorkQueue from "./continuous-assurance-work-queue";
 import ContinuousAssuranceGovernance from "./continuous-assurance-governance";
 import ContinuousAssuranceEscalationCenter from "./continuous-assurance-escalation-center";
 import { navigateToFornost } from "./navigation-focus";
-import { withBasePath } from "./base-path";
+import { connectedSourceIssueText } from "./connected-grc-source-status";
+import { loadConnectedGrcSources } from "./connected-grc-loader";
 import "./connected-grc-contract.css";
 import "./connected-assurance-posture.css";
 import "./connected-grc-explorer.css";
@@ -17,7 +19,6 @@ import "./connected-grc-explorer.css";
 type Lang = "tr" | "en";
 const moduleNames:Record<string,string>={"Varlık Envanteri":"Asset Inventory","Kontroller":"Control Library","Kanıtlar":"Evidence Library","Denetim Yönetimi":"Audit Management","Uyum":"Compliance Management","Tedarikçiler":"Vendor Management","Politika Merkezi":"Policy Center","Bulgular ve CAPA":"Findings & CAPA","Kanıt Otomasyonu":"Evidence Automation","İş Sürekliliği":"Business Continuity","Güvenlik Olayları":"Security Incidents","Regülasyon Merkezi":"Regulatory Change","Risk İştahı ve KRI":"Risk Appetite & KRI","AI Yönetişimi":"AI Governance"};
 const ignored = new Set(["Ana Sayfa","Bağlantılı GRC","Raporlar"]);
-const csv = (value:unknown) => { const text=String(value??""); const safe=/^[=+\-@]/.test(text)?`'${text}`:text; return `"${safe.replace(/"/g,'""')}"`; };
 
 export default function ConnectedGrc({rows,lang,go,includeAi=false}:{rows:ConnectedGrcRow[];lang:Lang;go:(module:string)=>void;includeAi?:boolean}){
   const tr=lang==="tr",[module,setModule]=useState("all"),[query,setQuery]=useState("");
@@ -28,34 +29,27 @@ export default function ConnectedGrc({rows,lang,go,includeAi=false}:{rows:Connec
   const [page,setPage]=useState(0);
   const [linkLimit,setLinkLimit]=useState(8);
   const [gapLimit,setGapLimit]=useState(12);
-  const [enterpriseRows,setEnterpriseRows]=useState<ConnectedGrcRow[]>([]);
-  const [sourceState,setSourceState]=useState({ready:0,total:connectedGrcEndpoints(includeAi).length,loading:true});
+  const [sourceReload,setSourceReload]=useState(0);
+  const [sourceSnapshot,setSourceSnapshot]=useState<{
+    includeAi:boolean; reload:number; rows:ConnectedGrcRow[];
+    result:Awaited<ReturnType<typeof loadConnectedGrcSources>>;
+  }|null>(null);
+  const activeSnapshot=sourceSnapshot?.includeAi===includeAi&&sourceSnapshot.reload===sourceReload?sourceSnapshot:null;
+  const enterpriseRows=useMemo(()=>activeSnapshot?.rows||[],[activeSnapshot]);
+  const sourceState={ready:activeSnapshot?.result.ready||0,total:connectedGrcEndpoints(includeAi).length,loading:!activeSnapshot};
 
   useEffect(()=>{
     const controller=new AbortController();
     let current=true;
-    (async()=>{
-      const payloads:ConnectedGrcEnterprisePayloads={};
-      let ready=0;
-      await Promise.all(connectedGrcEndpoints(includeAi).map(async endpoint=>{
-        try{
-          const response=await fetch(withBasePath(endpoint.path),{signal:controller.signal,headers:{accept:"application/json"},cache:"no-store"});
-          if(!response.ok)return;
-          const body=await response.json();
-          if(body&&typeof body==="object"&&!Array.isArray(body)){
-            (payloads as Record<string,unknown>)[endpoint.key]=body;
-            if(connectedAiSourceComplete(endpoint.key,body))ready+=1;
-          }
-        }catch(error){
-          if((error as {name?:string})?.name!=="AbortError") console.warn(`Connected GRC source unavailable: ${endpoint.path}`);
-        }
-      }));
+    void loadConnectedGrcSources({includeAi,signal:controller.signal}).then(result=>{
       if(!current)return;
-      setEnterpriseRows(buildConnectedGrcEnterpriseRows(payloads));
-      setSourceState({ready,total:connectedGrcEndpoints(includeAi).length,loading:false});
-    })();
+      setSourceSnapshot({includeAi,reload:sourceReload,rows:buildConnectedGrcEnterpriseRows(result.payloads),result});
+    });
     return()=>{current=false;controller.abort();};
-  },[includeAi]);
+  },[includeAi,sourceReload]);
+
+  const sourcesComplete=!sourceState.loading&&sourceState.ready===sourceState.total;
+  const coverageNotice=sourceState.loading?(tr?"Kaynaklar yükleniyor; tamlık ve güvence değerlendirmesi bekleniyor.":"Sources are loading; completeness and assurance assessment is pending."):(tr?"Kaynaklar eksik: bağlantı eksikleri ön değerlendirmedir; toplam tamlık ve güvence sonucu hesaplanmadı.":"Sources are incomplete: connection gaps are provisional; overall completeness and assurance were not assessed.");
 
   const records=useMemo(()=>{
     const merged=new Map<string,ConnectedGrcRow>();
@@ -90,15 +84,17 @@ export default function ConnectedGrc({rows,lang,go,includeAi=false}:{rows:Connec
     navigateToFornost({module:target.module,ref:target.ref,kind:target.kind,source:"connected-grc-register",filter:{[target.filterKey]:target.ref}});
   }
   function download(){
-    const data=[["Source module","Source code","Source title","Relationship","Field","Target module","Target code","Target title","Matched reference"],...filtered.map(link=>[link.source.module,link.source.code||link.source.id,connectedTitle(link.source),link.relation,link.field,link.target.module,link.target.code||link.target.id,connectedTitle(link.target),link.matched])];
-    const blob=new Blob(["\uFEFF"+data.map(row=>row.map(csv).join(";")).join("\n")],{type:"text/csv;charset=utf-8"});
-    const url=URL.createObjectURL(blob),anchor=document.createElement("a");anchor.href=url;anchor.download="fornost-connected-grc.csv";anchor.click();URL.revokeObjectURL(url);
+    const result=connectedGrcExport(filtered,{...sourceState,generatedAt:new Date().toISOString()});
+    if(!result)return;
+    const blob=new Blob([result.content],{type:"text/csv;charset=utf-8"});
+    const url=URL.createObjectURL(blob),anchor=document.createElement("a");anchor.href=url;anchor.download=result.filename;anchor.click();URL.revokeObjectURL(url);
   }
   return <section className="connected-grc connected-explorer">
     <header className="cg-heading">
       <div><small>CONNECTED GRC</small><h2>{tr?"Bağlantılı GRC Haritası":"Connected GRC Map"}</h2><p>{tr?"Bir kayıt seçin; hangi kayıtlarla bağlantılı olduğunu görün.":"Choose a record to see what it connects to."}</p></div>
-      <span className="cg-source-state" role="status" data-ready={sourceState.ready} data-total={sourceState.total} data-loading={sourceState.loading}>{sourceState.loading?(tr?"Bağlantılar yükleniyor…":"Loading connections…"):sourceState.ready<sourceState.total?(tr?"Bazı kaynaklar eksik veya erişilemiyor; görünüm kısmi olabilir.":"Some sources are unavailable or incomplete; this view may be partial."):(tr?"Kaynaklar güncel":"Sources loaded")}</span>
+      <div className="cg-source-controls"><span className="cg-source-state" role="status" data-ready={sourceState.ready} data-total={sourceState.total} data-loading={sourceState.loading}>{sourceState.loading?(tr?"Bağlantılar yükleniyor…":"Loading connections…"):sourceState.ready<sourceState.total?(tr?"Bazı kaynaklar eksik veya erişilemiyor; görünüm kısmi olabilir.":"Some sources are unavailable or incomplete; this view may be partial."):(tr?"Kaynaklar güncel":"Sources loaded")}</span><button type="button" disabled={sourceState.loading} onClick={()=>setSourceReload(value=>value+1)}>{sourceState.loading?(tr?"Yükleniyor…":"Loading…"):sourceState.ready<sourceState.total?(tr?"Tekrar dene":"Try again"):(tr?"Yenile":"Refresh")}</button></div>
     </header>
+    {!!activeSnapshot?.result.issues.length&&<details className="cg-source-issues"><summary>{tr?"Kaynak durumu":"Source status"} · {sourceState.ready}/{sourceState.total}</summary><ul>{activeSnapshot.result.issues.map(issue=><li key={issue.key}>{connectedSourceIssueText(issue,lang)}</li>)}</ul><p>{tr?"Eksik kaynaklar bağlantı ve güvence sonuçlarını etkileyebilir. Yeniden deneyebilir veya ilgili modüldeki erişiminizi kontrol edebilirsiniz.":"Missing sources can affect connections and assurance results. Retry or check your access in the affected module."}</p></details>}
     <div className="cg-summary" aria-label={tr?"Genel durum":"Overview"}>
       <span><b>{records.length}</b> {tr?"kayıt":"records"}</span>
       <span><b>{links.length}</b> {tr?"bağlantı":"connections"}</span>
@@ -112,7 +108,7 @@ export default function ConnectedGrc({rows,lang,go,includeAi=false}:{rows:Connec
         <label>{tr?"Kayıt ara":"Find a record"}<input value={query} onChange={event=>{setQuery(event.target.value);setPage(0);setLinkLimit(8)}} placeholder={tr?"Ad veya kod…":"Name or code…"}/></label>
         <label>{tr?"Modül":"Module"}<select value={module} onChange={event=>{setModule(event.target.value);setPage(0);setLinkLimit(8)}}><option value="all">{tr?"Tüm modüller":"All modules"}</option>{modules.map(name=><option key={name} value={name}>{moduleLabel(name)}</option>)}</select></label>
         {(query||module!=="all")&&<button type="button" onClick={resetFilters}>{tr?"Temizle":"Clear"}</button>}
-        <button type="button" className="cg-export" onClick={download}>{tr?"Bağlantıları indir · CSV":"Export connections · CSV"}</button>
+        <button type="button" className="cg-export" disabled={sourceState.loading} onClick={download}>{sourcesComplete?(tr?"Bağlantıları indir · CSV":"Export connections · CSV"):(tr?"Kısmi bağlantıları indir · CSV":"Export partial connections · CSV")}</button>
       </div>
       <div className="cg-workspace">
         <section ref={recordList} className="cg-records" aria-label={tr?"Kayıt seçimi":"Record selection"}>
@@ -135,17 +131,19 @@ export default function ConnectedGrc({rows,lang,go,includeAi=false}:{rows:Connec
       </div>
     </section>}
     {view==="gaps"&&<section className="connected-assurance cg-gaps">
-      <header><div><h3>{tr?"Tamamlanması gereken bağlantılar":"Connections to complete"}</h3><p>{tr?"Eksik ilişkiyi inceleyin ve ilgili kaydı açarak tamamlayın.":"Review the missing relationship, then open the record to complete it."}</p></div><span>{coverage.eligible?`${coverage.percent}%`:'—'} {tr?"tamlık":"complete"}</span></header>
+      <header><div><h3>{tr?"Tamamlanması gereken bağlantılar":"Connections to complete"}</h3><p>{tr?"Eksik ilişkiyi inceleyin ve ilgili kaydı açarak tamamlayın.":"Review the missing relationship, then open the record to complete it."}</p></div><span>{sourcesComplete&&coverage.eligible?`${coverage.percent}%`:'—'} {tr?"tamlık":"complete"}</span></header>
+      {!sourcesComplete&&<p className="cg-assessment-pending" role="status">{coverageNotice}</p>}
       {coverage.gaps.length?<div className="connected-gap-list">{coverage.gaps.slice(0,gapLimit).map((gap)=>{
         const target=connectedRemediationModule[gap.missingRelations[0]]||gap.row.module,focusable=Boolean(connectedGrcNavigation(gap.row));
         return <article key={`${gap.row.module}-${gap.row.id}-${gap.rule}`}><div className="connected-gap-score"><strong>{gap.percent}%</strong><small>{tr?"tamlık":"complete"}</small></div><div><span className={gap.severity}>{gap.severity==="high"?(tr?"Yüksek":"High"):(tr?"Orta":"Medium")}</span><b>{gap.row.code||gap.row.id}</b><em>{connectedTitle(gap.row)}</em><small>{tr?"Eksik: ":"Missing: "}{gap.missingRelations.map(relation=>connectedRelationLabels[relation]?.[lang]||relation).join(" · ")}</small></div><button type="button" onClick={()=>focusable?openRecord(gap.row):go(target)}>{focusable?(tr?"Kaydı düzelt":"Fix record"):(tr?"Bağlantıyı tamamla":"Complete link")}<span>→</span></button></article>;
-      })}</div>:<div className="connected-assurance-ok">{tr?"Yüklenen kayıtlarda eksik zorunlu bağlantı bulunamadı.":"No missing required connections were found in the loaded records."}</div>}
+      })}</div>:<div className={sourcesComplete?"connected-assurance-ok":"cg-assessment-pending"}>{sourcesComplete?(tr?"Yüklenen kayıtlarda eksik zorunlu bağlantı bulunamadı.":"No missing required connections were found in the loaded records."):(tr?"Eksik bağlantı değerlendirmesi henüz doğrulanamadı.":"The missing-connection assessment is not yet verified.")}</div>}
       {coverage.gaps.length>gapLimit&&<button type="button" className="cg-more" onClick={()=>setGapLimit(gapLimit+12)}>{tr?"Daha fazla göster":"Show more"} ({coverage.gaps.length-gapLimit})</button>}
       {!!unresolved.length&&<details className="connected-unresolved"><summary>{tr?`${unresolved.length} çözümlenmemiş referans`:`${unresolved.length} unresolved references`}</summary>{unresolved.map((item,index)=><div key={`${item.source.id}-${item.field}-${index}`}><button type="button" onClick={()=>openRecord(item.source)}>{item.source.code||item.source.id}</button><span>{connectedRelationLabels[item.relation]?.[lang]||item.relation}</span><code>{item.value}</code><small className="connected-reference-reason">{item.reason === 'ambiguous' ? (tr ? `${item.candidates.length} olası kayıt — kaynak kayıtta ID veya benzersiz kod kullanın.` : `${item.candidates.length} possible records — use an ID or unique code in the source record.`) : (tr ? 'Hedef kayıt bulunamadı.' : 'Target record not found.')}</small>{item.reason === 'ambiguous' && <span className="connected-reference-candidates">{item.candidates.map(candidate => `${candidate.code || candidate.id} · ${connectedTitle(candidate)}`).join(' / ')}</span>}</div>)}</details>}
     </section>}
     {view==="assurance"&&<section className="connected-assurance cg-operations">
       <header><div><h3>{tr?"Güvence işlemleri":"Assurance operations"}</h3><p>{tr?"Kontrol sonuçlarını, onayları ve takip işlerini yönetin.":"Manage control results, approvals and follow-up work."}</p></div></header>
-      {assuranceSummary.rules>0&&<div className="connected-lifecycle-posture" aria-label={tr?"Sürekli güvence operasyonel duruşu":"Continuous assurance operational posture"}>
+      {!sourcesComplete&&<p className="cg-assessment-pending" role="status">{coverageNotice}</p>}
+      {sourcesComplete&&assuranceSummary.rules>0&&<div className="connected-lifecycle-posture" aria-label={tr?"Sürekli güvence operasyonel duruşu":"Continuous assurance operational posture"}>
         <article className={assuranceSummary.averageAssuranceScore<70?"attention":"healthy"}><small>{tr?"Ortalama güvence":"Average assurance"}</small><strong>{assuranceSummary.averageAssuranceScore}%</strong><span>{assuranceSummary.rules} {tr?"sürekli kontrol":"continuous controls"}</span></article>
         <article className="healthy"><small>{tr?"Etkin":"Effective"}</small><strong>{assuranceSummary.effective}</strong><span>{tr?"doğrulanmış kontrol":"validated controls"}</span></article>
         <article className={assuranceSummary.degraded+assuranceSummary.ineffective?"attention":"healthy"}><small>{tr?"Bozulmuş / Etkisiz":"Degraded / Ineffective"}</small><strong>{assuranceSummary.degraded} / {assuranceSummary.ineffective}</strong><span>{tr?"aksiyon gerektiren":"requiring action"}</span></article>

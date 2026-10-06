@@ -1,6 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { chromium } from "@playwright/test";
+import { probeConnectedGrcSource } from "./connected-grc-source-probe.mjs";
 
 const baseUrl = (process.env.FORNOST_PROD_URL || "https://app.fornostsecurity.com").replace(/\/$/, "");
 const baseOrigin = new URL(baseUrl).origin;
@@ -96,26 +97,26 @@ try {
     data: { action: "login", email: smokeEmail, password: smokePassword },
   });
   if (login.status() !== 200) {
-    fail("Dedicated smoke login", `HTTP ${login.status()}: ${(await login.text()).slice(0, 300)}`);
+    fail("Dedicated smoke login", `HTTP ${login.status()}`);
     throw new Error("Connected GRC production QA cannot continue without an authenticated session.");
   }
 
   for (const source of sourceDefinitions) {
-    const response = await context.request.get(`${baseUrl}${source.path}`, {
-      headers: { ...accessHeaders, accept: "application/json" },
+    const probe = await probeConnectedGrcSource(context.request, `${baseUrl}${source.path}`, {
+      ...accessHeaders, accept: "application/json",
     });
-    let payload = null;
-    try { payload = await response.json(); } catch {}
+    const payload = probe.payload;
     const projectableRecords = projectableRecordCount(source.key, payload);
     report.endpointChecks.push({
       key: source.key,
       path: source.path,
       module: source.module,
-      status: response.status(),
-      ok: response.ok(),
+      status: probe.status,
+      ok: probe.ok,
+      reason: probe.reason,
       projectableRecords,
     });
-    if (!response.ok()) fail(`Live source ${source.key}`, `${source.path} returned HTTP ${response.status()}`);
+    if (!probe.ok) fail(`Live source ${source.key}`, `${source.path}: ${probe.reason}${probe.status === null ? "" : ` (HTTP ${probe.status})`}`);
   }
 
   const page = await context.newPage();
@@ -234,6 +235,9 @@ try {
   if (report.consoleErrors.length) fail("First-party/runtime console errors", JSON.stringify(report.consoleErrors.slice(0, 5)));
   if (report.pageErrors.length) fail("Page errors", JSON.stringify(report.pageErrors.slice(0, 5)));
   if (report.firstPartyFailedRequests.length) fail("First-party failed requests", JSON.stringify(report.firstPartyFailedRequests.slice(0, 10)));
+} catch {
+  // Playwright request errors may embed authentication headers; do not serialize them.
+  fail("Connected GRC QA execution", "Execution interrupted; inspect the failed checks and rerun after resolving the issue.");
 } finally {
   await browser.close();
 }

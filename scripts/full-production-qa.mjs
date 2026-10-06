@@ -417,7 +417,7 @@ async function securityAndApiChecks(browser) {
   await context.close();
 }
 
-const browser = await chromium.launch({ headless: true });
+const browser = await chromium.launch({ headless: true, executablePath: process.env.QA_CHROMIUM_PATH || undefined });
 try {
   if (!smokeEmail || !smokePassword) throw new Error("Fornost smoke credentials are required for full production QA.");
   if (!accessClientId || !accessClientSecret) throw new Error("Cloudflare Access service-token credentials are required for full production QA.");
