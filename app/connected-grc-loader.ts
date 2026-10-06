@@ -1,6 +1,11 @@
 import { withBasePath } from "./base-path";
 import { connectedAiSourceComplete, connectedGrcEndpoints, type ConnectedGrcEnterprisePayloads } from "./connected-grc-sources";
 
+export type ConnectedSourceIssue = {
+  key: keyof ConnectedGrcEnterprisePayloads;
+  reason: "timeout" | "access" | "unavailable" | "invalid" | "incomplete";
+};
+
 export const CONNECTED_GRC_SOURCE_TIMEOUT_MS = 15_000;
 
 /** Bound both response headers and body parsing; cancellation never publishes late data. */
@@ -13,14 +18,17 @@ export async function loadConnectedGrcSources({ includeAi, signal, fetcher = fet
   const endpoints = connectedGrcEndpoints(includeAi);
   const payloads: ConnectedGrcEnterprisePayloads = {};
   let ready = 0;
+  const issues: ConnectedSourceIssue[] = [];
   await Promise.all(endpoints.map(async endpoint => {
+    if (signal.aborted) return;
     const controller = new AbortController();
+    let reason: ConnectedSourceIssue["reason"] = "unavailable";
     let timer: ReturnType<typeof setTimeout> | undefined;
     let cancel: () => void = () => {};
     const interrupted = new Promise<never>((_, reject) => {
       cancel = () => { controller.abort(); reject(new Error("Source cancelled")); };
       signal.addEventListener("abort", cancel, { once: true });
-      timer = setTimeout(cancel, timeoutMs);
+      timer = setTimeout(() => { reason = "timeout"; cancel(); }, timeoutMs);
       if (signal.aborted) cancel();
     });
     try {
@@ -29,14 +37,20 @@ export async function loadConnectedGrcSources({ includeAi, signal, fetcher = fet
         const response = await fetcher(withBasePath(endpoint.path), {
           signal: controller.signal, headers: { accept: "application/json" }, cache: "no-store",
         });
-        if (!response.ok) throw new Error("Source unavailable");
+        if (!response.ok) {
+          reason = response.status === 401 || response.status === 403 ? "access" : "unavailable";
+          throw new Error("Source unavailable");
+        }
+        reason = "invalid";
         return response.json();
       })()]);
       if (!signal.aborted && body && typeof body === "object" && !Array.isArray(body)) {
         payloads[endpoint.key] = body;
         if (connectedAiSourceComplete(endpoint.key, body)) ready++;
-      }
+        else issues.push({ key: endpoint.key, reason: "incomplete" });
+      } else if (!signal.aborted) issues.push({ key: endpoint.key, reason: "invalid" });
     } catch {
+      if (!signal.aborted) issues.push({ key: endpoint.key, reason });
       // A failed source must not discard successful sources or expose response details.
     } finally {
       clearTimeout(timer);
@@ -45,5 +59,5 @@ export async function loadConnectedGrcSources({ includeAi, signal, fetcher = fet
       interrupted.catch(() => {});
     }
   }));
-  return { payloads, ready, total: endpoints.length };
+  return { payloads, ready, total: endpoints.length, issues: issues.sort((a,b) => a.key.localeCompare(b.key)) };
 }

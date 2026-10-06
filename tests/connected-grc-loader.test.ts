@@ -61,3 +61,26 @@ test("AI requests are opt-in and incomplete AI sources cannot claim readiness", 
   assert.equal(withAi.ready, 8);
   assert.equal(paths.filter(path => path.includes("/ai/")).length, 3);
 });
+
+test("source failures expose safe, actionable reasons without server content", async () => {
+  const result = await run(async url => {
+    const path = String(url);
+    if (path.endsWith("/findings")) return new Response("sensitive server details", { status: 403 });
+    if (path.endsWith("/incidents")) return new Response("not-json");
+    if (path.endsWith("/policy-lifecycle")) return new Promise<Response>(() => {});
+    if (path.endsWith("/continuity")) return new Response("internal error", { status: 500 });
+    return json({});
+  });
+  assert.equal(result.ready, 4);
+  assert.deepEqual(Object.fromEntries(result.issues.map(issue => [issue.key, issue.reason])), {
+    continuity: "unavailable", findings: "access", incidents: "invalid", policy: "timeout",
+  });
+  assert.ok(!JSON.stringify(result).includes("sensitive"));
+});
+
+test("cancelled loads do not produce misleading source failures", async () => {
+  const controller = new AbortController();
+  const pending = run(async () => new Promise<Response>(() => {}), controller.signal);
+  controller.abort();
+  assert.deepEqual((await pending).issues, []);
+});

@@ -9,6 +9,7 @@ import ContinuousAssuranceWorkQueue from "./continuous-assurance-work-queue";
 import ContinuousAssuranceGovernance from "./continuous-assurance-governance";
 import ContinuousAssuranceEscalationCenter from "./continuous-assurance-escalation-center";
 import { navigateToFornost } from "./navigation-focus";
+import { connectedSourceIssueText } from "./connected-grc-source-status";
 import { loadConnectedGrcSources } from "./connected-grc-loader";
 import "./connected-grc-contract.css";
 import "./connected-assurance-posture.css";
@@ -28,19 +29,21 @@ export default function ConnectedGrc({rows,lang,go,includeAi=false}:{rows:Connec
   const [page,setPage]=useState(0);
   const [linkLimit,setLinkLimit]=useState(8);
   const [gapLimit,setGapLimit]=useState(12);
-  const [enterpriseRows,setEnterpriseRows]=useState<ConnectedGrcRow[]>([]);
-  const [sourceState,setSourceState]=useState({ready:0,total:connectedGrcEndpoints(includeAi).length,loading:true});
-
   const [sourceReload,setSourceReload]=useState(0);
+  const [sourceSnapshot,setSourceSnapshot]=useState<{
+    includeAi:boolean; reload:number; rows:ConnectedGrcRow[];
+    result:Awaited<ReturnType<typeof loadConnectedGrcSources>>;
+  }|null>(null);
+  const activeSnapshot=sourceSnapshot?.includeAi===includeAi&&sourceSnapshot.reload===sourceReload?sourceSnapshot:null;
+  const enterpriseRows=useMemo(()=>activeSnapshot?.rows||[],[activeSnapshot]);
+  const sourceState={ready:activeSnapshot?.result.ready||0,total:connectedGrcEndpoints(includeAi).length,loading:!activeSnapshot};
+
   useEffect(()=>{
     const controller=new AbortController();
     let current=true;
-    setEnterpriseRows([]);
-    setSourceState({ready:0,total:connectedGrcEndpoints(includeAi).length,loading:true});
-    void loadConnectedGrcSources({includeAi,signal:controller.signal}).then(({payloads,ready,total})=>{
+    void loadConnectedGrcSources({includeAi,signal:controller.signal}).then(result=>{
       if(!current)return;
-      setEnterpriseRows(buildConnectedGrcEnterpriseRows(payloads));
-      setSourceState({ready,total,loading:false});
+      setSourceSnapshot({includeAi,reload:sourceReload,rows:buildConnectedGrcEnterpriseRows(result.payloads),result});
     });
     return()=>{current=false;controller.abort();};
   },[includeAi,sourceReload]);
@@ -87,6 +90,7 @@ export default function ConnectedGrc({rows,lang,go,includeAi=false}:{rows:Connec
       <div><small>CONNECTED GRC</small><h2>{tr?"Bağlantılı GRC Haritası":"Connected GRC Map"}</h2><p>{tr?"Bir kayıt seçin; hangi kayıtlarla bağlantılı olduğunu görün.":"Choose a record to see what it connects to."}</p></div>
       <div className="cg-source-controls"><span className="cg-source-state" role="status" data-ready={sourceState.ready} data-total={sourceState.total} data-loading={sourceState.loading}>{sourceState.loading?(tr?"Bağlantılar yükleniyor…":"Loading connections…"):sourceState.ready<sourceState.total?(tr?"Bazı kaynaklar eksik veya erişilemiyor; görünüm kısmi olabilir.":"Some sources are unavailable or incomplete; this view may be partial."):(tr?"Kaynaklar güncel":"Sources loaded")}</span><button type="button" disabled={sourceState.loading} onClick={()=>setSourceReload(value=>value+1)}>{sourceState.loading?(tr?"Yükleniyor…":"Loading…"):sourceState.ready<sourceState.total?(tr?"Tekrar dene":"Try again"):(tr?"Yenile":"Refresh")}</button></div>
     </header>
+    {!!activeSnapshot?.result.issues.length&&<details className="cg-source-issues"><summary>{tr?"Kaynak durumu":"Source status"} · {sourceState.ready}/{sourceState.total}</summary><ul>{activeSnapshot.result.issues.map(issue=><li key={issue.key}>{connectedSourceIssueText(issue,lang)}</li>)}</ul><p>{tr?"Eksik kaynaklar bağlantı ve güvence sonuçlarını etkileyebilir. Yeniden deneyebilir veya ilgili modüldeki erişiminizi kontrol edebilirsiniz.":"Missing sources can affect connections and assurance results. Retry or check your access in the affected module."}</p></details>}
     <div className="cg-summary" aria-label={tr?"Genel durum":"Overview"}>
       <span><b>{records.length}</b> {tr?"kayıt":"records"}</span>
       <span><b>{links.length}</b> {tr?"bağlantı":"connections"}</span>
