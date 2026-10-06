@@ -10,6 +10,15 @@ const smokePassword = process.env.FORNOST_SMOKE_PASSWORD || "";
 const reportPath = path.resolve("qa-artifacts-v2/qa-report-v2.json");
 const gatePath = path.resolve("qa-artifacts-v2/qa-gate.json");
 
+// Local workspace QA invokes this gate directly; production may already have
+// generated the dark-theme scan. Generate missing evidence, never skip it.
+const legacyReportPath = path.resolve("qa-artifacts/qa-report.json");
+try { await fs.access(legacyReportPath); }
+catch (error) {
+  if (error?.code !== "ENOENT") throw error;
+  await import("./full-production-qa.mjs");
+}
+
 // Keep the comprehensive v2 scanner intact. Its raw artifact remains immutable evidence;
 // this wrapper applies explicit production contracts after targeted runtime verification.
 process.env.QA_FAIL_ON_HIGH = "0";
@@ -279,10 +288,9 @@ function targetedResponsivePasses(item) {
 
 // The legacy scanner covers module-specific dark themes that v2 does not.
 // Carry its accessibility failures into the gate instead of losing that coverage.
-const legacyReportPath = path.resolve("qa-artifacts/qa-report.json");
 const legacyReport = JSON.parse(await fs.readFile(legacyReportPath, "utf8"));
 const legacyAccessibilityFindings = (legacyReport.findings || []).filter(
-  (item) => String(item.title || "").startsWith("Accessibility:"),
+  (item) => item.severity === "critical" || String(item.title || "").startsWith("Accessibility:"),
 );
 
 const excluded = [];
