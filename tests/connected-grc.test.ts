@@ -15,8 +15,7 @@ test("connected GRC is wired into navigation, UI and documentation",async()=>{
   assert.match(component,/records\.length-linkedIds\.size/);
   assert.match(component,/assessConnectedGrcCoverage/);
   assert.match(component,/connected-assurance/);
-  assert.match(component,/fornost-connected-grc\.csv/);
-  assert.match(component,/\/\^\[=\+\\-@\]\//);
+  assert.match(component,/connectedGrcExport/);
   assert.match(css,/\.connected-layout/);
   assert.match(contract,/\.connected-gap-list/);
   assert.match(css,/@media\(max-width:620px\)/);

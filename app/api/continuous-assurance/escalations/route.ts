@@ -3,7 +3,7 @@ import {requireRole} from "../../auth/security";
 import {clean} from "../../integrations/security";
 import {readAssuranceEscalationRows,reconcileAssuranceEscalations} from "../../../assurance-escalation-runtime";
 import {assuranceEscalationNavigation} from "../../../assurance-escalation-navigation";
-import type {AssuranceEscalationDbRow} from "../../../assurance-escalation-store";
+import {acknowledgeAssuranceEscalation,type AssuranceEscalationDbRow} from "../../../assurance-escalation-store";
 
 type Env=Record<string,unknown>&{DB:D1Database};
 const json=(data:unknown,status=200)=>NextResponse.json(data,{status,headers:{"cache-control":"no-store"}});
@@ -25,5 +25,5 @@ export async function POST(req:NextRequest){
  const access=await requireRole(req,["Admin","Editor"]);if(access.response)return access.response;
  if(Number(req.headers.get("content-length")||0)>32_768)return json({error:"İstek boyutu çok büyük."},413);
  const body=await req.json().catch(()=>({})) as Record<string,unknown>,action=clean(body.action,40),id=clean(body.id,120),note=clean(body.note,1200);if(action!=="acknowledge"||!id)return json({error:"Geçersiz escalation işlemi."},400);if(note.length<10)return json({error:"Acknowledgement notu en az 10 karakter olmalıdır."},400);
- const env=await runtime();await reconcileAssuranceEscalations(env.DB);const row=await env.DB.prepare("SELECT * FROM continuous_assurance_escalations WHERE id=?").bind(id).first<AssuranceEscalationDbRow>();if(!row)return json({error:"Escalation bulunamadı."},404);if(row.status!=="active")return json({error:"Yalnız aktif escalation acknowledge edilebilir."},409);const stamp=new Date().toISOString();await env.DB.prepare("UPDATE continuous_assurance_escalations SET status='acknowledged',acknowledged_by=?,acknowledged_at=?,ack_note=?,last_seen_at=? WHERE id=? AND status='active'").bind(access.actor.email,stamp,note,stamp,id).run();return json({ok:true,status:"acknowledged",acknowledgedBy:access.actor.email,acknowledgedAt:stamp});
+ const env=await runtime();await reconcileAssuranceEscalations(env.DB);const row=await env.DB.prepare("SELECT * FROM continuous_assurance_escalations WHERE id=?").bind(id).first<AssuranceEscalationDbRow>();if(!row)return json({error:"Escalation bulunamadı."},404);if(row.status!=="active")return json({error:"Yalnız aktif escalation acknowledge edilebilir."},409);const stamp=new Date().toISOString();const updated=await acknowledgeAssuranceEscalation(env.DB,{id,expectedLastSeenAt:row.last_seen_at,actor:access.actor.email,note,stamp});if(!updated)return json({error:"Uyarı başka bir işlem tarafından güncellendi. Listeyi yenileyin."},409);return json({ok:true,status:"acknowledged",acknowledgedBy:access.actor.email,acknowledgedAt:stamp});
 }
