@@ -67,6 +67,8 @@ jobs:
         run: node scripts/ai-record-navigation-qa.mjs
       - name: Connected AI graph and source recovery QA
         run: node scripts/connected-ai-grc-qa.mjs
+      - name: Assurance queue recovery and independent review QA
+        run: node scripts/assurance-queue-recovery-qa.mjs
       - name: Assurance follow-up search, pagination and recovery QA
         run: node scripts/assurance-followup-workspace-qa.mjs
       - name: Control business impact and dependency navigation QA

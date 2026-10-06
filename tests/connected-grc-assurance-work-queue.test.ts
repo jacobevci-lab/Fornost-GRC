@@ -26,7 +26,7 @@ test("approved CAPA promotion opens the governed enterprise finding in context",
   assert.match(queue, /module:"Bulgular ve CAPA"/);
   assert.match(queue, /source:"continuous-assurance-work-queue"/);
   assert.match(queue, /filter:\{findingRef:findingCode\}/);
-  assert.match(queue, /review\.decision==="approve"&&review\.item\.action==="capa-promotion"&&data\.code/);
+  assert.match(queue, /review\.decision==="approve"&&review\.item\.action==="capa-promotion"&&typeof data\.code==="string"/);
   assert.match(queue, /openPromotedCapa\(data\.code\)/);
 });
 

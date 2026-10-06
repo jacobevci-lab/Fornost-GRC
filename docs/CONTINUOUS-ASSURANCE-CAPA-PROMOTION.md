@@ -77,3 +77,11 @@ The resulting lifecycle is:
 `Continuous Control → Automated Evidence → Automation Finding → Review Queue → Enterprise Finding/CAPA → Remediation → Re-test → Residual Risk Reassessment`
 
 After remediation, the governed Continuous Assurance flow can queue a re-test. Approved re-tests are reconciled against subsequent automation runs; the residual-risk state is then updated without inventing a risk reduction when there is no approved residual rating or successful evidence-backed re-test.
+
+## Work queue recovery (2026-10-06)
+
+Queue and identity reads and review/retest writes now use a shared 15-second deadline covering headers and JSON parsing. Superseded/unmounted reads cannot publish stale state. Writes have a synchronous duplicate-submit guard and are never automatically retried. Unknown write outcomes close the review dialog, display an explicit warning and refresh the queue read-only. Authorization/conflict responses also refresh permissions and queue state.
+
+Unknown queue and SLA counters display a dash, not zero. Search covers all loaded items (finding, rule, control, owner and result code), preserving the existing 25-item progressive display. The existing API cap of 500 items is disclosed when reached. Independent Admin review requires a known requester and a different identified reviewer; rejection notes are 10–1,200 trimmed characters, matching the server limit.
+
+The shared request boundary remains covered by the CAPA deadline/cancellation regressions. `assurance-queue-access.test.ts` checks review identity/role/note rules and malformed payloads; `assurance-queue-recovery-qa.mjs` exercises the browser recovery and duplicate-write paths with isolated fixtures.

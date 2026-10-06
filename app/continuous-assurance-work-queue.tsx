@@ -1,6 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { requestJsonWithDeadline } from "./bounded-json-request";
+import { canReviewAssuranceWork, validAssuranceQueue } from "./assurance-queue-access";
 import { withBasePath } from "./base-path";
 import { navigateToFornost } from "./navigation-focus";
 import { assuranceWorkAgeHours, assuranceWorkSlaHours, assuranceWorkSlaState, summarizeAssuranceQueue } from "./assurance-work-queue-metrics";
@@ -37,7 +39,6 @@ type WorkItem = {
 };
 type Summary = { total:number; pendingReview:number; awaitingRetest:number; capaPromotion:number; retest:number; failedRetest:number; retestError:number; completed:number; rejected:number };
 type ReviewState = { item:WorkItem; decision:"approve"|"reject"; note:string };
-type ReviewResponse = { message?:string; error?:string; code?:string; findingId?:string };
 type QueueFilter = "active"|"review"|"retest"|"attention"|"all";
 const emptySummary:Summary={total:0,pendingReview:0,awaitingRetest:0,capaPromotion:0,retest:0,failedRetest:0,retestError:0,completed:0,rejected:0};
 
@@ -76,83 +77,93 @@ function openMappedControl(controlRef:string){
 
 export default function ContinuousAssuranceWorkQueue({lang,onOpenAutomation}:{lang:Lang;onOpenAutomation:()=>void}){
   const tr=lang==="tr",[items,setItems]=useState<WorkItem[]>([]),[summary,setSummary]=useState<Summary>(emptySummary),[loading,setLoading]=useState(true),[canReview,setCanReview]=useState(false),[reviewing,setReviewing]=useState<ReviewState|null>(null),[busy,setBusy]=useState(false),[message,setMessage]=useState(""),[filter,setFilter]=useState<QueueFilter>("active"),[detailsOpen,setDetailsOpen]=useState(false),[loadError,setLoadError]=useState(false),[canWrite,setCanWrite]=useState(false),[actorEmail,setActorEmail]=useState(""),[visibleLimit,setVisibleLimit]=useState(25),[resultItem,setResultItem]=useState<WorkItem|null>(null);
+  const [query,setQuery]=useState("");
+  const reads=useRef<AbortController|null>(null),writes=useRef<AbortController|null>(null),sending=useRef(false);
   const load=useCallback(async()=>{
-    setLoading(true);setLoadError(false);
+    reads.current?.abort();const controller=new AbortController();reads.current=controller;
+    setLoading(true);setLoadError(false);setReviewing(null);
     try{
-      const [queueResponse,authResponse]=await Promise.all([
-        fetch(withBasePath("/api/continuous-assurance"),{cache:"no-store",headers:{accept:"application/json"},signal:AbortSignal.timeout(15_000)}),
-        fetch(withBasePath("/api/auth"),{cache:"no-store",headers:{accept:"application/json"},signal:AbortSignal.timeout(15_000)}),
+      const [queue,auth]=await Promise.all([
+        requestJsonWithDeadline(withBasePath("/api/continuous-assurance"),{cache:"no-store",signal:controller.signal}),
+        requestJsonWithDeadline(withBasePath("/api/auth"),{cache:"no-store",signal:controller.signal}),
       ]);
-      if(!queueResponse.ok||!authResponse.ok)throw new Error("queue-unavailable");
-      const data=await queueResponse.json(),auth=await authResponse.json();
-      setItems(Array.isArray(data.items)?data.items:[]);setSummary(data.summary||emptySummary);
-      setCanReview(auth?.user?.role==="Admin");setCanWrite(["Admin","Editor"].includes(auth?.user?.role));setActorEmail(String(auth?.user?.email||"").toLowerCase());
-    }catch{setLoadError(true);setItems([]);setCanReview(false);setCanWrite(false);setSummary(emptySummary)}finally{setLoading(false)}
+      const user=auth.body.user as {role?:unknown;email?:unknown}|undefined;
+      if(!queue.response.ok||!auth.response.ok||!validAssuranceQueue(queue.body)||!user||typeof user.role!=="string"||typeof user.email!=="string")throw new Error("queue-unavailable");
+      if(controller.signal.aborted)return;
+      setItems(queue.body.items as WorkItem[]);setSummary(queue.body.summary as Summary);
+      setCanReview(user.role==="Admin");setCanWrite(["Admin","Editor"].includes(user.role));setActorEmail(user.email.trim().toLowerCase());
+    }catch{if(!controller.signal.aborted){setLoadError(true);setCanReview(false);setCanWrite(false);setActorEmail("");}}
+    finally{if(!controller.signal.aborted)setLoading(false);}
   },[]);
-  useEffect(()=>{let live=true;(async()=>{try{await load()}catch{}finally{if(live)setLoading(false)}})();return()=>{live=false}},[load]);
-  async function submitReview(){
-    if(!reviewing)return;
-    const review=reviewing;
-    setBusy(true);setMessage("");
+  useEffect(()=>{const readRequests=reads,writeRequests=writes;const timer=setTimeout(()=>void load(),0);return()=>{clearTimeout(timer);readRequests.current?.abort();writeRequests.current?.abort();};},[load]);
+  async function write(body:Record<string,unknown>,successMessage:string){
+    if(sending.current||loading||loadError||!canWrite)return null;
+    sending.current=true;setBusy(true);setMessage("");
+    const controller=new AbortController();writes.current=controller;
+    const uncertain=()=>{setReviewing(null);setMessage(tr?"İşlem sonucu doğrulanamadı. Tekrar göndermeden önce yenilenen kuyruğu kontrol edin.":"The result could not be confirmed. Check the refreshed queue before submitting again.");};
     try{
-      const response=await fetch(withBasePath("/api/continuous-assurance"),{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({action:"review-work-item",workItemId:review.item.id,decision:review.decision,note:review.note})});
-      const data=await response.json().catch(()=>({})) as ReviewResponse;
-      setMessage(response.ok?(data.message||(tr?"İnceleme tamamlandı.":"Review completed.")):(data.error||(tr?"İnceleme tamamlanamadı.":"Review failed.")));
-      if(response.ok){
-        setReviewing(null);
-        await load();
-        if(review.decision==="approve"&&review.item.action==="capa-promotion"&&data.code)openPromotedCapa(data.code);
-      }
-    }catch{setMessage(tr?"Sunucuya ulaşılamadı. İşlem durumunu yenileyerek kontrol edin.":"Server unavailable. Refresh to check the action status.")}finally{setBusy(false)}
+      const {response,body:data}=await requestJsonWithDeadline(withBasePath("/api/continuous-assurance"),{method:"POST",headers:{"content-type":"application/json"},signal:controller.signal,body:JSON.stringify(body)});
+      if(controller.signal.aborted)return null;
+      if(response.status>=500){uncertain();await load();return null;}
+      setMessage(response.ok?(typeof data.message==="string"?data.message:successMessage):(typeof data.error==="string"?data.error:(tr?"İşlem tamamlanamadı.":"Operation failed.")));
+      if(response.ok||[401,403,409].includes(response.status)){setReviewing(null);await load();}
+      return response.ok?data:null;
+    }catch{if(!controller.signal.aborted){uncertain();await load();}return null;}
+    finally{sending.current=false;if(!controller.signal.aborted)setBusy(false);}
+  }
+  async function submitReview(){
+    if(!reviewing||!canReviewAssuranceWork(canReview?"Admin":"",actorEmail,reviewing.item,reviewing.decision,reviewing.note))return;
+    const review=reviewing;
+    const data=await write({action:"review-work-item",workItemId:review.item.id,decision:review.decision,note:review.note.trim()},tr?"İnceleme tamamlandı.":"Review completed.");
+    if(data&&review.decision==="approve"&&review.item.action==="capa-promotion"&&typeof data.code==="string")openPromotedCapa(data.code);
   }
   async function requestAnotherTest(item:WorkItem){
-    setBusy(true);setMessage("");
-    try{
-      const response=await fetch(withBasePath("/api/continuous-assurance"),{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({action:"queue-retest",findingId:item.findingId,previousWorkItemId:item.id})});
-      const data=await response.json().catch(()=>({}));
-      setMessage(response.ok?(tr?"Yeni test bağımsız onay kuyruğunda. Onaydan sonraki çalışma değerlendirilecek.":"The new test is queued for independent approval. A run after approval will be evaluated."):(data.error||(tr?"Yeni test isteği oluşturulamadı.":"Could not request another test.")));
-      if(response.ok)await load();
-    }catch{setMessage(tr?"Sunucuya ulaşılamadı; durumu yenileyin.":"Server unavailable; refresh the queue.")}finally{setBusy(false)}
+    if(item.status!=="retest-error")return;
+    await write({action:"queue-retest",findingId:item.findingId,previousWorkItemId:item.id},tr?"Yeni test bağımsız onay kuyruğunda. Onaydan sonraki çalışma değerlendirilecek.":"The new test is queued for independent approval. A run after approval will be evaluated.");
   }
   const queueHealth=useMemo(()=>summarizeAssuranceQueue(items),[items]);
   const matching=useMemo(()=>items.filter(item=>{
+    const search=[item.findingTitle,item.findingId,item.ruleName,item.ruleId,item.owner,item.targetControlRef,item.controlRefs,item.resultCode].join(" ").toLocaleLowerCase(tr?"tr-TR":"en-US");
+    if(!search.includes(query.trim().toLocaleLowerCase(tr?"tr-TR":"en-US")))return false;
     if(filter==="all")return true;
     if(filter==="review")return item.status==="pending-review";
     if(filter==="retest")return item.status==="approved-awaiting-retest";
     if(filter==="attention")return item.status==="failed-retest"||item.status==="retest-error"||assuranceWorkSlaState(item)==="breached";
     return ["pending-review","approved-awaiting-retest","failed-retest","retest-error"].includes(item.status);
-  }),[items,filter]);
+  }),[items,filter,query,tr]);
   const visible=matching.slice(0,visibleLimit);
   const statusLabel=(status:string)=>tr?({"pending-review":"İnceleme bekliyor","approved-awaiting-retest":"Re-test bekliyor","failed-retest":"Re-test başarısız","retest-error":"Re-test hatası",completed:"Tamamlandı",rejected:"Reddedildi"} as Record<string,string>)[status]||status:({"pending-review":"Pending review","approved-awaiting-retest":"Awaiting re-test","failed-retest":"Re-test failed","retest-error":"Re-test error",completed:"Completed",rejected:"Rejected"} as Record<string,string>)[status]||status;
   const slaLabel=(item:WorkItem)=>{const state=assuranceWorkSlaState(item),age=Math.round(assuranceWorkAgeHours(item)),sla=assuranceWorkSlaHours(item);if(state==="breached")return tr?`SLA aşıldı · ${age} sa / ${sla} sa`:`SLA breached · ${age}h / ${sla}h`;if(state==="due-soon")return tr?`SLA yaklaşıyor · ${age} sa / ${sla} sa`:`SLA due soon · ${age}h / ${sla}h`;if(state==="within-sla")return tr?`SLA içinde · ${age} sa / ${sla} sa`:`Within SLA · ${age}h / ${sla}h`;return tr?"İş tamamlandı":"Work closed"};
   return <section className="assurance-work-queue" aria-label={tr?"Sürekli güvence iş kuyruğu":"Continuous assurance work queue"}>
-    <header><div><small>{tr?"BENİM İŞLERİM · GÜVENCE":"MY WORK · ASSURANCE"}</small><h4>{tr?"Öncelikli güvence işleri":"Priority assurance work"}</h4><p>{tr?"İnceleme, CAPA ve re-test gerektiren işleri tek yerden tamamlayın.":"Complete review, CAPA and re-test work from one focused queue."}</p></div><div className="assurance-work-header-actions"><button type="button" disabled={loading} onClick={()=>void load()}>{tr?"Yenile":"Refresh"}</button><button type="button" onClick={onOpenAutomation}>{tr?"Kanıt Otomasyonu":"Evidence Automation"}<span>→</span></button></div></header>
+    <header><div><small>{tr?"BENİM İŞLERİM · GÜVENCE":"MY WORK · ASSURANCE"}</small><h4>{tr?"Öncelikli güvence işleri":"Priority assurance work"}</h4><p>{tr?"İnceleme, CAPA ve re-test gerektiren işleri tek yerden tamamlayın.":"Complete review, CAPA and re-test work from one focused queue."}</p></div><div className="assurance-work-header-actions"><button type="button" disabled={loading||busy} onClick={()=>void load()}>{tr?"Yenile":"Refresh"}</button><button type="button" onClick={onOpenAutomation}>{tr?"Kanıt Otomasyonu":"Evidence Automation"}<span>→</span></button></div></header>
     {loadError&&<div className="assurance-work-message" role="alert">{tr?"Güvence kuyruğu yüklenemedi. Yenileyerek tekrar deneyin.":"The assurance queue could not be loaded. Refresh to retry."}</div>}
     {message&&<div role="status" className="assurance-work-message" onClick={()=>setMessage("")}>{message}<b>×</b></div>}
-    <div className="assurance-work-summary"><span><b>{loading?"…":summary.pendingReview}</b><small>{tr?"İnceleme":"Review"}</small></span><span><b>{summary.awaitingRetest}</b><small>{tr?"Re-test bekliyor":"Awaiting re-test"}</small></span><span><b>{summary.failedRetest+summary.retestError}</b><small>{tr?"Dikkat":"Attention"}</small></span><span><b>{summary.completed}</b><small>{tr?"Tamamlanan":"Completed"}</small></span></div>
+    <div className="assurance-work-summary"><span><b>{loading||loadError?"—":summary.pendingReview}</b><small>{tr?"İnceleme":"Review"}</small></span><span><b>{loading||loadError?"—":summary.awaitingRetest}</b><small>{tr?"Re-test bekliyor":"Awaiting re-test"}</small></span><span><b>{loading||loadError?"—":summary.failedRetest+summary.retestError}</b><small>{tr?"Dikkat":"Attention"}</small></span><span><b>{loading||loadError?"—":summary.completed}</b><small>{tr?"Tamamlanan":"Completed"}</small></span></div>
+    <input className="assurance-work-search" type="search" aria-label={tr?"Güvence işi ara":"Search assurance work"} placeholder={tr?"Bulgu, kural, kontrol veya sahip ara…":"Search finding, rule, control or owner…"} value={query} onChange={event=>{setQuery(event.target.value);setVisibleLimit(25)}}/>
     <div className="assurance-work-filters">{(["active","review","retest","attention","all"] as QueueFilter[]).map(value=><button key={value} type="button" className={filter===value?"active":""} onClick={()=>{setFilter(value);setVisibleLimit(25)}}>{tr?({active:"Aktif",review:"İnceleme",retest:"Re-test",attention:"Dikkat",all:"Tümü"} as Record<QueueFilter,string>)[value]:({active:"Active",review:"Review",retest:"Re-test",attention:"Attention",all:"All"} as Record<QueueFilter,string>)[value]}</button>)}<button type="button" className={detailsOpen?"active":""} aria-expanded={detailsOpen} onClick={()=>setDetailsOpen(value=>!value)}>{detailsOpen?(tr?"Operasyon detayını gizle":"Hide operations"):(tr?"Operasyon detayı":"Operations")}</button></div>
     {detailsOpen&&<div className="assurance-ops" aria-label={tr?"Güvence kuyruk operasyon metrikleri":"Assurance queue operations metrics"}>
-      <article className={queueHealth.breached?"critical":""}><b>{queueHealth.breached}</b><small>{tr?"SLA ihlali":"SLA breached"}</small></article>
-      <article className={queueHealth.dueSoon?"attention":""}><b>{queueHealth.dueSoon}</b><small>{tr?"SLA yaklaşıyor":"SLA due soon"}</small></article>
-      <article><b>{queueHealth.oldestPendingHours}h</b><small>{tr?"En eski bekleyen":"Oldest pending"}</small></article>
-      <article><b>{queueHealth.averageReviewHours}h</b><small>{tr?"Ort. inceleme":"Avg. review"}</small></article>
-      <article><b>{queueHealth.withinSlaPercent}%</b><small>{tr?"SLA içinde":"Within SLA"}</small></article>
+      <article className={queueHealth.breached?"critical":""}><b>{loading||loadError?"—":queueHealth.breached}</b><small>{tr?"SLA ihlali":"SLA breached"}</small></article>
+      <article className={queueHealth.dueSoon?"attention":""}><b>{loading||loadError?"—":queueHealth.dueSoon}</b><small>{tr?"SLA yaklaşıyor":"SLA due soon"}</small></article>
+      <article><b>{loading||loadError?"—":`${queueHealth.oldestPendingHours}h`}</b><small>{tr?"En eski bekleyen":"Oldest pending"}</small></article>
+      <article><b>{loading||loadError?"—":`${queueHealth.averageReviewHours}h`}</b><small>{tr?"Ort. inceleme":"Avg. review"}</small></article>
+      <article><b>{loading||loadError?"—":`${queueHealth.withinSlaPercent}%`}</b><small>{tr?"SLA içinde":"Within SLA"}</small></article>
     </div>}
-    {!loadError&&(visible.length?<div className="assurance-work-list">{visible.map(item=>{const slaState=assuranceWorkSlaState(item);return <article key={item.id} className={`work-${item.status}`}>
+    {!loadError&&(!loading&&visible.length?<div className="assurance-work-list">{visible.map(item=>{const slaState=assuranceWorkSlaState(item);return <article key={item.id} className={`work-${item.status}`}>
       <div className="assurance-work-kind"><span className={item.action==="capa-promotion"?"capa":"retest"}>{item.action==="capa-promotion"?"CAPA":(tr?"Re-test":"Re-test")}</span><small>{item.targetControlRef||item.controlRefs||item.ruleId}</small></div>
       <div className="assurance-work-main"><b>{item.findingTitle||item.findingId}</b><small>{item.ruleName||item.ruleId}</small>{(item.resultCode||item.resultRef)&&<em>{tr?"Sonuç: ":"Result: "}{item.resultCode||item.resultRef}</em>}<em className={`assurance-work-sla ${slaState}`}>{slaLabel(item)}</em></div>
       <div className="assurance-work-meta"><span className={`work-status ${item.status}`}>{statusLabel(item.status)}</span><span className={`severity ${item.severity||"medium"}`}>{item.severity||"—"}</span><small>{item.owner||"—"}{item.dueDate?` · ${item.dueDate}`:""}</small></div>
       <div className="assurance-work-actions">
-        {item.status==="pending-review"&&canReview&&item.actor.toLowerCase()!==actorEmail&&<><button type="button" className="approve" onClick={()=>setReviewing({item,decision:"approve",note:""})}>{tr?"Onayla":"Approve"}</button><button type="button" className="reject" onClick={()=>setReviewing({item,decision:"reject",note:""})}>{tr?"Reddet":"Reject"}</button></>}
+        {canReviewAssuranceWork(canReview?"Admin":"",actorEmail,item,"approve","")&&<><button type="button" className="approve" disabled={busy||loading||loadError} onClick={()=>setReviewing({item,decision:"approve",note:""})}>{tr?"Onayla":"Approve"}</button><button type="button" className="reject" disabled={busy||loading||loadError} onClick={()=>setReviewing({item,decision:"reject",note:""})}>{tr?"Reddet":"Reject"}</button></>}
         {item.status==="approved-awaiting-retest"&&<button type="button" onClick={()=>openAutomationRule(item.ruleId)}>{tr?"Re-test Kuralına Git":"Open Retest Rule"}</button>}
         {(item.status==="failed-retest"||item.status==="retest-error")&&<button type="button" onClick={()=>openAutomationRule(item.ruleId)}>{tr?"Kuralı İncele":"Inspect Rule"}</button>}
         {item.action==="control-retest"&&item.resultRef&&<button type="button" onClick={()=>setResultItem(item)}>{tr?"Test Sonucunu Aç":"View Test Result"}</button>}
-        {item.status==="retest-error"&&canWrite&&<button type="button" disabled={busy} onClick={()=>void requestAnotherTest(item)}>{tr?"Yeni Test İste":"Request New Test"}</button>}
+        {item.status==="retest-error"&&canWrite&&<button type="button" disabled={busy||loading||loadError} onClick={()=>void requestAnotherTest(item)}>{tr?"Yeni Test İste":"Request New Test"}</button>}
         {item.targetControlRef&&<button type="button" onClick={()=>openMappedControl(item.targetControlRef||"")}>{tr?"Kontrolü Aç":"Open Control"}</button>}
         {item.status==="completed"&&item.action==="capa-promotion"&&item.resultCode&&<button type="button" onClick={()=>openPromotedCapa(item.resultCode||"")}>{tr?"CAPA'yı Aç":"Open CAPA"}</button>}
       </div>
     </article>})}</div>:<div className="assurance-work-empty">{loading?(tr?"Güvence işleri yükleniyor…":"Loading assurance work…"):(tr?"Bu filtrede yapmanız gereken bir güvence işi yok.":"There is no assurance work requiring your action in this filter.")}</div>)}
-    {matching.length>visible.length&&<div className="assurance-work-more"><span>{visible.length} / {matching.length}</span><button type="button" onClick={()=>setVisibleLimit(value=>value+25)}>{tr?"Daha fazla göster":"Show more"}</button></div>}
+    {!loading&&!loadError&&matching.length>visible.length&&<div className="assurance-work-more"><span>{visible.length} / {matching.length}</span><button type="button" onClick={()=>setVisibleLimit(value=>value+25)}>{tr?"Daha fazla göster":"Show more"}</button></div>}
+    {items.length>=500&&<p className="assurance-work-message">{tr?"En fazla 500 iş yüklendi; arama ve sayımlar bu kayıtları kapsar.":"Up to 500 work items loaded; search and counts cover these records."}</p>}
     {detailsOpen&&<ContinuousAssuranceTimeline lang={lang}/>} 
     {resultItem?.resultRef&&<div className="assurance-review-overlay" role="presentation" onMouseDown={event=>{if(event.target===event.currentTarget)setResultItem(null)}}><section className="assurance-review-dialog assurance-result-dialog" role="dialog" aria-modal="true" aria-label={tr?"Yeniden test sonucu":"Re-test result"}>
       <header><div><small>{statusLabel(resultItem.status)}</small><h4>{resultItem.ruleName}</h4></div><button type="button" aria-label={tr?"Kapat":"Close"} onClick={()=>setResultItem(null)}>×</button></header>
@@ -162,6 +173,6 @@ export default function ContinuousAssuranceWorkQueue({lang,onOpenAutomation}:{la
       </div>:<p>{tr?"Bu eski iş kaydında risk uzlaştırma özeti yok; test ayrıntısı aşağıdadır.":"This legacy work item has no risk reconciliation summary; test details follow."}</p>}
       <ControlRunDetail runId={resultItem.resultRef} lang={lang}/>
     </section></div>}
-    {reviewing&&<div className="assurance-review-overlay" role="presentation" onMouseDown={event=>{if(event.target===event.currentTarget&&!busy)setReviewing(null)}}><section className="assurance-review-dialog" role="dialog" aria-modal="true" aria-label={tr?"Güvence işini incele":"Review assurance work"}><header><div><small>{reviewing.decision==="approve"?(tr?"ONAY":"APPROVAL"):(tr?"RET":"REJECTION")}</small><h4>{reviewing.item.findingTitle}</h4></div><button type="button" disabled={busy} onClick={()=>setReviewing(null)}>×</button></header><p>{reviewing.item.action==="capa-promotion"?(tr?"Onay, bu adayı Bulgular & CAPA yaşam döngüsüne aktarır.":"Approval promotes this candidate into the Findings & CAPA lifecycle."):(tr?"Onaydan sonraki ilk test ve kanıtı değerlendirilir. Risk onayı ayrı yürütülür.":"After approval, the next test and its evidence are checked. Risk approval remains independent.")}</p><label>{tr?"İnceleme notu":"Review note"}<textarea autoFocus value={reviewing.note} onChange={event=>setReviewing({...reviewing,note:event.target.value})} placeholder={reviewing.decision==="reject"?(tr?"Ret gerekçesi (zorunlu)…":"Rejection reason (required)…"):(tr?"Onay notu (isteğe bağlı)…":"Approval note (optional)…")}/></label><footer><button type="button" disabled={busy} onClick={()=>setReviewing(null)}>{tr?"Vazgeç":"Cancel"}</button><button type="button" className={reviewing.decision==="approve"?"approve":"reject"} disabled={busy||(reviewing.decision==="reject"&&reviewing.note.trim().length<10)} onClick={submitReview}>{busy?(tr?"İşleniyor…":"Processing…"):(reviewing.decision==="approve"?(tr?"Onayla":"Approve"):(tr?"Reddet":"Reject"))}</button></footer></section></div>}
+    {reviewing&&<div className="assurance-review-overlay" role="presentation" onMouseDown={event=>{if(event.target===event.currentTarget&&!busy)setReviewing(null)}}><section className="assurance-review-dialog" role="dialog" aria-modal="true" aria-label={tr?"Güvence işini incele":"Review assurance work"}><header><div><small>{reviewing.decision==="approve"?(tr?"ONAY":"APPROVAL"):(tr?"RET":"REJECTION")}</small><h4>{reviewing.item.findingTitle}</h4></div><button type="button" disabled={busy} onClick={()=>setReviewing(null)}>×</button></header><p>{reviewing.item.action==="capa-promotion"?(tr?"Onay, bu adayı Bulgular & CAPA yaşam döngüsüne aktarır.":"Approval promotes this candidate into the Findings & CAPA lifecycle."):(tr?"Onaydan sonraki ilk test ve kanıtı değerlendirilir. Risk onayı ayrı yürütülür.":"After approval, the next test and its evidence are checked. Risk approval remains independent.")}</p><label>{tr?"İnceleme notu":"Review note"}<textarea autoFocus maxLength={1200} value={reviewing.note} onChange={event=>setReviewing({...reviewing,note:event.target.value})} placeholder={reviewing.decision==="reject"?(tr?"Ret gerekçesi (zorunlu)…":"Rejection reason (required)…"):(tr?"Onay notu (isteğe bağlı)…":"Approval note (optional)…")}/></label><footer><button type="button" disabled={busy} onClick={()=>setReviewing(null)}>{tr?"Vazgeç":"Cancel"}</button><button type="button" className={reviewing.decision==="approve"?"approve":"reject"} disabled={busy||loading||loadError||!canReviewAssuranceWork(canReview?"Admin":"",actorEmail,reviewing.item,reviewing.decision,reviewing.note)} onClick={submitReview}>{busy?(tr?"İşleniyor…":"Processing…"):(reviewing.decision==="approve"?(tr?"Onayla":"Approve"):(tr?"Reddet":"Reject"))}</button></footer></section></div>}
   </section>;
 }

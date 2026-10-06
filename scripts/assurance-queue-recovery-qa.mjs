@@ -1,0 +1,43 @@
+import {chromium,expect} from '@playwright/test';
+import assert from 'node:assert/strict';
+import {qaPassword} from './qa-credentials.mjs';
+const base='http://127.0.0.1:4173';
+const browser=await chromium.launch({executablePath:process.env.QA_CHROMIUM_PATH||undefined});
+const context=await browser.newContext({viewport:{width:1536,height:960}});
+const page=await context.newPage();page.setDefaultTimeout(20000);
+let unavailable=true,writes=0,uncertain=false;
+const items=Array.from({length:35},(_,i)=>({id:`QA-W-${i+1}`,findingId:`QA-F-${i+1}`,ruleId:`QA-R-${i+1}`,action:'control-retest',status:i===34?'retest-error':'pending-review',findingTitle:`QA queue finding ${i+1}`,severity:'high',owner:'owner@fornost.test',dueDate:'2026-12-01',ruleName:`QA rule ${i+1}`,controlRefs:`CTRL-QA-${i+1}`,createdAt:new Date().toISOString(),updatedAt:new Date().toISOString(),actor:i===0?'qa-admin@fornost.test':'creator@fornost.test'}));
+await page.route('**/api/continuous-assurance',async route=>{
+ if(route.request().method()==='POST'){
+  writes++;const body=route.request().postDataJSON();
+  assert.ok(['review-work-item','queue-retest'].includes(body.action));
+  await new Promise(resolve=>setTimeout(resolve,300));
+  if(!uncertain&&body.action==='review-work-item')items.find(item=>item.id===body.workItemId).status='approved-awaiting-retest';
+  return route.fulfill({status:uncertain?503:200,json:uncertain?{error:'fixture outage'}:{message:'Review completed.'}});
+ }
+ if(unavailable)return route.fulfill({status:503,json:{error:'fixture outage'}});
+ return route.fulfill({json:{items,summary:{total:35,pendingReview:items.filter(i=>i.status==='pending-review').length,awaitingRetest:items.filter(i=>i.status==='approved-awaiting-retest').length,capaPromotion:0,retest:34,failedRetest:0,retestError:1,completed:0,rejected:0}}});
+});
+try{
+ const login=await context.request.post(`${base}/api/auth`,{headers:{origin:base},data:{action:'login',email:'qa-admin@fornost.test',password:qaPassword()}});assert.equal(login.status(),200);
+ await page.goto(base);await expect(page.locator('.shell')).toBeVisible();
+ await page.locator('.language-switch:visible').getByRole('button',{name:'EN',exact:true}).click();
+ const group=page.locator('nav button[aria-controls="nav-group-intelligence"]');if(await group.getAttribute('aria-expanded')!=='true')await group.click();
+ const nav=page.locator('nav button[aria-label="Connected GRC Map"]');await nav.scrollIntoViewIfNeeded();await nav.click();
+ await page.locator('.cg-tabs').getByRole('button',{name:'Assurance',exact:true}).click();
+ const panel=page.locator('.assurance-work-queue');
+ await expect(panel.getByRole('alert')).toBeVisible();await expect(panel.locator('.assurance-work-summary b').first()).toHaveText('—');
+ await panel.getByRole('button',{name:'Operations',exact:true}).click();await expect(panel.locator('.assurance-ops b').first()).toHaveText('—');
+ unavailable=false;await panel.getByRole('button',{name:'Refresh',exact:true}).click();await expect(panel.locator('.assurance-work-list>article')).toHaveCount(25);
+ await expect(panel.locator('.assurance-work-list>article').first().getByRole('button',{name:'Approve',exact:true})).toHaveCount(0);
+ await panel.getByRole('searchbox').fill('CTRL-QA-35');await expect(panel.locator('.assurance-work-list>article')).toHaveCount(1);
+ uncertain=true;await panel.getByRole('button',{name:'Request New Test',exact:true}).dispatchEvent('click');await panel.getByRole('button',{name:'Request New Test',exact:true}).dispatchEvent('click');
+ await expect(panel.getByRole('status')).toContainText('could not be confirmed');await expect(panel.getByRole('button',{name:'Refresh',exact:true})).toBeEnabled();assert.equal(writes,1);
+ uncertain=false;await panel.getByRole('searchbox').fill('CTRL-QA-2');
+ await panel.locator('.assurance-work-list>article').first().getByRole('button',{name:'Approve',exact:true}).click();
+ const dialog=panel.getByRole('dialog',{name:'Review assurance work'});
+ await dialog.getByRole('button',{name:'Approve',exact:true}).dispatchEvent('click');await dialog.getByRole('button',{name:'Approve',exact:true}).dispatchEvent('click');
+ await expect(dialog).toHaveCount(0);assert.equal(writes,2);
+ unavailable=true;await panel.getByRole('button',{name:'Refresh',exact:true}).click();await expect(panel.getByRole('alert')).toBeVisible();await expect(panel.getByRole('button',{name:'Approve',exact:true})).toHaveCount(0);
+ console.log('Assurance queue recovery QA passed: unknown counters, retry, full-list search, independent review, duplicate review/retest guards and ambiguous write recovery without retry.');
+}finally{await browser.close();}
