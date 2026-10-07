@@ -63,6 +63,8 @@ try{
  await panel.getByRole('button',{name:'Open CAPA',exact:true}).click();
  await expect(panel.getByRole('combobox',{name:'Assignment filter',exact:true})).toHaveValue('all');
  await expect(panel.getByRole('textbox',{name:'Search findings',exact:true})).toHaveValue('');
+ for(const width of [768,390]){await page.setViewportSize({width,height:900});assert.equal(await panel.locator('.finding-toolbar').evaluate(element=>element.scrollWidth<=element.clientWidth+1),true);}
+ await page.setViewportSize({width:1536,height:960});
  await expect(panel.getByRole('combobox',{name:'Status filter',exact:true})).toHaveValue('active');
  await expect(panel.getByRole('button',{name:'Open CAPA',exact:true})).toHaveAttribute('aria-pressed','true');
  await expect(panel.locator('.finding-table tbody tr')).toHaveCount(20);
