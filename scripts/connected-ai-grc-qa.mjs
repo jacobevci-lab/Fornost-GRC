@@ -90,7 +90,19 @@ try{
  await page.locator('.connected-grc').getByRole('button',{name:/^Gaps/}).click();
  const gapSearch=page.locator('.cg-gap-filters input');
  await gapSearch.fill('QA gap alert');
- await page.locator('.cg-gap-filters select').selectOption('AI Yönetişimi');
+ await page.getByLabel('Source module',{exact:true}).selectOption('AI Yönetişimi');
+ await page.getByLabel('Issue type',{exact:true}).selectOption('missing');
+ const gapDownload=page.waitForEvent('download');
+ await page.getByRole('button',{name:'Export gaps · CSV',exact:true}).click();
+ const exportFile=await gapDownload;
+ assert.equal(exportFile.suggestedFilename(),'fornost-connected-grc-gaps.csv');
+ const exported=await fs.readFile(await exportFile.path(),'utf8');
+ assert.equal(exported.split('\n').length,26);
+ assert.ok(exported.includes('QA-MISSING-24'));
+ assert.ok(exported.includes('"AI Yönetişimi";"missing";"25"'));
+ await page.getByLabel('Issue type',{exact:true}).selectOption('ambiguous');
+ await expect(page.locator('.cg-gaps .cg-empty')).toContainText('No gaps match');
+ await page.getByLabel('Issue type',{exact:true}).selectOption('missing');
  await page.locator('.connected-unresolved summary').click();
  await expect(page.locator('.connected-unresolved>div')).toHaveCount(20);
  await page.getByRole('button',{name:/Show more references/}).click();
@@ -103,6 +115,7 @@ try{
  await expect(page.locator('.cg-gaps .connected-assurance-ok')).toHaveCount(0);
  await page.locator('.cg-gap-filters').getByRole('button',{name:'Clear',exact:true}).click();
  await expect(gapSearch).toHaveValue('');
+ await expect(page.getByLabel('Issue type',{exact:true})).toHaveValue('all');
  await page.setViewportSize({width:390,height:844});
  assert.ok(await page.locator('.cg-gaps').evaluate(el=>el.scrollWidth<=el.clientWidth+1));
  await page.screenshot({path:`${out}/gaps-filter-mobile.png`});

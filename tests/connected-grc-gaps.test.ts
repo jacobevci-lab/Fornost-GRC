@@ -29,3 +29,16 @@ test('search reaches references beyond the initial render budget and never chang
  assert.equal(result.unresolved.length,1);assert.equal(result.unresolved[0].value,'target-82');
  assert.equal(result.gaps.length,0);assert.equal(gap.percent,0);assert.equal(many.length,83);
 });
+test('issue categories combine with source and search without inventing severity for unresolved references',()=>{
+ const medium={...gap,severity:'medium' as const};
+ for(const type of ['high','medium'] as const){
+  const result=filterConnectedGrcGaps([gap,medium],refs,{...opts,type});
+  assert.equal(result.gaps.length,1);assert.equal(result.gaps[0].severity,type);assert.equal(result.unresolved.length,0);
+ }
+ for(const type of ['missing','ambiguous'] as const){
+  const result=filterConnectedGrcGaps([gap,medium],refs,{...opts,type});
+  assert.equal(result.gaps.length,0);assert.equal(result.unresolved.length,1);assert.equal(result.unresolved[0].reason,type);
+ }
+ assert.equal(filterConnectedGrcGaps([gap],refs,{...opts,type:'ambiguous',module:'Kontroller',query:'CTL-ABC'}).unresolved.length,1);
+ assert.equal(filterConnectedGrcGaps([gap],refs,{...opts,type:'missing',module:'Kontroller'}).unresolved.length,0);
+});
