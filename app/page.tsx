@@ -2,7 +2,7 @@
 import { auditRequirementPage } from "./audit-requirement-page";
 import "./audit-requirement-page.css";
 import { submitLocalAuthentication, type LocalAuthInput } from "./local-auth-submit";
-import { CAPA_REPORT_MODULE, loadCapaReport } from "./findings/reporting";
+import { CAPA_REPORT_MODULE, loadCapaReport, capaReportFailure, capaReportFailureMessage, type CapaReportFailure } from "./findings/reporting";
 import { readSessionSnapshot } from "./session-snapshot";
 import { getCatalogStatus } from "./framework-catalog-status";
 import { FrameworkCatalogNotice, type CatalogSnapshot } from "./framework-catalog-notice";
@@ -3175,6 +3175,7 @@ function Bars({
 function Reports({ rows: coreRows, lang, go, preparedBy, includeCapa }: { rows: Row[]; lang: Lang; go: (module: string) => void; preparedBy:string; includeCapa:boolean }) {
   const [capaRows, setCapaRows] = useState<Row[]>([]);
   const [capaState, setCapaState] = useState<"loading"|"ready"|"failed">("loading");
+  const [capaFailure, setCapaFailure] = useState<CapaReportFailure>("unavailable");
   const [refreshCapa, setRefreshCapa] = useState(0);
   const [capaLoaded, setCapaLoaded] = useState(0);
   useEffect(() => {
@@ -3185,7 +3186,7 @@ function Reports({ rows: coreRows, lang, go, preparedBy, includeCapa }: { rows: 
       .then(records => {
         if (controller.signal.aborted) return;
         setCapaRows(records); setCapaState("ready");
-      }).catch(() => { if (!controller.signal.aborted) setCapaState("failed"); });
+      }).catch(error => { if (!controller.signal.aborted) { setCapaFailure(capaReportFailure(error)); setCapaState("failed"); } });
     return () => controller.abort();
   }, [includeCapa, refreshCapa]);
   const rows = includeCapa ? [...coreRows, ...capaRows] : coreRows;
@@ -3326,7 +3327,7 @@ function Reports({ rows: coreRows, lang, go, preparedBy, includeCapa }: { rows: 
         </div>
       </section>
       {includeCapa && <div className="report-source-status" role={capaState === "failed" ? "alert" : "status"}>
-        <span>{capaState === "ready" ? (tr ? `CAPA kaynağı: ${capaRows.length} kayıt hazır` : `CAPA source: ${capaRows.length} records available`) : capaState === "loading" ? (tr ? `CAPA kayıtları yükleniyor… ${capaLoaded}` : `Loading CAPA records… ${capaLoaded}`) : (tr ? "CAPA verisi tamamlanamadı; kaynak değişmiş, erişilememiş veya rapor sınırı aşılmış olabilir. Tüm modüller ve CAPA çıktısı hazır değil; diğer modülleri seçebilirsiniz." : "CAPA is unavailable, changed during loading or exceeds the report limit. All Modules and CAPA exports are not ready; other modules remain available.")}</span>
+        <span>{capaState === "ready" ? (tr ? `CAPA kaynağı: ${capaRows.length} kayıt hazır` : `CAPA source: ${capaRows.length} records available`) : capaState === "loading" ? (tr ? `CAPA kayıtları yükleniyor… ${capaLoaded}` : `Loading CAPA records… ${capaLoaded}`) : capaReportFailureMessage(capaFailure, tr)}</span>
         <button className="ghost" disabled={capaState === "loading"} onClick={() => setRefreshCapa(value => value + 1)}>{tr ? "Yenile" : "Refresh"}</button>
       </div>}
       {exportError&&<p className="report-export-error" role="alert">{exportError}</p>}

@@ -4,6 +4,25 @@ import type { ReportRecord } from '../report-export';
 export const CAPA_REPORT_MODULE = 'Bulgular ve CAPA';
 export const CAPA_REPORT_LIMIT = 100_000;
 export const CAPA_REPORT_PAGE_SIZE = 500;
+export type CapaReportFailure = 'changed' | 'limit' | 'session' | 'permission' | 'timeout' | 'invalid' | 'unavailable';
+export class CapaReportError extends Error {
+  constructor(public readonly reason: CapaReportFailure, message: string) { super(message); this.name = 'CapaReportError'; }
+}
+export function capaReportFailure(error: unknown): CapaReportFailure {
+  return error instanceof CapaReportError ? error.reason : 'unavailable';
+}
+export function capaReportFailureMessage(reason: CapaReportFailure, tr: boolean): string {
+  const messages: Record<CapaReportFailure, [string, string]> = {
+    changed: ['CAPA kayıtları yükleme sırasında değişti. Güncel raporu almak için yenileyin.', 'CAPA records changed during loading. Refresh to load the current report.'],
+    limit: ['CAPA raporu tarayıcının kayıt veya bellek sınırını aşıyor. Diğer modülleri ayrı raporlayabilirsiniz. Ekran filtreleri bu yükleme sınırını azaltmaz.', 'The CAPA report exceeds the browser record or memory limit. You can export other modules separately. Screen filters do not reduce this loading limit.'],
+    session: ['Oturum doğrulanamadı. Yeniden giriş yapıp raporu açın.', 'Your session could not be verified. Sign in again and reopen the report.'],
+    permission: ['CAPA raporu için yönetici yetkisi gerekiyor. Yetkinizi yöneticinizle kontrol edin.', 'CAPA reporting requires administrator access. Check your permissions with your administrator.'],
+    timeout: ['CAPA yüklemesi zaman aşımına uğradı. Yenileyerek tekrar deneyin.', 'CAPA loading timed out. Refresh to try again.'],
+    invalid: ['CAPA kaynağından eksik veya geçersiz veri geldi. Yenileyin; sorun sürerse yöneticinize bildirin.', 'The CAPA source returned incomplete or invalid data. Refresh; contact your administrator if the issue persists.'],
+    unavailable: ['CAPA kaynağına erişilemiyor. Yenileyerek tekrar deneyin.', 'CAPA is unavailable. Refresh to try again.'],
+  };
+  return messages[reason][tr ? 0 : 1] + (tr ? ' Tüm modüller ve CAPA çıktısı hazır değil; diğer modüller kullanılabilir.' : ' All Modules and CAPA exports are not ready; other modules remain available.');
+}
 // Explicit projection: do not export internal columns or unrelated workflow stores.
 const fields: Record<string, string> = {
   title: 'title', description: 'description', sourceType: 'source_type', sourceRef: 'source_ref',
@@ -25,11 +44,11 @@ export function findingReportRecord(row: Record<string, unknown>): ReportRecord 
 }
 
 export function parseCapaReport(body: Record<string, unknown>): Array<ReportRecord & { id: string }> {
-  if (body.complete !== true || !Array.isArray(body.rows) || body.rows.length > CAPA_REPORT_LIMIT) throw new Error('Incomplete findings report');
+  if (body.complete !== true || !Array.isArray(body.rows) || body.rows.length > CAPA_REPORT_LIMIT) throw new CapaReportError('invalid', 'Incomplete findings report');
   const ids = new Set<string>();
   for (const row of body.rows) {
     if (!row || typeof row.id !== 'string' || !row.id.startsWith('capa:') || ids.has(row.id)
-      || row.module !== CAPA_REPORT_MODULE || !row.data || typeof row.data !== 'object' || Array.isArray(row.data)) throw new Error('Invalid findings report');
+      || row.module !== CAPA_REPORT_MODULE || !row.data || typeof row.data !== 'object' || Array.isArray(row.data)) throw new CapaReportError('invalid', 'Invalid findings report');
     ids.add(row.id);
   }
   return body.rows;
@@ -51,32 +70,39 @@ export async function loadCapaReport(url: string, signal: AbortSignal, fetcher: 
     for (let page = 0; page < CAPA_REPORT_LIMIT / CAPA_REPORT_PAGE_SIZE; page++) {
       const address = cursor === null ? url : `${url}&after=${encodeURIComponent(cursor)}&revision=${revision}`;
       const {response,body} = await requestJsonWithDeadline(address,{signal:controller.signal,cache:'no-store'},fetcher);
-      if (!response.ok) throw new Error(response.status === 409 ? 'CAPA changed during loading; refresh required' : 'CAPA report unavailable');
+      if (!response.ok) throw new CapaReportError(response.status === 409 ? 'changed' : response.status === 401 ? 'session' : response.status === 403 ? 'permission' : 'unavailable', response.status === 409 ? 'CAPA changed during loading; refresh required' : 'CAPA report unavailable');
       if (typeof body.revision !== 'string' || !/^[a-f0-9]{32}$/.test(body.revision)
         || (revision && revision !== body.revision) || typeof body.complete !== 'boolean'
-        || !Array.isArray(body.rows) || body.rows.length > CAPA_REPORT_PAGE_SIZE) throw new Error('Invalid report page');
+        || !Array.isArray(body.rows) || body.rows.length > CAPA_REPORT_PAGE_SIZE) throw new CapaReportError('invalid', 'Invalid report page');
       if (page === 0) {
-        if (!Number.isSafeInteger(body.total) || Number(body.total) < 0 || Number(body.total) > CAPA_REPORT_LIMIT) throw new Error('Invalid report total');
+        if (!Number.isSafeInteger(body.total) || Number(body.total) < 0) throw new CapaReportError('invalid', 'Invalid report total');
+        if (Number(body.total) > CAPA_REPORT_LIMIT) throw new CapaReportError('limit', 'Report exceeds browser record budget');
         total = Number(body.total);
       }
       revision = body.revision;
       const records = parseCapaReport({...body,complete:true});
       memoryBytes += JSON.stringify(body).length * 2;
-      if (memoryBytes > 32 * 1024 * 1024) throw new Error('Report exceeds browser memory budget');
+      if (memoryBytes > 32 * 1024 * 1024) throw new CapaReportError('limit', 'Report exceeds browser memory budget');
       for (const row of records) {
-        if (ids.has(row.id)) throw new Error('Duplicate report record across pages');
+        if (ids.has(row.id)) throw new CapaReportError('invalid', 'Duplicate report record across pages');
         ids.add(row.id); rows.push(row);
       }
       if (body.complete) {
-        if (body.nextCursor !== null || rows.length !== total) throw new Error('Incomplete final report page');
+        if (body.nextCursor !== null || rows.length !== total) throw new CapaReportError('invalid', 'Incomplete final report page');
         return rows;
       }
       if (records.length !== CAPA_REPORT_PAGE_SIZE || typeof body.nextCursor !== 'string'
-        || body.nextCursor === cursor || body.nextCursor !== records.at(-1)!.id.slice(5)) throw new Error('Invalid report continuation');
+        || body.nextCursor === cursor || body.nextCursor !== records.at(-1)!.id.slice(5)) throw new CapaReportError('invalid', 'Invalid report continuation');
       cursor = body.nextCursor;
       onProgress(rows.length);
     }
-    throw new Error('Report exceeds browser record budget');
+    throw new CapaReportError('limit', 'Report exceeds browser record budget');
+  } catch (error) {
+    if (!signal.aborted && (controller.signal.aborted || (error instanceof Error && error.message === 'Request interrupted'))) {
+      throw new CapaReportError('timeout', 'CAPA loading timed out');
+    }
+    if (error instanceof SyntaxError || (error instanceof Error && error.message === 'Invalid response')) throw new CapaReportError('invalid', 'Invalid report response');
+    throw error;
   } finally {
     clearTimeout(timer); signal.removeEventListener('abort',abort);
   }

@@ -21,3 +21,22 @@ test('CAPA metrics and export formats use the same records, status and severity'
  assert.match(csv,/RISK-1/);assert.match(csv,/CTRL-1/);assert.match(csv,/'=EVIL/);
  assert.match(html,/Install update/);assert.doesNotMatch(html,/<script>alert/);assert.doesNotMatch(html,/never-export/);
 });
+
+test('CAPA recovery identifies access, changed-source and unavailable failures without exposing server text', async () => {
+ const {loadCapaReport,capaReportFailure,capaReportFailureMessage}=await import('../app/findings/reporting');
+ for(const [status,reason] of [[401,'session'],[403,'permission'],[409,'changed'],[503,'unavailable']] as const){
+  const fetcher=(async()=>new Response(JSON.stringify({error:'private server detail'}),{status})) as typeof fetch;
+  await assert.rejects(loadCapaReport('/api/findings?format=report',new AbortController().signal,fetcher),error=>{
+   assert.equal(capaReportFailure(error),reason);
+   for(const tr of [true,false])assert.doesNotMatch(capaReportFailureMessage(reason,tr),/private server detail/);
+   return true;
+  });
+ }
+});
+test('CAPA distinguishes invalid totals from a valid dataset over the browser budget',async()=>{
+ const {loadCapaReport,capaReportFailure}=await import('../app/findings/reporting');
+ for(const [total,reason] of [[100001,'limit'],[-1,'invalid'],['100001','invalid']] as const){
+  const fetcher=(async()=>new Response(JSON.stringify({revision:'a'.repeat(32),complete:true,rows:[],nextCursor:null,total}))) as typeof fetch;
+  await assert.rejects(loadCapaReport('/api/findings?format=report',new AbortController().signal,fetcher),error=>{assert.equal(capaReportFailure(error),reason);return true});
+ }
+});
