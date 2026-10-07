@@ -9,12 +9,12 @@ export async function readFindingRegister(db: D1Database, day = new Date().toISO
  return {rows:rows.results as Record<string,unknown>[],summary,coverage:{loaded:rows.results.length,total:summary.total,truncated:summary.total>rows.results.length}};
 }
 
-export class FindingRegisterError extends Error {constructor(message:string){super(message);}}
-export type FindingRegisterQuery={query:string;filter:string;page:number;lang:'tr'|'en'};
+export class FindingRegisterError extends Error {constructor(message:string,public status=400){super(message);}}
+export type FindingRegisterQuery={query:string;filter:string;page:number;lang:'tr'|'en';ref?:string};
 export function parseFindingRegisterQuery(params:URLSearchParams):FindingRegisterQuery{
- const query=(params.get('q')||'').trim(),filter=params.get('filter')||'all',raw=params.get('page')||'1',lang=params.get('lang')||'tr';
- if(query.length>200||!['all','priority','overdue','verification','accepted','closed'].includes(filter)||!/^[1-9]\d{0,7}$/.test(raw)||!['tr','en'].includes(lang))throw new FindingRegisterError('Invalid finding search or page');
- return {query,filter,page:Number(raw),lang:lang as 'tr'|'en'};
+ const ref=params.get('ref')||'',query=(params.get('q')||'').trim(),filter=params.get('filter')||'all',raw=params.get('page')||'1',lang=params.get('lang')||'tr';
+ if(ref.length>200||/\p{Cc}/u.test(ref)||query.length>200||!['all','priority','overdue','verification','accepted','closed'].includes(filter)||!/^[1-9]\d{0,7}$/.test(raw)||!['tr','en'].includes(lang))throw new FindingRegisterError('Invalid finding search or page');
+ return {query,filter,page:Number(raw),lang:lang as 'tr'|'en',...(ref?{ref}: {})};
 }
 function searchExpression(lang:'tr'|'en'){
  let expression="COALESCE(code,'')||' '||COALESCE(title,'')||' '||COALESCE(source_ref,'')||' '||COALESCE(owner,'')";
@@ -25,6 +25,7 @@ function searchExpression(lang:'tr'|'en'){
 }
 export async function readFindingRegisterPage(db:D1Database,input:FindingRegisterQuery,now=new Date()){
  const day=now.toISOString().slice(0,10),where=['1=1'],values:(string|number)[]=[];
+ if(input.ref){where.push('(id=? OR code=?)');values.push(input.ref,input.ref);}
  if(input.query){where.push(`instr(${searchExpression(input.lang)},?)>0`);values.push(input.query.toLocaleLowerCase(input.lang==='tr'?'tr-TR':'en-US'));}
  if(input.filter==='overdue'){where.push("((status NOT IN ('closed','accepted') AND due_date<?) OR (status='accepted' AND accept_until!='' AND accept_until<?))");values.push(day,day);}
  else if(input.filter==='priority'){where.push("status NOT IN ('closed','accepted') AND due_date>=? AND (severity IN ('critical','high') OR julianday(due_date||'T23:59:59Z')-julianday(?)<=7)");values.push(day,now.toISOString());}
@@ -36,6 +37,7 @@ export async function readFindingRegisterPage(db:D1Database,input:FindingRegiste
   findingSummaryStatement(db,day),
  ]);
  const total=Number(Object.values(matches.results[0]||{})[0]||0),pages=Math.max(1,Math.ceil(total/20)),page=Math.min(input.page,pages);
+ if(input.ref&&total>1)throw new FindingRegisterError('Ambiguous finding reference',409);
  return {summary:counts.results[0] as Record<string,number>,rows:rows.results as Record<string,unknown>[],pagination:{page,pages,total,start:total?(page-1)*20+1:0,end:Math.min(page*20,total)}};
 }
 

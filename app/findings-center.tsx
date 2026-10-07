@@ -8,6 +8,8 @@ import FindingControlContextPanel from "./findings/control-context-panel";
 import FindingHistoryPanel from "./findings/history-panel";
 import {loadCapaReport,capaReportFailure,capaReportFailureMessage,CAPA_REPORT_MODULE} from "./findings/reporting";
 import {buildReportCsv,downloadBlob,reportMetrics} from "./report-export";
+import {FORNOST_FOCUS_EVENT,peekPendingFornostFocus,consumePendingFornostFocus,type FornostNavigationRequest} from "./navigation-focus";
+import {sameDomainModule} from "./domain-identity";
 type Lang="tr"|"en";
 type Finding={id:string;code:string;sourceType:string;sourceRef:string;sourceTitle:string;findingType:string;title:string;description:string;severity:string;owner:string;reviewer:string;rootCause:string;correctiveAction:string;preventiveAction:string;dueDate:string;status:string;riskRef?:string;controlRef?:string;acceptUntil?:string;acceptanceRationale?:string;recurrenceCount:number;attention:string;updatedAt:string};
 type Summary={total:number;open:number;critical:number;overdue:number;verification:number;accepted:number;closed:number;recurring:number};
@@ -18,6 +20,7 @@ const today=()=>new Date().toISOString().slice(0,10),emptyForm=(email:string)=>(
 const phrases:Record<string,string>={start:"CAPA AKSİYONUNU BAŞLAT",submit:"CAPA DOĞRULAMAYA GÖNDER",verify:"BULGUYU KAPAT",reopen:"BULGUYU YENİDEN AÇ","accept-risk":"BULGU RİSKİNİ KABUL ET"};
 export default function FindingsCenter({lang,currentUser}:{lang:Lang;currentUser:{role:string;email:string}}){
  const tr=lang==="tr",[findings,setFindings]=useState<Finding[]>([]),[events,setEvents]=useState<Array<Record<string,string>>>([]),[signals,setSignals]=useState<Array<{source:string;count:number;available?:boolean}>>([]),[summary,setSummary]=useState<Summary>(emptySummary),[notice,setNotice]=useState(""),[busy,setBusy]=useState(false),[query,setQuery]=useState(""),[filter,setFilter]=useState("all"),[form,setForm]=useState<Record<string,string>|null>(null),[selected,setSelected]=useState<Finding|null>(null),[action,setAction]=useState<{finding:Finding;operation:string;note:string;evidenceReference:string;evidenceSha256:string;confirmation:string;acceptUntil:string;acceptanceRationale:string}|null>(null);
+ const [focusRef,setFocusRef]=useState(""),[focusNonce,setFocusNonce]=useState(0);
  const [pagination,setPagination]=useState<FindingPagination>({page:1,pages:1,total:0,start:0,end:0});
  const [loading,setLoading]=useState(true),[loadError,setLoadError]=useState(false),[page,setPage]=useState(1);
  const [exporting,setExporting]=useState(false),[exportLoaded,setExportLoaded]=useState(0);
@@ -28,17 +31,29 @@ export default function FindingsCenter({lang,currentUser}:{lang:Lang;currentUser
   loadController.current?.abort();const controller=new AbortController();loadController.current=controller;
   setLoading(true);setLoadError(false);
   try {
-   const {response,body}=await findingsRequest(withBasePath("/api/findings?"+new URLSearchParams({view:"register",q:query,filter,page:String(page),lang})),{cache:"no-store",signal:controller.signal});
+   const {response,body}=await findingsRequest(withBasePath("/api/findings?"+new URLSearchParams({view:"register",q:query,filter,page:String(page),lang,...(focusRef?{ref:focusRef}:{})})),{cache:"no-store",signal:controller.signal});
    if(!response.ok||!validFindingsPayload(body)||!validFindingPagination(body.pagination,Array.isArray(body.findings)?body.findings.length:0))throw new Error("Findings unavailable");
    if(controller.signal.aborted)return;
    const data=body as FindingsPayload;
    setPagination(data.pagination!);setFindings(data.findings||[]);setEvents(data.events||[]);setSignals(data.sourceSignals||[]);setSummary(data.summary||emptySummary);
-   setSelected(previous=>previous?(data.findings||[]).find(item=>item.id===previous.id)||null:null);
+   setSelected(previous=>focusRef?(data.findings||[])[0]||null:previous?(data.findings||[]).find(item=>item.id===previous.id)||null:null);
   }catch{if(!controller.signal.aborted)setLoadError(true);}
   finally{if(!controller.signal.aborted)setLoading(false);}
- },[query,filter,page,lang]);
- useEffect(()=>{const timer=setTimeout(()=>void load(),200);return()=>{clearTimeout(timer);loadController.current?.abort();};},[load]);
+ },[query,filter,page,lang,focusRef]);
+ useEffect(()=>{const timer=setTimeout(()=>void load(),200);return()=>{clearTimeout(timer);loadController.current?.abort();};},[load,focusNonce]);
  useEffect(()=>{const writes=writeController;return()=>writes.current?.abort();},[]);
+ useEffect(()=>{
+  const accept=(request:FornostNavigationRequest|null)=>{
+   if(!request||!sameDomainModule(request.module,"Bulgular ve CAPA")||sending.current)return;
+   const ref=request.filter?.findingRef||request.filter?.recordRef||request.ref||"";
+   if(!ref||ref.length>200||/\p{Cc}/u.test(ref))return;
+   consumePendingFornostFocus("Bulgular ve CAPA");loadController.current?.abort();setSelected(null);setAction(null);setForm(null);setLoading(true);setLoadError(false);setFocusRef(ref);setFocusNonce(value=>value+1);setQuery("");setFilter("all");setPage(1);
+  };
+  accept(peekPendingFornostFocus());
+  const listener=(event:Event)=>accept((event as CustomEvent<FornostNavigationRequest>).detail);
+  window.addEventListener(FORNOST_FOCUS_EVENT,listener);return()=>window.removeEventListener(FORNOST_FOCUS_EVENT,listener);
+ },[]);
+
  async function api(body:Record<string,unknown>){
   if(sending.current||loading||loadError||!["Admin","Editor"].includes(currentUser.role))return false;
   sending.current=true;setBusy(true);setNotice("");
@@ -69,11 +84,12 @@ export default function FindingsCenter({lang,currentUser}:{lang:Lang;currentUser
  const startAction=(finding:Finding,operation:string)=>{if(loading||loadError||sending.current)return;setAction({finding,operation,note:"",evidenceReference:"",evidenceSha256:"",confirmation:"",acceptUntil:addDays(today(),90),acceptanceRationale:""});};
  async function transition(){if(!action)return;if(await api({action:"transition",findingId:action.finding.id,...action})){setAction(null);setSelected(null)}}
  const listing={...pagination,rows:findings};
- const changeScope=()=>{loadController.current?.abort();setLoading(true);setSelected(null);};
+ const changeScope=()=>{loadController.current?.abort();setFocusRef("");setLoading(true);setSelected(null);};
  const format=(value?:string)=>{if(!value)return "—";const date=new Date(`${value.slice(0,10)}T12:00:00Z`);return Number.isFinite(date.getTime())?new Intl.DateTimeFormat(tr?"tr-TR":"en-GB",{dateStyle:"medium"}).format(date):"—";};
- return <section className="finding-page" aria-busy={loading||busy}>
+ return <section className="finding-page" data-native-focus="true" aria-busy={loading||busy}>
   <div className="finding-hero"><div><small>ENTERPRISE FINDINGS · ROOT CAUSE · CAPA · ASSURANCE</small><h2>{tr?"Bulgular ve CAPA Merkezi":"Findings & CAPA Center"}</h2><p>{tr?"Denetim, kontrol, sürekli kontrol, tedarikçi, regülasyon, risk ve güvenlik bulgularını tek sahiplik, SLA, kök neden ve bağımsız kanıt doğrulama zincirinde yönetin.":"Govern audit, control, continuous-control, vendor, regulatory, risk and security findings through one ownership, SLA, root-cause and independent evidence chain."}</p></div><div>{currentUser.role==="Admin"&&<button type="button" disabled={exporting||loading||loadError} onClick={()=>void exportCsv()}>{exporting?`${tr?"Yükleniyor":"Loading"}… ${exportLoaded}`:(tr?"Tüm CAPA · CSV":"All CAPA · CSV")}</button>}{["Admin","Editor"].includes(currentUser.role)&&<button disabled={loading||loadError||busy} onClick={()=>setForm(emptyForm(currentUser.email))}>+ {tr?"Yeni Bulgu":"New Finding"}</button>}</div></div>
   <div className="finding-load-status" role={loadError?"alert":"status"}><span>{loading?(tr?"Bulgular yükleniyor…":"Loading findings…"):loadError?(tr?"Bulgular alınamadı. Gösterilen kayıtlar güncel olmayabilir; işlem yapmadan önce yeniden deneyin.":"Findings could not be loaded. Displayed records may be stale; retry before making changes."):(tr?"Kayıtlar güncel":"Records are up to date")}</span><button type="button" disabled={loading||busy} onClick={()=>void load()}>{loadError?(tr?"Yeniden dene":"Retry"):(tr?"Yenile":"Refresh")}</button></div>
+  {focusRef&&<div className="finding-load-status" role="status"><span>{tr?"Seçilen bulgu":"Selected finding"}: {focusRef}{!loading&&(loadError||!findings.length)?(tr?" · Kayıt bulunamadı, belirsiz veya erişilemiyor.":" · Record missing, ambiguous or unavailable."):""}</span><button type="button" disabled={busy} onClick={()=>{changeScope();setQuery("");setFilter("all");setPage(1)}}>{tr?"Tüm kayıtları göster":"Show all records"}</button></div>}
   {notice&&<button className="finding-notice" onClick={()=>setNotice("")}>{notice}<b>×</b></button>}
   <div className="finding-kpis">{[[summary.open,tr?"Açık CAPA":"Open CAPA"],[summary.critical,tr?"Kritik":"Critical"],[summary.overdue,tr?"Gecikmiş":"Overdue"],[summary.verification,tr?"Doğrulamada":"Verification"],[summary.accepted,tr?"Risk kabulü":"Accepted risk"],[summary.recurring,tr?"Tekrarlayan":"Recurring"]].map(([value,label])=><article key={String(label)}><small>{label}</small><strong>{loading||loadError?"—":value}</strong></article>)}</div>
   <div className="finding-source-strip"><div><small>{tr?"BAĞLI KAYNAK KUYRUĞU":"CONNECTED SOURCE QUEUE"}</small><b>{tr?"Dağınık bulguları kurumsal CAPA kaydına dönüştürün":"Convert distributed findings into governed CAPA records"}</b></div>{signals.map(x=><span key={x.source}><b>{loading||loadError||x.available===false?"—":x.count}</b><small>{x.source}{x.available===false?(tr?" · Alınamadı":" · Unavailable"):""}</small></span>)}</div>

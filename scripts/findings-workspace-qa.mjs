@@ -16,7 +16,8 @@ await page.route(/\/api\/findings(?:\?view=register.*)?$/,async route=>{
  }
  if(unavailable)return route.fulfill({status:503,json:{error:'fixture outage'}});
  const params=new URL(route.request().url()).searchParams,query=(params.get('q')||'').toLowerCase(),filter=params.get('filter')||'all';
- const matching=findings.filter(row=>(filter==='all'||row.status===filter||row.attention===filter)&&[row.code,row.title,row.sourceRef,row.owner].join(' ').toLowerCase().includes(query));
+ const ref=params.get('ref');
+ const matching=findings.filter(row=>(!ref||row.id===ref||row.code===ref)&&(filter==='all'||row.status===filter||row.attention===filter)&&[row.code,row.title,row.sourceRef,row.owner].join(' ').toLowerCase().includes(query));
  const total=matching.length,pages=Math.max(1,Math.ceil(total/20)),page=Math.min(Number(params.get('page')||1),pages),start=total?(page-1)*20+1:0,end=Math.min(page*20,total);
  return route.fulfill({json:{findings:matching.slice((page-1)*20,page*20),pagination:{page,pages,total,start,end},events:[],sourceSignals:[{source:'continuous-control',count:0,available:false}],summary:{total:65,open:65,critical:0,overdue:0,verification:0,accepted:0,closed:0,recurring:0}}});
 });
@@ -57,6 +58,17 @@ try{
  await history.getByRole('button',{name:'Load older events',exact:true}).click();await expect(history.locator('li')).toHaveCount(2);
  await expect(history.getByRole('button',{name:'Load older events',exact:true})).toHaveCount(0);
  await panel.getByRole('button',{name:'Close',exact:true}).click();
+ // Exact contextual navigation must not open FND-QA-10 for FND-QA-1.
+ await page.evaluate(()=>window.dispatchEvent(new CustomEvent('fornost:focus',{detail:{module:'Bulgular ve CAPA',ref:'FND-QA-1',filter:{findingRef:'FND-QA-1'}}})));
+ await expect(panel.getByRole('dialog',{name:'QA finding 1',exact:true})).toBeVisible();
+ await panel.getByRole('button',{name:'Close',exact:true}).click();
+ await page.evaluate(()=>window.dispatchEvent(new CustomEvent('fornost:focus',{detail:{module:'Bulgular ve CAPA',ref:'missing-finding'}})));
+ await expect(panel.locator('.finding-load-status').last()).toContainText('Record missing');
+ await expect(panel.getByRole('dialog')).toHaveCount(0);
+ await panel.getByRole('button',{name:'Show all records',exact:true}).click();
+ await expect(panel.locator('.finding-table tbody tr')).toHaveCount(20);
+ await panel.getByRole('textbox',{name:'Search findings',exact:true}).fill('AUD-QA-65');
+ await expect(panel.locator('.finding-table tbody tr')).toHaveCount(1);
  const downloadPromise=page.waitForEvent('download');await panel.getByRole('button',{name:'All CAPA · CSV',exact:true}).click();
  const download=await downloadPromise;assert.equal(await download.failure(),null);const csv=await readFile(await download.path(),'utf8');
  assert.match(csv,/QA finding 1/);assert.match(csv,/QA finding 65/);assert.match(csv,/RISK-CSV/);assert.match(csv,/screen search and status filters are not applied/);
