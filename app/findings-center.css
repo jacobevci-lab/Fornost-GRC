@@ -2,3 +2,14 @@
 @media(max-width:1100px){.finding-kpis{grid-template-columns:repeat(3,1fr)}.finding-source-strip{overflow:auto}.finding-source-strip>span{flex:0 0 100px}}
 @media(max-width:700px){.finding-hero{display:block}.finding-hero>div:last-child{margin-top:14px}.finding-kpis{grid-template-columns:1fr 1fr}.finding-detail-grid,.finding-form-grid{grid-template-columns:1fr}.finding-form label.wide{grid-column:auto}.finding-history>div{grid-template-columns:1fr}.finding-toolbar{flex-wrap:wrap}.finding-toolbar input{flex-basis:100%}}
 .finding-load-status,.finding-pagination{display:flex;align-items:center;flex-wrap:wrap;gap:10px;margin-top:12px;padding:10px 12px;border:1px solid var(--at-line);border-radius:7px;background:var(--at-surface);color:var(--at-ink-2);font-size:12px}.finding-load-status span,.finding-pagination span{flex:1}.finding-load-status[role=alert]{border-color:var(--at-warn);color:var(--at-warn)}.finding-load-status button,.finding-pagination button{padding:7px 10px;border:1px solid var(--at-line);border-radius:6px;background:var(--at-raised);color:var(--at-ink);font:inherit}.finding-page button:disabled{opacity:.5;cursor:not-allowed}.finding-row-open{padding:0;border:0;background:transparent;color:var(--at-ink);font:inherit;font-weight:700;text-align:left;cursor:pointer}.finding-row-open:focus-visible{outline:2px solid var(--at-accent-ink);outline-offset:3px}
+
+.finding-record-history{margin:1rem 0;border-top:1px solid var(--at-line);padding-top:.75rem;min-width:0}
+.finding-record-history>header{display:flex;align-items:center;justify-content:space-between;gap:.75rem}
+.finding-record-history h4{font-size:.85rem;margin:0}
+.finding-record-history ol{list-style:none;padding:0;margin:.75rem 0;display:grid;gap:.7rem}
+.finding-record-history li{display:grid;gap:.25rem;padding:.6rem;border:1px solid var(--at-line);border-radius:8px;font-size:.78rem;overflow-wrap:anywhere}
+.finding-record-history li p{margin:.25rem 0;white-space:pre-wrap}
+.finding-record-history li span,.finding-record-history li small{color:var(--at-ink-3)}
+.finding-record-history code{font-size:.7rem;overflow-wrap:anywhere;white-space:normal}
+
+.finding-record-history{padding:.75rem 20px}.finding-record-history button{border:1px solid var(--at-line);background:var(--at-raised);color:var(--at-ink);border-radius:6px;padding:6px 9px;font:inherit}

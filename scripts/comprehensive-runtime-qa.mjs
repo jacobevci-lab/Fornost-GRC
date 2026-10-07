@@ -115,6 +115,9 @@ await check('Incident lifecycle: declaration through independent close and reope
 await check('CAPA lifecycle: create, start, submit, independent verify and reopen',async()=>{
  const {id}=await request(admin,'/api/findings','POST',{action:'create',sourceType:'audit',sourceRef:'AUD-QA-001',sourceTitle:'QA audit',findingType:'nonconformity',title:'QA access review incomplete',description:'Quarterly privileged access evidence does not cover all production administrators.',severity:'high',owner,reviewer,rootCause:'Ownership changes were not reflected in the review workflow.',correctiveAction:'Complete missing review population and remove unjustified access.',preventiveAction:'Automate population reconciliation and require owner attestation.',dueDate:future(7),riskRef:'RSK-001',controlRef:'A.5.18'},201);
  for(const [operation,confirmation] of [['start','CAPA AKSİYONUNU BAŞLAT'],['submit','CAPA DOĞRULAMAYA GÖNDER'],['verify','BULGUYU KAPAT'],['reopen','BULGUYU YENİDEN AÇ']])await request(operation==='verify'?checker:admin,'/api/findings','POST',{action:'transition',findingId:id,operation,confirmation,...evidence});
+ const history=await request(viewer,`/api/findings/history?findingId=${encodeURIComponent(id)}`);assert.equal(history.events.length,5);assert.equal(history.next,null);assert.ok(history.events.every(event=>event.findingId===id));assert.equal(history.events.find(event=>event.action==='verify').evidenceSha256,evidence.evidenceSha256);
+ await request(viewer,'/api/findings/history?findingId=missing','GET',undefined,404);
+ await request(viewer,`/api/findings/history?findingId=${encodeURIComponent(id)}&after=broken`,'GET',undefined,400);
 });
 await check('Audit portfolio: template creation, duplicate protection, archive/delete and requirement cleanup',async()=>{
  const body={name:`QA ISO audit ${Date.now()}`,template:'ISO/IEC 27001:2022',auditType:'İç Denetim',auditor:reviewer,auditOwner:owner};
