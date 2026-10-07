@@ -10,7 +10,7 @@ export function findingListPage<T extends {code:string;title:string;sourceRef:st
 }
 export function validFindingsPayload(body:Record<string,unknown>):boolean {
  const strings=['id','code','sourceType','sourceRef','sourceTitle','findingType','title','description','severity','owner','reviewer','rootCause','correctiveAction','preventiveAction','dueDate','status','attention','updatedAt'];
- const nullable=['riskRef','controlRef','acceptUntil','acceptanceRationale'];
+ const nullable=['riskRef','controlRef','acceptUntil','acceptanceRationale','detectedBy','submittedBy','evidenceReference','verificationEvidenceReference'];
  return Array.isArray(body.findings)&&body.findings.every(row=>row&&typeof row==='object'&&strings.every(key=>typeof row[key]==='string')&&nullable.every(key=>row[key]==null||typeof row[key]==='string')&&Number.isFinite(row.recurrenceCount))
   &&Array.isArray(body.events)&&body.events.every(row=>row&&typeof row==='object'&&['id','action','findingId','actor','detail'].every(key=>typeof row[key]==='string'))
   &&Array.isArray(body.sourceSignals)&&body.sourceSignals.every(row=>row&&typeof row.source==='string'&&Number.isFinite(row.count))

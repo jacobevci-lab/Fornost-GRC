@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import {readFile} from "node:fs/promises";
 import test from "node:test";
-import {FINDING_SOURCES,addDays,findingAttention,findingSlaDays,validateFinding,validateFindingAction} from "../app/findings/domain";
+import {FINDING_SOURCES,findingVersionMatches,addDays,findingAttention,findingSlaDays,validateFinding,validateFindingAction} from "../app/findings/domain";
 
 const valid={sourceType:"audit",sourceRef:"AUD-2027-01",sourceTitle:"ISO 27001 Internal Audit",findingType:"nonconformity",title:"Privileged access review is incomplete",description:"Quarterly privileged access review evidence does not cover all production administrators.",severity:"high",owner:"action@example.com",reviewer:"reviewer@example.com",rootCause:"Ownership changes were not reflected in the review workflow.",correctiveAction:"Complete the missing review population and remove unjustified privileged access.",preventiveAction:"Automate the population reconciliation and require owner attestation before closure.",dueDate:"2027-01-31",riskRef:"RSK-001",controlRef:"A.5.18"};
 
@@ -39,4 +39,11 @@ test("enterprise findings and CAPA is wired across schema, API, UI, navigation a
  assert.match(route,/Maker-checker: tespit eden, aksiyon sahibi veya gönderen kişi kapatamaz/);assert.match(route,/bounded formula-safe records/);assert.match(route,/recurrence_count=recurrence_count\+1/);assert.match(route,/sourceCount/);
  assert.match(migration,/enterprise_findings_status_due_idx/);assert.match(migration,/enterprise_finding_events/);assert.match(schema,/enterpriseFindings/);assert.match(schema,/enterpriseFindingEvents/);
  assert.match(ui,/ENTERPRISE FINDINGS · ROOT CAUSE · CAPA · ASSURANCE/);assert.match(ui,/CAPA CSV/);assert.match(page,/FindingsCenter/);assert.match(page,/Bulgular ve CAPA/);assert.match(readme,/Enterprise Findings & CAPA/);assert.match(docs,/fail-closed/);
+});
+
+test('UI decisions require their observed version while omitted legacy versions stay compatible',()=>{
+ const current='2026-10-07T08:00:00.000Z';
+ assert.equal(findingVersionMatches(current,current),true);
+ for(const value of [null,'',{},'2026-10-07T07:00:00.000Z'])assert.equal(findingVersionMatches(value,current),false);
+ assert.equal(findingVersionMatches(undefined,current),true);
 });

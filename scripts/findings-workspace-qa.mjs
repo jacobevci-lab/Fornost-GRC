@@ -6,17 +6,27 @@ const base='http://127.0.0.1:4173';
 const browser=await chromium.launch({executablePath:process.env.QA_CHROMIUM_PATH||undefined});
 const context=await browser.newContext({viewport:{width:1536,height:960}});
 const page=await context.newPage();page.setDefaultTimeout(20000);
-let unavailable=true,writes=0,uncertain=false;
+let unavailable=true,writes=0,uncertain=false,rejectCreate=false;
+let releaseTransition,releaseCreate;
 const findings=Array.from({length:65},(_,i)=>({id:`QA-F-${i+1}`,code:`FND-QA-${i+1}`,sourceType:'audit',sourceRef:`AUD-QA-${i+1}`,sourceTitle:'QA audit',findingType:'nonconformity',title:`QA finding ${i+1}`,description:'QA finding description',severity:'high',owner:'qa-admin@fornost.test',reviewer:'reviewer@fornost.test',rootCause:'QA root cause',correctiveAction:'QA corrective action',preventiveAction:'QA preventive action',dueDate:'2026-12-01',status:'open',recurrenceCount:0,attention:'priority',updatedAt:'2026-10-06T09:00:00Z'}));
 await page.route(/\/api\/findings(?:\?view=register.*)?$/,async route=>{
  if(route.request().method()==='POST'){
+  const body=route.request().postDataJSON();
+  if(body.action==='transition'){
+   assert.equal(body.expectedUpdatedAt,'2026-10-06T09:00:00Z');assert.equal(body.findingId,'QA-F-1');assert.equal(body.finding,undefined);
+   if(body.confirmation!=='CAPA AKSİYONUNU BAŞLAT')return route.fulfill({status:400,json:{error:'Confirmation does not match.'}});
+   await new Promise(resolve=>{releaseTransition=resolve;});
+   return route.fulfill({status:409,json:{error:'Record changed since the displayed version.'}});
+  }
+  if(rejectCreate)return route.fulfill({status:400,json:{error:'Complete the CAPA plan.'}});
   writes++;assert.equal(route.request().postDataJSON().action,'create');
-  await new Promise(resolve=>setTimeout(resolve,300));
+  if(!uncertain)await new Promise(resolve=>{releaseCreate=resolve;});
   return route.fulfill({status:uncertain?503:200,json:uncertain?{error:'fixture outage'}:{message:'Created'}});
  }
  if(unavailable)return route.fulfill({status:503,json:{error:'fixture outage'}});
  const params=new URL(route.request().url()).searchParams,query=(params.get('q')||'').toLowerCase(),filter=params.get('filter')||'all';
- const matching=findings.filter(row=>(filter==='all'||row.status===filter||row.attention===filter)&&[row.code,row.title,row.sourceRef,row.owner].join(' ').toLowerCase().includes(query));
+ const ref=params.get('ref');
+ const matching=findings.filter(row=>(!ref||row.id===ref||row.code===ref)&&(filter==='all'||row.status===filter||row.attention===filter)&&[row.code,row.title,row.sourceRef,row.owner].join(' ').toLowerCase().includes(query));
  const total=matching.length,pages=Math.max(1,Math.ceil(total/20)),page=Math.min(Number(params.get('page')||1),pages),start=total?(page-1)*20+1:0,end=Math.min(page*20,total);
  return route.fulfill({json:{findings:matching.slice((page-1)*20,page*20),pagination:{page,pages,total,start,end},events:[],sourceSignals:[{source:'continuous-control',count:0,available:false}],summary:{total:65,open:65,critical:0,overdue:0,verification:0,accepted:0,closed:0,recurring:0}}});
 });
@@ -50,20 +60,59 @@ try{
  await expect(panel.locator('.finding-table tbody tr')).toHaveCount(1);
  const open=panel.getByRole('button',{name:'QA finding 65',exact:true});await open.focus();await page.keyboard.press('Enter');
  await expect(panel.getByRole('dialog')).toBeVisible();
+ await expect(panel.locator('.finding-detail-grid aside')).toContainText('Action owner: qa-admin@fornost.test');
+ await expect(panel.locator('.finding-detail-grid aside')).toContainText('Independent reviewer: reviewer@fornost.test');
+ await expect(panel.getByRole('button',{name:'Accept risk',exact:true})).toHaveCount(0);
+ await expect(panel.locator('.finding-table .finding-badge')).toHaveText('High');
  const history=panel.locator('.finding-record-history');
  await expect(history.getByRole('alert')).toContainText('could not be loaded');
  historyUnavailable=false;await history.getByRole('button',{name:'Retry',exact:true}).click();
- await expect(history.locator('li')).toHaveCount(1);await expect(history).toContainText('EV-HISTORY');await expect(history).toContainText('a'.repeat(64));
+ await expect(history.locator('li')).toHaveCount(1);await expect(history.locator('li strong')).toHaveText('Verified and closed');await expect(history.locator('time')).toContainText('UTC');await expect(history).toContainText('EV-HISTORY');await expect(history).toContainText('a'.repeat(64));
  await history.getByRole('button',{name:'Load older events',exact:true}).click();await expect(history.locator('li')).toHaveCount(2);
  await expect(history.getByRole('button',{name:'Load older events',exact:true})).toHaveCount(0);
+ await page.keyboard.press('Escape');await expect(panel.getByRole('dialog')).toHaveCount(0);await expect(open).toBeFocused();
+ // Exact contextual navigation must not open FND-QA-10 for FND-QA-1.
+ await page.evaluate(()=>window.dispatchEvent(new CustomEvent('fornost:focus',{detail:{module:'Bulgular ve CAPA',ref:'FND-QA-1',filter:{findingRef:'FND-QA-1'}}})));
+ await expect(panel.getByRole('dialog',{name:'QA finding 1',exact:true})).toBeVisible();
+ assert.equal(await panel.getByRole('dialog',{name:'QA finding 1',exact:true}).evaluate(element=>element.contains(document.activeElement)),true);
+ await panel.getByRole('button',{name:'Start CAPA',exact:true}).click();
+ const decision=panel.locator('.finding-action');await decision.locator('textarea').fill('Start remediation after review');
+ await decision.locator('input').fill('wrong confirmation');await decision.getByRole('button',{name:'Apply action',exact:true}).click();
+ await expect(decision.getByRole('alert')).toHaveText('Confirmation does not match.');
+ await expect(decision.locator('textarea')).toHaveValue('Start remediation after review');
+ await page.keyboard.press('Escape');await expect(decision).toHaveCount(0);await expect(panel.getByRole('button',{name:'Start CAPA',exact:true})).toBeFocused();
+ await panel.getByRole('button',{name:'Start CAPA',exact:true}).click();await expect(decision.getByRole('alert')).toHaveCount(0);
+ await decision.locator('textarea').fill('Start remediation after review');await decision.locator('input').fill('CAPA AKSİYONUNU BAŞLAT');
+ await decision.getByRole('button',{name:'Apply action',exact:true}).click();
+ await expect(decision.getByRole('button',{name:'Cancel',exact:true})).toBeDisabled();await expect(decision.locator('textarea')).toBeDisabled();
+ await page.keyboard.press('Escape');await expect(decision).toBeVisible();
+ await expect.poll(()=>typeof releaseTransition).toBe('function');releaseTransition();
+ await expect(decision).toHaveCount(0);await expect(panel.locator('.finding-notice')).toContainText('changed since');
+ await expect(panel.getByRole('dialog')).toHaveCount(0);
+ await expect(panel.locator('.finding-load-status').first()).toContainText('Records are up to date');
+ await page.evaluate(()=>window.dispatchEvent(new CustomEvent('fornost:focus',{detail:{module:'Bulgular ve CAPA',ref:'FND-QA-1'}})));
+ await expect(panel.getByRole('dialog',{name:'QA finding 1',exact:true})).toBeVisible();
+
  await panel.getByRole('button',{name:'Close',exact:true}).click();
+ await page.evaluate(()=>window.dispatchEvent(new CustomEvent('fornost:focus',{detail:{module:'Bulgular ve CAPA',ref:'missing-finding'}})));
+ await expect(panel.locator('.finding-load-status').last()).toContainText('Record missing');
+ await expect(panel.getByRole('dialog')).toHaveCount(0);
+ await panel.getByRole('button',{name:'Show all records',exact:true}).click();
+ await expect(panel.locator('.finding-table tbody tr')).toHaveCount(20);
+ await panel.getByRole('textbox',{name:'Search findings',exact:true}).fill('AUD-QA-65');
+ await expect(panel.locator('.finding-table tbody tr')).toHaveCount(1);
  const downloadPromise=page.waitForEvent('download');await panel.getByRole('button',{name:'All CAPA · CSV',exact:true}).click();
  const download=await downloadPromise;assert.equal(await download.failure(),null);const csv=await readFile(await download.path(),'utf8');
  assert.match(csv,/QA finding 1/);assert.match(csv,/QA finding 65/);assert.match(csv,/RISK-CSV/);assert.match(csv,/screen search and status filters are not applied/);
 
  await panel.getByRole('button',{name:'+ New Finding',exact:true}).click();
  const form=panel.locator('form.finding-form');
+ rejectCreate=true;await form.getByLabel('Source title',{exact:true}).fill('Keep this draft');await form.dispatchEvent('submit');
+ await expect(form.getByRole('alert')).toHaveText('Complete the CAPA plan.');await expect(form.getByLabel('Source title',{exact:true})).toHaveValue('Keep this draft');
+ rejectCreate=false;
  await form.dispatchEvent('submit');await form.dispatchEvent('submit');
+ await expect(form.getByRole('button',{name:'Cancel',exact:true})).toBeDisabled();await page.keyboard.press('Escape');await expect(form).toBeVisible();
+ await expect.poll(()=>typeof releaseCreate).toBe('function');releaseCreate();
  await expect(form).toHaveCount(0);assert.equal(writes,1);
  uncertain=true;await panel.getByRole('button',{name:'+ New Finding',exact:true}).click();await form.dispatchEvent('submit');
  await expect(form).toHaveCount(0);await expect(panel.locator('.finding-notice')).toContainText('could not be confirmed');assert.equal(writes,2);

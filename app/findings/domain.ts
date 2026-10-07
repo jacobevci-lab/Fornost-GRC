@@ -63,3 +63,8 @@ export function validateFindingAction(input:Record<string,unknown>,today=new Dat
 export function findingAttention(status:string,severity:string,dueDate:string,acceptUntil="",now=new Date()){
  const today=now.toISOString().slice(0,10);if(status==="closed")return"closed";if(status==="accepted")return acceptUntil&&acceptUntil<today?"acceptance-expired":"accepted";if(dueDate<today)return"overdue";const days=Math.ceil((new Date(`${dueDate}T23:59:59Z`).getTime()-now.getTime())/86_400_000);if(severity==="critical"||severity==="high"||days<=7)return"priority";return status;
 }
+
+/** Legacy integrations may omit the version; an explicit UI version must match exactly. */
+export function findingVersionMatches(expected:unknown,current:unknown){
+ return expected===undefined||(typeof expected==='string'&&expected.length>0&&expected.length<=40&&expected===current);
+}

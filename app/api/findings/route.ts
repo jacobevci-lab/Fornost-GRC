@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireRole } from "../auth/security";
 import { clean } from "../integrations/security";
-import { findingAttention, validateFinding, validateFindingAction, validateFindingGovernanceGate } from "../../findings/domain";
+import { findingAttention, findingVersionMatches, validateFinding, validateFindingAction, validateFindingGovernanceGate } from "../../findings/domain";
 import { commitFindingTransition } from "../../findings/transition-store";
 import { findingCsvCell as csvCell } from "../../findings/export";
 import { ensureFindingsSchemaCompatibility } from "./schema-compat";
@@ -87,7 +87,7 @@ export async function GET(req: NextRequest) {
 
   let registerQuery;
   try {if(req.nextUrl.searchParams.get("view")==="register")registerQuery=parseFindingRegisterQuery(req.nextUrl.searchParams);}
-  catch(error){if(error instanceof FindingRegisterError)return json({error:error.message},400);throw error;}
+  catch(error){if(error instanceof FindingRegisterError)return json({error:error.message},error.status);throw error;}
   const [register, eventResult, sourceSignals, registerPage] = await Promise.all([
     registerQuery?Promise.resolve(null):readFindingRegister(env.DB),
     env.DB.prepare("SELECT * FROM enterprise_finding_events ORDER BY created_at DESC LIMIT 1000").all<Record<string, unknown>>(),
@@ -97,9 +97,10 @@ export async function GET(req: NextRequest) {
       sourceCount(env.DB, "ai-assurance", "SELECT COUNT(*) n FROM ai_findings WHERE status!='closed'"),
       sourceCount(env.DB, "regulatory", "SELECT COUNT(*) n FROM regulatory_change_impacts WHERE status!='completed'"),
     ]),
-    registerQuery?readFindingRegisterPage(env.DB,registerQuery):Promise.resolve(null),
+    registerQuery?readFindingRegisterPage(env.DB,registerQuery).catch(error=>{if(error instanceof FindingRegisterError)return error;throw error;}):Promise.resolve(null),
   ]);
 
+  if(registerPage instanceof FindingRegisterError)return json({error:registerPage.message},registerPage.status);
   const findings = (registerPage?.rows||register!.rows).map(map);
   const summary = registerPage?.summary||register!.summary;
 
@@ -159,6 +160,7 @@ export async function POST(req: NextRequest) {
       const operation = validateFindingAction(body);
       const finding = await env.DB.prepare("SELECT * FROM enterprise_findings WHERE id=?").bind(id).first<Record<string, unknown>>();
       if (!finding) return json({ error: "Bulgu bulunamadı." }, 404);
+      if (!findingVersionMatches(body.expectedUpdatedAt,finding.updated_at)) return json({error:"Bulgu görüntülediğiniz sürümden sonra değişti. Güncel kaydı inceleyip işlemi yeniden açın."},409);
       const status = String(finding.status);
       const now = new Date().toISOString();
       let next = "";

@@ -1,0 +1,13 @@
+# Exact CAPA contextual navigation
+
+Connected GRC, My Work and other contextual links now resolve the exact canonical finding ID or code through the authorized register API. The native Findings component owns focus; the legacy DOM bridge does not select table text in this workspace.
+
+The component resets stale filters, cancels old reads, opens the unique record and displays a selected-record banner. Missing or ambiguous references do not open another finding. A single action restores the full register. Repeated navigation to the same record reloads it. Workflow mutations and existing roles remain unchanged.
+
+Validation adds real SQLite ID/code/prefix/collision cases and browser contextual navigation plus missing-reference recovery. This does not remove bounded legacy graph/inbox source loading; it ensures that a supplied canonical reference is resolved without relying on the first page or text matching.
+
+UI transition requests now include the displayed updatedAt version. A stale or malformed explicit version returns 409 before state or audit changes; existing transactional optimistic guards still handle a later race. Legacy integrations that omit the field remain compatible and retain their previous server-read guard. A contextual record auto-opens only for a navigation request, so post-decision refresh does not reopen a dismissed dialog.
+
+The CAPA workspace now presents lifecycle, severity, source and event values with Turkish/English labels while preserving canonical API and form values. Detail panels show owner, reviewer, last update, acceptance rationale and current evidence references. Audit timestamps explicitly use UTC. Decision controls reflect assigned-reviewer and maker-checker requirements; missing actor provenance hides approval controls rather than assuming independence. Server authorization and evidence/lineage validation remain authoritative.
+
+CAPA detail, creation and decision overlays now use native modal dialogs for keyboard containment, Escape handling and focus restoration. In-flight writes disable editable fields and close/cancel controls, including Escape. Recoverable validation errors remain visible inside the active form without losing the draft; opening a new decision clears old notices. Browser regression covers these behaviors, including a held response during Escape and nested decision dismissal.

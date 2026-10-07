@@ -2,6 +2,7 @@
 import {useCallback,useEffect,useRef,useState} from 'react';
 import {withBasePath} from '../base-path';
 import {findingsRequest} from './workspace';
+import {findingLabel,findingTimestamp} from './presentation';
 import type {FindingHistoryEvent} from './history';
 type Cursor={after:string;stamp:string};
 export default function FindingHistoryPanel({findingId,lang}:{findingId:string;lang:'tr'|'en'}){
@@ -25,7 +26,7 @@ export default function FindingHistoryPanel({findingId,lang}:{findingId:string;l
   {failed&&<p role="alert">{tr?'İşlem geçmişi alınamadı.':'Audit trail could not be loaded.'} <button type="button" disabled={busy} onClick={()=>void load(retry.current)}>{tr?'Yeniden dene':'Retry'}</button></p>}
   {busy&&<p role="status">{tr?'İşlem geçmişi yükleniyor…':'Loading audit trail…'}</p>}
   {!busy&&!failed&&!events.length&&<p>{tr?'Bu bulgu için işlem kaydı yok.':'No events recorded for this finding.'}</p>}
-  <ol>{events.map(event=><li key={event.id}><strong>{event.action}</strong><span>{event.actor} · <time dateTime={event.createdAt}>{event.createdAt}</time></span>{(event.fromStatus||event.toStatus)&&<small>{event.fromStatus||'—'} → {event.toStatus||'—'}</small>}<p>{event.detail}</p>{event.evidenceReference&&<small>{tr?'Kanıt':'Evidence'}: {event.evidenceReference}</small>}{event.evidenceSha256&&<code>SHA-256: {event.evidenceSha256}</code>}</li>)}</ol>
+  <ol>{events.map(event=><li key={event.id}><strong>{findingLabel(event.action,lang)}</strong><span>{event.actor} · <time dateTime={event.createdAt}>{findingTimestamp(event.createdAt,lang)}</time></span>{(event.fromStatus||event.toStatus)&&<small>{findingLabel(event.fromStatus||'',lang)} → {findingLabel(event.toStatus||'',lang)}</small>}<p>{event.detail}</p>{event.evidenceReference&&<small>{tr?'Kanıt':'Evidence'}: {event.evidenceReference}</small>}{event.evidenceSha256&&<code>SHA-256: {event.evidenceSha256}</code>}</li>)}</ol>
   {next&&!failed&&<button type="button" disabled={busy} onClick={()=>void load(next)}>{tr?'Daha eski olayları yükle':'Load older events'}</button>}
  </section>;
 }

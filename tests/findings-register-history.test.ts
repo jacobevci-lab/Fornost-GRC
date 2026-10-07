@@ -68,3 +68,16 @@ test('server priority and overdue filters follow attention semantics including e
   assert.deepEqual(new Set((await request('overdue')).rows.map(r=>r.id)),new Set(['late','expired']));
  }finally{sql.close();}
 });
+
+test('exact finding navigation never selects a prefix, unrelated title or ambiguous ID/code',async()=>{
+ const {db,sql}=fixture();try{
+  const insert=sql.prepare('INSERT INTO enterprise_findings(id,code,title,status) VALUES(?,?,?,?)');
+  insert.run('internal-1','FND-1','Original','open');insert.run('internal-10','FND-10','FND-1 mentioned','open');
+  const lookup=(ref:string)=>readFindingRegisterPage(db,{query:'',filter:'all',page:1,lang:'en',ref});
+  assert.deepEqual((await lookup('FND-1')).rows.map(r=>r.id),['internal-1']);
+  assert.deepEqual((await lookup('internal-10')).rows.map(r=>r.id),['internal-10']);
+  assert.equal((await lookup('missing')).pagination.total,0);
+  insert.run('FND-1','OTHER','Collision','open');await assert.rejects(lookup('FND-1'),{status:409});
+  assert.throws(()=>parseFindingRegisterQuery(new URLSearchParams({ref:'x'.repeat(201)})));
+ }finally{sql.close();}
+});

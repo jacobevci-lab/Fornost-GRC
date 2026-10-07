@@ -86,6 +86,7 @@ function applyFindingFocus(value: string) {
   const page = document.querySelector<HTMLElement>("main .finding-page");
   if (!page) return false;
 
+  if (page.dataset.nativeFocus === "true") return false;
   const search = page.querySelector<HTMLInputElement>(".finding-toolbar input");
   const status = page.querySelector<HTMLSelectElement>(".finding-toolbar select");
   if (!search || !status) return false;
