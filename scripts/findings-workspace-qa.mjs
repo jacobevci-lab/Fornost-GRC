@@ -6,17 +6,21 @@ const base='http://127.0.0.1:4173';
 const browser=await chromium.launch({executablePath:process.env.QA_CHROMIUM_PATH||undefined});
 const context=await browser.newContext({viewport:{width:1536,height:960}});
 const page=await context.newPage();page.setDefaultTimeout(20000);
-let unavailable=true,writes=0,uncertain=false;
+let unavailable=true,writes=0,uncertain=false,rejectCreate=false;
+let releaseTransition,releaseCreate;
 const findings=Array.from({length:65},(_,i)=>({id:`QA-F-${i+1}`,code:`FND-QA-${i+1}`,sourceType:'audit',sourceRef:`AUD-QA-${i+1}`,sourceTitle:'QA audit',findingType:'nonconformity',title:`QA finding ${i+1}`,description:'QA finding description',severity:'high',owner:'qa-admin@fornost.test',reviewer:'reviewer@fornost.test',rootCause:'QA root cause',correctiveAction:'QA corrective action',preventiveAction:'QA preventive action',dueDate:'2026-12-01',status:'open',recurrenceCount:0,attention:'priority',updatedAt:'2026-10-06T09:00:00Z'}));
 await page.route(/\/api\/findings(?:\?view=register.*)?$/,async route=>{
  if(route.request().method()==='POST'){
   const body=route.request().postDataJSON();
   if(body.action==='transition'){
    assert.equal(body.expectedUpdatedAt,'2026-10-06T09:00:00Z');assert.equal(body.findingId,'QA-F-1');assert.equal(body.finding,undefined);
+   if(body.confirmation!=='CAPA AKSİYONUNU BAŞLAT')return route.fulfill({status:400,json:{error:'Confirmation does not match.'}});
+   await new Promise(resolve=>{releaseTransition=resolve;});
    return route.fulfill({status:409,json:{error:'Record changed since the displayed version.'}});
   }
+  if(rejectCreate)return route.fulfill({status:400,json:{error:'Complete the CAPA plan.'}});
   writes++;assert.equal(route.request().postDataJSON().action,'create');
-  await new Promise(resolve=>setTimeout(resolve,300));
+  if(!uncertain)await new Promise(resolve=>{releaseCreate=resolve;});
   return route.fulfill({status:uncertain?503:200,json:uncertain?{error:'fixture outage'}:{message:'Created'}});
  }
  if(unavailable)return route.fulfill({status:503,json:{error:'fixture outage'}});
@@ -66,13 +70,23 @@ try{
  await expect(history.locator('li')).toHaveCount(1);await expect(history.locator('li strong')).toHaveText('Verified and closed');await expect(history.locator('time')).toContainText('UTC');await expect(history).toContainText('EV-HISTORY');await expect(history).toContainText('a'.repeat(64));
  await history.getByRole('button',{name:'Load older events',exact:true}).click();await expect(history.locator('li')).toHaveCount(2);
  await expect(history.getByRole('button',{name:'Load older events',exact:true})).toHaveCount(0);
- await panel.getByRole('button',{name:'Close',exact:true}).click();
+ await page.keyboard.press('Escape');await expect(panel.getByRole('dialog')).toHaveCount(0);await expect(open).toBeFocused();
  // Exact contextual navigation must not open FND-QA-10 for FND-QA-1.
  await page.evaluate(()=>window.dispatchEvent(new CustomEvent('fornost:focus',{detail:{module:'Bulgular ve CAPA',ref:'FND-QA-1',filter:{findingRef:'FND-QA-1'}}})));
  await expect(panel.getByRole('dialog',{name:'QA finding 1',exact:true})).toBeVisible();
+ assert.equal(await panel.getByRole('dialog',{name:'QA finding 1',exact:true}).evaluate(element=>element.contains(document.activeElement)),true);
  await panel.getByRole('button',{name:'Start CAPA',exact:true}).click();
- const decision=panel.locator('.finding-action');await decision.locator('textarea').fill('Start remediation after review');await decision.locator('input').fill('CAPA AKSİYONUNU BAŞLAT');
+ const decision=panel.locator('.finding-action');await decision.locator('textarea').fill('Start remediation after review');
+ await decision.locator('input').fill('wrong confirmation');await decision.getByRole('button',{name:'Apply action',exact:true}).click();
+ await expect(decision.getByRole('alert')).toHaveText('Confirmation does not match.');
+ await expect(decision.locator('textarea')).toHaveValue('Start remediation after review');
+ await page.keyboard.press('Escape');await expect(decision).toHaveCount(0);await expect(panel.getByRole('button',{name:'Start CAPA',exact:true})).toBeFocused();
+ await panel.getByRole('button',{name:'Start CAPA',exact:true}).click();await expect(decision.getByRole('alert')).toHaveCount(0);
+ await decision.locator('textarea').fill('Start remediation after review');await decision.locator('input').fill('CAPA AKSİYONUNU BAŞLAT');
  await decision.getByRole('button',{name:'Apply action',exact:true}).click();
+ await expect(decision.getByRole('button',{name:'Cancel',exact:true})).toBeDisabled();await expect(decision.locator('textarea')).toBeDisabled();
+ await page.keyboard.press('Escape');await expect(decision).toBeVisible();
+ await expect.poll(()=>typeof releaseTransition).toBe('function');releaseTransition();
  await expect(decision).toHaveCount(0);await expect(panel.locator('.finding-notice')).toContainText('changed since');
  await expect(panel.getByRole('dialog')).toHaveCount(0);
  await expect(panel.locator('.finding-load-status').first()).toContainText('Records are up to date');
@@ -93,7 +107,12 @@ try{
 
  await panel.getByRole('button',{name:'+ New Finding',exact:true}).click();
  const form=panel.locator('form.finding-form');
+ rejectCreate=true;await form.getByLabel('Source title',{exact:true}).fill('Keep this draft');await form.dispatchEvent('submit');
+ await expect(form.getByRole('alert')).toHaveText('Complete the CAPA plan.');await expect(form.getByLabel('Source title',{exact:true})).toHaveValue('Keep this draft');
+ rejectCreate=false;
  await form.dispatchEvent('submit');await form.dispatchEvent('submit');
+ await expect(form.getByRole('button',{name:'Cancel',exact:true})).toBeDisabled();await page.keyboard.press('Escape');await expect(form).toBeVisible();
+ await expect.poll(()=>typeof releaseCreate).toBe('function');releaseCreate();
  await expect(form).toHaveCount(0);assert.equal(writes,1);
  uncertain=true;await panel.getByRole('button',{name:'+ New Finding',exact:true}).click();await form.dispatchEvent('submit');
  await expect(form).toHaveCount(0);await expect(panel.locator('.finding-notice')).toContainText('could not be confirmed');assert.equal(writes,2);
