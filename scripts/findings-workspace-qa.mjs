@@ -25,8 +25,8 @@ await page.route(/\/api\/findings(?:\?view=register.*)?$/,async route=>{
  }
  if(unavailable)return route.fulfill({status:503,json:{error:'fixture outage'}});
  const params=new URL(route.request().url()).searchParams,query=(params.get('q')||'').toLowerCase(),filter=params.get('filter')||'all';
- const ref=params.get('ref');
- const matching=findings.filter(row=>(!ref||row.id===ref||row.code===ref)&&(filter==='all'||filter==='active'&&!['closed','accepted'].includes(row.status)||row.status===filter||row.attention===filter)&&[row.code,row.title,row.sourceRef,row.owner].join(' ').toLowerCase().includes(query));
+ const ref=params.get('ref'),assignment=params.get('assignment')||'all';
+ const matching=findings.filter(row=>(assignment==='all'||assignment==='owned'&&row.owner==='qa-admin@fornost.test'||assignment==='review'&&row.reviewer==='qa-admin@fornost.test')&&(!ref||row.id===ref||row.code===ref)&&(filter==='all'||filter==='active'&&!['closed','accepted'].includes(row.status)||row.status===filter||row.attention===filter)&&[row.code,row.title,row.sourceRef,row.owner].join(' ').toLowerCase().includes(query));
  const total=matching.length,pages=Math.max(1,Math.ceil(total/20)),page=Math.min(Number(params.get('page')||1),pages),start=total?(page-1)*20+1:0,end=Math.min(page*20,total);
  return route.fulfill({json:{findings:matching.slice((page-1)*20,page*20),pagination:{page,pages,total,start,end},events:[],sourceSignals:[{source:'continuous-control',count:0,available:false}],summary:{total:65,open:65,critical:0,overdue:0,verification:0,accepted:0,closed:0,recurring:0}}});
 });
@@ -58,7 +58,10 @@ try{
  await expect(panel.locator('.finding-pagination')).toContainText('61–65 / 65');
  await panel.getByRole('textbox',{name:'Search findings',exact:true}).fill('AUD-QA-65');
  await expect(panel.locator('.finding-table tbody tr')).toHaveCount(1);
+ await panel.getByRole('combobox',{name:'Assignment filter',exact:true}).selectOption('review');
+ await expect(panel.locator('.finding-table tbody tr')).toHaveCount(0);
  await panel.getByRole('button',{name:'Open CAPA',exact:true}).click();
+ await expect(panel.getByRole('combobox',{name:'Assignment filter',exact:true})).toHaveValue('all');
  await expect(panel.getByRole('textbox',{name:'Search findings',exact:true})).toHaveValue('');
  await expect(panel.getByRole('combobox',{name:'Status filter',exact:true})).toHaveValue('active');
  await expect(panel.getByRole('button',{name:'Open CAPA',exact:true})).toHaveAttribute('aria-pressed','true');
@@ -71,6 +74,8 @@ try{
  await expect(panel.locator('.finding-detail-grid aside')).toContainText('Independent reviewer: reviewer@fornost.test');
  await expect(panel.getByRole('button',{name:'Accept risk',exact:true})).toHaveCount(0);
  await expect(panel.locator('.finding-table .finding-badge')).toHaveText('High');
+ await expect(panel.locator('.finding-lineage-lens')).toHaveCount(1);
+ await expect(panel.locator('.finding-lineage-lens')).toContainText('AUD-QA-65');
  const history=panel.locator('.finding-record-history');
  await expect(history.getByRole('alert')).toContainText('could not be loaded');
  historyUnavailable=false;await history.getByRole('button',{name:'Retry',exact:true}).click();
@@ -82,6 +87,8 @@ try{
  await page.evaluate(()=>window.dispatchEvent(new CustomEvent('fornost:focus',{detail:{module:'Bulgular ve CAPA',ref:'FND-QA-1',filter:{findingRef:'FND-QA-1'}}})));
  await expect(panel.getByRole('dialog',{name:'QA finding 1',exact:true})).toBeVisible();
  assert.equal(await panel.getByRole('dialog',{name:'QA finding 1',exact:true}).evaluate(element=>element.contains(document.activeElement)),true);
+ await expect(panel.locator('.finding-lineage-lens')).toContainText('AUD-QA-1');
+ await expect(panel.locator('.finding-lineage-lens')).not.toContainText('AUD-QA-65');
  await panel.getByRole('button',{name:'Start CAPA',exact:true}).click();
  const decision=panel.locator('.finding-action');await decision.locator('textarea').fill('Start remediation after review');
  await decision.locator('input').fill('wrong confirmation');await decision.getByRole('button',{name:'Apply action',exact:true}).click();
@@ -123,5 +130,11 @@ try{
  await expect(form).toHaveCount(0);assert.equal(writes,1);
  uncertain=true;await panel.getByRole('button',{name:'+ New Finding',exact:true}).click();await form.dispatchEvent('submit');
  await expect(form).toHaveCount(0);await expect(panel.locator('.finding-notice')).toContainText('could not be confirmed');assert.equal(writes,2);
+ await page.evaluate(()=>{window.__findingLineageNavigation=null;window.addEventListener('fornost:focus',event=>{if(event.detail.source==='finding-lineage')window.__findingLineageNavigation=event.detail;});window.dispatchEvent(new CustomEvent('fornost:focus',{detail:{module:'Bulgular ve CAPA',ref:'FND-QA-1'}}));});
+ await expect(panel.getByRole('dialog',{name:'QA finding 1',exact:true})).toBeVisible();
+ await panel.locator('.fll-route button').first().click();
+ await expect(page.locator('.finding-overlay')).toHaveCount(0);
+ await expect.poll(()=>page.evaluate(()=>window.__findingLineageNavigation?.ref)).toBe('AUD-QA-1');
+ assert.equal(await page.evaluate(()=>window.__findingLineageNavigation.module),'Denetim Yönetimi');
  console.log('Findings workspace QA passed: outage/retry, honest KPI/source state, 65-record pagination/search, keyboard detail, duplicate-submit guard and ambiguous-write recovery without retry.');
 }finally{await browser.close();}

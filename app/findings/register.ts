@@ -10,11 +10,12 @@ export async function readFindingRegister(db: D1Database, day = new Date().toISO
 }
 
 export class FindingRegisterError extends Error {constructor(message:string,public status=400){super(message);}}
-export type FindingRegisterQuery={query:string;filter:string;page:number;lang:'tr'|'en';ref?:string};
+export type FindingRegisterQuery={query:string;filter:string;page:number;lang:'tr'|'en';ref?:string;assignment?:'owned'|'review'};
 export function parseFindingRegisterQuery(params:URLSearchParams):FindingRegisterQuery{
+ const assignment=params.get('assignment')||'all';
  const ref=params.get('ref')||'',query=(params.get('q')||'').trim(),filter=params.get('filter')||'all',raw=params.get('page')||'1',lang=params.get('lang')||'tr';
- if(ref.length>200||/\p{Cc}/u.test(ref)||query.length>200||!['all','active','open','in-progress','critical','recurring','acceptance-expired','priority','overdue','verification','accepted','closed'].includes(filter)||!/^[1-9]\d{0,7}$/.test(raw)||!['tr','en'].includes(lang))throw new FindingRegisterError('Invalid finding search or page');
- return {query,filter,page:Number(raw),lang:lang as 'tr'|'en',...(ref?{ref}: {})};
+ if(!['all','owned','review'].includes(assignment)||ref.length>200||/\p{Cc}/u.test(ref)||query.length>200||!['all','active','open','in-progress','critical','recurring','acceptance-expired','priority','overdue','verification','accepted','closed'].includes(filter)||!/^[1-9]\d{0,7}$/.test(raw)||!['tr','en'].includes(lang))throw new FindingRegisterError('Invalid finding search or page');
+ return {query,filter,page:Number(raw),lang:lang as 'tr'|'en',...(ref?{ref}: {}),...(assignment!=='all'?{assignment:assignment as 'owned'|'review'}:{})};
 }
 function searchExpression(lang:'tr'|'en'){
  let expression="COALESCE(code,'')||' '||COALESCE(title,'')||' '||COALESCE(source_ref,'')||' '||COALESCE(owner,'')";
@@ -23,8 +24,12 @@ function searchExpression(lang:'tr'|'en'){
  for(const [upper,lower] of pairs)expression=`replace((${expression}),'${upper}','${lower}')`;
  return `lower(${expression})`;
 }
-export async function readFindingRegisterPage(db:D1Database,input:FindingRegisterQuery,now=new Date()){
+export async function readFindingRegisterPage(db:D1Database,input:FindingRegisterQuery,now=new Date(),actorEmail?:string){
  const day=now.toISOString().slice(0,10),where=['1=1'],values:(string|number)[]=[];
+ if(input.assignment){
+  if(!actorEmail)throw new FindingRegisterError('Authenticated assignment context required',400);
+  where.push(input.assignment==='owned'?'owner=?':'reviewer=?');values.push(actorEmail);
+ }
  if(input.ref){where.push('(id=? OR code=?)');values.push(input.ref,input.ref);}
  if(input.query){where.push(`instr(${searchExpression(input.lang)},?)>0`);values.push(input.query.toLocaleLowerCase(input.lang==='tr'?'tr-TR':'en-US'));}
  if(input.filter==='overdue'){where.push("((status NOT IN ('closed','accepted') AND due_date<?) OR (status='accepted' AND accept_until!='' AND accept_until<?))");values.push(day,day);}

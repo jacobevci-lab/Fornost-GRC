@@ -5,7 +5,7 @@ import {readFindingRegister,readFindingRegisterPage,parseFindingRegisterQuery} f
 import {readFindingHistory} from '../app/findings/history';
 function fixture(){
  const sql=new DatabaseSync(':memory:');
- sql.exec('CREATE TABLE enterprise_findings(id TEXT PRIMARY KEY,severity TEXT,status TEXT,due_date TEXT,updated_at TEXT,accept_until TEXT,recurrence_count INTEGER,code TEXT,title TEXT,source_ref TEXT,owner TEXT); CREATE TABLE enterprise_finding_events(id TEXT PRIMARY KEY,finding_id TEXT,action TEXT,from_status TEXT,to_status TEXT,detail TEXT,actor TEXT,created_at TEXT,evidence_reference TEXT,evidence_sha256 TEXT)');
+ sql.exec('CREATE TABLE enterprise_findings(id TEXT PRIMARY KEY,severity TEXT,status TEXT,due_date TEXT,updated_at TEXT,accept_until TEXT,recurrence_count INTEGER,code TEXT,title TEXT,source_ref TEXT,owner TEXT,reviewer TEXT); CREATE TABLE enterprise_finding_events(id TEXT PRIMARY KEY,finding_id TEXT,action TEXT,from_status TEXT,to_status TEXT,detail TEXT,actor TEXT,created_at TEXT,evidence_reference TEXT,evidence_sha256 TEXT)');
  type Value=string|number|null;
  type Statement={bind:(...values:Value[])=>Statement;all:()=>{results:Record<string,unknown>[]};first:()=>Record<string,unknown>|null};
  function prepare(query:string,args:Value[]=[]):Statement{return {bind:(...values)=>prepare(query,values),all:()=>({results:sql.prepare(query).all(...args)}),first:()=>sql.prepare(query).get(...args)||null};}
@@ -99,5 +99,23 @@ test('CAPA KPI drill-down totals match global counts and preserve lifecycle boun
   assert.deepEqual((await request('acceptance-expired')).rows.map(r=>r.id),['expired']);
   assert.equal((await request('recurring','done')).pagination.total,1);
   assert.equal((await request('critical','working')).pagination.total,0);
+ }finally{sql.close();}
+});
+
+
+test('assignment filters use exact authenticated identities across pages and combine with lifecycle search',async()=>{
+ const {db,sql}=fixture();try{
+  const insert=sql.prepare('INSERT INTO enterprise_findings(id,title,owner,reviewer,status) VALUES(?,?,?,?,?)');
+  for(let i=0;i<25;i++)insert.run('owned-'+i,'Owned '+i,'me@example.test','other@example.test','open');
+  insert.run('review','Review target','other@example.test','me@example.test','verification');
+  insert.run('collision','Prefix collision','not-me@example.test','me@example.test.evil','open');
+  const query=(assignment:string,filter='all',q='',page='1')=>parseFindingRegisterQuery(new URLSearchParams({assignment,filter,q,page}));
+  const owned=await readFindingRegisterPage(db,query('owned','all','','2'),new Date(),'me@example.test');
+  assert.equal(owned.pagination.total,25);assert.equal(owned.rows.length,5);assert.equal(owned.summary.total,27);
+  const review=await readFindingRegisterPage(db,query('review','verification','target'),new Date(),'me@example.test');
+  assert.deepEqual(review.rows.map(r=>r.id),['review']);
+  assert.equal((await readFindingRegisterPage(db,query('review','closed'),new Date(),'me@example.test')).pagination.total,0);
+  await assert.rejects(readFindingRegisterPage(db,query('owned')),{status:400});
+  assert.throws(()=>query('other'),{status:400});
  }finally{sql.close();}
 });
