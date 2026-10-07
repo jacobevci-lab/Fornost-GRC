@@ -9,6 +9,25 @@ const context=await browser.newContext({viewport:{width:1536,height:960}});
 const page=await context.newPage();page.setDefaultTimeout(20000);
 const rows=Array.from({length:121},(_,i)=>({id:`REPORT-${i}`,record_code:`REP-${i}`,module:'BIA',data_json:JSON.stringify({process:`Ödeme Süreci ${i}`,owner:i===120?'Excluded':'Çağrı',businessUnit:'Finans',status:'Aktif',description:`DETAIL-${i}`}),created_at:'2026-10-06T12:00:00Z',updated_at:'2026-10-06T12:00:00Z'}));
 await page.route('**/api/grc',route=>route.fulfill({json:{rows,nextCursor:null}}));
+async function assertPdfContrast(disabled){
+ const button=page.locator('.report-hero-actions button.primary');
+ if(disabled)await expect(button).toBeDisabled();else await expect(button).toBeEnabled();
+ for(const theme of ['light','dark']){
+  await page.evaluate(theme=>document.documentElement.dataset.theme=theme,theme);
+  for(const hover of [false,true]){
+   if(hover)await button.hover();else await page.mouse.move(0,0);
+   const result=await button.evaluate(el=>{
+    const style=getComputedStyle(el);
+    const luminance=color=>{const values=color.match(/[\d.]+/g).slice(0,3).map(Number).map(v=>{v/=255;return v<=.04045?v/12.92:((v+.055)/1.055)**2.4;});return values[0]*.2126+values[1]*.7152+values[2]*.0722;};
+    const a=luminance(style.color),b=luminance(style.backgroundColor);
+    return {ratio:(Math.max(a,b)+.05)/(Math.min(a,b)+.05),opacity:style.opacity};
+   });
+   assert.ok(result.ratio>=4.5,`${theme} PDF disabled=${disabled} hover=${hover}: contrast ${result.ratio}`);
+   assert.equal(result.opacity,'1');
+  }
+ }
+ await page.mouse.move(0,0);
+}
 try{
  const login=await context.request.post(`${base}/api/auth`,{headers:{origin:base},data:{action:'login',email:'qa-admin@fornost.test',password:qaPassword()}});assert.equal(login.status(),200);
  const viewer=await browser.newContext();
@@ -68,6 +87,7 @@ try{
  await panel.locator('.workspace-export summary').click();
  capaUnavailable=true;await panel.locator('.report-source-status button').click();
  await expect(panel.locator('.report-source-status')).toContainText('CAPA is unavailable');
+ await assertPdfContrast(true);
  for(const label of ['HTML','CSV','PDF Report','Download Excel Report'])await expect(panel.getByRole('button',{name:label,exact:true,includeHidden:true})).toBeDisabled();
  await panel.getByLabel('Report module',{exact:true}).selectOption('BIA');
  await expect(panel.getByRole('button',{name:'HTML',exact:true,includeHidden:true})).toBeEnabled();
@@ -80,5 +100,6 @@ try{
  capaUnavailable=false;await panel.locator('.report-source-status button').click();await expect(panel.locator('.report-source-status')).toContainText('1 records available');
  await page.route('**/fonts/FornostReportSans.ttf',route=>route.fulfill({status:503,body:'Unavailable'}));
  await panel.getByRole('button',{name:'PDF Report',exact:true}).click();await expect(panel.getByRole('alert')).toContainText('PDF could not be generated');await expect(panel.getByRole('button',{name:'PDF Report',exact:true})).toBeEnabled();
+ await assertPdfContrast(false);
  console.log('Reporting QA passed: CAPA source references, export failure gating and recovery; complete pagination, filter reset, detailed HTML/CSV/PDF downloads, Turkish data, classification and font-failure recovery.');
 }finally{await browser.close();}

@@ -70,3 +70,15 @@ html[data-theme] body .shell>main .report-workspace .table-wrap :is(th,td){min-w
 html[data-theme] body .shell>main .report-workspace .column-resizer{right:0!important;width:12px!important}
 
 .report-workspace .report-source-status{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 12px;border:1px solid var(--ws-line);border-radius:8px;font-size:12px;overflow-wrap:anywhere}.report-source-status button{flex-shrink:0}
+
+/* Keep PDF action contrast stable while asynchronous report readiness changes.
+   Global primary/hover colors and opacity must not split this foreground pair. */
+html .report-workspace .report-hero-actions button.primary{
+  background:#116d67!important;border-color:#116d67!important;color:#fff!important;
+  opacity:1!important;filter:none!important;transition:none!important;
+}
+html .report-workspace .report-hero-actions button.primary:hover:not(:disabled){background:#0e5853!important;border-color:#0e5853!important}
+html .report-workspace .report-hero-actions button.primary:disabled{background:#dce5e2!important;border-color:#b5c5bf!important;color:#435750!important}
+html[data-theme="dark"] .report-workspace .report-hero-actions button.primary{background:#52cbb9!important;border-color:#52cbb9!important;color:#0b1717!important}
+html[data-theme="dark"] .report-workspace .report-hero-actions button.primary:hover:not(:disabled){background:#75dfcd!important;border-color:#75dfcd!important}
+html[data-theme="dark"] .report-workspace .report-hero-actions button.primary:disabled{background:#273b38!important;border-color:#526963!important;color:#b7c7c4!important}
