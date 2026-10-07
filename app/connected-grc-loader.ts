@@ -1,5 +1,5 @@
 import { withBasePath } from "./base-path";
-import { connectedAiSourceComplete, connectedGrcEndpoints, type ConnectedGrcEnterprisePayloads } from "./connected-grc-sources";
+import { connectedSourceValidity, connectedGrcEndpoints, type ConnectedGrcEnterprisePayloads } from "./connected-grc-sources";
 
 export type ConnectedSourceIssue = {
   key: keyof ConnectedGrcEnterprisePayloads;
@@ -45,9 +45,11 @@ export async function loadConnectedGrcSources({ includeAi, signal, fetcher = fet
         return response.json();
       })()]);
       if (!signal.aborted && body && typeof body === "object" && !Array.isArray(body)) {
-        payloads[endpoint.key] = body;
-        if (connectedAiSourceComplete(endpoint.key, body)) ready++;
-        else issues.push({ key: endpoint.key, reason: "incomplete" });
+        const validity = connectedSourceValidity(endpoint.key, body);
+        // Malformed identities must never become fabricated or deduplicated nodes.
+        if (validity !== "invalid") payloads[endpoint.key] = body;
+        if (validity === "ready") ready++;
+        else issues.push({ key: endpoint.key, reason: validity });
       } else if (!signal.aborted) issues.push({ key: endpoint.key, reason: "invalid" });
     } catch {
       if (!signal.aborted) issues.push({ key: endpoint.key, reason });
