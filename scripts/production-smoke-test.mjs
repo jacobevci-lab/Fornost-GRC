@@ -18,6 +18,7 @@ async function request(path, options = {}) {
   const url = `${baseUrl}${path}`;
   const response = await fetch(url, {
     redirect: "manual",
+    signal: AbortSignal.timeout(15_000),
     ...options,
     headers: { ...baseHeaders, ...(options.headers || {}) },
   });
@@ -226,6 +227,7 @@ async function run() {
   const payload = parseJson(health, "Health endpoint");
   assert(payload?.status === "ok", `Health status is not ok: ${JSON.stringify(payload)}`);
   printResult("Application health", true, payload.status);
+  if(process.env.FORNOST_EXPECTED_REVISION){assert(payload.revision===process.env.FORNOST_EXPECTED_REVISION,"Production revision changed after the deployment gate.");printResult("Expected production revision",true,payload.revision);}
 
   assert(payload?.checks?.database?.ok === true, `D1 health check failed: ${JSON.stringify(payload?.checks?.database)}`);
   printResult("D1 connectivity", true);

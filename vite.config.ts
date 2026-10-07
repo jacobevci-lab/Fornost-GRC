@@ -1,3 +1,4 @@
+import {resolveBuildRevision} from "./scripts/build-revision";
 import vinext from "vinext";
 import { defineConfig } from "vite";
 import hostingConfig from "./.openai/hosting.json" with { type: "json" };
@@ -46,6 +47,7 @@ export default defineConfig(async () => {
   const { cloudflare } = await import("@cloudflare/vite-plugin");
 
   return {
+    define: { __FORNOST_BUILD_REVISION__: JSON.stringify(resolveBuildRevision()) },
     server: {
       host: "0.0.0.0",
       allowedHosts: ["terminal.local", "127.0.0.1", "localhost"],

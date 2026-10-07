@@ -19,7 +19,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     env:
-      FORNOST_PROD_URL: ${{ vars.FORNOST_PROD_URL }}
+      FORNOST_EXPECTED_REVISION: ${{ github.sha }}
+      FORNOST_PROD_URL: ${{ vars.FORNOST_PROD_URL || 'https://app.fornostsecurity.com' }}
       CF_ACCESS_CLIENT_ID: ${{ secrets.CF_ACCESS_CLIENT_ID }}
       CF_ACCESS_CLIENT_SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
       FORNOST_SMOKE_EMAIL: ${{ secrets.FORNOST_SMOKE_EMAIL }}
@@ -45,6 +46,9 @@ jobs:
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
 
+      - name: Verify the expected production revision
+        run: node scripts/wait-for-production-revision.mjs
+
       - name: Run legacy production QA baseline
         shell: bash
         run: |
@@ -68,6 +72,9 @@ jobs:
 
       - name: Validate Connected GRC live-source graph
         run: node scripts/connected-grc-production-qa.mjs
+
+      - name: Confirm production revision after QA
+        run: node scripts/wait-for-production-revision.mjs --once
 
       - name: Upload QA reports and screenshots
         if: ${{ always() }}
