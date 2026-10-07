@@ -10,6 +10,11 @@ let unavailable=true,writes=0,uncertain=false;
 const findings=Array.from({length:65},(_,i)=>({id:`QA-F-${i+1}`,code:`FND-QA-${i+1}`,sourceType:'audit',sourceRef:`AUD-QA-${i+1}`,sourceTitle:'QA audit',findingType:'nonconformity',title:`QA finding ${i+1}`,description:'QA finding description',severity:'high',owner:'qa-admin@fornost.test',reviewer:'reviewer@fornost.test',rootCause:'QA root cause',correctiveAction:'QA corrective action',preventiveAction:'QA preventive action',dueDate:'2026-12-01',status:'open',recurrenceCount:0,attention:'priority',updatedAt:'2026-10-06T09:00:00Z'}));
 await page.route(/\/api\/findings(?:\?view=register.*)?$/,async route=>{
  if(route.request().method()==='POST'){
+  const body=route.request().postDataJSON();
+  if(body.action==='transition'){
+   assert.equal(body.expectedUpdatedAt,'2026-10-06T09:00:00Z');assert.equal(body.findingId,'QA-F-1');assert.equal(body.finding,undefined);
+   return route.fulfill({status:409,json:{error:'Record changed since the displayed version.'}});
+  }
   writes++;assert.equal(route.request().postDataJSON().action,'create');
   await new Promise(resolve=>setTimeout(resolve,300));
   return route.fulfill({status:uncertain?503:200,json:uncertain?{error:'fixture outage'}:{message:'Created'}});
@@ -61,6 +66,15 @@ try{
  // Exact contextual navigation must not open FND-QA-10 for FND-QA-1.
  await page.evaluate(()=>window.dispatchEvent(new CustomEvent('fornost:focus',{detail:{module:'Bulgular ve CAPA',ref:'FND-QA-1',filter:{findingRef:'FND-QA-1'}}})));
  await expect(panel.getByRole('dialog',{name:'QA finding 1',exact:true})).toBeVisible();
+ await panel.getByRole('button',{name:'Start CAPA',exact:true}).click();
+ const decision=panel.locator('.finding-action');await decision.locator('textarea').fill('Start remediation after review');await decision.locator('input').fill('CAPA AKSİYONUNU BAŞLAT');
+ await decision.getByRole('button',{name:'Apply action',exact:true}).click();
+ await expect(decision).toHaveCount(0);await expect(panel.locator('.finding-notice')).toContainText('changed since');
+ await expect(panel.getByRole('dialog')).toHaveCount(0);
+ await expect(panel.locator('.finding-load-status').first()).toContainText('Records are up to date');
+ await page.evaluate(()=>window.dispatchEvent(new CustomEvent('fornost:focus',{detail:{module:'Bulgular ve CAPA',ref:'FND-QA-1'}})));
+ await expect(panel.getByRole('dialog',{name:'QA finding 1',exact:true})).toBeVisible();
+
  await panel.getByRole('button',{name:'Close',exact:true}).click();
  await page.evaluate(()=>window.dispatchEvent(new CustomEvent('fornost:focus',{detail:{module:'Bulgular ve CAPA',ref:'missing-finding'}})));
  await expect(panel.locator('.finding-load-status').last()).toContainText('Record missing');

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireRole } from "../auth/security";
 import { clean } from "../integrations/security";
-import { findingAttention, validateFinding, validateFindingAction, validateFindingGovernanceGate } from "../../findings/domain";
+import { findingAttention, findingVersionMatches, validateFinding, validateFindingAction, validateFindingGovernanceGate } from "../../findings/domain";
 import { commitFindingTransition } from "../../findings/transition-store";
 import { findingCsvCell as csvCell } from "../../findings/export";
 import { ensureFindingsSchemaCompatibility } from "./schema-compat";
@@ -160,6 +160,7 @@ export async function POST(req: NextRequest) {
       const operation = validateFindingAction(body);
       const finding = await env.DB.prepare("SELECT * FROM enterprise_findings WHERE id=?").bind(id).first<Record<string, unknown>>();
       if (!finding) return json({ error: "Bulgu bulunamadı." }, 404);
+      if (!findingVersionMatches(body.expectedUpdatedAt,finding.updated_at)) return json({error:"Bulgu görüntülediğiniz sürümden sonra değişti. Güncel kaydı inceleyip işlemi yeniden açın."},409);
       const status = String(finding.status);
       const now = new Date().toISOString();
       let next = "";

@@ -26,6 +26,7 @@ export default function FindingsCenter({lang,currentUser}:{lang:Lang;currentUser
  const [exporting,setExporting]=useState(false),[exportLoaded,setExportLoaded]=useState(0);
  const exportController=useRef<AbortController|null>(null);
  useEffect(()=>()=>exportController.current?.abort(),[]);
+ const autoOpenRef=useRef<string|null>(null);
  const loadController=useRef<AbortController|null>(null),writeController=useRef<AbortController|null>(null),sending=useRef(false);
  const load=useCallback(async()=>{
   loadController.current?.abort();const controller=new AbortController();loadController.current=controller;
@@ -36,7 +37,8 @@ export default function FindingsCenter({lang,currentUser}:{lang:Lang;currentUser
    if(controller.signal.aborted)return;
    const data=body as FindingsPayload;
    setPagination(data.pagination!);setFindings(data.findings||[]);setEvents(data.events||[]);setSignals(data.sourceSignals||[]);setSummary(data.summary||emptySummary);
-   setSelected(previous=>focusRef?(data.findings||[])[0]||null:previous?(data.findings||[]).find(item=>item.id===previous.id)||null:null);
+   const openFocused=!!focusRef&&autoOpenRef.current===focusRef;if(openFocused)autoOpenRef.current=null;
+   setSelected(previous=>openFocused?(data.findings||[])[0]||null:previous?(data.findings||[]).find(item=>item.id===previous.id)||null:null);
   }catch{if(!controller.signal.aborted)setLoadError(true);}
   finally{if(!controller.signal.aborted)setLoading(false);}
  },[query,filter,page,lang,focusRef]);
@@ -47,7 +49,7 @@ export default function FindingsCenter({lang,currentUser}:{lang:Lang;currentUser
    if(!request||!sameDomainModule(request.module,"Bulgular ve CAPA")||sending.current)return;
    const ref=request.filter?.findingRef||request.filter?.recordRef||request.ref||"";
    if(!ref||ref.length>200||/\p{Cc}/u.test(ref))return;
-   consumePendingFornostFocus("Bulgular ve CAPA");loadController.current?.abort();setSelected(null);setAction(null);setForm(null);setLoading(true);setLoadError(false);setFocusRef(ref);setFocusNonce(value=>value+1);setQuery("");setFilter("all");setPage(1);
+   autoOpenRef.current=ref;consumePendingFornostFocus("Bulgular ve CAPA");loadController.current?.abort();setSelected(null);setAction(null);setForm(null);setLoading(true);setLoadError(false);setFocusRef(ref);setFocusNonce(value=>value+1);setQuery("");setFilter("all");setPage(1);
   };
   accept(peekPendingFornostFocus());
   const listener=(event:Event)=>accept((event as CustomEvent<FornostNavigationRequest>).detail);
@@ -82,9 +84,9 @@ export default function FindingsCenter({lang,currentUser}:{lang:Lang;currentUser
  }
  async function create(event:FormEvent){event.preventDefault();if(form&&await api({action:"create",...form}))setForm(null)}
  const startAction=(finding:Finding,operation:string)=>{if(loading||loadError||sending.current)return;setAction({finding,operation,note:"",evidenceReference:"",evidenceSha256:"",confirmation:"",acceptUntil:addDays(today(),90),acceptanceRationale:""});};
- async function transition(){if(!action)return;if(await api({action:"transition",findingId:action.finding.id,...action})){setAction(null);setSelected(null)}}
+ async function transition(){if(!action)return;const {finding,...decision}=action;if(await api({action:"transition",findingId:finding.id,expectedUpdatedAt:finding.updatedAt,...decision})){setAction(null);setSelected(null)}}
  const listing={...pagination,rows:findings};
- const changeScope=()=>{loadController.current?.abort();setFocusRef("");setLoading(true);setSelected(null);};
+ const changeScope=()=>{autoOpenRef.current=null;loadController.current?.abort();setFocusRef("");setLoading(true);setSelected(null);};
  const format=(value?:string)=>{if(!value)return "—";const date=new Date(`${value.slice(0,10)}T12:00:00Z`);return Number.isFinite(date.getTime())?new Intl.DateTimeFormat(tr?"tr-TR":"en-GB",{dateStyle:"medium"}).format(date):"—";};
  return <section className="finding-page" data-native-focus="true" aria-busy={loading||busy}>
   <div className="finding-hero"><div><small>ENTERPRISE FINDINGS · ROOT CAUSE · CAPA · ASSURANCE</small><h2>{tr?"Bulgular ve CAPA Merkezi":"Findings & CAPA Center"}</h2><p>{tr?"Denetim, kontrol, sürekli kontrol, tedarikçi, regülasyon, risk ve güvenlik bulgularını tek sahiplik, SLA, kök neden ve bağımsız kanıt doğrulama zincirinde yönetin.":"Govern audit, control, continuous-control, vendor, regulatory, risk and security findings through one ownership, SLA, root-cause and independent evidence chain."}</p></div><div>{currentUser.role==="Admin"&&<button type="button" disabled={exporting||loading||loadError} onClick={()=>void exportCsv()}>{exporting?`${tr?"Yükleniyor":"Loading"}… ${exportLoaded}`:(tr?"Tüm CAPA · CSV":"All CAPA · CSV")}</button>}{["Admin","Editor"].includes(currentUser.role)&&<button disabled={loading||loadError||busy} onClick={()=>setForm(emptyForm(currentUser.email))}>+ {tr?"Yeni Bulgu":"New Finding"}</button>}</div></div>
