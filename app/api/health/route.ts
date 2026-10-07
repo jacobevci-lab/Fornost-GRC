@@ -1,3 +1,5 @@
+declare const __FORNOST_BUILD_REVISION__: string;
+
 export async function GET() {
   const startedAt = Date.now();
   const { env } = await import("cloudflare:workers");
@@ -30,6 +32,7 @@ export async function GET() {
   return Response.json(
     {
       status: ok ? "ok" : "degraded",
+      revision: typeof __FORNOST_BUILD_REVISION__ === "string" ? __FORNOST_BUILD_REVISION__ : "unknown",
       checks,
       elapsedMs: Date.now() - startedAt,
     },
