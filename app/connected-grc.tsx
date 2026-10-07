@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { assessConnectedGrcCoverage, buildConnectedGrcGraph, connectedRelationLabels, connectedRemediationModule, connectedTitle, type ConnectedGrcRow } from "./connected-grc-model";
+import { filterConnectedGrcGaps } from "./connected-grc-gaps";
 import { connectedGrcExport } from "./connected-grc-export";
 import { connectedGrcNavigation } from "./connected-grc-navigation";
 import { buildConnectedGrcEnterpriseRows, connectedGrcEndpoints } from "./connected-grc-sources";
@@ -29,6 +30,9 @@ export default function ConnectedGrc({rows,lang,go,includeAi=false}:{rows:Connec
   const [page,setPage]=useState(0);
   const [linkLimit,setLinkLimit]=useState(8);
   const [gapLimit,setGapLimit]=useState(12);
+  const [referenceLimit,setReferenceLimit]=useState(20);
+  const [gapQuery,setGapQuery]=useState("");
+  const [gapModule,setGapModule]=useState("all");
   const [sourceReload,setSourceReload]=useState(0);
   const [sourceSnapshot,setSourceSnapshot]=useState<{
     includeAi:boolean; reload:number; rows:ConnectedGrcRow[];
@@ -61,6 +65,9 @@ export default function ConnectedGrc({rows,lang,go,includeAi=false}:{rows:Connec
   const assuranceChains=useMemo(()=>buildContinuousAssuranceChains(records,links),[records,links]);
   const assuranceSummary=useMemo(()=>summarizeContinuousAssurance(assuranceChains),[assuranceChains]);
   const modules=useMemo(()=>Array.from(new Set(records.map(row=>row.module))).sort(),[records]);
+  const gapResults=filterConnectedGrcGaps(coverage.gaps,unresolved,{query:gapQuery,module:gapModule,lang,moduleLabel});
+  const gapFiltersActive=Boolean(gapQuery.trim()||gapModule!=="all");
+  function resetGapLimits(){setGapLimit(12);setReferenceLimit(20)}
   const linkedIds=new Set(links.flatMap(link=>[link.source.id,link.target.id]));
   const needle=query.trim().toLocaleLowerCase(tr?"tr-TR":"en-US");
   const matchingRecords=records.filter(row=>(module==="all"||row.module===module)&&(!needle||`${row.code||row.id} ${connectedTitle(row)} ${row.module} ${moduleLabel(row.module)}`.toLocaleLowerCase(tr?"tr-TR":"en-US").includes(needle)));
@@ -133,12 +140,19 @@ export default function ConnectedGrc({rows,lang,go,includeAi=false}:{rows:Connec
     {view==="gaps"&&<section className="connected-assurance cg-gaps">
       <header><div><h3>{tr?"Tamamlanması gereken bağlantılar":"Connections to complete"}</h3><p>{tr?"Eksik ilişkiyi inceleyin ve ilgili kaydı açarak tamamlayın.":"Review the missing relationship, then open the record to complete it."}</p></div><span>{sourcesComplete&&coverage.eligible?`${coverage.percent}%`:'—'} {tr?"tamlık":"complete"}</span></header>
       {!sourcesComplete&&<p className="cg-assessment-pending" role="status">{coverageNotice}</p>}
-      {coverage.gaps.length?<div className="connected-gap-list">{coverage.gaps.slice(0,gapLimit).map((gap)=>{
+      <div className="cg-filters cg-gap-filters">
+        <label>{tr?"Eksik bağlantı ara":"Find a gap"}<input value={gapQuery} onChange={event=>{setGapQuery(event.target.value);resetGapLimits()}} placeholder={tr?"Kayıt, kod veya referans…":"Record, code or reference…"}/></label>
+        <label>{tr?"Kaynak modül":"Source module"}<select value={gapModule} onChange={event=>{setGapModule(event.target.value);resetGapLimits()}}><option value="all">{tr?"Tüm modüller":"All modules"}</option>{modules.map(name=><option key={name} value={name}>{moduleLabel(name)}</option>)}</select></label>
+        {gapFiltersActive&&<button type="button" onClick={()=>{setGapQuery("");setGapModule("all");resetGapLimits()}}>{tr?"Temizle":"Clear"}</button>}
+      </div>
+      <p className="cg-gap-results" role="status">{gapResults.gaps.length} / {coverage.gaps.length} {tr?"bağlantı eksiği":"connection gaps"} · {gapResults.unresolved.length} / {unresolved.length} {tr?"çözümlenmemiş referans":"unresolved references"}</p>
+      {gapFiltersActive&&!gapResults.gaps.length&&!gapResults.unresolved.length&&<p className="cg-empty">{tr?"Filtrelerle eşleşen eksik yok. Diğer kayıtlar için filtreleri temizleyin.":"No gaps match these filters. Clear the filters to see other records."}</p>}
+      {gapResults.gaps.length?<div className="connected-gap-list">{gapResults.gaps.slice(0,gapLimit).map((gap)=>{
         const target=connectedRemediationModule[gap.missingRelations[0]]||gap.row.module,focusable=Boolean(connectedGrcNavigation(gap.row));
         return <article key={`${gap.row.module}-${gap.row.id}-${gap.rule}`}><div className="connected-gap-score"><strong>{gap.percent}%</strong><small>{tr?"tamlık":"complete"}</small></div><div><span className={gap.severity}>{gap.severity==="high"?(tr?"Yüksek":"High"):(tr?"Orta":"Medium")}</span><b>{gap.row.code||gap.row.id}</b><em>{connectedTitle(gap.row)}</em><small>{tr?"Eksik: ":"Missing: "}{gap.missingRelations.map(relation=>connectedRelationLabels[relation]?.[lang]||relation).join(" · ")}</small></div><button type="button" onClick={()=>focusable?openRecord(gap.row):go(target)}>{focusable?(tr?"Kaydı düzelt":"Fix record"):(tr?"Bağlantıyı tamamla":"Complete link")}<span>→</span></button></article>;
-      })}</div>:<div className={sourcesComplete?"connected-assurance-ok":"cg-assessment-pending"}>{sourcesComplete?(tr?"Yüklenen kayıtlarda eksik zorunlu bağlantı bulunamadı.":"No missing required connections were found in the loaded records."):(tr?"Eksik bağlantı değerlendirmesi henüz doğrulanamadı.":"The missing-connection assessment is not yet verified.")}</div>}
-      {coverage.gaps.length>gapLimit&&<button type="button" className="cg-more" onClick={()=>setGapLimit(gapLimit+12)}>{tr?"Daha fazla göster":"Show more"} ({coverage.gaps.length-gapLimit})</button>}
-      {!!unresolved.length&&<details className="connected-unresolved"><summary>{tr?`${unresolved.length} çözümlenmemiş referans`:`${unresolved.length} unresolved references`}</summary>{unresolved.map((item,index)=><div key={`${item.source.id}-${item.field}-${index}`}><button type="button" onClick={()=>openRecord(item.source)}>{item.source.code||item.source.id}</button><span>{connectedRelationLabels[item.relation]?.[lang]||item.relation}</span><code>{item.value}</code><small className="connected-reference-reason">{item.reason === 'ambiguous' ? (tr ? `${item.candidates.length} olası kayıt — kaynak kayıtta ID veya benzersiz kod kullanın.` : `${item.candidates.length} possible records — use an ID or unique code in the source record.`) : (tr ? 'Hedef kayıt bulunamadı.' : 'Target record not found.')}</small>{item.reason === 'ambiguous' && <span className="connected-reference-candidates">{item.candidates.map(candidate => `${candidate.code || candidate.id} · ${connectedTitle(candidate)}`).join(' / ')}</span>}</div>)}</details>}
+      })}</div>:gapFiltersActive?null:<div className={sourcesComplete?"connected-assurance-ok":"cg-assessment-pending"}>{sourcesComplete?(tr?"Yüklenen kayıtlarda eksik zorunlu bağlantı bulunamadı.":"No missing required connections were found in the loaded records."):(tr?"Eksik bağlantı değerlendirmesi henüz doğrulanamadı.":"The missing-connection assessment is not yet verified.")}</div>}
+      {gapResults.gaps.length>gapLimit&&<button type="button" className="cg-more" onClick={()=>setGapLimit(gapLimit+12)}>{tr?"Daha fazla göster":"Show more"} ({gapResults.gaps.length-gapLimit})</button>}
+      {!!gapResults.unresolved.length&&<details className="connected-unresolved"><summary>{tr?`${gapResults.unresolved.length} çözümlenmemiş referans`:`${gapResults.unresolved.length} unresolved references`}</summary>{gapResults.unresolved.slice(0,referenceLimit).map((item,index)=><div key={`${item.source.id}-${item.field}-${index}`}><button type="button" onClick={()=>openRecord(item.source)}>{item.source.code||item.source.id}</button><span>{connectedRelationLabels[item.relation]?.[lang]||item.relation}</span><code>{item.value}</code><small className="connected-reference-reason">{item.reason === 'ambiguous' ? (tr ? `${item.candidates.length} olası kayıt — kaynak kayıtta ID veya benzersiz kod kullanın.` : `${item.candidates.length} possible records — use an ID or unique code in the source record.`) : (tr ? 'Hedef kayıt bulunamadı.' : 'Target record not found.')}</small>{item.reason === 'ambiguous' && <span className="connected-reference-candidates">{item.candidates.map(candidate => `${candidate.code || candidate.id} · ${connectedTitle(candidate)}`).join(' / ')}</span>}</div>)}{gapResults.unresolved.length>referenceLimit&&<button type="button" className="cg-more cg-more-references" onClick={()=>setReferenceLimit(referenceLimit+20)}>{tr?"Daha fazla referans göster":"Show more references"} ({gapResults.unresolved.length-referenceLimit})</button>}</details>}
     </section>}
     {view==="assurance"&&<section className="connected-assurance cg-operations">
       <header><div><h3>{tr?"Güvence işlemleri":"Assurance operations"}</h3><p>{tr?"Kontrol sonuçlarını, onayları ve takip işlerini yönetin.":"Manage control results, approvals and follow-up work."}</p></div></header>

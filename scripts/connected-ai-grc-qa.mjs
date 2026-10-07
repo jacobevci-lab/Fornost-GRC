@@ -85,6 +85,27 @@ try{
  await page.locator('.cg-filters input').fill('QA final paginated finding');
  await expect(page.locator('.cg-records')).toContainText('QA final paginated finding');
  await page.unroute('**/api/findings?view=graph*');
+ fixtures['/api/ai/assurance-alerts'].alerts.push(...Array.from({length:25},(_,i)=>({id:`QA-GAP-${String(i).padStart(3,'0')}`,modelId:`QA-MISSING-${i}`,title:`QA gap alert ${i}`})));
+ await openMap();
+ await page.locator('.connected-grc').getByRole('button',{name:/^Gaps/}).click();
+ const gapSearch=page.locator('.cg-gap-filters input');
+ await gapSearch.fill('QA gap alert');
+ await page.locator('.cg-gap-filters select').selectOption('AI Yönetişimi');
+ await page.locator('.connected-unresolved summary').click();
+ await expect(page.locator('.connected-unresolved>div')).toHaveCount(20);
+ await page.getByRole('button',{name:/Show more references/}).click();
+ await expect(page.locator('.connected-unresolved>div')).toHaveCount(25);
+ await gapSearch.fill('QA-GAP-024');
+ await expect(page.locator('.connected-unresolved>div')).toHaveCount(1);
+ await expect(page.locator('.connected-unresolved')).toContainText('QA-MISSING-24');
+ await gapSearch.fill('QA-NO-SUCH-GAP');
+ await expect(page.locator('.cg-gaps .cg-empty')).toContainText('No gaps match');
+ await expect(page.locator('.cg-gaps .connected-assurance-ok')).toHaveCount(0);
+ await page.locator('.cg-gap-filters').getByRole('button',{name:'Clear',exact:true}).click();
+ await expect(gapSearch).toHaveValue('');
+ await page.setViewportSize({width:390,height:844});
+ assert.ok(await page.locator('.cg-gaps').evaluate(el=>el.scrollWidth<=el.clientWidth+1));
+ await page.screenshot({path:`${out}/gaps-filter-mobile.png`});
  assert.deepEqual(errors,[]);
  await fs.writeFile(`${out}/result.json`,JSON.stringify({status:'passed',fixtureTransport:true,relationships:3,layouts:8,sourceRecovery:true}));
 }finally{await browser.close();}
