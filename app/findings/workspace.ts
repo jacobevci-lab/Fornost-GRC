@@ -16,3 +16,10 @@ export function validFindingsPayload(body:Record<string,unknown>):boolean {
   &&Array.isArray(body.sourceSignals)&&body.sourceSignals.every(row=>row&&typeof row.source==='string'&&Number.isFinite(row.count))
   &&!!body.summary&&typeof body.summary==='object'&&['total','open','critical','overdue','verification','accepted','closed','recurring'].every(key=>Number.isFinite((body.summary as Record<string,unknown>)[key]));
 }
+
+export type FindingPagination={page:number;pages:number;total:number;start:number;end:number};
+export function validFindingPagination(value:unknown,length:number):value is FindingPagination {
+ if(!value||typeof value!=='object')return false;
+ const p=value as FindingPagination;
+ return [p.page,p.pages,p.total,p.start,p.end].every(Number.isSafeInteger)&&p.total>=0&&p.pages===Math.max(1,Math.ceil(p.total/20))&&p.page>=1&&p.page<=p.pages&&p.start===(p.total?(p.page-1)*20+1:0)&&p.end===Math.min(p.page*20,p.total)&&length===(p.total?p.end-p.start+1:0);
+}

@@ -7,7 +7,7 @@ import { findingCsvCell as csvCell } from "../../findings/export";
 import { ensureFindingsSchemaCompatibility } from "./schema-compat";
 import { FindingReportPageError, readFindingReportPage } from "../../findings/report-page";
 
-import { readFindingRegister } from "../../findings/register";
+import { readFindingRegister,readFindingRegisterPage,parseFindingRegisterQuery,FindingRegisterError } from "../../findings/register";
 
 type Env = Record<string, unknown> & { DB: D1Database };
 
@@ -67,6 +67,7 @@ async function sourceCount(db: D1Database, source: string, sql: string) {
 }
 
 export async function GET(req: NextRequest) {
+  if(req.nextUrl.searchParams.has("view")&&req.nextUrl.searchParams.has("format"))return json({error:"Conflicting view and export format"},400);
   const reporting = req.nextUrl.searchParams.get("format") === "report";
   const access = await requireRole(req, reporting ? ["Admin"] : ["Admin", "Editor", "Viewer"]);
   if (access.response) return access.response;
@@ -84,8 +85,11 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  const [register, eventResult, sourceSignals] = await Promise.all([
-    readFindingRegister(env.DB),
+  let registerQuery;
+  try {if(req.nextUrl.searchParams.get("view")==="register")registerQuery=parseFindingRegisterQuery(req.nextUrl.searchParams);}
+  catch(error){if(error instanceof FindingRegisterError)return json({error:error.message},400);throw error;}
+  const [register, eventResult, sourceSignals, registerPage] = await Promise.all([
+    registerQuery?Promise.resolve(null):readFindingRegister(env.DB),
     env.DB.prepare("SELECT * FROM enterprise_finding_events ORDER BY created_at DESC LIMIT 1000").all<Record<string, unknown>>(),
     Promise.all([
       sourceCount(env.DB, "continuous-control", "SELECT COUNT(*) n FROM evidence_automation_findings WHERE status!='closed'"),
@@ -93,14 +97,15 @@ export async function GET(req: NextRequest) {
       sourceCount(env.DB, "ai-assurance", "SELECT COUNT(*) n FROM ai_findings WHERE status!='closed'"),
       sourceCount(env.DB, "regulatory", "SELECT COUNT(*) n FROM regulatory_change_impacts WHERE status!='completed'"),
     ]),
+    registerQuery?readFindingRegisterPage(env.DB,registerQuery):Promise.resolve(null),
   ]);
 
-  const findings = register.rows.map(map);
-  const summary = register.summary;
+  const findings = (registerPage?.rows||register!.rows).map(map);
+  const summary = registerPage?.summary||register!.summary;
 
   if (req.nextUrl.searchParams.get("format") === "csv") {
     if (access.actor.role !== "Admin") return json({ error: "Bulgu çıktısı yalnız Admin tarafından alınabilir." }, 403);
-    if (register.coverage.truncated) return json({error:"CSV kapsamı liste sınırını aşıyor. CAPA Merkezi içindeki tam CSV indirmesini kullanın.",complete:false},409);
+    if (register!.coverage.truncated) return json({error:"CSV kapsamı liste sınırını aşıyor. CAPA Merkezi içindeki tam CSV indirmesini kullanın.",complete:false},409);
     const rows = [
       ["Kod", "Kaynak", "Kaynak Ref", "Başlık", "Tür", "Önem", "Durum", "Sahip", "Reviewer", "Termin", "Risk", "Kontrol", "Tekrar", "Dikkat"],
       ...findings.map((item) => [item.code, item.sourceType, item.sourceRef, item.title, item.findingType, item.severity, item.status, item.owner, item.reviewer, item.dueDate, item.riskRef || "", item.controlRef || "", item.recurrenceCount, item.attention]),
@@ -117,7 +122,8 @@ export async function GET(req: NextRequest) {
 
   return json({
     findings,
-    coverage: register.coverage,
+    coverage: register?.coverage,
+    pagination: registerPage?.pagination,
     events: eventResult.results.map((item) => ({ id: item.id, findingId: item.finding_id, action: item.action, fromStatus: item.from_status, toStatus: item.to_status, detail: item.detail, actor: item.actor, createdAt: item.created_at })),
     sourceSignals,
     summary,

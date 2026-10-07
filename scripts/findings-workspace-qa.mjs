@@ -8,14 +8,17 @@ const context=await browser.newContext({viewport:{width:1536,height:960}});
 const page=await context.newPage();page.setDefaultTimeout(20000);
 let unavailable=true,writes=0,uncertain=false;
 const findings=Array.from({length:65},(_,i)=>({id:`QA-F-${i+1}`,code:`FND-QA-${i+1}`,sourceType:'audit',sourceRef:`AUD-QA-${i+1}`,sourceTitle:'QA audit',findingType:'nonconformity',title:`QA finding ${i+1}`,description:'QA finding description',severity:'high',owner:'qa-admin@fornost.test',reviewer:'reviewer@fornost.test',rootCause:'QA root cause',correctiveAction:'QA corrective action',preventiveAction:'QA preventive action',dueDate:'2026-12-01',status:'open',recurrenceCount:0,attention:'priority',updatedAt:'2026-10-06T09:00:00Z'}));
-await page.route('**/api/findings',async route=>{
+await page.route(/\/api\/findings(?:\?view=register.*)?$/,async route=>{
  if(route.request().method()==='POST'){
   writes++;assert.equal(route.request().postDataJSON().action,'create');
   await new Promise(resolve=>setTimeout(resolve,300));
   return route.fulfill({status:uncertain?503:200,json:uncertain?{error:'fixture outage'}:{message:'Created'}});
  }
  if(unavailable)return route.fulfill({status:503,json:{error:'fixture outage'}});
- return route.fulfill({json:{findings,events:[],sourceSignals:[{source:'continuous-control',count:0,available:false}],summary:{total:65,open:65,critical:0,overdue:0,verification:0,accepted:0,closed:0,recurring:0}}});
+ const params=new URL(route.request().url()).searchParams,query=(params.get('q')||'').toLowerCase(),filter=params.get('filter')||'all';
+ const matching=findings.filter(row=>(filter==='all'||row.status===filter||row.attention===filter)&&[row.code,row.title,row.sourceRef,row.owner].join(' ').toLowerCase().includes(query));
+ const total=matching.length,pages=Math.max(1,Math.ceil(total/20)),page=Math.min(Number(params.get('page')||1),pages),start=total?(page-1)*20+1:0,end=Math.min(page*20,total);
+ return route.fulfill({json:{findings:matching.slice((page-1)*20,page*20),pagination:{page,pages,total,start,end},events:[],sourceSignals:[{source:'continuous-control',count:0,available:false}],summary:{total:65,open:65,critical:0,overdue:0,verification:0,accepted:0,closed:0,recurring:0}}});
 });
 let historyUnavailable=true;
 await page.route('**/api/findings/history?*',route=>{
