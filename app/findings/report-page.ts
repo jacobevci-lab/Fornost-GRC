@@ -11,7 +11,7 @@ export const findingReportSchema = [
 export class FindingReportPageError extends Error {
   constructor(message: string, public status: number) { super(message); }
 }
-export async function readFindingReportPage(db: D1Database, after: string | null, expectedRevision: string | null) {
+export async function readFindingSnapshotPage(db: D1Database, after: string | null, expectedRevision: string | null) {
   if ((after === null) !== (expectedRevision === null) || (after !== null && (!after || after.length > 200))
     || (expectedRevision !== null && !/^[a-f0-9]{32}$/.test(expectedRevision))) throw new FindingReportPageError('Invalid report cursor',400);
   // A D1 batch is transactional: revision and page belong to the same database state.
@@ -24,5 +24,17 @@ export async function readFindingReportPage(db: D1Database, after: string | null
   if (expectedRevision !== null && revision !== expectedRevision) throw new FindingReportPageError('CAPA records changed during report loading. Refresh the report.',409);
   const complete = page.results.length <= FINDING_REPORT_PAGE_SIZE;
   const records = page.results.slice(0,FINDING_REPORT_PAGE_SIZE) as Record<string,unknown>[];
-  return {rows:records.map(findingReportRecord), revision, total:after === null ? Number((version.results[0] as Record<string,unknown>).total) : undefined, complete, nextCursor:complete ? null : String(records.at(-1)!.id), generatedAt:new Date().toISOString()};
+  return {rows:records, revision, total:after === null ? Number((version.results[0] as Record<string,unknown>).total) : undefined, complete, nextCursor:complete ? null : String(records.at(-1)!.id), generatedAt:new Date().toISOString()};
+}
+
+export async function readFindingReportPage(db: D1Database, after: string | null, expectedRevision: string | null) {
+  const page = await readFindingSnapshotPage(db, after, expectedRevision);
+  return { ...page, rows: page.rows.map(findingReportRecord) };
+}
+
+/** Minimal graph projection; reporting-only evidence hashes and narrative are excluded. */
+export async function readFindingGraphPage(db: D1Database, after: string | null, expectedRevision: string | null) {
+  const page = await readFindingSnapshotPage(db, after, expectedRevision);
+  const fields: Record<string,string> = { id:'id',code:'code',title:'title',sourceType:'source_type',sourceRef:'source_ref',riskRef:'risk_ref',controlRef:'control_ref',status:'status',severity:'severity',owner:'owner',reviewer:'reviewer',acceptUntil:'accept_until',dueDate:'due_date',correctiveAction:'corrective_action',preventiveAction:'preventive_action',updatedAt:'updated_at' };
+  return { ...page, rows: undefined, findings: page.rows.map(row => Object.fromEntries(Object.entries(fields).map(([key,column]) => [key,row[column] ?? '']))) };
 }
