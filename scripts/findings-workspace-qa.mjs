@@ -56,10 +56,14 @@ try{
  await expect(panel.locator('.finding-table tbody tr')).toHaveCount(1);
  const open=panel.getByRole('button',{name:'QA finding 65',exact:true});await open.focus();await page.keyboard.press('Enter');
  await expect(panel.getByRole('dialog')).toBeVisible();
+ await expect(panel.locator('.finding-detail-grid aside')).toContainText('Action owner: qa-admin@fornost.test');
+ await expect(panel.locator('.finding-detail-grid aside')).toContainText('Independent reviewer: reviewer@fornost.test');
+ await expect(panel.getByRole('button',{name:'Accept risk',exact:true})).toHaveCount(0);
+ await expect(panel.locator('.finding-table .finding-badge')).toHaveText('High');
  const history=panel.locator('.finding-record-history');
  await expect(history.getByRole('alert')).toContainText('could not be loaded');
  historyUnavailable=false;await history.getByRole('button',{name:'Retry',exact:true}).click();
- await expect(history.locator('li')).toHaveCount(1);await expect(history).toContainText('EV-HISTORY');await expect(history).toContainText('a'.repeat(64));
+ await expect(history.locator('li')).toHaveCount(1);await expect(history.locator('li strong')).toHaveText('Verified and closed');await expect(history.locator('time')).toContainText('UTC');await expect(history).toContainText('EV-HISTORY');await expect(history).toContainText('a'.repeat(64));
  await history.getByRole('button',{name:'Load older events',exact:true}).click();await expect(history.locator('li')).toHaveCount(2);
  await expect(history.getByRole('button',{name:'Load older events',exact:true})).toHaveCount(0);
  await panel.getByRole('button',{name:'Close',exact:true}).click();

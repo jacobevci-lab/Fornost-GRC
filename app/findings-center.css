@@ -13,3 +13,5 @@
 .finding-record-history code{font-size:.7rem;overflow-wrap:anywhere;white-space:normal}
 
 .finding-record-history{padding:.75rem 20px}.finding-record-history button{border:1px solid var(--at-line);background:var(--at-raised);color:var(--at-ink);border-radius:6px;padding:6px 9px;font:inherit}
+
+.finding-detail-grid>aside{overflow-wrap:anywhere;min-width:0}.finding-detail-grid>aside p{margin:0;white-space:pre-wrap}.finding-detail-grid>section{min-width:0;overflow-wrap:anywhere}
