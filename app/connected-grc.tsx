@@ -2,8 +2,8 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { assessConnectedGrcCoverage, buildConnectedGrcGraph, connectedRelationLabels, connectedRemediationModule, connectedTitle, type ConnectedGrcRow } from "./connected-grc-model";
-import { filterConnectedGrcGaps } from "./connected-grc-gaps";
-import { connectedGrcExport } from "./connected-grc-export";
+import { filterConnectedGrcGaps, type ConnectedGapType } from "./connected-grc-gaps";
+import { connectedGrcExport, connectedGrcGapExport } from "./connected-grc-export";
 import { connectedGrcNavigation } from "./connected-grc-navigation";
 import { buildConnectedGrcEnterpriseRows, connectedGrcEndpoints } from "./connected-grc-sources";
 import { buildContinuousAssuranceChains, summarizeContinuousAssurance } from "./continuous-assurance-chain";
@@ -33,6 +33,7 @@ export default function ConnectedGrc({rows,lang,go,includeAi=false}:{rows:Connec
   const [referenceLimit,setReferenceLimit]=useState(20);
   const [gapQuery,setGapQuery]=useState("");
   const [gapModule,setGapModule]=useState("all");
+  const [gapType,setGapType]=useState<ConnectedGapType>("all");
   const [sourceReload,setSourceReload]=useState(0);
   const [sourceSnapshot,setSourceSnapshot]=useState<{
     includeAi:boolean; reload:number; rows:ConnectedGrcRow[];
@@ -65,8 +66,8 @@ export default function ConnectedGrc({rows,lang,go,includeAi=false}:{rows:Connec
   const assuranceChains=useMemo(()=>buildContinuousAssuranceChains(records,links),[records,links]);
   const assuranceSummary=useMemo(()=>summarizeContinuousAssurance(assuranceChains),[assuranceChains]);
   const modules=useMemo(()=>Array.from(new Set(records.map(row=>row.module))).sort(),[records]);
-  const gapResults=filterConnectedGrcGaps(coverage.gaps,unresolved,{query:gapQuery,module:gapModule,lang,moduleLabel});
-  const gapFiltersActive=Boolean(gapQuery.trim()||gapModule!=="all");
+  const gapResults=filterConnectedGrcGaps(coverage.gaps,unresolved,{query:gapQuery,module:gapModule,type:gapType,lang,moduleLabel});
+  const gapFiltersActive=Boolean(gapQuery.trim()||gapModule!=="all"||gapType!=="all");
   function resetGapLimits(){setGapLimit(12);setReferenceLimit(20)}
   const linkedIds=new Set(links.flatMap(link=>[link.source.id,link.target.id]));
   const needle=query.trim().toLocaleLowerCase(tr?"tr-TR":"en-US");
@@ -90,8 +91,9 @@ export default function ConnectedGrc({rows,lang,go,includeAi=false}:{rows:Connec
     if(!target){go(row.module);return;}
     navigateToFornost({module:target.module,ref:target.ref,kind:target.kind,source:"connected-grc-register",filter:{[target.filterKey]:target.ref}});
   }
-  function download(){
-    const result=connectedGrcExport(filtered,{...sourceState,generatedAt:new Date().toISOString()});
+  function download(gaps=false){
+    const scope={...sourceState,generatedAt:new Date().toISOString()};
+    const result=gaps?connectedGrcGapExport(gapResults.gaps,gapResults.unresolved,scope,{query:gapQuery,module:gapModule,type:gapType}):connectedGrcExport(filtered,scope);
     if(!result)return;
     const blob=new Blob([result.content],{type:"text/csv;charset=utf-8"});
     const url=URL.createObjectURL(blob),anchor=document.createElement("a");anchor.href=url;anchor.download=result.filename;anchor.click();URL.revokeObjectURL(url);
@@ -115,7 +117,7 @@ export default function ConnectedGrc({rows,lang,go,includeAi=false}:{rows:Connec
         <label>{tr?"Kayıt ara":"Find a record"}<input value={query} onChange={event=>{setQuery(event.target.value);setPage(0);setLinkLimit(8)}} placeholder={tr?"Ad veya kod…":"Name or code…"}/></label>
         <label>{tr?"Modül":"Module"}<select value={module} onChange={event=>{setModule(event.target.value);setPage(0);setLinkLimit(8)}}><option value="all">{tr?"Tüm modüller":"All modules"}</option>{modules.map(name=><option key={name} value={name}>{moduleLabel(name)}</option>)}</select></label>
         {(query||module!=="all")&&<button type="button" onClick={resetFilters}>{tr?"Temizle":"Clear"}</button>}
-        <button type="button" className="cg-export" disabled={sourceState.loading} onClick={download}>{sourcesComplete?(tr?"Bağlantıları indir · CSV":"Export connections · CSV"):(tr?"Kısmi bağlantıları indir · CSV":"Export partial connections · CSV")}</button>
+        <button type="button" className="cg-export" disabled={sourceState.loading} onClick={()=>download()}>{sourcesComplete?(tr?"Bağlantıları indir · CSV":"Export connections · CSV"):(tr?"Kısmi bağlantıları indir · CSV":"Export partial connections · CSV")}</button>
       </div>
       <div className="cg-workspace">
         <section ref={recordList} className="cg-records" aria-label={tr?"Kayıt seçimi":"Record selection"}>
@@ -142,8 +144,10 @@ export default function ConnectedGrc({rows,lang,go,includeAi=false}:{rows:Connec
       {!sourcesComplete&&<p className="cg-assessment-pending" role="status">{coverageNotice}</p>}
       <div className="cg-filters cg-gap-filters">
         <label>{tr?"Eksik bağlantı ara":"Find a gap"}<input value={gapQuery} onChange={event=>{setGapQuery(event.target.value);resetGapLimits()}} placeholder={tr?"Kayıt, kod veya referans…":"Record, code or reference…"}/></label>
-        <label>{tr?"Kaynak modül":"Source module"}<select value={gapModule} onChange={event=>{setGapModule(event.target.value);resetGapLimits()}}><option value="all">{tr?"Tüm modüller":"All modules"}</option>{modules.map(name=><option key={name} value={name}>{moduleLabel(name)}</option>)}</select></label>
-        {gapFiltersActive&&<button type="button" onClick={()=>{setGapQuery("");setGapModule("all");resetGapLimits()}}>{tr?"Temizle":"Clear"}</button>}
+        <label>{tr?"Kaynak modül":"Source module"}<select aria-label={tr?"Kaynak modül":"Source module"} value={gapModule} onChange={event=>{setGapModule(event.target.value);resetGapLimits()}}><option value="all">{tr?"Tüm modüller":"All modules"}</option>{modules.map(name=><option key={name} value={name}>{moduleLabel(name)}</option>)}</select></label>
+        <label>{tr?"Sorun türü":"Issue type"}<select aria-label={tr?"Sorun türü":"Issue type"} value={gapType} onChange={event=>{setGapType(event.target.value as ConnectedGapType);resetGapLimits()}}>{([['all',tr?'Tüm sorunlar':'All issues'],['high',tr?'Yüksek öncelikli bağlantı eksiği':'High priority connection gaps'],['medium',tr?'Orta öncelikli bağlantı eksiği':'Medium priority connection gaps'],['missing',tr?'Hedef bulunamadı':'Target not found'],['ambiguous',tr?'Birden fazla hedef':'Multiple matching targets']] as const).map(([value,label])=><option key={value} value={value}>{label}</option>)}</select></label>
+        <button type="button" className="cg-export" disabled={sourceState.loading} onClick={()=>download(true)}>{sourcesComplete?(tr?"Eksikleri indir · CSV":"Export gaps · CSV"):(tr?"Kısmi eksikleri indir · CSV":"Export partial gaps · CSV")}</button>
+        {gapFiltersActive&&<button type="button" onClick={()=>{setGapQuery("");setGapModule("all");setGapType("all");resetGapLimits()}}>{tr?"Temizle":"Clear"}</button>}
       </div>
       <p className="cg-gap-results" role="status">{gapResults.gaps.length} / {coverage.gaps.length} {tr?"bağlantı eksiği":"connection gaps"} · {gapResults.unresolved.length} / {unresolved.length} {tr?"çözümlenmemiş referans":"unresolved references"}</p>
       {gapFiltersActive&&!gapResults.gaps.length&&!gapResults.unresolved.length&&<p className="cg-empty">{tr?"Filtrelerle eşleşen eksik yok. Diğer kayıtlar için filtreleri temizleyin.":"No gaps match these filters. Clear the filters to see other records."}</p>}
