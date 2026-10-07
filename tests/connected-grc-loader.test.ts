@@ -3,7 +3,7 @@ import test from "node:test";
 import { connectedSourceValidity } from "../app/connected-grc-sources";
 import { loadConnectedGrcSources } from "../app/connected-grc-loader";
 
-const empty = { findings: [], incidents: [], plans: [], exercises: [], gaps: [], documents: [], versions: [], appetites: [], measurements: [], breaches: [], scenarios: [], sources: [], changes: [], impacts: [], vendors: [], assessments: [], rules: [], runs: [] };
+const empty = { complete: true, total: 0, revision: 'a'.repeat(32), nextCursor: null, findings: [], incidents: [], plans: [], exercises: [], gaps: [], documents: [], versions: [], appetites: [], measurements: [], breaches: [], scenarios: [], sources: [], changes: [], impacts: [], vendors: [], assessments: [], rules: [], runs: [] };
 const json = (body: unknown) => Response.json(body);
 const run = (fetcher: typeof fetch, signal = new AbortController().signal, includeAi = false) =>
   loadConnectedGrcSources({ includeAi, signal, fetcher, timeoutMs: 20 });
@@ -36,7 +36,7 @@ test("deadline includes stalled body parsing and ignores late responses", async 
 });
 
 test("HTTP and malformed responses remain partial; a new attempt can recover", async () => {
-  const failed = await run(async url => String(url).endsWith("/findings") ? new Response("denied", { status: 403 }) : json([]));
+  const failed = await run(async url => String(url).includes("/findings?") ? new Response("denied", { status: 403 }) : json([]));
   assert.equal(failed.ready, 0);
   assert.deepEqual(failed.payloads, {});
   const recovered = await run(async () => json(empty));
@@ -67,7 +67,7 @@ test("AI requests are opt-in and incomplete AI sources cannot claim readiness", 
 test("source failures expose safe, actionable reasons without server content", async () => {
   const result = await run(async url => {
     const path = String(url);
-    if (path.endsWith("/findings")) return new Response("sensitive server details", { status: 403 });
+    if (path.includes("/findings?")) return new Response("sensitive server details", { status: 403 });
     if (path.endsWith("/incidents")) return new Response("not-json");
     if (path.endsWith("/policy-lifecycle")) return new Promise<Response>(() => {});
     if (path.endsWith("/continuity")) return new Response("internal error", { status: 500 });
@@ -90,22 +90,25 @@ test("cancelled loads do not produce misleading source failures", async () => {
 
 test("malformed successful payloads cannot masquerade as empty, ready sources", async () => {
   for (const malformed of [{}, { ...empty, findings: null }, { ...empty, findings: [{}] }, { ...empty, findings: [{ id: "same" }, { id: " same " }] }]) {
-    const result = await run(async url => json(String(url).endsWith("/findings") ? malformed : empty));
+    const result = await run(async url => json(String(url).includes("/findings?") ? malformed : empty));
     assert.equal(result.ready, 7);
     assert.equal(result.payloads.findings, undefined);
     assert.deepEqual(result.issues, [{ key: "findings", reason: "invalid" }]);
   }
 });
 
-test("capped valid data remains visible but never reports full graph coverage", async () => {
-  const findings = Array.from({ length: 3000 }, (_, i) => ({ id: `finding-${i}` }));
-  const result = await run(async url => json(String(url).endsWith("/findings") ? { findings } : empty));
-  assert.equal(result.ready, 7);
-  assert.equal((result.payloads.findings?.findings as unknown[]).length, 3000);
-  assert.deepEqual(result.issues, [{ key: "findings", reason: "incomplete" }]);
-  const recovered = await run(async () => json(empty));
-  assert.equal(recovered.ready, 8);
-  assert.deepEqual(recovered.issues, []);
+test("graph paging conflict discards the source but preserves independent sources", async () => {
+  let pages = 0;
+  const result = await run(async url => {
+    if (!String(url).includes('/findings?')) return json(empty);
+    if (pages++) return new Response('private conflict detail', {status:409});
+    const findings = Array.from({length:500},(_,i)=>({id:`F-${String(i).padStart(6,'0')}`}));
+    return json({findings,total:501,revision:'a'.repeat(32),complete:false,nextCursor:findings.at(-1)!.id});
+  });
+  assert.equal(result.ready,7);
+  assert.equal(result.payloads.findings,undefined);
+  assert.deepEqual(result.issues,[{key:'findings',reason:'changed'}]);
+  assert.equal((await run(async()=>json(empty))).ready,8);
 });
 
 

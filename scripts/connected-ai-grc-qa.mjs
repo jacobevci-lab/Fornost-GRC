@@ -57,16 +57,34 @@ try{
  mode='complete';await openMap();
  await expect(page.locator('.cg-source-state')).toHaveAttribute('data-ready','11');
  for(const body of [{}, {findings:[{id:'duplicate'},{id:'duplicate'}]}]){
-  await page.route('**/api/findings',route=>route.fulfill({json:body}));
+  await page.route('**/api/findings?view=graph*',route=>route.fulfill({json:body}));
   await openMap();
   await expect(page.locator('.cg-source-state')).toHaveAttribute('data-ready','10');
   await expect(page.locator('.cg-export')).toContainText('partial');
   await page.locator('.connected-grc').getByRole('button',{name:/^Gaps/}).click();
   await expect(page.locator('.cg-assessment-pending').first()).toBeVisible();
-  await page.unroute('**/api/findings');
+  await page.unroute('**/api/findings?view=graph*');
  }
  await openMap();
  await expect(page.locator('.cg-source-state')).toHaveAttribute('data-ready','11');
+ let graphPages=0;
+ const graphRows=Array.from({length:501},(_,i)=>({id:`QA-GRAPH-${String(i).padStart(6,'0')}`,title:i===500?'QA final paginated finding':`QA graph finding ${i}`}));
+ await page.route('**/api/findings?view=graph*',route=>{
+  const params=new URL(route.request().url()).searchParams;
+  graphPages++;
+  if(params.has('after')){
+   assert.equal(params.get('after'),graphRows[499].id);
+   assert.equal(params.get('revision'),'a'.repeat(32));
+   return route.fulfill({json:{findings:graphRows.slice(500),revision:'a'.repeat(32),complete:true,nextCursor:null}});
+  }
+  return route.fulfill({json:{findings:graphRows.slice(0,500),total:501,revision:'a'.repeat(32),complete:false,nextCursor:graphRows[499].id}});
+ });
+ await openMap();
+ await expect(page.locator('.cg-source-state')).toHaveAttribute('data-ready','11');
+ assert.equal(graphPages,2);
+ await page.locator('.cg-filters input').fill('QA final paginated finding');
+ await expect(page.locator('.cg-records')).toContainText('QA final paginated finding');
+ await page.unroute('**/api/findings?view=graph*');
  assert.deepEqual(errors,[]);
  await fs.writeFile(`${out}/result.json`,JSON.stringify({status:'passed',fixtureTransport:true,relationships:3,layouts:8,sourceRecovery:true}));
 }finally{await browser.close();}

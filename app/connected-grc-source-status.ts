@@ -13,6 +13,7 @@ const labels: Record<ConnectedSourceIssue["key"], [string, string]> = {
   aiFindings: ["AI bulguları", "AI findings"],
 };
 const reasons: Record<ConnectedSourceIssue["reason"], [string, string]> = {
+  changed: ["Kayıtlar yükleme sırasında değişti; yenileyin", "Records changed during loading; refresh"],
   timeout: ["Yanıt süresi aşıldı", "Request timed out"],
   access: ["Oturum veya erişim izni gerekli", "Session or access permission required"],
   unavailable: ["Kaynağa ulaşılamadı", "Source unavailable"],

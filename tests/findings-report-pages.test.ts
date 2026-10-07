@@ -1,8 +1,10 @@
+import { loadFindingGraph } from '../app/findings/graph-loader';
+import { connectedSourceValidity } from '../app/connected-grc-sources';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { DatabaseSync } from 'node:sqlite';
 import { readFileSync } from 'node:fs';
-import { findingReportSchema, readFindingReportPage } from '../app/findings/report-page';
+import { findingReportSchema, readFindingReportPage, readFindingGraphPage } from '../app/findings/report-page';
 import { loadCapaReport } from '../app/findings/reporting';
 function fixture(count=3501) {
  const sql=new DatabaseSync(':memory:');
@@ -49,4 +51,37 @@ test('client discards partial pages on conflict or a falsely complete response',
   await assert.rejects(loadCapaReport('/api/findings?format=report',new AbortController().signal,async()=>Response.json({rows:[],complete:true,total:1,revision:'a'.repeat(32),nextCursor:null})),/Incomplete/);
   assert.equal(findingReportSchema.join(';\n')+';\n',readFileSync('drizzle/0082_finding_report_revision.sql','utf8'));
  }finally{sql.close();}
+});
+
+
+test('graph loads 3501 canonical findings with minimal projection and verified coverage',async()=>{
+ const {db,sql}=fixture();let calls=0;
+ try{
+  const payload=await loadFindingGraph(async query=>{calls++;const params=new URLSearchParams(query);return readFindingGraphPage(db,params.get('after'),params.get('revision'));});
+  assert.equal(calls,8);assert.equal(payload.findings.length,3501);
+  assert.deepEqual(payload.graphCoverage,{total:3501,loaded:3501,complete:true});
+  assert.equal(connectedSourceValidity('findings',payload),'ready');
+  assert.equal(payload.findings.at(-1)!.id,'F-003500');
+  assert.equal('evidenceSha256' in payload.findings[0],false);
+  assert.equal('description' in payload.findings[0],false);
+ }finally{sql.close();}
+});
+test('graph pagination detects concurrent changes and respects its browser record budget',async()=>{
+ const {db,sql}=fixture(10001);
+ try{
+  const read=async(query:string)=>{const p=new URLSearchParams(query);return readFindingGraphPage(db,p.get('after'),p.get('revision'));};
+  const payload=await loadFindingGraph(read);
+  assert.deepEqual(payload.graphCoverage,{total:10001,loaded:10000,complete:false});
+  assert.equal(connectedSourceValidity('findings',payload),'incomplete');
+  let calls=0;
+  await assert.rejects(loadFindingGraph(async query=>{if(calls++)sql.exec("UPDATE enterprise_findings SET title='changed' WHERE id='F-000000'");return read(query);}),{status:409});
+ }finally{sql.close();}
+});
+test('graph client rejects false totals, cursor loops and changed revisions',async()=>{
+ const first={findings:Array.from({length:500},(_,i)=>({id:`F-${String(i).padStart(6,'0')}`})),total:501,revision:'a'.repeat(32),complete:false,nextCursor:'F-000499'};
+ for(const last of [
+  {findings:[],total:501,revision:'a'.repeat(32),complete:true,nextCursor:null},
+  {findings:[{id:'F-000499'}],revision:'a'.repeat(32),complete:true,nextCursor:null},
+  {findings:[{id:'F-000500'}],revision:'b'.repeat(32),complete:true,nextCursor:null},
+ ]){let calls=0;await assert.rejects(loadFindingGraph(async()=>calls++?last:first));}
 });

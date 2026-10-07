@@ -15,7 +15,7 @@ export type ConnectedGrcEnterprisePayloads = Partial<Record<
 >>;
 
 export const connectedGrcEnterpriseEndpoints = [
-  { key: "findings", path: "/api/findings" },
+  { key: "findings", path: "/api/findings?view=graph" },
   { key: "incidents", path: "/api/incidents" },
   { key: "continuity", path: "/api/continuity" },
   { key: "policy", path: "/api/policy-lifecycle" },
@@ -65,7 +65,13 @@ export function connectedSourceValidity(key: keyof ConnectedGrcEnterprisePayload
       if (ids.has(id)) return "invalid";
       ids.add(id);
     }
-    if (items.length >= limit) incomplete = true;
+    if (key === "findings" && payload.graphCoverage !== undefined) {
+      const coverage = record(payload.graphCoverage);
+      if (!coverage || !Number.isSafeInteger(coverage.total) || Number(coverage.total) < items.length
+        || coverage.loaded !== items.length || typeof coverage.complete !== "boolean"
+        || (coverage.complete && coverage.total !== items.length)) return "invalid";
+      if (!coverage.complete) incomplete = true;
+    } else if (items.length >= limit) incomplete = true;
   }
   return incomplete ? "incomplete" : "ready";
 }

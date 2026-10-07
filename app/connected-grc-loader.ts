@@ -1,9 +1,10 @@
+import { loadFindingGraph } from "./findings/graph-loader";
 import { withBasePath } from "./base-path";
 import { connectedSourceValidity, connectedGrcEndpoints, type ConnectedGrcEnterprisePayloads } from "./connected-grc-sources";
 
 export type ConnectedSourceIssue = {
   key: keyof ConnectedGrcEnterprisePayloads;
-  reason: "timeout" | "access" | "unavailable" | "invalid" | "incomplete";
+  reason: "timeout" | "access" | "unavailable" | "invalid" | "incomplete" | "changed";
 };
 
 export const CONNECTED_GRC_SOURCE_TIMEOUT_MS = 15_000;
@@ -33,17 +34,21 @@ export async function loadConnectedGrcSources({ includeAi, signal, fetcher = fet
     });
     try {
       if (signal.aborted) return;
-      const body = await Promise.race([interrupted, (async () => {
-        const response = await fetcher(withBasePath(endpoint.path), {
+      const read = async (path: string) => {
+        if (controller.signal.aborted) throw new Error("Source cancelled");
+        const response = await fetcher(withBasePath(path), {
           signal: controller.signal, headers: { accept: "application/json" }, cache: "no-store",
         });
         if (!response.ok) {
-          reason = response.status === 401 || response.status === 403 ? "access" : "unavailable";
+          reason = response.status === 409 ? "changed" : response.status === 401 || response.status === 403 ? "access" : "unavailable";
           throw new Error("Source unavailable");
         }
         reason = "invalid";
         return response.json();
-      })()]);
+      };
+      const body = await Promise.race([interrupted, endpoint.key === "findings"
+        ? loadFindingGraph(query => read(`/api/findings?${query}`))
+        : read(endpoint.path)]);
       if (!signal.aborted && body && typeof body === "object" && !Array.isArray(body)) {
         const validity = connectedSourceValidity(endpoint.key, body);
         // Malformed identities must never become fabricated or deduplicated nodes.

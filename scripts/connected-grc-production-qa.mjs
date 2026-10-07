@@ -15,7 +15,7 @@ const sourceDefinitions = [
   { key: "aiModels", path: "/api/ai/models", module: "AI Yönetişimi" },
   { key: "aiAlerts", path: "/api/ai/assurance-alerts", module: "AI Yönetişimi" },
   { key: "aiFindings", path: "/api/ai/findings", module: "AI Yönetişimi" },
-  { key: "findings", path: "/api/findings", module: "Bulgular ve CAPA" },
+  { key: "findings", path: "/api/findings?view=graph", module: "Bulgular ve CAPA" },
   { key: "incidents", path: "/api/incidents", module: "Güvenlik Olayları" },
   { key: "continuity", path: "/api/continuity", module: "İş Sürekliliği" },
   { key: "policy", path: "/api/policy-lifecycle", module: "Politika Merkezi" },

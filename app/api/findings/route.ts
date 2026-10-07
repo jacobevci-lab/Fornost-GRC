@@ -5,7 +5,7 @@ import { findingAttention, findingVersionMatches, validateFinding, validateFindi
 import { commitFindingTransition } from "../../findings/transition-store";
 import { findingCsvCell as csvCell } from "../../findings/export";
 import { ensureFindingsSchemaCompatibility } from "./schema-compat";
-import { FindingReportPageError, readFindingReportPage } from "../../findings/report-page";
+import { FindingReportPageError, readFindingReportPage, readFindingGraphPage } from "../../findings/report-page";
 
 import { readFindingRegister,readFindingRegisterPage,parseFindingRegisterQuery,FindingRegisterError } from "../../findings/register";
 
@@ -73,6 +73,11 @@ export async function GET(req: NextRequest) {
   if (access.response) return access.response;
   const env = await runtime();
   await ensureFindingsSchemaCompatibility(env.DB);
+
+  if (req.nextUrl.searchParams.get("view") === "graph") {
+    try { return json(await readFindingGraphPage(env.DB, req.nextUrl.searchParams.get("after"), req.nextUrl.searchParams.get("revision"))); }
+    catch (error) { if (error instanceof FindingReportPageError) return json({error:error.message,complete:false},error.status); throw error; }
+  }
 
   if (reporting) {
     try {
