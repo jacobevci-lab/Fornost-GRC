@@ -26,7 +26,7 @@ try{
  const capaResponse=await context.request.get(`${base}/api/findings?format=report`);assert.equal(capaResponse.status(),200);assert.equal((await capaResponse.json()).complete,true);
  let capaUnavailable=false;
  const capa={id:'capa:QA-REPORT',code:'CAPA-QA',module:'Bulgular ve CAPA',data:{title:'Connected correction',status:'in-progress',severity:'critical',owner:'Reviewer',riskRef:'RISK-QA',controlRef:'CTRL-QA',correctiveAction:'CAPA-DETAIL',evidenceSha256:'a'.repeat(64)}};
- await page.route('**/api/findings?format=report',route=>route.fulfill({status:capaUnavailable?503:200,json:capaUnavailable?{error:'Unavailable'}:{complete:true,rows:[capa]}}));
+ await page.route('**/api/findings?format=report',route=>route.fulfill({status:capaUnavailable?503:200,json:capaUnavailable?{error:'Unavailable'}:{complete:true,total:1,rows:[capa],revision:'a'.repeat(32),nextCursor:null}}));
  await page.goto(base);await expect(page.locator('.shell')).toBeVisible();
  await page.locator('.language-switch:visible').getByRole('button',{name:'EN',exact:true}).click();
  const group=page.locator('nav button[aria-controls="nav-group-intelligence"]');if(await group.getAttribute('aria-expanded')!=='true')await group.click();

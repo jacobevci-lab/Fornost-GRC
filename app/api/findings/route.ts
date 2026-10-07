@@ -5,7 +5,7 @@ import { findingAttention, validateFinding, validateFindingAction, validateFindi
 import { commitFindingTransition } from "../../findings/transition-store";
 import { findingCsvCell as csvCell } from "../../findings/export";
 import { ensureFindingsSchemaCompatibility } from "./schema-compat";
-import { CAPA_REPORT_LIMIT, findingReportRecord } from "../../findings/reporting";
+import { FindingReportPageError, readFindingReportPage } from "../../findings/report-page";
 
 type Env = Record<string, unknown> & { DB: D1Database };
 
@@ -72,12 +72,14 @@ export async function GET(req: NextRequest) {
   await ensureFindingsSchemaCompatibility(env.DB);
 
   if (reporting) {
-    const result = await env.DB.prepare("SELECT * FROM enterprise_findings ORDER BY id LIMIT ?")
-      .bind(CAPA_REPORT_LIMIT + 1).all<Record<string, unknown>>();
-    if (result.results.length > CAPA_REPORT_LIMIT) return json({ error: "CAPA rapor sınırı aşıldı. Eksik rapor oluşturulmadı.", complete: false }, 413);
-    const rows = result.results.map(findingReportRecord);
-    await event(env.DB, { findingId: "EXPORT", action: "finding-report-snapshot", detail: `${rows.length} records supplied to unified reporting`, actor: access.actor.email });
-    return json({ rows, complete: true, generatedAt: new Date().toISOString() });
+    try {
+      const page = await readFindingReportPage(env.DB, req.nextUrl.searchParams.get("after"), req.nextUrl.searchParams.get("revision"));
+      if (!req.nextUrl.searchParams.has("after")) await event(env.DB, { findingId:"EXPORT", action:"finding-report-snapshot", detail:`Paginated report started; revision ${page.revision}`, actor:access.actor.email });
+      return json(page);
+    } catch (error) {
+      if (error instanceof FindingReportPageError) return json({error:error.message,complete:false},error.status);
+      throw error;
+    }
   }
 
   const [result, eventResult, sourceSignals] = await Promise.all([
