@@ -97,7 +97,7 @@ export async function GET(req: NextRequest) {
       sourceCount(env.DB, "ai-assurance", "SELECT COUNT(*) n FROM ai_findings WHERE status!='closed'"),
       sourceCount(env.DB, "regulatory", "SELECT COUNT(*) n FROM regulatory_change_impacts WHERE status!='completed'"),
     ]),
-    registerQuery?readFindingRegisterPage(env.DB,registerQuery).catch(error=>{if(error instanceof FindingRegisterError)return error;throw error;}):Promise.resolve(null),
+    registerQuery?readFindingRegisterPage(env.DB,registerQuery,new Date(),access.actor.email).catch(error=>{if(error instanceof FindingRegisterError)return error;throw error;}):Promise.resolve(null),
   ]);
 
   if(registerPage instanceof FindingRegisterError)return json({error:registerPage.message},registerPage.status);

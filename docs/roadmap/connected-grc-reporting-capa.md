@@ -18,7 +18,7 @@
 
 - This increment does not claim to fix the underlying cause of production identity-service latency; it recovers a single stalled read. A new production QA run is needed after deployment.
 - CAPA reports use 500-record keyset pages, with one revision token across the dataset. Database triggers invalidate the token on insert/update/delete, including changes outside the Findings UI. A 409 discards the partial report; refresh starts again.
-- Browser report loading is bounded to 100,000 records, approximately 32 MiB of UTF-16 response text and 120 seconds. Larger datasets need server-side export jobs. The Findings workspace itself retains its existing 3,000-record view limit.
+- Browser report loading is bounded to 100,000 records, approximately 32 MiB of UTF-16 response text and 120 seconds. Larger datasets need server-side export jobs. The Findings workspace now searches and paginates the complete canonical register; legacy unparameterized consumers retain the 3,000-row list.
 - CAPA references are preserved, not inferred. Missing business-unit fields are not guessed from linked records.
 - AI workflow reporting and an atomic cross-module historical snapshot remain follow-up work.
 

@@ -5,7 +5,7 @@ import {readFindingRegister,readFindingRegisterPage,parseFindingRegisterQuery} f
 import {readFindingHistory} from '../app/findings/history';
 function fixture(){
  const sql=new DatabaseSync(':memory:');
- sql.exec('CREATE TABLE enterprise_findings(id TEXT PRIMARY KEY,severity TEXT,status TEXT,due_date TEXT,updated_at TEXT,accept_until TEXT,recurrence_count INTEGER,code TEXT,title TEXT,source_ref TEXT,owner TEXT); CREATE TABLE enterprise_finding_events(id TEXT PRIMARY KEY,finding_id TEXT,action TEXT,from_status TEXT,to_status TEXT,detail TEXT,actor TEXT,created_at TEXT,evidence_reference TEXT,evidence_sha256 TEXT)');
+ sql.exec('CREATE TABLE enterprise_findings(id TEXT PRIMARY KEY,severity TEXT,status TEXT,due_date TEXT,updated_at TEXT,accept_until TEXT,recurrence_count INTEGER,code TEXT,title TEXT,source_ref TEXT,owner TEXT,reviewer TEXT); CREATE TABLE enterprise_finding_events(id TEXT PRIMARY KEY,finding_id TEXT,action TEXT,from_status TEXT,to_status TEXT,detail TEXT,actor TEXT,created_at TEXT,evidence_reference TEXT,evidence_sha256 TEXT)');
  type Value=string|number|null;
  type Statement={bind:(...values:Value[])=>Statement;all:()=>{results:Record<string,unknown>[]};first:()=>Record<string,unknown>|null};
  function prepare(query:string,args:Value[]=[]):Statement{return {bind:(...values)=>prepare(query,values),all:()=>({results:sql.prepare(query).all(...args)}),first:()=>sql.prepare(query).get(...args)||null};}
@@ -79,5 +79,43 @@ test('exact finding navigation never selects a prefix, unrelated title or ambigu
   assert.equal((await lookup('missing')).pagination.total,0);
   insert.run('FND-1','OTHER','Collision','open');await assert.rejects(lookup('FND-1'),{status:409});
   assert.throws(()=>parseFindingRegisterQuery(new URLSearchParams({ref:'x'.repeat(201)})));
+ }finally{sql.close();}
+});
+
+test('CAPA KPI drill-down totals match global counts and preserve lifecycle boundaries',async()=>{
+ const {db,sql}=fixture();try{
+  const insert=sql.prepare('INSERT INTO enterprise_findings(id,title,severity,status,due_date,updated_at,accept_until,recurrence_count) VALUES(?,?,?,?,?,?,?,?)');
+  const day='2026-10-07';
+  for(const [id,severity,status,until,repeat] of [
+   ['new','critical','open',null,0],['working','high','in-progress',null,1],['review','medium','verification',null,0],
+   ['expired','critical','accepted','2026-10-06',0],['expires-today','high','accepted',day,0],['undated','low','accepted',null,0],['done','critical','closed',null,1],
+  ])insert.run(id,'Finding '+id,severity,status,'2026-10-20',day,until,repeat);
+  const request=(filter:string,query='')=>readFindingRegisterPage(db,parseFindingRegisterQuery(new URLSearchParams({filter,q:query,lang:'en'})),new Date(day+'T08:00:00Z'));
+  for(const [filter,key] of [['active','open'],['critical','critical'],['recurring','recurring'],['verification','verification'],['accepted','accepted'],['overdue','overdue']]){
+   const result=await request(filter);assert.equal(result.pagination.total,result.summary[key],filter);
+  }
+  assert.deepEqual((await request('open')).rows.map(r=>r.id),['new']);
+  assert.deepEqual((await request('in-progress')).rows.map(r=>r.id),['working']);
+  assert.deepEqual((await request('acceptance-expired')).rows.map(r=>r.id),['expired']);
+  assert.equal((await request('recurring','done')).pagination.total,1);
+  assert.equal((await request('critical','working')).pagination.total,0);
+ }finally{sql.close();}
+});
+
+
+test('assignment filters use exact authenticated identities across pages and combine with lifecycle search',async()=>{
+ const {db,sql}=fixture();try{
+  const insert=sql.prepare('INSERT INTO enterprise_findings(id,title,owner,reviewer,status) VALUES(?,?,?,?,?)');
+  for(let i=0;i<25;i++)insert.run('owned-'+i,'Owned '+i,'me@example.test','other@example.test','open');
+  insert.run('review','Review target','other@example.test','me@example.test','verification');
+  insert.run('collision','Prefix collision','not-me@example.test','me@example.test.evil','open');
+  const query=(assignment:string,filter='all',q='',page='1')=>parseFindingRegisterQuery(new URLSearchParams({assignment,filter,q,page}));
+  const owned=await readFindingRegisterPage(db,query('owned','all','','2'),new Date(),'me@example.test');
+  assert.equal(owned.pagination.total,25);assert.equal(owned.rows.length,5);assert.equal(owned.summary.total,27);
+  const review=await readFindingRegisterPage(db,query('review','verification','target'),new Date(),'me@example.test');
+  assert.deepEqual(review.rows.map(r=>r.id),['review']);
+  assert.equal((await readFindingRegisterPage(db,query('review','closed'),new Date(),'me@example.test')).pagination.total,0);
+  await assert.rejects(readFindingRegisterPage(db,query('owned')),{status:400});
+  assert.throws(()=>query('other'),{status:400});
  }finally{sql.close();}
 });

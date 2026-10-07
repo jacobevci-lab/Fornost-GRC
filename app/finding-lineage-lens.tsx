@@ -1,9 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { createPortal } from "react-dom";
-import { withBasePath } from "./base-path";
-import { navigateToFornost } from "./navigation-focus";
+import {findingLabel} from "./findings/presentation";
+import { navigateToFornost, type FornostNavigationRequest } from "./navigation-focus";
 import "./finding-lineage-lens.css";
 
 type Lang = "tr" | "en";
@@ -26,8 +24,6 @@ type Finding = {
   controlRef?: string;
 };
 
-type FindingsPayload = { findings?: Finding[] };
-
 type Check = { key: string; labelTr: string; labelEn: string; ok: boolean };
 
 const clean = (value: unknown) => String(value ?? "").normalize("NFKC").trim();
@@ -44,75 +40,14 @@ const SOURCE_MODULE: Record<string, string> = {
   "continuous-control": "Kanıt Otomasyonu",
 };
 
-function currentLanguage(): Lang {
-  return document.querySelector(".language-switch button.active")?.textContent?.trim().toLowerCase() === "en" ? "en" : "tr";
-}
-
-function selectedFindingCode() {
-  const detail = document.querySelector<HTMLElement>(".finding-detail");
-  const text = detail?.querySelector("header small")?.textContent || "";
-  return clean(text.split("·")[0]);
-}
-
-export default function FindingLineageLens() {
-  const [mount, setMount] = useState<HTMLElement | null>(null);
-  const [lang, setLang] = useState<Lang>("tr");
-  const [findings, setFindings] = useState<Finding[]>([]);
-  const [code, setCode] = useState("");
-
-  useEffect(() => {
-    let created: HTMLDivElement | null = null;
-    const discover = () => {
-      setLang(currentLanguage());
-      const detail = document.querySelector<HTMLElement>(".finding-detail");
-      if (!detail) {
-        setMount(null);
-        setCode("");
-        return;
-      }
-      const nextCode = selectedFindingCode();
-      setCode((current) => current === nextCode ? current : nextCode);
-      created = detail.querySelector<HTMLDivElement>(":scope > .finding-lineage-lens-mount");
-      if (!created) {
-        created = document.createElement("div");
-        created.className = "finding-lineage-lens-mount";
-        const body = detail.querySelector(".finding-detail-grid");
-        if (body) body.insertAdjacentElement("afterend", created);
-        else detail.appendChild(created);
-      }
-      setMount((current) => current === created ? current : created);
-    };
-    discover();
-    const observer = new MutationObserver(discover);
-    observer.observe(document.body, { childList: true, subtree: true });
-    const onClick = () => setLang(currentLanguage());
-    document.addEventListener("click", onClick);
-    return () => {
-      observer.disconnect();
-      document.removeEventListener("click", onClick);
-      created?.remove();
-    };
-  }, []);
-
-  useEffect(() => {
-    if (!mount) return;
-    let active = true;
-    fetch(withBasePath("/api/findings"), { cache: "no-store" })
-      .then((response) => response.ok ? response.json() as Promise<FindingsPayload> : Promise.reject(new Error("findings")))
-      .then((body) => { if (active) setFindings(body.findings || []); })
-      .catch(() => { if (active) setFindings([]); });
-    return () => { active = false; };
-  }, [mount, code]);
-
-  const finding = useMemo(() => findings.find((item) => clean(item.code) === code) || null, [findings, code]);
-  if (!mount || !finding) return null;
-
+export default function FindingLineageLens({finding,lang,close}:{finding:Finding;lang:Lang;close:()=>void}) {
+  const navigate=(request:FornostNavigationRequest)=>{close();navigateToFornost(request);};
   const tr = lang === "tr";
-  const sourceModule = SOURCE_MODULE[normalized(finding.sourceType)];
+  const sourceModule = Object.hasOwn(SOURCE_MODULE,normalized(finding.sourceType))?SOURCE_MODULE[normalized(finding.sourceType)]:undefined;
   const checks: Check[] = [
     { key: "source", labelTr: "Kaynak bağlantısı", labelEn: "Source linkage", ok: Boolean(clean(finding.sourceRef) && sourceModule) },
     { key: "owner", labelTr: "Aksiyon sahibi", labelEn: "Action owner", ok: Boolean(clean(finding.owner)) },
-    { key: "reviewer", labelTr: "Bağımsız reviewer", labelEn: "Independent reviewer", ok: Boolean(clean(finding.reviewer)) },
+    { key: "reviewer", labelTr: "Bağımsız doğrulayıcı", labelEn: "Independent reviewer", ok: Boolean(clean(finding.reviewer) && normalized(finding.reviewer)!==normalized(finding.owner)) },
     { key: "root", labelTr: "Kök neden", labelEn: "Root cause", ok: Boolean(clean(finding.rootCause)) },
     { key: "corrective", labelTr: "Düzeltici aksiyon", labelEn: "Corrective action", ok: Boolean(clean(finding.correctiveAction)) },
     { key: "preventive", labelTr: "Önleyici aksiyon", labelEn: "Preventive action", ok: Boolean(clean(finding.preventiveAction)) },
@@ -123,27 +58,28 @@ export default function FindingLineageLens() {
   const completeness = Math.round((complete / checks.length) * 100);
   const tone = completeness >= 88 ? "healthy" : completeness >= 63 ? "attention" : "critical";
 
-  const content = <section className="finding-lineage-lens">
+  return <section className="finding-lineage-lens finding-lineage-lens-mount">
     <header>
       <div>
         <small>{tr ? "CONNECTED FINDING TRACEABILITY" : "CONNECTED FINDING TRACEABILITY"}</small>
         <strong>{tr ? "Bulgu → CAPA → Risk/Kontrol izi" : "Finding → CAPA → Risk/Control lineage"}</strong>
       </div>
-      <div className={`fll-score ${tone}`}><b>{completeness}%</b><span>{tr ? "tamlık" : "complete"}</span></div>
+      <div className={`fll-score ${tone}`}><b>{completeness}%</b><span>{tr ? "alan doluluğu" : "fields complete"}</span></div>
     </header>
 
     <div className="fll-route">
-      <button type="button" disabled={!sourceModule} onClick={() => sourceModule && navigateToFornost({ module: sourceModule, ref: finding.sourceRef, kind: finding.sourceType, source: "finding-lineage" })}>
-        <small>{tr ? "Kaynak" : "Source"}</small><b>{finding.sourceType || "—"}</b><span>{finding.sourceRef || (tr ? "Referans yok" : "No reference")}</span><em>→</em>
+      <button type="button" disabled={!sourceModule||!clean(finding.sourceRef)} onClick={() => sourceModule && navigate({ module: sourceModule, ref: finding.sourceRef, kind: finding.sourceType, source: "finding-lineage" })}>
+        <small>{tr ? "Kaynak" : "Source"}</small><b>{findingLabel(finding.sourceType,lang)}</b><span>{finding.sourceRef || (tr ? "Referans yok" : "No reference")}</span><em>→</em>
       </button>
-      <button type="button" disabled={!finding.controlRef} onClick={() => finding.controlRef && navigateToFornost({ module: "Kontroller", ref: finding.controlRef, kind: "control", source: "finding-lineage" })}>
+      <button type="button" disabled={!finding.controlRef} onClick={() => finding.controlRef && navigate({ module: "Kontroller", ref: finding.controlRef, kind: "control", source: "finding-lineage" })}>
         <small>{tr ? "Kontrol" : "Control"}</small><b>{finding.controlRef || "—"}</b><span>{finding.controlRef ? (tr ? "Kontrol izini aç" : "Open control lineage") : (tr ? "Bağlantı yok" : "Not linked")}</span><em>→</em>
       </button>
-      <button type="button" disabled={!finding.riskRef} onClick={() => finding.riskRef && navigateToFornost({ module: "Risk Assessment", ref: finding.riskRef, kind: "risk", source: "finding-lineage" })}>
+      <button type="button" disabled={!finding.riskRef} onClick={() => finding.riskRef && navigate({ module: "Risk Assessment", ref: finding.riskRef, kind: "risk", source: "finding-lineage" })}>
         <small>{tr ? "Risk" : "Risk"}</small><b>{finding.riskRef || "—"}</b><span>{finding.riskRef ? (tr ? "Risk geri beslemesini aç" : "Open risk feedback") : (tr ? "Bağlantı yok" : "Not linked")}</span><em>→</em>
       </button>
     </div>
 
+    <p>{tr?"Bu göstergeler alan doluluğunu gösterir; bağlantılı kaydın varlığını, erişimini veya kanıt geçerliliğini doğrulamaz.":"These indicators show field completeness; they do not verify linked-record existence, access or evidence validity."}</p>
     <div className="fll-checks">
       {checks.map((item) => <div key={item.key} className={item.ok ? "ok" : "missing"}>
         <i>{item.ok ? "✓" : "!"}</i><span>{tr ? item.labelTr : item.labelEn}</span>
@@ -155,5 +91,4 @@ export default function FindingLineageLens() {
       : "Missing fields can weaken CAPA closure evidence, audit traceability or risk feedback. Complete them before closure."}</p>}
   </section>;
 
-  return createPortal(content, mount);
 }
