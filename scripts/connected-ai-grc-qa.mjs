@@ -56,6 +56,17 @@ try{
  }
  mode='complete';await openMap();
  await expect(page.locator('.cg-source-state')).toHaveAttribute('data-ready','11');
+ for(const body of [{}, {findings:[{id:'duplicate'},{id:'duplicate'}]}]){
+  await page.route('**/api/findings',route=>route.fulfill({json:body}));
+  await openMap();
+  await expect(page.locator('.cg-source-state')).toHaveAttribute('data-ready','10');
+  await expect(page.locator('.cg-export')).toContainText('partial');
+  await page.locator('.connected-grc').getByRole('button',{name:/^Gaps/}).click();
+  await expect(page.locator('.cg-assessment-pending').first()).toBeVisible();
+  await page.unroute('**/api/findings');
+ }
+ await openMap();
+ await expect(page.locator('.cg-source-state')).toHaveAttribute('data-ready','11');
  assert.deepEqual(errors,[]);
  await fs.writeFile(`${out}/result.json`,JSON.stringify({status:'passed',fixtureTransport:true,relationships:3,layouts:8,sourceRecovery:true}));
 }finally{await browser.close();}

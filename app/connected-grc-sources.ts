@@ -35,6 +35,41 @@ export function connectedGrcEndpoints(includeAi: boolean) {
   return includeAi ? [...connectedGrcEnterpriseEndpoints, ...connectedAiEndpoints] : [...connectedGrcEnterpriseEndpoints];
 }
 
+// Only collections consumed by the graph participate in readiness. Limits mirror
+// the authoritative list APIs; reaching a limit is conservatively incomplete.
+const sourceCollections: Record<keyof ConnectedGrcEnterprisePayloads, Record<string, number>> = {
+  findings: { findings: 3000 },
+  incidents: { incidents: 3000 },
+  continuity: { plans: 2000, exercises: 2000, gaps: 2000 },
+  policy: { documents: 1000, versions: 3000 },
+  riskAppetite: { appetites: 1000, measurements: 5000, breaches: 3000, scenarios: 2000 },
+  regulatory: { sources: 500, changes: 1000, impacts: 2000 },
+  thirdParty: { vendors: 1000, assessments: 2000, findings: 3000 },
+  evidenceAutomation: { sources: Infinity, rules: Infinity, runs: 100, findings: 100 },
+  aiModels: { models: 500 }, aiAlerts: { alerts: 500 }, aiFindings: { findings: 500 },
+};
+
+export function connectedSourceValidity(key: keyof ConnectedGrcEnterprisePayloads, body: unknown): "ready" | "invalid" | "incomplete" {
+  const payload = record(body);
+  if (!payload) return "invalid";
+  let incomplete = false;
+  for (const [collection, limit] of Object.entries(sourceCollections[key])) {
+    const items = payload[collection];
+    if (!Array.isArray(items)) return "invalid";
+    const ids = new Set<string>();
+    for (const item of items) {
+      const row = record(item);
+      const rawId = key === "thirdParty" && collection === "vendors" ? row?.vendorId : row?.id;
+      if (typeof rawId !== "string" || !rawId.trim()) return "invalid";
+      const id = rawId.normalize("NFKC").trim();
+      if (ids.has(id)) return "invalid";
+      ids.add(id);
+    }
+    if (items.length >= limit) incomplete = true;
+  }
+  return incomplete ? "incomplete" : "ready";
+}
+
 // These APIs currently return at most 500 rows. At the boundary we cannot
 // distinguish an exact fit from truncation, so never label the source complete.
 export function connectedAiSourceComplete(key: string, body: unknown): boolean {
