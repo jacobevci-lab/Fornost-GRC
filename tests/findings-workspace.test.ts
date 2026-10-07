@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import {findingListPage,findingsRequest,validFindingsPayload} from '../app/findings/workspace';
+import {findingListPage,findingsRequest,validFindingsPayload,validFindingPagination} from '../app/findings/workspace';
 import {findingCsvCell} from '../app/findings/export';
 
 test('finding pages expose every record, search all pages and clamp after filtering',()=>{
@@ -32,4 +32,12 @@ test('CAPA CSV neutralizes whitespace-prefixed formula cells while preserving qu
  for(const prefix of ['',' ','\t','\r\n'])for(const marker of ['=','+','-','@'])assert.equal(findingCsvCell(`${prefix}${marker}1`),`"'${prefix}${marker}1"`);
  assert.equal(findingCsvCell('Evidence "accepted"'),'"Evidence ""accepted"""');
  assert.equal(findingCsvCell(null),'""');
+});
+
+test('server pagination rejects partial pages and malformed counts',()=>{
+ assert.equal(validFindingPagination({page:2,pages:2,total:21,start:21,end:21},1),true);
+ assert.equal(validFindingPagination({page:1,pages:1,total:0,start:0,end:0},0),true);
+ assert.equal(validFindingPagination({page:1,pages:2,total:21,start:1,end:20},19),false);
+ assert.equal(validFindingPagination({page:1,pages:1,total:-1,start:0,end:0},0),false);
+ assert.equal(validFindingPagination(null,0),false);
 });
