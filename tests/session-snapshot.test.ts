@@ -34,3 +34,14 @@ test('superseding a check aborts its transport without retrying it', async () =>
  } });
  controller.abort(); await assert.rejects(pending); assert.equal(calls, 1);
 });
+
+test('a stalled first identity probe recovers within the same bounded startup check', async () => {
+ let calls = 0;
+ const result = await read(async () => ++calls === 1 ? new Promise<Response>(() => {}) : Response.json(signedIn), 40);
+ assert.deepEqual(result, signedIn); assert.equal(calls, 2);
+});
+test('deadline includes a stuck response body even if the transport ignores cancellation', async () => {
+ let calls = 0;
+ await assert.rejects(read(async () => { calls++; return { ok:true, status:200, json:() => new Promise(() => {}) } as unknown as Response; }, 30), /zaman aşımına/);
+ assert.equal(calls, 2);
+});

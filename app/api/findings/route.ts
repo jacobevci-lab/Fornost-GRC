@@ -5,6 +5,7 @@ import { findingAttention, validateFinding, validateFindingAction, validateFindi
 import { commitFindingTransition } from "../../findings/transition-store";
 import { findingCsvCell as csvCell } from "../../findings/export";
 import { ensureFindingsSchemaCompatibility } from "./schema-compat";
+import { FindingReportPageError, readFindingReportPage } from "../../findings/report-page";
 
 type Env = Record<string, unknown> & { DB: D1Database };
 
@@ -64,10 +65,22 @@ async function sourceCount(db: D1Database, source: string, sql: string) {
 }
 
 export async function GET(req: NextRequest) {
-  const access = await requireRole(req, ["Admin", "Editor", "Viewer"]);
+  const reporting = req.nextUrl.searchParams.get("format") === "report";
+  const access = await requireRole(req, reporting ? ["Admin"] : ["Admin", "Editor", "Viewer"]);
   if (access.response) return access.response;
   const env = await runtime();
   await ensureFindingsSchemaCompatibility(env.DB);
+
+  if (reporting) {
+    try {
+      const page = await readFindingReportPage(env.DB, req.nextUrl.searchParams.get("after"), req.nextUrl.searchParams.get("revision"));
+      if (!req.nextUrl.searchParams.has("after")) await event(env.DB, { findingId:"EXPORT", action:"finding-report-snapshot", detail:`Paginated report started; revision ${page.revision}`, actor:access.actor.email });
+      return json(page);
+    } catch (error) {
+      if (error instanceof FindingReportPageError) return json({error:error.message,complete:false},error.status);
+      throw error;
+    }
+  }
 
   const [result, eventResult, sourceSignals] = await Promise.all([
     env.DB.prepare("SELECT * FROM enterprise_findings ORDER BY CASE severity WHEN 'critical' THEN 0 WHEN 'high' THEN 1 WHEN 'medium' THEN 2 ELSE 3 END,due_date,updated_at DESC LIMIT 3000").all<Record<string, unknown>>(),

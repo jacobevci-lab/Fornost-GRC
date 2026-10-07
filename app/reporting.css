@@ -68,3 +68,5 @@ html[data-theme] body .shell>main .report-workspace .report-pagination button{wi
 html[data-theme] body .shell>main .report-workspace .table-wrap table{width:100%!important;min-width:720px!important;table-layout:fixed}
 html[data-theme] body .shell>main .report-workspace .table-wrap :is(th,td){min-width:0;overflow-wrap:anywhere}
 html[data-theme] body .shell>main .report-workspace .column-resizer{right:0!important;width:12px!important}
+
+.report-workspace .report-source-status{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 12px;border:1px solid var(--ws-line);border-radius:8px;font-size:12px;overflow-wrap:anywhere}.report-source-status button{flex-shrink:0}

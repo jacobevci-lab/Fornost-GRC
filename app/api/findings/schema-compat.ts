@@ -1,3 +1,4 @@
+import { findingReportSchema } from "../../findings/report-page";
 // Canonical schema authority lives in db/schema.ts and drizzle/0072_enterprise_findings_capa.sql.
 // This module exists only to self-heal older persisted on-prem installations that predate
 // the migration baseline. New installations must receive these tables through migrations.
@@ -23,8 +24,8 @@ async function canonicalTablesExist(db: D1Database) {
 export async function ensureFindingsSchemaCompatibility(db: D1Database) {
   if (!findingsSchemaReady) {
     findingsSchemaReady = (async () => {
-      if (await canonicalTablesExist(db)) return;
-      await db.batch(compatibilitySchema.map((sql) => db.prepare(sql)));
+      if (!(await canonicalTablesExist(db))) await db.batch(compatibilitySchema.map((sql) => db.prepare(sql)));
+      await db.batch(findingReportSchema.map((sql) => db.prepare(sql)));
     })().catch((error) => {
       findingsSchemaReady = null;
       throw error;

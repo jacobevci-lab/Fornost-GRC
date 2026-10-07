@@ -9,7 +9,7 @@ try {
  const login = await context.request.post(`${base}/api/auth`, { headers: { origin: base }, data: { action: 'login', email: 'qa-admin@fornost.test', password: qaPassword() } });
  assert.equal(login.status(), 200);
  const snapshot = await (await context.request.get(`${base}/api/auth`)).json();
- for (const mode of ['gateway', 'invalid', 'timeout', 'overlap']) {
+ for (const mode of ['gateway', 'timeout-retry', 'invalid', 'timeout', 'overlap']) {
   const page = await context.newPage(); page.on('pageerror', e => errors.push(e.message));
   let calls = 0, recover = false, release, superseded = false;
   const pending = new Promise(resolve => { release = resolve; });
@@ -18,6 +18,7 @@ try {
    calls++;
    if (recover) return route.fulfill({ json: snapshot });
    if (mode === 'gateway' && calls === 1) return route.fulfill({ status: 503, json: {} });
+   if (mode === 'timeout-retry' && calls === 1) { await pending; return route.fulfill({ json: snapshot }).catch(() => {}); }
    if (mode === 'invalid') return route.fulfill({ json: { authenticated: true } });
    if (mode === 'timeout') { await pending; return route.fulfill({ json: snapshot }).catch(() => {}); }
    if (mode === 'overlap') {
@@ -27,8 +28,8 @@ try {
    return route.fulfill({ json: snapshot });
   });
   await page.goto(base);
-  if (mode === 'gateway') {
-   await expect(page.locator('.shell')).toBeVisible(); assert.ok(calls >= 2); // Copilot also reads identity after the shell mounts.
+  if (mode === 'gateway' || mode === 'timeout-retry') {
+   await expect(page.locator('.shell')).toBeVisible({ timeout: 14000 }); assert.ok(calls >= 2); // Copilot also reads identity after the shell mounts.
    await page.locator('.language-switch:visible').getByRole('button', { name: 'EN', exact: true }).click();
    await expect(page.locator('h1').first()).toHaveText('Dashboard');
   } else if (mode === 'overlap') {
