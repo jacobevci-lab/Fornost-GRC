@@ -81,3 +81,23 @@ test('exact finding navigation never selects a prefix, unrelated title or ambigu
   assert.throws(()=>parseFindingRegisterQuery(new URLSearchParams({ref:'x'.repeat(201)})));
  }finally{sql.close();}
 });
+
+test('CAPA KPI drill-down totals match global counts and preserve lifecycle boundaries',async()=>{
+ const {db,sql}=fixture();try{
+  const insert=sql.prepare('INSERT INTO enterprise_findings(id,title,severity,status,due_date,updated_at,accept_until,recurrence_count) VALUES(?,?,?,?,?,?,?,?)');
+  const day='2026-10-07';
+  for(const [id,severity,status,until,repeat] of [
+   ['new','critical','open',null,0],['working','high','in-progress',null,1],['review','medium','verification',null,0],
+   ['expired','critical','accepted','2026-10-06',0],['expires-today','high','accepted',day,0],['undated','low','accepted',null,0],['done','critical','closed',null,1],
+  ])insert.run(id,'Finding '+id,severity,status,'2026-10-20',day,until,repeat);
+  const request=(filter:string,query='')=>readFindingRegisterPage(db,parseFindingRegisterQuery(new URLSearchParams({filter,q:query,lang:'en'})),new Date(day+'T08:00:00Z'));
+  for(const [filter,key] of [['active','open'],['critical','critical'],['recurring','recurring'],['verification','verification'],['accepted','accepted'],['overdue','overdue']]){
+   const result=await request(filter);assert.equal(result.pagination.total,result.summary[key],filter);
+  }
+  assert.deepEqual((await request('open')).rows.map(r=>r.id),['new']);
+  assert.deepEqual((await request('in-progress')).rows.map(r=>r.id),['working']);
+  assert.deepEqual((await request('acceptance-expired')).rows.map(r=>r.id),['expired']);
+  assert.equal((await request('recurring','done')).pagination.total,1);
+  assert.equal((await request('critical','working')).pagination.total,0);
+ }finally{sql.close();}
+});

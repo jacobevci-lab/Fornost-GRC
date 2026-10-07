@@ -26,7 +26,7 @@ await page.route(/\/api\/findings(?:\?view=register.*)?$/,async route=>{
  if(unavailable)return route.fulfill({status:503,json:{error:'fixture outage'}});
  const params=new URL(route.request().url()).searchParams,query=(params.get('q')||'').toLowerCase(),filter=params.get('filter')||'all';
  const ref=params.get('ref');
- const matching=findings.filter(row=>(!ref||row.id===ref||row.code===ref)&&(filter==='all'||row.status===filter||row.attention===filter)&&[row.code,row.title,row.sourceRef,row.owner].join(' ').toLowerCase().includes(query));
+ const matching=findings.filter(row=>(!ref||row.id===ref||row.code===ref)&&(filter==='all'||filter==='active'&&!['closed','accepted'].includes(row.status)||row.status===filter||row.attention===filter)&&[row.code,row.title,row.sourceRef,row.owner].join(' ').toLowerCase().includes(query));
  const total=matching.length,pages=Math.max(1,Math.ceil(total/20)),page=Math.min(Number(params.get('page')||1),pages),start=total?(page-1)*20+1:0,end=Math.min(page*20,total);
  return route.fulfill({json:{findings:matching.slice((page-1)*20,page*20),pagination:{page,pages,total,start,end},events:[],sourceSignals:[{source:'continuous-control',count:0,available:false}],summary:{total:65,open:65,critical:0,overdue:0,verification:0,accepted:0,closed:0,recurring:0}}});
 });
@@ -56,6 +56,13 @@ try{
  for(let i=0;i<3;i++)await panel.getByRole('button',{name:'Next',exact:true}).click();
  await expect(panel.locator('.finding-table tbody tr')).toHaveCount(5);
  await expect(panel.locator('.finding-pagination')).toContainText('61–65 / 65');
+ await panel.getByRole('textbox',{name:'Search findings',exact:true}).fill('AUD-QA-65');
+ await expect(panel.locator('.finding-table tbody tr')).toHaveCount(1);
+ await panel.getByRole('button',{name:'Open CAPA',exact:true}).click();
+ await expect(panel.getByRole('textbox',{name:'Search findings',exact:true})).toHaveValue('');
+ await expect(panel.getByRole('combobox',{name:'Status filter',exact:true})).toHaveValue('active');
+ await expect(panel.getByRole('button',{name:'Open CAPA',exact:true})).toHaveAttribute('aria-pressed','true');
+ await expect(panel.locator('.finding-table tbody tr')).toHaveCount(20);
  await panel.getByRole('textbox',{name:'Search findings',exact:true}).fill('AUD-QA-65');
  await expect(panel.locator('.finding-table tbody tr')).toHaveCount(1);
  const open=panel.getByRole('button',{name:'QA finding 65',exact:true});await open.focus();await page.keyboard.press('Enter');
