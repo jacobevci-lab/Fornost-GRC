@@ -24,9 +24,9 @@ try{
   } finally { assert.equal((await context.request.patch(`${base}/api/users`,{headers:{origin:base},data:{id,role:'Editor',status:'Disabled'}})).status(),200); }
  } finally { await viewer.close(); }
  const capaResponse=await context.request.get(`${base}/api/findings?format=report`);assert.equal(capaResponse.status(),200);assert.equal((await capaResponse.json()).complete,true);
- let capaUnavailable=false;
+ let capaUnavailable=false, capaFailureStatus=503;
  const capa={id:'capa:QA-REPORT',code:'CAPA-QA',module:'Bulgular ve CAPA',data:{title:'Connected correction',status:'in-progress',severity:'critical',owner:'Reviewer',riskRef:'RISK-QA',controlRef:'CTRL-QA',correctiveAction:'CAPA-DETAIL',evidenceSha256:'a'.repeat(64)}};
- await page.route('**/api/findings?format=report',route=>route.fulfill({status:capaUnavailable?503:200,json:capaUnavailable?{error:'Unavailable'}:{complete:true,total:1,rows:[capa],revision:'a'.repeat(32),nextCursor:null}}));
+ await page.route('**/api/findings?format=report',route=>route.fulfill({status:capaUnavailable?capaFailureStatus:200,json:capaUnavailable?{error:'Unavailable'}:{complete:true,total:1,rows:[capa],revision:'a'.repeat(32),nextCursor:null}}));
  await page.goto(base);await expect(page.locator('.shell')).toBeVisible();
  await page.locator('.language-switch:visible').getByRole('button',{name:'EN',exact:true}).click();
  const group=page.locator('nav button[aria-controls="nav-group-intelligence"]');if(await group.getAttribute('aria-expanded')!=='true')await group.click();
@@ -71,6 +71,12 @@ try{
  for(const label of ['HTML','CSV','PDF Report','Download Excel Report'])await expect(panel.getByRole('button',{name:label,exact:true,includeHidden:true})).toBeDisabled();
  await panel.getByLabel('Report module',{exact:true}).selectOption('BIA');
  await expect(panel.getByRole('button',{name:'HTML',exact:true,includeHidden:true})).toBeEnabled();
+ for(const [status,message] of [[409,'changed during loading'],[401,'Sign in again'],[403,'administrator access']]){
+  capaFailureStatus=status;await panel.locator('.report-source-status button').click();
+  await expect(panel.locator('.report-source-status')).toContainText(message);
+  await panel.getByLabel('Report module',{exact:true}).selectOption('__all__');
+  await expect(panel.getByRole('button',{name:'HTML',exact:true,includeHidden:true})).toBeDisabled();
+ }
  capaUnavailable=false;await panel.locator('.report-source-status button').click();await expect(panel.locator('.report-source-status')).toContainText('1 records available');
  await page.route('**/fonts/FornostReportSans.ttf',route=>route.fulfill({status:503,body:'Unavailable'}));
  await panel.getByRole('button',{name:'PDF Report',exact:true}).click();await expect(panel.getByRole('alert')).toContainText('PDF could not be generated');await expect(panel.getByRole('button',{name:'PDF Report',exact:true})).toBeEnabled();
