@@ -1992,6 +1992,8 @@ function FornostApp({ currentUser }: { currentUser: any }) {
       <button
         type="button"
         className="mobile-nav-backdrop"
+        data-escape-layer={mobileNavOpen ? "" : undefined}
+        data-escape-close
         aria-label={lang === "tr" ? "Menüyü kapat" : "Close navigation"}
         tabIndex={mobileNavOpen ? 0 : -1}
         onClick={() => setMobileNavOpen(false)}
@@ -2005,7 +2007,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
           }}
         >
           <section
-            className="command-palette"
+            data-escape-layer className="command-palette"
             role="dialog"
             aria-modal="true"
             aria-label={lang === "tr" ? "Hızlı navigasyon" : "Quick navigation"}
@@ -2029,7 +2031,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
                 }
                 aria-label={lang === "tr" ? "Modül ara" : "Search modules"}
               />
-              <kbd>ESC</kbd>
+              <button type="button" data-escape-close onClick={()=>setCommandOpen(false)} aria-label={lang === "tr" ? "Kapat" : "Close"}><kbd>ESC</kbd></button>
             </header>
             <div className="command-results" role="listbox">
               <small>
@@ -2380,7 +2382,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
       </main>
       {modal && (
         <div className="overlay" onMouseDown={() => setModal(false)}>
-          <div
+          <div data-escape-layer
             className="modal record-dialog"
             ref={recordDialogRef}
             tabIndex={-1}
@@ -2394,7 +2396,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
                 <small>{editing ? u.editRecord : u.newRecord}</small>
                 <h2>{names[lang][active]}</h2>
               </div>
-              <button
+              <button data-escape-close
                 type="button"
                 aria-label={lang === "tr" ? "Pencereyi kapat" : "Close dialog"}
                 onClick={() => setModal(false)}
@@ -2579,7 +2581,7 @@ function ImportModal({
   }
   return (
     <div className="overlay">
-      <div
+      <div data-escape-layer
         className="modal import-modal"
         role="dialog"
         aria-modal="true"
@@ -2590,7 +2592,7 @@ function ImportModal({
             <small>{lang === "tr" ? "EXCEL İÇE AKTAR" : "IMPORT EXCEL"}</small>
             <h2>{names[lang][module]}</h2>
           </div>
-          <button
+          <button data-escape-close
             type="button"
             aria-label={lang === "tr" ? "Pencereyi kapat" : "Close dialog"}
             onClick={onClose}
@@ -4056,7 +4058,7 @@ function AuditModule({
               if (e.target === e.currentTarget) setPickerOpen(false);
             }}
           >
-            <section
+            <section data-escape-layer
               className="modal audit-picker"
               role="dialog"
               aria-modal="true"
@@ -4069,7 +4071,7 @@ function AuditModule({
                     {tr ? "Denetim seç ve ekle" : "Choose and add an audit"}
                   </h2>
                 </div>
-                <button
+                <button data-escape-close type="button"
                   onClick={() => setPickerOpen(false)}
                   aria-label={tr ? "Kapat" : "Close"}
                 >
@@ -4835,7 +4837,7 @@ function AuditWorkspaceTabs({
             if (e.target === e.currentTarget) setLibraryOpen(false);
           }}
         >
-          <section
+          <section data-escape-layer
             className="modal audit-control-picker"
             role="dialog"
             aria-modal="true"
@@ -4850,7 +4852,7 @@ function AuditWorkspaceTabs({
                   {tr ? "Denetime kontrol ekle" : "Add control to audit"}
                 </h2>
               </div>
-              <button
+              <button data-escape-close type="button"
                 onClick={() => setLibraryOpen(false)}
                 aria-label={tr ? "Kapat" : "Close"}
               >
@@ -5303,7 +5305,7 @@ function RegisterToolbar({
             </button>
             {columnPickerOpen && (
               <div
-                className="column-picker"
+                data-escape-layer className="column-picker"
                 style={pickerPosition}
                 role="dialog"
                 aria-label={tr ? "Görüntülenecek sütunlar" : "Visible columns"}
@@ -5324,6 +5326,7 @@ function RegisterToolbar({
                   >
                     {tr ? "Varsayılan" : "Default"}
                   </button>
+                  <button type="button" data-escape-close onClick={()=>setColumnPickerOpen(false)} aria-label={tr?"Kapat":"Close"}>×</button>
                 </header>
                 <div>
                   {available.map((column) => (
@@ -5748,7 +5751,7 @@ function EvidencePreview({
   }, []);
   return createPortal(
     <div className="overlay evidence-overlay" onMouseDown={onClose}>
-      <section
+      <section data-escape-layer
         className="evidence-preview"
         onMouseDown={(e) => e.stopPropagation()}
         role="dialog"
@@ -5765,7 +5768,7 @@ function EvidencePreview({
               {d.controlRef || "—"} · {d.owner || "—"} · {d.period || "—"}
             </p>
           </div>
-          <button
+          <button data-escape-close
             type="button"
             onClick={onClose}
             aria-label={tr ? "Kapat" : "Close"}

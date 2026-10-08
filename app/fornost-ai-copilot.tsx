@@ -408,8 +408,8 @@ export default function FornostAiCopilot() {
 
   async function deleteAgentRun(id:string){if(!window.confirm("Bu başarısız veya arşivlenmiş agent çalışması silinsin mi?"))return;setAgentBusy(true);const response=await fetch(withBasePath("/api/ai/agents"),{method:"DELETE",headers:{"content-type":"application/json"},body:JSON.stringify({id,confirmation:"SİL"})}).catch(()=>null);if(response?.ok)await loadAgents();else{const body=await response?.json().catch(()=>({}))||{};setNotice(String(body.error||"Agent çalışması silinemedi."));}setAgentBusy(false);}
 
-  if (!user) return open ? <section id="fornost-ai-panel" className="fornost-ai-panel is-compact" aria-label="Fornost AI Copilot" aria-busy={identityLoading}>
-    <header className="fornost-ai-head"><div><h2>Ask Fornost</h2></div><button onClick={() => setOpen(false)} aria-label="Kapat">×</button></header>
+  if (!user) return open ? <section data-escape-layer id="fornost-ai-panel" className="fornost-ai-panel is-compact" aria-label="Fornost AI Copilot" aria-busy={identityLoading}>
+    <header className="fornost-ai-head"><div><h2>Ask Fornost</h2></div><button data-escape-close type="button" onClick={() => setOpen(false)} aria-label="Kapat">×</button></header>
     <div className="fornost-ai-welcome" role="status"><p>{identityLoading ? "Oturum doğrulanıyor…" : identityError || "Oturum bilgisi bekleniyor…"}</p><button disabled={identityLoading} onClick={() => void refreshIdentity()}>Yeniden dene</button></div>
   </section> : null;
   const aiReady = status?.enabled === true&&status?.operational!==false;
@@ -421,10 +421,10 @@ export default function FornostAiCopilot() {
     <button className={`fornost-ai-launcher ${aiReady ? "ready" : ""}`} onClick={() => { if (!open) void refreshIdentity(); setOpen((value) => !value); }} aria-expanded={open} aria-controls="fornost-ai-panel">
       <span>✦</span><b>Ask Fornost</b><i>{status?.operatingState==="emergency-stop"?"STOP":aiReady ? "AI" : "OFF"}</i>
     </button>
-    {open && <section id="fornost-ai-panel" className={`fornost-ai-panel ${activeTab === "chat" ? "is-compact" : "is-workspace"}`} data-ai-view={activeTab} aria-label="Fornost AI Copilot">
+    {open && <section data-escape-layer id="fornost-ai-panel" className={`fornost-ai-panel ${activeTab === "chat" ? "is-compact" : "is-workspace"}`} data-ai-view={activeTab} aria-label="Fornost AI Copilot">
       <header className="fornost-ai-head">
         <div><small>FORNOST AI · READ-ONLY COPILOT</small><h2>{workspaceHost ? (workspaceLocale === "tr" ? "AI Yönetişimi" : "AI Governance") : "Ask Fornost"}</h2><p>{status?.model || "AI sağlayıcısı bekleniyor"}</p></div>
-        {!workspaceHost && <button onClick={() => setOpen(false)} aria-label="Kapat">×</button>}
+        {!workspaceHost && <button data-escape-close type="button" onClick={() => setOpen(false)} aria-label="Kapat">×</button>}
       </header>
       {!scoped && <AiSectionPicker embedded={!!workspaceHost} label={workspaceLocale === "tr" ? "AI çalışma alanları" : "AI workspaces"}><div className="fornost-ai-tabs" onClick={()=>setRecordFocus(null)} role="group" aria-label="AI workspace sections">
         <small className="fornost-ai-tab-group">KOMUTA</small>

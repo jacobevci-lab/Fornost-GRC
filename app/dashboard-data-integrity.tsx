@@ -260,14 +260,14 @@ export default function DashboardDataIntegrity() {
       <span>{stateLabel}</span>
       <b>{summary.okCount}/{SOURCES.length}</b>
     </button>
-    {open && <section className="eddi-popover" role="dialog" aria-label={tr ? "Dashboard veri bütünlüğü" : "Dashboard data integrity"}>
+    {open && <section data-escape-layer className="eddi-popover" role="dialog" aria-label={tr ? "Dashboard veri bütünlüğü" : "Dashboard data integrity"}>
       <header>
         <div>
           <small>FORNOST GRC · DATA INTEGRITY</small>
           <h3>{tr ? "Canlı veri kaynakları" : "Live data sources"}</h3>
           <p>{tr ? "Dashboard kararlarının beslendiği kaynakların erişilebilirlik ve tazelik durumu." : "Availability and freshness of the sources feeding executive dashboard decisions."}</p>
         </div>
-        <button type="button" onClick={() => setOpen(false)} aria-label={tr ? "Kapat" : "Close"}>×</button>
+        <button data-escape-close type="button" onClick={() => setOpen(false)} aria-label={tr ? "Kapat" : "Close"}>×</button>
       </header>
       <div className="eddi-source-list">
         {summary.values.map(({ source, status }) => <div className={`eddi-source ${status.state}`} key={source.id}>

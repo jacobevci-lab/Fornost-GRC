@@ -39,8 +39,8 @@ export default function RiskReviewDetails({review,lang,canDecide,own,busy,messag
   const proposed={residualLikelihood:Number(review.proposal.residualLikelihood)||null,residualImpact:Number(review.proposal.residualImpact)||null};
   const pending=review.status==='pending-review',blocked=review.approvalBlocker;
   const title=review.currentRisk?.title||baseline?.context?.title||review.riskId;
-  return createPortal(<div className="ag-overlay"><section ref={ref} tabIndex={-1} className="ag-dialog ag-risk-decision" role="dialog" aria-modal="true" aria-label={tr?'Risk teklifini incele':'Review risk proposal'}>
-    <header><div><small>{tr?'BAĞIMSIZ RİSK KARARI':'INDEPENDENT RISK DECISION'}</small><h4>{title}</h4><p>{value(review.currentRisk?.reference||baseline?.context?.reference)} · {review.submittedBy} · {new Date(review.submittedAt).toLocaleString(tr?'tr-TR':'en-GB')}</p></div><button type="button" disabled={busy} onClick={onClose} aria-label={tr?'Kapat':'Close'}>×</button></header>
+  return createPortal(<div className="ag-overlay"><section data-escape-layer ref={ref} tabIndex={-1} className="ag-dialog ag-risk-decision" role="dialog" aria-modal="true" aria-label={tr?'Risk teklifini incele':'Review risk proposal'}>
+    <header><div><small>{tr?'BAĞIMSIZ RİSK KARARI':'INDEPENDENT RISK DECISION'}</small><h4>{title}</h4><p>{value(review.currentRisk?.reference||baseline?.context?.reference)} · {review.submittedBy} · {new Date(review.submittedAt).toLocaleString(tr?'tr-TR':'en-GB')}</p></div><button data-escape-close type="button" disabled={busy} onClick={onClose} aria-label={tr?'Kapat':'Close'}>×</button></header>
     <div className="ag-rating-comparison"><RiskRating context={baseline?.context||null} label={tr?'Teklif hazırlanırken':'At submission'}/><RiskRating context={proposed} label={tr?'Önerilen artık risk':'Proposed residual risk'}/></div>
     {blocked&&<div className="ag-notice" role="alert">{riskReviewBlockerText[blocked]?.[lang]||(tr?'Teklif doğrulanamadı.':'The proposal could not be verified.')}</div>}
     {blocked==='risk-changed'&&<RiskRating context={review.currentRisk} label={tr?'Güncel risk kaydı':'Current risk record'}/>}

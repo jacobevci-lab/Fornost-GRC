@@ -369,14 +369,14 @@ export default function ConnectorOnboardingWizard() {
           </span>
         </button>
       ) : (
-        <div className="cow-shell">
+        <div data-escape-layer className="cow-shell">
           <header className="cow-head">
             <div>
               <small>CONNECTED ASSURANCE</small>
               <h3>{tr ? "Connector Kurulum Sihirbazı" : "Connector Setup Wizard"}</h3>
               <p>{tr ? "Fornost bağlantıyı doğrular, veri yapısını algılar ve kontrol adaylarını önerir. Eşleştirmeyi siz onaylarsınız." : "Fornost validates the connection, detects the data shape and suggests control candidates. You approve the mapping."}</p>
             </div>
-            <button type="button" onClick={reset} aria-label={tr ? "Sihirbazı kapat" : "Close wizard"}>×</button>
+            <button data-escape-close type="button" onClick={reset} aria-label={tr ? "Sihirbazı kapat" : "Close wizard"}>×</button>
           </header>
 
           <nav className="cow-steps" aria-label={tr ? "Kurulum adımları" : "Setup steps"}>
