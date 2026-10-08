@@ -74,6 +74,8 @@ import "./enterprise-surface-contract.css";
 import "./product-experience.css";
 import "./theme-integrity.css";
 import "./workspace-simplicity.css";
+import "./record-dialog.css";
+import {useRecordDialog} from "./use-record-dialog";
 import AiWorkspaceHost from "./ai-workspace-host";
 import { buildReportHtml, buildReportPdf, buildReportCsv, reportTitleOf, downloadBlob, reportMetrics, type ReportOptions } from "./report-export";
 
@@ -1328,6 +1330,8 @@ function FornostApp({ currentUser }: { currentUser: any }) {
     [commandQuery, setCommandQuery] = useState(""),
     [commandIndex, setCommandIndex] = useState(0),
     [recentModules, setRecentModules] = useState<string[]>([]);
+  const closeRecordDialog=useCallback(()=>setModal(false),[]);
+  const recordDialogRef=useRecordDialog(modal,closeRecordDialog);
   const labels = labelMap[lang],
     u = ui[lang];
   const [recordRequest, setRecordRequest] = useState<FornostNavigationRequest | null>(null);
@@ -2377,7 +2381,9 @@ function FornostApp({ currentUser }: { currentUser: any }) {
       {modal && (
         <div className="overlay" onMouseDown={() => setModal(false)}>
           <div
-            className="modal"
+            className="modal record-dialog"
+            ref={recordDialogRef}
+            tabIndex={-1}
             role="dialog"
             aria-modal="true"
             aria-label={names[lang][active]}

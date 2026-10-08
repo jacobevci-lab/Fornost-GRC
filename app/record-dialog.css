@@ -1,0 +1,25 @@
+/* Record forms share the current theme; checkbox sizing must not inherit text-input height. */
+html body .record-dialog{width:min(760px,calc(100vw - 24px));max-height:92dvh;border-radius:12px!important}
+html body .record-dialog .modal-head{padding:14px 18px!important}
+html body .record-dialog .modal-head h2{font-size:18px!important;line-height:1.3}
+html body .record-dialog .modal-head>button{display:grid;place-items:center;width:32px;height:32px;padding:0;border:1px solid var(--ws-line)!important;border-radius:7px;background:var(--ws-surface-2)!important;color:var(--ws-ink)!important}
+html body .record-dialog .form{padding:16px 18px!important;gap:12px!important}
+html body .record-dialog .form>label{gap:6px;font-size:12px!important}
+html body .record-dialog .form input:not([type="checkbox"]):not([type="radio"]),html body .record-dialog .form select{min-height:36px!important;padding:8px 10px!important;font-size:12px!important}
+html body .record-dialog .form textarea{min-height:72px!important;font-size:12px!important}
+html body .record-dialog .framework-picker{margin:0;padding:12px;border:1px solid var(--ws-line)!important;border-radius:9px;background:var(--ws-surface)!important;min-width:0}
+html body .record-dialog .framework-picker legend{padding:0 5px;font-size:12px;color:var(--ws-ink)!important;font-weight:700}
+html body .record-dialog .framework-picker>p{margin:0 0 10px;font-size:11px;color:var(--ws-muted)!important}
+html body .record-dialog .framework-picker>div{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));align-items:start;gap:10px;max-height:280px;overflow:auto;overscroll-behavior:contain;padding:2px}
+html body .record-dialog .framework-picker section{min-width:0;padding:10px;border:1px solid var(--ws-line)!important;border-radius:7px;background:var(--ws-surface-2)!important;color:var(--ws-ink)!important}
+html body .record-dialog .framework-picker section>b{display:block;margin-bottom:7px;font-size:11px;color:var(--ws-heading-accent,var(--ws-brand-2))!important}
+html body .record-dialog .framework-picker label{display:flex;align-items:center;gap:8px;min-height:28px;margin:0;padding:3px 0;font-size:11px!important;line-height:1.35;color:var(--ws-ink)!important;cursor:pointer}
+html body .record-dialog .form .framework-picker input[type="checkbox"]{appearance:auto;flex:0 0 16px;width:16px!important;height:16px!important;min-width:16px!important;min-height:16px!important;max-width:16px!important;margin:0;padding:0!important;accent-color:var(--ws-brand);box-shadow:none!important}
+html body .record-dialog .framework-picker label span{min-width:0;overflow-wrap:anywhere}
+html body .record-dialog .form-actions{gap:8px;padding:10px 12px!important;align-items:center}
+html body .record-dialog .fornost-progressive-controls{padding:7px 9px;gap:8px}
+html body .record-dialog .fornost-progressive-controls b{font-size:11px}
+html body .record-dialog .fornost-progressive-controls small{font-size:10px}
+html body .record-dialog .form-actions button{min-height:34px;font-size:11px}
+html body .record-dialog :focus-visible{outline:2px solid var(--ws-brand)!important;outline-offset:2px}
+@media(max-width:560px){html body .record-dialog .framework-picker>div{grid-template-columns:1fr;max-height:240px}html body .record-dialog .form-actions{flex-wrap:wrap}html body .record-dialog .fornost-progressive-controls{flex-basis:100%;flex-direction:row;align-items:center}html body .record-dialog .fornost-progressive-controls button{width:auto}}
