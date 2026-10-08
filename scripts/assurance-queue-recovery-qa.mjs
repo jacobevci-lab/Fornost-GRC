@@ -80,7 +80,7 @@ try{
  });
  coverage={loaded:500,complete:false};nextCursor=cursor;
  await panel.getByRole('button',{name:'Refresh',exact:true}).click();
- await panel.getByRole('button',{name:'All',exact:true}).click();
+ await panel.locator('.assurance-work-filters').getByRole('button',{name:'All',exact:true}).click();
  await panel.getByRole('searchbox').fill('CTRL-AFTER-500');
  await expect(panel.locator('.assurance-work-list>article')).toHaveCount(0);
  await panel.getByRole('button',{name:'Load next records',exact:true}).click();
