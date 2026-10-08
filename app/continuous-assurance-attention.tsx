@@ -671,14 +671,14 @@ export default function ContinuousAssuranceAttention({ lang }: { lang: Lang }) {
                     {currentRetestNotice && <div className={`ca-attention-governance-notice ${currentRetestNotice.tone}`} role="status">{currentRetestNotice.message}</div>}
 
                     {formOpen && governanceForm && (
-                      <form className="ca-attention-governance-form" onSubmit={(event) => { event.preventDefault(); void queueCapa(chain); }}>
+                      <form data-escape-layer className="ca-attention-governance-form" onSubmit={(event) => { event.preventDefault(); void queueCapa(chain); }}>
                         <header>
                           <div>
                             <small>GOVERNED CAPA PROMOTION</small>
                             <b>{findingById.get(chain.findingRef)?.title || chain.findingRef}</b>
                             <span>{tr ? "Bu işlem doğrudan enterprise finding oluşturmaz; bağımsız review kuyruğuna gönderir." : "This does not directly create an enterprise finding; it queues an independent review."}</span>
                           </div>
-                          <button type="button" onClick={closeGovernance} disabled={Boolean(submittingFinding)} aria-label={tr ? "Formu kapat" : "Close form"}>×</button>
+                          <button data-escape-close type="button" onClick={closeGovernance} disabled={Boolean(submittingFinding)} aria-label={tr ? "Formu kapat" : "Close form"}>×</button>
                         </header>
                         <div className="ca-attention-governance-grid">
                           <label><span>Owner</span><input value={governanceForm.owner} onChange={(event) => setGovernanceForm({ ...governanceForm, owner: event.target.value })} required /></label>

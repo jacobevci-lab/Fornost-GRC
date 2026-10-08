@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import PlatformEscape from "./platform-escape";
 import FornostAiCopilot from "./fornost-ai-copilot";
 import FornostAiSourceNavigation from "./fornost-ai-source-navigation";
 import ProductionHardening from "./production-hardening";
@@ -29,6 +30,7 @@ export default function PlatformExperience() {
   },[]);
   return (
     <>
+      <PlatformEscape />
       {/* Dashboard is rendered natively by the page; no DOM-injected versions. */}
 
       {/* Daily work and connected-assurance experience. */}
