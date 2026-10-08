@@ -43,6 +43,24 @@ try{
  await expect(panel.getByRole('button',{name:'Approve',exact:true}).first()).toBeEnabled();
  sourceContext='full';await panel.getByRole('button',{name:'Refresh',exact:true}).click();
  await expect(panel.locator('.assurance-context-warning')).toHaveCount(0);
+ for(const state of ['missing-finding','missing-rule','rule-mismatch']){
+  items[1].sourceState=state;
+  await panel.getByRole('button',{name:'Refresh',exact:true}).click();
+  const affected=panel.locator('.assurance-work-list>article').nth(1);
+  await expect(affected.getByRole('button',{name:'Approve',exact:true})).toHaveCount(0);
+  await expect(affected.locator('.assurance-work-sla.unknown')).toContainText('SLA not assessed');
+  await expect(panel.locator('.assurance-work-list>article').nth(2).getByRole('button',{name:'Approve',exact:true})).toBeEnabled();
+  await expect(panel.locator('.assurance-ops article').nth(4).locator('b')).toHaveText('—');
+  await expect(panel.locator('.assurance-work-summary b').first()).toHaveText('34');
+ }
+ items[1].sourceState='linked';
+ items[34].sourceState='missing-rule';
+ await panel.getByRole('button',{name:'Refresh',exact:true}).click();
+ await panel.getByRole('searchbox').fill('CTRL-QA-35');
+ await expect(panel.getByRole('button',{name:'Request New Test',exact:true})).toHaveCount(0);
+ items[34].sourceState='linked';
+ await panel.getByRole('button',{name:'Refresh',exact:true}).click();
+
  await panel.getByRole('searchbox').fill('CTRL-QA-35');await expect(panel.locator('.assurance-work-list>article')).toHaveCount(1);
  uncertain=true;await panel.getByRole('button',{name:'Request New Test',exact:true}).dispatchEvent('click');await panel.getByRole('button',{name:'Request New Test',exact:true}).dispatchEvent('click');
  await page.locator('.language-switch:visible').getByRole('button',{name:'TR',exact:true}).click();
@@ -57,7 +75,7 @@ try{
  unavailable=false;await panel.getByRole('searchbox').fill('');
  items[0].createdAt='';items[1].createdAt='not-a-date';items[2].createdAt='2099-01-01T00:00:00Z';
  await panel.getByRole('button',{name:'Refresh',exact:true}).click();
- await expect(panel.getByRole('status').filter({hasText:'active items have missing or invalid creation timestamps'})).toContainText('3 active items');
+ await expect(panel.getByRole('status').filter({hasText:'active items have missing or invalid timestamps or source links'})).toContainText('3 active items');
  await expect(panel.locator('.assurance-ops article').nth(4).locator('b')).toHaveText('—');
  await panel.getByRole('button',{name:'Attention',exact:true}).click();
  await expect(panel.locator('.assurance-work-sla.unknown')).toHaveCount(3);

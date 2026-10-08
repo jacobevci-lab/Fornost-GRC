@@ -1,6 +1,11 @@
-import {missingAssuranceContextTable} from "./assurance-queue-context";
+import {missingAssuranceContextTable,type AssuranceSourceState} from "./assurance-queue-context";
 import {assuranceQueueSearchExpression,type AssuranceQueueSearch} from "./assurance-queue-search";
 import {assuranceQueueCursor,parseAssuranceQueueCursor} from "./assurance-queue-cursor";
+const sourceState=`CASE WHEN f.id IS NULL THEN 'missing-finding' WHEN r.id IS NULL THEN 'missing-rule' WHEN f.rule_id IS NOT w.rule_id THEN 'rule-mismatch' ELSE 'linked' END source_state`;
+export async function readAssuranceSourceState(db:D1Database,workItemId:string):Promise<AssuranceSourceState> {
+ const row=await db.prepare(`SELECT ${sourceState} FROM continuous_assurance_work_items w LEFT JOIN evidence_automation_findings f ON f.id=w.finding_id LEFT JOIN evidence_automation_rules r ON r.id=w.rule_id WHERE w.id=?`).bind(workItemId).first<{source_state:AssuranceSourceState}>();
+ return row?.source_state??'unavailable';
+}
 async function readRows<T>(db:D1Database,cursor?:string,search?:AssuranceQueueSearch){
   const priority="CASE w.status WHEN 'pending-review' THEN 0 WHEN 'approved-awaiting-retest' THEN 1 WHEN 'failed-retest' THEN 2 WHEN 'retest-error' THEN 3 ELSE 4 END";
   const parts=cursor?parseAssuranceQueueCursor(cursor):null;
@@ -10,14 +15,14 @@ async function readRows<T>(db:D1Database,cursor?:string,search?:AssuranceQueueSe
   const read=(query:string)=>{const statement=db.prepare(query);return (values.length?statement.bind(...values):statement).all<T>();};
   const order=`${where} ORDER BY ${priority},COALESCE(w.updated_at,'') DESC,w.id ASC LIMIT 501`;
   try{
-    return {...await read(`SELECT w.*,f.title finding_title,f.severity finding_severity,f.owner finding_owner,f.due_date finding_due_date,r.name rule_name,r.control_refs control_refs,ef.code result_code FROM continuous_assurance_work_items w LEFT JOIN evidence_automation_findings f ON f.id=w.finding_id LEFT JOIN evidence_automation_rules r ON r.id=w.rule_id LEFT JOIN enterprise_findings ef ON ef.id=w.result_ref ${order}`),context:"full" as const};
+    return {...await read(`SELECT w.*,${sourceState},f.title finding_title,f.severity finding_severity,f.owner finding_owner,f.due_date finding_due_date,r.name rule_name,r.control_refs control_refs,ef.code result_code FROM continuous_assurance_work_items w LEFT JOIN evidence_automation_findings f ON f.id=w.finding_id LEFT JOIN evidence_automation_rules r ON r.id=w.rule_id LEFT JOIN enterprise_findings ef ON ef.id=w.result_ref ${order}`),context:"full" as const};
   }catch(error){
     if(search?.query||!missingAssuranceContextTable(error))throw error; // Never silently search a reduced set of fields.
     try{
-      return {...await read(`SELECT w.*,f.title finding_title,f.severity finding_severity,f.owner finding_owner,f.due_date finding_due_date,r.name rule_name,r.control_refs control_refs FROM continuous_assurance_work_items w LEFT JOIN evidence_automation_findings f ON f.id=w.finding_id LEFT JOIN evidence_automation_rules r ON r.id=w.rule_id ${order}`),context:"without-capa" as const};
+      return {...await read(`SELECT w.*,${sourceState},f.title finding_title,f.severity finding_severity,f.owner finding_owner,f.due_date finding_due_date,r.name rule_name,r.control_refs control_refs FROM continuous_assurance_work_items w LEFT JOIN evidence_automation_findings f ON f.id=w.finding_id LEFT JOIN evidence_automation_rules r ON r.id=w.rule_id ${order}`),context:"without-capa" as const};
     }catch(error){
       if(!missingAssuranceContextTable(error))throw error;
-      return {...await read(`SELECT w.* FROM continuous_assurance_work_items w ${order}`),context:"work-only" as const};
+      return {...await read(`SELECT w.*,'unavailable' source_state FROM continuous_assurance_work_items w ${order}`),context:"work-only" as const};
     }
   }
 }

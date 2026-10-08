@@ -58,3 +58,15 @@ test('no active work or valid review observations yield no fabricated 100 percen
  ],now);
  assert.equal(summary.averageReviewHours,null);assert.equal(summary.unknown,0);
 });
+
+
+test('broken source links remain unknown rather than inheriting a normal-severity SLA',()=>{
+ const now=new Date('2026-10-08T12:00:00Z');
+ const valid={action:'control-retest',status:'pending-review',createdAt:'2026-10-08T11:00:00Z',severity:'high'};
+ for(const sourceState of ['missing-finding','missing-rule','rule-mismatch','unavailable'] as const){
+  const broken={...valid,sourceState};
+  assert.equal(assuranceWorkSlaState(broken,now),'unknown');
+  const result=summarizeAssuranceQueue([valid,broken],now);
+  assert.equal(result.active,2);assert.equal(result.unknown,1);assert.equal(result.withinSlaPercent,null);
+ }
+});
