@@ -5,6 +5,24 @@ export function canReviewAssuranceWork(role:string,email:string,item:{status:str
 export function validAssuranceQueue(body:Record<string,unknown>):boolean {
  const required=['id','findingId','ruleId','action','status','findingTitle','severity','owner','dueDate','ruleName','controlRefs','updatedAt','actor'];
  const optional=['targetControlRef','createdAt','reviewedBy','reviewedAt','reviewNote','resultRef','resultCode','completedAt'];
- return Array.isArray(body.items)&&body.items.every(row=>row&&typeof row==='object'&&required.every(key=>typeof row[key]==='string')&&optional.every(key=>row[key]==null||typeof row[key]==='string'))
-  &&!!body.summary&&typeof body.summary==='object'&&['total','pendingReview','awaitingRetest','capaPromotion','retest','failedRetest','retestError','completed','rejected'].every(key=>Number.isFinite((body.summary as Record<string,unknown>)[key]));
+ if(!Array.isArray(body.items)||body.items.length>500)return false;
+ const ids=new Set<string>();
+ if(!body.items.every(row=>{
+  if(!row||typeof row!=='object'||!required.every(key=>typeof row[key]==='string')||!optional.every(key=>row[key]==null||typeof row[key]==='string'))return false;
+  const id=row.id.trim();if(!id||id!==row.id||ids.has(id))return false;ids.add(id);return true;
+ }))return false;
+ const count=body.items.length;
+ const summary=body.summary as Record<string,unknown>|undefined;
+ if(!summary||typeof summary!=='object'||!['total','pendingReview','awaitingRetest','capaPromotion','retest','failedRetest','retestError','completed','rejected'].every(key=>Number.isSafeInteger(summary[key])&&Number(summary[key])>=0&&Number(summary[key])<=count)||summary.total!==body.items.length)return false;
+ if(body.coverage!==undefined){
+  const coverage=body.coverage as Record<string,unknown>|null;
+  if(!coverage||typeof coverage!=='object'||coverage.loaded!==body.items.length||typeof coverage.complete!=='boolean')return false;
+  if(!coverage.complete&&body.items.length!==500)return false;
+ }
+ return true;
+}
+// Older servers cannot distinguish an exactly-full list from a truncated list.
+export function assuranceQueueComplete(body:Record<string,unknown>):boolean {
+ if(!validAssuranceQueue(body))return false;
+ return body.coverage!==undefined?(body.coverage as {complete:boolean}).complete:(body.items as unknown[]).length<500;
 }

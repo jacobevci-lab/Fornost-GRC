@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import {canReviewAssuranceWork,validAssuranceQueue} from '../app/assurance-queue-access';
+import {canReviewAssuranceWork,validAssuranceQueue,assuranceQueueComplete} from '../app/assurance-queue-access';
 test('queue review requires independent identified Admin and pending work',()=>{
  const item={status:'pending-review',actor:' Creator@Example.test '};
  assert.equal(canReviewAssuranceWork('Admin','reviewer@example.test',item,'approve',''),true);
@@ -21,4 +21,25 @@ test('incomplete queue responses cannot be interpreted as healthy empty results'
  assert.equal(validAssuranceQueue(body),true);
  assert.equal(validAssuranceQueue({...body,items:[{id:'broken'}]}),false);
  assert.equal(validAssuranceQueue({...body,summary:{...body.summary,total:'0'}}),false);
+});
+
+test('queue rejects corrupt counters, duplicate identities and inconsistent coverage',()=>{
+ const item={id:'W-1',findingId:'F-1',ruleId:'R-1',action:'control-retest',status:'pending-review',findingTitle:'Finding',severity:'high',owner:'',dueDate:'',ruleName:'Rule',controlRefs:'',updatedAt:'',actor:'creator@test.invalid'};
+ const summary={total:1,pendingReview:1,awaitingRetest:0,capaPromotion:0,retest:1,failedRetest:0,retestError:0,completed:0,rejected:0};
+ const body={items:[item],summary,coverage:{loaded:1,complete:true}};
+ assert.equal(validAssuranceQueue(body),true);
+ for(const total of [-1,0,0.5,NaN,Infinity,2])assert.equal(validAssuranceQueue({...body,summary:{...summary,total}}),false);
+ assert.equal(validAssuranceQueue({...body,summary:{...summary,pendingReview:-1}}),false);
+ assert.equal(validAssuranceQueue({...body,items:[item,item],summary:{...summary,total:2},coverage:{loaded:2,complete:true}}),false);
+ for(const coverage of [null,{},[],{loaded:0,complete:true},{loaded:1,complete:'yes'},{loaded:1,complete:false}])assert.equal(validAssuranceQueue({...body,coverage}),false);
+ assert.equal(validAssuranceQueue({...body,items:[{...item,id:' ' }]}),false);
+});
+
+test('legacy full queues are conservatively partial until a server supplies coverage',()=>{
+ const items=Array.from({length:500},(_,i)=>({id:`W-${i}`,findingId:'F',ruleId:'R',action:'control-retest',status:'pending-review',findingTitle:'Finding',severity:'high',owner:'',dueDate:'',ruleName:'Rule',controlRefs:'',updatedAt:'',actor:'creator@test.invalid'}));
+ const body={items,summary:{total:500,pendingReview:500,awaitingRetest:0,capaPromotion:0,retest:500,failedRetest:0,retestError:0,completed:0,rejected:0}};
+ assert.equal(validAssuranceQueue(body),true);assert.equal(assuranceQueueComplete(body),false);
+ assert.equal(assuranceQueueComplete({...body,coverage:{loaded:500,complete:true}}),true);
+ assert.equal(assuranceQueueComplete({...body,coverage:{loaded:500,complete:false}}),false);
+ assert.equal(assuranceQueueComplete({...body,items:[...items, {...items[0],id:'overflow'}]}),false);
 });

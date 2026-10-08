@@ -1,3 +1,4 @@
+import { readAssuranceQueue } from "../../assurance-queue-register";
 import { NextRequest, NextResponse } from "next/server";
 import { requireRole, type AppRole } from "../auth/security";
 import { clean } from "../integrations/security";
@@ -86,18 +87,6 @@ async function loadContext(db:D1Database,findingId:string){
   const retestCheck=retest?assessRetestRun(retest,retestEvidence?.data_json||null,rule.freshness_hours):null;
   return {finding,rule,risk,evidence,retest,retestCheck};
 }
-async function listWork(db:D1Database){
-  const order="ORDER BY CASE w.status WHEN 'pending-review' THEN 0 WHEN 'approved-awaiting-retest' THEN 1 WHEN 'failed-retest' THEN 2 WHEN 'retest-error' THEN 3 ELSE 4 END,w.updated_at DESC LIMIT 500";
-  try{
-    return await db.prepare(`SELECT w.*,f.title finding_title,f.severity finding_severity,f.owner finding_owner,f.due_date finding_due_date,r.name rule_name,r.control_refs control_refs,ef.code result_code FROM continuous_assurance_work_items w LEFT JOIN evidence_automation_findings f ON f.id=w.finding_id LEFT JOIN evidence_automation_rules r ON r.id=w.rule_id LEFT JOIN enterprise_findings ef ON ef.id=w.result_ref ${order}`).all<WorkRow>();
-  }catch{
-    try{
-      return await db.prepare(`SELECT w.*,f.title finding_title,f.severity finding_severity,f.owner finding_owner,f.due_date finding_due_date,r.name rule_name,r.control_refs control_refs FROM continuous_assurance_work_items w LEFT JOIN evidence_automation_findings f ON f.id=w.finding_id LEFT JOIN evidence_automation_rules r ON r.id=w.rule_id ${order}`).all<WorkRow>();
-    }catch{
-      return db.prepare("SELECT * FROM continuous_assurance_work_items ORDER BY updated_at DESC LIMIT 500").all<WorkRow>();
-    }
-  }
-}
 async function resolveRetestTargetControl(db:D1Database,findingId:string,mappedControlRefs:string){
   const promoted=await db.prepare("SELECT decision_json FROM continuous_assurance_work_items WHERE finding_id=? AND action='capa-promotion' AND status='completed' ORDER BY completed_at DESC,updated_at DESC LIMIT 1").bind(findingId).first<{decision_json:string}>();
   if(promoted){
@@ -111,8 +100,8 @@ async function resolveRetestTargetControl(db:D1Database,findingId:string,mappedC
 export async function GET(req:NextRequest){
   const access=await requireRole(req,["Admin","Editor","Viewer"]);if(access.response)return access.response;
   const env=await runtime();await ensureAssuranceWorkSchema(env.DB);await reconcileApprovedRetests(env.DB);
-  const result=await listWork(env.DB);
-  const items=result.results.map(row=>{
+  const result=await readAssuranceQueue<WorkRow>(env.DB);
+  const items=result.rows.map(row=>{
     const decision=parseData(row.decision_json);
     return {
       id:row.id,findingId:row.finding_id,ruleId:row.rule_id,action:row.action,status:row.status,decision,createdAt:row.created_at,updatedAt:row.updated_at,actor:row.actor,
@@ -122,7 +111,7 @@ export async function GET(req:NextRequest){
       retestOutcome:row.action==="control-retest"&&asObject(decision.retestOutcome).runId===row.result_ref?decision.retestOutcome as RetestOutcome:undefined,
     };
   });
-  return json({items,summary:{
+  return json({items,coverage:result.coverage,summary:{
     total:items.length,
     pendingReview:items.filter(item=>item.status==="pending-review").length,
     awaitingRetest:items.filter(item=>item.status==="approved-awaiting-retest").length,
