@@ -64,7 +64,7 @@ test("work queue API enriches queue rows with finding and control context", () =
   assert.match(route, /ruleName:row\.rule_name/);
   assert.match(route, /controlRefs:row\.control_refs/);
   assert.match(route, /targetControlRef:targetControlFromDecision\(decision\)/);
-  assert.match(register, /catch\{[\s\S]*SELECT w\.\* FROM continuous_assurance_work_items/);
+  assert.match(register, /catch\(error\)\{[\s\S]*SELECT w\.\* FROM continuous_assurance_work_items/);
 });
 
 test("work queue styling follows Fornost status and responsive contracts", () => {

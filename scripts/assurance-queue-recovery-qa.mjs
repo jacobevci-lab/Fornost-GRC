@@ -6,7 +6,7 @@ const browser=await chromium.launch({executablePath:process.env.QA_CHROMIUM_PATH
 const context=await browser.newContext({viewport:{width:1536,height:960}});
 const page=await context.newPage();page.setDefaultTimeout(20000);
 const testNow=new Date();await page.clock.install({time:testNow});
-let unavailable=true,writes=0,uncertain=false,coverage,malformed=false,wrongCounters=false,nextCursor;
+let unavailable=true,writes=0,uncertain=false,coverage,malformed=false,wrongCounters=false,nextCursor,sourceContext="full";
 const items=Array.from({length:35},(_,i)=>({id:`QA-W-${i+1}`,findingId:`QA-F-${i+1}`,ruleId:`QA-R-${i+1}`,action:'control-retest',status:i===34?'retest-error':'pending-review',findingTitle:`QA queue finding ${i+1}`,severity:'high',owner:'owner@fornost.test',dueDate:'2026-12-01',ruleName:`QA rule ${i+1}`,controlRefs:`CTRL-QA-${i+1}`,createdAt:testNow.toISOString(),updatedAt:testNow.toISOString(),actor:i===0?'qa-admin@fornost.test':'creator@fornost.test'}));
 await page.route('**/api/continuous-assurance',async route=>{
  if(route.request().method()==='POST'){
@@ -17,7 +17,7 @@ await page.route('**/api/continuous-assurance',async route=>{
   return route.fulfill({status:uncertain?503:200,json:uncertain?{error:'fixture outage'}:{message:'Review completed.'}});
  }
  if(unavailable)return route.fulfill({status:503,json:{error:'fixture outage'}});
- return route.fulfill({json:{nextCursor,items:malformed?[items[0],...items.slice(0,-1)]:items,coverage,summary:{total:items.length,pendingReview:wrongCounters?0:items.filter(i=>i.status==='pending-review').length,awaitingRetest:items.filter(i=>i.status==='approved-awaiting-retest').length,capaPromotion:0,retest:items.filter(i=>i.status==='pending-review').length,failedRetest:0,retestError:1,completed:items.filter(i=>i.status==='completed').length,rejected:0}}});
+ return route.fulfill({json:{context:sourceContext,nextCursor,items:malformed?[items[0],...items.slice(0,-1)]:items,coverage,summary:{total:items.length,pendingReview:wrongCounters?0:items.filter(i=>i.status==='pending-review').length,awaitingRetest:items.filter(i=>i.status==='approved-awaiting-retest').length,capaPromotion:0,retest:items.filter(i=>i.status==='pending-review').length,failedRetest:0,retestError:1,completed:items.filter(i=>i.status==='completed').length,rejected:0}}});
 });
 try{
  const login=await context.request.post(`${base}/api/auth`,{headers:{origin:base},data:{action:'login',email:'qa-admin@fornost.test',password:qaPassword()}});assert.equal(login.status(),200);
@@ -31,6 +31,18 @@ try{
  await panel.getByRole('button',{name:'Operations',exact:true}).click();await expect(panel.locator('.assurance-ops b').first()).toHaveText('—');
  unavailable=false;await panel.getByRole('button',{name:'Refresh',exact:true}).click();await expect(panel.locator('.assurance-work-list>article')).toHaveCount(25);
  await expect(panel.locator('.assurance-work-list>article').first().getByRole('button',{name:'Approve',exact:true})).toHaveCount(0);
+ sourceContext='work-only';await panel.getByRole('button',{name:'Refresh',exact:true}).click();
+ await expect(panel.locator('.assurance-context-warning')).toContainText('review and retest actions are disabled');
+ await expect(panel.getByRole('button',{name:'Approve',exact:true})).toHaveCount(0);
+ await expect(panel.getByRole('button',{name:'Request New Test',exact:true})).toHaveCount(0);
+ for(const metric of await panel.locator('.assurance-ops b').all())await expect(metric).toHaveText('—');
+ await expect(panel.locator('.assurance-work-sla').first()).toContainText('finding/rule context unavailable');
+ await expect(panel.locator('.assurance-work-summary b').first()).toHaveText('34');
+ sourceContext='without-capa';await panel.getByRole('button',{name:'Refresh',exact:true}).click();
+ await expect(panel.locator('.assurance-context-warning')).toContainText('CAPA reference codes are unavailable');
+ await expect(panel.getByRole('button',{name:'Approve',exact:true}).first()).toBeEnabled();
+ sourceContext='full';await panel.getByRole('button',{name:'Refresh',exact:true}).click();
+ await expect(panel.locator('.assurance-context-warning')).toHaveCount(0);
  await panel.getByRole('searchbox').fill('CTRL-QA-35');await expect(panel.locator('.assurance-work-list>article')).toHaveCount(1);
  uncertain=true;await panel.getByRole('button',{name:'Request New Test',exact:true}).dispatchEvent('click');await panel.getByRole('button',{name:'Request New Test',exact:true}).dispatchEvent('click');
  await page.locator('.language-switch:visible').getByRole('button',{name:'TR',exact:true}).click();
@@ -77,7 +89,7 @@ try{
  await expect(panel.locator('.assurance-work-summary b').first()).not.toHaveText('—');
  // Continue beyond the old 500-record boundary, preserving search and rendering budget.
  const cursor=JSON.stringify([4,items.at(-1).updatedAt,items.at(-1).id]);
- let duplicatePage=false,pageUnavailable=false,wrongSearchEcho=false;
+ let duplicatePage=false,pageUnavailable=false,wrongSearchEcho=false,changedContext=false;
  const extra={...items[0],id:'QA-AFTER-500',findingTitle:'Beyond boundary',controlRefs:'CTRL-AFTER-500',actor:'creator@fornost.test',status:'pending-review'};
  await page.route('**/api/continuous-assurance?*',route=>{
   const params=new URL(route.request().url()).searchParams;
@@ -88,7 +100,7 @@ try{
   }
   assert.equal(params.get('cursor'),cursor);
   if(pageUnavailable)return route.fulfill({status:503,json:{error:'page outage'}});
-  return route.fulfill({json:{items:[duplicatePage?items[0]:extra],nextCursor:null,coverage:{loaded:1,complete:true},summary:{total:1,pendingReview:1,awaitingRetest:0,capaPromotion:0,retest:1,failedRetest:0,retestError:0,completed:0,rejected:0}}});
+  return route.fulfill({json:{context:changedContext?"work-only":"full",items:[duplicatePage?items[0]:extra],nextCursor:null,coverage:{loaded:1,complete:true},summary:{total:1,pendingReview:1,awaitingRetest:0,capaPromotion:0,retest:1,failedRetest:0,retestError:0,completed:0,rejected:0}}});
  });
  coverage={loaded:500,complete:false};nextCursor=cursor;
  await panel.getByRole('button',{name:'Refresh',exact:true}).click();
@@ -102,15 +114,15 @@ try{
  await expect(panel.locator('.assurance-queue-coverage')).toHaveCount(0);
  await panel.getByRole('searchbox').fill('');await expect(panel.locator('.assurance-work-list>article')).toHaveCount(25);
  // A moved/duplicate record or failed continuation must require a fresh read.
- for(const failure of ['duplicate','unavailable']){
-  duplicatePage=failure==='duplicate';pageUnavailable=failure==='unavailable';
+ for(const failure of ['duplicate','unavailable','context']){
+  duplicatePage=failure==='duplicate';pageUnavailable=failure==='unavailable';changedContext=failure==='context';
   await panel.getByRole('button',{name:'Refresh',exact:true}).click();
   await panel.getByRole('button',{name:'Load next records',exact:true}).click();
   await expect(panel.getByRole('alert')).toBeVisible();
   await expect(panel.getByRole('button',{name:'Approve',exact:true})).toHaveCount(0);
   await expect(panel.locator('.assurance-work-summary b').first()).toHaveText('—');
  }
- duplicatePage=false;pageUnavailable=false;
+ duplicatePage=false;pageUnavailable=false;changedContext=false;
  await panel.getByRole('button',{name:'Refresh',exact:true}).click();
  await expect(panel.getByRole('alert')).toHaveCount(0);
  assert.equal(writes,2);

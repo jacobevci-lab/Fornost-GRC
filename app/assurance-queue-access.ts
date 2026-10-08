@@ -1,3 +1,4 @@
+import {validAssuranceQueueContext} from "./assurance-queue-context";
 import {assuranceQueueSummary} from "./assurance-queue-summary";
 import {assuranceQueueCursor,parseAssuranceQueueCursor} from "./assurance-queue-cursor";
 export function canReviewAssuranceWork(role:string,email:string,item:{status:string;actor:string},decision:'approve'|'reject',note:string) {
@@ -5,6 +6,7 @@ export function canReviewAssuranceWork(role:string,email:string,item:{status:str
  return role==='Admin'&&!!identity&&!!requester&&identity!==requester&&item.status==='pending-review'&&(decision==='approve'||note.trim().length>=10)&&note.trim().length<=1200;
 }
 export function validAssuranceQueue(body:Record<string,unknown>):boolean {
+ if(body.context!==undefined&&!validAssuranceQueueContext(body.context))return false;
  const required=['id','findingId','ruleId','action','status','findingTitle','severity','owner','dueDate','ruleName','controlRefs','updatedAt','actor'];
  const optional=['targetControlRef','createdAt','reviewedBy','reviewedAt','reviewNote','resultRef','resultCode','completedAt'];
  if(!Array.isArray(body.items)||body.items.length>500)return false;
