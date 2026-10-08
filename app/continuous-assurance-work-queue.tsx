@@ -79,6 +79,8 @@ export default function ContinuousAssuranceWorkQueue({lang,onOpenAutomation}:{la
   const tr=lang==="tr",[items,setItems]=useState<WorkItem[]>([]),[summary,setSummary]=useState<Summary>(emptySummary),[loading,setLoading]=useState(true),[canReview,setCanReview]=useState(false),[reviewing,setReviewing]=useState<ReviewState|null>(null),[busy,setBusy]=useState(false),[message,setMessage]=useState(""),[filter,setFilter]=useState<QueueFilter>("active"),[detailsOpen,setDetailsOpen]=useState(false),[loadError,setLoadError]=useState(false),[canWrite,setCanWrite]=useState(false),[actorEmail,setActorEmail]=useState(""),[visibleLimit,setVisibleLimit]=useState(25),[resultItem,setResultItem]=useState<WorkItem|null>(null);
   const [query,setQuery]=useState("");
   const [queueComplete,setQueueComplete]=useState(false);
+  const [nextCursor,setNextCursor]=useState<string|null>(null);
+  const snapshot=useRef<{items:WorkItem[];summary:Summary;cursor:string|null}>({items:[],summary:emptySummary,cursor:null});
   const [assessedAt,setAssessedAt]=useState(()=>new Date());
   useEffect(()=>{
     const update=()=>setAssessedAt(new Date());
@@ -88,18 +90,26 @@ export default function ContinuousAssuranceWorkQueue({lang,onOpenAutomation}:{la
     return()=>{clearInterval(timer);document.removeEventListener("visibilitychange",visible);};
   },[]);
   const reads=useRef<AbortController|null>(null),writes=useRef<AbortController|null>(null),sending=useRef(false);
-  const load=useCallback(async()=>{
+  const load=useCallback(async(cursor?:string)=>{
     reads.current?.abort();const controller=new AbortController();reads.current=controller;
     setLoading(true);setLoadError(false);setReviewing(null);
     try{
       const [queue,auth]=await Promise.all([
-        requestJsonWithDeadline(withBasePath("/api/continuous-assurance"),{cache:"no-store",signal:controller.signal}),
+        requestJsonWithDeadline(withBasePath(`/api/continuous-assurance${cursor?`?cursor=${encodeURIComponent(cursor)}`:""}`),{cache:"no-store",signal:controller.signal}),
         requestJsonWithDeadline(withBasePath("/api/auth"),{cache:"no-store",signal:controller.signal}),
       ]);
       const user=auth.body.user as {role?:unknown;email?:unknown}|undefined;
       if(!queue.response.ok||!auth.response.ok||!validAssuranceQueue(queue.body)||!user||typeof user.role!=="string"||typeof user.email!=="string")throw new Error("queue-unavailable");
       if(controller.signal.aborted)return;
-      setAssessedAt(new Date());setQueueComplete(assuranceQueueComplete(queue.body));setItems(queue.body.items as WorkItem[]);setSummary(queue.body.summary as Summary);
+      const pageItems=queue.body.items as WorkItem[],pageSummary=queue.body.summary as Summary;
+      const previousIds=new Set(snapshot.current.items.map(item=>item.id));
+      if(cursor&&(snapshot.current.cursor!==cursor||pageItems.some(item=>previousIds.has(item.id))))throw new Error("queue-changed-refresh-required");
+      const combined=cursor?[...snapshot.current.items,...pageItems]:pageItems;
+      const combinedSummary=cursor?Object.fromEntries(Object.entries(pageSummary).map(([key,value])=>[key,value+snapshot.current.summary[key as keyof Summary]])) as Summary:pageSummary;
+      const continuation=typeof queue.body.nextCursor==="string"?queue.body.nextCursor:null;
+      snapshot.current={items:combined,summary:combinedSummary,cursor:continuation};
+      setNextCursor(continuation);setAssessedAt(new Date());setQueueComplete(assuranceQueueComplete(queue.body));setItems(combined);setSummary(combinedSummary);
+      if(!cursor)setVisibleLimit(25);
       setCanReview(user.role==="Admin");setCanWrite(["Admin","Editor"].includes(user.role));setActorEmail(user.email.trim().toLowerCase());
     }catch{if(!controller.signal.aborted){setLoadError(true);setCanReview(false);setCanWrite(false);setActorEmail("");}}
     finally{if(!controller.signal.aborted)setLoading(false);}
@@ -174,7 +184,7 @@ export default function ContinuousAssuranceWorkQueue({lang,onOpenAutomation}:{la
       </div>
     </article>})}</div>:<div className="assurance-work-empty">{loading?(tr?"Güvence işleri yükleniyor…":"Loading assurance work…"):(tr?"Bu filtrede yapmanız gereken bir güvence işi yok.":"There is no assurance work requiring your action in this filter.")}</div>)}
     {!loading&&!loadError&&matching.length>visible.length&&<div className="assurance-work-more"><span>{visible.length} / {matching.length}</span><button type="button" onClick={()=>setVisibleLimit(value=>value+25)}>{tr?"Daha fazla göster":"Show more"}</button></div>}
-    {items.length>=500&&<p className="assurance-work-message">{tr?"En fazla 500 iş yüklendi; arama ve sayımlar bu kayıtları kapsar.":"Up to 500 work items loaded; search and counts cover these records."}</p>}
+    {!loading&&!loadError&&nextCursor&&<div className="assurance-work-more"><span>{tr?`${items.length} kayıt yüklendi · arama yüklenen kayıtları kapsar`:`${items.length} records loaded · search covers loaded records`}</span><button type="button" disabled={busy} onClick={()=>void load(nextCursor)}>{tr?"Sonraki kayıtları yükle":"Load next records"}</button></div>}
     {detailsOpen&&<ContinuousAssuranceTimeline lang={lang}/>} 
     {resultItem?.resultRef&&<div className="assurance-review-overlay" role="presentation" onMouseDown={event=>{if(event.target===event.currentTarget)setResultItem(null)}}><section className="assurance-review-dialog assurance-result-dialog" role="dialog" aria-modal="true" aria-label={tr?"Yeniden test sonucu":"Re-test result"}>
       <header><div><small>{statusLabel(resultItem.status)}</small><h4>{resultItem.ruleName}</h4></div><button type="button" aria-label={tr?"Kapat":"Close"} onClick={()=>setResultItem(null)}>×</button></header>
