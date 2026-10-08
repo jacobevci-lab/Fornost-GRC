@@ -47,6 +47,8 @@ jobs:
             --data-binary @/tmp/fornost-qa-bootstrap.json
       - name: Concurrent cold and warm schema initialization QA
         run: node scripts/schema-initialization-qa.mjs
+      - name: Record dialog themes and Escape QA
+        run: node scripts/record-dialog-qa.mjs
       - name: Enterprise reporting HTML PDF CSV QA
         run: node scripts/reporting-export-qa.mjs
       - name: Assurance queue recovery and independent review QA
@@ -130,6 +132,7 @@ jobs:
         with:
           name: workspace-layout-qa
           path: |
+            record-dialog-qa-artifacts/
             ai-retirement-qa-artifacts/
             ai-model-lifecycle-qa-artifacts/
             ai-record-navigation-qa-artifacts/
