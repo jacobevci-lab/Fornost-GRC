@@ -63,6 +63,15 @@ try {
   await item.getByRole('button', { name: 'Request New Test', exact: true }).click();
   const queuedHttp = await queuedResponse; assert.equal(queuedHttp.status(), 201); const queued = await queuedHttp.json();
   await expect(queue.locator('.work-pending-review').filter({ hasText: 'QA Retest finding' }).getByRole('button', { name: 'Approve', exact: true })).toHaveCount(0);
+  for(const filter of ['review','active','retest']){
+    const result=await api(admin,`${route}?filter=${filter}&q=${encodeURIComponent(queued.id)}&lang=en`);
+    assert.equal(result.filter,filter);
+    assert.equal(result.coverage.complete,true);
+    assert.deepEqual(result.items.map(row=>row.id),filter==='retest'?[]:[queued.id]);
+  }
+  for(const filter of ['attention','REVIEW',"' OR 1=1 --"]){
+    await api(admin,`${route}?filter=${encodeURIComponent(filter)}`,'GET',undefined,400);
+  }
   await api(admin, route, 'POST', { action: 'review-work-item', workItemId: queued.id, decision: 'approve' }, 409);
   // Both approval paths must reject broken source links, including stale CAPA snapshots.
   for(const state of ['missing-finding','missing-rule','rule-mismatch']){

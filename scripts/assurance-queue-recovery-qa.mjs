@@ -172,5 +172,33 @@ try{
  await panel.getByRole('button',{name:'Search all records',exact:true}).click();
  await expect(panel.getByRole('alert')).toBeVisible();await expect(panel.getByRole('button',{name:'Approve',exact:true})).toHaveCount(0);
  assert.equal(writes,2);
+ // Server status filters fetch matching records beyond the previously loaded page.
+ let wrongFilterEcho=false,wrongFilterRow=false,filterUnavailable=false;
+ await page.route('**/api/continuous-assurance?*',route=>{
+  const params=new URL(route.request().url()).searchParams,filter=params.get('filter');
+  assert.ok(['active','review','retest'].includes(filter));
+  assert.equal(params.has('q'),false);
+  if(filterUnavailable)return route.fulfill({status:503,json:{error:'filter outage'}});
+  const status=wrongFilterRow?'completed':filter==='retest'?'approved-awaiting-retest':'pending-review';
+  const row={...items[1],id:'QA-FILTER-BEYOND-500',findingTitle:'Remote status match',status};
+  return route.fulfill({json:{filter:wrongFilterEcho?'all':filter,items:[row],nextCursor:null,coverage:{loaded:1,complete:true},summary:{total:1,pendingReview:status==='pending-review'?1:0,awaitingRetest:status==='approved-awaiting-retest'?1:0,capaPromotion:0,retest:status==='pending-review'?1:0,failedRetest:0,retestError:0,completed:status==='completed'?1:0,rejected:0}}});
+ });
+ await panel.getByRole('searchbox').fill('');
+ for(const name of ['Review','Re-test','Active']){
+  await panel.locator('.assurance-work-filters').getByRole('button',{name,exact:true}).click();
+  await expect(panel.locator('.assurance-work-list')).toContainText('Remote status match');
+  await expect(panel.getByRole('status').filter({hasText:'Status scope:'})).toContainText(name);
+ }
+ for(const failure of ['echo','row','outage']){
+  wrongFilterEcho=failure==='echo';wrongFilterRow=failure==='row';filterUnavailable=failure==='outage';
+  await panel.getByRole('button',{name:'Refresh',exact:true}).click();
+  await expect(panel.getByRole('alert')).toBeVisible();
+  await expect(panel.getByRole('button',{name:'Approve',exact:true})).toHaveCount(0);
+  await expect(panel.locator('.assurance-work-summary b').first()).toHaveText('—');
+ }
+ wrongFilterEcho=false;wrongFilterRow=false;filterUnavailable=false;
+ await panel.getByRole('button',{name:'Refresh',exact:true}).click();
+ await expect(panel.locator('.assurance-work-list')).toContainText('Remote status match');
+ assert.equal(writes,2,'filtering must not write');
  console.log('Assurance queue recovery QA passed: unknown counters, retry, full-list search, independent review, duplicate review/retest guards and ambiguous write recovery without retry.');
 }finally{await browser.close();}

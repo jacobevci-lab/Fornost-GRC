@@ -139,3 +139,34 @@ test('source state follows exact finding/rule relationships independently of tab
   await assert.rejects(()=>readAssuranceSourceState(db,'W'));
  }finally{sql.close();}
 });
+
+test('status predicates run before the 500 row boundary and survive continuation and legacy fallback',async()=>{
+ const {sql,db}=fixture();try{
+  const insert=sql.prepare('INSERT INTO continuous_assurance_work_items(id,status,updated_at) VALUES(?,?,?)');
+  for(let i=0;i<550;i++)insert.run(`REVIEW-${String(i).padStart(4,'0')}`,'pending-review','2026-10-08T00:00:00Z');
+  for(let i=0;i<501;i++)insert.run(`RETEST-${String(i).padStart(4,'0')}`,'approved-awaiting-retest','2026-10-07T00:00:00Z');
+  insert.run('FAILED','failed-retest','2026-10-08');insert.run('ERROR','retest-error','2026-10-08');insert.run('CLOSED','completed','2026-10-08');
+  for(const fallback of [false,true]){
+   if(fallback)sql.exec('DROP TABLE evidence_automation_rules');
+   for(const [filter,prefix,total] of [['review','REVIEW-',550],['retest','RETEST-',501]] as const){
+    const first=await readAssuranceQueue<{id:string}>(db,undefined,undefined,filter);
+    const last=await readAssuranceQueue<{id:string}>(db,first.nextCursor!,undefined,filter);
+    assert.equal(first.rows.length,500);assert.equal(last.rows.length,total-500);assert.equal(last.coverage.complete,true);
+    assert.equal(new Set([...first.rows,...last.rows].map(row=>row.id)).size,total);
+    assert.ok([...first.rows,...last.rows].every(row=>row.id.startsWith(prefix)));
+   }
+   const active:string[]=[];let cursor:string|undefined;
+   do{const page=await readAssuranceQueue<{id:string}>(db,cursor,undefined,'active');active.push(...page.rows.map(row=>row.id));cursor=page.nextCursor??undefined;}while(cursor);
+   assert.equal(active.length,1053);assert.ok(!active.includes('CLOSED'));assert.ok(active.includes('FAILED')&&active.includes('ERROR'));
+  }
+ }finally{sql.close();}
+});
+test('status filtering composes with literal search and rejects unknown predicates',async()=>{
+ const {sql,db}=fixture();try{
+  sql.exec("ALTER TABLE continuous_assurance_work_items ADD COLUMN decision_json TEXT; INSERT INTO continuous_assurance_work_items(id,status) VALUES('MATCH-REVIEW','pending-review'),('MATCH-RETEST','approved-awaiting-retest'),('OTHER','approved-awaiting-retest');");
+  const page=await readAssuranceQueue<{id:string}>(db,undefined,{query:'MATCH',lang:'en'},'retest');
+  assert.deepEqual(page.rows.map(row=>row.id),['MATCH-RETEST']);
+  assert.equal((await readAssuranceQueue(db,undefined,{query:'absent',lang:'en'},'retest')).rows.length,0);
+  await assert.rejects(()=>readAssuranceQueue(db,undefined,undefined,"' OR 1=1 --" as 'all'),/Invalid assurance filter/);
+ }finally{sql.close();}
+});

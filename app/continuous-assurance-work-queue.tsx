@@ -1,6 +1,7 @@
 "use client";
 
 import {assuranceSourceReady,type AssuranceQueueContext,type AssuranceSourceState} from "./assurance-queue-context";
+import {matchesAssuranceQueueFilter,type AssuranceQueueFilter} from "./assurance-queue-filter";
 import {assuranceQueueSummary} from "./assurance-queue-summary";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { requestJsonWithDeadline } from "./bounded-json-request";
@@ -85,8 +86,10 @@ export default function ContinuousAssuranceWorkQueue({lang,onOpenAutomation}:{la
   const [queueContext,setQueueContext]=useState<AssuranceQueueContext>("full");
   const contextReady=queueContext!=="work-only";
   const [serverQuery,setServerQuery]=useState("");
+  const [serverFilter,setServerFilter]=useState<AssuranceQueueFilter>("all");
+  const requestedFilter=useRef<AssuranceQueueFilter>("all");
   const [nextCursor,setNextCursor]=useState<string|null>(null);
-  const snapshot=useRef<{items:WorkItem[];summary:Summary;cursor:string|null;query:string;lang:Lang;context:AssuranceQueueContext}>({items:[],summary:emptySummary,cursor:null,query:"",lang:"en",context:"full"});
+  const snapshot=useRef<{items:WorkItem[];summary:Summary;cursor:string|null;query:string;lang:Lang;context:AssuranceQueueContext;filter:AssuranceQueueFilter}>({items:[],summary:emptySummary,cursor:null,query:"",lang:"en",context:"full",filter:"all"});
   const [assessedAt,setAssessedAt]=useState(()=>new Date());
   useEffect(()=>{
     const update=()=>setAssessedAt(new Date());
@@ -96,11 +99,12 @@ export default function ContinuousAssuranceWorkQueue({lang,onOpenAutomation}:{la
     return()=>{clearInterval(timer);document.removeEventListener("visibilitychange",visible);};
   },[]);
   const reads=useRef<AbortController|null>(null),writes=useRef<AbortController|null>(null),sending=useRef(false);
-  const load=useCallback(async(cursor?:string,search=snapshot.current.query,searchLanguage=snapshot.current.lang)=>{
+  const load=useCallback(async(cursor?:string,search=snapshot.current.query,searchLanguage=snapshot.current.lang,scope=requestedFilter.current)=>{
+    requestedFilter.current=scope;
     reads.current?.abort();const controller=new AbortController();reads.current=controller;
     setLoading(true);setLoadError(false);setReviewing(null);
     try{
-      const params=new URLSearchParams();if(cursor)params.set("cursor",cursor);if(search){params.set("q",search);params.set("lang",searchLanguage);}
+      const params=new URLSearchParams();if(scope!=="all")params.set("filter",scope);if(cursor)params.set("cursor",cursor);if(search){params.set("q",search);params.set("lang",searchLanguage);}
       const [queue,auth]=await Promise.all([
         requestJsonWithDeadline(withBasePath(`/api/continuous-assurance${params.size?`?${params}`:""}`),{cache:"no-store",signal:controller.signal}),
         requestJsonWithDeadline(withBasePath("/api/auth"),{cache:"no-store",signal:controller.signal}),
@@ -109,15 +113,17 @@ export default function ContinuousAssuranceWorkQueue({lang,onOpenAutomation}:{la
       if(!queue.response.ok||!auth.response.ok||!validAssuranceQueue(queue.body)||!user||typeof user.role!=="string"||typeof user.email!=="string")throw new Error("queue-unavailable");
       if(controller.signal.aborted)return;
       if(search){const echoed=queue.body.search as {query?:unknown;lang?:unknown}|undefined;if(!echoed||echoed.query!==search||echoed.lang!==searchLanguage)throw new Error("search-mismatch");}
+      if((queue.body.filter??"all")!==scope)throw new Error("filter-mismatch");
       const context=(queue.body.context??"full") as AssuranceQueueContext;
       const pageItems=queue.body.items as WorkItem[];
+      if(pageItems.some(item=>!matchesAssuranceQueueFilter(item.status,scope)))throw new Error("filter-record-mismatch");
       const previousIds=new Set(snapshot.current.items.map(item=>item.id));
-      if(cursor&&(snapshot.current.cursor!==cursor||snapshot.current.query!==search||snapshot.current.lang!==searchLanguage||snapshot.current.context!==context||pageItems.some(item=>previousIds.has(item.id))))throw new Error("queue-changed-refresh-required");
+      if(cursor&&(snapshot.current.cursor!==cursor||snapshot.current.query!==search||snapshot.current.lang!==searchLanguage||snapshot.current.context!==context||snapshot.current.filter!==scope||pageItems.some(item=>previousIds.has(item.id))))throw new Error("queue-changed-refresh-required");
       const combined=cursor?[...snapshot.current.items,...pageItems]:pageItems;
       const combinedSummary=assuranceQueueSummary(combined);
       const continuation=typeof queue.body.nextCursor==="string"?queue.body.nextCursor:null;
-      snapshot.current={items:combined,summary:combinedSummary,cursor:continuation,query:search,lang:searchLanguage,context};
-      setQueueContext(context);setServerQuery(search);setNextCursor(continuation);setAssessedAt(new Date());setQueueComplete(assuranceQueueComplete(queue.body));setItems(combined);setSummary(combinedSummary);
+      snapshot.current={items:combined,summary:combinedSummary,cursor:continuation,query:search,lang:searchLanguage,context,filter:scope};
+      setServerFilter(scope);setQueueContext(context);setServerQuery(search);setNextCursor(continuation);setAssessedAt(new Date());setQueueComplete(assuranceQueueComplete(queue.body));setItems(combined);setSummary(combinedSummary);
       if(!cursor)setVisibleLimit(25);
       setCanReview(context!=="work-only"&&user.role==="Admin");setCanWrite(context!=="work-only"&&["Admin","Editor"].includes(user.role));setActorEmail(user.email.trim().toLowerCase());
     }catch{if(!controller.signal.aborted){setLoadError(true);setCanReview(false);setCanWrite(false);setActorEmail("");}}
@@ -170,10 +176,12 @@ export default function ContinuousAssuranceWorkQueue({lang,onOpenAutomation}:{la
     {!loading&&!loadError&&queueContext!=="full"&&<p className="assurance-work-message assurance-context-warning" role="status">{queueContext==="work-only"?(tr?"Bulgu ve kural verileri kullanılamıyor. SLA hesaplanmadı; onay ve yeniden test işlemleri kapatıldı. Yöneticinizden veri kaynağını kontrol etmesini isteyin ve yenileyin.":"Finding and rule context is unavailable. SLA was not assessed; review and retest actions are disabled. Ask your administrator to check the data source, then refresh."):(tr?"CAPA bağlantı kodları kullanılamıyor. İş kayıtları yüklendi; CAPA bağlantıları için veri kaynağını kontrol edip yenileyin.":"CAPA reference codes are unavailable. Work items are loaded; check the data source and refresh to restore CAPA links.")}</p>}
     {message&&<div role="status" className="assurance-work-message" onClick={()=>setMessage("")}>{message}<b>×</b></div>}
     <div className="assurance-work-summary"><span><b>{loading||loadError||!queueComplete?"—":summary.pendingReview}</b><small>{tr?"İnceleme":"Review"}</small></span><span><b>{loading||loadError||!queueComplete?"—":summary.awaitingRetest}</b><small>{tr?"Re-test bekliyor":"Awaiting re-test"}</small></span><span><b>{loading||loadError||!queueComplete?"—":summary.failedRetest+summary.retestError}</b><small>{tr?"Dikkat":"Attention"}</small></span><span><b>{loading||loadError||!queueComplete?"—":summary.completed}</b><small>{tr?"Tamamlanan":"Completed"}</small></span></div>
+    {!loading&&!loadError&&serverFilter!=="all"&&<p className="assurance-work-message" role="status">{tr?`Durum kapsamı: ${{active:"Aktif",review:"İnceleme",retest:"Re-test"}[serverFilter]}. Sayaçlar ve SLA değerleri yalnızca bu kapsamdaki işleri içerir.`:`Status scope: ${{active:"Active",review:"Review",retest:"Re-test"}[serverFilter]}. Counters and SLA metrics include only work in this scope.`}</p>}
+    {filter==="attention"&&!queueComplete&&<p className="assurance-work-message" role="status">{tr?"Dikkat değerlendirmesi yüklenen kayıtları kapsar. Diğer işleri görmek için sonraki kayıtları yükleyin.":"Attention is assessed over loaded records. Load the next records to inspect remaining work."}</p>}
     {serverQuery&&<p className="assurance-work-message" role="status">{tr?`Sunucu araması: “${serverQuery}”. Sayaçlar ve SLA değerleri bu aramanın sonuçlarını kapsar.`:`Server search: “${serverQuery}”. Counters and SLA metrics cover these search results.`}</p>}
     <input maxLength={200} className="assurance-work-search" type="search" aria-label={tr?"Güvence işi ara":"Search assurance work"} placeholder={tr?"Bulgu, kural, kontrol veya sahip ara…":"Search finding, rule, control or owner…"} value={query} onChange={event=>{setQuery(event.target.value);setVisibleLimit(25)}}/>
-    <div className="assurance-work-more"><button type="button" disabled={loading||busy||!query.trim()} onClick={()=>void load(undefined,query.trim(),lang)}>{tr?"Tüm kayıtlarda ara":"Search all records"}</button>{serverQuery&&<button type="button" disabled={loading||busy} onClick={()=>{setQuery("");void load(undefined,"")}}>{tr?"Aramayı temizle":"Clear search"}</button>}</div>
-    <div className="assurance-work-filters">{(["active","review","retest","attention","all"] as QueueFilter[]).map(value=><button key={value} type="button" className={filter===value?"active":""} onClick={()=>{setFilter(value);setVisibleLimit(25)}}>{tr?({active:"Aktif",review:"İnceleme",retest:"Re-test",attention:"Dikkat",all:"Tümü"} as Record<QueueFilter,string>)[value]:({active:"Active",review:"Review",retest:"Re-test",attention:"Attention",all:"All"} as Record<QueueFilter,string>)[value]}</button>)}<button type="button" className={detailsOpen?"active":""} aria-expanded={detailsOpen} onClick={()=>setDetailsOpen(value=>!value)}>{detailsOpen?(tr?"Operasyon detayını gizle":"Hide operations"):(tr?"Operasyon detayı":"Operations")}</button></div>
+    <div className="assurance-work-more"><button type="button" disabled={loading||busy||!query.trim()} onClick={()=>void load(undefined,query.trim(),lang)}>{serverFilter==="all"?(tr?"Tüm kayıtlarda ara":"Search all records"):(tr?"Bu kapsamda ara":"Search this scope")}</button>{serverQuery&&<button type="button" disabled={loading||busy} onClick={()=>{setQuery("");void load(undefined,"")}}>{tr?"Aramayı temizle":"Clear search"}</button>}</div>
+    <div className="assurance-work-filters">{(["active","review","retest","attention","all"] as QueueFilter[]).map(value=><button key={value} type="button" className={filter===value?"active":""} disabled={busy||loading} onClick={()=>{setFilter(value);setVisibleLimit(25);void load(undefined,snapshot.current.query,snapshot.current.lang,value==="attention"?"all":value)}}>{tr?({active:"Aktif",review:"İnceleme",retest:"Re-test",attention:"Dikkat",all:"Tümü"} as Record<QueueFilter,string>)[value]:({active:"Active",review:"Review",retest:"Re-test",attention:"Attention",all:"All"} as Record<QueueFilter,string>)[value]}</button>)}<button type="button" className={detailsOpen?"active":""} aria-expanded={detailsOpen} onClick={()=>setDetailsOpen(value=>!value)}>{detailsOpen?(tr?"Operasyon detayını gizle":"Hide operations"):(tr?"Operasyon detayı":"Operations")}</button></div>
     {!loading&&!loadError&&contextReady&&queueHealth.unknown>0&&<p className="assurance-work-message" role="status">{tr?`${queueHealth.unknown} aktif işin oluşturulma zamanı veya kaynak bağlantısı eksik ya da geçersiz. SLA oranı hesaplanmadı; işleri Dikkat filtresinde inceleyin.`:`${queueHealth.unknown} active items have missing or invalid timestamps or source links. SLA percentage was not assessed; inspect them in Attention.`}</p>}
     {detailsOpen&&<div className="assurance-ops" aria-label={tr?"Güvence kuyruk operasyon metrikleri":"Assurance queue operations metrics"}>
       <article className={contextReady&&queueHealth.breached?"critical":""}><b>{loading||loadError||!queueComplete||!contextReady?"—":queueHealth.breached}</b><small>{tr?"SLA ihlali":"SLA breached"}</small></article>
