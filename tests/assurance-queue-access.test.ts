@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import {canReviewAssuranceWork,validAssuranceQueue,assuranceQueueComplete} from '../app/assurance-queue-access';
+import {canStartAssuranceReview,canReviewAssuranceWork,validAssuranceQueue,assuranceQueueComplete} from '../app/assurance-queue-access';
 test('queue review requires independent identified Admin and pending work',()=>{
  const item={status:'pending-review',actor:' Creator@Example.test '};
  assert.equal(canReviewAssuranceWork('Admin','reviewer@example.test',item,'approve',''),true);
@@ -59,4 +59,24 @@ test('in-range but contradictory counters are rejected for every summary categor
  assert.equal(validAssuranceQueue({items:[item],summary}),true);
  for(const [key,value] of Object.entries(summary))assert.equal(validAssuranceQueue({items:[item],summary:{...summary,[key]:value?0:1}}),false,key);
  assert.equal(validAssuranceQueue({items:[{...item,status:'completed'}],summary}),false);
+});
+
+test('independent rejection can retire broken source work without enabling approval',()=>{
+ for(const sourceState of ['missing-finding','missing-rule','rule-mismatch','unavailable'] as const){
+  const item={status:'pending-review',actor:'creator@example.test',sourceState};
+  assert.equal(canStartAssuranceReview('Admin','reviewer@example.test',item,'approve'),false);
+  assert.equal(canStartAssuranceReview('Admin','reviewer@example.test',item,'reject'),true);
+  assert.equal(canReviewAssuranceWork('Admin','reviewer@example.test',item,'reject',''),false);
+  assert.equal(canReviewAssuranceWork('Admin','reviewer@example.test',item,'reject','          '),false);
+  assert.equal(canReviewAssuranceWork('Admin','reviewer@example.test',item,'reject','123456789'),false);
+  assert.equal(canReviewAssuranceWork('Admin','reviewer@example.test',item,'reject','1234567890'),true);
+  assert.equal(canReviewAssuranceWork('Admin','reviewer@example.test',item,'reject','x'.repeat(1200)),true);
+  assert.equal(canReviewAssuranceWork('Admin','reviewer@example.test',item,'reject','x'.repeat(1201)),false);
+  for(const role of ['Editor','Viewer','Unknown'])assert.equal(canStartAssuranceReview(role,'reviewer@example.test',item,'reject'),false);
+  for(const email of ['', ' CREATOR@example.test '])assert.equal(canStartAssuranceReview('Admin',email,item,'reject'),false);
+  assert.equal(canStartAssuranceReview('Admin','reviewer@example.test',{...item,actor:''},'reject'),false);
+  for(const status of ['completed','rejected','approved-awaiting-retest','failed-retest','retest-error']){
+   assert.equal(canStartAssuranceReview('Admin','reviewer@example.test',{...item,status},'reject'),false);
+  }
+ }
 });

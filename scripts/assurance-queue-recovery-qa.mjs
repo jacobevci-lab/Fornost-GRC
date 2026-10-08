@@ -43,11 +43,22 @@ try{
  await expect(panel.getByRole('button',{name:'Approve',exact:true}).first()).toBeEnabled();
  sourceContext='full';await panel.getByRole('button',{name:'Refresh',exact:true}).click();
  await expect(panel.locator('.assurance-context-warning')).toHaveCount(0);
- for(const state of ['missing-finding','missing-rule','rule-mismatch']){
+ for(const state of ['missing-finding','missing-rule','rule-mismatch','unavailable']){
   items[1].sourceState=state;
   await panel.getByRole('button',{name:'Refresh',exact:true}).click();
   const affected=panel.locator('.assurance-work-list>article').nth(1);
   await expect(affected.getByRole('button',{name:'Approve',exact:true})).toHaveCount(0);
+  await affected.getByRole('button',{name:'Reject',exact:true}).click();
+  const rejection=panel.getByRole('dialog',{name:'Review assurance work'});
+  await expect(rejection).toContainText('It does not mark the finding, risk or control as remediated.');
+  await expect(rejection.locator('footer button.reject')).toBeDisabled();
+  await rejection.locator('textarea').fill('too short');
+  await expect(rejection.locator('footer button.reject')).toBeDisabled();
+  await rejection.locator('textarea').fill('The source link is obsolete.');
+  await expect(rejection.locator('footer button.reject')).toBeEnabled();
+  await rejection.getByRole('button',{name:'Cancel',exact:true}).click();
+  assert.equal(writes,0,'opening and cancelling rejection must not submit');
+  await expect(panel.locator('.assurance-work-list>article').first().getByRole('button',{name:'Reject',exact:true})).toHaveCount(0);
   await expect(affected.locator('.assurance-work-sla.unknown')).toContainText('SLA not assessed');
   await expect(panel.locator('.assurance-work-list>article').nth(2).getByRole('button',{name:'Approve',exact:true})).toBeEnabled();
   await expect(panel.locator('.assurance-ops article').nth(4).locator('b')).toHaveText('—');
