@@ -1,4 +1,6 @@
+import {assuranceSourceReady,type AssuranceSourceState} from "./assurance-queue-context";
 export type AssuranceQueueItem = {
+  sourceState?: AssuranceSourceState;
   action: string;
   status: string;
   createdAt?: string;
@@ -50,6 +52,7 @@ export function assuranceWorkAgeHours(item: AssuranceQueueItem, now = new Date()
 
 export function assuranceWorkSlaState(item: AssuranceQueueItem, now = new Date()) {
   if (!ACTIVE.has(item.status)) return "closed" as const;
+  if (!assuranceSourceReady(item)) return "unknown" as const;
   const age = assuranceWorkAgeHours(item, now);
   if (age === null) return "unknown" as const;
   const sla = assuranceWorkSlaHours(item);

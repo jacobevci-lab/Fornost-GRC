@@ -1,14 +1,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {DatabaseSync,type SQLInputValue} from 'node:sqlite';
-import {readAssuranceQueue} from '../app/assurance-queue-register';
+import {readAssuranceQueue,readAssuranceSourceState} from '../app/assurance-queue-register';
 function fixture(){
  const sql=new DatabaseSync(':memory:');
  sql.exec(`CREATE TABLE continuous_assurance_work_items(id TEXT PRIMARY KEY,status TEXT,updated_at TEXT,finding_id TEXT,rule_id TEXT,result_ref TEXT);
- CREATE TABLE evidence_automation_findings(id TEXT PRIMARY KEY,title TEXT,severity TEXT,owner TEXT,due_date TEXT);
+ CREATE TABLE evidence_automation_findings(id TEXT PRIMARY KEY,title TEXT,severity TEXT,owner TEXT,due_date TEXT,rule_id TEXT);
  CREATE TABLE evidence_automation_rules(id TEXT PRIMARY KEY,name TEXT,control_refs TEXT);
  CREATE TABLE enterprise_findings(id TEXT PRIMARY KEY,code TEXT);`);
- const db={prepare(query:string){let values:SQLInputValue[]=[];return {bind(...args:SQLInputValue[]){values=args;return this;},async all(){return {results:sql.prepare(query).all(...values)};}};}} as unknown as D1Database;
+ const db={prepare(query:string){let values:SQLInputValue[]=[];return {bind(...args:SQLInputValue[]){values=args;return this;},async first(){return sql.prepare(query).get(...values)??null;},async all(){return {results:sql.prepare(query).all(...values)};}};}} as unknown as D1Database;
  return {sql,db};
 }
 test('queue distinguishes empty, exactly 500 and truncated 501 without returning the sentinel',async()=>{
@@ -35,7 +35,7 @@ test('legacy fallback preserves active-work priority and detects truncation',asy
 });
 test('register preserves joined finding, control and canonical CAPA result context',async()=>{
  const {sql,db}=fixture();try{
-  sql.exec("INSERT INTO continuous_assurance_work_items VALUES('W','completed','2026-10-08','F','R','C'); INSERT INTO evidence_automation_findings VALUES('F','Observed issue','high','owner@test.invalid','2026-11-01'); INSERT INTO evidence_automation_rules VALUES('R','Rule one','CTRL-1'); INSERT INTO enterprise_findings VALUES('C','CAPA-1');");
+  sql.exec("INSERT INTO continuous_assurance_work_items VALUES('W','completed','2026-10-08','F','R','C'); INSERT INTO evidence_automation_findings VALUES('F','Observed issue','high','owner@test.invalid','2026-11-01','R'); INSERT INTO evidence_automation_rules VALUES('R','Rule one','CTRL-1'); INSERT INTO enterprise_findings VALUES('C','CAPA-1');");
   const {rows}=await readAssuranceQueue<Record<string,string>>(db);
   assert.equal(rows[0].finding_title,'Observed issue');assert.equal(rows[0].finding_owner,'owner@test.invalid');assert.equal(rows[0].control_refs,'CTRL-1');assert.equal(rows[0].result_code,'CAPA-1');
  }finally{sql.close();}
@@ -75,7 +75,7 @@ test('server search reaches records beyond 500 with Turkish case and literal wil
   sql.exec('ALTER TABLE continuous_assurance_work_items ADD COLUMN decision_json TEXT;');
   const insert=sql.prepare('INSERT INTO continuous_assurance_work_items(id,status,updated_at,finding_id,rule_id,result_ref,decision_json) VALUES(?,?,?,?,?,?,?)');
   for(let i=0;i<550;i++)insert.run(String(i).padStart(4,'0'),'completed','2026-10-08T00:00:00Z',null,null,null,'invalid-json');
-  sql.exec("INSERT INTO evidence_automation_findings VALUES('F','IŞIK kontrolü','high','Çağrı',''); INSERT INTO evidence_automation_rules VALUES('R','Rule','CTRL-5'); INSERT INTO enterprise_findings VALUES('C','CAPA-501');");
+  sql.exec("INSERT INTO evidence_automation_findings VALUES('F','IŞIK kontrolü','high','Çağrı','','R'); INSERT INTO evidence_automation_rules VALUES('R','Rule','CTRL-5'); INSERT INTO enterprise_findings VALUES('C','CAPA-501');");
   insert.run('ZZ-LAST','completed','2026-10-08T00:00:00Z','F','R','C',JSON.stringify({targetControlRef:'CTRL-100%_literal'}));
   for(const query of ['ışık','çağrı','CTRL-5','CAPA-501','100%_literal','ZZ-LAST']){
    const result=await readAssuranceQueue<{id:string}>(db,undefined,{query,lang:'tr'});
@@ -117,4 +117,25 @@ test('register labels available source context and never hides operational failu
  let calls=0;
  const brokenFallback={prepare(){return {async all(){calls++;throw new Error(calls===1?'no such table: enterprise_findings':'database is locked');}};}} as unknown as D1Database;
  await assert.rejects(()=>readAssuranceQueue(brokenFallback),/database is locked/);assert.equal(calls,2);
+});
+
+
+test('source state follows exact finding/rule relationships independently of table availability',async()=>{
+ const {sql,db}=fixture();try{
+  sql.exec("INSERT INTO continuous_assurance_work_items VALUES('W','pending-review','2026-10-08','F','R',NULL); INSERT INTO evidence_automation_findings VALUES('F','','high','','','R'); INSERT INTO evidence_automation_rules VALUES('R','','CTRL-1');");
+  const check=async(expected:string)=>{
+   const result=await readAssuranceQueue<{source_state:string}>(db);
+   assert.equal(result.context,'full');assert.equal(result.rows[0].source_state,expected);
+   assert.equal(await readAssuranceSourceState(db,'W'),expected);
+  };
+  await check('linked'); // Empty display labels do not make valid ID relationships disappear.
+  sql.exec("UPDATE evidence_automation_findings SET rule_id='other'");
+  await check('rule-mismatch');
+  sql.exec('DELETE FROM evidence_automation_rules');await check('missing-rule');
+  sql.exec('DELETE FROM evidence_automation_findings');await check('missing-finding');
+  assert.equal(await readAssuranceSourceState(db,"' OR 1=1 --"),'unavailable');
+  sql.exec('DROP TABLE evidence_automation_findings');
+  assert.equal((await readAssuranceQueue<{source_state:string}>(db)).rows[0].source_state,'unavailable');
+  await assert.rejects(()=>readAssuranceSourceState(db,'W'));
+ }finally{sql.close();}
 });

@@ -1,4 +1,12 @@
 export type AssuranceQueueContext='full'|'without-capa'|'work-only';
+export type AssuranceSourceState='linked'|'missing-finding'|'missing-rule'|'rule-mismatch'|'unavailable';
+export function validAssuranceSourceState(value:unknown):value is AssuranceSourceState {
+ return typeof value==='string'&&['linked','missing-finding','missing-rule','rule-mismatch','unavailable'].includes(value);
+}
+// Undefined is retained for compatibility with older API responses.
+export function assuranceSourceReady(item:{sourceState?:AssuranceSourceState}) {
+ return item.sourceState===undefined||item.sourceState==='linked';
+}
 export function validAssuranceQueueContext(value:unknown):value is AssuranceQueueContext {
  return value==='full'||value==='without-capa'||value==='work-only';
 }

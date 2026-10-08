@@ -1,7 +1,8 @@
 import {assuranceQueueSummary} from "../../assurance-queue-summary";
+import type {AssuranceSourceState} from "../../assurance-queue-context";
 import {parseAssuranceQueueSearch} from "../../assurance-queue-search";
 import { parseAssuranceQueueCursor } from "../../assurance-queue-cursor";
-import { readAssuranceQueue } from "../../assurance-queue-register";
+import { readAssuranceQueue, readAssuranceSourceState } from "../../assurance-queue-register";
 import { NextRequest, NextResponse } from "next/server";
 import { requireRole, type AppRole } from "../auth/security";
 import { clean } from "../integrations/security";
@@ -43,6 +44,7 @@ type FindingRow = {
 };
 type RunRow = RetestRun;
 type WorkRow = AssuranceWorkRow & {
+  source_state: AssuranceSourceState;
   finding_title?: string | null;
   finding_severity?: string | null;
   finding_owner?: string | null;
@@ -114,6 +116,7 @@ export async function GET(req:NextRequest){
       reviewedBy:row.reviewed_by||"",reviewedAt:row.reviewed_at||"",reviewNote:row.review_note||"",resultRef:row.result_ref||"",resultCode:row.result_code||"",completedAt:row.completed_at||"",
       findingTitle:row.finding_title||row.finding_id,severity:row.finding_severity||"",owner:row.finding_owner||"",dueDate:row.finding_due_date||"",ruleName:row.rule_name||row.rule_id,controlRefs:row.control_refs||"",
       targetControlRef:targetControlFromDecision(decision),
+      sourceState:row.source_state,
       retestOutcome:row.action==="control-retest"&&asObject(decision.retestOutcome).runId===row.result_ref?decision.retestOutcome as RetestOutcome:undefined,
     };
   });
@@ -141,6 +144,7 @@ export async function POST(req:NextRequest){
         if(!changed.meta?.changes)return json({error:"İş kaydı başka bir işlem tarafından güncellendi. Kuyruğu yenileyin."},409);
         return json({ok:true,status:"rejected",message:"Güvence işi gerekçesiyle reddedildi."});
       }
+      if(await readAssuranceSourceState(env.DB,work.id)!=="linked")return json({error:"Kaynak bulgu/kural bağlantısı eksik veya değişmiş. Bağlantıyı düzeltip kuyruğu yenileyin."},409);
       if(work.action==="control-retest"){
         const context=await loadContext(env.DB,work.finding_id),stored=parseData(work.decision_json);
         if(context.rule.id!==work.rule_id)return json({error:"İş ve kaynak kontrol eşleşmiyor."},409);

@@ -64,6 +64,22 @@ try {
   const queuedHttp = await queuedResponse; assert.equal(queuedHttp.status(), 201); const queued = await queuedHttp.json();
   await expect(queue.locator('.work-pending-review').filter({ hasText: 'QA Retest finding' }).getByRole('button', { name: 'Approve', exact: true })).toHaveCount(0);
   await api(admin, route, 'POST', { action: 'review-work-item', workItemId: queued.id, decision: 'approve' }, 409);
+  // Both approval paths must reject broken source links, including stale CAPA snapshots.
+  for(const state of ['missing-finding','missing-rule','rule-mismatch']){
+    try{
+      const mutation=state==='missing-finding'?`UPDATE continuous_assurance_work_items SET finding_id='QA-MISSING-FINDING' WHERE id=${q(queued.id)};`:state==='missing-rule'?`UPDATE continuous_assurance_work_items SET rule_id='QA-MISSING-RULE' WHERE id=${q(queued.id)};`:`UPDATE evidence_automation_findings SET rule_id='QA-OTHER-RULE' WHERE id=${q(findingId)};`;
+      await seed(mutation);
+      assert.equal((await api(admin,route)).items.find(row=>row.id===queued.id).sourceState,state);
+      for(const action of ['control-retest','capa-promotion']){
+        await seed(`UPDATE continuous_assurance_work_items SET action=${q(action)} WHERE id=${q(queued.id)};`);
+        const rejected=await api(checker,route,'POST',{action:'review-work-item',workItemId:queued.id,decision:'approve'},409);
+        assert.match(rejected.error,/Kaynak bulgu\/kural bağlantısı/);
+      }
+    }finally{
+      await seed(`UPDATE continuous_assurance_work_items SET finding_id=${q(findingId)},rule_id=${q(ruleId)},action='control-retest' WHERE id=${q(queued.id)}; UPDATE evidence_automation_findings SET rule_id=${q(ruleId)} WHERE id=${q(findingId)};`);
+    }
+  }
+  assert.equal((await api(admin,route)).items.find(row=>row.id===queued.id).sourceState,'linked');
   // Approval revalidates remediation, even if it was valid when the work was queued.
   await seed(`UPDATE evidence_automation_findings SET status='acknowledged' WHERE id=${q(findingId)};`);
   await api(checker, route, 'POST', { action: 'review-work-item', workItemId: queued.id, decision: 'approve' }, 409);

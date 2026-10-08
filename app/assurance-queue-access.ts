@@ -1,9 +1,9 @@
-import {validAssuranceQueueContext} from "./assurance-queue-context";
+import {assuranceSourceReady,validAssuranceSourceState,validAssuranceQueueContext,type AssuranceSourceState} from "./assurance-queue-context";
 import {assuranceQueueSummary} from "./assurance-queue-summary";
 import {assuranceQueueCursor,parseAssuranceQueueCursor} from "./assurance-queue-cursor";
-export function canReviewAssuranceWork(role:string,email:string,item:{status:string;actor:string},decision:'approve'|'reject',note:string) {
+export function canReviewAssuranceWork(role:string,email:string,item:{status:string;actor:string;sourceState?:AssuranceSourceState},decision:'approve'|'reject',note:string) {
  const identity=email.trim().toLowerCase(),requester=item.actor.trim().toLowerCase();
- return role==='Admin'&&!!identity&&!!requester&&identity!==requester&&item.status==='pending-review'&&(decision==='approve'||note.trim().length>=10)&&note.trim().length<=1200;
+ return assuranceSourceReady(item)&&role==='Admin'&&!!identity&&!!requester&&identity!==requester&&item.status==='pending-review'&&(decision==='approve'||note.trim().length>=10)&&note.trim().length<=1200;
 }
 export function validAssuranceQueue(body:Record<string,unknown>):boolean {
  if(body.context!==undefined&&!validAssuranceQueueContext(body.context))return false;
@@ -13,6 +13,7 @@ export function validAssuranceQueue(body:Record<string,unknown>):boolean {
  const ids=new Set<string>();
  if(!body.items.every(row=>{
   if(!row||typeof row!=='object'||!required.every(key=>typeof row[key]==='string')||!optional.every(key=>row[key]==null||typeof row[key]==='string'))return false;
+  if(row.sourceState!==undefined&&!validAssuranceSourceState(row.sourceState))return false;
   const id=row.id.trim();if(!id||id!==row.id||ids.has(id))return false;ids.add(id);return true;
  }))return false;
  const expected=assuranceQueueSummary(body.items);
