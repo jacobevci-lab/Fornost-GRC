@@ -1,3 +1,4 @@
+import {assuranceQueueSummary} from "../../assurance-queue-summary";
 import {parseAssuranceQueueSearch} from "../../assurance-queue-search";
 import { parseAssuranceQueueCursor } from "../../assurance-queue-cursor";
 import { readAssuranceQueue } from "../../assurance-queue-register";
@@ -116,17 +117,7 @@ export async function GET(req:NextRequest){
       retestOutcome:row.action==="control-retest"&&asObject(decision.retestOutcome).runId===row.result_ref?decision.retestOutcome as RetestOutcome:undefined,
     };
   });
-  return json({items,search,nextCursor:result.nextCursor,coverage:result.coverage,summary:{
-    total:items.length,
-    pendingReview:items.filter(item=>item.status==="pending-review").length,
-    awaitingRetest:items.filter(item=>item.status==="approved-awaiting-retest").length,
-    capaPromotion:items.filter(item=>item.action==="capa-promotion"&&item.status==="pending-review").length,
-    retest:items.filter(item=>item.action==="control-retest"&&item.status==="pending-review").length,
-    failedRetest:items.filter(item=>item.status==="failed-retest").length,
-    retestError:items.filter(item=>item.status==="retest-error").length,
-    completed:items.filter(item=>item.status==="completed").length,
-    rejected:items.filter(item=>item.status==="rejected").length,
-  }});
+  return json({items,search,nextCursor:result.nextCursor,coverage:result.coverage,summary:assuranceQueueSummary(items)});
 }
 
 export async function POST(req:NextRequest){

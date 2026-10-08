@@ -1,5 +1,6 @@
 "use client";
 
+import {assuranceQueueSummary} from "./assurance-queue-summary";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { requestJsonWithDeadline } from "./bounded-json-request";
 import { canReviewAssuranceWork, validAssuranceQueue, assuranceQueueComplete } from "./assurance-queue-access";
@@ -104,11 +105,11 @@ export default function ContinuousAssuranceWorkQueue({lang,onOpenAutomation}:{la
       if(!queue.response.ok||!auth.response.ok||!validAssuranceQueue(queue.body)||!user||typeof user.role!=="string"||typeof user.email!=="string")throw new Error("queue-unavailable");
       if(controller.signal.aborted)return;
       if(search){const echoed=queue.body.search as {query?:unknown;lang?:unknown}|undefined;if(!echoed||echoed.query!==search||echoed.lang!==searchLanguage)throw new Error("search-mismatch");}
-      const pageItems=queue.body.items as WorkItem[],pageSummary=queue.body.summary as Summary;
+      const pageItems=queue.body.items as WorkItem[];
       const previousIds=new Set(snapshot.current.items.map(item=>item.id));
       if(cursor&&(snapshot.current.cursor!==cursor||snapshot.current.query!==search||snapshot.current.lang!==searchLanguage||pageItems.some(item=>previousIds.has(item.id))))throw new Error("queue-changed-refresh-required");
       const combined=cursor?[...snapshot.current.items,...pageItems]:pageItems;
-      const combinedSummary=cursor?Object.fromEntries(Object.entries(pageSummary).map(([key,value])=>[key,value+snapshot.current.summary[key as keyof Summary]])) as Summary:pageSummary;
+      const combinedSummary=assuranceQueueSummary(combined);
       const continuation=typeof queue.body.nextCursor==="string"?queue.body.nextCursor:null;
       snapshot.current={items:combined,summary:combinedSummary,cursor:continuation,query:search,lang:searchLanguage};
       setServerQuery(search);setNextCursor(continuation);setAssessedAt(new Date());setQueueComplete(assuranceQueueComplete(queue.body));setItems(combined);setSummary(combinedSummary);

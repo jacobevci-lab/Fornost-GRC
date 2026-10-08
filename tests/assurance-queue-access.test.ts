@@ -52,3 +52,11 @@ test('continuation must match the last record and declared coverage',()=>{
  assert.equal(validAssuranceQueue({...body,coverage:{loaded:500,complete:true}}),false);
  assert.equal(validAssuranceQueue({...body,coverage:{loaded:500,complete:true},nextCursor:null}),true);
 });
+
+test('in-range but contradictory counters are rejected for every summary category',()=>{
+ const item={id:'W',findingId:'F',ruleId:'R',action:'control-retest',status:'pending-review',findingTitle:'Finding',severity:'high',owner:'',dueDate:'',ruleName:'Rule',controlRefs:'',updatedAt:'',actor:'creator@test.invalid'};
+ const summary={total:1,pendingReview:1,awaitingRetest:0,capaPromotion:0,retest:1,failedRetest:0,retestError:0,completed:0,rejected:0};
+ assert.equal(validAssuranceQueue({items:[item],summary}),true);
+ for(const [key,value] of Object.entries(summary))assert.equal(validAssuranceQueue({items:[item],summary:{...summary,[key]:value?0:1}}),false,key);
+ assert.equal(validAssuranceQueue({items:[{...item,status:'completed'}],summary}),false);
+});
