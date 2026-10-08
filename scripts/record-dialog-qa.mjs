@@ -29,6 +29,10 @@ try{
      const checkbox=picker.locator('input[type="checkbox"]').first();
      const size=await checkbox.boundingBox();assert.ok(size.width>=14&&size.width<=20&&size.height>=14&&size.height<=20,'Compact square checkbox');
      const geometry=await dialog.evaluate(node=>({overflow:node.scrollWidth-node.clientWidth,width:node.getBoundingClientRect().width,viewport:innerWidth}));
+     if(geometry.overflow>2||geometry.width>geometry.viewport){
+      await page.screenshot({path:`${out}/overflow-${locale}-${theme}-${width}.png`});
+      console.log('DIALOG_OVERFLOW',locale,theme,width,name,geometry,await dialog.evaluate(node=>Array.from(node.querySelectorAll('*')).filter(child=>child.getBoundingClientRect().right>node.getBoundingClientRect().right).map(child=>({tag:child.tagName,class:child.className,width:child.getBoundingClientRect().width})).slice(0,20)));
+     }
      assert.ok(geometry.overflow<=2&&geometry.width<=geometry.viewport,'No horizontal dialog overflow');
      const colors=await picker.locator('section').first().evaluate(node=>({background:getComputedStyle(node).backgroundColor,color:getComputedStyle(node.querySelector('label')).color}));
      if(theme==='dark'){const rgb=colors.background.match(/\d+/g).slice(0,3).map(Number);assert.ok(Math.max(...rgb)<100,'Standards cards use a dark surface');}
