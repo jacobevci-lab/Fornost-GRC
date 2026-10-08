@@ -10,4 +10,4 @@ The response validator rejects duplicate/blank identities, negative/fractional/u
 
 Validation: SQLite fixtures cover empty, exactly 500 and 501+ results, stable ties and the legacy fallback. Unit tests cover corrupt responses and backward compatibility. Browser QA covers partial counters, duplicate-identity rejection and recovery to an explicitly complete 500-row response, alongside the existing SLA and independent-review scenarios.
 
-Remaining boundary: this change makes truncation explicit; it does not remove the 500-row budget or introduce server-side search/pagination. Access to all historical work beyond that budget remains follow-up development. No schema migration or permission expansion is required.
+Follow-up: cursor continuation now provides access beyond the per-response budget; see [pagination](assurance-queue-pagination.md). Server-wide search is available through Search all records; see [search](assurance-queue-search.md). No permission expansion is required.

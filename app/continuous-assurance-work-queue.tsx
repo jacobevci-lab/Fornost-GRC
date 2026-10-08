@@ -79,8 +79,9 @@ export default function ContinuousAssuranceWorkQueue({lang,onOpenAutomation}:{la
   const tr=lang==="tr",[items,setItems]=useState<WorkItem[]>([]),[summary,setSummary]=useState<Summary>(emptySummary),[loading,setLoading]=useState(true),[canReview,setCanReview]=useState(false),[reviewing,setReviewing]=useState<ReviewState|null>(null),[busy,setBusy]=useState(false),[message,setMessage]=useState(""),[filter,setFilter]=useState<QueueFilter>("active"),[detailsOpen,setDetailsOpen]=useState(false),[loadError,setLoadError]=useState(false),[canWrite,setCanWrite]=useState(false),[actorEmail,setActorEmail]=useState(""),[visibleLimit,setVisibleLimit]=useState(25),[resultItem,setResultItem]=useState<WorkItem|null>(null);
   const [query,setQuery]=useState("");
   const [queueComplete,setQueueComplete]=useState(false);
+  const [serverQuery,setServerQuery]=useState("");
   const [nextCursor,setNextCursor]=useState<string|null>(null);
-  const snapshot=useRef<{items:WorkItem[];summary:Summary;cursor:string|null}>({items:[],summary:emptySummary,cursor:null});
+  const snapshot=useRef<{items:WorkItem[];summary:Summary;cursor:string|null;query:string}>({items:[],summary:emptySummary,cursor:null,query:""});
   const [assessedAt,setAssessedAt]=useState(()=>new Date());
   useEffect(()=>{
     const update=()=>setAssessedAt(new Date());
@@ -90,30 +91,32 @@ export default function ContinuousAssuranceWorkQueue({lang,onOpenAutomation}:{la
     return()=>{clearInterval(timer);document.removeEventListener("visibilitychange",visible);};
   },[]);
   const reads=useRef<AbortController|null>(null),writes=useRef<AbortController|null>(null),sending=useRef(false);
-  const load=useCallback(async(cursor?:string)=>{
+  const load=useCallback(async(cursor?:string,search=snapshot.current.query)=>{
     reads.current?.abort();const controller=new AbortController();reads.current=controller;
     setLoading(true);setLoadError(false);setReviewing(null);
     try{
+      const params=new URLSearchParams();if(cursor)params.set("cursor",cursor);if(search){params.set("q",search);params.set("lang",lang);}
       const [queue,auth]=await Promise.all([
-        requestJsonWithDeadline(withBasePath(`/api/continuous-assurance${cursor?`?cursor=${encodeURIComponent(cursor)}`:""}`),{cache:"no-store",signal:controller.signal}),
+        requestJsonWithDeadline(withBasePath(`/api/continuous-assurance${params.size?`?${params}`:""}`),{cache:"no-store",signal:controller.signal}),
         requestJsonWithDeadline(withBasePath("/api/auth"),{cache:"no-store",signal:controller.signal}),
       ]);
       const user=auth.body.user as {role?:unknown;email?:unknown}|undefined;
       if(!queue.response.ok||!auth.response.ok||!validAssuranceQueue(queue.body)||!user||typeof user.role!=="string"||typeof user.email!=="string")throw new Error("queue-unavailable");
       if(controller.signal.aborted)return;
+      if(search){const echoed=queue.body.search as {query?:unknown;lang?:unknown}|undefined;if(!echoed||echoed.query!==search||echoed.lang!==lang)throw new Error("search-mismatch");}
       const pageItems=queue.body.items as WorkItem[],pageSummary=queue.body.summary as Summary;
       const previousIds=new Set(snapshot.current.items.map(item=>item.id));
-      if(cursor&&(snapshot.current.cursor!==cursor||pageItems.some(item=>previousIds.has(item.id))))throw new Error("queue-changed-refresh-required");
+      if(cursor&&(snapshot.current.cursor!==cursor||snapshot.current.query!==search||pageItems.some(item=>previousIds.has(item.id))))throw new Error("queue-changed-refresh-required");
       const combined=cursor?[...snapshot.current.items,...pageItems]:pageItems;
       const combinedSummary=cursor?Object.fromEntries(Object.entries(pageSummary).map(([key,value])=>[key,value+snapshot.current.summary[key as keyof Summary]])) as Summary:pageSummary;
       const continuation=typeof queue.body.nextCursor==="string"?queue.body.nextCursor:null;
-      snapshot.current={items:combined,summary:combinedSummary,cursor:continuation};
-      setNextCursor(continuation);setAssessedAt(new Date());setQueueComplete(assuranceQueueComplete(queue.body));setItems(combined);setSummary(combinedSummary);
+      snapshot.current={items:combined,summary:combinedSummary,cursor:continuation,query:search};
+      setServerQuery(search);setNextCursor(continuation);setAssessedAt(new Date());setQueueComplete(assuranceQueueComplete(queue.body));setItems(combined);setSummary(combinedSummary);
       if(!cursor)setVisibleLimit(25);
       setCanReview(user.role==="Admin");setCanWrite(["Admin","Editor"].includes(user.role));setActorEmail(user.email.trim().toLowerCase());
     }catch{if(!controller.signal.aborted){setLoadError(true);setCanReview(false);setCanWrite(false);setActorEmail("");}}
     finally{if(!controller.signal.aborted)setLoading(false);}
-  },[]);
+  },[lang]);
   useEffect(()=>{const readRequests=reads,writeRequests=writes;const timer=setTimeout(()=>void load(),0);return()=>{clearTimeout(timer);readRequests.current?.abort();writeRequests.current?.abort();};},[load]);
   async function write(body:Record<string,unknown>,successMessage:string){
     if(sending.current||loading||loadError||!canWrite)return null;
@@ -142,7 +145,7 @@ export default function ContinuousAssuranceWorkQueue({lang,onOpenAutomation}:{la
   }
   const queueHealth=useMemo(()=>summarizeAssuranceQueue(items,assessedAt),[items,assessedAt]);
   const matching=useMemo(()=>items.filter(item=>{
-    const search=[item.findingTitle,item.findingId,item.ruleName,item.ruleId,item.owner,item.targetControlRef,item.controlRefs,item.resultCode].join(" ").toLocaleLowerCase(tr?"tr-TR":"en-US");
+    const search=[item.id,item.findingTitle,item.findingId,item.ruleName,item.ruleId,item.owner,item.targetControlRef,item.controlRefs,item.resultCode].join(" ").toLocaleLowerCase(tr?"tr-TR":"en-US");
     if(!search.includes(query.trim().toLocaleLowerCase(tr?"tr-TR":"en-US")))return false;
     if(filter==="all")return true;
     if(filter==="review")return item.status==="pending-review";
@@ -159,7 +162,9 @@ export default function ContinuousAssuranceWorkQueue({lang,onOpenAutomation}:{la
     {!loading&&!loadError&&!queueComplete&&<p className="assurance-work-message assurance-queue-coverage" role="status">{tr?`Kısmi kuyruk: ${items.length} iş yüklendi. Arama ve filtreler bu kayıtlarla sınırlı; genel sayaçlar ve SLA metrikleri hesaplanmadı.`:`Partial queue: ${items.length} items loaded. Search and filters cover only these records; overall counters and SLA metrics were not assessed.`}</p>}
     {message&&<div role="status" className="assurance-work-message" onClick={()=>setMessage("")}>{message}<b>×</b></div>}
     <div className="assurance-work-summary"><span><b>{loading||loadError||!queueComplete?"—":summary.pendingReview}</b><small>{tr?"İnceleme":"Review"}</small></span><span><b>{loading||loadError||!queueComplete?"—":summary.awaitingRetest}</b><small>{tr?"Re-test bekliyor":"Awaiting re-test"}</small></span><span><b>{loading||loadError||!queueComplete?"—":summary.failedRetest+summary.retestError}</b><small>{tr?"Dikkat":"Attention"}</small></span><span><b>{loading||loadError||!queueComplete?"—":summary.completed}</b><small>{tr?"Tamamlanan":"Completed"}</small></span></div>
-    <input className="assurance-work-search" type="search" aria-label={tr?"Güvence işi ara":"Search assurance work"} placeholder={tr?"Bulgu, kural, kontrol veya sahip ara…":"Search finding, rule, control or owner…"} value={query} onChange={event=>{setQuery(event.target.value);setVisibleLimit(25)}}/>
+    {serverQuery&&<p className="assurance-work-message" role="status">{tr?`Sunucu araması: “${serverQuery}”. Sayaçlar ve SLA değerleri bu aramanın sonuçlarını kapsar.`:`Server search: “${serverQuery}”. Counters and SLA metrics cover these search results.`}</p>}
+    <input maxLength={200} className="assurance-work-search" type="search" aria-label={tr?"Güvence işi ara":"Search assurance work"} placeholder={tr?"Bulgu, kural, kontrol veya sahip ara…":"Search finding, rule, control or owner…"} value={query} onChange={event=>{setQuery(event.target.value);setVisibleLimit(25)}}/>
+    <div className="assurance-work-more"><button type="button" disabled={loading||busy||!query.trim()} onClick={()=>void load(undefined,query.trim())}>{tr?"Tüm kayıtlarda ara":"Search all records"}</button>{serverQuery&&<button type="button" disabled={loading||busy} onClick={()=>{setQuery("");void load(undefined,"")}}>{tr?"Aramayı temizle":"Clear search"}</button>}</div>
     <div className="assurance-work-filters">{(["active","review","retest","attention","all"] as QueueFilter[]).map(value=><button key={value} type="button" className={filter===value?"active":""} onClick={()=>{setFilter(value);setVisibleLimit(25)}}>{tr?({active:"Aktif",review:"İnceleme",retest:"Re-test",attention:"Dikkat",all:"Tümü"} as Record<QueueFilter,string>)[value]:({active:"Active",review:"Review",retest:"Re-test",attention:"Attention",all:"All"} as Record<QueueFilter,string>)[value]}</button>)}<button type="button" className={detailsOpen?"active":""} aria-expanded={detailsOpen} onClick={()=>setDetailsOpen(value=>!value)}>{detailsOpen?(tr?"Operasyon detayını gizle":"Hide operations"):(tr?"Operasyon detayı":"Operations")}</button></div>
     {!loading&&!loadError&&queueHealth.unknown>0&&<p className="assurance-work-message" role="status">{tr?`${queueHealth.unknown} aktif işin oluşturulma zamanı eksik veya geçersiz. SLA oranı hesaplanmadı; işleri Dikkat filtresinde inceleyin.`:`${queueHealth.unknown} active items have missing or invalid creation timestamps. SLA percentage was not assessed; inspect them in Attention.`}</p>}
     {detailsOpen&&<div className="assurance-ops" aria-label={tr?"Güvence kuyruk operasyon metrikleri":"Assurance queue operations metrics"}>
