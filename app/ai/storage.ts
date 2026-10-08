@@ -1,3 +1,4 @@
+import { completedInitialization } from "../completed-initialization";
 import { cleanAiText } from "./security";
 
 export type AiProviderKind = "openai-compatible" | "ollama";
@@ -506,13 +507,12 @@ const aiAssurancePackagesSql=`CREATE TABLE IF NOT EXISTS ai_assurance_packages (
 )`;
 const aiAssurancePackagesIndexSql="CREATE INDEX IF NOT EXISTS ai_assurance_packages_model_date_idx ON ai_assurance_packages(model_id,generated_at)";
 
-let schemaReady: Promise<void> | null = null;
+const initializeAi = completedInitialization();
 
 export async function aiRuntime() {
   const { env } = await import("cloudflare:workers");
   const runtime = env as unknown as Record<string, unknown> & { DB: D1Database };
-  if (!schemaReady) {
-    schemaReady = runtime.DB.batch([
+  await initializeAi(runtime.DB, () => runtime.DB.batch([
       runtime.DB.prepare(settingsSql),
       runtime.DB.prepare(auditSql),
       runtime.DB.prepare(draftsSql),
@@ -620,12 +620,7 @@ export async function aiRuntime() {
       runtime.DB.prepare(aiAssuranceAlertsIndexSql),
       runtime.DB.prepare(aiAssurancePackagesSql),
       runtime.DB.prepare(aiAssurancePackagesIndexSql),
-    ]).then(() => undefined).catch((error) => {
-      schemaReady = null;
-      throw error;
-    });
-  }
-  await schemaReady;
+    ]));
   return runtime;
 }
 export async function getAiSettings(db: D1Database) {

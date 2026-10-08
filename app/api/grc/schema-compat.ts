@@ -1,3 +1,4 @@
+import { completedInitialization } from "../../completed-initialization";
 // Canonical schema authority lives in db/schema.ts, db/core-grc-schema.ts and
 // their D1 migrations (0027 and 0078). This compatibility layer only repairs
 // persisted on-prem installations that predate those migration baselines.
@@ -18,7 +19,7 @@ const canonicalTables = [
   "simple_grc_record_code_counters",
 ] as const;
 
-let coreGrcSchemaReady: Promise<void> | null = null;
+const coreGrcSchemaReady = completedInitialization();
 
 async function canonicalTablesExist(db: D1Database) {
   const placeholders = canonicalTables.map(() => "?").join(",");
@@ -30,14 +31,8 @@ async function canonicalTablesExist(db: D1Database) {
 }
 
 export async function ensureCoreGrcSchemaCompatibility(db: D1Database) {
-  if (!coreGrcSchemaReady) {
-    coreGrcSchemaReady = (async () => {
+  await coreGrcSchemaReady(db, async () => {
       if (await canonicalTablesExist(db)) return;
       await db.batch(compatibilitySchema.map((sql) => db.prepare(sql)));
-    })().catch((error) => {
-      coreGrcSchemaReady = null;
-      throw error;
-    });
-  }
-  await coreGrcSchemaReady;
+  });
 }

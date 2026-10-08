@@ -1,3 +1,4 @@
+import { completedInitialization } from "../../completed-initialization";
 import { NextRequest, NextResponse } from "next/server";
 import { requireRole } from "../auth/security";
 import { clean, decryptSecret, encryptSecret, safeHttpUrl, safeIntegrationConfig, validProvider, type IntegrationProvider } from "./security";
@@ -35,18 +36,12 @@ const integrationSchema = [
   )`,
   `CREATE INDEX IF NOT EXISTS integration_events_kind_created_idx ON integration_events(kind, created_at)`,
 ];
-let integrationSchemaReady:Promise<void>|null=null;
+const initializeIntegrations=completedInitialization();
 
 async function runtime() {
   const { env } = await import("cloudflare:workers");
   const result=env as unknown as Record<string, unknown> & { DB:D1Database };
-  if(!integrationSchemaReady){
-    integrationSchemaReady=result.DB.batch(integrationSchema.map(sql=>result.DB.prepare(sql))).then(()=>undefined).catch(error=>{
-      integrationSchemaReady=null;
-      throw error;
-    });
-  }
-  await integrationSchemaReady;
+  await initializeIntegrations(result.DB,()=>result.DB.batch(integrationSchema.map(sql=>result.DB.prepare(sql))));
   return result;
 }
 

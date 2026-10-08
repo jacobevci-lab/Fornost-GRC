@@ -1,3 +1,4 @@
+import { completedInitialization } from "../completed-initialization";
 // Canonical schema authority lives in db/evidence-schema.ts and
 // drizzle/0079_evidence_lineage_storage.sql. This module only repairs older
 // persisted on-prem installations that predate the evidence migration baseline.
@@ -57,7 +58,7 @@ const requiredObjects = [
   "evidence_version_controls_evidence_idx",
 ] as const;
 
-let evidenceStorageSchemaReady: Promise<void> | null = null;
+const evidenceStorageSchemaReady = completedInitialization();
 
 async function canonicalObjectsExist(db: D1Database) {
   const placeholders = requiredObjects.map(() => "?").join(",");
@@ -69,14 +70,8 @@ async function canonicalObjectsExist(db: D1Database) {
 }
 
 export async function ensureEvidenceStorageSchemaCompatibility(db: D1Database) {
-  if (!evidenceStorageSchemaReady) {
-    evidenceStorageSchemaReady = (async () => {
+  await evidenceStorageSchemaReady(db, async () => {
       if (await canonicalObjectsExist(db)) return;
       await db.batch(compatibilitySchema.map((sql) => db.prepare(sql)));
-    })().catch((error) => {
-      evidenceStorageSchemaReady = null;
-      throw error;
-    });
-  }
-  await evidenceStorageSchemaReady;
+  });
 }
