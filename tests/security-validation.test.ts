@@ -34,7 +34,7 @@ test("integration API self-heals missing on-prem schema", () => {
   const integrationsRoute = readFileSync("app/api/integrations/route.ts", "utf8");
   assert.match(integrationsRoute, /CREATE TABLE IF NOT EXISTS integration_settings/);
   assert.match(integrationsRoute, /CREATE TABLE IF NOT EXISTS integration_events/);
-  assert.match(integrationsRoute, /integrationSchemaReady/);
+  assert.match(integrationsRoute, /initializeIntegrations=completedInitialization\(\)/);
   assert.match(integrationsRoute, /DB\.batch/);
 });
 

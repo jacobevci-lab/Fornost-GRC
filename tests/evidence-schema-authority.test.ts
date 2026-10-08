@@ -35,5 +35,6 @@ test("evidence history route delegates legacy repair instead of creating tables 
   assert.doesNotMatch(route, /CREATE TABLE IF NOT EXISTS/);
   assert.match(versioning, /ensureEvidenceStorageSchemaCompatibility\(db\)/);
   assert.match(compatibility, /sqlite_master/);
-  assert.match(compatibility, /let evidenceStorageSchemaReady: Promise<void> \| null = null/);
+  assert.match(compatibility, /const evidenceStorageSchemaReady = completedInitialization\(\)/);
+  assert.match(compatibility, /await evidenceStorageSchemaReady\(db,/);
 });

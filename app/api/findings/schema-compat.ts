@@ -1,3 +1,4 @@
+import { completedInitialization } from "../../completed-initialization";
 import { findingReportSchema } from "../../findings/report-page";
 // Canonical schema authority lives in db/schema.ts and drizzle/0072_enterprise_findings_capa.sql.
 // This module exists only to self-heal older persisted on-prem installations that predate
@@ -11,7 +12,7 @@ const compatibilitySchema = [
   `CREATE INDEX IF NOT EXISTS enterprise_finding_events_finding_date_idx ON enterprise_finding_events(finding_id,created_at)`,
 ] as const;
 
-let findingsSchemaReady: Promise<void> | null = null;
+const findingsSchemaReady = completedInitialization();
 
 async function canonicalTablesExist(db: D1Database) {
   const rows = await db.prepare(
@@ -22,14 +23,8 @@ async function canonicalTablesExist(db: D1Database) {
 }
 
 export async function ensureFindingsSchemaCompatibility(db: D1Database) {
-  if (!findingsSchemaReady) {
-    findingsSchemaReady = (async () => {
+  await findingsSchemaReady(db, async () => {
       if (!(await canonicalTablesExist(db))) await db.batch(compatibilitySchema.map((sql) => db.prepare(sql)));
       await db.batch(findingReportSchema.map((sql) => db.prepare(sql)));
-    })().catch((error) => {
-      findingsSchemaReady = null;
-      throw error;
-    });
-  }
-  await findingsSchemaReady;
+  });
 }

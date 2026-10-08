@@ -1,3 +1,5 @@
+import { completedInitialization } from "../../completed-initialization";
+import { ensurePasswordIterationsColumn } from "./password-column";
 import { NextRequest, NextResponse } from "next/server";
 import { sessionExpired, sessionTimeoutMinutes } from "../../session-policy";
 import { BASE_PATH } from "../../base-path";
@@ -23,12 +25,11 @@ const sessionsSql = `CREATE TABLE IF NOT EXISTS local_sessions (
   id_hash TEXT PRIMARY KEY, user_id TEXT NOT NULL, expires_at TEXT NOT NULL,
   created_at TEXT NOT NULL, last_seen_at TEXT NOT NULL)`;
 
-let identitySchemaReady: Promise<void> | null = null;
+const initializeIdentity = completedInitialization();
 
 export async function identityDb() {
   const { env } = await import("cloudflare:workers");
-  if (!identitySchemaReady) {
-    identitySchemaReady = (async()=>{
+  await initializeIdentity(env.DB, async()=>{
       await env.DB.batch([
         env.DB.prepare(usersSql),
         env.DB.prepare(sessionsSql),
@@ -37,16 +38,8 @@ export async function identityDb() {
         env.DB.prepare(`CREATE TABLE IF NOT EXISTS platform_settings (id TEXT PRIMARY KEY, config_json TEXT NOT NULL, updated_by TEXT NOT NULL, updated_at TEXT NOT NULL)`),
       ]);
       await ensureModuleAccessSchema(env.DB);
-      const columns=await env.DB.prepare("PRAGMA table_info(local_users)").all<{name:string}>();
-      if (!(columns.results || []).some((column)=>column.name==="password_iterations")) {
-        await env.DB.prepare(`ALTER TABLE local_users ADD COLUMN password_iterations INTEGER NOT NULL DEFAULT ${PBKDF2_LEGACY_ITERATIONS}`).run();
-      }
-    })().catch((error) => {
-      identitySchemaReady = null;
-      throw error;
-    });
-  }
-  await identitySchemaReady;
+      await ensurePasswordIterationsColumn(env.DB);
+  });
   return env.DB;
 }
 
