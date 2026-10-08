@@ -11,6 +11,25 @@ const page=await admin.newPage();page.setDefaultTimeout(20000);const errors=[];p
 async function api(context,path,method='GET',data,expected=200){const response=await context.request.fetch(base+path,{method,data,headers:{origin:base}});assert.equal(response.status(),expected,`${method} ${path}`);return response.json();}
 const login=(context,email)=>api(context,'/api/auth','POST',{action:'login',email,password});
 const q=value=>`'${String(value).replaceAll("'","''")}'`;
+async function assertCreateAccountContrast(disabled){
+ const button=page.locator('.local-users button.card-action');
+ if(disabled)await expect(button).toBeDisabled();else await expect(button).toBeEnabled();
+ for(const theme of ['light','dark']){
+  await page.evaluate(theme=>document.documentElement.dataset.theme=theme,theme);
+  for(const hover of [false,true]){
+   if(hover)await button.hover();else await page.mouse.move(0,0);
+   const result=await button.evaluate(el=>{
+    const style=getComputedStyle(el);
+    const luminance=color=>{const values=color.match(/[\d.]+/g).slice(0,3).map(Number).map(v=>{v/=255;return v<=.04045?v/12.92:((v+.055)/1.055)**2.4;});return values[0]*.2126+values[1]*.7152+values[2]*.0722;};
+    const a=luminance(style.color),b=luminance(style.backgroundColor);
+    return {ratio:(Math.max(a,b)+.05)/(Math.min(a,b)+.05),opacity:style.opacity};
+   });
+   assert.ok(result.ratio>=4.5,`${theme} local account disabled=${disabled} hover=${hover}: contrast ${result.ratio}`);
+   assert.equal(result.opacity,'1');
+  }
+ }
+ await page.mouse.move(0,0);
+}
 async function cleanup(){if(!userId)return;const path=`${out}/cleanup.sql`;await fs.writeFile(path,`DELETE FROM local_sessions WHERE user_id=${q(userId)};DELETE FROM user_module_access WHERE user_id=${q(userId)};DELETE FROM user_access_events WHERE user_id=${q(userId)};DELETE FROM local_users WHERE id=${q(userId)};`);execFileSync('npx',['wrangler','d1','execute','DB','--local','--config','wrangler.d1.jsonc','--file',path],{stdio:'pipe',timeout:60000});}
 try{
  await login(admin,'qa-admin@fornost.test');const adminId=(await api(admin,'/api/auth')).user.id;
@@ -27,8 +46,9 @@ try{
  await page.route('**/api/users',route=>route.request().method()==='GET'?route.fulfill({status:503,contentType:'application/json',body:'{}'}):route.continue());
  await page.locator('nav button[aria-label="Identity & Access"]').evaluate(el=>el.click());
  const section=page.locator('.local-users');await expect(section.getByRole('alert')).toContainText('could not be loaded');await expect(section.getByRole('button',{name:'Create Local Account',exact:true})).toBeDisabled();await expect(section.locator('.local-user-list>div')).toHaveCount(0);
+ await assertCreateAccountContrast(true);
  await page.unroute('**/api/users');await section.getByRole('button',{name:'Refresh User List',exact:true}).click();
- const row=section.locator('.local-user-list>div').filter({hasText:email}),control=row.locator('.local-user-sessions');await expect(row).toBeVisible();await control.locator('summary').click();
+ const row=section.locator('.local-user-list>div').filter({hasText:email}),control=row.locator('.local-user-sessions');await expect(row).toBeVisible();await assertCreateAccountContrast(false);await control.locator('summary').click();
  await page.route('**/api/users/sessions',route=>route.fulfill({status:503,contentType:'application/json',body:'{}'}));await control.getByRole('button',{name:'End All Local Sessions',exact:true}).click();await expect(control.getByRole('alert')).toContainText('could not be verified');await api(first,'/api/grc');
  await page.unroute('**/api/users/sessions');
  for(const theme of ['light','dark'])for(const width of [1440,390]){await page.evaluate(theme=>document.documentElement.dataset.theme=theme,theme);await page.setViewportSize({width,height:960});await control.scrollIntoViewIfNeeded();assert.ok(await control.evaluate(el=>el.scrollWidth<=el.clientWidth+1));await page.screenshot({path:`${out}/${theme}-${width}.png`});}

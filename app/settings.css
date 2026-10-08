@@ -87,3 +87,35 @@
 .local-user-sessions{grid-column:1/-1;min-width:0;border-top:1px solid var(--ws-line,var(--line));padding-top:9px;font-size:10px;color:var(--ws-ink,var(--ink))}
 .local-user-sessions summary{cursor:pointer;font-weight:700}.local-user-sessions p{margin:9px 0;line-height:1.6;overflow-wrap:anywhere;color:var(--ws-muted,var(--muted))}.local-user-sessions [role=alert]{color:var(--ws-negative,#b42318)}
 .local-user-sessions button:disabled{opacity:.5;cursor:wait}.local-users-load-state{display:flex;align-items:center;flex-wrap:wrap;gap:10px;padding:10px 20px;font-size:11px;color:var(--ws-ink,var(--ink))}.local-users-load-state button{padding:7px 10px;border:1px solid var(--ws-line,var(--line));border-radius:7px;background:var(--ws-surface,var(--cp-panel,#fff));color:inherit;font:inherit;cursor:pointer}
+
+/* Keep the local-account action readable under global dark-theme button rules. */
+html .local-users button.primary.card-action,
+html .local-users button.primary.card-action:hover {
+  background:#17665b !important;
+  border-color:#17665b !important;
+  color:#fff !important;
+  opacity:1 !important;
+  filter:none !important;
+  transition:none !important;
+}
+html .local-users button.primary.card-action:disabled {
+  background:#e2e8f0 !important;
+  border-color:#94a3b8 !important;
+  color:#334155 !important;
+  cursor:not-allowed;
+}
+html[data-theme="dark"] .local-users button.primary.card-action,
+html[data-theme="dark"] .local-users button.primary.card-action:hover {
+  background:#71d9ca !important;
+  border-color:#71d9ca !important;
+  color:#0b1717 !important;
+}
+html[data-theme="dark"] .local-users button.primary.card-action:disabled {
+  background:#2e4456 !important;
+  border-color:#64748b !important;
+  color:#f1f5f9 !important;
+}
+html .local-users button.primary.card-action:focus-visible {
+  outline:2px solid var(--ws-ink,var(--ink));
+  outline-offset:3px;
+}
