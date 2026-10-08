@@ -33,6 +33,8 @@ try{
  await expect(panel.locator('.assurance-work-list>article').first().getByRole('button',{name:'Approve',exact:true})).toHaveCount(0);
  await panel.getByRole('searchbox').fill('CTRL-QA-35');await expect(panel.locator('.assurance-work-list>article')).toHaveCount(1);
  uncertain=true;await panel.getByRole('button',{name:'Request New Test',exact:true}).dispatchEvent('click');await panel.getByRole('button',{name:'Request New Test',exact:true}).dispatchEvent('click');
+ await page.locator('.language-switch:visible').getByRole('button',{name:'TR',exact:true}).click();
+ await page.locator('.language-switch:visible').getByRole('button',{name:'EN',exact:true}).click();
  await expect(panel.getByRole('status')).toContainText('could not be confirmed');await expect(panel.getByRole('button',{name:'Refresh',exact:true})).toBeEnabled();assert.equal(writes,1);
  uncertain=false;await panel.getByRole('searchbox').fill('CTRL-QA-2');
  await panel.locator('.assurance-work-list>article').first().getByRole('button',{name:'Approve',exact:true}).click();
@@ -71,10 +73,16 @@ try{
  await expect(panel.locator('.assurance-work-summary b').first()).not.toHaveText('—');
  // Continue beyond the old 500-record boundary, preserving search and rendering budget.
  const cursor=JSON.stringify([4,items.at(-1).updatedAt,items.at(-1).id]);
- let duplicatePage=false,pageUnavailable=false;
+ let duplicatePage=false,pageUnavailable=false,wrongSearchEcho=false;
  const extra={...items[0],id:'QA-AFTER-500',findingTitle:'Beyond boundary',controlRefs:'CTRL-AFTER-500',actor:'creator@fornost.test',status:'pending-review'};
  await page.route('**/api/continuous-assurance?*',route=>{
-  assert.equal(new URL(route.request().url()).searchParams.get('cursor'),cursor);
+  const params=new URL(route.request().url()).searchParams;
+  if(params.has('q')){
+   assert.equal(params.get('q'),'CTRL-GLOBAL-ONLY');assert.equal(params.get('lang'),'en');
+   const found={...extra,id:'QA-GLOBAL-ONLY',controlRefs:'CTRL-GLOBAL-ONLY',findingTitle:'Server-wide search result'};
+   return route.fulfill({json:{items:[found],search:{query:wrongSearchEcho?'other':params.get('q'),lang:'en'},nextCursor:null,coverage:{loaded:1,complete:true},summary:{total:1,pendingReview:1,awaitingRetest:0,capaPromotion:0,retest:1,failedRetest:0,retestError:0,completed:0,rejected:0}}});
+  }
+  assert.equal(params.get('cursor'),cursor);
   if(pageUnavailable)return route.fulfill({status:503,json:{error:'page outage'}});
   return route.fulfill({json:{items:[duplicatePage?items[0]:extra],nextCursor:null,coverage:{loaded:1,complete:true},summary:{total:1,pendingReview:1,awaitingRetest:0,capaPromotion:0,retest:1,failedRetest:0,retestError:0,completed:0,rejected:0}}});
  });
@@ -101,6 +109,23 @@ try{
  duplicatePage=false;pageUnavailable=false;
  await panel.getByRole('button',{name:'Refresh',exact:true}).click();
  await expect(panel.getByRole('alert')).toHaveCount(0);
+ assert.equal(writes,2);
+ await panel.getByRole('searchbox').fill('CTRL-GLOBAL-ONLY');
+ await expect(panel.locator('.assurance-work-list>article')).toHaveCount(0);
+ await panel.getByRole('button',{name:'Search all records',exact:true}).click();
+ await expect(panel.locator('.assurance-work-list')).toContainText('Server-wide search result');
+ await expect(panel.getByRole('status').filter({hasText:'Server search:'})).toContainText('CTRL-GLOBAL-ONLY');
+ await expect(panel.locator('.assurance-work-summary b').first()).toHaveText('1');
+ await page.locator('.language-switch:visible').getByRole('button',{name:'TR',exact:true}).click();
+ await panel.getByRole('button',{name:'Yenile',exact:true}).click();
+ await expect(panel.locator('.assurance-work-list')).toContainText('Server-wide search result');
+ await page.locator('.language-switch:visible').getByRole('button',{name:'EN',exact:true}).click();
+ await panel.getByRole('button',{name:'Clear search',exact:true}).click();
+ await expect(panel.getByRole('searchbox')).toHaveValue('');
+ await expect(panel.locator('.assurance-work-list')).not.toContainText('Server-wide search result');
+ wrongSearchEcho=true;await panel.getByRole('searchbox').fill('CTRL-GLOBAL-ONLY');
+ await panel.getByRole('button',{name:'Search all records',exact:true}).click();
+ await expect(panel.getByRole('alert')).toBeVisible();await expect(panel.getByRole('button',{name:'Approve',exact:true})).toHaveCount(0);
  assert.equal(writes,2);
  console.log('Assurance queue recovery QA passed: unknown counters, retry, full-list search, independent review, duplicate review/retest guards and ambiguous write recovery without retry.');
 }finally{await browser.close();}

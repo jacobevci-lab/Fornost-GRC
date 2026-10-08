@@ -69,3 +69,33 @@ test('cursor binds literal IDs and preserves fallback pagination',async()=>{
   for(const cursor of ['{}','[]','null','[5,"x","id"]','[0,"x",""]','x'.repeat(1025)])await assert.rejects(()=>readAssuranceQueue(db,cursor),/Invalid assurance cursor/);
  }finally{sql.close();}
 });
+
+test('server search reaches records beyond 500 with Turkish case and literal wildcard characters',async()=>{
+ const {sql,db}=fixture();try{
+  sql.exec('ALTER TABLE continuous_assurance_work_items ADD COLUMN decision_json TEXT;');
+  const insert=sql.prepare('INSERT INTO continuous_assurance_work_items(id,status,updated_at,finding_id,rule_id,result_ref,decision_json) VALUES(?,?,?,?,?,?,?)');
+  for(let i=0;i<550;i++)insert.run(String(i).padStart(4,'0'),'completed','2026-10-08T00:00:00Z',null,null,null,'invalid-json');
+  sql.exec("INSERT INTO evidence_automation_findings VALUES('F','IŞIK kontrolü','high','Çağrı',''); INSERT INTO evidence_automation_rules VALUES('R','Rule','CTRL-5'); INSERT INTO enterprise_findings VALUES('C','CAPA-501');");
+  insert.run('ZZ-LAST','completed','2026-10-08T00:00:00Z','F','R','C',JSON.stringify({targetControlRef:'CTRL-100%_literal'}));
+  for(const query of ['ışık','çağrı','CTRL-5','CAPA-501','100%_literal','ZZ-LAST']){
+   const result=await readAssuranceQueue<{id:string}>(db,undefined,{query,lang:'tr'});
+   assert.deepEqual(result.rows.map(row=>row.id),['ZZ-LAST']);assert.equal(result.coverage.complete,true);
+  }
+  const literal=await readAssuranceQueue(db,undefined,{query:"' OR 1=1 --",lang:'en'});assert.equal(literal.rows.length,0);
+  sql.exec('DROP TABLE enterprise_findings;');
+  await assert.rejects(()=>readAssuranceQueue(db,undefined,{query:'ışık',lang:'tr'}));
+ }finally{sql.close();}
+});
+test('search continuation keeps its predicate on every page',async()=>{
+ const {sql,db}=fixture();try{
+  sql.exec('ALTER TABLE continuous_assurance_work_items ADD COLUMN decision_json TEXT;');
+  const insert=sql.prepare('INSERT INTO continuous_assurance_work_items(id,status,updated_at) VALUES(?,?,?)');
+  for(let i=0;i<1100;i++)insert.run(`${i%2?'MATCH':'OTHER'}-${String(i).padStart(4,'0')}`,'completed','2026-10-08T00:00:00Z');
+  const search={query:'MATCH',lang:'en' as const};
+  const first=await readAssuranceQueue<{id:string}>(db,undefined,search);
+  const last=await readAssuranceQueue<{id:string}>(db,first.nextCursor!,search);
+  assert.equal(first.rows.length,500);assert.equal(last.rows.length,50);assert.equal(last.nextCursor,null);
+  assert.equal(new Set([...first.rows,...last.rows].map(row=>row.id)).size,550);
+  assert.ok([...first.rows,...last.rows].every(row=>row.id.startsWith('MATCH')));
+ }finally{sql.close();}
+});
