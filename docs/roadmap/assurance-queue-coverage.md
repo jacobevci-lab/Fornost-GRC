@@ -6,7 +6,7 @@ The register now reads one sentinel beyond the 500-row response budget and retur
 
 The workspace displays a partial-queue notice and withholds overall counters and operational metrics when the response is incomplete. Search and filters are explicitly described as applying only to the loaded rows. Individual loaded records remain reviewable through the existing permission and independent-review checks. Older responses without coverage are conservatively partial at the cap.
 
-The response validator rejects duplicate/blank identities, negative/fractional/unsafe counters, mismatched totals and inconsistent coverage. Rejected responses use the existing recovery state with review actions disabled until a valid refresh.
+The response validator rejects duplicate/blank identities, negative/fractional/unsafe counters, mismatched totals, category counters that contradict the returned records, and inconsistent coverage. API and client use the same status/action summary calculation; the client independently recalculates counts after appending each page. Rejected responses use the existing recovery state with review actions disabled until a valid refresh.
 
 Validation: SQLite fixtures cover empty, exactly 500 and 501+ results, stable ties and the legacy fallback. Unit tests cover corrupt responses and backward compatibility. Browser QA covers partial counters, duplicate-identity rejection and recovery to an explicitly complete 500-row response, alongside the existing SLA and independent-review scenarios.
 

@@ -6,7 +6,7 @@ const browser=await chromium.launch({executablePath:process.env.QA_CHROMIUM_PATH
 const context=await browser.newContext({viewport:{width:1536,height:960}});
 const page=await context.newPage();page.setDefaultTimeout(20000);
 const testNow=new Date();await page.clock.install({time:testNow});
-let unavailable=true,writes=0,uncertain=false,coverage,malformed=false,nextCursor;
+let unavailable=true,writes=0,uncertain=false,coverage,malformed=false,wrongCounters=false,nextCursor;
 const items=Array.from({length:35},(_,i)=>({id:`QA-W-${i+1}`,findingId:`QA-F-${i+1}`,ruleId:`QA-R-${i+1}`,action:'control-retest',status:i===34?'retest-error':'pending-review',findingTitle:`QA queue finding ${i+1}`,severity:'high',owner:'owner@fornost.test',dueDate:'2026-12-01',ruleName:`QA rule ${i+1}`,controlRefs:`CTRL-QA-${i+1}`,createdAt:testNow.toISOString(),updatedAt:testNow.toISOString(),actor:i===0?'qa-admin@fornost.test':'creator@fornost.test'}));
 await page.route('**/api/continuous-assurance',async route=>{
  if(route.request().method()==='POST'){
@@ -17,7 +17,7 @@ await page.route('**/api/continuous-assurance',async route=>{
   return route.fulfill({status:uncertain?503:200,json:uncertain?{error:'fixture outage'}:{message:'Review completed.'}});
  }
  if(unavailable)return route.fulfill({status:503,json:{error:'fixture outage'}});
- return route.fulfill({json:{nextCursor,items:malformed?[items[0],...items.slice(0,-1)]:items,coverage,summary:{total:items.length,pendingReview:items.filter(i=>i.status==='pending-review').length,awaitingRetest:items.filter(i=>i.status==='approved-awaiting-retest').length,capaPromotion:0,retest:34,failedRetest:0,retestError:1,completed:0,rejected:0}}});
+ return route.fulfill({json:{nextCursor,items:malformed?[items[0],...items.slice(0,-1)]:items,coverage,summary:{total:items.length,pendingReview:wrongCounters?0:items.filter(i=>i.status==='pending-review').length,awaitingRetest:items.filter(i=>i.status==='approved-awaiting-retest').length,capaPromotion:0,retest:items.filter(i=>i.status==='pending-review').length,failedRetest:0,retestError:1,completed:items.filter(i=>i.status==='completed').length,rejected:0}}});
 });
 try{
  const login=await context.request.post(`${base}/api/auth`,{headers:{origin:base},data:{action:'login',email:'qa-admin@fornost.test',password:qaPassword()}});assert.equal(login.status(),200);
@@ -65,6 +65,10 @@ try{
  await panel.getByRole('button',{name:'Refresh',exact:true}).click();
  await expect(panel.locator('.assurance-queue-coverage')).toContainText('Partial queue: 500 items loaded');
  for(const metric of await panel.locator('.assurance-work-summary b,.assurance-ops b').all())await expect(metric).toHaveText('—');
+ wrongCounters=true;await panel.getByRole('button',{name:'Refresh',exact:true}).click();
+ await expect(panel.getByRole('alert')).toBeVisible();await expect(panel.getByRole('button',{name:'Approve',exact:true})).toHaveCount(0);
+ await expect(panel.locator('.assurance-work-summary b').first()).toHaveText('—');
+ wrongCounters=false;
  malformed=true;await panel.getByRole('button',{name:'Refresh',exact:true}).click();
  await expect(panel.getByRole('alert')).toBeVisible();await expect(panel.getByRole('button',{name:'Approve',exact:true})).toHaveCount(0);
  malformed=false;coverage={loaded:500,complete:true};

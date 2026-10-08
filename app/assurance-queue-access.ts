@@ -1,3 +1,4 @@
+import {assuranceQueueSummary} from "./assurance-queue-summary";
 import {assuranceQueueCursor,parseAssuranceQueueCursor} from "./assurance-queue-cursor";
 export function canReviewAssuranceWork(role:string,email:string,item:{status:string;actor:string},decision:'approve'|'reject',note:string) {
  const identity=email.trim().toLowerCase(),requester=item.actor.trim().toLowerCase();
@@ -12,9 +13,9 @@ export function validAssuranceQueue(body:Record<string,unknown>):boolean {
   if(!row||typeof row!=='object'||!required.every(key=>typeof row[key]==='string')||!optional.every(key=>row[key]==null||typeof row[key]==='string'))return false;
   const id=row.id.trim();if(!id||id!==row.id||ids.has(id))return false;ids.add(id);return true;
  }))return false;
- const count=body.items.length;
+ const expected=assuranceQueueSummary(body.items);
  const summary=body.summary as Record<string,unknown>|undefined;
- if(!summary||typeof summary!=='object'||!['total','pendingReview','awaitingRetest','capaPromotion','retest','failedRetest','retestError','completed','rejected'].every(key=>Number.isSafeInteger(summary[key])&&Number(summary[key])>=0&&Number(summary[key])<=count)||summary.total!==body.items.length)return false;
+ if(!summary||typeof summary!=='object'||!Object.entries(expected).every(([key,value])=>summary[key]===value))return false;
  if(body.coverage!==undefined){
   const coverage=body.coverage as Record<string,unknown>|null;
   if(!coverage||typeof coverage!=='object'||coverage.loaded!==body.items.length||typeof coverage.complete!=='boolean')return false;
