@@ -43,7 +43,7 @@ try{
  unavailable=false;await panel.getByRole('searchbox').fill('');
  items[0].createdAt='';items[1].createdAt='not-a-date';items[2].createdAt='2099-01-01T00:00:00Z';
  await panel.getByRole('button',{name:'Refresh',exact:true}).click();
- await expect(panel.getByRole('status')).toContainText('3 active items have missing or invalid creation timestamps');
+ await expect(panel.getByRole('status').filter({hasText:'active items have missing or invalid creation timestamps'})).toContainText('3 active items');
  await expect(panel.locator('.assurance-ops article').nth(4).locator('b')).toHaveText('—');
  await panel.getByRole('button',{name:'Attention',exact:true}).click();
  await expect(panel.locator('.assurance-work-sla.unknown')).toHaveCount(3);
