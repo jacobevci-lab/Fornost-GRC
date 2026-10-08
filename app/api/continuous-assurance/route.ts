@@ -2,6 +2,7 @@ import {assuranceQueueSummary} from "../../assurance-queue-summary";
 import type {AssuranceSourceState} from "../../assurance-queue-context";
 import {parseAssuranceQueueSearch} from "../../assurance-queue-search";
 import { parseAssuranceQueueCursor } from "../../assurance-queue-cursor";
+import { parseAssuranceQueueFilter } from "../../assurance-queue-filter";
 import { readAssuranceQueue, readAssuranceSourceState } from "../../assurance-queue-register";
 import { NextRequest, NextResponse } from "next/server";
 import { requireRole, type AppRole } from "../auth/security";
@@ -105,10 +106,11 @@ async function resolveRetestTargetControl(db:D1Database,findingId:string,mappedC
 export async function GET(req:NextRequest){
   const access=await requireRole(req,["Admin","Editor","Viewer"]);if(access.response)return access.response;
   const params=new URL(req.url).searchParams,cursor=params.get("cursor");
+  let filter;try{filter=parseAssuranceQueueFilter(params.get("filter")??"all");}catch{return json({error:"Invalid assurance filter."},400);}
   let search;try{search=parseAssuranceQueueSearch(params.get("q")??"",params.get("lang")??"en");}catch{return json({error:"Invalid assurance search."},400);}
   if(cursor!==null){try{parseAssuranceQueueCursor(cursor);}catch{return json({error:"Invalid assurance cursor."},400);}}
   const env=await runtime();await ensureAssuranceWorkSchema(env.DB);await reconcileApprovedRetests(env.DB);
-  const result=await readAssuranceQueue<WorkRow>(env.DB,cursor??undefined,search);
+  const result=await readAssuranceQueue<WorkRow>(env.DB,cursor??undefined,search,filter);
   const items=result.rows.map(row=>{
     const decision=parseData(row.decision_json);
     return {
@@ -120,7 +122,7 @@ export async function GET(req:NextRequest){
       retestOutcome:row.action==="control-retest"&&asObject(decision.retestOutcome).runId===row.result_ref?decision.retestOutcome as RetestOutcome:undefined,
     };
   });
-  return json({items,search,context:result.context,nextCursor:result.nextCursor,coverage:result.coverage,summary:assuranceQueueSummary(items)});
+  return json({items,search,filter,context:result.context,nextCursor:result.nextCursor,coverage:result.coverage,summary:assuranceQueueSummary(items)});
 }
 
 export async function POST(req:NextRequest){

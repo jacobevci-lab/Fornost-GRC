@@ -11,3 +11,11 @@ Each work row also declares `sourceState`: `linked`, `missing-finding`, `missing
 Compatibility: older responses without `context` or `sourceState` remain accepted; explicit unrecognized metadata is rejected. These checks do not provide transactional snapshot consistency or validate every downstream control, risk, evidence or CAPA relationship.
 
 Validation: SQLite exercises all three source levels. Failure-injection tests prove operational errors do not issue reduced queries. Browser QA checks warnings, withheld metrics/actions, retained work counters, and recovery to complete context.
+
+## Status scope
+
+`GET /api/continuous-assurance?filter=active|review|retest|all` applies an exact status predicate before the 501-row sentinel query. Omission preserves the existing `all` API behavior. Unknown filters return 400. Search and cursor predicates compose with the status scope, including the legacy source-table fallbacks. Returned `filter` describes the scope; coverage and summary describe that result, not the full organization backlog.
+
+Selecting Active, Review, Re-test or All reloads the first matching page. Search, refresh, post-write reconciliation and continuation preserve the selected server scope. The client checks the echoed scope and every returned row before enabling work actions; continuation cannot combine different scopes. An explicit scope label explains why counters or metrics change. The initial compatible all-record read retains the active display filter until a scope is selected.
+
+Attention remains a client-side SLA assessment over the all-record query because its membership also depends on timestamps and source integrity. Selecting Attention resets the server status scope to all. A partial result explicitly warns that additional records must be loaded; this is not a global SLA search. Keyset pagination is still a live view, not a transactional snapshot.
