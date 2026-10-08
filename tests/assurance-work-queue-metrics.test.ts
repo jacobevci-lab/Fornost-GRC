@@ -26,3 +26,35 @@ test("closed work is excluded from active SLA breach calculations", () => {
   assert.equal(summary.averageReviewHours,3);
   assert.equal(summary.withinSlaPercent,0);
 });
+
+test('missing, malformed, timezone-free, impossible and future creation timestamps are unknown',()=>{
+ for(const createdAt of [undefined,'','garbage','2026-09-21','2026-09-21T11:00:00','2026-02-30T11:00:00Z','2026-09-21T24:00:00Z','2026-09-21T12:00:01Z']){
+  const item={action:'control-retest',status:'pending-review',createdAt,updatedAt:'2026-09-21T11:00:00Z'};
+  assert.equal(assuranceWorkSlaState(item,now),'unknown',String(createdAt));
+ }
+ assert.equal(assuranceWorkSlaState({action:'control-retest',status:'completed'},now),'closed');
+});
+test('SLA boundaries use the same instant for offset timestamps and breach at the deadline',()=>{
+ const item={action:'control-retest',status:'pending-review',severity:'high',createdAt:'2026-09-21T07:00:00+03:00'};
+ assert.equal(assuranceWorkSlaState(item,new Date('2026-09-21T11:59:59Z')),'due-soon');
+ assert.equal(assuranceWorkSlaState(item,now),'breached');
+ assert.equal(assuranceWorkSlaState(item,new Date('invalid')),'unknown');
+});
+test('unknown active timestamps suppress overall SLA percentage and incomplete pending-age metrics',()=>{
+ const summary=summarizeAssuranceQueue([
+  {action:'control-retest',status:'pending-review',createdAt:'2026-09-21T11:00:00Z'},
+  {action:'control-retest',status:'pending-review',updatedAt:'2026-09-21T11:00:00Z'},
+  {action:'control-retest',status:'completed'},
+ ],now);
+ assert.equal(summary.active,2);assert.equal(summary.unknown,1);assert.equal(summary.withinSlaPercent,null);assert.equal(summary.oldestPendingHours,null);
+ assert.equal(summary.breached,0);assert.equal(summary.averageReviewHours,null);
+});
+test('no active work or valid review observations yield no fabricated 100 percent or zero-hour average',()=>{
+ assert.equal(summarizeAssuranceQueue([],now).withinSlaPercent,null);
+ assert.equal(summarizeAssuranceQueue([],now).oldestPendingHours,null);
+ const summary=summarizeAssuranceQueue([
+  {action:'control-retest',status:'completed',createdAt:'2026-09-21T10:00:00Z',reviewedAt:'2026-09-22T10:00:00Z'},
+  {action:'control-retest',status:'completed',createdAt:'2026-09-21T10:00:00Z',reviewedAt:'2026-09-21T09:00:00Z'},
+ ],now);
+ assert.equal(summary.averageReviewHours,null);assert.equal(summary.unknown,0);
+});

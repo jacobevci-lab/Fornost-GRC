@@ -12,9 +12,10 @@ export type AssuranceQueueHealth = {
   active: number;
   breached: number;
   dueSoon: number;
-  oldestPendingHours: number;
-  averageReviewHours: number;
-  withinSlaPercent: number;
+  unknown: number;
+  oldestPendingHours: number | null;
+  averageReviewHours: number | null;
+  withinSlaPercent: number | null;
 };
 
 const ACTIVE = new Set(["pending-review", "approved-awaiting-retest", "failed-retest", "retest-error"]);
@@ -23,8 +24,12 @@ const SLA_HOURS: Record<string, number> = {
   "control-retest": 12,
 };
 
+// Work timestamps are instants, never locale-dependent dates. Reject normalized
+// impossible dates (e.g. February 30) and values without an explicit timezone.
 const validDate = (value?: string) => {
-  if (!value) return null;
+  if (!value || !/^\d{4}-\d{2}-\d{2}T(?:[01]\d|2[0-3]):[0-5]\d:[0-5]\d(?:\.\d{1,3})?(?:Z|[+-]\d{2}:[0-5]\d)$/.test(value)) return null;
+  const day = new Date(`${value.slice(0,10)}T00:00:00Z`);
+  if (!Number.isFinite(day.getTime()) || day.toISOString().slice(0,10) !== value.slice(0,10)) return null;
   const date = new Date(value);
   return Number.isFinite(date.getTime()) ? date : null;
 };
@@ -38,16 +43,17 @@ export function assuranceWorkSlaHours(item: AssuranceQueueItem) {
 }
 
 export function assuranceWorkAgeHours(item: AssuranceQueueItem, now = new Date()) {
-  const start = validDate(item.createdAt) || validDate(item.updatedAt);
-  if (!start) return 0;
-  return Math.max(0, (now.getTime() - start.getTime()) / 3_600_000);
+  const start = validDate(item.createdAt);
+  if (!start || !Number.isFinite(now.getTime()) || start > now) return null;
+  return (now.getTime() - start.getTime()) / 3_600_000;
 }
 
 export function assuranceWorkSlaState(item: AssuranceQueueItem, now = new Date()) {
   if (!ACTIVE.has(item.status)) return "closed" as const;
   const age = assuranceWorkAgeHours(item, now);
+  if (age === null) return "unknown" as const;
   const sla = assuranceWorkSlaHours(item);
-  if (age > sla) return "breached" as const;
+  if (age >= sla) return "breached" as const;
   if (age >= sla * .75) return "due-soon" as const;
   return "within-sla" as const;
 }
@@ -59,17 +65,20 @@ export function summarizeAssuranceQueue(items: AssuranceQueueItem[], now = new D
   const reviewDurations = items.flatMap((item) => {
     const created = validDate(item.createdAt);
     const reviewed = validDate(item.reviewedAt);
-    if (!created || !reviewed || reviewed < created) return [];
+    if (!created || !reviewed || reviewed < created || reviewed > now || !Number.isFinite(now.getTime())) return [];
     return [(reviewed.getTime() - created.getTime()) / 3_600_000];
   });
+  const unknown = states.filter(state => state === "unknown").length;
+  const knownPendingAges = pendingAges.filter((age): age is number => age !== null);
   const breached = states.filter((state) => state === "breached").length;
   const dueSoon = states.filter((state) => state === "due-soon").length;
   return {
     active: activeItems.length,
+    unknown,
     breached,
     dueSoon,
-    oldestPendingHours: pendingAges.length ? Math.round(Math.max(...pendingAges)) : 0,
-    averageReviewHours: reviewDurations.length ? Math.round((reviewDurations.reduce((sum, value) => sum + value, 0) / reviewDurations.length) * 10) / 10 : 0,
-    withinSlaPercent: activeItems.length ? Math.round(((activeItems.length - breached) / activeItems.length) * 100) : 100,
+    oldestPendingHours: knownPendingAges.length && knownPendingAges.length === pendingAges.length ? Math.round(Math.max(...knownPendingAges)) : null,
+    averageReviewHours: reviewDurations.length ? Math.round((reviewDurations.reduce((sum, value) => sum + value, 0) / reviewDurations.length) * 10) / 10 : null,
+    withinSlaPercent: activeItems.length && !unknown ? Math.round(((activeItems.length - breached) / activeItems.length) * 100) : null,
   };
 }

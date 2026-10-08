@@ -5,8 +5,9 @@ const base='http://127.0.0.1:4173';
 const browser=await chromium.launch({executablePath:process.env.QA_CHROMIUM_PATH||undefined});
 const context=await browser.newContext({viewport:{width:1536,height:960}});
 const page=await context.newPage();page.setDefaultTimeout(20000);
+const testNow=new Date();await page.clock.install({time:testNow});
 let unavailable=true,writes=0,uncertain=false;
-const items=Array.from({length:35},(_,i)=>({id:`QA-W-${i+1}`,findingId:`QA-F-${i+1}`,ruleId:`QA-R-${i+1}`,action:'control-retest',status:i===34?'retest-error':'pending-review',findingTitle:`QA queue finding ${i+1}`,severity:'high',owner:'owner@fornost.test',dueDate:'2026-12-01',ruleName:`QA rule ${i+1}`,controlRefs:`CTRL-QA-${i+1}`,createdAt:new Date().toISOString(),updatedAt:new Date().toISOString(),actor:i===0?'qa-admin@fornost.test':'creator@fornost.test'}));
+const items=Array.from({length:35},(_,i)=>({id:`QA-W-${i+1}`,findingId:`QA-F-${i+1}`,ruleId:`QA-R-${i+1}`,action:'control-retest',status:i===34?'retest-error':'pending-review',findingTitle:`QA queue finding ${i+1}`,severity:'high',owner:'owner@fornost.test',dueDate:'2026-12-01',ruleName:`QA rule ${i+1}`,controlRefs:`CTRL-QA-${i+1}`,createdAt:testNow.toISOString(),updatedAt:testNow.toISOString(),actor:i===0?'qa-admin@fornost.test':'creator@fornost.test'}));
 await page.route('**/api/continuous-assurance',async route=>{
  if(route.request().method()==='POST'){
   writes++;const body=route.request().postDataJSON();
@@ -39,5 +40,23 @@ try{
  await dialog.locator('footer button.approve').evaluate(button=>{button.dispatchEvent(new MouseEvent('click',{bubbles:true}));button.dispatchEvent(new MouseEvent('click',{bubbles:true}));});
  await expect(dialog).toHaveCount(0);assert.equal(writes,2);
  unavailable=true;await panel.getByRole('button',{name:'Refresh',exact:true}).click();await expect(panel.getByRole('alert')).toBeVisible();await expect(panel.getByRole('button',{name:'Approve',exact:true})).toHaveCount(0);
+ unavailable=false;await panel.getByRole('searchbox').fill('');
+ items[0].createdAt='';items[1].createdAt='not-a-date';items[2].createdAt='2099-01-01T00:00:00Z';
+ await panel.getByRole('button',{name:'Refresh',exact:true}).click();
+ await expect(panel.getByRole('status').filter({hasText:'active items have missing or invalid creation timestamps'})).toContainText('3 active items');
+ await expect(panel.locator('.assurance-ops article').nth(4).locator('b')).toHaveText('—');
+ await panel.getByRole('button',{name:'Attention',exact:true}).click();
+ await expect(panel.locator('.assurance-work-sla.unknown')).toHaveCount(3);
+ for(let i=0;i<3;i++)items[i].createdAt=testNow.toISOString();
+ const clockNow=await page.evaluate(()=>Date.now());
+ items[3].createdAt=new Date(clockNow-8*3600000+15000).toISOString();
+ await panel.getByRole('button',{name:'Refresh',exact:true}).click();
+ await expect(panel.locator('.assurance-work-sla.unknown')).toHaveCount(0);
+ await expect(panel.locator('.assurance-work-sla.breached')).toHaveCount(0);
+ await expect(panel.locator('.assurance-ops article').nth(4).locator('b')).toHaveText('100%');
+ await page.clock.fastForward(31000);
+ await expect(panel.locator('.assurance-work-sla.breached')).toHaveCount(1);
+ await expect(panel.locator('.assurance-ops article').nth(4).locator('b')).not.toHaveText('100%');
+ assert.equal(writes,2);
  console.log('Assurance queue recovery QA passed: unknown counters, retry, full-list search, independent review, duplicate review/retest guards and ambiguous write recovery without retry.');
 }finally{await browser.close();}
