@@ -33,6 +33,21 @@ Isolated runtime QA exercises policy reduction, non-extension, cookie deadlines,
 malformed state and browser return to sign-in. No production sessions are altered
 by these tests.
 
+## Bounded session maintenance
+
+Each new local session removes at most 100 expired records, oldest expiry first.
+Expiry and user indexes support cleanup and administrator session revocation.
+Migration `0083_session_lookup_indexes.sql` adds these indexes to existing data;
+the runtime compatibility path also creates them for older installations.
+Large expired backlogs drain across subsequent sign-ins. Remaining expired rows
+cannot authenticate: every request still checks the session deadline and policy,
+and a presented expired session is deleted individually. Cleanup failures still
+fail session creation; they are not silently reported as a successful sign-in.
+
+This limits cleanup work, but does not establish the root cause of the intermittent
+production login timeouts observed during QA. Index creation on a large existing
+table is a one-time deployment cost.
+
 ## Administrator session termination
 
 Identity & Access → Local User Accounts → Session security provides **End All Local

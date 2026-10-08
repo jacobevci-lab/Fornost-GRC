@@ -1,4 +1,4 @@
-import { integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import { index, integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
 
 /**
  * Canonical schema for Fornost local identity data.
@@ -29,7 +29,10 @@ export const localSessions = sqliteTable("local_sessions", {
   expiresAt: text("expires_at").notNull(),
   createdAt: text("created_at").notNull(),
   lastSeenAt: text("last_seen_at").notNull(),
-});
+}, (table) => [
+  index("local_sessions_expiry_idx").on(table.expiresAt, table.idHash),
+  index("local_sessions_user_idx").on(table.userId),
+]);
 
 export const userModuleAccess = sqliteTable("user_module_access", {
   userId: text("user_id").primaryKey(), policyJson: text("policy_json").notNull(),
