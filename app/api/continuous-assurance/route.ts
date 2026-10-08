@@ -2,6 +2,8 @@ import {assuranceQueueSummary} from "../../assurance-queue-summary";
 import type {AssuranceSourceState} from "../../assurance-queue-context";
 import {parseAssuranceQueueSearch} from "../../assurance-queue-search";
 import { parseAssuranceQueueCursor } from "../../assurance-queue-cursor";
+import { readAssuranceAttention } from "../../assurance-attention-register";
+import { parseAssuranceAssessment } from "../../assurance-queue-attention";
 import { parseAssuranceQueueFilter } from "../../assurance-queue-filter";
 import { readAssuranceQueue, readAssuranceSourceState } from "../../assurance-queue-register";
 import { NextRequest, NextResponse } from "next/server";
@@ -109,8 +111,10 @@ export async function GET(req:NextRequest){
   let filter;try{filter=parseAssuranceQueueFilter(params.get("filter")??"all");}catch{return json({error:"Invalid assurance filter."},400);}
   let search;try{search=parseAssuranceQueueSearch(params.get("q")??"",params.get("lang")??"en");}catch{return json({error:"Invalid assurance search."},400);}
   if(cursor!==null){try{parseAssuranceQueueCursor(cursor);}catch{return json({error:"Invalid assurance cursor."},400);}}
+  let assessment:Date|undefined;try{if(filter==="attention")assessment=parseAssuranceAssessment(params.get("at"),cursor!==null);}catch{return json({error:"Invalid or expired attention assessment. Refresh the queue."},400);}
   const env=await runtime();await ensureAssuranceWorkSchema(env.DB);await reconcileApprovedRetests(env.DB);
-  const result=await readAssuranceQueue<WorkRow>(env.DB,cursor??undefined,search,filter);
+  const attentionResult=filter==="attention"?await readAssuranceAttention<WorkRow>(env.DB,assessment!,cursor??undefined,search):null;
+  const result=attentionResult??await readAssuranceQueue<WorkRow>(env.DB,cursor??undefined,search,filter);
   const items=result.rows.map(row=>{
     const decision=parseData(row.decision_json);
     return {
@@ -122,7 +126,7 @@ export async function GET(req:NextRequest){
       retestOutcome:row.action==="control-retest"&&asObject(decision.retestOutcome).runId===row.result_ref?decision.retestOutcome as RetestOutcome:undefined,
     };
   });
-  return json({items,search,filter,context:result.context,nextCursor:result.nextCursor,coverage:result.coverage,summary:assuranceQueueSummary(items)});
+  return json({items,search,filter,...(attentionResult?{assessmentAt:attentionResult.assessmentAt,scanned:attentionResult.scanned}:{}),context:result.context,nextCursor:result.nextCursor,coverage:result.coverage,summary:assuranceQueueSummary(items)});
 }
 
 export async function POST(req:NextRequest){
