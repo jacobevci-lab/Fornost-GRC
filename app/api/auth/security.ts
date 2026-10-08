@@ -3,6 +3,7 @@ import { sessionExpired, sessionTimeoutMinutes } from "../../session-policy";
 import { BASE_PATH } from "../../base-path";
 import { scopedApiAllowed, type ModuleAccess } from "../../module-access";
 import { ensureModuleAccessSchema, readModuleAccess } from "../users/access-storage";
+import { cleanupExpiredSessions, SESSION_EXPIRY_INDEX_SQL, SESSION_USER_INDEX_SQL } from "./session-storage";
 
 export type AppRole = "Admin" | "Editor" | "Viewer";
 export type Actor = { id: string; email: string; name: string; role: AppRole; source: "local" | "entra"; moduleAccess?: ModuleAccess };
@@ -31,6 +32,8 @@ export async function identityDb() {
       await env.DB.batch([
         env.DB.prepare(usersSql),
         env.DB.prepare(sessionsSql),
+        env.DB.prepare(SESSION_EXPIRY_INDEX_SQL),
+        env.DB.prepare(SESSION_USER_INDEX_SQL),
         env.DB.prepare(`CREATE TABLE IF NOT EXISTS platform_settings (id TEXT PRIMARY KEY, config_json TEXT NOT NULL, updated_by TEXT NOT NULL, updated_at TEXT NOT NULL)`),
       ]);
       await ensureModuleAccessSchema(env.DB);
@@ -165,7 +168,7 @@ async function readSessionTimeout(db: Awaited<ReturnType<typeof identityDb>>) {
 export async function createSession(db: Awaited<ReturnType<typeof identityDb>>, userId: string) {
   const minutes = await readSessionTimeout(db);
   const token = bytesToHex(crypto.getRandomValues(new Uint8Array(32))), now = new Date(), expires = new Date(now.getTime() + minutes * 60_000);
-  await db.prepare("DELETE FROM local_sessions WHERE expires_at<=?").bind(now.toISOString()).run();
+  await cleanupExpiredSessions(db, now.toISOString());
   await db.prepare("INSERT INTO local_sessions VALUES(?,?,?,?,?)").bind(await sha256(token), userId, expires.toISOString(), now.toISOString(), now.toISOString()).run();
   return { token, expires };
 }
