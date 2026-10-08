@@ -19,6 +19,16 @@ await page.route('**/api/continuous-assurance',async route=>{
  if(unavailable)return route.fulfill({status:503,json:{error:'fixture outage'}});
  return route.fulfill({json:{context:sourceContext,nextCursor,items:malformed?[items[0],...items.slice(0,-1)]:items,coverage,summary:{total:items.length,pendingReview:wrongCounters?0:items.filter(i=>i.status==='pending-review').length,awaitingRetest:items.filter(i=>i.status==='approved-awaiting-retest').length,capaPromotion:0,retest:items.filter(i=>i.status==='pending-review').length,failedRetest:0,retestError:1,completed:items.filter(i=>i.status==='completed').length,rejected:0}}});
 });
+await page.route('**/api/continuous-assurance?filter=attention*',async route=>{
+ const at=new URL(route.request().url()).searchParams.get('at')||new Date(await page.evaluate(()=>Date.now())).toISOString();
+ const matching=items.filter(item=>{
+  if(['failed-retest','retest-error'].includes(item.status))return true;
+  if(!['pending-review','approved-awaiting-retest'].includes(item.status))return false;
+  const age=(new Date(at)-new Date(item.createdAt))/3600000;
+  return !Number.isFinite(age)||age<0||age>=8||(item.sourceState&&item.sourceState!=='linked');
+ });
+ return route.fulfill({json:{filter:'attention',assessmentAt:at,scanned:items.length,context:'full',nextCursor:null,coverage:{loaded:matching.length,complete:true},items:matching,summary:{total:matching.length,pendingReview:matching.filter(i=>i.status==='pending-review').length,awaitingRetest:matching.filter(i=>i.status==='approved-awaiting-retest').length,capaPromotion:0,retest:matching.filter(i=>i.status==='pending-review').length,failedRetest:0,retestError:1,completed:0,rejected:0}}});
+});
 try{
  const login=await context.request.post(`${base}/api/auth`,{headers:{origin:base},data:{action:'login',email:'qa-admin@fornost.test',password:qaPassword()}});assert.equal(login.status(),200);
  await page.goto(base);await expect(page.locator('.shell')).toBeVisible();
@@ -98,9 +108,13 @@ try{
  await expect(panel.locator('.assurance-work-sla.breached')).toHaveCount(0);
  await expect(panel.locator('.assurance-ops article').nth(4).locator('b')).toHaveText('100%');
  await page.clock.fastForward(31000);
+ await expect(panel.locator('.assurance-work-sla.breached')).toHaveCount(0);
+ await panel.getByRole('button',{name:'Refresh',exact:true}).click();
  await expect(panel.locator('.assurance-work-sla.breached')).toHaveCount(1);
  await expect(panel.locator('.assurance-ops article').nth(4).locator('b')).not.toHaveText('100%');
  assert.equal(writes,2);
+ await panel.locator('.assurance-work-filters').getByRole('button',{name:'All',exact:true}).click();
+ await expect(panel.getByRole('button',{name:'Refresh',exact:true})).toBeEnabled();
  while(items.length<500)items.push({...items[0],id:`QA-BOUND-${items.length}`,status:'completed'});
  coverage={loaded:500,complete:false};
  await panel.getByRole('button',{name:'Refresh',exact:true}).click();
@@ -200,5 +214,36 @@ try{
  await panel.getByRole('button',{name:'Refresh',exact:true}).click();
  await expect(panel.locator('.assurance-work-list')).toContainText('Remote status match');
  assert.equal(writes,2,'filtering must not write');
+ // A bounded attention scan may return no matches but must offer a continuation.
+ const attentionAt=new Date(await page.evaluate(()=>Date.now())).toISOString();
+ const attentionCursor=JSON.stringify([0,attentionAt,'HEALTHY-1999']);
+ let attentionFailure='';
+ await page.route('**/api/continuous-assurance?filter=attention*',route=>{
+  const params=new URL(route.request().url()).searchParams;
+  const continuation=params.has('cursor');
+  if(continuation){assert.equal(params.get('cursor'),attentionCursor);assert.equal(params.get('at'),attentionAt);}
+  const row={...items[1],id:'QA-LATE-ATTENTION',findingTitle:'Attention beyond healthy pages',status:'pending-review',createdAt:new Date(new Date(attentionAt).getTime()-9*3600000).toISOString()};
+  const found=continuation&&attentionFailure!=='stalled'?[row]:[];
+  const complete=continuation&&attentionFailure!=='stalled';
+  return route.fulfill({json:{filter:'attention',assessmentAt:continuation&&attentionFailure==='time'?new Date(new Date(attentionAt).getTime()+1).toISOString():attentionAt,scanned:complete?1:2000,items:found,nextCursor:complete?null:attentionCursor,coverage:{loaded:found.length,complete},summary:{total:found.length,pendingReview:found.length,awaitingRetest:0,capaPromotion:0,retest:found.length,failedRetest:0,retestError:0,completed:0,rejected:0}}});
+ });
+ await panel.locator('.assurance-work-filters').getByRole('button',{name:'Attention',exact:true}).click();
+ await expect(panel.locator('.assurance-queue-coverage')).toContainText('2000 active records scanned, 0 attention matches');
+ await expect(panel.locator('.assurance-work-empty')).toContainText('No matching work in the scanned range');
+ await expect(panel.locator('.assurance-work-summary b').first()).toHaveText('—');
+ for(const failure of ['time','stalled']){
+  attentionFailure=failure;
+  await panel.getByRole('button',{name:'Load next records',exact:true}).click();
+  await expect(panel.getByRole('alert')).toBeVisible();
+  await expect(panel.getByRole('button',{name:'Approve',exact:true})).toHaveCount(0);
+  await panel.getByRole('button',{name:'Refresh',exact:true}).click();
+  await expect(panel.locator('.assurance-queue-coverage')).toContainText('2000 active records scanned');
+ }
+ attentionFailure='';
+ await panel.getByRole('button',{name:'Load next records',exact:true}).click();
+ await expect(panel.locator('.assurance-work-list')).toContainText('Attention beyond healthy pages');
+ await expect(panel.locator('.assurance-work-summary b').first()).toHaveText('1');
+ await expect(panel.getByRole('button',{name:'Load next records',exact:true})).toHaveCount(0);
+ assert.equal(writes,2);
  console.log('Assurance queue recovery QA passed: unknown counters, retry, full-list search, independent review, duplicate review/retest guards and ambiguous write recovery without retry.');
 }finally{await browser.close();}

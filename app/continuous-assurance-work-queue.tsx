@@ -1,6 +1,7 @@
 "use client";
 
 import {assuranceSourceReady,type AssuranceQueueContext,type AssuranceSourceState} from "./assurance-queue-context";
+import {validAssuranceAssessment} from "./assurance-queue-attention";
 import {matchesAssuranceQueueFilter,type AssuranceQueueFilter} from "./assurance-queue-filter";
 import {assuranceQueueSummary} from "./assurance-queue-summary";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -86,13 +87,14 @@ export default function ContinuousAssuranceWorkQueue({lang,onOpenAutomation}:{la
   const [queueContext,setQueueContext]=useState<AssuranceQueueContext>("full");
   const contextReady=queueContext!=="work-only";
   const [serverQuery,setServerQuery]=useState("");
+  const [scannedCount,setScannedCount]=useState(0);
   const [serverFilter,setServerFilter]=useState<AssuranceQueueFilter>("all");
   const requestedFilter=useRef<AssuranceQueueFilter>("all");
   const [nextCursor,setNextCursor]=useState<string|null>(null);
-  const snapshot=useRef<{items:WorkItem[];summary:Summary;cursor:string|null;query:string;lang:Lang;context:AssuranceQueueContext;filter:AssuranceQueueFilter}>({items:[],summary:emptySummary,cursor:null,query:"",lang:"en",context:"full",filter:"all"});
+  const snapshot=useRef<{items:WorkItem[];summary:Summary;cursor:string|null;query:string;lang:Lang;context:AssuranceQueueContext;filter:AssuranceQueueFilter;assessmentAt?:string;scanned?:number}>({items:[],summary:emptySummary,cursor:null,query:"",lang:"en",context:"full",filter:"all"});
   const [assessedAt,setAssessedAt]=useState(()=>new Date());
   useEffect(()=>{
-    const update=()=>setAssessedAt(new Date());
+    const update=()=>{if(requestedFilter.current!=="attention")setAssessedAt(new Date());};
     const timer=setInterval(update,30_000);
     const visible=()=>{if(document.visibilityState==="visible")update();};
     document.addEventListener("visibilitychange",visible);
@@ -104,7 +106,7 @@ export default function ContinuousAssuranceWorkQueue({lang,onOpenAutomation}:{la
     reads.current?.abort();const controller=new AbortController();reads.current=controller;
     setLoading(true);setLoadError(false);setReviewing(null);
     try{
-      const params=new URLSearchParams();if(scope!=="all")params.set("filter",scope);if(cursor)params.set("cursor",cursor);if(search){params.set("q",search);params.set("lang",searchLanguage);}
+      const params=new URLSearchParams();if(scope!=="all")params.set("filter",scope);if(cursor){params.set("cursor",cursor);if(scope==="attention"&&snapshot.current.assessmentAt)params.set("at",snapshot.current.assessmentAt);}if(search){params.set("q",search);params.set("lang",searchLanguage);}
       const [queue,auth]=await Promise.all([
         requestJsonWithDeadline(withBasePath(`/api/continuous-assurance${params.size?`?${params}`:""}`),{cache:"no-store",signal:controller.signal}),
         requestJsonWithDeadline(withBasePath("/api/auth"),{cache:"no-store",signal:controller.signal}),
@@ -114,6 +116,8 @@ export default function ContinuousAssuranceWorkQueue({lang,onOpenAutomation}:{la
       if(controller.signal.aborted)return;
       if(search){const echoed=queue.body.search as {query?:unknown;lang?:unknown}|undefined;if(!echoed||echoed.query!==search||echoed.lang!==searchLanguage)throw new Error("search-mismatch");}
       if((queue.body.filter??"all")!==scope)throw new Error("filter-mismatch");
+      const assessmentAt=scope==="attention"&&validAssuranceAssessment(queue.body.assessmentAt)?queue.body.assessmentAt:undefined;
+      if(cursor&&scope==="attention"&&assessmentAt!==snapshot.current.assessmentAt)throw new Error("assessment-changed");
       const context=(queue.body.context??"full") as AssuranceQueueContext;
       const pageItems=queue.body.items as WorkItem[];
       if(pageItems.some(item=>!matchesAssuranceQueueFilter(item.status,scope)))throw new Error("filter-record-mismatch");
@@ -122,8 +126,10 @@ export default function ContinuousAssuranceWorkQueue({lang,onOpenAutomation}:{la
       const combined=cursor?[...snapshot.current.items,...pageItems]:pageItems;
       const combinedSummary=assuranceQueueSummary(combined);
       const continuation=typeof queue.body.nextCursor==="string"?queue.body.nextCursor:null;
-      snapshot.current={items:combined,summary:combinedSummary,cursor:continuation,query:search,lang:searchLanguage,context,filter:scope};
-      setServerFilter(scope);setQueueContext(context);setServerQuery(search);setNextCursor(continuation);setAssessedAt(new Date());setQueueComplete(assuranceQueueComplete(queue.body));setItems(combined);setSummary(combinedSummary);
+      if(cursor&&continuation===cursor)throw new Error("cursor-did-not-advance");
+      const scanned=scope==="attention"?(cursor?snapshot.current.scanned??0:0)+(queue.body.scanned as number):0;
+      snapshot.current={items:combined,summary:combinedSummary,cursor:continuation,query:search,lang:searchLanguage,context,filter:scope,assessmentAt,scanned};
+      setScannedCount(scanned);setServerFilter(scope);setQueueContext(context);setServerQuery(search);setNextCursor(continuation);setAssessedAt(assessmentAt?new Date(assessmentAt):new Date());setQueueComplete(assuranceQueueComplete(queue.body));setItems(combined);setSummary(combinedSummary);
       if(!cursor)setVisibleLimit(25);
       setCanReview(context!=="work-only"&&user.role==="Admin");setCanWrite(context!=="work-only"&&["Admin","Editor"].includes(user.role));setActorEmail(user.email.trim().toLowerCase());
     }catch{if(!controller.signal.aborted){setLoadError(true);setCanReview(false);setCanWrite(false);setActorEmail("");}}
@@ -172,16 +178,16 @@ export default function ContinuousAssuranceWorkQueue({lang,onOpenAutomation}:{la
   return <section className="assurance-work-queue" aria-label={tr?"Sürekli güvence iş kuyruğu":"Continuous assurance work queue"}>
     <header><div><small>{tr?"BENİM İŞLERİM · GÜVENCE":"MY WORK · ASSURANCE"}</small><h4>{tr?"Öncelikli güvence işleri":"Priority assurance work"}</h4><p>{tr?"İnceleme, CAPA ve re-test gerektiren işleri tek yerden tamamlayın.":"Complete review, CAPA and re-test work from one focused queue."}</p></div><div className="assurance-work-header-actions"><button type="button" disabled={loading||busy} onClick={()=>void load()}>{tr?"Yenile":"Refresh"}</button><button type="button" onClick={onOpenAutomation}>{tr?"Kanıt Otomasyonu":"Evidence Automation"}<span>→</span></button></div></header>
     {loadError&&<div className="assurance-work-message" role="alert">{tr?"Güvence kuyruğu yüklenemedi. Yenileyerek tekrar deneyin.":"The assurance queue could not be loaded. Refresh to retry."}</div>}
-    {!loading&&!loadError&&!queueComplete&&<p className="assurance-work-message assurance-queue-coverage" role="status">{tr?`Kısmi kuyruk: ${items.length} iş yüklendi. Arama ve filtreler bu kayıtlarla sınırlı; genel sayaçlar ve SLA metrikleri hesaplanmadı.`:`Partial queue: ${items.length} items loaded. Search and filters cover only these records; overall counters and SLA metrics were not assessed.`}</p>}
+    {!loading&&!loadError&&!queueComplete&&<p className="assurance-work-message assurance-queue-coverage" role="status">{serverFilter==="attention"?(tr?`${scannedCount} aktif iş tarandı, ${items.length} dikkat gerektiren iş bulundu. Tarama bitmedi; sonraki kayıtları yükleyin. Toplam sayaçlar ve SLA metrikleri henüz hesaplanmadı.`:`${scannedCount} active records scanned, ${items.length} attention matches found. Scan incomplete; load the next records. Overall counters and SLA metrics are not assessed yet.`):tr?`Kısmi kuyruk: ${items.length} iş yüklendi. Arama ve filtreler bu kayıtlarla sınırlı; genel sayaçlar ve SLA metrikleri hesaplanmadı.`:`Partial queue: ${items.length} items loaded. Search and filters cover only these records; overall counters and SLA metrics were not assessed.`}</p>}
     {!loading&&!loadError&&queueContext!=="full"&&<p className="assurance-work-message assurance-context-warning" role="status">{queueContext==="work-only"?(tr?"Bulgu ve kural verileri kullanılamıyor. SLA hesaplanmadı; onay ve yeniden test işlemleri kapatıldı. Yöneticinizden veri kaynağını kontrol etmesini isteyin ve yenileyin.":"Finding and rule context is unavailable. SLA was not assessed; review and retest actions are disabled. Ask your administrator to check the data source, then refresh."):(tr?"CAPA bağlantı kodları kullanılamıyor. İş kayıtları yüklendi; CAPA bağlantıları için veri kaynağını kontrol edip yenileyin.":"CAPA reference codes are unavailable. Work items are loaded; check the data source and refresh to restore CAPA links.")}</p>}
     {message&&<div role="status" className="assurance-work-message" onClick={()=>setMessage("")}>{message}<b>×</b></div>}
     <div className="assurance-work-summary"><span><b>{loading||loadError||!queueComplete?"—":summary.pendingReview}</b><small>{tr?"İnceleme":"Review"}</small></span><span><b>{loading||loadError||!queueComplete?"—":summary.awaitingRetest}</b><small>{tr?"Re-test bekliyor":"Awaiting re-test"}</small></span><span><b>{loading||loadError||!queueComplete?"—":summary.failedRetest+summary.retestError}</b><small>{tr?"Dikkat":"Attention"}</small></span><span><b>{loading||loadError||!queueComplete?"—":summary.completed}</b><small>{tr?"Tamamlanan":"Completed"}</small></span></div>
-    {!loading&&!loadError&&serverFilter!=="all"&&<p className="assurance-work-message" role="status">{tr?`Durum kapsamı: ${{active:"Aktif",review:"İnceleme",retest:"Re-test"}[serverFilter]}. Sayaçlar ve SLA değerleri yalnızca bu kapsamdaki işleri içerir.`:`Status scope: ${{active:"Active",review:"Review",retest:"Re-test"}[serverFilter]}. Counters and SLA metrics include only work in this scope.`}</p>}
-    {filter==="attention"&&!queueComplete&&<p className="assurance-work-message" role="status">{tr?"Dikkat değerlendirmesi yüklenen kayıtları kapsar. Diğer işleri görmek için sonraki kayıtları yükleyin.":"Attention is assessed over loaded records. Load the next records to inspect remaining work."}</p>}
+    {!loading&&!loadError&&serverFilter!=="all"&&<p className="assurance-work-message" role="status">{tr?`Durum kapsamı: ${{active:"Aktif",review:"İnceleme",retest:"Re-test",attention:"Dikkat"}[serverFilter]}. Sayaçlar ve SLA değerleri yalnızca bu kapsamdaki işleri içerir.`:`Status scope: ${{active:"Active",review:"Review",retest:"Re-test",attention:"Attention"}[serverFilter]}. Counters and SLA metrics include only work in this scope.`}</p>}
+    {!loading&&!loadError&&serverFilter==="attention"&&<p className="assurance-work-message" role="status">{tr?`Değerlendirme: ${assessedAt.toLocaleString("tr-TR")}. Yeni SLA ihlallerini görmek için yenileyin.`:`Assessed at ${assessedAt.toLocaleString("en-US")}. Refresh to include new SLA breaches.`}</p>}
     {serverQuery&&<p className="assurance-work-message" role="status">{tr?`Sunucu araması: “${serverQuery}”. Sayaçlar ve SLA değerleri bu aramanın sonuçlarını kapsar.`:`Server search: “${serverQuery}”. Counters and SLA metrics cover these search results.`}</p>}
     <input maxLength={200} className="assurance-work-search" type="search" aria-label={tr?"Güvence işi ara":"Search assurance work"} placeholder={tr?"Bulgu, kural, kontrol veya sahip ara…":"Search finding, rule, control or owner…"} value={query} onChange={event=>{setQuery(event.target.value);setVisibleLimit(25)}}/>
     <div className="assurance-work-more"><button type="button" disabled={loading||busy||!query.trim()} onClick={()=>void load(undefined,query.trim(),lang)}>{serverFilter==="all"?(tr?"Tüm kayıtlarda ara":"Search all records"):(tr?"Bu kapsamda ara":"Search this scope")}</button>{serverQuery&&<button type="button" disabled={loading||busy} onClick={()=>{setQuery("");void load(undefined,"")}}>{tr?"Aramayı temizle":"Clear search"}</button>}</div>
-    <div className="assurance-work-filters">{(["active","review","retest","attention","all"] as QueueFilter[]).map(value=><button key={value} type="button" className={filter===value?"active":""} disabled={busy||loading} onClick={()=>{setFilter(value);setVisibleLimit(25);void load(undefined,snapshot.current.query,snapshot.current.lang,value==="attention"?"all":value)}}>{tr?({active:"Aktif",review:"İnceleme",retest:"Re-test",attention:"Dikkat",all:"Tümü"} as Record<QueueFilter,string>)[value]:({active:"Active",review:"Review",retest:"Re-test",attention:"Attention",all:"All"} as Record<QueueFilter,string>)[value]}</button>)}<button type="button" className={detailsOpen?"active":""} aria-expanded={detailsOpen} onClick={()=>setDetailsOpen(value=>!value)}>{detailsOpen?(tr?"Operasyon detayını gizle":"Hide operations"):(tr?"Operasyon detayı":"Operations")}</button></div>
+    <div className="assurance-work-filters">{(["active","review","retest","attention","all"] as QueueFilter[]).map(value=><button key={value} type="button" className={filter===value?"active":""} disabled={busy||loading} onClick={()=>{setFilter(value);setVisibleLimit(25);void load(undefined,snapshot.current.query,snapshot.current.lang,value)}}>{tr?({active:"Aktif",review:"İnceleme",retest:"Re-test",attention:"Dikkat",all:"Tümü"} as Record<QueueFilter,string>)[value]:({active:"Active",review:"Review",retest:"Re-test",attention:"Attention",all:"All"} as Record<QueueFilter,string>)[value]}</button>)}<button type="button" className={detailsOpen?"active":""} aria-expanded={detailsOpen} onClick={()=>setDetailsOpen(value=>!value)}>{detailsOpen?(tr?"Operasyon detayını gizle":"Hide operations"):(tr?"Operasyon detayı":"Operations")}</button></div>
     {!loading&&!loadError&&contextReady&&queueHealth.unknown>0&&<p className="assurance-work-message" role="status">{tr?`${queueHealth.unknown} aktif işin oluşturulma zamanı veya kaynak bağlantısı eksik ya da geçersiz. SLA oranı hesaplanmadı; işleri Dikkat filtresinde inceleyin.`:`${queueHealth.unknown} active items have missing or invalid timestamps or source links. SLA percentage was not assessed; inspect them in Attention.`}</p>}
     {detailsOpen&&<div className="assurance-ops" aria-label={tr?"Güvence kuyruk operasyon metrikleri":"Assurance queue operations metrics"}>
       <article className={contextReady&&queueHealth.breached?"critical":""}><b>{loading||loadError||!queueComplete||!contextReady?"—":queueHealth.breached}</b><small>{tr?"SLA ihlali":"SLA breached"}</small></article>
@@ -204,7 +210,7 @@ export default function ContinuousAssuranceWorkQueue({lang,onOpenAutomation}:{la
         {item.targetControlRef&&<button type="button" onClick={()=>openMappedControl(item.targetControlRef||"")}>{tr?"Kontrolü Aç":"Open Control"}</button>}
         {item.status==="completed"&&item.action==="capa-promotion"&&item.resultCode&&<button type="button" onClick={()=>openPromotedCapa(item.resultCode||"")}>{tr?"CAPA'yı Aç":"Open CAPA"}</button>}
       </div>
-    </article>})}</div>:<div className="assurance-work-empty">{loading?(tr?"Güvence işleri yükleniyor…":"Loading assurance work…"):(tr?"Bu filtrede yapmanız gereken bir güvence işi yok.":"There is no assurance work requiring your action in this filter.")}</div>)}
+    </article>})}</div>:<div className="assurance-work-empty">{loading?(tr?"Güvence işleri yükleniyor…":"Loading assurance work…"):(!queueComplete?(tr?"Taranan bölümde eşleşen iş yok. Aramaya devam etmek için sonraki kayıtları yükleyin.":"No matching work in the scanned range. Load the next records to continue searching."):(tr?"Bu filtrede yapmanız gereken bir güvence işi yok.":"There is no assurance work requiring your action in this filter."))}</div>)}
     {!loading&&!loadError&&matching.length>visible.length&&<div className="assurance-work-more"><span>{visible.length} / {matching.length}</span><button type="button" onClick={()=>setVisibleLimit(value=>value+25)}>{tr?"Daha fazla göster":"Show more"}</button></div>}
     {!loading&&!loadError&&nextCursor&&<div className="assurance-work-more"><span>{tr?`${items.length} kayıt yüklendi · arama yüklenen kayıtları kapsar`:`${items.length} records loaded · search covers loaded records`}</span><button type="button" disabled={busy} onClick={()=>void load(nextCursor)}>{tr?"Sonraki kayıtları yükle":"Load next records"}</button></div>}
     {detailsOpen&&<ContinuousAssuranceTimeline lang={lang}/>} 

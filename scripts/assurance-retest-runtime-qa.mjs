@@ -69,7 +69,12 @@ try {
     assert.equal(result.coverage.complete,true);
     assert.deepEqual(result.items.map(row=>row.id),filter==='retest'?[]:[queued.id]);
   }
-  for(const filter of ['attention','REVIEW',"' OR 1=1 --"]){
+  const attention=await api(admin,`${route}?filter=attention&q=${encodeURIComponent(queued.id)}&lang=en`);
+  assert.equal(attention.filter,'attention');assert.equal(attention.coverage.complete,true);
+  assert.equal(attention.items.length,0);assert.equal(attention.scanned,1);
+  assert.equal(new Date(attention.assessmentAt).toISOString(),attention.assessmentAt);
+  for(const at of ['invalid','2099-01-01T00:00:00.000Z','2020-01-01T00:00:00.000Z'])await api(admin,`${route}?filter=attention&at=${encodeURIComponent(at)}`,'GET',undefined,400);
+  for(const filter of ['unknown-filter','REVIEW',"' OR 1=1 --"]){
     await api(admin,`${route}?filter=${encodeURIComponent(filter)}`,'GET',undefined,400);
   }
   await api(admin, route, 'POST', { action: 'review-work-item', workItemId: queued.id, decision: 'approve' }, 409);
