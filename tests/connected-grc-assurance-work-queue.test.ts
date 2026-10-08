@@ -5,6 +5,7 @@ import test from "node:test";
 const connected = readFileSync("app/connected-grc.tsx", "utf8");
 const queue = readFileSync("app/continuous-assurance-work-queue.tsx", "utf8");
 const queueCss = readFileSync("app/continuous-assurance-work-queue.css", "utf8");
+const register = readFileSync("app/assurance-queue-register.ts", "utf8");
 const route = readFileSync("app/api/continuous-assurance/route.ts", "utf8");
 
 test("Connected GRC mounts the operational assurance work queue", () => {
@@ -45,8 +46,8 @@ test("retest work deep-links to the exact automation rule and mapped control", (
 });
 
 test("completed CAPA queue items preserve human-readable canonical result codes", () => {
-  assert.match(route, /LEFT JOIN enterprise_findings ef ON ef\.id=w\.result_ref/);
-  assert.match(route, /ef\.code result_code/);
+  assert.match(register, /LEFT JOIN enterprise_findings ef ON ef\.id=w\.result_ref/);
+  assert.match(register, /ef\.code result_code/);
   assert.match(route, /resultCode:row\.result_code\|\|""/);
   assert.match(queue, /resultCode\?:string/);
   assert.match(queue, /item\.resultCode\|\|item\.resultRef/);
@@ -56,14 +57,14 @@ test("completed CAPA queue items preserve human-readable canonical result codes"
 });
 
 test("work queue API enriches queue rows with finding and control context", () => {
-  assert.match(route, /LEFT JOIN evidence_automation_findings/);
-  assert.match(route, /LEFT JOIN evidence_automation_rules/);
+  assert.match(register, /LEFT JOIN evidence_automation_findings/);
+  assert.match(register, /LEFT JOIN evidence_automation_rules/);
   assert.match(route, /findingTitle/);
   assert.match(route, /severity:row\.finding_severity/);
   assert.match(route, /ruleName:row\.rule_name/);
   assert.match(route, /controlRefs:row\.control_refs/);
   assert.match(route, /targetControlRef:targetControlFromDecision\(decision\)/);
-  assert.match(route, /catch\{[\s\S]*SELECT \* FROM continuous_assurance_work_items/);
+  assert.match(register, /catch\{[\s\S]*SELECT \* FROM continuous_assurance_work_items/);
 });
 
 test("work queue styling follows Fornost status and responsive contracts", () => {
