@@ -33,6 +33,8 @@ try{
  await expect(panel.locator('.assurance-work-list>article').first().getByRole('button',{name:'Approve',exact:true})).toHaveCount(0);
  await panel.getByRole('searchbox').fill('CTRL-QA-35');await expect(panel.locator('.assurance-work-list>article')).toHaveCount(1);
  uncertain=true;await panel.getByRole('button',{name:'Request New Test',exact:true}).dispatchEvent('click');await panel.getByRole('button',{name:'Request New Test',exact:true}).dispatchEvent('click');
+ await page.locator('.language-switch:visible').getByRole('button',{name:'TR',exact:true}).click();
+ await page.locator('.language-switch:visible').getByRole('button',{name:'EN',exact:true}).click();
  await expect(panel.getByRole('status')).toContainText('could not be confirmed');await expect(panel.getByRole('button',{name:'Refresh',exact:true})).toBeEnabled();assert.equal(writes,1);
  uncertain=false;await panel.getByRole('searchbox').fill('CTRL-QA-2');
  await panel.locator('.assurance-work-list>article').first().getByRole('button',{name:'Approve',exact:true}).click();
@@ -114,6 +116,10 @@ try{
  await expect(panel.locator('.assurance-work-list')).toContainText('Server-wide search result');
  await expect(panel.getByRole('status').filter({hasText:'Server search:'})).toContainText('CTRL-GLOBAL-ONLY');
  await expect(panel.locator('.assurance-work-summary b').first()).toHaveText('1');
+ await page.locator('.language-switch:visible').getByRole('button',{name:'TR',exact:true}).click();
+ await panel.getByRole('button',{name:'Yenile',exact:true}).click();
+ await expect(panel.locator('.assurance-work-list')).toContainText('Server-wide search result');
+ await page.locator('.language-switch:visible').getByRole('button',{name:'EN',exact:true}).click();
  await panel.getByRole('button',{name:'Clear search',exact:true}).click();
  await expect(panel.getByRole('searchbox')).toHaveValue('');
  await expect(panel.locator('.assurance-work-list')).not.toContainText('Server-wide search result');
