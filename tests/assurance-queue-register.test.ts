@@ -99,3 +99,22 @@ test('search continuation keeps its predicate on every page',async()=>{
   assert.ok([...first.rows,...last.rows].every(row=>row.id.startsWith('MATCH')));
  }finally{sql.close();}
 });
+
+test('register labels available source context and never hides operational failures',async()=>{
+ const {sql,db}=fixture();try{
+  assert.equal((await readAssuranceQueue(db)).context,'full');
+  sql.exec('DROP TABLE enterprise_findings');
+  assert.equal((await readAssuranceQueue(db)).context,'without-capa');
+  sql.exec('DROP TABLE evidence_automation_rules');
+  assert.equal((await readAssuranceQueue(db)).context,'work-only');
+ }finally{sql.close();}
+ for(const failure of ['D1_ERROR: database is locked','D1_ERROR: timed out','no such column: f.owner','no such table: private_unrelated']){
+  let calls=0;
+  const broken={prepare(){return {async all(){calls++;throw new Error(failure);}};}} as unknown as D1Database;
+  await assert.rejects(()=>readAssuranceQueue(broken),error=>error instanceof Error&&error.message===failure);
+  assert.equal(calls,1,'operational failure must not try a reduced query');
+ }
+ let calls=0;
+ const brokenFallback={prepare(){return {async all(){calls++;throw new Error(calls===1?'no such table: enterprise_findings':'database is locked');}};}} as unknown as D1Database;
+ await assert.rejects(()=>readAssuranceQueue(brokenFallback),/database is locked/);assert.equal(calls,2);
+});

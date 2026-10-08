@@ -117,7 +117,7 @@ export async function GET(req:NextRequest){
       retestOutcome:row.action==="control-retest"&&asObject(decision.retestOutcome).runId===row.result_ref?decision.retestOutcome as RetestOutcome:undefined,
     };
   });
-  return json({items,search,nextCursor:result.nextCursor,coverage:result.coverage,summary:assuranceQueueSummary(items)});
+  return json({items,search,context:result.context,nextCursor:result.nextCursor,coverage:result.coverage,summary:assuranceQueueSummary(items)});
 }
 
 export async function POST(req:NextRequest){
