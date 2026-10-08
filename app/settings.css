@@ -95,6 +95,8 @@ html .local-users button.primary.card-action:hover {
   border-color:#17665b !important;
   color:#fff !important;
   opacity:1 !important;
+  filter:none !important;
+  transition:none !important;
 }
 html .local-users button.primary.card-action:disabled {
   background:#e2e8f0 !important;
