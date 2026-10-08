@@ -1,3 +1,4 @@
+import { parseAssuranceQueueCursor } from "../../assurance-queue-cursor";
 import { readAssuranceQueue } from "../../assurance-queue-register";
 import { NextRequest, NextResponse } from "next/server";
 import { requireRole, type AppRole } from "../auth/security";
@@ -99,8 +100,10 @@ async function resolveRetestTargetControl(db:D1Database,findingId:string,mappedC
 
 export async function GET(req:NextRequest){
   const access=await requireRole(req,["Admin","Editor","Viewer"]);if(access.response)return access.response;
+  const cursor=new URL(req.url).searchParams.get("cursor");
+  if(cursor!==null){try{parseAssuranceQueueCursor(cursor);}catch{return json({error:"Invalid assurance cursor."},400);}}
   const env=await runtime();await ensureAssuranceWorkSchema(env.DB);await reconcileApprovedRetests(env.DB);
-  const result=await readAssuranceQueue<WorkRow>(env.DB);
+  const result=await readAssuranceQueue<WorkRow>(env.DB,cursor??undefined);
   const items=result.rows.map(row=>{
     const decision=parseData(row.decision_json);
     return {
@@ -111,7 +114,7 @@ export async function GET(req:NextRequest){
       retestOutcome:row.action==="control-retest"&&asObject(decision.retestOutcome).runId===row.result_ref?decision.retestOutcome as RetestOutcome:undefined,
     };
   });
-  return json({items,coverage:result.coverage,summary:{
+  return json({items,nextCursor:result.nextCursor,coverage:result.coverage,summary:{
     total:items.length,
     pendingReview:items.filter(item=>item.status==="pending-review").length,
     awaitingRetest:items.filter(item=>item.status==="approved-awaiting-retest").length,

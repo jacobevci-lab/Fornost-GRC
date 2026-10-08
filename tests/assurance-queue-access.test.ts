@@ -43,3 +43,12 @@ test('legacy full queues are conservatively partial until a server supplies cove
  assert.equal(assuranceQueueComplete({...body,coverage:{loaded:500,complete:false}}),false);
  assert.equal(assuranceQueueComplete({...body,items:[...items, {...items[0],id:'overflow'}]}),false);
 });
+
+test('continuation must match the last record and declared coverage',()=>{
+ const items=Array.from({length:500},(_,i)=>({id:`W-${i}`,findingId:'F',ruleId:'R',action:'control-retest',status:'pending-review',findingTitle:'Finding',severity:'high',owner:'',dueDate:'',ruleName:'Rule',controlRefs:'',updatedAt:'2026-10-08T00:00:00Z',actor:'creator@test.invalid'}));
+ const body={items,summary:{total:500,pendingReview:500,awaitingRetest:0,capaPromotion:0,retest:500,failedRetest:0,retestError:0,completed:0,rejected:0},coverage:{loaded:500,complete:false},nextCursor:JSON.stringify([0,items[499].updatedAt,'W-499'])};
+ assert.equal(validAssuranceQueue(body),true);
+ for(const nextCursor of [null,23,'{}','[0,"wrong","W-499"]','[0,"2026-10-08T00:00:00Z","W-498"]'])assert.equal(validAssuranceQueue({...body,nextCursor}),false);
+ assert.equal(validAssuranceQueue({...body,coverage:{loaded:500,complete:true}}),false);
+ assert.equal(validAssuranceQueue({...body,coverage:{loaded:500,complete:true},nextCursor:null}),true);
+});

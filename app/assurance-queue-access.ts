@@ -1,3 +1,4 @@
+import {assuranceQueueCursor,parseAssuranceQueueCursor} from "./assurance-queue-cursor";
 export function canReviewAssuranceWork(role:string,email:string,item:{status:string;actor:string},decision:'approve'|'reject',note:string) {
  const identity=email.trim().toLowerCase(),requester=item.actor.trim().toLowerCase();
  return role==='Admin'&&!!identity&&!!requester&&identity!==requester&&item.status==='pending-review'&&(decision==='approve'||note.trim().length>=10)&&note.trim().length<=1200;
@@ -18,6 +19,16 @@ export function validAssuranceQueue(body:Record<string,unknown>):boolean {
   const coverage=body.coverage as Record<string,unknown>|null;
   if(!coverage||typeof coverage!=='object'||coverage.loaded!==body.items.length||typeof coverage.complete!=='boolean')return false;
   if(!coverage.complete&&body.items.length!==500)return false;
+ }
+ if(body.nextCursor!==undefined){
+  if(body.nextCursor!==null){
+   if(typeof body.nextCursor!=='string')return false;
+   try{parseAssuranceQueueCursor(body.nextCursor);}catch{return false;}
+   const last=body.items.at(-1);
+   if(!last||body.nextCursor!==assuranceQueueCursor({id:last.id,status:last.status,updated_at:last.updatedAt}))return false;
+  }
+  const coverage=body.coverage as {complete?:unknown}|undefined;
+  if(!coverage||coverage.complete!==(body.nextCursor===null))return false;
  }
  return true;
 }
