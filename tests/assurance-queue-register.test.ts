@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {DatabaseSync} from 'node:sqlite';
+import {DatabaseSync,type SQLInputValue} from 'node:sqlite';
 import {readAssuranceQueue} from '../app/assurance-queue-register';
 function fixture(){
  const sql=new DatabaseSync(':memory:');
@@ -8,7 +8,7 @@ function fixture(){
  CREATE TABLE evidence_automation_findings(id TEXT PRIMARY KEY,title TEXT,severity TEXT,owner TEXT,due_date TEXT);
  CREATE TABLE evidence_automation_rules(id TEXT PRIMARY KEY,name TEXT,control_refs TEXT);
  CREATE TABLE enterprise_findings(id TEXT PRIMARY KEY,code TEXT);`);
- const db={prepare(query:string){let values:any[]=[];return {bind(...args:any[]){values=args;return this;},async all(){return {results:sql.prepare(query).all(...values)};}};}} as unknown as D1Database;
+ const db={prepare(query:string){let values:SQLInputValue[]=[];return {bind(...args:SQLInputValue[]){values=args;return this;},async all(){return {results:sql.prepare(query).all(...values)};}};}} as unknown as D1Database;
  return {sql,db};
 }
 test('queue distinguishes empty, exactly 500 and truncated 501 without returning the sentinel',async()=>{
