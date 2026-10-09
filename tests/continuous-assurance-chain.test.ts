@@ -103,3 +103,55 @@ test("summary exposes assurance posture and broken-chain pressure", () => {
   assert.equal(summary.averageAssuranceScore, 63);
   assert.ok(summary.brokenChains >= 1);
 });
+
+test("healthy controls do not hide open findings or overdue remediation", () => {
+  const rows = fixture("healthy", true, true, "2026-09-01");
+  const [chain] = buildContinuousAssuranceChains(rows, buildConnectedGrcGraph(rows).links, new Date("2026-09-21T12:00:00Z"));
+  assert.equal(chain.assuranceState, "effective");
+  assert.equal(chain.chainState, "attention");
+  assert.ok(chain.escalationReasons.includes("open-findings"));
+  assert.ok(chain.escalationReasons.includes("remediation-overdue"));
+});
+
+test("healthy orphaned rules still expose a broken control-library link", () => {
+  const rows = fixture("healthy").filter(row => row.module !== "Kontroller");
+  const [chain] = buildContinuousAssuranceChains(rows, buildConnectedGrcGraph(rows).links);
+  assert.equal(chain.chainState, "broken");
+  assert.ok(chain.escalationReasons.includes("control-link-missing"));
+});
+
+test("each open finding needs its own remediation and each remediation its own risk", () => {
+  const rows = fixture("failing", true, true);
+  const links = buildConnectedGrcGraph(rows).links;
+  const finding = rows.find(row => row.data.kind === "automation-finding")!;
+  const assurance = rows.find(row => row.data.kind === "automation-assurance")!;
+  const remediation = rows.find(row => row.data.kind === "automation-remediation")!;
+  const extra = {...finding, id:"second-finding"};
+  rows.push(extra);
+  links.push({source:assurance,target:extra,relation:"assurance-finding",matched:"second-finding",field:"automationFindingRefs"});
+  let chain = buildContinuousAssuranceChains(rows, links)[0];
+  assert.equal(chain.chainState, "broken");
+  assert.ok(chain.escalationReasons.includes("remediation-missing"));
+  const extraRemediation = {...remediation,id:"second-remediation"};
+  rows.push(extraRemediation);
+  links.push({source:extra,target:extraRemediation,relation:"finding-remediation",matched:"second-remediation",field:"automationRemediationRef"});
+  chain = buildContinuousAssuranceChains(rows, links)[0];
+  assert.ok(!chain.escalationReasons.includes("remediation-missing"));
+  assert.ok(chain.escalationReasons.includes("risk-link-missing"));
+  assert.equal(chain.risks.length,1,"the first branch's risk cannot cover the second branch");
+});
+
+test("date-only remediation deadlines remain valid through the whole UTC day", () => {
+  const rows = fixture("failing", true, true, "2026-09-21"), links=buildConnectedGrcGraph(rows).links;
+  assert.equal(buildContinuousAssuranceChains(rows,links,new Date("2026-09-21T23:59:59.999Z"))[0].overdueRemediations,0);
+  assert.equal(buildContinuousAssuranceChains(rows,links,new Date("2026-09-22T00:00:00Z"))[0].overdueRemediations,1);
+  for(const row of rows.filter(row=>row.data.kind==='automation-remediation'))row.data.dueDate="2026-02-30";
+  assert.equal(buildContinuousAssuranceChains(rows,links,new Date("2026-09-22T00:00:00Z"))[0].overdueRemediations,0);
+});
+
+test("closed historical findings do not require new corrective work", () => {
+  const rows = fixture("healthy",true,false,"2026-09-01");
+  for(const row of rows.filter(row=>['automation-finding','automation-remediation'].includes(String(row.data.kind)))) row.data.status="closed";
+  const [chain]=buildContinuousAssuranceChains(rows,buildConnectedGrcGraph(rows).links);
+  assert.equal(chain.chainState,"complete");assert.equal(chain.overdueRemediations,0);
+});

@@ -51,6 +51,8 @@ jobs:
         run: node scripts/record-dialog-qa.mjs
       - name: Platform-wide Escape dismissal QA
         run: node scripts/platform-escape-qa.mjs
+      - name: Connected assurance chain review and recovery QA
+        run: node scripts/assurance-chain-review-qa.mjs
       - name: Enterprise reporting HTML PDF CSV QA
         run: node scripts/reporting-export-qa.mjs
       - name: Assurance queue recovery and independent review QA

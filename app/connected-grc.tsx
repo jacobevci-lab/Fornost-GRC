@@ -6,7 +6,7 @@ import { filterConnectedGrcGaps, type ConnectedGapType } from "./connected-grc-g
 import { connectedGrcExport, connectedGrcGapExport } from "./connected-grc-export";
 import { connectedGrcNavigation } from "./connected-grc-navigation";
 import { buildConnectedGrcEnterpriseRows, connectedGrcEndpoints } from "./connected-grc-sources";
-import { buildContinuousAssuranceChains, summarizeContinuousAssurance } from "./continuous-assurance-chain";
+import { assuranceChainReasonLabel, buildContinuousAssuranceChains, summarizeContinuousAssurance } from "./continuous-assurance-chain";
 import ContinuousAssuranceWorkQueue from "./continuous-assurance-work-queue";
 import ContinuousAssuranceGovernance from "./continuous-assurance-governance";
 import ContinuousAssuranceEscalationCenter from "./continuous-assurance-escalation-center";
@@ -31,6 +31,7 @@ export default function ConnectedGrc({rows,lang,go,includeAi=false}:{rows:Connec
   const [linkLimit,setLinkLimit]=useState(8);
   const [gapLimit,setGapLimit]=useState(12);
   const [referenceLimit,setReferenceLimit]=useState(20);
+  const [chainLimit,setChainLimit]=useState(12);
   const [gapQuery,setGapQuery]=useState("");
   const [gapModule,setGapModule]=useState("all");
   const [gapType,setGapType]=useState<ConnectedGapType>("all");
@@ -64,6 +65,7 @@ export default function ConnectedGrc({rows,lang,go,includeAi=false}:{rows:Connec
   const graph=useMemo(()=>buildConnectedGrcGraph(records),[records]),links=graph.links,unresolved=graph.unresolved;
   const coverage=useMemo(()=>assessConnectedGrcCoverage(records,links),[records,links]);
   const assuranceChains=useMemo(()=>buildContinuousAssuranceChains(records,links),[records,links]);
+  const attentionChains=assuranceChains.filter(chain=>chain.chainState!=="complete").sort((a,b)=>Number(b.chainState==="broken")-Number(a.chainState==="broken")||b.overdueRemediations-a.overdueRemediations||a.rule.id.localeCompare(b.rule.id));
   const assuranceSummary=useMemo(()=>summarizeContinuousAssurance(assuranceChains),[assuranceChains]);
   const modules=useMemo(()=>Array.from(new Set(records.map(row=>row.module))).sort(),[records]);
   const gapResults=filterConnectedGrcGaps(coverage.gaps,unresolved,{query:gapQuery,module:gapModule,type:gapType,lang,moduleLabel});
@@ -166,9 +168,17 @@ export default function ConnectedGrc({rows,lang,go,includeAi=false}:{rows:Connec
         <article className="healthy"><small>{tr?"Etkin":"Effective"}</small><strong>{assuranceSummary.effective}</strong><span>{tr?"doğrulanmış kontrol":"validated controls"}</span></article>
         <article className={assuranceSummary.degraded+assuranceSummary.ineffective?"attention":"healthy"}><small>{tr?"Bozulmuş / Etkisiz":"Degraded / Ineffective"}</small><strong>{assuranceSummary.degraded} / {assuranceSummary.ineffective}</strong><span>{tr?"aksiyon gerektiren":"requiring action"}</span></article>
         <article className={assuranceSummary.brokenChains?"critical":"healthy"}><small>{tr?"Kırık zincir":"Broken chains"}</small><strong>{assuranceSummary.brokenChains}</strong><span>{tr?"eksik yaşam döngüsü":"incomplete lifecycle"}</span></article>
-        <article className={assuranceSummary.overdueRemediations?"critical":"healthy"}><small>{tr?"Geciken remediation":"Overdue remediation"}</small><strong>{assuranceSummary.overdueRemediations}</strong><span>{tr?"termin aşımı":"past due"}</span></article>
+        <article className={assuranceSummary.overdueRemediations?"critical":"healthy"}><small>{tr?"Geciken düzeltmeler":"Overdue remediation"}</small><strong>{assuranceSummary.overdueRemediations}</strong><span>{tr?"termin aşımı":"past due"}</span></article>
         <article className={assuranceSummary.riskLinked<assuranceSummary.rules?"attention":"healthy"}><small>{tr?"Riske bağlı":"Risk linked"}</small><strong>{assuranceSummary.riskLinked}/{assuranceSummary.rules}</strong><span>{tr?"güvence zinciri":"assurance chains"}</span></article>
       </div>}
+      {sourcesComplete&&attentionChains.length>0&&<details className="module-analysis-disclosure cg-chain-review">
+        <summary><span><b>{tr?"Takip gerektiren güvence zincirleri":"Assurance chains needing follow-up"} · {attentionChains.length}</b><small>{tr?"Eksik bağlantıyı veya açık işi inceleyin":"Review missing links or outstanding work"}</small></span></summary>
+        <div className="cg-chain-list">{attentionChains.slice(0,chainLimit).map(chain=><article key={chain.rule.id}>
+          <div><b>{connectedTitle(chain.rule)}</b><small>{chain.chainState==="broken"?(tr?"Eksik bağlantı":"Broken link"):(tr?"Takip gerekiyor":"Follow-up needed")}</small><p>{chain.escalationReasons.length?chain.escalationReasons.map(reason=>assuranceChainReasonLabel(reason,lang)).join(" · "):(tr?"Kontrol sonucu henüz etkin değil; bulgu ve düzeltmeleri izleyin.":"Control is not yet effective; follow up findings and remediation.")}</p></div>
+          <button type="button" onClick={()=>openRecord(chain.rule)}>{tr?"Kontrolü incele":"Review control"} →</button>
+        </article>)}</div>
+        {attentionChains.length>chainLimit&&<button type="button" className="cg-more" onClick={()=>setChainLimit(chainLimit+12)}>{tr?"Daha fazla göster":"Show more"} ({attentionChains.length-chainLimit})</button>}
+      </details>}
       <ContinuousAssuranceWorkQueue lang={lang} onOpenAutomation={()=>go("Kanıt Otomasyonu")}/>
       <details className="module-analysis-disclosure">
         <summary><span><b>{tr?"Güvence yönetişimi ve eskalasyonlar":"Assurance governance and escalations"}</b><small>{tr?"Onaylar, yeniden test ve bildirim ayrıntıları":"Approvals, retests and notification details"}</small></span></summary>

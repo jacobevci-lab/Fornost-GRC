@@ -22,3 +22,9 @@
 .cg-assessment-pending{padding:10px 14px;border:1px solid var(--ws-border);border-radius:8px;color:var(--ws-muted);margin:10px 0}
 
 .cg-gap-results{color:var(--ws-muted);margin:0;font-size:12px}.cg-gap-filters{margin:12px 0}.connected-unresolved .cg-more-references{max-width:100%;white-space:normal;overflow-wrap:anywhere}
+
+/* Compact exception review: existing palette and type scale. */
+.cg-chain-list article{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 0;border-bottom:1px solid var(--ws-line)}
+.cg-chain-list article>div{min-width:0;overflow-wrap:anywhere}.cg-chain-list b,.cg-chain-list small{display:block}.cg-chain-list small{margin-top:4px;color:var(--ws-muted)}
+.cg-chain-list p{margin:6px 0 0;font-size:11px;color:var(--ws-muted);line-height:1.5}.cg-chain-list button{flex-shrink:0}
+@media(max-width:620px){.cg-chain-list article{align-items:stretch;flex-direction:column}.cg-chain-list button{align-self:flex-start}}
