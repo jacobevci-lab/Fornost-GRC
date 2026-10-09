@@ -58,7 +58,18 @@ try{
  for(const moduleName of ['Risk Assessment','BIA','Varlık Envanteri','Uyum','Tedarikçiler','Kontroller','Kanıtlar','Denetim Yönetimi']){
   await api(admin,'/api/users','PATCH',{id:user.id,role:'Editor',status:'Active',moduleAccess:{mode:'scoped',modules:{[moduleName]:'read'}}});await login(restricted,email);
   const result=(await api(restricted,'/api/grc')).rows;assert.ok(result.length,moduleName);assert.ok(result.every(row=>row.module===moduleName),moduleName);
-  await userPage.reload();await expect(userPage.locator('.module-scope-cards button')).toHaveCount(1);await userPage.locator('.module-scope-cards button').click();await expect(userPage.locator('.module-scope-home')).toHaveCount(0);
+  await userPage.reload();
+  if(moduleName==='Risk Assessment'){
+   // The previously active page is still allowed: refresh must preserve it.
+   await expect(userPage.locator('.module-head')).toContainText('Risk Assessment');
+   await userPage.locator('nav button[aria-label="Dashboard"]').evaluate(el=>el.click());
+  }
+  // Subsequent grant changes revoke the previously active page: restore Home.
+  await expect(userPage.locator('.module-scope-cards button')).toHaveCount(1);
+  await userPage.locator('.module-scope-cards button').click();await expect(userPage.locator('.module-scope-home')).toHaveCount(0);
+  await userPage.reload();await expect(userPage.locator('.shell')).toBeVisible();
+  await expect(userPage.locator('nav button.active')).not.toHaveAttribute('aria-label','Dashboard');
+  await expect(userPage.locator('.module-scope-home')).toHaveCount(0);
   if(moduleName==='Denetim Yönetimi')await api(restricted,'/api/audits');
   if(moduleName==='Kanıtlar'){await api(restricted,'/api/evidence/history');await api(restricted,'/api/evidence?key=evidence/not-found','GET',undefined,404);}
  }
