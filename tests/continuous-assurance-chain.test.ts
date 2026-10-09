@@ -155,3 +155,42 @@ test("closed historical findings do not require new corrective work", () => {
   const [chain]=buildContinuousAssuranceChains(rows,buildConnectedGrcGraph(rows).links);
   assert.equal(chain.chainState,"complete");assert.equal(chain.overdueRemediations,0);
 });
+
+test("one resolved control cannot hide a missing reference on either rule or assurance", () => {
+  for (const kind of ["automation-rule", "automation-assurance"]) {
+    const rows = fixture("healthy");
+    const source = rows.find(row => row.data.kind === kind)!;
+    source.data.automationControlRefs = "CTL-001;CTL-MISSING";
+    const graph = buildConnectedGrcGraph(rows);
+    const [chain] = buildContinuousAssuranceChains(rows, graph.links, undefined, graph.unresolved);
+    assert.equal(chain.controls.length, 1);
+    assert.equal(chain.chainState, "broken");
+    assert.ok(chain.escalationReasons.includes("control-reference-unresolved"));
+    assert.equal(summarizeContinuousAssurance([chain]).completeChains, 0);
+    rows.push({id:"ctl-new",code:"CTL-MISSING",module:"Kontroller",data:{title:"Restored control"}});
+    const repaired = buildConnectedGrcGraph(rows);
+    assert.equal(buildContinuousAssuranceChains(rows, repaired.links)[0].chainState, "complete");
+  }
+});
+
+test("ambiguous additional controls block completion until the canonical identity is used", () => {
+  const rows = fixture("healthy");
+  rows.push(...["control-a", "control-b"].map(id => ({id, code:"CTL-DUPLICATE",module:"Kontroller",data:{}})));
+  const rule = rows.find(row => row.data.kind === "automation-rule")!;
+  rule.data.automationControlRefs = ["CTL-001", "CTL-DUPLICATE"];
+  let graph = buildConnectedGrcGraph(rows);
+  assert.ok(graph.unresolved.some(ref => ref.reason === "ambiguous"));
+  assert.equal(buildContinuousAssuranceChains(rows, graph.links)[0].chainState, "broken");
+  rule.data.automationControlRefs = ["CTL-001", "control-a"];
+  graph = buildConnectedGrcGraph(rows);
+  assert.equal(buildContinuousAssuranceChains(rows, graph.links)[0].chainState, "complete");
+});
+
+test("unresolved controls on another chain do not contaminate a healthy chain", () => {
+  const rows = [...fixture("healthy"), ...namespaceFixture(fixture("healthy"), "OTHER-")];
+  const other = rows.find(row => row.data.kind === "automation-rule" && row.id.includes("OTHER-"))!;
+  other.data.automationControlRefs = "OTHER-CTL-001;MISSING";
+  const graph = buildConnectedGrcGraph(rows);
+  const chains = buildContinuousAssuranceChains(rows, graph.links);
+  assert.deepEqual(chains.map(chain => chain.chainState), ["complete", "broken"]);
+});

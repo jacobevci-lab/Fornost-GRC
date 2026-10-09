@@ -16,6 +16,7 @@ try{
   if(unavailable)return route.fulfill({status:503,json:{error:'QA source unavailable'}});
   return route.fulfill({json:{sources:[],runs:[],rules:[
    {id:'QA-CHAIN-HEALTHY',name:'QA Healthy With Outstanding Work',controlRefs:control.code||control.id,health:'healthy',freshness:'fresh'},
+   {id:'QA-CHAIN-PARTIAL',name:'QA Partially Resolved Controls',controlRefs:`${control.code||control.id};QA-MISSING-SECOND-CONTROL`,health:'healthy',freshness:'fresh'},
    {id:'QA-CHAIN-ORPHAN',name:'QA Missing Library Control',controlRefs:'QA-NONEXISTENT-CONTROL',health:'healthy',freshness:'fresh'},
   ],findings:[{id:'QA-CHAIN-FINDING',ruleId:'QA-CHAIN-HEALTHY',title:'Unresolved remediation',status:'open',severity:'high',dueDate:'2000-01-01'}]}});
  });
@@ -25,18 +26,20 @@ try{
  await expect(page.locator('.cg-source-state')).toHaveAttribute('data-ready','11',{timeout:30000});
  await page.locator('.cg-tabs').getByRole('button',{name:'Assurance',exact:true}).click();
  const review=page.locator('.cg-chain-review');await expect(review).toBeVisible();await review.locator('summary').click();
- await expect(review.locator('article')).toHaveCount(2);
+ await expect(review.locator('article')).toHaveCount(3);
  await expect(review).toContainText('Control healthy; open findings still need follow-up');
  await expect(review).toContainText('Control library link missing');
+ await expect(review.locator('article').filter({hasText:'QA Partially Resolved Controls'})).toContainText('Control reference is missing or ambiguous');
  await expect(review).toContainText('Open remediation has no risk link');
  await expect(review).toContainText('Remediation is overdue');
- await expect(review.getByRole('button',{name:'Review control'})).toHaveCount(2);
+ await expect(review.getByRole('button',{name:'Review control'})).toHaveCount(3);
  for(const theme of ['dark','light'])for(const width of [1440,390]){
   await page.evaluate(theme=>{document.documentElement.dataset.theme=theme;},theme);await page.setViewportSize({width,height:1000});
   assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)<=4,'No horizontal overflow');
  }
  await page.locator('.language-switch:visible').getByRole('button',{name:'TR',exact:true}).click();
  await expect(review).toContainText('Kontrol kütüphanesi bağlantısı eksik');
+ await expect(review).toContainText('Kontrol referansı bulunamadı veya birden fazla kayıtla eşleşiyor');
  unavailable=true;await page.locator('.cg-source-controls button').click();
  await expect(page.locator('.cg-source-state')).toHaveAttribute('data-loading','false');
  await expect(review).toHaveCount(0);await expect(page.locator('.cg-assessment-pending')).toBeVisible();
