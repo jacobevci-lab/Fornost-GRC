@@ -194,3 +194,66 @@ test("unresolved controls on another chain do not contaminate a healthy chain", 
   const chains = buildContinuousAssuranceChains(rows, graph.links);
   assert.deepEqual(chains.map(chain => chain.chainState), ["complete", "broken"]);
 });
+
+test("a healthy assurance cannot hide an unresolved finding behind a resolved historical finding", () => {
+  const rows = fixture("healthy", true, true);
+  for (const row of rows.filter(row => ["automation-finding", "automation-remediation"].includes(String(row.data.kind)))) row.data.status = "closed";
+  const assurance = rows.find(row => row.data.kind === "automation-assurance")!;
+  assurance.data.automationFindingRefs = ["FINDING:FIND-1", "FINDING:MISSING"];
+  const [chain] = buildContinuousAssuranceChains(rows, buildConnectedGrcGraph(rows).links);
+  assert.equal(chain.findings.length, 1);
+  assert.equal(chain.openFindings, 0);
+  assert.equal(chain.chainState, "broken");
+  assert.ok(chain.escalationReasons.includes("finding-reference-unresolved"));
+});
+
+test("partial remediation and risk references are assessed per open branch", () => {
+  for (const [kind, field, validRef, reason] of [
+    ["automation-finding", "automationRemediationRef", "REMEDIATION:FIND-1", "remediation-reference-unresolved"],
+    ["automation-remediation", "automationRiskRef", "FIND-1", "risk-reference-unresolved"],
+  ]) {
+    const rows = fixture("healthy", true, true);
+    const source = rows.find(row => row.data.kind === kind)!;
+    source.data[field] = [validRef, "MISSING-REFERENCE"];
+    let chain = buildContinuousAssuranceChains(rows, buildConnectedGrcGraph(rows).links)[0];
+    assert.equal(chain.remediations.length, 1);
+    assert.equal(chain.risks.length, 1);
+    assert.equal(chain.chainState, "broken");
+    assert.ok(chain.escalationReasons.includes(reason));
+    source.data[field] = [validRef];
+    chain = buildContinuousAssuranceChains(rows, buildConnectedGrcGraph(rows).links)[0];
+    assert.equal(chain.chainState, "attention");
+    assert.ok(!chain.escalationReasons.includes(reason));
+    source.data[field] = [validRef, "MISSING-REFERENCE"];
+    for (const row of rows.filter(row => ["automation-finding", "automation-remediation"].includes(String(row.data.kind)))) row.data.status = "closed";
+    assert.equal(buildContinuousAssuranceChains(rows, buildConnectedGrcGraph(rows).links)[0].chainState, "complete");
+  }
+});
+
+test("ambiguous risk references remain broken even beside an unambiguous risk", () => {
+  const rows = fixture("healthy", true, true);
+  rows.push(...["risk-a", "risk-b"].map(id => ({id, code:"RSK-DUPLICATE",module:"Risk Assessment",data:{}})));
+  const remediation = rows.find(row => row.data.kind === "automation-remediation")!;
+  remediation.data.automationRiskRef = ["FIND-1", "RSK-DUPLICATE"];
+  const graph = buildConnectedGrcGraph(rows);
+  const [chain] = buildContinuousAssuranceChains(rows, graph.links, undefined, graph.unresolved);
+  assert.equal(chain.risks.length, 1);
+  assert.ok(chain.escalationReasons.includes("risk-reference-unresolved"));
+  assert.equal(chain.chainState, "broken");
+});
+
+test("a reference to the wrong automation record kind cannot certify finding or remediation lineage", () => {
+  for (const [kind, field, reason] of [
+    ["automation-assurance", "automationFindingRefs", "finding-reference-unresolved"],
+    ["automation-finding", "automationRemediationRef", "remediation-reference-unresolved"],
+  ]) {
+    const rows = fixture("healthy", true, true);
+    const source = rows.find(row => row.data.kind === kind)!;
+    source.data[field] = "RULE-1";
+    const graph = buildConnectedGrcGraph(rows);
+    assert.ok(graph.unresolved.some(ref => ref.source.id === source.id && ref.field === field));
+    const [chain] = buildContinuousAssuranceChains(rows, graph.links, undefined, graph.unresolved);
+    assert.ok(chain.escalationReasons.includes(reason));
+    assert.equal(chain.chainState, "broken");
+  }
+});

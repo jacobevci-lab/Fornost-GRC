@@ -132,3 +132,26 @@ test("enterprise source adapters tolerate partial malformed and missing payloads
   assert.equal(rows[0].module, "Bulgular ve CAPA");
   assert.equal(rows[0].data.kind, "finding-manual");
 });
+
+test("explicit automation risks replace the legacy finding-ID fallback without guessing on failure", () => {
+  for (const riskFields of [{riskId:"risk-1"}, {risk_id:"risk-1"}, {riskId:"risk-1",risk_id:"risk-1"}]) {
+    const rows = buildConnectedGrcEnterpriseRows({evidenceAutomation:{
+      rules:[{id:"RULE-1",controlRefs:"CTL-001",health:"healthy"}],
+      findings:[{id:"FIND-1",ruleId:"RULE-1",status:"open",...riskFields}],
+    }});
+    const remediation = rows.find(row => row.data.kind === "automation-remediation")!;
+    assert.deepEqual(remediation.data.automationRiskRef, ["risk-1"]);
+    const graph = buildConnectedGrcGraph([...coreRows, ...rows, {id:"FIND-1",module:"Risk Assessment",data:{title:"Unrelated legacy ID"}}]);
+    const riskLinks = graph.links.filter(link => link.source.id === remediation.id && link.relation === "remediation-risk");
+    assert.deepEqual(riskLinks.map(link => link.target.id), ["risk-1"]);
+    assert.ok(!graph.unresolved.some(ref => ref.source.id === remediation.id && ref.relation === "remediation-risk"));
+  }
+  for (const explicit of [true, false]) {
+    const rows = buildConnectedGrcEnterpriseRows({evidenceAutomation:{findings:[{id:"FIND-1",...(explicit?{riskId:"MISSING-RISK"}:{})}]}});
+    const remediation = rows.find(row => row.data.kind === "automation-remediation")!;
+    const graph = buildConnectedGrcGraph([...rows, {id:"FIND-1",module:"Risk Assessment",data:{}}]);
+    const riskLinks = graph.links.filter(link => link.source.id === remediation.id && link.relation === "remediation-risk");
+    assert.equal(riskLinks.length, explicit ? 0 : 1);
+    assert.equal(graph.unresolved.some(ref => ref.source.id === remediation.id && ref.relation === "remediation-risk"), explicit);
+  }
+});

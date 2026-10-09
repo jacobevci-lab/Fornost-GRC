@@ -69,6 +69,9 @@ export function assuranceChainReasonLabel(reason: string, lang: "tr" | "en") {
     "control-link-missing": ["Kontrol kütüphanesi bağlantısı eksik", "Control library link missing"],
     "control-reference-unresolved": ["Kontrol referansı bulunamadı veya birden fazla kayıtla eşleşiyor", "Control reference is missing or ambiguous"],
     "assurance-state-unknown": ["Kontrol sonucu bilinmiyor", "Control result unknown"],
+    "finding-reference-unresolved": ["Bulgu referansı bulunamadı veya birden fazla kayıtla eşleşiyor", "Finding reference is missing or ambiguous"],
+    "remediation-reference-unresolved": ["Açık bulgunun düzeltme referansı çözümlenemedi", "Open finding has an unresolved remediation reference"],
+    "risk-reference-unresolved": ["Açık düzeltmenin risk referansı çözümlenemedi", "Open remediation has an unresolved risk reference"],
     "finding-missing": ["Başarısız kontrol için bulgu eksik", "Finding missing for failed control"],
     "remediation-missing": ["Açık bulgunun düzeltme bağlantısı eksik", "Open finding has no remediation link"],
     "risk-link-missing": ["Açık düzeltmenin risk bağlantısı eksik", "Open remediation has no risk link"],
@@ -81,7 +84,13 @@ export function assuranceChainReasonLabel(reason: string, lang: "tr" | "en") {
 
 export function buildContinuousAssuranceChains(rows: ConnectedGrcRow[], links: ConnectedGrcLink[], now = new Date(), unresolved: UnresolvedGrcReference[] = buildConnectedGrcGraph(rows).unresolved): ContinuousAssuranceChain[] {
   // Reuse the graph resolver: identity precedence and ambiguity must agree with the map.
-  const unresolvedControlSources = new Set(unresolved.filter(reference => reference.relation === "automation-control").map(reference => reference.source.id));
+  const unresolvedBySource = new Map<string, Set<string>>();
+  for (const reference of unresolved) {
+    const relations = unresolvedBySource.get(reference.source.id) || new Set<string>();
+    relations.add(reference.relation);
+    unresolvedBySource.set(reference.source.id, relations);
+  }
+  const hasUnresolved = (row: ConnectedGrcRow | undefined, relation: string) => Boolean(row && unresolvedBySource.get(row.id)?.has(relation));
   const rules = rows.filter((row) => kind(row) === "automation-rule");
   return rules.map((rule) => {
     const assurance = relatedRows(rule, "control-assurance", links).find((row) => kind(row) === "automation-assurance");
@@ -103,16 +112,19 @@ export function buildContinuousAssuranceChains(rows: ConnectedGrcRow[], links: C
     const openRemediations = uniqueRemediations.filter(row => !isClosed(row));
     const reasons: string[] = [];
     if (!controls.length) reasons.push("control-link-missing");
-    if (unresolvedControlSources.has(rule.id) || (assurance && unresolvedControlSources.has(assurance.id))) reasons.push("control-reference-unresolved");
+    if (hasUnresolved(rule, "automation-control") || hasUnresolved(assurance, "automation-control")) reasons.push("control-reference-unresolved");
     if (assuranceState === "unknown") reasons.push("assurance-state-unknown");
     if (assuranceState === "ineffective" && !findings.length) reasons.push("finding-missing");
+    if (hasUnresolved(assurance, "assurance-finding")) reasons.push("finding-reference-unresolved");
+    if (openFindings.some(finding => hasUnresolved(finding, "finding-remediation"))) reasons.push("remediation-reference-unresolved");
+    if (openRemediations.some(remediation => hasUnresolved(remediation, "remediation-risk"))) reasons.push("risk-reference-unresolved");
     // Evaluate each branch: another finding's valid chain cannot cover this one.
     if (openFindings.some(finding => !relatedRows(finding, "finding-remediation", links).some(row => kind(row) === "automation-remediation"))) reasons.push("remediation-missing");
     if (openRemediations.some(remediation => !relatedRows(remediation, "remediation-risk", links).some(row => row.module === "Risk Assessment"))) reasons.push("risk-link-missing");
     if (overdueRemediations) reasons.push("remediation-overdue");
     if (assuranceState === "effective" && openFindings.length) reasons.push("open-findings");
     if (assuranceState === "effective" && openRemediations.length) reasons.push("open-remediations");
-    const broken = reasons.some(reason => ["control-link-missing", "control-reference-unresolved", "finding-missing", "remediation-missing", "risk-link-missing"].includes(reason));
+    const broken = reasons.some(reason => ["control-link-missing", "control-reference-unresolved", "finding-reference-unresolved", "remediation-reference-unresolved", "risk-reference-unresolved", "finding-missing", "remediation-missing", "risk-link-missing"].includes(reason));
     const chainState: AssuranceChainState = broken ? "broken" : reasons.length || assuranceState !== "effective" ? "attention" : "complete";
 
     return {

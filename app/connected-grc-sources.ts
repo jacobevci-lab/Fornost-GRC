@@ -385,13 +385,16 @@ function evidenceAutomationRows(payload: JsonRecord) {
     const findingId = text(item.id);
     const ruleId = text(item.ruleId || item.rule_id);
     const rule = ruleById.get(ruleId);
+    const explicitRiskRefs = unique(item.riskId, item.risk_id);
     return makeRow("enterprise", "automation-remediation", "Kanıt Otomasyonu", { ...item, id: `REMEDIATION:${findingId}` }, index, {
       title: `Remediation · ${text(item.title || `Continuous assurance finding ${index + 1}`)}`,
       identityRefs: unique(`REMEDIATION:${findingId}`),
       automationFindingRef: unique(`FINDING:${findingId}`, findingId),
       automationRuleRef: unique(ruleId, `RULE:${ruleId}`),
       automationControlRefs: unique(rule?.controlRefs, rule?.control_refs),
-      automationRiskRef: unique(item.riskId, item.risk_id, findingId),
+      // Legacy generated risks used the finding ID. Do not add that fallback
+      // beside an explicit risk or silently substitute it for a broken reference.
+      automationRiskRef: explicitRiskRefs.length ? explicitRiskRefs : unique(findingId),
       owner: text(item.owner),
       dueDate: text(item.dueDate || item.due_date),
       status: text(item.status),
