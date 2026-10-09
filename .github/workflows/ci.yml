@@ -93,6 +93,7 @@ jobs:
           bash tests/onprem-container-integration.sh
 
   rhel-family-shell-compatibility:
+    name: rhel-family-shell-compatibility (${{ matrix.image }})
     runs-on: ubuntu-latest
     timeout-minutes: 10
     strategy:
@@ -105,6 +106,18 @@ jobs:
           - almalinux:9
           - quay.io/centos/centos:stream9
           - quay.io/centos/centos:stream10
+        # Vendor-published registries avoid Docker Hub's anonymous pull limits.
+        # https://wiki.almalinux.org/containers/docker-images
+        # https://github.com/rocky-linux/community.rocky.page/blob/main/Containerfile
+        include:
+          - image: rockylinux:8
+            registry: quay.io/rockylinux/rockylinux:8
+          - image: rockylinux:9
+            registry: quay.io/rockylinux/rockylinux:9
+          - image: almalinux:8
+            registry: quay.io/almalinuxorg/almalinux:8
+          - image: almalinux:9
+            registry: quay.io/almalinuxorg/almalinux:9
     steps:
       - uses: actions/checkout@v4
       - name: Validate installer on ${{ matrix.image }}
@@ -112,5 +125,5 @@ jobs:
           docker run --rm
           --volume "$PWD:/src:ro"
           --workdir /src
-          "${{ matrix.image }}"
+          "${{ matrix.registry || matrix.image }}"
           bash -lc 'dnf -q -y install python3 >/dev/null && bash -n scripts/linux/*.sh tests/onprem-install-smoke.sh && bash tests/onprem-install-smoke.sh && python3 tests/onprem-backup-test.py'
