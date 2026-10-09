@@ -3,6 +3,7 @@ import { auditRequirementPage } from "./audit-requirement-page";
 import "./audit-requirement-page.css";
 import { submitLocalAuthentication, type LocalAuthInput } from "./local-auth-submit";
 import { CAPA_REPORT_MODULE, loadCapaReport, capaReportFailure, capaReportFailureMessage, type CapaReportFailure } from "./findings/reporting";
+import { pageSessionKey, restorePage, rememberPage } from "./page-session";
 import { readSessionSnapshot } from "./session-snapshot";
 import { getCatalogStatus } from "./framework-catalog-status";
 import { FrameworkCatalogNotice, type CatalogSnapshot } from "./framework-catalog-notice";
@@ -1330,6 +1331,20 @@ function FornostApp({ currentUser }: { currentUser: any }) {
     [commandQuery, setCommandQuery] = useState(""),
     [commandIndex, setCommandIndex] = useState(0),
     [recentModules, setRecentModules] = useState<string[]>([]);
+  const [pageRestored, setPageRestored] = useState(false);
+  const pageKey = pageSessionKey(String(currentUser.id));
+  useEffect(() => {
+    const restored = restorePage(() => window.sessionStorage, pageKey, module =>
+      modules.includes(module) && module !== "Ask Fornost" &&
+      (currentUser.role === "Admin" || !adminModules.has(module)) &&
+      canOpenModule(currentUser, module));
+    setActive(restored);
+    setPageRestored(true);
+  }, [pageKey, currentUser]);
+  useEffect(() => {
+    // Wait for restoration so the initial Home render cannot overwrite it.
+    if (pageRestored) rememberPage(() => window.sessionStorage, pageKey, active);
+  }, [active, pageKey, pageRestored]);
   const closeRecordDialog=useCallback(()=>setModal(false),[]);
   const recordDialogRef=useRecordDialog(modal,closeRecordDialog);
   const labels = labelMap[lang],
@@ -1762,6 +1777,10 @@ function FornostApp({ currentUser }: { currentUser: any }) {
     { id: "intelligence", label: lang === "tr" ? "İÇGÖRÜ" : "INTELLIGENCE", items: ["Bağlantılı GRC","Raporlar","Ask Fornost"] },
     ...(currentUser.role === "Admin" ? [{ id: "administration", label: lang === "tr" ? "YÖNETİM" : "ADMINISTRATION", items: ["İş Akışı Entegrasyonları","Kimlik ve Erişim","Sistem Ayarları","AI Ayarları","Ana Veri Yönetimi","E-posta ve Bildirimler"] }] : []),
   ].map(group=>({...group,items:group.items.filter(module=>canOpenModule(currentUser,module)&&(!scoped||module!=="Ask Fornost"))})).filter(group=>group.items.length);
+  const activeNavGroup = navGroups.find(group => group.items.includes(active))?.id;
+  useEffect(() => {
+    if (pageRestored && activeNavGroup) setOpenNavGroup(activeNavGroup);
+  }, [activeNavGroup, pageRestored]);
   const commandModules = modules.filter(
     (module) => (currentUser.role === "Admin" || !adminModules.has(module)) && canOpenModule(currentUser,module),
   );

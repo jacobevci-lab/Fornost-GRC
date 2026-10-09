@@ -28,6 +28,11 @@ try{
  ];
  for(const [module,trigger,surface]of scenarios){
   await page.locator(`nav button[aria-label="${module}"]`).evaluate(node=>node.click());
+  await expect(page.locator(trigger).first()).toBeVisible();
+  await page.reload();
+  await expect(page.locator(trigger).first()).toBeVisible({timeout:30000});
+  await expect(page.locator(`nav button[aria-label="${module}"]`)).toHaveClass(/active/);
+  console.log('PAGE_REFRESH_PASS',module);
   await page.locator(trigger).first().click();await expect(page.locator(surface)).toBeVisible();
   const input=page.locator(surface).locator('input:not([type="hidden"]),textarea,select').first();if(await input.count())await input.focus();
   await page.keyboard.press('Escape');await expect(page.locator(surface)).toHaveCount(0);
