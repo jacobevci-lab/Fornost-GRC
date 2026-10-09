@@ -90,9 +90,9 @@ test("attention queue exposes operational reasons and summary counters without i
 });
 
 test("promoted CAPA state uses the bounded traceability projection without mutating the lifecycle", () => {
-  assert.match(attention, /fetch\(withBasePath\("\/api\/continuous-assurance\/traceability"\)/);
+  assert.match(attention, /loadCapaTraceability\(items\)/);
   assert.doesNotMatch(attention, /fetch\(withBasePath\("\/api\/findings"\)/);
-  assert.match(attention, /const enterpriseFindingById = useMemo/);
+  assert.match(attention, /const enterpriseFindingByWorkId = useMemo/);
   assert.match(attention, /for \(const item of traceabilityItems\)/);
   assert.match(attention, /capaTraceabilityIntegrity\(workItem, enterpriseFinding\)/);
   assert.match(attention, /governanceState === "completed"/);

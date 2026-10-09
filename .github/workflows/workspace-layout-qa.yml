@@ -53,6 +53,8 @@ jobs:
         run: node scripts/platform-escape-qa.mjs
       - name: Connected assurance chain review and recovery QA
         run: node scripts/assurance-chain-review-qa.mjs
+      - name: Exact CAPA lifecycle lookup and recovery QA
+        run: node scripts/capa-traceability-qa.mjs
       - name: Enterprise reporting HTML PDF CSV QA
         run: node scripts/reporting-export-qa.mjs
       - name: Assurance queue recovery and independent review QA
