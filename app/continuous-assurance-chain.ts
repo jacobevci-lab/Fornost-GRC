@@ -1,3 +1,4 @@
+import { dueTimestamp } from "./due-date";
 import type { ConnectedGrcLink, ConnectedGrcRow } from "./connected-grc-model";
 
 export type AssuranceLifecycleState = "effective" | "degraded" | "ineffective" | "unknown";
@@ -54,13 +55,6 @@ function relatedRows(row: ConnectedGrcRow, relation: string, links: ConnectedGrc
   return Array.from(result.values());
 }
 
-function dueDate(row: ConnectedGrcRow) {
-  const raw = String(row.data.dueDate || row.data.due_date || "").trim();
-  if (!raw) return null;
-  const date = new Date(raw);
-  return Number.isFinite(date.getTime()) ? date : null;
-}
-
 function isClosed(row: ConnectedGrcRow) {
   return ["closed", "verified", "completed", "accepted"].includes(status(row));
 }
@@ -70,29 +64,18 @@ function lifecycleState(row?: ConnectedGrcRow): AssuranceLifecycleState {
   return value === "effective" || value === "degraded" || value === "ineffective" ? value : "unknown";
 }
 
-function chainStateFor(input: {
-  assuranceState: AssuranceLifecycleState;
-  findings: ConnectedGrcRow[];
-  remediations: ConnectedGrcRow[];
-  risks: ConnectedGrcRow[];
-  overdueRemediations: number;
-}) {
-  const reasons: string[] = [];
-  if (input.assuranceState === "effective") return { state: "complete" as const, reasons };
-
-  if (input.assuranceState === "unknown") reasons.push("assurance-state-unknown");
-  if (!input.findings.length) reasons.push("finding-missing");
-  if (input.findings.length && !input.remediations.length) reasons.push("remediation-missing");
-  if (input.remediations.length && !input.risks.length) reasons.push("risk-link-missing");
-  if (input.overdueRemediations > 0) reasons.push("remediation-overdue");
-
-  if (input.assuranceState === "ineffective" && reasons.some((reason) => ["finding-missing", "remediation-missing", "risk-link-missing"].includes(reason))) {
-    return { state: "broken" as const, reasons };
-  }
-  if (reasons.length || input.assuranceState === "degraded" || input.assuranceState === "ineffective") {
-    return { state: "attention" as const, reasons };
-  }
-  return { state: "complete" as const, reasons };
+export function assuranceChainReasonLabel(reason: string, lang: "tr" | "en") {
+  const labels: Record<string, [string, string]> = {
+    "control-link-missing": ["Kontrol kütüphanesi bağlantısı eksik", "Control library link missing"],
+    "assurance-state-unknown": ["Kontrol sonucu bilinmiyor", "Control result unknown"],
+    "finding-missing": ["Başarısız kontrol için bulgu eksik", "Finding missing for failed control"],
+    "remediation-missing": ["Açık bulgunun düzeltme bağlantısı eksik", "Open finding has no remediation link"],
+    "risk-link-missing": ["Açık düzeltmenin risk bağlantısı eksik", "Open remediation has no risk link"],
+    "remediation-overdue": ["Düzeltme tarihi geçmiş", "Remediation is overdue"],
+    "open-findings": ["Kontrol sağlıklı; açık bulgu takibi sürüyor", "Control healthy; open findings still need follow-up"],
+    "open-remediations": ["Kontrol sağlıklı; açık düzeltme takibi sürüyor", "Control healthy; open remediations still need follow-up"],
+  };
+  return labels[reason]?.[lang === "tr" ? 0 : 1] || reason;
 }
 
 export function buildContinuousAssuranceChains(rows: ConnectedGrcRow[], links: ConnectedGrcLink[], now = new Date()): ContinuousAssuranceChain[] {
@@ -111,10 +94,22 @@ export function buildContinuousAssuranceChains(rows: ConnectedGrcRow[], links: C
     const assuranceState = lifecycleState(assurance);
     const assuranceScore = number(assurance?.data.assuranceScore, 0);
     const overdueRemediations = uniqueRemediations.filter((row) => {
-      const due = dueDate(row);
-      return !isClosed(row) && Boolean(due && due.getTime() < now.getTime());
+      return !isClosed(row) && dueTimestamp(row.data.dueDate || row.data.due_date) < now.getTime();
     }).length;
-    const evaluated = chainStateFor({ assuranceState, findings, remediations: uniqueRemediations, risks: uniqueRisks, overdueRemediations });
+    const openFindings = findings.filter(row => !isClosed(row));
+    const openRemediations = uniqueRemediations.filter(row => !isClosed(row));
+    const reasons: string[] = [];
+    if (!controls.length) reasons.push("control-link-missing");
+    if (assuranceState === "unknown") reasons.push("assurance-state-unknown");
+    if (assuranceState === "ineffective" && !findings.length) reasons.push("finding-missing");
+    // Evaluate each branch: another finding's valid chain cannot cover this one.
+    if (openFindings.some(finding => !relatedRows(finding, "finding-remediation", links).some(row => kind(row) === "automation-remediation"))) reasons.push("remediation-missing");
+    if (openRemediations.some(remediation => !relatedRows(remediation, "remediation-risk", links).some(row => row.module === "Risk Assessment"))) reasons.push("risk-link-missing");
+    if (overdueRemediations) reasons.push("remediation-overdue");
+    if (assuranceState === "effective" && openFindings.length) reasons.push("open-findings");
+    if (assuranceState === "effective" && openRemediations.length) reasons.push("open-remediations");
+    const broken = reasons.some(reason => ["control-link-missing", "finding-missing", "remediation-missing", "risk-link-missing"].includes(reason));
+    const chainState: AssuranceChainState = broken ? "broken" : reasons.length || assuranceState !== "effective" ? "attention" : "complete";
 
     return {
       rule,
@@ -127,11 +122,11 @@ export function buildContinuousAssuranceChains(rows: ConnectedGrcRow[], links: C
       assuranceScore,
       freshness: text(assurance?.data.automationFreshness || rule.data.automationFreshness),
       health: text(assurance?.data.automationHealth || rule.data.automationHealth),
-      openFindings: findings.filter((row) => !isClosed(row)).length,
+      openFindings: openFindings.length,
       overdueRemediations,
       riskLinked: uniqueRisks.length > 0,
-      chainState: evaluated.state,
-      escalationReasons: evaluated.reasons,
+      chainState,
+      escalationReasons: reasons,
     };
   });
 }
