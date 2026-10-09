@@ -132,6 +132,9 @@ try{
  await expect(form).toHaveCount(0);assert.equal(writes,1);
  uncertain=true;await panel.getByRole('button',{name:'+ New Finding',exact:true}).click();await form.dispatchEvent('submit');
  await expect(form).toHaveCount(0);await expect(panel.locator('.finding-notice')).toContainText('could not be confirmed');assert.equal(writes,2);
+ // The uncertainty notice appears before reconciliation finishes. Navigation is
+ // deliberately blocked while a write/reload is active; wait for that boundary.
+ await expect(panel).toHaveAttribute('aria-busy','false');
  await page.evaluate(()=>{window.__findingLineageNavigation=null;window.addEventListener('fornost:focus',event=>{if(event.detail.source==='finding-lineage')window.__findingLineageNavigation=event.detail;});window.dispatchEvent(new CustomEvent('fornost:focus',{detail:{module:'Bulgular ve CAPA',ref:'FND-QA-1'}}));});
  await expect(panel.getByRole('dialog',{name:'QA finding 1',exact:true})).toBeVisible();
  await panel.locator('.fll-route button').first().click();
