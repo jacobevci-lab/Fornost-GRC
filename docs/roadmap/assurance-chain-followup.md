@@ -8,4 +8,6 @@ A collapsed follow-up list shows affected rules, translated reasons and contextu
 
 Validation: regression tests cover healthy-but-open work, orphaned rules, multiple branches, closed history and end-of-day boundaries. Isolated browser QA exercises the list in TR/EN, dark/light and desktop/mobile, and verifies unavailable-source recovery. Existing graph navigation and full CI checks remain required.
 
-Boundary: this is an assessment of the loaded graph. It does not certify every declared reference, freeze concurrent edits or validate evidence bytes. Source completeness and the dedicated unresolved-reference view remain authoritative for those separate dimensions.
+Declared control references on both the rule and its assurance record now participate in chain assessment. A resolved control cannot mask another missing or ambiguous control reference. The chain uses the same resolver and identity precedence as the map, reusing the precomputed unresolved list in the UI. A translated follow-up reason marks affected chains broken; repairing the reference restores the normal assessment. Unrelated chains are unaffected. Tests cover partial resolution, ambiguity, canonical identity repair, source isolation, summary counts and TR/EN browser rendering.
+
+Boundary: this is an assessment of the loaded graph. It does not certify every relationship type, freeze concurrent edits or validate evidence bytes. Source completeness and the dedicated unresolved-reference view remain authoritative for those separate dimensions.

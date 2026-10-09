@@ -64,7 +64,7 @@ export default function ConnectedGrc({rows,lang,go,includeAi=false}:{rows:Connec
   },[rows,enterpriseRows,includeAi]);
   const graph=useMemo(()=>buildConnectedGrcGraph(records),[records]),links=graph.links,unresolved=graph.unresolved;
   const coverage=useMemo(()=>assessConnectedGrcCoverage(records,links),[records,links]);
-  const assuranceChains=useMemo(()=>buildContinuousAssuranceChains(records,links),[records,links]);
+  const assuranceChains=useMemo(()=>buildContinuousAssuranceChains(records,links,undefined,unresolved),[records,links,unresolved]);
   const attentionChains=assuranceChains.filter(chain=>chain.chainState!=="complete").sort((a,b)=>Number(b.chainState==="broken")-Number(a.chainState==="broken")||b.overdueRemediations-a.overdueRemediations||a.rule.id.localeCompare(b.rule.id));
   const assuranceSummary=useMemo(()=>summarizeContinuousAssurance(assuranceChains),[assuranceChains]);
   const modules=useMemo(()=>Array.from(new Set(records.map(row=>row.module))).sort(),[records]);

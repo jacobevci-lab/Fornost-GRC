@@ -1,5 +1,5 @@
 import { dueTimestamp } from "./due-date";
-import type { ConnectedGrcLink, ConnectedGrcRow } from "./connected-grc-model";
+import { buildConnectedGrcGraph, type ConnectedGrcLink, type ConnectedGrcRow, type UnresolvedGrcReference } from "./connected-grc-model";
 
 export type AssuranceLifecycleState = "effective" | "degraded" | "ineffective" | "unknown";
 export type AssuranceChainState = "complete" | "attention" | "broken";
@@ -67,6 +67,7 @@ function lifecycleState(row?: ConnectedGrcRow): AssuranceLifecycleState {
 export function assuranceChainReasonLabel(reason: string, lang: "tr" | "en") {
   const labels: Record<string, [string, string]> = {
     "control-link-missing": ["Kontrol kütüphanesi bağlantısı eksik", "Control library link missing"],
+    "control-reference-unresolved": ["Kontrol referansı bulunamadı veya birden fazla kayıtla eşleşiyor", "Control reference is missing or ambiguous"],
     "assurance-state-unknown": ["Kontrol sonucu bilinmiyor", "Control result unknown"],
     "finding-missing": ["Başarısız kontrol için bulgu eksik", "Finding missing for failed control"],
     "remediation-missing": ["Açık bulgunun düzeltme bağlantısı eksik", "Open finding has no remediation link"],
@@ -78,7 +79,9 @@ export function assuranceChainReasonLabel(reason: string, lang: "tr" | "en") {
   return labels[reason]?.[lang === "tr" ? 0 : 1] || reason;
 }
 
-export function buildContinuousAssuranceChains(rows: ConnectedGrcRow[], links: ConnectedGrcLink[], now = new Date()): ContinuousAssuranceChain[] {
+export function buildContinuousAssuranceChains(rows: ConnectedGrcRow[], links: ConnectedGrcLink[], now = new Date(), unresolved: UnresolvedGrcReference[] = buildConnectedGrcGraph(rows).unresolved): ContinuousAssuranceChain[] {
+  // Reuse the graph resolver: identity precedence and ambiguity must agree with the map.
+  const unresolvedControlSources = new Set(unresolved.filter(reference => reference.relation === "automation-control").map(reference => reference.source.id));
   const rules = rows.filter((row) => kind(row) === "automation-rule");
   return rules.map((rule) => {
     const assurance = relatedRows(rule, "control-assurance", links).find((row) => kind(row) === "automation-assurance");
@@ -100,6 +103,7 @@ export function buildContinuousAssuranceChains(rows: ConnectedGrcRow[], links: C
     const openRemediations = uniqueRemediations.filter(row => !isClosed(row));
     const reasons: string[] = [];
     if (!controls.length) reasons.push("control-link-missing");
+    if (unresolvedControlSources.has(rule.id) || (assurance && unresolvedControlSources.has(assurance.id))) reasons.push("control-reference-unresolved");
     if (assuranceState === "unknown") reasons.push("assurance-state-unknown");
     if (assuranceState === "ineffective" && !findings.length) reasons.push("finding-missing");
     // Evaluate each branch: another finding's valid chain cannot cover this one.
@@ -108,7 +112,7 @@ export function buildContinuousAssuranceChains(rows: ConnectedGrcRow[], links: C
     if (overdueRemediations) reasons.push("remediation-overdue");
     if (assuranceState === "effective" && openFindings.length) reasons.push("open-findings");
     if (assuranceState === "effective" && openRemediations.length) reasons.push("open-remediations");
-    const broken = reasons.some(reason => ["control-link-missing", "finding-missing", "remediation-missing", "risk-link-missing"].includes(reason));
+    const broken = reasons.some(reason => ["control-link-missing", "control-reference-unresolved", "finding-missing", "remediation-missing", "risk-link-missing"].includes(reason));
     const chainState: AssuranceChainState = broken ? "broken" : reasons.length || assuranceState !== "effective" ? "attention" : "complete";
 
     return {
