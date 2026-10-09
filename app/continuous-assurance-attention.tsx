@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { loadCapaTraceability, type TraceabilityItem } from "./capa-traceability-loader";
 import { canQueueAssuranceRetest } from "./assurance-recovery";
 import { withBasePath } from "./base-path";
 import {
@@ -78,16 +79,8 @@ type Finding = {
   updatedAt?: string;
   createdAt?: string;
 };
-type TraceabilityItem = {
-  workItemId?: string;
-  findingId?: string;
-  resultRef?: string;
-  completedAt?: string;
-  enterpriseFinding?: EnterpriseFindingSnapshot | null;
-};
 type AutomationPayload = { sources?: Source[]; rules?: Rule[]; runs?: Run[]; findings?: Finding[] };
 type WorkPayload = { items?: CapaWorkItem[] };
-type TraceabilityPayload = { available?: boolean; items?: TraceabilityItem[] };
 type Chain = { sourceId: string; ruleId: string; controlRef: string; controlRefs: string[]; evidenceRef: string; findingRef: string };
 type GovernanceForm = {
   findingId: string;
@@ -246,28 +239,27 @@ export default function ContinuousAssuranceAttention({ lang }: { lang: Lang }) {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [insightResponse, automationResponse, workResponse, traceabilityResponse] = await Promise.all([
+      const [insightResponse, automationResponse, workResponse] = await Promise.all([
         fetch(withBasePath("/api/evidence-automation/operations-insights"), { cache: "no-store" }),
         fetch(withBasePath("/api/evidence-automation"), { cache: "no-store" }),
         fetch(withBasePath("/api/continuous-assurance"), { cache: "no-store", headers: { accept: "application/json" } }),
-        fetch(withBasePath("/api/continuous-assurance/traceability"), { cache: "no-store", headers: { accept: "application/json" } }),
       ]);
 
       if (workResponse.ok) {
         const workPayload = await workResponse.json() as WorkPayload;
-        setWorkItems(Array.isArray(workPayload.items) ? workPayload.items : []);
+        const items = Array.isArray(workPayload.items) ? workPayload.items : [];
+        setWorkItems(items);
         setGovernanceAvailable(true);
+        try {
+          setTraceabilityItems(await loadCapaTraceability(items));
+          setFindingLifecycleAvailable(true);
+        } catch {
+          setTraceabilityItems([]);
+          setFindingLifecycleAvailable(false);
+        }
       } else {
         setWorkItems([]);
         setGovernanceAvailable(false);
-      }
-
-      if (traceabilityResponse.ok) {
-        const traceabilityPayload = await traceabilityResponse.json() as TraceabilityPayload;
-        const lifecycleAvailable = traceabilityPayload.available !== false;
-        setTraceabilityItems(lifecycleAvailable && Array.isArray(traceabilityPayload.items) ? traceabilityPayload.items : []);
-        setFindingLifecycleAvailable(lifecycleAvailable);
-      } else {
         setTraceabilityItems([]);
         setFindingLifecycleAvailable(false);
       }
@@ -313,11 +305,10 @@ export default function ContinuousAssuranceAttention({ lang }: { lang: Lang }) {
     return map;
   }, [automation.findings]);
 
-  const enterpriseFindingById = useMemo(() => {
+  const enterpriseFindingByWorkId = useMemo(() => {
     const map = new Map<string, EnterpriseFindingSnapshot>();
     for (const item of traceabilityItems) {
-      const resultRef = clean(item.resultRef);
-      if (resultRef && item.enterpriseFinding) map.set(resultRef, item.enterpriseFinding);
+      if (item.enterpriseFinding) map.set(item.workItemId, item.enterpriseFinding);
     }
     return map;
   }, [traceabilityItems]);
@@ -599,7 +590,7 @@ export default function ContinuousAssuranceAttention({ lang }: { lang: Lang }) {
                 const copy = reasonCopy(insight, tr);
                 const workItem = selectCapaWorkItem(workItems, chain.findingRef);
                 const governanceState = capaGovernanceState(Boolean(chain.findingRef), governanceAvailable, workItem);
-                const enterpriseFinding = workItem?.resultRef ? enterpriseFindingById.get(clean(workItem.resultRef)) : undefined;
+                const enterpriseFinding = workItem?.resultRef ? enterpriseFindingByWorkId.get(workItem.id) : undefined;
                 const traceability = capaTraceabilityIntegrity(workItem, enterpriseFinding);
                 const lifecycleTone = findingLifecycleAvailable ? traceabilityTone(traceability.state) : "unavailable";
                 const lifecycleCopy = findingLifecycleAvailable
