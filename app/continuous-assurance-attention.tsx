@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { loadCapaTraceability, type TraceabilityItem } from "./capa-traceability-loader";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { type TraceabilityItem } from "./capa-traceability-loader";
+import { readAttentionSnapshot } from "./assurance-attention-loader";
 import { canQueueAssuranceRetest } from "./assurance-recovery";
 import { withBasePath } from "./base-path";
 import {
@@ -80,7 +81,6 @@ type Finding = {
   createdAt?: string;
 };
 type AutomationPayload = { sources?: Source[]; rules?: Rule[]; runs?: Run[]; findings?: Finding[] };
-type WorkPayload = { items?: CapaWorkItem[] };
 type Chain = { sourceId: string; ruleId: string; controlRef: string; controlRefs: string[]; evidenceRef: string; findingRef: string };
 type GovernanceForm = {
   findingId: string;
@@ -236,64 +236,31 @@ export default function ContinuousAssuranceAttention({ lang }: { lang: Lang }) {
   const [retestBusyFinding, setRetestBusyFinding] = useState("");
   const [retestNotice, setRetestNotice] = useState<ActionNotice | null>(null);
 
+  const readController = useRef<AbortController | null>(null);
   const load = useCallback(async () => {
-    setLoading(true);
+    readController.current?.abort();
+    const controller = new AbortController();readController.current = controller;
+    const timeout = window.setTimeout(() => controller.abort(),15000);
+    setLoading(true);setAvailable(false);setGovernanceAvailable(false);setFindingLifecycleAvailable(false);
     try {
-      const [insightResponse, automationResponse, workResponse] = await Promise.all([
-        fetch(withBasePath("/api/evidence-automation/operations-insights"), { cache: "no-store" }),
-        fetch(withBasePath("/api/evidence-automation"), { cache: "no-store" }),
-        fetch(withBasePath("/api/continuous-assurance"), { cache: "no-store", headers: { accept: "application/json" } }),
-      ]);
-
-      if (workResponse.ok) {
-        const workPayload = await workResponse.json() as WorkPayload;
-        const items = Array.isArray(workPayload.items) ? workPayload.items : [];
-        setWorkItems(items);
-        setGovernanceAvailable(true);
-        try {
-          setTraceabilityItems(await loadCapaTraceability(items));
-          setFindingLifecycleAvailable(true);
-        } catch {
-          setTraceabilityItems([]);
-          setFindingLifecycleAvailable(false);
-        }
-      } else {
-        setWorkItems([]);
-        setGovernanceAvailable(false);
-        setTraceabilityItems([]);
-        setFindingLifecycleAvailable(false);
-      }
-
-      if (!insightResponse.ok || !automationResponse.ok) {
-        setAvailable(false);
-        setInsights(null);
-        return;
-      }
-      const insightPayload = await insightResponse.json() as InsightPayload;
-      const automationPayload = await automationResponse.json() as AutomationPayload;
-      if (insightPayload.available === false) {
-        setAvailable(false);
-        setInsights(insightPayload);
-        return;
-      }
-      setAutomation(automationPayload);
-      setInsights(insightPayload);
-      setAvailable(true);
+      const snapshot = await readAttentionSnapshot(controller.signal);
+      if(readController.current !== controller)return;
+      setWorkItems(snapshot.workItems);setGovernanceAvailable(snapshot.governanceAvailable);
+      setTraceabilityItems(snapshot.traceabilityItems);setFindingLifecycleAvailable(snapshot.findingLifecycleAvailable);
+      setAutomation(snapshot.automation as AutomationPayload);setInsights(snapshot.insights as InsightPayload);setAvailable(true);
     } catch {
-      setAvailable(false);
-      setGovernanceAvailable(false);
-      setFindingLifecycleAvailable(false);
-      setTraceabilityItems([]);
-      setInsights(null);
+      if(readController.current !== controller)return;
+      setAvailable(false);setGovernanceAvailable(false);setFindingLifecycleAvailable(false);
+      setWorkItems([]);setTraceabilityItems([]);setInsights(null);
     } finally {
-      setLoaded(true);
-      setLoading(false);
+      window.clearTimeout(timeout);
+      if(readController.current === controller){setLoaded(true);setLoading(false);}
     }
   }, []);
 
   useEffect(() => {
     const timer = window.setTimeout(() => void load(), 0);
-    return () => window.clearTimeout(timer);
+    return () => {window.clearTimeout(timer);readController.current?.abort();readController.current=null;};
   }, [load]);
 
   const findingById = useMemo(() => {
@@ -437,7 +404,7 @@ export default function ContinuousAssuranceAttention({ lang }: { lang: Lang }) {
 
   async function queueCapa(chain: Chain) {
     const form = governanceForm;
-    if (!form || form.findingId !== chain.findingRef) return;
+    if (!governanceAvailable || loading || !form || form.findingId !== chain.findingRef) return;
     const required = [form.reviewer, form.owner, form.dueDate, form.targetControlRef, form.rootCause, form.correctiveAction, form.preventiveAction].every((value) => clean(value));
     if (!required) {
       setGovernanceNotice({ findingId: form.findingId, tone: "error", message: tr ? "Reviewer, owner, tarih, hedef kontrol, kök neden ve CAPA aksiyonları zorunludur." : "Reviewer, owner, due date, target control, root cause and CAPA actions are required." });
@@ -519,7 +486,7 @@ export default function ContinuousAssuranceAttention({ lang }: { lang: Lang }) {
   async function queueRetest(chain: Chain) {
     const findingId = clean(chain.findingRef);
     const recovery = recoveryByFinding[findingId];
-    if (!findingId || !canQueueAssuranceRetest(recovery)) return;
+    if (!governanceAvailable || loading || !findingId || !canQueueAssuranceRetest(recovery)) return;
     setRetestBusyFinding(findingId);
     setRetestNotice(null);
     try {
@@ -554,10 +521,10 @@ export default function ContinuousAssuranceAttention({ lang }: { lang: Lang }) {
           <h3>{tr ? "Dikkat Gerektirenler" : "Attention Required"}</h3>
           <p>{tr ? "Connector, continuous control, kanıt, bulgu, governance, remediation ve re-test durumunu tek operasyon kuyruğunda birleştirir." : "Combines connector, continuous-control, evidence, finding, governance, remediation, and re-test state in one operational queue."}</p>
         </div>
-        <button type="button" disabled={loading} onClick={() => void load()}>{loading ? "…" : "↻"}</button>
+        <button type="button" aria-label={tr?"Güvence durumunu yenile":"Refresh assurance status"} disabled={loading} onClick={() => void load()}>{loading ? "…" : "↻"}</button>
       </header>
 
-      {!loaded ? (
+      {!loaded || loading ? (
         <div className="ca-attention-loading" role="status">
           <b>{tr ? "Continuous Assurance durumu okunuyor" : "Reading Continuous Assurance state"}</b>
           <span>{tr ? "Operasyonel durum doğrulanana kadar sağlıklı veya sorunlu olarak işaretlenmez." : "The surface is not marked healthy or unhealthy until operational state is verified."}</span>
@@ -569,6 +536,7 @@ export default function ContinuousAssuranceAttention({ lang }: { lang: Lang }) {
         </div>
       ) : (
         <>
+          {!governanceAvailable&&<p className="ca-attention-governance-notice" role="status">{tr?"İş kuyruğu eksik veya okunamadı. CAPA ve yeniden test işlemleri için yenileyin ya da Bağlantılı GRC güvence kuyruğunu açın.":"Work queue is incomplete or unavailable. Refresh or open the Connected GRC assurance queue before starting CAPA or retest work."}</p>}
           <div className="ca-attention-summary" aria-label={tr ? "Continuous Assurance özeti" : "Continuous Assurance summary"}>
             <span className="critical"><strong>{summary?.criticalConnectors ?? 0}</strong><small>{tr ? "kritik connector" : "critical connectors"}</small></span>
             <span className="watch"><strong>{summary?.watchConnectors ?? 0}</strong><small>{tr ? "izlenecek connector" : "watch connectors"}</small></span>
@@ -601,7 +569,7 @@ export default function ContinuousAssuranceAttention({ lang }: { lang: Lang }) {
                 const retestState = retestAttentionState(Boolean(chain.findingRef), governanceAvailable, retestItem, recovery);
                 const showRetest = governanceState === "completed" || Boolean(retestItem);
                 const retestBusy = retestBusyFinding === chain.findingRef;
-                const formOpen = activeGovernanceFinding === chain.findingRef && governanceForm?.findingId === chain.findingRef;
+                const formOpen = governanceAvailable && activeGovernanceFinding === chain.findingRef && governanceForm?.findingId === chain.findingRef;
                 const notice = governanceNotice?.findingId === chain.findingRef ? governanceNotice : null;
                 const currentRetestNotice = retestNotice?.findingId === chain.findingRef ? retestNotice : null;
                 return (
