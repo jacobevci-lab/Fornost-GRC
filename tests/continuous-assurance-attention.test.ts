@@ -5,13 +5,11 @@ import test from "node:test";
 const attention = readFileSync("app/continuous-assurance-attention.tsx", "utf8");
 const settings = readFileSync("app/integration-settings.tsx", "utf8");
 
-test("attention panel consumes the authoritative operational insights and automation APIs", () => {
-  assert.match(attention, /fetch\(withBasePath\("\/api\/evidence-automation\/operations-insights"\)/);
-  assert.match(attention, /fetch\(withBasePath\("\/api\/evidence-automation"\)/);
-  assert.match(attention, /if \(!insightResponse\.ok \|\| !automationResponse\.ok\)/);
-  assert.match(attention, /if \(insightPayload\.available === false\)/);
+test("attention panel uses the bounded snapshot loader and explicit source errors", () => {
+  assert.match(attention, /readAttentionSnapshot\(controller.signal\)/);
+  assert.match(attention, /readController.current !== controller/);
+  assert.match(attention, /controller.abort\(\),15000/);
   assert.match(attention, /setAvailable\(false\)/);
-  assert.match(attention, /Operasyonel insight verisi alınamadı/);
   assert.match(attention, /Operational insight data unavailable/);
 });
 
@@ -90,7 +88,7 @@ test("attention queue exposes operational reasons and summary counters without i
 });
 
 test("promoted CAPA state uses the bounded traceability projection without mutating the lifecycle", () => {
-  assert.match(attention, /loadCapaTraceability\(items\)/);
+  assert.match(readFileSync("app/assurance-attention-loader.ts", "utf8"), /loadCapaTraceability\(workItems,scopedFetch\)/);
   assert.doesNotMatch(attention, /fetch\(withBasePath\("\/api\/findings"\)/);
   assert.match(attention, /const enterpriseFindingByWorkId = useMemo/);
   assert.match(attention, /for \(const item of traceabilityItems\)/);
