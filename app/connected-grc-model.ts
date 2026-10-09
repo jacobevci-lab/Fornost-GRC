@@ -119,8 +119,8 @@ const relationFields: Record<string, RelationDefinition> = {
   automationRuleRef: { relation: "automation-rule", modules: ["Kanıt Otomasyonu"], sources: ["Kanıt Otomasyonu"] },
   automationEvidenceRef: { relation: "automation-evidence", modules: ["Kanıtlar"], sources: ["Kanıt Otomasyonu"] },
   automationAssuranceRef: { relation: "control-assurance", modules: ["Kanıt Otomasyonu"], sources: ["Kanıt Otomasyonu"] },
-  automationFindingRefs: { relation: "assurance-finding", modules: ["Kanıt Otomasyonu"], sources: ["Kanıt Otomasyonu"] },
-  automationRemediationRef: { relation: "finding-remediation", modules: ["Kanıt Otomasyonu"], sources: ["Kanıt Otomasyonu"] },
+  automationFindingRefs: { relation: "assurance-finding", modules: ["Kanıt Otomasyonu"], sources: ["Kanıt Otomasyonu"], targetKind: "automation-finding" },
+  automationRemediationRef: { relation: "finding-remediation", modules: ["Kanıt Otomasyonu"], sources: ["Kanıt Otomasyonu"], targetKind: "automation-remediation" },
   automationRiskRef: { relation: "remediation-risk", modules: ["Risk Assessment"], sources: ["Kanıt Otomasyonu"] },
 };
 
