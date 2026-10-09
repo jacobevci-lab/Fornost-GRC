@@ -4,6 +4,7 @@ import test from "node:test";
 
 const executivePanel = readFileSync("app/executive-assurance-panel.tsx", "utf8");
 const attention = readFileSync("app/continuous-assurance-attention.tsx", "utf8");
+const loader = readFileSync("app/assurance-attention-loader.ts", "utf8");
 
 test("executive dashboard reuses the authoritative Continuous Assurance attention surface", () => {
   assert.match(executivePanel, /import ContinuousAssuranceAttention from "\.\/continuous-assurance-attention"/);
@@ -12,8 +13,9 @@ test("executive dashboard reuses the authoritative Continuous Assurance attentio
 });
 
 test("dashboard attention remains grounded in operational insights rather than executive score inference", () => {
-  assert.match(attention, /\/api\/evidence-automation\/operations-insights/);
-  assert.match(attention, /\/api\/evidence-automation/);
+  assert.match(attention, /readAttentionSnapshot\(controller.signal\)/);
+  assert.match(loader, /\/api\/evidence-automation\/operations-insights/);
+  assert.match(loader, /\/api\/evidence-automation/);
   assert.match(attention, /chainByInsight/);
   assert.match(attention, /sourceRef: ref/);
   assert.match(attention, /ruleRef: ref/);
