@@ -6,8 +6,10 @@ import * as incidents from '../../app/incidents/domain';
 import * as continuity from '../../app/continuity/domain';
 import * as policy from '../../app/policy-lifecycle/domain';
 import * as vendor from '../../app/third-party-risk/domain';
+import * as risk from '../../app/risk-appetite/domain';
+import * as regulatory from '../../app/regulatory-intelligence/domain';
 // Execute actual route handlers and SQL against transactional SQLite; substitute only platform/auth adapters.
-export function fixture(module:'incidents'|'continuity'|'policy-lifecycle'|'third-party-risk') {
+export function fixture(module:'incidents'|'continuity'|'policy-lifecycle'|'third-party-risk'|'risk-appetite'|'regulatory-intelligence') {
  const sqlite=new DatabaseSync(':memory:'); let beforeBatch:(()=>void)|undefined;
  type Value=string|number|null;
  function prepare(sql:string,values:Value[]=[]){return{
@@ -31,6 +33,8 @@ export function fixture(module:'incidents'|'continuity'|'policy-lifecycle'|'thir
   if(name==='../../continuity/domain')return continuity;
   if(name==='../../policy-lifecycle/domain')return policy;
   if(name==='../../third-party-risk/domain')return vendor;
+  if(name==='../../risk-appetite/domain')return risk;
+  if(name==='../../regulatory-intelligence/domain')return regulatory;
   throw new Error(name);
  };
  new Function('require','exports',compiled)(require,exports);
