@@ -28,7 +28,7 @@ KRI measurement now claims the approved appetite and its evaluated thresholds fi
 
 Regulatory change decisions recheck open/absent impacts at write time. Impact creation claims its parent, so a stale request cannot reopen a closed change. Impact transitions claim the impact and parent authorization snapshot, derive the parent state from current child rows inside the transaction, and append an event. Parent/event write failures roll back child changes. These changes do not validate target references or implement automatic source collection.
 
-Risk and regulatory clients reconcile rejected/uncertain decisions. Regulatory transport failures now also release the busy state in a finally block. Source creation/review, initial change intake, risk statement editing/creation and scenario/board generation remain outside this transaction increment.
+Risk and regulatory clients reconcile rejected/uncertain decisions. Regulatory transport failures now also release the busy state in a finally block. Source creation/review, initial change intake, risk statement editing/creation and scenario/board generation are covered by the later intake increment below.
 
 Validation: `tests/risk-regulatory-decision-integrity.test.ts` executes actual route SQL for competing updates, changed reviewers, late blocking children, closed parents, changed KRI thresholds, altered board content and rollback on child/parent/event failures. Existing lifecycle/domain tests remain applicable. These tests are isolated and do not imply live customer acceptance.
 
@@ -73,3 +73,14 @@ Exercise scheduling claims the complete server-read active plan and advances its
 Incident and continuity clients dismiss creation/scheduling forms on conflicts, server errors and uncertain transport outcomes, then reload; validation failures keep entered input. Existing authorization is preserved. This does not introduce client-version tokens, validate referenced assets/BIA/risk records, prevent retirement of plans with previously scheduled exercises, or change gap-closure/retest requirements.
 
 Validation: `tests/resilience-intake-integrity.test.ts` runs actual route handlers and transactional SQLite SQL for successful intake, rollback at record/event writes, inactive or missing parents, and concurrent retirement/deletion/target/reviewer changes. The fixture substitutes platform/auth adapters and does not replace the deployment QA gates.
+
+
+## Risk and regulatory intake
+
+Risk appetite creation and editing now commit history with the record. Editing claims the complete server-read draft/rejected statement, so concurrent approval, reassignment or threshold changes cannot be overwritten or reset to draft. Scenario intake claims the approved appetite and commits the scenario and its event together. Board generation commits the sealed snapshot and history atomically; its bounded portfolio reads are still not a single transactional portfolio snapshot.
+
+Regulatory source creation and review commit their events atomically. Review rechecks the complete enabled source, including review cadence, before updating its schedule. Change intake claims the enabled source and rechecks the source/external-reference pair inside the write before creating the change and event. Ordinary database failures are no longer reported as duplicate-reference conflicts. This remains manual source review/intake, not an automated regulatory feed collector.
+
+Risk and regulatory creation dialogs reconcile after conflicts and uncertain outcomes without automatically replaying writes. Validation errors preserve input. No permission expansion, schema migration, client-version tokens or request-idempotency keys are introduced; linked target validation and historical portfolio snapshot consistency remain separate work.
+
+Validation: `tests/risk-regulatory-intake-integrity.test.ts` executes actual route handlers and SQL for create/update success, concurrent parent approval/retirement/threshold/cadence changes, duplicate source references, content hash preservation and rollback of records and timestamps when child/history writes fail. The shared fixture uses the actual URL validator for source creation.

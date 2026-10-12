@@ -8,6 +8,7 @@ import * as policy from '../../app/policy-lifecycle/domain';
 import * as vendor from '../../app/third-party-risk/domain';
 import * as risk from '../../app/risk-appetite/domain';
 import * as regulatory from '../../app/regulatory-intelligence/domain';
+import {safeHttpUrl} from '../../app/api/integrations/security';
 // Execute actual route handlers and SQL against transactional SQLite; substitute only platform/auth adapters.
 export function fixture(module:'incidents'|'continuity'|'policy-lifecycle'|'third-party-risk'|'risk-appetite'|'regulatory-intelligence') {
  const sqlite=new DatabaseSync(':memory:'); let beforeBatch:(()=>void)|undefined;
@@ -27,7 +28,7 @@ export function fixture(module:'incidents'|'continuity'|'policy-lifecycle'|'thir
   if(name==='next/server')return{NextResponse:{json:(body:unknown,options:{status:number})=>({body,status:options.status})}};
   if(name==='cloudflare:workers')return{env:{DB:db}};
   if(name==='../auth/security')return{requireRole:async()=>({actor:{role:'Admin',email:'reviewer@example.com'}})};
-  if(name==='../integrations/security')return{clean:(x:unknown,n:number)=>String(x??'').trim().slice(0,n)};
+  if(name==='../integrations/security')return{safeHttpUrl,clean:(x:unknown,n:number)=>String(x??'').trim().slice(0,n)};
   if(name==='../../enterprise-lifecycle-write')return writes;
   if(name==='../../incidents/domain')return incidents;
   if(name==='../../continuity/domain')return continuity;
