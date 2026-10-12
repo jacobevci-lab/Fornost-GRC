@@ -6,7 +6,7 @@ Exercise completion claims the planned exercise exactly once and checks the pare
 
 The clients reload after conflicts/server failures and ambiguous transport outcomes and dismiss stale decision dialogs. They do not replay a mutation automatically. On a failed reload users must refresh before making another decision.
 
-Scope: this protects the server read/write interval, not a client-supplied version of an old screen. Record creation, exercise scheduling, other enterprise workflows, relationship validation and idempotency across ambiguous creates remain separate work. No schema migration or broader permission is introduced. Existing maker/checker checks remain authoritative.
+Scope: this protects the server read/write interval, not a client-supplied version of an old screen. Record creation and exercise scheduling are covered by the later intake increment below. Other enterprise workflows, relationship validation and idempotency across ambiguous creates remain separate work. No schema migration or broader permission is introduced. Existing maker/checker checks remain authoritative.
 
 Validation: the actual route handlers and SQL run against transactional SQLite in `tests/enterprise-lifecycle-atomicity.test.ts`, with only platform/auth adapters replaced. Cases cover replay, parent retirement/changed objectives, ownership races, competing decisions, successful/no-gap completion and rollback when gap or event inserts fail. This is not live browser or vendor integration validation.
 
@@ -62,3 +62,14 @@ Draft creation claims the policy, rechecks the absence of an unfinished version 
 Validation: `tests/policy-creation-integrity.test.ts` covers successful and duplicate creation, concurrent metadata changes/retirement, version numbering conflicts, exact content hashing, pointer preservation, and rollback on version/event write failures.
 
 Supplier and policy clients dismiss creation/edit dialogs as well as decision dialogs after 409/server errors or uncertain transport outcomes, then reload. Validation errors keep input available. Mutations are never automatically retried.
+
+
+## Incident and continuity intake
+
+Incident declaration and continuity plan creation now commit their initial records and history together. A failed event write rolls back the record instead of leaving an unaudited incident or plan.
+
+Exercise scheduling claims the complete server-read active plan and advances its timestamp before inserting the exercise and event in one transaction. Retirement, deletion, reassignment or changed recovery targets between read and write return 409 without creating an exercise. Failure inserting either the exercise or history restores the original plan timestamp. Separate intentional scheduling requests remain supported; no deduplication or request-idempotency mechanism is claimed.
+
+Incident and continuity clients dismiss creation/scheduling forms on conflicts, server errors and uncertain transport outcomes, then reload; validation failures keep entered input. Existing authorization is preserved. This does not introduce client-version tokens, validate referenced assets/BIA/risk records, prevent retirement of plans with previously scheduled exercises, or change gap-closure/retest requirements.
+
+Validation: `tests/resilience-intake-integrity.test.ts` runs actual route handlers and transactional SQLite SQL for successful intake, rollback at record/event writes, inactive or missing parents, and concurrent retirement/deletion/target/reviewer changes. The fixture substitutes platform/auth adapters and does not replace the deployment QA gates.
