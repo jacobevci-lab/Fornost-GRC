@@ -39,7 +39,7 @@ Version submission/approval/rejection/publication now claim the exact version an
 
 Retirement claims the document and rechecks active exceptions/open campaigns in the same transaction. Campaign and exception creation recheck the current published version and document inside their insert, preventing a stale request from creating obligations after retirement. Campaign recipients and its event commit together. Exception approval also requires an unexpired exception linked to the current published policy.
 
-`tests/policy-publication-integrity.test.ts` covers rollback at every publication stage, lifecycle decisions, competing parent changes, retirement blockers, campaign recipient/event failures and expired/superseded exception approvals. Initial policy creation, metadata editing and draft-version creation remain separate work. No client-version token or broad permission change is introduced.
+`tests/policy-publication-integrity.test.ts` covers rollback at every publication stage, lifecycle decisions, competing parent changes, retirement blockers, campaign recipient/event failures and expired/superseded exception approvals. Initial policy creation, metadata editing and draft-version creation are covered by the later increment below. No client-version token or broad permission change is introduced.
 
 
 ## Third-party onboarding, renewal and exit
@@ -51,3 +51,12 @@ Renewal claims the profile, rechecks unfinished assessments and the latest cycle
 Offboarding claims the reviewer/profile snapshot, rechecks every open finding and the source supplier record, and commits both supplier views plus the evidence event together. Missing/changed source records conflict rather than leaving disagreeing supplier states. Existing roles and independent reviewer checks remain unchanged.
 
 Validation: `tests/vendor-onboarding-integrity.test.ts` executes actual route SQL with late concurrent mutations and rollback failures at source/profile/assessment/finding/event writes. The helper now accepts an explicitly selected internal identity column for `vendor_id`-keyed profiles. No schema migration, client-version token, general reference validation, idempotency keys, or automatic retry is added. A legitimate finding added after a completed approval remains visible through critical-finding attention; it does not retroactively rewrite the recorded approval.
+
+
+## Policy intake and draft creation
+
+Policy creation and metadata updates commit their audit events with the record. Duplicate policy codes are checked inside the write, and edits claim the complete server-read document so retirement, reviewer changes or another edit cannot be overwritten during the read/write interval.
+
+Draft creation claims the policy, rechecks the absence of an unfinished version and the latest version number, then commits the draft, content hash and event together. Concurrent retirement or creation conflicts without leaving a draft or advancing the parent timestamp. The published version pointer is preserved. Metadata updates retain existing permissions; this is not an additional approval workflow or a client-side stale-form token.
+
+Validation: `tests/policy-creation-integrity.test.ts` covers successful and duplicate creation, concurrent metadata changes/retirement, version numbering conflicts, exact content hashing, pointer preservation, and rollback on version/event write failures.
