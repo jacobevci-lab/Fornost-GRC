@@ -60,3 +60,5 @@ Policy creation and metadata updates commit their audit events with the record. 
 Draft creation claims the policy, rechecks the absence of an unfinished version and the latest version number, then commits the draft, content hash and event together. Concurrent retirement or creation conflicts without leaving a draft or advancing the parent timestamp. The published version pointer is preserved. Metadata updates retain existing permissions; this is not an additional approval workflow or a client-side stale-form token.
 
 Validation: `tests/policy-creation-integrity.test.ts` covers successful and duplicate creation, concurrent metadata changes/retirement, version numbering conflicts, exact content hashing, pointer preservation, and rollback on version/event write failures.
+
+Supplier and policy clients dismiss creation/edit dialogs as well as decision dialogs after 409/server errors or uncertain transport outcomes, then reload. Validation errors keep input available. Mutations are never automatically retried.
