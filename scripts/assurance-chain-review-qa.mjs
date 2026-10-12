@@ -31,6 +31,18 @@ try{
  await page.locator('.cg-tabs').getByRole('button',{name:'Assurance',exact:true}).click();
  const review=page.locator('.cg-chain-review');await expect(review).toBeVisible();await review.locator('summary').click();
  await expect(review.locator('article')).toHaveCount(4);
+ const exportButton=page.locator('.cg-assurance-export');
+ await expect(exportButton).toBeEnabled();
+ const downloadPromise=page.waitForEvent('download');await exportButton.click();
+ const download=await downloadPromise;
+ assert.equal(download.suggestedFilename(),'fornost-connected-grc-assurance.csv');
+ const stream=await download.createReadStream();assert.ok(stream);
+ const chunks=[];for await(const chunk of stream)chunks.push(chunk);
+ const csv=Buffer.concat(chunks).toString('utf8');
+ assert.equal(csv.split('\n').length,5);
+ assert.ok(csv.includes('QA Partially Resolved Risks'));
+ assert.ok(csv.includes('risk-reference-unresolved'));
+ assert.ok(csv.includes('"loaded";"11";"11";"4"'));
  await expect(review).toContainText('Control healthy; open findings still need follow-up');
  await expect(review).toContainText('Control library link missing');
  await expect(review.locator('article').filter({hasText:'QA Partially Resolved Controls'})).toContainText('Control reference is missing or ambiguous');
@@ -54,6 +66,7 @@ try{
  await expect(riskReview).not.toContainText('Açık düzeltmenin risk referansı çözümlenemedi');
  unavailable=true;await page.locator('.cg-source-controls button').click();
  await expect(page.locator('.cg-source-state')).toHaveAttribute('data-loading','false');
+ await expect(exportButton).toBeDisabled();
  await expect(review).toHaveCount(0);await expect(page.locator('.cg-assessment-pending')).toBeVisible();
  unavailable=false;await page.locator('.cg-source-controls button').click();await expect(review).toBeVisible({timeout:30000});
  assert.deepEqual(errors,[]);console.log('ASSURANCE_CHAIN_REVIEW_QA_PASS: healthy open work, orphan control, risk gap, overdue work, TR/EN, both themes/mobile and source recovery');
