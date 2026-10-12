@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { assessConnectedGrcCoverage, buildConnectedGrcGraph, connectedRelationLabels, connectedRemediationModule, connectedTitle, type ConnectedGrcRow } from "./connected-grc-model";
 import { filterConnectedGrcGaps, type ConnectedGapType } from "./connected-grc-gaps";
-import { connectedGrcExport, connectedGrcGapExport } from "./connected-grc-export";
+import { connectedGrcExport, connectedGrcGapExport, connectedGrcAssuranceExport } from "./connected-grc-export";
 import { connectedGrcNavigation } from "./connected-grc-navigation";
 import { buildConnectedGrcEnterpriseRows, connectedGrcEndpoints } from "./connected-grc-sources";
 import { assuranceChainReasonLabel, buildContinuousAssuranceChains, summarizeContinuousAssurance } from "./continuous-assurance-chain";
@@ -93,9 +93,9 @@ export default function ConnectedGrc({rows,lang,go,includeAi=false}:{rows:Connec
     if(!target){go(row.module);return;}
     navigateToFornost({module:target.module,ref:target.ref,kind:target.kind,source:"connected-grc-register",filter:{[target.filterKey]:target.ref}});
   }
-  function download(gaps=false){
+  function download(gaps=false,assurance=false){
     const scope={...sourceState,generatedAt:new Date().toISOString()};
-    const result=gaps?connectedGrcGapExport(gapResults.gaps,gapResults.unresolved,scope,{query:gapQuery,module:gapModule,type:gapType}):connectedGrcExport(filtered,scope);
+    const result=assurance?connectedGrcAssuranceExport(assuranceChains,scope,lang):gaps?connectedGrcGapExport(gapResults.gaps,gapResults.unresolved,scope,{query:gapQuery,module:gapModule,type:gapType}):connectedGrcExport(filtered,scope);
     if(!result)return;
     const blob=new Blob([result.content],{type:"text/csv;charset=utf-8"});
     const url=URL.createObjectURL(blob),anchor=document.createElement("a");anchor.href=url;anchor.download=result.filename;anchor.click();URL.revokeObjectURL(url);
@@ -161,7 +161,7 @@ export default function ConnectedGrc({rows,lang,go,includeAi=false}:{rows:Connec
       {!!gapResults.unresolved.length&&<details className="connected-unresolved"><summary>{tr?`${gapResults.unresolved.length} çözümlenmemiş referans`:`${gapResults.unresolved.length} unresolved references`}</summary>{gapResults.unresolved.slice(0,referenceLimit).map((item,index)=><div key={`${item.source.id}-${item.field}-${index}`}><button type="button" onClick={()=>openRecord(item.source)}>{item.source.code||item.source.id}</button><span>{connectedRelationLabels[item.relation]?.[lang]||item.relation}</span><code>{item.value}</code><small className="connected-reference-reason">{item.reason === 'ambiguous' ? (tr ? `${item.candidates.length} olası kayıt — kaynak kayıtta ID veya benzersiz kod kullanın.` : `${item.candidates.length} possible records — use an ID or unique code in the source record.`) : (tr ? 'Hedef kayıt bulunamadı.' : 'Target record not found.')}</small>{item.reason === 'ambiguous' && <span className="connected-reference-candidates">{item.candidates.map(candidate => `${candidate.code || candidate.id} · ${connectedTitle(candidate)}`).join(' / ')}</span>}</div>)}{gapResults.unresolved.length>referenceLimit&&<button type="button" className="cg-more cg-more-references" onClick={()=>setReferenceLimit(referenceLimit+20)}>{tr?"Daha fazla referans göster":"Show more references"} ({gapResults.unresolved.length-referenceLimit})</button>}</details>}
     </section>}
     {view==="assurance"&&<section className="connected-assurance cg-operations">
-      <header><div><h3>{tr?"Güvence işlemleri":"Assurance operations"}</h3><p>{tr?"Kontrol sonuçlarını, onayları ve takip işlerini yönetin.":"Manage control results, approvals and follow-up work."}</p></div></header>
+      <header><div><h3>{tr?"Güvence işlemleri":"Assurance operations"}</h3><p>{tr?"Kontrol sonuçlarını, onayları ve takip işlerini yönetin.":"Manage control results, approvals and follow-up work."}</p></div><button type="button" className="cg-assurance-export" disabled={!sourcesComplete} onClick={()=>download(false,true)}>{tr?"Güvence raporu (CSV)":"Assurance report (CSV)"}</button></header>
       {!sourcesComplete&&<p className="cg-assessment-pending" role="status">{coverageNotice}</p>}
       {sourcesComplete&&assuranceSummary.rules>0&&<div className="connected-lifecycle-posture" aria-label={tr?"Sürekli güvence operasyonel duruşu":"Continuous assurance operational posture"}>
         <article className={assuranceSummary.averageAssuranceScore<70?"attention":"healthy"}><small>{tr?"Ortalama güvence":"Average assurance"}</small><strong>{assuranceSummary.averageAssuranceScore}%</strong><span>{assuranceSummary.rules} {tr?"sürekli kontrol":"continuous controls"}</span></article>
