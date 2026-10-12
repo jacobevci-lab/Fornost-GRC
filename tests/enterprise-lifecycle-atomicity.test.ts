@@ -1,41 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {DatabaseSync} from 'node:sqlite';
-import {readFileSync} from 'node:fs';
-import ts from 'typescript';
-import * as writes from '../app/enterprise-lifecycle-write';
-import * as incidents from '../app/incidents/domain';
-import * as continuity from '../app/continuity/domain';
+import {fixture} from './helpers/enterprise-route-fixture';
 
-// Execute actual route handlers and SQL against transactional SQLite; substitute only platform/auth adapters.
-function fixture(module:'incidents'|'continuity') {
- const sqlite=new DatabaseSync(':memory:'); let beforeBatch:(()=>void)|undefined;
- type Value=string|number|null;
- function prepare(sql:string,values:Value[]=[]){return{
-  bind(...args:Value[]){return prepare(sql,args);},
-  async first(){return sqlite.prepare(sql).get(...values)||null;},
-  async all(){return{results:sqlite.prepare(sql).all(...values)};},
-  async run(){return this.exec();},
-  exec(){const result=sqlite.prepare(sql).run(...values);return{meta:{changes:Number(result.changes)}};}
- };}
- const db={prepare,async batch(statements:ReturnType<typeof prepare>[]){const hook=beforeBatch;beforeBatch=undefined;hook?.();sqlite.exec('BEGIN');try{const results=statements.map(s=>s.exec());sqlite.exec('COMMIT');return results;}catch(e){sqlite.exec('ROLLBACK');throw e;}}};
- const source=readFileSync(`app/api/${module}/route.ts`,'utf8');
- const compiled=ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;
- const exports:Record<string,unknown>={};
- const require=(name:string)=>{
-  if(name==='next/server')return{NextResponse:{json:(body:unknown,options:{status:number})=>({body,status:options.status})}};
-  if(name==='cloudflare:workers')return{env:{DB:db}};
-  if(name==='../auth/security')return{requireRole:async()=>({actor:{role:'Admin',email:'reviewer@example.com'}})};
-  if(name==='../integrations/security')return{clean:(x:unknown,n:number)=>String(x??'').trim().slice(0,n)};
-  if(name==='../../enterprise-lifecycle-write')return writes;
-  if(name==='../../incidents/domain')return incidents;
-  if(name==='../../continuity/domain')return continuity;
-  throw new Error(name);
- };
- new Function('require','exports',compiled)(require,exports);
- const post=(body:Record<string,unknown>)=>(exports.POST as (req:unknown)=>Promise<{status:number;body:Record<string,unknown>}> )({headers:new Headers(),json:async()=>body});
- return{sqlite,post,before:(hook:()=>void)=>{beforeBatch=hook;}};
-}
+
 const plan={action:'create-plan',name:'Payment continuity plan',process:'Payment processing',biaRef:'BIA-1',criticality:'critical',owner:'owner@example.com',reviewer:'reviewer@example.com',crisisLead:'lead@example.com',rtoHours:4,rpoHours:1,mtpdHours:12,dependencies:'Identity and database services',recoveryStrategy:'Controlled failover to secondary site with validation.',communicationPlan:'Notify crisis team and affected customers.',minimumStaff:4,reviewDate:'2027-10-12'};
 async function continuityFixture(){const f=fixture('continuity');const created=await f.post(plan);assert.equal(created.status,201);const id=String(created.body.id);f.sqlite.prepare("UPDATE enterprise_continuity_plans SET status='active' WHERE id=?").run(id);f.sqlite.prepare("INSERT INTO enterprise_continuity_exercises(id,code,plan_id,type,scheduled_date,scenario,facilitator,status,created_by,created_at) VALUES('EX-1','EX-1',?,'tabletop','2026-10-12','Recovery scenario','facilitator@example.com','planned','creator@example.com','2026-10-12')").run(id);return{...f,id};}
 const completion={action:'complete-exercise',exerciseId:'EX-1',outcome:'failed',actualRecoveryHours:5,actualDataLossHours:2,observations:'Recovery objectives were exceeded during exercise.',rootCause:'Secondary database recovery required manual intervention.',evidenceReference:'EVD-1',evidenceSha256:'a'.repeat(64)};
