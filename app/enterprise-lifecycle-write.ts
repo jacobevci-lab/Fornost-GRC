@@ -9,10 +9,10 @@ export class LifecycleConflict extends Error {
   constructor() { super('Kayıt işlem sırasında değişti. Güncel kaydı açıp kararınızı yeniden verin.'); }
 }
 
-export function lifecycleClaim(db: D1Database, table: string, assignments: string, values: unknown[], expected: Row) {
+export function lifecycleClaim(db: D1Database, table: string, assignments: string, values: unknown[], expected: Row, guard?: {sql: string; values: unknown[]}) {
   if (!Object.keys(expected).length || !expected.id) throw new Error('Lifecycle snapshot required');
-  return db.prepare(`UPDATE ${identifier(table)} SET ${assignments} WHERE ${Object.keys(expected).map(key => `${identifier(key)} IS ?`).join(' AND ')}`)
-    .bind(...values, ...Object.values(expected));
+  return db.prepare(`UPDATE ${identifier(table)} SET ${assignments} WHERE ${Object.keys(expected).map(key => `${identifier(key)} IS ?`).join(' AND ')}${guard ? ` AND (${guard.sql})` : ''}`)
+    .bind(...values, ...Object.values(expected), ...(guard?.values || []));
 }
 
 /** Every dependent insert follows a single-row claim/insert in the same transaction. */
