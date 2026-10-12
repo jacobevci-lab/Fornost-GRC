@@ -16,7 +16,7 @@ Policy exception submission/approval/rejection/closure now compare the complete 
 
 Third-party assessment submission and decisions atomically update the assessment, profile and event. Claims recheck the profile status, version, risk owner and reviewer. Full approval rechecks blocking high/critical findings inside the write transaction. Offboarded/rejected profiles cannot be revived by these actions. Finding transitions compare the finding snapshot and current profile reviewer, and commit evidence and audit together.
 
-Policy and vendor decision dialogs reconcile after conflicts and uncertain transport outcomes. This does not add client-version tokens, automatic mutation replay or idempotency keys. Vendor onboarding/renewal/offboarding and other creation paths still require separate work. Policy publication and campaign creation are covered by the later increment below. Existing role and maker/checker rules are preserved.
+Policy and vendor decision dialogs reconcile after conflicts and uncertain transport outcomes. This does not add client-version tokens, automatic mutation replay or idempotency keys. Vendor onboarding, renewal, finding creation and offboarding are covered by the later increment below; other creation paths remain separate work. Policy publication and campaign creation are covered by the later increment below. Existing role and maker/checker rules are preserved.
 
 `tests/policy-vendor-decision-integrity.test.ts` executes the actual handlers and SQL with concurrent mutation hooks and injected write failures. It covers attestation, exception, assessment and finding decisions, including successful approval/submission/conditional/reject outcomes, duplicate requests, profile changes, new blocking findings, and rollback of assessment/profile/event writes. The shared SQLite adapter is in `tests/helpers/enterprise-route-fixture.ts`.
 
@@ -40,3 +40,14 @@ Version submission/approval/rejection/publication now claim the exact version an
 Retirement claims the document and rechecks active exceptions/open campaigns in the same transaction. Campaign and exception creation recheck the current published version and document inside their insert, preventing a stale request from creating obligations after retirement. Campaign recipients and its event commit together. Exception approval also requires an unexpired exception linked to the current published policy.
 
 `tests/policy-publication-integrity.test.ts` covers rollback at every publication stage, lifecycle decisions, competing parent changes, retirement blockers, campaign recipient/event failures and expired/superseded exception approvals. Initial policy creation, metadata editing and draft-version creation remain separate work. No client-version token or broad permission change is introduced.
+
+
+## Third-party onboarding, renewal and exit
+
+Supplier onboarding and adoption commit the source record, TPRM profile, initial assessment and event together. Adoption claims the exact source snapshot; explicit missing IDs return 404 instead of silently creating another supplier. The name/service duplicate check is repeated inside the first write so a concurrent registration leaves no orphan source record.
+
+Renewal claims the profile, rechecks unfinished assessments and the latest cycle number, creates the next cycle, records its event and supersedes prior decisions atomically. An operation-specific event marker gates supersession even when it affects zero or multiple rows. New findings claim the assessment and check the active parent; superseded assessments and concurrently offboarded suppliers cannot acquire new findings. Finding transitions also recheck parent status/version, preventing reopening after offboarding.
+
+Offboarding claims the reviewer/profile snapshot, rechecks every open finding and the source supplier record, and commits both supplier views plus the evidence event together. Missing/changed source records conflict rather than leaving disagreeing supplier states. Existing roles and independent reviewer checks remain unchanged.
+
+Validation: `tests/vendor-onboarding-integrity.test.ts` executes actual route SQL with late concurrent mutations and rollback failures at source/profile/assessment/finding/event writes. The helper now accepts an explicitly selected internal identity column for `vendor_id`-keyed profiles. No schema migration, client-version token, general reference validation, idempotency keys, or automatic retry is added. A legitimate finding added after a completed approval remains visible through critical-finding attention; it does not retroactively rewrite the recorded approval.
