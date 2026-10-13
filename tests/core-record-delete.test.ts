@@ -1,0 +1,29 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {DatabaseSync} from 'node:sqlite';
+import {deleteCoreRecord,CoreRecordLinked} from '../app/core-record-delete';
+import {LifecycleConflict} from '../app/enterprise-lifecycle-write';
+import type {CoreRecordSnapshot} from '../app/core-record-write';
+function fixture(module='Varlık Envanteri'){
+ const sqlite=new DatabaseSync(':memory:');let hook:(()=>void)|undefined;
+ sqlite.exec('CREATE TABLE simple_grc_records(id TEXT PRIMARY KEY,module TEXT,data_json TEXT,updated_at TEXT); CREATE TABLE simple_grc_record_codes(record_id TEXT PRIMARY KEY,code TEXT)');
+ const add=(id:string,mod:string,data:unknown)=>sqlite.prepare('INSERT INTO simple_grc_records VALUES(?,?,?,?)').run(id,mod,JSON.stringify(data),'2026-10-13T00:00:00.000Z');
+ add('target',module,{title:'Legacy title'});sqlite.prepare('INSERT INTO simple_grc_record_codes VALUES(?,?)').run('target','AST-001');
+ type Value=string|number|null;
+ function prepare(sql:string,values:Value[]=[]){return{bind(...args:Value[]){return prepare(sql,args)},async first(){return sqlite.prepare(sql).get(...values)||null},exec(){return{meta:{changes:Number(sqlite.prepare(sql).run(...values).changes)}}}};}
+ const db={prepare,async batch(statements:ReturnType<typeof prepare>[]){hook?.();hook=undefined;sqlite.exec('BEGIN');try{const results=statements.map(s=>s.exec());sqlite.exec('COMMIT');return results}catch(error){sqlite.exec('ROLLBACK');throw error}}} as unknown as D1Database;
+ const read=()=>sqlite.prepare('SELECT module,data_json,updated_at FROM simple_grc_records WHERE id=?').get('target') as unknown as CoreRecordSnapshot&{module:string};
+ const before=read(),remove=(version:unknown=before.updated_at)=>deleteCoreRecord(db,'target',before,version);
+ const retained=()=>{assert.ok(read());assert.ok(sqlite.prepare('SELECT * FROM simple_grc_record_codes WHERE record_id=?').get('target'))};
+ return{sqlite,db,add,read,before,remove,retained,race:(fn:()=>void)=>{hook=fn}};
+}
+test('unlinked deletion removes record and code together, including legacy unversioned clients',async()=>{for(const legacy of [false,true]){const f=fixture();try{await deleteCoreRecord(f.db,'target',f.before,legacy?undefined:f.before.updated_at);assert.equal(f.read(),undefined);assert.equal(f.sqlite.prepare('SELECT count(*) n FROM simple_grc_record_codes').get()!.n,0);}finally{f.sqlite.close()}}});
+test('stale and malformed versions preserve record and code',async()=>{const f=fixture();try{await assert.rejects(f.remove('2000-01-01'),LifecycleConflict);for(const version of [null,'',123,{},'x'.repeat(65)])await assert.rejects(f.remove(version));f.retained();}finally{f.sqlite.close()}});
+test('server snapshot races preserve edited record and code even without client version',async()=>{for(const field of ['data_json','updated_at','module']){const f=fixture();try{f.race(()=>f.sqlite.prepare(`UPDATE simple_grc_records SET ${field}=? WHERE id='target'`).run(field==='data_json'?'{}':'changed'));await assert.rejects(deleteCoreRecord(f.db,'target',f.before,undefined),LifecycleConflict);f.retained();}finally{f.sqlite.close()}}});
+test('incoming IDs and codes block deletion for strings, arrays, delimiters and case',async()=>{for(const value of ['target','AST-001','other, target','other; AST-001','other|target','other\nAST-001','other\r\ntarget',['other','target'],['other, AST-001'],' ast-001 ']){const f=fixture();try{f.add('risk','Risk Assessment',{asset:value});await assert.rejects(f.remove(),CoreRecordLinked);f.retained();}finally{f.sqlite.close()}}});
+test('incoming link inserted just before DELETE is checked atomically',async()=>{const f=fixture();try{f.race(()=>f.add('risk','Risk Assessment',{asset:'target'}));await assert.rejects(f.remove(),CoreRecordLinked);f.retained();}finally{f.sqlite.close()}});
+test('source and target modules and reference fields define the relationship',async()=>{for(const [target,source,field] of [['BIA','Risk Assessment','processLink'],['BIA','Kontroller','processLink'],['Tedarikçiler','Varlık Envanteri','vendor'],['Kontroller','Kanıtlar','controlRef'],['Uyum','Denetim Yönetimi','requirementRef'],['Risk Assessment','Denetim Yönetimi','riskRef'],['Kanıtlar','Denetim Yönetimi','evidenceRef']]){const f=fixture(target);try{f.add('source',source,{[field]:'target'});await assert.rejects(f.remove(),CoreRecordLinked);f.retained();}finally{f.sqlite.close()}}});
+test('unrelated fields/modules, substrings, self references and legacy labels do not falsely block',async()=>{for(const [module,data] of [['Risk Assessment',{notes:'target',asset:'target-extra'}],['Tedarikçiler',{asset:'target'}],['Risk Assessment',{asset:'Legacy title'}],['Risk Assessment',{asset:{note:'target'}}]] as [string,unknown][]){const f=fixture();try{f.add('source',module,data);await f.remove();assert.equal(f.read(),undefined);}finally{f.sqlite.close()}}});
+test('removing an incoming reference permits deletion on retry',async()=>{const f=fixture();try{f.add('risk','Risk Assessment',{asset:'target'});await assert.rejects(f.remove(),CoreRecordLinked);f.sqlite.prepare('UPDATE simple_grc_records SET data_json=? WHERE id=?').run('{}','risk');await f.remove();assert.equal(f.read(),undefined);}finally{f.sqlite.close()}});
+test('code cleanup failure rolls back record deletion',async()=>{const f=fixture();try{f.sqlite.exec("CREATE TRIGGER fail_code BEFORE DELETE ON simple_grc_record_codes BEGIN SELECT RAISE(ABORT,'injected failure'); END");await assert.rejects(f.remove());f.retained();}finally{f.sqlite.close()}});
+test('no-op deletion cannot remove a code left by another transaction',async()=>{const f=fixture();try{f.race(()=>f.sqlite.exec("DELETE FROM simple_grc_records WHERE id='target'"));await assert.rejects(f.remove(),LifecycleConflict);assert.ok(f.sqlite.prepare('SELECT * FROM simple_grc_record_codes').get());}finally{f.sqlite.close()}});

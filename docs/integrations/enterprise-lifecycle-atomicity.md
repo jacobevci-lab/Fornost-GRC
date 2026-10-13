@@ -126,3 +126,11 @@ Shared register forms now send the version loaded when editing (`expectedUpdated
 Ticket linkage also sends the loaded version. A ticket created externally but not linked to the changed GRC record is reported as a partial outcome with its reference, rather than apparent full success; users are told not to create a duplicate ticket. No automatic ticket retry is added.
 
 For compatibility, API clients omitting `expectedUpdatedAt` retain server read/write conflict detection but do not gain stale-form protection. This increment does not validate the existence of referenced targets or prevent their later deletion. SQLite tests cover stale asset/BIA values, concurrent edits/deletion, invalid versions, monotonic timestamps and database failure. Runtime QA exercises versioned/stale PATCH on all core modules and stale-form refresh through five shared module UIs.
+
+### Core register deletion integrity
+
+The shared register delete action sends the displayed `expectedUpdatedAt`. A stale version receives `409 RECORD_CHANGED`; the UI reloads the list and asks the user to review it. Legacy API callers may omit this version, but every deletion still claims the server-read module, JSON and timestamp.
+
+A SQL guard blocks deletion if another **core register** row references the target by exact ID or allocated record code in a relationship field defined by the Connected GRC model. It supports comma/semicolon/pipe/newline lists and arrays, respects source/target modules, and checks at write time, including incoming references added after the initial read. `409 RECORD_LINKED` asks the user to remove or reassign those links. Record and code removal share one transaction; a failed code cleanup rolls back deletion.
+
+This is not a global foreign-key guarantee: legacy title/alias references, enterprise module tables, audit bulk deletion and other specialized delete endpoints are outside this guard. Creating a reference after a target was deleted is not yet blocked by source-write validation. Existing imported/legacy data is not rewritten. The isolated runtime QA covers stale UI/API deletion and a linked asset/risk deletion/retry; SQLite tests cover races, source/target scoping and rollback.

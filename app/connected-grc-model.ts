@@ -58,7 +58,7 @@ export type ConnectedGrcDomainPosture = {
 
 type RelationDefinition = { relation: string; modules: string[]; sources?: string[]; targetKind?: string; canonicalOnly?: boolean };
 
-const relationFields: Record<string, RelationDefinition> = {
+export const relationFields: Record<string, RelationDefinition> = {
   aiModelRef: { relation: "ai-model", modules: ["AI Yönetişimi"], sources: ["AI Yönetişimi"], targetKind: "ai-model", canonicalOnly: true },
   aiFindingRef: { relation: "ai-finding", modules: ["AI Yönetişimi"], sources: ["AI Yönetişimi"], targetKind: "ai-finding", canonicalOnly: true },
   asset: { relation: "risk-asset", modules: ["Varlık Envanteri"], sources: ["Risk Assessment", "BIA"] },
