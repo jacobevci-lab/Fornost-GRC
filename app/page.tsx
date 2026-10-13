@@ -1566,9 +1566,14 @@ function FornostApp({ currentUser }: { currentUser: any }) {
       const r = await fetch(withBasePath("/api/grc"), {
         method: editing ? "PATCH" : "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ id: editing?.id, module: active, data: form }),
+        body: JSON.stringify({ id: editing?.id, expectedUpdatedAt: editing ? editing.updatedAt || "" : undefined, module: active, data: form }),
       });
       const result = await r.json().catch(() => ({}));
+      if(r.status===409){
+        setModal(false);setEditing(null);await load();
+        setNotice(lang==="tr"?"Kayıt başka bir işlemde değişti. Güncel kayıt yüklendi; yeniden açıp değişikliklerinizi kontrol edin.":"The record changed in another operation. Reopen the refreshed record and review your changes.");
+        return;
+      }
       if (!r.ok)
         throw new Error(
           String(
@@ -1714,11 +1719,17 @@ function FornostApp({ currentUser }: { currentUser: any }) {
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
         id: row.id,
+        expectedUpdatedAt: row.updatedAt || "",
         module: row.module,
         data: { ...row.data, ticketRef, ticketUrl, ticketStatus: "Open" },
       }),
     });
-    if (update.ok) await load();
+    if(!update.ok){
+      await load();
+      setNotice(lang==="tr"?`Ticket oluşturuldu (${ticketRef}) fakat GRC kaydına bağlanamadı. Güncel kaydı kontrol edin; tekrar ticket oluşturmayın.`:`Ticket created (${ticketRef}), but it could not be linked to the GRC record. Review the refreshed record; do not create another ticket.`);
+      return;
+    }
+    await load();
     setNotice(
       lang === "tr"
         ? `Ticket oluşturuldu: ${ticketRef}`

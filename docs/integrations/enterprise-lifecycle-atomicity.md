@@ -118,3 +118,11 @@ Actual-route SQLite tests cover wrong-plan/old/failed/breached/self-reviewed ret
 Plans expose their exercises and gaps through exact plan-ID filters. Gaps link to their source exercise, parent plan and recorded verification exercise. The visible context bar clears the scope; changing tabs clears both context and text search. A missing loaded target shows an empty result rather than broadening the filter to unrelated records. These links operate within the existing bounded workspace data and do not add server pagination.
 
 Open gaps on active plans offer Schedule verification, prefilling the plan, gap owner and remediation scenario. Users review and submit the existing exercise form; opening or dismissing it writes nothing. Actual closure still requires the independently reviewed successful retest introduced above. Runtime QA now follows the plan-to-gap-to-source path, checks scope reset and Escape, and creates the verification exercise through the UI.
+
+### Core register stale-form protection
+
+Shared register forms now send the version loaded when editing (`expectedUpdatedAt`). A stale version returns 409 before writing; the form closes and refreshes the register for a new decision. This prevents an old risk/BIA/control/evidence/audit form from restoring outdated data and relationship fields. The write still checks the server-read JSON and timestamp against concurrent changes, and advances timestamps monotonically even when the existing stamp is ahead of the clock. Successful PATCH responses return the new timestamp.
+
+Ticket linkage also sends the loaded version. A ticket created externally but not linked to the changed GRC record is reported as a partial outcome with its reference, rather than apparent full success; users are told not to create a duplicate ticket. No automatic ticket retry is added.
+
+For compatibility, API clients omitting `expectedUpdatedAt` retain server read/write conflict detection but do not gain stale-form protection. This increment does not validate the existence of referenced targets or prevent their later deletion. SQLite tests cover stale asset/BIA values, concurrent edits/deletion, invalid versions, monotonic timestamps and database failure. Runtime QA exercises versioned/stale PATCH on all core modules and stale-form refresh through five shared module UIs.
