@@ -17,6 +17,64 @@ const measurement={action:'record-measurement',appetiteId:'RA-1',periodStart:'20
 const closeChange={action:'change-action',changeId:'RC-1',operation:'close',confirmation:'DEĞİŞİKLİĞİ KAPAT',...evidence};
 const verifyImpact={action:'impact-action',impactId:'RI-1',operation:'verify',confirmation:'ETKİYİ DOĞRULA',...evidence};
 
+test('historical KRI breaches preserve the latest measurement schedule',async()=>{
+ const f=await riskFixture();try{
+  assert.equal((await f.post({...measurement,value:1})).status,200);
+  const due=f.sqlite.prepare('SELECT next_measurement FROM risk_appetite_statements').get()!.next_measurement;
+  const historical=await f.post({...measurement,periodStart:'2026-09-01',periodEnd:'2026-09-01'});
+  assert.equal(historical.status,200);
+  assert.equal(f.sqlite.prepare('SELECT next_measurement FROM risk_appetite_statements').get()!.next_measurement,due);
+  assert.equal(f.sqlite.prepare('SELECT band FROM risk_kri_measurements ORDER BY period_end DESC LIMIT 1').get()!.band,'green');
+  assert.equal(count(f.sqlite,'risk_kri_breaches'),1);
+  assert.equal(count(f.sqlite,'risk_appetite_events'),2);
+  assert.equal((await f.post({...measurement,periodStart:'2026-10-02',periodEnd:'2026-10-02',value:1})).status,200);
+  assert.equal(f.sqlite.prepare('SELECT next_measurement FROM risk_appetite_statements').get()!.next_measurement,'2026-11-01');
+ }finally{f.sqlite.close();}
+});
+test('KRI duplicate periods return conflict without altering measurements, breaches, events or parent',async()=>{
+ const f=await riskFixture();try{
+  assert.equal((await f.post(measurement)).status,200);
+  const parent=f.sqlite.prepare('SELECT * FROM risk_appetite_statements').get();
+  assert.equal((await f.post({...measurement,value:1})).status,409);
+  assert.deepEqual(f.sqlite.prepare('SELECT * FROM risk_appetite_statements').get(),parent);
+  assert.equal(count(f.sqlite,'risk_kri_measurements'),1);
+  assert.equal(count(f.sqlite,'risk_kri_breaches'),1);
+  assert.equal(count(f.sqlite,'risk_appetite_events'),1);
+ }finally{f.sqlite.close();}
+});
+test('KRI period uniqueness is checked again at write time',async()=>{
+ const f=await riskFixture();try{
+  const parent=f.sqlite.prepare('SELECT * FROM risk_appetite_statements').get();
+  f.before(()=>seed(f.sqlite,'risk_kri_measurements',{id:'RACING-MEASUREMENT',appetite_id:'RA-1',period_start:measurement.periodStart,period_end:measurement.periodEnd,value:1,band:'green'}));
+  assert.equal((await f.post(measurement)).status,409);
+  assert.deepEqual(f.sqlite.prepare('SELECT * FROM risk_appetite_statements').get(),parent);
+  assert.equal(count(f.sqlite,'risk_kri_measurements'),1);
+  assert.equal(count(f.sqlite,'risk_kri_breaches'),0);
+  assert.equal(count(f.sqlite,'risk_appetite_events'),0);
+ }finally{f.sqlite.close();}
+});
+test('the entire KRI period must fit within appetite validity, including inclusive boundaries',async()=>{
+ for(const invalid of [true,false]){const f=await riskFixture();try{
+  f.sqlite.exec("UPDATE risk_appetite_statements SET valid_from='2026-09-01', valid_until='2026-10-01'");
+  const parent=f.sqlite.prepare('SELECT * FROM risk_appetite_statements').get();
+  assert.equal((await f.post({...measurement,periodStart:invalid?'2026-08-31':'2026-09-01'})).status,invalid?409:200);
+  assert.equal(count(f.sqlite,'risk_kri_measurements'),invalid?0:1);
+  if(invalid)assert.deepEqual(f.sqlite.prepare('SELECT * FROM risk_appetite_statements').get(),parent);
+ }finally{f.sqlite.close();}}
+});
+test('failed historical KRI audit rolls back the measurement and breach while preserving schedule',async()=>{
+ const f=await riskFixture();try{
+  assert.equal((await f.post({...measurement,value:1})).status,200);
+  const parent=f.sqlite.prepare('SELECT * FROM risk_appetite_statements').get();
+  f.sqlite.exec("CREATE TRIGGER fail_backfill_event BEFORE INSERT ON risk_appetite_events BEGIN SELECT RAISE(ABORT,'injected failure'); END");
+  assert.equal((await f.post({...measurement,periodStart:'2026-09-01',periodEnd:'2026-09-01'})).status,400);
+  assert.deepEqual(f.sqlite.prepare('SELECT * FROM risk_appetite_statements').get(),parent);
+  assert.equal(count(f.sqlite,'risk_kri_measurements'),1);
+  assert.equal(count(f.sqlite,'risk_kri_breaches'),0);
+  assert.equal(count(f.sqlite,'risk_appetite_events'),1);
+ }finally{f.sqlite.close();}
+});
+
 test('KRI measurements atomically create breach and event, or roll back all writes',async()=>{for(const mode of ['red','green','audit','breach','retired','threshold']){const f=await riskFixture();try{if(mode==='audit'||mode==='breach')f.sqlite.exec(`CREATE TRIGGER fail_write BEFORE INSERT ON ${mode==='audit'?'risk_appetite_events':'risk_kri_breaches'} BEGIN SELECT RAISE(ABORT,'injected failure'); END`);if(mode==='retired'||mode==='threshold')f.before(()=>f.sqlite.exec(mode==='retired'?"UPDATE risk_appetite_statements SET status='retired'":"UPDATE risk_appetite_statements SET breach_threshold=20"));const result=await f.post({...measurement,value:mode==='green'?1:12});const success=['red','green'].includes(mode);assert.equal(result.status,success?200:['retired','threshold'].includes(mode)?409:400);assert.equal(count(f.sqlite,'risk_kri_measurements'),success?1:0);assert.equal(count(f.sqlite,'risk_kri_breaches'),mode==='red'?1:0);assert.equal(count(f.sqlite,'risk_appetite_events'),success?1:0);}finally{f.sqlite.close();}}});
 test('risk appetite approval uses current reviewer and rolls back failed event',async()=>{for(const mode of ['success','reviewer','audit']){const f=await riskFixture('review');try{if(mode==='reviewer')f.before(()=>f.sqlite.exec("UPDATE risk_appetite_statements SET reviewer='other@example.com'"));if(mode==='audit')f.sqlite.exec("CREATE TRIGGER fail_event BEFORE INSERT ON risk_appetite_events BEGIN SELECT RAISE(ABORT,'injected failure'); END");assert.equal((await f.post({action:'appetite-action',appetiteId:'RA-1',operation:'approve',confirmation:'RİSK İŞTAHINI ONAYLA',...evidence})).status,mode==='success'?200:mode==='reviewer'?409:400);assert.equal(f.sqlite.prepare('SELECT status FROM risk_appetite_statements').get()!.status,mode==='success'?'approved':'review');}finally{f.sqlite.close();}}});
 test('retirement rechecks newly opened KRI breaches',async()=>{const f=await riskFixture();try{f.before(()=>seed(f.sqlite,'risk_kri_breaches',{id:'B-1',appetite_id:'RA-1',measurement_id:'M-1',status:'open',updated_at:stamp}));assert.equal((await f.post({action:'appetite-action',appetiteId:'RA-1',operation:'retire',confirmation:'RİSK İŞTAHINI YÜRÜRLÜKTEN KALDIR',...evidence})).status,409);assert.equal(count(f.sqlite,'risk_appetite_events'),0);}finally{f.sqlite.close();}});
