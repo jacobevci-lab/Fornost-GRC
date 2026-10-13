@@ -3,7 +3,7 @@ export const EXERCISE_TYPES=["tabletop","technical","failover","full-scale"] as 
 const clean=(v:unknown,n:number)=>String(v??"").trim().replace(/\u0000/g,"").slice(0,n);
 const email=(v:unknown,label:string)=>{const x=clean(v,200).toLowerCase();if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(x))throw new Error(`${label} için geçerli e-posta zorunludur.`);return x};
 const date=(v:unknown,label:string)=>{const x=clean(v,10);if(!/^\d{4}-\d{2}-\d{2}$/.test(x)||new Date(`${x}T00:00:00Z`).toISOString().slice(0,10)!==x)throw new Error(`${label} için geçerli tarih zorunludur.`);return x};
-const hours=(v:unknown,label:string,max=8760)=>{const x=Number(v);if(!Number.isFinite(x)||x<0||x>max)throw new Error(`${label} 0-${max} saat arasında olmalıdır.`);return Math.round(x*100)/100};
+const hours=(v:unknown,label:string,max=8760)=>{if((typeof v!=="number"&&typeof v!=="string")||(typeof v==="string"&&!v.trim()))throw new Error(`${label} için sayısal değer zorunludur.`);const x=Number(v);if(!Number.isFinite(x)||x<0||x>max)throw new Error(`${label} 0-${max} saat arasında olmalıdır.`);return Math.round(x*100)/100};
 const sha=(v:unknown)=>{const x=clean(v,64).toLowerCase();if(!/^[a-f0-9]{64}$/.test(x))throw new Error("64 karakter SHA-256 kanıt özeti zorunludur.");return x};
 
 export function validateContinuityPlan(input:Record<string,unknown>){
