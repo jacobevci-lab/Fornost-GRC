@@ -149,6 +149,13 @@ await check('Regulatory changes: source, intake, impact, action, independent ver
  const impact=await request(admin,'/api/regulatory-intelligence','POST',{action:'add-impact',changeId:change.id,targetType:'control',targetRef:'A.5.18',targetTitle:'Access review control',impactLevel:'high',requiredAction:'Update control design and operating procedures for the new obligation.',actionOwner:owner,dueDate:future(14)},201);
  for(const [ctx,operation,confirmation] of [[admin,'start','AKSİYONU BAŞLAT'],[admin,'submit','DOĞRULAMAYA GÖNDER'],[checker,'verify','ETKİYİ DOĞRULA']])await request(ctx,'/api/regulatory-intelligence','POST',{action:'impact-action',impactId:impact.id,operation,confirmation,...evidence});
  const closed=await request(checker,'/api/regulatory-intelligence','POST',{action:'change-action',changeId:change.id,operation:'close',confirmation:'DEĞİŞİKLİĞİ KAPAT',...evidence});assert.equal(closed.status,'closed');
+ await request(checker,'/api/regulatory-intelligence','POST',{action:'change-action',changeId:change.id,operation:'close',confirmation:'DEĞİŞİKLİĞİ KAPAT',...evidence},409);
+ const reopened=await request(checker,'/api/regulatory-intelligence','POST',{action:'change-action',changeId:change.id,operation:'reopen',confirmation:'DEĞİŞİKLİĞİ YENİDEN AÇ',...evidence});assert.equal(reopened.status,'verification');
+ await request(checker,'/api/regulatory-intelligence','POST',{action:'change-action',changeId:change.id,operation:'reopen',confirmation:'DEĞİŞİKLİĞİ YENİDEN AÇ',...evidence},409);
+ await request(checker,'/api/regulatory-intelligence','POST',{action:'impact-action',impactId:impact.id,operation:'reopen',confirmation:'ETKİYİ YENİDEN AÇ',...evidence});
+ await request(checker,'/api/regulatory-intelligence','POST',{action:'change-action',changeId:change.id,operation:'close',confirmation:'DEĞİŞİKLİĞİ KAPAT',...evidence},409);
+ for(const [ctx,operation,confirmation] of [[admin,'submit','DOĞRULAMAYA GÖNDER'],[checker,'verify','ETKİYİ DOĞRULA']])await request(ctx,'/api/regulatory-intelligence','POST',{action:'impact-action',impactId:impact.id,operation,confirmation,...evidence});
+ await request(checker,'/api/regulatory-intelligence','POST',{action:'change-action',changeId:change.id,operation:'close',confirmation:'DEĞİŞİKLİĞİ KAPAT',...evidence});
 });
 await check('Evidence automation: source creation, edit, rule creation and disable (no external collection)',async()=>{
  const source={action:'save-source',name:'QA isolated evidence source',vendor:'Generic REST',category:'Security',driver:'rest-json',baseUrl:'https://example.com',path:'/qa',authType:'none'};
