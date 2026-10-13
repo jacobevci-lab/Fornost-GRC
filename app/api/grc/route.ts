@@ -1,3 +1,5 @@
+import {writeCoreRecord} from "../../core-record-write";
+import {LifecycleConflict} from "../../enterprise-lifecycle-write";
 import {parseGrcCursor} from "../../grc-pagination";
 import { preserveRiskGovernance } from "../../risk-governance-write";
 import { canWriteModule, isScoped, readableModules } from "../../module-access";
@@ -149,9 +151,8 @@ export async function PATCH(req:NextRequest){
   if(!existing)return NextResponse.json({error:"Kayıt bulunamadı."},{status:404});if(!canWriteModule(auth.actor,existing.module))return NextResponse.json({error:"Bu modülde yazma yetkiniz yok."},{status:403});
   const input=existing.module==="Risk Assessment"&&b.data&&typeof b.data==="object"&&!Array.isArray(b.data)?preserveRiskGovernance(b.data,JSON.parse(existing.data_json)):b.data;
   const checked=validate(existing.module,input);if("error" in checked)return NextResponse.json({error:checked.error},{status:400});
-  const result=await d.prepare("UPDATE simple_grc_records SET data_json=?,updated_at=? WHERE id=? AND data_json=? AND updated_at=?").bind(JSON.stringify(checked.data),new Date().toISOString(),b.id,existing.data_json,existing.updated_at).run();
-  if(!result.meta?.changes)return NextResponse.json({error:"Kayıt başka bir işlemde değişti; yenileyip yeniden deneyin."},{status:409});
-  return NextResponse.json({ok:true});
- }catch{return NextResponse.json({error:"Geçersiz JSON isteği veya okunamayan kayıt."},{status:400})}
+  const updatedAt=await writeCoreRecord(d,b.id,existing,checked.data,b.expectedUpdatedAt);
+  return NextResponse.json({ok:true,updatedAt});
+ }catch(error){if(error instanceof LifecycleConflict)return NextResponse.json({error:error.message},{status:409});return NextResponse.json({error:"Geçersiz JSON isteği, kayıt sürümü veya okunamayan kayıt."},{status:400})}
 }
 export async function DELETE(req:NextRequest){const auth=await requireRole(req,["Admin"]);if(auth.response)return auth.response;const id=req.nextUrl.searchParams.get("id");if(!id||id.length>100)return NextResponse.json({error:"Geçersiz kayıt kimliği."},{status:400});const d=await db(),existing=await d.prepare("SELECT id FROM simple_grc_records WHERE id=?").bind(id).first();if(!existing)return NextResponse.json({error:"Kayıt bulunamadı."},{status:404});await d.batch([d.prepare("DELETE FROM simple_grc_record_codes WHERE record_id=?").bind(id),d.prepare("DELETE FROM simple_grc_records WHERE id=?").bind(id)]);return NextResponse.json({ok:true})}
