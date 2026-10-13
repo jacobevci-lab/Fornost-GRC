@@ -70,7 +70,7 @@ Incident declaration and continuity plan creation now commit their initial recor
 
 Exercise scheduling claims the complete server-read active plan and advances its timestamp before inserting the exercise and event in one transaction. Retirement, deletion, reassignment or changed recovery targets between read and write return 409 without creating an exercise. Failure inserting either the exercise or history restores the original plan timestamp. Separate intentional scheduling requests remain supported; no deduplication or request-idempotency mechanism is claimed.
 
-Incident and continuity clients dismiss creation/scheduling forms on conflicts, server errors and uncertain transport outcomes, then reload; validation failures keep entered input. Existing authorization is preserved. This does not introduce client-version tokens, validate referenced assets/BIA/risk records, prevent retirement of plans with previously scheduled exercises, or change gap-closure/retest requirements.
+Incident and continuity clients dismiss creation/scheduling forms on conflicts, server errors and uncertain transport outcomes, then reload; validation failures keep entered input. Existing authorization is preserved. This does not introduce client-version tokens, validate referenced assets/BIA/risk records, or change gap-closure/retest requirements. Retirement protection is covered by the later exercise lifecycle increment below.
 
 Validation: `tests/resilience-intake-integrity.test.ts` runs actual route handlers and transactional SQLite SQL for successful intake, rollback at record/event writes, inactive or missing parents, and concurrent retirement/deletion/target/reviewer changes. The fixture substitutes platform/auth adapters and does not replace the deployment QA gates.
 
