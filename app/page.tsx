@@ -1569,6 +1569,10 @@ function FornostApp({ currentUser }: { currentUser: any }) {
         body: JSON.stringify({ id: editing?.id, expectedUpdatedAt: editing ? editing.updatedAt || "" : undefined, module: active, data: form }),
       });
       const result = await r.json().catch(() => ({}));
+      if(result.code==="REFERENCE_UNAVAILABLE"){
+        setNotice(lang==="tr"?"Yeni bağlantılardan biri artık kullanılamıyor veya yanlış modüle ait. Formunuz korundu; bağlı kayıt seçimini düzeltip tekrar kaydedin.":"A new linked record is unavailable or belongs to the wrong module. Your form is preserved; correct the linked record and save again.");
+        return;
+      }
       if(r.status===409){
         setModal(false);setEditing(null);await load();
         setNotice(lang==="tr"?"Kayıt başka bir işlemde değişti. Güncel kayıt yüklendi; yeniden açıp değişikliklerinizi kontrol edin.":"The record changed in another operation. Reopen the refreshed record and review your changes.");

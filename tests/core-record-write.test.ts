@@ -5,10 +5,10 @@ import {writeCoreRecord,type CoreRecordSnapshot} from '../app/core-record-write'
 import {LifecycleConflict} from '../app/enterprise-lifecycle-write';
 function fixture(){
  const sqlite=new DatabaseSync(':memory:');
- sqlite.exec('CREATE TABLE simple_grc_records(id TEXT PRIMARY KEY,data_json TEXT,updated_at TEXT)');
- sqlite.prepare('INSERT INTO simple_grc_records VALUES(?,?,?)').run('record',JSON.stringify({asset:'AST-original',processLink:'BIA-original'}),'2099-01-01T00:00:00.000Z');
- const read=()=>({...sqlite.prepare('SELECT data_json,updated_at FROM simple_grc_records WHERE id=?').get('record')}) as CoreRecordSnapshot;
- const db={prepare:(sql:string)=>({bind:(...values:unknown[])=>({run:async()=>({meta:{changes:Number(sqlite.prepare(sql).run(...values as (string|number|null)[]).changes)}})})})} as unknown as D1Database;
+ sqlite.exec('CREATE TABLE simple_grc_records(id TEXT PRIMARY KEY,module TEXT,data_json TEXT,updated_at TEXT)');
+ sqlite.prepare('INSERT INTO simple_grc_records VALUES(?,?,?,?)').run('record','Risk Assessment',JSON.stringify({asset:'AST-original',processLink:'BIA-original'}),'2099-01-01T00:00:00.000Z');
+ const read=()=>({...sqlite.prepare('SELECT module,data_json,updated_at FROM simple_grc_records WHERE id=?').get('record')}) as CoreRecordSnapshot&{module:string};
+ const db={prepare:(sql:string)=>({bind:(...values:unknown[])=>({first:async()=>sqlite.prepare(sql).get(...values as (string|number|null)[])||null,run:async()=>({meta:{changes:Number(sqlite.prepare(sql).run(...values as (string|number|null)[]).changes)}})})})} as unknown as D1Database;
  return{sqlite,read,db};
 }
 test('stale client cannot overwrite newer asset and BIA links',async()=>{const f=fixture();try{const old=f.read();const stamp=await writeCoreRecord(f.db,'record',old,{asset:'AST-new',processLink:'BIA-new'},old.updated_at);assert.ok(stamp>old.updated_at);const fresh=f.read();await assert.rejects(writeCoreRecord(f.db,'record',fresh,{asset:'AST-original',processLink:'BIA-original'},old.updated_at),LifecycleConflict);assert.deepEqual(f.read(),fresh);}finally{f.sqlite.close();}});
