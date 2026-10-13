@@ -170,6 +170,7 @@ export async function DELETE(req:NextRequest){
  }catch(error){
   if(error instanceof CoreRecordLinked)return NextResponse.json({error:error.message,code:"RECORD_LINKED"},{status:409});
   if(error instanceof LifecycleConflict)return NextResponse.json({error:error.message,code:"RECORD_CHANGED"},{status:409});
+  console.error("CORE_DELETE_FAILED",error instanceof Error?error.message:"Unknown database failure");
   return NextResponse.json({error:"Kayıt silinemedi. Tekrar deneyin."},{status:500});
  }
 }
