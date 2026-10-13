@@ -90,3 +90,11 @@ Validation: `tests/risk-regulatory-intake-integrity.test.ts` executes actual rou
 Measurement creation checks the entire period against the approved appetite's validity window. Historical measurements remain supported, including breach creation, but cannot replace the schedule established by a later measurement. The schedule decision and duplicate-period guard execute in the parent claim inside the same transaction as measurement, breach and audit inserts. A repeated period returns HTTP 409 without changing the existing record or adding history; it is not an idempotent success response. Concurrent parent changes still require refresh and retry. Existing historical schedule errors are not migrated automatically.
 
 Regression coverage includes out-of-order red measurements after a newer green measurement, subsequent schedule advancement, repeated and racing periods, inclusive validity boundaries, and full rollback on a failed historical audit insert.
+
+### Regulatory terminal decisions and reassessment
+
+Changes close only from verification with at least one impact and no incomplete impacts. Not-applicable decisions are limited to triage or impact-assessment with no impacts. Only closed/not-applicable changes can reopen; reopening requires an Admin, exact confirmation and a reason of at least 10 characters.
+
+Reopening resumes triage with undetermined applicability when no impacts exist, implementation when incomplete impacts remain, or verification when all impacts are complete. Previous decision events remain intact; current closure metadata and applicability rationale are cleared. The full parent snapshot and impact totals/open counts are rechecked in the transaction, and audit failure rolls back the entire reassessment. Repeated terminal decisions return 409 without new events. This does not implement client-side expected-version tokens or automatically repair older inconsistent records.
+
+The detail view exposes reopening for terminal records and limits terminal-decision buttons to valid origins. Impact actions on a closed parent direct users to reopen the change first. Runtime QA exercises close, duplicate rejection, reopen, impact rework, independent re-verification and reclosure.
