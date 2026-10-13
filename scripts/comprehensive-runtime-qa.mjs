@@ -35,6 +35,11 @@ await check('Connected core references block deletion until reassigned',async()=
  const blocked=await request(admin,`/api/grc?id=${asset.id}`,'DELETE',undefined,409);assert.equal(blocked.code,'RECORD_LINKED');
  assert.equal((await request(admin,'/api/grc')).rows.find(x=>x.id===asset.id).record_code,asset.code);
  await request(admin,`/api/grc?id=${risk.id}`,'DELETE');await request(admin,`/api/grc?id=${asset.id}`,'DELETE');
+ const before=(await request(admin,'/api/grc')).rows.length;
+ const missing=await request(admin,'/api/grc','POST',{module:'Risk Assessment',data:riskData},422);assert.equal(missing.code,'REFERENCE_UNAVAILABLE');
+ await request(admin,'/api/grc','POST',{module:'Risk Assessment',rows:[{...riskData,asset:'Legacy imported reference'},riskData]},422);
+ assert.equal((await request(admin,'/api/grc')).rows.length,before,'Rejected import must not leave its valid first row');
+
 });
 const page=await admin.newPage();currentPage=page;page.setDefaultTimeout(10000);const errors=[];page.on('pageerror',e=>errors.push(e.message));page.on('response',r=>{if(r.status()>=500&&r.url().startsWith(base))errors.push(`HTTP ${r.status()} ${r.url()}`)});
 async function open(label){await page.locator(`nav button[aria-label=${JSON.stringify(label)}]`).evaluate(el=>el.click());await page.waitForTimeout(500)}
@@ -61,6 +66,15 @@ for(const [moduleName,label,key] of [['Risk Assessment','Risk Assessment','title
  const response=page.waitForResponse(r=>r.url().endsWith('/api/grc')&&r.request().method()==='POST').catch(()=>null);await dialog.locator('.form-actions .primary').click();const r=await response;assert.ok(r,'Submitting the valid form must issue a create request');assert.equal(r.status(),201,await r.text());const created=await r.json();await dialog.waitFor({state:'hidden'});
  if(moduleName==='BIA'){const saved=(await request(admin,'/api/grc')).rows.find(x=>x.id===created.id);await request(admin,'/api/grc','PATCH',{id:created.id,data:{...JSON.parse(saved.data_json),rpo:0,asset:"QA archived asset reference"}});await reset();await open(label)}
  const row=page.locator('tr').filter({has:page.locator(`.code[title="${created.id}"]`)});await row.getByRole('button',{name:'Edit',exact:true}).click();if(moduleName==='BIA'){assert.equal(await dialog.locator('[name=rpo]').inputValue(),'0','Zero RPO survives edit');assert.equal(await dialog.locator('[name=asset]').inputValue(),'QA archived asset reference','Missing linked assets remain visible');assert.match(await dialog.locator('[name=asset] option:checked').innerText(),/linked record unavailable/)}await dialog.locator(`[name="${key}"]`).fill(data[key]+' edited');const update=page.waitForResponse(r=>r.url().endsWith('/api/grc')&&r.request().method()==='PATCH').catch(()=>null);await dialog.locator('.form-actions .primary').click();assert.equal((await update).status(),200);await dialog.waitFor({state:'hidden'});
+ if(moduleName==='Risk Assessment'){
+  const temporary=await request(admin,'/api/grc','POST',{module:'Varlık Envanteri',data:{...JSON.parse(seedRows.find(x=>x.module==='Varlık Envanteri').data_json),title:'QA disappearing linked asset'}},201);
+  await reset();await open(label);await row.getByRole('button',{name:'Edit',exact:true}).click();await dialog.waitFor();await dialog.getByRole('button',{name:/Show advanced/}).click();
+  const assetField=dialog.locator('[name=asset]');await expect.poll(()=>assetField.locator('option').evaluateAll(es=>es.map(e=>e.value))).toContain(temporary.code);await assetField.selectOption(temporary.code);
+  await request(admin,`/api/grc?id=${temporary.id}`,'DELETE');
+  const rejected=page.waitForResponse(r=>r.url().endsWith('/api/grc')&&r.request().method()==='PATCH');await dialog.locator('.form-actions .primary').click();assert.equal((await rejected).status(),422);await expect(dialog).toBeVisible();await expect(dialog.locator(`[name="${key}"]`)).toHaveValue(data[key]+' edited');
+  await assetField.selectOption(String(data.asset).split(',').map(v=>v.trim()));
+  const recovered=page.waitForResponse(r=>r.url().endsWith('/api/grc')&&r.request().method()==='PATCH');await dialog.locator('.form-actions .primary').click();assert.equal((await recovered).status(),200);await dialog.waitFor({state:'hidden'});
+ }
  const found=(await request(admin,'/api/grc')).rows.find(x=>x.id===created.id);assert.equal(JSON.parse(found.data_json)[key],data[key]+' edited');if(moduleName==='BIA'){assert.match(await row.innerText(),/RPO 0h/);assert.doesNotMatch(await row.innerText(),/Missing Data/)}
  await row.getByRole('button',{name:'Edit',exact:true}).click();await dialog.waitFor();await dialog.locator(`[name="${key}"]`).fill('Stale form overwrite');
  const concurrentTitle=data[key]+' concurrent';await request(admin,'/api/grc','PATCH',{id:created.id,expectedUpdatedAt:found.updated_at,data:{...JSON.parse(found.data_json),[key]:concurrentTitle}});

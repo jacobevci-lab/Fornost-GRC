@@ -1,3 +1,4 @@
+import {insertCoreRecords,CoreReferenceUnavailable} from "../../core-reference-write";
 import {deleteCoreRecord,CoreRecordLinked} from "../../core-record-delete";
 import {writeCoreRecord} from "../../core-record-write";
 import {LifecycleConflict} from "../../enterprise-lifecycle-write";
@@ -137,12 +138,12 @@ export async function POST(req:NextRequest){
    const validated=b.rows.map((row:unknown)=>validate(moduleName,moduleName==="Risk Assessment"&&row&&typeof row==="object"&&!Array.isArray(row)?preserveRiskGovernance(row as Data):row));const bad=validated.findIndex((x:ReturnType<typeof validate>)=>"error" in x);
    if(bad>=0)return NextResponse.json({error:`Satır ${bad+1}: ${validated[bad].error}`},{status:400});
    const codes=await reserveRecordCodes(d,moduleName,validated.length,now),records:{id:string;code:string;data:Data}[]=validated.map((x:ReturnType<typeof validate>,index:number)=>({id:`${recordCodePrefixes[moduleName]}-${crypto.randomUUID()}`,code:codes[index],data:"data" in x?x.data:{}}));
-   for(let i=0;i<records.length;i+=35)await d.batch(records.slice(i,i+35).flatMap((record:{id:string;code:string;data:Data})=>[d.prepare("INSERT INTO simple_grc_records(id,module,data_json,created_at,updated_at) VALUES(?,?,?,?,?)").bind(record.id,moduleName,JSON.stringify(record.data),now,now),d.prepare("INSERT INTO simple_grc_record_codes(record_id,module,code,created_at) VALUES(?,?,?,?)").bind(record.id,moduleName,record.code,now)]));
+   await insertCoreRecords(d,moduleName,records,now);
    return NextResponse.json({ok:true,imported:records.length},{status:201});
   }
   const checked=validate(moduleName,moduleName==="Risk Assessment"&&b.data&&typeof b.data==="object"&&!Array.isArray(b.data)?preserveRiskGovernance(b.data):b.data);if("error" in checked)return NextResponse.json({error:checked.error},{status:400});
-  const id=`${recordCodePrefixes[moduleName]}-${crypto.randomUUID()}`,code=(await reserveRecordCodes(d,moduleName,1,now))[0];await d.batch([d.prepare("INSERT INTO simple_grc_records(id,module,data_json,created_at,updated_at) VALUES(?,?,?,?,?)").bind(id,moduleName,JSON.stringify(checked.data),now,now),d.prepare("INSERT INTO simple_grc_record_codes(record_id,module,code,created_at) VALUES(?,?,?,?)").bind(id,moduleName,code,now)]);return NextResponse.json({ok:true,id,code},{status:201});
- }catch(error){return NextResponse.json({error:error instanceof Error&&error.message==="PAYLOAD_TOO_LARGE"?"İstek boyutu çok büyük.":"Geçersiz JSON isteği."},{status:400})}
+  const id=`${recordCodePrefixes[moduleName]}-${crypto.randomUUID()}`,code=(await reserveRecordCodes(d,moduleName,1,now))[0];await insertCoreRecords(d,moduleName,[{id,code,data:checked.data}],now);return NextResponse.json({ok:true,id,code},{status:201});
+ }catch(error){if(error instanceof CoreReferenceUnavailable)return NextResponse.json({error:error.message,code:"REFERENCE_UNAVAILABLE"},{status:422});return NextResponse.json({error:error instanceof Error&&error.message==="PAYLOAD_TOO_LARGE"?"İstek boyutu çok büyük.":"Geçersiz JSON isteği."},{status:400})}
 }
 export async function PATCH(req:NextRequest){
  const auth=await requireRole(req,["Admin","Editor"]);if(auth.response)return auth.response;
@@ -154,7 +155,7 @@ export async function PATCH(req:NextRequest){
   const checked=validate(existing.module,input);if("error" in checked)return NextResponse.json({error:checked.error},{status:400});
   const updatedAt=await writeCoreRecord(d,b.id,existing,checked.data,b.expectedUpdatedAt);
   return NextResponse.json({ok:true,updatedAt});
- }catch(error){if(error instanceof LifecycleConflict)return NextResponse.json({error:error.message},{status:409});return NextResponse.json({error:"Geçersiz JSON isteği, kayıt sürümü veya okunamayan kayıt."},{status:400})}
+ }catch(error){if(error instanceof CoreReferenceUnavailable)return NextResponse.json({error:error.message,code:"REFERENCE_UNAVAILABLE"},{status:422});if(error instanceof LifecycleConflict)return NextResponse.json({error:error.message},{status:409});return NextResponse.json({error:"Geçersiz JSON isteği, kayıt sürümü veya okunamayan kayıt."},{status:400})}
 }
 export async function DELETE(req:NextRequest){
  const auth=await requireRole(req,["Admin"]);if(auth.response)return auth.response;
