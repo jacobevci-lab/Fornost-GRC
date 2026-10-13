@@ -47,6 +47,8 @@ jobs:
             --data-binary @/tmp/fornost-qa-bootstrap.json
       - name: Concurrent cold and warm schema initialization QA
         run: node scripts/schema-initialization-qa.mjs
+      - name: Enterprise reference deletion runtime QA
+        run: node scripts/enterprise-reference-delete-qa.mjs
       - name: Record dialog themes and Escape QA
         run: node scripts/record-dialog-qa.mjs
       - name: Platform-wide Escape dismissal QA

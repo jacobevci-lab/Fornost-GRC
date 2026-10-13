@@ -10,7 +10,7 @@ function fixture(module='Varlık Envanteri'){
  const add=(id:string,mod:string,data:unknown)=>sqlite.prepare('INSERT INTO simple_grc_records VALUES(?,?,?,?)').run(id,mod,JSON.stringify(data),'2026-10-13T00:00:00.000Z');
  add('target',module,{title:'Legacy title'});sqlite.prepare('INSERT INTO simple_grc_record_codes VALUES(?,?)').run('target','AST-001');
  type Value=string|number|null;
- function prepare(sql:string,values:Value[]=[]){return{bind(...args:Value[]){return prepare(sql,args)},async first(){return sqlite.prepare(sql).get(...values)||null},exec(){return{meta:{changes:Number(sqlite.prepare(sql).run(...values).changes)}}}};}
+ function prepare(sql:string,values:Value[]=[]){return{bind(...args:Value[]){return prepare(sql,args)},async first(){return sqlite.prepare(sql).get(...values)||null},async all(){return{results:sqlite.prepare(sql).all(...values)}},exec(){return{meta:{changes:Number(sqlite.prepare(sql).run(...values).changes)}}}};}
  const db={prepare,async batch(statements:ReturnType<typeof prepare>[]){hook?.();hook=undefined;sqlite.exec('BEGIN');try{const results=statements.map(s=>s.exec());sqlite.exec('COMMIT');return results}catch(error){sqlite.exec('ROLLBACK');throw error}}} as unknown as D1Database;
  const read=()=>sqlite.prepare('SELECT module,data_json,updated_at FROM simple_grc_records WHERE id=?').get('target') as unknown as CoreRecordSnapshot&{module:string};
  const before=read(),remove=(version:unknown=before.updated_at)=>deleteCoreRecord(db,'target',before,version);
@@ -27,3 +27,34 @@ test('unrelated fields/modules, substrings, self references and legacy labels do
 test('removing an incoming reference permits deletion on retry',async()=>{const f=fixture();try{f.add('risk','Risk Assessment',{asset:'target'});await assert.rejects(f.remove(),CoreRecordLinked);f.sqlite.prepare('UPDATE simple_grc_records SET data_json=? WHERE id=?').run('{}','risk');await f.remove();assert.equal(f.read(),undefined);}finally{f.sqlite.close()}});
 test('code cleanup failure rolls back record deletion',async()=>{const f=fixture();try{f.sqlite.exec("CREATE TRIGGER fail_code BEFORE DELETE ON simple_grc_record_codes BEGIN SELECT RAISE(ABORT,'injected failure'); END");await assert.rejects(f.remove());f.retained();}finally{f.sqlite.close()}});
 test('no-op deletion cannot remove a code left by another transaction',async()=>{const f=fixture();try{f.race(()=>f.sqlite.exec("DELETE FROM simple_grc_records WHERE id='target'"));await assert.rejects(f.remove(),LifecycleConflict);assert.ok(f.sqlite.prepare('SELECT * FROM simple_grc_record_codes').get());}finally{f.sqlite.close()}});
+
+const enterpriseSchema:Record<string,string>={
+ enterprise_continuity_plans:'bia_ref TEXT,status TEXT',
+ enterprise_incidents:'asset_refs TEXT,risk_ref TEXT,bia_ref TEXT,status TEXT',
+ policy_versions:'control_refs_json TEXT,risk_refs_json TEXT,status TEXT',
+ third_party_profiles:'vendor_id TEXT,status TEXT',third_party_assessments:'vendor_id TEXT,status TEXT',third_party_findings:'vendor_id TEXT,status TEXT',
+ enterprise_findings:'risk_ref TEXT,control_ref TEXT,source_ref TEXT,source_type TEXT,status TEXT',
+ regulatory_change_impacts:'target_ref TEXT,target_type TEXT,status TEXT',
+};
+function enterpriseTable(sqlite:DatabaseSync,table:string){sqlite.exec(`CREATE TABLE ${table} (${enterpriseSchema[table]})`)}
+test('enterprise references protect core targets including closed historical records',async()=>{
+ const cases:[string,string,string,unknown,string?,string?][]=[
+  ['BIA','enterprise_continuity_plans','bia_ref','target'],
+  ['Varlık Envanteri','enterprise_incidents','asset_refs','other, AST-001'],
+  ['Risk Assessment','enterprise_incidents','risk_ref','target'],['BIA','enterprise_incidents','bia_ref','target'],
+  ['Kontroller','policy_versions','control_refs_json','["target"]'],['Uyum','policy_versions','control_refs_json','["AST-001"]'],['Risk Assessment','policy_versions','risk_refs_json','["other","target"]'],
+  ...['third_party_profiles','third_party_assessments','third_party_findings'].map(table=>['Tedarikçiler',table,'vendor_id','target'] as [string,string,string,unknown]),
+  ['Risk Assessment','enterprise_findings','risk_ref','target'],['Kontroller','enterprise_findings','control_ref','target'],
+  ...Object.entries({audit:'Denetim Yönetimi',control:'Kontroller',risk:'Risk Assessment',vendor:'Tedarikçiler'}).map(([kind,module])=>[module,'enterprise_findings','source_ref','target','source_type',kind] as [string,string,string,unknown,string,string]),
+  ...Object.entries({control:'Kontroller',risk:'Risk Assessment',asset:'Varlık Envanteri',vendor:'Tedarikçiler',process:'BIA',audit:'Denetim Yönetimi',evidence:'Kanıtlar'}).map(([kind,module])=>[module,'regulatory_change_impacts','target_ref','target','target_type',kind] as [string,string,string,unknown,string,string]),
+ ];
+ for(const [module,table,column,value,typeColumn,type] of cases){const f=fixture(module);try{enterpriseTable(f.sqlite,table);f.sqlite.prepare(`INSERT INTO ${table}(${column},status${typeColumn?','+typeColumn:''}) VALUES(?,'closed'${typeColumn?',?':''})`).run(...(typeColumn?[value,type]:[value]) as string[]);await assert.rejects(f.remove(),CoreRecordLinked,`${table}.${column}`);f.retained();}finally{f.sqlite.close()}}
+});
+test('optional module discovery does not create module tables',async()=>{const f=fixture('BIA');try{const before=f.sqlite.prepare("SELECT name FROM sqlite_master WHERE type='table'").all();await f.remove();assert.deepEqual(f.sqlite.prepare("SELECT name FROM sqlite_master WHERE type='table'").all(),before);}finally{f.sqlite.close()}});
+test('enterprise link added between discovery and delete blocks removal',async()=>{const f=fixture('BIA');try{enterpriseTable(f.sqlite,'enterprise_continuity_plans');f.race(()=>f.sqlite.exec("INSERT INTO enterprise_continuity_plans VALUES('target','draft')"));await assert.rejects(f.remove(),CoreRecordLinked);f.retained();}finally{f.sqlite.close()}});
+test('optional table first initialized during deletion forces retry and then detects its reference',async()=>{const f=fixture('BIA');try{f.race(()=>{enterpriseTable(f.sqlite,'enterprise_continuity_plans');f.sqlite.exec("INSERT INTO enterprise_continuity_plans VALUES('target','draft')")});await assert.rejects(f.remove(),LifecycleConflict);f.retained();await assert.rejects(f.remove(),CoreRecordLinked);f.retained();}finally{f.sqlite.close()}});
+test('target type prevents unrelated regulatory and finding references from blocking',async()=>{for(const [table,column,typeColumn] of [['regulatory_change_impacts','target_ref','target_type'],['enterprise_findings','source_ref','source_type']]){const f=fixture('Kontroller');try{enterpriseTable(f.sqlite,table);f.sqlite.prepare(`INSERT INTO ${table}(${column},${typeColumn}) VALUES('target','risk')`).run();await f.remove();assert.equal(f.read(),undefined);}finally{f.sqlite.close()}}});
+test('legacy scalar policy references are parsed safely, without substring matches',async()=>{for(const reference of ['target','["target"]','["other; AST-001"]','target-extra','{broken json']){const f=fixture('Kontroller');try{enterpriseTable(f.sqlite,'policy_versions');f.sqlite.prepare('INSERT INTO policy_versions(control_refs_json) VALUES(?)').run(reference);if(reference.includes('extra')||reference.includes('broken')){await f.remove();assert.equal(f.read(),undefined)}else{await assert.rejects(f.remove(),CoreRecordLinked);f.retained()}}finally{f.sqlite.close()}}});
+test('removing an optional table during the write fails closed and preserves code',async()=>{const f=fixture('BIA');try{enterpriseTable(f.sqlite,'enterprise_continuity_plans');f.race(()=>f.sqlite.exec('DROP TABLE enterprise_continuity_plans'));await assert.rejects(f.remove());f.retained();}finally{f.sqlite.close()}});
+
+test('all enterprise schemas initialized together allow unlinked deletion across core modules',async()=>{for(const moduleName of ['Risk Assessment','BIA','Varlık Envanteri','Uyum','Tedarikçiler','Kontroller','Kanıtlar','Denetim Yönetimi']){const f=fixture(moduleName);try{for(const table of Object.keys(enterpriseSchema))enterpriseTable(f.sqlite,table);await f.remove();assert.equal(f.read(),undefined);}finally{f.sqlite.close()}}});
