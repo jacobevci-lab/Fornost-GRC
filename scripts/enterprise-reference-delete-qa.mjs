@@ -8,9 +8,9 @@ try{
  await api('/api/auth','POST',{action:'login',email:'qa-admin@fornost.test',password:qaPassword()});
  for(const path of ['/api/continuity','/api/incidents','/api/policy-lifecycle','/api/third-party-risk','/api/findings','/api/regulatory-intelligence'])await api(path);
  const rows=(await api('/api/grc')).rows;
- for(const module of ['Risk Assessment','BIA','Varlık Envanteri','Uyum','Tedarikçiler','Kontroller','Kanıtlar','Denetim Yönetimi']){
-  const seed=rows.find(row=>row.module===module);assert.ok(seed,module);
-  const created=await api('/api/grc','POST',{module,data:JSON.parse(seed.data_json)});
+ for(const moduleName of ['Risk Assessment','BIA','Varlık Envanteri','Uyum','Tedarikçiler','Kontroller','Kanıtlar','Denetim Yönetimi']){
+  const seed=rows.find(row=>row.module===moduleName);assert.ok(seed,moduleName);
+  const created=await api('/api/grc','POST',{module:moduleName,data:JSON.parse(seed.data_json)});
   await api(`/api/grc?id=${created.id}`,'DELETE');
  }
  console.log('ENTERPRISE_REFERENCE_DELETE_QA_PASS: unlinked deletion across eight core modules with optional enterprise schemas initialized');
