@@ -84,3 +84,9 @@ Regulatory source creation and review commit their events atomically. Review rec
 Risk and regulatory creation dialogs reconcile after conflicts and uncertain outcomes without automatically replaying writes. Validation errors preserve input. No permission expansion, schema migration, client-version tokens or request-idempotency keys are introduced; linked target validation and historical portfolio snapshot consistency remain separate work.
 
 Validation: `tests/risk-regulatory-intake-integrity.test.ts` executes actual route handlers and SQL for create/update success, concurrent parent approval/retirement/threshold/cadence changes, duplicate source references, content hash preservation and rollback of records and timestamps when child/history writes fail. The shared fixture uses the actual URL validator for source creation.
+
+### KRI period integrity
+
+Measurement creation checks the entire period against the approved appetite's validity window. Historical measurements remain supported, including breach creation, but cannot replace the schedule established by a later measurement. The schedule decision and duplicate-period guard execute in the parent claim inside the same transaction as measurement, breach and audit inserts. A repeated period returns HTTP 409 without changing the existing record or adding history; it is not an idempotent success response. Concurrent parent changes still require refresh and retry. Existing historical schedule errors are not migrated automatically.
+
+Regression coverage includes out-of-order red measurements after a newer green measurement, subsequent schedule advancement, repeated and racing periods, inclusive validity boundaries, and full rollback on a failed historical audit insert.
