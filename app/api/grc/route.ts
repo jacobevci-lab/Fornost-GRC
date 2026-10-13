@@ -1,3 +1,4 @@
+import {deleteCoreRecord,CoreRecordLinked} from "../../core-record-delete";
 import {writeCoreRecord} from "../../core-record-write";
 import {LifecycleConflict} from "../../enterprise-lifecycle-write";
 import {parseGrcCursor} from "../../grc-pagination";
@@ -155,4 +156,19 @@ export async function PATCH(req:NextRequest){
   return NextResponse.json({ok:true,updatedAt});
  }catch(error){if(error instanceof LifecycleConflict)return NextResponse.json({error:error.message},{status:409});return NextResponse.json({error:"Geçersiz JSON isteği, kayıt sürümü veya okunamayan kayıt."},{status:400})}
 }
-export async function DELETE(req:NextRequest){const auth=await requireRole(req,["Admin"]);if(auth.response)return auth.response;const id=req.nextUrl.searchParams.get("id");if(!id||id.length>100)return NextResponse.json({error:"Geçersiz kayıt kimliği."},{status:400});const d=await db(),existing=await d.prepare("SELECT id FROM simple_grc_records WHERE id=?").bind(id).first();if(!existing)return NextResponse.json({error:"Kayıt bulunamadı."},{status:404});await d.batch([d.prepare("DELETE FROM simple_grc_record_codes WHERE record_id=?").bind(id),d.prepare("DELETE FROM simple_grc_records WHERE id=?").bind(id)]);return NextResponse.json({ok:true})}
+export async function DELETE(req:NextRequest){
+ const auth=await requireRole(req,["Admin"]);if(auth.response)return auth.response;
+ const id=req.nextUrl.searchParams.get("id");if(!id||id.length>100)return NextResponse.json({error:"Geçersiz kayıt kimliği."},{status:400});
+ const expected=req.nextUrl.searchParams.get("expectedUpdatedAt");
+ if(expected!==null&&(!expected||expected.length>64))return NextResponse.json({error:"Geçersiz kayıt sürümü."},{status:400});
+ try{
+  const d=await db(),existing=await d.prepare("SELECT module,data_json,updated_at FROM simple_grc_records WHERE id=?").bind(id).first<{module:string;data_json:string;updated_at:string}>();
+  if(!existing)return NextResponse.json({error:"Kayıt bulunamadı."},{status:404});
+  await deleteCoreRecord(d,id,existing,expected===null?undefined:expected);
+  return NextResponse.json({ok:true});
+ }catch(error){
+  if(error instanceof CoreRecordLinked)return NextResponse.json({error:error.message,code:"RECORD_LINKED"},{status:409});
+  if(error instanceof LifecycleConflict)return NextResponse.json({error:error.message,code:"RECORD_CHANGED"},{status:409});
+  return NextResponse.json({error:"Kayıt silinemedi. Tekrar deneyin."},{status:500});
+ }
+}

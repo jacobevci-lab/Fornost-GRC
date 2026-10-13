@@ -1607,23 +1607,29 @@ function FornostApp({ currentUser }: { currentUser: any }) {
     }
   }
   async function remove(id: string) {
-    if (
-      !confirm(lang === "tr" ? "Bu kayıt silinsin mi?" : "Delete this record?")
-    )
-      return;
-    const r = await fetch(withBasePath(`/api/grc?id=${id}`), {
-      method: "DELETE",
-    });
-    if (r.ok) {
-      await load();
-      setNotice(lang === "tr" ? "Kayıt silindi." : "Record deleted.");
-      return;
+    const snapshot = rows.find(row => row.id === id);
+    if (!snapshot) return;
+    if (!confirm(lang === "tr" ? "Bu kayıt silinsin mi?" : "Delete this record?")) return;
+    try {
+      const query = new URLSearchParams({id, expectedUpdatedAt: snapshot.updatedAt || ""});
+      const r = await fetch(withBasePath(`/api/grc?${query}`), {method: "DELETE"});
+      const j = await r.json().catch(() => ({}));
+      if (r.ok) {
+        await load();
+        setNotice(lang === "tr" ? "Kayıt silindi." : "Record deleted.");
+        return;
+      }
+      if (r.status === 409 || r.status === 404) {
+        await load();
+        setNotice(j.code === "RECORD_LINKED"
+          ? lang === "tr" ? "Bu kayda ID veya kod ile bağlı kayıtlar var. Önce bağlantıları kaldırın veya yeniden atayın." : "Other records link to this record by ID or code. Remove or reassign those links before deleting it."
+          : lang === "tr" ? "Kayıt değişmiş veya kaldırılmış. Liste yenilendi; güncel kaydı inceleyip tekrar karar verin." : "The record changed or was removed. The list has been refreshed; review it before deciding again.");
+        return;
+      }
+      throw new Error(j.error || (lang === "tr" ? "Kayıt silinemedi." : "Record could not be deleted."));
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : lang === "tr" ? "Kayıt silinemedi." : "Record could not be deleted.");
     }
-    const j = await r.json().catch(() => ({}));
-    setNotice(
-      j.error ||
-        (lang === "tr" ? "Kayıt silinemedi." : "Record could not be deleted."),
-    );
   }
   async function createAudit(input: {
     name: string;

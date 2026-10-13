@@ -24,7 +24,17 @@ for(const moduleName of modules)await check(`API CRUD and role boundaries: ${mod
  assert.ok(created.id);assert.ok(created.code);let found=(await request(admin,'/api/grc')).rows.find(x=>x.id===created.id);assert.equal(JSON.parse(found.data_json)[key],data[key]);
  const loadedVersion=found.updated_at;data[key]+=' updated';await request(editor,'/api/grc','PATCH',{id:created.id,expectedUpdatedAt:loadedVersion,data});found=(await request(admin,'/api/grc')).rows.find(x=>x.id===created.id);assert.equal(JSON.parse(found.data_json)[key],data[key]);assert.notEqual(found.updated_at,loadedVersion);await request(editor,'/api/grc','PATCH',{id:created.id,expectedUpdatedAt:loadedVersion,data:{...data,[key]:'Stale overwrite'}},409);assert.equal(JSON.parse((await request(admin,'/api/grc')).rows.find(x=>x.id===created.id).data_json)[key],data[key]);
  await request(viewer,'/api/grc','POST',{module:moduleName,data},403);await request(viewer,'/api/grc','PATCH',{id:created.id,data},403);await request(editor,`/api/grc?id=${created.id}`,'DELETE',undefined,403);
+ await request(admin,`/api/grc?id=${created.id}&expectedUpdatedAt=${encodeURIComponent(loadedVersion)}`,'DELETE',undefined,409);assert.ok((await request(admin,'/api/grc')).rows.some(x=>x.id===created.id));
  await request(admin,'/api/grc','POST',{module:moduleName,data:{}},400);await request(admin,`/api/grc?id=${created.id}`,'DELETE');assert.ok(!(await request(admin,'/api/grc')).rows.some(x=>x.id===created.id));
+});
+await check('Connected core references block deletion until reassigned',async()=>{
+ const assetData={...JSON.parse(seedRows.find(x=>x.module==='Varlık Envanteri').data_json),title:`QA protected asset ${Date.now()}`};
+ const asset=await request(admin,'/api/grc','POST',{module:'Varlık Envanteri',data:assetData},201);
+ const riskData={...JSON.parse(seedRows.find(x=>x.module==='Risk Assessment').data_json),title:'QA referencing risk',asset:asset.code};
+ const risk=await request(admin,'/api/grc','POST',{module:'Risk Assessment',data:riskData},201);
+ const blocked=await request(admin,`/api/grc?id=${asset.id}`,'DELETE',undefined,409);assert.equal(blocked.code,'RECORD_LINKED');
+ assert.equal((await request(admin,'/api/grc')).rows.find(x=>x.id===asset.id).record_code,asset.code);
+ await request(admin,`/api/grc?id=${risk.id}`,'DELETE');await request(admin,`/api/grc?id=${asset.id}`,'DELETE');
 });
 const page=await admin.newPage();currentPage=page;page.setDefaultTimeout(10000);const errors=[];page.on('pageerror',e=>errors.push(e.message));page.on('response',r=>{if(r.status()>=500&&r.url().startsWith(base))errors.push(`HTTP ${r.status()} ${r.url()}`)});
 async function open(label){await page.locator(`nav button[aria-label=${JSON.stringify(label)}]`).evaluate(el=>el.click());await page.waitForTimeout(500)}
@@ -55,6 +65,9 @@ for(const [moduleName,label,key] of [['Risk Assessment','Risk Assessment','title
  await row.getByRole('button',{name:'Edit',exact:true}).click();await dialog.waitFor();await dialog.locator(`[name="${key}"]`).fill('Stale form overwrite');
  const concurrentTitle=data[key]+' concurrent';await request(admin,'/api/grc','PATCH',{id:created.id,expectedUpdatedAt:found.updated_at,data:{...JSON.parse(found.data_json),[key]:concurrentTitle}});
  const conflict=page.waitForResponse(r=>r.url().endsWith('/api/grc')&&r.request().method()==='PATCH');await dialog.locator('.form-actions .primary').click();assert.equal((await conflict).status(),409);await dialog.waitFor({state:'hidden'});await expect(row).toContainText(concurrentTitle);assert.equal(JSON.parse((await request(admin,'/api/grc')).rows.find(x=>x.id===created.id).data_json)[key],concurrentTitle);
+ const beforeDelete=(await request(admin,'/api/grc')).rows.find(x=>x.id===created.id),latestTitle=concurrentTitle+' delete protected';
+ await request(admin,'/api/grc','PATCH',{id:created.id,expectedUpdatedAt:beforeDelete.updated_at,data:{...JSON.parse(beforeDelete.data_json),[key]:latestTitle}});
+ page.once('dialog',d=>d.accept());const staleDelete=page.waitForResponse(r=>r.url().includes('/api/grc?id=')&&r.request().method()==='DELETE');await row.getByRole('button',{name:'Delete',exact:true}).click();assert.equal((await staleDelete).status(),409);await expect(row).toContainText(latestTitle);assert.ok((await request(admin,'/api/grc')).rows.some(x=>x.id===created.id));
  await page.screenshot({path:`${out}/ui-${moduleName.replaceAll(' ','-')}.png`});page.once('dialog',d=>d.accept());const del=page.waitForResponse(r=>r.url().includes('/api/grc?id=')&&r.request().method()==='DELETE').catch(()=>null);await row.getByRole('button',{name:'Delete',exact:true}).click();assert.equal((await del).status(),200);assert.ok(!(await request(admin,'/api/grc')).rows.some(x=>x.id===created.id));
 });
 await check('Dashboard audit deadlines: today remains current, yesterday overdue, closed excluded',async()=>{
