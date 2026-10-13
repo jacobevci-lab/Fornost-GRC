@@ -13,7 +13,7 @@ function fixture(){
  seed(assetId,'Varlık Envanteri','AST-001');
  type Value=string|number|null;
  const race=()=>{const fn=hook;hook=undefined;fn?.()};
- function prepare(sql:string,values:Value[]=[]){return{bind(...args:Value[]){return prepare(sql,args)},async first(){return sqlite.prepare(sql).get(...values)||null},async run(){race();return this.exec()},exec(){return{meta:{changes:Number(sqlite.prepare(sql).run(...values).changes)}}}};}
+ function prepare(sql:string,values:Value[]=[]){return{bind(...args:Value[]){return prepare(sql,args)},async first(){return sqlite.prepare(sql).get(...values)||null},async all(){return{results:sqlite.prepare(sql).all(...values)}},async run(){race();return this.exec()},exec(){return{meta:{changes:Number(sqlite.prepare(sql).run(...values).changes)}}}};}
  const db={prepare,async batch(statements:ReturnType<typeof prepare>[]){race();sqlite.exec('BEGIN');try{const results=statements.map(s=>s.exec());sqlite.exec('COMMIT');return results}catch(error){sqlite.exec('ROLLBACK');throw error}}} as unknown as D1Database;
  const read=(id='source')=>sqlite.prepare('SELECT module,data_json,updated_at FROM simple_grc_records WHERE id=?').get(id) as unknown as CoreRecordSnapshot&{module:string};
  const counts=()=>['simple_grc_records','simple_grc_record_codes'].map(table=>Number(sqlite.prepare(`SELECT count(*) n FROM ${table}`).get()!.n));

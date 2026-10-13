@@ -131,9 +131,9 @@ For compatibility, API clients omitting `expectedUpdatedAt` retain server read/w
 
 The shared register delete action sends the displayed `expectedUpdatedAt`. A stale version receives `409 RECORD_CHANGED`; the UI reloads the list and asks the user to review it. Legacy API callers may omit this version, but every deletion still claims the server-read module, JSON and timestamp.
 
-A SQL guard blocks deletion if another **core register** row references the target by exact ID or allocated record code in a relationship field defined by the Connected GRC model. It supports comma/semicolon/pipe/newline lists and arrays, respects source/target modules, and checks at write time, including incoming references added after the initial read. `409 RECORD_LINKED` asks the user to remove or reassign those links. Record and code removal share one transaction; a failed code cleanup rolls back deletion.
+A SQL guard blocks deletion if another **core register** row or an explicitly registered enterprise source (see below) references the target by exact ID or allocated record code in a relationship field defined by the Connected GRC model. It supports comma/semicolon/pipe/newline lists and arrays, respects source/target modules, and checks at write time, including incoming references added after the initial read. `409 RECORD_LINKED` asks the user to remove or reassign those links. Record and code removal share one transaction; a failed code cleanup rolls back deletion.
 
-This is not a global foreign-key guarantee: legacy title/alias references, enterprise module tables, audit bulk deletion and other specialized delete endpoints are outside this guard. New canonical references submitted through `/api/grc` are now guarded as described below; legacy reference formats and other source writers remain outside that validation. Existing imported/legacy data is not rewritten. The isolated runtime QA covers stale UI/API deletion and a linked asset/risk deletion/retry; SQLite tests cover races, source/target scoping and rollback.
+This is not a global foreign-key guarantee: legacy title/alias references, enterprise sources not registered below, audit bulk deletion and other specialized delete endpoints are outside this guard. New canonical references submitted through `/api/grc` are now guarded as described below; legacy reference formats and other source writers remain outside that validation. Existing imported/legacy data is not rewritten. The isolated runtime QA covers stale UI/API deletion and a linked asset/risk deletion/retry; SQLite tests cover races, source/target scoping and rollback.
 
 ### New core reference validation and atomic imports
 
@@ -144,3 +144,18 @@ Unchanged existing tokens remain editable, including historical missing referenc
 Imports of up to 1000 rows now insert records and codes in one transaction using JSON-backed SQL, replacing batches of 35 rows. Any unavailable new canonical reference rejects the entire import before inserting rows; a subsequent code insertion failure rolls back all rows. Code allocation remains separate and rejected requests can consume sequence numbers; codes are never reused. References must resolve to existing targets, not other rows within the same import.
 
 SQLite verification includes the 1000-row boundary, full rollback, wrong-module/missing/orphan-code targets, target deletion races, legacy preservation and both orderings of source-write versus protected target-delete. Isolated browser QA covers a selected target disappearing before form submission, preserving inputs and correcting/resubmitting the form.
+
+### Enterprise sources protecting core deletion
+
+`/api/grc` deletion now includes incoming exact ID/code references from these optional enterprise tables, including closed/retired/historical rows:
+
+- Continuity plans: BIA reference.
+- Incidents: asset list, risk and BIA references.
+- Policy versions: JSON control/compliance and risk reference lists.
+- Third-party profiles, assessments and findings: vendor identity.
+- Enterprise findings: risk/control references and typed audit/control/risk/vendor source references.
+- Regulatory impacts: typed control/risk/asset/vendor/process/audit/evidence target references.
+
+The guard discovers existing tables through the SQLite schema catalog without creating optional module tables. All incoming reference checks run inside the DELETE transaction. A module table initialized between discovery and deletion invalidates the schema snapshot and requires a retry; missing/dropped or incompatible schemas fail closed. Core record and code cleanup remain atomic.
+
+This does not add title/alias matching, guards to specialized delete endpoints, or validation to every enterprise source writer. Automation, exceptions and other unregistered source tables remain outside this registry. Use supported lifecycle status changes to preserve a target needed by historical records; deleting a target requires resolving its references first. Unit tests cover each registered relationship, history retention, JSON/list parsing, type scoping, concurrent insertion and module initialization. The isolated API runtime suite verifies a continuity plan prevents deleting its linked BIA record.
