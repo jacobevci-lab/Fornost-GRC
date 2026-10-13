@@ -90,7 +90,11 @@ await check('Continuity UI form, layout, modal, maker-checker, exercise breach a
  await request(admin,'/api/continuity','POST',{action:'complete-exercise',exerciseId:ex.id,outcome:'partial',actualRecoveryHours:6,actualDataLossHours:2,observations:'Manual recovery exceeded both approved recovery targets.',rootCause:'Secondary automation coverage was incomplete.',...evidence});
  state=await request(admin,'/api/continuity');const gap=state.gaps.find(x=>x.planId===id);assert.ok(gap);assert.equal(state.exercises.find(x=>x.id===ex.id).rtoBreached,true);
  await request(admin,'/api/continuity','POST',{action:'retire-plan',planId:id,...evidence,confirmation:'PLANI YÜRÜRLÜKTEN KALDIR'},409);
- await request(admin,'/api/continuity','POST',{action:'close-gap',gapId:gap.id,...evidence,confirmation:'AÇIĞI KAPAT'},403);await request(checker,'/api/continuity','POST',{action:'close-gap',gapId:gap.id,...evidence,confirmation:'AÇIĞI KAPAT'});
+ await request(checker,'/api/continuity','POST',{action:'close-gap',gapId:gap.id,...evidence,confirmation:'AÇIĞI KAPAT'},409);
+ await request(admin,'/api/continuity','POST',{action:'schedule-exercise',planId:id,type:'technical',scheduledDate:today,scenario:'Verify remediation restores both approved recovery objectives.',facilitator:owner},201);
+ state=await request(admin,'/api/continuity');const retest=state.exercises.find(x=>x.planId===id&&x.status==='planned');assert.ok(retest);
+ await request(admin,'/api/continuity','POST',{action:'complete-exercise',exerciseId:retest.id,outcome:'passed',actualRecoveryHours:2,actualDataLossHours:0,observations:'Independent recovery evidence confirms objectives were met.',...evidence});
+ await request(admin,'/api/continuity','POST',{action:'close-gap',gapId:gap.id,...evidence,confirmation:'AÇIĞI KAPAT'},403);await request(checker,'/api/continuity','POST',{action:'close-gap',gapId:gap.id,retestExerciseId:retest.id,...evidence,confirmation:'AÇIĞI KAPAT'});state=await request(admin,'/api/continuity');assert.equal(state.gaps.find(x=>x.id===gap.id).retestExerciseId,retest.id);
  await request(admin,'/api/continuity','POST',{action:'schedule-exercise',planId:id,type:'tabletop',scheduledDate:future(30),scenario:'Validate the replacement recovery exercise scheduling workflow.',facilitator:owner},201);
  state=await request(admin,'/api/continuity');const pending=state.exercises.find(x=>x.planId===id&&x.status==='planned');assert.ok(pending);
  await request(admin,'/api/continuity','POST',{action:'retire-plan',planId:id,...evidence,confirmation:'PLANI YÜRÜRLÜKTEN KALDIR'},409);
