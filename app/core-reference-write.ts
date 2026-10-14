@@ -9,6 +9,8 @@ const prefixes=Object.values(recordCodePrefixes).join('|');
 const identity=new RegExp(`^(?:${prefixes})-(?:[0-9]{3,}|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$`,'i');
 const values=(value:unknown):string[]=>Array.isArray(value)?value.flatMap(values):typeof value==='string'?value.split(/[;,|\r\n]+/).map(x=>x.trim().toLowerCase()).filter(Boolean):[];
 
+export const canonicalCoreReferenceValues=(value:unknown)=>[...new Set(values(value))].filter(value=>identity.test(value));
+
 /** Existing unchanged references and legacy free-text labels are preserved. */
 export function newCoreReferences(sourceId:string,module:string,data:Record<string,unknown>,before:Record<string,unknown>={}):Reference[]{
  const refs:Reference[]=[];

@@ -16,7 +16,10 @@ try{
  const seed=rows.find(row=>row.module==='Kontroller');
  const target=await api('/api/grc','POST',{module:'Kontroller',data:JSON.parse(seed.data_json)});
  const {sourceId}=await api('/api/evidence-automation','POST',{action:'save-source',name:'QA protected control source',vendor:'Generic REST',category:'Security',driver:'rest-json',baseUrl:'https://example.com',path:'/qa',authType:'none'});
- const {ruleId}=await api('/api/evidence-automation','POST',{action:'save-rule',name:'QA retained control reference',sourceId,controlRefs:target.id,jsonPath:'status',operator:'exists',expected:'',schedule:'monthly',freshnessHours:24,failureThreshold:1,remediationDueDays:7,autoFinding:false,remediationOwner:'qa-admin@fornost.test'});
+ const ruleInput={action:'save-rule',name:'QA retained control reference',sourceId,controlRefs:target.id,jsonPath:'status',operator:'exists',expected:'',schedule:'monthly',freshnessHours:24,failureThreshold:1,remediationDueDays:7,autoFinding:false,remediationOwner:'qa-admin@fornost.test'};
+ const invalid=await context.post('/api/evidence-automation',{data:{...ruleInput,controlRefs:'CTL-999999999'}});
+ assert.equal(invalid.status(),422,await invalid.text());assert.equal((await invalid.json()).code,'REFERENCE_UNAVAILABLE');
+ const {ruleId}=await api('/api/evidence-automation','POST',ruleInput);
  // Never execute the source; disabling collection must not erase its reference history.
  await api('/api/evidence-automation','POST',{action:'toggle-rule',ruleId,enabled:false});
  const blocked=await context.delete(`/api/grc?id=${target.id}`);
