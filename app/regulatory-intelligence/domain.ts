@@ -1,3 +1,4 @@
+export const regulatoryCoreTargets:Record<string,string[]>={control:['Kontroller','Uyum'],risk:['Risk Assessment'],asset:['Varlık Envanteri'],vendor:['Tedarikçiler'],process:['BIA'],audit:['Denetim Yönetimi'],evidence:['Kanıtlar']};
 export const REGULATORY_SEVERITIES=["low","medium","high","critical"] as const;
 export const REGULATORY_CHANGE_TYPES=["new-regulation","amendment","guidance","enforcement","deadline","consultation"] as const;
 export const REGULATORY_TARGET_TYPES=["control","policy","risk","asset","vendor","process","audit","evidence"] as const;
