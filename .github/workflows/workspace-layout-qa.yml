@@ -31,6 +31,8 @@ jobs:
           else
             npx playwright install chromium
           fi
+      - name: KRI form interaction regression
+        run: node scripts/kri-form-interactions-qa.mjs
       - name: Generate isolated QA credentials
         run: node scripts/prepare-local-qa.mjs
       - name: Start isolated app and create QA account
