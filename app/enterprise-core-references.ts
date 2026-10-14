@@ -1,3 +1,4 @@
+import {regulatoryCoreTargets} from './regulatory-intelligence/domain';
 type Source={table:string;column:string;modules:string[];json?:boolean;filter?:string};
 // Server-owned identifiers and predicates only. Historical/closed rows remain references.
 const sources:Source[]=[
@@ -18,7 +19,7 @@ const sources:Source[]=[
  {table:'enterprise_findings',column:'risk_ref',modules:['Risk Assessment']},
  {table:'enterprise_findings',column:'control_ref',modules:['Kontroller','Uyum']},
  ...Object.entries({audit:['Denetim Yönetimi'],control:['Kontroller','Uyum'],risk:['Risk Assessment'],vendor:['Tedarikçiler']}).map(([type,modules])=>({table:'enterprise_findings',column:'source_ref',modules,filter:`source_type='${type}'`})),
- ...Object.entries({control:['Kontroller','Uyum'],risk:['Risk Assessment'],asset:['Varlık Envanteri'],vendor:['Tedarikçiler'],process:['BIA'],audit:['Denetim Yönetimi'],evidence:['Kanıtlar']}).map(([type,modules])=>({table:'regulatory_change_impacts',column:'target_ref',modules,filter:`target_type='${type}'`})),
+ ...Object.entries(regulatoryCoreTargets).map(([type,modules])=>({table:'regulatory_change_impacts',column:'target_ref',modules,filter:`target_type='${type}'`})),
 ];
 
 /** Older on-prem installations may not have initialized each optional module yet. */
