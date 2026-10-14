@@ -13,3 +13,5 @@
 @media(max-width:700px){.eh-version-form{grid-template-columns:minmax(0,1fr)}.eh-version-form>button{justify-self:stretch}}
 
 .eh-version-form p.note{grid-column:1/-1;margin:0;color:var(--ws-muted);font-size:11px;line-height:1.5}.eh-version-form label small{font-size:10px;font-weight:400;line-height:1.5}
+
+.eh-panel .eh-scope,.eh-panel .eh-retained,.eh-panel .eh-warning{font-size:11px;line-height:1.6;overflow-wrap:anywhere;margin:10px 0}.eh-warning{border-left:3px solid var(--accent,#ef8438);padding:8px 12px}.eh-row-actions button:disabled{opacity:.65;cursor:default}.eh-integrity.unavailable{border-color:var(--accent,#ef8438)}

@@ -73,6 +73,7 @@ try {
   await reviewPanel.getByRole('button', { name: 'Reload', exact: true }).click(); await expect(reviewPanel.locator('.ar-state')).toHaveText('Awaiting review');
   await reviewPanel.getByLabel('Decision / cancellation reason', { exact: true }).fill('Reviewed evidence meets the stated acceptance criteria.');
   await reviewPanel.getByRole('button', { name: 'Accept', exact: true }).click(); await expect(reviewPanel.locator('.ar-state')).toHaveText('Accepted');
+  await expect(reviewPanel.locator('.ar-progress h4')).toHaveText('No outstanding requests');
   state = await api(admin, `/api/audits/requests?auditId=${auditId}`); assert.equal(state.requests[0].evidence[0].id, version.id); assert.equal(state.events.filter(e => e.action === 'accept').length, 1);
   // Updating the library file must not alter the version accepted by the independent reviewer.
   const replacement = await owner.request.post(base + '/api/evidence/history', { headers: { origin: base }, multipart: {
@@ -95,6 +96,13 @@ try {
   await expect(panel.locator('.ar-state.draft')).toHaveText('Draft');
   state = await api(admin, `/api/audits/requests?auditId=${auditId}`);
   let addition = state.requests.find(r => r.status === 'draft');
+  await expect(panel.locator('.ar-progress h4')).toHaveText('Outstanding requests');
+  await panel.getByRole('button', { name: /^Show outstanding requests/ }).click();
+  await expect(panel.locator('.ar-table tbody tr')).toHaveCount(1);
+  await expect(panel.locator('.ar-table')).toContainText(addition.title);
+  await expect(panel.locator('.ar-table')).not.toContainText(request.title);
+  await panel.locator('.ar-filters select').selectOption('all');
+
   assert.ok(!(await api(admin, '/api/audits/requests')).requests.some(r => r.id === addition.id));
   await panel.getByRole('button', { name: 'Review additions', exact: true }).click();
   const activate = panel.getByRole('button', { name: 'Activate additional requests', exact: true });
@@ -107,10 +115,10 @@ try {
   await panel.locator('.ar-preview-list summary').click(); await expect(panel.locator('.ar-preview-list')).toContainText('expiry dates');
   const reason = 'Service accounts were added to the agreed audit scope.';
   await panel.getByLabel('Reason for additional requests', { exact: true }).fill(reason);
-  await mkdir('qa-artifacts/audit-requests', { recursive: true });
+  await mkdir('audit-request-qa-artifacts', { recursive: true });
   for (const width of [390, 1536]) {
     await page.setViewportSize({ width, height: 960 }); assert.ok(await panel.evaluate(e => e.scrollWidth <= e.clientWidth + 1));
-    await panel.screenshot({ path: `qa-artifacts/audit-requests/additions-preview-${width}.png` });
+    await panel.screenshot({ path: `audit-request-qa-artifacts/additions-preview-${width}.png` });
   }
   state = await api(admin, `/api/audits/requests?auditId=${auditId}`);
   const oldActivation = { auditId, action: 'activate', expectedRevision: state.workflow.revision, expectedPlanRevision: state.planRevision, expectedDrafts: state.requests.filter(r => r.status === 'draft').map(({ id, revision }) => ({ id, revision })), note: reason };
@@ -121,6 +129,12 @@ try {
   assert.equal(state.events.filter(e => e.request_id === addition.id && e.action === 'activate').length, 1);
   assert.equal(state.events.find(e => e.request_id === addition.id && e.action === 'activate').activationReason, reason);
   assert.ok((await api(owner, '/api/audits/requests')).requests.some(r => r.id === addition.id && r.status === 'assigned'));
+  await api(admin, '/api/audits/requests', 'POST', { auditId, action: 'edit', requestId: addition.id, expectedRevision: addition.revision, fields: { ...addition, dueDate: '2020-01-01', reviewDueDate: '2020-01-02' } });
+  await panel.getByRole('button', { name: 'Reload', exact: true }).click();
+  await expect(panel.locator('.ar-summary').getByRole('button', { name: 'Overdue: 1', exact: true })).toBeVisible();
+  await panel.locator('.ar-summary').getByRole('button', { name: 'Overdue: 1', exact: true }).click();
+  await expect(panel.locator('.ar-table tbody tr')).toHaveCount(1);
+  await panel.locator('.ar-filters select').selectOption('all');
   await panel.getByRole('button', { name: addition.title, exact: true }).click();
   await panel.locator('.ar-detail summary').click(); await expect(panel.locator('.ar-detail')).toContainText(reason);
   // Completed work belongs to the owner; organization scope is Admin-only.
@@ -128,20 +142,20 @@ try {
   await page.locator('.mw2-scope button').filter({ hasText: /Organization|Kurum/ }).click();
   await page.locator('.mw2-filters button').filter({ hasText: /Completed|Tamamlanan/ }).click();
   await page.locator('.mw2-item').filter({ hasText: request.title }).click(); await expect(page.locator('.ar-detail')).toContainText(request.id);
-  await mkdir('qa-artifacts/audit-requests', { recursive: true });
+  await mkdir('audit-request-qa-artifacts', { recursive: true });
   for (const language of ['EN', 'TR']) {
     await page.locator('.language-switch:visible').getByRole('button', { name: language, exact: true }).click();
     for (const theme of ['light', 'dark']) for (const width of [390, 1536]) {
       await page.evaluate(t => document.documentElement.dataset.theme = t, theme); await page.setViewportSize({ width, height: 960 });
       assert.ok(await panel.evaluate(e => e.scrollWidth <= e.clientWidth + 1));
-      await panel.screenshot({ path: `qa-artifacts/audit-requests/${language}-${theme}-${width}.png` });
+      await panel.screenshot({ path: `audit-request-qa-artifacts/${language}-${theme}-${width}.png` });
     }
   }
-  assert.deepEqual(errors, []); console.log('AUDIT_REQUEST_WORKFLOW_QA_PASS: real API lifecycle, roles, duplicate start/submission, pinned versions, reasoned additions, stale preview recovery, unchanged acceptance, My Work focus, TR/EN and responsive themes');
+  assert.deepEqual(errors, []); console.log('AUDIT_REQUEST_WORKFLOW_QA_PASS: real API lifecycle, roles, duplicate start/submission, pinned versions, reasoned additions, stale preview recovery, unchanged acceptance, outstanding/draft/overdue filters, My Work focus, TR/EN and responsive themes');
 } catch (error) {
   console.error('AUDIT_REQUEST_WORKFLOW_QA_FAILED', error.message);
-  await mkdir('qa-artifacts/audit-requests', { recursive: true });
-  for (const context of browser.contexts()) for (const p of context.pages()) if (await p.locator('.audit-request-panel').count()) await p.screenshot({ path: `qa-artifacts/audit-requests/failure-${Date.now()}.png`, fullPage: true });
+  await mkdir('audit-request-qa-artifacts', { recursive: true });
+  for (const context of browser.contexts()) for (const p of context.pages()) if (await p.locator('.audit-request-panel').count()) await p.screenshot({ path: `audit-request-qa-artifacts/failure-${Date.now()}.png`, fullPage: true });
   throw error;
 } finally {
   if (auditId) await api(admin, `/api/audits?id=${auditId}`, 'DELETE');
