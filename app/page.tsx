@@ -1345,7 +1345,9 @@ function FornostApp({ currentUser }: { currentUser: any }) {
     // Wait for restoration so the initial Home render cannot overwrite it.
     if (pageRestored) rememberPage(() => window.sessionStorage, pageKey, active);
   }, [active, pageKey, pageRestored]);
-  const closeRecordDialog=useCallback(()=>setModal(false),[]);
+  const recordWritePending=useRef(false);
+  const deletePending=useRef(false);
+  const closeRecordDialog=useCallback(()=>{if(!recordWritePending.current)setModal(false)},[]);
   const recordDialogRef=useRecordDialog(modal,closeRecordDialog);
   const labels = labelMap[lang],
     u = ui[lang];
@@ -1536,6 +1538,8 @@ function FornostApp({ currentUser }: { currentUser: any }) {
     setLang(next);
   }
   function openNew(seed: Record<string, any> = {}) {
+    if(recordWritePending.current)return;
+    setNotice("");
     setEditing(null);
     const next = empty(active);
     if (active === "Denetim Yönetimi" && selectedAudit) {
@@ -1554,14 +1558,18 @@ function FornostApp({ currentUser }: { currentUser: any }) {
     setModal(true);
   }
   function openEdit(r: Row) {
+    if(recordWritePending.current)return;
+    setNotice("");
     setEditing(r);
     setForm({ ...r.data });
     setModal(true);
   }
   async function save(e: FormEvent) {
     e.preventDefault();
-    if (saving) return;
+    if (recordWritePending.current) return;
+    recordWritePending.current=true;
     setSaving(true);
+    setNotice("");
     try {
       const r = await fetch(withBasePath("/api/grc"), {
         method: editing ? "PATCH" : "POST",
@@ -1607,13 +1615,17 @@ function FornostApp({ currentUser }: { currentUser: any }) {
             : "Record could not be saved.",
       );
     } finally {
+      recordWritePending.current=false;
       setSaving(false);
     }
   }
   async function remove(id: string) {
     const snapshot = rows.find(row => row.id === id);
-    if (!snapshot) return;
-    if (!confirm(lang === "tr" ? "Bu kayıt silinsin mi?" : "Delete this record?")) return;
+    if (!snapshot || deletePending.current) return;
+    const identity=displayRecordCode(snapshot);
+    const title=String(snapshot.data.title||snapshot.data.controlTitle||snapshot.data.evidenceTitle||snapshot.data.process||snapshot.data.vendorName||snapshot.data.requirementTitle||snapshot.data.auditName||"");
+    if (!confirm(lang === "tr" ? `“${identity}${title?` · ${title}`:""}” kaydı silinsin mi?` : `Delete “${identity}${title?` · ${title}`:""}”?`)) return;
+    deletePending.current=true;
     try {
       const query = new URLSearchParams({id, expectedUpdatedAt: snapshot.updatedAt || ""});
       const r = await fetch(withBasePath(`/api/grc?${query}`), {method: "DELETE"});
@@ -1633,7 +1645,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
       throw new Error(j.error || (lang === "tr" ? "Kayıt silinemedi." : "Record could not be deleted."));
     } catch (error) {
       setNotice(error instanceof Error ? error.message : lang === "tr" ? "Kayıt silinemedi." : "Record could not be deleted.");
-    }
+    }finally{deletePending.current=false;}
   }
   async function createAudit(input: {
     name: string;
@@ -1668,6 +1680,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
     return true;
   }
   async function deleteAudit(audit: AuditPortfolioItem) {
+    if (deletePending.current) return;
     if (
       !confirm(
         lang === "tr"
@@ -1676,6 +1689,8 @@ function FornostApp({ currentUser }: { currentUser: any }) {
       )
     )
       return;
+    deletePending.current=true;
+    try {
     const response = await fetch(
       withBasePath(`/api/audits?id=${encodeURIComponent(audit.id)}`),
       { method: "DELETE" },
@@ -1697,6 +1712,11 @@ function FornostApp({ currentUser }: { currentUser: any }) {
         ? `Denetim ve ${result.deletedRequirements || 0} maddesi silindi.`
         : `Audit and ${result.deletedRequirements || 0} requirements deleted.`,
     );
+    } catch {
+      setNotice(lang === "tr"
+        ? "Silme sonucu doğrulanamadı. Tekrar denemeden önce denetim listesini yenileyin."
+        : "The deletion result could not be confirmed. Refresh the audit list before trying again.");
+    } finally { deletePending.current=false; }
   }
   async function createTicket(row: Row) {
     const response = await fetch(withBasePath("/api/integrations"), {
@@ -1748,25 +1768,18 @@ function FornostApp({ currentUser }: { currentUser: any }) {
   }
   async function uploadEvidence(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    const r = await fetch(withBasePath("/api/evidence"), {
-      method: "POST",
-      body: new FormData(e.currentTarget),
-    });
-    const result = await r.json().catch(() => ({}));
-    if (r.ok) {
-      setModal(false);
-      await load();
-      setNotice(
-        lang === "tr"
-          ? "Kanıt kütüphanesine eklendi."
-          : "Added to the evidence library.",
-      );
-    } else
-      setNotice(
-        String(result.error || (lang === "tr"
-          ? "Kanıt yüklenemedi. Dosya türünü ve 10 MB sınırını kontrol edin."
-          : "Evidence could not be uploaded. Check the file type and 10 MB limit.")),
-      );
+    if(recordWritePending.current)return;
+    const body=new FormData(e.currentTarget);
+    recordWritePending.current=true;setSaving(true);setNotice("");
+    try{
+      const r=await fetch(withBasePath("/api/evidence"),{method:"POST",body});
+      const result=await r.json().catch(()=>({}));
+      if(!r.ok)throw new Error(String(result.error||(lang==="tr"?"Kanıt yüklenemedi. Dosya türünü ve 10 MB sınırını kontrol edin.":"Evidence could not be uploaded. Check the file type and 10 MB limit.")));
+      setModal(false);await load();
+      setNotice(lang==="tr"?"Kanıt kütüphanesine eklendi.":"Added to the evidence library.");
+    }catch(error){
+      setNotice(error instanceof Error&&!(error instanceof TypeError)?error.message:(lang==="tr"?"Yükleme sonucu doğrulanamadı. Tekrar göndermeden önce kütüphaneyi kontrol edin.":"The upload result could not be confirmed. Check the library before submitting again."));
+    }finally{recordWritePending.current=false;setSaving(false);}
   }
   const by = (m: string) => rows.filter((r) => r.module === m),
     desc =
@@ -2421,13 +2434,14 @@ function FornostApp({ currentUser }: { currentUser: any }) {
         )}
       </main>
       {modal && (
-        <div className="overlay" onMouseDown={() => setModal(false)}>
+        <div className="overlay" onMouseDown={closeRecordDialog}>
           <div data-escape-layer
             className="modal record-dialog"
             ref={recordDialogRef}
             tabIndex={-1}
             role="dialog"
             aria-modal="true"
+            aria-busy={saving}
             aria-label={names[lang][active]}
             onMouseDown={(e) => e.stopPropagation()}
           >
@@ -2439,7 +2453,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
               <button data-escape-close
                 type="button"
                 aria-label={lang === "tr" ? "Pencereyi kapat" : "Close dialog"}
-                onClick={() => setModal(false)}
+                disabled={saving} onClick={closeRecordDialog}
               >
                 ×
               </button>
@@ -2466,11 +2480,12 @@ function FornostApp({ currentUser }: { currentUser: any }) {
                     lang={lang}
                   />
                 ))}
+                {notice&&<p className="record-form-notice wide" role="alert">{notice}</p>}
                 <div className="form-actions">
-                  <button type="button" onClick={() => setModal(false)}>
+                  <button type="button" disabled={saving} onClick={closeRecordDialog}>
                     {u.cancel}
                   </button>
-                  <button className="primary">{u.upload}</button>
+                  <button className="primary" disabled={saving} aria-busy={saving}>{saving?(lang==="tr"?"Yükleniyor…":"Uploading…"):u.upload}</button>
                 </div>
               </form>
             ) : (
@@ -2485,8 +2500,9 @@ function FornostApp({ currentUser }: { currentUser: any }) {
                     lang={lang}
                   />
                 ))}
+                {notice&&<p className="record-form-notice wide" role="alert">{notice}</p>}
                 <div className="form-actions">
-                  <button type="button" onClick={() => setModal(false)}>
+                  <button type="button" disabled={saving} onClick={closeRecordDialog}>
                     {u.cancel}
                   </button>
                   <button className="primary" disabled={saving} aria-busy={saving}>
@@ -2970,7 +2986,7 @@ function Field({
   if (k === "progress") {
     const numeric = Number(value);
     const progress = Number.isFinite(numeric) ? Math.min(100, Math.max(0, numeric)) : 0;
-    return <label className="audit-progress-field">
+    return <label className="audit-progress-field" data-form-core="true">
       <span className="audit-progress-heading"><span>{labelMap[lang][k]}</span><output>{formatPercent(progress, lang)}</output></span>
       <input name={k} type="range" min={0} max={100} step={1} value={progress}
         aria-label={labelMap[lang][k]} aria-valuetext={formatPercent(progress, lang)} aria-describedby="audit-progress-help"

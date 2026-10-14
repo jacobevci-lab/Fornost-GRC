@@ -50,6 +50,19 @@ await check('Continuity plan reference protects its core BIA record',async()=>{
 const page=await admin.newPage();currentPage=page;page.setDefaultTimeout(10000);const errors=[];page.on('pageerror',e=>errors.push(e.message));page.on('response',r=>{if(r.status()>=500&&r.url().startsWith(base))errors.push(`HTTP ${r.status()} ${r.url()}`)});
 async function open(label){await page.locator(`nav button[aria-label=${JSON.stringify(label)}]`).evaluate(el=>el.click());await page.waitForTimeout(500)}
 async function reset(){await page.setViewportSize({width:1536,height:960});await page.goto(base);await page.locator('.shell').waitFor();await page.locator('.language-switch:visible').getByRole('button',{name:'EN',exact:true}).click();}
+async function checkPendingRecordForm(dialog,path){
+ let release;const gate=new Promise(resolve=>{release=resolve});let requests=0;
+ const pattern=`**${path}`;const handler=async route=>{if(route.request().method()!=='POST')return route.continue();requests++;await gate;await route.fulfill({status:400,contentType:'application/json',body:JSON.stringify({error:'QA validation: correct the entry and try again.'})});};
+ await page.route(pattern,handler);
+ try{
+  const response=page.waitForResponse(r=>r.url().endsWith(path)&&r.request().method()==='POST');
+  await dialog.locator('.form-actions .primary').click();await expect.poll(()=>requests).toBe(1);
+  await expect(dialog.locator('.form-actions .primary')).toBeDisabled();await expect(dialog.getByRole('button',{name:'Close dialog',exact:true})).toBeDisabled();
+  await dialog.locator('form').dispatchEvent('submit');await page.keyboard.press('Escape');await expect(dialog).toBeVisible();
+  release();assert.equal((await response).status(),400);await expect(dialog.getByRole('alert')).toContainText('QA validation');
+  await expect(dialog.locator('.form-actions .primary')).toBeEnabled();assert.equal(requests,1,'Pending form submits once');
+ }finally{release();await page.unroute(pattern,handler)}
+}
 await reset();
 for(const [moduleName,label,key] of [['Risk Assessment','Risk Assessment','title'],['BIA','Business Impact Analysis (BIA)','process'],['Varlık Envanteri','Asset Inventory','title'],['Uyum','Compliance Management','controlTitle'],['Kontroller','Control Library','controlTitle']])await check(`UI create/edit/delete: ${label}`,async()=>{
  await reset();await open(label);await page.getByPlaceholder('Search records').fill('QA-no-match-20261001');assert.match(await page.locator('.table-wrap').innerText(),/No records in this view/);await page.getByPlaceholder('Search records').fill('');await page.locator('.actions .primary').click();const dialog=page.locator('.modal[role=dialog]');await dialog.waitFor();await dialog.getByRole('button',{name:/Show advanced/}).click();
@@ -69,6 +82,7 @@ for(const [moduleName,label,key] of [['Risk Assessment','Risk Assessment','title
  // Linked options arrive asynchronously; never silently skip a required selection.
  if(name==='asset')await expect.poll(async()=>input.locator('option').evaluateAll(es=>es.map(e=>e.value))).toEqual(expect.arrayContaining(String(value).split(',').map(v=>v.trim())));
  const options=await input.locator('option').evaluateAll(es=>es.map(e=>e.value));const multi=await input.getAttribute('multiple')!==null;const chosen=multi?String(value).split(',').map(v=>v.trim()).filter(v=>options.includes(v)):String(value);if(multi?chosen.length:options.includes(chosen))await input.selectOption(chosen)}else await input.fill(String(value));}
+ if(moduleName==='Kontroller')await checkPendingRecordForm(dialog,'/api/grc');
  const response=page.waitForResponse(r=>r.url().endsWith('/api/grc')&&r.request().method()==='POST').catch(()=>null);await dialog.locator('.form-actions .primary').click();const r=await response;assert.ok(r,'Submitting the valid form must issue a create request');assert.equal(r.status(),201,await r.text());const created=await r.json();await dialog.waitFor({state:'hidden'});
  if(moduleName==='BIA'){const saved=(await request(admin,'/api/grc')).rows.find(x=>x.id===created.id);await request(admin,'/api/grc','PATCH',{id:created.id,data:{...JSON.parse(saved.data_json),rpo:0,asset:"QA archived asset reference"}});await reset();await open(label)}
  const row=page.locator('tr').filter({has:page.locator(`.code[title="${created.id}"]`)});await row.getByRole('button',{name:'Edit',exact:true}).click();if(moduleName==='BIA'){assert.equal(await dialog.locator('[name=rpo]').inputValue(),'0','Zero RPO survives edit');assert.equal(await dialog.locator('[name=asset]').inputValue(),'QA archived asset reference','Missing linked assets remain visible');assert.match(await dialog.locator('[name=asset] option:checked').innerText(),/linked record unavailable/)}await dialog.locator(`[name="${key}"]`).fill(data[key]+' edited');const update=page.waitForResponse(r=>r.url().endsWith('/api/grc')&&r.request().method()==='PATCH').catch(()=>null);await dialog.locator('.form-actions .primary').click();assert.equal((await update).status(),200);await dialog.waitFor({state:'hidden'});
@@ -107,6 +121,7 @@ await check('Evidence Library UI upload, file integrity, edit and delete',async(
  await dialog.locator('input[type=file]').setInputFiles({name:'qa-evidence.png',mimeType:'image/png',buffer:bytes});
  for(const [name,value] of Object.entries({evidenceTitle:'QA uploaded evidence',controlRef:'A.5.18',owner,period:today.slice(0,7)}))await dialog.locator(`[name=${name}]`).fill(value);
  await dialog.locator('[name=status]').selectOption('Taslak');
+ await checkPendingRecordForm(dialog,'/api/evidence');assert.equal(await dialog.locator('input[type=file]').evaluate(input=>input.files.length),1);
  const response=page.waitForResponse(r=>r.url().endsWith('/api/evidence')&&r.request().method()==='POST').catch(()=>null);await dialog.locator('.form-actions .primary').click();const r=await response;assert.equal(r.status(),201,await r.text());const created=await r.json();assert.match(created.contentSha256,/^[a-f0-9]{64}$/);await dialog.waitFor({state:'hidden'});
  const saved=(await request(admin,'/api/grc')).rows.find(x=>x.id===created.id),data=JSON.parse(saved.data_json);const downloaded=await admin.request.get(`${base}/api/evidence?key=${encodeURIComponent(data.fileKey)}`);assert.equal(downloaded.status(),200);assert.deepEqual(await downloaded.body(),bytes);
  const row=page.locator('tr').filter({has:page.getByRole('button',{name:saved.record_code,exact:true})});await row.getByRole('button',{name:'Edit',exact:true}).click();await dialog.locator('[name=evidenceTitle]').fill('QA evidence updated');const update=page.waitForResponse(r=>r.url().endsWith('/api/grc')&&r.request().method()==='PATCH').catch(()=>null);await dialog.locator('.form-actions .primary').click();assert.equal((await update).status(),200);await dialog.waitFor({state:'hidden'});await page.screenshot({path:`${out}/evidence-uploaded.png`});

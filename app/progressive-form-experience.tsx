@@ -55,7 +55,7 @@ function partition(target: Target) {
       advanced: labels.filter(label => !core.has(label)),
     };
   }
-  const required = labels.filter(label => Boolean(label.querySelector("input[required],select[required],textarea[required]")));
+  const required = labels.filter(label => label.dataset.formCore === "true" || Boolean(label.querySelector("input[required],select[required],textarea[required]")));
   const core = new Set<HTMLLabelElement>(required);
   for (const label of labels) {
     if (core.size >= 7) break;
