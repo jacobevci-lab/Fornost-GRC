@@ -11,3 +11,5 @@
 
 .eh-version-form>div{grid-column:1/-1}.eh-version-form :is(input,select){width:100%;min-width:0;padding:9px 10px;border:1px solid var(--ws-line);border-radius:7px;background:var(--ws-surface);color:var(--ws-ink);font:inherit}.eh-version-form>button{justify-self:end;align-self:end}.eh-version-form input[type=file]{padding:6px}.eh-version-form input::file-selector-button{margin-right:8px;padding:4px 8px;border:1px solid var(--ws-line);border-radius:5px;background:var(--ws-surface-2);color:var(--ws-ink)}
 @media(max-width:700px){.eh-version-form{grid-template-columns:minmax(0,1fr)}.eh-version-form>button{justify-self:stretch}}
+
+.eh-version-form p.note{grid-column:1/-1;margin:0;color:var(--ws-muted);font-size:11px;line-height:1.5}.eh-version-form label small{font-size:10px;font-weight:400;line-height:1.5}
