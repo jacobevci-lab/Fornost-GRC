@@ -25,6 +25,11 @@ try{
   for(const width of [1536,390]){await page.setViewportSize({width,height:960});assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)<=4);await page.screenshot({path:`${out}/ready-form-${theme}-${width}.png`});}
  }
  await page.setViewportSize({width:1536,height:960});
+ const mapped=dialog.getByLabel('Mapped controls',{exact:true});const originalRefs=await mapped.inputValue();
+ await mapped.fill('CTL-999999999');
+ const rejected=page.waitForResponse(r=>r.url().endsWith(path)&&r.request().method()==='POST');await dialog.getByRole('button',{name:'Enable Ready Control',exact:true}).click();assert.equal((await rejected).status(),422);
+ await expect(dialog).toBeVisible();await expect(mapped).toHaveValue('CTL-999999999');await expect(dialog).toContainText('A mapped control record is unavailable');
+ await mapped.fill(originalRefs);
  const saved=page.waitForResponse(r=>r.url().endsWith(path)&&r.request().method()==='POST');await dialog.getByRole('button',{name:'Enable Ready Control',exact:true}).click();assert.equal((await saved).status(),200);await expect(dialog).toBeHidden();
  const data=await api(context,path),rule=data.rules.find(x=>x.sourceId===source.sourceId);assert.equal(rule.templateId,'intune-compliance');assert.equal(rule.templateVersion,1);assert.equal(rule.operator,'template');assert.equal(rule.freshnessHours,48);
  await api(context,path,'POST',{action:'save-template-rule',sourceId:source.sourceId,templateId:'intune-compliance',controlRefs:'A.8.1'},409);

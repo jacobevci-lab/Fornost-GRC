@@ -23,7 +23,6 @@ async function fixture() {
   await ensureEvidenceAutomationSchema(db); await ensureAssuranceWorkSchema(db);
   sqlite.exec(readFileSync('drizzle/0072_enterprise_findings_capa.sql', 'utf8'));
   sqlite.exec(readFileSync('drizzle/0079_evidence_lineage_storage.sql', 'utf8'));
-  sqlite.exec('CREATE TABLE simple_grc_record_codes(record_id TEXT PRIMARY KEY,module TEXT,code TEXT,created_at TEXT)');
   const record = (id: string, module: string, data: Record<string, unknown>) => sqlite.prepare('INSERT INTO simple_grc_records VALUES(?,?,?,?,?)').run(id, module, JSON.stringify(data), now.toISOString(), now.toISOString());
   const evidence = (data: Record<string, unknown> = {}) => ({ evidenceTitle: 'Proof', controlRef: 'CTL-1', status: 'Approved', ...data });
   record('C1', 'Kontroller', { controlRef: 'CTL-1', controlTitle: 'Access', owner: 'Security', testOwner: 'Audit', nextTestDate: '2027-01-01' });
