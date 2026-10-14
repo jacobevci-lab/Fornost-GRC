@@ -29,6 +29,10 @@ test('code cleanup failure rolls back record deletion',async()=>{const f=fixture
 test('no-op deletion cannot remove a code left by another transaction',async()=>{const f=fixture();try{f.race(()=>f.sqlite.exec("DELETE FROM simple_grc_records WHERE id='target'"));await assert.rejects(f.remove(),LifecycleConflict);assert.ok(f.sqlite.prepare('SELECT * FROM simple_grc_record_codes').get());}finally{f.sqlite.close()}});
 
 const enterpriseSchema:Record<string,string>={
+ evidence_automation_rules:'control_refs TEXT,status TEXT',
+ evidence_automation_runs:'evidence_id TEXT,status TEXT',
+ evidence_automation_findings:'evidence_id TEXT,closure_evidence_ref TEXT,status TEXT',
+ continuous_assurance_exceptions:'control_ref TEXT,risk_ref TEXT,evidence_reference TEXT,status TEXT',
  enterprise_continuity_plans:'bia_ref TEXT,status TEXT',
  enterprise_incidents:'asset_refs TEXT,risk_ref TEXT,bia_ref TEXT,status TEXT',
  policy_versions:'control_refs_json TEXT,risk_refs_json TEXT,status TEXT',
@@ -39,6 +43,15 @@ const enterpriseSchema:Record<string,string>={
 function enterpriseTable(sqlite:DatabaseSync,table:string){sqlite.exec(`CREATE TABLE ${table} (${enterpriseSchema[table]})`)}
 test('enterprise references protect core targets including closed historical records',async()=>{
  const cases:[string,string,string,unknown,string?,string?][]=[
+  ['Kontroller','evidence_automation_rules','control_refs','other; target'],
+  ['Uyum','evidence_automation_rules','control_refs','other\nAST-001'],
+  ['Kanıtlar','evidence_automation_runs','evidence_id','target'],
+  ['Kanıtlar','evidence_automation_findings','evidence_id','target'],
+  ['Kanıtlar','evidence_automation_findings','closure_evidence_ref','AST-001'],
+  ['Kontroller','continuous_assurance_exceptions','control_ref','target'],
+  ['Uyum','continuous_assurance_exceptions','control_ref','target'],
+  ['Risk Assessment','continuous_assurance_exceptions','risk_ref','target'],
+  ['Kanıtlar','continuous_assurance_exceptions','evidence_reference','target'],
   ['BIA','enterprise_continuity_plans','bia_ref','target'],
   ['Varlık Envanteri','enterprise_incidents','asset_refs','other, AST-001'],
   ['Risk Assessment','enterprise_incidents','risk_ref','target'],['BIA','enterprise_incidents','bia_ref','target'],
@@ -58,3 +71,19 @@ test('legacy scalar policy references are parsed safely, without substring match
 test('removing an optional table during the write fails closed and preserves code',async()=>{const f=fixture('BIA');try{enterpriseTable(f.sqlite,'enterprise_continuity_plans');f.race(()=>f.sqlite.exec('DROP TABLE enterprise_continuity_plans'));await assert.rejects(f.remove());f.retained();}finally{f.sqlite.close()}});
 
 test('all enterprise schemas initialized together allow unlinked deletion across core modules',async()=>{for(const moduleName of ['Risk Assessment','BIA','Varlık Envanteri','Uyum','Tedarikçiler','Kontroller','Kanıtlar','Denetim Yönetimi']){const f=fixture(moduleName);try{for(const table of Object.keys(enterpriseSchema))enterpriseTable(f.sqlite,table);await f.remove();assert.equal(f.read(),undefined);}finally{f.sqlite.close()}}});
+
+test('assurance reference races preserve both target and allocated code',async()=>{
+ for(const [moduleName,table,column] of [['Kontroller','evidence_automation_rules','control_refs'],['Kanıtlar','evidence_automation_runs','evidence_id'],['Kanıtlar','evidence_automation_findings','closure_evidence_ref'],['Risk Assessment','continuous_assurance_exceptions','risk_ref']]){
+  const f=fixture(moduleName);try{enterpriseTable(f.sqlite,table);f.race(()=>f.sqlite.prepare(`INSERT INTO ${table}(${column},status) VALUES(?,'closed')`).run('target'));await assert.rejects(f.remove(),CoreRecordLinked);f.retained();}finally{f.sqlite.close()}
+ }
+});
+test('assurance proof locations and similar identifiers do not falsely match core evidence',async()=>{
+ for(const value of ['https://example.com/target','evidence/target','target-extra','AST-0010',null,'']){
+  const f=fixture('Kanıtlar');try{enterpriseTable(f.sqlite,'continuous_assurance_exceptions');enterpriseTable(f.sqlite,'evidence_automation_findings');f.sqlite.prepare('INSERT INTO continuous_assurance_exceptions(evidence_reference) VALUES(?)').run(value);f.sqlite.prepare('INSERT INTO evidence_automation_findings(closure_evidence_ref) VALUES(?)').run(value);await f.remove();assert.equal(f.read(),undefined);}finally{f.sqlite.close()}
+ }
+});
+test('assurance links are scoped to their declared target modules',async()=>{
+ for(const [table,column] of [['evidence_automation_rules','control_refs'],['evidence_automation_runs','evidence_id'],['continuous_assurance_exceptions','risk_ref']]){
+  const f=fixture('BIA');try{enterpriseTable(f.sqlite,table);f.sqlite.prepare(`INSERT INTO ${table}(${column}) VALUES('target')`).run();await f.remove();assert.equal(f.read(),undefined);}finally{f.sqlite.close()}
+ }
+});

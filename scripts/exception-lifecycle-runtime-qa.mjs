@@ -22,6 +22,7 @@ try{
  await seed(`INSERT INTO simple_grc_records(id,module,data_json,created_at,updated_at) VALUES('QA-EX-RISK','Risk Assessment',${q(JSON.stringify({title:'QA exception lifecycle risk',owner:'QA owner',assuranceState:'ineffective',residualLikelihood:'4',residualImpact:'4'}))},${q(stamp)},${q(stamp)});`);
  const proposal={action:'create-exception',riskRef:'QA-EX-RISK',findingId:'QA-EX-FIND',ruleId:'QA-EX-RULE',reason:'A documented temporary exception with independent review.',expiresAt:tomorrow,evidenceReference:'QA-EX-EVD',evidenceSha256:'a'.repeat(64)};
  await post(viewer,proposal,403);const first=await post(maker,proposal,201);
+ assert.equal((await api(admin,'/api/grc?id=QA-EX-RISK','DELETE',undefined,409)).code,'RECORD_LINKED');
  await post(maker,{action:'review-exception',exceptionId:first.id,decision:'approve'},403);
  const own=await post(admin,{...proposal,riskRef:'',findingId:'QA-EX-OWN'},201);await post(admin,{action:'review-exception',exceptionId:own.id,decision:'approve'},409);
  await post(admin,{action:'review-exception',exceptionId:first.id,decision:'approve'});
@@ -32,6 +33,7 @@ try{
  const outcomes=await Promise.all([admin.request.post(base+endpoint,{data:request,headers:{origin:base}}),admin.request.post(base+endpoint,{data:request,headers:{origin:base}})]);
  assert.deepEqual(outcomes.map(r=>r.status()).sort(),[200,409]);checks+=2;
  let row=(await read()).exceptions.find(x=>x.id===first.id);assert.equal(row.status,'revoked');assert.ok(row.retestWorkItemId);assert.equal(row.retestRequired,true);assert.equal('lifecycleToken' in row,false);assert.equal((await risk()).residualRiskReviewRequired,true);
+ assert.equal((await api(admin,'/api/grc?id=QA-EX-RISK','DELETE',undefined,409)).code,'RECORD_LINKED');
  // Force a real SQLite failure after the decision claim. Every write must roll back.
  const failed=await post(maker,{...proposal,findingId:'QA-EX-ROLLBACK'},201);await post(admin,{action:'review-exception',exceptionId:failed.id,decision:'approve'});
  await seed("CREATE TRIGGER qa_ex_fail BEFORE INSERT ON continuous_assurance_work_items WHEN NEW.finding_id='QA-EX-ROLLBACK' BEGIN SELECT RAISE(ABORT,'QA exception rollback'); END;");

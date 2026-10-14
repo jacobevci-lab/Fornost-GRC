@@ -1,6 +1,13 @@
 type Source={table:string;column:string;modules:string[];json?:boolean;filter?:string};
 // Server-owned identifiers and predicates only. Historical/closed rows remain references.
 const sources:Source[]=[
+ {table:'evidence_automation_rules',column:'control_refs',modules:['Kontroller','Uyum']},
+ {table:'evidence_automation_runs',column:'evidence_id',modules:['Kanıtlar']},
+ {table:'evidence_automation_findings',column:'evidence_id',modules:['Kanıtlar']},
+ {table:'evidence_automation_findings',column:'closure_evidence_ref',modules:['Kanıtlar']},
+ {table:'continuous_assurance_exceptions',column:'control_ref',modules:['Kontroller','Uyum']},
+ {table:'continuous_assurance_exceptions',column:'risk_ref',modules:['Risk Assessment']},
+ {table:'continuous_assurance_exceptions',column:'evidence_reference',modules:['Kanıtlar']},
  {table:'enterprise_continuity_plans',column:'bia_ref',modules:['BIA']},
  {table:'enterprise_incidents',column:'asset_refs',modules:['Varlık Envanteri']},
  {table:'enterprise_incidents',column:'risk_ref',modules:['Risk Assessment']},
