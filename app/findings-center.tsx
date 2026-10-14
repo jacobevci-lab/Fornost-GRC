@@ -69,7 +69,7 @@ export default function FindingsCenter({lang,currentUser}:{lang:Lang;currentUser
    const {response,body:result}=await findingsRequest(withBasePath("/api/findings"),{method:"POST",headers:{"content-type":"application/json"},signal:controller.signal,body:JSON.stringify(body)});
    if(controller.signal.aborted)return false;
    if(response.status>=500){uncertain();await load();return false;}
-   setNotice(response.ok?(typeof result.message==="string"?result.message:(tr?"İşlem tamamlandı.":"Completed.")):(typeof result.error==="string"?result.error:(tr?"İşlem başarısız.":"Operation failed.")));
+   setNotice(response.ok?(typeof result.message==="string"?result.message:(tr?"İşlem tamamlandı.":"Completed.")):(result.code==="REFERENCE_UNAVAILABLE"?(tr?"Bağlı kontrol veya risk kaydı bulunamadı ya da yanlış modüle ait. Eşlemeyi düzeltip tekrar gönderin.":"A linked control or risk record is unavailable or belongs to another module. Correct the mapping and submit again."):typeof result.error==="string"?result.error:(tr?"İşlem başarısız.":"Operation failed.")));
    if(response.ok||response.status===409){setAction(null);setSelected(null);await load();}
    return response.ok;
   }catch{if(!controller.signal.aborted){uncertain();await load();}return false;}
