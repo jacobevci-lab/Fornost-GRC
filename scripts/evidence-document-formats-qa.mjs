@@ -93,7 +93,7 @@ try {
   await page.route('**/api/evidence/history', async route => {
     if (route.request().method() === 'POST') { submissions++; const response = await route.fetch(); await barrier; await route.fulfill({ response }); } else await route.continue();
   });
-  const submit = form.getByRole('button', { name: 'Save New Version', exact: true });
+  const submit = form.locator('button.primary');
   await submit.click(); await expect(submit).toBeDisabled(); await expect(form.locator('select')).toBeDisabled();
   await form.dispatchEvent('submit'); await expect.poll(() => submissions).toBe(1); release();
   await expect(submit).toBeEnabled(); await page.unroute('**/api/evidence/history');
