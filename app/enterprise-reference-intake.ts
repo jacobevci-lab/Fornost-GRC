@@ -1,4 +1,5 @@
 import {canonicalCoreReferenceValues,coreReferenceGuard,CoreReferenceUnavailable} from './core-reference-write';
+import {commitLifecycle,LifecycleConflict} from './enterprise-lifecycle-write';
 
 type Row=Record<string,string|number|null>;
 type Link={field:string;modules:string[]};
@@ -12,4 +13,15 @@ export async function insertReferencedEnterpriseRecord(db:D1Database,table:strin
  .bind(...Object.values(row),...guard.values);
  const results=await db.batch([claim,...history]);
  if(Number(results[0]?.meta?.changes||0)!==1)throw new CoreReferenceUnavailable();
+}
+
+/** Caller includes this guard in the claim. Diagnose a rejected transaction without relaxing its snapshot checks. */
+export async function commitReferencedLifecycle(db:D1Database,claim:D1PreparedStatement,history:D1PreparedStatement[],guard:ReturnType<typeof coreReferenceGuard>){
+ try{await commitLifecycle(db,claim,history)}catch(error){
+  if(error instanceof LifecycleConflict){
+   const current=await db.prepare(`SELECT ${guard.sql} AS available`).bind(...guard.values).first<{available:number}>();
+   if(current?.available===0)throw new CoreReferenceUnavailable();
+  }
+  throw error;
+ }
 }
