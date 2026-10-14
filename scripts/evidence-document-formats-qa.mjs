@@ -63,6 +63,21 @@ try {
   ]) { await upload(file, undefined, 400); await upload(file, ids[0], 400); }
   assert.equal((await api('/api/grc')).rows.length, baseline);
   assert.equal((await api(`/api/evidence/history?id=${ids[0]}`)).versions.length, 2);
+  const beforeRemoval = await api('/api/evidence/history'), removedId = ids.shift();
+  const removedVersions = (await api(`/api/evidence/history?id=${removedId}`)).versions;
+  await api(`/api/grc?id=${removedId}`, 'DELETE');
+  const afterRemoval = await api('/api/evidence/history');
+  assert.equal(afterRemoval.summary.evidenceRecords, beforeRemoval.summary.evidenceRecords - 1);
+  assert.equal(afterRemoval.summary.trackedEvidence, beforeRemoval.summary.trackedEvidence - 1);
+  assert.equal(afterRemoval.summary.legacyEvidence, beforeRemoval.summary.legacyEvidence);
+  assert.equal(afterRemoval.summary.totalVersions, beforeRemoval.summary.totalVersions - 2);
+  assert.equal(afterRemoval.summary.retainedVersions, beforeRemoval.summary.retainedVersions + 2);
+  assert.ok(afterRemoval.summary.trackedEvidence <= afterRemoval.summary.evidenceRecords);
+  assert.equal(afterRemoval.evidenceItems.some(item => item.id === removedId), false);
+  assert.ok(afterRemoval.recentVersions.filter(v => v.evidenceId === removedId).every(v => v.recordAvailable === false));
+  const retainedDownload = await context.request.get(base + `/api/evidence?key=${encodeURIComponent(removedVersions[0].fileKey)}`);
+  assert.equal(retainedDownload.status(), 200);
+  assert.equal(createHash('sha256').update(await retainedDownload.body()).digest('hex'), removedVersions[0].contentSha256);
   page = await context.newPage(); page.on('pageerror', e => errors.push(e.message));
   await page.goto(base); await expect(page.locator('.shell')).toBeVisible();
   await page.locator('.language-switch:visible').getByRole('button', { name: 'EN', exact: true }).click();
@@ -86,6 +101,11 @@ try {
   await page.keyboard.press('Escape'); await expect(preview).toBeHidden();
   await page.locator('nav button[aria-label="Evidence Automation"]').evaluate(el => el.click());
   await page.locator('.ea-tabs').getByRole('button', { name: 'Evidence History', exact: true }).click();
+  const historyPanel = page.locator('.eh-panel');
+  await expect(historyPanel.locator('.eh-retained')).toContainText('removed records');
+  const retainedRow = historyPanel.locator('.eh-list article').filter({ has: page.locator('.eh-version span', { hasText: removedId }) }).first();
+  await expect(retainedRow.getByRole('button', { name: 'Record removed', exact: true })).toBeDisabled();
+  await expect(retainedRow.getByRole('link', { name: 'Download', exact: true })).toBeVisible();
   const form = page.locator('.eh-version-form'); await form.locator('select').selectOption(uiId);
   await form.locator('input[type=file]').setInputFiles({ name: 'ui-version.xlsx', mimeType: types.xlsx, buffer: await office('xlsx') });
   await form.locator('[name=changeNote]').fill('Updated spreadsheet evidence for review');
@@ -98,20 +118,37 @@ try {
   await form.dispatchEvent('submit'); await expect.poll(() => submissions).toBe(1); release();
   await expect(submit).toBeEnabled(); await page.unroute('**/api/evidence/history');
   assert.equal((await api(`/api/evidence/history?id=${uiId}`)).versions.length, 2);
-  await mkdir('qa-artifacts/evidence-formats', { recursive: true });
+  // A delayed response must not reuse a different record's verified chain.
+  await expect(historyPanel.locator('.eh-integrity')).toContainText('SHA-256 chain verified');
+  let releaseDetail; const detailBarrier = new Promise(resolve => { releaseDetail = resolve; });
+  await page.route(`**/api/evidence/history?id=${ids[0]}`, async route => { const response = await route.fetch(); await detailBarrier; await route.fulfill({ response }); });
+  await form.locator('select').selectOption(ids[0]);
+  await expect(historyPanel.locator('.eh-integrity')).toContainText('Checking');
+  releaseDetail(); await expect(historyPanel.locator('.eh-integrity')).toContainText('SHA-256 chain verified');
+  await page.unroute(`**/api/evidence/history?id=${ids[0]}`);
+  // The bounded/partial response is intentionally simulated; DB limit behavior has SQLite coverage.
+  const overview = await api('/api/evidence/history');
+  await page.route('**/api/evidence/history', async route => { await route.fulfill({ json: { ...overview, evidenceItemsComplete: false, recentVersionsComplete: false, summary: { ...overview.summary, integrityScanComplete: false, uncheckedChains: 1 } } }); });
+  await historyPanel.getByRole('button', { name: 'Refresh', exact: false }).click();
+  await expect(historyPanel.locator('.eh-warning').filter({ hasText: 'integrity scan is incomplete' })).toBeVisible();
+  await expect(historyPanel.locator('.eh-warning').filter({ hasText: '500 most recently' })).toBeVisible();
+  await page.unroute('**/api/evidence/history');
+  await historyPanel.getByRole('button', { name: 'Refresh', exact: false }).click();
+  await expect(historyPanel.locator('.eh-warning').filter({ hasText: 'integrity scan is incomplete' })).toHaveCount(0);
+  await mkdir('evidence-formats-qa-artifacts', { recursive: true });
   for (const language of ['TR', 'EN']) {
     await page.locator('.language-switch:visible').getByRole('button', { name: language, exact: true }).click();
     for (const theme of ['light', 'dark']) for (const width of [390, 1536]) {
       await page.evaluate(t => document.documentElement.dataset.theme = t, theme); await page.setViewportSize({ width, height: 960 });
       assert.ok(await form.evaluate(el => el.scrollWidth <= el.clientWidth + 1));
-      await form.screenshot({ path: `qa-artifacts/evidence-formats/${language}-${theme}-${width}.png` });
+      await historyPanel.screenshot({ path: `evidence-formats-qa-artifacts/${language}-${theme}-${width}.png` });
     }
   }
   assert.deepEqual(errors, []);
-  console.log('EVIDENCE_DOCUMENT_FORMATS_QA_PASS: seven formats on both upload routes, canonical MIME/hash, byte-preserving downloads, rejected-file atomicity, approval reset, UI upload/preview/version, duplicate guard and responsive themes');
+  console.log('EVIDENCE_DOCUMENT_FORMATS_QA_PASS: seven formats on both upload routes, canonical MIME/hash, byte-preserving downloads, rejected-file atomicity, approval reset, UI upload/preview/version, duplicate guard, retained history counters/download, stale-selection guard, partial-scan notices and responsive themes');
 } catch (error) {
-  await mkdir('qa-artifacts/evidence-formats', { recursive: true });
-  if (page) await page.screenshot({ path: 'qa-artifacts/evidence-formats/failure.png', fullPage: true });
+  await mkdir('evidence-formats-qa-artifacts', { recursive: true });
+  if (page) await page.screenshot({ path: 'evidence-formats-qa-artifacts/failure.png', fullPage: true });
   throw error;
 } finally {
   for (const id of ids) { const r = await context.request.delete(base + `/api/grc?id=${id}`, { headers: { origin: base } }); assert.ok([200, 409].includes(r.status())); }

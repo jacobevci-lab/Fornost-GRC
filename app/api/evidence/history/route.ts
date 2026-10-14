@@ -8,35 +8,15 @@ import {
   publicEvidenceVersion,
   sha256HexBytes,
   splitEvidenceControlRefs,
-  verifyEvidenceVersionChainWithAnchor,
-  type EvidenceIntegrityState,
   type EvidenceVersionRow,
 } from "../../../evidence/versioning";
 
+import { historyIntegrity, readEvidenceControlTimeline, readEvidenceHistoryOverview } from "../../../evidence/history-overview";
 import { EVIDENCE_MAX_BYTES } from "../../../evidence/file-types";
 import { validateEvidenceUpload, evidenceFileErrorMessage } from "../../../evidence/validate-upload";
 
 type Env = Record<string, unknown> & { DB: D1Database; BUCKET?: R2Bucket };
 type EvidenceRecord = { id: string; data_json: string; created_at: string; updated_at: string };
-type EvidenceIntegrityOverviewState = EvidenceIntegrityState | "unavailable";
-type EvidenceIntegrityOverview = {
-  state: EvidenceIntegrityOverviewState;
-  checked: number;
-  failedVersion: number;
-};
-
-type EvidenceItem = {
-  id: string;
-  title: string;
-  owner: string;
-  period: string;
-  controlRefs: string[];
-  currentVersion: number;
-  headHash: string;
-  updatedAt: string;
-  tracked: boolean;
-};
-
 const json = (data: unknown, status = 200) => NextResponse.json(data, { status, headers: { "cache-control": "no-store" } });
 const text = (value: unknown, max = 2000) => String(value ?? "").trim().slice(0, max);
 const parse = (raw: string) => {
@@ -87,25 +67,6 @@ async function recordById(db: D1Database, evidenceId: string) {
     .bind(evidenceId).first<EvidenceRecord>();
 }
 
-async function listEvidenceItems(db: D1Database): Promise<EvidenceItem[]> {
-  const rows = await db.prepare("SELECT id,data_json,created_at,updated_at FROM simple_grc_records WHERE module='Kanıtlar' ORDER BY updated_at DESC LIMIT 500").all<EvidenceRecord>();
-  return rows.results.map((row) => {
-    const data = parse(row.data_json);
-    const refs = splitEvidenceControlRefs(data.controlRefs || data.controlRef);
-    return {
-      id: row.id,
-      title: text(data.evidenceTitle || row.id, 180),
-      owner: text(data.owner, 180),
-      period: text(data.period, 120),
-      controlRefs: refs,
-      currentVersion: Number(data.versionNo || 0),
-      headHash: text(data.versionChainSha256, 64),
-      updatedAt: row.updated_at,
-      tracked: Number(data.versionNo || 0) > 0,
-    };
-  });
-}
-
 function legacySnapshot(record: EvidenceRecord) {
   const data = parse(record.data_json);
   return {
@@ -142,77 +103,26 @@ export async function GET(req: NextRequest) {
   if (evidenceId) {
     const record = await recordById(env.DB, evidenceId);
     if (!record) return json({ error: "Kanıt kaydı bulunamadı." }, 404);
-    const rows = await env.DB.prepare("SELECT * FROM evidence_versions WHERE evidence_id=? ORDER BY version_no ASC LIMIT 500")
-      .bind(evidenceId).all<EvidenceVersionRow>();
-    const data = parse(record.data_json);
-    const integrity = await verifyEvidenceVersionChainWithAnchor(rows.results, {
-      versionNo: data.versionNo,
-      chainSha256: data.versionChainSha256,
-    });
-    const versions = rows.results.length ? rows.results.map(publicEvidenceVersion).reverse() : [legacySnapshot(record)];
-    return json({ evidence: { id: record.id, ...data }, versions, integrity });
+    const results = await env.DB.batch([
+      env.DB.prepare("SELECT * FROM evidence_versions WHERE evidence_id=? ORDER BY version_no DESC LIMIT 500").bind(evidenceId),
+      env.DB.prepare("SELECT COUNT(*) total FROM evidence_versions WHERE evidence_id=?").bind(evidenceId),
+      env.DB.prepare("SELECT id,data_json,created_at,updated_at FROM simple_grc_records WHERE id=? AND module='Kanıtlar'").bind(evidenceId),
+    ]);
+    // Reread the anchor in the same snapshot as the bounded history.
+    const current = results[2].results[0] as EvidenceRecord | undefined;
+    if (!current) return json({ error: "Kanıt kaydı bulunamadı." }, 404);
+    const rows = results[0].results as unknown as EvidenceVersionRow[], total = Number((results[1].results[0] as { total: number })?.total || 0);
+    const data = parse(current.data_json), integrity = await historyIntegrity(rows, total, data);
+    const versions = rows.length ? rows.map(publicEvidenceVersion) : Number(data.versionNo || 0) > 0 ? [] : [legacySnapshot(current)];
+    return json({ evidence: { id: current.id, ...data }, versions, integrity, versionsComplete: rows.length === total, totalVersions: total });
   }
 
   if (controlRef) {
     const normalized = normalizeEvidenceControlRef(controlRef);
     if (!normalized) return json({ error: "Kontrol referansı geçersiz." }, 400);
-    const rows = await env.DB.prepare(`SELECT v.* FROM evidence_version_controls c
-      JOIN evidence_versions v ON v.id=c.version_id
-      WHERE c.normalized_ref=? ORDER BY v.created_at DESC,v.version_no DESC LIMIT 300`)
-      .bind(normalized).all<EvidenceVersionRow>();
-    return json({ controlRef, normalizedRef: normalized, timeline: rows.results.map(publicEvidenceVersion), count: rows.results.length });
+    return json({ controlRef, normalizedRef: normalized, ...await readEvidenceControlTimeline(env.DB, normalized) });
   }
-
-  const [recent, allVersions, items, totals] = await Promise.all([
-    env.DB.prepare("SELECT * FROM evidence_versions ORDER BY created_at DESC,version_no DESC LIMIT 100").all<EvidenceVersionRow>(),
-    env.DB.prepare("SELECT * FROM evidence_versions ORDER BY evidence_id,version_no LIMIT 2000").all<EvidenceVersionRow>(),
-    listEvidenceItems(env.DB),
-    env.DB.prepare("SELECT COUNT(*) total,COUNT(DISTINCT evidence_id) evidence_count FROM evidence_versions").first<{ total: number; evidence_count: number }>(),
-  ]);
-  const grouped = new Map<string, EvidenceVersionRow[]>();
-  for (const row of allVersions.results) grouped.set(row.evidence_id, [...(grouped.get(row.evidence_id) || []), row]);
-  const itemById = new Map(items.map((item) => [item.id, item]));
-  const integrityByEvidenceId = new Map<string, EvidenceIntegrityOverview>();
-  let verified = 0;
-  let broken = 0;
-  for (const [id, rows] of grouped) {
-    const item = itemById.get(id);
-    if (!item || !item.tracked || rows.length !== item.currentVersion) {
-      integrityByEvidenceId.set(id, { state: "unavailable", checked: rows.length, failedVersion: 0 });
-      continue;
-    }
-    const state = await verifyEvidenceVersionChainWithAnchor(rows, {
-      versionNo: item.currentVersion,
-      chainSha256: item.headHash,
-    });
-    integrityByEvidenceId.set(id, state);
-    if (state.state === "verified") verified += 1;
-    else if (state.state === "broken") broken += 1;
-  }
-  const evidenceItems = items.map(({ headHash, ...item }) => {
-    // headHash anchors integrity verification internally; never expose it in list responses.
-    void headHash;
-    const integrity = item.tracked
-      ? integrityByEvidenceId.get(item.id) || { state: "unavailable" as const, checked: 0, failedVersion: 0 }
-      : { state: "legacy-unverified" as const, checked: 0, failedVersion: 0 };
-    return { ...item, integrity: integrity.state, checkedVersions: integrity.checked, failedVersion: integrity.failedVersion };
-  });
-  const integrityScanComplete = evidenceItems.filter((item) => item.tracked).every((item) => item.integrity !== "unavailable");
-  const linkedControls = await env.DB.prepare("SELECT COUNT(DISTINCT normalized_ref) total FROM evidence_version_controls").first<{ total: number }>();
-  return json({
-    evidenceItems,
-    recentVersions: recent.results.map(publicEvidenceVersion),
-    summary: {
-      evidenceRecords: items.length,
-      trackedEvidence: Number(totals?.evidence_count || 0),
-      legacyEvidence: Math.max(0, items.length - Number(totals?.evidence_count || 0)),
-      totalVersions: Number(totals?.total || 0),
-      linkedControls: Number(linkedControls?.total || 0),
-      verifiedChains: verified,
-      brokenChains: broken,
-      integrityScanComplete,
-    },
-  });
+  return json(await readEvidenceHistoryOverview(env.DB));
 }
 
 export async function POST(req: NextRequest) {

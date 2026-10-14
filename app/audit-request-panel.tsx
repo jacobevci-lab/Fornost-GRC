@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { withBasePath } from './base-path';
 import { navigateToFornost } from './navigation-focus';
 import { emptyAuditRequest, requestDraftPreview, requestNextActor, requestNextDue, requestStatusLabels, validateAuditRequestFields, type AuditRequest, type AuditRequestEvidence, type AuditRequestFields, type AuditRequestWorkflow } from './audit-requests';
+import { auditRequestProgress } from './audit-request-progress';
 import './audit-request-panel.css';
 
 type Data = { workflow: AuditRequestWorkflow; requests: AuditRequest[]; complete: boolean; actorEmail: string; canManage: boolean; evidenceAccess: boolean;
@@ -51,6 +52,9 @@ export function AuditRequestPanel({ auditId, lang, focusId = '' }: { auditId: st
     finally { if (live.current && sequence === generation.current) setLoading(false); }
   }, [auditId]);
   useEffect(() => { live.current = true; const timer = window.setTimeout(() => void load(), 0); return () => { live.current = false; window.clearTimeout(timer); }; }, [load]);
+  const [clock, setClock] = useState(() => new Date());
+  useEffect(() => { const timer = window.setInterval(() => setClock(new Date()), 60000); return () => window.clearInterval(timer); }, []);
+  const progress = data ? auditRequestProgress(data.requests, data.workflow, data.complete && ready, clock) : null;
   const row = data?.requests.find(item => item.id === selected);
   const canOperate = !!data?.canManage && ready && !!data?.complete;
   const editable = canOperate && !busy && !loading;
@@ -74,7 +78,7 @@ export function AuditRequestPanel({ auditId, lang, focusId = '' }: { auditId: st
     } catch (err) { if (live.current) { setError(err instanceof Error ? err.message : 'unavailable'); if (!(err instanceof Error) || !messages[err.message]) setReady(false); } }
     finally { busyRef.current = false; if (live.current) setBusy(false); }
   }
-  const visible = (data?.requests || []).filter(item => (filter === 'all' || item.status === filter) && `${item.title} ${item.owner} ${item.reviewer} ${item.id}`.toLocaleLowerCase().includes(query.toLocaleLowerCase()));
+  const visible = (data?.requests || []).filter(item => (filter === 'all' || (filter === 'pending' ? progress?.pendingIds.includes(item.id) : filter === 'overdue' ? progress?.overdueIds.includes(item.id) : item.status === filter)) && `${item.title} ${item.owner} ${item.reviewer} ${item.id}`.toLocaleLowerCase().includes(query.toLocaleLowerCase()));
   const drafts = data?.requests.filter(item => item.status === 'draft') || [];
   const evidenceOptions = [...(data?.evidenceChoices || []), ...(row?.evidence || []).filter(v => !data?.evidenceChoices.some(e => e.id === v.id))];
   const errorMessage = error ? (messages[error] || messages.unavailable)[en ? 1 : 0] : '';
@@ -85,7 +89,22 @@ export function AuditRequestPanel({ auditId, lang, focusId = '' }: { auditId: st
     {loading && <p role="status">{t('Yükleniyor…', 'Loading…')}</p>}
     {data && <>
       {!data.complete && <p role="alert">{t('Liste eksik. Güvenli işlem için kayıt sınırı çözülmeli.', 'The list is incomplete. Resolve the record limit before making changes.')}</p>}
-      <div className="ar-summary"><span>{t('Teslim bekleyen', 'Awaiting delivery')}: <b>{data.requests.filter(r => ['assigned', 'changes_requested'].includes(r.status)).length}</b></span><span>{t('İnceleme bekleyen', 'Awaiting review')}: <b>{data.requests.filter(r => r.status === 'submitted').length}</b></span><span>{t('Kabul edilen', 'Accepted')}: <b>{data.requests.filter(r => r.status === 'accepted').length}</b></span><span>{t('İş planı', 'Work plan')}: <b>{data.workflow.state === 'draft' ? t('Taslak', 'Draft') : t('Aktif', 'Active')}</b></span></div>
+      {progress && <div className="ar-progress" aria-label={t('Talep tamamlanma özeti', 'Request completion summary')}>
+        <h4>{progress.state === 'resolved' ? t('Bekleyen talep kalmadı', 'No outstanding requests') : progress.state === 'incomplete' ? t('Tamamlanma doğrulanamadı', 'Completion not confirmed') : progress.state === 'empty' ? t('Henüz talep yok', 'No requests yet') : progress.state === 'draft' ? t('İş planı henüz başlamadı', 'Work plan has not started') : t('Tamamlanmayı bekleyen talepler', 'Outstanding requests')}</h4>
+        <p>{t('Bu özet yalnızca kanıt taleplerini kapsar. Denetim kapanışı, bulgu çözümü veya olumlu denetim görüşü anlamına gelmez. İptal edilen talepler kabul edilmiş sayılmaz.', 'This summary covers evidence requests. It does not close the audit, resolve findings or imply a positive audit opinion. Cancelled requests do not count as accepted.')}</p>
+        <div className="ar-summary">{([
+          ['draft', t('Taslak', 'Draft'), progress.counts.draft],
+          ['assigned', t('Teslim bekleyen', 'Awaiting delivery'), progress.counts.assigned],
+          ['changes_requested', t('Düzeltme bekleyen', 'Changes requested'), progress.counts.changes_requested],
+          ['submitted', t('İnceleme bekleyen', 'Awaiting review'), progress.counts.submitted],
+          ['accepted', t('Kabul edilen', 'Accepted'), progress.counts.accepted],
+          ['cancelled', t('İptal edilen', 'Cancelled'), progress.counts.cancelled],
+          ['overdue', t('Geciken', 'Overdue'), progress.overdueIds.length],
+        ] as const).map(([value, label, count]) => <button key={value} type="button" aria-pressed={filter === value} disabled={loading || (value === 'overdue' && !progress.clockComplete)} onClick={() => { setFilter(value); setQuery(''); setPage(0); }}>{label}: <b>{value === 'overdue' && !progress.clockComplete ? '—' : count}</b></button>)}</div>
+        <button type="button" disabled={loading} onClick={() => { setFilter('pending'); setQuery(''); setPage(0); }}>{t('Bekleyenleri göster', 'Show outstanding requests')} ({progress.pendingIds.length})</button>
+        {!progress.clockComplete && <p role="status">{t('Saat dilimi veya son tarihler doğrulanamadı; gecikme sayısı gösterilemiyor.', 'The time zone or deadlines could not be verified; the overdue count is unavailable.')}</p>}
+      </div>}
+
       {data.workflow.state === 'draft' ? <p>{t('Taslak talepler bildirim üretmez. Başlatmadan önce sorumluları, tarihleri ve kayıtlı denetim planını kontrol edin.', 'Draft requests do not generate notifications. Review owners, dates and the saved audit plan before starting.')}</p> : <p>{t('Hatırlatma saat dilimi', 'Reminder time zone')}: <b>{data.workflow.timeZone}</b> · {t('İlk atama, son tarihten 1 gün önce, son gün ve 3 gün gecikmede. Teslim ve inceleme tarihleri ayrıdır.', 'Assignment, 1 day before due, on the due date and 3 days overdue. Delivery and review have separate dates.')}</p>}
       {data.canManage && <div className="ar-actions"><button type="button" disabled={!editable || !!editing} onClick={() => beginEdit()}>{t('+ Talep ekle', '+ Add request')}</button><button type="button" disabled={!editable || !!editing || !drafts.length} onClick={() => setLaunch(!launch)}>{data.workflow.state === 'draft' ? t('Başlangıç özetini gör', 'Preview launch') : t('Ek talepleri gözden geçir', 'Review additions')}</button></div>}
       {launch && <div className="ar-launch"><h4>{data.workflow.state === 'draft' ? t('İş planını başlat', 'Start the work plan') : t('Ek talepleri etkinleştir', 'Activate additional requests')}</h4>
@@ -104,7 +123,7 @@ export function AuditRequestPanel({ auditId, lang, focusId = '' }: { auditId: st
           {(['dueDate', 'reviewDueDate', 'periodStart', 'periodEnd'] as const).map((key, index) => <label key={key}>{[t('Teslim tarihi', 'Delivery due'), t('İnceleme son tarihi', 'Review due'), t('Kanıt dönemi başlangıcı', 'Evidence period start'), t('Kanıt dönemi sonu', 'Evidence period end')][index]}<input type="date" required={index < 2} value={draft[key]} onChange={e => setDraft({ ...draft, [key]: e.target.value })} /></label>)}
         </fieldset>{!data.peopleComplete && <p role="alert">{t('Kullanıcı listesi sınırlı; aradığınız kişi görünmüyorsa yöneticinize başvurun.', 'The people list is limited; contact your administrator if an assignee is missing.')}</p>}<div className="ar-actions"><button type="submit" disabled={!editable}>{busy ? t('Kaydediliyor…', 'Saving…') : t('Talebi kaydet', 'Save request')}</button><button type="button" disabled={busy} onClick={() => setEditing(null)}>{t('Vazgeç', 'Cancel')}</button></div>
       </form>}
-      <div className="ar-filters"><label>{t('Ara', 'Search')}<input value={query} onChange={e => { setQuery(e.target.value); setPage(0); }} placeholder={t('Başlık, kişi veya referans', 'Title, person or reference')} /></label><label>{t('Durum', 'Status')}<select aria-label={t('Durum', 'Status')} value={filter} onChange={e => { setFilter(e.target.value); setPage(0); }}><option value="all">{t('Tümü', 'All')}</option>{Object.entries(requestStatusLabels).map(([key, labels]) => <option value={key} key={key}>{labels[en ? 1 : 0]}</option>)}</select></label></div>
+      <div className="ar-filters"><label>{t('Ara', 'Search')}<input value={query} onChange={e => { setQuery(e.target.value); setPage(0); }} placeholder={t('Başlık, kişi veya referans', 'Title, person or reference')} /></label><label>{t('Durum', 'Status')}<select aria-label={t('Durum', 'Status')} value={filter} onChange={e => { setFilter(e.target.value); setPage(0); }}><option value="all">{t('Tümü', 'All')}</option><option value="pending">{t('Bekleyenler', 'Outstanding')}</option><option value="overdue">{t('Gecikenler', 'Overdue')}</option>{Object.entries(requestStatusLabels).map(([key, labels]) => <option value={key} key={key}>{labels[en ? 1 : 0]}</option>)}</select></label></div>
       <div className="ar-table"><table><thead><tr>{[t('Talep', 'Request'), t('Sıradaki kişi', 'Next owner'), t('Son tarih', 'Due date'), t('Durum', 'Status')].map(label => <th key={label}>{label}</th>)}</tr></thead><tbody>{visible.slice(page * 10, page * 10 + 10).map(item => <tr key={item.id} className={item.id === selected ? 'selected' : ''}><td><button type="button" disabled={busy || !!editing} onClick={() => choose(item)}>{item.title}</button></td><td>{requestNextActor(item) || '—'}</td><td>{requestNextActor(item) ? requestNextDue(item) : '—'}</td><td><span className={`ar-state ${item.status}`}>{requestStatusLabels[item.status]?.[en ? 1 : 0] || item.status}</span></td></tr>)}</tbody></table></div>
       {!visible.length && <p>{t('Bu görünümde talep yok.', 'No requests in this view.')}</p>}
       {visible.length > 10 && <div className="ar-actions"><button type="button" disabled={page === 0} onClick={() => setPage(p => p - 1)}>{t('Önceki', 'Previous')}</button><span>{page + 1} / {Math.ceil(visible.length / 10)}</span><button type="button" disabled={(page + 1) * 10 >= visible.length} onClick={() => setPage(p => p + 1)}>{t('Sonraki', 'Next')}</button></div>}

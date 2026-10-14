@@ -165,8 +165,8 @@ jobs:
             capa-control-qa-artifacts/
             assurance-retest-qa-artifacts/
             audit-readiness-qa-artifacts/
-            qa-artifacts/audit-requests/
-            qa-artifacts/evidence-formats/
+            audit-request-qa-artifacts/
+            evidence-formats-qa-artifacts/
             control-assurance-qa-artifacts/
             risk-decisions-qa-artifacts/
             exception-lifecycle-qa-artifacts/

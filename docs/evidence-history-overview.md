@@ -1,0 +1,11 @@
+# Evidence history scope and integrity
+
+Evidence History counters cover current Evidence Library records. Active record versions and linked controls exclude histories whose parent evidence record was removed. Retained record/version counts are shown separately; recent activity and control timelines still show those histories, with “Record removed” instead of navigation to a nonexistent record. Authenticated downloads and existing reference/retention guards are unchanged. This view never deletes historical data.
+
+Counters, current anchors and the overview's bounded histories are read in one database batch. Summary totals cover all current records. The selector lists the 500 most recently updated records; verification reads at most 2,000 versions belonging to that same set. Retained rows do not consume that verification budget. Records beyond either bound are counted as unchecked, not verified or corrupt, and the panel discloses incomplete scans. Missing or inconsistent anchors with fully read histories are integrity failures. A stored head with no remaining versions also fails verification.
+
+The selected-record endpoint reads the latest 500 versions and the exact version count with the current anchor in one batch. Larger histories report verification unavailable, not broken. A selection change or refresh hides the previous response's integrity verdict until the matching response arrives. A failed detail read reports unavailable. SHA-256 verification checks the stored metadata chain and its library anchor; it does not certify file content adequacy or independently rehash downloaded objects.
+
+Recent activity shows the latest 100 versions and control timelines the latest 300 matches, including retained versions. Both limits are disclosed. They are bounded views, not complete exports.
+
+SQLite regression coverage includes retained histories, mixed-module ID reuse, missing/forged/malformed anchors, 501 current records, 2,001 retained versions, version-budget exhaustion, and bounded detail/timeline reads. Isolated browser QA checks real removal/retention counts and downloads, disabled removed-record navigation, delayed detail selection, partial-read notices and responsive TR/EN themes. QA screenshots are retained in dedicated artifact directories so later suites cannot overwrite them.

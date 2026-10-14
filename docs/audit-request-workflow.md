@@ -16,6 +16,12 @@ Activation records the reason, actor, plan revision and new workflow revision al
 
 The preview is exact for both initial launch and later additions. Concurrent creation, edit or cancellation of a draft, a saved plan change, or a changed assignee account/grant invalidates activation. Workflow claim, draft assignment and activity entries commit in one transaction. A stale/repeated activation returns 409 without partially assigning requests or generating duplicate events. Reload and review the current preview before retrying. Request creation also checks the workflow revision inside the write, so a concurrent activation cannot silently include a new unreviewed draft. The bounded JSON preview supports the existing 500-request limit without one SQL parameter per request.
 
+## Request completion summary
+
+The request panel now separates drafts, awaiting delivery, changes requested, awaiting review, accepted and cancelled requests. Each count filters the full loaded request set; the outstanding filter includes staged drafts and clears unrelated search text. A local-calendar overdue filter uses the workflow time zone and the active owner's delivery date or reviewer's review date. Drafts and terminal decisions are never overdue. The display refreshes its clock every minute. Invalid clocks or dates disclose an unavailable overdue count.
+
+“No outstanding requests” means every request in a complete, active work plan is accepted or cancelled. Cancellation remains separate from acceptance. Empty, unstarted, incomplete or stale reads never claim resolved work. This is a request-progress summary, not whole-audit closure, findings resolution or an audit opinion. Existing decisions and permissions are unchanged.
+
 ## Persistence and concurrency
 
 Migration `0085_audit_request_workflow.sql` and `db/core-grc-schema.ts` define the workflow, request and append-only application event tables. The idempotent runtime initializer supports persisted on-prem installs. Every write checks the live audit and expected revision. Request mutation, event append and cancellation of queued reminders are one database batch. Start uses one guarded workflow insertion and activates only the exact reviewed draft revisions in the same transaction. Subsequent activation claims the current workflow revision, with transactional draft/plan and assignee permission checks. Duplicate start/create or stale writes return 409 without duplicate tasks or events. This is an application activity trail, not tamper-proof storage.
@@ -32,7 +38,7 @@ The request mutation queues notifications but does not send email itself. If rec
 
 ## Deliberate next increments
 
-Business-day/holiday calendars, vacation delegation, custom escalation profiles, digesting, absolute deep links in email, closed-audit snapshots, attachment retention controls and broader file formats remain separate work. The first version does not freeze a whole audit or automatically re-open accepted requests when general library content changes.
+Business-day/holiday calendars, vacation delegation, custom escalation profiles, digesting, absolute deep links in email, closed-audit snapshots, attachment retention controls remain separate work. Shared upload validation now supports PDF, raster images, UTF-8 CSV/TSV/TXT/LOG/JSON and supported DOCX/XLSX containers. The first version does not freeze a whole audit or automatically re-open accepted requests when general library content changes.
 
 ## Verification
 
