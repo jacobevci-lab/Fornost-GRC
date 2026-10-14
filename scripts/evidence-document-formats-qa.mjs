@@ -71,10 +71,13 @@ try {
   await expect(dialog.locator('input[type=file]')).toHaveAttribute('accept', /\.docx,\.xlsx/);
   await dialog.locator('input[type=file]').setInputFiles({ name: 'ui-access.csv', mimeType: 'text/csv', buffer: Buffer.from('account,reviewed\nqa,true') });
   for (const [field, value] of Object.entries({ evidenceTitle: `QA UI CSV ${tag}`, controlRef: 'QA-DOC-1', owner: 'qa-admin@fornost.test', period: '2026-Q4' })) await dialog.locator(`[name=${field}]`).fill(value);
+  await dialog.locator('[name=status]').selectOption('Taslak');
+  assert.equal(await dialog.locator('form').evaluate(form => form.checkValidity()), true);
   const savedResponse = page.waitForResponse(r => r.url().endsWith('/api/evidence') && r.request().method() === 'POST');
   await dialog.locator('.form-actions .primary').click(); const saved = await savedResponse; assert.equal(saved.status(), 201, await saved.text());
   const uiId = (await saved.json()).id; ids.push(uiId); await expect(dialog).toBeHidden();
   const savedRow = await record(uiId);
+  await page.getByPlaceholder('Search records').fill(`QA UI CSV ${tag}`);
   const row = page.locator('tr').filter({ has: page.getByRole('button', { name: savedRow.record_code, exact: true }) });
   await row.getByRole('button', { name: savedRow.record_code, exact: true }).click();
   const preview = page.getByRole('dialog', { name: 'Evidence preview', exact: true });
