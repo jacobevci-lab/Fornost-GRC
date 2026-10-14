@@ -1,3 +1,5 @@
+import * as intake from '../../app/enterprise-reference-intake';
+import * as references from '../../app/core-reference-write';
 import {DatabaseSync} from 'node:sqlite';
 import {readFileSync} from 'node:fs';
 import ts from 'typescript';
@@ -30,6 +32,8 @@ export function fixture(module:'incidents'|'continuity'|'policy-lifecycle'|'thir
   if(name==='../auth/security')return{requireRole:async()=>({actor:{role:'Admin',email:'reviewer@example.com'}})};
   if(name==='../integrations/security')return{safeHttpUrl,clean:(x:unknown,n:number)=>String(x??'').trim().slice(0,n)};
   if(name==='../../enterprise-lifecycle-write')return writes;
+  if(name==='../../enterprise-reference-intake')return intake;
+  if(name==='../../core-reference-write')return references;
   if(name==='../../incidents/domain')return incidents;
   if(name==='../../continuity/domain')return continuity;
   if(name==='../../policy-lifecycle/domain')return policy;
@@ -40,5 +44,5 @@ export function fixture(module:'incidents'|'continuity'|'policy-lifecycle'|'thir
  };
  new Function('require','exports',compiled)(require,exports);
  const post=(body:Record<string,unknown>)=>(exports.POST as (req:unknown)=>Promise<{status:number;body:Record<string,unknown>}> )({headers:new Headers(),json:async()=>body});
- return{sqlite,post,before:(hook:()=>void)=>{beforeBatch=hook;}};
+ return{sqlite,db:db as unknown as D1Database,post,before:(hook:()=>void)=>{beforeBatch=hook;}};
 }
