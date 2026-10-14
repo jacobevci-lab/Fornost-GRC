@@ -1,3 +1,10 @@
+import * as findingDomain from '../../app/findings/domain';
+import * as findingIntake from '../../app/findings/intake-store';
+import * as findingTransition from '../../app/findings/transition-store';
+import * as findingExport from '../../app/findings/export';
+import * as findingSchema from '../../app/api/findings/schema-compat';
+import * as findingReport from '../../app/findings/report-page';
+import * as findingRegister from '../../app/findings/register';
 import * as intake from '../../app/enterprise-reference-intake';
 import * as references from '../../app/core-reference-write';
 import {DatabaseSync} from 'node:sqlite';
@@ -12,7 +19,7 @@ import * as risk from '../../app/risk-appetite/domain';
 import * as regulatory from '../../app/regulatory-intelligence/domain';
 import {safeHttpUrl} from '../../app/api/integrations/security';
 // Execute actual route handlers and SQL against transactional SQLite; substitute only platform/auth adapters.
-export function fixture(module:'incidents'|'continuity'|'policy-lifecycle'|'third-party-risk'|'risk-appetite'|'regulatory-intelligence') {
+export function fixture(module:'incidents'|'continuity'|'policy-lifecycle'|'third-party-risk'|'risk-appetite'|'regulatory-intelligence'|'findings',triggerInclusive=false) {
  const sqlite=new DatabaseSync(':memory:'); let beforeBatch:(()=>void)|undefined;
  type Value=string|number|null;
  function prepare(sql:string,values:Value[]=[]){return{
@@ -20,7 +27,7 @@ export function fixture(module:'incidents'|'continuity'|'policy-lifecycle'|'thir
   async first(){return sqlite.prepare(sql).get(...values)||null;},
   async all(){return{results:sqlite.prepare(sql).all(...values)};},
   async run(){return this.exec();},
-  exec(){const result=sqlite.prepare(sql).run(...values);return{meta:{changes:Number(result.changes)}};}
+  exec(){const before=Number(sqlite.prepare("SELECT total_changes() n").get()!.n);const result=sqlite.prepare(sql).run(...values);return{success:true,meta:{changes:triggerInclusive?Number(sqlite.prepare("SELECT total_changes() n").get()!.n)-before:Number(result.changes)}};}
  };}
  const db={prepare,async batch(statements:ReturnType<typeof prepare>[]){const hook=beforeBatch;beforeBatch=undefined;hook?.();sqlite.exec('BEGIN');try{const results=statements.map(s=>s.exec());sqlite.exec('COMMIT');return results;}catch(e){sqlite.exec('ROLLBACK');throw e;}}};
  const source=readFileSync(`app/api/${module}/route.ts`,'utf8');
@@ -40,6 +47,13 @@ export function fixture(module:'incidents'|'continuity'|'policy-lifecycle'|'thir
   if(name==='../../third-party-risk/domain')return vendor;
   if(name==='../../risk-appetite/domain')return risk;
   if(name==='../../regulatory-intelligence/domain')return regulatory;
+  if(name==='../../findings/domain')return findingDomain;
+  if(name==='../../findings/intake-store')return findingIntake;
+  if(name==='../../findings/transition-store')return findingTransition;
+  if(name==='../../findings/export')return findingExport;
+  if(name==='./schema-compat')return findingSchema;
+  if(name==='../../findings/report-page')return findingReport;
+  if(name==='../../findings/register')return findingRegister;
   throw new Error(name);
  };
  new Function('require','exports',compiled)(require,exports);

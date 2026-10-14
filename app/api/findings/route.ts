@@ -1,3 +1,5 @@
+import {insertFinding} from "../../findings/intake-store";
+import {CoreReferenceUnavailable} from "../../core-reference-write";
 import { NextRequest, NextResponse } from "next/server";
 import { requireRole } from "../auth/security";
 import { clean } from "../integrations/security";
@@ -154,9 +156,7 @@ export async function POST(req: NextRequest) {
       const id = `FND-${crypto.randomUUID()}`;
       const code = `FND-${new Date().getUTCFullYear()}-${crypto.randomUUID().replace(/-/g, "").slice(0, 8).toUpperCase()}`;
       const now = new Date().toISOString();
-      await env.DB.prepare("INSERT INTO enterprise_findings(id,code,source_type,source_ref,source_title,finding_type,title,description,severity,owner,reviewer,root_cause,corrective_action,preventive_action,due_date,status,risk_ref,control_ref,detected_by,detected_at,updated_by,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'open',?,?,?,?,?,?)")
-        .bind(id, code, finding.sourceType, finding.sourceRef, finding.sourceTitle, finding.findingType, finding.title, finding.description, finding.severity, finding.owner, finding.reviewer, finding.rootCause, finding.correctiveAction, finding.preventiveAction, finding.dueDate, finding.riskRef || null, finding.controlRef || null, access.actor.email, now, access.actor.email, now).run();
-      await event(env.DB, { findingId: id, action: "finding-create", to: "open", detail: `${code}; ${finding.sourceType}/${finding.sourceRef}; ${finding.severity}; due ${finding.dueDate}`, actor: access.actor.email });
+      await insertFinding(env.DB, finding, {id,code,actor:access.actor.email,stamp:now});
       return json({ id, code, message: "Kurumsal bulgu ve CAPA planı oluşturuldu." }, 201);
     }
 
@@ -222,6 +222,7 @@ export async function POST(req: NextRequest) {
 
     return json({ error: "Geçersiz işlem." }, 400);
   } catch (error) {
+    if(error instanceof CoreReferenceUnavailable)return json({error:error.message,code:"REFERENCE_UNAVAILABLE"},422);
     return json({ error: error instanceof Error ? error.message : "İşlem tamamlanamadı." }, 400);
   }
 }
