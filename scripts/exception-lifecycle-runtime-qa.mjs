@@ -21,7 +21,12 @@ try{
  const stamp=new Date().toISOString(),day=stamp.slice(0,10),tomorrow=new Date(Date.now()+86400000).toISOString().slice(0,10),yesterday=new Date(Date.now()-86400000).toISOString().slice(0,10);
  await seed(`INSERT INTO simple_grc_records(id,module,data_json,created_at,updated_at) VALUES('QA-EX-RISK','Risk Assessment',${q(JSON.stringify({title:'QA exception lifecycle risk',owner:'QA owner',assuranceState:'ineffective',residualLikelihood:'4',residualImpact:'4'}))},${q(stamp)},${q(stamp)});`);
  const proposal={action:'create-exception',riskRef:'QA-EX-RISK',findingId:'QA-EX-FIND',ruleId:'QA-EX-RULE',reason:'A documented temporary exception with independent review.',expiresAt:tomorrow,evidenceReference:'QA-EX-EVD',evidenceSha256:'a'.repeat(64)};
- await post(viewer,proposal,403);const first=await post(maker,proposal,201);
+ await post(viewer,proposal,403);
+ for(const field of ['controlRef','riskRef','evidenceReference']){
+  const invalid=await post(maker,{...proposal,[field]:'RSK-999999999'},422);assert.equal(invalid.code,'REFERENCE_UNAVAILABLE');
+ }
+ assert.equal((await read()).exceptions.filter(x=>x.findingId===proposal.findingId).length,0);
+ const first=await post(maker,proposal,201);
  assert.equal((await api(admin,'/api/grc?id=QA-EX-RISK','DELETE',undefined,409)).code,'RECORD_LINKED');
  await post(maker,{action:'review-exception',exceptionId:first.id,decision:'approve'},403);
  const own=await post(admin,{...proposal,riskRef:'',findingId:'QA-EX-OWN'},201);await post(admin,{action:'review-exception',exceptionId:own.id,decision:'approve'},409);
@@ -43,8 +48,25 @@ try{
  // Final-day inclusion and automatic expiration are checked through the real GET route.
  for(const [id,expiry] of [['QA-EX-TODAY',day],['QA-EX-PAST',yesterday]])await seed(`INSERT INTO continuous_assurance_exceptions(id,finding_id,rule_id,risk_ref,reason,expires_at,evidence_reference,evidence_sha256,status,submitted_by,submitted_at) VALUES(${q(id)},'QA-EX-EXPIRY','QA-EX-RULE','QA-EX-RISK','Documented expiration fixture',${q(expiry)},'QA-EX-EVD',${q('a'.repeat(64))},'active','qa-ex-maker@fornost.test',${q(stamp)});`);
  const before=await read(),past=before.exceptions.find(x=>x.id==='QA-EX-PAST');assert.equal(past.storedStatus,'expired');assert.ok(past.retestWorkItemId);assert.equal(before.exceptions.find(x=>x.id==='QA-EX-TODAY').storedStatus,'active');assert.equal((await read()).exceptions.find(x=>x.id==='QA-EX-PAST').retestWorkItemId,past.retestWorkItemId);
- const page=await admin.newPage();await page.goto(base);await page.locator('.shell').waitFor();await page.locator('.language-switch:visible').getByRole('button',{name:'EN',exact:true}).click();await page.locator('nav button[aria-label="Connected GRC Map"]').evaluate(el=>el.click());await page.getByRole('group',{name:'Map view',exact:true}).getByRole('button',{name:'Assurance',exact:true}).click();const panel=page.locator('.assurance-governance'),disclosure=panel.locator('xpath=ancestor::details[1]');if(!(await disclosure.evaluate(el=>el.open)))await disclosure.locator(':scope > summary').click();await expect(panel.getByRole('button',{name:'Refresh governance',exact:true})).toBeEnabled();await expect(panel.getByRole('alert')).toHaveCount(0);await panel.getByLabel('Search risks, proposals or exceptions').fill('QA-EX');const exceptions=panel.locator('.ag-grid>article').nth(1);await expect(exceptions.locator('.ag-row')).toHaveCount(4);await expect(exceptions).toContainText('expired');await expect(exceptions).toContainText('revoked');await expect(exceptions).toContainText('RE-TEST REQUIRED');await exceptions.screenshot({path:`${out}/lifecycle.png`});await page.close();
- await fs.writeFile(`${out}/summary.json`,JSON.stringify({passed:true,apiChecks:checks,checks:['role boundaries','maker-checker','single terminal winner','rollback/retry','canonical risk preservation','mandatory re-test','expiry boundary','idempotent reconciliation','governance render']},null,2));
+ const page=await admin.newPage();await page.goto(base);await page.locator('.shell').waitFor();await page.locator('.language-switch:visible').getByRole('button',{name:'EN',exact:true}).click();await page.locator('nav button[aria-label="Connected GRC Map"]').evaluate(el=>el.click());await page.getByRole('group',{name:'Map view',exact:true}).getByRole('button',{name:'Assurance',exact:true}).click();const panel=page.locator('.assurance-governance'),disclosure=panel.locator('xpath=ancestor::details[1]');if(!(await disclosure.evaluate(el=>el.open)))await disclosure.locator(':scope > summary').click();await expect(panel.getByRole('button',{name:'Refresh governance',exact:true})).toBeEnabled();await expect(panel.getByRole('alert')).toHaveCount(0);await panel.getByLabel('Search risks, proposals or exceptions').fill('QA-EX');const exceptions=panel.locator('.ag-grid>article').nth(1);await expect(exceptions.locator('.ag-row')).toHaveCount(4);await expect(exceptions).toContainText('expired');await expect(exceptions).toContainText('revoked');await expect(exceptions).toContainText('RE-TEST REQUIRED');await exceptions.screenshot({path:`${out}/lifecycle.png`});
+ await panel.getByRole('button',{name:'+ Exception Request',exact:true}).click();
+ const dialog=page.getByRole('dialog',{name:'Time-bounded exception request',exact:true});
+ await dialog.getByLabel('Control ref',{exact:true}).fill('CTL-999999999');
+ await dialog.getByLabel('Expiry date (max 180 days)',{exact:true}).fill(tomorrow);
+ await dialog.getByLabel('Reason',{exact:true}).fill(proposal.reason);
+ await dialog.getByLabel('Evidence reference',{exact:true}).fill('https://proof.example/QA-EX-form');
+ await dialog.getByLabel('SHA-256',{exact:true}).fill(proposal.evidenceSha256);
+ const rejected=page.waitForResponse(r=>r.url().endsWith(endpoint)&&r.request().method()==='POST');
+ await dialog.getByRole('button',{name:'Submit for Independent Review',exact:true}).click();assert.equal((await rejected).status(),422);
+ await expect(dialog).toBeVisible();await expect(dialog.getByLabel('Control ref',{exact:true})).toHaveValue('CTL-999999999');
+ await expect(dialog.getByLabel('Reason',{exact:true})).toHaveValue(proposal.reason);
+ await expect(dialog.getByRole('alert')).toContainText('A linked control, risk or evidence record is unavailable');
+ await dialog.getByLabel('Control ref',{exact:true}).fill('ISO27001-A.5.1');
+ const saved=page.waitForResponse(r=>r.url().endsWith(endpoint)&&r.request().method()==='POST');
+ await dialog.getByRole('button',{name:'Submit for Independent Review',exact:true}).click();const response=await saved;assert.equal(response.status(),201);const created=await response.json();
+ await expect(dialog).toBeHidden();await seed(`DELETE FROM continuous_assurance_exceptions WHERE id=${q(created.id)}`);
+ await page.close();
+ await fs.writeFile(`${out}/summary.json`,JSON.stringify({passed:true,apiChecks:checks,checks:['role boundaries','maker-checker','single terminal winner','rollback/retry','canonical risk preservation','mandatory re-test','expiry boundary','idempotent reconciliation','governance render','canonical intake rejection','exception form preserves input and allows correction']},null,2));
 }finally{
  try{await seed("DROP TRIGGER IF EXISTS qa_ex_fail; DELETE FROM continuous_assurance_work_items WHERE finding_id GLOB 'QA-EX-*'; DELETE FROM continuous_assurance_exceptions WHERE finding_id GLOB 'QA-EX-*' OR id GLOB 'QA-EX-*'; DELETE FROM simple_grc_record_codes WHERE record_id='QA-EX-RISK'; DELETE FROM simple_grc_records WHERE id='QA-EX-RISK';");}finally{await browser.close();}
 }
