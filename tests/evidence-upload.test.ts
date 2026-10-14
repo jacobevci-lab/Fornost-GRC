@@ -11,8 +11,8 @@ test("evidence screenshots work in cloud object storage and on-prem database sto
   assert.match(route,/INSERT INTO simple_evidence_files/);
 });
 
-test("evidence upload delegates MIME allowlist and magic-byte validation to the shared versioning module",()=>{
-  assert.match(route,/validateEvidenceFile/);
+test("evidence upload delegates format validation to the shared upload validator",()=>{
+  assert.match(route,/validateEvidenceUpload/);
   assert.match(versioning,/EVIDENCE_ALLOWED_TYPES/);
   assert.match(versioning,/application\/pdf/);
   assert.match(versioning,/image\/png/);

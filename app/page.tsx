@@ -1,4 +1,5 @@
 "use client";
+import { EVIDENCE_FILE_ACCEPT, EVIDENCE_FILE_HELP, evidenceInlineType } from "./evidence/file-types";
 import { auditRequirementPage } from "./audit-requirement-page";
 import "./audit-requirement-page.css";
 import { submitLocalAuthentication, type LocalAuthInput } from "./local-auth-submit";
@@ -2466,9 +2467,10 @@ function FornostApp({ currentUser }: { currentUser: any }) {
                   <input
                     name="file"
                     type="file"
-                    accept="image/*,.pdf"
+                    accept={EVIDENCE_FILE_ACCEPT}
                     required
                   />
+                  <small>{EVIDENCE_FILE_HELP[lang]}</small>
                 </label>
                 {fields[active].map((k) => (
                   <Field
@@ -5825,6 +5827,7 @@ function EvidencePreview({
           )
         : "";
   const isPdf = d.fileType === "application/pdf";
+  const inline = !!d.demoImage || evidenceInlineType(d.fileType || "");
   useEffect(() => {
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
@@ -5860,7 +5863,9 @@ function EvidencePreview({
           </button>
         </header>
         <div className="evidence-stage">
-          {source ? (
+          {source && !inline ? (
+            <div className="evidence-missing"><b>{d.fileName}</b><p>{tr ? "Bu dosya indirilebilir; tarayıcı önizlemesi PDF ve görseller için kullanılabilir." : "This file is available to download. Browser preview is available for PDF and images."}</p></div>
+          ) : source ? (
             isPdf ? (
               <iframe src={source} title={d.evidenceTitle || displayRecordCode(row)} />
             ) : (

@@ -1,6 +1,7 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { EVIDENCE_FILE_ACCEPT, EVIDENCE_FILE_HELP } from "./evidence/file-types";
 import { withBasePath } from "./base-path";
 import { navigateToFornost } from "./navigation-focus";
 import "./evidence-history.css";
@@ -37,6 +38,7 @@ export default function EvidenceHistoryPanel({lang,currentUser}:{lang:Lang;curre
   const [message,setMessage]=useState("");
   const [loading,setLoading]=useState(true);
   const [busy,setBusy]=useState(false);
+  const uploading=useRef(false);
 
   async function loadOverview(){
     setLoading(true);
@@ -90,7 +92,8 @@ export default function EvidenceHistoryPanel({lang,currentUser}:{lang:Lang;curre
   }
 
   async function appendVersion(event:FormEvent<HTMLFormElement>){
-    event.preventDefault();if(!selected)return;
+    event.preventDefault();if(!selected||uploading.current)return;
+    uploading.current=true;
     const formElement=event.currentTarget;
     const form=new FormData(formElement);form.set("evidenceId",selected);form.set("controlRefs",versionRefs);
     setBusy(true);setMessage("");
@@ -101,7 +104,7 @@ export default function EvidenceHistoryPanel({lang,currentUser}:{lang:Lang;curre
       setMessage(body.message||(tr?"Yeni kanıt versiyonu kaydedildi.":"Evidence version saved."));
       formElement.reset();await loadOverview();
     }catch(error){setMessage(error instanceof Error?error.message:(tr?"Yeni kanıt versiyonu kaydedilemedi.":"Unable to save evidence version."))}
-    finally{setBusy(false)}
+    finally{uploading.current=false;setBusy(false)}
   }
 
   const versions=timeline??overview.recentVersions;
@@ -128,10 +131,11 @@ export default function EvidenceHistoryPanel({lang,currentUser}:{lang:Lang;curre
     </div>
     {canWrite&&<form className="eh-version-form" onSubmit={appendVersion}>
       <div><small>{tr?"YENİ VERSİYON":"NEW VERSION"}</small><b>{tr?"Mevcut kanıta yeni dosya ekle":"Append a new file to existing evidence"}</b></div>
-      <label>{tr?"Kanıt kaydı":"Evidence record"}<select value={selected} onChange={event=>{const id=event.target.value;setSelected(id);setVersionRefs(overview.evidenceItems.find(item=>item.id===id)?.controlRefs.join(", ")||"")}} required><option value="">—</option>{overview.evidenceItems.map(item=><option key={item.id} value={item.id}>{item.id} · {item.title}</option>)}</select></label>
-      <label>{tr?"Kontrol referansları":"Control references"}<input value={versionRefs} onChange={event=>setVersionRefs(event.target.value)} placeholder="A.5.15, CC6.1" required/></label>
-      <label>{tr?"Dosya":"File"}<input name="file" type="file" accept="image/*,.pdf" required/></label>
-      <label className="note">{tr?"Değişiklik notu":"Change note"}<input name="changeNote" minLength={5} maxLength={1000} placeholder={tr?"Örn. 2026 Q3 erişim gözden geçirme çıktısı":"e.g. 2026 Q3 access review export"} required/></label>
+      <label>{tr?"Kanıt kaydı":"Evidence record"}<select disabled={busy} value={selected} onChange={event=>{const id=event.target.value;setSelected(id);setVersionRefs(overview.evidenceItems.find(item=>item.id===id)?.controlRefs.join(", ")||"")}} required><option value="">—</option>{overview.evidenceItems.map(item=><option key={item.id} value={item.id}>{item.id} · {item.title}</option>)}</select></label>
+      <label>{tr?"Kontrol referansları":"Control references"}<input disabled={busy} value={versionRefs} onChange={event=>setVersionRefs(event.target.value)} placeholder="A.5.15, CC6.1" required/></label>
+      <label>{tr?"Dosya":"File"}<input disabled={busy} aria-label={tr?"Dosya":"File"} name="file" type="file" accept={EVIDENCE_FILE_ACCEPT} required/><small>{EVIDENCE_FILE_HELP[lang]}</small></label>
+      <label className="note">{tr?"Değişiklik notu":"Change note"}<input disabled={busy} name="changeNote" minLength={5} maxLength={1000} placeholder={tr?"Örn. 2026 Q3 erişim gözden geçirme çıktısı":"e.g. 2026 Q3 access review export"} required/></label>
+      <p className="note">{tr?"Yeni sürüm inceleme bekler; önceki dosyanın onayını devralmaz. Kabul edilmiş denetim talepleri kendi sabit sürümünü korur.":"A new version awaits review and does not inherit the previous file’s approval. Accepted audit requests keep their pinned version."}</p>
       <button className="primary" disabled={busy||!selected}>{busy?"…":(tr?"Yeni Versiyonu Kaydet":"Save New Version")}</button>
     </form>}
     <div className="eh-list-head"><div><small>{timeline?(tr?"KONTROL ZAMAN ÇİZELGESİ":"CONTROL TIMELINE"):(tr?"SON VERSİYON HAREKETLERİ":"RECENT VERSION ACTIVITY")}</small><h4>{timeline?`${controlRef} · ${versions.length}`:(tr?"Kanıt versiyonları":"Evidence versions")}</h4></div></div>

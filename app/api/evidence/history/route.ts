@@ -8,11 +8,13 @@ import {
   publicEvidenceVersion,
   sha256HexBytes,
   splitEvidenceControlRefs,
-  validateEvidenceFile,
   verifyEvidenceVersionChainWithAnchor,
   type EvidenceIntegrityState,
   type EvidenceVersionRow,
 } from "../../../evidence/versioning";
+
+import { EVIDENCE_MAX_BYTES } from "../../../evidence/file-types";
+import { validateEvidenceUpload, evidenceFileErrorMessage } from "../../../evidence/validate-upload";
 
 type Env = Record<string, unknown> & { DB: D1Database; BUCKET?: R2Bucket };
 type EvidenceRecord = { id: string; data_json: string; created_at: string; updated_at: string };
@@ -226,9 +228,10 @@ export async function POST(req: NextRequest) {
   if (!/^EVD-[a-zA-Z0-9-]+$/.test(evidenceId)) return json({ error: "Geçerli bir kanıt referansı gerekli." }, 400);
   if (changeNote.length < 5) return json({ error: "Versiyon değişiklik notu en az 5 karakter olmalı." }, 400);
   if (!(file instanceof File)) return json({ error: "Yeni versiyon dosyası gerekli." }, 400);
-  if (file.size < 1 || file.size > 10 * 1024 * 1024) return json({ error: "Dosya 1 byte ile 10 MB arasında olmalı." }, 400);
+  if (file.size < 1 || file.size > EVIDENCE_MAX_BYTES) return json({ error: "Dosya 1 byte ile 10 MB arasında olmalı." }, 400);
   const bytes = new Uint8Array(await file.arrayBuffer());
-  if (!validateEvidenceFile(bytes, file.type)) return json({ error: "Yalnız PDF/JPG/PNG/WebP ve doğrulanmış dosya içeriği kabul edilir." }, 400);
+  let fileType: string;
+  try { fileType = validateEvidenceUpload(bytes, file.name, file.type); } catch (error) { return json({ error: evidenceFileErrorMessage(error) }, 400); }
   const record = await recordById(env.DB, evidenceId);
   if (!record) return json({ error: "Kanıt kaydı bulunamadı." }, 404);
   const data = parse(record.data_json);
@@ -238,13 +241,13 @@ export async function POST(req: NextRequest) {
   const fileName = safeFileName(file.name);
   const fileKey = `evidence/${evidenceId}/history/${crypto.randomUUID()}-${fileName}`;
   const contentSha256 = await sha256HexBytes(bytes);
-  await putEvidenceObject(env, fileKey, fileName, file.type, bytes, createdAt);
+  await putEvidenceObject(env, fileKey, fileName, fileType, bytes, createdAt);
   try {
     const version = await appendEvidenceVersion(env.DB, {
       evidenceId,
       fileKey,
       fileName,
-      fileType: file.type,
+      fileType,
       fileSize: file.size,
       contentSha256,
       evidenceTitle: text(data.evidenceTitle || evidenceId, 180),
@@ -259,9 +262,11 @@ export async function POST(req: NextRequest) {
       additionalStatements: (commit) => {
         const nextData = {
           ...data,
+          status: "İncelemede",
+          reviewStatus: "pending-review",
           fileKey,
           fileName,
-          fileType: file.type,
+          fileType,
           fileSize: String(file.size),
           contentSha256,
           versionNo: String(commit.versionNo),

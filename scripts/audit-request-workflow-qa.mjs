@@ -74,6 +74,17 @@ try {
   await reviewPanel.getByLabel('Decision / cancellation reason', { exact: true }).fill('Reviewed evidence meets the stated acceptance criteria.');
   await reviewPanel.getByRole('button', { name: 'Accept', exact: true }).click(); await expect(reviewPanel.locator('.ar-state')).toHaveText('Accepted');
   state = await api(admin, `/api/audits/requests?auditId=${auditId}`); assert.equal(state.requests[0].evidence[0].id, version.id); assert.equal(state.events.filter(e => e.action === 'accept').length, 1);
+  // Updating the library file must not alter the version accepted by the independent reviewer.
+  const replacement = await owner.request.post(base + '/api/evidence/history', { headers: { origin: base }, multipart: {
+    evidenceId, changeNote: 'Updated CSV account inventory for the next review', file: { name: 'access-v2.csv', mimeType: 'text/csv', buffer: Buffer.from('account,reviewed\nservice-account,true') },
+  } }); assert.equal(replacement.status(), 201, await replacement.text());
+  state = await api(admin, `/api/audits/requests?auditId=${auditId}`);
+  assert.equal(state.requests[0].status, 'accepted'); assert.equal(state.requests[0].evidence[0].id, version.id);
+  assert.equal(state.requests[0].evidence[0].contentSha256, version.contentSha256);
+  const library = JSON.parse((await api(admin, '/api/grc')).rows.find(row => row.id === evidenceId).data_json);
+  assert.equal(library.status, 'İncelemede'); assert.equal(library.reviewStatus, 'pending-review'); assert.equal(library.versionNo, '2');
+  const pinnedDownload = await owner.request.get(base + `/api/evidence?key=${encodeURIComponent(version.fileKey)}`);
+  assert.equal(pinnedDownload.status(), 200); assert.equal(pinnedDownload.headers()['content-type'], 'image/png');
   // Additional scope is a silent draft until a reasoned, version-bound preview is activated.
   await panel.getByRole('button', { name: 'Reload', exact: true }).click();
   await panel.getByRole('button', { name: '+ Add request', exact: true }).click();
