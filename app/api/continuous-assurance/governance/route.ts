@@ -1,3 +1,5 @@
+import {insertAssuranceException} from "../../../assurance-exception-write";
+import {CoreReferenceUnavailable} from "../../../core-reference-write";
 import {NextRequest,NextResponse} from "next/server";
 import {requireRole,type AppRole} from "../../auth/security";
 import {clean} from "../../integrations/security";
@@ -77,7 +79,7 @@ export async function POST(req:NextRequest){
    return json({ok:true,...result,message:result.status==="approved"?"Residual risk bağımsız inceleme ile onaylandı.":"Risk yeniden değerlendirmesi reddedildi."});
   }
   if(action==="create-exception"){
-   const proposal=validateAssuranceException(body,today()),id=`CAE-${crypto.randomUUID()}`;await env.DB.prepare("INSERT INTO continuous_assurance_exceptions(id,finding_id,rule_id,control_ref,risk_ref,reason,expires_at,evidence_reference,evidence_sha256,status,submitted_by,submitted_at,retest_required,lifecycle_updated_at) VALUES(?,?,?,?,?,?,?,?,?,'pending-review',?,?,0,?)").bind(id,proposal.findingId,proposal.ruleId,proposal.controlRef,proposal.riskRef,proposal.reason,proposal.expiresAt,proposal.evidenceReference,proposal.evidenceSha256,access.actor.email,stamp,stamp).run();return json({ok:true,id,message:"Assurance exception bağımsız onaya gönderildi."},201);
+   const proposal=validateAssuranceException(body,today()),id=`CAE-${crypto.randomUUID()}`;await insertAssuranceException(env.DB,id,proposal,access.actor.email,stamp);return json({ok:true,id,message:"Assurance exception bağımsız onaya gönderildi."},201);
   }
   if(action==="review-exception"){
    const id=clean(body.exceptionId,120),decision=clean(body.decision,20),note=clean(body.note,1200);if(!id||!["approve","reject"].includes(decision))return json({error:"Exception ID ve approve/reject kararı zorunludur."},400);if(decision==="reject"&&note.length<10)return json({error:"Ret gerekçesi en az 10 karakter olmalıdır."},400);
@@ -90,5 +92,5 @@ export async function POST(req:NextRequest){
    return json({ok:true,...result,message:result.retestWorkItemId?"Assurance exception revoke edildi; zorunlu re-test inceleme kuyruğuna alındı.":"Assurance exception revoke edildi; bağlı otomasyon finding/rule olmadığı için manuel re-test takibi gerekiyor."});
   }
   return json({error:"Geçersiz governance işlemi."},400);
- }catch(error){if(error instanceof RiskReviewError)return json({error:error.message},error.status);return json({error:error instanceof Error?error.message:"Assurance governance işlemi tamamlanamadı."},400)}
+ }catch(error){if(error instanceof CoreReferenceUnavailable)return json({error:error.message,code:"REFERENCE_UNAVAILABLE"},422);if(error instanceof RiskReviewError)return json({error:error.message},error.status);return json({error:error instanceof Error?error.message:"Assurance governance işlemi tamamlanamadı."},400)}
 }
