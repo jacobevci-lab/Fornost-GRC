@@ -27,6 +27,8 @@ test("KRI measurement and breach response require durable evidence and dates",()
 
 test("risk scenarios, exact confirmations and attention queue fail closed",()=>{
  const scenario=validateRiskScenario({appetiteId:"RAP-1",name:"Ransomware stress",horizonDays:90,baselineValue:2,stressedValue:12,forecastValue:7,confidence:75,assumptions:"Attack surface and threat frequency remain at the current elevated level.",treatmentPlan:"Accelerate exposure closure and exercise isolated recovery for critical services.",owner:"owner@example.com",reviewer:"reviewer@example.com",dueDate:"2027-03-01"},"2027-01-01");assert.equal(scenario.confidence,75);
+ for(const confidence of [0,100])assert.equal(validateRiskScenario({...scenario,confidence},"2027-01-01").confidence,confidence);
+ for(const confidence of [-1,101])assert.throws(()=>validateRiskScenario({...scenario,confidence},"2027-01-01"),/Güven/);
  assert.throws(()=>validateRiskAction({operation:"close-breach",note:"Verified closure",confirmation:"İHLALİ KAPAT",evidenceReference:"EVD-2",evidenceSha256:"bad"}),/SHA-256/);
  assert.equal(validateRiskAction({operation:"approve",note:"Independent board mandate review",confirmation:"RİSK İŞTAHINI ONAYLA",evidenceReference:"EVD-3",evidenceSha256:"b".repeat(64)}).operation,"approve");
  const now=new Date("2027-01-15T12:00:00Z");assert.equal(appetiteAttention("approved","2027-02-01","red",0,now),"breached");assert.equal(appetiteAttention("approved","2027-01-01","green",0,now),"measurement-overdue");

@@ -2,7 +2,7 @@
 import {build} from 'esbuild';
 import {chromium,expect} from '@playwright/test';
 import assert from 'node:assert/strict';
-const result=await build({stdin:{contents:`import React from 'react';import {createRoot} from 'react-dom/client';import RiskAppetite from './app/risk-appetite';import PlatformEscape from './app/platform-escape';createRoot(document.getElementById('root')).render(<><PlatformEscape/><RiskAppetite lang={location.search.includes('tr')?'tr':'en'} currentUser={{role:'Admin',email:'qa@example.test'}}/></>);`,resolveDir:process.cwd(),loader:'tsx'},bundle:true,write:false,outfile:'harness.js',jsx:'automatic',define:{'process.env.NODE_ENV':'"production"'}});
+const result=await build({stdin:{contents:`import React from 'react';import {createRoot} from 'react-dom/client';import RiskAppetite from './app/risk-appetite';import PlatformEscape from './app/platform-escape';createRoot(document.getElementById('root')).render(<><PlatformEscape/><RiskAppetite lang={location.search.includes('tr')?'tr':'en'} currentUser={{role:'Admin',email:'qa@example.test'}}/></>);`,resolveDir:process.cwd(),loader:'tsx'},bundle:true,write:false,outfile:'harness.js',jsx:'automatic',define:{'process.env.NODE_ENV':'"production"','process.env.NEXT_PUBLIC_BASE_PATH':'""'}});
 const js=result.outputFiles.find(f=>f.path.endsWith('.js')).text;
 const css=result.outputFiles.find(f=>f.path.endsWith('.css')).text;
 const browser=await chromium.launch({executablePath:process.env.QA_CHROMIUM_PATH||undefined});
@@ -10,7 +10,7 @@ try{
  for(const lang of ['en','tr']){
   const page=await browser.newPage();page.setDefaultTimeout(10000);
   let posts=0,mode='reject',release;
-  const errors=[];page.on('pageerror',e=>errors.push(e.message));
+  const errors=[];page.on('pageerror',e=>{errors.push(e.message);console.error('KRI harness page error:',e.message);});
   await page.route('http://kri.test/**',async route=>{
    const req=route.request();
    if(req.url().includes('/api/risk-appetite')){

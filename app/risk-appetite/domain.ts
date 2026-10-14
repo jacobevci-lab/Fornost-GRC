@@ -29,7 +29,7 @@ export function validateBreachPlan(input:Record<string,unknown>,today=new Date()
 }
 
 export function validateRiskScenario(input:Record<string,unknown>,today=new Date().toISOString().slice(0,10)){
- const appetiteId=clean(input.appetiteId,100),name=clean(input.name,240),horizonDays=number(input.horizonDays,"Ufuk",1,1095),baselineValue=number(input.baselineValue,"Baz değer"),stressedValue=number(input.stressedValue,"Stres değeri"),forecastValue=number(input.forecastValue,"Tahmin"),confidence=number(input.confidence,"Güven",1,100),assumptions=clean(input.assumptions,2400),treatmentPlan=clean(input.treatmentPlan,2400),owner=email(input.owner,"Senaryo sahibi"),reviewer=email(input.reviewer,"Reviewer"),dueDate=date(input.dueDate,"Termin");
+ const appetiteId=clean(input.appetiteId,100),name=clean(input.name,240),horizonDays=number(input.horizonDays,"Ufuk",1,1095),baselineValue=number(input.baselineValue,"Baz değer"),stressedValue=number(input.stressedValue,"Stres değeri"),forecastValue=number(input.forecastValue,"Tahmin"),confidence=number(input.confidence,"Güven",0,100),assumptions=clean(input.assumptions,2400),treatmentPlan=clean(input.treatmentPlan,2400),owner=email(input.owner,"Senaryo sahibi"),reviewer=email(input.reviewer,"Reviewer"),dueDate=date(input.dueDate,"Termin");
  if(!appetiteId||name.length<5||assumptions.length<20||treatmentPlan.length<20||dueDate<today)throw new Error("Senaryo, varsayım, tedavi planı ve ileri tarihli termin zorunludur.");if(owner===reviewer)throw new Error("Senaryo sahibi ve bağımsız reviewer farklı olmalıdır.");return{appetiteId,name,horizonDays,baselineValue,stressedValue,forecastValue,confidence,assumptions,treatmentPlan,owner,reviewer,dueDate};
 }
 
