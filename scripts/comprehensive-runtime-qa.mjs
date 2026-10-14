@@ -117,6 +117,13 @@ await check('Continuity UI form, layout, modal, maker-checker, exercise breach a
  await reset();await open('Business Continuity & Resilience');await page.locator('.continuity-page').waitFor();assert.equal(await page.locator('nav.continuity-tabs').count(),0);assert.ok((await page.locator('.continuity-tabs').boundingBox()).height<100);
  await page.locator('.continuity-hero').getByRole('button',{name:'New Plan'}).click();let dialog=page.locator('dialog.continuity-overlay');await dialog.waitFor();const bounds=await dialog.boundingBox();assert.ok(bounds.x>250&&bounds.y>=20,'Continuity dialog is centered with viewport margins');await page.keyboard.press('Escape');await dialog.waitFor({state:'hidden'});await page.locator('.continuity-hero').getByRole('button',{name:'New Plan'}).click();await dialog.waitFor();assert.equal(await dialog.locator('fieldset').count(),3);
  await dialog.locator('[name=name]').fill('QA Payment recovery plan');await dialog.locator('[name=process]').fill('Payment processing');await dialog.locator('[name=biaRef]').fill('BIA-001');await dialog.locator('[name=reviewer]').fill(reviewer);await dialog.locator('[name=crisisLead]').fill('qa-lead@fornost.test');await dialog.locator('[name=dependencies]').fill('Identity, network and database services');await dialog.locator('[name=recoveryStrategy]').fill('Recover in the secondary region and validate the restored data.');await dialog.locator('[name=communicationPlan]').fill('Notify crisis owners and affected customers.');
+ await dialog.locator('[name=biaRef]').fill('BIA-999999999');
+ const rejectedPlan=page.waitForResponse(r=>r.url().endsWith('/api/continuity')&&r.request().method()==='POST');
+ await dialog.getByRole('button',{name:'Create draft plan'}).click();assert.equal((await rejectedPlan).status(),422);
+ await expect(dialog).toBeVisible();await expect(dialog.locator('[name=name]')).toHaveValue('QA Payment recovery plan');
+ await expect(dialog.locator('[name=biaRef]')).toHaveValue('BIA-999999999');
+ await expect(dialog.getByRole('alert')).toContainText('The linked BIA record is unavailable');
+ await dialog.locator('[name=biaRef]').fill('BIA-001');
  await page.screenshot({path:`${out}/continuity-form.png`});
  const response=page.waitForResponse(r=>r.url().endsWith('/api/continuity')&&r.request().method()==='POST').catch(()=>null);await dialog.getByRole('button',{name:'Create draft plan'}).click();const r=await response;assert.equal(r.status(),201,await r.text());const {id}=await r.json();await dialog.waitFor({state:'hidden'});
  await request(admin,'/api/continuity','POST',{action:'approve-plan',planId:id,...evidence,confirmation:'PLANI ONAYLA'},403);
@@ -165,7 +172,11 @@ await check('Policy lifecycle: draft, version, independent approval, publish and
  await request(checker,'/api/policy-lifecycle','POST',{action:'retire-policy',policyId:id,confirmation:'POLİTİKAYI YÜRÜRLÜKTEN KALDIR',...evidence});
 });
 await check('Incident lifecycle: declaration through independent close and reopen',async()=>{
- const {id}=await request(admin,'/api/incidents','POST',{action:'create',title:'QA Production identity compromise',category:'account-compromise',severity:'critical',detectedDate:today,description:'Privileged identity showed confirmed anomalous access activity.',businessImpact:'Production services and restricted records may be affected.',owner,commander:'qa-commander@fornost.test',reviewer,assetRefs:'AST-001',riskRef:'RSK-001',biaRef:'BIA-001',dataClassification:'Restricted',personalData:false},201);
+ const intake={action:'create',title:'QA Production identity compromise',category:'account-compromise',severity:'critical',detectedDate:today,description:'Privileged identity showed confirmed anomalous access activity.',businessImpact:'Production services and restricted records may be affected.',owner,commander:'qa-commander@fornost.test',reviewer,assetRefs:'AST-001',riskRef:'RSK-001',biaRef:'BIA-001',dataClassification:'Restricted',personalData:false};
+ const before=await request(admin,'/api/incidents');
+ for(const field of ['assetRefs','riskRef','biaRef']){const rejected=await request(admin,'/api/incidents','POST',{...intake,[field]:'AST-999999999'},422);assert.equal(rejected.code,'REFERENCE_UNAVAILABLE');}
+ const after=await request(admin,'/api/incidents');assert.equal(after.incidents.length,before.incidents.length);assert.equal(after.events.length,before.events.length);
+ const {id}=await request(admin,'/api/incidents','POST',intake,201);
  for(const [operation,confirmation] of [['triage','OLAY TRİAJINI BAŞLAT'],['contain','OLAYI KONTROL ALTINA AL'],['eradicate','TEHDİDİ ORTADAN KALDIR'],['recover','HİZMETİ GERİ YÜKLE'],['review','OLAYI İNCELEMEYE GÖNDER'],['close','OLAYI KAPAT'],['reopen','OLAYI YENİDEN AÇ']])await request(operation==='close'?checker:admin,'/api/incidents','POST',{action:'transition',incidentId:id,operation,confirmation,...evidence,rootCause:'Compromised credentials lacked strong authentication.',lessonsLearned:'Require phishing-resistant MFA for every privileged identity.',notificationDecision:'not-required',notificationRationale:'Isolated simulation contains no actual customer or personal data.'});
 });
 await check('CAPA lifecycle: create, start, submit, independent verify and reopen',async()=>{
