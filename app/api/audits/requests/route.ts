@@ -27,14 +27,14 @@ export async function GET(req: NextRequest) {
       actorEmail: auth.actor.email.toLowerCase(), canManage: canWriteModule(auth.actor, 'Denetim Yönetimi'), evidenceAccess,
       ...users, peopleComplete: users.complete, complete: state.complete, evidenceChoices: evidence.slice(0, 500), evidenceChoicesComplete: evidence.length <= 500,
       planRevision: planData.revision, periodStart: planData.plan.periodStart || '', periodEnd: planData.plan.periodEnd || '',
-      events: events.results.slice(0, 200).map(({ snapshot_json, ...event }) => { const snapshot = JSON.parse(snapshot_json); return { ...event, note: snapshot.note || '', status: snapshot.status, versionIds: evidenceAccess ? (snapshot.evidence || []).map((v: { id: string }) => v.id) : [] }; }), eventsComplete: events.results.length <= 200,
+      events: events.results.slice(0, 200).map(({ snapshot_json, ...event }) => { const snapshot = JSON.parse(snapshot_json); return { ...event, note: snapshot.note || '', activationReason: snapshot.activationReason || '', planRevision: snapshot.planRevision || '', status: snapshot.status, versionIds: evidenceAccess ? (snapshot.evidence || []).map((v: { id: string }) => v.id) : [] }; }), eventsComplete: events.results.length <= 200,
     });
   } catch (err) { return error(err); }
 }
 export async function POST(req: NextRequest) {
   const auth = await requireRole(req, ['Admin', 'Editor']); if (auth.response) return auth.response;
   try {
-    const raw = await req.text(); if (raw.length > 24000) return json({ error: 'fields' }, 413);
+    const raw = await req.text(); if (raw.length > 128000) return json({ error: 'fields' }, 413);
     let body; try { body = JSON.parse(raw); } catch { throw new AuditRequestError('fields'); }
     if (!body || typeof body !== 'object' || Array.isArray(body)) throw new AuditRequestError('fields');
     const { env } = await import('cloudflare:workers');

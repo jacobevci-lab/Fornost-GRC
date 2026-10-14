@@ -74,6 +74,44 @@ try {
   await reviewPanel.getByLabel('Decision / cancellation reason', { exact: true }).fill('Reviewed evidence meets the stated acceptance criteria.');
   await reviewPanel.getByRole('button', { name: 'Accept', exact: true }).click(); await expect(reviewPanel.locator('.ar-state')).toHaveText('Accepted');
   state = await api(admin, `/api/audits/requests?auditId=${auditId}`); assert.equal(state.requests[0].evidence[0].id, version.id); assert.equal(state.events.filter(e => e.action === 'accept').length, 1);
+  // Additional scope is a silent draft until a reasoned, version-bound preview is activated.
+  await panel.getByRole('button', { name: 'Reload', exact: true }).click();
+  await panel.getByRole('button', { name: '+ Add request', exact: true }).click();
+  await panel.getByLabel('Title', { exact: true }).fill('Additional privileged service accounts');
+  await panel.getByLabel('Requested content and acceptance criteria', { exact: true }).fill('Include service account ownership and approval records.');
+  await panel.getByLabel('Owner', { exact: true }).selectOption(ownerEmail); await panel.getByLabel('Reviewer', { exact: true }).selectOption(reviewerEmail);
+  await panel.getByRole('button', { name: 'Save request', exact: true }).click();
+  await expect(panel.locator('.ar-state.draft')).toHaveText('Draft');
+  state = await api(admin, `/api/audits/requests?auditId=${auditId}`);
+  let addition = state.requests.find(r => r.status === 'draft');
+  assert.ok(!(await api(admin, '/api/audits/requests')).requests.some(r => r.id === addition.id));
+  await panel.getByRole('button', { name: 'Review additions', exact: true }).click();
+  const activate = panel.getByRole('button', { name: 'Activate additional requests', exact: true });
+  await expect(activate).toBeDisabled(); await expect(panel.locator('.ar-preview-list')).toContainText(addition.title);
+  await panel.getByLabel('Reason for additional requests', { exact: true }).fill('Service accounts were added to the agreed audit scope.');
+  await api(admin, '/api/audits/requests', 'POST', { auditId, action: 'edit', requestId: addition.id, expectedRevision: addition.revision, fields: { ...addition, instructions: 'Include service account ownership, approvals and expiry dates.' } });
+  await activate.click(); await expect(panel.getByRole('alert')).toContainText('Draft requests changed'); await expect(activate).toBeDisabled();
+  await panel.getByRole('button', { name: 'Reload', exact: true }).click();
+  await panel.getByRole('button', { name: 'Review additions', exact: true }).click();
+  await panel.locator('.ar-preview-list summary').click(); await expect(panel.locator('.ar-preview-list')).toContainText('expiry dates');
+  const reason = 'Service accounts were added to the agreed audit scope.';
+  await panel.getByLabel('Reason for additional requests', { exact: true }).fill(reason);
+  await mkdir('qa-artifacts/audit-requests', { recursive: true });
+  for (const width of [390, 1536]) {
+    await page.setViewportSize({ width, height: 960 }); assert.ok(await panel.evaluate(e => e.scrollWidth <= e.clientWidth + 1));
+    await panel.screenshot({ path: `qa-artifacts/audit-requests/additions-preview-${width}.png` });
+  }
+  state = await api(admin, `/api/audits/requests?auditId=${auditId}`);
+  const oldActivation = { auditId, action: 'activate', expectedRevision: state.workflow.revision, expectedPlanRevision: state.planRevision, expectedDrafts: state.requests.filter(r => r.status === 'draft').map(({ id, revision }) => ({ id, revision })), note: reason };
+  await activate.click(); await expect(panel.locator('.ar-state.assigned')).toHaveText('Awaiting submission');
+  await expect(panel.locator('.ar-state.accepted')).toHaveText('Accepted');
+  await api(admin, '/api/audits/requests', 'POST', oldActivation, 409);
+  state = await api(admin, `/api/audits/requests?auditId=${auditId}`); addition = state.requests.find(r => r.id === addition.id);
+  assert.equal(state.events.filter(e => e.request_id === addition.id && e.action === 'activate').length, 1);
+  assert.equal(state.events.find(e => e.request_id === addition.id && e.action === 'activate').activationReason, reason);
+  assert.ok((await api(owner, '/api/audits/requests')).requests.some(r => r.id === addition.id && r.status === 'assigned'));
+  await panel.getByRole('button', { name: addition.title, exact: true }).click();
+  await panel.locator('.ar-detail summary').click(); await expect(panel.locator('.ar-detail')).toContainText(reason);
   // Completed work belongs to the owner; organization scope is Admin-only.
   await page.locator('nav button[aria-label="My Work"]').evaluate(el => el.click());
   await page.locator('.mw2-scope button').filter({ hasText: /Organization|Kurum/ }).click();
@@ -88,7 +126,7 @@ try {
       await panel.screenshot({ path: `qa-artifacts/audit-requests/${language}-${theme}-${width}.png` });
     }
   }
-  assert.deepEqual(errors, []); console.log('AUDIT_REQUEST_WORKFLOW_QA_PASS: real API lifecycle, roles, duplicate start/submission, pinned versions, My Work focus, TR/EN and responsive themes');
+  assert.deepEqual(errors, []); console.log('AUDIT_REQUEST_WORKFLOW_QA_PASS: real API lifecycle, roles, duplicate start/submission, pinned versions, reasoned additions, stale preview recovery, unchanged acceptance, My Work focus, TR/EN and responsive themes');
 } catch (error) {
   console.error('AUDIT_REQUEST_WORKFLOW_QA_FAILED', error.message);
   await mkdir('qa-artifacts/audit-requests', { recursive: true });

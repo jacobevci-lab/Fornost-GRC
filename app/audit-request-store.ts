@@ -4,7 +4,7 @@ import { canReadModule, canWriteModule, parseModuleAccess } from './module-acces
 import type { Actor } from './api/auth/security';
 import { ensureEvidenceHistorySchema } from './evidence/versioning';
 import { ensureAssuranceNotificationSchema } from './assurance-executive-operations';
-import { AuditRequestError, requestDueAt, requestNextDue, requestIdentity, validateAuditRequestFields, validateRequestTimeZone, type AuditRequest, type AuditRequestEvidence, type AuditRequestWorkflow } from './audit-requests';
+import { AuditRequestError, requestDueAt, requestNextDue, requestIdentity, validateAuditRequestFields, validateRequestTimeZone, validateRequestPreview, type AuditRequest, type AuditRequestEvidence, type AuditRequestWorkflow } from './audit-requests';
 
 export const auditRequestSchema = [
   `CREATE TABLE IF NOT EXISTS audit_request_workflows(audit_id TEXT PRIMARY KEY,state TEXT NOT NULL,revision TEXT NOT NULL,time_zone TEXT NOT NULL,plan_revision TEXT NOT NULL DEFAULT '')`,
@@ -42,6 +42,15 @@ export async function auditRequestActorActive(db: D1Database, email: string) {
 async function validateAssignees(db: D1Database, owner: string, reviewer: string) {
   if (!await auditRequestActorActive(db, owner) || !await auditRequestActorActive(db, reviewer)) throw new AuditRequestError('assignee');
 }
+async function requestAssigneeSnapshot(db: D1Database, requests: AuditRequest[]) {
+  const emails = [...new Set(requests.flatMap(row => [row.owner, row.reviewer]))];
+  const result = await db.prepare(`SELECT lower(u.email) AS email,u.role,a.policy_json AS policy FROM local_users u LEFT JOIN user_module_access a ON a.user_id=u.id WHERE u.status='Active' AND u.role IN ('Admin','Editor') AND lower(u.email) IN (SELECT value FROM json_each(?))`).bind(JSON.stringify(emails)).all<{ email: string; role: string; policy: string | null }>();
+  if (result.results.length !== emails.length || result.results.some(row => {
+    const subject = { role: row.role, moduleAccess: parseModuleAccess(row.policy) };
+    return !canWriteModule(subject, 'Denetim Yönetimi') || !canReadModule(subject, 'Kanıtlar');
+  })) throw new AuditRequestError('assignee');
+  return result.results;
+}
 export async function readAuditRequestWorkflow(db: D1Database, auditId: string) {
   await ensureAuditRequestSchema(db); await requireAuditParent(db, auditId);
   const stored = await db.prepare('SELECT * FROM audit_request_workflows WHERE audit_id=?').bind(auditId).first<{ audit_id: string; state: 'draft' | 'active'; revision: string; time_zone: string; plan_revision: string }>();
@@ -51,7 +60,7 @@ export async function readAuditRequestWorkflow(db: D1Database, auditId: string) 
 }
 export async function readAuditRequestWork(db: D1Database) {
   await ensureAuditRequestSchema(db);
-  const rows = await db.prepare(`SELECT r.*,w.time_zone FROM audit_requests r JOIN simple_audits a ON a.id=r.audit_id JOIN audit_request_workflows w ON w.audit_id=r.audit_id WHERE w.state='active' AND json_extract(r.data_json,'$.status')<>'draft' ORDER BY r.updated_at DESC,r.id LIMIT 1001`).all<StoredRequest & { time_zone: string }>();
+  const rows = await db.prepare(`SELECT r.*,w.time_zone FROM audit_requests r JOIN simple_audits a ON a.id=r.audit_id JOIN audit_request_workflows w ON w.audit_id=r.audit_id WHERE w.state='active' AND json_extract(r.data_json,'$.status')<>'draft' AND (json_extract(r.data_json,'$.status')<>'cancelled' OR EXISTS(SELECT 1 FROM audit_request_events e WHERE e.request_id=r.id AND e.audit_id=r.audit_id AND e.action IN ('start','activate'))) ORDER BY r.updated_at DESC,r.id LIMIT 1001`).all<StoredRequest & { time_zone: string }>();
   const deadlines = new Map<string, string>();
   return { requests: rows.results.slice(0, 1000).map(raw => {
     const row = publicAuditRequest(raw), key = `${requestNextDue(row)}:${raw.time_zone}`;
@@ -66,27 +75,42 @@ export async function readRequestEvidence(db: D1Database, ids?: string[]): Promi
   const rows = await statement.all<{ id: string; evidence_id: string; version_no: number; evidence_title: string; file_name: string; file_key: string; content_sha256: string; period: string }>();
   return rows.results.map(v => ({ id: v.id, evidenceId: v.evidence_id, versionNo: v.version_no, title: v.evidence_title, fileName: v.file_name, fileKey: v.file_key, contentSha256: v.content_sha256, period: v.period }));
 }
-type Mutation = { auditId: unknown; action: unknown; requestId?: unknown; expectedRevision: unknown; fields?: unknown; versionIds?: unknown; note?: unknown; timeZone?: unknown; expectedPlanRevision?: unknown };
+type Mutation = { auditId: unknown; action: unknown; requestId?: unknown; expectedRevision: unknown; fields?: unknown; versionIds?: unknown; note?: unknown; timeZone?: unknown; expectedPlanRevision?: unknown; expectedWorkflowRevision?: unknown; expectedDrafts?: unknown };
 const liveParent = 'EXISTS(SELECT 1 FROM simple_audits WHERE id=?)';
 export async function mutateAuditRequest(db: D1Database, actor: Actor, input: Mutation, now = new Date()) {
   if (!canWriteModule(actor, 'Denetim Yönetimi')) throw new AuditRequestError('forbidden', 403);
   const auditId = auditRequestId(input.auditId), action = String(input.action), stamp = now.toISOString(), revision = crypto.randomUUID();
   if (typeof input.expectedRevision !== 'string' || input.expectedRevision.length > 100) throw new AuditRequestError('revision');
   await ensureAuditRequestSchema(db); await requireAuditParent(db, auditId);
-  if (action === 'start') {
-    const zone = validateRequestTimeZone(input.timeZone), state = await readAuditRequestWorkflow(db, auditId);
+  if (action === 'start' || action === 'activate') {
+    const starting = action === 'start', state = await readAuditRequestWorkflow(db, auditId);
     if (!state.complete) throw new AuditRequestError('limit', 409);
-    if (state.workflow.state !== 'draft' || state.workflow.revision !== input.expectedRevision) throw new AuditRequestError('conflict', 409);
+    if (state.workflow.state !== (starting ? 'draft' : 'active') || state.workflow.revision !== input.expectedRevision) throw new AuditRequestError('conflict', 409);
+    const zone = starting ? validateRequestTimeZone(input.timeZone) : state.workflow.timeZone;
     const drafts = state.requests.filter(row => row.status === 'draft');
     if (!drafts.length) throw new AuditRequestError('empty');
-    for (const row of drafts) await validateAssignees(db, row.owner, row.reviewer);
+    const preview = validateRequestPreview(input.expectedDrafts);
+    if (preview.length !== drafts.length || drafts.some(row => !preview.some(p => p.id === row.id && p.revision === row.revision))) throw new AuditRequestError('preview-changed', 409);
+    if (!starting && (typeof input.note !== 'string' || input.note.trim().length < 5 || input.note.length > 2000)) throw new AuditRequestError('note');
+    const reason = starting ? '' : (input.note as string).trim();
+    const assignees = await requestAssigneeSnapshot(db, drafts);
     const plan = await db.prepare('SELECT value FROM simple_grc_metadata WHERE key=?').bind(`audit_plan_${auditId}`).first<{ value: string }>();
     const planRevision = plan ? JSON.parse(plan.value).revision : '';
     if (typeof input.expectedPlanRevision !== 'string' || input.expectedPlanRevision !== planRevision) throw new AuditRequestError('plan-changed', 409);
+    // Bind the exact preview inside the transaction. Concurrent draft additions,
+    // edits or cancellations must not activate work the operator did not review.
+    const guard = `${liveParent} AND COALESCE((SELECT json_extract(value,'$.revision') FROM simple_grc_metadata WHERE key=?),'')=?
+      AND (SELECT COUNT(*) FROM audit_requests WHERE audit_id=? AND json_extract(data_json,'$.status')='draft')=?
+      AND NOT EXISTS(SELECT 1 FROM json_each(?) p WHERE NOT EXISTS(SELECT 1 FROM audit_requests r WHERE r.audit_id=? AND r.id=json_extract(p.value,'$.id') AND r.revision=json_extract(p.value,'$.revision') AND json_extract(r.data_json,'$.status')='draft'))
+      AND NOT EXISTS(SELECT 1 FROM json_each(?) p WHERE NOT EXISTS(SELECT 1 FROM local_users u LEFT JOIN user_module_access a ON a.user_id=u.id WHERE lower(u.email)=json_extract(p.value,'$.email') AND u.status='Active' AND u.role=json_extract(p.value,'$.role') AND a.policy_json IS json_extract(p.value,'$.policy')))`;
+    const args = [auditId, `audit_plan_${auditId}`, planRevision, auditId, preview.length, JSON.stringify(preview), auditId, JSON.stringify(assignees)];
+    const claim = starting
+      ? db.prepare(`INSERT INTO audit_request_workflows(audit_id,state,revision,time_zone,plan_revision) SELECT ?,'active',?,?,? WHERE ${guard} AND ?='' AND NOT EXISTS(SELECT 1 FROM audit_request_workflows WHERE audit_id=?) ON CONFLICT(audit_id) DO NOTHING RETURNING audit_id`).bind(auditId, revision, zone, planRevision, ...args, input.expectedRevision, auditId)
+      : db.prepare(`UPDATE audit_request_workflows SET revision=?,plan_revision=? WHERE audit_id=? AND state='active' AND revision=? AND ${guard} RETURNING audit_id`).bind(revision, planRevision, auditId, input.expectedRevision, ...args);
     const results = await db.batch([
-      db.prepare(`INSERT INTO audit_request_workflows(audit_id,state,revision,time_zone,plan_revision) SELECT ?,'active',?,?,? WHERE ${liveParent} AND COALESCE((SELECT json_extract(value,'$.revision') FROM simple_grc_metadata WHERE key=?),'')=? AND EXISTS(SELECT 1 FROM audit_requests WHERE audit_id=? AND json_extract(data_json,'$.status')='draft') AND ?='' AND NOT EXISTS(SELECT 1 FROM audit_request_workflows WHERE audit_id=?) ON CONFLICT(audit_id) DO NOTHING RETURNING audit_id`).bind(auditId, revision, zone, planRevision, auditId, `audit_plan_${auditId}`, planRevision, auditId, input.expectedRevision, auditId),
+      claim,
       db.prepare(`UPDATE audit_requests SET data_json=json_set(data_json,'$.status','assigned'),revision=?,updated_at=? WHERE audit_id=? AND json_extract(data_json,'$.status')='draft' AND EXISTS(SELECT 1 FROM audit_request_workflows WHERE audit_id=? AND revision=?)`).bind(revision, stamp, auditId, auditId, revision),
-      db.prepare(`INSERT INTO audit_request_events(id,audit_id,request_id,action,actor,snapshot_json,created_at) SELECT ?||id,audit_id,id,'start',?,data_json,? FROM audit_requests WHERE audit_id=? AND revision=?`).bind(`${revision}:`, actor.email, stamp, auditId, revision),
+      db.prepare(`INSERT INTO audit_request_events(id,audit_id,request_id,action,actor,snapshot_json,created_at) SELECT ?||id,audit_id,id,?,?,json_set(data_json,'$.activationReason',?,'$.planRevision',?,'$.workflowRevision',?),? FROM audit_requests WHERE audit_id=? AND revision=?`).bind(`${revision}:`, action, actor.email, reason, planRevision, revision, stamp, auditId, revision),
     ]);
     if (!results[0].results?.length) throw new AuditRequestError('conflict', 409);
     return;
@@ -97,6 +121,7 @@ export async function mutateAuditRequest(db: D1Database, actor: Actor, input: Mu
   let next: Omit<AuditRequest, 'id' | 'auditId' | 'revision' | 'createdAt' | 'updatedAt'>;
   if (action === 'create') {
     if (current || input.expectedRevision) throw new AuditRequestError('conflict', 409);
+    if (input.expectedWorkflowRevision !== undefined && (typeof input.expectedWorkflowRevision !== 'string' || input.expectedWorkflowRevision.length > 100)) throw new AuditRequestError('revision');
     const fields = validateAuditRequestFields(input.fields); await validateAssignees(db, fields.owner, fields.reviewer);
     next = { ...fields, status: 'draft', evidence: [], submittedBy: '', note: '' };
   } else {
@@ -136,7 +161,7 @@ export async function mutateAuditRequest(db: D1Database, actor: Actor, input: Mu
   const evidenceArgs = ['submit', 'accept'].includes(action) ? [...next.evidence.map(v => v.id), next.evidence.length] : [];
   const payload = JSON.stringify(next);
   const write = action === 'create'
-    ? db.prepare(`INSERT INTO audit_requests(id,audit_id,data_json,revision,created_at,updated_at) SELECT ?,?,?,?,?,? WHERE ${liveParent} AND NOT EXISTS(SELECT 1 FROM audit_request_workflows WHERE audit_id=?) AND (SELECT COUNT(*) FROM audit_requests WHERE audit_id=?)<500 ON CONFLICT(id) DO NOTHING RETURNING id`).bind(requestId, auditId, payload, revision, stamp, stamp, auditId, auditId, auditId)
+    ? db.prepare(`INSERT INTO audit_requests(id,audit_id,data_json,revision,created_at,updated_at) SELECT ?,?,?,?,?,? WHERE ${liveParent} AND COALESCE((SELECT revision FROM audit_request_workflows WHERE audit_id=?),'')=? AND (SELECT COUNT(*) FROM audit_requests WHERE audit_id=?)<500 ON CONFLICT(id) DO NOTHING RETURNING id`).bind(requestId, auditId, payload, revision, stamp, stamp, auditId, auditId, input.expectedWorkflowRevision ?? '', auditId)
     : db.prepare(`UPDATE audit_requests SET data_json=?,revision=?,updated_at=? WHERE id=? AND audit_id=? AND revision=? AND ${liveParent}${evidenceGuard}`).bind(payload, revision, stamp, requestId, auditId, input.expectedRevision, auditId, ...evidenceArgs);
   const results = await db.batch([
     write,

@@ -14,6 +14,19 @@ export type AuditRequest = AuditRequestFields & {
   createdAt: string; updatedAt: string;
 };
 export type AuditRequestWorkflow = { auditId: string; state: 'draft' | 'active'; revision: string; timeZone: string; planRevision: string };
+export type AuditRequestPreview = { id: string; revision: string };
+export function requestDraftPreview(requests: AuditRequest[]): AuditRequestPreview[] {
+  return requests.filter(row => row.status === 'draft').map(({ id, revision }) => ({ id, revision }));
+}
+export function validateRequestPreview(value: unknown): AuditRequestPreview[] {
+  if (!Array.isArray(value) || !value.length || value.length > 500) throw new AuditRequestError('preview-changed', 409);
+  const ids = new Set<string>();
+  for (const row of value) {
+    if (!row || typeof row !== 'object' || typeof row.id !== 'string' || !/^[a-zA-Z0-9_-]{1,100}$/.test(row.id) || typeof row.revision !== 'string' || !row.revision || row.revision.length > 100 || ids.has(row.id)) throw new AuditRequestError('preview-changed', 409);
+    ids.add(row.id);
+  }
+  return value.map(({ id, revision }) => ({ id, revision }));
+}
 export const emptyAuditRequest: AuditRequestFields = { title: '', instructions: '', owner: '', reviewer: '', dueDate: '', reviewDueDate: '', periodStart: '', periodEnd: '' };
 export class AuditRequestError extends Error {
   constructor(public code: string, public status = 400) { super(code); }
