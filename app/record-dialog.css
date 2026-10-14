@@ -25,3 +25,11 @@ html body .record-dialog .fornost-progressive-controls small{font-size:10px}
 html body .record-dialog .form-actions button{min-height:34px;font-size:11px}
 html body .record-dialog :focus-visible{outline:2px solid var(--ws-brand)!important;outline-offset:2px}
 @media(max-width:560px){html body .record-dialog .form{grid-template-columns:minmax(0,1fr)}html body .record-dialog .framework-picker>div{grid-template-columns:1fr;max-height:240px}html body .record-dialog .fornost-progressive-controls{flex-direction:row;align-items:center;flex-wrap:wrap}html body .record-dialog .fornost-progressive-controls button{width:auto}}
+
+/* Native slider keeps pointer, touch and keyboard interaction without a numeric text field. */
+html body .record-dialog .audit-progress-heading{display:flex;align-items:center;justify-content:space-between;gap:12px}
+html body .record-dialog .audit-progress-heading output{color:var(--ws-ink);font-weight:700;font-variant-numeric:tabular-nums}
+html body .record-dialog .form .audit-progress-field input[type="range"]{appearance:auto!important;width:100%!important;min-height:32px!important;height:32px!important;margin:4px 0 0!important;padding:0!important;border:0!important;border-radius:0!important;background:transparent!important;box-shadow:none;cursor:pointer;accent-color:var(--ws-brand)!important}
+html body .record-dialog .audit-progress-field input[type="range"]:focus-visible{outline:2px solid var(--ws-brand)!important;outline-offset:3px}
+html body .record-dialog .audit-progress-scale{display:flex;justify-content:space-between;font-size:11px;color:var(--ws-muted)}
+html body .record-dialog .audit-progress-field small{display:block;margin-top:6px;font-size:11px;font-weight:400;line-height:1.5;color:var(--ws-muted)}

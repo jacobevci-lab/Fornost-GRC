@@ -2967,6 +2967,18 @@ function Field({
     "sampleSize",
     "exceptions",
   ];
+  if (k === "progress") {
+    const numeric = Number(value);
+    const progress = Number.isFinite(numeric) ? Math.min(100, Math.max(0, numeric)) : 0;
+    return <label className="audit-progress-field">
+      <span className="audit-progress-heading"><span>{labelMap[lang][k]}</span><output>{formatPercent(progress, lang)}</output></span>
+      <input name={k} type="range" min={0} max={100} step={1} value={progress}
+        aria-label={labelMap[lang][k]} aria-valuetext={formatPercent(progress, lang)} aria-describedby="audit-progress-help"
+        onChange={e => change(e.target.value)} />
+      <span className="audit-progress-scale" aria-hidden="true"><span>0%</span><span>100%</span></span>
+      <small id="audit-progress-help">{lang === "tr" ? "İşin tamamlanma oranı. Durum ve kapanış ayrı yönetilir." : "Work completed. Status and closure are managed separately."}</small>
+    </label>;
+  }
   if (k === "asset" || k === "processLink") {
     const retainedValues = (k === "asset" && "category" in form
       ? String(value).split(",").map((item) => item.trim())

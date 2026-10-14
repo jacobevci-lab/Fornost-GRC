@@ -29,6 +29,18 @@ try{
  await table.getByRole('button',{name:'Clear search and filters',exact:true}).click();await expect(rows).toHaveCount(50);await expect(status).toHaveValue('');
  await pager.getByLabel('Per page',{exact:true}).selectOption('100');await expect(rows).toHaveCount(100);
  for(const theme of ['light','dark'])for(const width of [1536,390]){await page.evaluate(theme=>document.documentElement.dataset.theme=theme,theme);await page.setViewportSize({width,height:960});assert.ok(await pager.evaluate(el=>el.scrollWidth-el.clientWidth)<=1);}
+ // Progress is a native slider; keyboard changes must not alter the workflow status.
+ for(const locale of ['en','tr']){
+  await page.locator('.language-switch:visible').getByRole('button',{name:locale.toUpperCase(),exact:true}).click();
+  await rows.first().getByRole('button',{name:locale==='tr'?'Düzenle':'Edit',exact:true}).click();
+  const dialog=page.locator('.record-dialog'),slider=dialog.getByRole('slider',{name:locale==='tr'?'İlerleme (%)':'Progress (%)',exact:true});
+  await expect(slider).toHaveValue('0');const originalStatus=await dialog.locator('[name=status]').inputValue();
+  await slider.press('End');await expect(slider).toHaveValue('100');
+  await slider.press('ArrowLeft');await expect(slider).toHaveValue('99');await expect(dialog.locator('.audit-progress-heading output')).toContainText('99');
+  await expect(dialog.locator('[name=status]')).toHaveValue(originalStatus);
+  for(const theme of ['light','dark'])for(const width of [1536,390]){await page.evaluate(theme=>document.documentElement.dataset.theme=theme,theme);await page.setViewportSize({width,height:960});await slider.scrollIntoViewIfNeeded();assert.ok(await dialog.evaluate(el=>el.scrollWidth-el.clientWidth)<=1);assert.ok((await slider.boundingBox()).width>100);}
+  await slider.press('Home');await expect(slider).toHaveValue('0');await slider.press('Escape');await expect(dialog).toHaveCount(0);
+ }
  await page.locator('.language-switch:visible').getByRole('button',{name:'TR',exact:true}).click();await expect(pager.getByRole('status')).toHaveText('1–100 / 121 madde');
  assert.deepEqual(errors,[]);console.log('AUDIT_REQUIREMENT_PAGE_PASS: 121 real requirements, last page, off-page search, filter reset, 61-row cross-page CSV export, empty recovery, size selection and bilingual responsive pager.');
 }finally{await page.close();for(const id of ids)await api(`/api/audits?id=${id}`,'DELETE');await browser.close();}
