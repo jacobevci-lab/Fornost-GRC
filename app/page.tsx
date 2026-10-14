@@ -11,6 +11,7 @@ import { AuditCatalogUpload } from "./audit-catalog-upload";
 import type { AuditCatalogImport } from "./audit-catalog-import";
 import { readAllGrcPages } from "./grc-pagination";
 import { AuditPlanPanel } from "./audit-plan-panel";
+import { AuditRequestPanel } from "./audit-request-panel";
 import { canOpenModule, canReadModule, canWriteModule, isScoped, readableModules } from "./module-access";
 import "./module-access.css";
 import { linkedRecordOptions } from "./linked-record-options";
@@ -3972,6 +3973,19 @@ function AuditModule({
     [savingAudit, setSavingAudit] = useState(false);
   const [catalogImport, setCatalogImport] = useState<AuditCatalogImport|null>(null);
   const [auditCreateError,setAuditCreateError] = useState("");
+  const [requestFocus, setRequestFocus] = useState<{ id: string; auditId: string } | null>(null);
+  useEffect(() => {
+    const accept = (request: FornostNavigationRequest | null) => {
+      if (request?.module !== "Denetim Yönetimi" || request.kind !== "audit-request" || !request.ref || !request.filter?.auditId) return;
+      const target = audits.find(audit => audit.id === request.filter?.auditId);
+      setRequestFocus({ id: request.ref, auditId: request.filter.auditId });
+      if (target) { select(target.name); consumePendingFornostFocus("Denetim Yönetimi"); }
+    };
+    accept(peekPendingFornostFocus());
+    const listener = (event: Event) => accept((event as CustomEvent<FornostNavigationRequest>).detail);
+    window.addEventListener(FORNOST_FOCUS_EVENT, listener);
+    return () => window.removeEventListener(FORNOST_FOCUS_EVENT, listener);
+  }, [audits, select]);
   const portfolioNames = new Set(audits.map((audit) => audit.name)),
     portfolioRows = rows.filter((row) =>
       portfolioNames.has(String(row.data.auditName || "")),
@@ -4308,6 +4322,7 @@ function AuditModule({
       </section>
       <FrameworkCatalogNotice framework={audits.find(audit=>audit.name===selected)?.template || ""} snapshot={audits.find(audit=>audit.name===selected)?.catalog} lang={lang} />
       {audits.find(audit=>audit.name===selected)&&<AuditPlanPanel key={`plan:${selected}`} auditId={audits.find(audit=>audit.name===selected)!.id} canWrite={canWrite} lang={lang}/>}
+      {audits.find(audit=>audit.name===selected)&&<AuditRequestPanel key={`requests:${selected}:${requestFocus?.id || ""}`} auditId={audits.find(audit=>audit.name===selected)!.id} lang={lang} focusId={requestFocus?.auditId===audits.find(audit=>audit.name===selected)?.id?requestFocus?.id || "":""}/>}
       <AuditReadinessGate key={selected} lang={lang} auditName={selected} records={[...items,...evidenceRows]} />
       <AuditRequirementsTable
         key={`requirements:${selected}`}

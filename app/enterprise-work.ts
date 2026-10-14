@@ -1,7 +1,9 @@
+import { requestNextDue, type AuditRequest } from './audit-requests';
 export const enterpriseWorkSources = [
   { key: 'policy', path: '/api/policy-lifecycle' },
   { key: 'vendor', path: '/api/third-party-risk' },
   { key: 'regulatory', path: '/api/regulatory-intelligence' },
+  { key: 'audit', path: '/api/audits/requests' },
 ] as const;
 export type EnterpriseWorkSource = typeof enterpriseWorkSources[number]['key'];
 type RecordData = Record<string, unknown>;
@@ -10,6 +12,7 @@ export type EnterpriseWorkRow = {
   data: RecordData; updatedAt?: string; createdAt?: string;
 };
 export const enterpriseWorkKinds: Record<string, { module: string; tab: string; tr: string; en: string }> = {
+  'audit-request': { module: 'Denetim Yönetimi', tab: 'requests', tr: 'Denetim talebi', en: 'Audit request' },
   'policy-review': { module: 'Politika Merkezi', tab: 'policies', tr: 'Politika incelemesi', en: 'Policy review' },
   'policy-version': { module: 'Politika Merkezi', tab: 'versions', tr: 'Sürüm ve yayın', en: 'Version and release' },
   'policy-attestation': { module: 'Politika Merkezi', tab: 'attestations', tr: 'Politika kabulü', en: 'Policy attestation' },
@@ -26,6 +29,7 @@ const limits: Record<EnterpriseWorkSource, Record<string, number>> = {
   policy: { documents: 1000, versions: 3000, campaigns: 1000, attestations: 5000, exceptions: 2000 },
   vendor: { profiles: 1000, assessments: 2000, findings: 3000 },
   regulatory: { changes: 1000, impacts: 2000 },
+  audit: { requests: 1000 },
 };
 
 /** Read-only projection: no synthesized approvals, timestamps or second mutation path. */
@@ -55,7 +59,13 @@ export function projectEnterpriseWork(source: EnterpriseWorkSource, payload: unk
     if (found.length !== 1) complete = false;
     return found.length === 1 ? found[0] : undefined;
   };
-  if (source === 'policy') {
+  if (source === 'audit') {
+    if (payload.complete !== true) complete = false;
+    for (const item of collections.requests) {
+      if (!text(item.auditId) || !text(item.owner) || !text(item.reviewer) || !text(item.dueDate) || !text(item.reviewDueDate) || !['assigned', 'submitted', 'changes_requested', 'accepted', 'cancelled'].includes(text(item.status))) { complete = false; continue; }
+      add('audit-request', item, { title: item.title, auditId: item.auditId, owner: item.owner, reviewer: item.status === 'submitted' ? item.reviewer : '', dueDate: item.dueAt || requestNextDue(item as AuditRequest) }, ['accepted', 'cancelled'].includes(text(item.status)));
+    }
+  } else if (source === 'policy') {
     const { documents, versions, campaigns, attestations, exceptions } = collections;
     for (const p of documents) {
       // Review dates belong to the published document; drafting/release tasks belong to versions.

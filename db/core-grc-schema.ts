@@ -1,4 +1,4 @@
-import { integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import { index, integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
 
 /**
  * Canonical schema for core GRC support tables that sit alongside
@@ -39,3 +39,16 @@ export const simpleGrcRecordCodeCounters = sqliteTable("simple_grc_record_code_c
   value: integer("value").notNull().default(0),
   updatedAt: text("updated_at").notNull(),
 });
+
+export const auditRequestWorkflows = sqliteTable("audit_request_workflows", {
+  auditId: text("audit_id").primaryKey(), state: text("state").notNull(), revision: text("revision").notNull(),
+  timeZone: text("time_zone").notNull(), planRevision: text("plan_revision").notNull().default(""),
+});
+export const auditRequests = sqliteTable("audit_requests", {
+  id: text("id").primaryKey(), auditId: text("audit_id").notNull(), dataJson: text("data_json").notNull(),
+  revision: text("revision").notNull(), createdAt: text("created_at").notNull(), updatedAt: text("updated_at").notNull(),
+}, table => [index("audit_requests_parent_idx").on(table.auditId, table.createdAt, table.id)]);
+export const auditRequestEvents = sqliteTable("audit_request_events", {
+  id: text("id").primaryKey(), auditId: text("audit_id").notNull(), requestId: text("request_id").notNull(),
+  action: text("action").notNull(), actor: text("actor").notNull(), snapshotJson: text("snapshot_json").notNull(), createdAt: text("created_at").notNull(),
+}, table => [index("audit_request_events_parent_idx").on(table.auditId, table.createdAt, table.id)]);
