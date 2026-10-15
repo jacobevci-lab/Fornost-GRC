@@ -1,7 +1,7 @@
 import { evidenceFreshness } from './evidence/continuous-controls';
 
-export type RetestRun = { id: string; status: string; evidence_id: string | null; created_at: string; response_hash: string; detail: string; error_code: string | null };
-export type RetestReason = 'passed' | 'test-failed' | 'collection-error' | 'evidence-missing' | 'evidence-mismatch' | 'evidence-stale' | 'source-unavailable' | 'remediation-unverified' | 'risk-missing' | 'risk-data-invalid';
+export type RetestRun = { assessment_fingerprint?: string | null; id: string; status: string; evidence_id: string | null; created_at: string; response_hash: string; detail: string; error_code: string | null };
+export type RetestReason = 'configuration-unverified' | 'configuration-changed' | 'control-scope-changed' | 'passed' | 'test-failed' | 'collection-error' | 'evidence-missing' | 'evidence-mismatch' | 'evidence-stale' | 'source-unavailable' | 'remediation-unverified' | 'risk-missing' | 'risk-data-invalid';
 export type RetestOutcome = {
   runId: string; testStatus: string; status: 'pass' | 'fail' | 'error'; reason: RetestReason;
   evidenceId: string | null; evaluatedAt: string;
@@ -22,7 +22,8 @@ export function assessRetestRun(run: RetestRun, evidenceRaw: string | null, fres
   const evidence = parseAssuranceObject(evidenceRaw);
   if (!evidence || evidence.validationStatus !== 'pass' || !/^[a-f0-9]{64}$/i.test(run.response_hash)
     || String(evidence.responseHash).toLowerCase() !== run.response_hash.toLowerCase()
-    || evidence.collectedAt !== run.created_at) return { status: 'error', reason: 'evidence-mismatch' };
+    || evidence.collectedAt !== run.created_at
+    || (run.assessment_fingerprint && evidence.assessmentFingerprint !== run.assessment_fingerprint)) return { status: 'error', reason: 'evidence-mismatch' };
   const expires = Date.parse(String(evidence.freshUntil || ''));
   if (!Number.isFinite(freshnessHours) || freshnessHours <= 0 || !Number.isFinite(expires) || expires <= now.getTime()
     || evidenceFreshness(run.created_at, freshnessHours, now) !== 'fresh') return { status: 'error', reason: 'evidence-stale' };
@@ -30,6 +31,9 @@ export function assessRetestRun(run: RetestRun, evidenceRaw: string | null, fres
 }
 
 export const retestReasonText: Record<RetestReason, { tr: string; en: string }> = {
+  'configuration-unverified': { tr: 'Bu eski çalışmanın yapılandırma bağı doğrulanamıyor. Güncel ayarlarla yeni test isteyin; risk kararı değiştirilmedi.', en: 'This historical run has no verifiable configuration linkage. Request a new test with current settings; the risk decision was preserved.' },
+  'configuration-changed': { tr: 'Kaynak veya kontrol ayarı testten sonra değişti. Güncel ayarlarla yeni test isteyin; risk kararı değiştirilmedi.', en: 'Source or control settings changed after this test. Request a new test with current settings; the risk decision was preserved.' },
+  'control-scope-changed': { tr: 'Onaylanan hedef kontrol artık bu testin kapsamında değil. Kontrol eşlemesini ve yeniden test talebini gözden geçirin; risk kararı değiştirilmedi.', en: 'The approved target control is no longer in this test scope. Review the control mapping and re-test request; the risk decision was preserved.' },
   passed: { tr: 'Yeniden test güncel kanıtla başarılı. Risk onayı ayrı yürütülür.', en: 'Re-test passed with fresh evidence. Risk approval remains separate.' },
   'test-failed': { tr: 'Yeniden test başarısız. Açık bulguyu ve risk değerlendirmesini takip edin.', en: 'Re-test failed. Follow up on the open finding and risk review.' },
   'collection-error': { tr: 'Veri toplama veya değerlendirme tamamlanamadı. Hata giderilince yeni test isteyin.', en: 'Collection or assessment did not complete. Request another test after resolving the error.' },
@@ -37,7 +41,7 @@ export const retestReasonText: Record<RetestReason, { tr: string; en: string }> 
   'evidence-mismatch': { tr: 'Test ve kanıt bilgileri eşleşmiyor; yeniden kanıt toplayın.', en: 'Test and evidence metadata do not match; collect new evidence.' },
   'evidence-stale': { tr: 'Test kanıtı güncel değil veya tarihi doğrulanamıyor; yeni test isteyin.', en: 'Test evidence is stale or its date is unverifiable; request another test.' },
   'remediation-unverified': { tr: 'Düzeltme yeniden açılmış veya kapanış kanıtı eksik; iyileşme doğrulanamadı.', en: 'Remediation was reopened or closure proof is missing; recovery is unverified.' },
-  'source-unavailable': { tr: 'Bağlı kontrol veya bulgu bulunamadı; kaynak bağlantısını düzeltin.', en: 'The linked rule or finding is unavailable; repair the source linkage.' },
+  'source-unavailable': { tr: 'Bağlı kaynak, kontrol veya bulgu kullanılamıyor; kaynak bağlantısını ve etkinlik durumunu kontrol edin.', en: 'The linked source, rule or finding is unavailable; check its linkage and enabled state.' },
   'risk-missing': { tr: 'Bağlı risk bulunamadığı için sonuç risk kaydına işlenemedi.', en: 'The linked risk is missing, so the result could not be applied to it.' },
   'risk-data-invalid': { tr: 'Bağlı risk verisi okunamadı; risk kaydını düzeltin.', en: 'The linked risk data is invalid; repair the risk record.' },
 };

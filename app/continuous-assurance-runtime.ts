@@ -1,3 +1,5 @@
+import { retestConfigurationReason, ensureAssessmentLineageSchema } from "./evidence/assessment-lineage";
+import { observedExecutionGuard } from "./evidence/execution-guard";
 import {ensureAssuranceExceptionSchema} from "./assurance-exception-schema";
 import { assessRetestRun, parseAssuranceObject, type RetestOutcome, type RetestRun } from "./assurance-retest";
 
@@ -119,36 +121,42 @@ export function buildResidualRiskReassessment(data: Record<string, unknown>, sta
   };
 }
 
+type RetestRule = { id:string; source_id:string; control_refs:string; freshness_hours:number; enabled:number; assessment_revision:number };
+type RetestSource = { id:string; enabled:number };
 type RetestFinding = { id: string; rule_id: string; status: string; closed_at: string | null; updated_at: string; closure_evidence_ref: string | null; closure_evidence_sha256: string | null };
 
 export async function reconcileApprovedRetests(db: D1Database, now = new Date()) {
   await ensureAssuranceWorkSchema(db);
   await ensureAssuranceExceptionSchema(db);
   const approved = await db.prepare("SELECT * FROM continuous_assurance_work_items WHERE action='control-retest' AND status='approved-awaiting-retest' ORDER BY reviewed_at,created_at LIMIT 200").all<AssuranceWorkRow>();
+  if(approved.results.length)await ensureAssessmentLineageSchema(db);
   let reconciled = 0;
   for (const item of approved.results) {
     const approvedAt = item.reviewed_at || item.updated_at || item.created_at;
     const boundary = await db.prepare("SELECT MAX(lifecycle_updated_at) ended_at FROM continuous_assurance_exceptions WHERE retest_work_item_id=? AND retest_required=1 AND status IN ('expired','revoked')").bind(item.id).first<{ended_at:string|null}>();
     const since = boundary?.ended_at && Date.parse(boundary.ended_at)>Date.parse(approvedAt) ? boundary.ended_at : approvedAt;
-    const run = await db.prepare("SELECT id,status,evidence_id,created_at,response_hash,detail,error_code FROM evidence_automation_runs WHERE rule_id=? AND created_at>? AND created_at<=? ORDER BY created_at ASC,rowid ASC LIMIT 1")
+    const run = await db.prepare("SELECT id,status,evidence_id,created_at,response_hash,detail,error_code,assessment_fingerprint FROM evidence_automation_runs WHERE rule_id=? AND julianday(created_at)>julianday(?) AND julianday(created_at)<=julianday(?) ORDER BY julianday(created_at) ASC,rowid ASC LIMIT 1")
       .bind(item.rule_id, since, now.toISOString()).first<RetestRun>();
     if (!run) continue;
     const decision = parseAssuranceObject(item.decision_json) || {};
     const riskRef = typeof decision.riskRef === "string" && decision.riskRef ? decision.riskRef : item.finding_id;
     const [rule, finding, risk, evidence, active] = await Promise.all([
-      db.prepare("SELECT freshness_hours FROM evidence_automation_rules WHERE id=?").bind(item.rule_id).first<{ freshness_hours: number }>(),
+      db.prepare("SELECT * FROM evidence_automation_rules WHERE id=?").bind(item.rule_id).first<RetestRule>(),
       db.prepare("SELECT id,rule_id,status,closed_at,updated_at,closure_evidence_ref,closure_evidence_sha256 FROM evidence_automation_findings WHERE id=?").bind(item.finding_id).first<RetestFinding>(),
       db.prepare("SELECT id,data_json,updated_at FROM simple_grc_records WHERE id=? AND module='Risk Assessment'").bind(riskRef).first<{ id: string; data_json: string; updated_at: string }>(),
       run.evidence_id ? db.prepare("SELECT data_json FROM simple_grc_records WHERE id=? AND module='Kanıtlar'").bind(run.evidence_id).first<{ data_json: string }>() : Promise.resolve(null),
       db.prepare("SELECT id FROM evidence_automation_findings WHERE rule_id=? AND status!='closed'").bind(item.rule_id).first<{ id: string }>(),
     ]);
+    const source=rule?await db.prepare("SELECT * FROM evidence_automation_sources WHERE id=?").bind(rule.source_id).first<RetestSource>():null;
+    const configurationReason=await retestConfigurationReason(rule,source,run.assessment_fingerprint,String(decision.targetControlRef||decision.controlRef||""));
     const riskData = risk ? parseAssuranceObject(risk.data_json) : null;
     const assessment = assessRetestRun(run, evidence?.data_json || null, Number(rule?.freshness_hours), now);
     const outcome: RetestOutcome = { runId: run.id, testStatus: run.status, ...assessment,
       evidenceId: run.evidence_id, evaluatedAt: run.created_at, riskId: risk?.id || null,
       riskUpdate: !risk ? "missing" : !riskData ? "invalid" : Date.parse(String(riskData.lastReassessedAt || "")) > Date.parse(run.created_at) ? "newer-review-preserved" : "applied",
       findingAction: "none", followUpFindingId: null };
-    if (!rule || !finding || finding.rule_id !== item.rule_id) { outcome.status = "error"; outcome.reason = "source-unavailable"; outcome.riskUpdate = "not-applied"; }
+    if (!finding || finding.rule_id !== item.rule_id) { outcome.status = "error"; outcome.reason = "source-unavailable"; outcome.riskUpdate = "not-applied"; }
+    else if (configurationReason) { outcome.status="error";outcome.reason=configurationReason;outcome.riskUpdate="not-applied"; }
     else if (!risk) { outcome.status = "error"; outcome.reason = "risk-missing"; }
     else if (!riskData) { outcome.status = "error"; outcome.reason = "risk-data-invalid"; }
     if (outcome.status === "pass" && !(decision.source === "assurance-exception" && decision.mandatory === true)
@@ -167,22 +175,27 @@ export async function reconcileApprovedRetests(db: D1Database, now = new Date())
     // A write failure rolls back the work status as well as the risk/finding changes.
     const token = crypto.randomUUID(), at = now.toISOString();
     const decisionJson = JSON.stringify({ ...decision, retestOutcome: outcome, reconciliationToken: token });
-    const guards: string[] = [], guardValues: (string | number | null)[] = [];
+    const guards: string[] = [], guardValues: unknown[] = [];
     // A newly linked/later-ended exception must invalidate a run selected before that obligation.
     guards.push("NOT EXISTS(SELECT 1 FROM continuous_assurance_exceptions WHERE retest_work_item_id=? AND retest_required=1 AND status IN ('expired','revoked') AND (julianday(lifecycle_updated_at) IS NULL OR julianday(lifecycle_updated_at)>=julianday(?)))");
     guardValues.push(item.id,run.created_at);
-    if (rule) { guards.push("EXISTS(SELECT 1 FROM evidence_automation_rules WHERE id=? AND freshness_hours=?)"); guardValues.push(item.rule_id, rule.freshness_hours); }
+    const runKeys=['id','status','evidence_id','created_at','response_hash','detail','error_code','assessment_fingerprint'] as const;
+    guards.push(`EXISTS(SELECT 1 FROM evidence_automation_runs WHERE rule_id=? AND ${runKeys.map(key=>`${key} IS ?`).join(' AND ')})`);
+    guardValues.push(item.rule_id,...runKeys.map(key=>run[key]??null));
+    if (rule) { const guard=observedExecutionGuard('rule',rule,'r'); guards.push(`EXISTS(SELECT 1 FROM evidence_automation_rules r WHERE ${guard.sql})`); guardValues.push(...guard.values); }
     else { guards.push("NOT EXISTS(SELECT 1 FROM evidence_automation_rules WHERE id=?)"); guardValues.push(item.rule_id); }
+    if(source){const guard=observedExecutionGuard('source',source,'s');guards.push(`EXISTS(SELECT 1 FROM evidence_automation_sources s WHERE ${guard.sql})`);guardValues.push(...guard.values);}
+    else if(rule){guards.push("NOT EXISTS(SELECT 1 FROM evidence_automation_sources WHERE id=?)");guardValues.push(rule.source_id);}
     if (evidence && run.evidence_id) { guards.push("EXISTS(SELECT 1 FROM simple_grc_records WHERE id=? AND module='Kanıtlar' AND data_json=?)"); guardValues.push(run.evidence_id, evidence.data_json); }
     else if (run.evidence_id) { guards.push("NOT EXISTS(SELECT 1 FROM simple_grc_records WHERE id=? AND module='Kanıtlar')"); guardValues.push(run.evidence_id); }
     if (risk) { guards.push("EXISTS(SELECT 1 FROM simple_grc_records WHERE id=? AND module='Risk Assessment' AND data_json=? AND updated_at=?)"); guardValues.push(risk.id, risk.data_json, risk.updated_at); }
     else { guards.push("NOT EXISTS(SELECT 1 FROM simple_grc_records WHERE id=? AND module='Risk Assessment')"); guardValues.push(riskRef); }
-    if (finding) { guards.push("EXISTS(SELECT 1 FROM evidence_automation_findings WHERE id=? AND rule_id=? AND status=? AND updated_at=?)"); guardValues.push(finding.id, finding.rule_id, finding.status, finding.updated_at); }
+    if (finding) { guards.push("EXISTS(SELECT 1 FROM evidence_automation_findings WHERE id=? AND rule_id=? AND status=? AND updated_at=? AND closed_at IS ? AND closure_evidence_ref IS ? AND closure_evidence_sha256 IS ?)"); guardValues.push(finding.id, finding.rule_id, finding.status, finding.updated_at, finding.closed_at, finding.closure_evidence_ref, finding.closure_evidence_sha256); }
     else { guards.push("NOT EXISTS(SELECT 1 FROM evidence_automation_findings WHERE id=?)"); guardValues.push(item.finding_id); }
     if (active) { guards.push("EXISTS(SELECT 1 FROM evidence_automation_findings WHERE rule_id=? AND id=? AND status!='closed')"); guardValues.push(item.rule_id, active.id); }
     else { guards.push("NOT EXISTS(SELECT 1 FROM evidence_automation_findings WHERE rule_id=? AND status!='closed')"); guardValues.push(item.rule_id); }
-    const statements = [db.prepare(`UPDATE continuous_assurance_work_items SET status=?,result_ref=?,completed_at=?,updated_at=?,decision_json=? WHERE id=? AND status='approved-awaiting-retest' AND decision_json=? AND ${guards.join(" AND ")}`)
-      .bind(finalStatus, run.id, at, at, decisionJson, item.id, item.decision_json, ...guardValues)];
+    const statements = [db.prepare(`UPDATE continuous_assurance_work_items SET status=?,result_ref=?,completed_at=?,updated_at=?,decision_json=? WHERE id=? AND status='approved-awaiting-retest' AND action='control-retest' AND rule_id=? AND finding_id=? AND reviewed_at IS ? AND reviewed_by IS ? AND updated_at=? AND decision_json=? AND ${guards.join(" AND ")}`)
+      .bind(finalStatus, run.id, at, at, decisionJson, item.id, item.rule_id, item.finding_id, item.reviewed_at??null, item.reviewed_by??null, item.updated_at, item.decision_json, ...guardValues)];
     const claimed = "EXISTS(SELECT 1 FROM continuous_assurance_work_items WHERE id=? AND json_extract(decision_json,'$.reconciliationToken')=?)";
     if (risk && riskData && outcome.riskUpdate === "applied") {
       const reassessed = buildResidualRiskReassessment(riskData, outcome.status, run.id, run.created_at);

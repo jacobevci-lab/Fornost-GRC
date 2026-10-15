@@ -21,6 +21,13 @@ async function seed(content) {
   execFileSync('npx', ['wrangler', 'd1', 'execute', 'DB', '--local', '--config', 'wrangler.d1.jsonc', '--file', file], { stdio: 'pipe', timeout: 60000 });
 }
 const route = '/api/continuous-assurance', findingId = 'QA-RETEST-FINDING', ruleId = 'QA-RETEST-RULE';
+// Read only these synthetic localhost rows; use the production fingerprint function.
+function fixtureFingerprint(){
+  const query="SELECT json_object('rule',json((SELECT json_object('id',id,'source_id',source_id,'control_refs',control_refs,'json_path',json_path,'operator',operator,'expected',expected,'schedule',schedule,'enabled',enabled,'template_id',template_id,'template_version',template_version,'freshness_hours',freshness_hours,'failure_threshold',failure_threshold,'auto_finding',auto_finding,'remediation_owner',remediation_owner,'remediation_due_days',remediation_due_days,'assessment_revision',assessment_revision) FROM evidence_automation_rules WHERE id='QA-RETEST-RULE')),'source',json((SELECT json_object('id',id,'driver',driver,'enabled',enabled,'config_json',config_json,'secret_ciphertext',secret_ciphertext) FROM evidence_automation_sources WHERE id='QA-RETEST-SOURCE'))) fixture";
+  const result=JSON.parse(execFileSync('npx',['wrangler','d1','execute','DB','--local','--config','wrangler.d1.jsonc','--json','--command',query],{encoding:'utf8',timeout:60000}));
+  return execFileSync(process.execPath,['--import','tsx','--input-type=module','-e',"import {assessmentFingerprint} from './app/evidence/assessment-lineage.ts';let raw='';for await(const chunk of process.stdin)raw+=chunk;const {rule,source}=JSON.parse(raw);process.stdout.write(await assessmentFingerprint(rule,source));"],{input:result[0].results[0].fixture,encoding:'utf8',timeout:30000});
+}
+
 try {
   await api(admin, '/api/auth', 'POST', { action: 'login', email: 'qa-admin@fornost.test', password });
   await api(admin, '/api/evidence-automation'); await api(admin, route);
@@ -31,16 +38,29 @@ try {
   const stamp = new Date().toISOString(), earlier = seconds => new Date(Date.now() - seconds * 1000).toISOString(), hash = 'b'.repeat(64), due = stamp.slice(0, 10);
   const risk = { title: 'QA Retest risk', owner: 'qa-risk-owner@fornost.test', status: 'Kapalı', category: 'Compliance', asset: 'QA only', inherentLikelihood: '4', inherentImpact: '4', residualLikelihood: '2', residualImpact: '3', residualRiskReviewRequired: true, riskReviewRequestedAt: earlier(600) };
   await seed(`
+    INSERT INTO evidence_automation_sources(id,name,vendor,category,driver,config_json,created_at,updated_at,updated_by) VALUES('QA-RETEST-SOURCE','QA Retest Source','Custom','Custom','rest-json','{"baseUrl":"https://fixture.example/initial","authType":"none"}',${q(stamp)},${q(stamp)},'qa');
     INSERT INTO evidence_automation_rules(id,name,source_id,control_refs,json_path,operator,expected,schedule,created_at,updated_at,updated_by) VALUES(${q(ruleId)},'QA Retest Coverage','QA-RETEST-SOURCE','A.8.1','coverage','gte','90','daily',${q(stamp)},${q(stamp)},'qa');
     INSERT INTO evidence_automation_findings(id,rule_id,title,severity,owner,due_date,status,detail,created_at,updated_at,closed_at,closure_evidence_ref,closure_evidence_sha256) VALUES(${q(findingId)},${q(ruleId)},'QA Retest finding','high','qa-risk-owner@fornost.test',${q(due)},'closed','Synthetic closed remediation',${q(earlier(240))},${q(earlier(180))},${q(earlier(180))},'QA-CLOSURE',${q(hash)});
     INSERT INTO simple_grc_records(id,module,data_json,created_at,updated_at) VALUES(${q(findingId)},'Risk Assessment',${q(JSON.stringify(risk))},${q(stamp)},${q(stamp)});
     INSERT INTO continuous_assurance_work_items(id,finding_id,rule_id,action,status,decision_json,created_at,updated_at,actor,reviewed_by,reviewed_at) VALUES('QA-RETEST-WORK',${q(findingId)},${q(ruleId)},'control-retest','approved-awaiting-retest',${q(JSON.stringify({ riskRef: findingId, targetControlRef: 'A.8.1' }))},${q(earlier(160))},${q(earlier(120))},'qa-maker@fornost.test','qa-checker@fornost.test',${q(earlier(120))});
-    INSERT INTO evidence_automation_runs(id,rule_id,rule_name,source_name,status,score,detail,response_hash,created_at,actor,error_code) VALUES('QA-RETEST-ERROR',${q(ruleId)},'QA Retest Coverage','Synthetic QA','error',0,'QA connector unavailable',${q(hash)},${q(earlier(60))},'qa','SOURCE_REQUEST_FAILED');
+    INSERT INTO evidence_automation_runs(id,rule_id,rule_name,source_name,status,score,detail,response_hash,created_at,actor,error_code) VALUES('QA-RETEST-OLD',${q(ruleId)},'QA Retest Coverage','Synthetic QA','pass',100,'QA result collected before source edit',${q(hash)},${q(earlier(60))},'qa',NULL);
   `);
+  const oldFingerprint=fixtureFingerprint(),oldRunAt=earlier(60);
+  const oldEvidence={validationStatus:'pass',responseHash:hash,assessmentFingerprint:oldFingerprint,collectedAt:oldRunAt,freshUntil:new Date(Date.now()+86400000).toISOString()};
+  await seed(`INSERT INTO simple_grc_records(id,module,data_json,created_at,updated_at) VALUES('QA-RETEST-OLD-EVD','Kanıtlar',${q(JSON.stringify(oldEvidence))},${q(oldRunAt)},${q(oldRunAt)});
+    UPDATE evidence_automation_runs SET assessment_fingerprint=${q(oldFingerprint)},evidence_id='QA-RETEST-OLD-EVD',created_at=${q(oldRunAt)} WHERE id='QA-RETEST-OLD';`);
+  await api(admin,'/api/evidence-automation','POST',{action:'save-source',sourceId:'QA-RETEST-SOURCE',name:'QA Retest Source',vendor:'Custom',category:'Custom',driver:'rest-json',baseUrl:'https://fixture.example/changed',authType:'none'});
+  // A later current pass must not erase the first outcome or prevent its governed retry.
+  const laterAt=earlier(10),laterFingerprint=fixtureFingerprint();
+  const laterEvidence={...oldEvidence,collectedAt:laterAt,assessmentFingerprint:laterFingerprint};
+  await seed(`INSERT INTO simple_grc_records(id,module,data_json,created_at,updated_at) VALUES('QA-RETEST-LATER-EVD','Kanıtlar',${q(JSON.stringify(laterEvidence))},${q(laterAt)},${q(laterAt)});
+    INSERT INTO evidence_automation_runs(id,rule_id,rule_name,source_name,status,score,detail,response_hash,evidence_id,created_at,actor,assessment_fingerprint) VALUES('QA-RETEST-LATER',${q(ruleId)},'QA Retest Coverage','Synthetic QA','pass',100,'Later passing result',${q(hash)},'QA-RETEST-LATER-EVD',${q(laterAt)},'qa',${q(laterFingerprint)});`);
   await seed(`INSERT INTO continuous_assurance_exceptions(id,finding_id,rule_id,control_ref,risk_ref,reason,expires_at,evidence_reference,evidence_sha256,status,submitted_by,submitted_at,retest_required,retest_work_item_id,lifecycle_updated_at) VALUES('QA-RETEST-EXCEPTION',${q(findingId)},${q(ruleId)},'A.8.1',${q(findingId)},'Synthetic expired exception for retry closure',${q(due)},'QA-EVD',${q(hash)},'expired','qa',${q(earlier(240))},1,'QA-RETEST-WORK',${q(earlier(150))});`);
   let work = (await api(admin, route)).items.find(row => row.id === 'QA-RETEST-WORK');
   assert.equal((await api(admin,route+'/governance')).exceptions.find(row=>row.id==='QA-RETEST-EXCEPTION').retestRequired,true);
-  assert.equal(work.status, 'retest-error'); assert.equal(work.retestOutcome.reason, 'collection-error'); assert.equal(work.retestOutcome.riskUpdate, 'applied');
+  assert.equal(work.resultRef,'QA-RETEST-OLD');
+  assert.equal(work.status, 'retest-error'); assert.equal(work.retestOutcome.reason, 'configuration-changed'); assert.equal(work.retestOutcome.riskUpdate, 'not-applied');
+  assert.deepEqual(JSON.parse((await api(admin,'/api/grc')).rows.find(row=>row.id===findingId).data_json),risk);
   await page.goto(base); await expect(page.locator('.shell')).toBeVisible();
   await page.locator('.language-switch:visible').getByRole('button', { name: 'EN', exact: true }).click();
   await page.locator('nav button[aria-label="Connected GRC Map"]').evaluate(el => el.click());
@@ -49,7 +69,7 @@ try {
   const item = queue.locator('.work-retest-error').filter({ hasText: 'QA Retest finding' });
   await expect(item).toBeVisible(); await item.getByRole('button', { name: 'View Test Result', exact: true }).click();
   const dialog = page.getByRole('dialog', { name: 'Re-test result', exact: true });
-  await expect(dialog).toContainText('Collection or assessment did not complete'); await expect(dialog).toContainText('QA connector unavailable');
+  await expect(dialog).toContainText('Source or control settings changed after this test'); await expect(dialog).toContainText('risk decision was preserved');
   for (const theme of ['light', 'dark']) {
     await page.evaluate(theme => { document.documentElement.dataset.theme = theme; }, theme);
     for (const width of [1536, 390]) {
@@ -59,6 +79,12 @@ try {
     }
   }
   await page.setViewportSize({ width: 1536, height: 960 }); await dialog.getByRole('button', { name: 'Close', exact: true }).click();
+  await page.locator('.language-switch:visible').getByRole('button',{name:'TR',exact:true}).click();
+  await item.getByRole('button',{name:'Test Sonucunu Aç',exact:true}).click();
+  const trDialog=page.getByRole('dialog');await expect(trDialog).toContainText('Kaynak veya kontrol ayarı testten sonra değişti');await expect(trDialog).toContainText('risk kararı değiştirilmedi');
+  await page.setViewportSize({width:390,height:960});await page.screenshot({path:`${out}/configuration-changed-tr-dark-mobile.png`});
+  await trDialog.getByRole('button',{name:'Kapat',exact:true}).click();await page.setViewportSize({width:1536,height:960});
+  await page.locator('.language-switch:visible').getByRole('button',{name:'EN',exact:true}).click();
   const queuedResponse = page.waitForResponse(response => response.url().endsWith(route) && response.request().method() === 'POST');
   await item.getByRole('button', { name: 'Request New Test', exact: true }).click();
   const queuedHttp = await queuedResponse; assert.equal(queuedHttp.status(), 201); const queued = await queuedHttp.json();
@@ -101,10 +127,11 @@ try {
   await api(checker, route, 'POST', { action: 'review-work-item', workItemId: queued.id, decision: 'approve' });
   await api(checker, route, 'POST', { action: 'review-work-item', workItemId: queued.id, decision: 'approve' }, 409);
   const passedAt = new Date().toISOString(), evidenceId = 'QA-RETEST-PASS-EVD';
-  const evidence = { evidenceTitle: 'QA passing retest', validationStatus: 'pass', responseHash: hash, collectedAt: passedAt, freshUntil: new Date(Date.now() + 86400000).toISOString(), controlRef: 'A.8.1' };
+  const fingerprint=fixtureFingerprint();
+  const evidence = { assessmentFingerprint:fingerprint,evidenceTitle: 'QA passing retest', validationStatus: 'pass', responseHash: hash, collectedAt: passedAt, freshUntil: new Date(Date.now() + 86400000).toISOString(), controlRef: 'A.8.1' };
   await seed(`
     INSERT INTO simple_grc_records(id,module,data_json,created_at,updated_at) VALUES(${q(evidenceId)},'Kanıtlar',${q(JSON.stringify(evidence))},${q(passedAt)},${q(passedAt)});
-    INSERT INTO evidence_automation_runs(id,rule_id,rule_name,source_name,status,score,detail,response_hash,evidence_id,created_at,actor) VALUES('QA-RETEST-PASS',${q(ruleId)},'QA Retest Coverage','Synthetic QA','pass',100,'QA passing retest with fresh proof',${q(hash)},${q(evidenceId)},${q(passedAt)},'qa');
+    INSERT INTO evidence_automation_runs(id,rule_id,rule_name,source_name,status,score,detail,response_hash,evidence_id,created_at,actor,assessment_fingerprint) VALUES('QA-RETEST-PASS',${q(ruleId)},'QA Retest Coverage','Synthetic QA','pass',100,'QA passing retest with fresh proof',${q(hash)},${q(evidenceId)},${q(passedAt)},'qa',${q(fingerprint)});
     ${Array.from({ length: 26 }, (_, i) => `INSERT INTO continuous_assurance_work_items(id,finding_id,rule_id,action,status,decision_json,created_at,updated_at,actor) VALUES('QA-RETEST-HISTORY-${i}',${q(findingId)},${q(ruleId)},'capa-promotion','rejected','{}',${q(earlier(500))},${q(earlier(500))},'qa');`).join('\n')}
   `);
   work = (await api(admin, route)).items.find(row => row.id === queued.id);
@@ -143,16 +170,17 @@ finally {
         DELETE FROM continuous_assurance_exceptions WHERE id='QA-RETEST-EXCEPTION';
         DELETE FROM continuous_assurance_work_items WHERE finding_id=${q(findingId)} AND rule_id=${q(ruleId)};
         DELETE FROM evidence_automation_runs WHERE rule_id=${q(ruleId)};
-        DELETE FROM simple_grc_record_codes WHERE record_id IN (${q(findingId)},'QA-RETEST-PASS-EVD');
-        DELETE FROM simple_grc_records WHERE id IN (${q(findingId)},'QA-RETEST-PASS-EVD');
+        DELETE FROM simple_grc_record_codes WHERE record_id IN (${q(findingId)},'QA-RETEST-PASS-EVD','QA-RETEST-OLD-EVD','QA-RETEST-LATER-EVD');
+        DELETE FROM simple_grc_records WHERE id IN (${q(findingId)},'QA-RETEST-PASS-EVD','QA-RETEST-OLD-EVD','QA-RETEST-LATER-EVD');
         DELETE FROM evidence_automation_findings WHERE id=${q(findingId)} AND rule_id=${q(ruleId)};
         DELETE FROM evidence_automation_rules WHERE id=${q(ruleId)};
+        DELETE FROM evidence_automation_sources WHERE id='QA-RETEST-SOURCE';
       `);
       const remainingWork = (await api(admin, route)).items;
       assert.ok(!remainingWork.some(row => row.findingId === findingId || row.ruleId === ruleId));
       const remainingRecords = (await api(admin, '/api/grc')).rows;
-      assert.ok(!remainingRecords.some(row => [findingId, 'QA-RETEST-PASS-EVD'].includes(row.id)));
+      assert.ok(!remainingRecords.some(row => [findingId, 'QA-RETEST-PASS-EVD','QA-RETEST-OLD-EVD','QA-RETEST-LATER-EVD'].includes(row.id)));
     }
   } finally { await browser.close(); }
 }
-console.log(`ASSURANCE_RETEST_QA_PASS: ${checks} API checks; real reconciliation, UI results and retry, independent approval/revalidation, fresh proof, completed exception retry lineage, preserved risk review, pagination, load failure recovery, desktop/mobile in both themes and fixture cleanup`);
+console.log(`ASSURANCE_RETEST_QA_PASS: ${checks} API checks; real configuration-change rejection with unchanged risk, EN/TR UI results and independent retry with current fingerprint, independent approval/revalidation, fresh proof, completed exception retry lineage, preserved risk review, pagination, load failure recovery, desktop/mobile in both themes and fixture cleanup`);
