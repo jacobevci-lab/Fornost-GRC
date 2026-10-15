@@ -1,3 +1,5 @@
+import { isAutomatedEvidence } from './automation-identity';
+export { isAutomatedEvidence } from './automation-identity';
 import { assessRetestRun, parseAssuranceObject, type RetestRun, type RetestReason } from '../assurance-retest';
 import { evaluateEvidenceEligibility } from './eligibility';
 import { normalizeEvidenceControlRef, splitEvidenceControlRefs } from './versioning';
@@ -36,12 +38,6 @@ export async function assessJoinedRun(row:AssessmentJoin,now:Date,targetControl?
   const eligibility=evaluateEvidenceEligibility(evidence!,now);
   if(!eligibility.current)return {status:'error' as const,reason:eligibility.expired?'evidence-stale' as const:'evidence-mismatch' as const};
   return assessment;
-}
-
-export function isAutomatedEvidence(row:{id:string;data:Record<string,unknown>}) {
-  const d=row.data;
-  return row.id.startsWith('EVD-AUTO-') || !!(d.assessmentFingerprint || d.automationRunId || d.automationRuleId || d.automationAssessment)
-    || (d.collectionMethod==='API' && !!d.responseHash && !!d.collectedAt);
 }
 
 /** Read-only: mark eligibility at this evaluation without rewriting any evidence history. */

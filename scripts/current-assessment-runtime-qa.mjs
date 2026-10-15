@@ -36,6 +36,60 @@ try{
   const diagnostic={en:'Source or control settings changed; collect evidence with current settings.',tr:'Kaynak veya kontrol ayarı değişti; güncel ayarlarla yeni kanıt toplayın.'};
   await page.goto(base);await expect(page.locator('.shell')).toBeVisible();
   await page.locator('.language-switch:visible').getByRole('button',{name:'EN',exact:true}).click();
+  const executive=page.locator('.executive-dashboard-reference');
+  await page.locator('nav button[aria-label="Dashboard"]').evaluate(el=>el.click());
+  await expect(executive.locator('.evidence-assurance-status')).toHaveAttribute('data-state','ready');
+  const evidenceSnapshot=await api('/api/evidence/assurance');
+  assert.equal(evidenceSnapshot.verified,true);assert.equal(evidenceSnapshot.rows.find(row=>row.id===initial.evidenceId).data.automationAssessment,'configuration-changed');
+  assert.ok(!JSON.stringify(evidenceSnapshot).includes('secret_ciphertext'));
+  for(const lang of ['en','tr']){
+    await page.locator('.language-switch:visible').getByRole('button',{name:lang.toUpperCase(),exact:true}).click();
+    await expect(executive.locator('.executive-assessment-issues')).toContainText(diagnostic[lang]);
+    for(const [theme,width] of [['light',1536],['dark',390]]){
+      await page.evaluate(theme=>{document.documentElement.dataset.theme=theme},theme);await page.setViewportSize({width,height:960});
+      await executive.locator('.evidence-assurance-status').scrollIntoViewIfNeeded();
+      assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)<=4);
+      await page.screenshot({path:`${out}/executive-${lang}-${theme}-${width}.png`});
+    }
+  }
+  await page.setViewportSize({width:1536,height:960});
+  await page.locator('.language-switch:visible').getByRole('button',{name:'EN',exact:true}).click();
+  await page.locator('nav button[aria-label="Reports"]').evaluate(el=>el.click());
+  const report=page.locator('.report-workspace'),assessmentStatus=report.locator('.evidence-assurance-status');
+  await expect(assessmentStatus).toHaveAttribute('data-state','ready');
+  await report.locator('.workspace-export>summary').click();
+  for(const lang of ['en','tr']){
+    await page.locator('.language-switch:visible').getByRole('button',{name:lang.toUpperCase(),exact:true}).click();
+    const evaluated=await assessmentStatus.locator('time').getAttribute('datetime');
+    const label=lang==='tr'?'Genel Güvence Paketi (ayrı kapsam)':'Global Assurance Pack (separate scope)';
+    const [download]=await Promise.all([page.waitForEvent('download'),report.getByRole('button',{name:label,exact:true}).click()]);
+    await download.saveAs(`${out}/executive-${lang}.html`);const document=await fs.readFile(`${out}/executive-${lang}.html`,'utf8');
+    assert.ok(document.includes(diagnostic[lang]));assert.ok(document.includes(evaluated));
+  }
+  await page.locator('.language-switch:visible').getByRole('button',{name:'EN',exact:true}).click();
+  const pack=report.getByRole('button',{name:'Global Assurance Pack (separate scope)',exact:true});
+  let failure='network';
+  await page.route('**/api/evidence/assurance',route=>failure==='network'?route.fulfill({status:503,json:{error:'QA unavailable'}}):route.fulfill({json:{...evidenceSnapshot,verified:false,issues:['integrity-incomplete']}}));
+  await assessmentStatus.getByRole('button',{name:'Reassess evidence',exact:true}).click();
+  await expect(assessmentStatus).toHaveAttribute('data-state','unavailable');await expect(pack).toBeDisabled();
+  failure='partial';await assessmentStatus.getByRole('button',{name:'Reassess evidence',exact:true}).click();
+  await expect(assessmentStatus).toHaveAttribute('data-state','unavailable');await expect(pack).toBeDisabled();
+  await page.unroute('**/api/evidence/assurance');await assessmentStatus.getByRole('button',{name:'Reassess evidence',exact:true}).click();
+  await expect(assessmentStatus).toHaveAttribute('data-state','ready');await expect(pack).toBeEnabled();
+  let firstRead=true,held=false,releaseRead,finishRead;
+  const readBarrier=new Promise(resolve=>{releaseRead=resolve}),readFinished=new Promise(resolve=>{finishRead=resolve});
+  await page.route('**/api/evidence/assurance',async route=>{
+    if(!firstRead){await route.continue();return;}firstRead=false;
+    const response=await route.fetch();held=true;await readBarrier;
+    try{await route.fulfill({response});}catch{/* superseded GET was cancelled */}finally{finishRead();}
+  });
+  await assessmentStatus.getByRole('button',{name:'Reassess evidence',exact:true}).click();
+  await expect.poll(()=>held).toBe(true);await expect(pack).toBeDisabled();
+  await page.evaluate(()=>window.dispatchEvent(new Event('focus')));
+  await expect(assessmentStatus).toHaveAttribute('data-state','ready');
+  const newerTime=await assessmentStatus.locator('time').getAttribute('datetime');releaseRead();await readFinished;
+  await expect(assessmentStatus.locator('time')).toHaveAttribute('datetime',newerTime);await expect(pack).toBeEnabled();
+  await page.unroute('**/api/evidence/assurance');
   await page.locator('nav button[aria-label="Control Library"]').evaluate(el=>el.click());
   const workspace=page.locator('.control-assurance-workspace'),disclosure=page.locator('.module-analysis-disclosure').filter({has:workspace});
   if(!(await disclosure.evaluate(el=>el.open)))await disclosure.locator(':scope > summary').click();
@@ -70,7 +124,7 @@ try{
   // Returning the collector to its original configuration still requires another current test.
   await api('/api/evidence-automation','POST',{...source,baseUrl:'https://fixture.example/initial'});assert.notEqual((await api(readiness)).gate,'ready');
   await seedCurrentAssessmentFixture({ruleIds:[ruleId],prefix:'QA-PROJ-THIRD',out});assert.equal((await api(readiness)).gate,'ready');
-  assert.deepEqual(errors,[]);await fs.writeFile(`${out}/summary.json`,JSON.stringify({checks,passed:true,errors,coverage:'Local D1 source-edit invalidation, recovery, A-B-A, historical proof, EN/TR control/audit diagnostics, timestamped HTML/CSV, desktop/mobile light/dark. External collectors are substituted in unit tests.'},null,2));
-  console.log(`CURRENT_ASSESSMENT_QA_PASS: ${checks} API checks; current source/run/evidence projection, recovery and A-B-A; bilingual audit/control explanations and exports; responsive light/dark.`);
+  assert.deepEqual(errors,[]);await fs.writeFile(`${out}/summary.json`,JSON.stringify({checks,passed:true,errors,coverage:'Local D1 source-edit invalidation, recovery, A-B-A, historical proof, EN/TR executive/control/audit diagnostics, canonical evidence snapshot, unavailable/partial export gating and recovery, timestamped HTML/CSV, desktop/mobile light/dark. External collectors are substituted in unit tests.'},null,2));
+  console.log(`CURRENT_ASSESSMENT_QA_PASS: ${checks} API checks; current source/run/evidence projection, recovery and A-B-A; bilingual executive/audit/control explanations and exports; failed/partial evidence snapshot recovery; responsive light/dark.`);
 }catch(error){await page.screenshot({path:`${out}/failure.png`}).catch(()=>{});await fs.writeFile(`${out}/failure.json`,JSON.stringify({error:String(error),errors,body:await page.locator('main').innerText().catch(()=>'' )},null,2));throw error}
 finally{try{await page.close();if(seeded)await seed(`DELETE FROM simple_grc_record_codes WHERE record_id GLOB 'QA-PROJ-*';DELETE FROM simple_grc_records WHERE id GLOB 'QA-PROJ-*';DELETE FROM evidence_automation_runs WHERE rule_id=${q(ruleId)};DELETE FROM evidence_automation_rules WHERE id=${q(ruleId)};DELETE FROM evidence_automation_sources WHERE id=${q(sourceId)};`);if(auditId)await seed(`DELETE FROM simple_audits WHERE id=${q(auditId)};`)}finally{await browser.close()}}
