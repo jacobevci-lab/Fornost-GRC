@@ -76,8 +76,12 @@ try {
   const requirements = gate.locator('.audit-readiness-gaps'), rows = requirements.locator('.audit-readiness-gap');
   await gate.locator('.audit-readiness-metrics button').nth(0).click();
   await expect(rows).toHaveCount(1); await expect(rows.first()).toContainText('QA-READY-CONTROL-0');
+  const expectedRecord=(await api(admin,'/api/grc')).rows.find(row=>row.id==='QA-READY-AUD-0');
+  assert.ok(expectedRecord?.record_code);
   await rows.first().getByRole('button',{name:'Open requirement',exact:true}).click();
-  await expect(page.locator('.core-record-focus')).toContainText('QA-READY-AUD-0');
+  await expect(page.locator('.core-record-focus')).toContainText(`Selected record${expectedRecord.record_code}`);
+  await expect(page.locator('.audit-requirements-register tbody tr')).toHaveCount(1);
+  await expect(page.locator('.audit-requirements-register tbody tr')).toContainText('QA-READY-CONTROL-0');
   await expect(gate).toHaveAttribute('aria-busy','false'); await expect(gate.locator('.audit-readiness-state>span')).toHaveText('NOT READY');
   await page.locator('.core-record-focus').getByRole('button',{name:'Show all records',exact:true}).click();
   await expect(gate.locator('.audit-readiness-metrics button').nth(1)).toBeEnabled();
