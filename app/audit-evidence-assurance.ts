@@ -14,6 +14,7 @@ export type AuditEvidenceRequirementState = {
   linkedEvidence: number;
   currentEvidence: number;
   staleEvidence: number;
+  assessmentIssues: string[];
 };
 
 const normalized = (value: unknown) => String(value ?? "").normalize("NFKC").trim().toLocaleLowerCase("tr-TR");
@@ -64,6 +65,7 @@ export function buildAuditEvidenceAssurance(
       linkedEvidence: linked.length,
       currentEvidence: current.length,
       staleEvidence: stale.length,
+      assessmentIssues: [...new Set(linked.map(row=>String(row.data.automationAssessment||'')).filter(state=>state&&state!=='current'))],
     };
   }).sort((a, b) => {
     const weight = (status: AuditEvidenceRequirementState["status"]) => status === "missing" ? 0 : status === "stale" ? 1 : 2;

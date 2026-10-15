@@ -16,8 +16,9 @@ export function evaluateEvidenceEligibility(data: Record<string, unknown>, now =
   const rejected = [data.status, data.reviewStatus].some(value => ['süresi doldu', 'expired', 'stale', 'reddedildi', 'rejected'].includes(key(value)));
   const failed = ['fail', 'failed', 'error', 'invalid'].includes(key(data.validationStatus));
   const integrity = key(data.evidenceIntegrity);
-  const invalid = expired || rejected || failed || integrity === 'broken';
+  const automationUnverified = !!data.automationAssessment && data.automationAssessment !== 'current';
+  const invalid = expired || rejected || failed || integrity === 'broken' || automationUnverified;
   const approved = ['onaylandı', 'approved', 'güncel', 'current', 'kabul edildi', 'accepted', 'valid', 'geçerli'].includes(key(data.status));
   const awaitingReview = ['pending', 'pending-review', 'in-review', 'draft', 'bekliyor', 'incelemede', 'taslak'].includes(key(data.reviewStatus));
-  return { current: approved && !invalid && !awaitingReview && integrity !== 'unavailable', invalid, expired, approved, awaitingReview };
+  return { current: approved && !invalid && !awaitingReview && integrity !== 'unavailable', invalid, expired, approved, awaitingReview, automationUnverified };
 }

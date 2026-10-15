@@ -15,7 +15,7 @@ export function parseAssuranceObject(raw: string | null | undefined): Record<str
 
 // A stored pass without its own matching, fresh evidence is not a recovered control.
 // These checks validate persisted metadata linkage, not a vendor's certification status.
-export function assessRetestRun(run: RetestRun, evidenceRaw: string | null, freshnessHours: number, now = new Date()): { status: 'pass' | 'fail' | 'error'; reason: RetestReason } {
+export function assessRetestRun(run: RetestRun, evidenceRaw: string | null, freshnessHours: number, now = new Date(), options: { allowExpiring?: boolean } = {}): { status: 'pass' | 'fail' | 'error'; reason: RetestReason } {
   if (run.status === 'fail') return { status: 'fail', reason: 'test-failed' };
   if (run.status !== 'pass') return { status: 'error', reason: 'collection-error' };
   if (!run.evidence_id || !evidenceRaw) return { status: 'error', reason: 'evidence-missing' };
@@ -25,8 +25,9 @@ export function assessRetestRun(run: RetestRun, evidenceRaw: string | null, fres
     || evidence.collectedAt !== run.created_at
     || (run.assessment_fingerprint && evidence.assessmentFingerprint !== run.assessment_fingerprint)) return { status: 'error', reason: 'evidence-mismatch' };
   const expires = Date.parse(String(evidence.freshUntil || ''));
+  const freshness = evidenceFreshness(run.created_at, freshnessHours, now);
   if (!Number.isFinite(freshnessHours) || freshnessHours <= 0 || !Number.isFinite(expires) || expires <= now.getTime()
-    || evidenceFreshness(run.created_at, freshnessHours, now) !== 'fresh') return { status: 'error', reason: 'evidence-stale' };
+    || !(freshness === 'fresh' || (options.allowExpiring && freshness === 'expiring'))) return { status: 'error', reason: 'evidence-stale' };
   return { status: 'pass', reason: 'passed' };
 }
 

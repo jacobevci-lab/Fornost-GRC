@@ -1,5 +1,7 @@
 "use client";
 
+import {assessmentStateText} from "./evidence/assessment-labels";
+
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { withBasePath } from "./base-path";
 import { navigateToFornost } from "./navigation-focus";
@@ -53,6 +55,7 @@ const emptySummary: Summary = {
 
 function stateLabel(value: string, tr: boolean) {
   const labels: Record<string, [string, string]> = {
+    "assessment-unverified": ["Güncel test doğrulanamadı", "Current assessment unverified"],
     healthy: ["Sağlıklı", "Healthy"], failing: ["Başarısız", "Failing"], stale: ["Kanıt eski", "Stale evidence"],
     missing: ["Kanıt eksik", "Missing evidence"], expiring: ["Kanıt süresi doluyor", "Evidence expiring"],
     "pending-review": ["İnceleme bekliyor", "Pending review"], "approved-awaiting-retest": ["Yeniden test bekliyor", "Awaiting retest"],
@@ -271,7 +274,7 @@ export default function ContinuousAssuranceDashboardPanel({
         <div className="ca-work-meta">
           <span><b>{item.kind === "work-item" ? (item.action === "capa-promotion" ? "CAPA" : (tr ? "Re-test" : "Retest")) : item.kind === "finding" ? (tr ? "Bulgu" : "Finding") : (tr ? "Kontrol" : "Control")}</b>{tr ? "iş türü" : "work type"}</span>
           <span><b>{item.dueDate || "—"}</b>{tr ? "termin / çalışma" : "due / run"}</span>
-          <span><b>{item.reason}</b>{tr ? "neden" : "reason"}</span>
+          <span><b>{assessmentStateText[item.reason]?.[tr?"tr":"en"]||item.reason}</b>{tr ? "neden" : "reason"}</span>
         </div>
         <div className="ca-actions">
           {item.kind === "work-item" && item.state === "pending-review" && canReview && <>

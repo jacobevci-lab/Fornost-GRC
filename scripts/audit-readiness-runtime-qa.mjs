@@ -1,3 +1,4 @@
+import {seedCurrentAssessmentFixture} from './current-assessment-qa-fixture.mjs';
 import { qaPassword } from "./qa-credentials.mjs";
 import { chromium, expect } from '@playwright/test';
 import assert from 'node:assert/strict';
@@ -48,6 +49,9 @@ try {
     record('QA-READY-EVD-0', 'Kanıtlar', evidence(0)),
     ...Array.from({ length: 117 }, (_, i) => `INSERT INTO evidence_automation_rules(id,name,source_id,control_refs,json_path,operator,expected,schedule,last_status,last_evidence_at,created_at,updated_at,updated_by) VALUES('QA-READY-RULE-${i}',${q(i < 110 ? `AA outside ${i}` : `ZZ QA readiness rule ${i}`)},'QA-READY-SOURCE',${q(i < 110 ? `QA-OUTSIDE-${i}` : `QA-OUTSIDE-${i}; QA-READY-CONTROL-${i - 110}`)},'value','eq','1','daily','fail',${q(stamp)},${q(stamp)},${q(stamp)},'qa');`),
   ].join('\n'));
+  await seed(`INSERT INTO evidence_automation_sources(id,name,vendor,category,driver,config_json,created_at,updated_at,updated_by) VALUES('QA-READY-SOURCE','QA Readiness','Custom','Custom','rest-json','{}',${q(stamp)},${q(stamp)},'qa');`);
+  const ruleIds=Array.from({length:117},(_,i)=>`QA-READY-RULE-${i}`);
+  await seedCurrentAssessmentFixture({ruleIds,prefix:'QA-READY-FAIL',out,status:'fail'});
   const dashboard = await api(admin, '/api/continuous-assurance/dashboard');
   assert.ok(dashboard.priorities.every(row => !Array.from({ length: 7 }, (_, i) => `QA-READY-RULE-${i + 110}`).includes(row.ruleId)));
   const snapshot = await api(admin, endpoint);
@@ -102,7 +106,8 @@ try {
   await gate.getByRole('button', { name: 'Recheck readiness', exact: true }).click(); await expect(gate.getByRole('alert')).toContainText('incomplete or unreadable');
   await seed(`UPDATE simple_grc_records SET data_json=${q(JSON.stringify(evidence(0)))} WHERE id='QA-READY-EVD-0';
     ${Array.from({ length: 9 }, (_, i) => record(`QA-READY-EVD-${i + 1}`, 'Kanıtlar', evidence(i + 1))).join('\n')}
-    UPDATE evidence_automation_rules SET last_status='pass' WHERE id GLOB 'QA-READY-RULE-*';`);
+    `);
+  await seedCurrentAssessmentFixture({ruleIds,prefix:'QA-READY-PASS',out});
   await gate.getByRole('button', { name: 'Recheck readiness', exact: true }).click(); await expect(gate.locator('.audit-readiness-state>span')).toHaveText('AUDIT READY');
   await expect(gate.getByRole('button', { name: 'HTML Snapshot', exact: true })).toBeEnabled();
   let localeReloads=0;const countLocaleReload=request=>{if(new URL(request.url()).pathname==='/api/grc')localeReloads++;};page.on('request',countLocaleReload);
@@ -130,7 +135,9 @@ finally {
     await page.close();
     if (seeded) await seed(`DELETE FROM simple_grc_record_codes WHERE record_id GLOB 'QA-READY-*';
       DELETE FROM simple_grc_records WHERE id GLOB 'QA-READY-*';
-      DELETE FROM evidence_automation_rules WHERE id GLOB 'QA-READY-RULE-*';`);
+      DELETE FROM evidence_automation_runs WHERE rule_id GLOB 'QA-READY-RULE-*';
+      DELETE FROM evidence_automation_rules WHERE id GLOB 'QA-READY-RULE-*';
+      DELETE FROM evidence_automation_sources WHERE id='QA-READY-SOURCE';`);
     if (auditId) await seed(`DELETE FROM simple_audits WHERE id=${q(auditId)};`);
     if (seeded) assert.equal((await api(admin, endpoint)).evidence.total, 0);
   } finally { await browser.close(); }

@@ -51,6 +51,8 @@ jobs:
         run: node scripts/assurance-execution-qa.mjs
       - name: Concurrent cold and warm schema initialization QA
         run: node scripts/schema-initialization-qa.mjs
+      - name: Current assessment projection, audit and control QA
+        run: node scripts/current-assessment-runtime-qa.mjs
       - name: Enterprise reference deletion runtime QA
         run: node scripts/enterprise-reference-delete-qa.mjs
       - name: Record dialog themes and Escape QA
@@ -165,6 +167,7 @@ jobs:
             ask-fornost-qa-artifacts/
             ready-controls-qa-artifacts/
             assurance-execution-qa-artifacts/
+            current-assessment-qa-artifacts/
             my-work-assurance-qa-artifacts/
             module-access-qa-artifacts/
             capa-control-qa-artifacts/

@@ -19,6 +19,7 @@ export function controlAssuranceRecordTarget(row: AssuranceRow): FornostNavigati
 export const controlAssuranceIssueLabel = (issue: string, lang: 'tr' | 'en') => {
   const labels: Record<string, [string, string]> = {
     records: ['GRC kayıtları', 'GRC records'], capa: ['Bulgu/CAPA', 'Findings/CAPA'],
+    assessment:['Güncel test bağı','Current test linkage'],
     integrity: ['Kanıt bütünlüğü', 'Evidence integrity'], rules: ['Kontrol kuralları', 'Control rules'],
     findings: ['Otomasyon bulguları', 'Automation findings'], work: ['Güvence iş kuyruğu', 'Assurance work queue'],
   };
@@ -28,6 +29,7 @@ export const controlAssuranceIssueLabel = (issue: string, lang: 'tr' | 'en') => 
 };
 
 export const controlAssuranceReasonLabels: Record<string, { tr: string; en: string }> = {
+  "automation-unverified":{tr:"Otomatik kontrolün güncel test bağı doğrulanmadı",en:"Current automated control assessment is unverified"},
   "retest-unresolved": { tr: "Yeniden test sonucu çözümlenmemiş", en: "Re-test outcome unresolved" },
   "owner-missing": { tr: "Kontrol sahibi eksik", en: "Control owner missing" },
   "test-owner-missing": { tr: "Test sahibi eksik", en: "Test owner missing" },
