@@ -54,7 +54,7 @@ try{
   }
   await page.setViewportSize({width:1536,height:960});
   await page.locator('.language-switch:visible').getByRole('button',{name:'EN',exact:true}).click();
-  await page.locator('nav button[aria-label="Reports"]').evaluate(el=>el.click());
+  await page.locator('nav button[aria-label="Reporting"]').evaluate(el=>el.click());
   const report=page.locator('.report-workspace'),assessmentStatus=report.locator('.evidence-assurance-status');
   await expect(assessmentStatus).toHaveAttribute('data-state','ready');
   await report.locator('.workspace-export>summary').click();
