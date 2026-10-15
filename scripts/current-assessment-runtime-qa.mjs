@@ -131,7 +131,9 @@ try{
     await page.setViewportSize({width:1536,height:960});
   }
   await page.locator('.language-switch:visible').getByRole('button',{name:'EN',exact:true}).click();
-  await page.locator('nav button[aria-label="Audit Management"]').evaluate(el=>el.click());await page.locator('.audit-card-open').filter({hasText:name}).click();
+  await page.locator('nav button[aria-label="Audit Management"]').evaluate(el=>el.click());
+  // Exact portfolio navigation above already selected this audit; module switches preserve it.
+  await expect(page.locator('.audit-readiness-gate')).toContainText(name);
   const gate=page.locator('.audit-readiness-gate');await expect(gate.locator('.audit-readiness-state>span')).toHaveText('NOT READY');
   await gate.locator('.audit-readiness-gaps>summary').click();await expect(gate).toContainText(diagnostic.en);
   const evaluatedAt=await gate.locator('.audit-readiness-actions time').getAttribute('datetime');
