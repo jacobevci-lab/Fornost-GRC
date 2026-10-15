@@ -2,7 +2,7 @@ import { qaPassword } from './qa-credentials.mjs';
 import { chromium, expect } from '@playwright/test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { mkdir } from 'node:fs/promises';
+import { mkdir, writeFile } from 'node:fs/promises';
 
 // Isolated local runtime only: no external mail or customer data.
 const base = process.env.FORNOST_QA_BASE_URL || 'http://127.0.0.1:4173';
@@ -161,9 +161,23 @@ try {
   await expect(workplan.locator('.ar-closure-preview')).toContainText('Resolve all requests before closing');
   await workplan.locator('.ar-closure-preview').getByRole('button', { name: 'Cancel', exact: true }).click();
   await panel.getByRole('button', { name: addition.title, exact: true }).click();
-  await panel.getByLabel('Decision / cancellation reason', { exact: true }).fill('Additional scope was withdrawn by the audit owner.');
-  await panel.getByRole('button', { name: 'Cancel request', exact: true }).click();
+  await expect(panel.locator('.ar-detail>header small')).toHaveText(addition.id);
+  const cancelReason = 'Additional scope was withdrawn by the audit owner.';
+  const cancelInput = panel.getByLabel('Decision / cancellation reason', { exact: true });
+  const cancelRequest = panel.getByRole('button', { name: 'Cancel request', exact: true });
+  await expect(cancelRequest).toBeDisabled();
+  await expect(cancelInput).toHaveValue('');
+  // Exercise keyboard input and confirm React has retained the complete decision
+  // before attempting a mutation; never force a disabled action or retry a write.
+  await cancelInput.pressSequentially(cancelReason);
+  await expect(cancelInput).toHaveValue(cancelReason);
+  await expect(cancelRequest).toBeEnabled();
+  const cancellation = page.waitForResponse(response => response.url().endsWith('/api/audits/requests') && response.request().method() === 'POST');
+  await cancelRequest.click();
+  assert.equal((await cancellation).status(), 200);
   await expect(panel.locator('.ar-state.cancelled')).toHaveText('Cancelled');
+  const cancelled = await api(admin, `/api/audits/requests?auditId=${auditId}`);
+  assert.equal(cancelled.events.find(event => event.request_id === addition.id && event.action === 'cancel').note, cancelReason);
   let savedPlan = await api(admin, `/api/audits/plan?id=${auditId}`);
   savedPlan = await api(admin, '/api/audits/plan', 'PUT', { id: auditId, expectedRevision: savedPlan.revision, plan: { ...savedPlan.plan, scope: 'QA scope reviewed before closure' } });
   await workplan.getByRole('button', { name: 'Preview closure', exact: true }).click();
@@ -243,7 +257,10 @@ try {
 } catch (error) {
   console.error('AUDIT_REQUEST_WORKFLOW_QA_FAILED', error.message);
   await mkdir('audit-request-qa-artifacts', { recursive: true });
-  for (const context of browser.contexts()) for (const p of context.pages()) if (await p.locator('.audit-request-panel').count()) await p.screenshot({ path: `audit-request-qa-artifacts/failure-${Date.now()}.png`, fullPage: true });
+  for (const context of browser.contexts()) for (const p of context.pages()) if (await p.locator('.audit-request-panel').count()) {
+    const stamp=Date.now();await p.screenshot({ path: `audit-request-qa-artifacts/failure-${stamp}.png`, fullPage: true });
+    await writeFile(`audit-request-qa-artifacts/failure-${stamp}.json`,JSON.stringify(await p.locator('.audit-request-panel').evaluate(panel=>({busy:panel.getAttribute('aria-busy'),selected:panel.querySelector('.ar-detail>header small')?.textContent,inputs:[...panel.querySelectorAll('textarea')].map(el=>({value:el.value,disabled:el.disabled})),buttons:[...panel.querySelectorAll('button')].map(el=>({text:el.textContent,disabled:el.disabled}))})),null,2));
+  }
   throw error;
 } finally {
   if (auditId) await api(admin, `/api/audits?id=${auditId}`, 'DELETE');
