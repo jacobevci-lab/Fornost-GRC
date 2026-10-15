@@ -25,7 +25,8 @@ test("audit blockers drill into the exact live control rule or automation findin
 test("audit readiness UI distinguishes evidence readiness from live assurance blockers",()=>{
  assert.match(gate,/kanıt hazırlığı/);
  assert.match(gate,/Continuous Assurance engeli çözülmeli/);
- assert.match(gate,/Live assurance signals for in-scope controls/);
+ assert.match(gate,/scoped signals/);
+ assert.match(gate,/Blockers only/);
  assert.match(css,/grid-template-columns:repeat\(5,minmax\(0,1fr\)\)/);
  assert.match(css,/\.audit-readiness-assurance/);
  assert.match(css,/\.assurance-blocker>i/);

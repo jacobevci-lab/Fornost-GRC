@@ -56,3 +56,11 @@ test("readiness exports localize Turkish report labels and neutralize spreadshee
   const csv=buildAuditReadinessReportCsv({...snapshot,auditName:'=DDE()',requirements:[{...snapshot.requirements[0],title:' \t=HYPERLINK("url")',owner:'+formula'}]});
   assert.match(csv,/"'=DDE\(\)"/); assert.match(csv,/"' \t=HYPERLINK/); assert.match(csv,/"'\+formula"/);
 });
+
+test('readiness exports explain eligibility and distinguish other evidence from the current proof',()=>{
+  const report={...snapshot,requirements:[{...snapshot.requirements[0],eligibilityIssues:['expired','validation-failed'],assessmentIssues:['configuration-changed']}]};
+  const html=buildAuditReadinessReportHtml(report);
+  assert.match(html,/In other linked evidence:/); assert.match(html,/Evidence validation failed/); assert.match(html,/Validity expired/);
+  assert.match(buildAuditReadinessReportHtml({...report,lang:'tr'}),/Kanıt doğrulaması başarısız/);
+  assert.match(buildAuditReadinessReportCsv(report),/expired; validation-failed; configuration-changed/);
+});
