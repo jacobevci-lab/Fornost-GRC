@@ -32,6 +32,6 @@ test("executive metrics retain authoritative data and honest empty states", () =
   assert.match(dashboard, /\/api\/findings/);
   assert.match(dashboard, /Promise.allSettled/);
   assert.match(dashboard, /role="status"/);
-  assert.match(dashboard, /total \? .* : "—"/);
+  assert.match(dashboard, /total && value !== null \? .* : "—"/);
   assert.match(dashboard, /decisionItems.filter\(\(item\) => item.value > 0\).slice\(0, 4\)/);
 });

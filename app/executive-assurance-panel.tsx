@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useEvidenceAssurance } from './use-evidence-assurance';
+import { useExecutiveAssurance } from './use-executive-assurance';
 import { buildExecutiveAssurance } from "./executive-assurance";
 import type { AssuranceRow } from "./control-assurance";
 import { withBasePath } from "./base-path";
@@ -68,8 +68,8 @@ export default function ExecutiveAssurancePanel({
   go: (module: string) => void;
 }) {
   const tr = lang === "tr";
-  const evidenceState = useEvidenceAssurance(rows);
-  const assurance = useMemo(() => buildExecutiveAssurance(evidenceState.rows, evidenceState.generatedAt), [evidenceState.rows, evidenceState.generatedAt]);
+  const evidenceState = useExecutiveAssurance(rows);
+  const assurance = useMemo(() => buildExecutiveAssurance(evidenceState.rows, evidenceState.generatedAt, evidenceState.auditPortfolio), [evidenceState.rows, evidenceState.generatedAt, evidenceState.auditPortfolio]);
   const [operations, setOperations] = useState<Operations | null>(null);
   const [delivery, setDelivery] = useState<DeliveryOps | null>(null);
 
@@ -115,7 +115,7 @@ export default function ExecutiveAssurancePanel({
           <b>{tr ? "Sorumlu atamaları, bildirim SLA ve operasyonel işler" : "Owner accountability, delivery SLA and technical attention queue"}</b>
         </span>
         <span className={operationalSignals ? "attention" : "healthy"}>
-          {rows.length && evidenceState.ready ? `${assurance.score}/100` : (tr ? "Değerlendirme bekleniyor" : "Awaiting evaluation")} · {operationalSignals} {tr ? "aktif sinyal" : "active signals"}
+          {rows.length && evidenceState.ready && assurance.score !== null ? `${assurance.score}/100` : (tr ? "Değerlendirme bekleniyor" : "Awaiting evaluation")} · {operationalSignals} {tr ? "aktif sinyal" : "active signals"}
         </span>
       </summary>
 

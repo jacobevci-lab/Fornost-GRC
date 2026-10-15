@@ -18,18 +18,19 @@ export function auditRowsInScope(rows: AuditReadinessRow[], auditName: string) {
 export function buildAuditReadiness(input: {
   rows: AuditReadinessRow[]; auditName: string; sources: Sources;
   recordsAvailable: boolean; recordsComplete: boolean; assessmentAvailable?:boolean; now?: Date;
+  priorities?: AssurancePriority[]; additionalIssues?: AuditReadinessIssue[];
 }) {
   const now = input.now || new Date(), scopeRows = auditRowsInScope(input.rows, input.auditName);
   const evidence = buildAuditEvidenceAssurance(scopeRows, input.rows.filter(row => row.module === 'Kanıtlar'), now);
   const scope = new Set(evidence.requirements.map(item => normalized(item.reference)));
   // Project the complete loaded signal set before applying audit scope. The operational
   // dashboard's top-100 display window must never determine an audit readiness decision.
-  const dashboard = buildContinuousAssuranceDashboard({ ...input.sources, now, priorityLimit: null });
-  const signals = dashboard.priorities.flatMap(item => {
+  const priorities = input.priorities || buildContinuousAssuranceDashboard({ ...input.sources, now, priorityLimit: null }).priorities;
+  const signals = priorities.flatMap(item => {
     const matches = (item.targetControlRefs || refs(item.targetControlRef)).filter(ref => scope.has(normalized(ref)));
     return matches.length ? [{ ...item, targetControlRef: matches[0], targetControlRefs: matches, blocking: priorityBlocksAudit(item) }] : [];
   });
-  const quality = input.sources.dataQuality, issues: AuditReadinessIssue[] = [];
+  const quality = input.sources.dataQuality, issues: AuditReadinessIssue[] = [...(input.additionalIssues || [])];
   if (!input.recordsAvailable) issues.push('records-unavailable');
   else if (!input.recordsComplete) issues.push('records-incomplete');
   if (scopeRows.some(row => !refs(row.data.controlRef).length && !refs(row.data.requirementRef).length)) issues.push('scope-unmapped');
@@ -47,7 +48,7 @@ export function buildAuditReadiness(input: {
   const monitored = new Set(input.sources.rules.flatMap(rule => refs(rule.controlRefs)).map(normalized));
   const unmonitored = evidence.requirements.filter(item => !monitored.has(normalized(item.reference))).map(item => item.reference);
   const gate = issues.length ? 'unverified' : evidence.gate !== 'empty' && blockerCount ? 'not-ready' : evidence.gate === 'ready' && signals.length ? 'attention' : evidence.gate;
-  return { auditName: input.auditName, generatedAt: now.toISOString(), gate, verified: issues.length === 0, issues, evidence, signals, blockerCount, unmonitored };
+  return { auditName: input.auditName, generatedAt: now.toISOString(), gate, verified: issues.length === 0, issues: [...new Set(issues)], evidence, signals, blockerCount, unmonitored };
 }
 export type AuditReadinessResult = ReturnType<typeof buildAuditReadiness>;
 

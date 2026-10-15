@@ -3,6 +3,8 @@ import test from "node:test";
 import { applyEvidenceIntegrityOverview, buildAssuranceReportHtml, buildExecutiveAssurance } from "../app/executive-assurance";
 import type { AssuranceRow } from "../app/control-assurance";
 
+const portfolio = { audits: [{ id: 'ISO', name: 'ISO audit', gate: 'ready' as const, verified: true, issues: [], requirements: 1, current: 1, blockers: 0 }], verified: true, issues: [], orphanRequirements: 0, generatedAt: '2026-09-20T00:00:00Z' };
+
 const rows: AssuranceRow[] = [
   { id: "risk-1", code: "RSK-001", module: "Risk Assessment", data: { title: "Identity risk", asset: "M365" } },
   { id: "asset-1", code: "AST-001", module: "Varlık Envanteri", data: { title: "M365" } },
@@ -29,7 +31,7 @@ test("broken cryptographic evidence lowers executive assurance and becomes an ac
   const enriched = applyEvidenceIntegrityOverview(rows, [
     { id: "evidence-1", integrity: "broken", checkedVersions: 3, failedVersion: 2 },
   ]);
-  const result = buildExecutiveAssurance(enriched, "2026-09-25");
+  const result = buildExecutiveAssurance(enriched, "2026-09-25", portfolio);
 
   assert.equal(result.brokenEvidence, 1);
   assert.equal(result.verifiedEvidence, 0);
@@ -38,7 +40,7 @@ test("broken cryptographic evidence lowers executive assurance and becomes an ac
   assert.equal(result.integrityCoverage, 100);
   assert.ok(result.controlScore <= 45);
   assert.ok(result.evidenceScore < 100);
-  assert.ok(result.score < 100);
+  assert.ok(result.score! < 100);
   assert.equal(result.controlPriorities[0]?.reference, "A.5.15");
   assert.ok(result.controlPriorities[0]?.reasons.includes("evidence-integrity-broken"));
 });
@@ -47,7 +49,7 @@ test("verified cryptographic evidence is visible in the executive assurance pack
   const enriched = applyEvidenceIntegrityOverview(rows, [
     { id: "evidence-1", integrity: "verified", checkedVersions: 3, failedVersion: 0 },
   ]);
-  const result = buildExecutiveAssurance(enriched, "2026-09-25");
+  const result = buildExecutiveAssurance(enriched, "2026-09-25", portfolio);
   const html = buildAssuranceReportHtml(enriched, true, "2026-09-25");
 
   assert.equal(result.verifiedEvidence, 1);
@@ -60,7 +62,7 @@ test("verified cryptographic evidence is visible in the executive assurance pack
 });
 
 test("missing runtime integrity data stays explicitly unknown instead of being reported verified", () => {
-  const result = buildExecutiveAssurance(rows, "2026-09-25");
+  const result = buildExecutiveAssurance(rows, "2026-09-25", portfolio);
 
   assert.equal(result.integrityCoverage, 0);
   assert.equal(result.verifiedEvidence, 0);

@@ -18,9 +18,10 @@ async function fixture() {
     bind(...args: (string | number | null)[]) { return prepare(sql, args); },
     async all() { return { results: sqlite.prepare(sql).all(...values) }; },
     async first() { return sqlite.prepare(sql).get(...values) || null; },
-    async run() { return { meta: { changes: sqlite.prepare(sql).run(...values).changes } }; },
+    exec() { return { results: sqlite.prepare(sql).all(...values), meta: { changes: Number(sqlite.prepare('SELECT changes() n').get()!.n) } }; },
+    async run() { return this.exec(); },
   }; }
-  const db = { prepare, async batch(statements: ReturnType<typeof prepare>[]) { return Promise.all(statements.map(statement => statement.run())); } } as unknown as D1Database;
+  const db = { prepare, async batch(statements: ReturnType<typeof prepare>[]) { sqlite.exec('BEGIN'); try { const result=statements.map(statement=>statement.exec()); sqlite.exec('COMMIT'); return result; } catch(error) { sqlite.exec('ROLLBACK'); throw error; } } } as unknown as D1Database;
   await ensureEvidenceAutomationSchema(db); await ensureAssuranceWorkSchema(db); sqlite.exec(readFileSync('drizzle/0079_evidence_lineage_storage.sql', 'utf8'));
   const record = (id: string, module: string, data: Record<string, unknown>) => sqlite.prepare('INSERT INTO simple_grc_records VALUES(?,?,?,?,?)').run(id, module, JSON.stringify(data), now.toISOString(), now.toISOString());
   const rule = async (id: string, refs: string, status = 'fail') => { sqlite.prepare("INSERT INTO evidence_automation_rules(id,name,source_id,control_refs,json_path,operator,expected,schedule,created_at,updated_at,updated_by,last_status,last_evidence_at) VALUES(?,?,'QA-SOURCE',?,'value','eq','1','daily',?,?,'qa',?,?)").run(id, id, refs, now.toISOString(), now.toISOString(), status, now.toISOString()); await seedAssessmentReceipt(sqlite,id,now,id==='RULE'?'RUN':`RUN-${id}`,status); };

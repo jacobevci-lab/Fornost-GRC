@@ -65,7 +65,8 @@ import ConnectedGrc from "./connected-grc";
 import "./connected-grc.css";
 import ControlAssuranceWorkspace from "./control-assurance-workspace";
 import ExecutiveAssurancePanel from "./executive-assurance-panel";
-import { useEvidenceAssurance } from './use-evidence-assurance';
+import { useExecutiveAssurance } from './use-executive-assurance';
+import AuditReadinessPortfolioPanel from './audit-readiness-portfolio-panel';
 import EvidenceAssuranceStatus from './evidence-assurance-status';
 import { buildAssuranceReportHtml, buildExecutiveAssurance } from "./executive-assurance";
 import AuditReadinessGate from "./audit-readiness-gate";
@@ -3307,8 +3308,8 @@ function Reports({ rows: coreRows, lang, go, preparedBy, includeCapa }: { rows: 
   const selectedModuleLabel = module === all ? allLabel : names[lang][module] || module;
   const exportSlug = module === all ? "all-modules" : module.toLocaleLowerCase("tr-TR").replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "");
   const metrics = reportMetrics(module, filtered, tr);
-  const evidenceState = useEvidenceAssurance(coreRows);
-  const assurance = buildExecutiveAssurance(evidenceState.rows, evidenceState.generatedAt);
+  const evidenceState = useExecutiveAssurance(coreRows);
+  const assurance = buildExecutiveAssurance(evidenceState.rows, evidenceState.generatedAt, evidenceState.auditPortfolio);
   const statusDistribution = Object.entries(filtered.reduce<Record<string, number>>((acc, row) => {
     const key = display(row.data.status, lang) || (tr ? "Belirtilmedi" : "Unspecified");
     acc[key] = (acc[key] || 0) + 1;
@@ -3354,7 +3355,7 @@ function Reports({ rows: coreRows, lang, go, preparedBy, includeCapa }: { rows: 
   const pages=Math.max(1,Math.ceil(filtered.length/50)),currentPage=Math.min(previewPage,pages);
   function assuranceReport() {
     if (!evidenceState.ready) return;
-    downloadBlob(`Fornost-GRC-assurance-pack-${new Date().toISOString().slice(0,10)}.html`, new Blob([buildAssuranceReportHtml(evidenceState.rows, tr, evidenceState.generatedAt)], { type: "text/html;charset=utf-8" }));
+    downloadBlob(`Fornost-GRC-assurance-pack-${new Date().toISOString().slice(0,10)}.html`, new Blob([buildAssuranceReportHtml(evidenceState.rows, tr, evidenceState.generatedAt, evidenceState.auditPortfolio)], { type: "text/html;charset=utf-8" }));
   }
   async function excel() {
     if (reportUnavailable) return;
@@ -3509,13 +3510,14 @@ function Reports({ rows: coreRows, lang, go, preparedBy, includeCapa }: { rows: 
         </div>
       </section>
       </details>
-      <details className="report-secondary"><summary>{tr?"Genel GRC güvencesi · ayrı kapsam":"Global GRC assurance · separate scope"}</summary><p className="report-limit-note">{tr?"Yüklenmiş çekirdek GRC kayıtlarını kapsar; CAPA ve yukarıdaki filtreler dahil değildir.":"Includes loaded core GRC records; CAPA and the filters above are excluded."}</p>
+      <details className="report-secondary"><summary>{tr?"Genel GRC güvencesi · ayrı kapsam":"Global GRC assurance · separate scope"}</summary><p className="report-limit-note">{tr?"Yüklenmiş çekirdek GRC kayıtlarını ve kayıtlı denetim portföyünü kapsar; CAPA ve yukarıdaki filtreler dahil değildir.":"Includes loaded core GRC records and the persisted audit portfolio; CAPA and the filters above are excluded."}</p>
+      <AuditReadinessPortfolioPanel portfolio={evidenceState.auditPortfolio} lang={lang} />
       <section className="report-assurance-strip" aria-label={tr ? "Bağlı GRC güvence özeti" : "Connected GRC assurance summary"}>
-        <div><small>{tr ? "Bütünleşik güvence" : "Composite assurance"}</small><b>{evidenceState.ready ? `${assurance.score}/100` : "—"}</b><span>{!evidenceState.ready ? (tr ? "Değerlendirme bekleniyor" : "Awaiting evaluation") : assurance.state === "strong" ? (tr ? "Güçlü" : "Strong") : assurance.state === "developing" ? (tr ? "Gelişiyor" : "Developing") : (tr ? "Kritik" : "Critical")}</span></div>
+        <div><small>{tr ? "Bütünleşik güvence" : "Composite assurance"}</small><b>{evidenceState.ready && assurance.score !== null ? `${assurance.score}/100` : "—"}</b><span>{!evidenceState.ready || assurance.score === null ? (tr ? "Değerlendirme bekleniyor" : "Awaiting evaluation") : assurance.state === "strong" ? (tr ? "Güçlü" : "Strong") : assurance.state === "developing" ? (tr ? "Gelişiyor" : "Developing") : (tr ? "Kritik" : "Critical")}</span></div>
         <div><small>{tr ? "Zincir bütünlüğü" : "Chain integrity"}</small><b>{assurance.traceabilityScore}%</b><span>{assurance.completeChains}/{assurance.totalChains} {tr ? "tam" : "complete"}</span></div>
         <div><small>{tr ? "Kontrol güvencesi" : "Control assurance"}</small><b>{evidenceState.ready ? `${assurance.controlScore}%` : "—"}</b><span>{tr ? "Test ve kanıt" : "Test and evidence"}</span></div>
         <div><small>{tr ? "Kanıt güveni" : "Evidence confidence"}</small><b>{evidenceState.ready ? `${assurance.evidenceScore}%` : "—"}</b><span>{evidenceState.ready ? assurance.currentEvidence : "—"}/{assurance.totalEvidence} {tr ? "güncel" : "current"}</span></div>
-        <div role="button" tabIndex={0} onClick={() => go("Bağlantılı GRC")} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") go("Bağlantılı GRC"); }}><small>{tr ? "Denetim readiness" : "Audit readiness"}</small><b>{assurance.auditScore}%</b><span>{tr ? "Açıkları incele →" : "Review gaps →"}</span></div>
+        <div role="button" tabIndex={0} onClick={() => go("Bağlantılı GRC")} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") go("Bağlantılı GRC"); }}><small>{tr ? "Denetim hazırlığı" : "Audit readiness"}</small><b>{evidenceState.ready && assurance.auditScore !== null ? `${assurance.auditScore}%` : "—"}</b><span>{tr ? "Açıkları incele →" : "Review gaps →"}</span></div>
       </section>
       </details>
       <p className="report-limit-note">{options().scope}</p>
@@ -3984,6 +3986,11 @@ function AuditModule({
   const [requestFocus, setRequestFocus] = useState<{ id: string; auditId: string } | null>(null);
   useEffect(() => {
     const accept = (request: FornostNavigationRequest | null) => {
+      if (request?.module === "Denetim Yönetimi" && request.kind === "audit" && request.ref) {
+        const target = audits.find(audit => audit.id === request.ref);
+        if (target) { setRequestFocus(null); select(target.name); consumePendingFornostFocus("Denetim Yönetimi"); }
+        return;
+      }
       if (request?.module !== "Denetim Yönetimi" || request.kind !== "audit-request" || !request.ref || !request.filter?.auditId) return;
       const target = audits.find(audit => audit.id === request.filter?.auditId);
       setRequestFocus({ id: request.ref, auditId: request.filter.auditId });

@@ -1,10 +1,12 @@
-import { projectAutomatedEvidence } from './evidence/assessment-projection';
-import { normalizeEvidenceControlRef,splitEvidenceControlRefs } from './evidence/versioning';
+import { loadEvidenceAssuranceSnapshot } from './evidence/assurance-runtime';
+import type { EvidenceAssuranceSnapshot } from './evidence/assurance-snapshot';
 import { buildAuditEvidenceAssurance } from './audit-evidence-assurance';
-import { auditRowsInScope, buildAuditReadiness, type AuditReadinessRow } from './audit-readiness';
+import { auditRowsInScope, buildAuditReadiness, type AuditReadinessRow, type AuditReadinessIssue } from './audit-readiness';
 import { loadContinuousAssuranceSnapshots } from './continuous-assurance-store';
+import { buildContinuousAssuranceDashboard } from './continuous-assurance-dashboard';
 
-export async function loadAuditReadiness(db: D1Database, auditName = '', now = new Date()) {
+/** Reuse one bounded read and signal projection for every engagement in a portfolio. */
+export async function loadAuditReadinessContext(db: D1Database, now = new Date(), evidenceSnapshot?: EvidenceAssuranceSnapshot) {
   let rows: AuditReadinessRow[] = [], recordsAvailable = true, recordsComplete = true;
   try {
     const result = await db.prepare("SELECT id,module,data_json FROM simple_grc_records WHERE module IN ('Denetim Yönetimi','Kanıtlar') ORDER BY id LIMIT 10001").all<{ id: string; module: string; data_json: string }>();
@@ -17,13 +19,27 @@ export async function loadAuditReadiness(db: D1Database, auditName = '', now = n
       } catch { recordsComplete = false; return []; }
     });
   } catch { recordsAvailable = false; recordsComplete = false; }
-  const requirements = buildAuditEvidenceAssurance(auditRowsInScope(rows, auditName), [], now).requirements;
-  const scope=new Set(requirements.map(item=>normalizeEvidenceControlRef(item.reference)));
-  const scopedEvidence=rows.filter(row=>row.module==='Kanıtlar'&&[row.data.controlRef,row.data.requirementRef].flatMap(value=>splitEvidenceControlRefs(String(value||''))).some(ref=>scope.has(normalizeEvidenceControlRef(ref))));
-  const [sources,projection]=await Promise.all([
+  const requirements = buildAuditEvidenceAssurance(auditRowsInScope(rows, ''), [], now).requirements;
+  const [sources, evidence] = await Promise.all([
     loadContinuousAssuranceSnapshots(db, { integrityControlRefs: requirements.map(item => item.reference),now }),
-    projectAutomatedEvidence(db,scopedEvidence,now),
+    evidenceSnapshot || loadEvidenceAssuranceSnapshot(db, now),
   ]);
-  const projected=new Map(projection.rows.map(row=>[row.id,row]));
-  return buildAuditReadiness({ rows:rows.map(row=>projected.get(row.id)||row), auditName, sources, recordsAvailable, recordsComplete, assessmentAvailable:projection.available, now });
+  const projected = new Map(evidence.rows.map(row => [row.id, row]));
+  const additionalIssues: AuditReadinessIssue[] = [];
+  for (const issue of evidence.issues) {
+    additionalIssues.push(issue === 'assessment-unavailable' ? issue : issue.startsWith('integrity-') ? 'integrity-incomplete'
+      : issue === 'evidence-unavailable' ? 'integrity-unavailable' : 'records-incomplete');
+  }
+  rows = rows.map(row => {
+    if (row.module !== 'Kanıtlar') return row;
+    const canonical = projected.get(row.id);
+    if (!canonical) { recordsComplete = false; return { ...row, data: { ...row.data, evidenceIntegrity: 'unavailable' } }; }
+    return canonical;
+  });
+  const priorities = buildContinuousAssuranceDashboard({ ...sources, now, priorityLimit: null }).priorities;
+  return { rows, sources, recordsAvailable, recordsComplete, additionalIssues, priorities, now };
+}
+
+export async function loadAuditReadiness(db: D1Database, auditName = '', now = new Date()) {
+  return buildAuditReadiness({ ...await loadAuditReadinessContext(db, now), auditName });
 }

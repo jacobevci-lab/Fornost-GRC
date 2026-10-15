@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { buildAssuranceReportHtml, buildExecutiveAssurance } from "../app/executive-assurance";
 
+const portfolio = { audits: [{ id: 'ISO', name: 'ISO audit', gate: 'ready' as const, verified: true, issues: [], requirements: 1, current: 1, blockers: 0 }], verified: true, issues: [], orphanRequirements: 0, generatedAt: '2026-09-20T00:00:00Z' };
+
 const rows = [
   { id:"risk-1", code:"RSK-001", module:"Risk Assessment", data:{ title:"Identity risk", asset:"M365" } },
   { id:"asset-1", code:"AST-001", module:"Varlık Envanteri", data:{ title:"M365" } },
@@ -12,7 +14,7 @@ const rows = [
 ];
 
 test("executive assurance combines traceability, controls, evidence and audit readiness", () => {
-  const result = buildExecutiveAssurance(rows, "2026-09-20");
+  const result = buildExecutiveAssurance(rows, "2026-09-20", portfolio);
   assert.equal(result.score, 100);
   assert.equal(result.state, "strong");
   assert.equal(result.completeChains, 4);
@@ -29,7 +31,7 @@ test("assurance pack is escaped, bilingual and includes priority evidence", () =
 
 test("ambiguous legacy control references do not inflate executive assurance", () => {
   const ambiguous = rows.map(row => row.module === "Kanıtlar" ? { ...row, data: { ...row.data, controlRef: "A.5.15" } } : row);
-  const report = buildExecutiveAssurance(ambiguous, "2026-09-20");
-  assert.ok(report.score < buildExecutiveAssurance(rows, "2026-09-20").score);
+  const report = buildExecutiveAssurance(ambiguous, "2026-09-20", portfolio);
+  assert.ok(report.score! < buildExecutiveAssurance(rows, "2026-09-20", portfolio).score!);
   assert.ok(report.controlPriorities.length > 0);
 });
