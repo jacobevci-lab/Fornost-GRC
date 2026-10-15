@@ -1,11 +1,12 @@
 "use client";
+import type { useEvidenceAssurance } from './use-evidence-assurance';
+import EvidenceAssuranceStatus from './evidence-assurance-status';
+import { assessmentStateText } from './evidence/assessment-labels';
 import { dueTimestamp } from "./due-date";
 
 import { Fragment, useEffect, useMemo, useState } from "react";
 import {
-  applyEvidenceIntegrityOverview,
   buildExecutiveAssurance,
-  type EvidenceIntegrityOverviewItem,
 } from "./executive-assurance";
 import { assessedRiskScore } from "./risk-methodology";
 import type { AssuranceRow } from "./control-assurance";
@@ -73,10 +74,12 @@ function MiniBar({ value, tone = "neutral" }: { value: number; tone?: PanelRow["
 
 export default function ExecutiveAssurancePanel({
   rows,
+  evidenceState,
   lang,
   go,
 }: {
   rows: AssuranceRow[];
+  evidenceState: ReturnType<typeof useEvidenceAssurance>;
   lang: "tr" | "en";
   go: (module: string) => void;
 }) {
@@ -88,15 +91,13 @@ export default function ExecutiveAssurancePanel({
   const [now, setNow] = useState(() => Date.now());
   const [findingSummary, setFindingSummary] = useState<{open: number} | null>(null);
   const [operations, setOperations] = useState<Operations | null>(null);
-  const [evidenceIntegrity, setEvidenceIntegrity] = useState<EvidenceIntegrityOverviewItem[]>([]);
-  const assuranceRows = useMemo(() => applyEvidenceIntegrityOverview(rows, evidenceIntegrity), [rows, evidenceIntegrity]);
-  const assurance = useMemo(() => buildExecutiveAssurance(assuranceRows), [assuranceRows]);
+  const assurance = useMemo(() => buildExecutiveAssurance(evidenceState.rows, evidenceState.generatedAt), [evidenceState.rows, evidenceState.generatedAt]);
 
   useEffect(() => {
     let live = true;
     const controller = new AbortController();
     const refresh = async () => {
-      const paths = ["/api/continuous-assurance/executive", "/api/evidence/history", "/api/findings"];
+      const paths = ["/api/continuous-assurance/executive", "/api/findings"];
       const results = await Promise.allSettled(paths.map(async (path) => {
         const response = await fetch(withBasePath(path), { cache: "no-store", signal: controller.signal, headers: { accept: "application/json" } });
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
@@ -105,9 +106,8 @@ export default function ExecutiveAssurancePanel({
       if (!live) return;
       setNow(Date.now());
       setLoadError(results.some(result => result.status === "rejected"));
-      const [executive, history, finding] = results;
+      const [executive, finding] = results;
       if (executive.status === "fulfilled") setOperations(executive.value);
-      if (history.status === "fulfilled" && Array.isArray(history.value?.evidenceItems)) setEvidenceIntegrity(history.value.evidenceItems);
       if (finding.status === "fulfilled" && finding.value?.summary) setFindingSummary(finding.value.summary);
     };
     void refresh();
@@ -131,6 +131,7 @@ export default function ExecutiveAssurancePanel({
   }), [scoredRisks]);
   const highRisks = riskBands.critical + riskBands.high;
   const percent = (value: number, total: number) => total ? `${Math.round(value)}%` : "—";
+  const confidencePercent = (value: number, total: number) => evidenceState.ready ? percent(value, total) : "—";
   const unassessedRisks = risks.length - scoredRisks.length;
 
   const openFindings = Math.max(
@@ -237,11 +238,11 @@ export default function ExecutiveAssurancePanel({
     assuranceHealth: (<article className="executive-cockpit-panel continuous-assurance-panel">
           <header><span className="executive-panel-icon"><NavIcon module="Kanıtlar" /></span><div><small>{tr ? "SÜREKLİ GÜVENCE" : "CONTINUOUS ASSURANCE"}</small><h3>{tr ? "Kontrol ve kanıt güveni" : "Control & evidence confidence"}</h3></div><button onClick={() => go("Kanıt Otomasyonu")}>{tr ? "Operasyon" : "Operations"} →</button></header>
           <div className="assurance-score-row">
-            <div><strong>{rows.length ? assurance.score : "—"}</strong><span> /100</span><MiniBar value={rows.length ? assurance.score : 0} /><small>{integrityPending} {tr ? "kanıt doğrulama bekliyor" : "evidence awaiting verification"}</small></div>
+            <div><strong>{rows.length && evidenceState.ready ? assurance.score : "—"}</strong><span> /100</span><MiniBar value={rows.length && evidenceState.ready ? assurance.score : 0} /><small>{evidenceState.ready ? integrityPending : "—"} {tr ? "kanıt doğrulama bekliyor" : "evidence awaiting verification"}</small></div>
             <div className="assurance-score-bars">
               <label><span>{tr ? "Zincir bütünlüğü" : "Chain integrity"}<b>{percent(assurance.traceabilityScore, rows.length)}</b></span></label>
-              <label><span>{tr ? "Kontrol güvencesi" : "Control assurance"}<b>{percent(assurance.controlScore, assurance.totalControls)}</b></span></label>
-              <label><span>{tr ? "Kanıt güveni" : "Evidence confidence"}<b>{percent(assurance.evidenceScore, assurance.totalEvidence)}</b></span></label>
+              <label><span>{tr ? "Kontrol güvencesi" : "Control assurance"}<b>{confidencePercent(assurance.controlScore, assurance.totalControls)}</b></span></label>
+              <label><span>{tr ? "Kanıt güveni" : "Evidence confidence"}<b>{confidencePercent(assurance.evidenceScore, assurance.totalEvidence)}</b></span></label>
               <label><span>{tr ? "Başarısız test" : "Failed tests"}<b>{assurance.failedControlTests}</b></span></label>
             </div>
           </div>
@@ -273,13 +274,15 @@ export default function ExecutiveAssurancePanel({
         </div>
       </header>
 
+      <EvidenceAssuranceStatus state={evidenceState} lang={lang} />
+      {evidenceState.ready && assurance.assessmentIssues.length > 0 && <ul className="executive-assessment-issues">{assurance.assessmentIssues.map(issue => <li key={issue.reason}>{issue.count} · {assessmentStateText[issue.reason]?.[lang] || issue.reason}</li>)}</ul>}
       {loadError && <p role="status" className="executive-data-warning">{tr ? "Bazı operasyonel veriler yüklenemedi. Son alınan değerler gösteriliyor; eksik kaynaklar doğrulanmalıdır." : "Some operational data could not be loaded. Last received values are shown; missing sources need verification."}</p>}
       <div className="executive-dashboard-kpis">
         {[
-          { label: tr ? "Kontrol Güvencesi" : "Control Assurance", value: percent(assurance.controlScore, assurance.totalControls), detail: `${assurance.healthyControls}/${assurance.totalControls} ${tr ? "sağlıklı" : "healthy"}`, tone: assurance.controlScore >= 80 ? "positive" : "warning", module: "Kontroller" },
+          { label: tr ? "Kontrol Güvencesi" : "Control Assurance", value: confidencePercent(assurance.controlScore, assurance.totalControls), detail: `${evidenceState.ready ? assurance.healthyControls : "—"}/${assurance.totalControls} ${tr ? "sağlıklı" : "healthy"}`, tone: evidenceState.ready && assurance.controlScore >= 80 ? "positive" : "warning", module: "Kontroller" },
           { label: tr ? "Denetim Hazırlığı" : "Audit Readiness", value: percent(assurance.auditScore, assurance.totalAudits), detail: `${assurance.readyAudits}/${assurance.totalAudits} ${tr ? "hazır" : "ready"}`, tone: assurance.auditScore >= 80 ? "positive" : "warning", module: "Denetim Yönetimi" },
           { label: tr ? "Zincir Kapsaması" : "Chain Coverage", value: percent(assurance.traceabilityScore, rows.length), detail: tr ? "Risk · kontrol · kanıt bağlantıları" : "Risk · control · evidence links", tone: assurance.traceabilityScore >= 80 ? "positive" : "warning", module: "Bağlantılı GRC" },
-          { label: tr ? "Kanıt Güncelliği" : "Evidence Freshness", value: percent(assurance.freshnessScore, assurance.totalEvidence), detail: `${assurance.currentEvidence}/${assurance.totalEvidence} ${tr ? "güncel" : "current"}`, tone: assurance.evidenceScore >= 80 ? "positive" : "warning", module: "Kanıtlar" },
+          { label: tr ? "Kanıt Güncelliği" : "Evidence Freshness", value: confidencePercent(assurance.freshnessScore, assurance.totalEvidence), detail: `${evidenceState.ready ? assurance.currentEvidence : "—"}/${assurance.totalEvidence} ${tr ? "güncel" : "current"}`, tone: evidenceState.ready && assurance.evidenceScore >= 80 ? "positive" : "warning", module: "Kanıtlar" },
           { label: tr ? "Kritik + Yüksek Risk" : "Critical + High Risk", value: percent(scoredRisks.length ? highRisks / scoredRisks.length * 100 : 0, scoredRisks.length), detail: `${highRisks}/${scoredRisks.length} ${tr ? "değerlendirilen risk" : "assessed risks"}`, tone: highRisks ? "critical" : "positive", module: "Risk Assessment" },
           { label: tr ? "Uyum Sağlığı" : "Compliance Health", value: percent(complianceScore, complianceTotal), detail: `${compliantTotal}/${complianceTotal} ${tr ? "uyumlu" : "compliant"}`, tone: complianceScore >= 80 ? "positive" : "warning", module: "Uyum" },
         ].map((metric) => (

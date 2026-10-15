@@ -146,7 +146,7 @@ try {
     // Dashboard effects explicitly abort these reads on unmount. Preserve the
     // event as evidence, but do not call intentional navigation cancellation a
     // Connected GRC transport failure. Other endpoints/errors/writes still fail.
-    const dashboardReads = ["/api/continuous-assurance/executive", "/api/evidence/history", "/api/findings", "/api/dashboard-preferences"];
+    const dashboardReads = ["/api/continuous-assurance/executive", "/api/evidence/assurance", "/api/findings", "/api/dashboard-preferences"];
     if (leavingDashboard && request.method() === "GET" && request.failure()?.errorText === "net::ERR_ABORTED"
       && dashboardReads.includes(new URL(url).pathname)) {
       report.dashboardNavigationCancellations.push({ url, method: request.method(), failure: request.failure()?.errorText });
