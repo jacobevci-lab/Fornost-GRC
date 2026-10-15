@@ -19,6 +19,6 @@ export function auditRequestProgress(requests: AuditRequest[], workflow: AuditRe
       else if (today && due < today) overdueIds.push(row.id);
     }
   }
-  const state = !complete || unknown ? 'incomplete' : !requests.length ? 'empty' : workflow.state === 'draft' ? 'draft' : pendingIds.length ? 'pending' : 'resolved';
+  const state = !complete || unknown ? 'incomplete' : !requests.length ? 'empty' : workflow.state === 'closed' ? 'closed' : workflow.state === 'draft' ? 'draft' : pendingIds.length ? 'pending' : 'resolved';
   return { counts, pendingIds, overdueIds, clockComplete, state };
 }

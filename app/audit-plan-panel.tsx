@@ -1,9 +1,9 @@
 "use client";
 import {useEffect,useState} from 'react';
-import {auditPlanFields,emptyAuditPlan,validateAuditPlan,type AuditPlan} from './audit-plan';
+import {auditPlanLabels as labels,auditPlanFields,emptyAuditPlan,validateAuditPlan,type AuditPlan} from './audit-plan';
 import {withBasePath} from './base-path';
 import './audit-plan-panel.css';
-const labels:Record<keyof AuditPlan,[string,string]>={objective:['Denetimin amacı','Audit objective'],scope:['Kapsam içi süreç, varlık ve birimler','In-scope processes, assets and units'],exclusions:['Kapsam dışı ve gerekçesi','Exclusions and rationale'],lead:['Baş denetçi','Lead auditor'],team:['Denetim ekibi ve rolleri','Audit team and roles'],methodology:['Yöntem ve örnekleme yaklaşımı','Methodology and sampling approach'],deliverables:['Rapor ve teslimatlar','Reports and deliverables'],milestones:['Kilometre taşları / sorumlu / hedef tarih','Milestones / owner / target date'],periodStart:['İncelenen dönem başlangıcı','Review period start'],periodEnd:['İncelenen dönem sonu','Review period end'],fieldworkStart:['Saha çalışması başlangıcı','Fieldwork start'],fieldworkEnd:['Saha çalışması sonu','Fieldwork end']};
+
 export function AuditPlanPanel({auditId,canWrite,lang}:{auditId:string;canWrite:boolean;lang:string}){
  const[open,setOpen]=useState(false),[activated,setActivated]=useState(false),en=lang==='en';
  return <section className="audit-plan-panel"><button type="button" aria-expanded={open} onClick={()=>{setActivated(true);setOpen(!open);}}>{en?'Audit plan & scope':'Denetim planı ve kapsamı'}</button>{activated&&<div hidden={!open}><Plan key={auditId} auditId={auditId} canWrite={canWrite} en={en}/></div>}</section>;

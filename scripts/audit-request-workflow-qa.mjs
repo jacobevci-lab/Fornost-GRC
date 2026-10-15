@@ -1,6 +1,7 @@
 import { qaPassword } from './qa-credentials.mjs';
 import { chromium, expect } from '@playwright/test';
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import { mkdir } from 'node:fs/promises';
 
 // Isolated local runtime only: no external mail or customer data.
@@ -151,7 +152,94 @@ try {
       await panel.screenshot({ path: `audit-request-qa-artifacts/${language}-${theme}-${width}.png` });
     }
   }
-  assert.deepEqual(errors, []); console.log('AUDIT_REQUEST_WORKFLOW_QA_PASS: real API lifecycle, roles, duplicate start/submission, pinned versions, reasoned additions, stale preview recovery, unchanged acceptance, outstanding/draft/overdue filters, My Work focus, TR/EN and responsive themes');
+  // Work-plan closure: preview blockers, stale plan recovery, immutable decision snapshots and reopening.
+  await page.locator('.language-switch:visible').getByRole('button', { name: 'EN', exact: true }).click();
+  await page.setViewportSize({ width: 1536, height: 960 });
+  const workplan = panel.locator('.ar-workplan');
+  await workplan.getByRole('button', { name: 'Preview closure', exact: true }).click();
+  await expect(workplan.getByRole('button', { name: 'Close work plan', exact: true })).toBeDisabled();
+  await expect(workplan.locator('.ar-closure-preview')).toContainText('Resolve all requests before closing');
+  await workplan.locator('.ar-closure-preview').getByRole('button', { name: 'Cancel', exact: true }).click();
+  await panel.getByRole('button', { name: addition.title, exact: true }).click();
+  await panel.getByLabel('Decision / cancellation reason', { exact: true }).fill('Additional scope was withdrawn by the audit owner.');
+  await panel.getByRole('button', { name: 'Cancel request', exact: true }).click();
+  await expect(panel.locator('.ar-state.cancelled')).toHaveText('Cancelled');
+  let savedPlan = await api(admin, `/api/audits/plan?id=${auditId}`);
+  savedPlan = await api(admin, '/api/audits/plan', 'PUT', { id: auditId, expectedRevision: savedPlan.revision, plan: { ...savedPlan.plan, scope: 'QA scope reviewed before closure' } });
+  await workplan.getByRole('button', { name: 'Preview closure', exact: true }).click();
+  await expect(workplan.locator('.ar-closure-preview')).toContainText('1 accepted');
+  savedPlan = await api(admin, '/api/audits/plan', 'PUT', { id: auditId, expectedRevision: savedPlan.revision, plan: { ...savedPlan.plan, scope: 'QA final scope after concurrent plan update' } });
+  const closeReason = 'Every requested item has a recorded acceptance or cancellation decision.';
+  await workplan.getByLabel('Closure / reopening reason', { exact: true }).fill(closeReason);
+  await workplan.getByRole('button', { name: 'Close work plan', exact: true }).click();
+  await expect(workplan.getByRole('alert')).toContainText('saved plan changed');
+  await expect(workplan.getByRole('button', { name: 'Close work plan', exact: true })).toBeDisabled();
+  await workplan.getByRole('button', { name: 'Reload preview', exact: true }).click();
+  await expect(workplan.getByLabel('Closure / reopening reason', { exact: true })).toHaveValue(closeReason);
+  await workplan.locator('.ar-closure-preview .ar-plan-snapshot summary').click();
+  await expect(workplan.locator('.ar-closure-preview')).toContainText(savedPlan.plan.scope);
+  let releaseClose, closePosts = 0; const closeBarrier = new Promise(resolve => { releaseClose = resolve; });
+  await page.route('**/api/audits/requests/closure', async route => {
+    if (route.request().method() === 'POST') { closePosts++; const response = await route.fetch(); await closeBarrier; await route.fulfill({ response }); } else await route.continue();
+  });
+  const closeButton = workplan.getByRole('button', { name: 'Close work plan', exact: true });
+  await closeButton.click(); await expect(closeButton).toBeDisabled(); await closeButton.dispatchEvent('click');
+  await expect.poll(() => closePosts).toBe(1); releaseClose();
+  await expect(panel.locator('.ar-progress h4')).toHaveText('Work plan closed'); await page.unroute('**/api/audits/requests/closure');
+  await expect(panel.getByRole('button', { name: '+ Add request', exact: true })).toHaveCount(0);
+  state = await api(admin, `/api/audits/requests?auditId=${auditId}`);
+  const closureId = state.workflow.revision;
+  await api(admin, '/api/audits/requests', 'POST', { auditId, action: 'create', requestId: `ARQ-closed-${tag}`, expectedRevision: '', expectedWorkflowRevision: closureId, fields: { ...addition } }, 409);
+  await api(admin, '/api/audits/requests/closure', 'POST', { auditId, action: 'close', expectedRevision: closureId, note: closeReason }, 409);
+  assert.ok((await api(owner, '/api/audits/requests')).requests.some(r => r.id === request.id && r.status === 'accepted'));
+  await workplan.locator('.ar-closure-history > summary').click();
+  await workplan.getByRole('button', { name: 'View closure record', exact: true }).click();
+  await expect(workplan.locator('.ar-closure-record')).toContainText('Closure record SHA-256 verified');
+  const downloadLink = workplan.getByRole('link', { name: 'Download closure record (JSON)', exact: true });
+  const href = await downloadLink.getAttribute('href'), downloaded = await admin.request.get(base + href);
+  assert.equal(downloaded.status(), 200); assert.equal(downloaded.headers()['x-content-type-options'], 'nosniff');
+  assert.match(downloaded.headers()['content-disposition'], /^attachment;/);
+  const exported = await downloaded.json(), canonical = value => Array.isArray(value) ? `[${value.map(canonical).join(',')}]` : value && typeof value === 'object' ? `{${Object.keys(value).sort().map(key => `${JSON.stringify(key)}:${canonical(value[key])}`).join(',')}}` : JSON.stringify(value) ?? 'null';
+  assert.equal(exported.sha256, createHash('sha256').update(canonical(exported.snapshot)).digest('hex'));
+  assert.equal(exported.snapshot.plan.plan.scope, savedPlan.plan.scope);
+  assert.equal(exported.snapshot.requests.find(r => r.id === request.id).evidence[0].id, version.id);
+  assert.equal(exported.snapshot.requests.find(r => r.id === request.id).evidence[0].contentSha256, version.contentSha256);
+  // Evidence restrictions also cover snapshots, previews and exports.
+  const scopedEmail = `audit-closure-scoped-${tag}@fornost.test`, scoped = await browser.newContext();
+  await api(admin, '/api/users', 'POST', { email: scopedEmail, name: 'QA Audit Only', role: 'Editor', password: qaPassword(), moduleAccess: { mode: 'scoped', modules: { 'Denetim Yönetimi': 'write' } } }, 201);
+  accountIds.push((await api(admin, '/api/users')).users.find(u => u.email === scopedEmail).id);
+  await api(scoped, '/api/auth', 'POST', { action: 'login', email: scopedEmail, password: qaPassword() });
+  const redacted = await api(scoped, `/api/audits/requests/closure?auditId=${auditId}&closureId=${closureId}`);
+  assert.equal(redacted.evidenceAccess, false); assert.ok(redacted.snapshot.requests.every(r => r.evidence.length === 0));
+  await api(scoped, `/api/audits/requests/closure?auditId=${auditId}&preview=1`, 'GET', undefined, 403);
+  await api(scoped, `/api/audits/requests/closure?auditId=${auditId}&closureId=${closureId}&download=1`, 'GET', undefined, 403);
+  await api(scoped, '/api/audits/requests/closure', 'POST', { auditId, action: 'reopen', expectedRevision: closureId, note: 'Cannot reopen without evidence access.' }, 403);
+  // Later plan edits preserve the archived copy, including its hash.
+  await api(admin, '/api/audits/plan', 'PUT', { id: auditId, expectedRevision: savedPlan.revision, plan: { ...savedPlan.plan, scope: 'QA scope changed after closure' } });
+  assert.deepEqual(await api(admin, `/api/audits/requests/closure?auditId=${auditId}&closureId=${closureId}`), exported);
+  for (const language of ['EN', 'TR']) {
+    await page.locator('.language-switch:visible').getByRole('button', { name: language, exact: true }).click();
+    for (const theme of ['light', 'dark']) for (const width of [390, 1536]) {
+      await page.evaluate(t => document.documentElement.dataset.theme = t, theme); await page.setViewportSize({ width, height: 960 });
+      assert.ok(await workplan.evaluate(e => e.scrollWidth <= e.clientWidth + 1));
+      await workplan.screenshot({ path: `audit-request-qa-artifacts/closure-${language}-${theme}-${width}.png` });
+    }
+  }
+  await page.locator('.language-switch:visible').getByRole('button', { name: 'EN', exact: true }).click();
+  await workplan.getByRole('button', { name: 'Review reopening', exact: true }).click();
+  await workplan.getByLabel('Closure / reopening reason', { exact: true }).fill('A new audit evidence request is needed for the amended scope.');
+  await workplan.getByRole('button', { name: 'Reopen work plan', exact: true }).click();
+  await expect(panel.locator('.ar-progress h4')).toHaveText('No outstanding requests');
+  state = await api(admin, `/api/audits/requests?auditId=${auditId}`);
+  assert.equal(state.requests.find(r => r.id === request.id).status, 'accepted');
+  assert.equal(state.requests.find(r => r.id === request.id).evidence[0].id, version.id);
+  const newId = `ARQ-reopened-${tag}`;
+  await api(admin, '/api/audits/requests', 'POST', { auditId, action: 'create', requestId: newId, expectedRevision: '', expectedWorkflowRevision: state.workflow.revision, fields: { ...addition, title: 'Post-closure additional scope' } });
+  assert.ok(!(await api(owner, '/api/audits/requests')).requests.some(r => r.id === newId));
+  assert.deepEqual(await api(admin, `/api/audits/requests/closure?auditId=${auditId}&closureId=${closureId}`), exported);
+  const lifecycle = await api(admin, `/api/audits/requests/closure?auditId=${auditId}`);
+  assert.deepEqual(lifecycle.events.map(e => e.action), ['reopen', 'close']);
+  assert.deepEqual(errors, []); console.log('AUDIT_REQUEST_WORKFLOW_QA_PASS: real API lifecycle, roles, duplicate start/submission, pinned versions, reasoned additions, stale preview recovery, unchanged acceptance, outstanding/draft/overdue filters, atomic closure, saved-plan race recovery, immutable snapshots/exports, scope redaction, reopening, My Work focus, TR/EN and responsive themes');
 } catch (error) {
   console.error('AUDIT_REQUEST_WORKFLOW_QA_FAILED', error.message);
   await mkdir('audit-request-qa-artifacts', { recursive: true });

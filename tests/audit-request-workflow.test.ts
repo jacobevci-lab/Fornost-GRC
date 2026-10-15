@@ -1,4 +1,6 @@
 import test from 'node:test';
+import { mutateWorkplan, readWorkplanClosure, readWorkplanHistory, readWorkplanPreview } from '../app/audit-workplan-store';
+import { emptyAuditPlan, saveAuditPlan } from '../app/audit-plan';
 import assert from 'node:assert/strict';
 import { DatabaseSync, type SQLInputValue } from 'node:sqlite';
 import { ensureAuditRequestSchema, mutateAuditRequest, readAuditRequestWorkflow, readAuditRequestWork, auditRequestActorActive } from '../app/audit-request-store';
@@ -27,8 +29,8 @@ async function fixture() {
       execute() { const results = sqlite.prepare(sql).all(...args); return { results, success: true, meta: { changes: Number((sqlite.prepare('SELECT changes() n').get() as { n: number }).n) } }; },
       async all() { return this.execute(); }, async run() { return this.execute(); }, async first() { return sqlite.prepare(sql).get(...args) || null; } };
   }
-  let beforeBatch: (() => void) | undefined;
-  const db = { prepare, async batch(statements: ReturnType<typeof prepare>[]) { const hook = beforeBatch; beforeBatch = undefined; hook?.(); sqlite.exec('BEGIN'); try { const results = statements.map(s => s.execute()); sqlite.exec('COMMIT'); return results; } catch (e) { sqlite.exec('ROLLBACK'); throw e; } } } as unknown as D1Database;
+  let beforeBatch: (() => void) | undefined, beforeBatchDelay = 0;
+  const db = { prepare, async batch(statements: ReturnType<typeof prepare>[]) { const hook = beforeBatchDelay > 0 ? undefined : beforeBatch; if (beforeBatchDelay > 0) beforeBatchDelay--; else beforeBatch = undefined; hook?.(); sqlite.exec('BEGIN'); try { const results = statements.map(s => s.execute()); sqlite.exec('COMMIT'); return results; } catch (e) { sqlite.exec('ROLLBACK'); throw e; } } } as unknown as D1Database;
   await ensureAuditRequestSchema(db); await ensureEvidenceHistorySchema(db);
   sqlite.prepare(`INSERT INTO evidence_versions(id,evidence_id,version_no,file_key,file_name,file_type,file_size,content_sha256,chain_sha256,evidence_title,owner,period,frameworks,control_refs,change_note,created_by,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).run('EVV-one','EVD-a',1,'evidence/EVD-a/v1.pdf','v1.pdf','application/pdf',100,'a'.repeat(64),'b'.repeat(64),'Access review',owner.email,'Q3 2026','','CTRL-1','Initial',owner.email,now.toISOString());
   const create = (requestId = 'ARQ-a', patch = {}) => mutateAuditRequest(db, admin, { auditId: 'audit-a', requestId, expectedRevision: '', action: 'create', fields: { ...fields, ...patch } }, now);
@@ -38,7 +40,7 @@ async function fixture() {
   const start = async () => mutateAuditRequest(db, admin, { auditId: 'audit-a', action: 'start', expectedRevision: '', expectedPlanRevision: '', timeZone: 'Europe/Istanbul', expectedDrafts: requestDraftPreview((await state()).requests) }, now);
   const add = async (id = 'ARQ-extra') => mutateAuditRequest(db, admin, { auditId: 'audit-a', action: 'create', requestId: id, expectedRevision: '', expectedWorkflowRevision: (await state()).workflow.revision, fields }, now);
   const activation = async () => { const current = await state(); return { auditId: 'audit-a', action: 'activate', expectedRevision: current.workflow.revision, expectedPlanRevision: '', expectedDrafts: requestDraftPreview(current.requests), note: 'Additional review required for scope change' }; };
-  return { db, sqlite, create, state, row, act, start, add, activation, race: (hook: () => void) => { beforeBatch = hook; } };
+  return { db, sqlite, create, state, row, act, start, add, activation, race: (hook: () => void, afterBatches = 0) => { beforeBatch = hook; beforeBatchDelay = afterBatches; } };
 }
 test('fields reject impossible dates, wrong periods, same reviewer and invalid timezone', () => {
   for (const patch of [{ title: '' }, { instructions: '' }, { reviewer: owner.email }, { dueDate: '2026-02-30' }, { reviewDueDate: '2026-10-01' }, { periodEnd: '' }, { periodStart: '2027-01-01' }]) assert.throws(() => validateAuditRequestFields({ ...fields, ...patch }));
@@ -253,5 +255,153 @@ test('cancelled unpublished additions never appear as completed work', async () 
     const addition = (await f.state()).requests.find(r => r.id === 'ARQ-extra')!;
     await mutateAuditRequest(f.db, admin, { auditId: 'audit-a', action: 'cancel', requestId: addition.id, expectedRevision: addition.revision, note: 'Draft no longer needed' }, now);
     assert.deepEqual((await readAuditRequestWork(f.db)).requests.map(r => r.id), ['ARQ-a']);
+  } finally { f.sqlite.close(); }
+});
+
+
+async function closureInput(f: Awaited<ReturnType<typeof fixture>>) {
+  const state = await readWorkplanPreview(f.db, 'audit-a');
+  return { auditId: 'audit-a', action: 'close', expectedRevision: state.workflow.revision, expectedPlanRevision: state.plan.revision, expectedRequests: state.requests.map(({ id, revision }) => ({ id, revision })), note: 'All requested work has been reviewed and resolved.' };
+}
+async function acceptFixture(f: Awaited<ReturnType<typeof fixture>>) {
+  await f.create(); await f.start(); await f.act('submit', owner, { versionIds: ['EVV-one'] }); await f.act('accept', reviewer, { note: 'Evidence accepted by the assigned reviewer.' });
+}
+test('closure freezes the saved plan, decisions and pinned versions; reopen preserves history and accepted work', async () => {
+  const f = await fixture(); try {
+    await acceptFixture(f);
+    await saveAuditPlan(f.db, 'audit-a', '', { ...emptyAuditPlan, scope: 'Q3 access review scope' }, admin.email);
+    const accepted = await f.row(), input = await closureInput(f);
+    const { revision: closureId } = await mutateWorkplan(f.db, admin, input, now);
+    assert.equal((await f.state()).workflow.state, 'closed');
+    await syncAuditRequestNotifications(f.db, now); assert.equal(f.sqlite.prepare("SELECT COUNT(*) n FROM continuous_assurance_notification_outbox WHERE status='queued'").get()?.n, 0);
+    const closed = await readWorkplanClosure(f.db, 'audit-a', closureId, true);
+    assert.equal(closed.integrity, 'verified'); assert.equal(closed.snapshot.requests[0].evidence[0].id, 'EVV-one');
+    assert.equal(closed.snapshot.plan.plan.scope, 'Q3 access review scope'); assert.equal(closed.snapshot.requests[0].reviewer, reviewer.email);
+    assert.deepEqual((await readAuditRequestWork(f.db)).requests.map(row => row.id), ['ARQ-a']);
+    await assert.rejects(f.add(), /workplan-closed/); await assert.rejects(f.act('edit', admin, { fields }), /workplan-closed/);
+    await assert.rejects(mutateWorkplan(f.db, admin, input, now), /conflict/);
+    await saveAuditPlan(f.db, 'audit-a', input.expectedPlanRevision, { ...emptyAuditPlan, scope: 'Q4 changed scope' }, admin.email);
+    f.sqlite.exec("UPDATE simple_grc_records SET data_json='{\"versionNo\":\"2\"}' WHERE id='EVD-a'");
+    const reopen = { auditId: 'audit-a', action: 'reopen', expectedRevision: closureId, note: 'Additional service accounts require review.' };
+    await assert.rejects(mutateWorkplan(f.db, admin, { ...reopen, note: '' }, now), /note/);
+    await mutateWorkplan(f.db, admin, reopen, now); await assert.rejects(mutateWorkplan(f.db, admin, reopen, now), /conflict/);
+    assert.deepEqual(await f.row(), accepted);
+    await f.add(); const extra = (await f.state()).requests.find(r => r.id === 'ARQ-extra')!;
+    await mutateAuditRequest(f.db, admin, { auditId: 'audit-a', requestId: extra.id, action: 'cancel', expectedRevision: extra.revision, note: 'Scope addition is no longer needed.' }, now);
+    const second = await mutateWorkplan(f.db, admin, await closureInput(f), now);
+    assert.notEqual(second.revision, closureId); assert.deepEqual(await readWorkplanClosure(f.db, 'audit-a', closureId, true), closed);
+    assert.equal((await readWorkplanClosure(f.db, 'audit-a', second.revision, true)).snapshot.plan.plan.scope, 'Q4 changed scope');
+    assert.deepEqual((await readWorkplanHistory(f.db, 'audit-a')).events.map(e => e.action), ['close', 'reopen', 'close']);
+    assert.deepEqual((await readAuditRequestWork(f.db)).requests.map(row => row.id), ['ARQ-a']);
+    assert.equal(f.sqlite.prepare("SELECT COUNT(*) n FROM audit_request_events WHERE action='accept'").get()?.n, 1);
+  } finally { f.sqlite.close(); }
+});
+
+test('closure blocks pending work and stale previews, including additions, plan drift and duplicate IDs', async () => {
+  const f = await fixture(); try {
+    await f.create(); await f.start();
+    await assert.rejects(mutateWorkplan(f.db, admin, await closureInput(f), now), /outstanding/);
+    await f.act('submit', owner, { versionIds: ['EVV-one'] });
+    await assert.rejects(mutateWorkplan(f.db, admin, await closureInput(f), now), /outstanding/);
+    await f.act('accept', reviewer, { note: 'All requested evidence reviewed.' });
+    const preview = await closureInput(f);
+    await assert.rejects(mutateWorkplan(f.db, admin, { ...preview, expectedRequests: [...preview.expectedRequests, ...preview.expectedRequests] }, now), /preview-changed/);
+    await saveAuditPlan(f.db, 'audit-a', '', emptyAuditPlan, admin.email);
+    await assert.rejects(mutateWorkplan(f.db, admin, preview, now), /plan-changed/);
+    const current = await closureInput(f); await f.add();
+    await assert.rejects(mutateWorkplan(f.db, admin, current, now), /outstanding/);
+    assert.equal(f.sqlite.prepare('SELECT COUNT(*) n FROM audit_workplan_closures').get()?.n, 0);
+  } finally { f.sqlite.close(); }
+});
+
+test('closure claims exact request and plan revisions inside the transaction', async () => {
+  for (const change of [
+    "UPDATE audit_requests SET revision='changed' WHERE id='ARQ-a'",
+    "INSERT INTO audit_requests SELECT 'ARQ-race',audit_id,data_json,'new-revision',created_at,updated_at FROM audit_requests LIMIT 1",
+    "INSERT INTO simple_grc_metadata VALUES('audit_plan_audit-a','{\"revision\":\"changed\",\"plan\":{}}','')",
+    "DELETE FROM simple_audits WHERE id='audit-a'",
+  ]) {
+    const f = await fixture(); try {
+      await acceptFixture(f); const preview = await closureInput(f);
+      f.race(() => f.sqlite.exec(change), 1); // after snapshot read, before the write batch
+      await assert.rejects(mutateWorkplan(f.db, admin, preview, now), /conflict/);
+      assert.equal(f.sqlite.prepare('SELECT state FROM audit_request_workflows').get()?.state, 'active');
+      assert.equal(f.sqlite.prepare('SELECT COUNT(*) n FROM audit_workplan_closures').get()?.n, 0);
+      assert.equal(f.sqlite.prepare('SELECT COUNT(*) n FROM audit_workplan_closure_items').get()?.n, 0);
+      assert.equal(f.sqlite.prepare('SELECT COUNT(*) n FROM audit_workplan_events').get()?.n, 0);
+    } finally { f.sqlite.close(); }
+  }
+});
+
+test('closure and reopening roll back completely on snapshot or event failure', async () => {
+  for (const target of ['audit_workplan_closure_items', 'audit_workplan_events']) {
+    const f = await fixture(); try {
+      await acceptFixture(f); const before = await f.state();
+      f.sqlite.exec(`CREATE TRIGGER fail_closure BEFORE INSERT ON ${target} BEGIN SELECT RAISE(ABORT,'snapshot failure'); END`);
+      await assert.rejects(mutateWorkplan(f.db, admin, await closureInput(f), now), /snapshot failure/);
+      assert.deepEqual(await f.state(), before); assert.equal(f.sqlite.prepare('SELECT COUNT(*) n FROM audit_workplan_closures').get()?.n, 0);
+      assert.equal(f.sqlite.prepare('SELECT COUNT(*) n FROM audit_workplan_closure_items').get()?.n, 0);
+      f.sqlite.exec('DROP TRIGGER fail_closure');
+      const closed = await mutateWorkplan(f.db, admin, await closureInput(f), now);
+      f.sqlite.exec("CREATE TRIGGER fail_reopen BEFORE INSERT ON audit_workplan_events WHEN NEW.action='reopen' BEGIN SELECT RAISE(ABORT,'reopen failure'); END");
+      await assert.rejects(mutateWorkplan(f.db, admin, { auditId: 'audit-a', action: 'reopen', expectedRevision: closed.revision, note: 'Additional scope requested.' }, now), /reopen failure/);
+      assert.equal((await f.state()).workflow.state, 'closed');
+    } finally { f.sqlite.close(); }
+  }
+});
+
+test('concurrent close prevents a stale draft creation and scoped actors cannot close blind', async () => {
+  const f = await fixture(); try {
+    await acceptFixture(f); const preview = await closureInput(f);
+    const auditOnly = { ...owner, moduleAccess: { mode: 'scoped', modules: { 'Denetim Yönetimi': 'write' } } } as Actor;
+    await assert.rejects(mutateWorkplan(f.db, auditOnly, preview, now), /forbidden/);
+    await assert.rejects(mutateWorkplan(f.db, { ...owner, role: 'Viewer' }, preview, now), /forbidden/);
+    assert.equal(scopedApiAllowed(auditOnly, '/api/audits/requests/closure', 'GET'), true);
+    const noAudit = { ...owner, moduleAccess: { mode: 'scoped', modules: { 'Kanıtlar': 'read' } } } as Actor;
+    assert.equal(scopedApiAllowed(noAudit, '/api/audits/requests/closure', 'GET'), false);
+    f.race(() => f.sqlite.exec("UPDATE audit_request_workflows SET state='closed'"));
+    await assert.rejects(f.add(), /conflict/);
+    assert.equal((await f.state()).requests.length, 1);
+  } finally { f.sqlite.close(); }
+});
+
+test('historical reads enforce parent identity, redact evidence and detect tampered/incomplete snapshots', async () => {
+  const f = await fixture(); try {
+    await acceptFixture(f); const { revision } = await mutateWorkplan(f.db, admin, await closureInput(f), now);
+    await assert.rejects(readWorkplanClosure(f.db, 'audit-b', revision, true), /closure-missing/);
+    const redacted = await readWorkplanClosure(f.db, 'audit-a', revision, false);
+    assert.equal(redacted.integrity, 'verified'); assert.deepEqual(redacted.snapshot.requests[0].evidence, []);
+    f.sqlite.prepare("UPDATE audit_workplan_closure_items SET data_json=json_set(data_json,'$.note','tampered') WHERE closure_id=?").run(revision);
+    assert.equal((await readWorkplanClosure(f.db, 'audit-a', revision, true)).integrity, 'broken');
+    f.sqlite.prepare('DELETE FROM audit_workplan_closure_items WHERE closure_id=?').run(revision);
+    assert.equal((await readWorkplanClosure(f.db, 'audit-a', revision, true)).integrity, 'unavailable');
+    f.sqlite.exec("DELETE FROM simple_audits WHERE id='audit-a'");
+    await assert.rejects(readWorkplanClosure(f.db, 'audit-a', revision, true), /audit-missing/);
+  } finally { f.sqlite.close(); }
+});
+
+test('500-request closure is complete without one SQL binding per request; incomplete reads cannot close', async () => {
+  const f = await fixture(); try {
+    await acceptFixture(f);
+    f.sqlite.exec(`WITH RECURSIVE n(x) AS (VALUES(1) UNION ALL SELECT x+1 FROM n WHERE x<499) INSERT INTO audit_requests SELECT 'ARQ-extra-'||x,audit_id,data_json,revision,created_at,updated_at FROM audit_requests,n WHERE id='ARQ-a'`);
+    const input = await closureInput(f), closed = await mutateWorkplan(f.db, admin, input, now);
+    const detail = await readWorkplanClosure(f.db, 'audit-a', closed.revision, true);
+    assert.equal(detail.integrity, 'verified'); assert.equal(detail.snapshot.requests.length, 500);
+    await mutateWorkplan(f.db, admin, { auditId: 'audit-a', action: 'reopen', expectedRevision: closed.revision, note: 'Additional scope requested.' }, now);
+    f.sqlite.exec("INSERT INTO audit_requests SELECT 'ARQ-over-limit',audit_id,data_json,revision,created_at,updated_at FROM audit_requests WHERE id='ARQ-a'");
+    await assert.rejects(mutateWorkplan(f.db, admin, await closureInput(f), now), /limit/);
+  } finally { f.sqlite.close(); }
+});
+
+
+test('a withdrawn work plan can close with cancellations while an empty plan cannot close', async () => {
+  const f = await fixture(); try {
+    await f.create(); await f.start(); await f.act('cancel', admin, { note: 'The audit owner withdrew the request.' });
+    const { revision } = await mutateWorkplan(f.db, admin, await closureInput(f), now);
+    const closed = await readWorkplanClosure(f.db, 'audit-a', revision, true);
+    assert.equal(closed.integrity, 'verified'); assert.ok(closed.snapshot.requests.every(row => row.status === 'cancelled'));
+    await mutateWorkplan(f.db, admin, { auditId: 'audit-a', action: 'reopen', expectedRevision: revision, note: 'Prepare replacement scope.' }, now);
+    f.sqlite.exec('DELETE FROM audit_requests');
+    await assert.rejects(mutateWorkplan(f.db, admin, await closureInput(f), now), /outstanding/);
   } finally { f.sqlite.close(); }
 });

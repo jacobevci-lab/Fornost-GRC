@@ -12,6 +12,11 @@ export const auditRequestSchema = [
   `CREATE INDEX IF NOT EXISTS audit_requests_parent_idx ON audit_requests(audit_id,created_at,id)`,
   `CREATE TABLE IF NOT EXISTS audit_request_events(id TEXT PRIMARY KEY,audit_id TEXT NOT NULL,request_id TEXT NOT NULL,action TEXT NOT NULL,actor TEXT NOT NULL,snapshot_json TEXT NOT NULL,created_at TEXT NOT NULL)`,
   `CREATE INDEX IF NOT EXISTS audit_request_events_parent_idx ON audit_request_events(audit_id,created_at,id)`,
+  `CREATE TABLE IF NOT EXISTS audit_workplan_closures(id TEXT PRIMARY KEY,audit_id TEXT NOT NULL,snapshot_json TEXT NOT NULL,snapshot_sha256 TEXT NOT NULL,request_count INTEGER NOT NULL,created_at TEXT NOT NULL)`,
+  `CREATE INDEX IF NOT EXISTS audit_workplan_closures_parent_idx ON audit_workplan_closures(audit_id,created_at,id)`,
+  `CREATE TABLE IF NOT EXISTS audit_workplan_closure_items(closure_id TEXT NOT NULL,id TEXT NOT NULL,audit_id TEXT NOT NULL,data_json TEXT NOT NULL,revision TEXT NOT NULL,created_at TEXT NOT NULL,updated_at TEXT NOT NULL,PRIMARY KEY(closure_id,id))`,
+  `CREATE TABLE IF NOT EXISTS audit_workplan_events(id TEXT PRIMARY KEY,audit_id TEXT NOT NULL,action TEXT NOT NULL,actor TEXT NOT NULL,note TEXT NOT NULL,closure_id TEXT NOT NULL,revision TEXT NOT NULL,created_at TEXT NOT NULL)`,
+  `CREATE INDEX IF NOT EXISTS audit_workplan_events_parent_idx ON audit_workplan_events(audit_id,created_at,id)`,
 ];
 const initialize = completedInitialization();
 export async function ensureAuditRequestSchema(db: D1Database) {
@@ -53,14 +58,14 @@ async function requestAssigneeSnapshot(db: D1Database, requests: AuditRequest[])
 }
 export async function readAuditRequestWorkflow(db: D1Database, auditId: string) {
   await ensureAuditRequestSchema(db); await requireAuditParent(db, auditId);
-  const stored = await db.prepare('SELECT * FROM audit_request_workflows WHERE audit_id=?').bind(auditId).first<{ audit_id: string; state: 'draft' | 'active'; revision: string; time_zone: string; plan_revision: string }>();
+  const stored = await db.prepare('SELECT * FROM audit_request_workflows WHERE audit_id=?').bind(auditId).first<{ audit_id: string; state: 'draft' | 'active' | 'closed'; revision: string; time_zone: string; plan_revision: string }>();
   const workflow: AuditRequestWorkflow = stored ? { auditId, state: stored.state, revision: stored.revision, timeZone: stored.time_zone, planRevision: stored.plan_revision } : { auditId, state: 'draft', revision: '', timeZone: 'UTC', planRevision: '' };
   const rows = await db.prepare('SELECT * FROM audit_requests WHERE audit_id=? ORDER BY created_at,id LIMIT 501').bind(auditId).all<StoredRequest>();
   return { workflow, requests: rows.results.slice(0, 500).map(publicAuditRequest), complete: rows.results.length <= 500 };
 }
 export async function readAuditRequestWork(db: D1Database) {
   await ensureAuditRequestSchema(db);
-  const rows = await db.prepare(`SELECT r.*,w.time_zone FROM audit_requests r JOIN simple_audits a ON a.id=r.audit_id JOIN audit_request_workflows w ON w.audit_id=r.audit_id WHERE w.state='active' AND json_extract(r.data_json,'$.status')<>'draft' AND (json_extract(r.data_json,'$.status')<>'cancelled' OR EXISTS(SELECT 1 FROM audit_request_events e WHERE e.request_id=r.id AND e.audit_id=r.audit_id AND e.action IN ('start','activate'))) ORDER BY r.updated_at DESC,r.id LIMIT 1001`).all<StoredRequest & { time_zone: string }>();
+  const rows = await db.prepare(`SELECT r.*,w.time_zone FROM audit_requests r JOIN simple_audits a ON a.id=r.audit_id JOIN audit_request_workflows w ON w.audit_id=r.audit_id WHERE (w.state='active' OR (w.state='closed' AND json_extract(r.data_json,'$.status') IN ('accepted','cancelled'))) AND json_extract(r.data_json,'$.status')<>'draft' AND (json_extract(r.data_json,'$.status')<>'cancelled' OR EXISTS(SELECT 1 FROM audit_request_events e WHERE e.request_id=r.id AND e.audit_id=r.audit_id AND e.action IN ('start','activate'))) ORDER BY r.updated_at DESC,r.id LIMIT 1001`).all<StoredRequest & { time_zone: string }>();
   const deadlines = new Map<string, string>();
   return { requests: rows.results.slice(0, 1000).map(raw => {
     const row = publicAuditRequest(raw), key = `${requestNextDue(row)}:${raw.time_zone}`;
@@ -77,6 +82,7 @@ export async function readRequestEvidence(db: D1Database, ids?: string[]): Promi
 }
 type Mutation = { auditId: unknown; action: unknown; requestId?: unknown; expectedRevision: unknown; fields?: unknown; versionIds?: unknown; note?: unknown; timeZone?: unknown; expectedPlanRevision?: unknown; expectedWorkflowRevision?: unknown; expectedDrafts?: unknown };
 const liveParent = 'EXISTS(SELECT 1 FROM simple_audits WHERE id=?)';
+const openWorkplan = "NOT EXISTS(SELECT 1 FROM audit_request_workflows WHERE audit_id=? AND state='closed')";
 export async function mutateAuditRequest(db: D1Database, actor: Actor, input: Mutation, now = new Date()) {
   if (!canWriteModule(actor, 'Denetim Yönetimi')) throw new AuditRequestError('forbidden', 403);
   const auditId = auditRequestId(input.auditId), action = String(input.action), stamp = now.toISOString(), revision = crypto.randomUUID();
@@ -115,6 +121,7 @@ export async function mutateAuditRequest(db: D1Database, actor: Actor, input: Mu
     if (!results[0].results?.length) throw new AuditRequestError('conflict', 409);
     return;
   }
+  if (await db.prepare("SELECT audit_id FROM audit_request_workflows WHERE audit_id=? AND state='closed'").bind(auditId).first()) throw new AuditRequestError('workplan-closed', 409);
   const requestId = auditRequestId(input.requestId);
   const raw = await db.prepare('SELECT * FROM audit_requests WHERE id=? AND audit_id=?').bind(requestId, auditId).first<StoredRequest>();
   const current = raw ? publicAuditRequest(raw) : null;
@@ -161,8 +168,8 @@ export async function mutateAuditRequest(db: D1Database, actor: Actor, input: Mu
   const evidenceArgs = ['submit', 'accept'].includes(action) ? [...next.evidence.map(v => v.id), next.evidence.length] : [];
   const payload = JSON.stringify(next);
   const write = action === 'create'
-    ? db.prepare(`INSERT INTO audit_requests(id,audit_id,data_json,revision,created_at,updated_at) SELECT ?,?,?,?,?,? WHERE ${liveParent} AND COALESCE((SELECT revision FROM audit_request_workflows WHERE audit_id=?),'')=? AND (SELECT COUNT(*) FROM audit_requests WHERE audit_id=?)<500 ON CONFLICT(id) DO NOTHING RETURNING id`).bind(requestId, auditId, payload, revision, stamp, stamp, auditId, auditId, input.expectedWorkflowRevision ?? '', auditId)
-    : db.prepare(`UPDATE audit_requests SET data_json=?,revision=?,updated_at=? WHERE id=? AND audit_id=? AND revision=? AND ${liveParent}${evidenceGuard}`).bind(payload, revision, stamp, requestId, auditId, input.expectedRevision, auditId, ...evidenceArgs);
+    ? db.prepare(`INSERT INTO audit_requests(id,audit_id,data_json,revision,created_at,updated_at) SELECT ?,?,?,?,?,? WHERE ${liveParent} AND ${openWorkplan} AND COALESCE((SELECT revision FROM audit_request_workflows WHERE audit_id=?),'')=? AND (SELECT COUNT(*) FROM audit_requests WHERE audit_id=?)<500 ON CONFLICT(id) DO NOTHING RETURNING id`).bind(requestId, auditId, payload, revision, stamp, stamp, auditId, auditId, auditId, input.expectedWorkflowRevision ?? '', auditId)
+    : db.prepare(`UPDATE audit_requests SET data_json=?,revision=?,updated_at=? WHERE id=? AND audit_id=? AND revision=? AND ${liveParent} AND ${openWorkplan}${evidenceGuard}`).bind(payload, revision, stamp, requestId, auditId, input.expectedRevision, auditId, auditId, ...evidenceArgs);
   const results = await db.batch([
     write,
     db.prepare(`INSERT INTO audit_request_events(id,audit_id,request_id,action,actor,snapshot_json,created_at) SELECT ?,audit_id,id,?,?,data_json,? FROM audit_requests WHERE id=? AND audit_id=? AND revision=?`).bind(revision, action, actor.email, stamp, requestId, auditId, revision),
