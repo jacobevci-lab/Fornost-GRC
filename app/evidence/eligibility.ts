@@ -20,5 +20,8 @@ export function evaluateEvidenceEligibility(data: Record<string, unknown>, now =
   const invalid = expired || rejected || failed || integrity === 'broken' || automationUnverified;
   const approved = ['onaylandı', 'approved', 'güncel', 'current', 'kabul edildi', 'accepted', 'valid', 'geçerli'].includes(key(data.status));
   const awaitingReview = ['pending', 'pending-review', 'in-review', 'draft', 'bekliyor', 'incelemede', 'taslak'].includes(key(data.reviewStatus));
-  return { current: approved && !invalid && !awaitingReview && integrity !== 'unavailable', invalid, expired, approved, awaitingReview, automationUnverified };
+  const statusExpired = [data.status, data.reviewStatus].some(value => ['süresi doldu', 'expired', 'stale'].includes(key(value)));
+  const statusRejected = [data.status, data.reviewStatus].some(value => ['reddedildi', 'rejected'].includes(key(value)));
+  const reasons = [...(expired || statusExpired ? ['expired'] : []), ...(statusRejected ? ['rejected'] : []), ...(!approved ? ['approval-required'] : []), ...(awaitingReview ? ['review-required'] : []), ...(failed ? ['validation-failed'] : []), ...(integrity === 'broken' ? ['integrity-broken'] : []), ...(integrity === 'unavailable' ? ['integrity-unavailable'] : [])];
+  return { reasons, current: approved && !invalid && !awaitingReview && integrity !== 'unavailable', invalid, expired, approved, awaitingReview, automationUnverified };
 }

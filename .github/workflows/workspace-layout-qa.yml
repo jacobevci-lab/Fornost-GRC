@@ -51,6 +51,8 @@ jobs:
         run: node scripts/assurance-execution-qa.mjs
       - name: Concurrent cold and warm schema initialization QA
         run: node scripts/schema-initialization-qa.mjs
+      - name: Scoped audit readiness, evidence and export QA
+        run: node scripts/audit-readiness-runtime-qa.mjs
       - name: Current assessment projection, audit and control QA
         run: node scripts/current-assessment-runtime-qa.mjs
       - name: Audit evidence request lifecycle and reminders QA
@@ -132,8 +134,6 @@ jobs:
         run: node scripts/exception-lifecycle-runtime-qa.mjs
       - name: Unified control assurance, record navigation and recovery QA
         run: node scripts/control-assurance-runtime-qa.mjs
-      - name: Scoped audit readiness, evidence and export QA
-        run: node scripts/audit-readiness-runtime-qa.mjs
       - name: Findings workspace recovery and pagination
         run: node scripts/findings-workspace-qa.mjs
       - name: Check module layouts and audit stability

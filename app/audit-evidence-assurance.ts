@@ -15,6 +15,8 @@ export type AuditEvidenceRequirementState = {
   currentEvidence: number;
   staleEvidence: number;
   assessmentIssues: string[];
+  eligibilityIssues: string[];
+  requirementIds: string[];
 };
 
 const normalized = (value: unknown) => String(value ?? "").normalize("NFKC").trim().toLocaleLowerCase("tr-TR");
@@ -62,6 +64,8 @@ export function buildAuditEvidenceAssurance(
       owner: clean(source?.data.owner || source?.data.auditOwner),
       dueDate: clean(source?.data.dueDate || source?.data.endDate),
       status,
+      requirementIds: [...new Set(rows.map(row => row.id))],
+      eligibilityIssues: [...new Set(linked.flatMap(row => { const eligibility = evaluateEvidenceEligibility(row.data, now); return eligibility.current ? [] : eligibility.reasons; }))],
       linkedEvidence: linked.length,
       currentEvidence: current.length,
       staleEvidence: stale.length,

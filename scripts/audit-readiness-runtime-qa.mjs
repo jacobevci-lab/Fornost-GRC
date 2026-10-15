@@ -47,6 +47,9 @@ try {
   await seed([
     ...Array.from({ length: 10 }, (_, i) => record(`QA-READY-AUD-${i}`, 'Denetim Yönetimi', { auditName: name, controlRef: `QA-READY-CONTROL-${i}`, requirementRef: `QA-READY-CONTROL-${i}`, requirementTitle: `QA requirement ${i}`, owner: 'QA', status: 'Başlanmadı', dueDate: date })),
     record('QA-READY-EVD-0', 'Kanıtlar', evidence(0)),
+    record('QA-READY-PENDING', 'Kanıtlar', {...evidence(1),status:'Taslak',reviewStatus:'pending'}),
+    record('QA-READY-EXPIRED', 'Kanıtlar', {...evidence(2),freshUntil:'2020-01-01T00:00:00Z'}),
+    record('QA-READY-AUD-DUP','Denetim Yönetimi',{auditName:name,controlRef:'QA-READY-CONTROL-2',requirementTitle:'Duplicate source',owner:'QA'}),
     ...Array.from({ length: 117 }, (_, i) => `INSERT INTO evidence_automation_rules(id,name,source_id,control_refs,json_path,operator,expected,schedule,last_status,last_evidence_at,created_at,updated_at,updated_by) VALUES('QA-READY-RULE-${i}',${q(i < 110 ? `AA outside ${i}` : `ZZ QA readiness rule ${i}`)},'QA-READY-SOURCE',${q(i < 110 ? `QA-OUTSIDE-${i}` : `QA-OUTSIDE-${i}; QA-READY-CONTROL-${i - 110}`)},'value','eq','1','daily','fail',${q(stamp)},${q(stamp)},${q(stamp)},'qa');`),
   ].join('\n'));
   await seed(`INSERT INTO evidence_automation_sources(id,name,vendor,category,driver,config_json,created_at,updated_at,updated_by) VALUES('QA-READY-SOURCE','QA Readiness','Custom','Custom','rest-json','{}',${q(stamp)},${q(stamp)},'qa');`);
@@ -69,7 +72,37 @@ try {
   await page.locator('nav button[aria-label="Audit Management"]').evaluate(el => el.click());
   await page.locator('.audit-card-open').filter({ hasText: name }).click();
   const gate = page.locator('.audit-readiness-gate'); await expect(gate.locator('.audit-readiness-state>span')).toHaveText('NOT READY');
-  await gate.locator('.audit-readiness-gaps>summary').click();
+  // KPI cards operate within this audit; source links resolve one exact row or stay explicit about ambiguity.
+  const requirements = gate.locator('.audit-readiness-gaps'), rows = requirements.locator('.audit-readiness-gap');
+  await gate.locator('.audit-readiness-metrics button').nth(0).click();
+  await expect(rows).toHaveCount(1); await expect(rows.first()).toContainText('QA-READY-CONTROL-0');
+  const expectedRecord=(await api(admin,'/api/grc')).rows.find(row=>row.id==='QA-READY-AUD-0');
+  assert.ok(expectedRecord?.record_code);
+  await rows.first().getByRole('button',{name:'Open requirement',exact:true}).click();
+  await expect(page.locator('.core-record-focus')).toContainText(`Selected record${expectedRecord.record_code}`);
+  await expect(page.locator('.audit-requirements-register tbody tr')).toHaveCount(1);
+  await expect(page.locator('.audit-requirements-register tbody tr')).toContainText('QA-READY-CONTROL-0');
+  await expect(gate).toHaveAttribute('aria-busy','false'); await expect(gate.locator('.audit-readiness-state>span')).toHaveText('NOT READY');
+  await page.locator('.core-record-focus').getByRole('button',{name:'Show all records',exact:true}).click();
+  await expect(gate.locator('.audit-readiness-metrics button').nth(1)).toBeEnabled();
+  await gate.locator('.audit-readiness-metrics button').nth(1).click();
+  await expect(rows).toHaveCount(2); await expect(requirements).toContainText('Evidence has not been approved.');
+  await expect(requirements).toContainText('Validity expired or the date is invalid.');
+  const duplicate=rows.filter({hasText:'QA-READY-CONTROL-2'});
+  await expect(duplicate).toContainText('2 source requirements share this reference');
+  await expect(duplicate.getByRole('button',{name:'Open requirement',exact:true})).toHaveCount(0);
+  await gate.locator('.audit-readiness-metrics button').nth(2).click(); await expect(rows).toHaveCount(7);
+  await gate.locator('.audit-readiness-metrics button').nth(3).click(); await expect(rows).toHaveCount(8);
+  await gate.getByRole('button',{name:/Show more requirements/}).click(); await expect(rows).toHaveCount(10);
+  await gate.getByRole('searchbox',{name:'Search requirements'}).fill('CONTROL-2'); await expect(rows).toHaveCount(1);
+  const [filteredDownload]=await Promise.all([page.waitForEvent('download'),gate.getByRole('button',{name:'CSV',exact:true}).click()]);
+  await filteredDownload.saveAs(`${out}/filtered-full-scope.csv`);
+  const filteredCsv=await fs.readFile(`${out}/filtered-full-scope.csv`,'utf8');
+  assert.equal(filteredCsv.split('\r\n').filter(line=>line.startsWith('"requirement",')).length,10);
+  assert.ok(filteredCsv.includes('approval-required'));assert.ok(filteredCsv.includes('expired'));assert.ok(filteredCsv.includes('QA-READY-CONTROL-9'));
+  await gate.getByRole('searchbox',{name:'Search requirements'}).fill('');
+  await gate.getByRole('combobox',{name:'Requirement view',exact:true}).selectOption('gaps');
+
   await expect(gate.locator('.audit-readiness-gaps .audit-readiness-gap')).toHaveCount(8);
   await gate.getByRole('button', { name: /Show more gaps/ }).click(); await expect(gate.locator('.audit-readiness-gaps .audit-readiness-gap')).toHaveCount(9);
   await gate.locator('.audit-readiness-gaps .audit-readiness-gap').last().scrollIntoViewIfNeeded();
@@ -77,6 +110,10 @@ try {
   await gate.locator('.audit-readiness-assurance>summary').click();
   await expect(gate.locator('.audit-readiness-assurance .audit-readiness-gap')).toHaveCount(6);
   await gate.getByRole('button', { name: /Show more signals/ }).click(); await expect(gate.locator('.audit-readiness-assurance .audit-readiness-gap')).toHaveCount(7);
+  await gate.locator('.audit-readiness-metrics button').nth(4).click();
+  await expect(gate.getByRole('button',{name:'Blockers only',exact:true})).toHaveAttribute('aria-pressed','true');
+  await expect(gate.locator('.audit-readiness-assurance .audit-readiness-gap')).toHaveCount(6);
+  await gate.getByRole('button',{name:/Show more signals/}).click();
   // Compare the report with the evaluation actually rendered, not a request that may be superseded.
   await expect(gate).toContainText(`Scope: ${name}`);
   const evaluatedAt = await gate.locator('.audit-readiness-actions time').getAttribute('datetime');
@@ -105,6 +142,7 @@ try {
   assert.equal((await api(admin, endpoint)).gate, 'unverified');
   await gate.getByRole('button', { name: 'Recheck readiness', exact: true }).click(); await expect(gate.getByRole('alert')).toContainText('incomplete or unreadable');
   await seed(`UPDATE simple_grc_records SET data_json=${q(JSON.stringify(evidence(0)))} WHERE id='QA-READY-EVD-0';
+    DELETE FROM simple_grc_records WHERE id IN ('QA-READY-PENDING','QA-READY-EXPIRED');
     ${Array.from({ length: 9 }, (_, i) => record(`QA-READY-EVD-${i + 1}`, 'Kanıtlar', evidence(i + 1))).join('\n')}
     `);
   await seedCurrentAssessmentFixture({ruleIds,prefix:'QA-READY-PASS',out});
@@ -142,4 +180,4 @@ finally {
     if (seeded) assert.equal((await api(admin, endpoint)).evidence.total, 0);
   } finally { await browser.close(); }
 }
-console.log(`AUDIT_READINESS_QA_PASS: ${checks} API checks; full scope beyond dashboard window, multi-control linkage, role boundaries, real invalid-record recovery, complete gap/signal lists, timestamped bilingual exports, load failure recovery and both themes at desktop/mobile`);
+console.log(`AUDIT_READINESS_QA_PASS: ${checks} API checks; full scope beyond dashboard window, multi-control linkage, role boundaries, real invalid-record recovery, scoped KPI filters/search, exact source links, ambiguous-source handling, complete gap/signal lists, full-scope filtered CSV, timestamped bilingual exports, load failure recovery and both themes at desktop/mobile`);

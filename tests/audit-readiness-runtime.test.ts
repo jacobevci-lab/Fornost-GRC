@@ -10,6 +10,7 @@ import { loadAuditReadiness } from '../app/audit-readiness-runtime';
 import { buildAuditEvidenceAssurance } from '../app/audit-evidence-assurance';
 import { buildContinuousAssuranceDashboard } from '../app/continuous-assurance-dashboard';
 import { scopedApiAllowed } from '../app/module-access';
+import { parseAuditReadinessResult, filterAuditRequirements } from '../app/audit-readiness-view';
 
 const now = new Date('2026-10-02T12:00:00.000Z');
 async function fixture() {
@@ -129,4 +130,51 @@ test('expiry is exact, invalid dates fail closed, and both dates and validation 
 test('audit readiness preserves the closed scoped-API boundary and read-only Viewer access', () => {
   assert.equal(scopedApiAllowed({ role: 'Viewer', moduleAccess: { mode: 'full' } }, '/api/audits/readiness', 'GET'), true);
   assert.equal(scopedApiAllowed({ role: 'Editor', moduleAccess: { mode: 'scoped', modules: { 'Denetim Yönetimi': 'write', Kanıtlar: 'read' } } }, '/api/audits/readiness', 'GET'), false);
+});
+
+test('client contract accepts real SQLite decisions across ready, blocked, unverified and empty scopes', async () => {
+  const f = await fixture(); try {
+    for (const name of ['QA Scope', '', 'No such audit']) assert.ok(parseAuditReadinessResult(JSON.parse(JSON.stringify(await f.read(name))), name));
+    await f.rule('RULE', 'A.8.1');
+    assert.ok(parseAuditReadinessResult(await f.read(), 'QA Scope'));
+    f.sqlite.exec('DROP TABLE evidence_automation_rules');
+    assert.ok(parseAuditReadinessResult(await f.read(), 'QA Scope'));
+  } finally { f.sqlite.close(); }
+});
+
+test('client rejects wrong scopes, inconsistent counters, partial decisions and out-of-scope signals', async () => {
+  const f = await fixture(); try {
+    await f.rule('RULE', 'A.8.1'); const result = await f.read();
+    assert.equal(parseAuditReadinessResult(result, 'Different audit'), null);
+    const mutations = [
+      (v: typeof result) => { v.evidence.current = 99; },
+      (v: typeof result) => { v.evidence.requirements[0].requirementIds = []; },
+      (v: typeof result) => { v.evidence.requirements[0].currentEvidence = -1; },
+      (v: typeof result) => { v.blockerCount = 0; },
+      (v: typeof result) => { v.issues = ['records-incomplete']; },
+      (v: typeof result) => { v.gate = 'ready'; },
+      (v: typeof result) => { v.signals[0].targetControlRef = 'OUTSIDE'; v.signals[0].targetControlRefs = ['OUTSIDE']; },
+      (v: typeof result) => { v.unmonitored = ['OUTSIDE']; },
+      (v: typeof result) => { v.signals.push(v.signals[0]); },
+    ];
+    for (const mutate of mutations) { const changed = structuredClone(result); mutate(changed); assert.equal(parseAuditReadinessResult(changed,'QA Scope'),null); }
+  } finally { f.sqlite.close(); }
+});
+
+test('requirement views retain exact source identity and distinguish eligibility causes without changing readiness', () => {
+  const req = (id: string, ref: string, title = ref) => ({ id, data: { controlRef: ref, requirementTitle: title, owner: 'İpek' } });
+  const ev = (id: string, ref: string, data: Record<string,unknown>) => ({ id, data: { controlRef: ref, ...data } });
+  const result = buildAuditEvidenceAssurance([req('A','C-1'),req('A2','c-1'),req('B','C-2','İzin incelemesi'),req('C','C-3'),req('D','C-4')], [
+    ev('E1','C-1',{status:'Onaylandı'}),ev('OLD','C-1',{status:'Onaylandı',expiresAt:'2020-01-01'}),
+    ev('E2','C-2',{status:'Taslak',reviewStatus:'pending'}),
+    ev('E4','C-4',{status:'Onaylandı',validationStatus:'fail',evidenceIntegrity:'broken'}),
+  ],now);
+  assert.equal(result.current,1); assert.equal(result.stale,2);
+  const current = filterAuditRequirements(result.requirements,'current',''); assert.deepEqual(current[0].requirementIds,['A','A2']); assert.deepEqual(current[0].eligibilityIssues,['expired']);
+  assert.equal(filterAuditRequirements(result.requirements,'gaps','').length,3);
+  assert.equal(filterAuditRequirements(result.requirements,'missing','')[0].reference,'C-3');
+  const pending=filterAuditRequirements(result.requirements,'stale','izin')[0]; assert.equal(pending.reference,'C-2'); assert.deepEqual(pending.eligibilityIssues,['approval-required','review-required']);
+  assert.equal(filterAuditRequirements(result.requirements,'all','ipek').length,4);
+  assert.deepEqual(result.requirements.find(r=>r.reference==='C-4')?.eligibilityIssues,['validation-failed','integrity-broken']);
+  assert.equal(filterAuditRequirements(result.requirements,'all','unknown').length,0);
 });
