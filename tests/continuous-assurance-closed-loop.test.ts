@@ -59,7 +59,7 @@ test("work queue review is Admin-only and enforces maker-checker separation", ()
 test("GET reconciliation closes approved re-tests and reassesses linked risk", () => {
   assert.match(route, /reconcileApprovedRetests\(env\.DB\)/);
   const runtime = readFileSync("app/continuous-assurance-runtime.ts", "utf8");
-  assert.match(runtime, /evidence_automation_runs WHERE rule_id=\? AND created_at>\?/);
+  assert.match(runtime, /evidence_automation_runs WHERE rule_id=\? AND julianday\(created_at\)>julianday\(\?\)/);
   assert.match(runtime, /failed-retest/);
   assert.match(runtime, /retest-error/);
   assert.match(runtime, /buildResidualRiskReassessment/);

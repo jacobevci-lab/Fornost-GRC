@@ -14,7 +14,7 @@ function database() {
     bind(...args: (string | number | null)[]) { return prepare(sql, args); },
     async first() { return sqlite.prepare(sql).get(...values) || null; },
     async all() { return { results: sqlite.prepare(sql).all(...values) }; },
-    exec() { const result = sqlite.prepare(sql).run(...values); return { meta: { changes: Number(result.changes) } }; },
+    exec() { assert.ok(values.length<=100, `D1 binding limit: ${values.length}`); const before=Number(sqlite.prepare('SELECT total_changes() n').get()!.n); sqlite.prepare(sql).run(...values); return { meta: { changes: Number(sqlite.prepare('SELECT total_changes() n').get()!.n)-before } }; },
     async run() { return this.exec(); },
   }; }
   let beforeBatch: (() => void) | null = null;
@@ -157,7 +157,7 @@ test('a pass cannot certify reopened remediation, except an explicitly governed 
   for (const mandatory of [false, true]) {
     const f = await fixture(); try {
       await f.execute(95); f.sqlite.prepare("UPDATE evidence_automation_findings SET status='acknowledged' WHERE id=?").run(f.findingId);
-      if (mandatory) f.sqlite.prepare("UPDATE continuous_assurance_work_items SET decision_json=? WHERE id='WORK'").run(JSON.stringify({ source: 'assurance-exception', mandatory: true, riskRef: f.findingId }));
+      if (mandatory) f.sqlite.prepare("UPDATE continuous_assurance_work_items SET decision_json=? WHERE id='WORK'").run(JSON.stringify({ source: 'assurance-exception', mandatory: true, riskRef: f.findingId, targetControlRef: 'A.8.1' }));
       await reconcileApprovedRetests(f.db, at(4));
       assert.equal(f.work().status, mandatory ? 'completed' : 'retest-error');
       assert.equal(f.outcome().reason, mandatory ? 'passed' : 'remediation-unverified');
@@ -200,4 +200,81 @@ test('a reused approved task must consume a run after the exception ended, not a
 
 test('an exception linked or extended during reconciliation invalidates the selected older run',async()=>{
  const f=await fixture();try{const ex=await linkedException(f);await f.execute(95,3);f.beforeBatch(()=>f.sqlite.prepare("UPDATE continuous_assurance_exceptions SET lifecycle_updated_at=? WHERE id='EX'").run(at(4).toISOString()));assert.equal(await reconcileApprovedRetests(f.db,at(4)),0);assert.equal(f.work().status,'approved-awaiting-retest');assert.equal(ex().retest_required,1);await f.execute(95,5);assert.equal(await reconcileApprovedRetests(f.db,at(6)),1);assert.equal(ex().retest_required,0);}finally{f.sqlite.close()}
+});
+
+test('changed assessment settings preserve risk, closure and exception requirements for every run status',async()=>{
+  const changes=["UPDATE evidence_automation_sources SET config_json='{}'","UPDATE evidence_automation_sources SET secret_ciphertext='rotated'","UPDATE evidence_automation_sources SET driver='other'","UPDATE evidence_automation_rules SET expected='99'","UPDATE evidence_automation_rules SET freshness_hours=48","UPDATE evidence_automation_rules SET template_version=2"];
+  for(const sql of changes)for(const status of ['pass','fail','error']){
+    const f=await fixture();try{
+      f.sqlite.exec('UPDATE evidence_automation_rules SET auto_finding=0');const ex=await linkedException(f);
+      const run=await f.execute(status==='fail'?40:95,3,status==='error'),before=f.risk();f.sqlite.exec(sql);
+      assert.equal(await reconcileApprovedRetests(f.db,at(4)),1);
+      assert.equal(f.work().result_ref,run.runId);assert.equal(f.work().status,'retest-error');assert.equal(f.outcome().reason,'configuration-changed');
+      assert.equal(f.outcome().riskUpdate,'not-applied');assert.deepEqual(f.risk(),before);assert.equal(ex().retest_required,1);
+      assert.equal(f.sqlite.prepare('SELECT status FROM evidence_automation_findings WHERE id=?').get(f.findingId)!.status,'closed');
+    }finally{f.sqlite.close();}
+  }
+});
+test('reverting settings cannot revive an earlier result, even with identical timestamps',async()=>{
+  for(const table of ['evidence_automation_sources','evidence_automation_rules']){
+    const f=await fixture();try{
+      await f.execute(95);const before=f.risk();
+      f.sqlite.exec(table.endsWith('sources')?"UPDATE evidence_automation_sources SET enabled=0; UPDATE evidence_automation_sources SET enabled=1;":"UPDATE evidence_automation_rules SET expected='99'; UPDATE evidence_automation_rules SET expected='90';");
+      assert.equal(f.sqlite.prepare('SELECT assessment_revision FROM evidence_automation_rules').get()!.assessment_revision,2);
+      await reconcileApprovedRetests(f.db,at(4));assert.equal(f.outcome().reason,'configuration-changed');assert.deepEqual(f.risk(),before);
+    }finally{f.sqlite.close();}
+  }
+});
+test('display edits, diagnostics, no-op writes and subsequent runs do not invalidate the first approved result',async()=>{
+  const f=await fixture();try{
+    const first=await f.execute(95);
+    f.sqlite.exec("UPDATE evidence_automation_rules SET name='Renamed',expected=expected; UPDATE evidence_automation_sources SET name='Renamed source',last_test_status='success',last_test_at='later',config_json=config_json;");
+    await f.execute(96,4);assert.equal(f.sqlite.prepare('SELECT assessment_revision FROM evidence_automation_rules').get()!.assessment_revision,0);
+    await reconcileApprovedRetests(f.db,at(5));assert.equal(f.work().status,'completed');assert.equal(f.work().result_ref,first.runId);
+  }finally{f.sqlite.close();}
+});
+test('legacy runs stay historical and cannot certify a current risk decision',async()=>{
+  for(const fingerprint of [null,'invalid']){
+    const f=await fixture();try{const run=await f.execute(95),before=f.risk();f.sqlite.prepare('UPDATE evidence_automation_runs SET assessment_fingerprint=? WHERE id=?').run(fingerprint,run.runId!);await reconcileApprovedRetests(f.db,at(4));assert.equal(f.outcome().reason,'configuration-unverified');assert.equal(f.outcome().riskUpdate,'not-applied');assert.deepEqual(f.risk(),before);}finally{f.sqlite.close();}
+  }
+});
+test('a passing run needs evidence stamped with its own assessment configuration',async()=>{
+  const f=await fixture();try{const run=await f.execute(95);f.sqlite.prepare("UPDATE simple_grc_records SET data_json=json_set(data_json,'$.assessmentFingerprint',?) WHERE id=?").run('b'.repeat(64),run.evidenceId!);await reconcileApprovedRetests(f.db,at(4));assert.equal(f.outcome().reason,'evidence-mismatch');assert.notEqual(f.work().status,'completed');}finally{f.sqlite.close();}
+});
+test('the approved target must remain mapped even when the new run has current settings',async()=>{
+  const f=await fixture();try{f.sqlite.exec("UPDATE evidence_automation_rules SET control_refs='A.8.2'");await f.execute(95);const before=f.risk();await reconcileApprovedRetests(f.db,at(4));assert.equal(f.outcome().reason,'control-scope-changed');assert.deepEqual(f.risk(),before);}finally{f.sqlite.close();}
+});
+test('missing or disabled collectors and rules cannot apply old results',async()=>{
+  for(const sql of ["UPDATE evidence_automation_sources SET enabled=0","DELETE FROM evidence_automation_sources","UPDATE evidence_automation_rules SET enabled=0","DELETE FROM evidence_automation_rules"]){
+    const f=await fixture();try{await f.execute(95);const before=f.risk();f.sqlite.exec(sql);await reconcileApprovedRetests(f.db,at(4));assert.equal(f.outcome().reason,'source-unavailable');assert.deepEqual(f.risk(),before);}finally{f.sqlite.close();}
+  }
+});
+test('a new independently approved retry consumes current evidence without rewriting the old outcome',async()=>{
+  const f=await fixture();try{
+    const old=await f.execute(95);f.sqlite.exec("UPDATE evidence_automation_rules SET expected='94'");await f.execute(95,4);
+    await reconcileApprovedRetests(f.db,at(5));assert.equal(f.work().result_ref,old.runId);assert.equal(f.outcome().reason,'configuration-changed');const original=f.work().decision_json;
+    f.sqlite.prepare("INSERT INTO continuous_assurance_work_items(id,finding_id,rule_id,action,status,decision_json,created_at,updated_at,actor,reviewed_by,reviewed_at) VALUES('RETRY',?,'RULE','control-retest','approved-awaiting-retest',?,?,?,'maker','checker',?)").run(f.findingId,JSON.stringify({riskRef:f.findingId,targetControlRef:'A.8.1',retryOf:'WORK'}),at(5).toISOString(),at(6).toISOString(),at(6).toISOString());
+    assert.equal(await reconcileApprovedRetests(f.db,at(6)),0);const current=await f.execute(96,7);assert.equal(await reconcileApprovedRetests(f.db,at(8)),1);
+    const retry=f.sqlite.prepare("SELECT * FROM continuous_assurance_work_items WHERE id='RETRY'").get()!;assert.equal(retry.status,'completed');assert.equal(retry.result_ref,current.runId);assert.equal(f.work().decision_json,original);assert.equal(f.risk().residualRiskReviewRequired,true);
+  }finally{f.sqlite.close();}
+});
+test('changes to selected run or configuration before commit defer all dependent writes',async()=>{
+  for(const variant of ['run-delete','run-edit','source','rule']){
+    const f=await fixture();try{
+      const run=await f.execute(95),before=f.risk();const ex=await linkedException(f);
+      f.beforeBatch(()=>{if(variant==='run-delete')f.sqlite.prepare('DELETE FROM evidence_automation_runs WHERE id=?').run(run.runId!);else if(variant==='run-edit')f.sqlite.prepare("UPDATE evidence_automation_runs SET status='error',error_code='CHANGED' WHERE id=?").run(run.runId!);else if(variant==='source')f.sqlite.exec("UPDATE evidence_automation_sources SET config_json='{}'");else f.sqlite.exec("UPDATE evidence_automation_rules SET expected='99'");});
+      assert.equal(await reconcileApprovedRetests(f.db,at(4)),0);assert.equal(f.work().status,'approved-awaiting-retest');assert.deepEqual(f.risk(),before);assert.equal(ex().retest_required,1);
+      assert.equal(await reconcileApprovedRetests(f.db,at(5)),variant==='run-delete'?0:1);
+      if(variant!=='run-delete')assert.equal(f.outcome().reason,variant==='run-edit'?'collection-error':'configuration-changed');
+    }finally{f.sqlite.close();}
+  }
+});
+test('concurrent changes to work approval, scope or source links cannot claim the previous snapshot',async()=>{
+  for(const update of ["reviewed_by='new-checker'","reviewed_at='2026-10-01T12:05:00Z'","rule_id='OTHER'","finding_id='OTHER'","action='capa-promotion'","updated_at='changed'","decision_json='{}'"]){
+    const f=await fixture();try{await f.execute(95);const before=f.risk();f.beforeBatch(()=>f.sqlite.exec(`UPDATE continuous_assurance_work_items SET ${update} WHERE id='WORK'`));assert.equal(await reconcileApprovedRetests(f.db,at(4)),0);assert.equal(f.work().result_ref,null);assert.deepEqual(f.risk(),before);}finally{f.sqlite.close();}
+  }
+});
+
+test('closure proof changed before the claim cannot be certified from an earlier snapshot',async()=>{
+  const f=await fixture();try{await f.execute(95);const before=f.risk();f.beforeBatch(()=>f.sqlite.exec("UPDATE evidence_automation_findings SET closure_evidence_sha256=NULL"));assert.equal(await reconcileApprovedRetests(f.db,at(4)),0);assert.deepEqual(f.risk(),before);await reconcileApprovedRetests(f.db,at(5));assert.equal(f.outcome().reason,'remediation-unverified');}finally{f.sqlite.close();}
 });

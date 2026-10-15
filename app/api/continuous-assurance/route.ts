@@ -1,3 +1,4 @@
+import { ensureAssessmentLineageSchema, retestConfigurationReason } from "../../evidence/assessment-lineage";
 import {assuranceQueueSummary} from "../../assurance-queue-summary";
 import type {AssuranceSourceState} from "../../assurance-queue-context";
 import {parseAssuranceQueueSearch} from "../../assurance-queue-search";
@@ -22,6 +23,7 @@ import { promoteContinuousAssuranceFinding } from "../../findings/promotion";
 
 type Env = Record<string, unknown> & { DB: D1Database };
 type RuleRow = {
+  source_id: string;
   id: string;
   name: string;
   control_refs: string;
@@ -86,13 +88,16 @@ function freshnessFor(rule:RuleRow,now=new Date()):EvidenceFreshness{
 async function loadContext(db:D1Database,findingId:string){
   const finding=await db.prepare("SELECT * FROM evidence_automation_findings WHERE id=?").bind(findingId).first<FindingRow>();
   if(!finding)throw new Error("Sürekli güvence bulgusu bulunamadı.");
-  const rule=await db.prepare("SELECT id,name,control_refs,enabled,last_status,last_evidence_at,freshness_hours,consecutive_failures FROM evidence_automation_rules WHERE id=?").bind(finding.rule_id).first<RuleRow>();
+  await ensureAssessmentLineageSchema(db);
+  const rule=await db.prepare("SELECT * FROM evidence_automation_rules WHERE id=?").bind(finding.rule_id).first<RuleRow>();
   if(!rule)throw new Error("Sürekli kontrol kuralı bulunamadı.");
   const risk=await db.prepare("SELECT id,data_json FROM simple_grc_records WHERE id=? AND module='Risk Assessment'").bind(finding.id).first<{id:string;data_json:string}>();
   const evidence=finding.evidence_id?await db.prepare("SELECT data_json FROM simple_grc_records WHERE id=? AND module='Kanıtlar'").bind(finding.evidence_id).first<{data_json:string}>():null;
-  const retest=finding.closed_at?await db.prepare("SELECT id,status,evidence_id,created_at,response_hash,detail,error_code FROM evidence_automation_runs WHERE rule_id=? AND created_at>? ORDER BY created_at DESC,rowid DESC LIMIT 1").bind(rule.id,finding.closed_at).first<RunRow>():null;
+  const retest=finding.closed_at?await db.prepare("SELECT id,status,evidence_id,created_at,response_hash,detail,error_code,assessment_fingerprint FROM evidence_automation_runs WHERE rule_id=? AND created_at>? ORDER BY created_at DESC,rowid DESC LIMIT 1").bind(rule.id,finding.closed_at).first<RunRow>():null;
   const retestEvidence=retest?.evidence_id?await db.prepare("SELECT data_json FROM simple_grc_records WHERE id=? AND module='Kanıtlar'").bind(retest.evidence_id).first<{data_json:string}>():null;
-  const retestCheck=retest?assessRetestRun(retest,retestEvidence?.data_json||null,rule.freshness_hours):null;
+  const source=await db.prepare("SELECT * FROM evidence_automation_sources WHERE id=?").bind(rule.source_id).first<{enabled:number}>();
+  const configurationReason=retest?await retestConfigurationReason(rule,source,retest.assessment_fingerprint):null;
+  const retestCheck=configurationReason?{status:"error" as const,reason:configurationReason}:retest?assessRetestRun(retest,retestEvidence?.data_json||null,rule.freshness_hours):null;
   return {finding,rule,risk,evidence,retest,retestCheck};
 }
 async function resolveRetestTargetControl(db:D1Database,findingId:string,mappedControlRefs:string){
@@ -195,7 +200,11 @@ export async function POST(req:NextRequest){
       if(previousWorkItemId&&!previous)return json({error:"Yeniden denenecek onaylı test kaydı eşleşmiyor."},409);
       const previousDecision=previous?parseData(previous.decision_json):{};
       const mandatoryRetry=previousDecision.source==="assurance-exception"&&previousDecision.mandatory===true;
-      if(!mandatoryRetry&&!canQueueAssuranceRetest(recovery))return json({error:"Kontrol henüz yeniden teste hazır değil.",recovery},409);
+      // A later pass cannot complete an earlier inconclusive approved task. Its
+      // explicit retry still needs a fresh independent approval. A current fail
+      // or unverified remediation continues to block ordinary retries.
+      const approvedErrorRetry=!!previous&&recovery.readyForRetest&&context.retestCheck?.status!=="fail";
+      if(!mandatoryRetry&&!approvedErrorRetry&&!canQueueAssuranceRetest(recovery))return json({error:"Kontrol henüz yeniden teste hazır değil.",recovery},409);
       const existing=await env.DB.prepare("SELECT id,status FROM continuous_assurance_work_items WHERE finding_id=? AND action='control-retest' AND status IN ('pending-review','approved-awaiting-retest') ORDER BY created_at DESC LIMIT 1").bind(findingId).first<{id:string;status:string}>();
       if(existing)return json({ok:true,id:existing.id,status:existing.status,message:"Yeniden test işi zaten aktif.",recovery});
       const targetControl=previous?resolveContinuousAssuranceTargetControl(context.rule.control_refs,targetControlFromDecision(previousDecision)):await resolveRetestTargetControl(env.DB,findingId,context.rule.control_refs);

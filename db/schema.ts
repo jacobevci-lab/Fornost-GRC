@@ -16,7 +16,7 @@ export const simpleGrcRecords = sqliteTable("simple_grc_records", {
 }, (table) => [index("simple_grc_records_module_idx").on(table.module, table.updatedAt)]);
 
 export const evidenceAutomationRules = sqliteTable("evidence_automation_rules", {
-  templateId:text("template_id"), templateVersion:integer("template_version"),
+  assessmentRevision:integer("assessment_revision").notNull().default(0), templateId:text("template_id"), templateVersion:integer("template_version"),
   id:text("id").primaryKey(), name:text("name").notNull(), sourceId:text("source_id").notNull(), controlRefs:text("control_refs").notNull(),
   jsonPath:text("json_path").notNull(), operator:text("operator").notNull(), expected:text("expected").notNull(), schedule:text("schedule").notNull(),
   enabled:integer("enabled").notNull().default(1), lastStatus:text("last_status"), lastRunAt:text("last_run_at"), lastRunId:text("last_run_id"), freshnessHours:integer("freshness_hours").notNull().default(24),
@@ -26,7 +26,7 @@ export const evidenceAutomationRules = sqliteTable("evidence_automation_rules", 
 },(table)=>[index("evidence_automation_rules_due_idx").on(table.enabled,table.nextRunAt),uniqueIndex("evidence_automation_rules_template_idx").on(table.sourceId,table.templateId)]);
 
 export const evidenceAutomationRuns = sqliteTable("evidence_automation_runs", {
-  assessmentJson:text("assessment_json"),
+  assessmentFingerprint:text("assessment_fingerprint"), assessmentJson:text("assessment_json"),
   id:text("id").primaryKey(), ruleId:text("rule_id").notNull(), ruleName:text("rule_name").notNull(), sourceName:text("source_name").notNull(), status:text("status").notNull(),
   score:integer("score").notNull(), detail:text("detail").notNull(), responseHash:text("response_hash").notNull(), evidenceId:text("evidence_id"), createdAt:text("created_at").notNull(), actor:text("actor").notNull(),
   triggerType:text("trigger_type").notNull().default("manual"), durationMs:integer("duration_ms").notNull().default(0), errorCode:text("error_code"),

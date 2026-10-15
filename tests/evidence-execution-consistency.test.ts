@@ -89,3 +89,9 @@ test('scheduler isolates failed writes and skips disabled sources while continui
 test('simultaneous cold schema initialization adds the execution receipt idempotently',async()=>{
   const f=await fixture();try{f.sqlite.exec('DROP TRIGGER rule_log; ALTER TABLE evidence_automation_rules DROP COLUMN last_run_id');await Promise.all([ensureEvidenceAutomationSchema(f.db),ensureEvidenceAutomationSchema(f.db)]);assert.equal(f.row().last_run_id,null);}finally{f.sqlite.close();}
 });
+
+test('an in-flight result cannot survive configuration changes that are reverted before completion',async()=>{
+  for(const sql of ["UPDATE evidence_automation_rules SET expected='99'; UPDATE evidence_automation_rules SET expected='90';","UPDATE evidence_automation_sources SET enabled=0; UPDATE evidence_automation_sources SET enabled=1;"]){
+    const f=await fixture();try{const held=await heldRun(f);f.sqlite.exec(sql);held.release();await assert.rejects(held.pending,EvidenceExecutionConflict);assert.equal(f.count('evidence_automation_runs'),0);assert.equal(f.count('simple_grc_records'),0);assert.equal(f.row().assessment_revision,2);assert.equal((await f.run()).status,'pass');}finally{f.sqlite.close();}
+  }
+});
