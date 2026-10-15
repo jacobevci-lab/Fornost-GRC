@@ -169,6 +169,10 @@ try {
   await expect(cancelInput).toHaveValue('');
   // Exercise keyboard input and confirm React has retained the complete decision
   // before attempting a mutation; never force a disabled action or retry a write.
+  await cancelInput.fill(cancelReason);
+  await expect(cancelInput).toHaveValue(cancelReason);
+  await expect(cancelRequest).toBeEnabled();
+  await cancelInput.fill('');await expect(cancelRequest).toBeDisabled();
   await cancelInput.pressSequentially(cancelReason);
   await expect(cancelInput).toHaveValue(cancelReason);
   await expect(cancelRequest).toBeEnabled();
