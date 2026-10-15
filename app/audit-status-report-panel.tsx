@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { withBasePath } from './base-path';
 import { auditPlanLabels } from './audit-plan';
 import { requestStatusLabels } from './audit-requests';
@@ -21,7 +21,7 @@ const messages: Record<string,[string,string]>={
   unavailable:['İşlem sonucu doğrulanamadı. Geçmişi yenileyin veya aynı kaydı tekrar deneyin; çift rapor oluşturulmaz.','The outcome could not be confirmed. Refresh history or retry the same save; this will not create duplicate reports.'],
 };
 export function AuditStatusReportPanel({auditId,lang}:{auditId:string;lang:string}){
-  const tr=lang!=='en',t=(a:string,b:string)=>tr?a:b;
+  const tr=lang!=='en',t=(a:string,b:string)=>tr?a:b,formId=useId();
   const [open,setOpen]=useState(false),[history,setHistory]=useState<{reports:AuditReportListItem[];complete:boolean}|null>(null);
   const [source,setSource]=useState<AuditReportSource|null>(null),[detail,setDetail]=useState<AuditReportDetail|null>(null);
   const [title,setTitle]=useState(''),[summary,setSummary]=useState(''),[limitations,setLimitations]=useState('');
@@ -75,7 +75,7 @@ export function AuditStatusReportPanel({auditId,lang}:{auditId:string;lang:strin
       {busy&&<p role="status">{t('Rapor hazırlanıyor…','Preparing report…')}</p>}
       {error&&<p role="alert">{(messages[error]||messages.unavailable)[tr?0:1]}</p>}
       {source&&<div className="asr-preview"><h4>{t('Yeni rapor önizlemesi','New report preview')}</h4><ReportSource source={source} tr={tr}/>
-        <fieldset disabled={busy}><label>{t('Rapor başlığı','Report title')}<input value={title} minLength={3} maxLength={200} onChange={e=>setTitle(e.target.value)}/></label><label>{t('Hazırlayanın özeti','Preparer summary')}<textarea rows={3} minLength={10} maxLength={4000} value={summary} onChange={e=>setSummary(e.target.value)}/></label><label>{t('Kısıtlar ve notlar (isteğe bağlı)','Limitations and notes (optional)')}<textarea rows={2} maxLength={4000} value={limitations} onChange={e=>setLimitations(e.target.value)}/></label></fieldset>
+        <fieldset disabled={busy}><div className="asr-field"><label htmlFor={`${formId}-title`}>{t('Rapor başlığı','Report title')}</label><input id={`${formId}-title`} value={title} minLength={3} maxLength={200} onChange={e=>setTitle(e.target.value)}/></div><div className="asr-field"><label htmlFor={`${formId}-summary`}>{t('Hazırlayanın özeti','Preparer summary')}</label><textarea id={`${formId}-summary`} rows={3} minLength={10} maxLength={4000} value={summary} onChange={e=>setSummary(e.target.value)}/></div><div className="asr-field"><label htmlFor={`${formId}-limitations`}>{t('Kısıtlar ve notlar (isteğe bağlı)','Limitations and notes (optional)')}</label><textarea id={`${formId}-limitations`} rows={2} maxLength={4000} value={limitations} onChange={e=>setLimitations(e.target.value)}/></div></fieldset>
         <p>{t('Yalnız kaydedilmiş plan ve kayıtlar alınır. Açık talepler ve sonuçlanmamış maddeler raporda açıkça gösterilir.','Only saved plans and records are included. Outstanding requests and unfinished requirements remain visible in the report.')}</p>
         <button disabled={busy||!valid||title.trim().length<3||summary.trim().length<10} onClick={()=>void save()}>{t('Raporu sakla','Save report snapshot')}</button>
       </div>}
@@ -98,11 +98,12 @@ function ReportSource({source,tr}:{source:AuditReportSource;tr:boolean}){
     <ReportItems key={`${source.sourceRevision}:${source.audit.id}`} items={source.items} tr={tr}/></>;
 }
 function ReportItems({items,tr}:{items:AuditReportItem[];tr:boolean}){
+  const filterId=useId();
   const [kind,setKind]=useState('all'),[page,setPage]=useState(0),filtered=items.filter(i=>kind==='all'||i.kind===kind),pages=Math.max(1,Math.ceil(filtered.length/20)),index=Math.min(page,pages-1),t=(a:string,b:string)=>tr?a:b;
   const label=(k:string)=>k==='requirement'?t('Madde','Requirement'):k==='request'?t('Talep','Request'):t('Bulgu','Finding');
   const status=(i:AuditReportItem)=>i.kind==='request'?requestStatusLabels[String(i.record.data.status) as keyof typeof requestStatusLabels]?.[tr?0:1]||String(i.record.data.status):i.kind==='finding'?findingLabel(String(i.record.data.status),tr?'tr':'en'):tr?String(i.record.data.status):({'Başlanmadı':'Not started','Devam Ediyor':'In progress','İncelemede':'In review','Kapatıldı':'Closed'}[String(i.record.data.status)]||String(i.record.data.status));
   return <details className="asr-items"><summary>{t('Rapora dahil kayıtlar','Included report records')} · {items.length}</summary>
-    <label>{t('Kayıt türü','Record type')}<select value={kind} onChange={e=>{setKind(e.target.value);setPage(0);}}><option value="all">{t('Tümü','All')}</option>{['requirement','request','finding'].map(k=><option key={k} value={k}>{label(k)}</option>)}</select></label>
+    <div className="asr-field"><label htmlFor={filterId}>{t('Kayıt türü','Record type')}</label><select id={filterId} value={kind} onChange={e=>{setKind(e.target.value);setPage(0);}}><option value="all">{t('Tümü','All')}</option>{['requirement','request','finding'].map(k=><option key={k} value={k}>{label(k)}</option>)}</select></div>
     <ul>{filtered.slice(index*20,index*20+20).map(i=><li key={`${i.kind}:${i.id}`}><b>{label(i.kind)} · {String(i.record.data.title||i.record.data.requirementTitle||i.id)}</b><span>{status(i)} · {String(i.record.data.owner||'—')}</span><small>{i.record.code||i.id} · {String(i.record.data.dueDate||'—')}</small>{Boolean(i.record.data.note)&&<p>{String(i.record.data.note)}</p>}</li>)}</ul>
     {!filtered.length&&<p>{t('Bu kapsamda kayıt yok.','No records in this scope.')}</p>}
     <div className="asr-actions"><button disabled={index===0} onClick={()=>setPage(index-1)}>{t('Önceki','Previous')}</button><span>{index+1} / {pages} · {filtered.length} {t('kayıt','records')}</span><button disabled={index>=pages-1} onClick={()=>setPage(index+1)}>{t('Sonraki','Next')}</button></div>
