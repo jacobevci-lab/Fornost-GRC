@@ -1,0 +1,31 @@
+# Audit status reports
+
+Administrators can open **Audit status reports** in an audit workspace, inspect a complete preview, add a title, preparer summary and optional limitations, and save a dated report. This follows the existing Admin-only CAPA reporting permission. Editor, Viewer and scoped accounts cannot preview, read or export these enterprise snapshots; the panel is hidden from them.
+
+The report captures the saved engagement plan and catalog provenance, all requirement records whose audit name exactly matches the selected portfolio audit, its request work plan state and requests, and directly linked enterprise CAPA findings. Findings must have source type `audit` and a source reference exactly equal to the portfolio audit ID, a requirement ID or its unique record code. Free-text audit names, partial matches and shared control references do not imply membership. Ambiguous historical ID/code aliases block the report until the source reference identifies one record. A zero count means no findings met this explicit mapping; it does not establish that the audit has no findings. Other finding stores and indirect relationships are excluded.
+
+This is an operational status report, not an audit closure, sign-off, certification or independently approved opinion. Unfinished requirements, outstanding requests, accepted requests, cancellations and findings not closed are counted separately. Risk acceptance is not presented as finding closure. The report does not modify any source status or generate notifications. Unsaved form edits, live readiness calculations, current library approval state and attachment bytes are excluded. Pinned request evidence retains the original version IDs and metadata; report creation does not rehash the file objects.
+
+## Consistency and persistence
+
+The server reads its source revision, audit identity, plan/catalog, requirements, requests, workflow and findings in one transactional D1 batch. The client sends only the expected source revision and narrative fields, never replacement source records. Database triggers advance an installation-wide report source revision for relevant audit, plan/catalog, requirement/code, request/workflow and enterprise finding changes, including raw SQL and deletion. The guarded header insertion and bounded chunks of individual snapshot rows commit in one transaction. A source change between preview, read and write returns 409 and creates no partial report. A change in another audit or enterprise finding can conservatively invalidate a preview too; reload and review it before retrying.
+
+The browser retains narrative text after stale-preview or network errors. Each save intent has an idempotency ID tied to audit, actor, source revision and normalized narrative. Retrying the same successful operation returns its existing report; changing its contents under the same ID is rejected. Per-write claim tokens keep concurrent duplicate attempts from appending children to an earlier snapshot. There is no report update/delete API.
+
+Migration `0087_audit_status_reports.sql`, canonical core schema declarations and the idempotent runtime initializer define report headers/items and source-revision tracking. The initializer uses the existing core/request/findings schema compatibility paths for older on-prem installations. Snapshots are application-immutable, with a deterministic SHA-256 over the complete saved header and sorted items. Missing or modified rows prevent verified exports. This is not a digital signature, WORM archive or protection against an administrator rewriting both data and hash. Parent audit deletion makes reports inaccessible; rows remain retained under that audit ID.
+
+## Views and exports
+
+The panel shows the latest 20 saved reports and explicitly discloses a longer history. Preview and saved-record lists paginate 20 items at a time and can be filtered by requirement, request or finding; exports include every saved item regardless of the display page/filter. Saved plans and source descriptions remain visible alongside the preparer's narrative.
+
+HTML, actual downloadable PDF, CSV and raw JSON use the saved snapshot. HTML/PDF/CSV re-read and verify it before generation, so an older visible success badge does not authorize an export of a subsequently corrupted record. JSON is served as a private, no-store attachment after server verification. HTML escapes untrusted fields and applies a restrictive document CSP; CSV neutralizes spreadsheet formula prefixes. PDF embeds the existing report font for Turkish text, paginates long content and uses the existing renderer. Unsupported PDF characters fail explicitly; HTML/CSV remain alternatives that preserve the original text.
+
+One report supports at most 2,000 requirements, 500 requests, 1,000 directly linked findings and 8 MB of serialized source data. Individual snapshot chunks stay below the database parameter budget. A limit violation or unreadable/unscopable audit source blocks reporting; no partial result is labeled complete. Very large fonts/characters or device memory can still prevent a browser PDF download.
+
+## Verification
+
+SQLite-backed tests cover exact scope, concurrent source changes inside the write transaction, source deletions, rollback, retry identity, role and parent isolation, retained snapshots, integrity failures, explicit limits/history truncation and safe multilingual exports. The isolated real-API browser QA covers 25+ requirements, CAPA scope, pagination, stale plan recovery, duplicate submission, preserved narrative, later source edits, Admin access, all download formats, stale audit navigation and both languages/themes at mobile and desktop widths. Customer audit decisions and external mail delivery are not exercised by these tests.
+
+Whole-audit approval/closure, independent report approval, retention policies and attachment bundles remain distinct future capabilities.
+
+Source revision triggers contribute to D1 metadata row counts. Core record mutations use primary-key success checks, and imports use the code-write receipt guarded by SQLite `changes()`, so tracking does not turn committed writes into false conflicts. The regression fixture models trigger-inclusive D1 metadata; browser QA exercises import, create, stale edit rejection and deletion after tracking is initialized.

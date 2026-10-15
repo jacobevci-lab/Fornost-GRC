@@ -12,7 +12,8 @@ export async function writeCoreRecord(db:D1Database,id:string,existing:CoreRecor
  const guard=coreReferenceGuard(newCoreReferences(id,existing.module,data,JSON.parse(existing.data_json)));
  const result=await db.prepare(`UPDATE simple_grc_records SET data_json=?,updated_at=? WHERE id=? AND module=? AND data_json=? AND updated_at=? AND ${guard.sql}`)
   .bind(JSON.stringify(data),updatedAt,id,existing.module,existing.data_json,existing.updated_at,...guard.values).run();
- if(Number(result.meta?.changes||0)!==1){
+ // The primary-key guard changes at most one source row; D1 also counts AFTER-trigger writes.
+ if(Number(result.meta?.changes||0)<1){
   if(!(await db.prepare(`SELECT 1 valid WHERE ${guard.sql}`).bind(...guard.values).first()))throw new CoreReferenceUnavailable();
   throw new LifecycleConflict();
  }

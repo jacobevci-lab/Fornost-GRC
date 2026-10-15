@@ -50,6 +50,8 @@ The request mutation queues notifications but does not send email itself. If rec
 
 ## Deliberate next increments
 
+The separate [audit status report](audit-status-reports.md) preserves the saved plan, requirement register, request decisions and directly linked CAPA findings in one dated snapshot with HTML/PDF/CSV/JSON exports. It does not close the audit or replace independent reviewer decisions.
+
 Business-day/holiday calendars, vacation delegation, custom escalation profiles, digesting, absolute deep links in email, whole-audit closure snapshots and attachment retention controls remain separate work. Shared upload validation now supports PDF, raster images, UTF-8 CSV/TSV/TXT/LOG/JSON and supported DOCX/XLSX containers. The first version does not freeze a whole audit or automatically re-open accepted requests when general library content changes.
 
 ## Verification

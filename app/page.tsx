@@ -13,6 +13,7 @@ import type { AuditCatalogImport } from "./audit-catalog-import";
 import { readAllGrcPages } from "./grc-pagination";
 import { AuditPlanPanel } from "./audit-plan-panel";
 import { AuditRequestPanel } from "./audit-request-panel";
+import { AuditStatusReportPanel } from "./audit-status-report-panel";
 import { canOpenModule, canReadModule, canWriteModule, isScoped, readableModules } from "./module-access";
 import "./module-access.css";
 import { linkedRecordOptions } from "./linked-record-options";
@@ -4326,6 +4327,7 @@ function AuditModule({
       {audits.find(audit=>audit.name===selected)&&<AuditPlanPanel key={`plan:${selected}`} auditId={audits.find(audit=>audit.name===selected)!.id} canWrite={canWrite} lang={lang}/>}
       {audits.find(audit=>audit.name===selected)&&<AuditRequestPanel key={`requests:${selected}:${requestFocus?.id || ""}`} auditId={audits.find(audit=>audit.name===selected)!.id} lang={lang} focusId={requestFocus?.auditId===audits.find(audit=>audit.name===selected)?.id?requestFocus?.id || "":""}/>}
       <AuditReadinessGate key={selected} lang={lang} auditName={selected} records={[...items,...evidenceRows]} />
+      {canDeleteAudit&&selectedPortfolio&&<AuditStatusReportPanel key={`reports:${selectedPortfolio.id}`} auditId={selectedPortfolio.id} lang={lang}/>}
       <AuditRequirementsTable
         key={`requirements:${selected}`}
         allItems={items}

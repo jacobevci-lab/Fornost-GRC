@@ -32,10 +32,10 @@ export async function renderReportPdf(s:Snapshot,suppliedFont?:Uint8Array){
  paragraph(`${s.tr?'Kapsam':'Scope'}: ${s.records.length} ${s.tr?'kayıt':'records'} · ${s.template==='detailed'?(s.tr?'Detaylı kayıt dökümü':'Detailed register'):(s.tr?'Yönetim özeti':'Management summary')}`,11);
  paragraph(s.scope,9);
  paragraph(s.filters.map(f=>`${f.label}: ${f.value}`).join(' · ')||(s.tr?'Ek filtre yok':'No additional filters'),9);
+ for(const item of s.intro){paragraph(item.label,12,accent);paragraph(item.value,10);}
  paragraph(s.tr?'Yönetim göstergeleri':'Management indicators',14,accent);
  for(const metric of s.metrics){paragraph(`${metric.label}: ${metric.value}`,12);paragraph(metric.note,9,muted);}
- paragraph(s.tr?'Veri kalitesi / eksik alanlar':'Data quality / missing fields',12,accent);
- paragraph(s.quality.map(q=>`${q.label}: ${q.missing}`).join(' · '),9);
+ if(s.quality.length){paragraph(s.tr?'Veri kalitesi / eksik alanlar':'Data quality / missing fields',12,accent);paragraph(s.quality.map(q=>`${q.label}: ${q.missing}`).join(' · '),9);}
  paragraph(s.tr?'Anlık görüntü; geçmiş dönem eğilimi veya bağımsız denetim görüşü değildir.':'Point-in-time snapshot; not a historical trend or an independent audit opinion.',9,muted);
  addPage();paragraph(s.tr?'Kayıt dökümü':'Record register',15,accent);
  const widths=[65,94,190,82,118,110,111],size=8.5,leading=12;
@@ -57,7 +57,7 @@ export async function renderReportPdf(s:Snapshot,suppliedFont?:Uint8Array){
  if(!s.records.length)paragraph(s.tr?'Seçili kapsamda kayıt yok.':'No records in the selected scope.');
  if(s.template==='detailed'){
   addPage();paragraph(s.tr?'Kayıt ayrıntıları':'Record details',15,accent);
-  for(const record of s.records){ensure(45);paragraph(`${record.cells[0]} · ${record.cells[2]}`,12,accent);for(const field of record.fields){paragraph(`${field.label} [${field.key}]`,9,muted);paragraph(field.value||'—',9);}y-=8;}
+  for(const record of s.records){ensure(45);paragraph(`${record.cells[0]} · ${record.cells[2]}`,12,accent);for(const field of record.fields){paragraph(s.showFieldKeys?`${field.label} [${field.key}]`:field.label,9,muted);paragraph(field.value||'—',9);}y-=8;}
  }
  const pages=doc.getPages();pages.forEach((p,index)=>{p.drawLine({start:{x:margin,y:30},end:{x:width-margin,y:30},thickness:.5,color:line});p.drawText(`${s.classification} · ${s.id}`,{x:margin,y:17,size:8,font,color:muted});p.drawText(`${index+1} / ${pages.length}`,{x:width-margin-50,y:17,size:8,font,color:muted});});
  const bytes=await doc.save();return new Blob([new Uint8Array(bytes)],{type:'application/pdf'});

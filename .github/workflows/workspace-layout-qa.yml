@@ -77,6 +77,8 @@ jobs:
         run: node scripts/audit-plan-qa.mjs
       - name: Audit evidence request lifecycle and reminders QA
         run: node scripts/audit-request-workflow-qa.mjs
+      - name: Audit status report snapshots, scope and exports QA
+        run: node scripts/audit-status-report-qa.mjs
       - name: Evidence document formats, downloads and version approval QA
         run: node scripts/evidence-document-formats-qa.mjs
       - name: Atomic AI retirement and independent verification QA
@@ -166,6 +168,7 @@ jobs:
             assurance-retest-qa-artifacts/
             audit-readiness-qa-artifacts/
             audit-request-qa-artifacts/
+            audit-status-report-qa-artifacts/
             evidence-formats-qa-artifacts/
             control-assurance-qa-artifacts/
             risk-decisions-qa-artifacts/
