@@ -39,7 +39,8 @@ export async function deleteCoreRecord(db:D1Database,id:string,existing:CoreReco
   db.prepare(`DELETE FROM simple_grc_records WHERE id=? AND module=? AND data_json=? AND updated_at=? AND ${enterprise.schemaSql} AND NOT EXISTS (${guard.sql})`).bind(id,existing.module,existing.data_json,existing.updated_at,...enterprise.schemaValues,...values),
   db.prepare('DELETE FROM simple_grc_record_codes WHERE record_id=? AND changes()=1').bind(id),
  ]);
- if(Number(results[0]?.meta?.changes||0)!==1){
+ // The primary-key guard changes at most one source row; D1 also counts AFTER-trigger writes.
+ if(Number(results[0]?.meta?.changes||0)<1){
   if(await db.prepare(guard.sql).bind(...values).first())throw new CoreRecordLinked();
   throw new LifecycleConflict();
  }

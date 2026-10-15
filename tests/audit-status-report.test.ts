@@ -5,6 +5,10 @@ import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { PDFDocument } from 'pdf-lib';
 import type { Actor } from '../app/api/auth/security';
+import { insertCoreRecords, CoreReferenceUnavailable } from '../app/core-reference-write';
+import { writeCoreRecord } from '../app/core-record-write';
+import { deleteCoreRecord, CoreRecordLinked } from '../app/core-record-delete';
+import { LifecycleConflict } from '../app/enterprise-lifecycle-write';
 import { emptyAuditPlan } from '../app/audit-plan';
 import { auditReportSummary, reportCanonical } from '../app/audit-status-report';
 import { ensureAuditStatusReportSchema } from '../app/audit-status-report-schema';
@@ -21,7 +25,7 @@ async function fixture(){
     CREATE TABLE simple_grc_metadata(key TEXT PRIMARY KEY,value TEXT,updated_at TEXT);
     CREATE TABLE simple_grc_record_codes(record_id TEXT PRIMARY KEY,module TEXT,code TEXT UNIQUE,created_at TEXT);`);
   let maxBindings=0;
-  function prepare(sql:string,args:SQLInputValue[]=[]){return {bind(...values:SQLInputValue[]){maxBindings=Math.max(maxBindings,values.length);return prepare(sql,values);},execute(){const results=sqlite.prepare(sql).all(...args);return{results,success:true,meta:{changes:Number(sqlite.prepare('SELECT changes() n').get()?.n)}};},async all(){return this.execute();},async run(){return this.execute();},async first(){return sqlite.prepare(sql).get(...args)||null;}};}
+  function prepare(sql:string,args:SQLInputValue[]=[]){return {bind(...values:SQLInputValue[]){maxBindings=Math.max(maxBindings,values.length);return prepare(sql,values);},execute(){const before=Number(sqlite.prepare('SELECT total_changes() n').get()?.n);const results=sqlite.prepare(sql).all(...args);return{results,success:true,meta:{changes:Number(sqlite.prepare('SELECT total_changes() n').get()?.n)-before}};},async all(){return this.execute();},async run(){return this.execute();},async first(){return sqlite.prepare(sql).get(...args)||null;}};}
   let race:(()=>void)|undefined,skip=0;
   const db={prepare,async batch(statements:ReturnType<typeof prepare>[]){if(skip)skip--;else{const hook=race;race=undefined;hook?.();}sqlite.exec('BEGIN');try{const result=statements.map(s=>s.execute());sqlite.exec('COMMIT');return result;}catch(e){sqlite.exec('ROLLBACK');throw e;}}}as unknown as D1Database;
   await ensureAuditStatusReportSchema(db);
@@ -130,5 +134,26 @@ test('HTML, CSV and PDF preserve snapshot identity, all records, Turkish text an
     const saved=await f.save(await f.input({title:'İstanbul Denetimi',summary:'<script>alert(1)</script> İnceleme sürüyor.',limitations:'\n=HYPERLINK("https://bad.test")'})),detail=await f.detail(saved.id);
     const html=auditStatusReportHtml(detail,true),csv=auditStatusReportCsv(detail,true);assert.doesNotMatch(html,/<script>/);assert.match(html,/&lt;script&gt;/);assert.match(html,/Ödeme süreci 24/);assert.match(html,/Uzun açıklama/);assert.ok(html.includes(detail.sha256));assert.ok(csv.includes(saved.id));assert.match(csv,/"'=HYPERLINK/);assert.match(csv,/export-24/);assert.match(html,/denetim görüşü veya kapatma kararı değildir/);
     const blob=await auditStatusReportPdf(detail,true,new Uint8Array(readFileSync('public/fonts/FornostReportSans.ttf'))),pdf=await PDFDocument.load(await blob.arrayBuffer());assert.ok(pdf.getPageCount()>5);assert.match(pdf.getTitle()||'',/İstanbul Denetimi/);assert.equal(pdf.getAuthor(),admin.email);
+  }finally{f.sqlite.close();}
+});
+
+test('report revision triggers preserve core audit imports, edits, deletions and their rejection guards with D1 metadata',async()=>{
+  const f=await fixture();try{
+    const body=await f.input(),saved=await f.save(body),original=await f.detail(saved.id);
+    const data={auditName:'Audit A',requirementTitle:'New requirement',status:'İncelemede'};
+    const records=[{id:'AUD-new-a',code:'AUD-900',data},{id:'AUD-new-b',code:'AUD-901',data}];
+    await insertCoreRecords(f.db,'Denetim Yönetimi',records,stamp);
+    assert.equal(f.sqlite.prepare("SELECT count(*) n FROM simple_grc_record_codes WHERE record_id LIKE 'AUD-new-%'").get()?.n,2);
+    await assert.rejects(insertCoreRecords(f.db,'Denetim Yönetimi',[{id:'AUD-rejected',code:'AUD-902',data:{...data,evidenceRef:'EVD-999999'}}],stamp),CoreReferenceUnavailable);
+    assert.equal(f.sqlite.prepare("SELECT id FROM simple_grc_records WHERE id='AUD-rejected'").get(),undefined);
+    const read=()=>f.sqlite.prepare("SELECT module,data_json,updated_at FROM simple_grc_records WHERE id='AUD-new-a'").get() as {module:string;data_json:string;updated_at:string};
+    const before=read();await writeCoreRecord(f.db,'AUD-new-a',before,{...data,owner:'Updated owner'},before.updated_at);
+    const updated=read();assert.equal(JSON.parse(updated.data_json).owner,'Updated owner');
+    await assert.rejects(writeCoreRecord(f.db,'AUD-new-a',before,data,before.updated_at),LifecycleConflict);
+    f.finding('new-link','AUD-900');await assert.rejects(deleteCoreRecord(f.db,'AUD-new-a',updated,updated.updated_at),CoreRecordLinked);
+    f.sqlite.exec("DELETE FROM enterprise_findings WHERE id='new-link'");
+    await deleteCoreRecord(f.db,'AUD-new-a',updated,updated.updated_at);
+    assert.equal(read(),undefined);assert.equal(f.sqlite.prepare("SELECT record_id FROM simple_grc_record_codes WHERE record_id='AUD-new-a'").get(),undefined);
+    assert.deepEqual(await f.detail(saved.id),original);await assert.rejects(f.save({...body,reportId:`ARP-${crypto.randomUUID()}`}),/changed/);
   }finally{f.sqlite.close();}
 });

@@ -20,6 +20,8 @@ try{
   const name=`QA Audit Report ${tag}`,otherName=`QA Report Other ${tag}`;
   for(const auditName of [name,otherName])audits.push((await api(admin,'/api/audits','POST',{name:auditName,template:'Özel Denetim',auditOwner:'QA Report Owner',auditor:'QA Reviewer'},201)).id);
   const auditId=audits[0],endpoint=`/api/audits/reports?auditId=${auditId}`;
+  // Initialize source tracking before exercising existing import/request writers.
+  await api(admin,endpoint+'&preview=1');
   const requirement=i=>({auditName:name,auditType:'Internal',auditOwner:'QA',startDate:'2026-10-01',endDate:'2026-10-31',requirementRef:`QA-${i}`,requirementTitle:`Ödeme kontrolü ${i}`,owner:'Çağrı',businessUnit:'Finance',dueDate:'2026-10-30',status:'İncelemede',progress:40,requirementStatement:'Confirm approvals and independent access review.'});
   await api(admin,'/api/grc','POST',{module:'Denetim Yönetimi',rows:Array.from({length:25},(_,i)=>requirement(i))},201);
   await api(admin,'/api/audits/requests','POST',{auditId,action:'create',requestId:`ARQ-report-${tag}`,expectedRevision:'',fields:{title:'Report evidence request',instructions:'Review all privileged users and confirm the approver.',owner:'qa-admin@fornost.test',reviewer:email,dueDate:'2026-10-29',reviewDueDate:'2026-10-30',periodStart:'',periodEnd:''}});
@@ -54,7 +56,13 @@ try{
   const html=await readFile(`${directory}/report.html`,'utf8'),csv=await readFile(`${directory}/report.csv`,'utf8'),pdf=await PDFDocument.load(await readFile(`${directory}/report.pdf`));
   assert.match(html,/Ödeme kontrolü 24/);assert.match(html,/&lt;script&gt;/);assert.doesNotMatch(html,/<script>/);assert.match(csv,/"'=HYPERLINK/);assert.ok(pdf.getPageCount()>3);assert.equal(await page.evaluate(()=>window.reportInjected),undefined);
   await api(admin,'/api/audits/plan','PUT',{id:auditId,expectedRevision:plan.revision,plan:{...plan.plan,scope:'Scope changed after reporting'}});
-  await api(admin,'/api/grc','POST',{module:'Denetim Yönetimi',data:requirement(25)},201);assert.deepEqual(await api(admin,endpoint+`&reportId=${submitted.reportId}`),saved);
+  const added=await api(admin,'/api/grc','POST',{module:'Denetim Yönetimi',data:requirement(25)},201);
+  const addedRow=(await api(admin,endpoint+'&preview=1')).items.find(i=>i.id===added.id).record;
+  const edited=await api(admin,'/api/grc','PATCH',{id:added.id,expectedUpdatedAt:addedRow.updatedAt,data:{...requirement(25),requirementTitle:'Edited after reporting'}});
+  await api(admin,'/api/grc','PATCH',{id:added.id,expectedUpdatedAt:addedRow.updatedAt,data:requirement(25)},409);
+  await api(admin,`/api/grc?id=${added.id}&expectedUpdatedAt=${encodeURIComponent(edited.updatedAt)}`,'DELETE');
+  await api(admin,'/api/grc','POST',{module:'Denetim Yönetimi',rows:[requirement(26),requirement(27)]},201);
+  assert.deepEqual(await api(admin,endpoint+`&reportId=${submitted.reportId}`),saved);
   await panel.locator('.asr-saved .asr-plan > summary').click();await expect(panel.locator('.asr-saved')).toContainText('Scope changed during preview');
   for(const language of ['EN','TR']){await page.locator('.language-switch:visible').getByRole('button',{name:language,exact:true}).click();for(const theme of ['light','dark'])for(const width of [390,1536]){await page.evaluate(t=>document.documentElement.dataset.theme=t,theme);await page.setViewportSize({width,height:960});assert.ok(await panel.evaluate(e=>e.scrollWidth<=e.clientWidth+1));await panel.screenshot({path:`${directory}/${language}-${theme}-${width}.png`});}}
   await page.locator('.language-switch:visible').getByRole('button',{name:'EN',exact:true}).click();await page.setViewportSize({width:1536,height:960});

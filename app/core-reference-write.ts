@@ -50,5 +50,8 @@ export async function insertCoreRecords(db:D1Database,module:string,records:NewC
  SELECT json_extract(value,'$.id'),?,json_extract(value,'$.code'),? FROM json_each(?) WHERE changes()=?`)
    .bind(module,now,JSON.stringify(records.map(({id,code})=>({id,code}))),records.length),
  ]);
- if(Number(result[0]?.meta?.changes||0)!==records.length)throw new CoreReferenceUnavailable();
+ // The code insert is gated by SQLite changes()=records.length, which excludes
+ // trigger writes. D1 metadata includes those writes, so its positive receipt
+ // confirms the entire import without comparing a trigger-inclusive row count.
+ if(Number(result[1]?.meta?.changes||0)<1)throw new CoreReferenceUnavailable();
 }
