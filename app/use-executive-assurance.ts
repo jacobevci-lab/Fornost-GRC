@@ -2,10 +2,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { AssuranceRow } from './control-assurance';
 import { withBasePath } from './base-path';
-import { applyEvidenceAssuranceSnapshot, parseEvidenceAssuranceSnapshot, type EvidenceAssuranceSnapshot } from './evidence/assurance-snapshot';
+import { applyEvidenceAssuranceSnapshot } from './evidence/assurance-snapshot';
+import { parseExecutiveAssuranceSnapshot, type ExecutiveAssuranceSnapshot } from './executive-assurance-snapshot';
 
-export function useEvidenceAssurance(rows: AssuranceRow[]) {
-  const [result, setResult] = useState<{ scope: AssuranceRow[]; snapshot: EvidenceAssuranceSnapshot | null } | null>(null);
+export function useExecutiveAssurance(rows: AssuranceRow[]) {
+  const [result, setResult] = useState<{ scope: AssuranceRow[]; snapshot: ExecutiveAssuranceSnapshot | null } | null>(null);
   const [loading, setLoading] = useState(true);
   const [revision, setRevision] = useState(0);
   const serial = useRef(0);
@@ -21,9 +22,9 @@ export function useEvidenceAssurance(rows: AssuranceRow[]) {
       const timeout = window.setTimeout(() => current.abort(), 15000);
       setResult(null); setLoading(true);
       try {
-        const response = await fetch(withBasePath('/api/evidence/assurance'), { cache: 'no-store', signal: current.signal });
+        const response = await fetch(withBasePath('/api/executive-assurance'), { cache: 'no-store', signal: current.signal });
         if (!response.ok) throw new Error('Unavailable');
-        const snapshot = parseEvidenceAssuranceSnapshot(await response.json());
+        const snapshot = parseExecutiveAssuranceSnapshot(await response.json());
         if (active && request === serial.current) setResult({ scope: rows, snapshot });
       } catch { if (active && request === serial.current) setResult({ scope: rows, snapshot: null }); }
       finally { window.clearTimeout(timeout); if (active && request === serial.current) setLoading(false); }
@@ -37,5 +38,5 @@ export function useEvidenceAssurance(rows: AssuranceRow[]) {
   }, [rows, revision]);
   const snapshot = result?.scope === rows ? result.snapshot : null;
   const applied = useMemo(() => applyEvidenceAssuranceSnapshot(rows, snapshot), [rows, snapshot]);
-  return { ...applied, generatedAt: snapshot?.generatedAt, loading: loading || (result !== null && result.scope !== rows), refresh };
+  return { ...applied, auditPortfolio: snapshot?.auditPortfolio, generatedAt: snapshot?.generatedAt, loading: loading || (result !== null && result.scope !== rows), refresh };
 }
