@@ -11,9 +11,5 @@ test("manual control runs reconcile approved assurance re-tests before respondin
 });
 
 test("scheduled due runs reconcile the assurance queue after the batch",()=>{
-  assert.match(route,/action==="run-due"[\s\S]*for\(const item of due\.results\)[\s\S]*reconcileApprovedRetests\(env\.DB\)/);
-  const runDue=route.indexOf('if(action==="run-due")');
-  const reconcile=route.indexOf("reconcileApprovedRetests(env.DB)",runDue);
-  const loop=route.indexOf("for(const item of due.results)",runDue);
-  assert.ok(runDue>=0&&loop>runDue&&reconcile>loop);
+  assert.match(route,/action==="run-due"[\s\S]*await executeDueRules\(env,actorEmail\),reconciled=await reconcileApprovedRetests\(env\.DB\)/);
 });

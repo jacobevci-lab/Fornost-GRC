@@ -109,12 +109,12 @@ function insightFor(
   if (code === "control-health") return {
     ...common,
     title: "Continuous controls need attention",
-    detail: `${connector.unhealthyRules} active rule(s) are failing, stale, or missing evidence.`,
+    detail: `${connector.unhealthyRules} active rule(s) have failed, expiring, stale, missing, or unverifiable evidence.`,
   };
   if (code === "evidence-gap") return {
     ...common,
     title: "Evidence coverage is incomplete",
-    detail: `${connector.evidenceGap} active rule(s) do not yet have evidence.`,
+    detail: `${connector.evidenceGap} active rule(s) do not have current passing evidence.`,
   };
   if (code === "due-backlog") return {
     ...common,
@@ -144,7 +144,7 @@ export function buildContinuousAssuranceOperationsInsights(
     ? "critical"
     : watchConnectors
       ? "watch"
-      : connectors.length && idleConnectors === connectors.length
+      : idleConnectors === connectors.length
         ? "idle"
         : "healthy";
 

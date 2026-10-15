@@ -1,0 +1,17 @@
+# Continuous assurance execution consistency
+
+Control collection can overlap with another run, a source edit or a control change. Results now commit only if the rule and source still match the observed configuration and no other run has committed. A transaction records the winning run, evidence, rule state, finding and linked risk together. Its run receipt prevents a losing request from creating any dependent records. A failed dependent write rolls the entire transaction back.
+
+An overlapping request that loses this comparison returns HTTP 409 with `EXECUTION_CONFLICT`. Review the refreshed current state before retrying. The request is not automatically retried: doing so could change consecutive-failure counts or create another finding occurrence. This mechanism does not prevent both read-only collector HTTP requests from reaching the provider.
+
+Editing a collector's driver, configuration or credentials clears the associated rules' current assessment, evidence freshness, execution receipt and consecutive-failure count. Enabled rules become due immediately. Immutable runs, evidence and existing findings remain intact; this is not remediation or independent risk approval. A name-only edit preserves the current assessment. A late connection test cannot mark an edited configuration as connected.
+
+The scheduler selects at most 20 due rules with enabled sources. A conflicting or failed database write is reported as an unrecorded run and does not stop the remaining rules. A completed collection error remains a recorded `error` result. Interactive bulk execution also continues after individual failures and reports saved results, collection errors and records it could not confirm.
+
+Health requires a passing status and valid current evidence. Invalid or future timestamps, invalid freshness policies and unknown assessments cannot produce a healthy label. Evidence becomes stale at the expiry boundary. Expiring passing evidence remains usable but needs attention. Telemetry excludes disabled rules/sources, orphan runs and future/out-of-window runs before applying limits; absent durations are excluded from averages and percentiles.
+
+Operations health reads one transactional snapshot. It publishes a complete 24-hour window up to 10,000 sources, 10,000 operational rules and 5,000 operational runs. Exceeding a bound returns the existing unavailable response (`summary: null`), rather than a misleading partial success rate. Empty operations are idle. Larger deployments require aggregate telemetry before increasing these bounds.
+
+Migration `0088_evidence_execution_receipt.sql` adds nullable `last_run_id`. Runtime compatibility initialization adds it to older installations and tolerates concurrent initialization. Existing history needs no backfill. Application rollback can leave the nullable column in place; the earlier application does not provide the execution conflict guarantees described here.
+
+Verification covers controlled concurrent collector responses, source/control edits in flight, trigger-inclusive D1 change counts, transaction rollback and retry, scheduler isolation, freshness boundaries, telemetry filtering and capacity. Browser QA uses real localhost API/SQLite for configuration invalidation and health, and explicitly substituted transport responses for UI conflict/batch recovery in English/Turkish, light/dark and desktop/mobile. These checks do not claim validation against customer vendor tenants or production credentials.

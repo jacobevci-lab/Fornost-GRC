@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { executionConflictMessage } from "./evidence/execution-feedback";
 import { withBasePath } from "./base-path";
 import { navigateToFornost } from "./navigation-focus";
 import "./integrations-overview.css";
@@ -146,6 +147,7 @@ export default function IntegrationsOverview({ lang }: { lang: Lang }) {
   const [runningRuleId, setRunningRuleId] = useState("");
   const [runNotice, setRunNotice] = useState<RunActionNotice | null>(null);
   const [runningDue, setRunningDue] = useState(false);
+  const executionPending = useRef(false);
   const [bulkRunNotice, setBulkRunNotice] = useState<BulkRunNotice | null>(null);
 
   const load = useCallback(async () => {
@@ -224,7 +226,7 @@ export default function IntegrationsOverview({ lang }: { lang: Lang }) {
   const operationalRuleSourceIds = new Set(operationalRules.map((item) => clean(item.sourceId)).filter(Boolean));
   const monitoredControls = new Set(operationalRules.flatMap((item) => splitRefs(item.controlRefs))).size;
   const riskAware = operationalRules.filter((item) => item.autoFinding !== false).length;
-  const operationalUnhealthy = operationalRules.filter((item) => ["failing", "stale", "missing"].includes(clean(item.health))).length;
+  const operationalUnhealthy = operationalRules.filter((item) => ["failing", "stale", "missing", "expiring", "unknown"].includes(clean(item.health))).length;
   const pendingRuleRuns = operationalRules.filter((item) => !clean(item.lastRunAt)).length;
   const sourcesWithoutActiveRules = enabledSources.filter((item) => {
     const sourceId = clean(item.id);
@@ -378,7 +380,7 @@ export default function IntegrationsOverview({ lang }: { lang: Lang }) {
         ? clean(latestActiveRun?.evidenceId)
         : "";
     const focusFindingId = clean(latestFinding?.id);
-    const warningRules = activeRules.filter((item) => ["failing", "stale", "missing"].includes(clean(item.health)));
+    const warningRules = activeRules.filter((item) => ["failing", "stale", "missing", "expiring", "unknown"].includes(clean(item.health)));
     const sourceTone: Tone = !source.enabled
       ? "neutral"
       : source.lastTestStatus === "error" || warningRules.length || openFindings.length
@@ -464,7 +466,8 @@ export default function IntegrationsOverview({ lang }: { lang: Lang }) {
 
   async function runContinuousControl(ruleId: string) {
     const ref = clean(ruleId);
-    if (!ref || runningRuleId || runningDue) return;
+    if (!ref || executionPending.current) return;
+    executionPending.current = true;
     setRunningRuleId(ref);
     setRunNotice(null);
     setBulkRunNotice(null);
@@ -475,6 +478,7 @@ export default function IntegrationsOverview({ lang }: { lang: Lang }) {
         body: JSON.stringify({ action: "run-rule", ruleId: ref }),
       });
       const payload = await response.json().catch(() => ({})) as Record<string, unknown>;
+      if (payload.code === "EXECUTION_CONFLICT") { await load(); throw new Error(executionConflictMessage(tr)); }
       if (!response.ok) throw new Error(clean(payload.error) || (tr ? "Kontrol çalıştırılamadı." : "Control run failed."));
 
       const status = clean(payload.status) || "unknown";
@@ -496,48 +500,37 @@ export default function IntegrationsOverview({ lang }: { lang: Lang }) {
         text: caught instanceof Error ? caught.message : (tr ? "Kontrol çalıştırılamadı." : "Control run failed."),
       });
     } finally {
+      executionPending.current = false;
       setRunningRuleId("");
     }
   }
 
   async function runDueControls() {
-    if (!operationalDueRuleIds.length || runningDue || runningRuleId) return;
+    if (!operationalDueRuleIds.length || executionPending.current) return;
+    executionPending.current = true;
     const dueRuleIds = [...operationalDueRuleIds];
-    setRunningDue(true);
-    setRunNotice(null);
-    setBulkRunNotice(null);
-    let completed = 0;
-    let connectorErrors = 0;
+    setRunningDue(true); setRunNotice(null); setBulkRunNotice(null);
+    let completed = 0, connectorErrors = 0, unrecorded = 0;
     try {
       for (const ruleId of dueRuleIds) {
-        const response = await fetch(withBasePath("/api/evidence-automation"), {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ action: "run-rule", ruleId }),
-        });
-        const payload = await response.json().catch(() => ({})) as Record<string, unknown>;
-        if (!response.ok) throw new Error(clean(payload.error) || (tr ? "Zamanı gelen kontroller çalıştırılamadı." : "Due controls could not be run."));
-        completed += 1;
-        if (clean(payload.status) === "error") connectorErrors += 1;
+        try {
+          const response = await fetch(withBasePath("/api/evidence-automation"), {
+            method: "POST", headers: { "content-type": "application/json" },
+            body: JSON.stringify({ action: "run-rule", ruleId }),
+          });
+          const payload = await response.json().catch(() => ({})) as Record<string, unknown>;
+          if (!response.ok || !payload.runId) { unrecorded += 1; continue; }
+          completed += 1;
+          if (clean(payload.status) === "error") connectorErrors += 1;
+        } catch { unrecorded += 1; }
       }
-      setBulkRunNotice({
-        tone: connectorErrors ? "error" : "success",
-        text: connectorErrors
-          ? (tr ? `${completed} kontrol çalıştı; ${connectorErrors} connector hatası oluştu.` : `${completed} controls ran; ${connectorErrors} connector errors occurred.`)
-          : (tr ? `${completed} zamanı gelen kontrol çalıştırıldı; telemetri yenilendi.` : `${completed} due controls ran; telemetry refreshed.`),
-      });
       await load();
-    } catch (caught) {
-      await load();
-      setBulkRunNotice({
-        tone: "error",
-        text: completed
-          ? (tr ? `${completed} kontrol çalıştı; kalan işlem durdu. ${caught instanceof Error ? caught.message : ""}`.trim() : `${completed} controls ran; remaining execution stopped. ${caught instanceof Error ? caught.message : ""}`.trim())
-          : (caught instanceof Error ? caught.message : (tr ? "Zamanı gelen kontroller çalıştırılamadı." : "Due controls could not be run.")),
+      setBulkRunNotice({tone: unrecorded || connectorErrors ? "error" : "success",
+        text: tr
+          ? `${completed} sonuç kaydedildi; ${connectorErrors} toplama hatası, ${unrecorded} kaydı doğrulanamayan çalışma. Güncel durumu inceleyin.`
+          : `${completed} results saved; ${connectorErrors} collection errors, ${unrecorded} runs without confirmed records. Review the current state.`,
       });
-    } finally {
-      setRunningDue(false);
-    }
+    } finally { executionPending.current = false; setRunningDue(false); }
   }
 
   return (

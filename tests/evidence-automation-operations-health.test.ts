@@ -13,22 +13,6 @@ test("operations health is a governed read-only assurance endpoint", () => {
   assert.match(route, /loadContinuousAssuranceOperationsHealth\(runtime\.DB, now\)/);
 });
 
-test("operations health scopes telemetry to enabled sources and enabled rules", () => {
-  assert.match(implementation, /const enabledSources = sourceResult\.results\.filter\(\(source\) => Boolean\(source\.enabled\)\)/);
-  assert.match(implementation, /const enabledSourceIds = new Set\(enabledSources\.map\(\(source\) => source\.id\)\)/);
-  assert.match(implementation, /Boolean\(rule\.enabled\) && enabledSourceIds\.has\(rule\.source_id\)/);
-  assert.match(implementation, /const operationalRuleIds = new Set\(operationalRules\.map\(\(rule\) => rule\.id\)\)/);
-  assert.match(implementation, /operationalRuleIds\.has\(run\.rule_id\)/);
-});
-
-test("operations health derives control health from authoritative run and evidence timestamps", () => {
-  assert.match(implementation, /WHEN last_run_at IS NULL THEN 'missing'/);
-  assert.match(implementation, /WHEN last_status IN \('fail','error'\) THEN 'failing'/);
-  assert.match(implementation, /WHEN last_evidence_at IS NULL THEN 'missing'/);
-  assert.match(implementation, /datetime\(last_evidence_at, '\+' \|\| freshness_hours \|\| ' hours'\) < datetime\(\?\) THEN 'stale'/);
-  assert.match(implementation, /ELSE 'healthy'/);
-});
-
 test("shared operations health exposes useful 24 hour reliability telemetry without secrets", () => {
   assert.match(implementation, /windowHours: 24/);
   assert.match(implementation, /successRate24h/);

@@ -52,7 +52,7 @@ test("aggregate connector readiness only counts enabled sources with active rule
   assert.match(overview, /const enabledSources = sources\.filter\(\(item\) => item\.enabled\)/);
   assert.match(overview, /const enabledSourceIds = new Set\(enabledSources\.map\(\(item\) => clean\(item\.id\)\)\.filter\(Boolean\)\)/);
   assert.match(overview, /const operationalRules = rules\.filter\(\(item\) => item\.enabled && enabledSourceIds\.has\(clean\(item\.sourceId\)\)\)/);
-  assert.match(overview, /const operationalUnhealthy = operationalRules\.filter\(\(item\) => \["failing", "stale", "missing"\]\.includes\(clean\(item\.health\)\)\)\.length/);
+  assert.match(overview, /const operationalUnhealthy = operationalRules\.filter\(\(item\) => \["failing", "stale", "missing", "expiring", "unknown"\]\.includes\(clean\(item\.health\)\)\)\.length/);
   assert.match(overview, /const pendingRuleRuns = operationalRules\.filter\(\(item\) => !clean\(item\.lastRunAt\)\)\.length/);
   assert.match(overview, /const sourcesWithoutActiveRules = enabledSources\.filter/);
   assert.match(overview, /Etkin güvenlik kaynağı yok/);
@@ -167,7 +167,7 @@ test("connector operations deep links use authoritative record IDs without deriv
 test("connector run-now executes only an authoritative active rule and refreshes telemetry", () => {
   assert.match(overview, /const actionRuleId = activeRuleIds\.has\(focusRuleId\) \? focusRuleId : clean\(latestActiveRule\?\.id\)/);
   assert.match(overview, /async function runContinuousControl\(ruleId: string\)/);
-  assert.match(overview, /if \(!ref \|\| runningRuleId \|\| runningDue\) return/);
+  assert.match(overview, /if \(!ref \|\| executionPending\.current\) return/);
   assert.match(overview, /method: "POST"/);
   assert.match(overview, /body: JSON\.stringify\(\{ action: "run-rule", ruleId: ref \}\)/);
   assert.match(overview, /const isExecutionError = status === "error"/);
@@ -194,7 +194,7 @@ test("bulk due execution is scoped to operational rules and reuses authoritative
   assert.match(overview, /snapshotNow > 0 && nextRun > 0 && nextRun <= snapshotNow/);
   assert.match(overview, /const operationalDueRuleIds = operationalDueRules\.map\(\(item\) => clean\(item\.id\)\)\.filter\(Boolean\)/);
   assert.match(overview, /async function runDueControls\(\)/);
-  assert.match(overview, /if \(!operationalDueRuleIds\.length \|\| runningDue \|\| runningRuleId\) return/);
+  assert.match(overview, /if \(!operationalDueRuleIds\.length \|\| executionPending\.current\) return/);
   assert.match(overview, /const dueRuleIds = \[\.\.\.operationalDueRuleIds\]/);
   assert.match(overview, /for \(const ruleId of dueRuleIds\)/);
   assert.match(overview, /body: JSON\.stringify\(\{ action: "run-rule", ruleId \}\)/);
@@ -207,8 +207,8 @@ test("bulk due execution is scoped to operational rules and reuses authoritative
 
 test("bulk due execution and row execution are mutually exclusive", () => {
   assert.match(overview, /const \[runningDue, setRunningDue\] = useState\(false\)/);
-  assert.match(overview, /if \(!ref \|\| runningRuleId \|\| runningDue\) return/);
-  assert.match(overview, /if \(!operationalDueRuleIds\.length \|\| runningDue \|\| runningRuleId\) return/);
+  assert.match(overview, /if \(!ref \|\| executionPending\.current\) return/);
+  assert.match(overview, /if \(!operationalDueRuleIds\.length \|\| executionPending\.current\) return/);
   assert.match(overview, /disabled=\{!operationalDueRuleIds\.length \|\| runningDue \|\| Boolean\(runningRuleId\)\}/);
   assert.match(overview, /disabled=\{!row\.actionRuleId \|\| Boolean\(runningRuleId\) \|\| runningDue\}/);
   assert.match(overview, /setBulkRunNotice\(null\)/);
