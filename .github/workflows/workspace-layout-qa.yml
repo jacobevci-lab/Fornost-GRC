@@ -139,6 +139,7 @@ jobs:
       - name: Check module layouts and audit stability
         run: node scripts/workspace-layout-qa.mjs
       - name: Core CRUD, forms, continuity and governance lifecycle QA
+        timeout-minutes: 8
         run: node scripts/comprehensive-runtime-qa.mjs
       - name: Accessibility, localization and responsive product QA
         env:
