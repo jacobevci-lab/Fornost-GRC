@@ -28,7 +28,7 @@ try{
   const [initial]=await seedCurrentAssessmentFixture({ruleIds:[ruleId],prefix:'QA-PROJ-FIRST',out});
   assert.equal((await api(readiness)).gate,'ready');
   let snapshot=await api('/api/controls/assurance');const original=snapshot.rows.find(row=>row.id===initial.evidenceId);assert.equal(original.data.automationAssessment,'current');
-  assert.equal(snapshot.rows.find(row=>row.data.automationRuleRef?.includes(ruleId)&&row.data.kind==='automation-rule')?.data.automationHealth,'healthy');
+  assert.equal(snapshot.rows.find(row=>row.data.identityRefs?.includes(ruleId)&&row.data.kind==='automation-rule')?.data.automationHealth,'healthy');
   const source={action:'save-source',sourceId,name:'QA Projection Source',vendor:'Custom',category:'Custom',driver:'rest-json',baseUrl:'https://fixture.example/changed',authType:'none'};
   assert.equal((await api('/api/evidence-automation','POST',source)).reassessmentRequired,true);
   snapshot=await api('/api/controls/assurance');assert.equal(snapshot.rows.find(row=>row.id===initial.evidenceId).data.automationAssessment,'configuration-changed');
