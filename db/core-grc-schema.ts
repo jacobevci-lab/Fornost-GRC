@@ -62,3 +62,13 @@ export const auditWorkplanClosureItems = sqliteTable("audit_workplan_closure_ite
 export const auditWorkplanEvents = sqliteTable("audit_workplan_events", {
   id: text("id").primaryKey(), auditId: text("audit_id").notNull(), action: text("action").notNull(), actor: text("actor").notNull(), note: text("note").notNull(), closureId: text("closure_id").notNull(), revision: text("revision").notNull(), createdAt: text("created_at").notNull(),
 }, table => [index("audit_workplan_events_parent_idx").on(table.auditId, table.createdAt, table.id)]);
+
+export const auditStatusReports = sqliteTable("audit_status_reports", {
+  id:text("id").primaryKey(),auditId:text("audit_id").notNull(),headerJson:text("header_json").notNull(),snapshotSha256:text("snapshot_sha256").notNull(),itemCount:integer("item_count").notNull(),inputSha256:text("input_sha256").notNull(),writeToken:text("write_token").notNull(),createdAt:text("created_at").notNull(),
+},table=>[index("audit_status_reports_parent_idx").on(table.auditId,table.createdAt,table.id)]);
+export const auditStatusReportItems = sqliteTable("audit_status_report_items", {
+  reportId:text("report_id").notNull(),kind:text("kind").notNull(),id:text("id").notNull(),recordJson:text("record_json").notNull(),
+},table=>[primaryKey({columns:[table.reportId,table.kind,table.id]})]);
+export const auditReportSourceRevision = sqliteTable("audit_report_source_revision", {
+  id:integer("id").primaryKey(),revision:text("revision").notNull(),
+});
