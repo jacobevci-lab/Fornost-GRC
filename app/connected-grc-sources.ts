@@ -339,6 +339,7 @@ function evidenceAutomationRows(payload: JsonRecord) {
       automationControlRefs: unique(item.controlRefs, item.control_refs),
       automationAssuranceRef: unique(`ASSURANCE:${ruleId}`),
       automationHealth: text(item.health || item.lastStatus || item.last_status),
+      automationAssessmentIssue: text(item.assessmentIssue),
       automationFreshness: text(item.freshness),
       lastEvidenceAt: text(item.lastEvidenceAt || item.last_evidence_at),
     });

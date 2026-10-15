@@ -170,6 +170,7 @@ export function buildControlAssurance(rows: AssuranceRow[], today = new Date().t
     const failingAutomation = automationRules.filter((row) => includes(automationHealth(row), ["failing", "failed", "ineffective", "integrity-failed"]));
     const staleAutomation = automationRules.filter((row) => includes(automationHealth(row), ["stale", "missing"]));
     const attentionAutomation = automationRules.filter((row) => includes(automationHealth(row), ["", "expiring", "unknown", "paused", "degraded"]));
+    const unverifiedAutomation=automationRules.filter(row=>!!row.data.automationAssessmentIssue);
     const automationHealthyCount = healthyAutomation.length;
 
     const riskLinkedFindings = linkedFindings.filter((row) => hasRiskLink(row, graph.links));
@@ -182,6 +183,7 @@ export function buildControlAssurance(rows: AssuranceRow[], today = new Date().t
     const hasHealthyAutomatedAssurance = automationHealthyCount > 0;
     const test = testForControl(control, today.slice(0, 10));
     const reasons: string[] = [];
+    if(unverifiedAutomation.length)reasons.push("automation-unverified");
     let score = 100;
     if (!clean(control.data.owner)) { score -= 15; reasons.push("owner-missing"); }
     if (!test.owner) { score -= 10; reasons.push("test-owner-missing"); }
@@ -236,14 +238,14 @@ export function buildControlAssurance(rows: AssuranceRow[], today = new Date().t
       testOverdue: test.overdue,
       testFailed: test.failed,
       score,
-      state: unavailableEvidence.length ? "unverified" : score >= 80 && !unresolvedRetests.length ? "healthy" : score >= 50 ? "attention" : "critical",
+      state: unavailableEvidence.length || unverifiedAutomation.length ? "unverified" : score >= 80 && !unresolvedRetests.length ? "healthy" : score >= 50 ? "attention" : "critical",
       reasons,
     };
   });
 
   items.sort((a, b) => a.score - b.score || a.reference.localeCompare(b.reference, "tr"));
   const healthy = items.filter((item) => item.state === "healthy").length;
-  const currentEvidence = items.filter((item) => !item.brokenEvidenceCount && !item.unavailableEvidenceCount && !item.reasons.includes("retest-unresolved") && (item.currentEvidenceCount > 0 || item.automationHealthyCount > 0)).length;
+  const currentEvidence = items.filter((item) => !item.brokenEvidenceCount && !item.unavailableEvidenceCount && !item.reasons.includes("retest-unresolved") && !item.reasons.includes("automation-unverified") && (item.currentEvidenceCount > 0 || item.automationHealthyCount > 0)).length;
   const overdueTests = items.filter((item) => item.testOverdue).length;
   const failedTests = items.filter((item) => item.testFailed).length;
   const openFindings = items.reduce((sum, item) => sum + item.openFindingCount + item.automationOpenFindingCount + item.openRemediationCount, 0);

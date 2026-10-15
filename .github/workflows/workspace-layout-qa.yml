@@ -51,6 +51,10 @@ jobs:
         run: node scripts/assurance-execution-qa.mjs
       - name: Concurrent cold and warm schema initialization QA
         run: node scripts/schema-initialization-qa.mjs
+      - name: Current assessment projection, audit and control QA
+        run: node scripts/current-assessment-runtime-qa.mjs
+      - name: Audit evidence request lifecycle and reminders QA
+        run: node scripts/audit-request-workflow-qa.mjs
       - name: Enterprise reference deletion runtime QA
         run: node scripts/enterprise-reference-delete-qa.mjs
       - name: Record dialog themes and Escape QA
@@ -77,8 +81,6 @@ jobs:
         run: node scripts/framework-packs-qa.mjs
       - name: Audit engagement planning QA
         run: node scripts/audit-plan-qa.mjs
-      - name: Audit evidence request lifecycle and reminders QA
-        run: node scripts/audit-request-workflow-qa.mjs
       - name: Audit status report snapshots, scope and exports QA
         run: node scripts/audit-status-report-qa.mjs
       - name: Evidence document formats, downloads and version approval QA
@@ -137,6 +139,7 @@ jobs:
       - name: Check module layouts and audit stability
         run: node scripts/workspace-layout-qa.mjs
       - name: Core CRUD, forms, continuity and governance lifecycle QA
+        timeout-minutes: 8
         run: node scripts/comprehensive-runtime-qa.mjs
       - name: Accessibility, localization and responsive product QA
         env:
@@ -165,6 +168,7 @@ jobs:
             ask-fornost-qa-artifacts/
             ready-controls-qa-artifacts/
             assurance-execution-qa-artifacts/
+            current-assessment-qa-artifacts/
             my-work-assurance-qa-artifacts/
             module-access-qa-artifacts/
             capa-control-qa-artifacts/

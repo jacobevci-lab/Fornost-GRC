@@ -12,6 +12,7 @@ export type AssuranceRuleSnapshot = {
   nextRunAt?: string | null;
   evidenceIntegrity?: "verified" | "broken" | "legacy-unverified";
   linkedEvidenceCount?: number;
+  assessmentIssue?: string;
 };
 
 export type AssuranceFindingSnapshot = {
@@ -93,7 +94,7 @@ export function buildContinuousAssuranceDashboard(input: {
     }, now);
     return {
       rule,
-      health: rule.evidenceIntegrity === "broken" ? "integrity-failed" as const : baseHealth,
+      health: rule.evidenceIntegrity === "broken" ? "integrity-failed" as const : rule.assessmentIssue ? "assessment-unverified" as const : baseHealth,
       freshness: evidenceFreshness(rule.lastEvidenceAt, rule.freshnessHours, now),
       due: Number.isFinite(time(rule.nextRunAt)) && time(rule.nextRunAt) <= nowTime,
     };
@@ -102,7 +103,7 @@ export function buildContinuousAssuranceDashboard(input: {
   const openFindings = input.findings.filter((finding) => !isClosed(finding.status));
   const overdueRemediation = openFindings.filter((finding) => Number.isFinite(time(finding.dueDate)) && time(finding.dueDate) < nowTime);
   const mappedRules = input.rules.filter((rule) => splitControlRefs(rule.controlRefs).length > 0);
-  const evidenceBacked = health.filter(({ freshness, rule }) => (freshness === "fresh" || freshness === "expiring") && rule.evidenceIntegrity !== "broken");
+  const evidenceBacked = health.filter(({ freshness, rule }) => (freshness === "fresh" || freshness === "expiring") && rule.lastStatus === "pass" && !rule.assessmentIssue && rule.evidenceIntegrity !== "broken");
   const assuranceCoverage = input.rules.length
     ? Math.round(((mappedRules.length + evidenceBacked.length) / (input.rules.length * 2)) * 100)
     : 100;
@@ -110,9 +111,9 @@ export function buildContinuousAssuranceDashboard(input: {
   const priorities: AssurancePriority[] = [];
 
   for (const row of health) {
-    if (!["integrity-failed", "failing", "stale", "missing", "expiring"].includes(row.health) && !row.due) continue;
+    if (!["assessment-unverified", "integrity-failed", "failing", "stale", "missing", "expiring"].includes(row.health) && !row.due) continue;
     const refs = splitControlRefs(row.rule.controlRefs);
-    const severity = row.health === "integrity-failed" ? 90 : row.health === "failing" ? 80 : row.health === "missing" ? 70 : row.health === "stale" ? 60 : row.due ? 45 : 35;
+    const severity = row.health === "assessment-unverified" ? 85 : row.health === "integrity-failed" ? 90 : row.health === "failing" ? 80 : row.health === "missing" ? 70 : row.health === "stale" ? 60 : row.due ? 45 : 35;
     priorities.push({
       id: `rule:${row.rule.id}`,
       kind: "control",
@@ -127,7 +128,7 @@ export function buildContinuousAssuranceDashboard(input: {
       targetControlRefs: refs,
       owner: "",
       dueDate: clean(row.rule.nextRunAt),
-      reason: row.health === "integrity-failed" ? "evidence-integrity-failed" : row.health === "failing" ? "control-failing" : row.health === "missing" ? "evidence-missing" : row.health === "stale" ? "evidence-stale" : row.due ? "test-due" : "evidence-expiring",
+      reason: row.rule.assessmentIssue || (row.health === "integrity-failed" ? "evidence-integrity-failed" : row.health === "failing" ? "control-failing" : row.health === "missing" ? "evidence-missing" : row.health === "stale" ? "evidence-stale" : row.due ? "test-due" : "evidence-expiring"),
       updatedAt: clean(row.rule.lastEvidenceAt || row.rule.nextRunAt),
       evidenceIntegrity: row.rule.evidenceIntegrity,
       linkedEvidenceCount: row.rule.linkedEvidenceCount,

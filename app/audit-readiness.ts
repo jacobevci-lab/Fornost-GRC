@@ -3,11 +3,11 @@ import { buildContinuousAssuranceDashboard, type AssurancePriority } from './con
 import type { loadContinuousAssuranceSnapshots } from './continuous-assurance-store';
 
 export type AuditReadinessRow = AssuranceRecord & { module: string };
-export type AuditReadinessIssue = 'records-unavailable' | 'records-incomplete' | 'scope-unmapped' | 'rules-unavailable' | 'rules-incomplete' | 'findings-unavailable' | 'findings-incomplete' | 'work-unavailable' | 'work-incomplete' | 'integrity-unavailable' | 'integrity-incomplete';
+export type AuditReadinessIssue = 'assessment-unavailable' | 'records-unavailable' | 'records-incomplete' | 'scope-unmapped' | 'rules-unavailable' | 'rules-incomplete' | 'findings-unavailable' | 'findings-incomplete' | 'work-unavailable' | 'work-incomplete' | 'integrity-unavailable' | 'integrity-incomplete';
 type Sources = Awaited<ReturnType<typeof loadContinuousAssuranceSnapshots>>;
 const normalized = (value: unknown) => String(value ?? '').normalize('NFKC').trim().toLocaleLowerCase('tr-TR');
 const refs = (value: unknown) => String(value ?? '').split(/[;,|\n]+/).map(value => value.trim()).filter(Boolean);
-const blockingStates = new Set(['integrity-failed', 'failing', 'failed-retest', 'retest-error', 'overdue-remediation']);
+const blockingStates = new Set(['assessment-unverified', 'integrity-failed', 'failing', 'failed-retest', 'retest-error', 'overdue-remediation']);
 const blockingReasons = new Set(['evidence-integrity-failed', 'control-failing', 'failed-retest', 'retest-error', 'remediation-overdue']);
 export function priorityBlocksAudit(priority: AssurancePriority) { return blockingStates.has(normalized(priority.state)) || blockingReasons.has(normalized(priority.reason)); }
 
@@ -17,7 +17,7 @@ export function auditRowsInScope(rows: AuditReadinessRow[], auditName: string) {
 
 export function buildAuditReadiness(input: {
   rows: AuditReadinessRow[]; auditName: string; sources: Sources;
-  recordsAvailable: boolean; recordsComplete: boolean; now?: Date;
+  recordsAvailable: boolean; recordsComplete: boolean; assessmentAvailable?:boolean; now?: Date;
 }) {
   const now = input.now || new Date(), scopeRows = auditRowsInScope(input.rows, input.auditName);
   const evidence = buildAuditEvidenceAssurance(scopeRows, input.rows.filter(row => row.module === 'Kanıtlar'), now);
@@ -42,6 +42,7 @@ export function buildAuditReadiness(input: {
     if (!available) issues.push(unavailableIssue);
     else if (!complete) issues.push(incompleteIssue);
   }
+  if(input.assessmentAvailable===false)issues.push('assessment-unavailable');
   const blockerCount = signals.filter(item => item.blocking).length;
   const monitored = new Set(input.sources.rules.flatMap(rule => refs(rule.controlRefs)).map(normalized));
   const unmonitored = evidence.requirements.filter(item => !monitored.has(normalized(item.reference))).map(item => item.reference);
@@ -51,6 +52,7 @@ export function buildAuditReadiness(input: {
 export type AuditReadinessResult = ReturnType<typeof buildAuditReadiness>;
 
 export const readinessIssueText: Record<AuditReadinessIssue, { tr: string; en: string }> = {
+  'assessment-unavailable':{tr:'Otomatik kanıtın güncel test bağı kontrol edilemedi.',en:'Current test linkage for automated evidence could not be checked.'},
   'records-unavailable': { tr: 'Denetim ve kanıt kayıtları okunamadı.', en: 'Audit and evidence records could not be read.' },
   'records-incomplete': { tr: 'Denetim veya kanıt kayıtları eksik ya da okunamıyor.', en: 'Audit or evidence records are incomplete or unreadable.' },
   'scope-unmapped': { tr: 'Bazı denetim maddelerinde kontrol veya gereksinim referansı eksik.', en: 'Some audit items have no control or requirement reference.' },

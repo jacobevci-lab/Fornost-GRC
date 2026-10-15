@@ -32,7 +32,7 @@ test("dashboard summarizes control health, work queue and remediation debt", () 
   assert.equal(result.summary.overdueRemediation, 1);
   assert.equal(result.summary.pendingReview, 1);
   assert.equal(result.summary.failedRetest, 1);
-  assert.equal(result.summary.assuranceCoverage, 83);
+  assert.equal(result.summary.assuranceCoverage, 67);
   assert.equal(result.priorities[0]?.id, "work:w2");
   assert.equal(result.priorities[0]?.targetControlRef, "CC6.1");
 });

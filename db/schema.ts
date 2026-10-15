@@ -30,7 +30,7 @@ export const evidenceAutomationRuns = sqliteTable("evidence_automation_runs", {
   id:text("id").primaryKey(), ruleId:text("rule_id").notNull(), ruleName:text("rule_name").notNull(), sourceName:text("source_name").notNull(), status:text("status").notNull(),
   score:integer("score").notNull(), detail:text("detail").notNull(), responseHash:text("response_hash").notNull(), evidenceId:text("evidence_id"), createdAt:text("created_at").notNull(), actor:text("actor").notNull(),
   triggerType:text("trigger_type").notNull().default("manual"), durationMs:integer("duration_ms").notNull().default(0), errorCode:text("error_code"),
-},(table)=>[index("evidence_automation_runs_rule_created_idx").on(table.ruleId,table.createdAt)]);
+},(table)=>[index("evidence_automation_runs_rule_created_idx").on(table.ruleId,table.createdAt),index("evidence_automation_runs_evidence_idx").on(table.evidenceId)]);
 
 export const evidenceAutomationFindings = sqliteTable("evidence_automation_findings", {
   id:text("id").primaryKey(), ruleId:text("rule_id").notNull(), evidenceId:text("evidence_id"), title:text("title").notNull(), severity:text("severity").notNull(), owner:text("owner").notNull(),

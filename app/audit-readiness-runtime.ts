@@ -1,3 +1,5 @@
+import { projectAutomatedEvidence } from './evidence/assessment-projection';
+import { normalizeEvidenceControlRef,splitEvidenceControlRefs } from './evidence/versioning';
 import { buildAuditEvidenceAssurance } from './audit-evidence-assurance';
 import { auditRowsInScope, buildAuditReadiness, type AuditReadinessRow } from './audit-readiness';
 import { loadContinuousAssuranceSnapshots } from './continuous-assurance-store';
@@ -16,6 +18,12 @@ export async function loadAuditReadiness(db: D1Database, auditName = '', now = n
     });
   } catch { recordsAvailable = false; recordsComplete = false; }
   const requirements = buildAuditEvidenceAssurance(auditRowsInScope(rows, auditName), [], now).requirements;
-  const sources = await loadContinuousAssuranceSnapshots(db, { integrityControlRefs: requirements.map(item => item.reference) });
-  return buildAuditReadiness({ rows, auditName, sources, recordsAvailable, recordsComplete, now });
+  const scope=new Set(requirements.map(item=>normalizeEvidenceControlRef(item.reference)));
+  const scopedEvidence=rows.filter(row=>row.module==='Kanıtlar'&&[row.data.controlRef,row.data.requirementRef].flatMap(value=>splitEvidenceControlRefs(String(value||''))).some(ref=>scope.has(normalizeEvidenceControlRef(ref))));
+  const [sources,projection]=await Promise.all([
+    loadContinuousAssuranceSnapshots(db, { integrityControlRefs: requirements.map(item => item.reference),now }),
+    projectAutomatedEvidence(db,scopedEvidence,now),
+  ]);
+  const projected=new Map(projection.rows.map(row=>[row.id,row]));
+  return buildAuditReadiness({ rows:rows.map(row=>projected.get(row.id)||row), auditName, sources, recordsAvailable, recordsComplete, assessmentAvailable:projection.available, now });
 }

@@ -1,3 +1,4 @@
+import { seedAssessmentReceipt } from './helpers/assessment-fixture';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { DatabaseSync } from 'node:sqlite';
@@ -84,6 +85,7 @@ test('source history truncation is explicitly incomplete even when sampled findi
 test('control projection resolves the second rule mapping and a verified retry clears its historical error', async () => {
   const f = await fixture(); try {
     f.sqlite.prepare("INSERT INTO evidence_automation_rules(id,name,source_id,control_refs,json_path,operator,expected,schedule,last_status,last_evidence_at,created_at,updated_at,updated_by) VALUES('RULE','Coverage','SOURCE','OTHER;CTL-1','value','eq','1','daily','pass',?,?,?,'qa')").run(now.toISOString(), now.toISOString(), now.toISOString());
+    await seedAssessmentReceipt(f.sqlite,'RULE',now,'RUN');
     const insert = f.sqlite.prepare("INSERT INTO continuous_assurance_work_items(id,finding_id,rule_id,action,status,decision_json,actor,created_at,updated_at,result_ref) VALUES(?,'FINDING','RULE','control-retest',?,?,'qa',?,?,'RUN')");
     insert.run('ERROR', 'retest-error', JSON.stringify({ targetControlRef: 'CTL-1' }), '2026-10-02T10:00:00Z', '2026-10-02T10:00:00Z');
     assert.ok((await f.item()).reasons.includes('retest-unresolved')); assert.notEqual((await f.item()).state, 'healthy');

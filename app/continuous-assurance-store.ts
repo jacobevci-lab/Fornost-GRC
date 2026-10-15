@@ -1,3 +1,4 @@
+import { assessmentJoinColumns, assessmentRunJoins, assessJoinedRun, type AssessmentJoin } from "./evidence/assessment-projection";
 import { ensureAssuranceWorkSchema } from "./continuous-assurance-runtime";
 import {
   normalizeEvidenceControlRef,
@@ -93,10 +94,13 @@ export function evidenceIntegrityForRule(
   return { evidenceIntegrity, linkedEvidenceCount: evidenceIds.size };
 }
 
-async function loadRules(db: D1Database) {
+async function loadRules(db: D1Database, now:Date) {
   try {
-    const rows = await db.prepare("SELECT id,name,control_refs,enabled,last_status,last_evidence_at,freshness_hours,consecutive_failures,next_run_at FROM evidence_automation_rules ORDER BY name LIMIT 10001").all<RuleRow>();
-    return { available: true, complete: rows.results.length <= 10000, rows: rows.results.slice(0, 10000).map((row): AssuranceRuleSnapshot => ({
+    const rows = await db.prepare(`SELECT r.*,${assessmentJoinColumns} FROM evidence_automation_rules r LEFT JOIN evidence_automation_sources s ON s.id=r.source_id LEFT JOIN evidence_automation_runs run ON run.id=r.last_run_id AND run.rule_id=r.id LEFT JOIN simple_grc_records e ON e.id=run.evidence_id AND e.module='Kanıtlar' ORDER BY r.name,r.id LIMIT 10001`).all<RuleRow & AssessmentJoin>();
+    return { available: true, complete: rows.results.length <= 10000, rows: await Promise.all(rows.results.slice(0, 10000).map(async (row):Promise<AssuranceRuleSnapshot> => {
+      const assessment=await assessJoinedRun(row,now),run=asObject(parse(row.assessment_run));
+      const assessmentIssue=run.id&&run.status!==row.last_status?'evidence-mismatch':assessment.status==='error'&&assessment.reason!=='collection-error'?assessment.reason:undefined;
+      return ({
       id: row.id,
       name: row.name,
       controlRefs: row.control_refs || "",
@@ -105,8 +109,8 @@ async function loadRules(db: D1Database) {
       lastEvidenceAt: row.last_evidence_at,
       freshnessHours: Number(row.freshness_hours),
       consecutiveFailures: Number(row.consecutive_failures || 0),
-      nextRunAt: row.next_run_at,
-    })) };
+      nextRunAt: row.next_run_at,assessmentIssue,
+    });})) };
   } catch { return { rows: [] as AssuranceRuleSnapshot[], available: false, complete: false }; }
 }
 
@@ -125,11 +129,15 @@ async function loadFindings(db: D1Database) {
   } catch { return { rows: [] as AssuranceFindingSnapshot[], available: false, complete: false }; }
 }
 
-async function loadWorkItems(db: D1Database) {
+async function loadWorkItems(db: D1Database, now:Date) {
   try {
     await ensureAssuranceWorkSchema(db);
-    const rows = await db.prepare("SELECT id,finding_id,rule_id,action,status,decision_json,actor,reviewed_by,updated_at,result_ref FROM continuous_assurance_work_items ORDER BY updated_at DESC LIMIT 1001").all<WorkRow>();
-    return { available: true, complete: rows.results.length <= 1000, rows: rows.results.slice(0, 1000).map((row): AssuranceWorkSnapshot => ({
+    const rows = await db.prepare(`SELECT w.*,${assessmentJoinColumns} FROM continuous_assurance_work_items w LEFT JOIN evidence_automation_runs run ON run.id=w.result_ref ${assessmentRunJoins} ORDER BY w.updated_at DESC,w.id LIMIT 1001`).all<WorkRow & AssessmentJoin>();
+    return { available: true, complete: rows.results.length <= 1000, rows: await Promise.all(rows.results.slice(0, 1000).map(async (row):Promise<AssuranceWorkSnapshot> => {
+      const target=targetControlRefFromDecision(row.decision_json),outcome=asObject(parse(row.decision_json).retestOutcome),run=asObject(parse(row.assessment_run));
+      const storedPass=row.action==='control-retest'&&row.status==='completed'&&!!row.result_ref&&outcome.runId===row.result_ref&&outcome.status==='pass'&&run.rule_id===row.rule_id;
+      const verifiedRetestPassed=!!storedPass&&(await assessJoinedRun(row,now,target)).status==='pass';
+      return ({
       id: row.id,
       findingId: row.finding_id,
       ruleId: row.rule_id,
@@ -139,8 +147,8 @@ async function loadWorkItems(db: D1Database) {
       actor: row.actor,
       reviewedBy: row.reviewed_by || "",
       updatedAt: row.updated_at,
-      verifiedRetestPassed: row.status === 'completed' && !!row.result_ref && asObject(parse(row.decision_json).retestOutcome).runId === row.result_ref && asObject(parse(row.decision_json).retestOutcome).status === 'pass',
-    })) };
+      verifiedRetestPassed,
+    });})) };
   } catch { return { rows: [] as AssuranceWorkSnapshot[], available: false, complete: false }; }
 }
 
@@ -243,11 +251,12 @@ async function enrichRulesWithEvidenceIntegrity(db: D1Database, rules: Assurance
   }
 }
 
-export async function loadContinuousAssuranceSnapshots(db: D1Database, options: { integrityControlRefs?: string[] } = {}) {
+export async function loadContinuousAssuranceSnapshots(db: D1Database, options: { integrityControlRefs?: string[]; now?:Date } = {}) {
+  const now=options.now||new Date();
   const [baseRules, findings, workItems] = await Promise.all([
-    loadRules(db),
+    loadRules(db,now),
     loadFindings(db),
-    loadWorkItems(db),
+    loadWorkItems(db,now),
   ]);
   const scope = options.integrityControlRefs && new Set(options.integrityControlRefs.map(normalizeEvidenceControlRef));
   const integrityRules = scope ? baseRules.rows.filter(rule => splitEvidenceControlRefs(rule.controlRefs).some(ref => scope.has(normalizeEvidenceControlRef(ref)))) : baseRules.rows;

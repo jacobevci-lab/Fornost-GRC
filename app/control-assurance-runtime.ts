@@ -1,3 +1,4 @@
+import { projectAutomatedEvidence } from './evidence/assessment-projection';
 import type { AssuranceRow } from './control-assurance';
 import { buildConnectedGrcEnterpriseRows } from './connected-grc-sources';
 import { loadContinuousAssuranceSnapshots } from './continuous-assurance-store';
@@ -22,7 +23,7 @@ export async function loadControlAssuranceSnapshot(db: D1Database, now = new Dat
     read<Record<string, unknown>>('capa', 'SELECT * FROM enterprise_findings ORDER BY id LIMIT 3001', 3000),
     read<EvidenceVersionRow>('integrity', 'SELECT * FROM evidence_versions ORDER BY evidence_id,version_no LIMIT 5001', 5000),
     // The version scan below verifies every loaded manual evidence chain once.
-    loadContinuousAssuranceSnapshots(db, { integrityControlRefs: [] }),
+    loadContinuousAssuranceSnapshots(db, { integrityControlRefs: [],now }),
   ]);
   const core: AssuranceRow[] = [];
   for (const row of records) {
@@ -32,6 +33,10 @@ export async function loadControlAssuranceSnapshot(db: D1Database, now = new Dat
       core.push({ id: row.id, module: row.module, code: row.code || undefined, data: data as Record<string, unknown> });
     } catch { issues.push('records-invalid'); }
   }
+  const projection=await projectAutomatedEvidence(db,core.filter(row=>row.module==='Kanıtlar'),now);
+  if(!projection.available)issues.push('assessment-unavailable');
+  const projected=new Map(projection.rows.map(row=>[row.id,row]));
+  for(const row of core)if(projected.has(row.id))row.data=projected.get(row.id)!.data;
   const versionsById = new Map<string, EvidenceVersionRow[]>();
   for (const version of versions) versionsById.set(version.evidence_id, [...(versionsById.get(version.evidence_id) || []), version]);
   for (const row of core.filter(row => row.module === 'Kanıtlar')) {
@@ -52,7 +57,7 @@ export async function loadControlAssuranceSnapshot(db: D1Database, now = new Dat
     else if (!complete) issues.push(`${source}-incomplete`);
   }
   const enterprise = buildConnectedGrcEnterpriseRows({ findings: { findings }, evidenceAutomation: {
-    rules: assurance.rules.map(rule => ({ ...rule, health: controlHealth(rule, now) === 'healthy' && rule.lastStatus !== 'pass' ? 'unknown' : controlHealth(rule, now), freshness: evidenceFreshness(rule.lastEvidenceAt, rule.freshnessHours, now) })),
+    rules: assurance.rules.map(rule => ({ ...rule, health: rule.assessmentIssue ? 'unknown' : controlHealth(rule, now) === 'healthy' && rule.lastStatus !== 'pass' ? 'unknown' : controlHealth(rule, now), freshness: evidenceFreshness(rule.lastEvidenceAt, rule.freshnessHours, now) })),
     findings: assurance.findings,
   } });
   const work = buildContinuousAssuranceDashboard({ ...assurance, now, priorityLimit: null }).priorities

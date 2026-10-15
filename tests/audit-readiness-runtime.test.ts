@@ -1,3 +1,4 @@
+import { seedAssessmentReceipt } from './helpers/assessment-fixture';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { DatabaseSync } from 'node:sqlite';
@@ -22,7 +23,7 @@ async function fixture() {
   const db = { prepare, async batch(statements: ReturnType<typeof prepare>[]) { return Promise.all(statements.map(statement => statement.run())); } } as unknown as D1Database;
   await ensureEvidenceAutomationSchema(db); await ensureAssuranceWorkSchema(db); sqlite.exec(readFileSync('drizzle/0079_evidence_lineage_storage.sql', 'utf8'));
   const record = (id: string, module: string, data: Record<string, unknown>) => sqlite.prepare('INSERT INTO simple_grc_records VALUES(?,?,?,?,?)').run(id, module, JSON.stringify(data), now.toISOString(), now.toISOString());
-  const rule = (id: string, refs: string, status = 'fail') => sqlite.prepare("INSERT INTO evidence_automation_rules(id,name,source_id,control_refs,json_path,operator,expected,schedule,created_at,updated_at,updated_by,last_status,last_evidence_at) VALUES(?,?,'QA-SOURCE',?,'value','eq','1','daily',?,?,'qa',?,?)").run(id, id, refs, now.toISOString(), now.toISOString(), status, now.toISOString());
+  const rule = async (id: string, refs: string, status = 'fail') => { sqlite.prepare("INSERT INTO evidence_automation_rules(id,name,source_id,control_refs,json_path,operator,expected,schedule,created_at,updated_at,updated_by,last_status,last_evidence_at) VALUES(?,?,'QA-SOURCE',?,'value','eq','1','daily',?,?,'qa',?,?)").run(id, id, refs, now.toISOString(), now.toISOString(), status, now.toISOString()); await seedAssessmentReceipt(sqlite,id,now,id==='RULE'?'RUN':`RUN-${id}`,status); };
   const work = (id: string, status: string, at: string, decision: Record<string, unknown> = {}, target = 'A.8.1') => sqlite.prepare("INSERT INTO continuous_assurance_work_items(id,finding_id,rule_id,action,status,decision_json,actor,created_at,updated_at,result_ref) VALUES(?,'FINDING','RULE','control-retest',?,?,'qa',?,?,'RUN')").run(id, status, JSON.stringify({ targetControlRef: target, ...decision }), at, at);
   record('AUDIT', 'Denetim Yönetimi', { auditName: 'QA Scope', controlRef: 'A.8.1', requirementRef: 'A.8.1' });
   record('EVIDENCE', 'Kanıtlar', { controlRef: 'A.8.1', requirementRef: 'a.8.1', status: 'Onaylandı', freshUntil: '2026-10-03T12:00:00Z' });
@@ -39,8 +40,8 @@ test('empty loaded assurance sources differ from unreadable sources, and manual 
 });
 test('an audit catches a second control mapping even when 120 unrelated signals fill the dashboard window', async () => {
   const f = await fixture(); try {
-    for (let i = 0; i < 120; i++) f.rule(`NOISE-${i}`, `OUTSIDE-${i}`);
-    f.rule('RULE', 'OUTSIDE; A.8.1');
+    for (let i = 0; i < 120; i++) await f.rule(`NOISE-${i}`, `OUTSIDE-${i}`);
+    await f.rule('RULE', 'OUTSIDE; A.8.1');
     const sources = await loadContinuousAssuranceSnapshots(f.db);
     assert.equal(buildContinuousAssuranceDashboard({ ...sources, now }).priorities.length, 100);
     const result = await f.read(); assert.equal(result.gate, 'not-ready'); assert.equal(result.blockerCount, 1);
@@ -50,7 +51,7 @@ test('an audit catches a second control mapping even when 120 unrelated signals 
 });
 test('explicit governed work targeting another control does not affect this audit', async () => {
   const f = await fixture(); try {
-    f.rule('RULE', 'A.8.1; A.8.2', 'pass');
+    await f.rule('RULE', 'A.8.1; A.8.2', 'pass');
     f.work('WORK', 'failed-retest', now.toISOString(), {}, 'A.8.2');
     assert.equal((await f.read()).gate, 'ready');
     f.work('IN-SCOPE', 'retest-error', now.toISOString());
@@ -59,7 +60,7 @@ test('explicit governed work targeting another control does not affect this audi
 });
 test('a later verified passing re-test resolves the earlier error without deleting history', async () => {
   const f = await fixture(); try {
-    f.rule('RULE', 'A.8.1', 'pass'); f.work('ERROR', 'retest-error', '2026-10-02T10:00:00Z');
+    await f.rule('RULE', 'A.8.1', 'pass'); f.work('ERROR', 'retest-error', '2026-10-02T10:00:00Z');
     f.work('PASSED', 'completed', '2026-10-02T11:00:00Z', { retestOutcome: { status: 'pass', runId: 'RUN' } });
     assert.equal((await f.read()).gate, 'ready');
     assert.equal(f.sqlite.prepare('SELECT COUNT(*) n FROM continuous_assurance_work_items').get()!.n, 2);
@@ -69,7 +70,7 @@ test('a later verified passing re-test resolves the earlier error without deleti
 });
 test('unverified passes, earlier passes and passes for other targets cannot clear a re-test error', async () => {
   const f = await fixture(); try {
-    f.rule('RULE', 'A.8.1; A.8.2', 'pass'); f.work('ERROR', 'failed-retest', '2026-10-02T10:00:00Z');
+    await f.rule('RULE', 'A.8.1; A.8.2', 'pass'); f.work('ERROR', 'failed-retest', '2026-10-02T10:00:00Z');
     f.work('WRONG-RUN', 'completed', '2026-10-02T11:00:00Z', { retestOutcome: { status: 'pass', runId: 'OTHER' } });
     f.work('EARLIER', 'completed', '2026-10-02T09:00:00Z', { retestOutcome: { status: 'pass', runId: 'RUN' } });
     f.work('OTHER-TARGET', 'completed', '2026-10-02T11:00:00Z', { retestOutcome: { status: 'pass', runId: 'RUN' } }, 'A.8.2');
@@ -112,9 +113,9 @@ test('audit names match normalized exact scope and unrelated requirements do not
 });
 test('missing evidence-integrity tables block readiness only when scope has a mapped automation rule', async () => {
   const f = await fixture(); try {
-    f.rule('OUTSIDE', 'A.9.9', 'pass'); f.sqlite.exec('DROP TABLE evidence_version_controls');
+    await f.rule('OUTSIDE', 'A.9.9', 'pass'); f.sqlite.exec('DROP TABLE evidence_version_controls');
     assert.equal((await f.read()).gate, 'ready');
-    f.rule('RULE', 'A.8.1', 'pass'); assert.ok((await f.read()).issues.includes('integrity-unavailable'));
+    await f.rule('RULE', 'A.8.1', 'pass'); assert.ok((await f.read()).issues.includes('integrity-unavailable'));
   } finally { f.sqlite.close(); }
 });
 test('expiry is exact, invalid dates fail closed, and both dates and validation outcome apply', () => {

@@ -1,4 +1,6 @@
 "use client";
+
+import {assessmentStateText} from "./evidence/assessment-labels";
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { buildControlAssurance, buildControlAssuranceDetail, type AssuranceRow } from './control-assurance';
 import { controlAssuranceIssueLabel, controlAssuranceReasonLabels, controlAssuranceRecordTarget, type ControlAssuranceSnapshot } from './control-assurance-state';
@@ -100,7 +102,7 @@ export default function ControlAssuranceWorkspace({ rows, lang, go }: { rows: As
       {!!detail.item.reasons.length && <ul className="control-assurance-reasons">{detail.item.reasons.map(reason => <li key={reason}>{reasonLabel(reason)}</li>)}</ul>}
       <div className="control-assurance-stages">{stages.map(stage => <details key={stage.key} className="control-assurance-stage"><summary>{stage.label}<span>{stage.rows.length}</span></summary><div className="control-assurance-stage-records">{stage.rows.map(row => {
         const target = controlAssuranceRecordTarget(row), eligible = row.module === 'Kanıtlar' ? evaluateEvidenceEligibility(row.data, new Date(snapshot!.generatedAt)).current : null;
-        return <article key={row.id}><div><b>{reference(row)}</b><span>{title(row)}</span><small>{eligible === null ? text(row.data.status || row.data.automationHealth || row.data.owner) : `${eligible ? (tr ? 'Güncel kanıt' : 'Current evidence') : (tr ? 'Kullanılabilirliği doğrulanmadı' : 'Eligibility not established')} · ${integrityLabel(row.data.evidenceIntegrity)}`}</small></div>{target && <button type="button" onClick={() => openRow(row)} aria-label={`${tr ? 'Kaydı aç' : 'Open record'} ${reference(row)}`}>{tr ? 'Kaydı aç' : 'Open record'} →</button>}</article>;
+        return <article key={row.id}><div><b>{reference(row)}</b><span>{title(row)}</span><small>{eligible === null ? text(row.data.status || row.data.automationHealth || row.data.owner) : `${eligible ? (tr ? 'Güncel kanıt' : 'Current evidence') : (tr ? 'Kullanılabilirliği doğrulanmadı' : 'Eligibility not established')} · ${integrityLabel(row.data.evidenceIntegrity)}`}</small>{Boolean(row.data.automationAssessment||row.data.automationAssessmentIssue)&&<small>{assessmentStateText[text(row.data.automationAssessment||row.data.automationAssessmentIssue)]?.[lang]||text(row.data.automationAssessment||row.data.automationAssessmentIssue)}</small>}</div>{target && <button type="button" onClick={() => openRow(row)} aria-label={`${tr ? 'Kaydı aç' : 'Open record'} ${reference(row)}`}>{tr ? 'Kaydı aç' : 'Open record'} →</button>}</article>;
       })}{!stage.rows.length && <p className="control-assurance-muted">{tr ? 'Bağlı kayıt yok.' : 'No linked records.'}</p>}</div></details>)}</div>
       {!!detail.unresolved.length && <details className="control-assurance-unresolved"><summary>{tr ? 'Çözümlenemeyen bağlantılar' : 'Unresolved references'} ({detail.unresolved.length})</summary><ul>{detail.unresolved.map((gap, i) => <li key={i}>{gap.field}: {gap.value}</li>)}</ul></details>}
     </section>}
