@@ -61,7 +61,7 @@ try{
   const html=await fs.readFile(`${out}/projection.html`,'utf8');assert.ok(html.includes(diagnostic.en));assert.ok(html.includes(evaluatedAt));
   const [csvDownload]=await Promise.all([page.waitForEvent('download'),gate.getByRole('button',{name:'CSV',exact:true}).click()]);await csvDownload.saveAs(`${out}/projection.csv`);assert.ok((await fs.readFile(`${out}/projection.csv`,'utf8')).includes('configuration-changed'));
   await page.locator('.language-switch:visible').getByRole('button',{name:'TR',exact:true}).click();await expect(gate).toContainText(diagnostic.tr);await expect(gate.locator('.audit-readiness-state>span')).toHaveText('HAZIR DEĞİL');
-  await page.screenshot({path:`${out}/audit-tr-dark.png`});
+  await gate.scrollIntoViewIfNeeded();await page.screenshot({path:`${out}/audit-tr-dark.png`});
   // A new current receipt restores readiness; the old evidence and its diagnostics remain historical.
   await seedCurrentAssessmentFixture({ruleIds:[ruleId],prefix:'QA-PROJ-SECOND',out});
   const recovered=await api(readiness);assert.equal(recovered.gate,'ready');assert.equal(recovered.evidence.requirements[0].currentEvidence,1);assert.equal(recovered.evidence.requirements[0].linkedEvidence,2);
