@@ -11,6 +11,7 @@ test('outstanding includes unpublished drafts and returned work; cancellation is
   assert.deepEqual(result.pendingIds, ['d', 'a', 's', 'r']); assert.equal(result.state, 'pending');
   assert.equal(result.counts.accepted, 1); assert.equal(result.counts.cancelled, 1); assert.deepEqual(result.overdueIds, []);
   assert.equal(auditRequestProgress([rows[4], rows[5]], workflow, true).state, 'resolved');
+  assert.equal(auditRequestProgress([rows[4]], { ...workflow, state: 'closed' }, true).state, 'closed');
   const cancelled = auditRequestProgress([rows[5]], workflow, true); assert.equal(cancelled.state, 'resolved'); assert.equal(cancelled.counts.accepted, 0);
 });
 

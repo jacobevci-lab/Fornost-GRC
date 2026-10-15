@@ -4,6 +4,7 @@ import { withBasePath } from './base-path';
 import { navigateToFornost } from './navigation-focus';
 import { emptyAuditRequest, requestDraftPreview, requestNextActor, requestNextDue, requestStatusLabels, validateAuditRequestFields, type AuditRequest, type AuditRequestEvidence, type AuditRequestFields, type AuditRequestWorkflow } from './audit-requests';
 import { auditRequestProgress } from './audit-request-progress';
+import { AuditWorkplanPanel } from './audit-workplan-panel';
 import './audit-request-panel.css';
 
 type Data = { workflow: AuditRequestWorkflow; requests: AuditRequest[]; complete: boolean; actorEmail: string; canManage: boolean; evidenceAccess: boolean;
@@ -24,6 +25,7 @@ const messages: Record<string, [string, string]> = {
   evidence: ['1–10 mevcut kanıt sürümü seçin. Kayıp veya değişmiş sürümler kabul edilemez.', 'Select 1–10 available evidence versions. Missing or changed versions cannot be accepted.'],
   note: ['En az 5 karakterlik karar gerekçesi yazın.', 'Enter a decision reason of at least 5 characters.'],
   timezone: ['Geçerli bir IANA saat dilimi girin; örneğin Europe/Istanbul.', 'Enter a valid IANA time zone, such as Europe/Istanbul.'],
+  'workplan-closed': ['İş planı kapalı. Yeni talep için gerekçeyle yeniden açın.', 'The work plan is closed. Reopen it with a reason before adding requests.'],
   'audit-missing': ['Denetim bulunamadı veya silindi.', 'The audit is unavailable or has been deleted.'],
   unavailable: ['İşlem sonucu doğrulanamadı. Tekrar göndermeden güncel kaydı yükleyin; taslağınız korunuyor.', 'The outcome could not be confirmed. Reload before retrying; your draft is retained.'],
   limit: ['Kayıt sınırına ulaşıldı. Eksik veriyle işlem yapılamaz.', 'The record limit was reached. Incomplete data cannot be used.'],
@@ -56,7 +58,7 @@ export function AuditRequestPanel({ auditId, lang, focusId = '' }: { auditId: st
   useEffect(() => { const timer = window.setInterval(() => setClock(new Date()), 60000); return () => window.clearInterval(timer); }, []);
   const progress = data ? auditRequestProgress(data.requests, data.workflow, data.complete && ready, clock) : null;
   const row = data?.requests.find(item => item.id === selected);
-  const canOperate = !!data?.canManage && ready && !!data?.complete;
+  const canOperate = !!data?.canManage && ready && !!data?.complete && data?.workflow.state !== 'closed';
   const editable = canOperate && !busy && !loading;
   const choose = (item: AuditRequest) => { setSelected(item.id); setVersions(item.evidence.map(v => v.id)); setNote(''); setReturnDue(item.dueDate); setReturnReviewDue(item.reviewDueDate); setEditing(null); setError(''); };
   const beginEdit = (item?: AuditRequest) => {
@@ -90,7 +92,7 @@ export function AuditRequestPanel({ auditId, lang, focusId = '' }: { auditId: st
     {data && <>
       {!data.complete && <p role="alert">{t('Liste eksik. Güvenli işlem için kayıt sınırı çözülmeli.', 'The list is incomplete. Resolve the record limit before making changes.')}</p>}
       {progress && <div className="ar-progress" aria-label={t('Talep tamamlanma özeti', 'Request completion summary')}>
-        <h4>{progress.state === 'resolved' ? t('Bekleyen talep kalmadı', 'No outstanding requests') : progress.state === 'incomplete' ? t('Tamamlanma doğrulanamadı', 'Completion not confirmed') : progress.state === 'empty' ? t('Henüz talep yok', 'No requests yet') : progress.state === 'draft' ? t('İş planı henüz başlamadı', 'Work plan has not started') : t('Tamamlanmayı bekleyen talepler', 'Outstanding requests')}</h4>
+        <h4>{progress.state === 'closed' ? t('İş planı kapalı', 'Work plan closed') : progress.state === 'resolved' ? t('Bekleyen talep kalmadı', 'No outstanding requests') : progress.state === 'incomplete' ? t('Tamamlanma doğrulanamadı', 'Completion not confirmed') : progress.state === 'empty' ? t('Henüz talep yok', 'No requests yet') : progress.state === 'draft' ? t('İş planı henüz başlamadı', 'Work plan has not started') : t('Tamamlanmayı bekleyen talepler', 'Outstanding requests')}</h4>
         <p>{t('Bu özet yalnızca kanıt taleplerini kapsar. Denetim kapanışı, bulgu çözümü veya olumlu denetim görüşü anlamına gelmez. İptal edilen talepler kabul edilmiş sayılmaz.', 'This summary covers evidence requests. It does not close the audit, resolve findings or imply a positive audit opinion. Cancelled requests do not count as accepted.')}</p>
         <div className="ar-summary">{([
           ['draft', t('Taslak', 'Draft'), progress.counts.draft],
@@ -105,8 +107,9 @@ export function AuditRequestPanel({ auditId, lang, focusId = '' }: { auditId: st
         {!progress.clockComplete && <p role="status">{t('Saat dilimi veya son tarihler doğrulanamadı; gecikme sayısı gösterilemiyor.', 'The time zone or deadlines could not be verified; the overdue count is unavailable.')}</p>}
       </div>}
 
-      {data.workflow.state === 'draft' ? <p>{t('Taslak talepler bildirim üretmez. Başlatmadan önce sorumluları, tarihleri ve kayıtlı denetim planını kontrol edin.', 'Draft requests do not generate notifications. Review owners, dates and the saved audit plan before starting.')}</p> : <p>{t('Hatırlatma saat dilimi', 'Reminder time zone')}: <b>{data.workflow.timeZone}</b> · {t('İlk atama, son tarihten 1 gün önce, son gün ve 3 gün gecikmede. Teslim ve inceleme tarihleri ayrıdır.', 'Assignment, 1 day before due, on the due date and 3 days overdue. Delivery and review have separate dates.')}</p>}
-      {data.canManage && <div className="ar-actions"><button type="button" disabled={!editable || !!editing} onClick={() => beginEdit()}>{t('+ Talep ekle', '+ Add request')}</button><button type="button" disabled={!editable || !!editing || !drafts.length} onClick={() => setLaunch(!launch)}>{data.workflow.state === 'draft' ? t('Başlangıç özetini gör', 'Preview launch') : t('Ek talepleri gözden geçir', 'Review additions')}</button></div>}
+      <AuditWorkplanPanel key={auditId} auditId={auditId} lang={lang} workflow={data.workflow} canManage={data.canManage && ready && data.complete} evidenceAccess={data.evidenceAccess} disabled={busy || loading || !!editing} onBusy={value => { busyRef.current = value; setBusy(value); }} onChanged={load}/>
+      {data.workflow.state === 'closed' ? <p>{t('İş planı kapalı; önceki talepler ve kararlar okunabilir.', 'The work plan is closed; previous requests and decisions remain readable.')}</p> : data.workflow.state === 'draft' ? <p>{t('Taslak talepler bildirim üretmez. Başlatmadan önce sorumluları, tarihleri ve kayıtlı denetim planını kontrol edin.', 'Draft requests do not generate notifications. Review owners, dates and the saved audit plan before starting.')}</p> : <p>{t('Hatırlatma saat dilimi', 'Reminder time zone')}: <b>{data.workflow.timeZone}</b> · {t('İlk atama, son tarihten 1 gün önce, son gün ve 3 gün gecikmede. Teslim ve inceleme tarihleri ayrıdır.', 'Assignment, 1 day before due, on the due date and 3 days overdue. Delivery and review have separate dates.')}</p>}
+      {data.canManage && data.workflow.state !== 'closed' && <div className="ar-actions"><button type="button" disabled={!editable || !!editing} onClick={() => beginEdit()}>{t('+ Talep ekle', '+ Add request')}</button><button type="button" disabled={!editable || !!editing || !drafts.length} onClick={() => setLaunch(!launch)}>{data.workflow.state === 'draft' ? t('Başlangıç özetini gör', 'Preview launch') : t('Ek talepleri gözden geçir', 'Review additions')}</button></div>}
       {launch && <div className="ar-launch"><h4>{data.workflow.state === 'draft' ? t('İş planını başlat', 'Start the work plan') : t('Ek talepleri etkinleştir', 'Activate additional requests')}</h4>
         <p>{drafts.length} {t('talep etkinleşecek.', 'requests will become active.')} {new Set(drafts.map(r => r.owner)).size} {t('sorumlu için atama bildirimi hazırlanacak. İnceleyenlere kanıt sunulduğunda iş açılır.', 'owners will receive assignment notifications. Reviewer work opens when evidence is submitted.')}</p>
         <ul className="ar-preview-list">{drafts.map(item => <li key={item.id}><b>{item.title}</b><span>{t('Sorumlu', 'Owner')}: {item.owner} · {t('İnceleyen', 'Reviewer')}: {item.reviewer}</span><span>{t('Teslim / inceleme', 'Delivery / review')}: {item.dueDate} / {item.reviewDueDate}</span><span>{t('Kanıt dönemi', 'Evidence period')}: {item.periodStart ? `${item.periodStart} – ${item.periodEnd}` : t('Belirtilmedi', 'Not specified')}</span><details><summary>{t('Kabul ölçütü', 'Acceptance criteria')}</summary><p className="ar-prewrap">{item.instructions}</p></details></li>)}</ul>

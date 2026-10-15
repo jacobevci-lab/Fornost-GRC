@@ -13,7 +13,7 @@ export type AuditRequest = AuditRequestFields & {
   evidence: AuditRequestEvidence[]; submittedBy: string; note: string;
   createdAt: string; updatedAt: string;
 };
-export type AuditRequestWorkflow = { auditId: string; state: 'draft' | 'active'; revision: string; timeZone: string; planRevision: string };
+export type AuditRequestWorkflow = { auditId: string; state: 'draft' | 'active' | 'closed'; revision: string; timeZone: string; planRevision: string };
 export type AuditRequestPreview = { id: string; revision: string };
 export function requestDraftPreview(requests: AuditRequest[]): AuditRequestPreview[] {
   return requests.filter(row => row.status === 'draft').map(({ id, revision }) => ({ id, revision }));

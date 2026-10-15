@@ -1,4 +1,4 @@
-import { index, integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import { index, integer, primaryKey, sqliteTable, text } from "drizzle-orm/sqlite-core";
 
 /**
  * Canonical schema for core GRC support tables that sit alongside
@@ -52,3 +52,13 @@ export const auditRequestEvents = sqliteTable("audit_request_events", {
   id: text("id").primaryKey(), auditId: text("audit_id").notNull(), requestId: text("request_id").notNull(),
   action: text("action").notNull(), actor: text("actor").notNull(), snapshotJson: text("snapshot_json").notNull(), createdAt: text("created_at").notNull(),
 }, table => [index("audit_request_events_parent_idx").on(table.auditId, table.createdAt, table.id)]);
+
+export const auditWorkplanClosures = sqliteTable("audit_workplan_closures", {
+  id: text("id").primaryKey(), auditId: text("audit_id").notNull(), snapshotJson: text("snapshot_json").notNull(), snapshotSha256: text("snapshot_sha256").notNull(), requestCount: integer("request_count").notNull(), createdAt: text("created_at").notNull(),
+}, table => [index("audit_workplan_closures_parent_idx").on(table.auditId, table.createdAt, table.id)]);
+export const auditWorkplanClosureItems = sqliteTable("audit_workplan_closure_items", {
+  closureId: text("closure_id").notNull(), id: text("id").notNull(), auditId: text("audit_id").notNull(), dataJson: text("data_json").notNull(), revision: text("revision").notNull(), createdAt: text("created_at").notNull(), updatedAt: text("updated_at").notNull(),
+}, table => [primaryKey({ columns: [table.closureId, table.id] })]);
+export const auditWorkplanEvents = sqliteTable("audit_workplan_events", {
+  id: text("id").primaryKey(), auditId: text("audit_id").notNull(), action: text("action").notNull(), actor: text("actor").notNull(), note: text("note").notNull(), closureId: text("closure_id").notNull(), revision: text("revision").notNull(), createdAt: text("created_at").notNull(),
+}, table => [index("audit_workplan_events_parent_idx").on(table.auditId, table.createdAt, table.id)]);
