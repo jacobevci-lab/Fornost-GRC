@@ -100,19 +100,22 @@ try{
   await expect(assessmentStatus).toHaveAttribute('data-state','unavailable');await expect(pack).toBeDisabled();
   await page.unroute('**/api/executive-assurance');await assessmentStatus.getByRole('button',{name:'Reassess assurance',exact:true}).click();
   await expect(assessmentStatus).toHaveAttribute('data-state','ready');await expect(pack).toBeEnabled();
-  let firstRead=true,held=false,releaseRead,finishRead;
+  let firstRead=true,held=false,heldTime='',releaseRead,finishRead;
   const readBarrier=new Promise(resolve=>{releaseRead=resolve}),readFinished=new Promise(resolve=>{finishRead=resolve});
   await page.route('**/api/executive-assurance',async route=>{
     if(!firstRead){await route.continue();return;}firstRead=false;
-    const response=await route.fetch();held=true;await readBarrier;
+    const response=await route.fetch();heldTime=(await response.json()).generatedAt;held=true;await readBarrier;
     try{await route.fulfill({response});}catch{/* superseded GET was cancelled */}finally{finishRead();}
   });
   await assessmentStatus.getByRole('button',{name:'Reassess assurance',exact:true}).click();
   await expect.poll(()=>held).toBe(true);await expect(pack).toBeDisabled();
   await page.evaluate(()=>window.dispatchEvent(new Event('focus')));
   await expect(assessmentStatus).toHaveAttribute('data-state','ready');
+  await expect.poll(async()=>Date.parse(await assessmentStatus.locator('time').getAttribute('datetime')||'')>Date.parse(heldTime)).toBe(true);
   const newerTime=await assessmentStatus.locator('time').getAttribute('datetime');releaseRead();await readFinished;
-  await expect(assessmentStatus.locator('time')).toHaveAttribute('datetime',newerTime);await expect(pack).toBeEnabled();
+  await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
+  // Additional legitimate focus refreshes may advance time; the superseded response must never roll it back.
+  await expect.poll(async()=>Date.parse(await assessmentStatus.locator('time').getAttribute('datetime')||'')>=Date.parse(newerTime)).toBe(true);await expect(pack).toBeEnabled();
   await page.unroute('**/api/executive-assurance');
   await page.locator('nav button[aria-label="Control Library"]').evaluate(el=>el.click());
   const workspace=page.locator('.control-assurance-workspace'),disclosure=page.locator('.module-analysis-disclosure').filter({has:workspace});
