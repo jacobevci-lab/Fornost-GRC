@@ -47,6 +47,8 @@ jobs:
           curl --fail --silent --show-error http://127.0.0.1:4173/api/auth \
             -H 'Origin: http://127.0.0.1:4173' -H 'Content-Type: application/json' \
             --data-binary @/tmp/fornost-qa-bootstrap.json
+      - name: Assurance execution consistency and conflict recovery QA
+        run: node scripts/assurance-execution-qa.mjs
       - name: Concurrent cold and warm schema initialization QA
         run: node scripts/schema-initialization-qa.mjs
       - name: Enterprise reference deletion runtime QA
@@ -162,6 +164,7 @@ jobs:
             simplicity-qa-artifacts/
             ask-fornost-qa-artifacts/
             ready-controls-qa-artifacts/
+            assurance-execution-qa-artifacts/
             my-work-assurance-qa-artifacts/
             module-access-qa-artifacts/
             capa-control-qa-artifacts/

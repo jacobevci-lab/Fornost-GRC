@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
+import { executionConflictMessage } from "./evidence/execution-feedback";
 import { withBasePath } from "./base-path";
 import { navigateToFornost } from "./navigation-focus";
 import "./connector-onboarding-wizard.css";
@@ -71,7 +72,7 @@ async function post(body: Record<string, unknown>) {
     body: JSON.stringify(body),
   });
   const payload = await response.json().catch(() => ({})) as Record<string, unknown>;
-  if (!response.ok) throw new Error(clean(payload.error) || "Operation failed");
+  if (!response.ok) throw new Error(payload.code === "EXECUTION_CONFLICT" ? "EXECUTION_CONFLICT" : clean(payload.error) || "Operation failed");
   return payload;
 }
 
@@ -262,7 +263,7 @@ export default function ConnectorOnboardingWizard() {
       setMessage(clean(discovered.message));
       await loadContext();
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : (tr ? "Bağlantı kurulamadı." : "Connection failed."));
+      setError(caught instanceof Error ? (caught.message === "EXECUTION_CONFLICT" ? executionConflictMessage(tr) : caught.message) : (tr ? "Bağlantı kurulamadı." : "Connection failed."));
     } finally {
       setBusy("");
     }
@@ -309,7 +310,7 @@ export default function ConnectorOnboardingWizard() {
       await loadContext();
       setStep(5);
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : (tr ? "İzleme etkinleştirilemedi." : "Monitoring could not be enabled."));
+      setError(caught instanceof Error ? (caught.message === "EXECUTION_CONFLICT" ? executionConflictMessage(tr) : caught.message) : (tr ? "İzleme etkinleştirilemedi." : "Monitoring could not be enabled."));
     } finally {
       setBusy("");
     }

@@ -103,7 +103,7 @@ async function loadRules(db: D1Database) {
       enabled: !!row.enabled,
       lastStatus: row.last_status,
       lastEvidenceAt: row.last_evidence_at,
-      freshnessHours: Number(row.freshness_hours || 24),
+      freshnessHours: Number(row.freshness_hours),
       consecutiveFailures: Number(row.consecutive_failures || 0),
       nextRunAt: row.next_run_at,
     })) };

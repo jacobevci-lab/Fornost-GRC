@@ -18,9 +18,9 @@ export type ContinuousControlInput = {
 
 export function validateContinuousControl(input: ContinuousControlInput) {
   if (!CONTROL_SCHEDULES.includes(input.schedule as ControlSchedule)) throw new Error("Geçersiz kontrol zamanlaması.");
-  const freshnessHours = Number(input.freshnessHours || 24);
-  const failureThreshold = Number(input.failureThreshold || 1);
-  const remediationDueDays = Number(input.remediationDueDays || 7);
+  const freshnessHours = Number(input.freshnessHours ?? 24);
+  const failureThreshold = Number(input.failureThreshold ?? 1);
+  const remediationDueDays = Number(input.remediationDueDays ?? 7);
   if (!Number.isInteger(freshnessHours) || freshnessHours < 1 || freshnessHours > 8760) throw new Error("Kanıt tazeliği 1-8760 saat arasında olmalı.");
   if (!Number.isInteger(failureThreshold) || failureThreshold < 1 || failureThreshold > 20) throw new Error("Hata eşiği 1-20 arasında olmalı.");
   if (!Number.isInteger(remediationDueDays) || remediationDueDays < 1 || remediationDueDays > 365) throw new Error("Düzeltme süresi 1-365 gün arasında olmalı.");
@@ -35,9 +35,10 @@ export function nextControlRun(schedule: string, from = new Date()) {
 
 export function evidenceFreshness(lastEvidenceAt: string | null | undefined, freshnessHours: number, now = new Date()) {
   if (!lastEvidenceAt) return "missing" as const;
+  if (!Number.isInteger(freshnessHours) || freshnessHours < 1 || freshnessHours > 8760) return "unknown" as const;
   const age = now.getTime() - new Date(lastEvidenceAt).getTime();
   if (!Number.isFinite(age) || age < 0) return "unknown" as const;
-  if (age > freshnessHours * 60 * 60_000) return "stale" as const;
+  if (age >= freshnessHours * 60 * 60_000) return "stale" as const;
   if (age > freshnessHours * 60 * 60_000 * .8) return "expiring" as const;
   return "fresh" as const;
 }
@@ -46,7 +47,8 @@ export function controlHealth(input:{enabled:boolean;lastStatus?:string|null;las
   if(!input.enabled)return "paused" as const;
   if(input.consecutiveFailures>0||input.lastStatus==="fail"||input.lastStatus==="error")return "failing" as const;
   const freshness=evidenceFreshness(input.lastEvidenceAt,input.freshnessHours,now);
-  return freshness==="fresh"?"healthy":freshness;
+  if (freshness === "fresh" || freshness === "expiring") return input.lastStatus === "pass" ? (freshness === "fresh" ? "healthy" : "expiring") : "unknown";
+  return freshness;
 }
 
 export function remediationDueDate(days:number,from=new Date()){
