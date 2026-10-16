@@ -102,6 +102,63 @@ try {
     await page.setViewportSize({ width: 1536, height: 960 });
   }
 
+  // Source counts must not squeeze the CAPA introduction into one-letter lines.
+  for (const language of ['tr', 'en']) {
+    await locale(language); await openModule(language === 'tr' ? 'Bulgular ve CAPA' : 'Findings & CAPA');
+    await expect(page.locator('.finding-page')).toHaveAttribute('aria-busy', 'false');
+    const strip = page.locator('.finding-source-strip');
+    await expect(strip.locator(':scope>span')).toHaveCount(4);
+    for (const theme of ['light', 'dark']) {
+      if (await page.locator('html').getAttribute('data-theme') !== theme) await page.locator('.theme-toggle:visible').click();
+      for (const width of [360, 390, 1024]) {
+        await page.setViewportSize({ width, height: 960 });
+        const title = await strip.locator(':scope>div').boundingBox();
+        assert.ok(title.width >= 180 && title.height < 130, 'CAPA source introduction retains readable width');
+        for (const signal of await strip.locator(':scope>span').all()) {
+          const box = await signal.boundingBox();
+          assert.ok(box.width >= 95 && box.height < 130, 'Source counts retain readable labels');
+          if (width < 700) assert.ok(box.y >= title.y + title.height, 'Phone source counts appear below the introduction');
+        }
+        await strip.screenshot({ path: `${out}/finding-source-${language}-${theme}-${width}.png` });
+      }
+    }
+    await page.setViewportSize({ width: 1536, height: 960 });
+  }
+
+  // Display-only source fixture; no external request or fake database record is created.
+  const sourceLayout = async route => {
+    if (route.request().method() !== 'GET') return route.continue();
+    const response = await route.fetch(), body = await response.json();
+    body.sources = [{ id: 'qa-source-layout', name: 'Microsoft Intune device compliance', vendor: 'Microsoft Intune', category: 'Cloud & SaaS', driver: 'provider-v1', enabled: true, hasSecret: false, config: { providerId: 'intune', dataset: 'managed-devices' } }];
+    await route.fulfill({ response, json: body });
+  };
+  await page.route('**/api/evidence-automation', sourceLayout);
+  try {
+    for (const language of ['tr', 'en']) {
+      await locale(language); await openModule(language === 'tr' ? 'Kanıt Otomasyonu' : 'Evidence Automation');
+      const wrap = page.locator('.ea-page>.ea-table>.table-wrap'), row = wrap.locator('tbody tr').first();
+      await expect(row).toContainText('Microsoft Intune device compliance');
+      for (const theme of ['light', 'dark']) {
+        if (await page.locator('html').getAttribute('data-theme') !== theme) await page.locator('.theme-toggle:visible').click();
+        for (const width of [360, 390]) {
+          await page.setViewportSize({ width, height: 960 });
+          await wrap.evaluate(node => { node.scrollLeft = 0; });
+          const first = await row.locator('td').first().boundingBox(), bounds = await row.boundingBox();
+          assert.ok(first.width >= 180 && bounds.height < 220, 'Evidence source rows retain readable widths and compact height');
+          await wrap.screenshot({ path: `${out}/evidence-source-${language}-${theme}-${width}.png` });
+          await wrap.evaluate(node => { node.scrollLeft = node.scrollWidth; });
+          await expect(row.getByRole('button', { name: language === 'tr' ? 'Düzenle' : 'Edit', exact: true })).toBeInViewport();
+          for (const button of await row.getByRole('button').all()) {
+            const box = await button.boundingBox();
+            assert.ok(box.width >= 120 && box.height < 80, 'Evidence source actions stay readable after horizontal scrolling');
+          }
+          await wrap.screenshot({ path: `${out}/evidence-source-actions-${language}-${theme}-${width}.png` });
+        }
+      }
+      await page.setViewportSize({ width: 1536, height: 960 });
+    }
+  } finally { await page.unroute('**/api/evidence-automation', sourceLayout); }
+
   await locale('en'); await openModule('Risk Assessment');
   for (const theme of ['light', 'dark']) {
     if (await page.locator('html').getAttribute('data-theme') !== theme) await page.locator('.theme-toggle:visible').click();
