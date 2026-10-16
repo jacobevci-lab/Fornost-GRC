@@ -50,6 +50,7 @@ const representativeModules = new Set([
   "Uyum Yönetimi",
   "Kontrol Kütüphanesi",
   "Kanıt Kütüphanesi",
+  "Bulgular ve CAPA",
   "Denetim Yönetimi",
   "Raporlama",
   "AI Yönetişimi",

@@ -46,7 +46,7 @@ export default function FindingsCenter({lang,currentUser}:{lang:Lang;currentUser
   }catch{if(!controller.signal.aborted)setLoadError(true);}
   finally{if(!controller.signal.aborted)setLoading(false);}
  },[query,filter,assignment,page,lang,focusRef]);
- useEffect(()=>{const timer=setTimeout(()=>void load(),200);return()=>{clearTimeout(timer);loadController.current?.abort();};},[load,focusNonce]);
+ useEffect(()=>{setLoading(true);const timer=setTimeout(()=>void load(),200);return()=>{clearTimeout(timer);loadController.current?.abort();};},[load,focusNonce]);
  useEffect(()=>{const writes=writeController;return()=>writes.current?.abort();},[]);
  useEffect(()=>{
   const accept=(request:FornostNavigationRequest|null)=>{

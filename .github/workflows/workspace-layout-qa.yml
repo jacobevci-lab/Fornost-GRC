@@ -156,6 +156,16 @@ jobs:
           CF_ACCESS_CLIENT_ID: local-qa
           CF_ACCESS_CLIENT_SECRET: local-qa
         run: node scripts/full-product-qa-gate.mjs
+      - name: Preserve failure evidence before the visual matrix
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: workspace-layout-failure
+          path: |
+            findings-workspace-qa-artifacts/
+            qa-artifacts/
+            qa-artifacts-v2/
+          if-no-files-found: warn
       - name: Every module in both languages and themes at desktop tablet and mobile widths
         if: ${{ !cancelled() }}
         run: node scripts/enterprise-ui-matrix-qa.mjs
@@ -164,6 +174,7 @@ jobs:
         with:
           name: workspace-layout-qa
           path: |
+            findings-workspace-qa-artifacts/
             record-dialog-qa-artifacts/
             full-browser-regression-artifacts/
             enterprise-ui-matrix-artifacts/
