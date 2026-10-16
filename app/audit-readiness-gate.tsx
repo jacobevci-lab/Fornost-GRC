@@ -9,6 +9,7 @@ import { readinessIssueText, type AuditReadinessResult } from "./audit-readiness
 import { downloadAuditReadinessReport } from "./audit-readiness-export";
 import { withBasePath } from "./base-path";
 import { navigateToFornost } from "./navigation-focus";
+import { assuranceWorkNavigation } from "./assurance-work-focus";
 import "./audit-readiness-gate.css";
 
 type Lang = "tr" | "en";
@@ -79,6 +80,7 @@ export default function AuditReadinessGate({lang, auditName = "", records}: {lan
   };
   const openAssurancePriority=(priority:AssurancePriority)=>{
     if (!reliable) return;
+    if(priority.kind==="work-item"){const target=assuranceWorkNavigation(priority);if(target)navigateToFornost(target);return;}
     if(priority.kind==="finding"&&priority.findingId){navigateToFornost({module:"Kanıt Otomasyonu",ref:priority.findingId,source:"audit-readiness-assurance",filter:{findingRef:priority.findingId}});return}
     if(priority.ruleId){navigateToFornost({module:"Kanıt Otomasyonu",ref:priority.ruleId,source:"audit-readiness-assurance",filter:{ruleRef:priority.ruleId}});return}
     if(priority.targetControlRef)navigateToFornost({module:"Kontroller",ref:priority.targetControlRef,source:"audit-readiness-assurance",filter:{controlRef:priority.targetControlRef}});

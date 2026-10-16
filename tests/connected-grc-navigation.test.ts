@@ -29,7 +29,7 @@ test("Connected GRC keeps unsupported or ambiguous records on safe module-level 
 
 test("record explorer and unresolved references use contextual record navigation",()=>{
  assert.match(connected,/import \{ connectedGrcNavigation \} from "\.\/connected-grc-navigation"/);
- assert.match(connected,/import \{ navigateToFornost \} from "\.\/navigation-focus"/);
+ assert.match(connected,/import \{[^}]*\bnavigateToFornost\b[^}]*\} from "\.\/navigation-focus"/);
  assert.match(connected,/function openRecord\(row:ConnectedGrcRow\)/);
  assert.match(connected,/source:"connected-grc-register"/);
  assert.match(connected,/filter:\{\[target\.filterKey\]:target\.ref\}/);

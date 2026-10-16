@@ -5,6 +5,7 @@ import {assessmentStateText} from "./evidence/assessment-labels";
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { withBasePath } from "./base-path";
 import { navigateToFornost } from "./navigation-focus";
+import { assuranceWorkNavigation } from "./assurance-work-focus";
 import EvidenceHistoryPanel from "./evidence-history-panel";
 import "./continuous-assurance-dashboard.css";
 
@@ -153,24 +154,9 @@ export default function ContinuousAssuranceDashboardPanel({
       return;
     }
     if (item.kind === "work-item") {
-      if (item.action === "control-retest" && item.ruleId) {
-        navigateToFornost({
-          module: "Kanıt Otomasyonu",
-          ref: item.ruleId,
-          source: "continuous-assurance-dashboard",
-          filter: { ruleRef: item.ruleId },
-        });
-        return;
-      }
-      if (item.findingId) {
-        navigateToFornost({
-          module: "Kanıt Otomasyonu",
-          ref: item.findingId,
-          source: "continuous-assurance-dashboard",
-          filter: { findingRef: item.findingId },
-        });
-        return;
-      }
+      const target=assuranceWorkNavigation(item);
+      if(target)navigateToFornost(target);
+      return;
     }
     onOpenModule?.("Kanıt Otomasyonu");
   };

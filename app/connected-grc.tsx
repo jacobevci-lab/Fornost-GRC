@@ -10,7 +10,8 @@ import { assuranceChainReasonLabel, buildContinuousAssuranceChains, summarizeCon
 import ContinuousAssuranceWorkQueue from "./continuous-assurance-work-queue";
 import ContinuousAssuranceGovernance from "./continuous-assurance-governance";
 import ContinuousAssuranceEscalationCenter from "./continuous-assurance-escalation-center";
-import { navigateToFornost } from "./navigation-focus";
+import { navigateToFornost, FORNOST_FOCUS_EVENT, peekPendingFornostFocus, consumePendingFornostFocus, type FornostNavigationRequest } from "./navigation-focus";
+import { assuranceWorkFocus } from "./assurance-work-focus";
 import { connectedSourceIssueText } from "./connected-grc-source-status";
 import { loadConnectedGrcSources } from "./connected-grc-loader";
 import "./connected-grc-contract.css";
@@ -25,6 +26,13 @@ export default function ConnectedGrc({rows,lang,go,includeAi=false}:{rows:Connec
   const tr=lang==="tr",[module,setModule]=useState("all"),[query,setQuery]=useState("");
   const moduleLabel=(name:string)=>tr?name:(moduleNames[name]||name);
   const [view,setView]=useState<"explore"|"gaps"|"assurance">("explore");
+  const [workItemId,setWorkItemId]=useState<string|null>(null);
+  useEffect(()=>{
+    const apply=(request:FornostNavigationRequest|null)=>{const id=assuranceWorkFocus(request);if(!id)return;setWorkItemId(id);setView("assurance");consumePendingFornostFocus("Bağlantılı GRC");};
+    const receive=(event:Event)=>apply((event as CustomEvent<FornostNavigationRequest>).detail);
+    window.addEventListener(FORNOST_FOCUS_EVENT,receive);apply(peekPendingFornostFocus());
+    return()=>window.removeEventListener(FORNOST_FOCUS_EVENT,receive);
+  },[]);
   const recordList=useRef<HTMLElement>(null);
   const [selectedId,setSelectedId]=useState("");
   const [page,setPage]=useState(0);
@@ -179,7 +187,7 @@ export default function ConnectedGrc({rows,lang,go,includeAi=false}:{rows:Connec
         </article>)}</div>
         {attentionChains.length>chainLimit&&<button type="button" className="cg-more" onClick={()=>setChainLimit(chainLimit+12)}>{tr?"Daha fazla göster":"Show more"} ({attentionChains.length-chainLimit})</button>}
       </details>}
-      <ContinuousAssuranceWorkQueue lang={lang} onOpenAutomation={()=>go("Kanıt Otomasyonu")}/>
+      <ContinuousAssuranceWorkQueue key={workItemId?`work:${workItemId}`:"queue"} workItemId={workItemId} onClearFocus={()=>setWorkItemId(null)} lang={lang} onOpenAutomation={()=>go("Kanıt Otomasyonu")}/>
       <details className="module-analysis-disclosure">
         <summary><span><b>{tr?"Güvence yönetişimi ve eskalasyonlar":"Assurance governance and escalations"}</b><small>{tr?"Onaylar, yeniden test ve bildirim ayrıntıları":"Approvals, retests and notification details"}</small></span></summary>
         <ContinuousAssuranceGovernance lang={lang}/>

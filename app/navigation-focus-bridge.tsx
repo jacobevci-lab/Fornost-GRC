@@ -294,6 +294,7 @@ export default function NavigationFocusBridge() {
 
     const schedule = (request: FornostNavigationRequest | null) => {
       if (!request || !clean(request.module) || !focusValue(request)) return;
+      if (request.kind === "assurance-work") { stop(); current = null; return; }
       if (isCoreRecordRequest(request)) { stop(); current = null; return; }
       stop();
       current = request;
