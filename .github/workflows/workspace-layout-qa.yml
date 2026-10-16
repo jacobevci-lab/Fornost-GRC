@@ -65,6 +65,8 @@ jobs:
         run: node scripts/enterprise-reference-delete-qa.mjs
       - name: Record dialog themes and Escape QA
         run: node scripts/record-dialog-qa.mjs
+      - name: Full visible navigation, record save race and audit orphan recovery QA
+        run: node scripts/full-browser-qa-regression.mjs
       - name: Platform-wide Escape dismissal QA
         run: node scripts/platform-escape-qa.mjs
       - name: Connected assurance chain review and recovery QA
@@ -158,6 +160,7 @@ jobs:
           name: workspace-layout-qa
           path: |
             record-dialog-qa-artifacts/
+            full-browser-regression-artifacts/
             ai-retirement-qa-artifacts/
             ai-model-lifecycle-qa-artifacts/
             ai-record-navigation-qa-artifacts/
