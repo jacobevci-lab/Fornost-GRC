@@ -26,3 +26,6 @@ fieldset.finding-form-grid{border:0;margin:0;min-width:0}
 
 .finding-kpis>button{text-align:left;font:inherit;cursor:pointer;color:var(--at-ink)}.finding-kpis>button[aria-pressed="true"]{outline:2px solid var(--at-accent-ink);outline-offset:2px}.finding-kpis>button:focus-visible{outline:2px solid var(--at-accent-ink);outline-offset:2px}.finding-kpis>button:disabled{cursor:default}
 .finding-toolbar{flex-wrap:wrap}.finding-toolbar input{min-width:0;flex:1 1 14rem}.finding-toolbar select{max-width:100%;min-width:0}
+
+.finding-source-strip{flex-wrap:wrap}.finding-source-strip>div{flex:1 1 260px;min-width:min(100%,240px)}
+@media(max-width:700px){.finding-source-strip{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));align-items:start}.finding-source-strip>div{grid-column:1/-1;min-width:0;margin:0}.finding-source-strip>span{min-width:0;padding:12px 0 0;border-left:0;border-top:1px solid var(--at-line)}}

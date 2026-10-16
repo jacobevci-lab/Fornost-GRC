@@ -22,6 +22,9 @@ import { hasRecoveryTarget } from "./bia-recovery";
 import { isCoreRecordRequest, resolveCoreRecord, coreRecordReference } from "./core-record-focus";
 import { FORNOST_FOCUS_EVENT, peekPendingFornostFocus, consumePendingFornostFocus, type FornostNavigationRequest } from "./navigation-focus";
 import { sameDomainModule } from "./domain-identity";
+import { unassignedAuditRequirements } from "./audit-unassigned-requirements";
+import { auditNameKey } from "./audit-readiness-portfolio";
+import AuditUnassignedRequirements from "./audit-unassigned-requirements-panel";
 import "./core-record-focus.css";
 /* eslint-disable @next/next/no-img-element -- evidence images are authenticated runtime URLs and cannot use the static image optimizer */
 
@@ -1522,7 +1525,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
           (!focusedRecord?.id || r.id === focusedRecord.id) &&
           (!selectedAudit ||
             active !== "Denetim Yönetimi" ||
-            r.data.auditName === selectedAudit) &&
+            auditNameKey(r.data.auditName) === auditNameKey(selectedAudit)) &&
           `${r.id} ${displayRecordCode(r)} ${JSON.stringify(r.data)}`
             .toLocaleLowerCase(lang === "tr" ? "tr-TR" : "en-US")
             .includes(
@@ -1588,7 +1591,8 @@ function FornostApp({ currentUser }: { currentUser: any }) {
         return;
       }
       if(r.status===409){
-        setModal(false);setEditing(null);await load();
+        const refreshed=await load();setModal(false);setEditing(null);
+        if(!refreshed){setNotice(lang==="tr"?"Kayıt değişti ve güncel liste yüklenemedi. Yeniden denemeden önce sayfayı yenileyin.":"The record changed and the current list could not be loaded. Reload before retrying.");return;}
         setNotice(lang==="tr"?"Kayıt başka bir işlemde değişti. Güncel kayıt yüklendi; yeniden açıp değişikliklerinizi kontrol edin.":"The record changed in another operation. Reopen the refreshed record and review your changes.");
         return;
       }
@@ -1601,8 +1605,12 @@ function FornostApp({ currentUser }: { currentUser: any }) {
                 : "Record could not be saved."),
           ),
         );
+      const refreshed = await load();
       setModal(false);
-      await load();
+      if (!refreshed) {
+        setNotice(lang === "tr" ? "Kayıt kaydedildi ancak liste yenilenemedi. Yeniden kayıt oluşturmadan önce sayfayı yenileyin." : "The record was saved, but the list could not be refreshed. Reload the page before creating another record.");
+        return;
+      }
       setNotice(
         lang === "tr"
           ? editing
@@ -1627,7 +1635,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
   }
   async function remove(id: string) {
     const snapshot = rows.find(row => row.id === id);
-    if (!snapshot || deletePending.current) return;
+    if (!snapshot || deletePending.current || recordWritePending.current) return;
     const identity=displayRecordCode(snapshot);
     const title=String(snapshot.data.title||snapshot.data.controlTitle||snapshot.data.evidenceTitle||snapshot.data.process||snapshot.data.vendorName||snapshot.data.requirementTitle||snapshot.data.auditName||"");
     if (!confirm(lang === "tr" ? `“${identity}${title?` · ${title}`:""}” kaydı silinsin mi?` : `Delete “${identity}${title?` · ${title}`:""}”?`)) return;
@@ -1781,8 +1789,8 @@ function FornostApp({ currentUser }: { currentUser: any }) {
       const r=await fetch(withBasePath("/api/evidence"),{method:"POST",body});
       const result=await r.json().catch(()=>({}));
       if(!r.ok)throw new Error(String(result.error||(lang==="tr"?"Kanıt yüklenemedi. Dosya türünü ve 10 MB sınırını kontrol edin.":"Evidence could not be uploaded. Check the file type and 10 MB limit.")));
-      setModal(false);await load();
-      setNotice(lang==="tr"?"Kanıt kütüphanesine eklendi.":"Added to the evidence library.");
+      const refreshed=await load();setModal(false);
+      setNotice(refreshed?(lang==="tr"?"Kanıt kütüphanesine eklendi.":"Added to the evidence library."):(lang==="tr"?"Kanıt yüklendi ancak liste yenilenemedi. Tekrar göndermeden önce sayfayı yenileyin.":"Evidence was uploaded, but the list could not be refreshed. Reload before submitting again."));
     }catch(error){
       setNotice(error instanceof Error&&!(error instanceof TypeError)?error.message:(lang==="tr"?"Yükleme sonucu doğrulanamadı. Tekrar göndermeden önce kütüphaneyi kontrol edin.":"The upload result could not be confirmed. Check the library before submitting again."));
     }finally{recordWritePending.current=false;setSaving(false);}
@@ -2025,15 +2033,15 @@ function FornostApp({ currentUser }: { currentUser: any }) {
         <div className="aside-note">
           <div className="platform-state">
             <i />
-            {lang === "tr" ? "Tüm sistemler aktif" : "All systems operational"}
+            Fornost GRC
           </div>
           <b>
             {lang === "tr" ? "Kurumsal çalışma alanı" : "Enterprise workspace"}
           </b>
           <p>
             {lang === "tr"
-              ? "Risk, uyum ve kanıt verileri anlık güncel."
-              : "Risk, compliance and evidence data is current."}
+              ? "Risk, uyum ve kanıt yönetimi."
+              : "Risk, compliance and evidence management."}
           </p>
         </div>
       </aside>
@@ -2505,6 +2513,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
                     form={form}
                     setForm={setForm}
                     lang={lang}
+                    auditNames={auditPortfolio.map(audit => audit.name)}
                   />
                 ))}
                 {notice&&<p className="record-form-notice wide" role="alert">{notice}</p>}
@@ -2745,6 +2754,7 @@ function Field({
   setForm,
   lang,
   nameMode = false,
+  auditNames = [],
 }: {
   k: string;
   module: string;
@@ -2752,6 +2762,7 @@ function Field({
   setForm: any;
   lang: Lang;
   nameMode?: boolean;
+  auditNames?: string[];
 }) {
   const scores = ["1", "2", "3", "4", "5"],
     yesNo = ["Evet", "Hayır"],
@@ -2858,6 +2869,17 @@ function Field({
     change = (v: string) => setForm({ ...form, [k]: v }),
     u = ui[lang],
     requiredField = (requiredFieldsByModule[module] || []).includes(k);
+  if (k === "auditName" && module === "Denetim Yönetimi") {
+    const retained = String(value), missing = !!retained && !auditNames.some(name => auditNameKey(name) === auditNameKey(retained));
+    return <label data-form-core="true">{labelMap[lang][k]}
+      <select name={k} required value={retained} onChange={event => change(event.target.value)}>
+        <option value="">{lang === "tr" ? "Denetim seçin" : "Select an audit"}</option>
+        {retained && !auditNames.includes(retained) && <option value={retained}>{retained}{missing ? (lang === "tr" ? " · Portföyde bulunamadı" : " · Not in portfolio") : ""}</option>}
+        {auditNames.map(name => <option key={name} value={name}>{name}</option>)}
+      </select>
+      {missing && <small>{lang === "tr" ? "Mevcut bağlantı korunuyor. Düzeltmek için portföyden bir denetim seçin." : "The existing reference is preserved. Select a portfolio audit to correct it."}</small>}
+    </label>;
+  }
   if (k === "calculatedImpact") {
     const impact = effectiveImpact(form),
       likelihood = Number(form.inherentLikelihood || 0),
@@ -3759,7 +3781,7 @@ function RiskRegister({
           {cols.map((c) => (
             <ResizableTh key={c.key} columnKey={c.key} widths={widths}>{c[lang]}</ResizableTh>
           ))}
-          {canWrite && <th></th>}
+          {canWrite && <th className="row-actions-heading">{lang === "tr" ? "İşlemler" : "Actions"}</th>}
         </tr>
       </thead>
       <tbody>
@@ -3984,8 +4006,14 @@ function AuditModule({
   const [catalogImport, setCatalogImport] = useState<AuditCatalogImport|null>(null);
   const [auditCreateError,setAuditCreateError] = useState("");
   const [requestFocus, setRequestFocus] = useState<{ id: string; auditId: string } | null>(null);
+  const [showUnassigned, setShowUnassigned] = useState(false);
   useEffect(() => {
     const accept = (request: FornostNavigationRequest | null) => {
+      if (request?.module === "Denetim Yönetimi" && request.kind === "audit-unassigned") {
+        setRequestFocus(null); select(""); setShowUnassigned(true);
+        consumePendingFornostFocus("Denetim Yönetimi");
+        return;
+      }
       if (request?.module === "Denetim Yönetimi" && request.kind === "audit" && request.ref) {
         const target = audits.find(audit => audit.id === request.ref);
         if (target) { setRequestFocus(null); select(target.name); consumePendingFornostFocus("Denetim Yönetimi"); }
@@ -4001,9 +4029,9 @@ function AuditModule({
     window.addEventListener(FORNOST_FOCUS_EVENT, listener);
     return () => window.removeEventListener(FORNOST_FOCUS_EVENT, listener);
   }, [audits, select]);
-  const portfolioNames = new Set(audits.map((audit) => audit.name)),
+  const portfolioNames = new Set(audits.map((audit) => auditNameKey(audit.name))),
     portfolioRows = rows.filter((row) =>
-      portfolioNames.has(String(row.data.auditName || "")),
+      portfolioNames.has(auditNameKey(row.data.auditName)),
     );
   async function submitAudit(event: FormEvent) {
     event.preventDefault();setAuditCreateError("");
@@ -4062,7 +4090,7 @@ function AuditModule({
           )}
           {audits.map((audit) => {
             const name = audit.name;
-            const items = rows.filter((r) => r.data.auditName === name),
+            const items = rows.filter((r) => auditNameKey(r.data.auditName) === auditNameKey(name)),
               progress = items.length
                 ? Math.round(
                     items.reduce(
@@ -4147,6 +4175,9 @@ function AuditModule({
             );
           })}
         </section>
+        <AuditUnassignedRequirements rows={unassignedAuditRequirements(rows, audits)} lang={lang}
+          open={showUnassigned} setOpen={setShowUnassigned} canWrite={canWrite} canDelete={canDeleteAudit}
+          edit={edit} remove={remove} />
         {showReadiness && <AuditReadinessGate lang={lang} records={[...portfolioRows,...evidenceRows]} />}
         {pickerOpen && (
           <div
@@ -4180,6 +4211,7 @@ function AuditModule({
                 <label className="wide">
                   {tr ? "Şablon / seçenek" : "Template / option"}
                   <select
+                    aria-label={tr ? "Şablon / seçenek" : "Template / option"}
                     value={auditDraft.template}
                     onChange={(e) => chooseTemplate(e.target.value)}
                   >
@@ -4267,7 +4299,7 @@ function AuditModule({
       </>
     );
   const selectedPortfolio = audits.find((audit) => audit.name === selected);
-  const items = rows.filter(row => row.data.auditName === selected),
+  const items = rows.filter(row => auditNameKey(row.data.auditName) === auditNameKey(selected)),
     avg = items.length
       ? Math.round(
           items.reduce((n, r) => n + Number(r.data.progress || 0), 0) /
@@ -4351,6 +4383,7 @@ function AuditModule({
         remove={remove}
         openNew={openNew}
         canWrite={canWrite}
+        canDelete={canDeleteAudit}
       />
     </>
   );
@@ -4366,6 +4399,7 @@ function AuditRequirementsTable({
   remove,
   openNew,
   canWrite,
+  canDelete,
 }: {
   items: Row[];
   allItems: Row[];
@@ -4376,6 +4410,7 @@ function AuditRequirementsTable({
   remove: (id: string) => void;
   openNew: (seed?: Record<string, any>) => void;
   canWrite: boolean;
+  canDelete: boolean;
 }) {
   const tr = lang === "tr",
     [columns, setColumns] = useState(defaultRegisterColumnKeys("Denetim Yönetimi")),
@@ -4416,7 +4451,7 @@ function AuditRequirementsTable({
         <button type="button" disabled={!filtered.length} onClick={() => csvDownload("audit-filtered-requirements.csv", filtered, lang)}>{tr ? "Sonuçları indir" : "Export results"} ({filtered.length})</button>
       </div>
       <div className="table-wrap" tabIndex={0} role="region" aria-label={lang === "tr" ? "Kayıt tablosu" : "Record table"}>
-        {filtered.length ? <SmartRegister module="Denetim Yönetimi" rows={page.rows} lang={lang} edit={edit} remove={remove} canWrite={canWrite} columns={columns} /> : allItems.length ? <div className="audit-empty" role="status"><b>{tr ? "Arama veya filtrelerle eşleşen madde yok." : "No requirements match your search or filters."}</b><button type="button" className="ghost" onClick={clearFilters}>{tr ? "Arama ve filtreleri temizle" : "Clear search and filters"}</button></div> : <div className="audit-empty"><b>{tr ? "Bu şablon için otomatik madde bulunamadı." : "No automatic requirements are available for this template."}</b><p>{tr ? "Excel ile içe aktarabilir veya özel madde ekleyebilirsiniz." : "Import from Excel or add a custom item."}</p></div>}
+        {filtered.length ? <SmartRegister module="Denetim Yönetimi" rows={page.rows} lang={lang} edit={edit} remove={remove} canWrite={canWrite} canDelete={canDelete} columns={columns} /> : allItems.length ? <div className="audit-empty" role="status"><b>{tr ? "Arama veya filtrelerle eşleşen madde yok." : "No requirements match your search or filters."}</b><button type="button" className="ghost" onClick={clearFilters}>{tr ? "Arama ve filtreleri temizle" : "Clear search and filters"}</button></div> : <div className="audit-empty"><b>{tr ? "Bu şablon için otomatik madde bulunamadı." : "No automatic requirements are available for this template."}</b><p>{tr ? "Excel ile içe aktarabilir veya özel madde ekleyebilirsiniz." : "Import from Excel or add a custom item."}</p></div>}
       </div>
     </section>
   );
@@ -5979,7 +6014,7 @@ function SmartRegister({
           {cols.map((c) => (
             <ResizableTh key={c.key} columnKey={c.key} widths={widths}>{c[lang]}</ResizableTh>
           ))}
-          {canWrite && <th></th>}
+          {canWrite && <th className="row-actions-heading">{lang === "tr" ? "İşlemler" : "Actions"}</th>}
         </tr>
       </thead>
       <tbody>

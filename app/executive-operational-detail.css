@@ -41,3 +41,10 @@
 .executive-authoritative-attention>section,.executive-authoritative-attention>div{margin:0}
 @media(max-width:1100px){.executive-owner-accountability>div{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:680px){.executive-operational-detail>summary{align-items:flex-start;flex-wrap:wrap}.executive-operational-detail>summary>span:nth-child(2){margin-left:auto}.executive-owner-accountability>header{align-items:flex-start;flex-direction:column}.executive-owner-accountability>div{grid-template-columns:1fr}.executive-authoritative-attention{padding:6px}}
+@media(max-width:680px){
+  .executive-operational-detail>summary{display:grid;grid-template-columns:minmax(0,1fr) 24px;gap:10px 12px}
+  .executive-operational-detail>summary>span:first-child{grid-column:1;grid-row:1}
+  .executive-operational-detail>summary>span:nth-child(2){grid-column:1;grid-row:2;justify-self:start;max-width:100%;margin-left:0;white-space:normal}
+  .executive-operational-detail>summary:after{grid-column:2;grid-row:1 / span 2}
+  .executive-operational-detail>summary b{white-space:normal}
+}

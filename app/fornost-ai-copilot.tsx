@@ -423,51 +423,51 @@ export default function FornostAiCopilot() {
     </button>
     {open && <section data-escape-layer id="fornost-ai-panel" className={`fornost-ai-panel ${activeTab === "chat" ? "is-compact" : "is-workspace"}`} data-ai-view={activeTab} aria-label="Fornost AI Copilot">
       <header className="fornost-ai-head">
-        <div><small>FORNOST AI · READ-ONLY COPILOT</small><h2>{workspaceHost ? (workspaceLocale === "tr" ? "AI Yönetişimi" : "AI Governance") : "Ask Fornost"}</h2><p>{status?.model || "AI sağlayıcısı bekleniyor"}</p></div>
+        <div><small>FORNOST AI · READ-ONLY COPILOT</small><h2>{workspaceHost ? (workspaceLocale === "tr" ? "AI Yönetişimi" : "AI Governance") : "Ask Fornost"}</h2><p>{status?.model || (workspaceLocale === "tr" ? "AI sağlayıcısı bekleniyor" : "Awaiting AI provider")}</p></div>
         {!workspaceHost && <button data-escape-close type="button" onClick={() => setOpen(false)} aria-label="Kapat">×</button>}
       </header>
       {!scoped && <AiSectionPicker embedded={!!workspaceHost} label={workspaceLocale === "tr" ? "AI çalışma alanları" : "AI workspaces"}><div className="fornost-ai-tabs" onClick={()=>setRecordFocus(null)} role="group" aria-label="AI workspace sections">
-        <small className="fornost-ai-tab-group">KOMUTA</small>
-        {user.role === "Admin" && <button className={activeTab === "portfolio" ? "active" : ""} onClick={() => setTab("portfolio")}>AI Yönetim Özeti</button>}
+        <small className="fornost-ai-tab-group">{workspaceLocale === "tr" ? "KOMUTA" : "COMMAND"}</small>
+        {user.role === "Admin" && <button className={activeTab === "portfolio" ? "active" : ""} onClick={() => setTab("portfolio")}>{workspaceLocale === "tr" ? "AI Yönetim Özeti" : "AI Executive Overview"}</button>}
         <button className={activeTab === "chat" ? "active" : ""} onClick={() => setTab("chat")}>Copilot</button>
-        <button className={activeTab === "agents" ? "active" : ""} onClick={() => { setTab("agents"); void loadAgents(); }}>Agentlar</button>
-        <button className={activeTab === "knowledge" ? "active" : ""} onClick={() => setTab("knowledge")}>Bilgi Tabanı</button>
-        <button className={activeTab === "drafts" ? "active" : ""} onClick={() => { setTab("drafts"); void loadDrafts(); }}>Taslaklar</button>
-        {user.role === "Admin" && <small className="fornost-ai-tab-group">YÖNETİŞİM &amp; GÜVENCE</small>}
-        {user.role === "Admin" && <button className={activeTab === "metrics" ? "active" : ""} onClick={() => { setTab("metrics"); void loadMetrics(); }}>Kalite</button>}
-        {user.role === "Admin" && <button className={activeTab === "governance" ? "active" : ""} onClick={() => { setTab("governance"); void loadGovernance(); }}>Yönetişim</button>}
-        {user.role === "Admin" && <button className={activeTab === "models" ? "active" : ""} onClick={() => setTab("models")}>AI Envanteri</button>}
-        {user.role === "Admin" && <button className={activeTab === "compliance" ? "active" : ""} onClick={() => setTab("compliance")}>AI Uyum</button>}
-        {user.role === "Admin" && <button className={activeTab === "lifecycle" ? "active" : ""} onClick={() => setTab("lifecycle")}>AI İzleme</button>}
-        {user.role === "Admin" && <button className={activeTab === "incidents" ? "active" : ""} onClick={() => setTab("incidents")}>AI Olayları</button>}
-        <button className={activeTab === "evidence" ? "active" : ""} onClick={() => setTab("evidence")}>AI Kanıt</button>
-        <button className={activeTab === "risks" ? "active" : ""} onClick={() => setTab("risks")}>AI Riskler</button>
-        <button className={activeTab === "vendors" ? "active" : ""} onClick={() => setTab("vendors")}>AI Tedarikçi</button>
-        {user.role === "Admin" && <button className={activeTab === "access" ? "active" : ""} onClick={() => setTab("access")}>AI Erişim</button>}
-        {user.role === "Admin" && <button className={activeTab === "release" ? "active" : ""} onClick={() => setTab("release")}>AI Yayın Kapısı</button>}
-        <button className={activeTab === "impact" ? "active" : ""} onClick={() => setTab("impact")}>AI Etki</button>
-        {user.role === "Admin" && <button className={activeTab === "resilience" ? "active" : ""} onClick={() => setTab("resilience")}>AI Dayanıklılık</button>}
-        {user.role === "Admin" && <button className={activeTab === "datasets" ? "active" : ""} onClick={() => setTab("datasets")}>AI Veri Setleri</button>}
-        {user.role === "Admin" && <button className={activeTab === "regulatory" ? "active" : ""} onClick={() => setTab("regulatory")}>AI Regülasyon</button>}
-        {user.role === "Admin" && <button className={activeTab === "literacy" ? "active" : ""} onClick={() => setTab("literacy")}>AI Yetkinlik</button>}
+        <button className={activeTab === "agents" ? "active" : ""} onClick={() => { setTab("agents"); void loadAgents(); }}>{workspaceLocale === "tr" ? "Agentlar" : "Agents"}</button>
+        <button className={activeTab === "knowledge" ? "active" : ""} onClick={() => setTab("knowledge")}>{workspaceLocale === "tr" ? "Bilgi Tabanı" : "Knowledge Base"}</button>
+        <button className={activeTab === "drafts" ? "active" : ""} onClick={() => { setTab("drafts"); void loadDrafts(); }}>{workspaceLocale === "tr" ? "Taslaklar" : "Drafts"}</button>
+        {user.role === "Admin" && <small className="fornost-ai-tab-group">{workspaceLocale === "tr" ? "YÖNETİŞİM & GÜVENCE" : "GOVERNANCE & ASSURANCE"}</small>}
+        {user.role === "Admin" && <button className={activeTab === "metrics" ? "active" : ""} onClick={() => { setTab("metrics"); void loadMetrics(); }}>{workspaceLocale === "tr" ? "Kalite" : "Quality"}</button>}
+        {user.role === "Admin" && <button className={activeTab === "governance" ? "active" : ""} onClick={() => { setTab("governance"); void loadGovernance(); }}>{workspaceLocale === "tr" ? "Yönetişim" : "Governance"}</button>}
+        {user.role === "Admin" && <button className={activeTab === "models" ? "active" : ""} onClick={() => setTab("models")}>{workspaceLocale === "tr" ? "AI Envanteri" : "AI Inventory"}</button>}
+        {user.role === "Admin" && <button className={activeTab === "compliance" ? "active" : ""} onClick={() => setTab("compliance")}>{workspaceLocale === "tr" ? "AI Uyum" : "AI Compliance"}</button>}
+        {user.role === "Admin" && <button className={activeTab === "lifecycle" ? "active" : ""} onClick={() => setTab("lifecycle")}>{workspaceLocale === "tr" ? "AI İzleme" : "AI Monitoring"}</button>}
+        {user.role === "Admin" && <button className={activeTab === "incidents" ? "active" : ""} onClick={() => setTab("incidents")}>{workspaceLocale === "tr" ? "AI Olayları" : "AI Incidents"}</button>}
+        <button className={activeTab === "evidence" ? "active" : ""} onClick={() => setTab("evidence")}>{workspaceLocale === "tr" ? "AI Kanıt" : "AI Evidence"}</button>
+        <button className={activeTab === "risks" ? "active" : ""} onClick={() => setTab("risks")}>{workspaceLocale === "tr" ? "AI Riskler" : "AI Risks"}</button>
+        <button className={activeTab === "vendors" ? "active" : ""} onClick={() => setTab("vendors")}>{workspaceLocale === "tr" ? "AI Tedarikçi" : "AI Vendors"}</button>
+        {user.role === "Admin" && <button className={activeTab === "access" ? "active" : ""} onClick={() => setTab("access")}>{workspaceLocale === "tr" ? "AI Erişim" : "AI Access"}</button>}
+        {user.role === "Admin" && <button className={activeTab === "release" ? "active" : ""} onClick={() => setTab("release")}>{workspaceLocale === "tr" ? "AI Yayın Kapısı" : "AI Release Gate"}</button>}
+        <button className={activeTab === "impact" ? "active" : ""} onClick={() => setTab("impact")}>{workspaceLocale === "tr" ? "AI Etki" : "AI Impact"}</button>
+        {user.role === "Admin" && <button className={activeTab === "resilience" ? "active" : ""} onClick={() => setTab("resilience")}>{workspaceLocale === "tr" ? "AI Dayanıklılık" : "AI Resilience"}</button>}
+        {user.role === "Admin" && <button className={activeTab === "datasets" ? "active" : ""} onClick={() => setTab("datasets")}>{workspaceLocale === "tr" ? "AI Veri Setleri" : "AI Datasets"}</button>}
+        {user.role === "Admin" && <button className={activeTab === "regulatory" ? "active" : ""} onClick={() => setTab("regulatory")}>{workspaceLocale === "tr" ? "AI Regülasyon" : "AI Regulatory"}</button>}
+        {user.role === "Admin" && <button className={activeTab === "literacy" ? "active" : ""} onClick={() => setTab("literacy")}>{workspaceLocale === "tr" ? "AI Yetkinlik" : "AI Literacy"}</button>}
         {user.role === "Admin" && <button className={activeTab === "supply-chain" ? "active" : ""} onClick={() => setTab("supply-chain")}>AI Supply Chain</button>}
         {user.role === "Admin" && <button className={activeTab === "red-team" ? "active" : ""} onClick={() => setTab("red-team")}>AI Red Team</button>}
-        {user.role === "Admin" && <button className={activeTab === "transparency" ? "active" : ""} onClick={() => setTab("transparency")}>AI Şeffaflık</button>}
-        {user.role === "Admin" && <button className={activeTab === "assurance" ? "active" : ""} onClick={() => setTab("assurance")}>AI Güvence</button>}
-        {user.role === "Admin" && <button className={activeTab === "assurance-alerts" ? "active" : ""} onClick={() => setTab("assurance-alerts")}>AI Alarmlar</button>}
-        {user.role === "Admin" && <button className={activeTab === "exceptions" ? "active" : ""} onClick={() => setTab("exceptions")}>AI İstisnalar</button>}
-        {user.role === "Admin" && <button className={activeTab === "decommission" ? "active" : ""} onClick={() => setTab("decommission")}>AI Emeklilik</button>}
-        {user.role === "Admin" && <button className={activeTab === "findings" ? "active" : ""} onClick={() => setTab("findings")}>AI Bulgular</button>}
-        {user.role === "Admin" && <small className="fornost-ai-tab-group">OPERASYON &amp; SİSTEM</small>}
-        {user.role === "Admin" && <button className={activeTab === "feedback" ? "active" : ""} onClick={() => setTab("feedback")}>Olaylar</button>}
-        {user.role === "Admin" && <button className={activeTab === "budget" ? "active" : ""} onClick={() => setTab("budget")}>Kullanım</button>}
-        {user.role === "Admin" && <button className={activeTab === "policy" ? "active" : ""} onClick={() => setTab("policy")}>Operasyon</button>}
-        {user.role === "Admin" && <button className={activeTab === "protection" ? "active" : ""} onClick={() => setTab("protection")}>Veri Koruma</button>}
+        {user.role === "Admin" && <button className={activeTab === "transparency" ? "active" : ""} onClick={() => setTab("transparency")}>{workspaceLocale === "tr" ? "AI Şeffaflık" : "AI Transparency"}</button>}
+        {user.role === "Admin" && <button className={activeTab === "assurance" ? "active" : ""} onClick={() => setTab("assurance")}>{workspaceLocale === "tr" ? "AI Güvence" : "AI Assurance"}</button>}
+        {user.role === "Admin" && <button className={activeTab === "assurance-alerts" ? "active" : ""} onClick={() => setTab("assurance-alerts")}>{workspaceLocale === "tr" ? "AI Alarmlar" : "AI Alerts"}</button>}
+        {user.role === "Admin" && <button className={activeTab === "exceptions" ? "active" : ""} onClick={() => setTab("exceptions")}>{workspaceLocale === "tr" ? "AI İstisnalar" : "AI Exceptions"}</button>}
+        {user.role === "Admin" && <button className={activeTab === "decommission" ? "active" : ""} onClick={() => setTab("decommission")}>{workspaceLocale === "tr" ? "AI Emeklilik" : "AI Retirement"}</button>}
+        {user.role === "Admin" && <button className={activeTab === "findings" ? "active" : ""} onClick={() => setTab("findings")}>{workspaceLocale === "tr" ? "AI Bulgular" : "AI Findings"}</button>}
+        {user.role === "Admin" && <small className="fornost-ai-tab-group">{workspaceLocale === "tr" ? "OPERASYON & SİSTEM" : "OPERATIONS & SYSTEM"}</small>}
+        {user.role === "Admin" && <button className={activeTab === "feedback" ? "active" : ""} onClick={() => setTab("feedback")}>{workspaceLocale === "tr" ? "Olaylar" : "Feedback Incidents"}</button>}
+        {user.role === "Admin" && <button className={activeTab === "budget" ? "active" : ""} onClick={() => setTab("budget")}>{workspaceLocale === "tr" ? "Kullanım" : "Usage"}</button>}
+        {user.role === "Admin" && <button className={activeTab === "policy" ? "active" : ""} onClick={() => setTab("policy")}>{workspaceLocale === "tr" ? "Operasyon" : "Operations"}</button>}
+        {user.role === "Admin" && <button className={activeTab === "protection" ? "active" : ""} onClick={() => setTab("protection")}>{workspaceLocale === "tr" ? "Veri Koruma" : "Data Protection"}</button>}
         {user.role === "Admin" && <button className={activeTab === "audit" ? "active" : ""} onClick={() => { setTab("audit"); void loadAudit(); }}>AI Audit</button>}
       </div></AiSectionPicker>}
 
       {scoped && <p className="fornost-ai-notice">Ask Fornost yalnız izinli modüllerdeki kayıtları kullanır. Ortak bilgi tabanı ve agent iş akışları bu hesap için kapalıdır.</p>}
-      {activeTab === "portfolio" ? <FornostAiPortfolio/> : activeTab === "chat" ? <>
+      {activeTab === "portfolio" ? <FornostAiPortfolio lang={workspaceLocale === "en" ? "en" : "tr"}/> : activeTab === "chat" ? <>
         <div className="fornost-ai-mode"><span className={chatReady ? "online" : "offline"}/><b>{status?.operatingState==="emergency-stop"?"Acil durduruldu":chatReady ? "Hazır" : "Erişim kısıtlı"}</b><em>{status?.operatingMessage||status?.provider||"Provider yok"}</em></div>
         {(statusError || (status && (!status.configured || !status.enabled))) && <div className="fornost-ai-notice" role="status">
           <p>{statusError || (!status?.configured ? "AI sağlayıcısı henüz yapılandırılmamış. Copilot ve AI çalışma alanları korunuyor; yanıt üretmek için sağlayıcı bağlantısı gerekiyor." : "AI sağlayıcısı devre dışı. Yanıt üretmek için AI ayarlarından etkinleştirin.")}</p>
