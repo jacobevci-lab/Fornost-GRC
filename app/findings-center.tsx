@@ -26,7 +26,10 @@ export default function FindingsCenter({lang,currentUser}:{lang:Lang;currentUser
  const [assignment,setAssignment]=useState("all");
  const [focusRef,setFocusRef]=useState(""),[focusNonce,setFocusNonce]=useState(0);
  const [pagination,setPagination]=useState<FindingPagination>({page:1,pages:1,total:0,start:0,end:0});
- const [loading,setLoading]=useState(true),[loadError,setLoadError]=useState(false),[page,setPage]=useState(1);
+ const [requestLoading,setLoading]=useState(true),[loadError,setLoadError]=useState(false),[page,setPage]=useState(1);
+ const [settledScope,setSettledScope]=useState<string|null>(null);
+ const scope=JSON.stringify([query,filter,assignment,page,lang,focusRef]);
+ const loading=requestLoading||settledScope!==scope;
  const [exporting,setExporting]=useState(false),[exportLoaded,setExportLoaded]=useState(0);
  const exportController=useRef<AbortController|null>(null);
  useEffect(()=>()=>exportController.current?.abort(),[]);
@@ -44,9 +47,9 @@ export default function FindingsCenter({lang,currentUser}:{lang:Lang;currentUser
    const openFocused=!!focusRef&&autoOpenRef.current===focusRef;if(openFocused)autoOpenRef.current=null;
    setSelected(previous=>openFocused?(data.findings||[])[0]||null:previous?(data.findings||[]).find(item=>item.id===previous.id)||null:null);
   }catch{if(!controller.signal.aborted)setLoadError(true);}
-  finally{if(!controller.signal.aborted)setLoading(false);}
- },[query,filter,assignment,page,lang,focusRef]);
- useEffect(()=>{setLoading(true);const timer=setTimeout(()=>void load(),200);return()=>{clearTimeout(timer);loadController.current?.abort();};},[load,focusNonce]);
+  finally{if(!controller.signal.aborted){setSettledScope(scope);setLoading(false);}}
+ },[query,filter,assignment,page,lang,focusRef,scope]);
+ useEffect(()=>{const timer=setTimeout(()=>void load(),200);return()=>{clearTimeout(timer);loadController.current?.abort();};},[load,focusNonce]);
  useEffect(()=>{const writes=writeController;return()=>writes.current?.abort();},[]);
  useEffect(()=>{
   const accept=(request:FornostNavigationRequest|null)=>{
