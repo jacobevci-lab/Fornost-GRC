@@ -51,7 +51,7 @@ try {
   }
 
   // A PATCH may complete before the following GET: the edit must stay locked until the new version is visible.
-  const asset = await api('/api/grc', 'POST', { module: 'Varlık Envanteri', data: { title: `${prefix} asset`, owner: 'QA', criticality: 'Düşük', status: 'Aktif' } }, 201);
+  const asset = await api('/api/grc', 'POST', { module: 'Varlık Envanteri', data: { title: `${prefix} asset`, assetType: 'Uygulama', businessUnit: 'Bilgi Güvenliği', owner: 'QA', criticality: 'Düşük', status: 'Aktif' } }, 201);
   createdRecords.push(asset.id);
   await page.reload(); await expect(page.locator('.shell')).toBeVisible(); await locale('en'); await openModule('Asset Inventory');
   const row = page.getByRole('row').filter({ hasText: `${prefix} asset` }); await expect(row).toBeVisible();
@@ -83,7 +83,7 @@ try {
   await picker.getByRole('button', { name: 'Add to Portfolio', exact: true }).click();
   const auditResponse = await auditCreated; assert.equal(auditResponse.status(), 201); const audit = await auditResponse.json(); createdAudits.push(audit.id);
   await expect(picker).toBeHidden();
-  const orphan = await api('/api/grc', 'POST', { module: 'Denetim Yönetimi', data: { auditName: `${prefix} absent audit`, requirementRef: `${prefix}-REQ`, requirementTitle: `${prefix} orphan`, owner: 'QA', status: 'Başlanmadı', progress: 0 } }, 201);
+  const orphan = await api('/api/grc', 'POST', { module: 'Denetim Yönetimi', data: { auditName: `${prefix} absent audit`, auditType: 'Diğer Denetim', auditOwner: 'QA', startDate: '2026-10-01', endDate: '2026-12-31', dueDate: '2026-12-01', businessUnit: 'Bilgi Güvenliği', requirementRef: `${prefix}-REQ`, requirementTitle: `${prefix} orphan`, owner: 'QA', status: 'Başlanmadı', progress: 0 } }, 201);
   createdRecords.push(orphan.id);
   await page.reload(); await expect(page.locator('.shell')).toBeVisible(); await openModule('Dashboard');
   const unassignedLink = page.getByRole('button', { name: 'Review unassigned requirements', exact: true });
@@ -125,6 +125,10 @@ try {
   assert.deepEqual(pageErrors, []);
   await fs.writeFile(`${out}/summary.json`, JSON.stringify({ navigation, delayedSave: true, immediateDelete: true, auditCreateRepairDelete: true, languages: ['tr','en'], viewports: [390,1536], pageErrors }, null, 2));
   console.log('FULL_BROWSER_REGRESSION_PASS: 54 visible menu visits, save-refresh race, immediate deletion, audit create/orphan repair/delete, TR/EN light/dark responsive layouts and localized incident form');
+} catch (error) {
+  await page.screenshot({ path: `${out}/failure.png`, fullPage: true }).catch(() => {});
+  await fs.writeFile(`${out}/failure.json`, JSON.stringify({ message: error.message, navigation, pageErrors }, null, 2));
+  throw error;
 } finally {
   await page.close();
   for (const id of createdAudits) { const response = await context.request.delete(`${base}/api/audits?id=${encodeURIComponent(id)}`, { headers: { origin: base } }); assert.ok([200,404].includes(response.status())); }
