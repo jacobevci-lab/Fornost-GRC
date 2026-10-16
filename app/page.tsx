@@ -1313,6 +1313,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
   const [lang, setLang] = useState<Lang>("tr"),
     [active, setActive] = useState("Ana Sayfa"),
     [rows, setRows] = useState<Row[]>([]),
+    [rowsLoaded, setRowsLoaded] = useState(false),
     [query, setQuery] = useState(""),
     [modal, setModal] = useState(false),
     [editing, setEditing] = useState<Row | null>(null),
@@ -1468,6 +1469,8 @@ function FornostApp({ currentUser }: { currentUser: any }) {
             : "GRC records could not be loaded.",
       );
       return null;
+    } finally {
+      setRowsLoaded(true);
     }
   }, []);
   const loadCatalogs = useCallback(async () => {
@@ -2283,7 +2286,9 @@ function FornostApp({ currentUser }: { currentUser: any }) {
         {!canOpenModule(currentUser,active) ? <section className="module-scope-home"><h2>{lang==="tr"?"Bu modüle erişiminiz yok":"Module access is unavailable"}</h2><button onClick={()=>navigateToModule("Ana Sayfa")}>{lang==="tr"?"Ana sayfa":"Home"}</button></section> : active === "Ana Sayfa" && scoped ? (
           <section className="module-scope-home"><h2>{lang==="tr"?"Çalışma alanım":"My workspace"}</h2><p>{lang==="tr"?"İzin verilen modüllerdeki kayıtları görüntüleyin ve yönetin. Ortak raporlar ve gelişmiş iş akışları için tam çalışma alanı erişimi gerekir.":"View and manage records in your permitted modules. Shared reports and advanced workflows require full workspace access."}</p><div className="module-scope-cards">{readableModules(currentUser).map(module=><button key={module} onClick={()=>navigateToModule(module)}><b>{names[lang][module]}</b><small>{by(module).length} {lang==="tr"?"kayıt":"records"} · {canWriteModule(currentUser,module)?(lang==="tr"?"Okuma ve düzenleme":"Read and edit"):(lang==="tr"?"Okuma":"Read")}</small></button>)}</div>{!readableModules(currentUser).length&&<p>{lang==="tr"?"Henüz modül erişimi atanmadı. Yöneticinizle iletişime geçin.":"No module access has been assigned. Contact your administrator."}</p>}</section>
         ) : active === "Ana Sayfa" ? (
-          <Dashboard rows={rows} go={setActive} lang={lang} />
+          pageRestored && rowsLoaded
+            ? <Dashboard rows={rows} go={setActive} lang={lang} />
+            : <section className="module-scope-home" role="status" aria-busy="true">{lang === "tr" ? "Gösterge paneli yükleniyor…" : "Loading dashboard…"}</section>
         ) : active === "AI Yönetişimi" ? (
           <AiWorkspaceHost lang={lang} />
         ) : active === "Benim İşlerim" ? (
