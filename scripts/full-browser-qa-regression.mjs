@@ -2,12 +2,13 @@ import { chromium, expect } from '@playwright/test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import { qaPassword } from './qa-credentials.mjs';
+import { createQaContext, waitForQaIdle } from './qa-browser-harness.mjs';
 
 // Mutations are deliberately restricted to the isolated CI application.
 const base = 'http://127.0.0.1:4173', out = 'full-browser-regression-artifacts';
 await fs.mkdir(out, { recursive: true });
 const browser = await chromium.launch({ executablePath: process.env.QA_CHROMIUM_PATH || undefined });
-const context = await browser.newContext({ viewport: { width: 1536, height: 960 } });
+const context = await createQaContext(browser, base, {}, { viewport: { width: 1536, height: 960 } });
 const page = await context.newPage(); page.setDefaultTimeout(15000);
 const pageErrors = [], createdRecords = [], createdAudits = [], navigation = [];
 page.on('pageerror', error => pageErrors.push(error.message));
@@ -42,7 +43,29 @@ async function verifyPinnedRegister(register, row, file) {
 }
 try {
   await api('/api/auth', 'POST', { action: 'login', email: 'qa-admin@fornost.test', password: qaPassword() });
-  await page.goto(base); await expect(page.locator('.shell')).toBeVisible();
+  // A slow initial register must not start assurance reads against an empty,
+  // temporary row scope and then abort them when the real records arrive.
+  const assuranceReads = [], initialFailures = [];
+  const isAssurance = request => ['/api/executive-assurance', '/api/continuous-assurance/executive'].includes(new URL(request.url()).pathname);
+  const observeAssurance = request => { if (isAssurance(request)) assuranceReads.push(request.url()); };
+  const observeInitialFailure = request => { if (isAssurance(request)) initialFailures.push({ url: request.url(), error: request.failure()?.errorText }); };
+  page.on('request', observeAssurance); page.on('requestfailed', observeInitialFailure);
+  let releaseRows, rowsHeld = false;
+  const rowsGate = new Promise(resolve => { releaseRows = resolve; });
+  await page.route('**/api/grc', async route => { rowsHeld = true; await rowsGate; await route.continue(); });
+  await page.goto(base, { waitUntil: 'domcontentloaded' });
+  await expect(page.locator('.shell')).toBeVisible();
+  await expect.poll(() => rowsHeld).toBe(true);
+  await expect(page.getByRole('status').filter({ hasText: 'Gösterge paneli yükleniyor' })).toHaveAttribute('aria-busy', 'true');
+  assert.equal(assuranceReads.length, 0, 'Dashboard waits for its initial record scope');
+  releaseRows();
+  await waitForQaIdle(page);
+  await expect(page.locator('.executive-dashboard-reference')).toBeVisible();
+  assert.ok(assuranceReads.some(url => url.endsWith('/api/executive-assurance')));
+  assert.ok(assuranceReads.some(url => url.endsWith('/api/continuous-assurance/executive')));
+  assert.deepEqual(initialFailures, [], 'Initial assurance reads complete without scope replacement aborts');
+  page.off('request', observeAssurance); page.off('requestfailed', observeInitialFailure);
+  await page.unroute('**/api/grc');
   // Traverse actual visible groups and controls. A hidden DOM click cannot pass this check.
   for (const language of ['tr', 'en']) {
     await locale(language);
@@ -262,8 +285,8 @@ try {
   await expect(portfolio.getByRole('heading', { name: 'AI Executive Overview', exact: true })).toBeVisible();
   await expect(portfolio).toContainText('No AI systems yet.');
   assert.deepEqual(pageErrors, []);
-  await fs.writeFile(`${out}/summary.json`, JSON.stringify({ navigation, delayedSave: true, immediateDelete: true, auditCreateRepairDelete: true, languages: ['tr','en'], viewports: [390,1536], pageErrors }, null, 2));
-  console.log('FULL_BROWSER_REGRESSION_PASS: 54 visible menu visits, save-refresh race, immediate deletion, audit create/orphan repair/delete, TR/EN light/dark responsive layouts and localized incident form');
+  await fs.writeFile(`${out}/summary.json`, JSON.stringify({ navigation, dashboardInitialScope: true, delayedSave: true, immediateDelete: true, auditCreateRepairDelete: true, languages: ['tr','en'], viewports: [390,1536], pageErrors }, null, 2));
+  console.log('FULL_BROWSER_REGRESSION_PASS: delayed dashboard scope, 54 visible menu visits, save-refresh race, immediate deletion, audit create/orphan repair/delete, TR/EN light/dark responsive layouts and localized incident form');
 } catch (error) {
   await page.screenshot({ path: `${out}/failure.png`, fullPage: true }).catch(() => {});
   await fs.writeFile(`${out}/failure.json`, JSON.stringify({ message: error.message, navigation, pageErrors }, null, 2));
