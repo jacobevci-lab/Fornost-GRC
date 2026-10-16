@@ -61,7 +61,7 @@ try{
   await expect(panel).toBeVisible();
   assert.ok(await panel.locator('.fornost-ai-tabs>button').count()>=30,'All specialist capabilities retained');
   await panel.locator('.ai-section-picker>summary').click();
-  await panel.getByRole('button',{name:'AI Envanteri',exact:true}).click();
+  await panel.getByRole('button',{name:tr?'AI Envanteri':'AI Inventory',exact:true}).click();
   await expect(panel).toHaveAttribute('data-ai-view','models');
   assert.equal(await panel.locator('.ai-section-picker').getAttribute('open'),null);
   await panel.locator('.ai-section-picker>summary').click();await panel.getByRole('button',{name:'AI Yönetim Özeti',exact:true}).click();

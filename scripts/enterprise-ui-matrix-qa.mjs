@@ -49,6 +49,16 @@ try {
           const result = { id, language, theme, width, label, passed: false };
           try {
             await open(label);
+            if ((label === 'AI Governance' || label === 'AI Yönetişimi') && width === 1536) {
+              const chooser = page.locator('.ai-section-picker');
+              await chooser.locator(':scope>summary').click();
+              const inventory = language === 'tr' ? 'AI Envanteri' : 'AI Inventory';
+              await expect(chooser.getByRole('button', { name: inventory, exact: true })).toBeVisible();
+              result.aiWorkspaces = await chooser.locator('.fornost-ai-tabs>button').allTextContents();
+              assert.equal(result.aiWorkspaces.length, 34);
+              await chooser.screenshot({ path: `${out}/${id}-ai-navigation.png` });
+              await chooser.locator(':scope>summary').click();
+            }
             result.dom = await page.locator('main').evaluate(main => {
               const visible = node => {
                 if (!node.getClientRects().length || getComputedStyle(node).visibility === 'hidden' || !node.checkVisibility()) return false;
