@@ -110,11 +110,17 @@ try{
   await assessmentStatus.getByRole('button',{name:'Reassess assurance',exact:true}).click();
   await expect.poll(()=>held).toBe(true);await expect(pack).toBeDisabled();
   await page.evaluate(()=>window.dispatchEvent(new Event('focus')));
+  // Focus shares the pending snapshot. The bounded request must fail closed;
+  // an explicit retry then replaces it before its late response is released.
+  await expect(assessmentStatus).toHaveAttribute('data-state','loading');
+  await expect(pack).toBeDisabled();
+  await expect(assessmentStatus).toHaveAttribute('data-state','unavailable',{timeout:20000});
+  await assessmentStatus.getByRole('button',{name:'Reassess assurance',exact:true}).click();
   await expect(assessmentStatus).toHaveAttribute('data-state','ready');
   await expect.poll(async()=>Date.parse(await assessmentStatus.locator('time').getAttribute('datetime')||'')>Date.parse(heldTime)).toBe(true);
   const newerTime=await assessmentStatus.locator('time').getAttribute('datetime');releaseRead();await readFinished;
   await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
-  // Additional legitimate focus refreshes may advance time; the superseded response must never roll it back.
+  // A timed-out response must never replace the newer explicit assessment.
   await expect.poll(async()=>Date.parse(await assessmentStatus.locator('time').getAttribute('datetime')||'')>=Date.parse(newerTime)).toBe(true);await expect(pack).toBeEnabled();
   await page.unroute('**/api/executive-assurance');
   await page.locator('nav button[aria-label="Control Library"]').evaluate(el=>el.click());
