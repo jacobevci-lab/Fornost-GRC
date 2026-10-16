@@ -71,9 +71,14 @@ export async function openQaModule(page, label) {
   const group = page.locator('#fornost-navigation .nav-group').filter({
     has: page.getByRole('button', { name: label, exact: true, includeHidden: true }),
   });
-  const trigger = group.locator('.nav-group-trigger');
-  if (await trigger.getAttribute('aria-expanded') !== 'true') await trigger.click();
-  await group.locator('.nav-group-items').getByRole('button', { name: label, exact: true }).click();
+  const item = group.locator('.nav-group-items').getByRole('button', { name: label, exact: true, includeHidden: true });
+  // Icons mode displays every item and hides group headings. Only expand a
+  // group when its destination is actually hidden, as in the full menu.
+  if (!(await item.isVisible())) {
+    const trigger = group.locator('.nav-group-trigger');
+    if (await trigger.getAttribute('aria-expanded') !== 'true') await trigger.click();
+  }
+  await item.click();
   if (label === 'Ask Fornost') await page.locator('#fornost-ai-panel').waitFor({ state: 'visible' });
   else await page.waitForFunction(expected => document.querySelector('main>header h1')?.textContent?.trim() === expected, label);
   await waitForQaIdle(page);

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import http from 'node:http';
 import { chromium } from '@playwright/test';
-import { createQaContext, waitForQaIdle } from './qa-browser-harness.mjs';
+import { createQaContext, waitForQaIdle, openQaModule } from './qa-browser-harness.mjs';
 
 const seen = [];
 const external = http.createServer((req, res) => {
@@ -19,7 +19,7 @@ const app = http.createServer((req, res) => {
   }
   if (req.url === '/api/failure') { req.socket.destroy(); return; }
   res.setHeader('Content-Type', 'text/html');
-  res.end(`<html><main><section aria-busy="true">Loading</section></main><script src="${externalUrl}/analytics.js"></script><script>
+  res.end(`<html><nav id="fornost-navigation"><div class="nav-group"><button class="nav-group-trigger" aria-expanded="false" style="display:none" onclick="this.setAttribute('aria-expanded','true');this.nextElementSibling.style.display='block'">Group</button><div class="nav-group-items"><button aria-label="Fixtures" onclick="document.querySelector('main>header h1').textContent='Fixtures'">Fixtures</button></div></div></nav><main><header><h1>Start</h1></header><section aria-busy="true">Loading</section></main><script src="${externalUrl}/analytics.js"></script><script>
     setTimeout(async () => {
       await fetch('/api/delayed');
       setTimeout(() => {
@@ -41,6 +41,14 @@ try {
   await waitForQaIdle(page);
   assert.equal(await page.locator('section').textContent(), 'Loaded');
   assert.equal(await page.evaluate(() => window.externalLoaded), true);
+  await openQaModule(page, 'Fixtures');
+  assert.equal(await page.locator('main>header h1').textContent(), 'Fixtures', 'Compact menu clicks the visible icon');
+  await page.locator('.nav-group-items').evaluate(node => { node.style.display = 'none'; });
+  await page.locator('.nav-group-trigger').evaluate(node => { node.style.display = 'block'; });
+  await page.locator('main>header h1').evaluate(node => { node.textContent = 'Start'; });
+  await openQaModule(page, 'Fixtures');
+  assert.equal(await page.locator('main>header h1').textContent(), 'Fixtures', 'Full menu expands the hidden destination');
+
   assert.ok(seen.some(item => item.host === 'app'));
   assert.ok(seen.some(item => item.host === 'external'));
   for (const item of seen) {
