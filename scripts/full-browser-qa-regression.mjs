@@ -50,6 +50,43 @@ try {
     assert.equal(navigation.filter(item => item.language === language).length, 27);
   }
 
+  // Long operational status badges must not squeeze dashboard headings into vertical letters on phones.
+  for (const language of ['tr', 'en']) {
+    await locale(language); await openModule(language === 'tr' ? 'Gösterge Paneli' : 'Dashboard');
+    for (const theme of ['light', 'dark']) {
+      if (await page.locator('html').getAttribute('data-theme') !== theme) await page.locator('.theme-toggle:visible').click();
+      for (const width of [360, 390]) {
+        await page.setViewportSize({ width, height: 960 });
+        const summary = page.locator('.executive-operational-detail>summary');
+        await expect(summary).toBeVisible();
+        const title = await summary.locator(':scope>span').first().boundingBox();
+        const badge = await summary.locator(':scope>span').nth(1).boundingBox();
+        assert.ok(title.width >= 180 && title.height < 130, 'Mobile operational heading retains readable width');
+        assert.ok(badge.y >= title.y + title.height - 1, 'Operational status is placed below its mobile heading');
+        await summary.screenshot({ path: `${out}/dashboard-operational-${language}-${theme}-${width}.png` });
+      }
+    }
+    await page.setViewportSize({ width: 1536, height: 960 });
+  }
+
+  for (const language of ['tr', 'en']) {
+    await locale(language); await openModule(language === 'tr' ? 'Denetim Yönetimi' : 'Audit Management');
+    await expect(page.locator('.audit-readiness-gate')).toHaveAttribute('aria-busy', 'false');
+    for (const theme of ['light', 'dark']) {
+      if (await page.locator('html').getAttribute('data-theme') !== theme) await page.locator('.theme-toggle:visible').click();
+      for (const width of [360, 390]) {
+        await page.setViewportSize({ width, height: 960 });
+        const actions = page.locator('.audit-readiness-actions');
+        for (const button of await actions.getByRole('button').all()) {
+          const box = await button.boundingBox();
+          assert.ok(box.width >= 95 && box.height < 90, 'Audit actions retain readable phone-sized labels');
+        }
+        await actions.screenshot({ path: `${out}/audit-actions-${language}-${theme}-${width}.png` });
+      }
+    }
+    await page.setViewportSize({ width: 1536, height: 960 });
+  }
+
   // A PATCH may complete before the following GET: the edit must stay locked until the new version is visible.
   const asset = await api('/api/grc', 'POST', { module: 'Varlık Envanteri', data: { title: `${prefix} asset`, assetType: 'Uygulama', businessUnit: 'Bilgi Güvenliği', owner: 'QA', criticality: 'Düşük', status: 'Aktif' } }, 201);
   createdRecords.push(asset.id);
@@ -60,6 +97,13 @@ try {
   const bounds = await register.boundingBox(), identity = await row.locator('td').first().boundingBox(), actions = await row.locator('.row-actions-cell').boundingBox();
   assert.ok(identity.x >= bounds.x - 1 && identity.x + identity.width < actions.x, 'Record identity stays visible without overlapping actions');
   assert.ok(actions.x + actions.width <= bounds.x + bounds.width + 1, 'Record actions remain visible during horizontal scrolling');
+  for (const heading of [register.locator('thead th').first(), register.locator('.row-actions-heading')]) {
+    assert.equal(await heading.evaluate(node => {
+      const rect = node.getBoundingClientRect();
+      const visibleNode = document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2);
+      return visibleNode === node || node.contains(visibleNode);
+    }), true, 'Pinned identity/action headings remain unobscured by scrolled column headings');
+  }
   await page.screenshot({ path: `${out}/register-identity-and-actions.png` });
   await row.getByRole('button', { name: 'Edit', exact: true }).click();
   const dialog = page.locator('.record-dialog'); await dialog.locator('[name=title]').fill(`${prefix} asset edited`);

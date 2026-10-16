@@ -15,7 +15,11 @@ page.on('request', request => { if (request.method() === 'GET' && request.url().
 page.on('requestfinished', request => pending.delete(request));
 page.on('requestfailed', request => pending.delete(request));
 async function settle() {
+  // Some workspaces debounce their first load; an empty request set immediately
+  // after navigation is not evidence that the destination has finished loading.
+  await page.waitForTimeout(350);
   await expect.poll(() => pending.size, { timeout: 15000 }).toBe(0);
+  await expect(page.locator('main [aria-busy="true"]:visible')).toHaveCount(0, { timeout: 15000 });
   await page.evaluate(() => document.fonts.ready);
   await page.waitForTimeout(120);
 }
