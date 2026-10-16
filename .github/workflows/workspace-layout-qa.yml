@@ -31,6 +31,8 @@ jobs:
           else
             npx playwright install chromium
           fi
+      - name: Production browser harness isolation and readiness regression
+        run: node scripts/qa-browser-harness-regression.mjs
       - name: KRI form interaction regression
         run: node scripts/kri-form-interactions-qa.mjs
       - name: Generate isolated QA credentials
@@ -49,6 +51,8 @@ jobs:
             --data-binary @/tmp/fornost-qa-bootstrap.json
       - name: Full visible navigation, record save race and audit orphan recovery QA
         run: node scripts/full-browser-qa-regression.mjs
+      - name: Findings workspace recovery and pagination
+        run: node scripts/findings-workspace-qa.mjs
       - name: Assurance execution consistency and conflict recovery QA
         run: node scripts/assurance-execution-qa.mjs
       - name: Concurrent cold and warm schema initialization QA
@@ -140,8 +144,6 @@ jobs:
         run: node scripts/exception-lifecycle-runtime-qa.mjs
       - name: Unified control assurance, record navigation and recovery QA
         run: node scripts/control-assurance-runtime-qa.mjs
-      - name: Findings workspace recovery and pagination
-        run: node scripts/findings-workspace-qa.mjs
       - name: Check module layouts and audit stability
         run: node scripts/workspace-layout-qa.mjs
       - name: Core CRUD, forms, continuity and governance lifecycle QA
@@ -154,6 +156,16 @@ jobs:
           CF_ACCESS_CLIENT_ID: local-qa
           CF_ACCESS_CLIENT_SECRET: local-qa
         run: node scripts/full-product-qa-gate.mjs
+      - name: Preserve failure evidence before the visual matrix
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: workspace-layout-failure
+          path: |
+            *-qa-artifacts/
+            qa-artifacts/
+            qa-artifacts-v2/
+          if-no-files-found: warn
       - name: Every module in both languages and themes at desktop tablet and mobile widths
         if: ${{ !cancelled() }}
         run: node scripts/enterprise-ui-matrix-qa.mjs
@@ -162,6 +174,7 @@ jobs:
         with:
           name: workspace-layout-qa
           path: |
+            findings-workspace-qa-artifacts/
             record-dialog-qa-artifacts/
             full-browser-regression-artifacts/
             enterprise-ui-matrix-artifacts/

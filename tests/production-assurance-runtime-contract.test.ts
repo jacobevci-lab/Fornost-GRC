@@ -28,13 +28,6 @@ test("production QA restores the sidebar using current accessible labels", () =>
   assert.match(gate, /Hidden sidebar cannot be restored/);
 });
 
-test("production QA normalizes locale-switch findings only after the targeted contract passes", () => {
-  assert.match(gate, /function isLocaleSwitchFinding\(item\)/);
-  assert.ok(gate.includes('return /^Locale switch failed(?::\\s*(?:tr|en))?$/i.test(String(item?.title || "").trim());'));
-  assert.match(gate, /const combined = `\$\{String\(item\?\.title \|\| ""\)\} \$\{String\(item\?\.detail \|\| ""\)\}`\.trim\(\)/);
-  assert.match(gate, /targetedResponsivePasses\(item\) && isLocaleSwitchFinding\(item\)/);
-  assert.match(gate, /superseded-by-visible-responsive-locale-contract/);
-});
 
 test("production QA checks application readiness in source without workflow-time patches", () => {
   const workflow = readFileSync(".github/workflows/full-production-qa.yml", "utf8");

@@ -172,7 +172,11 @@ try {
   await cancelInput.fill(cancelReason);
   await expect(cancelInput).toHaveValue(cancelReason);
   await expect(cancelRequest).toBeEnabled();
-  await cancelInput.fill('');await expect(cancelRequest).toBeDisabled();
+  // Several authenticated pages participate in this flow. Explicitly focus the
+  // acting page before keyboard deletion, and verify the input itself changed.
+  await page.bringToFront();
+  await cancelInput.click();await cancelInput.press('Control+A');await cancelInput.press('Backspace');
+  await expect(cancelInput).toHaveValue('');await expect(cancelRequest).toBeDisabled();
   await cancelInput.pressSequentially(cancelReason);
   await expect(cancelInput).toHaveValue(cancelReason);
   await expect(cancelRequest).toBeEnabled();

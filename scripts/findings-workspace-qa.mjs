@@ -1,14 +1,18 @@
 import {chromium,expect} from '@playwright/test';
 import assert from 'node:assert/strict';
-import {readFile} from 'node:fs/promises';
+import AxeBuilder from '@axe-core/playwright';
+import {readFile,mkdir,writeFile} from 'node:fs/promises';
 import {qaPassword} from './qa-credentials.mjs';
 const base='http://127.0.0.1:4173';
 const browser=await chromium.launch({executablePath:process.env.QA_CHROMIUM_PATH||undefined});
 const context=await browser.newContext({viewport:{width:1536,height:960}});
 const page=await context.newPage();page.setDefaultTimeout(20000);
 let unavailable=true,writes=0,uncertain=false,rejectCreate=false;
-let releaseTransition,releaseCreate;
+let releaseTransition,releaseCreate,heldLanguageRead;
 const findings=Array.from({length:65},(_,i)=>({id:`QA-F-${i+1}`,code:`FND-QA-${i+1}`,sourceType:'audit',sourceRef:`AUD-QA-${i+1}`,sourceTitle:'QA audit',findingType:'nonconformity',title:`QA finding ${i+1}`,description:'QA finding description',severity:'high',owner:'qa-admin@fornost.test',reviewer:'reviewer@fornost.test',rootCause:'QA root cause',correctiveAction:'QA corrective action',preventiveAction:'QA preventive action',dueDate:'2026-12-01',status:'open',recurrenceCount:0,attention:'priority',updatedAt:'2026-10-06T09:00:00Z'}));
+findings[1].severity='critical';findings[1].status='closed';
+findings[2].severity='medium';findings[2].status='verification';
+findings[3].status='accepted';
 await page.route(/\/api\/findings(?:\?view=register.*)?$/,async route=>{
  if(route.request().method()==='POST'){
   const body=route.request().postDataJSON();
@@ -25,6 +29,7 @@ await page.route(/\/api\/findings(?:\?view=register.*)?$/,async route=>{
  }
  if(unavailable)return route.fulfill({status:503,json:{error:'fixture outage'}});
  const params=new URL(route.request().url()).searchParams,query=(params.get('q')||'').toLowerCase(),filter=params.get('filter')||'all';
+ if(heldLanguageRead&&params.get('lang')==='en')await heldLanguageRead;
  const ref=params.get('ref'),assignment=params.get('assignment')||'all';
  const matching=findings.filter(row=>(assignment==='all'||assignment==='owned'&&row.owner==='qa-admin@fornost.test'||assignment==='review'&&row.reviewer==='qa-admin@fornost.test')&&(!ref||row.id===ref||row.code===ref)&&(filter==='all'||filter==='active'&&!['closed','accepted'].includes(row.status)||row.status===filter||row.attention===filter)&&[row.code,row.title,row.sourceRef,row.owner].join(' ').toLowerCase().includes(query));
  const total=matching.length,pages=Math.max(1,Math.ceil(total/20)),page=Math.min(Number(params.get('page')||1),pages),start=total?(page-1)*20+1:0,end=Math.min(page*20,total);
@@ -53,7 +58,39 @@ try{
  unavailable=false;await panel.getByRole('button',{name:'Retry',exact:true}).click();
  await expect(panel.locator('.finding-table tbody tr')).toHaveCount(20);
  await expect(panel.locator('.finding-source-strip')).toContainText('Unavailable');
- for(let i=0;i<3;i++)await panel.getByRole('button',{name:'Next',exact:true}).click();
+ // User-visible severity/status colors must survive language and theme changes.
+ for(const theme of ['light','dark']){
+  if(await page.locator('html').getAttribute('data-theme')!==theme)await page.locator('.theme-toggle:visible').click();
+  let englishColors;
+  for(const locale of ['en','tr']){
+   await page.locator('.language-switch:visible').getByRole('button',{name:locale.toUpperCase(),exact:true}).click();
+   const badges=panel.locator('.finding-table .finding-badge');
+   await expect(badges.nth(1)).toHaveText(locale==='tr'?'Kritik':'Critical');
+   const states=panel.locator('.finding-table .finding-state');
+   await expect(states.nth(1)).toHaveText(locale==='tr'?'Kapalı':'Closed');
+   const colors=await panel.locator('.finding-table').evaluate(table=>{
+    const style=node=>({color:getComputedStyle(node).color,background:getComputedStyle(node).backgroundColor});
+    return {severity:[...table.querySelectorAll('.finding-badge')].slice(0,3).map(style),status:[...table.querySelectorAll('.finding-state')].slice(0,4).map(style)};
+   });
+   assert.equal(new Set(colors.severity.map(x=>x.background)).size,3,`High, critical and medium have distinct severity colors (${theme}/${locale}): ${JSON.stringify(colors)}`);
+   assert.equal(new Set(colors.status.map(x=>x.background)).size,4,`Open, closed, verification and accepted have distinct status colors (${theme}/${locale}): ${JSON.stringify(colors)}`);
+   if(locale==='en')englishColors=colors;else assert.deepEqual(colors,englishColors,'Translations preserve semantic colors');
+   const contrast=await new AxeBuilder({page}).include('.finding-table').withRules(['color-contrast']).analyze();
+   assert.deepEqual(contrast.violations,[],`CAPA badge contrast ${theme}/${locale}`);
+  }
+ }
+ let releaseLanguageRead;heldLanguageRead=new Promise(resolve=>{releaseLanguageRead=resolve;});
+ await page.locator('.language-switch:visible').getByRole('button',{name:'EN',exact:true}).click();
+ await expect(panel).toHaveAttribute('aria-busy','true');
+ await expect(panel.getByRole('button',{name:'Next',exact:true})).toBeDisabled();
+ releaseLanguageRead();heldLanguageRead=null;await expect(panel).toHaveAttribute('aria-busy','false');
+ if(await page.locator('html').getAttribute('data-theme')!=='light')await page.locator('.theme-toggle:visible').click();
+
+ for(let i=0;i<3;i++){
+  await panel.getByRole('button',{name:'Next',exact:true}).click();
+  await expect(panel.locator('.finding-pagination')).toContainText(`Page ${i+2}/4`);
+  await expect(panel).toHaveAttribute('aria-busy','false');
+ }
  await expect(panel.locator('.finding-table tbody tr')).toHaveCount(5);
  await expect(panel.locator('.finding-pagination')).toContainText('61–65 / 65');
  await panel.getByRole('textbox',{name:'Search findings',exact:true}).fill('AUD-QA-65');
@@ -142,4 +179,9 @@ try{
  await expect.poll(()=>page.evaluate(()=>window.__findingLineageNavigation?.ref)).toBe('AUD-QA-1');
  assert.equal(await page.evaluate(()=>window.__findingLineageNavigation.module),'Denetim Yönetimi');
  console.log('Findings workspace QA passed: outage/retry, honest KPI/source state, 65-record pagination/search, keyboard detail, duplicate-submit guard and ambiguous-write recovery without retry.');
+}catch(error){
+ await mkdir('findings-workspace-qa-artifacts',{recursive:true});
+ await writeFile('findings-workspace-qa-artifacts/failure.json',JSON.stringify({message:error.message,actual:error.actual,expected:error.expected,stack:error.stack},null,2));
+ await page.screenshot({path:'findings-workspace-qa-artifacts/failure.png',fullPage:true}).catch(()=>{});
+ throw error;
 }finally{await browser.close();}
