@@ -53,6 +53,8 @@ jobs:
         run: node scripts/schema-initialization-qa.mjs
       - name: Exact assurance work focus, permissions and stale response QA
         run: node scripts/assurance-work-focus-qa.mjs
+      - name: Historical run result, evidence navigation and recovery QA
+        run: node scripts/control-run-detail-qa.mjs
       - name: Scoped audit readiness, evidence and export QA
         run: node scripts/audit-readiness-runtime-qa.mjs
       - name: Current assessment projection, audit and control QA
@@ -171,6 +173,7 @@ jobs:
             ready-controls-qa-artifacts/
             assurance-execution-qa-artifacts/
             assurance-work-focus-qa-artifacts/
+            control-run-detail-qa-artifacts/
             current-assessment-qa-artifacts/
             my-work-assurance-qa-artifacts/
             module-access-qa-artifacts/
