@@ -55,6 +55,12 @@ try {
   createdRecords.push(asset.id);
   await page.reload(); await expect(page.locator('.shell')).toBeVisible(); await locale('en'); await openModule('Asset Inventory');
   const row = page.getByRole('row').filter({ hasText: `${prefix} asset` }); await expect(row).toBeVisible();
+  const register = page.locator('.table-card .table-wrap');
+  await register.evaluate(node => { node.scrollLeft = node.scrollWidth; });
+  const bounds = await register.boundingBox(), identity = await row.locator('td').first().boundingBox(), actions = await row.locator('.row-actions-cell').boundingBox();
+  assert.ok(identity.x >= bounds.x - 1 && identity.x + identity.width < actions.x, 'Record identity stays visible without overlapping actions');
+  assert.ok(actions.x + actions.width <= bounds.x + bounds.width + 1, 'Record actions remain visible during horizontal scrolling');
+  await page.screenshot({ path: `${out}/register-identity-and-actions.png` });
   await row.getByRole('button', { name: 'Edit', exact: true }).click();
   const dialog = page.locator('.record-dialog'); await dialog.locator('[name=title]').fill(`${prefix} asset edited`);
   let release, delayed = 0; const gate = new Promise(resolve => { release = resolve; });
@@ -104,7 +110,8 @@ try {
     }
   }
   await orphanRow.getByRole('button', { name: 'Edit', exact: true }).click();
-  await dialog.locator('[name=auditName]').fill(auditName);
+  await expect(dialog.locator('[name=auditName]')).toHaveValue(`${prefix} absent audit`);
+  await dialog.locator('[name=auditName]').selectOption(auditName);
   await dialog.getByRole('button', { name: 'Save', exact: true }).click(); await expect(dialog).toBeHidden(); await expect(orphanRow).toHaveCount(0);
   const current = (await api('/api/grc')).rows.find(item => item.id === orphan.id);
   assert.equal(JSON.parse(current.data_json).auditName, auditName);

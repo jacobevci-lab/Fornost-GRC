@@ -38,6 +38,13 @@ body.resizing-columns{cursor:col-resize;user-select:none}
 .readiness span,.warnings span{font-size:9px!important;line-height:1.2}
 .date-stack{min-width:132px}.date-stack small{color:var(--muted)}
 .table-wrap{max-width:100%;overscroll-behavior-x:contain;scrollbar-gutter:stable}
+/* Keep record identity and actions visible while inspecting wide desktop registers. */
+@media(min-width:900px){
+  .table-wrap .smart-table :is(th,td):first-child{position:sticky;left:0;z-index:1;background:var(--ws-surface)!important;box-shadow:1px 0 0 var(--ws-line)}
+  .table-wrap .smart-table :is(.row-actions-cell,.row-actions-heading){position:sticky;right:0;z-index:1;background:var(--ws-surface)!important;box-shadow:-1px 0 0 var(--ws-line)}
+  .table-wrap .smart-table thead :is(th:first-child,.row-actions-heading){z-index:2;background:var(--ws-surface-2)!important}
+  .table-wrap .smart-table tr:hover :is(td:first-child,.row-actions-cell){background:var(--ws-brand-soft)!important}
+}
 .module-head{gap:20px}.module-head>div:first-child{min-width:0}.module-head h2,.module-head p{overflow-wrap:anywhere}
 .actions{flex-wrap:wrap;justify-content:flex-end}
 .risk-overview .matrix-card{min-width:0;overflow:hidden}

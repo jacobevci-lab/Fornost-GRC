@@ -50,8 +50,14 @@ try {
           try {
             await open(label);
             result.dom = await page.locator('main').evaluate(main => {
-              const visible = node => !!(node.getClientRects().length && getComputedStyle(node).visibility !== 'hidden');
-              const name = node => (node.getAttribute('aria-label') || node.innerText || node.getAttribute('title') || node.querySelector('img')?.alt || '').trim();
+              const visible = node => {
+                if (!node.getClientRects().length || getComputedStyle(node).visibility === 'hidden' || !node.checkVisibility()) return false;
+                for (let parent = node.parentElement; parent; parent = parent.parentElement) {
+                  if (parent.tagName === 'DETAILS' && !parent.open && !parent.querySelector(':scope>summary')?.contains(node)) return false;
+                }
+                return true;
+              };
+              const name = node => (node.getAttribute('aria-label') || (node.getAttribute('aria-labelledby') || '').split(/\s+/).map(id => document.getElementById(id)?.textContent || '').join(' ').trim() || node.innerText || node.getAttribute('title') || node.querySelector('img')?.alt || '').trim();
               const links = [...main.querySelectorAll('a')].filter(visible).map(node => ({ name: name(node), href: node.getAttribute('href') }));
               const buttons = [...main.querySelectorAll('button')].filter(visible);
               const tables = [...main.querySelectorAll('table')].filter(visible).map(node => ({ columns: node.querySelectorAll('thead th').length, rows: node.querySelectorAll('tbody tr').length, width: Math.round(node.getBoundingClientRect().width) }));

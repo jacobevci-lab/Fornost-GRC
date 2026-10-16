@@ -2513,6 +2513,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
                     form={form}
                     setForm={setForm}
                     lang={lang}
+                    auditNames={auditPortfolio.map(audit => audit.name)}
                   />
                 ))}
                 {notice&&<p className="record-form-notice wide" role="alert">{notice}</p>}
@@ -2753,6 +2754,7 @@ function Field({
   setForm,
   lang,
   nameMode = false,
+  auditNames = [],
 }: {
   k: string;
   module: string;
@@ -2760,6 +2762,7 @@ function Field({
   setForm: any;
   lang: Lang;
   nameMode?: boolean;
+  auditNames?: string[];
 }) {
   const scores = ["1", "2", "3", "4", "5"],
     yesNo = ["Evet", "Hayır"],
@@ -2866,6 +2869,17 @@ function Field({
     change = (v: string) => setForm({ ...form, [k]: v }),
     u = ui[lang],
     requiredField = (requiredFieldsByModule[module] || []).includes(k);
+  if (k === "auditName" && module === "Denetim Yönetimi") {
+    const retained = String(value), missing = !!retained && !auditNames.some(name => auditNameKey(name) === auditNameKey(retained));
+    return <label data-form-core="true">{labelMap[lang][k]}
+      <select name={k} required value={retained} onChange={event => change(event.target.value)}>
+        <option value="">{lang === "tr" ? "Denetim seçin" : "Select an audit"}</option>
+        {retained && !auditNames.includes(retained) && <option value={retained}>{retained}{missing ? (lang === "tr" ? " · Portföyde bulunamadı" : " · Not in portfolio") : ""}</option>}
+        {auditNames.map(name => <option key={name} value={name}>{name}</option>)}
+      </select>
+      {missing && <small>{lang === "tr" ? "Mevcut bağlantı korunuyor. Düzeltmek için portföyden bir denetim seçin." : "The existing reference is preserved. Select a portfolio audit to correct it."}</small>}
+    </label>;
+  }
   if (k === "calculatedImpact") {
     const impact = effectiveImpact(form),
       likelihood = Number(form.inherentLikelihood || 0),
@@ -3767,7 +3781,7 @@ function RiskRegister({
           {cols.map((c) => (
             <ResizableTh key={c.key} columnKey={c.key} widths={widths}>{c[lang]}</ResizableTh>
           ))}
-          {canWrite && <th></th>}
+          {canWrite && <th className="row-actions-heading">{lang === "tr" ? "İşlemler" : "Actions"}</th>}
         </tr>
       </thead>
       <tbody>
@@ -4197,6 +4211,7 @@ function AuditModule({
                 <label className="wide">
                   {tr ? "Şablon / seçenek" : "Template / option"}
                   <select
+                    aria-label={tr ? "Şablon / seçenek" : "Template / option"}
                     value={auditDraft.template}
                     onChange={(e) => chooseTemplate(e.target.value)}
                   >
