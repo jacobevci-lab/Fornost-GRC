@@ -154,6 +154,9 @@ jobs:
           CF_ACCESS_CLIENT_ID: local-qa
           CF_ACCESS_CLIENT_SECRET: local-qa
         run: node scripts/full-product-qa-gate.mjs
+      - name: Every module in both languages and themes at desktop tablet and mobile widths
+        if: ${{ !cancelled() }}
+        run: node scripts/enterprise-ui-matrix-qa.mjs
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -161,6 +164,7 @@ jobs:
           path: |
             record-dialog-qa-artifacts/
             full-browser-regression-artifacts/
+            enterprise-ui-matrix-artifacts/
             ai-retirement-qa-artifacts/
             ai-model-lifecycle-qa-artifacts/
             ai-record-navigation-qa-artifacts/
