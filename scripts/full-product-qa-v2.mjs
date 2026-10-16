@@ -2,6 +2,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { chromium } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
+import { createQaContext, waitForQaIdle, switchQaLocale, openQaModule } from "./qa-browser-harness.mjs";
 
 const baseUrl = (process.env.FORNOST_PROD_URL || "https://app.fornostsecurity.com").replace(/\/$/, "");
 const accessClientId = process.env.CF_ACCESS_CLIENT_ID || "";
@@ -69,6 +70,7 @@ function slug(value) {
   return String(value).normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-zA-Z0-9]+/g, "-").replace(/^-+|-+$/g, "").toLowerCase().slice(0, 90) || "screen";
 }
 async function snap(page, name, fullPage = false) {
+  if (!/fail/.test(name)) await waitForQaIdle(page);
   const file = path.join(screenshotsDir, `${slug(name)}.png`);
   await page.screenshot({ path: file, fullPage, animations: "disabled" });
   return path.relative(outDir, file);
@@ -112,6 +114,7 @@ async function axeAudit(page, area) {
 }
 
 async function domAudit(page, area, locale) {
+  await waitForQaIdle(page);
   const data = await page.evaluate(() => {
     const visible = (el) => {
       const s = getComputedStyle(el), r = el.getBoundingClientRect();
@@ -189,29 +192,9 @@ async function domAudit(page, area, locale) {
   return data;
 }
 
-async function currentLocale(page) {
-  if (await page.locator('nav button[aria-label="Dashboard"]').count()) return "en";
-  if (await page.locator('nav button[aria-label="Gösterge Paneli"]').count()) return "tr";
-  return "unknown";
-}
 async function setLocale(page, locale) {
-  if ((await currentLocale(page)) === locale) return true;
-  const regex = locale === "en" ? /^(EN|English|İngilizce)$/i : /^(TR|Türkçe|Turkish)$/i;
-  const candidates = [
-    page.getByRole("button", { name: regex }),
-    page.locator("button").filter({ hasText: regex }),
-    page.locator(locale === "en" ? 'button[title*="English" i],button[aria-label*="English" i]' : 'button[title*="Türk" i],button[aria-label*="Türk" i]'),
-  ];
-  for (const locator of candidates) {
-    const count = await locator.count();
-    if (!count) continue;
-    try {
-      await locator.first().click();
-      await page.waitForTimeout(450);
-      if ((await currentLocale(page)) === locale) return true;
-    } catch {}
-  }
-  return false;
+  await switchQaLocale(page, locale);
+  return true;
 }
 
 async function auditLocale(page, locale) {
@@ -223,7 +206,7 @@ async function auditLocale(page, locale) {
   const opposite = moduleLabels[locale === "tr" ? "en" : "tr"];
   const actual = await page.locator("nav button[aria-label]").evaluateAll((nodes) => nodes.map((node) => node.getAttribute("aria-label")).filter(Boolean));
   for (const label of expected) if (!actual.includes(label)) finding("high", `navigation:${locale}`, "Expected module label missing", label);
-  const leaked = opposite.filter((label) => actual.includes(label));
+  const leaked = opposite.filter((label) => !expected.includes(label) && actual.includes(label));
   if (leaked.length) finding("high", `navigation:${locale}`, "Opposite-language module labels remain visible", leaked.join(", "));
 
   for (let i = 0; i < expected.length; i += 1) {
@@ -231,8 +214,7 @@ async function auditLocale(page, locale) {
     const button = page.locator(`nav button[aria-label=${JSON.stringify(label)}]`).first();
     if (!(await button.count())) continue;
     try {
-      await button.evaluate((el) => el.click());
-      await page.waitForTimeout(450);
+      await openQaModule(page, label);
       const area = `${locale}:${label}`;
       const dom = await domAudit(page, area, locale);
       const a11y = await axeAudit(page, area);
@@ -319,14 +301,14 @@ async function auditLocale(page, locale) {
 
 async function auditSidebar(page) {
   await setLocale(page, "tr");
-  const collapse = page.getByRole("button", { name: /Menüyü daralt|Compact navigation|Collapse menu/i }).first();
+  const collapse = page.getByRole("button", { name: /^(İkon menüsü|Icon navigation)$/i }).first();
   if (!(await collapse.count())) {
-    finding("high", "sidebar", "Collapse control not found");
+    finding("high", "sidebar", "Icon navigation control not found");
     return;
   }
   await collapse.click();
   await page.waitForTimeout(250);
-  const navButtons = page.locator("nav button[aria-label]");
+  const navButtons = page.locator("#fornost-navigation .nav-group-items button[aria-label]:visible");
   const count = await navButtons.count();
   const tooltipChecks = [];
   for (let i = 0; i < Math.min(count, 5); i += 1) {
@@ -347,12 +329,12 @@ async function auditSidebar(page) {
   report.sidebar.tooltipChecks = tooltipChecks;
   report.sidebar.compactScreenshot = await snap(page, "sidebar-compact");
 
-  const hide = page.getByRole("button", { name: /Menüyü gizle|Hide menu/i }).first();
+  const hide = page.getByRole("button", { name: /^(Menüyü gizle|Hide navigation)$/i }).first();
   if (await hide.count()) {
     await hide.click();
     await page.waitForTimeout(250);
     report.sidebar.hiddenScreenshot = await snap(page, "sidebar-hidden");
-    const restore = page.getByRole("button", { name: /Ana menüyü aç|Open main menu/i }).first();
+    const restore = page.getByRole("button", { name: /^(Ana menüyü aç|Open main navigation)$/i }).first();
     if (await restore.count()) await restore.click(); else finding("high", "sidebar", "Hidden sidebar cannot be restored");
   } else {
     finding("medium", "sidebar", "Hide-menu control not found in compact mode");
@@ -361,8 +343,7 @@ async function auditSidebar(page) {
 
 async function auditTheme(page) {
   await setLocale(page, "tr");
-  const dashboard = page.locator('nav button[aria-label="Gösterge Paneli"]').first();
-  await dashboard.evaluate(el => el.click());
+  await openQaModule(page, "Gösterge Paneli");
   await page.locator('.executive-dashboard-reference').waitFor({ state: "visible", timeout: 15_000 });
   const toggle = page.getByRole("button", { name: /Koyu temaya geç|Switch to dark|Dark theme/i }).first();
   if (!(await toggle.count())) {
@@ -370,7 +351,7 @@ async function auditTheme(page) {
     return;
   }
   await toggle.click();
-  await page.waitForTimeout(350);
+  await waitForQaIdle(page);
   const computed = await page.evaluate(() => ({ bg: getComputedStyle(document.body).backgroundColor, color: getComputedStyle(document.body).color, className: document.documentElement.className }));
   report.themes.push({ theme: "dark", computed, screenshot: await snap(page, "theme-dark-dashboard", true), a11y: await axeAudit(page, "theme:dark:dashboard") });
   const lightToggle = page.getByRole("button", { name: /Açık temaya geç|Switch to light|Light theme/i }).first();
@@ -385,7 +366,7 @@ async function auditResponsive(browser) {
   ];
   for (const vp of viewports) {
     for (const locale of ["tr", "en"]) {
-      const context = await browser.newContext({ viewport: { width: vp.width, height: vp.height }, extraHTTPHeaders: accessHeaders, colorScheme: "light" });
+      const context = await createQaContext(browser, baseUrl, accessHeaders, { viewport: { width: vp.width, height: vp.height }, colorScheme: "light" });
       const page = await context.newPage();
       observe(page);
       try {
@@ -409,7 +390,7 @@ async function auditResponsive(browser) {
 }
 
 async function apiAndHeaderAudit(browser) {
-  const context = await browser.newContext({ extraHTTPHeaders: accessHeaders });
+  const context = await createQaContext(browser, baseUrl, accessHeaders, {});
   const root = await context.request.get(baseUrl, { headers: accessHeaders });
   const headers = root.headers();
   const required = ["content-security-policy", "strict-transport-security", "x-content-type-options", "referrer-policy", "x-frame-options", "permissions-policy", "cross-origin-opener-policy", "cross-origin-resource-policy"];
@@ -439,11 +420,11 @@ async function waitForCurrentDashboard(page) {
 }
 
 async function auditDashboardCustomization(browser) {
-  const context = await browser.newContext({ viewport: { width: 1536, height: 960 }, extraHTTPHeaders: accessHeaders });
+  const context = await createQaContext(browser, baseUrl, accessHeaders, { viewport: { width: 1536, height: 960 } });
   let original;
   try {
     await login(context);
-    const response = await context.request.get(`${baseUrl}/api/dashboard-preferences`);
+    const response = await context.request.get(`${baseUrl}/api/dashboard-preferences`, { headers: accessHeaders });
     if (!response.ok()) throw new Error("Cannot back up the smoke account preferences");
     original = (await response.json()).preferences || {
       preset: "executive", compact: false,
@@ -453,6 +434,7 @@ async function auditDashboardCustomization(browser) {
     const page = await context.newPage();
     await page.goto(baseUrl, { waitUntil: "domcontentloaded" });
     await waitForCurrentDashboard(page);
+    await waitForQaIdle(page);
     await setLocale(page, "en");
     const trigger = page.getByRole("button", { name: "Customize", exact: true });
     const dialog = page.getByRole("dialog", { name: "Customize dashboard", exact: true });
@@ -470,6 +452,7 @@ async function auditDashboardCustomization(browser) {
     await dialog.waitFor({ state: "hidden" });
     await page.reload({ waitUntil: "domcontentloaded" });
     await waitForCurrentDashboard(page);
+    await waitForQaIdle(page);
     if (await page.locator(".risk-posture-panel").count()) throw new Error("Hidden risk card did not persist after reload");
     if (!(await page.locator(".executive-dashboard-reference.is-compact").count())) throw new Error("Density did not persist after reload");
     const classes = await page.locator(".executive-dashboard-grid>article").evaluateAll(nodes => nodes.map(node => node.className));
@@ -477,7 +460,7 @@ async function auditDashboardCustomization(browser) {
     await setLocale(page, "en");
     await trigger.click();
     await dialog.getByLabel("Risk posture", { exact: true }).check();
-    await page.route("**/api/dashboard-preferences", route => route.request().method() === "PUT" ? route.fulfill({ status: 503, contentType: "application/json", body: "{}" }) : route.continue());
+    await page.route("**/api/dashboard-preferences", route => route.request().method() === "PUT" ? route.fulfill({ status: 503, contentType: "application/json", body: "{}" }) : route.fallback());
     await dialog.getByRole("button", { name: "Save view", exact: true }).click();
     await dialog.getByRole("alert").waitFor({ state: "visible" });
     if (await page.locator(".risk-posture-panel").count()) throw new Error("Failed save incorrectly changed the applied layout");
@@ -503,7 +486,7 @@ async function auditDashboardCustomization(browser) {
     report.customization = { passed: false, error: error.message };
   } finally {
     if (original) {
-      const restored = await context.request.put(`${baseUrl}/api/dashboard-preferences`, { data: { preferences: original } });
+      const restored = await context.request.put(`${baseUrl}/api/dashboard-preferences`, { headers: { ...accessHeaders, origin: baseUrl }, data: { preferences: original } });
       if (!restored.ok()) finding("high", "dashboard-customization", "Smoke account preference restore failed", String(restored.status()));
     }
     await context.close();
@@ -515,7 +498,7 @@ try {
   if (!smokeEmail || !smokePassword) throw new Error("Fornost smoke credentials are required.");
   if (!accessClientId || !accessClientSecret) throw new Error("Cloudflare Access service-token credentials are required.");
   await apiAndHeaderAudit(browser);
-  const context = await browser.newContext({ viewport: { width: 1536, height: 960 }, extraHTTPHeaders: accessHeaders, colorScheme: "light" });
+  const context = await createQaContext(browser, baseUrl, accessHeaders, { viewport: { width: 1536, height: 960 }, colorScheme: "light" });
   await login(context);
   const page = await context.newPage();
   observe(page);
@@ -524,6 +507,7 @@ try {
   await page.locator("#fornost-navigation").first().waitFor({ state: "attached", timeout: 15_000 });
   await page.locator("h1").first().waitFor({ state: "visible", timeout: 15_000 });
   await waitForCurrentDashboard(page);
+    await waitForQaIdle(page);
   report.environment = await page.evaluate(() => ({ userAgent: navigator.userAgent, width: innerWidth, height: innerHeight, dpr: devicePixelRatio, title: document.title, lang: document.documentElement.lang }));
   await auditLocale(page, "tr");
   await auditSidebar(page);

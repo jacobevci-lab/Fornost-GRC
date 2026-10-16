@@ -19,8 +19,8 @@ catch (error) {
   await import("./full-production-qa.mjs");
 }
 
-// Keep the comprehensive v2 scanner intact. Its raw artifact remains immutable evidence;
-// this wrapper applies explicit production contracts after targeted runtime verification.
+// Preserve raw scanner findings. Targeted contracts add coverage; they do not
+// waive failures observed by either scanner.
 process.env.QA_FAIL_ON_HIGH = "0";
 await import("./full-product-qa-v2.mjs");
 
@@ -36,27 +36,8 @@ const responsiveViewports = [
   { name: "mobile-small", width: 360, height: 740 },
 ];
 
-function isSharedBrandNoise(finding) {
-  return finding?.title === "Opposite-language module labels remain visible"
-    && String(finding?.detail || "").trim() === "Ask Fornost";
-}
-function isBenignAbortedGet(item) {
-  if (!item?.url || !item?.error) return false;
-  let sameOrigin = false;
-  try { sameOrigin = new URL(item.url).origin === origin; } catch {}
-  return sameOrigin
-    && ["GET", "HEAD"].includes(String(item.method || "GET").toUpperCase())
-    && /ERR_ABORTED/i.test(String(item.error));
-}
-function isCloudflareAnalyticsFailure(item) {
-  return /^https:\/\/static\.cloudflareinsights\.com\//i.test(String(item?.url || ""))
-    && /ERR_FAILED|blocked|cors/i.test(String(item?.error || ""));
-}
 function verificationKey(viewport, locale) {
   return `${viewport}:${locale}`;
-}
-function isLocaleSwitchFinding(item) {
-  return /^Locale switch failed(?::\s*(?:tr|en))?$/i.test(String(item?.title || "").trim());
 }
 
 async function configureContext(context) {
@@ -261,51 +242,14 @@ try {
 }
 
 const rawFailedRequests = Array.isArray(report.runtime?.failedRequests) ? report.runtime.failedRequests : [];
-const hasCloudflareAnalyticsFailure = rawFailedRequests.some(isCloudflareAnalyticsFailure);
-const effectiveFailedRequests = rawFailedRequests.filter((item) => !isBenignAbortedGet(item) && !isCloudflareAnalyticsFailure(item));
+const effectiveFailedRequests = rawFailedRequests;
 const rawConsoleErrors = Array.isArray(report.runtime?.consoleErrors) ? report.runtime.consoleErrors : [];
-const effectiveConsoleErrors = rawConsoleErrors.filter((item) => {
-  const text = String(item?.text || "");
-  if (/static\.cloudflareinsights\.com/i.test(text) && /cors|blocked|access-control/i.test(text)) return false;
-  if (hasCloudflareAnalyticsFailure && /^Failed to load resource: net::ERR_FAILED\s*$/i.test(text)) return false;
-  return true;
-});
-
-function targetedResponsivePasses(item) {
-  const area = String(item?.area || "");
-  const areaMatch = area.match(/^responsive:(tablet|mobile|mobile-small)(?::(tr|en)(?::i18n)?)?$/);
-  if (!areaMatch) return false;
-  const viewport = areaMatch[1];
-  let locale = areaMatch[2] || "";
-  if (!locale && isLocaleSwitchFinding(item)) {
-    const combined = `${String(item?.title || "")} ${String(item?.detail || "")}`.trim();
-    const localeMatch = combined.match(/(?:^|[:\s])(tr|en)\s*$/i);
-    locale = localeMatch?.[1]?.toLowerCase() || "";
-  }
-  if (!locale) return false;
-  return responsiveLocaleVerifications[verificationKey(viewport, locale)]?.passed === true;
-}
-
-// The legacy scanner covers module-specific dark themes that v2 does not.
-// Carry its accessibility failures into the gate instead of losing that coverage.
+const effectiveConsoleErrors = rawConsoleErrors;
 const legacyReport = JSON.parse(await fs.readFile(legacyReportPath, "utf8"));
-const legacyAccessibilityFindings = (legacyReport.findings || []).filter(
-  (item) => item.severity === "critical" || String(item.title || "").startsWith("Accessibility:"),
-);
-
+// Legacy includes dark module views absent from v2. Keep all its findings,
+// including runtime/network errors; no blanket abort or analytics exclusions.
 const excluded = [];
-const effectiveFindings = [];
-for (const item of [...(report.findings || []), ...legacyAccessibilityFindings]) {
-  let reason = "";
-  if (isSharedBrandNoise(item)) reason = "shared-brand-label";
-  else if (sidebarVerification.passed && item?.area === "sidebar" && item?.title === "Collapse control not found") reason = "superseded-by-current-sidebar-view-contract";
-  else if (targetedResponsivePasses(item) && isLocaleSwitchFinding(item)) reason = "superseded-by-visible-responsive-locale-contract";
-  else if (targetedResponsivePasses(item) && item?.title === "HTML lang does not match selected locale") reason = "superseded-by-responsive-html-lang-contract";
-  else if (!effectiveConsoleErrors.length && item?.area === "runtime" && item?.title === "Browser console errors detected") reason = "cloudflare-analytics-harness-noise";
-  else if (!effectiveFailedRequests.length && item?.area === "network" && item?.title === "Failed browser requests detected") reason = "expected-third-party-or-navigation-abort";
-  if (reason) excluded.push({ ...item, reason });
-  else effectiveFindings.push(item);
-}
+const effectiveFindings = [...(report.findings || []), ...(legacyReport.findings || [])];
 
 if (!sidebarVerification.passed) {
   effectiveFindings.push({
@@ -327,7 +271,7 @@ for (const [key, verification] of Object.entries(responsiveLocaleVerifications))
 
 effectiveFindings.sort((a, b) => ({ critical: 5, high: 4, medium: 3, low: 2, info: 1 }[b.severity] || 0) - ({ critical: 5, high: 4, medium: 3, low: 2, info: 1 }[a.severity] || 0));
 const gate = {
-  version: "1.1",
+  version: "1.2",
   sourceReport: path.relative(process.cwd(), reportPath),
   generatedAt: new Date().toISOString(),
   sidebarVerification,

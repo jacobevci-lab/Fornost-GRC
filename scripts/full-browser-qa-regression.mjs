@@ -108,6 +108,9 @@ try {
     await expect(page.locator('.finding-page')).toHaveAttribute('aria-busy', 'false');
     const strip = page.locator('.finding-source-strip');
     await expect(strip.locator(':scope>span')).toHaveCount(4);
+    await expect(strip.locator(':scope>span small')).toHaveText(language === 'tr'
+      ? ['Sürekli kontrol', 'Üçüncü taraf', 'Yapay zekâ güvencesi', 'Mevzuat']
+      : ['Continuous control', 'Third party', 'AI assurance', 'Regulatory']);
     for (const theme of ['light', 'dark']) {
       if (await page.locator('html').getAttribute('data-theme') !== theme) await page.locator('.theme-toggle:visible').click();
       for (const width of [360, 390, 1024]) {

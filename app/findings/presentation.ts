@@ -1,6 +1,6 @@
 type Lang='tr'|'en';
 const labels:Record<string,readonly [string,string]>={
- audit:['Denetim','Audit'],control:['Kontrol','Control'],'continuous-control':['Sürekli kontrol','Continuous control'],vendor:['Tedarikçi','Vendor'],regulatory:['Mevzuat','Regulatory'],risk:['Risk','Risk'],policy:['Politika','Policy'],incident:['Olay','Incident'],vulnerability:['Zafiyet','Vulnerability'],ai:['Yapay zekâ','AI'],manual:['Manuel','Manual'],
+ audit:['Denetim','Audit'],control:['Kontrol','Control'],'continuous-control':['Sürekli kontrol','Continuous control'],vendor:['Tedarikçi','Vendor'],'third-party':['Üçüncü taraf','Third party'],'ai-assurance':['Yapay zekâ güvencesi','AI assurance'],regulatory:['Mevzuat','Regulatory'],risk:['Risk','Risk'],policy:['Politika','Policy'],incident:['Olay','Incident'],vulnerability:['Zafiyet','Vulnerability'],ai:['Yapay zekâ','AI'],manual:['Manuel','Manual'],
  nonconformity:['Uygunsuzluk','Nonconformity'],'control-deficiency':['Kontrol eksikliği','Control deficiency'],observation:['Gözlem','Observation'],'incident-action':['Olay aksiyonu','Incident action'],improvement:['İyileştirme','Improvement'],
  low:['Düşük','Low'],medium:['Orta','Medium'],high:['Yüksek','High'],critical:['Kritik','Critical'],
  open:['Açık','Open'],'in-progress':['Devam ediyor','In progress'],verification:['Doğrulamada','In verification'],closed:['Kapalı','Closed'],accepted:['Risk kabul edildi','Risk accepted'],priority:['Öncelikli','Priority'],overdue:['Gecikmiş','Overdue'],'acceptance-expired':['Risk kabul süresi doldu','Risk acceptance expired'],

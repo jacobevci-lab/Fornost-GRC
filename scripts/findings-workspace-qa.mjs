@@ -9,6 +9,9 @@ const page=await context.newPage();page.setDefaultTimeout(20000);
 let unavailable=true,writes=0,uncertain=false,rejectCreate=false;
 let releaseTransition,releaseCreate;
 const findings=Array.from({length:65},(_,i)=>({id:`QA-F-${i+1}`,code:`FND-QA-${i+1}`,sourceType:'audit',sourceRef:`AUD-QA-${i+1}`,sourceTitle:'QA audit',findingType:'nonconformity',title:`QA finding ${i+1}`,description:'QA finding description',severity:'high',owner:'qa-admin@fornost.test',reviewer:'reviewer@fornost.test',rootCause:'QA root cause',correctiveAction:'QA corrective action',preventiveAction:'QA preventive action',dueDate:'2026-12-01',status:'open',recurrenceCount:0,attention:'priority',updatedAt:'2026-10-06T09:00:00Z'}));
+findings[1].severity='critical';findings[1].status='closed';
+findings[2].severity='medium';findings[2].status='verification';
+findings[3].status='accepted';
 await page.route(/\/api\/findings(?:\?view=register.*)?$/,async route=>{
  if(route.request().method()==='POST'){
   const body=route.request().postDataJSON();
@@ -53,6 +56,28 @@ try{
  unavailable=false;await panel.getByRole('button',{name:'Retry',exact:true}).click();
  await expect(panel.locator('.finding-table tbody tr')).toHaveCount(20);
  await expect(panel.locator('.finding-source-strip')).toContainText('Unavailable');
+ // User-visible severity/status colors must survive language and theme changes.
+ for(const theme of ['light','dark']){
+  if(await page.locator('html').getAttribute('data-theme')!==theme)await page.locator('.theme-toggle:visible').click();
+  let englishColors;
+  for(const locale of ['en','tr']){
+   await page.locator('.language-switch:visible').getByRole('button',{name:locale.toUpperCase(),exact:true}).click();
+   const badges=panel.locator('.finding-table .finding-badge');
+   await expect(badges.nth(1)).toHaveText(locale==='tr'?'Kritik':'Critical');
+   const states=panel.locator('.finding-table .finding-state');
+   await expect(states.nth(1)).toHaveText(locale==='tr'?'Kapalı':'Closed');
+   const colors=await panel.locator('.finding-table').evaluate(table=>{
+    const style=node=>({color:getComputedStyle(node).color,background:getComputedStyle(node).backgroundColor});
+    return {severity:[...table.querySelectorAll('.finding-badge')].slice(0,3).map(style),status:[...table.querySelectorAll('.finding-state')].slice(0,4).map(style)};
+   });
+   assert.equal(new Set(colors.severity.map(x=>x.background)).size,3,'High, critical and medium have distinct severity colors');
+   assert.equal(new Set(colors.status.map(x=>x.background)).size,4,'Open, closed, verification and accepted have distinct status colors');
+   if(locale==='en')englishColors=colors;else assert.deepEqual(colors,englishColors,'Translations preserve semantic colors');
+  }
+ }
+ await page.locator('.language-switch:visible').getByRole('button',{name:'EN',exact:true}).click();
+ if(await page.locator('html').getAttribute('data-theme')!=='light')await page.locator('.theme-toggle:visible').click();
+
  for(let i=0;i<3;i++)await panel.getByRole('button',{name:'Next',exact:true}).click();
  await expect(panel.locator('.finding-table tbody tr')).toHaveCount(5);
  await expect(panel.locator('.finding-pagination')).toContainText('61–65 / 65');

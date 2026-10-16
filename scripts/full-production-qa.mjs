@@ -2,6 +2,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { chromium } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
+import { createQaContext, waitForQaIdle, switchQaLocale, openQaModule } from "./qa-browser-harness.mjs";
 
 const baseUrl = (process.env.FORNOST_PROD_URL || "https://app.fornostsecurity.com").replace(/\/$/, "");
 const accessClientId = process.env.CF_ACCESS_CLIENT_ID || "";
@@ -152,6 +153,7 @@ async function loginViaApi(context) {
 }
 
 async function domAudit(page, area) {
+  await waitForQaIdle(page);
   const data = await page.evaluate(() => {
     const visible = (el) => {
       const style = getComputedStyle(el);
@@ -232,9 +234,8 @@ async function axeAudit(page, area) {
 }
 
 async function checkLoginScreen(browser) {
-  const context = await browser.newContext({
+  const context = await createQaContext(browser, baseUrl, accessHeaders, {
     viewport: { width: 1440, height: 1000 },
-    extraHTTPHeaders: accessHeaders,
     colorScheme: "light",
   });
   const page = await context.newPage();
@@ -252,9 +253,8 @@ async function checkLoginScreen(browser) {
 }
 
 async function auditDesktop(browser) {
-  const context = await browser.newContext({
+  const context = await createQaContext(browser, baseUrl, accessHeaders, {
     viewport: { width: 1536, height: 960 },
-    extraHTTPHeaders: accessHeaders,
     colorScheme: "light",
   });
   await loginViaApi(context);
@@ -274,6 +274,7 @@ async function auditDesktop(browser) {
     htmlLang: document.documentElement.lang,
   }));
 
+  await switchQaLocale(page, "tr");
   await screenshot(page, "01-dashboard-light", true);
 
   for (let i = 0; i < moduleLabels.length; i += 1) {
@@ -288,8 +289,7 @@ async function auditDesktop(browser) {
     }
 
     try {
-      await button.evaluate((el) => el.click());
-      await page.waitForTimeout(650);
+      await openQaModule(page, label);
       const dom = await domAudit(page, label);
       const file = await screenshot(page, `module-${String(i + 1).padStart(2, "0")}-${slug(label)}-light`);
       const violations = await axeAudit(page, label);
@@ -303,7 +303,7 @@ async function auditDesktop(browser) {
   }
 
   // Sidebar expanded -> compact -> hidden -> restored.
-  for (const label of ["Menüyü daralt", "Menüyü gizle"]) {
+  for (const label of ["İkon menüsü", "Menüyü gizle"]) {
     const control = page.getByRole("button", { name: label, exact: true });
     if (await control.count()) {
       await control.click();
@@ -328,8 +328,7 @@ async function auditDesktop(browser) {
       if (!representativeModules.has(label)) continue;
       const button = page.locator(`nav button[aria-label=${JSON.stringify(label)}]`).first();
       if (!(await button.count())) continue;
-      await button.evaluate((el) => el.click());
-      await page.waitForTimeout(600);
+      await openQaModule(page, label);
       const dom = await domAudit(page, `${label} [dark]`);
       const file = await screenshot(page, `dark-${slug(label)}`);
       const violations = await axeAudit(page, `${label} [dark]`);
@@ -339,26 +338,9 @@ async function auditDesktop(browser) {
     addFinding("high", "theme", "Dark theme toggle not found");
   }
 
-  // Language switch: infer accessible buttons by title/text and verify English navigation appears.
-  const langCandidates = [
-    page.getByRole("button", { name: /English|EN|İngilizce/i }),
-    page.locator('button[title*="English" i], button[aria-label*="English" i], button:has-text("EN")'),
-  ];
-  let switched = false;
-  for (const candidate of langCandidates) {
-    if (await candidate.count()) {
-      try {
-        await candidate.first().click();
-        await page.waitForTimeout(450);
-        if (await page.locator('nav button[aria-label="Dashboard"]').count()) {
-          switched = true;
-          await screenshot(page, "language-en-dashboard");
-          break;
-        }
-      } catch {}
-    }
-  }
-  if (!switched) addFinding("low", "i18n", "English language switch could not be verified automatically");
+  await switchQaLocale(page, "en");
+  await openQaModule(page, "Dashboard");
+  await screenshot(page, "language-en-dashboard");
 
   await context.close();
 }
@@ -370,7 +352,7 @@ async function auditResponsive(browser) {
     { name: "mobile-small", width: 360, height: 740 },
   ];
   for (const vp of viewports) {
-    const context = await browser.newContext({ viewport: { width: vp.width, height: vp.height }, extraHTTPHeaders: accessHeaders, colorScheme: "light" });
+    const context = await createQaContext(browser, baseUrl, accessHeaders, { viewport: { width: vp.width, height: vp.height }, colorScheme: "light" });
     await loginViaApi(context);
     const page = await context.newPage();
     attachRuntimeObservers(page);
@@ -387,7 +369,7 @@ async function auditResponsive(browser) {
 }
 
 async function securityAndApiChecks(browser) {
-  const context = await browser.newContext({ extraHTTPHeaders: accessHeaders });
+  const context = await createQaContext(browser, baseUrl, accessHeaders, {});
   const health = await context.request.get(`${baseUrl}/api/health`, { headers: accessHeaders });
   const healthText = await health.text();
   report.summary.healthStatus = health.status();

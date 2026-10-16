@@ -31,6 +31,8 @@ jobs:
           else
             npx playwright install chromium
           fi
+      - name: Production browser harness isolation and readiness regression
+        run: node scripts/qa-browser-harness-regression.mjs
       - name: KRI form interaction regression
         run: node scripts/kri-form-interactions-qa.mjs
       - name: Generate isolated QA credentials
