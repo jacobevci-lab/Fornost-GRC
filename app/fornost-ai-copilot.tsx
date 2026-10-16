@@ -423,7 +423,7 @@ export default function FornostAiCopilot() {
     </button>
     {open && <section data-escape-layer id="fornost-ai-panel" className={`fornost-ai-panel ${activeTab === "chat" ? "is-compact" : "is-workspace"}`} data-ai-view={activeTab} aria-label="Fornost AI Copilot">
       <header className="fornost-ai-head">
-        <div><small>FORNOST AI · READ-ONLY COPILOT</small><h2>{workspaceHost ? (workspaceLocale === "tr" ? "AI Yönetişimi" : "AI Governance") : "Ask Fornost"}</h2><p>{status?.model || "AI sağlayıcısı bekleniyor"}</p></div>
+        <div><small>FORNOST AI · READ-ONLY COPILOT</small><h2>{workspaceHost ? (workspaceLocale === "tr" ? "AI Yönetişimi" : "AI Governance") : "Ask Fornost"}</h2><p>{status?.model || (workspaceLocale === "tr" ? "AI sağlayıcısı bekleniyor" : "Awaiting AI provider")}</p></div>
         {!workspaceHost && <button data-escape-close type="button" onClick={() => setOpen(false)} aria-label="Kapat">×</button>}
       </header>
       {!scoped && <AiSectionPicker embedded={!!workspaceHost} label={workspaceLocale === "tr" ? "AI çalışma alanları" : "AI workspaces"}><div className="fornost-ai-tabs" onClick={()=>setRecordFocus(null)} role="group" aria-label="AI workspace sections">
@@ -467,7 +467,7 @@ export default function FornostAiCopilot() {
       </div></AiSectionPicker>}
 
       {scoped && <p className="fornost-ai-notice">Ask Fornost yalnız izinli modüllerdeki kayıtları kullanır. Ortak bilgi tabanı ve agent iş akışları bu hesap için kapalıdır.</p>}
-      {activeTab === "portfolio" ? <FornostAiPortfolio/> : activeTab === "chat" ? <>
+      {activeTab === "portfolio" ? <FornostAiPortfolio lang={workspaceLocale === "en" ? "en" : "tr"}/> : activeTab === "chat" ? <>
         <div className="fornost-ai-mode"><span className={chatReady ? "online" : "offline"}/><b>{status?.operatingState==="emergency-stop"?"Acil durduruldu":chatReady ? "Hazır" : "Erişim kısıtlı"}</b><em>{status?.operatingMessage||status?.provider||"Provider yok"}</em></div>
         {(statusError || (status && (!status.configured || !status.enabled))) && <div className="fornost-ai-notice" role="status">
           <p>{statusError || (!status?.configured ? "AI sağlayıcısı henüz yapılandırılmamış. Copilot ve AI çalışma alanları korunuyor; yanıt üretmek için sağlayıcı bağlantısı gerekiyor." : "AI sağlayıcısı devre dışı. Yanıt üretmek için AI ayarlarından etkinleştirin.")}</p>

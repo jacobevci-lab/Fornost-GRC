@@ -49,6 +49,8 @@ try {
           const result = { id, language, theme, width, label, passed: false };
           try {
             await open(label);
+            if (await page.locator('html').getAttribute('data-theme') !== theme) await page.locator('.theme-toggle:visible').click();
+            await expect(page.locator('html')).toHaveAttribute('data-theme', theme);
             if ((label === 'AI Governance' || label === 'AI Yönetişimi') && width === 1536) {
               const chooser = page.locator('.ai-section-picker');
               await chooser.locator(':scope>summary').click();
