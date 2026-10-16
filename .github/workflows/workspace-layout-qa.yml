@@ -163,6 +163,7 @@ jobs:
           name: workspace-layout-failure
           path: |
             *-qa-artifacts/
+            full-browser-regression-artifacts/
             qa-artifacts/
             qa-artifacts-v2/
           if-no-files-found: warn

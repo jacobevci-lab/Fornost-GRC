@@ -371,10 +371,11 @@ async function auditResponsive(browser) {
 
 async function securityAndApiChecks(browser) {
   const context = await createQaContext(browser, baseUrl, accessHeaders, {});
-  const health = await context.request.get(`${baseUrl}/api/health`, { headers: accessHeaders });
+  const health = await context.request.get(`${baseUrl}/api/health`, { headers: { ...accessHeaders, "cache-control": "no-cache" } });
   const healthText = await health.text();
   report.summary.healthStatus = health.status();
   try { report.summary.health = JSON.parse(healthText); } catch { report.summary.health = healthText.slice(0, 500); }
+  if (process.env.FORNOST_EXPECTED_REVISION && report.summary.health?.revision !== process.env.FORNOST_EXPECTED_REVISION) addFinding("critical", "runtime", "Production revision mismatch", `expected=${process.env.FORNOST_EXPECTED_REVISION}, actual=${report.summary.health?.revision || "missing"}`);
   if (health.status() !== 200) addFinding("critical", "runtime", "Health endpoint failed", `HTTP ${health.status()}`);
 
   const unauth = await context.request.get(`${baseUrl}/api/grc`, { headers: { ...accessHeaders, origin: baseUrl } });

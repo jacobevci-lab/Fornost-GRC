@@ -10,6 +10,17 @@ await fs.mkdir(output, { recursive: true });
 const browser = await chromium.launch({ executablePath: process.env.QA_CHROMIUM_PATH || undefined });
 const context = await browser.newContext({ viewport: { width: 1536, height: 960 } });
 const results = [];
+let phase = 'login', lastFailure = '';
+const watchdog = setTimeout(() => {
+  void fs.writeFile(`${output}/failure.json`, JSON.stringify({ message: 'Layout QA exceeded its 8-minute bound', phase, lastFailure, results }, null, 2))
+    .finally(() => { console.error(`LAYOUT_QA_TIMEOUT: ${phase}${lastFailure ? `; ${lastFailure}` : ''}`); process.exit(1); });
+}, 8 * 60_000);
+watchdog.unref();
+async function progress(value) {
+  phase = value;
+  await fs.writeFile(`${output}/progress.json`, JSON.stringify({ phase, views: results.length, at: new Date().toISOString() }, null, 2));
+  console.log(`LAYOUT_QA_PROGRESS: ${phase}; ${results.length} views`);
+}
 try {
   const response = await context.request.post(`${base}/api/auth`, {
     headers: { origin: base },
@@ -17,6 +28,8 @@ try {
   });
   assert.equal(response.status(), 200, 'Isolated QA login');
   const page = await context.newPage();
+  page.setDefaultTimeout(20000);
+  page.setDefaultNavigationTimeout(60000);
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));
   await page.goto(base, { waitUntil: 'domcontentloaded' });
@@ -32,11 +45,13 @@ try {
     for (const theme of ['dark','light']) {
       if (await page.locator('html').getAttribute('data-theme') !== theme) await page.locator('.theme-toggle:visible').click();
       for (const label of labels) {
+        await progress(`${locale}/${theme}: open ${label}`);
         await open(label);
         // A module can restore its saved appearance; verify the actual theme before capture.
         if (await page.locator('html').getAttribute('data-theme') !== theme) await page.locator('.theme-toggle:visible').click();
         await page.waitForFunction(expected => document.documentElement.dataset.theme === expected, theme);
         for (const width of [1536,768,390]) {
+          phase = `${locale}/${theme}/${width}: ${label}`;
           await page.setViewportSize({width,height:960});
           await page.waitForTimeout(100);
           const overflow = await page.evaluate(() => document.documentElement.scrollWidth - innerWidth);
@@ -47,10 +62,12 @@ try {
         const copilotClose=page.locator('.fornost-ai-panel button[aria-label="Kapat"]');
         if (await copilotClose.isVisible()) await copilotClose.click();
       }
+      await progress(`${locale}/${theme}: reload`);
       await page.reload({waitUntil:'domcontentloaded'});
       await page.locator('.shell').waitFor();
     }
     // Close any copilot left open by the navigation sweep by reloading the shell.
+    await progress(`${locale}: evidence library`);
     await page.reload({waitUntil:'domcontentloaded'});
     await page.locator('.shell').waitFor();
     await open(locale === 'tr' ? 'Kanıt Kütüphanesi' : 'Evidence Library');
@@ -66,6 +83,7 @@ try {
     await page.waitForTimeout(400);
     assert.equal(await page.locator('.table-wrap').first().evaluate(el => getComputedStyle(el).backgroundColor), 'rgb(244, 241, 235)', 'Light surfaces match the supplied warm neutral reference');
     await page.screenshot({path:`${output}/${locale}-evidence-library-light.png`});
+    await progress(`${locale}: connected explorer`);
     await open(locale === 'tr' ? 'Bağlantılı GRC Haritası' : 'Connected GRC Map');
     await page.locator('.cg-records>button').first().waitFor();
     assert.equal(await page.locator('.cg-heading h2').evaluate(el=>getComputedStyle(el).fontSize),'18px','Compact desktop page heading');
@@ -109,6 +127,7 @@ try {
     assert.equal(await page.locator('.cg-records>button b').first().evaluate(el=>getComputedStyle(el).fontSize),'12px','Mobile record text remains readable');
     await page.screenshot({path:`${output}/${locale}-connected-mobile.png`});
     await page.setViewportSize({width:1536,height:960});
+    await progress(`${locale}: audit stability`);
     await open(locale === 'tr' ? 'Denetim Yönetimi' : 'Audit Management');
     await page.locator('.audit-readiness-gate').waitFor();
     await page.waitForTimeout(800);
@@ -126,6 +145,7 @@ try {
     assert.ok(stable.every(sample => sample.same), 'Audit panel must not remount while idle');
     assert.equal(new Set(stable.map(sample => `${sample.y}:${sample.height}`)).size, 1, 'Audit panel must not shift while idle');
     await page.screenshot({path:`${output}/${locale}-audit-desktop.png`});
+    await progress(`${locale}: evidence automation`);
     await open(locale === 'tr' ? 'Kanıt Otomasyonu' : 'Evidence Automation');
     const tabs = page.locator('.ea-tabs');
     assert.ok((await tabs.boundingBox()).y < 560, 'Evidence navigation remains in the first viewport');
@@ -156,10 +176,14 @@ try {
   assert.deepEqual(results.filter(r=>r.overflow>4), [], 'Every module fits desktop, tablet and mobile in both themes and languages');
   await fs.writeFile(`${output}/results.json`,JSON.stringify({results,errors},null,2));
 } catch (error) {
+  lastFailure = error.message;
+  console.error(`LAYOUT_QA_FAILURE: ${phase}; ${lastFailure}`);
   const pages = context.pages();
-  if (pages.length) await pages[pages.length-1].screenshot({path:`${output}/failure.png`}).catch(()=>{});
-  await fs.writeFile(`${output}/failure.json`,JSON.stringify({message:error.message,results},null,2));
+  if (pages.length) await pages[pages.length-1].screenshot({path:`${output}/failure.png`,timeout:5000}).catch(()=>{});
+  await fs.writeFile(`${output}/failure.json`,JSON.stringify({message:error.message,phase,results},null,2));
   throw error;
 } finally {
+  phase = `browser cleanup after ${phase}`;
   await browser.close();
+  clearTimeout(watchdog);
 }

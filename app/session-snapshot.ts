@@ -5,6 +5,16 @@ export type SessionSnapshot = {
   [key: string]: unknown;
 };
 
+// A successful identity recheck must not reload every workspace when the user
+// is exactly unchanged. Authentication flags and changed permissions stay fresh.
+export function preserveUnchangedSessionUser(previous: Partial<SessionSnapshot> | null, next: SessionSnapshot): SessionSnapshot {
+  if (previous?.authenticated && next.authenticated && previous.user && next.user
+    && JSON.stringify(previous.user) === JSON.stringify(next.user)) {
+    return { ...next, user: previous.user };
+  }
+  return next;
+}
+
 // Retry only the read-only identity probe, never login/bootstrap writes.
 export async function readSessionSnapshot(url: string, options: {
   signal: AbortSignal; fetcher?: typeof fetch; timeoutMs?: number;

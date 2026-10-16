@@ -1,0 +1,56 @@
+name: Isolated Layout Probe
+on:
+  pull_request:
+    paths:
+      - 'scripts/workspace-layout-qa.mjs'
+      - '.github/workflows/workspace-layout-probe.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: layout-probe-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  layout-probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.13.0
+          cache: npm
+      - run: npm ci
+      - run: npm install --no-save --ignore-scripts @playwright/test@1.55.0
+      - name: Use runner browser or install Chromium
+        shell: bash
+        run: |
+          if command -v google-chrome >/dev/null; then
+            echo "QA_CHROMIUM_PATH=$(command -v google-chrome)" >> "$GITHUB_ENV"
+          else
+            npx playwright install chromium
+          fi
+      - name: Generate isolated QA credentials
+        run: node scripts/prepare-local-qa.mjs
+      - name: Start isolated application
+        shell: bash
+        run: |
+          node -e 'require("fs").writeFileSync(".dev.vars", "FORNOST_SETTINGS_ENCRYPTION_KEY=" + require("crypto").randomBytes(32).toString("hex") + "\n")'
+          npm run dev -- --host 127.0.0.1 --port 4173 --strictPort > /tmp/layout-probe-runtime.log 2>&1 &
+          for attempt in $(seq 1 90); do
+            if curl --fail --silent http://127.0.0.1:4173/api/health >/dev/null; then break; fi
+            sleep 2
+          done
+          curl --fail --silent --show-error http://127.0.0.1:4173/api/auth \
+            -H 'Origin: http://127.0.0.1:4173' -H 'Content-Type: application/json' \
+            --data-binary @/tmp/fornost-qa-bootstrap.json
+      - name: Diagnose layout in a fresh database
+        timeout-minutes: 9
+        run: node scripts/workspace-layout-qa.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: isolated-layout-probe
+          path: layout-qa-artifacts/
+          if-no-files-found: warn
+          retention-days: 14

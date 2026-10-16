@@ -50,9 +50,9 @@ try {
   const observeAssurance = request => { if (isAssurance(request)) assuranceReads.push(request.url()); };
   const observeInitialFailure = request => { if (isAssurance(request)) initialFailures.push({ url: request.url(), error: request.failure()?.errorText }); };
   page.on('request', observeAssurance); page.on('requestfailed', observeInitialFailure);
-  let releaseRows, rowsHeld = false;
+  let releaseRows, rowsHeld = false, rowsReads = 0;
   const rowsGate = new Promise(resolve => { releaseRows = resolve; });
-  await page.route('**/api/grc', async route => { rowsHeld = true; await rowsGate; await route.continue(); });
+  await page.route('**/api/grc', async route => { rowsHeld = true; rowsReads++; await rowsGate; await route.continue(); });
   await page.goto(base, { waitUntil: 'domcontentloaded' });
   await expect(page.locator('.shell')).toBeVisible();
   await expect.poll(() => rowsHeld).toBe(true);
@@ -64,6 +64,28 @@ try {
   assert.ok(assuranceReads.some(url => url.endsWith('/api/executive-assurance')));
   assert.ok(assuranceReads.some(url => url.endsWith('/api/continuous-assurance/executive')));
   assert.deepEqual(initialFailures, [], 'Initial assurance reads complete without scope replacement aborts');
+  let releaseSnapshot, snapshotReads = 0;
+  const snapshotGate = new Promise(resolve => { releaseSnapshot = resolve; });
+  await page.route('**/api/executive-assurance', async route => { snapshotReads++; await snapshotGate; await route.continue(); });
+  await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+  await expect.poll(() => snapshotReads).toBe(1);
+  await page.evaluate(async () => {
+    window.dispatchEvent(new Event('focus'));
+    document.dispatchEvent(new Event('visibilitychange'));
+    // Let browser request/abort events cross to the test process while the
+    // response remains held; a duplicate refresh must not replace that read.
+    await new Promise(resolve => setTimeout(resolve, 200));
+  });
+  assert.equal(snapshotReads, 1, 'Concurrent focus/visibility refreshes share the pending read');
+  assert.deepEqual(initialFailures, [], 'Duplicate refresh signals do not abort the snapshot');
+  releaseSnapshot();
+  await waitForQaIdle(page);
+  await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+  await expect.poll(() => snapshotReads).toBe(2);
+  await waitForQaIdle(page);
+  assert.deepEqual(initialFailures, [], 'A later focus still refreshes after the prior read completes');
+  assert.equal(rowsReads, 1, 'Unchanged session checks preserve the loaded record scope');
+  await page.unroute('**/api/executive-assurance');
   page.off('request', observeAssurance); page.off('requestfailed', observeInitialFailure);
   await page.unroute('**/api/grc');
   // Traverse actual visible groups and controls. A hidden DOM click cannot pass this check.
@@ -285,7 +307,7 @@ try {
   await expect(portfolio.getByRole('heading', { name: 'AI Executive Overview', exact: true })).toBeVisible();
   await expect(portfolio).toContainText('No AI systems yet.');
   assert.deepEqual(pageErrors, []);
-  await fs.writeFile(`${out}/summary.json`, JSON.stringify({ navigation, dashboardInitialScope: true, delayedSave: true, immediateDelete: true, auditCreateRepairDelete: true, languages: ['tr','en'], viewports: [390,1536], pageErrors }, null, 2));
+  await fs.writeFile(`${out}/summary.json`, JSON.stringify({ navigation, dashboardInitialScope: true, assuranceRefreshCoalescing: true, delayedSave: true, immediateDelete: true, auditCreateRepairDelete: true, languages: ['tr','en'], viewports: [390,1536], pageErrors }, null, 2));
   console.log('FULL_BROWSER_REGRESSION_PASS: delayed dashboard scope, 54 visible menu visits, save-refresh race, immediate deletion, audit create/orphan repair/delete, TR/EN light/dark responsive layouts and localized incident form');
 } catch (error) {
   await page.screenshot({ path: `${out}/failure.png`, fullPage: true }).catch(() => {});
