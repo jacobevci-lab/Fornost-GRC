@@ -76,11 +76,16 @@ async function snap(page, name, fullPage = false) {
   return path.relative(outDir, file);
 }
 function observe(page) {
+  const requestStarts = new WeakMap();
+  page.on("request", req => requestStarts.set(req, { phase: page.qaPhase || "startup", at: Date.now() }));
   page.on("console", (msg) => {
     if (msg.type() === "error") uniquePush(report.runtime.consoleErrors, { url: page.url(), text: msg.text() });
   });
   page.on("pageerror", (err) => uniquePush(report.runtime.pageErrors, { url: page.url(), message: err.message }));
-  page.on("requestfailed", (req) => uniquePush(report.runtime.failedRequests, { url: req.url(), method: req.method(), error: req.failure()?.errorText || "unknown" }));
+  page.on("requestfailed", (req) => {
+    const start = requestStarts.get(req);
+    uniquePush(report.runtime.failedRequests, { url: req.url(), method: req.method(), error: req.failure()?.errorText || "unknown", startedIn: start?.phase, failedIn: page.qaPhase || "startup", elapsedMs: start ? Date.now() - start.at : null });
+  });
   page.on("response", (res) => {
     if (res.status() >= 400) uniquePush(report.runtime.httpErrors, { url: res.url(), status: res.status() });
   });
@@ -211,6 +216,7 @@ async function auditLocale(page, locale) {
 
   for (let i = 0; i < expected.length; i += 1) {
     const label = expected[i];
+    page.qaPhase = `${locale}:${label}`;
     const button = page.locator(`nav button[aria-label=${JSON.stringify(label)}]`).first();
     if (!(await button.count())) continue;
     try {
@@ -300,6 +306,7 @@ async function auditLocale(page, locale) {
 }
 
 async function auditSidebar(page) {
+  page.qaPhase = "sidebar";
   await setLocale(page, "tr");
   const collapse = page.getByRole("button", { name: /^(İkon menüsü|Icon navigation)$/i }).first();
   if (!(await collapse.count())) {
@@ -342,6 +349,7 @@ async function auditSidebar(page) {
 }
 
 async function auditTheme(page) {
+  page.qaPhase = "theme";
   await setLocale(page, "tr");
   await openQaModule(page, "Gösterge Paneli");
   await page.locator('.executive-dashboard-reference').waitFor({ state: "visible", timeout: 15_000 });
@@ -368,6 +376,7 @@ async function auditResponsive(browser) {
     for (const locale of ["tr", "en"]) {
       const context = await createQaContext(browser, baseUrl, accessHeaders, { viewport: { width: vp.width, height: vp.height }, colorScheme: "light" });
       const page = await context.newPage();
+      page.qaPhase = `responsive:${vp.name}:${locale}`;
       observe(page);
       try {
         await login(context);
@@ -400,9 +409,11 @@ async function apiAndHeaderAudit(browser) {
   }
   const unauth = await context.request.get(`${baseUrl}/api/grc`, { headers: { ...accessHeaders, origin: baseUrl } });
   if (![401, 403].includes(unauth.status())) finding("critical", "authz", "Unauthenticated /api/grc access was not rejected", `HTTP ${unauth.status()}`);
-  const health = await context.request.get(`${baseUrl}/api/health`, { headers: accessHeaders });
+  const health = await context.request.get(`${baseUrl}/api/health`, { headers: { ...accessHeaders, "cache-control": "no-cache" } });
   if (health.status() !== 200) finding("critical", "runtime", "/api/health failed", `HTTP ${health.status()}`);
   report.summary.healthStatus = health.status();
+  report.summary.health = await health.json().catch(() => null);
+  if (process.env.FORNOST_EXPECTED_REVISION && report.summary.health?.revision !== process.env.FORNOST_EXPECTED_REVISION) finding("critical", "runtime", "Production revision mismatch", `expected=${process.env.FORNOST_EXPECTED_REVISION}, actual=${report.summary.health?.revision || "missing"}`);
   await context.close();
 }
 
@@ -513,6 +524,7 @@ try {
   await auditSidebar(page);
   await auditTheme(page);
   await auditLocale(page, "en");
+  page.qaPhase = "desktop:close";
   await context.close();
   await auditResponsive(browser);
   await auditDashboardCustomization(browser);

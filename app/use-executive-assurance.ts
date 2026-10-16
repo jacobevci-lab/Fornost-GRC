@@ -15,8 +15,10 @@ export function useExecutiveAssurance(rows: AssuranceRow[]) {
     let active = true;
     let controller: AbortController | null = null;
     const load = async () => {
+      // Focus and visibility can arrive together. The pending read already
+      // refreshes this scope; do not cancel it for a duplicate refresh signal.
+      if (controller) return;
       const request = ++serial.current;
-      controller?.abort();
       const current = new AbortController();
       controller = current;
       const timeout = window.setTimeout(() => current.abort(), 15000);
@@ -27,7 +29,7 @@ export function useExecutiveAssurance(rows: AssuranceRow[]) {
         const snapshot = parseExecutiveAssuranceSnapshot(await response.json());
         if (active && request === serial.current) setResult({ scope: rows, snapshot });
       } catch { if (active && request === serial.current) setResult({ scope: rows, snapshot: null }); }
-      finally { window.clearTimeout(timeout); if (active && request === serial.current) setLoading(false); }
+      finally { window.clearTimeout(timeout); if (controller === current) controller = null; if (active && request === serial.current) setLoading(false); }
     };
     void load();
     const onFocus = () => { if (document.visibilityState === 'visible') void load(); };
