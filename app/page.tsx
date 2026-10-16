@@ -4383,6 +4383,7 @@ function AuditModule({
         remove={remove}
         openNew={openNew}
         canWrite={canWrite}
+        canDelete={canDeleteAudit}
       />
     </>
   );
@@ -4398,6 +4399,7 @@ function AuditRequirementsTable({
   remove,
   openNew,
   canWrite,
+  canDelete,
 }: {
   items: Row[];
   allItems: Row[];
@@ -4408,6 +4410,7 @@ function AuditRequirementsTable({
   remove: (id: string) => void;
   openNew: (seed?: Record<string, any>) => void;
   canWrite: boolean;
+  canDelete: boolean;
 }) {
   const tr = lang === "tr",
     [columns, setColumns] = useState(defaultRegisterColumnKeys("Denetim Yönetimi")),
@@ -4448,7 +4451,7 @@ function AuditRequirementsTable({
         <button type="button" disabled={!filtered.length} onClick={() => csvDownload("audit-filtered-requirements.csv", filtered, lang)}>{tr ? "Sonuçları indir" : "Export results"} ({filtered.length})</button>
       </div>
       <div className="table-wrap" tabIndex={0} role="region" aria-label={lang === "tr" ? "Kayıt tablosu" : "Record table"}>
-        {filtered.length ? <SmartRegister module="Denetim Yönetimi" rows={page.rows} lang={lang} edit={edit} remove={remove} canWrite={canWrite} columns={columns} /> : allItems.length ? <div className="audit-empty" role="status"><b>{tr ? "Arama veya filtrelerle eşleşen madde yok." : "No requirements match your search or filters."}</b><button type="button" className="ghost" onClick={clearFilters}>{tr ? "Arama ve filtreleri temizle" : "Clear search and filters"}</button></div> : <div className="audit-empty"><b>{tr ? "Bu şablon için otomatik madde bulunamadı." : "No automatic requirements are available for this template."}</b><p>{tr ? "Excel ile içe aktarabilir veya özel madde ekleyebilirsiniz." : "Import from Excel or add a custom item."}</p></div>}
+        {filtered.length ? <SmartRegister module="Denetim Yönetimi" rows={page.rows} lang={lang} edit={edit} remove={remove} canWrite={canWrite} canDelete={canDelete} columns={columns} /> : allItems.length ? <div className="audit-empty" role="status"><b>{tr ? "Arama veya filtrelerle eşleşen madde yok." : "No requirements match your search or filters."}</b><button type="button" className="ghost" onClick={clearFilters}>{tr ? "Arama ve filtreleri temizle" : "Clear search and filters"}</button></div> : <div className="audit-empty"><b>{tr ? "Bu şablon için otomatik madde bulunamadı." : "No automatic requirements are available for this template."}</b><p>{tr ? "Excel ile içe aktarabilir veya özel madde ekleyebilirsiniz." : "Import from Excel or add a custom item."}</p></div>}
       </div>
     </section>
   );

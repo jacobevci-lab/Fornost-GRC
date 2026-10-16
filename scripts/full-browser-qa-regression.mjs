@@ -116,7 +116,12 @@ try {
   const current = (await api('/api/grc')).rows.find(item => item.id === orphan.id);
   assert.equal(JSON.parse(current.data_json).auditName, auditName);
   await openModule('Audit Management'); await page.locator('.audit-card-open').filter({ hasText: auditName }).click();
-  await expect(page.getByRole('row').filter({ hasText: `${prefix} orphan` })).toBeVisible();
+  const requirementRow = page.getByRole('row').filter({ hasText: `${prefix} orphan` });
+  await expect(requirementRow).toBeVisible();
+  page.once('dialog', d => d.accept());
+  const requirementDeleted = page.waitForResponse(response => response.request().method() === 'DELETE' && response.url().includes(orphan.id));
+  await requirementRow.getByRole('button', { name: 'Delete', exact: true }).click();
+  assert.equal((await requirementDeleted).status(), 200); await expect(requirementRow).toHaveCount(0);
   await page.getByRole('button', { name: '← All audits', exact: true }).click();
   const auditCard = page.locator('.audit-card').filter({ hasText: auditName });
   page.once('dialog', d => d.accept()); await auditCard.getByRole('button', { name: 'Delete Audit', exact: true }).click(); await expect(auditCard).toHaveCount(0);
