@@ -36,7 +36,7 @@ try{
  for(const id of [ids.closed.toLowerCase(),ids.closed+'-10',"' OR 1=1 --"])assert.equal((await api(context,endpoint(id))).items.length,0);
  for(const path of [endpoint(''),endpoint(' padded'),endpoint('x'.repeat(121)),endpoint(ids.closed)+'&q=QA',endpoint(ids.closed)+'&filter=active',endpoint(ids.closed)+'&cursor=x',endpoint(ids.closed)+'&workItemId=other'])await api(context,path,'GET',undefined,400);
  const anonymous=await browser.newContext();await api(anonymous,endpoint(ids.closed),'GET',undefined,401);await anonymous.close();
- for(const [role,access,status] of [['Viewer',{mode:'full'},200],['Editor',{mode:'full'},200],['Editor',{mode:'scoped',modules:{'Bağlantılı GRC':'read','Kanıt Otomasyonu':'read'}},403]]){
+ for(const [role,access,status] of [['Viewer',{mode:'full'},200],['Editor',{mode:'full'},200],['Editor',{mode:'scoped',modules:{Kontroller:'read',Kanıtlar:'read'}},403]]){
   const email=`qa-focus-${role.toLowerCase()}-${status}@fornost.test`;
   await api(context,'/api/users','POST',{name:'QA Focus '+role,email,password:qaPassword(),role,moduleAccess:access},201);
   const actor=await browser.newContext();await api(actor,'/api/auth','POST',{action:'login',email,password:qaPassword()});
