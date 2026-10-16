@@ -25,6 +25,21 @@ async function openModule(label) {
   await expect(button).toBeVisible(); await button.click();
 }
 async function locale(value) { await page.locator('.language-switch:visible').getByRole('button', { name: value.toUpperCase(), exact: true }).click(); }
+async function verifyPinnedRegister(register, row, file) {
+  await expect(row).toBeVisible(); await register.scrollIntoViewIfNeeded();
+  await register.evaluate(node => { node.scrollLeft = node.scrollWidth; });
+  const bounds = await register.boundingBox(), identity = await row.locator('td').first().boundingBox(), actions = await row.locator('.row-actions-cell').boundingBox();
+  assert.ok(identity.x >= bounds.x - 1 && identity.x + identity.width < actions.x, 'Record identity stays visible without overlapping actions');
+  assert.ok(actions.x + actions.width <= bounds.x + bounds.width + 1, 'Record actions remain visible during horizontal scrolling');
+  for (const heading of [register.locator('thead th').first(), register.locator('.row-actions-heading')]) {
+    assert.equal(await heading.evaluate(node => {
+      const rect = node.getBoundingClientRect();
+      const visibleNode = document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2);
+      return visibleNode === node || node.contains(visibleNode);
+    }), true, 'Pinned identity/action headings remain unobscured by scrolled column headings');
+  }
+  await page.screenshot({ path: `${out}/${file}.png` });
+}
 try {
   await api('/api/auth', 'POST', { action: 'login', email: 'qa-admin@fornost.test', password: qaPassword() });
   await page.goto(base); await expect(page.locator('.shell')).toBeVisible();
@@ -87,24 +102,18 @@ try {
     await page.setViewportSize({ width: 1536, height: 960 });
   }
 
+  await locale('en'); await openModule('Risk Assessment');
+  for (const theme of ['light', 'dark']) {
+    if (await page.locator('html').getAttribute('data-theme') !== theme) await page.locator('.theme-toggle:visible').click();
+    await verifyPinnedRegister(page.locator('.table-card .table-wrap'), page.locator('.risk-table tbody tr').first(), `risk-register-pinned-${theme}`);
+  }
+
   // A PATCH may complete before the following GET: the edit must stay locked until the new version is visible.
   const asset = await api('/api/grc', 'POST', { module: 'Varlık Envanteri', data: { title: `${prefix} asset`, assetType: 'Uygulama', businessUnit: 'Bilgi Güvenliği', owner: 'QA', criticality: 'Düşük', status: 'Aktif' } }, 201);
   createdRecords.push(asset.id);
   await page.reload(); await expect(page.locator('.shell')).toBeVisible(); await locale('en'); await openModule('Asset Inventory');
   const row = page.getByRole('row').filter({ hasText: `${prefix} asset` }); await expect(row).toBeVisible();
-  const register = page.locator('.table-card .table-wrap');
-  await register.evaluate(node => { node.scrollLeft = node.scrollWidth; });
-  const bounds = await register.boundingBox(), identity = await row.locator('td').first().boundingBox(), actions = await row.locator('.row-actions-cell').boundingBox();
-  assert.ok(identity.x >= bounds.x - 1 && identity.x + identity.width < actions.x, 'Record identity stays visible without overlapping actions');
-  assert.ok(actions.x + actions.width <= bounds.x + bounds.width + 1, 'Record actions remain visible during horizontal scrolling');
-  for (const heading of [register.locator('thead th').first(), register.locator('.row-actions-heading')]) {
-    assert.equal(await heading.evaluate(node => {
-      const rect = node.getBoundingClientRect();
-      const visibleNode = document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2);
-      return visibleNode === node || node.contains(visibleNode);
-    }), true, 'Pinned identity/action headings remain unobscured by scrolled column headings');
-  }
-  await page.screenshot({ path: `${out}/register-identity-and-actions.png` });
+  await verifyPinnedRegister(page.locator('.table-card .table-wrap'), row, 'register-identity-and-actions');
   await row.getByRole('button', { name: 'Edit', exact: true }).click();
   const dialog = page.locator('.record-dialog'); await dialog.locator('[name=title]').fill(`${prefix} asset edited`);
   let release, delayed = 0; const gate = new Promise(resolve => { release = resolve; });
