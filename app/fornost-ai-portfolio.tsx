@@ -61,8 +61,9 @@ export default function FornostAiPortfolio({ lang = "tr" }: { lang?: "tr" | "en"
     } finally { if (current === request.current) setLoading(false); }
   }, []);
   useEffect(() => {
+    const generation = request;
     const timer = setTimeout(() => void load(), 0);
-    return () => { clearTimeout(timer); request.current++; };
+    return () => { clearTimeout(timer); generation.current++; };
   }, [load]);
   const selectedDossierModel = dossierModel || data?.portfolio[0]?.id || "";
   const loadPackages=useCallback(async(modelId:string)=>{if(!modelId){setSealedHistory([]);return;}const response=await fetch(withBasePath(`/api/ai/dossier?modelId=${encodeURIComponent(modelId)}&list=1`),{cache:"no-store"}),body=await response.json().catch(()=>({}));if(response.ok)setSealedHistory(body.packages||[]);},[]);

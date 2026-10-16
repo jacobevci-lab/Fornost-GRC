@@ -6011,7 +6011,7 @@ function SmartRegister({
           {cols.map((c) => (
             <ResizableTh key={c.key} columnKey={c.key} widths={widths}>{c[lang]}</ResizableTh>
           ))}
-          {canWrite && <th></th>}
+          {canWrite && <th className="row-actions-heading">{lang === "tr" ? "İşlemler" : "Actions"}</th>}
         </tr>
       </thead>
       <tbody>

@@ -84,14 +84,14 @@ try {
                 primaryActions: buttons.filter(node => node.classList.contains('primary')).length,
               };
             });
-            await page.screenshot({ path: `${out}/${id}.png`, fullPage: true });
+            await page.screenshot({ path: `${out}/${id}.png`, fullPage: true, animations: 'disabled' });
             assert.ok(result.dom.pageOverflow <= 2, `${label}: page overflow ${result.dom.pageOverflow}px`);
             assert.deepEqual(result.dom.invalidLinks, [], `${label}: invalid or unnamed links`);
             assert.deepEqual(result.dom.unnamedButtons, [], `${label}: unnamed controls`);
             result.passed = true;
           } catch (error) {
             result.error = error.message;
-            await page.screenshot({ path: `${out}/${id}-failure.png`, fullPage: true }).catch(() => {});
+            await page.screenshot({ path: `${out}/${id}-failure.png`, fullPage: true, animations: 'disabled' }).catch(() => {});
           } finally {
             const close = page.locator('#fornost-ai-panel .fornost-ai-head button[data-escape-close]');
             if (await close.isVisible().catch(() => false)) await close.click();
