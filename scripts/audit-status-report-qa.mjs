@@ -40,7 +40,18 @@ try{
   let plan=await api(admin,`/api/audits/plan?id=${auditId}`);plan=await api(admin,'/api/audits/plan','PUT',{id:auditId,expectedRevision:plan.revision,plan:{...plan.plan,scope:'Scope changed during preview'}});
   await panel.getByRole('button',{name:'Save report snapshot',exact:true}).click();await expect(panel.getByRole('alert')).toContainText('Report sources changed');
   await expect(panel.getByRole('button',{name:'Save report snapshot',exact:true})).toBeDisabled();
-  await panel.getByRole('button',{name:'Reload report preview',exact:true}).click();await expect(panel.getByLabel('Preparer summary',{exact:true})).toHaveValue(summary);
+  // Hold the replacement response: old preview controls must not accept input
+  // that would be discarded when its source-revision key changes.
+  let releaseReload;const reloadBarrier=new Promise(resolve=>{releaseReload=resolve;});
+  await page.route('**/api/audits/reports?**preview=1',async route=>{const response=await route.fetch();await reloadBarrier;await route.fulfill({response});});
+  await panel.getByRole('button',{name:'Reload report preview',exact:true}).click();
+  await expect(panel).toHaveAttribute('aria-busy','true');
+  await expect(panel.locator('.asr-preview .asr-source')).toHaveAttribute('inert','');
+  assert.equal(await panel.locator('.asr-preview .asr-items > summary').evaluate(node=>{node.focus();return document.activeElement===node;}),false,'Reloading preview does not accept keyboard focus on stale records');
+  await expect(panel.getByLabel('Preparer summary',{exact:true})).toBeDisabled();
+  releaseReload();await expect(panel).toHaveAttribute('aria-busy','false');await page.unroute('**/api/audits/reports?**preview=1');
+  await expect(panel.locator('.asr-preview .asr-source')).not.toHaveAttribute('inert','');
+  await expect(panel.getByLabel('Preparer summary',{exact:true})).toHaveValue(summary);
   await panel.locator('.asr-preview .asr-items > summary').click();await panel.getByLabel('Record type',{exact:true}).selectOption('requirement');
   await expect(panel.locator('.asr-items li')).toHaveCount(20);await panel.locator('.asr-items').getByRole('button',{name:'Next',exact:true}).click();await expect(panel.locator('.asr-items li')).toHaveCount(5);
   let release,posts=0,submitted;const barrier=new Promise(resolve=>{release=resolve;});

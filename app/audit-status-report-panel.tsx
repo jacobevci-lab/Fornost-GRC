@@ -66,7 +66,7 @@ export function AuditStatusReportPanel({auditId,lang}:{auditId:string;lang:strin
     }catch(e){if(sequence===generation.current)setError(e instanceof Error&&e.message==='integrity'?'integrity':'export');}
     finally{if(sequence===generation.current){pending.current=false;setBusy(false);}}
   }
-  return <section className="audit-status-report">
+  return <section className="audit-status-report" aria-busy={busy}>
     <button type="button" className="asr-toggle" aria-expanded={open} disabled={busy} onClick={()=>setOpen(v=>!v)}>{open?'▾':'▸'} {t('Denetim durum raporları','Audit status reports')}</button>
     {open&&<div className="asr-content">
       <p>{t('Kayıtlı planı, tüm maddeleri, talepleri ve doğrudan bağlı CAPA bulgularını aynı tarihli raporda saklayın. Sonraki değişiklikler önceki raporu değiştirmez. Rapor denetimi veya bulguları kapatmaz; otomatik denetim görüşü üretmez.','Save the recorded plan, all requirements, requests and directly linked CAPA findings in one dated report. Later changes do not alter earlier reports. Reports do not close audits or findings, or generate an audit opinion.')}</p>
@@ -74,7 +74,7 @@ export function AuditStatusReportPanel({auditId,lang}:{auditId:string;lang:strin
       <div className="asr-actions"><button disabled={busy} onClick={()=>void load()}>{source?t('Önizlemeyi yeniden yükle','Reload report preview'):t('Yeni raporu incele','Preview new report')}</button><button disabled={busy} onClick={()=>setRefresh(v=>v+1)}>{t('Rapor geçmişini yenile','Refresh report history')}</button></div>
       {busy&&<p role="status">{t('Rapor hazırlanıyor…','Preparing report…')}</p>}
       {error&&<p role="alert">{(messages[error]||messages.unavailable)[tr?0:1]}</p>}
-      {source&&<div className="asr-preview"><h4>{t('Yeni rapor önizlemesi','New report preview')}</h4><ReportSource source={source} tr={tr}/>
+      {source&&<div className="asr-preview"><h4>{t('Yeni rapor önizlemesi','New report preview')}</h4><div className="asr-source" inert={busy}><ReportSource source={source} tr={tr}/></div>
         <fieldset disabled={busy}><div className="asr-field"><label htmlFor={`${formId}-title`}>{t('Rapor başlığı','Report title')}</label><input id={`${formId}-title`} value={title} minLength={3} maxLength={200} onChange={e=>setTitle(e.target.value)}/></div><div className="asr-field"><label htmlFor={`${formId}-summary`}>{t('Hazırlayanın özeti','Preparer summary')}</label><textarea id={`${formId}-summary`} rows={3} minLength={10} maxLength={4000} value={summary} onChange={e=>setSummary(e.target.value)}/></div><div className="asr-field"><label htmlFor={`${formId}-limitations`}>{t('Kısıtlar ve notlar (isteğe bağlı)','Limitations and notes (optional)')}</label><textarea id={`${formId}-limitations`} rows={2} maxLength={4000} value={limitations} onChange={e=>setLimitations(e.target.value)}/></div></fieldset>
         <p>{t('Yalnız kaydedilmiş plan ve kayıtlar alınır. Açık talepler ve sonuçlanmamış maddeler raporda açıkça gösterilir.','Only saved plans and records are included. Outstanding requests and unfinished requirements remain visible in the report.')}</p>
         <button disabled={busy||!valid||title.trim().length<3||summary.trim().length<10} onClick={()=>void save()}>{t('Raporu sakla','Save report snapshot')}</button>
