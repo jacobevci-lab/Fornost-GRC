@@ -64,7 +64,7 @@ try{
   await panel.getByRole('button',{name:tr?'AI Envanteri':'AI Inventory',exact:true}).click();
   await expect(panel).toHaveAttribute('data-ai-view','models');
   assert.equal(await panel.locator('.ai-section-picker').getAttribute('open'),null);
-  await panel.locator('.ai-section-picker>summary').click();await panel.getByRole('button',{name:'AI Yönetim Özeti',exact:true}).click();
+  await panel.locator('.ai-section-picker>summary').click();await panel.getByRole('button',{name:tr?'AI Yönetim Özeti':'AI Executive Overview',exact:true}).click();
   await expect(page.locator('.fornost-ai-launcher')).toBeHidden();
   for(const theme of ['light','dark'])for(const width of [1536,390]){
    await page.evaluate(theme=>document.documentElement.dataset.theme=theme,theme);
