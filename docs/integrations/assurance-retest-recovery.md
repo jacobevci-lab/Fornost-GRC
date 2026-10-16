@@ -33,6 +33,16 @@ A failed control execution may already have opened the next automation finding c
 
 Results, refresh and request-new-test actions live in the existing queue. Connection errors show a retry message instead of an empty successful queue. Viewer users do not receive write actions; scoped users retain the existing closed API boundary. The maker's approval buttons are hidden, while server enforcement remains authoritative. Show more reaches the remaining rows in the server's bounded 500-item window rather than stopping permanently at 25.
 
+## Historical result and evidence navigation
+
+The result dialog reads the exact saved run, independently of the 100-row recent-run history or the current rule/source name. It displays the recorded status, time, source, trigger, duration and any error code for both template tests and custom checks. Historical results are explicitly distinguished from current control assurance.
+
+The API and UI validate the returned run identity, status, counters and bounded diagnostic records. A work item or history row also supplies its expected rule ID. Malformed stored diagnostics return an unavailable result; missing runs return a distinct not-found state. Refresh hides prior result and evidence actions, requests have a bounded deadline, and switching records cancels and isolates old requests.
+
+The evidence action uses the exact linked Evidence Library record ID. A deleted or wrong-module record is shown as missing without erasing the historical test. Availability does not imply current approval, integrity or freshness; those remain part of the evidence and assurance workflows. Viewing results never executes a collector, approves a work item or retries a test.
+
+`tests/control-run-record.test.ts` validates real assessment projections and SQLite historical lookup, corrupt diagnostics, identity mismatches and evidence states. `scripts/control-run-detail-qa.mjs` exercises the authenticated API and both result entry points, exact evidence navigation, role boundaries, delayed/mismatched/missing responses, and responsive TR/EN themes using isolated local fixtures.
+
 ## Verification
 
 `tests/assurance-retest-runtime.test.ts` uses real SQLite transactions, the actual collector orchestration with substituted HTTP, and production reconciliation. It covers success, error, failed/new cycles, reopening, concurrent workers, transaction rollback/retry, concurrent human edits, evidence deletion, malformed/missing/stale proof, approval ordering, newer risk/closure preservation, normal versus mandatory workflows, and retry eligibility.

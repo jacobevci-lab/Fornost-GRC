@@ -44,8 +44,8 @@ try{
  }
  await api(context,`${path}?runId=not-found`,'GET',undefined,404);
  // Explicit display fixture: no fake result is written into the application database.
- const run={id:'qa-template-fixture',ruleId:rule.id,ruleName:'Intune device compliance',sourceName:'QA Ready Intune',status:'fail',score:50,detail:'1/2 passed',createdAt:new Date().toISOString(),hasAssessment:true};
- const assessment={templateId:'intune-compliance',templateVersion:1,status:'fail',total:2,passed:1,failed:1,unknown:0,scope:'credential-visible',issues:[{id:'device-2',name:'QA Device 2',status:'fail',reason:'not-compliant'}],issuesTruncated:false};
+ const run={id:'qa-template-fixture',ruleId:rule.id,ruleName:'Intune device compliance',sourceName:'QA Ready Intune',status:'fail',score:50,detail:'1/2 passed',createdAt:new Date().toISOString(),hasAssessment:true,triggerType:'manual',durationMs:10,errorCode:null,evidenceId:null,evidenceState:'none'};
+ const assessment={templateId:'intune-compliance',templateVersion:1,status:'fail',total:2,passed:1,failed:1,unknown:0,score:50,evaluatedAt:run.createdAt,scope:'credential-visible',issues:[{id:'device-2',name:'QA Device 2',status:'fail',reason:'not-compliant'}],issuesTruncated:false};
  await page.route('**/api/evidence-automation',async route=>{if(route.request().method()!=='GET')return route.continue();const response=await route.fetch(),body=await response.json();body.runs=[run,...body.runs];await route.fulfill({response,json:body});});
  await page.route('**/api/evidence-automation?runId=qa-template-fixture',route=>route.fulfill({json:{run:{...run,assessment}}}));
  await page.reload();await expect(page.locator('.shell')).toBeVisible();await page.locator('.language-switch:visible').getByRole('button',{name:'EN',exact:true}).click();await page.locator('nav button[aria-label="Evidence Automation"]').evaluate(el=>el.click());
