@@ -6,7 +6,8 @@ import { parseAssuranceQueueCursor } from "../../assurance-queue-cursor";
 import { readAssuranceAttention } from "../../assurance-attention-register";
 import { parseAssuranceAssessment } from "../../assurance-queue-attention";
 import { parseAssuranceQueueFilter } from "../../assurance-queue-filter";
-import { readAssuranceQueue, readAssuranceSourceState } from "../../assurance-queue-register";
+import { readAssuranceQueue, readAssuranceWorkItem, readAssuranceSourceState } from "../../assurance-queue-register";
+import {parseAssuranceWorkId} from "../../assurance-work-focus";
 import { NextRequest, NextResponse } from "next/server";
 import { requireRole, type AppRole } from "../auth/security";
 import { clean } from "../integrations/security";
@@ -113,13 +114,17 @@ async function resolveRetestTargetControl(db:D1Database,findingId:string,mappedC
 export async function GET(req:NextRequest){
   const access=await requireRole(req,["Admin","Editor","Viewer"]);if(access.response)return access.response;
   const params=new URL(req.url).searchParams,cursor=params.get("cursor");
+  let workItemId:string|null;try{
+    workItemId=parseAssuranceWorkId(params.get("workItemId"));
+    if(workItemId&&(params.getAll("workItemId").length!==1||["cursor","q","lang","filter","at"].some(key=>params.has(key))))throw new Error('Mixed work scope.');
+  }catch{return json({error:"Invalid assurance work scope."},400);}
   let filter;try{filter=parseAssuranceQueueFilter(params.get("filter")??"all");}catch{return json({error:"Invalid assurance filter."},400);}
   let search;try{search=parseAssuranceQueueSearch(params.get("q")??"",params.get("lang")??"en");}catch{return json({error:"Invalid assurance search."},400);}
   if(cursor!==null){try{parseAssuranceQueueCursor(cursor);}catch{return json({error:"Invalid assurance cursor."},400);}}
   let assessment:Date|undefined;try{if(filter==="attention")assessment=parseAssuranceAssessment(params.get("at"),cursor!==null);}catch{return json({error:"Invalid or expired attention assessment. Refresh the queue."},400);}
   const env=await runtime();await ensureAssuranceWorkSchema(env.DB);await reconcileApprovedRetests(env.DB);
   const attentionResult=filter==="attention"?await readAssuranceAttention<WorkRow>(env.DB,assessment!,cursor??undefined,search):null;
-  const result=attentionResult??await readAssuranceQueue<WorkRow>(env.DB,cursor??undefined,search,filter);
+  const result=workItemId?await readAssuranceWorkItem<WorkRow>(env.DB,workItemId):attentionResult??await readAssuranceQueue<WorkRow>(env.DB,cursor??undefined,search,filter);
   const items=result.rows.map(row=>{
     const decision=parseData(row.decision_json);
     return {
@@ -131,7 +136,7 @@ export async function GET(req:NextRequest){
       retestOutcome:row.action==="control-retest"&&asObject(decision.retestOutcome).runId===row.result_ref?decision.retestOutcome as RetestOutcome:undefined,
     };
   });
-  return json({items,search,filter,...(attentionResult?{assessmentAt:attentionResult.assessmentAt,scanned:attentionResult.scanned}:{}),context:result.context,nextCursor:result.nextCursor,coverage:result.coverage,summary:assuranceQueueSummary(items)});
+  return json({items,search,filter,...(workItemId?{workItemId}:{}),...(attentionResult?{assessmentAt:attentionResult.assessmentAt,scanned:attentionResult.scanned}:{}),context:result.context,nextCursor:result.nextCursor,coverage:result.coverage,summary:assuranceQueueSummary(items)});
 }
 
 export async function POST(req:NextRequest){

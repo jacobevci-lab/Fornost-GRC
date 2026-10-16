@@ -2,16 +2,18 @@ import {missingAssuranceContextTable,type AssuranceSourceState} from "./assuranc
 import {assuranceQueueSearchExpression,type AssuranceQueueSearch} from "./assurance-queue-search";
 import {assuranceQueueCursor,parseAssuranceQueueCursor} from "./assurance-queue-cursor";
 import {parseAssuranceQueueFilter,assuranceQueueFilterStatuses,type AssuranceQueueFilter} from "./assurance-queue-filter";
+import {parseAssuranceWorkId} from "./assurance-work-focus";
 const sourceState=`CASE WHEN f.id IS NULL THEN 'missing-finding' WHEN r.id IS NULL THEN 'missing-rule' WHEN f.rule_id IS NOT w.rule_id THEN 'rule-mismatch' ELSE 'linked' END source_state`;
 export async function readAssuranceSourceState(db:D1Database,workItemId:string):Promise<AssuranceSourceState> {
  const row=await db.prepare(`SELECT ${sourceState} FROM continuous_assurance_work_items w LEFT JOIN evidence_automation_findings f ON f.id=w.finding_id LEFT JOIN evidence_automation_rules r ON r.id=w.rule_id WHERE w.id=?`).bind(workItemId).first<{source_state:AssuranceSourceState}>();
  return row?.source_state??'unavailable';
 }
-async function readRows<T>(db:D1Database,cursor?:string,search?:AssuranceQueueSearch,filter:AssuranceQueueFilter='all'){
+async function readRows<T>(db:D1Database,cursor?:string,search?:AssuranceQueueSearch,filter:AssuranceQueueFilter='all',workItemId?:string){
   const priority="CASE w.status WHEN 'pending-review' THEN 0 WHEN 'approved-awaiting-retest' THEN 1 WHEN 'failed-retest' THEN 2 WHEN 'retest-error' THEN 3 ELSE 4 END";
   const parts=cursor?parseAssuranceQueueCursor(cursor):null;
   let where=parts?`WHERE (${priority}>? OR (${priority}=? AND (COALESCE(w.updated_at,'')<? OR (COALESCE(w.updated_at,'')=? AND w.id>?))))`:'';
   const values=parts?[parts[0],parts[0],parts[1],parts[1],parts[2]]:[];
+  if(workItemId){where='WHERE w.id=?';values.push(workItemId);}
   if(search?.query){where+=`${parts?' AND':'WHERE'} instr(${assuranceQueueSearchExpression(search.lang)},?)>0`;values.push(search.query.toLocaleLowerCase(search.lang==='tr'?'tr-TR':'en-US'));}
   const statuses=assuranceQueueFilterStatuses(parseAssuranceQueueFilter(filter));
   if(statuses.length){where+=`${where?' AND ':'WHERE '}w.status IN (${statuses.map(()=>'?').join(',')})`;values.push(...statuses);}
@@ -31,6 +33,12 @@ async function readRows<T>(db:D1Database,cursor?:string,search?:AssuranceQueueSe
 }
 
 export const ASSURANCE_QUEUE_LIMIT = 500;
+export async function readAssuranceWorkItem<T>(db:D1Database,id:string) {
+  const workItemId=parseAssuranceWorkId(id);
+  if(!workItemId)throw new Error('Invalid assurance work ID.');
+  const result=await readRows<T>(db,undefined,undefined,'all',workItemId);
+  return {rows:result.results,nextCursor:null,context:result.context,coverage:{loaded:result.results.length,complete:true}};
+}
 export async function readAssuranceQueue<T>(db:D1Database,cursor?:string,search?:AssuranceQueueSearch,filter:AssuranceQueueFilter='all') {
   const result=await readRows<T>(db,cursor,search,filter);
   const rows=result.results.slice(0,ASSURANCE_QUEUE_LIMIT);

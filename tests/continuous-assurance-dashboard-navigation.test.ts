@@ -12,12 +12,12 @@ test("dashboard priorities preserve assurance work action context", () => {
   assert.match(builder, /kind: "work-item",\n      action: work\.action/);
 });
 
-test("dashboard deep-links control and automation finding priorities to their exact records", () => {
+test("dashboard deep-links controls, findings and governed work to their exact records", () => {
   assert.match(panel, /import \{ navigateToFornost \} from "\.\/navigation-focus"/);
   assert.match(panel, /source: "continuous-assurance-dashboard"/);
   assert.match(panel, /filter: \{ ruleRef: item\.ruleId \}/);
   assert.match(panel, /filter: \{ findingRef: item\.findingId \}/);
-  assert.match(panel, /item\.action === "control-retest"/);
+  assert.match(panel, /if \(item\.kind === "work-item"\) \{\s+const target=assuranceWorkNavigation\(item\);\s+if\(target\)navigateToFornost\(target\);\s+return;/);
 });
 
 test("dashboard record navigation remains available without a host module callback", () => {

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {DatabaseSync,type SQLInputValue} from 'node:sqlite';
-import {readAssuranceQueue,readAssuranceSourceState} from '../app/assurance-queue-register';
+import {readAssuranceQueue,readAssuranceWorkItem,readAssuranceSourceState} from '../app/assurance-queue-register';
 function fixture(){
  const sql=new DatabaseSync(':memory:');
  sql.exec(`CREATE TABLE continuous_assurance_work_items(id TEXT PRIMARY KEY,status TEXT,updated_at TEXT,finding_id TEXT,rule_id TEXT,result_ref TEXT);
@@ -11,6 +11,35 @@ function fixture(){
  const db={prepare(query:string){let values:SQLInputValue[]=[];return {bind(...args:SQLInputValue[]){values=args;return this;},async first(){return sql.prepare(query).get(...values)??null;},async all(){return {results:sql.prepare(query).all(...values)};}};}} as unknown as D1Database;
  return {sql,db};
 }
+test('exact work lookup bypasses list windows and preserves closed, case-sensitive and literal IDs',async()=>{
+ const {sql,db}=fixture();try{
+  const insert=sql.prepare('INSERT INTO continuous_assurance_work_items(id,status,updated_at) VALUES(?,?,?)');
+  for(let i=0;i<501;i++)insert.run(`FIRST-${i}`,'pending-review','2026-10-16');
+  for(const id of ['Z-CLOSED','Z-CLOSED-10',"' OR 1=1 --"])insert.run(id,'completed','2020-01-01');
+  assert.ok(!(await readAssuranceQueue<{id:string}>(db)).rows.some(row=>row.id==='Z-CLOSED'));
+  for(const id of ['Z-CLOSED',"' OR 1=1 --"]){
+   const result=await readAssuranceWorkItem<{id:string;status:string}>(db,id);
+   assert.deepEqual(result.rows.map(row=>row.id),[id]);assert.equal(result.rows[0].status,'completed');
+   assert.equal(result.nextCursor,null);assert.deepEqual(result.coverage,{loaded:1,complete:true});
+  }
+  for(const id of ['z-closed','Z-CLOSE','MISSING'])assert.deepEqual((await readAssuranceWorkItem(db,id)).coverage,{loaded:0,complete:true});
+  for(const id of ['', ' ', ' padded', 'x'.repeat(121),'bad\nID'])await assert.rejects(()=>readAssuranceWorkItem(db,id),/Invalid assurance work ID/);
+ }finally{sql.close();}
+});
+
+test('focused lookup keeps exact identity in degraded source modes and propagates outages',async()=>{
+ const {sql,db}=fixture();try{
+  sql.exec("INSERT INTO continuous_assurance_work_items(id,status) VALUES('W','rejected'),('W-10','completed');");
+  assert.equal((await readAssuranceWorkItem(db,'W')).context,'full');
+  sql.exec('DROP TABLE enterprise_findings');
+  const partial=await readAssuranceWorkItem<{id:string}>(db,'W');assert.equal(partial.context,'without-capa');assert.deepEqual(partial.rows.map(row=>row.id),['W']);
+  sql.exec('DROP TABLE evidence_automation_rules');
+  const reduced=await readAssuranceWorkItem<{id:string}>(db,'W');assert.equal(reduced.context,'work-only');assert.deepEqual(reduced.rows.map(row=>row.id),['W']);
+  assert.equal((await readAssuranceWorkItem(db,'absent')).rows.length,0);
+ }finally{sql.close();}
+ const broken={prepare(){return {bind(){return this;},async all(){throw new Error('database is locked');}};}} as unknown as D1Database;
+ await assert.rejects(()=>readAssuranceWorkItem(broken,'W'),/database is locked/);
+});
 test('queue distinguishes empty, exactly 500 and truncated 501 without returning the sentinel',async()=>{
  const {sql,db}=fixture();try{
   assert.deepEqual((await readAssuranceQueue(db)).coverage,{loaded:0,complete:true});
