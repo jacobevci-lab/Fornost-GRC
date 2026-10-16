@@ -50,9 +50,9 @@ try {
   const observeAssurance = request => { if (isAssurance(request)) assuranceReads.push(request.url()); };
   const observeInitialFailure = request => { if (isAssurance(request)) initialFailures.push({ url: request.url(), error: request.failure()?.errorText }); };
   page.on('request', observeAssurance); page.on('requestfailed', observeInitialFailure);
-  let releaseRows, rowsHeld = false;
+  let releaseRows, rowsHeld = false, rowsReads = 0;
   const rowsGate = new Promise(resolve => { releaseRows = resolve; });
-  await page.route('**/api/grc', async route => { rowsHeld = true; await rowsGate; await route.continue(); });
+  await page.route('**/api/grc', async route => { rowsHeld = true; rowsReads++; await rowsGate; await route.continue(); });
   await page.goto(base, { waitUntil: 'domcontentloaded' });
   await expect(page.locator('.shell')).toBeVisible();
   await expect.poll(() => rowsHeld).toBe(true);
@@ -84,6 +84,7 @@ try {
   await expect.poll(() => snapshotReads).toBe(2);
   await waitForQaIdle(page);
   assert.deepEqual(initialFailures, [], 'A later focus still refreshes after the prior read completes');
+  assert.equal(rowsReads, 1, 'Unchanged session checks preserve the loaded record scope');
   await page.unroute('**/api/executive-assurance');
   page.off('request', observeAssurance); page.off('requestfailed', observeInitialFailure);
   await page.unroute('**/api/grc');

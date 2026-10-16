@@ -5,7 +5,7 @@ import "./audit-requirement-page.css";
 import { submitLocalAuthentication, type LocalAuthInput } from "./local-auth-submit";
 import { CAPA_REPORT_MODULE, loadCapaReport, capaReportFailure, capaReportFailureMessage, type CapaReportFailure } from "./findings/reporting";
 import { pageSessionKey, restorePage, rememberPage } from "./page-session";
-import { readSessionSnapshot } from "./session-snapshot";
+import { readSessionSnapshot, preserveUnchangedSessionUser, type SessionSnapshot } from "./session-snapshot";
 import { getCatalogStatus } from "./framework-catalog-status";
 import { FrameworkCatalogNotice, type CatalogSnapshot } from "./framework-catalog-notice";
 import { AuditCatalogUpload } from "./audit-catalog-upload";
@@ -1146,7 +1146,7 @@ function AuthGate() {
     try {
       const j = await readSessionSnapshot(withBasePath("/api/auth"), { signal: controller.signal });
       if (id !== identityRequest.current.id) return;
-      setState(j);
+      setState((previous: Partial<SessionSnapshot> | null) => preserveUnchangedSessionUser(previous, j));
       setError("");
     } catch (e) {
       if (id !== identityRequest.current.id) return;
