@@ -51,6 +51,8 @@ jobs:
             --data-binary @/tmp/fornost-qa-bootstrap.json
       - name: Full visible navigation, record save race and audit orphan recovery QA
         run: node scripts/full-browser-qa-regression.mjs
+      - name: Findings workspace recovery and pagination
+        run: node scripts/findings-workspace-qa.mjs
       - name: Assurance execution consistency and conflict recovery QA
         run: node scripts/assurance-execution-qa.mjs
       - name: Concurrent cold and warm schema initialization QA
@@ -142,8 +144,6 @@ jobs:
         run: node scripts/exception-lifecycle-runtime-qa.mjs
       - name: Unified control assurance, record navigation and recovery QA
         run: node scripts/control-assurance-runtime-qa.mjs
-      - name: Findings workspace recovery and pagination
-        run: node scripts/findings-workspace-qa.mjs
       - name: Check module layouts and audit stability
         run: node scripts/workspace-layout-qa.mjs
       - name: Core CRUD, forms, continuity and governance lifecycle QA

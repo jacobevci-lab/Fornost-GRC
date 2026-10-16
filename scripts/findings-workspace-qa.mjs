@@ -1,5 +1,6 @@
 import {chromium,expect} from '@playwright/test';
 import assert from 'node:assert/strict';
+import AxeBuilder from '@axe-core/playwright';
 import {readFile} from 'node:fs/promises';
 import {qaPassword} from './qa-credentials.mjs';
 const base='http://127.0.0.1:4173';
@@ -70,9 +71,11 @@ try{
     const style=node=>({color:getComputedStyle(node).color,background:getComputedStyle(node).backgroundColor});
     return {severity:[...table.querySelectorAll('.finding-badge')].slice(0,3).map(style),status:[...table.querySelectorAll('.finding-state')].slice(0,4).map(style)};
    });
-   assert.equal(new Set(colors.severity.map(x=>x.background)).size,3,'High, critical and medium have distinct severity colors');
-   assert.equal(new Set(colors.status.map(x=>x.background)).size,4,'Open, closed, verification and accepted have distinct status colors');
+   assert.equal(new Set(colors.severity.map(x=>x.background)).size,3,`High, critical and medium have distinct severity colors (${theme}/${locale}): ${JSON.stringify(colors)}`);
+   assert.equal(new Set(colors.status.map(x=>x.background)).size,4,`Open, closed, verification and accepted have distinct status colors (${theme}/${locale}): ${JSON.stringify(colors)}`);
    if(locale==='en')englishColors=colors;else assert.deepEqual(colors,englishColors,'Translations preserve semantic colors');
+   const contrast=await new AxeBuilder({page}).include('.finding-table').withRules(['color-contrast']).analyze();
+   assert.deepEqual(contrast.violations,[],`CAPA badge contrast ${theme}/${locale}`);
   }
  }
  await page.locator('.language-switch:visible').getByRole('button',{name:'EN',exact:true}).click();
