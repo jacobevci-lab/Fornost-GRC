@@ -1,0 +1,31 @@
+name: One-time browser QA fixture cleanup 20261016
+on:
+  push:
+    branches: [qa/browser-fixture-cleanup-20261016]
+permissions:
+  contents: read
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      CF_ACCESS_CLIENT_ID: ${{ secrets.CF_ACCESS_CLIENT_ID }}
+      CF_ACCESS_CLIENT_SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
+      FORNOST_SMOKE_EMAIL: ${{ secrets.FORNOST_SMOKE_EMAIL }}
+      FORNOST_SMOKE_PASSWORD: ${{ secrets.FORNOST_SMOKE_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.13.0
+      - run: npm ci
+      - run: npm install --no-save --ignore-scripts @playwright/test@1.55.0
+      - name: Use runner Chromium
+        run: echo "QA_CHROMIUM_PATH=$(command -v google-chrome)" >> "$GITHUB_ENV"
+      - name: Delete only the exact five synthetic records from this browser session
+        run: node scripts/cleanup-browser-fixtures-20261016.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: browser-qa-cleanup-20261016
+          path: browser-cleanup-evidence/
