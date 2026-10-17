@@ -22,12 +22,19 @@ async function screenshot(name, locator) {
   await locator.scrollIntoViewIfNeeded();
   assert.ok(await locator.evaluate(node => node.scrollWidth <= node.clientWidth + 2), `${name}: workspace overflow`);
   assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 2), `${name}: page overflow`);
-  await page.screenshot({ path: `${out}/${name}.png`, fullPage: true }); checks.push(name);
+  const modal = await locator.evaluate(node => node.getAttribute('role') === 'dialog');
+  await page.screenshot({ path: `${out}/${name}.png`, fullPage: !modal }); checks.push(name);
 }
 async function visiblePdfWidth(frame) {
   // The fixture's teal page banner must span the preview, not disappear behind
   // the native viewer's retained thumbnail panel after a mobile resize.
-  const { data, info } = await sharp(await frame.screenshot()).removeAlpha().raw().toBuffer({ resolveWithObject: true });
+  const bounds = await frame.boundingBox(), viewport = page.viewportSize();
+  assert.ok(bounds && viewport);
+  const left = Math.max(0, Math.ceil(bounds.x)), top = Math.max(0, Math.ceil(bounds.y));
+  const width = Math.min(Math.floor(bounds.width), viewport.width - left), height = Math.min(Math.floor(bounds.height), viewport.height - top);
+  // Read the composited viewport that a user sees. Full-page captures resize the
+  // document under fixed dialogs and can clip native PDF plugin surfaces.
+  const { data, info } = await sharp(await page.screenshot({ fullPage: false })).extract({ left, top, width, height }).removeAlpha().raw().toBuffer({ resolveWithObject: true });
   let widest = 0;
   for (let y = 0; y < info.height; y++) {
     let count = 0;
