@@ -50,6 +50,7 @@ try{
  }
  await page.goto(base);await expect(page.locator('.shell')).toBeVisible();await page.locator('.language-switch:visible').getByRole('button',{name:'EN',exact:true}).click();
  await page.locator('nav button[aria-label="Audit Management"]').evaluate(el=>el.click());await page.locator('.audit-card-open').filter({hasText:name}).click();
+  await page.getByRole('tab',{name:'Assurance',exact:true}).click();
  const gate=page.locator('.audit-readiness-gate');await expect(gate.locator('.audit-readiness-state>span')).toHaveText('NOT READY');await gate.locator('.audit-readiness-metrics button').nth(4).click();
  await expect(gate.locator('.assurance-blocker')).toHaveCount(1);await gate.locator('.assurance-blocker').click();
  const panel=page.locator('.assurance-work-queue'),row=panel.locator('.assurance-work-list>article');

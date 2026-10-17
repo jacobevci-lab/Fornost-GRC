@@ -20,9 +20,9 @@ const messages: Record<string,[string,string]>={
   export:['Çıktı hazırlanamadı. PDF için desteklenmeyen karakterler olabilir; HTML veya CSV deneyin.','The export could not be prepared. PDF may contain unsupported characters; try HTML or CSV.'],
   unavailable:['İşlem sonucu doğrulanamadı. Geçmişi yenileyin veya aynı kaydı tekrar deneyin; çift rapor oluşturulmaz.','The outcome could not be confirmed. Refresh history or retry the same save; this will not create duplicate reports.'],
 };
-export function AuditStatusReportPanel({auditId,lang}:{auditId:string;lang:string}){
+export function AuditStatusReportPanel({auditId,lang,embedded=false}:{auditId:string;lang:string;embedded?:boolean}){
   const tr=lang!=='en',t=(a:string,b:string)=>tr?a:b,formId=useId();
-  const [open,setOpen]=useState(false),[history,setHistory]=useState<{reports:AuditReportListItem[];complete:boolean}|null>(null);
+  const [open,setOpen]=useState(embedded),[history,setHistory]=useState<{reports:AuditReportListItem[];complete:boolean}|null>(null);
   const [source,setSource]=useState<AuditReportSource|null>(null),[detail,setDetail]=useState<AuditReportDetail|null>(null);
   const [title,setTitle]=useState(''),[summary,setSummary]=useState(''),[limitations,setLimitations]=useState('');
   const [error,setError]=useState(''),[historyError,setHistoryError]=useState(false),[busy,setBusy]=useState(false),[valid,setValid]=useState(false);
@@ -67,7 +67,7 @@ export function AuditStatusReportPanel({auditId,lang}:{auditId:string;lang:strin
     finally{if(sequence===generation.current){pending.current=false;setBusy(false);}}
   }
   return <section className="audit-status-report" aria-busy={busy}>
-    <button type="button" className="asr-toggle" aria-expanded={open} disabled={busy} onClick={()=>setOpen(v=>!v)}>{open?'▾':'▸'} {t('Denetim durum raporları','Audit status reports')}</button>
+    {embedded ? <h3>{t("Denetim durum raporları","Audit status reports")}</h3> : <button type="button" className="asr-toggle" aria-expanded={open} disabled={busy} onClick={()=>setOpen(v=>!v)}>{open?'▾':'▸'} {t('Denetim durum raporları','Audit status reports')}</button>}
     {open&&<div className="asr-content">
       <p>{t('Kayıtlı planı, tüm maddeleri, talepleri ve doğrudan bağlı CAPA bulgularını aynı tarihli raporda saklayın. Sonraki değişiklikler önceki raporu değiştirmez. Rapor denetimi veya bulguları kapatmaz; otomatik denetim görüşü üretmez.','Save the recorded plan, all requirements, requests and directly linked CAPA findings in one dated report. Later changes do not alter earlier reports. Reports do not close audits or findings, or generate an audit opinion.')}</p>
       <p className="asr-scope">{t('Bulgu kapsamı: kaynak türü “denetim” ve kaynak referansı bu denetimin kimliği ya da maddelerinden birinin kimliği/koduyla tam eşleşir. Serbest metin veya ortak kontrol referansları eşleştirilmez. Kanıt dosyaları ve canlı hazırlık skoru rapora eklenmez.','Finding scope: source type “audit” and source reference exactly matching this audit ID or one of its requirement IDs/codes. Free text and shared control references are not matched. File bytes and live readiness scores are excluded.')}</p>

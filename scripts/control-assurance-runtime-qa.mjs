@@ -58,6 +58,7 @@ try {
   const detail = workspace.locator('.control-assurance-drilldown'); await expect(detail).toBeVisible();
   await expect(detail.locator('.control-impact-lens')).toContainText('1 risks');
   const evidenceStage = detail.locator('.control-assurance-stage').filter({ has: page.locator('summary').filter({ hasText: /^Evidence7$/ }) });
+  await detail.getByRole('tab',{name:/^Evidence/}).click();
   await evidenceStage.locator('summary').click(); await expect(evidenceStage.locator('.control-assurance-stage-records>article')).toHaveCount(7);
   await expect(evidenceStage.locator('small').filter({ hasText: 'Current evidence' })).toHaveCount(5);
   await expect(evidenceStage.locator('small').filter({ hasText: 'Eligibility not established' })).toHaveCount(2);
