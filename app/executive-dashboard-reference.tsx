@@ -191,7 +191,7 @@ export default function ExecutiveAssurancePanel({
     },
     {
       value: overdueAudits,
-      label: tr ? "Geciken denetim" : "Overdue audits",
+      label: tr ? "Geciken denetim maddesi" : "Overdue audit requirements",
       detail: tr ? "Kanıt ve aksiyon tarihlerini gözden geçir" : "Review evidence and action dates",
       module: "Denetim Yönetimi",
       tone: "warning",
@@ -207,7 +207,7 @@ export default function ExecutiveAssurancePanel({
 
   const recordDecisions = [
     ...scoredRisks.filter(item => item.score >= 10 && !isClosed(item.row.data.status)).sort((a, b) => b.score - a.score).map(({ row, score }) => ({ row, tone: score >= 17 ? "critical" : "warning", type: tr ? "Risk" : "Risk", reason: tr ? "Yüksek risk maruziyeti" : "High risk exposure" })),
-    ...overdueAuditRows.map(row => ({ row, tone: "warning", type: tr ? "Denetim" : "Audit", reason: tr ? "Hedef tarihi geçti" : "Past due date" })),
+    ...overdueAuditRows.map(row => ({ row, tone: "warning", type: tr ? "Denetim maddesi" : "Audit requirement", reason: tr ? "Hedef tarihi geçti" : "Past due date" })),
     ...findings.filter(row => !isClosed(row.data.status)).map(row => ({ row, tone: "warning", type: tr ? "Bulgu" : "Finding", reason: tr ? "İyileştirme bekliyor" : "Remediation pending" })),
     ...compliance.filter(row => !["uyumlu", "compliant", "implemented", "uygulandı", "onaylandı", "approved"].includes(normalized(row.data.status || row.data.implementation))).map(row => ({ row, tone: "neutral", type: tr ? "Uyum" : "Compliance", reason: tr ? "Uyum açığı" : "Compliance gap" })),
   ].slice(0, 4);
@@ -253,7 +253,7 @@ export default function ExecutiveAssurancePanel({
           <div className="audit-remediation-metrics">
             <div><strong>{confidencePercent(assurance.auditScore, assurance.totalAudits)}</strong><span>{evidenceState.ready ? assurance.readyAudits : "—"}/{assurance.totalAudits} {tr ? "hazır denetim" : "ready audits"}</span><MiniBar value={evidenceState.ready && assurance.totalAudits ? assurance.auditScore ?? 0 : 0} /></div>
             <button type="button" onClick={() => go("Bulgular ve CAPA")}><span>{tr ? "Açık bulgu" : "Open findings"}</span><b>{openFindings}</b></button>
-            <button type="button" onClick={() => go("Denetim Yönetimi")}><span>{tr ? "Geciken denetim" : "Overdue audits"}</span><b>{overdueAudits}</b></button>
+            <button type="button" onClick={() => go("Denetim Yönetimi")}><span>{tr ? "Geciken denetim maddesi" : "Overdue audit requirements"}</span><b>{overdueAudits}</b></button>
           </div>
         </article>)
   };

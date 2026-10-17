@@ -84,12 +84,13 @@ html[data-theme] body :where(.fornost-ai-panel,.ai-model-inventory,.ai-complianc
 :where(.fornost-ai-panel,.ai-model-inventory,.ai-compliance,.ai-lifecycle,.ai-incidents,.ai-evidence-vault,.ai-risk-center,.ai-vendor-assurance,.ai-access-governance,.ai-release-gate,.ai-impact-center,.ai-resilience,.ai-datasets,.ai-regulatory,.ai-literacy,.ai-supply,.ai-red-team,.ai-transparency,.ai-assurance,.ai-alerts,.ai-portfolio,.ai-exceptions,.ai-decommission,.ai-findings,.ai-data-protection) :where(.fornost-ai-draft-form,.fornost-ai-draft-list>article,.fornost-ai-agent-form,.fornost-ai-agent-runs>article,.fornost-ai-agent-findings section,.fornost-ai-knowledge-form,.fornost-ai-knowledge-list>article,.fornost-ai-knowledge-search,.fornost-ai-knowledge-detail,.fornost-ai-batch,.fornost-ai-knowledge-filters,.fornost-ai-knowledge-bulkbar){border-color:var(--ws-line)!important;background:var(--ws-surface-2)!important;background-image:none!important;color:var(--ws-ink)!important}
 
 /* Dialogs are centred in the usable workspace, not beneath the desktop rail. */
-.shell>.overlay{z-index:120!important}
-.shell.sidebar-expanded>.overlay{padding-left:316px!important}
-.shell.sidebar-compact>.overlay{padding-left:108px!important}
-.shell.sidebar-hidden>.overlay{padding-left:20px!important}
+.shell .overlay{z-index:120!important}
+.shell .overlay>.modal{max-width:100%;box-sizing:border-box}
+.shell.sidebar-expanded .overlay{padding-left:316px!important}
+.shell.sidebar-compact .overlay{padding-left:108px!important}
+.shell.sidebar-hidden .overlay{padding-left:20px!important}
 
-@media(max-width:900px){.shell.sidebar-expanded>.overlay,.shell.sidebar-compact>.overlay,.shell.sidebar-hidden>.overlay{padding-left:20px!important}.module-head{align-items:flex-start!important}}
+@media(max-width:900px){.shell.sidebar-expanded .overlay,.shell.sidebar-compact .overlay,.shell.sidebar-hidden .overlay{padding-left:20px!important}.module-head{align-items:flex-start!important}}
 @media(max-width:620px){.audit-kpis,.audit-detail-kpis{grid-template-columns:1fr 1fr!important}}
 
 /* Dark-mode accent guardrail -------------------------------------------------------
@@ -186,3 +187,19 @@ html:not([data-theme="dark"]) .assurance-scheduler-status :is(span,small){color:
 /* AI sections are a horizontal chooser, never a second application sidebar. */
 .fornost-ai-panel .fornost-ai-tabs{display:flex!important;flex-direction:row!important;flex-wrap:nowrap!important;align-items:center!important;gap:6px!important;min-height:52px!important;max-height:64px!important;width:100%!important;min-width:0!important;margin:0!important;overflow-x:auto!important;overflow-y:hidden!important}
 .fornost-ai-panel .fornost-ai-tabs button{width:auto!important;min-height:32px!important;flex:0 0 auto!important;padding:6px 10px!important}
+
+/* Browser QA: metric values must remain distinct from the compact body-text floor.
+ * Scope to numerals only; tables, navigation and descriptive copy retain their density. */
+html[data-theme] body .shell>main :is(
+  .module-overview>div>article>strong,.mw2-metrics strong,.work-metrics strong,
+  .rap-metrics b,.continuity-kpis strong,.plm-metrics b,.tprm-metrics b,.ri-metrics b,
+  .incident-kpis strong,.finding-kpis strong,.connected-kpis b,
+  .audit-kpis article>b,.audit-detail-kpis article>b,.report-summary .kpi>b,
+  .attention-breakdown strong,.ai-portfolio .stats>article>b
+){font-size:24px!important;line-height:1.15!important;font-variant-numeric:tabular-nums;letter-spacing:-.025em}
+html[data-theme] body .shell>main .evidence-assurance-copy>strong{font-size:12px!important}
+
+/* Counters and paging controls must not stretch with the form-field grid. */
+html[data-theme] body .shell>main .incident-toolbar>span{white-space:nowrap;flex:0 0 auto}
+html[data-theme] body .shell>main .finding-pagination{display:flex;flex-wrap:wrap}
+html[data-theme] body .shell>main .finding-pagination button{width:auto;min-width:80px;flex:0 0 auto}

@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {readFileSync} from 'node:fs';
 import {PDFDocument} from 'pdf-lib';
-import {buildReportHtml,buildReportPdf,buildReportCsv,reportMetrics,type ReportRecord} from '../app/report-export';
+import {buildReportHtml,buildReportPdf,buildReportCsv,reportMetrics,reportSnapshot,hasReportValue,type ReportRecord} from '../app/report-export';
 const options={reportId:'FR-TEST',generatedAt:'2026-10-06T11:00:00.000Z',preparedBy:'reviewer@example.test',classification:'Gizli',scope:'Filtered scope',filters:[{label:'Owner',value:'QA'}]};
 const fontBytes=new Uint8Array(readFileSync('public/fonts/FornostReportSans.ttf'));
 test('risk reports use the application methodology and exclude unknown assessments from averages',()=>{
@@ -36,4 +36,17 @@ test('PDF handles oversized rows without discarding their trailing content',asyn
  const rows=[{id:'LONG',module:'BIA',data:{process:'Uzun açıklama '.repeat(700)+'SON-KAYIT',owner:'QA'}}];
  const blob=await buildReportPdf('Long report',[],rows,true,{...options,fontBytes,template:'detailed'});
  const pdf=await PDFDocument.load(await blob.arrayBuffer());assert.ok(pdf.getPageCount()>3);
+});
+
+test('legacy placeholders do not claim ownership or complete report quality',()=>{
+ const missing=[undefined,null,'','   ','Atanmadı',' ATANMADI ','Atanmamış','UNASSIGNED','Not assigned','Belirtilmedi','—','-','N/A'];
+ for(const value of missing)assert.equal(hasReportValue(value),false,String(value));
+ const rows:ReportRecord[]=[...missing.map(owner=>({module:'Denetim Yönetimi',data:{owner,businessUnit:owner,status:owner}})),{module:'Varlık Envanteri',data:{owner:'IAM Ekibi',businessUnit:'Bilgi Güvenliği',status:'Aktif'}}];
+ for(const tr of [true,false]){
+  assert.equal(reportMetrics('all',rows,tr)[2].value,1);
+  const snapshot=reportSnapshot('Quality',rows,reportMetrics('all',rows,tr),tr,options);
+  assert.deepEqual(snapshot.quality.map(item=>item.missing),[missing.length,missing.length,missing.length]);
+ }
+ assert.equal(hasReportValue('Yakup Evci'),true);
+ assert.equal(hasReportValue('unassigned@example.test'),true,'Do not exclude a real address containing the word');
 });

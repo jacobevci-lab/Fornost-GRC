@@ -423,7 +423,7 @@ export default function MyWorkV2() {
       {loadError && <p className="mw2-load-error" role="alert">{tr ? "İş listesi tamamen doğrulanamadı. Kaynak hatası, eksik veri veya okuma sınırı olabilir; dışa aktarma kapalı. Yenile ile tekrar deneyin." : "The complete work list could not be verified. A source failed, data is malformed or a read limit was reached; export is disabled. Use Refresh to retry."}</p>}
       <header className="mw2-hero">
         <div>
-          <small>{tr ? "AKSİYON INBOX" : "ACTION INBOX"}</small>
+          <small>{tr ? "AKSİYON MERKEZİ" : "ACTION INBOX"}</small>
           <h2>{tr ? "Bugün neye müdahale etmeliyim?" : "What needs my attention today?"}</h2>
           <p>{tr ? "Risk, kontrol, kanıt, denetim ve iyileştirme sorumluluklarını termin ve önem derecesine göre tek kuyrukta gör." : "See risk, control, evidence, audit and remediation responsibilities in one queue, ordered by due date and materiality."}</p>
         </div>
@@ -440,7 +440,7 @@ export default function MyWorkV2() {
       <div className="mw2-metrics">
         <button type="button" className={data.overdue ? "critical" : ""} onClick={() => setFilter("overdue")}><small>{tr ? "Geciken" : "Overdue"}</small><strong>{data.overdue}</strong><span>{tr ? "Termin geçmiş işler" : "Past-due work"}</span></button>
         <button type="button" className={data.priority ? "warning" : ""} onClick={() => setFilter("priority")}><small>{tr ? "Dikkat gerekiyor" : "Needs attention"}</small><strong>{data.priority}</strong><span>{tr ? "Kritik, 7 gün içinde veya değerlendirme bekliyor" : "Critical, due within 7 days or awaiting assessment"}</span></button>
-        <button type="button" className={data.waiting ? "muted" : ""} onClick={() => setFilter("waiting")}><small>{tr ? "Başkalarında bekleyen" : "Waiting for others"}</small><strong>{data.waiting}</strong><span>{tr ? "Reviewer / onay bekleyen" : "Reviewer / approval pending"}</span></button>
+        <button type="button" className={data.waiting ? "muted" : ""} onClick={() => setFilter("waiting")}><small>{tr ? "Başkalarında bekleyen" : "Waiting for others"}</small><strong>{data.waiting}</strong><span>{tr ? "İnceleme / onay bekleyen" : "Reviewer / approval pending"}</span></button>
         <button type="button" onClick={() => setFilter("completed")}><small>{tr ? "30 günde tamamlanan" : "Completed in 30 days"}</small><strong>{data.completedItems.length}</strong><span>{tr ? "Yakın zamanda kapanan işler" : "Recently closed work"}</span></button>
       </div>
 
@@ -448,7 +448,7 @@ export default function MyWorkV2() {
 
       <section className="mw2-queue">
         <header>
-          <div><small>{tr ? "KİŞİSEL İŞ KUYRUĞU" : "PERSONAL WORK QUEUE"}</small><h3>{scope === "organization" ? (tr ? "Organizasyon aksiyonları" : "Organization actions") : (tr ? "Bana atanmış işler" : "Work assigned to me")}</h3></div>
+          <div><small>{scope === "organization" ? (tr ? "KURUMSAL İŞ KUYRUĞU" : "ORGANIZATION WORK QUEUE") : (tr ? "KİŞİSEL İŞ KUYRUĞU" : "PERSONAL WORK QUEUE")}</small><h3>{scope === "organization" ? (tr ? "Organizasyon aksiyonları" : "Organization actions") : (tr ? "Bana atanmış işler" : "Work assigned to me")}</h3></div>
           <div className="mw2-meta"><b>{data.items.length}</b><span>{tr ? "açık iş" : "open items"}</span><i>·</i><b>{data.modules}</b><span>{tr ? "modül" : "modules"}</span></div>
         </header>
         <div className="mw2-toolbar">

@@ -16,6 +16,7 @@ import * as continuity from '../../app/continuity/domain';
 import * as policy from '../../app/policy-lifecycle/domain';
 import * as vendor from '../../app/third-party-risk/domain';
 import * as risk from '../../app/risk-appetite/domain';
+import * as riskMethodology from '../../app/risk-methodology';
 import * as regulatory from '../../app/regulatory-intelligence/domain';
 import {safeHttpUrl} from '../../app/api/integrations/security';
 // Execute actual route handlers and SQL against transactional SQLite; substitute only platform/auth adapters.
@@ -46,6 +47,7 @@ export function fixture(module:'incidents'|'continuity'|'policy-lifecycle'|'thir
   if(name==='../../policy-lifecycle/domain')return policy;
   if(name==='../../third-party-risk/domain')return vendor;
   if(name==='../../risk-appetite/domain')return risk;
+  if(name==='../../risk-methodology')return riskMethodology;
   if(name==='../../regulatory-intelligence/domain')return regulatory;
   if(name==='../../findings/domain')return findingDomain;
   if(name==='../../findings/intake-store')return findingIntake;
