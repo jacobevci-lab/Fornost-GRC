@@ -53,6 +53,11 @@ jobs:
         run: node scripts/full-browser-qa-regression.mjs
       - name: Research workspaces, contextual evidence preview and tab navigation QA
         run: node scripts/research-workspace-qa.mjs
+      - name: Publish focused workspace screenshots for early visual review
+        uses: actions/upload-artifact@v4
+        with:
+          name: research-workspace-preview
+          path: research-workspace-qa-artifacts/
 
       - name: Visual hierarchy, work filters and vendor recovery QA
         run: node scripts/visual-workspace-qa.mjs

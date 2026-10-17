@@ -62,7 +62,7 @@ function DocumentPreview({fileKey,fileName,title,lang,demoImage}: DocumentProps)
         : state === 'loading' ? <div className="ev-document-message" role="status"><span className="ev-loading-mark"/><p>{tr ? 'Dosya hazırlanıyor…' : 'Preparing the document…'}</p></div>
         : state === 'error' ? <div className="ev-document-message" role="alert"><b>{tr ? 'Önizleme yüklenemedi' : 'Preview unavailable'}</b><p>{tr ? 'Dosya erişimini yeniden deneyin. Bu durum kanıtın kabul edildiği anlamına gelmez.' : 'Retry access to the file. This does not establish evidence acceptance.'}</p><button type="button" onClick={() => { setPreview(null); setState('loading'); setRetry(value => value + 1); }}>{tr ? 'Tekrar dene' : 'Retry preview'}</button></div>
         : state === 'unsupported' ? <div className="ev-document-message"><b>{tr ? 'Dosyayı kendi uygulamasında inceleyin' : 'Review in its native application'}</b><p>{tr ? 'Bu dosya türü için tarayıcı önizlemesi yok. Orijinal dosyayı indirerek inceleyebilirsiniz.' : 'Browser preview is unavailable for this format. Download the original file to review it.'}</p><a href={download}>{tr ? 'Orijinal dosyayı indir' : 'Download original'}</a></div>
-        : preview?.type === 'application/pdf' ? <iframe src={preview.url} title={title}/>
+        : preview?.type === 'application/pdf' ? <iframe src={`${preview.url}#navpanes=0&view=FitH`} title={title}/>
         : preview?.url ? <img src={preview.url} alt={title}/>
         : preview ? <div className="ev-text-preview">{preview.truncated && <p role="status">{tr ? 'İlk 120.000 karakter gösteriliyor. Tam içerik için dosyayı indirin.' : 'Showing the first 120,000 characters. Download for the complete content.'}</p>}<pre>{preview.text}</pre></div> : null}
     </div>

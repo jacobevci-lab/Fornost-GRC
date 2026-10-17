@@ -3,6 +3,7 @@ import { chromium, expect } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
 import assert from 'node:assert/strict';
+import sharp from 'sharp';
 import { mkdir, writeFile } from 'node:fs/promises';
 
 const base = 'http://127.0.0.1:4173', out = 'research-workspace-qa-artifacts';
@@ -22,6 +23,21 @@ async function screenshot(name, locator) {
   assert.ok(await locator.evaluate(node => node.scrollWidth <= node.clientWidth + 2), `${name}: workspace overflow`);
   assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 2), `${name}: page overflow`);
   await page.screenshot({ path: `${out}/${name}.png`, fullPage: true }); checks.push(name);
+}
+async function visiblePdfWidth(frame) {
+  // The fixture's teal page banner must span the preview, not disappear behind
+  // the native viewer's retained thumbnail panel after a mobile resize.
+  const { data, info } = await sharp(await frame.screenshot()).removeAlpha().raw().toBuffer({ resolveWithObject: true });
+  let widest = 0;
+  for (let y = 0; y < info.height; y++) {
+    let count = 0;
+    for (let x = 0; x < info.width; x++) {
+      const i = (y * info.width + x) * info.channels;
+      if (data[i] < 25 && data[i+1] > 65 && data[i+1] < 105 && data[i+2] > 60 && data[i+2] < 105) count++;
+    }
+    widest = Math.max(widest, count);
+  }
+  return widest / info.width;
 }
 try {
   await mkdir(out, { recursive: true });
@@ -122,7 +138,7 @@ try {
     await page.locator('.evidence-link').filter({hasText:title}).click();const dialog=page.getByRole('dialog',{name:'Evidence preview',exact:true});
     if(index===0){await expect(dialog.locator('.ev-document-stage iframe')).toBeVisible();assert.match(await dialog.locator('iframe').getAttribute('src'),/^blob:/);}
     else{await expect(dialog.getByRole('alert')).toContainText('Preview unavailable');await page.unroute('**/api/evidence?key=*');await dialog.getByRole('button',{name:'Retry preview',exact:true}).click();checks.push('preview failure and retry recovery');await expect(dialog.locator('.ev-text-preview pre')).toContainText('<script>alert(1)</script>');await expect(dialog.locator('.ev-text-preview script')).toHaveCount(0);}
-    for(const theme of ['light','dark'])for(const width of [1536,390]){await page.evaluate(theme=>{document.documentElement.dataset.theme=theme},theme);await page.setViewportSize({width,height:960});await dialog.locator('.ev-document').scrollIntoViewIfNeeded();await expect(dialog.locator('.ev-document>header')).toBeInViewport();if(width===390){const documentBox=await dialog.locator('.ev-document').boundingBox(),contextBox=await dialog.locator('.ev-review-context').boundingBox();assert.ok(contextBox.y>=documentBox.y+documentBox.height-2,`mobile file and context never overlap: ${JSON.stringify({documentBox,contextBox})}`);}await screenshot(`evidence-${index}-${theme}-${width}`,dialog);assert.ok(await dialog.getByRole('button',{name:'Close',exact:true}).evaluate(el=>{const r=el.getBoundingClientRect();return el.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2));}),'preview close stays above navigation');const contextA11y=await new AxeBuilder({page}).include('.ev-review-context').analyze();assert.deepEqual(contextA11y.violations.map(v=>v.id),[]);}
+    for(const theme of ['light','dark'])for(const width of [1536,390]){await page.evaluate(theme=>{document.documentElement.dataset.theme=theme},theme);await page.setViewportSize({width,height:960});await dialog.locator('.ev-document').scrollIntoViewIfNeeded();await expect(dialog.locator('.ev-document>header')).toBeInViewport();if(width===390){const documentBox=await dialog.locator('.ev-document').boundingBox(),contextBox=await dialog.locator('.ev-review-context').boundingBox();assert.ok(contextBox.y>=documentBox.y+documentBox.height-2,`mobile file and context never overlap: ${JSON.stringify({documentBox,contextBox})}`);}if(index===0){await expect.poll(()=>visiblePdfWidth(dialog.locator('iframe')),{timeout:10000,message:'PDF page content spans the preview after resize'}).toBeGreaterThan(0.5);await dialog.locator('.ev-document').scrollIntoViewIfNeeded();checks.push(`PDF readable ${theme} ${width}`);}await screenshot(`evidence-${index}-${theme}-${width}`,dialog);assert.ok(await dialog.getByRole('button',{name:'Close',exact:true}).evaluate(el=>{const r=el.getBoundingClientRect();return el.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2));}),'preview close stays above navigation');const contextA11y=await new AxeBuilder({page}).include('.ev-review-context').analyze();assert.deepEqual(contextA11y.violations.map(v=>v.id),[]);}
     await dialog.getByRole('button',{name:'Close',exact:true}).click();await page.setViewportSize({width:1536,height:960});
   }
   assert.deepEqual(errors,[]);await writeFile(`${out}/summary.json`,JSON.stringify({passed:true,checks,pageErrors:errors,accessibilityViolations:a11y.violations.length},null,2));
