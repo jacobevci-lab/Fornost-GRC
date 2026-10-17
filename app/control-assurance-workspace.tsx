@@ -17,6 +17,7 @@ const reference = (row: AssuranceRow) => text(row.code || row.data.controlRef ||
 
 export default function ControlAssuranceWorkspace({ rows, lang, go }: { rows: AssuranceRow[]; lang: 'tr' | 'en'; go: (module: string) => void }) {
   const tr = lang === 'tr';
+  const implementationLabel = (value: unknown) => { const label = text(value); return !label ? '—' : tr ? label : ({ 'Uygulanıyor': 'Implemented', 'Kısmi': 'Partially implemented', 'Uygulama Hazırlığında': 'Implementation planned', 'Uygulanmıyor': 'Not implemented', 'Uygulanamaz': 'Not applicable' } as Record<string, string>)[label] || label; };
   const [snapshot, setSnapshot] = useState<ControlAssuranceSnapshot | null>(null);
   const [loading, setLoading] = useState(true), [error, setError] = useState(false);
   const [selectedId, setSelectedId] = useState(''), [search, setSearch] = useState('');
@@ -107,7 +108,7 @@ export default function ControlAssuranceWorkspace({ rows, lang, go }: { rows: As
       <div className="fw-control-reason"><div><h5>{tr ? 'Şu anda neden ilgi gerekiyor?' : 'What needs attention now?'}</h5><p>{reliable ? reasonLabel(detail.item.reasons[0] || '') || (tr ? 'Engelleyici sinyal bulunmadı.' : 'No blocking signal found.') : (tr ? 'Güncel kaynaklar doğrulanamadı. Önce güvence değerlendirmesini yenileyin.' : 'Current sources are unverified. Refresh the assurance evaluation first.')}</p></div><span className={`assurance-state ${reliable ? detail.item.state : 'unverified'}`}>{stateLabel(reliable ? detail.item.state : 'unverified')}</span></div>
       <div className="fw-control-facts">
         <div><small>{tr ? 'Kontrol sahibi' : 'Control owner'}</small><b>{detail.item.owner || '—'}</b></div>
-        <div><small>{tr ? 'Uygulama durumu' : 'Implementation status'}</small><b>{text(detail.item.control.data.status) || '—'}</b></div>
+        <div><small>{tr ? 'Uygulama durumu' : 'Implementation status'}</small><b>{implementationLabel(detail.item.control.data.implementation)}</b></div>
         <div><small>{tr ? 'Güncel kanıt' : 'Current evidence'}</small><b>{reliable ? `${detail.item.currentEvidenceCount} / ${detail.item.evidenceCount}` : '—'}</b></div>
         <div><small>{tr ? 'Sonraki test' : 'Next test'}</small><b>{detail.test.nextTestDate || '—'}</b></div>
       </div>

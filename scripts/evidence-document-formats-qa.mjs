@@ -96,8 +96,8 @@ try {
   const row = page.locator('tr').filter({ has: page.getByRole('button', { name: savedRow.record_code, exact: true }) });
   await row.getByRole('button', { name: savedRow.record_code, exact: true }).click();
   const preview = page.getByRole('dialog', { name: 'Evidence preview', exact: true });
-  await expect(preview).toContainText('This file is available to download'); assert.equal(await preview.locator('img,iframe').count(), 0);
-  await expect(preview.getByRole('link', { name: 'Download original', exact: true })).toHaveAttribute('href', /\/api\/evidence\?key=/);
+  await expect(preview.locator('.ev-text-preview pre')).toHaveText('account,reviewed\nqa,true'); assert.equal(await preview.locator('img,iframe').count(), 0);
+  await expect(preview.getByRole('link', { name: /Download/ })).toHaveAttribute('href', /\/api\/evidence\?key=/);
   await page.keyboard.press('Escape'); await expect(preview).toBeHidden();
   await page.locator('nav button[aria-label="Evidence Automation"]').evaluate(el => el.click());
   await page.locator('.ea-tabs').getByRole('button', { name: 'Evidence History', exact: true }).click();

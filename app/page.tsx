@@ -5886,7 +5886,7 @@ function EvidencePreview({
             <small>{tr ? "KANIT BAĞLAMI" : "EVIDENCE CONTEXT"}</small>
             <h3>{tr ? "Dosyayı bağlamıyla değerlendirin" : "Review the file in context"}</h3>
             <dl>{[
-              [tr ? "Kayıt durumu" : "Record status", d.status],
+              [tr ? "Kayıt durumu" : "Record status", display(d.status, lang)],
               [tr ? "Kanıt dönemi" : "Evidence period", d.period],
               [tr ? "Sorumlu" : "Owner", d.owner],
               [tr ? "İnceleyen" : "Reviewer", d.reviewer],

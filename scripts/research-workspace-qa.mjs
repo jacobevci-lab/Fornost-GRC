@@ -65,6 +65,7 @@ try {
   const workspace = page.locator('.fw-audit-workspace');
   await expect(workspace.getByRole('tab', { name: 'Overview', exact: true })).toHaveAttribute('aria-selected', 'true');
   await expect(workspace.locator('.fw-progress-value>strong')).toHaveText('25%');
+  assert.ok(await workspace.locator('.fw-progress-value>strong').evaluate(el=>parseFloat(getComputedStyle(el).fontSize)>=32),'metric hierarchy');
   await workspace.getByRole('tab', { name: 'Overview', exact: true }).press('ArrowRight');
   await expect(workspace.getByRole('tab', { name: 'Requests and review', exact: true })).toBeFocused();
   await workspace.getByRole('tab', { name: 'Requests and review', exact: true }).press('Home');
@@ -91,19 +92,20 @@ try {
   if(!(await disclosure.evaluate(el=>el.open)))await disclosure.locator(':scope > summary').click();
   await controlWorkspace.getByLabel('View',{exact:true}).selectOption('all');await controlWorkspace.getByLabel('Search controls').fill(controlRef);
   await controlWorkspace.getByRole('button',{name:`Review ${controlRef}`,exact:true}).click();
-  const detail=controlWorkspace.locator('.control-assurance-drilldown');await expect(detail.locator('.fw-control-reason')).toBeVisible();
+  const detail=controlWorkspace.locator('.control-assurance-drilldown');await expect(detail.locator('.fw-control-reason')).toBeVisible();await expect(detail.locator('.fw-control-facts')).toContainText('Implemented');
   await screenshot('control-workspace-desktop',controlWorkspace);
   await detail.getByRole('tab',{name:/^Evidence/}).click();await expect(detail.getByRole('tabpanel')).toHaveCount(1);
   await page.setViewportSize({width:390,height:960});await screenshot('control-workspace-mobile',detail);
   await page.setViewportSize({width:1536,height:960});await module('Evidence Library');
   for(const [index,title] of titles.entries()){
+    if(index===1)await page.route('**/api/evidence?key=*',route=>route.fulfill({status:503,contentType:'application/json',body:'{\"error\":\"QA unavailable\"}'}));
     await page.locator('.evidence-link').filter({hasText:title}).click();const dialog=page.getByRole('dialog',{name:'Evidence preview',exact:true});
     if(index===0){await expect(dialog.locator('.ev-document-stage iframe')).toBeVisible();assert.match(await dialog.locator('iframe').getAttribute('src'),/^blob:/);}
-    else{await expect(dialog.locator('.ev-text-preview pre')).toContainText('<script>alert(1)</script>');await expect(dialog.locator('.ev-text-preview script')).toHaveCount(0);}
-    for(const width of [1536,390]){await page.setViewportSize({width,height:960});await screenshot(`evidence-${index}-${width}`,dialog);}
+    else{await expect(dialog.getByRole('alert')).toContainText('Preview unavailable');await page.unroute('**/api/evidence?key=*');await dialog.getByRole('button',{name:'Retry preview',exact:true}).click();checks.push('preview failure and retry recovery');await expect(dialog.locator('.ev-text-preview pre')).toContainText('<script>alert(1)</script>');await expect(dialog.locator('.ev-text-preview script')).toHaveCount(0);}
+    for(const theme of ['light','dark'])for(const width of [1536,390]){await page.evaluate(theme=>{document.documentElement.dataset.theme=theme},theme);await page.setViewportSize({width,height:960});await screenshot(`evidence-${index}-${theme}-${width}`,dialog);assert.ok(await dialog.getByRole('button',{name:'Close',exact:true}).evaluate(el=>{const r=el.getBoundingClientRect();return el.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2));}),'preview close stays above navigation');const contextA11y=await new AxeBuilder({page}).include('.ev-review-context').analyze();assert.deepEqual(contextA11y.violations.map(v=>v.id),[]);}
     await dialog.getByRole('button',{name:'Close',exact:true}).click();await page.setViewportSize({width:1536,height:960});
   }
   assert.deepEqual(errors,[]);await writeFile(`${out}/summary.json`,JSON.stringify({passed:true,checks,pageErrors:errors,accessibilityViolations:a11y.violations.length},null,2));
   console.log('RESEARCH_WORKSPACE_QA_PASS',checks.length);
-}catch(error){await page.screenshot({path:`${out}/failure.png`,fullPage:true}).catch(()=>{});throw error;}
+}catch(error){await writeFile(`${out}/failure.json`,JSON.stringify({message:String(error),stack:error.stack,checks,pageErrors:errors},null,2));await page.screenshot({path:`${out}/failure.png`,fullPage:true}).catch(()=>{});throw error;}
 finally{for(const id of records)await api(`/api/grc?id=${encodeURIComponent(id)}`,'DELETE');if(auditId)await api(`/api/audits?id=${auditId}`,'DELETE');await browser.close();}
