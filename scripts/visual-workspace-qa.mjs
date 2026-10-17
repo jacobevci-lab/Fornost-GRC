@@ -15,9 +15,10 @@ page.on('pageerror', error => errors.push(error.message));
 async function open(label) {
   const moduleButton = page.locator(`nav button[aria-label=${JSON.stringify(label)}]`);
   // Expand the actual navigation group before clicking a visible module.
-  if (!await moduleButton.isVisible()) {
-    await moduleButton.locator('xpath=ancestor::div[contains(@class,"nav-group")]/preceding-sibling::button').click();
-  }
+  const groupTrigger = moduleButton.locator('xpath=../preceding-sibling::button');
+  await expect(groupTrigger).toBeVisible();
+  if (await groupTrigger.getAttribute('aria-expanded') !== 'true') await groupTrigger.click();
+  await expect(moduleButton).toBeVisible();
   await moduleButton.click();
 }
 const metricSize = locator => expect.poll(async () => locator.first().evaluate(el => parseFloat(getComputedStyle(el).fontSize))).toBeGreaterThanOrEqual(22);

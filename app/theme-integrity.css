@@ -194,7 +194,7 @@ html[data-theme] body .shell>main :is(
   .rap-metrics b,.continuity-kpis strong,.plm-metrics b,.tprm-metrics b,.ri-metrics b,
   .incident-kpis strong,.finding-kpis strong,.connected-kpis b,
   .audit-kpis article>b,.audit-detail-kpis article>b,.report-summary .kpi>b,
-  .attention-breakdown strong
+  .attention-breakdown strong,.ai-portfolio .stats>article>b
 ){font-size:24px!important;line-height:1.15!important;font-variant-numeric:tabular-nums;letter-spacing:-.025em}
 html[data-theme] body .shell>main .evidence-assurance-copy>strong{font-size:12px!important}
 

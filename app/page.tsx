@@ -87,7 +87,7 @@ import "./workspace-simplicity.css";
 import "./record-dialog.css";
 import {useRecordDialog} from "./use-record-dialog";
 import AiWorkspaceHost from "./ai-workspace-host";
-import { buildReportHtml, buildReportPdf, buildReportCsv, reportTitleOf, downloadBlob, reportMetrics, type ReportOptions } from "./report-export";
+import { buildReportHtml, buildReportPdf, buildReportCsv, reportTitleOf, downloadBlob, reportMetrics, hasReportValue, type ReportOptions } from "./report-export";
 
 type Lang = "tr" | "en";
 type Row = {
@@ -3346,15 +3346,15 @@ function Reports({ rows: coreRows, lang, go, preparedBy, includeCapa }: { rows: 
   const qualitySignals = [
     {
       label: tr ? "Sahiplik kapsamı" : "Ownership coverage",
-      value: filtered.length ? Math.round((filtered.filter((r) => r.data.owner).length / filtered.length) * 100) : 0,
+      value: filtered.length ? Math.round((filtered.filter((r) => hasReportValue(r.data.owner)).length / filtered.length) * 100) : 0,
     },
     {
       label: tr ? "İş birimi kapsamı" : "Business unit coverage",
-      value: filtered.length ? Math.round((filtered.filter((r) => r.data.businessUnit).length / filtered.length) * 100) : 0,
+      value: filtered.length ? Math.round((filtered.filter((r) => hasReportValue(r.data.businessUnit)).length / filtered.length) * 100) : 0,
     },
     {
       label: tr ? "Durum kapsamı" : "Status coverage",
-      value: filtered.length ? Math.round((filtered.filter((r) => r.data.status).length / filtered.length) * 100) : 0,
+      value: filtered.length ? Math.round((filtered.filter((r) => hasReportValue(r.data.status)).length / filtered.length) * 100) : 0,
     },
   ];
   const lastUpdated = filtered
