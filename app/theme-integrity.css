@@ -84,12 +84,13 @@ html[data-theme] body :where(.fornost-ai-panel,.ai-model-inventory,.ai-complianc
 :where(.fornost-ai-panel,.ai-model-inventory,.ai-compliance,.ai-lifecycle,.ai-incidents,.ai-evidence-vault,.ai-risk-center,.ai-vendor-assurance,.ai-access-governance,.ai-release-gate,.ai-impact-center,.ai-resilience,.ai-datasets,.ai-regulatory,.ai-literacy,.ai-supply,.ai-red-team,.ai-transparency,.ai-assurance,.ai-alerts,.ai-portfolio,.ai-exceptions,.ai-decommission,.ai-findings,.ai-data-protection) :where(.fornost-ai-draft-form,.fornost-ai-draft-list>article,.fornost-ai-agent-form,.fornost-ai-agent-runs>article,.fornost-ai-agent-findings section,.fornost-ai-knowledge-form,.fornost-ai-knowledge-list>article,.fornost-ai-knowledge-search,.fornost-ai-knowledge-detail,.fornost-ai-batch,.fornost-ai-knowledge-filters,.fornost-ai-knowledge-bulkbar){border-color:var(--ws-line)!important;background:var(--ws-surface-2)!important;background-image:none!important;color:var(--ws-ink)!important}
 
 /* Dialogs are centred in the usable workspace, not beneath the desktop rail. */
-.shell>.overlay{z-index:120!important}
-.shell.sidebar-expanded>.overlay{padding-left:316px!important}
-.shell.sidebar-compact>.overlay{padding-left:108px!important}
-.shell.sidebar-hidden>.overlay{padding-left:20px!important}
+.shell .overlay{z-index:120!important}
+.shell .overlay>.modal{max-width:100%;box-sizing:border-box}
+.shell.sidebar-expanded .overlay{padding-left:316px!important}
+.shell.sidebar-compact .overlay{padding-left:108px!important}
+.shell.sidebar-hidden .overlay{padding-left:20px!important}
 
-@media(max-width:900px){.shell.sidebar-expanded>.overlay,.shell.sidebar-compact>.overlay,.shell.sidebar-hidden>.overlay{padding-left:20px!important}.module-head{align-items:flex-start!important}}
+@media(max-width:900px){.shell.sidebar-expanded .overlay,.shell.sidebar-compact .overlay,.shell.sidebar-hidden .overlay{padding-left:20px!important}.module-head{align-items:flex-start!important}}
 @media(max-width:620px){.audit-kpis,.audit-detail-kpis{grid-template-columns:1fr 1fr!important}}
 
 /* Dark-mode accent guardrail -------------------------------------------------------

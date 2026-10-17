@@ -65,6 +65,34 @@ try {
     checks.push(`${locale}: metrics, work scope and responsive filters`);
   }
   await page.locator('.language-switch:visible').getByRole('button', { name: 'EN', exact: true }).click();
+  await open('Risk Appetite & KRI');
+  await expect(page.locator('.rap-grid>section').nth(1).locator('h3')).toHaveText('Inherent risk overview');
+  const riskContext=await (await context.request.get(base+'/api/risk-appetite')).json();
+  await expect(page.locator('.rap-grid>section').nth(1).locator('header>span')).toHaveText(String(riskContext.linkedRisks.length));
+  await page.locator('.rap-hero').getByRole('button',{name:'+ Risk Appetite',exact:true}).click();
+  const kriDialog=page.getByRole('dialog',{name:'Risk appetite and KRI definition'});
+  await expect(kriDialog).toBeVisible();
+  for(const width of [1365,768,390]){
+    await page.setViewportSize({width,height:935});
+    await expect.poll(async()=>kriDialog.evaluate(el=>{const r=el.getBoundingClientRect();return r.left>=0&&r.right<=innerWidth})).toBe(true);
+    const box=await kriDialog.boundingBox();
+    if(width===1365){const rail=await page.locator('.shell>aside').boundingBox();assert.ok(box.x>=rail.x+rail.width,'Nested module form is fully outside the desktop rail')}
+    assert.equal(await kriDialog.evaluate(el=>{const r=el.getBoundingClientRect(),target=document.elementFromPoint(r.left+8,r.top+40);return !!target&&el.contains(target)}),true,'Dialog content stays above navigation');
+    await page.screenshot({path:`${out}/kri-dialog-${width}.png`});
+  }
+  await kriDialog.getByRole('button',{name:'Cancel',exact:true}).click();
+  await page.setViewportSize({width:1365,height:935});
+  checks.push('KRI overview count and nested modal visibility at three widths');
+  await open('System Settings');
+  const settingsTabs = page.locator('.settings-subnav>button');
+  await expect(settingsTabs).toHaveCount(3);
+  assert.equal(new Set(await settingsTabs.evaluateAll(es=>es.map(e=>e.getBoundingClientRect().y))).size,1,'Settings sections share a compact horizontal rail');
+  await page.route('**/api/ai/status',route=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({configured:false,enabled:false,operatingState:'ready',operatingMessage:'',capabilities:{chat:true}})}));
+  await open('AI Settings');
+  await expect(page.locator('.ai-control-summary article').first()).toContainText('Access policy');
+  await expect(page.locator('.ai-control-summary article').first().locator('b')).toHaveText('Allowed');
+  await expect(page.locator('.ai-control-summary article').first()).toContainText('does not verify provider connectivity');
+  checks.push('Settings navigation geometry and accurate AI policy status');
   let vendorMode = 'failure';
   await page.route('**/api/third-party-risk', route => vendorMode === 'failure'
     ? route.fulfill({ status: 503, contentType: 'application/json', body: '{"error":"Synthetic source failure"}' })
