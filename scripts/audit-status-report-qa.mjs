@@ -32,7 +32,7 @@ try{
   preview=await api(admin,endpoint+'&preview=1');assert.equal(preview.items.filter(i=>i.kind==='finding').length,2);
   await page.goto(base);await expect(page.locator('.shell')).toBeVisible();await page.locator('.language-switch:visible').getByRole('button',{name:'EN',exact:true}).click();
   await page.locator('nav button[aria-label="Audit Management"]').evaluate(el=>el.click());await page.locator('.audit-card-open').filter({hasText:name}).click();
-  const panel=page.locator('.audit-status-report');await panel.getByRole('button',{name:'Audit status reports',exact:false}).click();
+  await page.getByRole('tab',{name:'Reports',exact:true}).click();const panel=page.locator('.audit-status-report');
   await panel.getByRole('button',{name:'Preview new report',exact:true}).click();await expect(panel.locator('.asr-preview')).toContainText('25 requirements');
   const reportTitle='İstanbul kontrol değerlendirmesi',summary='The assessment remains open. <script>window.reportInjected=true</script> All findings retain their owners.';
   await panel.getByLabel('Report title',{exact:true}).fill(reportTitle);await panel.getByLabel('Preparer summary',{exact:true}).fill(summary);
@@ -81,7 +81,7 @@ try{
   let releasePreview;const previewBarrier=new Promise(resolve=>{releasePreview=resolve;});
   await page.route('**/api/audits/reports?**preview=1',async route=>{const response=await route.fetch();await previewBarrier;await route.fulfill({response}).catch(()=>{});});
   await panel.getByRole('button',{name:'Preview new report',exact:true}).click();await page.locator('.audit-back').click();await page.locator('.audit-card-open').filter({hasText:otherName}).click();releasePreview();await page.unroute('**/api/audits/reports?**preview=1');
-  await panel.getByRole('button',{name:'Audit status reports',exact:false}).click();await expect(panel.locator('.asr-preview,.asr-saved')).toHaveCount(0);
+  await page.getByRole('tab',{name:'Reports',exact:true}).click();await expect(panel.locator('.asr-preview,.asr-saved')).toHaveCount(0);
   assert.deepEqual(errors,[]);console.log('AUDIT_STATUS_REPORT_QA_PASS: exact linked scope, paginated preview, saved-plan conflict, retained narrative, duplicate guard, immutable source snapshots, SHA-256 exports, Admin boundary, HTML/PDF/CSV, stale navigation and TR/EN responsive themes');
 }catch(error){console.error('AUDIT_STATUS_REPORT_QA_FAILED',error.message);await page.screenshot({path:`${directory}/failure.png`,fullPage:true}).catch(()=>{});throw error;}
 finally{for(const id of audits)await api(admin,`/api/audits?id=${id}`,'DELETE');for(const id of accounts)await api(admin,'/api/users','PATCH',{id,role:'Editor',status:'Disabled'});await browser.close();}
