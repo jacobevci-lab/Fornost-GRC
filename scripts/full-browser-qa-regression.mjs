@@ -274,6 +274,7 @@ try {
   const current = (await api('/api/grc')).rows.find(item => item.id === orphan.id);
   assert.equal(JSON.parse(current.data_json).auditName, auditName);
   await openModule('Audit Management'); await page.locator('.audit-card-open').filter({ hasText: auditName }).click();
+  await page.getByRole('tab',{name:/^Requirements and tests/}).click();
   const requirementRow = page.getByRole('row').filter({ hasText: `${prefix} orphan` });
   await expect(requirementRow).toBeVisible();
   page.once('dialog', d => d.accept());

@@ -14,7 +14,7 @@ permissions:
 jobs:
   layout:
     runs-on: ubuntu-latest
-    timeout-minutes: 35
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -51,6 +51,9 @@ jobs:
             --data-binary @/tmp/fornost-qa-bootstrap.json
       - name: Full visible navigation, record save race and audit orphan recovery QA
         run: node scripts/full-browser-qa-regression.mjs
+      - name: Research workspaces, contextual evidence preview and tab navigation QA
+        run: node scripts/research-workspace-qa.mjs
+
       - name: Visual hierarchy, work filters and vendor recovery QA
         run: node scripts/visual-workspace-qa.mjs
       - name: Findings workspace recovery and pagination
@@ -178,6 +181,7 @@ jobs:
           name: workspace-layout-qa
           path: |
             visual-workspace-qa-artifacts/
+            research-workspace-qa-artifacts/
             findings-workspace-qa-artifacts/
             record-dialog-qa-artifacts/
             full-browser-regression-artifacts/

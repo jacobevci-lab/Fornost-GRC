@@ -23,6 +23,7 @@ async function openAudit(context, name) {
   await page.locator('.language-switch:visible').getByRole('button', { name: 'EN', exact: true }).click();
   await page.locator('nav button[aria-label="Audit Management"]').evaluate(el => el.click());
   await page.locator('.audit-card-open').filter({ hasText: name }).click();
+  await page.getByRole('tab', { name: 'Requests and review', exact: true }).click();
   await expect(page.locator('.audit-request-panel').getByRole('button', { name: 'Reload', exact: true })).toBeEnabled();
   return page;
 }
@@ -65,6 +66,11 @@ try {
   await api(owner, '/api/audits/requests', 'POST', { auditId, action: 'accept', requestId: request.id, expectedRevision: request.revision, note: 'Self approval denied' }, 403);
   const reviewerPage = await openAudit(reviewer, name), reviewPanel = reviewerPage.locator('.audit-request-panel');
   await reviewPanel.getByRole('button', { name: request.title, exact: true }).click();
+  await expect.poll(()=>reviewPanel.locator('.ev-document-stage img').evaluate(img=>img.complete && img.naturalWidth > 0)).toBe(true);
+  await reviewPanel.getByLabel('Decision / cancellation reason', { exact: true }).fill('Draft survives a workspace tab switch.');
+  await reviewerPage.getByRole('tab',{name:'Overview',exact:true}).click();
+  await reviewerPage.getByRole('tab',{name:'Requests and review',exact:true}).click();
+  await expect(reviewPanel.getByLabel('Decision / cancellation reason', { exact: true })).toHaveValue('Draft survives a workspace tab switch.');
   await reviewPanel.getByLabel('Decision / cancellation reason', { exact: true }).fill('Please include the missing approval reference.');
   // Focus navigation must initialize the return dates too.
   await reviewPanel.getByLabel('New delivery due', { exact: true }).fill(request.dueDate); await reviewPanel.getByLabel('New review due', { exact: true }).fill(request.reviewDueDate);

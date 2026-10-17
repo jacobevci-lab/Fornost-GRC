@@ -76,6 +76,7 @@ try{
   await page.setViewportSize({width:1536,height:960});
   await page.locator('.language-switch:visible').getByRole('button',{name:'EN',exact:true}).click();
   await portfolioAudit.getByRole('button',{name:'Review audit',exact:true}).click();
+  await page.getByRole('tab',{name:'Assurance',exact:true}).click();
   await expect(page.locator('.audit-readiness-gate .audit-readiness-state>span')).toHaveText('NOT READY');
   await expect(page.locator('.audit-readiness-gate')).toContainText(name);
   await page.locator('nav button[aria-label="Reporting"]').evaluate(el=>el.click());
@@ -129,6 +130,7 @@ try{
   await workspace.getByLabel('View',{exact:true}).selectOption('all');await workspace.getByLabel('Search controls').fill(controlRef);
   await workspace.getByRole('button',{name:`Review ${controlRef}`,exact:true}).click();
   const detail=workspace.locator('.control-assurance-drilldown'),evidenceStage=detail.locator('.control-assurance-stage').filter({has:page.locator('summary').filter({hasText:/^Evidence1$/})});
+  await detail.getByRole('tab',{name:/^Evidence/}).click();
   await evidenceStage.locator('summary').click();await expect(detail).toContainText(diagnostic.en);
   for(const lang of ['en','tr']){
     await page.locator('.language-switch:visible').getByRole('button',{name:lang.toUpperCase(),exact:true}).click();await expect(detail).toContainText(diagnostic[lang]);
@@ -142,6 +144,7 @@ try{
   await page.locator('.language-switch:visible').getByRole('button',{name:'EN',exact:true}).click();
   await page.locator('nav button[aria-label="Audit Management"]').evaluate(el=>el.click());
   // Exact portfolio navigation above already selected this audit; module switches preserve it.
+  await page.getByRole('tab',{name:'Assurance',exact:true}).click();
   await expect(page.locator('.audit-readiness-gate')).toContainText(name);
   const gate=page.locator('.audit-readiness-gate');await expect(gate.locator('.audit-readiness-state>span')).toHaveText('NOT READY');
   await gate.locator('.audit-readiness-gaps>summary').click();await expect(gate).toContainText(diagnostic.en);

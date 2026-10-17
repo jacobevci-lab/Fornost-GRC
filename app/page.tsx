@@ -1,5 +1,5 @@
 "use client";
-import { EVIDENCE_FILE_ACCEPT, EVIDENCE_FILE_HELP, evidenceInlineType } from "./evidence/file-types";
+import { EVIDENCE_FILE_ACCEPT, EVIDENCE_FILE_HELP } from "./evidence/file-types";
 import { auditRequirementPage } from "./audit-requirement-page";
 import "./audit-requirement-page.css";
 import { submitLocalAuthentication, type LocalAuthInput } from "./local-auth-submit";
@@ -12,6 +12,8 @@ import { AuditCatalogUpload } from "./audit-catalog-upload";
 import type { AuditCatalogImport } from "./audit-catalog-import";
 import { readAllGrcPages } from "./grc-pagination";
 import { AuditPlanPanel } from "./audit-plan-panel";
+import { AuditResearchWorkspace } from "./audit-research-workspace";
+import { EvidenceDocumentPreview } from "./evidence-document-preview";
 import { AuditRequestPanel } from "./audit-request-panel";
 import { AuditStatusReportPanel } from "./audit-status-report-panel";
 import { canOpenModule, canReadModule, canWriteModule, isScoped, readableModules } from "./module-access";
@@ -26,7 +28,6 @@ import { unassignedAuditRequirements } from "./audit-unassigned-requirements";
 import { auditNameKey } from "./audit-readiness-portfolio";
 import AuditUnassignedRequirements from "./audit-unassigned-requirements-panel";
 import "./core-record-focus.css";
-/* eslint-disable @next/next/no-img-element -- evidence images are authenticated runtime URLs and cannot use the static image optimizer */
 
 import NavIcon from "./nav-icon";
 import {
@@ -2338,11 +2339,13 @@ function FornostApp({ currentUser }: { currentUser: any }) {
           <AuditModule
             rows={by("Denetim Yönetimi")}
             evidenceRows={by("Kanıtlar")}
+            focusedRequirement={focusedRecord?.id || ""}
             audits={auditPortfolio}
             visible={visible}
             selected={selectedAudit}
             select={(x) => {
               setSelectedAudit(x);
+              setFocusedRecord(null);
               setQuery("");
             }}
             lang={lang}
@@ -3946,6 +3949,7 @@ function auditKind(name: string) {
 function AuditModule({
   rows,
   evidenceRows,
+  focusedRequirement,
   audits,
   visible,
   selected,
@@ -3966,6 +3970,7 @@ function AuditModule({
 }: {
   rows: Row[];
   evidenceRows: Row[];
+  focusedRequirement: string;
   audits: AuditPortfolioItem[];
   visible: Row[];
   selected: string;
@@ -4304,13 +4309,7 @@ function AuditModule({
       </>
     );
   const selectedPortfolio = audits.find((audit) => audit.name === selected);
-  const items = rows.filter(row => auditNameKey(row.data.auditName) === auditNameKey(selected)),
-    avg = items.length
-      ? Math.round(
-          items.reduce((n, r) => n + Number(r.data.progress || 0), 0) /
-            items.length,
-        )
-      : 0;
+  const items = rows.filter(row => auditNameKey(row.data.auditName) === auditNameKey(selected));
   return (
     <>
       <section className="audit-detail-head">
@@ -4343,41 +4342,15 @@ function AuditModule({
           )}
         </div>
       </section>
-      <section className="audit-detail-kpis">
-        <article>
-          <b>{items.length}</b>
-          <span>{tr ? "Toplam madde" : "Total requirements"}</span>
-        </article>
-        <article>
-          <b>{formatPercent(avg, lang)}</b>
-          <span>{tr ? "Genel ilerleme" : "Overall progress"}</span>
-        </article>
-        <article>
-          <b>
-            {
-              items.filter((r) => r.data.evidenceStatus === "Kanıt Bekleniyor")
-                .length
-            }
-          </b>
-          <span>{tr ? "Kanıt bekleyen" : "Awaiting evidence"}</span>
-        </article>
-        <article>
-          <b>
-            {
-              items.filter((r) =>
-                ["Kapatıldı", "Kapalı", "Tamamlandı"].includes(r.data.status),
-              ).length
-            }
-          </b>
-          <span>{tr ? "Kapatılan" : "Closed"}</span>
-        </article>
-      </section>
-      <FrameworkCatalogNotice framework={audits.find(audit=>audit.name===selected)?.template || ""} snapshot={audits.find(audit=>audit.name===selected)?.catalog} lang={lang} />
-      {audits.find(audit=>audit.name===selected)&&<AuditPlanPanel key={`plan:${selected}`} auditId={audits.find(audit=>audit.name===selected)!.id} canWrite={canWrite} lang={lang}/>}
-      {audits.find(audit=>audit.name===selected)&&<AuditRequestPanel key={`requests:${selected}:${requestFocus?.id || ""}`} auditId={audits.find(audit=>audit.name===selected)!.id} lang={lang} focusId={requestFocus?.auditId===audits.find(audit=>audit.name===selected)?.id?requestFocus?.id || "":""}/>}
-      <AuditReadinessGate key={selected} lang={lang} auditName={selected} records={[...items,...evidenceRows]} />
-      {canDeleteAudit&&selectedPortfolio&&<AuditStatusReportPanel key={`reports:${selectedPortfolio.id}`} auditId={selectedPortfolio.id} lang={lang}/>}
-      <AuditRequirementsTable
+      {!selectedPortfolio && <section className="fw-orphan-notice" role="status"><div><strong>{tr ? "Aktif denetim bağlantısı eksik" : "Active audit link missing"}</strong><p>{tr ? "Bu maddeler için aktif bir denetim kaydı bulunamadı. Kayıtları inceleyip düzenleyebilir veya bağlantısız maddeler görünümünden mevcut bir denetime bağlayabilirsiniz." : "These requirements have no active audit record. Review or edit them, or link them to an existing audit from the unassigned requirements view."}</p></div><button type="button" onClick={() => { setShowUnassigned(true); select(""); }}>{tr ? "Bağlantısız maddeleri aç" : "Open unassigned requirements"}</button></section>}
+      <AuditResearchWorkspace key={selectedPortfolio?.id || `unlinked:${selected}`} auditId={selectedPortfolio?.id || ""} lang={lang}
+        items={items} focusedRequirement={focusedRequirement} focusRequest={selectedPortfolio && requestFocus?.auditId === selectedPortfolio.id ? requestFocus.id : ''} go={go}
+        catalog={selectedPortfolio ? <FrameworkCatalogNotice framework={selectedPortfolio.template || ""} snapshot={selectedPortfolio.catalog} lang={lang} /> : null}
+        plan={selectedPortfolio ? <AuditPlanPanel auditId={selectedPortfolio.id} canWrite={canWrite} lang={lang} embedded /> : null}
+        requests={selectedPortfolio ? <AuditRequestPanel key={`requests:${selected}:${requestFocus?.id || ""}`} auditId={selectedPortfolio.id} lang={lang} focusId={requestFocus?.auditId === selectedPortfolio.id ? requestFocus.id : ''} /> : null}
+        readiness={selectedPortfolio ? <AuditReadinessGate key={selected} lang={lang} auditName={selected} records={[...items, ...evidenceRows]} /> : null}
+        reports={canDeleteAudit && selectedPortfolio ? <AuditStatusReportPanel auditId={selectedPortfolio.id} lang={lang} embedded /> : undefined}
+        requirements={<AuditRequirementsTable
         key={`requirements:${selected}`}
         allItems={items}
         items={visible}
@@ -4389,7 +4362,9 @@ function AuditModule({
         openNew={openNew}
         canWrite={canWrite}
         canDelete={canDeleteAudit}
+      />}
       />
+
     </>
   );
 }
@@ -5871,17 +5846,7 @@ function EvidencePreview({
   lang: Lang;
   onClose: () => void;
 }) {
-  const d = row.data,
-    tr = lang === "tr",
-    source = d.demoImage
-      ? withBasePath(d.demoImage)
-      : d.fileKey
-        ? withBasePath(
-            `/api/evidence?key=${encodeURIComponent(d.fileKey)}&inline=1`,
-          )
-        : "";
-  const isPdf = d.fileType === "application/pdf";
-  const inline = !!d.demoImage || evidenceInlineType(d.fileType || "");
+  const d = row.data, tr = lang === "tr";
   useEffect(() => {
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
@@ -5916,53 +5881,27 @@ function EvidencePreview({
             ×
           </button>
         </header>
-        <div className="evidence-stage">
-          {source && !inline ? (
-            <div className="evidence-missing"><b>{d.fileName}</b><p>{tr ? "Bu dosya indirilebilir; tarayıcı önizlemesi PDF ve görseller için kullanılabilir." : "This file is available to download. Browser preview is available for PDF and images."}</p></div>
-          ) : source ? (
-            isPdf ? (
-              <iframe src={source} title={d.evidenceTitle || displayRecordCode(row)} />
-            ) : (
-              <>
-                <img
-                  src={source}
-                  alt={`${d.evidenceTitle || displayRecordCode(row)} ${tr ? "ekran görüntüsü" : "screenshot"}`}
-                />
-              </>
-            )
-          ) : (
-            <div className="evidence-missing">
-              {tr
-                ? "Bu kanıta henüz görsel eklenmemiş."
-                : "No image has been attached to this evidence yet."}
-            </div>
-          )}
+        <div className="ev-review-grid">
+          <EvidenceDocumentPreview fileKey={d.fileKey} fileName={d.fileName} demoImage={d.demoImage} title={d.evidenceTitle || displayRecordCode(row)} lang={lang}/>
+          <section className="ev-review-context" aria-label={tr ? "Kanıt bağlamı" : "Evidence context"}>
+            <small>{tr ? "KANIT BAĞLAMI" : "EVIDENCE CONTEXT"}</small>
+            <h3>{tr ? "Dosyayı bağlamıyla değerlendirin" : "Review the file in context"}</h3>
+            <dl>{[
+              [tr ? "Kayıt durumu" : "Record status", display(d.status, lang)],
+              [tr ? "Kanıt dönemi" : "Evidence period", d.period],
+              [tr ? "Sorumlu" : "Owner", d.owner],
+              [tr ? "İnceleyen" : "Reviewer", d.reviewer],
+              [tr ? "Kontrol bağlantıları" : "Control references", d.controlRefs || d.controlRef],
+              [tr ? "Standartlar" : "Standards", d.frameworks],
+              [tr ? "Kaynak sistem" : "Source system", d.sourceSystem],
+              [tr ? "Toplanma tarihi" : "Collected at", d.collectedAt],
+              [tr ? "Geçerlilik sonu" : "Expires at", d.expiresAt],
+              [tr ? "Sürüm" : "Version", d.versionNo ? `v${d.versionNo}` : "—"],
+            ].map(([label,value]) => <div key={label}><dt>{label}</dt><dd>{value || "—"}</dd></div>)}</dl>
+            {d.notes && <p>{d.notes}</p>}
+            <div className="ev-review-note">{tr ? "Kütüphane durumu denetim talebinin kabulü değildir. Talebe ait teslim ve kabul kararını ilgili denetimin Talepler ve inceleme görünümünden yönetin." : "Library status is separate from audit request acceptance. Manage submission and acceptance in the audit’s Requests and review view."}</div>
+          </section>
         </div>
-        <footer className="evidence-meta">
-          <div>
-            <b>{tr ? "Dosya" : "File"}</b>
-            <span>
-              {d.fileName || (tr ? "Demo ekran görüntüsü" : "Demo screenshot")}
-            </span>
-          </div>
-          <div>
-            <b>{tr ? "Standartlar" : "Standards"}</b>
-            <span>{d.frameworks || "—"}</span>
-          </div>
-          <div>
-            <b>{tr ? "Not" : "Note"}</b>
-            <span>{d.notes || "—"}</span>
-          </div>
-          {d.fileKey && (
-            <a
-              href={withBasePath(
-                `/api/evidence?key=${encodeURIComponent(d.fileKey)}`,
-              )}
-            >
-              {tr ? "Orijinal dosyayı indir" : "Download original"}
-            </a>
-          )}
-        </footer>
       </section>
     </div>,
     document.body,
