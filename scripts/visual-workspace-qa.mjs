@@ -56,6 +56,7 @@ try {
       await page.setViewportSize({ width, height: 935 });
       const search = await page.locator('.mw2-search').boundingBox();
       assert.ok(search.height >= 36 && search.height <= 44, 'Search retains a single-line height');
+      if(width===390)assert.ok((await page.locator('.mw2-filters').boundingBox()).height<250,'Mobile filters wrap naturally without inheriting a desktop column height');
       assert.ok(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth) <= 4, 'Work queue fits viewport');
       await page.screenshot({ path: `${out}/${locale}-${width}-my-work.png` });
     }
