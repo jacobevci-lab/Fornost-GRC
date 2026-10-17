@@ -5882,7 +5882,7 @@ function EvidencePreview({
         </header>
         <div className="ev-review-grid">
           <EvidenceDocumentPreview fileKey={d.fileKey} fileName={d.fileName} demoImage={d.demoImage} title={d.evidenceTitle || displayRecordCode(row)} lang={lang}/>
-          <aside className="ev-review-context" aria-label={tr ? "Kanıt bağlamı" : "Evidence context"}>
+          <section className="ev-review-context" aria-label={tr ? "Kanıt bağlamı" : "Evidence context"}>
             <small>{tr ? "KANIT BAĞLAMI" : "EVIDENCE CONTEXT"}</small>
             <h3>{tr ? "Dosyayı bağlamıyla değerlendirin" : "Review the file in context"}</h3>
             <dl>{[
@@ -5899,7 +5899,7 @@ function EvidencePreview({
             ].map(([label,value]) => <div key={label}><dt>{label}</dt><dd>{value || "—"}</dd></div>)}</dl>
             {d.notes && <p>{d.notes}</p>}
             <div className="ev-review-note">{tr ? "Kütüphane durumu denetim talebinin kabulü değildir. Talebe ait teslim ve kabul kararını ilgili denetimin Talepler ve inceleme görünümünden yönetin." : "Library status is separate from audit request acceptance. Manage submission and acceptance in the audit’s Requests and review view."}</div>
-          </aside>
+          </section>
         </div>
       </section>
     </div>,
