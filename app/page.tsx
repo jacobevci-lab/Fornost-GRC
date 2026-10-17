@@ -4342,13 +4342,14 @@ function AuditModule({
           )}
         </div>
       </section>
-      {selectedPortfolio && <AuditResearchWorkspace key={selectedPortfolio.id} auditId={selectedPortfolio.id} lang={lang}
-        items={items} focusedRequirement={focusedRequirement} focusRequest={requestFocus?.auditId === selectedPortfolio.id ? requestFocus.id : ''} go={go}
-        catalog={<FrameworkCatalogNotice framework={selectedPortfolio.template || ""} snapshot={selectedPortfolio.catalog} lang={lang} />}
-        plan={<AuditPlanPanel auditId={selectedPortfolio.id} canWrite={canWrite} lang={lang} embedded />}
-        requests={<AuditRequestPanel key={`requests:${selected}:${requestFocus?.id || ""}`} auditId={selectedPortfolio.id} lang={lang} focusId={requestFocus?.auditId === selectedPortfolio.id ? requestFocus.id : ''} />}
-        readiness={<AuditReadinessGate key={selected} lang={lang} auditName={selected} records={[...items, ...evidenceRows]} />}
-        reports={canDeleteAudit ? <AuditStatusReportPanel auditId={selectedPortfolio.id} lang={lang} embedded /> : undefined}
+      {!selectedPortfolio && <section className="fw-orphan-notice" role="status"><div><strong>{tr ? "Aktif denetim bağlantısı eksik" : "Active audit link missing"}</strong><p>{tr ? "Bu maddeler için aktif bir denetim kaydı bulunamadı. Kayıtları inceleyip düzenleyebilir veya bağlantısız maddeler görünümünden mevcut bir denetime bağlayabilirsiniz." : "These requirements have no active audit record. Review or edit them, or link them to an existing audit from the unassigned requirements view."}</p></div><button type="button" onClick={() => { setShowUnassigned(true); select(""); }}>{tr ? "Bağlantısız maddeleri aç" : "Open unassigned requirements"}</button></section>}
+      <AuditResearchWorkspace key={selectedPortfolio?.id || `unlinked:${selected}`} auditId={selectedPortfolio?.id || ""} lang={lang}
+        items={items} focusedRequirement={focusedRequirement} focusRequest={selectedPortfolio && requestFocus?.auditId === selectedPortfolio.id ? requestFocus.id : ''} go={go}
+        catalog={selectedPortfolio ? <FrameworkCatalogNotice framework={selectedPortfolio.template || ""} snapshot={selectedPortfolio.catalog} lang={lang} /> : null}
+        plan={selectedPortfolio ? <AuditPlanPanel auditId={selectedPortfolio.id} canWrite={canWrite} lang={lang} embedded /> : null}
+        requests={selectedPortfolio ? <AuditRequestPanel key={`requests:${selected}:${requestFocus?.id || ""}`} auditId={selectedPortfolio.id} lang={lang} focusId={requestFocus?.auditId === selectedPortfolio.id ? requestFocus.id : ''} /> : null}
+        readiness={selectedPortfolio ? <AuditReadinessGate key={selected} lang={lang} auditName={selected} records={[...items, ...evidenceRows]} /> : null}
+        reports={canDeleteAudit && selectedPortfolio ? <AuditStatusReportPanel auditId={selectedPortfolio.id} lang={lang} embedded /> : undefined}
         requirements={<AuditRequirementsTable
         key={`requirements:${selected}`}
         allItems={items}
@@ -4362,7 +4363,7 @@ function AuditModule({
         canWrite={canWrite}
         canDelete={canDeleteAudit}
       />}
-      />}
+      />
 
     </>
   );

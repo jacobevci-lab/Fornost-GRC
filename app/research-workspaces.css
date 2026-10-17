@@ -32,3 +32,5 @@ html[data-theme] body .shell>main .fw-section-heading h3{font-size:17px!importan
 .fw-plan-sections [data-plan-section="dates"] .audit-plan-fields{grid-template-columns:repeat(2,minmax(0,1fr))}
 .audit-detail-head .audit-back{color:var(--ws-brand-2)}
 @media(max-width:600px){.fw-plan-sections [data-plan-section="dates"] .audit-plan-fields{grid-template-columns:1fr}}
+
+.fw-orphan-notice{display:flex;align-items:center;gap:18px;margin:16px 0;padding:16px 18px;border:1px solid var(--ws-line);border-left:3px solid var(--ws-warning);border-radius:9px;background:var(--ws-surface);color:var(--ws-ink)}.fw-orphan-notice>div{flex:1;min-width:0}.fw-orphan-notice p{margin:6px 0 0;color:var(--ws-muted);line-height:1.6}.fw-orphan-notice button{padding:10px 14px;border:1px solid var(--ws-line);border-radius:7px;background:var(--ws-surface-2);color:var(--ws-brand-2);font:inherit;cursor:pointer}@media(max-width:600px){.fw-orphan-notice{align-items:stretch;flex-direction:column}}

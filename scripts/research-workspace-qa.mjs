@@ -57,7 +57,11 @@ try {
     const response = await context.request.post(base + '/api/evidence', { headers: { origin: base }, multipart: { evidenceTitle: titles[index], owner: 'Security Operations', period: 'Q3 2026', controlRef, reviewer: 'Internal Audit', sourceSystem: 'Identity governance export', status: 'İncelemede', file } });
     assert.equal(response.status(), 201, await response.text()); records.push((await response.json()).id);
   }
+  const orphanName = `QA archived audit ${stamp}`;
+  await api('/api/grc', 'POST', { module: 'Denetim Yönetimi', rows: [{ auditName: orphanName, auditType: 'Internal', auditOwner: 'Security Operations', startDate: '2026-10-12', endDate: '2026-10-23', requirementRef: `${controlRef}-orphan`, requirementTitle: 'Recover an archived audit requirement', owner: 'Security Operations', businessUnit: 'Security', dueDate: '2026-10-23', status: 'Başlanmadı', progress: 0 }] }, 201);
   const all = (await api('/api/grc')).rows;
+  const orphan = all.find(row => JSON.parse(row.data_json).auditName === orphanName);
+  assert.ok(orphan); records.push(orphan.id);
   records.push(...all.filter(row => { const d = JSON.parse(row.data_json); return d.auditName === auditName || (row.module === 'Kontroller' && d.controlRef === controlRef); }).map(row => row.id));
   await page.goto(base); await expect(page.locator('.shell')).toBeVisible();
   await page.locator('.language-switch:visible').getByRole('button', { name: 'EN', exact: true }).click();
@@ -87,6 +91,22 @@ try {
   await screenshot('audit-plan-desktop',page.locator('.audit-plan-panel')); checks.push('plan draft retained across tabs');
   await workspace.getByRole('tab',{name:'Overview',exact:true}).click();
   const a11y=await new AxeBuilder({page}).include('.fw-audit-workspace').analyze(); assert.deepEqual(a11y.violations.map(v=>v.id),[]);
+  await module('Connected GRC Map');
+  await page.locator('.cg-filters select').selectOption('Denetim Yönetimi');await page.locator('.cg-filters input').fill(orphan.record_code);
+  await page.locator('.cg-records>button').filter({hasText:orphan.record_code}).click();
+  await page.locator('.cg-detail').getByRole('button',{name:'Open record ↗',exact:true}).click();
+  await expect(page.locator('.core-record-focus')).toContainText(orphan.record_code);
+  await expect(page.locator('.fw-orphan-notice')).toContainText('Active audit link missing');
+  const orphanTab=page.getByRole('tab',{name:/^Requirements and tests/});
+  await expect(orphanTab).toHaveAttribute('aria-selected','true');await expect(orphanTab.locator('span')).toHaveText('1');
+  for(const name of ['Requests and review','Plan and scope','Assurance','Reports'])await expect(page.getByRole('tab',{name,exact:true})).toHaveCount(0);
+  const orphanRow=page.locator('.table-card .table-wrap tbody tr');await expect(orphanRow).toHaveCount(1);
+  await orphanRow.getByRole('button',{name:'Edit',exact:true}).click();await expect(page.locator('.modal[role=dialog]')).toBeVisible();
+  await page.locator('.modal[role=dialog]').getByRole('button',{name:'Cancel',exact:true}).click();
+  await screenshot('audit-unlinked-requirement-desktop',page.locator('.fw-audit-workspace'));
+  await page.getByRole('button',{name:'Open unassigned requirements',exact:true}).click();
+  await expect(page.locator('#audit-unassigned-list')).toBeVisible();await expect(page.locator('#audit-unassigned-list')).toContainText(orphan.record_code);
+  checks.push('orphan deep link, edit and unassigned recovery');
   await module('Control Library');
   const controlWorkspace=page.locator('.control-assurance-workspace'), disclosure=page.locator('.module-analysis-disclosure').filter({has:controlWorkspace});
   if(!(await disclosure.evaluate(el=>el.open)))await disclosure.locator(':scope > summary').click();
@@ -102,7 +122,7 @@ try {
     await page.locator('.evidence-link').filter({hasText:title}).click();const dialog=page.getByRole('dialog',{name:'Evidence preview',exact:true});
     if(index===0){await expect(dialog.locator('.ev-document-stage iframe')).toBeVisible();assert.match(await dialog.locator('iframe').getAttribute('src'),/^blob:/);}
     else{await expect(dialog.getByRole('alert')).toContainText('Preview unavailable');await page.unroute('**/api/evidence?key=*');await dialog.getByRole('button',{name:'Retry preview',exact:true}).click();checks.push('preview failure and retry recovery');await expect(dialog.locator('.ev-text-preview pre')).toContainText('<script>alert(1)</script>');await expect(dialog.locator('.ev-text-preview script')).toHaveCount(0);}
-    for(const theme of ['light','dark'])for(const width of [1536,390]){await page.evaluate(theme=>{document.documentElement.dataset.theme=theme},theme);await page.setViewportSize({width,height:960});await dialog.locator('.ev-document').scrollIntoViewIfNeeded();await expect(dialog.locator('.ev-document>header')).toBeInViewport();if(width===390){const documentBox=await dialog.locator('.ev-document').boundingBox(),contextBox=await dialog.locator('.ev-review-context').boundingBox();assert.ok(contextBox.y>=documentBox.y+documentBox.height-2,'mobile file and context never overlap');}await screenshot(`evidence-${index}-${theme}-${width}`,dialog);assert.ok(await dialog.getByRole('button',{name:'Close',exact:true}).evaluate(el=>{const r=el.getBoundingClientRect();return el.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2));}),'preview close stays above navigation');const contextA11y=await new AxeBuilder({page}).include('.ev-review-context').analyze();assert.deepEqual(contextA11y.violations.map(v=>v.id),[]);}
+    for(const theme of ['light','dark'])for(const width of [1536,390]){await page.evaluate(theme=>{document.documentElement.dataset.theme=theme},theme);await page.setViewportSize({width,height:960});await dialog.locator('.ev-document').scrollIntoViewIfNeeded();await expect(dialog.locator('.ev-document>header')).toBeInViewport();if(width===390){const documentBox=await dialog.locator('.ev-document').boundingBox(),contextBox=await dialog.locator('.ev-review-context').boundingBox();assert.ok(contextBox.y>=documentBox.y+documentBox.height-2,`mobile file and context never overlap: ${JSON.stringify({documentBox,contextBox})}`);}await screenshot(`evidence-${index}-${theme}-${width}`,dialog);assert.ok(await dialog.getByRole('button',{name:'Close',exact:true}).evaluate(el=>{const r=el.getBoundingClientRect();return el.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2));}),'preview close stays above navigation');const contextA11y=await new AxeBuilder({page}).include('.ev-review-context').analyze();assert.deepEqual(contextA11y.violations.map(v=>v.id),[]);}
     await dialog.getByRole('button',{name:'Close',exact:true}).click();await page.setViewportSize({width:1536,height:960});
   }
   assert.deepEqual(errors,[]);await writeFile(`${out}/summary.json`,JSON.stringify({passed:true,checks,pageErrors:errors,accessibilityViolations:a11y.violations.length},null,2));
