@@ -69,6 +69,15 @@ try {
   await expect(page.locator('.rap-grid>section').nth(1).locator('h3')).toHaveText('Inherent risk overview');
   const riskContext=await (await context.request.get(base+'/api/risk-appetite')).json();
   await expect(page.locator('.rap-grid>section').nth(1).locator('header>span')).toHaveText(String(riskContext.linkedRisks.length));
+  const coreRisks=(await (await context.request.get(base+'/api/grc')).json()).rows.filter(r=>r.module==='Risk Assessment');
+  for(const risk of riskContext.linkedRisks){
+    const data=JSON.parse(coreRisks.find(r=>r.id===risk.id).data_json);
+    const present=v=>v!==undefined&&v!==null&&String(v).trim()!=='';
+    const dimensions=['inherentImpact','impact','confidentialityImpact','integrityImpact','availabilityImpact'];
+    const expected=(present(data.inherentLikelihood)||present(data.likelihood))&&dimensions.some(k=>present(data[k]))
+      ?Number(data.inherentLikelihood||data.likelihood||0)*Math.max(0,...dimensions.map(k=>Number(data[k]||0))):null;
+    assert.equal(risk.score,expected,'KRI uses the same assessed risk methodology as the register and dashboard');
+  }
   await page.locator('.rap-hero').getByRole('button',{name:'+ Risk Appetite',exact:true}).click();
   const kriDialog=page.getByRole('dialog',{name:'Risk appetite and KRI definition'});
   await expect(kriDialog).toBeVisible();
