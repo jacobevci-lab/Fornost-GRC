@@ -51,6 +51,8 @@ jobs:
             --data-binary @/tmp/fornost-qa-bootstrap.json
       - name: Full visible navigation, record save race and audit orphan recovery QA
         run: node scripts/full-browser-qa-regression.mjs
+      - name: Visual hierarchy, work filters and vendor recovery QA
+        run: node scripts/visual-workspace-qa.mjs
       - name: Findings workspace recovery and pagination
         run: node scripts/findings-workspace-qa.mjs
       - name: Assurance execution consistency and conflict recovery QA
@@ -175,6 +177,7 @@ jobs:
         with:
           name: workspace-layout-qa
           path: |
+            visual-workspace-qa-artifacts/
             findings-workspace-qa-artifacts/
             record-dialog-qa-artifacts/
             full-browser-regression-artifacts/
