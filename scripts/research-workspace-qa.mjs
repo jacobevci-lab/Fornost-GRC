@@ -35,13 +35,13 @@ try {
     deliverables: 'Review findings, action owners and a dated audit status report.' } });
   const requirementTitles = ['Privileged account ownership', 'Quarterly access approval', 'Leaver account revocation', 'Emergency access review'];
   const imported = await api('/api/grc', 'POST', { module: 'Denetim Yönetimi', rows: requirementTitles.map((title, index) => ({
-    auditName, auditType: 'Internal', auditOwner: 'Security Operations', auditor: 'Internal Audit', requirementRef: `${controlRef}-${index}`,
+    auditName, auditType: 'Internal', startDate: '2026-10-12', endDate: '2026-10-23', auditOwner: 'Security Operations', auditor: 'Internal Audit', requirementRef: `${controlRef}-${index}`,
     requirementTitle: title, requirementStatement: 'Inspect ownership, approval and period coverage.', owner: index === 3 ? 'Atanmadı' : 'Security Operations',
     status: index === 0 ? 'Tamamlandı' : index === 1 ? 'Devam Ediyor' : 'Başlanmadı', progress: index === 0 ? 100 : index === 1 ? 50 : 0,
     evidenceStatus: index > 1 ? 'Kanıt Bekleniyor' : 'Kanıt Var', businessUnit: 'Security', dueDate: '2026-10-23', controlRef,
   })) }, 201);
   void imported;
-  await api('/api/grc', 'POST', { module: 'Kontroller', rows: [{ controlRef, controlTitle: 'Privileged access is reviewed every quarter', owner: 'Security Operations', status: 'Uygulanıyor', testOwner: 'Internal Audit', nextTestDate: '2026-12-31', testResult: 'İnceleme Bekliyor' }] }, 201);
+  await api('/api/grc', 'POST', { module: 'Kontroller', rows: [{ controlRef, controlTitle: 'Privileged access is reviewed every quarter', owner: 'Security Operations', frequency: 'Üç Aylık', implementation: 'Uygulanıyor', status: 'Aktif', testOwner: 'Internal Audit', nextTestDate: '2026-12-31', testResult: 'İnceleme Bekliyor' }] }, 201);
   const pdf = await PDFDocument.create(), font = await pdf.embedFont(StandardFonts.Helvetica), bold = await pdf.embedFont(StandardFonts.HelveticaBold);
   for (let number = 1; number <= 2; number++) {
     const sheet = pdf.addPage([595, 842]);

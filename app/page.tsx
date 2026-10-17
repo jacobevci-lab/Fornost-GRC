@@ -2345,6 +2345,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
             selected={selectedAudit}
             select={(x) => {
               setSelectedAudit(x);
+              setFocusedRecord(null);
               setQuery("");
             }}
             lang={lang}
