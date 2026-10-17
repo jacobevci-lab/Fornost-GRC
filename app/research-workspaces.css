@@ -25,3 +25,10 @@
 html[data-theme] body .shell>main .fw-progress-value>strong{font-size:42px!important;line-height:1!important}
 html[data-theme] body .shell>main .fw-audit-signals strong{font-size:26px!important;line-height:1.1!important}
 html[data-theme] body .shell>main .fw-section-heading h3{font-size:17px!important}
+
+.fw-plan-embedded footer>button{min-height:36px;padding:9px 15px;border:1px solid var(--ws-line);border-radius:7px;background:var(--ws-surface-2);color:var(--ws-ink);font:inherit;font-weight:650;cursor:pointer}
+.fw-plan-embedded footer>button:disabled{cursor:default;opacity:.55}
+.fw-plan-sections textarea[rows="1"]{min-height:40px}
+.fw-plan-sections [data-plan-section="dates"] .audit-plan-fields{grid-template-columns:repeat(2,minmax(0,1fr))}
+.audit-detail-head .audit-back{color:var(--ws-brand-2)}
+@media(max-width:600px){.fw-plan-sections [data-plan-section="dates"] .audit-plan-fields{grid-template-columns:1fr}}
