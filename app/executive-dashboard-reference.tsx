@@ -261,22 +261,27 @@ export default function ExecutiveAssurancePanel({
   const auditorPack = () => window.open(withBasePath(`/api/continuous-assurance/auditor-pack?lang=${lang}`), "_blank", "noopener,noreferrer");
 
   return (
-    <section className={`executive-dashboard-reference${view.preferences.compact ? " is-compact" : ""}`} data-ui-revision="density-customize-v2" data-layout="calm-executive" aria-label={tr ? "Fornost GRC yönetici gösterge paneli" : "Fornost GRC executive dashboard"}>
+    <section className={`executive-dashboard-reference${view.preferences.compact ? " is-compact" : ""}`} data-ui-revision="product-workspace-v3" data-layout="calm-executive" aria-label={tr ? "Fornost GRC yönetici gösterge paneli" : "Fornost GRC executive dashboard"}>
       <header className="executive-dashboard-header">
-        <div>
+        <div className="executive-welcome-copy">
           <small>{tr ? "YÖNETİCİ GÜVENCE MERKEZİ" : "EXECUTIVE ASSURANCE CENTER"}</small>
-          <h2>{tr ? "Kurumsal risk ve güvence görünümü" : "Enterprise risk & assurance posture"}</h2>
-          <p>{tr ? "Risk, uyum, sürekli güvence, denetim ve iyileştirme durumunu tek karar ekranında yönetin." : "Manage risk, compliance, continuous assurance, audit and remediation from one decision surface."}</p>
+          <h2>{tr ? "Büyük resmi görün.\nÖnceliklerinizi yönetin." : "See the bigger picture.\nFocus on what matters."}</h2>
+          <p>{tr ? "Risk, uyum ve güvenceyi birlikte izleyin. Karar bekleyen işlerden başlayın." : "Bring risk, compliance and assurance together. Start with the decisions that need you."}</p>
+          <div className="executive-dashboard-header-actions">
+            <button type="button" className="primary" onClick={() => go("Benim İşlerim")}>{tr ? "İşlerime git" : "Open my work"}<span aria-hidden="true">→</span></button>
+            <button type="button" onClick={() => go("Raporlar")}>{tr ? "Yönetim Raporu" : "Executive Report"}<span aria-hidden="true">↗</span></button>
+          </div>
         </div>
-        <div className="executive-dashboard-header-actions">
-          <DashboardCustomizer lang={lang} view={view} />
-          <button type="button" onClick={auditorPack}>{tr ? "Denetçi Paketi" : "Auditor Pack"}<span>↗</span></button>
-          <button type="button" className="primary" onClick={() => go("Raporlar")}>{tr ? "Yönetim Raporu" : "Executive Report"}<span>→</span></button>
+        <div className="executive-overview-score">
+          <div className="executive-score-ring" role="img" aria-label={`${tr ? "Genel güvence skoru" : "Overall assurance score"}: ${rows.length && evidenceState.ready && assurance.score !== null ? `${assurance.score}/100` : (tr ? "Değerlendirme bekleniyor" : "Awaiting evaluation")}`}>
+            <svg viewBox="0 0 120 120" aria-hidden="true"><circle className="score-track" cx="60" cy="60" r="52"/><circle className="score-value" cx="60" cy="60" r="52" pathLength="100" strokeDasharray={`${rows.length && evidenceState.ready ? Math.max(0, Math.min(100, assurance.score ?? 0)) : 0} 100`}/></svg>
+            <div><strong>{rows.length && evidenceState.ready && assurance.score !== null ? assurance.score : "—"}</strong><small>/ 100</small></div>
+          </div>
+          <div><b>{tr ? "Genel güvence" : "Overall assurance"}</b><p>{tr ? "Kontrol, kanıt ve denetim verilerinden" : "From controls, evidence and audits"}</p><span>{tr ? "Denetçi görüşü değildir" : "Not an audit opinion"}</span></div>
         </div>
       </header>
-
+      <div className="executive-view-toolbar"><span>{tr ? "KURUMSAL GENEL BAKIŞ" : "ORGANIZATION OVERVIEW"}</span><div><DashboardCustomizer lang={lang} view={view}/><button type="button" onClick={auditorPack}>{tr ? "Denetçi Paketi" : "Auditor Pack"}<span aria-hidden="true">↗</span></button></div></div>
       <EvidenceAssuranceStatus state={evidenceState} lang={lang} />
-      <AuditReadinessPortfolioPanel portfolio={evidenceState.auditPortfolio} lang={lang} />
       {evidenceState.ready && assurance.assessmentIssues.length > 0 && <ul className="executive-assessment-issues">{assurance.assessmentIssues.map(issue => <li key={issue.reason}>{issue.count} · {assessmentStateText[issue.reason]?.[lang] || issue.reason}</li>)}</ul>}
       {loadError && <p role="status" className="executive-data-warning">{tr ? "Bazı operasyonel veriler yüklenemedi. Son alınan değerler gösteriliyor; eksik kaynaklar doğrulanmalıdır." : "Some operational data could not be loaded. Last received values are shown; missing sources need verification."}</p>}
       <div className="executive-dashboard-kpis">
@@ -314,6 +319,8 @@ export default function ExecutiveAssurancePanel({
       <div className="executive-dashboard-grid" data-layout-mode={referenceLayout ? "reference" : "tiles"}>
         {panelOrder.filter(id => view.preferences.visible[id]).map(id => <Fragment key={id}>{panels[id]}</Fragment>)}
       </div>
+
+      <AuditReadinessPortfolioPanel portfolio={evidenceState.auditPortfolio} lang={lang} />
 
       <section hidden={!view.preferences.visible.actionCenter} id="executive-decisions" className="executive-decision-board">
         <header><span className="executive-panel-icon"><NavIcon module="Ana Sayfa" /></span><div><small>{tr ? "YÖNETİCİ KARAR TABLOSU" : "EXECUTIVE DECISION BOARD"}</small><h3>{tr ? "Bugün yönetim kararı gerektiren işler" : "Items requiring management decisions today"}</h3></div><span>{decisionItems.reduce((sum, item) => sum + item.value, 0)} {tr ? "açık sinyal" : "open signals"}</span></header>

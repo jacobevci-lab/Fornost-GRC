@@ -32,9 +32,9 @@ test("the final authority contains no retired blue, navy or violet literals", ()
   assert.doesNotMatch(css, retired);
 });
 
-test("desktop typography follows the requested compact scale", () => {
-  assert.match(css, /html\[data-theme\] body \.shell>main :where\(div,p,span,small,b,strong,label,button,a,td,th,dt,dd,li,em,time,code,input,select,textarea,kbd,summary\)\{font-size:max\(10px,\.625rem\)!important/);
-  assert.match(css, /html\[data-theme\] body \.shell>main :where\(input,select,textarea\)\{font-size:max\(11px,\.6875rem\)!important/);
+test("desktop typography follows the shared readable product scale", () => {
+  assert.match(css, /html\[data-theme\] body \.shell>main :where\(div,p,span,small,b,strong,label,button,a,td,th,dt,dd,li,em,time,code,input,select,textarea,kbd,summary\)\{font-size:var\(--product-text-size,12px\)!important/);
+  assert.match(css, /html\[data-theme\] body \.shell>main :where\(input,select,textarea\)\{font-size:var\(--product-text-size,12px\)!important/);
   assert.match(css, /\.shell>aside :where\(small,span,b,p,em\)\{font-size:10px!important/);
   assert.match(css, /\.fornost-ai-launcher :where\(span,i\)\{font-size:10px!important/);
 });

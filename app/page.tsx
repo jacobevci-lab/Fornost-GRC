@@ -86,6 +86,7 @@ import "./product-experience.css";
 import "./theme-integrity.css";
 import "./workspace-simplicity.css";
 import "./record-dialog.css";
+import "./product-workspace.css";
 import {useRecordDialog} from "./use-record-dialog";
 import AiWorkspaceHost from "./ai-workspace-host";
 import { buildReportHtml, buildReportPdf, buildReportCsv, reportTitleOf, downloadBlob, reportMetrics, hasReportValue, type ReportOptions } from "./report-export";
@@ -1310,6 +1311,7 @@ function AuthGate() {
 }
 
 function FornostApp({ currentUser }: { currentUser: any }) {
+  const [navigationQuery, setNavigationQuery] = useState("");
   const scoped = isScoped(currentUser);
   const [lang, setLang] = useState<Lang>("tr"),
     [active, setActive] = useState("Ana Sayfa"),
@@ -1830,6 +1832,10 @@ function FornostApp({ currentUser }: { currentUser: any }) {
     ...(currentUser.role === "Admin" ? [{ id: "administration", label: lang === "tr" ? "YÖNETİM" : "ADMINISTRATION", items: ["İş Akışı Entegrasyonları","Kimlik ve Erişim","Sistem Ayarları","AI Ayarları","Ana Veri Yönetimi","E-posta ve Bildirimler"] }] : []),
   ].map(group=>({...group,items:group.items.filter(module=>canOpenModule(currentUser,module)&&(!scoped||module!=="Ask Fornost"))})).filter(group=>group.items.length);
   const activeNavGroup = navGroups.find(group => group.items.includes(active))?.id;
+  const navigationTerm = navigationQuery.trim().toLocaleLowerCase(lang === "tr" ? "tr-TR" : "en-US");
+  const visibleNavGroups = navGroups.map(group => ({ ...group, items: group.items.filter(module =>
+    !navigationTerm || `${names[lang][module]} ${module} ${group.label}`.toLocaleLowerCase(lang === "tr" ? "tr-TR" : "en-US").includes(navigationTerm)
+  ) })).filter(group => group.items.length);
   useEffect(() => {
     if (pageRestored && activeNavGroup) setOpenNavGroup(activeNavGroup);
   }, [activeNavGroup, pageRestored]);
@@ -1924,6 +1930,8 @@ function FornostApp({ currentUser }: { currentUser: any }) {
   }
   return (
     <div
+      data-product-ui="2026.10"
+      data-active-module={active}
       data-module-scope={scoped?"scoped":"full"}
       className={`shell sidebar-${sidebarMode}${mobileNavOpen ? " mobile-nav-open" : ""}`}
     >
@@ -1957,13 +1965,18 @@ function FornostApp({ currentUser }: { currentUser: any }) {
           </svg>
           <span>{sidebarToggleLabel}</span>
         </button>
+        <div className="navigation-search">
+          <svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="8.5" cy="8.5" r="5.5"/><path d="m13 13 4 4"/></svg>
+          <input aria-label={lang === "tr" ? "Menüde ara" : "Search navigation"} placeholder={lang === "tr" ? "Menüde ara…" : "Find a module…"} value={navigationQuery} onChange={event => setNavigationQuery(event.target.value)} onKeyDown={event => { if (event.key === "Escape") { setNavigationQuery(""); event.stopPropagation(); } }} />
+          {navigationQuery && <button type="button" aria-label={lang === "tr" ? "Menü aramasını temizle" : "Clear navigation search"} onClick={() => setNavigationQuery("")}>×</button>}
+        </div>
         <nav id="fornost-navigation">
-          {navGroups.map((group) => (
+          {visibleNavGroups.map((group) => (
             <div className={`nav-group${openNavGroup === group.id ? " is-open" : ""}`} key={group.id}>
               <button
                 type="button"
                 className="nav-group-trigger"
-                aria-expanded={sidebarMode !== "expanded" || openNavGroup === group.id}
+                aria-expanded={!!navigationTerm || sidebarMode !== "expanded" || openNavGroup === group.id}
                 aria-controls={`nav-group-${group.id}`}
                 onClick={() => {
                   const next = openNavGroup === group.id ? "" : group.id;
@@ -1977,15 +1990,16 @@ function FornostApp({ currentUser }: { currentUser: any }) {
               <div
                 className="nav-group-items"
                 id={`nav-group-${group.id}`}
-                hidden={sidebarMode === "expanded" && openNavGroup !== group.id}
+                hidden={!navigationTerm && sidebarMode === "expanded" && openNavGroup !== group.id}
               >
                 {group.items.map((m) => {
                   return (
                     <button
                       className={active === m ? "active" : ""}
                       aria-label={names[lang][m]}
+                      aria-current={active === m ? "page" : undefined}
                       title={names[lang][m]}
-                      onClick={() => navigateToModule(m)}
+                      onClick={() => { setNavigationQuery(""); navigateToModule(m); }}
                       key={m}
                     >
                       <i>
@@ -1998,6 +2012,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
               </div>
             </div>
           ))}
+          {!visibleNavGroups.length && <p className="navigation-empty" role="status">{lang === "tr" ? "Eşleşen modül yok." : "No matching modules."}</p>}
         </nav>
         <div className="sidebar-view-controls" aria-label={lang === "tr" ? "Menü görünümü" : "Navigation view"}>
           <span>{lang === "tr" ? "MENÜ GÖRÜNÜMÜ" : "NAVIGATION VIEW"}</span>
@@ -2170,7 +2185,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
               </svg>
             </button>
             <div className="header-context">
-              <small>FORNOST / {u.workspace}</small>
+              <small>FORNOST <span aria-hidden="true">/</span> {navGroups.find(group => group.id === activeNavGroup)?.label || u.workspace}</small>
               <h1>{names[lang][active]}</h1>
             </div>
           </div>
@@ -2398,7 +2413,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
             {active === "Risk Assessment" && (
               <RiskOverview rows={by("Risk Assessment")} lang={lang} />
             )}
-            {!scoped && ["BIA","Varlık Envanteri","Uyum","Kontroller"].includes(active) && (
+                {!scoped && ["BIA","Varlık Envanteri","Uyum","Kontroller","Kanıtlar"].includes(active) && (
               <CoreModuleOverview module={active} rows={by(active)} allRows={rows} lang={lang}/>
             )}
             {!scoped && active === "Kontroller" && (

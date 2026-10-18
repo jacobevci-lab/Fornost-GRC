@@ -49,6 +49,13 @@ jobs:
           curl --fail --silent --show-error http://127.0.0.1:4173/api/auth \
             -H 'Origin: http://127.0.0.1:4173' -H 'Content-Type: application/json' \
             --data-binary @/tmp/fornost-qa-bootstrap.json
+      - name: Product-wide shell, navigation search and entry page visual QA
+        run: node scripts/product-workspace-qa.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: product-workspace-preview
+          path: product-workspace-qa-artifacts/
       - name: Full visible navigation, record save race and audit orphan recovery QA
         run: node scripts/full-browser-qa-regression.mjs
       - name: Research workspaces, contextual evidence preview and tab navigation QA
