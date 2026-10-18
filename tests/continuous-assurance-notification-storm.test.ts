@@ -40,6 +40,6 @@ test("dispatcher enforces recipient lease before transport and records deferral 
 test("storm policy is Admin governed visible in Email settings and produces governance-only pressure signals",()=>{
  const route=readFileSync("app/api/continuous-assurance/notifications/route.ts","utf8"),integration=readFileSync("app/integration-settings.tsx","utf8"),panel=readFileSync("app/assurance-notification-storm-settings.tsx","utf8"),governance=readFileSync("app/assurance-notification-governance.ts","utf8");
  assert.match(route,/PUT\(req:NextRequest\)[\s\S]*requireRole\(req,\["Admin"\]\)/);assert.match(route,/section==="storm"/);assert.match(route,/saveAssuranceNotificationStormPolicy/);assert.match(route,/activeDeferrals/);assert.match(route,/policyEvents/);
- assert.match(integration,/AssuranceNotificationStormSettings/);assert.match(panel,/NOTIFICATION STORM CONTROL/);assert.match(panel,/ACTIVE DEFERRALS/);assert.match(panel,/Critical/);assert.match(panel,/section:"storm"/);
+ assert.match(integration,/AssuranceNotificationStormSettings/);assert.match(panel,/DELIVERY LIMITS/);assert.doesNotMatch(panel,/ACTIVE DEFERRALS|activeDeferrals|policyEvents/);assert.match(panel,/Critical/);assert.match(panel,/section:"storm"/);
  assert.match(governance,/notification-storm-pressure/);assert.match(governance,/governanceOnly:true/);assert.match(governance,/highSeverityDeferred/);
 });

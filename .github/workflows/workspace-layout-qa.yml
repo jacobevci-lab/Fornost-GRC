@@ -49,6 +49,13 @@ jobs:
           curl --fail --silent --show-error http://127.0.0.1:4173/api/auth \
             -H 'Origin: http://127.0.0.1:4173' -H 'Content-Type: application/json' \
             --data-binary @/tmp/fornost-qa-bootstrap.json
+      - name: Administration settings status and recovery QA
+        run: node scripts/admin-settings-runtime-qa.mjs
+      - name: Publish administration and email settings browser evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: admin-settings-preview
+          path: admin-settings-qa-artifacts/
       - name: Authorized record search, exact navigation and register context QA
         run: node scripts/record-search-qa.mjs
       - name: Publish record search browser evidence
@@ -136,8 +143,6 @@ jobs:
         run: node scripts/user-session-revocation-qa.mjs
       - name: Server session lifetime and sign-in recovery QA
         run: node scripts/session-policy-runtime-qa.mjs
-      - name: Administration settings status and recovery QA
-        run: node scripts/admin-settings-runtime-qa.mjs
       - name: Ask Fornost immediate post-login and recovery QA
         run: node scripts/ask-fornost-runtime-qa.mjs
       - name: Ready control templates and result drill-down QA
