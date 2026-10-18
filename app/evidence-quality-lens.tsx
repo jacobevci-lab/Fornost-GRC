@@ -186,9 +186,9 @@ export default function EvidenceQualityLens() {
     <section className="evidence-quality-lens" aria-label={tr ? "Kanıt kalite görünümü" : "Evidence quality lens"}>
       <header>
         <div>
-          <small>{tr ? "EVIDENCE QUALITY" : "EVIDENCE QUALITY"}</small>
+          <small>{tr ? "KANIT KALİTESİ" : "EVIDENCE QUALITY"}</small>
           <h3>{tr ? "Kanıt tazeliği ve bütünlüğü" : "Evidence freshness and integrity"}</h3>
-          <p>{tr ? "Audit readiness için kanıtın yalnız varlığını değil; güncelliğini, kontrol bağlantısını ve versiyon bütünlüğünü izler." : "Tracks not only evidence existence, but also freshness, control linkage and version integrity for audit readiness."}</p>
+          <p>{tr ? "Denetim hazırlığı için kanıtların güncelliğini, kontrol bağlantılarını ve sürüm bütünlüğünü izleyin." : "Tracks not only evidence existence, but also freshness, control linkage and version integrity for audit readiness."}</p>
         </div>
         <div className="eql-health"><strong>{quality.total ? `${quality.health}%` : "—"}</strong><span>{tr ? "güncel kanıt" : "current evidence"}</span></div>
       </header>
@@ -196,7 +196,7 @@ export default function EvidenceQualityLens() {
       <div className="eql-metrics">
         <article><small>{tr ? "Toplam" : "Total"}</small><strong>{quality.total}</strong><span>{tr ? "kanıt kaydı" : "evidence records"}</span></article>
         <article><small>{tr ? "Güncel" : "Current"}</small><strong>{quality.current}</strong><span>{tr ? "kullanıma hazır" : "ready to use"}</span></article>
-        <article className={quality.stale ? "warning" : ""}><small>{tr ? "Bayat" : "Stale"}</small><strong>{quality.stale}</strong><span>{tr ? "yenilenmeli" : "needs refresh"}</span></article>
+        <article className={quality.stale ? "warning" : ""}><small>{tr ? "Güncel değil" : "Stale"}</small><strong>{quality.stale}</strong><span>{tr ? "yenilenmeli" : "needs refresh"}</span></article>
         <article className={quality.broken ? "danger" : ""}><small>{tr ? "Bütünlük hatası" : "Integrity failure"}</small><strong>{quality.broken}</strong><span>{tr ? "zincir bozuk" : "broken chain"}</span></article>
         <article className={quality.unlinked ? "warning" : ""}><small>{tr ? "Bağlantısız" : "Unlinked"}</small><strong>{quality.unlinked}</strong><span>{tr ? "kontrol referansı yok" : "no control reference"}</span></article>
       </div>

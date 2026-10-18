@@ -177,3 +177,13 @@ html[data-theme] body .shell[data-product-ui] .executive-dashboard-reference.is-
  html[data-theme] body .shell[data-product-ui] .record-dialog .form-actions {margin-inline:-18px!important;padding:12px 18px!important}
 }
 @media(prefers-reduced-motion:reduce) {.shell[data-product-ui],.shell[data-product-ui] * {scroll-behavior:auto!important;transition:none!important}}
+
+/* Keep module summaries readable without duplicating the evidence quality lens. */
+html[data-theme] body .shell[data-product-ui]>main .module-overview>div {gap:12px!important;background:transparent!important}
+html[data-theme] body .shell[data-product-ui] .evidence-quality-lens {border-radius:12px!important;border:1px solid var(--ws-line)!important;background:var(--ws-surface)!important;box-shadow:var(--ws-shadow)!important}
+html[data-theme] body .shell[data-product-ui] .evidence-quality-lens>header {padding:18px 20px!important;background:var(--ws-surface)!important}
+html[data-theme] body .shell[data-product-ui] .evidence-quality-lens h3 {font-size:17px!important}
+html[data-theme] body .shell[data-product-ui] .eql-metrics article {padding:16px!important;background:var(--ws-surface-2)!important}
+html[data-theme] body .shell[data-product-ui] :is(.eql-metrics strong,.eql-health strong) {font-size:28px!important;line-height:1.2!important;margin-block:8px!important}
+html[data-theme] body .shell[data-product-ui] #ai-governance-workspace .fornost-ai-head {padding:22px 24px!important;border-left:4px solid var(--ws-brand)!important;background:var(--ws-surface)!important}
+html[data-theme] body .shell[data-product-ui] #ai-governance-workspace .fornost-ai-head h2 {font-size:25px!important}

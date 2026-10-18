@@ -13,7 +13,7 @@ async function open(label){
  const mobile=page.locator('.mobile-nav-toggle');
  if(await mobile.isVisible()&&await mobile.getAttribute('aria-expanded')!=='true')await mobile.click();
  const item=page.locator('#fornost-navigation .nav-group-items').getByRole('button',{name:label,exact:true,includeHidden:true});
- const group=page.locator('#fornost-navigation .nav-group').filter({has:item});
+ const group=page.locator('#fornost-navigation .nav-group').filter({has:page.getByRole('button',{name:label,exact:true,includeHidden:true})});
  if(await group.locator('.nav-group-trigger').getAttribute('aria-expanded')!=='true')await group.locator('.nav-group-trigger').click();
  await item.click();await expect(page.locator('main>header h1')).toHaveText(label);
  await expect(page.locator('main [aria-busy="true"]:visible')).toHaveCount(0);
@@ -32,7 +32,7 @@ try{
   await expect(page.locator('#fornost-navigation .nav-group-items button:visible')).toHaveCount(2);
   await page.locator('#fornost-navigation').getByRole('button',{name:tr?'Kanıt Kütüphanesi':'Evidence Library',exact:true}).click();
   await expect(page.locator('.navigation-search input')).toHaveValue('');
-  await expect(page.locator('.module-overview')).toBeVisible();
+  await expect(page.locator('.evidence-quality-lens')).toBeVisible();
   await page.locator('.navigation-search input').fill('no-such-module-xyz');await expect(page.locator('.navigation-empty')).toBeVisible();
   await page.locator('.navigation-search input').press('Escape');await expect(page.locator('#fornost-navigation .nav-group-items button')).toHaveCount(27);
   checks.push(`${locale}: navigation search, destination, clear, empty and Escape`);
