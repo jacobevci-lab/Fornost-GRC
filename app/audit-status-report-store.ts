@@ -94,7 +94,18 @@ export async function createAuditStatusReport(db: D1Database, actor: Actor, inpu
   const source = await readAuditReportSource(db, actor, auditId);
   if (source.sourceRevision !== input.expectedSourceRevision) throw new AuditReportError('changed', 409);
   const snapshot: AuditStatusReport = { ...source, schemaVersion: 1, id: reportId, title: fields.title, summary: fields.summary, limitations: fields.limitations, createdAt: now.toISOString(), createdBy: actor.email };
-  const { items, ...header } = snapshot, sha256 = await auditReportHash(snapshot), writeToken = crypto.randomUUID();
+  const writeToken = crypto.randomUUID();
+  const results = await db.batch(await auditReportInsertStatements(db, snapshot, fingerprint, writeToken, {
+    sql: 'EXISTS(SELECT 1 FROM simple_audits WHERE id=?) AND EXISTS(SELECT 1 FROM audit_report_source_revision WHERE id=1 AND revision=?)',
+    values: [auditId, input.expectedSourceRevision],
+  }));
+  if (!results[0].results.length) { const saved = await existing(); if (!saved || saved.audit_id !== auditId || saved.input_sha256 !== fingerprint) throw new AuditReportError('changed', 409); }
+  return { id: reportId };
+}
+
+/** Reused by audit closure so its decision and complete report commit together. */
+export async function auditReportInsertStatements(db: D1Database, snapshot: AuditStatusReport, fingerprint: string, writeToken: string, guard: { sql: string; values: string[] }) {
+  const { items, ...header } = snapshot, sha256 = await auditReportHash(snapshot), reportId = snapshot.id;
   const chunks: AuditReportItem[][] = []; let chunk: AuditReportItem[] = [], bytes = 0;
   for (const item of items) {
     const size = new TextEncoder().encode(JSON.stringify(item)).length;
@@ -103,11 +114,9 @@ export async function createAuditStatusReport(db: D1Database, actor: Actor, inpu
     chunk.push(item); bytes += size;
   }
   if (chunk.length) chunks.push(chunk);
-  const results = await db.batch([
-    db.prepare(`INSERT INTO audit_status_reports(id,audit_id,header_json,snapshot_sha256,item_count,input_sha256,write_token,created_at) SELECT ?,?,?,?,?,?,?,? WHERE EXISTS(SELECT 1 FROM simple_audits WHERE id=?) AND EXISTS(SELECT 1 FROM audit_report_source_revision WHERE id=1 AND revision=?) ON CONFLICT(id) DO NOTHING RETURNING id`)
-      .bind(reportId, auditId, JSON.stringify(header), sha256, items.length, fingerprint, writeToken, header.createdAt, auditId, input.expectedSourceRevision),
+  return [
+    db.prepare(`INSERT INTO audit_status_reports(id,audit_id,header_json,snapshot_sha256,item_count,input_sha256,write_token,created_at) SELECT ?,?,?,?,?,?,?,? WHERE ${guard.sql} ON CONFLICT(id) DO NOTHING RETURNING id`)
+      .bind(reportId, snapshot.audit.id, JSON.stringify(header), sha256, items.length, fingerprint, writeToken, header.createdAt, ...guard.values),
     ...chunks.map(rows => db.prepare(`INSERT INTO audit_status_report_items(report_id,kind,id,record_json) SELECT ?,json_extract(value,'$.kind'),json_extract(value,'$.id'),json_extract(value,'$.record') FROM json_each(?) WHERE EXISTS(SELECT 1 FROM audit_status_reports WHERE id=? AND write_token=?)`).bind(reportId, JSON.stringify(rows), reportId, writeToken)),
-  ]);
-  if (!results[0].results.length) { const saved = await existing(); if (!saved || saved.audit_id !== auditId || saved.input_sha256 !== fingerprint) throw new AuditReportError('changed', 409); }
-  return { id: reportId };
+  ];
 }

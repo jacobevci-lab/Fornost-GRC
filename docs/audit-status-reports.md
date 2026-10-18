@@ -26,6 +26,6 @@ One report supports at most 2,000 requirements, 500 requests, 1,000 directly lin
 
 SQLite-backed tests cover exact scope, concurrent source changes inside the write transaction, source deletions, rollback, retry identity, role and parent isolation, retained snapshots, integrity failures, explicit limits/history truncation and safe multilingual exports. The isolated real-API browser QA covers 25+ requirements, CAPA scope, pagination, stale plan recovery, duplicate submission, preserved narrative, later source edits, Admin access, all download formats, stale audit navigation and both languages/themes at mobile and desktop widths. Customer audit decisions and external mail delivery are not exercised by these tests.
 
-Whole-audit approval/closure, independent report approval, retention policies and attachment bundles remain distinct future capabilities.
+Whole-audit approval/closure now uses the separate workflow in `docs/audit-closure.md`; an ordinary status report is still not a closure decision. Independent approval of arbitrary reports, retention policies and attachment bundles remain future capabilities.
 
 Source revision triggers contribute to D1 metadata row counts. Core record mutations use primary-key success checks, and imports use the code-write receipt guarded by SQLite `changes()`, so tracking does not turn committed writes into false conflicts. The regression fixture models trigger-inclusive D1 metadata; browser QA exercises import, create, stale edit rejection and deletion after tracking is initialized.

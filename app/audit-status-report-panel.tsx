@@ -91,7 +91,7 @@ export function AuditStatusReportPanel({auditId,lang,embedded=false}:{auditId:st
     </div>}
   </section>;
 }
-function ReportSource({source,tr}:{source:AuditReportSource;tr:boolean}){
+export function ReportSource({source,tr}:{source:AuditReportSource;tr:boolean}){
   const n=auditReportSummary(source.items),t=(a:string,b:string)=>tr?a:b;
   return <><p><b>{source.audit.name}</b> · {source.audit.template}</p><div className="asr-metrics"><p><b>{n.requirements}</b> {t('madde','requirements')}<small>{n.unfinishedRequirements} {t('sonuçlanmamış','unfinished')}</small></p><p><b>{n.requests}</b> {t('talep','requests')}<small>{n.outstandingRequests} {t('açık','outstanding')} · {n.acceptedRequests} {t('kabul','accepted')} · {n.cancelledRequests} {t('iptal','cancelled')}</small></p><p><b>{n.findings}</b> {t('bağlı bulgu','linked findings')}<small>{n.unresolvedFindings} {t('kapatılmamış','not closed')}</small></p></div>
     <details className="asr-plan"><summary>{t('Kayıtlı plan ve kapsam','Saved plan and scope')}</summary><dl>{Object.entries(source.plan.plan).map(([key,value])=><div key={key}><dt>{auditPlanLabels[key as keyof typeof auditPlanLabels]?.[tr?0:1]||key}</dt><dd>{value||'—'}</dd></div>)}</dl></details>

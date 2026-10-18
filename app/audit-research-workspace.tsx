@@ -5,14 +5,14 @@ import { WorkspaceTabs, type WorkspaceTab } from './workspace-tabs';
 import { hasReportValue } from './report-export';
 
 type Requirement = { id: string; data: Record<string, unknown> };
-export function AuditResearchWorkspace({ lang, auditId, items, focusRequest, focusedRequirement, plan, requests, readiness, reports, requirements, catalog, go }: {
-  lang: 'tr' | 'en'; auditId: string; items: Requirement[]; focusRequest: string; focusedRequirement: string;
-  plan?: ReactNode; requests?: ReactNode; readiness?: ReactNode; reports?: ReactNode;
+export function AuditResearchWorkspace({ lang, auditId, items, focusRequest, focusClosure = "", focusedRequirement, plan, requests, readiness, reports, closure, requirements, catalog, go }: {
+  lang: 'tr' | 'en'; auditId: string; items: Requirement[]; focusRequest: string; focusClosure?: string; focusedRequirement: string;
+  plan?: ReactNode; requests?: ReactNode; readiness?: ReactNode; reports?: ReactNode; closure?: ReactNode;
   requirements: ReactNode; catalog: ReactNode; go: (module: string) => void;
 }) {
   const tr = lang === 'tr';
-  const focus = focusedRequirement ? `requirement:${focusedRequirement}` : focusRequest ? `request:${focusRequest}` : '';
-  const preferred = focusedRequirement ? 'requirements' : focusRequest ? 'requests' : 'overview';
+  const focus = focusClosure ? `closure:${focusClosure}` : focusedRequirement ? `requirement:${focusedRequirement}` : focusRequest ? `request:${focusRequest}` : '';
+  const preferred = focusClosure ? 'closure' : focusedRequirement ? 'requirements' : focusRequest ? 'requests' : 'overview';
   const [view, setView] = useState({ tab: preferred, focus });
   // A deep link reveals the request while ordinary tab changes retain every draft.
   const active = focus && view.focus !== focus ? preferred : view.tab;
@@ -44,6 +44,7 @@ export function AuditResearchWorkspace({ lang, auditId, items, focusRequest, foc
     { key: 'requirements', label: tr ? 'Maddeler ve testler' : 'Requirements and tests', count: items.length, content: requirements },
     ...(plan ? [{ key: 'plan', label: tr ? 'Plan ve kapsam' : 'Plan and scope', content: plan }] : []),
     ...(readiness ? [{ key: 'readiness', label: tr ? 'Güvence' : 'Assurance', content: readiness }] : []),
+    ...(closure ? [{ key: 'closure', label: tr ? 'Kapanış ve onay' : 'Closure and approval', content: closure }] : []),
     ...(reports ? [{ key: 'reports', label: tr ? 'Raporlar' : 'Reports', content: reports }] : []),
   ];
   return <section className="fw-audit-workspace" aria-label={tr ? 'Denetim çalışma alanı görünümleri' : 'Audit workspace views'}><WorkspaceTabs label={tr ? 'Denetim görünümleri' : 'Audit views'} items={tabs} active={active} onChange={change}/></section>;

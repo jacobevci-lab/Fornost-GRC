@@ -72,3 +72,10 @@ export const auditStatusReportItems = sqliteTable("audit_status_report_items", {
 export const auditReportSourceRevision = sqliteTable("audit_report_source_revision", {
   id:integer("id").primaryKey(),revision:text("revision").notNull(),
 });
+
+export const auditClosureState = sqliteTable("audit_closure_state", {
+  auditId:text("audit_id").primaryKey(),state:text("state").notNull(),revision:text("revision").notNull(),submissionId:text("submission_id").notNull(),reportId:text("report_id").notNull(),
+});
+export const auditClosureEvents = sqliteTable("audit_closure_events", {
+  id:text("id").primaryKey(),auditId:text("audit_id").notNull(),payloadJson:text("payload_json").notNull(),snapshotSha256:text("snapshot_sha256").notNull(),inputSha256:text("input_sha256").notNull(),writeToken:text("write_token").notNull(),createdAt:text("created_at").notNull(),
+},table=>[index("audit_closure_events_parent_idx").on(table.auditId,table.createdAt,table.id)]);

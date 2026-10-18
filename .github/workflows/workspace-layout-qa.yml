@@ -56,6 +56,16 @@ jobs:
         with:
           name: admin-settings-preview
           path: admin-settings-qa-artifacts/
+      - name: Audit status report snapshots, scope and exports QA
+        run: node scripts/audit-status-report-qa.mjs
+      - name: Whole audit independent approval closure and reopening QA
+        run: node scripts/audit-closure-qa.mjs
+      - name: Publish audit closure browser evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: audit-closure-preview
+          path: audit-closure-qa-artifacts/
       - name: Authorized record search, exact navigation and register context QA
         run: node scripts/record-search-qa.mjs
       - name: Publish record search browser evidence
@@ -119,8 +129,6 @@ jobs:
         run: node scripts/framework-packs-qa.mjs
       - name: Audit engagement planning QA
         run: node scripts/audit-plan-qa.mjs
-      - name: Audit status report snapshots, scope and exports QA
-        run: node scripts/audit-status-report-qa.mjs
       - name: Evidence document formats, downloads and version approval QA
         run: node scripts/evidence-document-formats-qa.mjs
       - name: Atomic AI retirement and independent verification QA

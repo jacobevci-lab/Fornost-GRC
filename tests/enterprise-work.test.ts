@@ -65,3 +65,11 @@ test('malformed, duplicate, orphaned and bounded sources cannot establish comple
   const bounded = { profiles: Array.from({ length: 1000 }, (_, i) => ({ vendorId: String(i), status: 'active' })), assessments: [], findings: [] };
   assert.equal(projectEnterpriseWork('vendor', bounded).complete, false);
 });
+
+
+test('audit closure tasks retain native package targets and never imply completed or scheduled work',()=>{
+ const task={id:'ACL-1',auditId:'audit-a',title:'Access audit',owner:'preparer@example.com',reviewer:'reviewer@example.com',status:'submitted'};
+ const result=projectEnterpriseWork('audit',{requests:[],closures:[task],complete:true});
+ assert.equal(result.complete,true);assert.equal(result.rows[0].workKind,'audit-closure');assert.equal(result.rows[0].nativeRef,'ACL-1');assert.equal(result.rows[0].data.auditId,'audit-a');assert.equal(result.rows[0].data.workClosed,false);assert.equal(result.rows[0].data.dueDate,undefined);
+ assert.equal(projectEnterpriseWork('audit',{requests:[],closures:[{...task,reviewer:''}],complete:true}).complete,false);
+});

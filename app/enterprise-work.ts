@@ -12,6 +12,7 @@ export type EnterpriseWorkRow = {
   data: RecordData; updatedAt?: string; createdAt?: string;
 };
 export const enterpriseWorkKinds: Record<string, { module: string; tab: string; tr: string; en: string }> = {
+  'audit-closure': { module: 'Denetim Yönetimi', tab: 'closure', tr: 'Denetim kapanış onayı', en: 'Audit closure approval' },
   'audit-request': { module: 'Denetim Yönetimi', tab: 'requests', tr: 'Denetim talebi', en: 'Audit request' },
   'policy-review': { module: 'Politika Merkezi', tab: 'policies', tr: 'Politika incelemesi', en: 'Policy review' },
   'policy-version': { module: 'Politika Merkezi', tab: 'versions', tr: 'Sürüm ve yayın', en: 'Version and release' },
@@ -61,6 +62,17 @@ export function projectEnterpriseWork(source: EnterpriseWorkSource, payload: unk
   };
   if (source === 'audit') {
     if (payload.complete !== true) complete = false;
+    if (payload.closures !== undefined) {
+      if (!Array.isArray(payload.closures) || payload.closures.length > 1000) complete = false;
+      else {
+        const seen = new Set<string>();
+        for (const item of payload.closures) {
+          if (!object(item) || !text(item.id) || seen.has(text(item.id)) || !text(item.auditId) || !text(item.owner) || !text(item.reviewer) || item.status !== 'submitted') { complete = false; continue; }
+          seen.add(text(item.id));
+          add('audit-closure', item, { title: item.title, auditId: item.auditId, owner: item.owner, reviewer: item.reviewer }, false);
+        }
+      }
+    }
     for (const item of collections.requests) {
       if (!text(item.auditId) || !text(item.owner) || !text(item.reviewer) || !text(item.dueDate) || !text(item.reviewDueDate) || !['assigned', 'submitted', 'changes_requested', 'accepted', 'cancelled'].includes(text(item.status))) { complete = false; continue; }
       add('audit-request', item, { title: item.title, auditId: item.auditId, owner: item.owner, reviewer: item.status === 'submitted' ? item.reviewer : '', dueDate: item.dueAt || requestNextDue(item as AuditRequest) }, ['accepted', 'cancelled'].includes(text(item.status)));

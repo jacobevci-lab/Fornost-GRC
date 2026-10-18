@@ -13,6 +13,7 @@ type Data = { workflow: AuditRequestWorkflow; requests: AuditRequest[]; complete
   planRevision: string; periodStart: string; periodEnd: string; eventsComplete: boolean;
   events: { id: string; request_id: string; action: string; actor: string; created_at: string; note: string; activationReason: string; planRevision: string; status: AuditRequest['status']; versionIds: string[] }[] };
 const messages: Record<string, [string, string]> = {
+  'audit-closed': ['Denetim kapalı. Önce Kapanış ve onay görünümünden gerekçeyle yeniden açın.', 'The audit is closed. Reopen it with a reason in Closure and approval first.'],
   fields: ['Başlık, kabul ölçütü, sorumlu ve inceleyeni doldurun.', 'Complete the title, acceptance criteria, owner and reviewer.'],
   dates: ['Gerçek ve sıralı tarihler girin. İnceleme tarihi teslimden önce olamaz.', 'Enter valid date ranges. Review cannot be due before submission.'],
   'independent-reviewer': ['İnceleyen sorumludan farklı olmalı.', 'The reviewer must differ from the owner.'],
@@ -33,7 +34,7 @@ const messages: Record<string, [string, string]> = {
 };
 const actions: Record<string, [string, string]> = { create: ['Taslak eklendi', 'Draft added'], edit: ['Güncellendi', 'Updated'], start: ['Başlatıldı', 'Started'], activate: ['Ek talep etkinleştirildi', 'Additional request activated'], submit: ['Sunuldu', 'Submitted'], return: ['Düzeltme istendi', 'Returned'], accept: ['Kabul edildi', 'Accepted'], cancel: ['İptal edildi', 'Cancelled'] };
 const dateAfter = (days: number) => new Date(Date.now() + days * 86400000).toISOString().slice(0, 10);
-export function AuditRequestPanel({ auditId, lang, focusId = '' }: { auditId: string; lang: string; focusId?: string }) {
+export function AuditRequestPanel({ auditId, lang, focusId = '', readOnly = false }: { auditId: string; lang: string; focusId?: string; readOnly?: boolean }) {
   const en = lang === 'en', t = (tr: string, eng: string) => en ? eng : tr;
   const [data, setData] = useState<Data | null>(null), [loading, setLoading] = useState(true), [ready, setReady] = useState(false);
   const [busy, setBusy] = useState(false), busyRef = useRef(false), [error, setError] = useState(''), [notice, setNotice] = useState('');
@@ -61,7 +62,7 @@ export function AuditRequestPanel({ auditId, lang, focusId = '' }: { auditId: st
   const progress = data ? auditRequestProgress(data.requests, data.workflow, data.complete && ready, clock) : null;
   const row = data?.requests.find(item => item.id === selected);
   const reviewEvidence = row?.evidence.find(version => version.id === previewVersion) || row?.evidence[0];
-  const canOperate = !!data?.canManage && ready && !!data?.complete && data?.workflow.state !== 'closed';
+  const canOperate = !readOnly && !!data?.canManage && ready && !!data?.complete && data?.workflow.state !== 'closed';
   const editable = canOperate && !busy && !loading;
   const choose = (item: AuditRequest) => { setSelected(item.id); setVersions(item.evidence.map(v => v.id)); setNote(''); setReturnDue(item.dueDate); setReturnReviewDue(item.reviewDueDate); setEditing(null); setError(''); };
   const beginEdit = (item?: AuditRequest) => {
@@ -110,9 +111,9 @@ export function AuditRequestPanel({ auditId, lang, focusId = '' }: { auditId: st
         {!progress.clockComplete && <p role="status">{t('Saat dilimi veya son tarihler doğrulanamadı; gecikme sayısı gösterilemiyor.', 'The time zone or deadlines could not be verified; the overdue count is unavailable.')}</p>}
       </div>}
 
-      <AuditWorkplanPanel key={auditId} auditId={auditId} lang={lang} workflow={data.workflow} canManage={data.canManage && ready && data.complete} evidenceAccess={data.evidenceAccess} disabled={busy || loading || !!editing} onBusy={value => { busyRef.current = value; setBusy(value); }} onChanged={load}/>
+      <AuditWorkplanPanel key={auditId} auditId={auditId} lang={lang} workflow={data.workflow} canManage={!readOnly && data.canManage && ready && data.complete} evidenceAccess={data.evidenceAccess} disabled={busy || loading || !!editing} onBusy={value => { busyRef.current = value; setBusy(value); }} onChanged={load}/>
       {data.workflow.state === 'closed' ? <p>{t('İş planı kapalı; önceki talepler ve kararlar okunabilir.', 'The work plan is closed; previous requests and decisions remain readable.')}</p> : data.workflow.state === 'draft' ? <p>{t('Taslak talepler bildirim üretmez. Başlatmadan önce sorumluları, tarihleri ve kayıtlı denetim planını kontrol edin.', 'Draft requests do not generate notifications. Review owners, dates and the saved audit plan before starting.')}</p> : <p>{t('Hatırlatma saat dilimi', 'Reminder time zone')}: <b>{data.workflow.timeZone}</b> · {t('İlk atama, son tarihten 1 gün önce, son gün ve 3 gün gecikmede. Teslim ve inceleme tarihleri ayrıdır.', 'Assignment, 1 day before due, on the due date and 3 days overdue. Delivery and review have separate dates.')}</p>}
-      {data.canManage && data.workflow.state !== 'closed' && <div className="ar-actions"><button type="button" disabled={!editable || !!editing} onClick={() => beginEdit()}>{t('+ Talep ekle', '+ Add request')}</button><button type="button" disabled={!editable || !!editing || !drafts.length} onClick={() => setLaunch(!launch)}>{data.workflow.state === 'draft' ? t('Başlangıç özetini gör', 'Preview launch') : t('Ek talepleri gözden geçir', 'Review additions')}</button></div>}
+      {!readOnly && data.canManage && data.workflow.state !== 'closed' && <div className="ar-actions"><button type="button" disabled={!editable || !!editing} onClick={() => beginEdit()}>{t('+ Talep ekle', '+ Add request')}</button><button type="button" disabled={!editable || !!editing || !drafts.length} onClick={() => setLaunch(!launch)}>{data.workflow.state === 'draft' ? t('Başlangıç özetini gör', 'Preview launch') : t('Ek talepleri gözden geçir', 'Review additions')}</button></div>}
       {launch && <div className="ar-launch"><h4>{data.workflow.state === 'draft' ? t('İş planını başlat', 'Start the work plan') : t('Ek talepleri etkinleştir', 'Activate additional requests')}</h4>
         <p>{drafts.length} {t('talep etkinleşecek.', 'requests will become active.')} {new Set(drafts.map(r => r.owner)).size} {t('sorumlu için atama bildirimi hazırlanacak. İnceleyenlere kanıt sunulduğunda iş açılır.', 'owners will receive assignment notifications. Reviewer work opens when evidence is submitted.')}</p>
         <ul className="ar-preview-list">{drafts.map(item => <li key={item.id}><b>{item.title}</b><span>{t('Sorumlu', 'Owner')}: {item.owner} · {t('İnceleyen', 'Reviewer')}: {item.reviewer}</span><span>{t('Teslim / inceleme', 'Delivery / review')}: {item.dueDate} / {item.reviewDueDate}</span><span>{t('Kanıt dönemi', 'Evidence period')}: {item.periodStart ? `${item.periodStart} – ${item.periodEnd}` : t('Belirtilmedi', 'Not specified')}</span><details><summary>{t('Kabul ölçütü', 'Acceptance criteria')}</summary><p className="ar-prewrap">{item.instructions}</p></details></li>)}</ul>

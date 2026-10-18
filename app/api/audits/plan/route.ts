@@ -1,3 +1,4 @@
+import {isAuditClosedError,auditClosedMessage} from "../../../audit-closure";
 import {NextRequest,NextResponse} from 'next/server';
 import {requireRole} from '../../auth/security';
 import {aiRecordQueryId} from '../../../ai/record-reads';
@@ -14,5 +15,5 @@ export async function GET(req:NextRequest){
 export async function PUT(req:NextRequest){
  const access=await requireRole(req,['Admin','Editor']);if(access.response)return access.response;
  let id:string,revision:string,plan;try{const body=await req.json();if(typeof body.id!=='string'||!body.id||body.id.length>100||typeof body.expectedRevision!=='string'||body.expectedRevision.length>100)throw new Error();id=body.id;revision=body.expectedRevision;plan=validateAuditPlan(body.plan);}catch{return json({error:'Alanları ve tarih aralıklarını kontrol edin. Her tarih aralığının iki ucunu da girin.'},400);}
- try{const{env}=await import('cloudflare:workers');const saved=await saveAuditPlan(env.DB,id,revision,plan,access.actor.email);return saved?json(saved):json({error:'Denetim silinmiş veya plan başka bir kullanıcı tarafından değiştirilmiş. Taslağınızı koruyup güncel planı yeniden yükleyin.'},409);}catch{return json({error:'Plan kaydedilemedi. Taslağınız korunuyor.'},503);}
+ try{const{env}=await import('cloudflare:workers');const saved=await saveAuditPlan(env.DB,id,revision,plan,access.actor.email);return saved?json(saved):json({error:'Denetim silinmiş veya plan başka bir kullanıcı tarafından değiştirilmiş. Taslağınızı koruyup güncel planı yeniden yükleyin.'},409);}catch(error){if(isAuditClosedError(error))return json({error:auditClosedMessage},409);return json({error:'Plan kaydedilemedi. Taslağınız korunuyor.'},503);}
 }
