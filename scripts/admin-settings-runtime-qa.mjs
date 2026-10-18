@@ -44,7 +44,7 @@ try{
  for(const section of [delivery,frequency]){await expect(section).toContainText('could not be loaded');await expect(section.getByRole('button',{name:'Save Policy',exact:true})).toHaveCount(0)}
  await page.unroute('**/api/continuous-assurance/notifications');
  for(const section of [delivery,frequency]){await section.getByRole('button',{name:'Retry',exact:true}).click();await expect(section.getByRole('button',{name:'Save Policy',exact:true})).toBeEnabled()}
- await expect(page.locator('.integration-card').getByLabel('Provider',{exact:true})).toBeVisible();
+ await expect(page.locator('.integration-card').getByLabel(/^Provider/)).toBeVisible();
  await expect(page.getByRole('button',{name:'Send Test Email',exact:true})).toBeVisible();
  await expect(page.locator('.assurance-notification-kpis,.assurance-scheduler-status,.assurance-notification-breaches,.assurance-recovery-register,.assurance-dispatch-register,.assurance-reset-register,.assurance-delivery-register,.storm-deferrals')).toHaveCount(0);
  await expect(page.locator('main table')).toHaveCount(0);
