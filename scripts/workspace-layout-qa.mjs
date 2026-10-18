@@ -76,8 +76,8 @@ try {
       await page.locator('.theme-toggle:visible').click();
     }
     await page.waitForTimeout(400);
-    assert.equal(await page.locator('.evidence-link>span>b').first().evaluate(el => getComputedStyle(el).color), 'rgb(237, 244, 243)', 'Evidence titles stay white in dark mode');
-    assert.equal(await page.locator('.table-wrap .code').first().evaluate(el => getComputedStyle(el).color), 'rgb(232, 120, 47)', 'Record codes stay orange in dark mode');
+    assert.equal(await page.locator('.evidence-link>span>b').first().evaluate(el => getComputedStyle(el).color), 'rgb(237, 242, 250)', 'Evidence titles use the new dark foreground');
+    assert.equal(await page.locator('.table-wrap .code').first().evaluate(el => getComputedStyle(el).color), 'rgb(145, 226, 214)', 'Record codes use the new dark accent');
     await page.screenshot({path:`${output}/${locale}-evidence-library-dark.png`});
     await page.locator('.theme-toggle:visible').click();
     await page.waitForTimeout(400);
@@ -87,8 +87,8 @@ try {
     await open(locale === 'tr' ? 'Bağlantılı GRC Haritası' : 'Connected GRC Map');
     await page.locator('.cg-records>button').first().waitFor();
     assert.equal(await page.locator('.cg-heading h2').evaluate(el=>getComputedStyle(el).fontSize),'18px','Compact desktop page heading');
-    assert.equal(await page.locator('.cg-records>button b').first().evaluate(el=>getComputedStyle(el).fontSize),'10px','Compact desktop record text');
-    assert.equal(await page.locator('.cg-filters input').evaluate(el=>getComputedStyle(el).fontSize),'11px','Compact desktop form text');
+    assert.equal(await page.locator('.cg-records>button b').first().evaluate(el=>getComputedStyle(el).fontSize),'12px','Readable desktop record text');
+    assert.equal(await page.locator('.cg-filters input').evaluate(el=>getComputedStyle(el).fontSize),'12px','Readable desktop form text');
     assert.equal(await page.locator('.cg-operations').count(), 0, 'Assurance operations do not crowd the initial map');
     assert.equal(await page.locator('.cg-gaps').count(), 0, 'Missing connections have their own view');
     assert.ok((await page.locator('.cg-workspace').boundingBox()).y < 600, 'Record explorer is above the fold');

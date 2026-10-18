@@ -42,7 +42,7 @@ try{
    await expect(page.locator('.evidence-assurance-status')).not.toHaveAttribute('data-state','loading');
    await expect(page.locator('.executive-overview-score')).toBeVisible();
    await expect(page.locator('.executive-dashboard-header h2')).toContainText(tr?'Büyük resmi':'bigger picture');
-   const a11y=await new AxeBuilder({page}).withTags(['wcag2a','wcag2aa','wcag21aa']).analyze();assert.deepEqual(a11y.violations.map(v=>({id:v.id,nodes:v.nodes.map(n=>n.target)})),[]);
+   const a11y=await new AxeBuilder({page}).withTags(['wcag2a','wcag2aa','wcag21aa']).analyze();assert.deepEqual(a11y.violations.map(v=>({id:v.id,nodes:v.nodes.map(n=>({target:n.target,detail:n.failureSummary}))})),[]);
    for(const width of [1536,1024,390]){await page.setViewportSize({width,height:960});await capture(`${locale}-${theme}-${width}-dashboard`);}
    await page.setViewportSize({width:1536,height:960});
    const modules=tr?['Risk Değerlendirmesi','Varlık Envanteri','Uyum Yönetimi','Kontrol Kütüphanesi','Kanıt Kütüphanesi','Denetim Yönetimi','Tedarikçi Yönetimi','Politika Merkezi','Güvenlik Olayları ve Kriz','Bulgular ve CAPA','İş Sürekliliği ve Dayanıklılık','Raporlama','Sistem Ayarları','AI Yönetişimi']:['Risk Assessment','Asset Inventory','Compliance Management','Control Library','Evidence Library','Audit Management','Vendor Management','Policy Center','Security Incidents & Crisis','Findings & CAPA','Business Continuity & Resilience','Reporting','System Settings','AI Governance'];

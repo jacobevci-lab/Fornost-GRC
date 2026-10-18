@@ -187,3 +187,5 @@ html[data-theme] body .shell[data-product-ui] .eql-metrics article {padding:16px
 html[data-theme] body .shell[data-product-ui] :is(.eql-metrics strong,.eql-health strong) {font-size:28px!important;line-height:1.2!important;margin-block:8px!important}
 html[data-theme] body .shell[data-product-ui] #ai-governance-workspace .fornost-ai-head {padding:22px 24px!important;border-left:4px solid var(--ws-brand)!important;background:var(--ws-surface)!important}
 html[data-theme] body .shell[data-product-ui] #ai-governance-workspace .fornost-ai-head h2 {font-size:25px!important}
+/* Shortcut hints remain legible on both header surfaces. */
+html[data-theme] body .shell[data-product-ui] .command-trigger kbd {color:var(--ws-ink)!important;-webkit-text-fill-color:var(--ws-ink)!important;background:var(--ws-surface-2)!important;opacity:1!important;font-size:10px!important}
