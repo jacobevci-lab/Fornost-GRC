@@ -56,6 +56,14 @@ jobs:
         with:
           name: admin-settings-preview
           path: admin-settings-qa-artifacts/
+      - name: Whole audit independent approval closure and reopening QA
+        run: node scripts/audit-closure-qa.mjs
+      - name: Publish audit closure browser evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: audit-closure-preview
+          path: audit-closure-qa-artifacts/
       - name: Authorized record search, exact navigation and register context QA
         run: node scripts/record-search-qa.mjs
       - name: Publish record search browser evidence

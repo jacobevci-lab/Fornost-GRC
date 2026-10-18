@@ -1,3 +1,5 @@
+import { ensureAuditClosureSchema } from "../../audit-closure-schema";
+import { isAuditClosedError, auditClosedMessage } from "../../audit-closure";
 import {getCatalogStatus} from "../../framework-catalog-status";
 import asvsManifest from "../../asvs-catalog-manifest.json";
 import { iso27001Management } from "../grc/iso27001-management";
@@ -113,7 +115,8 @@ function auditTemplateRows(audit: Record<string, unknown>, imported?: AuditCatal
 export async function GET(req: NextRequest) {
   const auth = await requireRole(req, ["Admin", "Editor", "Viewer"]);
   if (auth.response) return auth.response;
-  const d = await db(), result = await d.prepare("SELECT a.*, m.value AS catalog_json FROM simple_audits a LEFT JOIN simple_grc_metadata m ON m.key='audit_catalog_' || a.id ORDER BY a.updated_at DESC").all<Record<string,unknown>>();
+  const d = await db(); await ensureAuditClosureSchema(d);
+  const result = await d.prepare("SELECT a.*, COALESCE(c.state,'open') AS closure_state, m.value AS catalog_json FROM simple_audits a LEFT JOIN audit_closure_state c ON c.audit_id=a.id LEFT JOIN simple_grc_metadata m ON m.key='audit_catalog_' || a.id ORDER BY a.updated_at DESC").all<Record<string,unknown>>();
   const audits=result.results.map(row=>{const {catalog_json,...audit}=row;let catalog=null;try{catalog=catalog_json?JSON.parse(String(catalog_json)):null;}catch{}return {...audit,catalog};});
   // Reads must not migrate historical audit snapshots to a newer catalog.
   return NextResponse.json({ audits }, { headers: { "cache-control": "private, no-store" } });
@@ -150,6 +153,7 @@ export async function DELETE(req: NextRequest) {
   if (auth.response) return auth.response;
   const id = req.nextUrl.searchParams.get("id");
   if (!id || id.length > 100) return NextResponse.json({ error: "Geçersiz denetim kimliği." }, { status: 400 });
+  try {
   const d = await db(), audit = await d.prepare("SELECT * FROM simple_audits WHERE id=?").bind(id).first<Record<string, unknown>>();
   if (!audit) return NextResponse.json({ error: "Denetim bulunamadı." }, { status: 404 });
   const requirements = await d.prepare("SELECT id,data_json,created_at,updated_at FROM simple_grc_records WHERE module='Denetim Yönetimi' AND json_extract(data_json,'$.auditName')=?").bind(String(audit.name)).all();
@@ -165,4 +169,5 @@ export async function DELETE(req: NextRequest) {
     d.prepare("DELETE FROM simple_audits WHERE id=?").bind(id),
   ]);
   return NextResponse.json({ ok: true, deletedRequirements: requirements.results.length });
+  } catch(error) { return NextResponse.json({error:isAuditClosedError(error)?auditClosedMessage:"Denetim silinemedi."},{status:isAuditClosedError(error)?409:503}); }
 }

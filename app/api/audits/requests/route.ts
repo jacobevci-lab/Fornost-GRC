@@ -1,3 +1,5 @@
+import { isAuditClosedError } from '../../../audit-closure';
+import { readPendingAuditClosures } from '../../../audit-closure-store';
 import { NextRequest, NextResponse } from 'next/server';
 import { requireRole } from '../../auth/security';
 import { canReadModule, canWriteModule } from '../../../module-access';
@@ -6,7 +8,7 @@ import { auditRequestId, auditRequestPeople, mutateAuditRequest, readAuditReques
 import { syncAuditRequestNotifications } from '../../../audit-request-notifications';
 
 const json = (body: unknown, status = 200) => NextResponse.json(body, { status, headers: { 'cache-control': 'private, no-store' } });
-const error = (err: unknown) => err instanceof AuditRequestError ? json({ error: err.code }, err.status) : json({ error: 'unavailable' }, 503);
+const error = (err: unknown) => isAuditClosedError(err) ? json({error:'audit-closed'},409) : err instanceof AuditRequestError ? json({ error: err.code }, err.status) : json({ error: 'unavailable' }, 503);
 export async function GET(req: NextRequest) {
   const auth = await requireRole(req, ['Admin', 'Editor', 'Viewer']); if (auth.response) return auth.response;
   try {
@@ -15,7 +17,8 @@ export async function GET(req: NextRequest) {
     const id = req.nextUrl.searchParams.get('auditId'), evidenceAccess = canReadModule(auth.actor, 'Kanıtlar');
     if (!id) {
       const work = await readAuditRequestWork(env.DB);
-      return json({ ...work, requests: work.requests.map(row => ({ ...row, evidence: [] })) });
+      const closureWork = await readPendingAuditClosures(env.DB, auth.actor);
+      return json({ ...work, closures: closureWork.closures, complete: work.complete && closureWork.complete, requests: work.requests.map(row => ({ ...row, evidence: [] })) });
     }
     const auditId = auditRequestId(id), state = await readAuditRequestWorkflow(env.DB, auditId);
     const plan = await env.DB.prepare('SELECT value FROM simple_grc_metadata WHERE key=?').bind(`audit_plan_${auditId}`).first<{ value: string }>();

@@ -1,13 +1,13 @@
-# Product research delivery status — 18 October 2026
+# Product research delivery status — 19 October 2026
 
-This reconciles the ten delivery packages in the 14 October GRC product study with the implementation on `main` at `9f6bacf7b24ccce48b9d845f30bf8d63d9b71828`. It is a scope inventory, not a claim that every research acceptance scenario or customer integration has passed. The user's latest direction is functional improvement within the existing theme.
+This reconciles the ten delivery packages in the 14 October GRC product study with the implementation, including the whole-audit closure increment. It is a scope inventory, not a claim that every research acceptance scenario or customer integration has passed. The user's latest direction is functional improvement within the existing theme.
 
 | Research package | Implemented scope | Remaining scope |
 | --- | --- | --- |
 | P0: audit task chain | Silent request drafts; exact launch/addition preview; owner and independent reviewer; submission, return, resubmission and acceptance; exact My Work links. | Milestone text does not automatically create scheduled tasks. |
 | P0: reminder profiles | Existing outbox/transport reuse; assignment and due milestones; separate owner/reviewer dates; IANA time zone and stale-recipient checks. | Business-day/holiday calendars, delegation, configurable escalation/digest profiles, absolute task links in email and customer SMTP/Graph validation. |
 | P0: evidence period and review | Version-pinned requests, acceptance criteria and dates; safe text/CSV/JSON preview; supported DOCX/XLSX uploads; independent version review. | Period/content adequacy remains human review. Full Office visual preview and automatic re-evaluation after general library changes are separate work. |
-| P0: audit closure | Immutable application snapshots for request-work-plan closure/reopening; separately saved audit status reports with verified exports. | Whole-audit approval/closure across requirements, findings and final opinion; independent report sign-off and attachment retention/bundles. Request-plan closure is not whole-audit closure. |
+| P0: audit closure | Request-work-plan closure; whole-audit independent approval, return/withdrawal, SQL write locks, reasoned reopening, immutable plan/requirement/request/direct-CAPA package and verified JSON; pending My Work links. | Final opinion templates, independent sign-off of arbitrary status reports, attachment retention/bundles and broader finding-store scope. |
 | P1: external auditor workspace | Existing authenticated internal access and module grants. | External, time-bound engagement/period/version grants with matching file and export enforcement. |
 | P1: workpapers and sampling | Requirement/test register, control tests/automation and engagement methodology text. | Structured populations, samples, workpapers and sample-level review history. |
 | P1: control/finding lifecycle | Connected control/evidence/findings context, canonical CAPA, independent review/retest and exact navigation. | Further change-impact orchestration across all open work is not established as complete. |
@@ -25,11 +25,11 @@ The email simplification keeps transport configuration and testing, delivery dea
 
 - `docs/audit-request-workflow.md` and `app/audit-request-notifications.ts`
 - `docs/audit-engagement-planning.md` and `app/audit-plan.ts`
-- `docs/audit-status-reports.md`
+- `docs/audit-status-reports.md` and `docs/audit-closure.md`
 - `docs/research-workspaces.md`
 - `docs/integrations/control-assurance-workspace.md`
 - `docs/integrations/capa-control-context.md`
 - `docs/integrations/ai-model-decisions.md`
 - `docs/record-search.md`
 
-Next functional priority: whole-audit closure and approval, followed by business-day/escalation configuration. These are pending scope, not features added by the email-settings change.
+Next functional priority: business-day/holiday and configurable escalation profiles. External auditor access and structured workpapers remain distinct later packages. The email-settings simplification did not itself deliver these capabilities.

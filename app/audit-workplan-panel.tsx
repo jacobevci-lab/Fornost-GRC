@@ -6,6 +6,7 @@ import { requestStatusLabels, type AuditRequestWorkflow } from './audit-requests
 import { workplanResolved, type WorkplanClosureDetail, type WorkplanEvent, type WorkplanPlan, type WorkplanPreview } from './audit-workplan';
 
 const errors: Record<string, [string, string]> = {
+  'audit-closed': ['Denetim kapalı. Önce Kapanış ve onay görünümünden gerekçeyle yeniden açın.', 'The audit is closed. Reopen it with a reason in Closure and approval first.'],
   outstanding: ['Kapatmadan önce tüm talepleri sonuçlandırın; taslaklar da buna dahildir.', 'Resolve every request before closing, including drafts.'],
   'closure-changed': ['Talepler değişti. Kapanış özetini yeniden yükleyin.', 'Requests changed. Reload the closure preview.'],
   'preview-changed': ['Talepler değişti. Kapanış özetini yeniden yükleyin.', 'Requests changed. Reload the closure preview.'],

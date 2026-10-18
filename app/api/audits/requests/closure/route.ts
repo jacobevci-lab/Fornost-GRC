@@ -1,3 +1,4 @@
+import { isAuditClosedError } from '../../../../audit-closure';
 import { NextRequest, NextResponse } from 'next/server';
 import { requireRole } from '../../../auth/security';
 import { canReadModule } from '../../../../module-access';
@@ -7,7 +8,7 @@ import { mutateWorkplan, readWorkplanClosure, readWorkplanHistory, readWorkplanP
 
 const headers = { 'cache-control': 'private, no-store' };
 const json = (body: unknown, status = 200) => NextResponse.json(body, { status, headers });
-const error = (err: unknown) => err instanceof AuditRequestError ? json({ error: err.code }, err.status) : json({ error: 'unavailable' }, 503);
+const error = (err: unknown) => isAuditClosedError(err) ? json({error:'audit-closed'},409) : err instanceof AuditRequestError ? json({ error: err.code }, err.status) : json({ error: 'unavailable' }, 503);
 export async function GET(req: NextRequest) {
   const auth = await requireRole(req, ['Admin', 'Editor', 'Viewer']); if (auth.response) return auth.response;
   try {

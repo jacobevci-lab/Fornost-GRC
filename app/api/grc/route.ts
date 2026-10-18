@@ -1,3 +1,4 @@
+import {isAuditClosedError,auditClosedMessage} from "../../audit-closure";
 import {insertCoreRecords,CoreReferenceUnavailable} from "../../core-reference-write";
 import {deleteCoreRecord,CoreRecordLinked} from "../../core-record-delete";
 import {writeCoreRecord} from "../../core-record-write";
@@ -143,7 +144,7 @@ export async function POST(req:NextRequest){
   }
   const checked=validate(moduleName,moduleName==="Risk Assessment"&&b.data&&typeof b.data==="object"&&!Array.isArray(b.data)?preserveRiskGovernance(b.data):b.data);if("error" in checked)return NextResponse.json({error:checked.error},{status:400});
   const id=`${recordCodePrefixes[moduleName]}-${crypto.randomUUID()}`,code=(await reserveRecordCodes(d,moduleName,1,now))[0];await insertCoreRecords(d,moduleName,[{id,code,data:checked.data}],now);return NextResponse.json({ok:true,id,code},{status:201});
- }catch(error){if(error instanceof CoreReferenceUnavailable)return NextResponse.json({error:error.message,code:"REFERENCE_UNAVAILABLE"},{status:422});return NextResponse.json({error:error instanceof Error&&error.message==="PAYLOAD_TOO_LARGE"?"İstek boyutu çok büyük.":"Geçersiz JSON isteği."},{status:400})}
+ }catch(error){if(isAuditClosedError(error))return NextResponse.json({error:auditClosedMessage,code:"AUDIT_CLOSED"},{status:409});if(error instanceof CoreReferenceUnavailable)return NextResponse.json({error:error.message,code:"REFERENCE_UNAVAILABLE"},{status:422});return NextResponse.json({error:error instanceof Error&&error.message==="PAYLOAD_TOO_LARGE"?"İstek boyutu çok büyük.":"Geçersiz JSON isteği."},{status:400})}
 }
 export async function PATCH(req:NextRequest){
  const auth=await requireRole(req,["Admin","Editor"]);if(auth.response)return auth.response;
@@ -155,7 +156,7 @@ export async function PATCH(req:NextRequest){
   const checked=validate(existing.module,input);if("error" in checked)return NextResponse.json({error:checked.error},{status:400});
   const updatedAt=await writeCoreRecord(d,b.id,existing,checked.data,b.expectedUpdatedAt);
   return NextResponse.json({ok:true,updatedAt});
- }catch(error){if(error instanceof CoreReferenceUnavailable)return NextResponse.json({error:error.message,code:"REFERENCE_UNAVAILABLE"},{status:422});if(error instanceof LifecycleConflict)return NextResponse.json({error:error.message},{status:409});return NextResponse.json({error:"Geçersiz JSON isteği, kayıt sürümü veya okunamayan kayıt."},{status:400})}
+ }catch(error){if(isAuditClosedError(error))return NextResponse.json({error:auditClosedMessage,code:"AUDIT_CLOSED"},{status:409});if(error instanceof CoreReferenceUnavailable)return NextResponse.json({error:error.message,code:"REFERENCE_UNAVAILABLE"},{status:422});if(error instanceof LifecycleConflict)return NextResponse.json({error:error.message},{status:409});return NextResponse.json({error:"Geçersiz JSON isteği, kayıt sürümü veya okunamayan kayıt."},{status:400})}
 }
 export async function DELETE(req:NextRequest){
  const auth=await requireRole(req,["Admin"]);if(auth.response)return auth.response;
@@ -168,6 +169,7 @@ export async function DELETE(req:NextRequest){
   await deleteCoreRecord(d,id,existing,expected===null?undefined:expected);
   return NextResponse.json({ok:true});
  }catch(error){
+  if(isAuditClosedError(error))return NextResponse.json({error:auditClosedMessage,code:"AUDIT_CLOSED"},{status:409});
   if(error instanceof CoreRecordLinked)return NextResponse.json({error:error.message,code:"RECORD_LINKED"},{status:409});
   if(error instanceof LifecycleConflict)return NextResponse.json({error:error.message,code:"RECORD_CHANGED"},{status:409});
   console.error("CORE_DELETE_FAILED",error instanceof Error?error.message:"Unknown database failure");
