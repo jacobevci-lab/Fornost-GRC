@@ -16,3 +16,5 @@
 .command-palette:has(.record-search-scope)>header,.command-palette .record-search-modes,.command-palette .record-search-scope,.command-palette .record-search-feedback{flex-shrink:0}
 .command-palette:has(.record-search-scope) #record-search-results{min-height:0!important}
 .command-palette:has(.record-search-scope)>header input{min-width:0!important}
+
+.command-palette:has(.record-search-scope) #record-search-results button small,.command-palette:has(.record-search-scope)>footer,.command-palette:has(.record-search-scope) kbd{color:var(--ws-muted)!important}

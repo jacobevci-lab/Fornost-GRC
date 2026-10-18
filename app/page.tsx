@@ -1366,7 +1366,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
   const labels = labelMap[lang],
     u = ui[lang];
   const [recordRequest, setRecordRequest] = useState<FornostNavigationRequest | null>(null);
-  const [focusedRecord, setFocusedRecord] = useState<{ id: string; ref: string } | null>(null);
+  const [focusedRecord, setFocusedRecord] = useState<{ id: string; ref: string; state?: "loading" | "error"; request?: FornostNavigationRequest } | null>(null);
   useEffect(() => {
     const accept = (request: FornostNavigationRequest | null) => {
       if (request && isCoreRecordRequest(request)) setRecordRequest(request);
@@ -1506,12 +1506,16 @@ function FornostApp({ currentUser }: { currentUser: any }) {
   useEffect(() => {
     if (!recordRequest || !sameDomainModule(recordRequest.module, active)) return;
     let cancelled = false;
+    setFocusedRecord({ id: "", ref: coreRecordReference(recordRequest), state: "loading", request: recordRequest });
     void load().then(freshRows => {
       if (cancelled) return;
       if (freshRows) {
+        setNotice("");
         const target = resolveCoreRecord(freshRows, recordRequest);
         setFocusedRecord({ id: target?.id || "", ref: target?.code || coreRecordReference(recordRequest) });
         if (target?.module === "Denetim Yönetimi") setSelectedAudit(String(target.data.auditName || ""));
+      } else {
+        setFocusedRecord({ id: "", ref: coreRecordReference(recordRequest), state: "error", request: recordRequest });
       }
       consumePendingFornostFocus(recordRequest.module);
       setRecordRequest(null);
@@ -2288,11 +2292,12 @@ function FornostApp({ currentUser }: { currentUser: any }) {
           </div>
         )}
         {focusedRecord && <section className="core-record-focus" role="status" aria-live="polite">
-          <div><strong>{focusedRecord.id && rows.some(row => row.id === focusedRecord.id)
+          <div><strong>{focusedRecord.state === "loading" ? (lang === "tr" ? "Kayıt yükleniyor…" : "Loading record…") : focusedRecord.state === "error" ? (lang === "tr" ? "Kayıt kaynağı doğrulanamadı" : "Record source could not be verified") : focusedRecord.id && rows.some(row => row.id === focusedRecord.id)
             ? (lang === "tr" ? "Seçili kayıt" : "Selected record")
             : (lang === "tr" ? "Kayıt bulunamadı veya artık erişilemiyor" : "Record not found or no longer available")}</strong><span>{focusedRecord.ref}</span></div>
-          <button type="button" onClick={() => setFocusedRecord(null)}>{lang === "tr" ? "Önceki görünüme dön" : "Return to previous view"}</button>
-          <button type="button" onClick={() => { setFocusedRecord(null); setQuery(""); setRegisterFilters({}); }}>{lang === "tr" ? "Tüm kayıtları göster" : "Show all records"}</button>
+          {focusedRecord.state === "error" && focusedRecord.request && <button type="button" onClick={() => setRecordRequest({ ...focusedRecord.request! })}>{lang === "tr" ? "Kaydı yeniden yükle" : "Reload record"}</button>}
+          <button type="button" onClick={() => { consumePendingFornostFocus(active); setRecordRequest(null); setFocusedRecord(null); }}>{lang === "tr" ? "Önceki görünüme dön" : "Return to previous view"}</button>
+          <button type="button" onClick={() => { consumePendingFornostFocus(active); setRecordRequest(null); setFocusedRecord(null); setQuery(""); setRegisterFilters({}); }}>{lang === "tr" ? "Tüm kayıtları göster" : "Show all records"}</button>
         </section>}
         {!canOpenModule(currentUser,active) ? <section className="module-scope-home"><h2>{lang==="tr"?"Bu modüle erişiminiz yok":"Module access is unavailable"}</h2><button onClick={()=>navigateToModule("Ana Sayfa")}>{lang==="tr"?"Ana sayfa":"Home"}</button></section> : active === "Ana Sayfa" && scoped ? (
           <section className="module-scope-home"><h2>{lang==="tr"?"Çalışma alanım":"My workspace"}</h2><p>{lang==="tr"?"İzin verilen modüllerdeki kayıtları görüntüleyin ve yönetin. Ortak raporlar ve gelişmiş iş akışları için tam çalışma alanı erişimi gerekir.":"View and manage records in your permitted modules. Shared reports and advanced workflows require full workspace access."}</p><div className="module-scope-cards">{readableModules(currentUser).map(module=><button key={module} onClick={()=>navigateToModule(module)}><b>{names[lang][module]}</b><small>{by(module).length} {lang==="tr"?"kayıt":"records"} · {canWriteModule(currentUser,module)?(lang==="tr"?"Okuma ve düzenleme":"Read and edit"):(lang==="tr"?"Okuma":"Read")}</small></button>)}</div>{!readableModules(currentUser).length&&<p>{lang==="tr"?"Henüz modül erişimi atanmadı. Yöneticinizle iletişime geçin.":"No module access has been assigned. Contact your administrator."}</p>}</section>

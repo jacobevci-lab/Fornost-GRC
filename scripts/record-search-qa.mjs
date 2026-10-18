@@ -89,6 +89,15 @@ try {
   await page.reload(); await expect(registerQuery).toHaveValue('Preserve this search');
   await page.locator('.register-toolbar').getByRole('button', { name: /Filters/ }).click(); await expect(filter).toHaveValue(filterValue);
   checks.push('Independent module search/filter context survives exact focus, return and reload');
+  let sourceUnavailable = true;
+  await page.route('**/api/grc', async route => sourceUnavailable ? route.fulfill({ status: 503, contentType: 'application/json', body: '{"error":"QA record source unavailable"}' }) : route.continue());
+  dialog = await openSearch(); await input(page).fill(risk.code); await expect(dialog.locator('#record-search-results').getByRole('option')).toHaveCount(1); await input(page).press('Enter');
+  await expect(page.locator('.core-record-focus')).toContainText('Record source could not be verified');
+  await expect(page.locator('.core-record-focus')).not.toContainText('no longer available');
+  sourceUnavailable = false; await page.getByRole('button', { name: 'Reload record', exact: true }).click();
+  await expect(page.locator('.core-record-focus')).toContainText(risk.code); await expect(page.locator('tbody')).toContainText(risk.title);
+  await page.unroute('**/api/grc');
+  checks.push('Record-source failure is distinct from deletion and retries the exact target');
   dialog = await openSearch(); await input(page).fill(marker); await expect(dialog.locator('#record-search-results').getByRole('option')).toHaveCount(25);
   await dialog.getByRole('button', { name: 'Load more results' }).click(); await expect(dialog.locator('#record-search-results').getByRole('option')).toHaveCount(29);
   await input(page).fill('UnmatchedRecord123456789'); await expect(dialog).toContainText('No matching accessible records');
@@ -116,7 +125,9 @@ try {
         await expect(dialog.locator('#record-search-results').getByRole('option').first()).toBeVisible();
         assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 2));
         assert.ok(await dialog.evaluate(node => node.scrollWidth <= node.clientWidth + 2));
-        assert.equal((await new AxeBuilder({ page }).include('.command-palette').analyze()).violations.filter(v => ['serious','critical'].includes(v.impact)).length, 0);
+        const violations = (await new AxeBuilder({ page }).include('.command-palette').analyze()).violations.filter(v => ['serious','critical'].includes(v.impact));
+        await writeFile(`${out}/accessibility-${lang}-${theme}-${width}.json`, JSON.stringify(violations, null, 2));
+        assert.equal(violations.length, 0, JSON.stringify(violations));
         await page.screenshot({ path: `${out}/search-${lang}-${theme}-${width}.png` }); await input(page).press('Escape');
       }
     }
