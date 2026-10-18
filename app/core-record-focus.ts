@@ -1,7 +1,7 @@
 import { legacyModuleName } from "./domain-identity";
 import type { FornostNavigationRequest } from "./navigation-focus";
 
-export const CORE_RECORD_MODULES = new Set(["Risk Assessment", "BIA", "Varlık Envanteri", "Uyum", "Kontroller", "Kanıtlar", "Denetim Yönetimi"]);
+export const CORE_RECORD_MODULES = new Set(["Risk Assessment", "Tedarikçiler", "BIA", "Varlık Envanteri", "Uyum", "Kontroller", "Kanıtlar", "Denetim Yönetimi"]);
 export type FocusableRecord = { id: string; module: string; code?: string; data: Record<string, unknown> };
 const clean = (value: unknown) => String(value ?? "").normalize("NFKC").trim();
 

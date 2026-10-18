@@ -1,0 +1,18 @@
+/* Only the new search controls; existing application theme and tokens are preserved. */
+.command-palette .record-search-modes{display:flex;gap:8px;padding:12px 16px;border-bottom:1px solid var(--ws-line)}
+.command-palette .record-search-modes button{padding:7px 12px;border:1px solid var(--ws-line);border-radius:8px;background:transparent;color:inherit;cursor:pointer}
+.command-palette .record-search-modes button[aria-pressed="true"]{border-color:currentColor;font-weight:700}
+.command-palette .record-search-scope{padding:12px 16px;display:grid;gap:8px}
+.command-palette .record-search-scope label{display:flex;align-items:center;gap:12px}
+.command-palette .record-search-scope select{flex:1;min-width:0;max-width:100%;font:inherit;color:inherit;background:var(--ws-surface);border:1px solid var(--ws-line);border-radius:8px;padding:8px}
+.command-palette .record-search-scope small{line-height:1.5}
+.command-palette .record-search-feedback{padding:0 16px 12px}
+.command-palette .record-search-feedback p{margin:8px 0}
+.command-palette .record-search-feedback button{font:inherit;padding:7px 12px;color:inherit;background:transparent;border:1px solid var(--ws-line);border-radius:8px;cursor:pointer}
+.command-palette .record-search-feedback button:disabled{opacity:.6;cursor:wait}
+.command-palette #record-search-results:empty{padding:0!important;min-height:0!important}
+.command-palette #record-search-results button span{min-width:0;overflow-wrap:anywhere}
+
+.command-palette:has(.record-search-scope)>header,.command-palette .record-search-modes,.command-palette .record-search-scope,.command-palette .record-search-feedback{flex-shrink:0}
+.command-palette:has(.record-search-scope) #record-search-results{min-height:0!important}
+.command-palette:has(.record-search-scope)>header input{min-width:0!important}
