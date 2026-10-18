@@ -67,6 +67,10 @@ try{
   }
  }
  assert.deepEqual(errors,[]);console.log('ADMIN_SETTINGS_QA passed: load failure, malformed response, retry, history, degraded health, unknown state, themes, mobile, Turkish; email settings only, load/save recovery and real policy persistence');
+}catch(error){
+ await fs.writeFile(`${out}/failure.json`,JSON.stringify({message:error.message,stack:error.stack,pageErrors:errors},null,2));
+ await page.screenshot({path:`${out}/failure.png`,fullPage:true}).catch(()=>{});
+ throw error;
 }finally{
  if(originalNotifications){
   for(const data of [originalNotifications.policy,{section:'storm',...originalNotifications.storm.policy}]){
