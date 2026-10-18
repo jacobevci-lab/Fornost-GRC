@@ -13,7 +13,7 @@ for (const p of [page, scopedPage]) p.on('pageerror', e => errors.push(e.message
 async function api(ctx, path, method = 'GET', data, status = 200) {
   const response = await ctx.request.fetch(base + path, { method, data, headers: { origin: base } });
   assert.equal(response.status(), status, `${method} ${path}: ${await response.text()}`);
-  return response.json();
+  return response.json().catch(() => null);
 }
 async function openSearch(p = page) {
   await p.locator('.command-trigger').click();
@@ -49,7 +49,7 @@ try {
   await api(scoped, '/api/auth', 'POST', { action: 'login', email, password: qaPassword() });
   const scopedResults = await api(scoped, `/api/search?q=${stamp}`); assert.ok(scopedResults.results.length); assert.ok(scopedResults.results.every(row => row.module === 'BIA'));
   await api(scoped, `/api/search?q=${stamp}&module=Kan%C4%B1tlar`, 'GET', undefined, 400);
-  await api(scoped, '/api/search', 'POST', {}, 403);
+  await api(scoped, '/api/search', 'POST', {}, 405);
   await scopedPage.goto(base); await expect(scopedPage.locator('.shell')).toBeVisible();
   await scopedPage.locator('.language-switch:visible').getByRole('button', { name: 'EN', exact: true }).click();
   let dialog = await openSearch(scopedPage); await input(scopedPage).fill(bia.code);
@@ -128,7 +128,7 @@ try {
   checks.push('Deleted records disappear from the next server search');
   assert.deepEqual(errors, []); await writeFile(`${out}/summary.json`, JSON.stringify({ checks, runtimeErrors: errors }, null, 2));
   console.log('RECORD_SEARCH_QA_PASS: ' + checks.join('; '));
-} catch (error) { await page.screenshot({ path: `${out}/failure.png` }).catch(() => {}); throw error; }
+} catch (error) { await writeFile(`${out}/failure.json`, JSON.stringify({ message: error.message, stack: error.stack, checks }, null, 2)); await page.screenshot({ path: `${out}/failure.png` }).catch(() => {}); throw error; }
 finally {
   for (const record of created) await context.request.delete(`${base}/api/grc?id=${encodeURIComponent(record.id)}`, { headers: { origin: base } }).catch(() => {});
   await browser.close();

@@ -1886,7 +1886,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
     const onCommandKey = (event: KeyboardEvent) => {
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") {
         event.preventDefault();
-        setCommandOpen((open) => !open);
+        if (commandOpen) closeCommand(); else setCommandOpen(true);
         setCommandQuery("");
         setCommandIndex(0);
         return;
@@ -2074,7 +2074,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
           className="command-overlay"
           role="presentation"
           onMouseDown={(event) => {
-            if (event.target === event.currentTarget) setCommandOpen(false);
+            if (event.target === event.currentTarget) closeCommand();
           }}
         >
           <div ref={commandDialogRef}
