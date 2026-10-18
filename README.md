@@ -33,7 +33,7 @@ Fornost, klasik kayıt ve raporlama işlevlerinin yanında AI sistemlerinin enva
 - Sekiz çekirdek modülde kurum kayıtlarına dokunmadan kaldırılabilen ve yeniden yüklenebilen kontrollü örnek veri paketi
 - Excel içe aktarma ve CSV/Excel dışa aktarma
 - TR/EN arayüz
-- Tek otoriteli Fornost Workspace tasarımı; açık ana tema, gerçek grafit koyu mod, tüm AI/yönetim/modül ekranlarında ortak yüzey sözleşmesi, form ve modal kontrastı, responsive taşma koruması, geniş/ikon/gizli sol menü, mobil drawer, rol bazlı global komut paleti ve her sayfadan kaynak gösterimli bağlamsal Ask Fornost analizi
+- Ürün genelinde Fornost Workspace tasarımı; açık ana tema, lacivert koyu mod, menü içi arama, yenilenmiş dashboard ve modül girişleri, tüm AI/yönetim/modül ekranlarında ortak yüzey sözleşmesi, form ve modal kontrastı, responsive taşma koruması, geniş/ikon/gizli sol menü, mobil drawer, rol bazlı global komut paleti ve her sayfadan kaynak gösterimli bağlamsal Ask Fornost analizi
 
 ## Fornost AI Assurance
 

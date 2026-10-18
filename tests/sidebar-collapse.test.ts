@@ -60,13 +60,13 @@ test("mobile navigation is a dismissible accessible drawer", () => {
   assert.match(css, /\.mobile-nav-open \.mobile-nav-backdrop/);
 });
 
-test("full navigation is a persisted single-section accordion", () => {
+test("full navigation persists its section and expands matching search results", () => {
   assert.match(page, /openNavGroup, setOpenNavGroup/);
   assert.match(page, /fornost-grc-open-nav-group/);
   assert.match(page, /className="nav-group-trigger"/);
-  assert.match(page, /aria-expanded=\{sidebarMode !== "expanded" \|\| openNavGroup === group\.id\}/);
+  assert.match(page, /aria-expanded=\{!!navigationTerm \|\| sidebarMode !== "expanded" \|\| openNavGroup === group\.id\}/);
   assert.match(page, /aria-controls=\{`nav-group-\$\{group\.id\}`\}/);
-  assert.match(page, /hidden=\{sidebarMode === "expanded" && openNavGroup !== group\.id\}/);
+  assert.match(page, /hidden=\{!navigationTerm && sidebarMode === "expanded" && openNavGroup !== group\.id\}/);
   assert.match(productCss, /\.nav-group-items\[hidden\]\{display:none!important\}/);
   assert.match(productCss, /\.sidebar-compact \.nav-group-items/);
 });
