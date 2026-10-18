@@ -66,7 +66,7 @@ export function AuditClosurePanel({ auditId, lang, onChanged, focusId = '' }: { 
     if (!live.current) return;
     setReady(false); setPreview(null); setReviewed(false); setNote(''); attempt.current = null;
     await reload(); await loadDetail(result.id); await onChanged();
-    if (live.current) setNotice(auditClosureActionLabels[action][tr ? 0 : 1]);
+    if (live.current) setNotice(action);
   }
   const currentPackage = !!state && detail?.event.id === state.submissionId;
   const canReview = currentPackage && history?.actorId === detail?.event.reviewerId && history?.actorId !== detail?.event.preparerId;
@@ -82,7 +82,7 @@ export function AuditClosurePanel({ auditId, lang, onChanged, focusId = '' }: { 
       </div>
       {busy && <p role="status">{t('Kapanış kaydı işleniyor…', 'Processing closure record…')}</p>}
       {error && <p role="alert">{(messages[error] || messages.unavailable)[tr ? 0 : 1]}</p>}
-      {notice && <p role="status">{notice}</p>}
+      {notice && <p role="status">{auditClosureActionLabels[notice as AuditClosureAction]?.[tr ? 0 : 1]}</p>}
       {state?.state === 'closed' && <p>{t('Plan, maddeler ve talepler değişikliğe kapalıdır. Açık CAPA aksiyonlarının takibi devam eder.', 'The plan, requirements and requests are locked. Follow-up of open CAPA actions continues.')}</p>}
       {preview && state?.state === 'open' && <div className="asr-preview">
         <h4>{t('Kapanış paketi önizlemesi', 'Closure package preview')}</h4><div inert={busy}><ReportSource source={preview.source} tr={tr}/></div>
