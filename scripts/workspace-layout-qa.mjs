@@ -81,7 +81,7 @@ try {
     await page.screenshot({path:`${output}/${locale}-evidence-library-dark.png`});
     await page.locator('.theme-toggle:visible').click();
     await page.waitForTimeout(400);
-    assert.equal(await page.locator('.table-wrap').first().evaluate(el => getComputedStyle(el).backgroundColor), 'rgb(244, 241, 235)', 'Light surfaces match the supplied warm neutral reference');
+    assert.equal(await page.locator('.table-wrap').first().evaluate(el => getComputedStyle(el).backgroundColor), 'rgb(255, 255, 255)', 'Light register surfaces use the current white product palette');
     await page.screenshot({path:`${output}/${locale}-evidence-library-light.png`});
     await progress(`${locale}: connected explorer`);
     await open(locale === 'tr' ? 'Bağlantılı GRC Haritası' : 'Connected GRC Map');
