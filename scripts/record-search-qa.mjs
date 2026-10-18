@@ -53,7 +53,7 @@ try {
   await scopedPage.goto(base); await expect(scopedPage.locator('.shell')).toBeVisible();
   await scopedPage.locator('.language-switch:visible').getByRole('button', { name: 'EN', exact: true }).click();
   let dialog = await openSearch(scopedPage); await input(scopedPage).fill(bia.code);
-  await expect(dialog.getByRole('option')).toHaveCount(1); await input(scopedPage).press('Enter');
+  await expect(dialog.locator('#record-search-results').getByRole('option')).toHaveCount(1); await input(scopedPage).press('Enter');
   await expect(scopedPage.locator('.core-record-focus')).toContainText(bia.code);
   await expect(scopedPage.locator('tbody')).toContainText(bia.title);
   await api(context, '/api/users', 'PATCH', { id: user.id, role: 'Viewer', status: 'Active', moduleAccess: { mode: 'scoped', modules: {} } });
@@ -65,7 +65,7 @@ try {
   await page.locator('.language-switch:visible').getByRole('button', { name: 'EN', exact: true }).click();
   for (const record of created.slice(0, 8)) {
     dialog = await openSearch(); await input(page).fill(record.code);
-    await expect(dialog.getByRole('option')).toHaveCount(1); await expect(dialog.getByRole('option')).toContainText(record.title);
+    await expect(dialog.locator('#record-search-results').getByRole('option')).toHaveCount(1); await expect(dialog.locator('#record-search-results').getByRole('option')).toContainText(record.title);
     await input(page).press('Enter'); await expect(dialog).toHaveCount(0);
     const focus = page.locator(record.module === 'Tedarikçiler' ? '.enterprise-work-focus' : '.core-record-focus');
     await expect(focus).toContainText(record.module === 'Tedarikçiler' ? record.id : record.code);
@@ -83,18 +83,18 @@ try {
   await module('Risk Assessment'); await expect(registerQuery).toHaveValue('Preserve this search');
   await page.locator('.register-toolbar').getByRole('button', { name: /Filters/ }).click(); await expect(filter).toHaveValue(filterValue);
   const risk = created.find(x => x.module === 'Risk Assessment');
-  dialog = await openSearch(); await input(page).fill(risk.code); await expect(dialog.getByRole('option')).toHaveCount(1); await input(page).press('Enter');
+  dialog = await openSearch(); await input(page).fill(risk.code); await expect(dialog.locator('#record-search-results').getByRole('option')).toHaveCount(1); await input(page).press('Enter');
   await expect(page.locator('.core-record-focus')).toContainText(risk.code); await expect(registerQuery).toHaveValue('');
   await page.getByRole('button', { name: 'Return to previous view', exact: true }).click(); await expect(registerQuery).toHaveValue('Preserve this search');
   await page.reload(); await expect(registerQuery).toHaveValue('Preserve this search');
   await page.locator('.register-toolbar').getByRole('button', { name: /Filters/ }).click(); await expect(filter).toHaveValue(filterValue);
   checks.push('Independent module search/filter context survives exact focus, return and reload');
-  dialog = await openSearch(); await input(page).fill(marker); await expect(dialog.getByRole('option')).toHaveCount(25);
-  await dialog.getByRole('button', { name: 'Load more results' }).click(); await expect(dialog.getByRole('option')).toHaveCount(29);
+  dialog = await openSearch(); await input(page).fill(marker); await expect(dialog.locator('#record-search-results').getByRole('option')).toHaveCount(25);
+  await dialog.getByRole('button', { name: 'Load more results' }).click(); await expect(dialog.locator('#record-search-results').getByRole('option')).toHaveCount(29);
   await input(page).fill('UnmatchedRecord123456789'); await expect(dialog).toContainText('No matching accessible records');
   await page.route('**/api/search?**', async route => { await route.fulfill({ status: 503, contentType: 'application/json', body: '{"error":"QA unavailable"}' }); }, { times: 1 });
   await input(page).fill(risk.code); await expect(dialog.getByRole('alert')).toContainText('Search could not complete');
-  await dialog.getByRole('button', { name: 'Retry', exact: true }).click(); await expect(dialog.getByRole('option')).toHaveCount(1);
+  await dialog.getByRole('button', { name: 'Retry', exact: true }).click(); await expect(dialog.locator('#record-search-results').getByRole('option')).toHaveCount(1);
   await page.route('**/api/search?**', async route => {
     if (new URL(route.request().url()).searchParams.get('q') === 'slow-search') {
       await new Promise(resolve => setTimeout(resolve, 900));
@@ -103,7 +103,7 @@ try {
   });
   const slow = page.waitForRequest(request => request.url().includes('q=slow-search'));
   await input(page).fill('slow-search'); await slow; await input(page).fill(bia.code);
-  await expect(dialog.getByRole('option')).toHaveCount(1); await expect(dialog.getByRole('option')).toContainText(bia.title);
+  await expect(dialog.locator('#record-search-results').getByRole('option')).toHaveCount(1); await expect(dialog.locator('#record-search-results').getByRole('option')).toContainText(bia.title);
   await page.waitForTimeout(1100); await expect(dialog).not.toContainText('STALE RESPONSE'); await page.unroute('**/api/search?**');
   await input(page).press('Escape'); await expect(page.locator('.command-trigger')).toBeFocused();
   checks.push('Pagination, empty state, retry, stale response cancellation, Escape and focus return');
@@ -113,7 +113,7 @@ try {
       if (await page.locator('html').getAttribute('data-theme') !== theme) await page.locator('.theme-toggle:visible').click();
       for (const width of [1536, 390]) {
         await page.setViewportSize({ width, height: 960 }); dialog = await openSearch(); await input(page).fill(stamp.toString());
-        await expect(dialog.getByRole('option').first()).toBeVisible();
+        await expect(dialog.locator('#record-search-results').getByRole('option').first()).toBeVisible();
         assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 2));
         assert.ok(await dialog.evaluate(node => node.scrollWidth <= node.clientWidth + 2));
         assert.equal((await new AxeBuilder({ page }).include('.command-palette').analyze()).violations.filter(v => ['serious','critical'].includes(v.impact)).length, 0);
@@ -128,7 +128,7 @@ try {
   checks.push('Deleted records disappear from the next server search');
   assert.deepEqual(errors, []); await writeFile(`${out}/summary.json`, JSON.stringify({ checks, runtimeErrors: errors }, null, 2));
   console.log('RECORD_SEARCH_QA_PASS: ' + checks.join('; '));
-} catch (error) { await writeFile(`${out}/failure.json`, JSON.stringify({ message: error.message, stack: error.stack, checks }, null, 2)); await page.screenshot({ path: `${out}/failure.png` }).catch(() => {}); throw error; }
+} catch (error) { await writeFile(`${out}/failure.json`, JSON.stringify({ message: error.message, stack: error.stack, checks }, null, 2)); await page.screenshot({ path: `${out}/failure.png` }).catch(() => {}); await scopedPage.screenshot({ path: `${out}/scoped-failure.png` }).catch(() => {}); throw error; }
 finally {
   for (const record of created) await context.request.delete(`${base}/api/grc?id=${encodeURIComponent(record.id)}`, { headers: { origin: base } }).catch(() => {});
   await browser.close();
