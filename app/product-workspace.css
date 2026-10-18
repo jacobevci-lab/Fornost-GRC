@@ -189,3 +189,12 @@ html[data-theme] body .shell[data-product-ui] #ai-governance-workspace .fornost-
 html[data-theme] body .shell[data-product-ui] #ai-governance-workspace .fornost-ai-head h2 {font-size:25px!important}
 /* Shortcut hints remain legible on both header surfaces. */
 html[data-theme] body .shell[data-product-ui] .command-trigger kbd {color:var(--ws-ink)!important;-webkit-text-fill-color:var(--ws-ink)!important;background:var(--ws-surface-2)!important;opacity:1!important;font-size:10px!important}
+
+/* Report controls stay close to the register while keeping the shared hierarchy. */
+html[data-theme] body .shell[data-product-ui]>main .report-workspace {gap:12px;padding-top:0}
+html[data-theme] body .shell[data-product-ui]>main .report-workspace .report-hero {min-height:0!important;margin:0!important;padding:16px 20px!important}
+html[data-theme] body .shell[data-product-ui]>main .report-workspace .report-summary .kpi {padding:12px 16px!important}
+html[data-theme] body .shell[data-product-ui]>main .report-workspace .report-summary .kpi>b {margin:0 0 4px!important}
+html[data-theme] body .shell[data-product-ui]>main .report-workspace .report-scope-controls {padding:12px 16px}
+html[data-theme] body .shell[data-product-ui]>main .report-workspace .report-template-settings {padding-bottom:12px}
+html[data-theme] body .shell[data-product-ui]>main .report-workspace .report-scope-strip {padding-block:8px}

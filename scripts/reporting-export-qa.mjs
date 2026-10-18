@@ -1,6 +1,6 @@
 import {chromium,expect} from '@playwright/test';
 import assert from 'node:assert/strict';
-import {readFile,mkdir} from 'node:fs/promises';
+import {readFile,mkdir,writeFile} from 'node:fs/promises';
 import {PDFDocument} from 'pdf-lib';
 import {qaPassword} from './qa-credentials.mjs';
 const base='http://127.0.0.1:4173';
@@ -54,7 +54,7 @@ try{
  await expect(panel.locator('.report-secondary[open]')).toHaveCount(0);
  await panel.getByLabel('Report module',{exact:true}).selectOption('BIA');
  await expect(panel.getByRole('button',{name:'PDF Report',exact:true})).toBeVisible();
- const headerBox=await panel.boundingBox(),tableBox=await panel.locator('.table-card').boundingBox();assert.ok(tableBox.y-headerBox.y<700,'Register must be close to the scope controls');
+ const headerBox=await panel.boundingBox(),tableBox=await panel.locator('.table-card').boundingBox();assert.ok(tableBox.y-headerBox.y<700,`Register must be close to the scope controls: ${Math.round(tableBox.y-headerBox.y)}px`);
  await mkdir('layout-qa-artifacts',{recursive:true});
  await panel.screenshot({path:'layout-qa-artifacts/reporting-desktop.png'});
  await page.setViewportSize({width:390,height:844});
@@ -102,4 +102,9 @@ try{
  await panel.getByRole('button',{name:'PDF Report',exact:true}).click();await expect(panel.getByRole('alert')).toContainText('PDF could not be generated');await expect(panel.getByRole('button',{name:'PDF Report',exact:true})).toBeEnabled();
  await assertPdfContrast(false);
  console.log('Reporting QA passed: CAPA source references, export failure gating and recovery; complete pagination, filter reset, detailed HTML/CSV/PDF downloads, Turkish data, classification and font-failure recovery.');
+}catch(error){
+ await mkdir('layout-qa-artifacts',{recursive:true});
+ await page.screenshot({path:'layout-qa-artifacts/reporting-failure.png'}).catch(()=>{});
+ await writeFile('layout-qa-artifacts/reporting-failure.json',JSON.stringify({message:error.message},null,2));
+ throw error;
 }finally{await browser.close();}

@@ -56,6 +56,8 @@ jobs:
         with:
           name: product-workspace-preview
           path: product-workspace-qa-artifacts/
+      - name: Enterprise reporting HTML PDF CSV QA
+        run: node scripts/reporting-export-qa.mjs
       - name: Full visible navigation, record save race and audit orphan recovery QA
         run: node scripts/full-browser-qa-regression.mjs
       - name: Research workspaces, contextual evidence preview and tab navigation QA
@@ -94,8 +96,6 @@ jobs:
         run: node scripts/assurance-chain-review-qa.mjs
       - name: Exact CAPA lifecycle lookup and recovery QA
         run: node scripts/capa-traceability-qa.mjs
-      - name: Enterprise reporting HTML PDF CSV QA
-        run: node scripts/reporting-export-qa.mjs
       - name: Assurance queue recovery and independent review QA
         run: node scripts/assurance-queue-recovery-qa.mjs
       - name: Audit requirement pagination and export QA
