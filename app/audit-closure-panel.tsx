@@ -72,7 +72,7 @@ export function AuditClosurePanel({ auditId, lang, onChanged, focusId = '' }: { 
   const canReview = currentPackage && history?.actorId === detail?.event.reviewerId && history?.actorId !== detail?.event.preparerId;
   const canWithdraw = currentPackage && history?.actorId === detail?.event.preparerId;
   const unresolved = preview ? auditReportSummary(preview.source.items).unresolvedFindings : 0;
-  return <section className="audit-status-report audit-closure" aria-busy={busy}>
+  return <section className="audit-closure" aria-busy={busy}>
     <h3>{t('Kapanış ve onay', 'Closure and approval')}</h3><div className="asr-content">
       <p>{t('Kayıtlı planı, maddeleri, kanıt taleplerini ve doğrudan bağlı CAPA bulgularını bağımsız incelemeye gönderin. Onay denetimi kilitler; yeniden açmak gerekçe gerektirir.', 'Submit the saved plan, requirements, evidence requests and directly linked CAPA findings for independent review. Approval locks the audit; reopening requires a reason.')}</p>
       <p className="asr-scope">{t('Açık bulgular kendi takip akışında kalır. Bu karar otomatik denetim görüşü veya sertifikasyon değildir; dolaylı ve serbest metin bulgu bağlantıları kapsam dışındadır.', 'Open findings remain in their own follow-up workflow. This decision is not an automatic audit opinion or certification; indirect and free-text finding links are excluded.')}</p>
