@@ -42,6 +42,7 @@ export function canOpenModule(subject: AccessSubject, module: string) {
 export function scopedApiAllowed(subject: AccessSubject, pathname: string, method: string) {
   if (!isScoped(subject)) return true;
   const path = pathname.replace(/\/+$/, ""), read = method === "GET" || method === "HEAD";
+  if (path === "/api/search") return read; // Handler scopes rows before search and pagination.
   if (path === "/api/grc") return true; // Row/module authorization is inside the handler.
   if (path === "/api/catalogs") return read; // Shared field choices, no business records.
   if (path === "/api/ai/status" || path === "/api/ai/source-target") return read;

@@ -21,6 +21,7 @@ export default function ThirdPartyRisk({lang,currentUser}:{lang:Lang;currentUser
  const workFocus=useEnterpriseWorkFocus("Tedarikçiler",setTab),[workSourceReady,setWorkSourceReady]=useState(false);
  const [loadState,setLoadState]=useState<"loading"|"ready"|"error">("loading");
  const loadGeneration=useRef(0);
+ const focusedVendorId=workFocus.focus?.kind==="vendor-review"?workFocus.focus.ref:"";
  const focusedWorkExists=Boolean(workFocus.focus && ((workFocus.focus.kind==="vendor-review" && vendors.some(row=>row.vendorId===workFocus.focus?.ref)) || (workFocus.focus.kind==="vendor-assessment" && assessments.some(row=>row.id===workFocus.focus?.ref)) || (workFocus.focus.kind==="vendor-finding" && findings.some(row=>row.id===workFocus.focus?.ref))));
  const vendorName=(id:string)=>vendors.find(v=>v.vendorId===id)?.name||id,latest=useMemo(()=>{const result=new Map<string,Assessment>();for(const assessment of assessments)if(!result.has(assessment.vendorId))result.set(assessment.vendorId,assessment);return result},[assessments]);
  const format=(v?:string)=>v?new Intl.DateTimeFormat(tr?"tr-TR":"en-GB",{dateStyle:"medium"}).format(new Date(`${v.slice(0,10)}T12:00:00Z`)):"—";
@@ -28,7 +29,7 @@ export default function ThirdPartyRisk({lang,currentUser}:{lang:Lang;currentUser
   const generation=++loadGeneration.current;
   setLoadState("loading");setWorkSourceReady(false);
   try{
-   const response=await fetch(withBasePath("/api/third-party-risk"),{cache:"no-store"});
+   const response=await fetch(withBasePath(`/api/third-party-risk${focusedVendorId?`?vendorId=${encodeURIComponent(focusedVendorId)}`:""}`),{cache:"no-store"});
    if(!response.ok)throw new Error("Vendor data unavailable");
    const body=await response.json();
    if(!body || !Array.isArray(body.vendors) || !Array.isArray(body.profiles) || !Array.isArray(body.assessments) || !Array.isArray(body.findings) || !body.summary)throw new Error("Invalid vendor data");
@@ -37,7 +38,7 @@ export default function ThirdPartyRisk({lang,currentUser}:{lang:Lang;currentUser
    setSelected(current=>current?body.vendors.find((x:Vendor)=>x.vendorId===current.vendorId)||null:null);
    setWorkSourceReady(true);setLoadState("ready");
   }catch{if(generation===loadGeneration.current)setLoadState("error")}
- },[]);
+ },[focusedVendorId]);
  useEffect(()=>{let active=true;const generation=loadGeneration;queueMicrotask(()=>{if(active)void load()});return()=>{active=false;generation.current++}},[load]);
  function dismissMutationForms(){setActionForm(null);setVendorForm(null);setRenewForm(null);setFindingForm(null);}
  async function api(body:Record<string,unknown>){setBusy(true);setNotice("");try{const response=await fetch(withBasePath("/api/third-party-risk"),{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(body)}),result=await response.json().catch(()=>({}));setNotice(response.ok?(result.message||(tr?"İşlem tamamlandı.":"Completed.")):(result.error||(tr?"İşlem başarısız.":"Operation failed.")));if(response.ok||response.status===409||response.status>=500){if(!response.ok)dismissMutationForms();await load();}return response.ok}catch{dismissMutationForms();setNotice(tr?"İşlemin sonucu doğrulanamadı. Güncel kaydı kontrol edin.":"The outcome could not be confirmed. Review the current record.");await load().catch(()=>{});return false}finally{setBusy(false)}}

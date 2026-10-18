@@ -19,3 +19,10 @@ test("related-control searches and enterprise modules stay with their own naviga
   assert.equal(isCoreRecordRequest({ module: "Kanıtlar", ref: "A.5.1", source: "audit-readiness", filter: { controlRef: "A.5.1" } }), false);
   assert.equal(isCoreRecordRequest({ module: "Bulgular ve CAPA", kind: "record", ref: "FND-001" }), false);
 });
+
+test("global vendor search supports the scoped register without intercepting enterprise vendor work", () => {
+  const vendor = { id: "vendor-id", module: "Tedarikçiler", code: "VND-001", data: {} };
+  assert.equal(resolveCoreRecord([vendor], { module: "Tedarikçiler", ref: vendor.id, kind: "record", source: "global-search" })?.id, vendor.id);
+  assert.equal(isCoreRecordRequest({ module: "Tedarikçiler", ref: vendor.id, kind: "vendor-review", source: "global-search" }), false);
+  assert.equal(isCoreRecordRequest({ module: "Tedarikçiler", ref: vendor.id, kind: "record", source: "my-work" }), false);
+});

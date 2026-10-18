@@ -30,6 +30,9 @@ import AuditUnassignedRequirements from "./audit-unassigned-requirements-panel";
 import "./core-record-focus.css";
 
 import NavIcon from "./nav-icon";
+import { RecordSearch } from "./record-search";
+import { useRegisterView } from "./use-register-view";
+import { navigateToFornost } from "./navigation-focus";
 import {
   CSSProperties,
   FormEvent,
@@ -1315,7 +1318,6 @@ function FornostApp({ currentUser }: { currentUser: any }) {
     [active, setActive] = useState("Ana Sayfa"),
     [rows, setRows] = useState<Row[]>([]),
     [rowsLoaded, setRowsLoaded] = useState(false),
-    [query, setQuery] = useState(""),
     [modal, setModal] = useState(false),
     [editing, setEditing] = useState<Row | null>(null),
     [form, setForm] = useState<Record<string, any>>({}),
@@ -1330,9 +1332,6 @@ function FornostApp({ currentUser }: { currentUser: any }) {
     [columnPreferences, setColumnPreferences] = useState<
       Record<string, string[]>
     >({}),
-    [registerFilters, setRegisterFilters] = useState<Record<string, string>>(
-      {},
-    ),
     [catalogs, setCatalogs] = useState<CatalogMap>(catalogOptions),
     [theme, setTheme] = useState<"light" | "dark">("light"),
     [sidebarMode, setSidebarMode] = useState<"expanded" | "compact" | "hidden">("expanded"),
@@ -1342,6 +1341,10 @@ function FornostApp({ currentUser }: { currentUser: any }) {
     [commandQuery, setCommandQuery] = useState(""),
     [commandIndex, setCommandIndex] = useState(0),
     [recentModules, setRecentModules] = useState<string[]>([]);
+  const { query, setQuery, filters: registerFilters, setFilters: setRegisterFilters } = useRegisterView(String(currentUser.id), active);
+  const [commandMode, setCommandMode] = useState<"modules" | "records">("modules");
+  const closeCommand = useCallback(() => { setCommandOpen(false); requestAnimationFrame(() => document.querySelector<HTMLButtonElement>(".command-trigger")?.focus()); }, []);
+  const commandDialogRef = useRecordDialog(commandOpen, closeCommand);
   const [pageRestored, setPageRestored] = useState(false);
   const pageKey = pageSessionKey(String(currentUser.id));
   useEffect(() => {
@@ -1363,7 +1366,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
   const labels = labelMap[lang],
     u = ui[lang];
   const [recordRequest, setRecordRequest] = useState<FornostNavigationRequest | null>(null);
-  const [focusedRecord, setFocusedRecord] = useState<{ id: string; ref: string } | null>(null);
+  const [focusedRecord, setFocusedRecord] = useState<{ id: string; ref: string; state?: "loading" | "error"; request?: FornostNavigationRequest } | null>(null);
   useEffect(() => {
     const accept = (request: FornostNavigationRequest | null) => {
       if (request && isCoreRecordRequest(request)) setRecordRequest(request);
@@ -1496,23 +1499,23 @@ function FornostApp({ currentUser }: { currentUser: any }) {
     loadCatalogs();
   }, [load, loadAudits, loadCatalogs]);
   useEffect(() => {
-    setRegisterFilters({});
     setColumnPickerOpen(false);
     setFilterPanelOpen(false);
-    setQuery("");
     setFocusedRecord(null);
   }, [active]);
   useEffect(() => {
     if (!recordRequest || !sameDomainModule(recordRequest.module, active)) return;
     let cancelled = false;
+    setFocusedRecord({ id: "", ref: coreRecordReference(recordRequest), state: "loading", request: recordRequest });
     void load().then(freshRows => {
       if (cancelled) return;
       if (freshRows) {
+        setNotice("");
         const target = resolveCoreRecord(freshRows, recordRequest);
-        setRegisterFilters({});
-        setQuery("");
         setFocusedRecord({ id: target?.id || "", ref: target?.code || coreRecordReference(recordRequest) });
         if (target?.module === "Denetim Yönetimi") setSelectedAudit(String(target.data.auditName || ""));
+      } else {
+        setFocusedRecord({ id: "", ref: coreRecordReference(recordRequest), state: "error", request: recordRequest });
       }
       consumePendingFornostFocus(recordRequest.module);
       setRecordRequest(null);
@@ -1526,18 +1529,18 @@ function FornostApp({ currentUser }: { currentUser: any }) {
       rows.filter(
         (r) =>
           r.module === active &&
-          (!focusedRecord?.id || r.id === focusedRecord.id) &&
+          (!focusedRecord || r.id === focusedRecord.id) &&
           (!selectedAudit ||
             active !== "Denetim Yönetimi" ||
             auditNameKey(r.data.auditName) === auditNameKey(selectedAudit)) &&
-          `${r.id} ${displayRecordCode(r)} ${JSON.stringify(r.data)}`
+          (focusedRecord || (`${r.id} ${displayRecordCode(r)} ${JSON.stringify(r.data)}`
             .toLocaleLowerCase(lang === "tr" ? "tr-TR" : "en-US")
             .includes(
               query.toLocaleLowerCase(lang === "tr" ? "tr-TR" : "en-US"),
             ) &&
           Object.entries(registerFilters).every(
             ([key, value]) => !value || String(r.data[key] ?? "") === value,
-          ),
+          ))),
       ),
     [rows, active, query, lang, selectedAudit, registerFilters, focusedRecord],
   );
@@ -1872,7 +1875,6 @@ function FornostApp({ currentUser }: { currentUser: any }) {
       return;
     }
     setActive(module);
-    setQuery("");
     setNotice("");
     setMobileNavOpen(false);
     setCommandOpen(false);
@@ -1888,7 +1890,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
     const onCommandKey = (event: KeyboardEvent) => {
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") {
         event.preventDefault();
-        setCommandOpen((open) => !open);
+        if (commandOpen) closeCommand(); else setCommandOpen(true);
         setCommandQuery("");
         setCommandIndex(0);
         return;
@@ -1897,6 +1899,8 @@ function FornostApp({ currentUser }: { currentUser: any }) {
       if (event.key === "Escape") {
         event.preventDefault();
         setCommandOpen(false);
+      } else if (commandMode !== "modules" || event.target !== document.querySelector(".command-palette header input") || event.isComposing) {
+        return;
       } else if (event.key === "ArrowDown") {
         event.preventDefault();
         setCommandIndex((index) =>
@@ -2074,15 +2078,23 @@ function FornostApp({ currentUser }: { currentUser: any }) {
           className="command-overlay"
           role="presentation"
           onMouseDown={(event) => {
-            if (event.target === event.currentTarget) setCommandOpen(false);
+            if (event.target === event.currentTarget) closeCommand();
           }}
         >
-          <section
+          <div ref={commandDialogRef}
             data-escape-layer className="command-palette"
             role="dialog"
             aria-modal="true"
             aria-label={lang === "tr" ? "Hızlı navigasyon" : "Quick navigation"}
           >
+            <div className="record-search-modes" role="group" aria-label={lang === "tr" ? "Arama türü" : "Search type"}>
+              <button type="button" aria-pressed={commandMode === "modules"} onClick={() => setCommandMode("modules")}>{lang === "tr" ? "Modüller" : "Modules"}</button>
+              <button type="button" aria-pressed={commandMode === "records"} onClick={() => setCommandMode("records")}>{lang === "tr" ? "Kayıtlar" : "Records"}</button>
+            </div>
+            {commandMode === "records" ? <RecordSearch key={JSON.stringify([currentUser.id, currentUser.role, currentUser.moduleAccess])} lang={lang} modules={[...readableModules(currentUser)]} names={names[lang]} close={closeCommand} open={result => {
+              navigateToFornost({ module: result.module, ref: result.id, kind: result.module === "Tedarikçiler" && !scoped ? "vendor-review" : "record", source: "global-search" });
+              closeCommand();
+            }} /> : <>
             <header>
               <svg aria-hidden="true" viewBox="0 0 20 20">
                 <circle cx="9" cy="9" r="5.5" />
@@ -2145,13 +2157,14 @@ function FornostApp({ currentUser }: { currentUser: any }) {
                 </p>
               )}
             </div>
+            </>}
             <footer>
               <span>
                 <kbd>↑</kbd><kbd>↓</kbd> {lang === "tr" ? "Gezin" : "Navigate"}
               </span>
               <span><kbd>↵</kbd> {lang === "tr" ? "Aç" : "Open"}</span>
             </footer>
-          </section>
+          </div>
         </div>
       )}
       <main>
@@ -2279,10 +2292,12 @@ function FornostApp({ currentUser }: { currentUser: any }) {
           </div>
         )}
         {focusedRecord && <section className="core-record-focus" role="status" aria-live="polite">
-          <div><strong>{focusedRecord.id && rows.some(row => row.id === focusedRecord.id)
+          <div><strong>{focusedRecord.state === "loading" ? (lang === "tr" ? "Kayıt yükleniyor…" : "Loading record…") : focusedRecord.state === "error" ? (lang === "tr" ? "Kayıt kaynağı doğrulanamadı" : "Record source could not be verified") : focusedRecord.id && rows.some(row => row.id === focusedRecord.id)
             ? (lang === "tr" ? "Seçili kayıt" : "Selected record")
             : (lang === "tr" ? "Kayıt bulunamadı veya artık erişilemiyor" : "Record not found or no longer available")}</strong><span>{focusedRecord.ref}</span></div>
-          <button type="button" onClick={() => { setFocusedRecord(null); setQuery(""); setRegisterFilters({}); }}>{lang === "tr" ? "Tüm kayıtları göster" : "Show all records"}</button>
+          {focusedRecord.state === "error" && focusedRecord.request && <button type="button" onClick={() => setRecordRequest({ ...focusedRecord.request! })}>{lang === "tr" ? "Kaydı yeniden yükle" : "Reload record"}</button>}
+          <button type="button" onClick={() => { consumePendingFornostFocus(active); setRecordRequest(null); setFocusedRecord(null); }}>{lang === "tr" ? "Önceki görünüme dön" : "Return to previous view"}</button>
+          <button type="button" onClick={() => { consumePendingFornostFocus(active); setRecordRequest(null); setFocusedRecord(null); setQuery(""); setRegisterFilters({}); }}>{lang === "tr" ? "Tüm kayıtları göster" : "Show all records"}</button>
         </section>}
         {!canOpenModule(currentUser,active) ? <section className="module-scope-home"><h2>{lang==="tr"?"Bu modüle erişiminiz yok":"Module access is unavailable"}</h2><button onClick={()=>navigateToModule("Ana Sayfa")}>{lang==="tr"?"Ana sayfa":"Home"}</button></section> : active === "Ana Sayfa" && scoped ? (
           <section className="module-scope-home"><h2>{lang==="tr"?"Çalışma alanım":"My workspace"}</h2><p>{lang==="tr"?"İzin verilen modüllerdeki kayıtları görüntüleyin ve yönetin. Ortak raporlar ve gelişmiş iş akışları için tam çalışma alanı erişimi gerekir.":"View and manage records in your permitted modules. Shared reports and advanced workflows require full workspace access."}</p><div className="module-scope-cards">{readableModules(currentUser).map(module=><button key={module} onClick={()=>navigateToModule(module)}><b>{names[lang][module]}</b><small>{by(module).length} {lang==="tr"?"kayıt":"records"} · {canWriteModule(currentUser,module)?(lang==="tr"?"Okuma ve düzenleme":"Read and edit"):(lang==="tr"?"Okuma":"Read")}</small></button>)}</div>{!readableModules(currentUser).length&&<p>{lang==="tr"?"Henüz modül erişimi atanmadı. Yöneticinizle iletişime geçin.":"No module access has been assigned. Contact your administrator."}</p>}</section>
@@ -2349,8 +2364,8 @@ function FornostApp({ currentUser }: { currentUser: any }) {
               setQuery("");
             }}
             lang={lang}
-            query={query}
-            setQuery={setQuery}
+            query={focusedRecord ? "" : query}
+            setQuery={value => { setFocusedRecord(null); setQuery(value); }}
             openNew={openNew}
             edit={openEdit}
             remove={remove}
@@ -2415,12 +2430,12 @@ function FornostApp({ currentUser }: { currentUser: any }) {
                 lang={lang}
                 rows={by(active)}
                 resultCount={visible.length}
-                query={query}
-                setQuery={setQuery}
+                query={focusedRecord ? "" : query}
+                setQuery={value => { setFocusedRecord(null); setQuery(value); }}
                 selectedColumnKeys={selectedColumnKeys}
                 setSelectedColumnKeys={setModuleColumns}
-                filters={registerFilters}
-                setFilters={setRegisterFilters}
+                filters={focusedRecord ? {} : registerFilters}
+                setFilters={value => { setFocusedRecord(null); setRegisterFilters(value); }}
                 columnPickerOpen={columnPickerOpen}
                 setColumnPickerOpen={setColumnPickerOpen}
                 filterPanelOpen={filterPanelOpen}

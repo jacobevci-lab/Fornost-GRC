@@ -1,12 +1,13 @@
 import { legacyModuleName } from "./domain-identity";
 import type { FornostNavigationRequest } from "./navigation-focus";
 
-export const CORE_RECORD_MODULES = new Set(["Risk Assessment", "BIA", "Varlık Envanteri", "Uyum", "Kontroller", "Kanıtlar", "Denetim Yönetimi"]);
+export const CORE_RECORD_MODULES = new Set(["Risk Assessment", "Tedarikçiler", "BIA", "Varlık Envanteri", "Uyum", "Kontroller", "Kanıtlar", "Denetim Yönetimi"]);
 export type FocusableRecord = { id: string; module: string; code?: string; data: Record<string, unknown> };
 const clean = (value: unknown) => String(value ?? "").normalize("NFKC").trim();
 
 export function isCoreRecordRequest(request: FornostNavigationRequest): boolean {
   return CORE_RECORD_MODULES.has(legacyModuleName(request.module) || request.module)
+    && ((legacyModuleName(request.module) || request.module) !== "Tedarikçiler" || request.source === "global-search")
     && (request.kind === "record" || request.source === "connected-grc-register" || request.source === "my-work");
 }
 export function coreRecordReference(request: FornostNavigationRequest): string {

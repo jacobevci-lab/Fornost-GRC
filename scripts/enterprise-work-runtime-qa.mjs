@@ -24,7 +24,7 @@ try{
  assert.equal((await context.request.post(`${base}/api/auth`,{headers:{origin:base},data:{action:'login',email:owner,password:qaPassword()}})).status(),200);
  for(const [path,fixture] of Object.entries(fixtures)){
   const response=await context.request.get(base+path);assert.equal(response.status(),200);const original=await response.json();
-  await page.route(`**${path}`,route=>{
+  await page.route(url=>url.pathname===path,route=>{
    if(failedPath===path)return route.fulfill({status:503,contentType:'application/json',body:'{}'});
    if(malformedPath===path)return route.fulfill({status:200,contentType:'application/json',body:'{}'});
    const data={...original,...fixture};if(missingTarget&&path==='/api/policy-lifecycle')data.versions=[];
@@ -57,4 +57,4 @@ try{
  await page.setViewportSize({width:1536,height:960});await page.locator('.language-switch:visible').getByRole('button',{name:'EN',exact:true}).click();
  await page.getByRole('textbox',{name:'Search work',exact:true}).fill('Version and release');await expect(page.locator('.mw2-item')).toHaveCount(1);missingTarget=true;await page.locator('.mw2-item').click();await expect(page.locator('.enterprise-work-focus')).toContainText('Record unavailable or inaccessible');
  assert.deepEqual(errors,[]);await fs.writeFile(`${out}/result.json`,JSON.stringify({status:'passed',recordTransitions:9,layouts:8,sourceRecovery:3}));
-}finally{await browser.close()}
+}catch(error){await fs.writeFile(`${out}/failure.json`,JSON.stringify({message:error.message,stack:error.stack,failedPath,malformedPath,missingTarget},null,2));await page.screenshot({path:`${out}/failure.png`}).catch(()=>{});throw error;}finally{await browser.close()}
