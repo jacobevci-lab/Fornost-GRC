@@ -47,16 +47,14 @@ test("transport failures create governance-only signals and cannot recursively e
 });
 
 test("notification and escalation APIs share runtime services instead of transport/reconcile copies",()=>{
- const notificationRoute=readFileSync("app/api/continuous-assurance/notifications/route.ts","utf8"),escalationRoute=readFileSync("app/api/continuous-assurance/escalations/route.ts","utf8"),settings=readFileSync("app/assurance-notification-settings.tsx","utf8");
+ const notificationRoute=readFileSync("app/api/continuous-assurance/notifications/route.ts","utf8"),escalationRoute=readFileSync("app/api/continuous-assurance/escalations/route.ts","utf8");
  assert.match(notificationRoute,/dispatchAssuranceNotifications/);
  assert.match(notificationRoute,/readAssuranceNotificationDispatchRuns/);
  assert.doesNotMatch(notificationRoute,/deliverConfiguredEmail/);
  assert.match(notificationRoute,/cadenceMinutes:15/);
  assert.match(escalationRoute,/reconcileAssuranceEscalations/);
  assert.doesNotMatch(escalationRoute,/riskReviewEscalation/);
- assert.match(settings,/AUTOMATED DISPATCH/);
- assert.match(settings,/DISPATCH RUN AUDIT/);
- assert.match(settings,/dispatchRuns/);
+ assert.match(notificationRoute,/summarizeAssuranceSchedulerHealth/);
 });
 
 test("reactivated escalation clears stale acknowledgement metadata",()=>{

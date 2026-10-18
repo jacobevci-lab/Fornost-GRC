@@ -49,8 +49,10 @@ test("SLA policy recovery and scheduler state are auditable governance data",()=
  assert.match(packRoute,/readAssuranceNotificationPolicyEvents/);assert.match(packRoute,/readAssuranceNotificationDispatchRuns/);assert.match(pack,/Notification policy audit/);assert.match(pack,/Retry recovery audit/);assert.match(pack,/schemaVersion:"1\.3"/);
 });
 
-test("Email & Notifications exposes scheduler health and governed dead-letter recovery",()=>{
- const integration=readFileSync("app/integration-settings.tsx","utf8"),consoleUi=readFileSync("app/assurance-notification-settings.tsx","utf8"),css=readFileSync("app/assurance-notification-settings.css","utf8");
+test("Email & Notifications retains editable policies without operations or log panels",()=>{
+ const integration=readFileSync("app/integration-settings.tsx","utf8"),settings=readFileSync("app/assurance-notification-settings.tsx","utf8");
  assert.match(integration,/AssuranceNotificationSettings/);assert.match(integration,/kind===?"email"/);
- assert.match(consoleUi,/CONTINUOUS ASSURANCE NOTIFICATIONS/);assert.match(consoleUi,/Dispatch Pending/);assert.match(consoleUi,/SLA BREACH REGISTER/);assert.match(consoleUi,/DELIVERY AUDIT TRAIL/);assert.match(consoleUi,/DEAD-LETTER RECOVERY/);assert.match(consoleUi,/RETRY RESET AUDIT/);assert.match(consoleUi,/reset-retry/);assert.match(consoleUi,/Politikayı Kaydet/);assert.match(consoleUi,/retryExhausted/);assert.match(consoleUi,/health\.state/);assert.match(css,/assurance-notification-console/);assert.match(css,/assurance-recovery-register/);assert.match(css,/assurance-scheduler-status\.stale/);
+ assert.match(settings,/NOTIFICATION SETTINGS/);assert.match(settings,/Politikayı Kaydet/);assert.match(settings,/method:"PUT"/);
+ assert.doesNotMatch(settings,/Dispatch Pending|SLA BREACH REGISTER|DELIVERY AUDIT TRAIL|DEAD-LETTER RECOVERY|RETRY RESET AUDIT|DISPATCH RUN AUDIT/);
+ assert.doesNotMatch(settings,/method:"POST"|dispatchRuns|retryResets|policyEvents/);
 });
