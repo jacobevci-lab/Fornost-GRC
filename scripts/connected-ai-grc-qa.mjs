@@ -121,4 +121,10 @@ try{
  await page.screenshot({path:`${out}/gaps-filter-mobile.png`});
  assert.deepEqual(errors,[]);
  await fs.writeFile(`${out}/result.json`,JSON.stringify({status:'passed',fixtureTransport:true,relationships:3,layouts:8,sourceRecovery:true}));
+}catch(error){
+ const source=await page.locator('.cg-source-state').evaluate(el=>({text:el.textContent,ready:el.getAttribute('data-ready'),total:el.getAttribute('data-total'),loading:el.getAttribute('data-loading')})).catch(()=>null);
+ await fs.writeFile(`${out}/failure.json`,JSON.stringify({message:error.message,stack:error.stack,mode,source,errors},null,2));
+ await page.screenshot({path:`${out}/failure.png`,fullPage:true}).catch(()=>{});
+ throw error;
 }finally{await browser.close();}
+
