@@ -83,3 +83,10 @@ export const auditClosureEvents = sqliteTable("audit_closure_events", {
 export const auditReminderProfiles = sqliteTable("audit_reminder_profiles", {
   auditId: text("audit_id").primaryKey(), revision: text("revision").notNull(), dataJson: text("data_json").notNull(), updatedBy: text("updated_by").notNull(), updatedAt: text("updated_at").notNull(),
 });
+
+export const auditWorkpapers = sqliteTable("audit_workpapers", {
+  id:text("id").primaryKey(),auditId:text("audit_id").notNull(),revision:text("revision").notNull(),dataJson:text("data_json").notNull(),createdAt:text("created_at").notNull(),updatedAt:text("updated_at").notNull(),
+},table=>[index("audit_workpapers_parent_idx").on(table.auditId,table.updatedAt,table.id)]);
+export const auditWorkpaperEvents = sqliteTable("audit_workpaper_events", {
+  id:text("id").primaryKey(),auditId:text("audit_id").notNull(),workpaperId:text("workpaper_id").notNull(),actor:text("actor").notNull(),action:text("action").notNull(),note:text("note").notNull(),snapshotJson:text("snapshot_json").notNull(),createdAt:text("created_at").notNull(),
+},table=>[index("audit_workpaper_events_parent_idx").on(table.auditId,table.workpaperId,table.createdAt,table.id)]);

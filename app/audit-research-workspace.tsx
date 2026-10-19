@@ -5,9 +5,9 @@ import { WorkspaceTabs, type WorkspaceTab } from './workspace-tabs';
 import { hasReportValue } from './report-export';
 
 type Requirement = { id: string; data: Record<string, unknown> };
-export function AuditResearchWorkspace({ lang, auditId, items, focusRequest, focusClosure = "", focusedRequirement, plan, requests, readiness, reports, closure, requirements, catalog, go }: {
+export function AuditResearchWorkspace({ lang, auditId, items, focusRequest, focusClosure = "", focusedRequirement, plan, requests, workpapers, readiness, reports, closure, requirements, catalog, go }: {
   lang: 'tr' | 'en'; auditId: string; items: Requirement[]; focusRequest: string; focusClosure?: string; focusedRequirement: string;
-  plan?: ReactNode; requests?: ReactNode; readiness?: ReactNode; reports?: ReactNode; closure?: ReactNode;
+  plan?: ReactNode; requests?: ReactNode; workpapers?: ReactNode; readiness?: ReactNode; reports?: ReactNode; closure?: ReactNode;
   requirements: ReactNode; catalog: ReactNode; go: (module: string) => void;
 }) {
   const tr = lang === 'tr';
@@ -41,6 +41,7 @@ export function AuditResearchWorkspace({ lang, auditId, items, focusRequest, foc
       {catalog}
     </div> },
     ...(requests ? [{ key: 'requests', label: tr ? 'Talepler ve inceleme' : 'Requests and review', content: requests }] : []),
+    ...(workpapers ? [{ key: 'workpapers', label: tr ? 'Çalışma kâğıtları' : 'Workpapers', content: workpapers }] : []),
     { key: 'requirements', label: tr ? 'Maddeler ve testler' : 'Requirements and tests', count: items.length, content: requirements },
     ...(plan ? [{ key: 'plan', label: tr ? 'Plan ve kapsam' : 'Plan and scope', content: plan }] : []),
     ...(readiness ? [{ key: 'readiness', label: tr ? 'Güvence' : 'Assurance', content: readiness }] : []),

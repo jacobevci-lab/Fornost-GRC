@@ -56,6 +56,14 @@ jobs:
         with:
           name: admin-settings-preview
           path: admin-settings-qa-artifacts/
+      - name: Audit workpapers, sampling and independent review QA
+        run: node scripts/audit-workpapers-qa.mjs
+      - name: Publish workpaper browser evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: audit-workpapers-preview
+          path: audit-workpapers-qa-artifacts/
       - name: Audit reminder calendar, escalation and conflict recovery QA
         run: node scripts/audit-reminder-profile-qa.mjs
       - name: Publish reminder profile browser evidence
