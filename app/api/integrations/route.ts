@@ -1,3 +1,4 @@
+import { applicationLinkBase } from '../../record-links';
 import { completedInitialization } from "../../completed-initialization";
 import { NextRequest, NextResponse } from "next/server";
 import { requireRole } from "../auth/security";
@@ -104,6 +105,7 @@ export async function PUT(req:NextRequest) {
   if(bodyTooLarge(req))return json({error:"İstek boyutu çok büyük."},413);
   const body=await req.json().catch(()=>({})),kind=clean(body.kind,30),provider=body.provider;
   if(!kinds.includes(kind as typeof kinds[number])||!validProvider(provider)||!providersByKind[kind as typeof kinds[number]].includes(provider))return json({error:"Geçersiz entegrasyon türü veya sağlayıcı."},400);
+  if(kind==='email' && body.config?.applicationUrl !== undefined && body.config.applicationUrl !== '' && !applicationLinkBase(body.config.applicationUrl)) return json({error:'Uygulama adresi HTTPS olmalı; kullanıcı bilgisi, sorgu veya fragment içermemeli. / Application URL must use HTTPS without credentials, query or fragment.'},400);
   const config=safeIntegrationConfig(body.config),secret=clean(body.secret,4096),enabled=body.enabled===true;
   const env=await runtime(),now=new Date().toISOString(),existing=await getStored(env.DB,kind);
   const key=envText(env,"FORNOST_SETTINGS_ENCRYPTION_KEY");

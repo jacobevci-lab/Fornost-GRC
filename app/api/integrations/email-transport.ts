@@ -1,9 +1,10 @@
+import { absoluteRecordLink, type RecordLinkTarget } from '../../record-links';
 import {clean,decryptSecret,safeHttpUrl,type IntegrationProvider} from "./security";
 
 type Env=Record<string,unknown>;
 type Config=Record<string,string|boolean>;
 type Stored={provider:string;enabled:number;config_json:string;secret_ciphertext:string|null};
-export type EmailDeliveryInput={to:string;subject:string;text:string};
+export type EmailDeliveryInput={to:string;subject:string;text:string;recordLink?:RecordLinkTarget};
 export type EmailDeliveryResult={sent:boolean;state:"sent"|"failed"|"not-configured";provider:string;detail:string};
 
 const envText=(env:Env,key:string)=>String(env[key]??"").trim();
@@ -14,11 +15,14 @@ const endpoint=(config:Config,allowPrivate:boolean)=>{
 const validEmail=(value:string)=>/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 
 export async function deliverConfiguredEmail(db:D1Database,env:Env,input:EmailDeliveryInput):Promise<EmailDeliveryResult>{
- const to=clean(input.to,320),subject=clean(input.subject,240),text=clean(input.text,8000);if(!validEmail(to)||!subject||!text)return{sent:false,state:"failed",provider:"",detail:"Geçerli alıcı, konu ve içerik gerekli."};
+ const to=clean(input.to,320),subject=clean(input.subject,240),initialText=clean(input.text,8000);if(!validEmail(to)||!subject||!initialText)return{sent:false,state:"failed",provider:"",detail:"Geçerli alıcı, konu ve içerik gerekli."};
  let row:Stored|null=null;try{row=await db.prepare("SELECT provider,enabled,config_json,secret_ciphertext FROM integration_settings WHERE kind='email'").first<Stored>()}catch{return{sent:false,state:"not-configured",provider:"",detail:"E-posta entegrasyonu yapılandırılmamış."}}
  if(!row||!row.enabled)return{sent:false,state:"not-configured",provider:row?.provider||"",detail:"E-posta entegrasyonu etkin değil."};
  const provider=row.provider as IntegrationProvider;if(!["smtp-bridge","microsoft-graph-mail","email-api"].includes(provider))return{sent:false,state:"failed",provider,detail:"Desteklenmeyen e-posta sağlayıcısı."};
  let config:Config={};try{config=JSON.parse(row.config_json||"{}") as Config}catch{}
+ const link=input.recordLink?absoluteRecordLink(config.applicationUrl,input.recordLink):null;
+ const suffix=link?`\n\nKaydı aç / Open record: ${link}`:'';
+ const text=initialText.slice(0,8000-suffix.length)+suffix;
  const key=envText(env,"FORNOST_SETTINGS_ENCRYPTION_KEY");if(row.secret_ciphertext&&!key)return{sent:false,state:"failed",provider,detail:"Entegrasyon sır anahtarı yapılandırılmamış."};
  let secret="";try{secret=await decryptSecret(row.secret_ciphertext,key)}catch{return{sent:false,state:"failed",provider,detail:"E-posta entegrasyon sırrı çözülemedi."}}
  const headers:Record<string,string>={"content-type":"application/json","accept":"application/json"};let url="",body:unknown;

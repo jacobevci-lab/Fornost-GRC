@@ -1,7 +1,7 @@
 import {ensureAssuranceNotificationSchema} from "./assurance-executive-operations";
 
 export type AssuranceNotificationPolicy={criticalSlaMinutes:number;highSlaMinutes:number;mediumSlaMinutes:number;maxAttempts:number};
-export type AssuranceDeliveryOutbox={id:string;escalation_id:string;recipient:string;route:string;subject:string;body:string;severity:string;status:string;reason:string;created_at:string;updated_at:string};
+export type AssuranceDeliveryOutbox={source_json?:string;id:string;escalation_id:string;recipient:string;route:string;subject:string;body:string;severity:string;status:string;reason:string;created_at:string;updated_at:string};
 export type AssuranceDeliveryRecord={id:string;outbox_id:string;attempt:number;provider:string;state:string;detail:string;recipient:string;attempted_by:string;attempted_at:string};
 export type AssuranceNotificationPolicyEvent={id:string;actor:string;before_json:string;after_json:string;created_at:string};
 export type AssuranceNotificationRetryReset={id:string;outbox_id:string;actor:string;reason:string;prior_failed_attempts:number;created_at:string};

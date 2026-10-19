@@ -1,4 +1,5 @@
 "use client";
+import { CopyRecordLink, RecordLinkEntry } from './record-link-controls';
 import { EVIDENCE_FILE_ACCEPT, EVIDENCE_FILE_HELP } from "./evidence/file-types";
 import { auditRequirementPage } from "./audit-requirement-page";
 import "./audit-requirement-page.css";
@@ -2172,6 +2173,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
         </div>
       )}
       <main>
+        <RecordLinkEntry ready={pageRestored} lang={lang} scoped={scoped} />
         <header>
           <div className="header-leading">
             <button
@@ -2299,6 +2301,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
           <div><strong>{focusedRecord.state === "loading" ? (lang === "tr" ? "Kayıt yükleniyor…" : "Loading record…") : focusedRecord.state === "error" ? (lang === "tr" ? "Kayıt kaynağı doğrulanamadı" : "Record source could not be verified") : focusedRecord.id && rows.some(row => row.id === focusedRecord.id)
             ? (lang === "tr" ? "Seçili kayıt" : "Selected record")
             : (lang === "tr" ? "Kayıt bulunamadı veya artık erişilemiyor" : "Record not found or no longer available")}</strong><span>{focusedRecord.ref}</span></div>
+          {focusedRecord.id && !focusedRecord.state && <CopyRecordLink key={focusedRecord.id} lang={lang} target={{module:active,kind:"record",ref:focusedRecord.id}} />}
           {focusedRecord.state === "error" && focusedRecord.request && <button type="button" onClick={() => setRecordRequest({ ...focusedRecord.request! })}>{lang === "tr" ? "Kaydı yeniden yükle" : "Reload record"}</button>}
           <button type="button" onClick={() => { consumePendingFornostFocus(active); setRecordRequest(null); setFocusedRecord(null); }}>{lang === "tr" ? "Önceki görünüme dön" : "Return to previous view"}</button>
           <button type="button" onClick={() => { consumePendingFornostFocus(active); setRecordRequest(null); setFocusedRecord(null); setQuery(""); setRegisterFilters({}); }}>{lang === "tr" ? "Tüm kayıtları göster" : "Show all records"}</button>
@@ -2500,6 +2503,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
                 ×
               </button>
             </div>
+            {editing && <CopyRecordLink key={editing.id} lang={lang} target={{module:active,kind:"record",ref:editing.id}} />}
             {active === "Kanıtlar" && !editing ? (
               <form onSubmit={uploadEvidence} className="form">
                 <label className="wide">

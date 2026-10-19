@@ -9,7 +9,7 @@ export function useEnterpriseWorkFocus<T extends string>(module: string, setTab:
   const [focus, setFocus] = useState<{ kind: string; ref: string } | null>(null);
   useEffect(() => {
     const accept = (request: FornostNavigationRequest | null) => {
-      if (!request || !['my-work-enterprise', 'global-search'].includes(request.source || '') || !sameDomainModule(request.module, module) || !request.ref) return;
+      if (!request || !['my-work-enterprise', 'global-search', 'shared-record-link'].includes(request.source || '') || !sameDomainModule(request.module, module) || !request.ref) return;
       const kind = request.kind || '', definition = enterpriseWorkKinds[kind];
       if (!definition || definition.module !== module) return;
       setFocus({ kind, ref: request.ref }); setTab(definition.tab as T);

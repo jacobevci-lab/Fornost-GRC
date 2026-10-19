@@ -8,7 +8,7 @@ import { mkdir, writeFile } from 'node:fs/promises';
 const base = process.env.FORNOST_QA_BASE_URL || 'http://127.0.0.1:4173';
 assert.equal(new URL(base).hostname, '127.0.0.1', 'This QA only runs on an isolated loopback runtime');
 const browser = await chromium.launch({ executablePath: process.env.QA_CHROMIUM_PATH || undefined });
-const admin = await browser.newContext({ viewport: { width: 1536, height: 960 } });
+const admin = await browser.newContext({ viewport: { width: 1536, height: 960 }, permissions: ['clipboard-read','clipboard-write'] });
 const owner = await browser.newContext(), reviewer = await browser.newContext();
 const tag = Date.now(), ownerEmail = `audit-owner-${tag}@fornost.test`, reviewerEmail = `audit-reviewer-${tag}@fornost.test`;
 const errors = [], accountIds = [];
@@ -144,6 +144,9 @@ try {
   await panel.locator('.ar-filters select').selectOption('all');
   await panel.getByRole('button', { name: addition.title, exact: true }).click();
   await panel.locator('.ar-detail summary').click(); await expect(panel.locator('.ar-detail')).toContainText(reason);
+  await panel.getByRole('button',{name:'Copy record link',exact:true}).click();
+  const requestLink=await page.evaluate(()=>navigator.clipboard.readText());assert.ok(requestLink.includes('kind=audit-request'));
+  await page.goto(requestLink);await expect(page.getByRole('tab',{name:'Requests and review',exact:true})).toHaveAttribute('aria-selected','true');await expect(panel.locator('.ar-detail')).toContainText(addition.id);
   // Completed work belongs to the owner; organization scope is Admin-only.
   await page.locator('nav button[aria-label="My Work"]').evaluate(el => el.click());
   await page.locator('.mw2-scope button').filter({ hasText: /Organization|Kurum/ }).click();
