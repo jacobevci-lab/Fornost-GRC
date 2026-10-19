@@ -12,6 +12,7 @@ export type EnterpriseWorkRow = {
   data: RecordData; updatedAt?: string; createdAt?: string;
 };
 export const enterpriseWorkKinds: Record<string, { module: string; tab: string; tr: string; en: string }> = {
+  'audit-milestone': { module: 'Denetim Yönetimi', tab: 'plan', tr: 'Denetim görevi', en: 'Audit milestone' },
   'audit-workpaper': { module: 'Denetim Yönetimi', tab: 'workpapers', tr: 'Çalışma kâğıdı', en: 'Audit workpaper' },
   'audit-closure': { module: 'Denetim Yönetimi', tab: 'closure', tr: 'Denetim kapanış onayı', en: 'Audit closure approval' },
   'audit-request': { module: 'Denetim Yönetimi', tab: 'requests', tr: 'Denetim talebi', en: 'Audit request' },
@@ -71,6 +72,17 @@ export function projectEnterpriseWork(source: EnterpriseWorkSource, payload: unk
           if (!object(item) || !text(item.id) || seen.has(text(item.id)) || !text(item.auditId) || !text(item.owner) || !text(item.reviewer) || item.status !== 'submitted') { complete = false; continue; }
           seen.add(text(item.id));
           add('audit-closure', item, { title: item.title, auditId: item.auditId, owner: item.owner, reviewer: item.reviewer }, false);
+        }
+      }
+    }
+    if (payload.milestones !== undefined) {
+      if (!Array.isArray(payload.milestones) || payload.milestones.length > 1000) complete = false;
+      else {
+        const counts=new Map<string,number>();
+        for(const item of payload.milestones)if(object(item))counts.set(text(item.id),(counts.get(text(item.id))||0)+1);
+        for(const item of payload.milestones){
+          if(!object(item)||!text(item.id)||counts.get(text(item.id))!==1||!text(item.auditId)||!text(item.title)||!text(item.owner)||!text(item.dueAt)||!Number.isFinite(Date.parse(text(item.dueAt)))||!['planned','in_progress','completed','cancelled'].includes(text(item.status))){complete=false;continue;}
+          add('audit-milestone',item,{title:item.title,auditId:item.auditId,owner:item.owner,dueDate:item.dueAt},['completed','cancelled'].includes(text(item.status)));
         }
       }
     }

@@ -62,6 +62,12 @@ HTML/SVG, makrolu Office, eski DOC/XLS ve genel ZIP desteklenmez. Yapısal Offic
 
 **Denetim Yönetimi** içinden denetimi açın. Amaç, kapsam, denetim sorumlusu ve diğer plan alanlarını kaydedin; doğru gereksinim kayıtlarını seçin/oluşturun. Kaydedilmemiş form değişikliği rapor/kapanış paketine girmez. Katalog başlığı veya hazırlık göstergesi otomatik uygunluk kararı değildir.
 
+### Tarihli görev ve kilometre taşı
+
+**Plan ve kapsam → Görevler ve kilometre taşları** altında başlık, beklenen çıktı, sorumlu, hedef tarih ve saat dilimi girin. Kayıt Benim İşlerim'e doğrudan yansır. Editor kendi işini oluşturur/yönetir; Admin farklı aktif denetim yazarına atayabilir. Başlatma, tamamlama, iptal ve yeniden açma gerekçe ister; tamamlanmış iş düzenlenmeden önce yeniden açılır. Bu görevlerde bağımsız reviewer onayı yoktur. Eski plan notları korunur ve otomatik göreve dönüştürülmez. Bu görev türü için e-posta hatırlatması henüz yoktur.
+
+Açık görevler bütün-denetim kapanışını engeller; tamamlayın veya gerekçeyle iptal edin. Denetim başına iptaller dahil 100 görev sınırı vardır. [Görev ayrıntıları](audit-milestones.md).
+
 ### Kanıt talebi: hazırla → başlat → sun → incele
 
 1. **Talepler ve inceleme / Requests and review** bölümünde başlık, kabul ölçütü, sahip, farklı reviewer, teslim/review tarihleri ve gerekiyorsa kanıt dönemini girin. İki atama da aktif ve uygun erişimli olmalıdır.

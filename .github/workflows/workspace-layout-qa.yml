@@ -66,6 +66,15 @@ jobs:
           path: record-links-qa-artifacts/
       - name: Audit workpapers, sampling and independent review QA
         run: node scripts/audit-workpapers-qa.mjs
+      - name: Audit milestones and My Work browser QA
+        run: node scripts/audit-milestones-qa.mjs
+      - name: Preserve audit milestone screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: audit-milestones-preview
+          path: audit-milestones-qa-artifacts/
+          if-no-files-found: warn
       - name: Publish workpaper browser evidence
         if: always()
         uses: actions/upload-artifact@v4

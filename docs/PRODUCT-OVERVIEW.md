@@ -26,7 +26,7 @@ Menüler kullanıcı rolü ve modül izinlerine göre görünür. Aşağıdaki a
 | Uyum, Kontroller | Gereksinim ve ortak kontrol kayıtları; uygulama etkinliği ve kanıt bağlamı |
 | Kanıtlar | Dosya, sürüm, hash, inceleme ve bağlı kayıtlar |
 | Kanıt Otomasyonu | Kaynak bağlantıları, veri toplama, test kuralları, tazelik ve çalışma sonuçları |
-| Denetim Yönetimi | Portföy, kapsam/plan, gereksinim, kanıt talepleri, çalışma kâğıtları, durum raporu ve kapanış |
+| Denetim Yönetimi | Portföy, kapsam/plan, sahip ve tarihli görevler, gereksinim, kanıt talepleri, çalışma kâğıtları, durum raporu ve kapanış |
 | Bulgular ve CAPA | Kaynak bağlantısı, kök neden, düzeltici/önleyici aksiyon, SLA, risk kabulü ve bağımsız kapanış |
 | Güvenlik Olayları | Triaj, müdahale, recovery, bildirim kararı, RCA ve lessons learned |
 | Politika Merkezi | Politika/sürüm, bağımsız inceleme, yayın, çalışan attestation ve istisna |

@@ -19,6 +19,7 @@ export const auditClosureBlockerLabels: Record<string, [string, string]> = {
   empty: ['En az bir denetim maddesi bulunmalı.', 'At least one audit requirement is required.'],
   requirements: ['Tüm denetim maddeleri sonuçlandırılmalı.', 'Complete every audit requirement.'],
   requests: ['Tüm talepler kabul veya iptal edilmeli ve talep planı kapatılmalı.', 'Accept or cancel every request and close the request work plan.'],
+  milestones: ['Tüm denetim görevleri tamamlanmalı veya gerekçeyle iptal edilmeli.', 'Complete or cancel with a reason every audit milestone.'],
   workpapers: ['Tüm çalışma kâğıtları bağımsız incelemeyle onaylanmalı veya gerekçeyle iptal edilmeli.', 'Independently approve or cancel with a reason every workpaper.'],
   findings: ['Açık bağlı bulguların sorumlu ve geçerli termin bilgisi olmalı.', 'Every open linked finding needs an owner and a valid due date.'],
 };
@@ -27,6 +28,7 @@ export function auditClosureBlockers(source: AuditReportSource) {
   if (!source.plan.revision || !['objective', 'scope', 'lead'].every(key => String(source.plan.plan[key as keyof typeof source.plan.plan] || '').trim())) blockers.push('plan');
   if (!n.requirements) blockers.push('empty');
   if (n.unfinishedRequirements) blockers.push('requirements');
+  if (n.outstandingMilestones) blockers.push('milestones');
   if (n.outstandingWorkpapers) blockers.push('workpapers');
   if (n.requests && (n.outstandingRequests || source.workflow.state !== 'closed')) blockers.push('requests');
   if (source.items.some(i => i.kind === 'finding' && i.record.data.status !== 'closed' && (

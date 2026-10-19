@@ -1,3 +1,4 @@
+import { auditMilestoneSchema, auditMilestoneSourceTriggers } from './audit-milestone-schema';
 import { auditWorkpaperSchema, auditWorkpaperSourceTriggers } from './audit-workpaper-schema';
 import { completedInitialization } from './completed-initialization';
 import { ensureAuditRequestSchema } from './audit-request-store';
@@ -20,6 +21,6 @@ const ready = completedInitialization();
 export async function ensureAuditStatusReportSchema(db: D1Database) {
   await ready(db, async () => {
     await ensureAuditRequestSchema(db); await ensureFindingsSchemaCompatibility(db);
-    await db.batch([...auditWorkpaperSchema, ...auditStatusReportSchema, ...auditWorkpaperSourceTriggers].map(sql => db.prepare(sql)));
+    await db.batch([...auditMilestoneSchema, ...auditWorkpaperSchema, ...auditStatusReportSchema, ...auditWorkpaperSourceTriggers, ...auditMilestoneSourceTriggers].map(sql => db.prepare(sql)));
   });
 }

@@ -1,3 +1,4 @@
+import { milestoneLabels } from './audit-milestones';
 import { workpaperStatusLabels } from './audit-workpapers';
 import { buildReportCsv, buildReportHtml, buildReportPdf, type ReportRecord, type ReportOptions } from './report-export';
 import { auditPlanLabels } from './audit-plan';
@@ -38,6 +39,7 @@ export function auditStatusReportView(detail: AuditReportDetail, tr: boolean, fo
         data.status = requestStatusLabels[String(data.status) as keyof typeof requestStatusLabels]?.[tr?0:1] || data.status;
         if (Array.isArray(data.evidence)) data.evidence = data.evidence.map(v => `${v.title} · v${v.versionNo} · ${v.id}\n${v.fileName}\nSHA-256 ${v.contentSha256}`).join('\n\n');
       } else if (item.kind === 'finding') { data.status=findingLabel(String(data.status),tr?'tr':'en'); data.severity=findingLabel(String(data.severity),tr?'tr':'en'); }
+      else if (item.kind === 'milestone') data.status=milestoneLabels[String(data.status) as keyof typeof milestoneLabels]?.[tr?0:1]||data.status;
       else if (item.kind === 'workpaper') {
         data.status = workpaperStatusLabels[String(data.status) as keyof typeof workpaperStatusLabels]?.[tr?0:1] || data.status;
         data.method = data.method === 'census' ? t('Tam sayım','Census') : t('Yargısal örneklem','Judgmental sampling');
@@ -45,12 +47,13 @@ export function auditStatusReportView(detail: AuditReportDetail, tr: boolean, fo
         if (Array.isArray(data.evidence)) data.evidence = data.evidence.map(v => `${v.title} · v${v.versionNo} · ${v.id}\n${v.fileName}\nSHA-256 ${v.contentSha256}`).join('\n\n');
       }
       else data.status=statuses[String(data.status)]||data.status;
-      return {...r,module:item.kind==='requirement'?t('Denetim maddesi','Audit requirement'):item.kind==='request'?t('Kanıt talebi','Evidence request'):item.kind==='workpaper'?t('Çalışma kâğıdı','Workpaper'):t('Bulgu / CAPA','Finding / CAPA'),data};
+      return {...r,module:item.kind==='requirement'?t('Denetim maddesi','Audit requirement'):item.kind==='request'?t('Kanıt talebi','Evidence request'):item.kind==='milestone'?t('Denetim görevi','Audit milestone'):item.kind==='workpaper'?t('Çalışma kâğıdı','Workpaper'):t('Bulgu / CAPA','Finding / CAPA'),data};
     }),
   ];
-  const scope=t('Kayıtlı plan, bu denetime ait tüm maddeler, talepler, çalışma kâğıtları ve doğrudan bağlı CAPA bulguları. Bulgular yalnız kaynak türü denetim olup kaynak referansı denetim kimliği veya bir madde kimliği/koduyla tam eşleşiyorsa dahil edilir. Serbest metin ve ortak kontrol referansları kapsamı genişletmez. Kanıt dosyalarının kendisi ve canlı hazırlık skoru dahil değildir. Rapor, denetim görüşü veya kapatma kararı değildir.',
-    'Saved plan, all requirements, requests and workpapers for this audit, and directly linked CAPA findings. Findings are included only when their source type is audit and their source reference exactly matches the audit ID or a requirement ID/code. Free text and shared control references do not expand the scope. File bytes and live readiness scores are excluded. This report is not an audit opinion or a closure decision.');
+  const scope=t('Kayıtlı plan, bu denetime ait tüm maddeler, talepler, tarihli görevler, çalışma kâğıtları ve doğrudan bağlı CAPA bulguları. Bulgular yalnız kaynak türü denetim olup kaynak referansı denetim kimliği veya bir madde kimliği/koduyla tam eşleşiyorsa dahil edilir. Serbest metin ve ortak kontrol referansları kapsamı genişletmez. Kanıt dosyalarının kendisi ve canlı hazırlık skoru dahil değildir. Rapor, denetim görüşü veya kapatma kararı değildir.',
+    'Saved plan, all requirements, requests, milestones and workpapers for this audit, and directly linked CAPA findings. Findings are included only when their source type is audit and their source reference exactly matches the audit ID or a requirement ID/code. Free text and shared control references do not expand the scope. File bytes and live readiness scores are excluded. This report is not an audit opinion or a closure decision.');
   const metrics = [
+    {label:t('Denetim görevleri','Audit milestones'),value:n.milestones,note:t(`${n.outstandingMilestones} açık`,`${n.outstandingMilestones} outstanding`)},
     {label:t('Çalışma kâğıtları','Workpapers'),value:n.workpapers,note:t(`${n.outstandingWorkpapers} sonuçlanmamış`,`${n.outstandingWorkpapers} outstanding`)},
     {label:t('Denetim maddeleri','Audit requirements'),value:n.requirements,note:t(`${n.unfinishedRequirements} madde sonuçlanmamış`,`${n.unfinishedRequirements} unfinished requirements`)},
     {label:t('Kanıt talepleri','Evidence requests'),value:n.requests,note:t(`${n.outstandingRequests} açık · ${n.acceptedRequests} kabul · ${n.cancelledRequests} iptal`,`${n.outstandingRequests} outstanding · ${n.acceptedRequests} accepted · ${n.cancelledRequests} cancelled`)},

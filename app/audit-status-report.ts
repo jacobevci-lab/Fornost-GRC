@@ -2,7 +2,7 @@ import type { AuditRequestWorkflow } from './audit-requests';
 import type { WorkplanPlan } from './audit-workplan';
 import type { ReportRecord } from './report-export';
 
-export type AuditReportItem = { kind: 'requirement' | 'request' | 'finding' | 'workpaper'; id: string; record: ReportRecord };
+export type AuditReportItem = { kind: 'requirement' | 'request' | 'finding' | 'workpaper' | 'milestone'; id: string; record: ReportRecord };
 export type AuditReportSource = {
   audit: { id: string; name: string; template: string; auditType: string; auditor: string; owner: string; status: string };
   catalog: Record<string, unknown> | null; plan: WorkplanPlan; workflow: AuditRequestWorkflow;
@@ -13,7 +13,7 @@ export type AuditStatusReport = AuditReportSource & {
 };
 export type AuditReportDetail = { snapshot: AuditStatusReport; sha256: string; integrity: 'verified' | 'broken' | 'unavailable' };
 export type AuditReportListItem = { id: string; title: string; createdAt: string; createdBy: string; itemCount: number };
-export const auditReportLimits = { requirement: 2000, request: 500, finding: 1000, workpaper: 100, bytes: 8_000_000 } as const;
+export const auditReportLimits = { requirement: 2000, request: 500, finding: 1000, workpaper: 100, milestone: 100, bytes: 8_000_000 } as const;
 export class AuditReportError extends Error {
   constructor(public code: string, public status = 400) { super(code); }
 }
@@ -29,6 +29,7 @@ export async function auditReportHash(value: unknown) {
 export function auditReportSummary(items: AuditReportItem[]) {
   const requirements = items.filter(i => i.kind === 'requirement'), requests = items.filter(i => i.kind === 'request'), findings = items.filter(i => i.kind === 'finding');
   return {
+    milestones: items.filter(i=>i.kind==='milestone').length, outstandingMilestones: items.filter(i=>i.kind==='milestone'&&!['completed','cancelled'].includes(String(i.record.data.status))).length,
     workpapers: items.filter(i => i.kind === 'workpaper').length, outstandingWorkpapers: items.filter(i => i.kind === 'workpaper' && !['approved', 'cancelled'].includes(String(i.record.data.status))).length,
     requirements: requirements.length, unfinishedRequirements: requirements.filter(i => !['Kapatıldı', 'Kapalı', 'Tamamlandı'].includes(String(i.record.data.status))).length,
     requests: requests.length, outstandingRequests: requests.filter(i => !['accepted', 'cancelled'].includes(String(i.record.data.status))).length,

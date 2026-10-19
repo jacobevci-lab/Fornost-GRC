@@ -1,13 +1,14 @@
 "use client";
+import {AuditMilestonePanel} from './audit-milestone-panel';
 import {useEffect,useState,useId} from 'react';
 import {auditPlanLabels as labels,emptyAuditPlan,validateAuditPlan,type AuditPlan} from './audit-plan';
 import {withBasePath} from './base-path';
 import './audit-plan-panel.css';
 
-export function AuditPlanPanel({auditId,canWrite,lang,embedded=false}:{auditId:string;canWrite:boolean;lang:string;embedded?:boolean}){
+export function AuditPlanPanel({auditId,canWrite,lang,embedded=false,focusId=''}:{auditId:string;canWrite:boolean;lang:string;embedded?:boolean;focusId?:string}){
  const[open,setOpen]=useState(false),[activated,setActivated]=useState(false),en=lang==='en';
- if(embedded)return <section className="audit-plan-panel fw-plan-embedded"><header><small>{en?'ENGAGEMENT DESIGN':'DENETİM TASARIMI'}</small><h3>{en?'Audit plan & scope':'Denetim planı ve kapsamı'}</h3></header><Plan key={auditId} auditId={auditId} canWrite={canWrite} en={en}/></section>;
- return <section className="audit-plan-panel"><button type="button" aria-expanded={open} onClick={()=>{setActivated(true);setOpen(!open);}}>{en?'Audit plan & scope':'Denetim planı ve kapsamı'}</button>{activated&&<div hidden={!open}><Plan key={auditId} auditId={auditId} canWrite={canWrite} en={en}/></div>}</section>;
+ if(embedded)return <section className="audit-plan-panel fw-plan-embedded"><header><small>{en?'ENGAGEMENT DESIGN':'DENETİM TASARIMI'}</small><h3>{en?'Audit plan & scope':'Denetim planı ve kapsamı'}</h3></header><Plan key={auditId} auditId={auditId} canWrite={canWrite} en={en}/><AuditMilestonePanel key={auditId} auditId={auditId} lang={lang} canWrite={canWrite} focusId={focusId}/></section>;
+ return <section className="audit-plan-panel"><button type="button" aria-expanded={open} onClick={()=>{setActivated(true);setOpen(!open);}}>{en?'Audit plan & scope':'Denetim planı ve kapsamı'}</button>{activated&&<div hidden={!open}><Plan key={auditId} auditId={auditId} canWrite={canWrite} en={en}/><AuditMilestonePanel key={auditId} auditId={auditId} lang={lang} canWrite={canWrite} focusId={focusId}/></div>}</section>;
 }
 function Plan({auditId,canWrite,en}:{auditId:string;canWrite:boolean;en:boolean}){
  const formId=useId();

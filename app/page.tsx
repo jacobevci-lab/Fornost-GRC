@@ -4043,10 +4043,17 @@ function AuditModule({
   const [auditCreateError,setAuditCreateError] = useState("");
   const [requestFocus, setRequestFocus] = useState<{ id: string; auditId: string } | null>(null);
   const [showUnassigned, setShowUnassigned] = useState(false);
+  const [milestoneFocus,setMilestoneFocus]=useState<{id:string;auditId:string}|null>(null);
   const [workpaperFocus, setWorkpaperFocus] = useState<{ id: string; auditId: string } | null>(null);
   const [closureFocus, setClosureFocus] = useState<{ id: string; auditId: string } | null>(null);
   useEffect(() => {
     const accept = (request: FornostNavigationRequest | null) => {
+      if(request?.module === "Denetim Yönetimi" && request.kind !== "audit-milestone")setMilestoneFocus(null);
+      if(request?.module === "Denetim Yönetimi" && request.kind === "audit-milestone" && request.ref && request.filter?.auditId){
+        const target=audits.find(audit=>audit.id===request.filter?.auditId);
+        if(target){setRequestFocus(null);setClosureFocus(null);setWorkpaperFocus(null);setMilestoneFocus({id:request.ref,auditId:target.id});select(target.name);consumePendingFornostFocus("Denetim Yönetimi");}
+        return;
+      }
       if (request?.module === "Denetim Yönetimi" && request.kind !== "audit-workpaper") setWorkpaperFocus(null);
       if (request?.module === "Denetim Yönetimi" && request.kind === "audit-workpaper" && request.ref && request.filter?.auditId) {
         const target = audits.find(audit => audit.id === request.filter?.auditId);
@@ -4391,7 +4398,8 @@ function AuditModule({
         focusClosure={closureFocus?.auditId === selectedPortfolio?.id ? closureFocus?.id : ""}
         items={items} focusedRequirement={focusedRequirement} focusRequest={selectedPortfolio && requestFocus?.auditId === selectedPortfolio.id ? requestFocus.id : ''} go={go}
         catalog={selectedPortfolio ? <FrameworkCatalogNotice framework={selectedPortfolio.template || ""} snapshot={selectedPortfolio.catalog} lang={lang} /> : null}
-        plan={selectedPortfolio ? <AuditPlanPanel auditId={selectedPortfolio.id} canWrite={canWrite && !auditLocked} lang={lang} embedded /> : null}
+        focusMilestone={milestoneFocus?.auditId === selectedPortfolio?.id ? milestoneFocus?.id : ""}
+        plan={selectedPortfolio ? <AuditPlanPanel focusId={milestoneFocus?.auditId === selectedPortfolio.id ? milestoneFocus.id : ""} auditId={selectedPortfolio.id} canWrite={canWrite && !auditLocked} lang={lang} embedded /> : null}
         requests={selectedPortfolio ? <AuditRequestPanel readOnly={auditLocked} key={`requests:${selected}:${requestFocus?.id || ""}`} auditId={selectedPortfolio.id} lang={lang} focusId={requestFocus?.auditId === selectedPortfolio.id ? requestFocus.id : ''} /> : null}
         workpapers={selectedPortfolio ? <AuditWorkpaperPanel focusId={workpaperFocus?.auditId === selectedPortfolio.id ? workpaperFocus.id : ""} key={`${selectedPortfolio.id}:${workpaperFocus?.auditId === selectedPortfolio.id ? workpaperFocus.id : ""}`} auditId={selectedPortfolio.id} lang={lang} readOnly={auditLocked} /> : null}
         readiness={selectedPortfolio ? <AuditReadinessGate key={selected} lang={lang} auditName={selected} records={[...items, ...evidenceRows]} /> : null}
