@@ -6,8 +6,22 @@ import { mkdir, writeFile } from 'node:fs/promises';
 const base='http://127.0.0.1:4173', out='audit-workpapers-qa-artifacts', tag=Date.now();
 const browser=await chromium.launch({executablePath:process.env.QA_CHROMIUM_PATH||undefined});
 const context=await browser.newContext({viewport:{width:1440,height:960}}),reviewer=await browser.newContext(),viewer=await browser.newContext();
-const page=await context.newPage(),errors=[],users=[];page.on('pageerror',e=>errors.push(e.message));let auditId,evidenceId;
+const peer=await reviewer.newPage();
+const page=await context.newPage(),errors=[],users=[];page.on('pageerror',e=>errors.push(e.message));peer.on('pageerror',e=>errors.push(e.message));let auditId,evidenceId;
 async function api(ctx,path,method='GET',data,status=200){const r=await ctx.request.fetch(base+path,{method,data,headers:{origin:base}});assert.equal(r.status(),status,await r.text());return r.json();}
+async function openWork(target, title, completed=false) {
+ await target.locator('nav button[aria-label="My Work"]').evaluate(e=>e.click());
+ await expect(target.locator('.my-work-v2').getByRole('button',{name:'Refresh',exact:true})).toBeEnabled();
+ await target.locator('.mw2-filters').getByRole('button',{name:completed?/^Completed/:/^All/}).click();
+ await target.getByRole('textbox',{name:'Search work',exact:true}).fill(title);
+}
+async function followWork(target, title, id, completed=false) {
+ await openWork(target,title,completed);
+ await expect(target.locator('.mw2-item')).toHaveCount(1);
+ await target.locator('.mw2-item').click();
+ await expect(target.getByRole('tab',{name:'Workpapers',exact:true})).toHaveAttribute('aria-selected','true');
+ await expect(target.locator('.aw-detail')).toContainText(id);
+}
 try{
  await mkdir(out,{recursive:true});await api(context,'/api/auth','POST',{action:'login',email:'qa-admin@fornost.test',password:qaPassword()});
  const reviewerEmail=`workpaper-reviewer-${tag}@fornost.test`, viewerEmail=`workpaper-viewer-${tag}@fornost.test`;
@@ -25,22 +39,26 @@ try{
  let posts=0,release;const barrier=new Promise(r=>{release=r;});await page.route('**/api/audits/workpapers',async route=>{if(route.request().method()==='POST'){posts++;const response=await route.fetch();await barrier;await route.fulfill({response});}else await route.continue();});
  const save=panel.getByRole('button',{name:'Save draft',exact:true});await save.click();await expect(save).toBeDisabled();await save.dispatchEvent('click');await expect.poll(()=>posts).toBe(1);release();await expect(panel.getByRole('status')).toHaveText('Action saved.');await page.unroute('**/api/audits/workpapers');
  let row=(await api(context,`/api/audits/workpapers?auditId=${auditId}`)).papers[0];assert.equal(row.samples[0].versionId,version.id);
+ await followWork(page,row.title,row.id);
+ const inboxPaper=(await api(context,'/api/audits/requests')).workpapers.find(p=>p.id===row.id);assert.equal(inboxPaper.status,'draft');assert.equal(inboxPaper.evidence,undefined);assert.equal(inboxPaper.samples,undefined);
+ await peer.goto(base);await expect(peer.locator('.shell')).toBeVisible();await peer.locator('.language-switch:visible').getByRole('button',{name:'EN',exact:true}).click();await openWork(peer,row.title);await expect(peer.locator('.mw2-item')).toHaveCount(0);
  await api(viewer,'/api/audits/workpapers','POST',{auditId,id:row.id,action:'submit',expectedRevision:row.revision,note:'Viewer cannot submit'},403);
  await panel.getByRole('button',{name:'Edit draft',exact:true}).click();await panel.getByLabel('Conclusion',{exact:true}).fill('Local draft retained after a conflict');
  await api(context,'/api/audits/workpapers','POST',{auditId,id:row.id,action:'save',expectedRevision:row.revision,fields:{...row,conclusion:'Updated by another browser'}});
  await panel.getByRole('button',{name:'Save draft',exact:true}).click();await expect(panel.getByRole('alert')).toContainText('draft is retained');await expect(panel.getByLabel('Conclusion',{exact:true})).toHaveValue('Local draft retained after a conflict');await panel.getByRole('button',{name:'Discard draft and reload current record',exact:true}).click();await expect(panel.locator('.aw-detail')).toContainText('Updated by another browser');
  await panel.getByLabel('Action reason',{exact:true}).fill('Sample testing is complete and ready for independent review');await panel.getByRole('button',{name:'Submit for review',exact:true}).click();await expect(panel.getByRole('status')).toHaveText('Action saved.');
  row=(await api(context,`/api/audits/workpapers?auditId=${auditId}`)).papers[0];await api(context,'/api/audits/workpapers','POST',{auditId,id:row.id,action:'approve',expectedRevision:row.revision,note:'Cannot approve own work'},403);
- await api(reviewer,'/api/audits/workpapers','POST',{auditId,id:row.id,action:'return',expectedRevision:row.revision,note:'Clarify the population extraction date'});
+ await followWork(peer,row.title,row.id);await peer.locator('.aw-panel').getByLabel('Action reason',{exact:true}).fill('Clarify the population extraction date');await peer.locator('.aw-panel').getByRole('button',{name:'Request changes',exact:true}).click();await expect(peer.locator('.aw-panel').getByRole('status')).toHaveText('Action saved.');await openWork(peer,row.title);await expect(peer.locator('.mw2-item')).toHaveCount(0);
  await panel.getByRole('button',{name:'Refresh',exact:true}).click();await expect(panel.getByRole('button',{name:'Edit draft',exact:true})).toBeVisible();
  await panel.getByLabel('Action reason',{exact:true}).fill('Source period is documented; resubmitting for review');await panel.getByRole('button',{name:'Submit for review',exact:true}).click();await expect(panel.getByRole('status')).toHaveText('Action saved.');
  row=(await api(context,`/api/audits/workpapers?auditId=${auditId}`)).papers[0];await api(reviewer,'/api/audits/workpapers','POST',{auditId,id:row.id,action:'approve',expectedRevision:row.revision,note:'Independently reviewed sample selection and evidence'});
  await panel.getByRole('button',{name:'Refresh',exact:true}).click();await expect(panel.getByRole('button',{name:'Reopen with reason',exact:true})).toBeVisible();
+ await followWork(page,row.title,row.id,true);await page.screenshot({path:`${out}/my-work-exact-target.png`,fullPage:true});
  await panel.getByText('Action and sample history',{exact:true}).click();await expect(panel).toContainText('Independently reviewed sample selection and evidence');
  assert.deepEqual((await new AxeBuilder({page}).include('.aw-panel').withTags(['wcag2a','wcag2aa','wcag21aa']).analyze()).violations,[]);
  for(const lang of ['EN','TR']){await page.locator('.language-switch:visible').getByRole('button',{name:lang,exact:true}).click();for(const theme of ['light','dark']){await page.evaluate(theme=>document.documentElement.dataset.theme=theme,theme);for(const width of [1440,390]){await page.setViewportSize({width,height:960});await page.screenshot({path:`${out}/${lang}-${theme}-${width}.png`,fullPage:true});assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+2),'viewport overflow');}}}
  await page.locator('.language-switch:visible').getByRole('button',{name:'EN',exact:true}).click();await panel.getByLabel('Action reason',{exact:true}).fill('Additional testing required before final opinion');await panel.getByRole('button',{name:'Reopen with reason',exact:true}).click();await expect(panel.getByRole('status')).toHaveText('Action saved.');await panel.getByLabel('Action reason',{exact:true}).fill('Superseded by a revised test scope; retain history');await panel.getByRole('button',{name:'Cancel with reason',exact:true}).click();await expect(panel.getByRole('status')).toHaveText('Action saved.');
  const final=await api(context,`/api/audits/workpapers?auditId=${auditId}&id=${row.id}`);assert.equal(final.papers[0].status,'cancelled');assert.equal(final.history.length,8);assert.equal(final.papers[0].evidence[0].id,version.id);assert.deepEqual(errors,[]);
- await writeFile(`${out}/result.json`,JSON.stringify({result:'PASS',checks:['browser create and version pinning','duplicate click prevention','viewer denial','stale conflict retains draft','owner submission','independent return and approval','history','reopen and cancel','axe','TR EN light dark desktop mobile'],errors},null,2));console.log('AUDIT_WORKPAPERS_QA_PASS');
+ await writeFile(`${out}/result.json`,JSON.stringify({result:'PASS',checks:['owner draft My Work exact link','reviewer handoff and UI return','reviewer queue removes returned paper','completed owner My Work link','inbox excludes sample evidence details','browser create and version pinning','duplicate click prevention','viewer denial','stale conflict retains draft','owner submission','independent return and approval','history','reopen and cancel','axe','TR EN light dark desktop mobile'],errors},null,2));console.log('AUDIT_WORKPAPERS_QA_PASS');
 }catch(e){await writeFile(`${out}/failure.json`,JSON.stringify({message:e.message,stack:e.stack,errors},null,2));await page.screenshot({path:`${out}/failure.png`,fullPage:true}).catch(()=>{});console.error('AUDIT_WORKPAPERS_QA_FAILED',e.message);throw e;}
 finally{try{if(auditId)await api(context,`/api/audits?id=${auditId}`,'DELETE');if(evidenceId)await api(context,`/api/grc?id=${evidenceId}`,'DELETE');for(const user of users)await api(context,'/api/users','PATCH',{...user,status:'Disabled'});await writeFile(`${out}/cleanup.json`,JSON.stringify({auditDeleted:!!auditId,evidenceDeleted:!!evidenceId,accountsDisabled:users.length}));}catch(error){await writeFile(`${out}/cleanup-failure.json`,JSON.stringify({message:error.message,stack:error.stack},null,2));throw error;}finally{await browser.close();}}

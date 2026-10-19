@@ -1,4 +1,5 @@
 import { isAuditClosedError } from '../../../audit-closure';
+import { readWorkpaperWork } from '../../../audit-workpaper-store';
 import { readPendingAuditClosures } from '../../../audit-closure-store';
 import { NextRequest, NextResponse } from 'next/server';
 import { requireRole } from '../../auth/security';
@@ -19,7 +20,8 @@ export async function GET(req: NextRequest) {
     if (!id) {
       const work = await readAuditRequestWork(env.DB);
       const closureWork = await readPendingAuditClosures(env.DB, auth.actor);
-      return json({ ...work, closures: closureWork.closures, complete: work.complete && closureWork.complete, requests: work.requests.map(row => ({ ...row, evidence: [] })) });
+      const paperWork = await readWorkpaperWork(env.DB, auth.actor);
+      return json({ ...work, workpapers: paperWork.workpapers, closures: closureWork.closures, complete: work.complete && closureWork.complete && paperWork.complete, requests: work.requests.map(row => ({ ...row, evidence: [] })) });
     }
     const auditId = auditRequestId(id), state = await readAuditRequestWorkflow(env.DB, auditId);
     const plan = await env.DB.prepare('SELECT value FROM simple_grc_metadata WHERE key=?').bind(`audit_plan_${auditId}`).first<{ value: string }>();

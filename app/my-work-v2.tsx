@@ -251,7 +251,7 @@ function itemFromRow(row: Row, user: User, now: number, lang: Lang, completed = 
 }
 function navigateToRecord(row: Row) {
   if (row.workSource && row.workKind && row.nativeRef) {
-    navigateToFornost({ module: row.module, ref: row.nativeRef, kind: row.workKind, source: "my-work-enterprise", ...(["audit-request", "audit-closure"].includes(row.workKind) ? { filter: { auditId: clean(row.data.auditId) } } : {}) });
+    navigateToFornost({ module: row.module, ref: row.nativeRef, kind: row.workKind, source: "my-work-enterprise", ...(["audit-request", "audit-closure", "audit-workpaper"].includes(row.workKind) ? { filter: { auditId: clean(row.data.auditId) } } : {}) });
     return;
   }
   navigateToFornost({
