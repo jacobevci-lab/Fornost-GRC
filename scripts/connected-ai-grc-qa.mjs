@@ -51,7 +51,11 @@ try{
   mode=failure;await openMap();
   await expect(page.locator('.cg-source-state')).toHaveAttribute('data-ready','10');
   await page.locator('.connected-grc').getByRole('button',{name:/^Gaps/}).click();
+  // Scope the assertion to its fixtures; unrelated persisted records can fill the first 20 references.
+  await page.getByLabel('Source module',{exact:true}).selectOption('AI Yönetişimi');
+  await page.getByLabel('Issue type',{exact:true}).selectOption('missing');
   await page.locator('.connected-unresolved summary').click();
+  await expect(page.locator('.connected-unresolved>div')).toHaveCount(2);
   await expect(page.locator('.connected-unresolved')).toContainText('QA-AIM-1');
  }
  mode='complete';await openMap();
