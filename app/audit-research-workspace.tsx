@@ -5,14 +5,14 @@ import { WorkspaceTabs, type WorkspaceTab } from './workspace-tabs';
 import { hasReportValue } from './report-export';
 
 type Requirement = { id: string; data: Record<string, unknown> };
-export function AuditResearchWorkspace({ lang, auditId, items, focusRequest, focusClosure = "", focusWorkpaper = "", focusedRequirement, plan, requests, workpapers, readiness, reports, closure, requirements, catalog, go }: {
-  lang: 'tr' | 'en'; auditId: string; items: Requirement[]; focusRequest: string; focusClosure?: string; focusWorkpaper?: string; focusedRequirement: string;
+export function AuditResearchWorkspace({ lang, auditId, items, focusRequest, focusClosure = "", focusWorkpaper = "", focusMilestone = "", focusedRequirement, plan, requests, workpapers, readiness, reports, closure, requirements, catalog, go }: {
+  lang: 'tr' | 'en'; auditId: string; items: Requirement[]; focusRequest: string; focusClosure?: string; focusWorkpaper?: string; focusMilestone?: string; focusedRequirement: string;
   plan?: ReactNode; requests?: ReactNode; workpapers?: ReactNode; readiness?: ReactNode; reports?: ReactNode; closure?: ReactNode;
   requirements: ReactNode; catalog: ReactNode; go: (module: string) => void;
 }) {
   const tr = lang === 'tr';
-  const focus = focusWorkpaper ? `workpaper:${focusWorkpaper}` : focusClosure ? `closure:${focusClosure}` : focusedRequirement ? `requirement:${focusedRequirement}` : focusRequest ? `request:${focusRequest}` : '';
-  const preferred = focusWorkpaper ? 'workpapers' : focusClosure ? 'closure' : focusedRequirement ? 'requirements' : focusRequest ? 'requests' : 'overview';
+  const focus = focusMilestone ? `milestone:${focusMilestone}` : focusWorkpaper ? `workpaper:${focusWorkpaper}` : focusClosure ? `closure:${focusClosure}` : focusedRequirement ? `requirement:${focusedRequirement}` : focusRequest ? `request:${focusRequest}` : '';
+  const preferred = focusMilestone ? 'plan' : focusWorkpaper ? 'workpapers' : focusClosure ? 'closure' : focusedRequirement ? 'requirements' : focusRequest ? 'requests' : 'overview';
   const [view, setView] = useState({ tab: preferred, focus });
   // A deep link reveals the request while ordinary tab changes retain every draft.
   const active = focus && view.focus !== focus ? preferred : view.tab;

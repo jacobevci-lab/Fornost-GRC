@@ -34,7 +34,7 @@ Bir kontrolün kaydedilmesi onun etkin olduğunu, bir kanıtın yüklenmesi kabu
 ## Başlıca iş akışları
 
 - **Risk ve güvence:** Risk Assessment, varlık envanteri, BIA, risk iştahı/KRI, ortak kontrol kütüphanesi ve ilişkili kanıtlar.
-- **Uyum ve denetim:** Gereksinim katalogları, kapsam planı, sürüme sabitlenmiş kanıt talepleri, bağımsız inceleme, manuel örneklemli çalışma kâğıtları, kaydedilmiş durum raporları ve bütün denetim için kapanış/onay.
+- **Uyum ve denetim:** Gereksinim katalogları, kapsam planı, [tarihli sahip görevleri](docs/audit-milestones.md), sürüme sabitlenmiş kanıt talepleri, bağımsız inceleme, manuel örneklemli çalışma kâğıtları, kaydedilmiş durum raporları ve bütün denetim için kapanış/onay.
 - **Sürekli kontrol:** Desteklenen veri kaynaklarından toplama, zamanlanmış testler, kanıt tazeliği, başarısızlıkların izlenmesi ve CAPA bağlantısı. [Native kaynakların kapsamı](docs/integrations/product-connectors.md) ve [hazır testler](docs/integrations/ready-control-tests.md) ayrı tanımlıdır.
 - **Kurumsal yaşam döngüleri:** Politika sürümü/yayın/attestation, regülasyon değişikliği ve etkileri, tedarikçi inceleme/offboarding, güvenlik olayı ve süreklilik tatbikatları.
 - **AI yönetişimi:** Sağlayıcı politikaları, model envanteri, değerlendirmeler, olaylar, istisnalar, release gate ve emeklilik. Ask Fornost, yetkili bağlam üzerinden kaynaklı analiz ve insan onaylı taslaklar sunar; doğrudan veritabanına bağlanmaz.

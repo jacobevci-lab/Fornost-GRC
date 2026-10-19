@@ -90,3 +90,10 @@ export const auditWorkpapers = sqliteTable("audit_workpapers", {
 export const auditWorkpaperEvents = sqliteTable("audit_workpaper_events", {
   id:text("id").primaryKey(),auditId:text("audit_id").notNull(),workpaperId:text("workpaper_id").notNull(),actor:text("actor").notNull(),action:text("action").notNull(),note:text("note").notNull(),snapshotJson:text("snapshot_json").notNull(),createdAt:text("created_at").notNull(),
 },table=>[index("audit_workpaper_events_parent_idx").on(table.auditId,table.workpaperId,table.createdAt,table.id)]);
+
+export const auditMilestones = sqliteTable("audit_milestones", {
+ id:text("id").primaryKey(),auditId:text("audit_id").notNull(),revision:text("revision").notNull(),dataJson:text("data_json").notNull(),createdAt:text("created_at").notNull(),updatedAt:text("updated_at").notNull(),
+},table=>[index("audit_milestones_parent_idx").on(table.auditId,table.updatedAt,table.id)]);
+export const auditMilestoneEvents = sqliteTable("audit_milestone_events", {
+ id:text("id").primaryKey(),auditId:text("audit_id").notNull(),milestoneId:text("milestone_id").notNull(),actor:text("actor").notNull(),action:text("action").notNull(),note:text("note").notNull(),snapshotJson:text("snapshot_json").notNull(),createdAt:text("created_at").notNull(),
+},table=>[index("audit_milestone_events_parent_idx").on(table.auditId,table.milestoneId,table.createdAt,table.id)]);

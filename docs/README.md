@@ -14,6 +14,7 @@ Güncelleme: 19 Ekim 2026. Başlangıç belgeleri Türkçedir; ayrıntılı tekn
 ## Günlük çalışma ve denetim
 
 - [Kayıt arama](record-search.md) ve [paylaşılabilir kayıt/görev bağlantıları](record-links.md).
+- [Tarihli denetim görevleri](audit-milestones.md): sahip, hedef tarih, My Work ve kapanış kontrolü.
 - [Denetim planlama](audit-engagement-planning.md), [talepler ve inceleme](audit-request-workflow.md), [takvim/hatırlatma/eskalasyon](audit-reminder-profiles.md).
 - [Çalışma kâğıtları ve örnekleme](audit-workpapers.md), [durum raporları](audit-status-reports.md), [bütün-denetim kapanışı](audit-closure.md).
 - [Kanıt dosya biçimleri](EVIDENCE-DOCUMENT-FORMATS.md), [kanıt geçmişi](evidence-history-overview.md), [çalışma alanları](research-workspaces.md).

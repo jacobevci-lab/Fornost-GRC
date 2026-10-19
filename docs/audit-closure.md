@@ -1,6 +1,6 @@
 # Whole-audit closure and independent approval
 
-The audit workspace now includes **Closure and approval**. It captures the saved engagement plan, requirements, evidence-request decisions, workpapers with sample/evidence metadata and directly linked enterprise CAPA findings in one immutable application snapshot. This is distinct from request-work-plan closure and from an ordinary status report. The current lifecycle appears on portfolio cards and in the audit workspace; pending approval also appears in the preparer/reviewer's My Work with an exact package link.
+The audit workspace now includes **Closure and approval**. It captures the saved engagement plan, requirements, structured milestones, evidence-request decisions, workpapers with sample/evidence metadata and directly linked enterprise CAPA findings in one immutable application snapshot. This is distinct from request-work-plan closure and from an ordinary status report. The current lifecycle appears on portfolio cards and in the audit workspace; pending approval also appears in the preparer/reviewer's My Work with an exact package link.
 
 An active Admin prepares the closure summary, selects another active Admin, records scope limitations and, when linked findings remain open, explains their follow-up. The assigned reviewer inspects the saved package and can approve or return it with a reason. The preparer can withdraw a pending package, including when the reviewer becomes unavailable, and resubmit to another reviewer. A preparer cannot approve or return their own submission; another administrator cannot substitute for the assigned reviewer. Existing CAPA report access is Admin-only, so closure packages and their exports use the same boundary. Other audit readers see the lifecycle badge without the package, reviewer identity or CAPA details.
 
@@ -9,6 +9,7 @@ An active Admin prepares the closure summary, selects another active Admin, reco
 - A saved plan must include objective, scope and lead auditor.
 - At least one requirement must exist, and every included requirement must have a completed status.
 - If requests exist, each must be accepted or cancelled and their request work plan must be closed. An audit with no requests can close without a synthetic empty work plan.
+- Every structured milestone must be completed or reason-cancelled. These are owner/Admin completion statements, not independent evidence review.
 - Every workpaper must be approved or reason-cancelled; draft/review work blocks closure. Pinned evidence metadata and sample results are included, not attachment bytes.
 - Every directly linked finding not in `closed` status must have a recorded owner and valid due date. A nonempty follow-up plan is required. Risk acceptance is still counted as not closed, and overdue dates remain visible; closure does not assert that remediation is complete.
 
@@ -26,7 +27,7 @@ The latest 20 decisions are listed with explicit truncation. Every retained deci
 
 ## Bounds and verification
 
-The existing complete-report bounds apply: 2,000 requirements, 500 requests, 100 workpapers with up to 100 samples each, 1,000 linked findings, 8 MB of source data, bounded snapshot chunks. Reviewers are listed up to 1,000 with truncation disclosed. The pending My Work projection is bounded to 1,000 packages and reports incomplete sources explicitly. No new mail is sent by this feature.
+The existing complete-report bounds apply: 2,000 requirements, 500 requests, 100 milestones, 100 workpapers with up to 100 samples each, 1,000 linked findings, 8 MB of source data, bounded snapshot chunks. Reviewers are listed up to 1,000 with truncation disclosed. The pending My Work projection is bounded to 1,000 packages and reports incomplete sources explicitly. No new mail is sent by this feature.
 
 SQLite-backed regression tests exercise independent/disabled roles, exact parent access, blockers, source/account races inside commit, transaction rollback, stable retry intent, stale decisions, closure write locks, CAPA follow-up, retained reopening and integrity failures. Dedicated isolated Chromium QA uses separate preparer/reviewer/editor sessions, real API writes, My Work navigation, stale-source return/resubmission, duplicate-click handling, closed CRUD/import/plan/workplan/delete rejection, JSON verification, late navigation and TR/EN desktop/mobile views in both existing themes.
 

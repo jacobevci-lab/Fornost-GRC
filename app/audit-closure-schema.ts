@@ -1,3 +1,4 @@
+import { auditMilestoneClosureGuards } from './audit-milestone-schema';
 import { auditWorkpaperClosureGuards } from './audit-workpaper-schema';
 import { completedInitialization } from './completed-initialization';
 import { ensureAuditStatusReportSchema } from './audit-status-report-schema';
@@ -32,5 +33,5 @@ export const auditReminderClosureGuards = ['INSERT', 'UPDATE', 'DELETE'].map(ope
 });
 const initialize = completedInitialization();
 export async function ensureAuditClosureSchema(db: D1Database) {
-  await initialize(db, async () => { await ensureAuditStatusReportSchema(db); await db.batch([...auditClosureSchema, ...auditReminderClosureGuards, ...auditWorkpaperClosureGuards].map(sql => db.prepare(sql))); });
+  await initialize(db, async () => { await ensureAuditStatusReportSchema(db); await db.batch([...auditClosureSchema, ...auditReminderClosureGuards, ...auditWorkpaperClosureGuards, ...auditMilestoneClosureGuards].map(sql => db.prepare(sql))); });
 }

@@ -1,3 +1,4 @@
+import { readMilestoneWork } from '../../../audit-milestone-store';
 import { isAuditClosedError } from '../../../audit-closure';
 import { readWorkpaperWork } from '../../../audit-workpaper-store';
 import { readPendingAuditClosures } from '../../../audit-closure-store';
@@ -21,7 +22,8 @@ export async function GET(req: NextRequest) {
       const work = await readAuditRequestWork(env.DB);
       const closureWork = await readPendingAuditClosures(env.DB, auth.actor);
       const paperWork = await readWorkpaperWork(env.DB, auth.actor);
-      return json({ ...work, workpapers: paperWork.workpapers, closures: closureWork.closures, complete: work.complete && closureWork.complete && paperWork.complete, requests: work.requests.map(row => ({ ...row, evidence: [] })) });
+      const milestoneWork = await readMilestoneWork(env.DB, auth.actor);
+      return json({ ...work, milestones:milestoneWork.milestones, workpapers: paperWork.workpapers, closures: closureWork.closures, complete: work.complete && closureWork.complete && paperWork.complete && milestoneWork.complete, requests: work.requests.map(row => ({ ...row, evidence: [] })) });
     }
     const auditId = auditRequestId(id), state = await readAuditRequestWorkflow(env.DB, auditId);
     const plan = await env.DB.prepare('SELECT value FROM simple_grc_metadata WHERE key=?').bind(`audit_plan_${auditId}`).first<{ value: string }>();

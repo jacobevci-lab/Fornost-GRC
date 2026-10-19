@@ -1,3 +1,4 @@
+import { publicMilestone } from './audit-milestone-store';
 import { publicWorkpaper } from './audit-workpaper-store';
 import type { Actor } from './api/auth/security';
 import { emptyAuditPlan, validateAuditPlan } from './audit-plan';
@@ -27,12 +28,13 @@ export async function readAuditReportSource(db: D1Database, actor: Actor, auditI
     db.prepare(`SELECT count(*) AS invalid FROM simple_grc_records WHERE module='Denetim Yönetimi' AND CASE WHEN NOT json_valid(data_json) THEN 1 WHEN json_type(data_json)<>'object' THEN 1 WHEN COALESCE(json_type(data_json,'$.auditName'),'')<>'text' THEN 1 WHEN trim(json_extract(data_json,'$.auditName'))='' THEN 1 ELSE 0 END`),
     db.prepare(`SELECT count(*) AS ambiguous FROM (${linkedFindings} AND ${ambiguousFinding})`).bind(auditId,auditId),
     db.prepare('SELECT * FROM audit_workpapers WHERE audit_id=? ORDER BY id LIMIT 101').bind(auditId),
+    db.prepare('SELECT * FROM audit_milestones WHERE audit_id=? ORDER BY id LIMIT 101').bind(auditId),
   ]);
   const a = result[1].results[0] as Raw | undefined;
   if (!a) throw new AuditReportError('audit-missing', 404);
   if (Number((result[7].results[0] as Raw)?.invalid)) throw new AuditReportError('source-invalid', 503);
   if (Number((result[8].results[0] as Raw)?.ambiguous)) throw new AuditReportError('scope-ambiguous',409);
-  if (result[3].results.length > auditReportLimits.requirement || result[4].results.length > auditReportLimits.request || result[6].results.length > auditReportLimits.finding || result[9].results.length > auditReportLimits.workpaper) throw new AuditReportError('limit', 409);
+  if (result[3].results.length > auditReportLimits.requirement || result[4].results.length > auditReportLimits.request || result[6].results.length > auditReportLimits.finding || result[9].results.length > auditReportLimits.workpaper || result[10].results.length > auditReportLimits.milestone) throw new AuditReportError('limit', 409);
   const metadata = new Map((result[2].results as { key: string; value: string }[]).map(row => [row.key, object(row.value)]));
   const plan = metadata.get(`audit_plan_${auditId}`) || { plan: emptyAuditPlan, revision: '', updatedAt: null, updatedBy: null };
   try { validateAuditPlan(plan.plan); } catch { throw new AuditReportError('source-invalid', 503); }
@@ -42,6 +44,7 @@ export async function readAuditReportSource(db: D1Database, actor: Actor, auditI
     ...(result[3].results as Raw[]).map(row => ({ kind: 'requirement' as const, id: String(row.id), record: { id: String(row.id), code: String(row.code || row.id), module: 'Denetim Yönetimi', data: object(String(row.data_json)), createdAt: String(row.created_at), updatedAt: String(row.updated_at) } })),
     ...(result[4].results as unknown as Parameters<typeof publicAuditRequest>[0][]).map(raw => { object(raw.data_json); const row = publicAuditRequest(raw); if (!row.title || !row.status || !Array.isArray(row.evidence)) throw new AuditReportError('source-invalid',503); return { kind: 'request' as const, id: row.id, record: { id: row.id, module: 'Audit requests', data: { ...row }, createdAt: row.createdAt, updatedAt: row.updatedAt } }; }),
     ...(result[6].results as Raw[]).map(row => ({ kind: 'finding' as const, id: String(row.id), record: findingReportRecord(row) })),
+    ...(result[10].results as unknown as Parameters<typeof publicMilestone>[0][]).map(raw => {const row=publicMilestone(raw);return {kind:'milestone' as const,id:row.id,record:{id:row.id,module:'Audit milestones',data:{...row},createdAt:row.createdAt,updatedAt:row.updatedAt}};}),
     ...(result[9].results as unknown as Parameters<typeof publicWorkpaper>[0][]).map(raw => { const row = publicWorkpaper(raw); return { kind: 'workpaper' as const, id: row.id, record: { id: row.id, module: 'Audit workpapers', data: { ...row }, createdAt: row.createdAt, updatedAt: row.updatedAt } }; }),
   ].sort((a, b) => a.kind < b.kind ? -1 : a.kind > b.kind ? 1 : a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
   const source: AuditReportSource = {
@@ -70,13 +73,13 @@ export async function readAuditStatusReport(db: D1Database, actor: Actor, auditI
   requireAuditReportAccess(actor); auditRequestId(auditId); auditRequestId(reportId); await ensureAuditStatusReportSchema(db);
   const results = await db.batch([
     db.prepare('SELECT header_json,snapshot_sha256,item_count FROM audit_status_reports WHERE id=? AND audit_id=? AND EXISTS(SELECT 1 FROM simple_audits WHERE id=?)').bind(reportId, auditId, auditId),
-    db.prepare('SELECT kind,id,record_json FROM audit_status_report_items WHERE report_id=? ORDER BY kind,id LIMIT 3601').bind(reportId),
+    db.prepare('SELECT kind,id,record_json FROM audit_status_report_items WHERE report_id=? ORDER BY kind,id LIMIT 3701').bind(reportId),
   ]);
   const h = results[0].results[0] as { header_json: string; snapshot_sha256: string; item_count: number } | undefined;
   if (!h) throw new AuditReportError('report-missing', 404);
   const items = (results[1].results as { kind: AuditReportItem['kind']; id: string; record_json: string }[]).map(row => ({ kind: row.kind, id: row.id, record: object(row.record_json) }));
   const snapshot = { ...object(h.header_json), items } as AuditStatusReport;
-  const integrity = items.length !== h.item_count || items.length > 3600 ? 'unavailable' : await auditReportHash(snapshot) === h.snapshot_sha256 ? 'verified' : 'broken';
+  const integrity = items.length !== h.item_count || items.length > 3700 ? 'unavailable' : await auditReportHash(snapshot) === h.snapshot_sha256 ? 'verified' : 'broken';
   return { snapshot, sha256: h.snapshot_sha256, integrity };
 }
 
