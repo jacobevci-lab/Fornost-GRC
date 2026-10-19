@@ -14,6 +14,7 @@ import { readAllGrcPages } from "./grc-pagination";
 import { AuditPlanPanel } from "./audit-plan-panel";
 import { AuditResearchWorkspace } from "./audit-research-workspace";
 import { EvidenceDocumentPreview } from "./evidence-document-preview";
+import { AuditWorkpaperPanel } from './audit-workpaper-panel';
 import { AuditRequestPanel } from "./audit-request-panel";
 import { AuditClosurePanel } from "./audit-closure-panel";
 import { auditClosureLabels } from "./audit-closure";
@@ -4380,6 +4381,7 @@ function AuditModule({
         catalog={selectedPortfolio ? <FrameworkCatalogNotice framework={selectedPortfolio.template || ""} snapshot={selectedPortfolio.catalog} lang={lang} /> : null}
         plan={selectedPortfolio ? <AuditPlanPanel auditId={selectedPortfolio.id} canWrite={canWrite && !auditLocked} lang={lang} embedded /> : null}
         requests={selectedPortfolio ? <AuditRequestPanel readOnly={auditLocked} key={`requests:${selected}:${requestFocus?.id || ""}`} auditId={selectedPortfolio.id} lang={lang} focusId={requestFocus?.auditId === selectedPortfolio.id ? requestFocus.id : ''} /> : null}
+        workpapers={selectedPortfolio ? <AuditWorkpaperPanel key={selectedPortfolio.id} auditId={selectedPortfolio.id} lang={lang} readOnly={auditLocked} /> : null}
         readiness={selectedPortfolio ? <AuditReadinessGate key={selected} lang={lang} auditName={selected} records={[...items, ...evidenceRows]} /> : null}
         closure={canDeleteAudit && selectedPortfolio ? <AuditClosurePanel key={`closure:${selectedPortfolio.id}:${closureFocus?.auditId === selectedPortfolio.id ? closureFocus.id : ""}`} focusId={closureFocus?.auditId === selectedPortfolio.id ? closureFocus.id : ""} auditId={selectedPortfolio.id} lang={lang} onChanged={refreshAudits} /> : undefined}
         reports={canDeleteAudit && selectedPortfolio ? <AuditStatusReportPanel auditId={selectedPortfolio.id} lang={lang} embedded /> : undefined}

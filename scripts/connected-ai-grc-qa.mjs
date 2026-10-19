@@ -51,7 +51,11 @@ try{
   mode=failure;await openMap();
   await expect(page.locator('.cg-source-state')).toHaveAttribute('data-ready','10');
   await page.locator('.connected-grc').getByRole('button',{name:/^Gaps/}).click();
+  // Scope the assertion to its fixtures; unrelated persisted records can fill the first 20 references.
+  await page.getByLabel('Source module',{exact:true}).selectOption('AI Yönetişimi');
+  await page.getByLabel('Issue type',{exact:true}).selectOption('missing');
   await page.locator('.connected-unresolved summary').click();
+  await expect(page.locator('.connected-unresolved>div')).toHaveCount(2);
   await expect(page.locator('.connected-unresolved')).toContainText('QA-AIM-1');
  }
  mode='complete';await openMap();
@@ -121,4 +125,10 @@ try{
  await page.screenshot({path:`${out}/gaps-filter-mobile.png`});
  assert.deepEqual(errors,[]);
  await fs.writeFile(`${out}/result.json`,JSON.stringify({status:'passed',fixtureTransport:true,relationships:3,layouts:8,sourceRecovery:true}));
+}catch(error){
+ const source=await page.locator('.cg-source-state').evaluate(el=>({text:el.textContent,ready:el.getAttribute('data-ready'),total:el.getAttribute('data-total'),loading:el.getAttribute('data-loading')})).catch(()=>null);
+ await fs.writeFile(`${out}/failure.json`,JSON.stringify({message:error.message,stack:error.stack,mode,source,errors},null,2));
+ await page.screenshot({path:`${out}/failure.png`,fullPage:true}).catch(()=>{});
+ throw error;
 }finally{await browser.close();}
+

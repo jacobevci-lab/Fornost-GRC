@@ -56,6 +56,22 @@ jobs:
         with:
           name: admin-settings-preview
           path: admin-settings-qa-artifacts/
+      - name: Audit workpapers, sampling and independent review QA
+        run: node scripts/audit-workpapers-qa.mjs
+      - name: Publish workpaper browser evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: audit-workpapers-preview
+          path: audit-workpapers-qa-artifacts/
+      - name: Connected AI graph and source recovery QA
+        run: node scripts/connected-ai-grc-qa.mjs
+      - name: Publish connected source recovery evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: connected-source-preview
+          path: connected-ai-qa-artifacts/
       - name: Audit reminder calendar, escalation and conflict recovery QA
         run: node scripts/audit-reminder-profile-qa.mjs
       - name: Publish reminder profile browser evidence
@@ -147,8 +163,6 @@ jobs:
         run: node scripts/workspace-simplicity-qa.mjs
       - name: AI exact record navigation and recovery QA
         run: node scripts/ai-record-navigation-qa.mjs
-      - name: Connected AI graph and source recovery QA
-        run: node scripts/connected-ai-grc-qa.mjs
       - name: Assurance follow-up search, pagination and recovery QA
         run: node scripts/assurance-followup-workspace-qa.mjs
       - name: Control business impact and dependency navigation QA
