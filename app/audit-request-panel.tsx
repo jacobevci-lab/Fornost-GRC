@@ -4,16 +4,19 @@ import { withBasePath } from './base-path';
 import { navigateToFornost } from './navigation-focus';
 import { emptyAuditRequest, requestDraftPreview, requestNextActor, requestNextDue, requestStatusLabels, validateAuditRequestFields, type AuditRequest, type AuditRequestEvidence, type AuditRequestFields, type AuditRequestWorkflow } from './audit-requests';
 import { auditRequestProgress } from './audit-request-progress';
+import { AuditReminderPanel } from './audit-reminder-panel';
+import type { SavedAuditReminderProfile } from './audit-reminder-profile';
 import { AuditWorkplanPanel } from './audit-workplan-panel';
 import './audit-request-panel.css';
 import { EvidenceDocumentPreview } from './evidence-document-preview';
 
-type Data = { workflow: AuditRequestWorkflow; requests: AuditRequest[]; complete: boolean; actorEmail: string; canManage: boolean; evidenceAccess: boolean;
+type Data = { reminderProfile: SavedAuditReminderProfile; workflow: AuditRequestWorkflow; requests: AuditRequest[]; complete: boolean; actorEmail: string; canManage: boolean; evidenceAccess: boolean;
   people: { email: string; name: string }[]; peopleComplete: boolean; evidenceChoices: AuditRequestEvidence[]; evidenceChoicesComplete: boolean;
   planRevision: string; periodStart: string; periodEnd: string; eventsComplete: boolean;
   events: { id: string; request_id: string; action: string; actor: string; created_at: string; note: string; activationReason: string; planRevision: string; status: AuditRequest['status']; versionIds: string[] }[] };
 const messages: Record<string, [string, string]> = {
   'audit-closed': ['Denetim kapalı. Önce Kapanış ve onay görünümünden gerekçeyle yeniden açın.', 'The audit is closed. Reopen it with a reason in Closure and approval first.'],
+  'reminder-profile': ['Hatırlatma takvimini, eşikleri ve eskalasyon kişisini kontrol edin.', 'Check the reminder calendar, thresholds and escalation recipient.'],
   fields: ['Başlık, kabul ölçütü, sorumlu ve inceleyeni doldurun.', 'Complete the title, acceptance criteria, owner and reviewer.'],
   dates: ['Gerçek ve sıralı tarihler girin. İnceleme tarihi teslimden önce olamaz.', 'Enter valid date ranges. Review cannot be due before submission.'],
   'independent-reviewer': ['İnceleyen sorumludan farklı olmalı.', 'The reviewer must differ from the owner.'],
@@ -112,7 +115,8 @@ export function AuditRequestPanel({ auditId, lang, focusId = '', readOnly = fals
       </div>}
 
       <AuditWorkplanPanel key={auditId} auditId={auditId} lang={lang} workflow={data.workflow} canManage={!readOnly && data.canManage && ready && data.complete} evidenceAccess={data.evidenceAccess} disabled={busy || loading || !!editing} onBusy={value => { busyRef.current = value; setBusy(value); }} onChanged={load}/>
-      {data.workflow.state === 'closed' ? <p>{t('İş planı kapalı; önceki talepler ve kararlar okunabilir.', 'The work plan is closed; previous requests and decisions remain readable.')}</p> : data.workflow.state === 'draft' ? <p>{t('Taslak talepler bildirim üretmez. Başlatmadan önce sorumluları, tarihleri ve kayıtlı denetim planını kontrol edin.', 'Draft requests do not generate notifications. Review owners, dates and the saved audit plan before starting.')}</p> : <p>{t('Hatırlatma saat dilimi', 'Reminder time zone')}: <b>{data.workflow.timeZone}</b> · {t('İlk atama, son tarihten 1 gün önce, son gün ve 3 gün gecikmede. Teslim ve inceleme tarihleri ayrıdır.', 'Assignment, 1 day before due, on the due date and 3 days overdue. Delivery and review have separate dates.')}</p>}
+      {data.workflow.state === 'closed' ? <p>{t('İş planı kapalı; önceki talepler ve kararlar okunabilir.', 'The work plan is closed; previous requests and decisions remain readable.')}</p> : data.workflow.state === 'draft' ? <p>{t('Taslak talepler bildirim üretmez. Başlatmadan önce sorumluları, tarihleri ve kayıtlı denetim planını kontrol edin.', 'Draft requests do not generate notifications. Review owners, dates and the saved audit plan before starting.')}</p> : <p>{t('Hatırlatma saat dilimi', 'Reminder time zone')}: <b>{data.workflow.timeZone}</b> · {t('Teslim ve inceleme tarihleri ayrıdır.', 'Delivery and review have separate dates.')}</p>}
+      {data.reminderProfile && <AuditReminderPanel key={`${auditId}:${data.reminderProfile.revision}`} saved={data.reminderProfile} lang={lang} disabled={!editable || !!editing || launch} canManage={canOperate} people={data.people} due={row ? requestNextDue(row) : data.requests[0] ? requestNextDue(data.requests[0]) : ''} timeZone={data.workflow.timeZone} onSave={profile => void mutate('reminder-profile', { profile, expectedRevision: data.reminderProfile.revision, expectedWorkflowRevision: data.workflow.revision })}/>}
       {!readOnly && data.canManage && data.workflow.state !== 'closed' && <div className="ar-actions"><button type="button" disabled={!editable || !!editing} onClick={() => beginEdit()}>{t('+ Talep ekle', '+ Add request')}</button><button type="button" disabled={!editable || !!editing || !drafts.length} onClick={() => setLaunch(!launch)}>{data.workflow.state === 'draft' ? t('Başlangıç özetini gör', 'Preview launch') : t('Ek talepleri gözden geçir', 'Review additions')}</button></div>}
       {launch && <div className="ar-launch"><h4>{data.workflow.state === 'draft' ? t('İş planını başlat', 'Start the work plan') : t('Ek talepleri etkinleştir', 'Activate additional requests')}</h4>
         <p>{drafts.length} {t('talep etkinleşecek.', 'requests will become active.')} {new Set(drafts.map(r => r.owner)).size} {t('sorumlu için atama bildirimi hazırlanacak. İnceleyenlere kanıt sunulduğunda iş açılır.', 'owners will receive assignment notifications. Reviewer work opens when evidence is submitted.')}</p>

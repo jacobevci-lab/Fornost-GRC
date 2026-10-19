@@ -25,7 +25,11 @@ export const auditClosureSchema = [
       return `CREATE TRIGGER IF NOT EXISTS audit_closure_${table}_${operation.toLowerCase()} BEFORE ${operation} ON ${table} WHEN ${condition} BEGIN SELECT RAISE(ABORT,'audit-closed'); END`;
     })),
 ];
+export const auditReminderClosureGuards = ['INSERT', 'UPDATE', 'DELETE'].map(operation => {
+  const refs = operation === 'INSERT' ? ['NEW'] : operation === 'DELETE' ? ['OLD'] : ['OLD', 'NEW'];
+  return `CREATE TRIGGER IF NOT EXISTS audit_closure_audit_reminder_profiles_${operation.toLowerCase()} BEFORE ${operation} ON audit_reminder_profiles WHEN ${refs.map(ref => closed(`SELECT ${ref}.audit_id`)).join(' OR ')} BEGIN SELECT RAISE(ABORT,'audit-closed'); END`;
+});
 const initialize = completedInitialization();
 export async function ensureAuditClosureSchema(db: D1Database) {
-  await initialize(db, async () => { await ensureAuditStatusReportSchema(db); await db.batch(auditClosureSchema.map(sql => db.prepare(sql))); });
+  await initialize(db, async () => { await ensureAuditStatusReportSchema(db); await db.batch([...auditClosureSchema, ...auditReminderClosureGuards].map(sql => db.prepare(sql))); });
 }

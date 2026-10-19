@@ -405,3 +405,48 @@ test('a withdrawn work plan can close with cancellations while an empty plan can
     await assert.rejects(mutateWorkplan(f.db, admin, await closureInput(f), now), /outstanding/);
   } finally { f.sqlite.close(); }
 });
+
+test('reminder profiles reconcile queues, preserve deadlines and reject stale saves, inactive escalations and closed audits', async () => {
+  const { readAuditReminderProfile, saveAuditReminderProfile } = await import('../app/audit-reminder-store');
+  const { defaultAuditReminderProfile } = await import('../app/audit-reminder-profile');
+  const f = await fixture(); try {
+    await f.create(); await f.start(); await syncAuditRequestNotifications(f.db, now);
+    const old = f.sqlite.prepare("SELECT * FROM continuous_assurance_notification_outbox WHERE status='queued'").get() as AssuranceDeliveryOutbox;
+    const input = { auditId:'audit-a', expectedRevision:'', expectedWorkflowRevision:(await f.state()).workflow.revision, profile:{...defaultAuditReminderProfile,mode:'business',holidays:['2026-10-14'],escalationDays:5,escalationRecipient:admin.email} };
+    await saveAuditReminderProfile(f.db,admin,input,now);
+    assert.equal(await auditRequestNotificationCurrent(f.db,old,now),false);
+    await syncAuditRequestNotifications(f.db,now);assert.equal(f.sqlite.prepare("SELECT count(*) n FROM continuous_assurance_notification_outbox WHERE status='queued'").get()?.n,0);
+    assert.equal((await f.row()).dueDate,fields.dueDate);
+    await assert.rejects(saveAuditReminderProfile(f.db,admin,input,now),/conflict/);
+    const saved=await readAuditReminderProfile(f.db,'audit-a');
+    const later=new Date('2026-11-02T12:00Z');await syncAuditRequestNotifications(f.db,later);await syncAuditRequestNotifications(f.db,later);
+    const notices=f.sqlite.prepare("SELECT * FROM continuous_assurance_notification_outbox WHERE status='queued'").all() as AssuranceDeliveryOutbox[];assert.equal(notices.length,2);
+    const escalation=notices.find(n=>n.recipient===admin.email)!;assert.equal(await auditRequestNotificationCurrent(f.db,escalation,later),true);
+    f.sqlite.exec("UPDATE local_users SET status='Disabled' WHERE id='a'");assert.equal(await auditRequestNotificationCurrent(f.db,escalation,later),false);
+    await assert.rejects(saveAuditReminderProfile(f.db,reviewer,{...input,expectedRevision:saved.revision},now),/assignee/);
+    f.sqlite.exec("UPDATE local_users SET status='Active' WHERE id='a'; INSERT INTO audit_closure_state VALUES('audit-a','closed','c','','')");
+    await assert.rejects(saveAuditReminderProfile(f.db,admin,{...input,expectedRevision:saved.revision},now),/audit-closed/);
+    assert.equal((await readAuditReminderProfile(f.db,'audit-a')).revision,saved.revision);
+  } finally { f.sqlite.close(); }
+});
+
+test('profile writes bind actor/recipient/workflow at commit and event failure rolls back configuration and queue', async () => {
+  const { readAuditReminderProfile, saveAuditReminderProfile } = await import('../app/audit-reminder-store');
+  const { defaultAuditReminderProfile } = await import('../app/audit-reminder-profile');
+  for (const change of ["UPDATE local_users SET status='Disabled' WHERE id='a'", "UPDATE local_users SET status='Disabled' WHERE id='r'", "UPDATE audit_request_workflows SET revision='changed'", "DELETE FROM simple_audits WHERE id='audit-a'"]) {
+    const f=await fixture();try{
+      await f.create();await f.start();
+      // Warm lazy closure initialization before injecting a commit-time race.
+      const {ensureAuditClosureSchema}=await import('../app/audit-closure-schema');await ensureAuditClosureSchema(f.db);
+      const input={auditId:'audit-a',expectedRevision:'',expectedWorkflowRevision:(await f.state()).workflow.revision,profile:{...defaultAuditReminderProfile,escalationDays:5,escalationRecipient:reviewer.email}};
+      f.race(()=>f.sqlite.exec(change));await assert.rejects(saveAuditReminderProfile(f.db,admin,input,now),/conflict/);
+      assert.equal(f.sqlite.prepare('SELECT count(*) n FROM audit_reminder_profiles').get()?.n,0);
+    }finally{f.sqlite.close();}
+  }
+  const f=await fixture();try{
+    await f.create();await f.start();await syncAuditRequestNotifications(f.db,now);
+    f.sqlite.exec("CREATE TRIGGER reject_profile_event BEFORE INSERT ON audit_request_events WHEN NEW.action='reminder-profile' BEGIN SELECT RAISE(ABORT,'event-failure'); END");
+    await assert.rejects(saveAuditReminderProfile(f.db,admin,{auditId:'audit-a',expectedRevision:'',expectedWorkflowRevision:(await f.state()).workflow.revision,profile:defaultAuditReminderProfile},now),/event-failure/);
+    assert.equal((await readAuditReminderProfile(f.db,'audit-a')).revision,'');assert.equal(f.sqlite.prepare("SELECT count(*) n FROM continuous_assurance_notification_outbox WHERE status='queued'").get()?.n,1);
+  }finally{f.sqlite.close();}
+});
