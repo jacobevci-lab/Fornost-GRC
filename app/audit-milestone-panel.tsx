@@ -11,6 +11,8 @@ export function AuditMilestonePanel(props:{auditId:string;lang:string;canWrite:b
 function Milestones({auditId,lang,canWrite,focusId=''}:{auditId:string;lang:string;canWrite:boolean;focusId?:string}){
  const tr=lang==='tr',t=(a:string,b:string)=>tr?a:b,formId=useId();
  const[state,setState]=useState<State|null>(null),[selected,setSelected]=useState(focusId),[focus,setFocus]=useState(focusId),[draft,setDraft]=useState<MilestoneFields>({...emptyMilestone}),[revision,setRevision]=useState(''),[note,setNote]=useState(''),[dirty,setDirty]=useState(false),[busy,setBusy]=useState(false),[loading,setLoading]=useState(true),[error,setError]=useState(''),[notice,setNotice]=useState(''),[refresh,setRefresh]=useState(0),[clock,setClock]=useState(()=>Date.now());
+ const panelRef=useRef<HTMLElement|null>(null);
+ useEffect(()=>{if(focus&&!loading){panelRef.current?.scrollIntoView({block:'start'});panelRef.current?.focus({preventScroll:true});}},[focus,loading]);
  const newId=useRef(`AMT-${crypto.randomUUID()}`);
  const flight=useRef(false),current=state?.milestones.find(m=>m.id===selected),editable=canWrite&&state?.canManage&&(!current||state.admin||current.owner===state.actorEmail),terminal=current&&['completed','cancelled'].includes(current.status);
  useEffect(()=>{const timer=setInterval(()=>setClock(Date.now()),60000);return()=>clearInterval(timer);},[]);
@@ -32,7 +34,7 @@ function Milestones({auditId,lang,canWrite,focusId=''}:{auditId:string;lang:stri
  const patch=(key:keyof MilestoneFields,value:string)=>{setDraft(d=>({...d,[key]:value}));setDirty(true);};
  const fieldsChanged=!!current&&Object.keys(emptyMilestone).some(key=>draft[key as keyof MilestoneFields]!==current[key as keyof MilestoneFields]);
  const unavailable=loading||busy||!state?.complete||error==='load';
- return <section className="audit-milestones" aria-label={t('Denetim görevleri','Audit milestones')} aria-busy={loading||busy}>
+ return <section ref={panelRef} tabIndex={-1} className="audit-milestones" aria-label={t('Denetim görevleri','Audit milestones')} aria-busy={loading||busy}>
   <header><div><h3>{t('Görevler ve kilometre taşları','Tasks and milestones')}</h3><p>{t('Sorumlu ve tarih atayın; iş Benim İşlerim içinde takip edilir. Plan notlarından otomatik görev veya e-posta üretilmez.','Assign an owner and due date; follow the task in My Work. Plan notes do not automatically create tasks or email.')}</p></div><button type="button" disabled={busy} onClick={()=>{if(discard()){setError('');setLoading(true);setRefresh(x=>x+1);}}}>{t('Yeniden yükle','Reload')}</button></header>
   {error&&<p role="alert">{(messages[error]||messages.unavailable)[tr?0:1]}</p>}{notice&&<p role="status">{notice}</p>}
   {loading&&<p role="status">{t('Yükleniyor…','Loading…')}</p>}
