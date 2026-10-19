@@ -10,7 +10,7 @@ try{
  const initial=await api(`/api/audits/plan?id=${id}`);assert.equal(initial.revision,'');
  await api('/api/audits/plan','PUT',{id,expectedRevision:'',plan:{...initial.plan,periodStart:'2026-02-30'}},400);
  await page.goto(base);await expect(page.locator('.shell')).toBeVisible();await page.locator('.language-switch:visible').getByRole('button',{name:'EN',exact:true}).click();await page.locator('nav button[aria-label="Audit Management"]').evaluate(el=>el.click());await page.locator('.audit-card-open').filter({hasText:name}).click();
- await page.getByRole('tab',{name:'Plan and scope',exact:true}).click();const panel=page.locator('.audit-plan-panel');await expect(panel.getByLabel('Audit objective',{exact:true})).toBeEnabled();
+ await page.getByRole('tab',{name:'Plan and scope',exact:true}).click();const panel=page.locator('.audit-plan-form');await expect(panel.getByLabel('Audit objective',{exact:true})).toBeEnabled();
  await panel.getByLabel('Audit objective',{exact:true}).fill('Validate control effectiveness across critical assets');await panel.getByLabel('Review period start',{exact:true}).fill('2026-01-01');await panel.getByLabel('Review period end',{exact:true}).fill('2026-12-31');
  await panel.getByRole('button',{name:'Save plan',exact:true}).click();await expect(panel.getByRole('status')).toContainText('Saved:');const saved=await api(`/api/audits/plan?id=${id}`);assert.equal(saved.plan.objective,'Validate control effectiveness across critical assets');
  await api('/api/audits/plan','PUT',{id,expectedRevision:saved.revision,plan:{...saved.plan,lead:'Other reviewer'}});
