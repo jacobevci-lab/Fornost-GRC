@@ -40,6 +40,25 @@ Bir kontrolün kaydedilmesi onun etkin olduğunu, bir kanıtın yüklenmesi kabu
 - **AI yönetişimi:** Sağlayıcı politikaları, model envanteri, değerlendirmeler, olaylar, istisnalar, release gate ve emeklilik. Ask Fornost, yetkili bağlam üzerinden kaynaklı analiz ve insan onaylı taslaklar sunar; doğrudan veritabanına bağlanmaz.
 - **Günlük çalışma:** TR/EN arayüz, Benim İşlerim, sekiz çekirdek sicilde kayıt araması, filtre bağlamına dönüş ve yetki kontrolüyle açılan paylaşılabilir kayıt/görev bağlantıları.
 
+## AI güvence ve karar takibi
+
+AI yönetişimi yalnız sohbet ekranından oluşmaz. Model bazında doğruluk, hata, drift, bias, gecikme ve ölçüm tazeliği için **tekilleştirilmiş güvence alarmları**; kaynak bağlantılı bulgular, CAPA ve **bağımsız kanıt doğrulaması** bulunur. Üretim release gate, **18 bağımsız kontrol alanını** değerlendirir; açık engeller karar bağlamında görünür kalır.
+
+Tekrarlayan dönem, sorumlu, doğrulayıcı ve kanıtla **operasyonel regülasyon yükümlülük** takibi yapılır. Modelin **kontrollü AI emeklilik süreci**, veri/erişim/bağımlılık kapanışının doğrulanmasını ister. Model denetim paketi **HMAC-SHA-256 sunucu mührü** ile sonradan doğrulanabilir; bu, dış güven kuruluşunca verilen elektronik imza değildir. Sağlayıcı, veri sınırları ve yaşam döngüleri için [AI Architecture](docs/AI-ARCHITECTURE.md) okunmalıdır.
+
+## Modüllerin ayrıntılı rehberleri
+
+| Alan | Teknik ve iş akışı belgesi |
+| --- | --- |
+| Bağlantılı kayıtlar | [Connected GRC Relationship Intelligence](docs/CONNECTED-GRC.md) |
+| Risk iştahı ve ölçüm | [Enterprise Risk Appetite & KRI](docs/ENTERPRISE-RISK-APPETITE-KRI.md) |
+| Bulgu ve iyileştirme | [Enterprise Findings & CAPA](docs/ENTERPRISE-FINDINGS-CAPA.md) |
+| Politika/sürüm/yayın | [Enterprise Policy Lifecycle Management](docs/POLICY-LIFECYCLE-MANAGEMENT.md) |
+| Üçüncü taraf değerlendirmesi | [Third-Party Risk Management 2.0](docs/THIRD-PARTY-RISK-MANAGEMENT.md) |
+| Regülasyon değişiklikleri | [Regulatory Change Intelligence](docs/REGULATORY-CHANGE-INTELLIGENCE.md) |
+| Güvenlik olayı | [Enterprise Incident & Crisis Management](docs/ENTERPRISE-INCIDENT-CRISIS-MANAGEMENT.md) |
+| İş sürekliliği | [Enterprise Business Continuity](docs/ENTERPRISE-BUSINESS-CONTINUITY.md) |
+
 ## Son tamamlanan geliştirmeler
 
 19 Ekim 2026 itibarıyla, uygulama sürümü `c87540a75e36` / [PR #320](https://github.com/jacobevci-lab/Fornost-GRC/pull/320) temel alınmıştır:
