@@ -12,7 +12,7 @@ try{
  await mkdir(out,{recursive:true});await api(context,'/api/auth','POST',{action:'login',email:'qa-admin@fornost.test',password:qaPassword()});
  const reviewerEmail=`workpaper-reviewer-${tag}@fornost.test`, viewerEmail=`workpaper-viewer-${tag}@fornost.test`;
  for(const [email,role,ctx]of [[reviewerEmail,'Editor',reviewer],[viewerEmail,'Viewer',viewer]]){
-  await api(context,'/api/users','POST',{email,name:`QA Workpaper ${role}`,role,password:qaPassword()},201);users.push((await api(context,'/api/users')).users.find(u=>u.email===email).id);
+  await api(context,'/api/users','POST',{email,name:`QA Workpaper ${role}`,role,password:qaPassword()},201);users.push({id:(await api(context,'/api/users')).users.find(u=>u.email===email).id,role});
   await api(ctx,'/api/auth','POST',{action:'login',email,password:qaPassword()});
  }
  const name=`QA Workpapers ${tag}`;auditId=(await api(context,'/api/audits','POST',{name,template:'Özel Denetim',auditOwner:'QA',auditor:'QA'},201)).id;
@@ -43,4 +43,4 @@ try{
  const final=await api(context,`/api/audits/workpapers?auditId=${auditId}&id=${row.id}`);assert.equal(final.papers[0].status,'cancelled');assert.equal(final.history.length,8);assert.equal(final.papers[0].evidence[0].id,version.id);assert.deepEqual(errors,[]);
  await writeFile(`${out}/result.json`,JSON.stringify({result:'PASS',checks:['browser create and version pinning','duplicate click prevention','viewer denial','stale conflict retains draft','owner submission','independent return and approval','history','reopen and cancel','axe','TR EN light dark desktop mobile'],errors},null,2));console.log('AUDIT_WORKPAPERS_QA_PASS');
 }catch(e){await writeFile(`${out}/failure.json`,JSON.stringify({message:e.message,stack:e.stack,errors},null,2));await page.screenshot({path:`${out}/failure.png`,fullPage:true}).catch(()=>{});console.error('AUDIT_WORKPAPERS_QA_FAILED',e.message);throw e;}
-finally{try{if(auditId)await api(context,`/api/audits?id=${auditId}`,'DELETE');if(evidenceId)await api(context,`/api/grc?id=${evidenceId}`,'DELETE');for(const id of users)await api(context,`/api/users?id=${id}`,'DELETE');}finally{await browser.close();}}
+finally{try{if(auditId)await api(context,`/api/audits?id=${auditId}`,'DELETE');if(evidenceId)await api(context,`/api/grc?id=${evidenceId}`,'DELETE');for(const user of users)await api(context,'/api/users','PATCH',{...user,status:'Disabled'});await writeFile(`${out}/cleanup.json`,JSON.stringify({auditDeleted:!!auditId,evidenceDeleted:!!evidenceId,accountsDisabled:users.length}));}catch(error){await writeFile(`${out}/cleanup-failure.json`,JSON.stringify({message:error.message,stack:error.stack},null,2));throw error;}finally{await browser.close();}}
