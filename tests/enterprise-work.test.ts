@@ -73,3 +73,20 @@ test('audit closure tasks retain native package targets and never imply complete
  assert.equal(result.complete,true);assert.equal(result.rows[0].workKind,'audit-closure');assert.equal(result.rows[0].nativeRef,'ACL-1');assert.equal(result.rows[0].data.auditId,'audit-a');assert.equal(result.rows[0].data.workClosed,false);assert.equal(result.rows[0].data.dueDate,undefined);
  assert.equal(projectEnterpriseWork('audit',{requests:[],closures:[{...task,reviewer:''}],complete:true}).complete,false);
 });
+
+
+test('workpaper tasks follow owner preparation, reviewer handoff, completion and exact native links without invented deadlines', () => {
+ const paper={id:'AWP-1',auditId:'audit-a',title:'Sample testing',owner:'owner@example.com',reviewer:'reviewer@example.com'};
+ for(const status of ['draft','submitted','approved','cancelled']) {
+  const result=projectEnterpriseWork('audit',{requests:[],workpapers:[{...paper,status}],complete:true});
+  assert.equal(result.complete,true);assert.equal(result.rows.length,1);
+  const row=result.rows[0];assert.equal(row.workKind,'audit-workpaper');assert.equal(row.nativeRef,paper.id);assert.equal(row.data.auditId,paper.auditId);
+  assert.equal(row.data.owner,paper.owner);assert.equal(row.data.reviewer,status==='submitted'?paper.reviewer:'');
+  assert.equal(row.data.workClosed,['approved','cancelled'].includes(status));assert.equal(row.data.dueDate,undefined);
+  assert.equal(matchesWorkIdentity([String(row.data.owner)],{email:'owner@example.com.other'}),false);
+ }
+ for(const papers of [[{...paper,status:'unknown'}],[{...paper,status:'draft',auditId:''}],[{...paper,status:'draft'},{...paper,status:'draft'}]]) {
+  const result=projectEnterpriseWork('audit',{requests:[],workpapers:papers,complete:true});assert.equal(result.complete,false);assert.deepEqual(result.rows,[]);
+ }
+ assert.equal(projectEnterpriseWork('audit',{requests:[],workpapers:[],complete:false}).complete,false);
+});

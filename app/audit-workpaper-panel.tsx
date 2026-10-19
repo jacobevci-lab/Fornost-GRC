@@ -5,7 +5,7 @@ import { emptyWorkpaper, validateWorkpaper, workpaperStatusLabels, type AuditWor
 import type { AuditRequestEvidence } from './audit-requests';
 import './audit-workpaper-panel.css';
 type State = { papers: AuditWorkpaper[]; complete: boolean; canManage: boolean; admin: boolean; actorEmail: string; people: { email: string; name: string }[]; peopleComplete: boolean; evidenceChoices: AuditRequestEvidence[]; evidenceChoicesComplete: boolean; history: { id: string; actor: string; action: string; note: string; snapshot_json: string; created_at: string }[]; historyComplete: boolean };
-export function AuditWorkpaperPanel({ auditId, lang, readOnly }: { auditId: string; lang: 'tr' | 'en'; readOnly: boolean }) {
+export function AuditWorkpaperPanel({ auditId, lang, readOnly, focusId = "" }: { focusId?: string; auditId: string; lang: 'tr' | 'en'; readOnly: boolean }) {
   const tr = lang === 'tr', t = (a: string, b: string) => tr ? a : b;
   const [state, setState] = useState<State | null>(null), [selected, setSelected] = useState<AuditWorkpaper | null>(null), [draft, setDraft] = useState<WorkpaperFields | null>(null), [note, setNote] = useState(''), [error, setError] = useState(''), [busy, setBusy] = useState(false), [query, setQuery] = useState(''), [filter, setFilter] = useState('all'), [saved, setSaved] = useState(false);
   const draftId = useRef('');
@@ -16,11 +16,11 @@ export function AuditWorkpaperPanel({ auditId, lang, readOnly }: { auditId: stri
       const response = await fetch(withBasePath(`/api/audits/workpapers?auditId=${encodeURIComponent(auditId)}${id ? `&id=${encodeURIComponent(id)}` : ''}`), { cache: 'no-store', signal: AbortSignal.timeout(20000) });
       const data = await response.json(); if (!response.ok) throw new Error(data.error || 'unavailable');
       if (ticket !== generation.current) return;
-      setState(data); if (!keepDraft) { setSelected(data.papers.find((p: AuditWorkpaper) => p.id === id) || null); setDraft(null); setNote(''); } setError('');
+      setState(data); if (!keepDraft) { setSelected(data.papers.find((p: AuditWorkpaper) => p.id === id) || null); setDraft(null); setNote(''); } setError(id && !data.papers.some((p: AuditWorkpaper) => p.id === id) ? 'missing-focus' : '');
     } catch (e) { if (ticket === generation.current) setError(e instanceof Error ? e.message : 'unavailable'); }
   }, [auditId]);
   const invalidate = useCallback(() => { generation.current++; }, []);
-  useEffect(() => { const timer = setTimeout(() => { void load(); }, 0); return () => { clearTimeout(timer); invalidate(); }; }, [load, invalidate]);
+  useEffect(() => { const timer = setTimeout(() => { void load(focusId); }, 0); return () => { clearTimeout(timer); invalidate(); }; }, [load, invalidate, focusId]);
   async function mutate(action: string) {
     if (lock.current || !state) return; lock.current = true; setBusy(true); setError(''); setSaved(false);
     try {
@@ -53,7 +53,7 @@ export function AuditWorkpaperPanel({ auditId, lang, readOnly }: { auditId: stri
   const patchSample = (index: number, patch: Partial<WorkpaperSample>) => setDraft(d => d && ({ ...d, samples: d.samples.map((s, i) => i === index ? { ...s, ...patch } : s) }));
   return <section className="aw-panel" aria-label={t('Çalışma kâğıtları ve örneklem', 'Workpapers and sampling')}>
     <header><div><h3>{t('Çalışma kâğıtları ve örneklem', 'Workpapers and sampling')}</h3><p>{t('Evreni tanımlayın, seçiminizi gerekçelendirin ve her test sonucunu kanıt sürümüyle bağımsız incelemeye sunun.', 'Define the population, explain your selection and submit each test result with its evidence version for independent review.')}</p></div><div className="aw-actions"><button disabled={busy || Boolean(draft)} onClick={() => { setSaved(false); void load(selected?.id); }}>{t('Yenile', 'Refresh')}</button>{editable && <button disabled={busy || Boolean(draft) || (state?.papers.length || 0) >= 100} onClick={() => { draftId.current = `AWP-${crypto.randomUUID()}`; setSelected(null); setDraft({ ...emptyWorkpaper, owner: state?.actorEmail || '', samples: [] }); setSaved(false); setError(''); }}>{t('Yeni çalışma kâğıdı', 'New workpaper')}</button>}</div></header>
-    {error && <div role="alert"><p>{messages[error]?.[tr ? 0 : 1] || t('Kayıt yüklenemedi veya kaydedilemedi. Tekrar deneyin.', 'The record could not be loaded or saved. Try again.')}</p><button disabled={busy} onClick={() => void load(selected?.id, Boolean(draft))}>{t('Yeniden dene (taslağı koru)', 'Retry (keep draft)')}</button>{error === 'conflict' && <button disabled={busy} onClick={() => void load(selected?.id)}>{t('Taslağı bırak ve güncel kaydı yükle', 'Discard draft and reload current record')}</button>}</div>}
+    {error && <div role="alert"><p>{(error === 'missing-focus' ? t('Görevdeki çalışma kâğıdı bulunamadı. Kayıt kaldırılmış olabilir; İşlerim listesini yenileyin.', 'The linked workpaper was not found. It may have been removed; refresh My Work.') : messages[error]?.[tr ? 0 : 1]) || t('Kayıt yüklenemedi veya kaydedilemedi. Tekrar deneyin.', 'The record could not be loaded or saved. Try again.')}</p><button disabled={busy} onClick={() => void load(selected?.id || focusId, Boolean(draft))}>{t('Yeniden dene (taslağı koru)', 'Retry (keep draft)')}</button>{error === 'conflict' && <button disabled={busy} onClick={() => void load(selected?.id)}>{t('Taslağı bırak ve güncel kaydı yükle', 'Discard draft and reload current record')}</button>}</div>}
     {saved && <p role="status">{t('İşlem kaydedildi.', 'Action saved.')}</p>}
     {!state && !error && <p role="status">{t('Yükleniyor…', 'Loading…')}</p>}
     {state && <><div className="aw-summary"><span>{state.papers.length} {t('çalışma kâğıdı', 'workpapers')}</span><span>{state.papers.filter(p => p.status === 'submitted').length} {t('incelemede', 'in review')}</span><span>{state.papers.filter(p => p.status === 'approved').length} {t('onaylı', 'approved')}</span></div>

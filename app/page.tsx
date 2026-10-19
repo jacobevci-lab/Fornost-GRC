@@ -4039,9 +4039,16 @@ function AuditModule({
   const [auditCreateError,setAuditCreateError] = useState("");
   const [requestFocus, setRequestFocus] = useState<{ id: string; auditId: string } | null>(null);
   const [showUnassigned, setShowUnassigned] = useState(false);
+  const [workpaperFocus, setWorkpaperFocus] = useState<{ id: string; auditId: string } | null>(null);
   const [closureFocus, setClosureFocus] = useState<{ id: string; auditId: string } | null>(null);
   useEffect(() => {
     const accept = (request: FornostNavigationRequest | null) => {
+      if (request?.module === "Denetim Yönetimi" && request.kind !== "audit-workpaper") setWorkpaperFocus(null);
+      if (request?.module === "Denetim Yönetimi" && request.kind === "audit-workpaper" && request.ref && request.filter?.auditId) {
+        const target = audits.find(audit => audit.id === request.filter?.auditId);
+        if (target) { setRequestFocus(null); setClosureFocus(null); setWorkpaperFocus({id:request.ref,auditId:target.id}); select(target.name); consumePendingFornostFocus("Denetim Yönetimi"); }
+        return;
+      }
       if (request?.module === "Denetim Yönetimi" && request.kind !== "audit-closure") setClosureFocus(null);
       if (request?.module === "Denetim Yönetimi" && request.kind === "audit-closure" && request.ref && request.filter?.auditId) {
         const target = audits.find(audit => audit.id === request.filter?.auditId);
@@ -4376,12 +4383,13 @@ function AuditModule({
       {selectedPortfolio?.closure_state && selectedPortfolio.closure_state !== "open" && <p role="status">{auditClosureLabels[selectedPortfolio.closure_state][tr ? 0 : 1]}{auditLocked ? (tr ? " · Değişiklik için denetim gerekçeyle yeniden açılmalı." : " · Reopen the audit with a reason before making changes.") : ""}</p>}
       {!selectedPortfolio && <section className="fw-orphan-notice" role="status"><div><strong>{tr ? "Aktif denetim bağlantısı eksik" : "Active audit link missing"}</strong><p>{tr ? "Bu maddeler için aktif bir denetim kaydı bulunamadı. Kayıtları inceleyip düzenleyebilir veya bağlantısız maddeler görünümünden mevcut bir denetime bağlayabilirsiniz." : "These requirements have no active audit record. Review or edit them, or link them to an existing audit from the unassigned requirements view."}</p></div><button type="button" onClick={() => { setShowUnassigned(true); select(""); }}>{tr ? "Bağlantısız maddeleri aç" : "Open unassigned requirements"}</button></section>}
       <AuditResearchWorkspace key={selectedPortfolio?.id || `unlinked:${selected}`} auditId={selectedPortfolio?.id || ""} lang={lang}
+        focusWorkpaper={workpaperFocus?.auditId === selectedPortfolio?.id ? workpaperFocus?.id : ""}
         focusClosure={closureFocus?.auditId === selectedPortfolio?.id ? closureFocus?.id : ""}
         items={items} focusedRequirement={focusedRequirement} focusRequest={selectedPortfolio && requestFocus?.auditId === selectedPortfolio.id ? requestFocus.id : ''} go={go}
         catalog={selectedPortfolio ? <FrameworkCatalogNotice framework={selectedPortfolio.template || ""} snapshot={selectedPortfolio.catalog} lang={lang} /> : null}
         plan={selectedPortfolio ? <AuditPlanPanel auditId={selectedPortfolio.id} canWrite={canWrite && !auditLocked} lang={lang} embedded /> : null}
         requests={selectedPortfolio ? <AuditRequestPanel readOnly={auditLocked} key={`requests:${selected}:${requestFocus?.id || ""}`} auditId={selectedPortfolio.id} lang={lang} focusId={requestFocus?.auditId === selectedPortfolio.id ? requestFocus.id : ''} /> : null}
-        workpapers={selectedPortfolio ? <AuditWorkpaperPanel key={selectedPortfolio.id} auditId={selectedPortfolio.id} lang={lang} readOnly={auditLocked} /> : null}
+        workpapers={selectedPortfolio ? <AuditWorkpaperPanel focusId={workpaperFocus?.auditId === selectedPortfolio.id ? workpaperFocus.id : ""} key={`${selectedPortfolio.id}:${workpaperFocus?.auditId === selectedPortfolio.id ? workpaperFocus.id : ""}`} auditId={selectedPortfolio.id} lang={lang} readOnly={auditLocked} /> : null}
         readiness={selectedPortfolio ? <AuditReadinessGate key={selected} lang={lang} auditName={selected} records={[...items, ...evidenceRows]} /> : null}
         closure={canDeleteAudit && selectedPortfolio ? <AuditClosurePanel key={`closure:${selectedPortfolio.id}:${closureFocus?.auditId === selectedPortfolio.id ? closureFocus.id : ""}`} focusId={closureFocus?.auditId === selectedPortfolio.id ? closureFocus.id : ""} auditId={selectedPortfolio.id} lang={lang} onChanged={refreshAudits} /> : undefined}
         reports={canDeleteAudit && selectedPortfolio ? <AuditStatusReportPanel auditId={selectedPortfolio.id} lang={lang} embedded /> : undefined}

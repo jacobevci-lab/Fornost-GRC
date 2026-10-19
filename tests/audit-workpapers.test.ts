@@ -7,7 +7,7 @@ import { ensureAuditRequestSchema } from '../app/audit-request-store';
 import { ensureEvidenceHistorySchema } from '../app/evidence/versioning';
 import { ensureAuditClosureSchema } from '../app/audit-closure-schema';
 import { auditClosureBlockers } from '../app/audit-closure';
-import { readWorkpapers, mutateWorkpaper } from '../app/audit-workpaper-store';
+import { readWorkpapers, readWorkpaperWork, mutateWorkpaper } from '../app/audit-workpaper-store';
 import { readAuditReportSource, createAuditStatusReport, readAuditStatusReport } from '../app/audit-status-report-store';
 import { auditWorkpaperSchema, auditWorkpaperSourceTriggers, auditWorkpaperClosureGuards } from '../app/audit-workpaper-schema';
 import { emptyWorkpaper, validateWorkpaper, requireWorkpaperComplete, type WorkpaperFields } from '../app/audit-workpapers';
@@ -101,5 +101,35 @@ test('inactive assignees or removed evidence do not trap work in review; recover
   f.sqlite.exec("UPDATE local_users SET status='Inactive' WHERE id='r'; DELETE FROM evidence_versions WHERE id='EVV-one'");
   await f.act('withdraw');assert.equal((await f.row()).status,'draft');assert.equal((await f.row()).evidence[0].id,'EVV-one');
   await f.act('cancel',admin);assert.equal((await f.row()).status,'cancelled');
+ }finally{f.sqlite.close();}
+});
+
+
+test('inbox projects current lifecycle without evidence, excludes orphan parents, and enforces both module grants', async () => {
+ const f = await fixture(); try {
+  await f.act('save', owner, { fields });
+  const work = await readWorkpaperWork(f.db, owner);
+  assert.equal(work.complete, true); assert.equal(work.workpapers.length, 1);
+  assert.deepEqual(Object.keys(work.workpapers[0]).sort(), ['id','auditId','title','status','owner','reviewer','createdAt','updatedAt'].sort());
+  assert.equal(work.workpapers[0].status, 'draft');
+  await f.act('submit'); assert.equal((await readWorkpaperWork(f.db, reviewer)).workpapers[0].status, 'submitted');
+  await f.act('return', reviewer); assert.equal((await readWorkpaperWork(f.db, owner)).workpapers[0].status, 'draft');
+  await f.act('submit'); await f.act('approve', reviewer); assert.equal((await readWorkpaperWork(f.db, owner)).workpapers[0].status, 'approved');
+  await f.act('reopen'); await f.act('cancel'); assert.equal((await readWorkpaperWork(f.db, owner)).workpapers[0].status, 'cancelled');
+  for (const modules of [{}, {'Denetim Yönetimi':'read'}, {'Kanıtlar':'read'}] as const) {
+   assert.deepEqual(await readWorkpaperWork(f.db, {...owner, moduleAccess:{mode:'scoped',modules}}), {workpapers:[],complete:true});
+  }
+  assert.equal((await readWorkpaperWork(f.db, {...owner,moduleAccess:{mode:'scoped',modules:{'Denetim Yönetimi':'read','Kanıtlar':'read'}}})).workpapers.length,1);
+  f.sqlite.exec("DELETE FROM simple_audits WHERE id='audit-a'");
+  assert.equal((await readWorkpaperWork(f.db,owner)).workpapers.length,0);
+ } finally { f.sqlite.close(); }
+});
+
+test('inbox bounds do not claim complete when more than 1000 papers exist', async () => {
+ const f=await fixture();try{
+  // Simulate many engagements without bypassing the per-engagement write limit in normal operation.
+  const insert=f.sqlite.prepare('INSERT INTO audit_workpapers VALUES(?,?,?,?,?,?)');
+  for(let i=0;i<1001;i++) insert.run(`bulk-${i}`,'audit-a',`r-${i}`,JSON.stringify({...fields,status:'draft'}),'','');
+  const work=await readWorkpaperWork(f.db,owner);assert.equal(work.workpapers.length,1000);assert.equal(work.complete,false);
  }finally{f.sqlite.close();}
 });

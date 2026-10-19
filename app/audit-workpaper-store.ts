@@ -13,6 +13,18 @@ export async function readWorkpapers(db: D1Database, auditId: string) {
   const rows = await db.prepare('SELECT * FROM audit_workpapers WHERE audit_id=? ORDER BY updated_at DESC,id LIMIT 101').bind(auditId).all<Stored>();
   return { papers: rows.results.slice(0, 100).map(publicWorkpaper), complete: rows.results.length <= 100 };
 }
+/** Minimal inbox projection; sample details and evidence identifiers never leave this query. */
+export async function readWorkpaperWork(db: D1Database, actor: Actor) {
+  if (!canReadModule(actor, 'Denetim Yönetimi') || !canReadModule(actor, 'Kanıtlar')) return { workpapers: [], complete: true };
+  await ensureAuditClosureSchema(db);
+  const rows = await db.prepare(`SELECT p.id,p.audit_id AS auditId,
+    json_extract(p.data_json,'$.title') AS title,json_extract(p.data_json,'$.status') AS status,
+    json_extract(p.data_json,'$.owner') AS owner,json_extract(p.data_json,'$.reviewer') AS reviewer,
+    p.created_at AS createdAt,p.updated_at AS updatedAt
+    FROM audit_workpapers p JOIN simple_audits a ON a.id=p.audit_id
+    ORDER BY p.updated_at DESC,p.id LIMIT 1001`).all();
+  return { workpapers: rows.results.slice(0, 1000), complete: rows.results.length <= 1000 };
+}
 export async function mutateWorkpaper(db: D1Database, actor: Actor, input: Record<string, unknown>, now = new Date()) {
   if (!canWriteModule(actor, 'Denetim Yönetimi') || !canReadModule(actor, 'Kanıtlar')) throw new AuditRequestError('forbidden', 403);
   const auditId = auditRequestId(input.auditId), id = auditRequestId(input.id), action = String(input.action);

@@ -13,3 +13,9 @@ Status-report and closure snapshots include workpapers and their sample/evidence
 Limits: 100 workpapers per audit (including cancelled records), 100 samples per paper, 500 current evidence choices plus the selected paper's pinned versions, and the existing 8 MB report package limit. Limits are explicit. Exceptions do not automatically create findings or clear CAPA. Per-sample decisions are recorded as content of the whole workpaper review, not separate approvals. This increment does not add statistical selection, bulk import, reminders or My Work tasks for workpapers.
 
 Validation: `tests/audit-workpapers.test.ts` exercises real SQLite transactions, role/ownership boundaries, pinned evidence, stale writes, commit-time races, rollback, report snapshot integrity and closed-audit guards. `scripts/audit-workpapers-qa.mjs` exercises browser creation, double-click prevention, draft preservation, review lifecycle, history, accessibility and TR/EN light/dark desktop/mobile views in an isolated runtime.
+
+## My Work handoff
+
+Workpapers appear in My Work from their authoritative current state. Drafts belong to the owner; submitted work also appears for the assigned independent reviewer and waits for review in the owner's queue. Returned or withdrawn papers become owner preparation work again. Approved and cancelled papers are completed work; reopening restores the owner task. The task opens the exact audit, Workpapers tab and paper, including history. A removed target produces an explicit unavailable message.
+
+The inbox query returns only identifiers, title, state, assignments and timestamps, never sample content or evidence metadata. Both audit and evidence read grants are required. Orphaned audit records are excluded and reads above 1,000 papers explicitly mark the inbox incomplete. No duplicate task records, new deadlines, email reminders or automatic CAPA are created by this projection.
