@@ -1,4 +1,5 @@
 "use client";
+import { withBasePath } from './base-path';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { emptyWorkpaper, validateWorkpaper, workpaperStatusLabels, type AuditWorkpaper, type WorkpaperFields, type WorkpaperSample } from './audit-workpapers';
 import type { AuditRequestEvidence } from './audit-requests';
@@ -12,7 +13,7 @@ export function AuditWorkpaperPanel({ auditId, lang, readOnly }: { auditId: stri
   const load = useCallback(async (id = '', keepDraft = false) => {
     const ticket = ++generation.current;
     try {
-      const response = await fetch(`/api/audits/workpapers?auditId=${encodeURIComponent(auditId)}${id ? `&id=${encodeURIComponent(id)}` : ''}`, { cache: 'no-store' });
+      const response = await fetch(withBasePath(`/api/audits/workpapers?auditId=${encodeURIComponent(auditId)}${id ? `&id=${encodeURIComponent(id)}` : ''}`), { cache: 'no-store', signal: AbortSignal.timeout(20000) });
       const data = await response.json(); if (!response.ok) throw new Error(data.error || 'unavailable');
       if (ticket !== generation.current) return;
       setState(data); if (!keepDraft) { setSelected(data.papers.find((p: AuditWorkpaper) => p.id === id) || null); setDraft(null); setNote(''); } setError('');
@@ -25,7 +26,7 @@ export function AuditWorkpaperPanel({ auditId, lang, readOnly }: { auditId: stri
     try {
       const fields = action === 'save' ? validateWorkpaper(draft) : undefined;
       const id = selected?.id || draftId.current;
-      const response = await fetch('/api/audits/workpapers', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ auditId, id, action, expectedRevision: selected?.revision || '', fields, note }) });
+      const response = await fetch(withBasePath('/api/audits/workpapers'), { method: 'POST', signal: AbortSignal.timeout(20000), headers: { 'content-type': 'application/json' }, body: JSON.stringify({ auditId, id, action, expectedRevision: selected?.revision || '', fields, note }) });
       const data = await response.json(); if (!response.ok) throw new Error(data.error || 'unavailable');
       await load(id); setSaved(true);
     } catch (e) { setError(e instanceof Error ? e.message : 'unavailable'); } finally { lock.current = false; setBusy(false); }
@@ -70,7 +71,7 @@ export function AuditWorkpaperPanel({ auditId, lang, readOnly }: { auditId: stri
       <button type="button" disabled={draft.samples.length >= 100 || draft.samples.length >= draft.populationCount} onClick={() => setDraft({ ...draft, samples: [...draft.samples, { reference: '', result: 'pending', note: '', versionId: '' }] })}>{t('Örnek ekle', 'Add sample')}</button>
       <div className="aw-actions"><button type="submit">{t('Taslağı kaydet', 'Save draft')}</button><button type="button" onClick={() => setDraft(null)}>{t('Düzenlemeden vazgeç', 'Discard edits')}</button></div></fieldset></form>}
     {selected && !draft && <section className="aw-detail" aria-label={t('Seçili çalışma kâğıdı', 'Selected workpaper')}><h4>{selected.title}</h4><p>{selected.id} · {workpaperStatusLabels[selected.status][tr ? 0 : 1]}</p><dl className="aw-grid">{[[t('Test amacı', 'Test objective'), selected.objective], [t('Test adımları', 'Test steps'), selected.procedure], [t('Evren ve kaynak', 'Population and source'), `${selected.population} (${selected.populationCount})`], [t('Seçim ve gerekçe', 'Selection and rationale'), `${selected.method === 'census' ? t('Tam sayım', 'Census') : t('Yargısal örneklem', 'Judgmental sampling')} · ${selected.rationale}`], [t('Sorumlu', 'Owner'), selected.owner], [t('Bağımsız inceleyen', 'Independent reviewer'), selected.reviewer], [t('Sonuç görüşü', 'Conclusion'), selected.conclusion || '—']].map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl>
-      <ol className="aw-results">{selected.samples.map((s, i) => { const e = selected.evidence.find(e => e.id === s.versionId); return <li key={i}><b>{s.reference} · {resultLabel(s.result)}</b><p>{s.note || '—'}</p>{e && <details><summary>{e.title} · v{e.versionNo}</summary><p>{e.fileName} · {e.id}</p><p>SHA-256: {e.contentSha256}</p><a href={`/api/evidence?key=${encodeURIComponent(e.fileKey)}`} target="_blank" rel="noreferrer">{t('Kanıt dosyasını aç', 'Open evidence file')}</a></details>}</li>; })}</ol>
+      <ol className="aw-results">{selected.samples.map((s, i) => { const e = selected.evidence.find(e => e.id === s.versionId); return <li key={i}><b>{s.reference} · {resultLabel(s.result)}</b><p>{s.note || '—'}</p>{e && <details><summary>{e.title} · v{e.versionNo}</summary><p>{e.fileName} · {e.id}</p><p>SHA-256: {e.contentSha256}</p><a href={withBasePath(`/api/evidence?key=${encodeURIComponent(e.fileKey)}`)} target="_blank" rel="noreferrer">{t('Kanıt dosyasını aç', 'Open evidence file')}</a></details>}</li>; })}</ol>
       {editable && <><label>{t('İşlem gerekçesi', 'Action reason')}<textarea aria-label={t('İşlem gerekçesi', 'Action reason')} maxLength={2000} value={note} onChange={e => setNote(e.target.value)} disabled={busy}/></label><div className="aw-actions">
         {selected.status === 'draft' && manages && <button disabled={busy} onClick={() => setDraft(validateWorkpaper(selected))}>{t('Taslağı düzenle', 'Edit draft')}</button>}
         {selected.status === 'draft' && owns && <button disabled={busy} onClick={() => void mutate('submit')}>{t('İncelemeye gönder', 'Submit for review')}</button>}
