@@ -56,6 +56,14 @@ jobs:
         with:
           name: admin-settings-preview
           path: admin-settings-qa-artifacts/
+      - name: Shared record links, sign-in and email task URL QA
+        run: node scripts/record-links-qa.mjs
+      - name: Publish record link browser evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: record-links-preview
+          path: record-links-qa-artifacts/
       - name: Audit workpapers, sampling and independent review QA
         run: node scripts/audit-workpapers-qa.mjs
       - name: Publish workpaper browser evidence

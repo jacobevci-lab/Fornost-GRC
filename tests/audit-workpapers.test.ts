@@ -1,3 +1,4 @@
+import { resolveRecordLink } from '../app/record-link-store';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { DatabaseSync, type SQLInputValue } from 'node:sqlite';
@@ -131,5 +132,14 @@ test('inbox bounds do not claim complete when more than 1000 papers exist', asyn
   const insert=f.sqlite.prepare('INSERT INTO audit_workpapers VALUES(?,?,?,?,?,?)');
   for(let i=0;i<1001;i++) insert.run(`bulk-${i}`,'audit-a',`r-${i}`,JSON.stringify({...fields,status:'draft'}),'','');
   const work=await readWorkpaperWork(f.db,owner);assert.equal(work.workpapers.length,1000);assert.equal(work.complete,false);
+ }finally{f.sqlite.close();}
+});
+
+test('shared workpaper links require evidence access and exact audit parent',async()=>{
+ const f=await fixture();try{await f.act('save',owner,{fields});const target={module:'Denetim Yönetimi',kind:'audit-workpaper',ref:'AWP-a',auditId:'audit-a'};
+ assert.deepEqual(await resolveRecordLink(f.db,owner,target),target);
+ assert.equal(await resolveRecordLink(f.db,owner,{...target,auditId:'audit-b'}),null);
+ assert.equal(await resolveRecordLink(f.db,{...owner,moduleAccess:{mode:'scoped',modules:{'Denetim Yönetimi':'read'}}},target),null);
+ f.sqlite.exec("DELETE FROM simple_audits WHERE id='audit-a'");assert.equal(await resolveRecordLink(f.db,owner,target),null);
  }finally{f.sqlite.close();}
 });

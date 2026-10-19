@@ -1,4 +1,5 @@
 "use client";
+import { CopyRecordLink } from './record-link-controls';
 
 import {FormEvent,useCallback,useEffect,useMemo,useRef,useState} from "react";
 import { useEnterpriseWorkFocus, EnterpriseWorkFocusBanner } from "./enterprise-work-focus";
@@ -56,6 +57,7 @@ export default function ThirdPartyRisk({lang,currentUser}:{lang:Lang;currentUser
  return <section className="tprm-page">
   <div className="tprm-hero"><div><small>THIRD-PARTY RISK MANAGEMENT 2.0</small><h2>{tr?"Tedarikçi Risk Merkezi":"Third-Party Risk Center"}</h2><p>{tr?"Onboarding, due diligence, sözleşme kontrolleri, risk kararı, CAPA, yeniden değerlendirme ve çıkışı tek kanıt zincirinde yönetin.":"Govern onboarding, due diligence, contracts, risk decisions, CAPA, reassessment and exit in one evidence chain."}</p></div><div>{canWrite&&<button onClick={()=>window.dispatchEvent(new CustomEvent("fornost:open-ai",{detail:{module:tr?"Tedarikçi Yönetimi":"Vendor Management",mode:"agent",agentKind:"vendor",prompt:tr?"Kritik ve yüksek riskli tedarikçileri, yaklaşan sözleşme ve inceleme tarihlerini, açık CAPA kayıtlarını ve due diligence boşluklarını kaynaklarıyla analiz et.":"Analyze critical and high-risk vendors, upcoming contract and review dates, open CAPA records and due-diligence gaps with sources."}}))}>{tr?"AI Risk Analizi":"AI Risk Analysis"}</button>}{currentUser.role==="Admin"&&<a href={withBasePath("/api/third-party-risk?format=csv")}>TPRM CSV</a>}{canWrite&&<button onClick={()=>startVendor()}>+ {tr?"Tedarikçi":"Third Party"}</button>}</div></div>
   <EnterpriseWorkFocusBanner focus={workFocus.focus} found={focusedWorkExists} ready={workSourceReady} clear={workFocus.clear} tr={tr}/>
+  {vendors.some(v=>v.vendorId===(selected?.vendorId||focusedVendorId))&&<CopyRecordLink key={selected?.vendorId||focusedVendorId} lang={lang} target={{module:"Tedarikçiler",kind:"record",ref:selected?.vendorId||focusedVendorId}}/>}
   {notice&&<div className="tprm-notice" onClick={()=>setNotice("")}>{notice}<b>×</b></div>}
   {loadState!=="ready"&&<div className="tprm-load-state" role={loadState==="error"?"alert":"status"}><div><b>{loadState==="error"?(tr?"Tedarikçi verileri doğrulanamadı":"Vendor data could not be verified"):(tr?"Tedarikçi verileri yükleniyor…":"Loading vendor data…")}</b><p>{loadState==="error"?(tr?"Risk sayıları ve iş kuyrukları güncel veriler alınana kadar gösterilmiyor.":"Risk counts and work queues are hidden until current data is available."):(tr?"Risk kuyruğu ve kapsam bilgisi hazırlanıyor.":"Preparing risk queue and coverage information.")}</p></div>{loadState==="error"&&<button type="button" onClick={()=>void load()}>{tr?"Tekrar dene":"Retry"}</button>}</div>}
   {loadState==="ready"&&<>
