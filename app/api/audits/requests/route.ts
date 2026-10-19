@@ -5,6 +5,7 @@ import { requireRole } from '../../auth/security';
 import { canReadModule, canWriteModule } from '../../../module-access';
 import { AuditRequestError } from '../../../audit-requests';
 import { auditRequestId, auditRequestPeople, mutateAuditRequest, readAuditRequestWork, readAuditRequestWorkflow, readRequestEvidence } from '../../../audit-request-store';
+import { readAuditReminderProfile, saveAuditReminderProfile } from '../../../audit-reminder-store';
 import { syncAuditRequestNotifications } from '../../../audit-request-notifications';
 
 const json = (body: unknown, status = 200) => NextResponse.json(body, { status, headers: { 'cache-control': 'private, no-store' } });
@@ -26,7 +27,7 @@ export async function GET(req: NextRequest) {
     const users = await auditRequestPeople(env.DB);
     const evidence = evidenceAccess ? await readRequestEvidence(env.DB) : [];
     const events = await env.DB.prepare('SELECT id,request_id,action,actor,created_at,snapshot_json FROM audit_request_events WHERE audit_id=? ORDER BY created_at DESC,id DESC LIMIT 201').bind(auditId).all<{ id: string; request_id: string; action: string; actor: string; created_at: string; snapshot_json: string }>();
-    return json({ ...state, requests: state.requests.map(row => evidenceAccess ? row : { ...row, evidence: [] }),
+    return json({ ...state, reminderProfile: await readAuditReminderProfile(env.DB, auditId), requests: state.requests.map(row => evidenceAccess ? row : { ...row, evidence: [] }),
       actorEmail: auth.actor.email.toLowerCase(), canManage: canWriteModule(auth.actor, 'Denetim Yönetimi'), evidenceAccess,
       ...users, peopleComplete: users.complete, complete: state.complete, evidenceChoices: evidence.slice(0, 500), evidenceChoicesComplete: evidence.length <= 500,
       planRevision: planData.revision, periodStart: planData.plan.periodStart || '', periodEnd: planData.plan.periodEnd || '',
@@ -41,7 +42,8 @@ export async function POST(req: NextRequest) {
     let body; try { body = JSON.parse(raw); } catch { throw new AuditRequestError('fields'); }
     if (!body || typeof body !== 'object' || Array.isArray(body)) throw new AuditRequestError('fields');
     const { env } = await import('cloudflare:workers');
-    await mutateAuditRequest(env.DB, auth.actor, body);
+    if (body.action === 'reminder-profile') await saveAuditReminderProfile(env.DB, auth.actor, body);
+    else await mutateAuditRequest(env.DB, auth.actor, body);
     let remindersPending = false;
     try { await syncAuditRequestNotifications(env.DB, new Date(), body.auditId); } catch { remindersPending = true; }
     return json({ ok: true, remindersPending });

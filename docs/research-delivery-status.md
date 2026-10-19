@@ -5,7 +5,7 @@ This reconciles the ten delivery packages in the 14 October GRC product study wi
 | Research package | Implemented scope | Remaining scope |
 | --- | --- | --- |
 | P0: audit task chain | Silent request drafts; exact launch/addition preview; owner and independent reviewer; submission, return, resubmission and acceptance; exact My Work links. | Milestone text does not automatically create scheduled tasks. |
-| P0: reminder profiles | Existing outbox/transport reuse; assignment and due milestones; separate owner/reviewer dates; IANA time zone and stale-recipient checks. | Business-day/holiday calendars, delegation, configurable escalation/digest profiles, absolute task links in email and customer SMTP/Graph validation. |
+| P0: reminder profiles | Existing outbox/transport reuse; assignment and due milestones; separate owner/reviewer dates; IANA time zone and stale-recipient checks; per-audit business-day calendars, manually defined holidays, configurable reminder thresholds and a single authorized escalation recipient. | Shared/reusable calendars, holiday feeds, delegation, multi-level escalation/digest profiles, absolute task links in email and customer SMTP/Graph validation. |
 | P0: evidence period and review | Version-pinned requests, acceptance criteria and dates; safe text/CSV/JSON preview; supported DOCX/XLSX uploads; independent version review. | Period/content adequacy remains human review. Full Office visual preview and automatic re-evaluation after general library changes are separate work. |
 | P0: audit closure | Request-work-plan closure; whole-audit independent approval, return/withdrawal, SQL write locks, reasoned reopening, immutable plan/requirement/request/direct-CAPA package and verified JSON; pending My Work links. | Final opinion templates, independent sign-off of arbitrary status reports, attachment retention/bundles and broader finding-store scope. |
 | P1: external auditor workspace | Existing authenticated internal access and module grants. | External, time-bound engagement/period/version grants with matching file and export enforcement. |
@@ -32,4 +32,6 @@ The email simplification keeps transport configuration and testing, delivery dea
 - `docs/integrations/ai-model-decisions.md`
 - `docs/record-search.md`
 
-Next functional priority: business-day/holiday and configurable escalation profiles. External auditor access and structured workpapers remain distinct later packages. The email-settings simplification did not itself deliver these capabilities.
+Per-audit calendars and single-recipient escalation are implemented; reusable calendars, delegation and multi-level/digest profiles remain separate work. External auditor access and structured workpapers remain distinct later packages. The email-settings simplification did not itself deliver these capabilities.
+
+- `docs/audit-reminder-profiles.md`

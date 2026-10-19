@@ -79,3 +79,7 @@ export const auditClosureState = sqliteTable("audit_closure_state", {
 export const auditClosureEvents = sqliteTable("audit_closure_events", {
   id:text("id").primaryKey(),auditId:text("audit_id").notNull(),payloadJson:text("payload_json").notNull(),snapshotSha256:text("snapshot_sha256").notNull(),inputSha256:text("input_sha256").notNull(),writeToken:text("write_token").notNull(),createdAt:text("created_at").notNull(),
 },table=>[index("audit_closure_events_parent_idx").on(table.auditId,table.createdAt,table.id)]);
+
+export const auditReminderProfiles = sqliteTable("audit_reminder_profiles", {
+  auditId: text("audit_id").primaryKey(), revision: text("revision").notNull(), dataJson: text("data_json").notNull(), updatedBy: text("updated_by").notNull(), updatedAt: text("updated_at").notNull(),
+});

@@ -7,6 +7,7 @@ import { ensureAssuranceNotificationSchema } from './assurance-executive-operati
 import { AuditRequestError, requestDueAt, requestNextDue, requestIdentity, validateAuditRequestFields, validateRequestTimeZone, validateRequestPreview, type AuditRequest, type AuditRequestEvidence, type AuditRequestWorkflow } from './audit-requests';
 
 export const auditRequestSchema = [
+  `CREATE TABLE IF NOT EXISTS audit_reminder_profiles(audit_id TEXT PRIMARY KEY,revision TEXT NOT NULL,data_json TEXT NOT NULL,updated_by TEXT NOT NULL,updated_at TEXT NOT NULL)`,
   `CREATE TABLE IF NOT EXISTS audit_request_workflows(audit_id TEXT PRIMARY KEY,state TEXT NOT NULL,revision TEXT NOT NULL,time_zone TEXT NOT NULL,plan_revision TEXT NOT NULL DEFAULT '')`,
   `CREATE TABLE IF NOT EXISTS audit_requests(id TEXT PRIMARY KEY,audit_id TEXT NOT NULL,data_json TEXT NOT NULL,revision TEXT NOT NULL,created_at TEXT NOT NULL,updated_at TEXT NOT NULL)`,
   `CREATE INDEX IF NOT EXISTS audit_requests_parent_idx ON audit_requests(audit_id,created_at,id)`,
