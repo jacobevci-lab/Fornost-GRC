@@ -94,3 +94,12 @@ test('workpapers enter saved reports, invalidate source tokens, block closure an
 test('migration matches incremental runtime schema and guards',()=>{
  assert.equal(readFileSync('drizzle/0093_audit_workpapers.sql','utf8'),[...auditWorkpaperSchema,...auditWorkpaperSourceTriggers,...auditWorkpaperClosureGuards].join(';\n\n')+';\n');
 });
+
+test('inactive assignees or removed evidence do not trap work in review; recovery retains the original snapshot',async()=>{
+ const f=await fixture();try{
+  await f.act('save',owner,{fields});await f.act('submit');
+  f.sqlite.exec("UPDATE local_users SET status='Inactive' WHERE id='r'; DELETE FROM evidence_versions WHERE id='EVV-one'");
+  await f.act('withdraw');assert.equal((await f.row()).status,'draft');assert.equal((await f.row()).evidence[0].id,'EVV-one');
+  await f.act('cancel',admin);assert.equal((await f.row()).status,'cancelled');
+ }finally{f.sqlite.close();}
+});

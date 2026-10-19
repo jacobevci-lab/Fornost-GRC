@@ -7,6 +7,7 @@ type State = { papers: AuditWorkpaper[]; complete: boolean; canManage: boolean; 
 export function AuditWorkpaperPanel({ auditId, lang, readOnly }: { auditId: string; lang: 'tr' | 'en'; readOnly: boolean }) {
   const tr = lang === 'tr', t = (a: string, b: string) => tr ? a : b;
   const [state, setState] = useState<State | null>(null), [selected, setSelected] = useState<AuditWorkpaper | null>(null), [draft, setDraft] = useState<WorkpaperFields | null>(null), [note, setNote] = useState(''), [error, setError] = useState(''), [busy, setBusy] = useState(false), [query, setQuery] = useState(''), [filter, setFilter] = useState('all'), [saved, setSaved] = useState(false);
+  const draftId = useRef('');
   const lock = useRef(false), generation = useRef(0);
   const load = useCallback(async (id = '', keepDraft = false) => {
     const ticket = ++generation.current;
@@ -23,7 +24,7 @@ export function AuditWorkpaperPanel({ auditId, lang, readOnly }: { auditId: stri
     if (lock.current || !state) return; lock.current = true; setBusy(true); setError(''); setSaved(false);
     try {
       const fields = action === 'save' ? validateWorkpaper(draft) : undefined;
-      const id = selected?.id || `AWP-${crypto.randomUUID()}`;
+      const id = selected?.id || draftId.current;
       const response = await fetch('/api/audits/workpapers', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ auditId, id, action, expectedRevision: selected?.revision || '', fields, note }) });
       const data = await response.json(); if (!response.ok) throw new Error(data.error || 'unavailable');
       await load(id); setSaved(true);
@@ -47,10 +48,10 @@ export function AuditWorkpaperPanel({ auditId, lang, readOnly }: { auditId: stri
   const resultLabel = (s: string) => s === 'pass' ? t('Uygun', 'Pass') : s === 'exception' ? t('İstisna', 'Exception') : t('Bekliyor', 'Pending');
   const papers = state?.papers.filter(p => (filter === 'all' || p.status === filter) && `${p.title} ${p.owner} ${p.id}`.toLocaleLowerCase().includes(query.toLocaleLowerCase())) || [];
   const evidence = [...(state?.evidenceChoices || [])]; for (const e of selected?.evidence || []) if (!evidence.some(v => v.id === e.id)) evidence.push(e);
-  const actionLabels: Record<string, string> = { save: t('Taslak kaydedildi', 'Draft saved'), submit: t('İncelemeye gönderildi', 'Submitted'), approve: t('Onaylandı', 'Approved'), return: t('Düzeltme istendi', 'Returned'), reopen: t('Yeniden açıldı', 'Reopened'), cancel: t('İptal edildi', 'Cancelled') };
+  const actionLabels: Record<string, string> = { save: t('Taslak kaydedildi', 'Draft saved'), submit: t('İncelemeye gönderildi', 'Submitted'), approve: t('Onaylandı', 'Approved'), return: t('Düzeltme istendi', 'Returned'), reopen: t('Yeniden açıldı', 'Reopened'), withdraw: t('İncelemeden geri çekildi', 'Withdrawn'), cancel: t('İptal edildi', 'Cancelled') };
   const patchSample = (index: number, patch: Partial<WorkpaperSample>) => setDraft(d => d && ({ ...d, samples: d.samples.map((s, i) => i === index ? { ...s, ...patch } : s) }));
   return <section className="aw-panel" aria-label={t('Çalışma kâğıtları ve örneklem', 'Workpapers and sampling')}>
-    <header><div><h3>{t('Çalışma kâğıtları ve örneklem', 'Workpapers and sampling')}</h3><p>{t('Evreni tanımlayın, seçiminizi gerekçelendirin ve her test sonucunu kanıt sürümüyle bağımsız incelemeye sunun.', 'Define the population, explain your selection and submit each test result with its evidence version for independent review.')}</p></div><div className="aw-actions"><button disabled={busy || Boolean(draft)} onClick={() => { setSaved(false); void load(selected?.id); }}>{t('Yenile', 'Refresh')}</button>{editable && <button disabled={busy || Boolean(draft) || (state?.papers.length || 0) >= 100} onClick={() => { setSelected(null); setDraft({ ...emptyWorkpaper, owner: state?.actorEmail || '', samples: [] }); setSaved(false); setError(''); }}>{t('Yeni çalışma kâğıdı', 'New workpaper')}</button>}</div></header>
+    <header><div><h3>{t('Çalışma kâğıtları ve örneklem', 'Workpapers and sampling')}</h3><p>{t('Evreni tanımlayın, seçiminizi gerekçelendirin ve her test sonucunu kanıt sürümüyle bağımsız incelemeye sunun.', 'Define the population, explain your selection and submit each test result with its evidence version for independent review.')}</p></div><div className="aw-actions"><button disabled={busy || Boolean(draft)} onClick={() => { setSaved(false); void load(selected?.id); }}>{t('Yenile', 'Refresh')}</button>{editable && <button disabled={busy || Boolean(draft) || (state?.papers.length || 0) >= 100} onClick={() => { draftId.current = `AWP-${crypto.randomUUID()}`; setSelected(null); setDraft({ ...emptyWorkpaper, owner: state?.actorEmail || '', samples: [] }); setSaved(false); setError(''); }}>{t('Yeni çalışma kâğıdı', 'New workpaper')}</button>}</div></header>
     {error && <div role="alert"><p>{messages[error]?.[tr ? 0 : 1] || t('Kayıt yüklenemedi veya kaydedilemedi. Tekrar deneyin.', 'The record could not be loaded or saved. Try again.')}</p><button disabled={busy} onClick={() => void load(selected?.id, Boolean(draft))}>{t('Yeniden dene (taslağı koru)', 'Retry (keep draft)')}</button>{error === 'conflict' && <button disabled={busy} onClick={() => void load(selected?.id)}>{t('Taslağı bırak ve güncel kaydı yükle', 'Discard draft and reload current record')}</button>}</div>}
     {saved && <p role="status">{t('İşlem kaydedildi.', 'Action saved.')}</p>}
     {!state && !error && <p role="status">{t('Yükleniyor…', 'Loading…')}</p>}
@@ -74,6 +75,7 @@ export function AuditWorkpaperPanel({ auditId, lang, readOnly }: { auditId: stri
         {selected.status === 'draft' && manages && <button disabled={busy} onClick={() => setDraft(validateWorkpaper(selected))}>{t('Taslağı düzenle', 'Edit draft')}</button>}
         {selected.status === 'draft' && owns && <button disabled={busy} onClick={() => void mutate('submit')}>{t('İncelemeye gönder', 'Submit for review')}</button>}
         {selected.status === 'submitted' && state?.actorEmail === selected.reviewer && <><button disabled={busy} onClick={() => void mutate('approve')}>{t('Onayla', 'Approve')}</button><button disabled={busy} onClick={() => void mutate('return')}>{t('Düzeltme iste', 'Request changes')}</button></>}
+        {selected.status === 'submitted' && manages && <button disabled={busy} onClick={() => void mutate('withdraw')}>{t('İncelemeden geri çek', 'Withdraw from review')}</button>}
         {selected.status === 'approved' && manages && <button disabled={busy} onClick={() => void mutate('reopen')}>{t('Gerekçeyle yeniden aç', 'Reopen with reason')}</button>}
         {selected.status === 'draft' && manages && <button disabled={busy} onClick={() => void mutate('cancel')}>{t('Gerekçeyle iptal et', 'Cancel with reason')}</button>}
       </div></>}

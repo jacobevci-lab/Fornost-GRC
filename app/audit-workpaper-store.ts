@@ -16,7 +16,7 @@ export async function readWorkpapers(db: D1Database, auditId: string) {
 export async function mutateWorkpaper(db: D1Database, actor: Actor, input: Record<string, unknown>, now = new Date()) {
   if (!canWriteModule(actor, 'Denetim Yönetimi') || !canReadModule(actor, 'Kanıtlar')) throw new AuditRequestError('forbidden', 403);
   const auditId = auditRequestId(input.auditId), id = auditRequestId(input.id), action = String(input.action);
-  if (!['save', 'submit', 'approve', 'return', 'reopen', 'cancel'].includes(action) || typeof input.expectedRevision !== 'string' || input.expectedRevision.length > 100) throw new AuditRequestError('fields');
+  if (!['save', 'submit', 'approve', 'return', 'reopen', 'cancel', 'withdraw'].includes(action) || typeof input.expectedRevision !== 'string' || input.expectedRevision.length > 100) throw new AuditRequestError('fields');
   await ensureAuditClosureSchema(db); await requireAuditParent(db, auditId);
   const raw = await db.prepare('SELECT * FROM audit_workpapers WHERE id=? AND audit_id=?').bind(id, auditId).first<Stored>();
   const current = raw ? publicWorkpaper(raw) : null;
@@ -35,24 +35,26 @@ export async function mutateWorkpaper(db: D1Database, actor: Actor, input: Recor
     fields = validateWorkpaper(current); status = current.status;
     if (action === 'submit') { if (status !== 'draft') throw new AuditRequestError('transition', 409); if (email !== current.owner) throw new AuditRequestError('owner', 403); requireWorkpaperComplete(fields); status = 'submitted'; }
     if (action === 'approve' || action === 'return') { if (status !== 'submitted') throw new AuditRequestError('transition', 409); if (email !== current.reviewer || email === current.owner) throw new AuditRequestError('independent-review', 403); status = action === 'approve' ? 'approved' : 'draft'; }
+    if (action === 'withdraw') { if (status !== 'submitted') throw new AuditRequestError('transition', 409); if (email !== current.owner && actor.role !== 'Admin') throw new AuditRequestError('owner', 403); status = 'draft'; }
     if (action === 'reopen') { if (status !== 'approved') throw new AuditRequestError('transition', 409); if (email !== current.owner && actor.role !== 'Admin') throw new AuditRequestError('owner', 403); status = 'draft'; }
     if (action === 'cancel') { if (status !== 'draft') throw new AuditRequestError('transition', 409); if (email !== current.owner && actor.role !== 'Admin') throw new AuditRequestError('owner', 403); status = 'cancelled'; }
   }
   // Reviewers must never approve content they themselves saved on behalf of its owner.
   if (action === 'save' && email === fields.reviewer) throw new AuditRequestError('independent-review', 403);
-  const emails = [...new Set([email, fields.owner, fields.reviewer])];
+  const recovery = ['return', 'withdraw', 'reopen', 'cancel'].includes(action);
+  const emails = [...new Set(recovery ? [email] : [email, fields.owner, fields.reviewer])];
   const people = await db.prepare(`SELECT u.id,lower(u.email) AS email,u.role,a.policy_json AS policy FROM local_users u LEFT JOIN user_module_access a ON a.user_id=u.id WHERE u.status='Active' AND lower(u.email) IN (SELECT value FROM json_each(?))`).bind(JSON.stringify(emails)).all<{ id: string; email: string; role: string; policy: string | null }>();
   if (people.results.length !== emails.length || !people.results.some(p => p.id === actor.id && p.email === email && p.role === actor.role) || people.results.some(p => !canWriteModule({ role: p.role, moduleAccess: parseModuleAccess(p.policy) }, 'Denetim Yönetimi') || !canReadModule({ role: p.role, moduleAccess: parseModuleAccess(p.policy) }, 'Kanıtlar'))) throw new AuditRequestError('assignee', 403);
   if (action === 'approve' && await db.prepare("SELECT id FROM audit_workpaper_events WHERE audit_id=? AND workpaper_id=? AND actor=? AND action='save' LIMIT 1").bind(auditId, id, email).first()) throw new AuditRequestError('independent-review', 403);
   await ensureEvidenceHistorySchema(db);
   const ids = [...new Set(fields.samples.map(s => s.versionId).filter(Boolean))];
   // Limit is 100 samples; split explicit lookups below the D1 100-binding ceiling.
-  const evidence = []; for (let offset = 0; offset < ids.length; offset += 50) evidence.push(...await readRequestEvidence(db, ids.slice(offset, offset + 50)));
+  const evidence = recovery && current ? current.evidence : []; for (let offset = 0; !recovery && offset < ids.length; offset += 50) evidence.push(...await readRequestEvidence(db, ids.slice(offset, offset + 50)));
   if (evidence.length !== ids.length) throw new AuditRequestError('evidence');
   if (current && ['submit', 'approve'].includes(action) && reportCanonical([...current.evidence].sort((a,b) => a.id.localeCompare(b.id))) !== reportCanonical([...evidence].sort((a,b) => a.id.localeCompare(b.id)))) throw new AuditRequestError('evidence');
   const revision = crypto.randomUUID(), stamp = now.toISOString();
   const next: AuditWorkpaper = { ...fields, id, auditId, status, revision, note, evidence, createdAt: current?.createdAt || stamp, updatedAt: stamp };
-  const evidenceGuard = evidence.map(e => ({ id: e.id, evidenceId: e.evidenceId, versionNo: e.versionNo, title: e.title, fileName: e.fileName, fileKey: e.fileKey, hash: e.contentSha256, period: e.period }));
+  const evidenceGuard = (recovery ? [] : evidence).map(e => ({ id: e.id, evidenceId: e.evidenceId, versionNo: e.versionNo, title: e.title, fileName: e.fileName, fileKey: e.fileKey, hash: e.contentSha256, period: e.period }));
   const result = await db.batch([
     db.prepare(`INSERT INTO audit_workpapers(id,audit_id,revision,data_json,created_at,updated_at) SELECT ?,?,?,?,?,? WHERE EXISTS(SELECT 1 FROM simple_audits WHERE id=?)
       AND COALESCE((SELECT revision FROM audit_workpapers WHERE id=? AND audit_id=?),'')=?
