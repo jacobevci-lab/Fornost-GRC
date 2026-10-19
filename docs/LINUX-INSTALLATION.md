@@ -2,6 +2,8 @@
 
 Bu rehber Fornost GRC'yi kurum içi bir Linux sunucuda, kalıcı veri alanı ve TLS etkin Nginx ters proxy ile çalıştırır. Varsayılan adres `https://SUNUCU_IP:8443/fornost-grc/` şeklindedir.
 
+Kurulum sonrası hesap, modül izni, e-posta, AI ve günlük işletim için [Yönetici Rehberi](ADMIN-GUIDE.md); son kullanıcı işlemleri için [Kullanıcı Rehberi](USER-GUIDE.md) ile devam edin.
+
 ## Desteklenen işletim sistemleri
 
 | İşletim sistemi | Sürümler | Önerilen runtime | Durum |

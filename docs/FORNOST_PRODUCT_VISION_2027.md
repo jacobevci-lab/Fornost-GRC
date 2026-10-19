@@ -1,5 +1,7 @@
 # Fornost GRC 2027 Product Vision
 
+This is a direction and design document, not a statement that every capability is shipped. For current behavior use the [Product overview](PRODUCT-OVERVIEW.md), [User guide](USER-GUIDE.md), [Admin guide](ADMIN-GUIDE.md) and [research delivery status](research-delivery-status.md).
+
 ## Product promise
 
 ### Delivery model — confirmed 2026-10-01

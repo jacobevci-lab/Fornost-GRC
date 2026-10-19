@@ -1,44 +1,56 @@
 # Production Readiness
 
-## Teknik kapı
+[Yönetici rehberi](ADMIN-GUIDE.md) · [Test stratejisi](TEST-STRATEGY.md)
 
-- [x] Lint ve production build başarılı
-- [x] Bağımsız TypeScript doğrulaması başarılı
-- [x] Otomatik güvenlik/validasyon testleri başarılı
-- [x] 2026-10-06 bağımlılık taraması: `npm audit --omit=dev --json` production bağımlılıklarında 0 bulgu. Her sürümde yeniden taranmalı; bu sonuç kaynak kodu veya canlı ortam için zafiyetsizlik garantisi değildir.
-- [x] D1/R2 artifact ve binding doğrulaması başarılı
-- [x] RBAC, same-origin, payload ve dosya kontrolleri mevcut
-- [x] Güvenlik başlıkları mevcut
-- [x] Eski/deneysel API'ler 410 ile kapalı
+Bu belge teknik sürüm doğrulamasını müşteri kurulum kabulünden ayırır. Eski bir başarılı test, sonraki bütün commit'ler veya farklı bir kurulum için otomatik onay değildir.
 
-## Canlıya geçiş önkoşulları
+## Son doğrulanmış uygulama referansı
 
-- [ ] Entra/Okta/OIDC/SAML profili gerçek tenant ile doğrulanmalı ve grup→rol eşlemesi IAM bridge/gateway üzerinde tamamlanmalı
-- [ ] SMTP bridge veya Graph Mail ile “Test E-postası Gönder” gerçek servis hesabıyla doğrulanmalı; 15 günlük hatırlatma job'ı zamanlayıcıya bağlanmalı
-- [ ] Jira/ServiceNow/Azure DevOps/GitHub ticket profili gerçek proje ve en az ayrıcalıklı servis hesabıyla test edilmeli
-- [ ] D1 backup/restore prosedürü uygulanarak geri dönüş testi yapılmalı
-- [ ] Hosting logları SIEM'e bağlanmalı; alarm ve saklama süreleri tanımlanmalı
-- [ ] Rate limiting/WAF kuralı canlı alan adında doğrulanmalı
-- [ ] Authenticated DAST (OWASP ZAP veya Nessus WAS) temizlenmeli
-- [ ] UAT, veri sahibi ve Bilgi Güvenliği onayı alınmalı
-- [ ] KVKK/GDPR saklama, silme ve erişim talepleri için kurum politikası tanımlanmalı
+19 Ekim 2026, `c87540a75e36148c88e7ec44babac5b5943437d6` / [PR #320](https://github.com/jacobevci-lab/Fornost-GRC/pull/320):
 
-## Karar kuralı
+| Kanıt | Sonuç / kapsam |
+| --- | --- |
+| [PR browser QA](https://github.com/jacobevci-lab/Fornost-GRC/actions/runs/39313725035) | 324 görünüm, TR/EN, mevcut iki tema, masaüstü/tablet/mobil; sıfır bulgu |
+| [Main CI](https://github.com/jacobevci-lab/Fornost-GRC/actions/runs/39317262854) | Kalite/build/regresyon, dependency gate ve container/OS kontrolleri başarılı |
+| [Canlı smoke](https://github.com/jacobevci-lab/Fornost-GRC/actions/runs/39317262828) | Beklenen revision, giriş, sentetik CRUD ve temizlik başarılı |
+| [Canlı ürün QA](https://github.com/jacobevci-lab/Fornost-GRC/actions/runs/39317262824) | TR 27/27, EN 27/27; 6/6 responsive kontrol; sıfır erişilebilirlik, sayfa, konsol ve HTTP hatası; revision önce/sonra doğrulandı |
+| [On-prem paket](https://github.com/jacobevci-lab/Fornost-GRC/actions/runs/39317776473) | Aynı pakette Docker/Podman kurulum, veri kalıcılığı ve ayrı volume'a gerçek geri dönüş testi başarılı |
 
-Teknik kapının geçmesi uygulamayı kontrollü pilot için uygun hale getirir. Yukarıdaki canlıya geçiş önkoşulları kanıtlanmadan uygulama kurumsal production için **PROD READY** olarak işaretlenmez.
+Bunlar otomasyonun tanımlı kapsamındaki sonuçlardır; bütün işlevlerin hatasızlığı, müşteri ölçeği performansı, dış servis kabulü veya zafiyetsizlik garantisi değildir. Artifact saklama süresi nedeniyle eski run ekleri zamanla erişilemeyebilir.
 
-## Rollback
+## Her sürümün teknik kapıları
 
-1. Son sağlıklı immutable Site sürümüne geri dön.
-2. D1 değişikliği varsa onaylı backup'tan restore et.
-3. R2 kanıt deposunu silme; yalnız uygulama sürümünü geri al.
-4. Olay kaydı aç, etkilenen işlemleri ve zaman aralığını belirle.
-5. Düzeltme sonrası smoke, RBAC ve veri bütünlüğü testlerini yeniden çalıştır.
+- Lint, TypeScript, production build ve regression test sonuçlarını **aynı commit** üzerinde kontrol edin.
+- Migration doğrulaması, canonical şema ve mevcut kurulum başlatma yollarını koruyun.
+- Production dependency taramasını ve on-prem image yayınındaki high/critical zafiyet kapısını değerlendirin; tam geliştirme bağımlılık taramasını production-only sonuçla karıştırmayın.
+- Değişen kullanıcı akışları için yetki, hata, eşzamanlılık, TR/EN ve responsive kontrolleri uygulayın.
+- Dağıtımın revision'ını smoke/full QA öncesinde ve sonrasında doğrulayın.
+- Yalnız repo kodu veya belge değişti diye müşteri sunucusunun güncellendiğini varsaymayın.
 
-## Geliştirme bağımlılıklarında açık takip
+## Müşteri ortamı kabul listesi
 
-2026-10-06 tarihli tam `npm audit --json` taramasında `braces <=3.0.3` kaynaklı GHSA-vfj7-8cjw-p6xm, geliştirme araçları üzerinden 8 yüksek seviyeli bağımlılık bulgusu üretmektedir. Production-only taramada yer almaz; build/lint ortamı için açık takip maddesidir. Resmi advisory henüz yamalı sürüm belirtmiyor. Framework/lint araçlarını eski majör sürümlere düşüren `npm audit fix --force` uygulanmamalı. Bu kayıt kapatılmadan tam bağımlılık taraması temiz kabul edilmez.
+| Alan | Kurulumda kanıtlanması gereken |
+| --- | --- |
+| Kimlik | Gerçek IdP/bridge, grup→rol eşlemesi, yerel hesap politikası ve yetki reddi; profili kaydetmek SSO kabulü değildir |
+| E-posta | Gerçek servis hesabı/test alıcısı, uygulama adresi, görev bağlantısı ve çalışan scheduler; delivery/retry/frekans politikası |
+| Ticket | En az ayrıcalıklı hesapla doğru proje/hedefte gerçek işlem |
+| Kanıt kaynakları | İzinli dataset, credential kapsamı, test kuralı, tazelik ve başarısız/kısmi veri davranışı |
+| AI | Sağlayıcı, veri çıkış politikası, model erişimi ve insan onaylı karar akışı; kullanılıyorsa gerçek ortam kabulü |
+| Yedek/kurtarma | Şifreli off-host saklama, eşleşen anahtar/sürüm ve kurum verisiyle ayrı ortam/volume üzerinde geri dönüş |
+| Ağ/işletim | DNS, güvenilir TLS, erişim sınırları, kapasite, izleme, alarm ve log saklama/aktarım politikası |
+| Veri yönetişimi | Sahiplik, saklama/silme, KVKK/GDPR süreçleri ve dışa aktarılan dosyaların korunması |
+| Kullanıcı kabulü | Temsilî risk→kontrol→kanıt→denetim→CAPA akışı; iş sahibi ve güvenlik ekibi onayı |
 
-## Belge dönüştürme bağımlılığı
+Yetkili DAST ve kapasite/ölçek testleri kurulumun risk ve yük profiline göre ayrıca yürütülür. CI sonuçları müşteri SMTP/Graph, SSO veya restore UAT sonucunu temsil etmez.
 
-Mammoth 1.12.3 için kapsamlı `argparse: 2.0.1` override uygulanır. Bu sürüm eski CLI API uyumluluğunu korurken `sprintf-js` bağımlılığını kaldırır (GHSA-hp3w-g68c-fv3c). Argparse 3 eski API uyumluluğunu kaldırdığı için kullanılmaz. `tests/mammoth-security.test.mjs` DOCX metin/HTML dönüşümünü, stil haritasını, çıktı dosyası/dizinini ve geçersiz argüman reddini doğrular. Mammoth yükseltilirken override ihtiyacı tekrar değerlendirilmeli.
+## Geri dönüş
+
+On-prem için [Yedekleme ve Kurtarma](onprem/backup-recovery.md) esas alınır: yedekle eşleşen image, yeni volume, eşleşen anahtar/config, bilinen kayıt ve kanıt indirmesiyle doğrulama. Salt image downgrade şema/veri geri dönüşü değildir. Eski volume ve anahtarları doğrulama bitene kadar koruyun.
+
+Hosted ortamda son sağlıklı uygulama revision'ına dönüş ile D1/R2 kurtarması ayrı planlanır. Şema değişikliği varsa veri uyumluluğunu doğrulamadan eski uygulamayı başlatmayın. Olay zamanı/kapsamını kaydedin; tekrar smoke ve veri bütünlüğü kontrolü yapın.
+
+## Tarihli güvenlik notları
+
+Eski taramalar tarihsel kanıttır; mevcut bağımlılık durumunu güncel lockfile ve aynı commit'in taraması belirler. [3 Ekim Snyk kaydı](security/snyk-20261003.md) bir geçmiş raporudur. CI production-only npm audit kapısı tam geliştirme bağımlılık envanteri için temiz sonucu ifade etmez.
+
+Mammoth için `argparse: 2.0.1` override ve `tests/mammoth-security.test.mjs` dönüşüm/CLI regresyonları bulunur. Bağımlılık yükseltmelerinde override ihtiyacı ve uyumluluk yeniden değerlendirilmelidir.
