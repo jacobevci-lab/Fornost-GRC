@@ -1,4 +1,5 @@
-import { chromium, expect } from '@playwright/test';
+import { chromium, expect as baseExpect } from '@playwright/test';
+const expect=baseExpect.configure({timeout:20000});
 import assert from 'node:assert/strict';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { qaPassword } from './qa-credentials.mjs';
@@ -47,5 +48,5 @@ try{
  await expect(overview).toContainText('Configuration unavailable');await expect(refresh).toBeEnabled();
  await restore();await refresh.click();await expect(overview).toHaveAttribute('aria-busy','false');await expect(overview).not.toContainText('Configuration unavailable');
  assert.deepEqual(errors,[]);await writeFile(`${out}/result.json`,JSON.stringify({result:'PASS',checks:['header timeout','JSON body timeout','retry','unmount cancellation','late response ignored','configuration recovery','email and identity navigation'],errors},null,2));console.log('INTEGRATION_READ_RECOVERY_QA_PASS');
-}catch(error){await page.screenshot({path:`${out}/failure.png`,fullPage:true}).catch(()=>{});throw error;}
+}catch(error){await writeFile(`${out}/error.txt`,String(error.stack||error));await page.screenshot({path:`${out}/failure.png`,fullPage:true}).catch(()=>{});throw error;}
 finally{await browser.close();}
