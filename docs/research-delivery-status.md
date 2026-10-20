@@ -1,6 +1,6 @@
-# Product research delivery status — 19 October 2026
+# Product research delivery status — 20 October 2026
 
-This reconciles the ten delivery packages in the 14 October GRC product study with implementation through PR #320 (record/task links), including whole-audit closure, workpapers and their My Work handoff. User-facing entry points are the [Product overview](PRODUCT-OVERVIEW.md), [User guide](USER-GUIDE.md) and [Admin guide](ADMIN-GUIDE.md). It is a scope inventory, not a claim that every research acceptance scenario or customer integration has passed. The user's latest direction is functional improvement within the existing theme.
+This reconciles the ten delivery packages in the 14 October GRC product study with implementation through structured audit milestones and personal saved register views, including whole-audit closure, workpapers, record/task links and their My Work handoff. User-facing entry points are the [Product overview](PRODUCT-OVERVIEW.md), [User guide](USER-GUIDE.md) and [Admin guide](ADMIN-GUIDE.md). It is a scope inventory, not a claim that every research acceptance scenario or customer integration has passed. The user's latest direction is functional improvement within the existing theme.
 
 | Research package | Implemented scope | Remaining scope |
 | --- | --- | --- |
@@ -39,3 +39,5 @@ Per-audit calendars and single-recipient escalation are implemented; reusable ca
 - `docs/audit-reminder-profiles.md`
 
 Structured plan milestones: [Audit milestones](audit-milestones.md). These owner tasks are separate from independently reviewed evidence requests and workpapers.
+
+Personal named register views now cover Risk, BIA, Assets, Compliance, Controls, Evidence and audit requirements. These reuse current authorized records; they are browser-local preferences, not server/team views or evidence snapshots. See [Saved register views](saved-register-views.md).

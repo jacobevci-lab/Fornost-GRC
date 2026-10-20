@@ -67,3 +67,5 @@ Kurumsal kimlik, e-posta ve ticket profilleri kurulumdaki gerçek sistemlerle do
 - Okuma, dosya ve paket limitleri vardır. Eksik/kısmi veri uyarıları giderilmeden sonuçlar bütün kurumu kapsıyor sayılmamalıdır.
 
 Detaylı mevcut/gelecek ayrımı [teslim durumu tablosunda](research-delivery-status.md), işletim gereksinimleri [yönetici rehberindedir](ADMIN-GUIDE.md).
+
+Named personal register views let users reuse search, filters and visible columns across seven core register entry points. Views are stored per user/module in the current browser; they are not team-shared or device-synchronized. See [Saved register views](saved-register-views.md).

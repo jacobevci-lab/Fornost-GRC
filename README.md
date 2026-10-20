@@ -107,3 +107,5 @@ Gizli değerleri repoya eklemeyin. Entegrasyon şifreleme anahtarı, AI paket m�
 ## Lisans
 
 Bu depo kuruma özel/proprietary kaynak kod içerir. Açık kaynak kullanım veya dağıtım lisansı vermez. Yetkisiz kopyalama, dağıtma ve üçüncü taraf ortamlarında çalıştırma izni verilmez.
+
+Personal saved views preserve named search/filter/column preferences across seven core registers in the current browser. See [Saved register views](docs/saved-register-views.md) for usage and storage boundaries.

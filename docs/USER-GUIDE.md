@@ -128,3 +128,7 @@ Soruyu ilgili kayıt/iş bağlamıyla sorun; yanıtın kaynaklarını açıp do�
 - **Dosya reddi:** boyut ve desteklenen formatı kontrol edin; Office dosyasındaki desteklenmeyen nesneleri kaldırın veya PDF kullanın.
 
 Yöneticiye modül, kayıt kodu, işlem saati ve ekrandaki hata metnini iletin. Parola, token veya gereksiz hassas kanıt içeriği paylaşmayın.
+
+## Personal saved register views
+
+Open **Saved views** below the toolbar in Risk, BIA, Assets, Compliance, Controls, Evidence or an audit’s Requirements and tests tab. Set the search, filters and columns, enter a name and save. Select a view and Apply to reuse it against current records. Rename, replace or delete it without changing business records. Up to 10 views per user/module are saved in this browser, not synchronized between devices. See [Saved register views](saved-register-views.md).
