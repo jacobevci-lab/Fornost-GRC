@@ -8,9 +8,10 @@ const healthRoute = readFileSync("app/api/integrations/health/route.ts", "utf8")
 const automationRoute = readFileSync("app/api/evidence-automation/route.ts", "utf8");
 
 test("integration overview reads configuration and continuous assurance from their real backends", () => {
-  assert.match(overview, /fetch\(withBasePath\("\/api\/integrations"\)/);
-  assert.match(overview, /fetch\(withBasePath\("\/api\/integrations\/health"\)/);
-  assert.match(overview, /fetch\(withBasePath\("\/api\/evidence-automation"\)/);
+  assert.match(overview, /read\("\/api\/integrations"\)/);
+  assert.match(overview, /read\("\/api\/integrations\/health"\)/);
+  assert.match(overview, /read\("\/api\/evidence-automation"\)/);
+  assert.match(overview, /requestJsonWithDeadline\(withBasePath\(path\), \{ cache: "no-store", signal: controller\.signal \}, fetch, 10_000\)/);
   assert.match(overview, /workflow = integrations\.find\(\(item\) => item\.kind === "ticketing"\)/);
   assert.match(overview, /identity = integrations\.find\(\(item\) => item\.kind === "identity"\)/);
   assert.match(overview, /email = integrations\.find\(\(item\) => item\.kind === "email"\)/);
@@ -28,8 +29,8 @@ test("verified integration health expires instead of remaining green forever", (
 
 test("health telemetry outages are not misrepresented as pending connection tests", () => {
   assert.match(overview, /const \[healthAvailable, setHealthAvailable\] = useState\(true\)/);
-  assert.match(overview, /if \(!response\.ok\) return \{ health: \{\}, available: false \}/);
-  assert.match(overview, /setHealthAvailable\(healthPayload\.available !== false\)/);
+  assert.match(overview, /if \(!response\.ok\) throw new Error/);
+  assert.match(overview, /setHealthAvailable\(!!health && health\.available !== false\)/);
   assert.match(overview, /if \(!configAvailable \|\| !configured\(item\) \|\| !healthAvailable\) return "neutral"/);
   assert.match(overview, /Sağlık verisi alınamadı/);
   assert.match(overview, /Health telemetry unavailable/);
@@ -38,8 +39,11 @@ test("health telemetry outages are not misrepresented as pending connection test
 test("configuration and assurance API outages render unknown instead of false zero states", () => {
   assert.match(overview, /const \[configAvailable, setConfigAvailable\] = useState\(true\)/);
   assert.match(overview, /const \[automationAvailable, setAutomationAvailable\] = useState\(true\)/);
-  assert.match(overview, /setConfigAvailable\(integrationResponse\.ok\)/);
-  assert.match(overview, /setAutomationAvailable\(available\)/);
+  assert.match(overview, /const configOk = !!config && Array\.isArray\(config\.integrations\)/);
+  assert.match(overview, /setConfigAvailable\(configOk\)/);
+  assert.match(overview, /setAutomationAvailable\(automationOk\)/);
+  assert.match(overview, /automationResult\.status === "fulfilled" && Array\.isArray\(automationResult\.value\.sources\) && Array\.isArray\(automationResult\.value\.rules\)/);
+  assert.match(overview, /Source and control counts could not be verified/);
   assert.match(overview, /Yapılandırma verisi alınamadı/);
   assert.match(overview, /Configuration unavailable/);
   assert.match(overview, /Sürekli güvence verisi alınamadı/);

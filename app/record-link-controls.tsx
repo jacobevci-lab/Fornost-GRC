@@ -15,7 +15,7 @@ export function CopyRecordLink({ target, lang }: { target: RecordLinkTarget; lan
   return <span className="record-link-copy"><button type="button" onClick={() => void copy()}>{tr ? 'Kayıt bağlantısını kopyala' : 'Copy record link'}</button>{state && <small role="status">{state}</small>}{fallback && <input aria-label={tr ? 'Kayıt bağlantısı' : 'Record link'} readOnly value={fallback} onFocus={e => e.target.select()} />}</span>;
 }
 export function RecordLinkEntry({ ready, lang, scoped }: { ready: boolean; lang: string; scoped: boolean }) {
-  const [state, setState] = useState(''), controller = useRef<AbortController | null>(null), ticket = useRef(0);
+  const [state, setState] = useState(''), controller = useRef<AbortController | null>(null), ticket = useRef(0), applying = useRef(false);
   const resolve = useCallback(async () => {
     const generation = ++ticket.current; controller.current?.abort();
     const hash = window.location.hash; if (!hash.startsWith('#fornost-record')) { setState(''); return; }
@@ -28,7 +28,9 @@ export function RecordLinkEntry({ ready, lang, scoped }: { ready: boolean; lang:
       const data = await response.json(); if (generation !== ticket.current) return;
       if (!response.ok) { setState(response.status === 404 || response.status === 403 ? 'unavailable' : 'retry'); return; }
       if (JSON.stringify(recordLinkTarget(data.target)) !== JSON.stringify(target)) { setState('retry'); return; }
-      if (!navigateToFornost(recordLinkNavigation(target, scoped))) { setState('unavailable'); return; }
+      applying.current = true;
+      try { if (!navigateToFornost(recordLinkNavigation(target, scoped))) { setState('unavailable'); return; } }
+      finally { applying.current = false; }
       // Navigation focus now owns the target; successful links do not replay on reload or sign-out.
       history.replaceState(history.state, '', location.pathname + location.search); setState('');
     } catch { if (generation === ticket.current) setState('retry'); }
@@ -38,8 +40,16 @@ export function RecordLinkEntry({ ready, lang, scoped }: { ready: boolean; lang:
   useEffect(() => {
     if (!ready) return;
     const timer = window.setTimeout(() => void resolve(), 0), onHash = () => { void resolve(); };
+    const onNavigation = (event: MouseEvent) => {
+      if (applying.current || !(event.target instanceof Element) || !event.target.closest('#fornost-navigation .nav-group-items button[aria-label]')) return;
+      // A newer destination wins even if an older transport ignores cancellation.
+      window.clearTimeout(timer); invalidate();
+      if (location.hash.startsWith('#fornost-record')) history.replaceState(history.state, '', location.pathname + location.search);
+      setState('');
+    };
     window.addEventListener('hashchange', onHash);
-    return () => { window.clearTimeout(timer); window.removeEventListener('hashchange', onHash); invalidate(); };
+    document.addEventListener('click', onNavigation, true);
+    return () => { window.clearTimeout(timer); window.removeEventListener('hashchange', onHash); document.removeEventListener('click', onNavigation, true); invalidate(); };
   }, [ready, resolve, invalidate]);
   if (!state) return null;
   const tr = lang === 'tr';

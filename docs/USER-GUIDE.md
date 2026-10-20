@@ -132,3 +132,7 @@ Yöneticiye modül, kayıt kodu, işlem saati ve ekrandaki hata metnini iletin. 
 ## Personal saved register views
 
 Open **Saved views** below the toolbar in Risk, BIA, Assets, Compliance, Controls, Evidence or an audit’s Requirements and tests tab. Set the search, filters and columns, enter a name and save. Select a view and Apply to reuse it against current records. Rename, replace or delete it without changing business records. Up to 10 views per user/module are saved in this browser, not synchronized between devices. See [Saved register views](saved-register-views.md).
+
+### Entegrasyon ve kanıt kaynağı yükleme hataları
+
+İş Akışı Entegrasyonları ekranındaki genel görünüm ve Kanıt Otomasyonu kaynak listesi, yanıt veya JSON içeriği 10 saniyede tamamlanmazsa yüklemeyi sonlandırır. Alınamayan bilgi, boş veya sağlıklı bir sonuç gibi gösterilmez. Genel görünümde **Entegrasyonları yenile / Refresh integrations**, kaynak listesinde **Yeniden dene / Retry** ile tekrar okuyabilirsiniz. Başka ekrana geçtiğinizde bu okumalar iptal edilir; geç gelen eski yanıt yeni görünümü değiştirmez. Bu süre sınırı yalnızca bu ekranların veri okumaları içindir; kaynak çalıştırma veya kaydetme işlemini otomatik tekrar etmez.

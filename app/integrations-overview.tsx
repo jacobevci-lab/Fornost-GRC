@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { executionConflictMessage } from "./evidence/execution-feedback";
 import { withBasePath } from "./base-path";
+import { requestJsonWithDeadline } from "./bounded-json-request";
 import { navigateToFornost } from "./navigation-focus";
 import "./integrations-overview.css";
 import "./integrations-overview-run-now.css";
@@ -150,59 +151,43 @@ export default function IntegrationsOverview({ lang }: { lang: Lang }) {
   const executionPending = useRef(false);
   const [bulkRunNotice, setBulkRunNotice] = useState<BulkRunNotice | null>(null);
 
+  const readController = useRef<AbortController | null>(null);
   const load = useCallback(async () => {
+    readController.current?.abort();
+    const controller = new AbortController();
+    readController.current = controller;
     setLoading(true);
+    const read = async (path: string) => {
+      const { response, body } = await requestJsonWithDeadline(withBasePath(path), { cache: "no-store", signal: controller.signal }, fetch, 10_000);
+      if (!response.ok) throw new Error("Integration data unavailable");
+      return body;
+    };
     try {
-      const integrationResponse = await fetch(withBasePath("/api/integrations"), { cache: "no-store" });
-      setConfigAvailable(integrationResponse.ok);
-      const integrationBody = integrationResponse.ok
-        ? await integrationResponse.json() as { integrations?: Integration[] }
-        : { integrations: [] as Integration[] };
-      const baseIntegrations = Array.isArray(integrationBody.integrations) ? integrationBody.integrations : [];
-
-      const [healthResult, automationResult] = await Promise.allSettled([
-        fetch(withBasePath("/api/integrations/health"), { cache: "no-store" }).then(async (response) => {
-          if (!response.ok) return { health: {}, available: false } as HealthPayload;
-          const body = await response.json() as HealthPayload;
-          return { ...body, available: body.available !== false };
-        }),
-        fetch(withBasePath("/api/evidence-automation"), { cache: "no-store" }).then(async (response) => {
-          if (!response.ok) return { available: false } as AutomationPayload & { available: boolean };
-          return { ...(await response.json() as AutomationPayload), available: true } as AutomationPayload & { available: boolean };
-        }),
+      const [configResult, healthResult, automationResult] = await Promise.allSettled([
+        read("/api/integrations"), read("/api/integrations/health"), read("/api/evidence-automation"),
       ]);
-
-      const healthPayload = healthResult.status === "fulfilled"
-        ? healthResult.value as HealthPayload
-        : { health: {}, available: false } as HealthPayload;
-      const health = healthPayload.health || {};
-      setHealthAvailable(healthPayload.available !== false);
-      setIntegrations(baseIntegrations.map((item) => {
-        const snapshot = health[clean(item.kind)];
-        return {
-          ...item,
-          lastTestStatus: clean(snapshot?.status) || undefined,
-          lastTestAt: clean(snapshot?.testedAt) || undefined,
-        };
+      if (controller.signal.aborted || readController.current !== controller) return;
+      const config = configResult.status === "fulfilled" ? configResult.value : null;
+      const configOk = !!config && Array.isArray(config.integrations);
+      setConfigAvailable(configOk);
+      const health = healthResult.status === "fulfilled" ? healthResult.value as HealthPayload : null;
+      setHealthAvailable(!!health && health.available !== false);
+      if (configOk) setIntegrations((config.integrations as Integration[]).map(item => {
+        const snapshot = health?.health?.[clean(item.kind)];
+        return { ...item, lastTestStatus: clean(snapshot?.status) || undefined, lastTestAt: clean(snapshot?.testedAt) || undefined };
       }));
-
-      if (automationResult.status === "fulfilled") {
-        const payload = automationResult.value as AutomationPayload & { available?: boolean };
-        const available = payload.available !== false;
-        setAutomationAvailable(available);
-        if (available) setAutomation(payload);
-      } else {
-        setAutomationAvailable(false);
-      }
+      const automationOk = automationResult.status === "fulfilled" && Array.isArray(automationResult.value.sources) && Array.isArray(automationResult.value.rules);
+      setAutomationAvailable(automationOk);
+      if (automationOk && automationResult.status === "fulfilled") setAutomation(automationResult.value as AutomationPayload);
       setUpdatedAt(new Date());
     } finally {
-      setLoading(false);
+      if (!controller.signal.aborted && readController.current === controller) setLoading(false);
     }
   }, []);
 
   useEffect(() => {
     const timer = window.setTimeout(() => void load(), 0);
-    return () => window.clearTimeout(timer);
+    return () => { window.clearTimeout(timer); readController.current?.abort(); };
   }, [load]);
 
   const workflow = integrations.find((item) => item.kind === "ticketing");
@@ -326,9 +311,11 @@ export default function IntegrationsOverview({ lang }: { lang: Lang }) {
       module: "Kanıt Otomasyonu",
       eyebrow: "CONTINUOUS ASSURANCE",
       title: tr ? "Kanıt / Güvenlik Connector'ları" : "Evidence / Security Connectors",
-      detail: tr
-        ? `${enabledSources.length} aktif kaynak · ${monitoredControls} kontrol · ${riskAware} risk-aware kural`
-        : `${enabledSources.length} active sources · ${monitoredControls} controls · ${riskAware} risk-aware rules`,
+      detail: !automationAvailable
+        ? (tr ? "Kaynak ve kontrol sayıları doğrulanamadı. Yeniden deneyin." : "Source and control counts could not be verified. Try again.")
+        : tr
+          ? `${enabledSources.length} aktif kaynak · ${monitoredControls} kontrol · ${riskAware} risk-aware kural`
+          : `${enabledSources.length} active sources · ${monitoredControls} controls · ${riskAware} risk-aware rules`,
       status: assuranceStatus,
       tone: assuranceTone,
       metric: automationAvailable ? String(operationalRules.length) : "—",
@@ -534,7 +521,7 @@ export default function IntegrationsOverview({ lang }: { lang: Lang }) {
   }
 
   return (
-    <section className="integrations-overview" aria-label={tr ? "Entegrasyon genel görünümü" : "Integrations overview"}>
+    <section className="integrations-overview" aria-busy={loading} aria-label={tr ? "Entegrasyon genel görünümü" : "Integrations overview"}>
       <header className="iov-head">
         <div>
           <small>CONNECTED PLATFORM</small>
@@ -544,7 +531,7 @@ export default function IntegrationsOverview({ lang }: { lang: Lang }) {
         <div className="iov-summary">
           <span><strong>{readyCount}</strong><small>{tr ? "doğrulanmış alan" : "verified areas"}</small></span>
           <span className={attentionCount ? "watch" : ""}><strong>{attentionCount}</strong><small>{tr ? "dikkat" : "attention"}</small></span>
-          <button type="button" disabled={loading} onClick={() => void load()}>{loading ? "…" : "↻"}</button>
+          <button type="button" aria-label={tr ? "Entegrasyonları yenile" : "Refresh integrations"} disabled={loading} onClick={() => void load()}>{loading ? "…" : "↻"}</button>
         </div>
       </header>
 
