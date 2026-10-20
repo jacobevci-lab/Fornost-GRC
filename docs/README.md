@@ -41,3 +41,5 @@ Güncelleme: 19 Ekim 2026. Başlangıç belgeleri Türkçedir; ayrıntılı tekn
 [2027 Ürün Vizyonu](FORNOST_PRODUCT_VISION_2027.md) hedefleri anlatır; mevcut özellik listesi değildir. [Araştırma ve Teslim Durumu](research-delivery-status.md), tamamlanan kapsamı kalan işlerden ayırır. `roadmap/` altındaki tasarımlar, tarihli QA raporları ve güvenlik taramaları kendi tarih/sürüm kapsamlarına aittir; son sürüm için otomatik başarı veya zafiyetsizlik iddiası oluşturmaz.
 
 Yeni bir özelliğin API, izin, durum geçişi veya limitleri değiştiğinde ilgili ayrıntılı belge ile bu başlangıç rehberleri birlikte güncellenmelidir.
+
+- [Saved register views](saved-register-views.md): personal search/filter/column presets, limits and browser storage boundaries.

@@ -36,6 +36,7 @@ import "./core-record-focus.css";
 import NavIcon from "./nav-icon";
 import { RecordSearch } from "./record-search";
 import { useRegisterView } from "./use-register-view";
+import { SavedRegisterViewsPanel } from "./saved-register-views-panel";
 import { navigateToFornost } from "./navigation-focus";
 import {
   CSSProperties,
@@ -1553,7 +1554,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
     if (!keys.length) return;
     const next = { ...columnPreferences, [active]: keys };
     setColumnPreferences(next);
-    localStorage.setItem("fornost-grc-columns", JSON.stringify(next));
+    try { localStorage.setItem("fornost-grc-columns", JSON.stringify(next)); } catch { /* The current view remains usable when storage is blocked. */ }
   }
   function changeLang(next: Lang) {
     setLang(next);
@@ -2359,6 +2360,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
           />
         ) : active === "Denetim Yönetimi" ? (
           <AuditModule
+            userId={String(currentUser.id)}
             rows={by("Denetim Yönetimi")}
             evidenceRows={by("Kanıtlar")}
             focusedRequirement={focusedRecord?.id || ""}
@@ -2434,6 +2436,8 @@ function FornostApp({ currentUser }: { currentUser: any }) {
               className={`table-card ${active === "Risk Assessment" ? "risk-register" : "smart-register"}`}
             >
               <RegisterToolbar
+                userId={String(currentUser.id)}
+                focused={!!focusedRecord}
                 module={active}
                 lang={lang}
                 rows={by(active)}
@@ -3971,6 +3975,7 @@ function auditKind(name: string) {
       : "Diğer Denetim";
 }
 function AuditModule({
+  userId,
   rows,
   evidenceRows,
   focusedRequirement,
@@ -3993,6 +3998,7 @@ function AuditModule({
   showReadiness = true,
   go,
 }: {
+  userId: string;
   rows: Row[];
   evidenceRows: Row[];
   focusedRequirement: string;
@@ -4406,6 +4412,8 @@ function AuditModule({
         closure={canDeleteAudit && selectedPortfolio ? <AuditClosurePanel key={`closure:${selectedPortfolio.id}:${closureFocus?.auditId === selectedPortfolio.id ? closureFocus.id : ""}`} focusId={closureFocus?.auditId === selectedPortfolio.id ? closureFocus.id : ""} auditId={selectedPortfolio.id} lang={lang} onChanged={refreshAudits} /> : undefined}
         reports={canDeleteAudit && selectedPortfolio ? <AuditStatusReportPanel auditId={selectedPortfolio.id} lang={lang} embedded /> : undefined}
         requirements={<AuditRequirementsTable
+        userId={userId}
+        focused={!!focusedRequirement}
         key={`requirements:${selected}`}
         allItems={items}
         items={visible}
@@ -4425,6 +4433,8 @@ function AuditModule({
 }
 
 function AuditRequirementsTable({
+  userId,
+  focused,
   items,
   allItems,
   lang,
@@ -4436,6 +4446,8 @@ function AuditRequirementsTable({
   canWrite,
   canDelete,
 }: {
+  userId: string;
+  focused: boolean;
   items: Row[];
   allItems: Row[];
   lang: Lang;
@@ -4478,7 +4490,7 @@ function AuditRequirementsTable({
         <div><small>{tr ? "STANDART MADDELERİ" : "STANDARD REQUIREMENTS"}</small><h3>{tr ? "Denetim maddeleri ve sorumluluk takibi" : "Audit requirements and ownership tracking"}</h3></div>
         {canWrite && <button className="ghost" onClick={() => openNew()}>{tr ? "+ Özel Madde" : "+ Custom Item"}</button>}
       </div>
-      <RegisterToolbar module="Denetim Yönetimi" lang={lang} rows={allItems} resultCount={filtered.length} query={query} setQuery={setQuery} selectedColumnKeys={columns} setSelectedColumnKeys={saveColumns} filters={filters} setFilters={setFilters} columnPickerOpen={columnPickerOpen} setColumnPickerOpen={setColumnPickerOpen} filterPanelOpen={filterPanelOpen} setFilterPanelOpen={setFilterPanelOpen} />
+      <RegisterToolbar userId={userId} focused={focused} module="Denetim Yönetimi" lang={lang} rows={allItems} resultCount={filtered.length} query={query} setQuery={setQuery} selectedColumnKeys={columns} setSelectedColumnKeys={saveColumns} filters={filters} setFilters={setFilters} columnPickerOpen={columnPickerOpen} setColumnPickerOpen={setColumnPickerOpen} filterPanelOpen={filterPanelOpen} setFilterPanelOpen={setFilterPanelOpen} />
       <div className="audit-requirement-pager" aria-label={tr ? "Madde sayfalaması" : "Requirement pagination"}>
         <span role="status">{page.start}–{page.end} / {page.total} {tr ? "madde" : "requirements"}</span>
         <label>{tr ? "Sayfa başına" : "Per page"}<select aria-label={tr ? "Sayfa başına" : "Per page"} value={page.size} onChange={event => setPagination({ key: filterKey, page: 1, size: Number(event.target.value) })}>{[50, 100, 200].map(size => <option key={size} value={size}>{size}</option>)}</select></label>
@@ -5347,6 +5359,8 @@ function DateTimeCell({ value, lang }: { value?: string; lang: Lang }) {
 }
 
 function RegisterToolbar({
+  userId,
+  focused,
   module,
   lang,
   rows,
@@ -5362,6 +5376,8 @@ function RegisterToolbar({
   filterPanelOpen,
   setFilterPanelOpen,
 }: {
+  userId?: string;
+  focused?: boolean;
   module: string;
   lang: Lang;
   rows: Row[];
@@ -5517,6 +5533,9 @@ function RegisterToolbar({
           </strong>
         </div>
       </div>
+      {userId && <SavedRegisterViewsPanel userId={userId} module={module} lang={lang} focused={focused}
+        current={{query, filters, columns:selectedColumnKeys}} schema={{filters:filterKeys,columns:available.map(column=>column.key)}}
+        apply={view=>{setQuery(view.query);setFilters(view.filters);setSelectedColumnKeys(view.columns);setColumnPickerOpen(false);setFilterPanelOpen(Object.keys(view.filters).length>0);}} />}
       {filterPanelOpen && (
         <div className="register-filters">
           {filterKeys.map((key) => (
@@ -5530,6 +5549,7 @@ function RegisterToolbar({
                 }
               >
                 <option value="">{tr ? "Tümü" : "All"}</option>
+                {filters[key] && !optionsFor(key).includes(filters[key]) && <option value={filters[key]}>{display(filters[key], lang)} · {tr ? "Güncel listede yok" : "Not in current list"}</option>}
                 {optionsFor(key).map((option) => (
                   <option key={option} value={option}>
                     {display(option, lang)}

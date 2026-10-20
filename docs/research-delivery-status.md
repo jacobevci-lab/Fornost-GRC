@@ -39,3 +39,5 @@ Per-audit calendars and single-recipient escalation are implemented; reusable ca
 - `docs/audit-reminder-profiles.md`
 
 Structured plan milestones: [Audit milestones](audit-milestones.md). These owner tasks are separate from independently reviewed evidence requests and workpapers.
+
+Personal named register views now cover Risk, BIA, Assets, Compliance, Controls, Evidence and audit requirements. These reuse current authorized records; they are browser-local preferences, not server/team views or evidence snapshots. See [Saved register views](saved-register-views.md).

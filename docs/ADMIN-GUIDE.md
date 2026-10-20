@@ -113,3 +113,7 @@ Uygulama verisi, şifreleme/mühürleme anahtarları ve eşleşen sürüm birlik
 | Kurulum/servis hatası | `status.sh`, `check.sh`, `logs.sh`; rapora sır eklemeden faz, sürüm ve hata mesajını alın |
 
 Müşteri IdP/e-posta/ticket kabulü, yedek saklama ve geri dönüş tatbikatı kurulum sahibinin sorumluluğundadır. CI ve referans canlı ortam testleri bunların yerine geçmez.
+
+## Personal register preferences
+
+Named register views use per-user/module browser local storage and require no server configuration or migration. They do not grant access, modify records or enter database backups. Browser site-data clearing removes them; browser-profile access can expose names, search text and filter values. See [Saved register views](saved-register-views.md) for limits and recovery.
