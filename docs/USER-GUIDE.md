@@ -136,3 +136,7 @@ Open **Saved views** below the toolbar in Risk, BIA, Assets, Compliance, Control
 ### Entegrasyon ve kanıt kaynağı yükleme hataları
 
 İş Akışı Entegrasyonları ekranındaki genel görünüm ve Kanıt Otomasyonu kaynak listesi, yanıt veya JSON içeriği 10 saniyede tamamlanmazsa yüklemeyi sonlandırır. Alınamayan bilgi, boş veya sağlıklı bir sonuç gibi gösterilmez. Genel görünümde **Entegrasyonları yenile / Refresh integrations**, kaynak listesinde **Yeniden dene / Retry** ile tekrar okuyabilirsiniz. Başka ekrana geçtiğinizde bu okumalar iptal edilir; geç gelen eski yanıt yeni görünümü değiştirmez. Bu süre sınırı yalnızca bu ekranların veri okumaları içindir; kaynak çalıştırma veya kaydetme işlemini otomatik tekrar etmez.
+
+### Policy Center load recovery
+
+If policy data cannot be loaded, Policy Center shows an explicit error and **Retry**. The data read times out after 10 seconds, including an incomplete response body. Until a verified response arrives, policy counts and actions are unavailable rather than showing an empty register. Navigating away cancels the read; late responses cannot overwrite newer data. Retry only reloads data and does not repeat a policy decision or write.

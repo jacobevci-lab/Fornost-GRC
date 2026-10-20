@@ -47,6 +47,33 @@ try{
  await go('Risk Assessment');await intercept('/api/integrations',true);await go('Workflow Integrations');
  await expect(overview).toContainText('Configuration unavailable');await expect(refresh).toBeEnabled();
  await restore();await refresh.click();await expect(overview).toHaveAttribute('aria-busy','false');await expect(overview).not.toContainText('Configuration unavailable');
- assert.deepEqual(errors,[]);await writeFile(`${out}/result.json`,JSON.stringify({result:'PASS',checks:['header timeout','JSON body timeout','retry','unmount cancellation','late response ignored','configuration recovery','email and identity navigation'],errors},null,2));console.log('INTEGRATION_READ_RECOVERY_QA_PASS');
+ // Policy Center uses the same bounded recovery for headers and JSON bodies.
+ const policy=page.locator('.plm-page');
+ for(const body of [false,true]){
+  await go('Risk Assessment');await intercept('/api/policy-lifecycle',body);await go('Policy Center');
+  await expect(policy).toHaveAttribute('aria-busy','true');
+  const alert=policy.getByRole('alert');
+  await expect(alert).toContainText('Policy information unavailable');
+  await expect(policy).toHaveAttribute('aria-busy','false');
+  await expect(policy.locator('.plm-metrics')).toHaveCount(0);
+  await expect(policy.getByRole('button',{name:'+ Policy',exact:true})).toBeDisabled();
+  assert.ok(await page.evaluate(()=>window.qaAborts)>0,'policy deadline aborts transport');
+  await page.screenshot({path:`${out}/policy-${body?'body':'headers'}-timeout.png`,fullPage:true});
+  await restore();await alert.getByRole('button',{name:'Retry',exact:true}).click();
+  await expect(policy.locator('.plm-metrics')).toBeVisible();await expect(alert).toHaveCount(0);
+  await expect(policy.getByRole('button',{name:'+ Policy',exact:true})).toBeEnabled();
+  await page.evaluate(body=>window.qaPending.forEach(resolve=>{
+   const stale={documents:[],versions:[],campaigns:[],attestations:[],exceptions:[],summary:{total:987654,published:0,reviewDue:0,inWorkflow:0,pendingAttestations:0,activeExceptions:0}};
+   resolve(body?stale:new Response(JSON.stringify(stale)));
+  }),body);
+  await expect(policy.locator('.plm-metrics')).not.toContainText('987654');
+ }
+ await go('Risk Assessment');await intercept('/api/policy-lifecycle');await go('Policy Center');
+ await expect(policy).toHaveAttribute('aria-busy','true');await go('My Work');
+ await expect.poll(()=>page.evaluate(()=>window.qaAborts)).toBeGreaterThan(0);
+ await expect(policy).toHaveCount(0);await restore();
+ await go('Policy Center');await expect(policy.locator('.plm-metrics')).toBeVisible();
+ await page.screenshot({path:`${out}/policy-recovered.png`,fullPage:true});
+ assert.deepEqual(errors,[]);await writeFile(`${out}/result.json`,JSON.stringify({result:'PASS',checks:['header timeout','JSON body timeout','retry','unmount cancellation','late response ignored','configuration recovery','email and identity navigation','policy header timeout','policy JSON body timeout','policy retry and stale response guard','policy unmount cancellation'],errors},null,2));console.log('INTEGRATION_READ_RECOVERY_QA_PASS');
 }catch(error){await writeFile(`${out}/error.txt`,String(error.stack||error));await page.screenshot({path:`${out}/failure.png`,fullPage:true}).catch(()=>{});throw error;}
 finally{await browser.close();}
