@@ -271,6 +271,7 @@ export default function MyWorkV2() {
   const [scope, setScope] = useState<Scope>("mine");
   const [filter, setFilter] = useState<QueueFilter>("priority");
   const [query, setQuery] = useState("");
+  const [moduleFilter, setModuleFilter] = useState("");
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState(false);
   const [pageIndex, setPageIndex] = useState(0);
@@ -358,9 +359,12 @@ export default function MyWorkV2() {
     return () => { window.clearInterval(timer); cancelLoad(); };
   }, [mount, load, cancelLoad]);
 
+  const scopedRows = useMemo(() => rows.filter(row => scope === "organization" && user.role === "Admin" ? true : matchesIdentity(row, user)), [rows, scope, user]);
+  const moduleOptions = useMemo(() => [...new Set(scopedRows.map(row => row.module))].sort((a, b) => (MODULE_LABELS[a]?.[lang] || a).localeCompare(MODULE_LABELS[b]?.[lang] || b, lang)), [scopedRows, lang]);
+
   const data = useMemo(() => {
     const now = Date.now();
-    const scoped = rows.filter(row => scope === "organization" && user.role === "Admin" ? true : matchesIdentity(row, user));
+    const scoped = scopedRows.filter(row => !moduleFilter || row.module === moduleFilter);
     const openRows = scoped.filter(row => !isClosed(row) && !(row.module === "Bulgular ve CAPA" && findingWorkDisposition(row.data, now) === "accepted"));
     const completedRows = scoped.filter(row => {
       if (!isClosed(row)) return false;
@@ -377,7 +381,7 @@ export default function MyWorkV2() {
     const waiting = items.filter(item => item.waiting).length;
     const modules = [...new Set(items.map(item => item.row.module))].length;
     return { items, completedItems, today, overdue, soon, undated, priority, waiting, modules, now };
-  }, [rows, user, scope, lang]);
+  }, [scopedRows, user, moduleFilter, lang]);
 
   const visible = useMemo(() => {
     const needle = normalized(query);
@@ -394,14 +398,14 @@ export default function MyWorkV2() {
     });
   }, [data, filter, query, lang]);
 
-  useEffect(() => { setPageIndex(0); }, [filter, query, scope]);
+  useEffect(() => { setPageIndex(0); }, [filter, query, scope, moduleFilter]);
   const page = paginateWork(visible, pageIndex);
 
   const exportView = () => {
     if (loading || loadError || !lastUpdated || !visible.length) return;
     const csv = buildWorkQueueCsv(visible.map(item => ({ reference: recordCode(item.row), module: MODULE_LABELS[item.row.module]?.[lang] || item.row.module,
       title: item.title, owner: item.owner, status: item.status, due: item.due, reason: item.reason, updatedAt: item.row.updatedAt || "" })),
-      { scope: scope === "organization" && user.role === "Admin" ? "organization" : "mine", filter, query, evaluatedAt: new Date(data.now).toISOString(), refreshedAt: lastUpdated.toISOString() });
+      { scope: scope === "organization" && user.role === "Admin" ? "organization" : "mine", filter, query, moduleFilter, evaluatedAt: new Date(data.now).toISOString(), refreshedAt: lastUpdated.toISOString() });
     downloadBlob(`fornost-work-${filter}-${lastUpdated.toISOString().slice(0, 10)}.csv`, new Blob([csv], { type: "text/csv;charset=utf-8" }));
   };
 
@@ -437,6 +441,15 @@ export default function MyWorkV2() {
         </div>
       </header>
 
+      <div className="mw2-module-filter">
+        <label>{tr ? "İş kuyruğu modülü" : "Work queue module"}<select value={moduleFilter} onChange={event => setModuleFilter(event.target.value)}>
+          <option value="">{tr ? "Tüm modüller" : "All modules"}</option>
+          {moduleFilter && !moduleOptions.includes(moduleFilter) && <option value={moduleFilter}>{MODULE_LABELS[moduleFilter]?.[lang] || moduleFilter} · {tr ? "bu kapsamda iş yok" : "no work in this scope"}</option>}
+          {moduleOptions.map(module => <option key={module} value={module}>{MODULE_LABELS[module]?.[lang] || module}</option>)}
+        </select></label>
+        {moduleFilter && <button type="button" className="mw2-refresh" onClick={() => setModuleFilter("")}>{tr ? "Modül filtresini temizle" : "Clear module filter"}</button>}
+        <p>{tr ? "Özet sayaçları, iş listesi ve CSV seçili modüle göre süzülür. Güvence sinyalleri kendi kapsamını korur." : "Summary counts, the work list and CSV follow the selected module. Assurance signals retain their own scope."}</p>
+      </div>
       <div className="mw2-metrics">
         <button type="button" className={data.overdue ? "critical" : ""} onClick={() => setFilter("overdue")}><small>{tr ? "Geciken" : "Overdue"}</small><strong>{data.overdue}</strong><span>{tr ? "Termin geçmiş işler" : "Past-due work"}</span></button>
         <button type="button" className={data.priority ? "warning" : ""} onClick={() => setFilter("priority")}><small>{tr ? "Dikkat gerekiyor" : "Needs attention"}</small><strong>{data.priority}</strong><span>{tr ? "Kritik, 7 gün içinde veya değerlendirme bekliyor" : "Critical, due within 7 days or awaiting assessment"}</span></button>

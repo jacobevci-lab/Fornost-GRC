@@ -144,3 +144,9 @@ If policy data cannot be loaded, Policy Center shows an explicit error and **Ret
 ### Import workpaper samples
 
 In Audit Management → audit → Workpapers, create or edit a draft and open **Import samples from CSV**. Download the `reference,note` template or paste/upload your selected samples, inspect the preview, then choose **Add samples to draft**. Duplicates, malformed rows and population/sample limit violations block the whole import. Imported samples start as Pending without evidence; complete testing and evidence selection, then Save draft. See [Audit workpapers](audit-workpapers.md#bulk-sample-entry).
+
+### Filter My Work by module
+
+Use **Work queue module** in My Work to focus on Risk, Audit, Evidence, Policy or another module represented in your current authorized personal/organization scope. Summary cards, status-filter counts, completed work, pagination and the downloaded CSV use that module selection. Search and due/status filters continue to apply. The CSV includes a canonical `module_filter` column.
+
+**Clear module filter** restores all modules without changing personal/organization scope or search. If the selected module has no work after a scope change or refresh, the filter remains explicit and the list stays empty rather than silently expanding. This filter does not grant access or change the separate assurance-signal panel's scope.
