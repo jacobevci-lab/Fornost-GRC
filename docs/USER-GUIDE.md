@@ -140,3 +140,7 @@ Open **Saved views** below the toolbar in Risk, BIA, Assets, Compliance, Control
 ### Policy Center load recovery
 
 If policy data cannot be loaded, Policy Center shows an explicit error and **Retry**. The data read times out after 10 seconds, including an incomplete response body. Until a verified response arrives, policy counts and actions are unavailable rather than showing an empty register. Navigating away cancels the read; late responses cannot overwrite newer data. Retry only reloads data and does not repeat a policy decision or write.
+
+### Import workpaper samples
+
+In Audit Management → audit → Workpapers, create or edit a draft and open **Import samples from CSV**. Download the `reference,note` template or paste/upload your selected samples, inspect the preview, then choose **Add samples to draft**. Duplicates, malformed rows and population/sample limit violations block the whole import. Imported samples start as Pending without evidence; complete testing and evidence selection, then Save draft. See [Audit workpapers](audit-workpapers.md#bulk-sample-entry).
