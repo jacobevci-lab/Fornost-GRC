@@ -36,6 +36,15 @@ try{
  let fail=true;await page.route('**/api/record-links?**',route=>fail?route.fulfill({status:503,contentType:'application/json',body:'{"error":"retry"}'}):route.continue());
  await page.goto(base+'/'+fragment(bia.target));await expect(page.locator('.record-link-entry')).toContainText('could not be verified');fail=false;await page.locator('.record-link-entry').getByRole('button',{name:'Retry',exact:true}).click();await expect(page.locator('.core-record-focus:not(.record-link-entry)')).toContainText(bia.code);await page.unroute('**/api/record-links?**');
  checks.push('malformed duplicate references rejected and transient resolver failure recovers without losing target');
+ await page.evaluate(()=>{const original=window.fetch;window.qaLinkFetch=original;window.fetch=(input,init)=>String(input).includes('/api/record-links?')?new Promise(resolve=>{window.qaReleaseLink=resolve;init?.signal?.addEventListener('abort',()=>{window.qaLinkAborted=true;});}):original(input,init);});
+ await page.goto(base+'/'+fragment(bia.target));await expect(page.locator('.record-link-entry')).toContainText('Verifying linked record');
+ await page.locator('nav button[aria-label="My Work"]').evaluate(el=>el.click());await expect(page.locator('main>header h1')).toHaveText('My Work');
+ assert.equal(await page.evaluate(()=>window.qaLinkAborted),true);
+ await page.evaluate(async target=>{window.fetch=window.qaLinkFetch;window.qaReleaseLink(new Response(JSON.stringify({target}),{status:200}));await new Promise(resolve=>setTimeout(resolve,0));},bia.target);
+ await expect(page.locator('main>header h1')).toHaveText('My Work');await expect(page.locator('.record-link-entry')).toHaveCount(0);assert.equal(new URL(page.url()).hash,'');
+ checks.push('new menu navigation cancels pending record links and ignores late resolver responses');
+ await page.goto(base+'/'+fragment(bia.target));await expect(page.locator('.core-record-focus:not(.record-link-entry)')).toContainText(bia.code);
+
  for(const lang of ['EN','TR']){await page.locator('.language-switch:visible').getByRole('button',{name:lang,exact:true}).click();for(const theme of ['light','dark'])for(const width of [1440,390]){await page.setViewportSize({width,height:960});await page.evaluate(t=>document.documentElement.dataset.theme=t,theme);assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+2));await page.screenshot({path:`${out}/${lang}-${theme}-${width}.png`,fullPage:true});}}
  const violations=(await new AxeBuilder({page}).include('.core-record-focus').withTags(['wcag2a','wcag2aa','wcag21aa']).analyze()).violations;assert.deepEqual(violations,[]);
  await page.setViewportSize({width:1440,height:960});await page.locator('.language-switch:visible').getByRole('button',{name:'EN',exact:true}).click();
