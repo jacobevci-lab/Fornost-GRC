@@ -29,3 +29,8 @@ test('source bounds and malformed records disable verified exports',()=>{
  assert.equal(workSourcesComplete({rows:[]},{findings:Array.from({length:3000},()=>finding)}),false);
  assert.equal(workSourcesComplete({},{}),false);
 });
+
+test('CSV records the canonical module filter while retaining the supplied view and timestamps',()=>{
+ const csv=buildWorkQueueCsv([{reference:'EV-1',module:'Evidence',title:'Review',owner:'owner',status:'open',due:'',reason:'Review due',updatedAt:''}],{...context,moduleFilter:'Kanıtlar'});
+ assert.ok(csv.includes('"module_filter"'));assert.ok(csv.endsWith('"Kanıtlar"\r\n'));assert.ok(csv.includes(context.refreshedAt));
+});
