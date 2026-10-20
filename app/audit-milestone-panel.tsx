@@ -1,5 +1,6 @@
 "use client";
 import {useEffect,useId,useRef,useState} from 'react';
+import {CopyRecordLink} from './record-link-controls';
 import {withBasePath} from './base-path';
 import {emptyMilestone,milestoneLabels,type AuditMilestone,type MilestoneFields} from './audit-milestones';
 import {requestDueAt} from './audit-requests';
@@ -46,6 +47,7 @@ function Milestones({auditId,lang,canWrite,focusId=''}:{auditId:string;lang:stri
    {canWrite&&state?.canManage&&<button type="button" disabled={unavailable||state.milestones.length>=100} onClick={()=>{if(!busy&&discard()){setFocus('');newId.current=`AMT-${crypto.randomUUID()}`;setSelected('');setLoading(true);setRefresh(x=>x+1);}}}>{t('Yeni görev','New milestone')}</button>}
    {state&&<small>{state.milestones.length}/100 · {t('İptal edilenler sınırda tutulur.','Cancelled milestones count toward the limit.')}</small>}
   </div><div className="am-detail">
+   {current&&!loading&&error!=='load'&&<CopyRecordLink lang={lang} target={{module:'Denetim Yönetimi',kind:'audit-milestone',ref:current.id,auditId}}/>}
    {(!focus||current)&&state&&<><fieldset disabled={unavailable||!editable||!!terminal}><legend>{current?t('Görev detayı','Milestone details'):t('Yeni görev','New milestone')}</legend>
     <label>{t('Görev başlığı','Milestone title')}<input aria-label={t('Görev başlığı','Milestone title')} value={draft.title} maxLength={200} onChange={e=>patch('title',e.target.value)}/></label>
     <label>{t('Açıklama ve beklenen çıktı','Description and expected output')}<textarea aria-label={t('Açıklama ve beklenen çıktı','Description and expected output')} value={draft.description} maxLength={2000} onChange={e=>patch('description',e.target.value)}/></label>

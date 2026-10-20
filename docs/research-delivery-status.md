@@ -19,7 +19,7 @@ This reconciles the ten delivery packages in the 14 October GRC product study wi
 
 PR #314 added authorized search across eight core registers, exact-record navigation, per-user/module/tab query and filter memory, previous-view return and source-error retry. This is broader navigation/workflow work, not delivery of every research package. The earlier audit/control/evidence workspaces are documented separately.
 
-Shared record links now cover eight core registers plus audit requests and workpapers, with authenticated exact-target resolution, access checks, local sign-in continuity and retry. See `docs/record-links.md`.
+Shared record links now cover eight core registers plus audit requests, workpapers and structured milestones, with authenticated exact-target resolution, access checks, local sign-in continuity and retry. See `docs/record-links.md`.
 
 The email simplification keeps transport configuration and testing, delivery deadlines/retry policy and recipient frequency limits. It removes delivery/dispatch/recovery/deferral history, queue counters and manual operational actions from the Email & Notifications screen. It does not delete stored audit data or disable scheduled delivery.
 

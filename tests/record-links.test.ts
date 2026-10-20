@@ -7,12 +7,12 @@ import { resolveRecordLink } from '../app/record-link-store';
 import { notificationRecordTarget } from '../app/notification-record-link';
 import { deliverConfiguredEmail } from '../app/api/integrations/email-transport';
 const target: RecordLinkTarget = {module:'Denetim Yönetimi',kind:'audit-request',ref:'AR-1',auditId:'AUD-1'};
-test('links round-trip exact targets for eight registers and both audit task types', () => {
+test('links round-trip exact targets for eight registers and all three audit task types', () => {
  for(const moduleName of CORE_RECORD_MODULES) {
   const input: RecordLinkTarget={module:moduleName,kind:'record',ref:'ID_123'};
   assert.deepEqual(parseRecordLink(recordLinkFragment(input)),input);
  }
- for(const kind of ['audit-request','audit-workpaper'] as const) {
+ for(const kind of ['audit-request','audit-workpaper','audit-milestone'] as const) {
   const input={...target,kind};assert.deepEqual(parseRecordLink(recordLinkFragment(input)),input);
   assert.deepEqual(recordLinkNavigation(input).filter,{auditId:'AUD-1'});
  }

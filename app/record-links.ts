@@ -1,13 +1,13 @@
 import { CORE_RECORD_MODULES } from './core-record-focus';
 import type { FornostNavigationRequest } from './navigation-focus';
-export type RecordLinkTarget = { module: string; kind: 'record' | 'audit-request' | 'audit-workpaper'; ref: string; auditId?: string };
+export type RecordLinkTarget = { module: string; kind: 'record' | 'audit-request' | 'audit-workpaper' | 'audit-milestone'; ref: string; auditId?: string };
 const id = (v: unknown): v is string => typeof v === 'string' && /^[a-zA-Z0-9_-]{1,120}$/.test(v);
 export function recordLinkTarget(value: unknown): RecordLinkTarget | null {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
   const v = value as Record<string, unknown>;
   if (typeof v.module !== 'string' || !CORE_RECORD_MODULES.has(v.module) || !id(v.ref)) return null;
   if (v.kind === 'record' && !v.auditId) return { module: v.module, kind: 'record', ref: v.ref };
-  if (v.module === 'Denetim Yönetimi' && ['audit-request', 'audit-workpaper'].includes(String(v.kind)) && id(v.auditId)) return { module: v.module, kind: v.kind as RecordLinkTarget['kind'], ref: v.ref, auditId: v.auditId };
+  if (v.module === 'Denetim Yönetimi' && ['audit-request', 'audit-workpaper', 'audit-milestone'].includes(String(v.kind)) && id(v.auditId)) return { module: v.module, kind: v.kind as RecordLinkTarget['kind'], ref: v.ref, auditId: v.auditId };
   return null;
 }
 export function recordLinkFragment(target: RecordLinkTarget) {
