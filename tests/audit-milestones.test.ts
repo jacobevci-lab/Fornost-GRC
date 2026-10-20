@@ -5,6 +5,7 @@ import type {Actor} from '../app/api/auth/security';
 import {ensureAuditClosureSchema} from '../app/audit-closure-schema';
 import {auditClosureBlockers} from '../app/audit-closure';
 import {mutateMilestone,readMilestones,readMilestoneWork} from '../app/audit-milestone-store';
+import {resolveRecordLink} from '../app/record-link-store';
 import {validateMilestone} from '../app/audit-milestones';
 import {requestDueAt} from '../app/audit-requests';
 import {projectEnterpriseWork} from '../app/enterprise-work';
@@ -71,4 +72,15 @@ test('milestones block closure, participate in report hashes and preserve histor
 test('per-audit capacity and inbox bounds are explicit, cancelled tasks retain their place',async()=>{const f=await fixture();try{
  const insert=f.sqlite.prepare('INSERT INTO audit_milestones VALUES(?,?,?,?,?,?)');for(let i=0;i<100;i++)insert.run('bulk-'+i,'a','r',JSON.stringify({...fields,status:'cancelled',note:'Retained'}),'','');await assert.rejects(f.act('save'),/conflict/);
  for(let i=100;i<1001;i++)insert.run('bulk-'+i,'b','r',JSON.stringify({...fields,status:'planned',note:''}),'','');const work=await readMilestoneWork(f.db,owner);assert.equal(work.milestones.length,1000);assert.equal(work.complete,false);
+}finally{f.sqlite.close();}});
+
+test('milestone links enforce audit grants, exact parent and existence without requiring write access',async()=>{const f=await fixture();try{
+ await f.act('save');const target={module:'Denetim Yönetimi',kind:'audit-milestone',ref:id,auditId:'a'};
+ const reader={role:'Viewer' as const,moduleAccess:{mode:'scoped' as const,modules:{'Denetim Yönetimi':'read' as const}}};
+ assert.deepEqual(await resolveRecordLink(f.db,reader,target),target);
+ assert.equal(await resolveRecordLink(f.db,{...reader,moduleAccess:{mode:'scoped',modules:{}}},target),null);
+ assert.equal(await resolveRecordLink(f.db,admin,{...target,auditId:'b'}),null);
+ assert.equal(await resolveRecordLink(f.db,admin,{...target,ref:'missing'}),null);
+ await f.act('cancel');assert.deepEqual(await resolveRecordLink(f.db,reader,target),target);
+ f.sqlite.exec("DELETE FROM simple_audits WHERE id='a'");assert.equal(await resolveRecordLink(f.db,reader,target),null);
 }finally{f.sqlite.close();}});

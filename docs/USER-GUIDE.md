@@ -32,7 +32,7 @@ Sonuç tam kaydı açar. Çekirdek listelerde filtre/arama bağlamı aynı kulla
 
 ### Bağlantı paylaşma
 
-Kayıt detayında veya tam kayıt odak alanında **Kayıt bağlantısını kopyala / Copy record link** kullanın. Bu işlem sekiz çekirdek sicil, seçili tedarikçi çalışma alanı, denetim talebi ve çalışma kâğıdında bulunur. Alıcı giriş yaptıktan sonra kendi yetkisiyle tam hedefe gider. Pano engellenirse seçilebilir bağlantı alanını kullanın. Silinmiş/erişilemeyen hedef yerine benzer isimli başka kayıt açılmaz. [Ayrıntılar](record-links.md).
+Kayıt detayında veya tam kayıt odak alanında **Kayıt bağlantısını kopyala / Copy record link** kullanın. Bu işlem sekiz çekirdek sicil, seçili tedarikçi çalışma alanı, denetim talebi, çalışma kâğıdı ve kaydedilmiş denetim görevinde bulunur. Görev bağlantısı ilgili denetimin Plan ve kapsam sekmesinde tam görevi açar. Alıcı giriş yaptıktan sonra kendi yetkisiyle tam hedefe gider. Pano engellenirse seçilebilir bağlantı alanını kullanın. Silinmiş/erişilemeyen hedef yerine benzer isimli başka kayıt açılmaz. [Ayrıntılar](record-links.md).
 
 ## 3. Benim İşlerim
 
