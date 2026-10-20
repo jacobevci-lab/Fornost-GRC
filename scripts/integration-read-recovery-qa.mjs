@@ -26,7 +26,7 @@ try{
  await intercept('/api/evidence-automation');await go('Workflow Integrations');
  const overview=page.locator('.integrations-overview'),refresh=overview.getByRole('button',{name:'Refresh integrations',exact:true});
  await expect(overview).toHaveAttribute('aria-busy','true');
- await expect(overview).toContainText('Continuous assurance data unavailable');await expect(refresh).toBeEnabled();
+ await expect(overview).toContainText('Continuous assurance data unavailable');await expect(overview).toContainText('Source and control counts could not be verified.');await expect(refresh).toBeEnabled();
  assert.ok(await page.evaluate(()=>window.qaAborts)>0,'deadline aborts transport');
  await page.screenshot({path:`${out}/overview-timeout.png`,fullPage:true});
  await restore();await refresh.click();await expect(overview).toHaveAttribute('aria-busy','false');await expect(overview).not.toContainText('Continuous assurance data unavailable');

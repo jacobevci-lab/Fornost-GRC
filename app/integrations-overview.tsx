@@ -311,9 +311,11 @@ export default function IntegrationsOverview({ lang }: { lang: Lang }) {
       module: "Kanıt Otomasyonu",
       eyebrow: "CONTINUOUS ASSURANCE",
       title: tr ? "Kanıt / Güvenlik Connector'ları" : "Evidence / Security Connectors",
-      detail: tr
-        ? `${enabledSources.length} aktif kaynak · ${monitoredControls} kontrol · ${riskAware} risk-aware kural`
-        : `${enabledSources.length} active sources · ${monitoredControls} controls · ${riskAware} risk-aware rules`,
+      detail: !automationAvailable
+        ? (tr ? "Kaynak ve kontrol sayıları doğrulanamadı. Yeniden deneyin." : "Source and control counts could not be verified. Try again.")
+        : tr
+          ? `${enabledSources.length} aktif kaynak · ${monitoredControls} kontrol · ${riskAware} risk-aware kural`
+          : `${enabledSources.length} active sources · ${monitoredControls} controls · ${riskAware} risk-aware rules`,
       status: assuranceStatus,
       tone: assuranceTone,
       metric: automationAvailable ? String(operationalRules.length) : "—",
