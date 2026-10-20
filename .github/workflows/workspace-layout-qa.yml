@@ -72,6 +72,14 @@ jobs:
         with:
           name: saved-register-views-preview
           path: saved-register-views-qa-artifacts/
+      - name: My Work assurance assignment and recovery QA
+        run: node scripts/my-work-assurance-runtime-qa.mjs
+      - name: Preserve My Work module filter and recovery evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: my-work-module-preview
+          path: my-work-assurance-qa-artifacts/
       - name: Shared record links, sign-in and email task URL QA
         run: node scripts/record-links-qa.mjs
       - name: Publish record link browser evidence
@@ -215,8 +223,6 @@ jobs:
           FORNOST_PROD_URL: http://127.0.0.1:4173
           FORNOST_SMOKE_EMAIL: qa-admin@fornost.test
         run: node scripts/connected-grc-production-qa.mjs
-      - name: My Work assurance assignment and recovery QA
-        run: node scripts/my-work-assurance-runtime-qa.mjs
       - name: Module boundaries, access editor and session revocation QA
         run: node scripts/module-access-runtime-qa.mjs
       - name: CAPA control context, diagnostics and recovery QA

@@ -442,7 +442,7 @@ export default function MyWorkV2() {
       </header>
 
       <div className="mw2-module-filter">
-        <label>{tr ? "İş kuyruğu modülü" : "Work queue module"}<select value={moduleFilter} onChange={event => setModuleFilter(event.target.value)}>
+        <label>{tr ? "İş kuyruğu modülü" : "Work queue module"}<select aria-label={tr ? "İş kuyruğu modülü" : "Work queue module"} value={moduleFilter} onChange={event => setModuleFilter(event.target.value)}>
           <option value="">{tr ? "Tüm modüller" : "All modules"}</option>
           {moduleFilter && !moduleOptions.includes(moduleFilter) && <option value={moduleFilter}>{MODULE_LABELS[moduleFilter]?.[lang] || moduleFilter} · {tr ? "bu kapsamda iş yok" : "no work in this scope"}</option>}
           {moduleOptions.map(module => <option key={module} value={module}>{MODULE_LABELS[module]?.[lang] || module}</option>)}
