@@ -16,7 +16,7 @@ function Views({ userId, module, lang, current, schema, focused, apply }: Parame
   }, [key]);
   const read = useCallback(() => { try { return localStorage.getItem(key); } catch { return unavailable; } }, [key]);
   const raw = useSyncExternalStore(subscribe, read, () => null);
-  const [selected, setSelected] = useState(''), [expected, setExpected] = useState(''), [name, setName] = useState(''), [error, setError] = useState(''), [notice, setNotice] = useState('');
+  const [selected, setSelected] = useState(''), [expected, setExpected] = useState(''), [name, setName] = useState(''), [error, setError] = useState(''), [notice, setNotice] = useState<'' | 'saved' | 'deleted' | 'applied'>('');
   let views: SavedRegisterView[] = [], loadError = false;
   try { views = parseSavedViews(raw); } catch { loadError = true; }
   const row = views.find(v => v.id === selected), stale = !!selected && JSON.stringify(row) !== expected;
@@ -38,19 +38,19 @@ function Views({ userId, module, lang, current, schema, focused, apply }: Parame
       const next = persistSavedViews(localStorage, key, raw, { action, id: itemId, name, state: current, expectedItem: expected }, schema);
       const saved = next.find(v => v.id === itemId);
       setSelected(saved?.id || ''); setExpected(saved ? JSON.stringify(saved) : ''); setName(saved?.name || '');
-      window.dispatchEvent(new Event(eventName)); setNotice(action === 'delete' ? t('Görünüm silindi.', 'View deleted.') : t('Görünüm bu tarayıcıya kaydedildi.', 'View saved in this browser.'));
+      window.dispatchEvent(new Event(eventName)); setNotice(action === 'delete' ? 'deleted' : 'saved');
     } catch (e) { setError(e instanceof Error && messages[e.message] ? e.message : 'storage'); window.dispatchEvent(new Event(eventName)); }
   }
   function applyView() {
     setError(''); setNotice('');
     try {
       if (read() !== raw || !row || JSON.stringify(row) !== expected) throw new Error('conflict');
-      apply(validateViewState(row, schema)); setNotice(t('Görünüm güncel kayıtlara uygulandı.', 'View applied to current records.'));
+      apply(validateViewState(row, schema)); setNotice('applied');
     } catch (e) { setError(e instanceof Error && messages[e.message] ? e.message : 'storage'); }
   }
   return <details className="saved-register-views"><summary>{t('Kayıtlı görünümler', 'Saved views')}</summary><div>
     <p>{t('Bu kullanıcı ve modül için bu tarayıcıda saklanır. Arama, filtreler ve sütunlar kaydedilir; kayıt verisi saklanmaz veya paylaşılmaz.', 'Saved in this browser for this user and module. Stores search, filters and columns; record data is not stored or shared.')}</p>
-    {(loadError || error || stale) && <p role="alert">{messages[loadError ? 'invalid' : error || 'conflict']}</p>}{notice && <p role="status">{notice}</p>}
+    {(loadError || error || stale) && <p role="alert">{messages[loadError ? 'invalid' : error || 'conflict']}</p>}{notice && <p role="status">{{saved:t('Görünüm bu tarayıcıya kaydedildi.', 'View saved in this browser.'),deleted:t('Görünüm silindi.', 'View deleted.'),applied:t('Görünüm güncel kayıtlara uygulandı.', 'View applied to current records.')}[notice]}</p>}
     <div className="saved-view-fields"><label htmlFor={`${id}-select`}>{t('Görünüm seç', 'Select view')}</label><select id={`${id}-select`} disabled={loadError} value={selected} onChange={e => choose(e.target.value)}><option value="">{t('Yeni görünüm', 'New view')}</option>{selected && !row && <option value={selected}>{t('Görünüm kaldırılmış', 'View removed')}</option>}{views.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}</select>
       <label htmlFor={`${id}-name`}>{t('Görünüm adı', 'View name')}</label><input id={`${id}-name`} maxLength={60} value={name} onChange={e => setName(e.target.value)}/></div>
     {row && <p>{row.query ? `${t('Arama', 'Search')}: ${row.query} · ` : ''}{Object.keys(row.filters).length} {t('filtre', 'filters')} · {row.columns.length} {t('sütun', 'columns')}</p>}
