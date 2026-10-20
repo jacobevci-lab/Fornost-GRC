@@ -4,6 +4,7 @@ import { safeWebHref } from "./safe-web-href";
 
 import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import { withBasePath } from "./base-path";
+import { requestJsonWithDeadline } from "./bounded-json-request";
 import EvidenceHistoryPanel from "./evidence-history-panel";
 import ContinuousAssuranceDashboardPanel from "./continuous-assurance-dashboard-panel";
 import "./evidence-automation.css";
@@ -95,16 +96,21 @@ export default function EvidenceAutomation({lang,currentUser}:{lang:Lang;current
   const applyData=useCallback((j:{sources?:Source[];rules?:Rule[];runs?:Run[];findings?:Finding[];summary?:typeof summary})=>{
     setSources(j.sources||[]);setRules(j.rules||[]);setRuns(j.runs||[]);setFindings(j.findings||[]);if(j.summary)setSummary(j.summary);
   },[]);
-  async function load(){const r=await fetch(withBasePath("/api/evidence-automation"),{cache:"no-store"});if(r.ok)applyData(await r.json())}
+  const readController=useRef<AbortController|null>(null);
+  const load=useCallback(async()=>{
+    readController.current?.abort();
+    const controller=new AbortController();readController.current=controller;
+    try{
+      const {response,body}=await requestJsonWithDeadline(withBasePath("/api/evidence-automation"),{cache:"no-store",signal:controller.signal},fetch,10_000);
+      if(!response.ok||!Array.isArray(body.sources)||!Array.isArray(body.rules))throw new Error("Evidence sources unavailable");
+      if(!controller.signal.aborted&&readController.current===controller){applyData(body);setLoadFailed(false)}
+    }catch{if(!controller.signal.aborted&&readController.current===controller)setLoadFailed(true)}
+    finally{if(!controller.signal.aborted&&readController.current===controller)setLoading(false)}
+  },[applyData]);
   useEffect(()=>{
-    let live=true;
-    fetch(withBasePath("/api/evidence-automation"),{cache:"no-store"})
-      .then(r=>{if(!r.ok)throw new Error("Evidence sources unavailable");return r.json()})
-      .then(j=>{if(live)applyData(j)})
-      .catch(()=>{if(live)setLoadFailed(true)})
-      .finally(()=>{if(live)setLoading(false)});
-    return()=>{live=false};
-  },[applyData,reloadKey]);
+    const timer=window.setTimeout(()=>void load(),0);
+    return()=>{window.clearTimeout(timer);readController.current?.abort()};
+  },[load,reloadKey]);
 
   async function api(body:Record<string,unknown>){
     if(actionPending.current)return false;
