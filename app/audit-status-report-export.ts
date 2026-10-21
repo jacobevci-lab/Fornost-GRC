@@ -22,6 +22,7 @@ export function auditStatusReportView(detail: AuditReportDetail, tr: boolean, fo
     id:t('Kayıt kimliği','Record ID'),auditId:t('Denetim kimliği','Audit ID'),auditName:t('Denetim adı','Audit name'),auditor:t('Denetçi / ekip','Auditor / team'),auditOwner:t('Denetim sahibi','Audit owner'),
     businessUnit:t('İş birimi','Business unit'),progress:t('İlerleme','Progress'),evidenceStatus:t('Kanıt durumu','Evidence status'),startDate:t('Başlangıç','Start date'),endDate:t('Bitiş','End date'),
     planRevision:t('Plan sürümü','Plan revision'),planUpdatedAt:t('Plan kayıt zamanı','Plan saved at'),planUpdatedBy:t('Planı kaydeden','Plan saved by'),revision:t('Kaynak sürümü','Source revision'),
+    dependsOn:t('Ön koşul görev kimlikleri','Prerequisite milestone IDs'),
     createdAt:t('Oluşturma zamanı','Created at'),updatedAt:t('Güncelleme zamanı','Updated at'),createdBy:t('Oluşturan','Created by'),workflowRevision:t('İş planı sürümü','Work plan revision'),timeZone:t('Saat dilimi','Time zone'),
     template:t('Katalog','Catalog'),source:t('Katalog kaynağı','Catalog source'),count:t('Katalog madde sayısı','Catalog requirement count'),imported:t('İçe aktarılan katalog','Imported catalog'),rightsConfirmed:t('Kullanım hakkı teyidi','Usage rights confirmed'),
     findingType:t('Bulgu türü','Finding type'),sourceTitle:t('Kaynak başlığı','Source title'),acceptanceRationale:t('Risk kabul gerekçesi','Risk acceptance rationale'),acceptUntil:t('Risk kabul bitişi','Risk acceptance expiry'),recurrenceCount:t('Tekrar sayısı','Recurrence count'),
@@ -39,7 +40,7 @@ export function auditStatusReportView(detail: AuditReportDetail, tr: boolean, fo
         data.status = requestStatusLabels[String(data.status) as keyof typeof requestStatusLabels]?.[tr?0:1] || data.status;
         if (Array.isArray(data.evidence)) data.evidence = data.evidence.map(v => `${v.title} · v${v.versionNo} · ${v.id}\n${v.fileName}\nSHA-256 ${v.contentSha256}`).join('\n\n');
       } else if (item.kind === 'finding') { data.status=findingLabel(String(data.status),tr?'tr':'en'); data.severity=findingLabel(String(data.severity),tr?'tr':'en'); }
-      else if (item.kind === 'milestone') data.status=milestoneLabels[String(data.status) as keyof typeof milestoneLabels]?.[tr?0:1]||data.status;
+      else if (item.kind === 'milestone') {data.status=milestoneLabels[String(data.status) as keyof typeof milestoneLabels]?.[tr?0:1]||data.status;if(Array.isArray(data.dependsOn))data.dependsOn=data.dependsOn.join(', ');}
       else if (item.kind === 'workpaper') {
         data.status = workpaperStatusLabels[String(data.status) as keyof typeof workpaperStatusLabels]?.[tr?0:1] || data.status;
         data.method = data.method === 'census' ? t('Tam sayım','Census') : t('Yargısal örneklem','Judgmental sampling');
