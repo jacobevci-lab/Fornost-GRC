@@ -1,6 +1,6 @@
 # Audit milestones and scheduled owner work
 
-Open **Audit Management → selected audit → Plan and scope → Tasks and milestones**. The existing plan's free-text milestone notes are preserved; they are not parsed into tasks. Create explicit milestones with a title, expected output, active owner, due date and IANA time zone. Saving creates the current-source My Work item immediately. No separate task copy, email publisher, recurrence or automatic owner inference is introduced.
+Open **Audit Management → selected audit → Plan and scope → Tasks and milestones**. The existing plan's free-text milestone notes are preserved; they are not parsed into tasks. Create explicit milestones with a title, expected output, active owner, due date and IANA time zone. Saving creates the current-source My Work item immediately. My Work reads the stored task directly. No email publisher or automatic owner inference is introduced; recurring periods are explicitly created as described below.
 
 ## Ownership and lifecycle
 
@@ -28,7 +28,7 @@ My Work opens the exact audit, Plan and scope tab and selected milestone. Comple
 
 SQLite-backed tests cover roles, current grants, active assignments, stale/cross-parent writes, commit-time races, event rollback, local/DST deadlines, retained history, source/report integrity, closed-audit locks and bounds. The isolated browser suite exercises creation, duplicate-click prevention, conflict recovery, owner lifecycle, exact My Work navigation, loading failure/retry, accessibility and TR/EN × both themes × desktop/mobile layouts.
 
-Recurrence, annual capacity planning, reminder emails and independent milestone sign-off remain separate work. Existing narrative notes are not silently converted into invented assignments or dates.
+Background recurrence scheduling, annual capacity planning, reminder emails and independent milestone sign-off remain separate work. Existing narrative notes are not silently converted into invented assignments or dates.
 
 ## Exact task links
 
@@ -49,3 +49,14 @@ A completed prerequisite cannot be reopened while a dependent is in progress or 
 The server checks the full bounded audit graph and guards every task revision in the atomic write. Concurrent dependency or prerequisite-state changes return a conflict without a partial task or history write. Older clients that omit the dependency field preserve saved links. No schema migration is required; older tasks have no prerequisites.
 
 My Work displays the number of incomplete prerequisites and includes owned blocked tasks in Waiting. Open the exact task for prerequisite titles and current states; refresh after prerequisite changes. Status/closure snapshots preserve the prerequisite IDs, including historical exports. This is task sequencing, not evidence acceptance or independent milestone sign-off.
+
+
+## Explicit recurring milestones
+
+Choose One-off, Weekly, Monthly, Quarterly, or Yearly in the task editor and save it. Once the task is completed, enter an action reason and select **Create next occurrence**. The button previews the next due date. Completion itself does not create another task; there is no background scheduler or reminder email for milestones.
+
+The successor copies the title, description, active owner, IANA time zone, and recurrence. It starts as Planned with a new ID and history. Its sole initial prerequisite is the previous occurrence; other prerequisite links must be selected again for the new period. Previous/next occurrence buttons navigate the chain. The completed original remains unchanged. If its planned successor exists, reopening the original blocks that successor until the original is completed again; an active/completed successor prevents reopening the original under the ordinary dependency rules.
+
+Dates advance from the saved due date, not the date the button is clicked. Weekly means seven calendar days; monthly/quarterly/yearly mean one/three/twelve calendar months. The day-of-month anchor survives short months (31 January → 28 February → 31 March) and leap years. Editing a successor's due date or cadence establishes a new anchor. Old dates are not silently skipped. Switching to One-off stops creation of further successors.
+
+Only the owner or an administrator can create the next occurrence. Actor and copied owner must still be active audit writers. The original must remain completed at the supplied revision; the entire audit graph is revision guarded at commit. Each original can have only one successor, including cancelled successors. Reload after an uncertain response and navigate to the existing successor; reopen that task if needed. The 100-task audit limit includes every occurrence. Closed audits reject creation, and task/event writes roll back together. Recurrence, anchor, and previous-occurrence identity appear in history and immutable status reports. Portable narrative templates deliberately exclude scheduling and lineage.

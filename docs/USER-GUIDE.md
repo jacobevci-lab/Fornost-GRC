@@ -168,3 +168,10 @@ Plans include internal-control and remediation-follow-up starters; milestones in
 In **Plan and scope → Tasks and milestones**, select prerequisite tasks and save with a reason. Only tasks in the same audit are available, up to 20 per task. The selected tasks must be completed before you can start or complete the dependent task; cancellation does not satisfy a prerequisite. My Work shows blocked task counts and the Waiting filter includes your blocked tasks.
 
 Cycles are rejected. A prerequisite cannot be reopened while dependent work is in progress or completed. Resolve or reopen that dependent work first. Dependencies do not reschedule deadlines, send emails or certify evidence approval. Saved dependencies appear in task history and audit snapshots.
+
+
+### Repeat an audit task for the next period
+
+In **Audit → Plan and scope → Tasks and milestones**, select a recurrence (weekly, monthly, quarterly, or yearly) and save. Complete the task, enter an action reason, then use **Create next occurrence**; the button shows the calculated due date. The new Planned task appears in My Work with its own deadline. Use **Previous occurrence** / **Next occurrence** to move between periods.
+
+Creation is explicit and happens once per completed task. No background tasks or milestone emails are scheduled. The next period is based on the previous due date; month-end dates retain their original day where possible. Only the previous task is carried as a prerequisite; review other prerequisites for the new period. All periods count toward the 100-task audit limit. Set recurrence to One-off on an editable task to stop further periods. A cancelled successor can be reopened; repeatedly clicking the original never creates a replacement duplicate.

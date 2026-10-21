@@ -6,7 +6,7 @@ import {ensureAuditClosureSchema} from '../app/audit-closure-schema';
 import {auditClosureBlockers} from '../app/audit-closure';
 import {mutateMilestone,readMilestones,readMilestoneWork} from '../app/audit-milestone-store';
 import {resolveRecordLink} from '../app/record-link-store';
-import {validateMilestone} from '../app/audit-milestones';
+import {validateMilestone,nextMilestoneDate} from '../app/audit-milestones';
 import {requestDueAt} from '../app/audit-requests';
 import {projectEnterpriseWork} from '../app/enterprise-work';
 import {readAuditReportSource,createAuditStatusReport,readAuditStatusReport} from '../app/audit-status-report-store';
@@ -16,13 +16,14 @@ const owner:Actor={id:'o',name:'Owner',email:'owner@example.com',role:'Editor',s
 const id='AMT-00000000-0000-0000-0000-000000000001',fields={title:'Planning meeting',description:'Agree scope and review dates',owner:owner.email,dueDate:'2026-10-20',timeZone:'Europe/Istanbul'};
 async function fixture(){
  const sqlite=new DatabaseSync(':memory:');sqlite.exec(`CREATE TABLE simple_audits(id TEXT PRIMARY KEY,name TEXT,template TEXT,audit_type TEXT,auditor TEXT,audit_owner TEXT,status TEXT);INSERT INTO simple_audits VALUES('a','Audit A','','','','',''),('b','Audit B','','','','','');CREATE TABLE simple_grc_metadata(key TEXT PRIMARY KEY,value TEXT,updated_at TEXT);CREATE TABLE simple_grc_records(id TEXT PRIMARY KEY,module TEXT,data_json TEXT,created_at TEXT,updated_at TEXT);CREATE TABLE local_users(id TEXT PRIMARY KEY,name TEXT,email TEXT,role TEXT,status TEXT);CREATE TABLE user_module_access(user_id TEXT PRIMARY KEY,policy_json TEXT);INSERT INTO local_users VALUES('o','Owner','owner@example.com','Editor','Active'),('a','Admin','admin@example.com','Admin','Active');`);
- function prepare(sql:string,args:SQLInputValue[]=[]){return{bind(...v:SQLInputValue[]){return prepare(sql,v);},execute(){return{results:sqlite.prepare(sql).all(...args),success:true,meta:{changes:1}};},async all(){return this.execute();},async run(){return this.execute();},async first(){return sqlite.prepare(sql).get(...args)||null;}};}
+ let readHook:(()=>void)|undefined;
+ function prepare(sql:string,args:SQLInputValue[]=[]){return{bind(...v:SQLInputValue[]){return prepare(sql,v);},execute(){return{results:sqlite.prepare(sql).all(...args),success:true,meta:{changes:1}};},async all(){if(sql==='SELECT * FROM audit_milestones WHERE audit_id=? ORDER BY id LIMIT 101'){const next=readHook;readHook=undefined;next?.();}return this.execute();},async run(){return this.execute();},async first(){return sqlite.prepare(sql).get(...args)||null;}};}
  let hook:(()=>void)|undefined;
  const db={prepare,async batch(stmts:ReturnType<typeof prepare>[]){const next=hook;hook=undefined;next?.();sqlite.exec('BEGIN');try{const result=stmts.map(s=>s.execute());sqlite.exec('COMMIT');return result;}catch(e){sqlite.exec('ROLLBACK');throw e;}}} as unknown as D1Database;
  await ensureAuditClosureSchema(db);
  const row=async()=>(await readMilestones(db,'a')).milestones.find(m=>m.id===id);
  const act=async(action:string,actor=owner,extra:Record<string,unknown>={})=>mutateMilestone(db,actor,{auditId:'a',id,action,expectedRevision:(await row())?.revision||'',fields,note:'Documented outcome or reason',...extra},new Date('2026-10-20T10:00:00Z'));
- return{db,sqlite,row,act,race:(f:()=>void)=>{hook=f;}};
+ return{db,sqlite,row,act,raceRead:(f:()=>void)=>{readHook=f;},race:(f:()=>void)=>{hook=f;}};
 }
 test('milestones validate fields, real dates and IANA zones; deadlines honor DST',()=>{
  assert.deepEqual(validateMilestone(fields),fields);
@@ -125,4 +126,62 @@ test('dependency edits are included in report snapshots, exports and atomic even
  const saved=await readAuditStatusReport(f.db,admin,'a',reportId);assert.equal(saved.integrity,'verified');assert.deepEqual(saved.snapshot.items.find(item=>item.id===secondId)?.record.data.dependsOn,[id]);assert.match(auditStatusReportCsv(saved,false),new RegExp(id));
  await dependencyAct(f,secondId,'save',{fields:{...fields,dependsOn:[]}});assert.notEqual((await readAuditReportSource(f.db,admin,'a')).sourceRevision,source.sourceRevision);
  assert.deepEqual((await readAuditStatusReport(f.db,admin,'a',reportId)).snapshot.items.find(item=>item.id===secondId)?.record.data.dependsOn,[id]);
+}finally{f.sqlite.close();}});
+
+
+test('recurrence calendar retains month-end anchors, leap years and local deadlines',()=>{
+ assert.equal(nextMilestoneDate('2026-01-31','monthly'),'2026-02-28');
+ assert.equal(nextMilestoneDate('2026-02-28','monthly',31),'2026-03-31');
+ assert.equal(nextMilestoneDate('2026-11-30','quarterly'),'2027-02-28');
+ assert.equal(nextMilestoneDate('2028-02-29','yearly'),'2029-02-28');
+ assert.equal(nextMilestoneDate('2031-02-28','yearly',29),'2032-02-29');
+ assert.equal(nextMilestoneDate('2026-12-28','weekly'),'2027-01-04');
+ assert.equal(requestDueAt(nextMilestoneDate('2026-03-01','weekly'),'America/New_York'),'2026-03-09T03:59:59.999Z');
+ for(const recurrence of ['daily','',null,3,{}])assert.throws(()=>validateMilestone({...fields,recurrence}),/recurrence/);
+ assert.throws(()=>nextMilestoneDate('9999-12-31','weekly'),/dates/);
+ assert.throws(()=>nextMilestoneDate('2026-02-30','monthly'),/recurrence/);
+});
+test('explicit recurrence creates one planned successor, retains calendar anchor and preserves original history',async()=>{const f=await fixture();try{
+ await f.act('save',owner,{fields:{...fields,dueDate:'2026-01-31',recurrence:'monthly'}});
+ await assert.rejects(f.act('repeat'),/transition/);await f.act('complete');const original=await f.row();
+ const childResult=await f.act('repeat'),rows=(await readMilestones(f.db,'a')).milestones,child=rows.find(row=>row.id===childResult.id)!;
+ assert.equal(child.status,'planned');assert.equal(child.dueDate,'2026-02-28');assert.equal(child.recurrenceDay,31);assert.equal(child.recurrenceOf,id);assert.deepEqual(child.dependsOn,[id]);assert.equal(child.owner,owner.email);assert.equal(child.timeZone,fields.timeZone);
+ assert.deepEqual(await f.row(),original);await assert.rejects(f.act('repeat'),/recurrence-exists/);assert.equal((await readMilestones(f.db,'a')).milestones.length,2);
+ assert.equal(f.sqlite.prepare('SELECT action FROM audit_milestone_events WHERE milestone_id=?').get(child.id)?.action,'repeat');
+ const work=await readMilestoneWork(f.db,owner);assert.equal(work.milestones.find(row=>row.id===child.id)?.dueDate,'2026-02-28');
+ await dependencyAct(f,child.id,'complete');const grandchild=await dependencyAct(f,child.id,'repeat');assert.equal((await readMilestones(f.db,'a')).milestones.find(row=>row.id===grandchild.id)?.dueDate,'2026-03-31');
+ await assert.rejects(f.act('reopen'),/dependency-blocked/);
+}finally{f.sqlite.close();}});
+test('recurrence settings survive legacy saves, date edits reset anchors, and cancelled successors are not duplicated',async()=>{const f=await fixture();try{
+ await f.act('save',owner,{fields:{...fields,dueDate:'2026-01-31',recurrence:'monthly'}});await f.act('complete');const child=await f.act('repeat');
+ await dependencyAct(f,child.id,'save',{fields:{...fields,dueDate:'2026-02-28'}});let row=(await readMilestones(f.db,'a')).milestones.find(row=>row.id===child.id)!;assert.equal(row.recurrence,'monthly');assert.equal(row.recurrenceDay,31);assert.equal(row.recurrenceOf,id);
+ await dependencyAct(f,child.id,'save',{fields:{...fields,dueDate:'2026-02-20',recurrenceOf:'forged',recurrenceDay:31}});row=(await readMilestones(f.db,'a')).milestones.find(row=>row.id===child.id)!;assert.equal(row.recurrenceDay,20);assert.equal(row.recurrenceOf,id);
+ await dependencyAct(f,child.id,'cancel');await assert.rejects(f.act('repeat'),/recurrence-exists/);await assert.rejects(dependencyAct(f,child.id,'repeat'),/transition/);
+ await dependencyAct(f,child.id,'reopen');await dependencyAct(f,child.id,'save',{fields:{...fields,recurrence:'none'}});await dependencyAct(f,child.id,'complete');await assert.rejects(dependencyAct(f,child.id,'repeat'),/transition/);
+}finally{f.sqlite.close();}});
+test('recurrence enforces owner, current source revision, capacity, closure and atomic event writes',async()=>{const f=await fixture();try{
+ await f.act('save',owner,{fields:{...fields,recurrence:'weekly'}});await f.act('complete');
+ await assert.rejects(f.act('repeat',{...owner,id:'other',email:'other@example.com'}),/owner/);await assert.rejects(f.act('repeat',owner,{expectedRevision:'old'}),/conflict/);
+ f.sqlite.exec("UPDATE local_users SET status='Disabled' WHERE id='o'");await assert.rejects(f.act('repeat',admin),/assignee/);f.sqlite.exec("UPDATE local_users SET status='Active' WHERE id='o'");
+ f.sqlite.exec("CREATE TRIGGER fail_repeat_event BEFORE INSERT ON audit_milestone_events WHEN NEW.action='repeat' BEGIN SELECT RAISE(ABORT,'event-failed');END");await assert.rejects(f.act('repeat'),/event-failed/);assert.equal((await readMilestones(f.db,'a')).milestones.length,1);f.sqlite.exec('DROP TRIGGER fail_repeat_event');
+ f.sqlite.exec("INSERT INTO audit_closure_state VALUES('a','closed','r','','')");await assert.rejects(f.act('repeat'),/audit-closed/);f.sqlite.exec("DELETE FROM audit_closure_state");
+ const insert=f.sqlite.prepare('INSERT INTO audit_milestones VALUES(?,?,?,?,?,?)');for(let i=0;i<99;i++)insert.run('retained-'+i,'a','r',JSON.stringify({...fields,status:'cancelled',note:''}),'','');await assert.rejects(f.act('repeat'),/conflict/);assert.equal(f.sqlite.prepare('SELECT count(*) n FROM audit_milestone_events').get()?.n,2);
+}finally{f.sqlite.close();}});
+test('concurrent source changes and competing recurrence creation never create an extra successor or event',async()=>{for(const mode of ['source','successor']){const f=await fixture();try{
+ await f.act('save',owner,{fields:{...fields,recurrence:'monthly'}});await f.act('complete');
+ f.race(()=>{if(mode==='source')f.sqlite.prepare("UPDATE audit_milestones SET revision='concurrent',data_json=json_set(data_json,'$.status','planned') WHERE id=?").run(id);else f.sqlite.prepare('INSERT INTO audit_milestones VALUES(?,?,?,?,?,?)').run(secondId,'a','concurrent',JSON.stringify({...fields,status:'planned',note:'',recurrence:'monthly',recurrenceOf:id,dependsOn:[id]}),'','');});
+ await assert.rejects(f.act('repeat'),/conflict/);assert.equal((await readMilestones(f.db,'a')).milestones.length,mode==='source'?1:2);assert.equal(f.sqlite.prepare('SELECT count(*) n FROM audit_milestone_events').get()?.n,2);
+}finally{f.sqlite.close();}}});
+test('recurrence and lineage are included in immutable report snapshots and exports',async()=>{const f=await fixture();try{
+ await f.act('save',owner,{fields:{...fields,recurrence:'quarterly'}});await f.act('complete');const child=await f.act('repeat');const source=await readAuditReportSource(f.db,admin,'a');const reportId='ARP-'+crypto.randomUUID();
+ await createAuditStatusReport(f.db,admin,{auditId:'a',reportId,expectedSourceRevision:source.sourceRevision,title:'Recurring milestones',summary:'Calendar tasks and their lineage',limitations:''});
+ const report=await readAuditStatusReport(f.db,admin,'a',reportId);const saved=report.snapshot.items.find(item=>item.record.id===child.id)!;assert.equal(saved.record.data.recurrenceOf,id);assert.equal(saved.record.data.recurrence,'quarterly');assert.match(auditStatusReportCsv(report,false),/Quarterly/);
+ await dependencyAct(f,child.id,'cancel');assert.equal((await readAuditStatusReport(f.db,admin,'a',reportId)).integrity,'verified');
+}finally{f.sqlite.close();}});
+
+
+test('recurrence rejects a source changed after initial read even when the graph snapshot already contains the new revision',async()=>{const f=await fixture();try{
+ await f.act('save',owner,{fields:{...fields,recurrence:'monthly'}});await f.act('complete');
+ f.raceRead(()=>f.sqlite.prepare("UPDATE audit_milestones SET revision='new-source',data_json=json_set(data_json,'$.dueDate','2027-01-31') WHERE id=?").run(id));
+ await assert.rejects(f.act('repeat'),/conflict/);assert.equal((await readMilestones(f.db,'a')).milestones.length,1);assert.equal(f.sqlite.prepare('SELECT count(*) n FROM audit_milestone_events').get()?.n,2);
 }finally{f.sqlite.close();}});
