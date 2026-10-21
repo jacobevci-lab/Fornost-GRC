@@ -1,3 +1,4 @@
+import { readWorkView, workViewSchema } from '../app/work-queue-views';
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
@@ -5,7 +6,7 @@ import test from "node:test";
 const source = readFileSync("app/my-work-v2.tsx", "utf8");
 
 test("My Work separates attention, waiting, completed and undated lifecycle views", () => {
-  assert.match(source, /type QueueFilter = "today" \| "priority" \| "overdue" \| "soon" \| "waiting" \| "undated" \| "completed" \| "all"/);
+  for (const status of ['today', 'priority', 'overdue', 'soon', 'waiting', 'undated', 'completed', 'all']) assert.equal(readWorkView({query:'', filters:{status}, columns:workViewSchema.columns}, []).status, status);
   assert.match(source, /Waiting for others/);
   assert.match(source, /Completed in 30 days/);
   assert.match(source, /completedAt >= now - 30 \* DAY/);
