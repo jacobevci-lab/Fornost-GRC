@@ -64,7 +64,7 @@ HTML/SVG, makrolu Office, eski DOC/XLS ve genel ZIP desteklenmez. Yapısal Offic
 
 ### Tarihli görev ve kilometre taşı
 
-**Plan ve kapsam → Görevler ve kilometre taşları** altında başlık, beklenen çıktı, sorumlu, hedef tarih ve saat dilimi girin. Kayıt Benim İşlerim'e doğrudan yansır. Editor kendi işini oluşturur/yönetir; Admin farklı aktif denetim yazarına atayabilir. Başlatma, tamamlama, iptal ve yeniden açma gerekçe ister; tamamlanmış iş düzenlenmeden önce yeniden açılır. Bu görevlerde bağımsız reviewer onayı yoktur. Eski plan notları korunur ve otomatik göreve dönüştürülmez. Bu görev türü için e-posta hatırlatması henüz yoktur.
+**Plan ve kapsam → Görevler ve kilometre taşları** altında başlık, beklenen çıktı, sorumlu, hedef tarih ve saat dilimi girin. Kayıt Benim İşlerim'e doğrudan yansır. Editor kendi işini oluşturur/yönetir; Admin farklı aktif denetim yazarına atayabilir. Başlatma, tamamlama, iptal ve yeniden açma gerekçe ister; tamamlanmış iş düzenlenmeden önce yeniden açılır. Bu görevlerde bağımsız reviewer onayı yoktur. Eski plan notları korunur ve otomatik göreve dönüştürülmez. Görev bazında E-posta hatırlatmalarını aç seçeneği kullanılabilir; varsayılan kapalıdır.
 
 Açık görevler bütün-denetim kapanışını engeller; tamamlayın veya gerekçeyle iptal edin. Denetim başına iptaller dahil 100 görev sınırı vardır. [Görev ayrıntıları](audit-milestones.md).
 
@@ -174,4 +174,11 @@ Cycles are rejected. A prerequisite cannot be reopened while dependent work is i
 
 In **Audit → Plan and scope → Tasks and milestones**, select a recurrence (weekly, monthly, quarterly, or yearly) and save. Complete the task, enter an action reason, then use **Create next occurrence**; the button shows the calculated due date. The new Planned task appears in My Work with its own deadline. Use **Previous occurrence** / **Next occurrence** to move between periods.
 
-Creation is explicit and happens once per completed task. No background tasks or milestone emails are scheduled. The next period is based on the previous due date; month-end dates retain their original day where possible. Only the previous task is carried as a prerequisite; review other prerequisites for the new period. All periods count toward the 100-task audit limit. Set recurrence to One-off on an editable task to stop further periods. A cancelled successor can be reopened; repeatedly clicking the original never creates a replacement duplicate.
+Creation is explicit and happens once per completed task. No next-period tasks are created in the background. Email reminders follow the task setting. The next period is based on the previous due date; month-end dates retain their original day where possible. Only the previous task is carried as a prerequisite; review other prerequisites for the new period. All periods count toward the 100-task audit limit. Set recurrence to One-off on an editable task to stop further periods. A cancelled successor can be reopened; repeatedly clicking the original never creates a replacement duplicate.
+
+
+### Denetim görevi e-posta hatırlatmaları
+
+**Denetim → Plan ve kapsam → Görevler** içinde **E-posta hatırlatmalarını aç** seçeneğini işaretleyip kaydedin. Ön hatırlatma, son gün, gecikme ve isteğe bağlı eskalasyon tarihleri ekranda gösterilir. Takvim aynı denetimin **Talepler ve inceleme → Hatırlatma takvimi ve eskalasyon** bölümünden yönetilir; görevin saat dilimi kullanılır. E-posta taşıması **Ayarlar → E-posta ve Bildirimler** altında yapılandırılır.
+
+Mevcut görevlerde seçenek kapalıdır. Görev kapanınca veya hatırlatma kapatılınca bekleyen bildirim geri çekilir. Görev/profil değişikliği yeni bildirim oluşturabilir; her gün tekrarlanan e-posta gönderilmez. E-posta teslimi görevin tamamlandığı anlamına gelmez. Yeni tekrar dönemine hatırlatma tercihi aktarılır; kendi tarihi gelene kadar bildirim üretilmez.

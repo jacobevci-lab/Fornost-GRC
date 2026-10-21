@@ -64,7 +64,7 @@ Denetim bazında **Talepler ve inceleme → Hatırlatma takvimi ve eskalasyon** 
 
 Standart on-prem container içinde `container-runtime.mjs`, geçerli scheduler token ile dahili döngüyü başlatır; varsayılan aralık 300 saniyedir. Döngü `/api/evidence-automation` üzerinden vadesi gelen işleri yürütür. Hosted ortam Worker scheduled handler kullanır ve cron dağıtımda yapılandırılmalıdır. E-posta formunun kaydedilmesi tek başına zamanlayıcı kurmaz. Token'ı kullanıcıya veya loglara çıkarmayın. [Takvimler](audit-reminder-profiles.md) · [Görev bağlantıları](record-links.md).
 
-Plan sekmesindeki yapılandırılmış kilometre taşı görevleri Benim İşlerim ve kapanış kontrollerine katılır; kanıt talebi bildirimlerinden farklıdır ve bu sürümde e-posta üretmez. Admin görevleri aktif denetim yazarlarına atayabilir; görev tamamlama bağımsız kanıt kabulü değildir. [Görev sözleşmesi](audit-milestones.md).
+Plan sekmesindeki yapılandırılmış kilometre taşı görevleri Benim İşlerim ve kapanış kontrollerine katılır; kanıt talebi bildirimlerinden farklıdır ve görev bazında açıldığında mevcut e-posta taşıması/zamanlayıcısıyla hatırlatma üretir. Varsayılan kapalıdır; görev kendi saat dilimini ve denetimin hatırlatma profilini kullanır. Görev güncelleme veya kapatma eski kuyruğu geri çeker, gönderim öncesi alıcının aktif denetim yazma yetkisi yeniden doğrulanır. Admin görevleri aktif denetim yazarlarına atayabilir; görev tamamlama bağımsız kanıt kabulü değildir. [Görev sözleşmesi](audit-milestones.md).
 
 ## 6. Kimlik, ticket ve kanıt kaynakları
 

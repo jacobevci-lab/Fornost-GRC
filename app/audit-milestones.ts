@@ -1,7 +1,7 @@
 import { AuditRequestError, requestDate, validateRequestTimeZone } from './audit-requests';
 export const recurrenceLabels = {none:['Tek seferlik','One-off'],weekly:['Haftalık','Weekly'],monthly:['Aylık','Monthly'],quarterly:['Üç aylık','Quarterly'],yearly:['Yıllık','Yearly']} as const;
 export type MilestoneRecurrence = keyof typeof recurrenceLabels;
-export type MilestoneFields = { title: string; description: string; owner: string; dueDate: string; timeZone: string; dependsOn?: string[]; recurrence?: MilestoneRecurrence };
+export type MilestoneFields = { title: string; description: string; owner: string; dueDate: string; timeZone: string; dependsOn?: string[]; recurrence?: MilestoneRecurrence; remindersEnabled?: boolean };
 export type AuditMilestone = MilestoneFields & { id: string; auditId: string; revision: string; status: 'planned' | 'in_progress' | 'completed' | 'cancelled'; note: string; recurrenceOf?: string; recurrenceDay?: number; createdAt: string; updatedAt: string };
 export const milestoneLabels: Record<AuditMilestone['status'], [string,string]> = { planned:['Planlandı','Planned'], in_progress:['Devam ediyor','In progress'], completed:['Tamamlandı','Completed'], cancelled:['İptal edildi','Cancelled'] };
 export const emptyMilestone: MilestoneFields = { title:'', description:'', owner:'', dueDate:'', timeZone:'UTC' };
@@ -18,6 +18,7 @@ export function validateMilestone(input: unknown): MilestoneFields {
   if (!Array.isArray(raw.dependsOn) || raw.dependsOn.length > 20 || new Set(raw.dependsOn).size !== raw.dependsOn.length || raw.dependsOn.some(id => typeof id !== 'string' || !/^AMT-[a-f0-9-]{36}$/.test(id))) throw new AuditRequestError('dependencies');
   fields.dependsOn = [...raw.dependsOn] as string[];
  }
+ if(raw.remindersEnabled!==undefined){if(typeof raw.remindersEnabled!=='boolean')throw new AuditRequestError('fields');fields.remindersEnabled=raw.remindersEnabled;}
  if (raw.recurrence !== undefined) {
   if (typeof raw.recurrence !== 'string' || !Object.hasOwn(recurrenceLabels,raw.recurrence)) throw new AuditRequestError('recurrence');
   fields.recurrence=raw.recurrence as MilestoneRecurrence;

@@ -1,3 +1,4 @@
+import {syncMilestoneNotifications} from '../../../audit-milestone-notifications';
 import { readMilestoneWork } from '../../../audit-milestone-store';
 import { isAuditClosedError } from '../../../audit-closure';
 import { readWorkpaperWork } from '../../../audit-workpaper-store';
@@ -49,7 +50,7 @@ export async function POST(req: NextRequest) {
     if (body.action === 'reminder-profile') await saveAuditReminderProfile(env.DB, auth.actor, body);
     else await mutateAuditRequest(env.DB, auth.actor, body);
     let remindersPending = false;
-    try { await syncAuditRequestNotifications(env.DB, new Date(), body.auditId); } catch { remindersPending = true; }
+    try { await syncAuditRequestNotifications(env.DB, new Date(), body.auditId); if(body.action==='reminder-profile')await syncMilestoneNotifications(env.DB,new Date(),body.auditId); } catch { remindersPending = true; }
     return json({ ok: true, remindersPending });
   } catch (err) { return error(err); }
 }

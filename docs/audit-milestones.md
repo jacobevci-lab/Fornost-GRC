@@ -1,6 +1,6 @@
 # Audit milestones and scheduled owner work
 
-Open **Audit Management → selected audit → Plan and scope → Tasks and milestones**. The existing plan's free-text milestone notes are preserved; they are not parsed into tasks. Create explicit milestones with a title, expected output, active owner, due date and IANA time zone. Saving creates the current-source My Work item immediately. My Work reads the stored task directly. No email publisher or automatic owner inference is introduced; recurring periods are explicitly created as described below.
+Open **Audit Management → selected audit → Plan and scope → Tasks and milestones**. The existing plan's free-text milestone notes are preserved; they are not parsed into tasks. Create explicit milestones with a title, expected output, active owner, due date and IANA time zone. Saving creates the current-source My Work item immediately. My Work reads the stored task directly. No automatic owner inference is introduced; recurring periods are explicitly created as described below.
 
 ## Ownership and lifecycle
 
@@ -8,7 +8,7 @@ Each milestone is planned, in progress, completed or cancelled. An Editor can cr
 
 Start is available for planned work. Complete/cancel is available for planned or in-progress work. Reopen restores completed/cancelled work to planned. Editing terminal work requires reopening. Updates and state changes require a reason of 3–2,000 characters; creation may omit the reason. Completion records the owner's or Admin's statement, not independent review or an audit opinion. Cancelling/reopening can recover work whose former owner is disabled; assigning, starting or completing requires a currently eligible owner. Editors cannot use reassignment to act for another owner.
 
-Dates must be real calendar dates. The deadline is the end of the selected local day, converted to an instant with DST awareness. The plan panel marks open past-due tasks; My Work receives the same exact deadline. A request reminder calendar does not shift these dates. No milestone email reminder or escalation is sent in this increment.
+Dates must be real calendar dates. The deadline is the end of the selected local day, converted to an instant with DST awareness. The plan panel marks open past-due tasks; My Work receives the same exact deadline. A request reminder calendar does not shift these dates. Opt-in reminders use that calendar for notification timing without changing task deadlines.
 
 ## Consistency, limits and history
 
@@ -28,7 +28,7 @@ My Work opens the exact audit, Plan and scope tab and selected milestone. Comple
 
 SQLite-backed tests cover roles, current grants, active assignments, stale/cross-parent writes, commit-time races, event rollback, local/DST deadlines, retained history, source/report integrity, closed-audit locks and bounds. The isolated browser suite exercises creation, duplicate-click prevention, conflict recovery, owner lifecycle, exact My Work navigation, loading failure/retry, accessibility and TR/EN × both themes × desktop/mobile layouts.
 
-Background recurrence scheduling, annual capacity planning, reminder emails and independent milestone sign-off remain separate work. Existing narrative notes are not silently converted into invented assignments or dates.
+Background recurrence scheduling, annual capacity planning and independent milestone sign-off remain separate work. Existing narrative notes are not silently converted into invented assignments or dates.
 
 ## Exact task links
 
@@ -53,10 +53,19 @@ My Work displays the number of incomplete prerequisites and includes owned block
 
 ## Explicit recurring milestones
 
-Choose One-off, Weekly, Monthly, Quarterly, or Yearly in the task editor and save it. Once the task is completed, enter an action reason and select **Create next occurrence**. The button previews the next due date. Completion itself does not create another task; there is no background scheduler or reminder email for milestones.
+Choose One-off, Weekly, Monthly, Quarterly, or Yearly in the task editor and save it. Once the task is completed, enter an action reason and select **Create next occurrence**. The button previews the next due date. Completion itself does not create another task; there is no automatic creation scheduler. Email reminders follow the copied task setting.
 
 The successor copies the title, description, active owner, IANA time zone, and recurrence. It starts as Planned with a new ID and history. Its sole initial prerequisite is the previous occurrence; other prerequisite links must be selected again for the new period. Previous/next occurrence buttons navigate the chain. The completed original remains unchanged. If its planned successor exists, reopening the original blocks that successor until the original is completed again; an active/completed successor prevents reopening the original under the ordinary dependency rules.
 
 Dates advance from the saved due date, not the date the button is clicked. Weekly means seven calendar days; monthly/quarterly/yearly mean one/three/twelve calendar months. The day-of-month anchor survives short months (31 January → 28 February → 31 March) and leap years. Editing a successor's due date or cadence establishes a new anchor. Old dates are not silently skipped. Switching to One-off stops creation of further successors.
 
 Only the owner or an administrator can create the next occurrence. Actor and copied owner must still be active audit writers. The original must remain completed at the supplied revision; the entire audit graph is revision guarded at commit. Each original can have only one successor, including cancelled successors. Reload after an uncertain response and navigate to the existing successor; reopen that task if needed. The 100-task audit limit includes every occurrence. Closed audits reject creation, and task/event writes roll back together. Recurrence, anchor, and previous-occurrence identity appear in history and immutable status reports. Portable narrative templates deliberately exclude scheduling and lineage.
+
+
+## Opt-in email reminders
+
+Enable **Email reminders** on an editable task and save. Existing tasks default to disabled. The preview lists advance, due-day, overdue and optional escalation dates from the audit's **Requests and review → Reminder calendar and escalation** profile; each milestone uses its own IANA time zone. Default timing is one day before, due day, and three days overdue. There is no assignment email. Non-working days/holidays pause reminders, and overdue tasks remain overdue in My Work even when their reminder is deferred.
+
+The latest applicable phase is queued, with at most one owner notice and one distinct escalation notice per task revision/profile revision/phase. Editing the task or profile can produce a new notice. Existing delivery history, retries, leases and recipient rate limits suppress duplicate attempts after transport acceptance. The 15-minute hosted scheduler (or configured on-prem scheduler) reconciles pending tasks; save also attempts to refresh the queue. If that queue step fails, the task remains saved and the UI says the scheduler will retry. The scan is bounded to 5,000 enabled open tasks and fails explicitly if exceeded.
+
+Email transport and application HTTPS address remain in **Settings → Email & Notifications**. No new notification log screen is added. Messages contain audit/task IDs, date/time zone and an authenticated exact task link, never the title, narrative or evidence. Final delivery rechecks the live task, phase, profile, open audit and active recipient's audit-write access. Completion, cancellation, disabling reminders and reassignment withdraw superseded queued entries; already accepted mail cannot be recalled. A created next occurrence inherits opt-in but does not notify until its own reminder threshold. Real customer SMTP/Graph delivery remains installation/UAT validation; automated tests use mocked transport and do not send external mail.
