@@ -121,3 +121,7 @@ Named register views use per-user/module browser local storage and require no se
 ### Workpaper deadlines
 
 Optional paired preparation/review deadlines use each workpaper's IANA time zone. Legacy undated records need no migration. Dates participate in existing revision-checked draft writes, history, report integrity and closed-audit restrictions. My Work switches to the review deadline after submission and removes active deadlines for approved/cancelled work. Older clients that omit scheduling fields preserve saved dates. This feature does not queue email; workpaper reminder transport remains out of scope. See [Audit workpapers](audit-workpapers.md#preparation-and-review-deadlines).
+
+### Dashboard operational data loading
+
+The collapsed operational detail does not fetch delivery/owner history. Opening it loads the current sources with a 15-second deadline, and closing it cancels pending requests. Failed sources are explicitly unavailable rather than zero; successful sources remain visible and Retry refreshes both. This keeps background operational reads from blocking initial dashboard loading. Email configuration remains in Email & Notifications.

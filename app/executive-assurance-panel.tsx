@@ -73,24 +73,29 @@ export default function ExecutiveAssurancePanel({
   const [operations, setOperations] = useState<Operations | null>(null);
   const [delivery, setDelivery] = useState<DeliveryOps | null>(null);
 
+  const [expanded, setExpanded] = useState(false), [reload, setReload] = useState(0);
+  const [loading, setLoading] = useState(false), [loadError, setLoadError] = useState(false);
   useEffect(() => {
+    if (!expanded) return;
     let live = true;
-    Promise.all([
-      fetch(withBasePath("/api/continuous-assurance/executive"), {
-        cache: "no-store",
-        headers: { accept: "application/json" },
-      }).then((response) => response.ok ? response.json() : null),
-      fetch(withBasePath("/api/continuous-assurance/notifications"), {
-        cache: "no-store",
-        headers: { accept: "application/json" },
-      }).then((response) => response.ok ? response.json() : null),
-    ]).then(([executive, notification]: [Operations | null, DeliveryOps | null]) => {
+    const controller = new AbortController();
+    const signal = AbortSignal.any([controller.signal, AbortSignal.timeout(15000)]);
+    const read = async (path: string) => {
+      const response = await fetch(withBasePath(path), { cache: "no-store", headers: { accept: "application/json" }, signal });
+      if (!response.ok) throw new Error('unavailable');
+      const data = await response.json();
+      if (!data || typeof data.summary !== 'object' || data.summary === null || Array.isArray(data.summary)) throw new Error('invalid');
+      return data;
+    };
+    Promise.allSettled([read('/api/continuous-assurance/executive'), read('/api/continuous-assurance/notifications')]).then(([executive, notification]) => {
       if (!live) return;
-      if (executive) setOperations(executive);
-      if (notification) setDelivery(notification);
-    }).catch(() => {});
-    return () => { live = false; };
-  }, []);
+      setOperations(executive.status === 'fulfilled' ? executive.value : null);
+      setDelivery(notification.status === 'fulfilled' ? notification.value : null);
+      setLoadError(executive.status === 'rejected' || notification.status === 'rejected');
+      setLoading(false);
+    });
+    return () => { live = false; controller.abort(); };
+  }, [expanded, reload]);
 
   const deliverySummary = delivery?.summary;
   const ownerRows = operations?.owners?.slice(0, 5) || [];
@@ -108,19 +113,26 @@ export default function ExecutiveAssurancePanel({
   return <>
     <ExecutiveDashboardReference rows={rows} evidenceState={evidenceState} lang={lang} go={go} />
 
-    <details className="executive-operational-detail">
+    <details className="executive-operational-detail" onToggle={e => {
+      const open = e.currentTarget.open;
+      setExpanded(open);
+      setLoading(open);
+      if (open) { setLoadError(false); setOperations(null); setDelivery(null); }
+    }}>
       <summary>
         <span>
           <small>{tr ? "OPERASYONEL GÜVENCE DETAYI" : "OPERATIONAL ASSURANCE DETAIL"}</small>
           <b>{tr ? "Sorumlu atamaları, bildirim SLA ve operasyonel işler" : "Owner accountability, delivery SLA and technical attention queue"}</b>
         </span>
-        <span className={operationalSignals ? "attention" : "healthy"}>
-          {rows.length && evidenceState.ready && assurance.score !== null ? `${assurance.score}/100` : (tr ? "Değerlendirme bekleniyor" : "Awaiting evaluation")} · {operationalSignals} {tr ? "aktif sinyal" : "active signals"}
+        <span className={!loading && operations && delivery ? (operationalSignals ? "attention" : "healthy") : ""}>
+          {rows.length && evidenceState.ready && assurance.score !== null ? `${assurance.score}/100` : (tr ? "Değerlendirme bekleniyor" : "Awaiting evaluation")} · {!loading && operations && delivery ? `${operationalSignals} ${tr ? "aktif sinyal" : "active signals"}` : (loading ? (tr ? "Operasyonel veriler yükleniyor…" : "Loading operational data…") : loadError ? (tr ? "Operasyonel veriler eksik" : "Operational data incomplete") : (tr ? "Operasyonel ayrıntıları açın" : "Open operational details"))}
         </span>
       </summary>
 
-      <div className="executive-operational-detail-body">
-        <section className="executive-owner-accountability">
+      {expanded && <div className="executive-operational-detail-body" aria-busy={loading}>
+        {loading && <p role="status">{tr ? 'Operasyonel veriler yükleniyor…' : 'Loading operational data…'}</p>}
+        {loadError && <div role="status"><p>{tr ? 'Bazı operasyonel veriler yüklenemedi. Eksik kaynaklar sıfır olarak gösterilmez.' : 'Some operational data could not be loaded. Missing sources are not shown as zero.'}</p><button type="button" onClick={() => { setLoading(true); setLoadError(false); setOperations(null); setDelivery(null); setReload(value => value + 1); }}>{tr ? 'Yeniden dene' : 'Retry'}</button></div>}
+        {!loading && operations && <section className="executive-owner-accountability">
           <header>
             <div>
               <small>OWNER ACCOUNTABILITY</small>
@@ -143,9 +155,9 @@ export default function ExecutiveAssurancePanel({
               <p>{tr ? "Açık owner aksiyonu bulunmuyor." : "No open owner actions."}</p>
             )}
           </div>
-        </section>
+        </section>}
 
-        <section className="executive-delivery-posture">
+        {!loading && delivery && <section className="executive-delivery-posture">
           <header>
             <div>
               <small>DELIVERY &amp; SLA</small>
@@ -178,12 +190,12 @@ export default function ExecutiveAssurancePanel({
               <span>{deliverySummary?.attempts30d || 0} / 30d</span>
             </article>
           </div>
-        </section>
+        </section>}
 
         <div className="executive-authoritative-attention">
           <ContinuousAssuranceAttention lang={lang}/>
         </div>
-      </div>
+      </div>}
     </details>
   </>;
 }
