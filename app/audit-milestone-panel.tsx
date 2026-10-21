@@ -1,5 +1,6 @@
 "use client";
 import {useEffect,useId,useRef,useState} from 'react';
+import {AuditTemplatePanel} from './audit-template-panel';
 import {CopyRecordLink} from './record-link-controls';
 import {withBasePath} from './base-path';
 import {emptyMilestone,milestoneLabels,type AuditMilestone,type MilestoneFields} from './audit-milestones';
@@ -49,6 +50,7 @@ function Milestones({auditId,lang,canWrite,focusId=''}:{auditId:string;lang:stri
   </div><div className="am-detail">
    {current&&!loading&&error!=='load'&&<CopyRecordLink lang={lang} target={{module:'Denetim Yönetimi',kind:'audit-milestone',ref:current.id,auditId}}/>}
    {(!focus||current)&&state&&<><fieldset disabled={unavailable||!editable||!!terminal}><legend>{current?t('Görev detayı','Milestone details'):t('Yeni görev','New milestone')}</legend>
+    {editable&&<AuditTemplatePanel kind="milestone" tr={tr} draft={draft} labels={{title:t('Görev başlığı','Milestone title'),description:t('Açıklama ve beklenen çıktı','Description and expected output')}} disabled={unavailable||!!terminal} apply={fields=>{setDraft({...draft,title:fields.title,description:fields.description});setDirty(true);}}/>}
     <label>{t('Görev başlığı','Milestone title')}<input aria-label={t('Görev başlığı','Milestone title')} value={draft.title} maxLength={200} onChange={e=>patch('title',e.target.value)}/></label>
     <label>{t('Açıklama ve beklenen çıktı','Description and expected output')}<textarea aria-label={t('Açıklama ve beklenen çıktı','Description and expected output')} value={draft.description} maxLength={2000} onChange={e=>patch('description',e.target.value)}/></label>
     <label>{t('Sorumlu','Owner')}<select aria-label={t('Sorumlu','Owner')} value={draft.owner} disabled={!state.admin} onChange={e=>patch('owner',e.target.value)}><option value="">{t('Seçin','Select')}</option>{draft.owner&&!state.people.some(p=>p.email===draft.owner)&&<option value={draft.owner}>{draft.owner}</option>}{state.people.map(p=><option key={p.email} value={p.email}>{p.name} · {p.email}</option>)}</select></label>

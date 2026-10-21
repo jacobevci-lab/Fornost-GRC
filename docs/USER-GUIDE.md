@@ -156,3 +156,9 @@ Use **Work queue module** in My Work to focus on Risk, Audit, Evidence, Policy o
 In **My Work → Saved views**, name and save your current search, module and work-status filter (for example, “Overdue evidence”). Select it and choose **Apply view** to use it again against current authorized work. Applying returns to the first page and keeps your current **Mine/Organization** scope. Counts and CSV use the applied criteria. Views are not applied automatically after reload.
 
 You can rename, replace or delete up to ten personal views in this browser. Deleting a view does not delete work. These are browser-local preferences, not shared/server views or evidence snapshots; they do not save records, deadlines or approvals. A supported module with no current work stays selected. Unsupported criteria show an error instead of widening the queue.
+
+### Reuse audit plan and milestone templates
+
+Open **Audit Management → audit → Plan and scope → Templates** for plan starters. A second Templates panel within an editable task provides milestone starters. Preview each proposed field beside your draft; filled fields are not preselected. Apply only the fields you choose, then use **Save plan** or **Save milestone** to persist through the existing authorized workflow. People, dates, states and approvals are never copied.
+
+Plans include internal-control and remediation-follow-up starters; milestones include scope, evidence preparation, fieldwork and closure preparation. These are editable prompts, not a claim of compliance or automatic audit completion. You can name and download your customized text as JSON, then paste it into a matching plan/task template panel for preview and reuse. No server template library is created. Plan templates contain narrative text only; milestone templates contain title and expected output only. Existing task limits, role checks, revision conflicts and closure locks still apply.
