@@ -125,3 +125,7 @@ Optional paired preparation/review deadlines use each workpaper's IANA time zone
 ### Dashboard operational data loading
 
 The collapsed operational detail does not fetch delivery/owner history. Opening it loads the current sources with a 15-second deadline, and closing it cancels pending requests. Failed sources are explicitly unavailable rather than zero; successful sources remain visible and Retry refreshes both. This keeps background operational reads from blocking initial dashboard loading. Email configuration remains in Email & Notifications.
+
+### Çalışma kâğıdı termin hatırlatmaları
+
+Çalışma kâğıdı taslağında **E-posta hatırlatmaları** varsayılan kapalıdır ve iki termin gerektirir. Denetim bazlı hatırlatma profili, çalışma günleri/tatiller ve eskalasyon ayarları kullanılır. Hazırlamada sorumlu, incelemede inceleyen hedeflenir. Alıcı aktif olmalı, denetime yazma ve kanıtlara okuma yetkisi bulunmalıdır. Gönderim öncesinde güncel kayıt/profil/süreç/yetki tekrar doğrulanır. Kaydetme ile eski kuyruk atomik geri çekilir; kuyruk oluşturma başarısızsa kayıt korunur ve arayüz zamanlayıcının yeniden deneyeceğini bildirir. Onay/iptal, denetim kapanışı ve yetki kaybı gönderimi durdurur. Mevcut e-posta transport, retry/rate-limit ve uygulama URL ayarları geçerlidir. Kimlikler ve termin dışında örneklem veya kanıt içeriği e-postaya taşınmaz. 5.000 aktif ve hatırlatması açık çalışma kâğıdı kaynak sınırı aşılırsa işlem açık hata verir; müşteri mail altyapısında UAT ayrıca yapılmalıdır.
