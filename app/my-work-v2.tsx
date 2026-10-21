@@ -189,6 +189,7 @@ function isClosed(row: Row) {
 }
 function isWaitingForOthers(row: Row, user: User) {
   if (!valuesMatchIdentity(primaryOwnerValues(row), user)) return false;
+  if (row.workKind === "audit-milestone" && Number(row.data.blockedCount)>0) return true;
   const counterparties = [row.data.reviewer, row.data.approver, row.data.followUpOwner].map(clean).filter(Boolean);
   if (!counterparties.length || valuesMatchIdentity(counterparties, user)) return false;
   const state = normalized(row.data.reviewStatus || row.data.status);
@@ -212,6 +213,7 @@ function priorityFor(row: Row, dueTime: number, now: number) {
   return 3;
 }
 function reasonFor(row: Row, dueTime: number, now: number, lang: Lang) {
+  if(row.workKind === "audit-milestone" && Number(row.data.blockedCount)>0)return lang === "tr" ? `${row.data.blockedCount} ön koşul görevi bekleniyor` : `Waiting for ${row.data.blockedCount} prerequisite milestones`;
   const tr = lang === "tr";
   if (row.module === "Bulgular ve CAPA") {
     const disposition = findingWorkDisposition(row.data, now);

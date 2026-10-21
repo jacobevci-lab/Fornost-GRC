@@ -3,7 +3,7 @@ import { canReadModule, canWriteModule, parseModuleAccess } from './module-acces
 import { AuditRequestError, requestDueAt } from './audit-requests';
 import { auditRequestId, requireAuditParent } from './audit-request-store';
 import { ensureAuditClosureSchema } from './audit-closure-schema';
-import { validateMilestone, milestoneLabels, type AuditMilestone } from './audit-milestones';
+import { validateMilestone, validateMilestoneGraph, milestoneLabels, type AuditMilestone } from './audit-milestones';
 type Stored = { id:string; audit_id:string; revision:string; data_json:string; created_at:string; updated_at:string };
 export function publicMilestone(row: Stored): AuditMilestone {
  const value=JSON.parse(row.data_json), fields=validateMilestone(value);
@@ -22,8 +22,8 @@ export async function milestonePeople(db:D1Database) {
 export async function readMilestoneWork(db:D1Database,actor:Actor) {
  if(!canReadModule(actor,'Denetim Yönetimi'))return {milestones:[],complete:true};
  await ensureAuditClosureSchema(db);
- const rows=await db.prepare(`SELECT m.id,m.audit_id AS auditId,json_extract(m.data_json,'$.title') AS title,json_extract(m.data_json,'$.status') AS status,json_extract(m.data_json,'$.owner') AS owner,json_extract(m.data_json,'$.dueDate') AS dueDate,json_extract(m.data_json,'$.timeZone') AS timeZone,m.created_at AS createdAt,m.updated_at AS updatedAt FROM audit_milestones m JOIN simple_audits a ON a.id=m.audit_id ORDER BY m.updated_at DESC,m.id LIMIT 1001`).all<{id:string;auditId:string;title:string;status:string;owner:string;dueDate:string;timeZone:string;createdAt:string;updatedAt:string}>();
- return {milestones:rows.results.slice(0,1000).map(row=>{validateMilestone({...row,description:''});if(!Object.hasOwn(milestoneLabels,row.status))throw new AuditRequestError('source-invalid',503);return {...row,dueAt:requestDueAt(row.dueDate,row.timeZone)};}),complete:rows.results.length<=1000};
+ const rows=await db.prepare(`SELECT m.id,m.audit_id AS auditId,json_extract(m.data_json,'$.title') AS title,json_extract(m.data_json,'$.status') AS status,json_extract(m.data_json,'$.owner') AS owner,json_extract(m.data_json,'$.dueDate') AS dueDate,json_extract(m.data_json,'$.timeZone') AS timeZone,m.created_at AS createdAt,m.updated_at AS updatedAt,(SELECT count(*) FROM json_each(COALESCE(json_extract(m.data_json,'$.dependsOn'),'[]')) d WHERE NOT EXISTS(SELECT 1 FROM audit_milestones p WHERE p.audit_id=m.audit_id AND p.id=d.value AND json_extract(p.data_json,'$.status')='completed')) AS blockedCount,json_extract(m.data_json,'$.dependsOn') AS dependenciesJson FROM audit_milestones m JOIN simple_audits a ON a.id=m.audit_id ORDER BY m.updated_at DESC,m.id LIMIT 1001`).all<{id:string;auditId:string;title:string;status:string;owner:string;dueDate:string;timeZone:string;createdAt:string;updatedAt:string;blockedCount:number;dependenciesJson:string|null}>();
+ return {milestones:rows.results.slice(0,1000).map(({dependenciesJson,...row})=>{validateMilestone({...row,description:'',...(dependenciesJson===null?{}:{dependsOn:JSON.parse(dependenciesJson)})});if(!Object.hasOwn(milestoneLabels,row.status))throw new AuditRequestError('source-invalid',503);return {...row,dueAt:requestDueAt(row.dueDate,row.timeZone)};}),complete:rows.results.length<=1000};
 }
 export async function mutateMilestone(db:D1Database,actor:Actor,input:Record<string,unknown>,now=new Date()) {
  if(!canWriteModule(actor,'Denetim Yönetimi'))throw new AuditRequestError('forbidden',403);
@@ -39,6 +39,7 @@ export async function mutateMilestone(db:D1Database,actor:Actor,input:Record<str
  if(action==='save'){
   if(current&&['completed','cancelled'].includes(current.status))throw new AuditRequestError('transition',409);
   fields=validateMilestone(input.fields);status=current?.status||'planned';
+  if(current?.dependsOn && !Object.hasOwn(input.fields as object,'dependsOn'))fields.dependsOn=[...current.dependsOn];
   if(actor.role!=='Admin'&&fields.owner!==email)throw new AuditRequestError('owner',403);
  }else{
   if(!current)throw new AuditRequestError('missing',404);
@@ -52,13 +53,20 @@ export async function mutateMilestone(db:D1Database,actor:Actor,input:Record<str
  const people=await db.prepare("SELECT u.id,lower(u.email) AS email,u.role,a.policy_json AS policy FROM local_users u LEFT JOIN user_module_access a ON a.user_id=u.id WHERE u.status='Active' AND lower(u.email) IN (SELECT value FROM json_each(?))").bind(JSON.stringify(emails)).all<{id:string;email:string;role:string;policy:string|null}>();
  if(people.results.length!==emails.length||!people.results.some(p=>p.id===actor.id&&p.email===email&&p.role===actor.role)||people.results.some(p=>!canWriteModule({role:p.role,moduleAccess:parseModuleAccess(p.policy)},'Denetim Yönetimi')))throw new AuditRequestError('assignee',403);
  const revision=crypto.randomUUID(),stamp=now.toISOString(),next:AuditMilestone={...fields,id,auditId,revision,status,note,createdAt:current?.createdAt||stamp,updatedAt:stamp};
+ const graphRows=await db.prepare('SELECT * FROM audit_milestones WHERE audit_id=? ORDER BY id LIMIT 101').bind(auditId).all<Stored>();
+ if(graphRows.results.length>100)throw new AuditRequestError('source-invalid',503);
+ const graph=graphRows.results.map(publicMilestone);
+ validateMilestoneGraph([...graph.filter(row=>row.id!==id),next]);
+ const graphSnapshot=JSON.stringify(graphRows.results.map(row=>({id:row.id,revision:row.revision})));
  const result=await db.batch([
   db.prepare(`INSERT INTO audit_milestones(id,audit_id,revision,data_json,created_at,updated_at) SELECT ?,?,?,?,?,? WHERE EXISTS(SELECT 1 FROM simple_audits WHERE id=?)
    AND COALESCE((SELECT revision FROM audit_milestones WHERE id=? AND audit_id=?),'')=?
    AND (EXISTS(SELECT 1 FROM audit_milestones WHERE id=? AND audit_id=?) OR (SELECT count(*) FROM audit_milestones WHERE audit_id=?)<100)
    AND NOT EXISTS(SELECT 1 FROM audit_milestones WHERE id=? AND audit_id<>?)
+   AND (SELECT count(*) FROM audit_milestones WHERE audit_id=?)=?
+   AND NOT EXISTS(SELECT 1 FROM json_each(?) g WHERE NOT EXISTS(SELECT 1 FROM audit_milestones m WHERE m.audit_id=? AND m.id=json_extract(g.value,'$.id') AND m.revision=json_extract(g.value,'$.revision')))
    AND NOT EXISTS(SELECT 1 FROM json_each(?) p WHERE NOT EXISTS(SELECT 1 FROM local_users u LEFT JOIN user_module_access a ON a.user_id=u.id WHERE u.id=json_extract(p.value,'$.id') AND lower(u.email)=json_extract(p.value,'$.email') AND u.role=json_extract(p.value,'$.role') AND u.status='Active' AND a.policy_json IS json_extract(p.value,'$.policy')))
-   ON CONFLICT(id) DO UPDATE SET revision=excluded.revision,data_json=excluded.data_json,updated_at=excluded.updated_at RETURNING id`).bind(id,auditId,revision,JSON.stringify(next),next.createdAt,stamp,auditId,id,auditId,input.expectedRevision,id,auditId,auditId,id,auditId,JSON.stringify(people.results)),
+   ON CONFLICT(id) DO UPDATE SET revision=excluded.revision,data_json=excluded.data_json,updated_at=excluded.updated_at RETURNING id`).bind(id,auditId,revision,JSON.stringify(next),next.createdAt,stamp,auditId,id,auditId,input.expectedRevision,id,auditId,auditId,id,auditId,auditId,graphRows.results.length,graphSnapshot,auditId,JSON.stringify(people.results)),
   db.prepare('INSERT INTO audit_milestone_events(id,audit_id,milestone_id,actor,action,note,snapshot_json,created_at) SELECT ?,?,?,?,?,?,?,? WHERE EXISTS(SELECT 1 FROM audit_milestones WHERE id=? AND audit_id=? AND revision=?)').bind(revision,auditId,id,email,action,note,JSON.stringify(next),stamp,id,auditId,revision),
  ]);
  if(!result[0].results.length)throw new AuditRequestError('conflict',409);

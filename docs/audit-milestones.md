@@ -28,7 +28,7 @@ My Work opens the exact audit, Plan and scope tab and selected milestone. Comple
 
 SQLite-backed tests cover roles, current grants, active assignments, stale/cross-parent writes, commit-time races, event rollback, local/DST deadlines, retained history, source/report integrity, closed-audit locks and bounds. The isolated browser suite exercises creation, duplicate-click prevention, conflict recovery, owner lifecycle, exact My Work navigation, loading failure/retry, accessibility and TR/EN × both themes × desktop/mobile layouts.
 
-Dependencies, recurrence, annual capacity planning, reminder emails and independent milestone sign-off remain separate work. Existing narrative notes are not silently converted into invented assignments or dates.
+Recurrence, annual capacity planning, reminder emails and independent milestone sign-off remain separate work. Existing narrative notes are not silently converted into invented assignments or dates.
 
 ## Exact task links
 
@@ -39,3 +39,13 @@ A saved milestone exposes **Copy record link** outside its edit controls, includ
 Open **Templates** in a new or editable milestone. Four bilingual starters cover scope agreement, evidence preparation, fieldwork and closure preparation. Preview the proposed title and expected output beside the current draft. Populated fields start unchecked; select only the fields to replace and choose **Apply selected fields to draft**. Nothing is written until **Save milestone**. The existing owner, due date, time zone, status, revision and reason stay unchanged; terminal tasks must still be reopened before editing.
 
 Name and download the current draft as a JSON template to reuse customized text. Paste that JSON into another task's Templates panel and preview it. Only title and description are accepted; wrong types/versions, unknown fields and over-limit text are rejected without changing the draft. Templates are portable text, not centrally shared records, task batches, dependencies, scheduled reminders or approvals. Review exported business text before sharing it.
+
+## Prerequisite milestones
+
+An editable task can select up to 20 distinct prerequisites from the same audit. Save the selection with the usual reason. A prerequisite must be **completed** before the dependent task can start or complete; cancelled tasks do not satisfy it. Self-links, cycles and links to another audit are rejected. Dates are not automatically shifted.
+
+A completed prerequisite cannot be reopened while a dependent is in progress or completed. First reopen the completed dependent to planned, or explicitly cancel active dependent work with a reason; then reopen its prerequisite. Editing an in-progress task cannot add an incomplete prerequisite. Removing prerequisites is an explicit saved edit recorded in history.
+
+The server checks the full bounded audit graph and guards every task revision in the atomic write. Concurrent dependency or prerequisite-state changes return a conflict without a partial task or history write. Older clients that omit the dependency field preserve saved links. No schema migration is required; older tasks have no prerequisites.
+
+My Work displays the number of incomplete prerequisites and includes owned blocked tasks in Waiting. Open the exact task for prerequisite titles and current states; refresh after prerequisite changes. Status/closure snapshots preserve the prerequisite IDs, including historical exports. This is task sequencing, not evidence acceptance or independent milestone sign-off.

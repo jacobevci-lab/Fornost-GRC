@@ -162,3 +162,9 @@ You can rename, replace or delete up to ten personal views in this browser. Dele
 Open **Audit Management → audit → Plan and scope → Templates** for plan starters. A second Templates panel within an editable task provides milestone starters. Preview each proposed field beside your draft; filled fields are not preselected. Apply only the fields you choose, then use **Save plan** or **Save milestone** to persist through the existing authorized workflow. People, dates, states and approvals are never copied.
 
 Plans include internal-control and remediation-follow-up starters; milestones include scope, evidence preparation, fieldwork and closure preparation. These are editable prompts, not a claim of compliance or automatic audit completion. You can name and download your customized text as JSON, then paste it into a matching plan/task template panel for preview and reuse. No server template library is created. Plan templates contain narrative text only; milestone templates contain title and expected output only. Existing task limits, role checks, revision conflicts and closure locks still apply.
+
+### Sequence audit tasks with prerequisites
+
+In **Plan and scope → Tasks and milestones**, select prerequisite tasks and save with a reason. Only tasks in the same audit are available, up to 20 per task. The selected tasks must be completed before you can start or complete the dependent task; cancellation does not satisfy a prerequisite. My Work shows blocked task counts and the Waiting filter includes your blocked tasks.
+
+Cycles are rejected. A prerequisite cannot be reopened while dependent work is in progress or completed. Resolve or reopen that dependent work first. Dependencies do not reschedule deadlines, send emails or certify evidence approval. Saved dependencies appear in task history and audit snapshots.

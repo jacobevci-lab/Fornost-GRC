@@ -84,3 +84,45 @@ test('milestone links enforce audit grants, exact parent and existence without r
  await f.act('cancel');assert.deepEqual(await resolveRecordLink(f.db,reader,target),target);
  f.sqlite.exec("DELETE FROM simple_audits WHERE id='a'");assert.equal(await resolveRecordLink(f.db,reader,target),null);
 }finally{f.sqlite.close();}});
+
+const secondId='AMT-00000000-0000-0000-0000-000000000002';
+async function dependencyAct(f:Awaited<ReturnType<typeof fixture>>,target:string,action:string,extra:Record<string,unknown>={}) {
+ const row=(await readMilestones(f.db,'a')).milestones.find(row=>row.id===target);
+ return mutateMilestone(f.db,owner,{auditId:'a',id:target,action,expectedRevision:row?.revision||'',fields:{...fields,title:'Dependent task'},note:'Documented dependency change',...extra});
+}
+test('dependencies block start and completion, canceled predecessors do not satisfy them, and legacy saves preserve links',async()=>{const f=await fixture();try{
+ await f.act('save');await dependencyAct(f,secondId,'save',{fields:{...fields,dependsOn:[id]}});
+ await assert.rejects(dependencyAct(f,secondId,'start'),/dependency-blocked/);await assert.rejects(dependencyAct(f,secondId,'complete'),/dependency-blocked/);
+ await f.act('cancel');await assert.rejects(dependencyAct(f,secondId,'start'),/dependency-blocked/);
+ await dependencyAct(f,secondId,'save');assert.deepEqual((await readMilestones(f.db,'a')).milestones.find(row=>row.id===secondId)?.dependsOn,[id]);
+ const work=await readMilestoneWork(f.db,owner);assert.equal(work.milestones.find(row=>row.id===secondId)?.blockedCount,1);
+ assert.equal(projectEnterpriseWork('audit',{requests:[],...work}).rows.find(row=>row.nativeRef===secondId)?.data.blockedCount,1);
+ await f.act('reopen');await f.act('complete');await dependencyAct(f,secondId,'start');
+ await assert.rejects(f.act('reopen'),/dependency-blocked/);await dependencyAct(f,secondId,'complete');await assert.rejects(f.act('reopen'),/dependency-blocked/);
+ await dependencyAct(f,secondId,'reopen');await f.act('reopen');
+}finally{f.sqlite.close();}});
+test('self references, cycles, duplicate and cross-audit prerequisites reject without appending events',async()=>{const f=await fixture();try{
+ await f.act('save');await dependencyAct(f,secondId,'save',{fields:{...fields,dependsOn:[id]}});
+ const count=()=>f.sqlite.prepare('SELECT count(*) n FROM audit_milestone_events').get()?.n;
+ const before=count();await assert.rejects(f.act('save',owner,{fields:{...fields,dependsOn:[id]}}),/dependency-cycle/);
+ await assert.rejects(f.act('save',owner,{fields:{...fields,dependsOn:[secondId]}}),/dependency-cycle/);
+ assert.throws(()=>validateMilestone({...fields,dependsOn:[secondId,secondId]}),/dependencies/);
+ assert.throws(()=>validateMilestone({...fields,dependsOn:'invalid'}),/dependencies/);
+ const foreign='AMT-00000000-0000-0000-0000-000000000003';await mutateMilestone(f.db,owner,{auditId:'b',id:foreign,action:'save',expectedRevision:'',fields,note:''});
+ await assert.rejects(f.act('save',owner,{fields:{...fields,dependsOn:[foreign]}}),/dependency-missing/);assert.equal(count(),Number(before)+1);
+}finally{f.sqlite.close();}});
+test('graph snapshot blocks concurrent predecessor reopen and concurrent cycle creation',async()=>{for(const scenario of ['reopen','cycle']){const f=await fixture();try{
+ await f.act('save');if(scenario==='reopen')await f.act('complete');await dependencyAct(f,secondId,'save',{fields:{...fields,dependsOn:scenario==='reopen'?[id]:[]}});
+ f.race(()=>{f.sqlite.prepare("UPDATE audit_milestones SET data_json=json_set(data_json,?,json(?)),revision='raced' WHERE id=?").run(scenario==='reopen'?'$.status':'$.dependsOn',JSON.stringify(scenario==='reopen'?'planned':[secondId]),id);});
+ const count=f.sqlite.prepare('SELECT count(*) n FROM audit_milestone_events').get()?.n;
+ await assert.rejects(dependencyAct(f,secondId,scenario==='reopen'?'start':'save',scenario==='cycle'?{fields:{...fields,dependsOn:[id]}}:{}),/conflict/);
+ assert.equal(f.sqlite.prepare('SELECT count(*) n FROM audit_milestone_events').get()?.n,count);assert.equal((await readMilestones(f.db,'a')).milestones.find(row=>row.id===secondId)?.status,'planned');
+}finally{f.sqlite.close();}}});
+test('dependency edits are included in report snapshots, exports and atomic event history',async()=>{const f=await fixture();try{
+ await f.act('save');await dependencyAct(f,secondId,'save',{fields:{...fields,dependsOn:[id]}});
+ const source=await readAuditReportSource(f.db,admin,'a'),reportId='ARP-'+crypto.randomUUID();
+ await createAuditStatusReport(f.db,admin,{auditId:'a',reportId,expectedSourceRevision:source.sourceRevision,title:'Dependency report',summary:'Scheduled task dependency snapshot',limitations:''});
+ const saved=await readAuditStatusReport(f.db,admin,'a',reportId);assert.equal(saved.integrity,'verified');assert.deepEqual(saved.snapshot.items.find(item=>item.id===secondId)?.record.data.dependsOn,[id]);assert.match(auditStatusReportCsv(saved,false),new RegExp(id));
+ await dependencyAct(f,secondId,'save',{fields:{...fields,dependsOn:[]}});assert.notEqual((await readAuditReportSource(f.db,admin,'a')).sourceRevision,source.sourceRevision);
+ assert.deepEqual((await readAuditStatusReport(f.db,admin,'a',reportId)).snapshot.items.find(item=>item.id===secondId)?.record.data.dependsOn,[id]);
+}finally{f.sqlite.close();}});
