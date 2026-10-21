@@ -90,3 +90,13 @@ test('workpaper tasks follow owner preparation, reviewer handoff, completion and
  }
  assert.equal(projectEnterpriseWork('audit',{requests:[],workpapers:[],complete:false}).complete,false);
 });
+
+test('workpaper queue uses server phase deadline and refuses malformed dates; terminal work is undated', () => {
+ const p={id:'AWP-schedule',auditId:'audit-a',title:'Scheduled samples',owner:'owner@example.com',reviewer:'reviewer@example.com',status:'draft',dueAt:'2026-10-21T20:59:59.999Z'};
+ const project=(patch={})=>projectEnterpriseWork('audit',{requests:[],workpapers:[{...p,...patch}],complete:true});
+ assert.equal(project().rows[0].data.dueDate,p.dueAt);
+ assert.equal(project({status:'submitted',dueAt:'2026-10-24T20:59:59.999Z'}).rows[0].data.dueDate,'2026-10-24T20:59:59.999Z');
+ for (const status of ['approved','cancelled']) assert.equal(project({status}).rows[0].data.dueDate,undefined);
+ assert.equal(project({dueAt:''}).rows[0].data.dueDate,undefined);
+ for (const dueAt of ['invalid',42,null]) {assert.equal(project({dueAt}).complete,false);assert.equal(project({dueAt}).rows.length,0);}
+});

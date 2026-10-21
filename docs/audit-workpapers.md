@@ -18,7 +18,7 @@ Validation: `tests/audit-workpapers.test.ts` exercises real SQLite transactions,
 
 Workpapers appear in My Work from their authoritative current state. Drafts belong to the owner; submitted work also appears for the assigned independent reviewer and waits for review in the owner's queue. Returned or withdrawn papers become owner preparation work again. Approved and cancelled papers are completed work; reopening restores the owner task. The task opens the exact audit, Workpapers tab and paper, including history. A removed target produces an explicit unavailable message.
 
-The inbox query returns only identifiers, title, state, assignments and timestamps, never sample content or evidence metadata. Both audit and evidence read grants are required. Orphaned audit records are excluded and reads above 1,000 papers explicitly mark the inbox incomplete. No duplicate task records, new deadlines, email reminders or automatic CAPA are created by this projection.
+The inbox query returns only identifiers, title, state, assignments, planned deadlines/time zone, the current deadline instant and timestamps, never sample content or evidence metadata. Both audit and evidence read grants are required. Orphaned audit records are excluded and reads above 1,000 papers explicitly mark the inbox incomplete. The projection uses saved deadlines only; it creates no duplicate task records, email reminders or automatic CAPA.
 
 ## Bulk sample entry
 
@@ -27,3 +27,11 @@ In an editable draft, open **Import samples from CSV**. Download the template or
 The entire import is rejected on malformed rows, missing/oversized references or notes, duplicate references (including the current draft, ignoring case and outer whitespace), more than 100 combined samples, or a sample count above the current population. Files are limited to 1 MB. Changing population or current samples revalidates the preview. No rows are silently skipped or replaced. Clearing the import does not delete existing draft samples.
 
 Imports append references and notes only. Every new sample is Pending with no evidence version; choose results and pinned evidence manually. Preview and append are local and do not save a workpaper. **Save draft** uses the existing authorized, revision-checked transaction and history; submission and independent review requirements remain unchanged. This is bulk entry of a human-selected sample, not statistical selection or automatic testing.
+
+## Preparation and review deadlines
+
+Drafts may have a preparation due date and a review due date, entered together with an IANA time zone. Both dates may be empty; existing undated records remain valid. Review cannot be due before preparation. Deadlines mean the end of the selected local calendar day, including daylight-saving transitions.
+
+My Work uses preparation for drafts (including returned, withdrawn and reopened papers), switches to review on submission, and removes the active deadline on approval or cancellation. Its overdue filters, sorting and exports use the server-computed instant. Both planned dates remain visible in details, revision history and immutable report/closure snapshots. Dates never create duplicate tasks or send email.
+
+Only existing authorized draft editors can change the dates. Submitted papers must be withdrawn/returned, and approved papers reopened with a reason before edits. Existing revision conflicts, atomic history and closed-audit guards apply. Saves from older clients that omit the new fields preserve the current schedule; explicitly emptying both dates removes it. No automatic rescheduling occurs after return or reopening. Workpaper email reminders and business-day adjustment remain separate work.

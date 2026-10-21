@@ -117,3 +117,7 @@ Müşteri IdP/e-posta/ticket kabulü, yedek saklama ve geri dönüş tatbikatı 
 ## Personal register preferences
 
 Named register views use per-user/module browser local storage and require no server configuration or migration. They do not grant access, modify records or enter database backups. Browser site-data clearing removes them; browser-profile access can expose names, search text and filter values. See [Saved register views](saved-register-views.md) for limits and recovery.
+
+### Workpaper deadlines
+
+Optional paired preparation/review deadlines use each workpaper's IANA time zone. Legacy undated records need no migration. Dates participate in existing revision-checked draft writes, history, report integrity and closed-audit restrictions. My Work switches to the review deadline after submission and removes active deadlines for approved/cancelled work. Older clients that omit scheduling fields preserve saved dates. This feature does not queue email; workpaper reminder transport remains out of scope. See [Audit workpapers](audit-workpapers.md#preparation-and-review-deadlines).

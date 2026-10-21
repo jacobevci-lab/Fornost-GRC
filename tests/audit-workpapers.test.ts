@@ -11,7 +11,7 @@ import { auditClosureBlockers } from '../app/audit-closure';
 import { readWorkpapers, readWorkpaperWork, mutateWorkpaper } from '../app/audit-workpaper-store';
 import { readAuditReportSource, createAuditStatusReport, readAuditStatusReport } from '../app/audit-status-report-store';
 import { auditWorkpaperSchema, auditWorkpaperSourceTriggers, auditWorkpaperClosureGuards } from '../app/audit-workpaper-schema';
-import { emptyWorkpaper, validateWorkpaper, requireWorkpaperComplete, type WorkpaperFields } from '../app/audit-workpapers';
+import { emptyWorkpaper, validateWorkpaper, requireWorkpaperComplete, workpaperDueAt, type WorkpaperFields } from '../app/audit-workpapers';
 const owner: Actor = { id:'o', email:'owner@example.com', name:'Owner', role:'Editor', source:'local' };
 const reviewer: Actor = { ...owner, id:'r', email:'reviewer@example.com' };
 const admin: Actor = { ...owner, id:'a', email:'admin@example.com', role:'Admin' };
@@ -111,7 +111,7 @@ test('inbox projects current lifecycle without evidence, excludes orphan parents
   await f.act('save', owner, { fields });
   const work = await readWorkpaperWork(f.db, owner);
   assert.equal(work.complete, true); assert.equal(work.workpapers.length, 1);
-  assert.deepEqual(Object.keys(work.workpapers[0]).sort(), ['id','auditId','title','status','owner','reviewer','createdAt','updatedAt'].sort());
+  assert.deepEqual(Object.keys(work.workpapers[0]).sort(), ['id','auditId','title','status','owner','reviewer','dueDate','reviewDueDate','timeZone','dueAt','createdAt','updatedAt'].sort());
   assert.equal(work.workpapers[0].status, 'draft');
   await f.act('submit'); assert.equal((await readWorkpaperWork(f.db, reviewer)).workpapers[0].status, 'submitted');
   await f.act('return', reviewer); assert.equal((await readWorkpaperWork(f.db, owner)).workpapers[0].status, 'draft');
@@ -141,5 +141,53 @@ test('shared workpaper links require evidence access and exact audit parent',asy
  assert.equal(await resolveRecordLink(f.db,owner,{...target,auditId:'audit-b'}),null);
  assert.equal(await resolveRecordLink(f.db,{...owner,moduleAccess:{mode:'scoped',modules:{'Denetim Yönetimi':'read'}}},target),null);
  f.sqlite.exec("DELETE FROM simple_audits WHERE id='audit-a'");assert.equal(await resolveRecordLink(f.db,owner,target),null);
+ }finally{f.sqlite.close();}
+});
+
+test('optional deadlines validate paired dates, ordering and IANA zones without inventing legacy dates', () => {
+ const legacy = { ...fields }; delete legacy.dueDate; delete legacy.reviewDueDate; delete legacy.timeZone;
+ assert.equal(validateWorkpaper(legacy).dueDate, '');
+ assert.equal(workpaperDueAt({status:'draft'}), '');
+ for (const patch of [{dueDate:'2026-02-30',reviewDueDate:'2026-03-01'}, {dueDate:'2026-10-22',reviewDueDate:'2026-10-21'}, {dueDate:'2026-10-21'}, {reviewDueDate:'2026-10-21'}, {dueDate:null}, {reviewDueDate:42}]) assert.throws(()=>validateWorkpaper({...fields,...patch}), /dates/);
+ for (const timeZone of ['', 'Mars/Base', null, 42]) assert.throws(()=>validateWorkpaper({...fields,timeZone}), /timezone/);
+ const p = {dueDate:'2026-03-08',reviewDueDate:'2026-11-01',timeZone:'America/New_York'};
+ assert.equal(workpaperDueAt({...p,status:'draft'}), '2026-03-09T03:59:59.999Z');
+ assert.equal(workpaperDueAt({...p,status:'submitted'}), '2026-11-02T04:59:59.999Z');
+ assert.equal(workpaperDueAt({...p,status:'approved'}), '');
+ assert.equal(workpaperDueAt({...p,status:'cancelled'}), '');
+ assert.equal(workpaperDueAt({dueDate:'2026-10-21',reviewDueDate:'2026-10-21',timeZone:'Europe/Istanbul',status:'draft'}), '2026-10-21T20:59:59.999Z');
+});
+
+test('deadlines survive lifecycle, legacy saves and immutable reports, and can be explicitly cleared', async () => {
+ const f=await fixture();try{
+  const schedule={dueDate:'2026-10-20',reviewDueDate:'2026-10-23',timeZone:'Europe/Istanbul'};
+  await f.act('save',owner,{fields:{...fields,...schedule}});
+  const inbox=async()=>(await readWorkpaperWork(f.db,owner)).workpapers[0];
+  assert.equal((await inbox()).dueAt,'2026-10-20T20:59:59.999Z');
+  const legacy={...fields};delete legacy.dueDate;delete legacy.reviewDueDate;delete legacy.timeZone;
+  await f.act('save',owner,{fields:legacy});assert.equal((await f.row()).dueDate,schedule.dueDate);
+  const source=await readAuditReportSource(f.db,admin,'audit-a');
+  const saved=await createAuditStatusReport(f.db,admin,{auditId:'audit-a',reportId:`ARP-${crypto.randomUUID()}`,expectedSourceRevision:source.sourceRevision,title:'Scheduled sampling',summary:'Preserve preparation and independent review deadlines.',limitations:''});
+  await f.act('submit');assert.equal((await inbox()).dueAt,'2026-10-23T20:59:59.999Z');
+  await f.act('return',reviewer);assert.equal((await inbox()).dueAt,'2026-10-20T20:59:59.999Z');
+  await f.act('submit');await f.act('approve',reviewer);assert.equal((await inbox()).dueAt,'');
+  await f.act('reopen');assert.equal((await inbox()).dueAt,'2026-10-20T20:59:59.999Z');
+  const stale=await f.row();await f.act('save',owner,{fields:{...fields,dueDate:'',reviewDueDate:'',timeZone:'UTC'}});
+  assert.equal((await inbox()).dueAt,'');
+  await assert.rejects(f.act('save',owner,{fields:{...fields,...schedule},expectedRevision:stale.revision}),/conflict/);
+  const report=await readAuditStatusReport(f.db,admin,'audit-a',saved.id);assert.equal(report.integrity,'verified');
+  assert.equal(report.snapshot.items.find(i=>i.kind==='workpaper')?.record.data.reviewDueDate,schedule.reviewDueDate);
+  const events=f.sqlite.prepare('SELECT snapshot_json FROM audit_workpaper_events ORDER BY rowid').all();
+  assert.equal(JSON.parse(String(events[0].snapshot_json)).timeZone,schedule.timeZone);
+  assert.equal(JSON.parse(String(events.at(-1)?.snapshot_json)).dueDate,'');
+ }finally{f.sqlite.close();}
+});
+
+test('deadline edits remain atomic when history persistence fails', async () => {
+ const f=await fixture();try{
+  await f.act('save',owner,{fields});const before=await f.row();
+  f.sqlite.exec("CREATE TRIGGER reject_deadline_event BEFORE INSERT ON audit_workpaper_events BEGIN SELECT RAISE(ABORT,'injected'); END");
+  await assert.rejects(f.act('save',owner,{fields:{...fields,dueDate:'2026-10-21',reviewDueDate:'2026-10-22',timeZone:'UTC'}}),/injected/);
+  assert.deepEqual(await f.row(),before);
  }finally{f.sqlite.close();}
 });

@@ -94,7 +94,8 @@ export function projectEnterpriseWork(source: EnterpriseWorkSource, payload: unk
         for (const item of payload.workpapers) if (object(item)) counts.set(text(item.id), (counts.get(text(item.id)) || 0) + 1);
         for (const item of payload.workpapers) {
           if (!object(item) || !text(item.id) || counts.get(text(item.id)) !== 1 || !text(item.auditId) || !text(item.title) || !text(item.owner) || !text(item.reviewer) || !['draft', 'submitted', 'approved', 'cancelled'].includes(text(item.status))) { complete = false; continue; }
-          add('audit-workpaper', item, { title: item.title, auditId: item.auditId, owner: item.owner, reviewer: item.status === 'submitted' ? item.reviewer : '' }, ['approved', 'cancelled'].includes(text(item.status)));
+          if (item.dueAt !== undefined && (typeof item.dueAt !== 'string' || (item.dueAt && !Number.isFinite(Date.parse(item.dueAt))))) { complete = false; continue; }
+          add('audit-workpaper', item, { ...(text(item.dueAt) && ['draft', 'submitted'].includes(text(item.status)) ? { dueDate: item.dueAt } : {}), title: item.title, auditId: item.auditId, owner: item.owner, reviewer: item.status === 'submitted' ? item.reviewer : '' }, ['approved', 'cancelled'].includes(text(item.status)));
         }
       }
     }
