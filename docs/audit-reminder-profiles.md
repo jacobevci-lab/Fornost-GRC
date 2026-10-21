@@ -1,6 +1,6 @@
 # Audit reminder calendars and escalation
 
-In Audit Management → selected audit → Requests and review → Reminder calendar and escalation, an audit writer can configure this audit's evidence-request notifications. Existing audits retain calendar days, assignment, one day before due, due day and three days overdue until a profile is saved.
+In Audit Management → selected audit → Requests and review → Reminder calendar and escalation, an audit writer can configure this audit's evidence-request notifications and opt-in milestone reminders. Existing audits retain calendar days, assignment, one day before due, due day and three days overdue until a profile is saved.
 
 ## Behavior
 
@@ -21,3 +21,6 @@ Profile changes are recorded in the request event ledger. They are operational s
 ## Validation
 
 Date/weekday/profile limits, calendar compatibility, custom weekends, holiday skipping, DST/midnight, latest milestone, recipient deduplication, inactive accounts, stale revisions, commit-time account/workflow/parent races and transactional rollback have regression coverage. Isolated browser QA covers profile persistence, invalid dates, duplicate-submit prevention, viewer rejection, stale-save draft retention, recovery and TR/EN in both existing themes at desktop/mobile widths.
+
+
+Milestones have a separate per-task opt-in, default off, in Plan and scope. They use their own time zone and have no assignment email; only advance/due/overdue and optional escalation phases apply. Profile saves atomically withdraw both request and milestone queued notices. Milestone recipients require active audit-write access; task emails omit narratives and evidence. Enabling a task or saving the shared profile refreshes its queue, and the common scheduler reconciles it before dispatch.

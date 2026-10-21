@@ -1,3 +1,10 @@
+import {milestoneNotifications,syncMilestoneNotifications,milestoneNotificationCurrent} from '../app/audit-milestone-notifications';
+import {defaultAuditReminderProfile} from '../app/audit-reminder-profile';
+import {saveAuditReminderProfile} from '../app/audit-reminder-store';
+import {syncAssuranceNotificationOutbox} from '../app/assurance-executive-operations';
+import {notificationRecordTarget} from '../app/notification-record-link';
+import {dispatchAssuranceNotifications} from '../app/assurance-notification-dispatch';
+import type {AssuranceDeliveryOutbox} from '../app/assurance-notification-delivery';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {DatabaseSync,type SQLInputValue} from 'node:sqlite';
@@ -185,3 +192,57 @@ test('recurrence rejects a source changed after initial read even when the graph
  f.raceRead(()=>f.sqlite.prepare("UPDATE audit_milestones SET revision='new-source',data_json=json_set(data_json,'$.dueDate','2027-01-31') WHERE id=?").run(id));
  await assert.rejects(f.act('repeat'),/conflict/);assert.equal((await readMilestones(f.db,'a')).milestones.length,1);assert.equal(f.sqlite.prepare('SELECT count(*) n FROM audit_milestone_events').get()?.n,2);
 }finally{f.sqlite.close();}});
+
+
+const reminderNow=new Date('2026-10-20T10:00:00Z');
+const queuedMilestones=(f:Awaited<ReturnType<typeof fixture>>)=>f.sqlite.prepare("SELECT * FROM continuous_assurance_notification_outbox WHERE route='audit-milestone' AND status='queued'").all() as AssuranceDeliveryOutbox[];
+test('milestone reminders default off and respect advance, due, overdue, escalation and working days in task time zone',async()=>{const f=await fixture();try{
+ await f.act('save');assert.deepEqual(milestoneNotifications((await f.row())!,reminderNow),[]);
+ await f.act('save',owner,{fields:{...fields,remindersEnabled:true}});const row=(await f.row())!;
+ assert.equal(milestoneNotifications(row,new Date('2026-10-18T10:00Z')).length,0);assert.equal(milestoneNotifications(row,new Date('2026-10-19T10:00Z'))[0].milestone,'due-soon');assert.equal(milestoneNotifications(row,reminderNow)[0].milestone,'due');
+ const saved={revision:'p',profile:{...defaultAuditReminderProfile,escalationDays:3,escalationRecipient:admin.email}};
+ assert.deepEqual(milestoneNotifications(row,new Date('2026-10-23T10:00Z'),saved).map(n=>n.milestone),['overdue','escalation']);
+ assert.equal(milestoneNotifications(row,new Date('2026-10-24T10:00Z'),{...saved,profile:{...saved.profile,mode:'business'}}).length,0);
+ assert.equal(milestoneNotifications(row,reminderNow,{...saved,profile:{...saved.profile,mode:'business',holidays:['2026-10-20']}}).length,0);
+ assert.equal(milestoneNotifications({...row,timeZone:'America/New_York'},new Date('2026-10-20T01:00Z'))[0].milestone,'due-soon');
+ assert.throws(()=>validateMilestone({...fields,remindersEnabled:'true'}),/fields/);
+}finally{f.sqlite.close();}});
+test('milestone sync deduplicates, omits narratives, preserves audit-only recipients and survives other publishers',async()=>{const f=await fixture();try{
+ f.sqlite.prepare('INSERT INTO user_module_access VALUES(?,?)').run(owner.id,JSON.stringify({mode:'scoped',modules:{'Denetim Yönetimi':'write'}}));
+ await f.act('save',owner,{fields:{...fields,remindersEnabled:true}});await syncMilestoneNotifications(f.db,reminderNow);await syncMilestoneNotifications(f.db,reminderNow);let queued=queuedMilestones(f);assert.equal(queued.length,1);assert.equal(queued[0].recipient,owner.email);assert.equal(await milestoneNotificationCurrent(f.db,queued[0],reminderNow),true);
+ assert.ok(!queued[0].body.includes(fields.title));assert.ok(!queued[0].body.includes(fields.description));assert.deepEqual(notificationRecordTarget(queued[0]),{module:'Denetim Yönetimi',kind:'audit-milestone',ref:id,auditId:'a'});
+ await syncAssuranceNotificationOutbox(f.db,[],true,reminderNow);assert.equal(queuedMilestones(f).length,1);
+ const old=queued[0];await f.act('save');assert.equal((await f.row())?.remindersEnabled,true);assert.equal(queuedMilestones(f).length,0);assert.equal(await milestoneNotificationCurrent(f.db,old,reminderNow),false);await syncMilestoneNotifications(f.db,reminderNow);queued=queuedMilestones(f);assert.equal(queued.length,1);
+ await f.act('save',owner,{fields:{...fields,remindersEnabled:false}});await syncMilestoneNotifications(f.db,reminderNow);assert.equal(queuedMilestones(f).length,0);
+}finally{f.sqlite.close();}});
+test('profile changes invalidate milestone mail and resync produces current escalation recipients',async()=>{const f=await fixture();try{
+ await f.act('save',owner,{fields:{...fields,remindersEnabled:true}});await syncMilestoneNotifications(f.db,reminderNow);const old=queuedMilestones(f)[0];
+ await saveAuditReminderProfile(f.db,admin,{auditId:'a',expectedRevision:'',expectedWorkflowRevision:'',profile:{...defaultAuditReminderProfile,escalationDays:3,escalationRecipient:admin.email}});
+ assert.equal(queuedMilestones(f).length,0);assert.equal(await milestoneNotificationCurrent(f.db,old,reminderNow),false);
+ await syncMilestoneNotifications(f.db,new Date('2026-10-23T10:00Z'));assert.deepEqual(queuedMilestones(f).map(n=>n.recipient).sort(),[admin.email,owner.email]);
+ f.sqlite.exec("UPDATE local_users SET status='Disabled' WHERE id='a'");await syncMilestoneNotifications(f.db,new Date('2026-10-23T10:00Z'));assert.deepEqual(queuedMilestones(f).map(n=>n.recipient),[owner.email]);
+}finally{f.sqlite.close();}});
+test('closed, deleted, completed and revoked milestones cannot pass the final delivery guard',async()=>{for(const mode of ['closed','deleted','completed','revoked','forged']){const f=await fixture();try{
+ await f.act('save',owner,{fields:{...fields,remindersEnabled:true}});await syncMilestoneNotifications(f.db,reminderNow);const item=queuedMilestones(f)[0];
+ if(mode==='closed')f.sqlite.exec("INSERT INTO audit_closure_state VALUES('a','closed','r','','')");
+ if(mode==='deleted')f.sqlite.exec("DELETE FROM simple_audits WHERE id='a'");
+ if(mode==='completed')await f.act('complete');
+ if(mode==='revoked')f.sqlite.prepare('INSERT INTO user_module_access VALUES(?,?)').run(owner.id,JSON.stringify({mode:'scoped',modules:{}}));
+ if(mode==='forged')item.source_json=JSON.stringify({kind:'audit-milestone',auditId:'b',milestoneId:id,revision:(await f.row())?.revision});
+ assert.equal(await milestoneNotificationCurrent(f.db,item,reminderNow),false);
+ if(mode!=='forged'){await syncMilestoneNotifications(f.db,reminderNow);assert.equal(queuedMilestones(f).length,0);}
+}finally{f.sqlite.close();}}});
+test('milestone mutation rollback preserves queued reminders and valid recurrence copies opt-in',async()=>{const f=await fixture();try{
+ await f.act('save',owner,{fields:{...fields,remindersEnabled:true,recurrence:'monthly'}});await syncMilestoneNotifications(f.db,reminderNow);const item=queuedMilestones(f)[0];
+ f.sqlite.exec("CREATE TRIGGER fail_reminder_event BEFORE INSERT ON audit_milestone_events BEGIN SELECT RAISE(ABORT,'event-failed');END");await assert.rejects(f.act('complete'),/event-failed/);assert.equal(queuedMilestones(f)[0].id,item.id);f.sqlite.exec('DROP TRIGGER fail_reminder_event');
+ await f.act('complete');assert.equal(queuedMilestones(f).length,0);const child=await f.act('repeat');assert.equal((await readMilestones(f.db,'a')).milestones.find(m=>m.id===child.id)?.remindersEnabled,true);
+ await syncMilestoneNotifications(f.db,reminderNow);assert.equal(queuedMilestones(f).length,0);
+}finally{f.sqlite.close();}});
+test('real dispatcher uses mocked transport once, preserves exact milestone link, and refuses stale recipient mail',async()=>{const f=await fixture(),originalFetch=globalThis.fetch,sent:string[]=[];try{
+ globalThis.fetch=async(_url,init)=>{sent.push(String(init?.body));return new Response('{}',{status:200});};
+ f.sqlite.exec("CREATE TABLE integration_settings(kind TEXT,provider TEXT,enabled INTEGER,config_json TEXT,secret_ciphertext TEXT)");f.sqlite.prepare('INSERT INTO integration_settings VALUES(?,?,?,?,NULL)').run('email','email-api',1,JSON.stringify({endpoint:'https://mail.example.com/send',sender:'sender@example.com',applicationUrl:'https://grc.example.com/fornost-grc/'}));
+ const due=new Date().toISOString().slice(0,10);await f.act('save',owner,{fields:{...fields,dueDate:due,timeZone:'UTC',remindersEnabled:true}});await syncMilestoneNotifications(f.db,new Date());
+ let result=await dispatchAssuranceNotifications(f.db,{}, {actor:admin.email,trigger:'manual'});assert.equal(result.sent,1);assert.equal(sent.length,1);assert.ok(sent[0].includes('kind=audit-milestone'));assert.ok(sent[0].includes('ref='+id));
+ result=await dispatchAssuranceNotifications(f.db,{}, {actor:admin.email,trigger:'scheduled'});assert.equal(result.sent,0);assert.equal(sent.length,1);
+ await f.act('save',owner,{fields:{...fields,dueDate:due,timeZone:'UTC',remindersEnabled:true}});await syncMilestoneNotifications(f.db,new Date());f.sqlite.exec("UPDATE local_users SET status='Disabled' WHERE id='o'");result=await dispatchAssuranceNotifications(f.db,{}, {actor:admin.email,trigger:'manual'});assert.equal(result.sent,0);assert.equal(result.skipped,1);assert.equal(sent.length,1);
+}finally{globalThis.fetch=originalFetch;f.sqlite.close();}});
