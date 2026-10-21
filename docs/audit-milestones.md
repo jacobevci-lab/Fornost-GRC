@@ -28,8 +28,14 @@ My Work opens the exact audit, Plan and scope tab and selected milestone. Comple
 
 SQLite-backed tests cover roles, current grants, active assignments, stale/cross-parent writes, commit-time races, event rollback, local/DST deadlines, retained history, source/report integrity, closed-audit locks and bounds. The isolated browser suite exercises creation, duplicate-click prevention, conflict recovery, owner lifecycle, exact My Work navigation, loading failure/retry, accessibility and TR/EN × both themes × desktop/mobile layouts.
 
-Milestone templates, dependencies, recurrence, annual capacity planning, reminder emails and independent milestone sign-off remain separate work. Existing narrative notes are not silently converted into invented assignments or dates.
+Dependencies, recurrence, annual capacity planning, reminder emails and independent milestone sign-off remain separate work. Existing narrative notes are not silently converted into invented assignments or dates.
 
 ## Exact task links
 
 A saved milestone exposes **Copy record link** outside its edit controls, including for read-only users and completed/cancelled tasks. The link resolves the exact milestone and parent audit after sign-in and opens **Plan and scope** with that task focused. Current audit module grants are checked on every resolution; a wrong parent, deleted audit/task or revoked access returns unavailable. A link grants no write permissions and does not schedule email reminders. Unsaved drafts and failed/unverified loads do not expose a new copy action.
+
+## Reusable draft templates
+
+Open **Templates** in a new or editable milestone. Four bilingual starters cover scope agreement, evidence preparation, fieldwork and closure preparation. Preview the proposed title and expected output beside the current draft. Populated fields start unchecked; select only the fields to replace and choose **Apply selected fields to draft**. Nothing is written until **Save milestone**. The existing owner, due date, time zone, status, revision and reason stay unchanged; terminal tasks must still be reopened before editing.
+
+Name and download the current draft as a JSON template to reuse customized text. Paste that JSON into another task's Templates panel and preview it. Only title and description are accepted; wrong types/versions, unknown fields and over-limit text are rejected without changing the draft. Templates are portable text, not centrally shared records, task batches, dependencies, scheduled reminders or approvals. Review exported business text before sharing it.
