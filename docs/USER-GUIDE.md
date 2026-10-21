@@ -81,6 +81,9 @@ Başlamış denetime yeni talep eklerseniz önce sessiz taslak olur; **Review ad
 
 ### Çalışma kâğıdı ve manuel örnekleme
 
+İsteğe bağlı **Hazırlama termini**, **İnceleme termini** ve **Termin saat dilimi** ile çalışma kâğıdını planlayabilirsiniz. İki tarihi birlikte girin; inceleme tarihi hazırlamadan önce olamaz. İşlerim taslakta hazırlama, gönderimde inceleme terminini izler. İade/geri çekme/yeniden açma hazırlama tarihine döner; tarihler otomatik ötelenmez. Onay/iptalde aktif termin kalkar, kayıt ve geçmişte iki tarih korunur. Hesaplama seçili saat diliminde gün sonuna göredir. Bu tarihler e-posta göndermez.
+
+
 **Workpapers** sekmesinde amaç, test prosedürü, popülasyon/kaynak, seçim yaklaşımı/gerekçesi, sahip ve farklı reviewer girin. En fazla 100 test birimini referans, sonuç, not ve sabitlenmiş kanıt sürümüyle kaydedin. Sonuç ve kanıtları tamamlayıp sahip olarak incelemeye sunun. Reviewer onaylar veya geri gönderir; içeriği daha önce düzenleyen kişi sonradan reviewer yapılarak aynı kâğıdı onaylayamaz.
 
 Tam sayım seçilmişse bütün popülasyon temsil edilmelidir; 100'ü aşan popülasyon bu sınır içinde tamamlanmış sayım olarak gösterilemez. Bu araç istatistiksel/rastgele örnekleme veya güven aralığı hesaplamaz. İstisna sonucu otomatik CAPA oluşturmaz; ilgili bulguyu ayrıca yönetin. Onaylı kâğıdı değiştirmek için gerekçeli yeniden açma gerekir. [Çalışma kâğıdı rehberi](audit-workpapers.md).

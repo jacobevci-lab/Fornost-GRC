@@ -5,7 +5,7 @@ import { canReadModule, canWriteModule, parseModuleAccess } from './module-acces
 import { AuditRequestError } from './audit-requests';
 import { auditRequestId, readRequestEvidence, requireAuditParent } from './audit-request-store';
 import { ensureAuditClosureSchema } from './audit-closure-schema';
-import { requireWorkpaperComplete, validateWorkpaper, type AuditWorkpaper } from './audit-workpapers';
+import { requireWorkpaperComplete, validateWorkpaper, workpaperDueAt, type AuditWorkpaper } from './audit-workpapers';
 type Stored = { id: string; audit_id: string; revision: string; data_json: string; created_at: string; updated_at: string };
 export function publicWorkpaper(row: Stored): AuditWorkpaper { return { ...JSON.parse(row.data_json), id: row.id, auditId: row.audit_id, revision: row.revision, createdAt: row.created_at, updatedAt: row.updated_at }; }
 export async function readWorkpapers(db: D1Database, auditId: string) {
@@ -20,10 +20,12 @@ export async function readWorkpaperWork(db: D1Database, actor: Actor) {
   const rows = await db.prepare(`SELECT p.id,p.audit_id AS auditId,
     json_extract(p.data_json,'$.title') AS title,json_extract(p.data_json,'$.status') AS status,
     json_extract(p.data_json,'$.owner') AS owner,json_extract(p.data_json,'$.reviewer') AS reviewer,
+    json_extract(p.data_json,'$.dueDate') AS dueDate,json_extract(p.data_json,'$.reviewDueDate') AS reviewDueDate,
+    json_extract(p.data_json,'$.timeZone') AS timeZone,
     p.created_at AS createdAt,p.updated_at AS updatedAt
     FROM audit_workpapers p JOIN simple_audits a ON a.id=p.audit_id
-    ORDER BY p.updated_at DESC,p.id LIMIT 1001`).all();
-  return { workpapers: rows.results.slice(0, 1000), complete: rows.results.length <= 1000 };
+    ORDER BY p.updated_at DESC,p.id LIMIT 1001`).all<Record<string, unknown> & { status: string; dueDate: string | null; reviewDueDate: string | null; timeZone: string | null }>();
+  return { workpapers: rows.results.slice(0, 1000).map(row => ({ ...row, dueAt: workpaperDueAt({ ...row, dueDate: row.dueDate ?? '', reviewDueDate: row.reviewDueDate ?? '', timeZone: row.timeZone ?? 'UTC' }) })), complete: rows.results.length <= 1000 };
 }
 export async function mutateWorkpaper(db: D1Database, actor: Actor, input: Record<string, unknown>, now = new Date()) {
   if (!canWriteModule(actor, 'Denetim Yönetimi') || !canReadModule(actor, 'Kanıtlar')) throw new AuditRequestError('forbidden', 403);
@@ -40,7 +42,9 @@ export async function mutateWorkpaper(db: D1Database, actor: Actor, input: Recor
   if (action === 'save') {
     if (current && current.status !== 'draft') throw new AuditRequestError('transition', 409);
     if (current && email !== current.owner && actor.role !== 'Admin') throw new AuditRequestError('owner', 403);
-    fields = validateWorkpaper(input.fields); status = 'draft';
+    // Older clients omit scheduling fields; they must not silently remove existing deadlines.
+    const supplied = input.fields;
+    fields = validateWorkpaper(supplied && typeof supplied === 'object' && !Array.isArray(supplied) ? { dueDate: current?.dueDate, reviewDueDate: current?.reviewDueDate, timeZone: current?.timeZone, ...supplied } : supplied); status = 'draft';
     if (actor.role !== 'Admin' && fields.owner !== email) throw new AuditRequestError('owner', 403);
   } else {
     if (!current) throw new AuditRequestError('missing', 404);
