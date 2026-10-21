@@ -16,13 +16,14 @@ const owner:Actor={id:'o',name:'Owner',email:'owner@example.com',role:'Editor',s
 const id='AMT-00000000-0000-0000-0000-000000000001',fields={title:'Planning meeting',description:'Agree scope and review dates',owner:owner.email,dueDate:'2026-10-20',timeZone:'Europe/Istanbul'};
 async function fixture(){
  const sqlite=new DatabaseSync(':memory:');sqlite.exec(`CREATE TABLE simple_audits(id TEXT PRIMARY KEY,name TEXT,template TEXT,audit_type TEXT,auditor TEXT,audit_owner TEXT,status TEXT);INSERT INTO simple_audits VALUES('a','Audit A','','','','',''),('b','Audit B','','','','','');CREATE TABLE simple_grc_metadata(key TEXT PRIMARY KEY,value TEXT,updated_at TEXT);CREATE TABLE simple_grc_records(id TEXT PRIMARY KEY,module TEXT,data_json TEXT,created_at TEXT,updated_at TEXT);CREATE TABLE local_users(id TEXT PRIMARY KEY,name TEXT,email TEXT,role TEXT,status TEXT);CREATE TABLE user_module_access(user_id TEXT PRIMARY KEY,policy_json TEXT);INSERT INTO local_users VALUES('o','Owner','owner@example.com','Editor','Active'),('a','Admin','admin@example.com','Admin','Active');`);
- function prepare(sql:string,args:SQLInputValue[]=[]){return{bind(...v:SQLInputValue[]){return prepare(sql,v);},execute(){return{results:sqlite.prepare(sql).all(...args),success:true,meta:{changes:1}};},async all(){return this.execute();},async run(){return this.execute();},async first(){return sqlite.prepare(sql).get(...args)||null;}};}
+ let readHook:(()=>void)|undefined;
+ function prepare(sql:string,args:SQLInputValue[]=[]){return{bind(...v:SQLInputValue[]){return prepare(sql,v);},execute(){return{results:sqlite.prepare(sql).all(...args),success:true,meta:{changes:1}};},async all(){if(sql==='SELECT * FROM audit_milestones WHERE audit_id=? ORDER BY id LIMIT 101'){const next=readHook;readHook=undefined;next?.();}return this.execute();},async run(){return this.execute();},async first(){return sqlite.prepare(sql).get(...args)||null;}};}
  let hook:(()=>void)|undefined;
  const db={prepare,async batch(stmts:ReturnType<typeof prepare>[]){const next=hook;hook=undefined;next?.();sqlite.exec('BEGIN');try{const result=stmts.map(s=>s.execute());sqlite.exec('COMMIT');return result;}catch(e){sqlite.exec('ROLLBACK');throw e;}}} as unknown as D1Database;
  await ensureAuditClosureSchema(db);
  const row=async()=>(await readMilestones(db,'a')).milestones.find(m=>m.id===id);
  const act=async(action:string,actor=owner,extra:Record<string,unknown>={})=>mutateMilestone(db,actor,{auditId:'a',id,action,expectedRevision:(await row())?.revision||'',fields,note:'Documented outcome or reason',...extra},new Date('2026-10-20T10:00:00Z'));
- return{db,sqlite,row,act,race:(f:()=>void)=>{hook=f;}};
+ return{db,sqlite,row,act,raceRead:(f:()=>void)=>{readHook=f;},race:(f:()=>void)=>{hook=f;}};
 }
 test('milestones validate fields, real dates and IANA zones; deadlines honor DST',()=>{
  assert.deepEqual(validateMilestone(fields),fields);
@@ -176,4 +177,11 @@ test('recurrence and lineage are included in immutable report snapshots and expo
  await createAuditStatusReport(f.db,admin,{auditId:'a',reportId,expectedSourceRevision:source.sourceRevision,title:'Recurring milestones',summary:'Calendar tasks and their lineage',limitations:''});
  const report=await readAuditStatusReport(f.db,admin,'a',reportId);const saved=report.snapshot.items.find(item=>item.record.id===child.id)!;assert.equal(saved.record.data.recurrenceOf,id);assert.equal(saved.record.data.recurrence,'quarterly');assert.match(auditStatusReportCsv(report,false),/Quarterly/);
  await dependencyAct(f,child.id,'cancel');assert.equal((await readAuditStatusReport(f.db,admin,'a',reportId)).integrity,'verified');
+}finally{f.sqlite.close();}});
+
+
+test('recurrence rejects a source changed after initial read even when the graph snapshot already contains the new revision',async()=>{const f=await fixture();try{
+ await f.act('save',owner,{fields:{...fields,recurrence:'monthly'}});await f.act('complete');
+ f.raceRead(()=>f.sqlite.prepare("UPDATE audit_milestones SET revision='new-source',data_json=json_set(data_json,'$.dueDate','2027-01-31') WHERE id=?").run(id));
+ await assert.rejects(f.act('repeat'),/conflict/);assert.equal((await readMilestones(f.db,'a')).milestones.length,1);assert.equal(f.sqlite.prepare('SELECT count(*) n FROM audit_milestone_events').get()?.n,2);
 }finally{f.sqlite.close();}});
