@@ -1,9 +1,9 @@
 import { AuditRequestError, requestDate, requestDueAt, validateRequestTimeZone, type AuditRequestEvidence } from './audit-requests';
 export const workpaperStatusLabels = { draft: ['Taslak', 'Draft'], submitted: ['İncelemede', 'In review'], approved: ['Onaylandı', 'Approved'], cancelled: ['İptal edildi', 'Cancelled'] } as const;
 export type WorkpaperSample = { reference: string; result: 'pending' | 'pass' | 'exception'; note: string; versionId: string };
-export type WorkpaperFields = { title: string; objective: string; procedure: string; population: string; populationCount: number; method: 'judgmental' | 'census'; rationale: string; conclusion: string; owner: string; reviewer: string; samples: WorkpaperSample[]; dueDate?: string; reviewDueDate?: string; timeZone?: string };
+export type WorkpaperFields = { title: string; objective: string; procedure: string; population: string; populationCount: number; method: 'judgmental' | 'census'; rationale: string; conclusion: string; owner: string; reviewer: string; samples: WorkpaperSample[]; dueDate?: string; reviewDueDate?: string; timeZone?: string; remindersEnabled?: boolean };
 export type AuditWorkpaper = WorkpaperFields & { id: string; auditId: string; revision: string; status: keyof typeof workpaperStatusLabels; evidence: AuditRequestEvidence[]; note: string; createdAt: string; updatedAt: string };
-export const emptyWorkpaper: WorkpaperFields = { title: '', objective: '', procedure: '', population: '', populationCount: 1, method: 'judgmental', rationale: '', conclusion: '', owner: '', reviewer: '', samples: [], dueDate: '', reviewDueDate: '', timeZone: 'UTC' };
+export const emptyWorkpaper: WorkpaperFields = { title: '', objective: '', procedure: '', population: '', populationCount: 1, method: 'judgmental', rationale: '', conclusion: '', owner: '', reviewer: '', samples: [], dueDate: '', reviewDueDate: '', timeZone: 'UTC', remindersEnabled: false };
 export function validateWorkpaper(value: unknown): WorkpaperFields {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new AuditRequestError('fields');
   const v = value as Record<string, unknown>;
@@ -19,7 +19,9 @@ export function validateWorkpaper(value: unknown): WorkpaperFields {
     seen.add(s.reference.trim().toLowerCase()); return { reference: s.reference.trim(), result: s.result as WorkpaperSample['result'], note: s.note.trim(), versionId: s.versionId };
   });
   const schedule = validateWorkpaperSchedule(v);
-  return { ...schedule, title, objective, procedure, population, populationCount: Number(v.populationCount), method: v.method as WorkpaperFields['method'], rationale, conclusion, owner, reviewer, samples };
+  if (v.remindersEnabled !== undefined && typeof v.remindersEnabled !== 'boolean') throw new AuditRequestError('fields');
+  if (v.remindersEnabled && !schedule.dueDate) throw new AuditRequestError('dates');
+  return { ...schedule, remindersEnabled: v.remindersEnabled === true, title, objective, procedure, population, populationCount: Number(v.populationCount), method: v.method as WorkpaperFields['method'], rationale, conclusion, owner, reviewer, samples };
 }
 export function requireWorkpaperComplete(p: WorkpaperFields) {
   if (!p.samples.length || !p.conclusion.trim() || p.samples.some(s => s.result === 'pending' || !s.note || !s.versionId) || (p.method === 'census' && p.samples.length !== p.populationCount)) throw new AuditRequestError('incomplete');

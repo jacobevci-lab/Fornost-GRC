@@ -1,3 +1,4 @@
+import {syncWorkpaperNotifications} from './audit-workpaper-notifications';
 import {syncMilestoneNotifications} from './audit-milestone-notifications';
 import {syncAuditRequestNotifications} from "./audit-request-notifications";
 import {enrichAssuranceEscalationOwners,syncAssuranceNotificationOutbox,type AssuranceEscalationRecord} from "./assurance-executive-operations";
@@ -10,6 +11,7 @@ export async function runScheduledAssuranceOperations(db:D1Database,env:Record<s
  await syncAssuranceNotificationOutbox(db,enriched,settings.remindersEnabled,now);
  await syncAuditRequestNotifications(db,now);
  await syncMilestoneNotifications(db,now);
+ await syncWorkpaperNotifications(db,now);
  const dispatch=await dispatchAssuranceNotifications(db,env,{actor:"system:scheduled-dispatch",trigger:"scheduled",limit:50,now});
  const second=await reconcileAssuranceEscalations(db,new Date()),finalRows=await readAssuranceEscalationRows(db,5000),finalEnriched=await enrichAssuranceEscalationOwners(db,finalRows as AssuranceEscalationRecord[]);
  await syncAssuranceNotificationOutbox(db,finalEnriched,settings.remindersEnabled,new Date());

@@ -1,3 +1,10 @@
+import {workpaperNotifications,syncWorkpaperNotifications,workpaperNotificationCurrent} from '../app/audit-workpaper-notifications';
+import {defaultAuditReminderProfile} from '../app/audit-reminder-profile';
+import {saveAuditReminderProfile} from '../app/audit-reminder-store';
+import {syncAssuranceNotificationOutbox} from '../app/assurance-executive-operations';
+import {notificationRecordTarget} from '../app/notification-record-link';
+import {dispatchAssuranceNotifications} from '../app/assurance-notification-dispatch';
+import type {AssuranceDeliveryOutbox} from '../app/assurance-notification-delivery';
 import { resolveRecordLink } from '../app/record-link-store';
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -190,4 +197,70 @@ test('deadline edits remain atomic when history persistence fails', async () => 
   await assert.rejects(f.act('save',owner,{fields:{...fields,dueDate:'2026-10-21',reviewDueDate:'2026-10-22',timeZone:'UTC'}}),/injected/);
   assert.deepEqual(await f.row(),before);
  }finally{f.sqlite.close();}
+});
+
+const scheduledFields = { ...fields, dueDate:'2026-10-19', reviewDueDate:'2026-10-20', timeZone:'Europe/Istanbul', remindersEnabled:true };
+const queuedPapers = (f:Awaited<ReturnType<typeof fixture>>) => f.sqlite.prepare("SELECT * FROM continuous_assurance_notification_outbox WHERE route='audit-workpaper' AND status='queued'").all() as AssuranceDeliveryOutbox[];
+test('workpaper opt-in requires dates and uses phase recipient, local calendar, holidays and escalation',async()=>{
+ assert.throws(()=>validateWorkpaper({...fields,remindersEnabled:true}),/dates/);
+ assert.throws(()=>validateWorkpaper({...scheduledFields,remindersEnabled:'true'}),/fields/);
+ const f=await fixture();try{
+  await f.act('save',owner,{fields});assert.deepEqual(workpaperNotifications(await f.row(),now),[]);
+  await f.act('save',owner,{fields:scheduledFields});const row=await f.row();
+  assert.equal(workpaperNotifications(row,new Date('2026-10-17T12:00Z')).length,0);
+  assert.equal(workpaperNotifications(row,new Date('2026-10-18T12:00Z'))[0].phase,'due-soon');
+  assert.equal(workpaperNotifications(row,new Date('2026-10-18T21:00Z'))[0].phase,'due');
+  const saved={revision:'profile',profile:{...defaultAuditReminderProfile,escalationDays:3,escalationRecipient:admin.email}};
+  assert.deepEqual(workpaperNotifications(row,new Date('2026-10-22T12:00Z'),saved).map(n=>n.recipient),[owner.email,admin.email]);
+  assert.equal(workpaperNotifications(row,now,{...saved,profile:{...saved.profile,mode:'business',holidays:['2026-10-19']}}).length,0);
+  await f.act('submit');assert.equal(workpaperNotifications(await f.row(),now)[0].recipient,reviewer.email);
+  await f.act('approve',reviewer);assert.deepEqual(workpaperNotifications(await f.row(),now),[]);
+ }finally{f.sqlite.close();}
+});
+test('workpaper queue is idempotent, private, phase-aware and withdrawn atomically on lifecycle changes',async()=>{
+ const f=await fixture();try{
+  await f.act('save',owner,{fields:scheduledFields});await syncWorkpaperNotifications(f.db,now);await syncWorkpaperNotifications(f.db,now);
+  const old=queuedPapers(f)[0];assert.equal(queuedPapers(f).length,1);assert.equal(old.recipient,owner.email);
+  assert.equal(await workpaperNotificationCurrent(f.db,old,now),true);
+  assert.ok(!old.body.includes(fields.title));assert.ok(!old.body.includes(fields.samples[0].reference));
+  assert.deepEqual(notificationRecordTarget(old),{module:'Denetim Yönetimi',kind:'audit-workpaper',ref:'AWP-a',auditId:'audit-a'});
+  await syncAssuranceNotificationOutbox(f.db,[],true,now);assert.equal(queuedPapers(f).length,1);
+  f.sqlite.exec("CREATE TRIGGER fail_reminder_event BEFORE INSERT ON audit_workpaper_events BEGIN SELECT RAISE(ABORT,'event-failed');END");
+  await assert.rejects(f.act('submit'),/event-failed/);assert.equal(queuedPapers(f)[0].id,old.id);f.sqlite.exec('DROP TRIGGER fail_reminder_event');
+  await f.act('save',owner,{fields});assert.equal((await f.row()).remindersEnabled,false); // Explicit false from current form disables.
+  await f.act('save',owner,{fields:scheduledFields});await syncWorkpaperNotifications(f.db,now);
+  const legacy: WorkpaperFields = {...scheduledFields};delete legacy.remindersEnabled;await f.act('save',owner,{fields:legacy});assert.equal((await f.row()).remindersEnabled,true);
+  await f.act('submit');assert.equal(queuedPapers(f).length,0);assert.equal(await workpaperNotificationCurrent(f.db,old,now),false);
+  await syncWorkpaperNotifications(f.db,now);assert.equal(queuedPapers(f)[0].recipient,reviewer.email);
+  await f.act('return',reviewer);assert.equal(queuedPapers(f).length,0);await syncWorkpaperNotifications(f.db,now);assert.equal(queuedPapers(f)[0].recipient,owner.email);
+  await f.act('submit');await f.act('approve',reviewer);await syncWorkpaperNotifications(f.db,now);assert.equal(queuedPapers(f).length,0);
+  await f.act('reopen');await syncWorkpaperNotifications(f.db,now);assert.equal(queuedPapers(f).length,1);
+  await f.act('cancel');await syncWorkpaperNotifications(f.db,now);assert.equal(queuedPapers(f).length,0);
+ }finally{f.sqlite.close();}
+});
+test('workpaper profile changes cancel old queue and stale sources or evidence grants fail delivery checks',async()=>{
+ for(const mode of ['profile','closed','deleted','revoked','disabled','forged']){const f=await fixture();try{
+  await f.act('save',owner,{fields:scheduledFields});await syncWorkpaperNotifications(f.db,now);const item=queuedPapers(f)[0];
+  if(mode==='profile')await saveAuditReminderProfile(f.db,admin,{auditId:'audit-a',expectedRevision:'',expectedWorkflowRevision:'',profile:{...defaultAuditReminderProfile,beforeDays:2}});
+  if(mode==='closed')f.sqlite.exec("INSERT INTO audit_closure_state VALUES('audit-a','closed','r','','')");
+  if(mode==='deleted')f.sqlite.exec("DELETE FROM simple_audits WHERE id='audit-a'");
+  if(mode==='revoked')f.sqlite.prepare('INSERT INTO user_module_access VALUES(?,?)').run(owner.id,JSON.stringify({mode:'scoped',modules:{'Denetim Yönetimi':'write'}}));
+  if(mode==='disabled')f.sqlite.exec("UPDATE local_users SET status='Disabled' WHERE id='o'");
+  if(mode==='forged')item.source_json=JSON.stringify({kind:'audit-workpaper',auditId:'audit-b',workpaperId:'AWP-a',revision:(await f.row()).revision});
+  assert.equal(await workpaperNotificationCurrent(f.db,item,now),false,mode);
+  if(!['forged','profile'].includes(mode)){await syncWorkpaperNotifications(f.db,now);assert.equal(queuedPapers(f).length,0,mode);}
+  if(mode==='profile'){assert.equal(queuedPapers(f).length,0);await syncWorkpaperNotifications(f.db,now);assert.notEqual(queuedPapers(f)[0].id,item.id);}
+ }finally{f.sqlite.close();}}
+});
+test('workpaper real dispatcher sends an exact authenticated link once and rejects disabled recipients',async()=>{
+ const f=await fixture(),originalFetch=globalThis.fetch,sent:string[]=[];try{
+  globalThis.fetch=async(_url,init)=>{sent.push(String(init?.body));return new Response('{}',{status:200});};
+  f.sqlite.exec("CREATE TABLE integration_settings(kind TEXT,provider TEXT,enabled INTEGER,config_json TEXT,secret_ciphertext TEXT)");
+  f.sqlite.prepare('INSERT INTO integration_settings VALUES(?,?,?,?,NULL)').run('email','email-api',1,JSON.stringify({endpoint:'https://mail.example.com/send',sender:'sender@example.com',applicationUrl:'https://grc.example.com/fornost-grc/'}));
+  const due=new Date().toISOString().slice(0,10);await f.act('save',owner,{fields:{...scheduledFields,dueDate:due,reviewDueDate:due,timeZone:'UTC'}});await syncWorkpaperNotifications(f.db,new Date());
+  let result=await dispatchAssuranceNotifications(f.db,{}, {actor:admin.email,trigger:'manual'});assert.equal(result.sent,1);assert.ok(sent[0].includes('kind=audit-workpaper'));assert.ok(sent[0].includes('ref=AWP-a'));
+  result=await dispatchAssuranceNotifications(f.db,{}, {actor:admin.email,trigger:'scheduled'});assert.equal(result.sent,0);assert.equal(sent.length,1);
+  await f.act('submit');await syncWorkpaperNotifications(f.db,new Date());f.sqlite.exec("UPDATE local_users SET status='Disabled' WHERE id='r'");
+  result=await dispatchAssuranceNotifications(f.db,{}, {actor:admin.email,trigger:'manual'});assert.equal(result.sent,0);assert.equal(result.skipped,1);assert.equal(sent.length,1);
+ }finally{globalThis.fetch=originalFetch;f.sqlite.close();}
 });

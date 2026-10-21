@@ -1,3 +1,4 @@
+import {workpaperNotificationCurrent} from './audit-workpaper-notifications';
 import {milestoneNotificationCurrent} from './audit-milestone-notifications';
 import { notificationRecordTarget } from './notification-record-link';
 import {auditRequestNotificationCurrent} from "./audit-request-notifications";
@@ -58,7 +59,7 @@ export async function dispatchAssuranceNotifications(db:D1Database,env:Env,optio
       const storm=await recipientStormDecision(db,item.recipient,item.severity,stormPolicy,leaseNow);if(!storm.allowed){await recordAssuranceStormDeferral(db,item.id,item.recipient,item.severity,storm.nextEligibleAt,leaseNow);stormDeferred++;skipped++;continue}
     }
     const fresh=await db.prepare("SELECT id,fingerprint,escalation_id,recipient,route,subject,body,severity,status,reason,created_at,updated_at,source_json FROM continuous_assurance_notification_outbox WHERE id=?").bind(item.id).first<AssuranceDeliveryOutbox>();
-    if(!fresh||fresh.status!=="queued"||fresh.recipient!==item.recipient||!await auditRequestNotificationCurrent(db,fresh,new Date())||!await milestoneNotificationCurrent(db,fresh,new Date())){skipped++;continue}
+    if(!fresh||fresh.status!=="queued"||fresh.recipient!==item.recipient||!await auditRequestNotificationCurrent(db,fresh,new Date())||!await milestoneNotificationCurrent(db,fresh,new Date())||!await workpaperNotificationCurrent(db,fresh,new Date())){skipped++;continue}
     await clearAssuranceStormDeferral(db,item.id,leaseNow);
     const attempt=current.filter(x=>x.state==="failed"||x.state==="sent").length+1,result=await deliverConfiguredEmail(db,env,{recordLink:notificationRecordTarget(fresh),to:item.recipient,subject:`[Fornost ${item.severity.toUpperCase()}] ${item.subject}`,text:`${item.body}\n\nFornost Continuous Assurance\nEscalation: ${item.escalation_id}\nReason: ${item.reason}`}),stamp=new Date().toISOString(),state=result.sent?"sent":"failed";
     await db.prepare("INSERT INTO continuous_assurance_notification_deliveries(id,outbox_id,attempt,provider,state,detail,recipient,attempted_by,attempted_at) VALUES(?,?,?,?,?,?,?,?,?)").bind(crypto.randomUUID(),item.id,attempt,result.provider,state,result.detail,item.recipient,actor,stamp).run();if(result.sent)sent++;else failed++;results.push({outboxId:item.id,recipient:item.recipient,state,provider:result.provider,attempt});
