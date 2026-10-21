@@ -150,3 +150,9 @@ In Audit Management → audit → Workpapers, create or edit a draft and open **
 Use **Work queue module** in My Work to focus on Risk, Audit, Evidence, Policy or another module represented in your current authorized personal/organization scope. Summary cards, status-filter counts, completed work, pagination and the downloaded CSV use that module selection. Search and due/status filters continue to apply. The CSV includes a canonical `module_filter` column.
 
 **Clear module filter** restores all modules without changing personal/organization scope or search. If the selected module has no work after a scope change or refresh, the filter remains explicit and the list stays empty rather than silently expanding. This filter does not grant access or change the separate assurance-signal panel's scope.
+
+### Save a recurring My Work view
+
+In **My Work → Saved views**, name and save your current search, module and work-status filter (for example, “Overdue evidence”). Select it and choose **Apply view** to use it again against current authorized work. Applying returns to the first page and keeps your current **Mine/Organization** scope. Counts and CSV use the applied criteria. Views are not applied automatically after reload.
+
+You can rename, replace or delete up to ten personal views in this browser. Deleting a view does not delete work. These are browser-local preferences, not shared/server views or evidence snapshots; they do not save records, deadlines or approvals. A supported module with no current work stays selected. Unsupported criteria show an error instead of widening the queue.

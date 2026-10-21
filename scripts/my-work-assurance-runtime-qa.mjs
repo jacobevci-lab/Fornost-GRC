@@ -49,6 +49,31 @@ try{
  await inbox.getByRole('textbox',{name:'Search work',exact:true}).fill('QA WORK ');
  await expect(inbox.locator('.mw2-list .mw2-item')).toHaveCount(20);
 
+ const saved=inbox.locator('.saved-register-views');
+ await saved.locator('summary').click();
+ await saved.getByLabel('View name',{exact:true}).fill('QA evidence queue');
+ await saved.getByRole('button',{name:'Save new view',exact:true}).click();
+ await expect(saved.getByRole('status')).toHaveText('View saved in this browser.');
+ await inbox.locator('.mw2-pagination').getByRole('button',{name:'Next',exact:true}).click();
+ await saved.getByRole('button',{name:'Apply view',exact:true}).click();
+ await expect(inbox.locator('.mw2-list .mw2-item')).toHaveCount(20);
+ await page.reload();await expect(page.locator('.shell')).toBeVisible();await open();
+ await expect(inbox.getByLabel('Work queue module',{exact:true})).toHaveValue('');
+ await saved.locator('summary').click();await saved.getByLabel('Select view',{exact:true}).selectOption({label:'QA evidence queue'});
+ await saved.getByRole('button',{name:'Apply view',exact:true}).click();
+ await expect(moduleFilter).toHaveValue('Kanıtlar');await expect(inbox.getByRole('textbox',{name:'Search work',exact:true})).toHaveValue('QA WORK ');
+ await expect(inbox.locator('.mw2-list .mw2-item')).toHaveCount(20);
+ await inbox.locator('.mw2-scope').getByRole('button',{name:'Organization',exact:true}).click();
+ await saved.getByRole('button',{name:'Apply view',exact:true}).click();
+ await expect(inbox.locator('.mw2-scope').getByRole('button',{name:'Organization',exact:true})).toHaveAttribute('aria-pressed','true');
+ await inbox.locator('.mw2-scope').getByRole('button',{name:'Mine',exact:true}).click();
+ await saved.getByLabel('View name',{exact:true}).fill('QA renamed queue');await saved.getByRole('button',{name:'Rename view',exact:true}).click();
+ await expect(saved.getByLabel('Select view',{exact:true}).locator('option:checked')).toHaveText('QA renamed queue');
+ for(const width of [1536,390]){await page.setViewportSize({width,height:960});await saved.scrollIntoViewIfNeeded();assert.ok(await saved.evaluate(el=>el.scrollWidth<=el.clientWidth+1));await page.screenshot({path:`${out}/saved-work-${width}.png`});}
+ await page.setViewportSize({width:1536,height:960});
+ page.once('dialog',dialog=>dialog.accept());await saved.getByRole('button',{name:'Delete view',exact:true}).click();
+ await expect(saved.getByRole('status')).toHaveText('View deleted.');await expect(inbox.locator('.mw2-list .mw2-item')).toHaveCount(20);
+ await saved.locator('summary').click();
  const [download]=await Promise.all([page.waitForEvent('download'),inbox.getByRole('button',{name:'Download list (CSV)',exact:true}).click()]);
  await download.saveAs(`${out}/work-list.csv`);const csv=await fs.readFile(`${out}/work-list.csv`,'utf8');
  assert.equal(csv.trimEnd().split('\r\n').length,24);assert.ok(csv.includes('"QA WORK 22"'));assert.ok(!csv.includes('"QA WORK 23"'));assert.ok(csv.includes('"module_filter"'));assert.ok(csv.trimEnd().endsWith('"Kanıtlar"'));

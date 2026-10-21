@@ -3,10 +3,10 @@ import { useCallback, useId, useState, useSyncExternalStore } from 'react';
 import { parseSavedViews, persistSavedViews, savedViewsKey, validateViewState, type SavedRegisterView, type SavedViewState, type ViewChange, type ViewSchema } from './saved-register-views';
 import './saved-register-views.css';
 const eventName = 'fornost-saved-views-changed', unavailable = '!storage-unavailable';
-export function SavedRegisterViewsPanel(props: { userId: string; module: string; lang: string; current: SavedViewState; schema: ViewSchema; focused?: boolean; apply: (state: SavedViewState) => void }) {
+export function SavedRegisterViewsPanel(props: { userId: string; module: string; lang: string; current: SavedViewState; schema: ViewSchema; focused?: boolean; variant?: 'work'; apply: (state: SavedViewState) => void }) {
   return <Views key={savedViewsKey(props.userId, props.module)} {...props}/>;
 }
-function Views({ userId, module, lang, current, schema, focused, apply }: Parameters<typeof SavedRegisterViewsPanel>[0]) {
+function Views({ userId, module, lang, current, schema, focused, variant, apply }: Parameters<typeof SavedRegisterViewsPanel>[0]) {
   const key = savedViewsKey(userId, module), id = useId(), tr = lang === 'tr', t = (a: string, b: string) => tr ? a : b;
   const subscribe = useCallback((notify: () => void) => {
     const external = (e: StorageEvent) => { if (e.key === key || e.key === null) notify(); };
@@ -49,11 +49,11 @@ function Views({ userId, module, lang, current, schema, focused, apply }: Parame
     } catch (e) { setError(e instanceof Error && messages[e.message] ? e.message : 'storage'); }
   }
   return <details className="saved-register-views"><summary>{t('Kayıtlı görünümler', 'Saved views')}</summary><div>
-    <p>{t('Bu kullanıcı ve modül için bu tarayıcıda saklanır. Arama, filtreler ve sütunlar kaydedilir; kayıt verisi saklanmaz veya paylaşılmaz.', 'Saved in this browser for this user and module. Stores search, filters and columns; record data is not stored or shared.')}</p>
+    <p>{variant === 'work' ? t('Arama, modül ve iş durumu bu kullanıcı için bu tarayıcıda saklanır. Uygulama mevcut Benim/Organizasyon kapsamını korur ve güncel işleri gösterir; kayıt verisi saklanmaz.', 'Search, module and work status are saved in this browser for this user. Applying keeps the current Mine/Organization scope and shows current work; record data is not stored.') : t('Bu kullanıcı ve modül için bu tarayıcıda saklanır. Arama, filtreler ve sütunlar kaydedilir; kayıt verisi saklanmaz veya paylaşılmaz.', 'Saved in this browser for this user and module. Stores search, filters and columns; record data is not stored or shared.')}</p>
     {(loadError || error || stale) && <p role="alert">{messages[loadError ? 'invalid' : error || 'conflict']}</p>}{notice && <p role="status">{{saved:t('Görünüm bu tarayıcıya kaydedildi.', 'View saved in this browser.'),deleted:t('Görünüm silindi.', 'View deleted.'),applied:t('Görünüm güncel kayıtlara uygulandı.', 'View applied to current records.')}[notice]}</p>}
     <div className="saved-view-fields"><label htmlFor={`${id}-select`}>{t('Görünüm seç', 'Select view')}</label><select id={`${id}-select`} disabled={loadError} value={selected} onChange={e => choose(e.target.value)}><option value="">{t('Yeni görünüm', 'New view')}</option>{selected && !row && <option value={selected}>{t('Görünüm kaldırılmış', 'View removed')}</option>}{views.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}</select>
       <label htmlFor={`${id}-name`}>{t('Görünüm adı', 'View name')}</label><input id={`${id}-name`} maxLength={60} value={name} onChange={e => setName(e.target.value)}/></div>
-    {row && <p>{row.query ? `${t('Arama', 'Search')}: ${row.query} · ` : ''}{Object.keys(row.filters).length} {t('filtre', 'filters')} · {row.columns.length} {t('sütun', 'columns')}</p>}
+    {row && <p>{row.query ? `${t('Arama', 'Search')}: ${row.query} · ` : ''}{Object.keys(row.filters).length} {t('filtre', 'filters')}{variant !== 'work' && <> · {row.columns.length} {t('sütun', 'columns')}</>}</p>}
     {focused && <p>{t('Tek kayıt odağı kaydedilmez. Görünüm kaydetmek için önce tüm kayıtları gösterin.', 'Exact record focus cannot be saved. Show all records before saving a view.')}</p>}
     <div className="saved-view-actions"><button type="button" disabled={loadError || !row || stale} onClick={applyView}>{t('Uygula', 'Apply view')}</button><button type="button" disabled={loadError || focused || views.length >= 10} onClick={() => change('create')}>{t('Yeni görünüm kaydet', 'Save new view')}</button><button type="button" disabled={loadError || focused || !row || stale} onClick={() => change('replace')}>{t('Seçili görünümü güncelle', 'Replace selected view')}</button><button type="button" disabled={loadError || !row || stale} onClick={() => change('rename')}>{t('Adını değiştir', 'Rename view')}</button><button type="button" disabled={loadError || !row || stale} onClick={() => change('delete')}>{t('Görünümü sil', 'Delete view')}</button><button type="button" onClick={() => { window.dispatchEvent(new Event(eventName)); choose(''); }}>{t('Listeyi yeniden yükle', 'Reload views')}</button></div>
     <small>{views.length}/10</small>

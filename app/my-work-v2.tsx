@@ -11,11 +11,12 @@ import { assessedRiskScore } from "./risk-methodology";
 import { navigateToFornost } from "./navigation-focus";
 import "./my-work-v2.css";
 import { buildWorkQueueCsv } from "./work-queue-export";
+import { SavedRegisterViewsPanel } from "./saved-register-views-panel";
+import { workViewSchema, readWorkView, type QueueFilter } from "./work-queue-views";
 import { downloadBlob } from "./report-export";
 
 type Lang = "tr" | "en";
 type Scope = "mine" | "organization";
-type QueueFilter = "today" | "priority" | "overdue" | "soon" | "waiting" | "undated" | "completed" | "all";
 type RawRow = {
   id?: unknown;
   code?: unknown;
@@ -40,7 +41,7 @@ type Row = {
   createdAt?: string;
   updatedAt?: string;
 };
-type User = { name?: string; email?: string; role?: string };
+type User = { id?: string; name?: string; email?: string; role?: string };
 type QueueItem = {
   row: Row;
   title: string;
@@ -450,6 +451,9 @@ export default function MyWorkV2() {
         {moduleFilter && <button type="button" className="mw2-refresh" onClick={() => setModuleFilter("")}>{tr ? "Modül filtresini temizle" : "Clear module filter"}</button>}
         <p>{tr ? "Özet sayaçları, iş listesi ve CSV seçili modüle göre süzülür. Güvence sinyalleri kendi kapsamını korur." : "Summary counts, the work list and CSV follow the selected module. Assurance signals retain their own scope."}</p>
       </div>
+      {user.id && !loadError && <SavedRegisterViewsPanel userId={user.id} module="My Work" lang={lang} variant="work"
+        current={{query, filters:{module:moduleFilter, status:filter}, columns:workViewSchema.columns}} schema={workViewSchema}
+        apply={view => { const next = readWorkView(view, Object.keys(MODULE_LABELS)); setQuery(next.query); setModuleFilter(next.module); setFilter(next.status); setPageIndex(0); }} />}
       <div className="mw2-metrics">
         <button type="button" className={data.overdue ? "critical" : ""} onClick={() => setFilter("overdue")}><small>{tr ? "Geciken" : "Overdue"}</small><strong>{data.overdue}</strong><span>{tr ? "Termin geçmiş işler" : "Past-due work"}</span></button>
         <button type="button" className={data.priority ? "warning" : ""} onClick={() => setFilter("priority")}><small>{tr ? "Dikkat gerekiyor" : "Needs attention"}</small><strong>{data.priority}</strong><span>{tr ? "Kritik, 7 gün içinde veya değerlendirme bekliyor" : "Critical, due within 7 days or awaiting assessment"}</span></button>
