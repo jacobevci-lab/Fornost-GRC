@@ -479,7 +479,7 @@ export default function MyWorkV2() {
           <span className="mw2-priority-dot" />
           <span className="mw2-title"><b>{item.title}</b><small>{MODULE_LABELS[item.row.module]?.[lang] || item.row.module} · {recordCode(item.row)}</small></span>
           <span className="mw2-owner"><small>{tr ? "Sahip" : "Owner"}</small><b>{item.owner}</b></span>
-          <span className="mw2-state"><em>{item.status}</em><small>{item.waiting ? (tr ? "Başkalarında bekliyor" : "Waiting for others") : item.reason}</small></span>
+          <span className="mw2-state"><em>{item.status}</em><small>{item.waiting && item.row.workKind !== "audit-milestone" ? (tr ? "Başkalarında bekliyor" : "Waiting for others") : item.reason}</small></span>
           <time className={!Number.isFinite(item.dueTime) ? "undated" : item.dueTime < data.now ? "overdue" : ""}>{filter === "completed" ? formatDate(item.row.updatedAt || item.row.createdAt || "", lang) : formatDate(item.due, lang)}</time>
           <strong className="mw2-arrow">→</strong>
         </button>)}</div> : <div className="mw2-empty"><span>{loadError ? "!" : loading ? "…" : "✓"}</span><div><b>{loadError ? (tr ? "İş listesi doğrulanamadı." : "Work list could not be verified.") : loading ? (tr ? "İşler yükleniyor…" : "Loading work…") : (tr ? "Bu görünümde aksiyon yok." : "No actions in this view.")}</b><p>{tr ? "Filtreyi değiştirin veya kapsamı kontrol edin." : "Change the filter or review the selected scope."}</p></div></div>}
