@@ -25,7 +25,41 @@ const metricSize = locator => expect.poll(async () => locator.first().evaluate(e
 try {
   const auth = await context.request.post(base + '/api/auth', { headers: { origin: base }, data: { action: 'login', email: 'qa-admin@fornost.test', password: qaPassword() } });
   assert.equal(auth.status(), 200);
+  let notificationReads=0, notificationMode='hold'; const delayed=[];
+  await page.route('**/api/continuous-assurance/notifications',async route=>{
+    notificationReads++;
+    if(notificationMode==='hold') await new Promise(resolve=>delayed.push(resolve));
+    if(notificationMode==='invalid') return route.fulfill({status:200,contentType:'application/json',body:'{}'});
+    await route.continue().catch(()=>{});
+  });
   await page.goto(base); await expect(page.locator('.shell')).toBeVisible();
+  await page.locator('.language-switch:visible').getByRole('button',{name:'EN',exact:true}).click();
+  await expect(page.locator('.evidence-assurance-status')).not.toHaveAttribute('data-state','loading');
+  const detail=page.locator('.executive-operational-detail');
+  assert.equal(notificationReads,0,'Collapsed operational details do not request notification history');
+  await detail.locator(':scope>summary').click();
+  await expect(detail.locator('.executive-operational-detail-body')).toHaveAttribute('aria-busy','true');
+  await expect(detail).toContainText('Some operational data could not be loaded.',{timeout:20000});
+  await expect(detail.locator('.executive-operational-detail-body')).toHaveAttribute('aria-busy','false');
+  await expect(detail.locator('.executive-owner-accountability')).toBeVisible();
+  await expect(detail.locator('.executive-delivery-posture')).toHaveCount(0);
+  for(const locale of ['EN','TR']){await page.locator('.language-switch:visible').getByRole('button',{name:locale,exact:true}).click();await page.setViewportSize({width:390,height:935});assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+4));await detail.screenshot({path:`${out}/operational-timeout-${locale}.png`});}
+  await page.locator('.language-switch:visible').getByRole('button',{name:'EN',exact:true}).click();await page.setViewportSize({width:1365,height:935});
+  notificationMode='live';for(const release of delayed)release();
+  await detail.getByRole('button',{name:'Retry',exact:true}).click();
+  await expect(detail.locator('.executive-delivery-posture')).toBeVisible();
+  await expect(detail).not.toContainText('Some operational data could not be loaded.');
+  assert.equal(notificationReads,2);
+  await detail.locator(':scope>summary').click();await expect(detail.locator('.executive-operational-detail-body')).toHaveCount(0);
+  notificationMode='invalid';await detail.locator(':scope>summary').click();await expect(detail).toContainText('Some operational data could not be loaded.');await expect(detail.locator('.executive-delivery-posture')).toHaveCount(0);
+  notificationMode='live';await detail.getByRole('button',{name:'Retry',exact:true}).click();await expect(detail.locator('.executive-delivery-posture')).toBeVisible();
+  await detail.locator(':scope>summary').click();
+  notificationMode='hold';await detail.locator(':scope>summary').click();await expect.poll(()=>notificationReads).toBe(5);
+  await detail.locator(':scope>summary').click();await expect(detail.locator('.executive-operational-detail-body')).toHaveCount(0);await expect(detail).not.toContainText('Loading operational data');
+  notificationMode='live';for(const release of delayed)release();await detail.locator(':scope>summary').click();await expect(detail.locator('.executive-delivery-posture')).toBeVisible();assert.equal(notificationReads,6);
+  await detail.locator(':scope>summary').click();await page.unroute('**/api/continuous-assurance/notifications');
+  checks.push('Collapsed operational detail avoids notification reads; real timeout, partial-source honesty, bilingual mobile error, retry and malformed-response recovery');
+
   for (const locale of ['tr', 'en']) {
     await page.locator('.language-switch:visible').getByRole('button', { name: locale.toUpperCase(), exact: true }).click();
     const tr = locale === 'tr';
