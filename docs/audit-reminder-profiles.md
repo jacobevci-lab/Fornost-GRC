@@ -24,3 +24,7 @@ Date/weekday/profile limits, calendar compatibility, custom weekends, holiday sk
 
 
 Milestones have a separate per-task opt-in, default off, in Plan and scope. They use their own time zone and have no assignment email; only advance/due/overdue and optional escalation phases apply. Profile saves atomically withdraw both request and milestone queued notices. Milestone recipients require active audit-write access; task emails omit narratives and evidence. Enabling a task or saving the shared profile refreshes its queue, and the common scheduler reconciles it before dispatch.
+
+## Portable calendar reuse
+
+The profile editor can export a versioned `fornost-audit-calendar` JSON envelope and import it through an explicit preview/apply/save flow. Only mode, weekdays and holidays are portable; unknown fields, unsupported versions, invalid/duplicate dates or weekdays and files over 16 KB are rejected. The incoming list replaces the target list without merging. Profile thresholds, escalation recipient, deadlines and time zones are preserved. Both file and pasted input are supported; changing the source invalidates its preview. File reads are guarded against stale completion/unmount. Preview and apply are browser-local; the existing authorized revision-checked profile save is the only server mutation. Saved profiles still reconcile pending request, milestone and workpaper notifications. This is a copy, not a centrally managed live calendar or public-holiday feed.
