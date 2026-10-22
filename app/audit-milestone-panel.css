@@ -3,3 +3,5 @@
 .am-dependencies label{display:flex;align-items:center;gap:8px;overflow-wrap:anywhere}.am-dependencies input[type=checkbox]{width:auto;flex:0 0 auto}
 
 .audit-milestones .am-reminder-toggle{display:flex;align-items:center;gap:8px}.audit-milestones .am-reminder-toggle input{width:auto;flex:none}
+
+.am-batch{min-width:0}.am-batch label{display:grid;gap:7px;margin:10px 0}.am-batch input:not([type=checkbox]),.am-batch select,.am-batch textarea{box-sizing:border-box;width:100%;min-width:0;font:inherit;padding:9px;border:1px solid var(--ws-line);border-radius:6px;background:var(--ws-surface);color:var(--ws-ink)}.am-batch input[type=checkbox]{width:auto}.am-batch fieldset{min-width:0;margin:12px 0;padding:12px;border:1px solid var(--ws-line);border-radius:7px}.am-batch li,.am-batch p{overflow-wrap:anywhere}.am-batch button{margin:4px}

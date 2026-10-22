@@ -11,7 +11,7 @@ import {DatabaseSync,type SQLInputValue} from 'node:sqlite';
 import type {Actor} from '../app/api/auth/security';
 import {ensureAuditClosureSchema} from '../app/audit-closure-schema';
 import {auditClosureBlockers} from '../app/audit-closure';
-import {mutateMilestone,readMilestones,readMilestoneWork} from '../app/audit-milestone-store';
+import {createMilestoneBatch,mutateMilestone,readMilestones,readMilestoneWork} from '../app/audit-milestone-store';
 import {resolveRecordLink} from '../app/record-link-store';
 import {validateMilestone,nextMilestoneDate} from '../app/audit-milestones';
 import {requestDueAt} from '../app/audit-requests';
@@ -21,6 +21,34 @@ import {auditStatusReportCsv} from '../app/audit-status-report-export';
 import {scopedApiAllowed} from '../app/module-access';
 const owner:Actor={id:'o',name:'Owner',email:'owner@example.com',role:'Editor',source:'local'},admin:Actor={...owner,id:'a',email:'admin@example.com',role:'Admin'};
 const id='AMT-00000000-0000-0000-0000-000000000001',fields={title:'Planning meeting',description:'Agree scope and review dates',owner:owner.email,dueDate:'2026-10-20',timeZone:'Europe/Istanbul'};
+const packItems=()=>[1,2,3,4].map((n,index)=>({id:`AMT-00000000-0000-0000-0000-00000000000${n}`,fields:{...fields,title:`Pack task ${n}`,dependsOn:index?[`AMT-00000000-0000-0000-0000-00000000000${n-1}`]:[]}}));
+test('task pack creates all planned tasks, dependency chain, history and My Work together; duplicate requests create nothing',async()=>{const f=await fixture();try{
+ const input={auditId:'a',items:packItems()};const result=await createMilestoneBatch(f.db,owner,input);assert.equal(result.ids.length,4);
+ const rows=(await readMilestones(f.db,'a')).milestones;assert.equal(rows.length,4);assert.ok(rows.every(row=>row.status==='planned'&&!row.remindersEnabled&&row.recurrence==='none'));
+ assert.equal(f.sqlite.prepare('SELECT count(*) n FROM audit_milestone_events').get()?.n,4);
+ assert.deepEqual((await readMilestoneWork(f.db,owner)).milestones.map(row=>row.blockedCount).sort(),[0,1,1,1]);
+ await assert.rejects(createMilestoneBatch(f.db,owner,input),/conflict/);assert.equal((await readMilestones(f.db,'a')).milestones.length,4);
+}finally{f.sqlite.close();}});
+test('task pack rejects invalid dates, duplicate IDs, cycles, missing prerequisites, elevated assignment and hidden reminder settings without partial writes',async()=>{const f=await fixture();try{
+ for(const mode of ['date','duplicate','cycle','missing','owner','reminder','empty','oversize']){
+  const items=packItems();if(mode==='date')items[3].fields.dueDate='2026-02-30';if(mode==='duplicate')items[3].id=items[0].id;if(mode==='cycle')items[0].fields.dependsOn=[items[3].id];if(mode==='missing')items[0].fields.dependsOn=['AMT-99999999-0000-0000-0000-000000000001'];if(mode==='owner')items[3].fields.owner=admin.email;if(mode==='reminder')Object.assign(items[0].fields,{remindersEnabled:true});
+  await assert.rejects(createMilestoneBatch(f.db,owner,{auditId:'a',items:mode==='empty'?[]:mode==='oversize'?[...items,...items,...items,...items]:items}));assert.equal((await readMilestones(f.db,'a')).milestones.length,0);
+ }
+ await assert.rejects(createMilestoneBatch(f.db,{...owner,role:'Viewer'},{auditId:'a',items:packItems()}),/forbidden/);
+}finally{f.sqlite.close();}});
+test('task pack atomically rejects closed audits, cross-audit IDs, revoked accounts, graph races and event failures',async()=>{for(const mode of ['closed','foreign','revoked','graph','event']){const f=await fixture();try{
+ if(mode==='closed')f.sqlite.exec("INSERT INTO audit_closure_state VALUES('a','closed','r','','')");
+ if(mode==='foreign')await mutateMilestone(f.db,owner,{auditId:'b',id,action:'save',expectedRevision:'',fields,note:''});
+ if(mode==='revoked')f.race(()=>f.sqlite.exec("UPDATE local_users SET status='Disabled' WHERE id='o'"));
+ if(mode==='graph')f.race(()=>f.sqlite.prepare('INSERT INTO audit_milestones VALUES(?,?,?,?,?,?)').run('AMT-99999999-0000-0000-0000-000000000001','a','r',JSON.stringify({...fields,status:'planned',note:''}),'',''));
+ if(mode==='event')f.sqlite.exec("CREATE TRIGGER fail_pack BEFORE INSERT ON audit_milestone_events WHEN json_extract(NEW.snapshot_json,'$.title')='Pack task 3' BEGIN SELECT RAISE(ABORT,'event-failed');END");
+ await assert.rejects(createMilestoneBatch(f.db,owner,{auditId:'a',items:packItems()}));assert.equal((await readMilestones(f.db,'a')).milestones.length,mode==='graph'?1:0);assert.equal(f.sqlite.prepare("SELECT count(*) n FROM audit_milestone_events WHERE audit_id='a'").get()?.n,0);
+}finally{f.sqlite.close();}}});
+test('task pack preserves the 100-task cap and permits active admin assignment',async()=>{const f=await fixture();try{
+ const insert=f.sqlite.prepare('INSERT INTO audit_milestones VALUES(?,?,?,?,?,?)');for(let i=0;i<97;i++)insert.run('retained-'+i,'a','r',JSON.stringify({...fields,status:'cancelled',note:''}),'','');
+ await assert.rejects(createMilestoneBatch(f.db,admin,{auditId:'a',items:packItems()}),/limit/);assert.equal((await readMilestones(f.db,'a')).milestones.length,97);
+ await createMilestoneBatch(f.db,admin,{auditId:'a',items:packItems().slice(0,3)});assert.equal((await readMilestones(f.db,'a')).milestones.length,100);
+}finally{f.sqlite.close();}});
 async function fixture(){
  const sqlite=new DatabaseSync(':memory:');sqlite.exec(`CREATE TABLE simple_audits(id TEXT PRIMARY KEY,name TEXT,template TEXT,audit_type TEXT,auditor TEXT,audit_owner TEXT,status TEXT);INSERT INTO simple_audits VALUES('a','Audit A','','','','',''),('b','Audit B','','','','','');CREATE TABLE simple_grc_metadata(key TEXT PRIMARY KEY,value TEXT,updated_at TEXT);CREATE TABLE simple_grc_records(id TEXT PRIMARY KEY,module TEXT,data_json TEXT,created_at TEXT,updated_at TEXT);CREATE TABLE local_users(id TEXT PRIMARY KEY,name TEXT,email TEXT,role TEXT,status TEXT);CREATE TABLE user_module_access(user_id TEXT PRIMARY KEY,policy_json TEXT);INSERT INTO local_users VALUES('o','Owner','owner@example.com','Editor','Active'),('a','Admin','admin@example.com','Admin','Active');`);
  let readHook:(()=>void)|undefined;

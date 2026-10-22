@@ -22,6 +22,9 @@ try{
  const signedIn=await login(user,email);
  const seconds=Number(/max-age=(\d+)/i.exec(signedIn.headers()['set-cookie']||'')?.[1]);assert.ok(seconds>=1790&&seconds<=1800,'Cookie must match configured lifetime');
  await page.goto(base);await expect(page.locator('.shell')).toBeVisible();
+ // Overlapping dashboard/copilot probes must all observe the live identity.
+ const probes=await Promise.all(Array.from({length:12},async()=>{const started=Date.now();const body=await (await request(user,'/api/auth')).json();assert.equal(body.authenticated,true);assert.equal(body.user.id,userId);return Date.now()-started;}));
+ await fs.writeFile(`${out}/identity-probes.json`,JSON.stringify({count:probes.length,maxElapsedMs:Math.max(...probes),elapsedMs:probes}));
  await age(31,450);await request(user,'/api/grc','GET',undefined,401);
  await page.evaluate(()=>window.dispatchEvent(new Event('focus')));await expect(page.locator('.shell')).toHaveCount(0);await expect(page.locator('.auth-screen')).toBeVisible();
  await login(user,email);await age(6,24);await request(user,'/api/grc');await configure(5);await request(user,'/api/grc','GET',undefined,401);

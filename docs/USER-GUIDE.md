@@ -191,3 +191,10 @@ Mevcut görevlerde seçenek kapalıdır. Görev kapanınca veya hatırlatma kapa
 **Denetim → Talepler ve inceleme → Hatırlatma takvimi ve eskalasyon → Hatırlatma profilini düzenle → Takvimi başka denetimde kullan** bölümünden taslak takvimi JSON olarak indirebilirsiniz. Dosya yalnızca gün hesabını, çalışma günlerini ve tatil tarihlerini içerir; kişi, denetim kimliği, bildirim eşiği veya eskalasyon alıcısı içermez.
 
 Başka denetimde dosyayı seçin veya JSON içeriğini yapıştırıp önizleyin. **Takvimi taslağa uygula**, bu üç alanı değiştirir; tatilleri birleştirmez. Hedef denetimin bildirim eşikleri, eskalasyon sorumlusu ve terminleri korunur. Son olarak **Hatırlatma profilini kaydet** ile kalıcı hale getirin. Kaydetmeden vazgeçerseniz kayıt değişmez. Kaydetmede mevcut yetki, kapalı denetim ve eşzamanlı değişiklik kontrolleri uygulanır; bekleyen bildirimler yeniden değerlendirilir. Aktarım bir kopyadır: kaynak takvim daha sonra değişirse hedef denetimler otomatik güncellenmez. En fazla 16 KB dosya ve 366 benzersiz geçerli tatil tarihi desteklenir; merkezi takvim kütüphanesi ve resmi tatil servisi değildir.
+
+
+### Denetim görev paketini toplu oluşturma
+
+**Denetim → Plan ve kapsam → Görevler ve kilometre taşları → Görev paketi oluştur** altında başlangıç paketini hazırlayın. Kapsam, kanıt hazırlığı, saha çalışması ve kapanış görevlerinden gerekenleri seçin; metinleri, sorumluyu, saat dilimini ve her hedef tarihi düzenleyin. İsterseniz seçili görevleri sırayla birbirine bağlayın. **Görev paketini önizle** henüz kayıt oluşturmaz; **Tüm görevleri kaydet** seçili görevleri birlikte kaydeder. Görevler Benim İşlerim’e yansır. Tekil görev taslağınız varsa önce kaydedin veya bırakın.
+
+Tarihler otomatik atanmaz; hatırlatmalar ve tekrar başlangıçta kapalıdır. Hata veya bağlantı kesintisinde taslak korunur; yeni paket hazırlamadan önce listeyi yeniden yükleyip sonucu kontrol edin. Denetim başına iptaller dahil 100 görev sınırı ve mevcut yetkiler uygulanır.

@@ -1,7 +1,8 @@
+import { readLiveSession } from './live-session';
 import { completedInitialization } from "../../completed-initialization";
 import { ensurePasswordIterationsColumn } from "./password-column";
 import { NextRequest, NextResponse } from "next/server";
-import { sessionExpired, sessionTimeoutMinutes } from "../../session-policy";
+import { sessionTimeoutMinutes } from "../../session-policy";
 import { BASE_PATH } from "../../base-path";
 import { scopedApiAllowed, type ModuleAccess } from "../../module-access";
 import { ensureModuleAccessSchema, readModuleAccess } from "../users/access-storage";
@@ -129,17 +130,8 @@ export async function actor(req: NextRequest): Promise<Actor | null> {
   }
   const token = req.cookies.get("fornost_session")?.value;
   if (!token) return null;
-  const db = await identityDb(), now = new Date().toISOString(), tokenHash = await sha256(token);
-  const row = await db.prepare(`SELECT u.id,u.name,u.email,u.role,u.status,s.expires_at,s.created_at,p.config_json
-    FROM local_sessions s JOIN local_users u ON u.id=s.user_id LEFT JOIN platform_settings p ON p.id='default' WHERE s.id_hash=?`).bind(tokenHash).first<{id:string;name:string;email:string;role:string;status:string;expires_at:string;created_at:string;config_json:string|null}>();
-  if (!row || row.status !== "Active") return null;
-  const minutes = sessionTimeoutMinutes(row.config_json);
-  if (sessionExpired(row.created_at, row.expires_at, minutes, Date.parse(now))) {
-    await db.prepare("DELETE FROM local_sessions WHERE id_hash=?").bind(tokenHash).run();
-    return null;
-  }
-  await db.prepare("UPDATE local_sessions SET last_seen_at=? WHERE id_hash=?").bind(now, tokenHash).run();
-  return { id: row.id, email: row.email, name: row.name, role: row.role as AppRole, source: "local", moduleAccess: await readModuleAccess(db, row.id) };
+  const current = await readLiveSession(await identityDb(), await sha256(token));
+  return current ? { ...current, role: current.role as AppRole } : null;
 }
 
 export async function requireRole(req: NextRequest, roles: AppRole[]) {
