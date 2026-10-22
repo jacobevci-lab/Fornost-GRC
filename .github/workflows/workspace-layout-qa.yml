@@ -90,6 +90,14 @@ jobs:
           path: record-links-qa-artifacts/
       - name: Audit workpapers, sampling and independent review QA
         run: node scripts/audit-workpapers-qa.mjs
+      - name: Shared audit template library, versioning and reuse QA
+        run: node scripts/audit-template-library-qa.mjs
+      - name: Preserve shared template library evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: audit-template-library-preview
+          path: audit-template-library-qa-artifacts/
       - name: Audit milestones and My Work browser QA
         run: node scripts/audit-milestones-qa.mjs
       - name: Preserve audit milestone screenshots

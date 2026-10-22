@@ -3,6 +3,7 @@ import { useId, useState } from 'react';
 import { applyDraftTemplate, builtInDraftTemplates, exportDraftTemplate, parseDraftTemplate, type DraftTemplate, type TemplateKind } from './audit-draft-templates';
 import { downloadBlob } from './report-export';
 import './audit-template-panel.css';
+import {AuditTemplateLibrary} from './audit-template-library';
 
 export function AuditTemplatePanel({kind, tr, draft, labels, disabled, apply}: {kind: TemplateKind; tr: boolean; draft: Record<string, string>; labels: Record<string, string>; disabled: boolean; apply: (fields: Record<string, string>) => void}) {
   const id = useId(), t = (a: string, b: string) => tr ? a : b;
@@ -17,6 +18,7 @@ export function AuditTemplatePanel({kind, tr, draft, labels, disabled, apply}: {
   }
   return <details className="audit-template-panel"><summary>{t('Şablonlar', 'Templates')}</summary>
     <p>{t('Hazır metinleri inceleyip uygulanacak alanları seçin. Dolu alanlar başlangıçta seçilmez. Kişiler, tarihler, durum ve onaylar şablona dahil değildir.', 'Review suggested text and select fields to apply. Populated fields are initially unselected. People, dates, status and approvals are excluded.')}</p>
+    <AuditTemplateLibrary kind={kind} tr={tr} source={{version:1,kind,name:'Draft',fields:Object.fromEntries((kind==='plan'?['objective','scope','exclusions','methodology','deliverables','milestones']:['title','description']).map(key=>[key,draft[key]||'']))}} disabled={disabled} onChoose={template=>{if(template.kind===kind)show(template);}}/>
     <fieldset disabled={disabled}><legend>{t('Şablon seçimi', 'Template selection')}</legend>
       <div className="at-actions">{templates.map(template => <button key={template.name} type="button" onClick={() => show(template)}>{template.name}</button>)}</div>
       <label htmlFor={`${id}-json`}>{t('Şablon JSON içeriği', 'Template JSON content')}</label><textarea id={`${id}-json`} maxLength={50000} rows={3} value={json} onChange={e => { setJson(e.target.value); setPreview(null); setError(false); setNotice(''); }}/>

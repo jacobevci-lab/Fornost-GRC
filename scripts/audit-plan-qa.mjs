@@ -12,7 +12,7 @@ try{
  await page.goto(base);await expect(page.locator('.shell')).toBeVisible();await page.locator('.language-switch:visible').getByRole('button',{name:'EN',exact:true}).click();await page.locator('nav button[aria-label="Audit Management"]').evaluate(el=>el.click());await page.locator('.audit-card-open').filter({hasText:name}).click();
  await page.getByRole('tab',{name:'Plan and scope',exact:true}).click();const panel=page.locator('.audit-plan-form');await expect(panel.getByLabel('Audit objective',{exact:true})).toBeEnabled();
  await panel.getByLabel('Audit objective',{exact:true}).fill('Validate control effectiveness across critical assets');await panel.getByLabel('Review period start',{exact:true}).fill('2026-01-01');await panel.getByLabel('Review period end',{exact:true}).fill('2026-12-31');
- const templates=panel.locator('.audit-template-panel');await templates.locator('summary').click();
+ const templates=panel.locator('.audit-template-panel');await templates.locator(':scope > summary').click();
  await templates.getByRole('button',{name:'Internal control audit',exact:true}).click();
  await expect(templates.getByRole('checkbox',{name:'Apply field: Audit objective',exact:true})).not.toBeChecked();
  await templates.getByRole('button',{name:'Apply selected fields to draft',exact:true}).click();
@@ -26,7 +26,7 @@ try{
  await templates.getByLabel('Export template name',{exact:true}).fill('QA reusable plan');
  const [templateDownload]=await Promise.all([page.waitForEvent('download'),templates.getByRole('button',{name:'Download draft as template',exact:true}).click()]);
  const stream=await templateDownload.createReadStream();let content='';for await(const chunk of stream)content+=chunk;const exported=JSON.parse(content);assert.equal(exported.fields.scope,'Selected processes only');assert.ok(!('lead' in exported.fields));assert.ok(!('periodStart' in exported.fields));
- await templates.locator('summary').click();
+ await templates.locator(':scope > summary').click();
  await panel.getByRole('button',{name:'Save plan',exact:true}).click();await expect(panel.getByRole('status')).toContainText('Saved:');const saved=await api(`/api/audits/plan?id=${id}`);assert.equal(saved.plan.objective,'Validate control effectiveness across critical assets');
  await api('/api/audits/plan','PUT',{id,expectedRevision:saved.revision,plan:{...saved.plan,lead:'Other reviewer'}});
  await panel.getByLabel('Audit objective',{exact:true}).fill('Retained local draft');await panel.getByRole('button',{name:'Save plan',exact:true}).click();await expect(panel.getByRole('alert')).toContainText('Plan changed');await expect(panel.getByLabel('Audit objective',{exact:true})).toHaveValue('Retained local draft');

@@ -4,15 +4,19 @@ import {builtInDraftTemplates} from './audit-draft-templates';
 import {validateMilestoneBatch,type MilestoneBatchItem} from './audit-milestone-batch';
 import {withBasePath} from './base-path';
 import './audit-template-panel.css';
+import {AuditTemplateLibrary} from './audit-template-library';
+import type {TaskPackTemplate} from './audit-shared-templates';
 
 type Draft = {key:number;selected:boolean;title:string;description:string;dueDate:string};
 export function AuditMilestoneBatchPanel({auditId,tr,actorEmail,admin,people,count,disabled,onBusy,onSaved}: {auditId:string;tr:boolean;actorEmail:string;admin:boolean;people:{email:string;name:string}[];count:number;disabled:boolean;onBusy:(busy:boolean)=>void;onSaved:(ids:string[])=>void}) {
  const t=(a:string,b:string)=>tr?a:b;
  const [drafts,setDrafts]=useState<Draft[]>([]),[owner,setOwner]=useState(actorEmail),[zone,setZone]=useState(()=>Intl.DateTimeFormat().resolvedOptions().timeZone||'UTC'),[chain,setChain]=useState(true),[preview,setPreview]=useState<MilestoneBatchItem[]|null>(null),[busy,setBusy]=useState(false),[error,setError]=useState(''),[saved,setSaved]=useState(false);
  const flight=useRef(false);
+ const [sharedPreview,setSharedPreview]=useState<TaskPackTemplate|null>(null);
  function change(){setPreview(null);setError('');setSaved(false);}
  function start(){change();setDrafts(builtInDraftTemplates('milestone',tr).map((item,key)=>({key,selected:true,title:item.fields.title,description:item.fields.description,dueDate:''})));}
  function patch(key:number,values:Partial<Draft>){change();setDrafts(rows=>rows.map(row=>row.key===key?{...row,...values}:row));}
+ function move(index:number,offset:number){change();setDrafts(rows=>{const next=[...rows];[next[index],next[index+offset]]=[next[index+offset],next[index]];return next;});}
  function review(){
   try {const selected=drafts.filter(row=>row.selected);if(count+selected.length>100)throw Error('limit');
    const ids=selected.map(()=>`AMT-${crypto.randomUUID()}`);
@@ -26,6 +30,8 @@ export function AuditMilestoneBatchPanel({auditId,tr,actorEmail,admin,people,cou
  }
  return <details className="audit-template-panel am-batch"><summary>{t('Görev paketi oluştur','Create task pack')}</summary>
   <p>{t('Başlangıç görevlerini seçin, metinleri ve her görevin hedef tarihini düzenleyin. Önizleme kayıt oluşturmaz. Kaydettiğinizde tüm seçili görevler birlikte oluşturulur.','Select starter tasks, edit their text and set each due date. Preview creates no records. Saving creates all selected tasks together.')}</p>
+  <AuditTemplateLibrary kind="task-pack" tr={tr} source={drafts.some(row=>row.selected)?{version:1,kind:'task-pack',name:'Draft',chain,tasks:drafts.filter(row=>row.selected).map(({title,description})=>({title,description}))}:null} disabled={disabled||busy} onChoose={template=>{if(template.kind==='task-pack'){setSharedPreview(template);change();}}}/>
+  {sharedPreview&&<fieldset disabled={disabled||busy}><legend>{t('Ortak görev paketi önizlemesi','Shared task pack preview')}: {sharedPreview.name}</legend><ol>{sharedPreview.tasks.map((row,i)=><li key={i}><b>{row.title}</b><p>{row.description}</p></li>)}</ol><p>{t('Uygulandığında mevcut paket taslağı değiştirilir. Sorumlu ve saat dilimi korunur; her görevin tarihini yeniden seçmelisiniz.','Applying replaces the current pack draft. Owner and time zone are preserved; select each task due date again.')}</p><button type="button" onClick={()=>{change();setDrafts(sharedPreview.tasks.map((row,key)=>({...row,key,selected:true,dueDate:''})));setChain(sharedPreview.chain);setSharedPreview(null);}}>{t('Ortak paketi taslağa uygula','Apply shared pack to draft')}</button><button type="button" onClick={()=>setSharedPreview(null)}>{t('Ortak paket önizlemesini kapat','Close shared pack preview')}</button></fieldset>}
   <fieldset disabled={disabled||busy}><legend>{t('Paket taslağı','Task pack draft')}</legend>
    <button type="button" onClick={()=>{if(!drafts.length||window.confirm(t('Paket taslağı başlangıç metinleriyle değiştirilsin mi?','Replace the task pack draft with starter text?')))start();}}>{t('Denetim başlangıç paketini hazırla','Prepare audit starter pack')}</button>
    {!!drafts.length&&<>
@@ -38,7 +44,9 @@ export function AuditMilestoneBatchPanel({auditId,tr,actorEmail,admin,people,cou
      <label>{t('Başlık','Title')}<input aria-label={`${t('Paket görev başlığı','Pack task title')} ${index+1}`} value={row.title} maxLength={200} disabled={!row.selected} onChange={e=>patch(row.key,{title:e.target.value})}/></label>
      <label>{t('Açıklama','Description')}<textarea aria-label={`${t('Paket görev açıklaması','Pack task description')} ${index+1}`} value={row.description} maxLength={2000} disabled={!row.selected} onChange={e=>patch(row.key,{description:e.target.value})}/></label>
      <label>{t('Hedef tarih','Due date')}<input aria-label={`${t('Paket hedef tarih','Pack due date')} ${index+1}`} type="date" value={row.dueDate} disabled={!row.selected} onChange={e=>patch(row.key,{dueDate:e.target.value})}/></label>
+     <div className="at-actions"><button type="button" aria-label={`${t('Görevi yukarı taşı','Move task up')} ${index+1}`} disabled={index===0} onClick={()=>move(index,-1)}>{t('Yukarı taşı','Move up')}</button><button type="button" aria-label={`${t('Görevi aşağı taşı','Move task down')} ${index+1}`} disabled={index===drafts.length-1} onClick={()=>move(index,1)}>{t('Aşağı taşı','Move down')}</button><button type="button" aria-label={`${t('Paket taslağından çıkar','Remove from pack draft')} ${index+1}`} onClick={()=>{change();setDrafts(rows=>rows.filter(item=>item.key!==row.key));}}>{t('Taslak görevini çıkar','Remove draft task')}</button></div>
     </fieldset>)}
+    <button type="button" disabled={drafts.length>=12} onClick={()=>{change();setDrafts(rows=>[...rows,{key:Math.max(...rows.map(row=>row.key))+1,selected:true,title:'',description:'',dueDate:''}]);}}>{t('Pakete görev ekle','Add task to pack')}</button>
     <p>{drafts.filter(row=>row.selected).length} {t('yeni görev','new tasks')} · {count}/100 {t('mevcut','existing')}</p>
     <button type="button" onClick={review}>{t('Görev paketini önizle','Preview task pack')}</button>
     <button type="button" onClick={()=>{setDrafts([]);change();}}>{t('Paket taslağını bırak','Discard task pack draft')}</button>

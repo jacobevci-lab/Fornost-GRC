@@ -164,7 +164,7 @@ You can rename, replace or delete up to ten personal views in this browser. Dele
 
 Open **Audit Management → audit → Plan and scope → Templates** for plan starters. A second Templates panel within an editable task provides milestone starters. Preview each proposed field beside your draft; filled fields are not preselected. Apply only the fields you choose, then use **Save plan** or **Save milestone** to persist through the existing authorized workflow. People, dates, states and approvals are never copied.
 
-Plans include internal-control and remediation-follow-up starters; milestones include scope, evidence preparation, fieldwork and closure preparation. These are editable prompts, not a claim of compliance or automatic audit completion. You can name and download your customized text as JSON, then paste it into a matching plan/task template panel for preview and reuse. No server template library is created. Plan templates contain narrative text only; milestone templates contain title and expected output only. Existing task limits, role checks, revision conflicts and closure locks still apply.
+Plans include internal-control and remediation-follow-up starters; milestones include scope, evidence preparation, fieldwork and closure preparation. These are editable prompts, not a claim of compliance or automatic audit completion. You can name and download your customized text as JSON, then paste it into a matching plan/task template panel for preview and reuse. Portable JSON does not create a library record; centrally shared definitions are available separately in Shared template library. Plan templates contain narrative text only; milestone templates contain title and expected output only. Existing task limits, role checks, revision conflicts and closure locks still apply.
 
 ### Sequence audit tasks with prerequisites
 
@@ -198,3 +198,10 @@ Başka denetimde dosyayı seçin veya JSON içeriğini yapıştırıp önizleyin
 **Denetim → Plan ve kapsam → Görevler ve kilometre taşları → Görev paketi oluştur** altında başlangıç paketini hazırlayın. Kapsam, kanıt hazırlığı, saha çalışması ve kapanış görevlerinden gerekenleri seçin; metinleri, sorumluyu, saat dilimini ve her hedef tarihi düzenleyin. İsterseniz seçili görevleri sırayla birbirine bağlayın. **Görev paketini önizle** henüz kayıt oluşturmaz; **Tüm görevleri kaydet** seçili görevleri birlikte kaydeder. Görevler Benim İşlerim’e yansır. Tekil görev taslağınız varsa önce kaydedin veya bırakın.
 
 Tarihler otomatik atanmaz; hatırlatmalar ve tekrar başlangıçta kapalıdır. Hata veya bağlantı kesintisinde taslak korunur; yeni paket hazırlamadan önce listeyi yeniden yükleyip sonucu kontrol edin. Denetim başına iptaller dahil 100 görev sınırı ve mevcut yetkiler uygulanır.
+
+
+### Ortak denetim şablonlarını kullanma
+
+**Denetim → Plan ve kapsam** altında plan veya tekil görev için **Şablonlar → Ortak şablon kütüphanesi**, toplu görevler için **Görev paketi oluştur → Ortak şablon kütüphanesi** bölümünü açın. Kurum şablonunu arayın, sürümünü ve içeriğini inceleyip **Bu şablonu taslak önizlemesine aktar** seçeneğini kullanın. Plan/görev metninde uygulanacak alanları seçin; paket için **Ortak paketi taslağa uygula** ile görev listesini alın. Asıl denetim kaydı ancak kendi Kaydet düğmesine bastığınızda değişir.
+
+Ortak paket kişi veya tarih taşımaz. Sorumlu ve saat diliminizi kontrol edin, her görev tarihini seçin. **Pakete görev ekle**, **Yukarı/Aşağı taşı** ve **Taslak görevini çıkar** seçenekleriyle en fazla 12 görevi düzenleyebilirsiniz. Şablon daha sonra değişirse sizin taslağınız veya kaydınız otomatik değişmez. Eski sürümler ve arşivlenenler yalnız inceleme içindir. Şablon yayınlama/sürümleme/arşivleme yalnız Admin'e açıktır. [Ayrıntılı iş akışı](audit-template-library.md).
