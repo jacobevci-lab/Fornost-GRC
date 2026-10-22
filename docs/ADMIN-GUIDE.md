@@ -140,3 +140,7 @@ Başka denetimde dosyayı seçin veya JSON içeriğini yapıştırıp önizleyin
 ### Toplu denetim görevleri
 
 Görev paketi, aynı denetimde seçili başlangıç görevlerini tek işlemde oluşturur. Admin aktif denetim yazarı seçebilir; Editor yalnız kendisine atar. Kayıt anında hesap/grant ve görev grafiği tekrar doğrulanır; kapalı denetim ve tarihçe hatalarında işlem geri alınır. Paket API’si 1–12 kayıtla ve denetim başına 100 toplam görevle sınırlıdır. Mevcut kayıtlar değiştirilmez; hatırlatmalar/tekrar kapalı başlar. Bir bağlantı hatasından sonra önce listeyi yeniden yükleyin; aynı paket kimlikleri tekrar oluşturulamaz. Merkezi şablon yönetimi ve otomatik tarih planlaması bu özelliğin kapsamında değildir.
+
+### Oturum etkinlik zamanı
+
+Yerel oturumların hesap durumu, rolü, modül yetkileri ve mutlak süre sınırı her istekte veritabanından güncel okunur; yetki sonucu önbelleğe alınmaz. Son görülme zamanı operasyonel metaveridir ve yoğun isteklerde en fazla dakikada bir güncellenir. Bu alan boşta kalma süresi hesabı değildir; etkin istekler oturumun mutlak sona erme tarihini uzatmaz. Bu sınırlama oturum doğrulamasındaki gereksiz yazma yükünü azaltır.
