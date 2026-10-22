@@ -23,11 +23,11 @@ export function AuditCalendarTemplatePanel({ calendar, lang, onApply }: { calend
       const a = document.createElement('a'); a.href = url; a.download = 'fornost-audit-calendar.json'; a.click(); setTimeout(() => URL.revokeObjectURL(url), 1000); setError(false);
     } catch { setError(true); }
   }
-  return <details className="ar-calendar-template"><summary>{t('Takvimi başka denetimde kullan', 'Reuse calendar in another audit')}</summary>
+  return <details className="ar-calendar-template" style={{gridColumn:'1 / -1'}}><summary>{t('Takvimi başka denetimde kullan', 'Reuse calendar in another audit')}</summary>
     <p>{t('Gün hesabı, çalışma günleri ve tatilleri JSON olarak taşıyın. İçe aktarma bu üç alanı değiştirir; hatırlatma eşikleri, eskalasyon sorumlusu ve terminler korunur. Önizlemeyi uyguladıktan sonra profili ayrıca kaydedin.', 'Transfer day counting, working days and holidays as JSON. Import replaces these three fields; reminder thresholds, escalation recipient and deadlines are preserved. Apply the preview, then save the profile separately.')}</p>
     <button type="button" onClick={download}>{t('Taslak takvimi indir', 'Download draft calendar')}</button>
-    <label>{t('Takvim JSON dosyası', 'Calendar JSON file')}<input type="file" accept=".json,application/json" onChange={e => { const file = e.target.files?.[0]; e.target.value = ''; void read(file); }}/></label>
-    <label>{t('Takvim JSON içeriği', 'Calendar JSON content')}<textarea rows={5} maxLength={CALENDAR_TEMPLATE_BYTES} spellCheck={false} value={source} onChange={e => change(e.target.value)}/></label>
+    <label>{t('Takvim JSON dosyası', 'Calendar JSON file')}<input aria-label={t('Takvim JSON dosyası', 'Calendar JSON file')} type="file" accept=".json,application/json" onChange={e => { const file = e.target.files?.[0]; e.target.value = ''; void read(file); }}/></label>
+    <label>{t('Takvim JSON içeriği', 'Calendar JSON content')}<textarea aria-label={t('Takvim JSON içeriği', 'Calendar JSON content')} rows={5} maxLength={CALENDAR_TEMPLATE_BYTES} spellCheck={false} value={source} onChange={e => change(e.target.value)}/></label>
     <button type="button" disabled={reading} onClick={() => { setApplied(false); try { setPreview(importAuditCalendar(source)); setError(false); } catch { setPreview(null); setError(true); } }}>{t('Takvimi önizle', 'Preview calendar')}</button>{' '}
     <button type="button" onClick={() => change('')}>{t('Takvim aktarımını temizle', 'Clear calendar import')}</button>
     {reading && <p role="status">{t('Dosya okunuyor…', 'Reading file…')}</p>}
