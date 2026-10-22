@@ -64,6 +64,14 @@ jobs:
         with:
           name: admin-settings-preview
           path: admin-settings-qa-artifacts/
+      - name: Account and team views, cross-device persistence and permission QA
+        run: node scripts/account-views-qa.mjs
+      - name: Preserve account view browser evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: account-views-preview
+          path: account-views-qa-artifacts/
       - name: Personal saved register views and account isolation QA
         run: node scripts/saved-register-views-qa.mjs
       - name: Preserve saved view browser evidence

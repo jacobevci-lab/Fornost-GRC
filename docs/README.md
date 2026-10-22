@@ -43,5 +43,6 @@ Güncelleme: 19 Ekim 2026. Başlangıç belgeleri Türkçedir; ayrıntılı tekn
 Yeni bir özelliğin API, izin, durum geçişi veya limitleri değiştiğinde ilgili ayrıntılı belge ile bu başlangıç rehberleri birlikte güncellenmelidir.
 
 - [Saved register views](saved-register-views.md): personal search/filter/column presets, limits and browser storage boundaries.
+- [Account and team views](account-team-views.md): server-backed personal preferences, Admin-published shared criteria, cross-device reuse and current access enforcement across seven registers and My Work.
 
 - [Shared audit template library](audit-template-library.md) — centrally managed plan/task/task-pack definitions, version history, archive/reactivation and explicit reuse.

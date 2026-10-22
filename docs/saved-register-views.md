@@ -1,5 +1,7 @@
 # Personal saved register views
 
+This page describes the existing browser-local **Saved views** panel. The adjacent **Account and team views** panel now provides server-backed personal and Admin-published team preferences across these registers and My Work. See [Account and team views](account-team-views.md); local data is not migrated automatically.
+
 Use **Saved views** below the register toolbar in Risk Assessment, BIA, Asset Inventory, Compliance Management, Control Library, Evidence Library and an audit's **Requirements and tests** tab. Choose search text, exact-value filters and visible columns, enter a name, then select **Save new view**. Up to 10 views are retained per user and module in this browser.
 
 Select a view and choose **Apply view** to apply its search, filters and visible columns to current accessible records. Loading the page does not automatically apply a named view. The existing per-tab search/filter context continues independently. Audit requirement views are reusable across audits; applying one keeps the current audit and resets pagination through the existing filter-change behavior. An exact-record focus cannot be saved; applying a saved view exits that temporary focus. The view does not save a record ID, audit ID, page number, sort order, approval state or a snapshot of record rows.
@@ -18,4 +20,4 @@ Storage/quota errors are shown explicitly and do not report a successful save. M
 
 Domain tests cover criteria and column ordering, lifecycle operations, per-user/module keys, stale writes, normalized names, bounds, invalid data, unsupported fields and storage failures. The isolated browser suite exercises actual register filtering, reload persistence, rename/replace/delete, cross-tab changes, temporary record focus, missing filter values, quota recovery, account switching, Viewer usage, all seven register entry points, accessibility and TR/EN desktop/mobile layouts. Synthetic business records and the QA account are cleaned up afterward.
 
-Vendor Management uses its own workspace filters and is not included in this increment. Saved team views, server synchronization, default views, sort persistence and scheduled exports remain separate work.
+Vendor Management uses its own workspace filters and is not included in this increment. Team views and server persistence are available in the separate account panel described above. Default views, sort persistence and scheduled exports remain separate work.

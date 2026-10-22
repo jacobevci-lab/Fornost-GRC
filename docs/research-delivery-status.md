@@ -42,6 +42,8 @@ Structured plan milestones: [Audit milestones](audit-milestones.md). These owner
 
 Personal named register views now cover Risk, BIA, Assets, Compliance, Controls, Evidence and audit requirements. These reuse current authorized records; they are browser-local preferences, not server/team views or evidence snapshots. See [Saved register views](saved-register-views.md).
 
+The adjacent account/team panel now adds server-backed personal views (20 per account/module) and Admin-published team views (50 per module) across those seven registers and My Work. It includes explicit criteria/destination previews, cross-device reuse, current module/owner/revision checks, guarded atomic changes and confirmed preference removal. Existing browser-local data remains intact and is copied only by explicit apply/save. My Work keeps the current Mine/Organization scope and hides shared criteria targeting inaccessible modules. Group-specific publication, automatic/default application, sort persistence, scheduled exports and governed view history remain open. See [Account and team views](account-team-views.md).
+
 My Work supports a module selector within the current authorized personal/organization scope. Summary counts, due/status filters, completed work, pagination and CSV exports share that selection. Empty module selections remain explicit; the separate assurance signals keep their own scope.
 
 My Work also supports up to ten personal named browser-local views of search, module and work-status criteria. Applying uses current records, resets pagination and preserves current personal/organization scope. These are not team views or snapshots.

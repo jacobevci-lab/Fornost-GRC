@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
+import { fields } from "../app/register-view-schema";
 import { demoSeeds } from "../app/api/grc/demo-seeds";
 import { normalizeRecordData, validate } from "../app/api/grc/route";
 
@@ -9,12 +10,11 @@ const coreModules=["Risk Assessment","BIA","Varlık Envanteri","Uyum","Tedarikç
 test("every core register is reachable and participates in CRUD, reports and demo coverage",async()=>{
  const [page,route]=await Promise.all([readFile("app/page.tsx","utf8"),readFile("app/api/grc/route.ts","utf8")]);
  const moduleList=page.slice(page.indexOf("const modules = ["),page.indexOf("const adminModules"));
- const reportList=page.slice(page.indexOf("const reportModules = ["),page.indexOf("const fields:"));
- const fieldMap=page.slice(page.indexOf("const fields:"),page.indexOf("const examples:"));
+ const reportList=page.slice(page.indexOf("const reportModules = ["),page.indexOf("const examples:"));
  for(const moduleName of coreModules){
   assert.match(moduleList,new RegExp(`"${moduleName.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")}"`),`${moduleName} is missing from navigation`);
   assert.match(reportList,new RegExp(`"${moduleName.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")}"`),`${moduleName} is missing from reporting`);
-  assert.match(fieldMap,new RegExp(moduleName.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")),`${moduleName} has no form schema`);
+  assert.ok(fields[moduleName]?.length,`${moduleName} has no form schema`);
   assert.equal(demoSeeds.filter(([,name])=>name===moduleName).length,4,`${moduleName} needs four removable samples`);
  }
  for(const method of ["GET","POST","PATCH","DELETE"])assert.match(route,new RegExp(`export async function ${method}`));

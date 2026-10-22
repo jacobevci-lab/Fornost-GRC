@@ -12,7 +12,7 @@ import { navigateToFornost } from "./navigation-focus";
 import "./my-work-v2.css";
 import { buildWorkQueueCsv } from "./work-queue-export";
 import { SavedRegisterViewsPanel } from "./saved-register-views-panel";
-import { workViewSchema, readWorkView, type QueueFilter } from "./work-queue-views";
+import { WORK_MODULE_LABELS as MODULE_LABELS, workViewSchema, readWorkView, type QueueFilter } from "./work-queue-views";
 import { downloadBlob } from "./report-export";
 
 type Lang = "tr" | "en";
@@ -82,21 +82,7 @@ const REVIEW_STATES = [
   "approval pending",
   "onay bekliyor",
 ];
-const MODULE_LABELS: Record<string, { tr: string; en: string }> = {
-  "Risk Assessment": { tr: "Risk", en: "Risk" },
-  BIA: { tr: "BIA", en: "BIA" },
-  "Varlık Envanteri": { tr: "Varlık", en: "Asset" },
-  Uyum: { tr: "Uyum", en: "Compliance" },
-  Kontroller: { tr: "Kontrol", en: "Control" },
-  Kanıtlar: { tr: "Kanıt", en: "Evidence" },
-  Tedarikçiler: { tr: "Tedarikçi", en: "Vendor" },
-  "Denetim Yönetimi": { tr: "Denetim", en: "Audit" },
-  "Bulgular ve CAPA": { tr: "Bulgu / CAPA", en: "Finding / CAPA" },
-  "Risk İştahı ve KRI": { tr: "KRI", en: "KRI" },
-  "Politika Merkezi": { tr: "Politika", en: "Policy" },
-  "Regülasyon Merkezi": { tr: "Regülasyon", en: "Regulatory" },
-  "İş Sürekliliği": { tr: "Süreklilik", en: "Continuity" },
-};
+
 
 const clean = (value: unknown) => String(value ?? "").trim();
 const normalized = (value: unknown) => clean(value).normalize("NFKC").toLocaleLowerCase("tr-TR");
@@ -454,7 +440,7 @@ export default function MyWorkV2() {
         <p>{tr ? "Özet sayaçları, iş listesi ve CSV seçili modüle göre süzülür. Güvence sinyalleri kendi kapsamını korur." : "Summary counts, the work list and CSV follow the selected module. Assurance signals retain their own scope."}</p>
       </div>
       {user.id && !loadError && <SavedRegisterViewsPanel userId={user.id} module="My Work" lang={lang} variant="work"
-        current={{query, filters:{module:moduleFilter, status:filter}, columns:workViewSchema.columns}} schema={workViewSchema}
+        current={{query, filters:{module:moduleFilter, status:filter}, columns:workViewSchema.columns}} schema={workViewSchema} labels={{module:tr?"Modül":"Module",status:tr?"İş durumu":"Work status",title:tr?"Başlık":"Title",owner:tr?"Sahip":"Owner",due:tr?"Termin":"Due date"}}
         apply={view => { const next = readWorkView(view, Object.keys(MODULE_LABELS)); setQuery(next.query); setModuleFilter(next.module); setFilter(next.status); setPageIndex(0); }} />}
       <div className="mw2-metrics">
         <button type="button" className={data.overdue ? "critical" : ""} onClick={() => setFilter("overdue")}><small>{tr ? "Geciken" : "Overdue"}</small><strong>{data.overdue}</strong><span>{tr ? "Termin geçmiş işler" : "Past-due work"}</span></button>
