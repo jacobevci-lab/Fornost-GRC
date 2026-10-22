@@ -1,3 +1,4 @@
+import {validateMilestoneBatch} from './audit-milestone-batch';
 import type { Actor } from './api/auth/security';
 import { canReadModule, canWriteModule, parseModuleAccess } from './module-access';
 import { AuditRequestError, requestDueAt } from './audit-requests';
@@ -5,6 +6,39 @@ import { auditRequestId, requireAuditParent } from './audit-request-store';
 import { ensureAuditClosureSchema } from './audit-closure-schema';
 import { validateMilestone, validateMilestoneGraph, nextMilestoneDate, milestoneLabels, type AuditMilestone } from './audit-milestones';
 type Stored = { id:string; audit_id:string; revision:string; data_json:string; created_at:string; updated_at:string };
+/** One guarded INSERT and its history commit together; no partial task packs. */
+export async function createMilestoneBatch(db:D1Database, actor:Actor, input:Record<string,unknown>, now=new Date()) {
+ if(!canWriteModule(actor,'Denetim Yönetimi'))throw new AuditRequestError('forbidden',403);
+ const auditId=auditRequestId(input.auditId),items=validateMilestoneBatch(input.items),email=actor.email.toLowerCase();
+ if(actor.role!=='Admin'&&items.some(item=>item.fields.owner!==email))throw new AuditRequestError('owner',403);
+ await ensureAuditClosureSchema(db);await requireAuditParent(db,auditId);
+ const graphRows=await db.prepare('SELECT * FROM audit_milestones WHERE audit_id=? ORDER BY id LIMIT 101').bind(auditId).all<Stored>();
+ if(graphRows.results.length>100)throw new AuditRequestError('source-invalid',503);
+ if(graphRows.results.length+items.length>100)throw new AuditRequestError('limit',409);
+ if(items.some(item=>graphRows.results.some(row=>row.id===item.id)))throw new AuditRequestError('conflict',409);
+ const emails=[...new Set([email,...items.map(item=>item.fields.owner)])];
+ const people=await db.prepare("SELECT u.id,lower(u.email) AS email,u.role,a.policy_json AS policy FROM local_users u LEFT JOIN user_module_access a ON a.user_id=u.id WHERE u.status='Active' AND lower(u.email) IN (SELECT value FROM json_each(?))").bind(JSON.stringify(emails)).all<{id:string;email:string;role:string;policy:string|null}>();
+ if(people.results.length!==emails.length||!people.results.some(p=>p.id===actor.id&&p.email===email&&p.role===actor.role)||people.results.some(p=>!canWriteModule({role:p.role,moduleAccess:parseModuleAccess(p.policy)},'Denetim Yönetimi')))throw new AuditRequestError('assignee',403);
+ const stamp=now.toISOString(),rows:AuditMilestone[]=items.map(item=>({...item.fields,id:item.id,auditId,revision:crypto.randomUUID(),status:'planned',note:'',createdAt:stamp,updatedAt:stamp}));
+ validateMilestoneGraph([...graphRows.results.map(publicMilestone),...rows]);
+ const snapshot=JSON.stringify(graphRows.results.map(row=>({id:row.id,revision:row.revision}))),payload=JSON.stringify(rows);
+ const result=await db.batch([
+  db.prepare(`WITH allowed AS MATERIALIZED (SELECT 1 WHERE EXISTS(SELECT 1 FROM simple_audits WHERE id=?)
+   AND (SELECT count(*) FROM audit_milestones WHERE audit_id=?)=?
+   AND NOT EXISTS(SELECT 1 FROM json_each(?) g WHERE NOT EXISTS(SELECT 1 FROM audit_milestones m WHERE m.audit_id=? AND m.id=json_extract(g.value,'$.id') AND m.revision=json_extract(g.value,'$.revision')))
+   AND NOT EXISTS(SELECT 1 FROM json_each(?) n JOIN audit_milestones m ON m.id=json_extract(n.value,'$.id'))
+   AND NOT EXISTS(SELECT 1 FROM json_each(?) p WHERE NOT EXISTS(SELECT 1 FROM local_users u LEFT JOIN user_module_access a ON a.user_id=u.id WHERE u.id=json_extract(p.value,'$.id') AND lower(u.email)=json_extract(p.value,'$.email') AND u.role=json_extract(p.value,'$.role') AND u.status='Active' AND a.policy_json IS json_extract(p.value,'$.policy'))))
+   INSERT INTO audit_milestones(id,audit_id,revision,data_json,created_at,updated_at)
+   SELECT json_extract(n.value,'$.id'),?,json_extract(n.value,'$.revision'),n.value,?,? FROM json_each(?) n WHERE EXISTS(SELECT 1 FROM allowed) RETURNING id`)
+   .bind(auditId,auditId,graphRows.results.length,snapshot,auditId,payload,JSON.stringify(people.results),auditId,stamp,stamp,payload),
+  db.prepare(`INSERT INTO audit_milestone_events(id,audit_id,milestone_id,actor,action,note,snapshot_json,created_at)
+   SELECT json_extract(n.value,'$.revision'),?,json_extract(n.value,'$.id'),?,'save','',n.value,? FROM json_each(?) n
+   WHERE EXISTS(SELECT 1 FROM audit_milestones m WHERE m.id=json_extract(n.value,'$.id') AND m.audit_id=? AND m.revision=json_extract(n.value,'$.revision'))`)
+   .bind(auditId,email,stamp,payload,auditId),
+ ]);
+ if(result[0].results.length!==rows.length)throw new AuditRequestError('conflict',409);
+ return {ids:rows.map(row=>row.id)};
+}
 export function publicMilestone(row: Stored): AuditMilestone {
  const value=JSON.parse(row.data_json), fields=validateMilestone(value);
  if (!Object.hasOwn(milestoneLabels,value.status) || typeof value.note!=='string') throw new AuditRequestError('source-invalid',503);

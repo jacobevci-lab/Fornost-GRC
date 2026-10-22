@@ -135,3 +135,8 @@ The collapsed operational detail does not fetch delivery/owner history. Opening 
 **Denetim → Talepler ve inceleme → Hatırlatma takvimi ve eskalasyon → Hatırlatma profilini düzenle → Takvimi başka denetimde kullan** bölümünden taslak takvimi JSON olarak indirebilirsiniz. Dosya yalnızca gün hesabını, çalışma günlerini ve tatil tarihlerini içerir; kişi, denetim kimliği, bildirim eşiği veya eskalasyon alıcısı içermez.
 
 Başka denetimde dosyayı seçin veya JSON içeriğini yapıştırıp önizleyin. **Takvimi taslağa uygula**, bu üç alanı değiştirir; tatilleri birleştirmez. Hedef denetimin bildirim eşikleri, eskalasyon sorumlusu ve terminleri korunur. Son olarak **Hatırlatma profilini kaydet** ile kalıcı hale getirin. Kaydetmeden vazgeçerseniz kayıt değişmez. Kaydetmede mevcut yetki, kapalı denetim ve eşzamanlı değişiklik kontrolleri uygulanır; bekleyen bildirimler yeniden değerlendirilir. Aktarım bir kopyadır: kaynak takvim daha sonra değişirse hedef denetimler otomatik güncellenmez. En fazla 16 KB dosya ve 366 benzersiz geçerli tatil tarihi desteklenir; merkezi takvim kütüphanesi ve resmi tatil servisi değildir.
+
+
+### Toplu denetim görevleri
+
+Görev paketi, aynı denetimde seçili başlangıç görevlerini tek işlemde oluşturur. Admin aktif denetim yazarı seçebilir; Editor yalnız kendisine atar. Kayıt anında hesap/grant ve görev grafiği tekrar doğrulanır; kapalı denetim ve tarihçe hatalarında işlem geri alınır. Paket API’si 1–12 kayıtla ve denetim başına 100 toplam görevle sınırlıdır. Mevcut kayıtlar değiştirilmez; hatırlatmalar/tekrar kapalı başlar. Bir bağlantı hatasından sonra önce listeyi yeniden yükleyin; aynı paket kimlikleri tekrar oluşturulamaz. Merkezi şablon yönetimi ve otomatik tarih planlaması bu özelliğin kapsamında değildir.
