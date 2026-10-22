@@ -185,3 +185,9 @@ Creation is explicit and happens once per completed task. No next-period tasks a
 **Denetim → Plan ve kapsam → Görevler** içinde **E-posta hatırlatmalarını aç** seçeneğini işaretleyip kaydedin. Ön hatırlatma, son gün, gecikme ve isteğe bağlı eskalasyon tarihleri ekranda gösterilir. Takvim aynı denetimin **Talepler ve inceleme → Hatırlatma takvimi ve eskalasyon** bölümünden yönetilir; görevin saat dilimi kullanılır. E-posta taşıması **Ayarlar → E-posta ve Bildirimler** altında yapılandırılır.
 
 Mevcut görevlerde seçenek kapalıdır. Görev kapanınca veya hatırlatma kapatılınca bekleyen bildirim geri çekilir. Görev/profil değişikliği yeni bildirim oluşturabilir; her gün tekrarlanan e-posta gönderilmez. E-posta teslimi görevin tamamlandığı anlamına gelmez. Yeni tekrar dönemine hatırlatma tercihi aktarılır; kendi tarihi gelene kadar bildirim üretilmez.
+
+### Denetimler arasında takvim aktarımı
+
+**Denetim → Talepler ve inceleme → Hatırlatma takvimi ve eskalasyon → Hatırlatma profilini düzenle → Takvimi başka denetimde kullan** bölümünden taslak takvimi JSON olarak indirebilirsiniz. Dosya yalnızca gün hesabını, çalışma günlerini ve tatil tarihlerini içerir; kişi, denetim kimliği, bildirim eşiği veya eskalasyon alıcısı içermez.
+
+Başka denetimde dosyayı seçin veya JSON içeriğini yapıştırıp önizleyin. **Takvimi taslağa uygula**, bu üç alanı değiştirir; tatilleri birleştirmez. Hedef denetimin bildirim eşikleri, eskalasyon sorumlusu ve terminleri korunur. Son olarak **Hatırlatma profilini kaydet** ile kalıcı hale getirin. Kaydetmeden vazgeçerseniz kayıt değişmez. Kaydetmede mevcut yetki, kapalı denetim ve eşzamanlı değişiklik kontrolleri uygulanır; bekleyen bildirimler yeniden değerlendirilir. Aktarım bir kopyadır: kaynak takvim daha sonra değişirse hedef denetimler otomatik güncellenmez. En fazla 16 KB dosya ve 366 benzersiz geçerli tatil tarihi desteklenir; merkezi takvim kütüphanesi ve resmi tatil servisi değildir.
