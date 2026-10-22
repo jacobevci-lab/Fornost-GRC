@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 
+const schema = readFileSync("app/register-view-schema.ts", "utf8");
 const page = readFileSync("app/page.tsx", "utf8");
 const css = readFileSync("app/module-registers.css", "utf8");
 const finalCss = readFileSync("app/final-polish.css", "utf8");
@@ -83,8 +84,8 @@ test("shared record and import dialogs expose accessible names", () => {
 
 test("module catalogs expose operational tracking fields beyond the default view", () => {
   assert.match(page, /followUpOwner: "Takip Eden \/ Koordinatör"/);
-  assert.match(page, /"Risk Assessment": \[\s*"category",\s*"businessUnit",\s*"owner",\s*"asset",\s*"actionOwner"/);
-  assert.match(page, /"Varlık Envanteri": \[\s*"assetType",\s*"businessUnit",\s*"owner",\s*"technicalOwner",\s*"custodian"/);
-  assert.match(page, /"Denetim Yönetimi": \[\s*"auditType",\s*"businessUnit",\s*"owner",\s*"followUpOwner"/);
-  assert.match(page, /tr: "Atanan Kişi \/ İş Birimi"/);
+  assert.match(schema, /"Risk Assessment": \[\s*"category",\s*"businessUnit",\s*"owner",\s*"asset",\s*"actionOwner"/);
+  assert.match(schema, /"Varlık Envanteri": \[\s*"assetType",\s*"businessUnit",\s*"owner",\s*"technicalOwner",\s*"custodian"/);
+  assert.match(schema, /"Denetim Yönetimi": \[\s*"auditType",\s*"businessUnit",\s*"owner",\s*"followUpOwner"/);
+  assert.match(schema, /tr: "Atanan Kişi \/ İş Birimi"/);
 });

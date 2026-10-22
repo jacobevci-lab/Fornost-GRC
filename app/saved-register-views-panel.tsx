@@ -2,9 +2,10 @@
 import { useCallback, useId, useState, useSyncExternalStore } from 'react';
 import { parseSavedViews, persistSavedViews, savedViewsKey, validateViewState, type SavedRegisterView, type SavedViewState, type ViewChange, type ViewSchema } from './saved-register-views';
 import './saved-register-views.css';
+import { AccountViewsPanel } from './account-views-panel';
 const eventName = 'fornost-saved-views-changed', unavailable = '!storage-unavailable';
-export function SavedRegisterViewsPanel(props: { userId: string; module: string; lang: string; current: SavedViewState; schema: ViewSchema; focused?: boolean; variant?: 'work'; apply: (state: SavedViewState) => void }) {
-  return <Views key={savedViewsKey(props.userId, props.module)} {...props}/>;
+export function SavedRegisterViewsPanel(props: { userId: string; module: string; lang: string; current: SavedViewState; schema: ViewSchema; labels?: Record<string,string>; focused?: boolean; variant?: 'work'; apply: (state: SavedViewState) => void }) {
+  return <div key={savedViewsKey(props.userId, props.module)}><Views {...props}/><AccountViewsPanel {...props}/></div>;
 }
 function Views({ userId, module, lang, current, schema, focused, variant, apply }: Parameters<typeof SavedRegisterViewsPanel>[0]) {
   const key = savedViewsKey(userId, module), id = useId(), tr = lang === 'tr', t = (a: string, b: string) => tr ? a : b;

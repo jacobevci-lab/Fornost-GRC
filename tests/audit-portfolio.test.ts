@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 
+const schema = readFileSync("app/register-view-schema.ts", "utf8");
 const page = readFileSync("app/page.tsx", "utf8");
 const route = readFileSync("app/api/audits/route.ts", "utf8");
 const css = readFileSync("app/layout-guardrails.css", "utf8");
@@ -48,7 +49,7 @@ test("all advertised standards and regulations have automatic requirement catalo
 });
 
 test("audit requirements show framework references without internal record codes or repeated audit names", () => {
-  assert.match(page, /key: "audit", tr: "Madde", en: "Requirement"/);
+  assert.match(schema, /key: "audit", tr: "Madde", en: "Requirement"/);
   assert.match(page, /showRecordCode = module !== "Denetim Yönetimi"/);
   assert.match(page, /<b>{reference}<\/b>/);
   assert.doesNotMatch(page, /<b>{d\.auditName \|\| "—"}<\/b>/);
