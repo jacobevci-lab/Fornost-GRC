@@ -120,7 +120,7 @@ Named register views use per-user/module browser local storage and require no se
 
 ### Workpaper deadlines
 
-Optional paired preparation/review deadlines use each workpaper's IANA time zone. Legacy undated records need no migration. Dates participate in existing revision-checked draft writes, history, report integrity and closed-audit restrictions. My Work switches to the review deadline after submission and removes active deadlines for approved/cancelled work. Older clients that omit scheduling fields preserve saved dates. This feature does not queue email; workpaper reminder transport remains out of scope. See [Audit workpapers](audit-workpapers.md#preparation-and-review-deadlines).
+Optional paired preparation/review deadlines use each workpaper's IANA time zone. Legacy undated records need no migration. Dates participate in existing revision-checked draft writes, history, report integrity and closed-audit restrictions. My Work switches to the review deadline after submission and removes active deadlines for approved/cancelled work. Older clients that omit scheduling fields preserve saved dates. Optional workpaper reminders are documented in the reminder section below and use the existing transport. See [Audit workpapers](audit-workpapers.md#preparation-and-review-deadlines).
 
 ### Dashboard operational data loading
 
@@ -139,8 +139,15 @@ Başka denetimde dosyayı seçin veya JSON içeriğini yapıştırıp önizleyin
 
 ### Toplu denetim görevleri
 
-Görev paketi, aynı denetimde seçili başlangıç görevlerini tek işlemde oluşturur. Admin aktif denetim yazarı seçebilir; Editor yalnız kendisine atar. Kayıt anında hesap/grant ve görev grafiği tekrar doğrulanır; kapalı denetim ve tarihçe hatalarında işlem geri alınır. Paket API’si 1–12 kayıtla ve denetim başına 100 toplam görevle sınırlıdır. Mevcut kayıtlar değiştirilmez; hatırlatmalar/tekrar kapalı başlar. Bir bağlantı hatasından sonra önce listeyi yeniden yükleyin; aynı paket kimlikleri tekrar oluşturulamaz. Merkezi şablon yönetimi ve otomatik tarih planlaması bu özelliğin kapsamında değildir.
+Görev paketi, aynı denetimde seçili başlangıç görevlerini tek işlemde oluşturur. Admin aktif denetim yazarı seçebilir; Editor yalnız kendisine atar. Kayıt anında hesap/grant ve görev grafiği tekrar doğrulanır; kapalı denetim ve tarihçe hatalarında işlem geri alınır. Paket API’si 1–12 kayıtla ve denetim başına 100 toplam görevle sınırlıdır. Mevcut kayıtlar değiştirilmez; hatırlatmalar/tekrar kapalı başlar. Bir bağlantı hatasından sonra önce listeyi yeniden yükleyin; aynı paket kimlikleri tekrar oluşturulamaz. Merkezi şablon yönetimi ayrı ortak kütüphanede sunulur; otomatik tarih planlaması kapsam dışıdır.
 
 ### Oturum etkinlik zamanı
 
 Yerel oturumların hesap durumu, rolü, modül yetkileri ve mutlak süre sınırı her istekte veritabanından güncel okunur; yetki sonucu önbelleğe alınmaz. Son görülme zamanı operasyonel metaveridir ve yoğun isteklerde en fazla dakikada bir güncellenir. Bu alan boşta kalma süresi hesabı değildir; etkin istekler oturumun mutlak sona erme tarihini uzatmaz. Bu sınırlama oturum doğrulamasındaki gereksiz yazma yükünü azaltır.
+
+
+### Ortak şablon kütüphanesini yönetme
+
+Plan, tekil görev ve görev paketi ekranlarında **Ortak şablon kütüphanesi** bulunur. Admin mevcut yerel taslak metnini ad ve değişiklik gerekçesiyle önizleyip yeni kurum şablonu olarak yayınlayabilir; seçili şablon için yeni sürüm de oluşturabilir. Arşivleme ve yeniden etkinleştirme gerekçe/önizleme ister. Denetim erişimi olan kullanıcılar ortak içeriği okuyabilir; düzenleme yetkisi olanlar kendi taslaklarına alıp normal kayıt akışında kullanır.
+
+Her tür için arşivler dahil 200 şablon sınırı vardır. Son 50 sürüm listelenir; daha eski kayıtlar saklanır. Kayıt ve sürüm geçmişi atomiktir; güncel aktif Admin hesabı ve beklenen sürüm yazma anında denetlenir. Çakışma/bağlantı hatasında taslak korunur; kütüphaneyi yenileyip sonucu kontrol edin. Şablonlar yapılandırılmış kişi, termin, kanıt veya onay bilgisi içermez, ancak paylaşılacak serbest metni yayınlamadan önce inceleyin. Mevcut denetimler güncellenmez; e-posta log ekranı eklenmez. [API, sınırlar ve veri modeli](audit-template-library.md).

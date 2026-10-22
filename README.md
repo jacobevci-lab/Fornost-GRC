@@ -12,7 +12,7 @@ Fornost GRC, kurumların risklerini, kontrollerini, kanıtlarını, denetimlerin
 | --- | --- |
 | Riskleri görünür kılmak | Varlık ve BIA bağlamıyla risk değerlendirmesi; risk iştahı, KRI ve aksiyon takibi |
 | Uyum çalışmalarını düzenlemek | Gereksinim, kontrol, politika ve kanıt ilişkileri; eksik veya güncel olmayan güvenceyi izleme |
-| Denetimi yürütmek | Kapsam ve plan, gereksinimler, sahip/reviewer atamalı kanıt talepleri, çalışma kâğıtları, durum raporları ve bağımsız kapanış |
+| Denetimi yürütmek | Kapsam/plan, ortak şablonlar ve görev paketleri, gereksinimler, sahip/reviewer atamalı kanıt talepleri, çalışma kâğıtları, durum raporları ve bağımsız kapanış |
 | Bulguları sonuçlandırmak | Kaynağa bağlı CAPA, kök neden, sorumlu, son tarih, kanıt ve bağımsız kapanış doğrulaması |
 | Operasyonel dayanıklılık | Tedarikçi değerlendirmesi, güvenlik olayları, BIA bağlantılı süreklilik planları ve tatbikatlar |
 | AI kullanımını yönetmek | Model envanteri, risk/değerlendirme, yaşam döngüsü kararları, izleme ve insan onaylı AI desteği |
@@ -61,9 +61,11 @@ Tekrarlayan dönem, sorumlu, doğrulayıcı ve kanıtla **operasyonel regülasyo
 
 ## Son tamamlanan geliştirmeler
 
-19 Ekim 2026 itibarıyla, uygulama sürümü `c87540a75e36` / [PR #320](https://github.com/jacobevci-lab/Fornost-GRC/pull/320) temel alınmıştır:
+22 Ekim 2026 itibarıyla bu kaynak sürümünün başlıca geliştirmeleri:
 
-- Denetim talepleri için iş günü/tatil takvimi, ayarlanabilir hatırlatma eşikleri ve tek alıcıya eskalasyon.
+- [Ortak denetim şablon kütüphanesi](docs/audit-template-library.md): yönetici yayını, sürüm geçmişi, arşivleme ve denetimler arasında plan/görev/paket kullanımı.
+- Tarihli görevler, ön koşul zincirleri, özelleştirilebilir toplu görev paketleri, açıkça başlatılan tekrar dönemleri ve isteğe bağlı hatırlatmalar.
+- Denetim talepleri için taşınabilir iş günü/tatil takvimi, ayarlanabilir hatırlatma eşikleri ve tek alıcıya eskalasyon.
 - Bağımsız bütün-denetim kapanışı, değişiklik kilitleri, gerekçeli yeniden açma ve doğrulanabilir karar paketi.
 - Kanıt sürümüne bağlı çalışma kâğıtları ve manuel örnekleme; sahip/reviewer işlerinin Benim İşlerim'e taşınması.
 - Sekiz çekirdek sicil, denetim talebi ve çalışma kâğıdı için kayıt bağlantıları; yapılandırılmış uygulama adresi üzerinden e-posta görev bağlantıları.
