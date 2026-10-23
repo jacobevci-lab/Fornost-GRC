@@ -9,11 +9,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 6
     steps:
-      - name: Inspect official CentOS 9 repository failure
+      - name: Revalidate official metalink metadata without weakening checksum verification
         run: |
           docker run --rm quay.io/centos/centos:stream9 bash -lc '
-            date -u
-            rpm -q ca-certificates centos-stream-repos
-            cat /etc/yum.repos.d/centos.repo
-            dnf -v -y install python3
+            sed -i "/^metalink=/s/\$/\&fornost_ci_refresh=$(date +%s)/" /etc/yum.repos.d/centos.repo
+            dnf -v -y --refresh install python3
           '
