@@ -32,14 +32,12 @@ jobs:
             npx playwright install --with-deps chromium
           fi
       - run: node scripts/wait-for-production-revision.mjs --once
-      - name: Reproduce and verify pending-read teardown
-        run: node scripts/qa-browser-harness-regression.mjs
-      - name: Trace the unchanged legacy scan
-        run: node scripts/session-request-diagnostics.mjs
+      - name: Reproduce the deployed superseded-response leak
+        run: node scripts/copilot-identity-response-qa.mjs
       - run: node scripts/wait-for-production-revision.mjs --once
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: session-request-diagnostics
-          path: qa-artifacts/
+          path: copilot-identity-response-qa-artifacts/
           retention-days: 21
