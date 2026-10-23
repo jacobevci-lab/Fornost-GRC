@@ -65,7 +65,7 @@ Tekrarlayan dönem, sorumlu, doğrulayıcı ve kanıtla **operasyonel regülasyo
 
 - [Ortak denetim şablon kütüphanesi](docs/audit-template-library.md): yönetici yayını, sürüm geçmişi, arşivleme ve denetimler arasında plan/görev/paket kullanımı.
 - Tarihli görevler, ön koşul zincirleri, özelleştirilebilir toplu görev paketleri, açıkça başlatılan tekrar dönemleri ve isteğe bağlı hatırlatmalar.
-- Denetim talepleri için taşınabilir iş günü/tatil takvimi, ayarlanabilir hatırlatma eşikleri ve tek alıcıya eskalasyon.
+- [Ortak iş günü/tatil takvimleri](docs/audit-reminder-profiles.md#shared-organization-calendars): yönetici sürümlemesi, denetimde kaynak sürümü takibi, önizlemeli güncelleme, JSON aktarımı, hatırlatma eşikleri ve tek alıcıya eskalasyon.
 - Bağımsız bütün-denetim kapanışı, değişiklik kilitleri, gerekçeli yeniden açma ve doğrulanabilir karar paketi.
 - Kanıt sürümüne bağlı çalışma kâğıtları ve manuel örnekleme; sahip/reviewer işlerinin Benim İşlerim'e taşınması.
 - Sekiz çekirdek sicil, denetim talebi ve çalışma kâğıdı için kayıt bağlantıları; yapılandırılmış uygulama adresi üzerinden e-posta görev bağlantıları.

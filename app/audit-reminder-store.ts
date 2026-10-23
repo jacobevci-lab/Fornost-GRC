@@ -4,6 +4,8 @@ import { AuditRequestError } from './audit-requests';
 import { auditRequestActorActive, auditRequestId, ensureAuditRequestSchema, requireAuditParent } from './audit-request-store';
 import { defaultAuditReminderProfile, validateAuditReminderProfile, type SavedAuditReminderProfile } from './audit-reminder-profile';
 import { ensureAuditClosureSchema } from './audit-closure-schema';
+import {readSharedTemplate} from './audit-shared-template-store';
+import {validateAuditCalendar} from './audit-calendar-template';
 
 export async function readAuditReminderProfile(db: D1Database, auditId: string): Promise<SavedAuditReminderProfile> {
   await ensureAuditRequestSchema(db); await requireAuditParent(db, auditId);
@@ -15,6 +17,20 @@ export async function saveAuditReminderProfile(db: D1Database, actor: Actor, inp
   const auditId = auditRequestId(input.auditId), profile = validateAuditReminderProfile(input.profile);
   if (typeof input.expectedRevision !== 'string' || input.expectedRevision.length > 100 || typeof input.expectedWorkflowRevision !== 'string' || input.expectedWorkflowRevision.length > 100) throw new AuditRequestError('revision');
   await ensureAuditClosureSchema(db); await requireAuditParent(db, auditId);
+  // An existing audit keeps its pinned calendar when the central definition changes.
+  // New adoption must bind the exact current active definition at commit time.
+  const previous=await readAuditReminderProfile(db,auditId);
+  const calendarKey=(p:typeof profile)=>JSON.stringify(validateAuditCalendar({mode:p.mode,weekdays:p.weekdays,holidays:p.holidays}));
+  if(profile.calendarSource===undefined&&previous.profile.calendarSource&&calendarKey(previous.profile)===calendarKey(profile))profile.calendarSource=previous.profile.calendarSource;
+  let sourceGuard=false;
+  if(profile.calendarSource){
+    const source=profile.calendarSource,retained=previous.profile.calendarSource?.id===source.id&&previous.profile.calendarSource.revision===source.revision;
+    const definition=await readSharedTemplate(db,actor,source.id,source.revision);
+    if(definition.selected.template.kind!=='calendar'||JSON.stringify(definition.selected.template.calendar)!==calendarKey(profile))throw new AuditRequestError('calendar-source');
+    if(!retained&&(definition.current.archived||definition.current.revision!==source.revision))throw new AuditRequestError('calendar-changed',409);
+    profile.calendarSource={id:source.id,revision:source.revision,name:definition.selected.name,version:definition.selected.version};
+    sourceGuard=!retained;
+  }
   if (profile.escalationRecipient && !await auditRequestActorActive(db, profile.escalationRecipient)) throw new AuditRequestError('assignee');
   const emails = [...new Set([actor.email.toLowerCase(), profile.escalationRecipient].filter(Boolean))];
   const people = await db.prepare(`SELECT u.id,lower(u.email) AS email,u.role,a.policy_json AS policy FROM local_users u LEFT JOIN user_module_access a ON a.user_id=u.id WHERE lower(u.email) IN (SELECT value FROM json_each(?)) AND u.status='Active'`).bind(JSON.stringify(emails)).all<{ id: string; email: string; role: string; policy: string | null }>();
@@ -26,8 +42,9 @@ export async function saveAuditReminderProfile(db: D1Database, actor: Actor, inp
       AND COALESCE((SELECT revision FROM audit_reminder_profiles WHERE audit_id=?),'')=?
       AND COALESCE((SELECT revision FROM audit_request_workflows WHERE audit_id=?),'')=?
       AND NOT EXISTS(SELECT 1 FROM audit_request_workflows WHERE audit_id=? AND state='closed')
+      ${sourceGuard?"AND EXISTS(SELECT 1 FROM audit_shared_templates WHERE id=? AND revision=? AND kind='calendar' AND archived=0)":''}
       AND NOT EXISTS(SELECT 1 FROM json_each(?) p WHERE NOT EXISTS(SELECT 1 FROM local_users u LEFT JOIN user_module_access a ON a.user_id=u.id WHERE u.id=json_extract(p.value,'$.id') AND lower(u.email)=json_extract(p.value,'$.email') AND u.role=json_extract(p.value,'$.role') AND u.status='Active' AND a.policy_json IS json_extract(p.value,'$.policy')))
-      ON CONFLICT(audit_id) DO UPDATE SET revision=excluded.revision,data_json=excluded.data_json,updated_by=excluded.updated_by,updated_at=excluded.updated_at RETURNING audit_id`).bind(auditId, revision, JSON.stringify(profile), actor.email, stamp, auditId, auditId, input.expectedRevision, auditId, input.expectedWorkflowRevision, auditId, JSON.stringify(people.results)),
+      ON CONFLICT(audit_id) DO UPDATE SET revision=excluded.revision,data_json=excluded.data_json,updated_by=excluded.updated_by,updated_at=excluded.updated_at RETURNING audit_id`).bind(auditId, revision, JSON.stringify(profile), actor.email, stamp, auditId, auditId, input.expectedRevision, auditId, input.expectedWorkflowRevision, auditId, ...(sourceGuard?[profile.calendarSource!.id,profile.calendarSource!.revision]:[]),JSON.stringify(people.results)),
     db.prepare(`UPDATE continuous_assurance_notification_outbox SET status='cancelled',closed_at=?,updated_at=? WHERE route IN ('audit-request','audit-milestone','audit-workpaper') AND status='queued' AND json_extract(source_json,'$.auditId')=? AND EXISTS(SELECT 1 FROM audit_reminder_profiles WHERE audit_id=? AND revision=?)`).bind(stamp, stamp, auditId, auditId, revision),
     db.prepare(`INSERT INTO audit_request_events(id,audit_id,request_id,action,actor,snapshot_json,created_at) SELECT ?,?,'','reminder-profile',?,?,? WHERE EXISTS(SELECT 1 FROM audit_reminder_profiles WHERE audit_id=? AND revision=?)`).bind(revision, auditId, actor.email, JSON.stringify({ profile, revision }), stamp, auditId, revision),
   ]);
