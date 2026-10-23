@@ -2,7 +2,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { chromium } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
-import { createQaContext, waitForQaIdle, switchQaLocale, openQaModule } from "./qa-browser-harness.mjs";
+import { createQaContext, closeQaContext, waitForQaIdle, switchQaLocale, openQaModule } from "./qa-browser-harness.mjs";
 
 const baseUrl = (process.env.FORNOST_PROD_URL || "https://app.fornostsecurity.com").replace(/\/$/, "");
 const accessClientId = process.env.CF_ACCESS_CLIENT_ID || "";
@@ -119,7 +119,8 @@ async function screenshot(page, name, fullPage = false) {
   return path.relative(outDir, file);
 }
 
-function attachRuntimeObservers(page) {
+function attachRuntimeObservers(page, phase) {
+  page.qaPhase = phase;
   page.on("console", (msg) => {
     if (msg.type() === "error") {
       uniquePush(report.consoleErrors, { text: msg.text(), url: page.url() }, (x) => `${x.text}|${x.url}`);
@@ -129,11 +130,19 @@ function attachRuntimeObservers(page) {
     uniquePush(report.pageErrors, { message: error.message, url: page.url() }, (x) => `${x.message}|${x.url}`);
   });
   page.on("requestfailed", (request) => {
-    uniquePush(report.failedRequests, {
-      url: request.url(),
-      method: request.method(),
+    const startedAt = request.timing().startTime;
+    const event = {
+      url: request.url(), method: request.method(),
       failure: request.failure()?.errorText || "unknown",
-    }, (x) => `${x.method}|${x.url}|${x.failure}`);
+      phase: page.qaPhase, at: new Date().toISOString(),
+      elapsedMs: startedAt > 0 ? Math.max(0, Math.round(Date.now() - startedAt)) : null,
+      pageClosed: page.isClosed(),
+    };
+    uniquePush(report.failedRequests, event, (x) => `${x.phase}|${x.method}|${x.url}|${x.failure}`);
+    // Timing and screen context aid diagnosis; never log query strings, headers,
+    // cookies, request bodies or authentication response contents.
+    const { url, ...metadata } = event;
+    console.log("QA_REQUEST_FAILURE", JSON.stringify({ ...metadata, path: new URL(url).pathname }));
   });
   page.on("response", (response) => {
     const status = response.status();
@@ -240,7 +249,7 @@ async function checkLoginScreen(browser) {
     colorScheme: "light",
   });
   const page = await context.newPage();
-  attachRuntimeObservers(page);
+  attachRuntimeObservers(page, "login");
   const response = await page.goto(baseUrl, { waitUntil: "domcontentloaded", timeout: 60_000 });
   await page.locator('input[name="email"]').waitFor({ state: "visible", timeout: 15_000 });
   report.login.status = response?.status() || 0;
@@ -250,7 +259,7 @@ async function checkLoginScreen(browser) {
   const loginFields = await page.locator('input[name="email"], input[name="password"]').count();
   report.login.loginFields = loginFields;
   if (loginFields < 2) addFinding("high", "login", "Expected login fields not found", `Found ${loginFields} email/password fields`);
-  await context.close();
+  await closeQaContext(context);
 }
 
 async function auditDesktop(browser) {
@@ -260,7 +269,7 @@ async function auditDesktop(browser) {
   });
   await loginViaApi(context);
   const page = await context.newPage();
-  attachRuntimeObservers(page);
+  attachRuntimeObservers(page, "desktop:startup");
   await page.goto(baseUrl, { waitUntil: "domcontentloaded", timeout: 60_000 });
   await page.locator(".shell").first().waitFor({ state: "visible", timeout: 15_000 });
   await page.locator("#fornost-navigation").first().waitFor({ state: "attached", timeout: 15_000 });
@@ -280,6 +289,7 @@ async function auditDesktop(browser) {
 
   for (let i = 0; i < moduleLabels.length; i += 1) {
     const label = moduleLabels[i];
+    page.qaPhase = `desktop:${label}`;
     const button = page.locator(`nav button[aria-label=${JSON.stringify(label)}]`).first();
     const count = await button.count();
     if (!count) {
@@ -303,6 +313,7 @@ async function auditDesktop(browser) {
     }
   }
 
+  page.qaPhase = "desktop:sidebar";
   // Sidebar expanded -> compact -> hidden -> restored.
   for (const label of ["İkon menüsü", "Menüyü gizle"]) {
     const control = page.getByRole("button", { name: label, exact: true });
@@ -327,6 +338,7 @@ async function auditDesktop(browser) {
     await page.waitForTimeout(500);
     for (const label of moduleLabels) {
       if (!representativeModules.has(label)) continue;
+      page.qaPhase = `dark:${label}`;
       const button = page.locator(`nav button[aria-label=${JSON.stringify(label)}]`).first();
       if (!(await button.count())) continue;
       await openQaModule(page, label);
@@ -339,11 +351,12 @@ async function auditDesktop(browser) {
     addFinding("high", "theme", "Dark theme toggle not found");
   }
 
+  page.qaPhase = "desktop:language";
   await switchQaLocale(page, "en");
   await openQaModule(page, "Dashboard");
   await screenshot(page, "language-en-dashboard");
 
-  await context.close();
+  await closeQaContext(context);
 }
 
 async function auditResponsive(browser) {
@@ -356,7 +369,7 @@ async function auditResponsive(browser) {
     const context = await createQaContext(browser, baseUrl, accessHeaders, { viewport: { width: vp.width, height: vp.height }, colorScheme: "light" });
     await loginViaApi(context);
     const page = await context.newPage();
-    attachRuntimeObservers(page);
+    attachRuntimeObservers(page, `responsive:${vp.name}`);
     await page.goto(baseUrl, { waitUntil: "domcontentloaded", timeout: 60_000 });
     await page.locator(".shell").first().waitFor({ state: "visible", timeout: 15_000 });
     await page.locator("#fornost-navigation").first().waitFor({ state: "attached", timeout: 15_000 });
@@ -365,7 +378,7 @@ async function auditResponsive(browser) {
     const file = await screenshot(page, `responsive-${vp.name}`);
     const violations = await axeAudit(page, `responsive:${vp.name}`);
     report.responsive.push({ ...vp, screenshot: file, dom, violationCount: violations.length });
-    await context.close();
+    await closeQaContext(context);
   }
 }
 
@@ -398,7 +411,7 @@ async function securityAndApiChecks(browser) {
   for (const name of expectedHeaders) {
     if (!headers[name]) addFinding("high", "security headers", `Missing ${name}`);
   }
-  await context.close();
+  await closeQaContext(context);
 }
 
 const browser = await chromium.launch({ headless: true, executablePath: process.env.QA_CHROMIUM_PATH || undefined });
