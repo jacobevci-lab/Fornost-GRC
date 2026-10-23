@@ -32,6 +32,8 @@ jobs:
             npx playwright install --with-deps chromium
           fi
       - run: node scripts/wait-for-production-revision.mjs --once
+      - name: Reproduce and verify pending-read teardown
+        run: node scripts/qa-browser-harness-regression.mjs
       - name: Trace the unchanged legacy scan
         run: node scripts/session-request-diagnostics.mjs
       - run: node scripts/wait-for-production-revision.mjs --once
