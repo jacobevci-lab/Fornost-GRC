@@ -8,7 +8,7 @@ import {createQaContext,waitForQaIdle} from './qa-browser-harness.mjs';
 // Fixed loopback and explicit local D1 cleanup: this test never writes to production.
 const base='http://127.0.0.1:4173',out='workpaper-capa-qa-artifacts',tag=Date.now(),password=qaPassword(),endpoint='/api/audits/workpapers/capa';
 const browser=await chromium.launch({executablePath:process.env.QA_CHROMIUM_PATH||undefined});
-const admin=await createQaContext(browser,base,{}, {viewport:{width:1440,height:1000}}),owner=await createQaContext(browser,base,{}, {viewport:{width:1440,height:1000}}),reviewer=await browser.newContext(),viewer=await browser.newContext(),scoped=await browser.newContext();
+const admin=await createQaContext(browser,base,{}, {viewport:{width:1440,height:1000}}),owner=await createQaContext(browser,base,{}, {viewport:{width:1440,height:1000}}),reviewer=await browser.newContext(),viewer=await createQaContext(browser,base,{}, {viewport:{width:1440,height:1000}}),scoped=await browser.newContext();
 const page=await owner.newPage();page.setDefaultTimeout(15000);const errors=[],checks=[],users=[],findingIds=[];page.on('pageerror',e=>errors.push(e.message));
 let auditId,evidenceId,paperId,release;
 const sql=v=>`'${String(v).replaceAll("'","''")}'`;
