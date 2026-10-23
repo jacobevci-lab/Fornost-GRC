@@ -22,6 +22,7 @@ export function auditStatusReportView(detail: AuditReportDetail, tr: boolean, fo
     id:t('Kayıt kimliği','Record ID'),auditId:t('Denetim kimliği','Audit ID'),auditName:t('Denetim adı','Audit name'),auditor:t('Denetçi / ekip','Auditor / team'),auditOwner:t('Denetim sahibi','Audit owner'),
     businessUnit:t('İş birimi','Business unit'),progress:t('İlerleme','Progress'),evidenceStatus:t('Kanıt durumu','Evidence status'),startDate:t('Başlangıç','Start date'),endDate:t('Bitiş','End date'),
     planRevision:t('Plan sürümü','Plan revision'),planUpdatedAt:t('Plan kayıt zamanı','Plan saved at'),planUpdatedBy:t('Planı kaydeden','Plan saved by'),revision:t('Kaynak sürümü','Source revision'),
+    submittedBy:t('İncelemeye gönderen','Submitted by'),submittedAt:t('Gönderim zamanı','Submitted at'),reviewedBy:t('Kararı veren','Decision by'),reviewedAt:t('Karar zamanı','Decision at'),
     remindersEnabled:t('E-posta hatırlatmaları','Email reminders'),
     recurrence:t('Tekrar sıklığı','Recurrence'),recurrenceOf:t('Önceki dönem görev kimliği','Previous occurrence ID'),recurrenceDay:t('Tekrar için ayın günü','Recurrence day of month'),
     dependsOn:t('Ön koşul görev kimlikleri','Prerequisite milestone IDs'),

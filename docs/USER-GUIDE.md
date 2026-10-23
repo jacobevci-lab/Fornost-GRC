@@ -64,7 +64,9 @@ HTML/SVG, makrolu Office, eski DOC/XLS ve genel ZIP desteklenmez. Yapısal Offic
 
 ### Tarihli görev ve kilometre taşı
 
-**Plan ve kapsam → Görevler ve kilometre taşları** altında başlık, beklenen çıktı, sorumlu, hedef tarih ve saat dilimi girin. Kayıt Benim İşlerim'e doğrudan yansır. Editor kendi işini oluşturur/yönetir; Admin farklı aktif denetim yazarına atayabilir. Başlatma, tamamlama, iptal ve yeniden açma gerekçe ister; tamamlanmış iş düzenlenmeden önce yeniden açılır. Bu görevlerde bağımsız reviewer onayı yoktur. Eski plan notları korunur ve otomatik göreve dönüştürülmez. Görev bazında E-posta hatırlatmalarını aç seçeneği kullanılabilir; varsayılan kapalıdır.
+**Plan ve kapsam → Görevler ve kilometre taşları** altında başlık, beklenen çıktı, sorumlu, hedef tarih ve saat dilimi girin. Kayıt Benim İşlerim'e doğrudan yansır. Editor kendi işini oluşturur/yönetir; Admin farklı aktif denetim yazarına atayabilir. Başlatma, tamamlama, iptal ve yeniden açma gerekçe ister; tamamlanmış iş düzenlenmeden önce yeniden açılır. İncelemeci atanmamış görevleri sorumlu veya Admin doğrudan tamamlayabilir. Eski plan notları korunur ve otomatik göreve dönüştürülmez. Görev bazında E-posta hatırlatmalarını aç seçeneği kullanılabilir; varsayılan kapalıdır.
+
+Admin göreve farklı bir **Görev incelemecisi** ve **Görev inceleme tarihi** atayabilir. Böyle görevlerde sorumlu gerekçeyle **İncelemeye gönder** seçer. İncelemede içerik kilitlidir; atanan kişi **Onayla ve tamamla** veya **Düzeltme için geri gönder** kullanır. Sorumlu ve gönderimi yapan kendi işini onaylayamaz. Geri gönderilen görev düzenlenip tekrar sunulur; yeniden açılan görev yeni onay gerektirir. Benim İşlerim ve açık e-posta hatırlatmaları hazırlıkta sorumlu/tamamlanma tarihini, incelemede incelemeci/inceleme tarihini izler. [Ayrıntılı akış](audit-milestones.md#independent-milestone-review).
 
 Açık görevler bütün-denetim kapanışını engeller; tamamlayın veya gerekçeyle iptal edin. Denetim başına iptaller dahil 100 görev sınırı vardır. [Görev ayrıntıları](audit-milestones.md).
 
