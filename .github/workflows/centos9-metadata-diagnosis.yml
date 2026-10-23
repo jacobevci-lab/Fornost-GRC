@@ -1,0 +1,19 @@
+name: CentOS 9 package repository diagnosis
+on:
+  push:
+    branches: [diagnose/centos9-metadata-20261023]
+permissions:
+  contents: read
+jobs:
+  repository-diagnosis:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - name: Inspect official CentOS 9 repository failure
+        run: |
+          docker run --rm quay.io/centos/centos:stream9 bash -lc '
+            date -u
+            rpm -q ca-certificates centos-stream-repos
+            cat /etc/yum.repos.d/centos.repo
+            dnf -v -y install python3
+          '
