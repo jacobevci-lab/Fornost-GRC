@@ -178,3 +178,8 @@ Yalnız Admin ortak takvim yayımlar, sürümler, arşivler veya yeniden etkinle
 ### Workpaper exception promotion
 
 Approved exceptions can be promoted to canonical CAPA by a full-access Admin or assigned Editor owner/reviewer. Full-access Viewers read the origin; scoped accounts cannot access this shared enterprise workflow. The CAPA owner must be an active full-access writer, and the reviewer an active Admin distinct from both the owner and the promoting actor. Current identity, policy, source revision, pinned evidence and audit closure are guarded atomically with creation/history. Each workpaper has 100 lifetime promotions, one per case-insensitive trimmed sample reference. Origin records are immutable and remain in normal database backups after source/CAPA removal; the UI distinguishes unavailable targets. Source evidence does not satisfy remediation verification. New report/closure snapshots include the origin; historical reports retain their prior content. See [workflow, API and recovery](audit-workpapers.md#exception-to-capa-handoff).
+
+
+### Takvime bağlı termin önerileri
+
+Görev ve çalışma kâğıdı taslakları, denetime kaydedilmiş iş günü takvimiyle gerekçeli tarih önerisi sunar. Öneri yalnız açık uygulama/kaydet adımıyla tarihleri değiştirir; ortak takvim yayımlamak kayıtları otomatik taşımaz. Görev inceleme tarihini değiştirme yetkisi Admin'de kalır. Sunucu hesaplamayı tekrar yapar; profilin tam içeriğini ve sürümünü kayıt/geçmiş işlemi içinde doğrular. Çakışma ya da geçmiş yazma hatası kısmi güncelleme bırakmaz. Gerekçe, önceki/sonraki tarihler ve kullanılan takvim ilgili kaydetme olayında saklanır; yeni tablo veya migration gerekmez. [İşleyiş ve sınırlar](audit-deadline-planning.md).

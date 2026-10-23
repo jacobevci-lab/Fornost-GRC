@@ -100,3 +100,8 @@ Opt-in email reminders switch to the reviewer and review date on submission, wit
 A recurring successor copies the reviewer and shifts the review date by the original calendar-day gap after its new owner date. It contains no submission or approval and needs a fresh review. Dates do not automatically follow business-day calendars. Cancelled work is explicitly excluded from closure blockers but remains distinguishable from approved completion. Independent milestone sign-off is a single task decision, not multi-level approval, an electronic signature certification or an evidence/workpaper approval.
 
 The review regression covers same-person and unassigned-Admin denial, locked submissions, owner bypass attempts, live reviewer role/policy/revision races, atomic rollback, deadline/recipient handoff, return/resubmit, dependency and closure blockers, retained report snapshots and fresh review on recurrence. The browser regression uses distinct owner/reviewer accounts, real My Work navigation, duplicate-decision prevention, conflict recovery and TR/EN desktop/mobile accessibility checks.
+
+
+## Working-day date proposals
+
+Editable tasks offer a reasoned next-working-day preview based on the audit calendar. Apply to the draft, inspect the dates, then save. Review-date changes remain Admin-only; no lifecycle or independent review rule is bypassed. Calendar conflicts preserve the draft, with calendar-only refresh and undo/re-preview recovery. See [deadline planning](audit-deadline-planning.md).

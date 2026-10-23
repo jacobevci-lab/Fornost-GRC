@@ -218,3 +218,10 @@ Ortak paket kişi veya tarih taşımaz. Sorumlu ve saat diliminizi kontrol edin,
 Denetim kullanılan takvim adını ve sürümünü gösterir. **Takvim güncellemelerini kontrol et** yeni sürümü önizlemeye getirir; kütüphane güncellemeleri denetimlere otomatik yayılmaz. Arşivlenen kaynağın önceden kaydedilmiş sürümü çalışmaya devam eder. **Yerel takvim olarak devam et**, takvim alanlarını elle düzenlemek veya JSON uygulamak kaynak bağlantısını taslakta kaldırır; kalıcı olması için kaydedin. Vazgeçmek kayıtlı profili korur. Eşzamanlı kaynak değişikliğinde taslak kaybolmaz; güncel sürümü tekrar kontrol edin.
 
 Yalnız Admin ortak takvim yayımlar, sürümler, arşivler veya yeniden etkinleştirir. Yayımlama ekrandaki taslak gün hesabı, çalışma günleri ve tatilleri kullanır; takvim adı ve gerekçe girip önizleyin, sonra **Kütüphane değişikliğini kaydet** seçin. En fazla 200 takvim (arşivler dahil), takvim başına 366 tatil tarihi desteklenir. Son 50 sürüm listelenir; eski sürümler saklanır. Otomatik tatil servisi, toplu otomatik yayılım ve takvime özel ayrı yönetici ataması bu kapsamda yoktur. [Veri ve yetki sözleşmesi](audit-reminder-profiles.md#shared-organization-calendars).
+
+
+### Terminleri iş gününe taşıma
+
+Denetimin **Talepler ve inceleme** bölümünde iş günü takvimini kaydedin. **Plan ve kapsam → Görevler** veya düzenlenebilir **Çalışma kâğıdı** içinde tarihleri girip **İş günü tarihlerini önizle** seçin. Her tarih aynı ya da sonraki çalışma gününe taşınır; hazırlama ve inceleme aynı güne gelebilir. Eski/yeni tarihleri inceleyin, gerekçe girin, **Tarihleri taslağa uygula** ve ardından normal kaydet düğmesini kullanın. **Tarih önerisini geri al** önceki taslak tarihlerini getirir. Önizleme ve uygulama kayıt yapmaz.
+
+Takvim eşzamanlı değişirse taslak korunur. Görevde **Takvimi yenile (taslağı koru)**, çalışma kâğıdında **Yeniden dene (taslağı koru)** kullanın; eski öneriyi geri alıp yeni önizleme oluşturun. İnceleme tarihini değiştiren görev önerisini yalnız Admin uygulayabilir. İşlerim kaydedilen terminleri kullanır; eski/yeni tarihler ve takvim sürümü ilgili kaydetme işleminin geçmişinde bulunur. [Kapsam ve örnekler](audit-deadline-planning.md).

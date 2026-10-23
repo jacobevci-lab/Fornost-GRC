@@ -72,6 +72,14 @@ jobs:
         with:
           name: copilot-identity-response-preview
           path: copilot-identity-response-qa-artifacts/
+      - name: Working-day deadline preview, calendar conflict and authorization QA
+        run: node scripts/audit-deadline-adjustment-qa.mjs
+      - name: Preserve working-day deadline browser evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: audit-deadline-adjustment-preview
+          path: audit-deadline-adjustment-qa-artifacts/
       - name: Workpaper exception to canonical CAPA and origin QA
         run: node scripts/workpaper-capa-qa.mjs
       - name: Preserve workpaper CAPA browser evidence
