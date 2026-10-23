@@ -1,3 +1,4 @@
+import { prepareDeadlineAdjustment, deadlineCalendarGuard } from './audit-deadline-adjustment-store';
 import { reportCanonical } from './audit-status-report';
 import { ensureEvidenceHistorySchema } from './evidence/versioning';
 import type { Actor } from './api/auth/security';
@@ -70,6 +71,7 @@ export async function mutateWorkpaper(db: D1Database, actor: Actor, input: Recor
   if (current && ['submit', 'approve'].includes(action) && reportCanonical([...current.evidence].sort((a,b) => a.id.localeCompare(b.id))) !== reportCanonical([...evidence].sort((a,b) => a.id.localeCompare(b.id)))) throw new AuditRequestError('evidence');
   const revision = crypto.randomUUID(), stamp = now.toISOString();
   const next: AuditWorkpaper = { ...fields, id, auditId, status, revision, note, evidence, createdAt: current?.createdAt || stamp, updatedAt: stamp };
+  const adjustment = await prepareDeadlineAdjustment(db, auditId, action, input.deadlineAdjustment, fields);
   const evidenceGuard = (recovery ? [] : evidence).map(e => ({ id: e.id, evidenceId: e.evidenceId, versionNo: e.versionNo, title: e.title, fileName: e.fileName, fileKey: e.fileKey, hash: e.contentSha256, period: e.period }));
   const result = await db.batch([
     db.prepare(`INSERT INTO audit_workpapers(id,audit_id,revision,data_json,created_at,updated_at) SELECT ?,?,?,?,?,? WHERE EXISTS(SELECT 1 FROM simple_audits WHERE id=?)
@@ -78,8 +80,9 @@ export async function mutateWorkpaper(db: D1Database, actor: Actor, input: Recor
       AND NOT EXISTS(SELECT 1 FROM audit_workpapers WHERE id=? AND audit_id<>?)
       AND NOT EXISTS(SELECT 1 FROM json_each(?) p WHERE NOT EXISTS(SELECT 1 FROM local_users u LEFT JOIN user_module_access a ON a.user_id=u.id WHERE u.id=json_extract(p.value,'$.id') AND lower(u.email)=json_extract(p.value,'$.email') AND u.role=json_extract(p.value,'$.role') AND u.status='Active' AND a.policy_json IS json_extract(p.value,'$.policy')))
       AND NOT EXISTS(SELECT 1 FROM json_each(?) e WHERE NOT EXISTS(SELECT 1 FROM evidence_versions v JOIN simple_grc_records r ON r.id=v.evidence_id AND r.module='Kanıtlar' WHERE v.id=json_extract(e.value,'$.id') AND v.evidence_id=json_extract(e.value,'$.evidenceId') AND v.version_no=json_extract(e.value,'$.versionNo') AND v.evidence_title=json_extract(e.value,'$.title') AND v.file_name=json_extract(e.value,'$.fileName') AND v.file_key=json_extract(e.value,'$.fileKey') AND v.content_sha256=json_extract(e.value,'$.hash') AND v.period IS json_extract(e.value,'$.period')))
-      ON CONFLICT(id) DO UPDATE SET revision=excluded.revision,data_json=excluded.data_json,updated_at=excluded.updated_at RETURNING id`).bind(id, auditId, revision, JSON.stringify(next), next.createdAt, stamp, auditId, id, auditId, input.expectedRevision, id, auditId, auditId, id, auditId, JSON.stringify(people.results), JSON.stringify(evidenceGuard)),
-    db.prepare(`INSERT INTO audit_workpaper_events(id,audit_id,workpaper_id,actor,action,note,snapshot_json,created_at) SELECT ?,?,?,?,?,?,?,? WHERE EXISTS(SELECT 1 FROM audit_workpapers WHERE id=? AND audit_id=? AND revision=?)`).bind(revision, auditId, id, email, action, note, JSON.stringify(next), stamp, id, auditId, revision),
+    ${deadlineCalendarGuard}
+      ON CONFLICT(id) DO UPDATE SET revision=excluded.revision,data_json=excluded.data_json,updated_at=excluded.updated_at RETURNING id`).bind(id, auditId, revision, JSON.stringify(next), next.createdAt, stamp, auditId, id, auditId, input.expectedRevision, id, auditId, auditId, id, auditId, JSON.stringify(people.results), JSON.stringify(evidenceGuard), adjustment ? 1 : 0, auditId, adjustment?.revision || '', adjustment?.raw || ''),
+    db.prepare(`INSERT INTO audit_workpaper_events(id,audit_id,workpaper_id,actor,action,note,snapshot_json,created_at) SELECT ?,?,?,?,?,?,?,? WHERE EXISTS(SELECT 1 FROM audit_workpapers WHERE id=? AND audit_id=? AND revision=?)`).bind(revision, auditId, id, email, action, note, JSON.stringify({ ...next, ...(adjustment ? { deadlineAdjustment: adjustment.snapshot } : {}) }), stamp, id, auditId, revision),
     db.prepare("UPDATE continuous_assurance_notification_outbox SET status='cancelled',closed_at=?,updated_at=? WHERE route='audit-workpaper' AND escalation_id=? AND status='queued' AND EXISTS(SELECT 1 FROM audit_workpapers WHERE id=? AND revision=?)").bind(stamp,stamp,id,id,revision),
   ]);
   if (!result[0].results.length) throw new AuditRequestError('conflict', 409);

@@ -1,3 +1,4 @@
+import { prepareDeadlineAdjustment, deadlineCalendarGuard } from './audit-deadline-adjustment-store';
 import {validateMilestoneBatch} from './audit-milestone-batch';
 import type { Actor } from './api/auth/security';
 import { canReadModule, canWriteModule, parseModuleAccess } from './module-access';
@@ -126,6 +127,7 @@ export async function mutateMilestone(db:D1Database,actor:Actor,input:Record<str
  if(reviewAction){next.reviewedBy=email;next.reviewedAt=stamp;}
  if(action==='repeat')next.recurrenceOf=sourceId;else if(current?.recurrenceOf)next.recurrenceOf=current.recurrenceOf;
  if(fields.recurrence&&fields.recurrence!=='none')next.recurrenceDay=current&&current.recurrence===fields.recurrence&&(action==='repeat'||current.dueDate===fields.dueDate)?current.recurrenceDay||Number(current.dueDate.slice(8)):Number(fields.dueDate.slice(8));
+ const adjustment = await prepareDeadlineAdjustment(db, auditId, action, input.deadlineAdjustment, fields);
  const graphRows=await db.prepare('SELECT * FROM audit_milestones WHERE audit_id=? ORDER BY id LIMIT 101').bind(auditId).all<Stored>();
  if(graphRows.results.length>100)throw new AuditRequestError('source-invalid',503);
  const graph=graphRows.results.map(publicMilestone);
@@ -141,9 +143,10 @@ export async function mutateMilestone(db:D1Database,actor:Actor,input:Record<str
    AND (SELECT count(*) FROM audit_milestones WHERE audit_id=?)=?
    AND NOT EXISTS(SELECT 1 FROM json_each(?) g WHERE NOT EXISTS(SELECT 1 FROM audit_milestones m WHERE m.audit_id=? AND m.id=json_extract(g.value,'$.id') AND m.revision=json_extract(g.value,'$.revision')))
    AND NOT EXISTS(SELECT 1 FROM json_each(?) p WHERE NOT EXISTS(SELECT 1 FROM local_users u LEFT JOIN user_module_access a ON a.user_id=u.id WHERE u.id=json_extract(p.value,'$.id') AND lower(u.email)=json_extract(p.value,'$.email') AND u.role=json_extract(p.value,'$.role') AND u.status='Active' AND a.policy_json IS json_extract(p.value,'$.policy')))
-   ON CONFLICT(id) DO UPDATE SET revision=excluded.revision,data_json=excluded.data_json,updated_at=excluded.updated_at RETURNING id`).bind(id,auditId,revision,JSON.stringify(next),next.createdAt,stamp,auditId,action,sourceId,auditId,input.expectedRevision,id,auditId,action==='repeat'?'':input.expectedRevision,id,auditId,auditId,id,auditId,auditId,graphRows.results.length,graphSnapshot,auditId,JSON.stringify(people.results)),
+   ${deadlineCalendarGuard}
+   ON CONFLICT(id) DO UPDATE SET revision=excluded.revision,data_json=excluded.data_json,updated_at=excluded.updated_at RETURNING id`).bind(id,auditId,revision,JSON.stringify(next),next.createdAt,stamp,auditId,action,sourceId,auditId,input.expectedRevision,id,auditId,action==='repeat'?'':input.expectedRevision,id,auditId,auditId,id,auditId,auditId,graphRows.results.length,graphSnapshot,auditId,JSON.stringify(people.results), adjustment ? 1 : 0, auditId, adjustment?.revision || '', adjustment?.raw || ''),
   db.prepare("UPDATE continuous_assurance_notification_outbox SET status='cancelled',closed_at=?,updated_at=? WHERE route='audit-milestone' AND escalation_id=? AND status='queued' AND EXISTS(SELECT 1 FROM audit_milestones WHERE id=? AND revision=?)").bind(stamp,stamp,id,id,revision),
-  db.prepare('INSERT INTO audit_milestone_events(id,audit_id,milestone_id,actor,action,note,snapshot_json,created_at) SELECT ?,?,?,?,?,?,?,? WHERE EXISTS(SELECT 1 FROM audit_milestones WHERE id=? AND audit_id=? AND revision=?)').bind(revision,auditId,id,email,action,note,JSON.stringify(next),stamp,id,auditId,revision),
+  db.prepare('INSERT INTO audit_milestone_events(id,audit_id,milestone_id,actor,action,note,snapshot_json,created_at) SELECT ?,?,?,?,?,?,?,? WHERE EXISTS(SELECT 1 FROM audit_milestones WHERE id=? AND audit_id=? AND revision=?)').bind(revision,auditId,id,email,action,note,JSON.stringify({ ...next, ...(adjustment ? { deadlineAdjustment: adjustment.snapshot } : {}) }), stamp, id, auditId, revision),
  ]);
  if(!result[0].results.length)throw new AuditRequestError('conflict',409);
  return {id,revision};

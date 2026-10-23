@@ -48,3 +48,5 @@ Yeni bir özelliğin API, izin, durum geçişi veya limitleri değiştiğinde il
 - [Shared audit template library](audit-template-library.md) — centrally managed plan/task/task-pack definitions, version history, archive/reactivation and explicit reuse.
 
 - [Shared organization calendars](audit-reminder-profiles.md#shared-organization-calendars): Admin-managed versions, per-audit source tracking, explicit change previews and guarded adoption.
+
+- [Working-day deadline planning](audit-deadline-planning.md): explicit milestone/workpaper date proposals, calendar conflict recovery and retained adjustment reasons.

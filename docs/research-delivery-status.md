@@ -51,13 +51,13 @@ My Work also supports up to ten personal named browser-local views of search, mo
 Milestone prerequisites now enforce same-audit sequencing, acyclic links and completion before start/complete. Whole-graph revision guards prevent concurrent bypass. My Work identifies blocked work; task history and audit snapshots retain prerequisite IDs. Automatic date rescheduling remains separate; explicit recurring periods are described below.
 
 
-Milestone recurrence now supports explicit, owner/admin-created next occurrences after completion, with weekly/monthly/quarterly/yearly calendar rules, month-end anchors, previous/next navigation, one-successor protection, and atomic history/report provenance. This closes the manually controlled recurring-task workflow. Background scheduling, automatic catch-up and business-day date adjustment remain open; the shared library is described below.
+Milestone recurrence now supports explicit, owner/admin-created next occurrences after completion, with weekly/monthly/quarterly/yearly calendar rules, month-end anchors, previous/next navigation, one-successor protection, and atomic history/report provenance. This closes the manually controlled recurring-task workflow. Background scheduling, automatic catch-up and automatic business-day recurrence adjustment remain open; the shared library is described below.
 
 
 Milestone email reminders are now opt-in per task, reuse the audit calendar, delivery retries/rate limits and configured email transport, and revalidate live task/profile/recipient access before dispatch. Queue withdrawal, exact authenticated links and reminder date previews are implemented. No additional log UI is introduced. Customer transport UAT, delegation, multi-level escalation/digests and background recurrence creation remain open.
 
 
-Workpapers now support optional paired preparation/review deadlines and a per-paper IANA time zone. My Work follows the active lifecycle deadline, including return/reopen and terminal states; history and saved report/closure snapshots retain the schedule. Automatic date rescheduling and business-day adjustments remain open.
+Workpapers now support optional paired preparation/review deadlines and a per-paper IANA time zone. My Work follows the active lifecycle deadline, including return/reopen and terminal states; history and saved report/closure snapshots retain the schedule. Explicit business-day adjustment is delivered below; automatic date rescheduling remains open.
 
 Workpaper email reminders are now opt-in and phase-aware: owner during preparation, independent reviewer after submission. They reuse the audit calendar, escalation and delivery infrastructure, withdraw stale queue entries atomically, and check live source/profile and both audit/evidence permissions before delivery. Existing workpapers remain opted out. Customer transport UAT, digest/delegation workflows and automatic adjustment of saved deadlines remain open.
 
@@ -88,3 +88,8 @@ Admin-published views now retain immutable name/criteria snapshots, changing act
 ## Approved workpaper exceptions to CAPA — 23 October 2026
 
 Full-access Admins and assigned Editors can preview and explicitly promote an approved sample exception into the canonical CAPA lifecycle. Immutable origin records retain the audit, paper revision, sample, pinned evidence metadata/hash and reason; source evidence never substitutes for remediation verification. One promotion per normalized sample, stable IDs, live identity/policy/source guards and atomic finding/link/history writes prevent duplicates and partial intake. Current CAPA status and exact navigation work in both directions. New audit report/closure snapshots include origin details; existing whole-audit closure policy is preserved. Scoped CAPA access, bulk/unattended promotion, per-sample independent approval and statistical sampling remain open. See [exception handoff](audit-workpapers.md#exception-to-capa-handoff).
+
+
+## Explicit working-day deadline planning — 23 October 2026
+
+Editable milestones and workpapers now preview each entered deadline against the saved audit calendar, apply next-working-day dates to a draft with a reason, undo the proposal, and save through existing lifecycle permissions. The server recalculates results and atomically binds exact calendar contents/revision to the record and immutable history; calendar conflicts preserve drafts and support calendar-only recovery. Editor access does not bypass Admin-only milestone review-date changes. My Work and future report/closure snapshots use the saved dates. Automatic propagation/rescheduling, request/task-pack adjustment, recurrence adjustment and dependency-wide scheduling remain open. See [deadline planning](audit-deadline-planning.md).

@@ -34,7 +34,7 @@ Drafts may have a preparation due date and a review due date, entered together w
 
 My Work uses preparation for drafts (including returned, withdrawn and reopened papers), switches to review on submission, and removes the active deadline on approval or cancellation. Its overdue filters, sorting and exports use the server-computed instant. Both planned dates remain visible in details, revision history and immutable report/closure snapshots. Dates never create duplicate tasks or send email.
 
-Only existing authorized draft editors can change the dates. Submitted papers must be withdrawn/returned, and approved papers reopened with a reason before edits. Existing revision conflicts, atomic history and closed-audit guards apply. Saves from older clients that omit the new fields preserve the current schedule; explicitly emptying both dates removes it. No automatic rescheduling occurs after return or reopening. Business-day adjustment of saved deadlines remains separate work.
+Only existing authorized draft editors can change the dates. Submitted papers must be withdrawn/returned, and approved papers reopened with a reason before edits. Existing revision conflicts, atomic history and closed-audit guards apply. Saves from older clients that omit the new fields preserve the current schedule; explicitly emptying both dates removes it. No automatic rescheduling occurs after return or reopening. Explicit next-working-day preview/apply/save is available in editable drafts; see [deadline planning](audit-deadline-planning.md). Automatic rescheduling remains separate.
 
 ## Optional email reminders
 

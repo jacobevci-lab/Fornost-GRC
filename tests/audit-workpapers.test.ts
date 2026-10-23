@@ -264,3 +264,29 @@ test('workpaper real dispatcher sends an exact authenticated link once and rejec
   result=await dispatchAssuranceNotifications(f.db,{}, {actor:admin.email,trigger:'manual'});assert.equal(result.sent,0);assert.equal(result.skipped,1);assert.equal(sent.length,1);
  }finally{globalThis.fetch=originalFetch;f.sqlite.close();}
 });
+
+// Calendar-guided saves share the normal lifecycle transaction and authorization.
+const adjustmentInput = { dueDate:'2026-10-24',reviewDueDate:'2026-10-25',timeZone:'Europe/Istanbul',profileRevision:'calendar-v1',reason:'Move deadlines past the approved holiday.' };
+const adjustmentProfile = { ...defaultAuditReminderProfile,mode:'business',holidays:['2026-10-26'] };
+
+test('workpapers: explicit date adjustment records its exact calendar and retains normal inbox dates',async()=>{const f=await fixture();try{
+ f.sqlite.prepare('INSERT INTO audit_reminder_profiles VALUES(?,?,?,?,?)').run('audit-a','calendar-v1',JSON.stringify(adjustmentProfile),'admin','');
+ const adjusted={...fields,dueDate:'2026-10-27',reviewDueDate:'2026-10-27',timeZone:'Europe/Istanbul',reviewer:reviewer.email};
+ await f.act('save',owner,{fields:adjusted,deadlineAdjustment:adjustmentInput});
+ const row=await f.row();assert.equal(row?.dueDate,'2026-10-27');assert.equal(row?.reviewDueDate,'2026-10-27');
+ const event=f.sqlite.prepare('SELECT snapshot_json FROM audit_workpaper_events ORDER BY rowid DESC LIMIT 1').get();
+ const proof=JSON.parse(String(event?.snapshot_json)).deadlineAdjustment;assert.equal(proof.before.dueDate,'2026-10-24');assert.equal(proof.after.dueDate,'2026-10-27');assert.equal(proof.profileRevision,'calendar-v1');assert.deepEqual(proof.calendar.holidays,['2026-10-26']);assert.equal(proof.reason,adjustmentInput.reason);
+ const inbox=await readWorkpaperWork(f.db,owner);assert.equal(inbox.workpapers[0].dueAt,'2026-10-27T20:59:59.999Z');
+ await assert.rejects(f.act('save',owner,{fields:{...adjusted,dueDate:'2026-10-28',reviewDueDate:'2026-10-28'},deadlineAdjustment:adjustmentInput}),/deadline-adjustment/);
+ await assert.rejects(f.act('save',owner,{fields:adjusted,deadlineAdjustment:{...adjustmentInput,profileRevision:'stale'}}),/deadline-calendar-conflict/);
+ assert.equal((await f.row())?.revision,row?.revision);
+}finally{f.sqlite.close();}});
+test('workpapers: calendar revision/content/deletion races and event failures roll back dates, history and report revision',async()=>{for(const mode of ['revision','contents','deleted','event']){const f=await fixture();try{
+ f.sqlite.prepare('INSERT INTO audit_reminder_profiles VALUES(?,?,?,?,?)').run('audit-a','calendar-v1',JSON.stringify(adjustmentProfile),'admin','');
+ const original={...fields,dueDate:'2026-10-24',reviewDueDate:'2026-10-25',timeZone:'Europe/Istanbul',reviewer:reviewer.email};
+ await f.act('save',owner,{fields:original});const before=await f.row();const source=f.sqlite.prepare('SELECT revision FROM audit_report_source_revision').get()?.revision;
+ if(mode==='event')f.sqlite.exec("CREATE TRIGGER fail_adjustment BEFORE INSERT ON audit_workpaper_events BEGIN SELECT RAISE(ABORT,'injected');END");
+ else f.race(()=>{if(mode==='revision')f.sqlite.exec("UPDATE audit_reminder_profiles SET revision='calendar-v2'");if(mode==='contents')f.sqlite.prepare('UPDATE audit_reminder_profiles SET data_json=?').run(JSON.stringify({...adjustmentProfile,holidays:[]}));if(mode==='deleted')f.sqlite.exec('DELETE FROM audit_reminder_profiles');});
+ await assert.rejects(f.act('save',owner,{fields:{...original,dueDate:'2026-10-27',reviewDueDate:'2026-10-27'},deadlineAdjustment:adjustmentInput}),/conflict|injected/);
+ assert.equal((await f.row())?.revision,before?.revision);assert.equal(f.sqlite.prepare('SELECT count(*) n FROM audit_workpaper_events').get()?.n,1);assert.equal(f.sqlite.prepare('SELECT revision FROM audit_report_source_revision').get()?.revision,source);
+}finally{f.sqlite.close();}}});
