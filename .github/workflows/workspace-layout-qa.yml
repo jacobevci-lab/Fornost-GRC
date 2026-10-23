@@ -64,6 +64,14 @@ jobs:
         with:
           name: admin-settings-preview
           path: admin-settings-qa-artifacts/
+      - name: Shared calendar versions, explicit adoption and conflict QA
+        run: node scripts/audit-shared-calendar-qa.mjs
+      - name: Preserve shared calendar browser evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: audit-shared-calendar-preview
+          path: audit-shared-calendar-qa-artifacts/
       - name: Independent milestone review, handoff and decision QA
         run: node scripts/milestone-review-qa.mjs
       - name: Preserve milestone review browser evidence

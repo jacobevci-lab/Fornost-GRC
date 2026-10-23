@@ -1,18 +1,21 @@
 import { AuditRequestError, requestDate, requestIdentity } from './audit-requests';
 
-export type AuditReminderProfile = { mode: 'calendar' | 'business'; weekdays: number[]; holidays: string[]; beforeDays: number; overdueDays: number; escalationDays: number; escalationRecipient: string };
+export type AuditCalendarSource = {id:string;revision:string;name:string;version:number};
+export type AuditReminderProfile = { mode: 'calendar' | 'business'; weekdays: number[]; holidays: string[]; beforeDays: number; overdueDays: number; escalationDays: number; escalationRecipient: string; calendarSource?: AuditCalendarSource | null };
 export type SavedAuditReminderProfile = { revision: string; profile: AuditReminderProfile };
 export const defaultAuditReminderProfile: AuditReminderProfile = { mode: 'calendar', weekdays: [1, 2, 3, 4, 5], holidays: [], beforeDays: 1, overdueDays: 3, escalationDays: 0, escalationRecipient: '' };
 export function validateAuditReminderProfile(value: unknown): AuditReminderProfile {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new AuditRequestError('reminder-profile');
   const p = value as AuditReminderProfile;
+  const source=p.calendarSource;
+  if(source!==undefined&&source!==null&&(!source||typeof source!=='object'||Array.isArray(source)||Object.keys(source).sort().join(',')!=='id,name,revision,version'||typeof source.id!=='string'||!/^AST-[a-f0-9-]{36}$/.test(source.id)||typeof source.revision!=='string'||!source.revision||source.revision.length>100||typeof source.name!=='string'||!source.name.trim()||source.name.length>80||!Number.isSafeInteger(source.version)||source.version<1))throw new AuditRequestError('reminder-profile');
   if (!['calendar', 'business'].includes(p.mode) || !Array.isArray(p.weekdays) || !p.weekdays.length || p.weekdays.length > 7 || p.weekdays.some(n => !Number.isInteger(n) || n < 0 || n > 6) || new Set(p.weekdays).size !== p.weekdays.length) throw new AuditRequestError('reminder-profile');
   if (!Array.isArray(p.holidays) || p.holidays.length > 366 || p.holidays.some(d => !requestDate(d)) || new Set(p.holidays).size !== p.holidays.length) throw new AuditRequestError('reminder-profile');
   for (const n of [p.beforeDays, p.overdueDays, p.escalationDays]) if (!Number.isInteger(n) || n < 0 || n > 90) throw new AuditRequestError('reminder-profile');
   if (p.overdueDays < 1 || (p.escalationDays && p.escalationDays < p.overdueDays) || typeof p.escalationRecipient !== 'string' || p.escalationRecipient.length > 320) throw new AuditRequestError('reminder-profile');
   const recipient = requestIdentity(p.escalationRecipient);
   if (p.escalationDays && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recipient)) throw new AuditRequestError('reminder-profile');
-  return { mode: p.mode, weekdays: [...p.weekdays].sort(), holidays: [...p.holidays].sort(), beforeDays: p.beforeDays, overdueDays: p.overdueDays, escalationDays: p.escalationDays, escalationRecipient: p.escalationDays ? recipient : '' };
+  return { mode: p.mode, weekdays: [...p.weekdays].sort(), holidays: [...p.holidays].sort(), beforeDays: p.beforeDays, overdueDays: p.overdueDays, escalationDays: p.escalationDays, escalationRecipient: p.escalationDays ? recipient : '', ...(source!==undefined?{calendarSource:source?{id:source.id,revision:source.revision,name:source.name,version:source.version}:null}:{}) };
 }
 export function reminderLocalDate(now: Date, timeZone: string) {
   const parts = new Intl.DateTimeFormat('en', { timeZone, year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(now);

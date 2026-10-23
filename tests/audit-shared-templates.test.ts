@@ -64,3 +64,16 @@ test('library capacity counts archives, listing completeness and retained histor
  const event=f.sqlite.prepare('INSERT INTO audit_shared_template_versions VALUES(?,?,?,?,?,?,?,?)');for(let n=3;n<=52;n++)event.run('revision-'+n,id,n,'save',admin.email,'Retained',JSON.stringify((await readSharedTemplate(f.db,admin,id)).selected),'2026-10-22');
  const read=await readSharedTemplate(f.db,admin,id);assert.equal(read.history.length,50);assert.equal(read.historyComplete,false);assert.deepEqual((await readSharedTemplate(f.db,admin,id,first.revision)).selected.template,template);
 }finally{f.sqlite.close();}});
+
+test('shared calendar definitions contain only bounded calendar fields and preserve historical versions',async()=>{
+ const calendar={mode:'business',weekdays:[1,2,3,4,5],holidays:['2026-10-29']};
+ const definition={version:1,kind:'calendar',name:'Organization working days',calendar};
+ assert.deepEqual(validateSharedTemplate(definition),definition);
+ for(const bad of [{...definition,owner:'admin@example.com'},{...definition,version:2},{...definition,calendar:{...calendar,calendarSource:{id}}},{...definition,calendar:{...calendar,beforeDays:5}},{...definition,calendar:{...calendar,holidays:['2026-02-30']}},{...definition,calendar:{...calendar,holidays:['2026-10-29','2026-10-29']}},{...definition,calendar:{...calendar,weekdays:[]}}])assert.throws(()=>validateSharedTemplate(bad));
+ const f=await fixture();try{
+  const first=await f.save({template:definition});const second=await f.save({expectedRevision:first.revision,template:{...definition,calendar:{...calendar,holidays:['2026-12-31']}}});
+  assert.equal((await listSharedTemplates(f.db,admin,'calendar')).templates[0].revision,second.revision);
+  assert.deepEqual((await readSharedTemplate(f.db,admin,id,first.revision)).selected.template,definition);
+  assert.equal((await listSharedTemplates(f.db,admin,'plan')).templates.length,0);
+ }finally{f.sqlite.close();}
+});

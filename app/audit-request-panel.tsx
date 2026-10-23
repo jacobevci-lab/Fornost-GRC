@@ -18,6 +18,8 @@ type Data = { reminderProfile: SavedAuditReminderProfile; workflow: AuditRequest
 const messages: Record<string, [string, string]> = {
   'audit-closed': ['Denetim kapalı. Önce Kapanış ve onay görünümünden gerekçeyle yeniden açın.', 'The audit is closed. Reopen it with a reason in Closure and approval first.'],
   'reminder-profile': ['Hatırlatma takvimini, eşikleri ve eskalasyon kişisini kontrol edin.', 'Check the reminder calendar, thresholds and escalation recipient.'],
+  'calendar-source': ['Takvim içeriği kaynak sürümle eşleşmiyor. Güncel takvimi yeniden önizleyin veya yerel takvime geçin.', 'Calendar content does not match its source version. Preview the calendar again or use a local calendar.'],
+  'calendar-changed': ['Ortak takvim değişti veya arşivlendi. Taslağınız korundu; güncel sürümü kontrol edip yeniden uygulayın.', 'The shared calendar changed or was archived. Your draft was retained; inspect and apply the current version.'],
   fields: ['Başlık, kabul ölçütü, sorumlu ve inceleyeni doldurun.', 'Complete the title, acceptance criteria, owner and reviewer.'],
   dates: ['Gerçek ve sıralı tarihler girin. İnceleme tarihi teslimden önce olamaz.', 'Enter valid date ranges. Review cannot be due before submission.'],
   'independent-reviewer': ['İnceleyen sorumludan farklı olmalı.', 'The reviewer must differ from the owner.'],
@@ -80,7 +82,7 @@ export function AuditRequestPanel({ auditId, lang, focusId = '', readOnly = fals
     try {
       const response = await fetch(withBasePath('/api/audits/requests'), { method: 'POST', headers: { 'content-type': 'application/json' }, signal: AbortSignal.timeout(20000),
         body: JSON.stringify({ auditId, action, requestId: row?.id, expectedRevision: row?.revision || '', ...extra }) });
-      const body = await response.json(); if (!response.ok) { if (response.status === 409 || response.status >= 500) setReady(false); throw new Error(body.error || 'unavailable'); }
+      const body = await response.json(); if (!response.ok) { if ((response.status === 409 && body.error !== 'calendar-changed') || response.status >= 500) setReady(false); throw new Error(body.error || 'unavailable'); }
       if (!live.current) return;
       setEditing(null); setLaunch(false); setNote('');
       if (extra.requestId) setSelected(String(extra.requestId));

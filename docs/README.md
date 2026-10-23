@@ -46,3 +46,5 @@ Yeni bir özelliğin API, izin, durum geçişi veya limitleri değiştiğinde il
 - [Account and team views](account-team-views.md): server-backed personal preferences, Admin-published shared criteria, cross-device reuse and current access enforcement across seven registers and My Work.
 
 - [Shared audit template library](audit-template-library.md) — centrally managed plan/task/task-pack definitions, version history, archive/reactivation and explicit reuse.
+
+- [Shared organization calendars](audit-reminder-profiles.md#shared-organization-calendars): Admin-managed versions, per-audit source tracking, explicit change previews and guarded adoption.

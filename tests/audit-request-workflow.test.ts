@@ -450,3 +450,62 @@ test('profile writes bind actor/recipient/workflow at commit and event failure r
     assert.equal((await readAuditReminderProfile(f.db,'audit-a')).revision,'');assert.equal(f.sqlite.prepare("SELECT count(*) n FROM continuous_assurance_notification_outbox WHERE status='queued'").get()?.n,1);
   }finally{f.sqlite.close();}
 });
+
+const sharedCalendarId='AST-00000000-0000-0000-0000-000000000001';
+const sharedCalendar={version:1 as const,kind:'calendar' as const,name:'Organization calendar',calendar:{mode:'business' as const,weekdays:[1,2,3,4,5],holidays:['2026-10-29']}};
+async function calendarFixture(){
+ const f=await fixture();await f.create();await f.start();
+ const {ensureAuditClosureSchema}=await import('../app/audit-closure-schema');await ensureAuditClosureSchema(f.db);
+ const {mutateSharedTemplate}=await import('../app/audit-shared-template-store');
+ const {readAuditReminderProfile,saveAuditReminderProfile}=await import('../app/audit-reminder-store');
+ const {defaultAuditReminderProfile}=await import('../app/audit-reminder-profile');
+ const first=await mutateSharedTemplate(f.db,admin,{id:sharedCalendarId,action:'save',expectedRevision:'',template:sharedCalendar,note:'Approved organization calendar'},now);
+ const source={id:sharedCalendarId,revision:first.revision,name:sharedCalendar.name,version:first.version};
+ const profile={...defaultAuditReminderProfile,...sharedCalendar.calendar,beforeDays:2,escalationDays:5,escalationRecipient:reviewer.email,calendarSource:source};
+ const input={auditId:'audit-a',expectedRevision:'',expectedWorkflowRevision:(await f.state()).workflow.revision,profile};
+ return {...f,input,source,first,read:()=>readAuditReminderProfile(f.db,'audit-a'),save:(patch={},actor=admin)=>saveAuditReminderProfile(f.db,actor,{...input,...patch},now),publish:(expectedRevision:string,patch={})=>mutateSharedTemplate(f.db,admin,{id:sharedCalendarId,action:'save',expectedRevision,template:sharedCalendar,note:'Update approved organization calendar',...patch},now)};
+}
+test('calendar adoption pins the source, preserves deadlines and recipient thresholds, and withdraws queued notices atomically',async()=>{const f=await calendarFixture();try{
+ await syncAuditRequestNotifications(f.db,now);const old=f.sqlite.prepare("SELECT * FROM continuous_assurance_notification_outbox WHERE status='queued'").get() as AssuranceDeliveryOutbox;
+ await f.save({profile:{...f.input.profile,calendarSource:{...f.source,name:'Forged name',version:99}}},owner);
+ const saved=await f.read();assert.deepEqual(saved.profile.calendarSource,f.source);assert.equal(saved.profile.beforeDays,2);assert.equal(saved.profile.escalationRecipient,reviewer.email);assert.equal((await f.row()).dueDate,fields.dueDate);assert.equal((await f.row()).reviewDueDate,fields.reviewDueDate);
+ assert.equal(await auditRequestNotificationCurrent(f.db,old,now),false);
+ assert.equal(f.sqlite.prepare("SELECT status FROM continuous_assurance_notification_outbox WHERE id=?").get(old.id)?.status,'cancelled');
+ const event=f.sqlite.prepare("SELECT snapshot_json FROM audit_request_events WHERE action='reminder-profile'").get()!;assert.deepEqual(JSON.parse(String(event.snapshot_json)).profile.calendarSource,f.source);
+ await f.save({auditId:'audit-b',expectedWorkflowRevision:''});
+ await f.publish(f.first.revision,{template:{...sharedCalendar,calendar:{...sharedCalendar.calendar,holidays:['2026-12-31']}}});
+ assert.deepEqual((await f.read()).profile.calendarSource,f.source);assert.deepEqual((await f.read()).profile.holidays,['2026-10-29']);
+ const {readAuditReminderProfile}=await import('../app/audit-reminder-store');assert.deepEqual((await readAuditReminderProfile(f.db,'audit-b')).profile.calendarSource,f.source);
+}finally{f.sqlite.close();}});
+test('new calendar adoption rejects stale, archived, mismatched and non-calendar definitions while existing pins remain usable',async()=>{const f=await calendarFixture();try{
+ await assert.rejects(f.save({profile:{...f.input.profile,holidays:[]}}),/calendar-source/);
+ await f.save();let saved=await f.read();const next=await f.publish(f.first.revision,{action:'archive'});
+ await f.save({expectedRevision:saved.revision,profile:{...saved.profile,beforeDays:4}});saved=await f.read();assert.equal(saved.profile.beforeDays,4);assert.deepEqual(saved.profile.calendarSource,f.source);
+ await assert.rejects(f.save({auditId:'audit-b',expectedWorkflowRevision:''}),/calendar-changed/);
+ const {calendarSource:ignored,...legacy}=saved.profile;void ignored;
+ await f.save({expectedRevision:saved.revision,profile:{...legacy,beforeDays:3}});saved=await f.read();assert.deepEqual(saved.profile.calendarSource,f.source);
+ await f.save({expectedRevision:saved.revision,profile:{...legacy,holidays:[]}});saved=await f.read();assert.equal(saved.profile.calendarSource,undefined);
+ const restored=await f.publish(next.revision,{action:'restore'});await assert.rejects(f.save({expectedRevision:saved.revision}),/calendar-changed/);
+ await f.save({expectedRevision:saved.revision,profile:{...f.input.profile,calendarSource:{...f.source,revision:restored.revision,version:restored.version}}});saved=await f.read();
+ await f.save({expectedRevision:saved.revision,profile:{...saved.profile,calendarSource:null}});assert.equal((await f.read()).profile.calendarSource,null);
+ const {mutateSharedTemplate}=await import('../app/audit-shared-template-store');const nonId='AST-00000000-0000-0000-0000-000000000002';const non=await mutateSharedTemplate(f.db,admin,{id:nonId,action:'save',expectedRevision:'',template:{version:1,kind:'milestone',name:'Not calendar',fields:{title:'Review evidence'}},note:'Task definition'},now);
+ await assert.rejects(f.save({expectedRevision:(await f.read()).revision,profile:{...f.input.profile,calendarSource:{...f.source,id:nonId,revision:non.revision}}}),/calendar-source/);
+}finally{f.sqlite.close();}});
+test('source revision and archival races cannot partially adopt a calendar or cancel valid queued reminders',async()=>{
+ for(const sql of ["UPDATE audit_shared_templates SET revision='concurrent'","UPDATE audit_shared_templates SET archived=1"]){const f=await calendarFixture();try{
+  await syncAuditRequestNotifications(f.db,now);f.race(()=>f.sqlite.exec(sql));await assert.rejects(f.save(),/conflict/);
+  assert.equal((await f.read()).revision,'');assert.equal(f.sqlite.prepare("SELECT count(*) n FROM audit_request_events WHERE action='reminder-profile'").get()?.n,0);assert.equal(f.sqlite.prepare("SELECT count(*) n FROM continuous_assurance_notification_outbox WHERE status='queued'").get()?.n,1);
+ }finally{f.sqlite.close();}}
+});
+test('calendar adoption enforces current audit grants, active actor and closed audit protections',async()=>{
+ const f=await calendarFixture();try{
+  await assert.rejects(f.save({}, {...owner,role:'Viewer'}),/forbidden/);
+  await assert.rejects(f.save({}, {...owner,moduleAccess:{mode:'scoped',modules:{}}}),/forbidden/);
+  f.race(()=>f.sqlite.exec("UPDATE local_users SET status='Disabled' WHERE id='o'"));await assert.rejects(f.save({},owner),/conflict/);assert.equal((await f.read()).revision,'');
+  f.sqlite.exec("INSERT INTO audit_closure_state VALUES('audit-a','closed','closed','','')");await assert.rejects(f.save(),/audit-closed/);assert.equal((await f.read()).revision,'');
+ }finally{f.sqlite.close();}
+});
+test('calendar adoption event failure rolls back provenance, calendar fields and queue withdrawal',async()=>{const f=await calendarFixture();try{
+ await syncAuditRequestNotifications(f.db,now);f.sqlite.exec("CREATE TRIGGER reject_calendar_event BEFORE INSERT ON audit_request_events WHEN NEW.action='reminder-profile' BEGIN SELECT RAISE(ABORT,'calendar-event-failure');END");
+ await assert.rejects(f.save(),/calendar-event-failure/);assert.equal((await f.read()).revision,'');assert.equal(f.sqlite.prepare("SELECT count(*) n FROM continuous_assurance_notification_outbox WHERE status='queued'").get()?.n,1);
+}finally{f.sqlite.close();}});
