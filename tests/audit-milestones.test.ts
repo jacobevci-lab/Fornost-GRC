@@ -274,3 +274,73 @@ test('real dispatcher uses mocked transport once, preserves exact milestone link
  result=await dispatchAssuranceNotifications(f.db,{}, {actor:admin.email,trigger:'scheduled'});assert.equal(result.sent,0);assert.equal(sent.length,1);
  await f.act('save',owner,{fields:{...fields,dueDate:due,timeZone:'UTC',remindersEnabled:true}});await syncMilestoneNotifications(f.db,new Date());f.sqlite.exec("UPDATE local_users SET status='Disabled' WHERE id='o'");result=await dispatchAssuranceNotifications(f.db,{}, {actor:admin.email,trigger:'manual'});assert.equal(result.sent,0);assert.equal(result.skipped,1);assert.equal(sent.length,1);
 }finally{globalThis.fetch=originalFetch;f.sqlite.close();}});
+
+const reviewedFields={...fields,reviewer:admin.email,reviewDueDate:'2026-10-23',remindersEnabled:true};
+test('independent milestone review assigns only through admin, locks submission, returns and approves with immutable actors',async()=>{const f=await fixture();try{
+ await assert.rejects(f.act('save',owner,{fields:reviewedFields}),/review-admin/);
+ await f.act('save',admin,{fields:reviewedFields});
+ await assert.rejects(f.act('complete'),/review-required/);
+ await assert.rejects(f.act('save',owner,{fields:{...fields,reviewer:'',reviewDueDate:''}}),/review-admin/);
+ await f.act('save');assert.equal((await f.row())?.reviewer,admin.email);
+ await assert.rejects(f.act('submit',admin),/independent-review/);
+ await f.act('submit');let row=(await f.row())!;assert.equal(row.status,'submitted');assert.equal(row.submittedBy,owner.email);
+ await assert.rejects(f.act('save',admin,{fields:{...fields,reviewer:'',reviewDueDate:''}}),/transition/);
+ await assert.rejects(f.act('approve'),/independent-review/);await assert.rejects(f.act('return'),/independent-review/);
+ await f.act('return',admin);row=(await f.row())!;assert.equal(row.status,'changes_requested');assert.equal(row.reviewedBy,admin.email);
+ await f.act('save');assert.equal((await f.row())?.submittedBy,undefined);await f.act('submit');
+ await f.act('approve',admin);row=(await f.row())!;assert.equal(row.status,'completed');assert.equal(row.submittedBy,owner.email);assert.equal(row.reviewedBy,admin.email);
+ const events=f.sqlite.prepare("SELECT action,snapshot_json FROM audit_milestone_events ORDER BY rowid").all();assert.deepEqual(events.map(e=>e.action),['save','save','submit','return','save','submit','approve']);
+ assert.equal(JSON.parse(String(events[2].snapshot_json)).status,'submitted');
+ await f.act('reopen');row=(await f.row())!;assert.equal(row.reviewer,admin.email);assert.equal(row.reviewedBy,undefined);await assert.rejects(f.act('complete'),/review-required/);
+}finally{f.sqlite.close();}});
+test('review assignment rejects self review, partial dates, invalid dates, earlier review and disabled reviewers',async()=>{const f=await fixture();try{
+ for(const extra of [{reviewer:owner.email},{reviewDueDate:'2026-10-19'},{reviewDueDate:'2026-02-30'},{reviewer:''},{reviewDueDate:''}])assert.throws(()=>validateMilestone({...reviewedFields,...extra}),/review-fields/);
+ assert.throws(()=>validateMilestone({...fields,reviewer:admin.email}),/review-fields/);
+ f.sqlite.exec("UPDATE local_users SET status='Disabled' WHERE id='a'");await assert.rejects(f.act('save',owner,{fields:reviewedFields}),/review-admin/);
+ await assert.rejects(f.act('save',admin,{fields:reviewedFields}),/assignee/);assert.equal((await readMilestones(f.db,'a')).milestones.length,0);
+}finally{f.sqlite.close();}});
+test('review cannot be approved by an unrelated admin and guards reviewer role, policy, assignment and revision at commit',async()=>{for(const mode of ['role','policy','disabled','assignment','revision']){const f=await fixture();try{
+ f.sqlite.exec("INSERT INTO local_users VALUES('x','Other','other@example.com','Admin','Active')");
+ await f.act('save',admin,{fields:reviewedFields});await f.act('submit');
+ await assert.rejects(f.act('approve',{...admin,id:'x',email:'other@example.com'}),/independent-review/);
+ const count=f.sqlite.prepare('SELECT count(*) n FROM audit_milestone_events').get()?.n;
+ f.race(()=>{if(mode==='role')f.sqlite.exec("UPDATE local_users SET role='Viewer' WHERE id='a'");if(mode==='policy')f.sqlite.exec("INSERT INTO user_module_access VALUES('a','{\"mode\":\"scoped\",\"modules\":{}}')");if(mode==='disabled')f.sqlite.exec("UPDATE local_users SET status='Disabled' WHERE id='a'");if(mode==='assignment')f.sqlite.exec("UPDATE audit_milestones SET data_json=json_set(data_json,'$.reviewer','other@example.com'),revision='reassigned'");if(mode==='revision')f.sqlite.exec("UPDATE audit_milestones SET revision='concurrent'");});
+ await assert.rejects(f.act('approve',admin),/conflict/);assert.equal((await f.row())?.status,'submitted');assert.equal(f.sqlite.prepare('SELECT count(*) n FROM audit_milestone_events').get()?.n,count);
+}finally{f.sqlite.close();}}});
+test('review queue hands off deadlines and recipients, invalidates old mail and returns ownership without leaking narrative',async()=>{const f=await fixture();try{
+ await f.act('save',admin,{fields:reviewedFields});const now=new Date('2026-10-23T10:00Z');await syncMilestoneNotifications(f.db,now);const ownerNotice=queuedMilestones(f)[0];assert.equal(ownerNotice.recipient,owner.email);
+ await f.act('submit');assert.equal(await milestoneNotificationCurrent(f.db,ownerNotice,now),false);await syncMilestoneNotifications(f.db,now);const notice=queuedMilestones(f)[0];assert.equal(notice.recipient,admin.email);assert.equal(notice.reason,'review-due');assert.ok(String(notice.body).includes('2026-10-23'));assert.ok(!String(notice.body).includes(fields.title));
+ assert.equal(await milestoneNotificationCurrent(f.db,notice,now),true);
+ let work=await readMilestoneWork(f.db,owner);assert.equal(work.milestones[0].dueAt,'2026-10-23T20:59:59.999Z');assert.equal(work.milestones[0].reviewer,admin.email);assert.equal('description' in work.milestones[0],false);
+ let projection=projectEnterpriseWork('audit',{requests:[],...work});assert.equal(projection.complete,true);assert.equal(projection.rows[0].data.reviewer,admin.email);assert.equal(projection.rows[0].data.workClosed,false);
+ await f.act('return',admin);assert.equal(await milestoneNotificationCurrent(f.db,notice,now),false);await syncMilestoneNotifications(f.db,now);assert.equal(queuedMilestones(f)[0].recipient,owner.email);
+ work=await readMilestoneWork(f.db,owner);projection=projectEnterpriseWork('audit',{requests:[],...work});assert.equal(work.milestones[0].dueAt,'2026-10-20T20:59:59.999Z');assert.equal(projection.rows[0].data.reviewer,'');
+ assert.equal(projectEnterpriseWork('audit',{requests:[],complete:true,milestones:[{...work.milestones[0],status:'submitted',reviewer:''}]}).complete,false);
+}finally{f.sqlite.close();}});
+test('pending review blocks dependent work and closure; approval/report snapshots retain exact independent decisions',async()=>{const f=await fixture();try{
+ await f.act('save',admin,{fields:reviewedFields});await f.act('submit');await dependencyAct(f,secondId,'save',{fields:{...fields,dependsOn:[id]}});
+ await assert.rejects(dependencyAct(f,secondId,'start'),/dependency-blocked/);const source=await readAuditReportSource(f.db,admin,'a');assert.ok(auditClosureBlockers(source).includes('milestones'));
+ const reportId='ARP-'+crypto.randomUUID();await createAuditStatusReport(f.db,admin,{auditId:'a',reportId,expectedSourceRevision:source.sourceRevision,title:'Review pending',summary:'Independent milestone review pending',limitations:''});
+ await f.act('approve',admin);await dependencyAct(f,secondId,'complete');assert.ok(!auditClosureBlockers(await readAuditReportSource(f.db,admin,'a')).includes('milestones'));await assert.rejects(f.act('reopen'),/dependency-blocked/);
+ const saved=await readAuditStatusReport(f.db,admin,'a',reportId);assert.equal(saved.integrity,'verified');const item=saved.snapshot.items.find(i=>i.kind==='milestone'&&i.record.id===id)!;assert.equal(item.record.data.status,'submitted');assert.equal(item.record.data.reviewer,admin.email);assert.ok(auditStatusReportCsv(saved,false).includes('Submitted by'));
+}finally{f.sqlite.close();}});
+test('review decision failures roll back metadata, history, reminders and report revision; recovery handles disabled owners',async()=>{const f=await fixture();try{
+ await f.act('save',admin,{fields:reviewedFields});await f.act('submit');await syncMilestoneNotifications(f.db,new Date('2026-10-23T10:00Z'));const before=(await f.row())!,notice=queuedMilestones(f)[0],source=f.sqlite.prepare('SELECT revision FROM audit_report_source_revision').get()?.revision;
+ f.sqlite.exec("CREATE TRIGGER fail_approval BEFORE INSERT ON audit_milestone_events WHEN NEW.action='approve' BEGIN SELECT RAISE(ABORT,'event-failed');END");await assert.rejects(f.act('approve',admin),/event-failed/);assert.deepEqual(await f.row(),before);assert.equal(queuedMilestones(f)[0].id,notice.id);assert.equal(f.sqlite.prepare('SELECT revision FROM audit_report_source_revision').get()?.revision,source);f.sqlite.exec('DROP TRIGGER fail_approval');
+ f.sqlite.exec("UPDATE local_users SET status='Disabled' WHERE id='o'");await assert.rejects(f.act('approve',admin),/assignee/);await f.act('return',admin);assert.equal((await f.row())?.status,'changes_requested');await f.act('cancel',admin);await f.act('reopen',admin);await f.act('save',admin,{fields:{...fields,owner:admin.email,reviewer:'',reviewDueDate:''}});assert.equal((await f.row())?.owner,admin.email);
+}finally{f.sqlite.close();}});
+test('recurrence copies required review and calendar-day offset but no approval; reopened reviewed work needs another approval',async()=>{const f=await fixture();try{
+ await f.act('save',admin,{fields:{...reviewedFields,dueDate:'2026-01-31',reviewDueDate:'2026-02-03',recurrence:'monthly'}});await f.act('submit');await f.act('approve',admin);const result=await f.act('repeat');const child=(await readMilestones(f.db,'a')).milestones.find(m=>m.id===result.id)!;
+ assert.equal(child.status,'planned');assert.equal(child.dueDate,'2026-02-28');assert.equal(child.reviewDueDate,'2026-03-03');assert.equal(child.reviewer,admin.email);assert.equal(child.reviewedBy,undefined);assert.equal(child.submittedBy,undefined);
+ await assert.rejects(dependencyAct(f,child.id,'complete'),/review-required/);await f.act('reopen');await assert.rejects(dependencyAct(f,child.id,'submit'),/dependency-blocked/);
+}finally{f.sqlite.close();}});
+
+
+test('admin may explicitly remove a returned review with a reason and a readable active state',async()=>{const f=await fixture();try{
+ await f.act('save',admin,{fields:reviewedFields});await f.act('submit');await f.act('return',admin);await f.act('save',admin,{fields:{...fields,reviewer:'',reviewDueDate:''}});assert.equal((await f.row())?.status,'in_progress');assert.equal((await f.row())?.reviewedBy,undefined);await f.act('complete');assert.equal((await f.row())?.status,'completed');
+}finally{f.sqlite.close();}});
+test('stored review without an independent submission or exact reviewer decision fails closed in reads and My Work',async()=>{for(const mode of ['submitter','reviewer','stamp']){const f=await fixture();try{
+ await f.act('save',admin,{fields:reviewedFields});await f.act('submit');await f.act('approve',admin);
+ f.sqlite.prepare("UPDATE audit_milestones SET data_json=json_set(data_json,?,?) WHERE id=?").run(mode==='submitter'?'$.submittedBy':mode==='reviewer'?'$.reviewedBy':'$.reviewedAt',mode==='submitter'?admin.email:mode==='reviewer'?owner.email:'invalid',id);
+ await assert.rejects(f.row(),/source-invalid/);await assert.rejects(readMilestoneWork(f.db,owner),/source-invalid/);
+}finally{f.sqlite.close();}}});

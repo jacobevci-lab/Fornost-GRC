@@ -64,6 +64,14 @@ jobs:
         with:
           name: admin-settings-preview
           path: admin-settings-qa-artifacts/
+      - name: Independent milestone review, handoff and decision QA
+        run: node scripts/milestone-review-qa.mjs
+      - name: Preserve milestone review browser evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: milestone-review-preview
+          path: milestone-review-qa-artifacts/
       - name: Account and team views, cross-device persistence and permission QA
         run: node scripts/account-views-qa.mjs
       - name: Preserve account view browser evidence

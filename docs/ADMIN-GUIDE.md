@@ -157,3 +157,10 @@ Her tür için arşivler dahil 200 şablon sınırı vardır. Son 50 sürüm lis
 Yedi çekirdek liste ve Benim İşlerim'deki **Hesap ve ortak görünümler** bölümünde Admin, **Ortak görünümler** kapsamını seçerek modül başına 50 tercih yayınlayabilir. Ortak içerik modüle erişimi olan hesaplara görünür; yeni bir grup veya veri paylaşım yetkisi vermez. Ad, arama ve filtre metinlerini paylaşım önizlemesinde inceleyin. Editor/Viewer ortak tanımları değiştiremez; her hesap okuma yetkisi olan modüllerde kendi 20 kişisel görünümünü yönetebilir. Başkasının kişisel listesi Admin'e API üzerinden açılmaz.
 
 Sunucu görünüm kayıtları normal veritabanı yedeklerine dahildir. İşlem anında aktif hesap, rol, modül politikası ve beklenen sürüm yeniden doğrulanır. Silme iş kayıtlarına dokunmaz; ad/ölçütler temizlenir, eski isteğin kaydı geri getirmemesi için asgari kimlik işareti tutulur. Tercihler son sürümü saklar; onaylı denetim tarihçesi değildir. Mevcut tarayıcı kayıtları otomatik taşınmaz veya paylaşılmaz. [API, erişim ve kurtarma ayrıntıları](account-team-views.md).
+
+
+### Denetim görevlerinde bağımsız onay
+
+Görev detayında Admin, sorumludan farklı aktif denetim yazarı ve sorumlu tarihinden önce olmayan inceleme tarihi atar. İncelemeci/tarih değişikliği ve kaldırma yalnız Admin'e açıktır ve mevcut görevde gerekçe ister. Sunulmuş görev düzenlenemez; atanan incelemeci geri göndermeli veya görev gerekçeyle iptal edilip yeniden açılmalıdır. Admin rolü, atanmadığı görevi onaylama hakkı vermez; incelemeci görevi kendisi gönderemez. Yetkisi kaldırılan incelemecinin eski ekranından karar verilemez. Devre dışı kalan sorumlunun işini incelemeci geri gönderebilir; Admin iptal/yeniden açma ile atamayı düzeltebilir.
+
+İncelemede ve düzeltme bekleyen işler denetim kapanışını engeller. Bağlı görevler yalnız tamamlanmış ön koşulla başlayabilir. Yeni dönem önceki incelemeciyi ve tarihler arasındaki takvim günü farkını taşır, eski onayı taşımaz. E-posta taşıması yine yalnız Ayarlar → E-posta ve Bildirimler içindedir. [Görev sözleşmesi](audit-milestones.md#independent-milestone-review).

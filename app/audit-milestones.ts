@@ -1,9 +1,9 @@
 import { AuditRequestError, requestDate, validateRequestTimeZone } from './audit-requests';
 export const recurrenceLabels = {none:['Tek seferlik','One-off'],weekly:['Haftalık','Weekly'],monthly:['Aylık','Monthly'],quarterly:['Üç aylık','Quarterly'],yearly:['Yıllık','Yearly']} as const;
 export type MilestoneRecurrence = keyof typeof recurrenceLabels;
-export type MilestoneFields = { title: string; description: string; owner: string; dueDate: string; timeZone: string; dependsOn?: string[]; recurrence?: MilestoneRecurrence; remindersEnabled?: boolean };
-export type AuditMilestone = MilestoneFields & { id: string; auditId: string; revision: string; status: 'planned' | 'in_progress' | 'completed' | 'cancelled'; note: string; recurrenceOf?: string; recurrenceDay?: number; createdAt: string; updatedAt: string };
-export const milestoneLabels: Record<AuditMilestone['status'], [string,string]> = { planned:['Planlandı','Planned'], in_progress:['Devam ediyor','In progress'], completed:['Tamamlandı','Completed'], cancelled:['İptal edildi','Cancelled'] };
+export type MilestoneFields = { title: string; description: string; owner: string; dueDate: string; timeZone: string; reviewer?: string; reviewDueDate?: string; dependsOn?: string[]; recurrence?: MilestoneRecurrence; remindersEnabled?: boolean };
+export type AuditMilestone = MilestoneFields & { id: string; auditId: string; revision: string; status: 'planned' | 'in_progress' | 'submitted' | 'changes_requested' | 'completed' | 'cancelled'; note: string; submittedBy?: string; submittedAt?: string; reviewedBy?: string; reviewedAt?: string; recurrenceOf?: string; recurrenceDay?: number; createdAt: string; updatedAt: string };
+export const milestoneLabels: Record<AuditMilestone['status'], [string,string]> = { planned:['Planlandı','Planned'], in_progress:['Devam ediyor','In progress'], submitted:['İncelemede','In review'], changes_requested:['Düzeltme istendi','Changes requested'], completed:['Tamamlandı','Completed'], cancelled:['İptal edildi','Cancelled'] };
 export const emptyMilestone: MilestoneFields = { title:'', description:'', owner:'', dueDate:'', timeZone:'UTC' };
 export function validateMilestone(input: unknown): MilestoneFields {
  if (!input || typeof input !== 'object' || Array.isArray(input)) throw new AuditRequestError('fields');
@@ -14,6 +14,11 @@ export function validateMilestone(input: unknown): MilestoneFields {
  fields.owner=fields.owner.toLowerCase();
  if (fields.title.length<3 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(fields.owner)) throw new AuditRequestError('fields');
  if (!requestDate(fields.dueDate)) throw new AuditRequestError('dates');
+ if(raw.reviewer!==undefined||raw.reviewDueDate!==undefined){
+  if(typeof raw.reviewer!=='string'||raw.reviewer.length>254||typeof raw.reviewDueDate!=='string'||raw.reviewDueDate.length>10)throw new AuditRequestError('review-fields');
+  fields.reviewer=raw.reviewer.trim().toLowerCase();fields.reviewDueDate=raw.reviewDueDate.trim();
+  if(fields.reviewer?(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(fields.reviewer)||fields.reviewer===fields.owner||!requestDate(fields.reviewDueDate)||fields.reviewDueDate<fields.dueDate):!!fields.reviewDueDate)throw new AuditRequestError('review-fields');
+ }
  if (raw.dependsOn !== undefined) {
   if (!Array.isArray(raw.dependsOn) || raw.dependsOn.length > 20 || new Set(raw.dependsOn).size !== raw.dependsOn.length || raw.dependsOn.some(id => typeof id !== 'string' || !/^AMT-[a-f0-9-]{36}$/.test(id))) throw new AuditRequestError('dependencies');
   fields.dependsOn = [...raw.dependsOn] as string[];
@@ -39,7 +44,11 @@ export function validateMilestoneGraph(rows: AuditMilestone[]): void {
   visiting.delete(id); visited.add(id);
  }
  for (const row of rows) visit(row.id);
- for (const row of rows) if (['in_progress','completed'].includes(row.status) && (row.dependsOn || []).some(id => byId.get(id)?.status !== 'completed')) throw new AuditRequestError('dependency-blocked',409);
+ for (const row of rows) if (['in_progress','submitted','changes_requested','completed'].includes(row.status) && (row.dependsOn || []).some(id => byId.get(id)?.status !== 'completed')) throw new AuditRequestError('dependency-blocked',409);
+}
+
+export function milestoneNextDue(row: Pick<AuditMilestone,'status'|'dueDate'|'reviewDueDate'>): string {
+ return row.status==='submitted' ? row.reviewDueDate||'' : row.dueDate;
 }
 
 /** Calendar dates use UTC arithmetic; the deadline still uses the task's IANA zone. */

@@ -4,7 +4,7 @@ import { canReadModule, canWriteModule, parseModuleAccess } from './module-acces
 import { AuditRequestError, requestDueAt } from './audit-requests';
 import { auditRequestId, requireAuditParent } from './audit-request-store';
 import { ensureAuditClosureSchema } from './audit-closure-schema';
-import { validateMilestone, validateMilestoneGraph, nextMilestoneDate, milestoneLabels, type AuditMilestone } from './audit-milestones';
+import { validateMilestone, validateMilestoneGraph, nextMilestoneDate, milestoneNextDue, milestoneLabels, type AuditMilestone } from './audit-milestones';
 type Stored = { id:string; audit_id:string; revision:string; data_json:string; created_at:string; updated_at:string };
 /** One guarded INSERT and its history commit together; no partial task packs. */
 export async function createMilestoneBatch(db:D1Database, actor:Actor, input:Record<string,unknown>, now=new Date()) {
@@ -43,7 +43,17 @@ export function publicMilestone(row: Stored): AuditMilestone {
  const value=JSON.parse(row.data_json), fields=validateMilestone(value);
  if (!Object.hasOwn(milestoneLabels,value.status) || typeof value.note!=='string') throw new AuditRequestError('source-invalid',503);
  if((value.recurrenceOf!==undefined&&(typeof value.recurrenceOf!=='string'||!/^AMT-[a-f0-9-]{36}$/.test(value.recurrenceOf)))||(value.recurrenceDay!==undefined&&(!Number.isInteger(value.recurrenceDay)||value.recurrenceDay<1||value.recurrenceDay>31)))throw new AuditRequestError('source-invalid',503);
- return {...fields,...(value.recurrenceOf?{recurrenceOf:value.recurrenceOf}:{}),...(value.recurrenceDay?{recurrenceDay:value.recurrenceDay}:{}),status:value.status,note:value.note,id:row.id,auditId:row.audit_id,revision:row.revision,createdAt:row.created_at,updatedAt:row.updated_at};
+ const review:Pick<AuditMilestone,'submittedBy'|'submittedAt'|'reviewedBy'|'reviewedAt'>={};
+ for(const key of ['submittedBy','submittedAt','reviewedBy','reviewedAt'] as const)if(value[key]!==undefined){
+  if(typeof value[key]!=='string'||value[key].length>254||(key.endsWith('At')?!Number.isFinite(Date.parse(value[key])):! /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value[key])))throw new AuditRequestError('source-invalid',503);
+  review[key]=value[key];
+ }
+ if((value.status==='submitted'||value.status==='changes_requested')&&!fields.reviewer)throw new AuditRequestError('source-invalid',503);
+ if(value.status==='submitted'||(value.status==='completed'&&fields.reviewer)){
+  if(!review.submittedBy||!review.submittedAt||review.submittedBy===fields.reviewer)throw new AuditRequestError('source-invalid',503);
+  if(value.status==='completed'&&(!review.reviewedAt||review.reviewedBy!==fields.reviewer))throw new AuditRequestError('source-invalid',503);
+ }
+ return {...fields,...review,...(value.recurrenceOf?{recurrenceOf:value.recurrenceOf}:{}),...(value.recurrenceDay?{recurrenceDay:value.recurrenceDay}:{}),status:value.status,note:value.note,id:row.id,auditId:row.audit_id,revision:row.revision,createdAt:row.created_at,updatedAt:row.updated_at};
 }
 export async function readMilestones(db:D1Database,auditId:string) {
  auditRequestId(auditId); await ensureAuditClosureSchema(db); await requireAuditParent(db,auditId);
@@ -57,24 +67,30 @@ export async function milestonePeople(db:D1Database) {
 export async function readMilestoneWork(db:D1Database,actor:Actor) {
  if(!canReadModule(actor,'Denetim Yönetimi'))return {milestones:[],complete:true};
  await ensureAuditClosureSchema(db);
- const rows=await db.prepare(`SELECT m.id,m.audit_id AS auditId,json_extract(m.data_json,'$.title') AS title,json_extract(m.data_json,'$.status') AS status,json_extract(m.data_json,'$.owner') AS owner,json_extract(m.data_json,'$.dueDate') AS dueDate,json_extract(m.data_json,'$.timeZone') AS timeZone,m.created_at AS createdAt,m.updated_at AS updatedAt,(SELECT count(*) FROM json_each(COALESCE(json_extract(m.data_json,'$.dependsOn'),'[]')) d WHERE NOT EXISTS(SELECT 1 FROM audit_milestones p WHERE p.audit_id=m.audit_id AND p.id=d.value AND json_extract(p.data_json,'$.status')='completed')) AS blockedCount,json_extract(m.data_json,'$.dependsOn') AS dependenciesJson FROM audit_milestones m JOIN simple_audits a ON a.id=m.audit_id ORDER BY m.updated_at DESC,m.id LIMIT 1001`).all<{id:string;auditId:string;title:string;status:string;owner:string;dueDate:string;timeZone:string;createdAt:string;updatedAt:string;blockedCount:number;dependenciesJson:string|null}>();
- return {milestones:rows.results.slice(0,1000).map(({dependenciesJson,...row})=>{validateMilestone({...row,description:'',...(dependenciesJson===null?{}:{dependsOn:JSON.parse(dependenciesJson)})});if(!Object.hasOwn(milestoneLabels,row.status))throw new AuditRequestError('source-invalid',503);return {...row,dueAt:requestDueAt(row.dueDate,row.timeZone)};}),complete:rows.results.length<=1000};
+ const rows=await db.prepare(`SELECT m.*,(SELECT count(*) FROM json_each(COALESCE(json_extract(m.data_json,'$.dependsOn'),'[]')) d WHERE NOT EXISTS(SELECT 1 FROM audit_milestones p WHERE p.audit_id=m.audit_id AND p.id=d.value AND json_extract(p.data_json,'$.status')='completed')) AS blockedCount FROM audit_milestones m JOIN simple_audits a ON a.id=m.audit_id ORDER BY m.updated_at DESC,m.id LIMIT 1001`).all<Stored&{blockedCount:number}>();
+ return {milestones:rows.results.slice(0,1000).map(raw=>{const row=publicMilestone(raw);return {id:row.id,auditId:row.auditId,title:row.title,status:row.status,owner:row.owner,reviewer:row.status==='submitted'?row.reviewer||'':'',dueDate:milestoneNextDue(row),timeZone:row.timeZone,createdAt:row.createdAt,updatedAt:row.updatedAt,blockedCount:raw.blockedCount,dueAt:requestDueAt(milestoneNextDue(row),row.timeZone)};}),complete:rows.results.length<=1000};
 }
 export async function mutateMilestone(db:D1Database,actor:Actor,input:Record<string,unknown>,now=new Date()) {
  if(!canWriteModule(actor,'Denetim Yönetimi'))throw new AuditRequestError('forbidden',403);
  const auditId=auditRequestId(input.auditId),sourceId=auditRequestId(input.id),action=String(input.action);
  let id=sourceId;
- if(!/^AMT-[a-f0-9-]{36}$/.test(id)||!['save','start','complete','cancel','reopen','repeat'].includes(action)||typeof input.expectedRevision!=='string'||input.expectedRevision.length>100)throw new AuditRequestError('fields');
+ if(!/^AMT-[a-f0-9-]{36}$/.test(id)||!['save','start','submit','approve','return','complete','cancel','reopen','repeat'].includes(action)||typeof input.expectedRevision!=='string'||input.expectedRevision.length>100)throw new AuditRequestError('fields');
  await ensureAuditClosureSchema(db);await requireAuditParent(db,auditId);
  const raw=await db.prepare('SELECT * FROM audit_milestones WHERE id=? AND audit_id=?').bind(id,auditId).first<Stored>(),current=raw?publicMilestone(raw):null;
  if((current?.revision||'')!==input.expectedRevision)throw new AuditRequestError('conflict',409);
  const email=actor.email.toLowerCase(),note=typeof input.note==='string'?input.note.trim():'';
  if(note.length>2000||((action!=='save'||current)&&note.length<3))throw new AuditRequestError('note');
- if(current&&email!==current.owner&&actor.role!=='Admin')throw new AuditRequestError('owner',403);
+ const reviewAction=action==='approve'||action==='return';
+ if(reviewAction){if(!current||email!==current.reviewer||email===current.owner||email===current.submittedBy)throw new AuditRequestError('independent-review',403);}
+ else if(current&&email!==current.owner&&actor.role!=='Admin')throw new AuditRequestError('owner',403);
  let fields,status:AuditMilestone['status'];
  if(action==='save'){
-  if(current&&['completed','cancelled'].includes(current.status))throw new AuditRequestError('transition',409);
-  fields=validateMilestone(input.fields);status=current?.status||'planned';
+  if(current&&['completed','cancelled','submitted'].includes(current.status))throw new AuditRequestError('transition',409);
+  const rawFields=input.fields;
+  if(!rawFields||typeof rawFields!=='object'||Array.isArray(rawFields))throw new AuditRequestError('fields');
+  fields=validateMilestone({...rawFields,...(current?.reviewer!==undefined&&!Object.hasOwn(rawFields,'reviewer')&&!Object.hasOwn(rawFields,'reviewDueDate')?{reviewer:current.reviewer,reviewDueDate:current.reviewDueDate}: {})});status=current?.status||'planned';
+  if(status==='changes_requested'&&!fields.reviewer)status='in_progress';
+  if(actor.role!=='Admin'&&((fields.reviewer||'')!==(current?.reviewer||'')||(fields.reviewDueDate||'')!==(current?.reviewDueDate||'')))throw new AuditRequestError('review-admin',403);
   if(current?.remindersEnabled!==undefined&&!Object.hasOwn(input.fields as object,'remindersEnabled'))fields.remindersEnabled=current.remindersEnabled;
   if(current?.recurrence && !Object.hasOwn(input.fields as object,'recurrence'))fields.recurrence=current.recurrence;
   if(current?.dependsOn && !Object.hasOwn(input.fields as object,'dependsOn'))fields.dependsOn=[...current.dependsOn];
@@ -82,16 +98,32 @@ export async function mutateMilestone(db:D1Database,actor:Actor,input:Record<str
  }else{
   if(!current)throw new AuditRequestError('missing',404);
   fields=validateMilestone(current);status=current.status;
-  if(action==='repeat'){if(status!=='completed'||!current.recurrence||current.recurrence==='none')throw new AuditRequestError('transition',409);id='AMT-'+crypto.randomUUID();fields.dueDate=nextMilestoneDate(current.dueDate,current.recurrence,current.recurrenceDay);fields.dependsOn=[sourceId];status='planned';}
-  if(action==='start'){if(status!=='planned')throw new AuditRequestError('transition',409);status='in_progress';}
-  if(action==='complete'||action==='cancel'){if(!['planned','in_progress'].includes(status))throw new AuditRequestError('transition',409);status=action==='complete'?'completed':'cancelled';}
+  if(action==='repeat'){
+   if(status!=='completed'||!current.recurrence||current.recurrence==='none')throw new AuditRequestError('transition',409);
+   id='AMT-'+crypto.randomUUID();fields.dueDate=nextMilestoneDate(current.dueDate,current.recurrence,current.recurrenceDay);fields.dependsOn=[sourceId];status='planned';
+   if(fields.reviewer&&fields.reviewDueDate){const gap=Date.parse(fields.reviewDueDate+'T12:00:00Z')-Date.parse(current.dueDate+'T12:00:00Z');fields.reviewDueDate=new Date(Date.parse(fields.dueDate+'T12:00:00Z')+gap).toISOString().slice(0,10);fields=validateMilestone(fields);}
+  }
+  if(action==='start'){if(!['planned','changes_requested'].includes(status))throw new AuditRequestError('transition',409);status='in_progress';}
+  if(action==='submit'){
+   if(!['planned','in_progress','changes_requested'].includes(status))throw new AuditRequestError('transition',409);
+   if(!fields.reviewer||fields.reviewer===email)throw new AuditRequestError('independent-review',403);status='submitted';
+  }
+  if(reviewAction){if(status!=='submitted')throw new AuditRequestError('transition',409);status=action==='approve'?'completed':'changes_requested';}
+  if(action==='complete'){
+   if(!['planned','in_progress','changes_requested'].includes(status))throw new AuditRequestError('transition',409);
+   if(fields.reviewer)throw new AuditRequestError('review-required',409);status='completed';
+  }
+  if(action==='cancel'){if(!['planned','in_progress','changes_requested','submitted'].includes(status))throw new AuditRequestError('transition',409);status='cancelled';}
   if(action==='reopen'){if(!['completed','cancelled'].includes(status))throw new AuditRequestError('transition',409);status='planned';}
  }
  // Recovery may proceed with a disabled former owner; any new assignment must be active.
- const emails=[...new Set(action==='save'||action==='start'||action==='complete'||action==='repeat'?[email,fields.owner]:[email])];
+ const emails=[...new Set(['save','start','submit','approve','complete','repeat'].includes(action)?[email,fields.owner,...(fields.reviewer?[fields.reviewer]:[])]:[email])];
  const people=await db.prepare("SELECT u.id,lower(u.email) AS email,u.role,a.policy_json AS policy FROM local_users u LEFT JOIN user_module_access a ON a.user_id=u.id WHERE u.status='Active' AND lower(u.email) IN (SELECT value FROM json_each(?))").bind(JSON.stringify(emails)).all<{id:string;email:string;role:string;policy:string|null}>();
  if(people.results.length!==emails.length||!people.results.some(p=>p.id===actor.id&&p.email===email&&p.role===actor.role)||people.results.some(p=>!canWriteModule({role:p.role,moduleAccess:parseModuleAccess(p.policy)},'Denetim Yönetimi')))throw new AuditRequestError('assignee',403);
  const revision=crypto.randomUUID(),stamp=now.toISOString(),next:AuditMilestone={...fields,id,auditId,revision,status,note,createdAt:action==='repeat'?stamp:current?.createdAt||stamp,updatedAt:stamp};
+ if(current&&!['save','reopen','repeat','submit'].includes(action))for(const key of ['submittedBy','submittedAt','reviewedBy','reviewedAt'] as const)if(current[key])next[key]=current[key];
+ if(action==='submit'){next.submittedBy=email;next.submittedAt=stamp;}
+ if(reviewAction){next.reviewedBy=email;next.reviewedAt=stamp;}
  if(action==='repeat')next.recurrenceOf=sourceId;else if(current?.recurrenceOf)next.recurrenceOf=current.recurrenceOf;
  if(fields.recurrence&&fields.recurrence!=='none')next.recurrenceDay=current&&current.recurrence===fields.recurrence&&(action==='repeat'||current.dueDate===fields.dueDate)?current.recurrenceDay||Number(current.dueDate.slice(8)):Number(fields.dueDate.slice(8));
  const graphRows=await db.prepare('SELECT * FROM audit_milestones WHERE audit_id=? ORDER BY id LIMIT 101').bind(auditId).all<Stored>();

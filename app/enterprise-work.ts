@@ -81,9 +81,10 @@ export function projectEnterpriseWork(source: EnterpriseWorkSource, payload: unk
         const counts=new Map<string,number>();
         for(const item of payload.milestones)if(object(item))counts.set(text(item.id),(counts.get(text(item.id))||0)+1);
         for(const item of payload.milestones){
-          if(!object(item)||!text(item.id)||counts.get(text(item.id))!==1||!text(item.auditId)||!text(item.title)||!text(item.owner)||!text(item.dueAt)||!Number.isFinite(Date.parse(text(item.dueAt)))||!['planned','in_progress','completed','cancelled'].includes(text(item.status))){complete=false;continue;}
+          if(!object(item)||!text(item.id)||counts.get(text(item.id))!==1||!text(item.auditId)||!text(item.title)||!text(item.owner)||!text(item.dueAt)||!Number.isFinite(Date.parse(text(item.dueAt)))||!['planned','in_progress','submitted','changes_requested','completed','cancelled'].includes(text(item.status))){complete=false;continue;}
           if(item.blockedCount!==undefined&&(!Number.isInteger(item.blockedCount)||Number(item.blockedCount)<0||Number(item.blockedCount)>20)){complete=false;continue;}
-          add('audit-milestone',item,{title:item.title,auditId:item.auditId,owner:item.owner,dueDate:item.dueAt,blockedCount:item.blockedCount||0},['completed','cancelled'].includes(text(item.status)));
+          if(item.status==='submitted'&&(!text(item.reviewer)||text(item.reviewer)===text(item.owner))){complete=false;continue;}
+          add('audit-milestone',item,{title:item.title,auditId:item.auditId,owner:item.owner,reviewer:item.status==='submitted'?item.reviewer:'',dueDate:item.dueAt,blockedCount:item.blockedCount||0},['completed','cancelled'].includes(text(item.status)));
         }
       }
     }

@@ -1,4 +1,5 @@
 "use client";
+import {milestoneLabels} from './audit-milestones';
 import { enterpriseWorkSources, enterpriseWorkKinds, projectEnterpriseWork, type EnterpriseWorkSource } from "./enterprise-work";
 import MyWorkAssuranceSignals from "./my-work-assurance-signals";
 import { dueTimestamp } from "./due-date";
@@ -201,6 +202,8 @@ function priorityFor(row: Row, dueTime: number, now: number) {
 function reasonFor(row: Row, dueTime: number, now: number, lang: Lang) {
   if(row.workKind === "audit-milestone" && Number(row.data.blockedCount)>0)return lang === "tr" ? `${row.data.blockedCount} ön koşul görevi bekleniyor` : `Waiting for ${row.data.blockedCount} prerequisite milestones`;
   const tr = lang === "tr";
+  if(row.workKind === "audit-milestone" && row.data.status === "submitted")return tr ? "Bağımsız görev incelemesi bekleniyor" : "Awaiting independent milestone review";
+  if(row.workKind === "audit-milestone" && row.data.status === "changes_requested")return tr ? "İncelemeci düzeltme istedi" : "Reviewer requested changes";
   if (row.module === "Bulgular ve CAPA") {
     const disposition = findingWorkDisposition(row.data, now);
     if (disposition === "acceptance-expired") return tr ? "Risk kabul süresi dolmuş" : "Risk acceptance expired";
@@ -229,7 +232,7 @@ function itemFromRow(row: Row, user: User, now: number, lang: Lang, completed = 
     row,
     title: row.workKind ? `${enterpriseWorkKinds[row.workKind]?.[lang] || row.workKind} · ${rowTitle(row)}` : rowTitle(row),
     owner: rowOwner(row),
-    status: rowStatus(row),
+    status: row.workKind === "audit-milestone" ? milestoneLabels[rowStatus(row) as keyof typeof milestoneLabels]?.[lang === "tr" ? 0 : 1] || rowStatus(row) : rowStatus(row),
     due,
     dueTime,
     priority,
