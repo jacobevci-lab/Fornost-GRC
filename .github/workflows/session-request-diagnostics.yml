@@ -1,0 +1,43 @@
+name: Session request diagnostics
+on:
+  push:
+    branches: [diagnose/session-request-cancellation-20261023]
+permissions:
+  contents: read
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      FORNOST_EXPECTED_REVISION: 94f48d608217210727db8fefaaa7ed47e06140e6
+      FORNOST_PROD_URL: ${{ vars.FORNOST_PROD_URL || 'https://app.fornostsecurity.com' }}
+      CF_ACCESS_CLIENT_ID: ${{ secrets.CF_ACCESS_CLIENT_ID }}
+      CF_ACCESS_CLIENT_SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
+      FORNOST_SMOKE_EMAIL: ${{ secrets.FORNOST_SMOKE_EMAIL }}
+      FORNOST_SMOKE_PASSWORD: ${{ secrets.FORNOST_SMOKE_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.13.0
+          cache: npm
+      - run: npm ci
+      - run: npm install --no-save --ignore-scripts @playwright/test@1.55.0 @axe-core/playwright@4.10.1
+      - name: Use runner browser or install Chromium
+        shell: bash
+        run: |
+          if command -v google-chrome >/dev/null; then
+            echo "QA_CHROMIUM_PATH=$(command -v google-chrome)" >> "$GITHUB_ENV"
+          else
+            npx playwright install --with-deps chromium
+          fi
+      - run: node scripts/wait-for-production-revision.mjs --once
+      - name: Trace the unchanged legacy scan
+        run: node scripts/session-request-diagnostics.mjs
+      - run: node scripts/wait-for-production-revision.mjs --once
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: session-request-diagnostics
+          path: qa-artifacts/
+          retention-days: 21
