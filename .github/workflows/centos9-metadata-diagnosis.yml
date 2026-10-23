@@ -9,9 +9,16 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 6
     steps:
-      - name: Revalidate official metalink metadata without weakening checksum verification
+      - uses: actions/checkout@v4
+        with:
+          ref: a6efe123becf93429fb098f484a23b2512e90308
+      - name: Verify existing Python and run every original installer and backup test
         run: |
-          docker run --rm quay.io/centos/centos:stream9 bash -lc '
-            sed -i "/^metalink=/s/\$/\&fornost_ci_refresh=$(date +%s)/" /etc/yum.repos.d/centos.repo
-            dnf -v -y --refresh install python3
+          docker run --rm --volume "$PWD:/src:ro" --workdir /src quay.io/centos/centos:stream9 bash -lc '
+            set -e
+            if ! command -v python3 >/dev/null 2>&1; then dnf -y install python3; fi
+            python3 --version
+            bash -n scripts/linux/*.sh tests/onprem-install-smoke.sh
+            bash tests/onprem-install-smoke.sh
+            python3 tests/onprem-backup-test.py
           '
