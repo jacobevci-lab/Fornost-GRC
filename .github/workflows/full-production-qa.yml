@@ -43,8 +43,14 @@ jobs:
       - name: Install QA browser tooling
         run: npm install --no-save --ignore-scripts @playwright/test@1.55.0 @axe-core/playwright@4.10.1
 
-      - name: Install Chromium
-        run: npx playwright install --with-deps chromium
+      - name: Use runner browser or install Chromium
+        shell: bash
+        run: |
+          if command -v google-chrome >/dev/null; then
+            echo "QA_CHROMIUM_PATH=$(command -v google-chrome)" >> "$GITHUB_ENV"
+          else
+            npx playwright install --with-deps chromium
+          fi
 
       - name: Verify the expected production revision
         run: node scripts/wait-for-production-revision.mjs
