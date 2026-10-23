@@ -147,6 +147,10 @@ export default function FornostAiCopilot() {
     setIdentityLoading(true);
     setIdentityError("");
     const response = await fetch(withBasePath("/api/auth"), { cache: "no-store", signal: AbortSignal.timeout(10000) }).catch(() => null);
+    // Finish every response before ignoring a superseded check. Leaving its
+    // body unread can keep the transport open until the timeout aborts it.
+    // The generation guard still prevents old identities from reaching state.
+    const body = await response?.json().catch(() => ({})) || {};
     if (request !== identityRequest.current) return;
     if (!response?.ok) {
       setUser(null);
@@ -154,8 +158,6 @@ export default function FornostAiCopilot() {
       setIdentityError("Oturum doğrulanamadı. Bağlantınızı kontrol edip yeniden deneyin.");
       return;
     }
-    const body = await response.json().catch(() => ({}));
-    if (request !== identityRequest.current) return;
     const nextUser = body.authenticated ? body.user as User : null;
     const nextKey=nextUser?JSON.stringify([nextUser.id,nextUser.email,nextUser.role,nextUser.moduleAccess]):"";
     if(identityKey.current && identityKey.current!==nextKey){setRecordFocus(null);setMessages([]);setDrafts([]);setAgentRuns([]);setQuestion("");setFeedbackDraft(null);setTab("chat");}

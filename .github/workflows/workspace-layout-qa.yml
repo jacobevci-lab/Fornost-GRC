@@ -64,6 +64,14 @@ jobs:
         with:
           name: admin-settings-preview
           path: admin-settings-qa-artifacts/
+      - name: Superseded copilot identity response and authorization QA
+        run: node scripts/copilot-identity-response-qa.mjs
+      - name: Preserve copilot identity response evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: copilot-identity-response-preview
+          path: copilot-identity-response-qa-artifacts/
       - name: Shared calendar versions, explicit adoption and conflict QA
         run: node scripts/audit-shared-calendar-qa.mjs
       - name: Preserve shared calendar browser evidence
