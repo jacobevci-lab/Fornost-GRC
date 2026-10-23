@@ -29,3 +29,6 @@ fieldset.finding-form-grid{border:0;margin:0;min-width:0}
 
 .finding-source-strip{flex-wrap:wrap}.finding-source-strip>div{flex:1 1 260px;min-width:min(100%,240px)}
 @media(max-width:700px){.finding-source-strip{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));align-items:start}.finding-source-strip>div{grid-column:1/-1;min-width:0;margin:0}.finding-source-strip>span{min-width:0;padding:12px 0 0;border-left:0;border-top:1px solid var(--at-line)}}
+
+/* A finding governance card must not inherit the shell sidebar geometry. */
+.finding-detail .finding-detail-grid>aside{position:static;height:auto;min-height:0;box-shadow:none;background:var(--at-raised)!important;color:var(--at-ink)!important;border-color:var(--at-line)!important}
