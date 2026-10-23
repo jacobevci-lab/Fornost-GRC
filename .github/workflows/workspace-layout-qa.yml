@@ -72,6 +72,14 @@ jobs:
         with:
           name: copilot-identity-response-preview
           path: copilot-identity-response-qa-artifacts/
+      - name: Workpaper exception to canonical CAPA and origin QA
+        run: node scripts/workpaper-capa-qa.mjs
+      - name: Preserve workpaper CAPA browser evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: workpaper-capa-preview
+          path: workpaper-capa-qa-artifacts/
       - name: Shared calendar versions, explicit adoption and conflict QA
         run: node scripts/audit-shared-calendar-qa.mjs
       - name: Preserve shared calendar browser evidence

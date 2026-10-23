@@ -1,4 +1,5 @@
 import { milestoneLabels, recurrenceLabels } from './audit-milestones';
+import type { WorkpaperCapaOrigin } from './workpaper-capa';
 import { workpaperStatusLabels } from './audit-workpapers';
 import { buildReportCsv, buildReportHtml, buildReportPdf, type ReportRecord, type ReportOptions } from './report-export';
 import { auditPlanLabels } from './audit-plan';
@@ -10,6 +11,7 @@ export function auditStatusReportView(detail: AuditReportDetail, tr: boolean, fo
   if (detail.integrity !== 'verified') throw new Error('integrity');
   const s = detail.snapshot, n = auditReportSummary(s.items), t = (a: string, b: string) => tr ? a : b;
   const fieldLabels: Record<string, string> = {
+    workpaperOrigin:t('Çalışma kâğıdı aktarım kaynağı','Workpaper promotion origin'),
     ...Object.fromEntries(Object.entries(auditPlanLabels).map(([key, label]) => [key, label[tr ? 0 : 1]])),
     population:t('Evren ve kaynak','Population and source'),populationCount:t('Evren büyüklüğü','Population size'),method:t('Seçim yöntemi','Selection method'),rationale:t('Seçim gerekçesi','Sampling rationale'),procedure:t('Test adımları','Test steps'),conclusion:t('Sonuç görüşü','Conclusion'),samples:t('Örneklem sonuçları','Sample results'),
     title: t('Başlık','Title'), summary: t('Hazırlayanın özeti','Preparer summary'), limitations: t('Kısıtlar ve notlar','Limitations and notes'),
@@ -42,7 +44,13 @@ export function auditStatusReportView(detail: AuditReportDetail, tr: boolean, fo
       if (item.kind === 'request') {
         data.status = requestStatusLabels[String(data.status) as keyof typeof requestStatusLabels]?.[tr?0:1] || data.status;
         if (Array.isArray(data.evidence)) data.evidence = data.evidence.map(v => `${v.title} · v${v.versionNo} · ${v.id}\n${v.fileName}\nSHA-256 ${v.contentSha256}`).join('\n\n');
-      } else if (item.kind === 'finding') { data.status=findingLabel(String(data.status),tr?'tr':'en'); data.severity=findingLabel(String(data.severity),tr?'tr':'en'); }
+      } else if (item.kind === 'finding') {
+        data.status=findingLabel(String(data.status),tr?'tr':'en'); data.severity=findingLabel(String(data.severity),tr?'tr':'en');
+        if(data.workpaperOrigin && typeof data.workpaperOrigin==='object'){
+          const o=data.workpaperOrigin as WorkpaperCapaOrigin;
+          data.workpaperOrigin=`${o.auditName} / ${o.workpaperTitle} / ${o.sample.reference}\n${t('Onaylı kaynak sürüm','Approved source revision')}: ${o.revision}\n${o.sample.note}\n${o.reason}\n${o.evidence.title} · v${o.evidence.versionNo} · ${o.evidence.id}\nSHA-256: ${o.evidence.contentSha256}`;
+        }
+      }
       else if (item.kind === 'milestone') {if(data.recurrence)data.recurrence=recurrenceLabels[String(data.recurrence) as keyof typeof recurrenceLabels]?.[tr?0:1]||data.recurrence;data.status=milestoneLabels[String(data.status) as keyof typeof milestoneLabels]?.[tr?0:1]||data.status;if(Array.isArray(data.dependsOn))data.dependsOn=data.dependsOn.join(', ');}
       else if (item.kind === 'workpaper') {
         data.status = workpaperStatusLabels[String(data.status) as keyof typeof workpaperStatusLabels]?.[tr?0:1] || data.status;

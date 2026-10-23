@@ -1,4 +1,5 @@
 "use client";
+import { WorkpaperCapaPanel } from './workpaper-capa-panel';
 import { reminderMilestones, type SavedAuditReminderProfile } from './audit-reminder-profile';
 import { WorkpaperSampleImport } from './workpaper-sample-import-panel';
 import { CopyRecordLink } from './record-link-controls';
@@ -7,7 +8,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { emptyWorkpaper, validateWorkpaper, workpaperStatusLabels, type AuditWorkpaper, type WorkpaperFields, type WorkpaperSample } from './audit-workpapers';
 import type { AuditRequestEvidence } from './audit-requests';
 import './audit-workpaper-panel.css';
-type State = { reminderProfile?: SavedAuditReminderProfile; papers: AuditWorkpaper[]; complete: boolean; canManage: boolean; admin: boolean; actorEmail: string; people: { email: string; name: string }[]; peopleComplete: boolean; evidenceChoices: AuditRequestEvidence[]; evidenceChoicesComplete: boolean; history: { id: string; actor: string; action: string; note: string; snapshot_json: string; created_at: string }[]; historyComplete: boolean };
+type State = { canReadCapa?: boolean; reminderProfile?: SavedAuditReminderProfile; papers: AuditWorkpaper[]; complete: boolean; canManage: boolean; admin: boolean; actorEmail: string; people: { email: string; name: string }[]; peopleComplete: boolean; evidenceChoices: AuditRequestEvidence[]; evidenceChoicesComplete: boolean; history: { id: string; actor: string; action: string; note: string; snapshot_json: string; created_at: string }[]; historyComplete: boolean };
 export function AuditWorkpaperPanel({ auditId, lang, readOnly, focusId = "" }: { focusId?: string; auditId: string; lang: 'tr' | 'en'; readOnly: boolean }) {
   const tr = lang === 'tr', t = (a: string, b: string) => tr ? a : b;
   const [state, setState] = useState<State | null>(null), [selected, setSelected] = useState<AuditWorkpaper | null>(null), [draft, setDraft] = useState<WorkpaperFields | null>(null), [note, setNote] = useState(''), [error, setError] = useState(''), [busy, setBusy] = useState(false), [query, setQuery] = useState(''), [filter, setFilter] = useState('all'), [saved, setSaved] = useState(false), [remindersPending, setRemindersPending] = useState(false);
@@ -93,7 +94,8 @@ export function AuditWorkpaperPanel({ auditId, lang, readOnly, focusId = "" }: {
         {selected.status === 'approved' && manages && <button disabled={busy} onClick={() => void mutate('reopen')}>{t('Gerekçeyle yeniden aç', 'Reopen with reason')}</button>}
         {selected.status === 'draft' && manages && <button disabled={busy} onClick={() => void mutate('cancel')}>{t('Gerekçeyle iptal et', 'Cancel with reason')}</button>}
       </div></>}
-      <p>{t('İstisnalar otomatik CAPA oluşturmaz. Gerekli bulgu ve aksiyonları Bulgular ve CAPA merkezinde takip edin. İptal edilen çalışma kâğıtları geçmişiyle korunur.', 'Exceptions do not automatically create CAPA. Track required findings and actions in Findings and CAPA. Cancelled workpapers retain their history.')}</p>
+      {state?.canReadCapa && <WorkpaperCapaPanel key={selected.id} paper={selected} tr={tr} readOnly={readOnly} onBusy={setBusy} onReload={() => void load(selected.id)}/>}
+      <p>{t('İstisnalar, açık aktarım onayıyla CAPA’ya dönüştürülür. İptal edilen çalışma kâğıtları ve aktarım kaynakları korunur.', 'Exceptions become CAPA only after explicit promotion confirmation. Cancelled workpapers and promotion origins are retained.')}</p>
       <details><summary>{t('İşlem ve örneklem geçmişi', 'Action and sample history')}</summary>{!state?.historyComplete && <p>{t('Son 100 işlem gösteriliyor.', 'Showing the latest 100 actions.')}</p>}<ol>{state?.history.map(e => { const snapshot = JSON.parse(e.snapshot_json) as AuditWorkpaper; return <li key={e.id}><b>{actionLabels[e.action] || e.action}</b><p>{e.actor} · {e.created_at}</p><p>{e.note}</p><details><summary>{t('Bu sürümdeki örnekler', 'Samples in this revision')} ({snapshot.samples.length})</summary><p>{snapshot.title} · {snapshot.conclusion}</p><p>{t('Hazırlama / inceleme termini', 'Preparation / review due date')}: {snapshot.dueDate || '—'} / {snapshot.reviewDueDate || '—'} · {snapshot.timeZone || 'UTC'}</p><p>{t('E-posta hatırlatmaları', 'Email reminders')}: {snapshot.remindersEnabled ? t('Açık', 'Enabled') : t('Kapalı', 'Disabled')}</p><ul>{snapshot.samples.map((s, i) => <li key={i}>{s.reference} · {resultLabel(s.result)} · {s.note} · {s.versionId || '—'}</li>)}</ul></details></li>; })}</ol></details>
     </section>}
   </section>;

@@ -2,7 +2,7 @@ import {readAuditReminderProfile} from '../../../audit-reminder-store';
 import {syncWorkpaperNotifications} from '../../../audit-workpaper-notifications';
 import { NextRequest, NextResponse } from 'next/server';
 import { requireRole } from '../../auth/security';
-import { canReadModule, canWriteModule } from '../../../module-access';
+import { canReadModule, canWriteModule, isScoped } from '../../../module-access';
 import { AuditRequestError } from '../../../audit-requests';
 import { isAuditClosedError } from '../../../audit-closure';
 import { auditRequestId, auditRequestPeople, readRequestEvidence } from '../../../audit-request-store';
@@ -18,7 +18,7 @@ export async function GET(req: NextRequest) {
     const state = await readWorkpapers(env.DB, auditId), people = await auditRequestPeople(env.DB), evidence = await readRequestEvidence(env.DB);
     const id = req.nextUrl.searchParams.get('id');
     const history = id ? await env.DB.prepare('SELECT id,actor,action,note,snapshot_json,created_at FROM audit_workpaper_events WHERE audit_id=? AND workpaper_id=? ORDER BY created_at DESC,rowid DESC LIMIT 101').bind(auditId, auditRequestId(id)).all() : null;
-    return json({ ...state, reminderProfile: await readAuditReminderProfile(env.DB, auditId), actorEmail: auth.actor.email.toLowerCase(), admin: auth.actor.role === 'Admin', canManage: canWriteModule(auth.actor, 'Denetim Yönetimi'), people: people.people, peopleComplete: people.complete, evidenceChoices: evidence.slice(0, 500), evidenceChoicesComplete: evidence.length <= 500, history: history?.results.slice(0, 100) || [], historyComplete: !history || history.results.length <= 100 });
+    return json({ ...state, canReadCapa: !isScoped(auth.actor), reminderProfile: await readAuditReminderProfile(env.DB, auditId), actorEmail: auth.actor.email.toLowerCase(), admin: auth.actor.role === 'Admin', canManage: canWriteModule(auth.actor, 'Denetim Yönetimi'), people: people.people, peopleComplete: people.complete, evidenceChoices: evidence.slice(0, 500), evidenceChoicesComplete: evidence.length <= 500, history: history?.results.slice(0, 100) || [], historyComplete: !history || history.results.length <= 100 });
   } catch (err) { return error(err); }
 }
 export async function POST(req: NextRequest) {

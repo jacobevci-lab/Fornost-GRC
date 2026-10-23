@@ -16,7 +16,7 @@ Güncelleme: 19 Ekim 2026. Başlangıç belgeleri Türkçedir; ayrıntılı tekn
 - [Kayıt arama](record-search.md) ve [paylaşılabilir kayıt/görev bağlantıları](record-links.md).
 - [Tarihli denetim görevleri](audit-milestones.md): sahip, hedef tarih, bağımsız inceleme/onay, My Work ve kapanış kontrolü.
 - [Denetim planlama](audit-engagement-planning.md), [talepler ve inceleme](audit-request-workflow.md), [takvim/hatırlatma/eskalasyon](audit-reminder-profiles.md).
-- [Çalışma kâğıtları ve örnekleme](audit-workpapers.md), [durum raporları](audit-status-reports.md), [bütün-denetim kapanışı](audit-closure.md).
+- [Çalışma kâğıtları, örnekleme ve CAPA aktarımı](audit-workpapers.md), [durum raporları](audit-status-reports.md), [bütün-denetim kapanışı](audit-closure.md).
 - [Kanıt dosya biçimleri](EVIDENCE-DOCUMENT-FORMATS.md), [kanıt geçmişi](evidence-history-overview.md), [çalışma alanları](research-workspaces.md).
 - [Benim İşlerim: kurumsal yaşam döngüleri](integrations/my-work-enterprise-lifecycles.md), [güvence işleri](integrations/my-work-assurance.md).
 

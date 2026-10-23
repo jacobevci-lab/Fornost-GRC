@@ -88,7 +88,7 @@ Başlamış denetime yeni talep eklerseniz önce sessiz taslak olur; **Review ad
 
 **Workpapers** sekmesinde amaç, test prosedürü, popülasyon/kaynak, seçim yaklaşımı/gerekçesi, sahip ve farklı reviewer girin. En fazla 100 test birimini referans, sonuç, not ve sabitlenmiş kanıt sürümüyle kaydedin. Sonuç ve kanıtları tamamlayıp sahip olarak incelemeye sunun. Reviewer onaylar veya geri gönderir; içeriği daha önce düzenleyen kişi sonradan reviewer yapılarak aynı kâğıdı onaylayamaz.
 
-Tam sayım seçilmişse bütün popülasyon temsil edilmelidir; 100'ü aşan popülasyon bu sınır içinde tamamlanmış sayım olarak gösterilemez. Bu araç istatistiksel/rastgele örnekleme veya güven aralığı hesaplamaz. İstisna sonucu otomatik CAPA oluşturmaz; ilgili bulguyu ayrıca yönetin. Onaylı kâğıdı değiştirmek için gerekçeli yeniden açma gerekir. [Çalışma kâğıdı rehberi](audit-workpapers.md).
+Tam sayım seçilmişse bütün popülasyon temsil edilmelidir; 100'ü aşan popülasyon bu sınır içinde tamamlanmış sayım olarak gösterilemez. Bu araç istatistiksel/rastgele örnekleme veya güven aralığı hesaplamaz. Onaylı istisna için **İstisnalardan CAPA → CAPA oluştur** yolunu kullanın. Kök neden, aksiyon planı, sorumlu, sorumludan ve aktarımı yapandan farklı Admin doğrulayıcı, termin ve gerekçeyi girip önizleyin; **Onayla ve CAPA oluştur** açık CAPA kaydı oluşturur. Kaynak örnek/kanıt sürümü korunur; aynı örnek tekrar aktarılamaz. CAPA detayından kaynak çalışma kâğıdına dönebilirsiniz. Bu işlem tam erişimli Admin veya atanmış Editor sorumlu/inceleyen içindir. Onaylı kâğıdı değiştirmek için gerekçeli yeniden açma gerekir. [Çalışma kâğıdı rehberi](audit-workpapers.md).
 
 ### Üç ayrı tamamlanma kavramı
 
