@@ -80,7 +80,7 @@ jobs:
         with:
           name: milestone-review-preview
           path: milestone-review-qa-artifacts/
-      - name: Account and team views, cross-device persistence and permission QA
+      - name: Account and team views, version restore and permission QA
         run: node scripts/account-views-qa.mjs
       - name: Preserve account view browser evidence
         if: always()

@@ -6,6 +6,8 @@ import { canReadModule, type AccessSubject } from './module-access';
 export const VIEW_MODULES = ['Risk Assessment','BIA','Varlık Envanteri','Uyum','Kontroller','Kanıtlar','Denetim Yönetimi','My Work'] as const;
 export type ViewScope = 'personal' | 'team';
 export type AccountView = { id: string; module: string; scope: ViewScope; name: string; state: SavedViewState; revision: string; updatedAt: string };
+export type TeamViewVersion = { revision: string; version: number; action: 'baseline' | 'save' | 'rename' | 'delete' | 'restore'; actor: string; note: string; sourceRevision: string; createdAt: string };
+export type TeamViewHistory = { current: AccountView; selected: AccountView; history: TeamViewVersion[]; historyComplete: boolean };
 export class AccountViewError extends Error { constructor(public code: string, public status = 400) { super(code); } }
 export const viewNameKey = (value: string) => value.normalize('NFKC').trim().toLocaleLowerCase('tr-TR');
 export function viewModule(value: unknown): string {
