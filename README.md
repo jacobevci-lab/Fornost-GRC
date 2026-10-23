@@ -13,7 +13,7 @@ Fornost GRC, kurumların risklerini, kontrollerini, kanıtlarını, denetimlerin
 | Riskleri görünür kılmak | Varlık ve BIA bağlamıyla risk değerlendirmesi; risk iştahı, KRI ve aksiyon takibi |
 | Uyum çalışmalarını düzenlemek | Gereksinim, kontrol, politika ve kanıt ilişkileri; eksik veya güncel olmayan güvenceyi izleme |
 | Denetimi yürütmek | Kapsam/plan, ortak şablonlar ve görev paketleri, gereksinimler, sahip/reviewer atamalı kanıt talepleri, çalışma kâğıtları, durum raporları ve bağımsız kapanış |
-| Bulguları sonuçlandırmak | Kaynağa bağlı CAPA, kök neden, sorumlu, son tarih, kanıt ve bağımsız kapanış doğrulaması |
+| Bulguları sonuçlandırmak | Onaylı çalışma kâğıdı istisnasından kaynak iziyle CAPA aktarımı; kaynağa bağlı CAPA, kök neden, sorumlu, son tarih, kanıt ve bağımsız kapanış doğrulaması |
 | Operasyonel dayanıklılık | Tedarikçi değerlendirmesi, güvenlik olayları, BIA bağlantılı süreklilik planları ve tatbikatlar |
 | AI kullanımını yönetmek | Model envanteri, risk/değerlendirme, yaşam döngüsü kararları, izleme ve insan onaylı AI desteği |
 | Günlük işleri takip etmek | Benim İşlerim, yetkili kayıt araması, tam kayda giden bağlantılar ve yapılandırılmış görev bildirimleri |

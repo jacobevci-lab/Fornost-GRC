@@ -1,4 +1,4 @@
-import { index, integer, primaryKey, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import { index, integer, primaryKey, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
 
 /**
  * Canonical schema for core GRC support tables that sit alongside
@@ -90,6 +90,10 @@ export const auditWorkpapers = sqliteTable("audit_workpapers", {
 export const auditWorkpaperEvents = sqliteTable("audit_workpaper_events", {
   id:text("id").primaryKey(),auditId:text("audit_id").notNull(),workpaperId:text("workpaper_id").notNull(),actor:text("actor").notNull(),action:text("action").notNull(),note:text("note").notNull(),snapshotJson:text("snapshot_json").notNull(),createdAt:text("created_at").notNull(),
 },table=>[index("audit_workpaper_events_parent_idx").on(table.auditId,table.workpaperId,table.createdAt,table.id)]);
+
+export const auditWorkpaperCapaLinks = sqliteTable("audit_workpaper_capa_links", {
+  findingId:text("finding_id").primaryKey(),auditId:text("audit_id").notNull(),workpaperId:text("workpaper_id").notNull(),sampleKey:text("sample_key").notNull(),sourceRevision:text("source_revision").notNull(),inputSha256:text("input_sha256").notNull(),originJson:text("origin_json").notNull(),actor:text("actor").notNull(),createdAt:text("created_at").notNull(),
+},table=>[index("audit_workpaper_capa_parent_idx").on(table.auditId,table.workpaperId,table.createdAt),uniqueIndex("audit_workpaper_capa_sample_unique").on(table.workpaperId,table.sampleKey)]);
 
 export const auditMilestones = sqliteTable("audit_milestones", {
  id:text("id").primaryKey(),auditId:text("audit_id").notNull(),revision:text("revision").notNull(),dataJson:text("data_json").notNull(),createdAt:text("created_at").notNull(),updatedAt:text("updated_at").notNull(),
