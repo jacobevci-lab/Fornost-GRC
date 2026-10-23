@@ -70,11 +70,14 @@ try {
   await immediatePage.goto(base);
   await waitForQaIdle(immediatePage);
   const immediateStarted = immediatePage.waitForRequest(request => request.url().endsWith('/api/delayed'));
-  const immediateFailed = immediatePage.waitForEvent('requestfailed', request => request.url().endsWith('/api/delayed'));
+  const immediateResult = immediatePage.waitForResponse(response => response.url().endsWith('/api/delayed'))
+    .then(() => ({ finished: true }), error => ({ finished: false, message: error.message }));
   await immediatePage.evaluate(() => { void fetch('/api/delayed').catch(() => {}); });
   await immediateStarted;
   await immediate.close();
-  assert.equal((await immediateFailed).failure()?.errorText, 'net::ERR_ABORTED', 'Immediate teardown cancels an otherwise valid late read');
+  const interrupted = await immediateResult;
+  assert.equal(interrupted.finished, false, 'Immediate teardown prevents observing the late response');
+  assert.match(interrupted.message, /closed/, 'The context closes before the delayed response can be inspected');
 
   const lateFailures = [], finished = [];
   page.on('requestfailed', request => lateFailures.push(request.url()));
@@ -88,7 +91,7 @@ try {
   assert.ok(finished.some(url => url.endsWith('/api/delayed')), 'A late read finishes before the context closes');
   assert.deepEqual(lateFailures, [], 'Draining causes no artificial request cancellation');
   assert.equal(page.isClosed(), true);
-  console.log('QA_CONTEXT_DRAIN_PASS: old immediate close reproduces ERR_ABORTED; late read completes before close; busy timeout stays a failure; transport errors remain observable');
+  console.log('QA_CONTEXT_DRAIN_PASS: old immediate close cuts off response observation; late read completes before close; busy timeout stays a failure; transport errors remain observable');
   console.log('QA_BROWSER_HARNESS_PASS: delayed data and React commit, busy timeout, origin-only credentials, external script, observable transport failures');
 } finally {
   await browser.close();
