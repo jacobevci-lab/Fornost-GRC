@@ -55,6 +55,18 @@ export async function waitForQaIdle(page, { timeout = 20000 } = {}) {
   throw new Error(`Workspace did not finish loading: busy=${busy}, pending=${JSON.stringify(pending)}`);
 }
 
+// Screenshots and accessibility scans take place after the preceding idle
+// check. A periodic session probe can begin during that work. Drain it before
+// teardown so the scanner does not cancel a valid in-flight application read.
+// Keep observers attached: real failures remain reportable, and a stalled page
+// rejects instead of being closed and silently treated as successfully scanned.
+export async function closeQaContext(context, options = {}) {
+  for (const page of context.pages()) {
+    if (!page.isClosed()) await waitForQaIdle(page, options);
+  }
+  await context.close();
+}
+
 export async function switchQaLocale(page, locale) {
   if ((await page.locator('html').getAttribute('lang')) !== locale) {
     await page.locator('.language-switch:visible').getByRole('button', { name: locale.toUpperCase(), exact: true }).click();

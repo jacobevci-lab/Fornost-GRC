@@ -2,7 +2,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { chromium } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
-import { createQaContext, waitForQaIdle, switchQaLocale, openQaModule } from "./qa-browser-harness.mjs";
+import { createQaContext, closeQaContext, waitForQaIdle, switchQaLocale, openQaModule } from "./qa-browser-harness.mjs";
 
 const baseUrl = (process.env.FORNOST_PROD_URL || "https://app.fornostsecurity.com").replace(/\/$/, "");
 const accessClientId = process.env.CF_ACCESS_CLIENT_ID || "";
@@ -250,7 +250,7 @@ async function checkLoginScreen(browser) {
   const loginFields = await page.locator('input[name="email"], input[name="password"]').count();
   report.login.loginFields = loginFields;
   if (loginFields < 2) addFinding("high", "login", "Expected login fields not found", `Found ${loginFields} email/password fields`);
-  await context.close();
+  await closeQaContext(context);
 }
 
 async function auditDesktop(browser) {
@@ -343,7 +343,7 @@ async function auditDesktop(browser) {
   await openQaModule(page, "Dashboard");
   await screenshot(page, "language-en-dashboard");
 
-  await context.close();
+  await closeQaContext(context);
 }
 
 async function auditResponsive(browser) {
@@ -365,7 +365,7 @@ async function auditResponsive(browser) {
     const file = await screenshot(page, `responsive-${vp.name}`);
     const violations = await axeAudit(page, `responsive:${vp.name}`);
     report.responsive.push({ ...vp, screenshot: file, dom, violationCount: violations.length });
-    await context.close();
+    await closeQaContext(context);
   }
 }
 
@@ -398,7 +398,7 @@ async function securityAndApiChecks(browser) {
   for (const name of expectedHeaders) {
     if (!headers[name]) addFinding("high", "security headers", `Missing ${name}`);
   }
-  await context.close();
+  await closeQaContext(context);
 }
 
 const browser = await chromium.launch({ headless: true, executablePath: process.env.QA_CHROMIUM_PATH || undefined });
