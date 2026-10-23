@@ -4,3 +4,5 @@
 .audit-shared-library :is(input,select,textarea,button){transition:border-color .16s ease,box-shadow .16s ease}
 /* Calendar library groups are vertical; the reminder weekday controls keep their row layout. */
 .ar-reminder-profile .ar-shared-calendar fieldset{display:block}.ar-reminder-profile .ar-shared-calendar fieldset label{display:block}.ar-shared-calendar legend{max-width:100%;overflow-wrap:anywhere}.ar-shared-calendar li{overflow-wrap:anywhere}
+
+.ar-reminder-profile .ar-shared-calendar small{color:var(--ws-ink);opacity:1;font-size:11px}
