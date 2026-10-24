@@ -1,4 +1,6 @@
 import test from 'node:test';
+import { defaultAuditReminderProfile } from '../app/audit-reminder-profile';
+import { ensureAuditClosureSchema } from '../app/audit-closure-schema';
 import { mutateWorkplan, readWorkplanClosure, readWorkplanHistory, readWorkplanPreview } from '../app/audit-workplan-store';
 import { emptyAuditPlan, saveAuditPlan } from '../app/audit-plan';
 import assert from 'node:assert/strict';
@@ -509,3 +511,64 @@ test('calendar adoption event failure rolls back provenance, calendar fields and
  await syncAuditRequestNotifications(f.db,now);f.sqlite.exec("CREATE TRIGGER reject_calendar_event BEFORE INSERT ON audit_request_events WHEN NEW.action='reminder-profile' BEGIN SELECT RAISE(ABORT,'calendar-event-failure');END");
  await assert.rejects(f.save(),/calendar-event-failure/);assert.equal((await f.read()).revision,'');assert.equal(f.sqlite.prepare("SELECT count(*) n FROM continuous_assurance_notification_outbox WHERE status='queued'").get()?.n,1);
 }finally{f.sqlite.close();}});
+
+const requestAdjustment = {dueDate:'2026-10-24',reviewDueDate:'2026-10-25',timeZone:'Europe/Istanbul',profileRevision:'calendar-v1',reason:'Move delivery and review past the approved holiday.'};
+const requestAdjustedFields = {...fields,dueDate:'2026-10-27',reviewDueDate:'2026-10-27'};
+async function requestCalendarFixture(active=true) {
+  const f=await fixture();await ensureAuditClosureSchema(f.db);
+  f.sqlite.prepare('INSERT INTO audit_reminder_profiles VALUES(?,?,?,?,?)').run('audit-a','calendar-v1',JSON.stringify({...defaultAuditReminderProfile,mode:'business',holidays:['2026-10-26']}),admin.email,'');
+  if(active){await f.create();await f.start();}
+  const payload=async()=>({fields:requestAdjustedFields,deadlineAdjustment:{...requestAdjustment,timeZone:active?'Europe/Istanbul':'UTC'},expectedWorkflowRevision:(await f.state()).workflow.revision});
+  const events=()=>f.sqlite.prepare('SELECT snapshot_json FROM audit_request_events ORDER BY rowid DESC').all().map(e=>JSON.parse(String(e.snapshot_json)));
+  return {...f,payload,events};
+}
+test('request date planning creates silent drafts with event-only proof, preserves periods and uses the launch time zone',async()=>{const f=await requestCalendarFixture(false);try{
+  await mutateAuditRequest(f.db,admin,{auditId:'audit-a',requestId:'ARQ-a',expectedRevision:'',action:'create',...await f.payload()},now);
+  const row=await f.row();assert.equal(row.status,'draft');assert.equal(row.periodStart,fields.periodStart);assert.equal(row.periodEnd,fields.periodEnd);assert.equal(row.dueDate,'2026-10-27');assert.equal('deadlineAdjustment' in row,false);
+  const proof=f.events()[0].deadlineAdjustment;assert.equal(proof.before.timeZone,'UTC');assert.equal(proof.reason,requestAdjustment.reason);assert.deepEqual(proof.calendar.holidays,['2026-10-26']);
+  await syncAuditRequestNotifications(f.db,now);assert.equal((await readAuditRequestWork(f.db)).requests.length,0);assert.equal(f.sqlite.prepare('SELECT count(*) n FROM continuous_assurance_notification_outbox').get()?.n,0);
+  await f.start();assert.equal(f.events()[0].deadlineAdjustment,undefined);assert.equal((await readAuditRequestWork(f.db)).requests[0].dueAt,'2026-10-27T20:59:59.999Z');
+}finally{f.sqlite.close();}});
+test('request date edits withdraw stale reminders, retain history and reset submitted review through the normal lifecycle',async()=>{const f=await requestCalendarFixture();try{
+  await syncAuditRequestNotifications(f.db,now);const old=f.sqlite.prepare("SELECT * FROM continuous_assurance_notification_outbox WHERE status='queued'").get() as AssuranceDeliveryOutbox;
+  await f.act('edit',owner,await f.payload());assert.equal((await f.row()).dueDate,'2026-10-27');assert.equal(await auditRequestNotificationCurrent(f.db,old,now),false);assert.equal(f.sqlite.prepare('SELECT status FROM continuous_assurance_notification_outbox WHERE id=?').get(old.id)?.status,'cancelled');
+  assert.equal(f.events()[0].deadlineAdjustment.after.timeZone,'Europe/Istanbul');assert.equal(f.events()[0].deadlineAdjustment.before.dueDate,'2026-10-24');
+  await f.act('submit',owner,{versionIds:['EVV-one']});await f.act('edit',admin,await f.payload());assert.equal((await f.row()).status,'assigned');assert.equal((await f.row()).submittedBy,'');
+  await assert.rejects(f.act('accept',reviewer,{note:'Stale review cannot approve'}),/transition/);
+  await f.act('edit',admin,{fields:{...requestAdjustedFields,title:'Manually edited title'}});assert.equal(f.events()[0].deadlineAdjustment,undefined);assert.equal(f.events().filter(e=>e.deadlineAdjustment).length,2);
+}finally{f.sqlite.close();}});
+test('only the assigned independent reviewer may return with planned dates; resubmission and approval keep the proof in its own event',async()=>{const f=await requestCalendarFixture();try{
+  await f.act('submit',owner,{versionIds:['EVV-one']});const extra={...await f.payload(),note:'Missing independent approval for sample.'};
+  for(const actor of [owner,admin])await assert.rejects(f.act('return',actor,extra),/forbidden/);
+  await f.act('return',reviewer,extra);assert.equal((await f.row()).status,'changes_requested');assert.equal((await f.row()).reviewDueDate,'2026-10-27');assert.equal(f.events()[0].deadlineAdjustment.reason,requestAdjustment.reason);
+  assert.equal((await readAuditRequestWork(f.db)).requests[0].dueAt,'2026-10-27T20:59:59.999Z');
+  await f.act('submit',owner,{versionIds:['EVV-one']});await f.act('accept',reviewer,{note:'Meets acceptance criteria'});assert.equal(f.events()[0].deadlineAdjustment,undefined);
+  await assert.rejects(f.act('edit',admin,await f.payload()),/transition/);
+}finally{f.sqlite.close();}});
+test('request planning rejects tampered dates, timezone, reason, stale calendar/workflow and receipts on unrelated actions',async()=>{const f=await requestCalendarFixture();try{
+  const before=await f.row(),input=await f.payload();
+  for(const patch of [{fields:{...requestAdjustedFields,dueDate:'2026-10-28',reviewDueDate:'2026-10-28'}},{deadlineAdjustment:{...requestAdjustment,timeZone:'UTC'}},{deadlineAdjustment:{...requestAdjustment,reason:' '}},{deadlineAdjustment:{...requestAdjustment,profileRevision:'stale'}},{deadlineAdjustment:{...requestAdjustment,extra:true}},{expectedWorkflowRevision:'stale'},{deadlineAdjustment:{...requestAdjustment,dueDate:'2026-10-27',reviewDueDate:'2026-10-27'}}])await assert.rejects(f.act('edit',admin,{...input,...patch}),/deadline-adjustment|deadline-calendar-conflict|conflict/);
+  for(const action of ['start','activate','submit','accept','cancel'])await assert.rejects(f.act(action,admin,input),/deadline-adjustment/);
+  await assert.rejects(f.act('edit',{...admin,role:'Viewer'},input),/forbidden/);assert.deepEqual(await f.row(),before);
+  f.sqlite.exec("UPDATE local_users SET status='Disabled' WHERE id='a'");await assert.rejects(f.act('edit',admin,input),/forbidden/);
+}finally{f.sqlite.close();}});
+test('request calendar revision, contents and deletion races leave dates, history, queue and report revision unchanged',async()=>{
+  for(const mode of ['revision','contents','delete','event']){const f=await requestCalendarFixture();try{
+    await syncAuditRequestNotifications(f.db,now);const before=await f.row(),count=f.events().length,source=f.sqlite.prepare('SELECT revision FROM audit_report_source_revision').get()?.revision;
+    const queue=f.sqlite.prepare('SELECT * FROM continuous_assurance_notification_outbox').all();
+    if(mode==='event')f.sqlite.exec("CREATE TRIGGER fail_adjustment_event BEFORE INSERT ON audit_request_events BEGIN SELECT RAISE(ABORT,'event-failure');END");
+    else f.race(()=>{if(mode==='revision')f.sqlite.exec("UPDATE audit_reminder_profiles SET revision='calendar-v2'");if(mode==='contents')f.sqlite.exec("UPDATE audit_reminder_profiles SET data_json=json_set(data_json,'$.holidays',json('[]'))");if(mode==='delete')f.sqlite.exec('DELETE FROM audit_reminder_profiles');});
+    await assert.rejects(f.act('edit',admin,await f.payload()),/deadline-calendar-conflict|event-failure/);assert.deepEqual(await f.row(),before);assert.equal(f.events().length,count);assert.deepEqual(f.sqlite.prepare('SELECT * FROM continuous_assurance_notification_outbox').all(),queue);assert.equal(f.sqlite.prepare('SELECT revision FROM audit_report_source_revision').get()?.revision,source);
+  }finally{f.sqlite.close();}}
+});
+test('request adjustment binds actor status, role, policy, work plan state/revision/zone and closed-audit locks at commit',async()=>{
+  for(const change of ["UPDATE local_users SET status='Disabled' WHERE id='a'","UPDATE local_users SET role='Viewer' WHERE id='a'","INSERT INTO user_module_access VALUES('a','{\"mode\":\"scoped\",\"modules\":{}}')","UPDATE audit_request_workflows SET revision='changed'","UPDATE audit_request_workflows SET time_zone='UTC'","UPDATE audit_request_workflows SET state='closed'","INSERT INTO audit_closure_state VALUES('audit-a','closed','c','','')"]){const f=await requestCalendarFixture();try{
+    const before=await f.row(),count=f.events().length;f.race(()=>f.sqlite.exec(change));await assert.rejects(f.act('edit',admin,await f.payload()),/conflict|audit-closed/);assert.deepEqual(await f.row(),before);assert.equal(f.events().length,count);
+  }finally{f.sqlite.close();}}
+});
+test('request creation cannot cross a concurrent work plan launch or leave a partial draft after an event failure',async()=>{
+  for(const mode of ['launch','event']){const f=await requestCalendarFixture(false);try{
+    if(mode==='event')f.sqlite.exec("CREATE TRIGGER fail_new_adjustment BEFORE INSERT ON audit_request_events BEGIN SELECT RAISE(ABORT,'event-failure');END");else f.race(()=>f.sqlite.exec("INSERT INTO audit_request_workflows VALUES('audit-a','active','concurrent','Europe/Istanbul','')"));
+    await assert.rejects(mutateAuditRequest(f.db,admin,{auditId:'audit-a',requestId:'ARQ-a',expectedRevision:'',action:'create',...await f.payload()},now),/conflict|event-failure/);assert.equal((await f.state()).requests.length,0);assert.equal(f.events().length,0);
+  }finally{f.sqlite.close();}}
+});

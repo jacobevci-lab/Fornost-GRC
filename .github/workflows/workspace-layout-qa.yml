@@ -80,6 +80,14 @@ jobs:
         with:
           name: audit-deadline-adjustment-preview
           path: audit-deadline-adjustment-qa-artifacts/
+      - name: Request deadline planning, independent return and draft recovery QA
+        run: node scripts/audit-request-deadline-qa.mjs
+      - name: Preserve request deadline browser evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: audit-request-deadline-preview
+          path: audit-request-deadline-qa-artifacts/
       - name: Workpaper exception to canonical CAPA and origin QA
         run: node scripts/workpaper-capa-qa.mjs
       - name: Preserve workpaper CAPA browser evidence

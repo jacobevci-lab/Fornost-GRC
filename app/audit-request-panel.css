@@ -9,3 +9,5 @@
 .ar-reminder-profile summary{cursor:pointer;font-weight:600}.ar-reminder-profile form>fieldset{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;padding:0;margin:14px 0;border:0}.ar-reminder-profile fieldset fieldset{display:flex;flex-wrap:wrap;gap:12px;border:1px solid var(--border);min-width:0}.ar-reminder-profile fieldset fieldset label{flex-direction:row;align-items:center}.ar-reminder-profile input[type=checkbox]{width:auto}.ar-reminder-profile .ar-reminder-preview-table{margin-top:12px}.ar-reminder-profile .ar-reminder-preview-table table{min-width:0}.ar-reminder-profile .ar-reminder-preview-table p{padding:0 10px}@media(max-width:640px){.ar-reminder-profile form>fieldset{grid-template-columns:1fr}}
 
 .ar-reminder-preview-table{overflow:auto;max-width:100%;border:1px solid var(--border);border-radius:6px}.ar-reminder-preview-table table{border-collapse:collapse;width:100%;font-size:11px}.ar-reminder-preview-table td,.ar-reminder-preview-table th{text-align:left;padding:10px;border-bottom:1px solid var(--border);overflow-wrap:anywhere}
+
+.ar-return-deadlines{flex:1 0 100%;min-width:0}

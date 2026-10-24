@@ -183,3 +183,6 @@ Approved exceptions can be promoted to canonical CAPA by a full-access Admin or 
 ### Takvime bağlı termin önerileri
 
 Görev ve çalışma kâğıdı taslakları, denetime kaydedilmiş iş günü takvimiyle gerekçeli tarih önerisi sunar. Öneri yalnız açık uygulama/kaydet adımıyla tarihleri değiştirir; ortak takvim yayımlamak kayıtları otomatik taşımaz. Görev inceleme tarihini değiştirme yetkisi Admin'de kalır. Sunucu hesaplamayı tekrar yapar; profilin tam içeriğini ve sürümünü kayıt/geçmiş işlemi içinde doğrular. Çakışma ya da geçmiş yazma hatası kısmi güncelleme bırakmaz. Gerekçe, önceki/sonraki tarihler ve kullanılan takvim ilgili kaydetme olayında saklanır; yeni tablo veya migration gerekmez. [İşleyiş ve sınırlar](audit-deadline-planning.md).
+
+
+Kanıt taleplerinde de oluşturma/düzenleme ve bağımsız inceleyenin düzeltme kararı için aynı açık tarih önerisi kullanılabilir. Etkin talepler iş planının kayıtlı saat dilimini kullanır; öneri bunu değiştiremez. Takvimle birlikte iş planı sürümü/durumu/saat dilimi ve işlem yapan hesabın güncel kimliği, rolü, durumu ve modül politikası aynı kayıt işlemi içinde doğrulanır. Takvim yenilemesi farklı bir kayıt sürümünü taslağın üzerine sessizce almaz. Dönem, kanıt ve kabul yetkileri önceki davranışını korur. Gerekçe yalnız ilgili oluşturma/düzenleme/düzeltme olayına yazılır; sonraki olaylara kopyalanmaz.
