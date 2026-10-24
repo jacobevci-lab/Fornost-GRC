@@ -5,15 +5,15 @@ export class SampleImportError extends Error {
   constructor(public code: 'size' | 'format' | 'headers' | 'empty' | 'reference' | 'note' | 'duplicate' | 'limit' | 'population', public row = 0) { super(code); }
 }
 /** Strict two-column CSV. Reject the whole import; never silently truncate or overwrite. */
-export function parseSampleImport(source: string, existing: readonly WorkpaperSample[], populationCount: number): WorkpaperSample[] {
-  if (new TextEncoder().encode(source).length > SAMPLE_IMPORT_BYTES) throw new SampleImportError('size');
+export function parseSampleCsv(source: string, maxRows = 100, maxBytes = SAMPLE_IMPORT_BYTES): WorkpaperSample[] {
+  if (new TextEncoder().encode(source).length > maxBytes) throw new SampleImportError('size');
   const text = source.replace(/^\uFEFF/, '');
   if (!text.trim()) throw new SampleImportError('empty');
   const header = text.split(/\r?\n/, 1)[0];
   const delimiter = [',', ';', '\t'].find(d => header.includes(d)) || ',';
   const rows: string[][] = []; let row: string[] = [], cell = '', quoted = false, closed = false;
   const endCell = () => { row.push(cell); cell = ''; closed = false; if (row.length > 2) throw new SampleImportError('format', rows.length + 1); };
-  const endRow = () => { endCell(); if (row.some(v => v.trim())) rows.push(row); row = []; if (rows.length > 101) throw new SampleImportError('limit'); };
+  const endRow = () => { endCell(); if (row.some(v => v.trim())) rows.push(row); row = []; if (rows.length > maxRows + 1) throw new SampleImportError('limit'); };
   for (let i = 0; i < text.length; i++) {
     const c = text[i];
     if (quoted) {
@@ -29,9 +29,7 @@ export function parseSampleImport(source: string, existing: readonly WorkpaperSa
   if (cell || row.length || closed) endRow();
   if (rows[0]?.length !== 2 || rows[0][0].trim().toLowerCase() !== 'reference' || rows[0][1].trim().toLowerCase() !== 'note') throw new SampleImportError('headers');
   if (rows.length < 2) throw new SampleImportError('empty');
-  if (existing.length + rows.length - 1 > 100) throw new SampleImportError('limit');
-  if (!Number.isSafeInteger(populationCount) || populationCount < 1 || populationCount > 1_000_000_000 || existing.length + rows.length - 1 > populationCount) throw new SampleImportError('population');
-  const seen = new Set(existing.map(s => s.reference.trim().toLowerCase()));
+  const seen = new Set<string>();
   return rows.slice(1).map((r, i) => {
     const rowNumber = i + 2;
     if (r.length !== 2) throw new SampleImportError('format', rowNumber);
@@ -42,4 +40,12 @@ export function parseSampleImport(source: string, existing: readonly WorkpaperSa
     seen.add(reference.toLowerCase());
     return { reference, note, result: 'pending', versionId: '' };
   });
+}
+export function parseSampleImport(source: string, existing: readonly WorkpaperSample[], populationCount: number): WorkpaperSample[] {
+  const rows = parseSampleCsv(source);
+  if (existing.length + rows.length > 100) throw new SampleImportError('limit');
+  if (!Number.isSafeInteger(populationCount) || populationCount < 1 || populationCount > 1_000_000_000 || existing.length + rows.length > populationCount) throw new SampleImportError('population');
+  const existingRefs = new Set(existing.map(s => s.reference.trim().toLowerCase()));
+  if (rows.some(s => existingRefs.has(s.reference.toLowerCase()))) throw new SampleImportError('duplicate');
+  return rows;
 }

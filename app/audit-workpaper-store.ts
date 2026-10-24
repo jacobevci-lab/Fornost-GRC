@@ -1,4 +1,5 @@
 import { prepareDeadlineAdjustment, deadlineCalendarGuard } from './audit-deadline-adjustment-store';
+import { prepareRandomSelection } from './workpaper-random-sampling-store';
 import { reportCanonical } from './audit-status-report';
 import { ensureEvidenceHistorySchema } from './evidence/versioning';
 import type { Actor } from './api/auth/security';
@@ -70,7 +71,8 @@ export async function mutateWorkpaper(db: D1Database, actor: Actor, input: Recor
   if (evidence.length !== ids.length) throw new AuditRequestError('evidence');
   if (current && ['submit', 'approve'].includes(action) && reportCanonical([...current.evidence].sort((a,b) => a.id.localeCompare(b.id))) !== reportCanonical([...evidence].sort((a,b) => a.id.localeCompare(b.id)))) throw new AuditRequestError('evidence');
   const revision = crypto.randomUUID(), stamp = now.toISOString();
-  const next: AuditWorkpaper = { ...fields, id, auditId, status, revision, note, evidence, createdAt: current?.createdAt || stamp, updatedAt: stamp };
+  const selection = await prepareRandomSelection(action, input.randomSelection, fields, current, email, stamp);
+  const next: AuditWorkpaper = { ...fields, id, auditId, status, revision, note, evidence, createdAt: current?.createdAt || stamp, updatedAt: stamp, ...(selection ? { selection } : {}) };
   const adjustment = await prepareDeadlineAdjustment(db, auditId, action, input.deadlineAdjustment, fields);
   const evidenceGuard = (recovery ? [] : evidence).map(e => ({ id: e.id, evidenceId: e.evidenceId, versionNo: e.versionNo, title: e.title, fileName: e.fileName, fileKey: e.fileKey, hash: e.contentSha256, period: e.period }));
   const result = await db.batch([

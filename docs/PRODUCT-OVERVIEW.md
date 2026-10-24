@@ -60,7 +60,7 @@ Kurumsal kimlik, e-posta ve ticket profilleri kurulumdaki gerçek sistemlerle do
 ## Bilinmesi gereken sınırlar
 
 - Sistem uygunluk sertifikası veya otomatik denetçi görüşü üretmez; kanıtın kapsam ve içerik yeterliliği insan incelemesidir.
-- Çalışma kâğıtları manuel örnekleme içindir. Rastgele/istatistiksel seçim ve güven aralığı hesaplama mevcut değildir.
+- Çalışma kâğıtları manuel veya CSV evreninden tekrarlanabilir rastgele seçim destekler: en fazla 5000 evren satırından 100 örnek, önizleme, sunucuda doğrulama ve saklanan seçim kaydı. Güven aralığı, istatistiksel örneklem büyüklüğü ve katmanlı örnekleme hesaplanmaz.
 - Görev bağlantıları erişim vermez. Süreli dış denetçi daveti ve dönem/sürüm bazlı erişim ayrı bir geliştirmedir.
 - Kaydedilmiş denetim paketleri uygulama içinde değişmez ve hash ile doğrulanır; WORM arşivi veya nitelikli elektronik imza değildir. Dosya içerikleri bu paketlere gömülmez.
 - E-posta transport kabulü teslim/okunma garantisi değildir; müşteri posta sistemi ve scheduler ayrıca doğrulanmalıdır.

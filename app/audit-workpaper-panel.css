@@ -3,3 +3,5 @@
 .aw-import{padding:12px;border:1px solid var(--border);border-radius:6px}.aw-import>label{margin-top:12px}.aw-import-preview{max-height:320px;overflow:auto;padding-left:22px}.aw-import-preview li{padding:8px 0;border-bottom:1px solid var(--border)}
 
 .aw-panel .aw-reminder-toggle{flex-direction:row;align-items:center;gap:8px}.aw-panel .aw-reminder-toggle input{width:auto;flex:none}
+
+.aw-random,.aw-selection-receipt{padding:12px;border:1px solid var(--border);border-radius:6px;min-width:0}.aw-random>label{margin:12px 0}.aw-random>.aw-grid{margin-top:12px}.aw-selection-receipt dd{overflow-wrap:anywhere}.aw-panel input[readonly]{background:var(--surface);opacity:.8}

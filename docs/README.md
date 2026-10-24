@@ -50,3 +50,5 @@ Yeni bir özelliğin API, izin, durum geçişi veya limitleri değiştiğinde il
 - [Shared organization calendars](audit-reminder-profiles.md#shared-organization-calendars): Admin-managed versions, per-audit source tracking, explicit change previews and guarded adoption.
 
 - [Working-day deadline planning](audit-deadline-planning.md): explicit milestone/workpaper/request date proposals and independent return deadlines, calendar conflict recovery and retained adjustment reasons.
+
+- [Reproducible random workpaper selection](audit-workpapers.md#reproducible-random-selection): complete-population CSV, explicit draw preview, server recalculation and retained selection provenance.

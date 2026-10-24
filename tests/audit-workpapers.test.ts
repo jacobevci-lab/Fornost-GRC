@@ -1,3 +1,5 @@
+import { auditStatusReportView } from '../app/audit-status-report-export';
+import { selectRandomSamples } from '../app/workpaper-random-sampling';
 import {workpaperNotifications,syncWorkpaperNotifications,workpaperNotificationCurrent} from '../app/audit-workpaper-notifications';
 import {defaultAuditReminderProfile} from '../app/audit-reminder-profile';
 import {saveAuditReminderProfile} from '../app/audit-reminder-store';
@@ -290,3 +292,50 @@ test('workpapers: calendar revision/content/deletion races and event failures ro
  await assert.rejects(f.act('save',owner,{fields:{...original,dueDate:'2026-10-27',reviewDueDate:'2026-10-27'},deadlineAdjustment:adjustmentInput}),/conflict|injected/);
  assert.equal((await f.row())?.revision,before?.revision);assert.equal(f.sqlite.prepare('SELECT count(*) n FROM audit_workpaper_events').get()?.n,1);assert.equal(f.sqlite.prepare('SELECT revision FROM audit_report_source_revision').get()?.revision,source);
 }finally{f.sqlite.close();}}});
+
+const randomInput = { source: 'reference,note\nA,Population note A\nB,Population note B\nC,Population note C', seed:'ab'.repeat(32), count:2, reason:'Randomly select from the complete source export' };
+async function randomFields() { const draw=await selectRandomSamples(randomInput); return {...fields,method:'random' as const,populationCount:3,samples:draw.samples.map(s=>({...s,result:'pass' as const,versionId:'EVV-one'}))}; }
+test('server recomputes random selection, retains provenance through independent review and omits the source CSV',async()=>{
+ const f=await fixture();try{
+  const random=await randomFields();await f.act('save',owner,{fields:{...random,selection:{selectedBy:'forged'}},randomSelection:randomInput});
+  const saved=await f.row();assert.equal(saved.selection?.selectedBy,owner.email);assert.equal(saved.selection?.selectedAt,now.toISOString());assert.deepEqual(saved.selection?.references,random.samples.map(s=>s.reference));
+  assert.equal(JSON.stringify(saved).includes('reference,note'),false);
+  await f.act('save',owner,{fields:{...saved,samples:saved.samples.map(s=>({...s,note:'Human test note'}))}});assert.deepEqual((await f.row()).selection,saved.selection);
+  await f.act('submit');await assert.rejects(f.act('approve'),/independent-review/);await f.act('return',reviewer);await f.act('submit');await f.act('approve',reviewer);await f.act('reopen');await f.act('cancel');
+  for(const e of f.sqlite.prepare('SELECT snapshot_json FROM audit_workpaper_events').all()) assert.deepEqual(JSON.parse(String(e.snapshot_json)).selection,saved.selection);
+ }finally{f.sqlite.close();}
+});
+test('missing, forged, changed or wrongly placed random selections cannot change records or history',async()=>{
+ const f=await fixture();try{
+  const random=await randomFields();
+  await assert.rejects(f.act('save',owner,{fields:{...random,selection:{algorithm:'sha256-fisher-yates-v1',references:random.samples.map(s=>s.reference)}}}),/sampling/);
+  await f.act('save',owner,{fields:random,randomSelection:randomInput});const saved=await f.row();
+  const count=()=>f.sqlite.prepare('SELECT count(*) n FROM audit_workpaper_events').get()?.n;const before=count();
+  for(const change of [{populationCount:4},{samples:[...random.samples].reverse()},{samples:random.samples.slice(1)},{samples:random.samples.map((s,i)=>i?s:{...s,reference:'CHANGED'})}]){
+   await assert.rejects(f.act('save',owner,{fields:{...random,...change}}),/sampling/);
+   await assert.rejects(f.act('save',owner,{fields:{...random,...change},randomSelection:randomInput}),/sampling/);
+  }
+  await assert.rejects(f.act('save',owner,{fields,randomSelection:randomInput}),/sampling/);
+  await assert.rejects(f.act('submit',owner,{randomSelection:randomInput}),/sampling/);
+  await assert.rejects(f.act('save',owner,{fields:random,randomSelection:{...randomInput,source:'reference,note\nA,one\n a ,duplicate'}}),/sampling/);
+  assert.equal(count(),before);assert.equal((await f.row()).revision,saved.revision);
+  await f.act('save',owner,{fields:{...saved,method:'judgmental'}});assert.equal((await f.row()).selection,undefined);
+  const events=f.sqlite.prepare('SELECT snapshot_json FROM audit_workpaper_events ORDER BY rowid').all();assert.deepEqual(JSON.parse(String(events[0].snapshot_json)).selection,saved.selection);
+  await assert.rejects(f.act('save',owner,{fields:random}),/sampling/);
+ }finally{f.sqlite.close();}
+});
+test('random selection is atomic with revision, live identity, audit closure and history guards',async()=>{
+ for(const sql of ["UPDATE local_users SET status='Inactive' WHERE id='o'", "UPDATE audit_workpapers SET revision='changed' WHERE id='AWP-a'", "INSERT INTO audit_closure_state VALUES('audit-a','closed','r','','')"]){
+  const f=await fixture();try{await f.act('save',owner,{fields});const random=await randomFields();f.race(()=>f.sqlite.exec(sql));await assert.rejects(f.act('save',owner,{fields:random,randomSelection:randomInput}),/conflict|audit-closed/);assert.equal((await f.row()).selection,undefined);assert.equal(f.sqlite.prepare('SELECT count(*) n FROM audit_workpaper_events').get()?.n,1);}finally{f.sqlite.close();}
+ }
+ const f=await fixture();try{f.sqlite.exec("CREATE TRIGGER fail_random_history BEFORE INSERT ON audit_workpaper_events BEGIN SELECT RAISE(ABORT,'injected'); END");await assert.rejects(f.act('save',owner,{fields:await randomFields(),randomSelection:randomInput}),/injected/);assert.equal((await readWorkpapers(f.db,'audit-a')).papers.length,0);}finally{f.sqlite.close();}
+});
+test('random selection is retained in immutable reports after later reasoned replacement',async()=>{
+ const f=await fixture();try{
+  await f.act('save',owner,{fields:await randomFields(),randomSelection:randomInput});const original=await f.row(),source=await readAuditReportSource(f.db,admin,'audit-a');
+  const saved=await createAuditStatusReport(f.db,admin,{auditId:'audit-a',reportId:`ARP-${crypto.randomUUID()}`,expectedSourceRevision:source.sourceRevision,title:'Random selection report',summary:'Retain the source fingerprint, seed and chosen sample references.',limitations:''});
+  const replacement={...randomInput,count:1,seed:'cd'.repeat(32),reason:'Revised test scope approved by the engagement owner'};
+  const draw=await selectRandomSamples(replacement);await f.act('save',owner,{fields:{...await randomFields(),samples:draw.samples},randomSelection:replacement});
+  const report=await readAuditStatusReport(f.db,admin,'audit-a',saved.id);assert.equal(report.integrity,'verified');assert.deepEqual(report.snapshot.items.find(i=>i.kind==='workpaper')?.record.data.selection,original.selection);for(const tr of [true,false]){const exported=auditStatusReportView(report,tr).rows.find(r=>r.id==='AWP-a')!;assert.equal(exported.data.method,tr?'Rastgele örneklem':'Random sampling');assert.ok(String(exported.data.selection).includes(original.selection!.populationSha256));assert.ok(String(exported.data.selection).includes(original.selection!.seed));}assert.notEqual((await readAuditReportSource(f.db,admin,'audit-a')).sourceRevision,source.sourceRevision);
+ }finally{f.sqlite.close();}
+});
