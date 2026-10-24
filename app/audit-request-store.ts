@@ -1,4 +1,5 @@
 import { completedInitialization } from './completed-initialization';
+import { prepareRequestDeadlineAdjustment, requestDeadlineGuard, requestDeadlineGuardArgs } from './audit-request-deadline-store';
 import { ensureCoreGrcSchemaCompatibility } from './api/grc/schema-compat';
 import { canReadModule, canWriteModule, parseModuleAccess } from './module-access';
 import type { Actor } from './api/auth/security';
@@ -81,12 +82,13 @@ export async function readRequestEvidence(db: D1Database, ids?: string[]): Promi
   const rows = await statement.all<{ id: string; evidence_id: string; version_no: number; evidence_title: string; file_name: string; file_key: string; content_sha256: string; period: string }>();
   return rows.results.map(v => ({ id: v.id, evidenceId: v.evidence_id, versionNo: v.version_no, title: v.evidence_title, fileName: v.file_name, fileKey: v.file_key, contentSha256: v.content_sha256, period: v.period }));
 }
-type Mutation = { auditId: unknown; action: unknown; requestId?: unknown; expectedRevision: unknown; fields?: unknown; versionIds?: unknown; note?: unknown; timeZone?: unknown; expectedPlanRevision?: unknown; expectedWorkflowRevision?: unknown; expectedDrafts?: unknown };
+type Mutation = { auditId: unknown; action: unknown; requestId?: unknown; expectedRevision: unknown; fields?: unknown; versionIds?: unknown; note?: unknown; timeZone?: unknown; expectedPlanRevision?: unknown; expectedWorkflowRevision?: unknown; expectedDrafts?: unknown; deadlineAdjustment?: unknown };
 const liveParent = 'EXISTS(SELECT 1 FROM simple_audits WHERE id=?)';
 const openWorkplan = "NOT EXISTS(SELECT 1 FROM audit_request_workflows WHERE audit_id=? AND state='closed')";
 export async function mutateAuditRequest(db: D1Database, actor: Actor, input: Mutation, now = new Date()) {
   if (!canWriteModule(actor, 'Denetim Yönetimi')) throw new AuditRequestError('forbidden', 403);
   const auditId = auditRequestId(input.auditId), action = String(input.action), stamp = now.toISOString(), revision = crypto.randomUUID();
+  if (input.deadlineAdjustment !== undefined && !['create', 'edit', 'return'].includes(action)) throw new AuditRequestError('deadline-adjustment');
   if (typeof input.expectedRevision !== 'string' || input.expectedRevision.length > 100) throw new AuditRequestError('revision');
   await ensureAuditRequestSchema(db); await requireAuditParent(db, auditId);
   if (action === 'start' || action === 'activate') {
@@ -167,14 +169,19 @@ export async function mutateAuditRequest(db: D1Database, actor: Actor, input: Mu
   }
   const evidenceGuard = ['submit', 'accept'].includes(action) ? ` AND (SELECT COUNT(*) FROM evidence_versions v JOIN simple_grc_records r ON r.id=v.evidence_id AND r.module='Kanıtlar' WHERE v.id IN (${next.evidence.map(() => '?').join(',')}))=?` : '';
   const evidenceArgs = ['submit', 'accept'].includes(action) ? [...next.evidence.map(v => v.id), next.evidence.length] : [];
-  const payload = JSON.stringify(next);
+  const adjustment = await prepareRequestDeadlineAdjustment(db, actor, auditId, input.deadlineAdjustment, input.expectedWorkflowRevision, next);
+  const calendarArgs = requestDeadlineGuardArgs(auditId, adjustment);
+  const payload = JSON.stringify(next), snapshot = JSON.stringify({ ...next, ...(adjustment ? { deadlineAdjustment: adjustment.snapshot } : {}) });
   const write = action === 'create'
-    ? db.prepare(`INSERT INTO audit_requests(id,audit_id,data_json,revision,created_at,updated_at) SELECT ?,?,?,?,?,? WHERE ${liveParent} AND ${openWorkplan} AND COALESCE((SELECT revision FROM audit_request_workflows WHERE audit_id=?),'')=? AND (SELECT COUNT(*) FROM audit_requests WHERE audit_id=?)<500 ON CONFLICT(id) DO NOTHING RETURNING id`).bind(requestId, auditId, payload, revision, stamp, stamp, auditId, auditId, auditId, input.expectedWorkflowRevision ?? '', auditId)
-    : db.prepare(`UPDATE audit_requests SET data_json=?,revision=?,updated_at=? WHERE id=? AND audit_id=? AND revision=? AND ${liveParent} AND ${openWorkplan}${evidenceGuard}`).bind(payload, revision, stamp, requestId, auditId, input.expectedRevision, auditId, auditId, ...evidenceArgs);
+    ? db.prepare(`INSERT INTO audit_requests(id,audit_id,data_json,revision,created_at,updated_at) SELECT ?,?,?,?,?,? WHERE ${liveParent} AND ${openWorkplan} AND COALESCE((SELECT revision FROM audit_request_workflows WHERE audit_id=?),'')=? AND (SELECT COUNT(*) FROM audit_requests WHERE audit_id=?)<500 ${requestDeadlineGuard} ON CONFLICT(id) DO NOTHING RETURNING id`).bind(requestId, auditId, payload, revision, stamp, stamp, auditId, auditId, auditId, input.expectedWorkflowRevision ?? '', auditId, ...calendarArgs)
+    : db.prepare(`UPDATE audit_requests SET data_json=?,revision=?,updated_at=? WHERE id=? AND audit_id=? AND revision=? AND ${liveParent} AND ${openWorkplan}${evidenceGuard} ${requestDeadlineGuard}`).bind(payload, revision, stamp, requestId, auditId, input.expectedRevision, auditId, auditId, ...evidenceArgs, ...calendarArgs);
   const results = await db.batch([
     write,
-    db.prepare(`INSERT INTO audit_request_events(id,audit_id,request_id,action,actor,snapshot_json,created_at) SELECT ?,audit_id,id,?,?,data_json,? FROM audit_requests WHERE id=? AND audit_id=? AND revision=?`).bind(revision, action, actor.email, stamp, requestId, auditId, revision),
+    db.prepare(`INSERT INTO audit_request_events(id,audit_id,request_id,action,actor,snapshot_json,created_at) SELECT ?,audit_id,id,?,?,?,? FROM audit_requests WHERE id=? AND audit_id=? AND revision=?`).bind(revision, action, actor.email, snapshot, stamp, requestId, auditId, revision),
     db.prepare(`UPDATE continuous_assurance_notification_outbox SET status='cancelled',closed_at=?,updated_at=? WHERE route='audit-request' AND escalation_id=? AND status='queued' AND EXISTS(SELECT 1 FROM audit_requests WHERE id=? AND revision=?)`).bind(stamp, stamp, requestId, requestId, revision),
   ]);
-  if (!results[1].meta?.changes) throw new AuditRequestError('conflict', 409);
+  if (!results[1].meta?.changes) {
+    if (adjustment && !await db.prepare('SELECT audit_id FROM audit_reminder_profiles WHERE audit_id=? AND revision=? AND data_json=?').bind(auditId, adjustment.revision, adjustment.raw).first()) throw new AuditRequestError('deadline-calendar-conflict', 409);
+    throw new AuditRequestError('conflict', 409);
+  }
 }

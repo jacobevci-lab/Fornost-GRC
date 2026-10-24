@@ -37,7 +37,7 @@ export async function GET(req: NextRequest) {
       actorEmail: auth.actor.email.toLowerCase(), canManage: canWriteModule(auth.actor, 'Denetim Yönetimi'), evidenceAccess,
       ...users, peopleComplete: users.complete, complete: state.complete, evidenceChoices: evidence.slice(0, 500), evidenceChoicesComplete: evidence.length <= 500,
       planRevision: planData.revision, periodStart: planData.plan.periodStart || '', periodEnd: planData.plan.periodEnd || '',
-      events: events.results.slice(0, 200).map(({ snapshot_json, ...event }) => { const snapshot = JSON.parse(snapshot_json); return { ...event, note: snapshot.note || '', activationReason: snapshot.activationReason || '', planRevision: snapshot.planRevision || '', status: snapshot.status, versionIds: evidenceAccess ? (snapshot.evidence || []).map((v: { id: string }) => v.id) : [] }; }), eventsComplete: events.results.length <= 200,
+      events: events.results.slice(0, 200).map(({ snapshot_json, ...event }) => { const snapshot = JSON.parse(snapshot_json); return { ...event, note: snapshot.note || '', activationReason: snapshot.activationReason || '', planRevision: snapshot.planRevision || '', status: snapshot.status, ...(snapshot.deadlineAdjustment ? {deadlineAdjustment: snapshot.deadlineAdjustment} : {}), versionIds: evidenceAccess ? (snapshot.evidence || []).map((v: { id: string }) => v.id) : [] }; }), eventsComplete: events.results.length <= 200,
     });
   } catch (err) { return error(err); }
 }

@@ -225,3 +225,10 @@ Yalnız Admin ortak takvim yayımlar, sürümler, arşivler veya yeniden etkinle
 Denetimin **Talepler ve inceleme** bölümünde iş günü takvimini kaydedin. **Plan ve kapsam → Görevler** veya düzenlenebilir **Çalışma kâğıdı** içinde tarihleri girip **İş günü tarihlerini önizle** seçin. Her tarih aynı ya da sonraki çalışma gününe taşınır; hazırlama ve inceleme aynı güne gelebilir. Eski/yeni tarihleri inceleyin, gerekçe girin, **Tarihleri taslağa uygula** ve ardından normal kaydet düğmesini kullanın. **Tarih önerisini geri al** önceki taslak tarihlerini getirir. Önizleme ve uygulama kayıt yapmaz.
 
 Takvim eşzamanlı değişirse taslak korunur. Görevde **Takvimi yenile (taslağı koru)**, çalışma kâğıdında **Yeniden dene (taslağı koru)** kullanın; eski öneriyi geri alıp yeni önizleme oluşturun. İnceleme tarihini değiştiren görev önerisini yalnız Admin uygulayabilir. İşlerim kaydedilen terminleri kullanır; eski/yeni tarihler ve takvim sürümü ilgili kaydetme işleminin geçmişinde bulunur. [Kapsam ve örnekler](audit-deadline-planning.md).
+
+
+### Kanıt talebi ve düzeltme dönüşü için iş günü planlama
+
+**Talepler ve inceleme → Talep ekle / Düzenle** içinde teslim ve inceleme tarihlerini girin; **İş günü tarihlerini önizle → gerekçe → Tarihleri taslağa uygula → Talebi kaydet** akışını kullanın. Kanıt dönemi ve atamalar değişmez. Taslak talepler başlatılana/etkinleştirilene kadar bildirim veya İşlerim kaydı oluşturmaz. Başlatmadan önce UTC gösterilir; etkin iş planının saat dilimi başlangıç onayında seçilir.
+
+Atanan bağımsız inceleyen, **Yeni teslim / Yeni inceleme sonu** tarihlerini aynı şekilde planlayıp ayrı karar gerekçesiyle **Düzeltme iste** seçebilir. Takvim değişmişse **Takvimi yenile (taslağı koru)**, ardından **Tarih önerisini geri al** ve yeniden önizleme adımlarını kullanın. Başlık, diğer alanlar ve karar gerekçesi korunur. Kayıt da değişmişse güncel kaydı yeniden yükleyip incelemek gerekir. **İşlem geçmişi** önceki/sonraki tarihleri, gerekçeyi ve kullanılan takvim sürümünü gösterir. İncelemedeki talebi düzenlemek mevcut incelemeyi durdurur ve yeniden kanıt sunulmasını gerektirir.

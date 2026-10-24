@@ -1,4 +1,4 @@
-# Product research delivery status — 23 October 2026
+# Product research delivery status — 24 October 2026
 
 This reconciles the ten delivery packages in the 14 October GRC product study with implementation through structured audit milestones and personal saved register views, including whole-audit closure, workpapers, record/task links and their My Work handoff. User-facing entry points are the [Product overview](PRODUCT-OVERVIEW.md), [User guide](USER-GUIDE.md) and [Admin guide](ADMIN-GUIDE.md). It is a scope inventory, not a claim that every research acceptance scenario or customer integration has passed. The user's latest direction is functional improvement within the existing theme.
 
@@ -92,4 +92,9 @@ Full-access Admins and assigned Editors can preview and explicitly promote an ap
 
 ## Explicit working-day deadline planning — 23 October 2026
 
-Editable milestones and workpapers now preview each entered deadline against the saved audit calendar, apply next-working-day dates to a draft with a reason, undo the proposal, and save through existing lifecycle permissions. The server recalculates results and atomically binds exact calendar contents/revision to the record and immutable history; calendar conflicts preserve drafts and support calendar-only recovery. Editor access does not bypass Admin-only milestone review-date changes. My Work and future report/closure snapshots use the saved dates. Automatic propagation/rescheduling, request/task-pack adjustment, recurrence adjustment and dependency-wide scheduling remain open. See [deadline planning](audit-deadline-planning.md).
+Editable milestones and workpapers now preview each entered deadline against the saved audit calendar, apply next-working-day dates to a draft with a reason, undo the proposal, and save through existing lifecycle permissions. The server recalculates results and atomically binds exact calendar contents/revision to the record and immutable history; calendar conflicts preserve drafts and support calendar-only recovery. Editor access does not bypass Admin-only milestone review-date changes. My Work and future report/closure snapshots use the saved dates. Automatic propagation/rescheduling, task-pack adjustment, recurrence adjustment and dependency-wide scheduling remain open. See [deadline planning](audit-deadline-planning.md).
+
+
+## Evidence request deadline planning — 24 October 2026
+
+The working-day planner now covers request create/edit and the assigned independent reviewer's return decision. It preserves evidence periods and pinned versions, retains draft fields/decision reasons across calendar recovery, and records the exact calendar/date proof only in the relevant event. Silent drafts, explicit launch/activation, resubmission after editing a submitted request, independent acceptance and closure locks retain their existing behavior. Adjustment commits also bind the work-plan state/revision/zone and acting account; calendar refresh never silently adopts a newer request revision. Task-pack adjustment, automatic recurrence/dependency scheduling and automatic calendar propagation remain open. See [request planning](audit-deadline-planning.md#evidence-request-dates-and-independent-return).
