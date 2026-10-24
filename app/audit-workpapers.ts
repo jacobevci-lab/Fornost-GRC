@@ -1,8 +1,9 @@
 import { AuditRequestError, requestDate, requestDueAt, validateRequestTimeZone, type AuditRequestEvidence } from './audit-requests';
+import type { SavedRandomSelection } from './workpaper-random-sampling';
 export const workpaperStatusLabels = { draft: ['Taslak', 'Draft'], submitted: ['İncelemede', 'In review'], approved: ['Onaylandı', 'Approved'], cancelled: ['İptal edildi', 'Cancelled'] } as const;
 export type WorkpaperSample = { reference: string; result: 'pending' | 'pass' | 'exception'; note: string; versionId: string };
-export type WorkpaperFields = { title: string; objective: string; procedure: string; population: string; populationCount: number; method: 'judgmental' | 'census'; rationale: string; conclusion: string; owner: string; reviewer: string; samples: WorkpaperSample[]; dueDate?: string; reviewDueDate?: string; timeZone?: string; remindersEnabled?: boolean };
-export type AuditWorkpaper = WorkpaperFields & { id: string; auditId: string; revision: string; status: keyof typeof workpaperStatusLabels; evidence: AuditRequestEvidence[]; note: string; createdAt: string; updatedAt: string };
+export type WorkpaperFields = { title: string; objective: string; procedure: string; population: string; populationCount: number; method: 'judgmental' | 'census' | 'random'; rationale: string; conclusion: string; owner: string; reviewer: string; samples: WorkpaperSample[]; dueDate?: string; reviewDueDate?: string; timeZone?: string; remindersEnabled?: boolean };
+export type AuditWorkpaper = WorkpaperFields & { id: string; auditId: string; revision: string; status: keyof typeof workpaperStatusLabels; evidence: AuditRequestEvidence[]; note: string; createdAt: string; updatedAt: string; selection?: SavedRandomSelection };
 export const emptyWorkpaper: WorkpaperFields = { title: '', objective: '', procedure: '', population: '', populationCount: 1, method: 'judgmental', rationale: '', conclusion: '', owner: '', reviewer: '', samples: [], dueDate: '', reviewDueDate: '', timeZone: 'UTC', remindersEnabled: false };
 export function validateWorkpaper(value: unknown): WorkpaperFields {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new AuditRequestError('fields');
@@ -11,7 +12,7 @@ export function validateWorkpaper(value: unknown): WorkpaperFields {
   const title = str('title', 3, 200), objective = str('objective', 3, 2000), procedure = str('procedure', 3, 4000), population = str('population', 3, 2000), rationale = str('rationale', 3, 2000), conclusion = str('conclusion', 0, 4000);
   const owner = str('owner', 3, 254).toLowerCase(), reviewer = str('reviewer', 3, 254).toLowerCase();
   if (owner === reviewer) throw new AuditRequestError('independent-review');
-  if (!Number.isSafeInteger(v.populationCount) || Number(v.populationCount) < 1 || Number(v.populationCount) > 1_000_000_000 || !['judgmental', 'census'].includes(String(v.method))) throw new AuditRequestError('fields');
+  if (!Number.isSafeInteger(v.populationCount) || Number(v.populationCount) < 1 || Number(v.populationCount) > 1_000_000_000 || !['judgmental', 'census', 'random'].includes(String(v.method))) throw new AuditRequestError('fields');
   if (!Array.isArray(v.samples) || v.samples.length > 100 || v.samples.length > Number(v.populationCount)) throw new AuditRequestError('samples');
   const seen = new Set<string>();
   const samples = v.samples.map(s => {

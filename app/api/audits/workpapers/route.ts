@@ -24,7 +24,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const auth = await requireRole(req, ['Admin', 'Editor']); if (auth.response) return auth.response;
   try {
-    const raw = await req.text(); if (raw.length > 300_000) return json({ error: 'fields' }, 413);
+    const raw = await req.text(); if (new TextEncoder().encode(raw).length > 2 * 1024 * 1024) return json({ error: 'payload-size' }, 413);
     let body; try { body = JSON.parse(raw); } catch { throw new AuditRequestError('fields'); }
     if (!body || typeof body !== 'object' || Array.isArray(body)) throw new AuditRequestError('fields');
     const { env } = await import('cloudflare:workers');

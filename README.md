@@ -34,7 +34,7 @@ Bir kontrolün kaydedilmesi onun etkin olduğunu, bir kanıtın yüklenmesi kabu
 ## Başlıca iş akışları
 
 - **Risk ve güvence:** Risk Assessment, varlık envanteri, BIA, risk iştahı/KRI, ortak kontrol kütüphanesi ve ilişkili kanıtlar.
-- **Uyum ve denetim:** Gereksinim katalogları, kapsam planı, [tarihli, isteğe bağlı bağımsız onaylı görevler](docs/audit-milestones.md), sürüme sabitlenmiş kanıt talepleri, bağımsız inceleme, manuel örneklemli çalışma kâğıtları, [görev, çalışma kâğıdı ve kanıt taleplerinde iş günü termin önerileri](docs/audit-deadline-planning.md), kaydedilmiş durum raporları ve bütün denetim için kapanış/onay.
+- **Uyum ve denetim:** Gereksinim katalogları, kapsam planı, [tarihli, isteğe bağlı bağımsız onaylı görevler](docs/audit-milestones.md), sürüme sabitlenmiş kanıt talepleri, bağımsız inceleme, [manuel ve tekrarlanabilir rastgele örneklemli çalışma kâğıtları](docs/audit-workpapers.md#reproducible-random-selection), [görev, çalışma kâğıdı ve kanıt taleplerinde iş günü termin önerileri](docs/audit-deadline-planning.md), kaydedilmiş durum raporları ve bütün denetim için kapanış/onay.
 - **Sürekli kontrol:** Desteklenen veri kaynaklarından toplama, zamanlanmış testler, kanıt tazeliği, başarısızlıkların izlenmesi ve CAPA bağlantısı. [Native kaynakların kapsamı](docs/integrations/product-connectors.md) ve [hazır testler](docs/integrations/ready-control-tests.md) ayrı tanımlıdır.
 - **Kurumsal yaşam döngüleri:** Politika sürümü/yayın/attestation, regülasyon değişikliği ve etkileri, tedarikçi inceleme/offboarding, güvenlik olayı ve süreklilik tatbikatları.
 - **AI yönetişimi:** Sağlayıcı politikaları, model envanteri, değerlendirmeler, olaylar, istisnalar, release gate ve emeklilik. Ask Fornost, yetkili bağlam üzerinden kaynaklı analiz ve insan onaylı taslaklar sunar; doğrudan veritabanına bağlanmaz.
@@ -67,11 +67,11 @@ Tekrarlayan dönem, sorumlu, doğrulayıcı ve kanıtla **operasyonel regülasyo
 - Tarihli görevler, ön koşul zincirleri, özelleştirilebilir toplu görev paketleri, açıkça başlatılan tekrar dönemleri ve isteğe bağlı hatırlatmalar.
 - [Ortak iş günü/tatil takvimleri](docs/audit-reminder-profiles.md#shared-organization-calendars): yönetici sürümlemesi, denetimde kaynak sürümü takibi, önizlemeli güncelleme, JSON aktarımı, hatırlatma eşikleri ve tek alıcıya eskalasyon.
 - Bağımsız bütün-denetim kapanışı, değişiklik kilitleri, gerekçeli yeniden açma ve doğrulanabilir karar paketi.
-- Kanıt sürümüne bağlı çalışma kâğıtları ve manuel örnekleme; sahip/reviewer işlerinin Benim İşlerim'e taşınması.
+- Kanıt sürümüne bağlı çalışma kâğıtları, manuel ve CSV evreninden tekrarlanabilir rastgele örnekleme; sahip/reviewer işlerinin Benim İşlerim'e taşınması.
 - Sekiz çekirdek sicil, denetim talebi ve çalışma kâğıdı için kayıt bağlantıları; yapılandırılmış uygulama adresi üzerinden e-posta görev bağlantıları.
 - E-posta ekranında bağlantı ve bildirim ayarlarına odaklanan sade kullanım.
 
-Teslim edilenlerle planlananları ayıran güncel kapsam: [Araştırma ve Teslim Durumu](docs/research-delivery-status.md). Yıllık risk bazlı planlama, istatistiksel örnekleme ve süreli dış denetçi yetkileri mevcut özellik olarak sunulmaz.
+Teslim edilenlerle planlananları ayıran güncel kapsam: [Araştırma ve Teslim Durumu](docs/research-delivery-status.md). Yıllık risk bazlı planlama, istatistiksel güven/örneklem büyüklüğü hesaplama ve süreli dış denetçi yetkileri mevcut özellik olarak sunulmaz.
 
 ## Kurulum
 

@@ -88,6 +88,14 @@ jobs:
         with:
           name: audit-request-deadline-preview
           path: audit-request-deadline-qa-artifacts/
+      - name: Reproducible random sampling and independent review QA
+        run: node scripts/workpaper-random-sampling-qa.mjs
+      - name: Preserve random sampling browser evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: workpaper-random-sampling-preview
+          path: workpaper-random-sampling-qa-artifacts/
       - name: Workpaper exception to canonical CAPA and origin QA
         run: node scripts/workpaper-capa-qa.mjs
       - name: Preserve workpaper CAPA browser evidence
