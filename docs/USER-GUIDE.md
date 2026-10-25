@@ -245,6 +245,8 @@ Denetim → **Çalışma kâğıtları → Taslağı düzenle / Yeni çalışma 
 
 **Kullanımı yenile** güncel durumu okur; **Kullanım raporunu indir** filtrelerden bağımsız tüm yüklenmiş sonucu ve kaynak kapsamını JSON olarak indirir. Eksik, erişilemeyen veya yetki dışında kalan kaynaklar ayrıca belirtilir. [Eşleştirmeler ve okuma sınırları](evidence-usage.md).
 
+Bağlı talep/çalışma kâğıdındaki **İnceleme görevi** ile kanıt değişikliği için sorumlu, tarih ve gerekçeli takip oluşturabilirsiniz. **İnceleme görevini önizle → İnceleme görevini oluştur** bir planlı denetim görevi kaydeder; Benim İşlerim, geçmiş, rapor ve kapanış kontrollerine dahil olur. Kaynak değişirse **Kaynağı yenile (taslağı koru)** ile yeniden önizleyin. Aynı sürüm/kaynak için görev varsa mevcut kayıt açılır; tamamlanmış/iptal edilmiş kayıt da çoğaltılmaz. Görevdeki **Kaynak kanıtı aç / Kaynak işi aç** bağlantıları doğru kayda götürür. Görevi tamamlamak kaynak kanıtı değiştirmez veya onaylamaz. [Koşullar, yetkiler ve sınırlar](evidence-change-followups.md).
+
 ### Görev paketinde iş günü tarihleri
 
 **Görev paketi oluştur** alanında seçili görevlerin tarihlerini girdikten sonra **Paket iş günü tarihlerini önizle** düğmesini kullanın. Değişmeyen tarihler de listelenir; seçilmeyen görevler etkilenmez. Her tarih aynı veya sonraki çalışma gününe gider; görev süreleri hesaplanmaz, tarihler aynı güne gelebilir. Gerekçe yazıp **Paket tarihlerini taslağa uygula** seçin; ardından **Görev paketini önizle → Tüm görevleri kaydet** ile tamamlayın.

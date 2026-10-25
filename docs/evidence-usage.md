@@ -10,6 +10,8 @@ The workspace distinguishes three relationships:
 
 Open the linked record to decide whether to resubmit evidence, withdraw/reopen a workpaper or request review. Existing ownership, independent review and audit closure rules still apply. A newer file alone does not prove that a previous period's evidence was inadequate. Version identity checks are not chain-integrity checks or content-adequacy review.
 
+Audit writers with evidence-read access can also select **Review task** beside a request/workpaper to [explicitly create a dated follow-up](evidence-change-followups.md). This separate action previews current source/version context and saves a normal audit milestone with immutable origin. It never replaces pins or approves the source. Existing tasks are reused per source/current version, including completed/cancelled tasks. The usage endpoint itself remains read-only.
+
 Use the search and filters to narrow visible rows. **Download usage report** exports the entire loaded usage snapshot, independent of the screen filter, including source states, read limits, check time and exact internal navigation targets. It excludes file contents and storage keys. Refresh before relying on an older downloaded report.
 
 ## Coverage and access

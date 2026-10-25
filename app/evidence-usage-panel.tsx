@@ -1,5 +1,7 @@
 "use client";
 import { useEffect, useState } from 'react';
+import {EvidenceChangeFollowupPanel} from './evidence-change-followup-panel';
+import type {EvidenceChangeSource} from './evidence/change-followups';
 import { domainStatusLabel } from './domain-identity';
 import { withBasePath } from './base-path';
 import { navigateToFornost } from './navigation-focus';
@@ -14,6 +16,7 @@ const statusNames: Record<string, [string, string]> = { 'Başlanmadı': ['Başla
 type Choice = { id: string; code?: string; data: Record<string, unknown> };
 export function EvidenceUsagePanel({ lang, records, focusedId = '' }: { lang: 'tr' | 'en'; records: Choice[]; focusedId?: string }) {
   const [open, setOpen] = useState(false);
+  const [followup,setFollowup]=useState<{kind:EvidenceChangeSource;id:string}|null>(null);
   const [selected, setSelected] = useState('');
   const [revision, setRevision] = useState(0);
   const [result, setResult] = useState<{ key: string; data: EvidenceUsage | null; error: string } | null>(null);
@@ -44,7 +47,7 @@ export function EvidenceUsagePanel({ lang, records, focusedId = '' }: { lang: 't
   return <details className="eu-panel module-analysis-disclosure" open={open} onToggle={event => { setOpen(event.currentTarget.open); if (event.currentTarget.open) setRevision(r => r + 1); }}>
     <summary><span><b>{t('Kullanım ve değişiklik etkisi', 'Usage and change impact')}</b><small>{t('Kanıtın bağlı olduğu kayıtları ve sabit sürümleri inceleyin.', 'Review linked records and pinned evidence versions.')}</small></span></summary>
     {open && <section className="eu-content" aria-label={t('Kanıt kullanım analizi', 'Evidence usage analysis')} aria-busy={loading}>
-      <div className="eu-tools"><label>{t('Kanıt kaydı', 'Evidence record')}<select aria-label={t('Kullanımı incelenecek kanıt', 'Evidence to inspect')} value={evidenceId} onChange={event => { setSelected(event.target.value); setFilter('all'); setQuery(''); }}>
+      <div className="eu-tools"><label>{t('Kanıt kaydı', 'Evidence record')}<select aria-label={t('Kullanımı incelenecek kanıt', 'Evidence to inspect')} value={evidenceId} onChange={event => { setSelected(event.target.value); setFollowup(null); setFilter('all'); setQuery(''); }}>
         {!records.length && <option value="">{t('Kanıt kaydı yok', 'No evidence records')}</option>}
         {records.map(row => <option key={row.id} value={row.id}>{row.code || row.id} · {String(row.data.evidenceTitle || row.id)}</option>)}
       </select></label><button type="button" disabled={loading || !evidenceId} onClick={() => setRevision(r => r + 1)}>{t('Kullanımı yenile', 'Refresh usage')}</button><button type="button" disabled={!current || loading} onClick={download}>{t('Kullanım raporunu indir', 'Download usage report')}</button></div>
@@ -57,10 +60,11 @@ export function EvidenceUsagePanel({ lang, records, focusedId = '' }: { lang: 't
         <p className="eu-note">{t('Denetim maddeleri ve CAPA için en son güncellenen 1.000 kayıt; talepler ve çalışma kâğıtları için kanıta bağlı en son 200 kayıt taranır. Kontrol eşleştirmeleri tam kimlik/kod üzerinden yapılır. Rapor/arşiv anlık görüntüleri, serbest metin ve diğer modüller bu kapsama dahil değildir. Sınırlı veya alınamayan kaynaklarda sıfır sonuç, kullanım olmadığı anlamına gelmez.', 'Scans the 1,000 most recently updated requirements and CAPA records, and the latest 200 matching requests and workpapers. Controls resolve by exact identity/code. Archived report/event snapshots, free text and other modules are outside this scope. Zero results from limited or unavailable sources do not establish absence of usage.')}</p>
         {current.unresolvedControls.length > 0 && <p className="eu-warning" role="status">{t('Kesin eşleştirilemeyen kontrol referansları', 'Unresolved control references')}: {current.unresolvedControls.join(', ')}</p>}
         <div className="eu-tools"><label>{t('Göster', 'Show')}<select aria-label={t('Kullanım filtresi', 'Usage filter')} value={filter} onChange={event => setFilter(event.target.value)}><option value="all">{t('Tüm kullanımlar', 'All uses')}</option><option value="review">{t('Açık işlerde incelenecek', 'Open work to review')}</option><option value="historical">{t('Onaylı veya kapalı işler', 'Approved or closed work')}</option></select></label><label>{t('Kullanımlarda ara', 'Search uses')}<input aria-label={t('Kullanımlarda ara', 'Search uses')} value={query} onChange={event => setQuery(event.target.value)} /></label></div>
+        {followup&&<EvidenceChangeFollowupPanel key={`${evidenceId}:${followup.kind}:${followup.id}`} evidenceId={evidenceId} sourceKind={followup.kind} sourceId={followup.id} tr={tr} onClose={()=>{const target=document.getElementById(`evidence-followup-${followup.kind}-${followup.id}`);setFollowup(null);target?.focus();}}/>}
         <div className="eu-list">{rows.map(row => <article key={`${row.source}:${row.id}`} data-review={usageNeedsReview(row)}>
           <div><small>{sourceNames[row.source][tr ? 0 : 1]}</small><h4>{row.title}</h4><p>{row.owner || '—'} · {statusNames[row.status]?.[tr ? 0 : 1] || domainStatusLabel(row.status, lang) || '—'}{row.dueDate ? ` · ${row.dueDate}` : ''}</p><code>{row.id}</code></div>
           <div className="eu-pins">{row.pins.length ? row.pins.map((pin, index) => <span key={`${pin.id}:${index}`} data-state={pin.state}>v{pin.versionNo || '?'} · {pin.state === 'current' ? t('Güncel sürüm sabitlenmiş', 'Current version pinned') : pin.state === 'older' ? t('Önceki sürüm sabitlenmiş', 'Earlier version pinned') : t('Sürüm doğrulanamadı', 'Version unverified')}</span>) : <span>{t('Kayıt bağlantısı · sürüm sabitlenmemiş', 'Record link · no version pin')}</span>}{row.historical && <small>{t('Onaylı/kapalı iş; sabit kayıt korunur.', 'Approved/closed work; pinned record is preserved.')}</small>}{usageNeedsReview(row) && <strong>{t('Açık işte inceleyin', 'Review in open work')}</strong>}</div>
-          <button type="button" aria-label={`${t('Kaydı aç', 'Open record')}: ${row.title}`} onClick={() => navigateToFornost(row.target)}>{t('Kaydı aç', 'Open record')} ↗</button>
+          <div className="eu-row-actions"><button type="button" aria-label={`${t('Kaydı aç', 'Open record')}: ${row.title}`} onClick={() => navigateToFornost(row.target)}>{t('Kaydı aç', 'Open record')} ↗</button>{current.canPlanReview&&['requests','workpapers'].includes(row.source)&&row.pins.length>0&&<button id={`evidence-followup-${row.source}-${row.id}`} type="button" aria-label={`${t('İnceleme görevi','Review task')}: ${row.title}`} onClick={()=>setFollowup({kind:row.source as EvidenceChangeSource,id:row.id})}>{t('İnceleme görevi','Review task')}</button>}</div>
         </article>)}</div>
         {!rows.length && <p role="status">{t('Bu kapsam ve filtrede eşleşen kullanım yok.', 'No matching uses within this scope and filter.')}</p>}
       </>}

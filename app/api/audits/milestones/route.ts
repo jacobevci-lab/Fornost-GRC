@@ -1,3 +1,4 @@
+import {milestoneHistoryForAccess} from '../../../evidence/change-followups';
 import {syncMilestoneNotifications} from '../../../audit-milestone-notifications';
 import {readAuditReminderProfile} from '../../../audit-reminder-store';
 import {NextRequest,NextResponse} from 'next/server';
@@ -14,11 +15,12 @@ export async function GET(req:NextRequest){
  try{
   if(!canReadModule(auth.actor,'Denetim Yönetimi'))throw new AuditRequestError('forbidden',403);
   const auditId=auditRequestId(req.nextUrl.searchParams.get('auditId')),{env}=await import('cloudflare:workers');
-  const state=await readMilestones(env.DB,auditId),canManage=canWriteModule(auth.actor,'Denetim Yönetimi');
+  const evidenceAccess=canReadModule(auth.actor,'Kanıtlar');
+  const state=await readMilestones(env.DB,auditId,evidenceAccess),canManage=canWriteModule(auth.actor,'Denetim Yönetimi');
   const people=canManage?await milestonePeople(env.DB):{people:[],peopleComplete:true};
   const id=req.nextUrl.searchParams.get('id');
   const history=id?await env.DB.prepare('SELECT id,actor,action,note,snapshot_json,created_at FROM audit_milestone_events WHERE audit_id=? AND milestone_id=? ORDER BY created_at DESC,rowid DESC LIMIT 101').bind(auditId,auditRequestId(id)).all():null;
-  return json({...state,...people,reminderProfile:await readAuditReminderProfile(env.DB,auditId),actorEmail:auth.actor.email.toLowerCase(),admin:auth.actor.role==='Admin',canManage,history:history?.results.slice(0,100)||[],historyComplete:!history||history.results.length<=100});
+  return json({...state,...people,reminderProfile:await readAuditReminderProfile(env.DB,auditId),actorEmail:auth.actor.email.toLowerCase(),admin:auth.actor.role==='Admin',canManage,history:history?.results.slice(0,100).map(event=>milestoneHistoryForAccess(event as {snapshot_json:string},evidenceAccess))||[],historyComplete:!history||history.results.length<=100});
  }catch(err){return fail(err);}
 }
 export async function POST(req:NextRequest){

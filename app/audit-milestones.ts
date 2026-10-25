@@ -1,8 +1,9 @@
 import { AuditRequestError, requestDate, validateRequestTimeZone } from './audit-requests';
+import type { EvidenceChangeOrigin } from './evidence/change-followups';
 export const recurrenceLabels = {none:['Tek seferlik','One-off'],weekly:['Haftalık','Weekly'],monthly:['Aylık','Monthly'],quarterly:['Üç aylık','Quarterly'],yearly:['Yıllık','Yearly']} as const;
 export type MilestoneRecurrence = keyof typeof recurrenceLabels;
 export type MilestoneFields = { title: string; description: string; owner: string; dueDate: string; timeZone: string; reviewer?: string; reviewDueDate?: string; dependsOn?: string[]; recurrence?: MilestoneRecurrence; remindersEnabled?: boolean };
-export type AuditMilestone = MilestoneFields & { id: string; auditId: string; revision: string; status: 'planned' | 'in_progress' | 'submitted' | 'changes_requested' | 'completed' | 'cancelled'; note: string; submittedBy?: string; submittedAt?: string; reviewedBy?: string; reviewedAt?: string; recurrenceOf?: string; recurrenceDay?: number; createdAt: string; updatedAt: string };
+export type AuditMilestone = MilestoneFields & { id: string; auditId: string; revision: string; status: 'planned' | 'in_progress' | 'submitted' | 'changes_requested' | 'completed' | 'cancelled'; note: string; submittedBy?: string; submittedAt?: string; reviewedBy?: string; reviewedAt?: string; recurrenceOf?: string; recurrenceDay?: number; evidenceChangeOrigin?: EvidenceChangeOrigin; createdAt: string; updatedAt: string };
 export const milestoneLabels: Record<AuditMilestone['status'], [string,string]> = { planned:['Planlandı','Planned'], in_progress:['Devam ediyor','In progress'], submitted:['İncelemede','In review'], changes_requested:['Düzeltme istendi','Changes requested'], completed:['Tamamlandı','Completed'], cancelled:['İptal edildi','Cancelled'] };
 export const emptyMilestone: MilestoneFields = { title:'', description:'', owner:'', dueDate:'', timeZone:'UTC' };
 export function validateMilestone(input: unknown): MilestoneFields {
