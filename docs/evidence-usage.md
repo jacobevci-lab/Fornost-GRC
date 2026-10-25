@@ -16,7 +16,7 @@ Use the search and filters to narrow visible rows. **Download usage report** exp
 
 | Source | Match and limit |
 | --- | --- |
-| Control/compliance links | Up to 100 current evidence `controlRef` tokens; exact native ID, then public code, then unique `controlId`. Ambiguous/missing references are shown, never guessed from titles. Only readable modules are queried. |
+| Control/compliance links | Up to 100 current evidence `controlRef`/`controlRefs` tokens; exact native ID, then public code, then unique `controlId`. Ambiguous/missing references are shown, never guessed from titles. Only readable modules are queried. |
 | Audit requirements | The 1,000 most recently updated requirement records; exact evidence native ID/public-code tokens in `evidenceRef`. |
 | Evidence requests | The latest 200 matching requests with a live audit parent; exact evidence ID in the current saved evidence snapshot. |
 | Workpapers | The latest 200 matching workpapers with a live audit parent; exact evidence ID in the current saved evidence snapshot. Sample contents are not returned by this endpoint. |

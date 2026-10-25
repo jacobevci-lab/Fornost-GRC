@@ -31,7 +31,7 @@ export async function readEvidenceUsage(db: D1Database, actor: AccessSubject, id
   // Per-source reads are sequential so a failed source can discard only its own projection.
   const modules = ['Kontroller', 'Uyum'].filter(module => canReadModule(actor, module));
   await source('controls', modules.length > 0, 100, async () => {
-    const controls = [...new Set(usageReferences(data.controlRef))];
+    const controls = [...new Set(usageReferences([data.controlRef, data.controlRefs]))];
     for (const ref of controls.slice(0, 100)) {
       const found = await db.prepare(`SELECT r.id,r.module,r.data_json,c.code,
         CASE WHEN lower(r.id)=? THEN 0 WHEN lower(c.code)=? THEN 1 ELSE 2 END AS tier
