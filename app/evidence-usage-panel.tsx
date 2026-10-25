@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from 'react';
+import { domainStatusLabel } from './domain-identity';
 import { withBasePath } from './base-path';
 import { navigateToFornost } from './navigation-focus';
 import { usageNeedsReview, type EvidenceUsage, type UsageSource } from './evidence/usage';
@@ -9,7 +10,7 @@ const sourceNames: Record<UsageSource, [string, string]> = {
   controls: ['Kontrol ve uyum bağlantıları', 'Control and compliance links'], requirements: ['Denetim maddeleri', 'Audit requirements'],
   requests: ['Kanıt talepleri', 'Evidence requests'], workpapers: ['Çalışma kâğıtları', 'Workpapers'], findings: ['Bulgular ve CAPA', 'Findings and CAPA'],
 };
-const statusNames: Record<string, [string, string]> = { draft: ['Taslak', 'Draft'], submitted: ['İncelemede', 'In review'], accepted: ['Kabul edildi', 'Accepted'], approved: ['Onaylandı', 'Approved'], cancelled: ['İptal edildi', 'Cancelled'], assigned: ['Atandı', 'Assigned'], changes_requested: ['Düzeltme bekliyor', 'Changes requested'], open: ['Açık', 'Open'], closed: ['Kapalı', 'Closed'], 'in-progress': ['Devam ediyor', 'In progress'], 'pending-verification': ['Doğrulama bekliyor', 'Pending verification'] };
+const statusNames: Record<string, [string, string]> = { 'Başlanmadı': ['Başlanmadı', 'Not started'], draft: ['Taslak', 'Draft'], submitted: ['İncelemede', 'In review'], accepted: ['Kabul edildi', 'Accepted'], approved: ['Onaylandı', 'Approved'], cancelled: ['İptal edildi', 'Cancelled'], assigned: ['Atandı', 'Assigned'], changes_requested: ['Düzeltme bekliyor', 'Changes requested'], open: ['Açık', 'Open'], closed: ['Kapalı', 'Closed'], 'in-progress': ['Devam ediyor', 'In progress'], 'pending-verification': ['Doğrulama bekliyor', 'Pending verification'] };
 type Choice = { id: string; code?: string; data: Record<string, unknown> };
 export function EvidenceUsagePanel({ lang, records, focusedId = '' }: { lang: 'tr' | 'en'; records: Choice[]; focusedId?: string }) {
   const [open, setOpen] = useState(false);
@@ -57,7 +58,7 @@ export function EvidenceUsagePanel({ lang, records, focusedId = '' }: { lang: 't
         {current.unresolvedControls.length > 0 && <p className="eu-warning" role="status">{t('Kesin eşleştirilemeyen kontrol referansları', 'Unresolved control references')}: {current.unresolvedControls.join(', ')}</p>}
         <div className="eu-tools"><label>{t('Göster', 'Show')}<select aria-label={t('Kullanım filtresi', 'Usage filter')} value={filter} onChange={event => setFilter(event.target.value)}><option value="all">{t('Tüm kullanımlar', 'All uses')}</option><option value="review">{t('Açık işlerde incelenecek', 'Open work to review')}</option><option value="historical">{t('Onaylı veya kapalı işler', 'Approved or closed work')}</option></select></label><label>{t('Kullanımlarda ara', 'Search uses')}<input aria-label={t('Kullanımlarda ara', 'Search uses')} value={query} onChange={event => setQuery(event.target.value)} /></label></div>
         <div className="eu-list">{rows.map(row => <article key={`${row.source}:${row.id}`} data-review={usageNeedsReview(row)}>
-          <div><small>{sourceNames[row.source][tr ? 0 : 1]}</small><h4>{row.title}</h4><p>{row.owner || '—'} · {statusNames[row.status]?.[tr ? 0 : 1] || row.status || '—'}{row.dueDate ? ` · ${row.dueDate}` : ''}</p><code>{row.id}</code></div>
+          <div><small>{sourceNames[row.source][tr ? 0 : 1]}</small><h4>{row.title}</h4><p>{row.owner || '—'} · {statusNames[row.status]?.[tr ? 0 : 1] || domainStatusLabel(row.status, lang) || '—'}{row.dueDate ? ` · ${row.dueDate}` : ''}</p><code>{row.id}</code></div>
           <div className="eu-pins">{row.pins.length ? row.pins.map((pin, index) => <span key={`${pin.id}:${index}`} data-state={pin.state}>v{pin.versionNo || '?'} · {pin.state === 'current' ? t('Güncel sürüm sabitlenmiş', 'Current version pinned') : pin.state === 'older' ? t('Önceki sürüm sabitlenmiş', 'Earlier version pinned') : t('Sürüm doğrulanamadı', 'Version unverified')}</span>) : <span>{t('Kayıt bağlantısı · sürüm sabitlenmemiş', 'Record link · no version pin')}</span>}{row.historical && <small>{t('Onaylı/kapalı iş; sabit kayıt korunur.', 'Approved/closed work; pinned record is preserved.')}</small>}{usageNeedsReview(row) && <strong>{t('Açık işte inceleyin', 'Review in open work')}</strong>}</div>
           <button type="button" aria-label={`${t('Kaydı aç', 'Open record')}: ${row.title}`} onClick={() => navigateToFornost(row.target)}>{t('Kaydı aç', 'Open record')} ↗</button>
         </article>)}</div>
