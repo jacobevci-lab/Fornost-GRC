@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { DatabaseSync, type SQLInputValue } from 'node:sqlite';
+import { isCoreRecordRequest } from '../app/core-record-focus';
 import { readEvidenceUsage } from '../app/evidence/usage-store';
 import { EvidenceUsageError, usageNeedsReview, usageReferences } from '../app/evidence/usage';
 import { scopedApiAllowed, type AccessSubject } from '../app/module-access';
@@ -36,6 +37,7 @@ test('exact IDs/codes and unique control IDs resolve; ambiguity and substring ma
     const result = await readEvidenceUsage(f.db, admin, 'EVD-1');
     assert.deepEqual(result.rows.map(r => r.id).sort(), ['CMP-1', 'CTRL-1', 'F-1', 'REQ-1']);
     assert.deepEqual(result.unresolvedControls, ['ambiguous', 'missing']);
+    assert.ok(result.rows.filter(r => ['controls', 'requirements'].includes(r.source)).every(r => isCoreRecordRequest(r.target)));
     assert.ok(result.sources.every(s => s.state === 'complete'));
     assert.ok(result.rows.every(r => !r.pins.length && !usageNeedsReview(r)));
     assert.deepEqual(usageReferences([' EVD-1, EVD-2 ', 'EVD-3|EVD-4\nEVD-5']), ['evd-1','evd-2','evd-3','evd-4','evd-5']);

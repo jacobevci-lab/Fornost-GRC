@@ -45,7 +45,7 @@ export async function readEvidenceUsage(db: D1Database, actor: AccessSubject, id
       const d = object(first.data_json);
       add('controls', { id: first.id, module: first.module, title: str(d.controlTitle || d.title || d.controlId) || first.code || first.id,
         owner: str(d.owner), status: str(d.status), dueDate: '', historical: false, pins: [],
-        target: { module: first.module, ref: first.id, source: 'evidence-usage' } });
+        target: { module: first.module, ref: first.id, kind: 'record', source: 'evidence-usage' } });
     }
     return controls.length <= 100 && modules.length === 2;
   });
@@ -54,7 +54,7 @@ export async function readEvidenceUsage(db: D1Database, actor: AccessSubject, id
     for (const row of rows.results.slice(0, 1000)) {
       const d = object(row.data_json); if (!linked(d.evidenceRef)) continue;
       add('requirements', { id: row.id, module: 'Denetim Yönetimi', title: str(d.requirementTitle || d.requirement || d.controlTitle || d.requirementRef || d.auditName) || row.id,
-        owner: str(d.owner), status: str(d.status), dueDate: '', historical: false, pins: [], target: { module: 'Denetim Yönetimi', ref: row.id, source: 'evidence-usage' } });
+        owner: str(d.owner), status: str(d.status), dueDate: '', historical: false, pins: [], target: { module: 'Denetim Yönetimi', ref: row.id, kind: 'record', source: 'evidence-usage' } });
     }
     return rows.results.length <= 1000;
   });
