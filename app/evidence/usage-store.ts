@@ -1,4 +1,4 @@
-import { canReadModule, isScoped, type AccessSubject } from '../module-access';
+import { canReadModule, canWriteModule, isScoped, type AccessSubject } from '../module-access';
 import { EvidenceUsageError, usageReferences, usagePins, usageNeedsReview, type EvidenceUsage, type EvidenceUsageRow, type UsageSource } from './usage';
 const str = (value: unknown) => typeof value === 'string' ? value : '';
 const object = (value: string) => JSON.parse(value) as Record<string, unknown>;
@@ -18,7 +18,7 @@ export async function readEvidenceUsage(db: D1Database, actor: AccessSubject, id
   if (!anchor) throw new EvidenceUsageError('missing', 404);
   const data = object(anchor.data_json);
   const evidence: EvidenceUsage['evidence'] = { id, code: anchor.code || id, title: str(data.evidenceTitle) || id, versionId: anchor.version_id || '', versionNo: anchor.version_no || 0, updatedAt: anchor.updated_at };
-  const result: EvidenceUsage = { evidence, checkedAt: new Date().toISOString(), sources: [], rows: [], unresolvedControls: [] };
+  const result: EvidenceUsage = { evidence, checkedAt: new Date().toISOString(), sources: [], rows: [], unresolvedControls: [], canPlanReview: canWriteModule(actor,'Denetim Yönetimi') };
   const refs = new Set([id.toLowerCase(), evidence.code.toLowerCase()]);
   const linked = (value: unknown) => usageReferences(value).some(ref => refs.has(ref));
   const add = (source: UsageSource, row: Omit<EvidenceUsageRow, 'source'>) => result.rows.push({ ...row, source });

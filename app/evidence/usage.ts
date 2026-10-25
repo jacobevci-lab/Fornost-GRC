@@ -9,7 +9,7 @@ export type EvidenceUsageRow = {
 };
 export type EvidenceUsage = {
   evidence: { id: string; code: string; title: string; versionId: string; versionNo: number; updatedAt: string };
-  checkedAt: string;
+  checkedAt: string; canPlanReview: boolean;
   sources: { key: UsageSource; state: 'complete' | 'limited' | 'unavailable' | 'restricted'; limit: number }[];
   rows: EvidenceUsageRow[];
   unresolvedControls: string[];

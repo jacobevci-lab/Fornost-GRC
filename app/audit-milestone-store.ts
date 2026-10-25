@@ -1,3 +1,4 @@
+import {validateEvidenceChangeOrigin,type EvidenceChangeOrigin} from './evidence/change-followups';
 import { prepareDeadlineAdjustment, deadlineCalendarGuard } from './audit-deadline-adjustment-store';
 import {validateMilestoneBatch} from './audit-milestone-batch';
 import {prepareBatchDeadlineAdjustment} from './audit-milestone-batch-deadline-store';
@@ -9,9 +10,11 @@ import { ensureAuditClosureSchema } from './audit-closure-schema';
 import { validateMilestone, validateMilestoneGraph, nextMilestoneDate, milestoneNextDue, milestoneLabels, type AuditMilestone } from './audit-milestones';
 type Stored = { id:string; audit_id:string; revision:string; data_json:string; created_at:string; updated_at:string };
 /** One guarded INSERT and its history commit together; no partial task packs. */
-export async function createMilestoneBatch(db:D1Database, actor:Actor, input:Record<string,unknown>, now=new Date()) {
+export async function createMilestoneBatch(db:D1Database, actor:Actor, input:Record<string,unknown>, now=new Date(), creation?:{origin:EvidenceChangeOrigin;guard:{sql:string;values:(string|number|null)[]}}) {
  if(!canWriteModule(actor,'Denetim Yönetimi'))throw new AuditRequestError('forbidden',403);
  const auditId=auditRequestId(input.auditId),items=validateMilestoneBatch(input.items),email=actor.email.toLowerCase();
+ if(creation&&(items.length!==1||creation.origin.source.auditId!==auditId))throw new AuditRequestError('fields');
+ if(creation)validateEvidenceChangeOrigin(creation.origin);
  if(actor.role!=='Admin'&&items.some(item=>item.fields.owner!==email))throw new AuditRequestError('owner',403);
  await ensureAuditClosureSchema(db);await requireAuditParent(db,auditId);
  const graphRows=await db.prepare('SELECT * FROM audit_milestones WHERE audit_id=? ORDER BY id LIMIT 101').bind(auditId).all<Stored>();
@@ -21,8 +24,8 @@ export async function createMilestoneBatch(db:D1Database, actor:Actor, input:Rec
  const emails=[...new Set([email,...items.map(item=>item.fields.owner)])];
  const people=await db.prepare("SELECT u.id,lower(u.email) AS email,u.role,a.policy_json AS policy FROM local_users u LEFT JOIN user_module_access a ON a.user_id=u.id WHERE u.status='Active' AND lower(u.email) IN (SELECT value FROM json_each(?))").bind(JSON.stringify(emails)).all<{id:string;email:string;role:string;policy:string|null}>();
  if(people.results.length!==emails.length||!people.results.some(p=>p.id===actor.id&&p.email===email&&p.role===actor.role)||people.results.some(p=>!canWriteModule({role:p.role,moduleAccess:parseModuleAccess(p.policy)},'Denetim Yönetimi')))throw new AuditRequestError('assignee',403);
- const stamp=now.toISOString(),rows:AuditMilestone[]=items.map(item=>({...item.fields,id:item.id,auditId,revision:crypto.randomUUID(),status:'planned',note:'',createdAt:stamp,updatedAt:stamp}));
- validateMilestoneGraph([...graphRows.results.map(publicMilestone),...rows]);
+ const stamp=now.toISOString(),rows:AuditMilestone[]=items.map(item=>({...item.fields,id:item.id,auditId,revision:crypto.randomUUID(),status:'planned',note:'',createdAt:stamp,updatedAt:stamp,...(creation?{evidenceChangeOrigin:creation.origin}:{})}));
+ validateMilestoneGraph([...graphRows.results.map(row=>publicMilestone(row)),...rows]);
  const adjustment=await prepareBatchDeadlineAdjustment(db,auditId,input.deadlineAdjustment,items);
  const snapshot=JSON.stringify(graphRows.results.map(row=>({id:row.id,revision:row.revision}))),payload=JSON.stringify(rows);
  const historyPayload=JSON.stringify(rows.map(row=>({...row,...(adjustment?{deadlineAdjustment:adjustment.snapshots.get(row.id)}:{})})));
@@ -32,10 +35,10 @@ export async function createMilestoneBatch(db:D1Database, actor:Actor, input:Rec
    AND NOT EXISTS(SELECT 1 FROM json_each(?) g WHERE NOT EXISTS(SELECT 1 FROM audit_milestones m WHERE m.audit_id=? AND m.id=json_extract(g.value,'$.id') AND m.revision=json_extract(g.value,'$.revision')))
    AND NOT EXISTS(SELECT 1 FROM json_each(?) n JOIN audit_milestones m ON m.id=json_extract(n.value,'$.id'))
    AND NOT EXISTS(SELECT 1 FROM json_each(?) p WHERE NOT EXISTS(SELECT 1 FROM local_users u LEFT JOIN user_module_access a ON a.user_id=u.id WHERE u.id=json_extract(p.value,'$.id') AND lower(u.email)=json_extract(p.value,'$.email') AND u.role=json_extract(p.value,'$.role') AND u.status='Active' AND a.policy_json IS json_extract(p.value,'$.policy')))
-   ${deadlineCalendarGuard})
+   ${deadlineCalendarGuard} AND (${creation?.guard.sql||'1'}))
    INSERT INTO audit_milestones(id,audit_id,revision,data_json,created_at,updated_at)
    SELECT json_extract(n.value,'$.id'),?,json_extract(n.value,'$.revision'),n.value,?,? FROM json_each(?) n WHERE EXISTS(SELECT 1 FROM allowed) RETURNING id`)
-   .bind(auditId,auditId,graphRows.results.length,snapshot,auditId,payload,JSON.stringify(people.results),adjustment?1:0,auditId,adjustment?.revision||'',adjustment?.raw||'',auditId,stamp,stamp,payload),
+   .bind(auditId,auditId,graphRows.results.length,snapshot,auditId,payload,JSON.stringify(people.results),adjustment?1:0,auditId,adjustment?.revision||'',adjustment?.raw||'',...(creation?.guard.values||[]),auditId,stamp,stamp,payload),
   db.prepare(`INSERT INTO audit_milestone_events(id,audit_id,milestone_id,actor,action,note,snapshot_json,created_at)
    SELECT json_extract(n.value,'$.revision'),?,json_extract(n.value,'$.id'),?,'save','',n.value,? FROM json_each(?) n
    WHERE EXISTS(SELECT 1 FROM audit_milestones m WHERE m.id=json_extract(n.value,'$.id') AND m.audit_id=? AND m.revision=json_extract(n.value,'$.revision'))`)
@@ -44,7 +47,7 @@ export async function createMilestoneBatch(db:D1Database, actor:Actor, input:Rec
  if(result[0].results.length!==rows.length)throw new AuditRequestError('conflict',409);
  return {ids:rows.map(row=>row.id)};
 }
-export function publicMilestone(row: Stored): AuditMilestone {
+export function publicMilestone(row: Stored, evidenceAccess=false): AuditMilestone {
  const value=JSON.parse(row.data_json), fields=validateMilestone(value);
  if (!Object.hasOwn(milestoneLabels,value.status) || typeof value.note!=='string') throw new AuditRequestError('source-invalid',503);
  if((value.recurrenceOf!==undefined&&(typeof value.recurrenceOf!=='string'||!/^AMT-[a-f0-9-]{36}$/.test(value.recurrenceOf)))||(value.recurrenceDay!==undefined&&(!Number.isInteger(value.recurrenceDay)||value.recurrenceDay<1||value.recurrenceDay>31)))throw new AuditRequestError('source-invalid',503);
@@ -58,12 +61,12 @@ export function publicMilestone(row: Stored): AuditMilestone {
   if(!review.submittedBy||!review.submittedAt||review.submittedBy===fields.reviewer)throw new AuditRequestError('source-invalid',503);
   if(value.status==='completed'&&(!review.reviewedAt||review.reviewedBy!==fields.reviewer))throw new AuditRequestError('source-invalid',503);
  }
- return {...fields,...review,...(value.recurrenceOf?{recurrenceOf:value.recurrenceOf}:{}),...(value.recurrenceDay?{recurrenceDay:value.recurrenceDay}:{}),status:value.status,note:value.note,id:row.id,auditId:row.audit_id,revision:row.revision,createdAt:row.created_at,updatedAt:row.updated_at};
+ return {...fields,...review,...(evidenceAccess&&value.evidenceChangeOrigin?{evidenceChangeOrigin:validateEvidenceChangeOrigin(value.evidenceChangeOrigin)}:{}),...(value.recurrenceOf?{recurrenceOf:value.recurrenceOf}:{}),...(value.recurrenceDay?{recurrenceDay:value.recurrenceDay}:{}),status:value.status,note:value.note,id:row.id,auditId:row.audit_id,revision:row.revision,createdAt:row.created_at,updatedAt:row.updated_at};
 }
-export async function readMilestones(db:D1Database,auditId:string) {
+export async function readMilestones(db:D1Database,auditId:string,evidenceAccess=false) {
  auditRequestId(auditId); await ensureAuditClosureSchema(db); await requireAuditParent(db,auditId);
  const rows=await db.prepare('SELECT * FROM audit_milestones WHERE audit_id=? ORDER BY created_at,id LIMIT 101').bind(auditId).all<Stored>();
- return {milestones:rows.results.slice(0,100).map(publicMilestone),complete:rows.results.length<=100};
+ return {milestones:rows.results.slice(0,100).map(row=>publicMilestone(row,evidenceAccess)),complete:rows.results.length<=100};
 }
 export async function milestonePeople(db:D1Database) {
  const rows=await db.prepare("SELECT u.id,u.name,lower(u.email) AS email,u.role,a.policy_json AS policy FROM local_users u LEFT JOIN user_module_access a ON a.user_id=u.id WHERE u.status='Active' AND u.role IN ('Admin','Editor') ORDER BY u.email LIMIT 1001").all<{id:string;name:string;email:string;role:string;policy:string|null}>();
@@ -81,7 +84,7 @@ export async function mutateMilestone(db:D1Database,actor:Actor,input:Record<str
  let id=sourceId;
  if(!/^AMT-[a-f0-9-]{36}$/.test(id)||!['save','start','submit','approve','return','complete','cancel','reopen','repeat'].includes(action)||typeof input.expectedRevision!=='string'||input.expectedRevision.length>100)throw new AuditRequestError('fields');
  await ensureAuditClosureSchema(db);await requireAuditParent(db,auditId);
- const raw=await db.prepare('SELECT * FROM audit_milestones WHERE id=? AND audit_id=?').bind(id,auditId).first<Stored>(),current=raw?publicMilestone(raw):null;
+ const raw=await db.prepare('SELECT * FROM audit_milestones WHERE id=? AND audit_id=?').bind(id,auditId).first<Stored>(),current=raw?publicMilestone(raw,true):null;
  if((current?.revision||'')!==input.expectedRevision)throw new AuditRequestError('conflict',409);
  const email=actor.email.toLowerCase(),note=typeof input.note==='string'?input.note.trim():'';
  if(note.length>2000||((action!=='save'||current)&&note.length<3))throw new AuditRequestError('note');
@@ -124,8 +127,9 @@ export async function mutateMilestone(db:D1Database,actor:Actor,input:Record<str
  // Recovery may proceed with a disabled former owner; any new assignment must be active.
  const emails=[...new Set(['save','start','submit','approve','complete','repeat'].includes(action)?[email,fields.owner,...(fields.reviewer?[fields.reviewer]:[])]:[email])];
  const people=await db.prepare("SELECT u.id,lower(u.email) AS email,u.role,a.policy_json AS policy FROM local_users u LEFT JOIN user_module_access a ON a.user_id=u.id WHERE u.status='Active' AND lower(u.email) IN (SELECT value FROM json_each(?))").bind(JSON.stringify(emails)).all<{id:string;email:string;role:string;policy:string|null}>();
- if(people.results.length!==emails.length||!people.results.some(p=>p.id===actor.id&&p.email===email&&p.role===actor.role)||people.results.some(p=>!canWriteModule({role:p.role,moduleAccess:parseModuleAccess(p.policy)},'Denetim Yönetimi')))throw new AuditRequestError('assignee',403);
+ if(people.results.length!==emails.length||!people.results.some(p=>p.id===actor.id&&p.email===email&&p.role===actor.role)||people.results.some(p=>!canWriteModule({role:p.role,moduleAccess:parseModuleAccess(p.policy)},'Denetim Yönetimi')||(current?.evidenceChangeOrigin&&['save','start','submit','approve','complete','repeat'].includes(action)&&!canReadModule({role:p.role,moduleAccess:parseModuleAccess(p.policy)},'Kanıtlar'))))throw new AuditRequestError('assignee',403);
  const revision=crypto.randomUUID(),stamp=now.toISOString(),next:AuditMilestone={...fields,id,auditId,revision,status,note,createdAt:action==='repeat'?stamp:current?.createdAt||stamp,updatedAt:stamp};
+ if(current?.evidenceChangeOrigin&&action!=='repeat')next.evidenceChangeOrigin=current.evidenceChangeOrigin;
  if(current&&!['save','reopen','repeat','submit'].includes(action))for(const key of ['submittedBy','submittedAt','reviewedBy','reviewedAt'] as const)if(current[key])next[key]=current[key];
  if(action==='submit'){next.submittedBy=email;next.submittedAt=stamp;}
  if(reviewAction){next.reviewedBy=email;next.reviewedAt=stamp;}
@@ -134,7 +138,7 @@ export async function mutateMilestone(db:D1Database,actor:Actor,input:Record<str
  const adjustment = await prepareDeadlineAdjustment(db, auditId, action, input.deadlineAdjustment, fields);
  const graphRows=await db.prepare('SELECT * FROM audit_milestones WHERE audit_id=? ORDER BY id LIMIT 101').bind(auditId).all<Stored>();
  if(graphRows.results.length>100)throw new AuditRequestError('source-invalid',503);
- const graph=graphRows.results.map(publicMilestone);
+ const graph=graphRows.results.map(row=>publicMilestone(row));
  if(action==='repeat'&&graph.some(row=>row.recurrenceOf===sourceId))throw new AuditRequestError('recurrence-exists',409);
  validateMilestoneGraph([...graph.filter(row=>row.id!==id),next]);
  const graphSnapshot=JSON.stringify(graphRows.results.map(row=>({id:row.id,revision:row.revision})));

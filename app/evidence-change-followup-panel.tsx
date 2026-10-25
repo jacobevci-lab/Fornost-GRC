@@ -1,0 +1,57 @@
+'use client';
+import {useEffect,useRef,useState} from 'react';
+import {withBasePath} from './base-path';
+import {navigateToFornost} from './navigation-focus';
+import {validateMilestone,milestoneLabels} from './audit-milestones';
+import type {EvidenceChangePreview,EvidenceChangeSource} from './evidence/change-followups';
+import './evidence-change-followup.css';
+
+export function EvidenceChangeFollowupPanel({evidenceId,sourceKind,sourceId,tr,onClose}:{evidenceId:string;sourceKind:EvidenceChangeSource;sourceId:string;tr:boolean;onClose:()=>void}){
+  const t=(a:string,b:string)=>tr?a:b;
+  const [refresh,setRefresh]=useState(0),[result,setResult]=useState<{key:number;data:EvidenceChangePreview|null;error:string}|null>(null);
+  const [draft,setDraft]=useState({title:'',description:'',owner:'',dueDate:'',timeZone:'UTC'}),[reason,setReason]=useState(''),[confirmed,setConfirmed]=useState(false),[busy,setBusy]=useState(false),[error,setError]=useState(''),[saved,setSaved]=useState<{id:string;auditId:string}|null>(null);
+  const initial=useRef(false),flight=useRef(false),id=useRef(`AMT-${crypto.randomUUID()}`),panel=useRef<HTMLElement|null>(null);
+  const loading=result?.key!==refresh,data=result?.key===refresh?result.data:null;
+  useEffect(()=>{panel.current?.focus({preventScroll:true});panel.current?.scrollIntoView({block:'nearest'});},[]);
+  useEffect(()=>{
+    const controller=new AbortController();
+    fetch(withBasePath('/api/evidence/followups?'+new URLSearchParams({evidenceId,sourceKind,sourceId})),{cache:'no-store',signal:controller.signal}).then(async response=>{const body=await response.json();if(!response.ok)throw Error(body.error||'unavailable');return body as EvidenceChangePreview;}).then(body=>{
+      if(controller.signal.aborted)return;
+      setResult({key:refresh,data:body,error:''});setConfirmed(false);
+      if(!initial.current){initial.current=true;setDraft({title:tr?'Kanıt değişikliği incelemesi':'Review evidence change',description:tr?'Kaynak işin sabit kanıt sürümünü yeni sürümle karşılaştırın ve sonucu kaynak iş akışında belgeleyin.':'Compare the source work’s pinned evidence with the new version and document the outcome in the source workflow.',owner:body.admin&&body.people.some(p=>p.email===body.sourceOwner)?body.sourceOwner:body.actorEmail,dueDate:'',timeZone:body.timeZone});}
+    }).catch(e=>{if(!controller.signal.aborted)setResult({key:refresh,data:null,error:e.message});});
+    return()=>controller.abort();
+    // Language changes translate labels without replacing the user's task text.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[evidenceId,sourceKind,sourceId,refresh]);
+  const message=(code:string)=>['changed','conflict','followup-exists'].includes(code)?t('Kaynak, atama veya görev listesi değişti. Taslak korundu; kaynağı yenileyip yeniden önizleyin.','The source, assignment or task list changed. Draft retained; refresh the source and preview again.'):['fields','dates','timezone','note'].includes(code)?t('Başlık, sorumlu, hedef tarih, saat dilimi ve en az üç karakterlik gerekçeyi kontrol edin.','Check the title, owner, due date, time zone and a reason of at least three characters.'):['forbidden','owner','assignee'].includes(code)?t('Aktif denetim yazma ve kanıt okuma yetkisi gerekiyor. Atamayı ve güncel erişimi kontrol edin.','Active audit write and evidence read access are required. Check the assignment and current access.'):['audit-closed','followup-ineligible','not-linked'].includes(code)?t('Bu kaynak için yeni inceleme görevi oluşturulamıyor. Kaynağı yenileyin.','A new review task is unavailable for this source. Refresh the source.'):t('İşlem doğrulanamadı; taslak korundu. Yeniden deneyin veya kaynağı yenileyip mevcut görevi kontrol edin.','The operation could not be confirmed; draft retained. Retry or refresh the source to check for an existing task.');
+  const patch=(key:keyof typeof draft,value:string)=>{setDraft(d=>({...d,[key]:value}));setConfirmed(false);setError('');};
+  function preview(){try{validateMilestone(draft);if(reason.trim().length<3)throw Error('note');setConfirmed(true);setError('');}catch(e){setError(e instanceof Error?e.message:'fields');}}
+  async function create(){
+    if(flight.current||!data?.canCreate||!confirmed||loading)return;flight.current=true;setBusy(true);setError('');
+    try{const response=await fetch(withBasePath('/api/evidence/followups'),{method:'POST',signal:AbortSignal.timeout(20000),headers:{'content-type':'application/json'},body:JSON.stringify({evidenceId,sourceKind,sourceId,id:id.current,expectedToken:data.token,fields:draft,reason})});const body=await response.json();if(!response.ok)throw Error(body.error||'unavailable');if(body.id!==id.current||body.auditId!==data.source.auditId)throw Error('unavailable');setSaved({id:body.id,auditId:body.auditId});setConfirmed(false);}
+    catch(e){setError(e instanceof Error?e.message:'unavailable');}finally{flight.current=false;setBusy(false);}
+  }
+  const openTask=(taskId:string,auditId:string)=>navigateToFornost({module:'Denetim Yönetimi',kind:'audit-milestone',ref:taskId,filter:{auditId},source:'evidence-usage'});
+  return <section className="ecf-panel" ref={panel} tabIndex={-1} aria-label={t('Kanıt inceleme görevi','Evidence review task')} aria-busy={loading||busy}>
+    <header><h3>{t('Kanıt değişikliği için takip görevi','Follow up an evidence change')}</h3><button type="button" disabled={busy} onClick={onClose}>{t('Görev panelini kapat','Close task panel')}</button></header>
+    <p>{t('Açık talep veya çalışma kâğıdı için tarihli denetim görevi oluşturun. Kaynak işin sabit sürümü ve onay durumu korunur. Görev Benim İşlerim ve denetim kapanış kontrollerine dahil olur.','Create a dated audit task for an open request or workpaper. Its pinned version and approval state are preserved. The task participates in My Work and audit closure checks.')}</p>
+    {loading&&<p role="status">{t('Kaynak ve mevcut görev kontrol ediliyor…','Checking source and existing task…')}</p>}
+    {(error||result?.error)&&<p role="alert">{message(error||result?.error||'')}</p>}
+    {!saved&&<button type="button" disabled={busy||loading} onClick={()=>{setError('');setConfirmed(false);setRefresh(r=>r+1);}}>{t('Kaynağı yenile (taslağı koru)','Refresh source (keep draft)')}</button>}
+    {data&&<div className="ecf-context"><b>{data.evidence.code} · {data.evidence.title} · v{data.evidence.versionNo||'?'}</b><p>{data.auditName} · {data.source.title}</p><p>{t('Kaynak iş sorumlusu / tarihi','Source work owner / due date')}: {data.sourceOwner||'—'} · {data.sourceDueDate||'—'}</p><p>{t('Sabit sürümler','Pinned versions')}: {data.source.pins.map(p=>`v${p.versionNo||'?'} · ${p.state==='older'?t('önceki','earlier'):p.state==='unknown'?t('doğrulanamadı','unverified'):t('güncel','current')}`).join(', ')}</p></div>}
+    {saved&&<div role="status"><p>{t('İnceleme görevi oluşturuldu. Kaynak iş değiştirilmedi.','Review task created. Source work is unchanged.')}</p><button type="button" onClick={()=>openTask(saved.id,saved.auditId)}>{t('İnceleme görevini aç','Open review task')}</button></div>}
+    {!saved&&data?.existing&&<div role="status"><p>{t('Bu kanıt sürümü ve kaynak iş için görev zaten var.','A task already exists for this evidence version and source work.')}</p><p>{data.existing.title} · {milestoneLabels[data.existing.status as keyof typeof milestoneLabels]?.[tr?0:1]||data.existing.status} · {data.existing.owner} · {data.existing.dueDate}</p><button type="button" onClick={()=>openTask(data.existing!.id,data.source.auditId)}>{t('Mevcut inceleme görevini aç','Open existing review task')}</button></div>}
+    {!saved&&data&&!data.canCreate&&!data.existing&&<p role="status">{data.eligibility==='historical'?t('Onaylı, iptal edilmiş veya kapalı kaynaklar için yeni görev açılmaz.','New tasks are unavailable for approved, cancelled or closed sources.'):data.eligibility==='current'?t('Kaynak iş bu kanıtın güncel sürümüne bağlı; değişiklik takibi gerekmiyor.','The source work uses this evidence’s current version; no change follow-up is needed.'):data.eligibility==='no-current-version'?t('Önce geçerli bir güncel kanıt sürümü gerekiyor.','A valid current evidence version is required first.'):t('Bu işlemi yapmak için denetim yazma ve kanıt okuma yetkisi gerekiyor.','Audit write and evidence read access are required for this action.')}</p>}
+    {!saved&&data?.canCreate&&<fieldset disabled={busy||loading}><legend>{t('İnceleme görevi taslağı','Review task draft')}</legend>
+      <label>{t('İnceleme görevi başlığı','Review task title')}<input aria-label={t('İnceleme görevi başlığı','Review task title')} value={draft.title} maxLength={200} onChange={e=>patch('title',e.target.value)}/></label>
+      <label>{t('Beklenen inceleme sonucu','Expected review outcome')}<textarea aria-label={t('Beklenen inceleme sonucu','Expected review outcome')} value={draft.description} maxLength={2000} onChange={e=>patch('description',e.target.value)}/></label>
+      <div className="ecf-fields"><label>{t('İnceleme görevi sorumlusu','Review task owner')}<select aria-label={t('İnceleme görevi sorumlusu','Review task owner')} disabled={!data.admin} value={draft.owner} onChange={e=>patch('owner',e.target.value)}>{!data.people.some(p=>p.email===draft.owner)&&<option value={draft.owner}>{draft.owner}</option>}{data.people.map(p=><option key={p.email} value={p.email}>{p.name} · {p.email}</option>)}</select></label>
+      <label>{t('İnceleme görevi hedef tarihi','Review task due date')}<input aria-label={t('İnceleme görevi hedef tarihi','Review task due date')} type="date" value={draft.dueDate} onChange={e=>patch('dueDate',e.target.value)}/></label><label>{t('İnceleme görevi saat dilimi','Review task time zone')}<input aria-label={t('İnceleme görevi saat dilimi','Review task time zone')} value={draft.timeZone} maxLength={80} onChange={e=>patch('timeZone',e.target.value)}/></label></div>
+      {!data.peopleComplete&&<p>{t('Uygun kullanıcı listesi sınırlı.','The eligible user list is limited.')}</p>}
+      <label>{t('Kanıt inceleme gerekçesi','Evidence review reason')}<textarea aria-label={t('Kanıt inceleme gerekçesi','Evidence review reason')} value={reason} maxLength={2000} onChange={e=>{setReason(e.target.value);setConfirmed(false);setError('');}}/></label>
+      <button type="button" onClick={preview}>{t('İnceleme görevini önizle','Preview review task')}</button>
+      {confirmed&&<div className="ecf-confirm" role="region" aria-label={t('Oluşturulacak inceleme görevi','Review task to create')}><h4>{draft.title}</h4><p>{draft.description}</p><p>{draft.owner} · {draft.dueDate} · {draft.timeZone}</p><p>{reason}</p><p>{data.evidence.code} · v{data.evidence.versionNo} → {data.source.title}</p><p>{t('Bir planlı görev ve kaynak kaydı birlikte oluşturulur. Hatırlatmalar ve bağımsız onay daha sonra görev detayında ayarlanabilir.','One planned task and its origin are saved together. Reminders and independent review can be configured later in task details.')}</p><button type="button" onClick={()=>void create()}>{busy?t('Oluşturuluyor…','Creating…'):t('İnceleme görevini oluştur','Create review task')}</button></div>}
+    </fieldset>}
+  </section>;
+}

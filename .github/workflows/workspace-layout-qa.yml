@@ -96,6 +96,14 @@ jobs:
         with:
           name: audit-request-deadline-preview
           path: audit-request-deadline-qa-artifacts/
+      - name: Evidence change follow-up, conflict recovery and origin QA
+        run: node scripts/evidence-change-followup-qa.mjs
+      - name: Preserve evidence change follow-up browser evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: evidence-change-followup-preview
+          path: evidence-change-followup-qa-artifacts/
       - name: Evidence usage, pinned versions and scoped navigation QA
         run: node scripts/evidence-usage-qa.mjs
       - name: Preserve evidence usage browser evidence
