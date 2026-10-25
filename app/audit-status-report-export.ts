@@ -1,5 +1,6 @@
 import { milestoneLabels, recurrenceLabels } from './audit-milestones';
 import type { WorkpaperCapaOrigin } from './workpaper-capa';
+import type { EvidenceChangeOrigin } from './evidence/change-followups';
 import type { SavedRandomSelection } from './workpaper-random-sampling';
 import { workpaperStatusLabels } from './audit-workpapers';
 import { buildReportCsv, buildReportHtml, buildReportPdf, type ReportRecord, type ReportOptions } from './report-export';
@@ -12,6 +13,7 @@ export function auditStatusReportView(detail: AuditReportDetail, tr: boolean, fo
   if (detail.integrity !== 'verified') throw new Error('integrity');
   const s = detail.snapshot, n = auditReportSummary(s.items), t = (a: string, b: string) => tr ? a : b;
   const fieldLabels: Record<string, string> = {
+    evidenceChangeOrigin:t('Kanıt değişikliği kaynağı','Evidence change origin'),
     selection:t('Rastgele seçim kaydı','Random selection record'),
     workpaperOrigin:t('Çalışma kâğıdı aktarım kaynağı','Workpaper promotion origin'),
     ...Object.fromEntries(Object.entries(auditPlanLabels).map(([key, label]) => [key, label[tr ? 0 : 1]])),
@@ -53,7 +55,16 @@ export function auditStatusReportView(detail: AuditReportDetail, tr: boolean, fo
           data.workpaperOrigin=`${o.auditName} / ${o.workpaperTitle} / ${o.sample.reference}\n${t('Onaylı kaynak sürüm','Approved source revision')}: ${o.revision}\n${o.sample.note}\n${o.reason}\n${o.evidence.title} · v${o.evidence.versionNo} · ${o.evidence.id}\nSHA-256: ${o.evidence.contentSha256}`;
         }
       }
-      else if (item.kind === 'milestone') {if(data.recurrence)data.recurrence=recurrenceLabels[String(data.recurrence) as keyof typeof recurrenceLabels]?.[tr?0:1]||data.recurrence;data.status=milestoneLabels[String(data.status) as keyof typeof milestoneLabels]?.[tr?0:1]||data.status;if(Array.isArray(data.dependsOn))data.dependsOn=data.dependsOn.join(', ');}
+      else if (item.kind === 'milestone') {
+        if(data.recurrence)data.recurrence=recurrenceLabels[String(data.recurrence) as keyof typeof recurrenceLabels]?.[tr?0:1]||data.recurrence;
+        data.status=milestoneLabels[String(data.status) as keyof typeof milestoneLabels]?.[tr?0:1]||data.status;
+        if(Array.isArray(data.dependsOn))data.dependsOn=data.dependsOn.join(', ');
+        if(data.evidenceChangeOrigin&&typeof data.evidenceChangeOrigin==='object'){
+          const o=data.evidenceChangeOrigin as EvidenceChangeOrigin;
+          const pins=o.source.pins.map(p=>`v${p.versionNo||'?'} · ${p.id||'—'} · ${p.state==='older'?t('Önceki sürüm','Earlier version'):p.state==='current'?t('Güncel sürüm','Current version'):t('Doğrulanamadı','Unverified')}`).join('\n');
+          data.evidenceChangeOrigin=`${o.evidence.code} · ${o.evidence.title} · v${o.evidence.versionNo} · ${o.evidence.versionId}\nSHA-256: ${o.evidence.contentSha256}\n${o.source.kind==='requests'?t('Kanıt talebi','Evidence request'):t('Çalışma kâğıdı','Workpaper')}: ${o.source.title} · ${o.source.id}\n${t('Kaynak iş sürümü','Source work revision')}: ${o.source.revision}\n${t('Oluşturma anında sabit sürümler','Pins at creation')}:\n${pins}\n${o.reason}\n${o.createdBy} · ${o.createdAt}`;
+        }
+      }
       else if (item.kind === 'workpaper') {
         data.status = workpaperStatusLabels[String(data.status) as keyof typeof workpaperStatusLabels]?.[tr?0:1] || data.status;
         data.method = data.method === 'random' ? t('Rastgele örneklem','Random sampling') : data.method === 'census' ? t('Tam sayım','Census') : t('Yargısal örneklem','Judgmental sampling');

@@ -5,3 +5,4 @@
 .ecf-fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(220px,100%),1fr));gap:12px}.ecf-confirm,.ecf-context{border-top:1px solid var(--line);padding-top:12px;margin-top:12px}.ecf-actions{display:flex;gap:8px;flex-wrap:wrap}
 .ecf-panel button,.ecf-origin button{min-height:40px;max-width:100%;white-space:normal;border:1px solid var(--line);border-radius:8px;background:var(--panel);color:var(--ink);padding:8px 12px;cursor:pointer;margin-block:4px}.ecf-panel button:disabled{opacity:.55;cursor:not-allowed}.ecf-panel button:focus-visible,.ecf-origin button:focus-visible{outline:2px solid var(--brand);outline-offset:2px}
 .ecf-origin code{overflow-wrap:anywhere;white-space:normal}.eu-row-actions{display:flex;flex-direction:column;gap:8px;align-items:flex-start}
+[data-theme="dark"] .ecf-panel input[type="date"]{color-scheme:dark}

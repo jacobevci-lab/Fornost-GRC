@@ -8,6 +8,7 @@ import {readEvidenceChangePreview,createEvidenceChangeFollowup} from '../app/evi
 import {milestoneHistoryForAccess} from '../app/evidence/change-followups';
 import {createMilestoneBatch,mutateMilestone,readMilestones,readMilestoneWork} from '../app/audit-milestone-store';
 import {readAuditReportSource,createAuditStatusReport,readAuditStatusReport} from '../app/audit-status-report-store';
+import {auditStatusReportCsv,auditStatusReportHtml} from '../app/audit-status-report-export';
 import {projectEnterpriseWork} from '../app/enterprise-work';
 import {scopedApiAllowed} from '../app/module-access';
 const owner:Actor={id:'o',name:'Owner',email:'owner@example.com',role:'Editor',source:'local'},admin:Actor={...owner,id:'a',email:'admin@example.com',role:'Admin'};
@@ -98,4 +99,5 @@ test('origin is included in report snapshots and closure blockers; completing a 
  await createAuditStatusReport(f.db,admin,{auditId:'AUD-1',reportId,expectedSourceRevision:source.sourceRevision,title:'Evidence review report',summary:'Record the explicit evidence change follow-up',limitations:''});await f.act(input.id,'complete');
  const next=await readAuditReportSource(f.db,admin,'AUD-1');assert.ok(!auditClosureBlockers(next).includes('milestones'));assert.notEqual(next.sourceRevision,source.sourceRevision);assert.deepEqual(f.source(),original);
  const report=await readAuditStatusReport(f.db,admin,'AUD-1',reportId);assert.equal(report.integrity,'verified');const saved=report.snapshot.items.find(item=>item.id===input.id)!.record.data;assert.equal(saved.status,'planned');assert.deepEqual(saved.evidenceChangeOrigin,(await f.rows())[0].evidenceChangeOrigin);
+ for(const tr of [false,true]){const csv=auditStatusReportCsv(report,tr),html=auditStatusReportHtml(report,tr);for(const output of [csv,html]){assert.match(output,/Private access export/);assert.ok(output.includes(hashes[1]));assert.ok(output.includes(tr?'Kaynak iş sürümü':'Source work revision'));assert.equal(output.includes('inputHash'),false);}assert.equal(html.includes('evidenceChangeOrigin'),false);}
 }finally{f.sql.close();}});
