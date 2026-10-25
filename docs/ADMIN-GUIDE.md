@@ -194,3 +194,7 @@ Random sampling reuses the existing audit-write/evidence-read permissions and in
 ## Kanıt kullanımı erişim sınırları
 
 [Kanıt kullanım alanı](evidence-usage.md), Kanıtlar okuma iznine sahip kullanıcılara açıktır. Her bağlı kaynak kendi modül izniyle sorgulanır; yalnız Kanıtlar izni olan kullanıcıya denetim, kontrol veya CAPA satırları verilmez. CAPA mevcut scoped erişim kapsamı dışında kalır. Endpoint salt okunurdur ve özel önbelleksiz yanıt döndürür; yeni tablo, zamanlayıcı veya e-posta ayarı gerektirmez. Kaynak hatası/okuma sınırı, boş ve tam bir sonuç olarak sunulmaz. Kaynaklar arası atomik anlık görüntü veya otomatik yeniden değerlendirme sağlamaz.
+
+### Görev paketlerinde takvim doğrulaması
+
+Toplu görev taslakları kayıtlı denetim takvimini önizlemeyle kullanabilir. Sunucu seçili görevlerin tamamını kimlikle eşleştirir, her tarihi tekrar hesaplar ve takvim sürümü/tam içeriğini atomik kayıt içinde doğrular. Her görev için önceki/sonraki tarih, ortak gerekçe ve takvim bilgisi oluşturma geçmişine yazılır. Takvim değişikliği, kapanış, yetki kaybı veya geçmiş yazma hatası yarım paket bırakmaz. Editor yalnız kendisine atar; Admin mevcut uygun kullanıcıları seçebilir. Öneri yeni incelemeci, hatırlatma veya tekrar oluşturmaz. Görev listesi ve yetkiler takvim yenilemeyle değiştirilmez. [Paket iş günü planlaması](audit-deadline-planning.md#task-pack-dates).

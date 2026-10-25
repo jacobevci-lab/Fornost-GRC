@@ -377,3 +377,52 @@ test('milestone date planner cannot elevate an Editor to change the review deadl
  await f.act('save',admin,{fields:original});const before=await f.row();
  await assert.rejects(f.act('save',owner,{fields:{...original,dueDate:'2026-10-27',reviewDueDate:'2026-10-27'},deadlineAdjustment:adjustmentInput}),/review-admin/);assert.equal((await f.row())?.revision,before?.revision);
 }finally{f.sqlite.close();}});
+
+function batchDeadlineFixture(f:Awaited<ReturnType<typeof fixture>>){
+ f.sqlite.prepare('INSERT INTO audit_reminder_profiles VALUES(?,?,?,?,?)').run('a','calendar-v1',JSON.stringify(adjustmentProfile),'admin','');
+ const before=['2026-10-24','2026-10-25','2026-10-23','2026-10-26'];
+ const items=packItems().map((item,i)=>({...item,fields:{...item.fields,dueDate:i===2?'2026-10-23':'2026-10-27'}}));
+ return {auditId:'a',items,deadlineAdjustment:{profileRevision:'calendar-v1',reason:'Plan the entire pack with the saved holiday calendar.',timeZone:'Europe/Istanbul',dates:items.map((item,i)=>({id:item.id,dueDate:before[i]}))}};
+}
+test('pack calendar recomputes every date by identity and keeps atomic history, unchanged dates, dependencies, inbox and report deadlines',async()=>{const f=await fixture();try{
+ const input=batchDeadlineFixture(f);input.deadlineAdjustment.dates.reverse();await createMilestoneBatch(f.db,owner,input);
+ const rows=(await readMilestones(f.db,'a')).milestones;assert.equal(rows.length,4);
+ for(const item of input.items){const row=rows.find(row=>row.id===item.id)!;assert.equal(row.dueDate,item.fields.dueDate);assert.deepEqual(row.dependsOn,item.fields.dependsOn);assert.equal('deadlineAdjustment' in row,false);assert.equal(row.remindersEnabled,false);}
+ const proofs=f.sqlite.prepare('SELECT snapshot_json FROM audit_milestone_events').all().map(row=>JSON.parse(String(row.snapshot_json)));
+ for(const row of proofs){assert.equal(row.deadlineAdjustment.before.dueDate,input.deadlineAdjustment.dates.find(date=>date.id===row.id)?.dueDate);assert.equal(row.deadlineAdjustment.after.dueDate,row.dueDate);assert.deepEqual(row.deadlineAdjustment.calendar.holidays,['2026-10-26']);assert.equal(row.deadlineAdjustment.reason,input.deadlineAdjustment.reason);}
+ assert.equal(proofs.find(row=>row.id===input.items[2].id).deadlineAdjustment.before.dueDate,'2026-10-23');
+ const work=await readMilestoneWork(f.db,owner);assert.equal(work.milestones.find(row=>row.id===id)?.dueAt,'2026-10-27T20:59:59.999Z');
+ const source=await readAuditReportSource(f.db,admin,'a');assert.equal(source.items.filter(item=>item.kind==='milestone'&&item.record.data.dueDate==='2026-10-27').length,3);
+ await f.act('start');assert.equal(JSON.parse(String(f.sqlite.prepare('SELECT snapshot_json FROM audit_milestone_events ORDER BY rowid DESC LIMIT 1').get()?.snapshot_json)).deadlineAdjustment,undefined);
+ await assert.rejects(createMilestoneBatch(f.db,owner,input),/conflict/);assert.equal((await readMilestones(f.db,'a')).milestones.length,4);
+}finally{f.sqlite.close();}});
+test('pack calendar rejects altered results, missing or duplicate identities, excess metadata, invalid inputs and redundant proposals without writes',async()=>{for(const mode of ['date','missing','duplicate','foreign','zone','reason','extra','review','null','all-unchanged','invalid-date','invalid-zone','empty','oversize']){const f=await fixture();try{
+ const input=batchDeadlineFixture(f);
+ if(mode==='date')input.items[0].fields.dueDate='2026-10-28';
+ if(mode==='missing')input.deadlineAdjustment.dates.pop();
+ if(mode==='duplicate')input.deadlineAdjustment.dates[1].id=input.deadlineAdjustment.dates[0].id;
+ if(mode==='foreign')input.deadlineAdjustment.dates[0].id='AMT-99999999-0000-0000-0000-000000000001';
+ if(mode==='zone')input.items[0].fields.timeZone='UTC';
+ if(mode==='reason')input.deadlineAdjustment.reason='';
+ if(mode==='extra')Object.assign(input.deadlineAdjustment,{calendar:adjustmentProfile});
+ if(mode==='review')Object.assign(input.deadlineAdjustment.dates[0],{reviewDueDate:'2026-10-27'});
+ if(mode==='null')Object.assign(input,{deadlineAdjustment:null});
+ if(mode==='all-unchanged')input.deadlineAdjustment.dates=input.items.map(item=>({id:item.id,dueDate:item.fields.dueDate}));
+ if(mode==='invalid-date')input.deadlineAdjustment.dates[0].dueDate='2026-02-30';
+ if(mode==='invalid-zone')input.deadlineAdjustment.timeZone='Mars/Base';
+ if(mode==='empty')input.deadlineAdjustment.dates=[];
+ if(mode==='oversize')input.deadlineAdjustment.dates=Array.from({length:13},(_,i)=>({id:'AMT-'+crypto.randomUUID(),dueDate:i?'2026-10-24':'2026-10-25'}));
+ await assert.rejects(createMilestoneBatch(f.db,owner,input));assert.equal((await readMilestones(f.db,'a')).milestones.length,0);assert.equal(f.sqlite.prepare('SELECT count(*) n FROM audit_milestone_events').get()?.n,0);
+}finally{f.sqlite.close();}}});
+test('pack calendar requires the exact saved business profile; legacy manual packs still work without it',async()=>{for(const mode of ['stale','missing','calendar-mode']){const f=await fixture();try{
+ const input=batchDeadlineFixture(f);if(mode==='stale')input.deadlineAdjustment.profileRevision='older';if(mode==='missing')f.sqlite.exec('DELETE FROM audit_reminder_profiles');if(mode==='calendar-mode')f.sqlite.prepare('UPDATE audit_reminder_profiles SET data_json=?').run(JSON.stringify(defaultAuditReminderProfile));
+ await assert.rejects(createMilestoneBatch(f.db,owner,input),/deadline-calendar/);assert.equal((await readMilestones(f.db,'a')).milestones.length,0);
+ await createMilestoneBatch(f.db,owner,{auditId:'a',items:packItems()});assert.equal((await readMilestones(f.db,'a')).milestones.length,4);
+}finally{f.sqlite.close();}}});
+test('pack calendar guards revision, exact contents, deletion, active account and module policy at commit and rolls back history failures',async()=>{for(const mode of ['revision','contents','deleted','account','policy','closed','event']){const f=await fixture();try{
+ const input=batchDeadlineFixture(f);const source=f.sqlite.prepare('SELECT revision FROM audit_report_source_revision').get()?.revision;
+ if(mode==='event')f.sqlite.exec("CREATE TRIGGER fail_pack_calendar BEFORE INSERT ON audit_milestone_events WHEN json_extract(NEW.snapshot_json,'$.title')='Pack task 3' BEGIN SELECT RAISE(ABORT,'event-failed');END");
+ else f.race(()=>{if(mode==='revision')f.sqlite.exec("UPDATE audit_reminder_profiles SET revision='calendar-v2'");if(mode==='contents')f.sqlite.prepare('UPDATE audit_reminder_profiles SET data_json=?').run(JSON.stringify({...adjustmentProfile,holidays:[]}));if(mode==='deleted')f.sqlite.exec('DELETE FROM audit_reminder_profiles');if(mode==='account')f.sqlite.exec("UPDATE local_users SET status='Disabled' WHERE id='o'");if(mode==='policy')f.sqlite.prepare('INSERT INTO user_module_access VALUES(?,?)').run('o',JSON.stringify({mode:'scoped',modules:{}}));if(mode==='closed')f.sqlite.exec("INSERT INTO audit_closure_state VALUES('a','closed','r','','')");});
+ await assert.rejects(createMilestoneBatch(f.db,owner,input),/conflict|event-failed|audit-closed/);assert.equal((await readMilestones(f.db,'a')).milestones.length,0);assert.equal(f.sqlite.prepare('SELECT count(*) n FROM audit_milestone_events').get()?.n,0);
+ if(mode!=='closed')assert.equal(f.sqlite.prepare('SELECT revision FROM audit_report_source_revision').get()?.revision,source);
+}finally{f.sqlite.close();}}});
