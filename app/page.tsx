@@ -14,6 +14,7 @@ import type { AuditCatalogImport } from "./audit-catalog-import";
 import { readAllGrcPages } from "./grc-pagination";
 import { AuditPlanPanel } from "./audit-plan-panel";
 import { AuditResearchWorkspace } from "./audit-research-workspace";
+import { EvidenceUsagePanel } from "./evidence-usage-panel";
 import { EvidenceDocumentPreview } from "./evidence-document-preview";
 import { AuditWorkpaperPanel } from './audit-workpaper-panel';
 import { AuditRequestPanel } from "./audit-request-panel";
@@ -2220,6 +2221,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
             {!scoped && ["BIA","Varlık Envanteri","Uyum","Kontroller"].includes(active) && (
               <CoreModuleOverview module={active} rows={by(active)} allRows={rows} lang={lang}/>
             )}
+            {active === "Kanıtlar" && <EvidenceUsagePanel lang={lang} records={by("Kanıtlar")} focusedId={focusedRecord?.id || ""} />}
             {!scoped && active === "Kontroller" && (
               <details className="module-analysis-disclosure" key="control-analysis">
                 <summary><span><b>{lang === "tr" ? "Kontrol güvencesi ve etki analizi" : "Control assurance & impact analysis"}</b><small>{lang === "tr" ? "Güvence skorları, kanıt zinciri ve öncelikli aksiyonlar" : "Assurance scores, evidence lineage and priority actions"}</small></span></summary>

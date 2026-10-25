@@ -42,6 +42,7 @@ export function canOpenModule(subject: AccessSubject, module: string) {
 export function scopedApiAllowed(subject: AccessSubject, pathname: string, method: string) {
   if (!isScoped(subject)) return true;
   const path = pathname.replace(/\/+$/, ""), read = method === "GET" || method === "HEAD";
+  if (path === "/api/evidence/usage") return read && canReadModule(subject, "Kanıtlar"); // Each usage source is authorized in the handler.
   if (path === "/api/record-links") return read; // Handler checks both module access and exact target.
   if (path === "/api/search") return read; // Handler scopes rows before search and pagination.
   if (path === "/api/grc") return true; // Row/module authorization is inside the handler.
