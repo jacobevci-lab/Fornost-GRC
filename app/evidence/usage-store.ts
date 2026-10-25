@@ -37,8 +37,8 @@ export async function readEvidenceUsage(db: D1Database, actor: AccessSubject, id
         CASE WHEN lower(r.id)=? THEN 0 WHEN lower(c.code)=? THEN 1 ELSE 2 END AS tier
         FROM simple_grc_records r LEFT JOIN simple_grc_record_codes c ON c.record_id=r.id
         WHERE r.module IN (SELECT value FROM json_each(?)) AND
-        (lower(r.id)=? OR lower(c.code)=? OR lower(trim(json_extract(r.data_json,'$.controlId')))=?) ORDER BY tier,r.id LIMIT 2`)
-        .bind(ref, ref, JSON.stringify(modules), ref, ref, ref).all<{ id: string; module: string; data_json: string; code: string; tier: number }>();
+        (lower(r.id)=? OR lower(c.code)=? OR lower(trim(json_extract(r.data_json,'$.controlId')))=? OR lower(trim(json_extract(r.data_json,'$.controlRef')))=?) ORDER BY tier,r.id LIMIT 2`)
+        .bind(ref, ref, JSON.stringify(modules), ref, ref, ref, ref).all<{ id: string; module: string; data_json: string; code: string; tier: number }>();
       const first = found.results[0];
       if (!first || found.results[1]?.tier === first.tier) { result.unresolvedControls.push(ref); continue; }
       if (result.rows.some(r => r.source === 'controls' && r.id === first.id)) continue;

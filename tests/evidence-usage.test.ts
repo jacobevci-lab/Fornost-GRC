@@ -20,8 +20,9 @@ function fixture() {
     INSERT INTO evidence_versions VALUES('v1','EVD-1',1,'hash1'),('v2','EVD-1',2,'hash2');
     INSERT INTO simple_grc_record_codes VALUES('EVD-1','EVD-100');`);
   const record = (id: string, module: string, data: object) => sql.prepare('INSERT INTO simple_grc_records VALUES(?,?,?,?)').run(id, module, JSON.stringify(data), '2026-10-25');
-  record('EVD-1', 'Kanıtlar', { evidenceTitle: 'Access evidence', controlRef: 'CTRL-1', controlRefs: 'CTRL-1; CC6.1; ambiguous; missing' });
+  record('EVD-1', 'Kanıtlar', { evidenceTitle: 'Access evidence', controlRef: 'CTRL-1', controlRefs: 'CTRL-1; CC6.1; A.5.15; ambiguous; missing' });
   record('CTRL-1', 'Kontroller', { controlTitle: 'Access control' }); record('CMP-1', 'Uyum', { controlId: 'CC6.1', controlTitle: 'Compliance' });
+  record('C-ref', 'Kontroller', { controlRef: 'A.5.15', controlTitle: 'Legacy control reference' });
   record('C-A', 'Kontroller', { controlId: 'ambiguous' }); record('C-B', 'Kontroller', { controlId: 'ambiguous' });
   const work = (id: string, status = 'draft', version = 'v1', table = 'audit_workpapers', hash = 'hash1') => sql.prepare(`INSERT INTO ${table} VALUES(?,?,?,?)`).run(id, 'AUD-1', JSON.stringify({ title: id, status, owner: 'owner@test.invalid', reviewer: 'reviewer@test.invalid', dueDate: '2026-10-26', reviewDueDate: '2026-10-27', evidence: [{ evidenceId: 'EVD-1', id: version, versionNo: version === 'v2' ? 2 : 1, contentSha256: hash }], samples: [{ secret: 'not-for-usage' }] }), '2026-10-25');
   function prepare(query: string, args: SQLInputValue[] = []) {
@@ -35,7 +36,7 @@ test('exact IDs/codes and unique control IDs resolve; ambiguity and substring ma
     f.record('REQ-2', 'Denetim Yönetimi', { evidenceRef: 'EVD-1000' });
     f.sql.prepare('INSERT INTO enterprise_findings VALUES(?,?,?,?,?,?,?,?,?)').run('F-1', 'CAPA-1', 'Remediate', 'owner', 'open', '', '', 'EVD-1', '2026');
     const result = await readEvidenceUsage(f.db, admin, 'EVD-1');
-    assert.deepEqual(result.rows.map(r => r.id).sort(), ['CMP-1', 'CTRL-1', 'F-1', 'REQ-1']);
+    assert.deepEqual(result.rows.map(r => r.id).sort(), ['C-ref', 'CMP-1', 'CTRL-1', 'F-1', 'REQ-1']);
     assert.deepEqual(result.unresolvedControls, ['ambiguous', 'missing']);
     assert.ok(result.rows.filter(r => ['controls', 'requirements'].includes(r.source)).every(r => isCoreRecordRequest(r.target)));
     assert.ok(result.sources.every(s => s.state === 'complete'));
