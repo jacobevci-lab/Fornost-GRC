@@ -69,3 +69,7 @@ Kurumsal kimlik, e-posta ve ticket profilleri kurulumdaki gerçek sistemlerle do
 Detaylı mevcut/gelecek ayrımı [teslim durumu tablosunda](research-delivery-status.md), işletim gereksinimleri [yönetici rehberindedir](ADMIN-GUIDE.md).
 
 Named personal register views let users reuse search, filters and visible columns across seven core register entry points. Views are stored per user/module in the current browser; they are not team-shared or device-synchronized. See [Saved register views](saved-register-views.md).
+
+## Kanıtın ürün içindeki kullanımı
+
+Kanıt Kütüphanesi’ndeki [kullanım ve değişiklik etkisi](evidence-usage.md), kontrol/uyum bağlantılarını, denetim maddelerini, kanıt taleplerini, çalışma kâğıtlarını ve kanonik CAPA referanslarını bir araya getirir. Kayıt bağlantısıyla sabit dosya sürümünü ayırır; eski sürümlü açık işleri incelemeye yönlendirir ve onaylı işlerin geçmişini korur. Yetki ve okuma sınırları görünürdür. Genel kanıt değişikliklerinden otomatik görev üretimi veya tüm modüllerin yeniden değerlendirilmesi bu özelliğin kapsamı dışındadır.
