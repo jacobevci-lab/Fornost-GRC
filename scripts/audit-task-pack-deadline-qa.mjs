@@ -6,7 +6,7 @@ import {qaPassword} from './qa-credentials.mjs';
 import {createQaContext,waitForQaIdle} from './qa-browser-harness.mjs';
 const base='http://127.0.0.1:4173',out='audit-task-pack-deadline-qa-artifacts',tag=Date.now();
 const browser=await chromium.launch({executablePath:process.env.QA_CHROMIUM_PATH||undefined});
-const admin=await createQaContext(browser,base),owner=await createQaContext(browser,base,{}, {viewport:{width:1440,height:1000}}),viewer=await createQaContext(browser,base);
+const admin=await createQaContext(browser,base,{}),owner=await createQaContext(browser,base,{}, {viewport:{width:1440,height:1000}}),viewer=await createQaContext(browser,base,{});
 const page=await owner.newPage(),errors=[],checks=[],users=[];let auditId;page.setDefaultTimeout(20000);page.on('pageerror',e=>errors.push(e.message));page.on('dialog',d=>d.accept());
 const anchorId=`AMT-${crypto.randomUUID()}`,pack=page.locator('.am-batch'),planner=()=>pack.getByRole('region',{name:'Task pack working-day planner',exact:true});
 async function api(ctx,path,method='GET',data,status=200){const r=await ctx.request.fetch(base+path,{method,data,headers:{origin:base}});assert.equal(r.status(),status,`${path}: ${await r.text()}`);return r.json();}
