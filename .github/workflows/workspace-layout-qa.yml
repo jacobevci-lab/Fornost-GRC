@@ -72,6 +72,14 @@ jobs:
         with:
           name: copilot-identity-response-preview
           path: copilot-identity-response-qa-artifacts/
+      - name: Task pack working-day planning and atomic recovery QA
+        run: node scripts/audit-task-pack-deadline-qa.mjs
+      - name: Preserve task pack calendar browser evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: audit-task-pack-deadline-preview
+          path: audit-task-pack-deadline-qa-artifacts/
       - name: Working-day deadline preview, calendar conflict and authorization QA
         run: node scripts/audit-deadline-adjustment-qa.mjs
       - name: Preserve working-day deadline browser evidence

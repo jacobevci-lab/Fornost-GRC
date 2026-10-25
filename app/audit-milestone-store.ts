@@ -1,5 +1,6 @@
 import { prepareDeadlineAdjustment, deadlineCalendarGuard } from './audit-deadline-adjustment-store';
 import {validateMilestoneBatch} from './audit-milestone-batch';
+import {prepareBatchDeadlineAdjustment} from './audit-milestone-batch-deadline-store';
 import type { Actor } from './api/auth/security';
 import { canReadModule, canWriteModule, parseModuleAccess } from './module-access';
 import { AuditRequestError, requestDueAt } from './audit-requests';
@@ -22,20 +23,23 @@ export async function createMilestoneBatch(db:D1Database, actor:Actor, input:Rec
  if(people.results.length!==emails.length||!people.results.some(p=>p.id===actor.id&&p.email===email&&p.role===actor.role)||people.results.some(p=>!canWriteModule({role:p.role,moduleAccess:parseModuleAccess(p.policy)},'Denetim Yönetimi')))throw new AuditRequestError('assignee',403);
  const stamp=now.toISOString(),rows:AuditMilestone[]=items.map(item=>({...item.fields,id:item.id,auditId,revision:crypto.randomUUID(),status:'planned',note:'',createdAt:stamp,updatedAt:stamp}));
  validateMilestoneGraph([...graphRows.results.map(publicMilestone),...rows]);
+ const adjustment=await prepareBatchDeadlineAdjustment(db,auditId,input.deadlineAdjustment,items);
  const snapshot=JSON.stringify(graphRows.results.map(row=>({id:row.id,revision:row.revision}))),payload=JSON.stringify(rows);
+ const historyPayload=JSON.stringify(rows.map(row=>({...row,...(adjustment?{deadlineAdjustment:adjustment.snapshots.get(row.id)}:{})})));
  const result=await db.batch([
   db.prepare(`WITH allowed AS MATERIALIZED (SELECT 1 WHERE EXISTS(SELECT 1 FROM simple_audits WHERE id=?)
    AND (SELECT count(*) FROM audit_milestones WHERE audit_id=?)=?
    AND NOT EXISTS(SELECT 1 FROM json_each(?) g WHERE NOT EXISTS(SELECT 1 FROM audit_milestones m WHERE m.audit_id=? AND m.id=json_extract(g.value,'$.id') AND m.revision=json_extract(g.value,'$.revision')))
    AND NOT EXISTS(SELECT 1 FROM json_each(?) n JOIN audit_milestones m ON m.id=json_extract(n.value,'$.id'))
-   AND NOT EXISTS(SELECT 1 FROM json_each(?) p WHERE NOT EXISTS(SELECT 1 FROM local_users u LEFT JOIN user_module_access a ON a.user_id=u.id WHERE u.id=json_extract(p.value,'$.id') AND lower(u.email)=json_extract(p.value,'$.email') AND u.role=json_extract(p.value,'$.role') AND u.status='Active' AND a.policy_json IS json_extract(p.value,'$.policy'))))
+   AND NOT EXISTS(SELECT 1 FROM json_each(?) p WHERE NOT EXISTS(SELECT 1 FROM local_users u LEFT JOIN user_module_access a ON a.user_id=u.id WHERE u.id=json_extract(p.value,'$.id') AND lower(u.email)=json_extract(p.value,'$.email') AND u.role=json_extract(p.value,'$.role') AND u.status='Active' AND a.policy_json IS json_extract(p.value,'$.policy')))
+   ${deadlineCalendarGuard})
    INSERT INTO audit_milestones(id,audit_id,revision,data_json,created_at,updated_at)
    SELECT json_extract(n.value,'$.id'),?,json_extract(n.value,'$.revision'),n.value,?,? FROM json_each(?) n WHERE EXISTS(SELECT 1 FROM allowed) RETURNING id`)
-   .bind(auditId,auditId,graphRows.results.length,snapshot,auditId,payload,JSON.stringify(people.results),auditId,stamp,stamp,payload),
+   .bind(auditId,auditId,graphRows.results.length,snapshot,auditId,payload,JSON.stringify(people.results),adjustment?1:0,auditId,adjustment?.revision||'',adjustment?.raw||'',auditId,stamp,stamp,payload),
   db.prepare(`INSERT INTO audit_milestone_events(id,audit_id,milestone_id,actor,action,note,snapshot_json,created_at)
    SELECT json_extract(n.value,'$.revision'),?,json_extract(n.value,'$.id'),?,'save','',n.value,? FROM json_each(?) n
    WHERE EXISTS(SELECT 1 FROM audit_milestones m WHERE m.id=json_extract(n.value,'$.id') AND m.audit_id=? AND m.revision=json_extract(n.value,'$.revision'))`)
-   .bind(auditId,email,stamp,payload,auditId),
+   .bind(auditId,email,stamp,historyPayload,auditId),
  ]);
  if(result[0].results.length!==rows.length)throw new AuditRequestError('conflict',409);
  return {ids:rows.map(row=>row.id)};

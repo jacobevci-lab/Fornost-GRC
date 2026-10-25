@@ -244,3 +244,9 @@ Denetim → **Çalışma kâğıtları → Taslağı düzenle / Yeni çalışma 
 **Kanıt Kütüphanesi → Kullanım ve değişiklik etkisi** alanında kanıtı seçin. Kontrol/uyum bağlantıları, denetim maddeleri, talepler, çalışma kâğıtları ve CAPA referansları aynı listede görünür. **Açık işlerde incelenecek** filtresi önceki sürüme bağlı veya sürümü doğrulanamayan açık talepleri/çalışma kâğıtlarını gösterir. **Kaydı aç** ile doğru işe gidip gerekli yeniden sunma/inceleme kararını verin. Yeni sürüm, onaylı işin sabit kanıtını veya kararını değiştirmez.
 
 **Kullanımı yenile** güncel durumu okur; **Kullanım raporunu indir** filtrelerden bağımsız tüm yüklenmiş sonucu ve kaynak kapsamını JSON olarak indirir. Eksik, erişilemeyen veya yetki dışında kalan kaynaklar ayrıca belirtilir. [Eşleştirmeler ve okuma sınırları](evidence-usage.md).
+
+### Görev paketinde iş günü tarihleri
+
+**Görev paketi oluştur** alanında seçili görevlerin tarihlerini girdikten sonra **Paket iş günü tarihlerini önizle** düğmesini kullanın. Değişmeyen tarihler de listelenir; seçilmeyen görevler etkilenmez. Her tarih aynı veya sonraki çalışma gününe gider; görev süreleri hesaplanmaz, tarihler aynı güne gelebilir. Gerekçe yazıp **Paket tarihlerini taslağa uygula** seçin; ardından **Görev paketini önizle → Tüm görevleri kaydet** ile tamamlayın.
+
+Öneri uygulanınca tarih/saat dilimi ve görev seçimi kilitlenir; değiştirmek için **Paket tarih önerisini geri al** seçin. Başlık, açıklama ve sorumlu düzenlenebilir. Takvim değişirse kayıt yapılmaz ve taslak korunur: **Takvimi yenile ve tarih önerisini geri al** özgün tarihleri getirir; metinleri ve seçiminizi korur. Yeniden önizleyip uygulayın. Takvim yenileme başarısızsa taslak ve öneri korunur. Her görevin değişiklik geçmişinde gerekçe ve kullanılan takvim bulunur. [Ayrıntılar](audit-deadline-planning.md#task-pack-dates).

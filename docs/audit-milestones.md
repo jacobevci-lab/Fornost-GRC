@@ -73,7 +73,7 @@ Email transport and application HTTPS address remain in **Settings → Email & N
 
 ## Create a task pack
 
-In **Plan and scope → Tasks and milestones → Create task pack**, prepare the audit starter pack. Select any of the four scope, evidence preparation, fieldwork and closure tasks; edit the title and expected output, choose an eligible owner and IANA time zone, and enter each selected task’s due date. Dates are not inferred. The optional sequence links each selected task to the preceding selected task, including when intermediate starters are deselected.
+In **Plan and scope → Tasks and milestones → Create task pack**, prepare the audit starter pack. Select any of the four scope, evidence preparation, fieldwork and closure tasks; edit the title and expected output, choose an eligible owner and IANA time zone, and enter each selected task’s due date. Dates are not inferred. The optional working-day planner previews and explicitly adjusts entered dates for all selected tasks using the saved audit calendar; see [task-pack date planning](audit-deadline-planning.md#task-pack-dates). The optional sequence links each selected task to the preceding selected task, including when intermediate starters are deselected.
 
 **Preview task pack** shows the exact titles, descriptions, owners, dates and prerequisites without writing records. Editing invalidates the preview. **Save all tasks** creates the selected planned tasks and their individual history entries in one transaction. A conflict, closed audit, changed permission or event-write failure creates none of the pack. Stable client-generated IDs prevent an uncertain-response retry from creating duplicates. If a response cannot be confirmed, reload the list and inspect it before preparing another pack.
 
