@@ -3302,6 +3302,20 @@ function Reports({ rows: coreRows, lang, go, preparedBy, includeCapa }: { rows: 
           </div></details>
         </div>
       </section>
+      <details className="report-secondary report-global-assurance"><summary>{tr?"Genel GRC güvencesi · ayrı kapsam":"Global GRC assurance · separate scope"}</summary><p className="report-limit-note">{tr?"Yüklenmiş çekirdek GRC kayıtlarını ve kayıtlı denetim portföyünü kapsar; CAPA ve yukarıdaki filtreler dahil değildir.":"Includes loaded core GRC records and the persisted audit portfolio; CAPA and the filters above are excluded."}</p>
+      <EvidenceAssuranceStatus state={evidenceState} lang={lang} />
+      <div className="report-assurance-export"><button type="button" className="ghost" onClick={assuranceReport} disabled={!evidenceState.ready}>
+        {tr ? "Genel Güvence Paketi (ayrı kapsam)" : "Global Assurance Pack (separate scope)"}
+      </button></div>
+      <AuditReadinessPortfolioPanel portfolio={evidenceState.auditPortfolio} lang={lang} />
+      <section className="report-assurance-strip" aria-label={tr ? "Bağlı GRC güvence özeti" : "Connected GRC assurance summary"}>
+        <div><small>{tr ? "Bütünleşik güvence" : "Composite assurance"}</small><b>{evidenceState.ready && assurance.score !== null ? `${assurance.score}/100` : "—"}</b><span>{!evidenceState.ready || assurance.score === null ? (tr ? "Değerlendirme bekleniyor" : "Awaiting evaluation") : assurance.state === "strong" ? (tr ? "Güçlü" : "Strong") : assurance.state === "developing" ? (tr ? "Gelişiyor" : "Developing") : (tr ? "Kritik" : "Critical")}</span></div>
+        <div><small>{tr ? "Zincir bütünlüğü" : "Chain integrity"}</small><b>{assurance.traceabilityScore}%</b><span>{assurance.completeChains}/{assurance.totalChains} {tr ? "tam" : "complete"}</span></div>
+        <div><small>{tr ? "Kontrol güvencesi" : "Control assurance"}</small><b>{evidenceState.evidenceReady ? `${assurance.controlScore}%` : "—"}</b><span>{tr ? "Test ve kanıt" : "Test and evidence"}</span></div>
+        <div><small>{tr ? "Kanıt güveni" : "Evidence confidence"}</small><b>{evidenceState.evidenceReady ? `${assurance.evidenceScore}%` : "—"}</b><span>{evidenceState.evidenceReady ? assurance.currentEvidence : "—"}/{assurance.totalEvidence} {tr ? "güncel" : "current"}</span></div>
+        <div role="button" tabIndex={0} onClick={() => go("Bağlantılı GRC")} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") go("Bağlantılı GRC"); }}><small>{tr ? "Denetim hazırlığı" : "Audit readiness"}</small><b>{evidenceState.auditReady && assurance.auditScore !== null ? `${assurance.auditScore}%` : "—"}</b><span>{tr ? "Açıkları incele →" : "Review gaps →"}</span></div>
+      </section>
+      </details>
       {includeCapa && <div className="report-source-status" role={capaState === "failed" ? "alert" : "status"}>
         <span>{capaState === "ready" ? (tr ? `CAPA kaynağı: ${capaRows.length} kayıt hazır` : `CAPA source: ${capaRows.length} records available`) : capaState === "loading" ? (tr ? `CAPA kayıtları yükleniyor… ${capaLoaded}` : `Loading CAPA records… ${capaLoaded}`) : capaReportFailureMessage(capaFailure, tr)}</span>
         <button className="ghost" disabled={capaState === "loading"} onClick={() => setRefreshCapa(value => value + 1)}>{tr ? "Yenile" : "Refresh"}</button>
@@ -3398,20 +3412,6 @@ function Reports({ rows: coreRows, lang, go, preparedBy, includeCapa }: { rows: 
             {qualitySignals.map((signal) => <div key={signal.label}><span><b>{signal.label}</b><em>{signal.value}%</em></span><i><u style={{ width: `${signal.value}%` }} /></i></div>)}
           </div>
         </div>
-      </section>
-      </details>
-      <details className="report-secondary report-global-assurance"><summary>{tr?"Genel GRC güvencesi · ayrı kapsam":"Global GRC assurance · separate scope"}</summary><p className="report-limit-note">{tr?"Yüklenmiş çekirdek GRC kayıtlarını ve kayıtlı denetim portföyünü kapsar; CAPA ve yukarıdaki filtreler dahil değildir.":"Includes loaded core GRC records and the persisted audit portfolio; CAPA and the filters above are excluded."}</p>
-      <EvidenceAssuranceStatus state={evidenceState} lang={lang} />
-      <div className="report-assurance-export"><button type="button" className="ghost" onClick={assuranceReport} disabled={!evidenceState.ready}>
-        {tr ? "Genel Güvence Paketi (ayrı kapsam)" : "Global Assurance Pack (separate scope)"}
-      </button></div>
-      <AuditReadinessPortfolioPanel portfolio={evidenceState.auditPortfolio} lang={lang} />
-      <section className="report-assurance-strip" aria-label={tr ? "Bağlı GRC güvence özeti" : "Connected GRC assurance summary"}>
-        <div><small>{tr ? "Bütünleşik güvence" : "Composite assurance"}</small><b>{evidenceState.ready && assurance.score !== null ? `${assurance.score}/100` : "—"}</b><span>{!evidenceState.ready || assurance.score === null ? (tr ? "Değerlendirme bekleniyor" : "Awaiting evaluation") : assurance.state === "strong" ? (tr ? "Güçlü" : "Strong") : assurance.state === "developing" ? (tr ? "Gelişiyor" : "Developing") : (tr ? "Kritik" : "Critical")}</span></div>
-        <div><small>{tr ? "Zincir bütünlüğü" : "Chain integrity"}</small><b>{assurance.traceabilityScore}%</b><span>{assurance.completeChains}/{assurance.totalChains} {tr ? "tam" : "complete"}</span></div>
-        <div><small>{tr ? "Kontrol güvencesi" : "Control assurance"}</small><b>{evidenceState.evidenceReady ? `${assurance.controlScore}%` : "—"}</b><span>{tr ? "Test ve kanıt" : "Test and evidence"}</span></div>
-        <div><small>{tr ? "Kanıt güveni" : "Evidence confidence"}</small><b>{evidenceState.evidenceReady ? `${assurance.evidenceScore}%` : "—"}</b><span>{evidenceState.evidenceReady ? assurance.currentEvidence : "—"}/{assurance.totalEvidence} {tr ? "güncel" : "current"}</span></div>
-        <div role="button" tabIndex={0} onClick={() => go("Bağlantılı GRC")} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") go("Bağlantılı GRC"); }}><small>{tr ? "Denetim hazırlığı" : "Audit readiness"}</small><b>{evidenceState.auditReady && assurance.auditScore !== null ? `${assurance.auditScore}%` : "—"}</b><span>{tr ? "Açıkları incele →" : "Review gaps →"}</span></div>
       </section>
       </details>
       <p className="report-limit-note">{options().scope}</p>

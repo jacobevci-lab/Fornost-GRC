@@ -54,6 +54,7 @@ try{
  await expect(panel.locator('.report-secondary[open]')).toHaveCount(0);
  await panel.getByLabel('Report module',{exact:true}).selectOption('BIA');
  await expect(panel.getByRole('button',{name:'PDF Report',exact:true})).toBeVisible();
+ await expect(panel.locator('.report-global-assurance>summary')).toBeInViewport();
  const headerBox=await panel.boundingBox(),tableBox=await panel.locator('.table-card').boundingBox();assert.ok(tableBox.y-headerBox.y<700,'Register must be close to the scope controls');
  await mkdir('layout-qa-artifacts',{recursive:true});
  await panel.screenshot({path:'layout-qa-artifacts/reporting-desktop.png'});
