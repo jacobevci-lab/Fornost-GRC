@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { AssuranceRow } from './control-assurance';
 import { withBasePath } from './base-path';
 import { applyEvidenceAssuranceSnapshot } from './evidence/assurance-snapshot';
-import { parseExecutiveAssuranceSnapshot, type ExecutiveAssuranceSnapshot } from './executive-assurance-snapshot';
+import { executiveEvidenceSnapshot, parseExecutiveAssuranceSnapshot, type ExecutiveAssuranceSnapshot } from './executive-assurance-snapshot';
 
 export function useExecutiveAssurance(rows: AssuranceRow[]) {
   const [result, setResult] = useState<{ scope: AssuranceRow[]; snapshot: ExecutiveAssuranceSnapshot | null } | null>(null);
@@ -39,6 +39,8 @@ export function useExecutiveAssurance(rows: AssuranceRow[]) {
     return () => { active = false; controller?.abort(); window.clearInterval(timer); window.removeEventListener('focus', onFocus); document.removeEventListener('visibilitychange', onFocus); };
   }, [rows, revision]);
   const snapshot = result?.scope === rows ? result.snapshot : null;
-  const applied = useMemo(() => applyEvidenceAssuranceSnapshot(rows, snapshot), [rows, snapshot]);
-  return { ...applied, auditPortfolio: snapshot?.auditPortfolio, generatedAt: snapshot?.generatedAt, loading: loading || (result !== null && result.scope !== rows), refresh };
+  const applied = useMemo(() => applyEvidenceAssuranceSnapshot(rows, snapshot ? executiveEvidenceSnapshot(snapshot) : null), [rows, snapshot]);
+  return { ...applied, evidenceReady: applied.ready, auditReady: !!snapshot?.auditPortfolio.verified,
+    ready: applied.ready && !!snapshot?.verified, issues: snapshot?.issues || ['snapshot-unavailable'],
+    auditPortfolio: snapshot?.auditPortfolio, generatedAt: snapshot?.generatedAt, loading: loading || (result !== null && result.scope !== rows), refresh };
 }

@@ -27,7 +27,8 @@ import { linkedRecordOptions } from "./linked-record-options";
 import { dueTimestamp } from "./due-date";
 import { hasRecoveryTarget } from "./bia-recovery";
 import { isCoreRecordRequest, resolveCoreRecord, coreRecordReference } from "./core-record-focus";
-import { FORNOST_FOCUS_EVENT, peekPendingFornostFocus, consumePendingFornostFocus, type FornostNavigationRequest } from "./navigation-focus";
+import { readCoreRecordSession, writeCoreRecordSession } from "./core-record-session";
+import { FORNOST_BEFORE_FOCUS_EVENT, FORNOST_FOCUS_EVENT, peekPendingFornostFocus, consumePendingFornostFocus, type FornostNavigationRequest } from "./navigation-focus";
 import { sameDomainModule } from "./domain-identity";
 import { unassignedAuditRequirements } from "./audit-unassigned-requirements";
 import { auditNameKey } from "./audit-readiness-portfolio";
@@ -37,6 +38,8 @@ import "./core-record-focus.css";
 import NavIcon from "./nav-icon";
 import { RecordSearch } from "./record-search";
 import { useRegisterView } from "./use-register-view";
+import RegisterEmptyState from "./register-empty-state";
+import { registerExperience } from "./register-experience";
 import { fields, registerColumns, registerFilterKeys } from "./register-view-schema";
 import { SavedRegisterViewsPanel } from "./saved-register-views-panel";
 import { navigateToFornost } from "./navigation-focus";
@@ -81,6 +84,8 @@ import ControlAssuranceWorkspace from "./control-assurance-workspace";
 import ExecutiveAssurancePanel from "./executive-assurance-panel";
 import { useExecutiveAssurance } from './use-executive-assurance';
 import AuditReadinessPortfolioPanel from './audit-readiness-portfolio-panel';
+import EvidenceQualityLens from "./evidence-quality-lens";
+import { useEvidenceAssurance, EvidenceAssessmentContext, useEvidenceFreshness, type EvidenceRegisterAssessment } from "./use-evidence-assurance";
 import EvidenceAssuranceStatus from './evidence-assurance-status';
 import { buildAssuranceReportHtml, buildExecutiveAssurance } from "./executive-assurance";
 import AuditReadinessGate from "./audit-readiness-gate";
@@ -1119,6 +1124,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
     [active, setActive] = useState("Ana Sayfa"),
     [rows, setRows] = useState<Row[]>([]),
     [rowsLoaded, setRowsLoaded] = useState(false),
+    [registerLoadState, setRegisterLoadState] = useState<"loading" | "error" | "ready">("loading"),
     [modal, setModal] = useState(false),
     [editing, setEditing] = useState<Row | null>(null),
     [form, setForm] = useState<Record<string, any>>({}),
@@ -1146,6 +1152,12 @@ function FornostApp({ currentUser }: { currentUser: any }) {
   const [commandMode, setCommandMode] = useState<"modules" | "records">("modules");
   const closeCommand = useCallback(() => { setCommandOpen(false); requestAnimationFrame(() => document.querySelector<HTMLButtonElement>(".command-trigger")?.focus()); }, []);
   const commandDialogRef = useRecordDialog(commandOpen, closeCommand);
+  const [recordRequest, setRecordRequest] = useState<FornostNavigationRequest | null>(null);
+  const [focusedRecord, setFocusedRecord] = useState<{ id: string; ref: string; state?: "loading" | "error"; request?: FornostNavigationRequest } | null>(null);
+  const recordContext = useRef<FornostNavigationRequest | null>(null);
+  const navigationOrigin = useRef<FornostNavigationRequest["returnTo"]>(undefined);
+  const activeModule = useRef(active);
+  useEffect(() => { activeModule.current = active; }, [active]);
   const [pageRestored, setPageRestored] = useState(false);
   const pageKey = pageSessionKey(String(currentUser.id));
   useEffect(() => {
@@ -1154,6 +1166,11 @@ function FornostApp({ currentUser }: { currentUser: any }) {
       (currentUser.role === "Admin" || !adminModules.has(module)) &&
       canOpenModule(currentUser, module));
     setActive(restored);
+    const savedFocus = readCoreRecordSession(() => window.sessionStorage, String(currentUser.id), module => modules.includes(module) && canOpenModule(currentUser, module) && (currentUser.role === "Admin" || !adminModules.has(module)));
+    if (savedFocus && sameDomainModule(savedFocus.module, restored) && !peekPendingFornostFocus()) {
+      recordContext.current = savedFocus;
+      setRecordRequest(savedFocus);
+    }
     setPageRestored(true);
   }, [pageKey, currentUser]);
   useEffect(() => {
@@ -1166,17 +1183,36 @@ function FornostApp({ currentUser }: { currentUser: any }) {
   const recordDialogRef=useRecordDialog(modal,closeRecordDialog);
   const labels = labelMap[lang],
     u = ui[lang];
-  const [recordRequest, setRecordRequest] = useState<FornostNavigationRequest | null>(null);
-  const [focusedRecord, setFocusedRecord] = useState<{ id: string; ref: string; state?: "loading" | "error"; request?: FornostNavigationRequest } | null>(null);
+  const clearRecordFocus = () => {
+    consumePendingFornostFocus(active); recordContext.current = null;
+    writeCoreRecordSession(() => window.sessionStorage, String(currentUser.id), null);
+    setRecordRequest(null); setFocusedRecord(null);
+  };
+  const returnFromRecord = () => {
+    const origin = recordContext.current?.returnTo;
+    clearRecordFocus();
+    if (origin && canOpenModule(currentUser, origin.module)) navigateToFornost({ ...origin, source: "record-return" });
+  };
   useEffect(() => {
+    const before = (event: Event) => {
+      const request = (event as CustomEvent<FornostNavigationRequest>).detail;
+      navigationOrigin.current = request.returnTo || { module: activeModule.current };
+    };
     const accept = (request: FornostNavigationRequest | null) => {
-      if (request && isCoreRecordRequest(request)) setRecordRequest(request);
+      if (request && isCoreRecordRequest(request) && canOpenModule(currentUser, request.module)) {
+        const next = { ...request, returnTo: request.returnTo || navigationOrigin.current };
+        recordContext.current = next;
+        writeCoreRecordSession(() => window.sessionStorage, String(currentUser.id), next);
+        setRecordRequest(next);
+      }
     };
     const listener = (event: Event) => accept((event as CustomEvent<FornostNavigationRequest>).detail);
+    window.addEventListener(FORNOST_BEFORE_FOCUS_EVENT, before);
     window.addEventListener(FORNOST_FOCUS_EVENT, listener);
     accept(peekPendingFornostFocus());
-    return () => window.removeEventListener(FORNOST_FOCUS_EVENT, listener);
-  }, []);
+    return () => { window.removeEventListener(FORNOST_BEFORE_FOCUS_EVENT, before); window.removeEventListener(FORNOST_FOCUS_EVENT, listener); };
+  }, [currentUser]);
+  const evidenceRegisterState = useEvidenceAssurance(rows, active === "Kanıtlar" && !scoped);
   linkedRows = rows;
   catalogOptions = catalogs;
   useEffect(() => {
@@ -1254,6 +1290,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
         lang === "tr" ? "FORNOST GRC GENEL DURUM" : "FORNOST GRC OVERVIEW";
   }, [lang, active]);
   const load = useCallback(async () => {
+    setRegisterLoadState("loading");
     try {
       const rawRows = await readAllGrcPages<any>(async cursor => {
         const response = await fetch(withBasePath(`/api/grc${cursor ? `?cursor=${encodeURIComponent(cursor)}` : ""}`),{cache:"no-store"});
@@ -1263,9 +1300,11 @@ function FornostApp({ currentUser }: { currentUser: any }) {
       });
       const nextRows:Row[]=rawRows.map(x=>({...x,data:JSON.parse(x.data_json),code:x.recordCode||x.record_code,createdAt: x.createdAt || x.created_at,updatedAt: x.updatedAt || x.updated_at})).sort((a,b)=>String(b.updatedAt).localeCompare(String(a.updatedAt)));
       setRows(nextRows);
+      setRegisterLoadState("ready");
       return nextRows;
     } catch (error) {
       setRows([]);
+      setRegisterLoadState("error");
       setNotice(
         error instanceof Error
           ? error.message
@@ -1303,7 +1342,11 @@ function FornostApp({ currentUser }: { currentUser: any }) {
     setColumnPickerOpen(false);
     setFilterPanelOpen(false);
     setFocusedRecord(null);
-  }, [active]);
+    if (pageRestored && recordContext.current && !sameDomainModule(recordContext.current.module, active)) {
+      recordContext.current = null;
+      writeCoreRecordSession(() => window.sessionStorage, String(currentUser.id), null);
+    }
+  }, [active, pageRestored, currentUser.id]);
   useEffect(() => {
     if (!recordRequest || !sameDomainModule(recordRequest.module, active)) return;
     let cancelled = false;
@@ -1604,26 +1647,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
     }finally{recordWritePending.current=false;setSaving(false);}
   }
   const by = (m: string) => rows.filter((r) => r.module === m),
-    desc =
-      active === "Risk Assessment"
-        ? lang === "tr"
-          ? "Riskleri kaydet, 5×5 skorunu ve dağılımını gör."
-          : "Record risks and view their 5×5 scores and distribution."
-        : active === "BIA"
-          ? lang === "tr"
-            ? "Kritik süreçleri, iş etkisini ve RTO/RPO hedeflerini tut."
-            : "Track critical processes, business impacts and RTO/RPO targets."
-          : active === "Kanıtlar"
-            ? lang === "tr"
-              ? "Kanıt dosyalarını kontrol maddeleri ve standartlarla eşleştir."
-              : "Map evidence files to controls and applicable standards."
-            : active === "Denetim Yönetimi"
-              ? lang === "tr"
-                ? "Denetim maddelerini, sorumluları, kanıtları ve terminleri uçtan uca takip et."
-                : "Track audit requirements, owners, evidence and deadlines end to end."
-              : lang === "tr"
-                ? "Kayıtlarını sade, aranabilir ve raporlanabilir biçimde yönet."
-                : "Manage records in a simple, searchable and reportable format.";
+    desc = registerExperience(active, lang).description;
   const navGroups = [
     { id: "overview", label: lang === "tr" ? "GENEL BAKIŞ" : "OVERVIEW", items: ["Ana Sayfa","Benim İşlerim"] },
     { id: "risk", label: lang === "tr" ? "RİSK" : "RISK", items: ["Risk Assessment","Varlık Envanteri","BIA","Tedarikçiler","Risk İştahı ve KRI","İş Sürekliliği"] },
@@ -1675,6 +1699,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
       setCommandQuery("");
       return;
     }
+    clearRecordFocus();
     setActive(module);
     setNotice("");
     setMobileNavOpen(false);
@@ -1943,7 +1968,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
                     </i>
                     <span>
                       <b>{names[lang][module]}</b>
-                      <small>{module}</small>
+                      <small>{lang === "tr" ? "Çalışma alanını aç" : "Open workspace"}</small>
                     </span>
                     {recentModules.includes(module) && (
                       <em>{lang === "tr" ? "Son" : "Recent"}</em>
@@ -2081,16 +2106,16 @@ function FornostApp({ currentUser }: { currentUser: any }) {
                 <b>{currentUser.name || currentUser.email}</b>
                 <small>
                   {currentUser.role} ·{" "}
-                  {currentUser.source === "local" ? "Yerel" : "Entra SSO"}
+                  {currentUser.source === "local" ? (lang === "tr" ? "Yerel" : "Local") : "Entra SSO"}
                 </small>
               </div>
             </div>
           </div>
         </header>
         {notice && (
-          <div className="notice" onClick={() => setNotice("")}>
+          <div className="notice" role="status">
             {notice}
-            <b>×</b>
+            <button type="button" onClick={() => setNotice("")} aria-label={lang === "tr" ? "Bildirimi kapat" : "Dismiss notification"}>×</button>
           </div>
         )}
         {focusedRecord && <section className="core-record-focus" role="status" aria-live="polite">
@@ -2099,8 +2124,8 @@ function FornostApp({ currentUser }: { currentUser: any }) {
             : (lang === "tr" ? "Kayıt bulunamadı veya artık erişilemiyor" : "Record not found or no longer available")}</strong><span>{focusedRecord.ref}</span></div>
           {focusedRecord.id && !focusedRecord.state && <CopyRecordLink key={focusedRecord.id} lang={lang} target={{module:active,kind:"record",ref:focusedRecord.id}} />}
           {focusedRecord.state === "error" && focusedRecord.request && <button type="button" onClick={() => setRecordRequest({ ...focusedRecord.request! })}>{lang === "tr" ? "Kaydı yeniden yükle" : "Reload record"}</button>}
-          <button type="button" onClick={() => { consumePendingFornostFocus(active); setRecordRequest(null); setFocusedRecord(null); }}>{lang === "tr" ? "Önceki görünüme dön" : "Return to previous view"}</button>
-          <button type="button" onClick={() => { consumePendingFornostFocus(active); setRecordRequest(null); setFocusedRecord(null); setQuery(""); setRegisterFilters({}); }}>{lang === "tr" ? "Tüm kayıtları göster" : "Show all records"}</button>
+          <button type="button" onClick={returnFromRecord}>{lang === "tr" ? "Önceki görünüme dön" : "Return to previous view"}</button>
+          <button type="button" onClick={() => { clearRecordFocus(); setQuery(""); setRegisterFilters({}); }}>{lang === "tr" ? "Tüm kayıtları göster" : "Show all records"}</button>
         </section>}
         {!canOpenModule(currentUser,active) ? <section className="module-scope-home"><h2>{lang==="tr"?"Bu modüle erişiminiz yok":"Module access is unavailable"}</h2><button onClick={()=>navigateToModule("Ana Sayfa")}>{lang==="tr"?"Ana sayfa":"Home"}</button></section> : active === "Ana Sayfa" && scoped ? (
           <section className="module-scope-home"><h2>{lang==="tr"?"Çalışma alanım":"My workspace"}</h2><p>{lang==="tr"?"İzin verilen modüllerdeki kayıtları görüntüleyin ve yönetin. Ortak raporlar ve gelişmiş iş akışları için tam çalışma alanı erişimi gerekir.":"View and manage records in your permitted modules. Shared reports and advanced workflows require full workspace access."}</p><div className="module-scope-cards">{readableModules(currentUser).map(module=><button key={module} onClick={()=>navigateToModule(module)}><b>{names[lang][module]}</b><small>{by(module).length} {lang==="tr"?"kayıt":"records"} · {canWriteModule(currentUser,module)?(lang==="tr"?"Okuma ve düzenleme":"Read and edit"):(lang==="tr"?"Okuma":"Read")}</small></button>)}</div>{!readableModules(currentUser).length&&<p>{lang==="tr"?"Henüz modül erişimi atanmadı. Yöneticinizle iletişime geçin.":"No module access has been assigned. Contact your administrator."}</p>}</section>
@@ -2164,12 +2189,12 @@ function FornostApp({ currentUser }: { currentUser: any }) {
             selected={selectedAudit}
             select={(x) => {
               setSelectedAudit(x);
-              setFocusedRecord(null);
+              clearRecordFocus();
               setQuery("");
             }}
             lang={lang}
             query={focusedRecord ? "" : query}
-            setQuery={value => { setFocusedRecord(null); setQuery(value); }}
+            setQuery={value => { clearRecordFocus(); setQuery(value); }}
             openNew={openNew}
             edit={openEdit}
             remove={remove}
@@ -2195,6 +2220,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
                   canWriteModule(currentUser,active) && (
                     <button
                       className="ghost"
+                      disabled={registerLoadState !== "ready"}
                       onClick={() => setImportOpen(true)}
                     >
                       {u.import}
@@ -2202,6 +2228,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
                   )}
                 <button
                   className="ghost"
+                  disabled={registerLoadState !== "ready"}
                   onClick={() =>
                     csvDownload(`${names[lang][active]}.csv`, visible, lang)
                   }
@@ -2209,20 +2236,21 @@ function FornostApp({ currentUser }: { currentUser: any }) {
                   {u.csv}
                 </button>
                 {canWriteModule(currentUser,active) && (
-                  <button className="primary" onClick={() => openNew()}>
+                  <button className="primary" disabled={registerLoadState !== "ready"} onClick={() => openNew()}>
                     {u.new}
                   </button>
                 )}
               </div>
             </section>
-            {active === "Risk Assessment" && (
+            {registerLoadState === "ready" && active === "Risk Assessment" && (
               <RiskOverview rows={by("Risk Assessment")} lang={lang} />
             )}
-            {!scoped && ["BIA","Varlık Envanteri","Uyum","Kontroller"].includes(active) && (
+            {registerLoadState === "ready" && !scoped && ["BIA","Varlık Envanteri","Uyum","Kontroller"].includes(active) && (
               <CoreModuleOverview module={active} rows={by(active)} allRows={rows} lang={lang}/>
             )}
-            {active === "Kanıtlar" && <EvidenceUsagePanel lang={lang} records={by("Kanıtlar")} focusedId={focusedRecord?.id || ""} />}
-            {!scoped && active === "Kontroller" && (
+            {!scoped && active === "Kanıtlar" && <EvidenceQualityLens state={evidenceRegisterState} lang={lang} />}
+            {registerLoadState === "ready" && active === "Kanıtlar" && <EvidenceUsagePanel lang={lang} records={by("Kanıtlar")} focusedId={focusedRecord?.id || ""} />}
+            {registerLoadState === "ready" && !scoped && active === "Kontroller" && (
               <details className="module-analysis-disclosure" key="control-analysis">
                 <summary><span><b>{lang === "tr" ? "Kontrol güvencesi ve etki analizi" : "Control assurance & impact analysis"}</b><small>{lang === "tr" ? "Güvence skorları, kanıt zinciri ve öncelikli aksiyonlar" : "Assurance scores, evidence lineage and priority actions"}</small></span></summary>
                 <ControlAssuranceWorkspace rows={rows} lang={lang} go={navigateToModule} />
@@ -2238,19 +2266,26 @@ function FornostApp({ currentUser }: { currentUser: any }) {
                 lang={lang}
                 rows={by(active)}
                 resultCount={visible.length}
+                sourceState={registerLoadState}
                 query={focusedRecord ? "" : query}
-                setQuery={value => { setFocusedRecord(null); setQuery(value); }}
+                setQuery={value => { clearRecordFocus(); setQuery(value); }}
                 selectedColumnKeys={selectedColumnKeys}
                 setSelectedColumnKeys={setModuleColumns}
                 filters={focusedRecord ? {} : registerFilters}
-                setFilters={value => { setFocusedRecord(null); setRegisterFilters(value); }}
+                setFilters={value => { clearRecordFocus(); setRegisterFilters(value); }}
                 columnPickerOpen={columnPickerOpen}
                 setColumnPickerOpen={setColumnPickerOpen}
                 filterPanelOpen={filterPanelOpen}
                 setFilterPanelOpen={setFilterPanelOpen}
               />
               <div className="table-wrap" tabIndex={0} role="region" aria-label={lang === "tr" ? "Kayıt tablosu" : "Record table"}>
-                {active === "Risk Assessment" ? (
+                {!focusedRecord && (registerLoadState !== "ready" || !visible.length) ? <RegisterEmptyState
+                  module={active} lang={lang} state={registerLoadState}
+                  filtered={Boolean(query || Object.values(registerFilters).some(Boolean))}
+                  onRetry={() => { setNotice(""); void load(); }}
+                  onClear={() => { setQuery(""); setRegisterFilters({}); requestAnimationFrame(() => document.querySelector<HTMLInputElement>(".register-search input")?.focus()); }}
+                  onCreate={canWriteModule(currentUser,active) ? () => openNew() : undefined}
+                /> : active === "Risk Assessment" ? (
                   <RiskRegister
                     rows={visible}
                     lang={lang}
@@ -2267,6 +2302,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
                     lang={lang}
                     edit={openEdit}
                     remove={remove}
+                    evidenceAssessment={active === "Kanıtlar" && !scoped ? evidenceRegisterState : undefined}
                     viewEvidence={setPreviewEvidence}
                     columns={selectedColumnKeys}
                     canWrite={canWriteModule(currentUser,active)}
@@ -2288,6 +2324,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
             aria-modal="true"
             aria-busy={saving}
             aria-label={names[lang][active]}
+            aria-describedby="record-form-guide"
             onMouseDown={(e) => e.stopPropagation()}
           >
             <div className="modal-head">
@@ -2303,9 +2340,11 @@ function FornostApp({ currentUser }: { currentUser: any }) {
                 ×
               </button>
             </div>
+            <p id="record-form-guide" className="record-form-guide">{registerExperience(active, lang).formHint}</p>
             {editing && <CopyRecordLink key={editing.id} lang={lang} target={{module:active,kind:"record",ref:editing.id}} />}
             {active === "Kanıtlar" && !editing ? (
               <form onSubmit={uploadEvidence} className="form">
+                <div className="fornost-progressive-slot" />
                 <label className="wide">
                   {u.file}
                   <input
@@ -2337,6 +2376,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
               </form>
             ) : (
               <form onSubmit={save} className="form">
+                <div className="fornost-progressive-slot" />
                 {fields[active].map((k) => (
                   <Field
                     key={k}
@@ -3054,7 +3094,7 @@ function CoreModuleOverview({module,rows,allRows,lang}:{module:string;rows:Row[]
     BIA:{eyebrow:tr?"İŞ DAYANIKLILIĞI":"BUSINESS RESILIENCE",title:tr?"Kritik süreç hazırlığı":"Critical process readiness",detail:tr?"Etki, kurtarma hedefi ve test hazırlığını birlikte izleyin.":"Track impact, recovery objectives and test readiness together.",metrics:[[rows.length,tr?"Toplam süreç":"Total processes",tr?"Kapsamdaki iş süreçleri":"Business processes in scope","neutral"],[count("criticality",["Kritik","Critical"]),tr?"Kritik süreç":"Critical processes",tr?"Öncelikli kurtarma kapsamı":"Priority recovery scope","danger"],[rows.filter(row=>hasRecoveryTarget(row.data.rto)&&hasRecoveryTarget(row.data.rpo)).length,tr?"RTO/RPO tanımlı":"RTO/RPO defined",tr?"Kurtarma hedefi bulunan":"With recovery objectives","positive"],[count("status",["Taslak","İncelemede"]),tr?"Karar gereken":"Decision required",tr?"Taslak veya incelemede":"Draft or under review","warning"]]},
     "Varlık Envanteri":{eyebrow:tr?"TEKNOLOJİ MARUZİYETİ":"TECHNOLOGY EXPOSURE",title:tr?"Varlık güvenlik görünümü":"Asset security posture",detail:tr?"Kritiklik, veri sınıfı, internet maruziyeti ve güvenlik kapsamasını tek bakışta değerlendirin.":"Evaluate criticality, data class, internet exposure and security coverage at a glance.",metrics:[[rows.length,tr?"Toplam varlık":"Total assets",tr?"Yönetilen envanter":"Managed inventory","neutral"],[count("criticality",["Kritik","Critical"]),tr?"Kritik varlık":"Critical assets",tr?"Yüksek iş etkisi":"High business impact","danger"],[rows.filter(row=>row.data.internetFacing===true||String(row.data.internetFacing).toLowerCase()==="evet").length,tr?"İnternete açık":"Internet-facing",tr?"Dış saldırı yüzeyi":"External attack surface","warning"],[rows.filter(row=>["Aktif","Active"].includes(String(row.data.status))).length,tr?"Aktif yaşam döngüsü":"Active lifecycle",tr?"Operasyonda olan":"Currently operational","positive"]]},
     Uyum:{eyebrow:tr?"KONTROL GÜVENCESİ":"CONTROL ASSURANCE",title:tr?"Uyum uygulama görünümü":"Compliance implementation posture",detail:tr?"Framework maddelerini uygulama ve kanıt durumuyla birlikte yönetin.":"Govern framework requirements together with implementation and evidence state.",metrics:[[rows.length,tr?"Toplam madde":"Total requirements",tr?"Değerlendirilen kapsam":"Assessed scope","neutral"],[count("status",["Uyumlu","Compliant"]),tr?"Uyumlu":"Compliant",tr?"Kanıtlanmış maddeler":"Evidence-backed requirements","positive"],[count("status",["Kısmi Uyumlu","Partially Compliant"]),tr?"Kısmi uyum":"Partial",tr?"İyileştirme gereken":"Needs improvement","warning"],[count("status",["Uyumlu Değil","Noncompliant"]),tr?"Uyumlu değil":"Noncompliant",tr?"Öncelikli sapma":"Priority deviation","danger"]]},
-    Kontroller:{eyebrow:tr?"ORTAK KONTROL KÜTÜPHANESİ":"COMMON CONTROL LIBRARY",title:tr?"Kontrol etkinliği ve kanıt kapsaması":"Control effectiveness and evidence coverage",detail:tr?"Tek bir kontrolü framework, test sahibi ve kanıtlarla uçtan uca bağlayın.":"Connect each control end to end with frameworks, test ownership and evidence.",metrics:[[rows.length,tr?"Toplam kontrol":"Total controls",tr?"Ortak kontrol seti":"Common control set","neutral"],[count("status",["Aktif","Active"]),tr?"Aktif kontrol":"Active controls",tr?"Operasyonel kontroller":"Operational controls","positive"],[count("status",["İyileştirme Gerekli","Needs Improvement"]),tr?"İyileştirme":"Needs improvement",tr?"Etkinlik açığı bulunan":"Effectiveness gaps","warning"],[rows.filter(row=>linkedEvidence.has(String(row.data.controlRef||""))).length,tr?"Kanıt bağlı":"Evidence linked",tr?"En az bir güncel kanıt":"At least one evidence item","info"]]},
+    Kontroller:{eyebrow:tr?"ORTAK KONTROL KÜTÜPHANESİ":"COMMON CONTROL LIBRARY",title:tr?"Kontrol etkinliği ve kanıt kapsaması":"Control effectiveness and evidence coverage",detail:tr?"Tek bir kontrolü framework, test sahibi ve kanıtlarla uçtan uca bağlayın.":"Connect each control end to end with frameworks, test ownership and evidence.",metrics:[[rows.length,tr?"Toplam kontrol":"Total controls",tr?"Ortak kontrol seti":"Common control set","neutral"],[count("status",["Aktif","Active"]),tr?"Aktif kontrol":"Active controls",tr?"Operasyonel kontroller":"Operational controls","positive"],[count("status",["İyileştirme Gerekli","Needs Improvement"]),tr?"İyileştirme":"Needs improvement",tr?"Etkinlik açığı bulunan":"Effectiveness gaps","warning"],[rows.filter(row=>linkedEvidence.has(String(row.data.controlRef||""))).length,tr?"Kanıt bağlı":"Evidence linked",tr?"En az bir bağlı kanıt":"At least one evidence item","info"]]},
     Kanıtlar:{eyebrow:tr?"KANIT GÜVENİ":"EVIDENCE TRUST",title:tr?"Kanıt güncelliği ve kontrol bağlantısı":"Evidence freshness and control linkage",detail:tr?"Kanıtların sahipliğini, geçerliliğini ve tekrar kullanımını izleyin.":"Track evidence ownership, validity and reusable control mappings.",metrics:[[rows.length,tr?"Toplam kanıt":"Total evidence",tr?"Kanıt kasasındaki kayıt":"Records in evidence vault","neutral"],[count("status",["Onaylandı","Approved"]),tr?"Onaylı":"Approved",tr?"İncelenmiş kanıt":"Reviewed evidence","positive"],[count("status",["İncelemede","In Review"]),tr?"İncelemede":"In review",tr?"Reviewer kararı gereken":"Reviewer decision required","warning"],[count("status",["Süresi Doldu","Expired"]),tr?"Süresi dolmuş":"Expired",tr?"Yenilenmesi gereken":"Renewal required","danger"]]},
   };
   const config=configurations[module];if(!config)return null;
@@ -3195,7 +3235,7 @@ function Reports({ rows: coreRows, lang, go, preparedBy, includeCapa }: { rows: 
     setStatus(all);
     setPreviewPage(1);
   };
-  const options=():ReportOptions=>({template,preparedBy,classification:classification==="confidential"?(tr?"Gizli":"Confidential"):(tr?"Kurum İçi":"Internal"),fieldLabels:labelMap[lang],moduleLabels:names[lang],scope:includeCapa && (module===all || module===CAPA_REPORT_MODULE)?(tr?"Yüklenmiş çekirdek GRC ve merkezi CAPA kayıtları. AI ve diğer ayrı iş akışı depoları dahil değildir.":"Loaded core GRC and canonical CAPA records. AI and other separate workflow stores are excluded."):(tr?"Yüklenmiş çekirdek GRC kayıtları. CAPA, AI ve ayrı iş akışı depoları dahil değildir.":"Loaded core GRC records. CAPA, AI and separate workflow stores are excluded."),filters:[{label:tr?"Modül":"Module",value:selectedModuleLabel},{label:tr?"İş birimi":"Business unit",value:unit===all?allLabel:unit},{label:tr?"Sahip":"Owner",value:owner===all?allLabel:owner},{label:tr?"Durum":"Status",value:status===all?allLabel:status}]});
+  const options=():ReportOptions=>({template,preparedBy,classification:classification==="confidential"?(tr?"Gizli":"Confidential"):(tr?"Kurum İçi":"Internal"),fieldLabels:labelMap[lang],moduleLabels:names[lang],scope:includeCapa && (module===all || module===CAPA_REPORT_MODULE)?(tr?"Yüklenmiş çekirdek GRC ve merkezi CAPA kayıtları. AI ve diğer ayrı iş akışı depoları dahil değildir.":"Loaded core GRC and canonical CAPA records. AI and other separate workflow stores are excluded."):(tr?"Yüklenmiş çekirdek GRC kayıtları. CAPA, AI ve ayrı iş akışı depoları dahil değildir.":"Loaded core GRC records. CAPA, AI and separate workflow stores are excluded."),filters:[{label:tr?"Modül":"Module",value:selectedModuleLabel},{label:tr?"İş birimi":"Business unit",value:unit===all?(tr?"Tümü":"All"):unit},{label:tr?"Sahip":"Owner",value:owner===all?(tr?"Tümü":"All"):owner},{label:tr?"Durum":"Status",value:status===all?(tr?"Tümü":"All"):display(status,lang)}]});
   function htmlReport() {
     if (reportUnavailable) return;
     downloadBlob(`Fornost-GRC-${exportSlug}.html`, new Blob([buildReportHtml(reportTitle, filtered, metrics, tr,options())], { type: "text/html;charset=utf-8" }));
@@ -3232,7 +3272,6 @@ function Reports({ rows: coreRows, lang, go, preparedBy, includeCapa }: { rows: 
   }
   return (
     <div className="report-workspace">
-      <EvidenceAssuranceStatus state={evidenceState} lang={lang} />
       <section className="report-hero">
         <div>
           <small>{tr ? "RAPORLAMA" : "REPORTING"}</small>
@@ -3254,9 +3293,6 @@ function Reports({ rows: coreRows, lang, go, preparedBy, includeCapa }: { rows: 
           <button className="ghost" onClick={htmlReport} disabled={reportUnavailable||!filtered.length}>
             HTML
           </button>
-          <button className="ghost" onClick={assuranceReport} disabled={!evidenceState.ready}>
-            {tr ? "Genel Güvence Paketi (ayrı kapsam)" : "Global Assurance Pack (separate scope)"}
-          </button>
           <button className="ghost" onClick={() => downloadBlob(`Fornost-GRC-${exportSlug}.csv`,new Blob([buildReportCsv(reportTitle,filtered,metrics,tr,options())],{type:"text/csv;charset=utf-8"}))} disabled={reportUnavailable||!filtered.length}>
             CSV
           </button>
@@ -3266,6 +3302,20 @@ function Reports({ rows: coreRows, lang, go, preparedBy, includeCapa }: { rows: 
           </div></details>
         </div>
       </section>
+      <details className="report-secondary report-global-assurance"><summary>{tr?"Genel GRC güvencesi · ayrı kapsam":"Global GRC assurance · separate scope"}</summary><p className="report-limit-note">{tr?"Yüklenmiş çekirdek GRC kayıtlarını ve kayıtlı denetim portföyünü kapsar; CAPA ve yukarıdaki filtreler dahil değildir.":"Includes loaded core GRC records and the persisted audit portfolio; CAPA and the filters above are excluded."}</p>
+      <EvidenceAssuranceStatus state={evidenceState} lang={lang} />
+      <div className="report-assurance-export"><button type="button" className="ghost" onClick={assuranceReport} disabled={!evidenceState.ready}>
+        {tr ? "Genel Güvence Paketi (ayrı kapsam)" : "Global Assurance Pack (separate scope)"}
+      </button></div>
+      <AuditReadinessPortfolioPanel portfolio={evidenceState.auditPortfolio} lang={lang} />
+      <section className="report-assurance-strip" aria-label={tr ? "Bağlı GRC güvence özeti" : "Connected GRC assurance summary"}>
+        <div><small>{tr ? "Bütünleşik güvence" : "Composite assurance"}</small><b>{evidenceState.ready && assurance.score !== null ? `${assurance.score}/100` : "—"}</b><span>{!evidenceState.ready || assurance.score === null ? (tr ? "Değerlendirme bekleniyor" : "Awaiting evaluation") : assurance.state === "strong" ? (tr ? "Güçlü" : "Strong") : assurance.state === "developing" ? (tr ? "Gelişiyor" : "Developing") : (tr ? "Kritik" : "Critical")}</span></div>
+        <div><small>{tr ? "Zincir bütünlüğü" : "Chain integrity"}</small><b>{assurance.traceabilityScore}%</b><span>{assurance.completeChains}/{assurance.totalChains} {tr ? "tam" : "complete"}</span></div>
+        <div><small>{tr ? "Kontrol güvencesi" : "Control assurance"}</small><b>{evidenceState.evidenceReady ? `${assurance.controlScore}%` : "—"}</b><span>{tr ? "Test ve kanıt" : "Test and evidence"}</span></div>
+        <div><small>{tr ? "Kanıt güveni" : "Evidence confidence"}</small><b>{evidenceState.evidenceReady ? `${assurance.evidenceScore}%` : "—"}</b><span>{evidenceState.evidenceReady ? assurance.currentEvidence : "—"}/{assurance.totalEvidence} {tr ? "güncel" : "current"}</span></div>
+        <div role="button" tabIndex={0} onClick={() => go("Bağlantılı GRC")} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") go("Bağlantılı GRC"); }}><small>{tr ? "Denetim hazırlığı" : "Audit readiness"}</small><b>{evidenceState.auditReady && assurance.auditScore !== null ? `${assurance.auditScore}%` : "—"}</b><span>{tr ? "Açıkları incele →" : "Review gaps →"}</span></div>
+      </section>
+      </details>
       {includeCapa && <div className="report-source-status" role={capaState === "failed" ? "alert" : "status"}>
         <span>{capaState === "ready" ? (tr ? `CAPA kaynağı: ${capaRows.length} kayıt hazır` : `CAPA source: ${capaRows.length} records available`) : capaState === "loading" ? (tr ? `CAPA kayıtları yükleniyor… ${capaLoaded}` : `Loading CAPA records… ${capaLoaded}`) : capaReportFailureMessage(capaFailure, tr)}</span>
         <button className="ghost" disabled={capaState === "loading"} onClick={() => setRefreshCapa(value => value + 1)}>{tr ? "Yenile" : "Refresh"}</button>
@@ -3313,7 +3363,7 @@ function Reports({ rows: coreRows, lang, go, preparedBy, includeCapa }: { rows: 
                   ["status", tr ? "Durum" : "Status"],
                   ["level", tr ? "Seviye" : "Level"],
                 ].map(([key, label]) => (
-                  <ResizableTh key={key} columnKey={key} widths={widths}>{label}</ResizableTh>
+                  <ResizableTh lang={lang} key={key} columnKey={key} widths={widths}>{label}</ResizableTh>
                 ))}
               </tr>
             </thead>
@@ -3362,16 +3412,6 @@ function Reports({ rows: coreRows, lang, go, preparedBy, includeCapa }: { rows: 
             {qualitySignals.map((signal) => <div key={signal.label}><span><b>{signal.label}</b><em>{signal.value}%</em></span><i><u style={{ width: `${signal.value}%` }} /></i></div>)}
           </div>
         </div>
-      </section>
-      </details>
-      <details className="report-secondary"><summary>{tr?"Genel GRC güvencesi · ayrı kapsam":"Global GRC assurance · separate scope"}</summary><p className="report-limit-note">{tr?"Yüklenmiş çekirdek GRC kayıtlarını ve kayıtlı denetim portföyünü kapsar; CAPA ve yukarıdaki filtreler dahil değildir.":"Includes loaded core GRC records and the persisted audit portfolio; CAPA and the filters above are excluded."}</p>
-      <AuditReadinessPortfolioPanel portfolio={evidenceState.auditPortfolio} lang={lang} />
-      <section className="report-assurance-strip" aria-label={tr ? "Bağlı GRC güvence özeti" : "Connected GRC assurance summary"}>
-        <div><small>{tr ? "Bütünleşik güvence" : "Composite assurance"}</small><b>{evidenceState.ready && assurance.score !== null ? `${assurance.score}/100` : "—"}</b><span>{!evidenceState.ready || assurance.score === null ? (tr ? "Değerlendirme bekleniyor" : "Awaiting evaluation") : assurance.state === "strong" ? (tr ? "Güçlü" : "Strong") : assurance.state === "developing" ? (tr ? "Gelişiyor" : "Developing") : (tr ? "Kritik" : "Critical")}</span></div>
-        <div><small>{tr ? "Zincir bütünlüğü" : "Chain integrity"}</small><b>{assurance.traceabilityScore}%</b><span>{assurance.completeChains}/{assurance.totalChains} {tr ? "tam" : "complete"}</span></div>
-        <div><small>{tr ? "Kontrol güvencesi" : "Control assurance"}</small><b>{evidenceState.ready ? `${assurance.controlScore}%` : "—"}</b><span>{tr ? "Test ve kanıt" : "Test and evidence"}</span></div>
-        <div><small>{tr ? "Kanıt güveni" : "Evidence confidence"}</small><b>{evidenceState.ready ? `${assurance.evidenceScore}%` : "—"}</b><span>{evidenceState.ready ? assurance.currentEvidence : "—"}/{assurance.totalEvidence} {tr ? "güncel" : "current"}</span></div>
-        <div role="button" tabIndex={0} onClick={() => go("Bağlantılı GRC")} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") go("Bağlantılı GRC"); }}><small>{tr ? "Denetim hazırlığı" : "Audit readiness"}</small><b>{evidenceState.ready && assurance.auditScore !== null ? `${assurance.auditScore}%` : "—"}</b><span>{tr ? "Açıkları incele →" : "Review gaps →"}</span></div>
       </section>
       </details>
       <p className="report-limit-note">{options().scope}</p>
@@ -3603,15 +3643,15 @@ function RiskRegister({
   return (
     <table className="risk-table">
       <colgroup>
-        <col style={{ width: widths.width("recordCode", 130) }} />
-        {cols.map((c) => <col key={c.key} style={{ width: widths.width(c.key) }} />)}
+        <col style={{ width: widths.width("recordCode", 96) }} />
+        {cols.map((c) => <col key={c.key} style={{ width: widths.width(c.key, ({ title: 235, inherentRisk: 112, status: 150, owner: 155, treatment: 130 } as Record<string, number>)[c.key] || 160) }} />)}
         {canWrite && <col className="row-actions-column" style={{ width: 180 }} />}
       </colgroup>
       <thead>
         <tr>
-          <ResizableTh columnKey="recordCode" widths={widths}>{lang === "tr" ? "Kod" : "Code"}</ResizableTh>
+          <ResizableTh lang={lang} columnKey="recordCode" widths={widths}>{lang === "tr" ? "Kod" : "Code"}</ResizableTh>
           {cols.map((c) => (
-            <ResizableTh key={c.key} columnKey={c.key} widths={widths}>{c[lang]}</ResizableTh>
+            <ResizableTh lang={lang} key={c.key} columnKey={c.key} widths={widths}>{c[lang]}</ResizableTh>
           ))}
           {canWrite && <th className="row-actions-heading">{lang === "tr" ? "İşlemler" : "Actions"}</th>}
         </tr>
@@ -3678,8 +3718,8 @@ function useColumnWidths(scope: string): ColumnWidthController {
     nudge: (key, delta) => save(key, (values[key] || 190) + delta),
   };
 }
-function ResizableTh({ columnKey, widths, children }: { columnKey: string; widths: ColumnWidthController; children: ReactNode }) {
-  return <th className="resizable-column"><span>{children}</span><span className="column-resizer" role="separator" aria-label={`${String(children)} sütun genişliği`} aria-orientation="vertical" tabIndex={0} onPointerDown={(e) => widths.begin(columnKey, e)} onKeyDown={(e) => { if (e.key === "ArrowLeft") widths.nudge(columnKey, -16); if (e.key === "ArrowRight") widths.nudge(columnKey, 16); }} /></th>;
+function ResizableTh({ columnKey, widths, children, lang }: { columnKey: string; widths: ColumnWidthController; children: ReactNode; lang: Lang }) {
+  return <th className="resizable-column"><span>{children}</span><span className="column-resizer" role="separator" aria-label={lang === "tr" ? `${String(children)} sütun genişliği` : `${String(children)} column width`} aria-orientation="vertical" tabIndex={0} onPointerDown={(e) => widths.begin(columnKey, e)} onKeyDown={(e) => { if (e.key === "ArrowLeft" || e.key === "ArrowRight") { e.preventDefault(); widths.nudge(columnKey, e.key === "ArrowLeft" ? -16 : 16); } }} /></th>;
 }
 function RiskRegisterCell({
   row,
@@ -4925,6 +4965,7 @@ function getAvailableRegisterColumns(module: string): RegisterColumn[] {
 }
 function defaultRegisterColumnKeys(module: string) {
   const compactDefaults:Record<string,string[]>={
+    "Risk Assessment":["title","inherentRisk","status","owner","treatment"],
     BIA:["process","ownership","criticality","recovery","readiness","test","updatedAt"],
     "Varlık Envanteri":["title","ownership","criticality","dataClassification","coverage","lifecycle","updatedAt"],
     Kontroller:["control","owner","frameworks","implementation","evidence","status","updatedAt"],
@@ -4973,6 +5014,7 @@ function RegisterToolbar({
   lang,
   rows,
   resultCount,
+  sourceState = "ready",
   query,
   setQuery,
   selectedColumnKeys,
@@ -4990,6 +5032,7 @@ function RegisterToolbar({
   lang: Lang;
   rows: Row[];
   resultCount: number;
+  sourceState?: "loading" | "error" | "ready";
   query: string;
   setQuery: (value: string) => void;
   selectedColumnKeys: string[];
@@ -5136,8 +5179,8 @@ function RegisterToolbar({
               </div>
             )}
           </div>
-          <strong>
-            {resultCount} {ui[lang].record}
+          <strong className="register-result-count" role="status">
+            {sourceState === "ready" ? `${resultCount} ${ui[lang].record}` : sourceState === "loading" ? (tr ? "Yükleniyor…" : "Loading…") : (tr ? "Kayıt sayısı doğrulanamadı" : "Record count unavailable")}
           </strong>
         </div>
       </div>
@@ -5501,24 +5544,11 @@ function SmartCell({
         </span>
       </button>
     );
-  if (column === "freshness") {
-    const days = ageInDays(row.createdAt);
-    return (
-      <StatusPill
-        value={
-          days !== null && days > 365
-            ? tr
-              ? "Gözden Geçir"
-              : "Review Due"
-            : tr
-              ? "Güncel"
-              : "Current"
-        }
-        lang={lang}
-      />
-    );
-  }
+  if (column === "freshness") return <EvidenceFreshness row={row} lang={lang} />;
   return display(d[column], lang) || "—";
+}
+function EvidenceFreshness({ row, lang }: { row: Row; lang: Lang }) {
+  return <StatusPill value={useEvidenceFreshness(row, lang)} lang={lang} />;
 }
 function EvidencePreview({
   row,
@@ -5592,6 +5622,7 @@ function EvidencePreview({
 }
 
 function SmartRegister({
+  evidenceAssessment,
   module,
   rows,
   lang,
@@ -5602,6 +5633,7 @@ function SmartRegister({
   canWrite = true,
   canDelete = false,
 }: {
+  evidenceAssessment?: EvidenceRegisterAssessment;
   module: string;
   rows: Row[];
   lang: Lang;
@@ -5619,7 +5651,7 @@ function SmartRegister({
     showRecordCode = module !== "Denetim Yönetimi",
     widths = useColumnWidths(module);
   return (
-    <table className={`smart-table ${module === "BIA" ? "bia-table" : ""}`}>
+    <EvidenceAssessmentContext.Provider value={evidenceAssessment || null}><table className={`smart-table ${module === "BIA" ? "bia-table" : ""}`}>
       <colgroup>
         {showRecordCode && <col style={{ width: widths.width("recordCode", 130) }} />}
         {cols.map((c) => (
@@ -5637,9 +5669,9 @@ function SmartRegister({
       </colgroup>
       <thead>
         <tr>
-          {showRecordCode && <ResizableTh columnKey="recordCode" widths={widths}>{lang === "tr" ? "Kod" : "Code"}</ResizableTh>}
+          {showRecordCode && <ResizableTh lang={lang} columnKey="recordCode" widths={widths}>{lang === "tr" ? "Kod" : "Code"}</ResizableTh>}
           {cols.map((c) => (
-            <ResizableTh key={c.key} columnKey={c.key} widths={widths}>{c[lang]}</ResizableTh>
+            <ResizableTh lang={lang} key={c.key} columnKey={c.key} widths={widths}>{c[lang]}</ResizableTh>
           ))}
           {canWrite && <th className="row-actions-heading">{lang === "tr" ? "İşlemler" : "Actions"}</th>}
         </tr>
@@ -5697,6 +5729,6 @@ function SmartRegister({
           </tr>
         )}
       </tbody>
-    </table>
+    </table></EvidenceAssessmentContext.Provider>
   );
 }

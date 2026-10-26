@@ -43,6 +43,21 @@ export default function ConnectedGrc({rows,lang,go,includeAi=false}:{rows:Connec
   const [gapQuery,setGapQuery]=useState("");
   const [gapModule,setGapModule]=useState("all");
   const [gapType,setGapType]=useState<ConnectedGapType>("all");
+  useEffect(() => {
+    const restore = (request: FornostNavigationRequest | null) => {
+      if (request?.module !== "Bağlantılı GRC" || request.kind !== "connected-view") return;
+      const f = request.filter || {};
+      setView(f.view === "gaps" || f.view === "assurance" ? f.view : "explore");
+      setModule(f.module || "all"); setQuery((f.query || "").slice(0, 1000));
+      setSelectedId(f.selectedId || ""); setPage(Math.max(0, Math.min(10000, Number(f.page) || 0)));
+      setGapQuery(f.gapQuery || ""); setGapModule(f.gapModule || "all");
+      if (["all", "high", "medium", "missing", "ambiguous"].includes(f.gapType)) setGapType(f.gapType as ConnectedGapType);
+      consumePendingFornostFocus("Bağlantılı GRC");
+    };
+    const receive = (event: Event) => restore((event as CustomEvent<FornostNavigationRequest>).detail);
+    window.addEventListener(FORNOST_FOCUS_EVENT, receive); restore(peekPendingFornostFocus());
+    return () => window.removeEventListener(FORNOST_FOCUS_EVENT, receive);
+  }, []);
   const [sourceReload,setSourceReload]=useState(0);
   const [sourceSnapshot,setSourceSnapshot]=useState<{
     includeAi:boolean; reload:number; rows:ConnectedGrcRow[];
@@ -99,7 +114,8 @@ export default function ConnectedGrc({rows,lang,go,includeAi=false}:{rows:Connec
   function openRecord(row:ConnectedGrcRow){
     const target=connectedGrcNavigation(row);
     if(!target){go(row.module);return;}
-    navigateToFornost({module:target.module,ref:target.ref,kind:target.kind,source:"connected-grc-register",filter:{[target.filterKey]:target.ref}});
+    navigateToFornost({module:target.module,ref:target.ref,kind:target.kind,source:"connected-grc-register",filter:{[target.filterKey]:target.ref},
+      returnTo:{module:"Bağlantılı GRC",kind:"connected-view",filter:{view,module,query,selectedId:selected?.id||"",page:String(currentPage),gapQuery,gapModule,gapType}}});
   }
   function download(gaps=false,assurance=false){
     const scope={...sourceState,generatedAt:new Date().toISOString()};
@@ -141,7 +157,7 @@ export default function ConnectedGrc({rows,lang,go,includeAi=false}:{rows:Connec
           {selected&&<><div className="cg-connection-count">{selectedLinks.length} {tr?"doğrudan bağlantı":"direct connections"}</div>
           <div className="cg-connections">{selectedLinks.slice(0,linkLimit).map((link,index)=>{
             const outgoing=link.source.id===selected.id,other=outgoing?link.target:link.source;
-            return <article key={`${other.id}-${link.relation}-${index}`}><div><small>{outgoing?(tr?"Bu kayıttan →":"From this record →"):(tr?"Bu kayda ←":"To this record ←")} {connectedRelationLabels[link.relation]?.[lang]||link.relation}</small><button type="button" className="cg-follow" onClick={()=>followConnection(other)} aria-label={`${tr?'Bağlantılarını göster':'Explore connections'}: ${connectedTitle(other)}`}>{connectedTitle(other)}</button><span>{other.code||other.id} · {moduleLabel(other.module)}</span></div><button type="button" onClick={()=>openRecord(other)} aria-label={`${tr?'Kaydı aç':'Open record'}: ${connectedTitle(other)}`}>{tr?"Aç":"Open"} ↗</button></article>;
+            return <article key={`${other.id}-${link.relation}-${index}`}><div><small>{outgoing?(tr?"Bu kayıttan →":"From this record →"):(tr?"Bu kayda ←":"To this record ←")} {connectedRelationLabels[link.relation]?.[lang]||link.relation}</small><button type="button" className="cg-follow" onClick={()=>followConnection(other)} aria-label={`${tr?'Bağlantılarını göster':'Explore connections'}: ${connectedTitle(other)} · ${other.code||other.id} · ${moduleLabel(other.module)}`}>{connectedTitle(other)}</button><span>{other.code||other.id} · {moduleLabel(other.module)}</span></div><button type="button" onClick={()=>openRecord(other)} aria-label={`${tr?'Kaydı aç':'Open record'}: ${connectedTitle(other)} · ${other.code||other.id} · ${moduleLabel(other.module)}`}>{tr?"Aç":"Open"} ↗</button></article>;
           })}</div>
           {!selectedLinks.length&&<p className="cg-empty">{tr?"Bu kaydın henüz bağlantısı yok. Kaydı açarak ilgili varlık, risk veya kontrol referanslarını ekleyebilirsiniz.":"This record has no connections yet. Open it to add the relevant asset, risk or control references."}</p>}
           {selectedLinks.length>linkLimit&&<button type="button" className="cg-more" onClick={()=>setLinkLimit(linkLimit+8)}>{tr?"Daha fazla bağlantı göster":"Show more connections"} ({selectedLinks.length-linkLimit})</button>}

@@ -1,6 +1,6 @@
 import {chromium,expect} from '@playwright/test';
 import assert from 'node:assert/strict';
-import {readFile,mkdir} from 'node:fs/promises';
+import {readFile,mkdir,writeFile} from 'node:fs/promises';
 import {PDFDocument} from 'pdf-lib';
 import {qaPassword} from './qa-credentials.mjs';
 const base='http://127.0.0.1:4173';
@@ -54,6 +54,8 @@ try{
  await expect(panel.locator('.report-secondary[open]')).toHaveCount(0);
  await panel.getByLabel('Report module',{exact:true}).selectOption('BIA');
  await expect(panel.getByRole('button',{name:'PDF Report',exact:true})).toBeVisible();
+ await panel.locator('.report-hero').scrollIntoViewIfNeeded();
+ await expect(panel.locator('.report-global-assurance>summary')).toBeInViewport();
  const headerBox=await panel.boundingBox(),tableBox=await panel.locator('.table-card').boundingBox();assert.ok(tableBox.y-headerBox.y<700,'Register must be close to the scope controls');
  await mkdir('layout-qa-artifacts',{recursive:true});
  await panel.screenshot({path:'layout-qa-artifacts/reporting-desktop.png'});
@@ -70,7 +72,7 @@ try{
  await panel.getByLabel('Template',{exact:true}).selectOption('detailed');await panel.getByLabel('Classification',{exact:true}).selectOption('confidential');
  await panel.locator('.workspace-export summary').click();
  for(const label of ['HTML','CSV','PDF Report']){
-  const downloaded=page.waitForEvent('download');await panel.getByRole('button',{name:label,exact:true}).click();const download=await downloaded;assert.equal(await download.failure(),null);
+  const [download]=await Promise.all([page.waitForEvent('download'),panel.getByRole('button',{name:label,exact:true}).click()]);assert.equal(await download.failure(),null);
   const bytes=await readFile(await download.path());
   if(label==='PDF Report'){const pdf=await PDFDocument.load(bytes);assert.ok(pdf.getPageCount()>3);assert.match(pdf.getSubject(),/Confidential/);}
   else{const text=bytes.toString('utf8');assert.match(text,/DETAIL-119/);assert.doesNotMatch(text,/DETAIL-120/);assert.match(text,/Confidential/);assert.match(text,/Çağrı/);if(label==='CSV')assert.equal(text.split('\r\n').length,121);}
@@ -79,7 +81,7 @@ try{
  await expect(panel.locator('tbody tr')).toHaveCount(1);
  await expect(panel.locator('tbody')).toContainText('Connected correction');
  for(const label of ['HTML','CSV']){
-  const downloaded=page.waitForEvent('download');await panel.getByRole('button',{name:label,exact:true}).click();const download=await downloaded;
+  const [download]=await Promise.all([page.waitForEvent('download'),panel.getByRole('button',{name:label,exact:true}).click()]);
   const text=(await readFile(await download.path())).toString('utf8');assert.match(text,/RISK-QA/);assert.match(text,/CTRL-QA/);assert.match(text,/CAPA-DETAIL/);
  }
  await panel.getByLabel('Report module',{exact:true}).selectOption('__all__');
@@ -102,4 +104,10 @@ try{
  await panel.getByRole('button',{name:'PDF Report',exact:true}).click();await expect(panel.getByRole('alert')).toContainText('PDF could not be generated');await expect(panel.getByRole('button',{name:'PDF Report',exact:true})).toBeEnabled();
  await assertPdfContrast(false);
  console.log('Reporting QA passed: CAPA source references, export failure gating and recovery; complete pagination, filter reset, detailed HTML/CSV/PDF downloads, Turkish data, classification and font-failure recovery.');
+}catch(error){
+ await mkdir('layout-qa-artifacts',{recursive:true});
+ const layout=await page.evaluate(()=>({scrollY,viewport:{width:innerWidth,height:innerHeight},elements:['.report-hero','.report-global-assurance>summary','.report-workspace .table-card'].map(selector=>({selector,rect:document.querySelector(selector)?.getBoundingClientRect().toJSON()}))})).catch(()=>null);
+ await writeFile('layout-qa-artifacts/reporting-failure.json',JSON.stringify({message:error.message,stack:error.stack,layout},null,2));
+ await page.screenshot({path:'layout-qa-artifacts/reporting-failure.png',fullPage:true,animations:'disabled'}).catch(()=>{});
+ throw error;
 }finally{await browser.close();}

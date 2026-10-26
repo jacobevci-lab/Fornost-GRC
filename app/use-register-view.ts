@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
 import { emptyRegisterView, readRegisterView, writeRegisterView, registerViewKey, type RegisterView } from './register-view';
-/** Per-user, per-module, per-tab context; never persist transient exact-record focus. */
+/** Per-user, per-module, per-tab context; query/filter preferences are separate from exact-record navigation hints. */
 export function useRegisterView(userId: string, module: string) {
   const key = registerViewKey(userId, module);
   const cache = useRef<Record<string, RegisterView>>({});

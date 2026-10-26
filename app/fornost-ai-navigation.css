@@ -1,2 +1,6 @@
 .fornost-ai-tabs .fornost-ai-tab-group{align-self:center;padding:0 5px;color:var(--text-secondary);font-size:9px;font-weight:850;letter-spacing:.12em;white-space:nowrap}
 @media(max-width:800px){.fornost-ai-tabs .fornost-ai-tab-group{position:sticky;left:0;padding:0 7px;background:var(--surface);border-radius:4px}}
+.ai-workspace-group{flex:1 1 280px;min-width:0;border:1px solid var(--line);border-radius:8px;padding:10px}
+.ai-workspace-group>summary{cursor:pointer;font-weight:650;padding:6px}
+.ai-workspace-group>div{display:flex;flex-wrap:wrap;gap:8px;padding-top:10px}
+.ai-workspace-group button{white-space:normal}

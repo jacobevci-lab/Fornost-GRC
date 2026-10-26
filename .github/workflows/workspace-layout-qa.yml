@@ -49,6 +49,30 @@ jobs:
           curl --fail --silent --show-error http://127.0.0.1:4173/api/auth \
             -H 'Origin: http://127.0.0.1:4173' -H 'Content-Type: application/json' \
             --data-binary @/tmp/fornost-qa-bootstrap.json
+      - name: Live product QA fixes regression
+        run: node scripts/live-product-fixes-qa.mjs
+      - name: Preserve live product fixes browser evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: live-product-fixes-preview
+          path: live-product-fixes-qa-artifacts/
+      - name: Product experience recovery, form guidance and navigation QA
+        run: node scripts/product-experience-qa.mjs
+      - name: Preserve product experience browser evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: product-experience-preview
+          path: product-experience-qa-artifacts/
+      - name: Enterprise reporting HTML PDF CSV QA
+        run: node scripts/reporting-export-qa.mjs
+      - name: Preserve report export browser evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: reporting-export-preview
+          path: layout-qa-artifacts/
       - name: Integration and evidence read timeout, cancellation and recovery QA
         run: node scripts/integration-read-recovery-qa.mjs
       - name: Preserve integration read recovery evidence
@@ -274,8 +298,6 @@ jobs:
         run: node scripts/assurance-chain-review-qa.mjs
       - name: Exact CAPA lifecycle lookup and recovery QA
         run: node scripts/capa-traceability-qa.mjs
-      - name: Enterprise reporting HTML PDF CSV QA
-        run: node scripts/reporting-export-qa.mjs
       - name: Assurance queue recovery and independent review QA
         run: node scripts/assurance-queue-recovery-qa.mjs
       - name: Audit requirement pagination and export QA

@@ -6,7 +6,7 @@ import { sameDomainModule } from "./domain-identity";
 import "./progressive-form-experience.css";
 
 type Lang = "tr" | "en";
-type Target = { form: HTMLFormElement; actions: HTMLElement; labels: HTMLLabelElement[]; quickRisk: boolean; newRecord: boolean };
+type Target = { form: HTMLFormElement; mount: HTMLElement; labels: HTMLLabelElement[]; quickRisk: boolean; newRecord: boolean };
 
 function currentLanguage(): Lang {
   return document.querySelector(".language-switch button.active")?.textContent?.trim().toLowerCase() === "en" ? "en" : "tr";
@@ -39,7 +39,7 @@ function discoverTarget(): Target | null {
   const mode = normalize(modal?.querySelector(".modal-head small")?.textContent);
   return {
     form,
-    actions,
+    mount: form.querySelector<HTMLElement>(":scope > .fornost-progressive-slot") || actions,
     labels,
     quickRisk: sameDomainModule(heading, "Risk Assessment"),
     newRecord: ["yeni kayıt", "new record"].includes(mode),
@@ -175,6 +175,6 @@ export default function ProgressiveFormExperience() {
         <span aria-hidden="true">{advancedOpen ? "↑" : "↓"}</span>
       </button>
     </div>,
-    target.actions,
+    target.mount,
   );
 }

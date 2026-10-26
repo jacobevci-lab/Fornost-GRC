@@ -132,7 +132,7 @@ export default function ExecutiveAssurancePanel({
   }), [scoredRisks]);
   const highRisks = riskBands.critical + riskBands.high;
   const percent = (value: number | null, total: number) => total && value !== null ? `${Math.round(value)}%` : "—";
-  const confidencePercent = (value: number | null, total: number) => evidenceState.ready ? percent(value, total) : "—";
+  const confidencePercent = (value: number | null, total: number, ready = evidenceState.evidenceReady) => ready ? percent(value, total) : "—";
   const unassessedRisks = risks.length - scoredRisks.length;
 
   const openFindings = Math.max(
@@ -239,7 +239,7 @@ export default function ExecutiveAssurancePanel({
     assuranceHealth: (<article className="executive-cockpit-panel continuous-assurance-panel">
           <header><span className="executive-panel-icon"><NavIcon module="Kanıtlar" /></span><div><small>{tr ? "SÜREKLİ GÜVENCE" : "CONTINUOUS ASSURANCE"}</small><h3>{tr ? "Kontrol ve kanıt güveni" : "Control & evidence confidence"}</h3></div><button onClick={() => go("Kanıt Otomasyonu")}>{tr ? "Operasyon" : "Operations"} →</button></header>
           <div className="assurance-score-row">
-            <div><strong>{rows.length && evidenceState.ready && assurance.score !== null ? assurance.score : "—"}</strong><span> /100</span><MiniBar value={rows.length && evidenceState.ready ? assurance.score ?? 0 : 0} /><small>{evidenceState.ready ? integrityPending : "—"} {tr ? "kanıt doğrulama bekliyor" : "evidence awaiting verification"}</small></div>
+            <div><strong>{rows.length && evidenceState.ready && assurance.score !== null ? assurance.score : "—"}</strong><span> /100</span><MiniBar value={rows.length && evidenceState.ready ? assurance.score ?? 0 : 0} /><small>{evidenceState.evidenceReady ? integrityPending : "—"} {tr ? "kanıt doğrulama bekliyor" : "evidence awaiting verification"}</small></div>
             <div className="assurance-score-bars">
               <label><span>{tr ? "Zincir bütünlüğü" : "Chain integrity"}<b>{percent(assurance.traceabilityScore, rows.length)}</b></span></label>
               <label><span>{tr ? "Kontrol güvencesi" : "Control assurance"}<b>{confidencePercent(assurance.controlScore, assurance.totalControls)}</b></span></label>
@@ -251,7 +251,7 @@ export default function ExecutiveAssurancePanel({
     auditRemediation: (<article className="executive-cockpit-panel audit-remediation-panel">
           <header><span className="executive-panel-icon"><NavIcon module="Denetim Yönetimi" /></span><div><small>{tr ? "DENETİM VE İYİLEŞTİRME" : "AUDIT & REMEDIATION"}</small><h3>{tr ? "Denetim ve kapanış görünümü" : "Audit & closure posture"}</h3></div><button onClick={() => go("Denetim Yönetimi")}>{tr ? "Denetimler" : "Audits"} →</button></header>
           <div className="audit-remediation-metrics">
-            <div><strong>{confidencePercent(assurance.auditScore, assurance.totalAudits)}</strong><span>{evidenceState.ready ? assurance.readyAudits : "—"}/{assurance.totalAudits} {tr ? "hazır denetim" : "ready audits"}</span><MiniBar value={evidenceState.ready && assurance.totalAudits ? assurance.auditScore ?? 0 : 0} /></div>
+            <div><strong>{confidencePercent(assurance.auditScore, assurance.totalAudits, evidenceState.auditReady)}</strong><span>{evidenceState.auditReady ? assurance.readyAudits : "—"}/{assurance.totalAudits} {tr ? "hazır denetim" : "ready audits"}</span><MiniBar value={evidenceState.auditReady && assurance.totalAudits ? assurance.auditScore ?? 0 : 0} /></div>
             <button type="button" onClick={() => go("Bulgular ve CAPA")}><span>{tr ? "Açık bulgu" : "Open findings"}</span><b>{openFindings}</b></button>
             <button type="button" onClick={() => go("Denetim Yönetimi")}><span>{tr ? "Geciken denetim maddesi" : "Overdue audit requirements"}</span><b>{overdueAudits}</b></button>
           </div>
@@ -277,14 +277,14 @@ export default function ExecutiveAssurancePanel({
 
       <EvidenceAssuranceStatus state={evidenceState} lang={lang} />
       <AuditReadinessPortfolioPanel portfolio={evidenceState.auditPortfolio} lang={lang} />
-      {evidenceState.ready && assurance.assessmentIssues.length > 0 && <ul className="executive-assessment-issues">{assurance.assessmentIssues.map(issue => <li key={issue.reason}>{issue.count} · {assessmentStateText[issue.reason]?.[lang] || issue.reason}</li>)}</ul>}
+      {evidenceState.evidenceReady && assurance.assessmentIssues.length > 0 && <ul className="executive-assessment-issues">{assurance.assessmentIssues.map(issue => <li key={issue.reason}>{issue.count} · {assessmentStateText[issue.reason]?.[lang] || issue.reason}</li>)}</ul>}
       {loadError && <p role="status" className="executive-data-warning">{tr ? "Bazı operasyonel veriler yüklenemedi. Son alınan değerler gösteriliyor; eksik kaynaklar doğrulanmalıdır." : "Some operational data could not be loaded. Last received values are shown; missing sources need verification."}</p>}
       <div className="executive-dashboard-kpis">
         {[
-          { label: tr ? "Kontrol Güvencesi" : "Control Assurance", value: confidencePercent(assurance.controlScore, assurance.totalControls), detail: `${evidenceState.ready ? assurance.healthyControls : "—"}/${assurance.totalControls} ${tr ? "sağlıklı" : "healthy"}`, tone: evidenceState.ready && assurance.controlScore >= 80 ? "positive" : "warning", module: "Kontroller" },
-          { label: tr ? "Denetim Hazırlığı" : "Audit Readiness", value: confidencePercent(assurance.auditScore, assurance.totalAudits), detail: `${evidenceState.ready ? assurance.readyAudits : "—"}/${assurance.totalAudits} ${tr ? "hazır" : "ready"}`, tone: evidenceState.ready && (assurance.auditScore ?? -1) >= 80 ? "positive" : "warning", module: "Denetim Yönetimi" },
+          { label: tr ? "Kontrol Güvencesi" : "Control Assurance", value: confidencePercent(assurance.controlScore, assurance.totalControls), detail: `${evidenceState.evidenceReady ? assurance.healthyControls : "—"}/${assurance.totalControls} ${tr ? "sağlıklı" : "healthy"}`, tone: evidenceState.evidenceReady && assurance.controlScore >= 80 ? "positive" : "warning", module: "Kontroller" },
+          { label: tr ? "Denetim Hazırlığı" : "Audit Readiness", value: confidencePercent(assurance.auditScore, assurance.totalAudits, evidenceState.auditReady), detail: `${evidenceState.auditReady ? assurance.readyAudits : "—"}/${assurance.totalAudits} ${tr ? "hazır" : "ready"}`, tone: evidenceState.auditReady && (assurance.auditScore ?? -1) >= 80 ? "positive" : "warning", module: "Denetim Yönetimi" },
           { label: tr ? "Zincir Kapsaması" : "Chain Coverage", value: percent(assurance.traceabilityScore, rows.length), detail: tr ? "Risk · kontrol · kanıt bağlantıları" : "Risk · control · evidence links", tone: assurance.traceabilityScore >= 80 ? "positive" : "warning", module: "Bağlantılı GRC" },
-          { label: tr ? "Kanıt Güncelliği" : "Evidence Freshness", value: confidencePercent(assurance.freshnessScore, assurance.totalEvidence), detail: `${evidenceState.ready ? assurance.currentEvidence : "—"}/${assurance.totalEvidence} ${tr ? "güncel" : "current"}`, tone: evidenceState.ready && assurance.evidenceScore >= 80 ? "positive" : "warning", module: "Kanıtlar" },
+          { label: tr ? "Kanıt Güncelliği" : "Evidence Freshness", value: confidencePercent(assurance.freshnessScore, assurance.totalEvidence), detail: `${evidenceState.evidenceReady ? assurance.currentEvidence : "—"}/${assurance.totalEvidence} ${tr ? "güncel" : "current"}`, tone: evidenceState.evidenceReady && assurance.evidenceScore >= 80 ? "positive" : "warning", module: "Kanıtlar" },
           { label: tr ? "Kritik + Yüksek Risk" : "Critical + High Risk", value: percent(scoredRisks.length ? highRisks / scoredRisks.length * 100 : 0, scoredRisks.length), detail: `${highRisks}/${scoredRisks.length} ${tr ? "değerlendirilen risk" : "assessed risks"}`, tone: highRisks ? "critical" : "positive", module: "Risk Assessment" },
           { label: tr ? "Uyum Sağlığı" : "Compliance Health", value: percent(complianceScore, complianceTotal), detail: `${compliantTotal}/${complianceTotal} ${tr ? "uyumlu" : "compliant"}`, tone: complianceScore >= 80 ? "positive" : "warning", module: "Uyum" },
         ].map((metric) => (

@@ -6,6 +6,7 @@ export type FornostNavigationRequest = {
   kind?: string;
   source?: string;
   filter?: Record<string, string>;
+  returnTo?: { module: string; kind?: string; filter?: Record<string, string> };
 };
 
 export type FornostPendingFocus = FornostNavigationRequest & {
@@ -13,6 +14,7 @@ export type FornostPendingFocus = FornostNavigationRequest & {
 };
 
 export const FORNOST_FOCUS_EVENT = "fornost:focus";
+export const FORNOST_BEFORE_FOCUS_EVENT = "fornost:before-focus";
 export const FORNOST_PENDING_FOCUS_KEY = "fornost:pending-focus";
 
 const clean = (value: unknown) => String(value ?? "").normalize("NFKC").trim();
@@ -43,6 +45,7 @@ export function navigateToFornost(request: FornostNavigationRequest | string) {
   const target = typeof request === "string" ? { module: request } : request;
   if (!clean(target.module)) return false;
 
+  window.dispatchEvent(new CustomEvent<FornostNavigationRequest>(FORNOST_BEFORE_FOCUS_EVENT, { detail: target }));
   rememberFocus(target);
   const button = matchingNavigationButton(target.module);
   button?.click();

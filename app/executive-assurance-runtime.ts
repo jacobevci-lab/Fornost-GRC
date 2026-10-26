@@ -17,5 +17,6 @@ export async function loadExecutiveAssuranceSnapshot(db: D1Database, now = new D
     });
   } catch { issues.push('audits-unavailable'); }
   const auditPortfolio = buildAuditReadinessPortfolio(audits, context, issues);
-  return { ...evidence, auditPortfolio, verified: evidence.verified && auditPortfolio.verified, issues: [...new Set([...evidence.issues, ...auditPortfolio.issues])] };
+  return { ...evidence, evidenceVerified: evidence.verified, evidenceIssues: evidence.issues, auditPortfolio,
+    verified: evidence.verified && auditPortfolio.verified, issues: [...new Set([...evidence.issues, ...auditPortfolio.issues])] };
 }

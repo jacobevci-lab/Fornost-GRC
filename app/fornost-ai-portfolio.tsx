@@ -25,7 +25,7 @@ type Row = {
   actions: string[];
   readiness: number;
 };
-export default function FornostAiPortfolio({ lang = "tr" }: { lang?: "tr" | "en" }) {
+export default function FornostAiPortfolio({ lang = "tr", onCreate }: { lang?: "tr" | "en"; onCreate?: () => void }) {
   const t = (tr: string, en: string) => lang === "tr" ? tr : en;
   const request = useRef(0);
   const [loadError, setLoadError] = useState(false);
@@ -219,7 +219,8 @@ export default function FornostAiPortfolio({ lang = "tr" }: { lang?: "tr" | "en"
           <span>{data?.actions.length || 0}</span>
         </header>
         {!data?.actions.length ? (
-          <p>{data.portfolio.length ? t("Açık yönetim aksiyonu yok.", "No open management actions.") : t("Henüz AI sistemi yok. AI Envanteri çalışma alanından ilk sistemi ekleyin.", "No AI systems yet. Add the first system from the AI Inventory workspace.")}</p>
+          <><p>{data.portfolio.length ? t("Açık yönetim aksiyonu yok.", "No open management actions.") : t("Henüz AI sistemi yok. AI Envanteri çalışma alanından ilk sistemi ekleyin.", "No AI systems yet. Add the first system from the AI Inventory workspace.")}</p>
+          {!data.portfolio.length && onCreate && <button type="button" className="primary" onClick={onCreate}>{t("İlk AI sistemini ekle", "Add your first AI system")}</button>}</>
         ) : (
           data.actions.map((item, index) => (
             <article key={`${item.modelId}-${item.action}-${index}`}>

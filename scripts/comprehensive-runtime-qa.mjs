@@ -1,4 +1,5 @@
 import { qaPassword } from "./qa-credentials.mjs";
+import { revealAiWorkspace } from "./qa-ai-workspaces.mjs";
 import { chromium, expect } from '@playwright/test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
@@ -65,7 +66,7 @@ async function checkPendingRecordForm(dialog,path){
 }
 await reset();
 for(const [moduleName,label,key] of [['Risk Assessment','Risk Assessment','title'],['BIA','Business Impact Analysis (BIA)','process'],['Varlık Envanteri','Asset Inventory','title'],['Uyum','Compliance Management','controlTitle'],['Kontroller','Control Library','controlTitle']])await check(`UI create/edit/delete: ${label}`,async()=>{
- await reset();await open(label);await page.getByPlaceholder('Search records').fill('QA-no-match-20261001');assert.match(await page.locator('.table-wrap').innerText(),/No records in this view/);await page.getByPlaceholder('Search records').fill('');await page.locator('.actions .primary').click();const dialog=page.locator('.modal[role=dialog]');await dialog.waitFor();await dialog.getByRole('button',{name:/Show advanced/}).click();
+ await reset();await open(label);await page.getByPlaceholder('Search records').fill('QA-no-match-20261001');await expect(page.locator('.register-empty-state')).toHaveAttribute('data-state','filtered');await expect(page.locator('.register-empty-state')).toContainText('No records match this view');await page.getByPlaceholder('Search records').fill('');await page.locator('.actions .primary').click();const dialog=page.locator('.modal[role=dialog]');await dialog.waitFor();await dialog.getByRole('button',{name:/Show advanced/}).click();
  const data=JSON.parse(seedRows.find(x=>x.module===moduleName).data_json);data[key]=`QA UI ${moduleName} ${Date.now()}`;
  // Fixtures may contain legacy names; the UI now selects explicit record codes.
  for(const [field,targetModule,titleField] of [['asset','Varlık Envanteri','title'],['processLink','BIA','process']]){
@@ -341,12 +342,12 @@ await check('My Work: exact ownership, Today, pagination after 80, mobile due da
  }
 });
 await reset();await open('AI Governance');
-const aiTabs=page.locator('.fornost-ai-tabs>button'),aiCount=await aiTabs.count();
+const aiTabs=page.locator('.fornost-ai-tabs button'),aiCount=await aiTabs.count();
 await check('AI governance exposes its complete navigation',()=>assert.ok(aiCount>=30));
 for(const theme of ['light','dark']){
  if(await page.locator('html').getAttribute('data-theme')!==theme)await page.locator('.theme-toggle:visible').click();
  for(let i=0;i<aiCount;i++)await check(`AI workspace render: ${theme} / ${i+1}`,async()=>{
-  await page.locator(".ai-section-picker>summary").click();await aiTabs.nth(i).click();await page.waitForTimeout(450);const panel=page.locator('.fornost-ai-panel');assert.equal(await aiTabs.nth(i).getAttribute('class'),'active');assert.ok(await panel.getAttribute('data-ai-view'));assert.equal(await page.locator('.ai-section-picker').getAttribute('open'),null,'AI chooser closes after selection');assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)<=4);await page.screenshot({path:`${out}/ai-${theme}-${i+1}.jpg`,type:'jpeg',quality:65});
+  await revealAiWorkspace(page,(await aiTabs.nth(i).textContent()).trim());await aiTabs.nth(i).click();await page.waitForTimeout(450);const panel=page.locator('.fornost-ai-panel');assert.equal(await aiTabs.nth(i).getAttribute('class'),'active');assert.ok(await panel.getAttribute('data-ai-view'));assert.equal(await page.locator('.ai-section-picker').getAttribute('open'),null,'AI chooser closes after selection');assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)<=4);await page.screenshot({path:`${out}/ai-${theme}-${i+1}.jpg`,type:'jpeg',quality:65});
  });
 }
 await open('Risk Assessment');await expect(page.locator('#fornost-ai-panel')).toHaveCount(0);

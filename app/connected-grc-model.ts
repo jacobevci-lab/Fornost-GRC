@@ -125,11 +125,11 @@ export const relationFields: Record<string, RelationDefinition> = {
 };
 
 const titleFields = [
-  "title", "name", "process", "statement", "kriName", "controlId", "controlRef", "controlTitle",
-  "evidenceTitle", "auditName", "framework", "code",
+  "title", "name", "process", "statement", "kriName", "evidenceTitle", "requirementTitle", "controlTitle",
+  "auditName", "controlId", "controlRef", "framework", "code",
 ];
 const aliasFields = [
-  ...titleFields, "aliasRefs", "vendorId", "sourceId", "externalRef", "policyId", "appetiteId", "measurementId",
+  ...titleFields.filter(field => field !== "requirementTitle"), "aliasRefs", "vendorId", "sourceId", "externalRef", "policyId", "appetiteId", "measurementId",
   "planId", "assessmentId", "requirementRef",
 ];
 

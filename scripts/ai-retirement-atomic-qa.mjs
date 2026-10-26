@@ -1,3 +1,4 @@
+import { revealAiWorkspace } from "./qa-ai-workspaces.mjs";
 import {checkAlertObservations} from './ai-alert-observation-qa.mjs';
 import {chromium,expect} from '@playwright/test';
 import assert from 'node:assert/strict';
@@ -53,7 +54,7 @@ try{
  await sql('DROP TRIGGER qa_retirement_audit_failure;');
  await page.goto(base);await expect(page.locator('.shell')).toBeVisible();await page.locator('.language-switch:visible').getByRole('button',{name:'EN',exact:true}).click();
  await page.locator('nav button[aria-label="AI Governance"]').evaluate(el=>el.click());
- await page.locator('.ai-section-picker>summary').click();await page.locator('.fornost-ai-tabs').getByRole('button',{name:'AI Alerts',exact:true}).click();
+ await page.locator('.ai-section-picker>summary').click();await revealAiWorkspace(page,'AI Alerts');await page.locator('.fornost-ai-tabs').getByRole('button',{name:'AI Alerts',exact:true}).click();
  const alertRoot=page.locator('.ai-alerts');await alertRoot.getByRole('textbox',{name:'Kayıt ara',exact:true}).fill(alertId);
  const alertRecord=alertRoot.locator(`[data-record-id="${alertId}"]`);await alertRecord.getByRole('button',{name:'CAPA oluştur',exact:true}).click();
  await alertRoot.locator('.dialog textarea').fill('QA stale alert escalation');await alertRoot.locator('.dialog input').last().fill('CAPA OLUŞTUR');
@@ -62,7 +63,7 @@ try{
  await alertRecord.getByRole('button',{name:'CAPA oluştur',exact:true}).click();await alertRoot.locator('.dialog textarea').fill('QA current alert escalation');await alertRoot.locator('.dialog input').last().fill('CAPA OLUŞTUR');await alertRoot.locator('.dialog').getByRole('button',{name:'Kaydet',exact:true}).click();await expect(alertRoot.locator('.notice')).toContainText("Alarm CAPA'ya bağlandı");
  await alertRecord.getByRole('button',{name:'Activity history',exact:true}).click();await expect(alertRecord.locator('.ai-record-history-panel')).toContainText('Alert escalated to finding');await alertRecord.getByRole('button',{name:'Activity history',exact:true}).click();
  assert.equal((await alert()).status,'escalated');assert.equal((await api(maker,'/api/ai/findings')).findings.filter(f=>f.sourceRef===alertId).length,1);await alertAction('escalate',409,oldAlertVersion);
- await page.locator('.ai-section-picker>summary').click();await page.locator('.fornost-ai-tabs').getByRole('button',{name:'AI Findings',exact:true}).click();
+ await page.locator('.ai-section-picker>summary').click();await revealAiWorkspace(page,'AI Findings');await page.locator('.fornost-ai-tabs').getByRole('button',{name:'AI Findings',exact:true}).click();
  const findingRoot=page.locator('.ai-findings');await expect(findingRoot.locator(`[data-record-id="${findingId}"]`)).toHaveCount(1);await findingRoot.getByRole('textbox',{name:'Kayıt ara',exact:true}).fill(findingId);const findingRecord=findingRoot.locator(`[data-record-id="${findingId}"]`);
  await findingRecord.getByRole('button',{name:'Doğrulamaya Gönder',exact:true}).click();await findingRecord.locator('.action textarea').fill('QA stale finding submission');await findingRecord.getByPlaceholder('Kanıt referansı',{exact:true}).fill('EVD-QA-stale');await findingRecord.getByPlaceholder('64 karakter SHA-256',{exact:true}).fill('c'.repeat(64));await findingRecord.getByPlaceholder('DOĞRULAMAYA GÖNDER',{exact:true}).fill('DOĞRULAMAYA GÖNDER');
  await findingAction(maker,'submit');await findingRecord.getByRole('button',{name:'İşlemi Uygula',exact:true}).click();await expect(findingRoot.locator('.notice')).toContainText('Bulgu değişti');await expect(findingRecord.locator('.action')).toHaveCount(0);assert.equal((await finding()).evidenceSha256,'b'.repeat(64));
@@ -72,7 +73,7 @@ try{
  await findingRecord.getByRole('button',{name:'Doğrula ve Kapat',exact:true}).click();await findingRecord.locator('.action textarea').fill('QA closure with failing audit');await findingRecord.getByPlaceholder('Kanıt referansı',{exact:true}).fill('EVD-QA-closure');await findingRecord.getByPlaceholder('64 karakter SHA-256',{exact:true}).fill('d'.repeat(64));await findingRecord.getByPlaceholder('BULGUYU KAPAT',{exact:true}).fill('BULGUYU KAPAT');await findingRecord.getByRole('button',{name:'İşlemi Uygula',exact:true}).click();
  await expect(findingRoot.locator('.notice')).toContainText('Bulgu işlemi tamamlanamadı');await expect(findingRecord.locator('.action')).toHaveCount(0);await expect(findingRecord.getByRole('button',{name:'Doğrula ve Kapat',exact:true})).toBeEnabled();assert.deepEqual(await finding(),beforeFailedClosure);
  await sql('DROP TRIGGER qa_finding_audit_failure;');await findingAction(reviewer,'resolve');assert.equal((await finding()).status,'resolved');
- await page.locator('.ai-section-picker>summary').click();await page.locator('.fornost-ai-tabs').getByRole('button',{name:'AI Retirement',exact:true}).click();
+ await page.locator('.ai-section-picker>summary').click();await revealAiWorkspace(page,'AI Retirement');await page.locator('.fornost-ai-tabs').getByRole('button',{name:'AI Retirement',exact:true}).click();
  const root=page.locator('.ai-decommission'),record=root.locator('.list>article').filter({hasText:planId});await expect(record).toHaveCount(1);
  async function fill(){await record.getByRole('button',{name:'İmhayı Doğrula',exact:true}).click();await record.locator('.action textarea').fill('QA independent verified execution');await record.getByPlaceholder('Kanıt referansı / URI').fill('EVD-QA-retirement');await record.getByPlaceholder('64 karakter SHA-256').fill('a'.repeat(64));for(const checkbox of await record.locator('.checklist input').all())await checkbox.check();await record.getByPlaceholder('İMHAYI DOĞRULA',{exact:true}).fill('İMHAYI DOĞRULA');}
  await fill();await sql(`UPDATE ai_decommission_plans SET updated_at=${q(new Date().toISOString())} WHERE id=${q(planId)};`);

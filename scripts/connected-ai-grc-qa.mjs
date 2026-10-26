@@ -22,7 +22,12 @@ for(const [path,body] of Object.entries(fixtures)) await page.route(`**${path}`,
 async function openMap(){
  await page.goto(base);await expect(page.locator('.shell')).toBeVisible();
  await page.locator('.language-switch:visible').getByRole('button',{name:'EN',exact:true}).click();
- await page.locator('nav button[aria-label="Connected GRC Map"]').evaluate(el=>el.click());
+ const nav=page.locator('#fornost-navigation'),button=nav.getByRole('button',{name:'Connected GRC Map',exact:true,includeHidden:true});
+ await expect(button).toBeAttached();
+ if(!await button.isVisible())for(const group of await nav.locator('.nav-group').all()){
+  if(await group.getByRole('button',{name:'Connected GRC Map',exact:true,includeHidden:true}).count()){await group.locator('.nav-group-trigger').click();break;}
+ }
+ await button.click();
  await expect(page.locator('.cg-source-state')).toHaveAttribute('data-loading','false');
 }
 try{
@@ -34,7 +39,7 @@ try{
  await expect(page.locator('.cg-records>button')).toHaveCount(1);
  await expect(page.locator('.cg-connections article')).toHaveCount(2);
  await expect(page.locator('.cg-connections')).toContainText('QA AI remediation');
- await page.getByRole('button',{name:'Explore connections: QA AI assistant',exact:true}).click();
+ await page.getByRole('button',{name:'Explore connections: QA AI assistant · enterprise:ai-model:QA-AIM-1 · AI Governance',exact:true}).click();
  await expect(page.locator('.cg-detail h3')).toHaveText('QA AI assistant');
  await expect(page.locator('.cg-connections article')).toHaveCount(2);
  for(const lang of ['EN','TR']){

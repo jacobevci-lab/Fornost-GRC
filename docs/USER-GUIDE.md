@@ -2,7 +2,7 @@
 
 [Dokümantasyon dizini](README.md) · [Ürün tanıtımı](PRODUCT-OVERVIEW.md) · [Yönetici rehberi](ADMIN-GUIDE.md)
 
-Kapsam: 19 Ekim 2026 itibarıyla günlük kullanım. Menü/işlem görünürlüğü rolünüze, modül izinlerinize ve işteki atamanıza bağlıdır. Türkçe ve İngilizce arayüz adları gerektiğinde birlikte verilmiştir.
+Kapsam: 26 Ekim 2026 itibarıyla günlük kullanım. Menü/işlem görünürlüğü rolünüze, modül izinlerinize ve işteki atamanıza bağlıdır. Türkçe ve İngilizce arayüz adları gerektiğinde birlikte verilmiştir.
 
 ## 1. Giriş ve çalışma alanı
 
@@ -18,9 +18,13 @@ Eksik menü için yöneticiye başvurun. Paylaşılan bir kayıt bağlantısına
 
 Üst aramayı veya **Ctrl+K** komut paletini açın. **Modules** menüye geçer; **Records** sekiz çekirdek sicilde kayıt arar: risk, BIA, varlık, uyum, tedarikçi, kontrol, kanıt ve denetim gereksinimi. En az iki karakterle kod, başlık, sahip veya ilgili referansı arayın. Dosya içeriği ve bütün kurumsal geçmiş bu aramanın kapsamında değildir.
 
-Sonuç tam kaydı açar. Çekirdek listelerde filtre/arama bağlamı aynı kullanıcı ve tarayıcı sekmesi için korunur. **Önceki görünüme dön / Return to previous view** eski filtreyi geri getirir; **Tüm kayıtları göster / Show all records** filtreyi açıkça temizler. Kaynak yükleme hatasında yeniden deneyin; hata mesajı “kayıt yok” sonucu değildir.
+Sonuç tam kaydı açar. Çekirdek listelerde filtre/arama bağlamı aynı kullanıcı ve tarayıcı sekmesi için korunur. **Önceki görünüme dön / Return to previous view** kaynak görünüme döner; haritadan geldiyseniz arama ve seçili düğüm korunur. Çekirdek kayıtta sayfayı yenilemek seçimi korur ve mevcut erişimle kaydı yeniden doğrular; **Tüm kayıtları göster / Show all records** filtreyi açıkça temizler. Kaynak yükleme hatasında yeniden deneyin; hata mesajı “kayıt yok” sonucu değildir.
 
 ### Kayıt işlemleri
+
+Risk, varlık, BIA, uyum, kontrol ve kanıt listelerinde **henüz kayıt yok**, **filtreye uyan kayıt yok**, **yükleniyor** ve **yüklenemedi** durumları ayrı açıklanır. Modül erişimiyle sınırlandırılmış kullanıcıların çekirdek tedarikçi listesi de aynı düzeni kullanır. Boş listede yazma yetkiniz varsa modüle uygun ilk kayıt aksiyonu bulunur. **Arama ve filtreleri temizle / Clear search and filters** yalnız açık sorguyu ve filtreleri sıfırlar; seçtiğiniz sütunları, kayıtları ve kaydettiğiniz görünümleri silmez. Kaynak hatasında **Yeniden yükle / Reload records** ile tekrar deneyin; liste doğrulanana kadar yeni kayıt, içe aktarma ve CSV işlemleri kapalıdır.
+
+Kayıt formunun üstündeki açıklama ilgili işi ve bağlantıları özetler. Uzun formlarda **Temel alanlar / Core fields** ve **Gelişmiş alanları göster / Show advanced** kontrolü formun başındadır. Riskte başlık, sorumlu ve ilgili varlıkla başlayıp değerlendirmeyi tamamlayabilirsiniz. Formu iptal etmek kayıt oluşturmaz; Escape kapanışından sonra odak açtığınız düğmeye döner. Bildirimleri klavyeyle erişilebilir kapatma düğmesinden kapatabilirsiniz.
 
 1. İlgili modülü açın ve yeni kayıt işlemini seçin.
 2. Zorunlu alanları, sorumluyu, tarihleri ve ilişki alanlarını doldurun. Kurum verisi için yeni kayıt oluşturun; örnek kimliklerini gerçek kayıt olarak kullanmayın.
@@ -117,6 +121,8 @@ Bu kurumsal alanların ayrıntılı belgeleri [dokümantasyon dizinindedir](READ
 ## 7. Rapor alma
 
 **Raporlar** ekranında kapsam ve filtreleri seçin, veri/eksiklik uyarılarını kontrol edin. **PDF Raporu** doğrudan indirilebilir PDF üretir; **Dışa aktar** altında HTML, CSV ve Excel seçenekleri bulunur. Önizleme sayfası ile dışa aktarma kapsamını karıştırmayın; ekrandaki kapsam açıklamasını kontrol edin.
+
+**Genel GRC güvencesi · ayrı kapsam** bölümünü açarak genel güvence değerlendirmesini, kaynak durumunu ve yeniden değerlendirme aksiyonunu görebilirsiniz. **Genel Güvence Paketi** bu bölümden indirilir; değerlendirme tamamlanmamışsa indirme kapalı kalır ve nedeni yanında açıklanır. Bu pakete yukarıdaki rapor filtreleri ve CAPA kapsamı uygulanmaz.
 
 Denetimin **Audit status reports** bölümü ayrı, Admin'e özel bir kaydedilmiş durum raporudur. Başlık, hazırlayan özeti ve sınırlamaları kaydedin; kaynak değişmişse önizlemeyi yenileyin. Kaydedilmiş rapor HTML/PDF/CSV/JSON olarak alınır ve daha sonraki kaynak düzenlemesi eski raporu değiştirmez. Rapor dosya içeriklerini paketlemez; durum raporu bağımsız denetim kapanış onayı değildir. [Rapor kapsamı](audit-status-reports.md).
 
@@ -252,3 +258,13 @@ Bağlı talep/çalışma kâğıdındaki **İnceleme görevi** ile kanıt deği�
 **Görev paketi oluştur** alanında seçili görevlerin tarihlerini girdikten sonra **Paket iş günü tarihlerini önizle** düğmesini kullanın. Değişmeyen tarihler de listelenir; seçilmeyen görevler etkilenmez. Her tarih aynı veya sonraki çalışma gününe gider; görev süreleri hesaplanmaz, tarihler aynı güne gelebilir. Gerekçe yazıp **Paket tarihlerini taslağa uygula** seçin; ardından **Görev paketini önizle → Tüm görevleri kaydet** ile tamamlayın.
 
 Öneri uygulanınca tarih/saat dilimi ve görev seçimi kilitlenir; değiştirmek için **Paket tarih önerisini geri al** seçin. Başlık, açıklama ve sorumlu düzenlenebilir. Takvim değişirse kayıt yapılmaz ve taslak korunur: **Takvimi yenile ve tarih önerisini geri al** özgün tarihleri getirir; metinleri ve seçiminizi korur. Yeniden önizleyip uygulayın. Takvim yenileme başarısızsa taslak ve öneri korunur. Her görevin değişiklik geçmişinde gerekçe ve kullanılan takvim bulunur. [Ayrıntılar](audit-deadline-planning.md#task-pack-dates).
+
+## Güvence sonuçları ve kanıt güncelliği
+
+Kanıt listesindeki **Güncellik**, kayıt yaşından değil onay/inceleme durumu, geçerlilik tarihleri, doğrulama ve mevcut bütünlük/otomasyon değerlendirmesinden hesaplanır. Tam çalışma alanında liste ile kalite özeti aynı kaynak ve değerlendirme zamanını kullanır. Kaynak okunamazsa “Doğrulanamadı” görünür; Yenile ile tekrar değerlendirin. Kayıt durumu ve denetim talebinin bağımsız kabulü ayrı kalır. Sınırlı modül erişiminde liste mevcut yetkili metadata üzerinden değerlendirilir; portföy değerlendirme erişimi genişletilmez.
+
+Dashboard’da denetime bağlı olmayan maddeler veya eksik denetim kaynakları varsa geçerli kanıt/kontrol göstergeleri görünmeye devam eder. Bütünleşik güvence skoru ve genel güvence paketi, gereken kaynaklar doğrulanana kadar kapalı kalır. Uyarıdaki bağlantıyla bağlantısız maddeleri inceleyin. Normal modül CSV/PDF dışa aktarımları kendi kapsamlarında çalışır.
+
+## AI yönetişiminde başlangıç
+
+Boş yönetim özetindeki **İlk AI sistemini ekle / Add your first AI system** envanter formunu açar. AI çalışma alanları envanter/sahiplik, risk/uyum, test/güvence, inceleme/aksiyon, AI yardımı ve operasyon gruplarından seçilir. Envanter ve yönetişim işlemleri için çıkarım sağlayıcısı gerekmez; AI ile yanıt üretimi yapılandırılmış sağlayıcı gerektirir. Bu düzenleme mevcut rol ve onay kurallarını değiştirmez.
