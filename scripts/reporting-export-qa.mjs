@@ -54,6 +54,7 @@ try{
  await expect(panel.locator('.report-secondary[open]')).toHaveCount(0);
  await panel.getByLabel('Report module',{exact:true}).selectOption('BIA');
  await expect(panel.getByRole('button',{name:'PDF Report',exact:true})).toBeVisible();
+ await panel.locator('.report-hero').scrollIntoViewIfNeeded();
  await expect(panel.locator('.report-global-assurance>summary')).toBeInViewport();
  const headerBox=await panel.boundingBox(),tableBox=await panel.locator('.table-card').boundingBox();assert.ok(tableBox.y-headerBox.y<700,'Register must be close to the scope controls');
  await mkdir('layout-qa-artifacts',{recursive:true});
@@ -105,7 +106,8 @@ try{
  console.log('Reporting QA passed: CAPA source references, export failure gating and recovery; complete pagination, filter reset, detailed HTML/CSV/PDF downloads, Turkish data, classification and font-failure recovery.');
 }catch(error){
  await mkdir('layout-qa-artifacts',{recursive:true});
- await writeFile('layout-qa-artifacts/reporting-failure.json',JSON.stringify({message:error.message,stack:error.stack},null,2));
+ const layout=await page.evaluate(()=>({scrollY,viewport:{width:innerWidth,height:innerHeight},elements:['.report-hero','.report-global-assurance>summary','.report-workspace .table-card'].map(selector=>({selector,rect:document.querySelector(selector)?.getBoundingClientRect().toJSON()}))})).catch(()=>null);
+ await writeFile('layout-qa-artifacts/reporting-failure.json',JSON.stringify({message:error.message,stack:error.stack,layout},null,2));
  await page.screenshot({path:'layout-qa-artifacts/reporting-failure.png',fullPage:true,animations:'disabled'}).catch(()=>{});
  throw error;
 }finally{await browser.close();}
