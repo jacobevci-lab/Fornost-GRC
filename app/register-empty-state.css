@@ -7,5 +7,5 @@
 .record-dialog .record-form-guide{margin:0;padding:14px 22px;border-bottom:1px solid var(--ws-line);color:var(--ws-muted);background:var(--ws-surface-2);font-size:13px;line-height:1.6}
 .shell .notice>button{flex:0 0 auto;min-width:32px;min-height:32px;margin-left:12px;border:0;border-radius:6px;background:transparent;color:inherit;font-size:20px;cursor:pointer}
 .shell .notice>button:focus-visible{outline:2px solid currentColor;outline-offset:2px}
-.fornost-progressive-form>.fornost-progressive-controls{grid-column:1/-1;order:-1;margin:0}
+.fornost-progressive-slot{grid-column:1/-1}.fornost-progressive-slot:empty{display:none}.fornost-progressive-slot>.fornost-progressive-controls{margin:0}
 @media(max-width:600px){.register-empty-state{padding:20px}.register-empty-state button{width:100%}.record-dialog .cia-calculation{grid-template-columns:minmax(0,1fr)}.record-dialog .cia-calculation>div{min-width:0;flex-direction:row;align-items:center;justify-content:space-between}.record-dialog .cia-calculation .cia-result{flex-direction:column;align-items:flex-start}.record-dialog .cia-calculation small{overflow-wrap:anywhere}}

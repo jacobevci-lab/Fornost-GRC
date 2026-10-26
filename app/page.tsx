@@ -2344,6 +2344,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
             {editing && <CopyRecordLink key={editing.id} lang={lang} target={{module:active,kind:"record",ref:editing.id}} />}
             {active === "Kanıtlar" && !editing ? (
               <form onSubmit={uploadEvidence} className="form">
+                <div className="fornost-progressive-slot" />
                 <label className="wide">
                   {u.file}
                   <input
@@ -2375,6 +2376,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
               </form>
             ) : (
               <form onSubmit={save} className="form">
+                <div className="fornost-progressive-slot" />
                 {fields[active].map((k) => (
                   <Field
                     key={k}

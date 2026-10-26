@@ -82,6 +82,9 @@ try{
       if(enName==='Risk Assessment'){
         const control=form.locator('.fornost-progressive-controls');await expect(control).toBeVisible();
         assert.ok((await control.boundingBox()).y<(await form.locator('form>label').first().boundingBox()).y,'Progressive controls precede fields');
+        const firstField=form.locator('form>label input').first();await firstField.focus();
+        await page.keyboard.press('Shift+Tab');await expect(control.locator('button')).toBeFocused();
+        await page.keyboard.press('Tab');await expect(firstField).toBeFocused();
         await expect(form.locator('.fornost-progressive-hidden').first()).toBeHidden();
         await control.getByRole('button',{name:/gelişmiş alanları göster|show advanced/i}).click();
         await expect(form.locator('.fornost-advanced-field').first()).toBeVisible();
