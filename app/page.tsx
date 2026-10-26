@@ -1133,6 +1133,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
     [notice, setNotice] = useState(""),
     [saving, setSaving] = useState(false),
     [importOpen, setImportOpen] = useState(false),
+    [registerImportRevision, setRegisterImportRevision] = useState(0),
     [previewEvidence, setPreviewEvidence] = useState<Row | null>(null),
     [selectedAudit, setSelectedAudit] = useState(""),
     [auditPortfolio, setAuditPortfolio] = useState<AuditPortfolioItem[]>([]),
@@ -2158,7 +2159,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
         ) : active === "Politika Merkezi" ? (
           <PolicyLifecycle lang={lang} currentUser={currentUser} />
         ) : active === "Tedarikçiler" && !scoped ? (
-          <ThirdPartyRisk lang={lang} currentUser={currentUser} />
+          <ThirdPartyRisk lang={lang} currentUser={currentUser} refreshKey={registerImportRevision} onImport={canWriteModule(currentUser, active) && registerLoadState === "ready" ? () => setImportOpen(true) : undefined} />
         ) : adminModules.has(active) ? (
           <Settings
             lang={lang}
@@ -2430,6 +2431,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
           onClose={() => setImportOpen(false)}
           onDone={async (n, replayed) => {
             setImportOpen(false);
+            setRegisterImportRevision(value => value + 1);
             await load();
             setNotice(
               replayed ? (lang === "tr" ? `Önceki içe aktarmanın sonucu doğrulandı: ${n} kayıt. Aynı işlem tekrar uygulanmadı.` : `Previous import confirmed: ${n} records. The operation was not applied again.`) : lang === "tr"

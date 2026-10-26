@@ -23,3 +23,5 @@ Use the existing module permissions, canonical validation, risk governance norma
 Update user/admin guidance and product/delivery descriptions. No production/customer UAT claim follows from isolated CI. Rollback is a code revert; retained receipts contain digest/count/actor/module metadata, not workbook contents. Older clients/builds must not retry an uncertain tokenized operation because they cannot interpret receipts. Import is not an upsert, record reconciliation, spreadsheet formula execution, or multi-sheet merge; the first worksheet is used.
 
 Implementation, test, merge and deployment evidence is recorded in the delivery PR. Owned test data is isolated to the QA database.
+
+Browser verification also exposed the missing full-workspace vendor import entry point. The vendor inventory now opens the same importer and refreshes after completion; imported sources remain unmanaged until explicitly adopted into TPRM. No profile, assessment or approval is fabricated by import.
