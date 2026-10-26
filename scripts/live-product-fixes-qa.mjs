@@ -66,8 +66,9 @@ try{
   await screenshot('04-risk-desktop');checks.push('F05/F06: decision columns and translated accessible resize labels at 1363px');
 
   await open('Reporting');await page.getByLabel('Report module',{exact:true}).selectOption('Risk Assessment');
-  const download=page.waitForEvent('download');await page.getByRole('button',{name:/CSV/}).click();
-  const text=await readFile(await (await download).path(),'utf8');
+  await page.locator('.workspace-export>summary').click();
+  const [download]=await Promise.all([page.waitForEvent('download'),page.getByRole('button',{name:'CSV',exact:true}).click()]);
+  const text=await readFile(await download.path(),'utf8');
   assert.match(text,/Owner: All/);assert.match(text,/Status: All/);assert.doesNotMatch(text,/Owner: All Modules/);
   if(!assurance.verified)await expect(page.getByRole('button',{name:/Global Assurance Pack/i})).toBeDisabled();
   checks.push('F01/F06: combined export stays gated and CSV describes unfiltered criteria correctly');
@@ -82,5 +83,5 @@ try{
   await screenshot('05-ai-groups');checks.push('F08: provider-independent first-system action and six task groups preserve all 34 workspaces');
   assert.deepEqual(errors,[]);await writeFile(`${out}/result.json`,JSON.stringify({checks,errors},null,2));
   console.log(checks.join('\n'));
-}catch(error){await screenshot('failure');await writeFile(`${out}/failure.txt`,String(error));await writeFile(`${out}/diagnostics.json`,JSON.stringify({checks,navigation:await navigationState(),headings:await page.locator('.risk-table th').allTextContents(),snapshot:await page.locator('main').ariaSnapshot()},null,2));throw error;}
+}catch(error){await writeFile(`${out}/failure.txt`,String(error));await screenshot('failure').catch(()=>{});await writeFile(`${out}/diagnostics.json`,JSON.stringify({checks,navigation:await navigationState().catch(()=>null),headings:await page.locator('.risk-table th').allTextContents().catch(()=>[]),snapshot:await page.locator('main').ariaSnapshot().catch(()=>null)},null,2));throw error;}
 finally{await context.close();await browser.close();}

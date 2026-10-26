@@ -1,0 +1,11 @@
+.register-empty-state{display:grid;justify-items:start;gap:16px;padding:28px;min-height:180px;background:var(--ws-surface);color:var(--ws-ink);white-space:normal}
+.register-empty-state h3{margin:0 0 8px;font-size:17px;line-height:1.4}
+.register-empty-state p{max-width:65ch;margin:0;color:var(--ws-muted);font-size:13px;line-height:1.6}
+.register-empty-state button{max-width:100%;min-height:40px;padding:10px 14px;border:1px solid var(--ws-line-strong);border-radius:8px;background:var(--ws-surface-2);color:var(--ws-ink);font:inherit;font-size:13px;cursor:pointer;white-space:normal}
+.register-empty-state button.primary{background:var(--ws-brand);border-color:var(--ws-brand);color:var(--fornost-on-brand,#fff)}
+.register-empty-state button:focus-visible{outline:2px solid var(--ws-brand);outline-offset:3px}
+.record-dialog .record-form-guide{margin:0;padding:14px 22px;border-bottom:1px solid var(--ws-line);color:var(--ws-muted);background:var(--ws-surface-2);font-size:13px;line-height:1.6}
+.shell .notice>button{flex:0 0 auto;min-width:32px;min-height:32px;margin-left:12px;border:0;border-radius:6px;background:transparent;color:inherit;font-size:20px;cursor:pointer}
+.shell .notice>button:focus-visible{outline:2px solid currentColor;outline-offset:2px}
+.fornost-progressive-form>.fornost-progressive-controls{grid-column:1/-1;order:-1;margin:0}
+@media(max-width:600px){.register-empty-state{padding:20px}.register-empty-state button{width:100%}}

@@ -38,6 +38,8 @@ import "./core-record-focus.css";
 import NavIcon from "./nav-icon";
 import { RecordSearch } from "./record-search";
 import { useRegisterView } from "./use-register-view";
+import RegisterEmptyState from "./register-empty-state";
+import { registerExperience } from "./register-experience";
 import { fields, registerColumns, registerFilterKeys } from "./register-view-schema";
 import { SavedRegisterViewsPanel } from "./saved-register-views-panel";
 import { navigateToFornost } from "./navigation-focus";
@@ -1122,6 +1124,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
     [active, setActive] = useState("Ana Sayfa"),
     [rows, setRows] = useState<Row[]>([]),
     [rowsLoaded, setRowsLoaded] = useState(false),
+    [registerLoadState, setRegisterLoadState] = useState<"loading" | "error" | "ready">("loading"),
     [modal, setModal] = useState(false),
     [editing, setEditing] = useState<Row | null>(null),
     [form, setForm] = useState<Record<string, any>>({}),
@@ -1287,6 +1290,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
         lang === "tr" ? "FORNOST GRC GENEL DURUM" : "FORNOST GRC OVERVIEW";
   }, [lang, active]);
   const load = useCallback(async () => {
+    setRegisterLoadState("loading");
     try {
       const rawRows = await readAllGrcPages<any>(async cursor => {
         const response = await fetch(withBasePath(`/api/grc${cursor ? `?cursor=${encodeURIComponent(cursor)}` : ""}`),{cache:"no-store"});
@@ -1296,9 +1300,11 @@ function FornostApp({ currentUser }: { currentUser: any }) {
       });
       const nextRows:Row[]=rawRows.map(x=>({...x,data:JSON.parse(x.data_json),code:x.recordCode||x.record_code,createdAt: x.createdAt || x.created_at,updatedAt: x.updatedAt || x.updated_at})).sort((a,b)=>String(b.updatedAt).localeCompare(String(a.updatedAt)));
       setRows(nextRows);
+      setRegisterLoadState("ready");
       return nextRows;
     } catch (error) {
       setRows([]);
+      setRegisterLoadState("error");
       setNotice(
         error instanceof Error
           ? error.message
@@ -1641,26 +1647,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
     }finally{recordWritePending.current=false;setSaving(false);}
   }
   const by = (m: string) => rows.filter((r) => r.module === m),
-    desc =
-      active === "Risk Assessment"
-        ? lang === "tr"
-          ? "Riskleri kaydet, 5×5 skorunu ve dağılımını gör."
-          : "Record risks and view their 5×5 scores and distribution."
-        : active === "BIA"
-          ? lang === "tr"
-            ? "Kritik süreçleri, iş etkisini ve RTO/RPO hedeflerini tut."
-            : "Track critical processes, business impacts and RTO/RPO targets."
-          : active === "Kanıtlar"
-            ? lang === "tr"
-              ? "Kanıt dosyalarını kontrol maddeleri ve standartlarla eşleştir."
-              : "Map evidence files to controls and applicable standards."
-            : active === "Denetim Yönetimi"
-              ? lang === "tr"
-                ? "Denetim maddelerini, sorumluları, kanıtları ve terminleri uçtan uca takip et."
-                : "Track audit requirements, owners, evidence and deadlines end to end."
-              : lang === "tr"
-                ? "Kayıtlarını sade, aranabilir ve raporlanabilir biçimde yönet."
-                : "Manage records in a simple, searchable and reportable format.";
+    desc = registerExperience(active, lang).description;
   const navGroups = [
     { id: "overview", label: lang === "tr" ? "GENEL BAKIŞ" : "OVERVIEW", items: ["Ana Sayfa","Benim İşlerim"] },
     { id: "risk", label: lang === "tr" ? "RİSK" : "RISK", items: ["Risk Assessment","Varlık Envanteri","BIA","Tedarikçiler","Risk İştahı ve KRI","İş Sürekliliği"] },
@@ -2126,9 +2113,9 @@ function FornostApp({ currentUser }: { currentUser: any }) {
           </div>
         </header>
         {notice && (
-          <div className="notice" onClick={() => setNotice("")}>
+          <div className="notice" role="status">
             {notice}
-            <b>×</b>
+            <button type="button" onClick={() => setNotice("")} aria-label={lang === "tr" ? "Bildirimi kapat" : "Dismiss notification"}>×</button>
           </div>
         )}
         {focusedRecord && <section className="core-record-focus" role="status" aria-live="polite">
@@ -2233,6 +2220,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
                   canWriteModule(currentUser,active) && (
                     <button
                       className="ghost"
+                      disabled={registerLoadState !== "ready"}
                       onClick={() => setImportOpen(true)}
                     >
                       {u.import}
@@ -2240,6 +2228,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
                   )}
                 <button
                   className="ghost"
+                  disabled={registerLoadState !== "ready"}
                   onClick={() =>
                     csvDownload(`${names[lang][active]}.csv`, visible, lang)
                   }
@@ -2247,7 +2236,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
                   {u.csv}
                 </button>
                 {canWriteModule(currentUser,active) && (
-                  <button className="primary" onClick={() => openNew()}>
+                  <button className="primary" disabled={registerLoadState !== "ready"} onClick={() => openNew()}>
                     {u.new}
                   </button>
                 )}
@@ -2289,7 +2278,13 @@ function FornostApp({ currentUser }: { currentUser: any }) {
                 setFilterPanelOpen={setFilterPanelOpen}
               />
               <div className="table-wrap" tabIndex={0} role="region" aria-label={lang === "tr" ? "Kayıt tablosu" : "Record table"}>
-                {active === "Risk Assessment" ? (
+                {!focusedRecord && (registerLoadState !== "ready" || !visible.length) ? <RegisterEmptyState
+                  module={active} lang={lang} state={registerLoadState}
+                  filtered={Boolean(query || Object.values(registerFilters).some(Boolean))}
+                  onRetry={() => { setNotice(""); void load(); }}
+                  onClear={() => { setQuery(""); setRegisterFilters({}); requestAnimationFrame(() => document.querySelector<HTMLInputElement>(".register-search input")?.focus()); }}
+                  onCreate={canWriteModule(currentUser,active) ? () => openNew() : undefined}
+                /> : active === "Risk Assessment" ? (
                   <RiskRegister
                     rows={visible}
                     lang={lang}
@@ -2328,6 +2323,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
             aria-modal="true"
             aria-busy={saving}
             aria-label={names[lang][active]}
+            aria-describedby="record-form-guide"
             onMouseDown={(e) => e.stopPropagation()}
           >
             <div className="modal-head">
@@ -2343,6 +2339,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
                 ×
               </button>
             </div>
+            <p id="record-form-guide" className="record-form-guide">{registerExperience(active, lang).formHint}</p>
             {editing && <CopyRecordLink key={editing.id} lang={lang} target={{module:active,kind:"record",ref:editing.id}} />}
             {active === "Kanıtlar" && !editing ? (
               <form onSubmit={uploadEvidence} className="form">

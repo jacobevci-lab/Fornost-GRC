@@ -2,7 +2,7 @@
 
 [Dokümantasyon dizini](README.md) · [Ürün tanıtımı](PRODUCT-OVERVIEW.md) · [Yönetici rehberi](ADMIN-GUIDE.md)
 
-Kapsam: 19 Ekim 2026 itibarıyla günlük kullanım. Menü/işlem görünürlüğü rolünüze, modül izinlerinize ve işteki atamanıza bağlıdır. Türkçe ve İngilizce arayüz adları gerektiğinde birlikte verilmiştir.
+Kapsam: 26 Ekim 2026 itibarıyla günlük kullanım. Menü/işlem görünürlüğü rolünüze, modül izinlerinize ve işteki atamanıza bağlıdır. Türkçe ve İngilizce arayüz adları gerektiğinde birlikte verilmiştir.
 
 ## 1. Giriş ve çalışma alanı
 
@@ -21,6 +21,10 @@ Eksik menü için yöneticiye başvurun. Paylaşılan bir kayıt bağlantısına
 Sonuç tam kaydı açar. Çekirdek listelerde filtre/arama bağlamı aynı kullanıcı ve tarayıcı sekmesi için korunur. **Önceki görünüme dön / Return to previous view** kaynak görünüme döner; haritadan geldiyseniz arama ve seçili düğüm korunur. Çekirdek kayıtta sayfayı yenilemek seçimi korur ve mevcut erişimle kaydı yeniden doğrular; **Tüm kayıtları göster / Show all records** filtreyi açıkça temizler. Kaynak yükleme hatasında yeniden deneyin; hata mesajı “kayıt yok” sonucu değildir.
 
 ### Kayıt işlemleri
+
+Risk, varlık, BIA, uyum, kontrol ve kanıt listelerinde **henüz kayıt yok**, **filtreye uyan kayıt yok**, **yükleniyor** ve **yüklenemedi** durumları ayrı açıklanır. Kapsamlı tedarikçi erişimi olan kullanıcıların çekirdek listesi de aynı düzeni kullanır. Boş listede yazma yetkiniz varsa modüle uygun ilk kayıt aksiyonu bulunur. **Arama ve filtreleri temizle / Clear search and filters** yalnız açık sorguyu ve filtreleri sıfırlar; seçtiğiniz sütunları, kayıtları ve kaydettiğiniz görünümleri silmez. Kaynak hatasında **Yeniden yükle / Reload records** ile tekrar deneyin; liste doğrulanana kadar yeni kayıt, içe aktarma ve CSV işlemleri kapalıdır.
+
+Kayıt formunun üstündeki açıklama ilgili işi ve bağlantıları özetler. Uzun formlarda **Temel alanlar / Core fields** ve **Gelişmiş alanları göster / Show advanced** kontrolü formun başındadır. Riskte başlık, sorumlu ve ilgili varlıkla başlayıp değerlendirmeyi tamamlayabilirsiniz. Formu iptal etmek kayıt oluşturmaz; Escape kapanışından sonra odak açtığınız düğmeye döner. Bildirimleri klavyeyle erişilebilir kapatma düğmesinden kapatabilirsiniz.
 
 1. İlgili modülü açın ve yeni kayıt işlemini seçin.
 2. Zorunlu alanları, sorumluyu, tarihleri ve ilişki alanlarını doldurun. Kurum verisi için yeni kayıt oluşturun; örnek kimliklerini gerçek kayıt olarak kullanmayın.

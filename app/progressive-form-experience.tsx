@@ -175,6 +175,6 @@ export default function ProgressiveFormExperience() {
         <span aria-hidden="true">{advancedOpen ? "↑" : "↓"}</span>
       </button>
     </div>,
-    target.actions,
+    target.form,
   );
 }

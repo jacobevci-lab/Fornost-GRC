@@ -22,4 +22,4 @@ Baseline task-completion time is unmeasured. The outcome is completion of an ass
 
 ## Delivery record
 
-Implementation and verification pending. PR #354's initial standard CI passed; Workspace Layout QA failed before completing the new scenarios.
+Implementation in progress. PR #354's initial standard CI passed; Workspace Layout QA failed before completing the new scenarios. The next captured risk screenshot with animations disabled shows legible navigation and opacity 1; the earlier faint image is not sufficient evidence for a permanent palette defect. Added measured light/dark sidebar contrast checks instead of an unverified theme override. Native shared empty-state recovery, module-specific copy/form guidance and top-of-form progressive controls are implemented locally; exact-revision browser validation remains pending.

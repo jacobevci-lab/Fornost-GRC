@@ -57,6 +57,14 @@ jobs:
         with:
           name: live-product-fixes-preview
           path: live-product-fixes-qa-artifacts/
+      - name: Product experience recovery, form guidance and navigation QA
+        run: node scripts/product-experience-qa.mjs
+      - name: Preserve product experience browser evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: product-experience-preview
+          path: product-experience-qa-artifacts/
       - name: Integration and evidence read timeout, cancellation and recovery QA
         run: node scripts/integration-read-recovery-qa.mjs
       - name: Preserve integration read recovery evidence
