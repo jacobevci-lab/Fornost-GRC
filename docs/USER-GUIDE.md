@@ -18,7 +18,7 @@ Eksik menü için yöneticiye başvurun. Paylaşılan bir kayıt bağlantısına
 
 Üst aramayı veya **Ctrl+K** komut paletini açın. **Modules** menüye geçer; **Records** sekiz çekirdek sicilde kayıt arar: risk, BIA, varlık, uyum, tedarikçi, kontrol, kanıt ve denetim gereksinimi. En az iki karakterle kod, başlık, sahip veya ilgili referansı arayın. Dosya içeriği ve bütün kurumsal geçmiş bu aramanın kapsamında değildir.
 
-Sonuç tam kaydı açar. Çekirdek listelerde filtre/arama bağlamı aynı kullanıcı ve tarayıcı sekmesi için korunur. **Önceki görünüme dön / Return to previous view** eski filtreyi geri getirir; **Tüm kayıtları göster / Show all records** filtreyi açıkça temizler. Kaynak yükleme hatasında yeniden deneyin; hata mesajı “kayıt yok” sonucu değildir.
+Sonuç tam kaydı açar. Çekirdek listelerde filtre/arama bağlamı aynı kullanıcı ve tarayıcı sekmesi için korunur. **Önceki görünüme dön / Return to previous view** kaynak görünüme döner; haritadan geldiyseniz arama ve seçili düğüm korunur. Çekirdek kayıtta sayfayı yenilemek seçimi korur ve mevcut erişimle kaydı yeniden doğrular; **Tüm kayıtları göster / Show all records** filtreyi açıkça temizler. Kaynak yükleme hatasında yeniden deneyin; hata mesajı “kayıt yok” sonucu değildir.
 
 ### Kayıt işlemleri
 
@@ -252,3 +252,13 @@ Bağlı talep/çalışma kâğıdındaki **İnceleme görevi** ile kanıt deği�
 **Görev paketi oluştur** alanında seçili görevlerin tarihlerini girdikten sonra **Paket iş günü tarihlerini önizle** düğmesini kullanın. Değişmeyen tarihler de listelenir; seçilmeyen görevler etkilenmez. Her tarih aynı veya sonraki çalışma gününe gider; görev süreleri hesaplanmaz, tarihler aynı güne gelebilir. Gerekçe yazıp **Paket tarihlerini taslağa uygula** seçin; ardından **Görev paketini önizle → Tüm görevleri kaydet** ile tamamlayın.
 
 Öneri uygulanınca tarih/saat dilimi ve görev seçimi kilitlenir; değiştirmek için **Paket tarih önerisini geri al** seçin. Başlık, açıklama ve sorumlu düzenlenebilir. Takvim değişirse kayıt yapılmaz ve taslak korunur: **Takvimi yenile ve tarih önerisini geri al** özgün tarihleri getirir; metinleri ve seçiminizi korur. Yeniden önizleyip uygulayın. Takvim yenileme başarısızsa taslak ve öneri korunur. Her görevin değişiklik geçmişinde gerekçe ve kullanılan takvim bulunur. [Ayrıntılar](audit-deadline-planning.md#task-pack-dates).
+
+## Güvence sonuçları ve kanıt güncelliği
+
+Kanıt listesindeki **Güncellik**, kayıt yaşından değil onay/inceleme durumu, geçerlilik tarihleri, doğrulama ve mevcut bütünlük/otomasyon değerlendirmesinden hesaplanır. Tam çalışma alanında liste ile kalite özeti aynı kaynak ve değerlendirme zamanını kullanır. Kaynak okunamazsa “Doğrulanamadı” görünür; Yenile ile tekrar değerlendirin. Kayıt durumu ve denetim talebinin bağımsız kabulü ayrı kalır. Sınırlı modül erişiminde liste mevcut yetkili metadata üzerinden değerlendirilir; portföy değerlendirme erişimi genişletilmez.
+
+Dashboard’da denetime bağlı olmayan maddeler veya eksik denetim kaynakları varsa geçerli kanıt/kontrol göstergeleri görünmeye devam eder. Bütünleşik güvence skoru ve genel güvence paketi, gereken kaynaklar doğrulanana kadar kapalı kalır. Uyarıdaki bağlantıyla bağlantısız maddeleri inceleyin. Normal modül CSV/PDF dışa aktarımları kendi kapsamlarında çalışır.
+
+## AI yönetişiminde başlangıç
+
+Boş yönetim özetindeki **İlk AI sistemini ekle / Add your first AI system** envanter formunu açar. AI çalışma alanları envanter/sahiplik, risk/uyum, test/güvence, inceleme/aksiyon, AI yardımı ve operasyon gruplarından seçilir. Envanter ve yönetişim işlemleri için çıkarım sağlayıcısı gerekmez; AI ile yanıt üretimi yapılandırılmış sağlayıcı gerektirir. Bu düzenleme mevcut rol ve onay kurallarını değiştirmez.

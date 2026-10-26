@@ -15,7 +15,7 @@ try{
  await page.locator('input[name=email]').fill('qa-admin@fornost.test');await page.locator('input[name=password]').fill(qaPassword());await page.getByRole('button',{name:'Giriş Yap',exact:true}).click();
  await expect(page.locator('.shell')).toBeVisible();await page.locator('.context-ai-trigger').click();
  const panel=page.locator('#fornost-ai-panel');await expect(panel).toBeVisible({timeout:5000});await expect(panel.locator('.fornost-ai-tabs')).toBeVisible({timeout:5000});
- assert.ok(await panel.locator('.fornost-ai-tabs>button').count()>=30,'Specialist AI capabilities are retained');
+ assert.ok(await panel.locator('.fornost-ai-tabs button').count()>=30,'Specialist AI capabilities are retained');
  await expect(panel).toContainText('AI sağlayıcısı henüz yapılandırılmamış');await expect(panel.locator('.fornost-ai-compose button')).toBeDisabled();
  await expect(panel.locator('.fornost-ai-compose textarea')).not.toHaveValue('');
  await page.screenshot({path:`${out}/signed-in-immediate-open.png`});

@@ -49,6 +49,14 @@ jobs:
           curl --fail --silent --show-error http://127.0.0.1:4173/api/auth \
             -H 'Origin: http://127.0.0.1:4173' -H 'Content-Type: application/json' \
             --data-binary @/tmp/fornost-qa-bootstrap.json
+      - name: Live product QA fixes regression
+        run: node scripts/live-product-fixes-qa.mjs
+      - name: Preserve live product fixes browser evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: live-product-fixes-preview
+          path: live-product-fixes-qa-artifacts/
       - name: Integration and evidence read timeout, cancellation and recovery QA
         run: node scripts/integration-read-recovery-qa.mjs
       - name: Preserve integration read recovery evidence

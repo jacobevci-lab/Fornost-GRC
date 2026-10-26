@@ -1,3 +1,4 @@
+import { revealAiWorkspace } from "./qa-ai-workspaces.mjs";
 import { chromium, expect } from '@playwright/test';
 import fs from 'node:fs/promises';
 import assert from 'node:assert/strict';
@@ -59,8 +60,8 @@ try {
               const chooser = page.locator('.ai-section-picker');
               await chooser.locator(':scope>summary').click();
               const inventory = language === 'tr' ? 'AI Envanteri' : 'AI Inventory';
-              await expect(chooser.getByRole('button', { name: inventory, exact: true })).toBeVisible();
-              result.aiWorkspaces = await chooser.locator('.fornost-ai-tabs>button').allTextContents();
+              await revealAiWorkspace(page,inventory);await expect(chooser.getByRole('button', { name: inventory, exact: true })).toBeVisible();
+              result.aiWorkspaces = await chooser.locator('.fornost-ai-tabs button').allTextContents();
               assert.equal(result.aiWorkspaces.length, 34);
               await chooser.screenshot({ path: `${out}/${id}-ai-navigation.png` });
               await chooser.locator(':scope>summary').click();

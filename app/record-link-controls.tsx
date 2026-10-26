@@ -31,7 +31,7 @@ export function RecordLinkEntry({ ready, lang, scoped }: { ready: boolean; lang:
       applying.current = true;
       try { if (!navigateToFornost(recordLinkNavigation(target, scoped))) { setState('unavailable'); return; } }
       finally { applying.current = false; }
-      // Navigation focus now owns the target; successful links do not replay on reload or sign-out.
+      // Navigation focus owns the target; clear the one-time URL fragment. Per-user core focus can restore after reload.
       history.replaceState(history.state, '', location.pathname + location.search); setState('');
     } catch { if (generation === ticket.current) setState('retry'); }
     finally { window.clearTimeout(timeout); }

@@ -9,7 +9,6 @@ import NavigationFocusBridge from "./navigation-focus-bridge";
 import SidebarIconTooltip from "./sidebar-icon-tooltip";
 import MyWorkV2 from "./my-work-v2";
 import ProgressiveFormExperience from "./progressive-form-experience";
-import EvidenceQualityLens from "./evidence-quality-lens";
 import ConnectorOnboardingWizard from "./connector-onboarding-wizard";
 
 /**
@@ -37,7 +36,6 @@ export default function PlatformExperience() {
       <SidebarIconTooltip />
       {fullWorkspace && <MyWorkV2 />}
       <ProgressiveFormExperience />
-      {fullWorkspace && <EvidenceQualityLens />}
       {fullWorkspace && <ConnectorOnboardingWizard />}
       <NavigationFocusBridge />
 

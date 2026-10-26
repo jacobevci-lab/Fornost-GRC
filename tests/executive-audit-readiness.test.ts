@@ -8,7 +8,8 @@ import { seedAssessmentReceipt } from './helpers/assessment-fixture';
 import { loadExecutiveAssuranceSnapshot } from '../app/executive-assurance-runtime';
 import { loadAuditReadiness } from '../app/audit-readiness-runtime';
 import { buildExecutiveAssurance, buildAssuranceReportHtml } from '../app/executive-assurance';
-import { parseExecutiveAssuranceSnapshot } from '../app/executive-assurance-snapshot';
+import { executiveEvidenceSnapshot, parseExecutiveAssuranceSnapshot } from '../app/executive-assurance-snapshot';
+import { applyEvidenceAssuranceSnapshot } from '../app/evidence/assurance-snapshot';
 import { appendEvidenceVersion, sha256HexBytes } from '../app/evidence/versioning';
 import { scopedApiAllowed } from '../app/module-access';
 
@@ -82,6 +83,25 @@ test('orphan requirements and normalized duplicate audit names make the portfoli
   const f=await fixture();try{
     f.audit();f.requirement('ORPHAN','Missing audit');let s=await f.read();assert.equal(s.verified,false);assert.equal(s.auditPortfolio.orphanRequirements,1);assert.ok(s.issues.includes('orphan-requirements'));
     f.sqlite.exec("DELETE FROM simple_grc_records");f.requirement();f.evidence();f.audit('A2',' ISO audit ');s=await f.read();assert.equal(s.verified,false);assert.ok(s.issues.includes('audit-identity-ambiguous'));assert.ok(s.auditPortfolio.audits.every(a=>a.gate==='unverified'));assert.ok(parseExecutiveAssuranceSnapshot(s));
+  }finally{f.sqlite.close();}
+});
+
+test('unassigned requirements preserve verified evidence while the composite assessment remains blocked',async()=>{
+  const f=await fixture();try{
+    f.audit();f.requirement('ORPHAN','Missing audit');f.evidence();
+    const wire=await f.read(), parsed=parseExecutiveAssuranceSnapshot(wire)!;
+    assert.ok(parsed);assert.equal(parsed.verified,false);assert.equal(parsed.evidenceVerified,true);
+    assert.deepEqual(parsed.evidenceIssues,[]);assert.equal(parsed.auditPortfolio.verified,false);
+    const applied=applyEvidenceAssuranceSnapshot(wire.rows,executiveEvidenceSnapshot(parsed));
+    assert.equal(applied.ready,true);
+    const metrics=buildExecutiveAssurance(applied.rows,parsed.generatedAt,parsed.auditPortfolio);
+    assert.equal(metrics.currentEvidence,1);assert.equal(metrics.score,null);assert.equal(metrics.auditScore,null);
+    assert.equal(parseExecutiveAssuranceSnapshot({...wire,verified:true,issues:[]}),null);
+    assert.equal(parseExecutiveAssuranceSnapshot({...wire,evidenceVerified:true,evidenceIssues:['evidence-unavailable']}),null);
+    assert.equal(parseExecutiveAssuranceSnapshot({...wire,issues:[]}),null);
+    f.sqlite.exec('DROP TABLE evidence_versions');const failed=parseExecutiveAssuranceSnapshot(await f.read())!;
+    assert.ok(failed);assert.equal(failed.evidenceVerified,false);
+    assert.equal(applyEvidenceAssuranceSnapshot(wire.rows,executiveEvidenceSnapshot(failed)).ready,false);
   }finally{f.sqlite.close();}
 });
 

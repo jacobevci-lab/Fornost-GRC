@@ -1,3 +1,4 @@
+import { revealAiWorkspace } from "./qa-ai-workspaces.mjs";
 import { qaPassword } from "./qa-credentials.mjs";
 import { chromium, expect } from '@playwright/test';
 import assert from 'node:assert/strict';
@@ -59,12 +60,12 @@ try{
   await open(tr?'AI Yönetişimi':'AI Governance');
   const host=page.locator('#ai-governance-workspace'),panel=host.locator('#fornost-ai-panel');
   await expect(panel).toBeVisible();
-  assert.ok(await panel.locator('.fornost-ai-tabs>button').count()>=30,'All specialist capabilities retained');
+  assert.ok(await panel.locator('.fornost-ai-tabs button').count()>=30,'All specialist capabilities retained');
   await panel.locator('.ai-section-picker>summary').click();
-  await panel.getByRole('button',{name:tr?'AI Envanteri':'AI Inventory',exact:true}).click();
+  await revealAiWorkspace(panel,tr?'AI Envanteri':'AI Inventory');await panel.getByRole('button',{name:tr?'AI Envanteri':'AI Inventory',exact:true}).click();
   await expect(panel).toHaveAttribute('data-ai-view','models');
   assert.equal(await panel.locator('.ai-section-picker').getAttribute('open'),null);
-  await panel.locator('.ai-section-picker>summary').click();await panel.getByRole('button',{name:tr?'AI Yönetim Özeti':'AI Executive Overview',exact:true}).click();
+  await panel.locator('.ai-section-picker>summary').click();await revealAiWorkspace(panel,tr?'AI Yönetim Özeti':'AI Executive Overview');await panel.getByRole('button',{name:tr?'AI Yönetim Özeti':'AI Executive Overview',exact:true}).click();
   await expect(page.locator('.fornost-ai-launcher')).toBeHidden();
   for(const theme of ['light','dark'])for(const width of [1536,390]){
    await page.evaluate(theme=>document.documentElement.dataset.theme=theme,theme);
