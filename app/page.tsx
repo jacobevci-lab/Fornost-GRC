@@ -2242,15 +2242,15 @@ function FornostApp({ currentUser }: { currentUser: any }) {
                 )}
               </div>
             </section>
-            {active === "Risk Assessment" && (
+            {registerLoadState === "ready" && active === "Risk Assessment" && (
               <RiskOverview rows={by("Risk Assessment")} lang={lang} />
             )}
-            {!scoped && ["BIA","Varlık Envanteri","Uyum","Kontroller"].includes(active) && (
+            {registerLoadState === "ready" && !scoped && ["BIA","Varlık Envanteri","Uyum","Kontroller"].includes(active) && (
               <CoreModuleOverview module={active} rows={by(active)} allRows={rows} lang={lang}/>
             )}
             {!scoped && active === "Kanıtlar" && <EvidenceQualityLens state={evidenceRegisterState} lang={lang} />}
-            {active === "Kanıtlar" && <EvidenceUsagePanel lang={lang} records={by("Kanıtlar")} focusedId={focusedRecord?.id || ""} />}
-            {!scoped && active === "Kontroller" && (
+            {registerLoadState === "ready" && active === "Kanıtlar" && <EvidenceUsagePanel lang={lang} records={by("Kanıtlar")} focusedId={focusedRecord?.id || ""} />}
+            {registerLoadState === "ready" && !scoped && active === "Kontroller" && (
               <details className="module-analysis-disclosure" key="control-analysis">
                 <summary><span><b>{lang === "tr" ? "Kontrol güvencesi ve etki analizi" : "Control assurance & impact analysis"}</b><small>{lang === "tr" ? "Güvence skorları, kanıt zinciri ve öncelikli aksiyonlar" : "Assurance scores, evidence lineage and priority actions"}</small></span></summary>
                 <ControlAssuranceWorkspace rows={rows} lang={lang} go={navigateToModule} />
@@ -2266,6 +2266,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
                 lang={lang}
                 rows={by(active)}
                 resultCount={visible.length}
+                sourceState={registerLoadState}
                 query={focusedRecord ? "" : query}
                 setQuery={value => { clearRecordFocus(); setQuery(value); }}
                 selectedColumnKeys={selectedColumnKeys}
@@ -5011,6 +5012,7 @@ function RegisterToolbar({
   lang,
   rows,
   resultCount,
+  sourceState = "ready",
   query,
   setQuery,
   selectedColumnKeys,
@@ -5028,6 +5030,7 @@ function RegisterToolbar({
   lang: Lang;
   rows: Row[];
   resultCount: number;
+  sourceState?: "loading" | "error" | "ready";
   query: string;
   setQuery: (value: string) => void;
   selectedColumnKeys: string[];
@@ -5174,8 +5177,8 @@ function RegisterToolbar({
               </div>
             )}
           </div>
-          <strong>
-            {resultCount} {ui[lang].record}
+          <strong className="register-result-count" role="status">
+            {sourceState === "ready" ? `${resultCount} ${ui[lang].record}` : sourceState === "loading" ? (tr ? "Yükleniyor…" : "Loading…") : (tr ? "Kayıt sayısı doğrulanamadı" : "Record count unavailable")}
           </strong>
         </div>
       </div>

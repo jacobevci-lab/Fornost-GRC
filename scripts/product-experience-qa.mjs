@@ -95,15 +95,28 @@ try{
       await page.setViewportSize({width,height:960});
       await screenshot(`${lang}-empty-${width}`);
       assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)<=2,'Empty state fits viewport');
-      await state.locator('button').click();await screenshot(`${lang}-form-${width}`);await page.keyboard.press('Escape');
+      await state.locator('button').click();
+      await expect(page.locator('.record-dialog')).toBeVisible();
+      for(const selector of ['.record-dialog','.record-dialog form','.record-dialog .cia-calculation']){
+        assert.ok(await page.locator(selector).evaluate(el=>el.scrollWidth-el.clientWidth)<=2,`${lang}/${width}: ${selector} fits without internal horizontal overflow`);
+      }
+      await screenshot(`${lang}-form-${width}`);await page.keyboard.press('Escape');
     }
     await page.setViewportSize({width:1363,height:960});
     source='error';await page.reload();await expect(state).toHaveAttribute('data-state','error');
     await expect(page.locator('.module-head button.primary')).toBeDisabled();
+    await expect(page.locator('.risk-overview')).toHaveCount(0);
+    await expect(page.locator('.register-result-count')).toHaveText(tr?'Kayıt sayısı doğrulanamadı':'Record count unavailable');
+    await open(modules[1][tr?0:1]);await expect(state).toHaveAttribute('data-state','error');
+    await expect(page.locator('.module-overview')).toHaveCount(0);
+    await expect(page.locator('.register-result-count')).toHaveText(tr?'Kayıt sayısı doğrulanamadı':'Record count unavailable');
     source='empty';await state.getByRole('button',{name:tr?'Yeniden yükle':'Reload records',exact:true}).click();
-    await expect(state).toHaveAttribute('data-state','empty');checks.push(`${lang}: failed source stays distinct from empty and retries`);
+    await expect(state).toHaveAttribute('data-state','empty');await expect(page.locator('.module-overview')).toBeVisible();
+    await open(modules[0][tr?0:1]);await expect(page.locator('.risk-overview')).toBeVisible();
+    checks.push(`${lang}: failed source hides unverified metrics and count; retry restores summaries`);
   }
   source='loading';await page.reload({waitUntil:'domcontentloaded'});await expect(page.locator('.register-empty-state')).toHaveAttribute('data-state','loading');
+  await expect(page.locator('.risk-overview')).toHaveCount(0);await expect(page.locator('.register-result-count')).toHaveText('Loading…');
   await expect(page.locator('.module-head button.primary')).toBeDisabled();source='empty';releaseLoad();await expect(page.locator('.register-empty-state')).toHaveAttribute('data-state','empty');
   reader=true;await page.reload();await expect(page.locator('.register-empty-state')).toHaveAttribute('data-state','empty');await expect(page.locator('.register-empty-state button')).toHaveCount(0);await expect(page.locator('.module-head button.primary')).toHaveCount(0);
   await screenshot('reader-empty');checks.push('Loading and read-only UI never offer create actions; read-only role is a UI fixture');

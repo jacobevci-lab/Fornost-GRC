@@ -65,7 +65,7 @@ async function checkPendingRecordForm(dialog,path){
 }
 await reset();
 for(const [moduleName,label,key] of [['Risk Assessment','Risk Assessment','title'],['BIA','Business Impact Analysis (BIA)','process'],['Varlık Envanteri','Asset Inventory','title'],['Uyum','Compliance Management','controlTitle'],['Kontroller','Control Library','controlTitle']])await check(`UI create/edit/delete: ${label}`,async()=>{
- await reset();await open(label);await page.getByPlaceholder('Search records').fill('QA-no-match-20261001');assert.match(await page.locator('.table-wrap').innerText(),/No records in this view/);await page.getByPlaceholder('Search records').fill('');await page.locator('.actions .primary').click();const dialog=page.locator('.modal[role=dialog]');await dialog.waitFor();await dialog.getByRole('button',{name:/Show advanced/}).click();
+ await reset();await open(label);await page.getByPlaceholder('Search records').fill('QA-no-match-20261001');await expect(page.locator('.register-empty-state')).toHaveAttribute('data-state','filtered');await expect(page.locator('.register-empty-state')).toContainText('No records match this view');await page.getByPlaceholder('Search records').fill('');await page.locator('.actions .primary').click();const dialog=page.locator('.modal[role=dialog]');await dialog.waitFor();await dialog.getByRole('button',{name:/Show advanced/}).click();
  const data=JSON.parse(seedRows.find(x=>x.module===moduleName).data_json);data[key]=`QA UI ${moduleName} ${Date.now()}`;
  // Fixtures may contain legacy names; the UI now selects explicit record codes.
  for(const [field,targetModule,titleField] of [['asset','Varlık Envanteri','title'],['processLink','BIA','process']]){

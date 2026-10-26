@@ -2,7 +2,7 @@
 
 ## Decision and scope
 
-The 26 October live review and PR #354 browser artifacts show that operators need clearer record workflows and consistent navigation. First repair the QA scenario's case-sensitive risk header lookup and closed AI-group lookup without weakening visibility checks. The uploaded light-theme screenshot also shows faint sidebar text; inspect and fix the shared navigation tokens before qualifying light/dark layouts.
+The 26 October live review and PR #354 browser artifacts show that operators need clearer record workflows and consistent navigation. First repair the QA scenario's case-sensitive risk header lookup and closed AI-group lookup without weakening visibility checks. An early light-theme screenshot showed faint sidebar text; subsequent captures with animations disabled showed normal opacity, so measured contrast checks decide whether palette changes are needed.
 
 This delivery extends the existing core registers with a shared, contextual empty state and actionable recovery, clearer task-specific descriptions and create labels, and predictable record form guidance. Existing progressive forms, My Work, views, permissions and canonical records remain in place. Do not add another navigation group, business module, telemetry or email-log screen. External-auditor grants, delegation and scheduled recurrence remain later packages.
 
@@ -22,4 +22,6 @@ Baseline task-completion time is unmeasured. The outcome is completion of an ass
 
 ## Delivery record
 
-Implementation in progress. PR #354's initial standard CI passed; Workspace Layout QA failed before completing the new scenarios. The next captured risk screenshot with animations disabled shows legible navigation and opacity 1; the earlier faint image is not sufficient evidence for a permanent palette defect. Added measured light/dark sidebar contrast checks instead of an unverified theme override. Native shared empty-state recovery, module-specific copy/form guidance and top-of-form progressive controls are implemented locally; exact-revision browser validation remains pending.
+PR #354 revision `49b9563b7bfc30a17cfe67b63c6b14134cf53412` passed standard CI, including unit/regression tests, typecheck, build, dependency audit and Docker/Podman on-prem integration. Its live fixes browser regression and all 21 product-experience checks passed: TR/EN filter recovery, six register creation entry points, form guidance/Escape/focus, light/dark sidebar contrast, loading/retry and reader presentation. Reader and source-state scenarios use isolated read-response UI fixtures; API authorization is covered separately. The preceding visual matrix passed all 324 combinations (27 menus × two languages × two themes × three widths); the complete current workflow is still running.
+
+Visual inspection of the new narrow form artifact identified a clipped risk calculation card. The follow-up stacks its metrics at narrow widths and adds explicit internal-overflow assertions. Source failure/loading also now suppresses unverified register summaries and counts instead of presenting misleading zero totals. This follow-up needs exact-revision browser validation before release. No schema or palette changes; no merge, deployment or customer UAT claim.
