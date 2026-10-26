@@ -10,7 +10,8 @@ export default function RegisterEmptyState({ module, lang, state, filtered, onCl
   const tr = lang === "tr", copy = registerExperience(module, lang);
   const title = state === "loading" ? (tr ? "Kayıtlar yükleniyor…" : "Loading records…")
     : state === "error" ? (tr ? "Kayıtlar yüklenemedi" : "Records could not be loaded")
-    : filtered ? (tr ? "Bu aramayla eşleşen kayıt yok" : "No records match this view") : copy.emptyTitle;
+    : filtered ? (tr ? "Bu aramayla eşleşen kayıt yok" : "No records match this view")
+    : onCreate ? copy.emptyTitle : (tr ? "Bu kapsamda kayıt yok" : "No records in this scope");
   const body = state === "loading" ? (tr ? "Sonuçlar hazır olduğunda bu alan güncellenecek." : "This view will update when the results are ready.")
     : state === "error" ? (tr ? "Liste doğrulanamadı. Arama ve filtreleriniz korundu; yeniden deneyin." : "The list could not be verified. Your search and filters are preserved; retry loading.")
     : filtered ? (tr ? "Arama veya filtreleri değiştirin. Görünümü sıfırlamak kayıtlarınızı ve kaydettiğiniz görünümleri silmez." : "Change your search or filters. Clearing them does not delete records or saved views.")

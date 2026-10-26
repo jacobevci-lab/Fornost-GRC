@@ -26,9 +26,11 @@ await page.route('**/api/grc',async route=>{
   await route.fulfill({json:{rows:[],nextCursor:null}});
 });
 async function open(name){
+  await expect(page.locator('.shell')).toBeVisible();
   const mobile=page.locator('.mobile-nav-toggle');
   if(await mobile.isVisible()&&await mobile.getAttribute('aria-expanded')!=='true')await mobile.click();
   const nav=page.locator('#fornost-navigation'),button=nav.getByRole('button',{name,exact:true,includeHidden:true});
+  await expect(button).toBeAttached();
   if(!await button.isVisible())for(const group of await nav.locator('.nav-group').all()){
     if(await group.getByRole('button',{name,exact:true,includeHidden:true}).count()){await group.locator('.nav-group-trigger').click();break;}
   }
@@ -107,5 +109,5 @@ try{
   await screenshot('reader-empty');checks.push('Loading and read-only UI never offer create actions; read-only role is a UI fixture');
   assert.deepEqual(mutations,[],'No business record writes or external actions');assert.deepEqual(errors,[]);
   await writeFile(`${out}/result.json`,JSON.stringify({checks,mutations,errors},null,2));console.log('PRODUCT_EXPERIENCE_QA_PASS',checks.length);
-}catch(error){await screenshot('failure');await writeFile(`${out}/failure.txt`,String(error));throw error;}
+}catch(error){await writeFile(`${out}/failure.txt`,String(error));await screenshot('failure').catch(()=>{});throw error;}
 finally{releaseLoad?.();await context.close();await browser.close();}
