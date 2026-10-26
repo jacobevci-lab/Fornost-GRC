@@ -50,6 +50,7 @@ jobs:
             -H 'Origin: http://127.0.0.1:4173' -H 'Content-Type: application/json' \
             --data-binary @/tmp/fornost-qa-bootstrap.json
       - name: Register XLSX preview, validation and retry-safe import QA
+        timeout-minutes: 6
         run: node scripts/register-import-qa.mjs
       - name: Preserve register import browser evidence
         if: always()
