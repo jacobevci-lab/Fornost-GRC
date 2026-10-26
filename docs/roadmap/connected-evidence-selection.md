@@ -26,4 +26,13 @@ Additive storage only; no rewriting historical reference/hash fields. Reverting 
 
 ## Delivery record
 
-Implementation complete for the bounded package. Initial focused SQLite regressions: 64 passed; additive migration preflight: 101 files passed; production build passed. Full suite, final lint/typecheck and real Chromium interaction checks are in progress. No merge or production-deployment claim yet.
+Implemented: canonical file/version selectors, active directory assignments, retained drafts, immutable decision pins, protected evidence deletion and localized workflow copy. User/admin and module guides describe both the new UI and legacy API compatibility. No palette change or new navigation destination.
+
+Validation evidence:
+
+- Local full test suite: 1,608 passed; targeted continuity/regulatory/reference/selection regressions: 64 passed.
+- Production build, typecheck, lint and additive migration preflight passed (101 migration files).
+- Real Chromium workflow QA passed on `997d901b1b921080774546bf76a6adb69d0632c7`: UI plan/source/change/impact creation, directory assignments, selected older evidence, independent retest closure, separate regulatory submission/verification pins, selection read retry and retained drafts, protected deletion, Viewer/scoped-account rejection, TR/EN, light/dark, desktop/mobile and changed-field accessibility checks. Twenty screenshots and the structured result are in the `workflow-evidence-selection-preview` artifact of [browser run 40417092165](https://github.com/jacobevci-lab/Fornost-GRC/actions/runs/40417092165).
+- Release status and whole-product regression/installation results are tracked against the current head of [PR #357](https://github.com/jacobevci-lab/Fornost-GRC/pull/357). A passing targeted check alone does not authorize claiming a complete release. Production deployment and customer UAT are separate and have not been verified here.
+
+Remaining boundaries: generalized evidence-usage aggregation for these new pins, organization-level scopes and external auditor permissions remain later packages. Object-storage bytes are checked immediately before SQL commit, without a distributed transaction. Legacy references are not upgraded into verified file selections.
