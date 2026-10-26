@@ -38,20 +38,24 @@ export function coreReferenceGuard(refs:Reference[]){
 }
 
 export type NewCoreRecord={id:string;code:string;data:Record<string,unknown>};
+export type CoreImportClaim={key:string;value:string;guard:{sql:string;values:(string|null)[]}};
+export class CoreImportConflict extends Error {}
 /** One transaction for the entire import; a rejected reference inserts neither rows nor codes. */
-export async function insertCoreRecords(db:D1Database,module:string,records:NewCoreRecord[],now:string){
+export async function insertCoreRecords(db:D1Database,module:string,records:NewCoreRecord[],now:string,claim?:CoreImportClaim){
  if(!records.length||records.length>1000)throw new Error('Invalid import size');
  const guard=coreReferenceGuard(records.flatMap(record=>newCoreReferences(record.id,module,record.data)));
  const result=await db.batch([
   db.prepare(`INSERT INTO simple_grc_records(id,module,data_json,created_at,updated_at)
- SELECT json_extract(value,'$.id'),?,json_extract(value,'$.data'),?,? FROM json_each(?) WHERE ${guard.sql}`)
-   .bind(module,now,now,JSON.stringify(records),...guard.values),
+ SELECT json_extract(value,'$.id'),?,json_extract(value,'$.data'),?,? FROM json_each(?) WHERE ${guard.sql}${claim?` AND ${claim.guard.sql} AND NOT EXISTS(SELECT 1 FROM simple_grc_metadata WHERE key=?)`:''}`)
+   .bind(module,now,now,JSON.stringify(records),...guard.values,...(claim?[...claim.guard.values,claim.key]:[])),
   db.prepare(`INSERT INTO simple_grc_record_codes(record_id,module,code,created_at)
  SELECT json_extract(value,'$.id'),?,json_extract(value,'$.code'),? FROM json_each(?) WHERE changes()=?`)
    .bind(module,now,JSON.stringify(records.map(({id,code})=>({id,code}))),records.length),
+  ...(claim?[db.prepare('INSERT INTO simple_grc_metadata(key,value,updated_at) SELECT ?,?,? WHERE changes()=?').bind(claim.key,claim.value,now,records.length)]:[]),
  ]);
  // The code insert is gated by SQLite changes()=records.length, which excludes
  // trigger writes. D1 metadata includes those writes, so its positive receipt
  // confirms the entire import without comparing a trigger-inclusive row count.
+ if(claim&&Number(result[2]?.meta?.changes||0)<1)throw new CoreImportConflict();
  if(Number(result[1]?.meta?.changes||0)<1)throw new CoreReferenceUnavailable();
 }

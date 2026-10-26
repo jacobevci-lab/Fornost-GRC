@@ -4,6 +4,7 @@ import test from "node:test";
 
 const schema = readFileSync("app/register-view-schema.ts", "utf8");
 const page = readFileSync("app/page.tsx", "utf8");
+const importDialog = readFileSync("app/register-import-modal.tsx", "utf8");
 const css = readFileSync("app/module-registers.css", "utf8");
 const finalCss = readFileSync("app/final-polish.css", "utf8");
 
@@ -72,14 +73,10 @@ test("percent values follow the selected interface language", () => {
 
 test("shared record and import dialogs expose accessible names", () => {
   assert.match(page, /aria-label=\{names\[lang\]\[active\]\}/);
-  assert.match(
-    page,
-    /aria-label=\{lang === "tr" \? "Excel içe aktar" : "Import Excel"\}/,
-  );
-  assert.ok((page.match(/aria-modal="true"/g) || []).length >= 5);
-  assert.ok(
-    (page.match(/"Pencereyi kapat" : "Close dialog"/g) || []).length >= 2,
-  );
+  assert.match(importDialog, /aria-label=\{t\('Excel içe aktar', 'Import Excel'\)\}/);
+  assert.match(importDialog, /aria-label=\{t\('Pencereyi kapat', 'Close dialog'\)\}/);
+  assert.ok(((page + importDialog).match(/aria-modal="true"/g) || []).length >= 5);
+  assert.ok(((page + importDialog).match(/"Pencereyi kapat" : "Close dialog"|'Pencereyi kapat', 'Close dialog'/g) || []).length >= 2);
 });
 
 test("module catalogs expose operational tracking fields beyond the default view", () => {

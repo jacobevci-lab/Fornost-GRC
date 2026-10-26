@@ -57,7 +57,7 @@ import {
   useState,
 } from "react";
 import { createPortal } from "react-dom";
-import { readSheet as readXlsxSheet } from "read-excel-file/browser";
+import { RegisterImportModal } from "./register-import-modal";
 import writeXlsxFile from "write-excel-file/browser";
 import "./matrix-overrides.css";
 import "./i18n.css";
@@ -1133,6 +1133,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
     [notice, setNotice] = useState(""),
     [saving, setSaving] = useState(false),
     [importOpen, setImportOpen] = useState(false),
+    [registerImportRevision, setRegisterImportRevision] = useState(0),
     [previewEvidence, setPreviewEvidence] = useState<Row | null>(null),
     [selectedAudit, setSelectedAudit] = useState(""),
     [auditPortfolio, setAuditPortfolio] = useState<AuditPortfolioItem[]>([]),
@@ -2158,7 +2159,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
         ) : active === "Politika Merkezi" ? (
           <PolicyLifecycle lang={lang} currentUser={currentUser} />
         ) : active === "Tedarikçiler" && !scoped ? (
-          <ThirdPartyRisk lang={lang} currentUser={currentUser} />
+          <ThirdPartyRisk lang={lang} currentUser={currentUser} refreshKey={registerImportRevision} onImport={canWriteModule(currentUser, active) && registerLoadState === "ready" ? () => setImportOpen(true) : undefined} />
         ) : adminModules.has(active) ? (
           <Settings
             lang={lang}
@@ -2420,17 +2421,22 @@ function FornostApp({ currentUser }: { currentUser: any }) {
         />
       )}
       {importOpen && (
-        <ImportModal
+        <RegisterImportModal
           module={active}
           lang={lang}
+          title={names[lang][active]}
+          fields={fields[active]}
+          labels={labelMap[lang]}
+          aliases={aliases}
           onClose={() => setImportOpen(false)}
-          onDone={async (n) => {
+          onDone={async (n, replayed) => {
             setImportOpen(false);
+            setRegisterImportRevision(value => value + 1);
             await load();
             setNotice(
-              lang === "tr"
+              replayed ? (lang === "tr" ? `Önceki içe aktarmanın sonucu doğrulandı: ${n} kayıt. Aynı işlem tekrar uygulanmadı.` : `Previous import confirmed: ${n} ${n === 1 ? "record" : "records"}. The operation was not applied again.`) : lang === "tr"
                 ? `${n} kayıt Excel dosyasından içe aktarıldı.`
-                : `${n} records imported from the Excel file.`,
+                : `${n} ${n === 1 ? "record" : "records"} imported from the Excel file.`,
             );
           }}
         />
@@ -2439,192 +2445,6 @@ function FornostApp({ currentUser }: { currentUser: any }) {
   );
 }
 
-function ImportModal({
-  module,
-  lang,
-  onClose,
-  onDone,
-}: {
-  module: string;
-  lang: Lang;
-  onClose: () => void;
-  onDone: (n: number) => void;
-}) {
-  const input = useRef<HTMLInputElement>(null),
-    [raw, setRaw] = useState<Record<string, any>[]>([]),
-    [headers, setHeaders] = useState<string[]>([]),
-    [map, setMap] = useState<Record<string, string>>({}),
-    [file, setFile] = useState(""),
-    [error, setError] = useState(""),
-    labels = labelMap[lang];
-  async function read(f: File) {
-    setError("");
-    if (f.size > 5 * 1024 * 1024) {
-      setError(
-        lang === "tr"
-          ? "Dosya en fazla 5 MB olabilir."
-          : "The file may not exceed 5 MB.",
-      );
-      return;
-    }
-    try {
-      const sheet = await readXlsxSheet(f);
-      if (!sheet.length) throw new Error("EMPTY");
-      const hs = sheet[0]
-        .map((v) => String(v ?? "").trim())
-        .filter(Boolean)
-        .slice(0, 100);
-      const json: Record<string, any>[] = [];
-      sheet.slice(1, 1001).forEach((row) => {
-        const out: Record<string, any> = {};
-        hs.forEach((h, i) => {
-          out[h] = String(row[i] ?? "").slice(0, 2000);
-        });
-        if (Object.values(out).some(Boolean)) json.push(out);
-      });
-      const auto: Record<string, string> = {};
-      hs.forEach((h) => {
-        const norm = h
-          .trim()
-          .toLocaleLowerCase(lang === "tr" ? "tr-TR" : "en-US");
-        auto[h] =
-          aliases[norm] ||
-          (fields[module] || []).find(
-            (k) =>
-              (labels[k] || k).toLocaleLowerCase(
-                lang === "tr" ? "tr-TR" : "en-US",
-              ) === norm,
-          ) ||
-          "";
-      });
-      setFile(f.name);
-      setRaw(json);
-      setHeaders(hs);
-      setMap(auto);
-    } catch {
-      setError(
-        lang === "tr"
-          ? "Dosya okunamadı. Geçerli bir .xlsx dosyası seçin."
-          : "The file could not be read. Select a valid .xlsx file.",
-      );
-    }
-  }
-  const converted = raw
-    .map((r) =>
-      Object.fromEntries(
-        headers.filter((h) => map[h]).map((h) => [map[h], r[h]]),
-      ),
-    )
-    .filter((r) => Object.values(r).some(Boolean));
-  async function commit() {
-    const r = await fetch(withBasePath("/api/grc"), {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ module, rows: converted }),
-    });
-    if (r.ok) onDone(converted.length);
-    else
-      setError(
-        (await r.json().catch(() => ({}))).error ||
-          (lang === "tr" ? "İçe aktarma başarısız." : "Import failed."),
-      );
-  }
-  return (
-    <div className="overlay">
-      <div data-escape-layer
-        className="modal import-modal"
-        role="dialog"
-        aria-modal="true"
-        aria-label={lang === "tr" ? "Excel içe aktar" : "Import Excel"}
-      >
-        <div className="modal-head">
-          <div>
-            <small>{lang === "tr" ? "EXCEL İÇE AKTAR" : "IMPORT EXCEL"}</small>
-            <h2>{names[lang][module]}</h2>
-          </div>
-          <button data-escape-close
-            type="button"
-            aria-label={lang === "tr" ? "Pencereyi kapat" : "Close dialog"}
-            onClick={onClose}
-          >
-            ×
-          </button>
-        </div>
-        <div className="import-body">
-          <div className="drop" onClick={() => input.current?.click()}>
-            <b>
-              {file ||
-                (lang === "tr" ? "Excel dosyanı seç" : "Select an Excel file")}
-            </b>
-            <span>
-              {lang === "tr"
-                ? ".xlsx · En fazla 5 MB ve 1.000 satır"
-                : ".xlsx · Up to 5 MB and 1,000 rows"}
-            </span>
-            <input
-              ref={input}
-              hidden
-              type="file"
-              accept=".xlsx"
-              onChange={(e) => e.target.files?.[0] && read(e.target.files[0])}
-            />
-          </div>
-          {error && <div className="auth-error">{error}</div>}
-          {headers.length > 0 && (
-            <>
-              <div className="import-summary">
-                <b>
-                  {raw.length} {lang === "tr" ? "satır bulundu" : "rows found"}
-                </b>
-                <span>
-                  {Object.values(map).filter(Boolean).length}{" "}
-                  {lang === "tr" ? "kolon eşleştirildi" : "columns mapped"}
-                </span>
-              </div>
-              <div className="mapping">
-                {headers.map((h) => (
-                  <label key={h}>
-                    <span>{h}</span>
-                    <select
-                      value={map[h] || ""}
-                      onChange={(e) => setMap({ ...map, [h]: e.target.value })}
-                    >
-                      <option value="">
-                        {lang === "tr" ? "İçe aktarma" : "Do not import"}
-                      </option>
-                      {fields[module].map((k) => (
-                        <option key={k} value={k}>
-                          {labels[k]}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                ))}
-              </div>
-              <div className="preview-note">
-                {lang === "tr"
-                  ? `Ön izleme: ${converted.length} geçerli satır içe aktarılacak.`
-                  : `Preview: ${converted.length} valid rows will be imported.`}
-              </div>
-            </>
-          )}
-        </div>
-        <div className="modal-foot">
-          <button onClick={onClose}>{ui[lang].cancel}</button>
-          <button
-            className="primary"
-            disabled={!converted.length}
-            onClick={commit}
-          >
-            {lang === "tr"
-              ? `${converted.length} Kaydı İçe Aktar`
-              : `Import ${converted.length} Records`}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
 function Field({
   k,
   module,
