@@ -200,3 +200,12 @@ Ayrı [kanıt değişikliği takip akışı](evidence-change-followups.md), Dene
 ### Görev paketlerinde takvim doğrulaması
 
 Toplu görev taslakları kayıtlı denetim takvimini önizlemeyle kullanabilir. Sunucu seçili görevlerin tamamını kimlikle eşleştirir, her tarihi tekrar hesaplar ve takvim sürümü/tam içeriğini atomik kayıt içinde doğrular. Her görev için önceki/sonraki tarih, ortak gerekçe ve takvim bilgisi oluşturma geçmişine yazılır. Takvim değişikliği, kapanış, yetki kaybı veya geçmiş yazma hatası yarım paket bırakmaz. Editor yalnız kendisine atar; Admin mevcut uygun kullanıcıları seçebilir. Öneri yeni incelemeci, hatırlatma veya tekrar oluşturmaz. Görev listesi ve yetkiler takvim yenilemeyle değiştirilmez. [Paket iş günü planlaması](audit-deadline-planning.md#task-pack-dates).
+
+
+## Kayıt içe aktarma ve belirsiz yanıt kurtarma
+
+Yeni Excel akışı mevcut Admin/Editor modül yazma yetkilerini kullanır; Viewer doğrudan API ile de içe aktaramaz. Önizleme iş kaydı oluşturmaz. Kaydetme, güncel hesap/rol/erişim politikasını ve kanonik bağlantıları işlem içinde tekrar korur; kapalı denetim kilitleri geçerlidir. Kayıtlar, kayıt kodları ve tekrar deneme makbuzu aynı işlemde kaydedilir. Hata, tüm grubun geri alınmasına yol açar; kod sayaçlarında boşluk oluşabilir.
+
+Tekrar deneme makbuzları mevcut `simple_grc_metadata` tablosunda `core-import:` önekiyle saklanır. Makbuz kullanıcı kimliği, modül, normalize edilmiş içerik özeti ve kayıt sayısını içerir; çalışma kitabını veya hücre değerlerini saklamaz. Bunları rastgele temizlemeyin: silme, eski bir isteğin tekrarında tekilleştirme güvencesini kaldırır. Makbuz, sonradan silinen kayıtları yeniden oluşturmaz. Ayrı şema migrasyonu yoktur; normal veritabanı yedeği makbuzları da içermelidir.
+
+Eski API istemcileri işlem kimliği olmadan uyumlu çalışır; tekrar deneme koruması bu istemciler için geçerli değildir. Eski sürüme dönüldüğünde belirsiz sonuçlu yeni bir içe aktarmayı yeniden göndermeden önce sicili kontrol edin. Gerçek müşteri veri taşıma/UAT ayrı doğrulanmalıdır. [İş akışı ve sınırlar](register-import.md).

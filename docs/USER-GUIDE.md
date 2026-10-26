@@ -32,7 +32,11 @@ Kayıt formunun üstündeki açıklama ilgili işi ve bağlantıları özetler. 
 4. Düzenlemek için mevcut kaydı açın. Eşzamanlı değişiklik uyarısında güncel kaydı inceleyip tekrar deneyin; eski verinin üstüne yazmayın.
 5. Çekirdek kayıt silme Admin yetkisi ister. Kurumsal yaşam döngülerindeki iptal/yeniden açma işlemleri silmeden farklıdır; kapanmış denetimler yazmaya kilitlenir.
 
-Çekirdek Excel içe aktarma `.xlsx`, 5 MB ve en fazla 1.000 satır içindir. Ekranın sunduğu şablon/alan düzenini kullanın; önce küçük bir örnekle alan ve tarih eşlemelerini kontrol edin. Kanıt dosyası olarak XLSX yükleme, kayıt içe aktarma değildir.
+Çekirdek Excel içe aktarma ilk çalışma sayfasındaki `.xlsx` verisini okur: en fazla 5 MB, 100 sütun ve 1.000 dolu satır. Sütunları eşleştirin; Excel satır numaralarıyla hata listesini ve 20 satırlık sayfalar hâlindeki kayıt önizlemesini inceleyin. Eşlenmeyen sütunlar ve eşlenen alanları boş olduğu için dışarıda bırakılan satırlar sayıyla gösterilir. **Önizlemeyi doğrula** sunucuda alanları, yetkiyi, bağlantıları ve kapalı denetimleri kontrol eder; kayıt oluşturmaz. Doğrulama sonrasında gösterilen normalleştirilmiş değerleri inceleyip **İçe aktar** seçin.
+
+Boş başlıklı dolu sütun, tekrarlanan başlık/eşleme ve sınır aşımı içe aktarmayı engeller; veri kesilmez. Çoğu alan en fazla 1.000 karakterdir; denetim maddesinin statement/guidance/assessment alanları 100.000 karaktere kadar destekler. İstek toplamı 2 MB’ı aşarsa dosyayı küçük parçalara bölün. Tarihler `YYYY-MM-DD` veya Excel’in gerçek tarih hücresi olabilir. Durum değerleri modülün saklanan değerleriyle eşleşmelidir; hatayı düzeltip yeniden önizleyin. Dosya veya eşleme değişirse önceki doğrulama geçersiz olur.
+
+Bağlantı kesilip sonuç alınamazsa pencereyi açık tutup **Aynı işlemi yeniden dene** kullanın. Aynı kullanıcı/işlem kimliği/içerik, kaydedilmiş sonuçla yanıtlanır ve ikinci kez kayıt oluşturmaz. Pencereyi kapatıp yeni içe aktarma başlatmak yeni bir işlemdir; önce sicildeki sonucu kontrol edin. İçe aktarma mevcut kayıtları güncellemez, birleştirmez veya içerik bazında tekilleştirmez. Kanıt dosyası olarak XLSX yükleme ayrı bir işlemdir. Ayrıntı: [Güvenilir kayıt içe aktarma](register-import.md).
 
 ### Bağlantı paylaşma
 

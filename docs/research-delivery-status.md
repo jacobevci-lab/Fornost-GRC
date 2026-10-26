@@ -112,3 +112,8 @@ Selected pack tasks now share a reasoned, no-write working-day preview with unch
 ## Reusable list order — 26 October 2026
 
 Seven core register entry points and My Work now expose module-specific sort fields and directions. Browser/account/team views and immutable team history preserve the order; legacy definitions retain their default. Missing values remain last, assessed risk scores sort numerically, and full filtered collections are sorted before pagination. Audit results and My Work CSV follow the selected order. Scope, permissions, summary counts and business records are unchanged. Background recurrence, delegation and external engagement grants remain separate packages. See [saved order](saved-register-views.md#list-order).
+
+
+## Reliable register import — 26 October 2026
+
+Eight core register entry points now retain physical XLSX column/row positions, reject ambiguous headers/mappings and explicit limits, and show actual row errors plus a paginated preview. Server validation makes no business-record changes; commit preserves current module permissions, reference integrity, closed-audit locks and atomic rows/codes/receipt writes. Actor-scoped operation IDs make a lost-response retry return the original result without duplicating or resurrecting records. Existing clients without a token remain compatible but are not retry-deduplicated. This confirmed data-integrity fix is separate from background recurrence, delegation and external engagement grants. See [workflow and operator limits](register-import.md).

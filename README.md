@@ -112,3 +112,6 @@ Gizli değerleri repoya eklemeyin. Entegrasyon şifreleme anahtarı, AI paket m�
 Bu depo kuruma özel/proprietary kaynak kod içerir. Açık kaynak kullanım veya dağıtım lisansı vermez. Yetkisiz kopyalama, dağıtma ve üçüncü taraf ortamlarında çalıştırma izni verilmez.
 
 Kayıtlı görünümler yedi çekirdek liste ve Benim İşlerim'de tekrar kullanılabilir. **Hesap ve ortak görünümler** kişisel tercihleri cihazlar arasında saklar; yöneticiler mevcut modül yetkileriyle kullanılan ortak görünümler yayınlayabilir. Kaydetme önizlemesi, eşzamanlı değişiklik kontrolü ve onaylı kaldırma bulunur. Ortak tanımların sürüm geçmişi değiştireni, gerekçeyi ve eski ölçütleri gösterir; Admin önceki tanımı önizleyip gerekçeyle yeni sürüm olarak geri yükleyebilir. [Hesap ve ortak görünümler](docs/account-team-views.md); mevcut [tarayıcıya özel görünümler](docs/saved-register-views.md) de korunur.
+
+
+Register XLSX import supports column mapping, row-level validation, paginated record preview, explicit server validation and atomic creation across the eight core registers. Tokenized retries recover lost responses without creating the same batch twice. See [register import](docs/register-import.md) for limits, permissions and recovery; this is not an upsert or content-deduplication service.

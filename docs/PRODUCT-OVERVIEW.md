@@ -68,10 +68,13 @@ Kurumsal kimlik, e-posta ve ticket profilleri kurulumdaki gerçek sistemlerle do
 
 Detaylı mevcut/gelecek ayrımı [teslim durumu tablosunda](research-delivery-status.md), işletim gereksinimleri [yönetici rehberindedir](ADMIN-GUIDE.md).
 
-Named personal register views let users reuse search, filters and visible columns across seven core register entry points. Views are stored per user/module in the current browser; they are not team-shared or device-synchronized. See [Saved register views](saved-register-views.md).
+Yedi çekirdek kayıt ekranı ve Benim İşlerim; arama, filtre ve sıralamayı yeniden kullanılabilir görünümlerde saklar. Sicillerde görünür sütunlar da korunur. Tarayıcıya özel kişisel görünümlerin yanında sunucuda kişisel/ekip görünümleri, ekip sürüm geçmişi ve gerekçeli geri yükleme bulunur. [Kişisel görünümler](saved-register-views.md) ve [hesap/ekip görünümleri](account-team-views.md).
 
 ## Kanıtın ürün içindeki kullanımı
 
 Kanıt Kütüphanesi’ndeki [kullanım ve değişiklik etkisi](evidence-usage.md), kontrol/uyum bağlantılarını, denetim maddelerini, kanıt taleplerini, çalışma kâğıtlarını ve kanonik CAPA referanslarını bir araya getirir. Kayıt bağlantısıyla sabit dosya sürümünü ayırır; eski sürümlü açık işleri incelemeye yönlendirir ve onaylı işlerin geçmişini korur. Açık talep/çalışma kâğıdından [gerekçeli, sorumlu/tarihli inceleme görevi](evidence-change-followups.md) oluşturulabilir; kanıt ve kaynak iş sürümü görevin değişmez kaynak izinde saklanır. Benim İşlerim, görev geçmişi, rapor ve kapanış kontrolleri aynı kaydı kullanır. Yetki ve okuma sınırları görünürdür. Genel kanıt değişikliklerinden otomatik görev üretimi veya tüm modüllerin yeniden değerlendirilmesi bu özelliğin kapsamı dışındadır.
 
 Görev paketlerinde iş günü planlaması, seçili görevlerin eski/yeni tarihlerini birlikte gösterir. Gerekçeli taslak uygulama ve geri alma sonrasında tüm paket tek işlemde kaydedilir; kullanılan takvim ve tarih değişikliği her görevin geçmişinde korunur. Takvim değişirse taslak korunarak yeniden önizlenir. Görev süreleri veya bağımlılık tarihleri kendiliğinden hesaplanmaz. [İş akışı](audit-deadline-planning.md#task-pack-dates).
+
+
+Sekiz çekirdek sicilde Excel içe aktarma, fiziksel sütun konumlarını korur; satır hatalarını, dışarıda bırakılan alanları ve kayıt önizlemesini gösterir. Açık sunucu doğrulaması ardından atomik kayıt oluşturma ve aynı işlem kimliğiyle güvenli tekrar deneme desteklenir. Limit aşımı sessiz veri kesilmesine yol açmaz. Bu işlem güncelleme/birleştirme değildir. [Kayıt içe aktarma](register-import.md).

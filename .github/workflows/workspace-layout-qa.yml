@@ -49,6 +49,14 @@ jobs:
           curl --fail --silent --show-error http://127.0.0.1:4173/api/auth \
             -H 'Origin: http://127.0.0.1:4173' -H 'Content-Type: application/json' \
             --data-binary @/tmp/fornost-qa-bootstrap.json
+      - name: Register XLSX preview, validation and retry-safe import QA
+        run: node scripts/register-import-qa.mjs
+      - name: Preserve register import browser evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: register-import-preview
+          path: register-import-qa-artifacts/
       - name: Live product QA fixes regression
         run: node scripts/live-product-fixes-qa.mjs
       - name: Preserve live product fixes browser evidence

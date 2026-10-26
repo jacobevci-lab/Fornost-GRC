@@ -1,3 +1,7 @@
+import { previewRegisterImport, commitRegisterImport } from "../../register-import-store";
+import { RegisterImportError } from "../../register-import";
+import { modules, validModule, normalizeRecordData, validate, type ModuleName, type Data } from "../../core-record-validation";
+export { cleanText, validModule, validDate, normalizeRecordData, validate } from "../../core-record-validation";
 import {isAuditClosedError,auditClosedMessage} from "../../audit-closure";
 import {insertCoreRecords,CoreReferenceUnavailable} from "../../core-reference-write";
 import {deleteCoreRecord,CoreRecordLinked} from "../../core-record-delete";
@@ -12,30 +16,6 @@ import { demoSeeds } from "./demo-seeds";
 import { ensureCoreGrcSchemaCompatibility } from "./schema-compat";
 import { formatRecordCode,recordCodePrefixes,type RecordCodeModule } from "../../record-codes";
 
-const modules=["Risk Assessment","BIA","Varlık Envanteri","Uyum","Tedarikçiler","Kontroller","Kanıtlar","Denetim Yönetimi"] as const;
-type ModuleName=(typeof modules)[number];
-type Data=Record<string,unknown>;
-const required:Record<ModuleName,string[]>={
- "Risk Assessment":["title","owner","asset"],
- BIA:["process","processCategory","businessUnit","owner","criticality","asset","rto","rpo","status"],
- "Varlık Envanteri":["title","assetType","businessUnit","owner","criticality","status"],
- Uyum:["framework","controlRef","controlTitle","owner","status"],
- Tedarikçiler:["title","service","owner","criticality","riskLevel","status"],
- Kontroller:["controlRef","controlTitle","owner","frequency","implementation","status"],
- Kanıtlar:["evidenceTitle","controlRef","owner","period","status"],
- "Denetim Yönetimi":["auditName","auditType","auditOwner","startDate","endDate","requirementRef","requirementTitle","owner","businessUnit","dueDate","status","progress"]
-};
-const riskAssessmentFields=["category","businessUnit","inherentLikelihood","inherentImpact","treatment","nextReview"] as const;
-const allowedStatuses:Record<ModuleName,string[]>={
- "Risk Assessment":["Açık","Değerlendiriliyor","Aksiyon Devam Ediyor","Kabul Edildi","Kapalı"],
- BIA:["Taslak","İncelemede","Onaylandı","Aktif","Arşivlendi"],
- "Varlık Envanteri":["Aktif","Bakımda","Devre Dışı","Arşivlendi"],
- Uyum:["Uyumlu","Kısmi Uyumlu","Uyumlu Değil","Uygulanamaz"],
- Tedarikçiler:["Aktif","İncelemede","Askıda","Sonlandırıldı"],
- Kontroller:["Taslak","Aktif","İyileştirme Gerekli","Devre Dışı"],
- Kanıtlar:["Taslak","İncelemede","Onaylandı","Reddedildi","Süresi Doldu"],
- "Denetim Yönetimi":["Başlanmadı","Devam Ediyor","İncelemede","Kapatıldı"],
-};
 const seeds:[string,ModuleName,Data][]=demoSeeds;
 const demoSeedMarker="demo_seed_initialized";
 const compactDataMarker="remove_imported_workbook_and_compact_samples_2026_08";
@@ -72,68 +52,26 @@ async function compactSampleRecords(d:Awaited<ReturnType<typeof db>>,now:string)
  for(let i=0;i<seeds.length;i+=50)await d.batch(seeds.slice(i,i+50).map(([id,module,data])=>d.prepare("INSERT OR IGNORE INTO simple_grc_records(id,module,data_json,created_at,updated_at) VALUES(?,?,?,?,?)").bind(id,module,JSON.stringify(data),now,now)));
  await d.prepare("INSERT OR REPLACE INTO simple_grc_metadata(key,value,updated_at) VALUES(?,?,?)").bind(compactDataMarker,"1",now).run();
 }
-export function cleanText(value:unknown,max=1000){return typeof value==="string"?value.trim().slice(0,max):value}
-export function validModule(value:unknown):value is ModuleName{return typeof value==="string"&&modules.includes(value as ModuleName)}
-export function validDate(value:unknown){
- if(typeof value!=="string"||!/^\d{4}-\d{2}-\d{2}$/.test(value))return false;
- const [year,month,day]=value.split("-").map(Number),date=new Date(Date.UTC(year,month-1,day));
- return date.getUTCFullYear()===year&&date.getUTCMonth()===month-1&&date.getUTCDate()===day;
-}
-export function normalizeRecordData(module:unknown,input:Data){
- const data={...input};
- if(module==="Risk Assessment"){
-  if(data.inherentLikelihood===undefined&&data.likelihood!==undefined)data.inherentLikelihood=data.likelihood;
-  if(data.inherentImpact===undefined&&data.impact!==undefined)data.inherentImpact=data.impact;
-  delete data.likelihood;delete data.impact;
-  if(data.status==="Devam Ediyor")data.status="Aksiyon Devam Ediyor";
-  if(data.status==="İzlemede")data.status="Değerlendiriliyor";
-  if(!data.status)data.status="Değerlendiriliyor";
- }
- if(module==="BIA"){if(!data.processCategory)data.processCategory="Operasyonel Süreç";if(!data.status)data.status="Aktif"}
- if(module==="Uyum"){if(data.status==="Kısmi")data.status="Kısmi Uyumlu";if(data.status==="Uyumsuz")data.status="Uyumlu Değil"}
- if(module==="Tedarikçiler"&&data.status==="İyileştirme Gerekli")data.status="Askıda";
- if(module==="Denetim Yönetimi"){if(data.status==="Planlandı")data.status="Başlanmadı";if(data.status==="Tamamlandı")data.status="Kapatıldı";if(data.status==="Gecikmiş")data.status="Devam Ediyor"}
- if(module==="Kanıtlar"&&!data.status)data.status="Taslak";
- if(module==="Kontroller"&&!data.implementation&&["Uygulanıyor","Kısmi","Uygulama Hazırlığında","Uygulanmıyor","Uygulanamaz"].includes(String(data.status||""))){
-  data.implementation=data.status;
-  data.status=data.status==="Uygulanıyor"?"Aktif":data.status==="Uygulanamaz"?"Devre Dışı":data.status==="Uygulanmıyor"?"Taslak":"İyileştirme Gerekli";
- }
- return data;
-}
-export function validate(module:unknown,input:unknown){
- if(!validModule(module))return {error:"Geçersiz modül."};
- if(!input||typeof input!=="object"||Array.isArray(input))return {error:"Geçersiz kayıt verisi."};
- const source=input as Data,cleaned:Data={};
- for(const [key,value] of Object.entries(source)){if(key.length>60)continue;cleaned[key]=module==="Denetim Yönetimi"&&["requirementStatement","requirementGuidance","requirementAssessment"].includes(key)&&typeof value==="string"?value.slice(0,100000):cleanText(value)}
- const data=normalizeRecordData(module,cleaned);
- const missing=required[module].filter(key=>data[key]===undefined||data[key]===null||data[key]==="");
- if(missing.length)return {error:`Zorunlu alanlar eksik: ${missing.join(", ")}`};
- if(!allowedStatuses[module].includes(String(data.status)))return {error:"Geçersiz operasyon durumu."};
- if(module==="Risk Assessment"&&data.status!=="Değerlendiriliyor"){
-  const assessmentMissing=riskAssessmentFields.filter(key=>data[key]===undefined||data[key]===null||data[key]==="");
-  if(assessmentMissing.length)return {error:`Risk değerlendirmesi tamamlanmadan bu duruma geçilemez. Eksik alanlar: ${assessmentMissing.join(", ")}`};
- }
- for(const key of ["inherentLikelihood","inherentImpact","confidentialityImpact","integrityImpact","availabilityImpact","confidentialityRating","integrityRating","availabilityRating","financial","operational","legal","reputation","customer","dataImpact"]){
-  if(data[key]!==undefined&&data[key]!==""&&(!Number.isInteger(Number(data[key]))||Number(data[key])<1||Number(data[key])>5))return {error:`${key} 1-5 arasında olmalıdır.`};
- }
- if(module==="Denetim Yönetimi"&&(!Number.isInteger(Number(data.progress))||Number(data.progress)<0||Number(data.progress)>100))return {error:"progress 0-100 arasında olmalıdır."};
- if(data.ownerEmail&&(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(data.ownerEmail))||String(data.ownerEmail).length>254))return {error:"Geçersiz risk sahibi e-posta adresi."};
- for(const key of ["targetDate","lastReview","nextReview","contractEnd","eolDate","lastTestDate","nextTestDate","startDate","endDate","dueDate","approvalDate","acquisitionDate","lastAssessment","nextAssessment","collectedAt","expiresAt"])if(data[key]&&!validDate(data[key]))return {error:`Geçersiz tarih: ${key}`};
- if(data.lastReview&&data.nextReview&&String(data.nextReview)<String(data.lastReview))return {error:"Sonraki değerlendirme tarihi son değerlendirmeden önce olamaz."};
- if(data.startDate&&data.endDate&&String(data.endDate)<String(data.startDate))return {error:"Denetim bitiş tarihi başlangıç tarihinden önce olamaz."};
- const encoded=JSON.stringify(data);if(encoded.length>100_000)return {error:"Kayıt verisi izin verilen boyutu aşıyor."};
- return {module,data};
-}
-function readJson(req:NextRequest){const len=Number(req.headers.get("content-length")||0);if(len>2_000_000)throw new Error("PAYLOAD_TOO_LARGE");return req.json()}
+async function readJson(req:NextRequest){const len=Number(req.headers.get("content-length")||0);if(len>2_000_000)throw new RegisterImportError("payload-limit",[],413);const raw=await req.text();if(new TextEncoder().encode(raw).length>2_000_000)throw new RegisterImportError("payload-limit",[],413);return JSON.parse(raw)}
 
 export async function GET(req:NextRequest){const auth=await requireRole(req,["Admin","Editor","Viewer"]);if(auth.response)return auth.response;let cursor;try{cursor=parseGrcCursor(req.nextUrl.searchParams.get("cursor"));}catch{return NextResponse.json({error:"Geçersiz sayfalama imleci."},{status:400})}const d=await db();const marker=await d.prepare("SELECT value FROM simple_grc_metadata WHERE key=?").bind(demoSeedMarker).first<{value:string}>(),c=await d.prepare("SELECT COUNT(*) total FROM simple_grc_records").first<{total:number}>(),now=new Date().toISOString();if(shouldInsertDemoSeeds(marker,Number(c?.total||0))){await d.batch(seeds.map(s=>d.prepare("INSERT OR IGNORE INTO simple_grc_records(id,module,data_json,created_at,updated_at) VALUES(?,?,?,?,?)").bind(s[0],s[1],JSON.stringify(s[2]),now,now)))}if(!marker){await d.prepare("INSERT OR REPLACE INTO simple_grc_metadata(key,value,updated_at) VALUES(?,?,?)").bind(demoSeedMarker,"1",now).run()}await compactSampleRecords(d,now);const allowed=readableModules(auth.actor);const clauses:string[]=[],values:string[]=[];if(isScoped(auth.actor)){clauses.push(`module IN (${allowed.map(()=>"?").join(",")||"NULL"})`);values.push(...allowed)}if(cursor){clauses.push("(created_at>? OR (created_at=? AND id>?))");values.push(cursor.createdAt,cursor.createdAt,cursor.id)}const query=d.prepare(`SELECT * FROM simple_grc_records ${clauses.length?"WHERE "+clauses.join(" AND "):""} ORDER BY created_at,id LIMIT 5001`).bind(...values);const r=await query.all<Record<string,unknown>>(),hasMore=r.results.length>5000;if(hasMore)r.results.pop();const last=r.results.at(-1),nextCursor=hasMore&&last?JSON.stringify({createdAt:String(last.created_at),id:String(last.id)}):null;const codes=await ensureRecordCodes(d,r.results,now);const rows:Record<string,unknown>[]=r.results.map(row=>{try{const data=normalizeRecordData(row.module,JSON.parse(String(row.data_json)) as Data);return {...row,record_code:codes.get(String(row.id))||String(row.id),data_json:JSON.stringify(data)}}catch{return {...row,record_code:codes.get(String(row.id))||String(row.id)}}});rows.sort((a,b)=>String(b.updated_at).localeCompare(String(a.updated_at)));return NextResponse.json({rows,nextCursor},{headers:{"cache-control":"private, no-store"}})}
 export async function POST(req:NextRequest){
  const auth=await requireRole(req,["Admin","Editor"]);if(auth.response)return auth.response;
+ let importing=false;
  try{
   const d=await db(),b=await readJson(req),now=new Date().toISOString();
   if(!validModule(b.module))return NextResponse.json({error:"Geçersiz modül."},{status:400});
   const moduleName:ModuleName=b.module;
+  importing=b.action==='preview-import'||b.importId!==undefined;
   if(!canWriteModule(auth.actor,moduleName))return NextResponse.json({error:"Bu modülde yazma yetkiniz yok."},{status:403});
+  if(b.action==='preview-import')return NextResponse.json({ok:true,preview:true,...await previewRegisterImport(d,auth.actor,moduleName,b.rows)},{headers:{'cache-control':'private, no-store'}});
+  if(b.importId!==undefined){
+   const result=await commitRegisterImport(d,auth.actor,moduleName,b.rows,b.importId,async(module,rows)=>{
+    const codes=await reserveRecordCodes(d,module,rows.length,now);
+    return rows.map((data,index)=>({id:`${recordCodePrefixes[module]}-${crypto.randomUUID()}`,code:codes[index],data}));
+   });
+   return NextResponse.json({ok:true,...result},{status:result.replayed?200:201,headers:{'cache-control':'private, no-store'}});
+  }
   if(Array.isArray(b.rows)){
    if(b.rows.length<1||b.rows.length>1000)return NextResponse.json({error:"İçe aktarma 1-1000 satır arasında olmalıdır."},{status:400});
    const validated=b.rows.map((row:unknown)=>validate(moduleName,moduleName==="Risk Assessment"&&row&&typeof row==="object"&&!Array.isArray(row)?preserveRiskGovernance(row as Data):row));const bad=validated.findIndex((x:ReturnType<typeof validate>)=>"error" in x);
@@ -144,7 +82,7 @@ export async function POST(req:NextRequest){
   }
   const checked=validate(moduleName,moduleName==="Risk Assessment"&&b.data&&typeof b.data==="object"&&!Array.isArray(b.data)?preserveRiskGovernance(b.data):b.data);if("error" in checked)return NextResponse.json({error:checked.error},{status:400});
   const id=`${recordCodePrefixes[moduleName]}-${crypto.randomUUID()}`,code=(await reserveRecordCodes(d,moduleName,1,now))[0];await insertCoreRecords(d,moduleName,[{id,code,data:checked.data}],now);return NextResponse.json({ok:true,id,code},{status:201});
- }catch(error){if(isAuditClosedError(error))return NextResponse.json({error:auditClosedMessage,code:"AUDIT_CLOSED"},{status:409});if(error instanceof CoreReferenceUnavailable)return NextResponse.json({error:error.message,code:"REFERENCE_UNAVAILABLE"},{status:422});return NextResponse.json({error:error instanceof Error&&error.message==="PAYLOAD_TOO_LARGE"?"İstek boyutu çok büyük.":"Geçersiz JSON isteği."},{status:400})}
+ }catch(error){if(error instanceof RegisterImportError)return NextResponse.json({error:error.code,issues:error.issues},{status:error.status});if(isAuditClosedError(error))return NextResponse.json({error:auditClosedMessage,code:"AUDIT_CLOSED"},{status:409});if(error instanceof CoreReferenceUnavailable)return NextResponse.json({error:error.message,code:"REFERENCE_UNAVAILABLE"},{status:422});return NextResponse.json({error:importing?"unavailable":"Geçersiz JSON isteği."},{status:importing?503:400})}
 }
 export async function PATCH(req:NextRequest){
  const auth=await requireRole(req,["Admin","Editor"]);if(auth.response)return auth.response;
@@ -156,7 +94,7 @@ export async function PATCH(req:NextRequest){
   const checked=validate(existing.module,input);if("error" in checked)return NextResponse.json({error:checked.error},{status:400});
   const updatedAt=await writeCoreRecord(d,b.id,existing,checked.data,b.expectedUpdatedAt);
   return NextResponse.json({ok:true,updatedAt});
- }catch(error){if(isAuditClosedError(error))return NextResponse.json({error:auditClosedMessage,code:"AUDIT_CLOSED"},{status:409});if(error instanceof CoreReferenceUnavailable)return NextResponse.json({error:error.message,code:"REFERENCE_UNAVAILABLE"},{status:422});if(error instanceof LifecycleConflict)return NextResponse.json({error:error.message},{status:409});return NextResponse.json({error:"Geçersiz JSON isteği, kayıt sürümü veya okunamayan kayıt."},{status:400})}
+ }catch(error){if(error instanceof RegisterImportError)return NextResponse.json({error:error.code,issues:error.issues},{status:error.status});if(isAuditClosedError(error))return NextResponse.json({error:auditClosedMessage,code:"AUDIT_CLOSED"},{status:409});if(error instanceof CoreReferenceUnavailable)return NextResponse.json({error:error.message,code:"REFERENCE_UNAVAILABLE"},{status:422});if(error instanceof LifecycleConflict)return NextResponse.json({error:error.message},{status:409});return NextResponse.json({error:"Geçersiz JSON isteği, kayıt sürümü veya okunamayan kayıt."},{status:400})}
 }
 export async function DELETE(req:NextRequest){
  const auth=await requireRole(req,["Admin"]);if(auth.response)return auth.response;
