@@ -4,6 +4,7 @@
 .register-sort-controls select:focus-visible{outline:2px solid var(--ws-brand);outline-offset:2px}
 .register-sort-controls small{color:var(--ws-muted);font-size:12px;padding-bottom:8px}
 .register-toolbar-main:has(.register-sort-controls){flex-wrap:wrap}
+.register-toolbar-main:has(.register-sort-controls)>.register-search{flex:1 1 240px;min-width:min(240px,100%)}
 .register-view-actions:has(.register-sort-controls){flex-wrap:wrap;max-width:100%;min-width:0}
 @media(max-width:600px){.register-sort-controls{width:100%}.register-sort-controls label{flex:1 1 140px}.register-sort-controls select{width:100%}}
 @media(max-width:480px){.register-view-actions>.register-sort-controls{grid-column:1/-1}.register-sort-controls small{flex-basis:100%;padding-bottom:0}}
