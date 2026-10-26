@@ -110,6 +110,7 @@ for(const [moduleName,label,key] of [['Risk Assessment','Risk Assessment','title
 await check('Dashboard audit deadlines: today remains current, yesterday overdue, closed excluded',async()=>{
  const seed=seedRows.find(x=>x.module==='Denetim Yönetimi');assert.ok(seed);
  const data={...JSON.parse(seed.data_json),auditName:'QA deadline regression',requirementTitle:'QA deadline regression',dueDate:today,status:'Devam Ediyor'};
+ Object.assign(data,{biaRef:'',controlRef:seedRows.find(r=>r.module==='Kontroller').id,requirementRef:seedRows.find(r=>r.module==='Uyum').id,riskRef:seedRows.find(r=>r.module==='Risk Assessment').id,evidenceRef:seedRows.find(r=>r.module==='Kanıtlar').id});
  async function count(expected){const loaded=page.waitForResponse(r=>r.url().endsWith('/api/grc')&&r.request().method()==='GET');await reset();await (await loaded).finished();await open('Dashboard');const metric=page.locator('.audit-remediation-metrics button').filter({hasText:'Overdue audit requirements'}).locator('b');await expect(metric).toHaveText(String(expected));return Number(await metric.innerText())}
  // The shell can render before React applies the completed /api/grc response.
  // Derive the baseline from the persisted rows and wait for that value, never capture the transient zero.
