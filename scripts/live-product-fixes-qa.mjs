@@ -70,6 +70,7 @@ try{
   const [download]=await Promise.all([page.waitForEvent('download'),page.getByRole('button',{name:'CSV',exact:true}).click()]);
   const text=await readFile(await download.path(),'utf8');
   assert.match(text,/Owner: All/);assert.match(text,/Status: All/);assert.doesNotMatch(text,/Owner: All Modules/);
+  await page.locator('.report-global-assurance>summary').click();
   if(!assurance.verified)await expect(page.getByRole('button',{name:/Global Assurance Pack/i})).toBeDisabled();
   checks.push('F01/F06: combined export stays gated and CSV describes unfiltered criteria correctly');
 

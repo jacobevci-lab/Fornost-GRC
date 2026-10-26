@@ -65,6 +65,14 @@ jobs:
         with:
           name: product-experience-preview
           path: product-experience-qa-artifacts/
+      - name: Enterprise reporting HTML PDF CSV QA
+        run: node scripts/reporting-export-qa.mjs
+      - name: Preserve report export browser evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: reporting-export-preview
+          path: layout-qa-artifacts/
       - name: Integration and evidence read timeout, cancellation and recovery QA
         run: node scripts/integration-read-recovery-qa.mjs
       - name: Preserve integration read recovery evidence
@@ -290,8 +298,6 @@ jobs:
         run: node scripts/assurance-chain-review-qa.mjs
       - name: Exact CAPA lifecycle lookup and recovery QA
         run: node scripts/capa-traceability-qa.mjs
-      - name: Enterprise reporting HTML PDF CSV QA
-        run: node scripts/reporting-export-qa.mjs
       - name: Assurance queue recovery and independent review QA
         run: node scripts/assurance-queue-recovery-qa.mjs
       - name: Audit requirement pagination and export QA

@@ -82,7 +82,7 @@ try{
   await page.locator('nav button[aria-label="Reporting"]').evaluate(el=>el.click());
   const report=page.locator('.report-workspace'),assessmentStatus=report.locator('.evidence-assurance-status');
   await expect(assessmentStatus).toHaveAttribute('data-state','ready');
-  await report.locator('.workspace-export>summary').click();
+  await report.locator('.report-global-assurance>summary').click();
   for(const lang of ['en','tr']){
     await page.locator('.language-switch:visible').getByRole('button',{name:lang.toUpperCase(),exact:true}).click();
     const evaluated=await assessmentStatus.locator('time').getAttribute('datetime');

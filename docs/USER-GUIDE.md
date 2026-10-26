@@ -122,6 +122,8 @@ Bu kurumsal alanların ayrıntılı belgeleri [dokümantasyon dizinindedir](READ
 
 **Raporlar** ekranında kapsam ve filtreleri seçin, veri/eksiklik uyarılarını kontrol edin. **PDF Raporu** doğrudan indirilebilir PDF üretir; **Dışa aktar** altında HTML, CSV ve Excel seçenekleri bulunur. Önizleme sayfası ile dışa aktarma kapsamını karıştırmayın; ekrandaki kapsam açıklamasını kontrol edin.
 
+**Genel GRC güvencesi · ayrı kapsam** bölümünü açarak genel güvence değerlendirmesini, kaynak durumunu ve yeniden değerlendirme aksiyonunu görebilirsiniz. **Genel Güvence Paketi** bu bölümden indirilir; değerlendirme tamamlanmamışsa indirme kapalı kalır ve nedeni yanında açıklanır. Bu pakete yukarıdaki rapor filtreleri ve CAPA kapsamı uygulanmaz.
+
 Denetimin **Audit status reports** bölümü ayrı, Admin'e özel bir kaydedilmiş durum raporudur. Başlık, hazırlayan özeti ve sınırlamaları kaydedin; kaynak değişmişse önizlemeyi yenileyin. Kaydedilmiş rapor HTML/PDF/CSV/JSON olarak alınır ve daha sonraki kaynak düzenlemesi eski raporu değiştirmez. Rapor dosya içeriklerini paketlemez; durum raporu bağımsız denetim kapanış onayı değildir. [Rapor kapsamı](audit-status-reports.md).
 
 ## 8. Ask Fornost kullanımı

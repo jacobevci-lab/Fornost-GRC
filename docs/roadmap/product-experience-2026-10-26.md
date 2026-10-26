@@ -20,6 +20,8 @@ Entry: an authorized operator opens a register. They can distinguish loading/ret
 
 Baseline task-completion time is unmeasured. The outcome is completion of an assigned record/evidence task without learning unrelated menus. Record exact tested scope; do not equate menu visits with full lifecycle or customer UAT.
 
+The wider browser regression also found that the global assurance notice pushed the report register too far below its scope controls. Keep the notice, recovery and separately scoped assurance download together in the existing Global GRC assurance disclosure. Filtered HTML/PDF/CSV exports retain their own visible source status and gates. Preserve the existing register-proximity and export regression assertions.
+
 ## Delivery record
 
 PR #354 revision `49b9563b7bfc30a17cfe67b63c6b14134cf53412` passed standard CI, including unit/regression tests, typecheck, build, dependency audit and Docker/Podman on-prem integration. Its live fixes browser regression and all 21 product-experience checks passed: TR/EN filter recovery, six register creation entry points, form guidance/Escape/focus, light/dark sidebar contrast, loading/retry and reader presentation. Reader and source-state scenarios use isolated read-response UI fixtures; API authorization is covered separately. The preceding visual matrix passed all 324 combinations (27 menus × two languages × two themes × three widths); the complete current workflow is still running.

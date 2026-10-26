@@ -3272,7 +3272,6 @@ function Reports({ rows: coreRows, lang, go, preparedBy, includeCapa }: { rows: 
   }
   return (
     <div className="report-workspace">
-      <EvidenceAssuranceStatus state={evidenceState} lang={lang} />
       <section className="report-hero">
         <div>
           <small>{tr ? "RAPORLAMA" : "REPORTING"}</small>
@@ -3293,9 +3292,6 @@ function Reports({ rows: coreRows, lang, go, preparedBy, includeCapa }: { rows: 
           <details className="workspace-export"><summary>{tr ? "Dışa aktar" : "Export"}</summary><div>
           <button className="ghost" onClick={htmlReport} disabled={reportUnavailable||!filtered.length}>
             HTML
-          </button>
-          <button className="ghost" onClick={assuranceReport} disabled={!evidenceState.ready}>
-            {tr ? "Genel Güvence Paketi (ayrı kapsam)" : "Global Assurance Pack (separate scope)"}
           </button>
           <button className="ghost" onClick={() => downloadBlob(`Fornost-GRC-${exportSlug}.csv`,new Blob([buildReportCsv(reportTitle,filtered,metrics,tr,options())],{type:"text/csv;charset=utf-8"}))} disabled={reportUnavailable||!filtered.length}>
             CSV
@@ -3404,7 +3400,11 @@ function Reports({ rows: coreRows, lang, go, preparedBy, includeCapa }: { rows: 
         </div>
       </section>
       </details>
-      <details className="report-secondary"><summary>{tr?"Genel GRC güvencesi · ayrı kapsam":"Global GRC assurance · separate scope"}</summary><p className="report-limit-note">{tr?"Yüklenmiş çekirdek GRC kayıtlarını ve kayıtlı denetim portföyünü kapsar; CAPA ve yukarıdaki filtreler dahil değildir.":"Includes loaded core GRC records and the persisted audit portfolio; CAPA and the filters above are excluded."}</p>
+      <details className="report-secondary report-global-assurance"><summary>{tr?"Genel GRC güvencesi · ayrı kapsam":"Global GRC assurance · separate scope"}</summary><p className="report-limit-note">{tr?"Yüklenmiş çekirdek GRC kayıtlarını ve kayıtlı denetim portföyünü kapsar; CAPA ve yukarıdaki filtreler dahil değildir.":"Includes loaded core GRC records and the persisted audit portfolio; CAPA and the filters above are excluded."}</p>
+      <EvidenceAssuranceStatus state={evidenceState} lang={lang} />
+      <div className="report-assurance-export"><button type="button" className="ghost" onClick={assuranceReport} disabled={!evidenceState.ready}>
+        {tr ? "Genel Güvence Paketi (ayrı kapsam)" : "Global Assurance Pack (separate scope)"}
+      </button></div>
       <AuditReadinessPortfolioPanel portfolio={evidenceState.auditPortfolio} lang={lang} />
       <section className="report-assurance-strip" aria-label={tr ? "Bağlı GRC güvence özeti" : "Connected GRC assurance summary"}>
         <div><small>{tr ? "Bütünleşik güvence" : "Composite assurance"}</small><b>{evidenceState.ready && assurance.score !== null ? `${assurance.score}/100` : "—"}</b><span>{!evidenceState.ready || assurance.score === null ? (tr ? "Değerlendirme bekleniyor" : "Awaiting evaluation") : assurance.state === "strong" ? (tr ? "Güçlü" : "Strong") : assurance.state === "developing" ? (tr ? "Gelişiyor" : "Developing") : (tr ? "Kritik" : "Critical")}</span></div>
