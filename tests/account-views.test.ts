@@ -8,6 +8,17 @@ import { scopedApiAllowed } from '../app/module-access';
 import { registerViewSchema } from '../app/register-view-schema';
 const admin:Actor={id:'admin',email:'admin@example.com',name:'Admin',role:'Admin',source:'local'},viewer:Actor={id:'viewer',email:'viewer@example.com',name:'Reader',role:'Viewer',source:'local'},other:Actor={...viewer,id:'other',email:'other@example.com'};
 const id='SV-00000000-0000-0000-0000-000000000001',state={query:'Payments',filters:{owner:'Finance'},columns:['title','owner']};
+test('sorted team definitions retain exact ordering in immutable history and reasoned restore',async()=>{const f=await fixture();try{
+ const sorted={...state,sort:{key:'inherentRisk',direction:'desc'}};
+ const first=await f.save({scope:'team',state:sorted},admin);
+ const second=await f.save({scope:'team',expectedRevision:first.revision,state:{...state,sort:{key:'title',direction:'asc'}}},admin);
+ const history=await readTeamViewHistory(f.db,viewer,{module:'Risk Assessment',scope:'team',id,revision:first.revision});
+ assert.deepEqual(history.selected.state.sort,sorted.sort);
+ await assert.rejects(f.save({scope:'team',expectedRevision:second.revision,state:{...state,sort:{key:'sql',direction:'asc'}}},admin),/schema/);
+ assert.equal((await f.read(admin,{scope:'team'})).views[0].revision,second.revision);
+ await f.save({scope:'team',action:'restore',expectedRevision:second.revision,sourceRevision:first.revision,note:'Restore risk order',name:undefined,state:undefined},admin);
+ assert.deepEqual((await f.read(viewer,{scope:'team'})).views[0].state,sorted);
+}finally{f.sqlite.close();}});
 async function fixture(){
  const sqlite=new DatabaseSync(':memory:');sqlite.exec("CREATE TABLE local_users(id TEXT PRIMARY KEY,email TEXT,role TEXT,status TEXT);CREATE TABLE user_module_access(user_id TEXT PRIMARY KEY,policy_json TEXT);INSERT INTO local_users VALUES('admin','admin@example.com','Admin','Active'),('viewer','viewer@example.com','Viewer','Active'),('other','other@example.com','Viewer','Active');");
  let before:(()=>void)|undefined,beforeRead:(()=>void)|undefined;

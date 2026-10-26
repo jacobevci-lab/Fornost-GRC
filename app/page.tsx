@@ -38,6 +38,8 @@ import "./core-record-focus.css";
 import NavIcon from "./nav-icon";
 import { RecordSearch } from "./record-search";
 import { useRegisterView } from "./use-register-view";
+import { sortRegisterRows, viewSortOptions, type ViewSort } from './register-sort';
+import { RegisterSortControls } from './register-sort-controls';
 import RegisterEmptyState from "./register-empty-state";
 import { registerExperience } from "./register-experience";
 import { fields, registerColumns, registerFilterKeys } from "./register-view-schema";
@@ -1148,7 +1150,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
     [commandQuery, setCommandQuery] = useState(""),
     [commandIndex, setCommandIndex] = useState(0),
     [recentModules, setRecentModules] = useState<string[]>([]);
-  const { query, setQuery, filters: registerFilters, setFilters: setRegisterFilters } = useRegisterView(String(currentUser.id), active);
+  const { query, setQuery, filters: registerFilters, setFilters: setRegisterFilters, sort: registerSort, setSort: setRegisterSort } = useRegisterView(String(currentUser.id), active);
   const [commandMode, setCommandMode] = useState<"modules" | "records">("modules");
   const closeCommand = useCallback(() => { setCommandOpen(false); requestAnimationFrame(() => document.querySelector<HTMLButtonElement>(".command-trigger")?.focus()); }, []);
   const commandDialogRef = useRecordDialog(commandOpen, closeCommand);
@@ -1370,7 +1372,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
     columnPreferences[active] || defaultRegisterColumnKeys(active);
   const visible = useMemo(
     () =>
-      rows.filter(
+      sortRegisterRows(rows.filter(
         (r) =>
           r.module === active &&
           (!focusedRecord || r.id === focusedRecord.id) &&
@@ -1385,8 +1387,8 @@ function FornostApp({ currentUser }: { currentUser: any }) {
           Object.entries(registerFilters).every(
             ([key, value]) => !value || String(r.data[key] ?? "") === value,
           ))),
-      ),
-    [rows, active, query, lang, selectedAudit, registerFilters, focusedRecord],
+      ), active, registerSort, lang),
+    [rows, active, query, lang, selectedAudit, registerFilters, focusedRecord, registerSort],
   );
   function setModuleColumns(keys: string[]) {
     if (!keys.length) return;
@@ -2180,6 +2182,8 @@ function FornostApp({ currentUser }: { currentUser: any }) {
           />
         ) : active === "Denetim Yönetimi" ? (
           <AuditModule
+            sort={registerSort}
+            setSort={setRegisterSort}
             userId={String(currentUser.id)}
             rows={by("Denetim Yönetimi")}
             evidenceRows={by("Kanıtlar")}
@@ -2273,6 +2277,8 @@ function FornostApp({ currentUser }: { currentUser: any }) {
                 setSelectedColumnKeys={setModuleColumns}
                 filters={focusedRecord ? {} : registerFilters}
                 setFilters={value => { clearRecordFocus(); setRegisterFilters(value); }}
+                sort={registerSort}
+                setSort={setRegisterSort}
                 columnPickerOpen={columnPickerOpen}
                 setColumnPickerOpen={setColumnPickerOpen}
                 filterPanelOpen={filterPanelOpen}
@@ -3811,6 +3817,8 @@ function auditKind(name: string) {
       : "Diğer Denetim";
 }
 function AuditModule({
+  sort,
+  setSort,
   userId,
   rows,
   evidenceRows,
@@ -3834,6 +3842,8 @@ function AuditModule({
   showReadiness = true,
   go,
 }: {
+  sort?: ViewSort;
+  setSort: (sort: ViewSort | undefined) => void;
   userId: string;
   rows: Row[];
   evidenceRows: Row[];
@@ -4248,6 +4258,8 @@ function AuditModule({
         closure={canDeleteAudit && selectedPortfolio ? <AuditClosurePanel key={`closure:${selectedPortfolio.id}:${closureFocus?.auditId === selectedPortfolio.id ? closureFocus.id : ""}`} focusId={closureFocus?.auditId === selectedPortfolio.id ? closureFocus.id : ""} auditId={selectedPortfolio.id} lang={lang} onChanged={refreshAudits} /> : undefined}
         reports={canDeleteAudit && selectedPortfolio ? <AuditStatusReportPanel auditId={selectedPortfolio.id} lang={lang} embedded /> : undefined}
         requirements={<AuditRequirementsTable
+        sort={sort}
+        setSort={setSort}
         userId={userId}
         focused={!!focusedRequirement}
         key={`requirements:${selected}`}
@@ -4269,6 +4281,8 @@ function AuditModule({
 }
 
 function AuditRequirementsTable({
+  sort,
+  setSort,
   userId,
   focused,
   items,
@@ -4282,6 +4296,8 @@ function AuditRequirementsTable({
   canWrite,
   canDelete,
 }: {
+  sort?: ViewSort;
+  setSort: (sort: ViewSort | undefined) => void;
   userId: string;
   focused: boolean;
   items: Row[];
@@ -4314,8 +4330,8 @@ function AuditRequirementsTable({
       localStorage.setItem("fornost-grc-columns", JSON.stringify({ ...saved, "Denetim Yönetimi": keys }));
     } catch {}
   };
-  const filtered = items.filter((row) => Object.entries(filters).every(([key, value]) => !value || String(row.data[key] ?? "") === value));
-  const filterKey = JSON.stringify([query, filters]);
+  const filtered = sortRegisterRows(items.filter((row) => Object.entries(filters).every(([key, value]) => !value || String(row.data[key] ?? "") === value)), 'Denetim Yönetimi', sort, lang);
+  const filterKey = JSON.stringify([query, filters, sort]);
   useEffect(() => { setPagination(value => ({ ...value, key: filterKey, page: 1 })); }, [filterKey]);
   const page = auditRequirementPage(filtered, pagination.key === filterKey ? pagination.page : 1, pagination.size);
   const goPage = (value: number) => setPagination({ key: filterKey, page: value, size: page.size });
@@ -4326,7 +4342,7 @@ function AuditRequirementsTable({
         <div><small>{tr ? "STANDART MADDELERİ" : "STANDARD REQUIREMENTS"}</small><h3>{tr ? "Denetim maddeleri ve sorumluluk takibi" : "Audit requirements and ownership tracking"}</h3></div>
         {canWrite && <button className="ghost" onClick={() => openNew()}>{tr ? "+ Özel Madde" : "+ Custom Item"}</button>}
       </div>
-      <RegisterToolbar userId={userId} focused={focused} module="Denetim Yönetimi" lang={lang} rows={allItems} resultCount={filtered.length} query={query} setQuery={setQuery} selectedColumnKeys={columns} setSelectedColumnKeys={saveColumns} filters={filters} setFilters={setFilters} columnPickerOpen={columnPickerOpen} setColumnPickerOpen={setColumnPickerOpen} filterPanelOpen={filterPanelOpen} setFilterPanelOpen={setFilterPanelOpen} />
+      <RegisterToolbar userId={userId} focused={focused} module="Denetim Yönetimi" lang={lang} rows={allItems} resultCount={filtered.length} query={query} setQuery={setQuery} selectedColumnKeys={columns} setSelectedColumnKeys={saveColumns} filters={filters} setFilters={setFilters} sort={sort} setSort={setSort} columnPickerOpen={columnPickerOpen} setColumnPickerOpen={setColumnPickerOpen} filterPanelOpen={filterPanelOpen} setFilterPanelOpen={setFilterPanelOpen} />
       <div className="audit-requirement-pager" aria-label={tr ? "Madde sayfalaması" : "Requirement pagination"}>
         <span role="status">{page.start}–{page.end} / {page.total} {tr ? "madde" : "requirements"}</span>
         <label>{tr ? "Sayfa başına" : "Per page"}<select aria-label={tr ? "Sayfa başına" : "Per page"} value={page.size} onChange={event => setPagination({ key: filterKey, page: 1, size: Number(event.target.value) })}>{[50, 100, 200].map(size => <option key={size} value={size}>{size}</option>)}</select></label>
@@ -5021,6 +5037,8 @@ function RegisterToolbar({
   setSelectedColumnKeys,
   filters,
   setFilters,
+  sort,
+  setSort,
   columnPickerOpen,
   setColumnPickerOpen,
   filterPanelOpen,
@@ -5039,6 +5057,8 @@ function RegisterToolbar({
   setSelectedColumnKeys: (keys: string[]) => void;
   filters: Record<string, string>;
   setFilters: (filters: Record<string, string>) => void;
+  sort?: ViewSort;
+  setSort?: (sort: ViewSort | undefined) => void;
   columnPickerOpen: boolean;
   setColumnPickerOpen: (open: boolean) => void;
   filterPanelOpen: boolean;
@@ -5115,6 +5135,7 @@ function RegisterToolbar({
           />
         </div>
         <div className="register-view-actions">
+          {setSort && <RegisterSortControls module={module} lang={lang} sort={sort} onChange={setSort} disabled={sourceState !== 'ready'} />}
           <button
             className={filterPanelOpen || activeFilterCount ? "active" : ""}
             onClick={() => {
@@ -5185,8 +5206,8 @@ function RegisterToolbar({
         </div>
       </div>
       {userId && <SavedRegisterViewsPanel userId={userId} module={module} lang={lang} focused={focused}
-        current={{query, filters, columns:selectedColumnKeys}} schema={{filters:filterKeys,columns:available.map(column=>column.key)}} labels={{...labelMap[lang],...Object.fromEntries(available.map(column=>[column.key,column[lang]]))}}
-        apply={view=>{setQuery(view.query);setFilters(view.filters);setSelectedColumnKeys(view.columns);setColumnPickerOpen(false);setFilterPanelOpen(Object.keys(view.filters).length>0);}} />}
+        current={{query, filters, columns:selectedColumnKeys, ...(sort ? {sort} : {})}} schema={{filters:filterKeys,columns:available.map(column=>column.key),sortKeys:viewSortOptions(module).map(option=>option.key)}} labels={{...labelMap[lang],...Object.fromEntries(available.map(column=>[column.key,column[lang]]))}}
+        apply={view=>{setQuery(view.query);setFilters(view.filters);setSelectedColumnKeys(view.columns);setSort?.(view.sort);setColumnPickerOpen(false);setFilterPanelOpen(Object.keys(view.filters).length>0);}} />}
       {filterPanelOpen && (
         <div className="register-filters">
           {filterKeys.map((key) => (

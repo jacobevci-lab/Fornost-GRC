@@ -32,5 +32,10 @@ test('source bounds and malformed records disable verified exports',()=>{
 
 test('CSV records the canonical module filter while retaining the supplied view and timestamps',()=>{
  const csv=buildWorkQueueCsv([{reference:'EV-1',module:'Evidence',title:'Review',owner:'owner',status:'open',due:'',reason:'Review due',updatedAt:''}],{...context,moduleFilter:'Kanıtlar'});
- assert.ok(csv.includes('"module_filter"'));assert.ok(csv.endsWith('"Kanıtlar"\r\n'));assert.ok(csv.includes(context.refreshedAt));
+ assert.ok(csv.includes('"module_filter"'));assert.ok(csv.endsWith('"Kanıtlar","",""\r\n'));assert.ok(csv.includes(context.refreshedAt));
+});
+test('CSV retains the selected order across all supplied rows and records sorting criteria',()=>{
+ const row=(reference:string)=>({reference,module:'Control',title:reference,owner:'owner',status:'open',due:'',reason:'',updatedAt:''});
+ const csv=buildWorkQueueCsv([row('C-20'),row('C-2')],{...context,sort:{key:'title',direction:'desc'}});
+ assert.ok(csv.indexOf('C-20')<csv.indexOf('C-2"'));assert.ok(csv.includes('"sort_field","sort_direction"'));assert.ok(csv.endsWith('"title","desc"\r\n'));
 });

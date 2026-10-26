@@ -1,6 +1,7 @@
-export type SavedViewState = { query: string; filters: Record<string, string>; columns: string[] };
+import { validateViewSort, type ViewSort } from './register-sort';
+export type SavedViewState = { query: string; filters: Record<string, string>; columns: string[]; sort?: ViewSort };
 export type SavedRegisterView = SavedViewState & { id: string; name: string; updatedAt: string };
-export type ViewSchema = { filters: string[]; columns: string[] };
+export type ViewSchema = { filters: string[]; columns: string[]; sortKeys?: string[] };
 export const savedViewsKey = (userId: string, module: string) => `fornost:saved-register-views:v1:${encodeURIComponent(userId)}:${encodeURIComponent(module)}`;
 export class SavedViewError extends Error {}
 const fail = (message: string): never => { throw new SavedViewError(message); };
@@ -11,7 +12,10 @@ export function validateViewState(value: unknown, schema?: ViewSchema): SavedVie
   if (typeof v.query !== 'string' || v.query.length > 1000 || !v.filters || typeof v.filters !== 'object' || Array.isArray(v.filters) || Object.keys(v.filters).length > 20 || !Array.isArray(v.columns) || !v.columns.length || v.columns.length > 80 || new Set(v.columns).size !== v.columns.length) return fail('invalid');
   if (Object.entries(v.filters).some(([k, x]) => !/^[a-zA-Z][a-zA-Z0-9]{0,79}$/.test(k) || typeof x !== 'string' || x.length > 1000) || v.columns.some(k => typeof k !== 'string' || !/^[a-zA-Z][a-zA-Z0-9]{0,79}$/.test(k))) return fail('invalid');
   if (schema && (Object.keys(v.filters).some(k => !schema.filters.includes(k)) || v.columns.some(k => !schema.columns.includes(k)))) return fail('schema');
-  return { query: v.query, filters: Object.fromEntries(Object.entries(v.filters).filter(([, x]) => x !== '')), columns: [...v.columns] };
+  let sort: ViewSort | undefined;
+  try { sort = validateViewSort(v.sort); } catch { return fail('invalid'); }
+  if (sort && schema && !schema.sortKeys?.includes(sort.key)) return fail('schema');
+  return { query: v.query, filters: Object.fromEntries(Object.entries(v.filters).filter(([, x]) => x !== '')), columns: [...v.columns], ...(sort ? { sort } : {}) };
 }
 export function parseSavedViews(raw: string | null): SavedRegisterView[] {
   if (raw === null) return [];

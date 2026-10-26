@@ -19,6 +19,11 @@ try{
  await expect(rows).toHaveCount(50);await expect(pager.getByRole('status')).toHaveText('1–50 / 121 requirements');
  await pager.getByRole('button',{name:'Last',exact:true}).click();await expect(rows).toHaveCount(21);
  await expect(pager.getByRole('status')).toHaveText('101–121 / 121 requirements');
+ await table.getByRole('combobox',{name:'Sort by',exact:true}).selectOption('title');await table.getByRole('combobox',{name:'Sort direction',exact:true}).selectOption('desc');
+ await expect(pager.getByRole('status')).toHaveText('1–50 / 121 requirements');await expect(rows.first()).toContainText('QA-PAGE-121');
+ const [sortedDownload]=await Promise.all([page.waitForEvent('download'),pager.getByRole('button',{name:'Export results (121)',exact:true}).click()]);
+ const sortedCsv=await fs.readFile(await sortedDownload.path(),'utf8');assert.equal(sortedCsv.trim().split('\n').length,122);assert.ok(sortedCsv.indexOf('QA-PAGE-121')<sortedCsv.indexOf('QA-PAGE-061'));assert.ok(sortedCsv.indexOf('QA-PAGE-061')<sortedCsv.indexOf('QA-PAGE-001'));
+ await pager.getByRole('button',{name:'Last',exact:true}).click();await expect(rows.last()).toContainText('QA-PAGE-001');await table.getByRole('combobox',{name:'Sort by',exact:true}).selectOption('');
  await search.fill('QA-PAGE-121');await expect(rows).toHaveCount(1);await expect(rows).toContainText('QA-PAGE-121');
  await search.fill('Alpha');await expect(rows).toHaveCount(50);await expect(pager.getByRole('status')).toHaveText('1–50 / 61 requirements');
  const [download]=await Promise.all([page.waitForEvent('download'),pager.getByRole('button',{name:'Export results (61)',exact:true}).click()]);

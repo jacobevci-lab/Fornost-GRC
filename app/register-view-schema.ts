@@ -1,4 +1,5 @@
 import type { ViewSchema } from "./saved-register-views";
+import { viewSortOptions } from './register-sort';
 
 export const fields: Record<string, string[]> = {
   "Risk Assessment": [
@@ -402,5 +403,5 @@ export const registerFilterKeys: Record<string, string[]> = {
 };
 
 export function registerViewSchema(module: string): ViewSchema {
-  return { filters: registerFilterKeys[module] || [], columns: [...new Set([...(registerColumns[module] || []).map(column => column.key), ...(fields[module] || []), "createdAt", "updatedAt"])] };
+  return { filters: registerFilterKeys[module] || [], columns: [...new Set([...(registerColumns[module] || []).map(column => column.key), ...(fields[module] || []), "createdAt", "updatedAt"])], sortKeys: viewSortOptions(module).map(option => option.key) };
 }

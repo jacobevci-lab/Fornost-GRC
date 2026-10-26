@@ -76,7 +76,7 @@ try{
  await saved.locator('summary').click();
  const [download]=await Promise.all([page.waitForEvent('download'),inbox.getByRole('button',{name:'Download list (CSV)',exact:true}).click()]);
  await download.saveAs(`${out}/work-list.csv`);const csv=await fs.readFile(`${out}/work-list.csv`,'utf8');
- assert.equal(csv.trimEnd().split('\r\n').length,24);assert.ok(csv.includes('"QA WORK 22"'));assert.ok(!csv.includes('"QA WORK 23"'));assert.ok(csv.includes('"module_filter"'));assert.ok(csv.trimEnd().endsWith('"Kanıtlar"'));
+ assert.equal(csv.trimEnd().split('\r\n').length,24);assert.ok(csv.includes('"QA WORK 22"'));assert.ok(!csv.includes('"QA WORK 23"'));assert.ok(csv.includes('"module_filter"'));assert.ok(csv.trimEnd().endsWith('"Kanıtlar","",""'));assert.ok(csv.includes('"sort_field","sort_direction"'));
  await page.route('**/api/grc',route=>route.fulfill({status:503,contentType:'application/json',body:'{}'}));
  await inbox.getByRole('button',{name:'Refresh',exact:true}).click();await expect(inbox.locator('.mw2-load-error')).toBeVisible();await expect(inbox.getByRole('button',{name:'Download list (CSV)',exact:true})).toBeDisabled();
  await page.unroute('**/api/grc');await inbox.getByRole('button',{name:'Refresh',exact:true}).click();await expect(inbox.getByRole('button',{name:'Download list (CSV)',exact:true})).toBeEnabled();
