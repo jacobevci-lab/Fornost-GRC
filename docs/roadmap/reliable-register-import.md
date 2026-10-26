@@ -2,7 +2,7 @@
 
 ## Product decision
 
-An operator migrating a risk, asset, BIA, compliance, vendor, control, evidence or audit-requirement workbook needs to inspect the exact proposed records before committing. At main `32b8e56313c6a79d216f401e4670cb65421c8d71`, `ImportModal` filters blank headers before indexing cells, silently slices rows/columns/text, calls unvalidated rows valid, and permits duplicate submissions. This confirmed cross-module data-integrity issue takes priority over unattended recurrence, delegation and external engagement grants. Task-time and customer adoption baselines are unmeasured.
+An operator migrating a risk, asset, BIA, compliance, vendor, control or audit-requirement workbook needs to inspect the exact proposed records before committing. At main `32b8e56313c6a79d216f401e4670cb65421c8d71`, `ImportModal` filters blank headers before indexing cells, silently slices rows/columns/text, calls unvalidated rows valid, and permits duplicate submissions. This confirmed cross-module data-integrity issue takes priority over unattended recurrence, delegation and external engagement grants. Task-time and customer adoption baselines are unmeasured.
 
 ## Scope and journey
 
@@ -25,3 +25,5 @@ Update user/admin guidance and product/delivery descriptions. No production/cust
 Implementation, test, merge and deployment evidence is recorded in the delivery PR. Owned test data is isolated to the QA database.
 
 Browser verification also exposed the missing full-workspace vendor import entry point. The vendor inventory now opens the same importer and refreshes after completion; imported sources remain unmanaged until explicitly adopted into TPRM. No profile, assessment or approval is fabricated by import.
+
+Evidence Library intentionally requires file upload and version review. Browser inspection confirmed that it is not a register-import entry point. Delivery covers seven workbook-to-record journeys; the eight canonical API contracts remain compatible. Evidence XLSX document upload stays separate and the browser suite verifies this boundary.

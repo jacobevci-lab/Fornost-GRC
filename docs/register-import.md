@@ -1,6 +1,6 @@
 # Register XLSX import
 
-Open **Import Excel** in Risk, BIA, Assets, Compliance, Vendors, Controls, Evidence or the selected audit's requirement workspace. The first worksheet is read locally; no external preview service receives the workbook. In the full Vendor Management workspace, open **Third Parties → Import Excel**. Imported vendors appear immediately in the inventory as unmanaged; **Adopt** starts their separate onboarding/risk assessment. Import creates new records. It does not update matching records, merge sheets, execute formulas, or deduplicate business content.
+Open **Import Excel** in Risk, BIA, Assets, Compliance, Vendors, Controls or the selected audit's requirement workspace. The first worksheet is read locally; no external preview service receives the workbook. In the full Vendor Management workspace, open **Third Parties → Import Excel**. Imported vendors appear immediately in the inventory as unmanaged; **Adopt** starts their separate onboarding/risk assessment. Import creates new records. It does not update matching records, merge sheets, execute formulas, or deduplicate business content.
 
 1. Select an `.xlsx` file (up to 5 MB). Use a single header row and at most 100 physical populated columns and 1,000 populated data rows. Blank data rows are skipped with a visible count. Empty columns keep their original position; a populated column with no header or a repeated header must be corrected in Excel.
 2. Map each selected column to a supported field. Only one column may target each field. Unmapped columns and rows with no populated mapped value are explicitly counted as excluded. Source Excel row numbers remain visible.
@@ -9,6 +9,8 @@ Open **Import Excel** in Risk, BIA, Assets, Compliance, Vendors, Controls, Evide
 5. Select **Import N records**. The server revalidates; reference and live identity/policy guards, rows, record codes and operation receipt commit atomically. A code/receipt error rolls back the whole batch. Numeric code allocation can leave gaps, not partial records. The current records are refreshed after success.
 
 The serialized request is limited to 2 MB independently of file size. Split larger input into smaller workbooks/batches. A successful preview is not a lock or approval: another user may revoke access, remove a linked record or close an audit before commit. In that case review the error and validate again. Missing legacy free-text references retain the existing register semantics; canonical record IDs/codes must resolve to exactly one permitted target module. Requirement audit names retain the existing name-based association, rather than silently substituting the audit currently on screen.
+
+Evidence Library retains its required file-upload and version-review workflow. Uploading an XLSX file as evidence stores that document; it does not turn its rows into file-less evidence placeholders. The existing core API still accepts all eight canonical record contracts, including for older integrations.
 
 ## Uncertain responses and retries
 
@@ -20,4 +22,4 @@ Viewer accounts cannot preview or import. Admin/Editor roles remain subject to c
 
 ## Delivery evidence
 
-Focused unit/SQLite checks cover row positions, ambiguity, limits, canonical normalization, all eight module contracts, no-write preview, live grant/reference races, concurrent retries, account isolation, tombstoned business records and atomic rollback. The isolated real-browser suite selects actual XLSX files, exercises all eight entry points, simulates preview failure and a lost successful write response, checks read-only denial, keyboard access, TR/EN and both themes at desktop/mobile sizes. Final revision-specific results and screenshots are recorded in the delivery PR; production deployment and customer data-migration UAT remain separate.
+Focused unit/SQLite checks cover row positions, ambiguity, limits, canonical normalization, all eight module contracts, no-write preview, live grant/reference races, concurrent retries, account isolation, tombstoned business records and atomic rollback. The isolated real-browser suite selects actual XLSX files, exercises all seven import entry points and the separate evidence-upload boundary, simulates preview failure and a lost successful write response, checks read-only denial, keyboard access, TR/EN and both themes at desktop/mobile sizes. Final revision-specific results and screenshots are recorded in the delivery PR; production deployment and customer data-migration UAT remain separate.
