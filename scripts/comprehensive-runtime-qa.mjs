@@ -1,4 +1,5 @@
 import { qaPassword } from "./qa-credentials.mjs";
+import { revealAiWorkspace } from "./qa-ai-workspaces.mjs";
 import { chromium, expect } from '@playwright/test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
@@ -341,12 +342,12 @@ await check('My Work: exact ownership, Today, pagination after 80, mobile due da
  }
 });
 await reset();await open('AI Governance');
-const aiTabs=page.locator('.fornost-ai-tabs>button'),aiCount=await aiTabs.count();
+const aiTabs=page.locator('.fornost-ai-tabs button'),aiCount=await aiTabs.count();
 await check('AI governance exposes its complete navigation',()=>assert.ok(aiCount>=30));
 for(const theme of ['light','dark']){
  if(await page.locator('html').getAttribute('data-theme')!==theme)await page.locator('.theme-toggle:visible').click();
  for(let i=0;i<aiCount;i++)await check(`AI workspace render: ${theme} / ${i+1}`,async()=>{
-  await page.locator(".ai-section-picker>summary").click();await aiTabs.nth(i).click();await page.waitForTimeout(450);const panel=page.locator('.fornost-ai-panel');assert.equal(await aiTabs.nth(i).getAttribute('class'),'active');assert.ok(await panel.getAttribute('data-ai-view'));assert.equal(await page.locator('.ai-section-picker').getAttribute('open'),null,'AI chooser closes after selection');assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)<=4);await page.screenshot({path:`${out}/ai-${theme}-${i+1}.jpg`,type:'jpeg',quality:65});
+  await revealAiWorkspace(page,(await aiTabs.nth(i).textContent()).trim());await aiTabs.nth(i).click();await page.waitForTimeout(450);const panel=page.locator('.fornost-ai-panel');assert.equal(await aiTabs.nth(i).getAttribute('class'),'active');assert.ok(await panel.getAttribute('data-ai-view'));assert.equal(await page.locator('.ai-section-picker').getAttribute('open'),null,'AI chooser closes after selection');assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)<=4);await page.screenshot({path:`${out}/ai-${theme}-${i+1}.jpg`,type:'jpeg',quality:65});
  });
 }
 await open('Risk Assessment');await expect(page.locator('#fornost-ai-panel')).toHaveCount(0);
