@@ -1,3 +1,5 @@
+import * as workflowSelections from '../../app/workflow-selection-store';
+import type {Actor} from '../../app/api/auth/security';
 import * as findingDomain from '../../app/findings/domain';
 import * as findingIntake from '../../app/findings/intake-store';
 import * as findingTransition from '../../app/findings/transition-store';
@@ -21,7 +23,7 @@ import * as regulatory from '../../app/regulatory-intelligence/domain';
 import {safeHttpUrl} from '../../app/api/integrations/security';
 // Execute actual route handlers and SQL against transactional SQLite; substitute only platform/auth adapters.
 export function fixture(module:'incidents'|'continuity'|'policy-lifecycle'|'third-party-risk'|'risk-appetite'|'regulatory-intelligence'|'findings',triggerInclusive=false) {
- const sqlite=new DatabaseSync(':memory:'); let beforeBatch:(()=>void)|undefined;
+ const sqlite=new DatabaseSync(':memory:'); let actor:Actor={id:'reviewer',name:'Reviewer',role:'Admin',email:'reviewer@example.com',source:'local'}; let beforeBatch:(()=>void)|undefined;
  type Value=string|number|null;
  function prepare(sql:string,values:Value[]=[]){return{
   bind(...args:Value[]){return prepare(sql,args);},
@@ -37,8 +39,9 @@ export function fixture(module:'incidents'|'continuity'|'policy-lifecycle'|'thir
  const require=(name:string)=>{
   if(name==='next/server')return{NextResponse:{json:(body:unknown,options:{status:number})=>({body,status:options.status})}};
   if(name==='cloudflare:workers')return{env:{DB:db}};
-  if(name==='../auth/security')return{requireRole:async()=>({actor:{role:'Admin',email:'reviewer@example.com'}})};
+  if(name==='../auth/security')return{requireRole:async()=>({actor})};
   if(name==='../integrations/security')return{safeHttpUrl,clean:(x:unknown,n:number)=>String(x??'').trim().slice(0,n)};
+  if(name==='../../workflow-selection-store')return workflowSelections;
   if(name==='../../enterprise-lifecycle-write')return writes;
   if(name==='../../enterprise-reference-intake')return intake;
   if(name==='../../core-reference-write')return references;
@@ -60,5 +63,5 @@ export function fixture(module:'incidents'|'continuity'|'policy-lifecycle'|'thir
  };
  new Function('require','exports',compiled)(require,exports);
  const post=(body:Record<string,unknown>)=>(exports.POST as (req:unknown)=>Promise<{status:number;body:Record<string,unknown>}> )({headers:new Headers(),json:async()=>body});
- return{sqlite,db:db as unknown as D1Database,post,before:(hook:()=>void)=>{beforeBatch=hook;}};
+ return{sqlite,db:db as unknown as D1Database,post,setActor:(value:Actor)=>{actor=value},before:(hook:()=>void)=>{beforeBatch=hook;}};
 }

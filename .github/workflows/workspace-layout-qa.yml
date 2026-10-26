@@ -49,6 +49,15 @@ jobs:
           curl --fail --silent --show-error http://127.0.0.1:4173/api/auth \
             -H 'Origin: http://127.0.0.1:4173' -H 'Content-Type: application/json' \
             --data-binary @/tmp/fornost-qa-bootstrap.json
+      - name: Connected evidence selection and directory assignment QA
+        timeout-minutes: 7
+        run: node scripts/workflow-evidence-selection-qa.mjs
+      - name: Preserve connected evidence selection browser evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: workflow-evidence-selection-preview
+          path: workflow-evidence-selection-qa-artifacts/
       - name: Register XLSX preview, validation and retry-safe import QA
         timeout-minutes: 6
         run: node scripts/register-import-qa.mjs

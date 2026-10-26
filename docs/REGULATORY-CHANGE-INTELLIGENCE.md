@@ -7,7 +7,7 @@ Fornost Regülasyon Merkezi, düzenleyici değişiklikleri kaynak kaydından kan
 1. Admin; HTTPS adresi, otorite, yetki alanı, sahip ve 1–365 günlük gözden geçirme periyoduyla kaynağı tanımlar.
 2. Admin veya Editor, kaynağa ait değişikliği dış referans, yayın/yürürlük tarihi, önem, sahip ve bağımsız reviewer ile triaj kuyruğuna alır. İçerik özeti sunucuda SHA-256 ile mühürlenir.
 3. Değişiklik; kontrol, politika, risk, varlık, tedarikçi, süreç, denetim veya kanıt kaydına etki olarak bağlanır. Her etki için aksiyon sahibi ve yürürlük tarihini aşmayan termin belirlenir.
-4. Aksiyon sahibi çalışmayı başlatır ve kanıt referansı ile SHA-256 bütünlük değerini doğrulamaya gönderir.
+4. Aksiyon sahibi çalışmayı başlatır, kütüphaneden kanıt ve dosya sürümünü seçerek doğrulamaya gönderir. Dosya bütünlüğü sunucuda kontrol edilir; hash elle girilmez.
 5. Atanmış Admin reviewer, oluşturucu/gönderenden farklıysa kanıtı doğrular veya yeniden açar.
 6. Değişiklik, en az bir etki kaydı bulunmadan ya da tüm etkiler doğrulanmadan kapatılamaz. Kapanış yalnız atanmış bağımsız reviewer tarafından yapılır.
 
@@ -35,3 +35,5 @@ Yüksek etkili kararlar tam onay ifadeleri ister. Kapsam dışı bırakma, deği
 ## Operasyonel göstergeler
 
 Öncelik kuyruğu; inceleme zamanı gelen kaynakları, triaj bekleyen değişiklikleri, yüksek/kritik açık değişiklikleri, yürürlük tarihi geçmiş kayıtları, açık aksiyonları ve doğrulama kuyruğunu gösterir. Admin CSV çıktısı değişiklik sicilinin sınırlandırılmış anlık görünümüdür.
+
+Yeni atamalarda etkin, tam erişimli hesaplar seçilir; bağımsız inceleyen Admin olmalıdır. Gönderim ve bağımsız doğrulama ayrı, değişmez kanıt sürümü kayıtları tutar. Yeni dosya yüklemek eski kararı değiştirmez. Eski referans/hash API girdileri korunur fakat doğrulanmış kütüphane bağlantısı sayılmaz. [Kullanıcı Rehberi](USER-GUIDE.md#süreklilik-ve-regülasyon-kararlarında-kanıt-seçimi) ve [Admin Guide](ADMIN-GUIDE.md#connected-evidence-selections-continuity-and-regulatory-workflows) seçim, erişim ve sınırları açıklar.
