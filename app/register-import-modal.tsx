@@ -99,6 +99,6 @@ export function RegisterImportModal({ module, lang, title, fields, labels, alias
         </>}
       </>}
     </div>
-    <div className="modal-foot"><button type="button" disabled={busy === 'commit'} onClick={onClose}>{t('Kapat', 'Close')}</button>{!approved ? <button type="button" className="primary" disabled={!!busy || !converted || !!mappingError || !!localIssues.length} onClick={() => void send(false)}>{t('Önizlemeyi doğrula', 'Validate preview')}</button> : <button type="button" className="primary" disabled={!!busy} onClick={() => void send(true)}>{uncertain ? t('Aynı işlemi yeniden dene', 'Retry the same import') : t(`${approved.rows.length} kaydı içe aktar`, `Import ${approved.rows.length} records`)}</button>}</div>
+    <div className="modal-foot"><button type="button" disabled={busy === 'commit'} onClick={onClose}>{t('Kapat', 'Close')}</button>{!approved ? <button type="button" className="primary" disabled={!!busy || !converted || !!mappingError || !!localIssues.length} onClick={() => void send(false)}>{t('Önizlemeyi doğrula', 'Validate preview')}</button> : <button type="button" className="primary" disabled={!!busy} onClick={() => void send(true)}>{uncertain ? t('Aynı işlemi yeniden dene', 'Retry the same import') : t(`${approved.rows.length} kaydı içe aktar`, `Import ${approved.rows.length} ${approved.rows.length === 1 ? "record" : "records"}`)}</button>}</div>
   </div></div>;
 }

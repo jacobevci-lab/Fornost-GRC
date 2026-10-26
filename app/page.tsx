@@ -2434,9 +2434,9 @@ function FornostApp({ currentUser }: { currentUser: any }) {
             setRegisterImportRevision(value => value + 1);
             await load();
             setNotice(
-              replayed ? (lang === "tr" ? `Önceki içe aktarmanın sonucu doğrulandı: ${n} kayıt. Aynı işlem tekrar uygulanmadı.` : `Previous import confirmed: ${n} records. The operation was not applied again.`) : lang === "tr"
+              replayed ? (lang === "tr" ? `Önceki içe aktarmanın sonucu doğrulandı: ${n} kayıt. Aynı işlem tekrar uygulanmadı.` : `Previous import confirmed: ${n} ${n === 1 ? "record" : "records"}. The operation was not applied again.`) : lang === "tr"
                 ? `${n} kayıt Excel dosyasından içe aktarıldı.`
-                : `${n} records imported from the Excel file.`,
+                : `${n} ${n === 1 ? "record" : "records"} imported from the Excel file.`,
             );
           }}
         />
