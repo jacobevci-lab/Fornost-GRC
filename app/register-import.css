@@ -1,4 +1,4 @@
-.register-import-modal{width:min(1100px,96vw);max-height:92dvh;display:flex;flex-direction:column;overflow:hidden}
+.modal.register-import-modal{width:min(1100px,calc(100vw - 40px));max-height:92dvh;display:flex;flex-direction:column;overflow:hidden}
 .register-import-modal .import-body{min-height:0;overflow:auto}
 .register-import-modal .modal-head,.register-import-modal .modal-foot{flex-shrink:0}
 .register-import-file{width:100%;color:var(--ws-ink);font:inherit;cursor:pointer}
@@ -12,4 +12,4 @@
 .register-import-table table{min-width:100%;width:max-content}.register-import-table caption{text-align:start;padding:8px;font-weight:650}
 .register-import-table td,.register-import-table th{min-width:120px;max-width:280px;white-space:pre-wrap;overflow-wrap:anywhere}
 .register-import-pages{display:flex;align-items:center;justify-content:flex-end;gap:10px;margin-top:8px}
-@media(max-width:600px){.register-import-modal{width:96vw;max-height:94dvh}.register-import-modal .modal-foot{flex-wrap:wrap}.register-import-modal .modal-foot button{flex:1 1 140px}.register-import-modal .import-body{padding:14px}.register-import-modal .mapping{grid-template-columns:1fr}}
+@media(max-width:600px){.register-import-modal{max-height:94dvh}.register-import-modal .modal-foot{flex-wrap:wrap}.register-import-modal .modal-foot button{flex:1 1 140px}.register-import-modal .import-body{padding:14px}.register-import-modal .mapping{grid-template-columns:1fr}}
