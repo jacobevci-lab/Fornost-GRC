@@ -10,7 +10,10 @@ try{
  const rows=(await api('/api/grc')).rows;
  for(const moduleName of ['Risk Assessment','BIA','Varlık Envanteri','Uyum','Tedarikçiler','Kontroller','Kanıtlar','Denetim Yönetimi']){
   const seed=rows.find(row=>row.module===moduleName);assert.ok(seed,moduleName);
-  const created=await api('/api/grc','POST',{module:moduleName,data:JSON.parse(seed.data_json)});
+  const data=JSON.parse(seed.data_json);
+  // Older demo audit requirements may retain missing targets; this deletion fixture needs live references.
+  if(moduleName==='Denetim Yönetimi')Object.assign(data,{auditName:`QA reference deletion ${Date.now()}`,biaRef:'',controlRef:rows.find(r=>r.module==='Kontroller').id,requirementRef:rows.find(r=>r.module==='Uyum').id,riskRef:rows.find(r=>r.module==='Risk Assessment').id,evidenceRef:rows.find(r=>r.module==='Kanıtlar').id});
+  const created=await api('/api/grc','POST',{module:moduleName,data});
   await api(`/api/grc?id=${created.id}`,'DELETE');
  }
  const seed=rows.find(row=>row.module==='Kontroller');
