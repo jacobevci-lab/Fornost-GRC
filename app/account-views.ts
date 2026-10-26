@@ -24,7 +24,7 @@ export function viewId(value: unknown): string {
 }
 export function accountViewState(module: string, value: unknown): SavedViewState {
   viewModule(module);
-  if (!value || typeof value !== 'object' || Array.isArray(value) || Object.keys(value).some(key => !['query','filters','columns'].includes(key))) throw new AccountViewError('schema');
+  if (!value || typeof value !== 'object' || Array.isArray(value) || Object.keys(value).some(key => !['query','filters','columns','sort'].includes(key))) throw new AccountViewError('schema');
   try {
     const state = validateViewState(value, module === 'My Work' ? workViewSchema : registerViewSchema(module));
     if (module === 'My Work') readWorkView(state, Object.keys(WORK_MODULE_LABELS));

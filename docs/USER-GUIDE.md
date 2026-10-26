@@ -268,3 +268,10 @@ Dashboard’da denetime bağlı olmayan maddeler veya eksik denetim kaynakları 
 ## AI yönetişiminde başlangıç
 
 Boş yönetim özetindeki **İlk AI sistemini ekle / Add your first AI system** envanter formunu açar. AI çalışma alanları envanter/sahiplik, risk/uyum, test/güvence, inceleme/aksiyon, AI yardımı ve operasyon gruplarından seçilir. Envanter ve yönetişim işlemleri için çıkarım sağlayıcısı gerekmez; AI ile yanıt üretimi yapılandırılmış sağlayıcı gerektirir. Bu düzenleme mevcut rol ve onay kurallarını değiştirmez.
+
+
+## Liste sıralaması ve tekrar kullanılabilir görünümler
+
+Risk, BIA, Varlık, Uyum, Kontrol, Kanıt, denetim maddeleri ve Benim İşlerim ekranlarında **Sırala** alanından bir ölçüt ve artan/azalan yön seçebilirsiniz. Risk puanı sayısal, tarihler kronolojik sıralanır; eksik değerler her iki yönde de sonda kalır. Sıralama tüm filtrelenmiş listeye uygulanır, sonra sayfalama yapılır. **Varsayılan sıralama** önceki liste düzenini geri getirir; arama ve filtreleri temizlemek seçtiğiniz sıralamayı korur.
+
+Sıralamayı kişisel tarayıcı görünümüne, hesabınıza veya yetkiniz varsa ortak görünüme kaydedebilirsiniz. Eski, sıralama içermeyen bir görünüm uygulandığında varsayılan düzen kullanılır. Ortak sürüm geri yükleme açık listenizi değiştirmez; geri yüklenen tanımı ayrıca uygulayın. Denetim sonuçları ve Benim İşlerim CSV indirmesi listenin sırasını korur. Benim/Organizasyon kapsamı ve erişim yetkileri değişmez. Ayrıntılar: [kayıtlı görünümler](saved-register-views.md#list-order).

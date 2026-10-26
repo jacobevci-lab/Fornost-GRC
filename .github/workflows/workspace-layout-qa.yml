@@ -67,6 +67,14 @@ jobs:
           path: product-experience-qa-artifacts/
       - name: Enterprise reporting HTML PDF CSV QA
         run: node scripts/reporting-export-qa.mjs
+      - name: Register and work queue sorting, saved order and exports QA
+        run: node scripts/register-sorting-qa.mjs
+      - name: Preserve register sorting browser evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: register-sorting-preview
+          path: register-sorting-qa-artifacts/
       - name: Preserve report export browser evidence
         if: always()
         uses: actions/upload-artifact@v4

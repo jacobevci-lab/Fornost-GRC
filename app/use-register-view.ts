@@ -18,5 +18,5 @@ export function useRegisterView(userId: string, module: string) {
     writeRegisterView(() => sessionStorage, key, next);
     setLoaded({ key, view: next });
   };
-  return { query: view.query, setQuery: (query: string) => update({ query }), filters: view.filters, setFilters: (filters: Record<string, string>) => update({ filters }) };
+  return { query: view.query, setQuery: (query: string) => update({ query }), filters: view.filters, setFilters: (filters: Record<string, string>) => update({ filters }), sort: view.sort, setSort: (sort: RegisterView['sort']) => update({ sort }) };
 }

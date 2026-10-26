@@ -15,6 +15,9 @@ import { buildWorkQueueCsv } from "./work-queue-export";
 import { SavedRegisterViewsPanel } from "./saved-register-views-panel";
 import { WORK_MODULE_LABELS as MODULE_LABELS, workViewSchema, readWorkView, type QueueFilter } from "./work-queue-views";
 import { downloadBlob } from "./report-export";
+import { useRegisterView } from './use-register-view';
+import { sortViewItems, sortValue, viewSortOptions } from './register-sort';
+import { RegisterSortControls } from './register-sort-controls';
 
 type Lang = "tr" | "en";
 type Scope = "mine" | "organization";
@@ -260,6 +263,7 @@ export default function MyWorkV2() {
   const [lang, setLang] = useState<Lang>("tr");
   const [rows, setRows] = useState<Row[]>([]);
   const [user, setUser] = useState<User>({});
+  const { sort, setSort } = useRegisterView(user.id || '', 'My Work');
   const [scope, setScope] = useState<Scope>("mine");
   const [filter, setFilter] = useState<QueueFilter>("priority");
   const [query, setQuery] = useState("");
@@ -378,7 +382,7 @@ export default function MyWorkV2() {
   const visible = useMemo(() => {
     const needle = normalized(query);
     const source = filter === "completed" ? data.completedItems : data.items;
-    return source.filter(item => {
+    const filtered = source.filter(item => {
       if (filter === "today" && !isDueToday(item.due, data.now)) return false;
       if (filter === "priority" && item.priority > 1) return false;
       if (filter === "overdue" && !(Number.isFinite(item.dueTime) && item.dueTime < data.now)) return false;
@@ -388,16 +392,23 @@ export default function MyWorkV2() {
       if (!needle) return true;
       return normalized(`${item.title} ${item.owner} ${item.status} ${item.row.module} ${MODULE_LABELS[item.row.module]?.[lang] || ""} ${recordCode(item.row)}`).includes(needle);
     });
-  }, [data, filter, query, lang]);
+    if (!sort || !viewSortOptions('My Work').some(option => option.key === sort.key)) return filtered;
+    return sortViewItems(filtered, sort, lang, item => {
+      if (sort.key === 'due') return Number.isFinite(item.dueTime) ? item.dueTime : null;
+      if (sort.key === 'priority') return item.priority;
+      if (sort.key === 'updatedAt') return sortValue(item.row.updatedAt, 'date');
+      return sortValue(sort.key === 'owner' ? item.owner : item.title, 'text');
+    }, item => item.row.id);
+  }, [data, filter, query, lang, sort]);
 
-  useEffect(() => { setPageIndex(0); }, [filter, query, scope, moduleFilter]);
+  useEffect(() => { setPageIndex(0); }, [filter, query, scope, moduleFilter, sort]);
   const page = paginateWork(visible, pageIndex);
 
   const exportView = () => {
     if (loading || loadError || !lastUpdated || !visible.length) return;
     const csv = buildWorkQueueCsv(visible.map(item => ({ reference: recordCode(item.row), module: MODULE_LABELS[item.row.module]?.[lang] || item.row.module,
       title: item.title, owner: item.owner, status: item.status, due: item.due, reason: item.reason, updatedAt: item.row.updatedAt || "" })),
-      { scope: scope === "organization" && user.role === "Admin" ? "organization" : "mine", filter, query, moduleFilter, evaluatedAt: new Date(data.now).toISOString(), refreshedAt: lastUpdated.toISOString() });
+      { scope: scope === "organization" && user.role === "Admin" ? "organization" : "mine", filter, query, moduleFilter, sort, evaluatedAt: new Date(data.now).toISOString(), refreshedAt: lastUpdated.toISOString() });
     downloadBlob(`fornost-work-${filter}-${lastUpdated.toISOString().slice(0, 10)}.csv`, new Blob([csv], { type: "text/csv;charset=utf-8" }));
   };
 
@@ -421,7 +432,7 @@ export default function MyWorkV2() {
         <div>
           <small>{tr ? "AKSİYON MERKEZİ" : "ACTION INBOX"}</small>
           <h2>{tr ? "Bugün neye müdahale etmeliyim?" : "What needs my attention today?"}</h2>
-          <p>{tr ? "Risk, kontrol, kanıt, denetim ve iyileştirme sorumluluklarını termin ve önem derecesine göre tek kuyrukta gör." : "See risk, control, evidence, audit and remediation responsibilities in one queue, ordered by due date and materiality."}</p>
+          <p>{tr ? "Risk, kontrol, kanıt, denetim ve iyileştirme sorumluluklarını tek kuyrukta gör; çalışma sırasını ihtiyacına göre seç." : "See risk, control, evidence, audit and remediation responsibilities in one queue; choose the order that fits your work."}</p>
         </div>
         <div className="mw2-hero-actions">
           {user.role === "Admin" && <div className="mw2-scope" aria-label={tr ? "İş kapsamı" : "Work scope"}>
@@ -440,11 +451,12 @@ export default function MyWorkV2() {
           {moduleOptions.map(module => <option key={module} value={module}>{MODULE_LABELS[module]?.[lang] || module}</option>)}
         </select></label>
         {moduleFilter && <button type="button" className="mw2-refresh" onClick={() => setModuleFilter("")}>{tr ? "Modül filtresini temizle" : "Clear module filter"}</button>}
-        <p>{tr ? "Özet sayaçları, iş listesi ve CSV seçili modüle göre süzülür. Güvence sinyalleri kendi kapsamını korur." : "Summary counts, the work list and CSV follow the selected module. Assurance signals retain their own scope."}</p>
+        <RegisterSortControls module="My Work" lang={lang} sort={sort} onChange={setSort} disabled={loading || loadError} />
+        <p>{tr ? "Özet sayaçları, iş listesi ve CSV seçili modüle göre süzülür. CSV, liste sıralamasını korur. Güvence sinyalleri kendi kapsamını korur." : "Summary counts, the work list and CSV follow the selected module. CSV preserves the list order. Assurance signals retain their own scope."}</p>
       </div>
       {user.id && !loadError && <SavedRegisterViewsPanel userId={user.id} module="My Work" lang={lang} variant="work"
-        current={{query, filters:{module:moduleFilter, status:filter}, columns:workViewSchema.columns}} schema={workViewSchema} labels={{module:tr?"Modül":"Module",status:tr?"İş durumu":"Work status",title:tr?"Başlık":"Title",owner:tr?"Sahip":"Owner",due:tr?"Termin":"Due date"}}
-        apply={view => { const next = readWorkView(view, Object.keys(MODULE_LABELS)); setQuery(next.query); setModuleFilter(next.module); setFilter(next.status); setPageIndex(0); }} />}
+        current={{query, filters:{module:moduleFilter, status:filter}, columns:workViewSchema.columns, ...(sort ? {sort} : {})}} schema={workViewSchema} labels={{module:tr?"Modül":"Module",status:tr?"İş durumu":"Work status",title:tr?"Başlık":"Title",owner:tr?"Sahip":"Owner",due:tr?"Termin":"Due date"}}
+        apply={view => { const next = readWorkView(view, Object.keys(MODULE_LABELS)); setQuery(next.query); setModuleFilter(next.module); setFilter(next.status); setSort(next.sort); setPageIndex(0); }} />}
       <div className="mw2-metrics">
         <button type="button" className={data.overdue ? "critical" : ""} onClick={() => setFilter("overdue")}><small>{tr ? "Geciken" : "Overdue"}</small><strong>{data.overdue}</strong><span>{tr ? "Termin geçmiş işler" : "Past-due work"}</span></button>
         <button type="button" className={data.priority ? "warning" : ""} onClick={() => setFilter("priority")}><small>{tr ? "Dikkat gerekiyor" : "Needs attention"}</small><strong>{data.priority}</strong><span>{tr ? "Kritik, 7 gün içinde veya değerlendirme bekliyor" : "Critical, due within 7 days or awaiting assessment"}</span></button>
