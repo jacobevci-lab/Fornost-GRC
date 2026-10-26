@@ -24,6 +24,7 @@ const validate=()=>dialog().getByRole('button',{name:'Validate preview',exact:tr
 try{
  await api('/api/auth','POST',{action:'login',email:'qa-admin@fornost.test',password:qaPassword()});
  await page.goto(base);await expect(page.locator('.shell')).toBeVisible();await page.locator('.language-switch:visible').getByRole('button',{name:'EN',exact:true}).click();await go('Risk Assessment');await openImport();
+ const initialCount=(await owned()).length;await api('/api/grc','POST',{module:'Risk Assessment',rows:[{title:`${tag} typo`,owner:'Ops',asset:'Asset'}],action:'preview-typo'},400);assert.equal((await owned()).length,initialCount);
  const valid=[['title','','owner','asset','nextReview'],[`${tag} risk`,'','Import Owner','Import Asset',new Date('2026-11-20T00:00:00Z')]];
  await upload([['title','','owner'],['Bad','Unlabelled','Owner']]);await expect(dialog().getByRole('alert')).toContainText('no header');await expect(validate()).toBeDisabled();
  await upload([['title','title'],['One','Two']]);await expect(dialog().getByRole('alert')).toContainText('repeated');

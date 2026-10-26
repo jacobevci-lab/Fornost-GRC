@@ -63,6 +63,7 @@ export async function POST(req:NextRequest){
   if(!validModule(b.module))return NextResponse.json({error:"Geçersiz modül."},{status:400});
   const moduleName:ModuleName=b.module;
   importing=b.action==='preview-import'||b.importId!==undefined;
+  if(b.action!==undefined&&(b.action!=='preview-import'||b.importId!==undefined))throw new RegisterImportError('import-request');
   if(!canWriteModule(auth.actor,moduleName))return NextResponse.json({error:"Bu modülde yazma yetkiniz yok."},{status:403});
   if(b.action==='preview-import')return NextResponse.json({ok:true,preview:true,...await previewRegisterImport(d,auth.actor,moduleName,b.rows)},{headers:{'cache-control':'private, no-store'}});
   if(b.importId!==undefined){

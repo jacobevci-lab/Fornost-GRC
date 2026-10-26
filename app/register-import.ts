@@ -70,6 +70,10 @@ export function validateImportRows(module: unknown, value: unknown) {
 }
 
 const messages: Record<string, [string, string]> = {
+  'file-size': ['Dosya en fazla 5 MB olabilir.', 'The file may not exceed 5 MB.'],
+  'file-type': ['Geçerli bir .xlsx dosyası seçin.', 'Select a valid .xlsx workbook.'],
+  'file-read': ['Dosya okunamadı. Geçerli bir .xlsx dosyası seçin.', 'The file could not be read. Select a valid .xlsx workbook.'],
+  'import-request': ['İçe aktarma işlemi belirsiz veya geçersiz. Yeniden önizleyin.', 'The import operation is ambiguous or invalid. Preview again.'],
   validation: ['Satır hatalarını düzeltin; hiçbir kayıt oluşturulmadı.', 'Correct the row errors; no records were created.'],
   empty: ['İçe aktarılacak dolu satır yok.', 'There are no populated rows to import.'],
   'columns-limit': ['Dosya en fazla 100 sütun içerebilir. Sütunları azaltıp yeniden seçin.', 'The worksheet may contain at most 100 columns. Reduce its columns and select it again.'],

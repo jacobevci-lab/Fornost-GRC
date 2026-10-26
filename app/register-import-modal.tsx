@@ -13,15 +13,15 @@ export function RegisterImportModal({ module, lang, title, fields, labels, alias
   const input = useRef<HTMLInputElement>(null), active = useRef(true), generation = useRef(0), pending = useRef(false), controller = useRef<AbortController | null>(null);
   const [sheet, setSheet] = useState<ImportSheet | null>(null), [mapping, setMapping] = useState<Record<string, string>>({}), [filename, setFilename] = useState('');
   const [error, setError] = useState(''), [issues, setIssues] = useState<ImportIssue[]>([]), [busy, setBusy] = useState(''), [approved, setApproved] = useState<Approved | null>(null), [uncertain, setUncertain] = useState(false), [page, setPage] = useState(0);
-  useEffect(() => { active.current = true; return () => { active.current = false; generation.current++; controller.current?.abort(); }; }, []);
+  useEffect(() => { active.current = true; return () => { active.current = false; controller.current?.abort(); }; }, []);
   const invalidate = () => { setApproved(null); setIssues([]); setError(''); setPage(0); };
   async function read(file: File) {
     if (pending.current || uncertain) return;
     const ticket = ++generation.current;
     invalidate(); setSheet(null); setMapping({}); setFilename(file.name); setBusy('read');
     try {
-      if (file.size > 5 * 1024 * 1024) throw new Error(t('Dosya en fazla 5 MB olabilir.', 'The file may not exceed 5 MB.'));
-      if (!/\.xlsx$/i.test(file.name)) throw new Error(t('Geçerli bir .xlsx dosyası seçin.', 'Select a valid .xlsx workbook.'));
+      if (file.size > 5 * 1024 * 1024) throw new RegisterImportError('file-size');
+      if (!/\.xlsx$/i.test(file.name)) throw new RegisterImportError('file-type');
       const parsed = parseImportSheet(await readSheet(file));
       if (!active.current || ticket !== generation.current) return;
       const initial: Record<string, string> = {};
@@ -33,7 +33,7 @@ export function RegisterImportModal({ module, lang, title, fields, labels, alias
       setSheet(parsed); setMapping(initial);
     } catch (e) {
       if (!active.current || ticket !== generation.current) return;
-      setError(e instanceof RegisterImportError ? importIssueText(e.issues[0] || { code: e.code }, lang, labels) : e instanceof Error && /5 MB|xlsx/.test(e.message) ? e.message : t('Dosya okunamadı. Geçerli bir .xlsx dosyası seçin.', 'The file could not be read. Select a valid .xlsx workbook.'));
+      setError(importIssueText(e instanceof RegisterImportError ? e.issues[0] || { code: e.code } : { code: 'file-read' }, lang, labels));
     } finally { if (active.current && ticket === generation.current) setBusy(''); }
   }
   let converted: ReturnType<typeof mappedImport> | null = null, mappingError = '', localIssues: ImportIssue[] = [];
