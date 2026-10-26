@@ -51,7 +51,7 @@ try{
 
   await open('Risk Assessment');await expect(page.locator('.core-record-focus:not(.record-link-entry)')).toHaveCount(0);
   for(const label of ['Inherent Risk','Status']){
-    const box=await page.locator('.risk-table').getByRole('columnheader',{name:new RegExp(`^${label}`)}).boundingBox();
+    const box=await page.locator('.risk-table').getByRole('columnheader',{name:new RegExp(`^${label}`, 'i')}).boundingBox();
     assert.ok(box&&box.x>=0&&box.x+box.width<=1363,`${label} is visible before horizontal scrolling`);
   }
   await expect(page.locator('.risk-table').getByRole('separator',{name:'Status column width',exact:true})).toBeVisible();
