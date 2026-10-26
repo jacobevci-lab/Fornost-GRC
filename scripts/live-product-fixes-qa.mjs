@@ -17,7 +17,11 @@ async function open(name){
   }
   await button.click();
 }
-async function screenshot(name){await page.screenshot({path:`${out}/${name}.png`,fullPage:true});}
+async function screenshot(name){await page.screenshot({path:`${out}/${name}.png`,fullPage:true,animations:'disabled'});}
+async function navigationState(){return page.locator('.shell>aside').evaluate(aside=>{
+  const style=getComputedStyle(aside), button=aside.querySelector('.nav-group-items>button.active'), bs=button?getComputedStyle(button):null;
+  return {className:aside.parentElement.className,opacity:style.opacity,visibility:style.visibility,background:style.backgroundColor,color:style.color,button:button?{text:button.innerText,opacity:bs.opacity,color:bs.color,background:bs.backgroundColor}:null};
+});}
 try{
   await mkdir(out,{recursive:true});await api('/api/auth','POST',{action:'login',email:'qa-admin@fornost.test',password:qaPassword()});
   await api('/api/grc'); // Initialize only the isolated installation's existing demo fixture.
@@ -51,11 +55,14 @@ try{
 
   await open('Risk Assessment');await expect(page.locator('.core-record-focus:not(.record-link-entry)')).toHaveCount(0);
   for(const label of ['Inherent Risk','Status']){
-    const box=await page.locator('.risk-table').getByRole('columnheader',{name:new RegExp(`^${label}`, 'i')}).boundingBox();
+    const heading=page.locator('.risk-table th').filter({hasText:new RegExp(label,'i')}).first();
+    await expect(heading).toBeVisible();
+    const box=await heading.boundingBox();
     assert.ok(box&&box.x>=0&&box.x+box.width<=1363,`${label} is visible before horizontal scrolling`);
   }
   await expect(page.locator('.risk-table').getByRole('separator',{name:'Status column width',exact:true})).toBeVisible();
   await expect(page.locator('body')).toContainText(/Admin\s*·\s*Local/);
+  await writeFile(`${out}/navigation.json`,JSON.stringify(await navigationState(),null,2));
   await screenshot('04-risk-desktop');checks.push('F05/F06: decision columns and translated accessible resize labels at 1363px');
 
   await open('Reporting');await page.getByLabel('Report module',{exact:true}).selectOption('Risk Assessment');
@@ -75,5 +82,5 @@ try{
   await screenshot('05-ai-groups');checks.push('F08: provider-independent first-system action and six task groups preserve all 34 workspaces');
   assert.deepEqual(errors,[]);await writeFile(`${out}/result.json`,JSON.stringify({checks,errors},null,2));
   console.log(checks.join('\n'));
-}catch(error){await screenshot('failure');await writeFile(`${out}/failure.txt`,String(error));throw error;}
+}catch(error){await screenshot('failure');await writeFile(`${out}/failure.txt`,String(error));await writeFile(`${out}/diagnostics.json`,JSON.stringify({checks,navigation:await navigationState(),headings:await page.locator('.risk-table th').allTextContents(),snapshot:await page.locator('main').ariaSnapshot()},null,2));throw error;}
 finally{await context.close();await browser.close();}
