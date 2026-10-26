@@ -119,6 +119,7 @@ try{
     checks.push(`${lang}: failed source hides unverified metrics and count; retry restores summaries`);
   }
   source='loading';await page.reload({waitUntil:'domcontentloaded'});await expect(page.locator('.register-empty-state')).toHaveAttribute('data-state','loading');
+  await expect.poll(()=>typeof releaseLoad).toBe('function');
   await expect(page.locator('.risk-overview')).toHaveCount(0);await expect(page.locator('.register-result-count')).toHaveText('Loading…');
   await expect(page.locator('.module-head button.primary')).toBeDisabled();source='empty';releaseLoad();await expect(page.locator('.register-empty-state')).toHaveAttribute('data-state','empty');
   reader=true;await page.reload();await expect(page.locator('.register-empty-state')).toHaveAttribute('data-state','empty');await expect(page.locator('.register-empty-state button')).toHaveCount(0);await expect(page.locator('.module-head button.primary')).toHaveCount(0);
