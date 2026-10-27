@@ -41,6 +41,8 @@ try {
  snapshot=await usage();assert.equal(decisions(snapshot).length,7);assert.equal(decisions(snapshot).filter(row=>row.pins[0].state==='current').length,2);assert.ok(decisions(snapshot).every(row=>row.historical));
  checks.push('All five original decisions survive a new upload; resubmission/verification add two separate immutable uses');
  phase='usage UI and report';await openUsage();const panel=page.locator('.eu-panel');
+ await expect(panel.locator('.eu-coverage>summary')).toContainText('7/7 complete');await expect(panel.locator('.eu-sources')).toBeHidden();
+ await panel.locator('.eu-coverage>summary').focus();await page.keyboard.press('Enter');await expect(panel.locator('.eu-sources')).toBeVisible();await panel.screenshot({path:`${out}/usage-coverage-expanded.png`});await page.keyboard.press('Enter');await expect(panel.locator('.eu-sources')).toBeHidden();
  await panel.getByLabel('Usage source',{exact:true}).selectOption('continuity');await expect(panel.locator('.eu-list article')).toHaveCount(3);
  await panel.getByLabel('Usage source',{exact:true}).selectOption('regulatory');await expect(panel.locator('.eu-list article')).toHaveCount(4);
  await expect(panel.locator('.eu-list')).toContainText('Decision by:');await expect(panel.locator('.eu-list')).toContainText('Submitted for verification');await expect(panel.locator('.eu-list')).toContainText('Independent verification');
@@ -92,6 +94,7 @@ try {
  usageFails=false;await panel.getByRole('button',{name:'Refresh usage',exact:true}).click();await expect(panel.locator('.eu-summary')).toContainText('v3');await page.unroute('**/api/evidence/usage?*');
  const limited=await api(scoped,`/api/evidence/usage?id=${f.evidenceId}`);assert.ok(limited.sources.filter(s=>['continuity','regulatory'].includes(s.key)).every(s=>s.state==='restricted'));assert.equal(decisions(limited).length,0);
  await api(scoped,`/api/continuity?focusKind=continuity-gap&focusId=${f.gapId}`,'GET',undefined,403);await api(scoped,`/api/regulatory-intelligence?focusKind=regulatory-impact&focusId=${f.impactId}`,'GET',undefined,403);
+ const scopedPage=await scoped.newPage();await scopedPage.goto(base+'/#fornost-record?'+new URLSearchParams({module:'Kanıtlar',kind:'record',ref:f.evidenceId}));await expect(scopedPage.locator('.shell')).toBeVisible();await scopedPage.locator('.language-switch:visible').getByRole('button',{name:'EN',exact:true}).click();await scopedPage.locator('.eu-panel>summary').click();await expect(scopedPage.locator('.eu-panel .eu-warning').filter({hasText:'restricted access'})).toBeVisible();await expect(scopedPage.locator('.eu-coverage .eu-sources')).toBeHidden();await scopedPage.close();
  checks.push('Usage retry disables stale export; scoped accounts receive neither workflow decisions nor direct focused records');
  assert.deepEqual(errors,[]);await writeFile(`${out}/result.json`,JSON.stringify({result:'PASS',checks,errors,cleanup:'All mutations target the disposable CI database; no remote URL is configurable.'},null,2));console.log('WORKFLOW_EVIDENCE_USAGE_QA_PASS');
 }catch(error){await page.screenshot({path:`${out}/failure.png`}).catch(()=>{});await writeFile(`${out}/failure.json`,JSON.stringify({phase,error:String(error),checks,errors},null,2));throw error}
