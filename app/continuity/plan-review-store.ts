@@ -24,6 +24,8 @@ function readSnapshot(value: string): ContinuityPlan | null {
   try {
     const item = JSON.parse(value);
     if (item?.schema !== 1 || !item.plan || item.plan.status !== 'active' || !Number.isInteger(item.plan.version) || item.plan.version < 1 || !idValid(item.plan.id) || typeof item.plan.updatedAt !== 'string' || !Number.isFinite(Date.parse(item.plan.updatedAt)) || typeof item.plan.createdBy !== 'string') return null;
+    if (['code', 'name', 'process', 'biaRef', 'criticality', 'owner', 'reviewer', 'crisisLead', 'dependencies', 'recoveryStrategy', 'communicationPlan', 'alternateSite', 'supplierDependencies', 'reviewDate'].some(key => typeof item.plan[key] !== 'string') ||
+        ['rtoHours', 'rpoHours', 'mtpdHours', 'minimumStaff'].some(key => typeof item.plan[key] !== 'number') || !validPlanReviewDate(item.plan.reviewDate)) return null;
     validateContinuityPlan(item.plan);
     return item.plan as ContinuityPlan;
   } catch { return null; }

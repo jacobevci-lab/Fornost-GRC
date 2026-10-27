@@ -139,7 +139,12 @@ test('history exposes the latest 20 with explicit bounds and unreadable snapshot
     }
     let result = (await f.get('view=review&planId=BCP-1')).body;
     assert.equal(result.hasMore, true); assert.equal((result.reviews as unknown[]).length, 20); assert.equal(count(f), 21); assert.equal(result.historyVerified, true);
-    f.sqlite.exec("DROP TRIGGER continuity_plan_review_no_update;UPDATE enterprise_continuity_plan_reviews SET snapshot_json='{}'");
+    const snapshot = JSON.parse(String(f.sqlite.prepare('SELECT snapshot_json FROM enterprise_continuity_plan_reviews LIMIT 1').get()!.snapshot_json));
+    snapshot.plan.dependencies = { invalid: 'Text fields must never be rendered as objects' };
+    f.sqlite.exec('DROP TRIGGER continuity_plan_review_no_update');
+    f.sqlite.prepare('UPDATE enterprise_continuity_plan_reviews SET snapshot_json=?').run(JSON.stringify(snapshot));
+    result = (await f.get('view=review&planId=BCP-1')).body; assert.equal(result.historyVerified, false); assert.ok((result.reviews as {snapshot:unknown}[]).every(row => row.snapshot === null));
+    f.sqlite.exec("UPDATE enterprise_continuity_plan_reviews SET snapshot_json='{}'");
     result = (await f.get('view=review&planId=BCP-1')).body; assert.equal(result.historyVerified, false); assert.ok((result.reviews as {snapshot:unknown}[]).every(row => row.snapshot === null));
   } finally { f.sqlite.close(); }
 });
