@@ -93,7 +93,7 @@ export async function readEvidenceUsage(db: D1Database, actor: AccessSubject, id
     }
     return rows.results.length <= 1000;
   });
-  for(const workflow of ['continuity','regulatory'] as const) {
+  for(const workflow of ['continuity','regulatory','tprm'] as const) {
     await source(workflow, !isScoped(actor), 200, async()=>{
       const decisions=await readWorkflowUsage(db,workflow,evidence);
       result.rows.push(...decisions.rows);

@@ -35,9 +35,9 @@ Bir kontrolün kaydedilmesi onun etkin olduğunu, bir kanıtın yüklenmesi kabu
 
 - **Risk ve güvence:** Risk Assessment, varlık envanteri, BIA, risk iştahı/KRI, ortak kontrol kütüphanesi ve ilişkili kanıtlar.
 - **Uyum ve denetim:** Gereksinim katalogları, kapsam planı, [tarihli, isteğe bağlı bağımsız onaylı görevler](docs/audit-milestones.md), sürüme sabitlenmiş kanıt talepleri, bağımsız inceleme, [manuel ve tekrarlanabilir rastgele örneklemli çalışma kâğıtları](docs/audit-workpapers.md#reproducible-random-selection), [tekil/toplu görev, çalışma kâğıdı ve kanıt taleplerinde iş günü termin önerileri](docs/audit-deadline-planning.md), kaydedilmiş durum raporları ve bütün denetim için kapanış/onay.
-- **Kanıt kullanımı:** [Kanıt Kütüphanesi’nde kullanım ve değişiklik etkisi](docs/evidence-usage.md); kontrol/uyum, denetim maddesi, talep, çalışma kâğıdı ve CAPA bağlantıları, süreklilik/regülasyon kararlarının sabit kanıt geçmişi ve kaynak kayda doğrudan geçiş; açık işlerde eski sürüm incelemesi, [kaynak iziyle sorumlu/tarihli takip görevi](docs/evidence-change-followups.md) ve kapsamı belirtilen JSON raporu.
+- **Kanıt kullanımı:** [Kanıt Kütüphanesi’nde kullanım ve değişiklik etkisi](docs/evidence-usage.md); kontrol/uyum, denetim maddesi, talep, çalışma kâğıdı ve CAPA bağlantıları, süreklilik/regülasyon/tedarikçi kararlarının sabit kanıt geçmişi ve kaynak kayda doğrudan geçiş; açık işlerde eski sürüm incelemesi, [kaynak iziyle sorumlu/tarihli takip görevi](docs/evidence-change-followups.md) ve kapsamı belirtilen JSON raporu.
 - **Sürekli kontrol:** Desteklenen veri kaynaklarından toplama, zamanlanmış testler, kanıt tazeliği, başarısızlıkların izlenmesi ve CAPA bağlantısı. [Native kaynakların kapsamı](docs/integrations/product-connectors.md) ve [hazır testler](docs/integrations/ready-control-tests.md) ayrı tanımlıdır.
-- **Kararda sürümlü kanıt:** Süreklilik tatbikatı/iyileştirme kapanışı ve regülasyon etkisi gönderim/doğrulaması, kütüphaneden dosya sürümü seçer; sunucu bütünlüğü kontrol eder ve karara sabitler. Aktif kullanıcı seçimi, bu akışlarda elle e-posta ve hash girişini azaltır.
+- **Kararda sürümlü kanıt:** Süreklilik tatbikatı/iyileştirme kapanışı, regülasyon etkisi ve tedarikçi değerlendirme/bulgu/çıkış kararları, kütüphaneden dosya sürümü seçer; sunucu bütünlüğü kontrol eder ve karara sabitler. Aktif kullanıcı seçimi, bu akışlarda elle e-posta ve hash girişini azaltır.
 - **Kurumsal yaşam döngüleri:** Politika sürümü/yayın/attestation, regülasyon değişikliği ve etkileri, tedarikçi inceleme/offboarding, güvenlik olayı ve süreklilik tatbikatları.
 - **AI yönetişimi:** Sağlayıcı politikaları, model envanteri, değerlendirmeler, olaylar, istisnalar, release gate ve emeklilik. Ask Fornost, yetkili bağlam üzerinden kaynaklı analiz ve insan onaylı taslaklar sunar; doğrudan veritabanına bağlanmaz.
 - **Günlük çalışma:** TR/EN arayüz, Benim İşlerim, sekiz çekirdek sicilde kayıt araması, filtre bağlamına dönüş ve yetki kontrolüyle açılan paylaşılabilir kayıt/görev bağlantıları.
@@ -65,6 +65,7 @@ Tekrarlayan dönem, sorumlu, doğrulayıcı ve kanıtla **operasyonel regülasyo
 
 27 Ekim 2026 itibarıyla bu kaynak sürümünün başlıca geliştirmeleri:
 
+- [Tedarikçi kararlarında bağlı kanıt](docs/tprm-connected-evidence.md): etkin sorumlu seçimi, dosya sürümüne sabit kararlar, kaynak değişikliğinde taslak koruma ve kanıttan ilgili işe dönüş.
 - [İşlerim'de süreklilik sorumlulukları](docs/continuity-my-work.md): plan onayı/etkinleştirme, gözden geçirme, tatbikat ve iyileştirme açıkları; doğrudan kaynak kayda geçiş ve gerçek kapanış tarihleri.
 - [Periyodik plan incelemesi](docs/continuity-plan-review.md): plan ayrıntıları, atanmış bağımsız incelemeci kararı, sonraki inceleme tarihi ve değişmez plan kopyasıyla karar geçmişi.
 

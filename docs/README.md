@@ -25,7 +25,7 @@ Güncelleme: 19 Ekim 2026. Başlangıç belgeleri Türkçedir; ayrıntılı tekn
 - [Bağlantılı GRC](CONNECTED-GRC.md), [kontrol güvence çalışma alanı](integrations/control-assurance-workspace.md).
 - [Risk İştahı ve KRI](ENTERPRISE-RISK-APPETITE-KRI.md), [risk inceleme kararları](integrations/risk-review-decisions.md).
 - [Bulgular ve CAPA](ENTERPRISE-FINDINGS-CAPA.md), [CAPA kontrol bağlamı](integrations/capa-control-context.md).
-- [Tedarikçi Risk Yönetimi](THIRD-PARTY-RISK-MANAGEMENT.md).
+- [Tedarikçi Risk Yönetimi](THIRD-PARTY-RISK-MANAGEMENT.md) · [Bağlı karar kanıtları](tprm-connected-evidence.md).
 - [Politika Yaşam Döngüsü](POLICY-LIFECYCLE-MANAGEMENT.md), [Regülasyon Değişiklikleri](REGULATORY-CHANGE-INTELLIGENCE.md).
 - [İş Sürekliliği](ENTERPRISE-BUSINESS-CONTINUITY.md), [Güvenlik Olayları](ENTERPRISE-INCIDENT-CRISIS-MANAGEMENT.md).
 - [Sürekli Kontrol İzleme](CONTINUOUS-CONTROL-MONITORING.md), [native kaynaklar ve adaptör sınırları](integrations/product-connectors.md), [hazır kontrol testleri](integrations/ready-control-tests.md).
