@@ -1,5 +1,6 @@
 import { qaPassword } from "./qa-credentials.mjs";
-import { chromium } from '@playwright/test';
+import { chromium, expect } from '@playwright/test';
+import {createQaContext,waitForQaIdle} from './qa-browser-harness.mjs';
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 
@@ -8,7 +9,13 @@ const base = 'http://127.0.0.1:4173';
 const output = 'layout-qa-artifacts';
 await fs.mkdir(output, { recursive: true });
 const browser = await chromium.launch({ executablePath: process.env.QA_CHROMIUM_PATH || undefined });
-const context = await browser.newContext({ viewport: { width: 1536, height: 960 } });
+const context = await createQaContext(browser,base,{}, { viewport: { width: 1536, height: 960 } });
+const fixtureTag=`QA layout connection ${Date.now()}`,fixtureEvidence=[],fixtureTitles=[`${fixtureTag} first`,`${fixtureTag} second`];
+let fixtureControl;
+async function api(path,method='GET',data,status=200){
+  const response=await context.request.fetch(base+path,{method,data,headers:{origin:base}});
+  assert.equal(response.status(),status,`${path}: ${await response.text()}`);return response.json();
+}
 const results = [];
 let phase = 'login', lastFailure = '';
 const watchdog = setTimeout(() => {
@@ -27,6 +34,15 @@ try {
     data: { action: 'login', email: 'qa-admin@fornost.test', password: qaPassword() },
   });
   assert.equal(response.status(), 200, 'Isolated QA login');
+  // Own the link fixture: list position is not a relationship contract. Other QA
+  // journeys deliberately retain unlinked decision evidence in this database.
+  const seed=(await api('/api/grc')).rows.find(row=>row.module==='Kontroller');assert.ok(seed,'Control fixture schema');
+  fixtureControl=await api('/api/grc','POST',{module:'Kontroller',data:{...JSON.parse(seed.data_json),controlTitle:fixtureTag,controlRef:`QA-LAYOUT-${Date.now()}`}},201);
+  for(const evidenceTitle of fixtureTitles){
+    const upload=await context.request.post(base+'/api/evidence',{headers:{origin:base},multipart:{evidenceTitle,owner:'qa-admin@fornost.test',period:'2026-Q4',controlRef:fixtureControl.id,status:'İncelemede',file:{name:'layout-proof.txt',mimeType:'text/plain',buffer:Buffer.from('Synthetic owned layout relationship fixture')}}});
+    assert.equal(upload.status(),201,await upload.text());fixtureEvidence.push((await upload.json()).id);
+  }
+
   const page = await context.newPage();
   page.setDefaultTimeout(20000);
   page.setDefaultNavigationTimeout(60000);
@@ -36,7 +52,7 @@ try {
   await page.locator('.shell').waitFor();
   async function open(label) {
     await page.locator(`nav button[aria-label=${JSON.stringify(label)}]`).evaluate(el => el.click());
-    await page.waitForTimeout(550);
+    await waitForQaIdle(page);
   }
   for (const locale of ['tr', 'en']) {
     await page.locator('.language-switch:visible').getByRole('button', {name: locale.toUpperCase(), exact:true}).click();
@@ -94,13 +110,17 @@ try {
     assert.ok((await page.locator('.cg-workspace').boundingBox()).y < 600, 'Record explorer is above the fold');
     await page.locator('.cg-filters select').selectOption('Kanıtlar');
     const recordButtons = page.locator('.cg-records>button');
-    assert.ok(await recordButtons.count() > 1, 'Seed evidence provides multiple selectable records');
-    await recordButtons.nth(1).click();
-    assert.equal(await page.locator('.cg-detail h3').innerText(), await recordButtons.nth(1).locator('b').innerText(), 'Selection controls the relationship detail');
-    assert.ok(await page.locator('.cg-connections article').count() > 0, 'Selected evidence shows actual control connections');
-    const relatedTitle = await page.locator('.cg-follow').first().innerText();
-    await page.locator('.cg-follow').first().click();
-    assert.equal(await page.locator('.cg-detail h3').innerText(), relatedTitle, 'Follow a connection within the map');
+    await page.locator('.cg-filters input').fill(fixtureTag);
+    await expect(recordButtons).toHaveCount(2);
+    for(const title of fixtureTitles){
+      await recordButtons.filter({hasText:title}).click();
+      await expect(page.locator('.cg-detail h3')).toHaveText(title);
+      await expect(recordButtons.filter({hasText:title})).toHaveAttribute('aria-pressed','true');
+      await expect(page.locator('.cg-connections article')).toHaveCount(1);
+      await expect(page.locator('.cg-follow')).toHaveText(fixtureTag);
+    }
+    await page.locator('.cg-follow').click();
+    await expect(page.locator('.cg-detail h3')).toHaveText(fixtureTag);
     await page.locator('.cg-filters input').fill('no-such-record-qa');
     assert.equal(await recordButtons.count(), 0, 'Search has a useful empty state');
     await page.locator('.cg-filters').getByRole('button', {name:locale==='tr'?'Temizle':'Clear',exact:true}).click();
@@ -184,6 +204,9 @@ try {
   throw error;
 } finally {
   phase = `browser cleanup after ${phase}`;
-  await browser.close();
-  clearTimeout(watchdog);
+  try {
+    for(const id of fixtureEvidence)await api(`/api/grc?id=${id}`,'DELETE');
+    if(fixtureControl)await api(`/api/grc?id=${fixtureControl.id}`,'DELETE');
+    await fs.writeFile(`${output}/cleanup.json`,JSON.stringify({ownedEvidenceRemoved:fixtureEvidence.length,ownedControlRemoved:!!fixtureControl}));
+  } finally {await browser.close();clearTimeout(watchdog)}
 }
