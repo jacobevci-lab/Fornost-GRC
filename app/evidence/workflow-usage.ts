@@ -8,7 +8,7 @@ type Row = {id:string; entity_id:string; purpose:NonNullable<EvidenceUsageRow['d
 export async function readWorkflowUsage(db:D1Database, workflow:Workflow, evidence:EvidenceUsage['evidence']) {
   const context=workflow==='policy' ? `
     d.id IS NOT NULL AND (p.purpose='policy-retire' OR (v.id IS NOT NULL AND v.policy_id=d.id AND (p.purpose LIKE 'version-%' OR (x.id IS NOT NULL AND x.policy_id=d.id)))) AS source_available,
-    d.code || ' · ' || d.title || CASE WHEN x.id IS NOT NULL THEN ' · ' || x.scope ELSE ' · v' || COALESCE(v.version_number,'') END AS title,
+    d.code || ' · ' || d.title || CASE WHEN p.purpose='policy-retire' THEN '' WHEN x.id IS NOT NULL THEN ' · ' || x.scope ELSE ' · v' || COALESCE(v.version_number,'') END AS title,
     COALESCE(x.owner,d.owner) AS owner,COALESCE(x.status,v.status,d.status) AS status,
     COALESCE(x.expires_at,d.next_review) AS due_date
     FROM workflow_evidence_pins p
