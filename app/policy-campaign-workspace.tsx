@@ -61,8 +61,8 @@ function CampaignDialog({ id, tr, close }: { id: string; tr: boolean; close: (ch
     finally { setBusy(false); }
   }
   const statusLabel = (status: string) => ({ pending: tr ? 'Cevapsız' : 'Unanswered', attested: tr ? 'Kabul edildi' : 'Accepted', declined: tr ? 'Reddedildi' : 'Declined' })[status] || status;
-  return <div className="overlay" onClick={e => { if (e.target === e.currentTarget) dismiss(); }}><div className="modal plm-modal pcw-dialog" ref={dialog} role="dialog" aria-modal="true" aria-label={tr ? 'Kampanya sonuçları ve kapanış' : 'Campaign outcomes and closure'} tabIndex={-1}>
-    <header><div><h3>{tr ? 'Kampanya sonuçları ve kapanış' : 'Campaign outcomes and closure'}</h3><p>{data?.campaign.name}</p></div><button type="button" disabled={busy} onClick={dismiss} aria-label={tr ? 'Kapat' : 'Close'}>×</button></header>
+  return <div className="overlay" onClick={e => { if (e.target === e.currentTarget) dismiss(); }}><div data-escape-layer className="modal plm-modal pcw-dialog" ref={dialog} role="dialog" aria-modal="true" aria-label={tr ? 'Kampanya sonuçları ve kapanış' : 'Campaign outcomes and closure'} tabIndex={-1}>
+    <header><div><h3>{tr ? 'Kampanya sonuçları ve kapanış' : 'Campaign outcomes and closure'}</h3><p>{data?.campaign.name}</p></div><button data-escape-close type="button" disabled={busy} onClick={dismiss} aria-label={tr ? 'Kapat' : 'Close'}>×</button></header>
     <div className="pcw-body">{!draft&&<button type="button" disabled={loading || busy} onClick={() => void load()}>{tr ? 'Sonuçları yenile' : 'Refresh results'}</button>}
       {loading && <p role="status">{tr ? 'Kampanya yükleniyor…' : 'Loading campaign…'}</p>}
       {failed && !draft && <p role="alert">{tr ? 'Kampanya sonuçları yüklenemedi. Tekrar deneyin; gerekçeniz korundu.' : 'Campaign results could not be loaded. Retry; your reason is retained.'}</p>}
