@@ -5,22 +5,22 @@ import { sameDomainModule } from './domain-identity';
 import { enterpriseWorkKinds } from './enterprise-work';
 import './core-record-focus.css';
 
-export function useEnterpriseWorkFocus<T extends string>(module: string, setTab: Dispatch<SetStateAction<T>>) {
+export function useEnterpriseWorkFocus<T extends string>(module: string, setTab: Dispatch<SetStateAction<T>>, onFocus?: () => void) {
   const [focus, setFocus] = useState<{ kind: string; ref: string } | null>(null);
   useEffect(() => {
     const accept = (request: FornostNavigationRequest | null) => {
-      if (!request || !['my-work-enterprise', 'global-search', 'shared-record-link'].includes(request.source || '') || !sameDomainModule(request.module, module) || !request.ref) return;
+      if (!request || !['my-work-enterprise', 'global-search', 'shared-record-link', 'evidence-usage'].includes(request.source || '') || !sameDomainModule(request.module, module) || !request.ref) return;
       const kind = request.kind || '', definition = enterpriseWorkKinds[kind];
       if (!definition || definition.module !== module) return;
-      setFocus({ kind, ref: request.ref }); setTab(definition.tab as T);
+      setFocus({ kind, ref: request.ref }); setTab(definition.tab as T); onFocus?.();
       consumePendingFornostFocus(module);
     };
     accept(peekPendingFornostFocus());
     const listener = (event: Event) => accept((event as CustomEvent<FornostNavigationRequest>).detail);
     window.addEventListener(FORNOST_FOCUS_EVENT, listener);
     return () => window.removeEventListener(FORNOST_FOCUS_EVENT, listener);
-  }, [module, setTab]);
-  return { focus, clear: () => setFocus(null), matches: (kind: string, id: string) => !focus || focus.kind !== kind || focus.ref === id };
+  }, [module, setTab, onFocus]);
+  return { focus, open: (kind:string,ref:string) => {const definition=enterpriseWorkKinds[kind];if(definition?.module===module){setFocus({kind,ref});setTab(definition.tab as T);onFocus?.()}}, clear: () => setFocus(null), matches: (kind: string, id: string) => !focus || focus.kind !== kind || focus.ref === id };
 }
 
 export function EnterpriseWorkFocusBanner({ focus, found, ready, clear, tr }: {

@@ -1,4 +1,5 @@
 import { canReadModule, canWriteModule, isScoped, type AccessSubject } from '../module-access';
+import {readWorkflowUsage} from './workflow-usage';
 import { EvidenceUsageError, usageReferences, usagePins, usageNeedsReview, type EvidenceUsage, type EvidenceUsageRow, type UsageSource } from './usage';
 const str = (value: unknown) => typeof value === 'string' ? value : '';
 const object = (value: string) => JSON.parse(value) as Record<string, unknown>;
@@ -10,7 +11,7 @@ async function readAnchor(db: D1Database, id: string) {
     LEFT JOIN evidence_versions v ON v.id=(SELECT id FROM evidence_versions WHERE evidence_id=r.id ORDER BY version_no DESC LIMIT 1)
     WHERE r.id=? AND r.module='Kanıtlar'`).bind(id).first<Anchor>();
 }
-/** Read-only, bounded current usage. Historic event/report snapshots are deliberately excluded. */
+/** Read-only, bounded usage and canonical workflow decisions. General event/report snapshots remain excluded. */
 export async function readEvidenceUsage(db: D1Database, actor: AccessSubject, id: string): Promise<EvidenceUsage> {
   if (!canReadModule(actor, 'Kanıtlar')) throw new EvidenceUsageError('forbidden', 403);
   if (!/^[a-zA-Z0-9_-]{1,120}$/.test(id)) throw new EvidenceUsageError('id', 400);
@@ -92,6 +93,13 @@ export async function readEvidenceUsage(db: D1Database, actor: AccessSubject, id
     }
     return rows.results.length <= 1000;
   });
+  for(const workflow of ['continuity','regulatory'] as const) {
+    await source(workflow, !isScoped(actor), 200, async()=>{
+      const decisions=await readWorkflowUsage(db,workflow,evidence);
+      result.rows.push(...decisions.rows);
+      return decisions.complete;
+    });
+  }
   // Never compare pins against an anchor that changed while the source reads ran.
   const end = await readAnchor(db, id);
   if (!end || JSON.stringify(end) !== JSON.stringify(anchor)) throw new EvidenceUsageError('changed', 409);
