@@ -11,6 +11,8 @@ try{
  for(const moduleName of ['Risk Assessment','BIA','Varlık Envanteri','Uyum','Tedarikçiler','Kontroller','Kanıtlar','Denetim Yönetimi']){
   const seed=rows.find(row=>row.module===moduleName);assert.ok(seed,moduleName);
   const data=JSON.parse(seed.data_json);
+  // This is unlinked register intake, not a copy of a retained TPRM decision.
+  if(moduleName==='Tedarikçiler')data.status='Aktif';
   // Older demo audit requirements may retain missing targets; this deletion fixture needs live references.
   if(moduleName==='Denetim Yönetimi')Object.assign(data,{auditName:`QA reference deletion ${Date.now()}`,biaRef:'',controlRef:rows.find(r=>r.module==='Kontroller').id,requirementRef:rows.find(r=>r.module==='Uyum').id,riskRef:rows.find(r=>r.module==='Risk Assessment').id,evidenceRef:rows.find(r=>r.module==='Kanıtlar').id});
   const created=await api('/api/grc','POST',{module:moduleName,data});

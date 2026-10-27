@@ -21,6 +21,8 @@ let seedRows=(await request(admin,'/api/grc')).rows;
 const modules=[...new Set(seedRows.map(x=>x.module))];
 for(const moduleName of modules)await check(`API CRUD and role boundaries: ${moduleName}`,async()=>{
  const seed=seedRows.find(x=>x.module===moduleName),data=JSON.parse(seed.data_json),key=['title','process','evidenceTitle','controlTitle','requirementTitle'].find(k=>data[k]);
+ // Create an independent intake fixture even when the latest vendor was offboarded.
+ if(moduleName==='Tedarikçiler')data.status='Aktif';
  // Audit register copies must bind live fixture targets, not historical orphan links left by earlier scenarios.
  if(moduleName==='Denetim Yönetimi')Object.assign(data,{biaRef:'',controlRef:seedRows.find(r=>r.module==='Kontroller').id,requirementRef:seedRows.find(r=>r.module==='Uyum').id,riskRef:seedRows.find(r=>r.module==='Risk Assessment').id,evidenceRef:seedRows.find(r=>r.module==='Kanıtlar').id});
  data[key]=`QA ${moduleName} ${Date.now()}`;const created=await request(editor,'/api/grc','POST',{module:moduleName,data},201);
