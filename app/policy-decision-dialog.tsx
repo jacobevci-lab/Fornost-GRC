@@ -20,7 +20,7 @@ export default function PolicyDecisionDialog({kind,id,operation,tr,actor,close}:
       if(current.signal.aborted||controller.current!==current)return;
       if(firstRevision.current&&firstRevision.current!==body.revision)changed.current=true;
       if(!firstRevision.current)firstRevision.current=String(body.revision);
-      setContext(body as unknown as PolicyDecisionContext);setRevision(previous=>previous||String(body.revision));setBlocked(false);
+      setContext(body as unknown as PolicyDecisionContext);setRevision(previous=>previous||String(body.revision));setBlocked(false);setNotice('');
     } catch {if(!current.signal.aborted&&controller.current===current)setFailed(true)}
     finally {if(!current.signal.aborted&&controller.current===current)setLoading(false)}
   },[kind,id]);
@@ -52,7 +52,7 @@ export default function PolicyDecisionDialog({kind,id,operation,tr,actor,close}:
           {kind==='exception'&&[['scope',tr?'Kapsam':'Scope'],['rationale',tr?'Gerekçe':'Rationale'],['compensating_control',tr?'Telafi kontrolü':'Compensating control'],['expires_at',tr?'Bitiş':'Expiry']].map(([key,label])=><div key={key}><dt>{label}</dt><dd>{String(context.record[key])}</dd></div>)}
         </dl><details><summary>{tr?'Karara bağlı politika içeriği':'Policy content for this decision'}</summary><p>{String(context.version.summary)}</p><p className="plm-decision-content">{String(context.version.content)}</p><p>{tr?'Kontrol / regülasyon / risk eşlemeleri':'Control / regulation / risk mappings'}: {[context.version.control_refs_json,context.version.regulation_refs_json,context.version.risk_refs_json].join(' · ')}</p><code>{String(context.version.content_sha256)}</code></details>
         {!available&&<p role="alert">{tr?'Bu işlem güncel durumda veya rolünüz için kullanılamıyor. Güncel sonucu kontrol edip pencereyi kapatabilirsiniz.':'This action is unavailable in the current state or for your role. Review the current outcome and close this dialog.'}</p>}
-        {stale&&<p role="alert">{tr?'Politika veya istisna değişti. Güncel ayrıntıları inceledikten sonra yeni bağlamı kullanıp onayı tekrar girin.':'The policy or exception changed. Inspect current details, adopt the new context and confirm again.'} <button type="button" disabled={busy||!available} onClick={()=>{setRevision(context.revision);setConfirmation('');setNotice('')}}>{tr?'Güncel bağlamı kullan':'Use current context'}</button></p>}</>}
+        {stale&&available&&<p role="alert">{tr?'Politika veya istisna değişti. Güncel ayrıntıları inceledikten sonra yeni bağlamı kullanıp onayı tekrar girin.':'The policy or exception changed. Inspect current details, adopt the new context and confirm again.'} <button type="button" disabled={busy} onClick={()=>{setRevision(context.revision);setConfirmation('');setNotice('')}}>{tr?'Güncel bağlamı kullan':'Use current context'}</button></p>}</>}
       </section>
       {notice&&<p role="alert">{notice}</p>}
       <fieldset className="plm-decision-fields" disabled={busy}><legend className="sr-only">{tr?'Karar':'Decision'}</legend>
