@@ -1,5 +1,7 @@
 # Fornost GRC Yönetici Rehberi
 
+İşlerim, süreklilik planı/tatbikat/açık sorumluluklarını mevcut yetkilerle okur. Ayrı bir yapılandırma veya veri göçü gerekmez. Kaynak başına 2.000 kayıt sınırı, eksik ilişki veya okuma hatası varsa liste eksik olarak işaretlenir ve CSV kapanır; yenileme ile tekrar denenir. Kurumsal süreklilik verileri sınırlı modül yetkili hesaplara açılmaz. [Süreklilik iş kuyruğu ve tarih kuralları](continuity-my-work.md).
+
 [Dokümantasyon dizini](README.md) · [Kullanıcı rehberi](USER-GUIDE.md) · [Ürün tanıtımı](PRODUCT-OVERVIEW.md)
 
 Kapsam: 19 Ekim 2026 itibarıyla müşteri kurulumunun uygulama yönetimi ve işletimi. Komutlar on-prem Linux içindir; hosted ortamın veri yedekleme ve dağıtım işlemleri ayrı yürütülür.

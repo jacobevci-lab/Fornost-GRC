@@ -1,9 +1,9 @@
 "use client";
 import {milestoneLabels} from './audit-milestones';
-import { enterpriseWorkSources, enterpriseWorkKinds, projectEnterpriseWork, type EnterpriseWorkSource } from "./enterprise-work";
+import { enterpriseWorkSources, enterpriseWorkKinds, continuityWorkLabels, projectEnterpriseWork, type EnterpriseWorkSource } from "./enterprise-work";
 import MyWorkAssuranceSignals from "./my-work-assurance-signals";
 import { dueTimestamp } from "./due-date";
-import { matchesWorkIdentity, isDueToday, paginateWork, findingWorkRows, findingWorkDisposition, workSourcesComplete } from "./work-queue";
+import { workCompletionDate, matchesWorkIdentity, isDueToday, paginateWork, findingWorkRows, findingWorkDisposition, workSourcesComplete } from "./work-queue";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -44,6 +44,7 @@ type Row = {
   data: Record<string, unknown>;
   createdAt?: string;
   updatedAt?: string;
+  completedAt?: string;
 };
 type User = { id?: string; name?: string; email?: string; role?: string };
 type QueueItem = {
@@ -183,7 +184,7 @@ function isWaitingForOthers(row: Row, user: User) {
   const counterparties = [row.data.reviewer, row.data.approver, row.data.followUpOwner].map(clean).filter(Boolean);
   if (!counterparties.length || valuesMatchIdentity(counterparties, user)) return false;
   const state = normalized(row.data.reviewStatus || row.data.status);
-  return (row.workKind === "policy-version" && state === "approved") || REVIEW_STATES.some(candidate => state.includes(candidate)) || Boolean(row.data.submittedAt || row.data.submittedBy || row.data.reviewStatus);
+  return row.data.workWaitingForReview === true || (row.workKind === "policy-version" && state === "approved") || REVIEW_STATES.some(candidate => state.includes(candidate)) || Boolean(row.data.submittedAt || row.data.submittedBy || row.data.reviewStatus);
 }
 function priorityFor(row: Row, dueTime: number, now: number) {
   if (row.module === "Bulgular ve CAPA") {
@@ -205,6 +206,8 @@ function priorityFor(row: Row, dueTime: number, now: number) {
 function reasonFor(row: Row, dueTime: number, now: number, lang: Lang) {
   if(row.workKind === "audit-milestone" && Number(row.data.blockedCount)>0)return lang === "tr" ? `${row.data.blockedCount} ön koşul görevi bekleniyor` : `Waiting for ${row.data.blockedCount} prerequisite milestones`;
   const tr = lang === "tr";
+  if (row.workKind === "continuity-plan" && row.data.status === "draft") return tr ? "Bağımsız plan onayı bekleniyor" : "Awaiting independent plan approval";
+  if (row.workKind === "continuity-plan" && row.data.status === "approved") return tr ? "Plan etkinleştirilmeli" : "Plan needs activation";
   if(row.workKind === "audit-milestone" && row.data.status === "submitted")return tr ? "Bağımsız görev incelemesi bekleniyor" : "Awaiting independent milestone review";
   if(row.workKind === "audit-milestone" && row.data.status === "changes_requested")return tr ? "İncelemeci düzeltme istedi" : "Reviewer requested changes";
   if (row.module === "Bulgular ve CAPA") {
@@ -235,11 +238,11 @@ function itemFromRow(row: Row, user: User, now: number, lang: Lang, completed = 
     row,
     title: row.workKind ? `${enterpriseWorkKinds[row.workKind]?.[lang] || row.workKind} · ${rowTitle(row)}` : rowTitle(row),
     owner: rowOwner(row),
-    status: row.workKind === "audit-milestone" ? milestoneLabels[rowStatus(row) as keyof typeof milestoneLabels]?.[lang === "tr" ? 0 : 1] || rowStatus(row) : rowStatus(row),
+    status: row.workSource === "continuity" ? continuityWorkLabels[rowStatus(row)]?.[lang] || rowStatus(row) : row.workKind === "audit-milestone" ? milestoneLabels[rowStatus(row) as keyof typeof milestoneLabels]?.[lang === "tr" ? 0 : 1] || rowStatus(row) : rowStatus(row),
     due,
     dueTime,
     priority,
-    reason: completed ? (lang === "tr" ? "Tamamlandı" : "Completed") : reasonFor(row, dueTime, now, lang),
+    reason: completed ? (row.workSource === "continuity" ? continuityWorkLabels[rowStatus(row)]?.[lang] || rowStatus(row) : (lang === "tr" ? "Tamamlandı" : "Completed")) : reasonFor(row, dueTime, now, lang),
     tone: completed ? "muted" : toneFor(priority),
     waiting: !completed && isWaitingForOthers(row, user),
   };
@@ -328,7 +331,7 @@ export default function MyWorkV2() {
         projection: result.status === "fulfilled" ? projectEnterpriseWork(enterpriseWorkSources[index].key, result.value) : null,
       }));
       setRows(previous => {
-        const tasks = enterprise.flatMap(({ source, projection }) => projection ? projection.rows : previous.filter(row => row.workSource === source));
+        const tasks = enterprise.flatMap(({ projection }) => projection?.rows || []);
         const managedVendors = new Set(tasks.filter(row => row.workKind === 'vendor-review').map(row => row.nativeRef));
         const core = grcResult.status === "fulfilled" ? normalizeRows(grcResult.value) : previous.filter(row => !row.workSource && row.module !== "Bulgular ve CAPA");
         return [
@@ -364,11 +367,11 @@ export default function MyWorkV2() {
     const openRows = scoped.filter(row => !isClosed(row) && !(row.module === "Bulgular ve CAPA" && findingWorkDisposition(row.data, now) === "accepted"));
     const completedRows = scoped.filter(row => {
       if (!isClosed(row)) return false;
-      const completedAt = new Date(row.updatedAt || row.createdAt || "").getTime();
-      return Number.isFinite(completedAt) && completedAt >= now - 30 * DAY;
+      const completedAt = new Date(workCompletionDate(row)).getTime();
+      return Number.isFinite(completedAt) && completedAt >= now - 30 * DAY && completedAt <= now;
     });
     const items = openRows.map(row => itemFromRow(row, user, now, lang)).sort((a, b) => a.priority - b.priority || a.dueTime - b.dueTime || a.title.localeCompare(b.title, lang === "tr" ? "tr" : "en"));
-    const completedItems = completedRows.map(row => itemFromRow(row, user, now, lang, true)).sort((a, b) => new Date(b.row.updatedAt || b.row.createdAt || 0).getTime() - new Date(a.row.updatedAt || a.row.createdAt || 0).getTime());
+    const completedItems = completedRows.map(row => itemFromRow(row, user, now, lang, true)).sort((a, b) => new Date(workCompletionDate(b.row)).getTime() - new Date(workCompletionDate(a.row)).getTime());
     const today = items.filter(item => isDueToday(item.due, now)).length;
     const overdue = items.filter(item => Number.isFinite(item.dueTime) && item.dueTime < now).length;
     const soon = items.filter(item => Number.isFinite(item.dueTime) && item.dueTime >= now && item.dueTime <= now + 14 * DAY).length;
@@ -432,7 +435,7 @@ export default function MyWorkV2() {
         <div>
           <small>{tr ? "AKSİYON MERKEZİ" : "ACTION INBOX"}</small>
           <h2>{tr ? "Bugün neye müdahale etmeliyim?" : "What needs my attention today?"}</h2>
-          <p>{tr ? "Risk, kontrol, kanıt, denetim ve iyileştirme sorumluluklarını tek kuyrukta gör; çalışma sırasını ihtiyacına göre seç." : "See risk, control, evidence, audit and remediation responsibilities in one queue; choose the order that fits your work."}</p>
+          <p>{tr ? "Risk, kontrol, kanıt, denetim, süreklilik ve iyileştirme sorumluluklarını tek kuyrukta gör; çalışma sırasını ihtiyacına göre seç." : "See risk, control, evidence, audit, continuity and remediation responsibilities in one queue; choose the order that fits your work."}</p>
         </div>
         <div className="mw2-hero-actions">
           {user.role === "Admin" && <div className="mw2-scope" aria-label={tr ? "İş kapsamı" : "Work scope"}>
@@ -481,7 +484,7 @@ export default function MyWorkV2() {
           <span className="mw2-title"><b>{item.title}</b><small>{MODULE_LABELS[item.row.module]?.[lang] || item.row.module} · {recordCode(item.row)}</small></span>
           <span className="mw2-owner"><small>{tr ? "Sahip" : "Owner"}</small><b>{item.owner}</b></span>
           <span className="mw2-state"><em>{item.status}</em><small>{item.waiting && item.row.workKind !== "audit-milestone" ? (tr ? "Başkalarında bekliyor" : "Waiting for others") : item.reason}</small></span>
-          <time className={!Number.isFinite(item.dueTime) ? "undated" : item.dueTime < data.now ? "overdue" : ""}>{filter === "completed" ? formatDate(item.row.updatedAt || item.row.createdAt || "", lang) : formatDate(item.due, lang)}</time>
+          <time className={!Number.isFinite(item.dueTime) ? "undated" : item.dueTime < data.now ? "overdue" : ""}>{filter === "completed" ? formatDate(workCompletionDate(item.row), lang) : formatDate(item.due, lang)}</time>
           <strong className="mw2-arrow">→</strong>
         </button>)}</div> : <div className="mw2-empty"><span>{loadError ? "!" : loading ? "…" : "✓"}</span><div><b>{loadError ? (tr ? "İş listesi doğrulanamadı." : "Work list could not be verified.") : loading ? (tr ? "İşler yükleniyor…" : "Loading work…") : (tr ? "Bu görünümde aksiyon yok." : "No actions in this view.")}</b><p>{tr ? "Filtreyi değiştirin veya kapsamı kontrol edin." : "Change the filter or review the selected scope."}</p></div></div>}
         {visible.length > 0 && <footer className="mw2-pagination" aria-label={tr ? "İş listesi sayfaları" : "Work list pages"}>

@@ -1,3 +1,4 @@
+import * as continuityWork from '../../app/continuity/work-source';
 import * as workflowFocus from '../../app/workflow-record-focus';
 import * as workflowSelections from '../../app/workflow-selection-store';
 import type {Actor} from '../../app/api/auth/security';
@@ -49,6 +50,7 @@ export function fixture(module:'incidents'|'continuity'|'policy-lifecycle'|'thir
   if(name==='../../core-reference-write')return references;
   if(name==='../../incidents/domain')return incidents;
   if(name==='../../continuity/domain')return continuity;
+  if(name==='../../continuity/work-source')return continuityWork;
   if(name==='../../policy-lifecycle/domain')return policy;
   if(name==='../../third-party-risk/domain')return vendor;
   if(name==='../../risk-appetite/domain')return risk;

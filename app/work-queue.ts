@@ -3,6 +3,11 @@ const clean = (value: unknown) => String(value ?? "").normalize("NFKC").trim();
 const nameKey = (value: unknown) => clean(value).toLocaleLowerCase("tr-TR");
 const emailKey = (value: unknown) => clean(value).toLowerCase();
 
+/** An explicit empty completion timestamp must not fall back to record creation. */
+export function workCompletionDate(row: { completedAt?: string; updatedAt?: string; createdAt?: string }) {
+  return row.completedAt ?? (row.updatedAt || row.createdAt || '');
+}
+
 /** Names must match completely. Email-bearing values must match the email, not the display name. */
 export function matchesWorkIdentity(values: string[], user: { name?: string; email?: string }): boolean {
   return values.some(value => value.split(/[;,|\n]+/).some(part => {
