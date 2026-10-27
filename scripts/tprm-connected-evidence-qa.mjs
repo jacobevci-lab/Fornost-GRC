@@ -50,7 +50,7 @@ try{
  checks.push('File-list and source failures retain decision draft; real concurrent finding rejects old source and requires explicit acknowledgement; self-approval blocked');
  phase='independent assessment and remediation';await open(peer);await tab(peer,'Due Diligence');await action(peer,assessmentRow(peer),'Approve','TEDARİKÇİYİ ONAYLA');
  await tab(page,'Findings & CAPA');await action(page,findingRow(page),'Start','BULGUYU BAŞLAT',{evidence:false});await action(page,findingRow(page),'Submit','BULGUYU DOĞRULAMAYA GÖNDER');
- await tab(peer,'Findings & CAPA');await action(peer,findingRow(peer),'Close','BULGUYU KAPAT');
+ await open(peer);await tab(peer,'Findings & CAPA');await action(peer,findingRow(peer),'Close','BULGUYU KAPAT');
  state=await workspace(reviewer);assert.equal(state.findings.find(x=>x.id===findingId).status,'closed');assert.equal(state.evidencePins.filter(p=>[assessmentId,findingId].includes(p.entityId)).length,4);
  checks.push('Independent assessment approval and finding start/submission/verification use the actual UI and retain separate canonical evidence versions');
  phase='bilingual responsive exit decision';await tab(peer,'Third Parties');await assessmentRow(peer).getByRole('button',{name:'Open',exact:true}).click();await peer.getByRole('dialog',{name,exact:true}).getByRole('button',{name:'Evidence-backed exit',exact:true}).click();d=peer.locator('.tprm-modal').last();await fillDecision(d,'TEDARİKÇİYİ KAPAT');
