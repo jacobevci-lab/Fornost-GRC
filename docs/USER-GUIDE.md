@@ -318,3 +318,9 @@ Değerlendirmeyi gönderirken veya onaylarken, bulguyu doğrulamaya gönderirken
 Admin hesabıyla **Politika Merkezi → Attestation → Kampanya sonuçları** alanından kampanyayı bulun ve **Sonuçları incele** seçeneğini açın. Kampanyaya bağlı politika sürümünü, yanıtları ve katılımcı notlarını inceleyin. **Kapanışı hazırla** ile gerekçe yazıp cevapsız/ret sonuçlarını kabul edilmiş saymadan kapatın. **Kapalı** görünümü kapanış geçmişini gösterir; katılımcıların mevcut yanıtları silinmez. Kapalı kampanyanın cevapsız işleri aktif kuyruktan çıkar ve yeni yanıt düğmesi gösterilmez.
 
 Sonuçlar değişirse taslak korunur: **Sonuçları yenile → Güncel sonuçları kullan** ve onayları tekrar verin. Bağlantı kesilince aynı kararı tekrar göndermek ikinci kapanış oluşturmaz. Ayrıntılar ve sınırlar: [Kampanya kapanışı](policy-campaign-completion.md).
+
+### Politika kararlarında kişi ve kanıt seçimi
+
+**Politika Merkezi** içinde politika/istisna sahibi ve bağımsız inceleyen etkin kullanıcı listesinden seçilir. Sürümü gönderme, onaylama, yayınlama; istisnayı onaylama/kapatma ve politikayı kaldırma sırasında **Karar kanıtı** alanından kanıt kaydını ve dosya sürümünü seçin. Dosyanın dönemi ve sürümü görünür; SHA-256 elle girilmez. Kontrol/regülasyon/risk eşlemelerinden en az biri yeterlidir.
+
+Karar bağlamını ve politika içeriğini inceleyin. Kaynak değiştiğinde not ve dosya seçimi korunur: **Karar bağlamını yenile → Güncel bağlamı kullan** ve tam onay ifadesini tekrar girin. Yanıt kaybolursa yeniden göndermeden önce bağlamı yenileyin; işlem tamamlanmışsa tekrar uygulanamaz. Sürüm/istisna satırlarında ve politika ayrıntısında son karar kanıtları; **Kanıt Kullanımı → Politika kararları** altında tarihsel kararlar ve tam kaynak bağlantısı bulunur. [Akış ve sınırlar](policy-connected-evidence.md).

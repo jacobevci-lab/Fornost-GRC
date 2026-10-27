@@ -34,3 +34,7 @@ Politika sürümünün içerik özeti, eşlemeleri, maker/checker kimlikleri, g�
 ## Campaign outcomes and completion
 
 Admin can now inspect each attestation campaign, its pinned policy version and accepted/declined/unanswered outcomes, then explicitly close collection with a reason. Closure retains recipient responses, removes pending work and response actions, and clears the open-campaign retirement blocker without bypassing other checks. Current outcome revisions and live administrator state are bound atomically to the closure event; stale/uncertain decisions retain the draft and support safe recovery. This does not introduce universal acceptance, reopening or automatic closure. See [workflow, roles and bounded reads](policy-campaign-completion.md).
+
+## Connected decision evidence
+
+The existing policy and exception forms use eligible account selection. Version submission/approval/publication, exception approval/closure and retirement use canonical evidence versions, with source-context review and explicit recovery after conflicts. Distinct retained decision pins appear in Policy Center and historical Evidence Usage, with exact source navigation. Legacy references remain compatible without canonical pins; no palette/menu/schema change is required. [Workflow, access and limits](policy-connected-evidence.md).
