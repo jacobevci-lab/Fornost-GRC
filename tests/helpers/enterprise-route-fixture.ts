@@ -1,3 +1,5 @@
+import * as continuityPlan from '../../app/continuity/plan';
+import * as continuityReviews from '../../app/continuity/plan-review-store';
 import * as continuityWork from '../../app/continuity/work-source';
 import * as workflowFocus from '../../app/workflow-record-focus';
 import * as workflowSelections from '../../app/workflow-selection-store';
@@ -51,6 +53,8 @@ export function fixture(module:'incidents'|'continuity'|'policy-lifecycle'|'thir
   if(name==='../../incidents/domain')return incidents;
   if(name==='../../continuity/domain')return continuity;
   if(name==='../../continuity/work-source')return continuityWork;
+  if(name==='../../continuity/plan')return continuityPlan;
+  if(name==='../../continuity/plan-review-store')return continuityReviews;
   if(name==='../../policy-lifecycle/domain')return policy;
   if(name==='../../third-party-risk/domain')return vendor;
   if(name==='../../risk-appetite/domain')return risk;

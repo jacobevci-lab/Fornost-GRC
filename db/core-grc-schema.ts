@@ -101,3 +101,7 @@ export const auditMilestones = sqliteTable("audit_milestones", {
 export const auditMilestoneEvents = sqliteTable("audit_milestone_events", {
  id:text("id").primaryKey(),auditId:text("audit_id").notNull(),milestoneId:text("milestone_id").notNull(),actor:text("actor").notNull(),action:text("action").notNull(),note:text("note").notNull(),snapshotJson:text("snapshot_json").notNull(),createdAt:text("created_at").notNull(),
 },table=>[index("audit_milestone_events_parent_idx").on(table.auditId,table.milestoneId,table.createdAt,table.id)]);
+
+export const continuityPlanReviews = sqliteTable("enterprise_continuity_plan_reviews", {
+  id:text("id").primaryKey().notNull(),planId:text("plan_id").notNull(),sourceRevision:text("source_revision").notNull(),previousDate:text("previous_date").notNull(),nextDate:text("next_date").notNull(),note:text("note").notNull(),snapshotJson:text("snapshot_json").notNull(),actorId:text("actor_id").notNull(),actor:text("actor").notNull(),reviewedAt:text("reviewed_at").notNull(),
+},table=>[index("enterprise_continuity_plan_reviews_parent_idx").on(table.planId,table.reviewedAt,table.id)]);

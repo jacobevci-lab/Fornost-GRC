@@ -170,7 +170,7 @@ export function projectEnterpriseWork(source: EnterpriseWorkSource, payload: unk
     if (plans.length !== collections.plans.length) complete = false;
     const exercises = collections.exercises.filter(e => valid(e, ['planned', 'completed', 'cancelled'], ['facilitator'], 'scheduledDate'));
     for (const p of plans) add('continuity-plan', p, { title: p.name, code: p.code, owner: p.owner, actionOwner: p.crisisLead,
-      reviewer: p.status === 'draft' ? p.reviewer : '', workWaitingForReview: p.status === 'draft',
+      reviewer: ['draft', 'active'].includes(String(p.status)) ? p.reviewer : '', workWaitingForReview: p.status === 'draft',
       dueDate: p.status === 'active' ? p.reviewDate : '', criticality: p.criticality }, p.status === 'retired');
     for (const e of exercises) {
       const p = parent(plans, 'id', e.planId); if (!p) continue;

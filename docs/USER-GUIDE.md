@@ -296,3 +296,11 @@ Kayıt sırasında sunucu dosya içeriğini ve sürüm zincirini doğrular. Bu, 
 Yeni atamalarda ad/e-posta ile etkin hesapları arayın. Bu iki modül tam erişimli Admin/Editor hesaplarını kullanır; bağımsız inceleyen etkin bir Admin olmalı ve kaydı oluşturan kişi olmamalıdır. Başarısız seçenek yüklemesinde **Tekrar dene** kullanılabilir. Seçim reddedilirse girilen not ve seçim korunur; kaydı kontrol edip düzeltin. Sonucun doğrulanamadığı ağ hatasında yeniden göndermeden önce güncel kaydı inceleyin.
 
 Sürümlü dosya içermeyen eski kanıt kayıtlarını seçmek için önce Kanıtlar modülünden geçerli bir dosya sürümü yükleyin. Önceki serbest referans/hash API kayıtları korunur; bunlara geriye dönük doğrulanmış kütüphane sürümü atanmamıştır. Karara bağlanmış bir kanıt kaydı silinemez; yeni dosya sürümü eklenebilir.
+
+## Süreklilik planının periyodik incelemesi
+
+**Benim İşlerim → İş Sürekliliği** veya süreklilik modülünden planı açıp **Plan ayrıntıları ve incelemeler** seçin. Planın stratejisi, hedefleri, bağımlılıkları, sorumluları ve önceki incelemeler aynı alandadır. Etkin planın atanmış bağımsız Admin incelemecisi **Gözden geçirmeyi kaydet** ile en az 20 karakter gerekçe ve hem bugünden hem mevcut inceleme tarihinden sonraki tarihi girer; mevcut planın geçerliliğini onaylayıp kaydeder. Plan sahibi, kriz lideri ve oluşturan kişi kendi planını inceleyemez.
+
+Plan değişirse taslak korunur. **Planı yenile**, güncel ayrıntıları incele, **Güncel plan sürümünü kullan** ve tekrar onayla. Yanıt doğrulanamadığında aynı taslakla tekrar denemek çift kayıt oluşturmaz; yenileme sonrası **Kaydedilen sonucu kullan** da sunulabilir. Pencereyi kapatmak veya sayfayı yeniden yüklemek kaydedilmemiş taslağı siler. Sonucu belirsiz bir işlemden sonra yeni karar oluşturmadan önce geçmişi kontrol edin.
+
+Geçmişte son 20 karar, incelemeci, zaman, gerekçe, önceki/sonraki tarih ve **İncelenen plan kopyası** gösterilir. Daha eski kararlar saklanır. **Benim İşlerim → Yenile** yeni tarihi getirir; atanmış incelemeci de etkin planı kendi kuyruğunda görür. Bu işlem plan içeriğini değiştirmez ve tatbikat doğrulamasının yerine geçmez. [İşleyiş ve sınırlar](continuity-plan-review.md).
