@@ -1,10 +1,11 @@
 "use client";
+import {useRecordDialog} from "./use-record-dialog";
 import { useWorkflowRecords } from "./use-workflow-records";
 import {WorkflowPersonPicker,WorkflowEvidencePicker,WorkflowEvidenceHistory,workflowSelectionMessage} from "./workflow-selection-fields";
 import type {WorkflowEvidencePin} from "./workflow-selection";
 import { CopyRecordLink } from './record-link-controls';
 
-import {FormEvent,useCallback,useEffect,useMemo,useState} from "react";
+import {FormEvent,useCallback,useEffect,useMemo,useRef,useState} from "react";
 import { useEnterpriseWorkFocus, EnterpriseWorkFocusBanner } from "./enterprise-work-focus";
 import {withBasePath} from "./base-path";
 import {TPRM_CONTROLS,type TprmControl} from "./third-party-risk/domain";
@@ -96,4 +97,4 @@ function Table({heads,rows,empty}:{heads:string[];rows:React.ReactNode[][];empty
 function Input({label,value,set,type="text",wide=false}:{label:string;value:string;set:(v:string)=>void;type?:string;wide?:boolean}){return <label className={wide?"wide":""}>{label}<input required type={type} value={value} onChange={e=>set(e.target.value)}/></label>}
 function Select({label,value,values,set}:{label:string;value:string;values:string[];set:(v:string)=>void}){return <label>{label}<select aria-label={label} value={value} onChange={e=>set(e.target.value)}>{values.map(x=><option key={x}>{x}</option>)}</select></label>}
 function FormFooter({close,busy,tr}:{close:()=>void;busy:boolean;tr:boolean}){return <footer className="wide"><button type="button" onClick={close}>{tr?"Vazgeç":"Cancel"}</button><button disabled={busy}>{tr?"Kaydet":"Save"}</button></footer>}
-function Modal({title,close,children}:{title:string;close:()=>void;children:React.ReactNode}){return <div className="overlay" onMouseDown={close}><div data-escape-layer className="modal tprm-modal" role="dialog" aria-modal="true" aria-label={title} onMouseDown={e=>e.stopPropagation()}><div className="modal-head"><div><small>FORNOST TPRM 2.0</small><h2>{title}</h2></div><button data-escape-close type="button" aria-label="Close dialog" onClick={close}>×</button></div>{children}</div></div>}
+function Modal({title,close,children}:{title:string;close:()=>void;children:React.ReactNode}){const closeRef=useRef(close);useEffect(()=>{closeRef.current=close},[close]);const dismiss=useCallback(()=>closeRef.current(),[]),ref=useRecordDialog(true,dismiss);return <div className="overlay" onMouseDown={close}><div ref={ref} tabIndex={-1} data-escape-layer className="modal tprm-modal" role="dialog" aria-modal="true" aria-label={title} onMouseDown={e=>e.stopPropagation()}><div className="modal-head"><div><small>FORNOST TPRM 2.0</small><h2>{title}</h2></div><button data-escape-close type="button" aria-label="Close dialog" onClick={close}>×</button></div>{children}</div></div>}
