@@ -11,7 +11,7 @@ const f=JSON.parse(await readFile('workflow-evidence-selection-qa-artifacts/fixt
 const browser=await chromium.launch({executablePath:process.env.QA_CHROMIUM_PATH||undefined});
 const contexts=await Promise.all(Array.from({length:4},()=>createQaContext(browser,base,{}, {viewport:{width:1440,height:1000}})));
 const [admin,reviewer,viewer,scoped]=contexts,page=await viewer.newPage(),errors=[],checks=[];
-page.on('pageerror',error=>errors.push(error.message));page.setDefaultTimeout(20000);let phase='setup';
+page.on('pageerror',error=>errors.push(error.message));let usageReads=0;page.on('request',request=>{if(new URL(request.url()).pathname==='/api/evidence/usage')usageReads++});page.setDefaultTimeout(20000);let phase='setup';
 async function api(ctx,path,method='GET',data,status=200){const r=await ctx.request.fetch(base+path,{method,data,headers:{origin:base}});assert.equal(r.status(),status,`${path}: ${await r.text()}`);return r.json()}
 const usage=()=>api(viewer,`/api/evidence/usage?id=${f.evidenceId}`);
 const decisions=result=>result.rows.filter(row=>row.decision);
@@ -42,7 +42,7 @@ try {
  checks.push('All five original decisions survive a new upload; resubmission/verification add two separate immutable uses');
  phase='usage UI and report';await openUsage();const panel=page.locator('.eu-panel');
  await expect(panel.locator('.eu-coverage>summary')).toContainText('7/7 complete');await expect(panel.locator('.eu-sources')).toBeHidden();
- await panel.locator('.eu-coverage>summary').focus();await page.keyboard.press('Enter');await expect(panel.locator('.eu-sources')).toBeVisible();await panel.screenshot({path:`${out}/usage-coverage-expanded.png`});await page.keyboard.press('Enter');await expect(panel.locator('.eu-sources')).toBeHidden();
+ const readsBeforeToggle=usageReads;await panel.locator('.eu-coverage>summary').focus();await page.keyboard.press('Enter');await waitForQaIdle(page);await expect(panel.locator('.eu-sources')).toBeVisible();assert.equal(usageReads,readsBeforeToggle,'Opening source coverage must not reload its parent panel');await panel.screenshot({path:`${out}/usage-coverage-expanded.png`});await page.keyboard.press('Enter');await waitForQaIdle(page);await expect(panel.locator('.eu-sources')).toBeHidden();assert.equal(usageReads,readsBeforeToggle,'Closing source coverage must not reload its parent panel');
  await panel.getByLabel('Usage source',{exact:true}).selectOption('continuity');await expect(panel.locator('.eu-list article')).toHaveCount(3);
  await panel.getByLabel('Usage source',{exact:true}).selectOption('regulatory');await expect(panel.locator('.eu-list article')).toHaveCount(4);
  await expect(panel.locator('.eu-list')).toContainText('Decision by:');await expect(panel.locator('.eu-list')).toContainText('Submitted for verification');await expect(panel.locator('.eu-list')).toContainText('Independent verification');
