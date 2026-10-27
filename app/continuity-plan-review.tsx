@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { useEffect, useId, useRef, useState, type FormEvent } from 'react';
 import { withBasePath } from './base-path';
 import { useWorkflowRecords } from './use-workflow-records';
 import { minimumNextPlanReview, type ContinuityPlan, type ContinuityReviewWorkspace } from './continuity/plan';
@@ -26,6 +26,7 @@ function PlanFacts({ plan, tr }: { plan: ContinuityPlan; tr: boolean }) {
 
 export default function ContinuityPlanReview({ planId, tr, onClose, onSaved }: { planId: string; tr: boolean; onClose: () => void; onSaved: () => Promise<void> }) {
   const dialog = useRef<HTMLDialogElement>(null);
+  const fieldId = useId();
   const resource = useWorkflowRecords<ContinuityReviewWorkspace>(`/api/continuity?view=review&planId=${encodeURIComponent(planId)}`, null);
   const [draft, setDraft] = useState<Draft | null>(null), [busy, setBusy] = useState(false), [notice, setNotice] = useState('');
   const data = resource.data, stale = Boolean(draft && data && draft.expectedRevision !== data.plan.updatedAt);
@@ -67,8 +68,8 @@ export default function ContinuityPlanReview({ planId, tr, onClose, onSaved }: {
           {draft && <form className="cpr-form" onSubmit={event => void submit(event)}>
             {recorded ? <p role="status">{tr ? 'Bu karar zaten kaydedilmiş. Kaydedilen sonuçla devam edin.' : 'This decision is already recorded. Continue with the saved result.'} <button type="button" disabled={busy} onClick={() => void finish()}>{tr ? 'Kaydedilen sonucu kullan' : 'Use recorded result'}</button></p> : <>
               {stale && <p role="alert">{tr ? 'Plan taslağınızdan sonra değişti. Yukarıdaki güncel ayrıntıları inceleyin.' : 'The plan changed after your draft. Inspect the current details above.'} <button type="button" disabled={!resource.ready || busy || !data.canReview} onClick={() => setDraft({ ...draft, expectedRevision: data.plan.updatedAt, requestId: `BPR-${crypto.randomUUID()}`, confirmed: false })}>{tr ? 'Güncel plan sürümünü kullan' : 'Use current plan version'}</button></p>}
-              <label>{tr ? 'İnceleme gerekçesi' : 'Review rationale'}<textarea required minLength={20} maxLength={2000} value={draft.note} disabled={busy} onChange={event => setDraft({ ...draft, note: event.target.value })} /></label>
-              <label>{tr ? 'Sonraki gözden geçirme tarihi' : 'Next review date'}<input type="date" required min={minimumNextPlanReview(data.plan.reviewDate)} value={draft.nextReviewDate} disabled={busy} onChange={event => setDraft({ ...draft, nextReviewDate: event.target.value })} /></label>
+              <div className="cpr-field"><label htmlFor={`${fieldId}-note`}>{tr ? 'İnceleme gerekçesi' : 'Review rationale'}</label><textarea id={`${fieldId}-note`} required minLength={20} maxLength={2000} value={draft.note} disabled={busy} onChange={event => setDraft({ ...draft, note: event.target.value })} /></div>
+              <div className="cpr-field"><label htmlFor={`${fieldId}-date`}>{tr ? 'Sonraki gözden geçirme tarihi' : 'Next review date'}</label><input id={`${fieldId}-date`} type="date" required min={minimumNextPlanReview(data.plan.reviewDate)} value={draft.nextReviewDate} disabled={busy} onChange={event => setDraft({ ...draft, nextReviewDate: event.target.value })} /></div>
               <p>{tr ? 'Kaydedilecek tarih' : 'Date to save'}: {data.plan.reviewDate} → {draft.nextReviewDate || '—'}</p>
               <label className="cpr-confirm"><input type="checkbox" required checked={draft.confirmed} disabled={busy || stale} onChange={event => setDraft({ ...draft, confirmed: event.target.checked })} />{tr ? 'Mevcut planı inceledim ve geçerliliğinin devam ettiğini doğruluyorum.' : 'I reviewed the current plan and confirm its continued suitability.'}</label>
               <button type="submit" disabled={busy || !resource.ready || !data.canReview || stale}>{busy ? (tr ? 'Kaydediliyor…' : 'Recording…') : (tr ? 'İncelemeyi kaydet' : 'Record review')}</button>
