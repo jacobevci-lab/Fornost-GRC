@@ -27,6 +27,12 @@ function CampaignDialog({ id, tr, close }: { id: string; tr: boolean; close: (ch
   const changed = useRef(false), controller = useRef<AbortController | null>(null), closeRef = useRef(() => {});
   useEffect(() => { closeRef.current = () => { if (!busy) close(changed.current); }; }, [busy, close]);
   const dismiss = useCallback(() => closeRef.current(), []), dialog = useRecordDialog(true, dismiss);
+  const prepareButton = useRef<HTMLButtonElement>(null), reasonField = useRef<HTMLTextAreaElement>(null), hadDraft = useRef(false), hasDraft = Boolean(draft);
+  useEffect(() => {
+    if (hasDraft && !hadDraft.current) reasonField.current?.focus({ preventScroll: true });
+    if (!hasDraft && hadDraft.current) (prepareButton.current && !prepareButton.current.disabled ? prepareButton.current : dialog.current)?.focus({ preventScroll: true });
+    hadDraft.current = hasDraft;
+  }, [hasDraft, dialog]);
   const load = useCallback(async () => {
     controller.current?.abort(); const current = new AbortController(); controller.current = current; setLoading(true); setFailed(false);
     try {
@@ -70,13 +76,13 @@ function CampaignDialog({ id, tr, close }: { id: string; tr: boolean; close: (ch
         {!recipients.length && <p>{tr ? 'Bu seçimde katılımcı yok.' : 'No participants match this selection.'}</p>}
         {recipients.length > 25 && <div className="pcw-pagination"><button disabled={page === 0} onClick={() => setPage(p => p - 1)}>{tr ? 'Önceki yanıtlar' : 'Previous responses'}</button><span>{page + 1} / {Math.ceil(recipients.length / 25)}</span><button disabled={(page + 1) * 25 >= recipients.length} onClick={() => setPage(p => p + 1)}>{tr ? 'Sonraki yanıtlar' : 'Next responses'}</button></div>}
         {data.campaign.status === 'closed' && <section className="pcw-history"><h4>{tr ? 'Kapanış kaydı' : 'Closure record'}</h4><p>{data.campaign.closedBy} · {data.campaign.closedAt}</p>{data.closure ? <><p>{data.closure.note}</p><p>{tr ? 'Kapanış anında' : 'At closure'}: {data.closure.counts.attested} {tr ? 'kabul' : 'accepted'} · {data.closure.counts.declined} {tr ? 'ret' : 'declined'} · {data.closure.counts.pending} {tr ? 'cevapsız' : 'unanswered'}</p></> : <p>{tr ? 'Bu eski kapanış için ayrıntılı karar kaydı yok.' : 'A detailed decision record is unavailable for this legacy closure.'}</p>}<p>{tr ? 'Kapatma, cevapsız veya reddedilmiş yanıtları kabul edilmiş saymaz.' : 'Closing does not count unanswered or declined responses as accepted.'}</p></section>}
-        {!draft && data.campaign.status === 'open' && <button type="button" disabled={!ready || busy} onClick={() => { setDraft({ revision: data.revision, requestId: `PCC-${crypto.randomUUID()}`, note: '', confirmed: false, outstanding: false }); setNotice(''); }}>{tr ? 'Kapanışı hazırla' : 'Prepare closure'}</button>}
+        {!draft && data.campaign.status === 'open' && <button ref={prepareButton} type="button" disabled={!ready || busy} onClick={() => { setDraft({ revision: data.revision, requestId: `PCC-${crypto.randomUUID()}`, note: '', confirmed: false, outstanding: false }); setNotice(''); }}>{tr ? 'Kapanışı hazırla' : 'Prepare closure'}</button>}
       </>}
       {draft && <form className="pcw-close" onSubmit={e => { e.preventDefault(); void submit(); }}><h4>{tr ? 'Kampanyayı kapat' : 'Close campaign'}</h4><p>{tr ? 'Yeni yanıt alımı duracak. Cevapsız kayıtlar geçmişte korunacak ve aktif iş kuyruğundan çıkacak.' : 'New responses will stop. Unanswered records remain in history and leave the active work queue.'}</p>
         {notice && <p role="status">{notice}</p>}
         {failed && <p role="alert">{tr ? 'Kampanya sonuçları yüklenemedi. Tekrar deneyin; gerekçeniz korundu.' : 'Campaign results could not be loaded. Retry; your reason is retained.'}</p>}
         <button type="button" disabled={loading || busy} onClick={() => void load()}>{tr ? 'Sonuçları yenile' : 'Refresh results'}</button>
-        <label>{tr ? 'Kapanış gerekçesi' : 'Closure reason'}<textarea aria-label={tr ? 'Kapanış gerekçesi' : 'Closure reason'} required minLength={20} maxLength={1000} value={draft.note} onChange={e => setDraft({ ...draft, note: e.target.value })} /></label>
+        <label>{tr ? 'Kapanış gerekçesi' : 'Closure reason'}<textarea ref={reasonField} aria-label={tr ? 'Kapanış gerekçesi' : 'Closure reason'} required minLength={20} maxLength={1000} value={draft.note} onChange={e => setDraft({ ...draft, note: e.target.value })} /></label>
         {changedRevision && <p role="alert">{tr ? 'Güncel sonuçlar taslağınızdaki sürümden farklı. Sayıları ve yanıtları yeniden inceleyin.' : 'Current results differ from the version in your draft. Review the counts and responses again.'} <button type="button" disabled={!ready || busy || data?.campaign.status !== 'open'} onClick={() => { if (data) { setDraft({ ...draft, revision: data.revision, requestId: `PCC-${crypto.randomUUID()}`, confirmed: false, outstanding: false }); setNotice(''); } }}>{tr ? 'Güncel sonuçları kullan' : 'Use current results'}</button></p>}
         <label className="pcw-check"><input type="checkbox" checked={draft.outstanding} onChange={e => setDraft({ ...draft, outstanding: e.target.checked })} />{tr ? 'Cevapsız ve reddedilmiş yanıtları inceledim; kabul edilmiş sayılmadan kampanyayı kapatıyorum.' : 'I reviewed unanswered and declined responses and am closing without counting them as accepted.'}</label>
         <label className="pcw-check"><input type="checkbox" required checked={draft.confirmed} onChange={e => setDraft({ ...draft, confirmed: e.target.checked })} />{tr ? 'Bu kampanyada yeni yanıt alımının durmasını onaylıyorum.' : 'I confirm that this campaign will stop accepting responses.'}</label>

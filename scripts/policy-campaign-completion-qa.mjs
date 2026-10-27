@@ -40,6 +40,7 @@ async function respond(p, email, accepted) {
 }
 async function draft(dialog, tr = false) {
   await dialog.getByRole('button', { name: tr ? 'Kapanışı hazırla' : 'Prepare closure', exact: true }).click();
+  await expect(dialog.getByLabel(tr ? 'Kapanış gerekçesi' : 'Closure reason', { exact: true })).toBeFocused();
   await dialog.getByLabel(tr ? 'Kapanış gerekçesi' : 'Closure reason', { exact: true }).fill('Collection is complete; declined and unanswered responses remain explicit for separate follow-up.');
   for (const input of await dialog.getByRole('checkbox').all()) await input.check();
 }
@@ -82,7 +83,7 @@ try {
   readFailure = false; await dialog.getByRole('button', { name: 'Refresh results', exact: true }).click(); await expect(dialog.getByRole('alert')).toHaveCount(0);
   checks.push('Concurrent actual decline rejects old outcomes; explicit result adoption resets acknowledgements; source failures retain the closure reason');
 
-  phase = 'bilingual responsive and keyboard'; await dialog.getByRole('button', { name: 'Cancel draft', exact: true }).click(); await page.keyboard.press('Escape'); await expect(dialog).toBeHidden();
+  phase = 'bilingual responsive and keyboard'; await dialog.getByRole('button', { name: 'Cancel draft', exact: true }).click(); await expect(dialog.getByRole('button', { name: 'Prepare closure', exact: true })).toBeFocused(); await page.keyboard.press('Escape'); await expect(dialog).toBeHidden();
   for (const lang of ['EN', 'TR']) for (const theme of ['light', 'dark']) {
     await page.locator('.language-switch:visible').getByRole('button', { name: lang, exact: true }).click();
     if (await page.locator('html').getAttribute('data-theme') !== theme) await page.locator('.theme-toggle:visible').evaluate(el => el.click());
@@ -102,7 +103,7 @@ try {
   phase = 'uncertain write, replay and retained outcome'; await page.locator('.language-switch:visible').getByRole('button', { name: 'EN', exact: true }).click(); dialog = await details(); await draft(dialog); dropResponse = true;
   await dialog.getByRole('button', { name: 'Close campaign', exact: true }).click(); await expect(dialog).toContainText('The outcome could not be confirmed');
   const committed = await state(); assert.equal(committed.campaign.status, 'closed'); assert.deepEqual(committed.closure.counts, { attested: 1, declined: 1, pending: 1, total: 3 });
-  assert.equal((await submit(dialog, 200)).replay, true); await expect(dialog.locator('.pcw-history')).toContainText('1 unanswered');
+  assert.equal((await submit(dialog, 200)).replay, true); await expect(dialog.locator('.pcw-history')).toContainText('1 unanswered'); await expect(dialog).toBeFocused();
   assert.deepEqual((await state()).closure, committed.closure); await dialog.screenshot({ path: `${out}/closed-history.png` }); await page.keyboard.press('Escape'); await waitForQaIdle(page);
   await page.getByLabel('Campaign status', { exact: true }).selectOption('closed'); await expect(page.locator('.pcw-cards')).toContainText(name);
   await open(reader); await expect(reader.locator('.pcw-list')).toHaveCount(0);
