@@ -1,6 +1,6 @@
-type Workflow='continuity'|'regulatory'|'tprm';
+type Workflow='continuity'|'regulatory'|'tprm'|'policy';
 export type WorkflowRecordFocus={kind:string;ref:string};
-const kinds={tprm:['vendor-review','vendor-assessment','vendor-finding'],continuity:['continuity-plan','continuity-exercise','continuity-gap'],regulatory:['regulatory-change','regulatory-impact']};
+const kinds={policy:['policy-review','policy-version','policy-exception','policy-attestation'],tprm:['vendor-review','vendor-assessment','vendor-finding'],continuity:['continuity-plan','continuity-exercise','continuity-gap'],regulatory:['regulatory-change','regulatory-impact']};
 /** false means malformed; null means an ordinary unfocused list request. */
 export function parseWorkflowRecordFocus(params:URLSearchParams,workflow:Workflow):WorkflowRecordFocus|null|false {
   if(!params.has('focusKind')&&!params.has('focusId'))return null;
@@ -8,8 +8,24 @@ export function parseWorkflowRecordFocus(params:URLSearchParams,workflow:Workflo
   return params.getAll('focusKind').length===1&&params.getAll('focusId').length===1&&kinds[workflow].includes(kind)&&/^[a-zA-Z0-9_-]{1,120}$/.test(ref)?{kind,ref}:false;
 }
 export async function workflowFocusIds(db:D1Database,focus:WorkflowRecordFocus|null) {
-  const empty={vendor:'',assessment:'',finding:'',plan:'',exercise:'',gap:'',change:'',source:'',impact:''};
+  const empty={policy:'',policyVersion:'',policyException:'',attestation:'',vendor:'',assessment:'',finding:'',plan:'',exercise:'',gap:'',change:'',source:'',impact:''};
   if(!focus)return empty;
+  if(focus.kind==='policy-review') {
+    const row=await db.prepare('SELECT current_version_id FROM policy_documents WHERE id=?').bind(focus.ref).first<{current_version_id:string}>();
+    return {...empty,policy:focus.ref,policyVersion:row?.current_version_id||''};
+  }
+  if(focus.kind==='policy-version') {
+    const row=await db.prepare('SELECT policy_id FROM policy_versions WHERE id=?').bind(focus.ref).first<{policy_id:string}>();
+    return {...empty,policyVersion:focus.ref,policy:row?.policy_id||''};
+  }
+  if(focus.kind==='policy-exception') {
+    const row=await db.prepare('SELECT policy_id,version_id FROM policy_exceptions WHERE id=?').bind(focus.ref).first<{policy_id:string;version_id:string}>();
+    return {...empty,policyException:focus.ref,policy:row?.policy_id||'',policyVersion:row?.version_id||''};
+  }
+  if(focus.kind==='policy-attestation') {
+    const row=await db.prepare('SELECT c.policy_id,c.version_id FROM policy_attestations a JOIN policy_attestation_campaigns c ON c.id=a.campaign_id WHERE a.id=?').bind(focus.ref).first<{policy_id:string;version_id:string}>();
+    return {...empty,attestation:focus.ref,policy:row?.policy_id||'',policyVersion:row?.version_id||''};
+  }
   if(focus.kind==='vendor-review')return {...empty,vendor:focus.ref};
   if(focus.kind==='vendor-assessment'){
     const row=await db.prepare('SELECT vendor_id FROM third_party_assessments WHERE id=?').bind(focus.ref).first<{vendor_id:string}>();

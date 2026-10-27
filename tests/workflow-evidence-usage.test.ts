@@ -15,6 +15,19 @@ function setup() {
  const pin=(id:string,workflow:string,entity:string,purpose:string,version='v1',extra:Record<string,unknown>={})=>f.sql.prepare('INSERT INTO workflow_evidence_pins VALUES(?,?,?,?,?,?,?)').run(id,workflow,entity,purpose,JSON.stringify({evidenceId:'EVD-1',id:version,versionNo:version==='v2'?2:1,contentSha256:version==='v2'?'hash2':'hash1',fileKey:'private-storage-key',...extra}),'reviewer@example.test','2026-10-27T08:00:00.000Z');
  return {...f,pin};
 }
+test('policy decisions retain all six purposes, exact source targets and explicit missing-parent coverage',async()=>{
+ const f=setup();try{
+  f.sql.exec(`INSERT INTO policy_documents VALUES('POL-1','POL-100','Access policy','owner','retired','2027-01-01');
+    INSERT INTO policy_versions VALUES('PV-1','POL-1',1,'superseded');
+    INSERT INTO policy_exceptions VALUES('PEX-1','POL-1','PV-1','Migration','owner','closed','2026-12-01');`);
+  for(const purpose of ['version-submit','version-approve','version-publish','approve-exception','close-exception','policy-retire'])f.pin(purpose,'policy',purpose.startsWith('version-')?'PV-1':purpose==='policy-retire'?'POL-1':'PEX-1',purpose);
+  let result=await readEvidenceUsage(f.db,{role:'Viewer'},'EVD-1');const rows=result.rows.filter(r=>r.source==='policy');assert.equal(rows.length,6);assert.ok(rows.every(r=>r.historical&&r.decision?.sourceAvailable&&!usageNeedsReview(r)&&r.pins[0].state==='older'));
+  for(const row of rows)assert.deepEqual(row.target,{module:'Politika Merkezi',kind:row.id.startsWith('version-')?'policy-version':row.id==='policy-retire'?'policy-review':'policy-exception',ref:row.id.startsWith('version-')?'PV-1':row.id==='policy-retire'?'POL-1':'PEX-1',source:'evidence-usage'});
+  f.sql.exec("UPDATE policy_exceptions SET version_id='missing'");result=await readEvidenceUsage(f.db,{role:'Viewer'},'EVD-1');assert.equal(result.sources.find(s=>s.key==='policy')!.state,'limited');assert.ok(result.rows.filter(r=>r.target.kind==='policy-exception').every(r=>!r.decision?.sourceAvailable));
+  f.queries.length=0;const scoped=await readEvidenceUsage(f.db,{role:'Viewer',moduleAccess:{mode:'scoped',modules:{Kanıtlar:'read'}}},'EVD-1');assert.equal(scoped.sources.find(s=>s.key==='policy')!.state,'restricted');assert.ok(f.queries.every(q=>!q.includes('policy_documents')));
+  for(let i=0;i<201;i++)f.pin('extra-'+i,'policy','PV-1','version-submit');result=await readEvidenceUsage(f.db,{role:'Admin'},'EVD-1');assert.equal(result.rows.filter(r=>r.source==='policy').length,200);assert.equal(result.sources.find(s=>s.key==='policy')!.state,'limited');
+ }finally{f.sql.close()}
+});
 test('decision uses retain separate purposes and older submissions without claiming a current approval',async()=>{
  const f=setup();try {
   f.pin('pin-ex','continuity','BCE-1','exercise-result');f.pin('pin-gap','continuity','BCG-1','gap-closure');

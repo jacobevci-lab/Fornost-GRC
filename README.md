@@ -122,3 +122,5 @@ Kayıtlı görünümler yedi çekirdek liste ve Benim İşlerim'de tekrar kullan
 Register XLSX import supports column mapping, row-level validation, paginated record preview, explicit server validation and atomic creation across seven register entry points. Tokenized retries recover lost responses without creating the same batch twice. See [register import](docs/register-import.md) for limits, permissions and recovery; this is not an upsert or content-deduplication service.
 
 Politika kabul kampanyalarında Admin, bağlı politika sürümünü ve kabul/ret/cevapsız sonuçlarını inceleyip gerekçeli kapanış yapabilir. Kapanış yanıtları değiştirmez; aktif iş kuyruğunu ve politika kaldırma engelini günceller. [Kampanya sonuçları ve kapanış](docs/policy-campaign-completion.md).
+
+Politika kararlarında kütüphaneden gerçek dosya sürümü, sorumlu/incelemeci atamalarında etkin kullanıcı seçilebilir. Karar bağlamı, ayrı gönderim/onay/yayın/istisna/kaldırma kanıtları ve Kanıt Kullanımı üzerinden kaynağa dönüş korunur. [Bağlı politika kararları](docs/policy-connected-evidence.md).

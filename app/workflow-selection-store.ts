@@ -47,7 +47,7 @@ export async function workflowEvidenceChoices(db:D1Database,q:string,page:number
 type SelectionEnv={DB:D1Database;BUCKET?:R2Bucket};
 type Prepared={body:Record<string,unknown>;guard:WorkflowGuard;evidence?:WorkflowEvidence};
 /** Only opted-in directory/library writes change the legacy API contract. Never grant a canonical pin to free-text evidence. */
-export async function prepareWorkflowSelection(env:SelectionEnv,actor:Actor,input:Record<string,unknown>,assignments:Record<string,'writer'|'reviewer'>={},evidenceAllowed=false):Promise<Prepared> {
+export async function prepareWorkflowSelection(env:SelectionEnv,actor:Actor,input:Record<string,unknown>,assignments:Record<string,'writer'|'reviewer'>={},evidenceAllowed=false,reviewerExclusions:string[]=[actor.email]):Promise<Prepared> {
   const body={...input},directory=input.assignmentMode!==undefined,library=input.evidenceMode!==undefined||input.evidenceSelection!==undefined;
   if(directory&&input.assignmentMode!=='directory') throw new WorkflowSelectionError('ASSIGNEE_SELECTION');
   if(library&&(!evidenceAllowed||input.evidenceMode!=='library')) throw new WorkflowSelectionError('EVIDENCE_SELECTION');
@@ -60,7 +60,7 @@ export async function prepareWorkflowSelection(env:SelectionEnv,actor:Actor,inpu
     for(const [key,role] of Object.entries(assignments)) {
       const email=typeof body[key]==='string'?body[key].trim().toLowerCase():'';
       const person=await env.DB.prepare(personSelect+' AND lower(u.email)=?').bind(email).first<PersonRow>();
-      if(!person||!eligible(person)||(role==='reviewer'&&(person.role!=='Admin'||person.email.toLowerCase()===actor.email.toLowerCase()))) throw new WorkflowSelectionError('ASSIGNEE_SELECTION');
+      if(!person||!eligible(person)||(role==='reviewer'&&(person.role!=='Admin'||reviewerExclusions.some(email=>person.email.toLowerCase()===email.toLowerCase())))) throw new WorkflowSelectionError('ASSIGNEE_SELECTION');
       body[key]=person.email;people.push(person);
     }
   }
@@ -96,10 +96,10 @@ export async function prepareWorkflowSelection(env:SelectionEnv,actor:Actor,inpu
   body.evidenceReference=selected.evidence_id;body.evidenceSha256=selected.content_sha256;
   return {body,guard:joinWorkflowGuards(guard,evidenceGuard,fileGuard),evidence:publicEvidenceVersion(selected)};
 }
-export function workflowPinStatement(db:D1Database,selection:Prepared,workflow:'continuity'|'regulatory'|'tprm',entityId:string,purpose:string,eventId:string,actor:string) {
+export function workflowPinStatement(db:D1Database,selection:Prepared,workflow:'continuity'|'regulatory'|'tprm'|'policy',entityId:string,purpose:string,eventId:string,actor:string) {
   return selection.evidence?[lifecycleInsert(db,'workflow_evidence_pins',{id:crypto.randomUUID(),event_id:eventId,workflow,entity_id:entityId,purpose,snapshot_json:JSON.stringify(selection.evidence),actor,created_at:new Date().toISOString()})]:[];
 }
-export async function readWorkflowEvidencePins(db:D1Database,workflow:'continuity'|'regulatory'|'tprm',entityIds:string[],limit=6000):Promise<WorkflowEvidencePin[]> {
+export async function readWorkflowEvidencePins(db:D1Database,workflow:'continuity'|'regulatory'|'tprm'|'policy',entityIds:string[],limit=6000):Promise<WorkflowEvidencePin[]> {
   await ensureWorkflowEvidenceSchema(db);
   const rows=await db.prepare(`SELECT p.* FROM workflow_evidence_pins p WHERE p.workflow=? AND p.entity_id IN (SELECT value FROM json_each(?)) AND NOT EXISTS (SELECT 1 FROM workflow_evidence_pins n WHERE n.workflow=p.workflow AND n.entity_id=p.entity_id AND n.purpose=p.purpose AND (n.created_at>p.created_at OR (n.created_at=p.created_at AND n.id>p.id))) ORDER BY p.created_at DESC LIMIT ?`).bind(workflow,JSON.stringify(entityIds),limit).all<{id:string;event_id:string;entity_id:string;purpose:string;snapshot_json:string;actor:string;created_at:string}>();
   return rows.results.map(r=>({id:r.id,eventId:r.event_id,entityId:r.entity_id,purpose:r.purpose,evidence:JSON.parse(r.snapshot_json),actor:r.actor,createdAt:r.created_at}));

@@ -248,3 +248,9 @@ Tam erişimli Viewer geçmişi okuyabilir; sınırlı çekirdek modül yetkisi T
 Kampanya sonuçları ve kapatma yalnız Admin içindir; mevcut kurumsal modül erişimi korunur. Kapanış, güncel hesap ve kaynak/yanıt durumuyla aynı işlemde gerekçeli olay kaydı yazar. Katılımcı kararlarını değiştirmez veya bağımsız politika onayını ikame etmez. Açık kampanya engeli kalktıktan sonra diğer engeller ve atanmış incelemecinin politika kaldırma yetkisi geçerlidir.
 
 Yeni veri göçü veya e-posta ayarı gerekmez. Kampanya listesi 1.000, ayrıntılar 500 katılımcıyla sınırlıdır; eksik/bozuk sonuçlarla kapatma engellenir. Eski kapanışlarda ayrıntılı geçmiş olmayabilir. Geri alma kapanış olaylarını silmemelidir. [Yetki, çakışma ve operasyon sınırları](policy-campaign-completion.md).
+
+### Politika kararları: dizin, kanıt ve kurtarma
+
+Politika/istisna atamaları etkin, yetkili yerel hesaplardan seçilir; bağımsız inceleyen Admin olmalıdır. Oluşturucu/gönderen kendi sürümünü onaylayamaz; istisna sahibinin bağımsız karar koşulu da korunur. Mevcut politikanın atanmış incelemecisi metaveriyi düzenleyebilir. Seçilen dosyanın zinciri ve bütünlüğü sunucuda doğrulanır; karar, olay ve kanıt pini aynı SQL işleminde kaydedilir.
+
+Tam erişimli Viewer geçmişi okuyabilir; scoped hesaplar kurumsal politika kaynaklarını okuyamaz. Son karar görünümü 6.000 pin, Kanıt Kullanımı 200 eşleşen karar ile sınırlıdır ve eksik kapsam belirtilir. Eski serbest referans/hash API çağrıları kanonik pin kazanmaz. Yeni göç, menü veya e-posta ayarı yoktur; geri alma olayları/pinleri silmemelidir. Nesne depolama doğrulaması SQL öncesindedir ve dağıtık işlem değildir. [İşletim ve API sözleşmesi](policy-connected-evidence.md).
