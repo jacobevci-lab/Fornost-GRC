@@ -1,6 +1,6 @@
 # Continuity responsibilities in My Work
 
-Use **My Work → Work queue module → Continuity** to see continuity responsibilities in the existing work queue. **Mine** matches your exact assigned identity. Admins can choose **Organization**. Search, due/status filters, saved views, sorting, pagination and CSV use the selected scope and module.
+Use **My Work → Work queue module → Continuity** to see continuity responsibilities in the existing work queue. **Mine** matches your exact assigned identity. Admins can choose **Organization**. Search, due/status filters, saved views, sorting, pagination and CSV use the selected scope and module. Work status and its explanation remain visible on desktop, tablet and phone, including cancelled and retired work.
 
 | Record and state | Assigned responsibility | Date / completion |
 | --- | --- | --- |

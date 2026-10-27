@@ -21,3 +21,5 @@ Use a bounded, metadata-only read through the existing continuity authorization.
 ## Delivery record
 
 Implemented. Focused projection and actual SQLite route tests passed, including exact-size/overflow bounds, metadata-only reads, terminal event timestamps and no-write checks; typecheck and migration/artifact validation passed. Full regression, lint and connected Chromium validation are in progress. Exact revision and test evidence will be recorded in the delivery PR. Documentation must describe assignments, dates, bounds and recovery. Rollback is a code revert; original records and historical decisions remain intact. Main merge, production deployment and customer UAT are separate stages. Browser fixtures must be isolated and cleaned up.
+
+Visual review found that existing narrow-screen queue rules hid lifecycle states. The shared queue now retains status and explanation on tablet and phone, without palette changes; Chromium asserts active, cancelled and retired state visibility and overflow.

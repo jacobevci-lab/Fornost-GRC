@@ -112,11 +112,13 @@ try {
   checks.push('Failed/denied/malformed/bounded sources disable CSV, discard stale rows and recover; CSV matches scope');
 
   phase = 'bilingual visual and keyboard checks';
-  for (const lang of ['EN', 'TR']) for (const theme of ['light', 'dark']) for (const width of [1440, 390]) {
+  for (const lang of ['EN', 'TR']) for (const theme of ['light', 'dark']) for (const width of [1440, 1024, 390]) {
     await page.locator('.language-switch:visible').getByRole('button', { name: lang, exact: true }).click();
     if (await page.locator('html').getAttribute('data-theme') !== theme) await page.locator('.theme-toggle:visible').evaluate(el => el.click());
     await page.setViewportSize({ width, height: 1000 }); await waitForQaIdle(page);
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 2));
+    await expect(page.locator('.mw2-item .mw2-state')).toBeVisible();
+    await expect(page.locator('.mw2-item .mw2-state em')).toHaveText(lang === 'TR' ? 'Etkin' : 'Active');
     const issues = (await new AxeBuilder({ page }).include('.my-work-v2').withTags(['wcag2a', 'wcag2aa', 'wcag21aa']).analyze()).violations;
     assert.deepEqual(issues, []); await page.locator('.my-work-v2').screenshot({ path: `${out}/${lang}-${theme}-${width}.png` });
   }
@@ -126,7 +128,15 @@ try {
   const retired = page.locator('.mw2-item').filter({ has: page.getByText(`Continuity plan · ${name}`, { exact: true }) });
   await expect(retired).toHaveCount(1); await expect(retired).toContainText('Retired');
   await expect(page.locator('.mw2-item')).toHaveCount(4); // The plan and its three terminal exercises share the searched plan name.
-  checks.push('Eight TR/EN light/dark desktop/mobile views, accessibility and actual plan retirement');
+  for (const width of [1024, 390]) {
+    await page.setViewportSize({ width, height: 1000 }); await waitForQaIdle(page);
+    await expect(retired.locator('.mw2-state')).toBeVisible();
+    const cancelledRow = page.locator('.mw2-item').filter({ hasText: cancelled.code });
+    await expect(cancelledRow.locator('.mw2-state')).toBeVisible(); await expect(cancelledRow.locator('.mw2-state em')).toHaveText('Cancelled');
+    assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 2));
+    await page.locator('.mw2-queue').screenshot({ path: `${out}/completed-${width}.png` });
+  }
+  checks.push('Twelve TR/EN light/dark desktop/tablet/mobile views, accessibility, visible narrow-screen states and actual plan retirement');
   assert.deepEqual(errors, []);
   await writeFile(`${out}/result.json`, JSON.stringify({ status: 'PASS', checks, errors, planId, cleanup: 'Owned plan retired; exercises completed/cancelled and gap closed. Immutable synthetic history remains only in the disposable loopback database.' }, null, 2));
   console.log('CONTINUITY_MY_WORK_QA_PASS');
