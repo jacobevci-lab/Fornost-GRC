@@ -281,3 +281,14 @@ Boş yönetim özetindeki **İlk AI sistemini ekle / Add your first AI system** 
 Risk, BIA, Varlık, Uyum, Kontrol, Kanıt, denetim maddeleri ve Benim İşlerim ekranlarında **Sırala** alanından bir ölçüt ve artan/azalan yön seçebilirsiniz. Risk puanı sayısal, tarihler kronolojik sıralanır; eksik değerler her iki yönde de sonda kalır. Sıralama tüm filtrelenmiş listeye uygulanır, sonra sayfalama yapılır. **Varsayılan sıralama** önceki liste düzenini geri getirir; arama ve filtreleri temizlemek seçtiğiniz sıralamayı korur.
 
 Sıralamayı kişisel tarayıcı görünümüne, hesabınıza veya yetkiniz varsa ortak görünüme kaydedebilirsiniz. Eski, sıralama içermeyen bir görünüm uygulandığında varsayılan düzen kullanılır. Ortak sürüm geri yükleme açık listenizi değiştirmez; geri yüklenen tanımı ayrıca uygulayın. Denetim sonuçları ve Benim İşlerim CSV indirmesi listenin sırasını korur. Benim/Organizasyon kapsamı ve erişim yetkileri değişmez. Ayrıntılar: [kayıtlı görünümler](saved-register-views.md#list-order).
+
+
+## Süreklilik ve regülasyon kararlarında kanıt seçimi
+
+Tatbikat sonucunda, iyileştirme açığını kapatırken ve regülasyon etkisini doğrulamaya gönderirken veya doğrularken **Karar kanıtı** alanından mevcut kanıt kaydını ve dosya sürümünü seçin. Başlık, dosya, dönem veya kayıt kimliği ile arayabilirsiniz. Dosya adı, dönem, sahibi ve sürüm gösterilir; dosyayı indirip inceleyebilirsiniz. Son sürüm otomatik seçilmez: kararınız için uygun olan sürümü bilinçli seçin. Hash hesaplamanız veya yapıştırmanız gerekmez.
+
+Kayıt sırasında sunucu dosya içeriğini ve sürüm zincirini doğrular. Bu, kanıtın iş açısından yeterli olduğu anlamına gelmez; yeterliliği sorumlu ve bağımsız inceleyen değerlendirir. Karar kaydedilince seçilen sürüm sabitlenir. Daha sonra yeni sürüm yüklemek eski kararı değiştirmez. İlgili tatbikat, açık veya etki satırındaki **Son kararların kanıtları** alanı, işlem türü başına en son kanıtı ve karar veren kişiyi gösterir. Regülasyon gönderimi ile bağımsız doğrulama ayrı kanıtlardır.
+
+Yeni atamalarda ad/e-posta ile etkin hesapları arayın. Bu iki modül tam erişimli Admin/Editor hesaplarını kullanır; bağımsız inceleyen etkin bir Admin olmalı ve kaydı oluşturan kişi olmamalıdır. Başarısız seçenek yüklemesinde **Tekrar dene** kullanılabilir. Seçim reddedilirse girilen not ve seçim korunur; kaydı kontrol edip düzeltin. Sonucun doğrulanamadığı ağ hatasında yeniden göndermeden önce güncel kaydı inceleyin.
+
+Sürümlü dosya içermeyen eski kanıt kayıtlarını seçmek için önce Kanıtlar modülünden geçerli bir dosya sürümü yükleyin. Önceki serbest referans/hash API kayıtları korunur; bunlara geriye dönük doğrulanmış kütüphane sürümü atanmamıştır. Karara bağlanmış bir kanıt kaydı silinemez; yeni dosya sürümü eklenebilir.

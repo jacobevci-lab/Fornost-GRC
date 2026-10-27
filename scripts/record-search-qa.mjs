@@ -32,6 +32,8 @@ try {
     const seed = initial.find(row => row.module === moduleName); assert.ok(seed, `Missing seed ${moduleName}`);
     const title = `İŞ SÜREKLİLİĞİ ${stamp} ${moduleName}`, data = { ...JSON.parse(seed.data_json), [titleKey]: title, owner: `QA Search ${stamp}` };
     if (moduleName === 'Kontroller') data.controlRef = `QA-SEARCH-${stamp}`;
+    // Use this scenario's live targets instead of copying orphaned historical audit references.
+    if (moduleName === 'Denetim Yönetimi') Object.assign(data, { biaRef: '', controlRef: created.find(r => r.module === 'Kontroller').id, requirementRef: created.find(r => r.module === 'Uyum').id, riskRef: created.find(r => r.module === 'Risk Assessment').id, evidenceRef: created.find(r => r.module === 'Kanıtlar').id });
     const result = await api(context, '/api/grc', 'POST', { module: moduleName, data }, 201);
     created.push({ ...result, module: moduleName, title, data });
     assert.equal((await api(context, `/api/search?q=${encodeURIComponent(result.code)}`)).results[0].id, result.id);

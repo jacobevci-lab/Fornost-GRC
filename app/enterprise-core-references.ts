@@ -2,6 +2,7 @@ import {regulatoryCoreTargets} from './regulatory-intelligence/domain';
 type Source={table:string;column:string;modules:string[];json?:boolean;filter?:string};
 // Server-owned identifiers and predicates only. Historical/closed rows remain references.
 const sources:Source[]=[
+ {table:'workflow_evidence_pins',column:"json_extract(snapshot_json,'$.evidenceId')",modules:['Kanıtlar']},
  {table:'evidence_automation_rules',column:'control_refs',modules:['Kontroller','Uyum']},
  {table:'evidence_automation_runs',column:'evidence_id',modules:['Kanıtlar']},
  {table:'evidence_automation_findings',column:'evidence_id',modules:['Kanıtlar']},

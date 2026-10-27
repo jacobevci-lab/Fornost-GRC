@@ -18,6 +18,9 @@ try{
  const keys={'Risk Assessment':'title',BIA:'process','Varlık Envanteri':'title',Uyum:'controlTitle','Tedarikçiler':'title',Kontroller:'controlTitle',Kanıtlar:'evidenceTitle','Denetim Yönetimi':'requirementTitle'};
  for(const [module,titleKey]of Object.entries(keys)){
   const seed=seeds.find(r=>r.module===module);assert.ok(seed,module);const title=`QA Link ${stamp} ${module}`,data={...JSON.parse(seed.data_json),[titleKey]:title,owner:`QA Link ${stamp}`};if(module==='Kontroller')data.controlRef=`QA-LINK-${stamp}`;
+  // Audit seeds can retain historical links from earlier isolated scenarios. New intake
+  // must use this scenario's live targets; do not relax the application's reference guard.
+  if(module==='Denetim Yönetimi')Object.assign(data,{biaRef:'',controlRef:created.find(r=>r.module==='Kontroller').id,requirementRef:created.find(r=>r.module==='Uyum').id,riskRef:created.find(r=>r.module==='Risk Assessment').id,evidenceRef:created.find(r=>r.module==='Kanıtlar').id});
   const row=await api(admin,'/api/grc','POST',{module,data},201);created.push({...row,module,title,target:{module,kind:'record',ref:row.id}});
  }
  await page.goto(base);await english(page);
