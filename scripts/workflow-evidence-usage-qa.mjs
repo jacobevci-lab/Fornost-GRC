@@ -25,6 +25,8 @@ async function focus(kind,ref){await page.evaluate(detail=>window.dispatchEvent(
 try {
  await mkdir(out,{recursive:true});
  for(const [ctx,email] of [[admin,'qa-admin@fornost.test'],[reviewer,f.reviewerEmail],[viewer,f.viewerEmail],[scoped,f.scopedEmail]])await api(ctx,'/api/auth','POST',{action:'login',email,password:qaPassword()});
+ // Initialize the optional TPRM source in this disposable fixture before asserting complete coverage.
+ await api(admin,'/api/third-party-risk');
  let snapshot=await usage();assert.equal(decisions(snapshot).length,5);assert.ok(snapshot.sources.filter(s=>['continuity','regulatory'].includes(s.key)).every(s=>s.state==='complete'));
  const original=decisions(snapshot).map(({id,decision,pins})=>({id,decision,version: pins[0].id}));
  phase='new file and retained decisions';
