@@ -52,3 +52,5 @@ Yeni bir özelliğin API, izin, durum geçişi veya limitleri değiştiğinde il
 - [Working-day deadline planning](audit-deadline-planning.md): explicit milestone/workpaper/request date proposals and independent return deadlines, calendar conflict recovery and retained adjustment reasons.
 
 - [Reproducible random workpaper selection](audit-workpapers.md#reproducible-random-selection): complete-population CSV, explicit draw preview, server recalculation and retained selection provenance.
+
+- [Politika kampanya sonuçları ve kapanış](policy-campaign-completion.md): Admin incelemesi, gerekçeli kapatma, korunmuş katılımcı yanıtları ve bağlantı/kayıt çakışması sonrası kurtarma.

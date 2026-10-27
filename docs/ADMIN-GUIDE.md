@@ -242,3 +242,9 @@ Migration `0098_continuity_plan_reviews.sql` adds the immutable review table and
 TPRM, mevcut etkin kullanıcı dizinini ve sürümlü kanıt kütüphanesini kullanır. Yeni ayar, menü veya veri göçü gerekmez. İncelemeci tam erişimli etkin Admin olmalı; oluşturucu, gönderen veya aynı bulgunun sahibi kendi işini doğrulayamaz. Seçimle yapılan yazımlarda güncel hesap/yetki, kayıt ve dosya doğrulaması işlemle birlikte korunur.
 
 Tam erişimli Viewer geçmişi okuyabilir; sınırlı çekirdek modül yetkisi TPRM kurumsal çalışma alanına veya karar kaynaklarına erişim vermez. Kanıt kullanımında bu kaynak **Yetki kapsamı dışında** görünür. Karar ekranı son 6.000 pini, kanıt kullanım kaynağı son 200 eşleşen kararı gösterir; sınır aşımı açıkça belirtilir. Eski serbest referans/hash API çağrıları kanonik pin kazanmaz. Geri alma pinleri silmemelidir. [Operasyon ve doğrulama](tprm-connected-evidence.md).
+
+### Politika kampanya kapanışı
+
+Kampanya sonuçları ve kapatma yalnız Admin içindir; mevcut kurumsal modül erişimi korunur. Kapanış, güncel hesap ve kaynak/yanıt durumuyla aynı işlemde gerekçeli olay kaydı yazar. Katılımcı kararlarını değiştirmez veya bağımsız politika onayını ikame etmez. Açık kampanya engeli kalktıktan sonra diğer engeller ve atanmış incelemecinin politika kaldırma yetkisi geçerlidir.
+
+Yeni veri göçü veya e-posta ayarı gerekmez. Kampanya listesi 1.000, ayrıntılar 500 katılımcıyla sınırlıdır; eksik/bozuk sonuçlarla kapatma engellenir. Eski kapanışlarda ayrıntılı geçmiş olmayabilir. Geri alma kapanış olaylarını silmemelidir. [Yetki, çakışma ve operasyon sınırları](policy-campaign-completion.md).

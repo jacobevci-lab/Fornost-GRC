@@ -1,3 +1,4 @@
+import * as policyCampaigns from '../../app/policy-lifecycle/campaign-store';
 import * as continuityPlan from '../../app/continuity/plan';
 import * as continuityReviews from '../../app/continuity/plan-review-store';
 import * as continuityWork from '../../app/continuity/work-source';
@@ -55,6 +56,7 @@ export function fixture(module:'incidents'|'continuity'|'policy-lifecycle'|'thir
   if(name==='../../continuity/work-source')return continuityWork;
   if(name==='../../continuity/plan')return continuityPlan;
   if(name==='../../continuity/plan-review-store')return continuityReviews;
+  if(name==='../../policy-lifecycle/campaign-store')return policyCampaigns;
   if(name==='../../policy-lifecycle/domain')return policy;
   if(name==='../../third-party-risk/domain')return vendor;
   if(name==='../../risk-appetite/domain')return risk;

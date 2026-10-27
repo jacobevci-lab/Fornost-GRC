@@ -312,3 +312,9 @@ Geçmişte son 20 karar, incelemeci, zaman, gerekçe, önceki/sonraki tarih ve *
 Değerlendirmeyi gönderirken veya onaylarken, bulguyu doğrulamaya gönderirken/kapatırken ve kanıtlı çıkışta **Karar kanıtı** içinden kayıt ve dosya sürümünü seçin. Son sürüm otomatik seçilmez. Karar bağlamındaki risk, sorumlular, bulgu ve çıkış ayrıntılarını inceleyin. Kaynak değişirse not ve seçiminiz açık pencerede korunur; **Güncel sürümü kullan** ardından onay ifadesini yeniden girin. Okuma hatasında **Karar bağlamını yenile** kullanın. Pencereyi kapatmak veya sayfadan ayrılmak taslağı siler.
 
 **Son kararların kanıtları** hangi sürümün kaydedildiğini gösterir. Kanıt kütüphanesinin kullanım alanında **Tedarikçi kararları** filtresi, aktör/zamanı ve tarihsel sürümü listeler; **Kaydı aç** doğru değerlendirmeye, bulguya veya tedarikçiye gider. Bu geçmiş güncel onay yerine geçmez. [Ayrıntılar ve sınırlar](tprm-connected-evidence.md).
+
+### Politika kabul kampanyasını tamamlamak
+
+Admin hesabıyla **Politika Merkezi → Attestation → Kampanya sonuçları** alanından kampanyayı bulun ve **Sonuçları incele** seçeneğini açın. Kampanyaya bağlı politika sürümünü, yanıtları ve katılımcı notlarını inceleyin. **Kapanışı hazırla** ile gerekçe yazıp cevapsız/ret sonuçlarını kabul edilmiş saymadan kapatın. **Kapalı** görünümü kapanış geçmişini gösterir; katılımcıların mevcut yanıtları silinmez. Kapalı kampanyanın cevapsız işleri aktif kuyruktan çıkar ve yeni yanıt düğmesi gösterilmez.
+
+Sonuçlar değişirse taslak korunur: **Sonuçları yenile → Güncel sonuçları kullan** ve onayları tekrar verin. Bağlantı kesilince aynı kararı tekrar göndermek ikinci kapanış oluşturmaz. Ayrıntılar ve sınırlar: [Kampanya kapanışı](policy-campaign-completion.md).
