@@ -166,6 +166,8 @@ In Audit Management → audit → Workpapers, create or edit a draft and open **
 
 ### Filter My Work by module
 
+**Süreklilik / Continuity** seçimi artık plan onayı/etkinleştirme ve gözden geçirme sorumluluklarını, planlı tatbikatları ve iyileştirme açıklarını da içerir. Satır ilgili kaydı doğrudan açar; işlemi mevcut kaynak ekranında tamamlayın, ardından İşlerim'i yenileyin. Onaylı plan etkinleştirilene kadar açık kalır; iptal edilen tatbikat açık iş sayılmaz. Son 30 gün hesabı gerçek kapanış/iptal tarihini kullanır. [Sorumlular, tarihler ve kapsam sınırları](continuity-my-work.md).
+
 Use **Work queue module** in My Work to focus on Risk, Audit, Evidence, Policy or another module represented in your current authorized personal/organization scope. Summary cards, status-filter counts, completed work, pagination and the downloaded CSV use that module selection. Search and due/status filters continue to apply. The CSV includes a canonical `module_filter` column.
 
 **Clear module filter** restores all modules without changing personal/organization scope or search. If the selected module has no work after a scope change or refresh, the filter remains explicit and the list stays empty rather than silently expanding. This filter does not grant access or change the separate assurance-signal panel's scope.

@@ -68,6 +68,16 @@ jobs:
           name: workflow-evidence-usage-preview
           path: workflow-evidence-usage-qa-artifacts/
           if-no-files-found: warn
+      - name: Continuity assignments and lifecycle in My Work QA
+        timeout-minutes: 6
+        run: node scripts/continuity-my-work-qa.mjs
+      - name: Preserve continuity inbox browser evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: continuity-my-work-preview
+          path: continuity-my-work-qa-artifacts/
+          if-no-files-found: warn
       - name: Register XLSX preview, validation and retry-safe import QA
         timeout-minutes: 6
         run: node scripts/register-import-qa.mjs

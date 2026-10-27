@@ -13,3 +13,8 @@ Fornost GRC links approved BIA records to governed continuity plans, recovery ob
 Exports are Admin-only, formula-safe CSV. Every lifecycle decision is written to the continuity event stream. Canonical exercise-result and gap-closure evidence snapshots are immutable and commit with that decision. Runtime schema self-heal supports existing on-prem installations while migration `0074_business_continuity_resilience.sql` provides deterministic fresh installation.
 
 The UI uses active account selection for owner, independent Admin reviewer, crisis lead and facilitator. Selection errors preserve the draft. See [User Guide](USER-GUIDE.md#süreklilik-ve-regülasyon-kararlarında-kanıt-seçimi) for the journey and [Admin Guide](ADMIN-GUIDE.md#connected-evidence-selections-continuity-and-regulatory-workflows) for legacy API compatibility and storage limits.
+
+
+## Assigned work and exact navigation
+
+Plans, exercises and improvement gaps are included in the existing [My Work continuity queue](continuity-my-work.md). The queue preserves canonical assignments, lifecycle dates and independent approval/retest requirements; choose a row to open its exact source.

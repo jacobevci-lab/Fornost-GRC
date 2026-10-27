@@ -3,13 +3,25 @@ export const enterpriseWorkSources = [
   { key: 'policy', path: '/api/policy-lifecycle' },
   { key: 'vendor', path: '/api/third-party-risk' },
   { key: 'regulatory', path: '/api/regulatory-intelligence' },
+  { key: 'continuity', path: '/api/continuity?view=work' },
   { key: 'audit', path: '/api/audits/requests' },
 ] as const;
 export type EnterpriseWorkSource = typeof enterpriseWorkSources[number]['key'];
+export const continuityWorkLabels: Record<string, { tr: string; en: string }> = {
+  draft: { tr: 'Onay bekliyor', en: 'Awaiting approval' },
+  approved: { tr: 'Etkinleştirme bekliyor', en: 'Awaiting activation' },
+  active: { tr: 'Etkin', en: 'Active' },
+  retired: { tr: 'Kullanımdan kaldırıldı', en: 'Retired' },
+  planned: { tr: 'Planlandı', en: 'Planned' },
+  completed: { tr: 'Tamamlandı', en: 'Completed' },
+  cancelled: { tr: 'İptal edildi', en: 'Cancelled' },
+  open: { tr: 'Açık', en: 'Open' },
+  closed: { tr: 'Kapatıldı', en: 'Closed' },
+};
 type RecordData = Record<string, unknown>;
 export type EnterpriseWorkRow = {
   id: string; code: string; module: string; workSource: EnterpriseWorkSource; workKind: string; nativeRef: string;
-  data: RecordData; updatedAt?: string; createdAt?: string;
+  data: RecordData; updatedAt?: string; createdAt?: string; completedAt?: string;
 };
 export const enterpriseWorkKinds: Record<string, { module: string; tab: string; tr: string; en: string }> = {
   'continuity-plan': { module: 'İş Sürekliliği', tab: 'plans', tr: 'Süreklilik planı', en: 'Continuity plan' },
@@ -35,6 +47,7 @@ const limits: Record<EnterpriseWorkSource, Record<string, number>> = {
   policy: { documents: 1000, versions: 3000, campaigns: 1000, attestations: 5000, exceptions: 2000 },
   vendor: { profiles: 1000, assessments: 2000, findings: 3000 },
   regulatory: { changes: 1000, impacts: 2000 },
+  continuity: { plans: 2000, exercises: 2000, gaps: 2000 },
   audit: { requests: 1000 },
 };
 
@@ -48,7 +61,7 @@ export function projectEnterpriseWork(source: EnterpriseWorkSource, payload: unk
     const idKey = key === 'profiles' ? 'vendorId' : 'id';
     if (!Array.isArray(raw)) { complete = false; collections[key] = []; continue; }
     const valid = raw.filter((item): item is RecordData => object(item) && !!text(item[idKey]) && !!text(item.status));
-    if (raw.length >= limit || valid.length !== raw.length || new Set(valid.map(item => text(item[idKey]))).size !== valid.length) complete = false;
+    if ((source === 'continuity' ? raw.length > limit : raw.length >= limit) || valid.length !== raw.length || new Set(valid.map(item => text(item[idKey]))).size !== valid.length) complete = false;
     const counts = new Map<string, number>();
     for (const item of valid) counts.set(text(item[idKey]), (counts.get(text(item[idKey])) || 0) + 1);
     collections[key] = valid.filter(item => counts.get(text(item[idKey])) === 1);
@@ -58,7 +71,8 @@ export function projectEnterpriseWork(source: EnterpriseWorkSource, payload: unk
     const id = text(kind === 'vendor-review' ? item.vendorId : item.id);
     rows.push({ id: `work:${source}:${kind}:${id}`, code: text(data.code) || id, module: enterpriseWorkKinds[kind].module,
       workSource: source, workKind: kind, nativeRef: id, data: { ...data, status: text(item.status), workClosed: closed },
-      updatedAt: text(item.updatedAt || item.attestedAt), createdAt: text(item.createdAt || item.detectedAt) });
+      updatedAt: text(item.updatedAt || item.attestedAt), createdAt: text(item.createdAt || item.detectedAt),
+      ...(source === 'continuity' ? { completedAt: text(item.completedAt) } : {}) });
   };
   const parent = (items: RecordData[], field: string, value: unknown) => {
     const found = items.filter(item => text(item[field]) === text(value));
@@ -138,6 +152,38 @@ export function projectEnterpriseWork(source: EnterpriseWorkSource, payload: unk
     for (const f of findings) {
       const p = parent(profiles, 'vendorId', f.vendorId); if (!p) continue;
       add('vendor-finding', f, { title: f.title, owner: f.owner, reviewer: f.status === 'verification' ? p.reviewer : '', dueDate: f.dueDate, severity: f.severity }, f.status === 'closed');
+    }
+  } else if (source === 'continuity') {
+    if (payload.complete !== true) complete = false;
+    const date = (value: unknown) => /^\d{4}-\d{2}-\d{2}$/.test(text(value)) && Number.isFinite(Date.parse(text(value))) && new Date(text(value)).toISOString().slice(0, 10) === value;
+    const email = (value: unknown) => /^[^\s@;,|<>]+@[^\s@;,|<>]+\.[^\s@;,|<>]+$/.test(text(value));
+    const terminalTime = (item: RecordData) => {
+      if (item.completedAt == null || item.completedAt === '') return true; // Legacy records have no fabricated completion.
+      return /^\d{4}-\d{2}-\d{2}T/.test(text(item.completedAt)) && Number.isFinite(Date.parse(text(item.completedAt)));
+    };
+    const valid = (item: RecordData, states: string[], fields: string[], dueField: string) => {
+      const ok = states.includes(text(item.status)) && fields.every(field => email(item[field])) && date(item[dueField]) && terminalTime(item);
+      if (!ok) complete = false;
+      return ok;
+    };
+    const plans = collections.plans.filter(p => valid(p, ['draft', 'approved', 'active', 'retired'], ['owner', 'reviewer', 'crisisLead'], 'reviewDate') && !!text(p.name) && new Set([p.owner, p.reviewer, p.crisisLead].map(value => text(value).toLowerCase())).size === 3);
+    if (plans.length !== collections.plans.length) complete = false;
+    const exercises = collections.exercises.filter(e => valid(e, ['planned', 'completed', 'cancelled'], ['facilitator'], 'scheduledDate'));
+    for (const p of plans) add('continuity-plan', p, { title: p.name, code: p.code, owner: p.owner, actionOwner: p.crisisLead,
+      reviewer: p.status === 'draft' ? p.reviewer : '', workWaitingForReview: p.status === 'draft',
+      dueDate: p.status === 'active' ? p.reviewDate : '', criticality: p.criticality }, p.status === 'retired');
+    for (const e of exercises) {
+      const p = parent(plans, 'id', e.planId); if (!p) continue;
+      add('continuity-exercise', e, { title: `${text(p.name)} · ${text(e.code) || text(e.id)}`, code: e.code,
+        owner: e.facilitator, dueDate: e.scheduledDate, criticality: p.criticality }, e.status !== 'planned');
+    }
+    for (const g of collections.gaps) {
+      if (!valid(g, ['open', 'closed'], ['owner', 'reviewer'], 'dueDate') || !text(g.title) || text(g.owner).toLowerCase() === text(g.reviewer).toLowerCase()) { complete = false; continue; }
+      const p = parent(plans, 'id', g.planId), e = parent(exercises, 'id', g.exerciseId);
+      if (!p || !e) continue;
+      if (e.planId !== p.id || e.status !== 'completed') { complete = false; continue; }
+      // No submission state exists: owner and independent reviewer share the open responsibility.
+      add('continuity-gap', g, { title: g.title, owner: g.owner, reviewer: g.reviewer, dueDate: g.dueDate, severity: g.severity }, g.status === 'closed');
     }
   } else {
     const { changes, impacts } = collections;
