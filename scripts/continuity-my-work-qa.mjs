@@ -24,6 +24,8 @@ async function openWork(p = page, query = '') {
   await p.locator('.language-switch:visible').getByRole('button', { name: 'EN', exact: true }).click();
   await p.locator('nav button[aria-label="My Work"]').evaluate(el => el.click());
   await expect(p.locator('.my-work-v2')).toBeVisible(); await waitForQaIdle(p);
+  // A second actor may have acted while this inbox stayed mounted. Use its explicit refresh.
+  await p.locator('.my-work-v2').getByRole('button', { name: 'Refresh', exact: true }).click(); await waitForQaIdle(p);
   await p.getByLabel('Work queue module', { exact: true }).selectOption('İş Sürekliliği');
   await p.locator('.mw2-filters').getByRole('button', { name: /^All/ }).click();
   await p.getByRole('textbox', { name: 'Search work', exact: true }).fill(query);
