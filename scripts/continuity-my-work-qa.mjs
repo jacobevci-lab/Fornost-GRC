@@ -122,7 +122,10 @@ try {
   }
   await api(admin, '/api/continuity', 'POST', { action: 'retire-plan', planId, note: 'Synthetic inbox journey completed and all exercises and gaps resolved.', confirmation: 'PLANI YÜRÜRLÜKTEN KALDIR' });
   await page.setViewportSize({ width: 1440, height: 1000 }); await openWork(page, name); await expect(page.locator('.mw2-item')).toHaveCount(0);
-  await page.locator('.mw2-filters').getByRole('button', { name: /^Completed/ }).click(); await expect(page.locator('.mw2-item')).toHaveCount(1);
+  await page.locator('.mw2-filters').getByRole('button', { name: /^Completed/ }).click();
+  const retired = page.locator('.mw2-item').filter({ has: page.getByText(`Continuity plan · ${name}`, { exact: true }) });
+  await expect(retired).toHaveCount(1); await expect(retired).toContainText('Retired');
+  await expect(page.locator('.mw2-item')).toHaveCount(4); // The plan and its three terminal exercises share the searched plan name.
   checks.push('Eight TR/EN light/dark desktop/mobile views, accessibility and actual plan retirement');
   assert.deepEqual(errors, []);
   await writeFile(`${out}/result.json`, JSON.stringify({ status: 'PASS', checks, errors, planId, cleanup: 'Owned plan retired; exercises completed/cancelled and gap closed. Immutable synthetic history remains only in the disposable loopback database.' }, null, 2));
