@@ -61,3 +61,26 @@ test('regulatory GET locates an old impact with its change and source beyond eve
   assert.equal((result.body.impacts as unknown[]).length,2000);assert.equal(f.sqlite.prepare('SELECT total_changes() n').get()!.n,before);
  }finally{f.sqlite.close()}
 });
+
+test('TPRM exact links recover old assessments, findings and their vendor beyond all list boundaries',async()=>{
+ const f=fixture('third-party-risk');try{
+  await f.post({});await ensureCoreGrcSchemaCompatibility(f.db);
+  for(let i=0;i<1001;i++)seed(f.sqlite,'third_party_profiles',{vendor_id:'VEN-'+i,name:'Supplier '+i,criticality:'critical',next_review:'2026-10-27'});
+  seed(f.sqlite,'third_party_profiles',{vendor_id:'VEN-target',name:'Old supplier',criticality:'low',next_review:'2099-01-01'});
+  for(let i=0;i<2001;i++)seed(f.sqlite,'third_party_assessments',{id:'TPA-'+i,vendor_id:'VEN-0',cycle_number:i,updated_at:'2026-10-27'});
+  seed(f.sqlite,'third_party_assessments',{id:'TPA-target',vendor_id:'VEN-target',cycle_number:1,updated_at:'2000-01-01'});
+  for(let i=0;i<3001;i++)seed(f.sqlite,'third_party_findings',{id:'TPF-'+i,vendor_id:'VEN-0',assessment_id:'TPA-0',severity:'critical',due_date:'2026-10-27'});
+  seed(f.sqlite,'third_party_findings',{id:'TPF-target',vendor_id:'VEN-target',assessment_id:'TPA-target',severity:'low',due_date:'2099-01-01'});
+  const ordinary=await f.get();assert.equal((ordinary.body.assessments as {id:string}[]).some(r=>r.id==='TPA-target'),false);assert.equal((ordinary.body.findings as {id:string}[]).some(r=>r.id==='TPF-target'),false);
+  const before=f.sqlite.prepare('SELECT total_changes() n').get()!.n;
+  for(const [kind,id] of [['vendor-review','VEN-target'],['vendor-assessment','TPA-target'],['vendor-finding','TPF-target']]){
+   const result=await f.get(new URLSearchParams({focusKind:kind,focusId:id}).toString());assert.equal(result.status,200);assert.equal((result.body.profiles as {vendorId:string}[])[0].vendorId,'VEN-target');
+   if(kind!=='vendor-review')assert.equal((result.body.assessments as {id:string}[])[0].id,'TPA-target');
+   if(kind==='vendor-finding')assert.equal((result.body.findings as {id:string}[])[0].id,'TPF-target');
+   assert.equal((result.body.assessments as unknown[]).length,2000);assert.equal((result.body.findings as unknown[]).length,3000);
+  }
+  for(const query of ['focusKind=vendor-finding','focusKind=vendor-finding&focusId=../x','focusKind=continuity-plan&focusId=BCP-1','focusKind=vendor-review&focusId=x&focusId=y'])assert.equal((await f.get(query)).status,400);
+  assert.equal(f.sqlite.prepare('SELECT total_changes() n').get()!.n,before);
+  assert.equal(scopedApiAllowed({role:'Viewer',moduleAccess:{mode:'scoped',modules:{Kanıtlar:'read'}}},'/api/third-party-risk','GET'),false);
+ }finally{f.sqlite.close()}
+});

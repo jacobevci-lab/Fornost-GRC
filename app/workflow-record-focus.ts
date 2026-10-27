@@ -1,6 +1,6 @@
-type Workflow='continuity'|'regulatory';
+type Workflow='continuity'|'regulatory'|'tprm';
 export type WorkflowRecordFocus={kind:string;ref:string};
-const kinds={continuity:['continuity-plan','continuity-exercise','continuity-gap'],regulatory:['regulatory-change','regulatory-impact']};
+const kinds={tprm:['vendor-review','vendor-assessment','vendor-finding'],continuity:['continuity-plan','continuity-exercise','continuity-gap'],regulatory:['regulatory-change','regulatory-impact']};
 /** false means malformed; null means an ordinary unfocused list request. */
 export function parseWorkflowRecordFocus(params:URLSearchParams,workflow:Workflow):WorkflowRecordFocus|null|false {
   if(!params.has('focusKind')&&!params.has('focusId'))return null;
@@ -8,8 +8,17 @@ export function parseWorkflowRecordFocus(params:URLSearchParams,workflow:Workflo
   return params.getAll('focusKind').length===1&&params.getAll('focusId').length===1&&kinds[workflow].includes(kind)&&/^[a-zA-Z0-9_-]{1,120}$/.test(ref)?{kind,ref}:false;
 }
 export async function workflowFocusIds(db:D1Database,focus:WorkflowRecordFocus|null) {
-  const empty={plan:'',exercise:'',gap:'',change:'',source:'',impact:''};
+  const empty={vendor:'',assessment:'',finding:'',plan:'',exercise:'',gap:'',change:'',source:'',impact:''};
   if(!focus)return empty;
+  if(focus.kind==='vendor-review')return {...empty,vendor:focus.ref};
+  if(focus.kind==='vendor-assessment'){
+    const row=await db.prepare('SELECT vendor_id FROM third_party_assessments WHERE id=?').bind(focus.ref).first<{vendor_id:string}>();
+    return {...empty,assessment:focus.ref,vendor:row?.vendor_id||''};
+  }
+  if(focus.kind==='vendor-finding'){
+    const row=await db.prepare('SELECT vendor_id,assessment_id FROM third_party_findings WHERE id=?').bind(focus.ref).first<{vendor_id:string;assessment_id:string}>();
+    return {...empty,finding:focus.ref,vendor:row?.vendor_id||'',assessment:row?.assessment_id||''};
+  }
   if(focus.kind==='continuity-plan')return {...empty,plan:focus.ref};
   if(focus.kind==='continuity-exercise'){
     const row=await db.prepare('SELECT plan_id FROM enterprise_continuity_exercises WHERE id=?').bind(focus.ref).first<{plan_id:string}>();

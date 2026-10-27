@@ -25,6 +25,8 @@ async function focus(kind,ref){await page.evaluate(detail=>window.dispatchEvent(
 try {
  await mkdir(out,{recursive:true});
  for(const [ctx,email] of [[admin,'qa-admin@fornost.test'],[reviewer,f.reviewerEmail],[viewer,f.viewerEmail],[scoped,f.scopedEmail]])await api(ctx,'/api/auth','POST',{action:'login',email,password:qaPassword()});
+ // Initialize the optional TPRM source in this disposable fixture before asserting complete coverage.
+ await api(admin,'/api/third-party-risk');
  let snapshot=await usage();assert.equal(decisions(snapshot).length,5);assert.ok(snapshot.sources.filter(s=>['continuity','regulatory'].includes(s.key)).every(s=>s.state==='complete'));
  const original=decisions(snapshot).map(({id,decision,pins})=>({id,decision,version: pins[0].id}));
  phase='new file and retained decisions';
@@ -41,14 +43,14 @@ try {
  snapshot=await usage();assert.equal(decisions(snapshot).length,7);assert.equal(decisions(snapshot).filter(row=>row.pins[0].state==='current').length,2);assert.ok(decisions(snapshot).every(row=>row.historical));
  checks.push('All five original decisions survive a new upload; resubmission/verification add two separate immutable uses');
  phase='usage UI and report';await openUsage();const panel=page.locator('.eu-panel');
- await expect(panel.locator('.eu-coverage>summary')).toContainText('7/7 complete');await expect(panel.locator('.eu-sources')).toBeHidden();
+ await expect(panel.locator('.eu-coverage>summary')).toContainText('8/8 complete');await expect(panel.locator('.eu-sources')).toBeHidden();
  const readsBeforeToggle=usageReads;await panel.locator('.eu-coverage>summary').focus();await page.keyboard.press('Enter');await waitForQaIdle(page);await expect(panel.locator('.eu-sources')).toBeVisible();assert.equal(usageReads,readsBeforeToggle,'Opening source coverage must not reload its parent panel');await panel.screenshot({path:`${out}/usage-coverage-expanded.png`});await page.keyboard.press('Enter');await waitForQaIdle(page);await expect(panel.locator('.eu-sources')).toBeHidden();assert.equal(usageReads,readsBeforeToggle,'Closing source coverage must not reload its parent panel');
  await panel.getByLabel('Usage source',{exact:true}).selectOption('continuity');await expect(panel.locator('.eu-list article')).toHaveCount(3);
  await panel.getByLabel('Usage source',{exact:true}).selectOption('regulatory');await expect(panel.locator('.eu-list article')).toHaveCount(4);
  await expect(panel.locator('.eu-list')).toContainText('Decision by:');await expect(panel.locator('.eu-list')).toContainText('Submitted for verification');await expect(panel.locator('.eu-list')).toContainText('Independent verification');
  await panel.getByLabel('Usage source',{exact:true}).selectOption('all');await panel.getByLabel('Usage filter',{exact:true}).selectOption('historical');await expect(panel.locator('.eu-list article')).toHaveCount(7);
  const pendingDownload=page.waitForEvent('download');await panel.getByRole('button',{name:'Download usage report',exact:true}).click();
- const report=JSON.parse(await readFile(await(await pendingDownload).path(),'utf8'));assert.equal(report.sources.length,7);assert.equal(decisions(report).length,7);assert.ok(!/fileKey|contentSha256|snapshot_json/.test(JSON.stringify(report)));
+ const report=JSON.parse(await readFile(await(await pendingDownload).path(),'utf8'));assert.equal(report.sources.length,8);assert.equal(decisions(report).length,7);assert.ok(!/fileKey|contentSha256|snapshot_json/.test(JSON.stringify(report)));
  for(const lang of ['EN','TR']) {
   await page.locator('.language-switch:visible').getByRole('button',{name:lang,exact:true}).click();
   for(const theme of ['light','dark']) {

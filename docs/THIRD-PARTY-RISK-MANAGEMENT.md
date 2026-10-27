@@ -6,12 +6,12 @@ Fornost TPRM 2.0, üçüncü taraf riskini yalnız bir envanter satırı olarak 
 
 1. Admin veya Editor; tüzel kişilik, hizmet, kritiklik, veri sınıfı, iş/risk sahipleri, bağımsız reviewer, sözleşme bitişi, inceleme tarihi ve çıkış planıyla üçüncü tarafı oluşturur ya da mevcut kaydı kapsama alır.
 2. İlk değerlendirme aynı işlemde oluşturulur. Etki, olasılık, kontrol olgunluğu ve 12 due-diligence alanı deterministik doğal/kalıntı risk üretir.
-3. Atanmış risk sahibi değerlendirmeyi kanıt referansı ve SHA-256 ile bağımsız incelemeye gönderir.
+3. Atanmış risk sahibi değerlendirmeyi kütüphaneden seçtiği dosya sürümüyle bağımsız incelemeye gönderir.
 4. Atanmış Admin reviewer; oluşturucu ve gönderen kişiden farklıysa tam onay, koşullu onay veya ret kararı verir.
 5. Açık yüksek/kritik bulgu ya da kritik kontrol boşluğu tam onayı engeller. Koşullu onay ayrıntılı risk kabul/iyileştirme notu ve karar kanıtı gerektirir.
 6. Bulgular sahip, termin, önem ve CAPA açıklamasıyla yürütülür; kapatma ayrı reviewer ve ikinci kanıt zinciri gerektirir.
 7. Yeniden değerlendirme yeni bir döngü oluşturur, önceki karar sürümünü `superseded` durumuna alır ve geçmişi korur.
-8. Offboarding yalnız tüm bulgular kapalıyken, atanmış bağımsız reviewer tarafından çıkış kanıtı ve SHA-256 ile tamamlanır.
+8. Offboarding yalnız tüm bulgular kapalıyken, atanmış bağımsız reviewer tarafından kütüphaneden seçilen çıkış kanıtıyla tamamlanır.
 
 ## Due-diligence kapsamı
 
@@ -48,3 +48,9 @@ Yüksek etkili geçişler tam onay ifadeleri kullanır. UI görünürlüğü kol
 ## Operasyonel göstergeler
 
 Risk kuyruğu; TPRM dışı eski kayıtları, yüksek/kritik kalıntı riski, yaklaşan/gecikmiş incelemeleri, açık/gecikmiş CAPA'ları ve 90 gün içinde bitecek sözleşmeleri gösterir. CSV çıktısı Admin ile sınırlı, cache dışı ve formül enjeksiyonuna karşı güvenlidir. Tüm karar ve yaşam döngüsü olayları aktör, zaman ve ayrıntıyla değişmez olay tablosuna yazılır.
+
+## Bağlı kanıt ve sorumlular
+
+İş/risk sahipleri, bağımsız Admin incelemecisi ve bulgu sahibi etkin kullanıcı dizininden seçilir; tedarikçinin dış iletişim adresi serbest metindir. Bulgu sahibi aynı kaydın incelemecisi olamaz. Gönderim, onay/koşullu onay, bulgu gönderim/doğrulama ve çıkış kararları mevcut kanıt kaydının açıkça seçilen dosya sürümüne sabitlenir. Sunucu SHA-256 ve sürüm zincirini kontrol eder; kullanıcı hash yazmaz.
+
+Karar penceresinde güncel risk, sorumluluk ve iş bağlamını inceleyin. Kaynak değişirse taslak not ve dosya seçimi korunur; **Güncel sürümü kullan** ile yeni bağlamı kabul edip onay ifadesini yeniden girin. Yeni bir dosya yüklemek geçmiş kararı değiştirmez. **Son kararların kanıtları** ve **Kanıt Kütüphanesi → Kullanım ve değişiklik etkisi → Tedarikçi kararları** kaydedilmiş sürümleri ve ilgili işe dönüşü gösterir. [İş akışı, sınırlar ve operasyon](tprm-connected-evidence.md).

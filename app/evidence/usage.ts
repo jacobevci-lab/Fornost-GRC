@@ -1,12 +1,12 @@
 import type { FornostNavigationRequest } from '../navigation-focus';
 
-export const usageSources = ['controls', 'requirements', 'requests', 'workpapers', 'findings', 'continuity', 'regulatory'] as const;
+export const usageSources = ['controls', 'requirements', 'requests', 'workpapers', 'findings', 'continuity', 'regulatory', 'tprm'] as const;
 export type UsageSource = typeof usageSources[number];
 export type UsagePin = { id: string; versionNo: number; state: 'current' | 'older' | 'unknown' };
 export type EvidenceUsageRow = {
   id: string; source: UsageSource; module: string; title: string; owner: string; status: string;
   dueDate: string; historical: boolean; pins: UsagePin[]; target: FornostNavigationRequest;
-  decision?: { purpose: 'exercise-result' | 'gap-closure' | 'impact-submit' | 'impact-verify'; actor: string; createdAt: string; sourceAvailable: boolean };
+  decision?: { purpose: 'exercise-result' | 'gap-closure' | 'impact-submit' | 'impact-verify' | 'assessment-submit' | 'assessment-approved' | 'assessment-conditional' | 'submit-finding' | 'verify-finding' | 'vendor-offboard'; actor: string; createdAt: string; sourceAvailable: boolean };
 };
 export type EvidenceUsage = {
   evidence: { id: string; code: string; title: string; versionId: string; versionNo: number; updatedAt: string };

@@ -14,7 +14,7 @@ permissions:
 jobs:
   layout:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -87,6 +87,16 @@ jobs:
         with:
           name: continuity-plan-review-preview
           path: continuity-plan-review-qa-artifacts/
+          if-no-files-found: warn
+      - name: TPRM connected evidence and directory lifecycle QA
+        timeout-minutes: 7
+        run: node scripts/tprm-connected-evidence-qa.mjs
+      - name: Preserve TPRM connected evidence browser evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tprm-connected-evidence-preview
+          path: tprm-connected-evidence-qa-artifacts/
           if-no-files-found: warn
       - name: Register XLSX preview, validation and retry-safe import QA
         timeout-minutes: 6

@@ -69,3 +69,33 @@ test('each workflow discloses a 200-decision bound and scoped readers never quer
   assert.ok(f.queries.every(q=>!q.includes('workflow_evidence_pins')&&!q.includes('enterprise_continuity')&&!q.includes('regulatory_')));
  }finally{f.sql.close()}
 });
+
+test('TPRM retains all six decision purposes with exact assessment, finding and exit navigation',async()=>{
+ const f=setup();try{
+  f.record('VEN-1','Tedarikçiler',{title:'Cloud supplier'});
+  f.sql.exec(`INSERT INTO third_party_profiles VALUES('VEN-1','Cloud supplier','Hosting','owner','offboarded','2026-12-01');
+   INSERT INTO third_party_assessments VALUES('TPA-1','VEN-1',1,'approved');
+   INSERT INTO third_party_findings VALUES('TPF-1','VEN-1','TPA-1','Access gap','owner','closed','2026-12-01')`);
+  const purposes=['assessment-submit','assessment-approved','assessment-conditional','submit-finding','verify-finding','vendor-offboard'];
+  for(const purpose of purposes)f.pin(purpose,'tprm',purpose.startsWith('assessment-')?'TPA-1':purpose==='vendor-offboard'?'VEN-1':'TPF-1',purpose);
+  let result=await readEvidenceUsage(f.db,{role:'Viewer'},'EVD-1');let rows=result.rows.filter(r=>r.source==='tprm');
+  assert.equal(rows.length,6);assert.ok(rows.every(r=>r.historical&&r.decision?.sourceAvailable&&r.pins[0].state==='older'&&!usageNeedsReview(r)));
+  assert.equal(rows.find(r=>r.id==='assessment-submit')!.status,'approved');
+  for(const row of rows)assert.deepEqual(row.target,{module:'Tedarikçiler',kind:row.id.startsWith('assessment-')?'vendor-assessment':row.id==='vendor-offboard'?'vendor-review':'vendor-finding',ref:row.id.startsWith('assessment-')?'TPA-1':row.id==='vendor-offboard'?'VEN-1':'TPF-1',source:'evidence-usage'});
+  f.sql.exec("UPDATE third_party_findings SET vendor_id='missing'");
+  result=await readEvidenceUsage(f.db,{role:'Admin'},'EVD-1');rows=result.rows.filter(r=>r.source==='tprm');
+  assert.equal(rows.length,6);assert.ok(rows.filter(r=>r.target.kind==='vendor-finding').every(r=>!r.decision?.sourceAvailable));assert.equal(result.sources.find(s=>s.key==='tprm')!.state,'limited');
+  f.sql.exec("DELETE FROM simple_grc_records WHERE id='VEN-1'");
+  assert.ok((await readEvidenceUsage(f.db,{role:'Admin'},'EVD-1')).rows.filter(r=>r.source==='tprm').every(r=>!r.decision?.sourceAvailable));
+  f.sql.exec("UPDATE workflow_evidence_pins SET snapshot_json='broken' WHERE id='vendor-offboard'");
+  assert.equal((await readEvidenceUsage(f.db,{role:'Admin'},'EVD-1')).sources.find(s=>s.key==='tprm')!.state,'unavailable');
+ }finally{f.sql.close()}
+});
+test('TPRM usage exposes its bound and never reads restricted decision sources',async()=>{
+ const f=setup();try{
+  for(let i=0;i<201;i++)f.pin('tprm-'+i,'tprm','TPA-1','assessment-submit');
+  const result=await readEvidenceUsage(f.db,{role:'Admin'},'EVD-1');assert.equal(result.rows.filter(r=>r.source==='tprm').length,200);assert.equal(result.sources.find(s=>s.key==='tprm')!.state,'limited');
+  f.queries.length=0;const restricted=await readEvidenceUsage(f.db,{role:'Viewer',moduleAccess:{mode:'scoped',modules:{Kanıtlar:'read'}}},'EVD-1');
+  assert.equal(restricted.sources.find(s=>s.key==='tprm')!.state,'restricted');assert.ok(f.queries.every(q=>!q.includes('third_party_')&&!q.includes('workflow_evidence_pins')));
+ }finally{f.sql.close()}
+});

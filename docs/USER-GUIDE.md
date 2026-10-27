@@ -255,9 +255,9 @@ Denetim → **Çalışma kâğıtları → Taslağı düzenle / Yeni çalışma 
 
 ## Kanıt kullanımını ve yeni sürümün etkisini inceleme
 
-**Kanıt Kütüphanesi → Kullanım ve değişiklik etkisi** alanında kanıtı seçin. Kontrol/uyum bağlantıları, denetim maddeleri, talepler, çalışma kâğıtları, CAPA referansları ve süreklilik/regülasyon kararlarında kullanılan kanıtlar aynı listede görünür. **Açık işlerde incelenecek** filtresi önceki sürüme bağlı veya sürümü doğrulanamayan açık talepleri/çalışma kâğıtlarını gösterir. **Kaydı aç** ile doğru işe gidip gerekli yeniden sunma/inceleme kararını verin. Yeni sürüm, onaylı işin sabit kanıtını veya kararını değiştirmez.
+**Kanıt Kütüphanesi → Kullanım ve değişiklik etkisi** alanında kanıtı seçin. Kontrol/uyum bağlantıları, denetim maddeleri, talepler, çalışma kâğıtları, CAPA referansları ve süreklilik/regülasyon/tedarikçi kararlarında kullanılan kanıtlar aynı listede görünür. **Açık işlerde incelenecek** filtresi önceki sürüme bağlı veya sürümü doğrulanamayan açık talepleri/çalışma kâğıtlarını gösterir. **Kaydı aç** ile doğru işe gidip gerekli yeniden sunma/inceleme kararını verin. Yeni sürüm, onaylı işin sabit kanıtını veya kararını değiştirmez.
 
-**Kaynak türü** ile süreklilik veya regülasyon kararlarını seçebilir, **Korunan geçmiş** ile önceki kullanımları inceleyebilirsiniz. Karar türü, karar veren kişi ve zamanı ile sabit dosya sürümü gösterilir; üstteki durum kaynak kaydın bugünkü durumudur. Geçmiş karar güncel onay anlamına gelmez. **Kaydı aç**, normal liste sınırı dışında kalan eski tatbikat, açık veya etkiyi de doğrudan bulur. Kaynak silinmişse karar kanıtı görünür kalır ve bağlantı kapatılır.
+**Kaynak türü** ile süreklilik, regülasyon veya tedarikçi kararlarını seçebilir, **Korunan geçmiş** ile önceki kullanımları inceleyebilirsiniz. Karar türü, karar veren kişi ve zamanı ile sabit dosya sürümü gösterilir; üstteki durum kaynak kaydın bugünkü durumudur. Geçmiş karar güncel onay anlamına gelmez. **Kaydı aç**, normal liste sınırı dışında kalan eski tatbikat, açık veya etkiyi de doğrudan bulur. Kaynak silinmişse karar kanıtı görünür kalır ve bağlantı kapatılır.
 
 **Kullanımı yenile** güncel durumu okur; **Kullanım raporunu indir** filtrelerden bağımsız tüm yüklenmiş sonucu ve kaynak kapsamını JSON olarak indirir. **Kaynak kapsamı** özetini açarak her kaynağın sonucunu ve okuma sınırını görün. Eksik, erişilemeyen veya yetki dışında kalan kaynak uyarıları bu bölüm kapalıyken de görünür. Okuma 15 saniyede tamamlanmazsa hata gösterilir; kullanımda **Kullanımı yenile**, süreklilik/regülasyon ekranında **Tekrar dene** ile yeniden okuyabilirsiniz. Karar yeniden gönderilmez. [Eşleştirmeler ve okuma sınırları](evidence-usage.md).
 
@@ -304,3 +304,11 @@ Sürümlü dosya içermeyen eski kanıt kayıtlarını seçmek için önce Kanı
 Plan değişirse taslak korunur. **Planı yenile**, güncel ayrıntıları incele, **Güncel plan sürümünü kullan** ve tekrar onayla. Yanıt doğrulanamadığında aynı taslakla tekrar denemek çift kayıt oluşturmaz; yenileme sonrası **Kaydedilen sonucu kullan** da sunulabilir. Pencereyi kapatmak veya sayfayı yeniden yüklemek kaydedilmemiş taslağı siler. Sonucu belirsiz bir işlemden sonra yeni karar oluşturmadan önce geçmişi kontrol edin.
 
 Geçmişte son 20 karar, incelemeci, zaman, gerekçe, önceki/sonraki tarih ve **İncelenen plan kopyası** gösterilir. Daha eski kararlar saklanır. **Benim İşlerim → Yenile** yeni tarihi getirir; atanmış incelemeci de etkin planı kendi kuyruğunda görür. Bu işlem plan içeriğini değiştirmez ve tatbikat doğrulamasının yerine geçmez. [İşleyiş ve sınırlar](continuity-plan-review.md).
+
+## Tedarikçi kararında dosya ve kişi seçimi
+
+**Tedarikçi Yönetimi** onboarding formunda iş/risk sahiplerini ve bağımsız incelemeciyi etkin kullanıcılar arasından seçin. Bulgu oluştururken aksiyon sahibini de dizinden seçin. Tedarikçinin dış iletişim adresi ayrı kalır.
+
+Değerlendirmeyi gönderirken veya onaylarken, bulguyu doğrulamaya gönderirken/kapatırken ve kanıtlı çıkışta **Karar kanıtı** içinden kayıt ve dosya sürümünü seçin. Son sürüm otomatik seçilmez. Karar bağlamındaki risk, sorumlular, bulgu ve çıkış ayrıntılarını inceleyin. Kaynak değişirse not ve seçiminiz açık pencerede korunur; **Güncel sürümü kullan** ardından onay ifadesini yeniden girin. Okuma hatasında **Karar bağlamını yenile** kullanın. Pencereyi kapatmak veya sayfadan ayrılmak taslağı siler.
+
+**Son kararların kanıtları** hangi sürümün kaydedildiğini gösterir. Kanıt kütüphanesinin kullanım alanında **Tedarikçi kararları** filtresi, aktör/zamanı ve tarihsel sürümü listeler; **Kaydı aç** doğru değerlendirmeye, bulguya veya tedarikçiye gider. Bu geçmiş güncel onay yerine geçmez. [Ayrıntılar ve sınırlar](tprm-connected-evidence.md).

@@ -16,6 +16,9 @@ export function fixture() {
     CREATE TABLE regulatory_intelligence_sources(id TEXT PRIMARY KEY);
     CREATE TABLE regulatory_changes(id TEXT PRIMARY KEY,source_id TEXT,title TEXT);
     CREATE TABLE regulatory_change_impacts(id TEXT PRIMARY KEY,change_id TEXT,target_title TEXT,action_owner TEXT,status TEXT,due_date TEXT);
+    CREATE TABLE third_party_profiles(vendor_id TEXT PRIMARY KEY,name TEXT,service TEXT,risk_owner TEXT,status TEXT,next_review TEXT);
+    CREATE TABLE third_party_assessments(id TEXT PRIMARY KEY,vendor_id TEXT,cycle_number INTEGER,status TEXT);
+    CREATE TABLE third_party_findings(id TEXT PRIMARY KEY,vendor_id TEXT,assessment_id TEXT,title TEXT,owner TEXT,status TEXT,due_date TEXT);
     INSERT INTO simple_audits VALUES('AUD-1','Audit');
     INSERT INTO evidence_versions VALUES('v1','EVD-1',1,'hash1'),('v2','EVD-1',2,'hash2');
     INSERT INTO simple_grc_record_codes VALUES('EVD-1','EVD-100');`);

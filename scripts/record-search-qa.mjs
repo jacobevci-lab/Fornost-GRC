@@ -31,6 +31,8 @@ try {
   for (const [moduleName, titleKey] of Object.entries(titleKeys)) {
     const seed = initial.find(row => row.module === moduleName); assert.ok(seed, `Missing seed ${moduleName}`);
     const title = `İŞ SÜREKLİLİĞİ ${stamp} ${moduleName}`, data = { ...JSON.parse(seed.data_json), [titleKey]: title, owner: `QA Search ${stamp}` };
+    // New search fixtures must not inherit a prior vendor's terminal lifecycle state.
+    if (moduleName === 'Tedarikçiler') data.status = 'Aktif';
     if (moduleName === 'Kontroller') data.controlRef = `QA-SEARCH-${stamp}`;
     // Use this scenario's live targets instead of copying orphaned historical audit references.
     if (moduleName === 'Denetim Yönetimi') Object.assign(data, { biaRef: '', controlRef: created.find(r => r.module === 'Kontroller').id, requirementRef: created.find(r => r.module === 'Uyum').id, riskRef: created.find(r => r.module === 'Risk Assessment').id, evidenceRef: created.find(r => r.module === 'Kanıtlar').id });

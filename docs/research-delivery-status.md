@@ -1,4 +1,4 @@
-# Product research delivery status — 26 October 2026
+# Product research delivery status — 27 October 2026
 
 This reconciles the ten delivery packages in the 14 October GRC product study with implementation through structured audit milestones and personal saved register views, including whole-audit closure, workpapers, record/task links and their My Work handoff. User-facing entry points are the [Product overview](PRODUCT-OVERVIEW.md), [User guide](USER-GUIDE.md) and [Admin guide](ADMIN-GUIDE.md). It is a scope inventory, not a claim that every research acceptance scenario or customer integration has passed. The user's latest direction is functional improvement within the existing theme.
 
@@ -131,3 +131,7 @@ The existing inbox now includes continuity plan approval/activation/review, exer
 ## Periodic continuity plan review — 27 October 2026
 
 The plan review responsibility now has a completion path in the existing Continuity module: full plan details, an independent assigned Admin decision, explicit next review date and retained reviewed-plan snapshots. Active plan work also reaches that reviewer in My Work. Current source and actor state are guarded at commit; conflicts preserve the draft and repeated identical requests return the original result. The latest 20 reviews display with explicit retention limits. Structural plan editing/reapproval, automatic reminders and exercise effectiveness certification remain separate. See [workflow and limits](continuity-plan-review.md) and [delivery brief](roadmap/continuity-plan-review.md).
+
+## Connected third-party decisions — 27 October 2026
+
+TPRM now reuses the directory and canonical evidence-version workflow for onboarding/finding assignments and assessment, remediation and exit decisions. The selected file version, source change and event commit atomically. Current source context and explicit revision acknowledgement preserve decision drafts during conflicts/read failures. Retained history and Evidence Usage cover all six decision purposes with exact assessment/finding/vendor navigation beyond normal list boundaries. Scoped accounts remain outside these enterprise sources; history does not imply current approval. Existing free-text API clients do not acquire canonical pins. This removes duplicate account/hash entry; customer adoption and time-to-complete are unmeasured. External supplier questionnaires, supplier portals, automated reassessment scheduling and deeper concentration/fourth-party analysis remain separate product scope. See [connected TPRM evidence](tprm-connected-evidence.md).
