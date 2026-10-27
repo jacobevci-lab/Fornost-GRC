@@ -66,6 +66,7 @@ Tekrarlayan dönem, sorumlu, doğrulayıcı ve kanıtla **operasyonel regülasyo
 27 Ekim 2026 itibarıyla bu kaynak sürümünün başlıca geliştirmeleri:
 
 - [İşlerim'de süreklilik sorumlulukları](docs/continuity-my-work.md): plan onayı/etkinleştirme, gözden geçirme, tatbikat ve iyileştirme açıkları; doğrudan kaynak kayda geçiş ve gerçek kapanış tarihleri.
+- [Periyodik plan incelemesi](docs/continuity-plan-review.md): plan ayrıntıları, atanmış bağımsız incelemeci kararı, sonraki inceleme tarihi ve değişmez plan kopyasıyla karar geçmişi.
 
 - [Ortak denetim şablon kütüphanesi](docs/audit-template-library.md): yönetici yayını, sürüm geçmişi, arşivleme ve denetimler arasında plan/görev/paket kullanımı.
 - Tarihli görevler, ön koşul zincirleri, özelleştirilebilir toplu görev paketleri, açıkça başlatılan tekrar dönemleri ve isteğe bağlı hatırlatmalar.

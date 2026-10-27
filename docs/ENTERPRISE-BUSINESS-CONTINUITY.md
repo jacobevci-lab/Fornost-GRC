@@ -18,3 +18,7 @@ The UI uses active account selection for owner, independent Admin reviewer, cris
 ## Assigned work and exact navigation
 
 Plans, exercises and improvement gaps are included in the existing [My Work continuity queue](continuity-my-work.md). The queue preserves canonical assignments, lifecycle dates and independent approval/retest requirements; choose a row to open its exact source.
+
+## Periodic plan reviews
+
+**Plan details and reviews** exposes full current plan context and retained review snapshots. For active plans, the assigned independent Admin reviewer can record a rationale, confirm continued suitability and set the next review date. The date, immutable decision and event update atomically; conflicts preserve the draft and uncertain responses can be retried without duplication. Active plan review work includes the assigned reviewer in My Work. See [periodic review workflow and limits](continuity-plan-review.md). This does not change the plan strategy/targets or replace exercise verification.

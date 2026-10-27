@@ -19,7 +19,7 @@ test('continuity assignments follow canonical lifecycle without invented approva
     const row = result.rows.find(row => row.workKind === 'continuity-plan')!;
     assert.equal(row.nativeRef, plan.id); assert.equal(row.module, 'İş Sürekliliği');
     assert.equal(row.data.owner, plan.owner); assert.equal(row.data.actionOwner, plan.crisisLead);
-    assert.equal(row.data.reviewer, status === 'draft' ? plan.reviewer : '');
+    assert.equal(row.data.reviewer, ['draft', 'active'].includes(status) ? plan.reviewer : '');
     assert.equal(row.data.workWaitingForReview, status === 'draft');
     assert.equal(row.data.dueDate, status === 'active' ? plan.reviewDate : '');
     assert.equal(row.data.workClosed, status === 'retired');

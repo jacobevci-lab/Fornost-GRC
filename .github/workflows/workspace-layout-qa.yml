@@ -78,6 +78,16 @@ jobs:
           name: continuity-my-work-preview
           path: continuity-my-work-qa-artifacts/
           if-no-files-found: warn
+      - name: Periodic continuity plan review and retained history QA
+        timeout-minutes: 6
+        run: node scripts/continuity-plan-review-qa.mjs
+      - name: Preserve continuity plan review browser evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: continuity-plan-review-preview
+          path: continuity-plan-review-qa-artifacts/
+          if-no-files-found: warn
       - name: Register XLSX preview, validation and retry-safe import QA
         timeout-minutes: 6
         run: node scripts/register-import-qa.mjs

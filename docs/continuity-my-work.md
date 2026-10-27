@@ -6,12 +6,14 @@ Use **My Work → Work queue module → Continuity** to see continuity responsib
 | --- | --- | --- |
 | Draft plan | Owner and crisis lead; independent reviewer receives approval work. Owners see it under Waiting for others. | No approval deadline is inferred from the future review date. |
 | Approved plan | Owner/crisis lead still need to activate it; source permissions also allow Admin. | Still open, with no invented activation deadline. |
-| Active plan | Owner and crisis lead retain the review responsibility. | Saved plan review date. |
+| Active plan | Assigned independent reviewer, owner and crisis lead retain the review responsibility. | Saved plan review date. |
 | Planned exercise | Assigned facilitator. | Scheduled exercise date. |
 | Open improvement gap | Owner and independent reviewer. | Saved gap due date. No submission/verification stage is inferred. |
 | Retired plan, completed/cancelled exercise, closed gap | Removed from active work. | Recent-completion view uses the actual retirement, completion, cancellation event or closure time. Legacy missing timestamps are not replaced with creation dates. |
 
 Choose a row to open the exact plan, exercise or gap in **Business Continuity & Resilience**. Existing source permissions and independent approval/retest rules still govern every action. My Work does not grant mutation rights. After an action, return to My Work or choose **Refresh**. Active plans remain review responsibilities; a scheduled review date is not proof that a review occurred.
+
+From the plan row, **Plan details and reviews** opens the [periodic review workflow](continuity-plan-review.md). Its assigned independent Admin reviewer can record a reason and the next review date; the queue then uses that saved date. Retained review history records the actual decision.
 
 ## Read scope and recovery
 
