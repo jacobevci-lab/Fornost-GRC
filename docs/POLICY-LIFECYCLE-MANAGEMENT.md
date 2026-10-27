@@ -30,3 +30,7 @@ Admin, yayımdaki içerik sürümüne en fazla 500 benzersiz kullanıcı içeren
 ## Denetim kanıtı
 
 Politika sürümünün içerik özeti, eşlemeleri, maker/checker kimlikleri, gönderme/onay/yayın zamanları, attestation imzaları, istisna kanıtları ve olay geçmişi birlikte denetlenebilir kanıt zincirini oluşturur. Migration `drizzle/0070_policy_lifecycle_management.sql`, çalışma zamanı şema güvenliği API içinde ve Drizzle modeli `db/schema.ts` içinde tutulur.
+
+## Campaign outcomes and completion
+
+Admin can now inspect each attestation campaign, its pinned policy version and accepted/declined/unanswered outcomes, then explicitly close collection with a reason. Closure retains recipient responses, removes pending work and response actions, and clears the open-campaign retirement blocker without bypassing other checks. Current outcome revisions and live administrator state are bound atomically to the closure event; stale/uncertain decisions retain the draft and support safe recovery. This does not introduce universal acceptance, reopening or automatic closure. See [workflow, roles and bounded reads](policy-campaign-completion.md).
