@@ -1,0 +1,42 @@
+import {usagePins, type EvidenceUsage, type EvidenceUsageRow} from './usage';
+
+type Workflow = 'continuity' | 'regulatory';
+type Row = {id:string; entity_id:string; purpose:NonNullable<EvidenceUsageRow['decision']>['purpose']; actor:string; created_at:string; snapshot_json:string; available:number; source_available:number; title:string|null; owner:string|null; status:string|null; due_date:string|null};
+
+/** Retained decisions are history, including a prior submission on a currently open workflow.
+ * Never infer the current approval from the last canonical pin: a later legacy write may exist. */
+export async function readWorkflowUsage(db:D1Database, workflow:Workflow, evidence:EvidenceUsage['evidence']) {
+  const context=workflow==='continuity' ? `
+    CASE WHEN p.purpose='exercise-result' THEN e.id ELSE g.id END IS NOT NULL AND plan.id IS NOT NULL AS source_available,
+    CASE WHEN p.purpose='exercise-result' THEN e.code ELSE g.title END || ' · ' || plan.name AS title,
+    CASE WHEN p.purpose='exercise-result' THEN e.facilitator ELSE g.owner END AS owner,
+    CASE WHEN p.purpose='exercise-result' THEN e.status ELSE g.status END AS status,
+    CASE WHEN p.purpose='exercise-result' THEN e.scheduled_date ELSE g.due_date END AS due_date
+    FROM workflow_evidence_pins p
+    LEFT JOIN enterprise_continuity_exercises e ON p.purpose='exercise-result' AND e.id=p.entity_id
+    LEFT JOIN enterprise_continuity_gaps g ON p.purpose='gap-closure' AND g.id=p.entity_id
+    LEFT JOIN enterprise_continuity_plans plan ON plan.id=COALESCE(e.plan_id,g.plan_id)` : `
+    i.id IS NOT NULL AND c.id IS NOT NULL AND s.id IS NOT NULL AS source_available,
+    i.target_title || ' · ' || c.title AS title,i.action_owner AS owner,i.status,i.due_date
+    FROM workflow_evidence_pins p
+    LEFT JOIN regulatory_change_impacts i ON i.id=p.entity_id
+    LEFT JOIN regulatory_changes c ON c.id=i.change_id
+    LEFT JOIN regulatory_intelligence_sources s ON s.id=c.source_id`;
+  const purposes=workflow==='continuity'?['exercise-result','gap-closure']:['impact-submit','impact-verify'];
+  const query=`SELECT p.id,p.entity_id,p.purpose,p.actor,p.created_at,p.snapshot_json,
+    EXISTS(SELECT 1 FROM evidence_versions v WHERE v.id=json_extract(p.snapshot_json,'$.id')
+      AND v.evidence_id=? AND v.version_no=json_extract(p.snapshot_json,'$.versionNo')
+      AND v.content_sha256=json_extract(p.snapshot_json,'$.contentSha256')) AS available,
+    ${context}
+    WHERE p.workflow=? AND p.purpose IN (SELECT value FROM json_each(?)) AND json_extract(p.snapshot_json,'$.evidenceId')=?
+    ORDER BY p.created_at DESC,p.id DESC LIMIT 201`;
+  const records=(await db.prepare(query).bind(evidence.id,workflow,JSON.stringify(purposes),evidence.id).all<Row>()).results;
+  const rows:EvidenceUsageRow[]=records.slice(0,200).map(row=>({
+    id:row.id,source:workflow,module:workflow==='continuity'?'İş Sürekliliği':'Regülasyon Merkezi',
+    title:row.title||row.entity_id,owner:row.owner||'',status:row.status||'',dueDate:row.due_date||'',historical:true,
+    pins:usagePins([{...JSON.parse(row.snapshot_json),available:row.available}],evidence),
+    decision:{purpose:row.purpose,actor:row.actor,createdAt:row.created_at,sourceAvailable:Boolean(row.source_available)},
+    target:{module:workflow==='continuity'?'İş Sürekliliği':'Regülasyon Merkezi',kind:workflow==='regulatory'?'regulatory-impact':row.purpose==='exercise-result'?'continuity-exercise':'continuity-gap',ref:row.entity_id,source:'evidence-usage'},
+  }));
+  return {rows,complete:records.length<=200&&rows.every(row=>row.decision?.sourceAvailable)};
+}

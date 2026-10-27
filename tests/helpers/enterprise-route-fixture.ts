@@ -1,3 +1,4 @@
+import * as workflowFocus from '../../app/workflow-record-focus';
 import * as workflowSelections from '../../app/workflow-selection-store';
 import type {Actor} from '../../app/api/auth/security';
 import * as findingDomain from '../../app/findings/domain';
@@ -42,6 +43,7 @@ export function fixture(module:'incidents'|'continuity'|'policy-lifecycle'|'thir
   if(name==='../auth/security')return{requireRole:async()=>({actor})};
   if(name==='../integrations/security')return{safeHttpUrl,clean:(x:unknown,n:number)=>String(x??'').trim().slice(0,n)};
   if(name==='../../workflow-selection-store')return workflowSelections;
+  if(name==='../../workflow-record-focus')return workflowFocus;
   if(name==='../../enterprise-lifecycle-write')return writes;
   if(name==='../../enterprise-reference-intake')return intake;
   if(name==='../../core-reference-write')return references;
@@ -63,5 +65,6 @@ export function fixture(module:'incidents'|'continuity'|'policy-lifecycle'|'thir
  };
  new Function('require','exports',compiled)(require,exports);
  const post=(body:Record<string,unknown>)=>(exports.POST as (req:unknown)=>Promise<{status:number;body:Record<string,unknown>}> )({headers:new Headers(),json:async()=>body});
- return{sqlite,db:db as unknown as D1Database,post,setActor:(value:Actor)=>{actor=value},before:(hook:()=>void)=>{beforeBatch=hook;}};
+ const get=(query='')=>(exports.GET as (req:unknown)=>Promise<{status:number;body:Record<string,unknown>}>)({headers:new Headers(),nextUrl:new URL('http://localhost/api/'+module+(query?'?'+query:''))});
+ return{sqlite,db:db as unknown as D1Database,post,get,setActor:(value:Actor)=>{actor=value},before:(hook:()=>void)=>{beforeBatch=hook;}};
 }

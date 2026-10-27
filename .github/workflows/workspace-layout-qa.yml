@@ -58,6 +58,16 @@ jobs:
         with:
           name: workflow-evidence-selection-preview
           path: workflow-evidence-selection-qa-artifacts/
+      - name: Workflow decision evidence usage and exact source recovery QA
+        timeout-minutes: 6
+        run: node scripts/workflow-evidence-usage-qa.mjs
+      - name: Preserve workflow evidence usage browser evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: workflow-evidence-usage-preview
+          path: workflow-evidence-usage-qa-artifacts/
+          if-no-files-found: warn
       - name: Register XLSX preview, validation and retry-safe import QA
         timeout-minutes: 6
         run: node scripts/register-import-qa.mjs
