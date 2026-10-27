@@ -9,8 +9,8 @@ import {policyDecisionAvailable,policyDecisionNames,policyDecisionPhrases,policy
 export default function PolicyDecisionDialog({kind,id,operation,tr,actor,close}:{kind:PolicyDecisionKind;id:string;operation:string;tr:boolean;actor:{role:string;email:string};close:(saved:boolean)=>void}) {
   const [context,setContext]=useState<PolicyDecisionContext|null>(null),[revision,setRevision]=useState(''),[loading,setLoading]=useState(true),[failed,setFailed]=useState(false),[blocked,setBlocked]=useState(false),[busy,setBusy]=useState(false),[notice,setNotice]=useState('');
   const [note,setNote]=useState(''),[confirmation,setConfirmation]=useState(''),[choice,setChoice]=useState({evidenceId:'',versionId:''});
-  const controller=useRef<AbortController|null>(null),closeRef=useRef(()=>{});
-  useEffect(()=>{closeRef.current=()=>{if(!busy)close(false)}},[close,busy]);
+  const controller=useRef<AbortController|null>(null),closeRef=useRef(()=>{}),firstRevision=useRef(''),changed=useRef(false);
+  useEffect(()=>{closeRef.current=()=>{if(!busy)close(changed.current)}},[close,busy]);
   const dismiss=useCallback(()=>closeRef.current(),[]),dialog=useRecordDialog(true,dismiss);
   const load=useCallback(async()=>{
     controller.current?.abort();const current=new AbortController();controller.current=current;setLoading(true);setFailed(false);
@@ -18,6 +18,8 @@ export default function PolicyDecisionDialog({kind,id,operation,tr,actor,close}:
       const {response,body}=await requestJsonWithDeadline(withBasePath('/api/policy-lifecycle?'+new URLSearchParams({view:'decision',kind,id})),{signal:current.signal,cache:'no-store'},fetch,10_000);
       if(!response.ok||body.kind!==kind||typeof body.revision!=='string'||!body.record||!body.policy||!body.version)throw new Error('source');
       if(current.signal.aborted||controller.current!==current)return;
+      if(firstRevision.current&&firstRevision.current!==body.revision)changed.current=true;
+      if(!firstRevision.current)firstRevision.current=String(body.revision);
       setContext(body as unknown as PolicyDecisionContext);setRevision(previous=>previous||String(body.revision));setBlocked(false);
     } catch {if(!current.signal.aborted&&controller.current===current)setFailed(true)}
     finally {if(!current.signal.aborted&&controller.current===current)setLoading(false)}
