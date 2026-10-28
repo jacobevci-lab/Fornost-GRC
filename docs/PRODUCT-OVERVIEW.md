@@ -12,6 +12,8 @@ Platform; güvenlik/GRC ekipleri, risk ve uyum sorumluları, iç denetçiler, ko
 
 ## Modül haritası
 
+Güvenlik olaylarında sahip ve müdahale yöneticisinin aktif işleri, bağımsız kapanış incelemesi ve gerçek kapanış tarihleri Benim İşlerim'den takip edilir. İş satırı mevcut olay kaydını açar; yeni görev kopyası oluşturmaz. [İşleyiş](incident-my-work.md).
+
 Menüler kullanıcı rolü ve modül izinlerine göre görünür. Aşağıdaki alanlar tam çalışma alanı kapsamını anlatır; kısıtlı modül erişimi bütün kurumsal iş akışlarını açmaz.
 
 | Alan | İşlev ve üretilen çıktı |

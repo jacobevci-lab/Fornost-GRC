@@ -67,6 +67,7 @@ Tekrarlayan dönem, sorumlu, doğrulayıcı ve kanıtla **operasyonel regülasyo
 
 - [Tedarikçi kararlarında bağlı kanıt](docs/tprm-connected-evidence.md): etkin sorumlu seçimi, dosya sürümüne sabit kararlar, kaynak değişikliğinde taslak koruma ve kanıttan ilgili işe dönüş.
 - [İşlerim'de süreklilik sorumlulukları](docs/continuity-my-work.md): plan onayı/etkinleştirme, gözden geçirme, tatbikat ve iyileştirme açıkları; doğrudan kaynak kayda geçiş ve gerçek kapanış tarihleri.
+- [İşlerim'de olay sorumlulukları](docs/incident-my-work.md): sahip ve müdahale yöneticisinin işleri, bağımsız kapanış incelemesi, doğrudan olay kaydına geçiş ve kapanış/yeniden açma sonrası güncel kuyruk.
 - [Periyodik plan incelemesi](docs/continuity-plan-review.md): plan ayrıntıları, atanmış bağımsız incelemeci kararı, sonraki inceleme tarihi ve değişmez plan kopyasıyla karar geçmişi.
 
 - [Ortak denetim şablon kütüphanesi](docs/audit-template-library.md): yönetici yayını, sürüm geçmişi, arşivleme ve denetimler arasında plan/görev/paket kullanımı.

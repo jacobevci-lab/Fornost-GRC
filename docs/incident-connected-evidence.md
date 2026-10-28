@@ -38,3 +38,8 @@ This source covers canonical decision pins, not general event bodies or old free
 - No new migration, email provider, reminder or automatic response action is required. On rollback preserve incident events and `workflow_evidence_pins`; older application code cannot display the new structured event detail correctly. Reinstall the current version to recover that presentation. Do not delete audit history to roll back UI behavior.
 
 Automated acceptance uses synthetic records in disposable loopback. Production rollout, customer SSO/mail/notification workflows, installation-specific restore drills and customer UAT remain separate checks.
+
+
+## Personal work queue
+
+Owners and commanders now reach active response work from My Work. At review, the assigned independent reviewer receives the closure handoff while response owners see waiting-for-review. Closed/reopened work follows actual state and closure time. [Assignments, dates and read bounds](incident-my-work.md).

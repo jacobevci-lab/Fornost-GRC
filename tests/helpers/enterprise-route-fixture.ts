@@ -1,3 +1,4 @@
+import * as incidentWork from '../../app/incidents/work-source';
 import * as incidentDecisions from '../../app/incidents/decision-store';
 import * as incidentDecisionDomain from '../../app/incidents/decisions';
 import * as policyDecisions from '../../app/policy-lifecycle/decision-store';
@@ -58,6 +59,7 @@ export function fixture(module:'incidents'|'continuity'|'policy-lifecycle'|'thir
   if(name==='../../incidents/decision-store')return incidentDecisions;
   if(name==='../../incidents/decisions')return incidentDecisionDomain;
   if(name==='../../incidents/domain')return incidents;
+  if(name==='../../incidents/work-source')return incidentWork;
   if(name==='../../continuity/domain')return continuity;
   if(name==='../../continuity/work-source')return continuityWork;
   if(name==='../../continuity/plan')return continuityPlan;

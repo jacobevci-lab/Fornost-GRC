@@ -27,4 +27,5 @@ export const WORK_MODULE_LABELS: Record<string, { tr: string; en: string }> = {
   "Politika Merkezi": { tr: "Politika", en: "Policy" },
   "Regülasyon Merkezi": { tr: "Regülasyon", en: "Regulatory" },
   "İş Sürekliliği": { tr: "Süreklilik", en: "Continuity" },
+  "Güvenlik Olayları": { tr: "Olay", en: "Incident" },
 };

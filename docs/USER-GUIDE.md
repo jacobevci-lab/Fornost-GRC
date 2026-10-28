@@ -10,6 +10,8 @@ Kurumunuzun HTTPS adresini açıp hesabınızla giriş yapın. Yerel oturum vars
 
 Ana Sayfa genel durumu, **Benim İşlerim / My Work** size atanmış hazırlık ve incelemeleri gösterir. Dil seçimi TR/EN'dir. Sol menü geniş/ikon/gizli görünümde kullanılabilir; küçük ekranlarda menü düğmesiyle açılır.
 
+**İş kuyruğu modülü → Olay** ile güvenlik olayı sorumluluklarınızı süzebilirsiniz. Sahip ve olay yöneticisi müdahale aşamalarını görür; olay incelemeye gönderildiğinde atanmış bağımsız incelemecinin kuyruğuna gelir. Sahip/yönetici için **Başkalarında bekleyen** olarak görünür. Satırı açınca tam olay ve mevcut karar ekranına geçilir. Kapatılan olay gerçek kapanış tarihiyle son 30 gündeki tamamlananlara geçer; yeniden açılınca aktif işe döner. Kritik/yüksek olaylar **Öncelik** filtresindedir; tespit tarihi termin sayılmaz. [Atamalar ve sınırlar](incident-my-work.md).
+
 Eksik menü için yöneticiye başvurun. Paylaşılan bir kayıt bağlantısına sahip olmak ilgili modülü okuma yetkisi vermez.
 
 ## 2. Kayıt bulma, oluşturma ve paylaşma

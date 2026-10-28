@@ -1,3 +1,4 @@
+import {readIncidentWork} from "../../incidents/work-source";
 import {prepareWorkflowSelection,joinWorkflowGuards,workflowPinStatement,WorkflowSelectionError} from "../../workflow-selection-store";
 import {readIncidentDecision,readIncidentHistory,prepareIncidentDecision,IncidentDecisionError} from "../../incidents/decision-store";
 import {incidentDecisionDetail,incidentEvidenceOperations} from "../../incidents/decisions";
@@ -25,6 +26,10 @@ export async function GET(req:NextRequest){
  const focus=parseWorkflowRecordFocus(req.nextUrl.searchParams,"incidents");if(focus===false)return json({code:"INCIDENT_DECISION_INPUT"},400);
  const env=await runtime();await ready(env.DB);
  const view=req.nextUrl.searchParams.get("view");
+ if(view==="work"){
+  if(req.nextUrl.searchParams.getAll("view").length!==1||req.nextUrl.searchParams.has("format"))return json({code:"INCIDENT_DECISION_INPUT"},400);
+  try{return json(await readIncidentWork(env.DB));}catch{return json({code:"INCIDENT_SOURCE_UNAVAILABLE"},503);}
+ }
  if(view==="decision"||view==="history"){
   if(req.nextUrl.searchParams.getAll("incidentId").length!==1||req.nextUrl.searchParams.getAll("cursor").length>1)return json({code:"INCIDENT_DECISION_INPUT"},400);
   try{return json(view==="decision"?await readIncidentDecision(env.DB,req.nextUrl.searchParams.get("incidentId")):await readIncidentHistory(env.DB,req.nextUrl.searchParams.get("incidentId"),req.nextUrl.searchParams.get("cursor")));}

@@ -1,9 +1,11 @@
 import { requestNextDue, type AuditRequest } from './audit-requests';
+import { INCIDENT_STATUSES, INCIDENT_SEVERITIES } from './incidents/domain';
 export const enterpriseWorkSources = [
   { key: 'policy', path: '/api/policy-lifecycle' },
   { key: 'vendor', path: '/api/third-party-risk' },
   { key: 'regulatory', path: '/api/regulatory-intelligence' },
   { key: 'continuity', path: '/api/continuity?view=work' },
+  { key: 'incidents', path: '/api/incidents?view=work' },
   { key: 'audit', path: '/api/audits/requests' },
 ] as const;
 export type EnterpriseWorkSource = typeof enterpriseWorkSources[number]['key'];
@@ -49,6 +51,7 @@ const limits: Record<EnterpriseWorkSource, Record<string, number>> = {
   vendor: { profiles: 1000, assessments: 2000, findings: 3000 },
   regulatory: { changes: 1000, impacts: 2000 },
   continuity: { plans: 2000, exercises: 2000, gaps: 2000 },
+  incidents: { incidents: 2000 },
   audit: { requests: 1000 },
 };
 
@@ -62,10 +65,11 @@ export function projectEnterpriseWork(source: EnterpriseWorkSource, payload: unk
     const idKey = key === 'profiles' ? 'vendorId' : 'id';
     if (!Array.isArray(raw)) { complete = false; collections[key] = []; continue; }
     const valid = raw.filter((item): item is RecordData => object(item) && !!text(item[idKey]) && !!text(item.status));
-    if ((source === 'continuity' ? raw.length > limit : raw.length >= limit) || valid.length !== raw.length || new Set(valid.map(item => text(item[idKey]))).size !== valid.length) complete = false;
+    if ((source === 'continuity' || source === 'incidents' ? raw.length > limit : raw.length >= limit) || valid.length !== raw.length || new Set(valid.map(item => text(item[idKey]))).size !== valid.length) complete = false;
     const counts = new Map<string, number>();
     for (const item of valid) counts.set(text(item[idKey]), (counts.get(text(item[idKey])) || 0) + 1);
-    collections[key] = valid.filter(item => counts.get(text(item[idKey])) === 1);
+    const unique = valid.filter(item => counts.get(text(item[idKey])) === 1);
+    collections[key] = source === 'incidents' ? unique.slice(0, limit) : unique;
   }
   const rows: EnterpriseWorkRow[] = [];
   const add = (kind: string, item: RecordData, data: RecordData, closed: boolean) => {
@@ -73,7 +77,7 @@ export function projectEnterpriseWork(source: EnterpriseWorkSource, payload: unk
     rows.push({ id: `work:${source}:${kind}:${id}`, code: text(data.code) || id, module: enterpriseWorkKinds[kind].module,
       workSource: source, workKind: kind, nativeRef: id, data: { ...data, status: text(item.status), workClosed: closed },
       updatedAt: text(item.updatedAt || item.attestedAt), createdAt: text(item.createdAt || item.detectedAt),
-      ...(source === 'continuity' ? { completedAt: text(item.completedAt) } : {}) });
+      ...(source === 'continuity' || source === 'incidents' ? { completedAt: text(item.completedAt) } : {}) });
   };
   const parent = (items: RecordData[], field: string, value: unknown) => {
     const found = items.filter(item => text(item[field]) === text(value));
@@ -153,6 +157,24 @@ export function projectEnterpriseWork(source: EnterpriseWorkSource, payload: unk
     for (const f of findings) {
       const p = parent(profiles, 'vendorId', f.vendorId); if (!p) continue;
       add('vendor-finding', f, { title: f.title, owner: f.owner, reviewer: f.status === 'verification' ? p.reviewer : '', dueDate: f.dueDate, severity: f.severity }, f.status === 'closed');
+    }
+  } else if (source === 'incidents') {
+    if (payload.complete !== true) complete = false;
+    const email = (value: unknown) => /^[^\s@;,|<>]+@[^\s@;,|<>]+\.[^\s@;,|<>]+$/.test(text(value));
+    const timestamp = (value: unknown) => /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?Z$/.test(text(value))
+      && Number.isFinite(Date.parse(text(value))) && new Date(text(value)).toISOString().slice(0, 10) === text(value).slice(0, 10);
+    for (const item of collections.incidents) {
+      const status = text(item.status), identities = [item.owner, item.commander, item.reviewer];
+      if (!text(item.title) || !text(item.code) || !INCIDENT_STATUSES.some(s => s === status)
+        || !INCIDENT_SEVERITIES.some(s => s === item.severity) || !identities.every(email)
+        || new Set(identities.map(value => text(value).toLowerCase())).size !== 3
+        || !timestamp(item.createdAt) || !timestamp(item.updatedAt)
+        || (item.completedAt != null && item.completedAt !== '' && (!timestamp(item.completedAt) || status !== 'closed'))) {
+        complete = false; continue;
+      }
+      add('incident', item, { title: item.title, code: item.code, owner: item.owner, actionOwner: item.commander,
+        reviewer: ['review', 'closed'].includes(status) ? item.reviewer : '', severity: item.severity,
+        workWaitingForReview: status === 'review' }, status === 'closed');
     }
   } else if (source === 'continuity') {
     if (payload.complete !== true) complete = false;
