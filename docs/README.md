@@ -58,3 +58,5 @@ Yeni bir özelliğin API, izin, durum geçişi veya limitleri değiştiğinde il
 - [Bağlı politika kararları](policy-connected-evidence.md): kullanıcı ve dosya sürümü seçimi, güncel karar bağlamı, korunmuş karar kanıtları ve kaynağa dönüş.
 
 - [Bağlı CAPA kararları](capa-connected-evidence.md): etkin kullanıcı ataması, güncel bulgu/plan incelemesi, ayrı gönderim/kapanış/risk kabulü kanıtları ve kaynağa dönüş.
+
+- [Bağlı olay kararları](incident-connected-evidence.md): ekip seçimi, sürümlü müdahale kanıtları, bağımsız kapanış, karar geçmişi ve hata sonrası kurtarma.

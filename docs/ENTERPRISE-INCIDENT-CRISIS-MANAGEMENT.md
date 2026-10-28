@@ -4,9 +4,9 @@ Fornost Güvenlik Olayları ve Kriz Merkezi, kurumsal güvenlik olaylarını ila
 
 ## Yaşam döngüsü
 
-1. Olay `declared` durumunda kaydedilir; olay sahibi, incident commander ve bağımsız reviewer birbirinden farklı olmalıdır.
+1. Etkin kullanıcı dizininden seçilen ekip ile olay `declared` durumunda kaydedilir; olay sahibi, incident commander ve bağımsız reviewer birbirinden farklı olmalıdır.
 2. Akış `triage → contained → eradicated → recovered → review → closed` sırasını izler. Aşamalar atlanamaz.
-3. Containment sonrasındaki operasyonel geçişler kanıt referansı ve SHA-256 özeti gerektirir.
+3. Kontrol altına alma, tehdidi giderme, geri yükleme, inceleme ve kapanış kararlarında kanıt kütüphanesinden gerçek dosya sürümü seçilir; referans ve hash sunucuda türetilir. Eski API istemcilerinin metin/hash sözleşmesi korunur.
 4. Post-incident review; kök neden, çıkarılan dersler ve KVKK/GDPR bildirim kararını zorunlu kılar.
 5. Kapanış yalnız atanmış bağımsız Admin reviewer tarafından yapılabilir. Olayı ilan eden, olay sahibi veya incident commander aynı kaydı kapatamaz.
 6. Kapalı olay yalnız Admin tarafından yeniden açılabilir ve tekrar sayacı artırılır.
@@ -29,3 +29,5 @@ Sistem response ve recovery ihlallerini canlı olarak sınıflandırır; kritik 
 - Veri sınıfı ve kişisel veri etkisi kaydedilir.
 - Admin CSV çıktısı spreadsheet formula injection saldırılarına karşı güvenlidir.
 - Tüm geçişler aktör, zaman, önceki/yeni durum, açıklama ve kanıt özetiyle değişmez olay geçmişine yazılır.
+
+Olaya özel geçmiş, karar anındaki olay bilgilerini ve her olayın kendi kanıt sürümünü korur. Hatalarda taslak kurtarma, aynı ilan formunun güvenli tekrar gönderimi ve Kanıt Kullanımı üzerinden tam kaynağa dönüş için [bağlı olay kararları](incident-connected-evidence.md) rehberine bakın.

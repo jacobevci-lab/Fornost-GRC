@@ -95,7 +95,7 @@ export async function readEvidenceUsage(db: D1Database, actor: AccessSubject, id
     result.rows.push(...decisions.rows);
     return rows.results.length <= 1000&&decisions.complete;
   });
-  for(const workflow of ['continuity','regulatory','tprm','policy'] as const) {
+  for(const workflow of ['continuity','regulatory','tprm','policy','incidents'] as const) {
     await source(workflow, !isScoped(actor), 200, async()=>{
       const decisions=await readWorkflowUsage(db,workflow,evidence);
       result.rows.push(...decisions.rows);

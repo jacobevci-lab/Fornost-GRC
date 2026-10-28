@@ -8,6 +8,7 @@ export function fixture() {
     CREATE TABLE audit_closure_state(audit_id TEXT PRIMARY KEY,state TEXT);
     CREATE TABLE audit_requests(id TEXT PRIMARY KEY,audit_id TEXT,data_json TEXT,updated_at TEXT);
     CREATE TABLE audit_workpapers(id TEXT PRIMARY KEY,audit_id TEXT,data_json TEXT,updated_at TEXT);
+    CREATE TABLE enterprise_incidents(id TEXT PRIMARY KEY,code TEXT,title TEXT,owner TEXT,status TEXT);
     CREATE TABLE enterprise_findings(id TEXT PRIMARY KEY,code TEXT,title TEXT,owner TEXT,status TEXT,due_date TEXT,evidence_reference TEXT,verification_evidence_reference TEXT,updated_at TEXT);
     CREATE TABLE workflow_evidence_pins(id TEXT PRIMARY KEY,workflow TEXT,entity_id TEXT,purpose TEXT,snapshot_json TEXT,actor TEXT,created_at TEXT);
     CREATE TABLE enterprise_continuity_plans(id TEXT PRIMARY KEY,name TEXT);

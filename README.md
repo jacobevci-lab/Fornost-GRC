@@ -126,3 +126,5 @@ Politika kabul kampanyalarında Admin, bağlı politika sürümünü ve kabul/re
 Politika kararlarında kütüphaneden gerçek dosya sürümü, sorumlu/incelemeci atamalarında etkin kullanıcı seçilebilir. Karar bağlamı, ayrı gönderim/onay/yayın/istisna/kaldırma kanıtları ve Kanıt Kullanımı üzerinden kaynağa dönüş korunur. [Bağlı politika kararları](docs/policy-connected-evidence.md).
 
 CAPA atamalarında etkin kullanıcılar, gönderim/kapanış/risk kabulünde kütüphanedeki gerçek dosya sürümleri seçilebilir. Güncel bulgu ve plan incelemesi, hata sonrası taslak kurtarma, ayrı karar kanıtları ve Kanıt Kullanımı üzerinden bulguya dönüş korunur. [Bağlı CAPA kararları](docs/capa-connected-evidence.md).
+
+Güvenlik Olayları artık etkin ekip seçimi, kütüphaneden kanıt sürümü ve olaya özel karar geçmişiyle ilerler. Bağlantı kesintisinde taslaklar korunur; aynı ilan formunun tekrar gönderilmesi kayıt çoğaltmaz. [Bağlı olay kararları](docs/incident-connected-evidence.md).
