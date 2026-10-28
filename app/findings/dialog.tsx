@@ -12,7 +12,10 @@ export default function FindingDialog({label,busy=false,onClose,dismissOnBackdro
   // Keep sequential keyboard navigation in the current, topmost CAPA dialog.
   const keydown=(event:KeyboardEvent)=>{
    if(!dialog||event.defaultPrevented||event.isComposing||event.key!=='Tab'||Array.from(document.querySelectorAll('dialog[open]')).at(-1)!==dialog)return;
-   const controls=Array.from(dialog.querySelectorAll<HTMLElement>('button,input,select,textarea,a[href],summary,[tabindex]')).filter(node=>node.tabIndex>=0&&!node.matches(':disabled,input[type="hidden"]')&&node.getClientRects().length>0);
+   // The shared accessibility layer also makes overflowing form containers
+   // tabbable. Their child controls already provide scrolling access, so wrap
+   // between actual controls rather than landing on the form container.
+   const controls=Array.from(dialog.querySelectorAll<HTMLElement>('button,input,select,textarea,a[href],summary,[tabindex]:not(form)')).filter(node=>node.tabIndex>=0&&!node.matches(':disabled,input[type="hidden"]')&&node.getClientRects().length>0);
    const first=controls[0],last=controls.at(-1);
    if(!first){event.preventDefault();dialog.focus();return;}
    if(event.shiftKey&&(document.activeElement===first||!dialog.contains(document.activeElement))){event.preventDefault();last?.focus();}
