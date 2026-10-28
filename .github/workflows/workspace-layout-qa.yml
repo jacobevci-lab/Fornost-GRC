@@ -58,6 +58,15 @@ jobs:
         with:
           name: workflow-evidence-selection-preview
           path: workflow-evidence-selection-qa-artifacts/
+      - name: Policy campaign directory selection, preview and safe issuance QA
+        timeout-minutes: 7
+        run: node scripts/policy-campaign-issuance-qa.mjs
+      - name: Preserve campaign issuance browser evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: policy-campaign-issuance-preview
+          path: policy-campaign-issuance-qa-artifacts/
       - name: Assigned policy reading, response and recovery QA
         timeout-minutes: 6
         run: node scripts/policy-attestation-response-qa.mjs

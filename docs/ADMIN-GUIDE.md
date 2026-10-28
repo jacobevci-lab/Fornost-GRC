@@ -245,6 +245,10 @@ TPRM, mevcut etkin kullanıcı dizinini ve sürümlü kanıt kütüphanesini kul
 
 Tam erişimli Viewer geçmişi okuyabilir; sınırlı çekirdek modül yetkisi TPRM kurumsal çalışma alanına veya karar kaynaklarına erişim vermez. Kanıt kullanımında bu kaynak **Yetki kapsamı dışında** görünür. Karar ekranı son 6.000 pini, kanıt kullanım kaynağı son 200 eşleşen kararı gösterir; sınır aşımı açıkça belirtilir. Eski serbest referans/hash API çağrıları kanonik pin kazanmaz. Geri alma pinleri silmemelidir. [Operasyon ve doğrulama](tprm-connected-evidence.md).
 
+### Politika kampanyası açılışı
+
+Yeni arayüz yalnız etkin Admin ile dizinden 1–500 etkin ve tam erişimli hesap seçerek kampanya açar; Admin/Editor/Viewer katılımcılar desteklenir. Önizleme güncel yayımlanmış politika ve seçilen hesaplarla bağlıdır. İşlem, tam kaynak ve canlı hesap kontrollerini kampanya/katılımcı/olay yazımlarıyla atomik uygular. Aynı oluşturma kimliği bağlantı kesilmesinde ikinci kampanya açmaz. Yeni veri göçü gerekmez; geri almada oluşturma olaylarını ve görevleri koruyun. Eski manuel e-posta API çağrıları uyumluluk için sürer ve yeni doğrulama güvencesi taşımaz. [Yetki, API ve operasyon sınırları](policy-campaign-issuance.md).
+
 ### Politika kampanya kapanışı
 
 Kampanya sonuçları ve kapatma yalnız Admin içindir; mevcut kurumsal modül erişimi korunur. Kapanış, güncel hesap ve kaynak/yanıt durumuyla aynı işlemde gerekçeli olay kaydı yazar. Katılımcı kararlarını değiştirmez veya bağımsız politika onayını ikame etmez. Açık kampanya engeli kalktıktan sonra diğer engeller ve atanmış incelemecinin politika kaldırma yetkisi geçerlidir.
