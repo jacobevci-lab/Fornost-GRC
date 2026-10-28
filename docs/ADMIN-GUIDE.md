@@ -272,3 +272,7 @@ Full-access readers may inspect exact incident history and usage; scoped core gr
 ## Policy periodic review
 
 Apply `0099_policy_periodic_reviews.sql` for immutable periodic-review history. The assigned active Admin must be independent of the policy owner/creator and current-version author/submitter. Review dates cannot exceed the configured frequency from today; pending controlled versions block suitability renewal. The atomic SQL claim checks the full source, live account and absence of pending revisions. Retain history and saved dates on application rollback. No notification or content approval configuration is added. [Operation, recovery and API](policy-periodic-review.md).
+
+## Assigned policy responses
+
+Apply `0100_policy_attestation_receipts.sql` for immutable reviewed-response receipts. Only the assigned active full-access subject can read the response workspace or answer; Admin campaign inspection does not confer proxy response rights. Reviewed writes atomically bind the entire issued source and live account, then update the canonical attestation and retain its receipt/event. Campaign counts and My Work continue to use that attestation. Keep receipts and saved responses during rollback. Legacy API answers remain supported and explicitly have no reviewed snapshot. [Operation, recovery and API](policy-attestation-response.md).

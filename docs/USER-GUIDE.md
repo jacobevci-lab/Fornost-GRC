@@ -342,3 +342,7 @@ Karar çakışırsa açıklama, kök neden/dersler, bildirim gerekçesi ve kanı
 ## Yayımlanmış politikayı periyodik inceleme
 
 İşlerim veya Politika Merkezi → Politika Envanteri → Aç üzerinden **Periyodik inceleme ve geçmiş** bölümünü açın. Atanmış bağımsız Admin, yayımlanmış içeriği inceleyip geçerliliğinin neden devam ettiğini ve sonraki tarihi kaydedebilir. Tarih bugünden ve mevcut tarihten sonra, tanımlı inceleme sıklığı sınırında olmalıdır. Yeni sürüm hazırlanıyorsa önce onun kontrollü sürecini tamamlayın. İncelenen metin, sürüm ve tarih değişikliği geçmişte korunur; İşlerim kaydedilen tarihi kullanır. Çakışmada taslak korunur; bağlamı yenileyip yeniden onaylayın. [Adımlar ve sınırlar](policy-periodic-review.md).
+
+## Atanmış politika sürümünü okuyup yanıt verme
+
+İşlerim'deki **Politika kabulü** görevinden veya Politika Merkezi → Attestation bölümündeki kendi satırınızdan **Kabul / Reddet** seçin. Kampanyaya atanmış sürümün tam metnini, özetini, eşlemelerini ve içerik özetini inceleyin. Karar notunu yazın, okuduğunuzu ve kararınızı doğrulayın, **Yanıtı kaydet** seçin. Daha yeni sürüm yayımlanmış olsa da yanıtınız kampanyanın atanmış sürümüne bağlıdır. **Yanıtı görüntüle** kaydedilmiş kararınızı ve o sırada incelenen kopyayı açar. Çakışmada not korunur; ayrıntıları yenileyip güncel bağlamı yeniden onaylayın. Bağlantı sonucu alınamazsa aynı yanıtı tekrar deneyebilir veya yenileyerek saklanan sonucu görebilirsiniz. [Adımlar ve sınırlar](policy-attestation-response.md).
