@@ -128,6 +128,16 @@ jobs:
           name: capa-connected-evidence-preview
           path: capa-connected-evidence-qa-artifacts/
           if-no-files-found: ignore
+      - name: Incident directory, response evidence and independent closure QA
+        timeout-minutes: 6
+        run: node scripts/incident-connected-evidence-qa.mjs
+      - name: Preserve incident connected evidence browser evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: incident-connected-evidence-preview
+          path: incident-connected-evidence-qa-artifacts/
+          if-no-files-found: ignore
       - name: Register XLSX preview, validation and retry-safe import QA
         timeout-minutes: 6
         run: node scripts/register-import-qa.mjs

@@ -330,3 +330,9 @@ Karar bağlamını ve politika içeriğini inceleyin. Kaynak değiştiğinde not
 **Bulgular ve CAPA → Yeni bulgu** içinde aksiyon sahibini etkin kullanıcılardan seçin. Bağımsız doğrulayıcı, kaydı açan ve aksiyon sahibi dışında bir Admin olmalıdır. **Doğrulamaya gönder**, **Doğrula ve kapat** ve **Riski kabul et** işlemlerinde güncel bulgu/aksiyon planını inceleyin; kütüphaneden kanıtı ve dosya sürümünü seçin. Hash yazmanız gerekmez. Risk kabulü ayrıca gerekçe ve en fazla 180 günlük bitiş tarihi ister.
 
 Hata veya başka kullanıcının değişikliği sırasında not ve dosya seçimi korunur. **Karar bağlamını yenile → Güncel bağlamı kullan** ile güncel planı kabul edin ve onay ifadesini tekrar girin. Yanıt kaybolursa önce bağlamı yenileyin; tamamlanmış karar tekrar uygulanamaz. Pencereyi kapatmak kaydedilmemiş taslağı bırakır. İşlem geçmişindeki **Korunan karar kanıtı** dosya sürümüne; **Kanıt Kullanımı → Bulgular ve CAPA** ilgili bulguya götürür. Tespit/kaynak kanıtı, düzeltme kanıtının yerine geçmez. [Akış ve sınırlar](capa-connected-evidence.md).
+
+## Olay müdahalesi ve korunan kanıtlar
+
+Güvenlik Olayları ekranında olay sahibi, farklı bir olay yöneticisi ve bağımsız Admin inceleyeni dizinden seçin. Müdahale, tehdidi giderme, hizmeti geri yükleme, inceleme ve kapanışta kanıt kütüphanesinden gerçek dosya sürümünü kullanın. Her kararın kanıtı ve incelenen olay bilgileri olay ayrıntısındaki geçmişte korunur. Kanıt Kullanımı → Olay kararları bağlantısı aynı olaya döner.
+
+Karar çakışırsa açıklama, kök neden/dersler, bildirim gerekçesi ve kanıt seçimi korunur. Bağlamı yenileyip değişiklikleri inceleyin; güncel bağlamı benimsedikten sonra onayı yeniden girin. Yanıtı kaybolan aynı ilan formu tekrar gönderildiğinde mükerrer kayıt oluşmaz. Bildirim kararı kaydı dışarıya bildirim göndermez. [Adımlar, roller ve sınırlar](incident-connected-evidence.md).

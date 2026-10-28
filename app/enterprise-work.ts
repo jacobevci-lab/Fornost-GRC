@@ -24,6 +24,7 @@ export type EnterpriseWorkRow = {
   data: RecordData; updatedAt?: string; createdAt?: string; completedAt?: string;
 };
 export const enterpriseWorkKinds: Record<string, { module: string; tab: string; tr: string; en: string }> = {
+  'incident': { module: 'Güvenlik Olayları', tab: 'all', tr: 'Güvenlik olayı', en: 'Security incident' },
   'continuity-plan': { module: 'İş Sürekliliği', tab: 'plans', tr: 'Süreklilik planı', en: 'Continuity plan' },
   'continuity-exercise': { module: 'İş Sürekliliği', tab: 'exercises', tr: 'Süreklilik tatbikatı', en: 'Continuity exercise' },
   'continuity-gap': { module: 'İş Sürekliliği', tab: 'gaps', tr: 'İyileştirme açığı', en: 'Improvement gap' },

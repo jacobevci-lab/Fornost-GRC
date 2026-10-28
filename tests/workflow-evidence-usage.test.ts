@@ -15,6 +15,18 @@ function setup() {
  const pin=(id:string,workflow:string,entity:string,purpose:string,version='v1',extra:Record<string,unknown>={})=>f.sql.prepare('INSERT INTO workflow_evidence_pins VALUES(?,?,?,?,?,?,?)').run(id,workflow,entity,purpose,JSON.stringify({evidenceId:'EVD-1',id:version,versionNo:version==='v2'?2:1,contentSha256:version==='v2'?'hash2':'hash1',fileKey:'private-storage-key',...extra}),'reviewer@example.test','2026-10-27T08:00:00.000Z');
  return {...f,pin};
 }
+test('incident decisions retain five purposes, exact historical targets and explicit bounded, missing and restricted coverage',async()=>{
+ const f=setup();try{
+  f.sql.exec("INSERT INTO enterprise_incidents VALUES('INC-1','INC-100','Identity compromise','owner','triage')");
+  for(const purpose of ['incident-contain','incident-eradicate','incident-recover','incident-review','incident-close'])f.pin(purpose,'incidents','INC-1',purpose);
+  let result=await readEvidenceUsage(f.db,{role:'Viewer'},'EVD-1');const rows=result.rows.filter(r=>r.source==='incidents');assert.equal(rows.length,5);
+  assert.ok(rows.every(r=>r.historical&&r.decision?.sourceAvailable&&r.pins[0].state==='older'&&!usageNeedsReview(r)&&r.status==='triage'&&r.dueDate===''));
+  for(const row of rows)assert.deepEqual(row.target,{module:'Güvenlik Olayları',kind:'incident',ref:'INC-1',source:'evidence-usage'});
+  f.sql.exec('DELETE FROM enterprise_incidents');result=await readEvidenceUsage(f.db,{role:'Viewer'},'EVD-1');assert.equal(result.sources.find(s=>s.key==='incidents')!.state,'limited');assert.ok(result.rows.filter(r=>r.source==='incidents').every(r=>!r.decision?.sourceAvailable));
+  f.queries.length=0;const scoped=await readEvidenceUsage(f.db,{role:'Viewer',moduleAccess:{mode:'scoped',modules:{Kanıtlar:'read'}}},'EVD-1');assert.equal(scoped.sources.find(s=>s.key==='incidents')!.state,'restricted');assert.ok(f.queries.every(q=>!q.includes('enterprise_incidents')));
+  for(let i=0;i<201;i++)f.pin('extra-incident-'+i,'incidents','INC-1','incident-close');result=await readEvidenceUsage(f.db,{role:'Admin'},'EVD-1');assert.equal(result.rows.filter(r=>r.source==='incidents').length,200);assert.equal(result.sources.find(s=>s.key==='incidents')!.state,'limited');
+ }finally{f.sql.close();}
+});
 test('CAPA usage separates mutable references from historical decisions, exact navigation and bounded source coverage',async()=>{
  const f=setup();try{
   f.sql.exec("INSERT INTO enterprise_findings VALUES('FND-1','FND-100','Access remediation','owner','in-progress','2027-01-01','EVD-1','EVD-1','2026-10-28')");

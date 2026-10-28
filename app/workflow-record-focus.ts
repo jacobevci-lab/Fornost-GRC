@@ -1,6 +1,6 @@
-type Workflow='continuity'|'regulatory'|'tprm'|'policy';
+type Workflow='continuity'|'regulatory'|'tprm'|'policy'|'incidents';
 export type WorkflowRecordFocus={kind:string;ref:string};
-const kinds={policy:['policy-review','policy-version','policy-exception','policy-attestation'],tprm:['vendor-review','vendor-assessment','vendor-finding'],continuity:['continuity-plan','continuity-exercise','continuity-gap'],regulatory:['regulatory-change','regulatory-impact']};
+const kinds={incidents:['incident'],policy:['policy-review','policy-version','policy-exception','policy-attestation'],tprm:['vendor-review','vendor-assessment','vendor-finding'],continuity:['continuity-plan','continuity-exercise','continuity-gap'],regulatory:['regulatory-change','regulatory-impact']};
 /** false means malformed; null means an ordinary unfocused list request. */
 export function parseWorkflowRecordFocus(params:URLSearchParams,workflow:Workflow):WorkflowRecordFocus|null|false {
   if(!params.has('focusKind')&&!params.has('focusId'))return null;

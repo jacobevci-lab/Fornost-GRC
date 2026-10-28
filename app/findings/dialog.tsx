@@ -1,15 +1,15 @@
 'use client';
 import {useEffect,useRef,type ReactNode} from 'react';
 
-/** Native modal semantics keep keyboard focus in the topmost CAPA dialog. */
-export default function FindingDialog({label,busy=false,onClose,dismissOnBackdrop=false,children}:{label:string;busy?:boolean;onClose:()=>void;dismissOnBackdrop?:boolean;children:ReactNode}){
+/** Native modal semantics keep keyboard focus in the topmost workflow dialog. */
+export default function FindingDialog({label,busy=false,onClose,dismissOnBackdrop=false,className="finding-overlay",children}:{label:string;busy?:boolean;onClose:()=>void;dismissOnBackdrop?:boolean;className?:string;children:ReactNode}){
  const ref=useRef<HTMLDialogElement>(null);
  useEffect(()=>{
   const dialog=ref.current;
   const previous=document.activeElement instanceof HTMLElement?document.activeElement:null;
   dialog?.showModal();
   // Native dialogs can move Tab focus into browser chrome at the last control.
-  // Keep sequential keyboard navigation in the current, topmost CAPA dialog.
+  // Keep sequential keyboard navigation in the current, topmost workflow dialog.
   const keydown=(event:KeyboardEvent)=>{
    if(!dialog||event.defaultPrevented||event.isComposing||event.key!=='Tab'||Array.from(document.querySelectorAll('dialog[open]')).at(-1)!==dialog)return;
    // The shared accessibility layer also makes overflowing form containers
@@ -30,5 +30,5 @@ export default function FindingDialog({label,busy=false,onClose,dismissOnBackdro
    });
   };
  },[]);
- return <dialog ref={ref} className="finding-overlay" tabIndex={-1} aria-label={label} aria-busy={busy} onCancel={event=>{event.preventDefault();if(!busy)onClose();}} onClick={event=>{if(dismissOnBackdrop&&!busy&&event.target===event.currentTarget)onClose();}}>{children}</dialog>;
+ return <dialog ref={ref} className={className} tabIndex={-1} aria-label={label} aria-busy={busy} onCancel={event=>{event.preventDefault();if(!busy)onClose();}} onClick={event=>{if(dismissOnBackdrop&&!busy&&event.target===event.currentTarget)onClose();}}>{children}</dialog>;
 }
