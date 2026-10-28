@@ -7,6 +7,7 @@ import * as workflowFocus from '../../app/workflow-record-focus';
 import * as workflowSelections from '../../app/workflow-selection-store';
 import type {Actor} from '../../app/api/auth/security';
 import * as findingDomain from '../../app/findings/domain';
+import * as findingDecisions from '../../app/findings/decision-store';
 import * as findingIntake from '../../app/findings/intake-store';
 import * as findingTransition from '../../app/findings/transition-store';
 import * as findingExport from '../../app/findings/export';
@@ -65,6 +66,7 @@ export function fixture(module:'incidents'|'continuity'|'policy-lifecycle'|'thir
   if(name==='../../risk-methodology')return riskMethodology;
   if(name==='../../regulatory-intelligence/domain')return regulatory;
   if(name==='../../findings/domain')return findingDomain;
+  if(name==='../../findings/decision-store')return findingDecisions;
   if(name==='../../findings/intake-store')return findingIntake;
   if(name==='../../findings/transition-store')return findingTransition;
   if(name==='../../findings/export')return findingExport;

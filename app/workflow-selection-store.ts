@@ -96,10 +96,10 @@ export async function prepareWorkflowSelection(env:SelectionEnv,actor:Actor,inpu
   body.evidenceReference=selected.evidence_id;body.evidenceSha256=selected.content_sha256;
   return {body,guard:joinWorkflowGuards(guard,evidenceGuard,fileGuard),evidence:publicEvidenceVersion(selected)};
 }
-export function workflowPinStatement(db:D1Database,selection:Prepared,workflow:'continuity'|'regulatory'|'tprm'|'policy',entityId:string,purpose:string,eventId:string,actor:string) {
+export function workflowPinStatement(db:D1Database,selection:Prepared,workflow:'continuity'|'regulatory'|'tprm'|'policy'|'findings',entityId:string,purpose:string,eventId:string,actor:string) {
   return selection.evidence?[lifecycleInsert(db,'workflow_evidence_pins',{id:crypto.randomUUID(),event_id:eventId,workflow,entity_id:entityId,purpose,snapshot_json:JSON.stringify(selection.evidence),actor,created_at:new Date().toISOString()})]:[];
 }
-export async function readWorkflowEvidencePins(db:D1Database,workflow:'continuity'|'regulatory'|'tprm'|'policy',entityIds:string[],limit=6000):Promise<WorkflowEvidencePin[]> {
+export async function readWorkflowEvidencePins(db:D1Database,workflow:'continuity'|'regulatory'|'tprm'|'policy'|'findings',entityIds:string[],limit=6000):Promise<WorkflowEvidencePin[]> {
   await ensureWorkflowEvidenceSchema(db);
   const rows=await db.prepare(`SELECT p.* FROM workflow_evidence_pins p WHERE p.workflow=? AND p.entity_id IN (SELECT value FROM json_each(?)) AND NOT EXISTS (SELECT 1 FROM workflow_evidence_pins n WHERE n.workflow=p.workflow AND n.entity_id=p.entity_id AND n.purpose=p.purpose AND (n.created_at>p.created_at OR (n.created_at=p.created_at AND n.id>p.id))) ORDER BY p.created_at DESC LIMIT ?`).bind(workflow,JSON.stringify(entityIds),limit).all<{id:string;event_id:string;entity_id:string;purpose:string;snapshot_json:string;actor:string;created_at:string}>();
   return rows.results.map(r=>({id:r.id,eventId:r.event_id,entityId:r.entity_id,purpose:r.purpose,evidence:JSON.parse(r.snapshot_json),actor:r.actor,createdAt:r.created_at}));

@@ -15,6 +15,18 @@ function setup() {
  const pin=(id:string,workflow:string,entity:string,purpose:string,version='v1',extra:Record<string,unknown>={})=>f.sql.prepare('INSERT INTO workflow_evidence_pins VALUES(?,?,?,?,?,?,?)').run(id,workflow,entity,purpose,JSON.stringify({evidenceId:'EVD-1',id:version,versionNo:version==='v2'?2:1,contentSha256:version==='v2'?'hash2':'hash1',fileKey:'private-storage-key',...extra}),'reviewer@example.test','2026-10-27T08:00:00.000Z');
  return {...f,pin};
 }
+test('CAPA usage separates mutable references from historical decisions, exact navigation and bounded source coverage',async()=>{
+ const f=setup();try{
+  f.sql.exec("INSERT INTO enterprise_findings VALUES('FND-1','FND-100','Access remediation','owner','in-progress','2027-01-01','EVD-1','EVD-1','2026-10-28')");
+  for(const purpose of ['capa-submit','capa-verify','capa-accept-risk'])f.pin(purpose,'findings','FND-1',purpose);
+  let result=await readEvidenceUsage(f.db,{role:'Viewer'},'EVD-1');const rows=result.rows.filter(r=>r.source==='findings');assert.equal(rows.length,4);
+  assert.equal(rows.filter(r=>!r.decision).length,1);assert.ok(rows.filter(r=>r.decision).every(r=>r.historical&&r.decision?.sourceAvailable&&r.pins[0].state==='older'&&!usageNeedsReview(r)));
+  assert.ok(rows.every(r=>r.target.ref==='FND-1'&&r.target.kind==='finding'&&r.title==='FND-100 · Access remediation'));assert.equal(result.sources.find(s=>s.key==='findings')!.state,'complete');
+  f.sql.exec('DELETE FROM enterprise_findings');result=await readEvidenceUsage(f.db,{role:'Viewer'},'EVD-1');assert.equal(result.sources.find(s=>s.key==='findings')!.state,'limited');assert.ok(result.rows.filter(r=>r.source==='findings').every(r=>!r.decision?.sourceAvailable));
+  f.queries.length=0;const scoped=await readEvidenceUsage(f.db,{role:'Viewer',moduleAccess:{mode:'scoped',modules:{Kanıtlar:'read'}}},'EVD-1');assert.equal(scoped.sources.find(s=>s.key==='findings')!.state,'restricted');assert.ok(f.queries.every(q=>!q.includes('enterprise_findings')));
+  for(let i=0;i<201;i++)f.pin('capa-extra-'+i,'findings','FND-1','capa-submit');result=await readEvidenceUsage(f.db,{role:'Admin'},'EVD-1');assert.equal(result.rows.filter(r=>r.source==='findings').length,200);assert.equal(result.sources.find(s=>s.key==='findings')!.state,'limited');
+ }finally{f.sql.close();}
+});
 test('policy decisions retain all six purposes, exact source targets and explicit missing-parent coverage',async()=>{
  const f=setup();try{
   f.sql.exec(`INSERT INTO policy_documents VALUES('POL-1','POL-100','Access policy','owner','retired','2027-01-01');

@@ -56,3 +56,5 @@ Yeni bir özelliğin API, izin, durum geçişi veya limitleri değiştiğinde il
 - [Politika kampanya sonuçları ve kapanış](policy-campaign-completion.md): Admin incelemesi, gerekçeli kapatma, korunmuş katılımcı yanıtları ve bağlantı/kayıt çakışması sonrası kurtarma.
 
 - [Bağlı politika kararları](policy-connected-evidence.md): kullanıcı ve dosya sürümü seçimi, güncel karar bağlamı, korunmuş karar kanıtları ve kaynağa dönüş.
+
+- [Bağlı CAPA kararları](capa-connected-evidence.md): etkin kullanıcı ataması, güncel bulgu/plan incelemesi, ayrı gönderim/kapanış/risk kabulü kanıtları ve kaynağa dönüş.

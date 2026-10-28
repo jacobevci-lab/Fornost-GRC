@@ -82,7 +82,7 @@ export async function readEvidenceUsage(db: D1Database, actor: AccessSubject, id
       return rows.results.length <= 200;
     });
   }
-  await source('findings', !isScoped(actor), 1000, async () => {
+  await source('findings', !isScoped(actor), 1200, async () => {
     const rows = await db.prepare(`SELECT id,code,title,owner,status,due_date,evidence_reference,verification_evidence_reference
       FROM enterprise_findings ORDER BY updated_at DESC,id LIMIT 1001`).all<Record<string, string>>();
     for (const row of rows.results.slice(0, 1000)) {
@@ -91,7 +91,9 @@ export async function readEvidenceUsage(db: D1Database, actor: AccessSubject, id
         status: row.status, dueDate: row.due_date, historical: ['closed', 'accepted'].includes(row.status), pins: [],
         target: { module: 'Bulgular ve CAPA', ref: row.id, kind: 'finding', source: 'evidence-usage' } });
     }
-    return rows.results.length <= 1000;
+    const decisions=await readWorkflowUsage(db,'findings',evidence);
+    result.rows.push(...decisions.rows);
+    return rows.results.length <= 1000&&decisions.complete;
   });
   for(const workflow of ['continuity','regulatory','tprm','policy'] as const) {
     await source(workflow, !isScoped(actor), 200, async()=>{

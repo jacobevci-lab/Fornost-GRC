@@ -13,11 +13,11 @@ const findings=Array.from({length:65},(_,i)=>({id:`QA-F-${i+1}`,code:`FND-QA-${i
 findings[1].severity='critical';findings[1].status='closed';
 findings[2].severity='medium';findings[2].status='verification';
 findings[3].status='accepted';
-await page.route(/\/api\/findings(?:\?view=register.*)?$/,async route=>{
+await page.route(/\/api\/findings(?:\?view=(?:register|decision).*)?$/,async route=>{
  if(route.request().method()==='POST'){
   const body=route.request().postDataJSON();
   if(body.action==='transition'){
-   assert.equal(body.expectedUpdatedAt,'2026-10-06T09:00:00Z');assert.equal(body.findingId,'QA-F-1');assert.equal(body.finding,undefined);
+   assert.equal(body.decisionMode,'reviewed');assert.equal(body.expectedRevision,'a'.repeat(64));assert.equal(body.expectedUpdatedAt,'2026-10-06T09:00:00Z');assert.equal(body.findingId,'QA-F-1');assert.equal(body.finding,undefined);
    if(body.confirmation!=='CAPA AKSİYONUNU BAŞLAT')return route.fulfill({status:400,json:{error:'Confirmation does not match.'}});
    await new Promise(resolve=>{releaseTransition=resolve;});
    return route.fulfill({status:409,json:{error:'Record changed since the displayed version.'}});
@@ -28,7 +28,9 @@ await page.route(/\/api\/findings(?:\?view=register.*)?$/,async route=>{
   return route.fulfill({status:uncertain?503:200,json:uncertain?{error:'fixture outage'}:{message:'Created'}});
  }
  if(unavailable)return route.fulfill({status:503,json:{error:'fixture outage'}});
- const params=new URL(route.request().url()).searchParams,query=(params.get('q')||'').toLowerCase(),filter=params.get('filter')||'all';
+ const params=new URL(route.request().url()).searchParams;
+ if(params.get('view')==='decision'){const row=findings.find(f=>f.id===params.get('findingId'));assert.ok(row);return route.fulfill({json:{revision:'a'.repeat(64),record:{...row,updated_at:row.updatedAt,source_ref:row.sourceRef,source_title:row.sourceTitle,due_date:row.dueDate,root_cause:row.rootCause,corrective_action:row.correctiveAction,preventive_action:row.preventiveAction}}});}
+ const query=(params.get('q')||'').toLowerCase(),filter=params.get('filter')||'all';
  if(heldLanguageRead&&params.get('lang')==='en')await heldLanguageRead;
  const ref=params.get('ref'),assignment=params.get('assignment')||'all';
  const matching=findings.filter(row=>(assignment==='all'||assignment==='owned'&&row.owner==='qa-admin@fornost.test'||assignment==='review'&&row.reviewer==='qa-admin@fornost.test')&&(!ref||row.id===ref||row.code===ref)&&(filter==='all'||filter==='active'&&!['closed','accepted'].includes(row.status)||row.status===filter||row.attention===filter)&&[row.code,row.title,row.sourceRef,row.owner].join(' ').toLowerCase().includes(query));
@@ -131,7 +133,7 @@ try{
  await panel.getByRole('button',{name:'Start CAPA',exact:true}).click();
  const decision=panel.locator('.finding-action');await decision.locator('textarea').fill('Start remediation after review');
  await decision.locator('input').fill('wrong confirmation');await decision.getByRole('button',{name:'Apply action',exact:true}).click();
- await expect(decision.getByRole('alert')).toHaveText('Confirmation does not match.');
+ await expect(decision.getByRole('alert')).toContainText('Decision was not saved.');
  await expect(decision.locator('textarea')).toHaveValue('Start remediation after review');
  await page.keyboard.press('Escape');await expect(decision).toHaveCount(0);await expect(panel.getByRole('button',{name:'Start CAPA',exact:true})).toBeFocused();
  await panel.getByRole('button',{name:'Start CAPA',exact:true}).click();await expect(decision.getByRole('alert')).toHaveCount(0);
@@ -140,8 +142,8 @@ try{
  await expect(decision.getByRole('button',{name:'Cancel',exact:true})).toBeDisabled();await expect(decision.locator('textarea')).toBeDisabled();
  await page.keyboard.press('Escape');await expect(decision).toBeVisible();
  await expect.poll(()=>typeof releaseTransition).toBe('function');releaseTransition();
- await expect(decision).toHaveCount(0);await expect(panel.locator('.finding-notice')).toContainText('changed since');
- await expect(panel.getByRole('dialog')).toHaveCount(0);
+ await expect(decision).toBeVisible();await expect(decision.getByRole('alert')).toContainText('source may have changed');await expect(decision.locator('textarea')).toHaveValue('Start remediation after review');await expect(decision.getByRole('button',{name:'Apply action',exact:true})).toBeDisabled();
+ await page.keyboard.press('Escape');await expect(decision).toHaveCount(0);await expect(panel.getByRole('button',{name:'Start CAPA',exact:true})).toBeFocused();
  await expect(panel.locator('.finding-load-status').first()).toContainText('Records are up to date');
  await page.evaluate(()=>window.dispatchEvent(new CustomEvent('fornost:focus',{detail:{module:'Bulgular ve CAPA',ref:'FND-QA-1'}})));
  await expect(panel.getByRole('dialog',{name:'QA finding 1',exact:true})).toBeVisible();
