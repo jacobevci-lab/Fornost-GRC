@@ -17,6 +17,7 @@ async function api(path,method='GET',data,status=200){
   assert.equal(response.status(),status,`${path}: ${await response.text()}`);return response.json();
 }
 const results = [];
+const reads = new Map();
 let phase = 'login', lastFailure = '';
 const watchdog = setTimeout(() => {
   void fs.writeFile(`${output}/failure.json`, JSON.stringify({ message: 'Layout QA exceeded its 8-minute bound', phase, lastFailure, results }, null, 2))
@@ -48,15 +49,31 @@ try {
   page.setDefaultNavigationTimeout(60000);
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));
+  let documentGeneration=0;
+  page.on('framenavigated', frame => {if(frame===page.mainFrame())documentGeneration++;});
+  page.on('request', request => {const url=new URL(request.url());if(request.method()==='GET'&&url.origin===base&&url.pathname.startsWith('/api/'))reads.set(request,{path:url.pathname,documentGeneration,startedAt:new Date().toISOString(),state:'pending'});});
+  page.on('response', response => {const read=reads.get(response.request());if(read)read.status=response.status();});
+  page.on('requestfinished', request => {const read=reads.get(request);if(read)read.state='finished';});
+  page.on('requestfailed', request => {const read=reads.get(request);if(read){read.state='failed';read.failure=request.failure()?.errorText;}});
   await page.goto(base, { waitUntil: 'domcontentloaded' });
   await page.locator('.shell').waitFor();
+  await waitForQaIdle(page);
+  // A visible shell can precede its debounced data reads. Drain the current
+  // document before replacing it, then await the new document's actual reads.
+  // In particular the end-of-theme reload must settle before the next reload.
+  async function reloadReady(){
+    await waitForQaIdle(page);
+    await page.reload({waitUntil:'domcontentloaded'});
+    await page.locator('.shell').waitFor();
+    await waitForQaIdle(page);
+  }
   async function open(label) {
     await page.locator(`nav button[aria-label=${JSON.stringify(label)}]`).evaluate(el => el.click());
     await waitForQaIdle(page);
   }
   for (const locale of ['tr', 'en']) {
     await page.locator('.language-switch:visible').getByRole('button', {name: locale.toUpperCase(), exact:true}).click();
-    await page.waitForTimeout(200);
+    await waitForQaIdle(page);
     const labels = await page.locator('nav button[aria-label]').evaluateAll(elements => elements.map(el => el.getAttribute('aria-label')));
     for (const theme of ['dark','light']) {
       if (await page.locator('html').getAttribute('data-theme') !== theme) await page.locator('.theme-toggle:visible').click();
@@ -79,13 +96,11 @@ try {
         if (await copilotClose.isVisible()) await copilotClose.click();
       }
       await progress(`${locale}/${theme}: reload`);
-      await page.reload({waitUntil:'domcontentloaded'});
-      await page.locator('.shell').waitFor();
+      await reloadReady();
     }
     // Close any copilot left open by the navigation sweep by reloading the shell.
     await progress(`${locale}: evidence library`);
-    await page.reload({waitUntil:'domcontentloaded'});
-    await page.locator('.shell').waitFor();
+    await reloadReady();
     await open(locale === 'tr' ? 'Kanıt Kütüphanesi' : 'Evidence Library');
     await page.locator('.evidence-link').first().waitFor();
     if (await page.locator('html').getAttribute('data-theme') !== 'dark') {
@@ -195,12 +210,14 @@ try {
   assert.deepEqual(errors, [], 'No unhandled UI errors');
   assert.deepEqual(results.filter(r=>r.overflow>4), [], 'Every module fits desktop, tablet and mobile in both themes and languages');
   await fs.writeFile(`${output}/results.json`,JSON.stringify({results,errors},null,2));
+  await fs.writeFile(`${output}/reads.json`,JSON.stringify([...reads.values()],null,2));
 } catch (error) {
   lastFailure = error.message;
   console.error(`LAYOUT_QA_FAILURE: ${phase}; ${lastFailure}`);
   const pages = context.pages();
   if (pages.length) await pages[pages.length-1].screenshot({path:`${output}/failure.png`,timeout:5000}).catch(()=>{});
   await fs.writeFile(`${output}/failure.json`,JSON.stringify({message:error.message,phase,results},null,2));
+  await fs.writeFile(`${output}/reads.json`,JSON.stringify([...reads.values()],null,2));
   throw error;
 } finally {
   phase = `browser cleanup after ${phase}`;
