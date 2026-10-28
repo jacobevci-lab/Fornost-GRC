@@ -41,9 +41,9 @@ try {
   assert.equal(upload.status(), 201, await upload.text()); const evidenceId = (await upload.json()).id;
   const evidenceVersion = (await api(admin, `/api/evidence/history?id=${evidenceId}`)).versions[0];
   library = { evidenceMode: 'library', evidenceSelection: { evidenceId, versionId: evidenceVersion.id } };
-  policyId = (await api(admin, '/api/policy-lifecycle', 'POST', { action: 'save-policy', assignmentMode: 'directory', code: `QA-PPR-${tag}`, title: name, category: 'security', classification: 'internal', owner, reviewer: f.reviewerEmail, audience: 'Synthetic policy team', reviewFrequencyDays: 365 }, 201)).id;
+  policyId = (await api(admin, '/api/policy-lifecycle', 'POST', { action: 'save-policy', assignmentMode: 'directory', code: `QA-PPR-${tag}`, title: name, category: 'security', classification: 'internal', owner, reviewer: f.reviewerEmail, audience: 'Synthetic policy team', reviewFrequencyDays: 365 })).id;
   const versionInput = { action: 'create-version', policyId, summary: 'Controlled policy for independent periodic suitability review.', content: 'This policy governs access, accountability and independent review of continuing suitability. Owners preserve controlled evidence and follow the version workflow when content changes.', effectiveDate: future(-400), regulationRefs: ['ISO-27001'] };
-  versionId = (await api(admin, '/api/policy-lifecycle', 'POST', versionInput, 201)).id;
+  versionId = (await api(admin, '/api/policy-lifecycle', 'POST', versionInput)).id;
   await versionAction(admin, 'submit', 'İNCELEMEYE GÖNDER'); await versionAction(reviewer, 'approve', 'POLİTİKAYI ONAYLA'); await versionAction(reviewer, 'publish', 'POLİTİKAYI YAYINLA');
   const current = await workspace(reviewer); assert.equal(current.canReview, true); assert.equal(current.reviews.length, 0);
   await api(anonymous, `/api/policy-lifecycle?view=review&policyId=${policyId}`, 'GET', undefined, 401); await api(scoped, `/api/policy-lifecycle?view=review&policyId=${policyId}`, 'GET', undefined, 403);
@@ -96,7 +96,7 @@ try {
   }
   checks.push('Twelve TR/EN light/dark desktop/tablet/mobile views with no Axe violations or overflow, Escape and restored focus');
 
-  phase = 'revision-in-progress blocker'; await api(admin, '/api/policy-lifecycle', 'POST', { ...versionInput, summary: 'A revised controlled policy requires its own content approval.' }, 201); assert.equal((await workspace(reviewer)).canReview, false); assert.equal((await workspace(reviewer)).pendingRevision, true);
+  phase = 'revision-in-progress blocker'; await api(admin, '/api/policy-lifecycle', 'POST', { ...versionInput, summary: 'A revised controlled policy requires its own content approval.' }); assert.equal((await workspace(reviewer)).canReview, false); assert.equal((await workspace(reviewer)).pendingRevision, true);
   await page.setViewportSize({ width: 1440, height: 1000 }); await page.locator('.language-switch:visible').getByRole('button', { name: 'EN', exact: true }).click(); d = await openDetails(); await expect(d).toContainText('Another version is being prepared'); await expect(d.getByRole('button', { name: 'Prepare review', exact: true })).toHaveCount(0); await d.getByRole('button', { name: 'Open versions', exact: true }).click(); await expect(d).toBeHidden(); await expect(page.locator('.plm-tabs button.active')).toHaveText('Versions & Release');
   checks.push('An actual new draft version blocks suitability renewal and directs the reviewer to the controlled version workflow');
   const retire = await api(reviewer, `/api/policy-lifecycle?view=decision&kind=retire&id=${policyId}`); await api(reviewer, '/api/policy-lifecycle', 'POST', { action: 'retire-policy', policyId, confirmation: 'POLİTİKAYI YÜRÜRLÜKTEN KALDIR', note: 'Synthetic periodic-review journey completed; retain the review audit trail.', decisionMode: 'reviewed', expectedRevision: retire.revision, ...library });
