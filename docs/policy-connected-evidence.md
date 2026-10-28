@@ -30,3 +30,5 @@ Editors/Admins with full access can select library evidence and eligible owners.
 - Evidence Usage shows up to 200 matching policy decisions. Missing parent/version records, source errors, inaccessible sources and overflow never appear as complete coverage. Usage exports retain historical/source state and safe text handling.
 
 No new schema, menu, theme palette, reminder or email setting is required. No automatic policy re-evaluation, external auditor portal, electronic signature certification or customer acceptance is implied. Reverting application code must retain existing events and pins. Exact validation and release receipts are recorded in the delivery PR; production deployment and customer UAT are separate.
+
+Published versions can also receive an independent [periodic suitability review](policy-periodic-review.md). That separate decision retains the reviewed policy/version snapshot and advances its review date within the configured frequency; it does not publish content or replace existing decision evidence.

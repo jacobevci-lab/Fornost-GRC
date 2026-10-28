@@ -108,6 +108,16 @@ jobs:
           name: policy-campaign-completion-preview
           path: policy-campaign-completion-qa-artifacts/
           if-no-files-found: warn
+      - name: Published policy periodic review, history and My Work QA
+        timeout-minutes: 6
+        run: node scripts/policy-periodic-review-qa.mjs
+      - name: Preserve policy periodic review browser evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: policy-periodic-review-preview
+          path: policy-periodic-review-qa-artifacts/
+          if-no-files-found: warn
       - name: Policy directory, canonical decision evidence and retained usage QA
         timeout-minutes: 7
         run: node scripts/policy-connected-evidence-qa.mjs
