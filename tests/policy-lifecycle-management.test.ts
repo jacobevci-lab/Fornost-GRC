@@ -36,5 +36,5 @@ test("enterprise policy lifecycle is wired through schema, API, UI, navigation a
  assert.match(route,/Maker-checker: sürümü oluşturan\/gönderen kişi karar veremez/);assert.match(route,/Attestation yalnız atanmış kullanıcı/);assert.match(route,/formula-safe records/);assert.match(route,/Aktif istisna veya açık attestation kampanyası/);assert.match(route,/content_sha256/);
  assert.match(migration,/policy_versions_policy_number_idx/);assert.match(migration,/policy_attestations_campaign_subject_idx/);assert.match(migration,/policy_events/);
  assert.match(schema,/policyDocuments/);assert.match(schema,/policyAttestationCampaigns/);assert.match(schema,/policyExceptions/);
- assert.match(ui,/ENTERPRISE POLICY LIFECYCLE/);assert.match(ui,/Attestation kampanyası/);assert.match(page,/PolicyLifecycle/);assert.match(readme,/Enterprise Policy Lifecycle Management/);assert.match(docs,/fail-closed/);
+ assert.match(ui,/ENTERPRISE POLICY LIFECYCLE/);assert.match(ui,/<PolicyCampaignCreate/);assert.match(page,/PolicyLifecycle/);assert.match(readme,/Enterprise Policy Lifecycle Management/);assert.match(docs,/fail-closed/);
 });
