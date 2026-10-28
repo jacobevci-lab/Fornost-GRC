@@ -22,6 +22,8 @@ dialog.finding-overlay::backdrop{background:rgba(0,0,0,.74);backdrop-filter:blur
 fieldset.finding-form-grid{border:0;margin:0;min-width:0}
 .finding-action-fields{border:0;padding:0;margin:0;min-width:0}
 .finding-action-fields>label{margin:14px 20px}
+/* Keep the existing dark accent fill; use the dark surface ink for readable primary actions. */
+html[data-theme="dark"] .finding-overlay :is(.finding-detail,.finding-form,.finding-action)>footer button:not(.secondary){color:var(--ws-bg)!important}
 .finding-dialog-notice{margin:14px 20px;padding:10px 12px;border:1px solid var(--at-warn);border-radius:6px;color:var(--at-ink);background:var(--at-warn-soft);overflow-wrap:anywhere}
 
 .finding-kpis>button{text-align:left;font:inherit;cursor:pointer;color:var(--at-ink)}.finding-kpis>button[aria-pressed="true"]{outline:2px solid var(--at-accent-ink);outline-offset:2px}.finding-kpis>button:focus-visible{outline:2px solid var(--at-accent-ink);outline-offset:2px}.finding-kpis>button:disabled{cursor:default}
