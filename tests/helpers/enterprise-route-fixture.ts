@@ -1,3 +1,4 @@
+import * as vendorWork from '../../app/third-party-risk/work-source';
 import * as campaignIssuance from '../../app/policy-lifecycle/campaign-issuance-store';
 import * as policyAttestations from '../../app/policy-lifecycle/attestation-store';
 import * as policyReviews from '../../app/policy-lifecycle/periodic-review-store';
@@ -73,6 +74,7 @@ export function fixture(module:'incidents'|'continuity'|'policy-lifecycle'|'thir
   if(name==='../../policy-lifecycle/attestation-store')return policyAttestations;
   if(name==='../../policy-lifecycle/periodic-review-store')return policyReviews;
   if(name==='../../policy-lifecycle/domain')return policy;
+  if(name==='../../third-party-risk/work-source')return vendorWork;
   if(name==='../../third-party-risk/domain')return vendor;
   if(name==='../../risk-appetite/domain')return risk;
   if(name==='../../risk-methodology')return riskMethodology;

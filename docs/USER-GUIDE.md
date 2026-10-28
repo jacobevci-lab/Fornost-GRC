@@ -315,6 +315,10 @@ Değerlendirmeyi gönderirken veya onaylarken, bulguyu doğrulamaya gönderirken
 
 **Son kararların kanıtları** hangi sürümün kaydedildiğini gösterir. Kanıt kütüphanesinin kullanım alanında **Tedarikçi kararları** filtresi, aktör/zamanı ve tarihsel sürümü listeler; **Kaydı aç** doğru değerlendirmeye, bulguya veya tedarikçiye gider. Bu geçmiş güncel onay yerine geçmez. [Ayrıntılar ve sınırlar](tprm-connected-evidence.md).
 
+### Tedarikçi görevleri ve tamamlanan kararlar
+
+**İşlerim → İş kuyruğu modülü → Tedarikçi** ile değerlendirme ve bulgu sorumluluklarınızı bulun. İncelemeye gönderilince sahipler **Başkalarında bekleyen**, bağımsız incelemeci ise karar vereceği işi görür. **Tamamlanan** görünümü son 30 gündeki gerçek karar/doğrulama tarihini kullanır; sonraki değerlendirme dönemi eski kararı yeni tamamlanmış göstermez. İncelemeci kendi verdiği kararları burada korur. Yeniden açılan bulgu aktif işe döner. Satırdan asıl TPRM kaydına giderek mevcut yetkilerinizle devam edin. [Aşamalar, kapsam ve kurtarma](tprm-work-history.md).
+
 ### Politika kabul kampanyası açmak
 
 Admin hesabıyla **Politika Merkezi → Attestation → + Kampanya** yolunda yayımlanmış politikayı, kampanya bilgilerini ve görev alacak etkin/tam erişimli hesapları seçin. Görüntüleyen hesaplar da seçilebilir. Hedef kitle açıklaması otomatik kişi eklemez. **Kampanyayı önizle** ile atanacak tam metni ve seçilen kişileri inceleyip onaylayın; **Kampanyayı oluştur → Kampanyayı aç** sonuçlara gider. Görevler seçilen kişilerin İşlerim listesine düşer. Kaynak veya hesap değişirse önizlemeyi yenileyip seçimi düzeltin. Bağlantı sonucu alınamazsa pencereyi açık tutarak aynı oluşturma işlemini tekrar deneyin. [Adımlar, 500 kişi sınırı ve kurtarma](policy-campaign-issuance.md).

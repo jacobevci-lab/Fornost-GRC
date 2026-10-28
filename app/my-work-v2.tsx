@@ -1,4 +1,6 @@
 "use client";
+import {vendorWorkLabels} from './third-party-risk/work';
+
 import {milestoneLabels} from './audit-milestones';
 import {incidentLabel} from './incidents/labels';
 import { enterpriseWorkSources, enterpriseWorkKinds, continuityWorkLabels, projectEnterpriseWork, type EnterpriseWorkSource } from "./enterprise-work";
@@ -223,6 +225,8 @@ function reasonFor(row: Row, dueTime: number, now: number, lang: Lang) {
   if (row.workKind === "continuity-plan" && row.data.status === "approved") return tr ? "Plan etkinleştirilmeli" : "Plan needs activation";
   if(row.workKind === "audit-milestone" && row.data.status === "submitted")return tr ? "Bağımsız görev incelemesi bekleniyor" : "Awaiting independent milestone review";
   if(row.workKind === "audit-milestone" && row.data.status === "changes_requested")return tr ? "İncelemeci düzeltme istedi" : "Reviewer requested changes";
+  if (row.workKind === 'vendor-assessment') return rowStatus(row) === 'submitted' ? (tr ? 'Bağımsız tedarikçi kararı bekleniyor' : 'Awaiting independent vendor decision') : (tr ? 'Tedarikçi değerlendirmesini hazırlayın' : 'Prepare vendor assessment');
+  if (row.workKind === 'vendor-finding') return rowStatus(row) === 'verification' ? (tr ? 'Bağımsız bulgu doğrulaması bekleniyor' : 'Awaiting independent finding verification') : (tr ? 'Tedarikçi bulgusunu giderin' : 'Remediate vendor finding');
   if (row.module === "Bulgular ve CAPA") {
     const disposition = findingWorkDisposition(row.data, now);
     if (disposition === "acceptance-expired") return tr ? "Risk kabul süresi dolmuş" : "Risk acceptance expired";
@@ -251,11 +255,11 @@ function itemFromRow(row: Row, user: User, now: number, lang: Lang, completed = 
     row,
     title: row.workKind ? `${enterpriseWorkKinds[row.workKind]?.[lang] || row.workKind} · ${rowTitle(row)}` : rowTitle(row),
     owner: rowOwner(row),
-    status: row.workKind === 'incident' ? incidentLabel(rowStatus(row), lang) : row.workSource === "continuity" ? continuityWorkLabels[rowStatus(row)]?.[lang] || rowStatus(row) : row.workKind === "audit-milestone" ? milestoneLabels[rowStatus(row) as keyof typeof milestoneLabels]?.[lang === "tr" ? 0 : 1] || rowStatus(row) : rowStatus(row),
+    status: row.workSource === 'vendor' ? vendorWorkLabels[rowStatus(row)]?.[lang] || rowStatus(row) : row.workKind === 'incident' ? incidentLabel(rowStatus(row), lang) : row.workSource === "continuity" ? continuityWorkLabels[rowStatus(row)]?.[lang] || rowStatus(row) : row.workKind === "audit-milestone" ? milestoneLabels[rowStatus(row) as keyof typeof milestoneLabels]?.[lang === "tr" ? 0 : 1] || rowStatus(row) : rowStatus(row),
     due,
     dueTime,
     priority,
-    reason: completed ? (row.workSource === "continuity" ? continuityWorkLabels[rowStatus(row)]?.[lang] || rowStatus(row) : (lang === "tr" ? "Tamamlandı" : "Completed")) : reasonFor(row, dueTime, now, lang),
+    reason: completed ? (row.workSource === "vendor" ? vendorWorkLabels[rowStatus(row)]?.[lang] || rowStatus(row) : row.workSource === "continuity" ? continuityWorkLabels[rowStatus(row)]?.[lang] || rowStatus(row) : (lang === "tr" ? "Tamamlandı" : "Completed")) : reasonFor(row, dueTime, now, lang),
     tone: completed ? "muted" : toneFor(priority),
     waiting: !completed && isWaitingForOthers(row, user),
   };
