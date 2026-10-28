@@ -338,3 +338,7 @@ Hata veya başka kullanıcının değişikliği sırasında not ve dosya seçimi
 Güvenlik Olayları ekranında olay sahibi, farklı bir olay yöneticisi ve bağımsız Admin inceleyeni dizinden seçin. Müdahale, tehdidi giderme, hizmeti geri yükleme, inceleme ve kapanışta kanıt kütüphanesinden gerçek dosya sürümünü kullanın. Her kararın kanıtı ve incelenen olay bilgileri olay ayrıntısındaki geçmişte korunur. Kanıt Kullanımı → Olay kararları bağlantısı aynı olaya döner.
 
 Karar çakışırsa açıklama, kök neden/dersler, bildirim gerekçesi ve kanıt seçimi korunur. Bağlamı yenileyip değişiklikleri inceleyin; güncel bağlamı benimsedikten sonra onayı yeniden girin. Yanıtı kaybolan aynı ilan formu tekrar gönderildiğinde mükerrer kayıt oluşmaz. Bildirim kararı kaydı dışarıya bildirim göndermez. [Adımlar, roller ve sınırlar](incident-connected-evidence.md).
+
+## Yayımlanmış politikayı periyodik inceleme
+
+İşlerim veya Politika Merkezi → Politika Envanteri → Aç üzerinden **Periyodik inceleme ve geçmiş** bölümünü açın. Atanmış bağımsız Admin, yayımlanmış içeriği inceleyip geçerliliğinin neden devam ettiğini ve sonraki tarihi kaydedebilir. Tarih bugünden ve mevcut tarihten sonra, tanımlı inceleme sıklığı sınırında olmalıdır. Yeni sürüm hazırlanıyorsa önce onun kontrollü sürecini tamamlayın. İncelenen metin, sürüm ve tarih değişikliği geçmişte korunur; İşlerim kaydedilen tarihi kullanır. Çakışmada taslak korunur; bağlamı yenileyip yeniden onaylayın. [Adımlar ve sınırlar](policy-periodic-review.md).
