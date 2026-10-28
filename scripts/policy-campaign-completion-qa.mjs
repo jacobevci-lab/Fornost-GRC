@@ -61,8 +61,9 @@ try {
   phase = 'actual campaign creation and response'; await open(page);
   await page.locator('.plm-float').getByRole('button', { name: '+ Campaign', exact: true }).click();
   let dialog = page.getByRole('dialog', { name: 'Attestation campaign', exact: true });
-  await dialog.locator('select').selectOption(policyId); await dialog.getByLabel('Campaign name', { exact: true }).fill(name); await dialog.getByLabel('Due date', { exact: true }).fill(future); await dialog.getByLabel('Subject emails (line or comma)', { exact: true }).fill([owner, f.reviewerEmail, f.viewerEmail].join('\n'));
-  await dialog.getByRole('button', { name: 'Save', exact: true }).click(); await expect(dialog).toBeHidden(); await waitForQaIdle(page);
+  await dialog.getByLabel('Published policy', { exact: true }).selectOption(policyId); await dialog.getByLabel('Campaign name', { exact: true }).fill(name); await dialog.getByLabel('Due date', { exact: true }).fill(future);
+  for (const email of [owner, f.reviewerEmail, f.viewerEmail]) { await dialog.getByLabel('Search participants', { exact: true }).fill(email); const choice=dialog.locator('.pci-choices label').filter({hasText:email}); await expect(choice).toHaveCount(1); await choice.getByRole('checkbox').check(); }
+  await dialog.getByRole('button', {name:'Preview campaign',exact:true}).click(); await expect(dialog.getByRole('region',{name:'Campaign preview',exact:true})).toBeVisible(); await dialog.getByRole('checkbox').check(); await dialog.getByRole('button',{name:'Create campaign',exact:true}).click(); await expect(dialog).toContainText('Campaign created.'); await dialog.getByRole('button',{name:'Close',exact:true}).click(); await expect(dialog).toBeHidden(); await waitForQaIdle(page);
   const payload = await api(admin, '/api/policy-lifecycle'); campaignId = payload.campaigns.find(c => c.name === name)?.id; assert.ok(campaignId);
   await respond(page, owner, true); dialog = await details();
   await dialog.locator('summary').click(); await expect(dialog).toContainText('participant acknowledgement');

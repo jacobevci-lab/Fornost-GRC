@@ -9,7 +9,7 @@ export type CampaignClosure = {
   versionId: string; versionNumber: number; contentSha256: string;
 };
 export type CampaignWorkspace = {
-  campaign: PolicyCampaign & { closedBy: string; closedAt: string };
+  campaign: PolicyCampaign & { closedBy: string; closedAt: string; createdBy?: string; createdAt?: string };
   version: { id: string; number: number; content: string; contentSha256: string; status: string; policyCode: string; policyTitle: string };
   recipients: CampaignRecipient[]; complete: boolean; revision: string; closure: CampaignClosure | null;
 };

@@ -6,7 +6,7 @@ import { useRecordDialog } from './use-record-dialog';
 import type { CampaignWorkspace, PolicyCampaign } from './policy-lifecycle/campaigns';
 import './policy-campaign-workspace.css';
 
-export default function PolicyCampaignWorkspace({ campaigns, tr, onChanged }: { campaigns: PolicyCampaign[]; tr: boolean; onChanged: () => void }) {
+export default function PolicyCampaignWorkspace({ campaigns, tr, onChanged, openId, onCloseOpen }: { campaigns: PolicyCampaign[]; tr: boolean; onChanged: () => void; openId?: string; onCloseOpen?: () => void }) {
   const [id, setId] = useState(''), [query, setQuery] = useState(''), [scope, setScope] = useState('open'), [page, setPage] = useState(0);
   const matches = campaigns.filter(c => (scope === 'all' || c.status === scope) && `${c.name} ${c.audience} ${c.id}`.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()));
   return <section className="pcw-list" aria-label={tr ? 'Kampanya sonuçları' : 'Campaign outcomes'}>
@@ -16,7 +16,7 @@ export default function PolicyCampaignWorkspace({ campaigns, tr, onChanged }: { 
     <div className="pcw-cards">{matches.slice(page * 10, page * 10 + 10).map(c => <article key={c.id}><div><h4>{c.name}</h4><p>{c.audience}</p><small>{c.dueDate} · {c.status === 'open' ? (tr ? 'Açık' : 'Open') : (tr ? 'Kapalı' : 'Closed')}</small></div><p>{tr ? 'Kabul' : 'Accepted'}: {c.attestedCount} · {tr ? 'Ret' : 'Declined'}: {c.declinedCount} · {tr ? 'Cevapsız' : 'Unanswered'}: {c.pendingCount}</p><button type="button" onClick={() => setId(c.id)} aria-label={`${tr ? 'Kampanyayı incele' : 'Review campaign'}: ${c.name}`}>{tr ? 'Sonuçları incele' : 'Review outcomes'}</button></article>)}</div>
     {!matches.length && <p>{tr ? 'Bu seçimde kampanya yok.' : 'No campaigns match this selection.'}</p>}
     {matches.length > 10 && <div className="pcw-pagination"><button disabled={page === 0} onClick={() => setPage(p => p - 1)}>{tr ? 'Önceki' : 'Previous'}</button><span>{page + 1} / {Math.ceil(matches.length / 10)}</span><button disabled={(page + 1) * 10 >= matches.length} onClick={() => setPage(p => p + 1)}>{tr ? 'Sonraki' : 'Next'}</button></div>}
-    {id && <CampaignDialog id={id} tr={tr} close={changed => { setId(''); if (changed) onChanged(); }} />}
+    {(openId || id) && <CampaignDialog key={openId || id} id={openId || id} tr={tr} close={changed => { setId(''); onCloseOpen?.(); if (changed) onChanged(); }} />}
   </section>;
 }
 
@@ -27,12 +27,16 @@ function CampaignDialog({ id, tr, close }: { id: string; tr: boolean; close: (ch
   const changed = useRef(false), controller = useRef<AbortController | null>(null), closeRef = useRef(() => {});
   useEffect(() => { closeRef.current = () => { if (!busy) close(changed.current); }; }, [busy, close]);
   const dismiss = useCallback(() => closeRef.current(), []), dialog = useRecordDialog(true, dismiss);
-  const prepareButton = useRef<HTMLButtonElement>(null), reasonField = useRef<HTMLTextAreaElement>(null), hadDraft = useRef(false), hasDraft = Boolean(draft);
+  const prepareButton = useRef<HTMLButtonElement>(null), reasonField = useRef<HTMLTextAreaElement>(null), hadDraft = useRef(false), returnFocus = useRef(false), hasDraft = Boolean(draft);
   useEffect(() => {
     if (hasDraft && !hadDraft.current) reasonField.current?.focus({ preventScroll: true });
-    if (!hasDraft && hadDraft.current) (prepareButton.current && !prepareButton.current.disabled ? prepareButton.current : dialog.current)?.focus({ preventScroll: true });
+    if (!hasDraft && hadDraft.current) { returnFocus.current = true; dialog.current?.focus({ preventScroll: true }); }
+    if (!hasDraft && returnFocus.current && !loading && !busy) {
+      if (document.activeElement === dialog.current) (prepareButton.current && !prepareButton.current.disabled ? prepareButton.current : dialog.current)?.focus({ preventScroll: true });
+      returnFocus.current = false;
+    }
     hadDraft.current = hasDraft;
-  }, [hasDraft, dialog]);
+  }, [hasDraft, loading, busy, dialog]);
   const load = useCallback(async () => {
     controller.current?.abort(); const current = new AbortController(); controller.current = current; setLoading(true); setFailed(false);
     try {
@@ -68,6 +72,7 @@ function CampaignDialog({ id, tr, close }: { id: string; tr: boolean; close: (ch
       {failed && !draft && <p role="alert">{tr ? 'Kampanya sonuçları yüklenemedi. Tekrar deneyin; gerekçeniz korundu.' : 'Campaign results could not be loaded. Retry; your reason is retained.'}</p>}
       {notice && !draft && <p role="status">{notice}</p>}
       {data && <><div className="pcw-facts"><div><span>{tr ? 'Politika sürümü' : 'Policy version'}</span><b>{data.version.policyCode} · v{data.version.number}</b></div><div><span>{tr ? 'Kabul' : 'Accepted'}</span><b>{data.campaign.attestedCount}</b></div><div><span>{tr ? 'Ret' : 'Declined'}</span><b>{data.campaign.declinedCount}</b></div><div><span>{tr ? 'Cevapsız' : 'Unanswered'}</span><b>{data.campaign.pendingCount}</b></div></div>
+        {data.campaign.createdBy && <p>{tr ? 'Kampanyayı açan' : 'Campaign opened by'}: {data.campaign.createdBy} · <time>{data.campaign.createdAt}</time></p>}
         <p>{data.campaign.audience} · {tr ? 'Son tarih' : 'Due'}: {data.campaign.dueDate}</p>
         {!data.complete && <p role="alert">{tr ? 'Katılımcı kapsamı doğrulanamadı. En fazla 500 kayıt gösterilir; eksik sonuçlarla kapatma yapılamaz.' : 'Recipient coverage could not be verified. Up to 500 records are shown; incomplete results cannot be closed.'}</p>}
         <details><summary>{tr ? 'Kampanyaya bağlı politika içeriği' : 'Policy content linked to this campaign'}</summary><h4>{data.version.policyTitle} · v{data.version.number}</h4><p className="pcw-content">{data.version.content}</p><code>{data.version.contentSha256}</code></details>

@@ -315,6 +315,10 @@ Değerlendirmeyi gönderirken veya onaylarken, bulguyu doğrulamaya gönderirken
 
 **Son kararların kanıtları** hangi sürümün kaydedildiğini gösterir. Kanıt kütüphanesinin kullanım alanında **Tedarikçi kararları** filtresi, aktör/zamanı ve tarihsel sürümü listeler; **Kaydı aç** doğru değerlendirmeye, bulguya veya tedarikçiye gider. Bu geçmiş güncel onay yerine geçmez. [Ayrıntılar ve sınırlar](tprm-connected-evidence.md).
 
+### Politika kabul kampanyası açmak
+
+Admin hesabıyla **Politika Merkezi → Attestation → + Kampanya** yolunda yayımlanmış politikayı, kampanya bilgilerini ve görev alacak etkin/tam erişimli hesapları seçin. Görüntüleyen hesaplar da seçilebilir. Hedef kitle açıklaması otomatik kişi eklemez. **Kampanyayı önizle** ile atanacak tam metni ve seçilen kişileri inceleyip onaylayın; **Kampanyayı oluştur → Kampanyayı aç** sonuçlara gider. Görevler seçilen kişilerin İşlerim listesine düşer. Kaynak veya hesap değişirse önizlemeyi yenileyip seçimi düzeltin. Bağlantı sonucu alınamazsa pencereyi açık tutarak aynı oluşturma işlemini tekrar deneyin. [Adımlar, 500 kişi sınırı ve kurtarma](policy-campaign-issuance.md).
+
 ### Politika kabul kampanyasını tamamlamak
 
 Admin hesabıyla **Politika Merkezi → Attestation → Kampanya sonuçları** alanından kampanyayı bulun ve **Sonuçları incele** seçeneğini açın. Kampanyaya bağlı politika sürümünü, yanıtları ve katılımcı notlarını inceleyin. **Kapanışı hazırla** ile gerekçe yazıp cevapsız/ret sonuçlarını kabul edilmiş saymadan kapatın. **Kapalı** görünümü kapanış geçmişini gösterir; katılımcıların mevcut yanıtları silinmez. Kapalı kampanyanın cevapsız işleri aktif kuyruktan çıkar ve yeni yanıt düğmesi gösterilmez.
