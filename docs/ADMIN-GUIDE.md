@@ -1,5 +1,7 @@
 # Fornost GRC Yönetici Rehberi
 
+Olay sorumlulukları da Benim İşlerim'e bağlıdır; ek yapılandırma veya veri göçü gerekmez. Özet okuma 2.000 olayla sınırlıdır ve aktif işleri önce getirir. Yetki/okuma hatası eski olay satırlarını kaldırır; eksik kapsam CSV indirmesini kapatır. Kurumsal olay erişimi ve bağımsız kapanış yetkileri değişmez. [Olay iş kuyruğu ve işletim sınırları](incident-my-work.md).
+
 İşlerim, süreklilik planı/tatbikat/açık sorumluluklarını mevcut yetkilerle okur. Ayrı bir yapılandırma veya veri göçü gerekmez. Kaynak başına 2.000 kayıt sınırı, eksik ilişki veya okuma hatası varsa liste eksik olarak işaretlenir ve CSV kapanır; yenileme ile tekrar denenir. Kurumsal süreklilik verileri sınırlı modül yetkili hesaplara açılmaz. [Süreklilik iş kuyruğu ve tarih kuralları](continuity-my-work.md).
 
 [Dokümantasyon dizini](README.md) · [Kullanıcı rehberi](USER-GUIDE.md) · [Ürün tanıtımı](PRODUCT-OVERVIEW.md)

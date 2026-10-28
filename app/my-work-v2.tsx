@@ -1,5 +1,6 @@
 "use client";
 import {milestoneLabels} from './audit-milestones';
+import {incidentLabel} from './incidents/labels';
 import { enterpriseWorkSources, enterpriseWorkKinds, continuityWorkLabels, projectEnterpriseWork, type EnterpriseWorkSource } from "./enterprise-work";
 import MyWorkAssuranceSignals from "./my-work-assurance-signals";
 import { dueTimestamp } from "./due-date";
@@ -187,6 +188,7 @@ function isWaitingForOthers(row: Row, user: User) {
   return row.data.workWaitingForReview === true || (row.workKind === "policy-version" && state === "approved") || REVIEW_STATES.some(candidate => state.includes(candidate)) || Boolean(row.data.submittedAt || row.data.submittedBy || row.data.reviewStatus);
 }
 function priorityFor(row: Row, dueTime: number, now: number) {
+  if (row.workKind === 'incident' && ['critical', 'high'].includes(clean(row.data.severity))) return 1;
   if (row.module === "Bulgular ve CAPA") {
     const disposition = findingWorkDisposition(row.data, now);
     if (disposition === "acceptance-expired") return 0;
@@ -206,6 +208,17 @@ function priorityFor(row: Row, dueTime: number, now: number) {
 function reasonFor(row: Row, dueTime: number, now: number, lang: Lang) {
   if(row.workKind === "audit-milestone" && Number(row.data.blockedCount)>0)return lang === "tr" ? `${row.data.blockedCount} ön koşul görevi bekleniyor` : `Waiting for ${row.data.blockedCount} prerequisite milestones`;
   const tr = lang === "tr";
+  if (row.workKind === 'incident') {
+    const reasons: Record<string, [string, string]> = {
+      declared: ['Olay ön incelemesi bekleniyor', 'Incident triage needed'],
+      triage: ['Olay kontrol altına alınmalı', 'Incident containment needed'],
+      contained: ['Tehdit giderilmeli', 'Threat eradication needed'],
+      eradicated: ['Hizmet kurtarma bekleniyor', 'Service recovery needed'],
+      recovered: ['Kök neden ve dersler incelemeye sunulmalı', 'Submit root cause and lessons for review'],
+      review: ['Bağımsız olay kapanışı bekleniyor', 'Awaiting independent incident closure'],
+    };
+    return reasons[rowStatus(row)]?.[tr ? 0 : 1] || incidentLabel(rowStatus(row), lang);
+  }
   if (row.workKind === "continuity-plan" && row.data.status === "draft") return tr ? "Bağımsız plan onayı bekleniyor" : "Awaiting independent plan approval";
   if (row.workKind === "continuity-plan" && row.data.status === "approved") return tr ? "Plan etkinleştirilmeli" : "Plan needs activation";
   if(row.workKind === "audit-milestone" && row.data.status === "submitted")return tr ? "Bağımsız görev incelemesi bekleniyor" : "Awaiting independent milestone review";
@@ -238,7 +251,7 @@ function itemFromRow(row: Row, user: User, now: number, lang: Lang, completed = 
     row,
     title: row.workKind ? `${enterpriseWorkKinds[row.workKind]?.[lang] || row.workKind} · ${rowTitle(row)}` : rowTitle(row),
     owner: rowOwner(row),
-    status: row.workSource === "continuity" ? continuityWorkLabels[rowStatus(row)]?.[lang] || rowStatus(row) : row.workKind === "audit-milestone" ? milestoneLabels[rowStatus(row) as keyof typeof milestoneLabels]?.[lang === "tr" ? 0 : 1] || rowStatus(row) : rowStatus(row),
+    status: row.workKind === 'incident' ? incidentLabel(rowStatus(row), lang) : row.workSource === "continuity" ? continuityWorkLabels[rowStatus(row)]?.[lang] || rowStatus(row) : row.workKind === "audit-milestone" ? milestoneLabels[rowStatus(row) as keyof typeof milestoneLabels]?.[lang === "tr" ? 0 : 1] || rowStatus(row) : rowStatus(row),
     due,
     dueTime,
     priority,
@@ -435,7 +448,7 @@ export default function MyWorkV2() {
         <div>
           <small>{tr ? "AKSİYON MERKEZİ" : "ACTION INBOX"}</small>
           <h2>{tr ? "Bugün neye müdahale etmeliyim?" : "What needs my attention today?"}</h2>
-          <p>{tr ? "Risk, kontrol, kanıt, denetim, süreklilik ve iyileştirme sorumluluklarını tek kuyrukta gör; çalışma sırasını ihtiyacına göre seç." : "See risk, control, evidence, audit, continuity and remediation responsibilities in one queue; choose the order that fits your work."}</p>
+          <p>{tr ? "Risk, kontrol, kanıt, denetim, süreklilik, olay ve iyileştirme sorumluluklarını tek kuyrukta gör; çalışma sırasını ihtiyacına göre seç." : "See risk, control, evidence, audit, continuity, incident and remediation responsibilities in one queue; choose the order that fits your work."}</p>
         </div>
         <div className="mw2-hero-actions">
           {user.role === "Admin" && <div className="mw2-scope" aria-label={tr ? "İş kapsamı" : "Work scope"}>
@@ -462,7 +475,7 @@ export default function MyWorkV2() {
         apply={view => { const next = readWorkView(view, Object.keys(MODULE_LABELS)); setQuery(next.query); setModuleFilter(next.module); setFilter(next.status); setSort(next.sort); setPageIndex(0); }} />}
       <div className="mw2-metrics">
         <button type="button" className={data.overdue ? "critical" : ""} onClick={() => setFilter("overdue")}><small>{tr ? "Geciken" : "Overdue"}</small><strong>{data.overdue}</strong><span>{tr ? "Termin geçmiş işler" : "Past-due work"}</span></button>
-        <button type="button" className={data.priority ? "warning" : ""} onClick={() => setFilter("priority")}><small>{tr ? "Dikkat gerekiyor" : "Needs attention"}</small><strong>{data.priority}</strong><span>{tr ? "Kritik, 7 gün içinde veya değerlendirme bekliyor" : "Critical, due within 7 days or awaiting assessment"}</span></button>
+        <button type="button" className={data.priority ? "warning" : ""} onClick={() => setFilter("priority")}><small>{tr ? "Dikkat gerekiyor" : "Needs attention"}</small><strong>{data.priority}</strong><span>{tr ? "Kritik kapsam, yüksek önem dereceli olay, yakın termin veya değerlendirme" : "Critical scope, high-severity incident, near due date or awaiting assessment"}</span></button>
         <button type="button" className={data.waiting ? "muted" : ""} onClick={() => setFilter("waiting")}><small>{tr ? "Başkalarında bekleyen" : "Waiting for others"}</small><strong>{data.waiting}</strong><span>{tr ? "İnceleme / onay bekleyen" : "Reviewer / approval pending"}</span></button>
         <button type="button" onClick={() => setFilter("completed")}><small>{tr ? "30 günde tamamlanan" : "Completed in 30 days"}</small><strong>{data.completedItems.length}</strong><span>{tr ? "Yakın zamanda kapanan işler" : "Recently closed work"}</span></button>
       </div>
