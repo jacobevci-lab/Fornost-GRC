@@ -15,7 +15,7 @@ let phase = 'setup', policyId, versionId, readFailure = false, dropResponse = fa
 for (const p of [page, reader]) { p.setDefaultTimeout(20000); p.on('pageerror', error => errors.push(error.message)); }
 async function api(ctx, path, method = 'GET', data, status = 200) { const r = await ctx.request.fetch(base + path, { method, data, headers: { origin: base } }); assert.equal(r.status(), status, `${path}: ${await r.text()}`); return r.json(); }
 const workspace = ctx => api(ctx, `/api/policy-lifecycle?view=review&policyId=${policyId}`);
-const library = { evidenceMode: 'library', evidenceSelection: { evidenceId: f.evidenceId, versionId: f.version1Id } };
+let library;
 async function versionAction(ctx, operation, confirmation) { const source = await api(ctx, `/api/policy-lifecycle?view=decision&kind=version&id=${versionId}`); return api(ctx, '/api/policy-lifecycle', 'POST', { action: 'version-action', versionId, operation, confirmation, note: 'Independent controlled publication for the periodic-review journey.', decisionMode: 'reviewed', expectedRevision: source.revision, ...library }); }
 async function openWork() {
   if (!(await page.locator('.shell').count())) await page.goto(base);
@@ -36,6 +36,11 @@ async function dismiss(p = page) { await p.keyboard.press('Escape'); await p.key
 try {
   await mkdir(out, { recursive: true });
   for (const [ctx, email] of [[admin, owner], [reviewer, f.reviewerEmail], [viewer, f.viewerEmail], [scoped, f.scopedEmail]]) await api(ctx, '/api/auth', 'POST', { action: 'login', email, password: qaPassword() });
+  // Keep publication evidence separate from shared fixture usage-count assertions.
+  const upload = await admin.request.post(base + '/api/evidence', { headers: { origin: base }, multipart: { evidenceTitle: `Periodic policy proof ${tag}`, owner, period: '2026-Q4', controlRef: 'A.5.30', status: 'İncelemede', file: { name: 'policy-review-proof.txt', mimeType: 'text/plain', buffer: Buffer.from('Synthetic independent policy publication evidence') } } });
+  assert.equal(upload.status(), 201, await upload.text()); const evidenceId = (await upload.json()).id;
+  const evidenceVersion = (await api(admin, `/api/evidence/history?id=${evidenceId}`)).versions[0];
+  library = { evidenceMode: 'library', evidenceSelection: { evidenceId, versionId: evidenceVersion.id } };
   policyId = (await api(admin, '/api/policy-lifecycle', 'POST', { action: 'save-policy', assignmentMode: 'directory', code: `QA-PPR-${tag}`, title: name, category: 'security', classification: 'internal', owner, reviewer: f.reviewerEmail, audience: 'Synthetic policy team', reviewFrequencyDays: 365 }, 201)).id;
   const versionInput = { action: 'create-version', policyId, summary: 'Controlled policy for independent periodic suitability review.', content: 'This policy governs access, accountability and independent review of continuing suitability. Owners preserve controlled evidence and follow the version workflow when content changes.', effectiveDate: future(-400), regulationRefs: ['ISO-27001'] };
   versionId = (await api(admin, '/api/policy-lifecycle', 'POST', versionInput, 201)).id;

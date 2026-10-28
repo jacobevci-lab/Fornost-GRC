@@ -10,8 +10,10 @@ import './continuity-plan-review.css';
 type Draft = { requestId: string; expectedRevision: string; note: string; nextReviewDate: string; confirmed: boolean };
 function PolicyFacts({ source, tr }: { source: PolicyReviewSource; tr: boolean }) {
   const { policy: p, version: v } = source;
+  const status = (value: unknown) => tr ? ({ published: 'Yayımlanmış', retired: 'Yürürlükten kaldırıldı', superseded: 'Önceki sürüm', draft: 'Taslak', review: 'İncelemede', approved: 'Onaylı' }[String(value)] || String(value)) : String(value);
   const fields = [
     [tr ? 'Politika' : 'Policy', `${p.code} · ${p.title}`], [tr ? 'Yayımlanmış sürüm' : 'Published version', `v${v.version_number} · ${v.effective_date}`],
+    [tr ? 'Politika / sürüm durumu' : 'Policy / version status', `${status(p.status)} / ${status(v.status)}`],
     [tr ? 'Politika sahibi' : 'Policy owner', p.owner], [tr ? 'Bağımsız incelemeci' : 'Independent reviewer', p.reviewer],
     [tr ? 'Hedef kitle' : 'Audience', p.audience], [tr ? 'Sınıf / Kategori' : 'Classification / Category', `${p.classification} · ${p.category}`],
     [tr ? 'Mevcut inceleme tarihi' : 'Current review date', p.next_review], [tr ? 'İnceleme sıklığı (gün)' : 'Review frequency (days)', p.review_frequency_days],
