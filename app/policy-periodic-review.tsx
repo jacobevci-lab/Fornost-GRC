@@ -1,5 +1,6 @@
 "use client";
 import { useCallback, useEffect, useId, useRef, useState, type FormEvent } from 'react';
+import { createPortal } from 'react-dom';
 import { withBasePath } from './base-path';
 import { requestJsonWithDeadline } from './bounded-json-request';
 import { useWorkflowRecords } from './use-workflow-records';
@@ -47,7 +48,7 @@ export default function PolicyPeriodicReview({ id, tr, close, openVersions }: { 
     } catch { setNotice(tr ? 'Sonuç doğrulanamadı. Aynı taslakla tekrar deneyin veya politikayı yenileyin; çift kayıt oluşturulmaz.' : 'The outcome could not be confirmed. Retry the same draft or refresh the policy; no duplicate is created.'); }
     finally { setBusy(false); }
   }
-  return <div className="overlay" onMouseDown={event => { if (event.target === event.currentTarget) dismiss(); }}><div ref={dialog} data-escape-layer className="modal plm-modal plm-decision" role="dialog" aria-modal="true" aria-label={tr ? 'Periyodik politika incelemesi' : 'Periodic policy review'} tabIndex={-1}>
+  return typeof document === 'undefined' ? null : createPortal(<div className="overlay ppr-overlay" onMouseDown={event => { if (event.target === event.currentTarget) dismiss(); }}><div ref={dialog} data-escape-layer className="modal plm-modal plm-decision" role="dialog" aria-modal="true" aria-label={tr ? 'Periyodik politika incelemesi' : 'Periodic policy review'} tabIndex={-1}>
     <header className="modal-head"><h2>{tr ? 'Periyodik politika incelemesi' : 'Periodic policy review'}</h2><button data-escape-close type="button" aria-label={tr ? 'Kapat' : 'Close'} disabled={busy} onClick={dismiss}>×</button></header>
     <div className="cpr-body" aria-busy={resource.loading}>
       <div className="cpr-toolbar"><p>{tr ? 'Yayımlanmış içeriğin geçerliliğini inceleyin ve sonraki tarihi belirleyin. İçerik değişikliği gerekiyorsa kontrollü yeni sürüm sürecini kullanın.' : 'Review the published content’s continued suitability and set the next date. Use the controlled version workflow when content needs to change.'}</p><button type="button" disabled={busy || resource.loading} onClick={() => void refresh()}>{tr ? 'Politikayı yenile' : 'Refresh policy'}</button></div>
@@ -78,5 +79,5 @@ export default function PolicyPeriodicReview({ id, tr, close, openVersions }: { 
         {data.reviews.map(review => <article key={review.id}><p><strong>{review.actor}</strong> · <time>{review.reviewedAt}</time></p><p>{review.previousDate} → {review.nextDate}</p><p className="cpr-note">{review.note}</p>{review.snapshot ? <details><summary>{tr ? 'İncelenen politika kopyası' : 'Reviewed policy snapshot'} · v{review.snapshot.version.version_number}</summary><PolicyFacts source={review.snapshot} tr={tr} /></details> : <p>{tr ? 'Politika kopyası kullanılamıyor.' : 'Policy snapshot unavailable.'}</p>}</article>)}
       </section>}
     </div>
-  </div></div>;
+  </div></div>, document.body);
 }
