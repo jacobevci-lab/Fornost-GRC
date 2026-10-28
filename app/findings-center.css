@@ -22,6 +22,8 @@ dialog.finding-overlay::backdrop{background:rgba(0,0,0,.74);backdrop-filter:blur
 fieldset.finding-form-grid{border:0;margin:0;min-width:0}
 .finding-action-fields{border:0;padding:0;margin:0;min-width:0}
 .finding-action-fields>label{margin:14px 20px}
+/* Keep the existing dark accent fill; use the dark surface ink for readable primary actions. */
+html[data-theme="dark"] .finding-overlay :is(.finding-detail,.finding-form,.finding-action)>footer button:not(.secondary){color:var(--ws-bg)!important}
 .finding-dialog-notice{margin:14px 20px;padding:10px 12px;border:1px solid var(--at-warn);border-radius:6px;color:var(--at-ink);background:var(--at-warn-soft);overflow-wrap:anywhere}
 
 .finding-kpis>button{text-align:left;font:inherit;cursor:pointer;color:var(--at-ink)}.finding-kpis>button[aria-pressed="true"]{outline:2px solid var(--at-accent-ink);outline-offset:2px}.finding-kpis>button:focus-visible{outline:2px solid var(--at-accent-ink);outline-offset:2px}.finding-kpis>button:disabled{cursor:default}
@@ -32,3 +34,5 @@ fieldset.finding-form-grid{border:0;margin:0;min-width:0}
 
 /* A finding governance card must not inherit the shell sidebar geometry. */
 .finding-detail .finding-detail-grid>aside{position:static;height:auto;min-height:0;box-shadow:none;background:var(--at-raised)!important;color:var(--at-ink)!important;border-color:var(--at-line)!important}
+
+.finding-decision{width:min(850px,96vw)}.finding-decision-context{margin:18px 20px;padding:14px;border:1px solid var(--at-line);border-radius:7px;background:var(--at-raised);overflow-wrap:anywhere}.finding-decision-context dl{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.finding-decision-context dt{font-size:12px;color:var(--at-ink-3)}.finding-decision-context dd{margin:4px 0 0;font-size:13px}.finding-decision-context p{white-space:pre-wrap;line-height:1.5}.finding-decision-context button{padding:7px 10px;border:1px solid var(--at-line);border-radius:6px;background:var(--at-surface);color:var(--at-ink);font:inherit}.finding-decision-context summary{cursor:pointer;font-weight:650}.finding-decision .finding-action-fields{min-width:0}.finding-decision select{max-width:100%;min-width:0;color:var(--at-ink);background:var(--at-bg)}.finding-decision input,.finding-decision textarea,.finding-decision fieldset{min-width:0;max-width:100%}.finding-decision footer{flex-wrap:wrap}.finding-decision .workflow-evidence{margin:0}.finding-form-grid>.workflow-person{min-width:0}.finding-record-history .workflow-evidence-history{max-width:100%;overflow-wrap:anywhere}@media(max-width:700px){.finding-decision-context dl{grid-template-columns:1fr}}

@@ -124,3 +124,5 @@ Register XLSX import supports column mapping, row-level validation, paginated re
 Politika kabul kampanyalarında Admin, bağlı politika sürümünü ve kabul/ret/cevapsız sonuçlarını inceleyip gerekçeli kapanış yapabilir. Kapanış yanıtları değiştirmez; aktif iş kuyruğunu ve politika kaldırma engelini günceller. [Kampanya sonuçları ve kapanış](docs/policy-campaign-completion.md).
 
 Politika kararlarında kütüphaneden gerçek dosya sürümü, sorumlu/incelemeci atamalarında etkin kullanıcı seçilebilir. Karar bağlamı, ayrı gönderim/onay/yayın/istisna/kaldırma kanıtları ve Kanıt Kullanımı üzerinden kaynağa dönüş korunur. [Bağlı politika kararları](docs/policy-connected-evidence.md).
+
+CAPA atamalarında etkin kullanıcılar, gönderim/kapanış/risk kabulünde kütüphanedeki gerçek dosya sürümleri seçilebilir. Güncel bulgu ve plan incelemesi, hata sonrası taslak kurtarma, ayrı karar kanıtları ve Kanıt Kullanımı üzerinden bulguya dönüş korunur. [Bağlı CAPA kararları](docs/capa-connected-evidence.md).

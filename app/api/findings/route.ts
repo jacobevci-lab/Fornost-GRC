@@ -1,4 +1,7 @@
 import {insertFinding} from "../../findings/intake-store";
+import {readFindingDecision,prepareFindingDecision,FindingDecisionError} from '../../findings/decision-store';
+import {prepareWorkflowSelection,joinWorkflowGuards,workflowPinStatement,WorkflowSelectionError} from '../../workflow-selection-store';
+import {lifecycleClaim,nextLifecycleStamp,LifecycleConflict} from '../../enterprise-lifecycle-write';
 import {CoreReferenceUnavailable} from "../../core-reference-write";
 import { NextRequest, NextResponse } from "next/server";
 import { requireRole } from "../auth/security";
@@ -11,7 +14,7 @@ import { FindingReportPageError, readFindingReportPage, readFindingGraphPage } f
 
 import { readFindingRegister,readFindingRegisterPage,parseFindingRegisterQuery,FindingRegisterError } from "../../findings/register";
 
-type Env = Record<string, unknown> & { DB: D1Database };
+type Env = Record<string, unknown> & { DB: D1Database; BUCKET?:R2Bucket };
 
 async function runtime() {
   const { env } = await import("cloudflare:workers");
@@ -75,6 +78,12 @@ export async function GET(req: NextRequest) {
   if (access.response) return access.response;
   const env = await runtime();
   await ensureFindingsSchemaCompatibility(env.DB);
+
+  if(req.nextUrl.searchParams.get('view')==='decision'){
+    if(req.nextUrl.searchParams.getAll('findingId').length!==1)return json({code:'FINDING_DECISION_INPUT'},400);
+    try{return json(await readFindingDecision(env.DB,req.nextUrl.searchParams.get('findingId')));}
+    catch(error){if(error instanceof FindingDecisionError)return json({code:error.code},error.status);return json({code:'FINDING_SOURCE_UNAVAILABLE'},503);}
+  }
 
   if (req.nextUrl.searchParams.get("view") === "graph") {
     try { return json(await readFindingGraphPage(env.DB, req.nextUrl.searchParams.get("after"), req.nextUrl.searchParams.get("revision"))); }
@@ -140,7 +149,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   if (Number(req.headers.get("content-length") || 0) > 262_144) return json({ error: "İstek boyutu çok büyük." }, 413);
-  const body = await req.json().catch(() => ({})) as Record<string, unknown>;
+  let body = await req.json().catch(() => ({})) as Record<string, unknown>;
   const action = clean(body.action, 40);
   const access = await requireRole(req, ["Admin", "Editor"]);
   if (access.response) return access.response;
@@ -149,6 +158,8 @@ export async function POST(req: NextRequest) {
 
   try {
     if (action === "create") {
+      const selection=await prepareWorkflowSelection(env,access.actor,body,{owner:'writer',reviewer:'reviewer'});
+      body=selection.body;
       const finding = validateFinding(body);
       if (finding.sourceType === "continuous-control") {
         return json({ error: "Sürekli kontrol bulguları yalnız yönetişimli Continuous Assurance inceleme kuyruğu üzerinden oluşturulabilir." }, 409);
@@ -156,56 +167,56 @@ export async function POST(req: NextRequest) {
       const id = `FND-${crypto.randomUUID()}`;
       const code = `FND-${new Date().getUTCFullYear()}-${crypto.randomUUID().replace(/-/g, "").slice(0, 8).toUpperCase()}`;
       const now = new Date().toISOString();
-      await insertFinding(env.DB, finding, {id,code,actor:access.actor.email,stamp:now});
+      await insertFinding(env.DB, finding, {id,code,actor:access.actor.email,stamp:now,guard:body.assignmentMode==='directory'?selection.guard:undefined});
       return json({ id, code, message: "Kurumsal bulgu ve CAPA planı oluşturuldu." }, 201);
     }
 
     if (action === "transition") {
+      const decisionGuard=await prepareFindingDecision(env.DB,access.actor,body);
+      const selection=await prepareWorkflowSelection(env,access.actor,body,{},['submit','verify','accept-risk'].includes(String(body.operation)));
+      body=selection.body;
+      const writeGuard=joinWorkflowGuards(decisionGuard,selection.guard);
       const id = clean(body.findingId, 100);
       const operation = validateFindingAction(body);
       const finding = await env.DB.prepare("SELECT * FROM enterprise_findings WHERE id=?").bind(id).first<Record<string, unknown>>();
       if (!finding) return json({ error: "Bulgu bulunamadı." }, 404);
       if (!findingVersionMatches(body.expectedUpdatedAt,finding.updated_at)) return json({error:"Bulgu görüntülediğiniz sürümden sonra değişti. Güncel kaydı inceleyip işlemi yeniden açın."},409);
       const status = String(finding.status);
-      const now = new Date().toISOString();
+      const now = nextLifecycleStamp(finding.updated_at),eventId=crypto.randomUUID();
       let next = "";
       let update: D1PreparedStatement;
 
       if (operation.operation === "start") {
         if (status !== "open" || access.actor.role !== "Admin" && finding.owner !== access.actor.email) return json({ error: "CAPA'yı yalnız atanmış aksiyon sahibi veya Admin başlatabilir." }, 403);
         next = "in-progress";
-        update = env.DB.prepare("UPDATE enterprise_findings SET status=?,started_by=?,started_at=?,updated_by=?,updated_at=? WHERE id=? AND status=? AND updated_at=?")
-          .bind(next, access.actor.email, now, access.actor.email, now, id, status, finding.updated_at);
+        update = lifecycleClaim(env.DB,'enterprise_findings','status=?,started_by=?,started_at=?,updated_by=?,updated_at=?',[next,access.actor.email,now,access.actor.email,now],finding as Record<string,string|number|null>,writeGuard);
       } else if (operation.operation === "submit") {
         if (status !== "in-progress" || access.actor.role !== "Admin" && finding.owner !== access.actor.email) return json({ error: "CAPA'yı yalnız atanmış aksiyon sahibi doğrulamaya gönderebilir." }, 403);
         validateFindingGovernanceGate(finding, "submit");
         next = "verification";
-        update = env.DB.prepare("UPDATE enterprise_findings SET status=?,evidence_reference=?,evidence_sha256=?,submitted_by=?,submitted_at=?,updated_by=?,updated_at=? WHERE id=? AND status=? AND updated_at=?")
-          .bind(next, operation.evidenceReference, operation.evidenceSha256, access.actor.email, now, access.actor.email, now, id, status, finding.updated_at);
+        update = lifecycleClaim(env.DB,'enterprise_findings','status=?,evidence_reference=?,evidence_sha256=?,submitted_by=?,submitted_at=?,updated_by=?,updated_at=?',[next,operation.evidenceReference,operation.evidenceSha256,access.actor.email,now,access.actor.email,now],finding as Record<string,string|number|null>,writeGuard);
       } else if (operation.operation === "verify") {
         if (access.actor.role !== "Admin" || status !== "verification" || finding.reviewer !== access.actor.email) return json({ error: "Bulguyu yalnız atanmış bağımsız Admin reviewer kapatabilir." }, 403);
         if ([finding.detected_by, finding.owner, finding.submitted_by].includes(access.actor.email)) return json({ error: "Maker-checker: tespit eden, aksiyon sahibi veya gönderen kişi kapatamaz." }, 409);
         validateFindingGovernanceGate(finding, "verify");
         next = "closed";
-        update = env.DB.prepare("UPDATE enterprise_findings SET status=?,verification_evidence_reference=?,verification_evidence_sha256=?,verified_by=?,verified_at=?,acceptance_rationale=NULL,accept_until=NULL,updated_by=?,updated_at=? WHERE id=? AND status=? AND updated_at=?")
-          .bind(next, operation.evidenceReference, operation.evidenceSha256, access.actor.email, now, access.actor.email, now, id, status, finding.updated_at);
+        update = lifecycleClaim(env.DB,'enterprise_findings','status=?,verification_evidence_reference=?,verification_evidence_sha256=?,verified_by=?,verified_at=?,acceptance_rationale=NULL,accept_until=NULL,updated_by=?,updated_at=?',[next,operation.evidenceReference,operation.evidenceSha256,access.actor.email,now,access.actor.email,now],finding as Record<string,string|number|null>,writeGuard);
       } else if (operation.operation === "accept-risk") {
         if (access.actor.role !== "Admin" || !["open", "in-progress"].includes(status) || finding.reviewer !== access.actor.email) return json({ error: "Risk kabulünü yalnız atanmış bağımsız Admin reviewer verebilir." }, 403);
         if ([finding.detected_by, finding.owner].includes(access.actor.email)) return json({ error: "Maker-checker: tespit eden veya aksiyon sahibi riski kabul edemez." }, 409);
         validateFindingGovernanceGate(finding, "accept-risk");
         next = "accepted";
-        update = env.DB.prepare("UPDATE enterprise_findings SET status=?,acceptance_rationale=?,accept_until=?,verification_evidence_reference=?,verification_evidence_sha256=?,verified_by=?,verified_at=?,updated_by=?,updated_at=? WHERE id=? AND status=? AND updated_at=?")
-          .bind(next, operation.acceptanceRationale, operation.acceptUntil, operation.evidenceReference, operation.evidenceSha256, access.actor.email, now, access.actor.email, now, id, status, finding.updated_at);
+        update = lifecycleClaim(env.DB,'enterprise_findings','status=?,acceptance_rationale=?,accept_until=?,verification_evidence_reference=?,verification_evidence_sha256=?,verified_by=?,verified_at=?,updated_by=?,updated_at=?',[next,operation.acceptanceRationale,operation.acceptUntil,operation.evidenceReference,operation.evidenceSha256,access.actor.email,now,access.actor.email,now],finding as Record<string,string|number|null>,writeGuard);
       } else if (operation.operation === "reopen") {
         if (access.actor.role !== "Admin" || !["verification", "closed", "accepted"].includes(status)) return json({ error: "Bulguyu yalnız Admin yeniden açabilir." }, 403);
         next = "in-progress";
-        update = env.DB.prepare("UPDATE enterprise_findings SET status=?,recurrence_count=recurrence_count+1,reopened_by=?,reopened_at=?,verified_by=NULL,verified_at=NULL,acceptance_rationale=NULL,accept_until=NULL,updated_by=?,updated_at=? WHERE id=? AND status=? AND updated_at=?")
-          .bind(next, access.actor.email, now, access.actor.email, now, id, status, finding.updated_at);
+        update = lifecycleClaim(env.DB,'enterprise_findings','status=?,recurrence_count=recurrence_count+1,reopened_by=?,reopened_at=?,verified_by=NULL,verified_at=NULL,acceptance_rationale=NULL,accept_until=NULL,updated_by=?,updated_at=?',[next,access.actor.email,now,access.actor.email,now],finding as Record<string,string|number|null>,writeGuard);
       } else {
         return json({ error: "Geçersiz bulgu işlemi." }, 400);
       }
 
       const changed = await commitFindingTransition(env.DB, update, {
+        id:eventId,
         findingId: id,
         action: operation.operation,
         from: status,
@@ -215,13 +226,15 @@ export async function POST(req: NextRequest) {
         evidenceSha256: operation.evidenceSha256,
         actor: access.actor.email,
         stamp: now,
-      });
+      },workflowPinStatement(env.DB,selection,'findings',id,`capa-${operation.operation}`,eventId,access.actor.email));
       if (!changed) return json({ error: "Bulgu başka bir işlemle değişti. Güncel kaydı yenileyip tekrar değerlendirin." }, 409);
       return json({ message: "Bulgu ve CAPA yaşam döngüsü güncellendi.", status: next });
     }
 
     return json({ error: "Geçersiz işlem." }, 400);
   } catch (error) {
+    if(error instanceof FindingDecisionError||error instanceof WorkflowSelectionError)return json({error:error.message,code:error.code},error.status);
+    if(error instanceof LifecycleConflict)return json({error:error.message},409);
     if(error instanceof CoreReferenceUnavailable)return json({error:error.message,code:"REFERENCE_UNAVAILABLE"},422);
     return json({ error: error instanceof Error ? error.message : "İşlem tamamlanamadı." }, 400);
   }
