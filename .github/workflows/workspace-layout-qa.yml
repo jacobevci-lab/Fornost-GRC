@@ -58,6 +58,15 @@ jobs:
         with:
           name: workflow-evidence-selection-preview
           path: workflow-evidence-selection-qa-artifacts/
+      - name: Assigned policy reading, response and recovery QA
+        timeout-minutes: 6
+        run: node scripts/policy-attestation-response-qa.mjs
+      - name: Preserve assigned policy response browser evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: policy-attestation-response-preview
+          path: policy-attestation-response-qa-artifacts/
       - name: Published policy periodic review, history and My Work QA
         timeout-minutes: 6
         run: node scripts/policy-periodic-review-qa.mjs

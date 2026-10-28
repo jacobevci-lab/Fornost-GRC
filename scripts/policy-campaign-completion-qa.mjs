@@ -33,10 +33,12 @@ async function details(tr = false) {
 async function respond(p, email, accepted) {
   const row = p.locator('.plm-table tbody tr').filter({ hasText: name }).filter({ hasText: email });
   await row.getByRole('button', { name: accepted ? 'Accept' : 'Decline', exact: true }).click();
-  const dialog = p.getByRole('dialog', { name: accepted ? 'OKUDUM VE KABUL EDİYORUM' : 'KABUL ETMİYORUM', exact: true });
+  const dialog = p.getByRole('dialog', { name: 'Policy response', exact: true });
   await dialog.getByLabel('Decision / action note', { exact: true }).fill(accepted ? 'Read the issued policy and accept the obligations.' : 'Cannot accept this policy until the scope question is resolved.');
-  await dialog.getByLabel(/^Exact confirmation:/).fill(accepted ? 'OKUDUM VE KABUL EDİYORUM' : 'KABUL ETMİYORUM');
-  await dialog.getByRole('button', { name: 'Apply', exact: true }).click(); await expect(dialog).toBeHidden(); await waitForQaIdle(p);
+  await expect(dialog.getByRole('region', {name:'Assigned policy content', exact:true})).toBeVisible();
+  await dialog.getByRole('checkbox').check();
+  await dialog.getByRole('button', { name: 'Record response', exact: true }).click(); await expect(dialog.getByRole('region', {name:'Recorded response', exact:true})).toBeVisible();
+  await dialog.getByRole('button', {name:'Close',exact:true}).click(); await expect(dialog).toBeHidden(); await waitForQaIdle(p);
 }
 async function draft(dialog, tr = false) {
   await dialog.getByRole('button', { name: tr ? 'Kapanışı hazırla' : 'Prepare closure', exact: true }).click();
@@ -107,7 +109,7 @@ try {
   assert.deepEqual((await state()).closure, committed.closure); await dialog.screenshot({ path: `${out}/closed-history.png` }); await page.keyboard.press('Escape'); await waitForQaIdle(page);
   await page.getByLabel('Campaign status', { exact: true }).selectOption('closed'); await expect(page.locator('.pcw-cards')).toContainText(name);
   await open(reader); await expect(reader.locator('.pcw-list')).toHaveCount(0);
-  const ownRow = reader.locator('.plm-table tbody tr').filter({ hasText: name }); await expect(ownRow).toContainText('Campaign closed'); await expect(ownRow.getByRole('button')).toHaveCount(0);
+  const ownRow = reader.locator('.plm-table tbody tr').filter({ hasText: name }); await expect(ownRow).toContainText('Campaign closed'); await expect(ownRow.getByRole('button', {name:/^(Accept|Decline)$/})).toHaveCount(0);
   const viewerState = await api(viewer, '/api/policy-lifecycle'), pending = viewerState.attestations.find(a => a.campaignId === campaignId); assert.equal(pending.status, 'pending');
   await api(viewer, '/api/policy-lifecycle', 'POST', { action: 'attest', attestationId: pending.id, decision: 'attested', note: 'This late answer must be rejected.', confirmation: 'OKUDUM VE KABUL EDİYORUM' }, 409);
   await reader.locator('nav button[aria-label="My Work"]').evaluate(el => el.click()); await waitForQaIdle(reader);

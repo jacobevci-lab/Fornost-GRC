@@ -160,3 +160,7 @@ The existing inbox now includes incident response assignments and independent cl
 ### Published policy periodic review — 28 October 2026
 
 Source-confirmed gap: published policies already enter My Work by `next_review`, but had no explicit current-version suitability review. This delivery adds independent periodic review with a frequency-bounded next date, immutable full policy/version snapshots, pending-version blocking, stale-source recovery and idempotent request replay. Existing content publication and attestation workflows remain authoritative. See [brief](roadmap/policy-periodic-review.md) and [operation](policy-periodic-review.md). Implementation validation and immutable release receipt belong in the PR; production deployment, customer UAT and measured adoption remain unverified.
+
+## Assigned policy reading and response — 28 October 2026
+
+Source-confirmed gap: the subject's Accept/Decline dialog previously showed only note and confirmation, without the campaign's assigned policy text. This package connects the exact issued version to subject response, retained immutable context, full-source/account concurrency checks and lost-response replay. Existing campaign counts, closure and My Work remain canonical. See [brief](roadmap/policy-subject-response.md) and [operation](policy-attestation-response.md). Final validation and immutable release identities belong in the PR; production deployment, customer UAT and adoption remain unverified.
