@@ -245,6 +245,10 @@ TPRM, mevcut etkin kullanıcı dizinini ve sürümlü kanıt kütüphanesini kul
 
 Tam erişimli Viewer geçmişi okuyabilir; sınırlı çekirdek modül yetkisi TPRM kurumsal çalışma alanına veya karar kaynaklarına erişim vermez. Kanıt kullanımında bu kaynak **Yetki kapsamı dışında** görünür. Karar ekranı son 6.000 pini, kanıt kullanım kaynağı son 200 eşleşen kararı gösterir; sınır aşımı açıkça belirtilir. Eski serbest referans/hash API çağrıları kanonik pin kazanmaz. Geri alma pinleri silmemelidir. [Operasyon ve doğrulama](tprm-connected-evidence.md).
 
+### Tedarikçi kararında sonraki inceleme
+
+Yeni onay/koşullu onay arayüzü inceleme tarihini sözleşme sınırları içinde kararla birlikte kaydeder. Profil, bağlı tedarikçi tarihi, karar olayı ve sürümlü kanıt aynı işlemde güncellenir. Eski API istemcileri tarih planı göndermediklerinde mevcut davranışlarını korur. Yeni veri göçü veya ek yetki yoktur; geri almada tarihler ve karar geçmişi korunmalıdır. [API sözleşmesi, izinler ve sınırlar](tprm-review-scheduling.md).
+
 ### Tedarikçi iş geçmişi
 
 İşlerim, TPRM için ayrı özet okumasını kullanır; kişi atamaları ve gerçek karar/doğrulama/çıkış tarihleri mevcut kayıtlardan gelir. İncelemeci geçmişi karar anındaki aktörü korur. Üç koleksiyonun her biri 2.000 kayıtla sınırlıdır; taşma, eksik ilişki veya okuma hatası kapsamı eksik gösterir ve CSV'yi kapatır. Tam erişimli hesapların mevcut okuma sınırı korunur; yeni karar yetkisi veya veri göçü yoktur. [Veri kapsamı, eski kayıtlar ve geri alma](tprm-work-history.md).

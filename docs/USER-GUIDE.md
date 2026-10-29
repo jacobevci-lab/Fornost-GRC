@@ -315,6 +315,10 @@ Değerlendirmeyi gönderirken veya onaylarken, bulguyu doğrulamaya gönderirken
 
 **Son kararların kanıtları** hangi sürümün kaydedildiğini gösterir. Kanıt kütüphanesinin kullanım alanında **Tedarikçi kararları** filtresi, aktör/zamanı ve tarihsel sürümü listeler; **Kaydı aç** doğru değerlendirmeye, bulguya veya tedarikçiye gider. Bu geçmiş güncel onay yerine geçmez. [Ayrıntılar ve sınırlar](tprm-connected-evidence.md).
 
+### Tedarikçi inceleme tarihini planlamak
+
+Bağımsız incelemeci, **Onayla / Koşullu** ekranında mevcut inceleme tarihini ve sözleşme bitişini görür. Sonraki inceleme için bugünden sonra, sözleşme bitişini geçmeyen bir tarih seçin. Gelecekteki mevcut tarihi koruyabilir veya incelemeyi öne alabilirsiniz. Karar, kanıt ve tarih birlikte kaydedilir; İşlerim ve tedarikçi kaydı aynı tarihi gösterir. **İnceleme planı** geçmişi önceki/yeni tarihi ve karar sahibini korur. Kaynak değiştiğinde taslağı kaybetmeden bağlamı yenileyin, **Güncel sürümü kullan** ile açıkça benimseyin ve tekrar onaylayın. [Akış ve kurtarma](tprm-review-scheduling.md).
+
 ### Tedarikçi görevleri ve tamamlanan kararlar
 
 **İşlerim → İş kuyruğu modülü → Tedarikçi** ile değerlendirme ve bulgu sorumluluklarınızı bulun. İncelemeye gönderilince sahipler **Başkalarında bekleyen**, bağımsız incelemeci ise karar vereceği işi görür. **Tamamlanan** görünümü son 30 gündeki gerçek karar/doğrulama tarihini kullanır; sonraki değerlendirme dönemi eski kararı yeni tamamlanmış göstermez. İncelemeci kendi verdiği kararları burada korur. Yeniden açılan bulgu aktif işe döner. Satırdan asıl TPRM kaydına giderek mevcut yetkilerinizle devam edin. [Aşamalar, kapsam ve kurtarma](tprm-work-history.md).
