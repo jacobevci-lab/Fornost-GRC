@@ -1,8 +1,9 @@
+import {validVendorWork} from './third-party-risk/work';
 import { requestNextDue, type AuditRequest } from './audit-requests';
 import { INCIDENT_STATUSES, INCIDENT_SEVERITIES } from './incidents/domain';
 export const enterpriseWorkSources = [
   { key: 'policy', path: '/api/policy-lifecycle' },
-  { key: 'vendor', path: '/api/third-party-risk' },
+  { key: 'vendor', path: '/api/third-party-risk?view=work' },
   { key: 'regulatory', path: '/api/regulatory-intelligence' },
   { key: 'continuity', path: '/api/continuity?view=work' },
   { key: 'incidents', path: '/api/incidents?view=work' },
@@ -48,7 +49,7 @@ const text = (value: unknown) => typeof value === 'string' ? value.trim() : '';
 const object = (value: unknown): value is RecordData => !!value && typeof value === 'object' && !Array.isArray(value);
 const limits: Record<EnterpriseWorkSource, Record<string, number>> = {
   policy: { documents: 1000, versions: 3000, campaigns: 1000, attestations: 5000, exceptions: 2000 },
-  vendor: { profiles: 1000, assessments: 2000, findings: 3000 },
+  vendor: { profiles: 2000, assessments: 2000, findings: 2000 },
   regulatory: { changes: 1000, impacts: 2000 },
   continuity: { plans: 2000, exercises: 2000, gaps: 2000 },
   incidents: { incidents: 2000 },
@@ -65,11 +66,11 @@ export function projectEnterpriseWork(source: EnterpriseWorkSource, payload: unk
     const idKey = key === 'profiles' ? 'vendorId' : 'id';
     if (!Array.isArray(raw)) { complete = false; collections[key] = []; continue; }
     const valid = raw.filter((item): item is RecordData => object(item) && !!text(item[idKey]) && !!text(item.status));
-    if ((source === 'continuity' || source === 'incidents' ? raw.length > limit : raw.length >= limit) || valid.length !== raw.length || new Set(valid.map(item => text(item[idKey]))).size !== valid.length) complete = false;
+    if ((source === 'continuity' || source === 'incidents' || source === 'vendor' ? raw.length > limit : raw.length >= limit) || valid.length !== raw.length || new Set(valid.map(item => text(item[idKey]))).size !== valid.length) complete = false;
     const counts = new Map<string, number>();
     for (const item of valid) counts.set(text(item[idKey]), (counts.get(text(item[idKey])) || 0) + 1);
     const unique = valid.filter(item => counts.get(text(item[idKey])) === 1);
-    collections[key] = source === 'incidents' ? unique.slice(0, limit) : unique;
+    collections[key] = source === 'incidents' || source === 'vendor' ? unique.slice(0, limit) : unique;
   }
   const rows: EnterpriseWorkRow[] = [];
   const add = (kind: string, item: RecordData, data: RecordData, closed: boolean) => {
@@ -77,7 +78,7 @@ export function projectEnterpriseWork(source: EnterpriseWorkSource, payload: unk
     rows.push({ id: `work:${source}:${kind}:${id}`, code: text(data.code) || id, module: enterpriseWorkKinds[kind].module,
       workSource: source, workKind: kind, nativeRef: id, data: { ...data, status: text(item.status), workClosed: closed },
       updatedAt: text(item.updatedAt || item.attestedAt), createdAt: text(item.createdAt || item.detectedAt),
-      ...(source === 'continuity' || source === 'incidents' ? { completedAt: text(item.completedAt) } : {}) });
+      ...(source === 'continuity' || source === 'incidents' || source === 'vendor' ? { completedAt: text(item.completedAt) } : {}) });
   };
   const parent = (items: RecordData[], field: string, value: unknown) => {
     const found = items.filter(item => text(item[field]) === text(value));
@@ -148,15 +149,27 @@ export function projectEnterpriseWork(source: EnterpriseWorkSource, payload: unk
       add('policy-exception', e, { title: `${text(p.title)} · ${text(e.scope)}`, code: p.code, owner: e.owner, reviewer: e.status === 'submitted' ? e.reviewer : '', dueDate: e.expiresAt }, ['closed', 'rejected'].includes(text(e.status)) || p.status === 'retired');
     }
   } else if (source === 'vendor') {
-    const { profiles, assessments, findings } = collections;
-    for (const p of profiles) add('vendor-review', p, { title: p.name, owner: p.riskOwner, actionOwner: p.businessOwner, dueDate: p.nextReview, criticality: p.criticality }, ['offboarded', 'rejected'].includes(text(p.status)));
+    if (payload.complete !== true) complete = false;
+    const validated = (key: string, kind: 'profile' | 'assessment' | 'finding') => collections[key].filter(item => {
+      if (validVendorWork(item, kind)) return true;
+      complete = false; return false;
+    });
+    const profiles = validated('profiles', 'profile'), assessments = validated('assessments', 'assessment'), findings = validated('findings', 'finding');
+    const inactive = (p: RecordData) => ['offboarded','rejected'].includes(text(p.status));
+    for (const p of profiles) add('vendor-review', p, { title: p.name, owner: p.riskOwner, actionOwner: p.businessOwner, dueDate: p.nextReview, criticality: p.criticality }, inactive(p));
     for (const a of assessments) {
       const p = parent(profiles, 'vendorId', a.vendorId); if (!p) continue;
-      add('vendor-assessment', a, { title: `${text(p.name)} · ${a.cycleNumber}`, owner: p.riskOwner, actionOwner: p.businessOwner, reviewer: a.status === 'submitted' ? p.reviewer : '', severity: a.riskTier }, ['approved', 'conditional', 'rejected', 'superseded'].includes(text(a.status)) || p.status === 'offboarded');
+      const closed = ['approved','conditional','rejected','superseded'].includes(text(a.status));
+      if (!closed && inactive(p)) continue;
+      add('vendor-assessment', a, { title: `${text(p.name)} · ${a.cycleNumber}`, owner: p.riskOwner, actionOwner: p.businessOwner,
+        reviewer: a.status === 'submitted' ? p.reviewer : closed ? text(a.decidedBy) : '', severity: a.riskTier, workWaitingForReview: a.status === 'submitted' }, closed);
     }
     for (const f of findings) {
-      const p = parent(profiles, 'vendorId', f.vendorId); if (!p) continue;
-      add('vendor-finding', f, { title: f.title, owner: f.owner, reviewer: f.status === 'verification' ? p.reviewer : '', dueDate: f.dueDate, severity: f.severity }, f.status === 'closed');
+      const p = parent(profiles, 'vendorId', f.vendorId), a = parent(assessments, 'id', f.assessmentId); if (!p || !a) continue;
+      if (a.vendorId !== f.vendorId) { complete = false; continue; }
+      const closed = f.status === 'closed'; if (!closed && inactive(p)) continue;
+      add('vendor-finding', f, { title: f.title, owner: f.owner, reviewer: f.status === 'verification' ? p.reviewer : closed ? text(f.verifiedBy) : '',
+        dueDate: f.dueDate, severity: f.severity, workWaitingForReview: f.status === 'verification' }, closed);
     }
   } else if (source === 'incidents') {
     if (payload.complete !== true) complete = false;

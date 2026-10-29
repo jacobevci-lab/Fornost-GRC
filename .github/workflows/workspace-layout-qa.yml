@@ -58,6 +58,15 @@ jobs:
         with:
           name: workflow-evidence-selection-preview
           path: workflow-evidence-selection-qa-artifacts/
+      - name: TPRM reviewer handoff and accurate completed-work history QA
+        timeout-minutes: 7
+        run: node scripts/tprm-work-history-qa.mjs
+      - name: Preserve TPRM work-history browser evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tprm-work-history-preview
+          path: tprm-work-history-qa-artifacts/
       - name: Policy campaign directory selection, preview and safe issuance QA
         timeout-minutes: 7
         run: node scripts/policy-campaign-issuance-qa.mjs

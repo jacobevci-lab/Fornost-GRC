@@ -39,12 +39,13 @@ test('approved and expired exceptions are active work; submitted exceptions incl
 });
 
 test('vendor lifecycle retains native targets, review assignments and terminal decisions', () => {
-  const payload = { profiles: [{ vendorId: 'vendor', name: 'Supplier', status: 'in-review', riskOwner: 'owner', reviewer: 'reviewer' }], assessments: ['submitted','conditional','superseded'].map(status => ({ id: status, vendorId: 'vendor', status })), findings: [{ id: 'finding', vendorId: 'vendor', status: 'verification', owner: 'finder', dueDate: '2026-10-01' }] };
+  const dates = {createdAt:'2026-10-01T00:00:00Z',updatedAt:'2026-10-02T00:00:00Z'};
+  const payload = { complete:true, profiles: [{...dates, vendorId: 'vendor', name: 'Supplier', status: 'in-review', criticality:'high',businessOwner:'business@example.com', riskOwner: 'owner@example.com', reviewer: 'reviewer@example.com',nextReview:'2026-12-01',contractEnd:'2027-12-01' }], assessments: ['submitted','conditional','superseded'].map(status => ({...dates, id: status, vendorId: 'vendor', status,cycleNumber:1,riskTier:'high',decidedBy:status==='submitted'?null:'reviewer@example.com' })), findings: [{...dates, id: 'finding', vendorId: 'vendor',assessmentId:'conditional',title:'Remediate finding',severity:'high', status: 'verification', owner: 'finder@example.com', dueDate: '2026-10-01' }] };
   const result = projectEnterpriseWork('vendor', payload);
   assert.equal(result.complete, true);
-  assert.equal(result.rows.find(row => row.nativeRef === 'submitted')?.data.reviewer, 'reviewer');
+  assert.equal(result.rows.find(row => row.nativeRef === 'submitted')?.data.reviewer, 'reviewer@example.com');
   assert.equal(result.rows.find(row => row.nativeRef === 'conditional')?.data.workClosed, true);
-  assert.equal(result.rows.find(row => row.nativeRef === 'finding')?.data.reviewer, 'reviewer');
+  assert.equal(result.rows.find(row => row.nativeRef === 'finding')?.data.reviewer, 'reviewer@example.com');
   assert.equal(new Set(result.rows.map(row => row.id)).size, result.rows.length);
 });
 
