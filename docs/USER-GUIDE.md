@@ -364,3 +364,8 @@ Karar çakışırsa açıklama, kök neden/dersler, bildirim gerekçesi ve kanı
 ### Tedarikçi incelemecisini devretme
 
 Admin olarak **Tedarikçi Yönetimi → Tedarikçi Envanteri → Aç → İncelemeciyi değiştir** yolunu izleyin. Mevcut atamayı ve açık iş sayılarını inceleyin, dizinden etkin bağımsız Admin seçin, 20–1.200 karakter gerekçe yazın ve `İNCELEMECİYİ DEĞİŞTİR` ifadesini girin. Yeni incelemeci bekleyen işlerini **İşlerim** üzerinden tamamlar. Eski kararların sahibi ve kanıtları korunur. Kaynak değişirse taslağınızı koruyarak güncel sürümü açıkça seçin; yanıt kaybolursa mevcut atamayı ve **İncelemeci devir geçmişi**ni kontrol edin. [Ayrıntılar](tprm-reviewer-handoff.md).
+
+
+### Tedarikçi değerlendirmesinde düzeltme
+
+Atanmış risk sahibi taslak değerlendirmeyi gerekçeyle düzenleyebilir; bağımsız Admin incelemeci gönderilmiş değerlendirmeyi düzeltme için geri verebilir. İş, mevcut My Work akışında risk sahibine döner; düzeltmeden sonra kanıt sürümü seçilerek yeniden gönderilir. Önceki/sonraki içerik, gerekçe ve kanıt geçmişi korunur. Yetkisiz Admin düzenlemesi, eşzamanlı değişiklik ve aynı isteğin tekrar kaydı engellenir. [İş akışı, yetkiler ve kurtarma](tprm-assessment-correction.md).
