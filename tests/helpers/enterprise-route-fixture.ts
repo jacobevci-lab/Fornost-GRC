@@ -1,3 +1,5 @@
+import * as findingHistory from "../../app/third-party-risk/finding-history";
+import * as findingHistoryStore from "../../app/third-party-risk/finding-history-store";
 import * as assessmentCorrection from "../../app/third-party-risk/assessment-correction";
 import * as assessmentCorrectionStore from "../../app/third-party-risk/assessment-correction-store";
 import * as reviewerHandoff from "../../app/third-party-risk/reviewer-handoff";
@@ -81,6 +83,8 @@ export function fixture(module:'incidents'|'continuity'|'policy-lifecycle'|'thir
   if(name==='../../policy-lifecycle/attestation-store')return policyAttestations;
   if(name==='../../policy-lifecycle/periodic-review-store')return policyReviews;
   if(name==='../../policy-lifecycle/domain')return policy;
+  if(name==='../../third-party-risk/finding-history')return findingHistory;
+  if(name==='../../third-party-risk/finding-history-store')return findingHistoryStore;
   if(name==='../../third-party-risk/assessment-correction')return assessmentCorrection;
   if(name==='../../third-party-risk/assessment-correction-store')return assessmentCorrectionStore;
   if(name==='../../third-party-risk/reviewer-handoff')return reviewerHandoff;
