@@ -136,3 +136,7 @@ Tedarikçi detayında **İncelemeciyi değiştir** ile Admin, devre dışı kala
 ### Tedarikçi değerlendirmesinde düzeltme
 
 Atanmış risk sahibi taslak değerlendirmeyi gerekçeyle düzenleyebilir; bağımsız Admin incelemeci gönderilmiş değerlendirmeyi düzeltme için geri verebilir. İş, mevcut My Work akışında risk sahibine döner; düzeltmeden sonra kanıt sürümü seçilerek yeniden gönderilir. Önceki/sonraki içerik, gerekçe ve kanıt geçmişi korunur. Yetkisiz Admin düzenlemesi, eşzamanlı değişiklik ve aynı isteğin tekrar kaydı engellenir. [İş akışı, yetkiler ve kurtarma](docs/tprm-assessment-correction.md).
+
+### Supplier finding feedback and decisions
+
+Vendor Management now exposes per-finding decision history from Findings & CAPA and the existing action dialog. Owners can read return reasons before resubmitting; full-access readers can inspect earlier submissions, closures and reopenings with each event's retained evidence version. Twenty-event cursor pages and explicit read/pin failures keep historical coverage truthful. See [workflow and limits](docs/tprm-finding-history.md).

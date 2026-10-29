@@ -369,3 +369,7 @@ Admin olarak **Tedarikçi Yönetimi → Tedarikçi Envanteri → Aç → İncele
 ### Tedarikçi değerlendirmesinde düzeltme
 
 Atanmış risk sahibi taslak değerlendirmeyi gerekçeyle düzenleyebilir; bağımsız Admin incelemeci gönderilmiş değerlendirmeyi düzeltme için geri verebilir. İş, mevcut My Work akışında risk sahibine döner; düzeltmeden sonra kanıt sürümü seçilerek yeniden gönderilir. Önceki/sonraki içerik, gerekçe ve kanıt geçmişi korunur. Yetkisiz Admin düzenlemesi, eşzamanlı değişiklik ve aynı isteğin tekrar kaydı engellenir. [İş akışı, yetkiler ve kurtarma](tprm-assessment-correction.md).
+
+### Supplier finding feedback and decision history
+
+From **My Work**, open the assigned supplier finding. The action dialog shows the latest reviewer/action note; expand **Finding decision history** for earlier reasons and retained versions. You can also use **Vendor Management → Findings & CAPA → Decision history**. **Older/Newer/Latest entries** navigate 20-event pages. **Refresh history** retries without clearing an action draft. Viewer can inspect history but cannot perform lifecycle actions. See [complete workflow](tprm-finding-history.md).

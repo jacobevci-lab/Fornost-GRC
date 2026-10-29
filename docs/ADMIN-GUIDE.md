@@ -299,3 +299,7 @@ Aktif tedarikçide incelemeci değişimi Admin işlemidir; önceki incelemeci de
 ### Tedarikçi değerlendirmesinde düzeltme
 
 Atanmış risk sahibi taslak değerlendirmeyi gerekçeyle düzenleyebilir; bağımsız Admin incelemeci gönderilmiş değerlendirmeyi düzeltme için geri verebilir. İş, mevcut My Work akışında risk sahibine döner; düzeltmeden sonra kanıt sürümü seçilerek yeniden gönderilir. Önceki/sonraki içerik, gerekçe ve kanıt geçmişi korunur. Yetkisiz Admin düzenlemesi, eşzamanlı değişiklik ve aynı isteğin tekrar kaydı engellenir. [İş akışı, yetkiler ve kurtarma](tprm-assessment-correction.md).
+
+### Supplier finding decision history
+
+The existing TPRM enterprise access policy governs finding history; full-access Viewer reads are allowed and scoped accounts remain denied. History uses canonical finding/vendor/assessment scoping and event cursors, with each decision's original immutable evidence pin. Missing legacy pins and malformed retained data are explicit; investigate the retained event/pin instead of replacing it with current evidence. No schema migration, transport setting or additional deployment dependency is required. Preserve these records on rollback. See [API and operating limits](tprm-finding-history.md).
