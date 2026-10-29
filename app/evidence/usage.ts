@@ -6,7 +6,7 @@ export type UsagePin = { id: string; versionNo: number; state: 'current' | 'olde
 export type EvidenceUsageRow = {
   id: string; source: UsageSource; module: string; title: string; owner: string; status: string;
   dueDate: string; historical: boolean; pins: UsagePin[]; target: FornostNavigationRequest;
-  decision?: { purpose: 'incident-contain' | 'incident-eradicate' | 'incident-recover' | 'incident-review' | 'incident-close' | 'capa-submit' | 'capa-verify' | 'capa-accept-risk' | 'version-submit' | 'version-approve' | 'version-publish' | 'approve-exception' | 'close-exception' | 'policy-retire' | 'exercise-result' | 'gap-closure' | 'impact-submit' | 'impact-verify' | 'assessment-submit' | 'assessment-approved' | 'assessment-conditional' | 'submit-finding' | 'verify-finding' | 'vendor-offboard'; actor: string; createdAt: string; sourceAvailable: boolean };
+  decision?: { purpose: 'incident-contain' | 'incident-eradicate' | 'incident-recover' | 'incident-review' | 'incident-close' | 'capa-submit' | 'capa-verify' | 'capa-accept-risk' | 'version-submit' | 'version-approve' | 'version-publish' | 'approve-exception' | 'close-exception' | 'policy-retire' | 'exercise-result' | 'gap-closure' | 'impact-submit' | 'impact-verify' | 'assessment-submit' | 'assessment-approved' | 'assessment-conditional' | 'submit-finding' | 'verify-finding' | 'vendor-offboard' | 'vendor-contract-extended'; actor: string; createdAt: string; sourceAvailable: boolean };
 };
 export type EvidenceUsage = {
   evidence: { id: string; code: string; title: string; versionId: string; versionNo: number; updatedAt: string };

@@ -249,6 +249,8 @@ Tam erişimli Viewer geçmişi okuyabilir; sınırlı çekirdek modül yetkisi T
 
 Yeni onay/koşullu onay arayüzü inceleme tarihini sözleşme sınırları içinde kararla birlikte kaydeder. Profil, bağlı tedarikçi tarihi, karar olayı ve sürümlü kanıt aynı işlemde güncellenir. Eski API istemcileri tarih planı göndermediklerinde mevcut davranışlarını korur. Yeni veri göçü veya ek yetki yoktur; geri almada tarihler ve karar geçmişi korunmalıdır. [API sözleşmesi, izinler ve sınırlar](tprm-review-scheduling.md).
 
+Gerçekleşmiş sözleşme uzatımları yalnız atanmış bağımsız Admin incelemeci tarafından kanonik kanıtla kaydedilir; oluşturucu, iş sahibi veya risk sahibi kendi uzatım kaydını doğrulayamaz. Profil ve bağlı tedarikçi sözleşme tarihi, olay ve kanıt aynı işlemde yazılır. İnceleme tarihi/risk kararı korunur. Uzatım geçmişi 50 kayıtlık sayfalarla her olayın kanıtını ayrı gösterir; Kanıt Kullanımı ilgili tedarikçiye gider. Yeni veri göçü veya ayar yoktur. Geri alma tarihleri ve geçmişi silmemelidir. [API ve operasyon sınırları](tprm-contract-extension.md).
+
 ### Tedarikçi iş geçmişi
 
 İşlerim, TPRM için ayrı özet okumasını kullanır; kişi atamaları ve gerçek karar/doğrulama/çıkış tarihleri mevcut kayıtlardan gelir. İncelemeci geçmişi karar anındaki aktörü korur. Üç koleksiyonun her biri 2.000 kayıtla sınırlıdır; taşma, eksik ilişki veya okuma hatası kapsamı eksik gösterir ve CSV'yi kapatır. Tam erişimli hesapların mevcut okuma sınırı korunur; yeni karar yetkisi veya veri göçü yoktur. [Veri kapsamı, eski kayıtlar ve geri alma](tprm-work-history.md).

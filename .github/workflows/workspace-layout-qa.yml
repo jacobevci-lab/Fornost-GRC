@@ -58,6 +58,15 @@ jobs:
         with:
           name: workflow-evidence-selection-preview
           path: workflow-evidence-selection-qa-artifacts/
+      - name: TPRM contract extension, retained evidence and recovery QA
+        timeout-minutes: 7
+        run: node scripts/tprm-contract-extension-qa.mjs
+      - name: Preserve TPRM contract extension browser evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tprm-contract-extension-preview
+          path: tprm-contract-extension-qa-artifacts/
       - name: TPRM next review scheduling, independent decision and recovery QA
         timeout-minutes: 7
         run: node scripts/tprm-review-schedule-qa.mjs
