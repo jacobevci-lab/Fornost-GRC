@@ -290,3 +290,7 @@ Apply `0099_policy_periodic_reviews.sql` for immutable periodic-review history. 
 ## Assigned policy responses
 
 Apply `0100_policy_attestation_receipts.sql` for immutable reviewed-response receipts. Only the assigned active full-access subject can read the response workspace or answer; Admin campaign inspection does not confer proxy response rights. Reviewed writes atomically bind the entire issued source and live account, then update the canonical attestation and retain its receipt/event. Campaign counts and My Work continue to use that attestation. Keep receipts and saved responses during rollback. Legacy API answers remain supported and explicitly have no reviewed snapshot. [Operation, recovery and API](policy-attestation-response.md).
+
+### TPRM incelemeci devri
+
+Aktif tedarikçide incelemeci değişimi Admin işlemidir; önceki incelemeci devre dışı olsa da yapılabilir. Atayan kişi kendisini, mevcut incelemeciyi, tedarikçi oluşturucusunu/sahiplerini veya aktif işlerin oluşturucu/gönderen/sahiplerini seçemez. Yeni incelemeci etkin Admin olmalıdır. Profil, aktif iş kümesi ve canlı hesaplar işlem anında tekrar korunur; atama ve gerekçeli olay atomiktir. Tam erişimli Viewer 50 kayıtlık sayfalarla geçmişi okuyabilir. İki aktif iş koleksiyonundan birinin 2.000 sınırını aşması devri engeller. Veri göçü, görev kopyası veya bildirim gönderimi yoktur. Geri alma atamayı ve olay geçmişini korumalıdır. [API, yetki ve kurtarma](tprm-reviewer-handoff.md).

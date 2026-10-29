@@ -360,3 +360,7 @@ Karar çakışırsa açıklama, kök neden/dersler, bildirim gerekçesi ve kanı
 ## Atanmış politika sürümünü okuyup yanıt verme
 
 İşlerim'deki **Politika kabulü** görevinden veya Politika Merkezi → Attestation bölümündeki kendi satırınızdan **Kabul / Reddet** seçin. Kampanyaya atanmış sürümün tam metnini, özetini, eşlemelerini ve içerik özetini inceleyin. Karar notunu yazın, okuduğunuzu ve kararınızı doğrulayın, **Yanıtı kaydet** seçin. Daha yeni sürüm yayımlanmış olsa da yanıtınız kampanyanın atanmış sürümüne bağlıdır. **Yanıtı görüntüle** kaydedilmiş kararınızı ve o sırada incelenen kopyayı açar. Çakışmada not korunur; ayrıntıları yenileyip güncel bağlamı yeniden onaylayın. Bağlantı sonucu alınamazsa aynı yanıtı tekrar deneyebilir veya yenileyerek saklanan sonucu görebilirsiniz. [Adımlar ve sınırlar](policy-attestation-response.md).
+
+### Tedarikçi incelemecisini devretme
+
+Admin olarak **Tedarikçi Yönetimi → Tedarikçi Envanteri → Aç → İncelemeciyi değiştir** yolunu izleyin. Mevcut atamayı ve açık iş sayılarını inceleyin, dizinden etkin bağımsız Admin seçin, 20–1.200 karakter gerekçe yazın ve `İNCELEMECİYİ DEĞİŞTİR` ifadesini girin. Yeni incelemeci bekleyen işlerini **İşlerim** üzerinden tamamlar. Eski kararların sahibi ve kanıtları korunur. Kaynak değişirse taslağınızı koruyarak güncel sürümü açıkça seçin; yanıt kaybolursa mevcut atamayı ve **İncelemeci devir geçmişi**ni kontrol edin. [Ayrıntılar](tprm-reviewer-handoff.md).

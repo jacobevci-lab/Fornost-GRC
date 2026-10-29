@@ -129,3 +129,5 @@ Politika kararlarında kütüphaneden gerçek dosya sürümü, sorumlu/incelemec
 CAPA atamalarında etkin kullanıcılar, gönderim/kapanış/risk kabulünde kütüphanedeki gerçek dosya sürümleri seçilebilir. Güncel bulgu ve plan incelemesi, hata sonrası taslak kurtarma, ayrı karar kanıtları ve Kanıt Kullanımı üzerinden bulguya dönüş korunur. [Bağlı CAPA kararları](docs/capa-connected-evidence.md).
 
 Güvenlik Olayları artık etkin ekip seçimi, kütüphaneden kanıt sürümü ve olaya özel karar geçmişiyle ilerler. Bağlantı kesintisinde taslaklar korunur; aynı ilan formunun tekrar gönderilmesi kayıt çoğaltmaz. [Bağlı olay kararları](docs/incident-connected-evidence.md).
+
+Tedarikçi detayında **İncelemeciyi değiştir** ile Admin, devre dışı kalan incelemecinin açık işlerini etkin bağımsız Admin’e devredebilir. Gerekçeli devir geçmişi ve gerçek karar sahipleri korunur. [İş akışı ve sınırlar](docs/tprm-reviewer-handoff.md).
