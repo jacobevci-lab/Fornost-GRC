@@ -32,6 +32,6 @@ test("TPRM 2.0 is integrated across schema, API, UI, navigation and documentatio
  assert.match(route,/Açık yüksek\/kritik bulgu veya kritik kontrol boşluğu tam onayı engeller/);assert.match(route,/Karar yalnız atanmış bağımsız reviewer/);assert.match(route,/third-party-export/);assert.match(route,/formula-safe records/);assert.match(route,/Bulguyu oluşturan\/gönderen kişi kapatamaz/);
  assert.match(migration,/third_party_assessment_cycle_idx/);assert.match(migration,/third_party_events/);assert.match(migration,/verification_evidence_sha256/);
  assert.match(schema,/thirdPartyProfiles/);assert.match(schema,/thirdPartyAssessments/);assert.match(schema,/thirdPartyFindings/);
- assert.match(ui,/THIRD-PARTY RISK MANAGEMENT 2\.0/);assert.match(ui,/Bulgular ve CAPA/);assert.match(ui,/12 control domains/);
+ assert.match(ui,/THIRD-PARTY RISK MANAGEMENT 2\.0/);assert.match(ui,/Bulgular ve CAPA/);assert.match(await readFile("app/third-party-assessment-fields.tsx","utf8"),/12 control domains/);
  assert.match(page,/ThirdPartyRisk/);assert.match(readme,/Third-Party Risk Management 2\.0/);assert.match(docs,/fail-closed/);
 });

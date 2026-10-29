@@ -131,3 +131,8 @@ CAPA atamalarında etkin kullanıcılar, gönderim/kapanış/risk kabulünde kü
 Güvenlik Olayları artık etkin ekip seçimi, kütüphaneden kanıt sürümü ve olaya özel karar geçmişiyle ilerler. Bağlantı kesintisinde taslaklar korunur; aynı ilan formunun tekrar gönderilmesi kayıt çoğaltmaz. [Bağlı olay kararları](docs/incident-connected-evidence.md).
 
 Tedarikçi detayında **İncelemeciyi değiştir** ile Admin, devre dışı kalan incelemecinin açık işlerini etkin bağımsız Admin’e devredebilir. Gerekçeli devir geçmişi ve gerçek karar sahipleri korunur. [İş akışı ve sınırlar](docs/tprm-reviewer-handoff.md).
+
+
+### Tedarikçi değerlendirmesinde düzeltme
+
+Atanmış risk sahibi taslak değerlendirmeyi gerekçeyle düzenleyebilir; bağımsız Admin incelemeci gönderilmiş değerlendirmeyi düzeltme için geri verebilir. İş, mevcut My Work akışında risk sahibine döner; düzeltmeden sonra kanıt sürümü seçilerek yeniden gönderilir. Önceki/sonraki içerik, gerekçe ve kanıt geçmişi korunur. Yetkisiz Admin düzenlemesi, eşzamanlı değişiklik ve aynı isteğin tekrar kaydı engellenir. [İş akışı, yetkiler ve kurtarma](docs/tprm-assessment-correction.md).

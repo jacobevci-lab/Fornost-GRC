@@ -294,3 +294,8 @@ Apply `0100_policy_attestation_receipts.sql` for immutable reviewed-response rec
 ### TPRM incelemeci devri
 
 Aktif tedarikçide incelemeci değişimi Admin işlemidir; önceki incelemeci devre dışı olsa da yapılabilir. Atayan kişi kendisini, mevcut incelemeciyi, tedarikçi oluşturucusunu/sahiplerini veya aktif işlerin oluşturucu/gönderen/sahiplerini seçemez. Yeni incelemeci etkin Admin olmalıdır. Profil, aktif iş kümesi ve canlı hesaplar işlem anında tekrar korunur; atama ve gerekçeli olay atomiktir. Tam erişimli Viewer 50 kayıtlık sayfalarla geçmişi okuyabilir. İki aktif iş koleksiyonundan birinin 2.000 sınırını aşması devri engeller. Veri göçü, görev kopyası veya bildirim gönderimi yoktur. Geri alma atamayı ve olay geçmişini korumalıdır. [API, yetki ve kurtarma](tprm-reviewer-handoff.md).
+
+
+### Tedarikçi değerlendirmesinde düzeltme
+
+Atanmış risk sahibi taslak değerlendirmeyi gerekçeyle düzenleyebilir; bağımsız Admin incelemeci gönderilmiş değerlendirmeyi düzeltme için geri verebilir. İş, mevcut My Work akışında risk sahibine döner; düzeltmeden sonra kanıt sürümü seçilerek yeniden gönderilir. Önceki/sonraki içerik, gerekçe ve kanıt geçmişi korunur. Yetkisiz Admin düzenlemesi, eşzamanlı değişiklik ve aynı isteğin tekrar kaydı engellenir. [İş akışı, yetkiler ve kurtarma](tprm-assessment-correction.md).

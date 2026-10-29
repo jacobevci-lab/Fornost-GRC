@@ -58,6 +58,15 @@ jobs:
         with:
           name: workflow-evidence-selection-preview
           path: workflow-evidence-selection-qa-artifacts/
+      - name: TPRM assessment correction, independent return and resubmission QA
+        timeout-minutes: 7
+        run: node scripts/tprm-assessment-correction-qa.mjs
+      - name: Preserve TPRM assessment correction browser evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tprm-assessment-correction-preview
+          path: tprm-assessment-correction-qa-artifacts/
       - name: TPRM reviewer handoff, independent work and recovery QA
         timeout-minutes: 7
         run: node scripts/tprm-reviewer-handoff-qa.mjs
