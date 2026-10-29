@@ -58,6 +58,15 @@ jobs:
         with:
           name: workflow-evidence-selection-preview
           path: workflow-evidence-selection-qa-artifacts/
+      - name: TPRM reviewer handoff, independent work and recovery QA
+        timeout-minutes: 7
+        run: node scripts/tprm-reviewer-handoff-qa.mjs
+      - name: Preserve TPRM reviewer handoff browser evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tprm-reviewer-handoff-preview
+          path: tprm-reviewer-handoff-qa-artifacts/
       - name: TPRM contract extension, retained evidence and recovery QA
         timeout-minutes: 7
         run: node scripts/tprm-contract-extension-qa.mjs

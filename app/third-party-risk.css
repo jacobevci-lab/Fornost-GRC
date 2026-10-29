@@ -5,3 +5,5 @@
 .tprm-import{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;padding:14px 16px;border:1px solid var(--ws-line);border-radius:8px;background:var(--ws-surface)}.tprm-import p{flex:1 1 260px;margin:0;color:var(--ws-muted);line-height:1.5}.tprm-import button{flex-shrink:0}
 
 .tprm-form .workflow-person{min-width:0}.tprm-decision-context{min-width:0;padding:12px;border:1px solid var(--ws-line);border-radius:8px;background:var(--ws-surface-2)}.tprm-decision-context dl{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.tprm-decision-context dt{color:var(--ws-muted);font-size:12px;font-weight:700}.tprm-decision-context dd{margin:4px 0 0;overflow-wrap:anywhere;white-space:pre-wrap}.tprm-form .workflow-evidence{min-width:0}.tprm-table .workflow-evidence-history{max-width:340px}.tprm-decision-context p{line-height:1.6}@media(max-width:600px){.tprm-decision-context dl{grid-template-columns:1fr}}
+
+.tprm-reviewer-handoff button[type=submit]{color:var(--ws-brand)!important;background:var(--ws-brand-soft)!important;border-color:var(--ws-brand-2)!important}
