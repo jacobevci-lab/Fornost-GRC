@@ -14,7 +14,7 @@ permissions:
 jobs:
   layout:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -58,6 +58,15 @@ jobs:
         with:
           name: workflow-evidence-selection-preview
           path: workflow-evidence-selection-qa-artifacts/
+      - name: TPRM finding deadline planning and recovery QA
+        timeout-minutes: 7
+        run: node scripts/tprm-finding-deadline-qa.mjs
+      - name: Preserve TPRM finding deadline browser evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tprm-finding-deadline-preview
+          path: tprm-finding-deadline-qa-artifacts/
       - name: TPRM finding feedback, retained decisions and history recovery QA
         timeout-minutes: 7
         run: node scripts/tprm-finding-history-qa.mjs

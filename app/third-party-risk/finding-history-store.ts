@@ -1,3 +1,4 @@
+import { parseFindingDeadline } from './finding-deadline';
 import { ensureWorkflowEvidenceSchema } from '../workflow-selection-store';
 import { FindingHistoryError, findingEventDetail, parseFindingEvidence, type FindingHistory } from './finding-history';
 
@@ -22,6 +23,7 @@ export async function readFindingHistory(db: D1Database, findingId: string, befo
       const purpose = row.action==='finding-submit-finding' ? 'submit-finding' : row.action==='finding-verify-finding' ? 'verify-finding' : null;
       const evidence = pin && pin.purpose===purpose && pin.actor===row.actor ? parseFindingEvidence(pin.snapshot_json) : null;
       return { id:row.id, action:row.action, actor:row.actor, createdAt:row.created_at, detail:row.detail, ...findingEventDetail(row.action,row.detail),
+        ...(row.action==='finding-deadline-changed'?{deadline:parseFindingDeadline(row.detail)}:{}),
         pin:evidence && pin ? { id:pin.id, eventId:pin.event_id, entityId:pin.entity_id, purpose:pin.purpose, evidence, actor:pin.actor, createdAt:pin.created_at } : null,
         pinIssue:matches.length>0 && !evidence };
     }),

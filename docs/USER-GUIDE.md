@@ -373,3 +373,7 @@ Atanmış risk sahibi taslak değerlendirmeyi gerekçeyle düzenleyebilir; bağ�
 ### Supplier finding feedback and decision history
 
 From **My Work**, open the assigned supplier finding. The action dialog shows the latest reviewer/action note; expand **Finding decision history** for earlier reasons and retained versions. You can also use **Vendor Management → Findings & CAPA → Decision history**. **Older/Newer/Latest entries** navigate 20-event pages. **Refresh history** retries without clearing an action draft. Viewer can inspect history but cannot perform lifecycle actions. See [complete workflow](tprm-finding-history.md).
+
+### Tedarikçi bulgusunun terminini değiştirme
+
+Atanmış bağımsız Admin incelemeci, **Tedarikçi Yönetimi → Bulgular ve CAPA → Termini değiştir** ile açık veya iyileştirmedeki bulguya yeni tarih verebilir. Güncel bilgileri inceleyin, bugünden önce olmayan farklı tarihi ve 20–1.200 karakter gerekçeyi girin; `BULGU TERMİNİNİ DEĞİŞTİR` ifadesiyle kaydedin. İşlerim yeni tarihi kullanır. Önceki termin, o andaki gecikme, iade notu ve kanıtlar korunur. Çakışmada **Bulguyu yenile → Güncel sürümü kullan** yolunu izleyip yeniden onaylayın. Yanıt kaybolursa tekrar kaydetmeden önce güncel tarihi ve karar geçmişini kontrol edin. [Yetkiler, adımlar ve kurtarma](tprm-finding-deadline.md).

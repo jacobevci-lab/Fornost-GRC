@@ -140,3 +140,5 @@ Atanmış risk sahibi taslak değerlendirmeyi gerekçeyle düzenleyebilir; bağ�
 ### Supplier finding feedback and decisions
 
 Vendor Management now exposes per-finding decision history from Findings & CAPA and the existing action dialog. Owners can read return reasons before resubmitting; full-access readers can inspect earlier submissions, closures and reopenings with each event's retained evidence version. Twenty-event cursor pages and explicit read/pin failures keep historical coverage truthful. See [workflow and limits](docs/tprm-finding-history.md).
+
+Assigned independent reviewers can now record reasoned deadline changes for open supplier findings. My Work uses the revised date; prior deadlines/lateness, feedback and evidence remain retained. Source conflicts and lost responses preserve the draft for explicit review. See [deadline planning and recovery](docs/tprm-finding-deadline.md).
