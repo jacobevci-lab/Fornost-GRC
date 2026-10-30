@@ -303,3 +303,7 @@ Atanmış risk sahibi taslak değerlendirmeyi gerekçeyle düzenleyebilir; bağ�
 ### Supplier finding decision history
 
 The existing TPRM enterprise access policy governs finding history; full-access Viewer reads are allowed and scoped accounts remain denied. History uses canonical finding/vendor/assessment scoping and event cursors, with each decision's original immutable evidence pin. Missing legacy pins and malformed retained data are explicit; investigate the retained event/pin instead of replacing it with current evidence. No schema migration, transport setting or additional deployment dependency is required. Preserve these records on rollback. See [API and operating limits](tprm-finding-history.md).
+
+### Supplier finding deadline control
+
+Only the assigned active independent Admin reviewer may replan an open/in-progress finding on an active supplier. Full finding/profile/assessment snapshots and live identity/access guards protect the atomic date/event write. Old-token replay cannot duplicate a saved plan. Prior lateness is retained as an event-time fact while current My Work/overdue counts follow the canonical revised date. Verification/closure, assignment, feedback and evidence remain separate. No schema migration or notification configuration is required; application rollback must retain saved dates and history. [API, recovery and operating limits](tprm-finding-deadline.md).

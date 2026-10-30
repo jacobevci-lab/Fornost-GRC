@@ -1,9 +1,10 @@
+import type { FindingDeadlineRecord } from './finding-deadline';
 import type { WorkflowEvidence, WorkflowEvidencePin } from '../workflow-selection';
 
 export type FindingHistoryRow = {
   id: string; action: string; actor: string; createdAt: string; detail: string;
   from: string | null; to: string | null; note: string;
-  pin: WorkflowEvidencePin | null; pinIssue: boolean;
+  pin: WorkflowEvidencePin | null; pinIssue: boolean; deadline?: FindingDeadlineRecord | null;
 };
 export type FindingHistory = {
   finding: { id: string; vendorId: string; assessmentId: string; title: string; owner: string; dueDate: string; status: string; actionNote: string };
@@ -45,6 +46,7 @@ export function findingStatusLabel(status: string, tr: boolean) {
 }
 export function findingEventLabel(row: Pick<FindingHistoryRow, 'action' | 'from'>, tr: boolean) {
   const labels: Record<string, [string,string]> = {
+    'finding-deadline-changed':['Bulgu termini değiştirildi','Finding deadline changed'],
     'finding-create':['Bulgu oluşturuldu','Finding created'], 'finding-start':['İyileştirme başlatıldı','Remediation started'],
     'finding-submit-finding':['Doğrulamaya gönderildi','Submitted for verification'], 'finding-verify-finding':['Bağımsız doğrulama ile kapatıldı','Closed after independent verification'],
     'finding-reopen-finding':row.from === 'verification' ? ['Düzeltme için iade edildi','Returned for correction'] : row.from === 'closed' ? ['Yeniden açıldı','Reopened'] : ['İade / yeniden açma','Return / reopen'],

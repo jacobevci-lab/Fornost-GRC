@@ -1,3 +1,5 @@
+import * as findingDeadline from "../../app/third-party-risk/finding-deadline";
+import * as findingDeadlineStore from "../../app/third-party-risk/finding-deadline-store";
 import * as findingHistory from "../../app/third-party-risk/finding-history";
 import * as findingHistoryStore from "../../app/third-party-risk/finding-history-store";
 import * as assessmentCorrection from "../../app/third-party-risk/assessment-correction";
@@ -83,6 +85,8 @@ export function fixture(module:'incidents'|'continuity'|'policy-lifecycle'|'thir
   if(name==='../../policy-lifecycle/attestation-store')return policyAttestations;
   if(name==='../../policy-lifecycle/periodic-review-store')return policyReviews;
   if(name==='../../policy-lifecycle/domain')return policy;
+  if(name==='../../third-party-risk/finding-deadline')return findingDeadline;
+  if(name==='../../third-party-risk/finding-deadline-store')return findingDeadlineStore;
   if(name==='../../third-party-risk/finding-history')return findingHistory;
   if(name==='../../third-party-risk/finding-history-store')return findingHistoryStore;
   if(name==='../../third-party-risk/assessment-correction')return assessmentCorrection;
