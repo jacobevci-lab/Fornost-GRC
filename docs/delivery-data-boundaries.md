@@ -46,3 +46,11 @@ rollback is needed for this change. Full live QA remains a separate release gate
   Local browser workflows now explicitly restore samples through the Admin API
   with an ephemeral local session. Production behavior remains free of read-time
   seeding; the fixture helper is hardcoded to the loopback test server.
+- The next browser run passed all 324 module/locale/theme/viewport checks but
+  its re-test scenario asserted a work item while the queue was still loading
+  (5-second locator timeout). That scenario now uses the existing readiness
+  harness to observe API reads and `aria-busy` before checking the same outcome.
+  It runs immediately after explicit fixture setup to surface regressions early;
+  no scenario, assertion or application deadline is removed or relaxed. The
+  candidate browser result must still pass in CI; local Chromium launch was
+  blocked by the execution environment's socket restriction.

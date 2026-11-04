@@ -1,5 +1,6 @@
 import { qaPassword } from "./qa-credentials.mjs";
 import { chromium, expect } from '@playwright/test';
+import { createQaContext, waitForQaIdle, switchQaLocale, openQaModule } from './qa-browser-harness.mjs';
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import { execFileSync } from 'node:child_process';
@@ -7,7 +8,7 @@ import { execFileSync } from 'node:child_process';
 const base = 'http://127.0.0.1:4173', out = 'assurance-retest-qa-artifacts', password = qaPassword();
 await fs.mkdir(out, { recursive: true });
 const browser = await chromium.launch({ executablePath: process.env.QA_CHROMIUM_PATH || undefined });
-const admin = await browser.newContext({ viewport: { width: 1536, height: 960 } }), checker = await browser.newContext(), page = await admin.newPage();
+const admin = await createQaContext(browser, base, {}, { viewport: { width: 1536, height: 960 } }), checker = await browser.newContext(), page = await admin.newPage();
 page.setDefaultTimeout(15000);
 const errors = []; page.on('pageerror', error => errors.push(error.message));
 let checks = 0, schemasReady = false;
@@ -62,9 +63,12 @@ try {
   assert.equal(work.status, 'retest-error'); assert.equal(work.retestOutcome.reason, 'configuration-changed'); assert.equal(work.retestOutcome.riskUpdate, 'not-applied');
   assert.deepEqual(JSON.parse((await api(admin,'/api/grc')).rows.find(row=>row.id===findingId).data_json),risk);
   await page.goto(base); await expect(page.locator('.shell')).toBeVisible();
-  await page.locator('.language-switch:visible').getByRole('button', { name: 'EN', exact: true }).click();
-  await page.locator('nav button[aria-label="Connected GRC Map"]').evaluate(el => el.click());
+  await switchQaLocale(page, 'en');
+  await openQaModule(page, 'Connected GRC Map');
   await page.locator('.connected-grc').getByRole('button', { name: 'Assurance', exact: true }).click();
+  // Loading a destination is distinct from asserting its business outcome.
+  // Observe API reads and aria-busy instead of racing the 5s item assertion.
+  await waitForQaIdle(page);
   const queue = page.locator('.assurance-work-queue');
   const item = queue.locator('.work-retest-error').filter({ hasText: 'QA Retest finding' });
   await expect(item).toBeVisible(); await item.getByRole('button', { name: 'View Test Result', exact: true }).click();

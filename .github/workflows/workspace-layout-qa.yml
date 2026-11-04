@@ -51,6 +51,8 @@ jobs:
             --data-binary @/tmp/fornost-qa-bootstrap.json
       - name: Load explicit synthetic core fixtures
         run: node scripts/seed-local-qa.mjs
+      - name: Re-test recovery, independent approval and risk reconciliation QA
+        run: node scripts/assurance-retest-runtime-qa.mjs
       - name: Connected evidence selection and directory assignment QA
         timeout-minutes: 7
         run: node scripts/workflow-evidence-selection-qa.mjs
@@ -554,8 +556,6 @@ jobs:
         run: node scripts/module-access-runtime-qa.mjs
       - name: CAPA control context, diagnostics and recovery QA
         run: node scripts/capa-control-context-qa.mjs
-      - name: Re-test recovery, independent approval and risk reconciliation QA
-        run: node scripts/assurance-retest-runtime-qa.mjs
       - name: Versioned risk decisions, independent approval and conflict recovery QA
         run: node scripts/risk-decisions-runtime-qa.mjs
       - name: Atomic exception decisions, expiration and rollback QA
