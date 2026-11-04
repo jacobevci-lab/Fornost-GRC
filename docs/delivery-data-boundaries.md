@@ -41,3 +41,8 @@ rollback is needed for this change. Full live QA remains a separate release gate
   context builders and route SQL with synthetic D1 adapters / SQLite, not a
   customer browser session. Repository CI and live release checks are recorded
   separately on the pull request and release revision.
+- The first isolated browser run exposed a QA setup dependency on automatic
+  `BIA-001` seeding (`REFERENCE_UNAVAILABLE` during continuity plan creation).
+  Local browser workflows now explicitly restore samples through the Admin API
+  with an ephemeral local session. Production behavior remains free of read-time
+  seeding; the fixture helper is hardcoded to the loopback test server.

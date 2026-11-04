@@ -49,6 +49,8 @@ jobs:
           curl --fail --silent --show-error http://127.0.0.1:4173/api/auth \
             -H 'Origin: http://127.0.0.1:4173' -H 'Content-Type: application/json' \
             --data-binary @/tmp/fornost-qa-bootstrap.json
+      - name: Load explicit synthetic core fixtures
+        run: node scripts/seed-local-qa.mjs
       - name: Connected evidence selection and directory assignment QA
         timeout-minutes: 7
         run: node scripts/workflow-evidence-selection-qa.mjs

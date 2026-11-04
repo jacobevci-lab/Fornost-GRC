@@ -82,6 +82,9 @@ jobs:
           cat /tmp/fornost-bootstrap.json
           test "$code" = "200"
 
+      - name: Load explicit synthetic core fixtures
+        run: node scripts/seed-local-qa.mjs
+
       - name: Run legacy branch browser baseline
         run: node scripts/full-production-qa.mjs
 
