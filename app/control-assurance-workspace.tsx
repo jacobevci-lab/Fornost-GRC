@@ -13,7 +13,8 @@ import './control-assurance.css';
 
 const text = (value: unknown) => String(value ?? '').normalize('NFKC').trim();
 const title = (row: AssuranceRow) => text(row.data.controlTitle || row.data.requirementTitle || row.data.evidenceTitle || row.data.riskTitle || row.data.riskName || row.data.title || row.data.name || row.data.framework || row.code || row.id);
-const reference = (row: AssuranceRow) => text(row.code || row.data.controlRef || row.data.requirementRef || row.id);
+// A linked control/requirement identifies the relationship, not this record.
+const reference = (row: AssuranceRow) => text(row.code || row.id);
 
 export default function ControlAssuranceWorkspace({ rows, lang, go }: { rows: AssuranceRow[]; lang: 'tr' | 'en'; go: (module: string) => void }) {
   const tr = lang === 'tr';

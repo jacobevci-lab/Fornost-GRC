@@ -54,3 +54,9 @@ rollback is needed for this change. Full live QA remains a separate release gate
   no scenario, assertion or application deadline is removed or relaxed. The
   candidate browser result must still pass in CI; local Chromium launch was
   blocked by the execution environment's socket restriction.
+- The re-test scenario then passed all 42 API checks. The same run exposed an
+  identity mismatch in control assurance: an uncoded evidence card displayed its
+  parent control reference while record navigation correctly selected the
+  evidence ID. Linked cards now consistently show their own saved code or ID.
+  The browser regression also checks that seven uncoded evidence cards retain
+  seven distinct identities and that the selected card matches its destination.

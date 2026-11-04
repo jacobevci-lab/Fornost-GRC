@@ -60,6 +60,10 @@ try {
   const evidenceStage = detail.locator('.control-assurance-stage').filter({ has: page.locator('summary').filter({ hasText: /^Evidence7$/ }) });
   await detail.getByRole('tab',{name:/^Evidence/}).click();
   await evidenceStage.locator('summary').click(); await expect(evidenceStage.locator('.control-assurance-stage-records>article')).toHaveCount(7);
+  // Legacy records have no allocated codes: every card must retain its own ID,
+  // rather than displaying the shared parent control reference as its identity.
+  assert.deepEqual((await evidenceStage.locator('.control-assurance-stage-records>article b').allTextContents()).sort(),
+    Array.from({ length: 7 }, (_, i) => `QA-CS-E${i}`).sort());
   await expect(evidenceStage.locator('small').filter({ hasText: 'Current evidence' })).toHaveCount(5);
   await expect(evidenceStage.locator('small').filter({ hasText: 'Eligibility not established' })).toHaveCount(2);
   const lastEvidence = evidenceStage.locator('article').filter({ hasText: 'QA CS evidence 6' });
@@ -93,6 +97,7 @@ try {
   await seed(`UPDATE simple_grc_records SET data_json=${q(JSON.stringify(evidence(0)))} WHERE id='QA-CS-E0';`);
   await workspace.getByRole('button', { name: 'Refresh assurance', exact: true }).click(); await expect(workspace.getByRole('alert')).toHaveCount(0);
   const evidenceCode = await lastEvidence.locator('b').innerText();
+  assert.equal(evidenceCode, 'QA-CS-E6');
   await lastEvidence.getByRole('button', { name: /Open record/ }).click();
   await expect(page.locator('.core-record-focus')).toContainText(evidenceCode);
   await expect(page.locator('.table-card .table-wrap tbody tr')).toHaveCount(1);
