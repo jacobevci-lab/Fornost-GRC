@@ -39,9 +39,28 @@ export function strictestDataClassification(profiles: Array<{ maxDataClassificat
   return profiles.reduce<AiDataClassification>((strictest, item) => rank[item.maxDataClassification] < rank[strictest] ? item.maxDataClassification : strictest, "Confidential");
 }
 
+const classificationAliases = new Map<string, AiDataClassification | "Restricted">([
+  ["public", "Public"], ["herkese acik", "Public"],
+  ["internal", "Internal"], ["sirket ici", "Internal"],
+  ["confidential", "Confidential"], ["gizli", "Confidential"],
+  ["restricted", "Restricted"], ["cok gizli", "Restricted"],
+]);
+
 export function dataClassificationAllowed(value: unknown, maximum: AiDataClassification) {
-  const classification = cleanAiText(value, 30);
-  if (classification === "Restricted") return false;
-  const normalized = AI_DATA_CLASSIFICATIONS.includes(classification as AiDataClassification) ? classification as AiDataClassification : "Internal";
-  return rank[normalized] <= rank[maximum];
+  // Never truncate, coerce or strip control characters from a security label.
+  if (typeof value !== "string" || /[\u0000-\u001f\u007f]/.test(value)) return false;
+  const label = value.normalize("NFKC").trim().toLowerCase().normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "").replace(/ı/g, "i").replace(/\s+/g, " ");
+  const classification = classificationAliases.get(label);
+  return classification !== undefined && classification !== "Restricted" && rank[classification] <= rank[maximum];
+}
+
+export function recordDataClassificationAllowed(data: Record<string, unknown>, maximum: AiDataClassification) {
+  const keys = ["dataClassification", "classification", "securityClassification"] as const;
+  const present = keys.filter(key => Object.hasOwn(data, key));
+  // Legacy records without any classification field are Internal. Explicitly
+  // malformed/unknown values fail closed; a weaker alias cannot mask a higher one.
+  return present.length
+    ? present.every(key => dataClassificationAllowed(data[key], maximum))
+    : dataClassificationAllowed("Internal", maximum);
 }

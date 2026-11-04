@@ -1,7 +1,7 @@
 import { canReadModule, isScoped, readableModules, type AccessSubject } from "../module-access";
 import { sanitizeAiRecord } from "./security";
 import { retrieveApprovedKnowledge } from "./knowledge";
-import { dataClassificationAllowed, type AiDataClassification } from "./data-policy";
+import { recordDataClassificationAllowed, type AiDataClassification } from "./data-policy";
 import { buildOperationalAssuranceAiContext } from "./operational-assurance-context";
 import { buildEvidenceLineageAiContext } from "./evidence-lineage-context";
 
@@ -97,8 +97,6 @@ function scoreRow(row: GrcRow, data: Record<string, unknown>, question: string, 
   return score;
 }
 
-function recordClassification(data:Record<string,unknown>){return data.dataClassification??data.classification??data.securityClassification??"Internal";}
-
 export async function buildGrcContext(db: D1Database, question: string, maxDataClassification: AiDataClassification = "Confidential", subject?: AccessSubject) {
   const scoped = !!subject && isScoped(subject);
   const allowed = subject ? readableModules(subject) : [];
@@ -117,7 +115,7 @@ export async function buildGrcContext(db: D1Database, question: string, maxDataC
       : Promise.resolve({ sources: [], contextText: "", summaryAvailable: false, integrityComplete: false }),
   ]);
   const rows = (result.results || []).filter(row => !subject || canReadModule(subject, row.module));
-  const parsed = rows.map((row) => ({ row, data: parseData(row) })).filter(({data})=>dataClassificationAllowed(recordClassification(data),maxDataClassification));
+  const parsed = rows.map((row) => ({ row, data: parseData(row) })).filter(({data})=>recordDataClassificationAllowed(data,maxDataClassification));
   const relevant = (targetModules.length ? parsed.filter(({ row }) => targetModules.includes(row.module)) : parsed)
     .map((item) => ({ ...item, score: scoreRow(item.row, item.data, question, targetModules) }))
     .sort((a, b) => b.score - a.score || b.row.updated_at.localeCompare(a.row.updated_at));

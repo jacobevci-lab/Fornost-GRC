@@ -4,7 +4,7 @@ import {
   verifyEvidenceVersionChain,
   type EvidenceVersionRow,
 } from "../evidence/versioning";
-import { dataClassificationAllowed, type AiDataClassification } from "./data-policy";
+import { recordDataClassificationAllowed, type AiDataClassification } from "./data-policy";
 import { sanitizeAiRecord } from "./security";
 
 export type EvidenceLineageContextSource = { id: string; module: string; title: string; navigation?: {module:"Kanıtlar";ref:string;filterKey:"evidenceRef"} };
@@ -14,7 +14,6 @@ type EvidenceRecord = {
   data: Record<string, unknown>;
   createdAt: string;
   updatedAt: string;
-  classification: unknown;
 };
 type IntegrityState = "verified" | "broken" | "legacy-unverified" | "history-unavailable";
 type IntegrityResult = { state: IntegrityState; checked: number; failedVersion: number };
@@ -26,7 +25,6 @@ const DETAIL_LIMIT = 8;
 
 const compact = (value: unknown, max = 220) => String(value ?? "").replace(/\s+/g, " ").trim().slice(0, max);
 const normalize = (value: unknown) => String(value ?? "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-const classificationOf = (data: Record<string, unknown>) => data.dataClassification ?? data.classification ?? data.securityClassification ?? "Internal";
 
 function parseRecord(row: EvidenceRecordRow): EvidenceRecord {
   let data: Record<string, unknown> = {};
@@ -36,7 +34,7 @@ function parseRecord(row: EvidenceRecordRow): EvidenceRecord {
   } catch {
     data = {};
   }
-  return { id: row.id, data, createdAt: row.created_at, updatedAt: row.updated_at, classification: classificationOf(data) };
+  return { id: row.id, data, createdAt: row.created_at, updatedAt: row.updated_at };
 }
 
 function chunks<T>(items: T[], size = BIND_CHUNK_SIZE) {
@@ -156,7 +154,7 @@ export async function buildEvidenceLineageAiContext(
     return { sources: [] as EvidenceLineageContextSource[], contextText: "", summaryAvailable: false };
   }
 
-  const records = rawRecords.map(parseRecord).filter((record) => dataClassificationAllowed(record.classification, maxDataClassification));
+  const records = rawRecords.map(parseRecord).filter((record) => recordDataClassificationAllowed(record.data, maxDataClassification));
   if (!records.length) return { sources: [] as EvidenceLineageContextSource[], contextText: "", summaryAvailable: false };
 
   const candidates = selectEvidenceLineageCandidates(records, question);

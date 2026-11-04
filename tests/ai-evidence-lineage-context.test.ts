@@ -70,7 +70,7 @@ test("lineage context is classification-gated, bounded and cryptographically ver
     readFile("app/ai/evidence-lineage-context.ts", "utf8"),
     readFile("app/ai/context.ts", "utf8"),
   ]);
-  assert.match(lineage, /dataClassificationAllowed/);
+  assert.match(lineage, /recordDataClassificationAllowed/);
   assert.match(lineage, /verifyEvidenceVersionChain/);
   assert.match(lineage, /GLOBAL_VERSION_LIMIT/);
   assert.match(lineage, /sanitizeAiRecord/);
