@@ -4,7 +4,7 @@ ARG FORNOST_SOURCE_COMMIT=unknown
 
 RUN apt-get update \
   && apt-get upgrade -y \
-  && apt-get install -y --no-install-recommends bash ca-certificates coreutils curl util-linux xz-utils \
+  && apt-get install -y --no-install-recommends bash ca-certificates coreutils curl util-linux xz-utils libgomp1 libstdc++6 \
   && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -21,15 +21,23 @@ RUN npm prune --omit=dev --no-audit --no-fund \
 # Prepare writable directories with the historical UID so existing volumes work.
 RUN mkdir -p /app/.sites-runtime/data /app/.sites-runtime/home /app/.sites-runtime/tmp \
   && chown -R 1000:1000 /app/.sites-runtime
+RUN bash scripts/linux/collect-runtime-libraries.sh /runtime-libraries
+
+FROM gcr.io/distroless/nodejs22-debian13:nonroot AS node-runtime
 
 # No shell, curl, util-linux, package manager or build tools in production.
-FROM gcr.io/distroless/nodejs22-debian13:nonroot AS runtime
+# Node bundles OpenSSL/zlib; the application only needs the C++ system runtime.
+# Keep Debian's CA roots/glibc, without the unused system OpenSSL/zlib chain.
+FROM gcr.io/distroless/base-nossl-debian13:nonroot AS runtime
+COPY --from=node-runtime /nodejs /nodejs
+COPY --from=build /runtime-libraries/ /
 ARG FORNOST_SOURCE_COMMIT=unknown
 LABEL org.opencontainers.image.title="Fornost GRC" \
       org.opencontainers.image.revision="${FORNOST_SOURCE_COMMIT}"
 WORKDIR /app
 ARG NEXT_PUBLIC_BASE_PATH=/fornost-grc
 ENV NODE_ENV=production \
+    PATH=/nodejs/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin \
     NEXT_PUBLIC_BASE_PATH=${NEXT_PUBLIC_BASE_PATH} \
     FORNOST_BUILD_REVISION=${FORNOST_SOURCE_COMMIT} \
     HOST=0.0.0.0 \
