@@ -67,6 +67,24 @@ jobs:
           FORNOST_INTEGRATION_PORT=18443
           FORNOST_BUILD_LOCAL=true
           bash tests/onprem-container-integration.sh
+      - name: Verify final runtime libraries
+        run: sudo ${{ matrix.engine }} run --rm localhost/fornost-grc-app:latest scripts/linux/runtime-library-smoke.mjs
+      - name: Scan final application image before merge
+        if: matrix.engine == 'docker'
+        run: |
+          mkdir -p security-artifacts
+          docker save localhost/fornost-grc-app:latest -o /tmp/ci-runtime-image.tar
+          docker run --rm -v /tmp/ci-runtime-image.tar:/scan/image.tar:ro \
+            -v "$PWD/security-artifacts:/out" aquasec/trivy:latest image \
+            --input /scan/image.tar --scanners vuln --severity HIGH,CRITICAL \
+            --exit-code 1 --format json --output /out/runtime-image.json
+      - name: Preserve runtime security evidence
+        if: always() && matrix.engine == 'docker'
+        uses: actions/upload-artifact@v4
+        with:
+          name: runtime-image-security
+          path: security-artifacts/runtime-image.json
+          if-no-files-found: warn
 
   rhel-family-shell-compatibility:
     name: rhel-family-shell-compatibility (${{ matrix.image }})

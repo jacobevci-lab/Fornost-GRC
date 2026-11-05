@@ -30,6 +30,8 @@ jobs:
           --build-arg FORNOST_SOURCE_COMMIT=${SOURCE_SHA}
           --tag localhost/fornost-grc-app:${SOURCE_SHA}
           .
+      - name: Verify final runtime libraries
+        run: docker run --rm "localhost/fornost-grc-app:${SOURCE_SHA}" scripts/linux/runtime-library-smoke.mjs
       - name: Block publication of vulnerable images
         run: |
           mkdir -p security-artifacts
