@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { access,readFile } from "node:fs/promises";
 import { demoSeeds } from "../app/api/grc/demo-seeds";
-import { shouldInsertDemoSeeds,validate } from "../app/api/grc/route";
+import { validate } from "../app/api/grc/route";
 import { demoInventory } from "../app/api/grc/demo/route";
 
 test("demo portfolio keeps exactly four neutral samples per module",()=>{
@@ -49,13 +49,6 @@ test("every demo evidence record has a displayable sample screenshot",async()=>{
   await access(`public${data.demoImage}`);
   assert.equal(data.fileType,"image/svg+xml");
  }
-});
-
-test("demo records are inserted only for a previously uninitialized empty installation",()=>{
- assert.equal(shouldInsertDemoSeeds(null,0),true);
- assert.equal(shouldInsertDemoSeeds(null,12),false);
- assert.equal(shouldInsertDemoSeeds({value:"1"},0),false);
- assert.equal(shouldInsertDemoSeeds({value:"1"},96),false);
 });
 
 test("listing records does not restore or overwrite deleted and edited demo rows",async()=>{

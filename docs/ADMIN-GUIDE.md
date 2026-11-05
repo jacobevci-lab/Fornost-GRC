@@ -52,6 +52,8 @@ Sistem Ayarları altında kurumun yerelleştirme, oturum ve diğer platform terc
 
 **Örnek Veri Yaşam Döngüsü / Sample Data Lifecycle** alanı sekiz çekirdek modüldeki bilinen örnek kimliklerini yönetir. Eksik örnekler geri yüklenebilir. Kaldırmak için ekrandaki **ÖRNEKLERİ KALDIR** onayı gerekir. Sonradan oluşturulan kurum kayıtları korunur; ancak örnek kimliği üzerinde düzenlenmiş kayıt hâlâ örnek kapsamındadır. Kurum verisini örnek kaydın üzerine kurmadan önce ayrı kayıt oluşturun.
 
+Yeni kurulumda çekirdek siciller boş başlar; örnekleri isteyen Admin bu alandan açıkça yükler. Kayıtları listelemek örnek eklemez, silinen örneği geri getirmez veya eski SOC2 kayıtlarını temizlemez. Bu davranış demo oturum modu açıkken de aynıdır. Mevcut kayıt kodları korunur; kodu bulunmayan eski kayıtlar kendi kimlikleriyle gösterilir. Yeni kayıt ve içe aktarma işlemleri sıralı kod üretmeye devam eder.
+
 Kayıt silme ile yaşam döngüsü iptalini ayırın: bazı kurumsal işler geçmişi korumak için iptal/yeniden açma kullanır. Kapalı denetim kilitlerini veritabanından atlatmayın.
 
 ## 5. E-posta ve görev hatırlatmaları

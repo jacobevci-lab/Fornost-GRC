@@ -1,6 +1,6 @@
 import { previewRegisterImport, commitRegisterImport } from "../../register-import-store";
 import { RegisterImportError } from "../../register-import";
-import { modules, validModule, normalizeRecordData, validate, type ModuleName, type Data } from "../../core-record-validation";
+import { validModule, normalizeRecordData, validate, type ModuleName, type Data } from "../../core-record-validation";
 export { cleanText, validModule, validDate, normalizeRecordData, validate } from "../../core-record-validation";
 import {isAuditClosedError,auditClosedMessage} from "../../audit-closure";
 import {insertCoreRecords,CoreReferenceUnavailable} from "../../core-reference-write";
@@ -12,49 +12,60 @@ import { preserveRiskGovernance } from "../../risk-governance-write";
 import { canWriteModule, isScoped, readableModules } from "../../module-access";
 import { NextRequest,NextResponse } from "next/server";
 import { requireRole } from "../auth/security";
-import { demoSeeds } from "./demo-seeds";
 import { ensureCoreGrcSchemaCompatibility } from "./schema-compat";
 import { formatRecordCode,recordCodePrefixes,type RecordCodeModule } from "../../record-codes";
 
-const seeds:[string,ModuleName,Data][]=demoSeeds;
-const demoSeedMarker="demo_seed_initialized";
-const compactDataMarker="remove_imported_workbook_and_compact_samples_2026_08";
 async function db(){const {env}=await import("cloudflare:workers");await ensureCoreGrcSchemaCompatibility(env.DB);return env.DB}
-export function shouldInsertDemoSeeds(marker:unknown,total:number){return !marker&&total===0}
 async function reserveRecordCodes(d:Awaited<ReturnType<typeof db>>,module:ModuleName,count:number,now:string){
  if(count<1)return [];
  await d.prepare("INSERT OR IGNORE INTO simple_grc_record_code_counters(module,value,updated_at) VALUES(?,0,?)").bind(module,now).run();
- const prior=await d.prepare("SELECT code FROM simple_grc_record_codes WHERE module=?").bind(module).all<{code:string}>(),prefix=recordCodePrefixes[module],highest=(prior.results||[]).reduce((max,row)=>{const match=String(row.code).match(new RegExp(`^${prefix}-(\\d+)$`));return match?Math.max(max,Number(match[1])):max},0);
+ // References resolve both IDs and saved codes, including uncoded legacy IDs.
+ // Reserve both namespaces here, never by mutating records during a read.
+ const prior=await d.prepare("SELECT code FROM simple_grc_record_codes WHERE module=? UNION ALL SELECT id AS code FROM simple_grc_records WHERE module=?").bind(module,module).all<{code:string}>(),prefix=recordCodePrefixes[module],highest=(prior.results||[]).reduce((max,row)=>{const match=String(row.code).match(new RegExp(`^${prefix}-(\\d+)$`,"i"));return match?Math.max(max,Number(match[1])):max},0);
  await d.prepare("UPDATE simple_grc_record_code_counters SET value=CASE WHEN value<? THEN ? ELSE value END,updated_at=? WHERE module=?").bind(highest,highest,now,module).run();
  const counter=await d.prepare("UPDATE simple_grc_record_code_counters SET value=value+?,updated_at=? WHERE module=? RETURNING value").bind(count,now,module).first<{value:number}>();
  if(!counter)throw new Error("RECORD_CODE_ALLOCATION_FAILED");
  const start=Number(counter.value)-count+1;
  return Array.from({length:count},(_,index)=>formatRecordCode(module as RecordCodeModule,start+index));
 }
-async function ensureRecordCodes(d:Awaited<ReturnType<typeof db>>,rows:Record<string,unknown>[],now:string){
- const existing=await d.prepare("SELECT record_id,code FROM simple_grc_record_codes").all<{record_id:string;code:string}>(),known=new Map((existing.results||[]).map(row=>[String(row.record_id),String(row.code)]));
- for(const moduleName of modules){
-  const missing=rows.filter(row=>row.module===moduleName&&!known.has(String(row.id)));
-  if(!missing.length)continue;
-  const codes=await reserveRecordCodes(d,moduleName,missing.length,now);
-  for(let index=0;index<missing.length;index+=25){
-   const chunk=missing.slice(index,index+25);
-   await d.prepare(`INSERT OR IGNORE INTO simple_grc_record_codes(record_id,module,code,created_at) VALUES ${chunk.map(()=>"(?,?,?,?)").join(",")}`).bind(...chunk.flatMap((row,offset)=>[String(row.id),moduleName,codes[index+offset],now])).run();
-  }
- }
- const result=await d.prepare("SELECT record_id,code FROM simple_grc_record_codes").all<{record_id:string;code:string}>();
- return new Map((result.results||[]).map(row=>[String(row.record_id),String(row.code)]));
-}
-async function compactSampleRecords(d:Awaited<ReturnType<typeof db>>,now:string){
- const applied=await d.prepare("SELECT value FROM simple_grc_metadata WHERE key=?").bind(compactDataMarker).first();
- if(applied)return;
- await d.batch([d.prepare("DELETE FROM simple_grc_records WHERE id LIKE 'SOC2-AUD-%' OR id LIKE 'SOC2-CTL-%'"),d.prepare("DELETE FROM simple_audits WHERE name=? OR template LIKE ?").bind("SOC 2 Type II – 2026","%ODINE%"),d.prepare("DELETE FROM simple_grc_metadata WHERE key IN ('soc2_odine_v1','listed_company_risk_assets_2026_08')")]);
- for(let i=0;i<seeds.length;i+=50)await d.batch(seeds.slice(i,i+50).map(([id,module,data])=>d.prepare("INSERT OR IGNORE INTO simple_grc_records(id,module,data_json,created_at,updated_at) VALUES(?,?,?,?,?)").bind(id,module,JSON.stringify(data),now,now)));
- await d.prepare("INSERT OR REPLACE INTO simple_grc_metadata(key,value,updated_at) VALUES(?,?,?)").bind(compactDataMarker,"1",now).run();
-}
 async function readJson(req:NextRequest){const len=Number(req.headers.get("content-length")||0);if(len>2_000_000)throw new RegisterImportError("payload-limit",[],413);const raw=await req.text();if(new TextEncoder().encode(raw).length>2_000_000)throw new RegisterImportError("payload-limit",[],413);return JSON.parse(raw)}
 
-export async function GET(req:NextRequest){const auth=await requireRole(req,["Admin","Editor","Viewer"]);if(auth.response)return auth.response;let cursor;try{cursor=parseGrcCursor(req.nextUrl.searchParams.get("cursor"));}catch{return NextResponse.json({error:"Geçersiz sayfalama imleci."},{status:400})}const d=await db();const marker=await d.prepare("SELECT value FROM simple_grc_metadata WHERE key=?").bind(demoSeedMarker).first<{value:string}>(),c=await d.prepare("SELECT COUNT(*) total FROM simple_grc_records").first<{total:number}>(),now=new Date().toISOString();if(shouldInsertDemoSeeds(marker,Number(c?.total||0))){await d.batch(seeds.map(s=>d.prepare("INSERT OR IGNORE INTO simple_grc_records(id,module,data_json,created_at,updated_at) VALUES(?,?,?,?,?)").bind(s[0],s[1],JSON.stringify(s[2]),now,now)))}if(!marker){await d.prepare("INSERT OR REPLACE INTO simple_grc_metadata(key,value,updated_at) VALUES(?,?,?)").bind(demoSeedMarker,"1",now).run()}await compactSampleRecords(d,now);const allowed=readableModules(auth.actor);const clauses:string[]=[],values:string[]=[];if(isScoped(auth.actor)){clauses.push(`module IN (${allowed.map(()=>"?").join(",")||"NULL"})`);values.push(...allowed)}if(cursor){clauses.push("(created_at>? OR (created_at=? AND id>?))");values.push(cursor.createdAt,cursor.createdAt,cursor.id)}const query=d.prepare(`SELECT * FROM simple_grc_records ${clauses.length?"WHERE "+clauses.join(" AND "):""} ORDER BY created_at,id LIMIT 5001`).bind(...values);const r=await query.all<Record<string,unknown>>(),hasMore=r.results.length>5000;if(hasMore)r.results.pop();const last=r.results.at(-1),nextCursor=hasMore&&last?JSON.stringify({createdAt:String(last.created_at),id:String(last.id)}):null;const codes=await ensureRecordCodes(d,r.results,now);const rows:Record<string,unknown>[]=r.results.map(row=>{try{const data=normalizeRecordData(row.module,JSON.parse(String(row.data_json)) as Data);return {...row,record_code:codes.get(String(row.id))||String(row.id),data_json:JSON.stringify(data)}}catch{return {...row,record_code:codes.get(String(row.id))||String(row.id)}}});rows.sort((a,b)=>String(b.updated_at).localeCompare(String(a.updated_at)));return NextResponse.json({rows,nextCursor},{headers:{"cache-control":"private, no-store"}})}
+export async function GET(req: NextRequest) {
+ const auth = await requireRole(req, ["Admin", "Editor", "Viewer"]);
+ if (auth.response) return auth.response;
+ let cursor;
+ try { cursor = parseGrcCursor(req.nextUrl.searchParams.get("cursor")); }
+ catch { return NextResponse.json({ error: "Geçersiz sayfalama imleci." }, { status: 400 }); }
+ const d = await db();
+ const allowed = readableModules(auth.actor);
+ const clauses: string[] = [], values: string[] = [];
+ if (isScoped(auth.actor)) {
+  clauses.push(`module IN (${allowed.map(() => "?").join(",") || "NULL"})`);
+  values.push(...allowed);
+ }
+ if (cursor) {
+  clauses.push("(created_at>? OR (created_at=? AND id>?))");
+  values.push(cursor.createdAt, cursor.createdAt, cursor.id);
+ }
+ const query = d.prepare(`SELECT * FROM simple_grc_records ${clauses.length ? "WHERE " + clauses.join(" AND ") : ""} ORDER BY created_at,id LIMIT 5001`).bind(...values);
+ const r = await query.all<Record<string, unknown>>(), hasMore = r.results.length > 5000;
+ if (hasMore) r.results.pop();
+ const last = r.results.at(-1);
+ const nextCursor = hasMore && last ? JSON.stringify({ createdAt: String(last.created_at), id: String(last.id) }) : null;
+ // Listing must not seed, compact or allocate codes. Explicit Admin sample
+ // restore and normal writes own creation; uncoded legacy rows retain their ID.
+ const savedCodes = await d.prepare("SELECT record_id,code FROM simple_grc_record_codes").all<{ record_id: string; code: string }>();
+ const codes = new Map((savedCodes.results || []).map(row => [row.record_id, row.code]));
+ const rows: Record<string, unknown>[] = r.results.map(row => {
+  const record_code = codes.get(String(row.id)) || String(row.id);
+  try {
+   const data = normalizeRecordData(row.module, JSON.parse(String(row.data_json)) as Data);
+   return { ...row, record_code: record_code, data_json: JSON.stringify(data) };
+  } catch { return { ...row, record_code: record_code }; }
+ });
+ rows.sort((a, b) => String(b.updated_at).localeCompare(String(a.updated_at)));
+ return NextResponse.json({ rows, nextCursor }, { headers: { "cache-control": "private, no-store" } });
+}
 export async function POST(req:NextRequest){
  const auth=await requireRole(req,["Admin","Editor"]);if(auth.response)return auth.response;
  let importing=false;

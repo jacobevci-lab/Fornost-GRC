@@ -118,6 +118,8 @@ An optional encrypted fallback profile may use a different provider, endpoint an
 
 Each provider profile also has a verified trust zone (`external`, `private`, or `local`) and a maximum outbound data classification. The trust zone must match the endpoint hostname; a public endpoint cannot be mislabeled as private. External providers are capped at `Internal`, while private/local profiles may be capped at `Confidential`. `Restricted` content is never eligible for model context. When failover is configured, the strictest maximum across the entire chain is selected before context retrieval, so switching providers can never expand data exposure. Chat, draft generation, governed agents, and the retrieval lab all use this shared policy and write the effective maximum to the bounded audit detail.
 
+The shared policy recognizes core GRC catalog labels `Herkese Açık`, `Şirket İçi`, `Gizli`, and `Çok Gizli` as `Public`, `Internal`, `Confidential`, and `Restricted`, respectively, including case and Unicode-normalization variants. Unknown or malformed explicit labels are excluded at every ceiling. Core context and evidence lineage check all present `dataClassification`, `classification`, and `securityClassification` fields; a lower alias cannot shadow a more restrictive one. Only records with none of these fields retain the legacy `Internal` default. Stored labels and catalog customization are not rewritten; custom labels need an explicit supported mapping before AI can use them.
+
 ## Prompt-injection controls
 
 The system prompt explicitly defines retrieved GRC records as untrusted data and instructs the model not to execute or follow instructions embedded in records, evidence metadata or policy text.

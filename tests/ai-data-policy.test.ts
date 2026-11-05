@@ -22,11 +22,13 @@ test("fallback chain always applies the strictest maximum data classification",(
   assert.equal(getEffectiveAiDataPolicy(chain).maxDataClassification,"Public");
 });
 
-test("Restricted is never allowed and unknown record classifications fail closed to Internal",()=>{
+test("Restricted and unknown record classifications are excluded",()=>{
   assert.equal(dataClassificationAllowed("Restricted","Confidential"),false);
   assert.equal(dataClassificationAllowed("Confidential","Internal"),false);
   assert.equal(dataClassificationAllowed("Internal","Internal"),true);
   assert.equal(dataClassificationAllowed("Unexpected","Public"),false);
+  assert.equal(dataClassificationAllowed("Unexpected","Internal"),false);
+  assert.equal(dataClassificationAllowed("Unexpected","Confidential"),false);
 });
 
 test("knowledge retrieval filters approved chunks to the effective provider policy",async()=>{
