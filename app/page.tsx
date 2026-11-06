@@ -1125,7 +1125,6 @@ function FornostApp({ currentUser }: { currentUser: any }) {
   const [lang, setLang] = useState<Lang>("tr"),
     [active, setActive] = useState("Ana Sayfa"),
     [rows, setRows] = useState<Row[]>([]),
-    [rowsLoaded, setRowsLoaded] = useState(false),
     [registerLoadState, setRegisterLoadState] = useState<"loading" | "error" | "ready">("loading"),
     [modal, setModal] = useState(false),
     [editing, setEditing] = useState<Row | null>(null),
@@ -1292,20 +1291,24 @@ function FornostApp({ currentUser }: { currentUser: any }) {
       overview.textContent =
         lang === "tr" ? "FORNOST GRC GENEL DURUM" : "FORNOST GRC OVERVIEW";
   }, [lang, active]);
+  const registerRequest = useRef(0);
   const load = useCallback(async () => {
+    const request = ++registerRequest.current;
     setRegisterLoadState("loading");
     try {
       const rawRows = await readAllGrcPages<any>(async cursor => {
-        const response = await fetch(withBasePath(`/api/grc${cursor ? `?cursor=${encodeURIComponent(cursor)}` : ""}`),{cache:"no-store"});
+        const response = await fetch(withBasePath(`/api/grc${cursor ? `?cursor=${encodeURIComponent(cursor)}` : ""}`),{cache:"no-store",signal:AbortSignal.timeout(15000)});
         const page = await response.json().catch(()=>({}));
         if(!response.ok)throw new Error(String(page.error || "GRC kayıtları yüklenemedi."));
         return page;
       });
       const nextRows:Row[]=rawRows.map(x=>({...x,data:JSON.parse(x.data_json),code:x.recordCode||x.record_code,createdAt: x.createdAt || x.created_at,updatedAt: x.updatedAt || x.updated_at})).sort((a,b)=>String(b.updatedAt).localeCompare(String(a.updatedAt)));
+      if (request !== registerRequest.current) return null;
       setRows(nextRows);
       setRegisterLoadState("ready");
       return nextRows;
     } catch (error) {
+      if (request !== registerRequest.current) return null;
       setRows([]);
       setRegisterLoadState("error");
       setNotice(
@@ -1316,8 +1319,6 @@ function FornostApp({ currentUser }: { currentUser: any }) {
             : "GRC records could not be loaded.",
       );
       return null;
-    } finally {
-      setRowsLoaded(true);
     }
   }, []);
   const loadCatalogs = useCallback(async () => {
@@ -1338,8 +1339,9 @@ function FornostApp({ currentUser }: { currentUser: any }) {
     } catch {}
   }, [currentUser]);
   useEffect(() => {
-    loadAudits().then(load);
-    loadCatalogs();
+    void loadAudits();
+    void load();
+    void loadCatalogs();
   }, [load, loadAudits, loadCatalogs]);
   useEffect(() => {
     setColumnPickerOpen(false);
@@ -2130,12 +2132,18 @@ function FornostApp({ currentUser }: { currentUser: any }) {
           <button type="button" onClick={returnFromRecord}>{lang === "tr" ? "Önceki görünüme dön" : "Return to previous view"}</button>
           <button type="button" onClick={() => { clearRecordFocus(); setQuery(""); setRegisterFilters({}); }}>{lang === "tr" ? "Tüm kayıtları göster" : "Show all records"}</button>
         </section>}
-        {!canOpenModule(currentUser,active) ? <section className="module-scope-home"><h2>{lang==="tr"?"Bu modüle erişiminiz yok":"Module access is unavailable"}</h2><button onClick={()=>navigateToModule("Ana Sayfa")}>{lang==="tr"?"Ana sayfa":"Home"}</button></section> : active === "Ana Sayfa" && scoped ? (
+        {!canOpenModule(currentUser,active) ? <section className="module-scope-home"><h2>{lang==="tr"?"Bu modüle erişiminiz yok":"Module access is unavailable"}</h2><button onClick={()=>navigateToModule("Ana Sayfa")}>{lang==="tr"?"Ana sayfa":"Home"}</button></section> : active === "Ana Sayfa" && (!pageRestored || registerLoadState !== "ready") ? (
+          <section className="module-scope-home" role="status" aria-busy={registerLoadState !== "error"}>
+            {registerLoadState === "error" ? <>
+              <h2>{lang === "tr" ? "GRC kayıtları yüklenemedi" : "GRC records could not be loaded"}</h2>
+              <p>{lang === "tr" ? "Göstergeleri hesaplamak için kayıtları yeniden yükleyin." : "Reload the records to calculate the dashboard indicators."}</p>
+              <button type="button" onClick={() => void load()}>{lang === "tr" ? "Yeniden dene" : "Retry"}</button>
+            </> : (lang === "tr" ? "Gösterge paneli yükleniyor…" : "Loading dashboard…")}
+          </section>
+        ) : active === "Ana Sayfa" && scoped ? (
           <section className="module-scope-home"><h2>{lang==="tr"?"Çalışma alanım":"My workspace"}</h2><p>{lang==="tr"?"İzin verilen modüllerdeki kayıtları görüntüleyin ve yönetin. Ortak raporlar ve gelişmiş iş akışları için tam çalışma alanı erişimi gerekir.":"View and manage records in your permitted modules. Shared reports and advanced workflows require full workspace access."}</p><div className="module-scope-cards">{readableModules(currentUser).map(module=><button key={module} onClick={()=>navigateToModule(module)}><b>{names[lang][module]}</b><small>{by(module).length} {lang==="tr"?"kayıt":"records"} · {canWriteModule(currentUser,module)?(lang==="tr"?"Okuma ve düzenleme":"Read and edit"):(lang==="tr"?"Okuma":"Read")}</small></button>)}</div>{!readableModules(currentUser).length&&<p>{lang==="tr"?"Henüz modül erişimi atanmadı. Yöneticinizle iletişime geçin.":"No module access has been assigned. Contact your administrator."}</p>}</section>
         ) : active === "Ana Sayfa" ? (
-          pageRestored && rowsLoaded
-            ? <Dashboard rows={rows} go={setActive} lang={lang} />
-            : <section className="module-scope-home" role="status" aria-busy="true">{lang === "tr" ? "Gösterge paneli yükleniyor…" : "Loading dashboard…"}</section>
+          <Dashboard rows={rows} go={setActive} lang={lang} />
         ) : active === "AI Yönetişimi" ? (
           <AiWorkspaceHost lang={lang} />
         ) : active === "Benim İşlerim" ? (

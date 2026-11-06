@@ -62,7 +62,7 @@ try {
   await waitForQaIdle(page);
   await expect(page.locator('.executive-dashboard-reference')).toBeVisible();
   assert.ok(assuranceReads.some(url => url.endsWith('/api/executive-assurance')));
-  assert.ok(assuranceReads.some(url => url.endsWith('/api/continuous-assurance/executive')));
+  assert.ok(assuranceReads.some(url => url.endsWith('/api/continuous-assurance/executive?view=dashboard-count')));
   assert.deepEqual(initialFailures, [], 'Initial assurance reads complete without scope replacement aborts');
   let releaseSnapshot, snapshotReads = 0;
   const snapshotGate = new Promise(resolve => { releaseSnapshot = resolve; });
