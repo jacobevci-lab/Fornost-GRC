@@ -51,6 +51,12 @@ jobs:
             --data-binary @/tmp/fornost-qa-bootstrap.json
       - name: Dashboard decision counts and recovery QA
         run: node scripts/dashboard-decision-source-qa.mjs
+      - name: Save executive dashboard design preview
+        uses: actions/upload-artifact@v4
+        with:
+          name: dashboard-design-preview
+          path: dashboard-design-preview/
+          retention-days: 14
       - name: Load explicit synthetic core fixtures
         run: node scripts/seed-local-qa.mjs
       - name: Re-test recovery, independent approval and risk reconciliation QA
