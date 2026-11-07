@@ -100,7 +100,7 @@ try {
   await expect(queue.locator('[data-record-id="rsk-016"]')).toBeFocused();
   await queue.getByRole("button", { name: "All", exact: true }).click();
   await page.locator(".language-switch:visible").getByRole("button", { name: "TR", exact: true }).click();
-  await expect(attention).toContainText("öncelikli yönetim sinyali");
+  await expect(attention).toContainText("4 yönetim sinyali");
   const out = "dashboard-design-preview";
   await mkdir(out, { recursive: true });
   for (const [theme, width] of [["light", 1440], ["dark", 390]]) {
@@ -110,6 +110,10 @@ try {
     await expect(workspace).toBeVisible();
     assert.ok(await workspace.evaluate(el => el.getBoundingClientRect().top < el.parentElement.querySelector(".executive-dashboard-kpis").getBoundingClientRect().top));
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 4));
+    const fontSize = locator => locator.evaluate(el => parseFloat(getComputedStyle(el).fontSize));
+    assert.ok(await fontSize(queue.getByRole("heading")) >= 18);
+    assert.ok(await fontSize(rows.first().locator(".decision-record-body > strong")) >= 15);
+    assert.ok(await fontSize(attention.locator(".decision-signal-total strong")) >= 30);
     await workspace.screenshot({ path: `${out}/karar-masasi-${width}.png` });
   }
   console.log("Dashboard source QA passed: authenticated counts, register retry, independent failures, partial counts, verified zero and failed refresh.");

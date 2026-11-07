@@ -158,14 +158,12 @@ export default function ExecutiveAssurancePanel({
 
   const knownSignals = decisionItems.filter(item => item.value !== null && item.value > 0);
   const knownTotal = knownSignals.reduce((total, item) => total + (item.value ?? 0), 0);
-  let attentionText = tr ? "Kritik yönetim sinyali bulunmuyor" : "No critical management signals";
-  if (!countsComplete) {
-    attentionText = knownTotal > 0
-      ? (tr ? `En az ${knownTotal} yönetim sinyali karar bekliyor` : `At least ${knownTotal} management signals need review`)
+  const totalAvailable = countsComplete || knownTotal > 0;
+  const signalDescription = knownTotal > 0
+    ? (tr ? "yönetim sinyali karar bekliyor" : "management signals need review")
+    : countsComplete
+      ? (tr ? "Kritik yönetim sinyali bulunmuyor" : "No critical management signals")
       : (tr ? "Yönetim sinyallerinin toplamı henüz doğrulanamadı" : "Management signal total is unconfirmed");
-  } else if (knownTotal > 0) {
-    attentionText = tr ? `${knownTotal} öncelikli yönetim sinyali karar bekliyor` : `${knownTotal} priority management signals need review`;
-  }
 
   const recordDecisions = orderDecisions([
     ...scoredRisks.filter(({ row, score }) => score >= 10 && !isClosed(row.data.status))
@@ -241,7 +239,10 @@ export default function ExecutiveAssurancePanel({
           hidden={!view.preferences.visible.actionCenter} completeAndClear={countsComplete && !knownSignals.length} />
         <section hidden={!view.preferences.visible.recentChanges} className="executive-attention-band decision-signals" aria-labelledby="decision-signals-heading">
           <h3 id="decision-signals-heading">{tr ? "Yönetim sinyalleri" : "Management signals"}</h3>
-          <p>{attentionText}</p>
+          <p className="decision-signal-total">
+            <span>{!countsComplete && knownTotal > 0 && (tr ? "En az " : "At least ")}<strong>{totalAvailable ? knownTotal : "—"}</strong></span>{" "}
+            <span>{signalDescription}</span>
+          </p>
           <ul>{decisionItems.map(item => <li key={item.module}>
             <button type="button" onClick={() => go(item.module)}>
               <span>{item.label}</span><strong>{item.value ?? "—"}</strong><span aria-hidden="true">›</span>

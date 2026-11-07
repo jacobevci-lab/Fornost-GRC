@@ -98,7 +98,9 @@
 .decision-record-body, .decision-reason, .decision-ref { overflow-wrap: anywhere; }
 .decision-record-context { display: flex; flex-wrap: wrap; align-items: baseline; gap: 3px 10px; }
 .decision-reason { font-size: 12px; font-weight: 650; color: var(--ed-muted); }
-.decision-reason.critical, .decision-reason.overdue { color: var(--ws-brand-2); }
+.decision-reason.critical { color: var(--ed-danger); }
+.decision-record:has(.decision-reason.critical) { box-shadow: inset 3px 0 var(--ed-danger); }
+.decision-reason.overdue { color: var(--ws-brand-2); }
 .decision-arrow { color: var(--ws-brand-2); }
 .decision-queue-foot {
   display: flex;
@@ -139,4 +141,17 @@
   .decision-record-icon { display: none; }
   .decision-record-body, .decision-date { grid-column: 1; }
   .decision-arrow { grid-column: 2; grid-row: 1 / 3; }
+}
+
+.decision-signals .decision-signal-total {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 10px 0 16px;
+}
+.decision-signal-total > :first-child { flex: none; color: var(--ed-ink); }
+.decision-signals .decision-signal-total strong {
+  font-size: 34px;
+  line-height: 1.1;
+  letter-spacing: -.03em;
 }
