@@ -113,7 +113,8 @@ try {
     assert.ok(await workspace.evaluate(el => el.getBoundingClientRect().top < el.parentElement.querySelector(".executive-dashboard-kpis").getBoundingClientRect().top));
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 4));
     const fontSize = locator => locator.evaluate(el => parseFloat(getComputedStyle(el).fontSize));
-    assert.ok(await fontSize(queue.getByRole("heading")) >= 18);
+    assert.equal(await fontSize(queue.getByRole("heading")), 18);
+    assert.equal(await fontSize(attention.getByRole("heading")), 18);
     assert.ok(await fontSize(rows.first().locator(".decision-record-body > strong")) >= 15);
     assert.ok(await fontSize(attention.locator(".decision-signal-total strong")) >= 30);
     await workspace.screenshot({ path: `${out}/karar-masasi-${width}.png` });
