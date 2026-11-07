@@ -2197,6 +2197,10 @@ function FornostApp({ currentUser }: { currentUser: any }) {
                       : "system"
             }
           />
+        ) : active === "Denetim Yönetimi" && (
+          (recordRequest && sameDomainModule(recordRequest.module, active)) || (focusedRecord && !focusedRecord.id)
+        ) ? (
+          focusedRecord ? null : <p role="status">{lang === "tr" ? "Kayıt yükleniyor…" : "Loading record…"}</p>
         ) : active === "Denetim Yönetimi" ? (
           <AuditModule
             sort={registerSort}

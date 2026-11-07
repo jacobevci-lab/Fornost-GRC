@@ -314,9 +314,11 @@ async function auditLocale(page, locale) {
             const detail = page.locator(".core-record-focus");
             await expect(detail.locator("strong")).toHaveText("Seçili kayıt");
             await expect(detail.locator("span").first()).toHaveText(code);
+            await waitForQaIdle(page);
             await detail.getByRole("button", { name: "Önceki görünüme dön" }).click();
             await expect(queue.locator(".decision-record:focus")).toHaveAttribute("data-record-id", id);
           }
+          await waitForQaIdle(page);
           report.overdueAuditDrilldown = { count, checkedReturn: count > 0 };
         } else {
           report.overdueAuditDrilldown = { skipped: "management signals hidden" };

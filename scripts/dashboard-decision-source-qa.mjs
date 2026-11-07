@@ -29,9 +29,13 @@ try {
   let records = [];
   let findingBody = { count: 4 };
   let escalationStatus = 503;
-  await page.route("**/api/grc", route => registerAvailable
-    ? route.fulfill({ json: { rows: records, nextCursor: null } })
-    : route.fulfill({ status: 503, json: { error: "QA source unavailable" } }));
+  let pendingRecordRead;
+  await page.route("**/api/grc", async route => {
+    await pendingRecordRead;
+    return registerAvailable
+      ? route.fulfill({ json: { rows: records, nextCursor: null } })
+      : route.fulfill({ status: 503, json: { error: "QA source unavailable" } });
+  });
   await page.route("**/api/findings?view=dashboard-count", route => route.fulfill({ json: findingBody }));
   await page.route("**/api/continuous-assurance/executive?view=dashboard-count",
     route => route.fulfill({ status: escalationStatus, json: { count: 0 } }));
@@ -148,7 +152,18 @@ try {
   await expect(rows.nth(1).locator(".decision-date")).toContainText("2024");
   for (const id of ["aud-unlinked", "aud-linked"]) {
     const row = queue.locator(`[data-record-id="${id}"]`);
+    let releaseRead;
+    if (id === "aud-unlinked") pendingRecordRead = new Promise(resolve => { releaseRead = resolve; });
     await row.press("Enter");
+    if (releaseRead) {
+      try {
+        await expect(focus).toContainText("Kayıt yükleniyor");
+        await expect(page.locator(".audit-overview, .audit-readiness-gate")).toHaveCount(0);
+      } finally {
+        pendingRecordRead = undefined;
+        releaseRead();
+      }
+    }
     await expect(focus).toContainText(id.toUpperCase());
     await expect(page.getByRole("region", { name: "Kayıt tablosu", exact: true }).getByRole("row").filter({ hasText: id === "aud-linked" ? "A ekibi" : "B ekibi" })).toHaveCount(1);
     await focus.getByRole("button", { name: "Önceki görünüme dön" }).click();
