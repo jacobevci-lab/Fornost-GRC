@@ -1135,7 +1135,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
     [importOpen, setImportOpen] = useState(false),
     [registerImportRevision, setRegisterImportRevision] = useState(0),
     [previewEvidence, setPreviewEvidence] = useState<Row | null>(null),
-    [selectedAudit, setSelectedAudit] = useState(""),
+    [browsedAudit, setSelectedAudit] = useState(""),
     [auditPortfolio, setAuditPortfolio] = useState<AuditPortfolioItem[]>([]),
     [columnPickerOpen, setColumnPickerOpen] = useState(false),
     [filterPanelOpen, setFilterPanelOpen] = useState(false),
@@ -1156,7 +1156,8 @@ function FornostApp({ currentUser }: { currentUser: any }) {
   const closeCommand = useCallback(() => { setCommandOpen(false); requestAnimationFrame(() => document.querySelector<HTMLButtonElement>(".command-trigger")?.focus()); }, []);
   const commandDialogRef = useRecordDialog(commandOpen, closeCommand);
   const [recordRequest, setRecordRequest] = useState<FornostNavigationRequest | null>(null);
-  const [focusedRecord, setFocusedRecord] = useState<{ id: string; ref: string; state?: "loading" | "error"; request?: FornostNavigationRequest } | null>(null);
+  const [focusedRecord, setFocusedRecord] = useState<{ id: string; ref: string; auditName?: string; state?: "loading" | "error"; request?: FornostNavigationRequest } | null>(null);
+  const selectedAudit = focusedRecord?.auditName ?? browsedAudit;
   const recordContext = useRef<FornostNavigationRequest | null>(null);
   const navigationOrigin = useRef<FornostNavigationRequest["returnTo"]>(undefined);
   const activeModule = useRef(active);
@@ -1190,6 +1191,10 @@ function FornostApp({ currentUser }: { currentUser: any }) {
     consumePendingFornostFocus(active); recordContext.current = null;
     writeCoreRecordSession(() => window.sessionStorage, String(currentUser.id), null);
     setRecordRequest(null); setFocusedRecord(null);
+  };
+  const showRegisterWithoutFocus = () => {
+    if (focusedRecord?.auditName !== undefined) setSelectedAudit(focusedRecord.auditName);
+    clearRecordFocus();
   };
   const returnFromRecord = () => {
     const origin = recordContext.current?.returnTo;
@@ -1362,8 +1367,10 @@ function FornostApp({ currentUser }: { currentUser: any }) {
       if (freshRows) {
         setNotice("");
         const target = resolveCoreRecord(freshRows, recordRequest);
-        setFocusedRecord({ id: target?.id || "", ref: target?.code || coreRecordReference(recordRequest) });
-        if (target?.module === "Denetim Yönetimi") setSelectedAudit(String(target.data.auditName || ""));
+        const auditName = target?.module === "Denetim Yönetimi" ? String(target.data.auditName || "") : undefined;
+        const fromDecisionQueue = recordRequest.returnTo?.module === "Ana Sayfa" && recordRequest.returnTo.kind === "executive-decisions";
+        setFocusedRecord({ id: target?.id || "", ref: target?.code || coreRecordReference(recordRequest), auditName: fromDecisionQueue ? auditName : undefined });
+        if (auditName !== undefined && !fromDecisionQueue) setSelectedAudit(auditName);
       } else {
         setFocusedRecord({ id: "", ref: coreRecordReference(recordRequest), state: "error", request: recordRequest });
       }
@@ -2131,7 +2138,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
           {focusedRecord.id && !focusedRecord.state && <CopyRecordLink key={focusedRecord.id} lang={lang} target={{module:active,kind:"record",ref:focusedRecord.id}} />}
           {focusedRecord.state === "error" && focusedRecord.request && <button type="button" onClick={() => setRecordRequest({ ...focusedRecord.request! })}>{lang === "tr" ? "Kaydı yeniden yükle" : "Reload record"}</button>}
           <button type="button" onClick={returnFromRecord}>{lang === "tr" ? "Önceki görünüme dön" : "Return to previous view"}</button>
-          <button type="button" onClick={() => { clearRecordFocus(); setQuery(""); setRegisterFilters({}); }}>{lang === "tr" ? "Tüm kayıtları göster" : "Show all records"}</button>
+          <button type="button" onClick={() => { showRegisterWithoutFocus(); setQuery(""); setRegisterFilters({}); }}>{lang === "tr" ? "Tüm kayıtları göster" : "Show all records"}</button>
         </section>}
         {!canOpenModule(currentUser,active) ? <section className="module-scope-home"><h2>{lang==="tr"?"Bu modüle erişiminiz yok":"Module access is unavailable"}</h2><button onClick={()=>navigateToModule("Ana Sayfa")}>{lang==="tr"?"Ana sayfa":"Home"}</button></section> : active === "Ana Sayfa" && (!pageRestored || registerLoadState !== "ready") ? (
           <section className="module-scope-home" role="status" aria-busy={registerLoadState !== "error"}>
@@ -2208,7 +2215,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
             }}
             lang={lang}
             query={focusedRecord ? "" : query}
-            setQuery={value => { clearRecordFocus(); setQuery(value); }}
+            setQuery={value => { showRegisterWithoutFocus(); setQuery(value); }}
             openNew={openNew}
             edit={openEdit}
             remove={remove}

@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { mkdir } from "node:fs/promises";
 import { chromium, expect } from "@playwright/test";
+import { openQaModule } from "./qa-browser-harness.mjs";
 import { qaPassword } from "./qa-credentials.mjs";
 
 const base = "http://127.0.0.1:4173";
@@ -155,6 +156,11 @@ try {
     await expect(queue.getByRole("button", { name: "Denetim", exact: true })).toHaveAttribute("aria-pressed", "true");
   }
   await queue.screenshot({ path: `${out}/geciken-denetim-maddeleri.png` });
+  await page.setViewportSize({ width: 1536, height: 960 });
+  await openQaModule(page, "Denetim Yönetimi");
+  await expect(page.getByRole("heading", { name: "Denetim Portföyü", exact: true })).toBeVisible();
+  const portfolioCount = page.locator(".audit-kpis article").filter({ hasText: "Portföye bağlı geciken maddeler" });
+  await expect(portfolioCount.locator("b")).toHaveText("1");
   console.log("Dashboard source QA passed: authenticated counts, register retry, independent failures, partial counts, verified zero and failed refresh.");
 } finally {
   await browser.close();
