@@ -12,6 +12,8 @@ Ana Sayfa genel durumu, **Benim İşlerim / My Work** size atanmış hazırlık 
 
 Yönetici özetinde **Karar bekleyen kayıtlar** listesini türüne göre süzebilirsiniz. Kritik riskler, geciken denetim maddeleri, yüksek riskler ve uyum açıkları bu sırayla görünür. Satırı seçtiğinizde ilgili kayıt açılır. **Önceki görünüme dön** ile listedeki yerinize dönebilirsiniz. Yönetim sinyallerinden açık bulgular ve eskalasyonlar için ilgili modüle geçebilirsiniz.
 
+**Geciken denetim maddesi** sayacını seçerek sayılan maddeleri aynı ekranda açabilirsiniz. Her satır sorumluyu, termini ve portföy bağlantısını gösterir. Detaydan döndüğünüzde denetim filtresi ve seçtiğiniz satır korunur. **Portföye bağlı geciken maddeler** yalnız kayıtlı bir denetime bağlı maddeleri sayar. Gün olarak girilen termin, UTC gününün sonunda geçer.
+
 Ana Sayfa kayıtları okuyamazsa **Yeniden dene** ile göstergeleri yükleyebilirsiniz. Yönetim dikkati bölümündeki **en az** ifadesi, doğrulanabilen sinyallerin sayısını gösterir. Açık bulgu veya güvence eskalasyonu sayısı alınamazsa ekranda ilgili kaynağın adı görünür. Kaynağı yeniden denediğinizde toplam güncellenir.
 
 **İş kuyruğu modülü → Olay** ile güvenlik olayı sorumluluklarınızı süzebilirsiniz. Sahip ve olay yöneticisi müdahale aşamalarını görür; olay incelemeye gönderildiğinde atanmış bağımsız incelemecinin kuyruğuna gelir. Sahip/yönetici için **Başkalarında bekleyen** olarak görünür. Satırı açınca tam olay ve mevcut karar ekranına geçilir. Kapatılan olay gerçek kapanış tarihiyle son 30 gündeki tamamlananlara geçer; yeniden açılınca aktif işe döner. Kritik/yüksek olaylar **Öncelik** filtresindedir; tespit tarihi termin sayılmaz. [Atamalar ve sınırlar](incident-my-work.md).

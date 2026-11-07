@@ -119,6 +119,42 @@ try {
     assert.ok(await fontSize(attention.locator(".decision-signal-total strong")) >= 30);
     await workspace.screenshot({ path: `${out}/karar-masasi-${width}.png` });
   }
+  const generatedAt = new Date().toISOString();
+  const audit = { id: "qa-linked", name: "QA Portfolio", gate: "empty", verified: true, issues: [], requirements: 0, current: 0, blockers: 0 };
+  await page.route("**/api/executive-assurance", route => route.fulfill({ json: {
+    rows: [], verified: false, issues: ["orphan-requirements"], generatedAt,
+    auditPortfolio: { audits: [audit], verified: false, issues: ["orphan-requirements"], orphanRequirements: 1, generatedAt },
+  } }));
+  await page.route("**/api/audits", route => route.fulfill({ json: { audits: [audit] } }));
+  const requirement = (id, data) => record(id, "Denetim Yönetimi", "Aynı başlık", { requirementTitle: "Aynı başlık", requirementRef: id.toUpperCase(), ...data });
+  records = [
+    requirement("aud-linked", { auditName: audit.name, owner: "A ekibi", targetDate: "2024-01-01" }),
+    requirement("aud-unlinked", { owner: "B ekibi", dueDate: "2024-01-02" }),
+    requirement("aud-closed", { auditName: audit.name, dueDate: "2024-01-01", status: "Completed" }),
+    requirement("aud-today", { auditName: audit.name, dueDate: generatedAt.slice(0, 10) }),
+  ];
+  await page.reload();
+  const signal = attention.getByRole("button", { name: /Geciken denetim maddesi/ });
+  await expect(signal.locator("strong")).toHaveText("2");
+  await signal.click();
+  await expect(queue.getByRole("heading", { name: "Geciken denetim maddeleri", exact: true })).toBeFocused();
+  await expect(rows).toHaveCount(2);
+  assert.deepEqual(await rows.evaluateAll(nodes => nodes.map(node => node.dataset.recordId)), ["aud-linked", "aud-unlinked"]);
+  await expect(rows.first()).toContainText("Portföyde · QA Portfolio");
+  await expect(rows.first()).toContainText("A ekibi");
+  await expect(rows.nth(1)).toContainText("Portföye bağlı değil");
+  await expect(rows.nth(1)).toContainText("B ekibi");
+  await expect(rows.nth(1).locator(".decision-date")).toContainText("2024");
+  for (const id of ["aud-unlinked", "aud-linked"]) {
+    const row = queue.locator(`[data-record-id="${id}"]`);
+    await row.press("Enter");
+    await expect(focus).toContainText(id.toUpperCase());
+    await expect(page.getByRole("region", { name: "Kayıt tablosu", exact: true }).getByRole("row").filter({ hasText: id === "aud-linked" ? "A ekibi" : "B ekibi" })).toHaveCount(1);
+    await focus.getByRole("button", { name: "Önceki görünüme dön" }).click();
+    await expect(row).toBeFocused();
+    await expect(queue.getByRole("button", { name: "Denetim", exact: true })).toHaveAttribute("aria-pressed", "true");
+  }
+  await queue.screenshot({ path: `${out}/geciken-denetim-maddeleri.png` });
   console.log("Dashboard source QA passed: authenticated counts, register retry, independent failures, partial counts, verified zero and failed refresh.");
 } finally {
   await browser.close();

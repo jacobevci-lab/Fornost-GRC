@@ -3,9 +3,9 @@ import type { useExecutiveAssurance } from './use-executive-assurance';
 import AuditReadinessPortfolioPanel from './audit-readiness-portfolio-panel';
 import EvidenceAssuranceStatus from './evidence-assurance-status';
 import { assessmentStateText } from './evidence/assessment-labels';
-import { dueTimestamp } from "./due-date";
+import { isOverdueAuditRequirement } from "./audit-overdue-requirements";
 
-import { Fragment, useMemo, useState } from "react";
+import { Fragment, useMemo, useRef, useState } from "react";
 import {
   buildExecutiveAssurance,
 } from "./executive-assurance";
@@ -13,7 +13,7 @@ import { assessedRiskScore } from "./risk-methodology";
 import type { AssuranceRow } from "./control-assurance";
 import { withBasePath } from "./base-path";
 import NavIcon from "./nav-icon";
-import ExecutiveDecisionQueue, { orderDecisions } from "./executive-decision-queue";
+import ExecutiveDecisionQueue, { orderDecisions, type DecisionQueueHandle } from "./executive-decision-queue";
 import { useDashboardDecisionCounts } from "./use-dashboard-decision-counts";
 import DashboardCustomizer, { useDashboardView, PANEL_ORDER } from "./dashboard-customizer";
 import "./executive-assurance.css";
@@ -87,10 +87,8 @@ export default function ExecutiveAssurancePanel({
   const openFindings = typeof counts.findings === "number"
     ? Math.max(assurance.openControlFindings, counts.findings) : null;
   const openEscalations = typeof counts.escalations === "number" ? counts.escalations : null;
-  const overdueAuditRows = audits.filter((row) => {
-    const due = clean(row.data.dueDate || row.data.targetDate || row.data.endDate);
-    return Boolean(due) && dueTimestamp(due) < now && !isClosed(row.data.status);
-  });
+  const decisionQueue = useRef<DecisionQueueHandle>(null);
+  const overdueAuditRows = audits.filter(row => isOverdueAuditRequirement(row.data, now));
   const overdueAudits = overdueAuditRows.length;
 
   const complianceStats = useMemo(() => {
@@ -209,7 +207,7 @@ export default function ExecutiveAssurancePanel({
           <div className="audit-remediation-metrics">
             <div><strong>{confidencePercent(assurance.auditScore, assurance.totalAudits, evidenceState.auditReady)}</strong><span>{evidenceState.auditReady ? assurance.readyAudits : "—"}/{assurance.totalAudits} {tr ? "hazır denetim" : "ready audits"}</span><MiniBar value={evidenceState.auditReady && assurance.totalAudits ? assurance.auditScore ?? 0 : 0} /></div>
             <button type="button" onClick={() => go("Bulgular ve CAPA")}><span>{tr ? "Açık bulgu" : "Open findings"}</span><b>{openFindings ?? "—"}</b></button>
-            <button type="button" onClick={() => go("Denetim Yönetimi")}><span>{tr ? "Geciken denetim maddesi" : "Overdue audit requirements"}</span><b>{overdueAudits}</b></button>
+            <button type="button" aria-controls="executive-decisions" onClick={event => decisionQueue.current?.openOverdue(event.currentTarget)}><span>{tr ? "Geciken denetim maddesi" : "Overdue audit requirements"}</span><b>{overdueAudits}</b></button>
           </div>
         </article>)
   };
@@ -235,7 +233,7 @@ export default function ExecutiveAssurancePanel({
         <button type="button" onClick={retry}>{tr ? "Yeniden dene" : "Retry"}</button>
       </div>}
       <div className="executive-action-workspace">
-        <ExecutiveDecisionQueue entries={recordDecisions} lang={lang}
+        <ExecutiveDecisionQueue controls={decisionQueue} portfolio={evidenceState.auditPortfolio} entries={recordDecisions} lang={lang}
           hidden={!view.preferences.visible.actionCenter} completeAndClear={countsComplete && !knownSignals.length} />
         <section hidden={!view.preferences.visible.recentChanges} className="executive-attention-band decision-signals" aria-labelledby="decision-signals-heading">
           <h3 id="decision-signals-heading">{tr ? "Yönetim sinyalleri" : "Management signals"}</h3>
@@ -244,7 +242,7 @@ export default function ExecutiveAssurancePanel({
             <span>{signalDescription}</span>
           </p>
           <ul>{decisionItems.map(item => <li key={item.module}>
-            <button type="button" onClick={() => go(item.module)}>
+            <button type="button" aria-controls={item.module === "Denetim Yönetimi" ? "executive-decisions" : undefined} onClick={event => item.module === "Denetim Yönetimi" ? decisionQueue.current?.openOverdue(event.currentTarget) : go(item.module)}>
               <span>{item.label}</span><strong>{item.value ?? "—"}</strong><span aria-hidden="true">›</span>
             </button>
           </li>)}</ul>

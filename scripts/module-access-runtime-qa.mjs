@@ -21,6 +21,8 @@ try{
  const users=await api(admin,'/api/users'),user=users.users.find(x=>x.email===email);assert.deepEqual(user.moduleAccess,access);
  await login(restricted,email);
  const scoped=(await api(restricted,'/api/grc')).rows;assert.ok(scoped.length);assert.ok(scoped.every(row=>['Risk Assessment','BIA'].includes(row.module)));
+ const deniedAudit = all.find(row => row.module === 'Denetim Yönetimi');
+ assert.ok(deniedAudit && !scoped.some(row => row.id === deniedAudit.id), 'restricted register excludes audit requirements');
  const risk=all.find(row=>row.module==='Risk Assessment'),bia=all.find(row=>row.module==='BIA'),hidden=all.find(row=>row.module==='Kanıtlar');
  const riskData={...JSON.parse(risk.data_json),title:'QA Scoped Risk'};
  const record=await api(restricted,'/api/grc','POST',{module:'Risk Assessment',data:riskData},201);created.push(record.id);
@@ -35,6 +37,7 @@ try{
  await api(restricted,`/api/ai/source-target?sourceId=${encodeURIComponent(risk.id)}`);
  const status=await api(restricted,'/api/ai/status');assert.equal(status.moduleScope,'scoped');assert.equal(status.capabilities.agents,false);assert.equal(status.capabilities.retrieval,false);
  await userPage.goto(base);await expect(userPage.locator('.shell[data-module-scope="scoped"]')).toBeVisible();
+ await expect(userPage.locator('#executive-decisions, .decision-signals')).toHaveCount(0);
  await userPage.locator('.language-switch:visible').getByRole('button',{name:'EN',exact:true}).click();
  await expect(userPage.locator('.module-scope-home')).toContainText('My workspace');await expect(userPage.locator('nav')).not.toContainText('INTELLIGENCE');await expect(userPage.locator('nav button[aria-label="Reporting"]')).toHaveCount(0);await expect(userPage.locator('nav button[aria-label="Evidence Library"]')).toHaveCount(0);
  await userPage.locator('nav button[aria-label="Business Impact Analysis (BIA)"]').evaluate(el=>el.click());await expect(userPage.locator('.module-head')).toContainText('BIA');await expect(userPage.locator('.module-head .primary')).toHaveCount(0);

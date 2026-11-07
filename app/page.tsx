@@ -26,6 +26,7 @@ import "./module-access.css";
 import { linkedRecordOptions } from "./linked-record-options";
 import { dueTimestamp } from "./due-date";
 import { hasRecoveryTarget } from "./bia-recovery";
+import { isOverdueAuditRequirement } from "./audit-overdue-requirements";
 import { isCoreRecordRequest, resolveCoreRecord, coreRecordReference } from "./core-record-focus";
 import { readCoreRecordSession, writeCoreRecordSession } from "./core-record-session";
 import { FORNOST_BEFORE_FOCUS_EVENT, FORNOST_FOCUS_EVENT, peekPendingFornostFocus, consumePendingFornostFocus, type FornostNavigationRequest } from "./navigation-focus";
@@ -3397,14 +3398,12 @@ function RiskOverview({ rows, lang }: { rows: Row[]; lang: Lang }) {
 }
 function AuditOverview({ rows, lang }: { rows: Row[]; lang: Lang }) {
   const tr = lang === "tr",
-    now = new Date().toISOString().slice(0, 10),
+    now = Date.now(),
     closed = (s: any) =>
       ["Kapatıldı", "Kapalı", "Tamamlandı", "Closed", "Completed"].includes(
         String(s),
       ),
-    overdue = rows.filter(
-      (r) => r.data.dueDate && r.data.dueDate < now && !closed(r.data.status),
-    ).length,
+    overdue = rows.filter(row => isOverdueAuditRequirement(row.data, now)).length,
     evidence = rows.filter(
       (r) => r.data.evidenceStatus === "Kanıt Bekleniyor",
     ).length,
@@ -3437,7 +3436,7 @@ function AuditOverview({ rows, lang }: { rows: Row[]; lang: Lang }) {
         </article>
         <article className={overdue ? "danger" : ""}>
           <b>{overdue}</b>
-          <span>{tr ? "Geciken madde" : "Overdue requirements"}</span>
+          <span>{tr ? "Portföye bağlı geciken maddeler" : "Overdue requirements in portfolio"}</span>
         </article>
         <article>
           <b>{evidence}</b>
@@ -3786,6 +3785,12 @@ function AuditModule({
       name: custom ? "" : template,
       auditType: custom ? "Diğer Denetim" : auditKind(template),
     }));
+  }
+  // A directly opened requirement can predate portfolio assignment and have no audit name.
+  if (!selected && focusedRequirement && visible.some(row => row.id === focusedRequirement)) {
+    return <AuditRequirementsTable sort={sort} setSort={setSort} userId={userId} focused
+      allItems={visible} items={visible} lang={lang} query={query} setQuery={setQuery}
+      edit={edit} remove={remove} openNew={openNew} canWrite={canWrite} canDelete={canDeleteAudit} />;
   }
   if (!selected)
     return (
