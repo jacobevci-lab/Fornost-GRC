@@ -1,6 +1,6 @@
 import fs from "node:fs/promises";
 import path from "node:path";
-import { chromium } from "@playwright/test";
+import { chromium, expect } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 import { createQaContext, waitForQaIdle, switchQaLocale, openQaModule } from "./qa-browser-harness.mjs";
 
@@ -296,6 +296,31 @@ async function auditLocale(page, locale) {
           return { count: cells.length, clipped: cells.some(cell => { const r = cell.getBoundingClientRect(); return r.left < bounds.left || r.right > bounds.right || r.width < 10; }) };
         });
         if (matrix.count !== 25 || matrix.clipped) finding("high", area, "Risk matrix cells are clipped", JSON.stringify(matrix));
+      }
+      if (i === 0 && locale === "tr") {
+        const signal = page.locator(".decision-signals button[aria-controls='executive-decisions']");
+        if (await signal.isVisible()) {
+          const count = Number(await signal.locator("strong").innerText());
+          await signal.click();
+          const queue = page.locator("#executive-decisions");
+          await expect(queue.getByRole("heading")).toHaveText("Geciken denetim maddeleri");
+          await expect(queue.locator(".decision-queue-head > span")).toHaveText(`${count} kayıt`);
+          await expect(queue.locator(".decision-record")).toHaveCount(Math.min(4, count));
+          if (count > 0) {
+            const first = queue.locator(".decision-record").first();
+            const code = await first.locator(".decision-ref").innerText();
+            const id = await first.getAttribute("data-record-id");
+            await first.click();
+            const detail = page.locator(".core-record-focus");
+            await expect(detail.locator("strong")).toHaveText("Seçili kayıt");
+            await expect(detail.locator("span").first()).toHaveText(code);
+            await detail.getByRole("button", { name: "Önceki görünüme dön" }).click();
+            await expect(queue.locator(".decision-record:focus")).toHaveAttribute("data-record-id", id);
+          }
+          report.overdueAuditDrilldown = { count, checkedReturn: count > 0 };
+        } else {
+          report.overdueAuditDrilldown = { skipped: "management signals hidden" };
+        }
       }
       report.locales[locale].push({ label, status: "ok", dom, a11y, screenshot });
     } catch (error) {

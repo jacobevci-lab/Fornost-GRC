@@ -26,6 +26,7 @@ import "./module-access.css";
 import { linkedRecordOptions } from "./linked-record-options";
 import { dueTimestamp } from "./due-date";
 import { hasRecoveryTarget } from "./bia-recovery";
+import { auditRequirementDeadline, isClosedAuditRequirement, isOverdueAuditRequirement } from "./audit-overdue-requirements";
 import { isCoreRecordRequest, resolveCoreRecord, coreRecordReference } from "./core-record-focus";
 import { readCoreRecordSession, writeCoreRecordSession } from "./core-record-session";
 import { FORNOST_BEFORE_FOCUS_EVENT, FORNOST_FOCUS_EVENT, peekPendingFornostFocus, consumePendingFornostFocus, type FornostNavigationRequest } from "./navigation-focus";
@@ -1134,7 +1135,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
     [importOpen, setImportOpen] = useState(false),
     [registerImportRevision, setRegisterImportRevision] = useState(0),
     [previewEvidence, setPreviewEvidence] = useState<Row | null>(null),
-    [selectedAudit, setSelectedAudit] = useState(""),
+    [browsedAudit, setSelectedAudit] = useState(""),
     [auditPortfolio, setAuditPortfolio] = useState<AuditPortfolioItem[]>([]),
     [columnPickerOpen, setColumnPickerOpen] = useState(false),
     [filterPanelOpen, setFilterPanelOpen] = useState(false),
@@ -1155,7 +1156,8 @@ function FornostApp({ currentUser }: { currentUser: any }) {
   const closeCommand = useCallback(() => { setCommandOpen(false); requestAnimationFrame(() => document.querySelector<HTMLButtonElement>(".command-trigger")?.focus()); }, []);
   const commandDialogRef = useRecordDialog(commandOpen, closeCommand);
   const [recordRequest, setRecordRequest] = useState<FornostNavigationRequest | null>(null);
-  const [focusedRecord, setFocusedRecord] = useState<{ id: string; ref: string; state?: "loading" | "error"; request?: FornostNavigationRequest } | null>(null);
+  const [focusedRecord, setFocusedRecord] = useState<{ id: string; ref: string; auditName?: string; state?: "loading" | "error"; request?: FornostNavigationRequest } | null>(null);
+  const selectedAudit = focusedRecord?.auditName ?? browsedAudit;
   const recordContext = useRef<FornostNavigationRequest | null>(null);
   const navigationOrigin = useRef<FornostNavigationRequest["returnTo"]>(undefined);
   const activeModule = useRef(active);
@@ -1189,6 +1191,10 @@ function FornostApp({ currentUser }: { currentUser: any }) {
     consumePendingFornostFocus(active); recordContext.current = null;
     writeCoreRecordSession(() => window.sessionStorage, String(currentUser.id), null);
     setRecordRequest(null); setFocusedRecord(null);
+  };
+  const showRegisterWithoutFocus = () => {
+    if (focusedRecord?.auditName !== undefined) setSelectedAudit(focusedRecord.auditName);
+    clearRecordFocus();
   };
   const returnFromRecord = () => {
     const origin = recordContext.current?.returnTo;
@@ -1361,8 +1367,10 @@ function FornostApp({ currentUser }: { currentUser: any }) {
       if (freshRows) {
         setNotice("");
         const target = resolveCoreRecord(freshRows, recordRequest);
-        setFocusedRecord({ id: target?.id || "", ref: target?.code || coreRecordReference(recordRequest) });
-        if (target?.module === "Denetim Yönetimi") setSelectedAudit(String(target.data.auditName || ""));
+        const auditName = target?.module === "Denetim Yönetimi" ? String(target.data.auditName || "") : undefined;
+        const fromDecisionQueue = recordRequest.returnTo?.module === "Ana Sayfa" && recordRequest.returnTo.kind === "executive-decisions";
+        setFocusedRecord({ id: target?.id || "", ref: target?.code || coreRecordReference(recordRequest), auditName: fromDecisionQueue ? auditName : undefined });
+        if (auditName !== undefined && !fromDecisionQueue) setSelectedAudit(auditName);
       } else {
         setFocusedRecord({ id: "", ref: coreRecordReference(recordRequest), state: "error", request: recordRequest });
       }
@@ -2130,7 +2138,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
           {focusedRecord.id && !focusedRecord.state && <CopyRecordLink key={focusedRecord.id} lang={lang} target={{module:active,kind:"record",ref:focusedRecord.id}} />}
           {focusedRecord.state === "error" && focusedRecord.request && <button type="button" onClick={() => setRecordRequest({ ...focusedRecord.request! })}>{lang === "tr" ? "Kaydı yeniden yükle" : "Reload record"}</button>}
           <button type="button" onClick={returnFromRecord}>{lang === "tr" ? "Önceki görünüme dön" : "Return to previous view"}</button>
-          <button type="button" onClick={() => { clearRecordFocus(); setQuery(""); setRegisterFilters({}); }}>{lang === "tr" ? "Tüm kayıtları göster" : "Show all records"}</button>
+          <button type="button" onClick={() => { showRegisterWithoutFocus(); setQuery(""); setRegisterFilters({}); }}>{lang === "tr" ? "Tüm kayıtları göster" : "Show all records"}</button>
         </section>}
         {!canOpenModule(currentUser,active) ? <section className="module-scope-home"><h2>{lang==="tr"?"Bu modüle erişiminiz yok":"Module access is unavailable"}</h2><button onClick={()=>navigateToModule("Ana Sayfa")}>{lang==="tr"?"Ana sayfa":"Home"}</button></section> : active === "Ana Sayfa" && (!pageRestored || registerLoadState !== "ready") ? (
           <section className="module-scope-home" role="status" aria-busy={registerLoadState !== "error"}>
@@ -2207,7 +2215,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
             }}
             lang={lang}
             query={focusedRecord ? "" : query}
-            setQuery={value => { clearRecordFocus(); setQuery(value); }}
+            setQuery={value => { showRegisterWithoutFocus(); setQuery(value); }}
             openNew={openNew}
             edit={openEdit}
             remove={remove}
@@ -3397,18 +3405,12 @@ function RiskOverview({ rows, lang }: { rows: Row[]; lang: Lang }) {
 }
 function AuditOverview({ rows, lang }: { rows: Row[]; lang: Lang }) {
   const tr = lang === "tr",
-    now = new Date().toISOString().slice(0, 10),
-    closed = (s: any) =>
-      ["Kapatıldı", "Kapalı", "Tamamlandı", "Closed", "Completed"].includes(
-        String(s),
-      ),
-    overdue = rows.filter(
-      (r) => r.data.dueDate && r.data.dueDate < now && !closed(r.data.status),
-    ).length,
+    now = Date.now(),
+    overdue = rows.filter(row => isOverdueAuditRequirement(row.data, now)).length,
     evidence = rows.filter(
       (r) => r.data.evidenceStatus === "Kanıt Bekleniyor",
     ).length,
-    done = rows.filter((r) => closed(r.data.status)).length,
+    done = rows.filter((r) => isClosedAuditRequirement(r.data.status)).length,
     progress = rows.length
       ? Math.round(
           rows.reduce((n, r) => n + Number(r.data.progress || 0), 0) /
@@ -3437,7 +3439,7 @@ function AuditOverview({ rows, lang }: { rows: Row[]; lang: Lang }) {
         </article>
         <article className={overdue ? "danger" : ""}>
           <b>{overdue}</b>
-          <span>{tr ? "Geciken madde" : "Overdue requirements"}</span>
+          <span>{tr ? "Portföye bağlı geciken maddeler" : "Overdue requirements in portfolio"}</span>
         </article>
         <article>
           <b>{evidence}</b>
@@ -3787,6 +3789,12 @@ function AuditModule({
       auditType: custom ? "Diğer Denetim" : auditKind(template),
     }));
   }
+  // A directly opened requirement can predate portfolio assignment and have no audit name.
+  if (!selected && focusedRequirement && visible.some(row => row.id === focusedRequirement)) {
+    return <AuditRequirementsTable sort={sort} setSort={setSort} userId={userId} focused
+      allItems={visible} items={visible} lang={lang} query={query} setQuery={setQuery}
+      edit={edit} remove={remove} openNew={openNew} canWrite={canWrite} canDelete={canDeleteAudit} />;
+  }
   if (!selected)
     return (
       <>
@@ -3836,17 +3844,8 @@ function AuditModule({
                     ) / items.length,
                   )
                 : 0,
-              closed = items.filter((r) =>
-                ["Kapatıldı", "Kapalı", "Tamamlandı"].includes(r.data.status),
-              ).length,
-              late = items.filter(
-                (r) =>
-                  r.data.dueDate &&
-                  r.data.dueDate < new Date().toISOString().slice(0, 10) &&
-                  !["Kapatıldı", "Kapalı", "Tamamlandı"].includes(
-                    r.data.status,
-                  ),
-              ).length;
+              closed = items.filter(row => isClosedAuditRequirement(row.data.status)).length,
+              late = items.filter(row => isOverdueAuditRequirement(row.data, Date.now())).length;
             return (
               <article className="audit-card" key={audit.id}>
                 <button
@@ -5179,14 +5178,12 @@ function SmartCell({
       </div>
     );
   if (module === "Denetim Yönetimi" && column === "dueDate") {
-    const late =
-      d.dueDate &&
-      d.dueDate < new Date().toISOString().slice(0, 10) &&
-      !["Kapatıldı", "Kapalı", "Tamamlandı"].includes(d.status);
+    const deadline = auditRequirementDeadline(d);
+    const late = isOverdueAuditRequirement(d, Date.now());
     return (
       <div className={`stack ${late ? "late" : ""}`}>
-        <b>{d.dueDate || "—"}</b>
-        <small>{late ? (tr ? "Gecikmiş" : "Overdue") : d.endDate || ""}</small>
+        <b>{deadline || "—"}</b>
+        <small>{late ? (tr ? "Gecikmiş" : "Overdue") : d.endDate !== deadline ? d.endDate : ""}</small>
       </div>
     );
   }
