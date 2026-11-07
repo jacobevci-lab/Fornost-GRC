@@ -5,7 +5,7 @@ import EvidenceAssuranceStatus from './evidence-assurance-status';
 import { assessmentStateText } from './evidence/assessment-labels';
 import { dueTimestamp } from "./due-date";
 
-import { Fragment, useEffect, useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import {
   buildExecutiveAssurance,
 } from "./executive-assurance";
@@ -13,36 +13,10 @@ import { assessedRiskScore } from "./risk-methodology";
 import type { AssuranceRow } from "./control-assurance";
 import { withBasePath } from "./base-path";
 import NavIcon from "./nav-icon";
+import { useDashboardDecisionCounts } from "./use-dashboard-decision-counts";
 import DashboardCustomizer, { useDashboardView, PANEL_ORDER } from "./dashboard-customizer";
 import { connectedTitle } from "./connected-grc-model";
 import "./executive-assurance.css";
-
-type Operations = {
-  summary: {
-    openEscalations: number;
-    critical: number;
-    high: number;
-    unacknowledged: number;
-    ownerless: number;
-    ownerCoverage: number;
-    overdueRiskReviews: number;
-    mandatoryRetests: number;
-    retestFailures: number;
-    oldestOpenAgeDays: number;
-    queuedNotifications: number;
-  };
-  routes: { owner: number; governance: number };
-  owners: Array<{
-    owner: string;
-    assigned: boolean;
-    open: number;
-    critical: number;
-    high: number;
-    unacknowledged: number;
-    oldestAgeDays: number;
-    kinds: string[];
-  }>;
-};
 
 type PanelRow = {
   label: string;
@@ -88,35 +62,10 @@ export default function ExecutiveAssurancePanel({
   const view = useDashboardView();
   const panelOrder = view.preferences.order.filter(id => PANEL_ORDER.includes(id));
   const referenceLayout = panelOrder.every((id, index) => id === PANEL_ORDER[index]) && PANEL_ORDER.every(id => view.preferences.visible[id]);
-  const [loadError, setLoadError] = useState(false);
-  const [now, setNow] = useState(() => Date.now());
-  const [findingSummary, setFindingSummary] = useState<{open: number} | null>(null);
-  const [operations, setOperations] = useState<Operations | null>(null);
+  const { counts, asOf, retry } = useDashboardDecisionCounts(rows);
+  const [openedAt] = useState(() => Date.now());
+  const now = asOf ?? openedAt;
   const assurance = useMemo(() => buildExecutiveAssurance(evidenceState.rows, evidenceState.generatedAt, evidenceState.auditPortfolio), [evidenceState.rows, evidenceState.generatedAt, evidenceState.auditPortfolio]);
-
-  useEffect(() => {
-    let live = true;
-    const controller = new AbortController();
-    const refresh = async () => {
-      const paths = ["/api/continuous-assurance/executive", "/api/findings"];
-      const results = await Promise.allSettled(paths.map(async (path) => {
-        const response = await fetch(withBasePath(path), { cache: "no-store", signal: controller.signal, headers: { accept: "application/json" } });
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        return response.json();
-      }));
-      if (!live) return;
-      setNow(Date.now());
-      setLoadError(results.some(result => result.status === "rejected"));
-      const [executive, finding] = results;
-      if (executive.status === "fulfilled") setOperations(executive.value);
-      if (finding.status === "fulfilled" && finding.value?.summary) setFindingSummary(finding.value.summary);
-    };
-    void refresh();
-    const onRefresh = () => { if (document.visibilityState === "visible") void refresh(); };
-    const interval = window.setInterval(onRefresh, 60000);
-    window.addEventListener("focus", onRefresh);
-    return () => { live = false; controller.abort(); window.clearInterval(interval); window.removeEventListener("focus", onRefresh); };
-  }, [rows]);
 
   const risks = useMemo(() => rows.filter((row) => row.module === "Risk Assessment"), [rows]);
   const compliance = useMemo(() => rows.filter((row) => row.module === "Uyum"), [rows]);
@@ -135,10 +84,9 @@ export default function ExecutiveAssurancePanel({
   const confidencePercent = (value: number | null, total: number, ready = evidenceState.evidenceReady) => ready ? percent(value, total) : "—";
   const unassessedRisks = risks.length - scoredRisks.length;
 
-  const openFindings = Math.max(
-    assurance.openControlFindings,
-    findingSummary?.open ?? findings.filter((row) => !isClosed(row.data.status)).length,
-  );
+  const openFindings = typeof counts.findings === "number"
+    ? Math.max(assurance.openControlFindings, counts.findings) : null;
+  const openEscalations = typeof counts.escalations === "number" ? counts.escalations : null;
   const overdueAuditRows = audits.filter((row) => {
     const due = clean(row.data.dueDate || row.data.targetDate || row.data.endDate);
     return Boolean(due) && dueTimestamp(due) < now && !isClosed(row.data.status);
@@ -163,9 +111,12 @@ export default function ExecutiveAssurancePanel({
   const complianceTotal = compliance.length;
   const compliantTotal = compliance.filter((row) => ["uyumlu", "compliant", "implemented", "uygulandı", "onaylandı", "approved"].includes(normalized(row.data.status || row.data.implementation))).length;
   const complianceScore = complianceTotal ? Math.round((compliantTotal / complianceTotal) * 100) : 0;
-  const ops = operations?.summary;
   const integrityPending = assurance.legacyEvidence + assurance.unavailableEvidence + assurance.integrityUnknownEvidence;
-  const attentionTotal = (ops?.openEscalations || 0) + riskBands.critical + overdueAudits + openFindings;
+  const countsComplete = openEscalations !== null && openFindings !== null;
+  const failedSources = [
+    ...(counts.escalations === "unavailable" ? [tr ? "Güvence eskalasyonları" : "Assurance escalations"] : []),
+    ...(counts.findings === "unavailable" ? [tr ? "Açık bulgular" : "Open findings"] : []),
+  ];
 
   const riskRows: PanelRow[] = [
     { label: tr ? "Kritik" : "Critical", value: riskBands.critical, tone: "critical" },
@@ -183,7 +134,7 @@ export default function ExecutiveAssurancePanel({
       tone: "critical",
     },
     {
-      value: ops?.openEscalations || 0,
+      value: openEscalations,
       label: tr ? "Güvence eskalasyonları" : "Assurance escalations",
       detail: tr ? "Sorumlu atamalarını ve yönetişim kuyruğunu incele" : "Clear owner and governance queues",
       module: "Kanıt Otomasyonu",
@@ -204,6 +155,21 @@ export default function ExecutiveAssurancePanel({
       tone: openFindings ? "critical" : "positive",
     },
   ];
+
+  const knownSignals = decisionItems.filter(item => item.value !== null && item.value > 0);
+  const knownTotal = knownSignals.reduce((total, item) => total + (item.value ?? 0), 0);
+  let attentionText = tr ? "Kritik yönetim sinyali bulunmuyor" : "No critical management signals";
+  let signalCount = tr ? `${knownTotal} açık sinyal` : `${knownTotal} open signals`;
+  if (!countsComplete) {
+    attentionText = knownTotal > 0
+      ? (tr ? `En az ${knownTotal} yönetim sinyali karar bekliyor` : `At least ${knownTotal} management signals need review`)
+      : (tr ? "Yönetim sinyallerinin toplamı henüz doğrulanamadı" : "Management signal total is unconfirmed");
+    signalCount = knownTotal > 0
+      ? (tr ? `En az ${knownTotal} açık sinyal` : `At least ${knownTotal} open signals`)
+      : (tr ? "Toplam bekleniyor" : "Total pending");
+  } else if (knownTotal > 0) {
+    attentionText = tr ? `${knownTotal} öncelikli yönetim sinyali karar bekliyor` : `${knownTotal} priority management signals need review`;
+  }
 
   const recordDecisions = [
     ...scoredRisks.filter(item => item.score >= 10 && !isClosed(item.row.data.status)).sort((a, b) => b.score - a.score).map(({ row, score }) => ({ row, tone: score >= 17 ? "critical" : "warning", type: tr ? "Risk" : "Risk", reason: tr ? "Yüksek risk maruziyeti" : "High risk exposure" })),
@@ -252,7 +218,7 @@ export default function ExecutiveAssurancePanel({
           <header><span className="executive-panel-icon"><NavIcon module="Denetim Yönetimi" /></span><div><small>{tr ? "DENETİM VE İYİLEŞTİRME" : "AUDIT & REMEDIATION"}</small><h3>{tr ? "Denetim ve kapanış görünümü" : "Audit & closure posture"}</h3></div><button onClick={() => go("Denetim Yönetimi")}>{tr ? "Denetimler" : "Audits"} →</button></header>
           <div className="audit-remediation-metrics">
             <div><strong>{confidencePercent(assurance.auditScore, assurance.totalAudits, evidenceState.auditReady)}</strong><span>{evidenceState.auditReady ? assurance.readyAudits : "—"}/{assurance.totalAudits} {tr ? "hazır denetim" : "ready audits"}</span><MiniBar value={evidenceState.auditReady && assurance.totalAudits ? assurance.auditScore ?? 0 : 0} /></div>
-            <button type="button" onClick={() => go("Bulgular ve CAPA")}><span>{tr ? "Açık bulgu" : "Open findings"}</span><b>{openFindings}</b></button>
+            <button type="button" onClick={() => go("Bulgular ve CAPA")}><span>{tr ? "Açık bulgu" : "Open findings"}</span><b>{openFindings ?? "—"}</b></button>
             <button type="button" onClick={() => go("Denetim Yönetimi")}><span>{tr ? "Geciken denetim maddesi" : "Overdue audit requirements"}</span><b>{overdueAudits}</b></button>
           </div>
         </article>)
@@ -278,7 +244,10 @@ export default function ExecutiveAssurancePanel({
       <EvidenceAssuranceStatus state={evidenceState} lang={lang} />
       <AuditReadinessPortfolioPanel portfolio={evidenceState.auditPortfolio} lang={lang} />
       {evidenceState.evidenceReady && assurance.assessmentIssues.length > 0 && <ul className="executive-assessment-issues">{assurance.assessmentIssues.map(issue => <li key={issue.reason}>{issue.count} · {assessmentStateText[issue.reason]?.[lang] || issue.reason}</li>)}</ul>}
-      {loadError && <p role="status" className="executive-data-warning">{tr ? "Bazı operasyonel veriler yüklenemedi. Son alınan değerler gösteriliyor; eksik kaynaklar doğrulanmalıdır." : "Some operational data could not be loaded. Last received values are shown; missing sources need verification."}</p>}
+      {failedSources.length > 0 && <div role="status" className="executive-data-warning">
+        <span>{tr ? "Yüklenemeyen göstergeler" : "Unavailable indicators"} · {failedSources.join(", ")}. </span>
+        <button type="button" onClick={retry}>{tr ? "Yeniden dene" : "Retry"}</button>
+      </div>}
       <div className="executive-dashboard-kpis">
         {[
           { label: tr ? "Kontrol Güvencesi" : "Control Assurance", value: confidencePercent(assurance.controlScore, assurance.totalControls), detail: `${evidenceState.evidenceReady ? assurance.healthyControls : "—"}/${assurance.totalControls} ${tr ? "sağlıklı" : "healthy"}`, tone: evidenceState.evidenceReady && assurance.controlScore >= 80 ? "positive" : "warning", module: "Kontroller" },
@@ -297,14 +266,14 @@ export default function ExecutiveAssurancePanel({
         ))}
       </div>
 
-      <section hidden={!view.preferences.visible.recentChanges} className={`executive-attention-band ${attentionTotal ? "active" : "clear"}`} aria-label={tr ? "Yönetim dikkati" : "Management attention"}>
+      <section hidden={!view.preferences.visible.recentChanges} className={`executive-attention-band ${countsComplete && knownTotal === 0 ? "clear" : "active"}`} aria-label={tr ? "Yönetim dikkati" : "Management attention"}>
         <span className="attention-icon"><NavIcon module="Risk Assessment" /></span>
         <span className="attention-copy">
           <small>{tr ? "YÖNETİM DİKKATİ" : "ATTENTION REQUIRED"}</small>
-          <b>{attentionTotal ? (tr ? `${attentionTotal} öncelikli yönetim sinyali karar bekliyor` : `${attentionTotal} priority management signals need review`) : (tr ? "Kritik yönetim sinyali bulunmuyor" : "No critical management signals")}</b>
+          <b>{attentionText}</b>
         </span>
         <div className="attention-breakdown">
-          {decisionItems.filter(item => item.value > 0).slice(0, 3).map(item => <button type="button" key={item.module} onClick={() => go(item.module)}>
+          {knownSignals.slice(0, 3).map(item => <button type="button" key={item.module} onClick={() => go(item.module)}>
             <span className={`attention-signal-icon ${item.tone}`}><NavIcon module={item.module} /></span>
             <strong>{item.value}</strong><span><b>{item.label}</b><small>{tr ? "İnceleme bekliyor" : "Needs review"}</small></span><span aria-hidden="true">›</span>
           </button>)}
@@ -316,8 +285,8 @@ export default function ExecutiveAssurancePanel({
       </div>
 
       <section hidden={!view.preferences.visible.actionCenter} id="executive-decisions" className="executive-decision-board">
-        <header><span className="executive-panel-icon"><NavIcon module="Ana Sayfa" /></span><div><small>{tr ? "YÖNETİCİ KARAR TABLOSU" : "EXECUTIVE DECISION BOARD"}</small><h3>{tr ? "Bugün yönetim kararı gerektiren işler" : "Items requiring management decisions today"}</h3></div><span>{decisionItems.reduce((sum, item) => sum + item.value, 0)} {tr ? "açık sinyal" : "open signals"}</span></header>
-        {!recordDecisions.length && !decisionItems.some((item) => item.value > 0) && <p>{tr ? "Öncelikli karar bekleyen kayıt bulunmuyor." : "No priority decisions pending."}</p>}
+        <header><span className="executive-panel-icon"><NavIcon module="Ana Sayfa" /></span><div><small>{tr ? "YÖNETİCİ KARAR TABLOSU" : "EXECUTIVE DECISION BOARD"}</small><h3>{tr ? "Bugün yönetim kararı gerektiren işler" : "Items requiring management decisions today"}</h3></div><span>{signalCount}</span></header>
+        {countsComplete && !recordDecisions.length && !knownSignals.length && <p>{tr ? "Öncelikli karar bekleyen kayıt bulunmuyor." : "No priority decisions pending."}</p>}
         <div className="executive-decision-table-wrap" tabIndex={0} role="region" aria-label={tr ? "Yönetici karar tablosu" : "Executive decision table"}>
           <table className="executive-decision-table">
             <thead><tr>{(tr ? ["Tür", "Karar konusu", "Öncelik", "Sorumlu", "Hedef tarih", "Karar nedeni", "İşlem"] : ["Type", "Decision", "Priority", "Owner", "Due date", "Decision reason", "Action"]).map(label => <th scope="col" key={label}>{label}</th>)}</tr></thead>
@@ -329,7 +298,7 @@ export default function ExecutiveAssurancePanel({
               <td>{formatDue(row)}</td>
               <td><span className={`executive-status ${tone}`}>{reason}</span></td>
               <td><button type="button" onClick={() => go(row.module)} aria-label={`${row.code || connectedTitle(row)} — ${tr ? "Modülde incele" : "Review in module"}`}>{tr ? "İncele" : "Review"} →</button></td>
-            </tr>)}{decisionItems.filter((item) => item.value > 0).slice(0, 4).filter(item => item.module === "Kanıt Otomasyonu" || !recordDecisions.length).map(item => <tr key={item.label}>
+            </tr>)}{knownSignals.slice(0, 4).filter(item => item.module === "Kanıt Otomasyonu" || !recordDecisions.length).map(item => <tr key={item.label}>
               <td>{tr ? "Sinyal" : "Signal"}</td><td><b>{item.label}</b><small>{item.detail}</small></td>
               <td><span className={`executive-priority ${item.tone}`}>{tr ? "İncele" : "Review"}</span></td><td>—</td><td>—</td><td>{item.value} {tr ? "açık kayıt" : "open items"}</td>
               <td><button type="button" onClick={() => go(item.module)} aria-label={`${item.label} — ${tr ? "İncele" : "Review"}`}>{tr ? "İncele" : "Review"} →</button></td>

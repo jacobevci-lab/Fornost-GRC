@@ -2,6 +2,8 @@ import {NextRequest,NextResponse} from "next/server";
 import {requireRole} from "../../auth/security";
 import {buildExecutiveOperationsSummary,buildOwnerAccountability,enrichAssuranceEscalationOwners,ensureAssuranceNotificationSchema,syncAssuranceNotificationOutbox,type AssuranceEscalationRecord} from "../../../assurance-executive-operations";
 
+import {ensureAssuranceEscalationSchema} from "../../../assurance-escalation-store";
+
 type Env=Record<string,unknown>&{DB:D1Database};
 type OutboxRow={id:string;fingerprint:string;escalation_id:string;recipient:string;route:string;subject:string;body:string;severity:string;status:string;reason:string;created_at:string;updated_at:string;last_routed_at:string;closed_at:string|null;source_json:string};
 const json=(data:unknown,status=200)=>NextResponse.json(data,{status,headers:{"cache-control":"no-store"}});
@@ -12,7 +14,15 @@ async function escalationRows(db:D1Database){try{return (await db.prepare("SELEC
 
 export async function GET(req:NextRequest){
  const access=await requireRole(req,["Admin","Editor","Viewer"]);if(access.response)return access.response;
- const env=await runtime(),settings=await reminderConfig(env.DB),rawEscalations=await escalationRows(env.DB),escalations=await enrichAssuranceEscalationOwners(env.DB,rawEscalations);await ensureAssuranceNotificationSchema(env.DB);await syncAssuranceNotificationOutbox(env.DB,escalations,settings.remindersEnabled);
+ const env=await runtime();
+ if (req.nextUrl.searchParams.get("view") === "dashboard-count") {
+   await ensureAssuranceEscalationSchema(env.DB);
+   const result = await env.DB.prepare(
+     "SELECT COUNT(*) AS count FROM continuous_assurance_escalations WHERE status != 'resolved'"
+   ).first<{ count: number }>();
+   return result ? json({ count: result.count }) : json({ error: "Escalation count unavailable" }, 503);
+ }
+ const settings=await reminderConfig(env.DB),rawEscalations=await escalationRows(env.DB),escalations=await enrichAssuranceEscalationOwners(env.DB,rawEscalations);await ensureAssuranceNotificationSchema(env.DB);await syncAssuranceNotificationOutbox(env.DB,escalations,settings.remindersEnabled);
  const outbox=(await env.DB.prepare("SELECT * FROM continuous_assurance_notification_outbox ORDER BY CASE status WHEN 'queued' THEN 0 WHEN 'acknowledged' THEN 1 ELSE 2 END,CASE severity WHEN 'critical' THEN 0 WHEN 'high' THEN 1 ELSE 2 END,updated_at DESC LIMIT 1000").all<OutboxRow>()).results||[],now=new Date(),summary=buildExecutiveOperationsSummary(escalations,outbox,now),owners=buildOwnerAccountability(escalations,now);
  const open=escalations.filter(row=>row.status!=="resolved"),routes={owner:outbox.filter(row=>row.status==="queued"&&row.route==="in-app-owner").length,governance:outbox.filter(row=>row.status==="queued"&&row.route==="in-app-governance").length};
  return json({generatedAt:now.toISOString(),policy:settings,summary,routes,owners,escalations:open.slice(0,100).map(row=>({id:row.id,kind:row.kind,severity:row.severity,subjectRef:row.subject_ref,owner:row.owner,title:row.title,status:row.status,firstSeenAt:row.first_seen_at,lastSeenAt:row.last_seen_at})),outbox:outbox.slice(0,100).map(row=>({id:row.id,escalationId:row.escalation_id,recipient:row.recipient,route:row.route,subject:row.subject,severity:row.severity,status:row.status,reason:row.reason,createdAt:row.created_at,updatedAt:row.updated_at}))});

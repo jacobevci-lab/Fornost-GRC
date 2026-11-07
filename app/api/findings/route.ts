@@ -79,6 +79,11 @@ export async function GET(req: NextRequest) {
   const env = await runtime();
   await ensureFindingsSchemaCompatibility(env.DB);
 
+  if (req.nextUrl.searchParams.get("view") === "dashboard-count") {
+    const { summary } = await readFindingRegister(env.DB, undefined, false);
+    return json({ count: summary.open });
+  }
+
   if(req.nextUrl.searchParams.get('view')==='decision'){
     if(req.nextUrl.searchParams.getAll('findingId').length!==1)return json({code:'FINDING_DECISION_INPUT'},400);
     try{return json(await readFindingDecision(env.DB,req.nextUrl.searchParams.get('findingId')));}
