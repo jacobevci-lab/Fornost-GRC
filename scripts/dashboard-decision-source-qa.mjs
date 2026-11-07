@@ -86,6 +86,7 @@ try {
   await expect(rows).toHaveCount(4);
   await expect(rows.first()).toHaveAttribute("data-record-id", "rsk-024");
   await expect(rows.nth(1)).toHaveAttribute("data-record-id", "aud-008");
+  await expect(rows.nth(1).locator(".decision-reason")).toHaveText("Overdue audit requirement");
   await queue.getByRole("button", { name: "Show more", exact: true }).click();
   await expect(rows).toHaveCount(5);
   await queue.getByRole("button", { name: "Show less", exact: true }).click();
@@ -101,6 +102,7 @@ try {
   await queue.getByRole("button", { name: "All", exact: true }).click();
   await page.locator(".language-switch:visible").getByRole("button", { name: "TR", exact: true }).click();
   await expect(attention).toContainText("4 yönetim sinyali");
+  await expect(rows.nth(1).locator(".decision-reason")).toHaveText("Geciken denetim maddesi");
   const out = "dashboard-design-preview";
   await mkdir(out, { recursive: true });
   for (const [theme, width] of [["light", 1440], ["dark", 390]]) {

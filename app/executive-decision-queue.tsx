@@ -15,7 +15,7 @@ export type DecisionEntry = {
 
 const reasons = {
   critical: ["Kritik risk", "Critical risk"],
-  overdue: ["Geciken denetim", "Overdue audit"],
+  overdue: ["Geciken denetim maddesi", "Overdue audit requirement"],
   high: ["Yüksek risk", "High risk"],
   compliance: ["Uyum açığı", "Compliance gap"],
 };
