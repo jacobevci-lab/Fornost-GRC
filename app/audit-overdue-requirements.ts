@@ -6,9 +6,16 @@ const closedStatuses = new Set([
   "closed", "completed", "resolved", "accepted", "approved",
 ]);
 
+export function auditRequirementDeadline(data: Record<string, unknown>) {
+  return String(data.dueDate || data.targetDate || data.endDate || "").trim();
+}
+
+export function isClosedAuditRequirement(status: unknown) {
+  return closedStatuses.has(String(status ?? "").normalize("NFKC").trim().toLocaleLowerCase("tr-TR"));
+}
+
 export function isOverdueAuditRequirement(data: Record<string, unknown>, now: number) {
-  const status = String(data.status ?? "").normalize("NFKC").trim().toLocaleLowerCase("tr-TR");
-  return !closedStatuses.has(status) && isPastDue(data.dueDate || data.targetDate || data.endDate, now);
+  return !isClosedAuditRequirement(data.status) && isPastDue(auditRequirementDeadline(data), now);
 }
 
 // A failed evidence assessment can still contain a complete, usable directory of audit names.

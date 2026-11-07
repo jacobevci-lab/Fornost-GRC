@@ -26,7 +26,7 @@ import "./module-access.css";
 import { linkedRecordOptions } from "./linked-record-options";
 import { dueTimestamp } from "./due-date";
 import { hasRecoveryTarget } from "./bia-recovery";
-import { isOverdueAuditRequirement } from "./audit-overdue-requirements";
+import { auditRequirementDeadline, isClosedAuditRequirement, isOverdueAuditRequirement } from "./audit-overdue-requirements";
 import { isCoreRecordRequest, resolveCoreRecord, coreRecordReference } from "./core-record-focus";
 import { readCoreRecordSession, writeCoreRecordSession } from "./core-record-session";
 import { FORNOST_BEFORE_FOCUS_EVENT, FORNOST_FOCUS_EVENT, peekPendingFornostFocus, consumePendingFornostFocus, type FornostNavigationRequest } from "./navigation-focus";
@@ -3406,15 +3406,11 @@ function RiskOverview({ rows, lang }: { rows: Row[]; lang: Lang }) {
 function AuditOverview({ rows, lang }: { rows: Row[]; lang: Lang }) {
   const tr = lang === "tr",
     now = Date.now(),
-    closed = (s: any) =>
-      ["Kapatıldı", "Kapalı", "Tamamlandı", "Closed", "Completed"].includes(
-        String(s),
-      ),
     overdue = rows.filter(row => isOverdueAuditRequirement(row.data, now)).length,
     evidence = rows.filter(
       (r) => r.data.evidenceStatus === "Kanıt Bekleniyor",
     ).length,
-    done = rows.filter((r) => closed(r.data.status)).length,
+    done = rows.filter((r) => isClosedAuditRequirement(r.data.status)).length,
     progress = rows.length
       ? Math.round(
           rows.reduce((n, r) => n + Number(r.data.progress || 0), 0) /
@@ -3848,17 +3844,8 @@ function AuditModule({
                     ) / items.length,
                   )
                 : 0,
-              closed = items.filter((r) =>
-                ["Kapatıldı", "Kapalı", "Tamamlandı"].includes(r.data.status),
-              ).length,
-              late = items.filter(
-                (r) =>
-                  r.data.dueDate &&
-                  r.data.dueDate < new Date().toISOString().slice(0, 10) &&
-                  !["Kapatıldı", "Kapalı", "Tamamlandı"].includes(
-                    r.data.status,
-                  ),
-              ).length;
+              closed = items.filter(row => isClosedAuditRequirement(row.data.status)).length,
+              late = items.filter(row => isOverdueAuditRequirement(row.data, Date.now())).length;
             return (
               <article className="audit-card" key={audit.id}>
                 <button
@@ -5191,14 +5178,12 @@ function SmartCell({
       </div>
     );
   if (module === "Denetim Yönetimi" && column === "dueDate") {
-    const late =
-      d.dueDate &&
-      d.dueDate < new Date().toISOString().slice(0, 10) &&
-      !["Kapatıldı", "Kapalı", "Tamamlandı"].includes(d.status);
+    const deadline = auditRequirementDeadline(d);
+    const late = isOverdueAuditRequirement(d, Date.now());
     return (
       <div className={`stack ${late ? "late" : ""}`}>
-        <b>{d.dueDate || "—"}</b>
-        <small>{late ? (tr ? "Gecikmiş" : "Overdue") : d.endDate || ""}</small>
+        <b>{deadline || "—"}</b>
+        <small>{late ? (tr ? "Gecikmiş" : "Overdue") : d.endDate !== deadline ? d.endDate : ""}</small>
       </div>
     );
   }

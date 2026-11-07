@@ -7,7 +7,7 @@ import { dueTimestamp } from "./due-date";
 import { consumePendingFornostFocus, navigateToFornost, peekPendingFornostFocus } from "./navigation-focus";
 import NavIcon from "./nav-icon";
 import type { AuditReadinessPortfolio } from "./audit-readiness-portfolio";
-import { auditPortfolioNames, auditPortfolioLinkLabel } from "./audit-overdue-requirements";
+import { auditRequirementDeadline, auditPortfolioNames, auditPortfolioLinkLabel } from "./audit-overdue-requirements";
 
 export type DecisionQueueHandle = { openOverdue: (trigger: HTMLButtonElement) => void };
 
@@ -33,6 +33,7 @@ const scopes = [
 
 function due(entry: DecisionEntry) {
   const data = entry.row.data;
+  if (entry.reason === "overdue") return dueTimestamp(auditRequirementDeadline(data));
   return dueTimestamp(data.dueDate || data.targetDate || data.endDate || data.nextReview || data.reviewDate);
 }
 

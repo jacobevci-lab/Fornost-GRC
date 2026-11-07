@@ -1,13 +1,13 @@
 import assert from "node:assert/strict";
 import { mkdir } from "node:fs/promises";
 import { chromium, expect } from "@playwright/test";
-import { openQaModule } from "./qa-browser-harness.mjs";
+import { createQaContext, openQaModule } from "./qa-browser-harness.mjs";
 import { qaPassword } from "./qa-credentials.mjs";
 
 const base = "http://127.0.0.1:4173";
 const browser = await chromium.launch({ executablePath: process.env.QA_CHROMIUM_PATH || undefined });
 try {
-  const context = await browser.newContext();
+  const context = await createQaContext(browser, base, {});
   const page = await context.newPage();
   const paths = ["/api/findings", "/api/continuous-assurance/executive"];
   for (const path of paths) {
@@ -161,6 +161,7 @@ try {
   await expect(page.getByRole("heading", { name: "Denetim Portföyü", exact: true })).toBeVisible();
   const portfolioCount = page.locator(".audit-kpis article").filter({ hasText: "Portföye bağlı geciken maddeler" });
   await expect(portfolioCount.locator("b")).toHaveText("1");
+  await expect(page.locator(".audit-card").filter({ hasText: audit.name }).locator("footer strong")).toHaveText("1 geciken");
   console.log("Dashboard source QA passed: authenticated counts, register retry, independent failures, partial counts, verified zero and failed refresh.");
 } finally {
   await browser.close();
