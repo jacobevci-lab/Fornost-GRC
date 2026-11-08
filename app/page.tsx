@@ -1121,6 +1121,10 @@ function AuthGate() {
   );
 }
 
+function returnsToDecisionQueue(request?: FornostNavigationRequest | null) {
+  return request?.returnTo?.module === "Ana Sayfa" && request.returnTo.kind === "executive-decisions";
+}
+
 function FornostApp({ currentUser }: { currentUser: any }) {
   const scoped = isScoped(currentUser);
   const [lang, setLang] = useState<Lang>("tr"),
@@ -1368,8 +1372,8 @@ function FornostApp({ currentUser }: { currentUser: any }) {
         setNotice("");
         const target = resolveCoreRecord(freshRows, recordRequest);
         const auditName = target?.module === "Denetim Yönetimi" ? String(target.data.auditName || "") : undefined;
-        const fromDecisionQueue = recordRequest.returnTo?.module === "Ana Sayfa" && recordRequest.returnTo.kind === "executive-decisions";
-        setFocusedRecord({ id: target?.id || "", ref: target?.code || coreRecordReference(recordRequest), auditName: fromDecisionQueue ? auditName : undefined });
+        const fromDecisionQueue = returnsToDecisionQueue(recordRequest);
+        setFocusedRecord({ id: target?.id || "", ref: target?.code || coreRecordReference(recordRequest), auditName: fromDecisionQueue ? auditName : undefined, request: target ? undefined : recordRequest });
         if (auditName !== undefined && !fromDecisionQueue) setSelectedAudit(auditName);
       } else {
         setFocusedRecord({ id: "", ref: coreRecordReference(recordRequest), state: "error", request: recordRequest });
@@ -2197,6 +2201,11 @@ function FornostApp({ currentUser }: { currentUser: any }) {
                       : "system"
             }
           />
+        ) : active === "Denetim Yönetimi" && (
+          (recordRequest && sameDomainModule(recordRequest.module, active) && returnsToDecisionQueue(recordRequest)) ||
+          (focusedRecord && !focusedRecord.id && returnsToDecisionQueue(focusedRecord.request))
+        ) ? (
+          focusedRecord ? null : <p role="status">{lang === "tr" ? "Kayıt yükleniyor…" : "Loading record…"}</p>
         ) : active === "Denetim Yönetimi" ? (
           <AuditModule
             sort={registerSort}
