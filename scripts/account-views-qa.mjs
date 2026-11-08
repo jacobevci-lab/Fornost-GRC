@@ -1,3 +1,4 @@
+import { openRegisterViews } from "./qa-browser-harness.mjs";
 import {chromium,expect} from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 import assert from 'node:assert/strict';
@@ -11,7 +12,7 @@ async function api(context,path,method='GET',data,status=200){const response=awa
 const path=(moduleName,scope='personal',id)=>'/api/views?'+new URLSearchParams({module:moduleName,scope,...(id?{id}:{})});
 async function enter(p=page){await p.goto(base);await expect(p.locator('.shell')).toBeVisible();await p.locator('.language-switch:visible').getByRole('button',{name:'EN',exact:true}).click();}
 async function go(name,p=page){await p.locator(`nav button[aria-label="${name}"]`).evaluate(node=>node.click());}
-async function panel(p=page){const x=p.locator('.account-views:visible');await expect(x).toHaveCount(1);if(await x.getAttribute('open')===null)await x.locator(':scope > summary').click();await expect(x.getByRole('button',{name:'Refresh account views',exact:true})).toBeEnabled();return x;}
+async function panel(p=page){await openRegisterViews(p);const x=p.locator('.account-views:visible');await expect(x).toHaveCount(1);if(await x.getAttribute('open')===null)await x.locator(':scope > summary').click();await expect(x.getByRole('button',{name:'Refresh account views',exact:true})).toBeEnabled();return x;}
 async function scope(p,value){await p.getByLabel('View scope',{exact:true}).selectOption(value);await expect(p.getByRole('button',{name:'Refresh account views',exact:true})).toBeEnabled();await expect(p.getByLabel('Select account view',{exact:true})).toBeEnabled();}
 async function save(p,name,moduleName,selectedScope='personal',context=admin){await p.page().getByRole('combobox',{name:'Sort by',exact:true}).selectOption('title');await p.page().getByRole('combobox',{name:'Sort direction',exact:true}).selectOption('desc');await p.getByLabel('Account view name',{exact:true}).fill(name);await p.getByRole('button',{name:'Preview new account view',exact:true}).click();await p.getByRole('button',{name:'Save account view',exact:true}).click();await expect(p.getByRole('status')).toHaveText('View saved to the server.');const id=await p.getByLabel('Select account view',{exact:true}).inputValue();assert.ok(id);created.push({id,moduleName,scope:selectedScope,context});return id;}
 async function historyRoundTrip(p,moduleName,viewId,deep=false){

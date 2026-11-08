@@ -8,3 +8,79 @@
 .register-view-actions:has(.register-sort-controls){flex-wrap:wrap;max-width:100%;min-width:0}
 @media(max-width:600px){.register-sort-controls{width:100%}.register-sort-controls label{flex:1 1 140px}.register-sort-controls select{width:100%}}
 @media(max-width:480px){.register-view-actions>.register-sort-controls{grid-column:1/-1}.register-sort-controls small{flex-basis:100%;padding-bottom:0}}
+
+/* Give the table one control row. The outer surface owns its padding. */
+.register-toolbar.compact-register-toolbar {
+  min-height: 0 !important;
+  padding: 8px 12px !important;
+}
+.compact-register-toolbar .register-toolbar-main {
+  display: flex; flex-flow: row wrap; align-items: center; justify-content: space-between;
+  min-height: 0; gap: 8px 16px; padding: 0;
+}
+.compact-register-toolbar .register-search-and-count {
+  display: flex; align-items: center; gap: 10px; flex: 1 1 315px; min-width: 0;
+}
+.compact-register-toolbar .register-search {
+  flex: 1 1 240px; min-width: min(240px, 100%); max-width: 430px;
+  height: 36px !important; border-radius: 7px;
+}
+.compact-register-toolbar .register-search svg { flex: none; color: var(--ws-muted); }
+.compact-register-toolbar .register-search:focus-within { outline: 2px solid var(--ws-brand); outline-offset: 1px; }
+.compact-register-toolbar .register-result-count { font-size: 12px; font-weight: 500; color: var(--ws-muted); }
+.compact-register-toolbar .register-view-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-start; gap: 6px; }
+.compact-register-toolbar .register-sort-controls { width: auto; align-items: center; gap: 4px; }
+.compact-register-toolbar .register-sort-controls label { display: flex; flex: initial; }
+.compact-register-toolbar .sort-caption,
+.compact-register-toolbar .register-sort-controls small {
+  position: absolute; width: 1px; height: 1px; overflow: hidden;
+  padding: 0; margin: -1px; clip-path: inset(50%); white-space: nowrap;
+}
+.compact-register-toolbar .register-view-actions > button,
+.compact-register-toolbar .column-picker-wrap > button,
+.compact-register-toolbar .register-sort-controls select {
+  box-sizing: border-box; height: 36px; min-height: 36px !important; margin: 0;
+  padding: 0 10px; border: 1px solid var(--ws-line-strong); border-radius: 7px;
+  background: var(--ws-surface); color: var(--ws-ink); font-family: inherit;
+  font-size: 12px !important; font-weight: 600; line-height: 1.2;
+}
+.compact-register-toolbar .register-sort-controls select { field-sizing: content; max-width: 100%; }
+.compact-register-toolbar .register-views-panel[hidden] { display: none; }
+.compact-register-toolbar .register-views-panel { border-top: 1px solid var(--ws-line); margin-top: 8px; }
+.compact-register-toolbar .register-views-panel :is(.saved-register-views, .account-views) {
+  margin: 0; border: 0; padding: 4px 0;
+}
+
+@media (max-width: 700px) {
+  .compact-register-toolbar .register-search-and-count { flex: 1 0 100%; }
+  .compact-register-toolbar .register-search { min-width: 0; max-width: none; height: 44px !important; }
+  .compact-register-toolbar .register-result-count { flex-shrink: 0; max-width: 45%; }
+  .compact-register-toolbar .register-view-actions {
+    flex: 1 0 100%; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+  .compact-register-toolbar .register-view-actions > .register-sort-controls { grid-column: auto; }
+  .compact-register-toolbar .register-view-actions > .register-sort-controls:has(label + label) {
+    grid-column: 1 / -1;
+  }
+  .compact-register-toolbar .register-sort-controls label { flex: 1 1 0; }
+  .compact-register-toolbar .register-view-actions > button,
+  .compact-register-toolbar .column-picker-wrap > button,
+  .compact-register-toolbar .register-sort-controls select {
+    min-width: 0; width: 100%; padding: 0 4px; min-height: 44px !important; height: auto;
+  }
+  .compact-register-toolbar .register-view-actions > button,
+  .compact-register-toolbar .column-picker-wrap > button { justify-content: center; gap: 4px; }
+  .compact-register-toolbar .register-view-actions:has(.register-sort-controls label + label) {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 480px) {
+  .compact-register-toolbar .register-view-actions,
+  .compact-register-toolbar .register-view-actions:has(.register-sort-controls label + label) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .compact-register-toolbar .register-view-actions:has(.register-sort-controls label + label) > button[aria-controls$="-views"] {
+    grid-column: 1 / -1;
+  }
+}

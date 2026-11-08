@@ -59,6 +59,14 @@ jobs:
           retention-days: 14
       - name: Load explicit synthetic core fixtures
         run: node scripts/seed-local-qa.mjs
+      - name: Register and work queue sorting, saved order and exports QA
+        run: node scripts/register-sorting-qa.mjs
+      - name: Preserve register sorting browser evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: register-sorting-preview
+          path: register-sorting-qa-artifacts/
       - name: Re-test recovery, independent approval and risk reconciliation QA
         run: node scripts/assurance-retest-runtime-qa.mjs
       - name: Unified control assurance, record navigation and recovery QA
@@ -280,14 +288,6 @@ jobs:
           path: product-experience-qa-artifacts/
       - name: Enterprise reporting HTML PDF CSV QA
         run: node scripts/reporting-export-qa.mjs
-      - name: Register and work queue sorting, saved order and exports QA
-        run: node scripts/register-sorting-qa.mjs
-      - name: Preserve register sorting browser evidence
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: register-sorting-preview
-          path: register-sorting-qa-artifacts/
       - name: Preserve report export browser evidence
         if: always()
         uses: actions/upload-artifact@v4
