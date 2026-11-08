@@ -36,7 +36,7 @@ export function AssuranceChain({ anchor, links, lang, openRecord, inspector = fa
   const risks = anchor.module === risk ? [anchor] : neighbours(currentControl, links, "risk-control", risk);
   const documents = anchor.module === evidence ? [anchor] : neighbours(currentControl, links, "control-evidence", evidence);
   const steps = [
-    { module: risk, label: tr ? "Risk" : "Risk", options: risks, row: pick(risks, risk), empty: tr ? "Görünen risk bağlantısı yok" : "No visible risk link" },
+    { module: risk, label: "Risk", options: risks, row: pick(risks, risk), empty: tr ? "Görünen risk bağlantısı yok" : "No visible risk link" },
     { module: control, label: tr ? "Kontrol" : "Control", options: controls, row: currentControl, empty: tr ? "Görünen kontrol bağlantısı yok" : "No visible control link" },
     { module: evidence, label: tr ? "Kanıt" : "Evidence", options: documents, row: pick(documents, evidence), empty: tr ? "Görünen kanıt bağlantısı yok" : "No visible evidence link" },
   ];
@@ -44,7 +44,7 @@ export function AssuranceChain({ anchor, links, lang, openRecord, inspector = fa
     <h4>{tr ? "Risk – Kontrol – Kanıt İlişkisi" : "Risk – Control – Evidence"}</h4>
     <ol>{steps.map(({module, label, options, row, empty}, i) => {
       const linked = i > 0 && row && steps[i - 1].row;
-      const body = <><NavIcon module={module}/><span><small>{label}{row?.code && " · " + row.code}</small>
+      const body = <><NavIcon module={module === control ? "Uyum" : module}/><span><small>{label}{row?.code && " · " + row.code}</small>
         <strong>{row ? connectedTitle(row) : empty}</strong></span></>;
       return <li key={module} data-stage={i} data-connected={linked ? "yes" : "no"} data-present={!!row}>
         {row && !(inspector && row.id === anchor.id)

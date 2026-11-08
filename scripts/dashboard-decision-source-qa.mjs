@@ -130,6 +130,8 @@ try {
   for (const [theme, width] of [["light", 1440], ["dark", 390]]) {
     await page.setViewportSize({ width, height: 960 });
     if (await page.locator("html").getAttribute("data-theme") !== theme) await page.locator(".theme-toggle:visible").click();
+    assert.ok(await board.locator(".assurance-chain h4").evaluate(el => parseFloat(getComputedStyle(el).fontSize)) >= 20);
+    assert.ok(await board.locator(".chain-node strong").first().evaluate(el => parseFloat(getComputedStyle(el).fontSize)) >= 17);
     await board.screenshot({ path: `${out}/risk-control-evidence-${width}.png` });
     const workspace = dashboard.locator(".executive-action-workspace");
     await expect(workspace).toBeVisible();

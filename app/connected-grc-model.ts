@@ -62,11 +62,11 @@ export const relationFields: Record<string, RelationDefinition> = {
   aiModelRef: { relation: "ai-model", modules: ["AI Yönetişimi"], sources: ["AI Yönetişimi"], targetKind: "ai-model", canonicalOnly: true },
   aiFindingRef: { relation: "ai-finding", modules: ["AI Yönetişimi"], sources: ["AI Yönetişimi"], targetKind: "ai-finding", canonicalOnly: true },
   existingControls: { relation: "risk-control", modules: ["Kontroller"], sources: ["Risk Assessment"], optionalControlReference: true },
-  controlRefs: { relation: "control-evidence", modules: ["Kontroller"], sources: ["Kanıtlar"] },
   asset: { relation: "risk-asset", modules: ["Varlık Envanteri"], sources: ["Risk Assessment", "BIA"] },
   processLink: { relation: "risk-process", modules: ["BIA"], sources: ["Risk Assessment", "Kontroller"] },
   biaRef: { relation: "continuity-process", modules: ["BIA"] },
   controlRef: { relation: "control-evidence", modules: ["Kontroller", "Uyum"], sources: ["Kanıtlar", "Uyum", "Denetim Yönetimi"] },
+  controlRefs: { relation: "control-evidence", modules: ["Kontroller"], sources: ["Kanıtlar"] },
   requirementRef: { relation: "audit-control", modules: ["Kontroller", "Uyum"], sources: ["Denetim Yönetimi"] },
   riskRef: { relation: "audit-risk", modules: ["Risk Assessment"], sources: ["Denetim Yönetimi"] },
   evidenceRef: { relation: "audit-evidence", modules: ["Kanıtlar"], sources: ["Denetim Yönetimi"] },
@@ -188,7 +188,9 @@ export function buildConnectedGrcGraph(rows: ConnectedGrcRow[]) {
           continue;
         }
         for (const target of matches) {
-          const edgeKey = `${source.id}|${target.id}|${definition.relation}|${field}`;
+          // Evidence uploads keep both the primary control and the complete control list.
+          const identityField = field === "controlRefs" ? "controlRef" : field;
+          const edgeKey = `${source.id}|${target.id}|${definition.relation}|${identityField}`;
           if (seen.has(edgeKey)) continue;
           seen.add(edgeKey);
           links.push({ source, target, matched: reference, field, relation: definition.relation });
