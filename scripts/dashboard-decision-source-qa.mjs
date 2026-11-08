@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdir } from "node:fs/promises";
+import { mkdir, writeFile } from "node:fs/promises";
 import { chromium, expect } from "@playwright/test";
 import { createQaContext, openQaModule } from "./qa-browser-harness.mjs";
 import { qaPassword } from "./qa-credentials.mjs";
@@ -303,6 +303,10 @@ try {
   await expect(chain.locator("li").last()).toContainText("Yetki listesini doğrula");
   await trailPanel.screenshot({path:`${out}/vendor-linked-records.png`});
   console.log("Dashboard source QA passed: authenticated counts, register retry, independent failures, partial counts, verified zero and failed refresh.");
+} catch (error) {
+  await mkdir("dashboard-design-preview",{recursive:true});
+  await writeFile("dashboard-design-preview/failure.txt",String(error.stack || error));
+  throw error;
 } finally {
   await browser.close();
 }

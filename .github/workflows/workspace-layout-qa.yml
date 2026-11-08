@@ -52,6 +52,7 @@ jobs:
       - name: Dashboard decision counts and recovery QA
         run: node scripts/dashboard-decision-source-qa.mjs
       - name: Save executive dashboard design preview
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: dashboard-design-preview
