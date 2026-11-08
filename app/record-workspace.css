@@ -1,0 +1,41 @@
+.record-workspace { display:grid; grid-template-columns:minmax(180px, .72fr) minmax(0, 1.28fr); color:var(--ws-ink); background:var(--ws-surface); }
+.record-master, .record-inspector { min-width:0; }
+.record-master { border-inline-end:1px solid var(--ws-line); }
+.record-master h3 { margin:0; padding:16px; display:flex; align-items:center; justify-content:space-between; font-size:15px; }
+.record-master h3 small, .record-master button span, .record-inspector > small, .record-inspector dt, .record-inspector li span { color:var(--ws-muted); font-size:12px; }
+.record-master > div { max-height:60vh; overflow:auto; }
+.record-master button, .record-inspector li button { display:grid; width:100%; gap:3px; text-align:start; color:inherit; background:transparent; border:0; border-top:1px solid var(--ws-line); padding:12px 16px; border-radius:0; overflow-wrap:anywhere; }
+.record-master button[aria-current], .record-master button:hover, .record-inspector li button:hover { background:var(--ws-surface-2); box-shadow:inset 3px 0 var(--ws-brand); }
+.record-inspector { padding:18px clamp(16px, 2.5vw, 36px) 26px; overflow-wrap:anywhere; }
+.record-inspector nav { display:flex; flex-wrap:wrap; gap:12px; margin:0 0 18px; }
+.record-inspector nav button, .table-wrap button.record-open { color:var(--ws-brand); background:transparent; border:0; padding:3px 0; font:inherit; font-weight:650; text-align:start; text-decoration:underline; text-underline-offset:3px; }
+.record-inspector h3 { margin:5px 0 16px; font-size:clamp(18px,2vw,25px); line-height:1.22; }
+.record-inspector h4 { margin:20px 0 8px; font-size:15px; }
+.record-inspector dl { margin:0 0 14px; }
+.record-inspector dl div { display:flex; justify-content:space-between; gap:16px; padding:8px 0; border-bottom:1px solid var(--ws-line); }
+.record-inspector dd { margin:0; font-weight:650; text-align:end; }
+.record-inspector ul { margin:0; padding:0; list-style:none; }
+.record-inspector li button { padding-inline:4px; }
+.record-workspace button:focus-visible, .record-open:focus-visible { outline:2px solid var(--ws-brand); outline-offset:-2px; }
+.table-wrap[hidden] { display:none!important; }
+.table-wrap .evidence-details-link { display:block; margin-top:3px; }
+@media(max-width:740px) {
+  .record-workspace { display:block; }
+  .record-master { display:none; }
+  .record-inspector nav button, .record-inspector li button, .table-wrap .record-open { min-height:44px; }
+}
+
+.system-topic-workspace { display:grid; grid-template-columns:minmax(145px, 210px) minmax(0, 1fr); gap:clamp(12px,2vw,24px); align-items:start; }
+.system-topics { display:grid; gap:3px; padding:6px; border:1px solid var(--ws-line); border-radius:10px; background:var(--ws-surface); }
+.system-topics button { text-align:start; color:var(--ws-ink); background:transparent; border:0; border-radius:6px; padding:11px 12px; font:inherit; }
+.system-topics button[aria-current] { background:var(--ws-brand-soft); color:var(--ws-brand); font-weight:700; }
+.system-topic-body { min-width:0; }
+.system-topic-body .settings-grid { grid-template-columns:minmax(0, 1fr); }
+.system-topic-body [hidden] { display:none!important; }
+.shell main > header .header-context > small { color:var(--ws-muted); }
+.shell.sidebar-expanded #fornost-navigation .nav-group-items button[aria-current="page"] { box-shadow:inset 3px 0 var(--ws-brand); }
+@media(max-width:740px) {
+  .system-topic-workspace { grid-template-columns:minmax(0, 1fr); }
+  .system-topics { display:flex; flex-wrap:wrap; }
+  .system-topics button { min-height:44px; }
+}

@@ -262,6 +262,26 @@ async function auditLocale(page, locale) {
           finding("high", area, "Register toolbar no longer fits the compact desktop row", JSON.stringify(metrics));
         }
       }
+      if (i === 2) {
+        const register = page.locator(".risk-register");
+        const trigger = register.locator(".table-wrap button.record-open").first();
+        if (await trigger.count()) {
+          await trigger.click();
+          const inspector = register.locator(".record-inspector");
+          await expect(inspector.locator("h3")).toBeFocused();
+          await snap(page, locale + "-risk-record-inspector");
+          await inspector.locator("h3").press("Escape");
+          await expect(trigger).toBeFocused();
+          (report.recordInspection ??= {})[locale] = { opened: true, returnedToRow: true };
+        }
+      }
+      if (i === 21) {
+        const topics = page.locator(".system-topics");
+        await expect(topics.getByRole("button", { name: locale === "tr" ? "Kuruluş" : "Organization", exact: true })).toHaveAttribute("aria-current", "true");
+        await topics.getByRole("button", { name: "HTTPS / TLS", exact: true }).click();
+        await expect(page.locator(".settings-grid").getByRole("heading", {name: /HTTPS \/ TLS/})).toBeVisible();
+        await topics.getByRole("button", {name: locale === "tr" ? "Kuruluş" : "Organization", exact:true}).click();
+      }
       if (i === 16) {
         // Sample node identity and geometry after loading. A hide/discover portal
         // loop recreates the panel continuously even when the page looks loaded.

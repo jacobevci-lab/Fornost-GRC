@@ -482,18 +482,6 @@ export default function MyWorkV2() {
         <RegisterSortControls module="My Work" lang={lang} sort={sort} onChange={setSort} disabled={loading || loadError} />
         <p>{tr ? "Özet sayaçları, iş listesi ve CSV seçili modüle göre süzülür. CSV, liste sıralamasını korur. Güvence sinyalleri kendi kapsamını korur." : "Summary counts, the work list and CSV follow the selected module. CSV preserves the list order. Assurance signals retain their own scope."}</p>
       </div>
-      {user.id && !loadError && <SavedRegisterViewsPanel userId={user.id} module="My Work" lang={lang} variant="work"
-        current={{query, filters:{module:moduleFilter, status:filter}, columns:workViewSchema.columns, ...(sort ? {sort} : {})}} schema={workViewSchema} labels={{module:tr?"Modül":"Module",status:tr?"İş durumu":"Work status",title:tr?"Başlık":"Title",owner:tr?"Sahip":"Owner",due:tr?"Termin":"Due date"}}
-        apply={view => { const next = readWorkView(view, Object.keys(MODULE_LABELS)); setQuery(next.query); setModuleFilter(next.module); setFilter(next.status); setSort(next.sort); setPageIndex(0); }} />}
-      <div className="mw2-metrics">
-        <button type="button" className={data.overdue ? "critical" : ""} onClick={() => setFilter("overdue")}><small>{tr ? "Geciken" : "Overdue"}</small><strong>{data.overdue}</strong><span>{tr ? "Termin geçmiş işler" : "Past-due work"}</span></button>
-        <button type="button" className={data.priority ? "warning" : ""} onClick={() => setFilter("priority")}><small>{tr ? "Dikkat gerekiyor" : "Needs attention"}</small><strong>{data.priority}</strong><span>{tr ? "Kritik kapsam, yüksek önem dereceli olay, yakın termin veya değerlendirme" : "Critical scope, high-severity incident, near due date or awaiting assessment"}</span></button>
-        <button type="button" className={data.waiting ? "muted" : ""} onClick={() => setFilter("waiting")}><small>{tr ? "Başkalarında bekleyen" : "Waiting for others"}</small><strong>{data.waiting}</strong><span>{tr ? "İnceleme / onay bekleyen" : "Reviewer / approval pending"}</span></button>
-        <button type="button" onClick={() => setFilter("completed")}><small>{tr ? "30 günde tamamlanan" : "Completed in 30 days"}</small><strong>{data.completedItems.length}</strong><span>{tr ? "Yakın zamanda kapanan işler" : "Recently closed work"}</span></button>
-      </div>
-
-      <MyWorkAssuranceSignals lang={lang} scope={scope} user={user} refreshKey={refreshKey} identityAvailable={!loadError && !!user.email} />
-
       <section className="mw2-queue">
         <header>
           <div><small>{scope === "organization" ? (tr ? "KURUMSAL İŞ KUYRUĞU" : "ORGANIZATION WORK QUEUE") : (tr ? "KİŞİSEL İŞ KUYRUĞU" : "PERSONAL WORK QUEUE")}</small><h3>{scope === "organization" ? (tr ? "Organizasyon aksiyonları" : "Organization actions") : (tr ? "Bana atanmış işler" : "Work assigned to me")}</h3></div>
@@ -517,6 +505,18 @@ export default function MyWorkV2() {
           <div><button type="button" disabled={page.page === 0} onClick={() => setPageIndex(page.page - 1)}>{tr ? "Önceki" : "Previous"}</button><span>{page.page + 1} / {page.pages}</span><button type="button" disabled={page.page + 1 >= page.pages} onClick={() => setPageIndex(page.page + 1)}>{tr ? "Sonraki" : "Next"}</button></div>
         </footer>}
       </section>
+      {user.id && !loadError && <SavedRegisterViewsPanel userId={user.id} module="My Work" lang={lang} variant="work"
+        current={{query, filters:{module:moduleFilter, status:filter}, columns:workViewSchema.columns, ...(sort ? {sort} : {})}} schema={workViewSchema} labels={{module:tr?"Modül":"Module",status:tr?"İş durumu":"Work status",title:tr?"Başlık":"Title",owner:tr?"Sahip":"Owner",due:tr?"Termin":"Due date"}}
+        apply={view => { const next = readWorkView(view, Object.keys(MODULE_LABELS)); setQuery(next.query); setModuleFilter(next.module); setFilter(next.status); setSort(next.sort); setPageIndex(0); }} />}
+      <div className="mw2-metrics">
+        <button type="button" className={data.overdue ? "critical" : ""} onClick={() => setFilter("overdue")}><small>{tr ? "Geciken" : "Overdue"}</small><strong>{data.overdue}</strong><span>{tr ? "Termin geçmiş işler" : "Past-due work"}</span></button>
+        <button type="button" className={data.priority ? "warning" : ""} onClick={() => setFilter("priority")}><small>{tr ? "Dikkat gerekiyor" : "Needs attention"}</small><strong>{data.priority}</strong><span>{tr ? "Kritik kapsam, yüksek önem dereceli olay, yakın termin veya değerlendirme" : "Critical scope, high-severity incident, near due date or awaiting assessment"}</span></button>
+        <button type="button" className={data.waiting ? "muted" : ""} onClick={() => setFilter("waiting")}><small>{tr ? "Başkalarında bekleyen" : "Waiting for others"}</small><strong>{data.waiting}</strong><span>{tr ? "İnceleme / onay bekleyen" : "Reviewer / approval pending"}</span></button>
+        <button type="button" onClick={() => setFilter("completed")}><small>{tr ? "30 günde tamamlanan" : "Completed in 30 days"}</small><strong>{data.completedItems.length}</strong><span>{tr ? "Yakın zamanda kapanan işler" : "Recently closed work"}</span></button>
+      </div>
+
+      <MyWorkAssuranceSignals lang={lang} scope={scope} user={user} refreshKey={refreshKey} identityAvailable={!loadError && !!user.email} />
+
       <footer className="mw2-footnote">{lastUpdated ? (tr ? `Son güncelleme ${lastUpdated.toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" })}` : `Last updated ${lastUpdated.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}`) : ""}</footer>
     </section>,
     mount,

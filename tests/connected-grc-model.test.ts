@@ -92,3 +92,13 @@ test("projected native IDs outrank colliding legacy aliases and explicit lists r
   assert.equal(graph.unresolved[0].reason, "missing");
   assert.deepEqual(graph.unresolved[0].candidates, []);
 });
+
+test("risk treatment follows identified controls and multi-control evidence without guessing from narrative", () => {
+  const risk = { id: "risk-1", module: "Risk Assessment", data: { existingControls: "CTL-012; Review access annually; SHARED" } };
+  const control = { id: "control-1", code: "CTL-012", module: "Kontroller", data: { controlRef: "SHARED" } };
+  const other = { id: "control-2", module: "Kontroller", data: { controlTitle: "Review access annually", controlRef: "SHARED" } };
+  const evidence = { id: "evidence-1", module: "Kanıtlar", data: { controlRefs: ["CTL-012"] } };
+  const graph = buildConnectedGrcGraph([risk, control, other, evidence]);
+  assert.deepEqual(graph.links.map(link => [link.source.id, link.target.id]), [[risk.id, control.id], [evidence.id, control.id]]);
+  assert.deepEqual(graph.unresolved.map(item => [item.value, item.reason]), [["SHARED", "ambiguous"]]);
+});

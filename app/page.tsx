@@ -104,6 +104,8 @@ import "./enterprise-surface-contract.css";
 import "./product-experience.css";
 import "./theme-integrity.css";
 import "./workspace-simplicity.css";
+import RecordWorkspace from "./record-workspace";
+import "./record-workspace.css";
 import "./record-dialog.css";
 import {useRecordDialog} from "./use-record-dialog";
 import AiWorkspaceHost from "./ai-workspace-host";
@@ -257,7 +259,7 @@ const labelMap: Record<Lang, Record<string, string>> = {
     asset: "İlgili Varlık",
     likelihood: "Olasılık (1-5)",
     impact: "Etki (1-5)",
-    treatment: "Risk Aksiyonu",
+    treatment: "Risk işleme yöntemi",
     process: "Süreç / Hizmet",
     processCategory: "BIA Süreç Kategorisi",
     rto: "RTO (saat)",
@@ -1162,6 +1164,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
   const commandDialogRef = useRecordDialog(commandOpen, closeCommand);
   const [recordRequest, setRecordRequest] = useState<FornostNavigationRequest | null>(null);
   const [focusedRecord, setFocusedRecord] = useState<{ id: string; ref: string; auditName?: string; state?: "loading" | "error"; request?: FornostNavigationRequest } | null>(null);
+  const readableRows = useMemo(() => rows.filter(row => canReadModule(currentUser, row.module)), [rows, currentUser]);
   const selectedAudit = focusedRecord?.auditName ?? browsedAudit;
   const recordContext = useRef<FornostNavigationRequest | null>(null);
   const navigationOrigin = useRef<FornostNavigationRequest["returnTo"]>(undefined);
@@ -1831,6 +1834,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
                   return (
                     <button
                       className={active === m ? "active" : ""}
+                      aria-current={active === m ? "page" : undefined}
                       aria-label={names[lang][m]}
                       title={names[lang][m]}
                       onClick={() => navigateToModule(m)}
@@ -2028,7 +2032,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
               </svg>
             </button>
             <div className="header-context">
-              <small>FORNOST / {u.workspace}</small>
+              <small>Fornost / {navGroups.find(group => group.id === activeNavGroup)?.label || u.workspace}</small>
               <h1>{names[lang][active]}</h1>
             </div>
           </div>
@@ -2311,7 +2315,10 @@ function FornostApp({ currentUser }: { currentUser: any }) {
                 filterPanelOpen={filterPanelOpen}
                 setFilterPanelOpen={setFilterPanelOpen}
               />
-              <div className="table-wrap" tabIndex={0} role="region" aria-label={lang === "tr" ? "Kayıt tablosu" : "Record table"}>
+              <RecordWorkspace key={active} rows={readableRows} visible={visible} lang={lang} moduleNames={names[lang]} formatValue={display}
+                preview={id => { const row = readableRows.find(item => item.id === id && item.module === "Kanıtlar"); if (row) setPreviewEvidence(row); }}>
+                {(inspect, open) => (
+              <div className="table-wrap" hidden={open} tabIndex={0} role="region" aria-label={lang === "tr" ? "Kayıt tablosu" : "Record table"}>
                 {!focusedRecord && (registerLoadState !== "ready" || !visible.length) ? <RegisterEmptyState
                   module={active} lang={lang} state={registerLoadState}
                   filtered={Boolean(query || Object.values(registerFilters).some(Boolean))}
@@ -2322,6 +2329,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
                   <RiskRegister
                     rows={visible}
                     lang={lang}
+                    inspect={inspect}
                     edit={openEdit}
                     remove={remove}
                     columns={selectedColumnKeys}
@@ -2333,6 +2341,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
                     module={active}
                     rows={visible}
                     lang={lang}
+                    inspect={inspect}
                     edit={openEdit}
                     remove={remove}
                     evidenceAssessment={active === "Kanıtlar" && !scoped ? evidenceRegisterState : undefined}
@@ -2343,6 +2352,8 @@ function FornostApp({ currentUser }: { currentUser: any }) {
                   />
                 )}
               </div>
+                )}
+              </RecordWorkspace>
             </section>
           </>
         )}
@@ -3465,9 +3476,16 @@ function AuditOverview({ rows, lang }: { rows: Row[]; lang: Lang }) {
     </section>
   );
 }
+function RecordCode({ row, inspect, lang }: { row: Row; inspect?: (row: Row, button: HTMLButtonElement) => void; lang: Lang }) {
+  const code = displayRecordCode(row);
+  return inspect ? <button type="button" className="code record-open" data-record-id={row.id} title={lang === "tr" ? "Kayıt ayrıntılarını aç" : "Open record details"}
+    onClick={event => inspect(row, event.currentTarget)}>{code}</button> : <b className="code" title={row.id}>{code}</b>;
+}
+
 function RiskRegister({
   rows,
   lang,
+  inspect,
   edit,
   remove,
   columns,
@@ -3476,6 +3494,7 @@ function RiskRegister({
 }: {
   rows: Row[];
   lang: Lang;
+  inspect?: (r: Row, button: HTMLButtonElement) => void;
   edit: (r: Row) => void;
   remove: (id: string) => void;
   columns: string[];
@@ -3506,7 +3525,7 @@ function RiskRegister({
         {rows.map((r) => (
           <tr key={r.id} onDoubleClick={() => canWrite && edit(r)}>
             <td>
-              <b className="code" title={r.id}>{displayRecordCode(r)}</b>
+              <RecordCode row={r} inspect={inspect} lang={lang} />
             </td>
             {cols.map((c) => (
               <td key={c.key}>
@@ -3610,6 +3629,7 @@ function RiskRegisterCell({
         lang={lang}
       />
     );
+  if (column === "treatment" && d.treatment === "Kabul Et") return <span className="state-pill">{tr ? "Kabul" : "Acceptance"}</span>;
   if (["status", "treatment", "category"].includes(column))
     return <StatusPill value={d[column]} lang={lang} />;
   return display(d[column], lang) || "—";
@@ -5502,6 +5522,7 @@ function SmartRegister({
   module,
   rows,
   lang,
+  inspect,
   edit,
   remove,
   viewEvidence,
@@ -5513,6 +5534,7 @@ function SmartRegister({
   module: string;
   rows: Row[];
   lang: Lang;
+  inspect?: (r: Row, button: HTMLButtonElement) => void;
   edit: (r: Row) => void;
   remove: (id: string) => void;
   viewEvidence?: (row: Row) => void;
@@ -5558,14 +5580,15 @@ function SmartRegister({
             {showRecordCode && (
               <td>
                 {module === "Kanıtlar" ? (
-                  <button
+                  <><button
                     className="code code-link"
                     onClick={() => viewEvidence?.(r)}
                   >
                     {displayRecordCode(r)}
                   </button>
+                  {inspect && <button type="button" className="record-open evidence-details-link" data-record-id={r.id} onClick={event => inspect(r, event.currentTarget)}>{lang === "tr" ? "Ayrıntılar" : "Details"}</button>}</>
                 ) : (
-                  <b className="code" title={r.id}>{displayRecordCode(r)}</b>
+                  <RecordCode row={r} inspect={inspect} lang={lang} />
                 )}
               </td>
             )}
