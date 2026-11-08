@@ -77,7 +77,7 @@ export async function switchQaLocale(page, locale) {
 
 export async function openQaModule(page, label) {
   // A restored mobile page may still be showing the sign-in gate when reload resolves.
-  await page.locator(".shell main > header h1").waitFor({state:"visible"});
+  await page.locator("main > header h1").waitFor({state:"visible"});
   const closeAssistant = page.locator('#fornost-ai-panel .fornost-ai-head button[data-escape-close]');
   if (await closeAssistant.isVisible()) await closeAssistant.click();
   const mobile = page.locator('.mobile-nav-toggle');
