@@ -10,13 +10,14 @@ export type ConnectedSourceIssue = {
 export const CONNECTED_GRC_SOURCE_TIMEOUT_MS = 15_000;
 
 /** Bound both response headers and body parsing; cancellation never publishes late data. */
-export async function loadConnectedGrcSources({ includeAi, signal, fetcher = fetch, timeoutMs = CONNECTED_GRC_SOURCE_TIMEOUT_MS }: {
+export async function loadConnectedGrcSources({ includeAi, signal, sourceKeys, fetcher = fetch, timeoutMs = CONNECTED_GRC_SOURCE_TIMEOUT_MS }: {
   includeAi: boolean;
   signal: AbortSignal;
+  sourceKeys?: readonly (keyof ConnectedGrcEnterprisePayloads)[];
   fetcher?: typeof fetch;
   timeoutMs?: number;
 }) {
-  const endpoints = connectedGrcEndpoints(includeAi);
+  const endpoints = connectedGrcEndpoints(includeAi).filter(endpoint => !sourceKeys || sourceKeys.includes(endpoint.key));
   const payloads: ConnectedGrcEnterprisePayloads = {};
   let ready = 0;
   const issues: ConnectedSourceIssue[] = [];

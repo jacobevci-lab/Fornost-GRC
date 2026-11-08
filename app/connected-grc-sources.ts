@@ -95,7 +95,7 @@ const list = (value: unknown): string[] => Array.isArray(value)
   : text(value).split(/[;,|\n]+/).map((item) => item.trim()).filter(Boolean);
 const unique = (...values: unknown[]) => Array.from(new Set(values.flatMap(list).filter(Boolean)));
 const updatedAt = (item: JsonRecord) => text(item.updatedAt || item.updated_at || item.recordedAt || item.detectedAt || item.createdAt || item.created_at) || undefined;
-const idOf = (scope: string, kind: string, item: JsonRecord, index: number) => `${scope}:${kind}:${text(item.id || item.code || index)}`;
+const idOf = (scope: string, kind: string, item: JsonRecord, index: number) => `${scope}:${kind}:${text(item.id || item.code || (kind === "vendor" && (item.vendorId || item.vendor_id)) || index)}`;
 const makeRow = (scope: string, kind: string, module: string, item: JsonRecord, index: number, data: JsonRecord): ConnectedGrcRow => ({
   id: idOf(scope, kind, item, index),
   code: text(data.publicCode || item.code || item.externalRef || item.external_ref) || undefined,

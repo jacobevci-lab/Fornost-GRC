@@ -3,6 +3,7 @@
 import { useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { buildConnectedGrcGraph, connectedTitle, type ConnectedGrcRow } from "./connected-grc-model";
 import NavIcon from "./nav-icon";
+import { RecordTrail } from "./module-record-trail-view";
 import { AssuranceChain, hasAssuranceChain } from "./assurance-chain-view";
 import { assessedRiskScore } from "./risk-methodology";
 import { displayRecordCode } from "./record-codes";
@@ -107,6 +108,8 @@ export default function RecordWorkspace({ rows, visible, lang, moduleNames, form
         <small>{moduleNames[selected.module] || selected.module} · {displayRecordCode(selected)}</small>
         <h3 ref={title} tabIndex={-1}>{connectedTitle(selected)}</h3>
         {showChain && graph && <AssuranceChain key={selected.id} inspector anchor={selected} links={graph.links} lang={lang} trail={path} openRecord={row => follow(row.id)}/>}
+        {!showChain && graph && <RecordTrail key={selected.id} root={selected} links={graph.links} lang={lang}
+          label={module => moduleNames[module] || module} openRecord={row => follow(row.id)}/>}
         <dl>{facts.map(([label, value]) => <div key={String(label)}><dt>{String(label)}</dt><dd>{formatValue(String(value), lang)}</dd></div>)}</dl>
         {selected.module === "Kanıtlar" && <button className="primary" type="button" onClick={() => preview(selected.id)}>{tr ? "Kanıtı önizle" : "Preview evidence"}</button>}
         {(!showChain || otherLinks.length > 0) && <h4>{showChain ? (tr ? "Diğer bağlı kayıtlar" : "Other linked records") : (tr ? "Bağlı kayıtlar" : "Linked records")}</h4>}

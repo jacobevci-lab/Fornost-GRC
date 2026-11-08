@@ -151,7 +151,7 @@ async function domAudit(page, area, locale) {
       const clippedWithoutScroller = !!wrapperRect && rect.width > wrapperRect.width + 4 && getComputedStyle(wrapper).overflowX === "visible";
       return { index, rows, headers, clippedWithoutScroller, caption: table.querySelector("caption")?.textContent?.trim() || "", ariaLabel: table.getAttribute("aria-label") || "" };
     });
-    const headingSizes = [...document.querySelectorAll(".shell>main h1,.shell>main h2,.shell>main h3")].filter(visible).map(el => ({ tag: el.tagName, text: el.textContent?.trim(), size: parseFloat(getComputedStyle(el).fontSize) }));
+    const headingSizes = [...document.querySelectorAll(".shell>main h1,.shell>main h2,.shell>main h3")].filter(visible).map(el => ({ tag: el.tagName, relationshipSummary: el.matches(".chain-board .chain-summary > h3"), text: el.textContent?.trim(), size: parseFloat(getComputedStyle(el).fontSize) }));
     const clippedHeaders = [...document.querySelectorAll(".shell>main header")].filter(visible).filter(header => {
       const bounds = header.getBoundingClientRect();
       return [...header.children].filter(visible).some(child => getComputedStyle(child).position !== "absolute" && getComputedStyle(child).position !== "fixed" && child.getBoundingClientRect().bottom > bounds.bottom + 8);
@@ -168,7 +168,7 @@ async function domAudit(page, area, locale) {
     };
   });
 
-  if (data.headingSizes.some(item => item.size > (item.tag === "H2" ? 24 : item.tag === "H1" ? 20 : 18))) finding("high", area, "Oversized workspace headings", JSON.stringify(data.headingSizes));
+  if (data.headingSizes.some(item => item.relationshipSummary ? item.size < 20 || item.size > 26 : item.size > (item.tag === "H2" ? 24 : item.tag === "H1" ? 20 : 18))) finding("high", area, "Workspace heading size outside its design range", JSON.stringify(data.headingSizes));
   if (data.clippedHeaders.length) finding("high", area, "Header content overflows its container", JSON.stringify(data.clippedHeaders));
   if (data.pageOverflow) finding("high", area, "Horizontal page overflow", `${data.overflowPx}px beyond viewport`);
   if (data.emptyButtons.length) finding("high", area, "Visible buttons without accessible name", JSON.stringify(data.emptyButtons.slice(0, 6)));
@@ -289,6 +289,19 @@ async function auditLocale(page, locale) {
         await topics.getByRole("button", { name: "HTTPS / TLS", exact: true }).click();
         await expect(page.locator(".settings-grid").getByRole("heading", {name: /HTTPS \/ TLS/})).toBeVisible();
         await topics.getByRole("button", {name: locale === "tr" ? "Kuruluş" : "Organization", exact:true}).click();
+      }
+      if ([3,4,5,6,7,8,9,12,13,14,15,16,19].includes(i)) {
+        const panel = page.locator("main > .module-trail-panel");
+        await expect(panel.locator(":scope > summary")).toBeVisible();
+        if ([6,16].includes(i)) {
+          await panel.locator(":scope > summary").click();
+          await expect(panel.locator(".trail-picker").getByRole("button", {name:locale==="tr"?"Zinciri yenile":"Refresh chain",exact:true})).toBeVisible({timeout:25000});
+          const roots = await panel.locator(".trail-picker select option").count();
+          if (roots) await expect(panel.locator(".module-trail li").first()).toBeVisible();
+          if (roots && locale === "tr") await panel.screenshot({path:path.join(screenshotsDir,"tr-module-trail-" + i + ".png")});
+          (report.moduleTrails ??= []).push({locale,module:label,roots,visibleNodes:await panel.locator(".module-trail li").count()});
+          await panel.locator(":scope > summary").click();
+        }
       }
       if (i === 16) {
         // Sample node identity and geometry after loading. A hide/discover portal

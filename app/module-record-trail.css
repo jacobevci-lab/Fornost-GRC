@@ -1,0 +1,27 @@
+.module-trail-panel { margin:12px 0; border:1px solid var(--ws-line); border-radius:10px; background:var(--ws-surface); color:var(--ws-ink); }
+.module-trail-panel > summary { display:flex; align-items:center; gap:10px; min-height:44px; cursor:pointer; list-style:none; padding:8px 16px; }
+.module-trail-panel > summary::-webkit-details-marker { display:none; }
+.module-trail-panel > summary > svg { width:20px; height:20px; color:var(--ws-brand); }
+.module-trail-panel > summary > span { margin-inline-start:auto; }
+.module-trail-panel[open] > summary { border-bottom:1px solid var(--ws-line); }
+.module-trail-panel[open] > summary > span { transform:rotate(180deg); }
+.module-trail-body { display:grid; grid-template-columns:minmax(180px, .6fr) minmax(0,1.4fr); }
+.trail-picker,.trail-session { min-width:0; padding:clamp(14px,2vw,26px); }
+.trail-picker { border-inline-end:1px solid var(--ws-line); }
+.trail-picker label,.trail-branch { display:grid; gap:5px; margin:10px 0; color:var(--ws-muted); font-size:12px; }
+.trail-picker :is(input,select), .module-trail .trail-branch select { width:100%; min-width:0; max-width:100%; border-radius:6px; border:1px solid var(--ws-line-strong); background:var(--ws-surface); color:var(--ws-ink); min-height:34px; padding:5px 8px; margin:0; }
+.trail-picker button,.trail-session > button,.trail-controls button { padding:8px 12px; border:1px solid var(--ws-line-strong); background:var(--ws-surface); border-radius:6px; color:var(--ws-brand); cursor:pointer; }
+.trail-session > button { margin-bottom:12px; }
+.trail-controls { display:flex; gap:8px; margin:12px 0 0; }
+.module-trail .trail-branch { max-width:420px; }
+.module-trail .trail-empty { color:var(--ws-muted); }
+.module-trail-body > p { padding:16px; }
+.cg-detail .module-trail { padding:12px 0 18px; }
+html[data-theme] body .shell > main .module-trail .chain-node strong { font:650 clamp(16px,1.3vw,20px)/1.3 Inter,system-ui,sans-serif!important; }
+.module-trail li[data-stage="0"][data-present="true"] .chain-node { border-color:var(--ws-line-strong); background:var(--ws-surface); }
+.module-trail li[data-stage="0"][data-present="true"] svg { color:var(--ws-brand); }
+@media(max-width:740px) {
+  .module-trail-body { grid-template-columns:minmax(0,1fr); }
+  .trail-picker { border-inline-end:0; border-bottom:1px solid var(--ws-line); }
+  .trail-picker :is(input,select), .trail-controls button, .trail-session > button { min-height:44px; }
+}

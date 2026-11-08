@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdir } from "node:fs/promises";
+import { mkdir, writeFile } from "node:fs/promises";
 import { chromium, expect } from "@playwright/test";
 import { createQaContext, openQaModule } from "./qa-browser-harness.mjs";
 import { qaPassword } from "./qa-credentials.mjs";
@@ -256,7 +256,57 @@ try {
   records = [];
   await refresh.click();
   await expect(emptyTitle).toBeVisible();
+  records = [
+    record("aud-trail", "Denetim Yönetimi", "Erişim yetkilerinin incelenmesi", {requirementRef:"CTL-014"}),
+    record("ctl-014", "Kontroller", "Ayrıcalıklı erişim kontrolü", {controlRef:"CTL-014"}),
+    record("evd-014", "Kanıtlar", "Erişim gözden geçirme tutanağı", {controlRef:"CTL-014"}),
+    record("evd-015", "Kanıtlar", "Yetki onay kaydı", {controlRef:"CTL-014"}),
+    record("ast-trail","Varlık Envanteri","Kimlik platformu",{}),
+    record("rsk-trail","Risk Assessment","Yetkisiz erişim",{asset:"AST-TRAIL",existingControls:"CTL-014"}),
+  ];
+  await page.reload();
+  await openQaModule(page,"Denetim Yönetimi");
+  const trailPanel=page.locator("main > .module-trail-panel");
+  await trailPanel.locator(":scope>summary").click();
+  const chain=trailPanel.locator(".module-trail");
+  await expect(chain.locator("li")).toHaveCount(3);
+  await expect(chain.locator("li").nth(1)).toContainText("Ayrıcalıklı erişim kontrolü");
+  await chain.getByRole("combobox",{name:"2. bağlantıyı seç"}).selectOption("evd-015");
+  await expect(chain.locator("li").last().locator(".chain-node")).toContainText("Yetki onay kaydı");
+  await chain.locator("li").last().getByRole("button").click();
+  await expect(chain.locator("li").first()).toContainText("Yetki onay kaydı");
+  await trailPanel.getByRole("button",{name:"Önceki kayda dön"}).click();
+  await expect(chain.locator("li").first()).toContainText("Erişim yetkilerinin incelenmesi");
+  await expect(chain.locator("li").last().locator(".chain-node")).toContainText("Yetki onay kaydı");
+  for (const width of [390,1440]) {
+    await page.setViewportSize({width,height:900});
+    assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth <= innerWidth + 2));
+    await trailPanel.screenshot({path:`${out}/audit-linked-records-${width}.png`});
+  }
+  await openQaModule(page,"Varlık Envanteri");
+  await trailPanel.locator(":scope>summary").click();
+  await expect(chain.locator("li").last()).toContainText("Ayrıcalıklı erişim kontrolü");
+  await chain.getByRole("button",{name:"Zinciri devam ettir"}).click();
+  await expect(chain.locator("li")).toHaveCount(4);
+  await trailPanel.screenshot({path:`${out}/asset-linked-records.png`});
+  await openQaModule(page,"Tedarikçi Yönetimi");
+  await page.route("**/api/third-party-risk",route=>route.fulfill({json:{
+    vendors:[{id:"vendor-chain", vendorId:"VEN-001",name:"Bulut hizmet sağlayıcısı"}],assessments:[],findings:[]
+  }}));
+  await page.route("**/api/findings?view=graph*",route=>route.fulfill({json:{
+    revision:"a".repeat(32),complete:true,total:1,nextCursor:null,findings:[{
+      id:"fnd-chain",code:"FND-001",title:"Erişim gözden geçirmesi eksik",sourceType:"vendor",sourceRef:"VEN-001",
+      correctiveAction:"Yetki listesini doğrula"
+    }]
+  }}));
+  await trailPanel.locator(":scope>summary").click();
+  await expect(chain.locator("li").last()).toContainText("Yetki listesini doğrula");
+  await trailPanel.screenshot({path:`${out}/vendor-linked-records.png`});
   console.log("Dashboard source QA passed: authenticated counts, register retry, independent failures, partial counts, verified zero and failed refresh.");
+} catch (error) {
+  await mkdir("dashboard-design-preview",{recursive:true});
+  await writeFile("dashboard-design-preview/failure.txt",String(error.stack || error));
+  throw error;
 } finally {
   await browser.close();
 }
