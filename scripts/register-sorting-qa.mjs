@@ -44,6 +44,18 @@ try{
      assert.ok(box.height<=64, 'Closed toolbar must keep the first row of data close to the controls: '+box.height);
    }
    assert.ok(await toolbar.evaluate(el=>el.scrollWidth<=el.clientWidth+1), 'Toolbar fits the available width');
+   if (width <= 390) {
+     for (const button of await toolbar.locator('.register-view-actions > button, .column-picker-wrap > button').all()) {
+       const lines = await button.evaluate(el => {
+         const label = [...el.childNodes].find(node => node.nodeType === Node.TEXT_NODE && node.textContent.trim());
+         if (!label) return 0;
+         const range = document.createRange();
+         range.selectNodeContents(label);
+         return range.getClientRects().length;
+       });
+       assert.equal(lines, 1, 'Each mobile action label must fit on one line');
+     }
+   }
    await page.locator('.risk-register').screenshot({path:`${out}/risk-toolbar-${width}.png`});
  }
  await views.press('Enter');
