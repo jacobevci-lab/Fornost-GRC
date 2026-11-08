@@ -155,3 +155,23 @@
   line-height: 1.1;
   letter-spacing: -.03em;
 }
+
+.dashboard-action-list { display: flex; flex-wrap: wrap; gap: 8px; }
+.executive-dashboard-header-actions .dashboard-actions-toggle { display: none; }
+
+@media (max-width: 600px) {
+  .executive-dashboard-reference .executive-dashboard-header { flex-direction: row; flex-wrap: nowrap; align-items: center; }
+  .executive-dashboard-reference .executive-dashboard-header-actions { width: auto; flex: none; }
+  .dashboard-action-group { position: relative; }
+  .executive-dashboard-header-actions .dashboard-actions-toggle { display: inline-flex; min-height: 44px; }
+  .dashboard-action-list { display: none; }
+  .dashboard-action-list[data-expanded="true"] {
+    display: grid; position: absolute; inset-inline-end: 0; top: calc(100% + 4px); z-index: 4;
+    width: max-content; max-width: calc(100vw - 32px); padding: 6px; gap: 4px;
+    border: 1px solid var(--ed-line); border-radius: 8px; background: var(--ed-surface);
+  }
+  .executive-dashboard-header-actions .dashboard-action-list > button { justify-content: start; min-height: 44px; }
+  .shell:has(.executive-dashboard-reference) > main > header .header-context h1 {
+    white-space: normal !important; line-height: 1.15; text-overflow: clip !important;
+  }
+}

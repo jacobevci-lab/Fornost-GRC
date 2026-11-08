@@ -15,7 +15,7 @@ import { withBasePath } from "./base-path";
 import NavIcon from "./nav-icon";
 import ExecutiveDecisionQueue, { orderDecisions, type DecisionQueueHandle } from "./executive-decision-queue";
 import { useDashboardDecisionCounts } from "./use-dashboard-decision-counts";
-import DashboardCustomizer, { useDashboardView, PANEL_ORDER } from "./dashboard-customizer";
+import DashboardHeaderActions, { useDashboardView, PANEL_ORDER } from "./dashboard-customizer";
 import "./executive-assurance.css";
 import "./executive-decision-workspace.css";
 
@@ -221,11 +221,7 @@ export default function ExecutiveAssurancePanel({
           <h2>{tr ? "Yönetici özeti" : "Executive overview"}</h2>
 
         </div>
-        <div className="executive-dashboard-header-actions">
-          <DashboardCustomizer lang={lang} view={view} />
-          <button type="button" onClick={auditorPack}>{tr ? "Denetçi Paketi" : "Auditor Pack"}<span>↗</span></button>
-          <button type="button" className="primary" onClick={() => go("Raporlar")}>{tr ? "Yönetim Raporu" : "Executive Report"}<span>→</span></button>
-        </div>
+        <DashboardHeaderActions lang={lang} view={view} onAuditorPack={auditorPack} onReport={() => go("Raporlar")} />
       </header>
 
       {failedSources.length > 0 && <div role="status" className="executive-data-warning">

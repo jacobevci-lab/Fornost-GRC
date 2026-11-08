@@ -293,7 +293,8 @@ export default function MyWorkV2() {
   const [pageIndex, setPageIndex] = useState(0);
   const controller = useRef<AbortController | null>(null), request = useRef(0);
   const [refreshKey, setRefreshKey] = useState(0);
-  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [verifiedRead, setVerifiedRead] = useState<{ mount: HTMLElement; at: Date } | null>(null);
+  const lastUpdated = verifiedRead && verifiedRead.mount === mount ? verifiedRead.at : null;
 
   useEffect(() => {
     let created: HTMLDivElement | null = null;
@@ -327,6 +328,7 @@ export default function MyWorkV2() {
   }, []);
 
   const load = useCallback(async () => {
+    if (!mount) return;
     controller.current?.abort();
     const pending = new AbortController(); controller.current = pending;
     const id = ++request.current;
@@ -360,12 +362,12 @@ export default function MyWorkV2() {
       setUser((authResult.value as { user?: User }).user || {});
       const failed = grcResult.status === "rejected" || findingsResult.status === "rejected" || !workSourcesComplete(grcResult.value, findingsResult.value) || enterprise.some(item => !item.projection?.complete);
       setLoadError(failed);
-      if (!failed) setLastUpdated(new Date());
+      if (!failed) setVerifiedRead({ mount, at: new Date() });
     } finally {
       window.clearTimeout(timeout);
       if (request.current === id) setLoading(false);
     }
-  }, []);
+  }, [mount]);
 
   const cancelLoad = useCallback(() => { request.current++; controller.current?.abort(); }, []);
   useEffect(() => {
@@ -381,7 +383,8 @@ export default function MyWorkV2() {
   const data = useMemo(() => {
     const now = Date.now();
     const scoped = scopedRows.filter(row => !moduleFilter || row.module === moduleFilter);
-    const openRows = scoped.filter(row => !isClosed(row) && !(row.module === "Bulgular ve CAPA" && findingWorkDisposition(row.data, now) === "accepted"));
+    const allOpenRows = scopedRows.filter(row => !isClosed(row) && !(row.module === "Bulgular ve CAPA" && findingWorkDisposition(row.data, now) === "accepted"));
+    const openRows = moduleFilter ? allOpenRows.filter(row => row.module === moduleFilter) : allOpenRows;
     const completedRows = scoped.filter(row => {
       if (!isClosed(row)) return false;
       const completedAt = new Date(workCompletionDate(row)).getTime();
@@ -396,7 +399,7 @@ export default function MyWorkV2() {
     const priority = items.filter(item => item.priority <= 1).length;
     const waiting = items.filter(item => item.waiting).length;
     const modules = [...new Set(items.map(item => item.row.module))].length;
-    return { items, completedItems, today, overdue, soon, undated, priority, waiting, modules, now };
+    return { hasOpenWork: allOpenRows.length > 0, items, completedItems, today, overdue, soon, undated, priority, waiting, modules, now };
   }, [scopedRows, user, moduleFilter, lang]);
 
   const visible = useMemo(() => {
@@ -434,6 +437,7 @@ export default function MyWorkV2() {
 
   if (!mount) return null;
   const tr = lang === "tr";
+  const personalQueueEmpty = scope === "mine" && !!lastUpdated && !loading && !loadError && !data.hasOpenWork;
   const filters: Array<[QueueFilter, string, number]> = [
     ["today", tr ? "Bugün" : "Today", data.today],
     ["priority", tr ? "Öncelik" : "Priority", data.priority],
@@ -451,8 +455,12 @@ export default function MyWorkV2() {
       <header className="mw2-hero">
         <div>
           <small>{tr ? "AKSİYON MERKEZİ" : "ACTION INBOX"}</small>
-          <h2>{tr ? "Bugün neye müdahale etmeliyim?" : "What needs my attention today?"}</h2>
-          <p>{tr ? "Risk, kontrol, kanıt, denetim, süreklilik, olay ve iyileştirme sorumluluklarını tek kuyrukta gör; çalışma sırasını ihtiyacına göre seç." : "See risk, control, evidence, audit, continuity, incident and remediation responsibilities in one queue; choose the order that fits your work."}</p>
+          <h2>{personalQueueEmpty
+            ? (tr ? "Kişisel iş kuyruğunda açık işin yok." : "You have no open items in your personal queue.")
+            : (tr ? "Bugün neye müdahale etmeliyim?" : "What needs my attention today?")}</h2>
+          <p>{personalQueueEmpty
+            ? (tr ? "Güvence aksiyonlarını aşağıdaki bölümden takip edebilirsin." : "Review assurance actions in the section below.")
+            : tr ? "Risk, kontrol, kanıt, denetim, süreklilik, olay ve iyileştirme sorumluluklarını tek kuyrukta gör; çalışma sırasını ihtiyacına göre seç." : "See risk, control, evidence, audit, continuity, incident and remediation responsibilities in one queue; choose the order that fits your work."}</p>
         </div>
         <div className="mw2-hero-actions">
           {user.role === "Admin" && <div className="mw2-scope" aria-label={tr ? "İş kapsamı" : "Work scope"}>
@@ -503,7 +511,7 @@ export default function MyWorkV2() {
           <span className="mw2-state"><em>{item.status}</em><small>{item.waiting && item.row.workKind !== "audit-milestone" ? (tr ? "Başkalarında bekliyor" : "Waiting for others") : item.reason}</small></span>
           <time className={!Number.isFinite(item.dueTime) ? "undated" : item.dueTime < data.now ? "overdue" : ""}>{filter === "completed" ? formatDate(workCompletionDate(item.row), lang) : formatDate(item.due, lang)}</time>
           <strong className="mw2-arrow">→</strong>
-        </button>)}</div> : <div className="mw2-empty"><span>{loadError ? "!" : loading ? "…" : "✓"}</span><div><b>{loadError ? (tr ? "İş listesi doğrulanamadı." : "Work list could not be verified.") : loading ? (tr ? "İşler yükleniyor…" : "Loading work…") : (tr ? "Bu görünümde aksiyon yok." : "No actions in this view.")}</b><p>{tr ? "Filtreyi değiştirin veya kapsamı kontrol edin." : "Change the filter or review the selected scope."}</p></div></div>}
+        </button>)}</div> : personalQueueEmpty && filter !== "completed" ? null : <div className="mw2-empty"><span>{loadError ? "!" : loading ? "…" : "✓"}</span><div><b>{loadError ? (tr ? "İş listesi doğrulanamadı." : "Work list could not be verified.") : loading ? (tr ? "İşler yükleniyor…" : "Loading work…") : (tr ? "Bu görünümde aksiyon yok." : "No actions in this view.")}</b><p>{tr ? "Filtreyi değiştirin veya kapsamı kontrol edin." : "Change the filter or review the selected scope."}</p></div></div>}
         {visible.length > 0 && <footer className="mw2-pagination" aria-label={tr ? "İş listesi sayfaları" : "Work list pages"}>
           <span aria-live="polite">{page.start}–{page.end} / {page.total}</span>
           <div><button type="button" disabled={page.page === 0} onClick={() => setPageIndex(page.page - 1)}>{tr ? "Önceki" : "Previous"}</button><span>{page.page + 1} / {page.pages}</span><button type="button" disabled={page.page + 1 >= page.pages} onClick={() => setPageIndex(page.page + 1)}>{tr ? "Sonraki" : "Next"}</button></div>

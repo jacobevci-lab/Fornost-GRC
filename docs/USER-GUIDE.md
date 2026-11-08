@@ -10,6 +10,8 @@ Kurumunuzun HTTPS adresini açıp hesabınızla giriş yapın. Yerel oturum vars
 
 Ana Sayfa genel durumu, **Benim İşlerim / My Work** size atanmış hazırlık ve incelemeleri gösterir. Dil seçimi TR/EN'dir. Sol menü geniş/ikon/gizli görünümde kullanılabilir; küçük ekranlarda menü düğmesiyle açılır.
 
+Telefonda gösterge panelindeki **İşlemler** düğmesinden **Özelleştir**, **Denetçi Paketi** ve **Yönetim Raporu** açılır. **Benim İşlerim**, tüm iş kaynakları doğrulandığında kişisel kuyruğunuz boşsa bunu ilk başlıkta gösterir. Modül ve arama filtreleri bu bilgiyi değiştirmez. Güvence aksiyonları ayrı bölümde görünür.
+
 Yönetici özetinde **Karar bekleyen kayıtlar** listesini türüne göre süzebilirsiniz. Kritik riskler, geciken denetim maddeleri, yüksek riskler ve uyum açıkları bu sırayla görünür. Satırı seçtiğinizde ilgili kayıt açılır. **Önceki görünüme dön** ile listedeki yerinize dönebilirsiniz. Yönetim sinyallerinden açık bulgular ve eskalasyonlar için ilgili modüle geçebilirsiniz.
 
 **Geciken denetim maddesi** sayacını seçerek sayılan maddeleri aynı ekranda açabilirsiniz. Her satır sorumluyu, termini ve portföy bağlantısını gösterir. Detaydan döndüğünüzde denetim filtresi ve seçtiğiniz satır korunur. **Portföye bağlı geciken maddeler** yalnız kayıtlı bir denetime bağlı maddeleri sayar. Gün olarak girilen termin, UTC gününün sonunda geçer.
