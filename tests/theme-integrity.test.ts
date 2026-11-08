@@ -69,6 +69,6 @@ test("dark theme quarantines literal legacy violet interaction colours", () => {
 
 test("desktop dialogs are centred outside the navigation rail", () => {
   assert.match(css, /\.shell \.overlay\{z-index:120!important\}/);
-  assert.match(css, /\.shell\.sidebar-expanded \.overlay\{padding-left:316px!important\}/);
+  assert.match(css, /\.shell\.sidebar-expanded \.overlay\{padding-left:calc\(var\(--ws-sidebar-width\) \+ 20px\)!important\}/);
   assert.match(css, /@media\(max-width:900px\).*padding-left:20px!important/);
 });

@@ -48,7 +48,7 @@ test("record timestamps are mapped from the API and visible in every register", 
 });
 
 test("register layout contains readable and overflow-safe desktop and mobile rules", () => {
-  assert.match(css, /\.smart-table td,.risk-table td\{max-width:320px;font-size:11\.5px!important/);
+  assert.match(css, /\.smart-table td,.risk-table td\{max-width:320px;font-size:13px!important/);
   assert.match(css, /@media\(max-width:1500px\)\{\.risk-overview\{grid-template-columns:1fr!important/);
   assert.match(css, /@media\(max-width:720px\)/);
   assert.match(css, /\.column-picker\{position:fixed/);

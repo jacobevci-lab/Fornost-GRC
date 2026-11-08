@@ -14,6 +14,15 @@ page.on('pageerror',e=>errors.push(e.message));page.on('request',r=>{if(r.url().
 const modules=[['Risk Assessment','Risk Assessment','Risk Değerlendirmesi','title','inherentRisk'],['BIA','Business Impact Analysis (BIA)','İş Etki Analizi (BIA)','process','rto'],['Varlık Envanteri','Asset Inventory','Varlık Envanteri','title','eolDate'],['Uyum','Compliance Management','Uyum Yönetimi','controlTitle','dueDate'],['Kontroller','Control Library','Kontrol Kütüphanesi','controlTitle','nextTestDate'],['Kanıtlar','Evidence Library','Kanıt Kütüphanesi','evidenceTitle','expiresAt']];
 const dates=['2026-02-10','2026-02-02',''];
 const fixtures=modules.flatMap(([module,,,titleKey])=>[10,2,30].map((n,i)=>({id:`QA-SORT-${module}-${n}`,code:`SORT-${module}-${n}`,module,created_at:'2026-01-01T12:00:00Z',updated_at:'2026-01-01T12:00:00Z',data_json:JSON.stringify({[titleKey]:`QA order ${n}`,owner:'qa-admin@fornost.test',ownerEmail:'qa-admin@fornost.test',businessUnit:'QA',status:'Open',inherentLikelihood:i===2?'':2,inherentImpact:i===2?'':i===0?5:1,rto:i===2?'':n,eolDate:dates[i],dueDate:dates[i],nextTestDate:dates[i],expiresAt:dates[i],targetDate:dates[i]})})));
+for (const row of fixtures) {
+ const data = JSON.parse(row.data_json);
+ if (row.module === 'Risk Assessment') data.existingControls = 'QA-SORT-Kontroller-10';
+ if (row.module === 'Kanıtlar' && row.id.endsWith('-10')) {
+   data.controlRefs = ['QA-SORT-Kontroller-10'];
+   data.versionNo = 3;
+ }
+ row.data_json = JSON.stringify(data);
+}
 async function open(name){
  const mobile=page.locator('.mobile-nav-toggle');if(await mobile.isVisible()&&await mobile.getAttribute('aria-expanded')!=='true')await mobile.click();
  const nav=page.locator('#fornost-navigation'),button=nav.getByRole('button',{name,exact:true,includeHidden:true});await expect(button).toBeAttached();
@@ -28,6 +37,30 @@ try{
  await page.route('**/api/grc',route=>route.request().method()==='GET'?route.fulfill({json:{rows:fixtures,nextCursor:null}}):route.continue());
  await page.goto(base);await expect(page.locator('.shell')).toBeVisible();await page.locator('.language-switch:visible').getByRole('button',{name:'EN',exact:true}).click();
  await open('Risk Assessment');
+ const searchField = page.locator('.risk-register .register-search input');
+ for (const width of [1440, 390]) {
+   await page.setViewportSize({width, height:900});
+   await searchField.fill('QA order 10');
+   const trigger = page.locator('.risk-register .table-wrap .record-open').first();
+   await trigger.click();
+   const inspection = page.getByRole('region', {name:'Record inspection'});
+   await expect(inspection).toBeVisible();
+   if (width === 390) await expect(inspection.locator('.record-inspector h3')).toBeInViewport();
+   await inspection.locator('.record-inspector li button').filter({hasText:'Control Library'}).click();
+   await inspection.locator('.record-inspector li button').filter({hasText:'Evidence Library'}).click();
+   await expect(inspection.locator('dd').filter({hasText:'v3'})).toBeVisible();
+   await inspection.getByRole('button',{name:'Previous record'}).click();
+   await expect(inspection.locator('.record-inspector > small')).toContainText('Control Library');
+   await page.screenshot({path:out + '/connected-register-' + width + '.png', animations:'disabled'});
+   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth > innerWidth + 2),false);
+   await inspection.getByRole('button',{name:'Back to list'}).click();
+   await expect(trigger).toBeFocused();
+   await expect(searchField).toHaveValue('QA order 10');
+   await expect(page.locator('.risk-register tbody tr')).toHaveCount(1);
+   await searchField.fill('');
+ }
+ checks.push('filtered risk → control → evidence version → previous → focused list on desktop and phone');
+ await page.setViewportSize({width:1440,height:1000});
  await page.locator('.language-switch:visible').getByRole('button', {name:'TR', exact:true}).click();
  const toolbar = page.locator('.risk-register .register-toolbar');
  const views = toolbar.getByRole('button', {name:'Görünümler', exact:true});

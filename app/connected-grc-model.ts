@@ -56,11 +56,13 @@ export type ConnectedGrcDomainPosture = {
   percent: number;
 };
 
-type RelationDefinition = { relation: string; modules: string[]; sources?: string[]; targetKind?: string; canonicalOnly?: boolean };
+type RelationDefinition = { relation: string; modules: string[]; sources?: string[]; targetKind?: string; canonicalOnly?: boolean; optionalControlReference?: boolean };
 
 export const relationFields: Record<string, RelationDefinition> = {
   aiModelRef: { relation: "ai-model", modules: ["AI Yönetişimi"], sources: ["AI Yönetişimi"], targetKind: "ai-model", canonicalOnly: true },
   aiFindingRef: { relation: "ai-finding", modules: ["AI Yönetişimi"], sources: ["AI Yönetişimi"], targetKind: "ai-finding", canonicalOnly: true },
+  existingControls: { relation: "risk-control", modules: ["Kontroller"], sources: ["Risk Assessment"], optionalControlReference: true },
+  controlRefs: { relation: "control-evidence", modules: ["Kontroller"], sources: ["Kanıtlar"] },
   asset: { relation: "risk-asset", modules: ["Varlık Envanteri"], sources: ["Risk Assessment", "BIA"] },
   processLink: { relation: "risk-process", modules: ["BIA"], sources: ["Risk Assessment", "Kontroller"] },
   biaRef: { relation: "continuity-process", modules: ["BIA"] },
@@ -172,6 +174,11 @@ export function buildConnectedGrcGraph(rows: ConnectedGrcRow[]) {
           matches = (tier.get(key) || []).filter(candidate => candidate.id !== source.id && definition.modules.includes(candidate.module) && (!definition.targetKind || candidate.data.kind === definition.targetKind));
           if (matches.length) break;
         }
+        // Risk forms also allow a prose description. Only a control identifier establishes a link here.
+        if (definition.optionalControlReference) {
+          matches = matches.filter(row => [row.id, row.code, row.data.controlRef].some(value => value && normalize(value) === key));
+          if (!matches.length) continue;
+        }
         if (matches.length !== 1) {
           const unresolvedKey = `${source.id}|${field}|${definition.relation}|${key}`;
           if (!unresolvedSeen.has(unresolvedKey)) {
@@ -271,6 +278,7 @@ export function assessConnectedGrcCoverage(rows: ConnectedGrcRow[], links: Conne
 }
 
 export const connectedRemediationModule: Record<string, string> = {
+  "risk-control": "Kontroller",
   "risk-asset": "Varlık Envanteri",
   "risk-process": "BIA",
   "control-evidence": "Kanıtlar",
@@ -322,6 +330,7 @@ export const connectedRemediationModule: Record<string, string> = {
 export const connectedRelationLabels: Record<string, { tr: string; en: string }> = {
   "ai-model": { tr: "AI modeline bağlı", en: "linked to AI model" },
   "ai-finding": { tr: "AI bulgusuna aktarılmış", en: "escalated to AI finding" },
+  "risk-control": { tr: "kontrol ile yönetilir", en: "is managed by control" },
   "risk-asset": { tr: "varlığı etkiler", en: "affects asset" },
   "risk-process": { tr: "süreci etkiler", en: "affects process" },
   "continuity-process": { tr: "BIA’ya dayanır", en: "depends on BIA" },

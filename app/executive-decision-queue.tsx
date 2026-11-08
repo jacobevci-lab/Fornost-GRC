@@ -110,7 +110,7 @@ export default function ExecutiveDecisionQueue({ entries, lang, completeAndClear
               <span className="decision-owner" id={`decision-owner-${row.id}`}>{owner || (tr ? "Sorumlu atanmamış" : "Unassigned")}</span>
             </span>
             <span className="decision-date" id={`decision-date-${row.id}`}>{Number.isFinite(deadline) ? formatDate.format(deadline) : <span title={tr ? "Tarih atanmamış" : "No due date"}>—</span>}</span>
-            <span aria-hidden="true" className="decision-arrow">→</span>
+            <span aria-hidden="true" className="decision-arrow"><span>{tr ? "İncele" : "Review"}</span> →</span>
           </button>
         </li>;
       })}

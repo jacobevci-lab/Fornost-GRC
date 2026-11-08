@@ -219,7 +219,7 @@ export const registerColumns: Record<
     { key: "inherentRisk", tr: "Doğal Risk", en: "Inherent Risk" },
     { key: "status", tr: "Durum", en: "Status" },
     { key: "owner", tr: "Risk Sahibi", en: "Risk Owner" },
-    { key: "treatment", tr: "Risk Aksiyonu", en: "Treatment" },
+    { key: "treatment", tr: "Risk işleme yöntemi", en: "Risk treatment" },
     { key: "category", tr: "Kategori", en: "Category" },
     { key: "businessUnit", tr: "İş Birimi", en: "Business Unit" },
     { key: "updatedAt", tr: "Son Güncelleme", en: "Last Updated" },

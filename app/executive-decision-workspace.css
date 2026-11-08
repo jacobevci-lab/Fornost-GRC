@@ -70,7 +70,7 @@
 .decision-records > li, .decision-signals li { border-top: 1px solid var(--ed-line); }
 .decision-records .decision-record {
   display: grid;
-  grid-template-columns: 32px minmax(0, 1fr) auto 16px;
+  grid-template-columns: 32px minmax(0, 1fr) auto auto;
   align-items: center;
   gap: 12px;
   width: 100%;
@@ -175,3 +175,6 @@
     white-space: normal !important; line-height: 1.15; text-overflow: clip !important;
   }
 }
+
+.decision-arrow { white-space:nowrap; font-size:12px; font-weight:650; }
+@media(max-width:740px) { .decision-arrow > span { display:none; } }
