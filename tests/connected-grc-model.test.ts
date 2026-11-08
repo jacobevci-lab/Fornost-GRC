@@ -102,3 +102,11 @@ test("risk treatment follows identified controls and multi-control evidence with
   assert.deepEqual(graph.links.map(link => [link.source.id, link.target.id]), [[risk.id, control.id], [evidence.id, control.id]]);
   assert.deepEqual(graph.unresolved.map(item => [item.value, item.reason]), [["SHARED", "ambiguous"]]);
 });
+
+test("an uploaded evidence item with singular and plural control fields has one visible edge per control", () => {
+  const primary = { id: "control-id", code: "CTL-014", module: "Kontroller", data: {} };
+  const secondary = { id: "other-id", code: "CTL-015", module: "Kontroller", data: {} };
+  const file = { id: "file-id", module: "Kanıtlar", data: { controlRef: "CTL-014", controlRefs: ["control-id", "CTL-015"] } };
+  const graph = buildConnectedGrcGraph([primary, secondary, file]);
+  assert.deepEqual(graph.links.map(link => [link.target.id, link.field]), [[primary.id, "controlRef"], [secondary.id, "controlRefs"]]);
+});

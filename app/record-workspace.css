@@ -42,3 +42,26 @@
 }
 
 .shell.sidebar-expanded #fornost-navigation .nav-group-items button > span { white-space:normal!important; text-overflow:clip; line-height:1.35; }
+
+/* Give the selected risk and its relationships the first view during inspection. */
+.shell > main:has(.risk-register .record-workspace) > :is(.risk-overview,.module-head) { display:none!important; }
+.risk-register:has(.record-workspace) .register-toolbar { display:none; }
+.table-card:has(.record-workspace) { margin-top:16px; }
+.record-workspace .record-master { padding:18px 12px; }
+.record-workspace .record-master h3 { padding:0 8px 16px; font-size:clamp(17px,1.5vw,23px)!important; }
+.record-workspace .record-master button { display:flex; align-items:center; gap:12px; min-height:56px; border:0; border-radius:8px; padding:10px; box-shadow:none; }
+.record-master button svg { flex:none; width:21px; height:21px; color:var(--ws-brand); }
+.record-master button .record-master-identity { display:grid; gap:2px; }
+.record-master-identity b { color:var(--ws-ink); font-size:15px!important; line-height:1.3; }
+.record-master-identity small { font-size:11px; }
+.record-master button i { margin-inline-start:auto; font-style:normal; }
+.record-workspace .record-inspector { min-width:0; }
+.record-workspace .record-inspector > h3 { font-size:clamp(19px,1.8vw,26px)!important; }
+.record-inspector .assurance-chain { padding:4px 0 18px; }
+.record-inspector .assurance-chain ol { list-style:none; padding:0; }
+.record-inspector > dl, .record-inspector > ul { max-width:600px; }
+.record-inspector > dl div { justify-content:start; display:grid; grid-template-columns:minmax(95px,0.7fr) 1fr; }
+.record-inspector > dl dd { text-align:start; }
+@media(min-width:901px) {
+  .record-workspace { grid-template-columns:minmax(195px,.48fr) minmax(0,1fr); }
+}

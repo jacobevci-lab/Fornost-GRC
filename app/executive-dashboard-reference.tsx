@@ -13,6 +13,7 @@ import { assessedRiskScore } from "./risk-methodology";
 import type { AssuranceRow } from "./control-assurance";
 import { withBasePath } from "./base-path";
 import NavIcon from "./nav-icon";
+import { DashboardChain } from "./assurance-chain-view";
 import ExecutiveDecisionQueue, { orderDecisions, type DecisionQueueHandle } from "./executive-decision-queue";
 import { useDashboardDecisionCounts } from "./use-dashboard-decision-counts";
 import DashboardHeaderActions, { useDashboardView, PANEL_ORDER } from "./dashboard-customizer";
@@ -228,6 +229,9 @@ export default function ExecutiveAssurancePanel({
         <span>{tr ? "Yüklenemeyen göstergeler" : "Unavailable indicators"} · {failedSources.join(", ")}. </span>
         <button type="button" onClick={retry}>{tr ? "Yeniden dene" : "Retry"}</button>
       </div>}
+      {view.preferences.visible.actionCenter && <DashboardChain rows={rows} lang={lang} now={now}
+        highRisks={scoredRisks.filter(item => item.score >= 10).sort((a,b) => b.score - a.score).map(item => item.row)}
+        evidenceRows={evidenceState.rows} evidenceReady={evidenceState.evidenceReady}/>}
       <div className="executive-action-workspace">
         <ExecutiveDecisionQueue controls={decisionQueue} portfolio={evidenceState.auditPortfolio} entries={recordDecisions} lang={lang}
           hidden={!view.preferences.visible.actionCenter} completeAndClear={countsComplete && !knownSignals.length} />

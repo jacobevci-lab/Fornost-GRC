@@ -45,9 +45,12 @@ try{
    await trigger.click();
    const inspection = page.getByRole('region', {name:'Record inspection'});
    await expect(inspection).toBeVisible();
+   await expect(inspection.locator('.assurance-chain li[data-present="true"]')).toHaveCount(3);
+   await expect(inspection.locator('.assurance-chain li[data-connected="yes"]')).toHaveCount(2);
+   await inspection.screenshot({path:out + '/risk-chain-' + width + '.png', animations:'disabled'});
    if (width === 390) await expect(inspection.locator('.record-inspector h3')).toBeInViewport();
-   await inspection.locator('.record-inspector li button').filter({hasText:'Control Library'}).click();
-   await inspection.locator('.record-inspector li button').filter({hasText:'Evidence Library'}).click();
+   await inspection.locator('.assurance-chain [data-stage="1"] button.chain-node').click();
+   await inspection.locator('.assurance-chain [data-stage="2"] button.chain-node').click();
    await expect(inspection.locator('dd').filter({hasText:'v3'})).toBeVisible();
    await inspection.getByRole('button',{name:'Previous record'}).click();
    await expect(inspection.locator('.record-inspector > small')).toContainText('Control Library');

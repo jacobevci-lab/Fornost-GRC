@@ -77,12 +77,20 @@ try {
     return { id, module, record_code: id.toUpperCase(), data_json: JSON.stringify({ title, ...data }) };
   }
   records = [
-    record("rsk-024", "Risk Assessment", "Ayrıcalıklı hesaplarda erişim denetimi", { likelihood: 5, impact: 5, owner: "Bilgi Güvenliği" }),
+    record("rsk-024", "Risk Assessment", "Ayrıcalıklı hesaplarda erişim denetimi", { likelihood: 5, impact: 5, owner: "Bilgi Güvenliği", existingControls: "CTL-014" }),
+    record("ctl-014", "Kontroller", "Erişim kontrolü", { controlRef: "CTL-014" }),
+    record("evd-014", "Kanıtlar", "Erişim gözden geçirmesi", { controlRef: "CTL-014", expiresAt: "2024-01-01" }),
     record("aud-008", "Denetim Yönetimi", "Yedekten dönüş tatbikatının gözden geçirilmesi", { dueDate: "2025-10-12", owner: "İç Denetim" }),
     record("rsk-016", "Risk Assessment", "Kritik tedarikçide hizmet sürekliliği", { likelihood: 3, impact: 4, owner: "Tedarik Yönetimi" }),
     record("cmp-011", "Uyum", "Erişim haklarının dönemsel gözden geçirilmesi", { status: "Kısmi", owner: "Bilgi Teknolojileri" }),
     record("cmp-017", "Uyum", "Değişiklik kayıtlarında onay kanıtı", { status: "Kısmi", owner: "Altyapı" }),
   ];
+  const chainTime = new Date().toISOString();
+  await page.route("**/api/executive-assurance", route => route.fulfill({json: {
+    generatedAt: chainTime, verified: true, issues: [],
+    rows: [{id:"evd-014", module:"Kanıtlar", data:{title:"Erişim gözden geçirmesi", controlRef:"CTL-014", expiresAt:"2024-01-01", evidenceIntegrity:"verified"}}],
+    auditPortfolio:{audits:[], verified:true, issues:[], orphanRequirements:0, generatedAt:chainTime}
+  }}));
   escalationStatus = 200;
   findingBody = { count: 2 };
   await page.reload();
@@ -110,9 +118,21 @@ try {
   await expect(rows.nth(1).locator(".decision-reason")).toHaveText("Geciken denetim maddesi");
   const out = "dashboard-design-preview";
   await mkdir(out, { recursive: true });
+  const board = dashboard.locator(".chain-board");
+  await expect(board.locator('li[data-connected="yes"]')).toHaveCount(2);
+  await board.getByRole("button", {name:/Yenilenecek kanıt/}).click();
+  await expect(board.locator('[data-stage="2"]')).toContainText("Erişim gözden geçirmesi");
+  await board.getByRole("button", {name:/Yüksek veya kritik risk/}).click();
+  await board.getByRole("combobox", {name:"İncelenecek kayıt"}).selectOption("rsk-016");
+  await expect(board.locator('[data-stage="1"]')).toHaveAttribute("data-present","false");
+  await expect(board.locator('li[data-connected="yes"]')).toHaveCount(0);
+  await board.getByRole("combobox", {name:"İncelenecek kayıt"}).selectOption("rsk-024");
   for (const [theme, width] of [["light", 1440], ["dark", 390]]) {
     await page.setViewportSize({ width, height: 960 });
     if (await page.locator("html").getAttribute("data-theme") !== theme) await page.locator(".theme-toggle:visible").click();
+    assert.ok(await board.locator(".assurance-chain h4").evaluate(el => parseFloat(getComputedStyle(el).fontSize)) >= 20);
+    assert.ok(await board.locator(".chain-node strong").first().evaluate(el => parseFloat(getComputedStyle(el).fontSize)) >= 17);
+    await board.screenshot({ path: `${out}/risk-control-evidence-${width}.png` });
     const workspace = dashboard.locator(".executive-action-workspace");
     await expect(workspace).toBeVisible();
     assert.ok(await workspace.evaluate(el => el.getBoundingClientRect().top < el.parentElement.querySelector(".executive-dashboard-kpis").getBoundingClientRect().top));
