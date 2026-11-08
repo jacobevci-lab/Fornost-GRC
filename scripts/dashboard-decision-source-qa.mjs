@@ -118,21 +118,10 @@ try {
   await expect(rows.nth(1).locator(".decision-reason")).toHaveText("Geciken denetim maddesi");
   const out = "dashboard-design-preview";
   await mkdir(out, { recursive: true });
-  const board = dashboard.locator(".chain-board");
-  await expect(board.locator('li[data-connected="yes"]')).toHaveCount(2);
-  await board.getByRole("button", {name:/Yenilenecek kanıt/}).click();
-  await expect(board.locator('[data-stage="2"]')).toContainText("Erişim gözden geçirmesi");
-  await board.getByRole("button", {name:/Yüksek veya kritik risk/}).click();
-  await board.getByRole("combobox", {name:"İncelenecek kayıt"}).selectOption("rsk-016");
-  await expect(board.locator('[data-stage="1"]')).toHaveAttribute("data-present","false");
-  await expect(board.locator('li[data-connected="yes"]')).toHaveCount(0);
-  await board.getByRole("combobox", {name:"İncelenecek kayıt"}).selectOption("rsk-024");
   for (const [theme, width] of [["light", 1440], ["dark", 390]]) {
     await page.setViewportSize({ width, height: 960 });
     if (await page.locator("html").getAttribute("data-theme") !== theme) await page.locator(".theme-toggle:visible").click();
-    assert.ok(await board.locator(".assurance-chain h4").evaluate(el => parseFloat(getComputedStyle(el).fontSize)) >= 20);
-    assert.ok(await board.locator(".chain-node strong").first().evaluate(el => parseFloat(getComputedStyle(el).fontSize)) >= 17);
-    await board.screenshot({ path: `${out}/risk-control-evidence-${width}.png` });
+    await expect(dashboard.locator(".chain-board, .assurance-chain, .module-trail-panel")).toHaveCount(0);
     const workspace = dashboard.locator(".executive-action-workspace");
     await expect(workspace).toBeVisible();
     assert.ok(await workspace.evaluate(el => el.getBoundingClientRect().top < el.parentElement.querySelector(".executive-dashboard-kpis").getBoundingClientRect().top));

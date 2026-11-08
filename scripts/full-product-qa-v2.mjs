@@ -151,7 +151,7 @@ async function domAudit(page, area, locale) {
       const clippedWithoutScroller = !!wrapperRect && rect.width > wrapperRect.width + 4 && getComputedStyle(wrapper).overflowX === "visible";
       return { index, rows, headers, clippedWithoutScroller, caption: table.querySelector("caption")?.textContent?.trim() || "", ariaLabel: table.getAttribute("aria-label") || "" };
     });
-    const headingSizes = [...document.querySelectorAll(".shell>main h1,.shell>main h2,.shell>main h3")].filter(visible).map(el => ({ tag: el.tagName, relationshipSummary: el.matches(".chain-board .chain-summary > h3"), text: el.textContent?.trim(), size: parseFloat(getComputedStyle(el).fontSize) }));
+    const headingSizes = [...document.querySelectorAll(".shell>main h1,.shell>main h2,.shell>main h3")].filter(visible).map(el => ({ tag: el.tagName, text: el.textContent?.trim(), size: parseFloat(getComputedStyle(el).fontSize) }));
     const clippedHeaders = [...document.querySelectorAll(".shell>main header")].filter(visible).filter(header => {
       const bounds = header.getBoundingClientRect();
       return [...header.children].filter(visible).some(child => getComputedStyle(child).position !== "absolute" && getComputedStyle(child).position !== "fixed" && child.getBoundingClientRect().bottom > bounds.bottom + 8);
@@ -168,7 +168,7 @@ async function domAudit(page, area, locale) {
     };
   });
 
-  if (data.headingSizes.some(item => item.relationshipSummary ? item.size < 20 || item.size > 26 : item.size > (item.tag === "H2" ? 24 : item.tag === "H1" ? 20 : 18))) finding("high", area, "Workspace heading size outside its design range", JSON.stringify(data.headingSizes));
+  if (data.headingSizes.some(item => item.size > (item.tag === "H2" ? 24 : item.tag === "H1" ? 20 : 18))) finding("high", area, "Workspace heading size outside its design range", JSON.stringify(data.headingSizes));
   if (data.clippedHeaders.length) finding("high", area, "Header content overflows its container", JSON.stringify(data.clippedHeaders));
   if (data.pageOverflow) finding("high", area, "Horizontal page overflow", `${data.overflowPx}px beyond viewport`);
   if (data.emptyButtons.length) finding("high", area, "Visible buttons without accessible name", JSON.stringify(data.emptyButtons.slice(0, 6)));
@@ -226,6 +226,7 @@ async function auditLocale(page, locale) {
       const a11y = await axeAudit(page, area);
       let screenshot = "";
       if (i === 0) {
+        await expect(page.locator("main .chain-board, main .assurance-chain, main .module-trail-panel")).toHaveCount(0);
         const hierarchy = await page.evaluate(() => {
           const root = document.querySelector('.executive-dashboard-reference');
           const metrics = [...document.querySelectorAll('.executive-kpi>strong')];
@@ -260,13 +261,6 @@ async function auditLocale(page, locale) {
         (report.registerToolbar ??= {})[locale] = metrics;
         if (!metrics.viewsCollapsed || (metrics.tableWidth >= 1000 && (metrics.height > 64 || metrics.topSpread > 2))) {
           finding("high", area, "Register toolbar no longer fits the compact desktop row", JSON.stringify(metrics));
-        }
-      }
-      if (i === 0) {
-        const board = page.locator(".chain-board");
-        if (await board.count()) {
-          await expect(board).toBeVisible();
-          await board.screenshot({ path: path.join(screenshotsDir, locale + "-relationship-overview.png") });
         }
       }
       if (i === 2) {
