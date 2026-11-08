@@ -162,6 +162,8 @@ Open **Views → Saved views** in the register toolbar in Risk, BIA, Assets, Com
 
 Risk, BIA, varlık, uyum ve kontrol tablolarında kayıt kodunu seçerek ayrıntıları açabilirsiniz. Kanıt Kütüphanesi’nde **Ayrıntılar** kayıt bilgilerini, kanıt adı veya kodu dosya önizlemesini açar. Yetkiniz olan bağlı kayıtlar aynı panelde açılır. **Önceki kayıt** bağlantı boyunca geri gider. **Listeye dön** veya **Esc** başlangıçtaki aramaya, sıralamaya ve kaydırma konumuna döner. Telefonda kayıt ayrıntısı tek sütunda açılır.
 
+Gösterge Paneli’ndeki **Özet** bölümünde yüksek veya kritik riskleri ya da yenileme bekleyen kanıtları seçebilirsiniz. **Risk – Kontrol – Kanıt İlişkisi** görünümünde dolu çizgiler erişebildiğiniz kayıtların eşleşmiş bağlantılarını gösterir. Eksik halkalar kesikli gösterilir. Birden çok eşleşmiş kayıt varsa seçim kutusuyla diğerlerini inceleyebilirsiniz. Aynı görünüm risk, kontrol ve kanıt ayrıntılarında da bulunur.
+
 Riskin **Mevcut Kontroller** alanındaki kontrol kimliği, kodu veya benzersiz kontrol referansı bağlı kontrolü açabilir. Serbest metin açıklamaları ve birden çok kayda uyan referanslar tıklanabilir bağlantıya dönüşmez. Kanıt ayrıntısında kayıtlı sürümü ve ilişkilendirilmiş kontrolleri inceleyebilirsiniz.
 
 **Sistem Ayarları → Genel Ayarlar** altında kuruluş, TLS, oturum, hatırlatmalar ve örnek veriler konu listesinden seçilir. Formdaki değişiklikleri **Ayarları Kaydet** ile kaydedin.

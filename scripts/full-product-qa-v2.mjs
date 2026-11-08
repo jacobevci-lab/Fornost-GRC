@@ -262,6 +262,13 @@ async function auditLocale(page, locale) {
           finding("high", area, "Register toolbar no longer fits the compact desktop row", JSON.stringify(metrics));
         }
       }
+      if (i === 0) {
+        const board = page.locator(".chain-board");
+        if (await board.count()) {
+          await expect(board).toBeVisible();
+          await board.screenshot({ path: path.join(screenshotsDir, locale + "-relationship-overview.png") });
+        }
+      }
       if (i === 2) {
         const register = page.locator(".risk-register");
         const trigger = register.locator(".table-wrap button.record-open").first();
@@ -269,6 +276,7 @@ async function auditLocale(page, locale) {
           await trigger.click();
           const inspector = register.locator(".record-inspector");
           await expect(inspector.locator("h3")).toBeFocused();
+          await expect(inspector.locator(".assurance-chain li")).toHaveCount(3);
           await snap(page, locale + "-risk-record-inspector");
           await inspector.locator("h3").press("Escape");
           await expect(trigger).toBeFocused();

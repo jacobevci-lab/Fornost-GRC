@@ -2,6 +2,8 @@
 
 import { useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { buildConnectedGrcGraph, connectedTitle, type ConnectedGrcRow } from "./connected-grc-model";
+import NavIcon from "./nav-icon";
+import { AssuranceChain, hasAssuranceChain } from "./assurance-chain-view";
 import { assessedRiskScore } from "./risk-methodology";
 import { displayRecordCode } from "./record-codes";
 
@@ -70,6 +72,8 @@ export default function RecordWorkspace({ rows, visible, lang, moduleNames, form
       if (target) linked.set(target.id, target);
     }
   }
+  const showChain = !!selected && hasAssuranceChain(selected);
+  const otherLinks = Array.from(linked.values()).filter(row => !showChain || !hasAssuranceChain(row));
   const data = selected?.data || {};
   const riskScore = selected?.module === "Risk Assessment" ? assessedRiskScore(data) : null;
   const facts = [
@@ -92,7 +96,7 @@ export default function RecordWorkspace({ rows, visible, lang, moduleNames, form
         <h3>{tr ? "Kayıtlar" : "Records"} <small>{visible.length}</small></h3>
         <div>{visible.map(row => <button type="button" key={row.id} aria-current={root.id === row.id ? "true" : undefined}
           onClick={() => setPath([row.id])}>
-          <span>{displayRecordCode(row)}</span><b>{connectedTitle(row)}</b>
+          <NavIcon module={row.module}/><span className="record-master-identity"><small>{displayRecordCode(row)}</small><b>{connectedTitle(row)}</b></span><i aria-hidden="true">›</i>
         </button>)}</div>
       </div>
       <div className="record-inspector">
@@ -102,12 +106,13 @@ export default function RecordWorkspace({ rows, visible, lang, moduleNames, form
         </div>
         <small>{moduleNames[selected.module] || selected.module} · {displayRecordCode(selected)}</small>
         <h3 ref={title} tabIndex={-1}>{connectedTitle(selected)}</h3>
+        {showChain && graph && <AssuranceChain key={selected.id} inspector anchor={selected} links={graph.links} lang={lang} trail={path} openRecord={row => follow(row.id)}/>}
         <dl>{facts.map(([label, value]) => <div key={String(label)}><dt>{String(label)}</dt><dd>{formatValue(String(value), lang)}</dd></div>)}</dl>
         {selected.module === "Kanıtlar" && <button className="primary" type="button" onClick={() => preview(selected.id)}>{tr ? "Kanıtı önizle" : "Preview evidence"}</button>}
-        <h4>{tr ? "Bağlı kayıtlar" : "Linked records"}</h4>
-        {linked.size ? <ul>{Array.from(linked.values(), row => <li key={row.id}><button type="button" onClick={() => follow(row.id)}>
+        {(!showChain || otherLinks.length > 0) && <h4>{showChain ? (tr ? "Diğer bağlı kayıtlar" : "Other linked records") : (tr ? "Bağlı kayıtlar" : "Linked records")}</h4>}
+        {otherLinks.length ? <ul>{otherLinks.map(row => <li key={row.id}><button type="button" onClick={() => follow(row.id)}>
           <b>{connectedTitle(row)}</b><span>{moduleNames[row.module] || row.module} · {displayRecordCode(row)}</span>
-        </button></li>)}</ul> : <p>{tr ? "Bu kayda bağlı, görüntüleyebileceğin bir kayıt bulunamadı." : "No linked records are visible for this record."}</p>}
+        </button></li>)}</ul> : !showChain && <p>{tr ? "Bu kayda bağlı, görüntüleyebileceğin bir kayıt bulunamadı." : "No linked records are visible for this record."}</p>}
       </div>
     </section>}
   </>;
