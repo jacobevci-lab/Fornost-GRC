@@ -55,6 +55,7 @@ export function findingWorkDisposition(data: Record<string, unknown>, now: numbe
 /** Existing APIs are bounded. Reaching a bound or malformed data cannot establish a complete inbox. */
 export function workSourcesComplete(grc: unknown, findings: unknown): boolean {
   const rows = (grc as {rows?: unknown})?.rows, items = (findings as {findings?: unknown})?.findings;
+  if ((grc as { nextCursor?: unknown })?.nextCursor || (findings as { coverage?: { truncated?: boolean } })?.coverage?.truncated) return false;
   if (!Array.isArray(rows) || rows.length >= 5000 || !Array.isArray(items) || items.length >= 3000) return false;
   return rows.every(row => {
     if (!row || typeof row.id !== 'string' || !row.id || typeof row.module !== 'string' || !row.module) return false;

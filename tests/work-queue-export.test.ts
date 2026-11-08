@@ -27,6 +27,8 @@ test('source bounds and malformed records disable verified exports',()=>{
  assert.equal(workSourcesComplete({rows:[]},{findings:[]}),true);
  for(const rows of [null,[{...row,data_json:'broken'}],[{...row,data:[]}],Array.from({length:5000},()=>row)])assert.equal(workSourcesComplete({rows},{findings:[]}),false);
  assert.equal(workSourcesComplete({rows:[]},{findings:Array.from({length:3000},()=>finding)}),false);
+ assert.equal(workSourcesComplete({rows:[],nextCursor:"next"},{findings:[]}),false);
+ assert.equal(workSourcesComplete({rows:[]},{findings:[],coverage:{truncated:true}}),false);
  assert.equal(workSourcesComplete({},{}),false);
 });
 

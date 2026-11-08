@@ -324,6 +324,20 @@ async function auditLocale(page, locale) {
           report.overdueAuditDrilldown = { skipped: "management signals hidden" };
         }
       }
+      if (label === "Benim İşlerim" || label === "My Work") {
+        const inbox = page.locator(".my-work-v2");
+        const emptyHeading = inbox.getByRole("heading", { name: locale === "tr"
+          ? "Kişisel iş kuyruğunda açık işin yok." : "You have no open items in your personal queue.", exact: true });
+        const count = Number(await inbox.locator(".mw2-meta b").first().innerText());
+        const complete = !(await inbox.locator(".mw2-load-error").isVisible()) && Boolean((await inbox.locator(".mw2-footnote").innerText()).trim());
+        const personal = !(await inbox.getByRole("button", { name: locale === "tr" ? "Organizasyon" : "Organization", pressed: true, exact: true }).count());
+        const unfiltered = !(await inbox.locator(".mw2-module-filter select").first().inputValue());
+        if (personal && unfiltered) {
+          if (complete && count === 0) await expect(emptyHeading).toBeInViewport();
+          else await expect(emptyHeading).toHaveCount(0);
+          (report.personalInbox ??= {})[locale] = { complete, openCount: count, emptyHeading: await emptyHeading.isVisible() };
+        }
+      }
       report.locales[locale].push({ label, status: "ok", dom, a11y, screenshot });
     } catch (error) {
       report.locales[locale].push({ label, status: "error", error: error.message });
@@ -510,13 +524,21 @@ async function auditDashboardCustomization(browser) {
     await dialog.waitFor({ state: "hidden" });
     if (!(await page.locator('.executive-dashboard-grid[data-layout-mode="reference"]').count())) throw new Error("Reset did not restore the B layout");
     await page.setViewportSize({ width: 360, height: 800 });
+    const actions = page.getByRole("button", { name: "Actions", exact: true });
+    await expect(actions).toHaveAttribute("aria-expanded", "false");
+    await expect(trigger).toBeHidden();
+    await actions.click();
+    await expect(page.getByRole("button", { name: "Auditor Pack", exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Executive Report", exact: true })).toBeVisible();
     await trigger.click();
     const bounds = await dialog.boundingBox();
     if (!bounds || bounds.x < 0 || bounds.x + bounds.width > 361 || bounds.height > 800) throw new Error("Mobile customizer exceeds the viewport");
     await axeAudit(page, "dashboard-customization:mobile");
     await snap(page, "dashboard-customizer-mobile");
     await page.keyboard.press("Escape");
-    report.customization = { passed: true, checks: ["open", "escape", "visibility", "ordering", "density", "account persistence", "failed save", "reset", "mobile dialog"] };
+    await expect(actions).toBeFocused();
+    await expect(actions).toHaveAttribute("aria-expanded", "false");
+    report.customization = { passed: true, checks: ["open", "escape", "visibility", "ordering", "density", "account persistence", "failed save", "reset", "mobile actions and focus return", "mobile dialog"] };
   } catch (error) {
     const failedPage = context.pages()[0];
     if (failedPage) await snap(failedPage, "dashboard-customizer-failure").catch(() => {});

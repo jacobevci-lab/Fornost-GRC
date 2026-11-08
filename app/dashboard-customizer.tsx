@@ -54,9 +54,36 @@ export function useDashboardView() {
   return { preferences, status, loadFailed, save, reload: () => { setStatus("loading"); retry(value => value + 1); } };
 }
 
-export default function DashboardCustomizer({ lang, view }: { lang: "tr" | "en"; view: ReturnType<typeof useDashboardView> }) {
+export default function DashboardHeaderActions({ lang, view, onAuditorPack, onReport }: {
+  lang: "tr" | "en"; view: ReturnType<typeof useDashboardView>;
+  onAuditorPack: () => void; onReport: () => void;
+}) {
   const tr = lang === "tr";
   const dialog = useRef<HTMLDialogElement>(null);
+  const group = useRef<HTMLDivElement>(null);
+  const toggle = useRef<HTMLButtonElement>(null);
+  const [expanded, setExpanded] = useState(false);
+  useEffect(() => {
+    if (!expanded) return;
+    const closeOutside = (event: Event) => {
+      if (event.target instanceof Node && !group.current?.contains(event.target)) setExpanded(false);
+    };
+    const breakpoint = window.matchMedia("(max-width: 600px)");
+    const reset = () => setExpanded(false);
+    document.addEventListener("pointerdown", closeOutside);
+    document.addEventListener("focusin", closeOutside);
+    breakpoint.addEventListener("change", reset);
+    return () => {
+      document.removeEventListener("pointerdown", closeOutside);
+      document.removeEventListener("focusin", closeOutside);
+      breakpoint.removeEventListener("change", reset);
+    };
+  }, [expanded]);
+
+  const closeActions = () => {
+    if (expanded) toggle.current?.focus();
+    setExpanded(false);
+  };
   const [draft, setDraft] = useState(defaultDashboardView);
   const names: Record<WidgetId, string> = {
     frameworkReadiness: tr ? "Uyum portföyü" : "Compliance portfolio",
@@ -74,10 +101,26 @@ export default function DashboardCustomizer({ lang, view }: { lang: "tr" | "en";
     setDraft(current => ({ ...current, order: [...order, "actionCenter", "recentChanges"] }));
   };
   const close = () => dialog.current?.close();
-  return <>
-    <button type="button" className="dashboard-customize-trigger" disabled={view.status === "loading"} onClick={() => { setDraft(clone(view.preferences)); dialog.current?.showModal(); }}>
-      <span aria-hidden="true">⚙</span>{tr ? "Özelleştir" : "Customize"}
-    </button>
+  return <div className="executive-dashboard-header-actions">
+    <div className="dashboard-action-group" ref={group} onKeyDown={event => {
+      if (expanded && event.key === "Escape") {
+        event.preventDefault();
+        event.stopPropagation();
+        closeActions();
+      }
+    }}>
+      <button type="button" ref={toggle} className="dashboard-actions-toggle" aria-controls="dashboard-action-list"
+        aria-expanded={expanded} onClick={() => setExpanded(value => !value)}>
+        {tr ? "İşlemler" : "Actions"}<span aria-hidden="true">{expanded ? "▴" : "▾"}</span>
+      </button>
+      <div id="dashboard-action-list" className="dashboard-action-list" data-expanded={expanded}>
+        <button type="button" className="dashboard-customize-trigger" disabled={view.status === "loading"} onClick={() => { closeActions(); setDraft(clone(view.preferences)); dialog.current?.showModal(); }}>
+          <span aria-hidden="true">⚙</span>{tr ? "Özelleştir" : "Customize"}
+        </button>
+        <button type="button" onClick={() => { closeActions(); onAuditorPack(); }}>{tr ? "Denetçi Paketi" : "Auditor Pack"}<span aria-hidden="true">↗</span></button>
+        <button type="button" className="primary" onClick={() => { closeActions(); onReport(); }}>{tr ? "Yönetim Raporu" : "Executive Report"}<span aria-hidden="true">→</span></button>
+      </div>
+    </div>
     <dialog ref={dialog} className="dashboard-customizer-dialog" aria-labelledby="dashboard-customizer-title" onClick={event => { if (event.target === dialog.current) { const rect = dialog.current.getBoundingClientRect(); if (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) close(); } }}>
       <header><div><h2 id="dashboard-customizer-title">{tr ? "Dashboard'u özelleştir" : "Customize dashboard"}</h2><p>{tr ? "Bölümleri seçin, kartların sırasını ve yoğunluğunu düzenleyin." : "Choose sections, arrange cards and adjust density."}</p></div><button type="button" onClick={close} aria-label={tr ? "Kapat" : "Close"}>×</button></header>
       <div className="dashboard-customizer-body">
@@ -95,5 +138,5 @@ export default function DashboardCustomizer({ lang, view }: { lang: "tr" | "en";
       </div>
       <footer><button type="button" onClick={() => setDraft(defaultDashboardView())}>{tr ? "Varsayılana dön" : "Reset to default"}</button><button type="button" onClick={close}>{tr ? "İptal" : "Cancel"}</button><button type="button" className="primary" disabled={view.loadFailed || view.status === "loading" || view.status === "saving"} onClick={async () => { if (await view.save(draft)) close(); }}>{view.status === "saving" ? (tr ? "Kaydediliyor…" : "Saving…") : (tr ? "Görünümü kaydet" : "Save view")}</button></footer>
     </dialog>
-  </>;
+  </div>;
 }
