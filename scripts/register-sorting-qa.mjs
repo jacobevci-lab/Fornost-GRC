@@ -1,3 +1,4 @@
+import { openRegisterViews } from "./qa-browser-harness.mjs";
 import {chromium,expect} from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 import assert from 'node:assert/strict';
@@ -21,11 +22,38 @@ async function open(name){
 }
 const sort=()=>page.getByRole('combobox',{name:'Sort by',exact:true}),direction=()=>page.getByRole('combobox',{name:'Sort direction',exact:true});
 async function titles(){return page.locator('.table-card table tbody tr').evaluateAll(rows=>rows.map(row=>row.textContent.match(/QA order \d+/)?.[0]));}
-async function localPanel(){const p=page.locator('.saved-register-views');if(await p.getAttribute('open')===null)await p.locator(':scope>summary').click();return p;}
+async function localPanel(){await openRegisterViews(page);const p=page.locator('.saved-register-views');if(await p.getAttribute('open')===null)await p.locator(':scope>summary').click();return p;}
 try{
  const login=await context.request.post(base+'/api/auth',{headers:{origin:base},data:{action:'login',email:'qa-admin@fornost.test',password:qaPassword()}});assert.equal(login.status(),200);
  await page.route('**/api/grc',route=>route.request().method()==='GET'?route.fulfill({json:{rows:fixtures,nextCursor:null}}):route.continue());
  await page.goto(base);await expect(page.locator('.shell')).toBeVisible();await page.locator('.language-switch:visible').getByRole('button',{name:'EN',exact:true}).click();
+ await open('Risk Assessment');
+ await page.locator('.language-switch:visible').getByRole('button', {name:'TR', exact:true}).click();
+ const toolbar = page.locator('.risk-register .register-toolbar');
+ const views = toolbar.getByRole('button', {name:'Görünümler', exact:true});
+ await expect(toolbar.getByRole('status').filter({hasText:'3 kayıt'})).toBeVisible();
+ await expect(views).toHaveAttribute('aria-expanded','false');
+ await expect(toolbar.locator('.saved-register-views')).toBeHidden();
+ await expect(toolbar.locator('.account-views')).toBeHidden();
+ for (const width of [1440, 360, 390]) {
+   await page.setViewportSize({width, height:960});
+   const box = await toolbar.boundingBox();
+   if (width === 1440) {
+     const controls = await Promise.all([toolbar.locator('.register-search'), toolbar.getByRole('combobox',{name:'Sırala',exact:true}), toolbar.getByRole('button',{name:'Filtreler',exact:true}), toolbar.getByRole('button',{name:/Sütunlar/}), views].map(node=>node.boundingBox()));
+     assert.ok(controls.every(r=>r && r.height >= 35 && Math.abs(r.y-controls[0].y)<=2 && Math.abs(r.height-controls[0].height)<=2), JSON.stringify(controls));
+     assert.ok(box.height<=64, 'Closed toolbar must keep the first row of data close to the controls: '+box.height);
+   }
+   assert.ok(await toolbar.evaluate(el=>el.scrollWidth<=el.clientWidth+1), 'Toolbar fits the available width');
+   await page.locator('.risk-register').screenshot({path:`${out}/risk-toolbar-${width}.png`});
+ }
+ await views.press('Enter');
+ await expect(toolbar.locator('.saved-register-views > summary')).toBeVisible();
+ await toolbar.locator('.saved-register-views > summary').press('Escape');
+ await expect(views).toBeFocused();
+ await expect(views).toHaveAttribute('aria-expanded','false');
+ await page.setViewportSize({width:1440,height:1000});
+ await page.locator('.language-switch:visible').getByRole('button',{name:'EN',exact:true}).click();
+ checks.push('Risk toolbar: aligned desktop controls, real records directly below, responsive views disclosure and keyboard return');
  for(const [module,label,,titleKey,field] of modules){
   void titleKey;await open(label);await expect(sort()).toBeEnabled();await sort().selectOption(field);await direction().selectOption('asc');await expect.poll(titles).toEqual(['QA order 2','QA order 10','QA order 30']);
   await direction().selectOption('desc');await expect.poll(titles).toEqual(['QA order 10','QA order 2','QA order 30']);

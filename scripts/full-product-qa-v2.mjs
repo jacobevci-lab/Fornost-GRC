@@ -244,6 +244,24 @@ async function auditLocale(page, locale) {
           finding('high', area, 'Dashboard layout or metric hierarchy regressed', JSON.stringify(hierarchy));
         }
       }
+      if (label === "Risk Değerlendirmesi" || label === "Risk Assessment") {
+        const toolbar = page.locator(".risk-register .register-toolbar");
+        const metrics = await toolbar.evaluate(root => {
+          const controls = [...root.querySelectorAll(".register-search, .register-sort-controls select, .register-view-actions > button, .column-picker-wrap > button")];
+          const rects = controls.map(el => el.getBoundingClientRect());
+          return {
+            height: Math.round(root.getBoundingClientRect().height),
+            topSpread: Math.max(...rects.map(r => r.top)) - Math.min(...rects.map(r => r.top)),
+            viewsCollapsed: root.querySelector(".register-views-panel")?.hidden === true,
+            tableWidth: Math.round(root.getBoundingClientRect().width),
+            viewport: innerWidth,
+          };
+        });
+        (report.registerToolbar ??= {})[locale] = metrics;
+        if (!metrics.viewsCollapsed || (metrics.tableWidth >= 1000 && (metrics.height > 64 || metrics.topSpread > 2))) {
+          finding("high", area, "Register toolbar no longer fits the compact desktop row", JSON.stringify(metrics));
+        }
+      }
       if (i === 16) {
         // Sample node identity and geometry after loading. A hide/discover portal
         // loop recreates the panel continuously even when the page looks loaded.

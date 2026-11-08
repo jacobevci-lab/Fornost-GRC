@@ -1,3 +1,4 @@
+import { openRegisterViews } from "./qa-browser-harness.mjs";
 import { chromium, expect } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 import assert from 'node:assert/strict';
@@ -10,7 +11,7 @@ page.setDefaultTimeout(15000);page.on('pageerror',e=>errors.push(e.message));pag
 async function api(ctx,path,method='GET',data,status=200){const r=await ctx.request.fetch(base+path,{method,data,headers:{origin:base}});assert.equal(r.status(),status,await r.text());return r.json();}
 async function enter(p=page){await p.goto(base);await expect(p.locator('.shell')).toBeVisible();await p.locator('.language-switch:visible').getByRole('button',{name:'EN',exact:true}).click();}
 async function go(name,p=page){await p.locator(`nav button[aria-label="${name}"]`).evaluate(e=>e.click());}
-async function panel(p=page){const x=p.locator('.saved-register-views:visible');await expect(x).toHaveCount(1);if(await x.getAttribute('open')===null)await x.locator('summary').click();return x;}
+async function panel(p=page){await openRegisterViews(p);const x=p.locator('.saved-register-views:visible');await expect(x).toHaveCount(1);if(await x.getAttribute('open')===null)await x.locator('summary').click();return x;}
 const query=p=>p.getByRole('textbox',{name:'Search records',exact:true});
 try{
  await mkdir(out,{recursive:true});for(const ctx of [context,admin])await api(ctx,'/api/auth','POST',{action:'login',email:'qa-admin@fornost.test',password:qaPassword()});

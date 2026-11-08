@@ -52,6 +52,7 @@ import {
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
   useCallback,
+  useId,
   useEffect,
   useMemo,
   useRef,
@@ -4903,6 +4904,11 @@ function RegisterToolbar({
   const tr = lang === "tr",
     available = getAvailableRegisterColumns(module),
     filterKeys = registerFilterKeys[module] || [];
+  const toolbarId = useId();
+  const viewsButton = useRef<HTMLButtonElement>(null);
+  const [viewsScope, setViewsScope] = useState<string | null>(null);
+  const scopeKey = JSON.stringify([userId, module]);
+  const viewsOpen = viewsScope === scopeKey;
   const columnButtonRef = useRef<HTMLButtonElement>(null);
   const [pickerPosition, setPickerPosition] = useState<CSSProperties>({});
   const activeFilterCount = Object.values(filters).filter(Boolean).length;
@@ -4959,32 +4965,38 @@ function RegisterToolbar({
       ),
     ].sort((a, b) => a.localeCompare(b, lang === "tr" ? "tr" : "en"));
   return (
-    <div className="register-toolbar">
+    <div className="register-toolbar compact-register-toolbar">
       <div className="register-toolbar-main">
-        <div className="register-search">
-          <span aria-hidden="true">⌕</span>
-          <input
-            aria-label={tr ? "Kayıtlarda ara" : "Search records"}
-            placeholder={ui[lang].search}
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-          />
+        <div className="register-search-and-count">
+          <div className="register-search">
+            <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75"><circle cx="10.5" cy="10.5" r="6.5" /><path d="m16 16 5 5" /></svg>
+            <input
+              aria-label={tr ? "Kayıtlarda ara" : "Search records"}
+              placeholder={ui[lang].search}
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+            />
+          </div>
+          <strong className="register-result-count" role="status">
+            {sourceState === "ready" ? `${resultCount} ${ui[lang].record}` : sourceState === "loading" ? (tr ? "Yükleniyor…" : "Loading…") : (tr ? "Kayıt sayısı doğrulanamadı" : "Record count unavailable")}
+          </strong>
         </div>
         <div className="register-view-actions">
-          {setSort && <RegisterSortControls module={module} lang={lang} sort={sort} onChange={setSort} disabled={sourceState !== 'ready'} />}
+          {setSort && <RegisterSortControls compact module={module} lang={lang} sort={sort} onChange={setSort} disabled={sourceState !== 'ready'} />}
           <button
+            type="button" aria-expanded={filterPanelOpen} aria-controls={filterPanelOpen ? toolbarId + "-filters" : undefined}
             className={filterPanelOpen || activeFilterCount ? "active" : ""}
             onClick={() => {
               setFilterPanelOpen(!filterPanelOpen);
               setColumnPickerOpen(false);
             }}
           >
-            <span aria-hidden="true">▽</span>
             {tr ? "Filtreler" : "Filters"}
             {activeFilterCount > 0 && <b>{activeFilterCount}</b>}
           </button>
           <div className="column-picker-wrap">
             <button
+              type="button" aria-haspopup="dialog" aria-expanded={columnPickerOpen}
               ref={columnButtonRef}
               className={columnPickerOpen ? "active" : ""}
               onClick={() => {
@@ -4992,7 +5004,6 @@ function RegisterToolbar({
                 setFilterPanelOpen(false);
               }}
             >
-              <span aria-hidden="true">▥</span>
               {tr ? "Sütunlar" : "Columns"}
               <b>{selectedColumnKeys.length}</b>
             </button>
@@ -5036,16 +5047,26 @@ function RegisterToolbar({
               </div>
             )}
           </div>
-          <strong className="register-result-count" role="status">
-            {sourceState === "ready" ? `${resultCount} ${ui[lang].record}` : sourceState === "loading" ? (tr ? "Yükleniyor…" : "Loading…") : (tr ? "Kayıt sayısı doğrulanamadı" : "Record count unavailable")}
-          </strong>
+          {userId && <button type="button" ref={viewsButton} className={viewsOpen ? "active" : ""}
+            aria-expanded={viewsOpen} aria-controls={toolbarId + "-views"} onClick={() => {
+              setViewsScope(viewsOpen ? null : scopeKey);
+              setColumnPickerOpen(false);
+            }}>{tr ? "Görünümler" : "Views"}</button>}
         </div>
       </div>
-      {userId && <SavedRegisterViewsPanel userId={userId} module={module} lang={lang} focused={focused}
-        current={{query, filters, columns:selectedColumnKeys, ...(sort ? {sort} : {})}} schema={{filters:filterKeys,columns:available.map(column=>column.key),sortKeys:viewSortOptions(module).map(option=>option.key)}} labels={{...labelMap[lang],...Object.fromEntries(available.map(column=>[column.key,column[lang]]))}}
-        apply={view=>{setQuery(view.query);setFilters(view.filters);setSelectedColumnKeys(view.columns);setSort?.(view.sort);setColumnPickerOpen(false);setFilterPanelOpen(Object.keys(view.filters).length>0);}} />}
+      {userId && <div id={toolbarId + "-views"} className="register-views-panel" hidden={!viewsOpen} onKeyDown={event => {
+        if (event.key === "Escape" && !event.defaultPrevented) {
+          event.preventDefault();
+          setViewsScope(null);
+          viewsButton.current?.focus();
+        }
+      }}>
+        <SavedRegisterViewsPanel userId={userId} module={module} lang={lang} focused={focused}
+          current={{query, filters, columns:selectedColumnKeys, ...(sort ? {sort} : {})}} schema={{filters:filterKeys,columns:available.map(column=>column.key),sortKeys:viewSortOptions(module).map(option=>option.key)}} labels={{...labelMap[lang],...Object.fromEntries(available.map(column=>[column.key,column[lang]]))}}
+          apply={view=>{setQuery(view.query);setFilters(view.filters);setSelectedColumnKeys(view.columns);setSort?.(view.sort);setColumnPickerOpen(false);setFilterPanelOpen(Object.keys(view.filters).length>0);}} />
+      </div>}
       {filterPanelOpen && (
-        <div className="register-filters">
+        <div className="register-filters" id={toolbarId + "-filters"}>
           {filterKeys.map((key) => (
             <label key={key}>
               <span>{labelMap[lang][key] || key}</span>

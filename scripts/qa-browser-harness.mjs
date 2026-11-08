@@ -95,3 +95,8 @@ export async function openQaModule(page, label) {
   else await page.waitForFunction(expected => document.querySelector('main>header h1')?.textContent?.trim() === expected, label);
   await waitForQaIdle(page);
 }
+
+export async function openRegisterViews(page) {
+  const toggle = page.locator(".compact-register-toolbar:visible").getByRole("button", { name: /^(Views|Görünümler)$/ });
+  if (await toggle.count() && await toggle.getAttribute("aria-expanded") === "false") await toggle.click();
+}
