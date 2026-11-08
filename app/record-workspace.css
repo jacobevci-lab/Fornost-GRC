@@ -7,8 +7,8 @@
 .record-master button, .record-inspector li button { display:grid; width:100%; gap:3px; text-align:start; color:inherit; background:transparent; border:0; border-top:1px solid var(--ws-line); padding:12px 16px; border-radius:0; overflow-wrap:anywhere; }
 .record-master button[aria-current], .record-master button:hover, .record-inspector li button:hover { background:var(--ws-surface-2); box-shadow:inset 3px 0 var(--ws-brand); }
 .record-inspector { padding:18px clamp(16px, 2.5vw, 36px) 26px; overflow-wrap:anywhere; }
-.record-inspector nav { display:flex; flex-wrap:wrap; gap:12px; margin:0 0 18px; }
-.record-inspector nav button, .table-wrap button.record-open { color:var(--ws-brand); background:transparent; border:0; padding:3px 0; font:inherit; font-weight:650; text-align:start; text-decoration:underline; text-underline-offset:3px; }
+.record-inspector .record-trail { display:flex; flex-wrap:wrap; gap:12px; margin:0 0 18px; }
+.record-inspector .record-trail button, .table-wrap button.record-open { color:var(--ws-brand); background:transparent; border:0; padding:3px 0; font:inherit; font-weight:650; text-align:start; text-decoration:underline; text-underline-offset:3px; }
 .record-inspector h3 { margin:5px 0 16px; font-size:clamp(18px,2vw,25px); line-height:1.22; }
 .record-inspector h4 { margin:20px 0 8px; font-size:15px; }
 .record-inspector dl { margin:0 0 14px; }
@@ -20,9 +20,10 @@
 .table-wrap[hidden] { display:none!important; }
 .table-wrap .evidence-details-link { display:block; margin-top:3px; }
 @media(max-width:740px) {
-  .record-workspace { display:block; }
+  .record-workspace { display:block; min-height:calc(100dvh - 68px); scroll-margin-top:68px; }
+  .table-card:has(.record-workspace) .register-toolbar { display:none; }
   .record-master { display:none; }
-  .record-inspector nav button, .record-inspector li button, .table-wrap .record-open { min-height:44px; }
+  .record-inspector .record-trail button, .record-inspector li button, .table-wrap .record-open { min-height:44px; }
 }
 
 .system-topic-workspace { display:grid; grid-template-columns:minmax(145px, 210px) minmax(0, 1fr); gap:clamp(12px,2vw,24px); align-items:start; }
@@ -39,3 +40,5 @@
   .system-topics { display:flex; flex-wrap:wrap; }
   .system-topics button { min-height:44px; }
 }
+
+.shell.sidebar-expanded #fornost-navigation .nav-group-items button > span { white-space:normal!important; text-overflow:clip; line-height:1.35; }

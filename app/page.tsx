@@ -4998,7 +4998,7 @@ function RegisterToolbar({
             />
           </div>
           <strong className="register-result-count" role="status">
-            {sourceState === "ready" ? `${resultCount} ${ui[lang].record}` : sourceState === "loading" ? (tr ? "Yükleniyor…" : "Loading…") : (tr ? "Kayıt sayısı doğrulanamadı" : "Record count unavailable")}
+            {sourceState === "ready" ? `${resultCount} ${!tr && resultCount === 1 ? "record" : ui[lang].record}` : sourceState === "loading" ? (tr ? "Yükleniyor…" : "Loading…") : (tr ? "Kayıt sayısı doğrulanamadı" : "Record count unavailable")}
           </strong>
         </div>
         <div className="register-view-actions">

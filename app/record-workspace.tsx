@@ -31,7 +31,11 @@ export default function RecordWorkspace({ rows, visible, lang, moduleNames, form
   useLayoutEffect(() => {
     if (!open) return;
     title.current?.focus({ preventScroll: true });
-    title.current?.scrollIntoView({ block: "nearest" });
+    if (window.matchMedia("(max-width: 740px)").matches) {
+      title.current?.closest(".record-workspace")?.scrollIntoView({ block: "start" });
+    } else {
+      title.current?.scrollIntoView({ block: "nearest" });
+    }
   }, [open, selectedId]);
 
   function inspect(row: ConnectedGrcRow, button: HTMLButtonElement) {
@@ -92,10 +96,10 @@ export default function RecordWorkspace({ rows, visible, lang, moduleNames, form
         </button>)}</div>
       </div>
       <div className="record-inspector">
-        <nav aria-label={tr ? "Kayıt gezinmesi" : "Record navigation"}>
+        <div className="record-trail" role="group" aria-label={tr ? "Kayıt gezinmesi" : "Record navigation"}>
           <button type="button" onClick={close}>{tr ? "Listeye dön" : "Back to list"}</button>
           {path.length > 1 && <button type="button" onClick={() => setPath(current => current.slice(0,-1))}>{tr ? "Önceki kayıt" : "Previous record"}</button>}
-        </nav>
+        </div>
         <small>{moduleNames[selected.module] || selected.module} · {displayRecordCode(selected)}</small>
         <h3 ref={title} tabIndex={-1}>{connectedTitle(selected)}</h3>
         <dl>{facts.map(([label, value]) => <div key={String(label)}><dt>{String(label)}</dt><dd>{formatValue(String(value), lang)}</dd></div>)}</dl>

@@ -45,6 +45,7 @@ try{
    await trigger.click();
    const inspection = page.getByRole('region', {name:'Record inspection'});
    await expect(inspection).toBeVisible();
+   if (width === 390) await expect(inspection.locator('.record-inspector h3')).toBeInViewport();
    await inspection.locator('.record-inspector li button').filter({hasText:'Control Library'}).click();
    await inspection.locator('.record-inspector li button').filter({hasText:'Evidence Library'}).click();
    await expect(inspection.locator('dd').filter({hasText:'v3'})).toBeVisible();
