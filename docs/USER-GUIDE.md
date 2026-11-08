@@ -164,6 +164,8 @@ Risk, BIA, varlık, uyum ve kontrol tablolarında kayıt kodunu seçerek ayrınt
 
 Gösterge Paneli’ndeki **Özet** bölümünde yüksek veya kritik riskleri ya da yenileme bekleyen kanıtları seçebilirsiniz. **Risk – Kontrol – Kanıt İlişkisi** görünümünde dolu çizgiler erişebildiğiniz kayıtların eşleşmiş bağlantılarını gösterir. Eksik halkalar kesikli gösterilir. Birden çok eşleşmiş kayıt varsa seçim kutusuyla diğerlerini inceleyebilirsiniz. Aynı görünüm risk, kontrol ve kanıt ayrıntılarında da bulunur.
 
+**Bağlantı zinciri** bölümünü BIA, Varlık, Uyum, Denetim, Tedarikçi, Bulgular ve CAPA, Olay, Süreklilik, Politika, Regülasyon, KRI, Kanıt Otomasyonu ve yetkili AI Yönetişimi ekranlarında açabilirsiniz. Başlangıç kaydını seçin. Birden çok bağlantı varsa bir sonraki halkayı değiştirin. **Zinciri devam ettir** sonraki kaydı gösterir. Bir halkaya tıklayarak o kayıttan keşfe başlayabilir, **Önceki kayda dön** ile geri gidebilirsiniz. Tedarikçi, bulgu, olay ve politika ayrıntılarında zincir açık kayıttan başlar. Bağlantılı GRC Haritası seçili kayıt için aynı görseli sunar. Erişimi belirli modüllerle sınırlı kullanıcılar yalnız yetkili temel kayıtları görebilir; kısmi kaynak sonuçları ekranda belirtilir.
+
 Riskin **Mevcut Kontroller** alanındaki kontrol kimliği, kodu veya benzersiz kontrol referansı bağlı kontrolü açabilir. Serbest metin açıklamaları ve birden çok kayda uyan referanslar tıklanabilir bağlantıya dönüşmez. Kanıt ayrıntısında kayıtlı sürümü ve ilişkilendirilmiş kontrolleri inceleyebilirsiniz.
 
 **Sistem Ayarları → Genel Ayarlar** altında kuruluş, TLS, oturum, hatırlatmalar ve örnek veriler konu listesinden seçilir. Formdaki değişiklikleri **Ayarları Kaydet** ile kaydedin.

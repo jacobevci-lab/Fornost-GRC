@@ -105,6 +105,8 @@ import "./product-experience.css";
 import "./theme-integrity.css";
 import "./workspace-simplicity.css";
 import RecordWorkspace from "./record-workspace";
+import { ModuleTrailPanel, ModuleTrailContext } from "./module-record-trail-view";
+import { moduleTrailSources } from "./module-record-trail";
 import "./record-workspace.css";
 import "./record-dialog.css";
 import {useRecordDialog} from "./use-record-dialog";
@@ -2015,6 +2017,8 @@ function FornostApp({ currentUser }: { currentUser: any }) {
           </div>
         </div>
       )}
+      <ModuleTrailContext.Provider value={{rows:readableRows,lang,label:module => names[lang][module] || module,scoped,
+        includeAi:active==="AI Yönetişimi" && currentUser.role==="Admin",coreState:registerLoadState,retryCore:()=>void load()}}>
       <main>
         <RecordLinkEntry ready={pageRestored} lang={lang} scoped={scoped} />
         <header>
@@ -2149,6 +2153,12 @@ function FornostApp({ currentUser }: { currentUser: any }) {
           <button type="button" onClick={returnFromRecord}>{lang === "tr" ? "Önceki görünüme dön" : "Return to previous view"}</button>
           <button type="button" onClick={() => { showRegisterWithoutFocus(); setQuery(""); setRegisterFilters({}); }}>{lang === "tr" ? "Tüm kayıtları göster" : "Show all records"}</button>
         </section>}
+        {pageRestored && Object.hasOwn(moduleTrailSources, active) && canOpenModule(currentUser,active) &&
+          (active !== "AI Yönetişimi" || currentUser.role === "Admin") &&
+          <ModuleTrailPanel key={JSON.stringify([active,currentUser.id,currentUser.role,currentUser.moduleAccess])}
+            module={active} rows={readableRows} lang={lang} label={module => names[lang][module] || module}
+            scoped={scoped} includeAi={active === "AI Yönetişimi" && currentUser.role === "Admin"} coreState={registerLoadState}
+            retryCore={() => void load()} focusedId={focusedRecord?.id}/>}
         {!canOpenModule(currentUser,active) ? <section className="module-scope-home"><h2>{lang==="tr"?"Bu modüle erişiminiz yok":"Module access is unavailable"}</h2><button onClick={()=>navigateToModule("Ana Sayfa")}>{lang==="tr"?"Ana sayfa":"Home"}</button></section> : active === "Ana Sayfa" && (!pageRestored || registerLoadState !== "ready") ? (
           <section className="module-scope-home" role="status" aria-busy={registerLoadState !== "error"}>
             {registerLoadState === "error" ? <>
@@ -2357,7 +2367,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
             </section>
           </>
         )}
-      </main>
+      </main></ModuleTrailContext.Provider>
       {modal && (
         <div className="overlay" onMouseDown={closeRecordDialog}>
           <div data-escape-layer

@@ -14,6 +14,7 @@ import { navigateToFornost, FORNOST_FOCUS_EVENT, peekPendingFornostFocus, consum
 import { assuranceWorkFocus } from "./assurance-work-focus";
 import { connectedSourceIssueText } from "./connected-grc-source-status";
 import { loadConnectedGrcSources } from "./connected-grc-loader";
+import { RecordTrail } from "./module-record-trail-view";
 import "./connected-grc-contract.css";
 import "./connected-assurance-posture.css";
 import "./connected-grc-explorer.css";
@@ -24,7 +25,7 @@ const ignored = new Set(["Ana Sayfa","Bağlantılı GRC","Raporlar"]);
 
 export default function ConnectedGrc({rows,lang,go,includeAi=false}:{rows:ConnectedGrcRow[];lang:Lang;go:(module:string)=>void;includeAi?:boolean}){
   const tr=lang==="tr",[module,setModule]=useState("all"),[query,setQuery]=useState("");
-  const moduleLabel=(name:string)=>tr?name:(moduleNames[name]||name);
+  const moduleLabel=(name:string)=>tr?(name==="Risk Assessment"?"Risk Değerlendirmesi":name):(moduleNames[name]||name);
   const [view,setView]=useState<"explore"|"gaps"|"assurance">("explore");
   const [workItemId,setWorkItemId]=useState<string|null>(null);
   useEffect(()=>{
@@ -154,7 +155,7 @@ export default function ConnectedGrc({rows,lang,go,includeAi=false}:{rows:Connec
         </section>
         <section className="cg-detail" aria-label={tr?"Seçili kaydın bağlantıları":"Selected record connections"}>
           <header><small>{tr?"2. Bağlantıları incele":"2. Explore its connections"}</small>{selected?<><h3>{connectedTitle(selected)}</h3><p>{selected.code||selected.id} · {moduleLabel(selected.module)}</p><button type="button" onClick={()=>openRecord(selected)}>{tr?"Kaydı aç":"Open record"} ↗</button></>:<h3>{tr?"Bir kayıt seçin":"Choose a record"}</h3>}</header>
-          {selected&&<><div className="cg-connection-count">{selectedLinks.length} {tr?"doğrudan bağlantı":"direct connections"}</div>
+          {selected&&<><RecordTrail key={selected.id} root={selected} links={links} lang={lang} label={moduleLabel} openRecord={followConnection}/><div className="cg-connection-count">{selectedLinks.length} {tr?"doğrudan bağlantı":"direct connections"}</div>
           <div className="cg-connections">{selectedLinks.slice(0,linkLimit).map((link,index)=>{
             const outgoing=link.source.id===selected.id,other=outgoing?link.target:link.source;
             return <article key={`${other.id}-${link.relation}-${index}`}><div><small>{outgoing?(tr?"Bu kayıttan →":"From this record →"):(tr?"Bu kayda ←":"To this record ←")} {connectedRelationLabels[link.relation]?.[lang]||link.relation}</small><button type="button" className="cg-follow" onClick={()=>followConnection(other)} aria-label={`${tr?'Bağlantılarını göster':'Explore connections'}: ${connectedTitle(other)} · ${other.code||other.id} · ${moduleLabel(other.module)}`}>{connectedTitle(other)}</button><span>{other.code||other.id} · {moduleLabel(other.module)}</span></div><button type="button" onClick={()=>openRecord(other)} aria-label={`${tr?'Kaydı aç':'Open record'}: ${connectedTitle(other)} · ${other.code||other.id} · ${moduleLabel(other.module)}`}>{tr?"Aç":"Open"} ↗</button></article>;
