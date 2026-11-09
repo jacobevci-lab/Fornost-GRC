@@ -85,11 +85,7 @@ test("integration overview routes users to specialist workspaces instead of dupl
 
 test("new security connector action opens the guided wizard after module navigation", () => {
   assert.match(overview, /function openConnectorWizard\(\)/);
-  assert.match(overview, /navigateToFornost\("Kanıt Otomasyonu"\)/);
-  assert.match(overview, /querySelector<HTMLButtonElement>\("main \.cow-launch"\)/);
-  assert.match(overview, /launch\.click\(\)/);
-  assert.match(overview, /attempts < 24/);
-  assert.match(overview, /window\.setTimeout\(open, 90\)/);
+  assert.match(overview, /navigateToFornost\(\{ module: "Kanıt Otomasyonu", kind: "connector-setup" \}\)/);
   assert.match(overview, /onClick=\{openConnectorWizard\}/);
 });
 

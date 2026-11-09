@@ -100,7 +100,7 @@ try {
   await expect(preview.getByRole('link', { name: /Download/ })).toHaveAttribute('href', /\/api\/evidence\?key=/);
   await page.keyboard.press('Escape'); await expect(preview).toBeHidden();
   await page.locator('nav button[aria-label="Evidence Automation"]').evaluate(el => el.click());
-  await page.locator('.ea-tabs').getByRole('button', { name: 'Evidence History', exact: true }).click();
+  await page.locator('.ea-tabs summary').click();await page.locator('.ea-tabs').getByRole('button', { name: 'Evidence History', exact: true }).click();
   const historyPanel = page.locator('.eh-panel');
   await expect(historyPanel.locator('.eh-retained')).toContainText('removed records');
   const retainedRow = historyPanel.locator('.eh-list article').filter({ has: page.locator('.eh-version span', { hasText: removedId }) }).first();

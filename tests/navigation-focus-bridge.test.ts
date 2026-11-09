@@ -70,7 +70,7 @@ test("evidence automation focus resolves semantic bilingual tabs before index fa
   assert.match(bridge, /"çalıştırma geçmişi"/);
   assert.match(bridge, /"run history"/);
   assert.match(bridge, /semantic \|\| tabs\[evidenceAutomationTabFallback\[kind\]\]/);
-  assert.match(bridge, /\.ea-tabs > button/);
+  assert.match(bridge, /\.ea-tabs button\[data-ea-tab\]/);
   assert.match(bridge, /targetTab\.click\(\)/);
   assert.match(bridge, /\.ea-table tbody tr/);
   assert.match(bridge, /highlightRows\(rows, match\)/);

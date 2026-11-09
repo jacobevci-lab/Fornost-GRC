@@ -358,11 +358,13 @@ async function auditLocale(page, locale) {
           finding('high', area, 'Evidence catalog is stacked with secondary workspaces');
         }
         for (const name of locale === 'tr' ? ['Güvence', 'Kanıt Geçmişi'] : ['Assurance', 'Evidence History']) {
+          await tabs.locator('summary').click();
           await tabs.getByRole('button', {name, exact:true}).click();
           await page.waitForTimeout(450);
           await domAudit(page, `${area}:${name}`, locale);
           await snap(page, `${locale}-evidence-${name}`);
         }
+        await tabs.locator('summary').click();
         await tabs.getByRole('button', {name: locale === 'tr' ? 'Connector Kataloğu' : 'Connector Catalog', exact:true}).click();
       }
       if (representativeIndexes.includes(i)) screenshot = await snap(page, `${locale}-${label}`, i === 0);
