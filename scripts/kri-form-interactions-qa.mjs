@@ -9,7 +9,7 @@ const browser=await chromium.launch({executablePath:process.env.QA_CHROMIUM_PATH
 try{
  for(const lang of ['en','tr']){
   const page=await browser.newPage();page.setDefaultTimeout(10000);
-  let posts=0,mode='reject',release;
+  let posts=0,mode='reject',release,readMode='error';
   const errors=[];page.on('pageerror',e=>{errors.push(e.message);console.error('KRI harness page error:',e.message);});
   await page.route('http://kri.test/**',async route=>{
    const req=route.request();
@@ -19,10 +19,38 @@ try{
      if(mode==='reject')await route.fulfill({status:422,json:{error:'Correct this test field'}});
      else if(mode==='uncertain')await route.abort();
      else await route.fulfill({json:{message:'Saved'}});
-    }else await route.fulfill({json:{appetites:[{id:'qa',code:'QA',category:'cyber',kriName:'Availability',statement:'QA statement',metricUnit:'%',direction:'upper',appetiteTarget:0,warningThreshold:5,breachThreshold:10,owner:'qa@example.test',reviewer:'reviewer@example.test',frequencyDays:30,status:'approved',latestValue:0,latestBand:'green',openBreaches:0,measurementCount:0,attention:'approved'}]}});
+    }else if(readMode==='error'){
+     await route.fulfill({status:503,json:{error:'Unavailable'}});
+    }else await route.fulfill({json:{
+     summary:{total:1,approved:1,breached:0,warning:0,measurementDue:0,openBreaches:0,overdueBreaches:0,scenarioAtRisk:0},
+     linkedRisks:[{id:'1',title:'Unscored risk',category:'',owner:'',score:null},{id:'2',title:'Assessed risk',category:'Security',owner:'Risk team',score:12}],
+     measurements:[],breaches:[],scenarios:[],snapshots:[],appetites:[{id:'qa',code:'QA',category:'cyber',kriName:'Availability',statement:'QA statement',metricUnit:'%',direction:'upper',appetiteTarget:0,warningThreshold:5,breachThreshold:10,owner:'qa@example.test',reviewer:'reviewer@example.test',frequencyDays:30,status:'approved',latestValue:0,latestBand:'green',openBreaches:0,measurementCount:0,attention:'approved'}]}});
    }else await route.fulfill({contentType:'text/html',body:`<html><head><style>:root{--cc-line:#777;--cc-ink:#222;--cc-muted:#444;--cc-surface-2:#eee;--cc-elevated:white}.overlay{position:fixed;inset:0;background:#bbb;display:grid;place-items:center}.modal{background:white}${css}</style></head><body><div id="root"></div><script>${js}</script></body></html>`});
   });
   await page.goto(`http://kri.test/?${lang}`);
+  await expect(page.getByRole('alert')).toBeVisible();
+  await expect(page.locator('.rap-stages')).toHaveCount(0);
+  readMode='ok';await page.getByRole('button',{name:lang==='tr'?'Tekrar dene':'Retry'}).click();
+  const sections=page.locator('.rap-sections button');
+  await expect(sections).toHaveCount(6);
+  const stages=page.locator('.rap-stages > section');
+  await expect(stages).toHaveCount(3);
+  await expect(stages.locator('dd')).toHaveText(['1','0','0','0','0','0']);
+  const rows=page.locator('.rap-risk-register tbody tr');
+  await expect(rows.nth(0).locator('th')).toHaveText('Assessed risk');
+  await expect(rows.nth(1).locator('td')).toHaveText(['—','—','—']);
+  for(const width of [1440,390]){
+   await page.setViewportSize({width,height:900});
+   const rects=await stages.evaluateAll(nodes=>nodes.map(node=>node.getBoundingClientRect().top));
+   assert.equal(new Set(rects).size,width===1440?1:3,'KRI stages adapt to available width');
+   assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)<=2);
+   for(const index of [1,2,3,4,5,0]){
+    await sections.nth(index).click();
+    await expect(sections.nth(index)).toHaveAttribute('aria-current','page');
+    await expect(page.locator(index===0?'.rap-monitor':'.rap-section-content table')).toBeVisible();
+   }
+  }
+  await page.locator('.rap-jump').click();await expect(sections.nth(1)).toHaveAttribute('aria-current','page');
   await page.getByRole('button',{name:lang==='tr'?'Stres Senaryoları':'Stress Scenarios',exact:true}).click();
   await page.getByRole('button',{name:lang==='tr'?'+ Senaryo':'+ Scenario',exact:true}).click();
   let dialog=page.getByRole('dialog');
