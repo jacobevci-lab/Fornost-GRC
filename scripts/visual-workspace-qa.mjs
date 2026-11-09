@@ -105,9 +105,9 @@ try {
   }
   await page.locator('.language-switch:visible').getByRole('button', { name: 'EN', exact: true }).click();
   await open('Risk Appetite & KRI');
-  await expect(page.locator('.rap-grid>section').nth(1).locator('h3')).toHaveText('Inherent risk overview');
+  await expect(page.locator('.rap-risk-register h3')).toHaveText('Inherent risk overview');
   const riskContext=await (await context.request.get(base+'/api/risk-appetite')).json();
-  await expect(page.locator('.rap-grid>section').nth(1).locator('header>span')).toHaveText(String(riskContext.linkedRisks.length));
+  await expect(page.locator('.rap-risk-register header>span')).toHaveText(riskContext.linkedRisks.length>10 ? `10 / ${riskContext.linkedRisks.length}` : String(riskContext.linkedRisks.length));
   const coreRisks=(await (await context.request.get(base+'/api/grc')).json()).rows.filter(r=>r.module==='Risk Assessment');
   for(const risk of riskContext.linkedRisks){
     const data=JSON.parse(coreRisks.find(r=>r.id===risk.id).data_json);
