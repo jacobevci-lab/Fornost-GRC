@@ -59,6 +59,7 @@ try{
   assert.equal(evidenceSnapshot.auditPortfolio.audits.find(a=>a.id===auditId).gate,'not-ready');
   assert.equal(evidenceSnapshot.auditPortfolio.audits.find(a=>a.id===auditId).requirements,1);
   assert.equal(evidenceSnapshot.auditPortfolio.audits.find(a=>a.id===emptyAuditId).gate,'empty');
+  await executive.locator(".report-details>summary").click();
   const portfolio=executive.locator('.audit-readiness-portfolio');await portfolio.locator(':scope > summary').click();
   while(await portfolio.getByRole('button',{name:'Show more audits',exact:true}).count())await portfolio.getByRole('button',{name:'Show more audits',exact:true}).click();
   const portfolioAudit=portfolio.locator(`[data-audit-id="${auditId}"]`);await expect(portfolioAudit).toContainText('Not ready');

@@ -51,7 +51,7 @@ test("risk form exposes title, affected asset and owner while keeping assessment
   assert.match(progressiveForm, /sameDomainModule\(heading, "Risk Assessment"\)/);
   assert.match(progressiveForm, /"başlık \/ ad", "title \/ name", "sahibi", "owner", "ilgili varlık", "related asset"/);
   assert.match(progressiveForm, /Hızlı risk kaydı/);
-  assert.match(progressiveForm, /Olay · etkilenen varlık · sahip ile kaydet/);
+  assert.match(progressiveForm, /Olayı, sorumluyu ve varsa etkilenen varlığı kaydedin/);
   assert.match(progressiveForm, /relaxQuickRiskRequirements\(groups\.advanced\)/);
   assert.match(progressiveForm, /restoreQuickRiskRequirements\(groups\.advanced\)/);
 });

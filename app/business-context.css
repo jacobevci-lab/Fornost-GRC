@@ -1,0 +1,13 @@
+.business-context{margin:16px 0 20px;min-width:0}
+.business-context>h4{margin:0 0 10px}
+.business-context-stages{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,160px),1fr));gap:8px}
+.business-context-stages>section{min-width:0;background:var(--ws-surface);border:1px solid var(--ws-line);border-top:2px solid var(--ws-brand);border-radius:8px;padding:10px}
+.business-context-stages h5{margin:0 0 9px;font-size:13px}.business-context-stages p,.business-context .context-via{color:var(--ws-muted);margin:0;overflow-wrap:anywhere}
+.business-context-stages ul{display:grid;list-style:none;gap:8px;margin:0;padding:0}
+.business-context-stages li{min-width:0}.business-context-stages button{display:flex;gap:6px;align-items:center;background:var(--ws-brand-soft);border:1px solid var(--ws-line);border-radius:6px;padding:6px 7px;width:100%;text-align:start;color:var(--ws-ink)}
+.business-context-stages button:disabled{opacity:1;color:var(--ws-ink);cursor:default}.business-context-stages button span{display:grid;min-width:0;overflow-wrap:anywhere}
+.business-context-stages svg{width:17px;height:17px;flex-shrink:0}.business-context-stages small{color:var(--ws-muted)}
+html[data-theme] body .shell>main .business-context-stages li button b{font-size:13px!important}
+@media (max-width:600px){.business-context-stages{grid-template-columns:1fr 1fr}}
+
+.business-context-stages ul{max-height:20rem;overflow-y:auto}

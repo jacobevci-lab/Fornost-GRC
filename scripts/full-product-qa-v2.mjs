@@ -151,7 +151,7 @@ async function domAudit(page, area, locale) {
       const clippedWithoutScroller = !!wrapperRect && rect.width > wrapperRect.width + 4 && getComputedStyle(wrapper).overflowX === "visible";
       return { index, rows, headers, clippedWithoutScroller, caption: table.querySelector("caption")?.textContent?.trim() || "", ariaLabel: table.getAttribute("aria-label") || "" };
     });
-    const headingSizes = [...document.querySelectorAll(".shell>main h1,.shell>main h2,.shell>main h3")].filter(visible).map(el => ({ tag: el.tagName, text: el.textContent?.trim(), size: parseFloat(getComputedStyle(el).fontSize) }));
+    const headingSizes = [...document.querySelectorAll(".shell>main h1,.shell>main h2,.shell>main h3")].filter(visible).map(el => ({ tag: el.tagName, reportTitle:el.matches(".executive-dashboard-header h2"), chartTitle:el.matches(".report-chart h3"), text: el.textContent?.trim(), size: parseFloat(getComputedStyle(el).fontSize) }));
     const clippedHeaders = [...document.querySelectorAll(".shell>main header")].filter(visible).filter(header => {
       const bounds = header.getBoundingClientRect();
       return [...header.children].filter(visible).some(child => getComputedStyle(child).position !== "absolute" && getComputedStyle(child).position !== "fixed" && child.getBoundingClientRect().bottom > bounds.bottom + 8);
@@ -168,7 +168,7 @@ async function domAudit(page, area, locale) {
     };
   });
 
-  if (data.headingSizes.some(item => item.size > (item.tag === "H2" ? 24 : item.tag === "H1" ? 20 : 18))) finding("high", area, "Workspace heading size outside its design range", JSON.stringify(data.headingSizes));
+  if (data.headingSizes.some(item => item.size > (item.reportTitle ? 50 : item.chartTitle ? 30 : item.tag === "H2" ? 24 : item.tag === "H1" ? 20 : 18))) finding("high", area, "Workspace heading size outside its design range", JSON.stringify(data.headingSizes));
   if (data.clippedHeaders.length) finding("high", area, "Header content overflows its container", JSON.stringify(data.clippedHeaders));
   if (data.pageOverflow) finding("high", area, "Horizontal page overflow", `${data.overflowPx}px beyond viewport`);
   if (data.emptyButtons.length) finding("high", area, "Visible buttons without accessible name", JSON.stringify(data.emptyButtons.slice(0, 6)));
@@ -227,6 +227,9 @@ async function auditLocale(page, locale) {
       let screenshot = "";
       if (i === 0) {
         await expect(page.locator("main .chain-board, main .assurance-chain, main .module-trail-panel")).toHaveCount(0);
+        await expect(page.locator(".report-renewals h3")).toBeVisible();
+        await expect(page.locator(".report-matrix [data-band]")).toHaveCount(25);
+        await expect(page.locator(".decision-queue")).toBeHidden();
         const hierarchy = await page.evaluate(() => {
           const root = document.querySelector('.executive-dashboard-reference');
           const metrics = [...document.querySelectorAll('.executive-kpi>strong')];
@@ -240,8 +243,8 @@ async function auditLocale(page, locale) {
             headerOverlapsMetrics: Boolean(header && strip && header.bottom > strip.top),
           };
         });
-        if (hierarchy.surfaces !== 1 || hierarchy.layout !== 'calm-executive' || hierarchy.metrics !== 6
-          || hierarchy.metricFontSizes.some(size => size < 20 || size > 24) || hierarchy.headerOverlapsMetrics) {
+        if (hierarchy.surfaces !== 1 || hierarchy.layout !== 'period-report' || hierarchy.metrics !== 6
+          || hierarchy.metricFontSizes.some(size => size < 23 || size > 32) || hierarchy.headerOverlapsMetrics) {
           finding('high', area, 'Dashboard layout or metric hierarchy regressed', JSON.stringify(hierarchy));
         }
       }
@@ -271,6 +274,8 @@ async function auditLocale(page, locale) {
           const inspector = register.locator(".record-inspector");
           await expect(inspector.locator("h3")).toBeFocused();
           await expect(inspector.locator(".assurance-chain li")).toHaveCount(3);
+          await expect(inspector.locator("[data-context-stage]")).toHaveCount(4);
+          await expect(inspector.locator('[data-context-stage="risk"] button[aria-current="true"]')).toBeVisible();
           await snap(page, locale + "-risk-record-inspector");
           await inspector.locator("h3").press("Escape");
           await expect(trigger).toBeFocused();
@@ -351,7 +356,7 @@ async function auditLocale(page, locale) {
         if (matrix.count !== 25 || matrix.clipped) finding("high", area, "Risk matrix cells are clipped", JSON.stringify(matrix));
       }
       if (i === 0 && locale === "tr") {
-        const signal = page.locator(".decision-signals button[aria-controls='executive-decisions']");
+        const signal = page.locator(".report-audit-links button[aria-controls='executive-decisions']");
         if (await signal.isVisible()) {
           const count = Number(await signal.locator("strong").innerText());
           await signal.click();
@@ -374,7 +379,7 @@ async function auditLocale(page, locale) {
           await waitForQaIdle(page);
           report.overdueAuditDrilldown = { count, checkedReturn: count > 0 };
         } else {
-          report.overdueAuditDrilldown = { skipped: "management signals hidden" };
+          report.overdueAuditDrilldown = { skipped: "audit summary hidden" };
         }
       }
       if (label === "Benim İşlerim" || label === "My Work") {
@@ -514,7 +519,7 @@ async function apiAndHeaderAudit(browser) {
 async function waitForCurrentDashboard(page) {
   for (let attempt = 0; attempt < 18; attempt += 1) {
     try {
-      await page.locator('[data-ui-revision="density-customize-v2"]').waitFor({ state: "visible", timeout: 10_000 });
+      await page.locator('[data-ui-revision="period-report-v1"]').waitFor({ state: "visible", timeout: 10_000 });
       await page.locator('.dashboard-customize-trigger:enabled').waitFor({ timeout: 15_000 });
       return;
     } catch {
@@ -561,7 +566,7 @@ async function auditDashboardCustomization(browser) {
     if (await page.locator(".risk-posture-panel").count()) throw new Error("Hidden risk card did not persist after reload");
     if (!(await page.locator(".executive-dashboard-reference.is-compact").count())) throw new Error("Density did not persist after reload");
     const classes = await page.locator(".executive-dashboard-grid>article").evaluateAll(nodes => nodes.map(node => node.className));
-    if (!classes[1]?.includes("continuous-assurance-panel")) throw new Error("Card ordering did not persist");
+    if (!classes[0]?.includes("continuous-assurance-panel")) throw new Error("Card ordering did not persist");
     await setLocale(page, "en");
     await trigger.click();
     await dialog.getByLabel("Risk posture", { exact: true }).check();

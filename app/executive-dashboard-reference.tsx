@@ -5,7 +5,7 @@ import EvidenceAssuranceStatus from './evidence-assurance-status';
 import { assessmentStateText } from './evidence/assessment-labels';
 import { isOverdueAuditRequirement } from "./audit-overdue-requirements";
 
-import { Fragment, useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import {
   buildExecutiveAssurance,
 } from "./executive-assurance";
@@ -16,7 +16,11 @@ import NavIcon from "./nav-icon";
 import ExecutiveDecisionQueue, { orderDecisions, type DecisionQueueHandle } from "./executive-decision-queue";
 import { useDashboardDecisionCounts } from "./use-dashboard-decision-counts";
 import DashboardHeaderActions, { useDashboardView, PANEL_ORDER } from "./dashboard-customizer";
+import { RenewalChart, ReportMatrix } from "./executive-report-charts";
+import { reportRiskBand } from "./executive-report-data";
+import { peekPendingFornostFocus } from "./navigation-focus";
 import "./executive-assurance.css";
+import "./executive-report.css";
 import "./executive-decision-workspace.css";
 
 type PanelRow = {
@@ -39,7 +43,7 @@ const isClosed = (value: unknown) => [
   "accepted",
   "kabul edildi",
 ].includes(normalized(value));
-const riskBand = (score: number) => score >= 17 ? "critical" : score >= 10 ? "high" : score >= 5 ? "medium" : "low";
+const riskBand = reportRiskBand;
 const frameworkName = (row: AssuranceRow, fallback: string) =>
   clean(row.data.framework || row.data.frameworkName || row.data.standard || row.data.regulation || row.data.catalog || fallback);
 
@@ -80,13 +84,15 @@ export default function ExecutiveAssurancePanel({
     low: scoredRisks.filter((item) => riskBand(item.score) === "low").length,
   }), [scoredRisks]);
   const highRisks = riskBands.critical + riskBands.high;
-  const percent = (value: number | null, total: number) => total && value !== null ? `${Math.round(value)}%` : "—";
+  const percent = (value: number | null, total: number) => total && value !== null ? new Intl.NumberFormat(tr?"tr-TR":"en-GB",{style:"percent",maximumFractionDigits:0}).format(value/100) : "—";
   const confidencePercent = (value: number | null, total: number, ready = evidenceState.evidenceReady) => ready ? percent(value, total) : "—";
   const unassessedRisks = risks.length - scoredRisks.length;
 
   const openFindings = typeof counts.findings === "number"
     ? Math.max(assurance.openControlFindings, counts.findings) : null;
   const openEscalations = typeof counts.escalations === "number" ? counts.escalations : null;
+  const details = useRef<HTMLDetailsElement>(null);
+  const [returning] = useState(() => peekPendingFornostFocus()?.kind === "executive-decisions");
   const decisionQueue = useRef<DecisionQueueHandle>(null);
   const overdueAuditRows = audits.filter(row => isOverdueAuditRequirement(row.data, now));
   const overdueAudits = overdueAuditRows.length;
@@ -114,13 +120,6 @@ export default function ExecutiveAssurancePanel({
   const failedSources = [
     ...(counts.escalations === "unavailable" ? [tr ? "Güvence eskalasyonları" : "Assurance escalations"] : []),
     ...(counts.findings === "unavailable" ? [tr ? "Açık bulgular" : "Open findings"] : []),
-  ];
-
-  const riskRows: PanelRow[] = [
-    { label: tr ? "Kritik" : "Critical", value: riskBands.critical, tone: "critical" },
-    { label: tr ? "Yüksek" : "High", value: riskBands.high, tone: "warning" },
-    { label: tr ? "Orta" : "Medium", value: riskBands.medium, tone: "neutral" },
-    { label: tr ? "Düşük" : "Low", value: riskBands.low, tone: "positive" },
   ];
 
   const decisionItems = [
@@ -171,59 +170,71 @@ export default function ExecutiveAssurancePanel({
       .map(row => ({ row, reason: "compliance" as const })),
   ]);
 
-  const panels: Partial<Record<(typeof PANEL_ORDER)[number], React.ReactNode>> = {
-    riskHeatmap: (<article className="executive-cockpit-panel risk-posture-panel">
-          <header><span className="executive-panel-icon"><NavIcon module="Risk Assessment" /></span><div><small>{tr ? "RİSK GÖRÜNÜMÜ" : "RISK POSTURE"}</small><h3>{risks.length} {tr ? "risk" : "risks"} · {unassessedRisks} {tr ? "değerlendirme bekliyor" : "awaiting assessment"}</h3></div><button onClick={() => go("Risk Assessment")}>{tr ? "Risk Merkezi" : "Risk Center"} →</button></header>
-          <div className="risk-posture-body">
-            <div className="risk-segmented-bar" role="img" aria-label={riskRows.map(item => `${item.label}: ${item.value}`).join(", ")}>
-              {riskRows.map(item => <i key={item.label} className={item.tone} style={{ width: `${scoredRisks.length ? item.value / scoredRisks.length * 100 : 0}%` }} />)}
-            </div>
-            <div className="risk-distribution">
-              {riskRows.map(item => <span key={item.label}><i className={item.tone} />{item.label}<b>{percent(scoredRisks.length ? item.value / scoredRisks.length * 100 : 0, scoredRisks.length)}</b></span>)}
-            </div>
-          </div>
-        </article>),
-    frameworkReadiness: (<article className="executive-cockpit-panel compliance-portfolio-panel">
-          <header><span className="executive-panel-icon"><NavIcon module="Uyum" /></span><div><small>{tr ? "UYUM PORTFÖYÜ" : "COMPLIANCE PORTFOLIO"}</small><h3>{tr ? "Çerçeve uygulama görünümü" : "Framework implementation posture"}</h3></div><button onClick={() => go("Uyum")}>{tr ? "Uyum Merkezi" : "Compliance"} →</button></header>
-          <div className="compliance-framework-list">
-            {complianceStats.length ? complianceStats.map((item) => <button type="button" key={item.name} onClick={() => go("Uyum")}><span><b>{item.name}</b><small>{item.total} {tr ? "gereksinim" : "requirements"}</small></span><strong>{item.score}%</strong><MiniBar value={item.score} tone={item.score >= 80 ? "positive" : item.score >= 60 ? "warning" : "critical"} /></button>) : <p>{tr ? "Henüz framework/uyum kaydı bulunmuyor." : "No framework/compliance records yet."}</p>}
-          </div>
-          <footer className="compliance-summary"><span>{tr ? "Toplam uyum" : "Overall compliance"}</span><b>{percent(complianceScore, complianceTotal)}</b><small>{compliantTotal}/{complianceTotal} {tr ? "gereksinim uyumlu" : "requirements compliant"}</small></footer>
-        </article>),
-    assuranceHealth: (<article className="executive-cockpit-panel continuous-assurance-panel">
-          <header><span className="executive-panel-icon"><NavIcon module="Kanıtlar" /></span><div><small>{tr ? "SÜREKLİ GÜVENCE" : "CONTINUOUS ASSURANCE"}</small><h3>{tr ? "Kontrol ve kanıt güveni" : "Control & evidence confidence"}</h3></div><button onClick={() => go("Kanıt Otomasyonu")}>{tr ? "Operasyon" : "Operations"} →</button></header>
-          <div className="assurance-score-row">
-            <div><strong>{rows.length && evidenceState.ready && assurance.score !== null ? assurance.score : "—"}</strong><span> /100</span><MiniBar value={rows.length && evidenceState.ready ? assurance.score ?? 0 : 0} /><small>{evidenceState.evidenceReady ? integrityPending : "—"} {tr ? "kanıt doğrulama bekliyor" : "evidence awaiting verification"}</small></div>
-            <div className="assurance-score-bars">
-              <label><span>{tr ? "Zincir bütünlüğü" : "Chain integrity"}<b>{percent(assurance.traceabilityScore, rows.length)}</b></span></label>
-              <label><span>{tr ? "Kontrol güvencesi" : "Control assurance"}<b>{confidencePercent(assurance.controlScore, assurance.totalControls)}</b></span></label>
-              <label><span>{tr ? "Kanıt güveni" : "Evidence confidence"}<b>{confidencePercent(assurance.evidenceScore, assurance.totalEvidence)}</b></span></label>
-              <label><span>{tr ? "Başarısız test" : "Failed tests"}<b>{assurance.failedControlTests}</b></span></label>
-            </div>
-          </div>
-        </article>),
-    auditRemediation: (<article className="executive-cockpit-panel audit-remediation-panel">
-          <header><span className="executive-panel-icon"><NavIcon module="Denetim Yönetimi" /></span><div><small>{tr ? "DENETİM VE İYİLEŞTİRME" : "AUDIT & REMEDIATION"}</small><h3>{tr ? "Denetim ve kapanış görünümü" : "Audit & closure posture"}</h3></div><button onClick={() => go("Denetim Yönetimi")}>{tr ? "Denetimler" : "Audits"} →</button></header>
-          <div className="audit-remediation-metrics">
-            <div><strong>{confidencePercent(assurance.auditScore, assurance.totalAudits, evidenceState.auditReady)}</strong><span>{evidenceState.auditReady ? assurance.readyAudits : "—"}/{assurance.totalAudits} {tr ? "hazır denetim" : "ready audits"}</span><MiniBar value={evidenceState.auditReady && assurance.totalAudits ? assurance.auditScore ?? 0 : 0} /></div>
-            <button type="button" onClick={() => go("Bulgular ve CAPA")}><span>{tr ? "Açık bulgu" : "Open findings"}</span><b>{openFindings ?? "—"}</b></button>
-            <button type="button" aria-controls="executive-decisions" onClick={event => decisionQueue.current?.openOverdue(event.currentTarget)}><span>{tr ? "Geciken denetim maddesi" : "Overdue audit requirements"}</span><b>{overdueAudits}</b></button>
-          </div>
-        </article>)
+  function showOverdue(button: HTMLButtonElement) {
+    if (details.current) details.current.open = true;
+    decisionQueue.current?.openOverdue(button);
+  }
+  const summaries = {
+    riskHeatmap: {module:"Risk Assessment",style:"risk-posture-panel", title:tr?"Risk görünümü":"Risk posture",
+      line:`${riskBands.high} ${tr?"yüksek":"high"} · ${riskBands.critical} ${tr?"kritik":"critical"}`,
+      note:`${scoredRisks.length} ${tr?"değerlendirilen risk":"assessed risks"} · ${unassessedRisks} ${tr?"bekleyen":"pending"}`},
+    frameworkReadiness: {module:"Uyum",style:"compliance-portfolio-panel",title:tr?"Uyum portföyü":"Compliance portfolio",
+      line:complianceStats[0]?.name || (tr?"Çerçeve kaydı yok":"No frameworks recorded"),
+      note:`${compliantTotal}/${complianceTotal} ${tr?"gereksinim uyumlu":"requirements compliant"}`},
+    assuranceHealth: {module:"Kanıt Otomasyonu",style:"continuous-assurance-panel",title:tr?"Sürekli güvence":"Continuous assurance",
+      line:`${evidenceState.evidenceReady?integrityPending:"—"} ${tr?"kanıt doğrulama bekliyor":"evidence awaiting verification"}`,
+      note:tr?"Kontrol ve kanıt güveni":"Control and evidence confidence"},
+    auditRemediation: {module:"Denetim Yönetimi",style:"audit-remediation-panel", title:tr?"Denetim ve iyileştirme":"Audit and remediation",line:"",note:""},
   };
-
   const auditorPack = () => window.open(withBasePath(`/api/continuous-assurance/auditor-pack?lang=${lang}`), "_blank", "noopener,noreferrer");
 
   return (
-    <section className={`executive-dashboard-reference${view.preferences.compact ? " is-compact" : ""}`} data-ui-revision="density-customize-v2" data-layout="calm-executive" aria-label={tr ? "Fornost GRC yönetici gösterge paneli" : "Fornost GRC executive dashboard"}>
+    <section className={`executive-dashboard-reference${view.preferences.compact ? " is-compact" : ""}`} data-ui-revision="period-report-v1" data-layout="period-report" aria-label={tr ? "Fornost GRC yönetici gösterge paneli" : "Fornost GRC executive dashboard"}>
       <header className="executive-dashboard-header">
         <div>
           <h2>{tr ? "Yönetici özeti" : "Executive overview"}</h2>
 
         </div>
+        <span className="report-period">{tr?"Dönem raporu":"Period report"} · {new Intl.DateTimeFormat(tr?"tr-TR":"en-GB",{dateStyle:"long",timeZone:"UTC"}).format(now)}</span>
         <DashboardHeaderActions lang={lang} view={view} onAuditorPack={auditorPack} onReport={() => go("Raporlar")} />
       </header>
 
+      <div className="executive-dashboard-kpis">
+        {[
+          { label: tr ? "Kontrol Güvencesi" : "Control Assurance", value: confidencePercent(assurance.controlScore, assurance.totalControls), detail: `${evidenceState.evidenceReady ? assurance.healthyControls : "—"}/${assurance.totalControls} ${tr ? "sağlıklı" : "healthy"}`, tone: evidenceState.evidenceReady && assurance.controlScore >= 80 ? "positive" : "warning", module: "Kontroller" },
+          { label: tr ? "Denetim Hazırlığı" : "Audit Readiness", value: confidencePercent(assurance.auditScore, assurance.totalAudits, evidenceState.auditReady), detail: `${evidenceState.auditReady ? assurance.readyAudits : "—"}/${assurance.totalAudits} ${tr ? "hazır" : "ready"}`, tone: evidenceState.auditReady && (assurance.auditScore ?? -1) >= 80 ? "positive" : "warning", module: "Denetim Yönetimi" },
+          { label: tr ? "Zincir Kapsaması" : "Chain Coverage", value: percent(assurance.traceabilityScore, rows.length), detail: tr ? "Risk · kontrol · kanıt bağlantıları" : "Risk · control · evidence links", tone: assurance.traceabilityScore >= 80 ? "positive" : "warning", module: "Bağlantılı GRC" },
+          { label: tr ? "Kanıt Güncelliği" : "Evidence Freshness", value: confidencePercent(assurance.freshnessScore, assurance.totalEvidence), detail: `${evidenceState.evidenceReady ? assurance.currentEvidence : "—"}/${assurance.totalEvidence} ${tr ? "güncel" : "current"}`, tone: evidenceState.evidenceReady && assurance.evidenceScore >= 80 ? "positive" : "warning", module: "Kanıtlar" },
+          { label: tr ? "Kritik + Yüksek Risk" : "Critical + High Risk", value: percent(scoredRisks.length ? highRisks / scoredRisks.length * 100 : 0, scoredRisks.length), detail: `${highRisks}/${scoredRisks.length} ${tr ? "değerlendirilen risk" : "assessed risks"}`, tone: highRisks ? "critical" : "positive", module: "Risk Assessment" },
+          { label: tr ? "Uyum Sağlığı" : "Compliance Health", value: percent(complianceScore, complianceTotal), detail: `${compliantTotal}/${complianceTotal} ${tr ? "uyumlu" : "compliant"}`, tone: complianceScore >= 80 ? "positive" : "warning", module: "Uyum" },
+        ].map((metric) => (
+          <button type="button" className={`executive-kpi ${metric.tone}`} key={metric.label} onClick={() => go(metric.module)}>
+            <span className="executive-kpi-label"><NavIcon module={metric.module} /><small>{metric.label}</small></span>
+            <strong>{metric.value}</strong>
+            <MiniBar value={Number.parseFloat(metric.value.replace("%","")) || 0} />
+            <em title={metric.detail}>{metric.detail}</em>
+          </button>
+        ))}
+      </div>
+
+      <div className="report-chart-grid">
+        <RenewalChart rows={evidenceState.rows} now={now} ready={evidenceState.evidenceReady} loading={evidenceState.loading} retry={evidenceState.refresh} tr={tr}/>
+        <ReportMatrix risks={risks} tr={tr}/>
+      </div>
+      <div className="executive-dashboard-grid report-domains" data-layout-mode={referenceLayout ? "reference" : "tiles"}>
+        {panelOrder.filter(id=>view.preferences.visible[id]).map(id=>{
+          const summary = summaries[id as keyof typeof summaries];
+          return <article key={id} className={"report-domain "+summary.style}>
+            <button className="domain-link" onClick={()=>go(summary.module)}><NavIcon module={summary.module}/><strong>{summary.title}</strong></button>
+            {id==="auditRemediation"?<div className="audit-remediation-metrics report-audit-links">
+              <button onClick={()=>go("Bulgular ve CAPA")}>{tr?"Açık bulgu":"Open findings"} <b>{openFindings??"—"}</b></button>
+              <button aria-controls="executive-decisions" onClick={e=>showOverdue(e.currentTarget)}>{tr?"Geciken denetim maddesi":"Overdue audit requirements"} <b>{overdueAudits}</b></button>
+            </div>:<><p>{summary.line}</p><small>{summary.note}</small></>}
+          </article>;
+        })}
+      </div>
+      <details className="report-details" ref={details} open={returning || undefined}>
+        <summary>{tr?"Değerlendirme ayrıntıları":"Assessment details"}</summary>
       {failedSources.length > 0 && <div role="status" className="executive-data-warning">
         <span>{tr ? "Yüklenemeyen göstergeler" : "Unavailable indicators"} · {failedSources.join(", ")}. </span>
         <button type="button" onClick={retry}>{tr ? "Yeniden dene" : "Retry"}</button>
@@ -248,28 +259,7 @@ export default function ExecutiveAssurancePanel({
       <EvidenceAssuranceStatus state={evidenceState} lang={lang} />
       <AuditReadinessPortfolioPanel portfolio={evidenceState.auditPortfolio} lang={lang} />
       {evidenceState.evidenceReady && assurance.assessmentIssues.length > 0 && <ul className="executive-assessment-issues">{assurance.assessmentIssues.map(issue => <li key={issue.reason}>{issue.count} · {assessmentStateText[issue.reason]?.[lang] || issue.reason}</li>)}</ul>}
-      <div className="executive-dashboard-kpis">
-        {[
-          { label: tr ? "Kontrol Güvencesi" : "Control Assurance", value: confidencePercent(assurance.controlScore, assurance.totalControls), detail: `${evidenceState.evidenceReady ? assurance.healthyControls : "—"}/${assurance.totalControls} ${tr ? "sağlıklı" : "healthy"}`, tone: evidenceState.evidenceReady && assurance.controlScore >= 80 ? "positive" : "warning", module: "Kontroller" },
-          { label: tr ? "Denetim Hazırlığı" : "Audit Readiness", value: confidencePercent(assurance.auditScore, assurance.totalAudits, evidenceState.auditReady), detail: `${evidenceState.auditReady ? assurance.readyAudits : "—"}/${assurance.totalAudits} ${tr ? "hazır" : "ready"}`, tone: evidenceState.auditReady && (assurance.auditScore ?? -1) >= 80 ? "positive" : "warning", module: "Denetim Yönetimi" },
-          { label: tr ? "Zincir Kapsaması" : "Chain Coverage", value: percent(assurance.traceabilityScore, rows.length), detail: tr ? "Risk · kontrol · kanıt bağlantıları" : "Risk · control · evidence links", tone: assurance.traceabilityScore >= 80 ? "positive" : "warning", module: "Bağlantılı GRC" },
-          { label: tr ? "Kanıt Güncelliği" : "Evidence Freshness", value: confidencePercent(assurance.freshnessScore, assurance.totalEvidence), detail: `${evidenceState.evidenceReady ? assurance.currentEvidence : "—"}/${assurance.totalEvidence} ${tr ? "güncel" : "current"}`, tone: evidenceState.evidenceReady && assurance.evidenceScore >= 80 ? "positive" : "warning", module: "Kanıtlar" },
-          { label: tr ? "Kritik + Yüksek Risk" : "Critical + High Risk", value: percent(scoredRisks.length ? highRisks / scoredRisks.length * 100 : 0, scoredRisks.length), detail: `${highRisks}/${scoredRisks.length} ${tr ? "değerlendirilen risk" : "assessed risks"}`, tone: highRisks ? "critical" : "positive", module: "Risk Assessment" },
-          { label: tr ? "Uyum Sağlığı" : "Compliance Health", value: percent(complianceScore, complianceTotal), detail: `${compliantTotal}/${complianceTotal} ${tr ? "uyumlu" : "compliant"}`, tone: complianceScore >= 80 ? "positive" : "warning", module: "Uyum" },
-        ].map((metric) => (
-          <button type="button" className={`executive-kpi ${metric.tone}`} key={metric.label} onClick={() => go(metric.module)}>
-            <span className="executive-kpi-label"><NavIcon module={metric.module} /><small>{metric.label}</small></span>
-            <strong>{metric.value}</strong>
-            <MiniBar value={Number.parseFloat(metric.value) || 0} />
-            <em title={metric.detail}>{metric.detail}</em>
-          </button>
-        ))}
-      </div>
-
-      <div className="executive-dashboard-grid" data-layout-mode={referenceLayout ? "reference" : "tiles"}>
-        {panelOrder.filter(id => view.preferences.visible[id]).map(id => <Fragment key={id}>{panels[id]}</Fragment>)}
-      </div>
-
+      </details>
       <footer className="executive-dashboard-footer"><span>{tr ? "Canlı GRC verisinden hesaplanır" : "Calculated from live GRC data"}</span><span>{assurance.totalControls} {tr ? "kontrol" : "controls"} · {assurance.totalEvidence} {tr ? "kanıt" : "evidence"} · {risks.length} {tr ? "risk" : "risks"} · {compliance.length} {tr ? "uyum maddesi" : "compliance requirements"}</span></footer>
     </section>
   );

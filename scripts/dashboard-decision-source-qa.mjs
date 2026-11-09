@@ -46,6 +46,10 @@ try {
   await expect(dashboard).toHaveCount(0);
   registerAvailable = true;
   await failure.getByRole("button", { name: "Yeniden dene" }).click();
+  const reportDetails=dashboard.locator(".report-details");
+  await expect(reportDetails.locator(":scope>summary")).toBeVisible();
+  await expect(dashboard.locator(".decision-queue")).toBeHidden();
+  await reportDetails.locator(":scope>summary").click();
   const attention = dashboard.locator(".executive-attention-band");
   const decisions = dashboard.locator(".executive-decision-board");
   const warning = dashboard.locator(".executive-data-warning");
@@ -94,6 +98,14 @@ try {
   escalationStatus = 200;
   findingBody = { count: 2 };
   await page.reload();
+  await expect(dashboard.locator(".report-cells [data-band]")).toHaveCount(25);
+  await expect(dashboard.locator(".report-cells button")).toHaveCount(2);
+  await dashboard.locator(".report-cells button").first().click();
+  await expect(dashboard.locator(".report-risk-key button")).toHaveCount(1);
+  await expect(dashboard.locator(".report-renewals")).toContainText("1 overdue");
+  await dashboard.locator(".report-dates button").first().click();
+  await expect(dashboard.locator(".report-records button")).toContainText("Erişim gözden geçirmesi");
+  await reportDetails.locator(":scope>summary").click();
   const queue = dashboard.locator(".decision-queue");
   const rows = queue.locator(".decision-record");
   await expect(rows).toHaveCount(4);
@@ -124,7 +136,12 @@ try {
     await expect(dashboard.locator(".chain-board, .assurance-chain, .module-trail-panel")).toHaveCount(0);
     const workspace = dashboard.locator(".executive-action-workspace");
     await expect(workspace).toBeVisible();
-    assert.ok(await workspace.evaluate(el => el.getBoundingClientRect().top < el.parentElement.querySelector(".executive-dashboard-kpis").getBoundingClientRect().top));
+    await reportDetails.locator(":scope>summary").click();
+    await expect(workspace).toBeHidden();
+    await expect(dashboard.locator(".report-chart-grid")).toBeVisible();
+    await dashboard.locator(".executive-dashboard-header").scrollIntoViewIfNeeded();
+    await dashboard.screenshot({ path: `${out}/executive-period-report-${width}.png` });
+    await reportDetails.locator(":scope>summary").click();
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 4));
     const fontSize = locator => locator.evaluate(el => parseFloat(getComputedStyle(el).fontSize));
     assert.equal(await fontSize(queue.getByRole("heading")), 18);
@@ -148,6 +165,7 @@ try {
     requirement("aud-today", { auditName: audit.name, dueDate: generatedAt.slice(0, 10) }),
   ];
   await page.reload();
+  await reportDetails.locator(":scope>summary").click();
   const signal = attention.getByRole("button", { name: /Geciken denetim maddesi/ });
   await expect(signal.locator("strong")).toHaveText("2");
   await signal.click();
@@ -253,7 +271,20 @@ try {
     record("ast-trail","Varlık Envanteri","Kimlik platformu",{}),
     record("rsk-trail","Risk Assessment","Yetkisiz erişim",{asset:"AST-TRAIL",existingControls:"CTL-014"}),
   ];
+  records.push(record("bia-trail","BIA","Kimlik hizmeti",{process:"Kimlik hizmeti",asset:"AST-TRAIL"}));
+  await page.route("**/api/continuity",route=>route.fulfill({json:{plans:[{id:"plan-trail",code:"BCP-TRAIL",name:"Kimlik kurtarma planı",biaRef:"BIA-TRAIL"}],exercises:[],gaps:[]}}));
   await page.reload();
+  await openQaModule(page,"Risk Değerlendirmesi");
+  await page.locator(".risk-register .record-open").first().click();
+  const inspector=page.locator(".record-inspector"), business=inspector.locator(".business-context");
+  await expect(business.locator('[data-context-stage="asset"]')).toContainText("Kimlik platformu");
+  await expect(business.locator('[data-context-stage="plan"]')).toContainText("Kimlik kurtarma planı");
+  await expect(business.locator('[data-context-stage="plan"] .context-via')).toHaveText(/Kimlik platformu.*Kimlik hizmeti/);
+  await business.screenshot({path:out+"/asset-risk-bia-plan.png"});
+  await business.getByRole("button",{name:/Kimlik kurtarma planı/}).click();
+  await expect(inspector.locator(":scope > h3")).toHaveText("Kimlik kurtarma planı");
+  await inspector.getByRole("button",{name:"Önceki kayıt"}).click();
+  await expect(inspector.locator(":scope > h3")).toHaveText("Yetkisiz erişim");
   await openQaModule(page,"Denetim Yönetimi");
   const trailPanel=page.locator("main > .module-trail-panel");
   await trailPanel.locator(":scope>summary").click();

@@ -330,6 +330,7 @@ const labelMap: Record<Lang, Record<string, string>> = {
   },
 };
 Object.assign(labelMap.tr, {
+  riskScope: "Risk kapsamı",
   processLink: "İlgili Süreç / BIA",
   category: "Risk Kategorisi",
   threat: "Tehdit / Neden",
@@ -393,6 +394,7 @@ Object.assign(labelMap.tr, {
   patchStatus: "Yama Güncelliği",
 });
 Object.assign(labelMap.en, {
+  riskScope: "Risk scope",
   processLink: "Related Process / BIA",
   category: "Risk Category",
   threat: "Threat / Cause",
@@ -2472,7 +2474,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
           module={active}
           lang={lang}
           title={names[lang][active]}
-          fields={fields[active]}
+          fields={active === "Risk Assessment" ? [...fields[active], "riskScope"] : fields[active]}
           labels={labelMap[lang]}
           aliases={aliases}
           onClose={() => setImportOpen(false)}
@@ -2770,7 +2772,7 @@ function Field({
     </label>;
   }
   if (k === "asset" || k === "processLink") {
-    const retainedValues = (k === "asset" && "category" in form
+    const retainedValues = (k === "asset" && module === "Risk Assessment"
       ? String(value).split(",").map((item) => item.trim())
       : [String(value)]).filter(Boolean);
     const choices = linkedRecordOptions(
@@ -2779,7 +2781,7 @@ function Field({
     );
     const options = choices.map(choice => choice.value);
     const optionLabel = (option: string) => choices.find(choice => choice.value === option)?.label || option;
-    if (k === "asset" && "category" in form) {
+    if (k === "asset" && module === "Risk Assessment") {
       const selected = String(value)
         .split(",")
         .map((x) => x.trim())
@@ -2787,6 +2789,9 @@ function Field({
       return (
         <fieldset className="wide asset-multi-picker">
           <legend>{labelMap[lang][k]}</legend>
+          <label><input type="checkbox" name="riskScope" checked={form.riskScope==="organization"} disabled={selected.length>0}
+            onChange={e=>setForm({...form,riskScope:e.target.checked?"organization":"asset"})}/>
+            {lang==="tr"?"Belirli bir varlığa bağlı olmayan risk":"Risk independent of a specific asset"}</label>
           <p>
             {lang === "tr"
               ? "Riskten etkilenen bir veya birden fazla varlığı seçin."
@@ -2796,7 +2801,8 @@ function Field({
             multiple
             name={k}
             aria-label={labelMap[lang][k]}
-            required
+            required={form.riskScope!=="organization"}
+            disabled={form.riskScope==="organization"}
             value={selected}
             onChange={(e) =>
               change(

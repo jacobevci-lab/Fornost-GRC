@@ -11,7 +11,7 @@ import {
 } from "./executive-dashboard-preferences";
 import "./dashboard-customizer.css";
 
-export const PANEL_ORDER: WidgetId[] = ["frameworkReadiness", "riskHeatmap", "assuranceHealth", "auditRemediation"];
+export const PANEL_ORDER: WidgetId[] = ["riskHeatmap", "frameworkReadiness", "assuranceHealth", "auditRemediation"];
 export function defaultDashboardView(): Preferences {
   return { ...clone(EXECUTIVE_DASHBOARD_PRESETS.executive), order: [...PANEL_ORDER, "actionCenter", "recentChanges"] };
 }
@@ -33,7 +33,7 @@ export function useDashboardView() {
         const legacy = EXECUTIVE_DASHBOARD_PRESETS.executive;
         const isLegacyDefault = loaded.preset === "executive" && !loaded.compact
           && Object.values(loaded.visible).every(Boolean)
-          && loaded.order.join() === legacy.order.join();
+          && (loaded.order.join() === legacy.order.join() || loaded.order.join() === "frameworkReadiness,riskHeatmap,assuranceHealth,auditRemediation,actionCenter,recentChanges");
         setPreferences(isLegacyDefault ? defaultDashboardView() : loaded);
         setLoadFailed(false); setStatus("ready");
       }).catch(() => { if (!controller.signal.aborted) { setLoadFailed(true); setStatus("error"); } });
@@ -133,7 +133,7 @@ export default function DashboardHeaderActions({ lang, view, onAuditorPack, onRe
           <label><input type="checkbox" checked={draft.visible[id]} onChange={event => setDraft(current => ({ ...current, visible: { ...current.visible, [id]: event.target.checked } }))} />{names[id]}</label>
           <div><button type="button" disabled={index === 0} onClick={() => move(id, -1)} aria-label={`${names[id]} — ${tr ? "Yukarı taşı" : "Move up"}`}>↑</button><button type="button" disabled={index === panels.length - 1} onClick={() => move(id, 1)} aria-label={`${names[id]} — ${tr ? "Aşağı taşı" : "Move down"}`}>↓</button></div>
         </div>)}</fieldset>
-        <fieldset><legend>{tr ? "Diğer bölümler" : "Other sections"}</legend>{(["recentChanges", "actionCenter"] as WidgetId[]).map(id => <label className="dashboard-option" key={id}><input type="checkbox" checked={draft.visible[id]} onChange={event => setDraft(current => ({ ...current, visible: { ...current.visible, [id]: event.target.checked } }))} />{names[id]}</label>)}<label className="dashboard-option"><input type="checkbox" checked={draft.compact} onChange={event => setDraft(current => ({ ...current, compact: event.target.checked }))} />{tr ? "Kompakt yoğunluk" : "Compact density"}</label></fieldset>
+        <fieldset><legend>{tr ? "Değerlendirme ayrıntıları" : "Assessment details"}</legend>{(["recentChanges", "actionCenter"] as WidgetId[]).map(id => <label className="dashboard-option" key={id}><input type="checkbox" checked={draft.visible[id]} onChange={event => setDraft(current => ({ ...current, visible: { ...current.visible, [id]: event.target.checked } }))} />{names[id]}</label>)}<label className="dashboard-option"><input type="checkbox" checked={draft.compact} onChange={event => setDraft(current => ({ ...current, compact: event.target.checked }))} />{tr ? "Kompakt yoğunluk" : "Compact density"}</label></fieldset>
         <p className="dashboard-save-note">{tr ? "Kaydettiğiniz düzen hesabınıza bağlıdır. KPI özeti her zaman görünür." : "Saved layouts belong to your account. The KPI summary remains visible."}</p>
       </div>
       <footer><button type="button" onClick={() => setDraft(defaultDashboardView())}>{tr ? "Varsayılana dön" : "Reset to default"}</button><button type="button" onClick={close}>{tr ? "İptal" : "Cancel"}</button><button type="button" className="primary" disabled={view.loadFailed || view.status === "loading" || view.status === "saving"} onClick={async () => { if (await view.save(draft)) close(); }}>{view.status === "saving" ? (tr ? "Kaydediliyor…" : "Saving…") : (tr ? "Görünümü kaydet" : "Save view")}</button></footer>

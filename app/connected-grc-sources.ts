@@ -192,6 +192,8 @@ function continuityRows(payload: JsonRecord) {
     name: text(item.name),
     process: text(item.process),
     continuityBiaRef: unique(item.biaRef, item.bia_ref),
+    owner:text(item.owner),status:text(item.status),
+    rtoHours:item.rtoHours ?? item.rto_hours,rpoHours:item.rpoHours ?? item.rpo_hours,
   }));
   const exercises = records(payload.exercises).map((item, index) => makeRow("enterprise", "continuity-exercise", "İş Sürekliliği", item, index, {
     title: text(item.name || item.title || `Exercise ${index + 1}`),

@@ -5,7 +5,7 @@ type Source = keyof ConnectedGrcEnterprisePayloads;
 // Load neighbouring enterprise sources only on demand. Core records already belong to the current session.
 export const moduleTrailSources: Record<string, Source[]> = {
   "BIA": ["continuity", "incidents"],
-  "Varlık Envanteri": ["incidents", "thirdParty"],
+  "Varlık Envanteri": ["continuity", "incidents", "thirdParty"],
   "Uyum": ["policy", "regulatory"],
   "Denetim Yönetimi": ["findings"],
   "Tedarikçiler": ["thirdParty", "findings"],
@@ -25,7 +25,7 @@ const preferred: Record<string,string[]> = {
   "Uyum":["control-evidence","control-framework"],
   "Varlık Envanteri":["risk-asset","asset-vendor","incident-asset"],
   "Risk Assessment":["risk-control","risk-asset","risk-process"],
-  "BIA":["continuity-process","risk-process","risk-asset"],
+  "BIA":["continuity-bia","continuity-process","risk-process","risk-asset"],
   "Tedarikçiler":["finding-vendor","assessment-finding","vendor-assessment","asset-vendor"],
   "Bulgular ve CAPA":["finding-remediation","finding-control","finding-risk"],
 };
@@ -49,6 +49,8 @@ export function trailChoices(index: ReturnType<typeof indexTrailLinks>, row: Con
   const priority = preferred[row.module] || [];
   const rank = (hop: Hop) => {
     const p = priority.indexOf(hop.edge.relation);
+    // BIA and risk records both refer to assets. Start with a risk when one exists.
+    if (row.module === "Varlık Envanteri" && hop.row.module === "Risk Assessment" && hop.edge.relation === "risk-asset") return -1;
     // A control's evidence is the next useful step after an audit or risk.
     if (row.module === "Kontroller" && hop.row.module === "Kanıtlar") return -1;
     return p < 0 ? priority.length : p;

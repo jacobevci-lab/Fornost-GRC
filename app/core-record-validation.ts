@@ -56,7 +56,9 @@ export function validate(module:unknown,input:unknown){
  const source=input as Data,cleaned:Data={};
  for(const [key,value] of Object.entries(source)){if(key.length>60)continue;cleaned[key]=module==="Denetim Yönetimi"&&["requirementStatement","requirementGuidance","requirementAssessment"].includes(key)&&typeof value==="string"?value.slice(0,100000):cleanText(value)}
  const data=normalizeRecordData(module,cleaned);
- const missing=required[module].filter(key=>data[key]===undefined||data[key]===null||data[key]==="");
+ const independentRisk=module==="Risk Assessment" && data.riskScope==="organization";
+ if(independentRisk && String(data.asset??"").trim())return {error:"Varlıktan bağımsız bir riskte varlık seçilemez."};
+ const missing=required[module].filter(key=>!(independentRisk && key==="asset")).filter(key=>data[key]===undefined||data[key]===null||data[key]==="");
  if(missing.length)return {error:`Zorunlu alanlar eksik: ${missing.join(", ")}`};
  if(!allowedStatuses[module].includes(String(data.status)))return {error:"Geçersiz operasyon durumu."};
  if(module==="Risk Assessment"&&data.status!=="Değerlendiriliyor"){
