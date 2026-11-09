@@ -250,7 +250,9 @@ try {
   const orphan = await api('/api/grc', 'POST', { module: 'Denetim Yönetimi', data: { auditName: `${prefix} absent audit`, auditType: 'Diğer Denetim', auditOwner: 'QA', startDate: '2026-10-01', endDate: '2026-12-31', dueDate: '2026-12-01', businessUnit: 'Bilgi Güvenliği', requirementRef: `${prefix}-REQ`, requirementTitle: `${prefix} orphan`, owner: 'QA', status: 'Başlanmadı', progress: 0 } }, 201);
   createdRecords.push(orphan.id);
   await page.reload(); await expect(page.locator('.shell')).toBeVisible(); await openModule('Dashboard');
-  const unassignedLink = page.getByRole('button', { name: 'Review unassigned requirements', exact: true });
+  const assessmentDetails = page.locator('.report-details');
+  await assessmentDetails.locator(':scope > summary').click();
+  const unassignedLink = assessmentDetails.getByRole('button', { name: 'Review unassigned requirements', exact: true });
   await expect(unassignedLink).toBeVisible(); await unassignedLink.click();
   await expect(page.locator('main>header h1')).toHaveText('Audit Management');
   const unassigned = page.getByRole('region', { name: 'Unassigned audit requirements', exact: true });
