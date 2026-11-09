@@ -27,6 +27,7 @@
 .cpd-gap {padding:8px 0;border-bottom:1px solid var(--ws-line)}
 .cpd-gap>span {font-size:11px;overflow-wrap:anywhere}
 .continuity-page .cpd-workspace button.continuity-link {color:var(--ws-brand-2);padding:2px 0;background:transparent;border:0;text-align:start}
+html[data-theme="dark"] .continuity-page .cpd-file .continuity-actions button.continuity-link {color:var(--ws-brand-2)}
 .cpd-file .continuity-actions {display:flex;flex-wrap:wrap;gap:6px 12px;align-items:center}
 .continuity-overview summary {cursor:pointer;color:var(--ws-muted);font-size:11px}
 @media(max-width:740px){
