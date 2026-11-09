@@ -26,8 +26,8 @@ try{
     audits.push(audit.id);
   }
   const create=(auditName,requirementTitle,owner,ref,status,dueDate)=>api('/api/grc','POST',{module:'Denetim Yönetimi',data:{
-    auditName,auditType:'Diğer Denetim',auditOwner:'QA',startDate:'2026-01-01',endDate:'2026-12-31',dueDate,domain:'Bilgi Güvenliği',
-    requirementRef:ref,requirementTitle,owner,status,progress:0,evidenceStatus:'Kanıt Bekleniyor',
+    auditName,auditType:'Diğer Denetim',auditOwner:'QA',startDate:'2026-01-01',endDate:'2026-12-31',dueDate,businessUnit:'Bilgi Güvenliği',
+    requirementRef:ref,requirementTitle,owner,status,progress:status==='Tamamlandı'?100:0,evidenceStatus:'Kanıt Bekleniyor',
   }});
   await create(a,'Erişim kontrolü','IAM Ekibi','PORT-A1','Başlanmadı','2020-06-01');
   await create(a,'Kapanan madde','QA','PORT-A2','Tamamlandı','2020-06-01');
