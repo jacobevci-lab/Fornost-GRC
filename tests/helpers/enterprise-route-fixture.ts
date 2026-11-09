@@ -19,6 +19,7 @@ import * as incidentDecisionDomain from '../../app/incidents/decisions';
 import * as policyDecisions from '../../app/policy-lifecycle/decision-store';
 import * as policyCampaigns from '../../app/policy-lifecycle/campaign-store';
 import * as continuityPlan from '../../app/continuity/plan';
+import * as continuityActivity from '../../app/continuity/activity-file-store';
 import * as continuityReviews from '../../app/continuity/plan-review-store';
 import * as continuityWork from '../../app/continuity/work-source';
 import * as workflowFocus from '../../app/workflow-record-focus';
@@ -77,6 +78,7 @@ export function fixture(module:'incidents'|'continuity'|'policy-lifecycle'|'thir
   if(name==='../../incidents/work-source')return incidentWork;
   if(name==='../../continuity/domain')return continuity;
   if(name==='../../continuity/work-source')return continuityWork;
+  if(name==='../../continuity/activity-file-store')return continuityActivity;
   if(name==='../../continuity/plan')return continuityPlan;
   if(name==='../../continuity/plan-review-store')return continuityReviews;
   if(name==='../../policy-lifecycle/decision-store')return policyDecisions;

@@ -68,20 +68,20 @@ try {
  checks.push('Source/history filters, decision identity/time, sanitized complete report, TR/EN light/dark desktop/mobile and accessibility');
  await page.setViewportSize({width:1440,height:1000});
  phase='exact source navigation and recovery';
- for(const [kind,ref,heading,table] of [['continuity-exercise',f.exerciseId,'Business Continuity & Resilience','.continuity-table'],['continuity-gap',f.gapId,'Business Continuity & Resilience','.continuity-table'],['regulatory-impact',f.impactId,'Regulatory Change Center','.ri-table']]) {
+ for(const [kind,ref,heading,table] of [['continuity-exercise',f.exerciseId,'Business Continuity & Resilience','.cpd-activities'],['continuity-gap',f.gapId,'Business Continuity & Resilience','.cpd-activities'],['regulatory-impact',f.impactId,'Regulatory Change Center','.ri-table']]) {
   await openUsage();const row=panel.locator('.eu-list article').filter({hasText:ref}).first();
   const response=page.waitForResponse(r=>r.request().method()==='GET'&&r.url().includes('focusId='+ref));
   await row.getByRole('button',{name:/^Open record:/}).click();assert.equal((await response).status(),200);
   await expect(page.locator('main>header h1')).toHaveText(heading);await expect(page.locator('.enterprise-work-focus')).toContainText(ref);
-  await expect(page.locator(`${table} tbody tr`)).toHaveCount(1);await waitForQaIdle(page);
-  if(kind==='continuity-gap')await expect(page.locator(`${table} tbody`)).toContainText('Closed');
+  await expect(page.locator(table==='.cpd-activities'?'.cpd-index button':`${table} tbody tr`)).toHaveCount(1);await waitForQaIdle(page);
+  if(kind==='continuity-gap')await expect(page.locator('.cpd-file')).toContainText('Closed');
  }
  await openUsage();let fail=true;
  await page.route('**/api/continuity?*',route=>fail?route.fulfill({status:503,json:{error:'Synthetic read failure'}}):route.continue());
  await panel.locator('.eu-list article').filter({hasText:f.gapId}).getByRole('button',{name:/^Open record:/}).click();
  await expect(page.locator('.continuity-page [role=alert]')).toContainText('Records could not be loaded');fail=false;
- await page.locator('.continuity-page').getByRole('button',{name:'Retry',exact:true}).click();await expect(page.locator('.continuity-table tbody tr')).toHaveCount(1);await waitForQaIdle(page);await page.unroute('**/api/continuity?*');
- await focus('continuity-gap','BCG-missing');await expect(page.locator('.enterprise-work-focus')).toContainText('Record unavailable or inaccessible');await expect(page.locator('.continuity-table tbody tr')).toHaveCount(0);
+ await page.locator('.continuity-page').getByRole('button',{name:'Retry',exact:true}).click();await expect(page.locator('.cpd-index button')).toHaveCount(1);await waitForQaIdle(page);await page.unroute('**/api/continuity?*');
+ await focus('continuity-gap','BCG-missing');await expect(page.locator('.enterprise-work-focus')).toContainText('Record unavailable or inaccessible');await expect(page.locator('.cpd-index button')).toHaveCount(0);
  phase='late focus response';let release,finished,held=false;
  const barrier=new Promise(resolve=>{release=resolve}),settled=new Promise(resolve=>{finished=resolve});
  await page.route('**/api/continuity?*',async route=>{
@@ -89,8 +89,8 @@ try {
   const response=await route.fetch();held=true;await barrier;try{await route.fulfill({response})}catch{/* navigation cancels the obsolete read */}finally{finished()}
  });
  await focus('continuity-exercise',f.exerciseId);await expect.poll(()=>held).toBe(true);await focus('continuity-gap',f.gapId);
- await expect(page.locator('.continuity-table tbody tr')).toHaveCount(1);release();await settled;
- await expect(page.locator('.enterprise-work-focus')).toContainText(f.gapId);await expect(page.locator('.continuity-table tbody')).toContainText('Closed');await page.unroute('**/api/continuity?*');
+ await expect(page.locator('.cpd-index button')).toHaveCount(1);release();await settled;
+ await expect(page.locator('.enterprise-work-focus')).toContainText(f.gapId);await expect(page.locator('.cpd-file')).toContainText('Closed');await page.unroute('**/api/continuity?*');
  checks.push('Exact exercise/gap/impact navigation, focused read failure/retry, missing target and superseded response protection');
  phase='usage recovery and scope';await openUsage();let usageFails=true;
  await page.route('**/api/evidence/usage?*',route=>usageFails?route.fulfill({status:503,json:{error:'unavailable'}}):route.continue());

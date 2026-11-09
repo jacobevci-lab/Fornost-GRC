@@ -24,6 +24,22 @@ function Duration({hours,tr}:{hours:number|null;tr:boolean}) {
   return <>{new Intl.NumberFormat(tr?"tr-TR":"en",{maximumFractionDigits:3}).format(value)} {minutes?(tr?"dk":"min"):(tr?"saat":"h")}</>;
 }
 
+export function RecoveryComparison({plan,measurement,tr}:{plan:Pick<Plan,"rtoHours"|"rpoHours">;measurement:{actualRecoveryHours:number|null;actualDataLossHours:number|null}|null;tr:boolean}) {
+  const measures=[
+    {label:tr?"Kurtarma süresi (RTO)":"Recovery time (RTO)",target:plan.rtoHours,actual:measurement?.actualRecoveryHours??null},
+    {label:tr?"Veri kaybı (RPO)":"Data loss (RPO)",target:plan.rpoHours,actual:measurement?.actualDataLossHours??null},
+  ];
+  return <table aria-label={tr?"Hedef ve gerçekleşen süreler":"Recovery targets and actuals"}>
+        <thead><tr>{(tr?["Ölçüt","Hedef","Gerçekleşen","Sonuç"]:["Measure","Target","Actual","Result"]).map(s=><th key={s} scope="col">{s}</th>)}</tr></thead>
+        <tbody>{measures.map(({label,target,actual})=><tr key={label}>
+          <th scope="row">{label}</th><td><Duration hours={target} tr={tr}/></td><td><Duration hours={actual} tr={tr}/></td>
+          <td>{actual===null ? (tr?"Ölçülmedi":"Not measured") : actual>target ?
+            <span className="cpd-breach"><Duration hours={actual-target} tr={tr}/> {tr?"aşım":"over target"}</span> :
+            <span className="cpd-met">{tr?"Hedef içinde":"Within target"}</span>}</td>
+        </tr>)}</tbody>
+      </table>;
+}
+
 function PlanResults({plan,tr,text,openExercise,openGap}:{
   plan:Plan; tr:boolean; text:(key:string)=>string; openExercise:(id:string)=>void; openGap:(id:string)=>void;
 }) {
@@ -34,10 +50,6 @@ function PlanResults({plan,tr,text,openExercise,openGap}:{
   const {latest,gaps,hasMore}=resource.data;
   const date=(value:string)=>Number.isFinite(Date.parse(value))
     ? new Intl.DateTimeFormat(tr?"tr-TR":"en-GB",{dateStyle:"medium",timeZone:"UTC"}).format(new Date(value)) : "—";
-  const measures=[
-    {label:tr?"Kurtarma süresi (RTO)":"Recovery time (RTO)",target:plan.rtoHours,actual:latest?.actualRecoveryHours??null},
-    {label:tr?"Veri kaybı (RPO)":"Data loss (RPO)",target:plan.rpoHours,actual:latest?.actualDataLossHours??null},
-  ];
   return <>
     <section className="cpd-exercise">
       <header><h4><NavIcon module="Kanıt Otomasyonu"/>{tr?"Son tamamlanan tatbikat":"Last completed exercise"}</h4>
@@ -45,15 +57,7 @@ function PlanResults({plan,tr,text,openExercise,openGap}:{
       </header>
       {latest ? <p>{date(latest.completedAt||latest.scheduledDate)} · {text(latest.type)}{latest.outcome && " · "+text(latest.outcome)}</p>
         : <p>{tr?"Bu plan için henüz tamamlanmış tatbikat yok.":"No exercise has been completed for this plan yet."}</p>}
-      <table aria-label={tr?"Hedef ve gerçekleşen süreler":"Recovery targets and actuals"}>
-        <thead><tr>{(tr?["Ölçüt","Hedef","Gerçekleşen","Sonuç"]:["Measure","Target","Actual","Result"]).map(s=><th key={s} scope="col">{s}</th>)}</tr></thead>
-        <tbody>{measures.map(({label,target,actual})=><tr key={label}>
-          <th scope="row">{label}</th><td><Duration hours={target} tr={tr}/></td><td><Duration hours={actual} tr={tr}/></td>
-          <td>{actual===null ? (tr?"Ölçülmedi":"Not measured") : actual>target ?
-            <span className="cpd-breach"><Duration hours={actual-target} tr={tr}/> {tr?"aşım":"over target"}</span> :
-            <span className="cpd-met">{tr?"Hedef içinde":"Within target"}</span>}</td>
-        </tr>)}</tbody>
-      </table>
+      <RecoveryComparison plan={plan} measurement={latest} tr={tr}/>
     </section>
     <section className="cpd-gaps"><h4>{tr?"Açık iyileştirme aksiyonları":"Open improvement actions"}</h4>
       {!gaps.length && <p>{page>0?(tr?"Bu sayfada açık aksiyon yok.":"No open actions on this page."):(tr?"Bu plan için açık aksiyon yok.":"No open actions for this plan.")}</p>}
