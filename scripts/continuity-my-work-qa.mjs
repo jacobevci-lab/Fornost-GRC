@@ -34,7 +34,7 @@ async function focusRecord(id) {
   const row = page.locator('.mw2-item'); await expect(row).toHaveCount(1);
   await row.focus(); await page.keyboard.press('Enter'); await waitForQaIdle(page);
   await expect(page.locator('.continuity-page .enterprise-work-focus')).toContainText(id);
-  await expect(page.locator('.cpd-index button, .continuity-table tbody tr')).toHaveCount(1);
+  await expect(page.locator('.cpd-index button')).toHaveCount(1);
 }
 async function schedule() {
   await api(admin, '/api/continuity', 'POST', { action: 'schedule-exercise', assignmentMode: 'directory', planId, type: 'technical', scheduledDate: today, scenario: 'Validate recovery of the synthetic payment service and its dependencies.', facilitator: owner }, 201);
@@ -67,7 +67,7 @@ try {
 
   phase = 'cancel from exact exercise'; const cancelled = await schedule();
   await openWork(page, cancelled.code); await focusRecord(cancelled.id);
-  await page.locator('.continuity-table').getByRole('button', { name: 'Cancel exercise', exact: true }).click();
+  await page.locator('.cpd-file').getByRole('button', { name: 'Cancel exercise', exact: true }).click();
   const dialog = page.getByRole('dialog', { name: 'Cancel exercise', exact: true });
   await dialog.getByLabel('Decision note', { exact: true }).fill('Cancel this synthetic exercise after validating inbox navigation.');
   await dialog.getByLabel('Confirmation phrase', { exact: true }).fill('TATBİKATI İPTAL ET');

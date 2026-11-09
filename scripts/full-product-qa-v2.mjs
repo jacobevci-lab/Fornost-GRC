@@ -258,6 +258,13 @@ async function auditLocale(page, locale) {
         } else {
           await expect(page.locator(".cpd-placeholder .continuity-empty")).toBeVisible();
         }
+        const types=page.locator(".continuity-tabs");
+        for (const tab of (locale==="tr"?["Tatbikatlar","İyileştirme açıkları"]:["Exercises","Improvement gaps"])) {
+          await types.getByRole("button",{name:tab,exact:true}).click();
+          await expect(page.locator(".cpd-activities h3").first()).toContainText(tab);
+          await expect(page.locator(".cpd-activities .cpd-file, .cpd-activities .cpd-placeholder .continuity-empty")).toBeVisible();
+        }
+        await types.getByRole("button",{name:locale==="tr"?"Planlar":"Plans",exact:true}).click();
       }
       if (label === "Risk İştahı ve KRI" || label === "Risk Appetite & KRI") {
         await expect(page.locator(".rap-sections button")).toHaveCount(6);
