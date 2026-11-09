@@ -1,5 +1,7 @@
 "use client";
 
+import { hasBusinessContext } from "./business-context";
+import { BusinessContextView } from "./business-context-view";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { assessConnectedGrcCoverage, buildConnectedGrcGraph, connectedRelationLabels, connectedRemediationModule, connectedTitle, type ConnectedGrcRow } from "./connected-grc-model";
 import { filterConnectedGrcGaps, type ConnectedGapType } from "./connected-grc-gaps";
@@ -155,7 +157,9 @@ export default function ConnectedGrc({rows,lang,go,includeAi=false}:{rows:Connec
         </section>
         <section className="cg-detail" aria-label={tr?"Seçili kaydın bağlantıları":"Selected record connections"}>
           <header><small>{tr?"2. Bağlantıları incele":"2. Explore its connections"}</small>{selected?<><h3>{connectedTitle(selected)}</h3><p>{selected.code||selected.id} · {moduleLabel(selected.module)}</p><button type="button" onClick={()=>openRecord(selected)}>{tr?"Kaydı aç":"Open record"} ↗</button></>:<h3>{tr?"Bir kayıt seçin":"Choose a record"}</h3>}</header>
-          {selected&&<><RecordTrail key={selected.id} root={selected} links={links} lang={lang} label={moduleLabel} openRecord={followConnection}/><div className="cg-connection-count">{selectedLinks.length} {tr?"doğrudan bağlantı":"direct connections"}</div>
+          {selected&&<>{hasBusinessContext(selected) && <BusinessContextView anchor={selected} links={links} tr={tr} openRecord={followConnection}
+            loading={sourceState.loading} partial={!!activeSnapshot?.result.issues.some(issue=>issue.key==="continuity")} retry={()=>setSourceReload(n=>n+1)}/>}
+          <RecordTrail key={selected.id} root={selected} links={links} lang={lang} label={moduleLabel} openRecord={followConnection}/><div className="cg-connection-count">{selectedLinks.length} {tr?"doğrudan bağlantı":"direct connections"}</div>
           <div className="cg-connections">{selectedLinks.slice(0,linkLimit).map((link,index)=>{
             const outgoing=link.source.id===selected.id,other=outgoing?link.target:link.source;
             return <article key={`${other.id}-${link.relation}-${index}`}><div><small>{outgoing?(tr?"Bu kayıttan →":"From this record →"):(tr?"Bu kayda ←":"To this record ←")} {connectedRelationLabels[link.relation]?.[lang]||link.relation}</small><button type="button" className="cg-follow" onClick={()=>followConnection(other)} aria-label={`${tr?'Bağlantılarını göster':'Explore connections'}: ${connectedTitle(other)} · ${other.code||other.id} · ${moduleLabel(other.module)}`}>{connectedTitle(other)}</button><span>{other.code||other.id} · {moduleLabel(other.module)}</span></div><button type="button" onClick={()=>openRecord(other)} aria-label={`${tr?'Kaydı aç':'Open record'}: ${connectedTitle(other)} · ${other.code||other.id} · ${moduleLabel(other.module)}`}>{tr?"Aç":"Open"} ↗</button></article>;

@@ -126,7 +126,7 @@ function TrailSession({root,records,links,lang,label,scoped,partial,loading}:{ro
     }
   return <div className="trail-session">
     {!!path.length && <button type="button" onClick={()=>setPath(path.slice(0,-1))}>{tr?"Önceki kayda dön":"Back to previous record"}</button>}
-    <RecordTrail key={selected.id} root={selected} links={links} lang={lang} label={label} view={views[selected.id]} onChange={v=>setViews(previous=>({...previous,[selected.id]:v}))} openRecord={follow}/>
     {hasBusinessContext(selected) && <BusinessContextView anchor={selected} links={links} tr={tr} openRecord={follow} scoped={scoped} partial={partial} loading={loading}/>}
+    <RecordTrail key={selected.id} root={selected} links={links} lang={lang} label={label} view={views[selected.id]} onChange={v=>setViews(previous=>({...previous,[selected.id]:v}))} openRecord={follow}/>
   </div>;
 }
