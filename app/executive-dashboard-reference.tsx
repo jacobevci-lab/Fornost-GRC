@@ -225,7 +225,7 @@ export default function ExecutiveAssurancePanel({
         {panelOrder.filter(id=>view.preferences.visible[id]).map(id=>{
           const summary = summaries[id as keyof typeof summaries];
           return <article key={id} className={"report-domain "+summary.style}>
-            <button className="domain-link" onClick={()=>go(summary.module)}><NavIcon module={summary.module}/><strong>{summary.title}</strong></button>
+            <h3><button className="domain-link" onClick={()=>go(summary.module)}><NavIcon module={summary.module}/>{summary.title}</button></h3>
             {id==="auditRemediation"?<div className="audit-remediation-metrics report-audit-links">
               <button onClick={()=>go("Bulgular ve CAPA")}>{tr?"Açık bulgu":"Open findings"} <b>{openFindings??"—"}</b></button>
               <button aria-controls="executive-decisions" onClick={e=>showOverdue(e.currentTarget)}>{tr?"Geciken denetim maddesi":"Overdue audit requirements"} <b>{overdueAudits}</b></button>

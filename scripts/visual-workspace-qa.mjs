@@ -66,7 +66,11 @@ try {
     await open(tr ? 'Gösterge Paneli' : 'Dashboard');
     await expect(page.locator('.executive-dashboard-reference')).toBeVisible();
     await expect(page.locator('.evidence-assurance-status')).not.toHaveAttribute('data-state', 'loading');
-    assert.ok(await page.locator('.evidence-assurance-copy strong').innerText());
+    const assessment = page.locator('.report-details');
+    await assessment.locator(':scope>summary').click();
+    await expect(assessment.locator('.evidence-assurance-copy strong')).toBeVisible();
+    await expect(assessment.locator('.evidence-assurance-copy strong')).toHaveText(/\S/);
+    await assessment.locator(':scope>summary').click();
     assert.equal(await page.locator('.executive-dashboard-reference').getByText(tr ? 'Geciken denetim' : 'Overdue audits', { exact: true }).count(), 0);
     await expect(page.locator('.audit-remediation-panel')).toContainText(tr ? 'Geciken denetim maddesi' : 'Overdue audit requirements');
     for (const theme of ['light', 'dark']) {

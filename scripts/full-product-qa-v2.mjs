@@ -151,7 +151,7 @@ async function domAudit(page, area, locale) {
       const clippedWithoutScroller = !!wrapperRect && rect.width > wrapperRect.width + 4 && getComputedStyle(wrapper).overflowX === "visible";
       return { index, rows, headers, clippedWithoutScroller, caption: table.querySelector("caption")?.textContent?.trim() || "", ariaLabel: table.getAttribute("aria-label") || "" };
     });
-    const headingSizes = [...document.querySelectorAll(".shell>main h1,.shell>main h2,.shell>main h3")].filter(visible).map(el => ({ tag: el.tagName, reportTitle:el.matches(".executive-dashboard-header h2"), chartTitle:el.matches(".report-chart h3"), text: el.textContent?.trim(), size: parseFloat(getComputedStyle(el).fontSize) }));
+    const headingSizes = [...document.querySelectorAll(".shell>main h1,.shell>main h2,.shell>main h3")].filter(visible).map(el => ({ tag: el.tagName, text: el.textContent?.trim(), size: parseFloat(getComputedStyle(el).fontSize) }));
     const clippedHeaders = [...document.querySelectorAll(".shell>main header")].filter(visible).filter(header => {
       const bounds = header.getBoundingClientRect();
       return [...header.children].filter(visible).some(child => getComputedStyle(child).position !== "absolute" && getComputedStyle(child).position !== "fixed" && child.getBoundingClientRect().bottom > bounds.bottom + 8);
@@ -168,7 +168,7 @@ async function domAudit(page, area, locale) {
     };
   });
 
-  if (data.headingSizes.some(item => item.size > (item.reportTitle ? 50 : item.chartTitle ? 30 : item.tag === "H2" ? 24 : item.tag === "H1" ? 20 : 18))) finding("high", area, "Workspace heading size outside its design range", JSON.stringify(data.headingSizes));
+  if (data.headingSizes.some(item => item.size > (item.tag === "H2" ? 24 : item.tag === "H1" ? 20 : 18))) finding("high", area, "Workspace heading size outside its design range", JSON.stringify(data.headingSizes));
   if (data.clippedHeaders.length) finding("high", area, "Header content overflows its container", JSON.stringify(data.clippedHeaders));
   if (data.pageOverflow) finding("high", area, "Horizontal page overflow", `${data.overflowPx}px beyond viewport`);
   if (data.emptyButtons.length) finding("high", area, "Visible buttons without accessible name", JSON.stringify(data.emptyButtons.slice(0, 6)));
@@ -233,18 +233,21 @@ async function auditLocale(page, locale) {
         const hierarchy = await page.evaluate(() => {
           const root = document.querySelector('.executive-dashboard-reference');
           const metrics = [...document.querySelectorAll('.executive-kpi>strong')];
+          const dashboardText = root?.querySelectorAll('.executive-dashboard-header h2,.executive-kpi>strong,.report-chart h3,.domain-link');
+          const family = getComputedStyle(document.body).fontFamily;
           const header = root?.querySelector('.executive-dashboard-header')?.getBoundingClientRect();
           const strip = root?.querySelector('.executive-dashboard-kpis')?.getBoundingClientRect();
           return {
             surfaces: document.querySelectorAll('.executive-dashboard-reference').length,
             layout: root?.getAttribute('data-layout'),
             metrics: metrics.length,
+            workspaceFont: Array.from(dashboardText ?? []).filter(el => el.checkVisibility()).every(el => getComputedStyle(el).fontFamily === family),
             metricFontSizes: metrics.map(el => parseFloat(getComputedStyle(el).fontSize)),
             headerOverlapsMetrics: Boolean(header && strip && header.bottom > strip.top),
           };
         });
         if (hierarchy.surfaces !== 1 || hierarchy.layout !== 'period-report' || hierarchy.metrics !== 6
-          || hierarchy.metricFontSizes.some(size => size < 23 || size > 32) || hierarchy.headerOverlapsMetrics) {
+          || !hierarchy.workspaceFont || hierarchy.metricFontSizes.some(size => size !== 22) || hierarchy.headerOverlapsMetrics) {
           finding('high', area, 'Dashboard layout or metric hierarchy regressed', JSON.stringify(hierarchy));
         }
       }
