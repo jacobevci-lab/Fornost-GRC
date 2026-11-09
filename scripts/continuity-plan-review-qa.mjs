@@ -29,7 +29,7 @@ async function openWork(name) {
   await page.getByRole('textbox', { name: 'Search work', exact: true }).fill(name); await expect(page.locator('.mw2-item')).toHaveCount(1);
 }
 async function openDetails(p = page, tr = false) {
-  await p.locator('.continuity-table').getByRole('button', { name: tr ? 'Plan ayrıntıları ve incelemeler' : 'Plan details and reviews', exact: true }).click();
+  await p.locator('.cpd-file').getByRole('button', { name: tr ? 'Plan ayrıntıları ve incelemeler' : 'Plan details and reviews', exact: true }).click();
   const dialog = p.getByRole('dialog', { name: tr ? 'Plan ayrıntıları ve incelemeler' : 'Plan details and reviews', exact: true });
   await expect(dialog).toBeVisible(); await waitForQaIdle(p); await expect(dialog.locator('.cpr-facts').first()).toBeVisible(); return dialog;
 }
@@ -135,7 +135,7 @@ try {
       await dialog.locator('.cpr-form').scrollIntoViewIfNeeded(); await dialog.screenshot({ path: `${out}/${lang}-${theme}-${width}.png` });
     }
     await page.keyboard.press('Escape'); await expect(dialog).toBeHidden();
-    await expect(page.locator('.continuity-table').getByRole('button', { name: lang === 'TR' ? 'Plan ayrıntıları ve incelemeler' : 'Plan details and reviews', exact: true })).toBeFocused();
+    await expect(page.locator('.cpd-file').getByRole('button', { name: lang === 'TR' ? 'Plan ayrıntıları ve incelemeler' : 'Plan details and reviews', exact: true })).toBeFocused();
   }
   checks.push('Twelve TR/EN light/dark desktop/tablet/phone views, accessibility, Escape dismissal and restored keyboard focus');
   await api(admin, '/api/continuity', 'POST', { action: 'retire-plan', planId, note: 'Synthetic periodic-review journey completed; no active exercises or gaps remain.', confirmation: 'PLANI YÜRÜRLÜKTEN KALDIR' });
