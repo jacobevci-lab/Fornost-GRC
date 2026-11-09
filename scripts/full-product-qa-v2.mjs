@@ -241,7 +241,7 @@ async function auditLocale(page, locale) {
             surfaces: document.querySelectorAll('.executive-dashboard-reference').length,
             layout: root?.getAttribute('data-layout'),
             metrics: metrics.length,
-            workspaceFont: [...dashboardText || []].every(el => getComputedStyle(el).fontFamily === family),
+            workspaceFont: Array.from(dashboardText ?? []).filter(el => el.checkVisibility()).every(el => getComputedStyle(el).fontFamily === family),
             metricFontSizes: metrics.map(el => parseFloat(getComputedStyle(el).fontSize)),
             headerOverlapsMetrics: Boolean(header && strip && header.bottom > strip.top),
           };

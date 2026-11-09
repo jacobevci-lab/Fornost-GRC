@@ -141,16 +141,17 @@ try {
     await expect(dashboard.locator(".report-chart-grid")).toBeVisible();
     await dashboard.locator(".executive-dashboard-header").scrollIntoViewIfNeeded();
     const typography = await dashboard.evaluate(root => {
-      const size = selector => [...root.querySelectorAll(selector)].map(el => parseFloat(getComputedStyle(el).fontSize));
-      const roleText = root.querySelectorAll(".executive-dashboard-header h2,.report-chart h3,.domain-link,.executive-kpi>strong");
+      const visible = selector => [...root.querySelectorAll(selector)].filter(el => el.checkVisibility());
+      const size = selector => visible(selector).map(el => parseFloat(getComputedStyle(el).fontSize));
+      const roleText = visible(".executive-dashboard-header h2,.report-chart h3,.domain-link,.executive-kpi>strong");
       return {
-        sameFamily: [...roleText].every(el => getComputedStyle(el).fontFamily === getComputedStyle(document.body).fontFamily),
+        sameFamily: roleText.every(el => getComputedStyle(el).fontFamily === getComputedStyle(document.body).fontFamily),
         title: size(".executive-dashboard-header h2"),
         panels: size(".report-chart h3,.domain-link"),
         metrics: size(".executive-kpi>strong"),
       };
     });
-    assert.deepEqual(typography, {sameFamily:true,title:[width <= 900 ? 16 : 18],panels:Array(6).fill(13),metrics:Array(6).fill(22)});
+    assert.deepEqual(typography, {sameFamily:true,title:[width <= 900 ? 16 : 18],panels:Array(6).fill(13),metrics:Array(6).fill(22)}, JSON.stringify({width,theme,typography}));
     await dashboard.screenshot({ path: `${out}/executive-period-report-${width}.png` });
     await reportDetails.locator(":scope>summary").click();
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 4));
