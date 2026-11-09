@@ -150,6 +150,16 @@ try {
     assert.ok(await fontSize(attention.locator(".decision-signal-total strong")) >= 30);
     await workspace.screenshot({ path: `${out}/karar-masasi-${width}.png` });
   }
+  await page.route("**/api/executive-assurance",route=>route.fulfill({json:{
+    generatedAt:chainTime,verified:true,issues:[],rows:[{id:"evd-014",module:"Kanıtlar",data:{evidenceIntegrity:"verified"}}],
+    auditPortfolio:{audits:[],verified:true,issues:[],orphanRequirements:0,generatedAt:chainTime}
+  }}));
+  await page.reload();
+  await expect(dashboard.locator(".report-undated")).toBeVisible();
+  await expect(dashboard.locator(".report-axis i")).toHaveCount(0);
+  await dashboard.locator(".report-undated button").click();
+  await expect(page.locator("main > header h1")).toHaveText("Kanıt Kütüphanesi");
+  await openQaModule(page,"Gösterge Paneli");
   const generatedAt = new Date().toISOString();
   const audit = { id: "qa-linked", name: "QA Portfolio", gate: "empty", verified: true, issues: [], requirements: 0, current: 0, blockers: 0 };
   await page.route("**/api/executive-assurance", route => route.fulfill({ json: {
@@ -165,9 +175,9 @@ try {
     requirement("aud-today", { auditName: audit.name, dueDate: generatedAt.slice(0, 10) }),
   ];
   await page.reload();
-  await reportDetails.locator(":scope>summary").click();
-  const signal = attention.getByRole("button", { name: /Geciken denetim maddesi/ });
-  await expect(signal.locator("strong")).toHaveText("2");
+  await expect(queue).toBeHidden();
+  const signal = dashboard.locator(".report-audit-links").getByRole("button", { name: /Geciken denetim maddesi/ });
+  await expect(signal.locator("b")).toHaveText("2");
   await signal.click();
   await expect(queue.getByRole("heading", { name: "Geciken denetim maddeleri", exact: true })).toBeFocused();
   await expect(rows).toHaveCount(2);

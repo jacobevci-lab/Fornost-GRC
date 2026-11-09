@@ -358,7 +358,7 @@ async function auditLocale(page, locale) {
       if (i === 0 && locale === "tr") {
         const signal = page.locator(".report-audit-links button[aria-controls='executive-decisions']");
         if (await signal.isVisible()) {
-          const count = Number(await signal.locator("strong").innerText());
+          const count = Number(await signal.locator("b").innerText());
           await signal.click();
           const queue = page.locator("#executive-decisions");
           await expect(queue.getByRole("heading")).toHaveText("Geciken denetim maddeleri");
