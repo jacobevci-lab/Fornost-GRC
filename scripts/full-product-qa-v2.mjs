@@ -251,6 +251,14 @@ async function auditLocale(page, locale) {
           finding('high', area, 'Dashboard layout or metric hierarchy regressed', JSON.stringify(hierarchy));
         }
       }
+      if (label === "İş Sürekliliği ve Dayanıklılık" || label === "Business Continuity & Resilience") {
+        await expect(page.locator(".cpd-index h3")).toContainText(locale === "tr" ? "Plan dosyası" : "Plan dossier");
+        if (await page.locator(".cpd-index button").count()) {
+          await expect(page.locator(".cpd-exercise tbody tr")).toHaveCount(2);
+        } else {
+          await expect(page.locator(".cpd-placeholder .continuity-empty")).toBeVisible();
+        }
+      }
       if (label === "Risk İştahı ve KRI" || label === "Risk Appetite & KRI") {
         await expect(page.locator(".rap-sections button")).toHaveCount(6);
         await expect(page.locator(".rap-monitor h3")).toHaveText(locale === "tr" ? "KRI izleme süreci" : "KRI monitoring process");

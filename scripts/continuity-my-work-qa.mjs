@@ -34,7 +34,7 @@ async function focusRecord(id) {
   const row = page.locator('.mw2-item'); await expect(row).toHaveCount(1);
   await row.focus(); await page.keyboard.press('Enter'); await waitForQaIdle(page);
   await expect(page.locator('.continuity-page .enterprise-work-focus')).toContainText(id);
-  await expect(page.locator('.continuity-table tbody tr')).toHaveCount(1);
+  await expect(page.locator('.cpd-index button, .continuity-table tbody tr')).toHaveCount(1);
 }
 async function schedule() {
   await api(admin, '/api/continuity', 'POST', { action: 'schedule-exercise', assignmentMode: 'directory', planId, type: 'technical', scheduledDate: today, scenario: 'Validate recovery of the synthetic payment service and its dependencies.', facilitator: owner }, 201);
