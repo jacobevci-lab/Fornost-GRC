@@ -17,10 +17,13 @@ try {
     headers:{origin:base}, data:{action:'login',email:'qa-admin@fornost.test',password:qaPassword()},
   });
   assert.equal(login.status(),200);
+  const register=await (await context.request.get(base+'/api/grc')).json();
+  const evidence=register.rows.find(row=>row.module==='Kanıtlar');
+  assert.ok(evidence?.id, 'Seeded evidence destination required');
   const t='2026-11-08T09:00:00.000Z', later='2026-11-09T09:00:00.000Z';
   const source={id:'qa-source',name:'Microsoft Intune',vendor:'Microsoft',enabled:true,driver:'provider-v1',config:{providerId:'intune',dataset:'managed-devices'},lastTestStatus:'success',lastTestAt:t};
   const rule={id:'qa-rule',name:'QA device encryption',sourceId:source.id,controlRefs:'A.8.24',enabled:true,freshness:'stale',lastStatus:'error',lastErrorCode:'PERMISSION_DENIED',lastRunId:'qa-error',lastRunAt:later,lastEvidenceAt:t,evidenceRunId:'qa-proof'};
-  const run={id:'qa-proof',ruleId:rule.id,ruleName:rule.name,sourceName:source.name,status:'fail',score:50,detail:'1 of 2 failed',createdAt:t,triggerType:'manual',durationMs:25,errorCode:null,evidenceId:'qa-evidence',evidenceState:'available',assessment:{templateId:'intune-encryption',templateVersion:1,status:'fail',total:2,passed:1,failed:1,unknown:0,score:50,evaluatedAt:t,scope:'credential-visible',issues:[{id:'d1',name:'QA-DEVICE-01',status:'fail',reason:'not-encrypted'}],issuesTruncated:false}};
+  const run={id:'qa-proof',ruleId:rule.id,ruleName:rule.name,sourceName:source.name,status:'fail',score:50,detail:'1 of 2 failed',createdAt:t,triggerType:'manual',durationMs:25,errorCode:null,evidenceId:evidence.id,evidenceState:'available',assessment:{templateId:'intune-encryption',templateVersion:1,status:'fail',total:2,passed:1,failed:1,unknown:0,score:50,evaluatedAt:t,scope:'credential-visible',issues:[{id:'d1',name:'QA-DEVICE-01',status:'fail',reason:'not-encrypted'}],issuesTruncated:false}};
   const failedCollection={...run,id:'qa-error',status:'error',score:0,detail:'Permission denied',createdAt:later,errorCode:'PERMISSION_DENIED',assessment:null,evidenceId:null,evidenceState:'none'};
   let populated=false;
   await page.route('**/api/evidence-automation', route=>route.fulfill({json:{sources:populated?[source]:[],rules:populated?[rule]:[],runs:[],findings:[]}}));
@@ -68,9 +71,11 @@ try {
   await page.setViewportSize({width:390,height:844});
   await expect(page.locator('.ew-selected')).toContainText('Başarısız');
   assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)<=4);
+  const badge=await page.locator('.ew-selected .ew-badge').boundingBox();
+  assert.ok(badge && badge.x>=0 && badge.x+badge.width<=390,'The control result fits the mobile viewport');
   await page.screenshot({path:out+'/controls-mobile.png'});
   await page.locator('.ew-expanded').getByRole('button',{name:/Kanıtı aç/}).click();
-  await expect(page.locator('nav button.active[aria-label="Kanıt Kütüphanesi"]')).toBeVisible();
+  await expect(page.locator('main > header h1')).toHaveText('Kanıt Kütüphanesi');
   assert.deepEqual(errors,[]);
   console.log('EVIDENCE_WORKSPACE_PASS: first source, selected wizard, catalog, prior evidence, error vs failed result, evidence navigation, mobile and TR/EN');
 } catch(error) {

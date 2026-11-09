@@ -48,3 +48,16 @@
 .ew-page :is(button,summary,input):focus-visible{outline:2px solid var(--ws-brand);outline-offset:2px}
 @media(max-width:760px){.ew-panes{grid-template-columns:1fr}.ew-detail{border-inline-start:0;border-top:1px solid var(--ws-line)}.ew-items{max-height:225px}.ew-facts>div{flex-wrap:wrap}.ew-tabs details>div{inset-inline-end:0}.ew-run{grid-template-columns:1fr}.ew-run>div+div{padding-inline-start:0;border:0}.ew-table-wrap table{min-width:510px}}
 @media(max-width:480px){.ew-chain{grid-template-columns:1fr}.ew-chain>div+div:before{inset-inline-start:15px;top:-15px;height:14px;width:0;border-top:0;border-inline-start:1px solid var(--ws-line-strong)}.ew-tabs details>div{inset-inline-end:auto}.ew-tabs details{position:static}.ew-tabs details>div{inset-inline-start:0}.ew-facts dt,.ew-facts dd{text-align:start}}
+
+@media(max-width:600px){
+  .ew-table-wrap table,.ew-table-wrap tbody{display:block;width:100%;min-width:0}
+  .ew-table-wrap thead{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
+  .ew-table-wrap tbody tr{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 8px;padding:10px 4px;border-bottom:1px solid var(--ws-line)}
+  .ew-table-wrap tbody :is(td,th){border:0;padding:0;min-width:0;overflow-wrap:anywhere}
+  .ew-table-wrap th button{min-height:34px}
+  .ew-table-wrap td[data-label]{grid-column:1 / -1;font-size:.8rem}
+  .ew-table-wrap td[data-label]::before{content:attr(data-label) " · ";color:var(--ws-muted)}
+  .ew-table-wrap tr:not(.ew-expanded)>td:last-child{grid-column:2;grid-row:1;align-self:center}
+  .ew-table-wrap .ew-expanded{display:block;padding:8px}
+  .ew-table-wrap .ew-expanded td{display:block;padding:8px}
+}
