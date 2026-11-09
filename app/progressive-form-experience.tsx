@@ -159,7 +159,7 @@ export default function ProgressiveFormExperience() {
         <b>{target.quickRisk ? (tr ? "Hızlı risk kaydı" : "Quick risk intake") : (tr ? "Temel alanlar" : "Core fields")}</b>
         <small>
           {target.quickRisk
-            ? (tr ? "Olay · etkilenen varlık · sahip ile kaydet; değerlendirmeyi sonra tamamla" : "Save with event · affected asset · owner; complete assessment later")
+            ? (tr ? "Olayı, sorumluyu ve varsa etkilenen varlığı kaydedin. Değerlendirmeyi sonra tamamlayabilirsiniz." : "Record the event, owner and any affected assets. You can complete the assessment later.")
             : (tr
                 ? `${groups.core.length} temel · ${groups.advanced.length} gelişmiş alan`
                 : `${groups.core.length} core · ${groups.advanced.length} advanced fields`)}
