@@ -31,11 +31,9 @@ export default function RiskAppetite({lang,currentUser}:{lang:Lang;currentUser:{
  const appetiteName=(id:string)=>{const x=appetites.find(a=>a.id===id);return x?`${x.code} · ${x.kriName}`:id},history=useMemo(()=>new Map(appetites.map(a=>[a.id,measurements.filter(m=>m.appetiteId===a.id).slice(0,8).reverse()])),[appetites,measurements]),format=(v?:string)=>v?new Intl.DateTimeFormat(tr?"tr-TR":"en-GB",{dateStyle:"medium"}).format(new Date(`${v.slice(0,10)}T12:00:00Z`)):"—";
  const [loadState,setLoadState]=useState<"loading"|"ready"|"error">("loading");
  const requestId=useRef(0);
- const load=useCallback(async()=>{
+ const load=useCallback((signal?:AbortSignal)=>{
    const id=++requestId.current;
-   setLoadState("loading");
-   try {
-     const response=await fetch(withBasePath("/api/risk-appetite"),{cache:"no-store"});
+   return fetch(withBasePath("/api/risk-appetite"),{cache:"no-store",signal}).then(async response=>{
      if(!response.ok) throw new Error("KRI request failed");
      const body:RiskAppetitePayload=await response.json();
      if(!body.summary || !Object.keys(emptySummary).every(key=>Number.isFinite(body.summary?.[key as keyof Summary])) ||
@@ -43,15 +41,19 @@ export default function RiskAppetite({lang,currentUser}:{lang:Lang;currentUser:{
         !Array.isArray(body.scenarios) || !Array.isArray(body.snapshots) || !Array.isArray(body.linkedRisks)) {
        throw new Error("Incomplete KRI response");
      }
-     if(id!==requestId.current) return;
+     if(id!==requestId.current || signal?.aborted) return;
      setAppetites(body.appetites); setMeasurements(body.measurements); setBreaches(body.breaches);
      setScenarios(body.scenarios); setSnapshots(body.snapshots); setLinkedRisks(body.linkedRisks);
      setSummary(body.summary); setLoadState("ready");
-   } catch {
-     if(id===requestId.current) setLoadState("error");
-   }
+   }).catch(()=>{
+     if(id===requestId.current && !signal?.aborted) setLoadState("error");
+   });
  },[]);
- useEffect(()=>{void load();return ()=>{requestId.current++;};},[load]);
+ useEffect(()=>{
+   const controller=new AbortController();
+   void load(controller.signal);
+   return ()=>controller.abort();
+ },[load]);
  function dismissMutationForms(){setFormError("");setActionForm(null);setAppetiteForm(null);setMeasurementForm(null);setPlanForm(null);setScenarioForm(null);setBoardForm(null);}
  async function api(body:Record<string,unknown>){if(mutationPending.current)return false;mutationPending.current=true;setBusy(true);setNotice("");setFormError("");try{const response=await fetch(withBasePath("/api/risk-appetite"),{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(body)}),result=await response.json().catch(()=>({}));setNotice(response.ok?(result.message||(tr?"İşlem tamamlandı.":"Completed.")):(result.error||(tr?"İşlem başarısız.":"Operation failed.")));if(!response.ok)setFormError(result.error||(tr?"İşlem başarısız. Alanları kontrol edip tekrar deneyin.":"Operation failed. Check the fields and try again."));if(response.ok||response.status===409||response.status>=500){if(!response.ok)dismissMutationForms();await load();}return response.ok}catch{dismissMutationForms();setNotice(tr?"İşlemin sonucu doğrulanamadı. Güncel kaydı kontrol edin.":"The outcome could not be confirmed. Review the current record.");await load().catch(()=>{});return false}finally{mutationPending.current=false;setBusy(false)}}
  const phrase=(op:string)=>({submit:"RİSK İŞTAHINI İNCELEMEYE GÖNDER",approve:"RİSK İŞTAHINI ONAYLA",reject:"RİSK İŞTAHINI REDDET",retire:"RİSK İŞTAHINI YÜRÜRLÜKTEN KALDIR","submit-breach":"İHLALİ DOĞRULAMAYA GÖNDER","close-breach":"İHLALİ KAPAT","reopen-breach":"İHLALİ YENİDEN AÇ","submit-scenario":"SENARYOYU İNCELEMEYE GÖNDER","verify-scenario":"SENARYOYU DOĞRULA","approve-board":"YÖNETİM KURULU PAKETİNİ ONAYLA"}[op]||"");
@@ -71,7 +73,7 @@ export default function RiskAppetite({lang,currentUser}:{lang:Lang;currentUser:{
       {loadState==="loading" && <p role="status">{tr?"KRI verileri yükleniyor…":"Loading KRI data…"}</p>}
       {loadState==="error" && <div className="rap-load-error" role="alert">
         {tr?"KRI verileri yüklenemedi.":"KRI data could not be loaded."}
-        <button type="button" onClick={()=>void load()}>{tr?"Tekrar dene":"Retry"}</button>
+        <button type="button" onClick={()=>{setLoadState("loading");void load()}}>{tr?"Tekrar dene":"Retry"}</button>
       </div>}
       {loadState==="ready" && <>
         {tab==="executive" && <>
