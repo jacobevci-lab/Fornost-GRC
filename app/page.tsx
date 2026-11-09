@@ -2787,6 +2787,9 @@ function Field({
       return (
         <fieldset className="wide asset-multi-picker">
           <legend>{labelMap[lang][k]}</legend>
+          <label><input type="checkbox" name="riskScope" checked={form.riskScope==="organization"} disabled={selected.length>0}
+            onChange={e=>setForm({...form,riskScope:e.target.checked?"organization":"asset"})}/>
+            {lang==="tr"?"Belirli bir varlığa bağlı olmayan risk":"Risk independent of a specific asset"}</label>
           <p>
             {lang === "tr"
               ? "Riskten etkilenen bir veya birden fazla varlığı seçin."
@@ -2796,7 +2799,8 @@ function Field({
             multiple
             name={k}
             aria-label={labelMap[lang][k]}
-            required
+            required={form.riskScope!=="organization"}
+            disabled={form.riskScope==="organization"}
             value={selected}
             onChange={(e) =>
               change(

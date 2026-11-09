@@ -5,6 +5,8 @@ import { buildConnectedGrcGraph, connectedRelationLabels, connectedTitle, type C
 import { buildConnectedGrcEnterpriseRows } from "./connected-grc-sources";
 import { loadConnectedGrcSources } from "./connected-grc-loader";
 import { indexTrailLinks, moduleTrailSources, traceRecords } from "./module-record-trail";
+import { hasBusinessContext } from "./business-context";
+import { BusinessContextView } from "./business-context-view";
 import NavIcon from "./nav-icon";
 import "./assurance-chain-view.css";
 import "./module-record-trail.css";
@@ -108,21 +110,23 @@ function ModuleTrailBody({module,rows,lang,label,scoped,includeAi,coreState,retr
       {(pending||partial) && <p role="status">{pending?(tr?"Kaynaklar yükleniyor…":"Loading sources…"):(tr?"Bazı kaynaklar okunamadı. Zincir kısmi olabilir.":"Some sources could not be read. This chain may be partial.")}</p>}
       {!pending && <button type="button" onClick={()=>{retryCore();setRevision(revision+1);}}>{partial?(tr?"Yeniden dene":"Retry"):(tr?"Zinciri yenile":"Refresh chain")}</button>}
     </div>
-    {selected ? <TrailSession key={selected.id} root={selected} records={records} links={graph.links} lang={lang} label={label}/> :
+    {selected ? <TrailSession key={selected.id} root={selected} records={records} links={graph.links} lang={lang} label={label} scoped={scoped} partial={partial} loading={pending}/> :
       !pending && <p role="status">{pinned?(tr?"Seçili kaydın bağlantıları çözümlenemedi.":"The selected record could not be resolved.") : query?(tr?"Aramayla eşleşen kayıt yok.":"No records match your search."):(tr?"Yüklenen kaynaklarda bu modüle ait kayıt bulunamadı.":"No records for this module in the loaded sources.")}</p>}
   </div>;
 }
 
-function TrailSession({root,records,links,lang,label}:{root:Row;records:Row[];links:ConnectedGrcLink[];lang:Lang;label:Labels}) {
+function TrailSession({root,records,links,lang,label,scoped,partial,loading}:{root:Row;records:Row[];links:ConnectedGrcLink[];lang:Lang;label:Labels;scoped:boolean;partial:boolean;loading:boolean}) {
   const [path,setPath] = useState<string[]>([]);
   const [views,setViews] = useState<Record<string,TrailView>>({});
   const selected = records.find(row=>row.id===path.at(-1)) || root;
   const tr = lang === "tr";
-  return <div className="trail-session">
-    {!!path.length && <button type="button" onClick={()=>setPath(path.slice(0,-1))}>{tr?"Önceki kayda dön":"Back to previous record"}</button>}
-    <RecordTrail key={selected.id} root={selected} links={links} lang={lang} label={label} view={views[selected.id]} onChange={v=>setViews(previous=>({...previous,[selected.id]:v}))} openRecord={row=>{
+  function follow(row:Row) {
       if(row.id === root.id) setPath([]);
       else { const index=path.indexOf(row.id);setPath(index<0?[...path,row.id]:path.slice(0,index+1)); }
-    }}/>
+    }
+  return <div className="trail-session">
+    {!!path.length && <button type="button" onClick={()=>setPath(path.slice(0,-1))}>{tr?"Önceki kayda dön":"Back to previous record"}</button>}
+    <RecordTrail key={selected.id} root={selected} links={links} lang={lang} label={label} view={views[selected.id]} onChange={v=>setViews(previous=>({...previous,[selected.id]:v}))} openRecord={follow}/>
+    {hasBusinessContext(selected) && <BusinessContextView anchor={selected} links={links} tr={tr} openRecord={follow} scoped={scoped} partial={partial} loading={loading}/>}
   </div>;
 }

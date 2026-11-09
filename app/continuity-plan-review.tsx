@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useId, useRef, useState, type FormEvent } from 'react';
+import { CurrentRecordTrail } from "./module-record-trail-view";
 import { withBasePath } from './base-path';
 import { useWorkflowRecords } from './use-workflow-records';
 import { minimumNextPlanReview, type ContinuityPlan, type ContinuityReviewWorkspace } from './continuity/plan';
@@ -61,7 +62,7 @@ export default function ContinuityPlanReview({ planId, tr, onClose, onSaved }: {
         {resource.error && <p role="alert">{tr ? 'Plan bulunamadı, erişilemiyor veya okunamadı. Planı yenileyerek tekrar deneyin.' : 'The plan was not found, is inaccessible or could not be read. Refresh the plan to retry.'}</p>}
         {notice && <p role="status" className="cpr-notice">{notice}</p>}
         {data && <>
-          <h4>{data.plan.code} · v{data.plan.version}</h4><PlanFacts plan={data.plan} tr={tr} />
+          <h4>{data.plan.code} · v{data.plan.version}</h4><CurrentRecordTrail module="İş Sürekliliği" kind="continuity-plan" recordRef={data.plan.id}/><PlanFacts plan={data.plan} tr={tr} />
           <p>{tr ? 'Bu karar planın stratejisini veya hedeflerini değiştirmez; tatbikat doğrulaması yerine geçmez ve iyileştirme açıklarını kapatmaz.' : 'This decision preserves the plan’s strategy and targets; it does not replace exercise verification or close improvement gaps.'}</p>
           {!draft && data.canReview && <button type="button" disabled={!resource.ready || busy} onClick={() => { setDraft(newDraft(data.plan)); setNotice(''); }}>{tr ? 'Gözden geçirmeyi kaydet' : 'Record periodic review'}</button>}
           {!data.canReview && <p>{tr ? 'Kayıt işlemi yalnız etkin planın atanmış bağımsız Admin incelemecisine açıktır.' : 'Recording is available only to the active plan’s assigned independent Admin reviewer.'}</p>}

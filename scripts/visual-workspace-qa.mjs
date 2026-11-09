@@ -75,7 +75,7 @@ try {
         await page.setViewportSize({ width, height: 935 });
         assert.ok(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth) <= 4, 'Dashboard fits viewport');
         const grid = page.locator('.executive-dashboard-grid');
-        if (width === 1365) assert.equal(await grid.evaluate(el => getComputedStyle(el).gridTemplateAreas), '"compliance risk" "assurance audit"');
+        if (width === 1365) assert.equal(await grid.evaluate(el => getComputedStyle(el).gridTemplateColumns.split(" ").length),4);
         await page.screenshot({ path: `${out}/${locale}-${theme}-${width}-dashboard.png` });
         checks.push(`${locale}/${theme}/${width}: dashboard`);
       }

@@ -143,7 +143,7 @@ const values = (value: unknown): string[] => Array.isArray(value)
   ? value.flatMap(values)
   : String(value ?? "").split(/[;,|\n]+/).map((item) => item.trim()).filter((item) => item.length >= 2);
 const aliases = (row: ConnectedGrcRow) => new Set(
-  [row.id, row.code, ...aliasFields.map((field) => row.data[field])].flatMap(values).map(normalize).filter(Boolean),
+  [row.id, row.code, ...(row.module === "Varlık Envanteri" ? [row.data.assetId] : []), ...aliasFields.map((field) => row.data[field])].flatMap(values).map(normalize).filter(Boolean),
 );
 
 export function buildConnectedGrcGraph(rows: ConnectedGrcRow[]) {

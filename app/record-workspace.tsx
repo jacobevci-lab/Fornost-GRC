@@ -1,12 +1,15 @@
 "use client";
 
-import { useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useContext, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { buildConnectedGrcGraph, connectedTitle, type ConnectedGrcRow } from "./connected-grc-model";
 import NavIcon from "./nav-icon";
-import { RecordTrail } from "./module-record-trail-view";
+import { ModuleTrailContext, RecordTrail } from "./module-record-trail-view";
 import { AssuranceChain, hasAssuranceChain } from "./assurance-chain-view";
 import { assessedRiskScore } from "./risk-methodology";
 import { displayRecordCode } from "./record-codes";
+
+import { hasBusinessContext } from "./business-context";
+import { BusinessContextView, useContinuityContext } from "./business-context-view";
 
 type Inspect = (row: ConnectedGrcRow, button: HTMLButtonElement) => void;
 type Props = {
@@ -26,9 +29,12 @@ export default function RecordWorkspace({ rows, visible, lang, moduleNames, form
   const title = useRef<HTMLHeadingElement>(null);
   const root = visible.find(row => row.id === path[0]);
   const selectedId = path.at(-1);
-  const selected = root && rows.find(row => row.id === selectedId);
+  const context = useContext(ModuleTrailContext);
+  const continuity = useContinuityContext(!!root && !!context && !context.scoped, rows);
+  const records = useMemo(() => continuity.rows ? [...rows,...continuity.rows] : rows,[rows,continuity.rows]);
+  const selected = root && records.find(row => row.id === selectedId);
   const open = !!selected;
-  const graph = useMemo(() => open ? buildConnectedGrcGraph(rows) : null, [open, rows]);
+  const graph = useMemo(() => open ? buildConnectedGrcGraph(records) : null, [open, records]);
 
   if (path.length && !selected) setPath([]);
   useLayoutEffect(() => {
@@ -74,7 +80,8 @@ export default function RecordWorkspace({ rows, visible, lang, moduleNames, form
     }
   }
   const showChain = !!selected && hasAssuranceChain(selected);
-  const otherLinks = Array.from(linked.values()).filter(row => !showChain || !hasAssuranceChain(row));
+  const business = !!selected && hasBusinessContext(selected);
+  const otherLinks = Array.from(linked.values()).filter(row => (!showChain || !hasAssuranceChain(row)) && !(business && hasBusinessContext(row)));
   const data = selected?.data || {};
   const riskScore = selected?.module === "Risk Assessment" ? assessedRiskScore(data) : null;
   const facts = [
@@ -107,15 +114,17 @@ export default function RecordWorkspace({ rows, visible, lang, moduleNames, form
         </div>
         <small>{moduleNames[selected.module] || selected.module} · {displayRecordCode(selected)}</small>
         <h3 ref={title} tabIndex={-1}>{connectedTitle(selected)}</h3>
+        {business && graph && <BusinessContextView anchor={selected} links={graph.links} tr={tr} openRecord={row=>follow(row.id)}
+          loading={continuity.loading} partial={continuity.partial} scoped={context?.scoped} retry={continuity.retry}/>}
         {showChain && graph && <AssuranceChain key={selected.id} inspector anchor={selected} links={graph.links} lang={lang} trail={path} openRecord={row => follow(row.id)}/>}
-        {!showChain && graph && <RecordTrail key={selected.id} root={selected} links={graph.links} lang={lang}
+        {!showChain && !business && graph && <RecordTrail key={selected.id} root={selected} links={graph.links} lang={lang}
           label={module => moduleNames[module] || module} openRecord={row => follow(row.id)}/>}
         <dl>{facts.map(([label, value]) => <div key={String(label)}><dt>{String(label)}</dt><dd>{formatValue(String(value), lang)}</dd></div>)}</dl>
         {selected.module === "Kanıtlar" && <button className="primary" type="button" onClick={() => preview(selected.id)}>{tr ? "Kanıtı önizle" : "Preview evidence"}</button>}
-        {(!showChain || otherLinks.length > 0) && <h4>{showChain ? (tr ? "Diğer bağlı kayıtlar" : "Other linked records") : (tr ? "Bağlı kayıtlar" : "Linked records")}</h4>}
+        {((!showChain && !business) || otherLinks.length > 0) && <h4>{showChain ? (tr ? "Diğer bağlı kayıtlar" : "Other linked records") : (tr ? "Bağlı kayıtlar" : "Linked records")}</h4>}
         {otherLinks.length ? <ul>{otherLinks.map(row => <li key={row.id}><button type="button" onClick={() => follow(row.id)}>
           <b>{connectedTitle(row)}</b><span>{moduleNames[row.module] || row.module} · {displayRecordCode(row)}</span>
-        </button></li>)}</ul> : !showChain && <p>{tr ? "Bu kayda bağlı, görüntüleyebileceğin bir kayıt bulunamadı." : "No linked records are visible for this record."}</p>}
+        </button></li>)}</ul> : !showChain && !business && <p>{tr ? "Bu kayda bağlı, görüntüleyebileceğin bir kayıt bulunamadı." : "No linked records are visible for this record."}</p>}
       </div>
     </section>}
   </>;
