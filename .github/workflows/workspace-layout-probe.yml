@@ -3,6 +3,7 @@ on:
   pull_request:
     paths:
       - 'scripts/workspace-layout-qa.mjs'
+      - 'scripts/evidence-workspace-qa.mjs'
       - '.github/workflows/workspace-layout-probe.yml'
   workflow_dispatch:
 permissions:
@@ -46,6 +47,8 @@ jobs:
             --data-binary @/tmp/fornost-qa-bootstrap.json
       - name: Load explicit synthetic core fixtures
         run: node scripts/seed-local-qa.mjs
+      - name: Verify evidence workspace interactions
+        run: node scripts/evidence-workspace-qa.mjs
       - name: Diagnose layout in a fresh database
         timeout-minutes: 9
         run: node scripts/workspace-layout-qa.mjs

@@ -1,7 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { createPortal } from "react-dom";
+import { useEffect, useMemo, useState } from "react";
 import { executionConflictMessage } from "./evidence/execution-feedback";
 import { withBasePath } from "./base-path";
 import { navigateToFornost } from "./navigation-focus";
@@ -13,9 +12,6 @@ type Lang = "tr" | "en";
 type DetectedPath = { path: string; type: string };
 type Suggestion = { ref: string; title: string; score: number; matches: string[] };
 type Control = { ref: string; title: string };
-type Source = { id: string };
-type Rule = { id: string; sourceId: string; controlRefs: string; enabled: boolean; autoFinding?: boolean };
-type AutomationContext = { sources?: Source[]; rules?: Rule[] };
 type Template = { label: string; category: string; driver: string; providerId?: string };
 type SourceDraft = ConnectorDraft;
 
@@ -32,14 +28,9 @@ const templates: Template[] = [
   {label:"On-prem HTTPS Collector Bridge",category:"Work & Custom",driver:"https-bridge"},
 ];
 
-const initialTemplate = templates[0]!;
+
 const clean = (value: unknown) => String(value ?? "").normalize("NFKC").trim();
 const normalized = (value: unknown) => clean(value).toLocaleLowerCase("tr-TR");
-const splitRefs = (value: unknown) => clean(value).split(/[;,|\n]+/).map((item) => item.trim()).filter(Boolean);
-
-function currentLanguage(): Lang {
-  return document.querySelector(".language-switch button.active")?.textContent?.trim().toLowerCase() === "en" ? "en" : "tr";
-}
 
 function controlRows(body: unknown): Control[] {
   if (!body || typeof body !== "object" || !Array.isArray((body as { rows?: unknown }).rows)) return [];
@@ -76,12 +67,10 @@ async function post(body: Record<string, unknown>) {
   return payload;
 }
 
-export default function ConnectorOnboardingWizard() {
-  const [mount, setMount] = useState<HTMLElement | null>(null);
-  const [lang, setLang] = useState<Lang>("tr");
-  const [role, setRole] = useState("");
-  const [actor, setActor] = useState("");
-  const [open, setOpen] = useState(false);
+export default function ConnectorOnboardingWizard({ profileId, lang, actor, onClose }: {
+  profileId: string; lang: Lang; actor: string; onClose: (sourceId: string) => void;
+}) {
+  const initialTemplate = templates.find(item => item.providerId === profileId) || templates[0]!;
   const [step, setStep] = useState(1);
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
@@ -91,7 +80,7 @@ export default function ConnectorOnboardingWizard() {
   const [ruleId, setRuleId] = useState("");
   const [runEvidenceId, setRunEvidenceId] = useState("");
   const [runFindingId, setRunFindingId] = useState("");
-  const [draft, setDraft] = useState<SourceDraft>(newConnectorDraft(initialTemplate.providerId));
+  const [draft, setDraft] = useState<SourceDraft>(() => ({...newConnectorDraft(initialTemplate.providerId), name:initialTemplate.label, vendor:initialTemplate.label, category:initialTemplate.category, driver:initialTemplate.driver}));
   const [paths, setPaths] = useState<DetectedPath[]>([]);
   const [rootType, setRootType] = useState("");
   const [truncated, setTruncated] = useState(false);
@@ -100,8 +89,6 @@ export default function ConnectorOnboardingWizard() {
   const [controls, setControls] = useState<Control[]>([]);
   const [selectedControls, setSelectedControls] = useState<string[]>([]);
   const [controlQuery, setControlQuery] = useState("");
-  const [sourceCount, setSourceCount] = useState(0);
-  const [rules, setRules] = useState<Rule[]>([]);
   const [rule, setRule] = useState({
     name: "",
     operator: "exists",
@@ -114,69 +101,14 @@ export default function ConnectorOnboardingWizard() {
   const [runStatus, setRunStatus] = useState("");
 
   useEffect(() => {
-    let created: HTMLDivElement | null = null;
-    const discover = () => {
-      setLang(currentLanguage());
-      const page = Array.from(document.querySelectorAll<HTMLElement>(".ea-page")).find((node) => node.getClientRects().length > 0) || null;
-      if (!page) {
-        setMount(null);
-        return;
-      }
-      created = page.querySelector<HTMLDivElement>(":scope > .connector-onboarding-mount");
-      if (!created) {
-        created = document.createElement("div");
-        created.className = "connector-onboarding-mount";
-        const hero = page.querySelector(":scope > .ea-hero");
-        if (hero) hero.insertAdjacentElement("afterend", created);
-        else page.prepend(created);
-      }
-      setMount((current) => current === created ? current : created);
-    };
-    discover();
-    const observer = new MutationObserver(discover);
-    observer.observe(document.body, { childList: true, subtree: true });
-    const onClick = () => window.setTimeout(discover, 0);
-    document.addEventListener("click", onClick);
-    return () => {
-      observer.disconnect();
-      document.removeEventListener("click", onClick);
-      created?.remove();
-    };
+    const controller = new AbortController();
+    fetch(withBasePath("/api/grc"), { cache:"no-store", signal:controller.signal })
+      .then(response => response.ok ? response.json() : {})
+      .then(body => { if (!controller.signal.aborted) setControls(controlRows(body)); })
+      .catch(() => {});
+    return () => controller.abort();
   }, []);
 
-  const loadContext = useCallback(async () => {
-    const [authResult, automationResult, grcResult] = await Promise.allSettled([
-      fetch(withBasePath("/api/auth"), { cache: "no-store" }).then(async (response) => response.ok ? response.json() : {}),
-      fetch(withBasePath("/api/evidence-automation"), { cache: "no-store" }).then(async (response) => response.ok ? response.json() : {}),
-      fetch(withBasePath("/api/grc"), { cache: "no-store" }).then(async (response) => response.ok ? response.json() : {}),
-    ]);
-    if (authResult.status === "fulfilled") {
-      const user = (authResult.value as { user?: { role?: string; email?: string } }).user || {};
-      setRole(clean(user.role));
-      setActor(clean(user.email));
-    }
-    if (automationResult.status === "fulfilled") {
-      const automation = automationResult.value as AutomationContext;
-      setSourceCount(automation.sources?.length || 0);
-      setRules(automation.rules || []);
-    }
-    if (grcResult.status === "fulfilled") setControls(controlRows(grcResult.value));
-  }, []);
-
-  useEffect(() => {
-    if (!mount) return;
-    const timer = window.setTimeout(() => void loadContext(), 0);
-    return () => window.clearTimeout(timer);
-  }, [mount, loadContext]);
-
-  const monitoredControls = useMemo(
-    () => new Set(rules.filter((item) => item.enabled).flatMap((item) => splitRefs(item.controlRefs))).size,
-    [rules],
-  );
-  const riskUpdatingRules = useMemo(
-    () => rules.filter((item) => item.enabled && item.autoFinding !== false).length,
-    [rules],
-  );
   const suggestedRefs = useMemo(() => new Set(suggestions.map((item) => normalized(item.ref))), [suggestions]);
   const manualControls = useMemo(() => {
     const needle = normalized(controlQuery);
@@ -214,24 +146,7 @@ export default function ConnectorOnboardingWizard() {
   }
 
   function reset() {
-    setOpen(false);
-    setStep(1);
-    setBusy("");
-    setError("");
-    setMessage("");
-    setSourceId("");
-    setRuleId("");
-    setRunEvidenceId("");
-    setRunFindingId("");
-    setPaths([]);
-    setRootType("");
-    setTruncated(false);
-    setSuggestions([]);
-    setSelectedControls([]);
-    setSelectedPath("");
-    setControlQuery("");
-    setRunStatus("");
-    setDraft({...newConnectorDraft(template.providerId),name:template.label,vendor:template.label,category:template.category,driver:template.driver});
+    onClose(sourceId);
   }
 
   async function authenticate() {
@@ -261,7 +176,6 @@ export default function ConnectorOnboardingWizard() {
       setDraft((current) => ({ ...current, secret: "", credentials: {} }));
       setStep(2);
       setMessage(clean(discovered.message));
-      await loadContext();
     } catch (caught) {
       setError(caught instanceof Error ? (caught.message === "EXECUTION_CONFLICT" ? executionConflictMessage(tr) : caught.message) : (tr ? "Bağlantı kurulamadı." : "Connection failed."));
     } finally {
@@ -307,7 +221,6 @@ export default function ConnectorOnboardingWizard() {
       setRunEvidenceId(clean(run.evidenceId));
       setRunFindingId(clean(run.findingId));
       setMessage(clean(run.message) || clean(saved.message));
-      await loadContext();
       setStep(5);
     } catch (caught) {
       setError(caught instanceof Error ? (caught.message === "EXECUTION_CONFLICT" ? executionConflictMessage(tr) : caught.message) : (tr ? "İzleme etkinleştirilemedi." : "Monitoring could not be enabled."));
@@ -351,25 +264,8 @@ export default function ConnectorOnboardingWizard() {
     navigateToFornost({ module: "Kanıt Otomasyonu", ref: id, source: "connector-onboarding", filter: { findingRef: id } });
   }
 
-  if (!mount || role !== "Admin") return null;
-
-  return createPortal(
-    <section className={`connector-onboarding ${open ? "open" : ""}`} aria-label={tr ? "Connector kurulum sihirbazı" : "Connector setup wizard"}>
-      {!open ? (
-        <button type="button" className="cow-launch" onClick={() => setOpen(true)}>
-          <span className="cow-launch-copy">
-            <small>{tr ? "ADIM ADIM BAĞLANTI KURULUMU" : "GUIDED CONNECTOR SETUP"}</small>
-            <b>{tr ? "Bağla → algıla → kontrolle eşleştir → izle" : "Authenticate → detect → map → monitor"}</b>
-            <em>{tr ? "API cevabını güvenli biçimde keşfeder; kanıtı seçtiğiniz kontrollere bağlar." : "Safely discovers the API shape and maps evidence to controls you approve."}</em>
-          </span>
-          <span className="cow-launch-metrics">
-            <i><strong>{sourceCount}</strong><small>{tr ? "kaynak" : "sources"}</small></i>
-            <i><strong>{monitoredControls}</strong><small>{tr ? "izlenen kontrol" : "controls"}</small></i>
-            <i><strong>{riskUpdatingRules}</strong><small>{tr ? "risk güncelleyen" : "risk-aware"}</small></i>
-            <b>{tr ? "Connector Kur" : "Set Up Connector"} →</b>
-          </span>
-        </button>
-      ) : (
+  return (
+    <section className="connector-onboarding open" aria-label={tr ? "Connector kurulum sihirbazı" : "Connector setup wizard"}>
         <div data-escape-layer className="cow-shell">
           <header className="cow-head">
             <div>
@@ -377,7 +273,7 @@ export default function ConnectorOnboardingWizard() {
               <h3>{tr ? "Connector Kurulum Sihirbazı" : "Connector Setup Wizard"}</h3>
               <p>{tr ? "Fornost bağlantıyı doğrular, veri yapısını algılar ve kontrol adaylarını önerir. Eşleştirmeyi siz onaylarsınız." : "Fornost validates the connection, detects the data shape and suggests control candidates. You approve the mapping."}</p>
             </div>
-            <button data-escape-close type="button" onClick={reset} aria-label={tr ? "Sihirbazı kapat" : "Close wizard"}>×</button>
+            <button data-escape-close type="button" disabled={!!busy} onClick={reset} aria-label={tr ? "Sihirbazı kapat" : "Close wizard"}>×</button>
           </header>
 
           <nav className="cow-steps" aria-label={tr ? "Kurulum adımları" : "Setup steps"}>
@@ -474,8 +370,6 @@ export default function ConnectorOnboardingWizard() {
             </div>
           )}
         </div>
-      )}
-    </section>,
-    mount,
+    </section>
   );
 }

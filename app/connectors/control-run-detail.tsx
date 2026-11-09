@@ -8,12 +8,12 @@ import { assessmentReasons, controlTemplate, type ControlAssessment } from './co
 import { validControlRun, validControlAssessment, type ControlRunRecord } from './control-run-contract';
 import './control-run-detail.css';
 
-type Props = { runId: string; expectedRuleId?: string; lang: 'tr' | 'en'; onNavigate?: () => void };
+type Props = { compact?: boolean; runId: string; expectedRuleId?: string; lang: 'tr' | 'en'; onNavigate?: () => void };
 type State = { kind: 'loading' | 'unavailable' | 'missing' } | { kind: 'ready'; run: ControlRunRecord };
 export default function ControlRunDetail(props: Props) {
   return <ControlRunDetailContent key={JSON.stringify([props.runId, props.expectedRuleId])} {...props}/>;
 }
-function ControlRunDetailContent({ runId, expectedRuleId, lang, onNavigate }: Props) {
+function ControlRunDetailContent({ compact, runId, expectedRuleId, lang, onNavigate }: Props) {
   const tr = lang === 'tr', [state, setState] = useState<State>({kind:'loading'}), [retry, setRetry] = useState(0);
   useEffect(() => {
     const controller = new AbortController();
@@ -33,6 +33,17 @@ function ControlRunDetailContent({ runId, expectedRuleId, lang, onNavigate }: Pr
   const run = state.run;
   const status = tr ? {pass:'Başarılı',fail:'Başarısız',error:'Doğrulanamadı'} : {pass:'Passed',fail:'Failed',error:'Unverified'};
   const trigger = ({manual:tr?'Manuel':'Manual',scheduled:tr?'Zamanlanmış':'Scheduled',scheduler:tr?'Zamanlanmış':'Scheduled'} as Record<string,string>)[run.triggerType] || run.triggerType || (tr?'Kaydedilmemiş':'Not recorded');
+  if (compact) {
+    const issues=run.assessment?.issues||[];
+    return <section className="ew-run" data-run-id={run.id}>
+      <div><h4>{run.assessment && run.assessment.failed>0 ? (tr?`${run.assessment.failed} kayıtta kontrol başarısız`:`Control failed on ${run.assessment.failed} records`) : status[run.status]}</h4>
+        {issues.length>0?<><small>{tr?"Etkilenen kayıtlar":"Affected records"}</small><ul>{issues.slice(0,5).map((item,i)=><li key={i}>{item.name||item.id||"—"}</li>)}</ul>
+        {issues.length>5&&<details><summary>{tr?"Diğer kayıtlar":"More records"} ({issues.length-5})</summary><ul>{issues.slice(5).map((item,i)=><li key={i}>{item.name||item.id||"—"}</li>)}</ul></details>}
+        {run.assessment?.issuesTruncated&&<small>{tr?"İlk 100 kayıt gösteriliyor.":"Showing the first 100 affected records."}</small>}</>:<p>{run.detail||"—"}</p>}</div>
+      <div><h4>{tr?"Testin dayandığı kanıt":"Evidence for this test"}</h4>
+        {run.evidenceState==="available"?<><p>{run.sourceName} · {new Intl.DateTimeFormat(tr?"tr-TR":"en-GB",{dateStyle:"medium",timeStyle:"short"}).format(new Date(run.createdAt))}</p><button className="primary" onClick={()=>navigateToFornost({module:"Kanıtlar",kind:"record",ref:run.evidenceId!,source:"control-run-result",filter:{evidenceRef:run.evidenceId!}})}>{tr?"Kanıtı aç":"Open evidence"} ↗</button></>:<p>{run.evidenceState==="missing"?(tr?"Bağlı kanıt kaydı bulunamadı.":"Linked evidence is unavailable."):(tr?"Bu çalışma için kanıt kaydedilmedi.":"No evidence was recorded for this run.")}</p>}</div>
+    </section>;
+  }
   return <section className="ea-run-detail control-run-record" data-run-id={run.id} data-rule-id={run.ruleId} aria-label={tr?'Kaydedilmiş test sonucu':'Recorded test result'}>
     <header><div><b>{run.ruleName || run.ruleId}</b><span className={`control-run-status ${run.status}`}>{status[run.status]}</span></div><button type="button" onClick={reload}>{tr?'Yenile':'Refresh'}</button></header>
     <p className="control-run-history-note">{tr?'Bu, seçili çalışmanın kaydedilmiş sonucudur; kontrolün güncel güvence değerlendirmesi değildir.':'This is the recorded result of the selected run; it is not a current assurance assessment of the control.'}</p>

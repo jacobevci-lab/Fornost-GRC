@@ -6,7 +6,7 @@ const apiRoute = readFileSync("app/api/evidence-automation/route.ts", "utf8");
 const apiCore = readFileSync("app/api/evidence-automation/core.ts", "utf8");
 const wizard = readFileSync("app/connector-onboarding-wizard-v2.tsx", "utf8");
 const css = `${readFileSync("app/connector-onboarding-wizard.css", "utf8")}\n${readFileSync("app/connector-onboarding-wizard-v2.css", "utf8")}`;
-const platform = readFileSync("app/platform-experience.tsx", "utf8");
+const automation = readFileSync("app/evidence-automation.tsx", "utf8");
 
 test("connector discovery exposes structure without returning raw API values", () => {
   assert.match(apiCore, /if\(action==="discover-source"\)/);
@@ -69,7 +69,7 @@ test("completed onboarding keeps the first run connected with API-returned recor
   assert.match(css, /:focus-visible/);
 });
 
-test("wizard is mounted once through PlatformExperience", () => {
-  assert.match(platform, /import ConnectorOnboardingWizard from "\.\/connector-onboarding-wizard"/);
-  assert.match(platform, /<ConnectorOnboardingWizard \/>/);
+test("the selected connector opens the guided wizard in the automation workspace", () => {
+  assert.match(automation, /<ConnectorOnboardingWizard[^>]*profileId=\{wizardProfile\}/);
+  assert.doesNotMatch(wizard, /MutationObserver|createPortal/);
 });

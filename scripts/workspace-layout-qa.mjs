@@ -190,6 +190,7 @@ try {
     await page.waitForTimeout(400);
     await page.screenshot({path:`${output}/${locale}-evidence-alternate-theme.png`});
     for (const name of locale === 'tr' ? ['Güvence','Kanıt Geçmişi'] : ['Assurance','Evidence History']) {
+      await tabs.locator('summary').click();
       await tabs.getByRole('button', {name,exact:true}).click();
       await page.waitForTimeout(600);
       const themed = await page.locator('.ea-page>.ca-dashboard,.ea-page>.eh-panel').evaluate(el => {

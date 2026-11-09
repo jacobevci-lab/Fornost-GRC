@@ -8,24 +8,29 @@ import { requestJsonWithDeadline } from "./bounded-json-request";
 import EvidenceHistoryPanel from "./evidence-history-panel";
 import ContinuousAssuranceDashboardPanel from "./continuous-assurance-dashboard-panel";
 import "./evidence-automation.css";
+import ConnectorOnboardingWizard from "./connector-onboarding-wizard";
+import { ControlQueue, SourcePicker, SourceWorkbench } from "./connectors/evidence-workspace";
+import { FORNOST_FOCUS_EVENT, peekPendingFornostFocus, type FornostNavigationRequest } from "./navigation-focus";
 import ReadyControlForm from "./connectors/ready-control-form";
 import ControlRunDetail from "./connectors/control-run-detail";
-import { templatesForSource } from "./connectors/control-templates";
 import ConnectorFields from "./connectors/fields";
 import { connectorProfile, connectorProfiles, newConnectorDraft, type ConnectorDraft } from "./connectors/catalog";
 import { connectorGuides, type ConnectorGuide } from "./connectors/guides";
 
 type Lang = "tr" | "en";
-type Source = {
+export type AutomationSource = {
   id:string; name:string; vendor:string; category:string; driver:string; enabled:boolean;
   config:Record<string,string>; hasSecret:boolean; lastTestStatus?:string; lastTestAt?:string;
 };
-type Rule = {
+export type AutomationRule = {
   id:string; name:string; sourceId:string; controlRefs:string; jsonPath:string; operator:string; expected:string;
   schedule:string; enabled:boolean; lastStatus?:string; lastRunAt?:string; freshnessHours:number;
+  lastRunId?:string; lastErrorCode?:string; evidenceRunId?:string;
   failureThreshold:number; consecutiveFailures:number; autoFinding:boolean; remediationOwner:string;
   remediationDueDays:number; nextRunAt?:string; lastEvidenceAt?:string; freshness:string; health:string;
 };
+type Source = AutomationSource;
+type Rule = AutomationRule;
 type Run = {
   ruleId:string;
   id:string; ruleName:string; sourceName:string; status:string; score:number; detail:string; evidenceId?:string;
@@ -61,7 +66,7 @@ function splitControlRefs(value:string){
   return refs;
 }
 
-export default function EvidenceAutomation({lang,currentUser}:{lang:Lang;currentUser:{role:string}}){
+export default function EvidenceAutomation({lang,currentUser}:{lang:Lang;currentUser:{role:string;email?:string}}){
   const tr=lang==="tr";
   const [tab,setTab]=useState<"overview"|"sources"|"rules"|"runs"|"findings"|"assurance"|"history">("sources");
   const [loading,setLoading]=useState(true);
@@ -71,7 +76,27 @@ export default function EvidenceAutomation({lang,currentUser}:{lang:Lang;current
   const [rules,setRules]=useState<Rule[]>([]);
   const [runs,setRuns]=useState<Run[]>([]);
   const [findings,setFindings]=useState<Finding[]>([]);
-  const [summary,setSummary]=useState({healthy:0,failing:0,stale:0,due:0,openFindings:0});
+  const [wizardProfile,setWizardProfile]=useState("");
+  const [addingSource,setAddingSource]=useState(false);
+  const [selectedSource,setSelectedSource]=useState("");
+  const [expandedRule,setExpandedRule]=useState("");
+  const [focusVersion,setFocusVersion]=useState(0);
+  const moreRef=useRef<HTMLDetailsElement>(null);
+  useEffect(()=>{
+    const focus=(request?:FornostNavigationRequest|null)=>{
+      if(request?.module!=="Kanıt Otomasyonu")return;
+      if(request.kind==="connector-setup"){setTab("sources");setWizardProfile("microsoft-graph");return;}
+      if(request.filter?.sourceRef){setTab("sources");setSelectedSource(request.filter.sourceRef);setAddingSource(false);}
+      else if(request.filter?.ruleRef){setTab("rules");setExpandedRule(request.filter.ruleRef);}
+      else if(request.filter?.findingRef)setTab("findings");
+      else return;
+      setWizardProfile(""); setFocusVersion(n=>n+1);
+    };
+    focus(peekPendingFornostFocus());
+    const listener=(e:Event)=>focus((e as CustomEvent<FornostNavigationRequest>).detail);
+    window.addEventListener(FORNOST_FOCUS_EVENT,listener);
+    return ()=>window.removeEventListener(FORNOST_FOCUS_EVENT,listener);
+  },[]);
   const [busy,setBusy]=useState("");
   const actionPending=useRef(false);
   const [message,setMessage]=useState("");
@@ -87,14 +112,13 @@ export default function EvidenceAutomation({lang,currentUser}:{lang:Lang;current
   const [closure,setClosure]=useState({note:"",evidenceReference:"",evidenceSha256:"",confirmation:""});
 
   const categoryLabel=(value:string)=>tr?({"Cloud & SaaS":"Bulut ve SaaS","Firewall & Network":"Güvenlik Duvarı ve Ağ","XDR, EDR & SIEM":"XDR, EDR ve SIEM","IAM, PAM & IGA":"IAM, PAM ve IGA","Data, DB & Application":"Veri, Veritabanı ve Uygulama","Work & Custom":"İş Akışı ve Özel"}[value]||value):value;
-  const scheduleLabel=(value:string)=>tr?({hourly:"Saatlik",daily:"Günlük",weekly:"Haftalık",monthly:"Aylık"}[value]||value):value;
   const formatDate=(value:string)=>{const date=new Date(value);return Number.isNaN(date.getTime())?value:new Intl.DateTimeFormat(tr?"tr-TR":"en-GB",{dateStyle:"short",timeStyle:"short"}).format(date)};
 
   const [source,setSource]=useState<ConnectorDraft>(newConnectorDraft());
   const [rule,setRule]=useState({name:"",sourceId:"",controlRefs:"",jsonPath:"",operator:"exists",expected:"",schedule:"daily",freshnessHours:24,failureThreshold:2,remediationOwner:"",remediationDueDays:7,autoFinding:true});
 
-  const applyData=useCallback((j:{sources?:Source[];rules?:Rule[];runs?:Run[];findings?:Finding[];summary?:typeof summary})=>{
-    setSources(j.sources||[]);setRules(j.rules||[]);setRuns(j.runs||[]);setFindings(j.findings||[]);if(j.summary)setSummary(j.summary);
+  const applyData=useCallback((j:{sources?:Source[];rules?:Rule[];runs?:Run[];findings?:Finding[]})=>{
+    setSources(j.sources||[]);setRules(j.rules||[]);setRuns(j.runs||[]);setFindings(j.findings||[]);
   },[]);
   const readController=useRef<AbortController|null>(null);
   const load=useCallback(async()=>{
@@ -122,7 +146,7 @@ export default function EvidenceAutomation({lang,currentUser}:{lang:Lang;current
       else if(j.reassessmentRequired)setMessage(tr?"Kaynak güncellendi. Bağlı kontroller için yeni değerlendirme gerekiyor; kanıt geçmişi korundu.":"Source updated. Linked controls need a new assessment; evidence history was preserved.");
       else if(body.action==="run-due")setMessage(tr?`${j.recorded} sonuç kaydedildi; ${j.unrecorded} çalışma kaydedilemedi; ${j.skipped} çalışma atlandı.`:`${j.recorded} results saved; ${j.unrecorded} runs not recorded; ${j.skipped} runs skipped.`);
       else setMessage(j.message||(tr?"İşlem tamamlandı.":"Completed."));
-      if(r.ok||j.code==="EXECUTION_CONFLICT")await load();
+      if(r.ok||j.code==="EXECUTION_CONFLICT"||body.action==="test-source")await load();
       return r.ok;
     }catch{
       setMessage(tr?"Sunucuya ulaşılamadı.":"Server unavailable.");return false;
@@ -158,22 +182,47 @@ export default function EvidenceAutomation({lang,currentUser}:{lang:Lang;current
   function editSource(x:Source){setMessage("");setSourceId(x.id);setSource({...newConnectorDraft(x.config.providerId),name:x.name,vendor:x.vendor,category:x.category,driver:x.driver,baseUrl:x.config.baseUrl||"",authType:x.config.authType||"bearer",headerName:x.config.headerName||"x-api-key",dataset:x.config.dataset||"",providerConfig:x.config,credentials:{}});setSourceOpen(true)}
   const filteredCatalog=catalog.filter(x=>x[1].toLocaleLowerCase().includes(catalogQuery.toLocaleLowerCase()));
 
-  return <section className="ea-page">
-    <div className="ea-hero"><div><small>{tr?"SÜREKLİ GÜVENCE":"CONTINUOUS ASSURANCE"}</small><h2>{tr?"Kanıt Otomasyonu":"Evidence Automation"}</h2><p>{tr?"Kaynak bağlayın, kanıt toplayın ve kontrollerinizi izleyin.":"Connect sources, collect evidence and monitor your controls."}</p></div><div className="ea-hero-actions"><span className="ea-live"><i/>{tr?"Collector hazır":"Collector ready"}</span>{currentUser.role==="Admin"&&<button className="primary" onClick={()=>{setSourceId("");setSource(newConnectorDraft());setMessage("");setSourceOpen(true)}}>+ {tr?"Kaynak Ekle":"Add Source"}</button>}</div></div>
-    {message&&<div className="ea-message" onClick={()=>setMessage("")}>{message}<b>×</b></div>}
-    {!loading&&!loadFailed&&tab!=="assurance"&&tab!=="history"&&<div className="ea-stats ea-stats-wide"><Metric value={summary.healthy} label={tr?"Sağlıklı kontrol":"Healthy controls"}/><Metric value={summary.failing} label={tr?"Başarısız kontrol":"Failing controls"}/><Metric value={summary.stale} label={tr?"Eski/eksik kanıt":"Stale/missing evidence"}/><Metric value={summary.due} label={tr?"Çalışması gereken":"Due controls"}/><Metric value={summary.openFindings} label={tr?"Açık bulgu":"Open findings"}/></div>}
-    <div className="ea-tabs">{(["sources","rules","runs","findings","assurance","history","overview"] as const).map(x=><button key={x} aria-pressed={tab===x} className={tab===x?"active":""} onClick={()=>setTab(x)}>{x==="overview"?(tr?"Connector Kataloğu":"Connector Catalog"):x==="sources"?(tr?"Kanıt Kaynakları":"Evidence Sources"):x==="rules"?(tr?"Sürekli Kontroller":"Continuous Controls"):x==="runs"?(tr?"Çalıştırma Geçmişi":"Run History"):x==="findings"?(tr?"Bulgular ve CAPA":"Findings & CAPA"):x==="assurance"?(tr?"Güvence":"Assurance"):(tr?"Kanıt Geçmişi":"Evidence History")}</button>)}</div>
-
+  const tabNames = {
+    sources: tr?"Kanıt Kaynakları":"Evidence Sources", rules: tr?"Sürekli Kontroller":"Continuous Controls",
+    runs: tr?"Çalıştırma Geçmişi":"Run History", findings:tr?"Bulgular ve CAPA":"Findings & CAPA",
+    assurance:tr?"Güvence":"Assurance", history:tr?"Kanıt Geçmişi":"Evidence History", overview:tr?"Connector Kataloğu":"Connector Catalog",
+  };
+  function selectTab(next:typeof tab){
+    setTab(next); setAddingSource(false);
+    if(moreRef.current)moreRef.current.open=false;
+  }
+  const tabButton=(id:typeof tab)=><button key={id} data-ea-tab={id} aria-pressed={tab===id} className={tab===id?"active":""} onClick={()=>selectTab(id)}>{tabNames[id]}</button>;
+  const moreActive=tab!=="sources"&&tab!=="rules"&&tab!=="runs";
+  return <section className="ea-page ew-page">
+    <header className="ew-heading"><h2>{tr?"Kanıt Otomasyonu":"Evidence Automation"}</h2>
+      {!wizardProfile&&!loading&&!loadFailed&&tab==="sources"&&sources.length>0&&currentUser.role==="Admin"&&
+        <button className={addingSource?"ghost":"primary"} onClick={()=>setAddingSource(!addingSource)}>{addingSource?(tr?"Kaynaklara dön":"Back to sources"):(tr?"+ Kaynak ekle":"+ Add source")}</button>}
+    </header>
+    {message&&<div className="ea-message" role="status"><span>{message}</span><button aria-label={tr?"Kapat":"Dismiss"} onClick={()=>setMessage("")}>×</button></div>}
+    {wizardProfile&&currentUser.role==="Admin"?<ConnectorOnboardingWizard profileId={wizardProfile} lang={lang} actor={currentUser.email||""} onClose={id=>{setWizardProfile("");setAddingSource(false);if(id){setSelectedSource(id);void load();}}}/>:<>
+    <div className="ea-tabs ew-tabs">
+      {(["sources","rules","runs"] as const).map(tabButton)}
+      <details ref={moreRef}><summary className={moreActive?"active":""}>{moreActive?tabNames[tab]:(tr?"Diğer":"More")}</summary><div>{(["findings","assurance","history","overview"] as const).map(tabButton)}</div></details>
+    </div>
     {tab==="assurance"&&<ContinuousAssuranceDashboardPanel lang={lang} currentUser={currentUser} showHistory={false}/>}
     {tab==="history"&&<EvidenceHistoryPanel lang={lang} currentUser={currentUser}/>}
     {tab==="overview"&&<><div className="connector-catalog-search"><input aria-label={tr?"Connector ara":"Search connectors"} placeholder={tr?"Ürün ara…":"Search products…"} value={catalogQuery} onChange={e=>setCatalogQuery(e.target.value)}/><span>{tr?"Ürüne özel bağlantı veya açıkça belirtilen collector gereksinimi.":"Product-specific connection or explicitly identified collector requirement."}</span></div>{filteredCatalog.length===0&&<p>{tr?"Eşleşen ürün bulunamadı.":"No matching product."}</p>}<div className="ea-catalog">{Array.from(new Set(filteredCatalog.map(x=>x[0]))).map(group=><article key={group}><header><h3>{categoryLabel(group)}</h3><span>{filteredCatalog.filter(x=>x[0]===group).length}</span></header><div>{filteredCatalog.filter(x=>x[0]===group).map(entry=><button key={entry[1]} disabled={currentUser.role!=="Admin"} onClick={()=>pick(entry)}><b>{entry[1]}</b><small>{connectorProfile(entry[2])?(tr?"Ürüne özel kurulum":"Product-specific setup"):entry[2]==="guide"?(tr?"Collector gerekli · kurulum rehberi":"Collector required · setup guide"):(tr?"Özel HTTPS JSON":"Custom HTTPS JSON")}</small><i>+</i></button>)}</div></article>)}</div></>}
     {loading&&<p role="status">{tr?"Kaynaklar yükleniyor…":"Loading sources…"}</p>}
     {loadFailed&&<div className="workspace-empty" role="alert"><b>{tr?"Kaynak bilgileri alınamadı":"Source information unavailable"}</b><p>{tr?"Bağlantıyı kontrol edip yeniden deneyin.":"Check the connection and try again."}</p><button onClick={()=>{setLoading(true);setLoadFailed(false);setReloadKey(value=>value+1)}}>{tr?"Yeniden dene":"Retry"}</button></div>}
-    {tab==="sources"&&!loading&&!loadFailed&&sources.length===0&&<div className="workspace-empty"><b>{tr?"İlk kanıt kaynağınızı bağlayın":"Connect your first evidence source"}</b><p>{tr?"Ürünü seçin, bağlantıyı doğrulayın ve topladığınız kanıtı bir kontrolle eşleştirin.":"Choose a product, verify the connection and map collected evidence to a control."}</p>{currentUser.role==="Admin"&&<button onClick={()=>setTab("overview")}>{tr?"Ürün kataloğunu aç":"Browse products"}</button>}</div>}
-    {tab==="sources"&&!loading&&!loadFailed&&sources.length>0&&<DataTable empty={tr?"Henüz kanıt kaynağı eklenmedi.":"No evidence source yet."} heads={[tr?"Kaynak":"Source",tr?"Kategori":"Category",tr?"Sürücü":"Driver",tr?"Son test":"Last test",tr?"Durum":"Status",""]} rows={sources.map(x=>[<span key="source"><b>{x.name}</b><small>{x.vendor}</small></span>,categoryLabel(x.category),x.driver,x.lastTestAt?formatDate(x.lastTestAt):"—",<Status key="status" value={x.lastTestStatus||"not-tested"} lang={lang}/>,<div key="source-actions" className="ea-row-actions">{currentUser.role==="Admin"&&templatesForSource(x).length>0&&<button className="ghost" disabled={!!busy} onClick={()=>{setMessage("");setReadySource(x.id)}}>{tr?"Hazır Kontrol":"Ready Control"}</button>}{currentUser.role==="Admin"&&<button className="ghost" onClick={()=>editSource(x)}>{tr?"Düzenle":"Edit"}</button>}<button key="test" className="ghost" disabled={!!busy||currentUser.role!=="Admin"} onClick={()=>api({action:"test-source",sourceId:x.id})}>{tr?"Bağlantıyı Test Et":"Test Connection"}</button></div>])}/>}
-    {tab==="rules"&&<><div className="ea-section-action"><p>{tr?"Kontrolleri takvime bağla; kanıt tazeliğini, ardışık hataları ve otomatik CAPA akışını tek yerden yönet.":"Schedule controls and manage evidence freshness, consecutive failures and automated CAPA in one place."}</p><div>{currentUser.role!=="Viewer"&&<button className="ghost" disabled={!!busy} onClick={()=>api({action:"run-due"})}>{tr?"Zamanı Gelenleri Çalıştır":"Run Due"}</button>}{currentUser.role==="Admin"&&<button className="primary" onClick={()=>{setMessage("");setReadySource("")}}>+ {tr?"Hazır Kontrol":"Ready Control"}</button>}{currentUser.role==="Admin"&&<button className="ghost" onClick={()=>{setMessage("");setRuleOpen(true)}}>+ {tr?"Kontrol Ekle":"Add Control"}</button>}</div></div><DataTable empty={tr?"Henüz sürekli kontrol yok.":"No continuous control yet."} heads={[tr?"Kontrol":"Control",tr?"Kaynak / maddeler":"Source / controls",tr?"Sağlık":"Health",tr?"Kanıt tazeliği":"Evidence freshness",tr?"Sonraki çalışma":"Next run",""]} rows={rules.map(x=>[<span key="rule"><b>{x.name}</b><small>{scheduleLabel(x.schedule)} · {tr?`${x.failureThreshold} hata eşiği`:`threshold ${x.failureThreshold}`}</small></span>,<span key="map"><b>{sources.find(s=>s.id===x.sourceId)?.name||"—"}</b><small>{x.controlRefs}</small></span>,<Status key="health" value={x.health} lang={lang}/>,<span key="fresh"><Status value={x.freshness} lang={lang}/><small>{x.lastEvidenceAt?formatDate(x.lastEvidenceAt):"—"}</small></span>,x.nextRunAt?formatDate(x.nextRunAt):"—",<div key="actions" className="ea-row-actions"><button className="primary" disabled={!!busy||currentUser.role==="Viewer"} onClick={()=>api({action:"run-rule",ruleId:x.id})}>{tr?"Çalıştır":"Run"}</button>{currentUser.role==="Admin"&&<button className="ghost" disabled={!!busy} onClick={()=>api({action:"toggle-rule",ruleId:x.id,enabled:!x.enabled})}>{x.enabled?(tr?"Duraklat":"Pause"):(tr?"Etkinleştir":"Enable")}</button>}</div>])}/></>}
-    {tab==="runs"&&<DataTable empty={tr?"Henüz çalıştırma kaydı yok.":"No collection runs yet."} heads={[tr?"Kural":"Rule",tr?"Kaynak":"Source",tr?"Sonuç":"Result",tr?"Tetikleyici":"Trigger",tr?"Süre":"Duration",tr?"Açıklama":"Detail",tr?"Zaman":"Time",""]} rows={runs.map(x=>[x.ruleName,x.sourceName,<Status key="status" value={x.status} lang={lang}/>,x.triggerType||"manual",`${x.durationMs||0} ms`,x.detail,formatDate(x.createdAt),<button key="detail" className="ghost" onClick={()=>setDetailRun({id:x.id,ruleId:x.ruleId})}>{tr?"Sonuçları Gör":"View Results"}</button>])}/>}
-    {tab==="findings"&&<DataTable empty={tr?"Açık veya geçmiş kontrol bulgusu yok.":"No current or historical control findings."} heads={[tr?"Bulgu":"Finding",tr?"Önem":"Severity",tr?"Sahip / termin":"Owner / due",tr?"Tekrar":"Occurrences",tr?"Durum":"Status",tr?"Yönetim":"Governance"]} rows={findings.map(x=>[
+    {tab==="sources"&&!loading&&!loadFailed&&(sources.length===0||addingSource?
+      <SourcePicker lang={lang} first={!sources.length} configure={currentUser.role==="Admin"?id=>{setMessage("");setWizardProfile(id);}:undefined} browse={()=>selectTab("overview")}/>:
+      <SourceWorkbench key={focusVersion} lang={lang} sources={sources} rules={rules} selected={selectedSource} select={setSelectedSource}
+        canManage={currentUser.role==="Admin"} busy={!!busy} test={id=>void api({action:"test-source",sourceId:id})} edit={editSource}
+        ready={id=>{setMessage("");setReadySource(id);}} openRun={(id,ruleId)=>setDetailRun({id,ruleId})} openRule={id=>{setExpandedRule(id);setTab("rules");}}/>)}
+    {tab==="rules"&&!loading&&!loadFailed&&<div className="ew-review"><div className="ea-section-action ew-queue-head"><h3>{tr?"Kontrol inceleme kuyruğu":"Control review queue"}</h3><div>
+      {currentUser.role!=="Viewer"&&<button className="ghost" disabled={!!busy||!rules.length} onClick={()=>api({action:"run-due"})}>{tr?"Zamanı Gelenleri Çalıştır":"Run Due"}</button>}
+      {currentUser.role==="Admin"&&<><button className="primary" disabled={!sources.length} onClick={()=>{setMessage("");setReadySource("")}}>+ {tr?"Hazır Kontrol":"Ready Control"}</button>
+      <button className="ghost" disabled={!sources.length} onClick={()=>{setMessage("");setRuleOpen(true)}}>+ {tr?"Kontrol Ekle":"Add Control"}</button></>}</div></div>
+      <ControlQueue key={focusVersion} lang={lang} sources={sources} rules={rules} expanded={expandedRule} expand={setExpandedRule} busy={!!busy} role={currentUser.role}
+        run={id=>void api({action:"run-rule",ruleId:id})} toggle={r=>void api({action:"toggle-rule",ruleId:r.id,enabled:!r.enabled})}/>
+    </div>}
+    {tab==="runs"&&!loading&&!loadFailed&&<DataTable empty={tr?"Henüz çalıştırma kaydı yok.":"No collection runs yet."} heads={[tr?"Kural":"Rule",tr?"Kaynak":"Source",tr?"Sonuç":"Result",tr?"Tetikleyici":"Trigger",tr?"Süre":"Duration",tr?"Açıklama":"Detail",tr?"Zaman":"Time",""]} rows={runs.map(x=>[x.ruleName,x.sourceName,<Status key="status" value={x.status} lang={lang}/>,x.triggerType||"manual",`${x.durationMs||0} ms`,x.detail,formatDate(x.createdAt),<button key="detail" className="ghost" onClick={()=>setDetailRun({id:x.id,ruleId:x.ruleId})}>{tr?"Sonuçları Gör":"View Results"}</button>])}/>}
+    {tab==="findings"&&!loading&&!loadFailed&&<DataTable empty={tr?"Açık veya geçmiş kontrol bulgusu yok.":"No current or historical control findings."} heads={[tr?"Bulgu":"Finding",tr?"Önem":"Severity",tr?"Sahip / termin":"Owner / due",tr?"Tekrar":"Occurrences",tr?"Durum":"Status",tr?"Yönetim":"Governance"]} rows={findings.map(x=>[
       <span key="finding"><b>{x.title}</b><small>{x.detail}</small></span>,
       x.severity,
       <span key="owner"><b>{x.owner}</b><small>{x.dueDate}</small></span>,
@@ -187,6 +236,7 @@ export default function EvidenceAutomation({lang,currentUser}:{lang:Lang;current
       </div>,
     ])}/>}
 
+    </>}
     {guide&&<Modal title={guide.name} closeLabel={tr?"Pencereyi kapat":"Close dialog"} onClose={()=>setGuide(null)}><div className="ea-form"><div className="connector-guide wide"><b>{tr?"Ürüne özgü collector gerekiyor":"Product-specific collector required"}</b><p>{tr?guide.requirements:guide.requirementsEn}</p><p>{tr?"Bu ürün için doğrudan bağlanan native sürücü henüz yok. Mevcut bir HTTPS JSON collector'ınız varsa aşağıdan bağlayabilirsiniz.":"There is no native driver for this product yet. If you have an existing HTTPS JSON collector, connect it below."}</p><a href={safeWebHref(guide.docs)} target="_blank" rel="noreferrer">{tr?"Ürün belgesi ↗":"Product documentation ↗"}</a></div><footer><button className="ghost" onClick={()=>setGuide(null)}>{tr?"Kapat":"Close"}</button>{guide.name!=="Webhook Receiver"&&<button className="primary" onClick={()=>{setSource({...newConnectorDraft(),name:guide.name+" collector",vendor:guide.name,category:guide.category,driver:"https-bridge"});setSourceId("");setGuide(null);setSourceOpen(true)}}>{tr?"Mevcut HTTPS collector bağla":"Connect existing HTTPS collector"}</button>}</footer></div></Modal>}
     {sourceOpen&&<Modal title={sourceId?(tr?"Kanıt kaynağını düzenle":"Edit evidence source"):(tr?"Kanıt kaynağı ekle":"Add evidence source")} closeLabel={tr?"Pencereyi kapat":"Close dialog"} onClose={closeSource}><form className="ea-form" onSubmit={saveSource}><ConnectorFields value={source} onChange={setSource} lang={lang} existing={!!sourceId}/>{message&&<p className="wide" role="status">{message}</p>}<footer><button type="button" className="ghost" onClick={closeSource}>{tr?"Vazgeç":"Cancel"}</button><button className="primary" disabled={!!busy}>{tr?"Kaynağı Kaydet":"Save Source"}</button></footer></form></Modal>}
 
@@ -201,7 +251,6 @@ export default function EvidenceAutomation({lang,currentUser}:{lang:Lang;current
   </section>;
 }
 
-function Metric({value,label}:{value:number;label:string}){return <div><b>{value}</b><span>{label}</span></div>}
 function Status({value,lang}:{value:string;lang:Lang}){const tr=lang==="tr";if(value==="pass")return <span className="ea-status pass">{tr?"Uygun":"Passed"}</span>;const labels:Record<string,string>={fresh:tr?"Güncel":"Fresh",unknown:tr?"Doğrulanamadı":"Unverified",fail:tr?"Başarısız":"Failed",success:tr?"Bağlı":"Connected",error:tr?"Hata":"Error",healthy:tr?"Sağlıklı":"Healthy",failing:tr?"Başarısız":"Failing",stale:tr?"Kanıt eski":"Stale",missing:tr?"Kanıt eksik":"Missing",expiring:tr?"Süresi doluyor":"Expiring",paused:tr?"Duraklatıldı":"Paused",open:tr?"Açık":"Open",acknowledged:tr?"Sahiplenildi":"Acknowledged",closed:tr?"Kapalı":"Closed"};return <span className={`ea-status ${value}`}>{labels[value]||(tr?"Test edilmedi":"Not tested")}</span>}
 function DataTable({heads,rows,empty}:{heads:string[];rows:React.ReactNode[][];empty:string}){return <div className="ea-table"><div className="table-wrap"><table><thead><tr>{heads.map((x,i)=><th key={`${x}-${i}`}>{x}</th>)}</tr></thead><tbody>{rows.length?rows.map((row,i)=><tr key={i}>{row.map((cell,j)=><td key={j}>{cell}</td>)}</tr>):<tr><td colSpan={heads.length} className="empty">{empty}</td></tr>}</tbody></table></div></div>}
 function Modal({title,closeLabel="Close dialog",onClose,children}:{title:string;closeLabel?:string;onClose:()=>void;children:React.ReactNode}){return <div className="overlay" onMouseDown={onClose}><div data-escape-layer className="modal ea-modal" role="dialog" aria-modal="true" aria-label={title} onMouseDown={e=>e.stopPropagation()}><div className="modal-head"><div><small>FORNOST COLLECTOR</small><h2>{title}</h2></div><button data-escape-close type="button" aria-label={closeLabel} onClick={onClose}>×</button></div>{children}</div></div>}

@@ -279,7 +279,7 @@ await check('Native source persistence: validation, credential rotation, redacti
  assert.ok(!JSON.stringify(state).includes('ISOLATED_QA'));assert.equal(saved.config.clientSecret,undefined);assert.equal(saved.secret_ciphertext,undefined);
 });
 await check('Product-specific connector forms: fields, permissions, secret reset and responsive themes',async()=>{
- await reset();await open('Evidence Automation');await page.locator('.ea-tabs').getByRole('button',{name:'Connector Catalog',exact:true}).click();
+ await reset();await open('Evidence Automation');await page.locator('.ea-tabs summary').click();await page.locator('.ea-tabs').getByRole('button',{name:'Connector Catalog',exact:true}).click();
  const dialog=page.locator('.ea-modal[role=dialog]');
  for(const theme of ['light','dark']){
   if(await page.locator('html').getAttribute('data-theme')!==theme)await page.locator('.theme-toggle:visible').click();
@@ -301,9 +301,9 @@ await check('Product-specific connector forms: fields, permissions, secret reset
 });
 
 await check('Guided connector setup uses the same provider fields and resets credentials',async()=>{
- await reset();await open('Evidence Automation');await page.locator('.cow-launch').click();const wizard=page.locator('.cow-shell');
+ await reset();await open('Evidence Automation');const openSetup=async()=>{const add=page.getByRole('button',{name:'+ Add source',exact:true});await expect(page.locator('.ew-panes')).toBeVisible();if(await add.isVisible())await add.click();await page.getByRole('button',{name:/Configure connection/}).click();};await openSetup();const wizard=page.locator('.cow-shell');
  await expect(wizard.getByLabel('Directory (Tenant) ID',{exact:true})).toBeVisible();await expect(wizard.getByLabel('HTTPS JSON URL',{exact:true})).toHaveCount(0);
- await wizard.getByLabel('Client secret VALUE',{exact:true}).fill('QA_WIZARD_RESET_ONLY');await wizard.getByRole('button',{name:'Close wizard',exact:true}).click();await page.locator('.cow-launch').click();await expect(wizard.getByLabel('Client secret VALUE',{exact:true})).toHaveValue('');
+ await wizard.getByLabel('Client secret VALUE',{exact:true}).fill('QA_WIZARD_RESET_ONLY');await wizard.getByRole('button',{name:'Close wizard',exact:true}).click();await openSetup();await expect(wizard.getByLabel('Client secret VALUE',{exact:true})).toHaveValue('');
  await wizard.getByLabel('Connector template',{exact:true}).selectOption({label:'Microsoft Sentinel'});await expect(wizard.getByLabel('Log Analytics workspace',{exact:true})).toBeVisible();await expect(wizard).toContainText('Azure RBAC');
  await page.setViewportSize({width:390,height:960});assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)<=4);await page.screenshot({path:`${out}/connector-wizard-sentinel-mobile.png`});await wizard.getByRole('button',{name:'Close wizard',exact:true}).click();await page.setViewportSize({width:1536,height:960});
 });

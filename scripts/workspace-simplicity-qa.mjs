@@ -43,7 +43,7 @@ try{
   await page.unroute('**/api/evidence-automation');
   await page.locator('.ea-page [role="alert"] button').click();
   await expect(page.locator('.ea-page [role="alert"]')).toHaveCount(0);
-  await page.locator('.ea-tabs').getByRole('button',{name:tr?'Connector Kataloğu':'Connector Catalog',exact:true}).click();
+  await page.locator('.ea-tabs summary').click();await page.locator('.ea-tabs').getByRole('button',{name:tr?'Connector Kataloğu':'Connector Catalog',exact:true}).click();
   await expect(page.locator('.ea-catalog')).toBeVisible();
   await open(tr?'Denetim Yönetimi':'Audit Management');
   const portfolio=await page.locator('.audit-portfolio').boundingBox(),gate=await page.locator('.audit-readiness-gate').boundingBox();

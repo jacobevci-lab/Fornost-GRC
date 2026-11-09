@@ -17,7 +17,7 @@ try{
   ['Business Impact Analysis (BIA)','.module-head .actions button.primary','.record-dialog'],
   ['Asset Inventory','.module-head .actions button.primary','.record-dialog'],
   ['Audit Management','.module-head button.primary','.audit-picker'],
-  ['Evidence Automation','.ea-hero button.primary','.ea-modal'],
+  ['Evidence Automation','.ew-picker .primary','.cow-shell'],
   ['Vendor Management','.tprm-hero button:last-child','.tprm-modal'],
   ['Policy Center','.plm-hero button:last-child','.plm-modal'],
   ['Risk Appetite & KRI','.rap-hero button:last-child','.rap-modal'],
@@ -28,8 +28,10 @@ try{
  ];
  for(const [module,trigger,surface]of scenarios){
   await page.locator(`nav button[aria-label="${module}"]`).evaluate(node=>node.click());
+  if(module==='Evidence Automation'){await expect(page.locator('.ew-panes')).toBeVisible();if(await page.locator('.ew-sources').count())await page.locator('.ew-heading .primary').click();}
   await expect(page.locator(trigger).first()).toBeVisible();
   await page.reload();
+  if(module==='Evidence Automation'){await expect(page.locator('.ew-panes')).toBeVisible();if(await page.locator('.ew-sources').count())await page.locator('.ew-heading .primary').click();}
   await expect(page.locator(trigger).first()).toBeVisible({timeout:30000});
   await expect(page.locator(`nav button[aria-label="${module}"]`)).toHaveClass(/active/);
   console.log('PAGE_REFRESH_PASS',module);

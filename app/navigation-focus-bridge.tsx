@@ -142,6 +142,9 @@ const evidenceAutomationTabFallback: Record<AutomationTabKind, number> = {
 
 function evidenceAutomationTab(tabs: HTMLButtonElement[], request: FornostNavigationRequest) {
   const kind = evidenceAutomationTabKind(request);
+  const id = { source:"sources", rule:"rules", finding:"findings", evidence:"runs" }[kind];
+  const exactTab = tabs.find(button => button.dataset.eaTab === id);
+  if (exactTab) return exactTab;
   const aliases = evidenceAutomationTabAliases[kind];
   const semantic = tabs.find((button) => {
     const label = normalize(button.textContent);
@@ -213,12 +216,21 @@ function evidenceAutomationExactRow(request: FornostNavigationRequest, value: st
 function applyEvidenceAutomationFocus(request: FornostNavigationRequest, value: string) {
   const page = document.querySelector<HTMLElement>("main .ea-page");
   if (!page) return false;
-  const tabs = Array.from(page.querySelectorAll<HTMLButtonElement>(".ea-tabs > button"));
+  const tabs = Array.from(page.querySelectorAll<HTMLButtonElement>(".ea-tabs button[data-ea-tab]"));
   const targetTab = evidenceAutomationTab(tabs, request);
   if (!targetTab) return false;
   if (!targetTab.classList.contains("active")) {
     targetTab.click();
     return false;
+  }
+  const kind = evidenceAutomationTabKind(request);
+  if (kind === "source" || kind === "rule") {
+    const node = Array.from(page.querySelectorAll<HTMLButtonElement>(kind === "source" ? "[data-source-id]" : "[data-rule-id]"))
+      .find(button => (kind === "source" ? button.dataset.sourceId : button.dataset.ruleId) === value);
+    if (!node) return false;
+    if (node.getAttribute(kind === "source" ? "aria-pressed" : "aria-expanded") !== "true") node.click();
+    node.focus({preventScroll:true}); node.scrollIntoView({block:"nearest"});
+    return true;
   }
   const rows = Array.from(page.querySelectorAll<HTMLTableRowElement>(".ea-table tbody tr"));
   const exact = evidenceAutomationExactRow(request, value, rows);

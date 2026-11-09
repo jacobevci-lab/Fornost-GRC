@@ -49,8 +49,8 @@ try{
     await page.locator('.language-switch:visible').getByRole('button',{name:lang,exact:true}).click();
     await page.locator(`nav button[aria-label="${lang==='EN'?'Evidence Automation':'Kanıt Otomasyonu'}"]`).evaluate(el=>el.click());
     await page.locator('.ea-tabs').getByRole('button',{name:lang==='EN'?'Continuous Controls':'Sürekli Kontroller',exact:true}).click();
-    const row=page.locator('.ea-table tr').filter({hasText:'QA Execution Coverage'});await expect(row).toContainText(lang==='EN'?'Unverified':'Doğrulanamadı');
-    const before=refreshes;await row.getByRole('button',{name:lang==='EN'?'Run':'Çalıştır',exact:true}).click();
+    const row=page.locator('.ew-table-wrap tr').filter({hasText:'QA Execution Coverage'});await expect(row).toContainText(lang==='EN'?'Unverified':'Doğrulanamadı');
+    const toggle=row.locator('[data-rule-id]');if(await toggle.getAttribute('aria-expanded')!=='true')await toggle.click();const before=refreshes;await page.locator('.ew-expanded').getByRole('button',{name:lang==='EN'?'Run':'Çalıştır',exact:true}).click();
     await expect(page.locator('.ea-message')).toContainText(lang==='EN'?'outdated result was not saved':'Eski sonuç kaydedilmedi');await expect.poll(()=>refreshes).toBeGreaterThan(before);
     for(const theme of ['light','dark'])for(const width of [1536,390]){
       await page.evaluate(theme=>{document.documentElement.dataset.theme=theme},theme);await page.setViewportSize({width,height:960});

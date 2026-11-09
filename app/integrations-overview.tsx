@@ -414,18 +414,7 @@ export default function IntegrationsOverview({ lang }: { lang: Lang }) {
   const attentionCount = cards.filter((card) => card.tone === "watch").length;
 
   function openConnectorWizard() {
-    navigateToFornost("Kanıt Otomasyonu");
-    let attempts = 0;
-    const open = () => {
-      attempts += 1;
-      const launch = document.querySelector<HTMLButtonElement>("main .cow-launch");
-      if (launch) {
-        launch.click();
-        return;
-      }
-      if (attempts < 24) window.setTimeout(open, 90);
-    };
-    window.setTimeout(open, 0);
+    navigateToFornost({ module: "Kanıt Otomasyonu", kind: "connector-setup" });
   }
 
   function openAutomationRef(kind: "source" | "rule" | "finding", id: string) {

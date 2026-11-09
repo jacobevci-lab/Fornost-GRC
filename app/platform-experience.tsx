@@ -9,7 +9,6 @@ import NavigationFocusBridge from "./navigation-focus-bridge";
 import SidebarIconTooltip from "./sidebar-icon-tooltip";
 import MyWorkV2 from "./my-work-v2";
 import ProgressiveFormExperience from "./progressive-form-experience";
-import ConnectorOnboardingWizard from "./connector-onboarding-wizard";
 
 /**
  * Transitional composition root for experience layers that currently augment
@@ -36,7 +35,6 @@ export default function PlatformExperience() {
       <SidebarIconTooltip />
       {fullWorkspace && <MyWorkV2 />}
       <ProgressiveFormExperience />
-      {fullWorkspace && <ConnectorOnboardingWizard />}
       <NavigationFocusBridge />
 
       {/* One visible AI surface; specialist capabilities remain behind Ask Fornost. */}
