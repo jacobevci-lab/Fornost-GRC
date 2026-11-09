@@ -47,3 +47,6 @@ html[data-theme] body .shell>main .report-domain p{font-size:13px!important}.rep
 @container (max-width:400px){.report-domains>.report-domain{padding:4px 9px}.report-chart{padding:13px}.report-matrix-wrap{gap:6px}.report-today{transform:translateX(-40%)}}
 
 .report-marker-dates{display:block;position:relative;margin:0 4%}.report-marker-dates button{position:absolute;transform:translateX(-50%);min-width:64px;padding:3px 5px}
+
+.report-undated{margin:18px 0 8px}.report-horizon{display:flex;justify-content:space-between;padding-bottom:8px;margin-bottom:12px;border-bottom:1px dashed var(--ws-line-strong);color:var(--ws-muted)}
+.report-undated .report-link{margin-top:0;color:var(--ws-brand-2)}

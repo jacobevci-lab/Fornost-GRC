@@ -34,6 +34,7 @@ export function RenewalChart({rows,now,ready,loading,retry,tr}: {
   const dateLabel=(day:string)=>new Intl.DateTimeFormat(tr?"tr-TR":"en-GB",{day:"numeric",month:"short",year:day.slice(0,4)!==new Date(now).toISOString().slice(0,4)?"numeric":undefined,timeZone:"UTC"}).format(dayTime(day));
   const key = (item:typeof data.all[number]) => item.day + (item.overdue?"-past":"-next");
   const shown = expanded ? data.all : data.markers;
+  const allUndated = data.total>0 && data.total===data.undated;
   const chosen = shown.find(item=>key(item)===selection);
   function dateButton(item:typeof data.all[number],lane?:number) {
     return <button type="button" key={key(item)} aria-pressed={key(item)===selection}
@@ -45,14 +46,20 @@ export function RenewalChart({rows,now,ready,loading,retry,tr}: {
   return <section className="report-chart report-renewals" aria-labelledby="report-renewal-title">
     <h3 id="report-renewal-title">{tr?"Kanıt yenilemeleri":"Evidence renewals"}</h3>
     {!ready ? <p role="status">{loading?(tr?"Kanıtlar yükleniyor…":"Loading evidence…"):(tr?"Kanıt kaynağı doğrulanamadı.":"Evidence source unavailable.")} {!loading && <button type="button" onClick={retry}>{tr?"Yeniden dene":"Retry"}</button>}</p> : <>
-      <p>{data.total} {tr?"kanıt":"evidence items"} · {data.overdue} {tr?"gecikmiş":"overdue"} · {data.upcoming} {tr?"önümüzdeki 30 gün içinde":"due in the next 30 days"}</p>
+      <p>{data.total} {tr?"kanıt":"evidence items"} · {allUndated ? (tr?"Yenileme tarihleri bekleniyor":"Renewal dates needed") :
+        <>{data.overdue} {tr?"gecikmiş":"overdue"} · {data.upcoming} {tr?"önümüzdeki 30 gün içinde":"due in the next 30 days"}</>}</p>
       {!!data.markers.length && <><div className="report-axis" aria-hidden="true">
         <span className="report-today" style={{left:position(today)}}>{tr?"Bugün":"Today"} · {fmt.format(now)}</span>
         {data.markers.map(item=><i key={key(item)} className={item.overdue?"past":""} style={{left:position(dayTime(item.day))}}/>)}
       </div><div className={expanded?"report-dates":"report-dates report-marker-dates"} style={expanded?undefined:{minHeight:lanes.length*45}}>
         {expanded ? shown.map(item=>dateButton(item)) : markers.map(({item,lane})=>dateButton(item,lane))}
       </div></>}
-      {!data.markers.length && <p className="report-empty">{!data.total?(tr?"Kayıtlı kanıt yok.":"No evidence recorded."):(tr?"Süresi geçen veya önümüzdeki 30 gün içinde yenilenecek tarihli kanıt yok.":"No dated evidence is overdue or due within 30 days.")}</p>}
+      {allUndated && <div className="report-undated">
+        <div className="report-horizon"><span>{tr?"Bugün":"Today"} · {fmt.format(today)}</span><span>{fmt.format(today+30*86400000)}</span></div>
+        <p>{tr?"Bu kanıtlar için geçerli bir bitiş tarihi kayıtlı değil.":"These evidence items have no valid expiry date."}</p>
+        <button type="button" className="report-link" onClick={()=>navigateToFornost("Kanıtlar")}>{tr?"Kanıt Kütüphanesini aç":"Open Evidence Library"} →</button>
+      </div>}
+      {!data.markers.length && !allUndated && <p className="report-empty">{!data.total?(tr?"Kayıtlı kanıt yok.":"No evidence recorded."):(tr?"Süresi geçen veya önümüzdeki 30 gün içinde yenilenecek tarihli kanıt yok.":"No dated evidence is overdue or due within 30 days.")}</p>}
       {data.all.length>data.markers.length && <button type="button" className="report-link" onClick={()=>setExpanded(!expanded)}>{expanded?(tr?"Daha az göster":"Show less"):(tr?"Tüm tarihleri göster":"Show all dates")}</button>}
       {chosen && <ul className="report-records">{chosen.rows.map(row=><li key={row.id}><button onClick={()=>openRecord(row)}>{connectedTitle(row)} ›</button></li>)}</ul>}
       <footer>{tr?"Tarihi eksik veya geçersiz":"Missing or invalid date"} · {data.undated}{data.later>0 && <> · {tr?"30 günden sonra":"After 30 days"} · {data.later}</>}</footer>
