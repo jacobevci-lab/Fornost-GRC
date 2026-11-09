@@ -131,6 +131,7 @@ try {
 
   for (const language of ['tr', 'en']) {
     await locale(language); await openModule(language === 'tr' ? 'Denetim Yönetimi' : 'Audit Management');
+    await page.locator('.apw-global:not([open]) > summary').click();
     await expect(page.locator('.audit-readiness-gate')).toHaveAttribute('aria-busy', 'false');
     for (const theme of ['light', 'dark']) {
       if (await page.locator('html').getAttribute('data-theme') !== theme) await page.locator('.theme-toggle:visible').click();
@@ -284,7 +285,9 @@ try {
   await requirementRow.getByRole('button', { name: 'Delete', exact: true }).click();
   assert.equal((await requirementDeleted).status(), 200); await expect(requirementRow).toHaveCount(0);
   await page.getByRole('button', { name: '← All audits', exact: true }).click();
-  const auditCard = page.locator('.audit-card').filter({ hasText: auditName });
+  const auditCard = page.locator('.apw-inspector').filter({ has:page.getByRole('heading',{name:auditName,exact:true}) });
+  await page.locator('.apw-select').filter({hasText:auditName}).click();
+  await auditCard.locator('.apw-management summary').click();
   page.once('dialog', d => d.accept()); await auditCard.getByRole('button', { name: 'Delete Audit', exact: true }).click(); await expect(auditCard).toHaveCount(0);
 
   await locale('tr'); await openModule('Risk İştahı ve KRI'); await expect(page.getByRole('button', { name: 'KRI Ölçümleri', exact: true })).toBeVisible();

@@ -4,13 +4,15 @@ import test from "node:test";
 
 const schema = readFileSync("app/register-view-schema.ts", "utf8");
 const page = readFileSync("app/page.tsx", "utf8");
+const workspace = readFileSync("app/audit-portfolio-workspace.tsx", "utf8");
 const route = readFileSync("app/api/audits/route.ts", "utf8");
 const css = readFileSync("app/layout-guardrails.css", "utf8");
 const catalogs = readFileSync("app/api/grc/framework-catalogs.ts", "utf8");
 
 test("audit templates are choices instead of automatically rendered portfolio cards", () => {
   assert.doesNotMatch(page, /audits\s*=\s*\[\.\.\.new Set\(\[\.\.\.auditCatalog/);
-  assert.match(page, /Hazır kartlar otomatik eklenmez/);
+  assert.match(workspace, /Portföy henüz boş/);
+  assert.match(workspace, /visible=audits.filter/);
   assert.match(page, /Denetim seç ve ekle/);
   assert.match(page, /createAudit=\{createAudit\}/);
   assert.match(page, /"PCI DSS 4\.0\.1"/);
@@ -23,7 +25,8 @@ test("portfolio audits and their requirements support controlled deletion", () =
   assert.match(route, /requireRole\(req, \["Admin"\]\)/);
   assert.match(route, /audit_archive_/);
   assert.match(route, /DELETE FROM simple_grc_records WHERE module='Denetim Yönetimi'/);
-  assert.match(page, /Denetimi Sil/);
+  assert.match(workspace, /Denetimi Sil/);
+  assert.match(page, /onDelete=\{canDeleteAudit\?deleteAudit:undefined\}/);
   assert.match(page, /\+ Özel Madde/);
   assert.match(page, /STANDART MADDELERİ/);
   assert.doesNotMatch(page, /<AuditWorkspaceTabs/);

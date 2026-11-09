@@ -164,6 +164,7 @@ try {
     await page.setViewportSize({width:1536,height:960});
     await progress(`${locale}: audit stability`);
     await open(locale === 'tr' ? 'Denetim Yönetimi' : 'Audit Management');
+    await page.locator('.apw-global:not([open]) > summary').click();
     await page.locator('.audit-readiness-gate').waitFor();
     await page.waitForTimeout(800);
     const stable = await page.evaluate(async () => {

@@ -333,6 +333,7 @@ async function auditLocale(page, locale) {
       if (i === 16) {
         // Sample node identity and geometry after loading. A hide/discover portal
         // loop recreates the panel continuously even when the page looks loaded.
+        await page.locator('.apw-global:not([open]) > summary').click();
         await page.locator('.audit-readiness-gate').waitFor({ state: 'visible' });
         const stability = await page.evaluate(async () => {
           const first = document.querySelector('.audit-readiness-gate');

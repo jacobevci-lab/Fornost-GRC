@@ -223,9 +223,11 @@ try {
   await page.setViewportSize({ width: 1536, height: 960 });
   await openQaModule(page, "Denetim Yönetimi");
   await expect(page.getByRole("heading", { name: "Denetim Portföyü", exact: true })).toBeVisible();
+  await page.locator('.apw-global:not([open]) > summary').click();
   const portfolioCount = page.locator(".audit-kpis article").filter({ hasText: "Portföye bağlı geciken maddeler" });
   await expect(portfolioCount.locator("b")).toHaveText("1");
-  await expect(page.locator(".audit-card").filter({ hasText: audit.name }).locator("footer strong")).toHaveText("1 geciken");
+  await page.locator(".apw-select").filter({hasText:audit.name}).click();
+  await expect(page.locator(".apw-inspector .apw-status").filter({hasText:"Gecikti"})).toHaveCount(1);
   await openQaModule(page, "Gösterge Paneli");
   const actionGroup = dashboard.locator(".dashboard-action-group");
   const actions = actionGroup.getByRole("button", { name: "İşlemler", exact: true });

@@ -8,7 +8,7 @@ import { CAPA_REPORT_MODULE, loadCapaReport, capaReportFailure, capaReportFailur
 import { pageSessionKey, restorePage, rememberPage } from "./page-session";
 import { readSessionSnapshot, preserveUnchangedSessionUser, type SessionSnapshot } from "./session-snapshot";
 import { getCatalogStatus } from "./framework-catalog-status";
-import { FrameworkCatalogNotice, type CatalogSnapshot } from "./framework-catalog-notice";
+import { FrameworkCatalogNotice } from "./framework-catalog-notice";
 import { AuditCatalogUpload } from "./audit-catalog-upload";
 import type { AuditCatalogImport } from "./audit-catalog-import";
 import { readAllGrcPages } from "./grc-pagination";
@@ -93,6 +93,8 @@ import { useEvidenceAssurance, EvidenceAssessmentContext, useEvidenceFreshness, 
 import EvidenceAssuranceStatus from './evidence-assurance-status';
 import { buildAssuranceReportHtml, buildExecutiveAssurance } from "./executive-assurance";
 import AuditReadinessGate from "./audit-readiness-gate";
+import AuditPortfolioWorkspace, { type AuditPortfolioItem } from "./audit-portfolio-workspace";
+import { requestJsonWithDeadline } from "./bounded-json-request";
 import { withBasePath } from "./base-path";
 import { calculatedRiskScore, effectiveImpact } from "./risk-methodology";
 import { defaultCatalogs, type CatalogMap } from "./catalogs";
@@ -121,19 +123,6 @@ type Row = {
   data: Record<string, any>;
   createdAt?: string;
   updatedAt?: string;
-};
-type AuditPortfolioItem = {
-  closure_state?: "open" | "pending" | "closed";
-  catalog?: CatalogSnapshot|null;
-  id: string;
-  name: string;
-  template: string;
-  audit_type: string;
-  auditor: string;
-  audit_owner: string;
-  status: string;
-  created_at?: string;
-  updated_at?: string;
 };
 const modules = [
   "Ana Sayfa",
@@ -1347,14 +1336,16 @@ function FornostApp({ currentUser }: { currentUser: any }) {
       if (response.ok) setCatalogs((await response.json()).catalogs);
     } catch {}
   }, []);
+  const [auditDirectoryState,setAuditDirectoryState]=useState<"loading"|"ready"|"error">("loading");
+  const auditDirectoryRequest=useRef(0);
   const loadAudits = useCallback(async () => {
-    if(!canReadModule(currentUser,"Denetim Yönetimi")) {setAuditPortfolio([]);return;}
+    const request=++auditDirectoryRequest.current;
+    if(!canReadModule(currentUser,"Denetim Yönetimi")) {setAuditPortfolio([]);setAuditDirectoryState("ready");return;}
     try {
-      const response = await fetch(withBasePath("/api/audits"), {
-        cache: "no-store",
-      });
-      if (response.ok) setAuditPortfolio((await response.json()).audits || []);
-    } catch {}
+      const {response,body}=await requestJsonWithDeadline(withBasePath("/api/audits"),{cache:"no-store"},fetch,10000);
+      if(!response.ok||!Array.isArray(body.audits)||!body.audits.every((a:AuditPortfolioItem)=>a&&typeof a.name==="string"&&typeof a.id==="string"))throw new Error("Invalid audit directory");
+      if(request===auditDirectoryRequest.current){setAuditPortfolio(body.audits);setAuditDirectoryState("ready");}
+    } catch {if(request===auditDirectoryRequest.current)setAuditDirectoryState("error");}
   }, [currentUser]);
   useEffect(() => {
     void loadAudits();
@@ -2250,6 +2241,8 @@ function FornostApp({ currentUser }: { currentUser: any }) {
             createAudit={createAudit}
             deleteAudit={deleteAudit}
             refreshAudits={loadAudits}
+            portfolioState={auditDirectoryState==="error"||registerLoadState==="error"?"error":auditDirectoryState==="ready"&&registerLoadState==="ready"?"ready":"loading"}
+            retryPortfolio={()=>{void loadAudits();void load();}}
             canDeleteAudit={currentUser.role === "Admin"}
             showReadiness={!scoped}
             go={navigateToModule}
@@ -3715,6 +3708,7 @@ function AuditModule({
   deleteAudit,
   refreshAudits,
   canDeleteAudit,
+  portfolioState, retryPortfolio,
   showReadiness = true,
   go,
 }: {
@@ -3747,6 +3741,7 @@ function AuditModule({
   deleteAudit: (audit: AuditPortfolioItem) => Promise<void>;
   refreshAudits: () => Promise<unknown>;
   canDeleteAudit: boolean;
+  portfolioState:"loading"|"ready"|"error"; retryPortfolio:()=>void;
   showReadiness?: boolean;
   go: (module: string) => void;
 }) {
@@ -3771,6 +3766,7 @@ function AuditModule({
   const [auditCreateError,setAuditCreateError] = useState("");
   const [requestFocus, setRequestFocus] = useState<{ id: string; auditId: string } | null>(null);
   const [showUnassigned, setShowUnassigned] = useState(false);
+  const [previewAuditId,setPreviewAuditId]=useState("");
   const [milestoneFocus,setMilestoneFocus]=useState<{id:string;auditId:string}|null>(null);
   const [workpaperFocus, setWorkpaperFocus] = useState<{ id: string; auditId: string } | null>(null);
   const [closureFocus, setClosureFocus] = useState<{ id: string; auditId: string } | null>(null);
@@ -3862,106 +3858,16 @@ function AuditModule({
             )}
           </div>
         </section>
-        <AuditOverview rows={portfolioRows} lang={lang} />
-        <section className="audit-portfolio">
-          {!audits.length && (
-            <div className="audit-portfolio-empty">
-              <b>{tr ? "Portföy henüz boş" : "The portfolio is empty"}</b>
-              <p>
-                {tr
-                  ? "Hazır kartlar otomatik eklenmez. Bir standart şablonu seçin veya özel denetim oluşturun."
-                  : "Template cards are not added automatically. Choose a standard template or create a custom audit."}
-              </p>
-              {canWrite && (
-                <button className="primary" onClick={() => setPickerOpen(true)}>
-                  {tr ? "Denetim Seç ve Ekle" : "Choose and Add Audit"}
-                </button>
-              )}
-            </div>
-          )}
-          {audits.map((audit) => {
-            const name = audit.name;
-            const items = rows.filter((r) => auditNameKey(r.data.auditName) === auditNameKey(name)),
-              progress = items.length
-                ? Math.round(
-                    items.reduce(
-                      (n, r) => n + Number(r.data.progress || 0),
-                      0,
-                    ) / items.length,
-                  )
-                : 0,
-              closed = items.filter(row => isClosedAuditRequirement(row.data.status)).length,
-              late = items.filter(row => isOverdueAuditRequirement(row.data, Date.now())).length;
-            return (
-              <article className="audit-card" key={audit.id}>
-                <button
-                  className="audit-card-open"
-                  onClick={() => select(name)}
-                >
-                  <div className="audit-card-top">
-                    <span>
-                      {name.startsWith("ISO")
-                        ? "ISO"
-                        : name.startsWith("SOC")
-                          ? "SOC"
-                          : "AUD"}
-                    </span>
-                    <em>
-                      {audit.closure_state && audit.closure_state !== "open" ? auditClosureLabels[audit.closure_state][tr ? 0 : 1] : items.length
-                        ? tr
-                          ? "Aktif"
-                          : "Active"
-                        : tr
-                          ? "Taslak"
-                          : "Draft"}
-                    </em>
-                  </div>
-                  <h3>{name}</h3>
-                  <p>
-                    {audit.auditor ||
-                      audit.audit_type ||
-                      (tr ? "Denetim çalışma alanı" : "Audit workspace")}
-                  </p>
-                  <div className="audit-card-progress">
-                    <span>
-                      <i style={{ width: `${progress}%` }} />
-                    </span>
-                    <b>{formatPercent(progress, lang)}</b>
-                  </div>
-                  <footer>
-                    <span>
-                      {items.length} {tr ? "madde" : "requirements"}
-                    </span>
-                    <span>
-                      {closed} {tr ? "kapalı" : "closed"}
-                    </span>
-                    {late > 0 && (
-                      <strong>
-                        {late} {tr ? "geciken" : "overdue"}
-                      </strong>
-                    )}
-                  </footer>
-                </button>
-                {canDeleteAudit && (
-                  <div className="audit-card-actions">
-                    <small>{audit.template}</small>
-                    <button
-                      className="audit-card-delete"
-                      disabled={audit.closure_state === "closed"}
-                      onClick={() => deleteAudit(audit)}
-                    >
-                      {tr ? "Denetimi Sil" : "Delete Audit"}
-                    </button>
-                  </div>
-                )}
-              </article>
-            );
-          })}
-        </section>
-        <AuditUnassignedRequirements rows={unassignedAuditRequirements(rows, audits)} lang={lang}
-          open={showUnassigned} setOpen={setShowUnassigned} canWrite={canWrite} canDelete={canDeleteAudit}
-          edit={edit} remove={remove} />
-        {showReadiness && <AuditReadinessGate lang={lang} records={[...portfolioRows,...evidenceRows]} />}
+        {portfolioState==="ready"?<>
+          <AuditPortfolioWorkspace audits={audits} rows={portfolioRows} evidence={evidenceRows} activeId={previewAuditId}
+            onSelect={setPreviewAuditId} onOpen={select} onDelete={canDeleteAudit?deleteAudit:undefined}
+            showReadiness={showReadiness} lang={lang} translate={value=>display(value,lang)}/>
+          <AuditUnassignedRequirements rows={unassignedAuditRequirements(rows, audits)} lang={lang}
+            open={showUnassigned} setOpen={setShowUnassigned} canWrite={canWrite} canDelete={canDeleteAudit} edit={edit} remove={remove}/>
+          {showReadiness&&<AuditReadinessGate mode="global" lang={lang} records={[...rows,...evidenceRows]}
+            overview={portfolioRows.length>0?<AuditOverview rows={portfolioRows} lang={lang}/>:null}/>}
+        </>:portfolioState==="error"?<div className="workspace-empty" role="alert"><b>{tr?"Denetim portföyü yüklenemedi.":"The audit portfolio could not be loaded."}</b>
+          <button onClick={retryPortfolio}>{tr?"Yeniden dene":"Retry"}</button></div>:<p role="status">{tr?"Denetim portföyü yükleniyor…":"Loading audit portfolio…"}</p>}
         {pickerOpen && (
           <div
             className="overlay"
