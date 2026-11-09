@@ -566,7 +566,7 @@ async function auditDashboardCustomization(browser) {
     if (await page.locator(".risk-posture-panel").count()) throw new Error("Hidden risk card did not persist after reload");
     if (!(await page.locator(".executive-dashboard-reference.is-compact").count())) throw new Error("Density did not persist after reload");
     const classes = await page.locator(".executive-dashboard-grid>article").evaluateAll(nodes => nodes.map(node => node.className));
-    if (!classes[1]?.includes("continuous-assurance-panel")) throw new Error("Card ordering did not persist");
+    if (!classes[0]?.includes("continuous-assurance-panel")) throw new Error("Card ordering did not persist");
     await setLocale(page, "en");
     await trigger.click();
     await dialog.getByLabel("Risk posture", { exact: true }).check();

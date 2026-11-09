@@ -49,6 +49,8 @@ export function trailChoices(index: ReturnType<typeof indexTrailLinks>, row: Con
   const priority = preferred[row.module] || [];
   const rank = (hop: Hop) => {
     const p = priority.indexOf(hop.edge.relation);
+    // BIA and risk records both refer to assets. Start with a risk when one exists.
+    if (row.module === "Varlık Envanteri" && hop.row.module === "Risk Assessment" && hop.edge.relation === "risk-asset") return -1;
     // A control's evidence is the next useful step after an audit or risk.
     if (row.module === "Kontroller" && hop.row.module === "Kanıtlar") return -1;
     return p < 0 ? priority.length : p;

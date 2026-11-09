@@ -21,10 +21,27 @@ export function RenewalChart({rows,now,ready,loading,retry,tr}: {
   const today = dayTime(new Date(now).toISOString().slice(0,10));
   const points = data.markers.map(item=>dayTime(item.day));
   const start = Math.min(today-86400000,...points), end = Math.max(today+86400000,...points);
-  const position = (date:number) => (5+90*(date-start)/(end-start))+"%";
+  const percent = (date:number) => 5+90*(date-start)/(end-start);
+  const position = (date:number) => percent(date)+"%";
+  const lanes:number[]=[];
+  const markers=data.markers.map(item=>{
+    const x=percent(dayTime(item.day));
+    let lane=lanes.findIndex(previous=>x-previous>=32);
+    if(lane<0) lane=lanes.length;
+    lanes[lane]=x;
+    return {item,lane};
+  });
+  const dateLabel=(day:string)=>new Intl.DateTimeFormat(tr?"tr-TR":"en-GB",{day:"numeric",month:"short",year:day.slice(0,4)!==new Date(now).toISOString().slice(0,4)?"numeric":undefined,timeZone:"UTC"}).format(dayTime(day));
   const key = (item:typeof data.all[number]) => item.day + (item.overdue?"-past":"-next");
   const shown = expanded ? data.all : data.markers;
   const chosen = shown.find(item=>key(item)===selection);
+  function dateButton(item:typeof data.all[number],lane?:number) {
+    return <button type="button" key={key(item)} aria-pressed={key(item)===selection}
+      style={lane===undefined?undefined:{left:`clamp(39px, ${position(dayTime(item.day))}, calc(100% - 39px))`,top:lane*45}}
+      onClick={()=>setSelection(key(item)===selection?"":key(item))}>
+      <b>{dateLabel(item.day)}</b><small>{item.overdue?(tr?"Gecikmiş":"Overdue"):(tr?"Yaklaşan":"Upcoming")} · {item.rows.length}</small>
+    </button>;
+  }
   return <section className="report-chart report-renewals" aria-labelledby="report-renewal-title">
     <h3 id="report-renewal-title">{tr?"Kanıt yenilemeleri":"Evidence renewals"}</h3>
     {!ready ? <p role="status">{loading?(tr?"Kanıtlar yükleniyor…":"Loading evidence…"):(tr?"Kanıt kaynağı doğrulanamadı.":"Evidence source unavailable.")} {!loading && <button type="button" onClick={retry}>{tr?"Yeniden dene":"Retry"}</button>}</p> : <>
@@ -32,9 +49,9 @@ export function RenewalChart({rows,now,ready,loading,retry,tr}: {
       {!!data.markers.length && <><div className="report-axis" aria-hidden="true">
         <span className="report-today" style={{left:position(today)}}>{tr?"Bugün":"Today"} · {fmt.format(now)}</span>
         {data.markers.map(item=><i key={key(item)} className={item.overdue?"past":""} style={{left:position(dayTime(item.day))}}/>)}
-      </div><div className="report-dates">{shown.map(item=><button type="button" key={key(item)} aria-pressed={key(item)===selection} onClick={()=>setSelection(key(item)===selection?"":key(item))}>
-        <b>{fmt.format(dayTime(item.day))}</b><small>{item.overdue?(tr?"Gecikmiş":"Overdue"):(tr?"Yaklaşan":"Upcoming")} · {item.rows.length}</small>
-      </button>)}</div></>}
+      </div><div className={expanded?"report-dates":"report-dates report-marker-dates"} style={expanded?undefined:{minHeight:lanes.length*45}}>
+        {expanded ? shown.map(item=>dateButton(item)) : markers.map(({item,lane})=>dateButton(item,lane))}
+      </div></>}
       {!data.markers.length && <p className="report-empty">{!data.total?(tr?"Kayıtlı kanıt yok.":"No evidence recorded."):(tr?"Süresi geçen veya önümüzdeki 30 gün içinde yenilenecek tarihli kanıt yok.":"No dated evidence is overdue or due within 30 days.")}</p>}
       {data.all.length>data.markers.length && <button type="button" className="report-link" onClick={()=>setExpanded(!expanded)}>{expanded?(tr?"Daha az göster":"Show less"):(tr?"Tüm tarihleri göster":"Show all dates")}</button>}
       {chosen && <ul className="report-records">{chosen.rows.map(row=><li key={row.id}><button onClick={()=>openRecord(row)}>{connectedTitle(row)} ›</button></li>)}</ul>}

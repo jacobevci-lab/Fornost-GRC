@@ -9,3 +9,5 @@
 .business-context-stages svg{width:17px;height:17px;flex-shrink:0}.business-context-stages small{color:var(--ws-muted)}
 html[data-theme] body .shell>main .business-context-stages li button b{font-size:13px!important}
 @media (max-width:600px){.business-context-stages{grid-template-columns:1fr 1fr}}
+
+.business-context-stages ul{max-height:20rem;overflow-y:auto}

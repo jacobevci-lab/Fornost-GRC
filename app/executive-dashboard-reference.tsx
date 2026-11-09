@@ -84,7 +84,7 @@ export default function ExecutiveAssurancePanel({
     low: scoredRisks.filter((item) => riskBand(item.score) === "low").length,
   }), [scoredRisks]);
   const highRisks = riskBands.critical + riskBands.high;
-  const percent = (value: number | null, total: number) => total && value !== null ? `${Math.round(value)}%` : "—";
+  const percent = (value: number | null, total: number) => total && value !== null ? new Intl.NumberFormat(tr?"tr-TR":"en-GB",{style:"percent",maximumFractionDigits:0}).format(value/100) : "—";
   const confidencePercent = (value: number | null, total: number, ready = evidenceState.evidenceReady) => ready ? percent(value, total) : "—";
   const unassessedRisks = risks.length - scoredRisks.length;
 
@@ -211,7 +211,7 @@ export default function ExecutiveAssurancePanel({
           <button type="button" className={`executive-kpi ${metric.tone}`} key={metric.label} onClick={() => go(metric.module)}>
             <span className="executive-kpi-label"><NavIcon module={metric.module} /><small>{metric.label}</small></span>
             <strong>{metric.value}</strong>
-            <MiniBar value={Number.parseFloat(metric.value) || 0} />
+            <MiniBar value={Number.parseFloat(metric.value.replace("%","")) || 0} />
             <em title={metric.detail}>{metric.detail}</em>
           </button>
         ))}

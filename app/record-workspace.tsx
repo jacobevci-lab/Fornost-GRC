@@ -6,6 +6,7 @@ import NavIcon from "./nav-icon";
 import { ModuleTrailContext, RecordTrail } from "./module-record-trail-view";
 import { AssuranceChain, hasAssuranceChain } from "./assurance-chain-view";
 import { assessedRiskScore } from "./risk-methodology";
+import { navigateToFornost } from "./navigation-focus";
 import { displayRecordCode } from "./record-codes";
 
 import { hasBusinessContext } from "./business-context";
@@ -30,7 +31,8 @@ export default function RecordWorkspace({ rows, visible, lang, moduleNames, form
   const root = visible.find(row => row.id === path[0]);
   const selectedId = path.at(-1);
   const context = useContext(ModuleTrailContext);
-  const continuity = useContinuityContext(!!root && !!context && !context.scoped, rows);
+  const needsContinuity = !!root && rows.some(row=>path.includes(row.id) && (hasBusinessContext(row) || hasAssuranceChain(row)));
+  const continuity = useContinuityContext(needsContinuity && !!context && !context.scoped, rows);
   const records = useMemo(() => continuity.rows ? [...rows,...continuity.rows] : rows,[rows,continuity.rows]);
   const selected = root && records.find(row => row.id === selectedId);
   const open = !!selected;
@@ -92,6 +94,8 @@ export default function RecordWorkspace({ rows, visible, lang, moduleNames, form
     [tr ? "Sonraki inceleme" : "Next review", data.nextReview],
     [tr ? "Sürüm" : "Version", selected?.module === "Kanıtlar" && (Number(data.versionNo) > 0 ? 'v' + data.versionNo : (tr ? "Sürüm kaydı yok" : "No version recorded"))],
     [tr ? "Dönem" : "Period", data.period],
+    ["RTO", data.rtoHours != null ? String(data.rtoHours)+(tr?" saat":" h") : null],
+    ["RPO", data.rpoHours != null ? String(data.rpoHours)+(tr?" saat":" h") : null],
   ].filter(([, value]) => typeof value === "string" && value.trim());
 
   return <>
@@ -120,6 +124,8 @@ export default function RecordWorkspace({ rows, visible, lang, moduleNames, form
         {!showChain && !business && graph && <RecordTrail key={selected.id} root={selected} links={graph.links} lang={lang}
           label={module => moduleNames[module] || module} openRecord={row => follow(row.id)}/>}
         <dl>{facts.map(([label, value]) => <div key={String(label)}><dt>{String(label)}</dt><dd>{formatValue(String(value), lang)}</dd></div>)}</dl>
+        {selected.data.kind === "continuity-plan" && Array.isArray(data.canonicalRefs) && typeof data.canonicalRefs[0] === "string" &&
+          <button type="button" className="secondary" onClick={()=>navigateToFornost({module:"İş Sürekliliği",kind:"continuity-plan",ref:String((data.canonicalRefs as string[])[0])})}>{tr?"Süreklilik planını aç":"Open continuity plan"} →</button>}
         {selected.module === "Kanıtlar" && <button className="primary" type="button" onClick={() => preview(selected.id)}>{tr ? "Kanıtı önizle" : "Preview evidence"}</button>}
         {((!showChain && !business) || otherLinks.length > 0) && <h4>{showChain ? (tr ? "Diğer bağlı kayıtlar" : "Other linked records") : (tr ? "Bağlı kayıtlar" : "Linked records")}</h4>}
         {otherLinks.length ? <ul>{otherLinks.map(row => <li key={row.id}><button type="button" onClick={() => follow(row.id)}>
