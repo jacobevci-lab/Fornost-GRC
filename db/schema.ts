@@ -1,4 +1,4 @@
-import { index, integer, real, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
+import { blob, primaryKey, index, integer, real, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
 
 export const platformSettings = sqliteTable("platform_settings", {
   id:text("id").primaryKey(),configJson:text("config_json").notNull(),updatedBy:text("updated_by").notNull(),updatedAt:text("updated_at").notNull(),
@@ -467,3 +467,15 @@ export const enterpriseFindings = sqliteTable("enterprise_findings", {id:text("i
 export const enterpriseFindingEvents = sqliteTable("enterprise_finding_events", {id:text("id").primaryKey(),findingId:text("finding_id").notNull(),action:text("action").notNull(),fromStatus:text("from_status"),toStatus:text("to_status"),detail:text("detail").notNull(),evidenceReference:text("evidence_reference"),evidenceSha256:text("evidence_sha256"),actor:text("actor").notNull(),createdAt:text("created_at").notNull()},table=>[index("enterprise_finding_events_finding_date_idx").on(table.findingId,table.createdAt)]);
 
 export const findingReportRevision = sqliteTable("finding_report_revision", { id:integer("id").primaryKey(), revision:text("revision").notNull() });
+
+export const policyImportSources = sqliteTable("policy_import_sources", {
+ versionId:text("version_id").primaryKey(), policyId:text("policy_id").notNull(),
+ requestId:text("request_id").notNull().unique(), requestHash:text("request_hash").notNull(),
+ importedBy:text("imported_by").notNull(), fileName:text("file_name").notNull(),
+ fileType:text("file_type").notNull(), fileSize:integer("file_size").notNull(),
+ fileSha256:text("file_sha256").notNull(), objectKey:text("object_key").notNull(),
+});
+
+export const policyImportChunks = sqliteTable("policy_import_chunks", {
+ versionId:text("version_id").notNull(), part:integer("part").notNull(), content:blob("content").notNull(),
+}, table=>[primaryKey({columns:[table.versionId,table.part]})]);

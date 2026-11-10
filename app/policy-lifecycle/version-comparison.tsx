@@ -1,12 +1,13 @@
 "use client";
 import {useContext,useMemo,type ReactNode} from "react";
+import {withBasePath} from "../base-path";
 import {useWorkflowRecords} from "../use-workflow-records";
 import {ModuleTrailContext} from "../module-record-trail-view";
 import {resolveCoreRecord} from "../core-record-focus";
 import {navigateToFornost} from "../navigation-focus";
 import {comparePolicyText} from "./text-comparison";
 
-export type Version={id:string;policyId:string;versionNumber:number;summary:string;content:string;contentSha256:string;controlRefs:string[];regulationRefs:string[];riskRefs:string[];effectiveDate:string;status:string;createdBy:string;submittedBy?:string;approvedBy?:string;publishedBy?:string;updatedAt:string};
+export type Version={sourceName?:string;sourceHash?:string;id:string;policyId:string;versionNumber:number;summary:string;content:string;contentSha256:string;controlRefs:string[];regulationRefs:string[];riskRefs:string[];effectiveDate:string;status:string;createdBy:string;submittedBy?:string;approvedBy?:string;publishedBy?:string;updatedAt:string};
 type Policy={id:string;code:string;title:string;owner:string;reviewer:string;current_version_id:string|null;status:string};
 type Link={id:string;label:string};
 export type RelatedKind="exceptions"|"assignments"|"campaigns";
@@ -48,6 +49,7 @@ export function PolicyVersionComparison({id,tr,select,actions,openRelated}:{open
       {compare&&live&&documentPane(live,tr?"Yayındaki metin":"Published text",diff?.before,true)}
       {documentPane(v,tr?"Seçilen sürümün metni":"Selected version text",diff?.after)}
     </div>
+    {v.sourceName&&<div className="pim-original"><a download href={withBasePath("/api/policy-lifecycle?view=original&versionId="+encodeURIComponent(v.id))}>{tr?"Özgün dosyayı indir":"Download original file"} · {v.sourceName}</a><small>SHA-256 · {v.sourceHash}</small></div>}
     <details className="pwl-references"><summary>{tr?"Bağlı kayıtlar ve içerik özeti":"Linked records and content digest"} · v{v.versionNumber}</summary>
       <dl>{([[tr?"Kontroller":"Controls",v.controlRefs,["Kontroller","Uyum"]],[tr?"Düzenlemeler":"Regulations",v.regulationRefs,[]],[tr?"Riskler":"Risks",v.riskRefs,["Risk Assessment"]]] as [string,string[],string[]][]).map(([name,refs,modules])=><div key={name}><dt>{name}</dt><dd><References refs={refs} modules={modules}/></dd></div>)}<div><dt>SHA-256</dt><dd><code>{v.contentSha256}</code></dd></div></dl>
     </details><details className="pwl-references"><summary>{tr?"Bu sürümün beyanları ve istisnaları":"Acknowledgements and exceptions for this version"}</summary>

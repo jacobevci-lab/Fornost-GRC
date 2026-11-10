@@ -43,7 +43,7 @@ export function normalizeExtractedDocumentText(value: string) {
   return normalized;
 }
 
-async function extractPdf(file: File): Promise<ExtractedKnowledgeDocument> {
+async function extractPdf(file: File, pageLabels: boolean): Promise<ExtractedKnowledgeDocument> {
   const pdfjs = await import("pdfjs-dist");
   pdfjs.GlobalWorkerOptions.workerSrc = new URL("pdfjs-dist/build/pdf.worker.min.mjs", import.meta.url).toString();
   const task = pdfjs.getDocument({ data: new Uint8Array(await file.arrayBuffer()), isEvalSupported: false });
@@ -59,13 +59,13 @@ async function extractPdf(file: File): Promise<ExtractedKnowledgeDocument> {
       const page = await document.getPage(pageNumber);
       const text = await page.getTextContent();
       const pageText = text.items.map(item => "str" in item ? `${item.str}${item.hasEOL ? "\n" : " "}` : "").join("");
-      if (pageText.trim()) pages.push(`Sayfa ${pageNumber}\n${pageText}`);
+      if (pageText.trim()) pages.push(pageLabels ? `Sayfa ${pageNumber}\n${pageText}` : pageText);
     }
   } finally {
     await document.destroy();
   }
   const content = normalizeExtractedDocumentText(pages.join("\n\n"));
-  const sparse = content.length / Math.max(1, pageCount) < 80;
+  const sparse = pages.length < pageCount || content.length / Math.max(1, pageCount) < 80;
   return {
     content, sourceType: "pdf",
     warning: sparse ? "Metin yoğunluğu düşük. Belge taranmış görüntü içeriyorsa OCR ile doğrulayın." : "",
@@ -85,9 +85,9 @@ async function extractDocx(file: File): Promise<ExtractedKnowledgeDocument> {
   };
 }
 
-export async function extractKnowledgeDocument(file: File): Promise<ExtractedKnowledgeDocument> {
+export async function extractKnowledgeDocument(file: File, pageLabels = true): Promise<ExtractedKnowledgeDocument> {
   const sourceType = validateKnowledgeFile(file.name, file.size);
-  if (sourceType === "pdf") return extractPdf(file);
+  if (sourceType === "pdf") return extractPdf(file, pageLabels);
   if (sourceType === "docx") return extractDocx(file);
   const content = normalizeExtractedDocumentText(await file.text());
   return { content, sourceType, warning: "", detail: `${content.length.toLocaleString("tr-TR")} karakter okundu.` };

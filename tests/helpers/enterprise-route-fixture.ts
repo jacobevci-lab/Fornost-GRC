@@ -16,6 +16,8 @@ import * as policyReviews from '../../app/policy-lifecycle/periodic-review-store
 import * as incidentWork from '../../app/incidents/work-source';
 import * as incidentDecisions from '../../app/incidents/decision-store';
 import * as incidentDecisionDomain from '../../app/incidents/decisions';
+import * as policyDraft from "../../app/policy-lifecycle/draft-store";
+import * as policyImport from "../../app/policy-lifecycle/import-store";
 import * as policyWorklist from "../../app/policy-lifecycle/worklist-store";
 import * as policyDecisions from '../../app/policy-lifecycle/decision-store';
 import * as policyCampaigns from '../../app/policy-lifecycle/campaign-store';
@@ -82,6 +84,8 @@ export function fixture(module:'incidents'|'continuity'|'policy-lifecycle'|'thir
   if(name==='../../continuity/activity-file-store')return continuityActivity;
   if(name==='../../continuity/plan')return continuityPlan;
   if(name==='../../continuity/plan-review-store')return continuityReviews;
+  if(name==='../../policy-lifecycle/draft-store')return policyDraft;
+  if(name==='../../policy-lifecycle/import-store')return policyImport;
   if(name==='../../policy-lifecycle/worklist-store')return policyWorklist;
   if(name==='../../policy-lifecycle/decision-store')return policyDecisions;
   if(name==='../../policy-lifecycle/campaign-store')return policyCampaigns;

@@ -75,6 +75,9 @@ jobs:
       - name: Connected evidence selection and directory assignment QA
         timeout-minutes: 7
         run: node scripts/workflow-evidence-selection-qa.mjs
+      - name: Word and PDF policy import, draft and original download QA
+        timeout-minutes: 5
+        run: node scripts/policy-document-import-qa.mjs
       - name: Preserve connected evidence selection browser evidence
         if: always()
         uses: actions/upload-artifact@v4
