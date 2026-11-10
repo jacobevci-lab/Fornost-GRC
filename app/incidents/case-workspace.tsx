@@ -43,6 +43,7 @@ export function IncidentDossier({row,lang,user,disabled,onAction}:{
 }) {
   const tr=lang==="tr";
   const [view,setView]=useState<View>("summary");
+  const [detailsOpen,setDetailsOpen]=useState(false);
   const changeView=(next:View)=>{setView(next);};
   const label=(s:string)=>incidentLabel(s,lang);
   const op=incidentNextAction[row.status];
@@ -68,7 +69,7 @@ export function IncidentDossier({row,lang,user,disabled,onAction}:{
         <div><dt>{tr?"İş etki analizi":"Business impact analysis"}</dt><dd><RelatedRecords module="BIA" refs={row.biaRef}/></dd></div>
         {row.riskRef&&<div><dt>{tr?"Bağlı risk":"Linked risk"}</dt><dd><RelatedRecords module="Risk Assessment" refs={row.riskRef}/></dd></div>}
       </dl>
-      <details className="ic-context"><summary>{tr?"Olay ayrıntıları":"Incident details"}</summary>
+      <details className="ic-context" open={detailsOpen} onToggle={e=>setDetailsOpen(e.currentTarget.open)}><summary>{tr?"Olay ayrıntıları":"Incident details"}</summary>
         <p>{row.description}</p><dl className="ic-facts">
           <div><dt>{tr?"Tespit tarihi":"Detected"}</dt><dd>{row.detectedDate}</dd></div>
           <div><dt>{tr?"Müdahale / kurtarma hedefi":"Response / recovery target"}</dt><dd>{incidentResponseHours(row.severity)} / {incidentRecoveryHours(row.severity)} {tr?"saat":"hours"}</dd></div>
@@ -76,7 +77,7 @@ export function IncidentDossier({row,lang,user,disabled,onAction}:{
           <div><dt>{tr?"Kişisel veri":"Personal data"}</dt><dd>{row.personalData?(tr?"Etkilenmiş olabilir":"May be affected"):(tr?"İşaretlenmedi":"Not marked")}</dd></div>
           <div><dt>{tr?"Yeniden açılma":"Reopens"}</dt><dd>{row.reopenCount}</dd></div>
         </dl>{row.rootCause&&<p><strong>{tr?"Kök neden":"Root cause"}</strong> · {row.rootCause}</p>}{row.lessonsLearned&&<p><strong>{tr?"Çıkarılan dersler":"Lessons learned"}</strong> · {row.lessonsLearned}</p>}{notification}
-        <CurrentRecordTrail module="Güvenlik Olayları" kind="incident" recordRef={row.id}/>
+        {detailsOpen&&<CurrentRecordTrail module="Güvenlik Olayları" kind="incident" recordRef={row.id}/>}
       </details>
     </div>}
     {view==="crisis"&&<div className="ic-brief"><div>{impact}{roles}{notification}</div></div>}

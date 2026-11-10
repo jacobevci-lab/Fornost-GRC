@@ -59,8 +59,13 @@ export async function verifyIncidentCaseWorkspace(page) {
           await page.setViewportSize({width,height:960});
           await expect(dossier.getByRole('link',{name:lang==='TR'?'Kanıtı aç':'Open evidence'})).toBeVisible();
           assert.ok(await panel.evaluate(el=>el.scrollWidth<=el.clientWidth+2));
+          await page.evaluate(async()=>{
+            await new Promise(done=>requestAnimationFrame(()=>requestAnimationFrame(done)));
+            const transitions=document.getAnimations().filter(a=>a instanceof CSSTransition);
+            await Promise.allSettled(transitions.map(a=>a.finished));
+          });
           const results=await new AxeBuilder({page}).include('.ic-workspace').withTags(['wcag2a','wcag2aa','wcag21aa']).analyze();
-          assert.deepEqual(results.violations.map(v=>[v.id,v.nodes.map(n=>n.target)]),[]);
+          assert.deepEqual(results.violations.map(v=>[v.id,v.nodes.map(n=>[n.target,n.failureSummary])]),[],lang+" "+theme+" "+width);
           if(lang==='TR'&&theme==='light')await panel.screenshot({path:out+'/case-'+width+'.png'});
         }
       }
