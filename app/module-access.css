@@ -15,3 +15,10 @@
 .module-access-events{margin:16px 20px;font-size:12px}
 .module-access-events li{margin:8px 0;color:var(--ws-muted);overflow-wrap:anywhere}
 @media(max-width:640px){.module-access-grid{grid-template-columns:1fr}.module-scope-home{padding:16px}.module-scope-cards{grid-template-columns:1fr}}
+.local-account-buttons{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+.local-account-buttons small{flex-basis:100%;color:var(--ws-muted)}
+.local-user-identity summary{cursor:pointer;color:var(--ws-brand-2);font-weight:650}
+.local-user-identity input{width:100%;min-width:0;box-sizing:border-box;background:var(--ws-surface);color:var(--ws-ink);border:1px solid var(--ws-line-strong);border-radius:6px;padding:6px}
+.local-account-confirm{grid-column:1/-1;display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:10px;border:1px solid var(--ws-line-strong);border-radius:8px}
+.local-account-confirm p{flex:1 1 250px;margin:0;overflow-wrap:anywhere}
+html[data-theme] .local-user-list button.local-account-delete{color:var(--ws-danger)!important}

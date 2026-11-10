@@ -397,3 +397,5 @@ From **My Work**, open the assigned supplier finding. The action dialog shows th
 ### Tedarikçi bulgusunun terminini değiştirme
 
 Atanmış bağımsız Admin incelemeci, **Tedarikçi Yönetimi → Bulgular ve CAPA → Termini değiştir** ile açık veya iyileştirmedeki bulguya yeni tarih verebilir. Güncel bilgileri inceleyin, bugünden önce olmayan farklı tarihi ve 20–1.200 karakter gerekçeyi girin; `BULGU TERMİNİNİ DEĞİŞTİR` ifadesiyle kaydedin. İşlerim yeni tarihi kullanır. Önceki termin, o andaki gecikme, iade notu ve kanıtlar korunur. Çakışmada **Bulguyu yenile → Güncel sürümü kullan** yolunu izleyip yeniden onaylayın. Yanıt kaybolursa tekrar kaydetmeden önce güncel tarihi ve karar geçmişini kontrol edin. [Yetkiler, adımlar ve kurtarma](tprm-finding-deadline.md).
+
+Yöneticiler **Yönetim → Kimlik ve Erişim** ekranında yerel kullanıcı ekleyebilir. Kullanıcı satırındaki **Kaydet** adı, rolü, durumu ve modül erişimini günceller. **Sil** düğmesi seçilen hesabın e-posta adresini göstererek silme onayını açar.

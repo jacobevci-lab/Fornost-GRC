@@ -91,9 +91,11 @@ export async function POST(req: NextRequest) {
   if (action === "demo_login") {
     if (!(await demoMode(req))) return NextResponse.json({ error: "Demo girişi bu kurulumda etkin değil." }, { status: 403 });
     await ensureDemoUser(db);
-    const demo = await db.prepare("SELECT id,status FROM local_users WHERE email=?").bind(demoAccount.email).first<{id:string;status:string}>();
-    if (!demo || demo.status !== "Active") return NextResponse.json({ error: "Demo hesabı kullanılamıyor." }, { status: 503 });
-    const session = await createSession(db, demo.id), res = NextResponse.json({ ok: true });
+    const demo = await db.prepare("SELECT id,status,role FROM local_users WHERE email=?").bind(demoAccount.email).first<{id:string;status:string;role:string}>();
+    if (!demo || demo.id !== "demo-editor" || demo.status !== "Active" || demo.role !== demoAccount.role) return NextResponse.json({ error: "Demo hesabı kullanılamıyor." }, { status: 503 });
+    const session = await createSession(db, demo.id,demoAccount.role);
+    if(!session)return NextResponse.json({error:"Demo hesabı kullanılamıyor."},{status:403});
+    const res = NextResponse.json({ ok: true });
     res.cookies.set("fornost_session", session.token, sessionCookie(req, session.expires));
     return res;
   }
@@ -109,7 +111,9 @@ export async function POST(req: NextRequest) {
     } catch {
       return NextResponse.json({ error: "İlk yönetici hesabı başka bir oturum tarafından oluşturuldu." }, { status: 409 });
     }
-    const session = await createSession(db, id), res = NextResponse.json({ ok: true });
+    const session = await createSession(db, id);
+    if(!session)return NextResponse.json({error:"Hesap değişti. Tekrar giriş yapın."},{status:409});
+    const res = NextResponse.json({ ok: true });
     res.cookies.set("fornost_session", session.token, sessionCookie(req, session.expires));
     res.cookies.set(bootstrapCookieName, "", { ...bootstrapCookie(req), maxAge: 0 });
     return res;
@@ -130,5 +134,5 @@ export async function POST(req: NextRequest) {
   } else {
     await db.prepare("UPDATE local_users SET failed_attempts=0,locked_until=NULL,updated_at=? WHERE id=?").bind(now.toISOString(), row.id).run();
   }
-  const session = await createSession(db, row.id), res = NextResponse.json({ ok: true }); res.cookies.set("fornost_session", session.token, sessionCookie(req, session.expires)); return res;
+  const session = await createSession(db, row.id); if(!session)return generic; const res = NextResponse.json({ ok: true }); res.cookies.set("fornost_session", session.token, sessionCookie(req, session.expires)); return res;
 }

@@ -46,12 +46,14 @@ export async function identityDb() {
 
 export const demoAccount={name:"Fornost Demo Editor",email:"demo@fornost.test",role:"Editor" as const};
 
+// A removed local mapping must not regain access via automatic demo or unmapped SSO login.
+const removedEmail="SELECT 1 FROM user_access_events WHERE id GLOB 'local-delete:*' AND json_extract(after_json,'$.email')=? LIMIT 1";
 export async function ensureDemoUser(db: Awaited<ReturnType<typeof identityDb>>){
  const existing=await db.prepare("SELECT id FROM local_users WHERE email=?").bind(demoAccount.email).first<{id:string}>();
- if(existing)return;
+ if(existing||await db.prepare(removedEmail).bind(demoAccount.email).first())return;
  const oneTimeSecret=`${bytesToHex(crypto.getRandomValues(new Uint8Array(24)))}Aa1!`;
  const p=await passwordHash(oneTimeSecret),now=new Date().toISOString();
- await db.prepare("INSERT INTO local_users(id,name,email,password_hash,password_salt,password_iterations,role,status,created_at,updated_at) VALUES(?,?,?,?,?,?,?,'Active',?,?) ON CONFLICT(email) DO NOTHING").bind("demo-editor",demoAccount.name,demoAccount.email,p.hash,p.salt,p.iterations,demoAccount.role,now,now).run();
+ await db.prepare("INSERT INTO local_users(id,name,email,password_hash,password_salt,password_iterations,role,status,created_at,updated_at) SELECT ?,?,?,?,?,?,?,'Active',?,? WHERE NOT EXISTS ("+removedEmail+") ON CONFLICT(email) DO NOTHING").bind("demo-editor",demoAccount.name,demoAccount.email,p.hash,p.salt,p.iterations,demoAccount.role,now,now,demoAccount.email).run();
 }
 
 function bytesToHex(bytes: Uint8Array) { return [...bytes].map(x => x.toString(16).padStart(2, "0")).join(""); }
@@ -123,7 +125,7 @@ export async function actor(req: NextRequest): Promise<Actor | null> {
     const db = await identityDb();
     const mapped = await db.prepare("SELECT id,name,email,role,status FROM local_users WHERE email=?").bind(platformEmail).first<{id:string;name:string;email:string;role:string;status:string}>();
     if (mapped?.status === "Active") return { id:mapped.id, email:mapped.email, name:mapped.name, role:mapped.role as AppRole, source:"entra", moduleAccess:await readModuleAccess(db,mapped.id) };
-    if (mapped) return null; // A disabled mapped account must not fall back to an unmapped Viewer.
+    if (mapped || await db.prepare(removedEmail).bind(platformEmail).first()) return null; // A disabled mapped account must not fall back to an unmapped Viewer.
     const admins = await db.prepare("SELECT COUNT(*) total FROM local_users WHERE role='Admin'").first<{total:number}>();
     if (!admins?.total) return null;
     return { id:`platform:${platformEmail}`, email:platformEmail, name:platformEmail, role:"Viewer", source:"entra" };
@@ -150,11 +152,12 @@ async function readSessionTimeout(db: Awaited<ReturnType<typeof identityDb>>) {
   return sessionTimeoutMinutes(row?.config_json);
 }
 
-export async function createSession(db: Awaited<ReturnType<typeof identityDb>>, userId: string) {
+export async function createSession(db: Awaited<ReturnType<typeof identityDb>>, userId: string, expectedRole?:AppRole) {
   const minutes = await readSessionTimeout(db);
   const token = bytesToHex(crypto.getRandomValues(new Uint8Array(32))), now = new Date(), expires = new Date(now.getTime() + minutes * 60_000);
   await cleanupExpiredSessions(db, now.toISOString());
-  await db.prepare("INSERT INTO local_sessions VALUES(?,?,?,?,?)").bind(await sha256(token), userId, expires.toISOString(), now.toISOString(), now.toISOString()).run();
+  const inserted=await db.prepare("INSERT INTO local_sessions(id_hash,user_id,expires_at,created_at,last_seen_at) SELECT ?,id,?,?,? FROM local_users WHERE id=? AND status='Active' AND (? IS NULL OR role=?)").bind(await sha256(token),expires.toISOString(),now.toISOString(),now.toISOString(),userId,expectedRole??null,expectedRole??null).run();
+  if(!inserted.meta?.changes)return null;
   return { token, expires };
 }
 

@@ -309,3 +309,9 @@ The existing TPRM enterprise access policy governs finding history; full-access 
 ### Supplier finding deadline control
 
 Only the assigned active independent Admin reviewer may replan an open/in-progress finding on an active supplier. Full finding/profile/assessment snapshots and live identity/access guards protect the atomic date/event write. Old-token replay cannot duplicate a saved plan. Prior lateness is retained as an event-time fact while current My Work/overdue counts follow the canonical revised date. Verification/closure, assignment, feedback and evidence remain separate. No schema migration or notification configuration is required; application rollback must retain saved dates and history. [API, recovery and operating limits](tprm-finding-deadline.md).
+
+### Yerel hesap yönetimi
+
+**Yönetim → Kimlik ve Erişim → Yerel hesaplar** üzerinden hesap oluşturun. Bir satırda görünen adı, rolü, durumu veya modül yetkilerini değiştirip **Kaydet** düğmesine basın. Rol, durum veya modül yetkisi değiştiğinde ilgili kullanıcının açık yerel oturumları kapanır.
+
+**Sil → Hesabı sil** seçilen hesabı, yerel giriş bilgilerini, oturumlarını ve modül izinlerini kaldırır. Silme işlemi ve hedef e-posta erişim geçmişinde görünür. Yönetici kendi hesabını silemez. Son aktif yönetici silinemez, devre dışı bırakılamaz veya daha düşük bir role geçirilemez. Geçici erişim kesintisi için **Devre dışı** durumunu seçin.
