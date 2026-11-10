@@ -96,3 +96,53 @@ test('exact policy navigation prioritizes the linked version and rejects malform
   assert.equal((await f.get('focusKind=policy-version&focusId=../x')).status,400);assert.equal((await f.get('view=decision&kind=version&id=PV-missing')).status,404);
  }finally{f.sqlite.close()}
 });
+
+test('worklist and comparison keep the submitted version separate from the published and assigned versions',async()=>{
+ const f=await setup();
+ try{
+  await f.publish();
+  const id=f.policyVersionId;
+  const next=await f.post({action:'create-version',policyId:f.policyId,summary:'Access reviews are now monthly.',content:'Access reviews are performed monthly. Assigned reviewers must record the reviewed permissions and retain their supporting evidence.',effectiveDate:future(1),regulationRefs:['ISO 27001']});
+  assert.equal(next.status,200);const nextId=String(next.body.id);
+  f.setActor(actor('owner','Editor'));assert.equal((await f.decision('submit',nextId)).status,200);
+  f.setActor(actor('reviewer'));
+  const ex=await f.exception();
+  const campaign=await f.post({action:'create-campaign',policyId:f.policyId,versionId:id,name:'Assigned original version',audience:'Assigned staff',dueDate:future(4),subjects:['viewer@example.com','reviewer@example.com']});
+  assert.equal(campaign.status,200,JSON.stringify(campaign.body));
+  const list=await f.get('view=worklist&scope=org&lang=tr&q='+encodeURIComponent('BAĞIMSIZ'));
+  assert.equal(list.status,200);assert.equal(list.body.total,1);
+  const rows=list.body.rows as {id:string;versionNumber:number;due:string|null}[];
+  assert.deepEqual([rows[0].id,rows[0].versionNumber,rows[0].due],[nextId,2,null]);
+  assert.equal(list.body.openCampaigns,1);assert.equal(list.body.pendingResponses,2);
+  const comparison=(await f.get('view=comparison&versionId='+nextId)).body;
+  assert.equal((comparison.selected as {id:string}).id,nextId);assert.equal((comparison.published as {id:string}).id,id);
+  assert.deepEqual(comparison.exceptions,[]);assert.deepEqual(comparison.campaigns,[]);
+  const live=(await f.get('view=comparison&versionId='+id)).body;assert.equal((live.exceptions as {id:string}[])[0].id,ex);
+  assert.equal((live.campaigns as {id:string}[])[0].id,campaign.body.id);
+  f.setActor(actor('viewer','Viewer'));assert.equal((await f.get('view=worklist&scope=org')).status,403);
+  const mine=await f.get('view=worklist&scope=mine');
+  assert.equal(mine.body.pendingResponses,1);assert.equal(mine.body.openCampaigns,1);
+  const assigned=mine.body.rows as {kind:string;responsible:string;versionNumber:number}[];assert.equal(assigned.length,1);
+  assert.deepEqual([assigned[0].kind,assigned[0].responsible,assigned[0].versionNumber],['response','viewer@example.com',1]);
+  const viewer=(await f.get('view=comparison&versionId='+id)).body;assert.equal((viewer.assignments as unknown[]).length,1);assert.deepEqual(viewer.campaigns,[]);
+  f.sqlite.prepare("UPDATE policy_documents SET current_version_id='PV-missing' WHERE id=?").run(f.policyId);
+  assert.equal((await f.get('view=comparison&versionId='+nextId)).body.published,null);
+  assert.equal((await f.get('view=comparison&versionId=PV-missing')).status,404);
+  assert.equal((await f.get('view=comparison&versionId=a&versionId=b')).status,400);
+ }finally{f.sqlite.close()}
+});
+test('worklist searches beyond the directory cap and clamps pages deterministically',async()=>{
+ const f=await setup();try{
+  const original=f.row('policy_documents',f.policyId),fields=Object.keys(original);
+  const insert=f.sqlite.prepare(`INSERT INTO policy_documents(${fields}) VALUES(${fields.map(()=>'?')})`);
+  for(let i=0;i<1003;i++){
+   const row={...original,id:'P-queue-'+i,code:'QUEUE-'+String(i).padStart(4,'0'),title:i===0?'İŞ SÜREKLİLİĞİ':'Continuity '+i};
+   insert.run(...fields.map(key=>row[key as keyof typeof row]));
+  }
+  const page=await f.get('view=worklist&scope=org&page=999999&q=QUEUE');assert.equal(page.status,200);
+  assert.equal(page.body.total,1003);assert.equal(page.body.page,41);assert.equal((page.body.rows as unknown[]).length,3);
+  const match=await f.get('view=worklist&scope=org&lang=tr&q='+encodeURIComponent('iş sürekliliği'));
+  assert.equal(match.body.total,1);assert.equal((match.body.rows as {id:string}[])[0].id,'P-queue-0');
+  assert.equal((await f.get('view=worklist&scope=mine&page=-1')).status,400);
+ }finally{f.sqlite.close()}
+});

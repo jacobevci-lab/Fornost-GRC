@@ -10,16 +10,19 @@ import './continuity-plan-review.css';
 import './policy-attestation-response.css';
 
 type Decision = 'attested' | 'declined';
-type Draft = { requestId: string; expectedRevision: string; decision: Decision; note: string; confirmed: boolean };
+type Draft = { requestId: string; expectedRevision: string; decision: Decision | ''; note: string; confirmed: boolean };
 function PolicyContent({ source, tr }: { source: AttestationSource; tr: boolean }) {
   const { policy: p, version: v, campaign: c, attestation: a } = source;
   const mappings = (value: unknown) => { try { const list = JSON.parse(String(value)); return Array.isArray(list) ? list.join(', ') || '—' : '—'; } catch { return tr ? 'Okunamıyor' : 'Unreadable'; } };
-  const fields = [[tr ? 'Politika' : 'Policy', `${p.code} · ${p.title}`], [tr ? 'Atanmış sürüm / yürürlük tarihi' : 'Assigned version / effective date', `v${v.version_number} · ${v.effective_date}`], [tr ? 'Kampanya' : 'Campaign', c.name], [tr ? 'Katılımcı' : 'Subject', a.subject_email], [tr ? 'Hedef kitle' : 'Audience', c.audience], [tr ? 'Son tarih' : 'Due date', c.due_date], [tr ? 'Politika sahibi' : 'Policy owner', p.owner], [tr ? 'İncelemeci' : 'Reviewer', p.reviewer]];
-  return <><dl className="cpr-facts">{fields.map(([label, value]) => <div key={String(label)}><dt>{label}</dt><dd>{value}</dd></div>)}</dl>
-    <section className="par-content" aria-label={tr ? 'Atanmış politika metni' : 'Assigned policy content'}><h3>{tr ? 'Atanmış politika metni' : 'Assigned policy content'}</h3><p>{v.summary}</p><p className="plm-decision-content">{v.content}</p>
-      <dl className="cpr-facts">{[[tr ? 'Kontroller' : 'Controls', v.control_refs_json], [tr ? 'Regülasyonlar' : 'Regulations', v.regulation_refs_json], [tr ? 'Riskler' : 'Risks', v.risk_refs_json]].map(([label, value]) => <div key={String(label)}><dt>{label}</dt><dd>{mappings(value)}</dd></div>)}</dl><p>SHA-256: <code>{v.content_sha256}</code></p></section></>;
+  const fields = [[tr ? 'Kampanya' : 'Campaign', c.name], [tr ? 'Son tarih' : 'Due date', c.due_date], [tr ? 'Katılımcı' : 'Subject', a.subject_email], [tr ? 'Yürürlük tarihi' : 'Effective date', v.effective_date], [tr ? 'Politika sahibi' : 'Policy owner', p.owner], [tr ? 'İnceleyen' : 'Reviewer', p.reviewer]];
+  return <section className="par-content" aria-label={tr ? 'Atanmış politika metni' : 'Assigned policy content'}>
+    <header><small>{p.code} · {tr?'Atanan sürüm':'Assigned version'} v{v.version_number}</small><h3>{p.title}</h3></header>
+    <dl className="cpr-facts">{fields.map(([label,value])=><div key={String(label)}><dt>{label}</dt><dd>{value}</dd></div>)}</dl>
+    <p><b>{v.summary}</b></p><p className="plm-decision-content">{v.content}</p>
+    <details><summary>{tr?'Eşlemeler ve içerik özeti':'Mappings and content digest'}</summary>
+      <dl className="cpr-facts">{[[tr ? 'Kontroller' : 'Controls', v.control_refs_json], [tr ? 'Düzenlemeler' : 'Regulations', v.regulation_refs_json], [tr ? 'Riskler' : 'Risks', v.risk_refs_json]].map(([label, value]) => <div key={String(label)}><dt>{label}</dt><dd>{mappings(value)}</dd></div>)}</dl><p>SHA-256 · <code>{v.content_sha256}</code></p></details></section>;
 }
-export default function PolicyAttestationResponse({ id, initialDecision, tr, close }: { id: string; initialDecision: Decision; tr: boolean; close: (saved: boolean) => void }) {
+export default function PolicyAttestationResponse({ id, initialDecision, tr, close }: { id: string; initialDecision: Decision | ''; tr: boolean; close: (saved: boolean) => void }) {
   const resource = useWorkflowRecords<AttestationWorkspace>(`/api/policy-lifecycle?view=attestation&attestationId=${encodeURIComponent(id)}`, null);
   const [draft, setDraft] = useState<Draft | null>(null), [busy, setBusy] = useState(false), [notice, setNotice] = useState(''), [blocked, setBlocked] = useState(false), [uncertain, setUncertain] = useState(false), [initialized, setInitialized] = useState(false);
   const changed = useRef(false), closeRef = useRef(() => {}), fieldId = useId();
@@ -32,7 +35,7 @@ export default function PolicyAttestationResponse({ id, initialDecision, tr, clo
   if (!initialized && ready && data) { setInitialized(true); if (data.canRespond) setDraft({ requestId: `PAR-${crypto.randomUUID()}`, expectedRevision: data.revision, decision: initialDecision, note: '', confirmed: false }); }
   async function refresh() { const fresh = await resource.reload(); if (fresh) { setBlocked(false); setUncertain(false); if (fresh.attestation?.status !== 'pending') changed.current = true; } }
   async function submit(event: FormEvent) {
-    event.preventDefault(); if (!draft || !ready || busy || blocked || stale || !data?.canRespond || !draft.confirmed) return;
+    event.preventDefault(); if (!draft || !draft.decision || draft.note.trim().length < 3 || !ready || busy || blocked || stale || !data?.canRespond || !draft.confirmed) return;
     setBusy(true); setNotice('');
     try {
       const { response, body } = await requestJsonWithDeadline(withBasePath('/api/policy-lifecycle'), { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action: 'attest', attestationId: id, responseMode: 'reviewed', ...draft, confirmation: attestationPhrase(draft.decision) }) }, fetch, 15_000);
@@ -52,6 +55,7 @@ export default function PolicyAttestationResponse({ id, initialDecision, tr, clo
       {resource.loading && <p role="status">{tr ? 'Atanmış sürüm yükleniyor…' : 'Loading the assigned version…'}</p>}
       {(resource.error || (resource.ready && !data)) && <p role="alert">{tr ? 'Atanmış politika okunamadı. Notunuz korundu; yenileyerek tekrar deneyin.' : 'The assigned policy could not be read. Your note is retained; refresh to retry.'}</p>}
       {notice && <p role="status" className="cpr-notice">{notice}</p>}
+      <div className={draft && !recorded ? "pwl-reading-grid" : "pwl-reading-grid single"}><div className="pwl-reading">
       {data && <>
         {data.campaign.status === 'closed' && <p role="status">{tr ? 'Kampanya kapalı; yeni yanıt kaydedilemez.' : 'The campaign is closed; no new response can be recorded.'}</p>}
         {data.campaign.status === 'open' && String(data.campaign.due_date) < new Date().toISOString().slice(0, 10) && <p>{tr ? 'Son tarih geçti. Kampanya açık olduğu için yanıt verebilirsiniz.' : 'The due date has passed. You can still respond while the campaign is open.'}</p>}
@@ -59,13 +63,17 @@ export default function PolicyAttestationResponse({ id, initialDecision, tr, clo
         <PolicyContent source={result?.snapshot || data} tr={tr} />
         {!data.contentVerified && <p role="alert">{tr ? 'Güncel kaynak bütünlüğü doğrulanamadı; yeni yanıt kaydedilemez.' : 'The current source integrity could not be verified; no new response can be recorded.'}</p>}
       </>}
+      </div>
       {draft && !recorded && <form className="cpr-form" onSubmit={event => void submit(event)}>
+        <h3>{tr?"Yanıtım":"My response"}</h3>
         {stale && data && <p role="alert">{tr ? 'Ayrıntılar karar taslağınızdan sonra değişti. Atanmış metni ve kampanyayı yeniden inceleyin.' : 'The details changed after your draft. Review the assigned text and campaign again.'} <button type="button" disabled={!ready || busy || !data.canRespond} onClick={() => { setDraft({ ...draft, expectedRevision: data.revision, requestId: `PAR-${crypto.randomUUID()}`, confirmed: false }); setBlocked(false); setUncertain(false); }}>{tr ? 'Güncel bağlamı kullan' : 'Use current context'}</button></p>}
-        <label htmlFor={`${fieldId}-decision`}>{tr ? 'Yanıt' : 'Response'}</label><select id={`${fieldId}-decision`} disabled={!editable} value={draft.decision} onChange={event => setDraft({ ...draft, decision: event.target.value as Decision, confirmed: false })}><option value="attested">{tr ? 'Kabul ediyorum' : 'I accept'}</option><option value="declined">{tr ? 'Kabul etmiyorum' : 'I decline'}</option></select>
+        <fieldset className="par-choices" disabled={!editable}><legend>{tr?'Yanıt':'Response'}</legend>
+          {(['attested','declined'] as const).map(choice=><label key={choice}><input type="radio" name={fieldId+'-decision'} value={choice} required checked={draft.decision===choice} onChange={()=>setDraft({...draft,decision:choice,confirmed:false})}/>{choice==='attested'?(tr?'Kabul ediyorum':'I accept'):(tr?'Kabul etmiyorum':'I decline')}</label>)}
+        </fieldset>
         <label htmlFor={`${fieldId}-note`}>{tr ? 'Karar / işlem notu' : 'Decision / action note'}</label><textarea id={`${fieldId}-note`} required minLength={3} maxLength={1000} disabled={!editable} value={draft.note} onChange={event => setDraft({ ...draft, note: event.target.value })} />
-        <label className="cpr-confirm"><input type="checkbox" required checked={draft.confirmed} disabled={!editable || stale || !ready} onChange={event => setDraft({ ...draft, confirmed: event.target.checked })} />{draft.decision === 'attested' ? (tr ? 'Atanmış sürümü okudum ve kabul ettiğimi doğruluyorum.' : 'I have read the assigned version and confirm my acceptance.') : (tr ? 'Atanmış sürümü okudum ve kabul etmediğimi doğruluyorum.' : 'I have read the assigned version and confirm my refusal.')}</label>
-        <button type="submit" disabled={busy || !ready || !data?.canRespond || stale || blocked}>{busy ? (tr ? 'Kaydediliyor…' : 'Recording…') : (tr ? 'Yanıtı kaydet' : 'Record response')}</button>
-      </form>}
+        <label className="cpr-confirm"><input type="checkbox" required checked={draft.confirmed} disabled={!editable || !draft.decision || stale || !ready} onChange={event => setDraft({ ...draft, confirmed: event.target.checked })} />{!draft.decision ? (tr ? 'Atanan sürümü okudum.' : 'I have read the assigned version.') : draft.decision === 'attested' ? (tr ? 'Atanmış sürümü okudum ve kabul ettiğimi doğruluyorum.' : 'I have read the assigned version and confirm my acceptance.') : (tr ? 'Atanmış sürümü okudum ve kabul etmediğimi doğruluyorum.' : 'I have read the assigned version and confirm my refusal.')}</label>
+        <button type="submit" disabled={busy || !ready || !data?.canRespond || stale || blocked || !draft.decision || !draft.confirmed || draft.note.trim().length<3}>{busy ? (tr ? 'Kaydediliyor…' : 'Recording…') : (tr ? 'Yanıtı kaydet' : 'Record response')}</button>
+      </form>}</div>
       {recorded && <p role="status">{tr ? 'Bu yanıt zaten kaydedilmiş; saklanan sonuç aşağıda gösteriliyor.' : 'This response is already recorded; the retained result is shown below.'}</p>}
       {data && data.attestation.status !== 'pending' && <section className="cpr-history" aria-label={tr ? 'Kaydedilen yanıt' : 'Recorded response'}><h3>{tr ? 'Kaydedilen yanıt' : 'Recorded response'}</h3><article><p><strong>{data.attestation.status === 'attested' ? (tr ? 'Kabul edildi' : 'Accepted') : (tr ? 'Kabul edilmedi' : 'Declined')}</strong> · {result?.actor || data.attestation.subject_email} · <time>{result?.respondedAt || data.attestation.attested_at}</time></p><p className="cpr-note">{result?.note || data.attestation.note}</p><code>{result?.contentSha256 || data.attestation.content_sha256}</code>
         {result ? <><p>{tr ? 'Yanıt kaydı' : 'Response receipt'}: {result.id}</p><p role={result.snapshot ? undefined : 'alert'}>{result.snapshot ? (tr ? 'Yukarıdaki içerik, yanıt sırasında incelenen ve saklanan kopyadır.' : 'The content above is the retained copy reviewed when responding.') : (tr ? 'Saklanan inceleme kopyası doğrulanamadı; yukarıda güncel kampanya kaynağı gösteriliyor.' : 'The retained reviewed copy could not be verified; the current campaign source is shown above.')}</p></> : <p>{tr ? 'Bu eski yanıt için incelenen içerik kopyası saklanmamış. Yukarıda kampanyanın atanmış sürümü gösteriliyor.' : 'No reviewed content snapshot was retained for this legacy response. The campaign’s assigned version is shown above.'}</p>}
