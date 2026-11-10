@@ -14,3 +14,18 @@ const labels: Record<string, [string, string]> = {
 };
 /** Display labels only: persisted status codes and confirmation phrases are unchanged. */
 export function incidentLabel(value: string, lang: 'tr' | 'en') { return labels[value]?.[lang === 'tr' ? 0 : 1] ?? value; }
+
+const eventLabels: Record<string,[string,string]> = {
+  "incident-declare": ["Olay ilan edildi","Incident declared"],
+  triage: ["Ön inceleme başlatıldı","Triage started"],
+  contain: ["Olay kontrol altına alındı","Incident contained"],
+  eradicate: ["Tehdit giderildi","Threat eradicated"],
+  recover: ["Hizmet geri yüklendi","Service restored"],
+  review: ["İncelemeye gönderildi","Submitted for review"],
+  close: ["Olay kapatıldı","Incident closed"],
+  reopen: ["Olay yeniden açıldı","Incident reopened"],
+  "incident-export": ["CSV dışa aktarıldı","CSV exported"],
+};
+export function incidentEventLabel(action:string,lang:"tr"|"en"){
+  return eventLabels[action]?.[lang==="tr"?0:1] ?? incidentLabel(action,lang);
+}
