@@ -22,6 +22,7 @@ interface R2ObjectBody {
 }
 
 interface R2Bucket {
+  delete(key: string): Promise<void>;
   put(key: string, value: ArrayBuffer | ArrayBufferView, options?: { httpMetadata?: { contentType?: string } }): Promise<unknown>;
   get(key: string): Promise<R2ObjectBody | null>;
 }

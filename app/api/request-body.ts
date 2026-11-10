@@ -5,7 +5,7 @@ export class JsonBodyError extends Error {
   }
 }
 
-export async function readBoundedJsonObject(request: Request, maxBytes: number): Promise<Record<string, unknown>> {
+export async function readBoundedBody(request: Request, maxBytes: number): Promise<Uint8Array<ArrayBuffer>> {
   const declaredTooLarge = Number(request.headers.get("content-length") || 0) > maxBytes;
   if (!request.body) throw new JsonBodyError(400);
   const reader = request.body.getReader();
@@ -30,6 +30,11 @@ export async function readBoundedJsonObject(request: Request, maxBytes: number):
   const bytes = new Uint8Array(size);
   let offset = 0;
   for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.byteLength; }
+  return bytes;
+}
+
+export async function readBoundedJsonObject(request: Request, maxBytes: number): Promise<Record<string, unknown>> {
+  const bytes = await readBoundedBody(request, maxBytes);
   let value: unknown;
   try { value = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(bytes)); }
   catch { throw new JsonBodyError(400); }

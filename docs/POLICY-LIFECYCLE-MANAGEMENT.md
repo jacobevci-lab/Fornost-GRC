@@ -38,3 +38,9 @@ Admin can now inspect each attestation campaign, its pinned policy version and a
 ## Connected decision evidence
 
 The existing policy and exception forms use eligible account selection. Version submission/approval/publication, exception approval/closure and retirement use canonical evidence versions, with source-context review and explicit recovery after conflicts. Distinct retained decision pins appear in Policy Center and historical Evidence Usage, with exact source navigation. Legacy references remain compatible without canonical pins; no palette/menu/schema change is required. [Workflow, access and limits](policy-connected-evidence.md).
+
+### Word ve PDF politikalarını içe aktarma
+
+Politika Merkezi → **Word / PDF içe aktar** seçeneği Yönetici ve Editör rollerine açıktır. Word için makrosuz .docx (8 MB), PDF için metin katmanı içeren belge (10 MB, 250 sayfa) seçin. Eski .doc dosyalarını Word’de .docx olarak kaydedin. Taranmış belgeleri önce OCR ile metin aranabilir PDF’ye dönüştürün.
+
+Yeni politika veya mevcut politikaya sürüm ekleme hedefini seçin. Önizlenen metni kaynak belgeyle karşılaştırın, tarih ve eşlemeleri tamamlayıp **Taslak olarak içe aktar** düğmesine basın. Düzenlenebilir sürüm 80–50.000 karakterdir. Tabloların yerleşimi, görseller ve imzalar özgün dosyada korunur. **Sürümü incele → Özgün dosyayı indir** o sürümde kullanılan dosyayı açar. İçe aktarılan sürüm olağan bağımsız inceleme ve yayın akışından geçer.
