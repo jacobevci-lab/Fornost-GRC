@@ -24,7 +24,7 @@ function formatDate(value: string, lang: Lang) {
   return new Intl.DateTimeFormat(lang === "tr" ? "tr-TR" : "en-GB", { day: "2-digit", month: "short", year: "numeric" }).format(date);
 }
 
-export default function AuditReadinessGate({lang, auditName = "", records}: {lang: Lang; auditName?: string; records?: Row[]}) {
+export default function AuditReadinessGate({lang, auditName = "", records, mode="full", overview}: {lang: Lang; auditName?: string; records?: Row[]; mode?:"full"|"global"|"metric"; overview?:React.ReactNode}) {
   const [snapshot, setSnapshot] = useState<{ scope: string; result: AuditReadinessResult } | null>(null);
   const [loading, setLoading] = useState(true), [loadError, setLoadError] = useState(false);
   const [gapLimit, setGapLimit] = useState(8), [signalLimit, setSignalLimit] = useState(6);
@@ -96,9 +96,18 @@ export default function AuditReadinessGate({lang, auditName = "", records}: {lan
     }, format);
   };
 
-  return (
+  const referenceCount=checking?(tr?"Hesaplanıyor…":"Checking…"):!reliable?(tr?"Hazırlık doğrulanamadı":"Readiness unverified"):
+    assurance.total?`${assurance.current} / ${assurance.total} ${tr?"referans güncel":"references current"}`:(tr?"Henüz referans yok":"No references yet");
+  if(mode==="metric")return <section className="apw-metric" aria-busy={checking}>
+    <h5>{tr?"Kanıt hazırlığı":"Evidence readiness"}</h5><b>{referenceCount}</b>
+    {reliable&&assurance.total>0&&<><div className="apw-track" aria-hidden="true">
+      <i style={{width:assurance.current/assurance.total*100+"%"}}/><i className="apw-stale" style={{width:assurance.stale/assurance.total*100+"%"}}/></div>
+      <small>{assurance.current} {tr?"güncel":"current"} · {assurance.stale} {tr?"yenileme / onay":"refresh / review"} · {assurance.missing.length} {tr?"kanıtsız":"missing evidence"}</small></>}
+    {!checking&&!reliable&&<button type="button" className="apw-link" onClick={()=>void load()}>{tr?"Yeniden dene":"Retry"}</button>}
+  </section>;
+  const fullPanel=(
     <section className={`audit-readiness-gate gate-${effectiveGate}`} aria-busy={checking} aria-label={tr ? "Denetim hazırlık kapısı" : "Audit readiness gate"}>
-      <header className="audit-readiness-head"><div><small>AUDIT READINESS GATE</small><h3 title={headline}>{headline}</h3><p>{auditName ? `${tr ? "Kapsam" : "Scope"}: ${auditName}` : (tr ? "Denetim portföyündeki kanıt hazırlığını ve aynı kontrollere bağlı Continuous Assurance sinyallerini birlikte değerlendirir." : "Evaluates audit evidence readiness together with Continuous Assurance signals mapped to the same controls.")}</p></div><div className="audit-readiness-state"><span>{gateLabel}</span><strong>{canExport && assurance.total ? `${assurance.readiness}%` : "—"}</strong><small>{tr ? "kanıt hazırlığı" : "evidence readiness"}</small></div></header>
+      <header className="audit-readiness-head"><div><small>AUDIT READINESS GATE</small><h3 title={headline}>{headline}</h3><p>{auditName ? `${tr ? "Kapsam" : "Scope"}: ${auditName}` : (tr ? "Tüm denetim maddelerindeki kanıt hazırlığını ve aynı kontrollere bağlı Continuous Assurance sinyallerini birlikte değerlendirir." : "Evaluates audit evidence readiness together with Continuous Assurance signals mapped to the same controls.")}</p></div><div className="audit-readiness-state"><span>{gateLabel}</span><strong>{canExport && assurance.total ? `${assurance.readiness}%` : "—"}</strong><small>{tr ? "kanıt hazırlığı" : "evidence readiness"}</small></div></header>
 
       <div className="audit-readiness-feedback" aria-live="polite">
       {checking && <p className="audit-readiness-scope-note">{tr ? "Güncel değerlendirme bekleniyor. Raporlar kontrol tamamlandığında açılır." : "Waiting for the current evaluation. Reports become available when the check completes."}</p>}
@@ -149,4 +158,8 @@ export default function AuditReadinessGate({lang, auditName = "", records}: {lan
       <footer className="audit-readiness-actions"><div><small>{!result && (tr ? "Değerlendirme zamanı: —" : "Evaluated at: —")}{result && <>{tr ? "Değerlendirme zamanı" : "Evaluated at"}: <time dateTime={result.generatedAt}>{new Date(result.generatedAt).toLocaleString(tr ? "tr-TR" : "en-GB")}</time></>}</small></div><div><button type="button" className="secondary" disabled={!canExport} onClick={()=>exportSnapshot("html")}>{tr?"HTML Özeti":"HTML Snapshot"}</button><button type="button" className="secondary" disabled={!canExport} onClick={()=>exportSnapshot("csv")}>CSV</button><button type="button" className="secondary" onClick={() => navigateToFornost("Kontroller")}>{tr ? "Kontroller" : "Controls"}</button><button type="button" className="secondary" onClick={() => navigateToFornost("Bulgular ve CAPA")}>{tr ? "Bulgular / CAPA" : "Findings / CAPA"}</button><button type="button" className="secondary" onClick={()=>navigateToFornost("Kanıt Otomasyonu")}>Continuous Assurance</button><button type="button" onClick={() => navigateToFornost("Kanıtlar")}>{tr ? "Kanıtları Tamamla" : "Complete Evidence"}</button><button type="button" className="refresh" aria-label={tr ? "Hazırlığı yeniden kontrol et" : "Recheck readiness"} disabled={checking} onClick={() => void load()}>{checking ? "…" : "↻"}</button></div></footer>
     </section>
   );
+  if(mode!=="global")return fullPanel;
+  return <details className="apw-global"><summary><strong>{tr?"Genel kanıt hazırlığı":"Overall evidence readiness"}</strong>
+    <span>{tr?"Tüm referanslar":"All references"} · {referenceCount}</span></summary>
+    {fullPanel}{overview}</details>;
 }

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { mkdir, writeFile } from "node:fs/promises";
 import { chromium, expect } from "@playwright/test";
-import { createQaContext, openQaModule } from "./qa-browser-harness.mjs";
+import {openOverallAuditReadiness,  createQaContext, openQaModule } from "./qa-browser-harness.mjs";
 import { qaPassword } from "./qa-credentials.mjs";
 
 const base = "http://127.0.0.1:4173";
@@ -223,9 +223,11 @@ try {
   await page.setViewportSize({ width: 1536, height: 960 });
   await openQaModule(page, "Denetim Yönetimi");
   await expect(page.getByRole("heading", { name: "Denetim Portföyü", exact: true })).toBeVisible();
+  await openOverallAuditReadiness(page);
   const portfolioCount = page.locator(".audit-kpis article").filter({ hasText: "Portföye bağlı geciken maddeler" });
   await expect(portfolioCount.locator("b")).toHaveText("1");
-  await expect(page.locator(".audit-card").filter({ hasText: audit.name }).locator("footer strong")).toHaveText("1 geciken");
+  await page.locator(".apw-select").filter({hasText:audit.name}).click();
+  await expect(page.locator(".apw-inspector .apw-status").filter({hasText:"Gecikti"})).toHaveCount(1);
   await openQaModule(page, "Gösterge Paneli");
   const actionGroup = dashboard.locator(".dashboard-action-group");
   const actions = actionGroup.getByRole("button", { name: "İşlemler", exact: true });
