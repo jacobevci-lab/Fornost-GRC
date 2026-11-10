@@ -5,7 +5,7 @@ import test from "node:test";
 test("local identity administration supports governed role and status changes",async()=>{
  const [ui,route,css]=await Promise.all([
   readFile("app/settings.tsx","utf8"),
-  readFile("app/api/users/route.ts","utf8"),
+  readFile("app/api/users/account-store.ts","utf8"),
   readFile("app/enterprise-surface-contract.css","utf8"),
  ]);
  assert.match(ui,/method:"PATCH"/);

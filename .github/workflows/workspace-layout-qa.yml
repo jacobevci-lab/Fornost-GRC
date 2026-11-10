@@ -49,6 +49,9 @@ jobs:
           curl --fail --silent --show-error http://127.0.0.1:4173/api/auth \
             -H 'Origin: http://127.0.0.1:4173' -H 'Content-Type: application/json' \
             --data-binary @/tmp/fornost-qa-bootstrap.json
+      - name: Local account create, edit and delete browser QA
+        timeout-minutes: 5
+        run: node scripts/local-account-lifecycle-qa.mjs
       - name: Dashboard decision counts and recovery QA
         run: node scripts/dashboard-decision-source-qa.mjs
       - name: Save executive dashboard design preview

@@ -30,6 +30,8 @@ jobs:
     steps:
       - name: Checkout deployed revision
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -54,6 +56,15 @@ jobs:
 
       - name: Verify the expected production revision
         run: node scripts/wait-for-production-revision.mjs
+
+      - name: Check deployed local account lifecycle when identity management changes
+        if: github.event_name == 'push'
+        timeout-minutes: 5
+        shell: bash
+        run: |
+          if ! git diff --quiet HEAD^ HEAD -- app/api/users/route.ts app/api/users/account-store.ts scripts/local-account-lifecycle-qa.mjs; then
+            node scripts/local-account-lifecycle-qa.mjs --production
+          fi
 
       - name: Run legacy production QA baseline
         shell: bash
