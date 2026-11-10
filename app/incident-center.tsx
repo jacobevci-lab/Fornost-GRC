@@ -2,7 +2,7 @@
 import {IncidentDossier,hasIncidentBreach,matchesIncident,type Incident} from "./incidents/case-workspace";
 import "./incidents/case-workspace.css";
 import {FormEvent,useCallback,useMemo,useRef,useState} from "react";
-import {incidentLabel} from "./incidents/labels";
+import {incidentLabel,incidentEventLabel} from "./incidents/labels";
 import {withBasePath} from "./base-path";
 import {useEnterpriseWorkFocus,EnterpriseWorkFocusBanner} from "./enterprise-work-focus";
 import {useWorkflowRecords} from "./use-workflow-records";
@@ -93,7 +93,7 @@ export default function IncidentCenter({lang,currentUser}:{lang:Lang;currentUser
   {ready&&!workFocus.focus&&summary.total>0&&<details className="ic-register-summary"><summary>{tr?"Tüm olayların özeti":"All incidents summary"}</summary>
     <dl className="ic-facts">{[[tr?"Aktif":"Active",summary.active],[tr?"Kritik":"Critical",summary.critical],[tr?"SLA ihlali":"SLA breaches",summary.breached],[tr?"Kontrol altında":"Contained",summary.contained],[tr?"İncelemede":"In review",summary.review],[tr?"Kişisel veri":"Personal data",summary.personalData]].map(([name,value])=><div key={name}><dt>{name}</dt><dd>{value}</dd></div>)}</dl>
   </details>}
-  {ready&&!workFocus.focus&&events.length>0&&<details className="incident-history"><summary>{tr?"Son olay yaşam döngüsü kayıtları":"Recent incident lifecycle events"}</summary><p>{tr?"Son 20 olay kaydı. Bir olayın tam geçmişini ayrıntısından açın.":"Latest 20 events. Open an incident for its full history."}</p>{events.slice(0,20).map(x=><div key={x.id}><b>{x.action}</b><span>{x.incidentId} · {x.actor}</span><small>{x.detail}</small></div>)}</details>}
+  {ready&&!workFocus.focus&&events.length>0&&<details className="incident-history"><summary>{tr?"Son olay yaşam döngüsü kayıtları":"Recent incident lifecycle events"}</summary><p>{tr?"Son 20 olay kaydı. Bir olayın tam geçmişini ayrıntısından açın.":"Latest 20 events. Open an incident for its full history."}</p>{events.slice(0,20).map(x=><div key={x.id}><b>{incidentEventLabel(x.action,lang)}</b><span>{x.incidentId} · {x.actor}</span><small>{x.detail}</small></div>)}</details>}
  </section>
 }
 function Field({label,name,form,setForm,wide=false,area=false,type="text"}:{label:string;name:string;form:Record<string,string|boolean>;setForm:(x:Record<string,string|boolean>)=>void;wide?:boolean;area?:boolean;type?:string}){const value=String(form[name]??""),optional=["riskRef","biaRef"].includes(name),minimum:Record<string,number>={title:5,description:20,businessImpact:15,assetRefs:2};return <label className={wide?"wide":""}>{label}{area?<textarea aria-label={label} required={!optional} minLength={minimum[name]} maxLength={name==="description"?4000:3000} value={value} onChange={e=>setForm({...form,[name]:e.target.value})}/>:<input aria-label={label} type={type} required={!optional} minLength={minimum[name]} maxLength={name==="title"?240:name==="assetRefs"?1000:120} max={type==="date"?today():undefined} value={value} onChange={e=>setForm({...form,[name]:e.target.value})}/>}</label>}

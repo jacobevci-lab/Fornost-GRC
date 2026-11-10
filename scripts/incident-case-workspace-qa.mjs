@@ -42,6 +42,7 @@ export async function verifyIncidentCaseWorkspace(page) {
     await panel.getByRole('button',{name:/^SLA breaches ·/}).click();await expect(panel.locator('.incident-row-open')).toHaveCount(1);
     await expect(dossier.getByRole('link',{name:'Open evidence'})).toHaveAttribute('href',/primary-v1/);
     await dossier.getByRole('button',{name:'Crisis brief',exact:true}).click();
+    await expect(dossier).toContainText('Incident contained');
     await expect(dossier).toContainText('Erişim sınırlandırıldı.');await expect(dossier).toContainText('Pending');
     await panel.getByRole('button',{name:/^Active ·/}).click();
     await panel.getByRole('button',{name:/Şüpheli e-posta/}).click();await expect(dossier).toHaveAttribute('data-incident-id',second.id);

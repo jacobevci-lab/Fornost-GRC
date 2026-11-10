@@ -5,7 +5,7 @@ import {requestJsonWithDeadline} from '../bounded-json-request';
 import {WorkflowEvidenceHistory} from '../workflow-selection-fields';
 import type {WorkflowEvidencePin} from '../workflow-selection';
 import {incidentDecisionDetail} from './decisions';
-import {incidentLabel} from './labels';
+import {incidentLabel,incidentEventLabel} from './labels';
 import {IncidentContextDetails} from './context-details';
 type Row=Record<string,string|number|null>;
 export default function IncidentHistoryPanel({id,tr,view,showEvidence}:{id:string;tr:boolean;view:"summary"|"evidence"|"history"|"crisis";showEvidence:()=>void}) {
@@ -33,7 +33,7 @@ export default function IncidentHistoryPanel({id,tr,view,showEvidence}:{id:strin
   return <section className="incident-record-history ic-history-panel" aria-label={title}><header><h4>{title}</h4>
     {view==="summary"?<button type="button" onClick={showEvidence}>{tr?"Kanıtları incele":"Inspect evidence"}</button>:<button type="button" disabled={loading} onClick={()=>void load(null)}>{tr?'Yenile':'Refresh'}</button>}</header>
     {loading&&<p role="status">{tr?'Geçmiş yükleniyor…':'Loading history…'}</p>}{failed&&<p role="alert">{tr?'Geçmiş yüklenemedi. Gösterilen kayıtlar son başarılı okumaya aittir.':'History could not be loaded. Displayed entries are from the last successful read.'} <button type="button" onClick={()=>void load(retryCursor.current)}>{tr?'Tekrar dene':'Retry'}</button></p>}
-    {visible.map(event=>{const detail=incidentDecisionDetail(String(event.detail)),eventPins=pins.filter(pin=>pin.eventId===event.id);return <article key={String(event.id)}><b>{incidentLabel(String(event.action),tr?'tr':'en')}</b><p>{String(event.actor)} · <time dateTime={String(event.created_at)}>{new Date(String(event.created_at)).toLocaleString(tr?'tr-TR':'en-GB')}</time></p>{!evidenceOnly&&<><p>{event.from_status&&incidentLabel(String(event.from_status),tr?'tr':'en')} → {incidentLabel(String(event.to_status||''),tr?'tr':'en')}</p><p>{detail?.note||String(event.detail)}</p></>}
+    {visible.map(event=>{const detail=incidentDecisionDetail(String(event.detail)),eventPins=pins.filter(pin=>pin.eventId===event.id);return <article key={String(event.id)}><b>{incidentEventLabel(String(event.action),tr?'tr':'en')}</b><p>{String(event.actor)} · <time dateTime={String(event.created_at)}>{new Date(String(event.created_at)).toLocaleString(tr?'tr-TR':'en-GB')}</time></p>{!evidenceOnly&&<><p>{event.from_status&&incidentLabel(String(event.from_status),tr?'tr':'en')} → {incidentLabel(String(event.to_status||''),tr?'tr':'en')}</p><p>{detail?.note||String(event.detail)}</p></>}
       {view==="history"&&detail&&<details><summary>{tr?'Kararda incelenen olay ve gerekçe':'Incident and rationale reviewed in this decision'}</summary><IncidentContextDetails tr={tr} record={detail.reviewedSource}/>{Object.entries(detail.decision).filter(([,value])=>value).map(([key,value])=><p key={key}><b>{({rootCause:tr?'Kök neden':'Root cause',lessonsLearned:tr?'Çıkarılan dersler':'Lessons learned',notificationDecision:tr?'Bildirim kararı':'Notification decision',notificationRationale:tr?'Bildirim kararı gerekçesi':'Notification rationale'} as Record<string,string>)[key]}:</b> {incidentLabel(value,tr?'tr':'en')}</p>)}</details>}
       {view==="summary"?eventPins.map(pin=><div key={pin.id} className="ic-proof">
         <div><strong>{pin.evidence.evidenceTitle} · {tr?"Sürüm":"Version"} {pin.evidence.versionNo}</strong><small>{pin.evidence.fileName}</small></div>
