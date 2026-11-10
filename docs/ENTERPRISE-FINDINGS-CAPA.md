@@ -31,7 +31,9 @@ Açık veya devam eden bir bulgu yalnız atanmış bağımsız Admin reviewer ta
 
 ## Yönetim görünümü ve güvenlik
 
-- Açık, kritik, gecikmiş, doğrulamadaki, kabul edilmiş ve tekrarlayan kayıtlar ayrı KPI olarak izlenir.
+- Öncelikli iş listesi önce geciken açık işleri ve süresi dolmuş risk kabullerini, ardından termini bugün olan açık işleri gösterir. Görünümler arama ve atama filtresiyle birlikte çalışır.
+- Satırın başındaki ok sıradaki işlemi gösterir. Aksiyon planı bağlantısı o bulgunun dosyasını açar. Termin ve gecikme, bulgunun yaşam döngüsü durumundan ayrı gösterilir.
+- Liste altındaki “Tüm kayıtların özeti” açık, kritik, gecikmiş, doğrulamadaki, kabul edilmiş ve tekrarlayan kayıtları sayar. Özet sayısına tıklamak arama ve atama filtrelerini sıfırlar.
 - Dağıtık continuous-control, TPRM, AI assurance ve regülasyon kuyrukları salt okunur kaynak sinyali olarak gösterilir.
 - Viewer salt okunur; Editor oluşturma ve sahip olduğu aksiyonu yürütme; Admin bağımsız karar yetkisine sahiptir.
 - API gövdeleri 256 KiB, sorgular 3.000 bulgu ve 1.000 olay ile sınırlandırılır.

@@ -7,7 +7,7 @@ const base='http://127.0.0.1:4173';
 const browser=await chromium.launch({executablePath:process.env.QA_CHROMIUM_PATH||undefined});
 const context=await browser.newContext({viewport:{width:1536,height:960}});
 const page=await context.newPage();page.setDefaultTimeout(20000);
-let unavailable=true,writes=0,uncertain=false,rejectCreate=false;
+let emptyRegister=false,unavailable=true,writes=0,uncertain=false,rejectCreate=false;
 let releaseTransition,releaseCreate,heldLanguageRead;
 const findings=Array.from({length:65},(_,i)=>({id:`QA-F-${i+1}`,code:`FND-QA-${i+1}`,sourceType:'audit',sourceRef:`AUD-QA-${i+1}`,sourceTitle:'QA audit',findingType:'nonconformity',title:`QA finding ${i+1}`,description:'QA finding description',severity:'high',owner:'qa-admin@fornost.test',reviewer:'reviewer@fornost.test',rootCause:'QA root cause',correctiveAction:'QA corrective action',preventiveAction:'QA preventive action',dueDate:'2026-12-01',status:'open',recurrenceCount:0,attention:'priority',updatedAt:'2026-10-06T09:00:00Z'}));
 findings[1].severity='critical';findings[1].status='closed';
@@ -30,6 +30,7 @@ await page.route(/\/api\/findings(?:\?view=(?:register|decision).*)?$/,async rou
  if(unavailable)return route.fulfill({status:503,json:{error:'fixture outage'}});
  const params=new URL(route.request().url()).searchParams;
  if(params.get('view')==='decision'){const row=findings.find(f=>f.id===params.get('findingId'));assert.ok(row);return route.fulfill({json:{revision:'a'.repeat(64),record:{...row,updated_at:row.updatedAt,source_ref:row.sourceRef,source_title:row.sourceTitle,due_date:row.dueDate,root_cause:row.rootCause,corrective_action:row.correctiveAction,preventive_action:row.preventiveAction}}});}
+ if(emptyRegister)return route.fulfill({json:{findings:[],pagination:{page:1,pages:1,total:0,start:0,end:0},events:[],sourceSignals:[],summary:{total:0,open:0,critical:0,overdue:0,verification:0,accepted:0,closed:0,recurring:0}}});
  const query=(params.get('q')||'').toLowerCase(),filter=params.get('filter')||'all';
  if(heldLanguageRead&&params.get('lang')==='en')await heldLanguageRead;
  const ref=params.get('ref'),assignment=params.get('assignment')||'all';
@@ -47,7 +48,7 @@ await page.route('**/api/findings/history?*',route=>{
 await page.route('**/api/findings?format=report',route=>route.fulfill({json:{complete:true,total:2,revision:'a'.repeat(32),nextCursor:null,rows:[1,65].map(i=>({id:`capa:QA-F-${i}`,code:`FND-QA-${i}`,module:'Bulgular ve CAPA',data:{title:`QA finding ${i}`,owner:'QA',status:'open',riskRef:'RISK-CSV',evidenceSha256:'b'.repeat(64)}}))}}));
 try{
  const login=await context.request.post(`${base}/api/auth`,{headers:{origin:base},data:{action:'login',email:'qa-admin@fornost.test',password:qaPassword()}});assert.equal(login.status(),200);
- await page.goto(base);await expect(page.locator('.shell')).toBeVisible();
+ await page.goto(base);await expect(page.locator('.shell')).toBeVisible({timeout:25000});
  await page.locator('.language-switch:visible').getByRole('button',{name:'EN',exact:true}).click();
  const group=page.locator('nav button[aria-controls="nav-group-assurance"]');
  if(await group.getAttribute('aria-expanded')!=='true')await group.click();
@@ -60,12 +61,45 @@ try{
  unavailable=false;await panel.getByRole('button',{name:'Retry',exact:true}).click();
  await expect(panel.locator('.finding-table tbody tr')).toHaveCount(20);
  await expect(panel.locator('.finding-source-strip')).toContainText('Unavailable');
+ emptyRegister=true;await panel.getByRole('button',{name:'Refresh',exact:true}).click();
+ await expect(panel.locator('.finding-empty')).toContainText('No CAPA records yet');
+ await expect(panel.getByRole('button',{name:'Clear filters',exact:true})).toHaveCount(0);
+ emptyRegister=false;await panel.getByRole('button',{name:'Refresh',exact:true}).click();
+ const expand=panel.getByRole('button',{name:'Next step · FND-QA-1',exact:true});
+ await expand.focus();await page.keyboard.press('Enter');
+ await expect(expand).toHaveAttribute('aria-expanded','true');
+ await expect(panel.locator('.capa-next')).toContainText('QA corrective action');
+ await page.setViewportSize({width:390,height:900});
+ const nextStepBounds=await panel.locator('.capa-next').boundingBox();
+ const followingBounds=await panel.locator('.capa-record').nth(1).boundingBox();
+ assert.ok(nextStepBounds.y+nextStepBounds.height<=followingBounds.y+1,'Expanded plan fits above the next finding on phones');
+ await page.setViewportSize({width:1536,height:960});
+ await panel.getByRole('button',{name:'Open action plan',exact:true}).click();
+ await expect(panel.getByRole('dialog',{name:'QA finding 1',exact:true})).toBeVisible();
+ await page.keyboard.press('Escape');
+ await expect(panel.getByRole('button',{name:'Open action plan',exact:true})).toBeFocused();
+ await panel.getByRole('button',{name:'In verification',exact:true}).click();
+ await expect(panel.locator('.capa-record')).toHaveCount(1);
+ await expect(panel.locator('.capa-next')).toHaveCount(0);
+ await panel.getByRole('button',{name:'Next step · FND-QA-3',exact:true}).click();
+ await expect(panel.locator('.capa-next')).toContainText('independent review');
+ await panel.getByRole('button',{name:'Overdue findings',exact:true}).click();
+ await expect(panel.locator('.finding-empty')).toContainText('No findings match');
+ await expect(panel.locator('.finding-pagination')).toHaveCount(0);
+ await panel.getByRole('button',{name:'Clear filters',exact:true}).click();
+ await expect(panel.locator('.capa-record')).toHaveCount(20);
  // User-visible severity/status colors must survive language and theme changes.
  for(const theme of ['light','dark']){
   if(await page.locator('html').getAttribute('data-theme')!==theme)await page.locator('.theme-toggle:visible').click();
   let englishColors;
   for(const locale of ['en','tr']){
    await page.locator('.language-switch:visible').getByRole('button',{name:locale.toUpperCase(),exact:true}).click();
+   await expect(panel).toHaveAttribute('aria-busy','false');
+   await page.setViewportSize({width:390,height:900});
+   const narrowRow=panel.locator('.capa-record').first();
+   await expect(narrowRow.getByText('qa-admin@fornost.test',{exact:true})).toBeVisible();
+   assert.ok(await narrowRow.evaluate(row=>[...row.cells].every(cell=>cell.getBoundingClientRect().right<=document.documentElement.clientWidth)), 'All finding fields fit the phone viewport');
+   await page.setViewportSize({width:1536,height:960});
    const badges=panel.locator('.finding-table .finding-badge');
    await expect(badges.nth(1)).toHaveText(locale==='tr'?'Kritik':'Critical');
    const states=panel.locator('.finding-table .finding-state');
@@ -99,6 +133,7 @@ try{
  await expect(panel.locator('.finding-table tbody tr')).toHaveCount(1);
  await panel.getByRole('combobox',{name:'Assignment filter',exact:true}).selectOption('review');
  await expect(panel.locator('.finding-table tbody tr')).toHaveCount(0);
+ await panel.getByText('All records summary',{exact:true}).click();
  await panel.getByRole('button',{name:'Open CAPA',exact:true}).click();
  await expect(panel.getByRole('combobox',{name:'Assignment filter',exact:true})).toHaveValue('all');
  await expect(panel.getByRole('textbox',{name:'Search findings',exact:true})).toHaveValue('');
@@ -106,6 +141,8 @@ try{
  await page.setViewportSize({width:1536,height:960});
  await expect(panel.getByRole('combobox',{name:'Status filter',exact:true})).toHaveValue('active');
  await expect(panel.getByRole('button',{name:'Open CAPA',exact:true})).toHaveAttribute('aria-pressed','true');
+ await panel.getByRole('button',{name:'Open CAPA',exact:true}).click();
+ await expect(panel).toHaveAttribute('aria-busy','false');
  await expect(panel.locator('.finding-table tbody tr')).toHaveCount(20);
  await panel.getByRole('textbox',{name:'Search findings',exact:true}).fill('AUD-QA-65');
  await expect(panel.locator('.finding-table tbody tr')).toHaveCount(1);

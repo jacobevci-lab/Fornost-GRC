@@ -38,7 +38,7 @@ test("enterprise findings and CAPA is wired across schema, API, UI, navigation a
  const[route,migration,schema,ui,page,readme,docs]=await Promise.all([readFile("app/api/findings/route.ts","utf8"),readFile("drizzle/0072_enterprise_findings_capa.sql","utf8"),readFile("db/schema.ts","utf8"),readFile("app/findings-center.tsx","utf8"),readFile("app/page.tsx","utf8"),readFile("README.md","utf8"),readFile("docs/ENTERPRISE-FINDINGS-CAPA.md","utf8")]);
  assert.match(route,/Maker-checker: tespit eden, aksiyon sahibi veya gönderen kişi kapatamaz/);assert.match(route,/bounded formula-safe records/);assert.match(route,/recurrence_count=recurrence_count\+1/);assert.match(route,/sourceCount/);
  assert.match(migration,/enterprise_findings_status_due_idx/);assert.match(migration,/enterprise_finding_events/);assert.match(schema,/enterpriseFindings/);assert.match(schema,/enterpriseFindingEvents/);
- assert.match(ui,/ENTERPRISE FINDINGS · ROOT CAUSE · CAPA · ASSURANCE/);assert.match(ui,/CAPA CSV/);assert.match(page,/FindingsCenter/);assert.match(page,/Bulgular ve CAPA/);assert.match(readme,/Enterprise Findings & CAPA/);assert.match(docs,/fail-closed/);
+ assert.match(ui,/<FindingWorklist /);assert.match(ui,/loadCapaReport\(withBasePath\("\/api\/findings\?format=report"/);assert.match(page,/FindingsCenter/);assert.match(page,/Bulgular ve CAPA/);assert.match(readme,/Enterprise Findings & CAPA/);assert.match(docs,/fail-closed/);
 });
 
 test('UI decisions require their observed version while omitted legacy versions stay compatible',()=>{

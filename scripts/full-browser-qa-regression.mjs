@@ -152,6 +152,8 @@ try {
     await locale(language); await openModule(language === 'tr' ? 'Bulgular ve CAPA' : 'Findings & CAPA');
     await expect(page.locator('.finding-page')).toHaveAttribute('aria-busy', 'false');
     const strip = page.locator('.finding-source-strip');
+    const sourceQueue = page.locator('.capa-disclosure').filter({has: strip});
+    if (!(await sourceQueue.evaluate(node => node.open))) await sourceQueue.locator('summary').click();
     await expect(strip.locator(':scope>span')).toHaveCount(4);
     await expect(strip.locator(':scope>span small')).toHaveText(language === 'tr'
       ? ['Sürekli kontrol', 'Üçüncü taraf', 'Yapay zekâ güvencesi', 'Mevzuat']

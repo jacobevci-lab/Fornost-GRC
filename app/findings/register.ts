@@ -42,7 +42,16 @@ export async function readFindingRegisterPage(db:D1Database,input:FindingRegiste
  const condition=where.join(' AND '),count=`SELECT COUNT(*) FROM enterprise_findings WHERE ${condition}`;
  const [matches,rows,counts]=await db.batch([
   db.prepare(count+'').bind(...values),
-  db.prepare(`SELECT * FROM enterprise_findings WHERE ${condition} ORDER BY CASE severity WHEN 'critical' THEN 0 WHEN 'high' THEN 1 WHEN 'medium' THEN 2 ELSE 3 END,due_date,updated_at DESC,id LIMIT 20 OFFSET (MAX(0,MIN(?,CAST(((${count})-1)/20 AS INTEGER)))*20)`).bind(...values,input.page-1,...values),
+  db.prepare(`SELECT * FROM enterprise_findings WHERE ${condition}
+    ORDER BY CASE
+      WHEN (status NOT IN ('accepted','closed') AND due_date < ?) OR (status='accepted' AND accept_until!='' AND accept_until < ?) THEN 0
+      WHEN status NOT IN ('accepted','closed') AND due_date = ? THEN 1
+      WHEN status NOT IN ('accepted','closed') THEN 2
+      WHEN status='accepted' THEN 3 ELSE 4 END,
+      CASE severity WHEN 'critical' THEN 0 WHEN 'high' THEN 1 WHEN 'medium' THEN 2 ELSE 3 END,
+      CASE WHEN status='accepted' THEN accept_until ELSE due_date END, updated_at DESC, id
+    LIMIT 20 OFFSET (MAX(0,MIN(?,CAST(((${count})-1)/20 AS INTEGER)))*20)`)
+    .bind(...values,day,day,day,input.page-1,...values),
   findingSummaryStatement(db,day),
  ]);
  const total=Number(Object.values(matches.results[0]||{})[0]||0),pages=Math.max(1,Math.ceil(total/20)),page=Math.min(input.page,pages);
