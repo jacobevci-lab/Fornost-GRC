@@ -2,7 +2,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { chromium, expect } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
-import { createQaContext, waitForQaIdle, switchQaLocale, openQaModule } from "./qa-browser-harness.mjs";
+import {openOverallAuditReadiness,  createQaContext, waitForQaIdle, switchQaLocale, openQaModule } from "./qa-browser-harness.mjs";
 
 const baseUrl = (process.env.FORNOST_PROD_URL || "https://app.fornostsecurity.com").replace(/\/$/, "");
 const accessClientId = process.env.CF_ACCESS_CLIENT_ID || "";
@@ -333,7 +333,7 @@ async function auditLocale(page, locale) {
       if (i === 16) {
         // Sample node identity and geometry after loading. A hide/discover portal
         // loop recreates the panel continuously even when the page looks loaded.
-        await page.locator('.apw-global:not([open]) > summary').click();
+        await openOverallAuditReadiness(page);
         await page.locator('.audit-readiness-gate').waitFor({ state: 'visible' });
         const stability = await page.evaluate(async () => {
           const first = document.querySelector('.audit-readiness-gate');

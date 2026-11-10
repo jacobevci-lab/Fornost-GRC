@@ -102,3 +102,11 @@ export async function openRegisterViews(page) {
   const toggle = page.locator(".compact-register-toolbar:visible").getByRole("button", { name: /^(Views|Görünümler)$/ });
   if (await toggle.count() && await toggle.getAttribute("aria-expanded") === "false") await toggle.click();
 }
+
+export async function openOverallAuditReadiness(page) {
+  const disclosure = page.locator('.apw-global');
+  const summary = disclosure.locator(':scope > summary');
+  await summary.waitFor({ state: 'visible' });
+  if (!(await disclosure.evaluate(element => element.open))) await summary.click();
+  await disclosure.locator('.audit-readiness-gate').waitFor({ state: 'visible' });
+}

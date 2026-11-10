@@ -1,6 +1,6 @@
 import { qaPassword } from "./qa-credentials.mjs";
 import { chromium, expect } from '@playwright/test';
-import {createQaContext,waitForQaIdle} from './qa-browser-harness.mjs';
+import {openOverallAuditReadiness, createQaContext,waitForQaIdle} from './qa-browser-harness.mjs';
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 
@@ -164,7 +164,7 @@ try {
     await page.setViewportSize({width:1536,height:960});
     await progress(`${locale}: audit stability`);
     await open(locale === 'tr' ? 'Denetim Yönetimi' : 'Audit Management');
-    await page.locator('.apw-global:not([open]) > summary').click();
+    await openOverallAuditReadiness(page);
     await page.locator('.audit-readiness-gate').waitFor();
     await page.waitForTimeout(800);
     const stable = await page.evaluate(async () => {

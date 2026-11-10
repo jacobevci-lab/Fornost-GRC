@@ -2,7 +2,7 @@ import { chromium, expect } from '@playwright/test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import { qaPassword } from './qa-credentials.mjs';
-import { createQaContext, waitForQaIdle } from './qa-browser-harness.mjs';
+import {openOverallAuditReadiness,  createQaContext, waitForQaIdle } from './qa-browser-harness.mjs';
 
 // Mutations are deliberately restricted to the isolated CI application.
 const base = 'http://127.0.0.1:4173', out = 'full-browser-regression-artifacts';
@@ -131,7 +131,7 @@ try {
 
   for (const language of ['tr', 'en']) {
     await locale(language); await openModule(language === 'tr' ? 'Denetim Yönetimi' : 'Audit Management');
-    await page.locator('.apw-global:not([open]) > summary').click();
+    await openOverallAuditReadiness(page);
     await expect(page.locator('.audit-readiness-gate')).toHaveAttribute('aria-busy', 'false');
     for (const theme of ['light', 'dark']) {
       if (await page.locator('html').getAttribute('data-theme') !== theme) await page.locator('.theme-toggle:visible').click();

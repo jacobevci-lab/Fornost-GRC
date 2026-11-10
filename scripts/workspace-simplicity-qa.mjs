@@ -1,3 +1,4 @@
+import {openOverallAuditReadiness} from './qa-browser-harness.mjs';
 import { revealAiWorkspace } from "./qa-ai-workspaces.mjs";
 import { qaPassword } from "./qa-credentials.mjs";
 import { chromium, expect } from '@playwright/test';
@@ -46,7 +47,7 @@ try{
   await page.locator('.ea-tabs summary').click();await page.locator('.ea-tabs').getByRole('button',{name:tr?'Connector Kataloğu':'Connector Catalog',exact:true}).click();
   await expect(page.locator('.ea-catalog')).toBeVisible();
   await open(tr?'Denetim Yönetimi':'Audit Management');
-  await page.locator('.apw-global:not([open]) > summary').click();
+  await openOverallAuditReadiness(page);
   const portfolio=await page.locator('.audit-portfolio').boundingBox(),gate=await page.locator('.audit-readiness-gate').boundingBox();
   assert.ok(portfolio.y<gate.y,'Portfolio precedes readiness analysis');
   for(const theme of ['light','dark']){

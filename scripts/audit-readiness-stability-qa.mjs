@@ -1,3 +1,4 @@
+import {openOverallAuditReadiness} from './qa-browser-harness.mjs';
 import { qaPassword } from './qa-credentials.mjs';
 import { chromium, expect } from '@playwright/test';
 import assert from 'node:assert/strict';
@@ -28,7 +29,7 @@ try {
     await page.locator('.language-switch:visible').getByRole('button', { name: lang.toUpperCase(), exact: true }).click();
     await page.evaluate(theme => { document.documentElement.dataset.theme = theme; }, theme);
     await page.locator(`nav button[aria-label="${lang === 'tr' ? 'Denetim Yönetimi' : 'Audit Management'}"]`).evaluate(el => el.click());
-    await page.locator('.apw-global:not([open]) > summary').click();
+    await openOverallAuditReadiness(page);
     const gate = page.locator('.audit-readiness-gate');
     await expect(gate).toHaveAttribute('aria-busy', 'true');
     await expect(gate.locator('.audit-readiness-metrics strong').first()).toHaveText('—');
