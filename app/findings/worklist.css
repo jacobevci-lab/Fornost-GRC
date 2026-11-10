@@ -86,7 +86,7 @@
   .capa-list thead { position: absolute; clip-path: inset(50%); width: 1px; height: 1px; overflow: hidden; }
   .capa-list, .capa-list tbody { display: block; }
   .capa-worklist .capa-list .capa-record { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); padding: 10px; border-bottom: 1px solid var(--ws-line); }
-  .capa-worklist .capa-list td { display: block; width: auto !important; min-width: 0 !important; padding: 5px 8px !important; white-space: normal !important; border: 0 !important; }
+  .capa-worklist .capa-list td { display: block; height: auto !important; width: auto !important; min-width: 0 !important; padding: 5px 8px !important; white-space: normal !important; border: 0 !important; }
   .capa-record td:first-child { grid-column: 1/-1; }
   .capa-record td[data-label]::before { content: attr(data-label); display: block; color: var(--ws-muted); font-size: 11px; }
   .capa-next-row { display: block; }

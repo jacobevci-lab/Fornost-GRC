@@ -69,6 +69,11 @@ try{
  await expand.focus();await page.keyboard.press('Enter');
  await expect(expand).toHaveAttribute('aria-expanded','true');
  await expect(panel.locator('.capa-next')).toContainText('QA corrective action');
+ await page.setViewportSize({width:390,height:900});
+ const nextStepBounds=await panel.locator('.capa-next').boundingBox();
+ const followingBounds=await panel.locator('.capa-record').nth(1).boundingBox();
+ assert.ok(nextStepBounds.y+nextStepBounds.height<=followingBounds.y+1,'Expanded plan fits above the next finding on phones');
+ await page.setViewportSize({width:1536,height:960});
  await panel.getByRole('button',{name:'Open action plan',exact:true}).click();
  await expect(panel.getByRole('dialog',{name:'QA finding 1',exact:true})).toBeVisible();
  await page.keyboard.press('Escape');
