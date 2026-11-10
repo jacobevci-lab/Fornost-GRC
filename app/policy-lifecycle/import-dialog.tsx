@@ -78,13 +78,13 @@ export function PolicyImportForm({tr,email,policies,onSaved,onBusy}:{tr:boolean;
   <small>{say("Word (.docx) en fazla 8 MB, metin içeren PDF en fazla 10 MB ve 250 sayfa.","Word (.docx) up to 8 MB, or a text-based PDF up to 10 MB and 250 pages.")}</small>
   {phase==="reading"&&<p role="status">{say("Belge okunuyor…","Reading document…")}</p>}
   {file&&<fieldset disabled={pending}><legend>{file.name}</legend>
-   <label>{say("İçe aktarma hedefi","Import destination")}<select value={mode} onChange={e=>setMode(e.target.value)}><option value="new">{say("Yeni politika oluştur","Create a new policy")}</option><option value="existing">{say("Mevcut politikaya sürüm ekle","Add a version to an existing policy")}</option></select></label>
-   {mode==="existing"?<label>{say("Politika","Policy")}<select required value={target} onChange={e=>setTarget(e.target.value)}><option value="">—</option>{policies.filter(p=>p.status!=="retired").map(p=><option key={p.id} value={p.id}>{p.code} · {p.title}</option>)}</select></label>:
+   <label>{say("İçe aktarma hedefi","Import destination")}<select aria-label={say("İçe aktarma hedefi","Import destination")} value={mode} onChange={e=>setMode(e.target.value)}><option value="new">{say("Yeni politika oluştur","Create a new policy")}</option><option value="existing">{say("Mevcut politikaya sürüm ekle","Add a version to an existing policy")}</option></select></label>
+   {mode==="existing"?<label>{say("Politika","Policy")}<select aria-label={say("Politika","Policy")} required value={target} onChange={e=>setTarget(e.target.value)}><option value="">—</option>{policies.filter(p=>p.status!=="retired").map(p=><option key={p.id} value={p.id}>{p.code} · {p.title}</option>)}</select></label>:
    <div className="pim-fields">
     <label>{say("Politika kodu","Policy code")}<input required minLength={3} maxLength={40} value={code} onChange={e=>setCode(e.target.value)}/></label>
     <label>{say("Başlık","Title")}<input required minLength={5} maxLength={240} value={title} onChange={e=>setTitle(e.target.value)}/></label>
-    <label>{say("Kategori","Category")}<select value={category} onChange={e=>setCategory(e.target.value)}>{POLICY_CATEGORIES.map(x=><option key={x} value={x}>{tr?turkishOptions[x]:x}</option>)}</select></label>
-    <label>{say("Sınıflandırma","Classification")}<select value={classification} onChange={e=>setClassification(e.target.value)}>{POLICY_CLASSIFICATIONS.map(x=><option key={x} value={x}>{tr?turkishOptions[x]:x}</option>)}</select></label>
+    <label>{say("Kategori","Category")}<select aria-label={say("Kategori","Category")} value={category} onChange={e=>setCategory(e.target.value)}>{POLICY_CATEGORIES.map(x=><option key={x} value={x}>{tr?turkishOptions[x]:x}</option>)}</select></label>
+    <label>{say("Sınıflandırma","Classification")}<select aria-label={say("Sınıflandırma","Classification")} value={classification} onChange={e=>setClassification(e.target.value)}>{POLICY_CLASSIFICATIONS.map(x=><option key={x} value={x}>{tr?turkishOptions[x]:x}</option>)}</select></label>
     <WorkflowPersonPicker tr={tr} label={say("Politika sahibi","Policy owner")} value={owner} onChange={setOwner}/>
     <WorkflowPersonPicker tr={tr} reviewer label={say("Bağımsız inceleyen","Independent reviewer")} exclude={[owner,email]} value={reviewer} onChange={setReviewer}/>
     <label>{say("Hedef kitle","Audience")}<input required minLength={3} value={audience} onChange={e=>setAudience(e.target.value)}/></label>
@@ -92,7 +92,7 @@ export function PolicyImportForm({tr,email,policies,onSaved,onBusy}:{tr:boolean;
    </div>}
    <div className="pim-fields"><label>{say("Planlanan yürürlük tarihi","Planned effective date")}<input type="date" required value={effectiveDate} onChange={e=>setDate(e.target.value)}/></label>
     <label>{say("Değişiklik özeti","Change summary")}<input required minLength={10} maxLength={1000} value={summary} onChange={e=>setSummary(e.target.value)}/></label></div>
-   <label>{say("Politika metni","Policy text")}<textarea required rows={9} value={content} onChange={e=>setContent(e.target.value)}/></label>
+   <label>{say("Politika metni","Policy text")}<textarea aria-label={say("Politika metni","Policy text")} required rows={9} value={content} onChange={e=>setContent(e.target.value)}/></label>
    <small>{content.length.toLocaleString(tr?"tr-TR":"en-US")} / {policyImportTextLimit.toLocaleString(tr?"tr-TR":"en-US")}</small>
    {(content.length>policyImportTextLimit||content.trim().length<80)&&<p role="status">{importMessage("length",tr)}</p>}
    {warning&&<p role="status">{say("Bazı bölümler okunamamış olabilir. Metni kaynak belgeyle karşılaştırın.","Some sections may be missing. Compare the extracted text with the source document.")}</p>}
