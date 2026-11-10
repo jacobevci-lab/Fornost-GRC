@@ -185,23 +185,25 @@ try {
   try {
     for (const language of ['tr', 'en']) {
       await locale(language); await openModule(language === 'tr' ? 'Kanıt Otomasyonu' : 'Evidence Automation');
-      const wrap = page.locator('.ea-page>.ea-table>.table-wrap'), row = wrap.locator('tbody tr').first();
-      await expect(row).toContainText('Microsoft Intune device compliance');
+      const sources = page.locator('.ew-sources');
+      const selected = sources.getByRole('button', { name: /Microsoft Intune device compliance/ });
+      const detail = sources.locator('.ew-detail');
+      const edit = detail.getByRole('button', { name: language === 'tr' ? 'Düzenle' : 'Edit', exact: true });
+      const verify = detail.getByRole('button', { name: language === 'tr' ? 'Bağlantıyı doğrula' : 'Verify connection', exact: true });
+      await expect(selected).toHaveAttribute('aria-pressed', 'true');
+      await expect(detail.getByRole('heading', { name: 'Microsoft Intune device compliance', exact: true })).toBeVisible();
       for (const theme of ['light', 'dark']) {
         if (await page.locator('html').getAttribute('data-theme') !== theme) await page.locator('.theme-toggle:visible').click();
         for (const width of [360, 390]) {
           await page.setViewportSize({ width, height: 960 });
-          await wrap.evaluate(node => { node.scrollLeft = 0; });
-          const first = await row.locator('td').first().boundingBox(), bounds = await row.boundingBox();
-          assert.ok(first.width >= 180 && bounds.height < 220, 'Evidence source rows retain readable widths and compact height');
-          await wrap.screenshot({ path: `${out}/evidence-source-${language}-${theme}-${width}.png` });
-          await wrap.evaluate(node => { node.scrollLeft = node.scrollWidth; });
-          await expect(row.getByRole('button', { name: language === 'tr' ? 'Düzenle' : 'Edit', exact: true })).toBeInViewport();
-          for (const button of await row.getByRole('button').all()) {
-            const box = await button.boundingBox();
-            assert.ok(box.width >= 120 && box.height < 80, 'Evidence source actions stay readable after horizontal scrolling');
+          for (const control of [selected, edit, verify]) {
+            await control.scrollIntoViewIfNeeded();
+            await expect(control).toBeInViewport();
+            const rect = await control.boundingBox();
+            assert.ok(rect.x >= -1 && rect.x + rect.width <= width + 1 && rect.width >= 44 && rect.height >= 24,
+              'Source selection and actions fit the phone without horizontal scrolling');
           }
-          await wrap.screenshot({ path: `${out}/evidence-source-actions-${language}-${theme}-${width}.png` });
+          await sources.screenshot({ path: `${out}/evidence-source-${language}-${theme}-${width}.png` });
         }
       }
       await page.setViewportSize({ width: 1536, height: 960 });
