@@ -31,3 +31,10 @@ Sistem response ve recovery ihlallerini canlı olarak sınıflandırır; kritik 
 - Tüm geçişler aktör, zaman, önceki/yeni durum, açıklama ve kanıt özetiyle değişmez olay geçmişine yazılır.
 
 Olaya özel geçmiş, karar anındaki olay bilgilerini ve her olayın kendi kanıt sürümünü korur. Hatalarda taslak kurtarma, aynı ilan formunun güvenli tekrar gönderimi ve Kanıt Kullanımı üzerinden tam kaynağa dönüş için [bağlı olay kararları](incident-connected-evidence.md) rehberine bakın.
+
+
+## Olay dosyası ve kriz özeti
+
+Soldaki kuyruktan seçilen olayın iş etkisi, sorumluları ve sıradaki kararı sağdaki dosyada görünür. SLA ihlali filtresi müdahale ve kurtarma süre aşımını birlikte kapsar. Durum filtresinden bu ihlaller ayrı ayrı seçilebilir. Özet, kanıtlar, karar geçmişi ve kriz özeti aynı olay kimliğine bağlıdır. Kayıtla eşleşen varlık, BIA veya risk bağlantısı ilgili dosyayı açar. Eski serbest metin referansları da okunabilir.
+
+Kanıtlar, kararda kullanılan dosya sürümünü gösterir. Daha eski kararlar 50’şer yüklenir. Kriz özeti iş etkisini, karar günlüğünü ve bildirim kararının gerekçesini gösterir. Kapanış kararı atanmış bağımsız inceleyicinin yetkisini ve mevcut kanıt kontrollerini gerektirir.
