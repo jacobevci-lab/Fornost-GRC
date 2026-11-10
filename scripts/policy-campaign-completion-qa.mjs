@@ -22,7 +22,7 @@ async function open(p, lang = 'EN') {
   await p.goto(base); await expect(p.locator('.shell')).toBeVisible();
   await p.locator('.language-switch:visible').getByRole('button', { name: lang, exact: true }).click();
   await p.locator(`nav button[aria-label="${lang === 'EN' ? 'Policy Center' : 'Politika Merkezi'}"]`).evaluate(el => el.click()); await waitForQaIdle(p);
-  await p.locator('.plm-tabs').getByRole('button', { name: /^Attestation/ }).click();
+  await p.locator('[data-policy-tab="attestations"]').click();
 }
 async function details(tr = false) {
   await page.getByLabel(tr ? 'Kampanya ara' : 'Search campaigns', { exact: true }).fill(name);

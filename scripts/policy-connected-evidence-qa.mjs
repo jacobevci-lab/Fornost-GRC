@@ -14,7 +14,7 @@ let phase='setup',policyId,versionId,exceptionId,failChoices=false,failRead=fals
 for(const p of [page,peer,reader]){p.setDefaultTimeout(20000);p.on('pageerror',e=>errors.push(e.message))}
 async function api(ctx,path,method='GET',data,status=200){const r=await ctx.request.fetch(base+path,{method,data,headers:{origin:base}});assert.equal(r.status(),status,`${path}: ${await r.text()}`);return r.json()}
 const workspace=ctx=>api(ctx,'/api/policy-lifecycle');
-async function open(p,lang='EN'){await p.goto(base);await expect(p.locator('.shell')).toBeVisible();await p.locator('.language-switch:visible').getByRole('button',{name:lang,exact:true}).click();await p.locator(`nav button[aria-label="${lang==='EN'?'Policy Center':'Politika Merkezi'}"]`).evaluate(el=>el.click());await waitForQaIdle(p);await expect(p.locator('.plm-metrics')).toBeVisible()}
+async function open(p,lang='EN'){await p.goto(base);await expect(p.locator('.shell')).toBeVisible();await p.locator('.language-switch:visible').getByRole('button',{name:lang,exact:true}).click();await p.locator(`nav button[aria-label="${lang==='EN'?'Policy Center':'Politika Merkezi'}"]`).evaluate(el=>el.click());await waitForQaIdle(p);await expect(p.locator('.pwl')).toBeVisible()}
 async function tab(p,label){await p.locator('.plm-tabs').getByRole('button',{name:label,exact:true}).click();await waitForQaIdle(p)}
 const row=p=>p.locator('.plm-table tbody tr').filter({hasText:name});
 const exceptionRow=p=>p.locator('.plm-table tbody tr').filter({hasText:'Synthetic migration '+tag});

@@ -16,8 +16,8 @@ for (const p of [page, peer, ownerPage]) { p.setDefaultTimeout(20000); p.on('pag
 async function api(ctx, path, method = 'GET', data, status = 200) { const r = await ctx.request.fetch(base + path, { method, data, headers: { origin: base } }); assert.equal(r.status(), status, `${path}: ${await r.text()}`); return r.json(); }
 const workspace = (ctx = viewer, id = attestationId) => api(ctx, `/api/policy-lifecycle?view=attestation&attestationId=${id}`);
 async function versionAction(ctx, operation, confirmation) { const source = await api(ctx, `/api/policy-lifecycle?view=decision&kind=version&id=${versionId}`); return api(ctx, '/api/policy-lifecycle', 'POST', { action: 'version-action', versionId, operation, confirmation, note: 'Independent publication for assigned policy response verification.', decisionMode: 'reviewed', expectedRevision: source.revision, ...library }); }
-async function publish(input) { versionId = (await api(admin, '/api/policy-lifecycle', 'POST', input)).id; await versionAction(admin, 'submit', 'İNCELEMEYE GÖNDER'); await versionAction(reviewer, 'approve', 'POLİTİKAYI ONAYLA'); await versionAction(reviewer, 'publish', 'POLİTİKAYI YAYINLA'); return versionId; }
-async function open(p) { await p.goto(base); await expect(p.locator('.shell')).toBeVisible(); await p.locator('.language-switch:visible').getByRole('button', { name: 'EN', exact: true }).click(); await p.locator('nav button[aria-label="Policy Center"]').evaluate(el => el.click()); await waitForQaIdle(p); await p.locator('.plm-tabs').getByRole('button', { name: /^Attestation/ }).click(); }
+async function publish(input, inspectReview) { versionId = (await api(admin, '/api/policy-lifecycle', 'POST', input)).id; await versionAction(admin, 'submit', 'İNCELEMEYE GÖNDER'); if(inspectReview)await inspectReview(); await versionAction(reviewer, 'approve', 'POLİTİKAYI ONAYLA'); await versionAction(reviewer, 'publish', 'POLİTİKAYI YAYINLA'); return versionId; }
+async function open(p) { await p.goto(base); await expect(p.locator('.shell')).toBeVisible(); await p.locator('.language-switch:visible').getByRole('button', { name: 'EN', exact: true }).click(); await p.locator('nav button[aria-label="Policy Center"]').evaluate(el => el.click()); await waitForQaIdle(p); await p.locator('[data-policy-tab="attestations"]').click(); }
 async function details(p = page, email = f.viewerEmail, button = 'Accept', tr = false) { await p.locator('.plm-table tbody tr').filter({ hasText: name }).filter({ hasText: email }).getByRole('button', { name: button, exact: true }).click(); const d = p.getByRole('dialog', { name: tr ? 'Politika yanıtı' : 'Policy response', exact: true }); await expect(d.locator('.cpr-facts').first()).toBeVisible(); return d; }
 async function fill(d, note) { await d.getByLabel('Decision / action note', { exact: true }).fill(note); await d.getByRole('checkbox').check(); }
 async function save(d, p = page, status = 200) { const pending = p.waitForResponse(r => new URL(r.url()).pathname === '/api/policy-lifecycle' && r.request().method() === 'POST' && r.request().postDataJSON()?.action === 'attest'); await d.getByRole('button', { name: 'Record response', exact: true }).click(); const r = await pending; assert.equal(r.status(), status, await r.text()); return r.json(); }
@@ -33,12 +33,39 @@ try {
   campaignId = (await api(admin, '/api/policy-lifecycle', 'POST', { action: 'create-campaign', policyId, versionId, name, audience: 'Issued response team', dueDate: future(30), subjects: [f.viewerEmail, f.reviewerEmail, owner] })).id;
   const all = await api(admin, '/api/policy-lifecycle'); attestationId = all.attestations.find(a => a.campaignId === campaignId && a.subjectEmail === f.viewerEmail).id;
   const ownerId = all.attestations.find(a => a.campaignId === campaignId && a.subjectEmail === owner).id;
-  await publish({ ...versionInput, summary: 'A later controlled publication does not replace the issued text.', content: versionInput.content.replace('ORIGINAL ISSUED TEXT.', 'LATER PUBLISHED TEXT.') });
+  await publish({ ...versionInput, summary: 'A later controlled publication does not replace the issued text.', content: versionInput.content.replace('ORIGINAL ISSUED TEXT.', 'LATER PUBLISHED TEXT.') }, async()=>{
+    await open(peer); await peer.locator('[data-policy-tab="priority"]').click();
+    const work=peer.locator('.pwl'); await work.getByRole('searchbox').fill(name);
+    const review=work.locator('tbody').filter({hasText:'Independent version review'});
+    await review.locator('.pwl-row').click(); await review.getByRole('button',{name:'Inspect version'}).click();
+    const dialog=peer.getByRole('dialog',{name:'Version comparison'});
+    await expect(dialog.getByRole('region',{name:'Published text'})).toContainText('ORIGINAL ISSUED TEXT.');
+    await expect(dialog.getByRole('region',{name:'Selected version text'})).toContainText('LATER PUBLISHED TEXT.');
+    await expect(dialog.getByRole('button',{name:'Approve',exact:true})).toBeVisible();
+    await dialog.locator('select').selectOption(originalVersionId);
+    await expect(dialog.locator('.pwl-document')).toHaveCount(1); await expect(dialog.getByRole('button',{name:'Approve',exact:true})).toHaveCount(0);
+    await peer.keyboard.press('Escape');
+  });
   let current = await workspace(); assert.equal(current.version.id, originalVersionId); assert.equal(current.previousVersion, true); assert.equal(current.canRespond, true);
   const request = { action: 'attest', responseMode: 'reviewed', attestationId, requestId: 'PAR-00000000-0000-4000-8000-000000000099', expectedRevision: current.revision, decision: 'attested', note: 'This other account must not respond for the subject.', confirmation: 'OKUDUM VE KABUL EDİYORUM' };
   await api(anonymous, `/api/policy-lifecycle?view=attestation&attestationId=${attestationId}`, 'GET', undefined, 401);
   for (const ctx of [admin, reviewer, scoped]) { await api(ctx, `/api/policy-lifecycle?view=attestation&attestationId=${attestationId}`, 'GET', undefined, 403); await api(ctx, '/api/policy-lifecycle', 'POST', request, 403); }
   checks.push('Actual anonymous, scoped and non-subject denial; superseded campaign version remains the assigned response source');
+
+  phase = 'worklist opens the exact assigned version without selecting a response';
+  await open(page); await page.locator('[data-policy-tab="priority"]').click();
+  const work=page.locator('.pwl'); await work.getByRole('searchbox').fill(name);
+  await work.getByRole('button',{name:new RegExp(name)}).click();
+  await work.getByRole('button',{name:'Read and respond',exact:true}).click();
+  const neutral=page.getByRole('dialog',{name:'Policy response',exact:true});
+  await expect(neutral).toContainText(versionInput.content);
+  await expect(neutral.getByRole('radio',{name:'I accept',exact:true})).not.toBeChecked();
+  await expect(neutral.getByRole('radio',{name:'I decline',exact:true})).not.toBeChecked();
+  await expect(neutral.getByRole('button',{name:'Record response'})).toBeDisabled();
+  await neutral.getByRole('radio',{name:'I decline'}).check(); await neutral.getByRole('checkbox').check();
+  await neutral.getByRole('radio',{name:'I accept'}).check(); await expect(neutral.getByRole('checkbox')).not.toBeChecked();
+  await neutral.getByRole('button',{name:'Close',exact:true}).click();
+  checks.push('Personal worklist opens the earlier issued version, starts with neither choice and clears confirmation if choice changes');
 
   phase = 'My Work entry and exact issued text'; await page.goto(base); await expect(page.locator('.shell')).toBeVisible(); await page.locator('.language-switch:visible').getByRole('button', { name: 'EN', exact: true }).click(); await page.locator('nav button[aria-label="My Work"]').evaluate(el => el.click()); await waitForQaIdle(page);
   await page.locator('.my-work-v2').getByRole('button', { name: 'Refresh', exact: true }).click(); await waitForQaIdle(page); await page.getByLabel('Work queue module', { exact: true }).selectOption('Politika Merkezi'); await page.locator('.mw2-filters').getByRole('button', { name: /^All/ }).click(); await page.getByRole('textbox', { name: 'Search work', exact: true }).fill(name);
@@ -76,7 +103,7 @@ try {
   await d.getByRole('button', { name: 'Close', exact: true }).click(); await waitForQaIdle(page); d = await details(page, f.viewerEmail, 'View response'); await expect(d).toContainText(versionInput.content); await expect(d).toContainText('retained copy reviewed when responding'); await expect(d.locator('form')).toHaveCount(0); await d.getByRole('button', { name: 'Close', exact: true }).click();
   checks.push('Committed response with lost network result retries exactly once; retained original version and receipt remain accessible after completion');
 
-  phase = 'refusal and closed-campaign conflict'; await open(peer); const refusal = await details(peer, f.reviewerEmail, 'Decline'); await expect(refusal.getByLabel('Response', { exact: true })).toHaveValue('declined'); await fill(refusal, 'I cannot accept until the assigned responsibilities are clarified.'); await save(refusal, peer); await expect(refusal.getByRole('region', { name: 'Recorded response', exact: true })).toContainText('Declined'); await refusal.getByRole('button', { name: 'Close', exact: true }).click();
+  phase = 'refusal and closed-campaign conflict'; await open(peer); const refusal = await details(peer, f.reviewerEmail, 'Decline'); await expect(refusal.getByRole('radio', { name: 'I decline', exact: true })).toBeChecked(); await fill(refusal, 'I cannot accept until the assigned responsibilities are clarified.'); await save(refusal, peer); await expect(refusal.getByRole('region', { name: 'Recorded response', exact: true })).toContainText('Declined'); await refusal.getByRole('button', { name: 'Close', exact: true }).click();
   await open(ownerPage); const outstanding = await details(ownerPage, owner); await fill(outstanding, 'This stale open form must not submit after campaign closure.'); const campaign = await api(admin, `/api/policy-lifecycle?view=campaign&campaignId=${campaignId}`); assert.equal(campaign.campaign.attestedCount, 1); assert.equal(campaign.campaign.declinedCount, 1); assert.equal(campaign.campaign.pendingCount, 1);
   await api(admin, '/api/policy-lifecycle', 'POST', { action: 'close-campaign', campaignId, requestId: `PCC-${crypto.randomUUID()}`, expectedRevision: campaign.revision, note: 'Synthetic collection completed with one refusal and one outstanding response.', confirmation: 'CLOSE CAMPAIGN', acknowledgeOutstanding: true });
   await save(outstanding, ownerPage, 409); await outstanding.getByRole('button', { name: 'Refresh details', exact: true }).click(); await expect(outstanding).toContainText('The campaign is closed'); await expect(outstanding.getByRole('button', { name: 'Record response', exact: true })).toBeDisabled(); assert.equal((await workspace(admin, ownerId)).attestation.status, 'pending'); await outstanding.getByRole('button', { name: 'Close', exact: true }).click();
