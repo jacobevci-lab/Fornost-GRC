@@ -99,7 +99,7 @@ export default function FindingsCenter({lang,currentUser}:{lang:Lang;currentUser
  const decisionBusy=useCallback((value:boolean)=>{sending.current=value;setBusy(value);},[]);
  const listing={...pagination,rows:findings};
  const available=selected?findingActionAvailability(selected,currentUser):null;
- const changeScope=()=>{autoOpenRef.current=null;loadController.current?.abort();setFocusRef("");setLoading(true);setSelected(null);};
+ const changeScope=()=>{autoOpenRef.current=null;setFocusRef("");setSelected(null);};
  const format=(value?:string)=>{if(!value)return "—";const date=new Date(`${value.slice(0,10)}T12:00:00Z`);return Number.isFinite(date.getTime())?new Intl.DateTimeFormat(tr?"tr-TR":"en-GB",{dateStyle:"medium"}).format(date):"—";};
  const canCreate=["Admin","Editor"].includes(currentUser.role);
  const resetFilters=()=>{changeScope();setQuery("");setFilter("all");setAssignment("all");setPage(1);};

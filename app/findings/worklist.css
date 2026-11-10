@@ -41,6 +41,10 @@
 .capa-worklist .finding-table-wrap { border-radius: 8px; }
 .capa-worklist .finding-table-wrap:empty { display: none; }
 .capa-worklist .capa-list { width: 100%; min-width: 0 !important; table-layout: fixed; border-collapse: collapse; }
+.capa-worklist .capa-list .capa-record td, .capa-worklist .capa-next p { font-size: 14px !important; }
+.capa-worklist .capa-list .finding-row-open { font-size: 15px !important; line-height: 1.35; }
+.capa-worklist .capa-toggle .capa-marker { display: list-item; list-style: disclosure-closed inside; color: var(--ws-ink); }
+.capa-worklist .capa-toggle[aria-expanded=true] .capa-marker { list-style-type: disclosure-open; }
 .capa-list thead th:first-child { width: 32%; }
 .capa-list thead th:nth-child(4) { width: 18%; }
 .capa-list td, .capa-list th { text-align: start; overflow-wrap: anywhere; }
@@ -63,7 +67,20 @@
 .capa-worklist :is(.capa-toggle,.capa-views button,.capa-next button,summary,.finding-row-open):focus-visible { outline: 2px solid var(--ws-brand); outline-offset: 2px; }
 
 @media (max-width: 760px) {
-  .capa-worklist .finding-toolbar { align-items: stretch !important; }
+  .capa-worklist .finding-toolbar {
+    display: grid !important; grid-template-columns: repeat(2,minmax(0,1fr)) !important;
+    align-items: stretch !important; gap: 6px !important;
+  }
+  .capa-worklist .finding-toolbar .capa-views {
+    grid-column: 1/-1; display: grid !important;
+    grid-template-columns: repeat(3,minmax(0,1fr)) !important;
+  }
+  .capa-worklist .capa-views button { width: 100% !important; line-height: 1.2; min-height: 40px; padding: 4px; }
+  .capa-worklist .capa-views svg { display: none; }
+  .capa-worklist .finding-toolbar input { grid-column: 1/-1; width: 100% !important; }
+  .capa-worklist .finding-toolbar select { width: 100% !important; }
+  .capa-worklist .capa-heading { gap: 6px !important; }
+  .capa-worklist .capa-heading > div:last-child { margin: 0 !important; }
   .capa-worklist .finding-toolbar input, .capa-views { flex: 1 1 100%; }
   .capa-worklist .finding-toolbar select { min-width: 0; flex: 1 1 135px; }
   .capa-list thead { position: absolute; clip-path: inset(50%); width: 1px; height: 1px; overflow: hidden; }

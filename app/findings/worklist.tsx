@@ -49,7 +49,7 @@ export function FindingWorklist({rows, lang, disabled, onOpen}: {
             <button type="button" className="capa-toggle" disabled={disabled} aria-expanded={open} aria-controls={open ? panelId : undefined}
               aria-label={(tr ? "Sıradaki işlem · " : "Next step · ") + row.code}
               onClick={event => {event.stopPropagation(); setExpanded(open ? null : row.id);}}>
-              <span aria-hidden="true">{open ? "▾" : "▸"}</span>
+              <span className="capa-marker" aria-hidden="true"/>
             </button>
             <div><small className="capa-code">{row.code}</small>
               <button type="button" disabled={disabled} className="finding-row-open"
