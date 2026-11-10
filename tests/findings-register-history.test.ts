@@ -119,3 +119,20 @@ test('assignment filters use exact authenticated identities across pages and com
   assert.throws(()=>query('other'),{status:400});
  }finally{sql.close();}
 });
+
+test('daily work is ordered across the whole register before selecting a page', async()=>{
+ const {db,sql}=fixture();
+ try {
+  const add=sql.prepare('INSERT INTO enterprise_findings(id,severity,status,due_date,accept_until) VALUES(?,?,?,?,?)');
+  for(let i=0;i<25;i++)add.run('future-'+i,'critical','open','2026-10-20',null);
+  add.run('late','low','verification','2026-10-01',null);
+  add.run('expired','high','accepted','2027-01-01','2026-10-06');
+  add.run('today','low','in-progress','2026-10-07',null);
+  add.run('closed','critical','closed','2026-01-01',null);
+  const read=(page:number)=>readFindingRegisterPage(db,{query:'',filter:'all',page,lang:'tr'},new Date('2026-10-07T12:00:00Z'));
+  const first=await read(1),last=await read(2);
+  assert.deepEqual(first.rows.slice(0,3).map(row=>row.id),['expired','late','today']);
+  assert.equal(last.rows.at(-1)?.id,'closed');
+  assert.equal(new Set([...first.rows,...last.rows].map(row=>row.id)).size,29);
+ }finally{sql.close();}
+});

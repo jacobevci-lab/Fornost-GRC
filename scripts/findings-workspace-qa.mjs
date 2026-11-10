@@ -60,12 +60,36 @@ try{
  unavailable=false;await panel.getByRole('button',{name:'Retry',exact:true}).click();
  await expect(panel.locator('.finding-table tbody tr')).toHaveCount(20);
  await expect(panel.locator('.finding-source-strip')).toContainText('Unavailable');
+ const expand=panel.getByRole('button',{name:'Next step · FND-QA-1',exact:true});
+ await expand.focus();await page.keyboard.press('Enter');
+ await expect(expand).toHaveAttribute('aria-expanded','true');
+ await expect(panel.locator('.capa-next')).toContainText('QA corrective action');
+ await panel.getByRole('button',{name:'Open action plan',exact:true}).click();
+ await expect(panel.getByRole('dialog',{name:'QA finding 1',exact:true})).toBeVisible();
+ await page.keyboard.press('Escape');
+ await expect(panel.getByRole('button',{name:'Open action plan',exact:true})).toBeFocused();
+ await panel.getByRole('button',{name:'In verification',exact:true}).click();
+ await expect(panel.locator('.capa-record')).toHaveCount(1);
+ await expect(panel.locator('.capa-next')).toHaveCount(0);
+ await panel.getByRole('button',{name:'Next step · FND-QA-3',exact:true}).click();
+ await expect(panel.locator('.capa-next')).toContainText('independent review');
+ await panel.getByRole('button',{name:'Overdue findings',exact:true}).click();
+ await expect(panel.locator('.finding-empty')).toContainText('No findings match');
+ await expect(panel.locator('.finding-pagination')).toHaveCount(0);
+ await panel.getByRole('button',{name:'Clear filters',exact:true}).click();
+ await expect(panel.locator('.capa-record')).toHaveCount(20);
  // User-visible severity/status colors must survive language and theme changes.
  for(const theme of ['light','dark']){
   if(await page.locator('html').getAttribute('data-theme')!==theme)await page.locator('.theme-toggle:visible').click();
   let englishColors;
   for(const locale of ['en','tr']){
    await page.locator('.language-switch:visible').getByRole('button',{name:locale.toUpperCase(),exact:true}).click();
+   await expect(panel).toHaveAttribute('aria-busy','false');
+   await page.setViewportSize({width:390,height:900});
+   const narrowRow=panel.locator('.capa-record').first();
+   await expect(narrowRow.getByText('qa-admin@fornost.test',{exact:true})).toBeVisible();
+   assert.ok(await narrowRow.evaluate(row=>[...row.cells].every(cell=>cell.getBoundingClientRect().right<=document.documentElement.clientWidth)), 'All finding fields fit the phone viewport');
+   await page.setViewportSize({width:1536,height:960});
    const badges=panel.locator('.finding-table .finding-badge');
    await expect(badges.nth(1)).toHaveText(locale==='tr'?'Kritik':'Critical');
    const states=panel.locator('.finding-table .finding-state');
@@ -99,6 +123,7 @@ try{
  await expect(panel.locator('.finding-table tbody tr')).toHaveCount(1);
  await panel.getByRole('combobox',{name:'Assignment filter',exact:true}).selectOption('review');
  await expect(panel.locator('.finding-table tbody tr')).toHaveCount(0);
+ await panel.getByText('All records summary',{exact:true}).click();
  await panel.getByRole('button',{name:'Open CAPA',exact:true}).click();
  await expect(panel.getByRole('combobox',{name:'Assignment filter',exact:true})).toHaveValue('all');
  await expect(panel.getByRole('textbox',{name:'Search findings',exact:true})).toHaveValue('');

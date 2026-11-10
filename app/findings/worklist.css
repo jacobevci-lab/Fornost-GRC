@@ -1,0 +1,77 @@
+.finding-page.capa-worklist {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) !important;
+  align-content: start;
+  gap: 12px !important;
+}
+
+.capa-worklist .finding-hero.capa-heading {
+  flex-flow: row wrap !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  min-height: 0 !important;
+  padding: 12px 0 0 !important;
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+}
+.capa-worklist .capa-heading h2 { margin: 0 !important; font-size: clamp(22px, 2vw, 30px) !important; }
+.capa-heading > div:last-child { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; }
+.capa-worklist .capa-heading .capa-create {
+  background: var(--ws-brand) !important;
+  border-color: var(--ws-brand) !important;
+  color: var(--ws-bg) !important;
+}
+.capa-worklist .capa-freshness:not([role=alert]) {
+  justify-content: flex-end; padding: 0; margin: 0; border: 0; background: transparent;
+}
+.capa-worklist .capa-freshness span { flex: 0 1 auto; }
+.capa-worklist .finding-toolbar { margin: 0; flex-wrap: wrap !important; border-radius: 8px; }
+.capa-views { display: flex; flex-wrap: wrap; gap: 3px; align-items: center; }
+.capa-views button, .capa-next button, .capa-toggle, .capa-worklist .finding-empty button {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 8px;
+  background: transparent; color: var(--ws-ink); border: 1px solid transparent;
+  border-radius: 6px; font: inherit; font-size: 13px; cursor: pointer;
+}
+.capa-views svg { width: 15px; height: 15px; }
+.capa-views button[aria-pressed=true], .capa-next { background: var(--ws-brand-soft) !important; }
+.capa-views button[aria-pressed=true] { font-weight: 700; border-color: var(--ws-line); }
+.capa-worklist .finding-toolbar input { width: auto !important; flex: 1 1 210px; }
+.capa-worklist .finding-toolbar select { width: auto !important; }
+.capa-worklist .finding-table-wrap { border-radius: 8px; }
+.capa-worklist .finding-table-wrap:empty { display: none; }
+.capa-worklist .capa-list { width: 100%; min-width: 0 !important; table-layout: fixed; border-collapse: collapse; }
+.capa-list thead th:first-child { width: 32%; }
+.capa-list thead th:nth-child(4) { width: 18%; }
+.capa-list td, .capa-list th { text-align: start; overflow-wrap: anywhere; }
+.capa-identity { display: flex; align-items: center; gap: 7px; }
+.capa-identity > div { display: grid; min-width: 0; }
+.capa-identity .finding-row-open { text-align: start; overflow-wrap: anywhere; }
+.capa-list .capa-code { margin: 0 0 3px; font-size: 11px; }
+.capa-list .capa-toggle { flex: none; min-width: 32px; min-height: 36px; }
+.capa-list .capa-next-row { cursor: default; }
+.capa-next { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 12px 16px; border-radius: 6px; }
+.capa-next p { margin: 4px 0 0; white-space: pre-line; overflow-wrap: anywhere; }
+.capa-next button, .capa-worklist .finding-empty button { flex: none; border: 1px solid var(--ws-line); background: var(--ws-surface); }
+.capa-worklist .finding-pagination { display: flex !important; flex-flow: row wrap !important; align-items: center; margin: 0; }
+.capa-worklist .finding-pagination button { width: auto !important; flex: none; }
+.capa-disclosure { background: var(--ws-surface); border: 1px solid var(--ws-line); border-radius: 8px; }
+.capa-disclosure > summary { padding: 12px 15px; font-weight: 650; cursor: pointer; }
+.capa-disclosure .finding-kpis { margin: 0 10px 10px; }
+.capa-worklist .finding-empty { display: grid; justify-items: center; gap: 10px; }
+.capa-worklist .finding-empty p { margin: 0; }
+.capa-worklist :is(.capa-toggle,.capa-views button,.capa-next button,summary,.finding-row-open):focus-visible { outline: 2px solid var(--ws-brand); outline-offset: 2px; }
+
+@media (max-width: 760px) {
+  .capa-worklist .finding-toolbar { align-items: stretch !important; }
+  .capa-worklist .finding-toolbar input, .capa-views { flex: 1 1 100%; }
+  .capa-worklist .finding-toolbar select { min-width: 0; flex: 1 1 135px; }
+  .capa-list thead { position: absolute; clip-path: inset(50%); width: 1px; height: 1px; overflow: hidden; }
+  .capa-list, .capa-list tbody { display: block; }
+  .capa-worklist .capa-list .capa-record { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); padding: 10px; border-bottom: 1px solid var(--ws-line); }
+  .capa-worklist .capa-list td { display: block; width: auto !important; min-width: 0 !important; padding: 5px 8px !important; white-space: normal !important; border: 0 !important; }
+  .capa-record td:first-child { grid-column: 1/-1; }
+  .capa-record td[data-label]::before { content: attr(data-label); display: block; color: var(--ws-muted); font-size: 11px; }
+  .capa-next-row { display: block; }
+  .capa-next { flex-flow: column; align-items: flex-start; gap: 8px; }
+}

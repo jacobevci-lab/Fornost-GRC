@@ -23,3 +23,5 @@ export function validFindingPagination(value:unknown,length:number):value is Fin
  const p=value as FindingPagination;
  return [p.page,p.pages,p.total,p.start,p.end].every(Number.isSafeInteger)&&p.total>=0&&p.pages===Math.max(1,Math.ceil(p.total/20))&&p.page>=1&&p.page<=p.pages&&p.start===(p.total?(p.page-1)*20+1:0)&&p.end===Math.min(p.page*20,p.total)&&length===(p.total?p.end-p.start+1:0);
 }
+
+export type Finding={id:string;code:string;sourceType:string;sourceRef:string;sourceTitle:string;findingType:string;title:string;description:string;severity:string;owner:string;reviewer:string;rootCause:string;correctiveAction:string;preventiveAction:string;dueDate:string;status:string;riskRef?:string;controlRef?:string;acceptUntil?:string;acceptanceRationale?:string;recurrenceCount:number;attention:string;updatedAt:string;detectedBy?:string|null;submittedBy?:string|null;evidenceReference?:string|null;verificationEvidenceReference?:string|null};
