@@ -32,12 +32,12 @@ async function clickWrite(control,method,expected){
  await control.click();const r=await pending;assert.equal(r.status(),expected,method+' local account');
  return r.json();
 }
-let attempted=false,id;
+let attempted=false,id,phase="admin sign-in";
 try{
  assert.equal(await login(admin,adminEmail,adminPassword),200);
- await page.goto(origin);await expect(page.locator('.shell')).toBeVisible();
+ phase="open identity management";await page.goto(origin);await expect(page.locator('.shell')).toBeVisible();
  await switchQaLocale(page,'en');await openQaModule(page,'Identity & Access');
- const section=page.locator('.local-users'),form=section.locator('form');
+ phase="create scoped local account";const section=page.locator('.local-users'),form=section.locator('form');
  await expect(form.locator('input[name="name"]')).toBeVisible();
  await form.locator('[name=name]').fill('QA disposable account');await form.locator('[name=email]').fill(email);
  await form.locator('[name=password]').fill(secret);
@@ -48,7 +48,7 @@ try{
  id=(await clickWrite(form.getByRole('button',{name:'Create Local Account'}),'POST',201)).id;
  assert.equal((await owned()).id,id);
  assert.equal(await login(subject,email,secret),200);
- const row=section.locator('.local-user-list>div').filter({has:page.getByText(email,{exact:true})});
+ phase="change display name, role and module scope";const row=section.locator('.local-user-list>div').filter({has:page.getByText(email,{exact:true})});
  await row.getByText('Edit name',{exact:true}).click();await row.getByLabel('Display name',{exact:true}).fill('QA renamed account');
  await row.getByLabel('Role',{exact:true}).selectOption('Editor');
  const rowGrants=row.locator('.module-access-editor');await rowGrants.locator('summary').click();
@@ -60,14 +60,14 @@ try{
  assert.equal(await login(subject,email,secret),200);
  const updated=(await (await api(subject,'/api/auth')).json()).user;
  assert.equal(updated.role,'Editor');assert.deepEqual(updated.moduleAccess,{mode:'scoped',modules:{'Varlık Envanteri':'read'}});
- await row.getByLabel('Status',{exact:true}).selectOption('Disabled');
+ phase="disable and reactivate";await row.getByLabel('Status',{exact:true}).selectOption('Disabled');
  await clickWrite(row.getByRole('button',{name:'Save',exact:true}),'PATCH',200);
  assert.equal(await login(subject,email,secret),401);
  await expect(row.getByLabel('Status',{exact:true})).toHaveValue('Disabled');
  await row.getByLabel('Status',{exact:true}).selectOption('Active');
  await clickWrite(row.getByRole('button',{name:'Save',exact:true}),'PATCH',200);
  assert.equal(await login(subject,email,secret),200);
- const del=row.getByRole('button',{name:'Delete',exact:true});
+ phase="cancel and confirm deletion on mobile";const del=row.getByRole('button',{name:'Delete',exact:true});
  await del.click();const confirm=row.getByRole('group',{name:'Confirm account deletion'});await expect(confirm).toContainText(email);
  await confirm.getByRole('button',{name:'Cancel'}).click();assert.equal((await owned()).id,id);
  await page.setViewportSize({width:390,height:844});await del.click();
@@ -75,10 +75,10 @@ try{
  await clickWrite(confirm.getByRole('button',{name:'Delete account'}),'DELETE',200);
  await expect(row).toHaveCount(0);assert.equal((await api(subject,'/api/grc')).status(),401);
  assert.equal(await login(subject,email,secret),401);
- const history=section.locator('.module-access-events');await history.locator('summary').click();
+ phase="verify retained audit";const history=section.locator('.module-access-events');await history.locator('summary').click();
  await expect(history.locator('li').filter({hasText:'Local account deleted'}).filter({hasText:email})).toHaveCount(1);
  console.log('PASS create, rename, scoped permissions, session invalidation, disable, reactivate, cancel deletion, mobile delete, audit and denied re-login');
-}finally{
+}catch(error){console.error("Local account browser QA stage:",phase);throw error;}finally{
  try{
   if(attempted){
    const row=await owned();

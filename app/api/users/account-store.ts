@@ -18,7 +18,7 @@ const directory="FROM local_users u LEFT JOIN user_module_access a ON a.user_id=
 function accessFor(role:string,value:unknown){
  const access=validateModuleAccess(value);
  if(!access||(role==="Admin"&&access.mode!=="full"))throw invalid();
- if(role==="Viewer"&&access.mode==="scoped")for(const module of Object.keys(access.modules) as (keyof typeof access.modules)[])access.modules[module]="read";
+ if(role==="Viewer"&&access.mode==="scoped")for(const key of Object.keys(access.modules) as (keyof typeof access.modules)[])access.modules[key]="read";
  return access;
 }
 function publicState(row:Values):State{
