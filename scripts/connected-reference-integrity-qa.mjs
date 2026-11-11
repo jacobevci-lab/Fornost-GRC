@@ -42,11 +42,12 @@ try {
   await sql(rows.map(row => `INSERT INTO simple_grc_records VALUES(${quote(row.id)},${quote(row.module)},${quote(JSON.stringify(row.data))},${quote(stamp)},${quote(stamp)});`).join('\n'));
   await openMap();
   await page.locator('.connected-grc').getByRole('button', { name: /^Gaps/ }).click();
-  await page.locator('.connected-unresolved summary').click();
-  const unresolved = page.locator('.connected-unresolved>div').filter({ has: page.locator('code', { hasText: title }) });
-  await expect(unresolved).toHaveCount(1);
+  await page.getByLabel('Find issue', { exact: true }).fill('QA reference risk');
+  await page.getByLabel('Issue type', { exact: true }).selectOption('ambiguous');
+  await expect(page.locator('.cgw-gaps tbody tr')).toHaveCount(1);
+  const unresolved = page.locator('.cgw-inspector');
   await expect(unresolved).toContainText('2 possible records');
-  await expect(unresolved.locator('.connected-reference-candidates')).toContainText(title);
+  await expect(unresolved.locator('.cgw-candidates')).toContainText(title);
   for (const lang of ['EN', 'TR']) {
     await page.locator('.language-switch:visible').getByRole('button', { name: lang, exact: true }).click();
     await expect(unresolved).toContainText(lang === 'TR' ? '2 olası kayıt' : '2 possible records');
@@ -61,12 +62,13 @@ try {
   await page.setViewportSize({ width: 1536, height: 960 });
   await sql(`UPDATE simple_grc_records SET data_json=${quote(JSON.stringify({ title: 'QA reference risk', asset: ids[0] }))} WHERE id=${quote(ids[2])};`);
   await openMap();
-  await page.locator('.cg-filters input').fill('QA reference risk');
-  await expect(page.locator('.cg-records>button')).toHaveCount(1);
-  await expect(page.locator('.cg-connections article')).toHaveCount(1);
-  await expect(page.locator('.cg-connections article')).toContainText(title);
-  await page.locator('.cg-follow').click();
-  await expect(page.locator('.cg-detail')).toContainText(title);
+  await page.locator('.cgw-filters input').fill('QA reference risk');
+  await expect(page.locator('.cgw-records>button')).toHaveCount(1);
+  await expect(page.locator('.cgw-node')).toHaveCount(2);
+  await expect(page.locator('.cgw-node').filter({hasText:title})).toHaveCount(1);
+  await page.locator('.cgw-node').filter({hasText:title}).click();
+  await page.locator('.cgw-inspector').getByRole('button',{name:'Map this record',exact:true}).click();
+  await expect(page.locator('.cgw-record-heading')).toContainText(title);
   assert.deepEqual(errors, []);
   await fs.writeFile(`${out}/result.json`, JSON.stringify({ status: 'passed', ambiguousTargets: 2, correctedLinks: 1, layouts: 8 }));
 } finally {

@@ -103,6 +103,8 @@ const makeRow = (scope: string, kind: string, module: string, item: JsonRecord, 
   updatedAt: updatedAt(item),
   data: {
     kind,
+    owner: text(item.owner),
+    status: text(item.status),
     ...data,
     canonicalRefs: unique(item.id),
     aliasRefs: unique(item.id, item.code, item.externalRef, item.external_ref, data.title, data.name, data.identityRefs),

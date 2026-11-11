@@ -11,6 +11,11 @@ const canonicalRuleRef=(input:unknown)=>first(input).replace(/^RULE:/i,"");
 export function connectedGrcNavigation(row:ConnectedGrcRow):ConnectedGrcNavigation|undefined{
  const targetModule=value(row.module),kind=value(row.data?.kind);
  if(!targetModule)return undefined;
+ if(targetModule==="İş Sürekliliği" && ["continuity-plan","continuity-exercise","continuity-gap"].includes(kind)){
+  const refs=row.data.canonicalRefs;
+  const ref=Array.isArray(refs)&&refs.length===1&&typeof refs[0]==="string"?refs[0]:"";
+  return ref&&ref.length<=100?{module:targetModule,ref,kind,filterKey:"recordRef"}:undefined;
+ }
  if(targetModule==="AI Yönetişimi" && Object.hasOwn(aiRecordViews,kind)){
   const refs=row.data.canonicalRefs;
   const ref=Array.isArray(refs)&&refs.length===1&&typeof refs[0]==="string"?refs[0]:"";

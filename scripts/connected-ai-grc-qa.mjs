@@ -33,15 +33,16 @@ async function openMap(){
 try{
  const login=await context.request.post(`${base}/api/auth`,{headers:{origin:base},data:{action:'login',email:'qa-admin@fornost.test',password:qaPassword()}});assert.equal(login.status(),200);
  await openMap();
- await expect(page.locator('.cg-source-state')).toHaveAttribute('data-total','11');
- await expect(page.locator('.cg-source-state')).toHaveAttribute('data-ready','11');
- await page.locator('.cg-filters input').fill('QA AI drift alert');
- await expect(page.locator('.cg-records>button')).toHaveCount(1);
- await expect(page.locator('.cg-connections article')).toHaveCount(2);
- await expect(page.locator('.cg-connections')).toContainText('QA AI remediation');
- await page.getByRole('button',{name:'Explore connections: QA AI assistant · enterprise:ai-model:QA-AIM-1 · AI Governance',exact:true}).click();
- await expect(page.locator('.cg-detail h3')).toHaveText('QA AI assistant');
- await expect(page.locator('.cg-connections article')).toHaveCount(2);
+ await expect(page.locator('.cg-source-state')).toHaveAttribute('data-total','12');
+ await expect(page.locator('.cg-source-state')).toHaveAttribute('data-ready','12');
+ await page.locator('.cgw-filters input').fill('QA AI drift alert');
+ await expect(page.locator('.cgw-records>button')).toHaveCount(1);
+ await expect(page.locator('.cgw-node')).toHaveCount(3);
+ await expect(page.locator('.cgw-diagram')).toContainText('QA AI remediation');
+ await page.locator('.cgw-node').filter({hasText:'QA AI assistant'}).click();
+ await page.locator('.cgw-inspector').getByRole('button',{name:'Map this record',exact:true}).click();
+ await expect(page.locator('.cgw-record-heading h3')).toHaveText('QA AI assistant');
+ await expect(page.locator('.cgw-node')).toHaveCount(3);
  for(const lang of ['EN','TR']){
   await page.locator('.language-switch:visible').getByRole('button',{name:lang,exact:true}).click();
   for(const theme of ['light','dark'])for(const width of [1536,390]){
@@ -54,28 +55,28 @@ try{
  await page.setViewportSize({width:1536,height:960});
  for(const failure of ['unavailable','malformed']){
   mode=failure;await openMap();
-  await expect(page.locator('.cg-source-state')).toHaveAttribute('data-ready','10');
+  await expect(page.locator('.cg-source-state')).toHaveAttribute('data-ready','11');
   await page.locator('.connected-grc').getByRole('button',{name:/^Gaps/}).click();
   // Scope the assertion to its fixtures; unrelated persisted records can fill the first 20 references.
   await page.getByLabel('Source module',{exact:true}).selectOption('AI Yönetişimi');
   await page.getByLabel('Issue type',{exact:true}).selectOption('missing');
-  await page.locator('.connected-unresolved summary').click();
-  await expect(page.locator('.connected-unresolved>div')).toHaveCount(2);
-  await expect(page.locator('.connected-unresolved')).toContainText('QA-AIM-1');
+  await page.getByLabel('Find issue',{exact:true}).fill('QA AI');
+  await expect(page.locator('.cgw-gaps tbody tr')).toHaveCount(2);
+  await expect(page.locator('.cgw-inspector')).toContainText('QA-AIM-1');
  }
  mode='complete';await openMap();
- await expect(page.locator('.cg-source-state')).toHaveAttribute('data-ready','11');
+ await expect(page.locator('.cg-source-state')).toHaveAttribute('data-ready','12');
  for(const body of [{}, {findings:[{id:'duplicate'},{id:'duplicate'}]}]){
   await page.route('**/api/findings?view=graph*',route=>route.fulfill({json:body}));
   await openMap();
-  await expect(page.locator('.cg-source-state')).toHaveAttribute('data-ready','10');
-  await expect(page.locator('.cg-export')).toContainText('partial');
+  await expect(page.locator('.cg-source-state')).toHaveAttribute('data-ready','11');
+  await expect(page.locator('.cgw-warning')).toContainText('partial');
   await page.locator('.connected-grc').getByRole('button',{name:/^Gaps/}).click();
-  await expect(page.locator('.cg-assessment-pending').first()).toBeVisible();
+  await expect(page.locator('.cgw-warning')).toBeVisible();
   await page.unroute('**/api/findings?view=graph*');
  }
  await openMap();
- await expect(page.locator('.cg-source-state')).toHaveAttribute('data-ready','11');
+ await expect(page.locator('.cg-source-state')).toHaveAttribute('data-ready','12');
  let graphPages=0;
  const graphRows=Array.from({length:501},(_,i)=>({id:`QA-GRAPH-${String(i).padStart(6,'0')}`,title:i===500?'QA final paginated finding':`QA graph finding ${i}`}));
  await page.route('**/api/findings?view=graph*',route=>{
@@ -89,44 +90,43 @@ try{
   return route.fulfill({json:{findings:graphRows.slice(0,500),total:501,revision:'a'.repeat(32),complete:false,nextCursor:graphRows[499].id}});
  });
  await openMap();
- await expect(page.locator('.cg-source-state')).toHaveAttribute('data-ready','11');
+ await expect(page.locator('.cg-source-state')).toHaveAttribute('data-ready','12');
  assert.equal(graphPages,2);
- await page.locator('.cg-filters input').fill('QA final paginated finding');
- await expect(page.locator('.cg-records')).toContainText('QA final paginated finding');
+ await page.locator('.cgw-filters input').fill('QA final paginated finding');
+ await expect(page.locator('.cgw-records')).toContainText('QA final paginated finding');
  await page.unroute('**/api/findings?view=graph*');
- fixtures['/api/ai/assurance-alerts'].alerts.push(...Array.from({length:25},(_,i)=>({id:`QA-GAP-${String(i).padStart(3,'0')}`,modelId:`QA-MISSING-${i}`,title:`QA gap alert ${i}`})));
+ fixtures['/api/ai/assurance-alerts'].alerts.push(...Array.from({length:35},(_,i)=>({id:`QA-GAP-${String(i).padStart(3,'0')}`,modelId:`QA-MISSING-${i}`,title:`QA gap alert ${i}`})));
  await openMap();
  await page.locator('.connected-grc').getByRole('button',{name:/^Gaps/}).click();
- const gapSearch=page.locator('.cg-gap-filters input');
+ const gapSearch=page.getByLabel('Find issue',{exact:true});
  await gapSearch.fill('QA gap alert');
  await page.getByLabel('Source module',{exact:true}).selectOption('AI Yönetişimi');
  await page.getByLabel('Issue type',{exact:true}).selectOption('missing');
  const gapDownload=page.waitForEvent('download');
- await page.getByRole('button',{name:'Export gaps · CSV',exact:true}).click();
+ await page.getByRole('button',{name:'Export view · CSV',exact:true}).click();
  const exportFile=await gapDownload;
  assert.equal(exportFile.suggestedFilename(),'fornost-connected-grc-gaps.csv');
  const exported=await fs.readFile(await exportFile.path(),'utf8');
- assert.equal(exported.split('\n').length,26);
- assert.ok(exported.includes('QA-MISSING-24'));
- assert.ok(exported.includes('"AI Yönetişimi";"missing";"25"'));
+ assert.equal(exported.split('\n').length,36);
+ assert.ok(exported.includes('QA-MISSING-34'));
+ assert.ok(exported.includes('"AI Yönetişimi","missing"'));
  await page.getByLabel('Issue type',{exact:true}).selectOption('ambiguous');
- await expect(page.locator('.cg-gaps .cg-empty')).toContainText('No gaps match');
+ await expect(page.locator('.cgw-gaps .cgw-empty')).toContainText('No follow-up topics match');
  await page.getByLabel('Issue type',{exact:true}).selectOption('missing');
- await page.locator('.connected-unresolved summary').click();
- await expect(page.locator('.connected-unresolved>div')).toHaveCount(20);
- await page.getByRole('button',{name:/Show more references/}).click();
- await expect(page.locator('.connected-unresolved>div')).toHaveCount(25);
- await gapSearch.fill('QA-GAP-024');
- await expect(page.locator('.connected-unresolved>div')).toHaveCount(1);
- await expect(page.locator('.connected-unresolved')).toContainText('QA-MISSING-24');
+ await expect(page.locator('.cgw-gaps tbody tr')).toHaveCount(30);
+ await page.getByRole('button',{name:'Show more',exact:true}).click();
+ await expect(page.locator('.cgw-gaps tbody tr')).toHaveCount(35);
+ await gapSearch.fill('QA-GAP-034');
+ await expect(page.locator('.cgw-gaps tbody tr')).toHaveCount(1);
+ await expect(page.locator('.cgw-inspector')).toContainText('QA-MISSING-34');
  await gapSearch.fill('QA-NO-SUCH-GAP');
- await expect(page.locator('.cg-gaps .cg-empty')).toContainText('No gaps match');
- await expect(page.locator('.cg-gaps .connected-assurance-ok')).toHaveCount(0);
- await page.locator('.cg-gap-filters').getByRole('button',{name:'Clear',exact:true}).click();
+ await expect(page.locator('.cgw-gaps .cgw-empty')).toContainText('No follow-up topics match');
+ await expect(page.locator('.cgw-gaps .connected-assurance-ok')).toHaveCount(0);
+ await page.locator('.cgw-gaps .cgw-filters').getByRole('button',{name:'Clear filters',exact:true}).click();
  await expect(gapSearch).toHaveValue('');
  await expect(page.getByLabel('Issue type',{exact:true})).toHaveValue('all');
  await page.setViewportSize({width:390,height:844});
- assert.ok(await page.locator('.cg-gaps').evaluate(el=>el.scrollWidth<=el.clientWidth+1));
+ assert.ok(await page.locator('.cgw-gaps').evaluate(el=>el.scrollWidth<=el.clientWidth+1));
  await page.screenshot({path:`${out}/gaps-filter-mobile.png`});
  assert.deepEqual(errors,[]);
  await fs.writeFile(`${out}/result.json`,JSON.stringify({status:'passed',fixtureTransport:true,relationships:3,layouts:8,sourceRecovery:true}));
