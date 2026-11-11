@@ -137,8 +137,10 @@ test("attention re-test workflow preserves maker-checker ownership and real-run 
   assert.match(attention, /Governance → Remediation → Re-test/);
 });
 
-test("workflow integrations surface the attention panel next to the existing overview", () => {
-  assert.match(settings, /import ContinuousAssuranceAttention from "\.\/continuous-assurance-attention"/);
-  assert.match(settings, /kind==="ticketing"&&<IntegrationsOverview lang=\{lang\}\/\>/);
-  assert.match(settings, /kind==="ticketing"&&<ContinuousAssuranceAttention lang=\{lang\}\/\>/);
+test("workflow integrations retain attention and overview in the assurance workspace", () => {
+  const desk = readFileSync("app/integration-connection-desk.tsx", "utf8");
+  assert.match(settings, /<IntegrationConnectionDesk lang=\{lang\}\/>/);
+  assert.match(desk, /tab === "assurance"/);
+  assert.match(desk, /<ContinuousAssuranceAttention lang=\{lang\}\/>/);
+  assert.match(desk, /<IntegrationsOverview lang=\{lang\}\/>/);
 });

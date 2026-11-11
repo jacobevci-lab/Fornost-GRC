@@ -545,7 +545,9 @@ export default function ContinuousAssuranceAttention({ lang }: { lang: Lang }) {
             <span><strong>{summary?.errorRuns24h ?? 0}</strong><small>{tr ? "24s connector hatası" : "24h connector errors"}</small></span>
           </div>
 
-          {!attention.length ? (
+          {!attention.length && (!summary?.enabledSources || !summary?.operationalRules || insights?.state !== "healthy") ? (
+            <div className="ca-attention-unavailable" role="status"><b>{tr ? "İzleme henüz doğrulanmadı" : "Monitoring is not verified yet"}</b><span>{tr ? "Etkin kaynak ve çalıştırılmış kontrol olmadan operasyonel sağlık değerlendirilmez." : "Operational health is not assessed without enabled sources and executed controls."}</span><button type="button" onClick={() => navigateToFornost("Kanıt Otomasyonu")}>{tr ? "Kanıt kaynaklarını aç" : "Open evidence sources"}</button></div>
+          ) : !attention.length ? (
             <div className="ca-attention-clear" role="status">
               <b>{tr ? "Aksiyon gerektiren Continuous Assurance sinyali yok" : "No Continuous Assurance signal currently requires action"}</b>
               <span>{tr ? "Etkin connector ve kuralların mevcut operasyonel görünümü sağlıklı." : "The current operational posture of enabled connectors and rules is healthy."}</span>

@@ -3,8 +3,7 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import { withBasePath } from "./base-path";
 import AssuranceNotificationSettings from "./assurance-notification-settings";
 import AssuranceNotificationStormSettings from "./assurance-notification-storm-settings";
-import IntegrationsOverview from "./integrations-overview";
-import ContinuousAssuranceAttention from "./continuous-assurance-attention";
+import IntegrationConnectionDesk from "./integration-connection-desk";
 
 type Lang="tr"|"en";
 type Kind="ticketing"|"email"|"identity";
@@ -15,7 +14,7 @@ const defaults:Record<Kind,Form>={
  identity:{provider:"entra-oidc",enabled:false,secret:"",config:{issuer:"",clientId:"",tenantId:"",redirectUri:"",groupsClaim:"groups"}},
 };
 const providers:Record<Kind,{value:string;label:string}[]>={
- ticketing:[{value:"jira",label:"Jira Cloud / Data Center"},{value:"servicenow",label:"ServiceNow"},{value:"azure-devops",label:"Azure DevOps Boards"},{value:"github-issues",label:"GitHub Issues"},{value:"webhook",label:"Generic Webhook"}],
+ ticketing:[{value:"jira",label:"Jira Cloud"},{value:"servicenow",label:"ServiceNow"},{value:"azure-devops",label:"Azure DevOps Boards"},{value:"github-issues",label:"GitHub Issues"},{value:"webhook",label:"Generic Webhook"}],
  email:[{value:"smtp-bridge",label:"SMTP Relay Bridge"},{value:"microsoft-graph-mail",label:"Microsoft Graph Mail"},{value:"email-api",label:"HTTP Email API"}],
  identity:[{value:"entra-oidc",label:"Microsoft Entra ID (OIDC)"},{value:"okta-oidc",label:"Okta (OIDC)"},{value:"generic-oidc",label:"Generic OIDC"},{value:"saml",label:"SAML 2.0"},{value:"ldap",label:"LDAP"},{value:"ldaps",label:"LDAPS"}],
 };
@@ -37,6 +36,9 @@ const fieldMap:Record<string,{key:string;label:string;placeholder?:string;type?:
 };
 
 export default function IntegrationSettings({lang,kind}:{lang:Lang;kind:Kind}){
+ return kind==="ticketing"?<IntegrationConnectionDesk lang={lang}/>:<LegacyIntegrationSettings lang={lang} kind={kind}/>;
+}
+function LegacyIntegrationSettings({lang,kind}:{lang:Lang;kind:Kind}){
  const tr=lang==="tr",[forms,setForms]=useState(defaults),[busy,setBusy]=useState(""),[message,setMessage]=useState(""),[testEmail,setTestEmail]=useState("");
  useEffect(()=>{(async()=>{const r=await fetch(withBasePath("/api/integrations"),{cache:"no-store"});if(!r.ok)return;const j=await r.json();setForms(current=>{const next={...current};for(const row of j.integrations||[]){const kind=row.kind as Kind;next[kind]={...next[kind],provider:row.provider,enabled:!!row.enabled,secret:"",config:{...next[kind].config,...row.config}}}return next})})().catch(()=>{})},[]);
  const setForm=(kind:Kind,patch:Partial<Form>)=>setForms(x=>({...x,[kind]:{...x[kind],...patch}}));
@@ -48,7 +50,7 @@ export default function IntegrationSettings({lang,kind}:{lang:Lang;kind:Kind}){
   email:{eyebrow:tr?"BİLDİRİM KANALI":"NOTIFICATION CHANNEL",title:tr?"E-posta gönderim altyapısı":"Email delivery infrastructure",desc:tr?"Risk hatırlatmaları ve sistem bildirimleri için gönderim kanalını yönetin.":"Manage delivery for risk reminders and system notifications."},
   identity:{eyebrow:tr?"KİMLİK FEDERASYONU":"IDENTITY FEDERATION",title:tr?"Kurumsal kimlik sağlayıcısı":"Enterprise identity provider",desc:tr?"SSO ve dizin entegrasyonunu güvenli bağlantı profiliyle yönetin.":"Manage SSO and directory integration through a secure connection profile."},
  }[kind];
- return <>{kind==="ticketing"&&<IntegrationsOverview lang={lang}/>} {kind==="ticketing"&&<ContinuousAssuranceAttention lang={lang}/>}<section className="integration-hub integration-page"><header><div><small>{metadata.eyebrow}</small><h3>{metadata.title}</h3><p>{metadata.desc}</p></div><span>{forms[kind].enabled?(tr?"Etkin":"Enabled"):(tr?"Yapılandırılmadı":"Not configured")}</span></header>{message&&<div className="integration-message">{message}</div>}<div className="integration-grid">
+ return <><section className="integration-hub integration-page"><header><div><small>{metadata.eyebrow}</small><h3>{metadata.title}</h3><p>{metadata.desc}</p></div><span>{forms[kind].enabled?(tr?"Etkin":"Enabled"):(tr?"Yapılandırılmadı":"Not configured")}</span></header>{message&&<div className="integration-message">{message}</div>}<div className="integration-grid">
   {kind==="ticketing"&&<IntegrationCard kind="ticketing" title={tr?"İş Takibi / Ticketing":"Work Tracking / Ticketing"} desc={tr?"GRC gap ve aksiyonlarından izlenebilir ticket üretin.":"Create traceable tickets from GRC gaps and actions."} form={forms.ticketing} tr={tr} busy={busy} setForm={setForm} setConfig={setConfig} save={save} test={()=>action("ticketing","test")} wide/>}
   {kind==="email"&&<IntegrationCard kind="email" title={tr?"E-posta / SMTP":"Email / SMTP"} desc={tr?"Risk bildirimleri ve test e-postaları için güvenli gönderim kanalı.":"Secure delivery for risk notifications and test messages."} form={forms.email} tr={tr} busy={busy} setForm={setForm} setConfig={setConfig} save={save} test={()=>action("email","test")} wide extra={<label className="integration-field"><span>{tr?"Test Alıcısı":"Test Recipient"}</span><input type="email" value={testEmail} onChange={e=>setTestEmail(e.target.value)} placeholder="name@company.com"/><button type="button" className="integration-test-mail" disabled={!forms.email.enabled||!testEmail||!!busy} onClick={()=>action("email","send-test")}>{busy==="email:send-test"?(tr?"Gönderiliyor…":"Sending…"):(tr?"Test E-postası Gönder":"Send Test Email")}</button></label>}/>}
   {kind==="identity"&&<IntegrationCard kind="identity" title={tr?"IAM / SSO Federasyonu":"IAM / SSO Federation"} desc={tr?"Entra, Okta, OIDC, SAML ve şirket içi LDAP/LDAPS profilleri.":"Entra, Okta, OIDC, SAML and on-prem LDAP/LDAPS profiles."} form={forms.identity} tr={tr} busy={busy} setForm={setForm} setConfig={setConfig} save={save} test={()=>action("identity","test")} wide note={tr?"LDAP/LDAPS, güvenlik nedeniyle platformdan ham TCP ile bağlanmaz; şirket içi IAM bridge üzerinden doğrulanır. Entra/Okta profilleri OIDC discovery ile test edilir.":"LDAP/LDAPS uses an on-prem IAM bridge instead of raw TCP. Entra/Okta profiles are verified through OIDC discovery."}/>}

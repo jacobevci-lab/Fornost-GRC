@@ -2,7 +2,7 @@ const encoder = new TextEncoder();
 const decoder = new TextDecoder();
 
 export const integrationProviders = [
-  "jira", "servicenow", "azure-devops", "github-issues", "webhook",
+  "jira", "jira-dc", "servicenow", "azure-devops", "github-issues", "webhook",
   "smtp-bridge", "microsoft-graph-mail", "email-api",
   "entra-oidc", "okta-oidc", "generic-oidc", "saml", "ldap", "ldaps",
 ] as const;

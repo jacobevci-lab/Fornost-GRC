@@ -1,0 +1,58 @@
+name: Integration connection desk QA
+on:
+  pull_request:
+    paths:
+      - 'app/integration-connection-desk*'
+      - 'app/integration-settings.tsx'
+      - 'app/integrations/**'
+      - 'app/api/integrations/**'
+      - 'scripts/integration-connection-desk-qa.mjs'
+      - '.github/workflows/integration-connection-desk-qa.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      CLOUDFLARE_CF_FETCH_ENABLED: 'false'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.13.0
+          cache: npm
+      - run: npm ci
+      - run: npm install --no-save --ignore-scripts @playwright/test@1.55.0
+      - name: Use runner browser or install Chromium
+        run: |
+          if command -v google-chrome >/dev/null; then
+            echo "QA_CHROMIUM_PATH=$(command -v google-chrome)" >> "$GITHUB_ENV"
+          else
+            npx playwright install chromium
+          fi
+      - name: Generate isolated QA credentials
+        run: |
+          node scripts/prepare-local-qa.mjs
+          node --input-type=module -e 'import {randomBytes} from "node:crypto"; import {writeFileSync} from "node:fs"; writeFileSync(".dev.vars", "FORNOST_SETTINGS_ENCRYPTION_KEY="+randomBytes(32).toString("hex")+"\n", {mode:0o600});'
+      - name: Verify connection lifecycle and layouts
+        run: |
+          set -euo pipefail
+          npm run dev -- --host 127.0.0.1 --port 4173 --strictPort > /tmp/integration-runtime.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null || true' EXIT
+          for attempt in $(seq 1 60); do
+            if curl --fail --silent http://127.0.0.1:4173/api/auth > /dev/null; then break; fi
+            sleep 1
+          done
+          node scripts/integration-connection-desk-qa.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: integration-desk-qa
+          path: |
+            integration-desk-qa-artifacts/*.png
+            integration-desk-qa-artifacts/report.json
+            integration-desk-qa-artifacts/failure.json
+          if-no-files-found: warn
