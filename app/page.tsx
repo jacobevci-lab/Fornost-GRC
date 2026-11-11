@@ -3074,7 +3074,7 @@ function Reports({ rows: coreRows, lang, go, preparedBy, includeCapa, coreState,
   const metrics = reportMetrics(module, filtered, tr);
   const evidenceState = useExecutiveAssurance(coreRows);
   const assurance = buildExecutiveAssurance(evidenceState.rows, evidenceState.generatedAt, evidenceState.auditPortfolio);
-  const reportTitle = `Fornost GRC — ${selectedModuleLabel}`;
+  const reportTitle = template==="detailed"?(tr?"Detaylı kayıt dökümü":"Detailed register"):(tr?"Yönetim özeti":"Management summary");
   const lastUpdated = filtered
     .map((r) => r.updatedAt || r.createdAt)
     .filter(Boolean)
@@ -3148,7 +3148,7 @@ function Reports({ rows: coreRows, lang, go, preparedBy, includeCapa, coreState,
           </p>
         </div>
         <div className="report-hero-actions">
-          <button type="button" aria-expanded={definitions} onClick={()=>setDefinitions(value=>!value)}>{tr?'Tanımı kaydet / aç':'Save / open definition'}</button>
+          <button className="ghost" type="button" aria-expanded={definitions} onClick={()=>setDefinitions(value=>!value)}>{tr?'Tanımı kaydet / aç':'Save / open definition'}</button>
           <button className="primary" onClick={()=>void pdfReport()} disabled={reportUnavailable||!filtered.length||exporting}>
             {exporting?(tr?"Rapor hazırlanıyor…":"Preparing report…"):(tr ? "PDF Raporu" : "PDF Report")}
           </button>
