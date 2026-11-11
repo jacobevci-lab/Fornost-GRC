@@ -20,7 +20,7 @@ async function capture(name) { await workspace.screenshot({ path: `${out}/${name
 try {
   assert.equal((await api('GET', '/api/auth')).bootstrapRequired, true, 'Use a fresh isolated runtime');
   await api('POST', '/api/auth', account);
-  phase = 'empty workspace'; await page.goto(base); await expect(page.locator('.shell')).toBeVisible(); await page.locator('nav button[aria-label="Bağlantılı GRC"]').evaluate(b => b.click()); await waitForQaIdle(page); await expect(work).toContainText('Eşleşen kayıt yok'); await capture('empty');
+  phase = 'empty workspace'; await page.goto(base); await expect(page.locator('.shell')).toBeVisible(); await page.locator('nav button[aria-label="Bağlantılı GRC Haritası"]').evaluate(b => b.click()); await waitForQaIdle(page); await expect(work).toContainText('Eşleşen kayıt yok'); await capture('empty');
   phase = 'seed owned examples';
   const asset = await create('Varlık Envanteri', { title: 'Cortex XDR', assetType: 'Yazılım', businessUnit: 'Bilgi Teknolojileri', owner: account.email, criticality: 'Yüksek', status: 'Aktif' });
   const bia = await create('BIA', { process: 'Kimlik ve erişim yönetimi', processCategory: 'Operasyonel Süreç', businessUnit: 'Bilgi Teknolojileri', owner: account.email, criticality: 'Yüksek', asset, rto: '4 saat', rpo: '1 saat', status: 'Aktif' });

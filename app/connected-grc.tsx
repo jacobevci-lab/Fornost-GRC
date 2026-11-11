@@ -2,8 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { assessConnectedGrcCoverage, buildConnectedGrcGraph, connectedTitle, type ConnectedGrcRow } from "./connected-grc-model";
-import { filterConnectedGrcGaps, type ConnectedGapType } from "./connected-grc-gaps";
-import { connectedGrcExport, connectedGrcGapExport, connectedGrcAssuranceExport } from "./connected-grc-export";
+import { connectedGrcExport, connectedGrcAssuranceExport } from "./connected-grc-export";
 import { connectedGrcNavigation } from "./connected-grc-navigation";
 import { buildConnectedGrcEnterpriseRows, connectedGrcEndpoints } from "./connected-grc-sources";
 import { assuranceChainReasonLabel, buildContinuousAssuranceChains, summarizeContinuousAssurance } from "./continuous-assurance-chain";
@@ -42,7 +41,7 @@ export default function ConnectedGrc({rows,lang,go,includeAi=false,actor,refresh
   const [chainLimit,setChainLimit]=useState(12);
   const [gapQuery,setGapQuery]=useState("");
   const [gapModule,setGapModule]=useState("all");
-  const [gapType,setGapType]=useState<ConnectedGapType>("all");
+  const [gapType,setGapType]=useState("all");
   useEffect(() => {
     const restore = (request: FornostNavigationRequest | null) => {
       if (request?.module !== "Bağlantılı GRC" || request.kind !== "connected-view") return;
@@ -51,7 +50,7 @@ export default function ConnectedGrc({rows,lang,go,includeAi=false,actor,refresh
       setModule(f.module || "all"); setQuery((f.query || "").slice(0, 1000));
       setSelectedId(f.selectedId || ""); setPage(Math.max(0, Math.min(10000, Number(f.page) || 0)));
       setGapQuery(f.gapQuery || ""); setGapModule(f.gapModule || "all");
-      if (["all", "high", "medium", "missing", "ambiguous"].includes(f.gapType)) setGapType(f.gapType as ConnectedGapType);
+      if (["all", "high", "medium", "gap", "missing", "ambiguous", "expired", "review", "plan"].includes(f.gapType)) setGapType(f.gapType);
       consumePendingFornostFocus("Bağlantılı GRC");
     };
     const receive = (event: Event) => restore((event as CustomEvent<FornostNavigationRequest>).detail);
@@ -93,7 +92,6 @@ export default function ConnectedGrc({rows,lang,go,includeAi=false,actor,refresh
   const attentionChains=assuranceChains.filter(chain=>chain.chainState!=="complete").sort((a,b)=>Number(b.chainState==="broken")-Number(a.chainState==="broken")||b.overdueRemediations-a.overdueRemediations||a.rule.id.localeCompare(b.rule.id));
   const assuranceSummary=useMemo(()=>summarizeContinuousAssurance(assuranceChains),[assuranceChains]);
   const modules=useMemo(()=>Array.from(new Set(records.map(row=>row.module))).sort(),[records]);
-  const gapResults=filterConnectedGrcGaps(coverage.gaps,unresolved,{query:gapQuery,module:gapModule,type:gapType,lang,moduleLabel});
   const linkedIds=new Set(links.flatMap(link=>[link.source.id,link.target.id]));
   const needle=query.trim().toLocaleLowerCase(tr?"tr-TR":"en-US");
   const matchingRecords=records.filter(row=>(module==="all"||row.module===module)&&(!needle||`${row.code||row.id} ${connectedTitle(row)} ${row.module} ${moduleLabel(row.module)}`.toLocaleLowerCase(tr?"tr-TR":"en-US").includes(needle)));
@@ -110,9 +108,9 @@ export default function ConnectedGrc({rows,lang,go,includeAi=false,actor,refresh
     navigateToFornost({module:target.module,ref:target.ref,kind:target.kind,source:"connected-grc-register",filter:{[target.filterKey]:target.ref},
       returnTo:{module:"Bağlantılı GRC",kind:"connected-view",filter:{view,module,query,selectedId:selected?.id||"",page:String(currentPage),gapQuery,gapModule,gapType}}});
   }
-  function download(gaps=false,assurance=false){
+  function download(assurance=false){
     const scope={...sourceState,generatedAt:new Date().toISOString()};
-    const result=assurance?connectedGrcAssuranceExport(assuranceChains,scope,lang):gaps?connectedGrcGapExport(gapResults.gaps,gapResults.unresolved,scope,{query:gapQuery,module:gapModule,type:gapType}):connectedGrcExport(filtered,scope);
+    const result=assurance?connectedGrcAssuranceExport(assuranceChains,scope,lang):connectedGrcExport(filtered,scope);
     if(!result)return;
     const blob=new Blob([result.content],{type:"text/csv;charset=utf-8"});
     const url=URL.createObjectURL(blob),anchor=document.createElement("a");anchor.href=url;anchor.download=result.filename;anchor.click();URL.revokeObjectURL(url);
@@ -132,9 +130,9 @@ export default function ConnectedGrc({rows,lang,go,includeAi=false,actor,refresh
     <div className="cg-tabs" role="group" aria-label={tr?"Harita görünümü":"Map view"}>
       {([['explore',tr?'Bağlantılar':'Connections'],['impact',tr?'Etki analizi':'Impact analysis'],['gaps',tr?'Eksikler':'Gaps'],['assurance',tr?'Güvence':'Assurance']] as const).map(([id,label])=><button type="button" key={id} aria-pressed={view===id} onClick={()=>setView(id)}>{label}{id==='gaps'&&<span>{new Set(issues.map(issue=>issue.row.id)).size}</span>}</button>)}
     </div>
-    {view!=="assurance"&&<ConnectedWorkbench rows={records} links={links} issues={issues} selected={selected} view={view} lang={lang} actor={actor} complete={sourcesComplete} loading={sourceState.loading||coreState==="loading"} select={focusRecord} openRecord={openRecord} moduleLabel={moduleLabel} refresh={refreshAll} query={query} setQuery={value=>{setQuery(value);setPage(0)}} module={module} setModule={value=>{setModule(value);setPage(0)}} modules={modules} visible={visibleRecords} matchingCount={matchingRecords.length} page={currentPage} setPage={value=>{setPage(value);setSelectedId("")}} exportLinks={()=>download()}/>}
+    {view!=="assurance"&&<ConnectedWorkbench rows={records} links={links} issues={issues} selected={selected} view={view} lang={lang} actor={actor} complete={sourcesComplete} loading={sourceState.loading||coreState==="loading"} select={focusRecord} openRecord={openRecord} moduleLabel={moduleLabel} refresh={refreshAll} query={query} setQuery={value=>{setQuery(value);setPage(0)}} module={module} setModule={value=>{setModule(value);setPage(0)}} modules={modules} visible={visibleRecords} matchingCount={matchingRecords.length} page={currentPage} setPage={value=>{setPage(value);setSelectedId("")}} exportLinks={()=>download()} issueQuery={gapQuery} setIssueQuery={setGapQuery} issueType={gapType} setIssueType={setGapType} issueModule={gapModule} setIssueModule={setGapModule}/>}
     {view==="assurance"&&<section className="connected-assurance cg-operations">
-      <header><div><h3>{tr?"Güvence işlemleri":"Assurance operations"}</h3><p>{tr?"Kontrol sonuçlarını, onayları ve takip işlerini yönetin.":"Manage control results, approvals and follow-up work."}</p></div><button type="button" className="cg-assurance-export" disabled={!sourcesComplete} onClick={()=>download(false,true)}>{tr?"Güvence raporu (CSV)":"Assurance report (CSV)"}</button></header>
+      <header><div><h3>{tr?"Güvence işlemleri":"Assurance operations"}</h3><p>{tr?"Kontrol sonuçlarını, onayları ve takip işlerini yönetin.":"Manage control results, approvals and follow-up work."}</p></div><button type="button" className="cg-assurance-export" disabled={!sourcesComplete} onClick={()=>download(true)}>{tr?"Güvence raporu (CSV)":"Assurance report (CSV)"}</button></header>
       {!sourcesComplete&&<p className="cg-assessment-pending" role="status">{coverageNotice}</p>}
       {sourcesComplete&&assuranceSummary.rules>0&&<div className="connected-lifecycle-posture" aria-label={tr?"Sürekli güvence operasyonel duruşu":"Continuous assurance operational posture"}>
         <article className={assuranceSummary.averageAssuranceScore<70?"attention":"healthy"}><small>{tr?"Ortalama güvence":"Average assurance"}</small><strong>{assuranceSummary.averageAssuranceScore}%</strong><span>{assuranceSummary.rules} {tr?"sürekli kontrol":"continuous controls"}</span></article>

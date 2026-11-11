@@ -23,10 +23,10 @@ export function connectedNeighborhood(root: Row, links: Link[], depth = 1, limit
   return { records: queue.slice(1), links: links.filter(link => found.has(link.source.id) && found.has(link.target.id)).sort((a, b) => `${a.source.id}:${a.target.id}:${a.field}`.localeCompare(`${b.source.id}:${b.target.id}:${b.field}`)), truncated };
 }
 
-export type WorkbenchIssue = { id: string; row: Row; kind: 'gap' | 'missing' | 'ambiguous' | 'expired' | 'review' | 'plan'; severity: 'high' | 'medium'; relations: string[]; field?: string; detail?: string; due?: string };
+export type WorkbenchIssue = { id: string; row: Row; kind: 'gap' | 'missing' | 'ambiguous' | 'expired' | 'review' | 'plan'; severity: 'high' | 'medium'; relations: string[]; field?: string; detail?: string; candidates?: Row[]; due?: string };
 export function connectedIssues(rows: Row[], links: Link[], gaps: ConnectedGrcCoverageGap[], unresolved: UnresolvedGrcReference[], today = new Date().toISOString().slice(0, 10)): WorkbenchIssue[] {
   const issues: WorkbenchIssue[] = gaps.map(gap => ({ id: `gap:${gap.row.id}:${gap.rule}`, row: gap.row, kind: 'gap', severity: gap.severity, relations: gap.missingRelations }));
-  unresolved.forEach(ref => issues.push({ id: `ref:${ref.source.id}:${ref.field}:${ref.value}`, row: ref.source, kind: ref.reason, severity: 'high', relations: [ref.relation], field: ref.field, detail: ref.value }));
+  unresolved.forEach(ref => issues.push({ id: `ref:${ref.source.id}:${ref.field}:${ref.value}`, row: ref.source, kind: ref.reason, severity: 'high', relations: [ref.relation], field: ref.field, detail: ref.value, candidates: ref.candidates }));
   for (const row of rows) {
     const expiry = typeof row.data.expiresAt === 'string' ? row.data.expiresAt : '';
     if (row.module === 'Kanıtlar' && (row.data.status === 'Süresi Doldu' || (/^\d{4}-\d{2}-\d{2}$/.test(expiry) && expiry < today)))

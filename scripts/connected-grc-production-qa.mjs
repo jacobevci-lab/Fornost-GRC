@@ -24,7 +24,7 @@ const sourceDefinitions = [
   { key: "thirdParty", path: "/api/third-party-risk", module: "Tedarikçiler" },
   { key: "evidenceAutomation", path: "/api/evidence-automation", module: "Kanıt Otomasyonu" },
 ];
-const expectedLiveSourceText = `${sourceDefinitions.length}/${sourceDefinitions.length}`;
+const expectedLiveSourceText = `${sourceDefinitions.length + 1}/${sourceDefinitions.length + 1}`;
 
 const accessHeaders = {};
 if (accessClientId && accessClientSecret) {
@@ -187,7 +187,7 @@ try {
     const sourceStatusText = (await liveStatus.textContent().catch(() => ""))?.trim() || "";
     const relationshipRows = Number(await page.locator(".cg-summary > span:nth-child(2) b").textContent());
     const unresolvedRows = await page.locator(".connected-unresolved div").count();
-    const domainButtons = await page.locator(".cg-filters select option").allTextContents();
+    const domainButtons = await page.locator(".cgw-filters select option").allTextContents();
     const kpiValues = await page.locator(".cg-summary b").allTextContents();
     const loadingVisible = await liveStatus.getAttribute("data-loading") !== "false";
     const ready = `${await liveStatus.getAttribute("data-ready")}/${await liveStatus.getAttribute("data-total")}`;

@@ -23,7 +23,7 @@ export async function writeConnectedLink(db: D1Database, actor: Actor, input: Re
   const code = await db.prepare('SELECT code FROM simple_grc_record_codes WHERE record_id=?').bind(targetId).first<{ code: string }>();
   const before = JSON.parse(source.data_json);
   // Evidence stores a primary reference as well as its complete list.
-  const normalized = source.module === 'Kanıtlar' && !Array.isArray(before.controlRefs) ? { ...before, controlRefs: before.controlRef ? [before.controlRef] : [] } : before;
+  const normalized = source.module === 'Kanıtlar' && (!Array.isArray(before.controlRefs) || !before.controlRefs.length) ? { ...before, controlRefs: before.controlRef ? [before.controlRef] : [] } : before;
   let data;
   try { data = changeConnectionData({ ...source, data: normalized }, String(field), { ...target, code: code?.code, data: JSON.parse(target.data_json) }, action as 'link' | 'unlink'); }
   catch (error) { throw new ConnectionWriteError(error instanceof Error ? error.message : 'invalid'); }

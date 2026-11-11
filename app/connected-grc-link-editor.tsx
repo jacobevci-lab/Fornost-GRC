@@ -14,6 +14,7 @@ const errors: Record<string, [string, string]> = {
   required: ['Bu ilişki zorunlu. Kaldırmak yerine başka bir kayıt seçin.', 'This relationship is required. Select a replacement instead.'],
   validation: ['Kaynak kayıtta tamamlanması gereken alanlar var. Kaydı açıp düzeltin.', 'The source record has incomplete fields. Open and correct it.'],
   'audit-closed': ['Kapalı denetimde değişiklik yapılamaz.', 'A closed audit cannot be changed.'],
+  'not-linked': ['Eski metin referansını kaldırmak için kaynak kaydı düzenleyin.', 'Edit the source record to remove a legacy text reference.'],
   unchanged: ['Bu bağlantı zaten mevcut.', 'This relationship already exists.'],
 };
 
@@ -22,8 +23,8 @@ export default function ConnectedLinkEditor({ row, rows, links, lang, actor, pla
   const sources = rows.filter(item => !item.id.startsWith('enterprise:') && editableConnections[item.module]?.length && canWriteModule(actor, item.module));
   const [sourceId, setSourceId] = useState(row.id), [field, setField] = useState(initialField || editableConnections[row.module]?.[0]?.field || ''), [targetId, setTargetId] = useState('');
   const [query, setQuery] = useState(''), [note, setNote] = useState(''), [busy, setBusy] = useState(false), [message, setMessage] = useState(''), [locked, setLocked] = useState(false), [history, setHistory] = useState<Record<string, string>[] | null>(null), [historyError, setHistoryError] = useState(false);
-  const pending = useRef(false), heading = useRef<HTMLHeadingElement>(null);
-  useEffect(() => { heading.current?.focus({ preventScroll: true }); }, []);
+  const pending = useRef(false), returnFocus = useRef<HTMLElement | null>(null), heading = useRef<HTMLHeadingElement>(null);
+  useEffect(() => { returnFocus.current = document.activeElement instanceof HTMLElement ? document.activeElement : null; heading.current?.focus({ preventScroll: true }); return () => { if (returnFocus.current?.isConnected) returnFocus.current.focus({ preventScroll: true }); }; }, []);
   const source = rows.find(item => item.id === sourceId), rule = source && editableConnections[source.module]?.find(item => item.field === field);
   const options = plan ? rows.filter(item => item.data.kind === 'continuity-plan' && item.data.status === 'draft' && (actor.role === 'Admin' || item.data.owner === actor.email)) : rule ? rows.filter(item => item.id !== source?.id && !item.id.startsWith('enterprise:') && rule.target.includes(item.module)) : [];
   const matching = options.filter(item => recordMatches(item, query, lang));
@@ -61,7 +62,7 @@ export default function ConnectedLinkEditor({ row, rows, links, lang, actor, pla
       {!plan && <><label>{tr ? 'Kaynak kayıt' : 'Source record'}<select value={sourceId} onChange={e => changeSource(e.target.value)}><option value="">{tr ? 'Kayıt seçin' : 'Select record'}</option>{sources.map(item => <option key={item.id} value={item.id}>{item.code || item.id} · {connectedTitle(item)}</option>)}</select></label>
         <label>{tr ? 'İlişki türü' : 'Relationship type'}<select value={field} onChange={e => { setField(e.target.value); setTargetId(''); setMessage(''); }}>{(source && editableConnections[source.module] || []).map(item => <option key={item.field} value={item.field}>{item.label[index]}</option>)}</select></label></>}
       <label>{plan ? (tr ? 'Mevcut taslak planı ara' : 'Find an existing draft plan') : (tr ? 'Hedef kayıt ara' : 'Find target record')}<input value={query} onChange={e => setQuery(e.target.value)} placeholder={tr ? 'Ad veya kod' : 'Name or code'}/></label>
-      <label>{plan ? (tr ? 'Taslak plan' : 'Draft plan') : (tr ? 'Hedef kayıt' : 'Target record')}<select value={targetId} onChange={e => setTargetId(e.target.value)}><option value="">{tr ? 'Kayıt seçin' : 'Select record'}</option>{target && !matching.some(item => item.id === target.id) && <option value={target.id}>{target.code} · {connectedTitle(target)}</option>}{matching.slice(0, 100).map(item => <option key={item.id} value={item.id}>{item.code || item.id} · {connectedTitle(item)}</option>)}</select></label>
+      <label>{plan ? (tr ? 'Taslak plan' : 'Draft plan') : (tr ? 'Hedef kayıt' : 'Target record')}<select value={targetId} onChange={e => setTargetId(e.target.value)}><option value="">{tr ? 'Kayıt seçin' : 'Select record'}</option>{target && !matching.slice(0, 100).some(item => item.id === target.id) && <option value={target.id}>{target.code} · {connectedTitle(target)}</option>}{matching.slice(0, 100).map(item => <option key={item.id} value={item.id}>{item.code || item.id} · {connectedTitle(item)}</option>)}</select></label>
       {!matching.length && <p className="cgw-muted">{tr ? 'Uygun kayıt bulunamadı. Aramayı değiştirin veya kaynak modülde kayıt oluşturun.' : 'No eligible record found. Change the search or create one in its source module.'}</p>}
       {matching.length > 100 && <p>{tr ? 'İlk 100 kayıt gösteriliyor. Aramayı daraltın.' : 'Showing the first 100 records. Refine the search.'}</p>}
       <label>{tr ? 'İşlem notu' : 'Change note'}<textarea value={note} onChange={e => setNote(e.target.value)} minLength={3} maxLength={1000} rows={3} placeholder={tr ? 'Bağlantı değişikliğinin gerekçesi' : 'Reason for this relationship change'}/></label>
