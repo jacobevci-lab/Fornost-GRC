@@ -113,6 +113,9 @@ import "./record-workspace.css";
 import "./record-dialog.css";
 import {useRecordDialog} from "./use-record-dialog";
 import AiWorkspaceHost from "./ai-workspace-host";
+import { AccountViewsPanel } from './account-views-panel';
+import { DEFAULT_REPORT_SECTIONS, REPORT_SECTIONS, reportSectionLabels, reportViewSchema, validateReportDefinition, type ReportSection } from './report-composer-model';
+import './report-composer.css';
 import { buildReportHtml, buildReportPdf, buildReportCsv, reportTitleOf, downloadBlob, reportMetrics, hasReportValue, type ReportOptions } from "./report-export";
 
 type Lang = "tr" | "en";
@@ -2173,7 +2176,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
         ) : active === "Bağlantılı GRC" ? (
           <ConnectedGrc rows={rows} lang={lang} go={setActive} includeAi={currentUser.role === "Admin"} actor={currentUser} refreshRows={load} coreState={registerLoadState} />
         ) : active === "Raporlar" ? (
-          <Reports rows={rows} lang={lang} go={navigateToModule} preparedBy={currentUser.email} includeCapa={currentUser.role === "Admin"} />
+          <Reports rows={rows} lang={lang} go={navigateToModule} preparedBy={currentUser.email} includeCapa={currentUser.role === "Admin"} coreState={registerLoadState} refreshRows={load} />
         ) : active === "Kanıt Otomasyonu" ? (
           <EvidenceAutomation lang={lang} currentUser={currentUser} />
         ) : active === "Regülasyon Merkezi" ? (
@@ -3021,7 +3024,7 @@ function Bars({
     </div>
   );
 }
-function Reports({ rows: coreRows, lang, go, preparedBy, includeCapa }: { rows: Row[]; lang: Lang; go: (module: string) => void; preparedBy:string; includeCapa:boolean }) {
+function Reports({ rows: coreRows, lang, go, preparedBy, includeCapa, coreState, refreshRows }: { rows: Row[]; lang: Lang; go: (module: string) => void; preparedBy:string; includeCapa:boolean; coreState:"loading"|"error"|"ready";refreshRows:()=>Promise<unknown> }) {
   const [capaRows, setCapaRows] = useState<Row[]>([]);
   const [capaState, setCapaState] = useState<"loading"|"ready"|"failed">("loading");
   const [capaFailure, setCapaFailure] = useState<CapaReportFailure>("unavailable");
@@ -3040,6 +3043,7 @@ function Reports({ rows: coreRows, lang, go, preparedBy, includeCapa }: { rows: 
   }, [includeCapa, refreshCapa]);
   const rows = includeCapa ? [...coreRows, ...capaRows] : coreRows;
   const availableReportModules = includeCapa ? [...reportModules, CAPA_REPORT_MODULE] : reportModules;
+  const [sections,setSections]=useState<ReportSection[]>(DEFAULT_REPORT_SECTIONS),[managementNote,setManagementNote]=useState(''),[previewTab,setPreviewTab]=useState<'document'|'records'>('document'),[definitions,setDefinitions]=useState(false);
   const all = "__all__",
     allLabel = lang === "tr" ? "Tüm Modüller" : "All Modules",
     [module, setModule] = useState<string>(all),
@@ -3053,13 +3057,7 @@ function Reports({ rows: coreRows, lang, go, preparedBy, includeCapa }: { rows: 
     [previewPage,setPreviewPage] = useState(1),
     tr = lang === "tr",
     widths = useColumnWidths("Raporlar");
-  useEffect(() => {
-    setUnit(all);
-    setOwner(all);
-    setStatus(all);
-    setPreviewPage(1);
-  }, [module]);
-  const reportUnavailable = includeCapa && (module === all || module === CAPA_REPORT_MODULE) && capaState !== "ready";
+  const reportUnavailable = (module !== CAPA_REPORT_MODULE && coreState !== "ready") || (includeCapa && (module === all || module === CAPA_REPORT_MODULE) && capaState !== "ready");
   const exportInFlight = useRef(false);
   useEffect(() => { setPreviewPage(1); }, [unit, owner, status]);
   const moduleRows = rows.filter((r) => module === all || r.module === module);
@@ -3076,26 +3074,7 @@ function Reports({ rows: coreRows, lang, go, preparedBy, includeCapa }: { rows: 
   const metrics = reportMetrics(module, filtered, tr);
   const evidenceState = useExecutiveAssurance(coreRows);
   const assurance = buildExecutiveAssurance(evidenceState.rows, evidenceState.generatedAt, evidenceState.auditPortfolio);
-  const statusDistribution = Object.entries(filtered.reduce<Record<string, number>>((acc, row) => {
-    const key = display(row.data.status, lang) || (tr ? "Belirtilmedi" : "Unspecified");
-    acc[key] = (acc[key] || 0) + 1;
-    return acc;
-  }, Object.create(null))).sort((a, b) => b[1] - a[1]).slice(0, 6);
-  const reportTitle = `Fornost GRC — ${selectedModuleLabel}`;
-  const qualitySignals = [
-    {
-      label: tr ? "Sahiplik kapsamı" : "Ownership coverage",
-      value: filtered.length ? Math.round((filtered.filter((r) => hasReportValue(r.data.owner)).length / filtered.length) * 100) : 0,
-    },
-    {
-      label: tr ? "İş birimi kapsamı" : "Business unit coverage",
-      value: filtered.length ? Math.round((filtered.filter((r) => hasReportValue(r.data.businessUnit)).length / filtered.length) * 100) : 0,
-    },
-    {
-      label: tr ? "Durum kapsamı" : "Status coverage",
-      value: filtered.length ? Math.round((filtered.filter((r) => hasReportValue(r.data.status)).length / filtered.length) * 100) : 0,
-    },
-  ];
+  const reportTitle = template==="detailed"?(tr?"Detaylı kayıt dökümü":"Detailed register"):(tr?"Yönetim özeti":"Management summary");
   const lastUpdated = filtered
     .map((r) => r.updatedAt || r.createdAt)
     .filter(Boolean)
@@ -3107,14 +3086,25 @@ function Reports({ rows: coreRows, lang, go, preparedBy, includeCapa }: { rows: 
     setStatus(all);
     setPreviewPage(1);
   };
-  const options=():ReportOptions=>({template,preparedBy,classification:classification==="confidential"?(tr?"Gizli":"Confidential"):(tr?"Kurum İçi":"Internal"),fieldLabels:labelMap[lang],moduleLabels:names[lang],scope:includeCapa && (module===all || module===CAPA_REPORT_MODULE)?(tr?"Yüklenmiş çekirdek GRC ve merkezi CAPA kayıtları. AI ve diğer ayrı iş akışı depoları dahil değildir.":"Loaded core GRC and canonical CAPA records. AI and other separate workflow stores are excluded."):(tr?"Yüklenmiş çekirdek GRC kayıtları. CAPA, AI ve ayrı iş akışı depoları dahil değildir.":"Loaded core GRC records. CAPA, AI and separate workflow stores are excluded."),filters:[{label:tr?"Modül":"Module",value:selectedModuleLabel},{label:tr?"İş birimi":"Business unit",value:unit===all?(tr?"Tümü":"All"):unit},{label:tr?"Sahip":"Owner",value:owner===all?(tr?"Tümü":"All"):owner},{label:tr?"Durum":"Status",value:status===all?(tr?"Tümü":"All"):display(status,lang)}]});
+  const options=():ReportOptions=>({template,preparedBy,composer:true,hideFieldKeys:true,sections,intro:sections.includes("note")&&managementNote.trim()?[{label:tr?"Yönetici notu":"Management note",value:managementNote.trim()}]:[],classification:classification==="confidential"?(tr?"Gizli":"Confidential"):(tr?"Kurum İçi":"Internal"),fieldLabels:labelMap[lang],moduleLabels:names[lang],scope:includeCapa && (module===all || module===CAPA_REPORT_MODULE)?(tr?"Yüklenmiş çekirdek GRC ve merkezi CAPA kayıtları. AI ve diğer ayrı iş akışı depoları dahil değildir.":"Loaded core GRC and canonical CAPA records. AI and other separate workflow stores are excluded."):(tr?"Yüklenmiş çekirdek GRC kayıtları. CAPA, AI ve ayrı iş akışı depoları dahil değildir.":"Loaded core GRC records. CAPA, AI and separate workflow stores are excluded."),filters:[{label:tr?"Modül":"Module",value:selectedModuleLabel},{label:tr?"İş birimi":"Business unit",value:unit===all?(tr?"Tümü":"All"):unit},{label:tr?"Sahip":"Owner",value:owner===all?(tr?"Tümü":"All"):owner},{label:tr?"Durum":"Status",value:status===all?(tr?"Tümü":"All"):display(status,lang)}]});
+  const configuration=JSON.stringify({module,unit,owner,status,template,classification,sections,managementNote,lang});
+  const dataVersion=JSON.stringify(filtered);
+  // Keep one report identity across preview and downloads until scope or source data changes.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const stamp=useMemo(()=>({reportId:`FR-${crypto.randomUUID()}`,generatedAt:new Date().toISOString()}),[configuration,dataVersion]);
+  const snapshotOptions={...options(),...stamp};
+  const documentHtml=buildReportHtml(reportTitle,filtered,metrics,tr,snapshotOptions);
+  const definition={query:'',filters:{module,unit,owner,status,template,classification},columns:sections};
+  const sectionLabels=Object.fromEntries(REPORT_SECTIONS.map(key=>[key,reportSectionLabels[key][tr?0:1]]));
+  function applyDefinition(value:Parameters<typeof validateReportDefinition>[0]){const next=validateReportDefinition(value),f=next.filters;if(f.module===CAPA_REPORT_MODULE&&!includeCapa)throw new Error('schema');setModule(f.module);setUnit(f.unit);setOwner(f.owner);setStatus(f.status);setTemplate(f.template as 'management'|'detailed');setClassification(f.classification);setSections(next.columns as ReportSection[]);setManagementNote('');setPreviewPage(1);}
+  function changeModule(value:string){setModule(value);setUnit(all);setOwner(all);setStatus(all);setPreviewPage(1);}
   function htmlReport() {
     if (reportUnavailable) return;
-    downloadBlob(`Fornost-GRC-${exportSlug}.html`, new Blob([buildReportHtml(reportTitle, filtered, metrics, tr,options())], { type: "text/html;charset=utf-8" }));
+    downloadBlob(`Fornost-GRC-${exportSlug}.html`, new Blob([documentHtml], { type: "text/html;charset=utf-8" }));
   }
   async function pdfReport() {
     if(reportUnavailable||exportInFlight.current)return;exportInFlight.current=true;setExporting(true);setExportError("");
-    try{downloadBlob(`Fornost-GRC-${exportSlug}.pdf`,await buildReportPdf(reportTitle,metrics,filtered,tr,options()));}
+    try{downloadBlob(`Fornost-GRC-${exportSlug}.pdf`,await buildReportPdf(reportTitle,metrics,filtered,tr,snapshotOptions));}
     catch{setExportError(tr?"PDF oluşturulamadı. Türkçe/Latin dışı desteklenmeyen karakter veya font yükleme sorunu olabilir. Veriyi korumak için HTML veya CSV kullanın.":"PDF could not be generated. Unsupported characters or a font loading failure may be involved. Use HTML or CSV to preserve the data.");}
     finally{exportInFlight.current=false;setExporting(false);}
   }
@@ -3124,13 +3114,17 @@ function Reports({ rows: coreRows, lang, go, preparedBy, includeCapa }: { rows: 
     downloadBlob(`Fornost-GRC-assurance-pack-${new Date().toISOString().slice(0,10)}.html`, new Blob([buildAssuranceReportHtml(evidenceState.rows, tr, evidenceState.generatedAt, evidenceState.auditPortfolio)], { type: "text/html;charset=utf-8" }));
   }
   async function excel() {
-    if (reportUnavailable) return;
+    if (reportUnavailable||exportInFlight.current) return;
+    exportInFlight.current=true;setExporting(true);setExportError("");
+    try {
     const labels = labelMap[lang];
-    const data = filtered.map((r) => ({
+    const data:Record<string,unknown>[] = filtered.map((r) => ({
       [tr ? "Modül" : "Module"]: names[lang][r.module] || r.module,
-      ...Object.fromEntries(
-        Object.entries(r.data).map(([k, v]) => [labels[k] || k, v]),
-      ),
+      [tr ? "Kayıt kimliği" : "Record ID"]: r.id,
+      [tr ? "Kod" : "Code"]: r.code||r.data.code||r.id,
+      [tr ? "Son güncelleme" : "Updated at"]: r.updatedAt||r.createdAt||"",
+      ...Object.fromEntries(Object.entries(r.data).map(([k,v])=>[`${labels[k]||k} [${k}]`,v])),
+      'Report ID':stamp.reportId,'Generated UTC':stamp.generatedAt,'Classification':snapshotOptions.classification,'Scope':snapshotOptions.scope,'Filters':snapshotOptions.filters?.map(f=>`${f.label}: ${f.value}`).join(' | '),
     }));
     const keys = [...new Set(data.flatMap((row) => Object.keys(row)))];
     await writeXlsxFile([
@@ -3139,33 +3133,33 @@ function Reports({ rows: coreRows, lang, go, preparedBy, includeCapa }: { rows: 
         keys.map((key) => ({ value: safeSpreadsheetCell(row[key]) })),
       ),
     ]).toFile(
-      `Fornost-GRC-${exportSlug}-${new Date().toISOString().slice(0, 10)}.xlsx`,
+      `Fornost-GRC-${exportSlug}-${stamp.generatedAt.slice(0, 10)}.xlsx`,
     );
+    }catch{setExportError(tr?"Excel oluşturulamadı. Yeniden deneyin veya CSV kullanın.":"Excel could not be generated. Retry or use CSV.");}
+    finally{exportInFlight.current=false;setExporting(false);}
   }
   return (
-    <div className="report-workspace">
+    <div className="report-workspace" id="report-composer">
       <section className="report-hero">
         <div>
           <small>{tr ? "RAPORLAMA" : "REPORTING"}</small>
-          <h2>{tr ? "Rapor oluştur" : "Create a report"}</h2>
+          <h2>{tr ? "Rapor Hazırlama Masası" : "Report Preparation Desk"}</h2>
           <p>
             {tr
-              ? "Kapsamı seçin, kayıtları inceleyin ve raporunuzu indirin."
-              : "Choose a scope, review the records and download your report."}
+              ? "Kapsamı seçin, raporu inceleyin ve indirin."
+              : "Choose a scope, review your report and download it."}
           </p>
         </div>
         <div className="report-hero-actions">
-          <button className="ghost" onClick={() => window.dispatchEvent(new CustomEvent("fornost:open-ai", { detail: { module: names[lang].Raporlar, mode: "agent", agentKind: "reporting", prompt: tr ? `${selectedModuleLabel} kapsamında önemli risk, uyum, denetim, kanıt ve tedarikçi eğilimlerini; karar boşluklarını ve öncelikli yönetim aksiyonlarını kaynaklarıyla analiz et.` : `Analyze material risk, compliance, audit, evidence and vendor trends, decision gaps and prioritized management actions for ${selectedModuleLabel} with sources.` } }))}>
-            {tr ? "AI Yönetim Analizi" : "AI Management Analysis"}
-          </button>
+          <button className="ghost" type="button" aria-expanded={definitions} onClick={()=>setDefinitions(value=>!value)}>{tr?'Tanımı kaydet / aç':'Save / open definition'}</button>
           <button className="primary" onClick={()=>void pdfReport()} disabled={reportUnavailable||!filtered.length||exporting}>
-            {exporting?(tr?"PDF hazırlanıyor…":"Preparing PDF…"):(tr ? "PDF Raporu" : "PDF Report")}
+            {exporting?(tr?"Rapor hazırlanıyor…":"Preparing report…"):(tr ? "PDF Raporu" : "PDF Report")}
           </button>
           <details className="workspace-export"><summary>{tr ? "Dışa aktar" : "Export"}</summary><div>
           <button className="ghost" onClick={htmlReport} disabled={reportUnavailable||!filtered.length}>
             HTML
           </button>
-          <button className="ghost" onClick={() => downloadBlob(`Fornost-GRC-${exportSlug}.csv`,new Blob([buildReportCsv(reportTitle,filtered,metrics,tr,options())],{type:"text/csv;charset=utf-8"}))} disabled={reportUnavailable||!filtered.length}>
+          <button className="ghost" onClick={() => downloadBlob(`Fornost-GRC-${exportSlug}.csv`,new Blob([buildReportCsv(reportTitle,filtered,metrics,tr,snapshotOptions)],{type:"text/csv;charset=utf-8"}))} disabled={reportUnavailable||!filtered.length}>
             CSV
           </button>
           <button className="ghost" onClick={excel} disabled={reportUnavailable||!filtered.length}>
@@ -3174,38 +3168,35 @@ function Reports({ rows: coreRows, lang, go, preparedBy, includeCapa }: { rows: 
           </div></details>
         </div>
       </section>
-      <details className="report-secondary report-global-assurance"><summary>{tr?"Genel GRC güvencesi · ayrı kapsam":"Global GRC assurance · separate scope"}</summary><p className="report-limit-note">{tr?"Yüklenmiş çekirdek GRC kayıtlarını ve kayıtlı denetim portföyünü kapsar; CAPA ve yukarıdaki filtreler dahil değildir.":"Includes loaded core GRC records and the persisted audit portfolio; CAPA and the filters above are excluded."}</p>
-      <EvidenceAssuranceStatus state={evidenceState} lang={lang} />
-      <div className="report-assurance-export"><button type="button" className="ghost" onClick={assuranceReport} disabled={!evidenceState.ready}>
-        {tr ? "Genel Güvence Paketi (ayrı kapsam)" : "Global Assurance Pack (separate scope)"}
-      </button></div>
-      <AuditReadinessPortfolioPanel portfolio={evidenceState.auditPortfolio} lang={lang} />
-      <section className="report-assurance-strip" aria-label={tr ? "Bağlı GRC güvence özeti" : "Connected GRC assurance summary"}>
-        <div><small>{tr ? "Bütünleşik güvence" : "Composite assurance"}</small><b>{evidenceState.ready && assurance.score !== null ? `${assurance.score}/100` : "—"}</b><span>{!evidenceState.ready || assurance.score === null ? (tr ? "Değerlendirme bekleniyor" : "Awaiting evaluation") : assurance.state === "strong" ? (tr ? "Güçlü" : "Strong") : assurance.state === "developing" ? (tr ? "Gelişiyor" : "Developing") : (tr ? "Kritik" : "Critical")}</span></div>
-        <div><small>{tr ? "Zincir bütünlüğü" : "Chain integrity"}</small><b>{assurance.traceabilityScore}%</b><span>{assurance.completeChains}/{assurance.totalChains} {tr ? "tam" : "complete"}</span></div>
-        <div><small>{tr ? "Kontrol güvencesi" : "Control assurance"}</small><b>{evidenceState.evidenceReady ? `${assurance.controlScore}%` : "—"}</b><span>{tr ? "Test ve kanıt" : "Test and evidence"}</span></div>
-        <div><small>{tr ? "Kanıt güveni" : "Evidence confidence"}</small><b>{evidenceState.evidenceReady ? `${assurance.evidenceScore}%` : "—"}</b><span>{evidenceState.evidenceReady ? assurance.currentEvidence : "—"}/{assurance.totalEvidence} {tr ? "güncel" : "current"}</span></div>
-        <div role="button" tabIndex={0} onClick={() => go("Bağlantılı GRC")} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") go("Bağlantılı GRC"); }}><small>{tr ? "Denetim hazırlığı" : "Audit readiness"}</small><b>{evidenceState.auditReady && assurance.auditScore !== null ? `${assurance.auditScore}%` : "—"}</b><span>{tr ? "Açıkları incele →" : "Review gaps →"}</span></div>
-      </section>
-      </details>
       {includeCapa && <div className="report-source-status" role={capaState === "failed" ? "alert" : "status"}>
         <span>{capaState === "ready" ? (tr ? `CAPA kaynağı: ${capaRows.length} kayıt hazır` : `CAPA source: ${capaRows.length} records available`) : capaState === "loading" ? (tr ? `CAPA kayıtları yükleniyor… ${capaLoaded}` : `Loading CAPA records… ${capaLoaded}`) : capaReportFailureMessage(capaFailure, tr)}</span>
         <button className="ghost" disabled={capaState === "loading"} onClick={() => setRefreshCapa(value => value + 1)}>{tr ? "Yenile" : "Refresh"}</button>
       </div>}
       {exportError&&<p className="report-export-error" role="alert">{exportError}</p>}
-      <section className="report-filter-panel">
-        <header className="report-section-head"><h3>{tr?"Rapor kapsamı":"Report scope"}</h3><button type="button" onClick={resetFilters} disabled={unit===all&&owner===all&&status===all}>{tr?"Filtreleri temizle":"Clear filters"}</button></header>
-        <div className="report-scope-controls">
-          <label className="report-module-picker"><span>{tr?"Modül":"Module"}</span><select aria-label={tr?"Rapor modülü":"Report module"} value={module} onChange={e=>setModule(e.target.value)}><option value={all}>{allLabel} ({rows.length})</option>{availableReportModules.map(item=><option key={item} value={item}>{names[lang][item]||item} ({rows.filter(row=>row.module===item).length})</option>)}</select></label>
-          <div className="report-filters">
-            <Filter label={tr?"İş Birimi":"Business Unit"} value={unit} set={setUnit} opts={values("businessUnit")} all={all} allLabel={tr?"Tümü":"All"}/>
-            <Filter label={tr?"Sahip":"Owner"} value={owner} set={setOwner} opts={values("owner")} all={all} allLabel={tr?"Tümü":"All"}/>
-            <Filter label={tr?"Durum":"Status"} value={status} set={setStatus} opts={values("status")} all={all} allLabel={tr?"Tümü":"All"}/>
-          </div>
-        </div>
-      <div className="report-template-settings"><label>{tr?"Şablon":"Template"}<select aria-label={tr?"Şablon":"Template"} value={template} onChange={e=>setTemplate(e.target.value as "management"|"detailed")}><option value="management">{tr?"Yönetim özeti":"Management summary"}</option><option value="detailed">{tr?"Detaylı kayıt dökümü":"Detailed register"}</option></select></label><label>{tr?"Sınıflandırma":"Classification"}<select aria-label={tr?"Sınıflandırma":"Classification"} value={classification} onChange={e=>setClassification(e.target.value)}><option value="internal">{tr?"Kurum İçi":"Internal"}</option><option value="confidential">{tr?"Gizli":"Confidential"}</option></select></label><p>{tr?"Özet: temel alanlar. Detaylı döküm: tüm kayıt alanları.":"Summary: key fields. Detailed register: every record field."}</p></div>
-        <div className="report-scope-strip"><span><b>{reportUnavailable ? "—" : filtered.length}</b> {tr?"kayıt seçildi":"records selected"} · {selectedModuleLabel}</span><span>{tr?"Son güncelleme":"Last updated"}: {lastUpdated?new Date(lastUpdated).toLocaleDateString(tr?'tr-TR':'en-GB'):'—'}</span></div>
+      {definitions&&<div className="report-definitions"><AccountViewsPanel module="Raporlar" lang={lang} current={definition} schema={reportViewSchema} variant="report" labels={{...sectionLabels,module:tr?'Modül':'Module',unit:tr?'İş birimi':'Business unit',owner:tr?'Sahip':'Owner',status:tr?'Durum':'Status',template:tr?'Şablon':'Template',classification:tr?'Sınıflandırma':'Classification'}} apply={applyDefinition}/></div>}
+      {coreState!=="ready"&&<div role="alert" className="report-source-status"><span>{tr?'Çekirdek kayıtlar hazır değil. Rapor kapsamı doğrulanamıyor.':'Core records are not ready. The report scope cannot be confirmed.'}</span><button disabled={coreState==='loading'} onClick={()=>void refreshRows()}>{tr?'Kayıtları tekrar yükle':'Reload records'}</button></div>}
+      <div className="report-composer-grid">
+      <section className="report-filter-panel" aria-label={tr?'Rapor ayarları':'Report settings'}>
+        <label>{tr?'Şablon':'Template'}<select aria-label={tr?'Şablon':'Template'} value={template} onChange={e=>setTemplate(e.target.value as 'management'|'detailed')}><option value="management">{tr?'Yönetim özeti':'Management summary'}</option><option value="detailed">{tr?'Detaylı kayıt dökümü':'Detailed register'}</option></select></label>
+        <p className="report-snapshot-mode">{tr?'Anlık durum':'Point-in-time view'}<br/><time dateTime={stamp.generatedAt}>{new Date(stamp.generatedAt).toLocaleString(tr?'tr-TR':'en-GB')}</time></p>
+        <label>{tr?'Modül':'Module'}<select aria-label={tr?'Rapor modülü':'Report module'} value={module} onChange={e=>changeModule(e.target.value)}><option value={all}>{tr?'Desteklenen kaynaklar':'Supported sources'} ({rows.length})</option>{availableReportModules.map(item=><option key={item} value={item}>{names[lang][item]||item} ({rows.filter(row=>row.module===item).length})</option>)}</select></label>
+        <label>{tr?'Sınıflandırma':'Classification'}<select aria-label={tr?'Sınıflandırma':'Classification'} value={classification} onChange={e=>setClassification(e.target.value)}><option value="internal">{tr?'Kurum İçi':'Internal'}</option><option value="confidential">{tr?'Gizli':'Confidential'}</option></select></label>
+        <details className="report-advanced"><summary>{tr?'Gelişmiş filtreler':'Advanced filters'}{[unit,owner,status].filter(x=>x!==all).length?` (${[unit,owner,status].filter(x=>x!==all).length})`:''}</summary><div className="report-filters">
+         <Filter label={tr?'İş Birimi':'Business Unit'} value={unit} set={setUnit} opts={values('businessUnit')} all={all} allLabel={tr?'Tümü':'All'}/>
+         <Filter label={tr?'Sahip':'Owner'} value={owner} set={setOwner} opts={values('owner')} all={all} allLabel={tr?'Tümü':'All'}/>
+         <Filter label={tr?'Durum':'Status'} value={status} set={setStatus} opts={values('status')} all={all} allLabel={tr?'Tümü':'All'}/>
+        </div><button type="button" onClick={resetFilters} disabled={unit===all&&owner===all&&status===all}>{tr?'Filtreleri temizle':'Clear filters'}</button></details>
+        <fieldset className="report-sections"><legend>{tr?'Rapor bölümleri':'Report sections'}</legend>{REPORT_SECTIONS.map(key=><label key={key}><input type="checkbox" checked={sections.includes(key)} disabled={key==='metrics'} onChange={e=>setSections(current=>e.target.checked?REPORT_SECTIONS.filter(k=>k===key||current.includes(k)):[...current.filter(k=>k!==key)])}/>{sectionLabels[key]}</label>)}</fieldset>
+        {sections.includes('note')&&<label>{tr?'Yönetici notu':'Management note'}<textarea aria-label={tr?'Yönetici notu':'Management note'} maxLength={4000} value={managementNote} onChange={e=>setManagementNote(e.target.value)} placeholder={tr?'Kararlar ve açıklamalarınızı ekleyin…':'Add your decisions and commentary…'}/></label>}
+        <p className="report-limit-note">{snapshotOptions.scope}</p><p className="report-limit-note">{tr?'En yeni kayıt değişikliği':'Latest record change'}: {lastUpdated?new Date(lastUpdated).toLocaleDateString(tr?'tr-TR':'en-GB'):'—'}</p>
       </section>
+      <section className="report-preview-area" aria-label={tr?'Rapor çalışma alanı':'Report workspace'}>
+        <div className="report-preview-tabs" role="group" aria-label={tr?'Rapor görünümü':'Report view'}><button aria-pressed={previewTab==='document'} onClick={()=>setPreviewTab('document')}>{tr?'Rapor önizlemesi':'Report preview'}</button><button aria-pressed={previewTab==='records'} onClick={()=>setPreviewTab('records')}>{tr?'Kaynak kayıtlar':'Source records'} ({reportUnavailable?'—':filtered.length})</button></div>
+        {reportUnavailable?<div className="report-preview-empty" role="status">{tr?'Seçili kaynaklar hazır olduğunda rapor gösterilecek.':'The report will appear when the selected sources are ready.'}</div>:previewTab==='document'?<>
+         <p className="report-preview-caption">{tr?'HTML belge önizlemesi · PDF sayfalaması farklı olabilir.':'HTML document preview · PDF pagination may differ.'}</p>
+         {!filtered.length?<div className="report-preview-empty">{tr?'Seçili kapsamda raporlanacak kayıt bulunamadı. Filtreleri değiştirin.':'No records match this scope. Adjust the filters.'}</div>:<iframe className="report-document" title={tr?'Rapor belge önizlemesi':'Report document preview'} sandbox="" srcDoc={documentHtml}/>}
+         <p className="report-preview-caption">{tr?'Bölüm seçimi PDF ve HTML için geçerlidir. CSV ve Excel seçili kapsamdaki tüm kayıtları içerir.':'Section selection applies to PDF and HTML. CSV and Excel contain every record in the selected scope.'}</p>
+        </>:<>
       <section className="report-summary">
         {(reportUnavailable ? metrics.map(metric => ({...metric, value:"—"})) : metrics).map((metric) => <Kpi key={metric.label} n={metric.value} t={metric.label} s={metric.note} />)}
       </section>
@@ -3216,7 +3207,7 @@ function Reports({ rows: coreRows, lang, go, preparedBy, includeCapa }: { rows: 
           </b>
           <span>
             {tr ? "Oluşturma" : "Created"}:{" "}
-            {new Date().toLocaleDateString(tr ? "tr-TR" : "en-GB")}
+            {new Date(stamp.generatedAt).toLocaleDateString(tr ? "tr-TR" : "en-GB")}
           </span>
         </div>
         <div className="table-wrap" tabIndex={0} role="region" aria-label={lang === "tr" ? "Kayıt tablosu" : "Record table"}>
@@ -3266,30 +3257,30 @@ function Reports({ rows: coreRows, lang, go, preparedBy, includeCapa }: { rows: 
         </div>
         <div role="navigation" className="report-pagination" aria-label={tr?"Rapor önizleme sayfaları":"Report preview pages"}><span>{tr?"Sayfa":"Page"} {currentPage}/{pages} · {filtered.length} {tr?"kayıt; dışa aktarım tümünü içerir":"records; all are included in exports"}</span><button type="button" disabled={currentPage<=1} onClick={()=>setPreviewPage(currentPage-1)}>{tr?"Önceki":"Previous"}</button><button type="button" disabled={currentPage>=pages} onClick={()=>setPreviewPage(currentPage+1)}>{tr?"Sonraki":"Next"}</button></div>
       </section>
-      <details className="report-secondary"><summary>{tr?"Veri kalitesi ve durum dağılımı":"Data quality and status distribution"}</summary>
-      <section className="report-analysis-grid">
-        <div className="report-insights">
-          <div>
-            <small>{tr ? "YÖNETİM GÖRÜNÜMÜ" : "MANAGEMENT VIEW"}</small>
-            <h3>{tr ? "Durum dağılımı" : "Status distribution"}</h3>
-            <p>{tr ? "Seçili filtrelerle rapora giren kayıtların güncel dağılımı." : "Current distribution of records included by the selected filters."}</p>
-          </div>
-          {statusDistribution.length ? <Bars items={statusDistribution.map(([label, value], index) => ({ label, value, cls: ["uyumlu", "orta", "yüksek", "kritik"][index % 4] }))} /> : <p className="report-empty-inline">{tr ? "Dağılım için kayıt bulunamadı." : "No records available for distribution."}</p>}
-        </div>
-        <div className="report-data-quality">
-          <small>{tr ? "VERİ GÜVENİ" : "DATA CONFIDENCE"}</small>
-          <h3>{tr ? "Rapor veri kalitesi" : "Report data quality"}</h3>
-          <p>{tr ? "Zorunlu yönetim alanlarının doluluk oranı." : "Completion rate of core management fields."}</p>
-          <div>
-            {qualitySignals.map((signal) => <div key={signal.label}><span><b>{signal.label}</b><em>{signal.value}%</em></span><i><u style={{ width: `${signal.value}%` }} /></i></div>)}
-          </div>
-        </div>
+      </>}
+      </section></div>
+      <details className="report-secondary report-global-assurance"><summary>{tr?"Genel GRC güvencesi · ayrı kapsam":"Global GRC assurance · separate scope"}</summary><p className="report-limit-note">{tr?"Yüklenmiş çekirdek GRC kayıtlarını ve kayıtlı denetim portföyünü kapsar; CAPA ve yukarıdaki filtreler dahil değildir.":"Includes loaded core GRC records and the persisted audit portfolio; CAPA and the filters above are excluded."}</p>
+      <EvidenceAssuranceStatus state={evidenceState} lang={lang} />
+      <div className="report-assurance-export"><button type="button" className="ghost" onClick={assuranceReport} disabled={!evidenceState.ready}>
+        {tr ? "Genel Güvence Paketi (ayrı kapsam)" : "Global Assurance Pack (separate scope)"}
+      </button></div>
+      <AuditReadinessPortfolioPanel portfolio={evidenceState.auditPortfolio} lang={lang} />
+      <section className="report-assurance-strip" aria-label={tr ? "Bağlı GRC güvence özeti" : "Connected GRC assurance summary"}>
+        <div><small>{tr ? "Bütünleşik güvence" : "Composite assurance"}</small><b>{evidenceState.ready && assurance.score !== null ? `${assurance.score}/100` : "—"}</b><span>{!evidenceState.ready || assurance.score === null ? (tr ? "Değerlendirme bekleniyor" : "Awaiting evaluation") : assurance.state === "strong" ? (tr ? "Güçlü" : "Strong") : assurance.state === "developing" ? (tr ? "Gelişiyor" : "Developing") : (tr ? "Kritik" : "Critical")}</span></div>
+        <div><small>{tr ? "Zincir bütünlüğü" : "Chain integrity"}</small><b>{assurance.traceabilityScore}%</b><span>{assurance.completeChains}/{assurance.totalChains} {tr ? "tam" : "complete"}</span></div>
+        <div><small>{tr ? "Kontrol güvencesi" : "Control assurance"}</small><b>{evidenceState.evidenceReady ? `${assurance.controlScore}%` : "—"}</b><span>{tr ? "Test ve kanıt" : "Test and evidence"}</span></div>
+        <div><small>{tr ? "Kanıt güveni" : "Evidence confidence"}</small><b>{evidenceState.evidenceReady ? `${assurance.evidenceScore}%` : "—"}</b><span>{evidenceState.evidenceReady ? assurance.currentEvidence : "—"}/{assurance.totalEvidence} {tr ? "güncel" : "current"}</span></div>
+        <div role="button" tabIndex={0} onClick={() => go("Bağlantılı GRC")} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") go("Bağlantılı GRC"); }}><small>{tr ? "Denetim hazırlığı" : "Audit readiness"}</small><b>{evidenceState.auditReady && assurance.auditScore !== null ? `${assurance.auditScore}%` : "—"}</b><span>{tr ? "Açıkları incele →" : "Review gaps →"}</span></div>
       </section>
       </details>
-      <p className="report-limit-note">{options().scope}</p>
+      <details className="report-secondary"><summary>{tr?'AI ile analiz':'Analyze with AI'}</summary><p>{tr?'İsteğe bağlı analiz ayrı kaynak kapsamı kullanabilir. Kaynakları inceleyin; sonuç rapora otomatik eklenmez.':'Optional analysis may use a separate source scope. Review its sources; it is not automatically added to the report.'}</p>          <button className="ghost" onClick={() => window.dispatchEvent(new CustomEvent("fornost:open-ai", { detail: { module: names[lang].Raporlar, mode: "agent", agentKind: "reporting", prompt: tr ? `${selectedModuleLabel} kapsamında önemli risk, uyum, denetim, kanıt ve tedarikçi eğilimlerini; karar boşluklarını ve öncelikli yönetim aksiyonlarını kaynaklarıyla analiz et.` : `Analyze material risk, compliance, audit, evidence and vendor trends, decision gaps and prioritized management actions for ${selectedModuleLabel} with sources.` } }))}>
+            {tr ? "AI Yönetim Analizi" : "AI Management Analysis"}
+          </button>
+</details>
     </div>
   );
 }
+
 function ModuleFilter({
   value,
   set,
@@ -3335,7 +3326,7 @@ function Filter({
       <span>{label}</span>
       <select value={value} onChange={(e) => set(e.target.value)}>
         <option value={all}>{allLabel}</option>
-        {opts.map((x) => (
+        {(value!==all&&!opts.includes(value)?[value,...opts]:opts).map((x) => (
           <option key={x}>{x}</option>
         ))}
       </select>

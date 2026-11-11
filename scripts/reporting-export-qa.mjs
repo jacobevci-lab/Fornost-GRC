@@ -55,7 +55,8 @@ try{
  await panel.getByLabel('Report module',{exact:true}).selectOption('BIA');
  await expect(panel.getByRole('button',{name:'PDF Report',exact:true})).toBeVisible();
  await panel.locator('.report-hero').scrollIntoViewIfNeeded();
- await expect(panel.locator('.report-global-assurance>summary')).toBeInViewport();
+ await expect(panel.locator('.report-global-assurance>summary')).toBeVisible();
+ await panel.getByRole('button',{name:/^Source records/}).click();
  const headerBox=await panel.boundingBox(),tableBox=await panel.locator('.table-card').boundingBox();assert.ok(tableBox.y-headerBox.y<700,'Register must be close to the scope controls');
  await mkdir('layout-qa-artifacts',{recursive:true});
  await panel.screenshot({path:'layout-qa-artifacts/reporting-desktop.png'});
@@ -65,10 +66,10 @@ try{
  await page.setViewportSize({width:1536,height:960});
  await expect(panel.locator('tbody tr')).toHaveCount(50);
  const geometry=await panel.evaluate(el=>{const controls=[...el.querySelectorAll('.report-pagination button')].map(b=>{const r=b.getBoundingClientRect();return {width:r.width,height:r.height,y:r.y}});const wrap=el.querySelector('.table-wrap');const heads=[...el.querySelectorAll('th')];return {controls,overflow:wrap.scrollWidth-wrap.clientWidth,valueFont:parseFloat(getComputedStyle(el.querySelector('.kpi>b')).fontSize),caption:el.querySelector('caption')!==null,titleWidth:heads[2].getBoundingClientRect().width,codeWidth:heads[0].getBoundingClientRect().width}});
- assert.ok(geometry.controls.every(b=>b.width<130&&b.height<=40));assert.ok(Math.abs(geometry.controls[0].y-geometry.controls[1].y)<2);assert.ok(geometry.overflow<=2);assert.ok(geometry.valueFont>=20);assert.equal(geometry.caption,false);assert.ok(geometry.titleWidth>geometry.codeWidth*2);
+ assert.ok(geometry.controls.every(b=>b.width<130&&b.height<=40));assert.ok(Math.abs(geometry.controls[0].y-geometry.controls[1].y)<2);assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+2));assert.ok(geometry.valueFont>=20);assert.equal(geometry.caption,false);assert.ok(geometry.titleWidth>geometry.codeWidth*2);
 
  await panel.getByRole('button',{name:'Next',exact:true}).click();await panel.getByRole('button',{name:'Next',exact:true}).click();await expect(panel.locator('tbody tr')).toHaveCount(21);
- await panel.locator('.report-filters select').nth(1).selectOption('Çağrı');await expect(panel.locator('.report-pagination')).toContainText('Page 1/3');
+ await panel.locator('.report-advanced summary').click();await panel.locator('.report-filters select').nth(1).selectOption('Çağrı');await expect(panel.locator('.report-pagination')).toContainText('Page 1/3');
  await panel.getByLabel('Template',{exact:true}).selectOption('detailed');await panel.getByLabel('Classification',{exact:true}).selectOption('confidential');
  await panel.locator('.workspace-export summary').click();
  for(const label of ['HTML','CSV','PDF Report']){
@@ -85,7 +86,7 @@ try{
   const text=(await readFile(await download.path())).toString('utf8');assert.match(text,/RISK-QA/);assert.match(text,/CTRL-QA/);assert.match(text,/CAPA-DETAIL/);
  }
  await panel.getByLabel('Report module',{exact:true}).selectOption('__all__');
- await expect(panel.locator('.report-scope-strip')).toContainText('122');
+ await expect(panel.getByRole('button',{name:/^Source records/})).toContainText('122');
  await panel.locator('.workspace-export summary').click();
  capaUnavailable=true;await panel.locator('.report-source-status button').click();
  await expect(panel.locator('.report-source-status')).toContainText('CAPA is unavailable');

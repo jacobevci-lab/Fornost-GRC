@@ -50,3 +50,19 @@ test('legacy placeholders do not claim ownership or complete report quality',()=
  assert.equal(hasReportValue('Yakup Evci'),true);
  assert.equal(hasReportValue('unassigned@example.test'),true,'Do not exclude a real address containing the word');
 });
+
+test('composer sections preserve the same snapshot identity and do not limit CSV records',async()=>{
+ const rows=[{id:'R-HIGH',module:'BIA',data:{process:'Priority record',criticality:'Yüksek',owner:'QA'}},{id:'R-LOW',module:'BIA',data:{process:'Ordinary record',criticality:'Orta',owner:'QA'}}];
+ const config={...options,fontBytes,composer:true,sections:['metrics','note','priorities'] as const,intro:[{label:'Management note',value:'Reviewed <script>unsafe()</script>'}]};
+ const opts={...config,sections:[...config.sections]};
+ const html=buildReportHtml('Composer',rows,[],false,opts),csv=buildReportCsv('Composer',rows,[],false,opts);
+ assert.match(html,/Priority record/);assert.doesNotMatch(html,/Ordinary record|<h2>Record register|<h2>Data quality/);assert.match(html,/&lt;script&gt;/);assert.match(csv,/Ordinary record/);assert.match(html,/FR-TEST/);assert.match(csv,/FR-TEST/);
+ const blob=await buildReportPdf('Composer',[],rows,false,opts);
+ const {getDocument}=await import('pdfjs-dist/legacy/build/pdf.mjs');const pdf=await getDocument({data:new Uint8Array(await blob.arrayBuffer()),useSystemFonts:false}).promise;let text='';
+ for(let n=1;n<=pdf.numPages;n++)text+=(await (await pdf.getPage(n)).getTextContent()).items.map(item=>'str' in item?item.str:'').join(' ');
+ assert.ok(text.includes('Reviewed <script>unsafe()</script>'));assert.match(text,/Priority record/);assert.doesNotMatch(text,/Ordinary record|Record register|Data quality/);assert.match(text,/FR-TEST/);await pdf.destroy();
+});
+test('priorities use assessed risk scores, preserve records and do not infer unknown severity',()=>{
+ const rows=[{id:'HIGH',module:'Risk Assessment',data:{inherentLikelihood:'5',inherentImpact:'4'}},{id:'UNKNOWN',module:'Risk Assessment',data:{riskLevel:'Yüksek'}},{id:'LOW',module:'BIA',data:{criticality:'Orta'}},{id:'CAPA',module:'Bulgular ve CAPA',data:{severity:'critical'}}];
+ const s=reportSnapshot('Priorities',rows,[],false,options);assert.deepEqual(s.priorityRows.map(r=>r.cells[0]),['HIGH','CAPA']);assert.equal(s.records.length,4);
+});

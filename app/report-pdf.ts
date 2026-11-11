@@ -10,7 +10,7 @@ export async function renderReportPdf(s:Snapshot,suppliedFont?:Uint8Array){
  const doc=await PDFDocument.create();doc.registerFontkit(fontkit);
  const font=await doc.embedFont(fontBytes,{subset:true}),characters=new Set(font.getCharacterSet());
  doc.setTitle(s.title);doc.setAuthor(s.preparedBy);doc.setSubject(`${s.id} | ${s.classification} | ${s.scope}`);doc.setCreator('Fornost GRC');doc.setCreationDate(new Date(s.generatedAt));
- const ink=rgb(.15,.15,.15),accent=rgb(.58,.26,.06),line=rgb(.85,.82,.78),muted=rgb(.35,.35,.35),pale=rgb(.965,.953,.937);
+ const ink=rgb(.15,.15,.15),accent=s.composer?rgb(.04,.39,.37):rgb(.58,.26,.06),line=rgb(.85,.82,.78),muted=rgb(.35,.35,.35),pale=rgb(.965,.953,.937);
  const width=842,height=595,margin=36,usable=width-margin*2;
  let page:PDFPage,y=0;
  const safe=(value:unknown)=>{const raw=String(value??'—').replace(/\r\n?/g,'\n').replace(/\t/g,'    ').replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g,'');for(const ch of raw)if(ch!=='\n'&&!characters.has(ch.codePointAt(0)!))throw new Error('Unsupported report character; use HTML or CSV to preserve the original text.');return raw;};
@@ -32,12 +32,6 @@ export async function renderReportPdf(s:Snapshot,suppliedFont?:Uint8Array){
  paragraph(`${s.tr?'Kapsam':'Scope'}: ${s.records.length} ${s.tr?'kayıt':'records'} · ${s.template==='detailed'?(s.tr?'Detaylı kayıt dökümü':'Detailed register'):(s.tr?'Yönetim özeti':'Management summary')}`,11);
  paragraph(s.scope,9);
  paragraph(s.filters.map(f=>`${f.label}: ${f.value}`).join(' · ')||(s.tr?'Ek filtre yok':'No additional filters'),9);
- for(const item of s.intro){paragraph(item.label,12,accent);paragraph(item.value,10);}
- paragraph(s.tr?'Yönetim göstergeleri':'Management indicators',14,accent);
- for(const metric of s.metrics){paragraph(`${metric.label}: ${metric.value}`,12);paragraph(metric.note,9,muted);}
- if(s.quality.length){paragraph(s.tr?'Veri kalitesi / eksik alanlar':'Data quality / missing fields',12,accent);paragraph(s.quality.map(q=>`${q.label}: ${q.missing}`).join(' · '),9);}
- paragraph(s.tr?'Anlık görüntü; geçmiş dönem eğilimi veya bağımsız denetim görüşü değildir.':'Point-in-time snapshot; not a historical trend or an independent audit opinion.',9,muted);
- addPage();paragraph(s.tr?'Kayıt dökümü':'Record register',15,accent);
  const widths=[65,94,190,82,118,110,111],size=8.5,leading=12;
  const drawRow=(cells:string[],header=false)=>{
   const lines=cells.map((value,i)=>wrap(value,widths[i]-10,size));let offset=0;const count=Math.max(...lines.map(v=>v.length));
@@ -52,13 +46,25 @@ export async function renderReportPdf(s:Snapshot,suppliedFont?:Uint8Array){
    if(offset<count){addPage();if(!header)drawRow(s.labels,true);}
   }
  };
- drawRow(s.labels,true);
- for(let i=0;i<s.records.length;i++){drawRow(s.records[i].cells);if(i%100===0)await new Promise(resolve=>setTimeout(resolve,0));}
- if(!s.records.length)paragraph(s.tr?'Seçili kapsamda kayıt yok.':'No records in the selected scope.');
- if(s.template==='detailed'){
-  addPage();paragraph(s.tr?'Kayıt ayrıntıları':'Record details',15,accent);
-  for(const record of s.records){ensure(45);paragraph(`${record.cells[0]} · ${record.cells[2]}`,12,accent);for(const field of record.fields){paragraph(s.showFieldKeys?`${field.label} [${field.key}]`:field.label,9,muted);paragraph(field.value||'—',9);}y-=8;}
+ for(const section of s.sections){
+  if(section==='note')for(const item of s.intro){paragraph(item.label,12,accent);paragraph(item.value,10);}
+  if(section==='metrics'){paragraph(s.tr?'Yönetim göstergeleri':'Management indicators',14,accent);for(const metric of s.metrics){paragraph(`${metric.label}: ${metric.value}`,12);paragraph(metric.note,9,muted);}}
+  if(section==='quality'&&s.quality.length){paragraph(s.tr?'Veri kalitesi / eksik alanlar':'Data quality / missing fields',12,accent);paragraph(s.quality.map(q=>`${q.label}: ${q.missing}`).join(' · '),9);}
+  if(section==='distribution'){paragraph(s.tr?'Durum dağılımı':'Status distribution',12,accent);paragraph(s.distribution.map(([key,value])=>`${key}: ${value}`).join(' · ')||'—',9);}
+  if(section==='priorities'||section==='register'){
+   if(section==='register')addPage();else ensure(100);
+   paragraph(section==='register'?(s.tr?'Kayıt dökümü':'Record register'):(s.tr?'Yüksek / kritik kayıtlar':'High / critical records'),15,accent);
+   if(section==='priorities')paragraph(s.tr?'Riskler: değerlendirilmiş puan ≥10. Diğer kayıtlar: bildirilen yüksek/kritik seviye.':'Risks: assessed score ≥10. Other records: reported high/critical severity.',9,muted);
+   const records=section==='register'?s.records:s.priorityRows;drawRow(s.labels,true);
+   for(let i=0;i<records.length;i++){drawRow(records[i].cells);if(i%100===0)await new Promise(resolve=>setTimeout(resolve,0));}
+   if(!records.length)paragraph(s.tr?'Seçili kapsamda kayıt yok.':'No records in the selected scope.');
+   if(section==='register'&&s.template==='detailed'){
+    addPage();paragraph(s.tr?'Kayıt ayrıntıları':'Record details',15,accent);
+    for(const record of s.records){ensure(45);paragraph(`${record.cells[0]} · ${record.cells[2]}`,12,accent);for(const field of record.fields){paragraph(s.showFieldKeys?`${field.label} [${field.key}]`:field.label,9,muted);paragraph(field.value||'—',9);}y-=8;}
+   }
+  }
  }
+ paragraph(s.tr?'Anlık görüntü; geçmiş dönem eğilimi veya bağımsız denetim görüşü değildir.':'Point-in-time snapshot; not a historical trend or an independent audit opinion.',9,muted);
  const pages=doc.getPages();pages.forEach((p,index)=>{p.drawLine({start:{x:margin,y:30},end:{x:width-margin,y:30},thickness:.5,color:line});p.drawText(`${s.classification} · ${s.id}`,{x:margin,y:17,size:8,font,color:muted});p.drawText(`${index+1} / ${pages.length}`,{x:width-margin-50,y:17,size:8,font,color:muted});});
  const bytes=await doc.save();return new Blob([new Uint8Array(bytes)],{type:'application/pdf'});
 }

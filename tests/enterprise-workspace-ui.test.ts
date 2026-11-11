@@ -27,17 +27,19 @@ test("module dashboards share the enterprise workspace contract", async () => {
 });
 
 test("reporting is an enterprise workflow and remains theme-token driven", async () => {
-  const [page, css] = await Promise.all([
+  const [page, legacyCss, composerCss] = await Promise.all([
     readFile("app/page.tsx", "utf8"),
     readFile("app/reporting.css", "utf8"),
+    readFile("app/report-composer.css", "utf8"),
   ]);
 
+  const css=legacyCss+composerCss;
   for (const contract of [
     "report-workspace",
-    "report-scope-strip",
+    "report-composer-grid",
     "report-filter-panel",
-    "report-analysis-grid",
-    "report-data-quality",
+    "report-preview-area",
+    "report-document",
     "report-table-empty",
   ]) {
     assert.match(page, new RegExp(contract));
@@ -45,7 +47,7 @@ test("reporting is an enterprise workflow and remains theme-token driven", async
   }
 
   assert.match(page, /displayRecordCode\(r\)/);
-  assert.match(page, /qualitySignals/);
+  assert.match(page, /buildReportHtml/);
   assert.match(page, /className="report-pagination"/);
   assert.match(css, /var\(--ws-surface\)/);
   assert.match(css, /var\(--ws-brand-soft\)/);

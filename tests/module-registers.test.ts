@@ -24,10 +24,11 @@ test("all operational and reporting tables persist user-adjusted column widths",
   assert.match(css, /\.column-resizer/);
 });
 
-test("management reporting omits opaque internal record identifiers", () => {
+test("management preview uses readable codes while exports retain record identity", () => {
   const reports = page.slice(page.indexOf("function Reports"), page.indexOf("function ModuleFilter"));
   assert.doesNotMatch(reports, /r\.id,<\/b>/);
-  assert.doesNotMatch(reports, /\[tr \? "Kod" : "Code"\]/);
+  assert.match(reports, /displayRecordCode\(r\)/);
+  assert.match(reports, /"Kayıt kimliği" : "Record ID"/);
 });
 
 test("management reporting offers separate exports for every operational module", () => {
@@ -35,9 +36,9 @@ test("management reporting offers separate exports for every operational module"
   assert.match(page, /const reportModules = \[/);
   assert.match(page, /"Risk Assessment",[\s\S]*"BIA",[\s\S]*"Varlık Envanteri",[\s\S]*"Uyum"/);
   assert.match(page, /"Tedarikçiler",\s*"Kontroller",\s*"Kanıtlar",\s*"Denetim Yönetimi"/);
-  assert.match(reports, /className="report-module-picker"/);
+  assert.match(reports, /aria-label=\{tr\?'Rapor modülü':'Report module'\}/);
   assert.match(reports, /module === all \|\| r\.module === module/);
-  assert.match(reports, /buildReportCsv\(reportTitle,filtered,metrics,tr,options\(\)\)/);
+  assert.match(reports, /buildReportCsv\(reportTitle,filtered,metrics,tr,snapshotOptions\)/);
 });
 
 test("record timestamps are mapped from the API and visible in every register", () => {

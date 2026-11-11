@@ -1,0 +1,56 @@
+name: Report composer QA
+on:
+  pull_request:
+    paths:
+      - 'app/report*'
+      - 'app/page.tsx'
+      - 'app/account-view*'
+      - 'scripts/report-composer-qa.mjs'
+      - 'scripts/reporting-export-qa.mjs'
+      - '.github/workflows/report-composer-qa.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.13.0
+          cache: npm
+      - run: npm ci
+      - run: npm install --no-save --ignore-scripts @playwright/test@1.55.0
+      - name: Use runner browser or install Chromium
+        run: |
+          if command -v google-chrome >/dev/null; then
+            echo "QA_CHROMIUM_PATH=$(command -v google-chrome)" >> "$GITHUB_ENV"
+          else
+            npx playwright install chromium
+          fi
+      - name: Generate isolated QA credentials
+        run: node scripts/prepare-local-qa.mjs
+      - name: Verify isolated report composer and all exports
+        run: |
+          set -euo pipefail
+          npm run dev -- --host 127.0.0.1 --port 4173 --strictPort > /tmp/report-runtime.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null || true' EXIT
+          for attempt in $(seq 1 60); do
+            if curl --fail --silent http://127.0.0.1:4173/api/health > /dev/null; then break; fi
+            sleep 1
+          done
+          node scripts/report-composer-qa.mjs
+          node scripts/reporting-export-qa.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: report-composer-qa
+          path: |
+            report-composer-qa-artifacts/*.png
+            report-composer-qa-artifacts/*.json
+            layout-qa-artifacts/reporting-*.png
+            layout-qa-artifacts/reporting-*.json
+          if-no-files-found: warn
