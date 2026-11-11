@@ -31,7 +31,7 @@ async function fixture(){
 }
 test('account criteria use the same register schemas and reject stored scope, identity, focus and unsupported fields',()=>{
  assert.deepEqual(accountViewState('Risk Assessment',state),state);
- for(const moduleName of VIEW_MODULES.filter(value=>value!=='My Work'))assert.doesNotThrow(()=>accountViewState(moduleName,{query:'',filters:{},columns:registerViewSchema(moduleName).columns}));
+ for(const moduleName of VIEW_MODULES.filter(value=>value!=='My Work'&&value!=='Raporlar'))assert.doesNotThrow(()=>accountViewState(moduleName,{query:'',filters:{},columns:registerViewSchema(moduleName).columns}));
  for(const extra of [{auditId:'secret'},{recordId:'secret'},{scope:'organization'},{userId:'admin'},{page:9},{rows:[]}])assert.throws(()=>accountViewState('Risk Assessment',{...state,...extra}),/schema/);
  for(const invalid of [{...state,columns:['unknown']},{...state,filters:{scope:'organization'}},{...state,query:'a'.repeat(1001)},{...state,columns:[]}])assert.throws(()=>accountViewState('Risk Assessment',invalid),/schema/);
  assert.throws(()=>accountViewState('Tedarikçiler',state),/fields/);
@@ -152,3 +152,23 @@ test('history reads reject identity and permission changes between authorization
   await f.save({scope:'team'},admin);f.raceRead(()=>f.sqlite.exec(sql));await assert.rejects(readTeamViewHistory(f.db,viewer,{module:'Risk Assessment',scope:'team',id}),/forbidden/);
  }finally{f.sqlite.close();}}
 });
+
+const reportDefinition={query:'',filters:{module:'BIA',unit:'Finance',owner:'QA',status:'__all__',template:'detailed',classification:'confidential'},columns:['metrics','note','register']};
+test('report definitions persist exact scope and sections without record data or commentary',async()=>{const f=await fixture();try{
+ assert.deepEqual(accountViewState('Raporlar',reportDefinition),reportDefinition);
+ for(const patch of [{note:'secret'},{records:[]},{filters:{...reportDefinition.filters,from:'2025'}},{columns:['register']},{columns:['metrics','invalid']},{query:'search'},{filters:{...reportDefinition.filters,module:'AI'}}])assert.throws(()=>accountViewState('Raporlar',{...reportDefinition,...patch}),/schema/);
+ const saved=await f.save({module:'Raporlar',state:reportDefinition});assert.deepEqual((await f.read(viewer,{module:'Raporlar'})).views[0].state,reportDefinition);
+ assert.equal((await f.read(other,{module:'Raporlar'})).views.length,0);
+ await f.save({module:'Raporlar',action:'delete',expectedRevision:saved.revision});assert.equal((await f.read(viewer,{module:'Raporlar'})).views.length,0);
+}finally{f.sqlite.close();}});
+test('report definitions enforce team publishing, CAPA and current reporting access',async()=>{const f=await fixture();try{
+ const capa={...reportDefinition,filters:{...reportDefinition.filters,module:'Bulgular ve CAPA'}};
+ await assert.rejects(f.save({module:'Raporlar',state:capa}),/forbidden/);
+ await assert.rejects(f.save({module:'Raporlar',scope:'team',state:reportDefinition}),/forbidden/);
+ await f.save({module:'Raporlar',scope:'team',state:capa},admin);
+ assert.equal((await f.read(viewer,{module:'Raporlar',scope:'team'})).views.length,0);
+ await assert.rejects(f.read(viewer,{module:'Raporlar',scope:'team',id}),/missing/);
+ assert.equal((await f.read(admin,{module:'Raporlar',scope:'team'})).views.length,1);
+ f.sqlite.prepare('INSERT INTO user_module_access VALUES(?,?)').run(viewer.id,JSON.stringify({mode:'scoped',modules:{BIA:'read'}}));
+ await assert.rejects(f.read(viewer,{module:'Raporlar'}),/forbidden/);
+}finally{f.sqlite.close();}});
