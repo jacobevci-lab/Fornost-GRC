@@ -117,7 +117,7 @@ try {
     await progress(`${locale}: connected explorer`);
     await open(locale === 'tr' ? 'Bağlantılı GRC Haritası' : 'Connected GRC Map');
     await page.locator('.cgw-records>button').first().waitFor();
-    assert.equal(await page.locator('.cg-heading h2').evaluate(el=>getComputedStyle(el).fontSize),'18px','Compact desktop page heading');
+    assert.equal(await page.locator('.cg-heading h2').evaluate(el=>getComputedStyle(el).fontSize),'26px','Readable workbench heading');
     assert.equal(await page.locator('.cgw-records>button b').first().evaluate(el=>getComputedStyle(el).fontSize),'12px','Readable desktop record text');
     assert.equal(await page.locator('.cgw-filters input').evaluate(el=>getComputedStyle(el).fontSize),'13px','Readable desktop form text');
     assert.equal(await page.locator('.cg-operations').count(), 0, 'Assurance operations do not crowd the initial map');
@@ -132,9 +132,9 @@ try {
       await expect(page.locator('.cgw-record-heading h3')).toHaveText(title);
       await expect(recordButtons.filter({hasText:title})).toHaveAttribute('aria-pressed','true');
       await expect(page.locator('.cgw-node')).toHaveCount(2);
-      await expect(page.locator('.cgw-node').filter({hasText:fixtureTag})).toHaveCount(1);
+      await expect(page.locator('.cgw-node').filter({hasText:fixtureTag}).filter({hasNotText:title})).toHaveCount(1);
     }
-    await page.locator('.cgw-node').filter({hasText:fixtureTag}).click();
+    await page.locator('.cgw-node').filter({has:page.locator('b',{hasText:new RegExp('^'+fixtureTag+'$')})}).click();
     await page.locator('.cgw-inspector').getByRole('button',{name:locale==='tr'?'Bu kaydın haritası':'Map this record',exact:true}).click();
     await expect(page.locator('.cgw-record-heading h3')).toHaveText(fixtureTag);
     await page.locator('.cgw-filters input').fill('no-such-record-qa');

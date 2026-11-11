@@ -98,7 +98,7 @@ try{
  fixtures['/api/ai/assurance-alerts'].alerts.push(...Array.from({length:35},(_,i)=>({id:`QA-GAP-${String(i).padStart(3,'0')}`,modelId:`QA-MISSING-${i}`,title:`QA gap alert ${i}`})));
  await openMap();
  await page.locator('.connected-grc').getByRole('button',{name:/^Gaps/}).click();
- const gapSearch=page.locator('.cgw-gaps .cgw-filters input');
+ const gapSearch=page.getByLabel('Find issue',{exact:true});
  await gapSearch.fill('QA gap alert');
  await page.getByLabel('Source module',{exact:true}).selectOption('AI Yönetişimi');
  await page.getByLabel('Issue type',{exact:true}).selectOption('missing');

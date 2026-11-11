@@ -32,3 +32,18 @@
 @media(max-width:650px){.cgw-layout{grid-template-columns:1fr}.cgw-layout>.cgw-inspector{grid-column:auto}.cgw-records{max-height:240px}.cgw-filters>label,.cgw-filters>input,.cgw-filters>select{width:100%;max-width:none;flex:1 1 100%;min-width:0}.cgw-filters>button{flex:1}.cgw-record-heading{padding:14px}.cgw-record-heading h3{font-size:16px}.cgw-work-toolbar{align-items:flex-start}.cgw-diagram-scroll{height:350px}.connected-explorer .cg-tabs{flex-wrap:wrap}.connected-explorer .cg-tabs button{flex:1 1 40%}}
 
 .cg-last-read{margin:0;color:var(--ws-muted);font-size:11px}
+
+/* Keep the workbench readable above the historical global compact scale. */
+#connected-grc-workbench :is(div,p,span,b,strong,label,button,a,td,th,dt,dd,li,em,input,select,textarea,summary){font-size:13px!important;line-height:1.5!important}
+#connected-grc-workbench :is(small,.cgw-badge,.cgw-path span,.cgw-inspector dt){font-size:11px!important}
+#connected-grc-workbench .cgw-identity b{font-size:12px!important}
+#connected-grc-workbench h3{font-size:17px!important;line-height:1.4!important}
+#connected-grc-workbench h4{font-size:13px!important}
+#connected-grc-workbench .cgw-targets b{font-size:18px!important}
+#connected-grc-workbench button.primary,#connected-grc-workbench button.primary:hover{color:#fff!important;background:var(--ws-brand)!important}
+html[data-theme="dark"] #connected-grc-workbench button.primary,html[data-theme="dark"] #connected-grc-workbench button.primary:hover{color:var(--ws-bg)!important}
+#connected-grc-workbench .cgw-edges text{fill:var(--ws-brand-2);stroke:var(--ws-surface);stroke-width:4px;paint-order:stroke;font-size:10px}
+html[data-theme] body .shell>main .connected-explorer .cg-heading h2{font-size:26px!important}
+html[data-theme] body .shell>main .connected-explorer :is(.cg-heading p,.cg-tabs button,.cg-summary span,.cg-summary b){font-size:13px!important}
+.connected-explorer .cg-source-controls button{padding:8px 12px;border:1px solid var(--ws-line);border-radius:8px;background:var(--ws-surface);color:var(--ws-ink);cursor:pointer}
+@media(max-width:650px){html[data-theme] body .shell>main .connected-explorer .cg-heading h2{font-size:22px!important}}
