@@ -3,6 +3,7 @@ import {readFileSync} from "node:fs";
 import test from "node:test";
 import {connectedGrcNavigation} from "../app/connected-grc-navigation";
 
+const workbench=readFileSync("app/connected-grc-workbench.tsx","utf8");
 const connected=readFileSync("app/connected-grc.tsx","utf8");
 const row=(module:string,id:string,code?:string,data:Record<string,unknown>={})=>({module,id,code,data});
 
@@ -33,18 +34,16 @@ test("record explorer and unresolved references use contextual record navigation
  assert.match(connected,/function openRecord\(row:ConnectedGrcRow\)/);
  assert.match(connected,/source:"connected-grc-register"/);
  assert.match(connected,/filter:\{\[target\.filterKey\]:target\.ref\}/);
- assert.match(connected,/onClick=\{\(\)=>openRecord\(selected\)\}/);
- assert.match(connected,/onClick=\{\(\)=>openRecord\(other\)\}/);
- assert.match(connected,/onClick=\{\(\)=>openRecord\(item\.source\)\}/);
+ assert.match(connected,/openRecord=\{openRecord\}/);
+ assert.match(workbench,/openRecord\(inspected\)/);
+ assert.match(workbench,/openRecord\(activeIssue.row\)/);
 });
 
-test("assurance gaps open the governed source record when it can be fixed in context",()=>{
- assert.match(connected,/focusable=Boolean\(connectedGrcNavigation\(gap\.row\)\)/);
- assert.match(connected,/onClick=\{\(\)=>focusable\?openRecord\(gap\.row\):go\(target\)\}/);
- assert.match(connected,/Kaydı düzelt/);
- assert.match(connected,/Fix record/);
- assert.match(connected,/Bağlantıyı tamamla/);
- assert.match(connected,/Complete link/);
+test("workbench gap completion retains exact source navigation",()=>{
+ assert.match(workbench,/startEditor\(issue.row/);
+ assert.match(workbench,/openRecord\(issue.row\)/);
+ assert.match(workbench,/Kaynak kaydı aç/);
+ assert.match(workbench,/Open source record/);
 });
 
  test("all core records open in context, including audit requirements and evidence",()=>{

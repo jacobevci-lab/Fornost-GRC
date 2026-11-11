@@ -32,3 +32,16 @@ Graph resolution now prefers canonical record IDs (including native IDs retained
 The existing Gaps view distinguishes missing targets from ambiguous targets, lists candidate codes/titles, and opens the authoritative source record for correction with a unique code or ID. No records are automatically rewritten. Shared framework names that identify several requirements need explicit requirement references; the graph does not infer that every requirement is covered. This change does not migrate legacy references, enforce database foreign keys, or change permissions.
 
 Asset and BIA/process pickers show the record name with its code and save an unambiguous code (or canonical ID on collision). Saved legacy labels remain visible, with ambiguous or unavailable values marked for review; opening and saving a form does not silently remap them.
+
+
+## Bağlantı inceleme masası
+
+Bağlantılar görünümünde bir kayıt seçin; 1–3 adımlık diyagram veya liste ile ilişkileri inceleyin. Görünüm en fazla 30 kayıt içerir; daha fazlası için başka bir kaydı merkeze alın. Etki analizi, kayıtlı ilişkilere göre üç adıma kadar inceleme yolları gösterir. Ulaşılabilirlik kesin iş etkisi değildir. BIA RTO/RPO değerleri hedeflerdir.
+
+Eksikler sekmesi kayıt ve takip konusu sayılarını ayırır. Zorunlu bağlantılar, çözümlenemeyen referanslar, süresi geçmiş kanıtlar, gecikmiş gözden geçirmeler ve plan bağlantısı olmayan BIA kayıtları birlikte incelenir. Kaynak hatalarında sonuçlar kısmi olarak işaretlenir.
+
+Admin ve yetkili Editor, desteklenen temel kayıt alanlarında mevcut hedefi seçip gerekçe yazarak bağlantı ekleyebilir/değiştirebilir. İsteğe bağlı bağlantı kaldırılabilir; kayıt silinmez. Zorunlu son bağlantı boşaltılamaz. Desteklenen ilişkiler: risk→varlık/BIA/kontrol, BIA→varlık, varlık→tedarikçi, kontrol→BIA, kanıt→kontrol, denetim→risk/kanıt/kontrol. Diğer ilişkiler kendi kaynak iş akışında yönetilir. Eski metin referanslarını kaynak kayıtta benzersiz ID/kod ile düzeltin.
+
+BIA için plan bağlama yalnız mevcut taslak planın BIA referansını değiştirir. Admin veya plan sahibi Editor işlem yapabilir; onaylı/aktif planlar değiştirilemez ve bu işlem planı onaylamaz. Değişiklik ile kullanıcı/gerekçe/zaman geçmişi aynı veritabanı işlemiyle kaydedilir. Başarılı kayıt sonrası yenileme veya belirsiz ağ hatası otomatik tekrar yazma üretmez. Önce yenileyip bağlantıyı inceleyin.
+
+Dışa aktarım mevcut görünüm kapsamını ve kısmi veri durumunu içerir. Güvence sekmesindeki mevcut kontrol sonucu, onay ve eskalasyon iş akışları korunur.

@@ -2171,7 +2171,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
         ) : active === "Risk İştahı ve KRI" ? (
           <RiskAppetite lang={lang} currentUser={currentUser} />
         ) : active === "Bağlantılı GRC" ? (
-          <ConnectedGrc rows={rows} lang={lang} go={setActive} includeAi={currentUser.role === "Admin"} />
+          <ConnectedGrc rows={rows} lang={lang} go={setActive} includeAi={currentUser.role === "Admin"} actor={currentUser} refreshRows={load} coreState={registerLoadState} />
         ) : active === "Raporlar" ? (
           <Reports rows={rows} lang={lang} go={navigateToModule} preparedBy={currentUser.email} includeCapa={currentUser.role === "Admin"} />
         ) : active === "Kanıt Otomasyonu" ? (
