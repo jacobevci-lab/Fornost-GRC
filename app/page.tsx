@@ -3120,6 +3120,9 @@ function Reports({ rows: coreRows, lang, go, preparedBy, includeCapa, coreState,
     const labels = labelMap[lang];
     const data:Record<string,unknown>[] = filtered.map((r) => ({
       [tr ? "Modül" : "Module"]: names[lang][r.module] || r.module,
+      [tr ? "Kayıt kimliği" : "Record ID"]: r.id,
+      [tr ? "Kod" : "Code"]: r.code||r.data.code||r.id,
+      [tr ? "Son güncelleme" : "Updated at"]: r.updatedAt||r.createdAt||"",
       ...Object.fromEntries(Object.entries(r.data).map(([k,v])=>[`${labels[k]||k} [${k}]`,v])),
       'Report ID':stamp.reportId,'Generated UTC':stamp.generatedAt,'Classification':snapshotOptions.classification,'Scope':snapshotOptions.scope,'Filters':snapshotOptions.filters?.map(f=>`${f.label}: ${f.value}`).join(' | '),
     }));
@@ -3130,7 +3133,7 @@ function Reports({ rows: coreRows, lang, go, preparedBy, includeCapa, coreState,
         keys.map((key) => ({ value: safeSpreadsheetCell(row[key]) })),
       ),
     ]).toFile(
-      `Fornost-GRC-${exportSlug}-${new Date().toISOString().slice(0, 10)}.xlsx`,
+      `Fornost-GRC-${exportSlug}-${stamp.generatedAt.slice(0, 10)}.xlsx`,
     );
     }catch{setExportError(tr?"Excel oluşturulamadı. Yeniden deneyin veya CSV kullanın.":"Excel could not be generated. Retry or use CSV.");}
     finally{exportInFlight.current=false;setExporting(false);}
@@ -3204,7 +3207,7 @@ function Reports({ rows: coreRows, lang, go, preparedBy, includeCapa, coreState,
           </b>
           <span>
             {tr ? "Oluşturma" : "Created"}:{" "}
-            {new Date().toLocaleDateString(tr ? "tr-TR" : "en-GB")}
+            {new Date(stamp.generatedAt).toLocaleDateString(tr ? "tr-TR" : "en-GB")}
           </span>
         </div>
         <div className="table-wrap" tabIndex={0} role="region" aria-label={lang === "tr" ? "Kayıt tablosu" : "Record table"}>

@@ -92,7 +92,12 @@ export function AccountViewsPanel({module,lang,current,schema,labels={},focused,
   function valueLabel(key:string,value:string){
     if(variant==='work'&&key==='module')return WORK_MODULE_LABELS[value]?.[tr?'tr':'en']||value;
     if(variant==='work'&&key==='status')return ({today:t('Bugün','Today'),priority:t('Öncelikli','Priority'),overdue:t('Geciken','Overdue'),soon:t('14 gün','14 days'),waiting:t('Başkalarında bekleyen','Waiting for others'),undated:t('Tarihsiz','Undated'),completed:t('Tamamlanan','Completed'),all:t('Tümü','All')} as Record<string,string>)[value]||value;
-    if(variant==='report'){if(key==='module'&&value!=='__all__')return WORK_MODULE_LABELS[value]?.[tr?'tr':'en']||value;return ({__all__:t('Tümü','All'),management:t('Yönetim özeti','Management summary'),detailed:t('Detaylı kayıt dökümü','Detailed register'),internal:t('Kurum İçi','Internal'),confidential:t('Gizli','Confidential')} as Record<string,string>)[value]||value;}
+    if(variant==='report'){
+      if(value==='__all__')return t('Tümü','All');
+      if(key==='module')return WORK_MODULE_LABELS[value]?.[tr?'tr':'en']||value;
+      if(key==='template')return value==='management'?t('Yönetim özeti','Management summary'):t('Detaylı kayıt dökümü','Detailed register');
+      if(key==='classification')return value==='internal'?t('Kurum İçi','Internal'):t('Gizli','Confidential');
+    }
     return value;
   }
   function criteria(state:SavedViewState){return <dl className="account-view-criteria">{variant!=='report'&&<><dt>{t('Arama','Search')}</dt><dd>{state.query||t('Arama yok','No search')}</dd></>}{Object.entries(state.filters).map(([key,value])=><div key={key}><dt>{labels[key]||key}</dt><dd>{valueLabel(key,value)}</dd></div>)}{!Object.keys(state.filters).length&&<><dt>{t('Filtreler','Filters')}</dt><dd>{t('Filtre yok','No filters')}</dd></>}{variant!=='report'&&<><dt>{t('Sıralama','Sort order')}</dt><dd>{viewSortLabel(module,state.sort,lang)}</dd></>}{variant!=='work'&&<><dt>{variant==='report'?t('Bölümler','Sections'):t('Sütunlar','Columns')}</dt><dd>{state.columns.map(key=>labels[key]||key).join(', ')}</dd></>}</dl>;}
