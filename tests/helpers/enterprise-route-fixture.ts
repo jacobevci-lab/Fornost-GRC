@@ -1,3 +1,4 @@
+import * as regulatoryWorkspace from '../../app/regulatory-intelligence/workspace-store';
 import * as findingDeadline from "../../app/third-party-risk/finding-deadline";
 import * as findingDeadlineStore from "../../app/third-party-risk/finding-deadline-store";
 import * as findingHistory from "../../app/third-party-risk/finding-history";
@@ -109,6 +110,7 @@ export function fixture(module:'incidents'|'continuity'|'policy-lifecycle'|'thir
   if(name==='../../risk-appetite/domain')return risk;
   if(name==='../../risk-methodology')return riskMethodology;
   if(name==='../../regulatory-intelligence/domain')return regulatory;
+  if(name==='../../regulatory-intelligence/workspace-store')return regulatoryWorkspace;
   if(name==='../../findings/domain')return findingDomain;
   if(name==='../../findings/decision-store')return findingDecisions;
   if(name==='../../findings/intake-store')return findingIntake;
