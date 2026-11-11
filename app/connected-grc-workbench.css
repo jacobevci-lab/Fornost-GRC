@@ -47,3 +47,7 @@ html[data-theme] body .shell>main .connected-explorer .cg-heading h2{font-size:2
 html[data-theme] body .shell>main .connected-explorer :is(.cg-heading p,.cg-tabs button,.cg-summary span,.cg-summary b){font-size:13px!important}
 .connected-explorer .cg-source-controls button{padding:8px 12px;border:1px solid var(--ws-line);border-radius:8px;background:var(--ws-surface);color:var(--ws-ink);cursor:pointer}
 @media(max-width:650px){html[data-theme] body .shell>main .connected-explorer .cg-heading h2{font-size:22px!important}}
+
+#connected-grc-workbench .cgw-table-scroll table{min-width:640px!important}
+#connected-grc-workbench .cgw-table-scroll :is(th,td):nth-child(2){min-width:110px}
+#connected-grc-workbench .cgw-table-scroll :is(th,td):nth-child(3){min-width:150px}

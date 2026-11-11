@@ -28,6 +28,8 @@ jobs:
           else
             npx playwright install chromium
           fi
+      - name: Generate isolated QA credentials
+        run: node scripts/prepare-local-qa.mjs
       - name: Verify isolated Connected GRC workflows
         run: |
           set -euo pipefail
@@ -39,6 +41,8 @@ jobs:
             sleep 1
           done
           node scripts/connected-workbench-qa.mjs
+          node scripts/connected-ai-grc-qa.mjs
+          node scripts/connected-reference-integrity-qa.mjs
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -47,4 +51,9 @@ jobs:
             connected-workbench-qa-artifacts/*.png
             connected-workbench-qa-artifacts/report.json
             connected-workbench-qa-artifacts/failure.json
+            connected-ai-qa-artifacts/*.png
+            connected-ai-qa-artifacts/result.json
+            connected-ai-qa-artifacts/failure.json
+            connected-reference-qa-artifacts/*.png
+            connected-reference-qa-artifacts/result.json
           if-no-files-found: warn

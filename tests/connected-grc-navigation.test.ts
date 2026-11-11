@@ -50,3 +50,8 @@ test("workbench gap completion retains exact source navigation",()=>{
  for(const moduleName of ["BIA","Varlık Envanteri","Uyum","Kanıtlar","Denetim Yönetimi"])
   assert.deepEqual(connectedGrcNavigation(row(moduleName,"internal-id","CODE-1")),{module:moduleName,ref:"internal-id",filterKey:"recordRef"});
  });
+
+ test("continuity projections open the exact native plan instead of the synthetic graph ID",()=>{
+  assert.deepEqual(connectedGrcNavigation(row("İş Sürekliliği","enterprise:continuity-plan:p1","BCP-1",{kind:"continuity-plan",canonicalRefs:["p1"]})),{module:"İş Sürekliliği",ref:"p1",kind:"continuity-plan",filterKey:"recordRef"});
+  assert.equal(connectedGrcNavigation(row("İş Sürekliliği","enterprise:continuity-plan:p1","BCP-1",{kind:"continuity-plan",canonicalRefs:["p1","p2"]})),undefined);
+ });

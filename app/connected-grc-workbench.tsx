@@ -24,7 +24,8 @@ export default function ConnectedWorkbench(p: Props) {
   const neighborhood = useMemo(() => selected ? connectedNeighborhood(selected, links, view === 'impact' ? 3 : depth, 30) : { records: [], links: [], truncated: false }, [selected, links, depth, view]);
   const inspect = neighborhood.records.find(item => item.row.id === inspectId);
   const inspected = inspect?.row || selected;
-  const attention = issues.filter(item => item.row.id === inspected?.id);
+  const visibleIds = new Set([selected?.id, ...neighborhood.records.map(item => item.row.id)]);
+  const attention = issues.filter(item => inspect ? item.row.id === inspected?.id : visibleIds.has(item.row.id));
   const filteredIssues = issues.filter(issue => recordMatches(issue.row, issueQuery, lang) && (issueType === 'all' || issue.kind === issueType || issue.severity === issueType) && (issueModule === 'all' || issue.row.module === issueModule) && (!mine || recordOwner(issue.row).toLowerCase() === actor.email.toLowerCase()));
   const activeIssue = filteredIssues.find(issue => issue.id === issueId) || filteredIssues[0];
   const impacted = neighborhood.records.filter(item => impactType === 'all' || (impactType === 'business' ? ['BIA', 'İş Sürekliliği'].includes(item.row.module) : ['Risk Assessment', 'Kontroller', 'Kanıtlar'].includes(item.row.module)));
@@ -55,8 +56,8 @@ export default function ConnectedWorkbench(p: Props) {
     <div className="cgw-inspect-identity">{identity(inspected)}</div><p>{moduleLabel(inspected.module)} · {recordOwner(inspected)}</p>
     {inspect ? pathView(inspect) : <p className="cgw-muted">{tr ? 'İlişki yolunu incelemek için haritadaki veya listedeki bir kaydı seçin.' : 'Select a record in the map or list to inspect its relationship path.'}</p>}
     {inspected.module === 'BIA' && <><div className="cgw-targets"><div><small>{tr ? 'RTO hedefi' : 'RTO target'}</small><b>{String(inspected.data.rto ?? '—')}</b></div><div><small>{tr ? 'RPO hedefi' : 'RPO target'}</small><b>{String(inspected.data.rpo ?? '—')}</b></div></div><small>{tr ? 'BIA hedefleri; tatbikat sonucu değildir.' : 'BIA targets; not exercise results.'}</small></>}
-    <h4>{tr ? 'İnceleme konuları' : 'Review topics'} <span>{attention.length}</span></h4>
-    {attention.length ? attention.slice(0, 5).map(issue => <article className="cgw-attention" key={issue.id}><b>{issueLabels[issue.kind][language]}</b>{issue.due && <small>{issue.due}</small>}{nextAction(issue)}</article>) : <p className="cgw-muted">{complete ? (tr ? 'Bu kayıt için tanımlı kurallarda takip konusu bulunmadı.' : 'No follow-up topic found under the defined rules.') : (tr ? 'Kaynaklar tamamlanmadan eksik olmadığı doğrulanamaz.' : 'No-gap status cannot be confirmed until sources are complete.')}</p>}
+    <h4>{inspect ? (tr ? 'İnceleme konuları' : 'Review topics') : (tr ? 'Görünür kayıtlarda inceleme' : 'Review visible records')} <span>{attention.length}</span></h4>
+    {attention.length ? attention.slice(0, 5).map(issue => <article className="cgw-attention" key={issue.id}><b>{issueLabels[issue.kind][language]}</b><small>{issue.row.code || issue.row.id} · {connectedTitle(issue.row)}</small>{issue.due && <small>{issue.due}</small>}{nextAction(issue)}</article>) : <p className="cgw-muted">{complete ? (tr ? 'İncelenen görünür kayıtlarda takip konusu bulunmadı.' : 'No follow-up topic found for the reviewed visible records.') : (tr ? 'Kaynaklar tamamlanmadan eksik olmadığı doğrulanamaz.' : 'No-gap status cannot be confirmed until sources are complete.')}</p>}
     <dl><dt>{tr ? 'Son değişiklik' : 'Last change'}</dt><dd>{inspected.updatedAt ? new Date(inspected.updatedAt).toLocaleString(tr ? 'tr-TR' : 'en-US') : '—'}</dd></dl>
     <button type="button" onClick={() => openRecord(inspected)}>{tr ? 'Kaynak kaydı aç' : 'Open source record'}</button>{inspected.id !== selected?.id && <button type="button" onClick={() => select(inspected)}>{tr ? 'Bu kaydın haritası' : 'Map this record'}</button>}
   </aside>;

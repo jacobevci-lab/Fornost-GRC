@@ -4,7 +4,7 @@ Connected GRC, Fornost içindeki risk, varlık, BIA, kontrol, kanıt, denetim, t
 
 ## Zincir bütünlüğü ve remediation
 
-İlişki güvence motoru yalnızca “en az bir bağlantı” kontrolü yapmaz. Risk için varlık veya süreç bağını; kontrol için kanıt ve framework bağlarını; kanıt için kontrol bağını; denetim için kontrol ve kanıt izini ayrı zorunlu ilişki grupları olarak ölçer. Kayıtlar tam, kısmi veya eksik olarak puanlanır. Her eksik ilişki, tamamlanması gereken doğru modüle yönlendiren aksiyon üretir.
+İlişki güvence motoru yalnızca “en az bir bağlantı” kontrolü yapmaz. Risk için varlık veya süreç bağını; kontrol için kanıt ve framework bağlarını; kanıt için kontrol bağını; denetim için kontrol ve kanıt izini ayrı zorunlu ilişki grupları olarak ölçer. Eksik ilişki grupları takip konularına dönüştürülür; bu sonuç kontrol etkinliği veya mevzuat uyumu puanı değildir. Her eksik ilişki, tamamlanması gereken doğru modüle yönlendiren aksiyon üretir.
 
 Eksik bağlantılar sekmesi, tamamlanması gereken ilişkileri ve ilgili kaydı açan aksiyonları gösterir. Böylece ilişki sayısı ile gerçek güvence bütünlüğü birbirinden ayrılır.
 
@@ -15,10 +15,10 @@ Eksik bağlantılar sekmesi, tamamlanması gereken ilişkileri ve ilgili kaydı 
 - Kaynak modül ve hedef modül kuralları yanlış pozitif eşleşmeleri engeller; aynı ilişki yinelenmez.
 - Kaynak veya hedef düğümden ilgili canlı modüle geçilir.
 - İlk görünümde kayıt, bağlantı ve bağlantısız kayıt sayıları özetlenir. Kayıt listesi ad/kod ve modülle filtrelenir; 10 kayıtlık sayfalar halinde gezilir.
-- Seçili kaydın doğrudan gelen/giden ilişkileri gösterilir; bağlantılar sekizerli açılır. Kayıt açma eylemleri mevcut odaklı navigasyonu kullanır.
+- Seçili kaydın doğrudan gelen/giden ve en fazla üç adımlık dolaylı ilişkileri gösterilir; diyagram/liste en fazla 30 kayıtla sınırlıdır. Kayıt açma eylemleri mevcut odaklı navigasyonu kullanır.
 - Eksik bağlantılar ve güvence işlemleri ayrı sekmelerdedir. Operasyonel iş kuyruğu ve yönetişim bileşenleri yalnız güvence sekmesi açıldığında yüklenir.
-- Risk, kontrol, kanıt ve denetim kayıtları için beklenen ilişki zinciri ölçülür; güvence izlenebilirliği yüzdesi ve önceliklendirilmiş boşluk kuyruğu üretilir.
-- Boşluk kartı kayıt sahibini ilgili canlı modüle götürür; değerlendirme salt okunur kalır ve otomatik veri değişikliği yapmaz.
+- Risk, kontrol, kanıt ve denetim kayıtları için beklenen ilişki zinciri ölçülür; önceliklendirilmiş eksik tamamlama kuyruğu üretilir.
+- Eksik incelemesi kaynak kaydı açar veya desteklenen ilişkiyi işlem notuyla tamamlatır; otomatik veri değişikliği yapmaz.
 - Hedefi bulunamayan referanslar ayrı inceleme kuyruğunda kaynak kodu, alan ve değer ile gösterilir.
 - Arama ve alan filtresi istemci tarafında çalışır; veri bir AI sağlayıcısına gönderilmez.
 - Dışa aktarım formül enjeksiyonuna karşı güvenli, UTF-8 CSV üretir.
@@ -44,4 +44,4 @@ Admin ve yetkili Editor, desteklenen temel kayıt alanlarında mevcut hedefi se�
 
 BIA için plan bağlama yalnız mevcut taslak planın BIA referansını değiştirir. Admin veya plan sahibi Editor işlem yapabilir; onaylı/aktif planlar değiştirilemez ve bu işlem planı onaylamaz. Değişiklik ile kullanıcı/gerekçe/zaman geçmişi aynı veritabanı işlemiyle kaydedilir. Başarılı kayıt sonrası yenileme veya belirsiz ağ hatası otomatik tekrar yazma üretmez. Önce yenileyip bağlantıyı inceleyin.
 
-Dışa aktarım mevcut görünüm kapsamını ve kısmi veri durumunu içerir. Güvence sekmesindeki mevcut kontrol sonucu, onay ve eskalasyon iş akışları korunur.
+Bağlantı dışa aktarımı arama/modül filtresine uyan tüm yüklü ilişkileri; etki dışa aktarımı seçili kaydın sınırlı inceleme yollarını; eksik dışa aktarımı filtreye uyan tüm takip konularını içerir. Kısmi kaynak durumu ve dışa aktarım zamanı korunur. Güvence sekmesindeki mevcut kontrol sonucu, onay ve eskalasyon iş akışları korunur.
