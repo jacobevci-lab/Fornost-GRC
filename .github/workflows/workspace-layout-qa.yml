@@ -52,16 +52,6 @@ jobs:
       - name: Local account create, edit and delete browser QA
         timeout-minutes: 5
         run: node scripts/local-account-lifecycle-qa.mjs
-      - name: Regulatory worklist, source lifecycle and policy linking QA
-        timeout-minutes: 8
-        run: node scripts/regulatory-workspace-qa.mjs
-      - name: Preserve regulatory workspace browser evidence
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: regulatory-workspace-preview
-          path: regulatory-workspace-qa-artifacts/
-          retention-days: 14
       - name: Dashboard decision counts and recovery QA
         run: node scripts/dashboard-decision-source-qa.mjs
       - name: Save executive dashboard design preview
@@ -73,6 +63,16 @@ jobs:
           retention-days: 14
       - name: Load explicit synthetic core fixtures
         run: node scripts/seed-local-qa.mjs
+      - name: Regulatory worklist, source lifecycle and policy linking QA
+        timeout-minutes: 8
+        run: node scripts/regulatory-workspace-qa.mjs
+      - name: Preserve regulatory workspace browser evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: regulatory-workspace-preview
+          path: regulatory-workspace-qa-artifacts/
+          retention-days: 14
       - name: Register and work queue sorting, saved order and exports QA
         run: node scripts/register-sorting-qa.mjs
       - name: Preserve register sorting browser evidence
