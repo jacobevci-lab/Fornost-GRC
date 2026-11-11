@@ -22,7 +22,7 @@ test("AI management summary is integrated with responsive evidence export", asyn
     readFile("app/fornost-ai-copilot.tsx", "utf8"),
     readFile("app/layout.tsx", "utf8"),
   ]);
-  assert.match(ui, /AI Yönetim Özeti/);
+  assert.match(ui, /Karar Masası/);
   assert.match(ui, /Öncelikli aksiyon kuyruğu/);
   assert.match(ui, /executive-portfolio|portfolio\?format=csv/);
   assert.match(css, /@media \(max-width: 800px\)/);

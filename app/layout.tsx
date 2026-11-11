@@ -35,6 +35,7 @@ import "./fornost-ai-transparency.css";
 import "./fornost-ai-continuous-assurance.css";
 import "./fornost-ai-assurance-alerts.css";
 import "./fornost-ai-portfolio.css";
+import "./ai-decision-workspace.css";
 import "./fornost-ai-exceptions.css";
 import "./fornost-ai-navigation.css";
 import "./fornost-ai-decommission.css";

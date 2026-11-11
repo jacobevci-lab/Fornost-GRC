@@ -1,0 +1,67 @@
+name: AI decision workspace QA
+on:
+  pull_request:
+    paths:
+      - 'app/fornost-ai-portfolio*'
+      - 'app/fornost-ai-model-inventory*'
+      - 'app/fornost-ai-copilot.tsx'
+      - 'app/ai-portfolio-work.ts'
+      - 'app/ai-decision-workspace.css'
+      - 'app/ai-action-list.tsx'
+      - 'scripts/ai-decision-workspace-qa.mjs'
+      - '.github/workflows/ai-decision-workspace-qa.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.13.0
+          cache: npm
+      - run: npm ci
+      - run: npm install --no-save --ignore-scripts @playwright/test@1.55.0
+      - name: Use runner browser or install Chromium
+        shell: bash
+        run: |
+          if command -v google-chrome >/dev/null; then
+            echo "QA_CHROMIUM_PATH=$(command -v google-chrome)" >> "$GITHUB_ENV"
+          else
+            npx playwright install chromium
+          fi
+      - name: Test isolated AI workspace
+        run: |
+          set -euo pipefail
+          npm run dev -- --host 127.0.0.1 --port 4173 --strictPort > /tmp/ai-runtime.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null || true' EXIT
+          for attempt in $(seq 1 60); do
+            if curl --fail --silent http://127.0.0.1:4173/api/health > /dev/null; then break; fi
+            sleep 1
+          done
+          node scripts/ai-decision-workspace-qa.mjs
+          node --input-type=module <<'NODE'
+          import {readFileSync} from 'node:fs';
+          import {execFileSync} from 'node:child_process';
+          const account=JSON.parse(readFileSync('ai-decision-qa-artifacts/local-account.json','utf8'));
+          for (const script of ['ai-model-lifecycle-qa.mjs','ai-record-navigation-qa.mjs']) {
+            execFileSync(process.execPath,['scripts/'+script],{stdio:'inherit',env:{...process.env,FORNOST_QA_PASSWORD:account.password}});
+          }
+          NODE
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ai-decision-workspace-qa
+          path: |
+            ai-decision-qa-artifacts/*.png
+            ai-decision-qa-artifacts/report.json
+            ai-decision-qa-artifacts/failure.json
+            ai-model-lifecycle-qa-artifacts/*.png
+            ai-model-lifecycle-qa-artifacts/result.json
+            ai-record-navigation-qa-artifacts/*.png
+            ai-record-navigation-qa-artifacts/result.json
+          if-no-files-found: warn

@@ -20,15 +20,17 @@ export function useAiActionList<T extends RecordItem>(items:T[], focusRef:string
 }
 
 type ListControls = Pick<ReturnType<typeof useAiActionList>,"query"|"status"|"severity"|"change"|"reset"|"page"|"pages"|"setPage">;
-export function AiActionListFilters({list,statuses,disabled,severityLabel="Önem"}:{list:ListControls;statuses:string[];disabled:boolean;severityLabel?:string}) {
+export function AiActionListFilters({list,statuses,disabled,severityLabel="Önem",lang="tr",hasExtraFilters=false}:{list:ListControls;statuses:string[];disabled:boolean;severityLabel?:string;lang?:"tr"|"en";hasExtraFilters?:boolean}) {
+  const t=(tr:string,en:string)=>lang==="tr"?tr:en;
   return <div className="ai-action-list-filters">
-    <label><span>Kayıt ara</span><input aria-label="Kayıt ara" placeholder="Başlık, sorumlu veya kayıt referansı" value={list.query} disabled={disabled} onChange={e=>list.change("query",e.target.value)}/></label>
-    <label><span>Durum</span><select aria-label="Kayıt durumu" value={list.status} disabled={disabled} onChange={e=>list.change("status",e.target.value)}><option value="all">Tüm durumlar</option>{statuses.map(status=><option key={status} value={status}>{aiStatusLabels[status]||status}</option>)}</select></label>
-    <label><span>{severityLabel}</span><select aria-label="Kayıt önemi" value={list.severity} disabled={disabled} onChange={e=>list.change("severity",e.target.value)}><option value="all">Tüm düzeyler</option>{Object.entries(aiSeverityLabels).map(([value,label])=><option key={value} value={value}>{label}</option>)}</select></label>
-    <button disabled={disabled||(!list.query&&list.status==="all"&&list.severity==="all")} onClick={list.reset}>Filtreleri temizle</button>
+    <label><span>{t("Kayıt ara", "Search records")}</span><input aria-label={t("Kayıt ara", "Search records")} placeholder={t("Başlık, sorumlu veya kayıt referansı", "Title, owner or record reference")} value={list.query} disabled={disabled} onChange={e=>list.change("query",e.target.value)}/></label>
+    <label><span>{t("Durum", "Status")}</span><select aria-label={t("Kayıt durumu", "Record status")} value={list.status} disabled={disabled} onChange={e=>list.change("status",e.target.value)}><option value="all">{t("Tüm durumlar", "All statuses")}</option>{statuses.map(status=><option key={status} value={status}>{lang==="tr"?(aiStatusLabels[status]||status):status}</option>)}</select></label>
+    <label><span>{severityLabel}</span><select aria-label={t("Kayıt önemi", "Record severity")} value={list.severity} disabled={disabled} onChange={e=>list.change("severity",e.target.value)}><option value="all">{t("Tüm düzeyler", "All levels")}</option>{Object.entries(aiSeverityLabels).map(([value,label])=><option key={value} value={value}>{lang==="tr"?label:value}</option>)}</select></label>
+    <button disabled={disabled||(!hasExtraFilters&&!list.query&&list.status==="all"&&list.severity==="all")} onClick={list.reset}>{t("Filtreleri temizle", "Clear filters")}</button>
   </div>;
 }
-export function AiActionListPages({list,disabled}:{list:ListControls;disabled:boolean}) {
+export function AiActionListPages({list,disabled,lang="tr"}:{list:ListControls;disabled:boolean;lang?:"tr"|"en"}) {
+  const t=(tr:string,en:string)=>lang==="tr"?tr:en;
   if(list.pages<=1)return null;
-  return <nav className="ai-action-list-pages" aria-label="Kayıt sayfaları"><button disabled={disabled||list.page===0} onClick={()=>list.setPage(list.page-1)}>Önceki</button><span>Sayfa {list.page+1} / {list.pages}</span><button disabled={disabled||list.page+1===list.pages} onClick={()=>list.setPage(list.page+1)}>Sonraki</button></nav>;
+  return <nav className="ai-action-list-pages" aria-label={t("Kayıt sayfaları", "Record pages")}><button disabled={disabled||list.page===0} onClick={()=>list.setPage(list.page-1)}>{t("Önceki", "Previous")}</button><span>{t("Sayfa", "Page")} {list.page+1} / {list.pages}</span><button disabled={disabled||list.page+1===list.pages} onClick={()=>list.setPage(list.page+1)}>{t("Sonraki", "Next")}</button></nav>;
 }

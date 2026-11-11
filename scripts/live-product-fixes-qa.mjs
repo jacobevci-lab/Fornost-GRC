@@ -76,10 +76,10 @@ try{
 
   await open('AI Governance');const ai=page.locator('#fornost-ai-panel');
   await expect(ai).toContainText('Inventory and governance available');
-  await expect(ai.getByRole('button',{name:'Add your first AI system',exact:true})).toBeVisible();
-  await ai.getByRole('button',{name:'Add your first AI system',exact:true}).click();await expect(page.locator('#ai-model-create')).toBeVisible();
+  await expect(ai.getByRole('button',{name:'Add AI system',exact:true})).toBeVisible();
+  await ai.getByRole('button',{name:'Add AI system',exact:true}).click();await expect(page.locator('#ai-model-create')).toBeVisible();
   await expect(page.locator('#ai-model-create input').first()).toBeFocused();
-  await revealAiWorkspace(ai,'AI Executive Overview');await ai.getByRole('button',{name:'AI Executive Overview',exact:true}).click();
+  await revealAiWorkspace(ai,'Decision Desk');await ai.getByRole('button',{name:'Decision Desk',exact:true}).click();
   await ai.locator('.ai-section-picker>summary').click();assert.equal(await ai.locator('.ai-workspace-group').count(),6);assert.equal(await ai.locator('.fornost-ai-tabs button').count(),34);
   await screenshot('05-ai-groups');checks.push('F08: provider-independent first-system action and six task groups preserve all 34 workspaces');
   assert.deepEqual(errors,[]);await writeFile(`${out}/result.json`,JSON.stringify({checks,errors},null,2));
