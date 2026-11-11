@@ -3,49 +3,49 @@
 #ai-governance-workspace .ai-primary-nav{display:flex;flex-wrap:wrap;gap:8px;padding:12px 20px;border-bottom:1px solid var(--ws-line)}
 #ai-governance-workspace .ai-primary-nav button{padding:10px 16px;background:transparent;color:var(--ws-muted);border:0;border-radius:7px;font:inherit;font-weight:600}
 #ai-governance-workspace .ai-primary-nav button[aria-current]{background:var(--ws-brand-soft);color:var(--ws-brand-2)}
-.ai-decision-workspace{min-width:0;padding:24px!important;color:var(--ws-ink)!important}
-.ai-decision-workspace .ai-decision-hero{gap:16px;flex-wrap:wrap;margin-bottom:18px}
-.ai-decision-workspace .ai-decision-hero>div:first-child{display:block;min-width:0}
-.ai-decision-workspace .ai-decision-hero h3{font-size:28px!important;line-height:1.2;margin:8px 0!important}
-.ai-decision-workspace .ai-decision-hero small{letter-spacing:.15em;color:var(--ws-brand-2);font-weight:700}
-.ai-decision-workspace .ai-decision-hero p{font-size:14px!important;margin:0;line-height:1.5}
-.ai-decision-workspace button,.ai-decision-workspace a{font:inherit;font-size:13px!important;border:1px solid var(--ws-line)!important;background:var(--ws-surface)!important;color:var(--ws-ink)!important;cursor:pointer;text-decoration:none}
-.ai-decision-workspace button.primary{background:var(--ws-brand)!important;color:var(--ws-on-brand,#fff)!important;padding:12px 16px}
-.ai-decision-workspace button:disabled{opacity:.5;cursor:not-allowed}
-.ai-decision-workspace button:focus-visible,.ai-primary-nav button:focus-visible,.ai-inventory-register button:focus-visible{outline:2px solid var(--ws-brand);outline-offset:3px}
-.ai-decision-workspace .ai-decision-freshness{display:flex;justify-content:space-between;align-items:center;gap:12px;margin:12px 0}
-.ai-decision-workspace .ai-decision-freshness small{font-size:12px!important}
-.ai-decision-workspace .ai-decision-metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin:16px 0 22px}
-.ai-decision-workspace .ai-decision-metrics button{display:flex;align-items:center;gap:14px;padding:16px;text-align:left;border-radius:10px}
-.ai-decision-workspace .ai-decision-metrics button[aria-pressed=true]{border-color:var(--ws-brand)!important}
-.ai-decision-workspace .ai-decision-metrics strong{font-size:28px!important;line-height:1}
-.ai-decision-workspace .ai-decision-grid{display:grid;grid-template-columns:minmax(0,2.1fr) minmax(260px,1fr);gap:18px;align-items:start}
-.ai-decision-workspace .ai-decision-list,.ai-decision-workspace .ai-decision-detail{min-width:0;border:1px solid var(--ws-line);border-radius:12px;padding:18px;background:var(--ws-surface)}
-.ai-decision-workspace .ai-decision-filters{display:flex;gap:10px;align-items:end;flex-wrap:wrap;margin-bottom:14px}
-.ai-decision-workspace .ai-decision-filters label{display:grid;gap:5px;min-width:0}
-.ai-decision-workspace .ai-decision-filters label:nth-child(2){flex:1;min-width:160px}
-.ai-decision-workspace label span{font-size:12px;color:var(--ws-muted)}
-.ai-decision-workspace input,.ai-decision-workspace select{width:100%;box-sizing:border-box;min-height:39px;padding:8px 10px;border:1px solid var(--ws-line);border-radius:7px;background:var(--ws-bg);color:var(--ws-ink);font:inherit;font-size:13px}
-.ai-decision-workspace .ai-decision-table{overflow-x:auto;margin-top:10px}
-.ai-decision-workspace .ai-decision-table table{min-width:570px;table-layout:fixed;width:100%;font-size:13px!important}
-.ai-decision-workspace .ai-decision-table th,.ai-decision-workspace .ai-decision-table td{padding:15px 10px;vertical-align:top;font-size:13px!important;overflow-wrap:anywhere;border-bottom:1px solid var(--ws-line)}
-.ai-decision-workspace .ai-decision-table th:first-child{width:27%}
-.ai-decision-workspace .ai-decision-table th:nth-child(2){width:29%}
-.ai-decision-workspace .ai-decision-table thead{background:var(--ws-bg)}
-.ai-decision-workspace .ai-decision-table th button{border:0!important;background:transparent!important;text-align:left;padding:0;font-size:14px!important;font-weight:650}
-.ai-decision-workspace .ai-decision-table tr.selected{background:var(--ws-brand-soft)}
-.ai-decision-workspace .ai-decision-table small{margin-top:6px;font-size:12px!important;font-weight:400}
-.ai-decision-workspace .ai-decision-detail h4{font-size:22px!important;line-height:1.3;margin:8px 0 18px;overflow-wrap:anywhere}
-.ai-decision-workspace .ai-decision-detail h5{font-size:14px!important;margin:18px 0 10px}
-.ai-decision-workspace .ai-decision-detail dl{display:grid;gap:12px;padding-bottom:18px;border-bottom:1px solid var(--ws-line);margin:0}
-.ai-decision-workspace .ai-decision-detail dl>div{display:flex;justify-content:space-between;gap:10px;font-size:13px}
-.ai-decision-workspace .ai-decision-detail dd{margin:0;font-weight:600;text-align:right}
-.ai-decision-workspace .ai-decision-detail ul{padding-left:18px;max-height:220px;overflow:auto;font-size:13px;line-height:1.65}
-.ai-decision-workspace .ai-decision-detail p,.ai-decision-workspace .ai-decision-note{font-size:12px!important;color:var(--ws-muted);line-height:1.6}
-.ai-decision-workspace .ai-decision-detail>button{display:block;width:100%;margin-top:10px}
-.ai-decision-workspace .ai-decision-empty{padding:28px;border:1px dashed var(--ws-line);border-radius:12px;margin-top:15px}
-.ai-decision-workspace .ai-decision-empty h4{font-size:20px!important;margin:0 0 8px}
-.ai-decision-workspace .ai-decision-pager{display:flex;gap:12px;align-items:center;justify-content:flex-end;margin-top:16px}
+#ai-governance-workspace .ai-decision-workspace{min-width:0;padding:24px!important;color:var(--ws-ink)!important}
+#ai-governance-workspace .ai-decision-workspace .ai-decision-hero{gap:16px;flex-wrap:wrap;margin-bottom:18px}
+#ai-governance-workspace .ai-decision-workspace .ai-decision-hero>div:first-child{display:block;min-width:0}
+#ai-governance-workspace .ai-decision-workspace .ai-decision-hero h3{font-size:28px!important;line-height:1.2;margin:8px 0!important}
+#ai-governance-workspace .ai-decision-workspace .ai-decision-hero small{letter-spacing:.15em;color:var(--ws-brand-2);font-weight:700}
+#ai-governance-workspace .ai-decision-workspace .ai-decision-hero p{font-size:14px!important;margin:0;line-height:1.5}
+#ai-governance-workspace .ai-decision-workspace button,#ai-governance-workspace .ai-decision-workspace a{font:inherit;font-size:13px!important;border:1px solid var(--ws-line)!important;background:var(--ws-surface)!important;color:var(--ws-ink)!important;cursor:pointer;text-decoration:none}
+#ai-governance-workspace .ai-decision-workspace button.primary{background:var(--ws-brand)!important;color:var(--ws-on-brand,#fff)!important;padding:12px 16px}
+#ai-governance-workspace .ai-decision-workspace button:disabled{opacity:.5;cursor:not-allowed}
+#ai-governance-workspace .ai-decision-workspace button:focus-visible,.ai-primary-nav button:focus-visible,.ai-inventory-register button:focus-visible{outline:2px solid var(--ws-brand);outline-offset:3px}
+#ai-governance-workspace .ai-decision-workspace .ai-decision-freshness{display:flex;justify-content:space-between;align-items:center;gap:12px;margin:12px 0}
+#ai-governance-workspace .ai-decision-workspace .ai-decision-freshness small{font-size:12px!important}
+#ai-governance-workspace .ai-decision-workspace .ai-decision-metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin:16px 0 22px}
+#ai-governance-workspace .ai-decision-workspace .ai-decision-metrics button{display:flex;align-items:center;gap:14px;padding:16px;text-align:left;border-radius:10px}
+#ai-governance-workspace .ai-decision-workspace .ai-decision-metrics button[aria-pressed=true]{border-color:var(--ws-brand)!important}
+#ai-governance-workspace .ai-decision-workspace .ai-decision-metrics strong{font-size:28px!important;line-height:1}
+#ai-governance-workspace .ai-decision-workspace .ai-decision-grid{display:grid;grid-template-columns:minmax(0,2.1fr) minmax(260px,1fr);gap:18px;align-items:start}
+#ai-governance-workspace .ai-decision-workspace .ai-decision-list,#ai-governance-workspace .ai-decision-workspace .ai-decision-detail{min-width:0;border:1px solid var(--ws-line);border-radius:12px;padding:18px;background:var(--ws-surface)}
+#ai-governance-workspace .ai-decision-workspace .ai-decision-filters{display:flex;gap:10px;align-items:end;flex-wrap:wrap;margin-bottom:14px}
+#ai-governance-workspace .ai-decision-workspace .ai-decision-filters label{display:grid;gap:5px;min-width:0}
+#ai-governance-workspace .ai-decision-workspace .ai-decision-filters label:nth-child(2){flex:1;min-width:160px}
+#ai-governance-workspace .ai-decision-workspace label span{font-size:12px;color:var(--ws-muted)}
+#ai-governance-workspace .ai-decision-workspace input,#ai-governance-workspace .ai-decision-workspace select{width:100%;box-sizing:border-box;min-height:39px;padding:8px 10px;border:1px solid var(--ws-line);border-radius:7px;background:var(--ws-bg);color:var(--ws-ink);font:inherit;font-size:13px}
+#ai-governance-workspace .ai-decision-workspace .ai-decision-table{overflow-x:auto;margin-top:10px}
+#ai-governance-workspace .ai-decision-workspace .ai-decision-table table{min-width:570px;table-layout:fixed;width:100%;font-size:13px!important}
+#ai-governance-workspace .ai-decision-workspace .ai-decision-table th,#ai-governance-workspace .ai-decision-workspace .ai-decision-table td{padding:15px 10px;vertical-align:top;font-size:13px!important;overflow-wrap:anywhere;border-bottom:1px solid var(--ws-line)}
+#ai-governance-workspace .ai-decision-workspace .ai-decision-table th:first-child{width:27%}
+#ai-governance-workspace .ai-decision-workspace .ai-decision-table th:nth-child(2){width:29%}
+#ai-governance-workspace .ai-decision-workspace .ai-decision-table thead{background:var(--ws-bg)}
+#ai-governance-workspace .ai-decision-workspace .ai-decision-table th button{border:0!important;background:transparent!important;text-align:left;padding:0;font-size:14px!important;font-weight:650}
+#ai-governance-workspace .ai-decision-workspace .ai-decision-table tr.selected{background:var(--ws-brand-soft)}
+#ai-governance-workspace .ai-decision-workspace .ai-decision-table small{margin-top:6px;font-size:12px!important;font-weight:400}
+#ai-governance-workspace .ai-decision-workspace .ai-decision-detail h4{font-size:22px!important;line-height:1.3;margin:8px 0 18px;overflow-wrap:anywhere}
+#ai-governance-workspace .ai-decision-workspace .ai-decision-detail h5{font-size:14px!important;margin:18px 0 10px}
+#ai-governance-workspace .ai-decision-workspace .ai-decision-detail dl{display:grid;gap:12px;padding-bottom:18px;border-bottom:1px solid var(--ws-line);margin:0}
+#ai-governance-workspace .ai-decision-workspace .ai-decision-detail dl>div{display:flex;justify-content:space-between;gap:10px;font-size:13px}
+#ai-governance-workspace .ai-decision-workspace .ai-decision-detail dd{margin:0;font-weight:600;text-align:right}
+#ai-governance-workspace .ai-decision-workspace .ai-decision-detail ul{padding-left:18px;max-height:220px;overflow:auto;font-size:13px;line-height:1.65}
+#ai-governance-workspace .ai-decision-workspace .ai-decision-detail p,#ai-governance-workspace .ai-decision-workspace .ai-decision-note{font-size:12px!important;color:var(--ws-muted);line-height:1.6}
+#ai-governance-workspace .ai-decision-workspace .ai-decision-detail>button{display:block;width:100%;margin-top:10px}
+#ai-governance-workspace .ai-decision-workspace .ai-decision-empty{padding:28px;border:1px dashed var(--ws-line);border-radius:12px;margin-top:15px}
+#ai-governance-workspace .ai-decision-workspace .ai-decision-empty h4{font-size:20px!important;margin:0 0 8px}
+#ai-governance-workspace .ai-decision-workspace .ai-decision-pager{display:flex;gap:12px;align-items:center;justify-content:flex-end;margin-top:16px}
 .ai-work-overdue{color:var(--danger,#b44e38)!important;font-weight:600!important}
 #ai-governance-workspace .ai-model-inventory{display:block;padding:24px;min-width:0;color:var(--ws-ink)}
 #ai-governance-workspace .ai-inventory-hero{border:0;background:none;padding:0 0 18px}
@@ -83,10 +83,19 @@
 #ai-governance-workspace .ai-inventory-form label span{font-size:12px!important;opacity:1}
 #ai-governance-workspace .ai-inventory-form b{font-size:17px!important}
 #ai-governance-workspace .ai-inventory-approval-note{font-size:12px;color:var(--ws-muted);line-height:1.6;margin-top:18px}
-@media (max-width: 1000px){.ai-decision-workspace .ai-decision-grid{grid-template-columns:1fr}.ai-decision-workspace .ai-decision-detail ul{max-height:none}#ai-governance-workspace .ai-inventory-register{grid-template-columns:1fr}#ai-governance-workspace .ai-inventory-filter-panel .ai-action-list-filters{grid-template-columns:repeat(2,minmax(0,1fr))}}
-@media (max-width: 800px){.ai-decision-workspace{padding:14px!important}.ai-decision-workspace .ai-decision-metrics{grid-template-columns:1fr;gap:8px}.ai-decision-workspace .ai-decision-metrics button{padding:12px}.ai-decision-workspace .ai-decision-hero h3{font-size:24px!important}.ai-decision-workspace .ai-decision-list{padding:12px}#ai-governance-workspace .ai-model-inventory{padding:14px}#ai-governance-workspace .ai-primary-nav{gap:4px;padding:10px}#ai-governance-workspace .ai-primary-nav button{padding:10px;font-size:12px}#ai-governance-workspace .ai-inventory-list dl{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width: 1000px){#ai-governance-workspace .ai-decision-workspace .ai-decision-grid{grid-template-columns:1fr}#ai-governance-workspace .ai-decision-workspace .ai-decision-detail ul{max-height:none}#ai-governance-workspace .ai-inventory-register{grid-template-columns:1fr}#ai-governance-workspace .ai-inventory-filter-panel .ai-action-list-filters{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width: 800px){#ai-governance-workspace .ai-decision-workspace{padding:14px!important}#ai-governance-workspace .ai-decision-workspace .ai-decision-metrics{grid-template-columns:1fr;gap:8px}#ai-governance-workspace .ai-decision-workspace .ai-decision-metrics button{padding:12px}#ai-governance-workspace .ai-decision-workspace .ai-decision-hero h3{font-size:24px!important}#ai-governance-workspace .ai-decision-workspace .ai-decision-list{padding:12px}#ai-governance-workspace .ai-model-inventory{padding:14px}#ai-governance-workspace .ai-primary-nav{gap:4px;padding:10px}#ai-governance-workspace .ai-primary-nav button{padding:10px;font-size:12px}#ai-governance-workspace .ai-inventory-list dl{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media (prefers-reduced-motion:no-preference){.ai-primary-nav button,.ai-decision-metrics button{transition:background-color .15s,border-color .15s}}
 
 #ai-governance-workspace .ai-model-inventory>button{padding:10px 16px;border:1px solid var(--ws-brand);border-radius:8px;background:var(--ws-brand);color:var(--ws-on-brand,#fff);font:inherit;font-size:13px!important;cursor:pointer}
 #ai-governance-workspace .ai-inventory-filter-panel label span{font-size:12px!important;opacity:1}
 #ai-governance-workspace .ai-inventory-filter-panel input,#ai-governance-workspace .ai-inventory-filter-panel select{font-size:13px!important}
+
+#ai-governance-workspace .ai-primary-nav{display:flex!important;gap:8px!important;flex:0 0 auto!important;overflow:visible!important}
+#ai-governance-workspace .ai-primary-nav button{width:auto!important;flex:0 0 auto!important;display:inline-flex!important;align-items:center;font-size:14px!important}
+#ai-governance-workspace .ai-decision-workspace .ai-decision-pager,#ai-governance-workspace .ai-action-list-pages{display:flex!important;gap:12px!important}
+#ai-governance-workspace .ai-decision-workspace .ai-decision-detail :is(dt,dd,li){color:var(--ws-ink)!important;font-size:13px!important;opacity:1!important}
+#ai-governance-workspace .ai-decision-workspace .ai-decision-detail p{color:var(--ws-muted)!important}
+#ai-governance-workspace .ai-decision-workspace .ai-decision-metrics span{font-size:14px!important}
+#ai-governance-workspace .ai-decision-workspace .ai-decision-table tr.selected>:is(th,td){background:var(--ws-brand-soft)!important}
+#ai-governance-workspace .ai-inventory-register-table tr.selected>:is(th,td){background:var(--ws-brand-soft)!important}

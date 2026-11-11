@@ -192,8 +192,8 @@ export default function FornostAiPortfolio({ lang = "tr", onCreate, onOpenModel,
           <span>SHA-256 · HMAC</span>
         </header>
         <div className="dossier-controls">
-          <label><span>{t("AI sistemi", "AI system")}</span><select disabled={packageBusy} value={selectedDossierModel} onChange={(event) => {setDossierModel(event.target.value); setSealedPackage(null); setSealedHistory([]); setPackageNotice("");}}>{data?.portfolio.map((row) => <option key={row.id} value={row.id}>{row.systemName} · {row.modelName}</option>)}</select></label>
-          <label><span>{t("Denetim dönemi", "Audit period")}</span><select value={dossierDays} onChange={(event) => setDossierDays(Number(event.target.value) as 30 | 90 | 365)}><option value={30}>{t("Son 30 gün", "Last 30 days")}</option><option value={90}>{t("Son 90 gün", "Last 90 days")}</option><option value={365}>{t("Son 365 gün", "Last 365 days")}</option></select></label>
+          <label><span>{t("AI sistemi", "AI system")}</span><select aria-label={t("AI sistemi", "AI system")} disabled={packageBusy} value={selectedDossierModel} onChange={(event) => {setDossierModel(event.target.value); setSealedPackage(null); setSealedHistory([]); setPackageNotice("");}}>{data?.portfolio.map((row) => <option key={row.id} value={row.id}>{row.systemName} · {row.modelName}</option>)}</select></label>
+          <label><span>{t("Denetim dönemi", "Audit period")}</span><select aria-label={t("Denetim dönemi", "Audit period")} value={dossierDays} onChange={(event) => setDossierDays(Number(event.target.value) as 30 | 90 | 365)}><option value={30}>{t("Son 30 gün", "Last 30 days")}</option><option value={90}>{t("Son 90 gün", "Last 90 days")}</option><option value={365}>{t("Son 365 gün", "Last 365 days")}</option></select></label>
           <div><button disabled={!selectedDossierModel||packageBusy} onClick={()=>void packageAction("seal")}>{t("Mühürlü paket oluştur", "Create sealed package")}</button><form className="dossier-download-form" method="get" action={withBasePath("/api/ai/dossier")}><input type="hidden" name="modelId" value={selectedDossierModel}/><input type="hidden" name="days" value={[30,90,365].includes(dossierDays)?dossierDays:30}/><button disabled={!selectedDossierModel} name="format" value="json">Hash JSON</button><button disabled={!selectedDossierModel} name="format" value="csv">{t("Kontrol CSV", "Control CSV")}</button></form></div>
         </div>
         {historyLoading && <p role="status">{t("Paket geçmişi yükleniyor…", "Loading package history…")}</p>}
@@ -215,7 +215,7 @@ export default function FornostAiPortfolio({ lang = "tr", onCreate, onOpenModel,
         <div className="ai-decision-grid">
           <section className="ai-decision-list" aria-label={t("Öncelikli aksiyon kuyruğu", "Priority action queue")}>
             <div className="ai-decision-filters">
-              <label><span>{t("Kapsam", "Scope")}</span><select value={scope} onChange={e => {setScope(e.target.value); setPage(0);}}><option value="all">{t("Tüm sistemler", "All systems")}</option><option value="mine">{t("Sorumlusu olduklarım", "Owned by me")}</option></select></label>
+              <label><span>{t("Kapsam", "Scope")}</span><select aria-label={t("Kapsam", "Scope")} value={scope} onChange={e => {setScope(e.target.value); setPage(0);}}><option value="all">{t("Tüm sistemler", "All systems")}</option><option value="mine">{t("Sorumlusu olduklarım", "Owned by me")}</option></select></label>
               <label><span>{t("Sistem veya iş ara", "Search systems or work")}</span><input type="search" value={query} onChange={e => {setQuery(e.target.value); setPage(0);}} placeholder={t("Ad, model, sorumlu veya eksik…", "Name, model, owner or gap…")}/></label>
               <button onClick={() => chooseFilter("all")}>{t("Filtreleri temizle", "Clear filters")}</button>
             </div>
