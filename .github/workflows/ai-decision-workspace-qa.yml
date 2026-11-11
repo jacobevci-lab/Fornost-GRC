@@ -44,6 +44,14 @@ jobs:
             sleep 1
           done
           node scripts/ai-decision-workspace-qa.mjs
+          node --input-type=module <<'NODE'
+          import {readFileSync} from 'node:fs';
+          import {execFileSync} from 'node:child_process';
+          const account=JSON.parse(readFileSync('ai-decision-qa-artifacts/local-account.json','utf8'));
+          for (const script of ['ai-model-lifecycle-qa.mjs','ai-record-navigation-qa.mjs']) {
+            execFileSync(process.execPath,['scripts/'+script],{stdio:'inherit',env:{...process.env,FORNOST_QA_PASSWORD:account.password}});
+          }
+          NODE
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -52,4 +60,8 @@ jobs:
             ai-decision-qa-artifacts/*.png
             ai-decision-qa-artifacts/report.json
             ai-decision-qa-artifacts/failure.json
+            ai-model-lifecycle-qa-artifacts/*.png
+            ai-model-lifecycle-qa-artifacts/result.json
+            ai-record-navigation-qa-artifacts/*.png
+            ai-record-navigation-qa-artifacts/result.json
           if-no-files-found: warn
