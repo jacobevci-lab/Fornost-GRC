@@ -40,11 +40,11 @@ try{
    await open();await expect.poll(()=>calls).toBe(1);await open();await expect.poll(()=>calls).toBe(2);
    await expect.poll(()=>page.evaluate(()=>window.__qaIdentityBodies.find(item=>item.order===2)?.response.bodyUsed)).toBe(true);
    const panel=page.locator('#fornost-ai-panel');
-   if(mode==='latest-admin')await expect(panel.locator('.fornost-ai-tabs button').filter({hasText:/AI Yönetim Özeti|AI Executive Overview/})).toHaveCount(1);
+   if(mode==='latest-admin')await expect(panel.locator('.fornost-ai-tabs button').filter({hasText:/Karar Masası|Decision Desk/})).toHaveCount(1);
    else await expect(panel).toContainText('Ask Fornost için oturum açmanız gerekiyor.');
    release();await expect.poll(()=>page.evaluate(()=>window.__qaIdentityBodies.some(item=>item.order===1))).toBe(true);
    await expect.poll(()=>page.evaluate(()=>window.__qaIdentityBodies.find(item=>item.order===1)?.response.bodyUsed),{timeout:2000,message:'Superseded identity response must also be consumed'}).toBe(true);
-   if(mode==='latest-admin')await expect(panel.locator('.fornost-ai-tabs button').filter({hasText:/AI Yönetim Özeti|AI Executive Overview/})).toHaveCount(1);
+   if(mode==='latest-admin')await expect(panel.locator('.fornost-ai-tabs button').filter({hasText:/Karar Masası|Decision Desk/})).toHaveCount(1);
    else {await expect(panel).toContainText('Ask Fornost için oturum açmanız gerekiyor.');await expect(panel.locator('.fornost-ai-tabs')).toHaveCount(0);}
    await waitForQaIdle(page);
    checks.push(mode+': latest state retained, both bodies consumed, no stale authorization');

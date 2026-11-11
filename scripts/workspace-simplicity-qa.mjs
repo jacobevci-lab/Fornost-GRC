@@ -64,10 +64,10 @@ try{
   await expect(panel).toBeVisible();
   assert.ok(await panel.locator('.fornost-ai-tabs button').count()>=30,'All specialist capabilities retained');
   await panel.locator('.ai-section-picker>summary').click();
-  await revealAiWorkspace(panel,tr?'AI Envanteri':'AI Inventory');await panel.getByRole('button',{name:tr?'AI Envanteri':'AI Inventory',exact:true}).click();
+  await revealAiWorkspace(panel,tr?'AI Envanteri':'AI Inventory');await panel.locator('.fornost-ai-tabs').getByRole('button',{name:tr?'AI Envanteri':'AI Inventory',exact:true}).click();
   await expect(panel).toHaveAttribute('data-ai-view','models');
   assert.equal(await panel.locator('.ai-section-picker').getAttribute('open'),null);
-  await panel.locator('.ai-section-picker>summary').click();await revealAiWorkspace(panel,tr?'AI Yönetim Özeti':'AI Executive Overview');await panel.getByRole('button',{name:tr?'AI Yönetim Özeti':'AI Executive Overview',exact:true}).click();
+  await panel.locator('.ai-section-picker>summary').click();await revealAiWorkspace(panel,tr?'Karar Masası':'Decision Desk');await panel.getByRole('button',{name:tr?'Karar Masası':'Decision Desk',exact:true}).click();
   await expect(page.locator('.fornost-ai-launcher')).toBeHidden();
   for(const theme of ['light','dark'])for(const width of [1536,390]){
    await page.evaluate(theme=>document.documentElement.dataset.theme=theme,theme);
