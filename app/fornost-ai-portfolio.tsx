@@ -173,7 +173,7 @@ export default function FornostAiPortfolio({ lang = "tr", onCreate, onOpenModel,
                   <td className={row.retirementInProgress ? "bad" : "good"}>{row.retirementInProgress ? t("Devam ediyor", "In progress") : t("Yok", "None")}</td>
                   <td className={row.blockingFindings ? "bad" : "good"}>{row.blockingFindings || t("Temiz", "Clear")}</td>
                   <td>
-                    <span className={`release ${aiDisplayStatus(row.releaseStatus, lang)}`}>
+                    <span className={`release ${row.releaseStatus}`}>
                       {aiDisplayStatus(row.releaseStatus, lang)}
                     </span>
                   </td>
