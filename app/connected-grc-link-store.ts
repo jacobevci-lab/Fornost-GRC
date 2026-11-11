@@ -31,11 +31,12 @@ export async function writeConnectedLink(db: D1Database, actor: Actor, input: Re
   const checked = validate(source.module, data);
   if ('error' in checked) throw new ConnectionWriteError('validation');
   if (JSON.stringify(checked.data[String(field)]) !== JSON.stringify(data[String(field)])) throw new ConnectionWriteError('validation');
-  const stamp = nextLifecycleStamp(source.updated_at), guard = coreReferenceGuard(newCoreReferences(source.id, source.module, checked.data, before));
+  // Validation may normalize legacy fields; relationship edits preserve unrelated source data.
+  const stamp = nextLifecycleStamp(source.updated_at), guard = coreReferenceGuard(newCoreReferences(source.id, source.module, data, before));
   const eventId = crypto.randomUUID();
   const claim = db.prepare(`UPDATE simple_grc_records SET data_json=?,updated_at=? WHERE id=? AND module=? AND updated_at=? AND data_json=? AND EXISTS(SELECT 1 FROM simple_grc_records WHERE id=? AND module=?) AND ${guard.sql}`)
-    .bind(JSON.stringify(checked.data), stamp, source.id, source.module, source.updated_at, source.data_json, target.id, target.module, ...guard.values);
-  const result = await db.batch([claim, lifecycleInsert(db, 'connected_grc_link_events', { id: eventId, source_id: source.id, source_module: source.module, target_id: target.id, field: String(field), action: String(action), actor: actor.email, note: note.trim(), before_value: JSON.stringify(before[String(field)] ?? null), after_value: JSON.stringify(checked.data[String(field)] ?? null), created_at: stamp })]);
+    .bind(JSON.stringify(data), stamp, source.id, source.module, source.updated_at, source.data_json, target.id, target.module, ...guard.values);
+  const result = await db.batch([claim, lifecycleInsert(db, 'connected_grc_link_events', { id: eventId, source_id: source.id, source_module: source.module, target_id: target.id, field: String(field), action: String(action), actor: actor.email, note: note.trim(), before_value: JSON.stringify(before[String(field)] ?? null), after_value: JSON.stringify(data[String(field)] ?? null), created_at: stamp })]);
   // The event receipt excludes trigger writes and proves the guarded mutation occurred.
   if (Number(result[1]?.meta?.changes || 0) !== 1) throw new ConnectionWriteError('changed', 409);
   return { ok: true, updatedAt: stamp, eventId };

@@ -78,3 +78,12 @@ test('draft plan linkage changes its BIA and version without approving the plan'
 test('approved plans and unassigned editors cannot change BIA linkage', async () => {
   for (const status of ['draft', 'approved']) { const f = fixture(); try { f.sqlite.prepare('INSERT INTO enterprise_continuity_plans VALUES(?,?,?,?,?,?,?)').run('BCP-001', 'Old BIA', 'different@fornost.test', status, 1, actor.email, stamp); await assert.rejects(writeConnectedLink(f.db, status === 'draft' ? { ...actor, role: 'Editor' } : actor, { ...f.body, sourceId: 'BCP-001', targetId: 'BIA-001', field: 'continuityBiaRef', kind: 'continuity-plan' })); assert.equal(f.count(), 0); } finally { f.sqlite.close(); } }
 });
+
+test('link edits preserve legacy and long-form fields outside the relationship', async () => {
+ const f=fixture();try{
+  const before={...JSON.parse(String(f.read().data_json)),description:'x'.repeat(1500),status:'İzlemede',likelihood:3,impact:4};
+  f.sqlite.prepare("UPDATE simple_grc_records SET data_json=? WHERE id='RSK-001'").run(JSON.stringify(before));
+  await writeConnectedLink(f.db,actor,f.body);
+  assert.deepEqual(JSON.parse(String(f.read().data_json)),{...before,asset:'AST-002'});
+ }finally{f.sqlite.close();}
+});
