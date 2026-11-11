@@ -99,3 +99,6 @@
 #ai-governance-workspace .ai-decision-workspace .ai-decision-metrics span{font-size:14px!important}
 #ai-governance-workspace .ai-decision-workspace .ai-decision-table tr.selected>:is(th,td){background:var(--ws-brand-soft)!important}
 #ai-governance-workspace .ai-inventory-register-table tr.selected>:is(th,td){background:var(--ws-brand-soft)!important}
+/* Content panels must not inherit the application sidebar's 100vh geometry. */
+#ai-governance-workspace :is(.ai-decision-detail,.ai-inventory-filter-panel,.ai-inventory-list aside){position:static!important;inset:auto!important;height:auto!important;min-height:0!important;display:block;box-shadow:none!important;background:var(--ws-surface)!important;color:var(--ws-ink)!important;border-color:var(--ws-line)!important}
+#ai-governance-workspace .ai-model-inventory>button{background:var(--ws-brand)!important;color:var(--ws-on-brand,#fff)!important}
