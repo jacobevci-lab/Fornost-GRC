@@ -299,7 +299,7 @@ Dashboard’da denetime bağlı olmayan maddeler veya eksik denetim kaynakları 
 
 ## AI yönetişiminde başlangıç
 
-Boş yönetim özetindeki **İlk AI sistemini ekle / Add your first AI system** envanter formunu açar. AI çalışma alanları envanter/sahiplik, risk/uyum, test/güvence, inceleme/aksiyon, AI yardımı ve operasyon gruplarından seçilir. Envanter ve yönetişim işlemleri için çıkarım sağlayıcısı gerekmez; AI ile yanıt üretimi yapılandırılmış sağlayıcı gerektirir. Bu düzenleme mevcut rol ve onay kurallarını değiştirmez.
+Boş Karar Masası’ndaki **AI sistemi ekle / Add AI system** envanter formunu açar. AI çalışma alanları envanter/sahiplik, risk/uyum, test/güvence, inceleme/aksiyon, AI yardımı ve operasyon gruplarından seçilir. Envanter ve yönetişim işlemleri için çıkarım sağlayıcısı gerekmez; AI ile yanıt üretimi yapılandırılmış sağlayıcı gerektirir. Bu düzenleme mevcut rol ve onay kurallarını değiştirmez.
 
 
 ## Liste sıralaması ve tekrar kullanılabilir görünümler
@@ -399,3 +399,11 @@ From **My Work**, open the assigned supplier finding. The action dialog shows th
 Atanmış bağımsız Admin incelemeci, **Tedarikçi Yönetimi → Bulgular ve CAPA → Termini değiştir** ile açık veya iyileştirmedeki bulguya yeni tarih verebilir. Güncel bilgileri inceleyin, bugünden önce olmayan farklı tarihi ve 20–1.200 karakter gerekçeyi girin; `BULGU TERMİNİNİ DEĞİŞTİR` ifadesiyle kaydedin. İşlerim yeni tarihi kullanır. Önceki termin, o andaki gecikme, iade notu ve kanıtlar korunur. Çakışmada **Bulguyu yenile → Güncel sürümü kullan** yolunu izleyip yeniden onaylayın. Yanıt kaybolursa tekrar kaydetmeden önce güncel tarihi ve karar geçmişini kontrol edin. [Yetkiler, adımlar ve kurtarma](tprm-finding-deadline.md).
 
 Yöneticiler **Yönetim → Kimlik ve Erişim** ekranında yerel kullanıcı ekleyebilir. Kullanıcı satırındaki **Kaydet** adı, rolü, durumu ve modül erişimini günceller. **Sil** düğmesi seçilen hesabın e-posta adresini göstererek silme onayını açar.
+
+### AI Karar Masası ve Portföyü
+
+AI Yönetişimi, **İş listesi** ile açılır. Sayaçlar takip gereken sistemleri, sistem incelemesi gecikenleri ve yayın onayı bulunmayanları filtreler. Tarihler aksiyon termini değil, envanterde kayıtlı sistem inceleme tarihidir. **Sorumlusu olduklarım**, sistem sorumlusu alanında oturum e-postanızın yazdığı kayıtları gösterir. Özet canlı model telemetrisi değildir; son başarılı okuma zamanı görünür. Veri okunamazsa sıfır veya başarılı sonuç gösterilmez.
+
+Bir sistemi seçip **Sistem dosyasını aç** ile tam kaydına geçin. **AI Envanteri** sekmesinde amaç/sorumlu araması, durum, kurum riski ve sorumlu filtrelerini kullanın. Sistem adına basarak ayrıntıyı açın; taslak düzenleme/silme, yetkili kararlar, bağlı alarmlar/bulgular ve kayıt geçmişi burada kalır. Envanter onayı üretim yayın onayı değildir. **Değerlendirmeler** ve **İzleme**, mevcut ilgili çalışma alanlarını açar; diğer iş akışları **Diğer AI çalışma alanları** altında bulunur.
+
+**Raporlar** güvence matrisini, CSV ve sistem bazlı mühürlü denetim paketlerini açar. Paket geçmişi yalnız bu görünüm açıldığında yüklenir. Başarısız veya sonucu doğrulanamayan paket işleminde geçmişi yenileyerek sonucu kontrol edin. API ve rol sınırları değişmedi.
