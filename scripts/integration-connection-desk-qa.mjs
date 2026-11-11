@@ -35,6 +35,7 @@ try {
  await button('Devam et').click(); await button('Taslak kaydet').click();
  await expect(desk).toContainText('Taslak kaydedildi.'); await expect(button('Erişimi kontrol et')).toBeEnabled();
  await expect(button('Etkinleştir')).toBeDisabled(); await capture('wizard-TR-light');
+ await page.setViewportSize({width:390,height:844}); assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 2), 'wizard mobile overflow'); await capture('wizard-TR-light-mobile'); await page.setViewportSize({width:1536,height:1024});
  let current = await row(); assert.equal(current.enabled, false); assert.equal(current.hasSecret, true);
  assert.equal(current.config.name, 'Jira · Güvenlik Ekibi'); assert.equal(JSON.stringify(current).includes('synthetic-integration-fixture-key'), false);
  assert.equal(Object.hasOwn(current, 'secret_ciphertext'), false);
@@ -77,6 +78,7 @@ try {
   if (await page.locator('html').getAttribute('data-theme') !== theme) await page.locator('.theme-toggle:visible').click();
   await waitForQaIdle(page);
   assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 2), `page overflow ${lang}/${theme}/${width}`);
+  if (width === 1536) assert.ok(await desk.locator('.icd-detail').evaluate(el => el.getBoundingClientRect().height < 950), 'Detail panel must not inherit navigation sidebar height');
   await capture(`desk-${lang}-${theme}-${width}`);
  }
  await page.setViewportSize({ width: 1536, height: 1024 }); await switchQaLocale(page, 'tr');
