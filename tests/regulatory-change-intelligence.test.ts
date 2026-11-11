@@ -86,7 +86,7 @@ test("regulatory intelligence is wired through schema, API, UI, navigation and d
     readFile("app/api/regulatory-intelligence/route.ts", "utf8"),
     readFile("drizzle/0068_regulatory_change_intelligence.sql", "utf8"),
     readFile("db/schema.ts", "utf8"),
-    readFile("app/regulatory-intelligence.tsx", "utf8"),
+    Promise.all([readFile("app/regulatory-intelligence.tsx", "utf8"),readFile("app/regulatory-intelligence/workspace.tsx", "utf8")]).then(files=>files.join("\n")),
     readFile("app/page.tsx", "utf8"),
     readFile("README.md", "utf8"),
     readFile("docs/REGULATORY-CHANGE-INTELLIGENCE.md", "utf8"),

@@ -37,3 +37,12 @@ Yüksek etkili kararlar tam onay ifadeleri ister. Kapsam dışı bırakma, deği
 Öncelik kuyruğu; inceleme zamanı gelen kaynakları, triaj bekleyen değişiklikleri, yüksek/kritik açık değişiklikleri, yürürlük tarihi geçmiş kayıtları, açık aksiyonları ve doğrulama kuyruğunu gösterir. Admin CSV çıktısı değişiklik sicilinin sınırlandırılmış anlık görünümüdür.
 
 Yeni atamalarda etkin, tam erişimli hesaplar seçilir; bağımsız inceleyen Admin olmalıdır. Gönderim ve bağımsız doğrulama ayrı, değişmez kanıt sürümü kayıtları tutar. Yeni dosya yüklemek eski kararı değiştirmez. Eski referans/hash API girdileri korunur fakat doğrulanmış kütüphane bağlantısı sayılmaz. [Kullanıcı Rehberi](USER-GUIDE.md#süreklilik-ve-regülasyon-kararlarında-kanıt-seçimi) ve [Admin Guide](ADMIN-GUIDE.md#connected-evidence-selections-continuity-and-regulatory-workflows) seçim, erişim ve sınırları açıklar.
+
+
+## Priority workspace (November 2026)
+
+The Worklist now exposes personal/team scope, literal search, open/completed/high/critical/verification/overdue filters and server-side pages. Organization-wide counters are calculated across the full register. Workflow stage is separate from overdue action dates. The contextual change file includes the source URL, publication/effective dates, exact paged impacts, retained evidence and the latest 30 decision events. Read failures show an explicit retry state rather than zero work.
+
+Source management supports Admin editing, archiving, restoration and deletion of unused sources. Linked sources must be archived. Each mutation checks the displayed revision and retains its audit event. Source review is a human attestation, not an automated feed fetch. Existing changes remain actionable when their source is archived.
+
+Policy targets can be searched and selected from the canonical Policy Center. The server checks that a selected policy still exists and is not retired inside the impact transaction. Core controls, assets, risks, BIA processes, vendors, audits and evidence retain their existing reference checks. Automatic source ingestion, original regulatory document storage and legal-text comparison are not enabled by this release. The action due date and legal effective date remain distinct.
