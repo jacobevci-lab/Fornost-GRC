@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import {mkdir,writeFile} from 'node:fs/promises';
 import {randomBytes,randomUUID} from 'node:crypto';
 import {chromium,expect} from '@playwright/test';
 import {createQaContext,openQaModule,switchQaLocale} from './qa-browser-harness.mjs';
@@ -83,7 +84,7 @@ try{
  phase="verify retained audit";await section.getByRole('button',{name:'Access history',exact:true}).click();
  await expect(section.locator('.iad-history li').filter({hasText:'Local account deleted'}).filter({hasText:email})).toHaveCount(1);
  console.log('PASS create, rename, scoped permissions, session invalidation, disable, reactivate, cancel deletion, mobile delete, audit and denied re-login');
-}catch(error){console.error("Local account browser QA stage:",phase);throw error;}finally{
+}catch(error){console.error("Local account browser QA stage:",phase);if(!production){await mkdir("identity-desk-qa-artifacts",{recursive:true});await page.screenshot({path:"identity-desk-qa-artifacts/lifecycle-failure.png",fullPage:true}).catch(()=>{});await writeFile("identity-desk-qa-artifacts/failure.json",JSON.stringify({phase,error:error.message}));}throw error;}finally{
  try{
   if(attempted){
    const row=await owned();
