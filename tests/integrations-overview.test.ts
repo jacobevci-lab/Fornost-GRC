@@ -215,7 +215,9 @@ test("bulk due execution and row execution are mutually exclusive", () => {
   assert.match(overview, /iov-bulk-feedback/);
 });
 
-test("workflow integration settings owns the single overview surface", () => {
-  assert.match(settings, /import IntegrationsOverview from "\.\/integrations-overview"/);
-  assert.match(settings, /kind==="ticketing"&&<IntegrationsOverview lang=\{lang\}\/>/);
+test("workflow settings exposes the connection desk and keeps assurance details available", () => {
+  assert.match(settings, /IntegrationConnectionDesk/);
+  const desk = readFileSync("app/integration-connection-desk.tsx", "utf8");
+  assert.match(desk, /<IntegrationsOverview lang=\{lang\}/);
+  assert.match(desk, /<ContinuousAssuranceAttention lang=\{lang\}/);
 });

@@ -59,6 +59,8 @@ export default defineConfig(async () => {
       vinext(),
       sites(),
       cloudflare({
+        // Development must use local D1/R2 simulation, never a remote proxy session.
+        remoteBindings: false,
         viteEnvironment: { name: "rsc", childEnvironments: ["ssr"] },
         inspectorPort: false,
         config: localBindingConfig,

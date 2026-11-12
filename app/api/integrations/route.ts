@@ -1,3 +1,6 @@
+import { createTicket } from "../../integrations/ticketing";
+import { testTicketConnection } from "../../integrations/ticketing-test";
+import { ticketConfigError } from "../../integrations/ticketing-config";
 import { applicationLinkBase } from '../../record-links';
 import { completedInitialization } from "../../completed-initialization";
 import { NextRequest, NextResponse } from "next/server";
@@ -9,7 +12,7 @@ type JsonRecord = Record<string, unknown>;
 type Stored = { id:string; kind:string; provider:string; enabled:number; config_json:string; secret_ciphertext:string|null; updated_at:string; updated_by:string };
 const kinds = ["ticketing", "email", "identity"] as const;
 const providersByKind:Record<(typeof kinds)[number],IntegrationProvider[]>={
-  ticketing:["jira","servicenow","azure-devops","github-issues","webhook"],
+  ticketing:["jira","jira-dc","servicenow","azure-devops","github-issues","webhook"],
   email:["smtp-bridge","microsoft-graph-mail","email-api"],
   identity:["entra-oidc","okta-oidc","generic-oidc","saml","ldap","ldaps"],
 };
@@ -68,17 +71,6 @@ async function parseResponse(response:Response) {
   }
   return { message:(await response.text()).slice(0,500) };
 }
-function publicTicket(provider:IntegrationProvider, payload:JsonRecord, config:Config) {
-  const id=clean(payload.key||payload.number||payload.sys_id||payload.id,120);
-  const configuredBase=clean(config.baseUrl,1500).replace(/\/+$/,"");
-  let url="";
-  if(provider==="jira"&&id)url=`${configuredBase}/browse/${encodeURIComponent(id)}`;
-  else if(provider==="github-issues"&&payload.html_url)url=safeHttpUrl(payload.html_url)||"";
-  else if(provider==="servicenow"&&id)url=`${configuredBase}/nav_to.do?uri=incident.do?sys_id=${encodeURIComponent(id)}`;
-  else if(provider==="azure-devops"&&id)url=`${configuredBase}/_workitems/edit/${encodeURIComponent(id)}`;
-  return { id:id||"created", url, status:"created" };
-}
-
 async function getStored(db:D1Database, kind:string) {
   return db.prepare("SELECT * FROM integration_settings WHERE kind=?").bind(kind).first<Stored>();
 }
@@ -96,6 +88,10 @@ async function event(db:D1Database, kind:string, action:string, actor:string, st
 export async function GET(req:NextRequest) {
   const access=await requireRole(req,["Admin"]); if(access.response)return access.response;
   const { DB }=await runtime();
+  if(new URL(req.url).searchParams.get("view")==="history") {
+    const events=await DB.prepare("SELECT id,action,status,detail,actor,created_at FROM integration_events WHERE kind='ticketing' ORDER BY created_at DESC,id DESC LIMIT 100").all();
+    return json({events:events.results,limit:100});
+  }
   const rows=await DB.prepare("SELECT id,kind,provider,enabled,config_json,updated_at,updated_by,secret_ciphertext IS NOT NULL AS has_secret FROM integration_settings ORDER BY kind").all<Omit<Stored,"secret_ciphertext"> & {config_json:string;has_secret:number}>();
   return json({ integrations:rows.results.map(row=>({...row,enabled:!!row.enabled,config:JSON.parse(row.config_json||"{}"),hasSecret:!!row.has_secret,has_secret:undefined,config_json:undefined})) });
 }
@@ -108,17 +104,43 @@ export async function PUT(req:NextRequest) {
   if(kind==='email' && body.config?.applicationUrl !== undefined && body.config.applicationUrl !== '' && !applicationLinkBase(body.config.applicationUrl)) return json({error:'Uygulama adresi HTTPS olmalı; kullanıcı bilgisi, sorgu veya fragment içermemeli. / Application URL must use HTTPS without credentials, query or fragment.'},400);
   const config=safeIntegrationConfig(body.config),secret=clean(body.secret,4096),enabled=body.enabled===true;
   const env=await runtime(),now=new Date().toISOString(),existing=await getStored(env.DB,kind);
+  if(body.expectedUpdatedAt!==undefined&&body.expectedUpdatedAt!==(existing?.updated_at||""))return json({error:"Bağlantı değişti. Yenileyin / Connection changed. Refresh before saving."},409);
   const key=envText(env,"FORNOST_SETTINGS_ENCRYPTION_KEY");
   if(secret&&!key)return json({error:"Entegrasyon sır anahtarı yapılandırılmamış."},503);
   const encrypted=secret?await encryptSecret(secret,key):existing?.provider===provider?existing.secret_ciphertext:null;
-  await env.DB.prepare(`INSERT INTO integration_settings(id,kind,provider,enabled,config_json,secret_ciphertext,updated_at,updated_by)
-    VALUES(?,?,?,?,?,?,?,?) ON CONFLICT(kind) DO UPDATE SET provider=excluded.provider,enabled=excluded.enabled,config_json=excluded.config_json,secret_ciphertext=excluded.secret_ciphertext,updated_at=excluded.updated_at,updated_by=excluded.updated_by`)
-    .bind(existing?.id||crypto.randomUUID(),kind,provider,enabled?1:0,JSON.stringify(config),encrypted,now,access.actor.email).run();
-  await event(env.DB,kind,"save",access.actor.email,"success",`${provider} configuration updated`);
-  return json({ok:true,hasSecret:!!encrypted});
+  if(kind==="ticketing"&&enabled){const invalid=ticketConfigError(provider,config,Boolean(encrypted),true,privateAllowed(env));if(invalid)return json({error:invalid},422);}
+  const serialized=JSON.stringify(config);
+  const changed=!existing||existing.provider!==provider||existing.config_json!==serialized||Boolean(secret);
+  const action=changed?"save":enabled?"enable":"pause";
+  const updatedAt=existing&&now<=existing.updated_at?new Date(Date.parse(existing.updated_at)+1).toISOString():now;
+  const write=existing
+    ? env.DB.prepare("UPDATE integration_settings SET provider=?,enabled=?,config_json=?,secret_ciphertext=?,updated_at=?,updated_by=? WHERE id=? AND updated_at=?")
+      .bind(provider,enabled?1:0,serialized,encrypted,updatedAt,access.actor.email,existing.id,existing.updated_at)
+    : env.DB.prepare("INSERT OR IGNORE INTO integration_settings(id,kind,provider,enabled,config_json,secret_ciphertext,updated_at,updated_by) VALUES(?,?,?,?,?,?,?,?)")
+      .bind(crypto.randomUUID(),kind,provider,enabled?1:0,serialized,encrypted,updatedAt,access.actor.email);
+  const [result]=await env.DB.batch([write,env.DB.prepare("INSERT INTO integration_events(id,kind,action,status,detail,actor,created_at) SELECT ?,?,?,'success',?,?,? WHERE changes()>0").bind(crypto.randomUUID(),kind,action,`${provider} configuration updated`,access.actor.email,updatedAt)]);
+  if(!result.meta?.changes)return json({error:"Bağlantı değişti. Yenileyin / Connection changed. Refresh before saving."},409);
+  return json({ok:true,hasSecret:!!encrypted,updatedAt});
+}
+
+export async function DELETE(req:NextRequest) {
+  const access=await requireRole(req,["Admin"]);if(access.response)return access.response;
+  const body=bodyTooLarge(req)?{}:await req.json().catch(()=>({}));
+  if(body.kind!=="ticketing"||typeof body.expectedUpdatedAt!=="string")return json({error:"Geçersiz bağlantı / Invalid connection."},400);
+  const {DB}=await runtime();
+  const row=await getStored(DB,"ticketing");
+  if(!row||row.updated_at!==body.expectedUpdatedAt)return json({error:"Bağlantı değişti. Yenileyin / Connection changed. Refresh before disconnecting."},409);
+  const results=await DB.batch([
+    DB.prepare("INSERT INTO integration_events(id,kind,action,status,detail,actor,created_at) SELECT ?,'ticketing','disconnect','success','Connection removed; external work and history retained',?,? FROM integration_settings WHERE id=? AND updated_at=?")
+      .bind(crypto.randomUUID(),access.actor.email,new Date().toISOString(),row.id,row.updated_at),
+    DB.prepare("DELETE FROM integration_settings WHERE id=? AND updated_at=?").bind(row.id,row.updated_at),
+  ]);
+  if(!results[1].meta?.changes)return json({error:"Bağlantı değişti. Yenileyin / Connection changed. Refresh before disconnecting."},409);
+  return json({ok:true});
 }
 
 async function testConnection(provider:IntegrationProvider, config:Config, secret:string, allowPrivate:boolean) {
+  if(providersByKind.ticketing.includes(provider))return testTicketConnection(provider,config,secret,allowPrivate);
   if(["ldap","ldaps"].includes(provider)){
     const response=await outbound(`${endpoint(config,allowPrivate)}/health`,{headers:{authorization:`Bearer ${secret}`}});
     if(!response.ok)throw new Error(`IAM bridge bağlantısı başarısız (${response.status}).`);
@@ -147,31 +169,6 @@ async function testConnection(provider:IntegrationProvider, config:Config, secre
   return {ok:true,message:"Bağlantı testi başarılı."};
 }
 
-async function createTicket(provider:IntegrationProvider,config:Config,secret:string,allowPrivate:boolean,input:JsonRecord){
-  const title=clean(input.title,200),description=clean(input.description,4000); if(!title)throw new Error("Ticket başlığı gerekli.");
-  const base=endpoint(config,allowPrivate); let url=base,body:unknown; const headers:Record<string,string>={"content-type":"application/json"};
-  if(provider==="jira"){
-    url=`${base}/rest/api/3/issue`;headers.authorization=basic(clean(config.username,320),secret);
-    body={fields:{project:{key:clean(config.projectKey,30)},summary:title,description:{type:"doc",version:1,content:[{type:"paragraph",content:[{type:"text",text:description||title}]}]},issuetype:{name:clean(config.issueType,50)||"Task"},labels:["fornost-grc"]}};
-  }else if(provider==="servicenow"){
-    url=`${base}/api/now/table/${encodeURIComponent(clean(config.table,50)||"incident")}`;headers.authorization=basic(clean(config.username,320),secret);body={short_description:title,description};
-  }else if(provider==="github-issues"){
-    const repo=clean(config.repository,200); if(!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(repo))throw new Error("GitHub repository owner/name biçiminde olmalı.");
-    url=`https://api.github.com/repos/${repo}/issues`;headers.authorization=`Bearer ${secret}`;headers["user-agent"]="Fornost-GRC";body={title,body:description,labels:["grc"]};
-  }else if(provider==="azure-devops"){
-    const org=clean(config.organization,100),project=clean(config.project,150),type=encodeURIComponent(clean(config.workItemType,80)||"Task");
-    if(!org||!project)throw new Error("Azure DevOps organization ve project gerekli.");
-    url=`https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_apis/wit/workitems/$${type}?api-version=7.1`;
-    headers.authorization=basic("",secret);headers["content-type"]="application/json-patch+json";
-    body=[{op:"add",path:"/fields/System.Title",value:title},{op:"add",path:"/fields/System.Description",value:description||title},{op:"add",path:"/fields/System.Tags",value:"Fornost GRC"}];
-  }else if(provider==="webhook"){
-    headers.authorization=`Bearer ${secret}`;body={event:"grc.ticket.create",title,description,sourceId:clean(input.sourceId,120)};
-  }else throw new Error("Bu sağlayıcı ticket oluşturmayı desteklemiyor.");
-  const response=await outbound(url,{method:"POST",headers,body:JSON.stringify(body)}),payload=await parseResponse(response);
-  if(!response.ok)throw new Error(`Ticket oluşturulamadı (${response.status}).`);
-  return publicTicket(provider,payload,config);
-}
-
 async function sendTest(provider:IntegrationProvider,config:Config,secret:string,allowPrivate:boolean,input:JsonRecord){
   const to=clean(input.to,320); if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to))throw new Error("Geçerli test alıcısı gerekli.");
   const subject="Fornost GRC bağlantı testi",content="Fornost GRC e-posta entegrasyonu başarıyla çalışıyor.";
@@ -192,11 +189,22 @@ export async function POST(req:NextRequest) {
   const access=await requireRole(req,[...roles]); if(access.response)return access.response;
   if(bodyTooLarge(req))return json({error:"İstek boyutu çok büyük."},413);
   if(!kinds.includes(kind as typeof kinds[number]))return json({error:"Geçersiz entegrasyon türü."},400);
-  const env=await runtime(),row=await getStored(env.DB,kind); if(!row||!row.enabled)return json({error:"Bu entegrasyon etkin değil."},409);
+  const env=await runtime(),row=await getStored(env.DB,kind); if(!row||(!row.enabled&&action!=="test"))return json({error:"Bu entegrasyon etkin değil."},409);
+  if(body.expectedUpdatedAt!==undefined&&body.expectedUpdatedAt!==row.updated_at)return json({error:"Bağlantı değişti. Yenileyin / Connection changed. Refresh before continuing."},409);
   const provider=row.provider as IntegrationProvider,config=JSON.parse(row.config_json||"{}") as Config,secret=await credentials(row,env),allowPrivate=privateAllowed(env);
   try{
     const result=action==="test"?await testConnection(provider,config,secret,allowPrivate):action==="create-ticket"?await createTicket(provider,config,secret,allowPrivate,body):action==="send-test"?await sendTest(provider,config,secret,allowPrivate,body):null;
     if(!result)return json({error:"Geçersiz işlem."},400);
-    await event(env.DB,kind,action,access.actor.email,"success","message" in result?String(result.message):"completed"); return json(result);
-  }catch(error){const message=error instanceof Error?error.message:"Entegrasyon işlemi başarısız.";await event(env.DB,kind,action,access.actor.email,"failed",message);return json({error:message},502)}
+    if(action==="test"){
+      const saved=await testEvent(env.DB,row,access.actor.email,"success","message" in result?String(result.message):"completed");
+      if(!saved)return json({error:"Test sırasında bağlantı değişti. Yeniden test edin / Connection changed during the test. Test again."},409);
+    }else await event(env.DB,kind,action,access.actor.email,"success","message" in result?String(result.message):"completed");
+    return json(result);
+  }catch(error){const message=error instanceof Error?error.message:"Entegrasyon işlemi başarısız.";if(action==="test")await testEvent(env.DB,row,access.actor.email,"failed",message);else await event(env.DB,kind,action,access.actor.email,"failed",message);return json({error:message},502)}
+}
+
+async function testEvent(db:D1Database,row:Stored,actor:string,status:string,detail:string){
+ const result=await db.prepare("INSERT INTO integration_events(id,kind,action,status,detail,actor,created_at) SELECT ?,?,'test',?,?,?,? FROM integration_settings WHERE id=? AND updated_at=?")
+   .bind(crypto.randomUUID(),row.kind,status,clean(detail,500),actor,new Date().toISOString(),row.id,row.updated_at).run();
+ return Boolean(result.meta?.changes);
 }

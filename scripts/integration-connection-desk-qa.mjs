@@ -1,0 +1,102 @@
+// Isolated local runtime only. Vendor access results are explicitly simulated.
+import { chromium, expect } from '@playwright/test';
+import assert from 'node:assert/strict';
+import { mkdir, writeFile } from 'node:fs/promises';
+import { qaPassword } from './qa-credentials.mjs';
+import { createQaContext, waitForQaIdle, openQaModule, switchQaLocale } from './qa-browser-harness.mjs';
+const base = 'http://127.0.0.1:4173', out = 'integration-desk-qa-artifacts';
+await mkdir(out, { recursive: true });
+const browser = await chromium.launch({ executablePath: process.env.QA_CHROMIUM_PATH || undefined });
+const context = await createQaContext(browser, base, {}, { viewport: { width: 1536, height: 1024 } });
+const page = await context.newPage(); page.setDefaultTimeout(20000);
+const errors = []; page.on('pageerror', e => errors.push(e.message));
+let phase = 'bootstrap'; const screenshots = [];
+async function api(method, path, data, status = 200, client = context.request) {
+ const result = await client.fetch(base + path, { method, headers: { origin: base }, data });
+ assert.equal(result.status(), status, `${method} ${path}: ${result.status()} ${await result.text()}`);
+ return result.json();
+}
+const desk = page.locator('.icd'), button = name => desk.getByRole('button', { name, exact: true });
+const refresh = async () => { await button('Yenile').click(); await waitForQaIdle(page); };
+const row = async () => (await api('GET', '/api/integrations')).integrations.find(x => x.kind === 'ticketing');
+async function capture(name) { await desk.screenshot({ path: `${out}/${name}.png` }); screenshots.push(name); }
+try {
+ assert.equal((await api('GET', '/api/auth')).bootstrapRequired, true, 'A fresh isolated runtime is required');
+ await api('POST', '/api/auth', { action: 'bootstrap', email: 'qa-admin@fornost.test', name: 'Integration QA', password: qaPassword() });
+ await page.goto(base); await expect(page.locator('.shell')).toBeVisible();
+ await openQaModule(page, 'İş Akışı Entegrasyonları'); await expect(desk).toContainText('İlk iş takibi bağlantınızı kurun'); await capture('empty-TR-light');
+ phase = 'wizard draft persistence'; await button('Kuruluma başla').click();
+ await button('Devam et').click(); await desk.getByLabel('Bağlantı adı', { exact: true }).fill('Jira · Güvenlik Ekibi');
+ await desk.getByLabel('Sorumlu ekip', { exact: true }).fill('Bilgi Güvenliği');
+ await desk.getByLabel('Jira adresi', { exact: true }).fill('https://example.atlassian.net');
+ await desk.getByLabel('Servis hesabı e-postası', { exact: true }).fill('qa-service@example.com');
+ await desk.getByLabel('API anahtarı / parola', { exact: true }).fill('synthetic-integration-fixture-key');
+ await button('Devam et').click(); await desk.getByLabel('Proje anahtarı', { exact: true }).fill('SEC');
+ await button('Devam et').click(); await button('Taslak kaydet').click();
+ await expect(desk).toContainText('Taslak kaydedildi.'); await expect(button('Erişimi kontrol et')).toBeEnabled();
+ await expect(button('Etkinleştir')).toBeDisabled(); await capture('wizard-TR-light');
+ await page.setViewportSize({width:390,height:844}); assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 2), 'wizard mobile overflow'); await capture('wizard-TR-light-mobile'); await page.setViewportSize({width:1536,height:1024});
+ let current = await row(); assert.equal(current.enabled, false); assert.equal(current.hasSecret, true);
+ assert.equal(current.config.name, 'Jira · Güvenlik Ekibi'); assert.equal(JSON.stringify(current).includes('synthetic-integration-fixture-key'), false);
+ assert.equal(Object.hasOwn(current, 'secret_ciphertext'), false);
+ await button('Kapat').click(); await page.reload(); await waitForQaIdle(page); await expect(desk).toContainText('Jira · Güvenlik Ekibi');
+ phase = 'role and version guards';
+ const editor = await browser.newContext(); await api('POST', '/api/auth', { action: 'demo_login' }, 200, editor.request);
+ for (const path of ['/api/integrations', '/api/integrations?view=history', '/api/integrations/health']) await api('GET', path, undefined, 403, editor.request);
+ for (const method of ['PUT', 'DELETE']) await api(method, '/api/integrations', { kind: 'ticketing' }, 403, editor.request);
+ await api('POST', '/api/integrations', { kind: 'ticketing', action: 'test' }, 403, editor.request);
+ await api('POST', '/api/integrations', { kind: 'ticketing', action: 'create-ticket', title: 'No outbound request: inactive' }, 409, editor.request);
+ await editor.close();
+ await api('PUT', '/api/integrations', { kind: 'ticketing', provider: 'jira', config: {}, enabled: true, expectedUpdatedAt: current.updated_at }, 422);
+ for (const method of ['PUT', 'DELETE', 'POST']) await api(method, '/api/integrations', { kind: 'ticketing', provider: 'jira', config: current.config, action: 'test', expectedUpdatedAt: 'stale' }, 409);
+ const oldVersion = current.updated_at;
+ await api('PUT', '/api/integrations', { kind: 'ticketing', provider: 'jira', config: { ...current.config, owner: 'Security Operations' }, enabled: false, expectedUpdatedAt: current.updated_at });
+ current = await row(); assert.equal(current.hasSecret, true); assert.notEqual(current.updated_at, oldVersion);
+ await api('DELETE', '/api/integrations', { kind: 'ticketing', expectedUpdatedAt: oldVersion }, 409);
+ await refresh();
+ phase = 'filter and dirty-form recovery'; await desk.getByLabel('Bağlantı ara').fill('no-match'); await expect(desk).toContainText('Filtreyle eşleşen bağlantı yok'); await button('Filtreleri temizle').click();
+ await button('Bağlantıyı düzenle').click(); await button('Devam et').click(); await desk.getByLabel('Bağlantı adı', { exact: true }).fill('Unsaved');
+ await page.keyboard.press('Escape'); await expect(desk).toContainText('Kaydedilmemiş değişiklikler var'); await button('Düzenlemeye dön').click();
+ await button('Kapat').click(); await button('Değişiklikleri bırak').click(); await expect(desk.locator('.icd-editor')).toHaveCount(0);
+ assert.equal((await row()).config.name, 'Jira · Güvenlik Ekibi');
+ phase = 'simulated access checks and real activation/pause persistence';
+ await page.route('**/api/integrations/health', route => route.fulfill({ json: { health: { ticketing: { status: 'success', testedAt: new Date().toISOString() } } } }));
+ await refresh(); await button('Etkinleştir').click(); await expect(button('Duraklat')).toBeVisible(); assert.equal((await row()).enabled, true);
+ await button('Duraklat').click(); await expect(button('Etkinleştir')).toBeVisible(); assert.equal((await row()).enabled, false);
+ await page.unroute('**/api/integrations/health'); await refresh(); await expect(button('Etkinleştir')).toBeDisabled();
+ phase = 'read failures never become an empty or editable configuration';
+ await page.route('**/api/integrations', route => route.request().method() === 'GET' ? route.fulfill({ status: 503, json: {} }) : route.continue());
+ await refresh(); await expect(desk).toContainText('Bağlantı bilgileri alınamadı'); await expect(button('Bağlantıyı düzenle')).toBeDisabled(); await expect(desk.locator('.icd-empty')).toHaveCount(0);
+ await page.unroute('**/api/integrations'); await button('Yeniden dene').click(); await waitForQaIdle(page);
+ await page.route('**/api/integrations?view=history', route => route.fulfill({ status: 503, json: {} }));
+ await refresh(); await button('Bağlantı geçmişi').click(); await expect(desk).toContainText('Geçmiş alınamadı');
+ await page.unroute('**/api/integrations?view=history'); await refresh(); await expect(desk).toContainText('Duraklatma');
+ await button('Bağlantılar').click();
+ phase = 'TR/EN light/dark desktop/mobile';
+ for (const lang of ['tr', 'en']) for (const theme of ['light', 'dark']) for (const width of [1536, 390]) {
+  await page.setViewportSize({ width, height: 1024 }); await switchQaLocale(page, lang);
+  if (await page.locator('html').getAttribute('data-theme') !== theme) await page.locator('.theme-toggle:visible').click();
+  await waitForQaIdle(page);
+  assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 2), `page overflow ${lang}/${theme}/${width}`);
+  if (width === 1536) assert.ok(await desk.locator('.icd-detail').evaluate(el => el.getBoundingClientRect().height < 950), 'Detail panel must not inherit navigation sidebar height');
+  await capture(`desk-${lang}-${theme}-${width}`);
+ }
+ await page.setViewportSize({ width: 1536, height: 1024 }); await switchQaLocale(page, 'tr');
+ if (await page.locator('html').getAttribute('data-theme') !== 'light') await page.locator('.theme-toggle:visible').click();
+ phase = 'disconnect retains audit history'; await button('Bağlantıyı kaldır').click(); await expect(desk).toContainText('saklanan anahtar silinir');
+ await button('Vazgeç').click(); assert.ok(await row()); await button('Bağlantıyı kaldır').click(); await button('Kaldırmayı onayla').click(); await expect(desk).toContainText('İlk iş takibi bağlantınızı kurun'); assert.equal(await row(), undefined);
+ const history = (await api('GET', '/api/integrations?view=history')).events;
+ for (const action of ['save', 'enable', 'pause', 'disconnect']) assert.ok(history.some(e => e.action === action), `missing audit event: ${action}`);
+ assert.equal(JSON.stringify(history).includes('synthetic-integration-fixture-key'), false);
+ phase = 'provider change clears saved key';
+ await api('PUT', '/api/integrations', { kind: 'ticketing', provider: 'jira', enabled: false, secret: 'synthetic-key', config: {}, expectedUpdatedAt: '' });
+ current = await row();
+ await api('PUT', '/api/integrations', { kind: 'ticketing', provider: 'github-issues', enabled: false, config: { repository: 'example/security' }, expectedUpdatedAt: current.updated_at });
+ assert.equal((await row()).hasSecret, false);
+ assert.deepEqual(errors, []);
+ await writeFile(`${out}/report.json`, JSON.stringify({ result: 'passed', checks: ['real draft persistence', 'masked/preserved/cleared credentials', 'admin-only APIs', 'Editor create-ticket permission retained', 'stale write/delete/test rejected', 'invalid activation rejected', 'dirty draft and filters', 'read failure recovery', 'real activation/pause with simulated health', 'disconnect retains history', '8 responsive bilingual/theme layouts'], vendorVerification: 'Not live-tested; provider HTTP contracts tested with mocked responses', screenshots, errors }, null, 2));
+ console.log('INTEGRATION_DESK_QA_PASS');
+} catch (error) {
+ await page.screenshot({ path: `${out}/failure.png`, fullPage: true }).catch(() => {});
+ await writeFile(`${out}/failure.json`, JSON.stringify({ phase, error: error.message, errors }, null, 2)); throw error;
+} finally { await browser.close(); }

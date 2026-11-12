@@ -28,7 +28,12 @@ export async function GET(req: NextRequest) {
         SELECT kind,status,detail,created_at,
           ROW_NUMBER() OVER (PARTITION BY kind ORDER BY created_at DESC, id DESC) AS row_rank
         FROM integration_events
-        WHERE action='test'
+        WHERE action='test' AND NOT EXISTS (
+          SELECT 1 FROM integration_events changed
+          WHERE changed.kind=integration_events.kind
+          AND changed.action IN ('save','disconnect')
+          AND changed.created_at>=integration_events.created_at
+        )
       ) ranked
       WHERE row_rank=1
       ORDER BY created_at DESC

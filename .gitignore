@@ -46,3 +46,9 @@ next-env.d.ts
 
 .fornost-maintenance.lock
 __pycache__/
+
+# Local Cloudflare development secrets
+.dev.vars
+
+/integration-desk-qa-artifacts/
+*.tsbuildinfo

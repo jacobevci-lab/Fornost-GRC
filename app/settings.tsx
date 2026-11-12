@@ -49,7 +49,7 @@ export default function Settings({ lang, currentUser, catalogs, onCatalogChange,
     system:{tr:["Sistem Ayarları","HTTPS/TLS güvenliği ve risk hatırlatma kurallarını yönetin."],en:["System Settings","Manage HTTPS/TLS security and risk reminder rules."]},
     ai:{tr:["AI Ayarları","Model gateway, veri paylaşım sınırları, fallback ve operasyon politikasını yönetin."],en:["AI Settings","Manage the model gateway, data-sharing boundaries, fallback and operating policy."]},
     catalogs:{tr:["Ana Veri Yönetimi","Risk, BIA ve varlık envanterinde kullanılan seçim listelerini yönetin."],en:["Master Data Management","Manage selection lists used across Risk, BIA and Asset Inventory."]},
-    workflow:{tr:["İş Akışı Entegrasyonları","Jira ve diğer ticketing sistemleriyle GRC aksiyonlarını bağlayın."],en:["Workflow Integrations","Connect GRC actions with Jira and other ticketing systems."]},
+    workflow:{tr:["Entegrasyon Merkezi","Bağlantıları, erişimleri ve işlem durumunu tek yerden yönetin."],en:["Integration Center","Manage connections, access and activity in one place."]},
     email:{tr:["E-posta ve Bildirimler","SMTP, Graph veya e-posta API kanalını yapılandırıp test edin."],en:["Email & Notifications","Configure and test SMTP, Graph or email API delivery."]},
     identity:{tr:["Kimlik ve Erişim","Entra, Okta, OIDC, SAML, LDAP/LDAPS ve yerel kullanıcıları yönetin."],en:["Identity & Access","Manage Entra, Okta, OIDC, SAML, LDAP/LDAPS and local users."]},
   };
