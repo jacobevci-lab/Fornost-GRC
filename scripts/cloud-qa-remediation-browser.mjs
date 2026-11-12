@@ -47,7 +47,7 @@ try{
  await page.locator('[data-policy-tab=policies]').click();
  const row=page.getByRole('row').filter({hasText:'POL-FIX-'+tag});await row.getByRole('button',{name:'Open',exact:true}).click();
  await page.getByRole('button',{name:'Cancel record',exact:true}).click();dialog=page.getByRole('dialog',{name:'Record cancellation'});
- await dialog.getByLabel('Reason',{exact:true}).selectOption('test');await dialog.locator('textarea').fill('Synthetic browser QA policy; cancel while preserving the imported source file.');await dialog.locator('[name=confirmation]').fill('İPTAL ET');
+ await page.keyboard.press('Escape');await expect(dialog).toBeHidden();await page.getByRole('button',{name:'Cancel record',exact:true}).click();await expect(dialog).toBeVisible();await dialog.getByLabel('Reason',{exact:true}).selectOption('test');await dialog.locator('textarea').fill('Synthetic browser QA policy; cancel while preserving the imported source file.');await dialog.locator('[name=confirmation]').fill('İPTAL ET');
  for(const width of [390,1440]){await page.setViewportSize({width,height:1000});assert.ok(await dialog.evaluate(e=>e.scrollWidth<=e.clientWidth+2),'Cancellation dialog overflow');await dialog.screenshot({path:`${out}/cancel-${width}.png`})}
  await submit(page,dialog,'Confirm cancellation','/api/policy-lifecycle');await expect(dialog).toBeHidden();
  const policies=await api(admin,'/api/policy-lifecycle');assert.equal(policies.policies.find(p=>p.id===imported.policyId).status,'cancelled');assert.equal(policies.versions.find(v=>v.id===imported.versionId).status,'cancelled');checks.push('Policy cancellation UI preserves imported document and cancels its draft version');

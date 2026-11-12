@@ -59,6 +59,7 @@ function arrayLength(payload, key) {
 function projectableRecordCount(sourceKey, payload) {
   if (!payload || typeof payload !== "object" || Array.isArray(payload)) return 0;
   switch (sourceKey) {
+    case "audits": return arrayLength(payload, "audits");
     case "aiModels": return arrayLength(payload, "models");
     case "aiAlerts": return arrayLength(payload, "alerts");
     case "aiFindings": return arrayLength(payload, "findings");

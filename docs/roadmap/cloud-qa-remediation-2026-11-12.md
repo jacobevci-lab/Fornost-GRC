@@ -24,7 +24,7 @@ Existing drafts remain drafts until explicitly submitted; existing approved/acti
 ## Verification checkpoint
 
 - Local typecheck, lint (zero warnings), migration validation, verified production build and on-prem installer smoke test passed.
-- Full Node suite: **1,888 passed, zero failed/skipped**; 18 new focused tests cover the actual route/store logic, races, history rollback and the original DOCX fixture.
+- Full Node suite: **1,890 passed, zero failed/skipped**; 20 new focused tests cover the actual route/store logic, races, history rollback and the original DOCX fixture.
 - Managed preview startup was rejected by automatic approval review because its Cloudflare upload destination lacked authorization evidence in that step. No browser result is claimed from that preview.
 - The repository CI browser job uses local-only Worker/D1/R2 emulation and synthetic accounts. It does not deploy a preview or use production credentials. Its result is tracked separately.
 - Existing production records, including the previously orphaned audit/CAPA source, were not rewritten. The deletion guard prevents recurrence; it does not retroactively recreate deleted records.
