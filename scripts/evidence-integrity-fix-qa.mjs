@@ -23,7 +23,7 @@ async function step(name,fn){await fn();results.push({name,status:'passed'});con
 let evidenceId,controlId,keys=[];
 try{
  if(production)assert.equal((await api('/api/health')).revision,process.env.FORNOST_EXPECTED_REVISION);
- await step('Sign in through the live browser login form',async()=>{
+ await step('Sign in through the browser login form',async()=>{
   await page.goto(base,{waitUntil:'domcontentloaded'});const login=page.locator('.auth-card');await expect(login).toBeVisible();
   await login.locator('[name=email]').fill(email);await login.locator('[name=password]').fill(password);
   const pending=page.waitForResponse(r=>new URL(r.url()).pathname==='/api/auth'&&r.request().method()==='POST');
@@ -33,6 +33,8 @@ try{
  await openQaModule(page,'Evidence Library');await page.locator('.actions .primary').first().click();const form=page.locator('.record-dialog');
  await form.locator('input[type=file]').setInputFiles(file);
  for(const [name,value] of Object.entries({evidenceTitle:prefix,controlRef:'CTL-999999999',owner:'QA',period:'2026'}))await form.locator(`[name=${name}]`).fill(value);
+ await form.locator('[name=status]').selectOption('Taslak');
+ assert.equal(await form.locator('form').evaluate(f=>f.checkValidity()),true,'QA form must contain all required fields');
  await step('Browser upload rejects a missing canonical control without a record',async()=>{
   const pending=page.waitForResponse(r=>new URL(r.url()).pathname==='/api/evidence'&&r.request().method()==='POST');await form.locator('.form-actions .primary').click();assert.equal((await pending).status(),422);await expect(form).toBeVisible();assert.ok(!(await list()).some(r=>JSON.parse(r.data_json).evidenceTitle===prefix));
  });

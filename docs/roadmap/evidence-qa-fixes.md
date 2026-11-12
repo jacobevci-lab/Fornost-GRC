@@ -6,4 +6,4 @@ Acceptance: only the exact live evidence owner can authorize its current or hist
 
 No unrelated UI redesign, provider configuration, physical evidence purge or bulk legacy code rewrite. No schema migration is planned. Release through the existing reviewed PR/CI path, then verify the deployed revision and focused production browser test. A rollback reopens the prior download/reference defects and therefore needs an explicit incident decision.
 
-Status: implementation and validation in progress.
+Implementation and validation are tracked in [PR #410](https://github.com/jacobevci-lab/Fornost-GRC/pull/410). The Evidence integrity QA workflow records isolated browser acceptance before merge and exact-revision production verification after release.

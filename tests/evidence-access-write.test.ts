@@ -1,5 +1,9 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import {readFileSync} from 'node:fs';
+import {createRequire} from 'node:module';
+import {resolve} from 'node:path';
+import ts from 'typescript';
 import { DatabaseSync, type SQLInputValue } from 'node:sqlite';
 import { canReadEvidenceFile } from '../app/evidence/file-access';
 import { evidenceReferenceGuard, evidenceClaimConflict } from '../app/evidence/reference-guard';
@@ -100,4 +104,56 @@ test('new version rejects new missing refs while preserving unchanged legacy ref
 });
 test('shared EVD allocator skips legacy IDs, returns unique short codes and never reuses deleted numbers',async()=>{
   const f=await fixture();try{f.record('EVD-031');const a=await reserveRecordCodes(f.db,'Kanıtlar',2,stamp);assert.deepEqual(a,['EVD-032','EVD-033']);f.sql.exec("DELETE FROM simple_grc_records");assert.deepEqual(await reserveRecordCodes(f.db,'Kanıtlar',1,stamp),['EVD-034'])}finally{f.sql.close()}
+});
+
+
+// Execute the actual HTTP handlers against SQLite and both storage adapters.
+// Only runtime/auth transport bindings are replaced, never the access/claim code.
+function handlers(db:D1Database,bucket?:object) {
+  const load=(path:string)=>{
+    const compiled=ts.transpileModule(readFileSync(path,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;
+    const localRequire=createRequire(resolve(path)),exports:Record<string,(request:unknown)=>Promise<Response>>={};
+    const require=(name:string)=>{
+      if(name==='next/server')return{NextResponse:Response};
+      if(name==='cloudflare:workers')return{env:{DB:db,BUCKET:bucket}};
+      if(name.endsWith('/auth/security'))return{requireRole:async()=>({actor:{email:'qa@example.test',role:'Admin'}})};
+      return localRequire(name);
+    };
+    new Function('require','exports',compiled)(require,exports);return exports;
+  };
+  const current=load('app/api/evidence/route.ts'),history=load('app/api/evidence/history/route.ts');
+  const post=(fields:Record<string,string>,version=false)=>{
+    const form=new FormData();form.set('file',new File(['proof'],'proof.txt',{type:'text/plain'}));
+    for(const [key,value] of Object.entries(fields))form.set(key,value);
+    return (version?history:current).POST({headers:new Headers(),formData:async()=>form});
+  };
+  const get=(key:string,inline=false)=>current.GET({headers:new Headers(),nextUrl:new URL('https://fixture.test/api/evidence?key='+encodeURIComponent(key)+(inline?'&inline=1':''))});
+  return{post,get};
+}
+for(const backend of ['R2','database'])test(`actual handlers preserve valid files and reject invalid/deleted files on ${backend}`,async()=>{
+  const f=await fixture(),objects=new Map<string,Uint8Array>();let reads=0;
+  const bucket=backend==='R2'?{async put(key:string,bytes:Uint8Array){objects.set(key,bytes)},async get(key:string){reads++;return objects.has(key)?{body:objects.get(key),httpMetadata:{contentType:'text/plain'}}:null},async delete(key:string){objects.delete(key)}}:undefined;
+  try{
+    f.control();const route=handlers(f.db,bucket),fields={evidenceTitle:'Proof',controlRef:'CTL-001',owner:'QA',period:'2026',status:'Taslak'};
+    assert.equal((await route.post({...fields,controlRef:'ctl-999999999'})).status,422);
+    assert.equal(objects.size,0);assert.equal(Number(f.sql.prepare('SELECT count(*) n FROM simple_evidence_files').get()!.n),0);
+    const response=await route.post(fields);assert.equal(response.status,201);const created=await response.json() as {id:string;code:string};assert.match(created.code,/^EVD-\d{3,}$/);
+    const firstKey=String(f.sql.prepare('SELECT file_key FROM evidence_versions WHERE evidence_id=?').get(created.id)!.file_key);
+    assert.equal(await (await route.get(firstKey)).text(),'proof');
+    assert.equal((await route.post({evidenceId:created.id,changeNote:'Invalid new link',controlRefs:'CTL-999999999'},true)).status,422);
+    assert.equal((await route.post({evidenceId:created.id,changeNote:'Valid new version',controlRefs:'CTL-001'},true)).status,201);
+    const keys=f.sql.prepare('SELECT file_key FROM evidence_versions WHERE evidence_id=?').all(created.id).map(r=>String(r.file_key));assert.equal(keys.length,2);
+    for(const key of keys){assert.equal((await route.get(key)).status,200);assert.equal(await (await route.get(key,true)).text(),'proof')}
+    f.sql.prepare('DELETE FROM simple_grc_records WHERE id=?').run(created.id);const readsBefore=reads;
+    for(const key of keys){assert.equal((await route.get(key)).status,404);assert.equal((await route.get(key,true)).status,404)}
+    assert.equal(reads,readsBefore);assert.equal(f.counts()[2],2);
+  }finally{f.sql.close()}
+});
+for(const backend of ['R2','database'])test(`failed metadata transaction cleans new binary on ${backend}`,async()=>{
+  const f=await fixture(),objects=new Map<string,Uint8Array>();const bucket=backend==='R2'?{async put(key:string,bytes:Uint8Array){objects.set(key,bytes)},async delete(key:string){objects.delete(key)}}:undefined;
+  try{
+    f.sql.exec("CREATE TRIGGER reject_code BEFORE INSERT ON simple_grc_record_codes BEGIN SELECT RAISE(ABORT,'injected code failure'); END");
+    const response=await handlers(f.db,bucket).post({evidenceTitle:'Proof',controlRef:'A.5.1',owner:'QA',period:'2026'});assert.equal(response.status,500);
+    assert.deepEqual(f.counts(),[0,0,0,0]);assert.equal(objects.size,0);assert.equal(Number(f.sql.prepare('SELECT count(*) n FROM simple_evidence_files').get()!.n),0);
+  }finally{f.sql.close()}
 });
