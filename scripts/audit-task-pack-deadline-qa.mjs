@@ -1,3 +1,4 @@
+import {cleanupQaFixture,fixtureCleanupResults} from './qa-fixture-cleanup.mjs';
 import {chromium,expect} from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 import assert from 'node:assert/strict';
@@ -41,4 +42,4 @@ try{
  await page.locator('.audit-milestones').getByText('Change history',{exact:false}).first().click();await page.locator('.audit-milestones').getByText('Saved milestone',{exact:true}).click();await expect(page.locator('.audit-milestones')).toContainText('Working-day deadline adjustment');
  checks.push('selected-only preview, unchanged dates, edit invalidation and no early writes','apply, explicit undo and guarded dates/selection','calendar conflict, failed refresh and draft-preserving recovery','one atomic save, preserved dependency order and per-task calendar history','duplicate suppression, Editor ownership and Viewer denial','My Work exact handoff and history','TR EN light dark desktop mobile with zero axe and overflow findings');assert.deepEqual(errors,[]);await writeFile(`${out}/result.json`,JSON.stringify({result:'PASS',checks,errors},null,2));console.log('AUDIT_TASK_PACK_DEADLINE_QA_PASS');
 }catch(e){await writeFile(`${out}/failure.json`,JSON.stringify({message:e.message,stack:e.stack,errors},null,2));await page.screenshot({path:`${out}/failure.png`,fullPage:true}).catch(()=>{});throw e;}
-finally{try{if(auditId)await api(admin,`/api/audits?id=${auditId}`,'DELETE');for(const user of users)await api(admin,'/api/users','PATCH',{...user,status:'Disabled'});await writeFile(`${out}/cleanup.json`,JSON.stringify({auditRemoved:!!auditId,accountsDisabled:users.length}));}finally{await browser.close();}}
+finally{try{if(auditId)await cleanupQaFixture(admin,base,'audit',auditId);for(const user of users)await api(admin,'/api/users','PATCH',{...user,status:'Disabled'});await writeFile(`${out}/cleanup.json`,JSON.stringify({auditRemoved:fixtureCleanupResults.some(x=>x.kind==='audit'&&x.id===auditId&&x.deleted),accountsDisabled:users.length}));}finally{await browser.close();}}

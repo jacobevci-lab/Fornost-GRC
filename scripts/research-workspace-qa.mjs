@@ -1,3 +1,4 @@
+import {cleanupQaFixture} from './qa-fixture-cleanup.mjs';
 import { qaPassword } from './qa-credentials.mjs';
 import { chromium, expect } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
@@ -151,4 +152,4 @@ try {
   assert.deepEqual(errors,[]);await writeFile(`${out}/summary.json`,JSON.stringify({passed:true,checks,pageErrors:errors,accessibilityViolations:a11y.violations.length},null,2));
   console.log('RESEARCH_WORKSPACE_QA_PASS',checks.length);
 }catch(error){await writeFile(`${out}/failure.json`,JSON.stringify({message:String(error),stack:error.stack,checks,pageErrors:errors},null,2));await page.screenshot({path:`${out}/failure.png`,fullPage:true}).catch(()=>{});throw error;}
-finally{for(const id of records)await api(`/api/grc?id=${encodeURIComponent(id)}`,'DELETE');if(auditId)await api(`/api/audits?id=${auditId}`,'DELETE');await browser.close();}
+finally{for(const id of records)await api(`/api/grc?id=${encodeURIComponent(id)}`,'DELETE');if(auditId)await cleanupQaFixture(context,base,'audit',auditId);await browser.close();}

@@ -1,3 +1,4 @@
+import {cleanupQaFixture} from './qa-fixture-cleanup.mjs';
 import { qaPassword } from './qa-credentials.mjs';
 import { chromium, expect } from '@playwright/test';
 import assert from 'node:assert/strict';
@@ -92,6 +93,6 @@ try{
  assert.deepEqual(errors,[]);await writeFile(`${out}/result.json`,JSON.stringify({passed:true,scenarios:['complete preview','independent users','My Work exact package','duplicate retry','stale source return','approval','SQL write locks','JSON integrity','reopen retention','late navigation','TR/EN themes responsive'],errors},null,2));console.log('AUDIT_CLOSURE_QA_PASS: blockers, independent approval, My Work navigation, stale-source return, idempotency, locked CRUD/import/plan/workplan/delete, verified complete package, retained reopening and TR/EN responsive views');
 }catch(error){console.error('AUDIT_CLOSURE_QA_FAILED',error.message);await Promise.all([page.screenshot({path:`${out}/failure-preparer.png`,fullPage:true}).catch(()=>{}),peer.screenshot({path:`${out}/failure-reviewer.png`,fullPage:true}).catch(()=>{})]);throw error;}
 finally{
- for(const id of audits){const h=await api(admin,`/api/audits/closure?auditId=${id}`);if(h.state.state==='closed')await api(admin,'/api/audits/closure','POST',{auditId:id,eventId:`ACL-${crypto.randomUUID()}`,action:'reopen',expectedRevision:h.state.revision,note:'Isolated QA cleanup after completed scenario.'});await api(admin,`/api/audits?id=${id}`,'DELETE');}
+ for(const id of audits){const h=await api(admin,`/api/audits/closure?auditId=${id}`);if(h.state.state==='closed')await api(admin,'/api/audits/closure','POST',{auditId:id,eventId:`ACL-${crypto.randomUUID()}`,action:'reopen',expectedRevision:h.state.revision,note:'Isolated QA cleanup after completed scenario.'});await cleanupQaFixture(admin,base,'audit',id);}
  for(const id of users)await api(admin,'/api/users','PATCH',{id,role:'Editor',status:'Disabled'});await browser.close();
 }

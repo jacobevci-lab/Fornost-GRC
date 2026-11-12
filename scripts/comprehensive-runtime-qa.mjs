@@ -152,6 +152,8 @@ await check('Continuity UI form, layout, modal, maker-checker, exercise breach a
  await dialog.locator('[name=biaRef]').fill('BIA-001');
  await page.screenshot({path:`${out}/continuity-form.png`});
  const response=page.waitForResponse(r=>r.url().endsWith('/api/continuity')&&r.request().method()==='POST').catch(()=>null);await dialog.getByRole('button',{name:'Create draft plan'}).click();const r=await response;assert.equal(r.status(),201,await r.text());const {id}=await r.json();await dialog.waitFor({state:'hidden'});
+ await request(checker,'/api/continuity','POST',{action:'approve-plan',planId:id,...evidence,confirmation:'PLANI ONAYLA'},409);
+ const draftPlan=(await request(admin,'/api/continuity')).plans.find(p=>p.id===id);await request(admin,'/api/continuity','POST',{action:'submit-plan',planId:id,expectedUpdatedAt:draftPlan.updatedAt,note:'Submit the prepared recovery plan for independent review.',confirmation:'PLANI İNCELEMEYE GÖNDER'});
  await request(admin,'/api/continuity','POST',{action:'approve-plan',planId:id,...evidence,confirmation:'PLANI ONAYLA'},403);
  await request(checker,'/api/continuity','POST',{action:'approve-plan',planId:id,...evidence,confirmation:'PLANI ONAYLA'});await request(admin,'/api/continuity','POST',{action:'activate-plan',planId:id,...evidence,confirmation:'PLANI ETKİNLEŞTİR'});
  await request(admin,'/api/continuity','POST',{action:'schedule-exercise',planId:id,type:'tabletop',scheduledDate:today,scenario:'Simulate regional outage and recover the critical payment process.',facilitator:owner},201);
