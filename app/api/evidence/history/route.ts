@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireRole } from "../../auth/security";
+import { CoreReferenceUnavailable } from "../../../core-reference-write";
+import { LifecycleConflict } from "../../../enterprise-lifecycle-write";
+import { evidenceReferenceGuard, evidenceClaimConflict } from "../../../evidence/reference-guard";
 import { ensureCoreGrcSchemaCompatibility } from "../../grc/schema-compat";
 import {
   appendEvidenceVersion,
@@ -147,6 +150,8 @@ export async function POST(req: NextRequest) {
   const data = parse(record.data_json);
   const refs = splitEvidenceControlRefs(text(form.get("controlRefs"), 2000) || data.controlRefs || data.controlRef);
   if (!refs.length) return json({ error: "En az bir kontrol referansı gerekli." }, 400);
+  const guard = evidenceReferenceGuard(evidenceId, { controlRefs: refs.join(", ") }, data);
+  if (!await env.DB.prepare(`SELECT 1 valid WHERE ${guard.sql}`).bind(...guard.values).first()) return json({ error: new CoreReferenceUnavailable().message, code: "REFERENCE_UNAVAILABLE" }, 422);
   const createdAt = new Date().toISOString();
   const fileName = safeFileName(file.name);
   const fileKey = `evidence/${evidenceId}/history/${crypto.randomUUID()}-${fileName}`;
@@ -169,7 +174,7 @@ export async function POST(req: NextRequest) {
       createdBy: access.actor.email,
       createdAt,
     }, {
-      additionalStatements: (commit) => {
+      claim: { statement: (commit) => {
         const nextData = {
           ...data,
           status: "İncelemede",
@@ -185,13 +190,15 @@ export async function POST(req: NextRequest) {
           controlRef: refs[0],
           controlRefs: refs.join(", "),
         };
-        return [env.DB.prepare("UPDATE simple_grc_records SET data_json=?,updated_at=? WHERE id=? AND module='Kanıtlar'")
-          .bind(JSON.stringify(nextData), createdAt, evidenceId)];
-      },
+        return env.DB.prepare(`UPDATE simple_grc_records SET data_json=?,updated_at=? WHERE id=? AND module='Kanıtlar' AND data_json=? AND updated_at=? AND ${guard.sql}`)
+          .bind(JSON.stringify(nextData), createdAt, evidenceId, record.data_json, record.updated_at, ...guard.values);
+      }, conflict: () => evidenceClaimConflict(env.DB, guard) },
     });
     return json({ ok: true, message: `Kanıt v${version.versionNo} olarak versiyonlandı.`, version: { ...version, evidenceId, fileKey, fileName, contentSha256, controlRefs: refs } }, 201);
   } catch (error) {
     await removeEvidenceObject(env, fileKey);
+    if (error instanceof CoreReferenceUnavailable) return json({ error: error.message, code: "REFERENCE_UNAVAILABLE" }, 422);
+    if (error instanceof LifecycleConflict) return json({ error: error.message, code: "RECORD_CHANGED" }, 409);
     return json({ error: error instanceof Error ? error.message : "Kanıt versiyonu kaydedilemedi." }, 500);
   }
 }

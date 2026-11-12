@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { DatabaseSync, type SQLInputValue } from 'node:sqlite';
+import { ensureCoreGrcSchemaCompatibility } from '../app/api/grc/schema-compat';
 import { ensureEvidenceHistorySchema, appendEvidenceVersion, type EvidenceVersionRow } from '../app/evidence/versioning';
 import { historyIntegrity, readEvidenceControlTimeline, readEvidenceHistoryOverview } from '../app/evidence/history-overview';
 
@@ -13,6 +14,7 @@ async function fixture() {
       async all() { return this.execute(); }, async run() { return this.execute(); }, async first() { return sqlite.prepare(sql).get(...args) || null; } };
   }
   const db = { prepare, async batch(statements: ReturnType<typeof prepare>[]) { sqlite.exec('BEGIN'); try { const results = statements.map(s => s.execute()); sqlite.exec('COMMIT'); return results; } catch (e) { sqlite.exec('ROLLBACK'); throw e; } } } as unknown as D1Database;
+  await ensureCoreGrcSchemaCompatibility(db);
   await ensureEvidenceHistorySchema(db);
   const record = (id: string, data = {}, updated = '2026-10-14') => sqlite.prepare('INSERT INTO simple_grc_records VALUES(?,?,?,?,?)').run(id, 'Kanıtlar', JSON.stringify(data), updated, updated);
   const version = async (id: string, control = 'CTRL-A') => {

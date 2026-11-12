@@ -34,7 +34,8 @@ test("core registers persist public codes and keep internal IDs hidden", async (
     readFile("app/layout-guardrails.css", "utf8"),
   ]);
   assert.match(route, /simple_grc_record_codes/);
-  assert.match(route, /simple_grc_record_code_counters/);
+  assert.match(route, /reserveRecordCodes/);
+  assert.match(await readFile("app/record-code-store.ts", "utf8"), /simple_grc_record_code_counters/);
   assert.match(route, /record_code:/);
   assert.match(page, /displayRecordCode\(r\)/);
   assert.match(page, /requiredFieldsByModule/);
