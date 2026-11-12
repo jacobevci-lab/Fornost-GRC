@@ -106,7 +106,7 @@ function AccountEditor({user,lang,busy,onClose,onSave}:{user?:LocalUser;lang:Lan
  const [initial]=useState<Draft>(()=>({name:user?.name||"",email:user?.email||"",password:"",role:user?.role||"Viewer",moduleAccess:user?.moduleAccess||NO_ACCESS}));
  const [draft,setDraft]=useState(initial),[error,setError]=useState(""),[discard,setDiscard]=useState(false);
  const dirty=JSON.stringify(draft)!==JSON.stringify(initial);
- useEffect(()=>{const element=dialog.current;element?.showModal();return()=>element?.close()},[]);
+ useEffect(()=>{const element=dialog.current,trigger=document.activeElement instanceof HTMLElement?document.activeElement:null;element?.showModal();return()=>{element?.close();if(trigger?.isConnected)trigger.focus()}},[]);
  useEffect(()=>{const warn=(event:BeforeUnloadEvent)=>{if(dirty){event.preventDefault();event.returnValue=""}};window.addEventListener("beforeunload",warn);return()=>window.removeEventListener("beforeunload",warn)},[dirty]);
  function close(){if(busy)return;if(dirty)setDiscard(true);else onClose();}
  async function submit(event:FormEvent){event.preventDefault();if(busy||discard)return;setError("");const result=await onSave(draft);if(result)setError(result);}
