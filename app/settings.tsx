@@ -1,14 +1,11 @@
 "use client";
-import { ChangeEvent, FormEvent, useEffect, useState, useCallback, useRef } from "react";
+import { ChangeEvent, FormEvent, useEffect, useState } from "react";
 import { withBasePath } from "./base-path";
 import type { CatalogKey, CatalogMap } from "./catalogs";
-import ModuleAccessEditor from "./module-access-editor";
-import { FULL_ACCESS, type ModuleAccess } from "./module-access";
 import IntegrationSettings from "./integration-settings";
+import IdentityAccessDesk from "./identity-access-desk";
 import AiSettings from "./ai-settings";
 import SystemStatusPanel from "./system-status-panel";
-import UserSessionControl from "./user-session-control";
-import { isSessionRevocationEvent } from "./user-session-actions";
 import "./integration-settings.css";
 
 type Lang = "tr" | "en";
@@ -51,7 +48,7 @@ export default function Settings({ lang, currentUser, catalogs, onCatalogChange,
     catalogs:{tr:["Ana Veri Yönetimi","Risk, BIA ve varlık envanterinde kullanılan seçim listelerini yönetin."],en:["Master Data Management","Manage selection lists used across Risk, BIA and Asset Inventory."]},
     workflow:{tr:["Entegrasyon Merkezi","Bağlantıları, erişimleri ve işlem durumunu tek yerden yönetin."],en:["Integration Center","Manage connections, access and activity in one place."]},
     email:{tr:["E-posta ve Bildirimler","SMTP, Graph veya e-posta API kanalını yapılandırıp test edin."],en:["Email & Notifications","Configure and test SMTP, Graph or email API delivery."]},
-    identity:{tr:["Kimlik ve Erişim","Entra, Okta, OIDC, SAML, LDAP/LDAPS ve yerel kullanıcıları yönetin."],en:["Identity & Access","Manage Entra, Okta, OIDC, SAML, LDAP/LDAPS and local users."]},
+    identity:{tr:["Kimlik ve Erişim","Kullanıcıları, erişim kapsamını ve kurumsal kimlik profillerini yönetin."],en:["Identity & Access","Manage users, access scope and corporate identity profiles."]},
   };
   const [title,description]=headings[page][lang];
   const securityChecks=[
@@ -68,7 +65,7 @@ export default function Settings({ lang, currentUser, catalogs, onCatalogChange,
     {page==="workflow"&&<IntegrationSettings lang={lang} kind="ticketing"/>}
     {page==="email"&&<IntegrationSettings lang={lang} kind="email"/>}
     {page==="ai"&&<AiSettings lang={lang}/>}
-    {page==="identity"&&<><IntegrationSettings lang={lang} kind="identity"/><LocalUsers lang={lang}/></>}
+    {page==="identity"&&<IdentityAccessDesk lang={lang}/>}
     {page==="catalogs"&&<CatalogManager lang={lang} catalogs={catalogs} onChange={onCatalogChange}/>}
     {page==="system"&&<nav className="settings-subnav" aria-label={tr?"Sistem ayarı bölümleri":"System settings sections"}>{(["general","status","history"] as const).map(tab=><button type="button" key={tab} aria-current={systemTab===tab?"page":undefined} onClick={()=>setSystemTab(tab)}>{tab==="general"?(tr?"Genel Ayarlar":"General Settings"):tab==="status"?(tr?"Sistem Durumu":"System Status"):(tr?"Değişiklik Geçmişi":"Change History")}</button>)}</nav>}
     {page==="system"&&systemTab==="status"&&<SystemStatusPanel lang={lang}/>}
@@ -128,72 +125,7 @@ function CatalogManager({lang,catalogs,onChange}:{lang:Lang;catalogs:CatalogMap;
   return <section className="settings-card catalog-manager"><div className="settings-card-head"><div><h3>{tr?"Ana Veri / Liste Yönetimi":"Master Data / List Management"}</h3><p>{tr?"Risk, BIA ve varlık envanterindeki seçim listelerini merkezi olarak yönetin.":"Centrally manage selection lists used by Risk, BIA and Asset Inventory."}</p></div><span>{tr?"Canlı":"Live"}</span></div>{message&&<div className="catalog-message">{message}</div>}<div className="catalog-grid">{(Object.keys(catalogLabels) as CatalogKey[]).map(key=><article key={key}><header><b>{catalogLabels[key][lang]}</b><span>{catalogs[key]?.length||0}</span></header><div className="catalog-values">{(catalogs[key]||[]).map(value=><div key={value}><span>{value}</span><button type="button" onClick={()=>remove(key,value)} aria-label={`${value} ${tr?"sil":"delete"}`}>×</button></div>)}</div><form onSubmit={e=>add(key,e)}><input value={drafts[key]||""} maxLength={100} minLength={2} onChange={e=>setDrafts(x=>({...x,[key]:e.target.value}))} placeholder={tr?"Yeni değer...":"New value..."}/><button className="primary">{tr?"Ekle":"Add"}</button></form></article>)}</div><footer>{tr?"Bir değer silindiğinde mevcut kayıtların tarihsel değeri korunur; yalnız yeni seçimlerden kaldırılır.":"Deleting a value preserves historical records and only removes it from future selections."}</footer></section>;
 }
 
-type LocalUser={revision:string;own:boolean;lastAdmin:boolean;moduleAccess:ModuleAccess;id:string;name:string;email:string;role:"Admin"|"Editor"|"Viewer";status:"Active"|"Disabled";failed_attempts?:number;locked_until?:string};
-const accountErrors:Record<string,string>={invalid:"Check the account details and access scope.",password:"Use a password that meets the displayed policy.",missing:"Account not found. Refresh the list.",stale:"Account details or your permissions changed. Refresh the list.",duplicate:"An account already uses this email.",self:"You cannot delete your own account.", "last-admin":"At least one active administrator is required.",unavailable:"The operation could not be verified. Refresh the list."};
-function accountError(body:{code?:string;error?:string},tr:boolean){return (!tr&&accountErrors[body.code||""])||body.error||(tr?"İşlem başarısız.":"Operation failed.");}
-function accountEvent(value:string|undefined,tr:boolean){
- if(isSessionRevocationEvent(value))return tr?"Yerel oturumlar sonlandırıldı":"Local sessions ended";
- let operation;try{operation=JSON.parse(value||"null")?.operation;}catch{}
- if(operation==="delete-local-account")return tr?"Yerel hesap silindi":"Local account deleted";
- if(operation==="create-local-account")return tr?"Yerel hesap oluşturuldu":"Local account created";
- return tr?"Hesap erişimi güncellendi":"Account access updated";
-}
-function LocalUsers({lang}:{lang:Lang}){
-  const tr=lang==="tr",[users,setUsers]=useState<LocalUser[]>([]),[message,setMessage]=useState(""),[busyId,setBusyId]=useState(""),[events,setEvents]=useState<Array<{id:string;email:string;actor:string;created_at:string;after_json?:string}>>([]),[newAccess,setNewAccess]=useState<ModuleAccess>(FULL_ACCESS),[newRole,setNewRole]=useState("Viewer");
-  const [loading,setLoading]=useState(true),[loadError,setLoadError]=useState(""),[creating,setCreating]=useState(false);
-  const [confirmId,setConfirmId]=useState("");
-  const loadSequence=useRef(0);
-  const load=useCallback(async(preserveOtherEdits?:string)=>{
-    const sequence=++loadSequence.current;setLoading(true);setLoadError("");
-    try{
-      const response=await fetch(withBasePath("/api/users"),{cache:"no-store",signal:AbortSignal.timeout(15000)}),body=await response.json();
-      if(!response.ok||!Array.isArray(body.users)||!Array.isArray(body.events))throw new Error("Unavailable");
-      if(sequence===loadSequence.current){setUsers(current=>body.users.map((fresh:LocalUser)=>{
-        const draft=preserveOtherEdits&&fresh.id!==preserveOtherEdits?current.find(u=>u.id===fresh.id&&u.revision===fresh.revision):undefined;
-        return draft?{...fresh,name:draft.name,role:draft.role,status:draft.status,moduleAccess:draft.moduleAccess}:fresh;
-      }));setEvents(body.events);setConfirmId("");}
-    }catch{if(sequence===loadSequence.current)setLoadError(tr?"Kullanıcı listesi okunamadı. Yeniden deneyin.":"The user list could not be loaded. Please retry.");}
-    finally{if(sequence===loadSequence.current)setLoading(false);}
-  },[tr]);
-  useEffect(()=>{void load();return()=>{loadSequence.current+=1}},[load]);
-  async function add(event:FormEvent<HTMLFormElement>){
-    event.preventDefault();if(creating||busyId||loading||loadError)return;
-    const form=event.currentTarget,fd=new FormData(form);setCreating(true);setMessage("");
-    try{
-      const response=await fetch(withBasePath("/api/users"),{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({...Object.fromEntries(fd),moduleAccess:newRole==="Admin"?FULL_ACCESS:newAccess}),signal:AbortSignal.timeout(15000)}),body=await response.json();
-      if(!response.ok){setMessage(accountError(body,tr));return;}
-      setMessage(tr?"Yerel hesap oluşturuldu.":"Local account created.");form.reset();setNewAccess(FULL_ACCESS);setNewRole("Viewer");await load(body.id);
-    }catch{setMessage(tr?"Hesap oluşturma sonucu doğrulanamadı. Tekrar denemeden önce listeyi yenileyin.":"Account creation could not be verified. Refresh the list before retrying.");await load();}
-    finally{setCreating(false);}
-  }
-  function change(id:string,key:"role"|"status",value:string){setUsers(current=>current.map(user=>user.id===id?{...user,[key]:value,...(key==="role"&&value==="Admin"?{moduleAccess:FULL_ACCESS}:{})}:user) as LocalUser[])}
-  async function save(user:LocalUser){
-    if(busyId||creating||loading||loadError)return;setBusyId(user.id);setMessage("");
-    try{
-      const response=await fetch(withBasePath("/api/users"),{method:"PATCH",headers:{"content-type":"application/json"},body:JSON.stringify({id:user.id,name:user.name,expectedRevision:user.revision,role:user.role,status:user.status,moduleAccess:user.role==="Admin"?FULL_ACCESS:user.moduleAccess}),signal:AbortSignal.timeout(15000)}),body=await response.json();
-      setMessage(response.ok?(tr?"Kullanıcı erişimi kaydedildi. Değişen hesap yeniden oturum açmalıdır.":"User access saved. Changed accounts must sign in again."):accountError(body,tr));
-      if(response.ok&&body.accessChanged&&user.own){window.dispatchEvent(new Event("focus"));return;}
-      if(response.ok||response.status===409||response.status===404)await load(user.id);
-    }catch{setMessage(tr?"Kaydetme sonucu doğrulanamadı. Tekrar denemeden önce listeyi yenileyin.":"Save result could not be verified. Refresh the list before retrying.");await load();}
-    finally{setBusyId("");}
-  }
-  async function remove(user:LocalUser){
-    if(creating||busyId||loading||loadError||confirmId!==user.id||user.own||user.lastAdmin)return;
-    setBusyId(user.id);setMessage("");
-    try{
-      const response=await fetch(withBasePath("/api/users"),{method:"DELETE",headers:{"content-type":"application/json"},body:JSON.stringify({id:user.id,email:user.email,expectedRevision:user.revision}),signal:AbortSignal.timeout(15000)});
-      const body=await response.json();
-      if(!response.ok){setMessage(accountError(body,tr));if(response.status===404||response.status===409)await load(user.id);return;}
-      setMessage(tr?`${user.email} hesabı silindi.`:`Deleted account: ${user.email}.`);await load(user.id);
-    }catch{setMessage(tr?"Silme sonucu doğrulanamadı. Listeyi ve erişim geçmişini kontrol edin.":"Deletion could not be verified. Check the list and access history.");await load();}
-    finally{setConfirmId("");setBusyId("");}
-  }
-  return <section className="settings-card local-users"><div className="settings-card-head"><div><h3>{tr?"Yerel Kullanıcı Hesapları":"Local User Accounts"}</h3><p>{tr?"Entra SSO kullanılamadığında giriş yapabilecek kontrollü hesaplar.":"Controlled fallback accounts for use when Entra SSO is unavailable."}</p></div><span>{loading?(tr?"Yükleniyor…":"Loading…"):loadError?(tr?"Doğrulanamadı":"Unverified"):`${users.length} ${tr?"hesap":"accounts"}`}</span></div><div className="local-users-load-state">{loadError&&<p role="alert">{loadError}</p>}<button type="button" disabled={loading||creating||!!busyId} onClick={()=>void load()}>{tr?"Listeyi Yenile":"Refresh User List"}</button></div><form className="settings-fields" onSubmit={add}><NativeInput name="name" label={tr?"Ad Soyad":"Full Name"}/><NativeInput name="email" label={tr?"E-posta":"Email"} type="email"/><NativeInput name="password" label={tr?"Geçici Güçlü Parola":"Temporary Strong Password"} type="password"/><label className="setting-field"><span>{tr?"Rol":"Role"}</span><select name="role" value={newRole} onChange={event=>setNewRole(event.target.value)}><option>Viewer</option><option>Editor</option><option>Admin</option></select></label><ModuleAccessEditor value={newAccess} role={newRole} lang={lang} onChange={setNewAccess}/><p className="wide local-policy">{tr?"En az 12 karakter; büyük/küçük harf, sayı ve özel karakter.":"Minimum 12 characters with upper/lowercase, number and symbol."}</p><button className="primary card-action" disabled={creating||!!busyId||loading||!!loadError}>{tr?"Yerel Hesap Oluştur":"Create Local Account"}</button>{message&&<span className="local-message" aria-live="polite">{message}</span>}</form><div className="local-user-list" aria-busy={loading}>{!loading&&!loadError&&users.map(user=><div key={user.id}><span className="local-user-identity"><b>{user.name}</b><small>{user.email}</small><details><summary>{tr?"Adı düzenle":"Edit name"}</summary><label><span className="sr-only">{tr?"Görünen ad":"Display name"}</span><input maxLength={120} value={user.name} onChange={e=>setUsers(list=>list.map(item=>item.id===user.id?{...item,name:e.target.value}:item))}/></label></details></span><label><span className="sr-only">{tr?"Rol":"Role"}</span><select aria-label={tr?"Rol":"Role"} value={user.role} onChange={event=>change(user.id,"role",event.target.value)}><option>Viewer</option><option>Editor</option><option>Admin</option></select></label><label><span className="sr-only">{tr?"Durum":"Status"}</span><select aria-label={tr?"Durum":"Status"} value={user.status} onChange={event=>change(user.id,"status",event.target.value)}><option value="Active">{tr?"Aktif":"Active"}</option><option value="Disabled">{tr?"Devre dışı":"Disabled"}</option></select></label><span className="local-user-security">{Number(user.failed_attempts||0)>0?`${user.failed_attempts} ${tr?"hatalı giriş":"failed attempts"}`:(tr?"Giriş sorunu yok":"No sign-in issue")}</span><div className="local-account-buttons"><button type="button" disabled={!!busyId||creating||loading||!user.name.trim()} onClick={()=>void save(user)}>{tr?"Kaydet":"Save"}</button><button type="button" className="local-account-delete" disabled={!!busyId||creating||user.own||user.lastAdmin} aria-expanded={confirmId===user.id} onClick={()=>{setMessage("");setConfirmId(user.id)}}>{tr?"Sil":"Delete"}</button>
-          {(user.own||user.lastAdmin)&&<small>{user.lastAdmin?(tr?"Son aktif yönetici":"Last active administrator"):(tr?"Kendi hesabınız":"Your account")}</small>}</div>
-          {confirmId===user.id&&<div className="local-account-confirm" role="group" aria-label={tr?"Hesap silme onayı":"Confirm account deletion"}><p>{tr?`${user.email} hesabı silinecek ve açık yerel oturumları kapatılacak. Erişim geçmişi saklanır.`:`Delete ${user.email} and end its active local sessions? Access history is retained.`}</p><button type="button" disabled={!!busyId} onClick={()=>setConfirmId("")}>{tr?"Vazgeç":"Cancel"}</button><button type="button" className="local-account-delete" disabled={!!busyId} onClick={()=>void remove(user)}>{tr?"Hesabı sil":"Delete account"}</button></div>}
-          <ModuleAccessEditor value={user.moduleAccess||FULL_ACCESS} role={user.role} lang={lang} onChange={moduleAccess=>setUsers(current=>current.map(item=>item.id===user.id?{...item,moduleAccess}:item))}/><UserSessionControl userId={user.id} email={user.email} lang={lang} disabled={!!busyId||creating} onRevoked={text=>{setMessage(text);void load()}}/></div>)}</div><details className="module-access-events"><summary>{tr?"Son erişim değişiklikleri":"Recent access changes"}</summary><ul>{!loading&&!loadError&&events.map(event=><li key={event.id}>{accountEvent(event.after_json,tr)} · {event.email} · {event.actor} · {new Date(event.created_at).toLocaleString(tr?"tr-TR":"en-US")}</li>)}</ul></details></section>
-}
 function Card({title,desc,status,children,wide=false,hidden=false}:{hidden?:boolean;title:string;desc:string;status:string;children:any;wide?:boolean}){return <section hidden={hidden} className={`settings-card${wide?" settings-card-wide":""}`}><div className="settings-card-head"><div><h3>{title}</h3><p>{desc}</p></div><span>{status}</span></div><div className="settings-fields">{children}</div></section>}
 function Input({label,value,onChange,type="text",placeholder=""}:{label:string;value:string;onChange:(v:string)=>void;type?:string;placeholder?:string}){return <label className="setting-field"><span>{label}</span><input type={type} autoComplete={type==="password"?"new-password":undefined} value={value} placeholder={placeholder} onChange={e=>onChange(e.target.value)}/></label>}
-function NativeInput({name,label,type="text"}:{name:string;label:string;type?:string}){return <label className="setting-field"><span>{label}</span><input name={name} type={type} autoComplete={type==="password"?"new-password":undefined} required minLength={type==="password"?12:undefined}/></label>}
+
 function Toggle({checked,onChange,label}:{checked:boolean;onChange:(v:boolean)=>void;label:string}){return <label className="setting-toggle wide"><input type="checkbox" checked={checked} onChange={e=>onChange(e.target.checked)}/><i/><span>{label}</span></label>}

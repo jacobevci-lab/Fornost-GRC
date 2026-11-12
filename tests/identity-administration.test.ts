@@ -4,18 +4,18 @@ import test from "node:test";
 
 test("local identity administration supports governed role and status changes",async()=>{
  const [ui,route,css]=await Promise.all([
-  readFile("app/settings.tsx","utf8"),
+  readFile("app/identity-access-desk.tsx","utf8"),
   readFile("app/api/users/account-store.ts","utf8"),
-  readFile("app/enterprise-surface-contract.css","utf8"),
+  readFile("app/identity-access-desk.css","utf8"),
  ]);
- assert.match(ui,/method:"PATCH"/);
+ assert.match(ui,/write\("PATCH"/);
  assert.match(ui,/user\.role/);
  assert.match(ui,/user\.status/);
  assert.match(ui,/failed_attempts/);
  assert.match(route,/Son aktif yönetici devre dışı bırakılamaz/);
  assert.match(route,/failed_attempts=CASE WHEN \?='Active' THEN 0/);
  assert.match(route,/locked_until=CASE WHEN \?='Active' THEN NULL/);
- assert.match(css,/\.local-user-list>div\{grid-template-columns:/);
+ assert.match(css,/\.iad-workspace\{display:grid/);
 });
 
 test("audit portfolio and requirements use actionable lifecycle states",async()=>{
