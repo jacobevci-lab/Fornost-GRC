@@ -1,0 +1,88 @@
+name: Live comprehensive QA
+on:
+  push:
+    branches: ['qa/live-comprehensive-20261112']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  production:
+    name: Production browser ${{ matrix.mode }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 22
+    strategy:
+      fail-fast: false
+      matrix:
+        mode: [views, crud]
+    env:
+      FORNOST_EXPECTED_REVISION: 12546543a45cc9f3c8b7bcca3b6351595de3e16b
+      FORNOST_PROD_URL: https://app.fornostsecurity.com
+      CF_ACCESS_CLIENT_ID: ${{ secrets.CF_ACCESS_CLIENT_ID }}
+      CF_ACCESS_CLIENT_SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
+      FORNOST_SMOKE_EMAIL: ${{ secrets.FORNOST_SMOKE_EMAIL }}
+      FORNOST_SMOKE_PASSWORD: ${{ secrets.FORNOST_SMOKE_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.13.0
+          cache: npm
+      - run: npm ci
+      - run: npm install --no-save --ignore-scripts @playwright/test@1.55.0
+      - name: Browser
+        run: |
+          if command -v google-chrome >/dev/null; then
+            echo "QA_CHROMIUM_PATH=$(command -v google-chrome)" >> "$GITHUB_ENV"
+          else
+            npx playwright install --with-deps chromium
+          fi
+      - run: node scripts/live-all-module-qa.mjs ${{ matrix.mode }}
+      - name: Verify unchanged production revision
+        if: always()
+        run: node scripts/wait-for-production-revision.mjs --once
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: live-all-qa-${{ matrix.mode }}
+          path: live-all-qa-${{ matrix.mode }}/
+          retention-days: 14
+  isolated:
+    name: Isolated lifecycle and role QA
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      CLOUDFLARE_CF_FETCH_ENABLED: 'false'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.13.0
+          cache: npm
+      - run: npm ci
+      - run: npm install --no-save --ignore-scripts @playwright/test@1.55.0
+      - name: Browser
+        run: |
+          if command -v google-chrome >/dev/null; then
+            echo "QA_CHROMIUM_PATH=$(command -v google-chrome)" >> "$GITHUB_ENV"
+          else
+            npx playwright install --with-deps chromium
+          fi
+      - run: node scripts/prepare-local-qa.mjs
+      - name: Lifecycle tests with isolated database
+        run: |
+          set -euo pipefail
+          npm run dev -- --host 127.0.0.1 --port 4173 --strictPort > /tmp/live-qa-isolated-runtime.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null || true' EXIT
+          for attempt in $(seq 1 60); do
+            if curl --fail --silent http://127.0.0.1:4173/api/auth > /dev/null; then break; fi
+            sleep 1
+          done
+          curl --fail --silent -H 'Content-Type: application/json' -H 'Origin: http://127.0.0.1:4173' --data-binary @/tmp/fornost-qa-bootstrap.json http://127.0.0.1:4173/api/auth > /tmp/live-qa-bootstrap-response.json
+          node scripts/comprehensive-runtime-qa.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: isolated-lifecycle-qa
+          path: runtime-qa-artifacts/
+          retention-days: 14
