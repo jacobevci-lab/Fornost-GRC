@@ -22,9 +22,9 @@ async function assertCreateAccountContrast(disabled){
     const style=getComputedStyle(el);
     const luminance=color=>{const values=color.match(/[\d.]+/g).slice(0,3).map(Number).map(v=>{v/=255;return v<=.04045?v/12.92:((v+.055)/1.055)**2.4;});return values[0]*.2126+values[1]*.7152+values[2]*.0722;};
     const a=luminance(style.color),b=luminance(style.backgroundColor);
-    return {ratio:(Math.max(a,b)+.05)/(Math.min(a,b)+.05),opacity:style.opacity};
+    return {ratio:(Math.max(a,b)+.05)/(Math.min(a,b)+.05),opacity:style.opacity,foreground:style.color,background:style.backgroundColor};
    });
-   assert.ok(result.ratio>=4.5,`${theme} local account disabled=${disabled} hover=${hover}: contrast ${result.ratio}`);
+   assert.ok(result.ratio>=4.5,`${theme} local account disabled=${disabled} hover=${hover}: contrast ${result.ratio} ${result.foreground} on ${result.background}`);
    assert.equal(result.opacity,'1');
   }
  }
@@ -63,4 +63,4 @@ try{
  // Self-revocation returns this browser to sign-in without disabling its account.
  await section.locator('.iad-user-select').filter({hasText:'qa-admin@fornost.test'}).click();await control.getByRole('button',{name:'Yerel oturumları kapat',exact:true}).click();await control.getByRole('button',{name:'İşlemi onayla',exact:true}).click();await expect(page.locator('.auth-screen')).toBeVisible();await login(admin,'qa-admin@fornost.test');
  assert.deepEqual(errors,[]);console.log('USER_SESSION_REVOCATION_QA passed: admin/CSRF/body boundaries, two sessions revoked, account preserved, audit, re-login, load/action failure recovery, self-revoke, themes/mobile and Turkish');
-}finally{try{await cleanup();}finally{await browser.close();}}
+}catch(error){await page.screenshot({path:`${out}/failure.png`,fullPage:true}).catch(()=>{});throw error;}finally{try{await cleanup();}finally{await browser.close();}}
