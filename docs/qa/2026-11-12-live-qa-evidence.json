@@ -1,0 +1,1270 @@
+{
+  "live_views": {
+    "base": "https://app.fornostsecurity.com",
+    "revision": "12546543a45cc9f3c8b7bcca3b6351595de3e16b",
+    "mode": "views",
+    "prefix": "QA-LIVE-1794472939925-a7d80c",
+    "startedAt": "2026-11-12T08:42:19.925Z",
+    "results": [
+      {
+        "name": "page tr/light/1536: Gösterge Paneli",
+        "status": "passed",
+        "overflow": 0,
+        "screenshot": "page-0.png"
+      },
+      {
+        "name": "page tr/light/1536: Benim İşlerim",
+        "status": "passed",
+        "overflow": 0,
+        "screenshot": "page-1.png"
+      },
+      {
+        "name": "page tr/light/1536: Risk Değerlendirmesi",
+        "status": "passed",
+        "overflow": 0,
+        "screenshot": "page-2.png"
+      },
+      {
+        "name": "page tr/light/1536: Varlık Envanteri",
+        "status": "passed",
+        "overflow": 0,
+        "screenshot": "page-3.png"
+      },
+      {
+        "name": "page tr/light/1536: İş Etki Analizi (BIA)",
+        "status": "passed",
+        "overflow": 0,
+        "screenshot": "page-4.png"
+      },
+      {
+        "name": "page tr/light/1536: Tedarikçi Yönetimi",
+        "status": "passed",
+        "overflow": 0,
+        "screenshot": "page-5.png"
+      },
+      {
+        "name": "page tr/light/1536: Risk İştahı ve KRI",
+        "status": "passed",
+        "overflow": 0,
+        "screenshot": "page-6.png"
+      },
+      {
+        "name": "page tr/light/1536: İş Sürekliliği ve Dayanıklılık",
+        "status": "passed",
+        "overflow": 0,
+        "screenshot": "page-7.png"
+      },
+      {
+        "name": "page tr/light/1536: Uyum Yönetimi",
+        "status": "passed",
+        "overflow": 0,
+        "screenshot": "page-8.png"
+      },
+      {
+        "name": "page tr/light/1536: Kontrol Kütüphanesi",
+        "status": "passed",
+        "overflow": 0,
+        "screenshot": "page-9.png"
+      },
+      {
+        "name": "page tr/light/1536: Kanıt Kütüphanesi",
+        "status": "passed",
+        "overflow": 0,
+        "screenshot": "page-10.png"
+      },
+      {
+        "name": "page tr/light/1536: Kanıt Otomasyonu",
+        "status": "passed",
+        "overflow": 0,
+        "screenshot": "page-11.png"
+      },
+      {
+        "name": "page tr/light/1536: Denetim Yönetimi",
+        "status": "passed",
+        "overflow": 0,
+        "screenshot": "page-12.png"
+      },
+      {
+        "name": "page tr/light/1536: Bulgular ve CAPA",
+        "status": "passed",
+        "overflow": 0,
+        "screenshot": "page-13.png"
+      },
+      {
+        "name": "page tr/light/1536: Güvenlik Olayları ve Kriz",
+        "status": "passed",
+        "overflow": 0,
+        "screenshot": "page-14.png"
+      },
+      {
+        "name": "page tr/light/1536: Politika Merkezi",
+        "status": "passed",
+        "overflow": 0,
+        "screenshot": "page-15.png"
+      },
+      {
+        "name": "page tr/light/1536: Regülasyon Merkezi",
+        "status": "passed",
+        "overflow": 0,
+        "screenshot": "page-16.png"
+      },
+      {
+        "name": "page tr/light/1536: AI Yönetişimi",
+        "status": "passed",
+        "overflow": 0,
+        "screenshot": "page-17.png"
+      },
+      {
+        "name": "page tr/light/1536: Bağlantılı GRC Haritası",
+        "status": "passed",
+        "overflow": 0,
+        "screenshot": "page-18.png"
+      },
+      {
+        "name": "page tr/light/1536: Raporlama",
+        "status": "passed",
+        "overflow": 0,
+        "screenshot": "page-19.png"
+      },
+      {
+        "name": "page tr/light/1536: Ask Fornost",
+        "status": "passed",
+        "overflow": 0,
+        "screenshot": "page-20.png"
+      },
+      {
+        "name": "page tr/light/1536: İş Akışı Entegrasyonları",
+        "status": "passed",
+        "overflow": 0,
+        "screenshot": "page-21.png"
+      },
+      {
+        "name": "page tr/light/1536: Kimlik ve Erişim",
+        "status": "passed",
+        "overflow": 0,
+        "screenshot": "page-22.png"
+      },
+      {
+        "name": "page tr/light/1536: Sistem Ayarları",
+        "status": "passed",
+        "overflow": 0,
+        "screenshot": "page-23.png"
+      },
+      {
+        "name": "page tr/light/1536: AI Ayarları",
+        "status": "passed",
+        "overflow": 0,
+        "screenshot": "page-24.png"
+      },
+      {
+        "name": "page tr/light/1536: Ana Veri Yönetimi",
+        "status": "passed",
+        "overflow": 0,
+        "screenshot": "page-25.png"
+      },
+      {
+        "name": "page tr/light/1536: E-posta ve Bildirimler",
+        "status": "passed",
+        "overflow": 0,
+        "screenshot": "page-26.png"
+      },
+      {
+        "name": "page en/dark/390: Dashboard",
+        "status": "passed",
+        "overflow": 0,
+        "screenshot": "page-27.png"
+      },
+      {
+        "name": "page en/dark/390: My Work",
+        "status": "passed",
+        "overflow": 0,
+        "screenshot": "page-28.png"
+      },
+      {
+        "name": "page en/dark/390: Risk Assessment",
+        "status": "passed",
+        "overflow": 0,
+        "screenshot": "page-29.png"
+      },
+      {
+        "name": "page en/dark/390: Asset Inventory",
+        "status": "passed",
+        "overflow": 0,
+        "screenshot": "page-30.png"
+      },
+      {
+        "name": "page en/dark/390: Business Impact Analysis (BIA)",
+        "status": "passed",
+        "overflow": 0,
+        "screenshot": "page-31.png"
+      },
+      {
+        "name": "page en/dark/390: Vendor Management",
+        "status": "passed",
+        "overflow": 0,
+        "screenshot": "page-32.png"
+      },
+      {
+        "name": "page en/dark/390: Risk Appetite & KRI",
+        "status": "passed",
+        "overflow": 0,
+        "screenshot": "page-33.png"
+      },
+      {
+        "name": "page en/dark/390: Business Continuity & Resilience",
+        "status": "passed",
+        "overflow": 0,
+        "screenshot": "page-34.png"
+      },
+      {
+        "name": "page en/dark/390: Compliance Management",
+        "status": "passed",
+        "overflow": 0,
+        "screenshot": "page-35.png"
+      },
+      {
+        "name": "page en/dark/390: Control Library",
+        "status": "passed",
+        "overflow": 0,
+        "screenshot": "page-36.png"
+      },
+      {
+        "name": "page en/dark/390: Evidence Library",
+        "status": "passed",
+        "overflow": 0,
+        "screenshot": "page-37.png"
+      },
+      {
+        "name": "page en/dark/390: Evidence Automation",
+        "status": "passed",
+        "overflow": 0,
+        "screenshot": "page-38.png"
+      },
+      {
+        "name": "page en/dark/390: Audit Management",
+        "status": "passed",
+        "overflow": 0,
+        "screenshot": "page-39.png"
+      },
+      {
+        "name": "page en/dark/390: Findings & CAPA",
+        "status": "passed",
+        "overflow": 0,
+        "screenshot": "page-40.png"
+      },
+      {
+        "name": "page en/dark/390: Security Incidents & Crisis",
+        "status": "passed",
+        "overflow": 0,
+        "screenshot": "page-41.png"
+      },
+      {
+        "name": "page en/dark/390: Policy Center",
+        "status": "passed",
+        "overflow": 0,
+        "screenshot": "page-42.png"
+      },
+      {
+        "name": "page en/dark/390: Regulatory Change Center",
+        "status": "passed",
+        "overflow": 0,
+        "screenshot": "page-43.png"
+      },
+      {
+        "name": "page en/dark/390: AI Governance",
+        "status": "passed",
+        "overflow": 0,
+        "screenshot": "page-44.png"
+      },
+      {
+        "name": "page en/dark/390: Connected GRC Map",
+        "status": "passed",
+        "overflow": 0,
+        "screenshot": "page-45.png"
+      },
+      {
+        "name": "page en/dark/390: Reporting",
+        "status": "passed",
+        "overflow": 0,
+        "screenshot": "page-46.png"
+      },
+      {
+        "name": "page en/dark/390: Ask Fornost",
+        "status": "passed",
+        "overflow": 0,
+        "screenshot": "page-47.png"
+      },
+      {
+        "name": "page en/dark/390: Workflow Integrations",
+        "status": "passed",
+        "overflow": 0,
+        "screenshot": "page-48.png"
+      },
+      {
+        "name": "page en/dark/390: Identity & Access",
+        "status": "passed",
+        "overflow": 0,
+        "screenshot": "page-49.png"
+      },
+      {
+        "name": "page en/dark/390: System Settings",
+        "status": "passed",
+        "overflow": 0,
+        "screenshot": "page-50.png"
+      },
+      {
+        "name": "page en/dark/390: AI Settings",
+        "status": "passed",
+        "overflow": 0,
+        "screenshot": "page-51.png"
+      },
+      {
+        "name": "page en/dark/390: Master Data",
+        "status": "passed",
+        "overflow": 0,
+        "screenshot": "page-52.png"
+      },
+      {
+        "name": "page en/dark/390: Email & Notifications",
+        "status": "passed",
+        "overflow": 0,
+        "screenshot": "page-53.png"
+      },
+      {
+        "name": "subviews: Dashboard",
+        "status": "passed",
+        "tabs": []
+      },
+      {
+        "name": "subviews: My Work",
+        "status": "passed",
+        "tabs": []
+      },
+      {
+        "name": "subviews: Risk Assessment",
+        "status": "passed",
+        "tabs": []
+      },
+      {
+        "name": "subviews: Asset Inventory",
+        "status": "passed",
+        "tabs": []
+      },
+      {
+        "name": "subviews: Business Impact Analysis (BIA)",
+        "status": "passed",
+        "tabs": []
+      },
+      {
+        "name": "subviews: Vendor Management",
+        "status": "passed",
+        "tabs": [
+          "Risk Queue",
+          "Third Parties",
+          "Due Diligence",
+          "Findings & CAPA"
+        ]
+      },
+      {
+        "name": "subviews: Risk Appetite & KRI",
+        "status": "passed",
+        "tabs": []
+      },
+      {
+        "name": "subviews: Business Continuity & Resilience",
+        "status": "passed",
+        "tabs": [
+          "Plans",
+          "Exercises",
+          "Improvement gaps"
+        ]
+      },
+      {
+        "name": "subviews: Compliance Management",
+        "status": "passed",
+        "tabs": []
+      },
+      {
+        "name": "subviews: Control Library",
+        "status": "passed",
+        "tabs": []
+      },
+      {
+        "name": "subviews: Evidence Library",
+        "status": "passed",
+        "tabs": []
+      },
+      {
+        "name": "subviews: Evidence Automation",
+        "status": "passed",
+        "tabs": []
+      },
+      {
+        "name": "subviews: Audit Management",
+        "status": "passed",
+        "tabs": []
+      },
+      {
+        "name": "subviews: Findings & CAPA",
+        "status": "passed",
+        "tabs": []
+      },
+      {
+        "name": "subviews: Security Incidents & Crisis",
+        "status": "passed",
+        "tabs": []
+      },
+      {
+        "name": "subviews: Policy Center",
+        "status": "passed",
+        "tabs": [
+          "Worklist",
+          "Policy Register",
+          "Versions & Release",
+          "Employee acknowledgements",
+          "Exceptions"
+        ]
+      },
+      {
+        "name": "subviews: Regulatory Change Center",
+        "status": "passed",
+        "tabs": []
+      },
+      {
+        "name": "subviews: AI Governance",
+        "status": "passed",
+        "tabs": []
+      },
+      {
+        "name": "subviews: Connected GRC Map",
+        "status": "passed",
+        "tabs": [
+          "Connections",
+          "Impact analysis",
+          "Gaps19",
+          "Assurance"
+        ]
+      },
+      {
+        "name": "subviews: Reporting",
+        "status": "passed",
+        "tabs": []
+      },
+      {
+        "name": "subviews: Workflow Integrations",
+        "status": "passed",
+        "tabs": [
+          "Connections",
+          "Connection history",
+          "Continuous assurance"
+        ]
+      },
+      {
+        "name": "subviews: Identity & Access",
+        "status": "passed",
+        "tabs": [
+          "Users",
+          "Corporate sign-in",
+          "Roles & scope",
+          "Access history"
+        ]
+      },
+      {
+        "name": "subviews: System Settings",
+        "status": "passed",
+        "tabs": []
+      },
+      {
+        "name": "subviews: AI Settings",
+        "status": "passed",
+        "tabs": []
+      },
+      {
+        "name": "subviews: Master Data",
+        "status": "passed",
+        "tabs": []
+      },
+      {
+        "name": "subviews: Email & Notifications",
+        "status": "passed",
+        "tabs": []
+      },
+      {
+        "name": "AI Governance: all workspace screens",
+        "status": "passed",
+        "views": [
+          "Decision Desk",
+          "AI Inventory",
+          "Governance",
+          "AI Access",
+          "AI Vendors",
+          "AI Datasets",
+          "AI Supply Chain",
+          "AI Risks",
+          "AI Impact",
+          "AI Compliance",
+          "AI Regulatory",
+          "AI Transparency",
+          "AI Literacy",
+          "AI Monitoring",
+          "Quality",
+          "AI Red Team",
+          "AI Evidence",
+          "AI Assurance",
+          "AI Alerts",
+          "AI Incidents",
+          "AI Findings",
+          "AI Exceptions",
+          "AI Release Gate",
+          "AI Resilience",
+          "AI Retirement",
+          "Copilot",
+          "Agents",
+          "Knowledge Base",
+          "Drafts",
+          "Feedback Incidents",
+          "Usage",
+          "Operations",
+          "Data Protection",
+          "AI Audit"
+        ]
+      }
+    ],
+    "pageErrors": [],
+    "serverErrors": [],
+    "cleanup": [],
+    "finishedAt": "2026-11-12T08:47:13.366Z",
+    "summary": {
+      "passed": 81,
+      "failed": 0,
+      "cleanupFailures": 0,
+      "pageErrors": 0,
+      "serverErrors": 0
+    }
+  },
+  "live_crud": {
+    "base": "https://app.fornostsecurity.com",
+    "revision": "12546543a45cc9f3c8b7bcca3b6351595de3e16b",
+    "mode": "crud",
+    "prefix": "QA-LIVE-1794473953904-07f7e6",
+    "startedAt": "2026-11-12T08:59:13.904Z",
+    "results": [
+      {
+        "name": "UI create/edit/reload/delete: Asset Inventory",
+        "status": "passed",
+        "code": "AST-660",
+        "screenshot": "crud-0.png"
+      },
+      {
+        "name": "UI create/edit/reload/delete: Business Impact Analysis (BIA)",
+        "status": "passed",
+        "code": "BIA-009",
+        "screenshot": "crud-1.png"
+      },
+      {
+        "name": "UI create/edit/reload/delete: Risk Assessment",
+        "status": "passed",
+        "code": "RSK-631",
+        "linkGuard": true,
+        "screenshot": "crud-2.png"
+      },
+      {
+        "name": "UI create/edit/reload/delete: Control Library",
+        "status": "passed",
+        "code": "CTL-007",
+        "screenshot": "crud-3.png"
+      },
+      {
+        "name": "UI create/edit/reload/delete: Compliance Management",
+        "status": "passed",
+        "code": "CMP-007",
+        "screenshot": "crud-4.png"
+      },
+      {
+        "name": "API stale update/delete and missing reference guards",
+        "status": "passed"
+      },
+      {
+        "name": "Evidence file upload/download/edit/delete through browser",
+        "status": "passed",
+        "sha256": "c93b14e93f5b74c7f364b325a80806193c1a795bbb77c552434f4af9ee6223da"
+      },
+      {
+        "name": "Audit portfolio create and delete through browser",
+        "status": "passed",
+        "id": "AUDIT-bfbd6fdc-8746-48b0-8c55-3487f960c225",
+        "delete": "API cleanup"
+      },
+      {
+        "name": "AI model draft CRUD (API and browser inventory)",
+        "status": "passed"
+      }
+    ],
+    "pageErrors": [],
+    "serverErrors": [],
+    "cleanup": [
+      {
+        "id": "AIM-f7f0450f-5bba-4aa6-8e05-d0778032ee09",
+        "status": "verified"
+      },
+      {
+        "id": "AUDIT-bfbd6fdc-8746-48b0-8c55-3487f960c225",
+        "status": "verified"
+      },
+      {
+        "id": "EVD-d077dd24-2848-4a19-8913-758942c48639",
+        "status": "verified"
+      },
+      {
+        "id": "AST-56e41294-3073-462c-aa68-219c31cfa659",
+        "status": "verified"
+      },
+      {
+        "id": "CMP-2e0053df-dd42-4749-aa66-fd6f33dae706",
+        "status": "verified"
+      },
+      {
+        "id": "CTL-77b78b01-ca1b-4b6c-971a-9412b2909e7f",
+        "status": "verified"
+      },
+      {
+        "id": "RSK-bd39101e-229e-4714-a728-9fbddd9cf2e9",
+        "status": "verified"
+      },
+      {
+        "id": "BIA-d1c82a4c-39e2-4222-9f44-508788340f69",
+        "status": "verified"
+      },
+      {
+        "id": "AST-6b32fad5-76e6-4900-92e0-ed7eb1789a11",
+        "status": "verified"
+      },
+      {
+        "id": "AST-b71c4c74-e420-4ea2-8fbc-6000a3548440",
+        "status": "verified"
+      }
+    ],
+    "finishedAt": "2026-11-12T09:01:35.873Z",
+    "summary": {
+      "passed": 9,
+      "failed": 0,
+      "cleanupFailures": 0,
+      "pageErrors": 0,
+      "serverErrors": 0
+    }
+  },
+  "live_supplement": {
+    "base": "https://app.fornostsecurity.com",
+    "revision": "12546543a45cc9f3c8b7bcca3b6351595de3e16b",
+    "mode": "supplement",
+    "prefix": "QA-LIVE-1794473620903-656541",
+    "startedAt": "2026-11-12T08:53:40.903Z",
+    "results": [
+      {
+        "name": "Connected map: browser link/unlink, retained target and change history",
+        "status": "passed",
+        "events": 2
+      },
+      {
+        "name": "Reporting: filtered preview and PDF/HTML/CSV/XLSX downloads",
+        "status": "passed",
+        "downloads": [
+          {
+            "format": "HTML",
+            "bytes": 5586
+          },
+          {
+            "format": "CSV",
+            "bytes": 558
+          },
+          {
+            "format": "Download Excel Report",
+            "bytes": 3372
+          },
+          {
+            "format": "PDF Report",
+            "bytes": 22223
+          }
+        ]
+      },
+      {
+        "name": "Additional live subviews: Regulatory Change Center",
+        "status": "passed",
+        "views": [
+          "Worklist",
+          "Change Register",
+          "Sources",
+          "Impact & Actions"
+        ]
+      },
+      {
+        "name": "Additional live subviews: Risk Appetite & KRI",
+        "status": "passed",
+        "views": [
+          "Executive View",
+          "Appetite & Thresholds",
+          "KRI Measurements",
+          "Breaches & Actions",
+          "Stress Scenarios",
+          "Board Packs"
+        ]
+      },
+      {
+        "name": "Additional live subviews: Evidence Automation",
+        "status": "passed",
+        "views": [
+          "Evidence Sources",
+          "Continuous Controls",
+          "Run History"
+        ]
+      },
+      {
+        "name": "Evidence: unavailable canonical control must be rejected",
+        "status": "failed",
+        "http": 201,
+        "persisted": true,
+        "recordCode": "EVD-3bbff982-5d56-462f-9da1-cb5b8a3460d3",
+        "error": "Nonexistent canonical control reference was accepted by evidence upload\n\n201 !== 422\n",
+        "screenshot": "failure-5.png"
+      }
+    ],
+    "pageErrors": [],
+    "serverErrors": [],
+    "cleanup": [
+      {
+        "id": "EVD-3bbff982-5d56-462f-9da1-cb5b8a3460d3",
+        "status": "verified"
+      },
+      {
+        "id": "RSK-fc82a90c-bc9e-4735-9cf7-fcf0234b516b",
+        "status": "verified"
+      },
+      {
+        "id": "BIA-24a116d7-dc08-4ab5-a28d-3ddb9ed2f694",
+        "status": "verified"
+      },
+      {
+        "id": "AST-8d6feb1b-8f15-419e-9717-3b3f0ce155d9",
+        "status": "verified"
+      }
+    ],
+    "finishedAt": "2026-11-12T08:55:27.946Z",
+    "summary": {
+      "passed": 5,
+      "failed": 1,
+      "cleanupFailures": 0,
+      "pageErrors": 0,
+      "serverErrors": 0
+    }
+  },
+  "live_retention": {
+    "base": "https://app.fornostsecurity.com",
+    "revision": "12546543a45cc9f3c8b7bcca3b6351595de3e16b",
+    "mode": "retention",
+    "prefix": "QA-LIVE-1794473956881-a06aef",
+    "startedAt": "2026-11-12T08:59:16.881Z",
+    "results": [
+      {
+        "name": "Deleted synthetic evidence file must not remain downloadable through ordinary file API",
+        "status": "failed",
+        "http": 200,
+        "recordAbsent": true,
+        "syntheticId": "EVD-3bbff982-5d56-462f-9da1-cb5b8a3460d3",
+        "error": "Deleted evidence file is still downloadable with HTTP 200",
+        "screenshot": "failure-0.png"
+      }
+    ],
+    "pageErrors": [],
+    "serverErrors": [],
+    "cleanup": [],
+    "finishedAt": "2026-11-12T08:59:57.462Z",
+    "summary": {
+      "passed": 0,
+      "failed": 1,
+      "cleanupFailures": 0,
+      "pageErrors": 0,
+      "serverErrors": 0
+    }
+  },
+  "isolated_lifecycle": {
+    "environment": "http://127.0.0.1:4173",
+    "results": [
+      {
+        "name": "API CRUD and role boundaries: Varlık Envanteri",
+        "status": "passed"
+      },
+      {
+        "name": "API CRUD and role boundaries: Denetim Yönetimi",
+        "status": "passed"
+      },
+      {
+        "name": "API CRUD and role boundaries: BIA",
+        "status": "passed"
+      },
+      {
+        "name": "API CRUD and role boundaries: Uyum",
+        "status": "passed"
+      },
+      {
+        "name": "API CRUD and role boundaries: Kontroller",
+        "status": "passed"
+      },
+      {
+        "name": "API CRUD and role boundaries: Kanıtlar",
+        "status": "passed"
+      },
+      {
+        "name": "API CRUD and role boundaries: Risk Assessment",
+        "status": "passed"
+      },
+      {
+        "name": "API CRUD and role boundaries: Tedarikçiler",
+        "status": "passed"
+      },
+      {
+        "name": "Connected core references block deletion until reassigned",
+        "status": "passed"
+      },
+      {
+        "name": "Continuity plan reference protects its core BIA record",
+        "status": "passed"
+      },
+      {
+        "name": "UI create/edit/delete: Risk Assessment",
+        "status": "passed"
+      },
+      {
+        "name": "UI create/edit/delete: Business Impact Analysis (BIA)",
+        "status": "passed"
+      },
+      {
+        "name": "UI create/edit/delete: Asset Inventory",
+        "status": "passed"
+      },
+      {
+        "name": "UI create/edit/delete: Compliance Management",
+        "status": "passed"
+      },
+      {
+        "name": "UI create/edit/delete: Control Library",
+        "status": "passed"
+      },
+      {
+        "name": "Dashboard audit deadlines: today remains current, yesterday overdue, closed excluded",
+        "status": "passed"
+      },
+      {
+        "name": "Evidence Library UI upload, file integrity, edit and delete",
+        "status": "passed"
+      },
+      {
+        "name": "Continuity UI form, layout, modal, maker-checker, exercise breach and gap closure",
+        "status": "passed"
+      },
+      {
+        "name": "Risk appetite and KRI: approval, threshold breach, remediation, independent closure, retirement",
+        "status": "passed"
+      },
+      {
+        "name": "Policy lifecycle: draft, version, independent approval, publish and retire",
+        "status": "passed"
+      },
+      {
+        "name": "Incident lifecycle: declaration through independent close and reopen",
+        "status": "passed"
+      },
+      {
+        "name": "CAPA lifecycle: create, start, submit, independent verify and reopen",
+        "status": "passed"
+      },
+      {
+        "name": "Audit portfolio: template creation, duplicate protection, archive/delete and requirement cleanup",
+        "status": "passed"
+      },
+      {
+        "name": "AI governance: model draft CRUD, risk scoring and role boundaries",
+        "status": "passed"
+      },
+      {
+        "name": "Master data: add, duplicate validation, delete and role restrictions",
+        "status": "passed"
+      },
+      {
+        "name": "Vendor governance: onboarding, assessment, independent approval and offboarding",
+        "status": "passed"
+      },
+      {
+        "name": "Regulatory changes: source, intake, impact, action, independent verification and closure",
+        "status": "passed"
+      },
+      {
+        "name": "Evidence automation: source creation, edit, rule creation and disable (no external collection)",
+        "status": "passed"
+      },
+      {
+        "name": "Native source persistence: validation, credential rotation, redaction and role boundaries",
+        "status": "passed"
+      },
+      {
+        "name": "Product-specific connector forms: fields, permissions, secret reset and responsive themes",
+        "status": "passed"
+      },
+      {
+        "name": "Guided connector setup uses the same provider fields and resets credentials",
+        "status": "passed"
+      },
+      {
+        "name": "Read routes, invalid writes, exports and Viewer write boundaries",
+        "status": "passed"
+      },
+      {
+        "name": "Connected GRC opens exact core records and clears contextual filters",
+        "status": "passed"
+      },
+      {
+        "name": "My Work: exact ownership, Today, pagination after 80, mobile due dates and CAPA navigation",
+        "status": "passed"
+      },
+      {
+        "name": "AI governance exposes its complete navigation",
+        "status": "passed"
+      },
+      {
+        "name": "AI workspace render: light / 1",
+        "status": "passed"
+      },
+      {
+        "name": "AI workspace render: light / 2",
+        "status": "passed"
+      },
+      {
+        "name": "AI workspace render: light / 3",
+        "status": "passed"
+      },
+      {
+        "name": "AI workspace render: light / 4",
+        "status": "passed"
+      },
+      {
+        "name": "AI workspace render: light / 5",
+        "status": "passed"
+      },
+      {
+        "name": "AI workspace render: light / 6",
+        "status": "passed"
+      },
+      {
+        "name": "AI workspace render: light / 7",
+        "status": "passed"
+      },
+      {
+        "name": "AI workspace render: light / 8",
+        "status": "passed"
+      },
+      {
+        "name": "AI workspace render: light / 9",
+        "status": "passed"
+      },
+      {
+        "name": "AI workspace render: light / 10",
+        "status": "passed"
+      },
+      {
+        "name": "AI workspace render: light / 11",
+        "status": "passed"
+      },
+      {
+        "name": "AI workspace render: light / 12",
+        "status": "passed"
+      },
+      {
+        "name": "AI workspace render: light / 13",
+        "status": "passed"
+      },
+      {
+        "name": "AI workspace render: light / 14",
+        "status": "passed"
+      },
+      {
+        "name": "AI workspace render: light / 15",
+        "status": "passed"
+      },
+      {
+        "name": "AI workspace render: light / 16",
+        "status": "passed"
+      },
+      {
+        "name": "AI workspace render: light / 17",
+        "status": "passed"
+      },
+      {
+        "name": "AI workspace render: light / 18",
+        "status": "passed"
+      },
+      {
+        "name": "AI workspace render: light / 19",
+        "status": "passed"
+      },
+      {
+        "name": "AI workspace render: light / 20",
+        "status": "passed"
+      },
+      {
+        "name": "AI workspace render: light / 21",
+        "status": "passed"
+      },
+      {
+        "name": "AI workspace render: light / 22",
+        "status": "passed"
+      },
+      {
+        "name": "AI workspace render: light / 23",
+        "status": "passed"
+      },
+      {
+        "name": "AI workspace render: light / 24",
+        "status": "passed"
+      },
+      {
+        "name": "AI workspace render: light / 25",
+        "status": "passed"
+      },
+      {
+        "name": "AI workspace render: light / 26",
+        "status": "passed"
+      },
+      {
+        "name": "AI workspace render: light / 27",
+        "status": "passed"
+      },
+      {
+        "name": "AI workspace render: light / 28",
+        "status": "passed"
+      },
+      {
+        "name": "AI workspace render: light / 29",
+        "status": "passed"
+      },
+      {
+        "name": "AI workspace render: light / 30",
+        "status": "passed"
+      },
+      {
+        "name": "AI workspace render: light / 31",
+        "status": "passed"
+      },
+      {
+        "name": "AI workspace render: light / 32",
+        "status": "passed"
+      },
+      {
+        "name": "AI workspace render: light / 33",
+        "status": "passed"
+      },
+      {
+        "name": "AI workspace render: light / 34",
+        "status": "passed"
+      },
+      {
+        "name": "AI workspace render: dark / 1",
+        "status": "passed"
+      },
+      {
+        "name": "AI workspace render: dark / 2",
+        "status": "passed"
+      },
+      {
+        "name": "AI workspace render: dark / 3",
+        "status": "passed"
+      },
+      {
+        "name": "AI workspace render: dark / 4",
+        "status": "passed"
+      },
+      {
+        "name": "AI workspace render: dark / 5",
+        "status": "passed"
+      },
+      {
+        "name": "AI workspace render: dark / 6",
+        "status": "passed"
+      },
+      {
+        "name": "AI workspace render: dark / 7",
+        "status": "passed"
+      },
+      {
+        "name": "AI workspace render: dark / 8",
+        "status": "passed"
+      },
+      {
+        "name": "AI workspace render: dark / 9",
+        "status": "passed"
+      },
+      {
+        "name": "AI workspace render: dark / 10",
+        "status": "passed"
+      },
+      {
+        "name": "AI workspace render: dark / 11",
+        "status": "passed"
+      },
+      {
+        "name": "AI workspace render: dark / 12",
+        "status": "passed"
+      },
+      {
+        "name": "AI workspace render: dark / 13",
+        "status": "passed"
+      },
+      {
+        "name": "AI workspace render: dark / 14",
+        "status": "passed"
+      },
+      {
+        "name": "AI workspace render: dark / 15",
+        "status": "passed"
+      },
+      {
+        "name": "AI workspace render: dark / 16",
+        "status": "passed"
+      },
+      {
+        "name": "AI workspace render: dark / 17",
+        "status": "passed"
+      },
+      {
+        "name": "AI workspace render: dark / 18",
+        "status": "passed"
+      },
+      {
+        "name": "AI workspace render: dark / 19",
+        "status": "passed"
+      },
+      {
+        "name": "AI workspace render: dark / 20",
+        "status": "passed"
+      },
+      {
+        "name": "AI workspace render: dark / 21",
+        "status": "passed"
+      },
+      {
+        "name": "AI workspace render: dark / 22",
+        "status": "passed"
+      },
+      {
+        "name": "AI workspace render: dark / 23",
+        "status": "passed"
+      },
+      {
+        "name": "AI workspace render: dark / 24",
+        "status": "passed"
+      },
+      {
+        "name": "AI workspace render: dark / 25",
+        "status": "passed"
+      },
+      {
+        "name": "AI workspace render: dark / 26",
+        "status": "passed"
+      },
+      {
+        "name": "AI workspace render: dark / 27",
+        "status": "passed"
+      },
+      {
+        "name": "AI workspace render: dark / 28",
+        "status": "passed"
+      },
+      {
+        "name": "AI workspace render: dark / 29",
+        "status": "passed"
+      },
+      {
+        "name": "AI workspace render: dark / 30",
+        "status": "passed"
+      },
+      {
+        "name": "AI workspace render: dark / 31",
+        "status": "passed"
+      },
+      {
+        "name": "AI workspace render: dark / 32",
+        "status": "passed"
+      },
+      {
+        "name": "AI workspace render: dark / 33",
+        "status": "passed"
+      },
+      {
+        "name": "AI workspace render: dark / 34",
+        "status": "passed"
+      },
+      {
+        "name": "No unhandled UI errors",
+        "status": "passed"
+      }
+    ],
+    "limitations": [
+      "External SMTP, SSO, webhook delivery and third-party credentials are not configured in this isolated environment.",
+      "Lifecycle modules retain audit history and use retirement/closure rather than unsupported hard deletion."
+    ]
+  },
+  "interpretation": {
+    "target_revision": "12546543a45cc9f3c8b7bcca3b6351595de3e16b",
+    "production_browser": "Chromium through GitHub Actions against app.fornostsecurity.com",
+    "live_modes": [
+      {
+        "language": "tr",
+        "theme": "light",
+        "width": 1536
+      },
+      {
+        "language": "en",
+        "theme": "dark",
+        "width": 390
+      }
+    ],
+    "notes": [
+      "81 live view wrappers include empty tab groups; do not count as 81 unique features.",
+      "104 isolated results include 68 AI render checks.",
+      "Raw audit scenario name says browser delete, but actual delete was API cleanup, as recorded by its delete field.",
+      "Evidence record deletion passed; binary remains readable as documented by live_retention.",
+      "External provider delivery and all AI mutation workflows were not comprehensively exercised."
+    ],
+    "run_ids": {
+      "live_views": 43185068200,
+      "live_crud": 43187396747,
+      "live_supplement": 43186631567,
+      "live_retention": 43187396747,
+      "isolated_lifecycle": 43186631567,
+      "local_account_lifecycle_step": 43181365630
+    },
+    "local_account_lifecycle": {
+      "status": "passed",
+      "environment": "production",
+      "completed_at": "2026-11-12T08:16:33Z",
+      "source_job_id": 131057882590,
+      "checks": [
+        "create",
+        "rename",
+        "scoped permissions",
+        "role/session invalidation",
+        "disable",
+        "reactivate",
+        "cancel deletion",
+        "mobile delete",
+        "audit retained",
+        "denied re-login",
+        "cleanup"
+      ]
+    },
+    "legacy_full_production_job": {
+      "status": "cancelled",
+      "completed": false,
+      "reason": "Visible EN selector timeout, followed by overall job cancellation during retry.",
+      "job_id": 131057882590
+    }
+  }
+}
