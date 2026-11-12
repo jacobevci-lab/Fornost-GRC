@@ -144,19 +144,19 @@ async function testConnection(provider:IntegrationProvider, config:Config, secre
   if(["ldap","ldaps"].includes(provider)){
     const response=await outbound(`${endpoint(config,allowPrivate)}/health`,{headers:{authorization:`Bearer ${secret}`}});
     if(!response.ok)throw new Error(`IAM bridge bağlantısı başarısız (${response.status}).`);
-    return {ok:true,message:"LDAP/LDAPS profili ve on-prem IAM bridge bağlantısı doğrulandı."};
+    return {ok:true,message:"IAM bridge sağlık kontrolü geçti. LDAP bind ve kullanıcı girişi doğrulanmadı. / Bridge health check passed; LDAP bind and sign-in are unverified."};
   }
   if(["entra-oidc","okta-oidc","generic-oidc"].includes(provider)){
     const issuer=endpoint(config,allowPrivate),response=await outbound(`${issuer}/.well-known/openid-configuration`);
     if(!response.ok)throw new Error(`OIDC discovery başarısız (${response.status}).`);
     const metadata=await parseResponse(response); if(!safeHttpUrl(metadata.authorization_endpoint,allowPrivate))throw new Error("OIDC metadata geçersiz.");
-    return {ok:true,message:"OIDC discovery ve issuer doğrulaması başarılı."};
+    return {ok:true,message:"OIDC discovery belgesi ve authorization_endpoint alanı okunabildi. Kullanıcı girişi doğrulanmadı. / Discovery preflight passed; sign-in is unverified."};
   }
   if(provider==="saml"){
     const response=await outbound(endpoint(config,allowPrivate),{headers:{accept:"application/xml,text/xml"}});
     if(!response.ok)throw new Error(`SAML metadata alınamadı (${response.status}).`);
     const text=(await response.text()).slice(0,100_000); if(!text.includes("EntityDescriptor"))throw new Error("SAML metadata geçersiz.");
-    return {ok:true,message:"SAML metadata doğrulandı."};
+    return {ok:true,message:"SAML belgesi alındı ve EntityDescriptor işareti bulundu. İmza ve kullanıcı girişi doğrulanmadı. / Metadata marker found; signature and sign-in are unverified."};
   }
   const base=endpoint(config,allowPrivate); let url=base; const headers:Record<string,string>={};
   if(provider==="jira"){url=`${base}/rest/api/3/myself`;headers.authorization=basic(clean(config.username,320),secret)}

@@ -44,7 +44,7 @@ try{
  await userPage.locator('nav button[aria-label="Risk Assessment"]').evaluate(el=>el.click());await expect(userPage.locator('.module-head .primary')).toBeVisible();
  await userPage.locator('.context-ai-trigger').click();await expect(userPage.locator('#fornost-ai-panel')).toBeVisible();await expect(userPage.locator('.fornost-ai-tabs')).toHaveCount(0);await expect(userPage.locator('#fornost-ai-panel')).toContainText('izinli modüllerdeki');await userPage.getByRole('button',{name:'Kapat',exact:true}).click();
  await page.goto(base);await expect(page.locator('.shell')).toBeVisible();await page.locator('.language-switch:visible').getByRole('button',{name:'EN',exact:true}).click();await page.locator('nav button[aria-label="Identity & Access"]').evaluate(el=>el.click());
- const row=page.locator('.local-user-list>div').filter({hasText:email}),editor=row.locator('.module-access-editor');await editor.locator('summary').click();await expect(editor.getByLabel('Access: Risk Assessment',{exact:true})).toHaveValue('write');
+ await page.locator('.iad-user-select').filter({hasText:email}).click();await page.locator('.iad-detail').getByRole('button',{name:'Edit',exact:true}).click();const row=page.locator('.iad-dialog'),editor=row.locator('.module-access-editor');await editor.locator('summary').click();await expect(editor.getByLabel('Access: Risk Assessment',{exact:true})).toHaveValue('write');
  for(const theme of ['light','dark']){
   for(const p of [page,userPage])await p.evaluate(theme=>{document.documentElement.dataset.theme=theme},theme);
   for(const width of [1536,390]){
@@ -54,7 +54,7 @@ try{
   }
  }
  await page.setViewportSize({width:1536,height:960});await editor.getByLabel('Access: Risk Assessment',{exact:true}).selectOption('read');
- const saved=page.waitForResponse(r=>r.url().endsWith('/api/users')&&r.request().method()==='PATCH');await row.getByRole('button',{name:'Save',exact:true}).click();assert.equal((await saved).status(),200);
+ const saved=page.waitForResponse(r=>r.url().endsWith('/api/users')&&r.request().method()==='PATCH');await row.getByRole('button',{name:'Save changes',exact:true}).click();assert.equal((await saved).status(),200);
  await api(restricted,'/api/grc','GET',undefined,401);await login(restricted,email);await api(restricted,'/api/grc','POST',{module:'Risk Assessment',data:riskData},403);
  const after=await api(admin,'/api/users');assert.ok(after.events.some(event=>event.user_id===user.id&&JSON.parse(event.after_json).moduleAccess.modules['Risk Assessment']==='read'));
  // Check every register through the real scoped read path and UI, including audit and vendor fallback.

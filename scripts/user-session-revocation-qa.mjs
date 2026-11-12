@@ -12,7 +12,7 @@ async function api(context,path,method='GET',data,expected=200){const response=a
 const login=(context,email)=>api(context,'/api/auth','POST',{action:'login',email,password});
 const q=value=>`'${String(value).replaceAll("'","''")}'`;
 async function assertCreateAccountContrast(disabled){
- const button=page.locator('.local-users button.card-action');
+ const button=page.locator('.iad-toolbar>.primary');
  if(disabled)await expect(button).toBeDisabled();else await expect(button).toBeEnabled();
  for(const theme of ['light','dark']){
   await page.evaluate(theme=>document.documentElement.dataset.theme=theme,theme);
@@ -45,20 +45,22 @@ try{
  await page.goto(base);await expect(page.locator('.shell')).toBeVisible();await page.locator('.language-switch:visible').getByRole('button',{name:'EN',exact:true}).click();
  await page.route('**/api/users',route=>route.request().method()==='GET'?route.fulfill({status:503,contentType:'application/json',body:'{}'}):route.continue());
  await page.locator('nav button[aria-label="Identity & Access"]').evaluate(el=>el.click());
- const section=page.locator('.local-users');await expect(section.getByRole('alert')).toContainText('could not be loaded');await expect(section.getByRole('button',{name:'Create Local Account',exact:true})).toBeDisabled();await expect(section.locator('.local-user-list>div')).toHaveCount(0);
+ const section=page.locator('.iad');await expect(section.getByRole('alert')).toContainText('could not be loaded');await expect(section.getByRole('button',{name:'Add user',exact:true})).toBeDisabled();await expect(section.locator('.iad-user-select')).toHaveCount(0);
  await assertCreateAccountContrast(true);
- await page.unroute('**/api/users');await section.getByRole('button',{name:'Refresh User List',exact:true}).click();
- const row=section.locator('.local-user-list>div').filter({hasText:email}),control=row.locator('.local-user-sessions');await expect(row).toBeVisible();await assertCreateAccountContrast(false);await control.locator('summary').click();
- await page.route('**/api/users/sessions',route=>route.fulfill({status:503,contentType:'application/json',body:'{}'}));await control.getByRole('button',{name:'End All Local Sessions',exact:true}).click();await expect(control.getByRole('alert')).toContainText('could not be verified');await api(first,'/api/grc');
+ await page.unroute('**/api/users');await section.getByRole('button',{name:'Refresh',exact:true}).click();
+ await section.locator('.iad-user-select').filter({hasText:email}).click();const control=section.locator('.iad-detail');await expect(control).toContainText(email);await assertCreateAccountContrast(false);
+ async function ask(){await control.getByRole('button',{name:'End local sessions',exact:true}).click();}
+ const confirmation=control.getByRole('group',{name:'Confirm account action'});
+ await page.route('**/api/users/sessions',route=>route.fulfill({status:503,contentType:'application/json',body:'{}'}));await ask();await confirmation.getByRole('button',{name:'Confirm action'}).click();await expect(section.getByRole('status')).toContainText('Operation failed');await api(first,'/api/grc');
  await page.unroute('**/api/users/sessions');
  for(const theme of ['light','dark'])for(const width of [1440,390]){await page.evaluate(theme=>document.documentElement.dataset.theme=theme,theme);await page.setViewportSize({width,height:960});await control.scrollIntoViewIfNeeded();assert.ok(await control.evaluate(el=>el.scrollWidth<=el.clientWidth+1));await page.screenshot({path:`${out}/${theme}-${width}.png`});}
- const response=page.waitForResponse(r=>r.url().endsWith('/api/users/sessions')&&r.request().method()==='DELETE');await control.getByRole('button',{name:'End All Local Sessions',exact:true}).click();const result=await (await response).json();assert.equal(result.ok,true);assert.equal(result.revokedSessions,2);assert.equal(result.currentSessionRevoked,false);
+ const response=page.waitForResponse(r=>r.url().endsWith('/api/users/sessions')&&r.request().method()==='DELETE');await confirmation.getByRole('button',{name:'Confirm action'}).click();const result=await (await response).json();assert.equal(result.ok,true);assert.equal(result.revokedSessions,2);assert.equal(result.currentSessionRevoked,false);
  await api(first,'/api/grc','GET',undefined,401);await api(second,'/api/grc','GET',undefined,401);await api(admin,'/api/grc');
  const snapshot=await api(admin,'/api/users'),after=snapshot.users.find(value=>value.id===userId);for(const key of ['role','status','moduleAccess'])assert.deepEqual(after[key],original[key]);assert.ok(snapshot.events.some(e=>e.user_id===userId&&JSON.parse(e.after_json).operation==='revoke-local-sessions'));
- await expect(section.locator('.local-message')).toContainText('local sessions ended');await section.locator('.module-access-events summary').click();await expect(section.locator('.module-access-events')).toContainText('Local sessions ended');
+ await expect(section.getByRole('status')).toContainText('Local sessions ended');await section.getByRole('button',{name:'Access history',exact:true}).click();await expect(section.locator('.iad-history')).toContainText('Local sessions ended');
  await login(first,email);await api(first,'/api/grc');
- await page.locator('.language-switch:visible').getByRole('button',{name:'TR',exact:true}).click();await expect(row.locator('.local-user-sessions summary')).toContainText('Oturum güvenliği');
+ await section.getByRole('button',{name:'Users',exact:true}).click();await page.locator('.language-switch:visible').getByRole('button',{name:'TR',exact:true}).click();await expect(control.getByRole('button',{name:'Yerel oturumları kapat',exact:true})).toBeVisible();
  // Self-revocation returns this browser to sign-in without disabling its account.
- const own=section.locator('.local-user-list>div').filter({hasText:'qa-admin@fornost.test'}).locator('.local-user-sessions');await own.locator('summary').click();await own.getByRole('button',{name:'Tüm Yerel Oturumları Sonlandır',exact:true}).click();await expect(page.locator('.auth-screen')).toBeVisible();await login(admin,'qa-admin@fornost.test');
+ await section.locator('.iad-user-select').filter({hasText:'qa-admin@fornost.test'}).click();await control.getByRole('button',{name:'Yerel oturumları kapat',exact:true}).click();await control.getByRole('button',{name:'İşlemi onayla',exact:true}).click();await expect(page.locator('.auth-screen')).toBeVisible();await login(admin,'qa-admin@fornost.test');
  assert.deepEqual(errors,[]);console.log('USER_SESSION_REVOCATION_QA passed: admin/CSRF/body boundaries, two sessions revoked, account preserved, audit, re-login, load/action failure recovery, self-revoke, themes/mobile and Turkish');
 }finally{try{await cleanup();}finally{await browser.close();}}
