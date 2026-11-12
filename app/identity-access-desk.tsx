@@ -27,7 +27,7 @@ export default function IdentityAccessDesk({lang}:{lang:Lang}){
   }catch{if(sequence.current===current)setError(tr?"Kullanıcı listesi okunamadı. Yenileyerek tekrar deneyin.":"The user list could not be loaded. Refresh to retry.");}
   finally{if(sequence.current===current)setLoading(false);}
  },[tr]);
- useEffect(()=>{const task=setTimeout(()=>void load(),0);return()=>{clearTimeout(task);sequence.current+=1}},[load]);
+ useEffect(()=>{const task=setTimeout(()=>{setMessage("");void load()},0);return()=>{clearTimeout(task);sequence.current+=1}},[load]);
  const visible=users.filter(user=>(!role||user.role===role)&&(!status||user.status===status)&&`${user.name} ${user.email}`.toLocaleLowerCase(lang).includes(query.trim().toLocaleLowerCase(lang)));
  const selected=visible.find(user=>user.id===selectedId)||visible[0];
  const blocked=busy||loading||!!error;
@@ -60,11 +60,11 @@ export default function IdentityAccessDesk({lang}:{lang:Lang}){
  }
  const tabs:[View,string][]=[["users",tr?"Kullanıcılar":"Users"],["profile",tr?"Kurumsal giriş":"Corporate sign-in"],["roles",tr?"Roller ve kapsam":"Roles & scope"],["history",tr?"Erişim geçmişi":"Access history"]];
  return <section id="identity-access-desk" className="iad" aria-label={tr?"Erişim çalışma masası":"Access workspace"}>
-  <div className="iad-toolbar"><div className="iad-tabs" role="group" aria-label={tr?"Kimlik görünümleri":"Identity views"}>{tabs.map(([key,label])=><button type="button" key={key} aria-pressed={view===key} onClick={()=>{setView(key);setConfirmation(null)}}>{label}</button>)}</div><button type="button" className="primary" aria-label={tr?"Kullanıcı ekle":"Add user"} disabled={blocked} onClick={()=>{setMessage("");setEditor("new")}}>+ {tr?"Kullanıcı ekle":"Add user"}</button></div>
+  <div className="iad-toolbar"><div className="iad-tabs" role="group" aria-label={tr?"Kimlik görünümleri":"Identity views"}>{tabs.map(([key,label])=><button type="button" key={key} aria-pressed={view===key} onClick={()=>{setView(key);setConfirmation(null);setMessage("")}}>{label}</button>)}</div><button type="button" className="primary" aria-label={tr?"Kullanıcı ekle":"Add user"} disabled={blocked} onClick={()=>{setMessage("");setEditor("new")}}>+ {tr?"Kullanıcı ekle":"Add user"}</button></div>
   {view!=="profile"&&<div className="iad-profile-strip"><span>{profile.status==="loading"?(tr?"Kimlik profili okunuyor…":"Loading identity profile…"):profile.status==="error"?(tr?"Kimlik profili durumu alınamadı.":"Identity profile status is unavailable."):profile.status==="empty"?(tr?"Kurumsal kimlik profili yapılandırılmadı.":"No corporate identity profile is configured."):`${profile.provider} · ${tr?"Profil kayıtlı; SSO oturumu doğrulanmadı.":"Profile saved; SSO sign-in is unverified."}`}</span><button type="button" onClick={()=>setView("profile")}>{tr?"Profili aç":"Open profile"} →</button></div>}
   {message&&<p className="iad-notice" role="status">{message}</p>}
   {view!=="profile"&&<>
-   <div className="iad-directory-toolbar"><h3>{view==="history"?(tr?"Erişim değişiklikleri":"Access changes"):view==="roles"?(tr?"Rol ve erişim kapsamı":"Roles and access scope"):(tr?"Kullanıcılar":"Users")} <span>{loading?"…":error?"—":`${users.length} ${tr?"hesap":"accounts"}`}</span></h3><button type="button" disabled={busy||loading} onClick={()=>{setConfirmation(null);void load()}}>{tr?"Yenile":"Refresh"}</button></div>
+   <div className="iad-directory-toolbar"><h3>{view==="history"?(tr?"Erişim değişiklikleri":"Access changes"):view==="roles"?(tr?"Rol ve erişim kapsamı":"Roles and access scope"):(tr?"Kullanıcılar":"Users")} <span>{loading?"…":error?"—":`${users.length} ${tr?"hesap":"accounts"}`}</span></h3><button type="button" disabled={busy||loading} onClick={()=>{setConfirmation(null);setMessage("");void load()}}>{tr?"Yenile":"Refresh"}</button></div>
    {error?<div role="alert" className="iad-notice error">{error}</div>:loading?<p className="iad-empty" role="status">{tr?"Kullanıcılar yükleniyor…":"Loading users…"}</p>:view==="history"?<section className="iad-surface iad-history"><p>{tr?"En son 20 hesap ve yerel oturum değişikliği. Bu liste giriş denemeleri günlüğü değildir.":"The latest 20 account and local-session changes. This is not a sign-in attempts log."}</p><EventList events={events} lang={lang}/></section>:<>
     <div className="iad-workspace">
      <section className="iad-register iad-surface">

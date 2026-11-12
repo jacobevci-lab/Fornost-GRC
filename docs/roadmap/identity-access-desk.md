@@ -7,7 +7,7 @@ The account list is the default task surface. Creation/editing is an explicit di
 
 ## Acceptance
 - Real users and counts; search/role/status filters; separate loading, failure, empty and filtered-empty states.
-- List and selected detail remain consistent after filtering, refresh and mutations. Unsaved account/profile changes are not silently discarded. Uncertain mutation results require reconciliation.
+- List and selected detail remain consistent after filtering, refresh and mutations. Account dialogs confirm before discarding; switching desk views preserves profile drafts, and refreshing a dirty profile asks before discarding. Uncertain mutation results require reconciliation.
 - Create, rename, role/module changes, disable/reactivate, session revoke and confirmed delete use existing server endpoints and expected revisions. Own-account deletion and last-active-admin restrictions remain enforced server-side.
 - Access history retains deleted account identity and describes its bounded last-20-event scope, not a full sign-in audit.
 - Corporate profile is loaded separately; failed reads block writes. Save uses expectedUpdatedAt; changing provider clears draft credentials. Metadata checks use the saved revision and never imply authenticated SSO/MFA or SCIM provisioning.

@@ -17,7 +17,7 @@ try{
  await login(admin,'qa-admin@fornost.test');
  let all=(await api(admin,'/api/grc')).rows;
  // A fresh isolated identity QA runtime has no demo records until explicitly restored.
- if(!all.length){await api(admin,'/api/grc/demo','POST');all=(await api(admin,'/api/grc')).rows;}
+ if(!all.length){await api(admin,'/api/grc/demo','POST',undefined,201);all=(await api(admin,'/api/grc')).rows;}
  const access={mode:'scoped',modules:{'Risk Assessment':'write',BIA:'read'}};
  await api(admin,'/api/users','POST',{name:'QA Module Editor',email,password,role:'Editor',moduleAccess:access},201);
  const users=await api(admin,'/api/users'),user=users.users.find(x=>x.email===email);assert.deepEqual(user.moduleAccess,access);

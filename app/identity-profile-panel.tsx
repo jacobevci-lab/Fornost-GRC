@@ -32,6 +32,7 @@ export default function IdentityProfilePanel({lang,onSummary}:{lang:Lang;onSumma
  },[onSummary]);
  useEffect(()=>{const task=setTimeout(()=>void load(),0);return()=>{clearTimeout(task);sequence.current+=1}},[load]);
  useEffect(()=>{const warn=(event:BeforeUnloadEvent)=>{if(dirty){event.preventDefault();event.returnValue=""}};window.addEventListener("beforeunload",warn);return()=>window.removeEventListener("beforeunload",warn)},[dirty]);
+ useEffect(()=>{const task=setTimeout(()=>setMessage(""),0);return()=>clearTimeout(task)},[lang]);
  const blocked=loading||readError||busy;
  function reload(){if(dirty){setDiscard(true);return;}setMessage("");void load();}
  async function save(event:FormEvent){
