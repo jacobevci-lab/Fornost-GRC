@@ -3,8 +3,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { withBasePath } from "./base-path";
 import { requestJsonWithDeadline } from "./bounded-json-request";
-import { navigateToFornost } from "./navigation-focus";
-import NavIcon from "./nav-icon";
 import IntegrationsOverview from "./integrations-overview";
 import ContinuousAssuranceAttention from "./continuous-assurance-attention";
 import { accessFields, targetFields, ticketProviders, providerName, ticketDefaults, ticketConfigError, connectionState, type Connection, type ConnectionHealth, type TicketConfig } from "./integrations/ticketing-config";
@@ -138,13 +136,8 @@ export default function IntegrationConnectionDesk({ lang }: { lang: Lang }) {
   const searchMatch = row && [providerName(row.provider), ...Object.values(row.config)].join(" ").toLocaleLowerCase(lang).includes(query.toLocaleLowerCase(lang));
   const visible = searchMatch && (filter === "all" || (filter === "active" ? row?.enabled : !row?.enabled));
   const verificationReady = healthAvailable && health?.status === "success" && Number.isFinite(Date.parse(health.testedAt || "")) && Date.parse(health.testedAt || "") <= snapshotTime + 60_000 && snapshotTime - Date.parse(health.testedAt || "") < 7 * 86400_000;
-  const categories = [
-    ["İş Akışı Entegrasyonları", t("İş takibi", "Work tracking")], ["Kimlik ve Erişim", t("Kimlik ve erişim", "Identity & access")],
-    ["E-posta ve Bildirimler", t("Bildirimler", "Notifications")], ["Kanıt Otomasyonu", t("Kanıt kaynakları", "Evidence sources")],
-  ];
   return <section className="icd" aria-label={t("Entegrasyon Merkezi", "Integration Center")} aria-busy={loading}>
-    <nav className="icd-categories" aria-label={t("Entegrasyon kategorileri", "Integration categories")}>{categories.map(([module, name], index) => <button type="button" key={module} disabled={Boolean(draft) || Boolean(busy)} aria-current={index === 0 ? "page" : undefined} onClick={() => index ? navigateToFornost(module) : setTab("connections")}><NavIcon module={module}/>{name}</button>)}</nav>
-    <div className="icd-toolbar"><nav aria-label={t("İş takibi görünümleri", "Work tracking views")}>{(["connections", "history", "assurance"] as const).map(value => <button type="button" key={value} disabled={Boolean(draft) || Boolean(busy)} aria-current={tab === value ? "page" : undefined} onClick={() => setTab(value)}>{value === "connections" ? t("Bağlantılar", "Connections") : value === "history" ? t("Bağlantı geçmişi", "Connection history") : t("Sürekli güvence", "Continuous assurance")}</button>)}</nav><div><button type="button" disabled={loading || Boolean(busy) || Boolean(draft)} onClick={() => void load()}>{t("Yenile", "Refresh")}</button><button ref={editTrigger} type="button" className="primary" disabled={disabled || Boolean(draft)} onClick={edit}>{row ? t("Bağlantıyı düzenle", "Edit connection") : t("Bağlantı kur", "Set up connection")}</button></div></div>
+    <div className="icd-toolbar"><div className="icd-view-tabs" role="group" aria-label={t("İş takibi görünümleri", "Work tracking views")}>{(["connections", "history", "assurance"] as const).map(value => <button type="button" key={value} disabled={Boolean(draft) || Boolean(busy)} aria-pressed={tab === value} onClick={() => setTab(value)}>{value === "connections" ? t("Bağlantılar", "Connections") : value === "history" ? t("Bağlantı geçmişi", "Connection history") : t("Sürekli güvence", "Continuous assurance")}</button>)}</div><div className="icd-toolbar-actions"><button type="button" disabled={loading || Boolean(busy) || Boolean(draft)} onClick={() => void load()}>{t("Yenile", "Refresh")}</button><button ref={editTrigger} type="button" className="primary" disabled={disabled || Boolean(draft)} onClick={edit}>{row ? t("Bağlantıyı düzenle", "Edit connection") : t("Bağlantı kur", "Set up connection")}</button></div></div>
     {notice && <div className={"icd-notice " + (notice.error ? "error" : "")} role={notice.error ? "alert" : "status"}>{notice.text}</div>}
     {!available && !loading && <div className="icd-notice error" role="alert">{t("Bağlantı bilgileri alınamadı. Ayarları değiştirmeden önce yeniden deneyin.", "Connection information is unavailable. Retry before changing settings.")} <button type="button" onClick={() => void load()}>{t("Yeniden dene", "Retry")}</button></div>}
     {loading && <p role="status">{t("Bağlantı bilgileri okunuyor…", "Loading connection information…")}</p>}
