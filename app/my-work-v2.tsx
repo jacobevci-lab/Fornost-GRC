@@ -178,7 +178,7 @@ function matchesIdentity(row: Row, user: User) {
 }
 function isClosed(row: Row) {
   if (row.workSource) return row.data.workClosed === true;
-  if (row.module === "Bulgular ve CAPA") return normalized(row.data.status) === "closed";
+  if (row.module === "Bulgular ve CAPA") return ["closed","cancelled"].includes(normalized(row.data.status));
   return CLOSED.has(normalized(row.data.status || row.data.reviewStatus));
 }
 function isWaitingForOthers(row: Row, user: User) {

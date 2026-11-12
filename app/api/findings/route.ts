@@ -1,3 +1,4 @@
+import {cancelWorkflowRecord,CancellationError} from "../../workflow-cancellation";
 import {insertFinding} from "../../findings/intake-store";
 import {readFindingDecision,prepareFindingDecision,FindingDecisionError} from '../../findings/decision-store';
 import {prepareWorkflowSelection,joinWorkflowGuards,workflowPinStatement,WorkflowSelectionError} from '../../workflow-selection-store';
@@ -87,12 +88,12 @@ export async function GET(req: NextRequest) {
   if(req.nextUrl.searchParams.get('view')==='decision'){
     if(req.nextUrl.searchParams.getAll('findingId').length!==1)return json({code:'FINDING_DECISION_INPUT'},400);
     try{return json(await readFindingDecision(env.DB,req.nextUrl.searchParams.get('findingId')));}
-    catch(error){if(error instanceof FindingDecisionError)return json({code:error.code},error.status);return json({code:'FINDING_SOURCE_UNAVAILABLE'},503);}
+    catch(error){if(error instanceof CancellationError)return json({code:error.code},error.status);if(error instanceof FindingDecisionError)return json({code:error.code},error.status);return json({code:'FINDING_SOURCE_UNAVAILABLE'},503);}
   }
 
   if (req.nextUrl.searchParams.get("view") === "graph") {
     try { return json(await readFindingGraphPage(env.DB, req.nextUrl.searchParams.get("after"), req.nextUrl.searchParams.get("revision"))); }
-    catch (error) { if (error instanceof FindingReportPageError) return json({error:error.message,complete:false},error.status); throw error; }
+    catch (error) {if(error instanceof CancellationError)return json({code:error.code},error.status); if (error instanceof FindingReportPageError) return json({error:error.message,complete:false},error.status); throw error; }
   }
 
   if (reporting) {
@@ -100,7 +101,7 @@ export async function GET(req: NextRequest) {
       const page = await readFindingReportPage(env.DB, req.nextUrl.searchParams.get("after"), req.nextUrl.searchParams.get("revision"));
       if (!req.nextUrl.searchParams.has("after")) await event(env.DB, { findingId:"EXPORT", action:"finding-report-snapshot", detail:`Paginated report started; revision ${page.revision}`, actor:access.actor.email });
       return json(page);
-    } catch (error) {
+    } catch (error) {if(error instanceof CancellationError)return json({code:error.code},error.status);
       if (error instanceof FindingReportPageError) return json({error:error.message,complete:false},error.status);
       throw error;
     }
@@ -108,7 +109,7 @@ export async function GET(req: NextRequest) {
 
   let registerQuery;
   try {if(req.nextUrl.searchParams.get("view")==="register")registerQuery=parseFindingRegisterQuery(req.nextUrl.searchParams);}
-  catch(error){if(error instanceof FindingRegisterError)return json({error:error.message},error.status);throw error;}
+  catch(error){if(error instanceof CancellationError)return json({code:error.code},error.status);if(error instanceof FindingRegisterError)return json({error:error.message},error.status);throw error;}
   const [register, eventResult, sourceSignals, registerPage] = await Promise.all([
     registerQuery?Promise.resolve(null):readFindingRegister(env.DB),
     env.DB.prepare("SELECT * FROM enterprise_finding_events ORDER BY created_at DESC LIMIT 1000").all<Record<string, unknown>>(),
@@ -162,6 +163,7 @@ export async function POST(req: NextRequest) {
   await ensureFindingsSchemaCompatibility(env.DB);
 
   try {
+ if(action==="cancel-record")return json(await cancelWorkflowRecord(env.DB,access.actor,"finding",body));
     if (action === "create") {
       const selection=await prepareWorkflowSelection(env,access.actor,body,{owner:'writer',reviewer:'reviewer'});
       body=selection.body;
@@ -237,7 +239,7 @@ export async function POST(req: NextRequest) {
     }
 
     return json({ error: "Geçersiz işlem." }, 400);
-  } catch (error) {
+  } catch (error) {if(error instanceof CancellationError)return json({code:error.code},error.status);
     if(error instanceof FindingDecisionError||error instanceof WorkflowSelectionError)return json({error:error.message,code:error.code},error.status);
     if(error instanceof LifecycleConflict)return json({error:error.message},409);
     if(error instanceof CoreReferenceUnavailable)return json({error:error.message,code:"REFERENCE_UNAVAILABLE"},422);

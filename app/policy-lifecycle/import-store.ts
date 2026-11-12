@@ -76,7 +76,7 @@ export async function importPolicyFile(env:Env,actor:Actor,source:Awaited<Return
    .bind(policyId,p.code,p.title,p.category,p.classification,p.owner,p.reviewer,p.audience,p.reviewFrequencyDays,actor.email,now,actor.email,now,p.code,...selection.guard.values,...guard.values);
  }else{
   const p=await db.prepare("SELECT * FROM policy_documents WHERE id=?").bind(policyId).first<Row>();
-  if(!p||p.status==="retired")throw new PolicyImportError("conflict",409);
+  if(!p||["retired","cancelled"].includes(String(p.status)))throw new PolicyImportError("conflict",409);
   const max=await db.prepare("SELECT COALESCE(MAX(version_number),0) AS n FROM policy_versions WHERE policy_id=?").bind(policyId).first<{n:number}>();
   number=Number(max?.n||0)+1;now=nextLifecycleStamp(p.updated_at);
   claim=lifecycleClaim(db,"policy_documents","updated_by=?,updated_at=?",[actor.email,now],p,{sql:`NOT EXISTS(SELECT 1 FROM policy_versions WHERE policy_id=? AND status IN ('draft','review','approved')) AND COALESCE((SELECT MAX(version_number) FROM policy_versions WHERE policy_id=?),0)=? AND (${guard.sql})`,values:[policyId,policyId,number-1,...guard.values]});

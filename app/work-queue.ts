@@ -43,9 +43,9 @@ export function findingWorkRows(payload: unknown) {
 }
 
 /** Acceptance pauses work; it is neither completion nor a permanent exemption. */
-export function findingWorkDisposition(data: Record<string, unknown>, now: number): 'open' | 'closed' | 'accepted' | 'acceptance-expired' | 'acceptance-review' {
+export function findingWorkDisposition(data: Record<string, unknown>, now: number): 'open' | 'closed' | 'cancelled' | 'accepted' | 'acceptance-expired' | 'acceptance-review' {
   const status = clean(data.status).toLowerCase();
-  if (status === 'closed') return 'closed';
+  if (status === 'closed' || status === 'cancelled') return status;
   if (status !== 'accepted') return 'open';
   const expiry = dueTimestamp(data.acceptUntil);
   if (!Number.isFinite(expiry)) return 'acceptance-review';

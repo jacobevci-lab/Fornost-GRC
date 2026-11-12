@@ -119,3 +119,7 @@ th,html[data-theme="dark"] th{background:var(--cc-surface-2)!important;color:var
 }
 
 @media(prefers-reduced-motion:no-preference){.command-stat,.command-panel,.command-launchpad button,.command-actions button,.nav-section button{transition:transform .18s ease,border-color .18s ease,background-color .18s ease,box-shadow .18s ease}}
+
+/* Explicit outcome semantics override legacy blanket success notices. */
+.notice[data-tone="info"]{background:var(--cc-surface)!important;border-color:var(--cc-line)!important;color:var(--cc-ink)!important}
+.notice[data-tone="error"]{background:color-mix(in srgb,#e25c50 10%,var(--cc-surface))!important;border-color:color-mix(in srgb,#e25c50 65%,var(--cc-line))!important;color:var(--cc-ink)!important;border-inline-start:4px solid #e25c50}
