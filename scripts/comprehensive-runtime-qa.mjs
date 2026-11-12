@@ -314,15 +314,15 @@ await check('Read routes, invalid writes, exports and Viewer write boundaries',a
 await check('Connected GRC opens exact core records and clears contextual filters',async()=>{
  for(const moduleName of ['Risk Assessment','BIA','Varlık Envanteri','Uyum','Kontroller','Kanıtlar','Denetim Yönetimi']){
   const seed=seedRows.find(x=>x.module===moduleName),code=seed.record_code;
-  await reset();await open('Connected GRC Map');await page.locator('.cg-filters select').selectOption(moduleName);await page.locator('.cg-filters input').fill(code);
-  const entry=page.locator('.cg-records>button').filter({hasText:code});await expect(entry).toHaveCount(1);await entry.click();
-  await page.locator('.cg-detail').getByRole('button',{name:'Open record ↗',exact:true}).click();
-  await expect(page.locator('.core-record-focus')).toContainText(code);
+  await reset();await open('Connected GRC Map');await page.locator('.cgw-filters select').selectOption(moduleName);await page.locator('.cgw-filters input').fill(code);
+  const entry=page.locator('.cgw-records>button').filter({hasText:code});await expect(entry).toHaveCount(1);await entry.click();
+  await page.locator('.cgw-inspector').getByRole('button',{name:'Open source record',exact:true}).click();
+  await expect(page.locator('.core-record-focus:not(.record-link-entry)')).toContainText(code);
   if(moduleName==='Denetim Yönetimi'){const name=JSON.parse(seed.data_json).auditName,total=seedRows.filter(x=>x.module===moduleName&&JSON.parse(x.data_json).auditName===name).length;const requirementsTab=page.getByRole('tab',{name:/^Requirements and tests/});await expect(requirementsTab).toHaveAttribute('aria-selected','true');await expect(requirementsTab.locator('span')).toHaveText(String(total));const linked=(await request(admin,'/api/audits')).audits.some(a=>a.name===name);if(!linked){await expect(page.locator('.fw-orphan-notice')).toContainText('Active audit link missing');await expect(page.getByRole('tab',{name:'Requests and review',exact:true})).toHaveCount(0);await expect(page.getByRole('tab',{name:'Plan and scope',exact:true})).toHaveCount(0);await expect(page.getByRole('button',{name:'Open unassigned requirements',exact:true})).toBeVisible();}}
   await expect(page.locator('.table-card .table-wrap tbody tr')).toHaveCount(1);
   await page.locator('.table-card .table-wrap tbody tr').getByRole('button',{name:'Edit',exact:true}).click();
   await expect(page.locator('.modal[role=dialog]')).toBeVisible();await page.locator('.modal[role=dialog]').getByRole('button',{name:'Cancel',exact:true}).click();
-  await page.locator('.core-record-focus').getByRole('button',{name:'Show all records',exact:true}).click();await expect(page.locator('.core-record-focus')).toHaveCount(0);
+  await page.locator('.core-record-focus:not(.record-link-entry)').getByRole('button',{name:'Show all records',exact:true}).click();await expect(page.locator('.core-record-focus:not(.record-link-entry)')).toHaveCount(0);
  }
 });
 await check('My Work: exact ownership, Today, pagination after 80, mobile due dates and CAPA navigation',async()=>{
@@ -338,7 +338,7 @@ await check('My Work: exact ownership, Today, pagination after 80, mobile due da
   await expect(page.locator('.mw2-pagination')).toContainText('81–82 / 82');await expect(page.locator('.mw2-item')).toHaveCount(2);
   await expect(page.locator('.mw2-list')).not.toContainText(`${prefix} 082`);
   await page.setViewportSize({width:390,height:844});await expect(page.locator('.mw2-item time').first()).toBeVisible();await page.screenshot({path:`${out}/my-work-mobile-due.png`});await page.setViewportSize({width:1536,height:960});
-  await page.locator('.mw2-item').filter({hasText:`${prefix} 081`}).click();await expect(page.locator('.core-record-focus')).toBeVisible();await expect(page.locator('.table-card .table-wrap tbody tr')).toHaveCount(1);await expect(page.locator('.table-card .table-wrap')).toContainText(`${prefix} 081`);
+  await page.locator('.mw2-item').filter({hasText:`${prefix} 081`}).click();await expect(page.locator('.core-record-focus:not(.record-link-entry)')).toBeVisible();await expect(page.locator('.table-card .table-wrap tbody tr')).toHaveCount(1);await expect(page.locator('.table-card .table-wrap')).toContainText(`${prefix} 081`);
   await open('My Work');await expect(page.locator('.my-work-v2').getByRole('button',{name:'Refresh',exact:true})).toBeEnabled();await page.getByRole('textbox',{name:'Search work',exact:true}).fill('QA access review incomplete');await page.locator('.mw2-filters').getByRole('button',{name:/^All/}).click();
   await expect(page.locator('.mw2-item')).toHaveCount(1);await page.locator('.mw2-item').click();await expect(page.locator('.finding-page')).toBeVisible();await expect(page.locator('.finding-table tbody tr')).toHaveCount(1);
  } finally {

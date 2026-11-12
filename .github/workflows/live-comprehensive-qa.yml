@@ -13,7 +13,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        mode: [views, crud]
+        mode: [crud, supplement]
     env:
       FORNOST_EXPECTED_REVISION: 12546543a45cc9f3c8b7bcca3b6351595de3e16b
       FORNOST_PROD_URL: https://app.fornostsecurity.com
