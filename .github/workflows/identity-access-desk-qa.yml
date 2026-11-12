@@ -54,8 +54,8 @@ jobs:
           curl --fail --silent -H 'Content-Type: application/json' -H 'Origin: http://127.0.0.1:4173' --data-binary @/tmp/fornost-qa-bootstrap.json http://127.0.0.1:4173/api/auth > /tmp/identity-bootstrap-response.json
           node scripts/local-account-lifecycle-qa.mjs
           node scripts/user-session-revocation-qa.mjs
-          node scripts/module-access-runtime-qa.mjs
           node scripts/identity-access-desk-qa.mjs
+          node scripts/module-access-runtime-qa.mjs
       - uses: actions/upload-artifact@v4
         if: always()
         with:

@@ -6,3 +6,14 @@
 #identity-access-desk button.primary{background:#0b6b68!important;border-color:#0b6b68!important;color:#fff!important;opacity:1!important;filter:none}
 #identity-access-desk button.primary:hover{background:#084d4b!important;border-color:#084d4b!important;color:#fff!important}
 #identity-access-desk button.primary:disabled,#identity-access-desk button.primary:disabled:hover{background:#586568!important;border-color:#586568!important;color:#fff!important;opacity:1!important}
+/* The selected workspace uses a readable scale instead of the legacy 10px reset. */
+#identity-access-desk :where(div,p,span,b,strong,label,button,a,td,dt,dd,li,input,select,summary){font-size:14px!important;line-height:1.5!important}
+#identity-access-desk h3{font-size:20px!important;line-height:1.3!important}
+#identity-access-desk h4{font-size:16px!important;line-height:1.4!important}
+#identity-access-desk :is(small,time,.iad-badge,.iad-footnote,.iad-updated){font-size:12px!important;line-height:1.5!important}
+#identity-access-desk th{font-size:11px!important}
+#identity-access-desk :is(td,label,.iad-permissions dd){font-size:13px!important}
+#identity-access-desk .iad-avatar.large{font-size:18px!important}
+#identity-access-desk :is(input,select){background:var(--ws-surface)!important;color:var(--ws-ink)!important}
+#identity-access-desk .iad-danger{color:var(--ws-danger)!important}
+#identity-access-desk .sr-only{position:absolute!important;width:1px!important;height:1px!important;padding:0!important;margin:-1px!important;overflow:hidden!important;clip-path:inset(50%);white-space:nowrap!important;border:0!important}
