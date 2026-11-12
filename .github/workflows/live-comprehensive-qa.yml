@@ -71,6 +71,7 @@ jobs:
       - name: Lifecycle tests with isolated database
         run: |
           set -euo pipefail
+          node -e 'require("fs").writeFileSync(".dev.vars", "FORNOST_SETTINGS_ENCRYPTION_KEY=" + require("crypto").randomBytes(32).toString("hex") + "\n", {mode:0o600})'
           npm run dev -- --host 127.0.0.1 --port 4173 --strictPort > /tmp/live-qa-isolated-runtime.log 2>&1 &
           server_pid=$!
           trap 'kill "$server_pid" 2>/dev/null || true' EXIT
@@ -79,6 +80,7 @@ jobs:
             sleep 1
           done
           curl --fail --silent -H 'Content-Type: application/json' -H 'Origin: http://127.0.0.1:4173' --data-binary @/tmp/fornost-qa-bootstrap.json http://127.0.0.1:4173/api/auth > /tmp/live-qa-bootstrap-response.json
+          node scripts/seed-local-qa.mjs
           node scripts/comprehensive-runtime-qa.mjs
       - uses: actions/upload-artifact@v4
         if: always()
