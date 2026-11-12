@@ -25,7 +25,7 @@ async function auditFixture(){
 test('audit removal archives an exact unlinked snapshot and its requirements atomically',async()=>{
  const f=await auditFixture();try{assert.equal(await f.remove(),1);assert.equal(f.sqlite.prepare('SELECT count(*) n FROM simple_audits').get()!.n,0);assert.equal(f.sqlite.prepare('SELECT count(*) n FROM simple_grc_records').get()!.n,0);assert.equal(f.sqlite.prepare('SELECT count(*) n FROM simple_grc_record_codes').get()!.n,0);const a=JSON.parse(String(f.sqlite.prepare("SELECT value FROM simple_grc_metadata WHERE key='audit_archive_AUDIT-1'").get()!.value));assert.deepEqual(a.audit,{...f.row});assert.equal(a.requirementCount,1);}finally{f.sqlite.close()}
 });
-test('audit CAPA references protect parent IDs and child IDs/codes, including a concurrent historical reference',async()=>{
+test('audit external references protect parent IDs and child IDs/codes, including a concurrent historical reference',async()=>{
  for(const ref of ['AUDIT-1','requirement-1','AUD-001','other; AUD-001']){
   const f=await auditFixture();try{
    f.sqlite.exec('CREATE TABLE regulatory_change_impacts(target_ref TEXT,target_type TEXT)');
@@ -34,6 +34,18 @@ test('audit CAPA references protect parent IDs and child IDs/codes, including a 
   }finally{f.sqlite.close()}
  }
  const f=await auditFixture();try{f.sqlite.exec('CREATE TABLE audit_requests(id TEXT,audit_id TEXT);INSERT INTO audit_requests VALUES(\'req\',\'AUDIT-1\')');await assert.rejects(f.remove(),AuditLinked);}finally{f.sqlite.close()}
+});
+test('active and historical CAPA source references prevent deletion of the actual audit source',async()=>{
+ for(const status of ['in-progress','cancelled'])for(const sourceRef of ['AUDIT-1','requirement-1','AUD-001']){
+  const f=await auditFixture();try{
+   const cols=f.sqlite.prepare('PRAGMA table_info(enterprise_findings)').all() as {name:string;notnull:number;dflt_value:unknown;type:string}[];
+   const row:Record<string,string|number|null>={};
+   for(const c of cols)if(c.notnull&&c.dflt_value===null)row[c.name]=/INT|REAL/.test(c.type)?1:'Synthetic QA';
+   Object.assign(row,{id:'finding',code:'FND-QA',status,source_type:'audit',source_ref:sourceRef});
+   f.sqlite.prepare(`INSERT INTO enterprise_findings(${Object.keys(row).join(',')}) VALUES(${Object.keys(row).map(()=>'?').join(',')})`).run(...Object.values(row));
+   await assert.rejects(f.remove(),AuditLinked);assert.ok(f.sqlite.prepare('SELECT id FROM simple_audits').get());
+  }finally{f.sqlite.close()}
+ }
 });
 test('audit races and write failure preserve requirements, codes and archive consistency',async()=>{
  for(const race of ['parent','requirement','new-table','failure']){

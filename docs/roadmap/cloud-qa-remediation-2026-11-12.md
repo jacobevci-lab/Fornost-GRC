@@ -28,3 +28,7 @@ Existing drafts remain drafts until explicitly submitted; existing approved/acti
 - Managed preview startup was rejected by automatic approval review because its Cloudflare upload destination lacked authorization evidence in that step. No browser result is claimed from that preview.
 - The repository CI browser job uses local-only Worker/D1/R2 emulation and synthetic accounts. It does not deploy a preview or use production credentials. Its result is tracked separately.
 - Existing production records, including the previously orphaned audit/CAPA source, were not rewritten. The deletion guard prevents recurrence; it does not retroactively recreate deleted records.
+
+### Worker-specific DOCX cause
+
+The isolated browser run reproduced a server-side rejection before text extraction. A local, disposable Worker unit reproduced `RangeError: Memory limit exceeded` from native `inflateRawSync` on the original python-docx styles part; Node accepted the same input. Workerd can account for buffer growth against `maxOutputLength` (related upstream issue: https://github.com/cloudflare/workerd/issues/6286). Bounded headroom of twice the already-limited declared part size fixes this runtime mismatch. Exact decompressed byte length, CRC, total/part/ratio limits, encryption and macro rejection remain unchanged. A real Worker regression accepts the original file and rejects understated size, altered CRC and truncated content.
