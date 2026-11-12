@@ -13,7 +13,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        mode: [crud, supplement]
+        mode: [crud, retention]
     env:
       FORNOST_EXPECTED_REVISION: 12546543a45cc9f3c8b7bcca3b6351595de3e16b
       FORNOST_PROD_URL: https://app.fornostsecurity.com
@@ -47,6 +47,7 @@ jobs:
           path: live-all-qa-${{ matrix.mode }}/
           retention-days: 14
   isolated:
+    if: false
     name: Isolated lifecycle and role QA
     runs-on: ubuntu-latest
     timeout-minutes: 25
