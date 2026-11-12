@@ -1,0 +1,9 @@
+# Evidence QA fixes — 12 November 2026
+
+The production QA on revision `12546543` found that deleted evidence files remained downloadable, new uploads accepted nonexistent canonical control references, and uploaded records lacked short EVD codes. This delivery closes those three findings in the existing Evidence Library. Historical metadata and pinned decision records must remain intact; deleting an unreferenced library record will revoke normal download/inline access to all its file versions without destructive object purging.
+
+Acceptance: only the exact live evidence owner can authorize its current or historical file key; missing/deleted/wrong-module/unregistered keys return 404 before storage reads. Existing active historical versions and legacy current files remain readable. Both initial and subsequent uploads reject newly introduced missing or wrong-module canonical references with 422 and no partial row/version/code; free-text framework references remain compatible. Reference validation and source-state guards run inside the metadata transaction. New uploads receive persistent short codes using the shared allocator. Retained history stays visible with download disabled. Browser QA must reproduce both original triggers, exercise successful upload/version/download/delete, verify short-code persistence and clean up owned records. Relevant unit, build, schema and release checks must pass on the candidate revision.
+
+No unrelated UI redesign, provider configuration, physical evidence purge or bulk legacy code rewrite. No schema migration is planned. Release through the existing reviewed PR/CI path, then verify the deployed revision and focused production browser test. A rollback reopens the prior download/reference defects and therefore needs an explicit incident decision.
+
+Status: implementation and validation in progress.

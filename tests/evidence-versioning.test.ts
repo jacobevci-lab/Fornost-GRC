@@ -124,6 +124,6 @@ test("version row, control mappings and caller anchor statements share one D1 ba
   assert.match(source, /const versionStatement = db\.prepare/);
   assert.match(source, /const controlStatements = refs\.map/);
   assert.match(source, /const additionalStatements = options\.additionalStatements\?\.\(commit\) \|\| \[\]/);
-  assert.match(source, /await db\.batch\(\[versionStatement, \.\.\.controlStatements, \.\.\.additionalStatements\]\)/);
+  assert.match(source, /await db\.batch\(\[\.\.\.\(claimStatement \? \[claimStatement\] : \[\]\), versionStatement, \.\.\.controlStatements, \.\.\.additionalStatements\]\)/);
   assert.doesNotMatch(source, /VALUES\(\?,\?,\?,\?,\?,\?,\?,\?,\?,\?,\?,\?,\?,\?,\?,\?,\?,\?,\?\)`\)\.bind\([\s\S]*?\)\.run\(\)/);
 });

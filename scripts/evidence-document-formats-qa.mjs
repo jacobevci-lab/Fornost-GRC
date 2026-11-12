@@ -76,8 +76,7 @@ try {
   assert.equal(afterRemoval.evidenceItems.some(item => item.id === removedId), false);
   assert.ok(afterRemoval.recentVersions.filter(v => v.evidenceId === removedId).every(v => v.recordAvailable === false));
   const retainedDownload = await context.request.get(base + `/api/evidence?key=${encodeURIComponent(removedVersions[0].fileKey)}`);
-  assert.equal(retainedDownload.status(), 200);
-  assert.equal(createHash('sha256').update(await retainedDownload.body()).digest('hex'), removedVersions[0].contentSha256);
+  assert.equal(retainedDownload.status(), 404);
   page = await context.newPage(); page.on('pageerror', e => errors.push(e.message));
   await page.goto(base); await expect(page.locator('.shell')).toBeVisible();
   await page.locator('.language-switch:visible').getByRole('button', { name: 'EN', exact: true }).click();
@@ -92,7 +91,7 @@ try {
   await dialog.locator('.form-actions .primary').click(); const saved = await savedResponse; assert.equal(saved.status(), 201, await saved.text());
   const uiId = (await saved.json()).id; ids.push(uiId); await expect(dialog).toBeHidden();
   const savedRow = await record(uiId);
-  await page.getByPlaceholder('Search records').fill(`QA UI CSV ${tag}`);
+  await page.getByPlaceholder('Search records...',{exact:true}).fill(`QA UI CSV ${tag}`);
   const row = page.locator('tr').filter({ has: page.getByRole('button', { name: savedRow.record_code, exact: true }) });
   await row.getByRole('button', { name: savedRow.record_code, exact: true }).click();
   const preview = page.getByRole('dialog', { name: 'Evidence preview', exact: true });
@@ -105,7 +104,7 @@ try {
   await expect(historyPanel.locator('.eh-retained')).toContainText('removed records');
   const retainedRow = historyPanel.locator('.eh-list article').filter({ has: page.locator('.eh-version span', { hasText: removedId }) }).first();
   await expect(retainedRow.getByRole('button', { name: 'Record removed', exact: true })).toBeDisabled();
-  await expect(retainedRow.getByRole('link', { name: 'Download', exact: true })).toBeVisible();
+  await expect(retainedRow.getByRole('link', { name: 'Download', exact: true })).toHaveCount(0);
   const form = page.locator('.eh-version-form'); await form.locator('select').selectOption(uiId);
   await form.locator('input[type=file]').setInputFiles({ name: 'ui-version.xlsx', mimeType: types.xlsx, buffer: await office('xlsx') });
   await form.locator('[name=changeNote]').fill('Updated spreadsheet evidence for review');
@@ -145,7 +144,7 @@ try {
     }
   }
   assert.deepEqual(errors, []);
-  console.log('EVIDENCE_DOCUMENT_FORMATS_QA_PASS: seven formats on both upload routes, canonical MIME/hash, byte-preserving downloads, rejected-file atomicity, approval reset, UI upload/preview/version, duplicate guard, retained history counters/download, stale-selection guard, partial-scan notices and responsive themes');
+  console.log('EVIDENCE_DOCUMENT_FORMATS_QA_PASS: seven formats on both upload routes, canonical MIME/hash, byte-preserving downloads, rejected-file atomicity, approval reset, UI upload/preview/version, duplicate guard, retained history counters/revoked download, stale-selection guard, partial-scan notices and responsive themes');
 } catch (error) {
   await mkdir('evidence-formats-qa-artifacts', { recursive: true });
   if (page) await page.screenshot({ path: 'evidence-formats-qa-artifacts/failure.png', fullPage: true });

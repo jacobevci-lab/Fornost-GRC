@@ -89,6 +89,8 @@ export type EvidenceVersionCommit = {
 };
 type EvidenceVersionStatement = ReturnType<D1Database["prepare"]>;
 export type EvidenceVersionBatchOptions = {
+  /** Claim the live record/reference state before any dependent version writes. */
+  claim?: { statement: (commit: EvidenceVersionCommit) => EvidenceVersionStatement; conflict: () => Promise<Error> };
   additionalStatements?: (commit: EvidenceVersionCommit) => EvidenceVersionStatement[];
 };
 export type EvidenceChainAnchor = {
@@ -153,11 +155,13 @@ export async function appendEvidenceVersion(
       previousVersionId: previous?.id || "",
       previousChainSha256: previous?.chain_sha256 || "",
     };
+    let claimRejected = false;
     try {
+      const claimStatement = options.claim?.statement(commit);
       const versionStatement = db.prepare(`INSERT INTO evidence_versions(
         id,evidence_id,version_no,file_key,file_name,file_type,file_size,content_sha256,chain_sha256,
         previous_version_id,previous_chain_sha256,evidence_title,owner,period,frameworks,control_refs,change_note,created_by,created_at
-      ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).bind(
+      ) SELECT ?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?${claimStatement ? " WHERE changes()=1" : ""}`).bind(
         id, input.evidenceId, versionNo, input.fileKey, input.fileName, input.fileType, input.fileSize,
         input.contentSha256, chainSha256, previous?.id || null, previous?.chain_sha256 || null,
         input.evidenceTitle, input.owner, input.period, input.frameworks, chainInput.controlRefs,
@@ -165,13 +169,17 @@ export async function appendEvidenceVersion(
       );
       const refs = splitEvidenceControlRefs(chainInput.controlRefs);
       const controlStatements = refs.map((controlRef) => db.prepare(
-        "INSERT OR IGNORE INTO evidence_version_controls(version_id,evidence_id,control_ref,normalized_ref,version_no,created_at) VALUES(?,?,?,?,?,?)",
-      ).bind(id, input.evidenceId, controlRef, normalizeEvidenceControlRef(controlRef), versionNo, input.createdAt));
+        "INSERT OR IGNORE INTO evidence_version_controls(version_id,evidence_id,control_ref,normalized_ref,version_no,created_at) SELECT ?,?,?,?,?,? WHERE EXISTS(SELECT 1 FROM evidence_versions WHERE id=?)",
+      ).bind(id, input.evidenceId, controlRef, normalizeEvidenceControlRef(controlRef), versionNo, input.createdAt, id));
       const additionalStatements = options.additionalStatements?.(commit) || [];
-      await db.batch([versionStatement, ...controlStatements, ...additionalStatements]);
+      const receipts = await db.batch([...(claimStatement ? [claimStatement] : []), versionStatement, ...controlStatements, ...additionalStatements]);
+      if (options.claim && Number(receipts[0]?.meta?.changes || 0) < 1) {
+        claimRejected = true;
+        throw await options.claim.conflict();
+      }
       return commit;
     } catch (error) {
-      if (attempt === 2) throw error;
+      if (claimRejected || attempt === 2) throw error;
     }
   }
   throw new Error("Kanıt versiyonu oluşturulamadı.");
