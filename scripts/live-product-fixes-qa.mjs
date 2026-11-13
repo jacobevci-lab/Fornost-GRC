@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { qaPassword } from './qa-credentials.mjs';
 import { revealAiWorkspace } from './qa-ai-workspaces.mjs';
-import { createQaContext, openQaModule, waitForQaIdle } from './qa-browser-harness.mjs';
+import { createQaContext, waitForQaIdle } from './qa-browser-harness.mjs';
 
 // Deliberately fixed to the isolated CI database; no production credentials or writes.
 const base='http://127.0.0.1:4173', out='live-product-fixes-qa-artifacts';
@@ -12,7 +12,17 @@ const context=await createQaContext(browser,base,{}, {viewport:{width:1363,heigh
 const checks=[],errors=[];page.setDefaultTimeout(15000);page.on('pageerror',error=>errors.push(error.message));
 async function api(path,method='GET',data){const r=await context.request.fetch(base+path,{method,data,headers:{origin:base}});assert.equal(r.status(),200,await r.text());return r.json();}
 async function open(name){
-  await openQaModule(page,name);
+  const nav=page.locator('#fornost-navigation');
+  const button=nav.getByRole('button',{name,exact:true,includeHidden:true});
+  if(!await button.isVisible())for(const group of await nav.locator('.nav-group').all()){
+    if(await group.getByRole('button',{name,exact:true,includeHidden:true}).count()){
+      await group.locator('.nav-group-trigger').click();break;
+    }
+  }
+  await button.click();
+  // Assert the destination and its feature state below; unrelated background
+  // assurance reads must not delay an already rendered workspace.
+  await expect(page.locator('main>header h1')).toHaveText(name);
 }
 async function screenshot(name){await page.screenshot({path:`${out}/${name}.png`,fullPage:true,animations:'disabled'});}
 async function navigationState(){return page.locator('.shell>aside').evaluate(aside=>{
