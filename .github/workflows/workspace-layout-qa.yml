@@ -79,6 +79,8 @@ jobs:
         with:
           name: integration-read-recovery-preview
           path: integration-read-recovery-qa-artifacts/
+      - name: Assurance execution consistency and conflict recovery QA
+        run: node scripts/assurance-execution-qa.mjs
       - name: Regulatory worklist, source lifecycle and policy linking QA
         timeout-minutes: 8
         run: node scripts/regulatory-workspace-qa.mjs
@@ -514,8 +516,6 @@ jobs:
         run: node scripts/visual-workspace-qa.mjs
       - name: Findings workspace recovery and pagination
         run: node scripts/findings-workspace-qa.mjs
-      - name: Assurance execution consistency and conflict recovery QA
-        run: node scripts/assurance-execution-qa.mjs
       - name: Concurrent cold and warm schema initialization QA
         run: node scripts/schema-initialization-qa.mjs
       - name: Exact assurance work focus, permissions and stale response QA

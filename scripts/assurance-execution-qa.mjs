@@ -61,6 +61,9 @@ try{
   mode='batch';posts=[];
   await page.locator('.language-switch:visible').getByRole('button',{name:'EN',exact:true}).click();
   await page.locator('nav button[aria-label="Workflow Integrations"]').evaluate(el=>el.click());
+  const desk=page.getByRole('region',{name:'Integration Center',exact:true});
+  await desk.getByRole('button',{name:'Continuous assurance',exact:true}).click();
+  await desk.locator('.icd-assurance>summary').click();
   const overview=page.locator('.integrations-overview');await expect(overview).toBeVisible();
   await overview.getByRole('button',{name:/^Run due/}).click();
   await expect(overview.locator('.iov-bulk-feedback')).toContainText('1 results saved');await expect(overview.locator('.iov-bulk-feedback')).toContainText('1 runs without confirmed records');
