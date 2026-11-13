@@ -1,3 +1,4 @@
+import {cleanupQaFixture} from './qa-fixture-cleanup.mjs';
 import { chromium, expect } from '@playwright/test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
@@ -49,4 +50,4 @@ try{
  }
  await page.locator('.language-switch:visible').getByRole('button',{name:'TR',exact:true}).click();await expect(pager.getByRole('status')).toHaveText('1–100 / 121 madde');
  assert.deepEqual(errors,[]);console.log('AUDIT_REQUIREMENT_PAGE_PASS: 121 real requirements, last page, off-page search, filter reset, 61-row cross-page CSV export, empty recovery, size selection and bilingual responsive pager.');
-}finally{await page.close();for(const id of ids)await api(`/api/audits?id=${id}`,'DELETE');await browser.close();}
+}finally{await page.close();for(const id of ids)await cleanupQaFixture(context,base,'audit',id);await browser.close();}

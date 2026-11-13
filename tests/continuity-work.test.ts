@@ -13,16 +13,16 @@ const payload = () => ({ plans: [{ ...plan }], exercises: [{ ...exercise }], gap
 const project = (value: unknown) => projectEnterpriseWork('continuity', value);
 
 test('continuity assignments follow canonical lifecycle without invented approval deadlines', () => {
-  for (const status of ['draft', 'approved', 'active', 'retired']) {
-    const result = project({ ...payload(), plans: [{ ...plan, status, completedAt: status === 'retired' ? '2026-10-27T12:00:00Z' : null }] });
+  for (const status of ['draft', 'submitted', 'approved', 'active', 'retired','cancelled']) {
+    const result = project({ ...payload(), plans: [{ ...plan, status, completedAt: ['retired','cancelled'].includes(status) ? '2026-10-27T12:00:00Z' : null }] });
     assert.equal(result.complete, true);
     const row = result.rows.find(row => row.workKind === 'continuity-plan')!;
     assert.equal(row.nativeRef, plan.id); assert.equal(row.module, 'İş Sürekliliği');
     assert.equal(row.data.owner, plan.owner); assert.equal(row.data.actionOwner, plan.crisisLead);
-    assert.equal(row.data.reviewer, ['draft', 'active'].includes(status) ? plan.reviewer : '');
-    assert.equal(row.data.workWaitingForReview, status === 'draft');
+    assert.equal(row.data.reviewer, ['submitted', 'active'].includes(status) ? plan.reviewer : '');
+    assert.equal(row.data.workWaitingForReview, status === 'submitted');
     assert.equal(row.data.dueDate, status === 'active' ? plan.reviewDate : '');
-    assert.equal(row.data.workClosed, status === 'retired');
+    assert.equal(row.data.workClosed, ['retired','cancelled'].includes(status));
   }
   for (const status of ['planned', 'completed', 'cancelled']) {
     const result = project({ ...payload(), exercises: [{ ...exercise, status }], gaps: [] });

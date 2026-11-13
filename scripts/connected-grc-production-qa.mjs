@@ -12,6 +12,7 @@ const smokePassword = process.env.FORNOST_SMOKE_PASSWORD || "";
 const outDir = path.resolve("qa-artifacts");
 
 const sourceDefinitions = [
+  { key: "audits", path: "/api/audits", module: "Denetim Yönetimi" },
   { key: "aiModels", path: "/api/ai/models", module: "AI Yönetişimi" },
   { key: "aiAlerts", path: "/api/ai/assurance-alerts", module: "AI Yönetişimi" },
   { key: "aiFindings", path: "/api/ai/findings", module: "AI Yönetişimi" },
@@ -58,6 +59,7 @@ function arrayLength(payload, key) {
 function projectableRecordCount(sourceKey, payload) {
   if (!payload || typeof payload !== "object" || Array.isArray(payload)) return 0;
   switch (sourceKey) {
+    case "audits": return arrayLength(payload, "audits");
     case "aiModels": return arrayLength(payload, "models");
     case "aiAlerts": return arrayLength(payload, "alerts");
     case "aiFindings": return arrayLength(payload, "findings");

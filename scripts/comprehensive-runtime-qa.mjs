@@ -152,6 +152,8 @@ await check('Continuity UI form, layout, modal, maker-checker, exercise breach a
  await dialog.locator('[name=biaRef]').fill('BIA-001');
  await page.screenshot({path:`${out}/continuity-form.png`});
  const response=page.waitForResponse(r=>r.url().endsWith('/api/continuity')&&r.request().method()==='POST').catch(()=>null);await dialog.getByRole('button',{name:'Create draft plan'}).click();const r=await response;assert.equal(r.status(),201,await r.text());const {id}=await r.json();await dialog.waitFor({state:'hidden'});
+ await request(checker,'/api/continuity','POST',{action:'approve-plan',planId:id,...evidence,confirmation:'PLANI ONAYLA'},409);
+ const draftPlan=(await request(admin,'/api/continuity')).plans.find(p=>p.id===id);await request(admin,'/api/continuity','POST',{action:'submit-plan',planId:id,expectedUpdatedAt:draftPlan.updatedAt,note:'Submit the prepared recovery plan for independent review.',confirmation:'PLANI İNCELEMEYE GÖNDER'});
  await request(admin,'/api/continuity','POST',{action:'approve-plan',planId:id,...evidence,confirmation:'PLANI ONAYLA'},403);
  await request(checker,'/api/continuity','POST',{action:'approve-plan',planId:id,...evidence,confirmation:'PLANI ONAYLA'});await request(admin,'/api/continuity','POST',{action:'activate-plan',planId:id,...evidence,confirmation:'PLANI ETKİNLEŞTİR'});
  await request(admin,'/api/continuity','POST',{action:'schedule-exercise',planId:id,type:'tabletop',scheduledDate:today,scenario:'Simulate regional outage and recover the critical payment process.',facilitator:owner},201);
@@ -314,9 +316,9 @@ await check('Read routes, invalid writes, exports and Viewer write boundaries',a
 await check('Connected GRC opens exact core records and clears contextual filters',async()=>{
  for(const moduleName of ['Risk Assessment','BIA','Varlık Envanteri','Uyum','Kontroller','Kanıtlar','Denetim Yönetimi']){
   const seed=seedRows.find(x=>x.module===moduleName),code=seed.record_code;
-  await reset();await open('Connected GRC Map');await page.locator('.cg-filters select').selectOption(moduleName);await page.locator('.cg-filters input').fill(code);
-  const entry=page.locator('.cg-records>button').filter({hasText:code});await expect(entry).toHaveCount(1);await entry.click();
-  await page.locator('.cg-detail').getByRole('button',{name:'Open record ↗',exact:true}).click();
+  await reset();await open('Connected GRC Map');await page.locator('#connected-grc-workbench').getByRole('combobox',{name:'Module',exact:true}).selectOption(moduleName);await page.locator('#connected-grc-workbench').getByRole('textbox',{name:'Find record',exact:true}).fill(code);
+  const entry=page.locator('#connected-grc-workbench .cgw-records>button').filter({hasText:code});await expect(entry).toHaveCount(1);await entry.click();
+  await page.locator('#connected-grc-workbench').getByRole('button',{name:'Open source record',exact:true}).click();
   await expect(page.locator('.core-record-focus')).toContainText(code);
   if(moduleName==='Denetim Yönetimi'){const name=JSON.parse(seed.data_json).auditName,total=seedRows.filter(x=>x.module===moduleName&&JSON.parse(x.data_json).auditName===name).length;const requirementsTab=page.getByRole('tab',{name:/^Requirements and tests/});await expect(requirementsTab).toHaveAttribute('aria-selected','true');await expect(requirementsTab.locator('span')).toHaveText(String(total));const linked=(await request(admin,'/api/audits')).audits.some(a=>a.name===name);if(!linked){await expect(page.locator('.fw-orphan-notice')).toContainText('Active audit link missing');await expect(page.getByRole('tab',{name:'Requests and review',exact:true})).toHaveCount(0);await expect(page.getByRole('tab',{name:'Plan and scope',exact:true})).toHaveCount(0);await expect(page.getByRole('button',{name:'Open unassigned requirements',exact:true})).toBeVisible();}}
   await expect(page.locator('.table-card .table-wrap tbody tr')).toHaveCount(1);

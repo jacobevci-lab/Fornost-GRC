@@ -1,3 +1,4 @@
+import {cleanupQaFixture} from './qa-fixture-cleanup.mjs';
 import { qaPassword } from './qa-credentials.mjs';
 import { chromium, expect } from '@playwright/test';
 import assert from 'node:assert/strict';
@@ -84,4 +85,4 @@ try{
   await page.getByRole('tab',{name:'Reports',exact:true}).click();await expect(panel.locator('.asr-preview,.asr-saved')).toHaveCount(0);
   assert.deepEqual(errors,[]);console.log('AUDIT_STATUS_REPORT_QA_PASS: exact linked scope, paginated preview, saved-plan conflict, retained narrative, duplicate guard, immutable source snapshots, SHA-256 exports, Admin boundary, HTML/PDF/CSV, stale navigation and TR/EN responsive themes');
 }catch(error){console.error('AUDIT_STATUS_REPORT_QA_FAILED',error.message);await page.screenshot({path:`${directory}/failure.png`,fullPage:true}).catch(()=>{});throw error;}
-finally{for(const id of audits)await api(admin,`/api/audits?id=${id}`,'DELETE');for(const id of accounts)await api(admin,'/api/users','PATCH',{id,role:'Editor',status:'Disabled'});await browser.close();}
+finally{for(const id of audits)await cleanupQaFixture(admin,base,'audit',id);for(const id of accounts)await api(admin,'/api/users','PATCH',{id,role:'Editor',status:'Disabled'});await browser.close();}

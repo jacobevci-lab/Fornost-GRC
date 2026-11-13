@@ -178,7 +178,7 @@ function matchesIdentity(row: Row, user: User) {
 }
 function isClosed(row: Row) {
   if (row.workSource) return row.data.workClosed === true;
-  if (row.module === "Bulgular ve CAPA") return normalized(row.data.status) === "closed";
+  if (row.module === "Bulgular ve CAPA") return ["closed","cancelled"].includes(normalized(row.data.status));
   return CLOSED.has(normalized(row.data.status || row.data.reviewStatus));
 }
 function isWaitingForOthers(row: Row, user: User) {
@@ -221,7 +221,8 @@ function reasonFor(row: Row, dueTime: number, now: number, lang: Lang) {
     };
     return reasons[rowStatus(row)]?.[tr ? 0 : 1] || incidentLabel(rowStatus(row), lang);
   }
-  if (row.workKind === "continuity-plan" && row.data.status === "draft") return tr ? "Bağımsız plan onayı bekleniyor" : "Awaiting independent plan approval";
+  if (row.workKind === "continuity-plan" && row.data.status === "draft") return tr ? "Planı hazırlayıp incelemeye gönderin" : "Prepare and submit the plan for review";
+  if (row.workKind === "continuity-plan" && row.data.status === "submitted") return tr ? "Bağımsız plan onayı bekleniyor" : "Awaiting independent plan approval";
   if (row.workKind === "continuity-plan" && row.data.status === "approved") return tr ? "Plan etkinleştirilmeli" : "Plan needs activation";
   if(row.workKind === "audit-milestone" && row.data.status === "submitted")return tr ? "Bağımsız görev incelemesi bekleniyor" : "Awaiting independent milestone review";
   if(row.workKind === "audit-milestone" && row.data.status === "changes_requested")return tr ? "İncelemeci düzeltme istedi" : "Reviewer requested changes";

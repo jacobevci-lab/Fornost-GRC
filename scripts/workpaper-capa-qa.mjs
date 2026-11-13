@@ -1,3 +1,4 @@
+import {cleanupQaFixture,fixtureCleanupResults} from './qa-fixture-cleanup.mjs';
 import {chromium,expect} from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 import assert from 'node:assert/strict';
@@ -68,7 +69,7 @@ finally{
  release?.();try{
   if(auditId&&paperId){const state=await api(admin,`${endpoint}?auditId=${auditId}&workpaperId=${paperId}`);findingIds.push(...state.links.map(l=>l.findingId).filter(id=>!findingIds.includes(id)));}
   if(findingIds.length)await localSql(`DELETE FROM enterprise_finding_events WHERE finding_id IN (${findingIds.map(sql).join(',')}); DELETE FROM enterprise_findings WHERE id IN (${findingIds.map(sql).join(',')});`);
-  if(auditId)await api(admin,`/api/audits?id=${auditId}`,'DELETE');if(evidenceId)await api(admin,`/api/grc?id=${evidenceId}`,'DELETE');for(const user of users)await api(admin,'/api/users','PATCH',{...user,status:'Disabled'});
-  await writeFile(`${out}/cleanup.json`,JSON.stringify({activeFindingsRemoved:findingIds.length,auditRemoved:!!auditId,evidenceRemoved:!!evidenceId,accountsDisabled:users.length,immutableOriginsRetainedInIsolatedDatabase:true}));
+  if(auditId)await cleanupQaFixture(admin,base,'audit',auditId);if(evidenceId)await cleanupQaFixture(admin,base,'record',evidenceId);for(const user of users)await api(admin,'/api/users','PATCH',{...user,status:'Disabled'});
+  await writeFile(`${out}/cleanup.json`,JSON.stringify({activeFindingsRemoved:findingIds.length,auditRemoved:fixtureCleanupResults.some(x=>x.kind==='audit'&&x.id===auditId&&x.deleted),evidenceRemoved:fixtureCleanupResults.some(x=>x.kind==='record'&&x.id===evidenceId&&x.deleted),accountsDisabled:users.length,immutableOriginsRetainedInIsolatedDatabase:true}));
  }catch(e){await writeFile(`${out}/cleanup-failure.json`,JSON.stringify({message:e.message}));throw e;}finally{await browser.close();}
 }

@@ -50,6 +50,8 @@ try {
   const template = (await api(admin, '/api/continuity')).plans.find(row => row.id === f.planId);
   const name = `QA periodic review ${Date.now()}`;
   planId = (await api(admin, '/api/continuity', 'POST', { ...template, action: 'create-plan', assignmentMode: 'directory', name, reviewDate: today }, 201)).id;
+  const draftPlan = (await api(admin, '/api/continuity')).plans.find(row => row.id === planId);
+  await api(admin, '/api/continuity', 'POST', { action: 'submit-plan', planId, expectedUpdatedAt: draftPlan.updatedAt, note: 'Submit the prepared plan before its independent initial review.', confirmation: 'PLANI İNCELEMEYE GÖNDER' });
   await api(reviewer, '/api/continuity', 'POST', { action: 'approve-plan', planId, note: 'Initial independent plan review for the periodic-review journey.', confirmation: 'PLANI ONAYLA' });
   await api(admin, '/api/continuity', 'POST', { action: 'activate-plan', planId, note: 'Recovery team is ready for periodic assurance.', confirmation: 'PLANI ETKİNLEŞTİR' });
   const current = await workspace(reviewer); assert.equal(current.canReview, true); assert.equal(current.reviews.length, 0);

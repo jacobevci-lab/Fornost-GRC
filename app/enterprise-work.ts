@@ -11,7 +11,8 @@ export const enterpriseWorkSources = [
 ] as const;
 export type EnterpriseWorkSource = typeof enterpriseWorkSources[number]['key'];
 export const continuityWorkLabels: Record<string, { tr: string; en: string }> = {
-  draft: { tr: 'Onay bekliyor', en: 'Awaiting approval' },
+  draft: { tr: 'Taslak', en: 'Draft' },
+  submitted: { tr: 'Onay bekliyor', en: 'Awaiting approval' },
   approved: { tr: 'Etkinleştirme bekliyor', en: 'Awaiting activation' },
   active: { tr: 'Etkin', en: 'Active' },
   retired: { tr: 'Kullanımdan kaldırıldı', en: 'Retired' },
@@ -132,12 +133,12 @@ export function projectEnterpriseWork(source: EnterpriseWorkSource, payload: unk
     for (const p of documents) {
       // Review dates belong to the published document; drafting/release tasks belong to versions.
       if (p.status === 'published' || p.status === 'retired' || !versions.some(v => v.policyId === p.id))
-        add('policy-review', p, { title: p.title, code: p.code, owner: p.owner, reviewer: p.reviewer, dueDate: p.nextReview }, p.status === 'retired');
+        add('policy-review', p, { title: p.title, code: p.code, owner: p.owner, reviewer: p.reviewer, dueDate: p.nextReview }, ['retired','cancelled'].includes(String(p.status)));
     }
     for (const v of versions) {
       const p = parent(documents, 'id', v.policyId); if (!p) continue;
       add('policy-version', v, { title: `${text(p.title)} · v${v.versionNumber}`, code: p.code, owner: p.owner, reviewer: ['review', 'approved'].includes(text(v.status)) ? p.reviewer : '', dueDate: v.effectiveDate },
-        ['published', 'superseded', 'retired', 'rejected'].includes(text(v.status)) || p.status === 'retired');
+        ['published', 'superseded', 'retired', 'rejected', 'cancelled'].includes(text(v.status)) || p.status === 'retired');
     }
     for (const a of attestations) {
       const c = parent(campaigns, 'id', a.campaignId), p = parent(documents, 'id', a.policyId); if (!c || !p) continue;
@@ -155,11 +156,11 @@ export function projectEnterpriseWork(source: EnterpriseWorkSource, payload: unk
       complete = false; return false;
     });
     const profiles = validated('profiles', 'profile'), assessments = validated('assessments', 'assessment'), findings = validated('findings', 'finding');
-    const inactive = (p: RecordData) => ['offboarded','rejected'].includes(text(p.status));
+    const inactive = (p: RecordData) => ['offboarded','rejected','cancelled'].includes(text(p.status));
     for (const p of profiles) add('vendor-review', p, { title: p.name, owner: p.riskOwner, actionOwner: p.businessOwner, dueDate: p.nextReview, criticality: p.criticality }, inactive(p));
     for (const a of assessments) {
       const p = parent(profiles, 'vendorId', a.vendorId); if (!p) continue;
-      const closed = ['approved','conditional','rejected','superseded'].includes(text(a.status));
+      const closed = ['approved','conditional','rejected','superseded','cancelled'].includes(text(a.status));
       if (!closed && inactive(p)) continue;
       add('vendor-assessment', a, { title: `${text(p.name)} · ${a.cycleNumber}`, owner: p.riskOwner, actionOwner: p.businessOwner,
         reviewer: a.status === 'submitted' ? p.reviewer : closed ? text(a.decidedBy) : '', severity: a.riskTier, workWaitingForReview: a.status === 'submitted' }, closed);
@@ -182,12 +183,12 @@ export function projectEnterpriseWork(source: EnterpriseWorkSource, payload: unk
         || !INCIDENT_SEVERITIES.some(s => s === item.severity) || !identities.every(email)
         || new Set(identities.map(value => text(value).toLowerCase())).size !== 3
         || !timestamp(item.createdAt) || !timestamp(item.updatedAt)
-        || (item.completedAt != null && item.completedAt !== '' && (!timestamp(item.completedAt) || status !== 'closed'))) {
+        || (item.completedAt != null && item.completedAt !== '' && (!timestamp(item.completedAt) || !['closed','cancelled'].includes(status)))) {
         complete = false; continue;
       }
       add('incident', item, { title: item.title, code: item.code, owner: item.owner, actionOwner: item.commander,
         reviewer: ['review', 'closed'].includes(status) ? item.reviewer : '', severity: item.severity,
-        workWaitingForReview: status === 'review' }, status === 'closed');
+        workWaitingForReview: status === 'review' }, ['closed','cancelled'].includes(status));
     }
   } else if (source === 'continuity') {
     if (payload.complete !== true) complete = false;
@@ -202,12 +203,12 @@ export function projectEnterpriseWork(source: EnterpriseWorkSource, payload: unk
       if (!ok) complete = false;
       return ok;
     };
-    const plans = collections.plans.filter(p => valid(p, ['draft', 'approved', 'active', 'retired'], ['owner', 'reviewer', 'crisisLead'], 'reviewDate') && !!text(p.name) && new Set([p.owner, p.reviewer, p.crisisLead].map(value => text(value).toLowerCase())).size === 3);
+    const plans = collections.plans.filter(p => valid(p, ['draft', 'submitted', 'approved', 'active', 'retired', 'cancelled'], ['owner', 'reviewer', 'crisisLead'], 'reviewDate') && !!text(p.name) && new Set([p.owner, p.reviewer, p.crisisLead].map(value => text(value).toLowerCase())).size === 3);
     if (plans.length !== collections.plans.length) complete = false;
     const exercises = collections.exercises.filter(e => valid(e, ['planned', 'completed', 'cancelled'], ['facilitator'], 'scheduledDate'));
     for (const p of plans) add('continuity-plan', p, { title: p.name, code: p.code, owner: p.owner, actionOwner: p.crisisLead,
-      reviewer: ['draft', 'active'].includes(String(p.status)) ? p.reviewer : '', workWaitingForReview: p.status === 'draft',
-      dueDate: p.status === 'active' ? p.reviewDate : '', criticality: p.criticality }, p.status === 'retired');
+      reviewer: ['submitted', 'active'].includes(String(p.status)) ? p.reviewer : '', workWaitingForReview: p.status === 'submitted',
+      dueDate: p.status === 'active' ? p.reviewDate : '', criticality: p.criticality }, ['retired','cancelled'].includes(String(p.status)));
     for (const e of exercises) {
       const p = parent(plans, 'id', e.planId); if (!p) continue;
       add('continuity-exercise', e, { title: `${text(p.name)} · ${text(e.code) || text(e.id)}`, code: e.code,

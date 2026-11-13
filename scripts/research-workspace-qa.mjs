@@ -1,3 +1,4 @@
+import {cleanupQaFixture} from './qa-fixture-cleanup.mjs';
 import { qaPassword } from './qa-credentials.mjs';
 import { chromium, expect } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
@@ -115,9 +116,9 @@ try {
   await workspace.getByRole('tab',{name:'Overview',exact:true}).click();
   const a11y=await new AxeBuilder({page}).include('.fw-audit-workspace').analyze(); assert.deepEqual(a11y.violations.map(v=>v.id),[]);
   await module('Connected GRC Map');
-  await page.locator('.cg-filters select').selectOption('Denetim Yönetimi');await page.locator('.cg-filters input').fill(orphan.record_code);
-  await page.locator('.cg-records>button').filter({hasText:orphan.record_code}).click();
-  await page.locator('.cg-detail').getByRole('button',{name:'Open record ↗',exact:true}).click();
+  await page.locator('#connected-grc-workbench').getByRole('combobox',{name:'Module',exact:true}).selectOption('Denetim Yönetimi');await page.locator('#connected-grc-workbench').getByRole('textbox',{name:'Find record',exact:true}).fill(orphan.record_code);
+  await page.locator('#connected-grc-workbench .cgw-records>button').filter({hasText:orphan.record_code}).click();
+  await page.locator('#connected-grc-workbench').getByRole('button',{name:'Open source record',exact:true}).click();
   await expect(page.locator('.core-record-focus')).toContainText(orphan.record_code);
   await expect(page.locator('.fw-orphan-notice')).toContainText('Active audit link missing');
   const orphanTab=page.getByRole('tab',{name:/^Requirements and tests/});
@@ -151,4 +152,4 @@ try {
   assert.deepEqual(errors,[]);await writeFile(`${out}/summary.json`,JSON.stringify({passed:true,checks,pageErrors:errors,accessibilityViolations:a11y.violations.length},null,2));
   console.log('RESEARCH_WORKSPACE_QA_PASS',checks.length);
 }catch(error){await writeFile(`${out}/failure.json`,JSON.stringify({message:String(error),stack:error.stack,checks,pageErrors:errors},null,2));await page.screenshot({path:`${out}/failure.png`,fullPage:true}).catch(()=>{});throw error;}
-finally{for(const id of records)await api(`/api/grc?id=${encodeURIComponent(id)}`,'DELETE');if(auditId)await api(`/api/audits?id=${auditId}`,'DELETE');await browser.close();}
+finally{for(const id of records)await api(`/api/grc?id=${encodeURIComponent(id)}`,'DELETE');if(auditId)await cleanupQaFixture(context,base,'audit',auditId);await browser.close();}

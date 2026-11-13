@@ -1,6 +1,6 @@
 export const INCIDENT_SEVERITIES = ["low", "medium", "high", "critical"] as const;
 export const INCIDENT_CATEGORIES = ["malware", "phishing", "account-compromise", "data-breach", "availability", "vulnerability-exploitation", "third-party", "policy-violation", "physical", "other"] as const;
-export const INCIDENT_STATUSES = ["declared", "triage", "contained", "eradicated", "recovered", "review", "closed"] as const;
+export const INCIDENT_STATUSES = ["declared", "triage", "contained", "eradicated", "recovered", "review", "closed", "cancelled"] as const;
 
 const clean = (value: unknown, max: number) => String(value ?? "").trim().replace(/\u0000/g, "").slice(0, max);
 const email = (value: unknown, label: string) => { const result = clean(value, 200).toLowerCase(); if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(result)) throw new Error(`${label} için geçerli e-posta zorunludur.`); return result; };
@@ -34,7 +34,7 @@ export function validateIncidentAction(input: Record<string, unknown>) {
 }
 
 export function incidentAttention(status: string, severity: string, detectedDate: string, now = new Date()) {
-  if (status === "closed") return "closed";
+  if (["closed","cancelled"].includes(status)) return status;
   const ageHours = Math.max(0, (now.getTime() - new Date(`${detectedDate}T00:00:00Z`).getTime()) / 3_600_000);
   if (["declared", "triage"].includes(status) && ageHours > incidentResponseHours(severity)) return "response-breach";
   if (!["recovered", "review"].includes(status) && ageHours > incidentRecoveryHours(severity)) return "recovery-breach";

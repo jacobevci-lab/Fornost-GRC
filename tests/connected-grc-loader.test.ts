@@ -3,7 +3,7 @@ import test from "node:test";
 import { connectedSourceValidity } from "../app/connected-grc-sources";
 import { loadConnectedGrcSources } from "../app/connected-grc-loader";
 
-const empty = { complete: true, total: 0, revision: 'a'.repeat(32), nextCursor: null, findings: [], incidents: [], plans: [], exercises: [], gaps: [], documents: [], versions: [], appetites: [], measurements: [], breaches: [], scenarios: [], sources: [], changes: [], impacts: [], vendors: [], assessments: [], rules: [], runs: [] };
+const empty = { audits: [], complete: true, total: 0, revision: 'a'.repeat(32), nextCursor: null, findings: [], incidents: [], plans: [], exercises: [], gaps: [], documents: [], versions: [], appetites: [], measurements: [], breaches: [], scenarios: [], sources: [], changes: [], impacts: [], vendors: [], assessments: [], rules: [], runs: [] };
 const json = (body: unknown) => Response.json(body);
 const run = (fetcher: typeof fetch, signal = new AbortController().signal, includeAi = false) =>
   loadConnectedGrcSources({ includeAi, signal, fetcher, timeoutMs: 20 });
@@ -17,8 +17,8 @@ test("a stalled source times out without losing successful sources", async () =>
     }
     return json(empty);
   });
-  assert.equal(result.total, 8);
-  assert.equal(result.ready, 7);
+  assert.equal(result.total, 9);
+  assert.equal(result.ready, 8);
   assert.equal(result.payloads.policy, undefined);
   assert.ok(result.payloads.findings);
   assert.equal(stalledSignal?.aborted, true);
@@ -31,7 +31,7 @@ test("deadline includes stalled body parsing and ignores late responses", async 
     : json(empty));
   finish({ documents: [{ id: "late" }] });
   await new Promise(resolve => setImmediate(resolve));
-  assert.equal(result.ready, 7);
+  assert.equal(result.ready, 8);
   assert.equal(result.payloads.policy, undefined);
 });
 
@@ -40,7 +40,7 @@ test("HTTP and malformed responses remain partial; a new attempt can recover", a
   assert.equal(failed.ready, 0);
   assert.deepEqual(failed.payloads, {});
   const recovered = await run(async () => json(empty));
-  assert.equal(recovered.ready, 8);
+  assert.equal(recovered.ready, 9);
 });
 
 test("cancellation settles even if fetch ignores abort, and starts no work when already cancelled", async () => {
@@ -56,11 +56,11 @@ test("cancellation settles even if fetch ignores abort, and starts no work when 
 test("AI requests are opt-in and incomplete AI sources cannot claim readiness", async () => {
   const paths: string[] = [];
   const fetcher: typeof fetch = async url => { paths.push(String(url)); return json(String(url).includes("/ai/") ? {} : empty); };
-  assert.equal((await run(fetcher)).ready, 8);
+  assert.equal((await run(fetcher)).ready, 9);
   assert.ok(paths.every(path => !path.includes("/ai/")));
   const withAi = await run(fetcher, undefined, true);
-  assert.equal(withAi.total, 11);
-  assert.equal(withAi.ready, 8);
+  assert.equal(withAi.total, 12);
+  assert.equal(withAi.ready, 9);
   assert.equal(paths.filter(path => path.includes("/ai/")).length, 3);
 });
 
@@ -73,7 +73,7 @@ test("source failures expose safe, actionable reasons without server content", a
     if (path.endsWith("/continuity")) return new Response("internal error", { status: 500 });
     return json(empty);
   });
-  assert.equal(result.ready, 4);
+  assert.equal(result.ready, 5);
   assert.deepEqual(Object.fromEntries(result.issues.map(issue => [issue.key, issue.reason])), {
     continuity: "unavailable", findings: "access", incidents: "invalid", policy: "timeout",
   });
@@ -91,7 +91,7 @@ test("cancelled loads do not produce misleading source failures", async () => {
 test("malformed successful payloads cannot masquerade as empty, ready sources", async () => {
   for (const malformed of [{}, { ...empty, findings: null }, { ...empty, findings: [{}] }, { ...empty, findings: [{ id: "same" }, { id: " same " }] }]) {
     const result = await run(async url => json(String(url).includes("/findings?") ? malformed : empty));
-    assert.equal(result.ready, 7);
+    assert.equal(result.ready, 8);
     assert.equal(result.payloads.findings, undefined);
     assert.deepEqual(result.issues, [{ key: "findings", reason: "invalid" }]);
   }
@@ -105,16 +105,16 @@ test("graph paging conflict discards the source but preserves independent source
     const findings = Array.from({length:500},(_,i)=>({id:`F-${String(i).padStart(6,'0')}`}));
     return json({findings,total:501,revision:'a'.repeat(32),complete:false,nextCursor:findings.at(-1)!.id});
   });
-  assert.equal(result.ready,7);
+  assert.equal(result.ready,8);
   assert.equal(result.payloads.findings,undefined);
   assert.deepEqual(result.issues,[{key:'findings',reason:'changed'}]);
-  assert.equal((await run(async()=>json(empty))).ready,8);
+  assert.equal((await run(async()=>json(empty))).ready,9);
 });
 
 
 test("every enterprise graph collection rejects missing or duplicate identities", () => {
   const groups = {
-    findings: ["findings"], incidents: ["incidents"], continuity: ["plans", "exercises", "gaps"],
+    audits: ["audits"], findings: ["findings"], incidents: ["incidents"], continuity: ["plans", "exercises", "gaps"],
     policy: ["documents", "versions"], riskAppetite: ["appetites", "measurements", "breaches", "scenarios"],
     regulatory: ["sources", "changes", "impacts"], thirdParty: ["vendors", "assessments", "findings"],
     evidenceAutomation: ["sources", "rules", "runs", "findings"],

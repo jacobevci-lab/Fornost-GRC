@@ -1,3 +1,4 @@
+import {cleanupQaFixture} from './qa-fixture-cleanup.mjs';
 import {qaPassword} from './qa-credentials.mjs';
 import {chromium,expect} from '@playwright/test';
 import assert from 'node:assert/strict';
@@ -34,4 +35,4 @@ try{
  for(const theme of ['light','dark'])for(const width of [390,1536]){await page.evaluate(t=>document.documentElement.dataset.theme=t,theme);await page.setViewportSize({width,height:960});assert.ok(await panel.evaluate(e=>e.scrollWidth<=e.clientWidth+1));}
  await panel.getByLabel('Lead auditor',{exact:true}).fill('Unsaved lead');await page.getByRole('tab',{name:'Overview',exact:true}).click();await page.getByRole('tab',{name:'Plan and scope',exact:true}).click();await expect(panel.getByLabel('Lead auditor',{exact:true})).toHaveValue('Unsaved lead');
  assert.deepEqual(errors,[]);console.log('AUDIT_PLAN_QA_PASS: real API save, date validation, revision conflict, draft preservation, reload, collapsed draft, both themes and responsive layouts');
-}finally{await page.close();if(id)await api(`/api/audits?id=${id}`,'DELETE');await browser.close();}
+}finally{await page.close();if(id)await cleanupQaFixture(ctx,base,'audit',id);await browser.close();}

@@ -28,6 +28,7 @@ try {
   for(const [name,value] of Object.entries({name:planName,process:'Payment recovery',biaRef:'BIA-001',dependencies:'Identity and database services',recoveryStrategy:'Restore services in the recovery region and validate data.',communicationPlan:'Notify crisis owners and affected service teams.'}))await dialog.locator(`[name=${name}]`).fill(value);
   await selectPerson(dialog,'Independent reviewer',reviewerEmail);await selectPerson(dialog,'Crisis lead',leadEmail);await capture(page,'.workflow-person:first-of-type','people-en');
   const plan=await decision(page,dialog,'Create draft plan','/api/continuity',201);await expect(dialog).toBeHidden();
+  const draft=(await api(admin,'/api/continuity')).plans.find(p=>p.id===plan.id);await api(admin,'/api/continuity','POST',{action:'submit-plan',planId:plan.id,expectedUpdatedAt:draft.updatedAt,note:'Owner submitted the prepared draft for independent review.',confirmation:'PLANI İNCELEMEYE GÖNDER'});
   await api(reviewer,'/api/continuity','POST',{action:'approve-plan',planId:plan.id,note:'Independent recovery plan reviewed.',confirmation:'PLANI ONAYLA'});await api(admin,'/api/continuity','POST',{action:'activate-plan',planId:plan.id,note:'Recovery team is ready.',confirmation:'PLANI ETKİNLEŞTİR'});
   await open(page,'Business Continuity & Resilience');await page.locator('.cpd-index button').filter({hasText:planName}).click();
   await expect(page.locator('.cpd-file')).toContainText('No exercise has been completed');

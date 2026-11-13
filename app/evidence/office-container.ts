@@ -67,7 +67,10 @@ export function validateOfficeContainer(bytes: Uint8Array, extension: 'docx' | '
   const metadata = new Map<string, Uint8Array>(); let hasMain = false;
   for (const entry of entries) {
     const input = bytes.subarray(entry.dataStart, entry.dataStart + entry.compressed);
-    const output = entry.method === 0 ? input : inflateRawSync(input, { maxOutputLength: Math.max(1, entry.size) });
+    // Workerd's native inflater can charge buffer growth against maxOutputLength
+    // (cloudflare/workerd#6286). Bound that headroom to twice the already-capped
+    // part size; exact expanded size and CRC below remain admission requirements.
+    const output = entry.method === 0 ? input : inflateRawSync(input, { maxOutputLength: entry.size * 2 + 1 });
     if (output.length !== entry.size || crc32(output) !== entry.crc) invalid();
     if (entry.name === main) { if (!output.length) invalid(); hasMain = true; }
     if (entry.name === '[Content_Types].xml' || entry.name === '_rels/.rels') {

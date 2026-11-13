@@ -14,7 +14,7 @@ export type FindingRegisterQuery={query:string;filter:string;page:number;lang:'t
 export function parseFindingRegisterQuery(params:URLSearchParams):FindingRegisterQuery{
  const assignment=params.get('assignment')||'all';
  const ref=params.get('ref')||'',query=(params.get('q')||'').trim(),filter=params.get('filter')||'all',raw=params.get('page')||'1',lang=params.get('lang')||'tr';
- if(!['all','owned','review'].includes(assignment)||ref.length>200||/\p{Cc}/u.test(ref)||query.length>200||!['all','active','open','in-progress','critical','recurring','acceptance-expired','priority','overdue','verification','accepted','closed'].includes(filter)||!/^[1-9]\d{0,7}$/.test(raw)||!['tr','en'].includes(lang))throw new FindingRegisterError('Invalid finding search or page');
+ if(!['all','owned','review'].includes(assignment)||ref.length>200||/\p{Cc}/u.test(ref)||query.length>200||!['all','active','open','in-progress','critical','recurring','acceptance-expired','priority','overdue','verification','accepted','closed','cancelled'].includes(filter)||!/^[1-9]\d{0,7}$/.test(raw)||!['tr','en'].includes(lang))throw new FindingRegisterError('Invalid finding search or page');
  return {query,filter,page:Number(raw),lang:lang as 'tr'|'en',...(ref?{ref}: {}),...(assignment!=='all'?{assignment:assignment as 'owned'|'review'}:{})};
 }
 function searchExpression(lang:'tr'|'en'){
@@ -32,10 +32,10 @@ export async function readFindingRegisterPage(db:D1Database,input:FindingRegiste
  }
  if(input.ref){where.push('(id=? OR code=?)');values.push(input.ref,input.ref);}
  if(input.query){where.push(`instr(${searchExpression(input.lang)},?)>0`);values.push(input.query.toLocaleLowerCase(input.lang==='tr'?'tr-TR':'en-US'));}
- if(input.filter==='overdue'){where.push("((status NOT IN ('closed','accepted') AND due_date<?) OR (status='accepted' AND accept_until!='' AND accept_until<?))");values.push(day,day);}
- else if(input.filter==='priority'){where.push("status NOT IN ('closed','accepted') AND due_date>=? AND (severity IN ('critical','high') OR julianday(due_date||'T23:59:59Z')-julianday(?)<=7)");values.push(day,now.toISOString());}
- else if(input.filter==='active')where.push("status NOT IN ('closed','accepted')");
- else if(input.filter==='critical')where.push("severity='critical' AND status!='closed'");
+ if(input.filter==='overdue'){where.push("((status NOT IN ('closed','accepted','cancelled') AND due_date<?) OR (status='accepted' AND accept_until!='' AND accept_until<?))");values.push(day,day);}
+ else if(input.filter==='priority'){where.push("status NOT IN ('closed','accepted','cancelled') AND due_date>=? AND (severity IN ('critical','high') OR julianday(due_date||'T23:59:59Z')-julianday(?)<=7)");values.push(day,now.toISOString());}
+ else if(input.filter==='active')where.push("status NOT IN ('closed','accepted','cancelled')");
+ else if(input.filter==='critical')where.push("severity='critical' AND status NOT IN ('closed','cancelled')");
  else if(input.filter==='recurring')where.push('recurrence_count>0');
  else if(input.filter==='acceptance-expired'){where.push("status='accepted' AND accept_until!='' AND accept_until<?");values.push(day);}
  else if(input.filter!=='all'){where.push('status=?');values.push(input.filter);}
@@ -44,9 +44,9 @@ export async function readFindingRegisterPage(db:D1Database,input:FindingRegiste
   db.prepare(count+'').bind(...values),
   db.prepare(`SELECT * FROM enterprise_findings WHERE ${condition}
     ORDER BY CASE
-      WHEN (status NOT IN ('accepted','closed') AND due_date < ?) OR (status='accepted' AND accept_until!='' AND accept_until < ?) THEN 0
-      WHEN status NOT IN ('accepted','closed') AND due_date = ? THEN 1
-      WHEN status NOT IN ('accepted','closed') THEN 2
+      WHEN (status NOT IN ('accepted','closed','cancelled') AND due_date < ?) OR (status='accepted' AND accept_until!='' AND accept_until < ?) THEN 0
+      WHEN status NOT IN ('accepted','closed','cancelled') AND due_date = ? THEN 1
+      WHEN status NOT IN ('accepted','closed','cancelled') THEN 2
       WHEN status='accepted' THEN 3 ELSE 4 END,
       CASE severity WHEN 'critical' THEN 0 WHEN 'high' THEN 1 WHEN 'medium' THEN 2 ELSE 3 END,
       CASE WHEN status='accepted' THEN accept_until ELSE due_date END, updated_at DESC, id
@@ -60,9 +60,9 @@ export async function readFindingRegisterPage(db:D1Database,input:FindingRegiste
 }
 
 function findingSummaryStatement(db:D1Database,day:string){return db.prepare(`SELECT COUNT(*) total,
-   COALESCE(SUM(status NOT IN ('closed','accepted')),0) open,
-   COALESCE(SUM(severity='critical' AND status!='closed'),0) critical,
-   COALESCE(SUM((status NOT IN ('closed','accepted') AND due_date<?) OR (status='accepted' AND accept_until IS NOT NULL AND accept_until!='' AND accept_until<?)),0) overdue,
+   COALESCE(SUM(status NOT IN ('closed','accepted','cancelled')),0) open,
+   COALESCE(SUM(severity='critical' AND status NOT IN ('closed','cancelled')),0) critical,
+   COALESCE(SUM((status NOT IN ('closed','accepted','cancelled') AND due_date<?) OR (status='accepted' AND accept_until IS NOT NULL AND accept_until!='' AND accept_until<?)),0) overdue,
    COALESCE(SUM(status='verification'),0) verification,
    COALESCE(SUM(status='accepted'),0) accepted,
    COALESCE(SUM(status='closed'),0) closed,

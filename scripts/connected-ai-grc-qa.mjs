@@ -33,8 +33,8 @@ async function openMap(){
 try{
  const login=await context.request.post(`${base}/api/auth`,{headers:{origin:base},data:{action:'login',email:'qa-admin@fornost.test',password:qaPassword()}});assert.equal(login.status(),200);
  await openMap();
- await expect(page.locator('.cg-source-state')).toHaveAttribute('data-total','12');
- await expect(page.locator('.cg-source-state')).toHaveAttribute('data-ready','12');
+ await expect(page.locator('.cg-source-state')).toHaveAttribute('data-total','13');
+ await expect(page.locator('.cg-source-state')).toHaveAttribute('data-ready','13');
  await page.locator('.cgw-filters input').fill('QA AI drift alert');
  await expect(page.locator('.cgw-records>button')).toHaveCount(1);
  await expect(page.locator('.cgw-node')).toHaveCount(3);
@@ -55,7 +55,7 @@ try{
  await page.setViewportSize({width:1536,height:960});
  for(const failure of ['unavailable','malformed']){
   mode=failure;await openMap();
-  await expect(page.locator('.cg-source-state')).toHaveAttribute('data-ready','11');
+  await expect(page.locator('.cg-source-state')).toHaveAttribute('data-ready','12');
   await page.locator('.connected-grc').getByRole('button',{name:/^Gaps/}).click();
   // Scope the assertion to its fixtures; unrelated persisted records can fill the first 20 references.
   await page.getByLabel('Source module',{exact:true}).selectOption('AI Yönetişimi');
@@ -65,18 +65,18 @@ try{
   await expect(page.locator('.cgw-inspector')).toContainText('QA-AIM-1');
  }
  mode='complete';await openMap();
- await expect(page.locator('.cg-source-state')).toHaveAttribute('data-ready','12');
+ await expect(page.locator('.cg-source-state')).toHaveAttribute('data-ready','13');
  for(const body of [{}, {findings:[{id:'duplicate'},{id:'duplicate'}]}]){
   await page.route('**/api/findings?view=graph*',route=>route.fulfill({json:body}));
   await openMap();
-  await expect(page.locator('.cg-source-state')).toHaveAttribute('data-ready','11');
+  await expect(page.locator('.cg-source-state')).toHaveAttribute('data-ready','12');
   await expect(page.locator('.cgw-warning')).toContainText('partial');
   await page.locator('.connected-grc').getByRole('button',{name:/^Gaps/}).click();
   await expect(page.locator('.cgw-warning')).toBeVisible();
   await page.unroute('**/api/findings?view=graph*');
  }
  await openMap();
- await expect(page.locator('.cg-source-state')).toHaveAttribute('data-ready','12');
+ await expect(page.locator('.cg-source-state')).toHaveAttribute('data-ready','13');
  let graphPages=0;
  const graphRows=Array.from({length:501},(_,i)=>({id:`QA-GRAPH-${String(i).padStart(6,'0')}`,title:i===500?'QA final paginated finding':`QA graph finding ${i}`}));
  await page.route('**/api/findings?view=graph*',route=>{
@@ -90,7 +90,7 @@ try{
   return route.fulfill({json:{findings:graphRows.slice(0,500),total:501,revision:'a'.repeat(32),complete:false,nextCursor:graphRows[499].id}});
  });
  await openMap();
- await expect(page.locator('.cg-source-state')).toHaveAttribute('data-ready','12');
+ await expect(page.locator('.cg-source-state')).toHaveAttribute('data-ready','13');
  assert.equal(graphPages,2);
  await page.locator('.cgw-filters input').fill('QA final paginated finding');
  await expect(page.locator('.cgw-records')).toContainText('QA final paginated finding');

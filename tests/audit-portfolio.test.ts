@@ -23,8 +23,10 @@ test("audit templates are choices instead of automatically rendered portfolio ca
 test("portfolio audits and their requirements support controlled deletion", () => {
   assert.match(route, /CREATE TABLE IF NOT EXISTS simple_audits/);
   assert.match(route, /requireRole\(req, \["Admin"\]\)/);
-  assert.match(route, /audit_archive_/);
-  assert.match(route, /DELETE FROM simple_grc_records WHERE module='Denetim Yönetimi'/);
+  assert.match(route, /await deleteAudit\(d, audit, auth.actor.email\)/);
+  const removal = readFileSync("app/audit-delete.ts", "utf8");
+  assert.match(removal, /audit_archive_/);
+  assert.match(removal, /DELETE FROM simple_grc_records WHERE module='Denetim Yönetimi'/);
   assert.match(workspace, /Denetimi Sil/);
   assert.match(page, /onDelete=\{canDeleteAudit\?deleteAudit:undefined\}/);
   assert.match(page, /\+ Özel Madde/);

@@ -1,3 +1,5 @@
+import * as workflowCancellation from "../../app/workflow-cancellation";
+import * as continuityDraft from "../../app/continuity/draft-store";
 import * as regulatoryWorkspace from '../../app/regulatory-intelligence/workspace-store';
 import * as findingDeadline from "../../app/third-party-risk/finding-deadline";
 import * as findingDeadlineStore from "../../app/third-party-risk/finding-deadline-store";
@@ -73,6 +75,7 @@ export function fixture(module:'incidents'|'continuity'|'policy-lifecycle'|'thir
   if(name==='../integrations/security')return{safeHttpUrl,clean:(x:unknown,n:number)=>String(x??'').trim().slice(0,n)};
   if(name==='../../workflow-selection-store')return workflowSelections;
   if(name==='../../workflow-record-focus')return workflowFocus;
+  if(name==='../../workflow-cancellation')return workflowCancellation;
   if(name==='../../enterprise-lifecycle-write')return writes;
   if(name==='../../enterprise-reference-intake')return intake;
   if(name==='../../core-reference-write')return references;
@@ -83,6 +86,7 @@ export function fixture(module:'incidents'|'continuity'|'policy-lifecycle'|'thir
   if(name==='../../continuity/domain')return continuity;
   if(name==='../../continuity/work-source')return continuityWork;
   if(name==='../../continuity/activity-file-store')return continuityActivity;
+  if(name==='../../continuity/draft-store')return continuityDraft;
   if(name==='../../continuity/plan')return continuityPlan;
   if(name==='../../continuity/plan-review-store')return continuityReviews;
   if(name==='../../policy-lifecycle/draft-store')return policyDraft;
