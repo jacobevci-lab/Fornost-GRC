@@ -316,9 +316,9 @@ await check('Read routes, invalid writes, exports and Viewer write boundaries',a
 await check('Connected GRC opens exact core records and clears contextual filters',async()=>{
  for(const moduleName of ['Risk Assessment','BIA','Varlık Envanteri','Uyum','Kontroller','Kanıtlar','Denetim Yönetimi']){
   const seed=seedRows.find(x=>x.module===moduleName),code=seed.record_code;
-  await reset();await open('Connected GRC Map');await page.locator('.cg-filters select').selectOption(moduleName);await page.locator('.cg-filters input').fill(code);
-  const entry=page.locator('.cg-records>button').filter({hasText:code});await expect(entry).toHaveCount(1);await entry.click();
-  await page.locator('.cg-detail').getByRole('button',{name:'Open record ↗',exact:true}).click();
+  await reset();await open('Connected GRC Map');await page.locator('#connected-grc-workbench').getByRole('combobox',{name:'Module',exact:true}).selectOption(moduleName);await page.locator('#connected-grc-workbench').getByRole('textbox',{name:'Find record',exact:true}).fill(code);
+  const entry=page.locator('#connected-grc-workbench .cgw-records>button').filter({hasText:code});await expect(entry).toHaveCount(1);await entry.click();
+  await page.locator('#connected-grc-workbench').getByRole('button',{name:'Open source record',exact:true}).click();
   await expect(page.locator('.core-record-focus')).toContainText(code);
   if(moduleName==='Denetim Yönetimi'){const name=JSON.parse(seed.data_json).auditName,total=seedRows.filter(x=>x.module===moduleName&&JSON.parse(x.data_json).auditName===name).length;const requirementsTab=page.getByRole('tab',{name:/^Requirements and tests/});await expect(requirementsTab).toHaveAttribute('aria-selected','true');await expect(requirementsTab.locator('span')).toHaveText(String(total));const linked=(await request(admin,'/api/audits')).audits.some(a=>a.name===name);if(!linked){await expect(page.locator('.fw-orphan-notice')).toContainText('Active audit link missing');await expect(page.getByRole('tab',{name:'Requests and review',exact:true})).toHaveCount(0);await expect(page.getByRole('tab',{name:'Plan and scope',exact:true})).toHaveCount(0);await expect(page.getByRole('button',{name:'Open unassigned requirements',exact:true})).toBeVisible();}}
   await expect(page.locator('.table-card .table-wrap tbody tr')).toHaveCount(1);

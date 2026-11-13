@@ -63,6 +63,14 @@ jobs:
           retention-days: 14
       - name: Load explicit synthetic core fixtures
         run: node scripts/seed-local-qa.mjs
+      - name: Live product QA fixes regression
+        run: node scripts/live-product-fixes-qa.mjs
+      - name: Preserve live product fixes browser evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: live-product-fixes-preview
+          path: live-product-fixes-qa-artifacts/
       - name: Regulatory worklist, source lifecycle and policy linking QA
         timeout-minutes: 8
         run: node scripts/regulatory-workspace-qa.mjs
@@ -287,14 +295,6 @@ jobs:
         with:
           name: register-import-preview
           path: register-import-qa-artifacts/
-      - name: Live product QA fixes regression
-        run: node scripts/live-product-fixes-qa.mjs
-      - name: Preserve live product fixes browser evidence
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: live-product-fixes-preview
-          path: live-product-fixes-qa-artifacts/
       - name: Product experience recovery, form guidance and navigation QA
         run: node scripts/product-experience-qa.mjs
       - name: Preserve product experience browser evidence

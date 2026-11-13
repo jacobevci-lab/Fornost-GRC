@@ -33,8 +33,8 @@ try{
  await page.locator('.language-switch:visible').getByRole('button',{name:'EN',exact:true}).click();
  await page.locator('nav button[aria-label="Connected GRC Map"]').evaluate(el=>el.click());
  await expect(page.locator('.cg-source-state')).toHaveAttribute('data-loading','false');
- await page.locator('.cg-filters input').fill(id);
- await page.locator('.cg-detail>header').getByRole('button',{name:/Open record/}).click();
+ await page.locator('#connected-grc-workbench').getByRole('textbox',{name:'Find record',exact:true}).fill(id);
+ await page.locator('#connected-grc-workbench').getByRole('button',{name:'Open source record',exact:true}).click();
  const root=page.locator('.ai-model-inventory'),record=root.locator(`[data-record-id="${id}"]`);
  await expect(root.locator('.ai-record-focus')).toHaveAttribute('data-state','found');
  // A linked draft must remain available, including after an accepted delete confirmation.

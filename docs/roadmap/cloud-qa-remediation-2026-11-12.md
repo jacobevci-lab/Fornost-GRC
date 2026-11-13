@@ -32,3 +32,9 @@ Existing drafts remain drafts until explicitly submitted; existing approved/acti
 ### Worker-specific DOCX cause
 
 The isolated browser run reproduced a server-side rejection before text extraction. A local, disposable Worker unit reproduced `RangeError: Memory limit exceeded` from native `inflateRawSync` on the original python-docx styles part; Node accepted the same input. Workerd can account for buffer growth against `maxOutputLength` (related upstream issue: https://github.com/cloudflare/workerd/issues/6286). Bounded headroom of twice the already-limited declared part size fixes this runtime mismatch. Exact decompressed byte length, CRC, total/part/ratio limits, encryption and macro rejection remain unchanged. A real Worker regression accepts the original file and rejects understated size, altered CRC and truncated content.
+
+### Resume checkpoint — 13 November 2026
+
+The final-head focused browser workflows and CI passed, but Workspace Layout QA run `43306057315` failed in `live-product-fixes-qa.mjs` while looking for the retired `Find a record` map input. Later scenarios were skipped. Five regression scripts still used the previous map layout; they now use the current workbench's accessible search, module filter, record selection and source navigation while retaining exact-record, reload and return-state assertions. The live-product regression now runs immediately after core fixture setup so future failures surface before unrelated long suites.
+
+Local script lint and syntax validation pass. Local Worker startup and synthetic database setup work, but the managed environment prevents Chromium's process socket from opening; browser acceptance must come from the repository's isolated CI runner. No new production verification or deployment is claimed at this checkpoint. The broad suite remains a release gate.
