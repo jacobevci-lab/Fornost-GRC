@@ -71,6 +71,14 @@ jobs:
         with:
           name: live-product-fixes-preview
           path: live-product-fixes-qa-artifacts/
+      - name: Integration and evidence read timeout, cancellation and recovery QA
+        run: node scripts/integration-read-recovery-qa.mjs
+      - name: Preserve integration read recovery evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: integration-read-recovery-preview
+          path: integration-read-recovery-qa-artifacts/
       - name: Regulatory worklist, source lifecycle and policy linking QA
         timeout-minutes: 8
         run: node scripts/regulatory-workspace-qa.mjs
@@ -311,14 +319,6 @@ jobs:
         with:
           name: reporting-export-preview
           path: layout-qa-artifacts/
-      - name: Integration and evidence read timeout, cancellation and recovery QA
-        run: node scripts/integration-read-recovery-qa.mjs
-      - name: Preserve integration read recovery evidence
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: integration-read-recovery-preview
-          path: integration-read-recovery-qa-artifacts/
       - name: Administration settings status and recovery QA
         run: node scripts/admin-settings-runtime-qa.mjs
       - name: Publish administration and email settings browser evidence
