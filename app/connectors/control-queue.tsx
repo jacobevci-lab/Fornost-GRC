@@ -44,7 +44,7 @@ export function ControlQueue({lang, rules, sources, expanded, expand, busy, role
         <span className="ew-control-name"><b>{rule.name}</b><small>{rule.controlRefs || rule.id}</small></span>
         {!compact && <span className="ew-control-source">{source?.name || (tr?"Kaynak kullanılamıyor":"Source unavailable")}<small>{rule.remediationOwner?.trim() || (tr?"Sorumlu atanmamış":"Unassigned")}</small></span>}
         <span className="ew-control-status"><span className={`ew-badge ${status.tone}`}>{status.label}</span><small>{!rule.enabled ? (tr?"Duraklatıldı":"Paused") : freshness(rule)}</small></span>
-        <span className="ew-control-inspect">{tr?"İncele":"Inspect"} <span aria-hidden="true">{open?"⌄":"›"}</span></span>
+        <span className="ew-control-inspect"><span className="ew-inspect-label">{tr?"İncele":"Inspect"}</span> <span aria-hidden="true">{open?"⌄":"›"}</span></span>
       </button>
       {open && <div id={detailId} className="ew-expanded" role="region" aria-labelledby={triggerId}>
         {!source && <p className="ew-notice warn">{tr?"Bağlı kaynak bulunamadı veya erişilemiyor. Kayıt ve çalışma geçmişi korunuyor.":"The linked source is missing or unavailable. The control and run history are retained."}</p>}
@@ -66,8 +66,8 @@ export function ControlQueue({lang, rules, sources, expanded, expand, busy, role
   return <div className="ew-queue" data-view={view} aria-busy={refreshing}>
     <div className="ew-queue-toolbar">
       <label className="ew-queue-search"><span>{tr?"Kontrol veya kaynak ara":"Search controls or sources"}</span><input type="search" placeholder={tr?"Ad, kod veya kaynak…":"Name, code or source…"} value={query} onChange={event=>setQuery(event.target.value)}/></label>
-      <label><span>{tr?"Sorumlu":"Owner"}</span><select value={owner} onChange={event=>setOwner(event.target.value)}><option value="">{tr?"Tümü":"All"}</option><option value="unassigned">{tr?"Atanmamış":"Unassigned"}</option>{owners.map(value=><option key={value} value={`owner:${value}`}>{value}</option>)}</select></label>
-      <label><span>{tr?"Görünüm":"View"}</span><select value={view} onChange={event=>setView(event.target.value)}><option value="priority">{tr?"Öncelik":"Priority"}</option><option value="source">{tr?"Kaynak":"Source"}</option></select></label>
+      <label><span>{tr?"Sorumlu":"Owner"}</span><select aria-label={tr?"Sorumlu":"Owner"} value={owner} onChange={event=>setOwner(event.target.value)}><option value="">{tr?"Tümü":"All"}</option><option value="unassigned">{tr?"Atanmamış":"Unassigned"}</option>{owners.map(value=><option key={value} value={`owner:${value}`}>{value}</option>)}</select></label>
+      <label><span>{tr?"Görünüm":"View"}</span><select aria-label={tr?"Görünüm":"View"} value={view} onChange={event=>setView(event.target.value)}><option value="priority">{tr?"Öncelik":"Priority"}</option><option value="source">{tr?"Kaynak":"Source"}</option></select></label>
       <button className="ghost" disabled={pending} onClick={async()=>{setRefreshing(true);try{await refresh();}finally{setRefreshing(false);}}}>{refreshing ? (tr?"Yenileniyor…":"Refreshing…") : (tr?"Yenile":"Refresh")}</button>
     </div>
     <div className="ew-queue-scope"><div className="ew-filters">{[["all",tr?"Tümü":"All"],["attention",tr?"İnceleme gerekli":"Needs review"],["fresh",tr?"Güncel kanıt":"Fresh evidence"]].map(([key,label])=><button key={key} aria-pressed={filter===key} onClick={()=>setFilter(key)}>{label}</button>)}</div>

@@ -8,7 +8,7 @@ export function controlQueueGroup(rule: AutomationRule, source?: AutomationSourc
   if (!rule.enabled) return "paused";
   if (rule.lastStatus === "fail") return "failed";
   if (rule.lastStatus !== "pass" || rule.freshness !== "fresh" || !source?.enabled ||
-      !rule.lastRunId || !rule.lastEvidenceAt || !rule.evidenceRunId) return "verify";
+      !rule.lastRunId || !rule.lastEvidenceAt || rule.evidenceRunId !== rule.lastRunId) return "verify";
   return "current";
 }
 

@@ -8,7 +8,7 @@ const rule = {id:"r1", name:"Şifreleme", sourceId:source.id, controlRefs:"A.8.2
 
 test("current passing needs source, recorded run and fresh evidence; connection alone proves nothing", () => {
   assert.equal(controlQueueGroup(rule,source),"current");
-  for(const patch of [{lastStatus:undefined},{lastStatus:"error"},{freshness:"missing"},{freshness:"unknown"},{freshness:"stale"},{freshness:"expiring"},{lastRunId:undefined},{evidenceRunId:undefined},{lastEvidenceAt:undefined}]) assert.equal(controlQueueGroup({...rule,...patch},source),"verify");
+  for(const patch of [{lastStatus:undefined},{lastStatus:"error"},{freshness:"missing"},{freshness:"unknown"},{freshness:"stale"},{freshness:"expiring"},{lastRunId:undefined},{evidenceRunId:undefined},{evidenceRunId:"older-run"},{lastEvidenceAt:undefined}]) assert.equal(controlQueueGroup({...rule,...patch},source),"verify");
   assert.equal(controlQueueGroup(rule),"verify");
   assert.equal(controlQueueGroup(rule,{...source,enabled:false}),"verify");
   assert.equal(controlQueueGroup({...rule,lastStatus:"fail"},source),"failed");

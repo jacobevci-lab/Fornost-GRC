@@ -200,7 +200,7 @@ export default function EvidenceAutomation({lang,currentUser}:{lang:Lang;current
   const tabButton=(id:typeof tab)=><button key={id} data-ea-tab={id} aria-pressed={tab===id} className={tab===id?"active":""} onClick={()=>selectTab(id)}>{tabNames[id]}</button>;
   const moreActive=tab!=="sources"&&tab!=="rules"&&tab!=="runs";
   return <section className="ea-page ew-page">
-    <header className="ew-heading"><h2>{tr?"Kanıt Otomasyonu":"Evidence Automation"}</h2>
+    <header className="ew-heading"><h2>{tab==="rules"?(tr?"Sürekli Kontroller":"Continuous Controls"):(tr?"Kanıt Otomasyonu":"Evidence Automation")}</h2>
       {!wizardProfile&&!loading&&!loadFailed&&tab==="sources"&&sources.length>0&&currentUser.role==="Admin"&&
         <button className={addingSource?"ghost":"primary"} onClick={()=>setAddingSource(!addingSource)}>{addingSource?(tr?"Kaynaklara dön":"Back to sources"):(tr?"+ Kaynak ekle":"+ Add source")}</button>}
     </header>

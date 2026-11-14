@@ -67,7 +67,7 @@ try {
   await expect(page.locator('.ew-expanded')).toContainText('QA-DEVICE-01');
   await page.screenshot({path:out+'/controls.png'});
   const queue=page.locator('.ew-queue');
-  const source2={...source,id:'qa-code',name:'SonarQube'};
+  const source2={...source,id:'qa-code',name:'SonarQube',vendor:'SonarSource'};
   const current={...rule,id:'qa-current',name:'Current compliance',freshness:'fresh',lastStatus:'pass',remediationOwner:'BT'};
   viewSources=[source,source2];
   viewRules=[{...rule,remediationOwner:'BT'},current,{...current,id:'qa-stale',name:'Stale passing check',freshness:'stale'},
@@ -126,7 +126,6 @@ try {
   await page.screenshot({path:out+'/source-view-mobile.png',fullPage:true});
   await queue.getByLabel('Görünüm',{exact:true}).selectOption('priority');
 
-  await page.locator('.language-switch:visible').getByRole('button',{name:'TR',exact:true}).click();
   await page.setViewportSize({width:390,height:844});
   await expect(page.locator('.ew-selected')).toContainText('Başarısız');
   assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)<=4);

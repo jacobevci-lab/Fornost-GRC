@@ -14,6 +14,13 @@ Required fidelity checks: existing application font/typography, compact toolbar 
 
 Intentional adaptations: retain actual source/rule/run contracts, show only supported actions, show all matching controls, distinguish recorded last result from current evidence, and avoid invented device counts or business-impact scoring. Mock CAPA action is not added without a linked finding and the existing governance workflow.
 
-Findings: browser-rendered evidence and comparison are not yet available; no visual pass is claimed.
+First browser iteration at d825d86: isolated layout probe 43638071210, artifact 14131096938 (`failure.png`, 1440 × 960). The priority grouping, selected inline run, retained source context and existing cream/teal shell rendered correctly. The journey stopped at the owner selector's ambiguous accessible name.
+
+Findings and fixes awaiting a new browser capture:
+- P2: owner/view select labels included nested option text. Added explicit bilingual accessible names; the exact-name browser interaction remains required.
+- P2: legacy global 10px typography flattened control names and metadata. Scoped 13px body, 14px control/group titles, 12px metadata and 16px source headings to the work queue, preserving the application font family and palette. Removed the inherited extra box around the queue action heading.
+- Fixture repair: the SonarQube fixture inherited the Microsoft vendor, so searching Microsoft legitimately matched it. Use SonarSource; retain the combined-filter count assertion.
+
+Full-view/source-view comparison and mobile results are still pending; no visual pass is claimed.
 
 final result: blocked

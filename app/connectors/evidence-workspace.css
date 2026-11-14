@@ -87,3 +87,12 @@
   .ew-table-wrap .ew-expanded{display:block;padding:8px}
   .ew-table-wrap .ew-expanded td{display:block;padding:8px}
 }
+
+/* Keep the existing font family and palette; prevent the legacy 10px rule
+   from flattening the hierarchy in this dense operational work list. */
+html[data-theme] body .shell>main .ew-queue :where(p,span,small,b,strong,label,button,a,dt,dd,li,input,select){font-size:13px!important;line-height:1.5!important}
+html[data-theme] body .shell>main .ew-queue :where(small,dt,.ew-badge,.ew-queue-counts,.ew-source-counts,.ew-queue-note,.ew-queue-toolbar label>span){font-size:12px!important}
+html[data-theme] body .shell>main .ew-queue :where(h4,.ew-control-name>b){font-size:14px!important;line-height:1.4!important}
+html[data-theme] body .shell>main .ew-queue .ew-source-group>header h4{font-size:16px!important}
+.ea-page.ew-page .ew-queue-head{padding:0!important;border:0!important;background:transparent!important}
+.ew-source-group .ew-inspect-label{display:none}.ew-control-inspect .ew-inspect-label{margin:0}
