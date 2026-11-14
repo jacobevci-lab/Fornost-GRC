@@ -29,19 +29,6 @@
   .assurance-chain li[data-stage="2"] { margin-inline-start:20px; }
 }
 
-/* The compact desktop navigation uses the same petrol rail as the relationship view. */
-@media(min-width:901px) {
-  .shell.sidebar-compact > aside,
-  .shell.sidebar-compact > aside :is(.brand, .sidebar-view-controls, .nav-group-items) {
-    background:#0b514f!important; border-color:#367572!important;
-  }
-  .shell.sidebar-compact > aside nav .nav-group-items button i { color:#e0f2ed!important; }
-  .shell.sidebar-compact > aside nav .nav-group-items button:is(:hover,[aria-current="page"]) { background:#20746e!important; }
-  .shell.sidebar-compact > aside .sidebar-view-controls button,
-  .shell.sidebar-compact > aside .sidebar-toggle { color:#e0f2ed!important; background:#155f5b!important; }
-}
-
-
 /* Operational tables use a dense type scale. The relationship workspace has its own reading scale. */
 html[data-theme] body .shell > main .record-workspace .assurance-chain h4 {
   font:700 clamp(20px,1.7vw,26px)/1.25 Inter,system-ui,sans-serif!important;
