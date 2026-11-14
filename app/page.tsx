@@ -1133,7 +1133,8 @@ function FornostApp({ currentUser }: { currentUser: any }) {
     [modal, setModal] = useState(false),
     [editing, setEditing] = useState<Row | null>(null),
     [form, setForm] = useState<Record<string, any>>({}),
-    [notice, setNotice] = useState(""),
+    [notice, setNoticeText] = useState(""),
+    [noticeTone,setNoticeTone] = useState<"info"|"success"|"error">("info"),
     [saving, setSaving] = useState(false),
     [importOpen, setImportOpen] = useState(false),
     [registerImportRevision, setRegisterImportRevision] = useState(0),
@@ -1185,6 +1186,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
     // Wait for restoration so the initial Home render cannot overwrite it.
     if (pageRestored) rememberPage(() => window.sessionStorage, pageKey, active);
   }, [active, pageKey, pageRestored]);
+  const setNotice=useCallback((message:string,tone:"info"|"success"|"error"="info")=>{setNoticeText(message);setNoticeTone(tone)},[]);
   const recordWritePending=useRef(false);
   const deletePending=useRef(false);
   const closeRecordDialog=useCallback(()=>{if(!recordWritePending.current)setModal(false)},[]);
@@ -1330,7 +1332,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
       );
       return null;
     }
-  }, []);
+  }, [setNotice]);
   const loadCatalogs = useCallback(async () => {
     try {
       const response = await fetch(withBasePath("/api/catalogs"), {
@@ -1384,7 +1386,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
       setRecordRequest(null);
     });
     return () => { cancelled = true; };
-  }, [recordRequest, active, load]);
+  }, [recordRequest, active, load, setNotice]);
   const selectedColumnKeys =
     columnPreferences[active] || defaultRegisterColumnKeys(active);
   const visible = useMemo(
@@ -1516,19 +1518,19 @@ function FornostApp({ currentUser }: { currentUser: any }) {
       const j = await r.json().catch(() => ({}));
       if (r.ok) {
         await load();
-        setNotice(lang === "tr" ? "Kayıt silindi." : "Record deleted.");
+        setNotice(lang === "tr" ? "Kayıt silindi." : "Record deleted.","success");
         return;
       }
       if (r.status === 409 || r.status === 404) {
         await load();
         setNotice(j.code === "RECORD_LINKED"
           ? lang === "tr" ? "Bu kayda ID veya kod ile bağlı kayıtlar var. Önce bağlantıları kaldırın veya yeniden atayın." : "Other records link to this record by ID or code. Remove or reassign those links before deleting it."
-          : lang === "tr" ? "Kayıt değişmiş veya kaldırılmış. Liste yenilendi; güncel kaydı inceleyip tekrar karar verin." : "The record changed or was removed. The list has been refreshed; review it before deciding again.");
+          : lang === "tr" ? "Kayıt değişmiş veya kaldırılmış. Liste yenilendi; güncel kaydı inceleyip tekrar karar verin." : "The record changed or was removed. The list has been refreshed; review it before deciding again.","error");
         return;
       }
       throw new Error(j.error || (lang === "tr" ? "Kayıt silinemedi." : "Record could not be deleted."));
     } catch (error) {
-      setNotice(error instanceof Error ? error.message : lang === "tr" ? "Kayıt silinemedi." : "Record could not be deleted.");
+      setNotice(error instanceof Error ? error.message : lang === "tr" ? "Kayıt silinemedi." : "Record could not be deleted.","error");
     }finally{deletePending.current=false;}
   }
   async function createAudit(input: {
@@ -1585,7 +1587,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
         result.error ||
           (lang === "tr"
             ? "Denetim silinemedi."
-            : "Audit could not be deleted."),
+            : "Audit could not be deleted."),"error",
       );
       return;
     }
@@ -1599,7 +1601,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
     } catch {
       setNotice(lang === "tr"
         ? "Silme sonucu doğrulanamadı. Tekrar denemeden önce denetim listesini yenileyin."
-        : "The deletion result could not be confirmed. Refresh the audit list before trying again.");
+        : "The deletion result could not be confirmed. Refresh the audit list before trying again.","error");
     } finally { deletePending.current=false; }
   }
   async function createTicket(row: Row) {
@@ -2135,7 +2137,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
           </div>
         </header>
         {notice && (
-          <div className="notice" role="status">
+          <div className="notice" data-tone={noticeTone} role={noticeTone==="error"?"alert":"status"}>
             {notice}
             <button type="button" onClick={() => setNotice("")} aria-label={lang === "tr" ? "Bildirimi kapat" : "Dismiss notification"}>×</button>
           </div>

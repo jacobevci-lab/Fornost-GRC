@@ -56,7 +56,7 @@ export type ConnectedGrcDomainPosture = {
   percent: number;
 };
 
-type RelationDefinition = { relation: string; modules: string[]; sources?: string[]; targetKind?: string; canonicalOnly?: boolean; optionalControlReference?: boolean };
+type RelationDefinition = { relation: string; modules: string[]; sources?: string[]; targetKind?: string; canonicalOnly?: boolean; optionalControlReference?: boolean; frameworkTag?: boolean };
 
 export const relationFields: Record<string, RelationDefinition> = {
   aiModelRef: { relation: "ai-model", modules: ["AI Yönetişimi"], sources: ["AI Yönetişimi"], targetKind: "ai-model", canonicalOnly: true },
@@ -71,8 +71,8 @@ export const relationFields: Record<string, RelationDefinition> = {
   riskRef: { relation: "audit-risk", modules: ["Risk Assessment"], sources: ["Denetim Yönetimi"] },
   evidenceRef: { relation: "audit-evidence", modules: ["Kanıtlar"], sources: ["Denetim Yönetimi"] },
   vendor: { relation: "asset-vendor", modules: ["Tedarikçiler"], sources: ["Varlık Envanteri"] },
-  frameworks: { relation: "control-framework", modules: ["Uyum"], sources: ["Kontroller", "Kanıtlar"] },
-  framework: { relation: "control-framework", modules: ["Uyum"], sources: ["Kontroller", "Kanıtlar"] },
+  frameworks: { relation: "control-framework", modules: ["Uyum"], sources: ["Kontroller", "Kanıtlar"], frameworkTag: true },
+  framework: { relation: "control-framework", modules: ["Uyum"], sources: ["Kontroller", "Kanıtlar"], frameworkTag: true },
 
   findingRiskRef: { relation: "finding-risk", modules: ["Risk Assessment"], sources: ["Bulgular ve CAPA"] },
   findingControlRef: { relation: "finding-control", modules: ["Kontroller", "Uyum"], sources: ["Bulgular ve CAPA"] },
@@ -179,6 +179,12 @@ export function buildConnectedGrcGraph(rows: ConnectedGrcRow[]) {
           matches = matches.filter(row => [row.id, row.code, row.data.controlRef].some(value => value && normalize(value) === key));
           if (!matches.length) continue;
         }
+        // A framework label is classification, not an identity for each requirement
+        // carrying that label. Only explicit requirement IDs/codes create this edge.
+        if (definition.frameworkTag) {
+          matches=matches.filter(row=>[row.id,row.code].some(value=>value&&normalize(value)===key)||((row.data.kind==="framework"||!["requirementRef","requirementTitle","controlRef","title","statement"].some(field=>row.data[field]))&&normalize(row.data.framework)===key));
+          if(!matches.length&&!/^CMP-/i.test(reference)) continue;
+        }
         if (matches.length !== 1) {
           const unresolvedKey = `${source.id}|${field}|${definition.relation}|${key}`;
           if (!unresolvedSeen.has(unresolvedKey)) {
@@ -233,7 +239,7 @@ const coverageRules: CoverageRule[] = [
   { module: "Kanıt Otomasyonu", kind: "automation-remediation", rule: "continuous-assurance", severity: "high", relationGroups: [["finding-remediation"], ["remediation-risk"]] },
 ];
 
-const ruleForRow = (row: ConnectedGrcRow) => coverageRules.find((rule) =>
+const ruleForRow = (row: ConnectedGrcRow) => row.data.kind==="audit"?undefined:coverageRules.find((rule) =>
   rule.module === row.module && (!rule.kind || String(row.data.kind || "") === rule.kind),
 );
 

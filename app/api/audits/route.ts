@@ -1,3 +1,5 @@
+import { deleteAudit, AuditLinked } from "../../audit-delete";
+import { LifecycleConflict } from "../../enterprise-lifecycle-write";
 import { ensureAuditClosureSchema } from "../../audit-closure-schema";
 import { isAuditClosedError, auditClosedMessage } from "../../audit-closure";
 import {getCatalogStatus} from "../../framework-catalog-status";
@@ -154,20 +156,12 @@ export async function DELETE(req: NextRequest) {
   const id = req.nextUrl.searchParams.get("id");
   if (!id || id.length > 100) return NextResponse.json({ error: "Geçersiz denetim kimliği." }, { status: 400 });
   try {
-  const d = await db(), audit = await d.prepare("SELECT * FROM simple_audits WHERE id=?").bind(id).first<Record<string, unknown>>();
+  const d = await db(), audit = await d.prepare("SELECT * FROM simple_audits WHERE id=?").bind(id).first<Record<string, string | number | null>>();
   if (!audit) return NextResponse.json({ error: "Denetim bulunamadı." }, { status: 404 });
-  const requirements = await d.prepare("SELECT id,data_json,created_at,updated_at FROM simple_grc_records WHERE module='Denetim Yönetimi' AND json_extract(data_json,'$.auditName')=?").bind(String(audit.name)).all();
-  const now = new Date().toISOString();
-  const archiveChunks: unknown[][]=[];let chunk:unknown[]=[];let size=0;
-  for(const row of requirements.results){const bytes=new TextEncoder().encode(JSON.stringify(row)).length;if(size+bytes>400000&&chunk.length){archiveChunks.push(chunk);chunk=[];size=0;}chunk.push(row);size+=bytes;}
-  if(chunk.length)archiveChunks.push(chunk);
-  await d.batch([
-    d.prepare("INSERT OR REPLACE INTO simple_grc_metadata(key,value,updated_at) VALUES(?,?,?)").bind(`audit_archive_${id}`, JSON.stringify({ audit, requirementsChunkCount: archiveChunks.length, requirementCount:requirements.results.length, deletedAt: now, deletedBy: auth.actor?.email || "unknown" }), now),
-    ...archiveChunks.map((rows,index)=>d.prepare("INSERT OR REPLACE INTO simple_grc_metadata(key,value,updated_at) VALUES(?,?,?)").bind(`audit_archive_${id}_requirements_${index}`,JSON.stringify(rows),now)),
-    d.prepare("DELETE FROM simple_grc_record_codes WHERE record_id IN (SELECT id FROM simple_grc_records WHERE module='Denetim Yönetimi' AND json_extract(data_json,'$.auditName')=?)").bind(String(audit.name)),
-    d.prepare("DELETE FROM simple_grc_records WHERE module='Denetim Yönetimi' AND json_extract(data_json,'$.auditName')=?").bind(String(audit.name)),
-    d.prepare("DELETE FROM simple_audits WHERE id=?").bind(id),
-  ]);
-  return NextResponse.json({ ok: true, deletedRequirements: requirements.results.length });
-  } catch(error) { return NextResponse.json({error:isAuditClosedError(error)?auditClosedMessage:"Denetim silinemedi."},{status:isAuditClosedError(error)?409:503}); }
+  const deletedRequirements = await deleteAudit(d, audit, auth.actor.email);
+  return NextResponse.json({ ok: true, deletedRequirements });
+  } catch(error) {
+    const linked=error instanceof AuditLinked, conflict=error instanceof LifecycleConflict, closed=isAuditClosedError(error);
+    return NextResponse.json({error:linked||conflict?error.message:closed?auditClosedMessage:"Denetim silinemedi.",code:linked?"AUDIT_LINKED":conflict?"LIFECYCLE_CONFLICT":undefined},{status:linked||conflict||closed?409:503});
+  }
 }

@@ -1,7 +1,7 @@
 const labels: Record<string, [string, string]> = {
   'incident-declare': ['Olay ilanı', 'Incident declaration'],
   declared: ['İlan edildi', 'Declared'], triage: ['Ön inceleme', 'Triage'], contained: ['Kontrol altında', 'Contained'],
-  eradicated: ['Tehdit giderildi', 'Eradicated'], recovered: ['Hizmet geri yüklendi', 'Recovered'], review: ['İncelemede', 'In review'], closed: ['Kapalı', 'Closed'],
+  eradicated: ['Tehdit giderildi', 'Eradicated'], recovered: ['Hizmet geri yüklendi', 'Recovered'], review: ['İncelemede', 'In review'], cancelled: ['İptal edildi', 'Cancelled'],closed: ['Kapalı', 'Closed'],
   contain: ['Kontrol altına al', 'Contain'], eradicate: ['Tehdidi gider', 'Eradicate'], recover: ['Hizmeti geri yükle', 'Recover'], close: ['Kapat', 'Close'], reopen: ['Yeniden aç', 'Reopen'],
   low: ['Düşük', 'Low'], medium: ['Orta', 'Medium'], high: ['Yüksek', 'High'], critical: ['Kritik', 'Critical'],
   malware: ['Zararlı yazılım', 'Malware'], phishing: ['Oltalama', 'Phishing'], 'account-compromise': ['Hesap ele geçirme', 'Account compromise'],

@@ -1,4 +1,5 @@
 "use client";
+import WorkflowCancelButton from "./workflow-cancel-button";
 import {IncidentDossier,hasIncidentBreach,matchesIncident,type Incident} from "./incidents/case-workspace";
 import "./incidents/case-workspace.css";
 import {FormEvent,useCallback,useMemo,useRef,useState} from "react";
@@ -60,6 +61,7 @@ export default function IncidentCenter({lang,currentUser}:{lang:Lang;currentUser
     {currentUser.role==="Admin"&&<a href={withBasePath("/api/incidents?format=csv")}>{tr?"Olay CSV":"Incident CSV"}</a>}
     {canCreate&&<button type="button" className="primary" disabled={busy} onClick={()=>{setNotice("");setForm(emptyForm(currentUser.email));}}>+ {tr?"Olay İlan Et":"Declare Incident"}</button>}
   </div></header>
+  {selected&&currentUser.role==="Admin"&&["declared","triage"].includes(selected.status)&&<WorkflowCancelButton key={selected.id+selected.updatedAt} endpoint="/api/incidents" id={selected.id} revision={selected.updatedAt} label={selected.code} tr={tr} onSaved={async()=>{setFilter("all");await resource.reload()}}/>}
   {notice&&<button className="incident-notice" onClick={()=>setNotice("")}>{notice}<b>×</b></button>}
   <EnterpriseWorkFocusBanner focus={workFocus.focus} found={incidents.some(x=>x.id===workFocus.focus?.ref)} ready={ready} clear={clearFocus} tr={tr}/>
   <div className="incident-source-state ic-source"><button type="button" disabled={busy||resource.loading} onClick={()=>void resource.reload()}>{tr?'Olayları yenile':'Refresh incidents'}</button>

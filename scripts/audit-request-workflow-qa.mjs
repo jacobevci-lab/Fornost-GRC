@@ -1,3 +1,4 @@
+import {cleanupQaFixture} from './qa-fixture-cleanup.mjs';
 import { qaPassword } from './qa-credentials.mjs';
 import { chromium, expect } from '@playwright/test';
 import assert from 'node:assert/strict';
@@ -280,7 +281,7 @@ try {
   }
   throw error;
 } finally {
-  if (auditId) await api(admin, `/api/audits?id=${auditId}`, 'DELETE');
+  if (auditId) await cleanupQaFixture(admin,base,'audit',auditId);
   // Versioned evidence can be retained by the existing reference guard; never bypass it for QA cleanup.
   if (evidenceId) { const cleanup = await admin.request.delete(base + `/api/grc?id=${evidenceId}`, { headers: { origin: base } }); assert.ok([200, 409].includes(cleanup.status())); }
   for (const id of accountIds) await api(admin, '/api/users', 'PATCH', { id, role: 'Editor', status: 'Disabled' });

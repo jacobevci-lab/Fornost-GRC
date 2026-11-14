@@ -47,7 +47,7 @@ export function validateException(input:Record<string,unknown>,today=new Date().
 }
 
 export function policyAttention(status:string,nextReview:string,activeExceptions:number,pendingAttestations:number,now=new Date()){
- if(status==="retired")return status;const today=now.toISOString().slice(0,10);
+ if(["retired","cancelled"].includes(status))return status;const today=now.toISOString().slice(0,10);
  if(nextReview&&nextReview<today)return"review-overdue";
  if(nextReview&&Math.ceil((new Date(`${nextReview}T23:59:59Z`).getTime()-now.getTime())/86_400_000)<=30)return"review-due";
  if(activeExceptions>0)return"active-exception";

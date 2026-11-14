@@ -1,3 +1,4 @@
+import {cleanupQaFixture} from './qa-fixture-cleanup.mjs';
 import {chromium,expect} from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 import writeExcelFile from 'write-excel-file/node';
@@ -71,7 +72,7 @@ try{
 }catch(error){await writeFile(`${out}/failure.json`,JSON.stringify({phase,message:error.message,stack:error.stack,checks,errors},null,2));await page.screenshot({path:`${out}/failure.png`,fullPage:true}).catch(()=>{});throw error;}
 finally{
  await page.close();
- if(auditId)try{await api(`/api/audits?id=${auditId}`,'DELETE');cleanup.push('audit removed');}catch(e){cleanup.push('audit cleanup failed: '+e.message);}
+ if(auditId)try{await cleanupQaFixture(context,base,'audit',auditId);cleanup.push('audit cleanup verified');}catch(e){cleanup.push('audit cleanup failed: '+e.message);}
  try{for(const row of await owned())await api(`/api/grc?id=${encodeURIComponent(row.id)}&expectedUpdatedAt=${encodeURIComponent(row.updated_at)}`,'DELETE');cleanup.push('imported records removed');}catch(e){cleanup.push('record cleanup failed: '+e.message);}
  if(userId)try{await api('/api/users','PATCH',{id:userId,role:'Viewer',status:'Disabled'});cleanup.push('reader disabled');}catch(e){cleanup.push('reader cleanup failed: '+e.message);}
  await writeFile(`${out}/cleanup.json`,JSON.stringify(cleanup));await browser.close();if(cleanup.some(item=>item.includes('failed')))throw new Error('Import QA cleanup failed');

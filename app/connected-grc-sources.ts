@@ -2,6 +2,7 @@ import type { ConnectedGrcRow } from "./connected-grc-model";
 
 type JsonRecord = Record<string, unknown>;
 export type ConnectedGrcEnterprisePayloads = Partial<Record<
+  | "audits"
   | "findings"
   | "incidents"
   | "continuity"
@@ -15,6 +16,7 @@ export type ConnectedGrcEnterprisePayloads = Partial<Record<
 >>;
 
 export const connectedGrcEnterpriseEndpoints = [
+  { key: "audits", path: "/api/audits" },
   { key: "findings", path: "/api/findings?view=graph" },
   { key: "incidents", path: "/api/incidents" },
   { key: "continuity", path: "/api/continuity" },
@@ -38,6 +40,7 @@ export function connectedGrcEndpoints(includeAi: boolean) {
 // Only collections consumed by the graph participate in readiness. Limits mirror
 // the authoritative list APIs; reaching a limit is conservatively incomplete.
 const sourceCollections: Record<keyof ConnectedGrcEnterprisePayloads, Record<string, number>> = {
+  audits: { audits: Infinity },
   findings: { findings: 3000 },
   incidents: { incidents: 3000 },
   continuity: { plans: 2000, exercises: 2000, gaps: 2000 },
@@ -446,6 +449,7 @@ function aiRows(payloads: ConnectedGrcEnterprisePayloads): ConnectedGrcRow[] {
 
 export function buildConnectedGrcEnterpriseRows(payloads: ConnectedGrcEnterprisePayloads): ConnectedGrcRow[] {
   const rows = [
+    ...records(payloads.audits?.audits).map((item,index)=>makeRow("enterprise","audit","Denetim Yönetimi",item,index,{title:text(item.name),owner:text(item.audit_owner),auditName:text(item.name),frameworkTemplate:text(item.template)})),
     ...aiRows(payloads),
     ...findingsRows(payloads.findings || {}),
     ...incidentRows(payloads.incidents || {}),

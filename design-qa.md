@@ -1,29 +1,37 @@
-# Connected GRC workbench design verification
+# Continuous control views — design QA
 
-Scope: relationship desk, impact review and gap completion. Existing assurance operations, palette, shell, access boundaries and canonical record workflows remain in place.
+Approved scope: priority work list and optional source view in Evidence Automation. Guided review is deferred. Existing navigation, fonts, color themes, actions and canonical data remain authoritative.
 
-## References and evidence
+Source visual truth:
+- Priority: `generated_images/exec-15d19f14-f896-4934-8913-a2da9193c15c.png` (1487 × 1058).
+- Source grouping: `generated_images/exec-93f29bbb-7a7b-4c43-a2d9-a4df547dab89.png` (1487 × 1058).
 
-Selected design: the 11 November 2026 Relationship Inspection Desk (`exec-e4101140-8c8d-4608-8d5a-a646a0ab189a.png`), with Impact Review (`exec-b4b3241f-0c12-4f63-bdbd-637cc7579a49.png`) and Gap Completion (`exec-76727765-caad-4253-9d33-477d9bf848e3.png`) as supporting views.
+Implementation evidence: [isolated browser run 43638666869](https://github.com/jacobevci-lab/Fornost-GRC/actions/runs/43638666869) passed on application commit `ed80befc6494897ec00063a881dd645c48dd0c33`. Its [continuous-control-views-preview artifact 14131317519](https://github.com/jacobevci-lab/Fornost-GRC/actions/runs/43638666869/artifacts/14131317519) contains the real Chromium captures. Desktop viewport 1440 × 960 CSS px, DPR 1; mobile 390 × 844 CSS px, DPR 1. Full-page captures are taller than the viewport: priority light 1440 × 1611 and source light 1440 × 1863. Synthetic test controls differ from illustrative mock records; no fictitious values are shipped.
 
-[Chromium workbench QA #4](https://github.com/jacobevci-lab/Fornost-GRC/actions/runs/43028771322) passed at `2de114dc326514d844240ae6f28a03cab0f0bcb7`. [Artifact](https://github.com/jacobevci-lab/Fornost-GRC/actions/runs/43028771322/artifacts/13859252237) contains 24 TR/EN, light/dark, 1640/390px workspace captures plus the empty state and report. Synthetic isolated records only; credentials are excluded. The local cloud preview was unavailable; these are actual Chromium renders from GitHub Actions, not a claim that the unavailable cloud session passed.
+Full-view comparison: reference and actual capture were assembled together, side by side, for both views. Focused comparison placed reference and actual grouped rows, expanded result/evidence region, and source cards together at native scale. Mobile source view and settled dark source view were inspected separately. Local Chromium cannot open process sockets in this execution environment; the established isolated GitHub Chromium runner supplies browser evidence.
 
-Reference and rendered captures were inspected together at the workspace content level. At 1640px the existing expanded sidebar leaves approximately 1304px for content. Representative light desktop diagram, plan editor, queue and dark mobile impact captures were directly inspected. No unresolved P0/P1/P2 visual findings were observed within this scope.
+Required fidelity checks: existing application font/typography, compact toolbar and inline rows, theme/semantic tokens, existing native icons (no new raster assets), and bilingual truthful source/result/owner copy. Functional checks cover default priority, source grouping, combined filters, refresh/selection retention, missing source and stale evidence, keyboard expansion/Escape, run evidence navigation and responsive bounds.
 
-## Findings and repairs
+Intentional adaptations: retain actual source/rule/run contracts, show only supported actions, show all matching controls, distinguish recorded last result from current evidence, and avoid invented device counts or business-impact scoring. Mock CAPA action is not added without a linked finding and the existing governance workflow.
 
-- Preserved three-pane relationship exploration, two-pane impact/queue investigation, cream/teal tokens and explicit selected-record states. The existing assurance tab remains reachable.
-- Repaired inherited 10px body typography, illegible primary hover text, content asides inheriting 100vh, and SVG edges inheriting the generic icon dimensions.
-- Desktop uses readable 13px controls/body, 12px record titles, 17px section headings and a 26px page heading. Small metadata stays subordinate. Mobile stacks panels and scrolls tables within their containers.
-- Relationship directions are retained in paths. Selected graph edges carry labels; diagram/list, bounded depth, zoom and fit are available. A deterministic layered graph replaces the illustrative freeform arrangement to keep real records stable.
-- Explicit relationship edits use canonical fields with reason/history. Missing sources do not become a false clean state. Ambiguous legacy references show candidates without selecting one automatically.
-- Product adaptations: existing navigation/search stay above the desk; the relation editor is contextual; actual owners, dates and BIA targets replace illustrative fixture values. No inferred effectiveness, compliance percentage or invented causal impact is shown.
-- Verified internal mobile table scrolling, review topics from the visible relationship neighborhood and explicit history actions in the final visual rerun.
+First browser iteration at d825d86: isolated layout probe 43638071210, artifact 14131096938 (`failure.png`, 1440 × 960). The priority grouping, selected inline run, retained source context and existing cream/teal shell rendered correctly. The journey stopped at the owner selector's ambiguous accessible name.
 
-## Verified behavior
+Findings and verified fixes:
+- P2: owner/view select labels included nested option text. Added explicit bilingual accessible names; the exact-name browser interaction remains required.
+- P2: legacy global 10px typography flattened control names and metadata. Scoped 13px body, 14px control/group titles, 12px metadata and 16px source headings to the work queue, preserving the application font family and palette. Removed the inherited extra box around the queue action heading.
+- Fixture repair: the SonarQube fixture inherited the Microsoft vendor, so searching Microsoft legitimately matched it. Use SonarSource; retain the combined-filter count assertion.
 
-Browser QA passed UI link/unlink and persisted history, preservation of linked records, diagram/list and impact paths, BIA RTO display, uncertain-write replay prevention, gap search/reset and partial-source retry. All 24 language/theme/viewport combinations passed document-overflow checks with no page errors.
+All three fixes passed the second browser journey and were visible in the ed80bef captures. The exact-name owner/view selectors, combined filters, all four priority groups, orphan source group, selection retention on refresh/view switch, keyboard Escape/Enter and evidence navigation passed. Mobile bounds and status-badge bounds passed with no browser page errors.
 
-Local connected graph, navigation, source and transactional-write regressions: 89 passed, including a final nonvisual regression ensuring relationship edits preserve unrelated legacy and long-form source fields. Tests cover required links, source/target permission boundaries, stale versions, concurrent target disappearance, audit rollback, evidence reference consistency and draft-plan non-approval. The isolated layout probe also passed 324 module/language/theme/viewport views, including Connected GRC navigation and pagination, at the same reviewed revision: https://github.com/jacobevci-lab/Fornost-GRC/actions/runs/43028771450. All nine CI jobs passed, including regression tests, dependency/image audit and Docker/Podman/on-prem checks. The focused workflow also passed the existing AI/source recovery suite (8 layouts) and reference ambiguity/correction suite (8 layouts). Repository-wide Workspace Layout QA is separate and is not claimed complete here. Release checks run again on the final commit containing the nonvisual preservation fix.
+Five-surface review:
+- Typography: current app font retained; control titles, metadata and source headings remain distinguishable at native scale.
+- Layout: priority rows and inline detail match the selected work-list direction; the optional view uses two source columns on desktop and one on mobile. An expanded source intentionally grows to show the existing recorded-run details. Toolbar and actions wrap on mobile without horizontal overflow.
+- Tokens: existing cream/teal light and dark tokens retained, with semantic failed/current/paused/verification states. Missing source and stale evidence never receive a green current-result badge.
+- Assets: existing native controls/icons retained; no generated raster UI, replacement brand assets or new fonts shipped.
+- Copy: TR/EN labels and action names use actual product capabilities. No unsupported business-impact score, device total or direct CAPA creation is implied.
 
-final result: passed for the reviewed UI; final-commit CI and deployment status are recorded by the PR checks.
+P3 capture-only finding: the first dark priority screenshot caught finite theme transitions, while the following source and mobile captures show the settled dark palette. Screenshots now disable animations to capture their final state; the light source overview also closes the expanded row after testing selection retention. This changes only QA capture timing/state, not application behavior. Global shell contrast belongs to the unchanged application shell and is not presented as a redesign in this change.
+
+No unresolved P0/P1/P2 finding in the implemented control-view scope. This visual result is separate from repository-wide release gates and production deployment verification.
+
+final result: passed

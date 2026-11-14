@@ -33,11 +33,11 @@ async function prepare(def){
  await page.locator('.language-switch:visible').getByRole('button',{name:'EN',exact:true}).click();
  await page.locator('nav button[aria-label="Connected GRC Map"]').evaluate(el=>el.click());
  await expect(page.locator('.cg-source-state')).toHaveAttribute('data-loading','false');
- await page.locator('.cg-filters input').fill(def.item.id);
- await expect(page.locator('.cg-records>button')).toHaveCount(1);
+ await page.locator('#connected-grc-workbench').getByRole('textbox',{name:'Find record',exact:true}).fill(def.item.id);
+ await expect(page.locator('#connected-grc-workbench .cgw-records>button')).toHaveCount(1);
 }
 async function open(def){
- await page.locator('.cg-detail>header').getByRole('button',{name:'Open record',exact:false}).click();
+ await page.locator('#connected-grc-workbench').getByRole('button',{name:'Open source record',exact:true}).click();
  await expect(page.locator('#fornost-ai-panel')).toHaveAttribute('data-ai-view',def.view);
  await expect(page.locator(def.root)).toBeVisible();
 }

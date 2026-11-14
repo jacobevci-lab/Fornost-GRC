@@ -9,8 +9,8 @@ const coreRows: ConnectedGrcRow[] = [
   { id: "CCM-1", code: "RSK-CCM-1", module: "Risk Assessment", data: { title: "MFA assurance degradation risk", processLink: "MFA coverage" } },
 ];
 
-test("Evidence Automation is an eighth live Connected GRC source", () => {
-  assert.equal(connectedGrcEnterpriseEndpoints.length, 8);
+test("Evidence Automation remains a live Connected GRC source", () => {
+  assert.equal(connectedGrcEnterpriseEndpoints.length, 9);
   assert.ok(connectedGrcEnterpriseEndpoints.some((item) => item.key === "evidenceAutomation" && item.path === "/api/evidence-automation"));
 });
 

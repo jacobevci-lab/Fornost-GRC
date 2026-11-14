@@ -3,19 +3,26 @@ import assert from 'node:assert/strict';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { qaPassword } from './qa-credentials.mjs';
 import { revealAiWorkspace } from './qa-ai-workspaces.mjs';
+import { createQaContext, waitForQaIdle } from './qa-browser-harness.mjs';
 
 // Deliberately fixed to the isolated CI database; no production credentials or writes.
 const base='http://127.0.0.1:4173', out='live-product-fixes-qa-artifacts';
 const browser=await chromium.launch({executablePath:process.env.QA_CHROMIUM_PATH||undefined});
-const context=await browser.newContext({viewport:{width:1363,height:936}}),page=await context.newPage();
+const context=await createQaContext(browser,base,{}, {viewport:{width:1363,height:936}}),page=await context.newPage();
 const checks=[],errors=[];page.setDefaultTimeout(15000);page.on('pageerror',error=>errors.push(error.message));
 async function api(path,method='GET',data){const r=await context.request.fetch(base+path,{method,data,headers:{origin:base}});assert.equal(r.status(),200,await r.text());return r.json();}
 async function open(name){
-  const nav=page.locator('#fornost-navigation'),button=nav.getByRole('button',{name,exact:true,includeHidden:true});
+  const nav=page.locator('#fornost-navigation');
+  const button=nav.getByRole('button',{name,exact:true,includeHidden:true});
   if(!await button.isVisible())for(const group of await nav.locator('.nav-group').all()){
-    if(await group.getByRole('button',{name,exact:true,includeHidden:true}).count()){await group.locator('.nav-group-trigger').click();break;}
+    if(await group.getByRole('button',{name,exact:true,includeHidden:true}).count()){
+      await group.locator('.nav-group-trigger').click();break;
+    }
   }
   await button.click();
+  // Assert the destination and its feature state below; unrelated background
+  // assurance reads must not delay an already rendered workspace.
+  await expect(page.locator('main>header h1')).toHaveText(name);
 }
 async function screenshot(name){await page.screenshot({path:`${out}/${name}.png`,fullPage:true,animations:'disabled'});}
 async function navigationState(){return page.locator('.shell>aside').evaluate(aside=>{
@@ -41,16 +48,20 @@ try{
 
   const raw=(await api('/api/grc')).rows, control=raw.find(row=>row.module==='Kontroller');assert.ok(control);
   const code=control.recordCode||control.record_code,controlTitle=JSON.parse(control.data_json).controlTitle;
-  await open('Connected GRC Map');await page.getByRole('textbox',{name:'Find a record',exact:true}).fill(code);
-  const graph=page.locator('.connected-explorer');await expect(graph.locator('.cg-source-state')).toHaveAttribute('data-loading','false');
-  const target=graph.locator('.cg-records button').filter({hasText:code}).filter({hasText:'Control Library'});await target.click();
-  await expect(graph.locator('.cg-detail h3')).toHaveText(controlTitle);
-  await graph.getByRole('button',{name:'Open record ↗',exact:true}).click();
+  await open('Connected GRC Map');
+  const graph=page.locator('#connected-grc-workbench');
+  await graph.getByRole('textbox',{name:'Find record',exact:true}).fill(code);
+  await waitForQaIdle(page);
+  const target=graph.getByRole('region',{name:'Record selection'}).getByRole('button').filter({hasText:code}).filter({hasText:controlTitle});await target.click();
+  await expect(target).toHaveAttribute('aria-pressed','true');
+  await expect(graph.locator('.cgw-record-heading h3')).toHaveText(controlTitle);
+  await graph.getByRole('button',{name:'Open source record',exact:true}).click();
   const focus=page.locator('.core-record-focus:not(.record-link-entry)');await expect(focus).toContainText(code);
   await page.reload();await expect(focus).toContainText(code);await expect(page.locator('.smart-table tbody tr')).toHaveCount(1);
   await focus.getByRole('button',{name:'Return to previous view',exact:true}).click();
-  await expect(page.locator('.connected-explorer')).toBeVisible();await expect(page.getByRole('textbox',{name:'Find a record',exact:true})).toHaveValue(code);
-  await expect(page.locator('.cg-detail h3')).toHaveText(controlTitle);
+  await expect(graph).toBeVisible();await expect(graph.getByRole('textbox',{name:'Find record',exact:true})).toHaveValue(code);
+  await expect(target).toHaveAttribute('aria-pressed','true');
+  await expect(graph.locator('.cgw-record-heading h3')).toHaveText(controlTitle);
   checks.push('F03/F04/F07: exact title, target reload and return restore graph query and selection');await screenshot('03-map-return');
 
   await open('Risk Assessment');await expect(page.locator('.core-record-focus:not(.record-link-entry)')).toHaveCount(0);

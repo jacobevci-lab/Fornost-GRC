@@ -45,7 +45,7 @@ export function buildWorkAssuranceActions(snapshot: ControlAssuranceSnapshot, us
     if (row.module === 'Bulgular ve CAPA' && ['finding', 'finding-manual'].includes(text(row.data.kind)) && assigned([row.data.owner, row.data.reviewer])) {
       const attention = findingAttention(text(row.data.status), text(row.data.severity), text(row.data.dueDate), text(row.data.acceptUntil), now);
       const disposition = findingWorkDisposition(row.data, now.getTime());
-      if (!['closed', 'accepted'].includes(disposition)) actions.push({ row, group: 'finding', critical: ['overdue', 'acceptance-expired'].includes(attention) || key(row.data.severity) === 'critical', reasons: [disposition === 'acceptance-review' ? 'acceptance-review' : disposition === 'acceptance-expired' ? 'acceptance-expired' : 'open-findings'] });
+      if (!['closed', 'accepted', 'cancelled'].includes(disposition)) actions.push({ row, group: 'finding', critical: ['overdue', 'acceptance-expired'].includes(attention) || key(row.data.severity) === 'critical', reasons: [disposition === 'acceptance-review' ? 'acceptance-review' : disposition === 'acceptance-expired' ? 'acceptance-expired' : 'open-findings'] });
     }
   }
   return actions.sort((a, b) => Number(b.critical) - Number(a.critical) || a.row.id.localeCompare(b.row.id));

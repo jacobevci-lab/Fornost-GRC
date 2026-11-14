@@ -9,6 +9,13 @@ const browser=await chromium.launch({executablePath:process.env.QA_CHROMIUM_PATH
 const context=await browser.newContext(),page=await context.newPage(),errors=[];
 page.setDefaultTimeout(20000);page.on('pageerror',e=>errors.push(e.message));
 async function go(name){await page.locator(`nav button[aria-label="${name}"]`).evaluate(e=>e.click());}
+async function openOverview(){
+ await go('Workflow Integrations');
+ const desk=page.getByRole('region',{name:'Integration Center',exact:true});
+ await desk.getByRole('button',{name:'Continuous assurance',exact:true}).click();
+ await desk.locator('.icd-assurance>summary').click();
+ await expect(desk.getByRole('region',{name:'Integrations overview',exact:true})).toBeVisible();
+}
 async function intercept(path,body=false){await page.evaluate(({path,body})=>{
  const original=window.fetch.bind(window);window.qaOriginalFetch=original;window.qaAborts=0;window.qaPending=[];
  window.fetch=async(input,init)=>{
@@ -23,7 +30,7 @@ async function restore(){await page.evaluate(()=>{window.fetch=window.qaOriginal
 try{
  const login=await context.request.post(base+'/api/auth',{headers:{origin:base},data:{action:'login',email:'qa-admin@fornost.test',password:qaPassword()}});assert.equal(login.status(),200);
  await page.goto(base);await expect(page.locator('.shell')).toBeVisible();await page.locator('.language-switch:visible').getByRole('button',{name:'EN',exact:true}).click();
- await intercept('/api/evidence-automation');await go('Workflow Integrations');
+ await intercept('/api/evidence-automation');await openOverview();
  const overview=page.locator('.integrations-overview'),refresh=overview.getByRole('button',{name:'Refresh integrations',exact:true});
  await expect(overview).toHaveAttribute('aria-busy','true');
  await expect(overview).toContainText('Continuous assurance data unavailable');await expect(overview).toContainText('Source and control counts could not be verified.');await expect(refresh).toBeEnabled();
@@ -44,9 +51,14 @@ try{
  await expect(page.locator('.ea-page')).not.toContainText('STALE QA SOURCE');
  await page.screenshot({path:`${out}/sources-recovered.png`,fullPage:true});
  // Configuration errors settle independently and are recoverable without page reload.
- await go('Risk Assessment');await intercept('/api/integrations',true);await go('Workflow Integrations');
+ await go('Risk Assessment');await intercept('/api/integrations',true);await openOverview();
+ const desk=page.getByRole('region',{name:'Integration Center',exact:true});
+ const configAlert=desk.locator('.icd-notice[role="alert"]');
+ await expect(configAlert).toContainText('Connection information is unavailable');
  await expect(overview).toContainText('Configuration unavailable');await expect(refresh).toBeEnabled();
- await restore();await refresh.click();await expect(overview).toHaveAttribute('aria-busy','false');await expect(overview).not.toContainText('Configuration unavailable');
+ await restore();await configAlert.getByRole('button',{name:'Retry',exact:true}).click();
+ await expect(desk).toHaveAttribute('aria-busy','false');await expect(configAlert).toHaveCount(0);
+ await refresh.click();await expect(overview).toHaveAttribute('aria-busy','false');await expect(overview).not.toContainText('Configuration unavailable');
  // Policy Center uses the same bounded recovery for headers and JSON bodies.
  const policy=page.locator('.plm-page');
  for(const body of [false,true]){

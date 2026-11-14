@@ -42,7 +42,7 @@ export function validateEvidenceAction(input:Record<string,unknown>){
 }
 
 export function thirdPartyAttention(status:string,nextReview:string,contractEnd:string,openCritical:number,now=new Date()){
- if(status==="offboarded"||status==="rejected")return status;
+ if(["offboarded","rejected","cancelled"].includes(status))return status;
  const today=now.toISOString().slice(0,10);
  if(contractEnd<today)return "contract-expired";
  if(openCritical>0)return "critical-finding";

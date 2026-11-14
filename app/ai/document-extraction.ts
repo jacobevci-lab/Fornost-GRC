@@ -74,7 +74,9 @@ async function extractPdf(file: File, pageLabels: boolean): Promise<ExtractedKno
 }
 
 async function extractDocx(file: File): Promise<ExtractedKnowledgeDocument> {
-  const mammoth = await import("mammoth");
+  // Select the ArrayBuffer-capable browser entry explicitly. The Node entry expects
+  // a path/Buffer, and resolving it in a client bundle rejects otherwise valid DOCX.
+  const { default: mammoth } = await import("mammoth/mammoth.browser.js");
   const result = await mammoth.extractRawText({ arrayBuffer: await file.arrayBuffer() });
   const content = normalizeExtractedDocumentText(result.value);
   const warnings = result.messages.filter(message => message.type === "warning");

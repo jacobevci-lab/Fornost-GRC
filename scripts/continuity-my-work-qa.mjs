@@ -53,6 +53,14 @@ try {
   const template = (await api(admin, '/api/continuity')).plans.find(row => row.id === f.planId);
   const name = `QA inbox recovery ${Date.now()}`;
   planId = (await api(admin, '/api/continuity', 'POST', { ...template, action: 'create-plan', assignmentMode: 'directory', name, rtoHours: 2, rpoHours: 1, mtpdHours: 8, reviewDate: today }, 201)).id;
+  phase = 'draft preparation and submission'; await openWork(page, name);
+  await expect(page.locator('.mw2-item')).toHaveCount(1); await expect(page.locator('.mw2-item .mw2-state em')).toHaveText('Draft');
+  await expect(page.locator('.mw2-item')).toContainText('Prepare and submit the plan for review');
+  await page.locator('.mw2-filters').getByRole('button', { name: /^Waiting for others/ }).click(); await expect(page.locator('.mw2-item')).toHaveCount(0);
+  await openWork(reviewPage, name); await expect(reviewPage.locator('.mw2-item')).toHaveCount(0);
+  const draftPlan = (await api(admin, '/api/continuity')).plans.find(row => row.id === planId);
+  await api(reviewer, '/api/continuity', 'POST', { action: 'approve-plan', planId, note: 'An unsubmitted draft must not enter approval.', confirmation: 'PLANI ONAYLA' }, 409);
+  await api(admin, '/api/continuity', 'POST', { action: 'submit-plan', planId, expectedUpdatedAt: draftPlan.updatedAt, note: 'Prepared draft submitted for independent inbox review.', confirmation: 'PLANI İNCELEMEYE GÖNDER' });
   phase = 'plan approval and activation'; await openWork(page, name);
   await expect(page.locator('.mw2-item')).toHaveCount(1); await expect(page.locator('.mw2-item')).toContainText('Awaiting approval');
   await page.locator('.mw2-filters').getByRole('button', { name: /^Waiting for others/ }).click(); await expect(page.locator('.mw2-item')).toHaveCount(1);
@@ -63,7 +71,7 @@ try {
   await focusRecord(planId);
   await api(admin, '/api/continuity', 'POST', { action: 'activate-plan', planId, note: 'Recovery team is ready to exercise.', confirmation: 'PLANI ETKİNLEŞTİR' });
   await openWork(page, name); await expect(page.locator('.mw2-item time')).not.toContainText('No due date');
-  checks.push('Draft independent reviewer handoff, approved activation and active review date');
+  checks.push('Draft stays with maker, premature approval rejected, explicit submission hands off to reviewer, activation retains review date');
 
   phase = 'cancel from exact exercise'; const cancelled = await schedule();
   await openWork(page, cancelled.code); await focusRecord(cancelled.id);

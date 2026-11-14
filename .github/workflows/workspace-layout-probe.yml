@@ -4,6 +4,9 @@ on:
     paths:
       - 'scripts/workspace-layout-qa.mjs'
       - 'scripts/evidence-workspace-qa.mjs'
+      - 'app/connectors/control-queue*'
+      - 'app/connectors/evidence-workspace*'
+      - 'app/evidence-automation.tsx'
       - 'scripts/audit-portfolio-workspace-qa.mjs'
       - '.github/workflows/workspace-layout-probe.yml'
   workflow_dispatch:
@@ -52,6 +55,13 @@ jobs:
         run: node scripts/audit-portfolio-workspace-qa.mjs
       - name: Verify evidence workspace interactions
         run: node scripts/evidence-workspace-qa.mjs
+      - name: Preserve continuous control view previews
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: continuous-control-views-preview
+          path: layout-qa-artifacts/evidence-workspace/
+          retention-days: 14
       - name: Diagnose layout in a fresh database
         timeout-minutes: 9
         run: node scripts/workspace-layout-qa.mjs

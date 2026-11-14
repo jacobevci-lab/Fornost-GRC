@@ -49,7 +49,7 @@ try{
     await page.locator('.language-switch:visible').getByRole('button',{name:lang,exact:true}).click();
     await page.locator(`nav button[aria-label="${lang==='EN'?'Evidence Automation':'Kanıt Otomasyonu'}"]`).evaluate(el=>el.click());
     await page.locator('.ea-tabs').getByRole('button',{name:lang==='EN'?'Continuous Controls':'Sürekli Kontroller',exact:true}).click();
-    const row=page.locator('.ew-table-wrap tr').filter({hasText:'QA Execution Coverage'});await expect(row).toContainText(lang==='EN'?'Unverified':'Doğrulanamadı');
+    const row=page.locator('.ew-control').filter({has:page.locator(`[data-rule-id="${ruleId}"]`)});await expect(row).toContainText(lang==='EN'?'Unverified':'Doğrulanamadı');
     const toggle=row.locator('[data-rule-id]');if(await toggle.getAttribute('aria-expanded')!=='true')await toggle.click();const before=refreshes;await page.locator('.ew-expanded').getByRole('button',{name:lang==='EN'?'Run':'Çalıştır',exact:true}).click();
     await expect(page.locator('.ea-message')).toContainText(lang==='EN'?'outdated result was not saved':'Eski sonuç kaydedilmedi');await expect.poll(()=>refreshes).toBeGreaterThan(before);
     for(const theme of ['light','dark'])for(const width of [1536,390]){
@@ -61,6 +61,9 @@ try{
   mode='batch';posts=[];
   await page.locator('.language-switch:visible').getByRole('button',{name:'EN',exact:true}).click();
   await page.locator('nav button[aria-label="Workflow Integrations"]').evaluate(el=>el.click());
+  const desk=page.getByRole('region',{name:'Integration Center',exact:true});
+  await desk.getByRole('button',{name:'Continuous assurance',exact:true}).click();
+  await desk.locator('.icd-assurance>summary').click();
   const overview=page.locator('.integrations-overview');await expect(overview).toBeVisible();
   await overview.getByRole('button',{name:/^Run due/}).click();
   await expect(overview.locator('.iov-bulk-feedback')).toContainText('1 results saved');await expect(overview.locator('.iov-bulk-feedback')).toContainText('1 runs without confirmed records');

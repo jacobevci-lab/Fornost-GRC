@@ -1,3 +1,4 @@
+import {cleanupQaFixture} from './qa-fixture-cleanup.mjs';
 import { openRegisterViews } from "./qa-browser-harness.mjs";
 import {chromium,expect} from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
@@ -69,7 +70,7 @@ try{
 finally{
  if(userId)try{await api(admin,'/api/users','PATCH',{id:userId,role:'Viewer',status:'Active',moduleAccess:{mode:'scoped',modules:{'Risk Assessment':'read'}}});await api(reader,'/api/auth','POST',{action:'login',email:`qa-account-views-${tag}@fornost.test`,password:qaPassword()});}catch(error){cleanup.push('reader recovery failed: '+error.message);}
  for(const view of created)try{const rows=(await api(view.context,path(view.moduleName,view.scope))).views,found=rows.find(row=>row.id===view.id);if(found)await api(view.context,'/api/views','POST',{id:view.id,module:view.moduleName,scope:view.scope,action:'delete',expectedRevision:found.revision});cleanup.push('view removed');}catch(error){cleanup.push('view cleanup failed: '+error.message);}
- if(auditId)try{await api(admin,`/api/audits?id=${auditId}`,'DELETE');cleanup.push('audit removed');}catch(error){cleanup.push('audit cleanup failed: '+error.message);}
+ if(auditId)try{await cleanupQaFixture(admin,base,'audit',auditId);cleanup.push('audit cleanup verified');}catch(error){cleanup.push('audit cleanup failed: '+error.message);}
  if(userId)try{await api(admin,'/api/users','PATCH',{id:userId,role:'Viewer',status:'Disabled'});cleanup.push('viewer disabled');}catch(error){cleanup.push('user cleanup failed: '+error.message);}
  await writeFile(`${out}/cleanup.json`,JSON.stringify(cleanup));await browser.close();if(cleanup.some(value=>value.includes('failed')))throw Error('Account view QA cleanup failed');
 }

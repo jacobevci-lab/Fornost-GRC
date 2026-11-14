@@ -1,3 +1,4 @@
+import {cleanupQaFixture} from './qa-fixture-cleanup.mjs';
 import {qaPassword} from './qa-credentials.mjs';
 import {chromium,expect} from '@playwright/test';
 import assert from 'node:assert/strict';
@@ -19,4 +20,4 @@ try{
  await api('/api/audits','POST',{name:'QA invalid rights',catalogImport:{...catalogImport,rightsConfirmed:false}},400);
  const custom=await api('/api/audits','POST',{name:`QA import ${Date.now()}`,catalogImport},201);ids.push(custom.id);assert.equal(custom.insertedRequirements,1);
  assert.deepEqual(errors,[]);console.log('Framework packs: full NIST 1014, ISO 123, SOC 61, text edit preservation, read stability, import validation and browser details passed.');
-}finally{for(const id of ids.reverse())await api(`/api/audits?id=${id}`,'DELETE');await browser.close();}
+}finally{for(const id of ids.reverse())await cleanupQaFixture(ctx,base,'audit',id);await browser.close();}

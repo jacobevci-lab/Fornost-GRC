@@ -13,7 +13,7 @@ function deadline(finding: Finding, lang: Lang, today: string) {
   if (!Number.isFinite(stamp)) return {date: "—", note: "", late: false};
   const date = new Intl.DateTimeFormat(tr ? "tr-TR" : "en-GB", {dateStyle: "medium", timeZone: "UTC"}).format(stamp);
   const elapsed = (Date.parse(today + "T00:00:00Z") - stamp) / 86_400_000;
-  if (finding.status === "closed") return {date, note: "", late: false};
+  if (["closed","cancelled"].includes(finding.status)) return {date, note: "", late: false};
   if (elapsed > 0) return {date, late: true, note: accepted ? findingLabel("acceptance-expired", lang) : tr ? `${elapsed} gün gecikti` : `${elapsed} ${elapsed === 1 ? "day" : "days"} overdue`};
   if (elapsed === 0) return {date, late: false, note: accepted ? (tr ? "Kabul bugün bitiyor" : "Acceptance ends today") : (tr ? "Bugün" : "Due today")};
   return {date, late: false, note: accepted ? (tr ? "Kabul bitişi" : "Acceptance ends") : ""};
@@ -21,6 +21,7 @@ function deadline(finding: Finding, lang: Lang, today: string) {
 
 function nextStep(finding: Finding, tr: boolean) {
   switch (finding.status) {
+    case "cancelled":return tr?"İptal gerekçesi ve geçmişi inceleyin":"Review cancellation and history";
     case "verification": return tr ? "Gönderilen kanıt bağımsız doğrulayıcının incelemesini bekliyor." : "Submitted evidence awaits independent review.";
     case "closed": return tr ? "Bulgu kapalı. Kapanış kararını ve kanıtını inceleyebilirsiniz." : "This finding is closed. View the closure decision and evidence.";
     case "accepted": return finding.attention === "acceptance-expired"

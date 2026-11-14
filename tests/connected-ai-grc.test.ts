@@ -41,5 +41,5 @@ test('AI source completeness rejects malformed, duplicate and capped payloads', 
 });
 test('non-admin graph endpoint set never requests restricted AI APIs', () => {
   assert.equal(connectedGrcEndpoints(false).some(endpoint => endpoint.path.startsWith('/api/ai/')), false);
-  assert.equal(connectedGrcEndpoints(true).length, 11);
+  assert.equal(connectedGrcEndpoints(true).length, 12);
 });

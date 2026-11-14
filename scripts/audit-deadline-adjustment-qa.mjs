@@ -1,3 +1,4 @@
+import {cleanupQaFixture,fixtureCleanupResults} from './qa-fixture-cleanup.mjs';
 import {chromium,expect} from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 import assert from 'node:assert/strict';
@@ -44,4 +45,4 @@ try{
  checks.push('Editor review dates remain Admin-only','Viewer has no planner or write access','workpaper undo save both phase dates','already working dates do not create a redundant adjustment','TR EN light dark desktop mobile accessibility');assert.deepEqual(errors,[]);
  await writeFile(`${out}/result.json`,JSON.stringify({result:'PASS',checks,errors},null,2));console.log('AUDIT_DEADLINE_ADJUSTMENT_QA_PASS');
 }catch(e){await writeFile(`${out}/failure.json`,JSON.stringify({message:e.message,stack:e.stack,errors},null,2));await page.screenshot({path:`${out}/failure.png`,fullPage:true}).catch(()=>{});throw e;}
-finally{try{if(auditId)await api(admin,`/api/audits?id=${auditId}`,'DELETE');for(const user of users)await api(admin,'/api/users','PATCH',{...user,status:'Disabled'});await writeFile(`${out}/cleanup.json`,JSON.stringify({auditRemoved:!!auditId,accountsDisabled:users.length}));}finally{await browser.close();}}
+finally{try{if(auditId)await cleanupQaFixture(admin,base,'audit',auditId);for(const user of users)await api(admin,'/api/users','PATCH',{...user,status:'Disabled'});await writeFile(`${out}/cleanup.json`,JSON.stringify({auditRemoved:fixtureCleanupResults.some(x=>x.kind==='audit'&&x.id===auditId&&x.deleted),accountsDisabled:users.length}));}finally{await browser.close();}}

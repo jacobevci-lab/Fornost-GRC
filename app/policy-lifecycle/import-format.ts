@@ -1,6 +1,7 @@
 export const policyImportFileLimit = (name:string) => /\.docx$/i.test(name) ? 8 * 1024 * 1024 : /\.pdf$/i.test(name) ? 10 * 1024 * 1024 : 0;
 export const policyImportTextLimit = 50_000;
 const messages:Record<string,[string,string]>={
+ extraction:["Belge metni okunamadı. Dosyayı yeniden seçip deneyin; sorun sürerse metin içeren PDF kopyasını kullanın.","Document text could not be read. Select the file again; if the issue persists, use a text-based PDF copy."],
  file:["Word (.docx) veya PDF seçin. Eski .doc belgelerini .docx olarak kaydedin.","Choose Word (.docx) or PDF. Save legacy .doc files as .docx first."],
  size:["Dosya boş veya boyut sınırını aşıyor. DOCX için 8 MB, PDF için 10 MB.","The file is empty or exceeds the limit of 8 MB for DOCX or 10 MB for PDF."],
  invalid:["Dosya biçimi doğrulanamadı. Geçerli, şifresiz bir PDF veya makrosuz DOCX seçin.","The file format could not be verified. Choose a valid unencrypted PDF or macro-free DOCX."],

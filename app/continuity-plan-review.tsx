@@ -11,7 +11,7 @@ const newDraft = (plan: ContinuityPlan): Draft => ({ requestId: `BPR-${crypto.ra
 function PlanFacts({ plan, tr }: { plan: ContinuityPlan; tr: boolean }) {
   const fields = [
     [tr ? 'Plan / Süreç' : 'Plan / Process', `${plan.name} · ${plan.process}`],
-    [tr ? 'Durum' : 'Status', tr ? ({ draft: 'Taslak', approved: 'Onaylı', active: 'Etkin', retired: 'Yürürlükten kaldırıldı' }[plan.status] || plan.status) : plan.status],
+    [tr ? 'Durum' : 'Status', tr ? ({ draft: 'Taslak', submitted: 'İncelemeye gönderildi', approved: 'Onaylı', active: 'Etkin', retired: 'Yürürlükten kaldırıldı', cancelled: 'İptal edildi' }[plan.status] || plan.status) : plan.status],
     [tr ? 'Kritiklik' : 'Criticality', tr ? ({ critical: 'Kritik', high: 'Yüksek', medium: 'Orta', low: 'Düşük' }[plan.criticality] || plan.criticality) : plan.criticality],
     ['BIA', plan.biaRef], [tr ? 'Plan sahibi' : 'Plan owner', plan.owner],
     [tr ? 'Oluşturan' : 'Created by', plan.createdBy],

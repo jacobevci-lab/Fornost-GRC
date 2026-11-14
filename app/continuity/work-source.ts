@@ -4,8 +4,8 @@ export async function readContinuityWork(db: D1Database) {
   const limit = CONTINUITY_WORK_LIMIT + 1;
   const [plans, exercises, gaps] = await Promise.all([
     db.prepare(`SELECT id,code,name,status,owner,reviewer,crisis_lead crisisLead,
-      review_date reviewDate,criticality,updated_at updatedAt,retired_at completedAt
-      FROM enterprise_continuity_plans ORDER BY CASE WHEN status='retired' THEN 1 ELSE 0 END,review_date,id LIMIT ?`).bind(limit).all(),
+      review_date reviewDate,criticality,updated_at updatedAt,CASE WHEN status='cancelled' THEN updated_at ELSE retired_at END completedAt
+      FROM enterprise_continuity_plans ORDER BY CASE WHEN status IN ('retired','cancelled') THEN 1 ELSE 0 END,review_date,id LIMIT ?`).bind(limit).all(),
     db.prepare(`SELECT e.id,e.code,e.plan_id planId,e.type,e.status,e.facilitator,
       e.scheduled_date scheduledDate,e.created_at createdAt,
       CASE WHEN e.status='cancelled' THEN (SELECT MAX(v.created_at) FROM enterprise_continuity_events v

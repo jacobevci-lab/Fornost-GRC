@@ -1,5 +1,6 @@
 import type { ConnectedSourceIssue } from "./connected-grc-loader";
 const labels: Record<ConnectedSourceIssue["key"], [string, string]> = {
+  audits: ["Denetim portföyü", "Audit portfolio"],
   findings: ["Bulgular ve CAPA", "Findings & CAPA"],
   incidents: ["Güvenlik Olayları", "Security Incidents"],
   continuity: ["İş Sürekliliği", "Business Continuity"],

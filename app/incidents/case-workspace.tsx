@@ -17,7 +17,7 @@ export type Incident = {
 };
 export const hasIncidentBreach = (row: Incident) => row.attention === "response-breach" || row.attention === "recovery-breach";
 export function matchesIncident(row: Incident, filter: string, query: string, lang: "tr"|"en") {
-  const inScope = filter === "all" || (filter === "active" && row.status !== "closed") ||
+  const inScope = filter === "all" || (filter === "active" && !["closed","cancelled"].includes(row.status)) ||
     (filter === "breached" && hasIncidentBreach(row)) || row.status === filter || row.attention === filter;
   const locale = lang === "tr" ? "tr-TR" : "en-GB";
   const text = [row.code,row.title,row.category,incidentLabel(row.category,lang),row.owner,row.commander,row.assetRefs];

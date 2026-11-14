@@ -48,7 +48,7 @@ export function PolicyImportForm({tr,email,policies,onSaved,onBusy}:{tr:boolean;
    const ex=error instanceof Error?error:new Error();
    const key=["invalid","file","size","access","unavailable"].includes(ex.message)?ex.message:
     ex.name==="PasswordException"?"invalid":ex.message.includes("kullanılabilir metin")?"text":"";
-   const fallback=ex.message.includes("250")?say("PDF en fazla 250 sayfa olabilir.","PDFs may contain up to 250 pages."):ex.message.includes("160.000")?say("Belge çok uzun. Daha kısa bir sürüm seçin.","This document is too long. Choose a shorter version."):importMessage("invalid",tr);
+   const fallback=ex.message.includes("250")?say("PDF en fazla 250 sayfa olabilir.","PDFs may contain up to 250 pages."):ex.message.includes("160.000")?say("Belge çok uzun. Daha kısa bir sürüm seçin.","This document is too long. Choose a shorter version."):importMessage("extraction",tr);
    setMessage(key?importMessage(key,tr):controller.signal.aborted?importMessage("unavailable",tr):fallback);setPhase("choose");
   }finally{clearTimeout(deadline);}
  }
@@ -79,7 +79,7 @@ export function PolicyImportForm({tr,email,policies,onSaved,onBusy}:{tr:boolean;
   {phase==="reading"&&<p role="status">{say("Belge okunuyor…","Reading document…")}</p>}
   {file&&<fieldset disabled={pending}><legend>{file.name}</legend>
    <label>{say("İçe aktarma hedefi","Import destination")}<select aria-label={say("İçe aktarma hedefi","Import destination")} value={mode} onChange={e=>setMode(e.target.value)}><option value="new">{say("Yeni politika oluştur","Create a new policy")}</option><option value="existing">{say("Mevcut politikaya sürüm ekle","Add a version to an existing policy")}</option></select></label>
-   {mode==="existing"?<label>{say("Politika","Policy")}<select aria-label={say("Politika","Policy")} required value={target} onChange={e=>setTarget(e.target.value)}><option value="">—</option>{policies.filter(p=>p.status!=="retired").map(p=><option key={p.id} value={p.id}>{p.code} · {p.title}</option>)}</select></label>:
+   {mode==="existing"?<label>{say("Politika","Policy")}<select aria-label={say("Politika","Policy")} required value={target} onChange={e=>setTarget(e.target.value)}><option value="">—</option>{policies.filter(p=>!["retired","cancelled"].includes(p.status)).map(p=><option key={p.id} value={p.id}>{p.code} · {p.title}</option>)}</select></label>:
    <div className="pim-fields">
     <label>{say("Politika kodu","Policy code")}<input required minLength={3} maxLength={40} value={code} onChange={e=>setCode(e.target.value)}/></label>
     <label>{say("Başlık","Title")}<input required minLength={5} maxLength={240} value={title} onChange={e=>setTitle(e.target.value)}/></label>

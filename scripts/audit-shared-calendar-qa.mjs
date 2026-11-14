@@ -1,3 +1,4 @@
+import {cleanupQaFixture} from './qa-fixture-cleanup.mjs';
 import {qaPassword} from './qa-credentials.mjs';
 import {chromium,expect} from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
@@ -42,7 +43,7 @@ try{
 }catch(error){await writeFile(`${out}/failure.json`,JSON.stringify({message:error.message,stack:error.stack,errors},null,2));await page.screenshot({path:`${out}/failure-admin.png`,fullPage:true}).catch(()=>{});await target.screenshot({path:`${out}/failure-editor.png`,fullPage:true}).catch(()=>{});throw error;}
 finally{
  if(calendarId)try{const d=await api(admin,`/api/audits/templates?id=${calendarId}`);if(!d.current.archived)await api(admin,'/api/audits/templates','POST',{id:calendarId,action:'archive',expectedRevision:d.current.revision,note:'Isolated QA cleanup'});cleanup.push('calendar archived');}catch(e){cleanup.push('calendar cleanup failed: '+e.message);}
- for(const id of audits)try{await api(admin,`/api/audits?id=${id}`,'DELETE');cleanup.push('audit deleted');}catch(e){cleanup.push('audit cleanup failed: '+e.message);}
+ for(const id of audits)try{await cleanupQaFixture(admin,base,'audit',id);cleanup.push('audit cleanup verified');}catch(e){cleanup.push('audit cleanup failed: '+e.message);}
  if(userId)try{await api(admin,'/api/users','PATCH',{id:userId,role:'Editor',status:'Disabled'});cleanup.push('editor disabled');}catch(e){cleanup.push('account cleanup failed: '+e.message);}
  await writeFile(`${out}/cleanup.json`,JSON.stringify(cleanup));await browser.close();if(cleanup.some(row=>row.includes('failed')))throw Error('QA cleanup failed');
 }

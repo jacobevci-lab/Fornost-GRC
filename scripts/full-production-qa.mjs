@@ -152,6 +152,17 @@ function attachRuntimeObservers(page, phase) {
   });
 }
 
+const scanSessionStarted = new WeakMap();
+// A visual scan can exceed the application's absolute session lifetime. Renew
+// at explicit scan boundaries while still signed in, never after a failed check.
+// Session expiry/revocation are independently covered by session-policy QA.
+async function renewScanSession(page) {
+  const context = page.context();
+  if (Date.now() - (scanSessionStarted.get(context) || 0) < 4 * 60_000) return;
+  if (!(await page.locator('.shell').isVisible())) throw new Error('QA session ended before the next scan boundary');
+  await loginViaApi(context);
+}
+
 async function loginViaApi(context) {
   const response = await context.request.post(`${baseUrl}/api/auth`, {
     headers: { ...accessHeaders, origin: baseUrl, "content-type": "application/json" },
@@ -159,6 +170,7 @@ async function loginViaApi(context) {
   });
   const body = await response.text();
   if (response.status() !== 200) throw new Error(`API login failed HTTP ${response.status()}: ${body.slice(0, 500)}`);
+  scanSessionStarted.set(context, Date.now());
   return { status: response.status(), body };
 }
 
@@ -288,7 +300,9 @@ async function auditDesktop(browser) {
   await screenshot(page, "01-dashboard-light", true);
 
   for (let i = 0; i < moduleLabels.length; i += 1) {
+    await renewScanSession(page);
     const label = moduleLabels[i];
+    console.log("QA_MODULE", label);
     page.qaPhase = `desktop:${label}`;
     const button = page.locator(`nav button[aria-label=${JSON.stringify(label)}]`).first();
     const count = await button.count();
@@ -310,6 +324,8 @@ async function auditDesktop(browser) {
     } catch (error) {
       report.modules.push({ label, status: "error", error: error.message });
       addFinding("high", label, "Module failed to render/navigate", error.message);
+      console.error("QA_MODULE_FAILURE", label, error.message);
+      await screenshot(page, `failed-${i}`).catch(()=>{});
     }
   }
 
@@ -338,6 +354,7 @@ async function auditDesktop(browser) {
     await page.waitForTimeout(500);
     for (const label of moduleLabels) {
       if (!representativeModules.has(label)) continue;
+      await renewScanSession(page);
       page.qaPhase = `dark:${label}`;
       const button = page.locator(`nav button[aria-label=${JSON.stringify(label)}]`).first();
       if (!(await button.count())) continue;
@@ -351,6 +368,7 @@ async function auditDesktop(browser) {
     addFinding("high", "theme", "Dark theme toggle not found");
   }
 
+  await renewScanSession(page);
   page.qaPhase = "desktop:language";
   await switchQaLocale(page, "en");
   await openQaModule(page, "Dashboard");
@@ -422,6 +440,9 @@ try {
   await checkLoginScreen(browser);
   await auditDesktop(browser);
   await auditResponsive(browser);
+} catch (error) {
+  await fs.writeFile(path.join(outDir, "qa-incomplete.json"), JSON.stringify({...report, fatal:error.message}, null, 2));
+  throw error;
 } finally {
   await browser.close();
 }
