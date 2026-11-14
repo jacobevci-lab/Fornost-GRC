@@ -1901,17 +1901,6 @@ function FornostApp({ currentUser }: { currentUser: any }) {
           </p>
         </div>
       </aside>
-      {sidebarMode === "hidden" && (
-        <button
-          type="button"
-          className="sidebar-restore"
-          onClick={() => setSidebarPreference("expanded")}
-          aria-label={lang === "tr" ? "Ana menüyü aç" : "Open main navigation"}
-        >
-          <svg aria-hidden="true" viewBox="0 0 20 20"><path d="M4 3h12v14H4zM8 3v14M11 7l3 3-3 3" /></svg>
-          <span>{lang === "tr" ? "Menüyü aç" : "Open menu"}</span>
-        </button>
-      )}
       <button
         type="button"
         className="mobile-nav-backdrop"
@@ -2021,6 +2010,17 @@ function FornostApp({ currentUser }: { currentUser: any }) {
         <RecordLinkEntry ready={pageRestored} lang={lang} scoped={scoped} />
         <header>
           <div className="header-leading">
+            {sidebarMode === "hidden" && (
+              <button
+                type="button"
+                className="sidebar-restore"
+                onClick={() => setSidebarPreference("expanded")}
+                aria-label={lang === "tr" ? "Ana menüyü aç" : "Open main navigation"}
+              >
+                <svg aria-hidden="true" viewBox="0 0 20 20"><path d="M4 3h12v14H4zM8 3v14M11 7l3 3-3 3" /></svg>
+                <span>{lang === "tr" ? "Menüyü aç" : "Open menu"}</span>
+              </button>
+            )}
             <button
               type="button"
               className="mobile-nav-toggle"

@@ -65,6 +65,12 @@ try{
       const restore=page.getByRole('button',{name:tr?'Ana menüyü aç':'Open main navigation',exact:true});
       await expect(restore).toBeVisible();
       await capture(`${lang}-${theme}-hidden`);
+      assert.equal(await restore.evaluate(button=>{
+        const header=button.closest('main>header'),title=header?.querySelector('h1');
+        if(!header||!title)return false;
+        const b=button.getBoundingClientRect(),h=header.getBoundingClientRect(),t=title.getBoundingClientRect();
+        return b.top>=h.top&&b.bottom<=h.bottom&&b.right<=t.left;
+      }),true,`${lang}/${theme}: restore control stays inside the header without covering its title`);
       assert.equal(await nav.isVisible(),false,`${lang}/${theme}: hidden navigation is not exposed visually`);
       await restore.click();
       await expect(page.locator('.shell')).toHaveClass(/sidebar-expanded/);
@@ -74,6 +80,19 @@ try{
       checks.push(`${lang}/${theme}: expanded, compact, reload, hidden and restored colors/selection`);
     }
   }
+  await page.setViewportSize({width:1024,height:768});
+  await page.getByRole('button',{name:'Hide navigation',exact:true}).click();
+  await capture('EN-dark-hidden-tablet');
+  assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)<=2,'Tablet header fits viewport');
+  await page.setViewportSize({width:390,height:844});
+  await expect(page.locator('.sidebar-restore')).toBeHidden();
+  await page.locator('.mobile-nav-toggle').click();
+  await expect(page.locator('.shell')).toHaveClass(/mobile-nav-open/);
+  await capture('EN-dark-mobile-menu');
+  await page.keyboard.press('Escape');
+  await expect(page.locator('.shell')).not.toHaveClass(/mobile-nav-open/);
+  assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)<=2,'Mobile header fits viewport');
+  checks.push('Tablet hidden header and mobile menu open/Escape recovery');
   assert.deepEqual(errors,[]);
   await writeFile(`${out}/result.json`,JSON.stringify({checks,errors},null,2));
   console.log('SIDEBAR_THEME_QA_PASS',checks.length);

@@ -44,7 +44,7 @@ test("compact sidebar exposes immediate branded module tooltips without rail cli
 test("desktop navigation cycles from full width to icon rail to zero width", () => {
   assert.match(css, /\.shell\.sidebar-compact\{grid-template-columns:88px minmax\(0,1fr\)!important/);
   assert.match(css, /\.shell\.sidebar-hidden\{grid-template-columns:0 minmax\(0,1fr\)!important/);
-  assert.match(css, /\.sidebar-restore\{position:fixed!important/);
+  assert.match(css, /\.sidebar-restore\{position:relative!important/);
   assert.match(css, /\.sidebar-hidden>aside\{opacity:0!important/);
   assert.match(css, /\.shell>aside nav\{[\s\S]*overflow-y:auto!important/);
   assert.match(css, /@media\(prefers-reduced-motion:reduce\)/);
