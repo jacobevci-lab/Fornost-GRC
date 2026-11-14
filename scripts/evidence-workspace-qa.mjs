@@ -25,8 +25,8 @@ try {
   const rule={id:'qa-rule',name:'QA device encryption',sourceId:source.id,controlRefs:'A.8.24',enabled:true,freshness:'stale',lastStatus:'error',lastErrorCode:'PERMISSION_DENIED',lastRunId:'qa-error',lastRunAt:later,lastEvidenceAt:t,evidenceRunId:'qa-proof'};
   const run={id:'qa-proof',ruleId:rule.id,ruleName:rule.name,sourceName:source.name,status:'fail',score:50,detail:'1 of 2 failed',createdAt:t,triggerType:'manual',durationMs:25,errorCode:null,evidenceId:evidence.id,evidenceState:'available',assessment:{templateId:'intune-encryption',templateVersion:1,status:'fail',total:2,passed:1,failed:1,unknown:0,score:50,evaluatedAt:t,scope:'credential-visible',issues:[{id:'d1',name:'QA-DEVICE-01',status:'fail',reason:'not-encrypted'}],issuesTruncated:false}};
   const failedCollection={...run,id:'qa-error',status:'error',score:0,detail:'Permission denied',createdAt:later,errorCode:'PERMISSION_DENIED',assessment:null,evidenceId:null,evidenceState:'none'};
-  let populated=false;
-  await page.route('**/api/evidence-automation', route=>route.fulfill({json:{sources:populated?[source]:[],rules:populated?[rule]:[],runs:[],findings:[]}}));
+  let populated=false, viewRules=null, viewSources=null;
+  await page.route('**/api/evidence-automation', route=>route.fulfill({json:{sources:populated?(viewSources||[source]):[],rules:populated?(viewRules||[rule]):[],runs:[],findings:[]}}));
   await page.route('**/api/evidence-automation?runId=*',route=>{
     const id=new URL(route.request().url()).searchParams.get('runId');
     return route.fulfill({json:{run:id==='qa-proof'?run:failedCollection}});
@@ -66,8 +66,67 @@ try {
   await expect(page.locator('.ew-selected')).toContainText('Failed');
   await expect(page.locator('.ew-expanded')).toContainText('QA-DEVICE-01');
   await page.screenshot({path:out+'/controls.png'});
+  const queue=page.locator('.ew-queue');
+  const source2={...source,id:'qa-code',name:'SonarQube'};
+  const current={...rule,id:'qa-current',name:'Current compliance',freshness:'fresh',lastStatus:'pass',remediationOwner:'BT'};
+  viewSources=[source,source2];
+  viewRules=[{...rule,remediationOwner:'BT'},current,{...current,id:'qa-stale',name:'Stale passing check',freshness:'stale'},
+    {...current,id:'qa-orphan',name:'Orphan check',sourceId:'qa-unavailable'},
+    {...current,id:'qa-paused',name:'Paused check',sourceId:source2.id,enabled:false},
+    {...current,id:'qa-unknown',name:'Unknown check',sourceId:source2.id,lastStatus:undefined,remediationOwner:''}];
+  await queue.getByRole('button',{name:'Refresh',exact:true}).click();
+  await expect(queue.locator('.ew-control')).toHaveCount(6);
+  await expect(queue.locator('[data-queue-group=failed] .ew-control')).toHaveCount(1);
+  await expect(queue.locator('[data-queue-group=verify] .ew-control')).toHaveCount(3);
+  await expect(queue.locator('[data-queue-group=current] .ew-control')).toHaveCount(1);
+  await expect(queue.locator('[data-queue-group=paused] .ew-control')).toHaveCount(1);
+  await expect(queue.locator('[data-control-id=qa-orphan] .ew-badge.ok')).toHaveCount(0);
+  await expect(queue.locator('[data-control-id=qa-stale] .ew-badge.ok')).toHaveCount(0);
+  await queue.getByRole('searchbox').fill('Microsoft');
+  await queue.getByLabel('Owner',{exact:true}).selectOption('owner:BT');
+  await expect(queue.locator('.ew-control')).toHaveCount(3);
+  await queue.getByLabel('View',{exact:true}).selectOption('source');
+  await expect(queue.locator('.ew-selected')).toContainText(rule.name);
+  await expect(queue.locator('.ew-expanded')).toContainText('QA-DEVICE-01');
+  await expect(queue.getByRole('searchbox')).toHaveValue('Microsoft');
+  await expect(queue.locator('.ew-source-group')).toHaveCount(1);
+  await queue.getByRole('button',{name:'Refresh',exact:true}).click();
+  await expect(queue.getByLabel('View',{exact:true})).toHaveValue('source');
+  await expect(queue.getByLabel('Owner',{exact:true})).toHaveValue('owner:BT');
+  await queue.getByRole('button',{name:'Clear filters',exact:true}).click();
+  await expect(queue.locator('.ew-source-group')).toHaveCount(3);
+  await expect(queue.locator('[data-source-group=qa-unavailable]')).toContainText('Source unavailable');
+  await queue.getByRole('button',{name:'Needs review',exact:true}).click();
+  await expect(queue.locator('.ew-control')).toHaveCount(4);
+  await queue.getByRole('button',{name:'All',exact:true}).click();
+  await queue.getByLabel('Owner',{exact:true}).selectOption('unassigned');
+  await expect(queue.locator('.ew-control')).toHaveCount(1);
+  await expect(queue.locator('.ew-control')).toContainText('Unknown check');
+  await queue.getByRole('button',{name:'Clear filters',exact:true}).click();
+  await queue.getByRole('searchbox').fill('no-match');
+  await expect(queue).toContainText('No controls match these filters');
+  await queue.getByRole('button',{name:'Clear filters',exact:true}).click();
+  await queue.locator('[data-rule-id=qa-rule]').focus();
+  await page.keyboard.press('Escape');
+  await expect(queue.locator('.ew-expanded')).toHaveCount(0);
+  await expect(queue.locator('[data-rule-id=qa-rule]')).toBeFocused();
+  await page.keyboard.press('Enter');
+  await expect(queue.locator('.ew-expanded')).toContainText('QA-DEVICE-01');
   await page.locator('.language-switch:visible').getByRole('button',{name:'TR',exact:true}).click();
+  if(await page.locator('.theme-toggle:visible').getAttribute('aria-label')==='Açık temaya geç')await page.locator('.theme-toggle:visible').click();
+  await page.screenshot({path:out+'/source-view-tr-light.png',fullPage:true});
+  await queue.getByLabel('Görünüm',{exact:true}).selectOption('priority');
+  await page.screenshot({path:out+'/priority-view-tr-light.png',fullPage:true});
   await page.locator('.theme-toggle:visible').click();
+  await page.screenshot({path:out+'/priority-view-tr-dark.png',fullPage:true});
+  await queue.getByLabel('Görünüm',{exact:true}).selectOption('source');
+  await page.screenshot({path:out+'/source-view-tr-dark.png',fullPage:true});
+  await page.setViewportSize({width:390,height:844});
+  assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)<=4);
+  await page.screenshot({path:out+'/source-view-mobile.png',fullPage:true});
+  await queue.getByLabel('Görünüm',{exact:true}).selectOption('priority');
+
+  await page.locator('.language-switch:visible').getByRole('button',{name:'TR',exact:true}).click();
   await page.setViewportSize({width:390,height:844});
   await expect(page.locator('.ew-selected')).toContainText('Başarısız');
   assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)<=4);

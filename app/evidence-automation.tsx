@@ -136,6 +136,12 @@ export default function EvidenceAutomation({lang,currentUser}:{lang:Lang;current
     return()=>{window.clearTimeout(timer);readController.current?.abort()};
   },[load,reloadKey]);
 
+  async function refreshControls(){
+    if(actionPending.current)return;
+    actionPending.current=true;setBusy("refresh");
+    try{await load();}finally{actionPending.current=false;setBusy("")}
+  }
+
   async function api(body:Record<string,unknown>){
     if(actionPending.current)return false;
     actionPending.current=true;setBusy(String(body.action||"save"));setMessage("");
@@ -219,6 +225,7 @@ export default function EvidenceAutomation({lang,currentUser}:{lang:Lang;current
       {currentUser.role==="Admin"&&<><button className="primary" disabled={!sources.length} onClick={()=>{setMessage("");setReadySource("")}}>+ {tr?"Hazır Kontrol":"Ready Control"}</button>
       <button className="ghost" disabled={!sources.length} onClick={()=>{setMessage("");setRuleOpen(true)}}>+ {tr?"Kontrol Ekle":"Add Control"}</button></>}</div></div>
       <ControlQueue key={focusVersion} lang={lang} sources={sources} rules={rules} expanded={expandedRule} expand={setExpandedRule} busy={!!busy} role={currentUser.role}
+        refresh={refreshControls} openSource={id=>{setSelectedSource(id);setAddingSource(false);setTab("sources");}}
         run={id=>void api({action:"run-rule",ruleId:id})} toggle={r=>void api({action:"toggle-rule",ruleId:r.id,enabled:!r.enabled})}/>
     </div>}
     {tab==="runs"&&!loading&&!loadFailed&&<DataTable empty={tr?"Henüz çalıştırma kaydı yok.":"No collection runs yet."} heads={[tr?"Kural":"Rule",tr?"Kaynak":"Source",tr?"Sonuç":"Result",tr?"Tetikleyici":"Trigger",tr?"Süre":"Duration",tr?"Açıklama":"Detail",tr?"Zaman":"Time",""]} rows={runs.map(x=>[x.ruleName,x.sourceName,<Status key="status" value={x.status} lang={lang}/>,x.triggerType||"manual",`${x.durationMs||0} ms`,x.detail,formatDate(x.createdAt),<button key="detail" className="ghost" onClick={()=>setDetailRun({id:x.id,ruleId:x.ruleId})}>{tr?"Sonuçları Gör":"View Results"}</button>])}/>}

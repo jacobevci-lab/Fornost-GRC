@@ -90,6 +90,17 @@ function observe(page) {
     if (res.status() >= 400) uniquePush(report.runtime.httpErrors, { url: res.url(), status: res.status() });
   });
 }
+const scanSessionStarted = new WeakMap();
+// A visual scan can exceed the application's absolute session lifetime. Renew
+// at explicit scan boundaries while still signed in, never after a failed check.
+// Session expiry/revocation are independently covered by session-policy QA.
+async function renewScanSession(page) {
+  const context = page.context();
+  if (Date.now() - (scanSessionStarted.get(context) || 0) < 4 * 60_000) return;
+  if (!(await page.locator('.shell').isVisible())) throw new Error('QA session ended before the next scan boundary');
+  await login(context);
+}
+
 async function login(context) {
   const res = await context.request.post(`${baseUrl}/api/auth`, {
     headers: { ...accessHeaders, origin: baseUrl, "content-type": "application/json" },
@@ -97,6 +108,7 @@ async function login(context) {
   });
   const text = await res.text();
   if (res.status() !== 200) throw new Error(`Smoke login failed HTTP ${res.status()}: ${text.slice(0, 500)}`);
+  scanSessionStarted.set(context, Date.now());
 }
 
 async function axeAudit(page, area) {
@@ -203,6 +215,7 @@ async function setLocale(page, locale) {
 }
 
 async function auditLocale(page, locale) {
+  await renewScanSession(page);
   if (!(await setLocale(page, locale))) {
     finding("high", "i18n", `Could not switch application to ${locale.toUpperCase()}`);
     return;
@@ -215,7 +228,9 @@ async function auditLocale(page, locale) {
   if (leaked.length) finding("high", `navigation:${locale}`, "Opposite-language module labels remain visible", leaked.join(", "));
 
   for (let i = 0; i < expected.length; i += 1) {
+    await renewScanSession(page);
     const label = expected[i];
+    console.log("QA_V2_MODULE", locale, label);
     page.qaPhase = `${locale}:${label}`;
     const button = page.locator(`nav button[aria-label=${JSON.stringify(label)}]`).first();
     if (!(await button.count())) continue;
@@ -479,6 +494,7 @@ async function auditSidebar(page) {
 }
 
 async function auditTheme(page) {
+  await renewScanSession(page);
   page.qaPhase = "theme";
   await setLocale(page, "tr");
   await openQaModule(page, "Gösterge Paneli");
@@ -666,6 +682,9 @@ try {
   await context.close();
   await auditResponsive(browser);
   await auditDashboardCustomization(browser);
+} catch (error) {
+  await fs.writeFile(path.join(outDir, "qa-incomplete.json"), JSON.stringify({...report, fatal:error.message}, null, 2));
+  throw error;
 } finally {
   await browser.close();
 }

@@ -1,8 +1,8 @@
 "use client";
 
-import { Fragment, useState } from "react";
+import { useState } from "react";
 import { connectorProfile, connectorProfiles } from "./catalog";
-import ControlRunDetail from "./control-run-detail";
+export { ControlQueue } from "./control-queue";
 import { templatesForSource } from "./control-templates";
 import NavIcon from "../nav-icon";
 import type { AutomationRule, AutomationSource } from "../evidence-automation";
@@ -94,24 +94,4 @@ export function SourceWorkbench({lang,sources,rules,selected,select,canManage,bu
         <div><small>{tr?"Kontrol":"Control"}</small><button className="ew-link" onClick={()=>openRule(captured.id)}>{captured.name} →</button></div></div>:<p>{tr?"Bu kaynak için henüz kaydedilmiş kanıt yok.":"No evidence has been recorded for this source yet."}</p>}
       {canManage&&templatesForSource(active).length>0&&<button className="ghost" onClick={()=>ready(active.id)}>{tr?"Hazır kontrol ekle":"Add ready control"}</button>}
     </article>}</div>;
-}
-
-type QueueProps = {lang:Lang; rules:AutomationRule[]; sources:AutomationSource[]; expanded:string; expand:(id:string)=>void;
-  busy:boolean; role:string; run:(id:string)=>void; toggle:(r:AutomationRule)=>void};
-export function ControlQueue({lang,rules,sources,expanded,expand,busy,role,run,toggle}:QueueProps) {
-  const tr=lang==="tr";
-  const [filter,setFilter]=useState("all");
-  const attention=(r:AutomationRule)=>r.enabled&&(r.lastStatus!=="pass"||r.freshness!=="fresh");
-  const visible=rules.filter(r=>filter==="all"||(filter==="attention"?attention(r):r.enabled&&r.freshness==="fresh"));
-  return <div className="ew-queue"><div className="ew-filters">{[["all",tr?"Tümü":"All"],["attention",tr?"İnceleme gerekli":"Needs review"],["fresh",tr?"Güncel kanıt":"Fresh evidence"]].map(([id,label])=><button key={id} aria-pressed={filter===id} onClick={()=>setFilter(id)}>{label}</button>)}</div>
-    {visible.length?<div className="ew-table-wrap"><table><thead><tr>{(tr?["Kontrol","Kaynak","Son test","Sonuç"]:["Control","Source","Last test","Result"]).map(h=><th scope="col" key={h}>{h}</th>)}</tr></thead><tbody>
-      {visible.map(r=>{const open=expanded===r.id;
-        const status=r.lastStatus==="pass"?(r.freshness==="unknown"?(tr?"Doğrulanamadı":"Unverified"):(tr?"Başarılı":"Passed")):r.lastStatus==="fail"?(tr?"Başarısız":"Failed"):r.lastStatus==="error"?(r.lastErrorCode==="ASSESSMENT_INCOMPLETE"?(tr?"Yetersiz veri":"Insufficient data"):r.lastErrorCode?(tr?"Çalışma hatası":"Run error"):(tr?"Doğrulanamadı":"Unverified")):(tr?"Henüz değerlendirilmedi":"Not yet assessed");
-        return <Fragment key={r.id}><tr className={open?"ew-selected":""}><th scope="row"><button data-rule-id={r.id} aria-expanded={open} onClick={()=>expand(open?"":r.id)}><span aria-hidden="true">{open?"⌄":"›"}</span>{r.name}</button></th><td data-label={tr?"Kaynak":"Source"}>{sources.find(s=>s.id===r.sourceId)?.name||"—"}</td><td data-label={tr?"Son test":"Last test"}>{date(r.lastStatus?r.lastRunAt:undefined,lang)}</td><td><Badge tone={r.lastStatus==="pass"&&r.freshness!=="unknown"?"ok":r.lastStatus==="fail"?"bad":r.lastStatus==="error"?"warn":""}>{status}</Badge>{!r.enabled&&<small>{tr?"Duraklatıldı":"Paused"}</small>}</td></tr>
-        {open&&<tr className="ew-expanded"><td colSpan={4}>
-          {r.lastRunId&&r.lastStatus?<ControlRunDetail compact runId={r.lastRunId} expectedRuleId={r.id} lang={lang}/>:<p>{r.lastStatus?(tr?"Bu sonuç için çalışma bağlantısı bulunamadı.":"No run link is available for this result."):(tr?"İlk değerlendirme bekleniyor.":"Awaiting the first assessment.")}</p>}
-          <div className="ew-rule-meta"><span>{tr?"Kanıt tazeliği":"Evidence freshness"} · {({fresh:tr?"Güncel":"Fresh",stale:tr?"Eski":"Stale",missing:tr?"Eksik":"Missing",expiring:tr?"Süresi doluyor":"Expiring"} as Record<string,string>)[r.freshness]||(tr?"Doğrulanamadı":"Unverified")}</span><span>{tr?"Bağlı kontroller":"Mapped controls"} · {r.controlRefs||"—"}</span><span>{tr?"Sonraki çalışma":"Next run"} · {date(r.nextRunAt,lang)}</span>
-          {role!=="Viewer"&&<button className="ghost" disabled={busy||!r.enabled} onClick={()=>run(r.id)}>{tr?"Çalıştır":"Run"}</button>}{role==="Admin"&&<button className="ghost" disabled={busy} onClick={()=>toggle(r)}>{r.enabled?(tr?"Duraklat":"Pause"):(tr?"Etkinleştir":"Enable")}</button>}</div>
-        </td></tr>}</Fragment>;})}
-    </tbody></table></div>:<p className="ew-empty">{rules.length?(tr?"Bu filtreyle eşleşen kontrol yok.":"No controls match this filter."):(tr?"Henüz değerlendirilmedi. İlk sonuç için bir kaynağa kontrol ekleyin.":"Not yet assessed. Add a control to a source to get its first result.")}</p>}</div>;
 }
