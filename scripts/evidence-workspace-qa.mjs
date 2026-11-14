@@ -44,7 +44,7 @@ try {
   await picker.getByRole('searchbox').fill('sonar');
   await expect(picker.locator('.ew-detail h3')).toContainText('SonarQube');
   await picker.getByRole('searchbox').fill('');
-  await page.screenshot({path:out+'/first-source.png'});
+  await page.screenshot({animations:'disabled',path:out+'/first-source.png'});
   await picker.getByRole('button',{name:/Browse full catalog/}).click();
   await expect(page.locator('.ea-catalog')).toBeVisible();
   populated=true;
@@ -55,7 +55,7 @@ try {
   await expect(page.locator('.ea-modal')).toContainText('QA-DEVICE-01');
   await expect(page.locator('.ea-modal').getByRole('button',{name:'Open Evidence',exact:true})).toBeVisible();
   await page.keyboard.press('Escape'); await expect(page.locator('.ea-modal')).toHaveCount(0);
-  await page.screenshot({path:out+'/sources.png'});
+  await page.screenshot({animations:'disabled',path:out+'/sources.png'});
   await page.locator('.ew-chain').getByRole('button',{name:/QA device encryption/}).click();
   await expect(page.locator('.ew-selected')).toContainText('Run error');
   await expect(page.locator('.ew-expanded')).toContainText('No evidence was recorded');
@@ -65,7 +65,7 @@ try {
   await page.getByRole('button',{name:/QA device encryption/}).click();
   await expect(page.locator('.ew-selected')).toContainText('Failed');
   await expect(page.locator('.ew-expanded')).toContainText('QA-DEVICE-01');
-  await page.screenshot({path:out+'/controls.png'});
+  await page.screenshot({animations:'disabled',path:out+'/controls.png'});
   const queue=page.locator('.ew-queue');
   const source2={...source,id:'qa-code',name:'SonarQube',vendor:'SonarSource'};
   const current={...rule,id:'qa-current',name:'Current compliance',freshness:'fresh',lastStatus:'pass',remediationOwner:'BT'};
@@ -114,16 +114,19 @@ try {
   await expect(queue.locator('.ew-expanded')).toContainText('QA-DEVICE-01');
   await page.locator('.language-switch:visible').getByRole('button',{name:'TR',exact:true}).click();
   if(await page.locator('.theme-toggle:visible').getAttribute('aria-label')==='Açık temaya geç')await page.locator('.theme-toggle:visible').click();
-  await page.screenshot({path:out+'/source-view-tr-light.png',fullPage:true});
+  await queue.locator('[data-rule-id=qa-rule]').click();
+  await expect(queue.locator('.ew-expanded')).toHaveCount(0);
+  await page.screenshot({animations:'disabled',path:out+'/source-view-tr-light.png',fullPage:true});
+  await queue.locator('[data-rule-id=qa-rule]').click();
   await queue.getByLabel('Görünüm',{exact:true}).selectOption('priority');
-  await page.screenshot({path:out+'/priority-view-tr-light.png',fullPage:true});
+  await page.screenshot({animations:'disabled',path:out+'/priority-view-tr-light.png',fullPage:true});
   await page.locator('.theme-toggle:visible').click();
-  await page.screenshot({path:out+'/priority-view-tr-dark.png',fullPage:true});
+  await page.screenshot({animations:'disabled',path:out+'/priority-view-tr-dark.png',fullPage:true});
   await queue.getByLabel('Görünüm',{exact:true}).selectOption('source');
-  await page.screenshot({path:out+'/source-view-tr-dark.png',fullPage:true});
+  await page.screenshot({animations:'disabled',path:out+'/source-view-tr-dark.png',fullPage:true});
   await page.setViewportSize({width:390,height:844});
   assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)<=4);
-  await page.screenshot({path:out+'/source-view-mobile.png',fullPage:true});
+  await page.screenshot({animations:'disabled',path:out+'/source-view-mobile.png',fullPage:true});
   await queue.getByLabel('Görünüm',{exact:true}).selectOption('priority');
 
   await page.setViewportSize({width:390,height:844});
@@ -131,12 +134,12 @@ try {
   assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)<=4);
   const badge=await page.locator('.ew-selected .ew-badge').boundingBox();
   assert.ok(badge && badge.x>=0 && badge.x+badge.width<=390,'The control result fits the mobile viewport');
-  await page.screenshot({path:out+'/controls-mobile.png'});
+  await page.screenshot({animations:'disabled',path:out+'/controls-mobile.png'});
   await page.locator('.ew-expanded').getByRole('button',{name:/Kanıtı aç/}).click();
   await expect(page.locator('main > header h1')).toHaveText('Kanıt Kütüphanesi');
   assert.deepEqual(errors,[]);
   console.log('EVIDENCE_WORKSPACE_PASS: first source, selected wizard, catalog, prior evidence, error vs failed result, evidence navigation, mobile and TR/EN');
 } catch(error) {
-  await page.screenshot({path:out+'/failure.png'}).catch(()=>{});
+  await page.screenshot({animations:'disabled',path:out+'/failure.png'}).catch(()=>{});
   throw error;
 } finally { await browser.close(); }
