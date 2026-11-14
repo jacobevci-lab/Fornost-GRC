@@ -1,8 +1,12 @@
 import {chromium,expect} from '@playwright/test';
 import assert from 'node:assert/strict';
+import {mkdir,writeFile} from 'node:fs/promises';
 import {qaPassword} from './qa-credentials.mjs';
 // Isolated CI only. Inject read-only source scenarios; never mutate live records.
-const base='http://127.0.0.1:4173';
+const base='http://127.0.0.1:4173',out='assurance-chain-review-qa-artifacts';
+// Core records plus the twelve enterprise/AI sources, including audit parents.
+const expectedSources='13';
+await mkdir(out,{recursive:true});
 const browser=await chromium.launch({executablePath:process.env.QA_CHROMIUM_PATH||undefined});
 const context=await browser.newContext({viewport:{width:1440,height:1000}}),page=await context.newPage();
 const errors=[];page.on('pageerror',error=>errors.push(error.message));
@@ -27,7 +31,8 @@ try{
  await page.goto(base);await expect(page.locator('.shell')).toBeVisible({timeout:30000});
  await page.locator('.language-switch:visible').getByRole('button',{name:'EN',exact:true}).click();
  await page.locator('nav button[aria-label="Connected GRC Map"]').evaluate(node=>node.click());
- await expect(page.locator('.cg-source-state')).toHaveAttribute('data-ready','11',{timeout:30000});
+ await expect(page.locator('.cg-source-state')).toHaveAttribute('data-total',expectedSources);
+ await expect(page.locator('.cg-source-state')).toHaveAttribute('data-ready',expectedSources,{timeout:30000});
  await page.locator('.cg-tabs').getByRole('button',{name:'Assurance',exact:true}).click();
  const review=page.locator('.cg-chain-review');await expect(review).toBeVisible();await review.locator('summary').click();
  await expect(review.locator('article')).toHaveCount(4);
@@ -42,7 +47,7 @@ try{
  assert.equal(csv.split('\n').length,5);
  assert.ok(csv.includes('QA Partially Resolved Risks'));
  assert.ok(csv.includes('risk-reference-unresolved'));
- assert.ok(csv.includes('"loaded";"11";"11";"4"'));
+ assert.ok(csv.includes(`"loaded";"${expectedSources}";"${expectedSources}";"4"`));
  await expect(review).toContainText('Control healthy; open findings still need follow-up');
  await expect(review).toContainText('Control library link missing');
  await expect(review.locator('article').filter({hasText:'QA Partially Resolved Controls'})).toContainText('Control reference is missing or ambiguous');
@@ -70,4 +75,7 @@ try{
  await expect(review).toHaveCount(0);await expect(page.locator('.cg-assessment-pending')).toBeVisible();
  unavailable=false;await page.locator('.cg-source-controls button').click();await expect(review).toBeVisible({timeout:30000});
  assert.deepEqual(errors,[]);console.log('ASSURANCE_CHAIN_REVIEW_QA_PASS: healthy open work, orphan control, risk gap, overdue work, TR/EN, both themes/mobile and source recovery');
+}catch(error){
+ await writeFile(`${out}/failure.json`,JSON.stringify({message:error.message,stack:error.stack,pageErrors:errors},null,2));
+ await page.screenshot({path:`${out}/failure.png`,fullPage:true}).catch(()=>{});throw error;
 }finally{await browser.close();}
