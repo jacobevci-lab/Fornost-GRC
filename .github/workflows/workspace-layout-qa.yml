@@ -554,10 +554,13 @@ jobs:
             -H 'Origin: http://127.0.0.1:4173' -H 'Content-Type: application/json' \
             --data-binary @/tmp/fornost-qa-bootstrap.json
       - name: Load explicit synthetic core fixtures
+        id: qa_fixtures
         run: node scripts/seed-local-qa.mjs
       - name: Enterprise My Work lifecycle navigation and recovery QA
+        if: ${{ !cancelled() && steps.qa_fixtures.outcome == 'success' }}
         run: node scripts/enterprise-work-runtime-qa.mjs
       - name: Research workspaces, contextual evidence preview and tab navigation QA
+        if: ${{ !cancelled() && steps.qa_fixtures.outcome == 'success' }}
         run: node scripts/research-workspace-qa.mjs
       - name: Publish focused workspace screenshots for early visual review
         uses: actions/upload-artifact@v4
@@ -566,86 +569,125 @@ jobs:
           path: research-workspace-qa-artifacts/
 
       - name: Visual hierarchy, work filters and vendor recovery QA
+        if: ${{ !cancelled() && steps.qa_fixtures.outcome == 'success' }}
         run: node scripts/visual-workspace-qa.mjs
       - name: Findings workspace recovery and pagination
+        if: ${{ !cancelled() && steps.qa_fixtures.outcome == 'success' }}
         run: node scripts/findings-workspace-qa.mjs
       - name: Concurrent cold and warm schema initialization QA
+        if: ${{ !cancelled() && steps.qa_fixtures.outcome == 'success' }}
         run: node scripts/schema-initialization-qa.mjs
       - name: Exact assurance work focus, permissions and stale response QA
+        if: ${{ !cancelled() && steps.qa_fixtures.outcome == 'success' }}
         run: node scripts/assurance-work-focus-qa.mjs
       - name: Historical run result, evidence navigation and recovery QA
+        if: ${{ !cancelled() && steps.qa_fixtures.outcome == 'success' }}
         run: node scripts/control-run-detail-qa.mjs
       - name: Scoped audit readiness, evidence and export QA
+        if: ${{ !cancelled() && steps.qa_fixtures.outcome == 'success' }}
         run: node scripts/audit-readiness-runtime-qa.mjs
       - name: Current assessment projection, audit and control QA
+        if: ${{ !cancelled() && steps.qa_fixtures.outcome == 'success' }}
         run: node scripts/current-assessment-runtime-qa.mjs
       - name: Enterprise reference deletion runtime QA
+        if: ${{ !cancelled() && steps.qa_fixtures.outcome == 'success' }}
         run: node scripts/enterprise-reference-delete-qa.mjs
       - name: Record dialog themes and Escape QA
+        if: ${{ !cancelled() && steps.qa_fixtures.outcome == 'success' }}
         run: node scripts/record-dialog-qa.mjs
       - name: Platform-wide Escape dismissal QA
+        if: ${{ !cancelled() && steps.qa_fixtures.outcome == 'success' }}
         run: node scripts/platform-escape-qa.mjs
       - name: Connected assurance chain review and recovery QA
+        if: ${{ !cancelled() && steps.qa_fixtures.outcome == 'success' }}
         run: node scripts/assurance-chain-review-qa.mjs
       - name: Exact CAPA lifecycle lookup and recovery QA
+        if: ${{ !cancelled() && steps.qa_fixtures.outcome == 'success' }}
         run: node scripts/capa-traceability-qa.mjs
       - name: Assurance queue recovery and independent review QA
+        if: ${{ !cancelled() && steps.qa_fixtures.outcome == 'success' }}
         run: node scripts/assurance-queue-recovery-qa.mjs
       - name: Audit requirement pagination and export QA
+        if: ${{ !cancelled() && steps.qa_fixtures.outcome == 'success' }}
         run: node scripts/audit-requirement-page-qa.mjs
       - name: Local login write and recovery QA
+        if: ${{ !cancelled() && steps.qa_fixtures.outcome == 'success' }}
         run: node scripts/local-login-recovery-qa.mjs
       - name: Session startup timeout and stale-response QA
+        if: ${{ !cancelled() && steps.qa_fixtures.outcome == 'success' }}
         run: node scripts/session-startup-qa.mjs
       - name: Audit readiness delayed-response stability QA
+        if: ${{ !cancelled() && steps.qa_fixtures.outcome == 'success' }}
         run: node scripts/audit-readiness-stability-qa.mjs
       - name: Full framework catalogs and large audit QA
+        if: ${{ !cancelled() && steps.qa_fixtures.outcome == 'success' }}
         run: node scripts/framework-packs-qa.mjs
       - name: Audit engagement planning QA
+        if: ${{ !cancelled() && steps.qa_fixtures.outcome == 'success' }}
         run: node scripts/audit-plan-qa.mjs
       - name: Evidence document formats, downloads and version approval QA
+        if: ${{ !cancelled() && steps.qa_fixtures.outcome == 'success' }}
         run: node scripts/evidence-document-formats-qa.mjs
       - name: Atomic AI retirement and independent verification QA
+        if: ${{ !cancelled() && steps.qa_fixtures.outcome == 'success' }}
         run: node scripts/ai-retirement-atomic-qa.mjs
       - name: AI model lifecycle and stale decision QA
+        if: ${{ !cancelled() && steps.qa_fixtures.outcome == 'success' }}
         run: node scripts/ai-model-lifecycle-qa.mjs
       - name: Workspace simplicity flows
+        if: ${{ !cancelled() && steps.qa_fixtures.outcome == 'success' }}
         run: node scripts/workspace-simplicity-qa.mjs
       - name: AI exact record navigation and recovery QA
+        if: ${{ !cancelled() && steps.qa_fixtures.outcome == 'success' }}
         run: node scripts/ai-record-navigation-qa.mjs
       - name: Assurance follow-up search, pagination and recovery QA
+        if: ${{ !cancelled() && steps.qa_fixtures.outcome == 'success' }}
         run: node scripts/assurance-followup-workspace-qa.mjs
       - name: Control business impact and dependency navigation QA
+        if: ${{ !cancelled() && steps.qa_fixtures.outcome == 'success' }}
         run: node scripts/control-business-impact-qa.mjs
       - name: Connected reference ambiguity and correction QA
+        if: ${{ !cancelled() && steps.qa_fixtures.outcome == 'success' }}
         run: node scripts/connected-reference-integrity-qa.mjs
       - name: User session revocation and identity load recovery QA
+        if: ${{ !cancelled() && steps.qa_fixtures.outcome == 'success' }}
         run: node scripts/user-session-revocation-qa.mjs
       - name: Server session lifetime and sign-in recovery QA
+        if: ${{ !cancelled() && steps.qa_fixtures.outcome == 'success' }}
         run: node scripts/session-policy-runtime-qa.mjs
       - name: Ask Fornost immediate post-login and recovery QA
+        if: ${{ !cancelled() && steps.qa_fixtures.outcome == 'success' }}
         run: node scripts/ask-fornost-runtime-qa.mjs
       - name: Ready control templates and result drill-down QA
+        if: ${{ !cancelled() && steps.qa_fixtures.outcome == 'success' }}
         run: node scripts/ready-controls-runtime-qa.mjs
       - name: Connected GRC live sources and explorer contract
+        if: ${{ !cancelled() && steps.qa_fixtures.outcome == 'success' }}
         env:
           FORNOST_PROD_URL: http://127.0.0.1:4173
           FORNOST_SMOKE_EMAIL: qa-admin@fornost.test
         run: node scripts/connected-grc-production-qa.mjs
       - name: Module boundaries, access editor and session revocation QA
+        if: ${{ !cancelled() && steps.qa_fixtures.outcome == 'success' }}
         run: node scripts/module-access-runtime-qa.mjs
       - name: CAPA control context, diagnostics and recovery QA
+        if: ${{ !cancelled() && steps.qa_fixtures.outcome == 'success' }}
         run: node scripts/capa-control-context-qa.mjs
       - name: Versioned risk decisions, independent approval and conflict recovery QA
+        if: ${{ !cancelled() && steps.qa_fixtures.outcome == 'success' }}
         run: node scripts/risk-decisions-runtime-qa.mjs
       - name: Atomic exception decisions, expiration and rollback QA
+        if: ${{ !cancelled() && steps.qa_fixtures.outcome == 'success' }}
         run: node scripts/exception-lifecycle-runtime-qa.mjs
       - name: Check module layouts and audit stability
+        if: ${{ !cancelled() && steps.qa_fixtures.outcome == 'success' }}
         run: node scripts/workspace-layout-qa.mjs
       - name: Core CRUD, forms, continuity and governance lifecycle QA
+        if: ${{ !cancelled() && steps.qa_fixtures.outcome == 'success' }}
         timeout-minutes: 8
         run: node scripts/comprehensive-runtime-qa.mjs
       - name: Accessibility, localization and responsive product QA
+        if: ${{ !cancelled() && steps.qa_fixtures.outcome == 'success' }}
         env:
           FORNOST_PROD_URL: http://127.0.0.1:4173
           FORNOST_SMOKE_EMAIL: qa-admin@fornost.test
@@ -664,7 +706,7 @@ jobs:
             qa-artifacts-v2/
           if-no-files-found: warn
       - name: Every module in both languages and themes at desktop tablet and mobile widths
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && steps.qa_fixtures.outcome == 'success' }}
         run: node scripts/enterprise-ui-matrix-qa.mjs
       - uses: actions/upload-artifact@v4
         if: always()

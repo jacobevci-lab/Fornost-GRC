@@ -1,7 +1,9 @@
 import {chromium,expect} from '@playwright/test';
 import assert from 'node:assert/strict';
+import {mkdir,writeFile} from 'node:fs/promises';
 import {qaPassword} from './qa-credentials.mjs';
-const base='http://127.0.0.1:4173';
+const base='http://127.0.0.1:4173',out='capa-traceability-qa-artifacts';
+await mkdir(out,{recursive:true});
 const browser=await chromium.launch({executablePath:process.env.QA_CHROMIUM_PATH||undefined});
 const context=await browser.newContext({viewport:{width:1440,height:1000}}),page=await context.newPage();
 const errors=[];page.on('pageerror',e=>errors.push(e.message));
@@ -25,6 +27,7 @@ try{
  await page.goto(base);await expect(page.locator('.shell')).toBeVisible({timeout:30000});
  await page.locator('.language-switch:visible').getByRole('button',{name:'EN',exact:true}).click();
  await page.locator('nav button[aria-label="Workflow Integrations"]').evaluate(n=>n.click());
+ await page.getByRole('region',{name:'Integration Center',exact:true}).getByRole('button',{name:'Continuous assurance',exact:true}).click();
  const panel=page.locator('.ca-attention'),lifecycle=panel.locator('[aria-label="CAPA remediation lifecycle"]');
  await expect(lifecycle).toContainText('Closed and verified',{timeout:30000});assert.ok(calls.some(c=>c.length===50));assert.ok(calls.some(c=>c.length===1));assert.ok(calls.every(c=>c.length<=50));
  for(const invalid of ['foreign','partial']){
@@ -42,4 +45,7 @@ try{
  assert.equal(typeof releaseInsight,'function');releaseInsight();
  await expect(panel.locator('.ca-attention-row')).toContainText('QA old CAPA');await expect(panel.locator('.ca-attention-clear')).toHaveCount(0);
  assert.deepEqual(errors,[]);console.log('CAPA_TRACEABILITY_QA_PASS: real auth/input boundaries, exact batched lookup, foreign/missing/partial distinction and recovery');
+}catch(error){
+ await writeFile(`${out}/failure.json`,JSON.stringify({message:error.message,stack:error.stack,pageErrors:errors},null,2));
+ await page.screenshot({path:`${out}/failure.png`,fullPage:true}).catch(()=>{});throw error;
 }finally{await browser.close();}
