@@ -27,7 +27,7 @@ try{
   await page.route(url=>url.pathname===path,route=>{
    if(failedPath===path)return route.fulfill({status:503,contentType:'application/json',body:'{}'});
    if(malformedPath===path)return route.fulfill({status:200,contentType:'application/json',body:'{}'});
-   const data={...original,...fixture};if(path==='/api/regulatory-intelligence'){const u=new URL(route.request().url());data.summary={sources:0,dueSources:0,unassessed:0,overdueImpacts:0,verification:1,open:1};data.pagination={total:1,page:1,pages:1,pageSize:20};data.loadedAt=stamp;data.evidencePins=[];if(u.searchParams.has('detail'))data.change=change;}if(missingTarget&&path==='/api/policy-lifecycle')data.versions=[];
+   const data={...original,...fixture};if(path==='/api/regulatory-intelligence'){const u=new URL(route.request().url());data.summary={sources:0,dueSources:0,unassessed:0,overdueImpacts:0,verification:1,open:1};data.pagination={total:1,page:1,pages:1,pageSize:20};data.loadedAt=stamp;data.evidencePins=[];if(u.searchParams.has('detail')){data.change=change;data.events=[];}}if(missingTarget&&path==='/api/policy-lifecycle')data.versions=[];
    return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(data)});
   });
  }
@@ -57,4 +57,4 @@ try{
  await page.setViewportSize({width:1536,height:960});await page.locator('.language-switch:visible').getByRole('button',{name:'EN',exact:true}).click();
  await page.getByRole('textbox',{name:'Search work',exact:true}).fill('Version and release');await expect(page.locator('.mw2-item')).toHaveCount(1);missingTarget=true;await page.locator('.mw2-item').click();await expect(page.locator('.enterprise-work-focus')).toContainText('Record unavailable or inaccessible');
  assert.deepEqual(errors,[]);await fs.writeFile(`${out}/result.json`,JSON.stringify({status:'passed',recordTransitions:9,layouts:8,sourceRecovery:3}));
-}catch(error){await fs.writeFile(`${out}/failure.json`,JSON.stringify({message:error.message,stack:error.stack,failedPath,malformedPath,missingTarget},null,2));await page.screenshot({path:`${out}/failure.png`}).catch(()=>{});throw error;}finally{await browser.close()}
+}catch(error){await fs.writeFile(`${out}/failure.json`,JSON.stringify({message:error.message,stack:error.stack,failedPath,malformedPath,missingTarget,pageErrors:errors},null,2));await page.screenshot({path:`${out}/failure.png`}).catch(()=>{});throw error;}finally{await browser.close()}

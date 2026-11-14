@@ -502,6 +502,59 @@ jobs:
           path: record-search-qa-artifacts/
       - name: Full visible navigation, record save race and audit orphan recovery QA
         run: node scripts/full-browser-qa-regression.mjs
+      - name: Preserve lifecycle QA evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: workspace-lifecycle-qa
+          path: |
+            *-qa-artifacts/
+            full-browser-regression-artifacts/
+            qa-artifacts/
+            qa-artifacts-v2/
+            /tmp/layout-runtime.log
+          if-no-files-found: warn
+
+  cross-module:
+    name: Cross-module and runtime QA
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.13.0
+          cache: npm
+      - run: npm ci
+      - run: npm install --no-save --ignore-scripts @playwright/test@1.55.0 @axe-core/playwright@4.10.2
+      - name: Use runner browser or install Chromium
+        shell: bash
+        run: |
+          if command -v google-chrome >/dev/null; then
+            echo "QA_CHROMIUM_PATH=$(command -v google-chrome)" >> "$GITHUB_ENV"
+          else
+            npx playwright install chromium
+          fi
+      - name: Production browser harness isolation and readiness regression
+        run: node scripts/qa-browser-harness-regression.mjs
+      - name: KRI form interaction regression
+        run: node scripts/kri-form-interactions-qa.mjs
+      - name: Generate isolated QA credentials
+        run: node scripts/prepare-local-qa.mjs
+      - name: Start isolated app and create QA account
+        shell: bash
+        run: |
+          node -e 'require("fs").writeFileSync(".dev.vars", "FORNOST_SETTINGS_ENCRYPTION_KEY=" + require("crypto").randomBytes(32).toString("hex") + "\n")'
+          npm run dev -- --host 127.0.0.1 --port 4173 --strictPort > /tmp/layout-runtime.log 2>&1 &
+          for attempt in $(seq 1 90); do
+            if curl --fail --silent http://127.0.0.1:4173/api/health >/dev/null; then break; fi
+            sleep 2
+          done
+          curl --fail --silent --show-error http://127.0.0.1:4173/api/auth \
+            -H 'Origin: http://127.0.0.1:4173' -H 'Content-Type: application/json' \
+            --data-binary @/tmp/fornost-qa-bootstrap.json
+      - name: Load explicit synthetic core fixtures
+        run: node scripts/seed-local-qa.mjs
       - name: Enterprise My Work lifecycle navigation and recovery QA
         run: node scripts/enterprise-work-runtime-qa.mjs
       - name: Research workspaces, contextual evidence preview and tab navigation QA
