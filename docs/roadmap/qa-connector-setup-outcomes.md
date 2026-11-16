@@ -32,3 +32,15 @@ light-theme hover while the global button background was animating. Scope button
 transitions in this wizard to borders/shadows so text and fill switch together;
 retain the strict contrast check without delaying or suppressing findings. Use
 decorative SVG outcome marks alongside the explicit result text.
+
+Production verification follow-up: the new fixture modified a fetched register
+body while preserving its original transport headers. Playwright retains an
+existing content-length in this case; the live scan stalled on the intercepted
+register read. Its synthetic row also used the normalized UI data shape, while
+the register API requires data_json, causing a visible JSON parsing notice.
+Regenerate response headers for the modified JSON, use the raw API row shape,
+append the control only on the first page, and assert that no application notice
+appears after startup. Keep the request-idle and contrast gates strict. This
+follow-up changes QA fixtures only; real API checks remain in the production
+baseline and smoke tests. Repeat the failed deployed-UI scenario and remaining
+production gates before recording the release as verified.

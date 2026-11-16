@@ -38,7 +38,11 @@ try{
   await page.route(url=>url.origin===new URL(base).origin&&url.pathname==='/api/grc',async route=>{
     if(route.request().method()!=='GET')return route.fallback();
     const response=await route.fetch({headers:{...route.request().headers(),...headers}});assert.equal(response.status(),200);const body=await response.json();
-    await route.fulfill({response,json:{...body,rows:[...(body.rows||[]),{id:'qa-setup-control',module:'Kontroller',record_code:controlRef,data:{controlId:controlRef,title:'QA mapped control'}}]}});
+    assert.ok(Array.isArray(body.rows),'Register response must contain rows');
+    const syntheticRows=new URL(route.request().url()).searchParams.has('cursor')?[]:[{id:'qa-setup-control',module:'Kontroller',record_code:controlRef,data_json:JSON.stringify({controlId:controlRef,title:'QA mapped control'}),created_at:stamp,updated_at:stamp}];
+    // The fixture changes the body. Do not retain the upstream content-length or
+    // transfer headers: deployed responses can declare the original byte count.
+    await route.fulfill({status:200,json:{...body,rows:[...body.rows,...syntheticRows]}});
   });
   await page.route(url=>url.origin===new URL(base).origin&&url.pathname==='/api/evidence-automation',async route=>{
     if(route.request().method()==='GET')return route.fulfill({json:{sources:registered?[source]:[],rules:registered?[rule]:[],runs:[],findings:[]}});
@@ -57,7 +61,8 @@ try{
   for(const locale of ['tr','en'])for(const outcome of outcomes){
     current=outcome;registered=false;actions=[];releaseRun=undefined;
     await page.setViewportSize({width:1440,height:1000});await page.goto(base);
-    await switchQaLocale(page,locale);await openQaModule(page,locale==='tr'?'Kanıt Otomasyonu':'Evidence Automation');
+    await switchQaLocale(page,locale);await expect(page.locator('main > .notice')).toHaveCount(0);
+    await openQaModule(page,locale==='tr'?'Kanıt Otomasyonu':'Evidence Automation');
     await page.locator('.ew-picker').getByRole('button',{name:/Configure connection|Bağlantıyı yapılandır/i}).click();
     const wizard=page.locator('.cow-shell'),result=wizard.locator('.cow-complete');
     await expect(wizard).toBeVisible();
