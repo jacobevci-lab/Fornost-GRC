@@ -1,6 +1,8 @@
+import { auditRequirementLink } from './audit-requirement-link';
 export const auditRequestStatuses = ['draft', 'assigned', 'submitted', 'changes_requested', 'accepted', 'cancelled'] as const;
 export type AuditRequestStatus = typeof auditRequestStatuses[number];
 export type AuditRequestFields = {
+  requirementId?: string;
   title: string; instructions: string; owner: string; reviewer: string;
   dueDate: string; reviewDueDate: string; periodStart: string; periodEnd: string;
 };
@@ -48,6 +50,7 @@ export function validateAuditRequestFields(value: unknown): AuditRequestFields {
   if (fields.owner === fields.reviewer) throw new AuditRequestError('independent-reviewer');
   if (!requestDate(fields.dueDate) || !requestDate(fields.reviewDueDate) || fields.reviewDueDate < fields.dueDate) throw new AuditRequestError('dates');
   if (Boolean(fields.periodStart) !== Boolean(fields.periodEnd) || (fields.periodStart && (!requestDate(fields.periodStart) || !requestDate(fields.periodEnd) || fields.periodStart > fields.periodEnd))) throw new AuditRequestError('dates');
+  if (input.requirementId !== undefined) fields.requirementId = auditRequirementLink(input.requirementId);
   return fields;
 }
 export function validateRequestTimeZone(value: unknown) {

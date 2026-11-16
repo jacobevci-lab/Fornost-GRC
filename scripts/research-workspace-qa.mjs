@@ -1,3 +1,4 @@
+import {openAuditSection} from './audit-workspace-navigation.mjs';
 import {cleanupQaFixture} from './qa-fixture-cleanup.mjs';
 import { qaPassword } from './qa-credentials.mjs';
 import { chromium, expect } from '@playwright/test';
@@ -91,13 +92,13 @@ try {
   await page.locator('.language-switch:visible').getByRole('button', { name: 'EN', exact: true }).click();
   await module('Audit Management'); await page.locator('.audit-card-open').filter({ hasText: auditName }).click();
   const workspace = page.locator('.fw-audit-workspace');
-  await expect(workspace.getByRole('tab', { name: 'Overview', exact: true })).toHaveAttribute('aria-selected', 'true');
-  await expect(workspace.locator('.fw-progress-value>strong')).toHaveText('25%');
-  assert.ok(await workspace.locator('.fw-progress-value>strong').evaluate(el=>parseFloat(getComputedStyle(el).fontSize)>=32),'metric hierarchy');
-  await workspace.getByRole('tab', { name: 'Overview', exact: true }).press('ArrowRight');
-  await expect(workspace.getByRole('tab', { name: 'Requests and review', exact: true })).toBeFocused();
-  await workspace.getByRole('tab', { name: 'Requests and review', exact: true }).press('Home');
-  await expect(workspace.getByRole('tab', { name: 'Overview', exact: true })).toHaveAttribute('aria-selected', 'true');
+  await expect(workspace.getByRole('tab', { name: 'Workspace', exact: true })).toHaveAttribute('aria-selected', 'true');
+  await expect(workspace.locator('.ad-list tbody tr')).toHaveCount(4);
+  await expect(workspace.locator('.ad-detail')).toBeVisible();
+  await workspace.getByRole('tab', { name: 'Workspace', exact: true }).press('ArrowRight');
+  await expect(workspace.getByRole('tab',{name:'Evidence requests',exact:true})).toBeFocused();
+  await workspace.getByRole('tab',{name:'Evidence requests',exact:true}).press('Home');
+  await expect(workspace.getByRole('tab', { name: 'Workspace', exact: true })).toHaveAttribute('aria-selected', 'true');
   checks.push('keyboard tab navigation and actual progress');
   for (const language of ['EN', 'TR']) {
     await page.locator('.language-switch:visible').getByRole('button', { name: language, exact: true }).click();
@@ -108,12 +109,12 @@ try {
   }
   await page.setViewportSize({ width:1536, height:960 }); await page.locator('.language-switch:visible').getByRole('button',{name:'EN',exact:true}).click();
   await page.evaluate(() => { document.documentElement.dataset.theme='light'; });
-  await workspace.getByRole('tab',{name:'Plan and scope',exact:true}).click();
+  await openAuditSection(workspace,'plan');
   await page.getByLabel('Audit objective',{exact:true}).fill('Unsaved workspace draft must be preserved.');
-  await workspace.getByRole('tab',{name:'Reports',exact:true}).click(); await expect(page.getByRole('button',{name:'Preview new report',exact:true})).toBeVisible();
-  await workspace.getByRole('tab',{name:'Plan and scope',exact:true}).click(); await expect(page.getByLabel('Audit objective',{exact:true})).toHaveValue('Unsaved workspace draft must be preserved.');
+  await openAuditSection(workspace,'reports'); await expect(page.getByRole('button',{name:'Preview new report',exact:true})).toBeVisible();
+  await openAuditSection(workspace,'plan'); await expect(page.getByLabel('Audit objective',{exact:true})).toHaveValue('Unsaved workspace draft must be preserved.');
   await screenshot('audit-plan-desktop',page.locator('.audit-plan-panel')); checks.push('plan draft retained across tabs');
-  await workspace.getByRole('tab',{name:'Overview',exact:true}).click();
+  await openAuditSection(workspace,'desk');
   const a11y=await new AxeBuilder({page}).include('.fw-audit-workspace').analyze(); assert.deepEqual(a11y.violations.map(v=>v.id),[]);
   await module('Connected GRC Map');
   await page.locator('#connected-grc-workbench').getByRole('combobox',{name:'Module',exact:true}).selectOption('Denetim Yönetimi');await page.locator('#connected-grc-workbench').getByRole('textbox',{name:'Find record',exact:true}).fill(orphan.record_code);
@@ -121,9 +122,10 @@ try {
   await page.locator('#connected-grc-workbench').getByRole('button',{name:'Open source record',exact:true}).click();
   await expect(page.locator('.core-record-focus')).toContainText(orphan.record_code);
   await expect(page.locator('.fw-orphan-notice')).toContainText('Active audit link missing');
-  const orphanTab=page.getByRole('tab',{name:/^Requirements and tests/});
-  await expect(orphanTab).toHaveAttribute('aria-selected','true');await expect(orphanTab.locator('span')).toHaveText('1');
-  for(const name of ['Requests and review','Plan and scope','Assurance','Reports'])await expect(page.getByRole('tab',{name,exact:true})).toHaveCount(0);
+  const orphanTab=page.getByRole('tab',{name:'Workspace',exact:true});
+  await expect(orphanTab).toHaveAttribute('aria-selected','true');
+  await expect(page.locator('.ad-list tbody tr')).toHaveCount(1);
+  await openAuditSection(page,'requirements');
   const orphanRow=page.locator('.table-card .table-wrap tbody tr');await expect(orphanRow).toHaveCount(1);
   await orphanRow.getByRole('button',{name:'Edit',exact:true}).click();await expect(page.locator('.modal[role=dialog]')).toBeVisible();
   await page.locator('.modal[role=dialog]').getByRole('button',{name:'Cancel',exact:true}).click();

@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {fixture} from './helpers/enterprise-route-fixture';
-import {deleteAudit,AuditLinked} from '../app/audit-delete';
+import {deleteAudit,previewAuditDeletion,AuditLinked} from '../app/audit-delete';
 import {LifecycleConflict} from '../app/enterprise-lifecycle-write';
 import {extractKnowledgeDocument} from '../app/ai/document-extraction';
 import {policyImportForm} from '../app/policy-lifecycle/import-store';
@@ -33,7 +33,7 @@ test('audit external references protect parent IDs and child IDs/codes, includin
    await assert.rejects(f.remove(),AuditLinked);assert.ok(f.sqlite.prepare('SELECT * FROM simple_audits').get());assert.equal(f.sqlite.prepare('SELECT count(*) n FROM simple_grc_metadata').get()!.n,0);
   }finally{f.sqlite.close()}
  }
- const f=await auditFixture();try{f.sqlite.exec('CREATE TABLE audit_requests(id TEXT,audit_id TEXT);INSERT INTO audit_requests VALUES(\'req\',\'AUDIT-1\')');await assert.rejects(f.remove(),AuditLinked);}finally{f.sqlite.close()}
+ const f=await auditFixture();try{f.sqlite.exec('CREATE TABLE audit_requests(id TEXT,audit_id TEXT,data_json TEXT);INSERT INTO audit_requests VALUES(\'req\',\'AUDIT-1\',\'{}\')');await assert.rejects(f.remove(),AuditLinked);}finally{f.sqlite.close()}
 });
 test('active and historical CAPA source references prevent deletion of the actual audit source',async()=>{
  for(const status of ['in-progress','cancelled'])for(const sourceRef of ['AUDIT-1','requirement-1','AUD-001']){
@@ -109,4 +109,14 @@ test('canonical audit parents resolve CAPA without claiming requirement coverage
  rows.push(...[1,2,3,4].map(n=>({id:`cmp-${n}`,code:`CMP-00${n}`,module:'Uyum',data:{framework:'ISO 27001',title:`Requirement ${n}`}})),{id:'ctl',module:'Kontroller',data:{frameworks:['ISO 27001','CMP-001']}});
  const graph=buildConnectedGrcGraph(rows);assert.equal(graph.unresolved.length,0);assert.equal(graph.links.filter(e=>e.relation==='finding-audit').length,1);assert.equal(graph.links.filter(e=>e.relation==='control-framework').length,1);
  const parent=rows.find(r=>r.data.kind==='audit')!;assert.equal(connectedGrcNavigation(parent)?.ref,'AUDIT-1');assert.equal(connectedGrcNavigation(parent)?.kind,'audit');assert.ok(!assessConnectedGrcCoverage(rows,graph.links).gaps.some(g=>g.row===parent));
+});
+
+
+test('deletion preview explains blockers and never replaces the atomic delete decision',async()=>{
+ const f=await auditFixture();try{
+  let preview=await previewAuditDeletion(f.db,f.row);assert.equal(preview.canDelete,true);assert.equal(preview.requirementCount,1);
+  f.sqlite.exec("CREATE TABLE audit_requests(id TEXT,audit_id TEXT,data_json TEXT); INSERT INTO audit_requests VALUES('request-a','AUDIT-1','{}')");
+  preview=await previewAuditDeletion(f.db,f.row);assert.equal(preview.canDelete,false);assert.equal(preview.blockers.find(b=>b.kind==='audit_requests')?.count,1);
+  await assert.rejects(f.remove(),AuditLinked);assert.ok(f.sqlite.prepare('SELECT id FROM simple_audits').get());
+ }finally{f.sqlite.close();}
 });

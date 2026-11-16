@@ -13,6 +13,7 @@ import { AuditCatalogUpload } from "./audit-catalog-upload";
 import type { AuditCatalogImport } from "./audit-catalog-import";
 import { readAllGrcPages } from "./grc-pagination";
 import { AuditPlanPanel } from "./audit-plan-panel";
+import { AuditActions } from "./audit-actions";
 import { AuditResearchWorkspace } from "./audit-research-workspace";
 import { EvidenceUsagePanel } from "./evidence-usage-panel";
 import { EvidenceDocumentPreview } from "./evidence-document-preview";
@@ -1566,15 +1567,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
     return true;
   }
   async function deleteAudit(audit: AuditPortfolioItem) {
-    if (deletePending.current) return;
-    if (
-      !confirm(
-        lang === "tr"
-          ? `“${audit.name}” denetimi ve içindeki tüm maddeler silinsin mi? Bu işlem yönetici arşivine kaydedilir.`
-          : `Delete “${audit.name}” and all of its requirements? This action is retained in the administrator archive.`,
-      )
-    )
-      return;
+    if (deletePending.current) return false;
     deletePending.current=true;
     try {
     const response = await fetch(
@@ -1589,7 +1582,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
             ? "Denetim silinemedi."
             : "Audit could not be deleted."),"error",
       );
-      return;
+      return false;
     }
     setSelectedAudit("");
     await Promise.all([load(), loadAudits()]);
@@ -1598,10 +1591,12 @@ function FornostApp({ currentUser }: { currentUser: any }) {
         ? `Denetim ve ${result.deletedRequirements || 0} maddesi silindi.`
         : `Audit and ${result.deletedRequirements || 0} requirements deleted.`,
     );
+    return true;
     } catch {
       setNotice(lang === "tr"
         ? "Silme sonucu doğrulanamadı. Tekrar denemeden önce denetim listesini yenileyin."
         : "The deletion result could not be confirmed. Refresh the audit list before trying again.","error");
+      return false;
     } finally { deletePending.current=false; }
   }
   async function createTicket(row: Row) {
@@ -3732,7 +3727,7 @@ function AuditModule({
     auditOwner: string;
     catalogImport?: AuditCatalogImport;
   }) => Promise<boolean>;
-  deleteAudit: (audit: AuditPortfolioItem) => Promise<void>;
+  deleteAudit: (audit: AuditPortfolioItem) => Promise<boolean>;
   refreshAudits: () => Promise<unknown>;
   canDeleteAudit: boolean;
   portfolioState:"loading"|"ready"|"error"; retryPortfolio:()=>void;
@@ -3761,6 +3756,7 @@ function AuditModule({
   const [requestFocus, setRequestFocus] = useState<{ id: string; auditId: string } | null>(null);
   const [showUnassigned, setShowUnassigned] = useState(false);
   const [previewAuditId,setPreviewAuditId]=useState("");
+  const [auditActionSection,setAuditActionSection]=useState("");
   const [milestoneFocus,setMilestoneFocus]=useState<{id:string;auditId:string}|null>(null);
   const [workpaperFocus, setWorkpaperFocus] = useState<{ id: string; auditId: string } | null>(null);
   const [closureFocus, setClosureFocus] = useState<{ id: string; auditId: string } | null>(null);
@@ -3854,7 +3850,7 @@ function AuditModule({
         </section>
         {portfolioState==="ready"?<>
           <AuditPortfolioWorkspace audits={audits} rows={portfolioRows} evidence={evidenceRows} activeId={previewAuditId}
-            onSelect={setPreviewAuditId} onOpen={select} onDelete={canDeleteAudit?deleteAudit:undefined}
+            onSelect={setPreviewAuditId} onOpen={select} onDelete={canDeleteAudit?deleteAudit:undefined} onChanged={refreshAudits} onSection={(audit,section)=>{select(audit.name);setAuditActionSection(`${section}:${audit.id}:${Date.now()}`);}}
             showReadiness={showReadiness} lang={lang} translate={value=>display(value,lang)}/>
           <AuditUnassignedRequirements rows={unassignedAuditRequirements(rows, audits)} lang={lang}
             open={showUnassigned} setOpen={setShowUnassigned} canWrite={canWrite} canDelete={canDeleteAudit} edit={edit} remove={remove}/>
@@ -4000,6 +3996,7 @@ function AuditModule({
           </p>
         </div>
         <div className="actions">
+          {canDeleteAudit && selectedPortfolio && <AuditActions audit={selectedPortfolio} lang={lang} onDelete={deleteAudit} onChanged={refreshAudits} onSection={section=>setAuditActionSection(`${section}:${selectedPortfolio.id}:${Date.now()}`)}/>}
           <button className="ghost" disabled={!canWrite || auditLocked} onClick={openImport}>
             {tr ? "Excel İçe Aktar" : "Import Excel"}
           </button>
@@ -4019,6 +4016,8 @@ function AuditModule({
       {selectedPortfolio?.closure_state && selectedPortfolio.closure_state !== "open" && <p role="status">{auditClosureLabels[selectedPortfolio.closure_state][tr ? 0 : 1]}{auditLocked ? (tr ? " · Değişiklik için denetim gerekçeyle yeniden açılmalı." : " · Reopen the audit with a reason before making changes.") : ""}</p>}
       {!selectedPortfolio && <section className="fw-orphan-notice" role="status"><div><strong>{tr ? "Aktif denetim bağlantısı eksik" : "Active audit link missing"}</strong><p>{tr ? "Bu maddeler için aktif bir denetim kaydı bulunamadı. Kayıtları inceleyip düzenleyebilir veya bağlantısız maddeler görünümünden mevcut bir denetime bağlayabilirsiniz." : "These requirements have no active audit record. Review or edit them, or link them to an existing audit from the unassigned requirements view."}</p></div><button type="button" onClick={() => { setShowUnassigned(true); select(""); }}>{tr ? "Bağlantısız maddeleri aç" : "Open unassigned requirements"}</button></section>}
       <AuditResearchWorkspace key={selectedPortfolio?.id || `unlinked:${selected}`} auditId={selectedPortfolio?.id || ""} lang={lang}
+        actionSection={auditActionSection.split(':')[1]===selectedPortfolio?.id?auditActionSection:''} canWrite={canWrite && !auditLocked} canDelete={canDeleteAudit && !auditLocked}
+        edit={row=>{const actual=items.find(item=>item.id===row.id);if(actual)edit(actual);}} remove={remove}
         focusWorkpaper={workpaperFocus?.auditId === selectedPortfolio?.id ? workpaperFocus?.id : ""}
         focusClosure={closureFocus?.auditId === selectedPortfolio?.id ? closureFocus?.id : ""}
         items={items} focusedRequirement={focusedRequirement} focusRequest={selectedPortfolio && requestFocus?.auditId === selectedPortfolio.id ? requestFocus.id : ''} go={go}

@@ -1,3 +1,4 @@
+import {openAuditSection} from './audit-workspace-navigation.mjs';
 import {cleanupQaFixture} from './qa-fixture-cleanup.mjs';
 import {qaPassword} from './qa-credentials.mjs';
 import {chromium,expect} from '@playwright/test';
@@ -9,7 +10,7 @@ const browser=await chromium.launch({executablePath:process.env.QA_CHROMIUM_PATH
 const page=await admin.newPage(),target=await editor.newPage(),errors=[],cleanup=[],audits=[];let userId,calendarId;
 for(const p of [page,target]){p.on('pageerror',e=>errors.push(e.message));p.on('dialog',d=>d.accept());}
 async function api(ctx,path,method='GET',data,status=200){const r=await ctx.request.fetch(base+path,{method,data,headers:{origin:base}});assert.equal(r.status(),status,await r.text());return r.json();}
-async function open(p,name){await p.goto(base);await expect(p.locator('.shell')).toBeVisible();await p.locator('.language-switch:visible').getByRole('button',{name:'EN',exact:true}).click();await p.locator('nav button[aria-label="Audit Management"]').evaluate(e=>e.click());await p.locator('.audit-card-open').filter({hasText:name}).click();await p.getByRole('tab',{name:'Requests and review',exact:true}).click();await edit(p);}
+async function open(p,name){await p.goto(base);await expect(p.locator('.shell')).toBeVisible();await p.locator('.language-switch:visible').getByRole('button',{name:'EN',exact:true}).click();await p.locator('nav button[aria-label="Audit Management"]').evaluate(e=>e.click());await p.locator('.audit-card-open').filter({hasText:name}).click();await openAuditSection(p,'requests');await edit(p);}
 async function edit(p){const panel=p.locator('.ar-reminder-profile');if(!await panel.evaluate(e=>e.open))await panel.locator(':scope > summary').click();await panel.getByRole('button',{name:'Edit reminder profile',exact:true}).click();return panel;}
 async function save(p){await p.locator('.ar-reminder-profile').getByRole('button',{name:'Save reminder profile',exact:true}).click();await expect(p.locator('.audit-request-panel').getByRole('status').filter({hasText:/^Saved\.$/})).toBeVisible();await expect(p.locator('.audit-request-panel').getByRole('button',{name:'Reload',exact:true})).toBeEnabled();}
 async function library(p){const l=p.locator('.ar-shared-calendar .audit-shared-library');await l.locator(':scope > summary').click();await expect(l.getByLabel('Search shared calendars',{exact:true})).toBeVisible();return l;}

@@ -1,3 +1,4 @@
+import {openAuditSection} from './audit-workspace-navigation.mjs';
 import {cleanupQaFixture} from './qa-fixture-cleanup.mjs';
 import { qaPassword } from './qa-credentials.mjs';
 import { chromium, expect } from '@playwright/test';
@@ -24,7 +25,7 @@ async function openAudit(context, name) {
   await page.locator('.language-switch:visible').getByRole('button', { name: 'EN', exact: true }).click();
   await page.locator('nav button[aria-label="Audit Management"]').evaluate(el => el.click());
   await page.locator('.audit-card-open').filter({ hasText: name }).click();
-  await page.getByRole('tab', { name: 'Requests and review', exact: true }).click();
+  await openAuditSection(page,'requests');
   await expect(page.locator('.audit-request-panel').getByRole('button', { name: 'Reload', exact: true })).toBeEnabled();
   return page;
 }
@@ -69,8 +70,8 @@ try {
   await reviewPanel.getByRole('button', { name: request.title, exact: true }).click();
   await expect.poll(()=>reviewPanel.locator('.ev-document-stage img').evaluate(img=>img.complete && img.naturalWidth > 0)).toBe(true);
   await reviewPanel.getByLabel('Decision / cancellation reason', { exact: true }).fill('Draft survives a workspace tab switch.');
-  await reviewerPage.getByRole('tab',{name:'Overview',exact:true}).click();
-  await reviewerPage.getByRole('tab',{name:'Requests and review',exact:true}).click();
+  await openAuditSection(reviewerPage,'desk');
+  await openAuditSection(reviewerPage,'requests');
   await expect(reviewPanel.getByLabel('Decision / cancellation reason', { exact: true })).toHaveValue('Draft survives a workspace tab switch.');
   await reviewPanel.getByLabel('Decision / cancellation reason', { exact: true }).fill('Please include the missing approval reference.');
   // Focus navigation must initialize the return dates too.
@@ -147,7 +148,7 @@ try {
   await panel.locator('.ar-detail summary').click(); await expect(panel.locator('.ar-detail')).toContainText(reason);
   await panel.getByRole('button',{name:'Copy record link',exact:true}).click();
   const requestLink=await page.evaluate(()=>navigator.clipboard.readText());assert.ok(requestLink.includes('kind=audit-request'));
-  await page.goto(requestLink);await expect(page.getByRole('tab',{name:'Requests and review',exact:true})).toHaveAttribute('aria-selected','true');await expect(panel.locator('.ar-detail')).toContainText(addition.id);
+  await page.goto(requestLink);await expect(page.getByRole('tab',{name:'Evidence requests',exact:true})).toHaveAttribute('aria-selected','true');await expect(panel.locator('.ar-detail')).toContainText(addition.id);
   // Completed work belongs to the owner; organization scope is Admin-only.
   await page.locator('nav button[aria-label="My Work"]').evaluate(el => el.click());
   await page.locator('.mw2-scope button').filter({ hasText: /Organization|Kurum/ }).click();

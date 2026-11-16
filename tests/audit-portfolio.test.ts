@@ -27,7 +27,8 @@ test("portfolio audits and their requirements support controlled deletion", () =
   const removal = readFileSync("app/audit-delete.ts", "utf8");
   assert.match(removal, /audit_archive_/);
   assert.match(removal, /DELETE FROM simple_grc_records WHERE module='Denetim Yönetimi'/);
-  assert.match(workspace, /Denetimi Sil/);
+  assert.match(workspace, /<AuditActions/);
+  assert.match(readFileSync("app/audit-actions.tsx", "utf8"), /Denetimi Sil/);
   assert.match(page, /onDelete=\{canDeleteAudit\?deleteAudit:undefined\}/);
   assert.match(page, /\+ Özel Madde/);
   assert.match(page, /STANDART MADDELERİ/);

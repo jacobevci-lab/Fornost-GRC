@@ -11,8 +11,7 @@ const childTables = ['audit_requests','audit_request_events','audit_request_work
   'audit_workplan_closures','audit_workplan_closure_items','audit_workplan_events',
   'audit_closure_state','audit_closure_events','audit_status_reports'];
 
-/** Claim the exact snapshot and its dependency check inside the same atomic batch as deletion. */
-export async function deleteAudit(db: D1Database, audit: Row, actor: string) {
+async function deletionContext(db: D1Database, audit: Row) {
   const id = String(audit.id), name = String(audit.name);
   const requirements = (await db.prepare("SELECT id,data_json,created_at,updated_at FROM simple_grc_records WHERE module='Denetim Yönetimi' AND json_extract(data_json,'$.auditName')=?").bind(name).all<Row>()).results;
   const enterprise = await enterpriseCoreReferences(db, 'Denetim Yönetimi');
@@ -32,6 +31,38 @@ export async function deleteAudit(db: D1Database, audit: Row, actor: string) {
   const targets = `WITH targets(value) AS (SELECT ? UNION SELECT r.id FROM simple_grc_records r WHERE r.module='Denetim Yönetimi' AND json_extract(r.data_json,'$.auditName')=? UNION SELECT c.code FROM simple_grc_record_codes c JOIN simple_grc_records r ON r.id=c.record_id WHERE r.module='Denetim Yönetimi' AND json_extract(r.data_json,'$.auditName')=?)`;
   const linkedSql = `${targets} SELECT 1 WHERE ${[...refs,...available.map(table=>`EXISTS(SELECT 1 FROM ${table} WHERE audit_id=?)`)].join(' OR ')}`;
   const linkedValues = [id,name,name,JSON.stringify(rules),...available.map(()=>id)];
+  return {id,name,requirements,enterprise,names,catalogSql,available,linkedSql,linkedValues,externalSql: `${targets} SELECT 1 WHERE ${refs.join(' OR ')}`};
+}
+
+/** Advisory only. DELETE repeats the dependency and snapshot checks atomically. */
+export async function previewAuditDeletion(db: D1Database, audit: Row) {
+  const context = await deletionContext(db, audit);
+  const {id,available,linkedSql,linkedValues,requirements} = context;
+  const labels: Record<string, [string,string,string]> = {
+    audit_requests:['Kanıt talepleri','Evidence requests','requests'], audit_request_events:['Talep geçmişi','Request history','requests'],
+    audit_request_workflows:['Talep iş akışı','Request workflow','requests'], audit_reminder_profiles:['Hatırlatma takvimi','Reminder calendar','requests'],
+    audit_workpapers:['Çalışma kâğıtları','Workpapers','workpapers'], audit_workpaper_events:['Test geçmişi','Test history','workpapers'],
+    audit_milestones:['Plan görevleri','Plan milestones','plan'], audit_milestone_events:['Plan geçmişi','Plan history','plan'],
+    audit_workplan_closures:['İş planı kapanışları','Workplan closures','requests'], audit_workplan_closure_items:['Kapanış kalemleri','Closure items','requests'],
+    audit_workplan_events:['İş planı geçmişi','Workplan history','requests'], audit_closure_state:['Kapanış kaydı','Closure record','closure'],
+    audit_closure_events:['Kapanış kararları','Closure decisions','closure'], audit_status_reports:['Denetim raporları','Audit reports','reports'],
+  };
+  const counts = await db.batch(available.map(table=>db.prepare(`SELECT count(*) AS count FROM ${table} WHERE audit_id=?`).bind(id)));
+  const blockers = available.flatMap((table,index)=>{
+    const count=Number((counts[index].results[0] as {count:number})?.count||0);
+    return count ? [{kind:table,count,label:labels[table][0],labelEn:labels[table][1],section:labels[table][2]}] : [];
+  });
+  const linked = !!await db.prepare(linkedSql).bind(...linkedValues).first();
+  // External references can coexist with workflow blockers. Do not invent an exact record count.
+  const externalSql=context.externalSql;
+  const external=!!await db.prepare(externalSql).bind(...linkedValues.slice(0,4)).first();
+  if(external) blockers.push({kind:'references',count:0,label:'Bağlı GRC kayıtları',labelEn:'Linked GRC records',section:'connections'});
+  return {canDelete:!linked,requirementCount:requirements.length,blockers};
+}
+
+/** Claim the exact snapshot and its dependency check inside the same atomic batch as deletion. */
+export async function deleteAudit(db: D1Database, audit: Row, actor: string) {
+  const {id,name,requirements,enterprise,names,catalogSql,available,linkedSql,linkedValues} = await deletionContext(db,audit);
   const chunks: Row[][] = []; let chunk: Row[] = [], size = 0;
   for (const row of requirements) {
     const bytes = new TextEncoder().encode(JSON.stringify(row)).length;

@@ -1,3 +1,4 @@
+import { auditRequirementLinkGuard, requireAuditRequirementLink } from './audit-requirement-link';
 import { prepareDeadlineAdjustment, deadlineCalendarGuard } from './audit-deadline-adjustment-store';
 import { prepareRandomSelection } from './workpaper-random-sampling-store';
 import { reportCanonical } from './audit-status-report';
@@ -46,7 +47,7 @@ export async function mutateWorkpaper(db: D1Database, actor: Actor, input: Recor
     if (current && email !== current.owner && actor.role !== 'Admin') throw new AuditRequestError('owner', 403);
     // Older clients omit scheduling fields; they must not silently remove existing deadlines.
     const supplied = input.fields;
-    fields = validateWorkpaper(supplied && typeof supplied === 'object' && !Array.isArray(supplied) ? { dueDate: current?.dueDate, reviewDueDate: current?.reviewDueDate, timeZone: current?.timeZone, remindersEnabled: current?.remindersEnabled, ...supplied } : supplied); status = 'draft';
+    fields = validateWorkpaper(supplied && typeof supplied === 'object' && !Array.isArray(supplied) ? { requirementId: current?.requirementId, dueDate: current?.dueDate, reviewDueDate: current?.reviewDueDate, timeZone: current?.timeZone, remindersEnabled: current?.remindersEnabled, ...supplied } : supplied); status = 'draft';
     if (actor.role !== 'Admin' && fields.owner !== email) throw new AuditRequestError('owner', 403);
   } else {
     if (!current) throw new AuditRequestError('missing', 404);
@@ -57,6 +58,7 @@ export async function mutateWorkpaper(db: D1Database, actor: Actor, input: Recor
     if (action === 'reopen') { if (status !== 'approved') throw new AuditRequestError('transition', 409); if (email !== current.owner && actor.role !== 'Admin') throw new AuditRequestError('owner', 403); status = 'draft'; }
     if (action === 'cancel') { if (status !== 'draft') throw new AuditRequestError('transition', 409); if (email !== current.owner && actor.role !== 'Admin') throw new AuditRequestError('owner', 403); status = 'cancelled'; }
   }
+  await requireAuditRequirementLink(db, auditId, fields.requirementId || '');
   // Reviewers must never approve content they themselves saved on behalf of its owner.
   if (action === 'save' && email === fields.reviewer) throw new AuditRequestError('independent-review', 403);
   const recovery = ['return', 'withdraw', 'reopen', 'cancel'].includes(action);
@@ -82,8 +84,9 @@ export async function mutateWorkpaper(db: D1Database, actor: Actor, input: Recor
       AND NOT EXISTS(SELECT 1 FROM audit_workpapers WHERE id=? AND audit_id<>?)
       AND NOT EXISTS(SELECT 1 FROM json_each(?) p WHERE NOT EXISTS(SELECT 1 FROM local_users u LEFT JOIN user_module_access a ON a.user_id=u.id WHERE u.id=json_extract(p.value,'$.id') AND lower(u.email)=json_extract(p.value,'$.email') AND u.role=json_extract(p.value,'$.role') AND u.status='Active' AND a.policy_json IS json_extract(p.value,'$.policy')))
       AND NOT EXISTS(SELECT 1 FROM json_each(?) e WHERE NOT EXISTS(SELECT 1 FROM evidence_versions v JOIN simple_grc_records r ON r.id=v.evidence_id AND r.module='Kanıtlar' WHERE v.id=json_extract(e.value,'$.id') AND v.evidence_id=json_extract(e.value,'$.evidenceId') AND v.version_no=json_extract(e.value,'$.versionNo') AND v.evidence_title=json_extract(e.value,'$.title') AND v.file_name=json_extract(e.value,'$.fileName') AND v.file_key=json_extract(e.value,'$.fileKey') AND v.content_sha256=json_extract(e.value,'$.hash') AND v.period IS json_extract(e.value,'$.period')))
+    ${fields.requirementId ? auditRequirementLinkGuard : ''}
     ${deadlineCalendarGuard}
-      ON CONFLICT(id) DO UPDATE SET revision=excluded.revision,data_json=excluded.data_json,updated_at=excluded.updated_at RETURNING id`).bind(id, auditId, revision, JSON.stringify(next), next.createdAt, stamp, auditId, id, auditId, input.expectedRevision, id, auditId, auditId, id, auditId, JSON.stringify(people.results), JSON.stringify(evidenceGuard), adjustment ? 1 : 0, auditId, adjustment?.revision || '', adjustment?.raw || ''),
+      ON CONFLICT(id) DO UPDATE SET revision=excluded.revision,data_json=excluded.data_json,updated_at=excluded.updated_at RETURNING id`).bind(id, auditId, revision, JSON.stringify(next), next.createdAt, stamp, auditId, id, auditId, input.expectedRevision, id, auditId, auditId, id, auditId, JSON.stringify(people.results), JSON.stringify(evidenceGuard), ...(fields.requirementId ? [fields.requirementId, fields.requirementId, auditId] : []), adjustment ? 1 : 0, auditId, adjustment?.revision || '', adjustment?.raw || ''),
     db.prepare(`INSERT INTO audit_workpaper_events(id,audit_id,workpaper_id,actor,action,note,snapshot_json,created_at) SELECT ?,?,?,?,?,?,?,? WHERE EXISTS(SELECT 1 FROM audit_workpapers WHERE id=? AND audit_id=? AND revision=?)`).bind(revision, auditId, id, email, action, note, JSON.stringify({ ...next, ...(adjustment ? { deadlineAdjustment: adjustment.snapshot } : {}) }), stamp, id, auditId, revision),
     db.prepare("UPDATE continuous_assurance_notification_outbox SET status='cancelled',closed_at=?,updated_at=? WHERE route='audit-workpaper' AND escalation_id=? AND status='queued' AND EXISTS(SELECT 1 FROM audit_workpapers WHERE id=? AND revision=?)").bind(stamp,stamp,id,id,revision),
   ]);

@@ -1,3 +1,4 @@
+import {openAuditSection} from './audit-workspace-navigation.mjs';
 import {cleanupQaFixture} from './qa-fixture-cleanup.mjs';
 import {qaPassword} from './qa-credentials.mjs';
 import {chromium,expect} from '@playwright/test';
@@ -11,7 +12,7 @@ try{
  const initial=await api(`/api/audits/plan?id=${id}`);assert.equal(initial.revision,'');
  await api('/api/audits/plan','PUT',{id,expectedRevision:'',plan:{...initial.plan,periodStart:'2026-02-30'}},400);
  await page.goto(base);await expect(page.locator('.shell')).toBeVisible();await page.locator('.language-switch:visible').getByRole('button',{name:'EN',exact:true}).click();await page.locator('nav button[aria-label="Audit Management"]').evaluate(el=>el.click());await page.locator('.audit-card-open').filter({hasText:name}).click();
- await page.getByRole('tab',{name:'Plan and scope',exact:true}).click();const panel=page.locator('.audit-plan-form');await expect(panel.getByLabel('Audit objective',{exact:true})).toBeEnabled();
+ await openAuditSection(page,'plan');const panel=page.locator('.audit-plan-form');await expect(panel.getByLabel('Audit objective',{exact:true})).toBeEnabled();
  await panel.getByLabel('Audit objective',{exact:true}).fill('Validate control effectiveness across critical assets');await panel.getByLabel('Review period start',{exact:true}).fill('2026-01-01');await panel.getByLabel('Review period end',{exact:true}).fill('2026-12-31');
  const templates=panel.locator('.audit-template-panel');await templates.locator(':scope > summary').click();
  await templates.getByRole('button',{name:'Internal control audit',exact:true}).click();
@@ -33,6 +34,6 @@ try{
  await panel.getByLabel('Audit objective',{exact:true}).fill('Retained local draft');await panel.getByRole('button',{name:'Save plan',exact:true}).click();await expect(panel.getByRole('alert')).toContainText('Plan changed');await expect(panel.getByLabel('Audit objective',{exact:true})).toHaveValue('Retained local draft');
  page.once('dialog',d=>d.accept());await panel.getByRole('button',{name:'Reload',exact:true}).click();await expect(panel.getByLabel('Lead auditor',{exact:true})).toHaveValue('Other reviewer');
  for(const theme of ['light','dark'])for(const width of [390,1536]){await page.evaluate(t=>document.documentElement.dataset.theme=t,theme);await page.setViewportSize({width,height:960});assert.ok(await panel.evaluate(e=>e.scrollWidth<=e.clientWidth+1));}
- await panel.getByLabel('Lead auditor',{exact:true}).fill('Unsaved lead');await page.getByRole('tab',{name:'Overview',exact:true}).click();await page.getByRole('tab',{name:'Plan and scope',exact:true}).click();await expect(panel.getByLabel('Lead auditor',{exact:true})).toHaveValue('Unsaved lead');
+ await panel.getByLabel('Lead auditor',{exact:true}).fill('Unsaved lead');await openAuditSection(page,'desk');await openAuditSection(page,'plan');await expect(panel.getByLabel('Lead auditor',{exact:true})).toHaveValue('Unsaved lead');
  assert.deepEqual(errors,[]);console.log('AUDIT_PLAN_QA_PASS: real API save, date validation, revision conflict, draft preservation, reload, collapsed draft, both themes and responsive layouts');
 }finally{await page.close();if(id)await cleanupQaFixture(ctx,base,'audit',id);await browser.close();}
