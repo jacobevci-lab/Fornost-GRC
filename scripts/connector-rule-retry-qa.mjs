@@ -41,7 +41,7 @@ try{
   checks.push(`${locale}: wizard lost-save acknowledgement reuses one persisted rule`);
   const open=()=>page.locator('.ea-section-action').getByRole('button',{name:tr?'+ Kontrol Ekle':'+ Add Control',exact:true}).click();
   await open();const dialog=page.getByRole('dialog',{name:tr?'Sürekli kontrol tanımla':'Define continuous control',exact:true});
-  await dialog.getByLabel(tr?'Kontrol testi adı':'Control test name',{exact:true}).fill(`QA manual ${locale}`);await dialog.getByLabel(tr?'Kanıt kaynağı':'Evidence source',{exact:true}).selectOption(original.sourceId);await dialog.getByLabel(tr?'Bağlı kontrol/maddeler':'Mapped controls',{exact:true}).fill(control.id);await dialog.getByLabel('JSON path',{exact:true}).fill('$.healthy');
+  await dialog.getByLabel(tr?'Kontrol testi adı':'Control test name',{exact:true}).fill(`QA manual ${locale}`);await dialog.getByLabel(tr?/^Kanıt kaynağı/:/^Evidence source/).selectOption(original.sourceId);await dialog.getByLabel(tr?'Bağlı kontrol/maddeler':'Mapped controls',{exact:true}).fill(control.id);await dialog.getByLabel('JSON path',{exact:true}).fill('$.healthy');
   drop=true;saves=[];await dialog.getByRole('button',{name:tr?'Sürekli Kontrolü Kaydet':'Save Continuous Control',exact:true}).click();await expect(dialog.getByRole('alert')).toBeVisible();const manualId=createdId;
   await dialog.getByRole('button',{name:tr?'Sürekli Kontrolü Kaydet':'Save Continuous Control',exact:true}).click();await expect(dialog).toBeHidden();assert.equal(saves.length,2);assert.equal(saves[0].requestId,saves[1].requestId);
   data=await api(ctx,path);assert.equal(data.rules.filter(r=>r.sourceId===original.sourceId).length,2);assert.ok(data.rules.find(r=>r.id===manualId));
