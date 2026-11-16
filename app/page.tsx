@@ -4026,7 +4026,7 @@ function AuditModule({
           )}
         </div>
       </section>
-      {selectedPortfolio&&<AuditActions key={selectedPortfolio.id} audit={selectedPortfolio} lang={lang} canWrite={canWrite} canDelete={canDeleteAudit} onDelete={deleteAudit} onChanged={async name=>{await refreshAudits();select(name);}}/>}
+      {selectedPortfolio&&<AuditActions key={`audit-actions:${selectedPortfolio.id}`} audit={selectedPortfolio} lang={lang} canWrite={canWrite} canDelete={canDeleteAudit} onDelete={deleteAudit} onChanged={async name=>{await refreshAudits();select(name);}}/>}
       {selectedPortfolio?.closure_state && selectedPortfolio.closure_state !== "open" && <p role="status">{auditClosureLabels[selectedPortfolio.closure_state][tr ? 0 : 1]}{auditLocked ? (tr ? " · Değişiklik için denetim gerekçeyle yeniden açılmalı." : " · Reopen the audit with a reason before making changes.") : ""}</p>}
       {!selectedPortfolio && <section className="fw-orphan-notice" role="status"><div><strong>{tr ? "Aktif denetim bağlantısı eksik" : "Active audit link missing"}</strong><p>{tr ? "Bu maddeler için aktif bir denetim kaydı bulunamadı. Kayıtları inceleyip düzenleyebilir veya bağlantısız maddeler görünümünden mevcut bir denetime bağlayabilirsiniz." : "These requirements have no active audit record. Review or edit them, or link them to an existing audit from the unassigned requirements view."}</p></div><button type="button" onClick={() => { setShowUnassigned(true); select(""); }}>{tr ? "Bağlantısız maddeleri aç" : "Open unassigned requirements"}</button></section>}
       <AuditResearchWorkspace key={selectedPortfolio?.id || `unlinked:${selected}`} auditId={selectedPortfolio?.id || ""} lang={lang}

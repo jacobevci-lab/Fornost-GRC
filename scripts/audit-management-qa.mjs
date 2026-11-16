@@ -20,11 +20,14 @@ try{
  await actions.getByRole('button',{name:'Archive',exact:true}).click();await panel.getByRole('button',{name:'Confirm archive',exact:true}).click();await expect(panel).toHaveCount(0);await expect(actions.getByRole('button',{name:'Restore audit',exact:true})).toBeVisible();
  await page.locator('.audit-back').click();await expect(page.locator('.audit-card-open').filter({hasText:renamed})).toHaveCount(0);await page.getByRole('button',{name:/^Archived audits/}).click();await page.locator('.audit-card-open').filter({hasText:renamed}).click();
  await actions.getByRole('button',{name:'Restore audit',exact:true}).click();await panel.getByRole('button',{name:'Restore audit',exact:true}).click();await expect(panel).toHaveCount(0);await expect(actions.getByRole('button',{name:'Archive',exact:true})).toBeVisible();
- // Opening the request workspace creates its retained workflow record. The
- // preflight must show the real dependency and navigate to that workspace.
+ // A real draft request and its retained history must block deletion and
+ // provide navigation to the evidence-request workspace.
+ const reviewer=`audit-management-${Date.now()}@fornost.test`;
+ await api('/api/users','POST',{email:reviewer,name:'QA audit reviewer',role:'Editor',password:qaPassword()},201);
+ await api('/api/audits/requests','POST',{auditId:audit.id,action:'create',requestId:`QA-REMOVE-${Date.now()}`,expectedRevision:'',fields:{title:'Retain audit evidence history',instructions:'Review the synthetic evidence.',owner:'qa-admin@fornost.test',reviewer,dueDate:'2027-01-10',reviewDueDate:'2027-01-12',periodStart:'',periodEnd:''}});
  await page.getByRole('tab',{name:'Evidence requests',exact:true}).click();await expect(page.locator('.audit-request-panel').getByRole('button',{name:'Reload',exact:true})).toBeEnabled();
  await actions.getByRole('button',{name:'Delete Audit',exact:true}).click();await expect(panel).toContainText('Linked records and history prevent deletion.');await expect(panel.getByRole('button',{name:'Continue to delete confirmation',exact:true})).toHaveCount(0);
- await expect(panel.locator('li')).not.toHaveCount(0);await panel.locator('li').filter({hasText:'Request workflow'}).getByRole('button',{name:'Review →',exact:true}).click();await expect(page.getByRole('tab',{name:'Evidence requests',exact:true})).toHaveAttribute('aria-selected','true');
+ await expect(panel.locator('li')).not.toHaveCount(0);await panel.locator('li').filter({hasText:'Evidence requests'}).getByRole('button',{name:'Review →',exact:true}).click();await expect(page.getByRole('tab',{name:'Evidence requests',exact:true})).toHaveAttribute('aria-selected','true');
  for(const locale of ['EN','TR'])for(const theme of ['light','dark'])for(const width of [1440,390]){await page.locator('.language-switch:visible').getByRole('button',{name:locale,exact:true}).click();await page.evaluate(theme=>document.documentElement.dataset.theme=theme,theme);await page.setViewportSize({width,height:1000});assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)<=2);await page.screenshot({path:`${out}/actions-${locale}-${theme}-${width}.png`});}
  // Delete a fresh, unopened audit from the portfolio, before any retained
  // workflow history is initialized by the detail workspace.
