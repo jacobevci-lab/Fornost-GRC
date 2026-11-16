@@ -15,6 +15,9 @@ on:
       - 'app/third-party-risk/labels.ts'
       - 'app/third-party-risk/work.ts'
       - 'scripts/tprm-populated-contrast-qa.mjs'
+      - 'app/connector-onboarding-wizard*'
+      - 'app/connectors/setup-outcome.ts'
+      - 'scripts/connector-setup-outcome-qa.mjs'
       - '.github/workflows/report-composer-qa.yml'
   workflow_dispatch:
 permissions:
@@ -60,6 +63,7 @@ jobs:
           node scripts/report-composer-qa.mjs
           node scripts/reporting-export-qa.mjs
           node scripts/tprm-populated-contrast-qa.mjs
+          node scripts/connector-setup-outcome-qa.mjs
           node scripts/full-product-qa-gate.mjs
       - uses: actions/upload-artifact@v4
         if: always()
@@ -69,6 +73,7 @@ jobs:
             qa-artifacts/
             qa-artifacts-v2/
             tprm-contrast-qa-artifacts/
+            connector-setup-qa-artifacts/
             report-composer-qa-artifacts/*.png
             report-composer-qa-artifacts/*.json
             layout-qa-artifacts/reporting-*.png

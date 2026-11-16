@@ -7,6 +7,7 @@ import { navigateToFornost } from "./navigation-focus";
 import "./connector-onboarding-wizard.css";
 import ConnectorFields from "./connectors/fields";
 import { connectorProfiles, newConnectorDraft, type ConnectorDraft } from "./connectors/catalog";
+import { connectorSetupOutcome } from "./connectors/setup-outcome";
 
 type Lang = "tr" | "en";
 type DetectedPath = { path: string; type: string };
@@ -123,6 +124,7 @@ export default function ConnectorOnboardingWizard({ profileId, lang, actor, onCl
   );
 
   const tr = lang === "tr";
+  const outcome = connectorSetupOutcome(runStatus, !!runEvidenceId, tr);
   const stepLabels = tr
     ? ["Bağlan", "Algıla", "Kontroller", "İzlemeyi Aç", "Sonuç"]
     : ["Authenticate", "Detect", "Map Controls", "Enable Monitoring", "Result"];
@@ -197,6 +199,7 @@ export default function ConnectorOnboardingWizard({ profileId, lang, actor, onCl
     setMessage("");
     setRunEvidenceId("");
     setRunFindingId("");
+    let recordedRuleId = "";
     try {
       const saved = await post({
         action: "save-rule",
@@ -215,15 +218,22 @@ export default function ConnectorOnboardingWizard({ profileId, lang, actor, onCl
       });
       const id = clean(saved.ruleId);
       if (!id) throw new Error(tr ? "Sürekli kontrol kimliği alınamadı." : "Continuous control ID was not returned.");
+      recordedRuleId = id;
       setRuleId(id);
       const run = await post({ action: "run-rule", ruleId: id }) as RunResult;
       setRunStatus(clean(run.status) || "unknown");
       setRunEvidenceId(clean(run.evidenceId));
       setRunFindingId(clean(run.findingId));
-      setMessage(clean(run.message) || clean(saved.message));
+      setMessage("");
       setStep(5);
     } catch (caught) {
-      setError(caught instanceof Error ? (caught.message === "EXECUTION_CONFLICT" ? executionConflictMessage(tr) : caught.message) : (tr ? "İzleme etkinleştirilemedi." : "Monitoring could not be enabled."));
+      if (recordedRuleId) {
+        setRunStatus("unknown");
+        setMessage("");
+        setStep(5);
+      } else {
+        setError(caught instanceof Error ? (caught.message === "EXECUTION_CONFLICT" ? executionConflictMessage(tr) : caught.message) : (tr ? "İzleme etkinleştirilemedi." : "Monitoring could not be enabled."));
+      }
     } finally {
       setBusy("");
     }
@@ -336,19 +346,19 @@ export default function ConnectorOnboardingWizard({ profileId, lang, actor, onCl
                 <label><span>{tr ? "CAPA termin (gün)" : "CAPA due (days)"}</span><input type="number" min="1" max="365" value={rule.remediationDueDays} onChange={(event) => setRule({ ...rule, remediationDueDays: Number(event.target.value) })} /></label>
               </div>
               <div className="cow-control-chips">{selectedControls.map((ref) => <span key={ref}>{ref}</span>)}</div>
-              <footer className="cow-actions"><button type="button" className="ghost" onClick={() => setStep(3)}>{tr ? "Geri" : "Back"}</button><button type="button" className="primary" disabled={!!busy} onClick={() => void enableMonitoring()}>{busy === "enable" ? (tr ? "İlk kontrol çalışıyor…" : "Running first control…") : (tr ? "İzlemeyi Etkinleştir" : "Enable Monitoring")}</button></footer>
+              <footer className="cow-actions"><button type="button" className="ghost" disabled={!!busy} onClick={() => setStep(3)}>{tr ? "Geri" : "Back"}</button><button type="button" className="primary" disabled={!!busy} onClick={() => void enableMonitoring()}>{busy === "enable" ? (tr ? "İlk kontrol çalışıyor…" : "Running first control…") : (tr ? "İzlemeyi Etkinleştir" : "Enable Monitoring")}</button></footer>
             </div>
           )}
 
           {step === 5 && (
-            <div className="cow-body cow-complete">
-              <div className="cow-complete-mark">✓</div>
-              <small>CONTINUOUS ASSURANCE ACTIVE</small>
-              <h4>{tr ? "Connected GRC zinciri hazır" : "Connected GRC chain is ready"}</h4>
-              <p>{tr ? "Sonuç ekranı yalnız API tarafından döndürülen gerçek kayıt kimliklerini kullanır. Hiçbir kayıt kimliği türetilmez veya tahmin edilmez." : "The result screen uses only real record IDs returned by the API. No record identifier is derived or guessed."}</p>
+            <div className="cow-body cow-complete" data-outcome={outcome.tone}>
+              <div className="cow-complete-mark" aria-hidden="true">{outcome.mark}</div>
+              <small>{tr ? "İLK ÇALIŞMA SONUCU" : "FIRST RUN RESULT"}</small>
+              <h4 aria-live="polite">{outcome.title}</h4>
+              <p>{outcome.detail}</p>
               <div className="cow-monitor-summary">
                 <span><small>{tr ? "Kaynak" : "Source"}</small><b>{sourceId || "—"}</b></span>
-                <span><small>{tr ? "İlk çalışma" : "First run"}</small><b>{runStatus || "—"}</b></span>
+                <span><small>{tr ? "İlk çalışma" : "First run"}</small><b>{outcome.label}</b></span>
                 <span><small>{tr ? "Kanıt" : "Evidence"}</small><b>{runEvidenceId || "—"}</b></span>
                 <span><small>{tr ? "Otomasyon bulgusu" : "Automation finding"}</small><b>{runFindingId || (tr ? "Bu çalışmada oluşmadı" : "Not created by this run")}</b></span>
               </div>
