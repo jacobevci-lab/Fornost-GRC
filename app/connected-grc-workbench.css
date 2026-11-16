@@ -43,7 +43,7 @@
 #connected-grc-workbench button.primary,#connected-grc-workbench button.primary:hover{color:#fff!important;background:var(--ws-brand)!important}
 html[data-theme="dark"] #connected-grc-workbench button.primary,html[data-theme="dark"] #connected-grc-workbench button.primary:hover{color:var(--ws-bg)!important}
 #connected-grc-workbench .cgw-edges text{fill:var(--ws-brand-2);stroke:var(--ws-surface);stroke-width:4px;paint-order:stroke;font-size:10px}
-html[data-theme] body .shell>main .connected-explorer .cg-heading h2{font-size:26px!important}
+html[data-theme] body .shell>main .connected-explorer .cg-heading h2{font-size:24px!important}
 html[data-theme] body .shell>main .connected-explorer :is(.cg-heading p,.cg-tabs button,.cg-summary span,.cg-summary b){font-size:13px!important}
 .connected-explorer .cg-source-controls button{padding:8px 12px;border:1px solid var(--ws-line);border-radius:8px;background:var(--ws-surface);color:var(--ws-ink);cursor:pointer}
 @media(max-width:650px){html[data-theme] body .shell>main .connected-explorer .cg-heading h2{font-size:22px!important}}

@@ -1851,7 +1851,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
             </div>
           ))}
         </nav>
-        <div className="sidebar-view-controls" aria-label={lang === "tr" ? "Menü görünümü" : "Navigation view"}>
+        <div className="sidebar-view-controls" role="group" aria-label={lang === "tr" ? "Menü görünümü" : "Navigation view"}>
           <span>{lang === "tr" ? "MENÜ GÖRÜNÜMÜ" : "NAVIGATION VIEW"}</span>
           <div>
             <button
@@ -2105,6 +2105,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
             </button>
             <div
               className="language-switch"
+              role="group"
               aria-label={lang === "tr" ? "Dil seçimi" : "Language selection"}
             >
               <button

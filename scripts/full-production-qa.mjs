@@ -44,6 +44,8 @@ const moduleLabels = [
 
 const representativeModules = new Set([
   "Gösterge Paneli",
+  "Regülasyon Merkezi",
+  "Bağlantılı GRC Haritası",
   "Risk Değerlendirmesi",
   "İş Etki Analizi (BIA)",
   "Varlık Envanteri",

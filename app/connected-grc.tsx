@@ -122,7 +122,7 @@ export default function ConnectedGrc({rows,lang,go,includeAi=false,actor,refresh
     </header>
     {!!activeSnapshot?.result.issues.length&&<details className="cg-source-issues"><summary>{tr?"Kaynak durumu":"Source status"} · {sourceState.ready}/{sourceState.total}</summary><ul>{activeSnapshot.result.issues.map(issue=><li key={issue.key}>{connectedSourceIssueText(issue,lang)}</li>)}</ul><p>{tr?"Eksik kaynaklar bağlantı ve güvence sonuçlarını etkileyebilir. Yeniden deneyebilir veya ilgili modüldeki erişiminizi kontrol edebilirsiniz.":"Missing sources can affect connections and assurance results. Retry or check your access in the affected module."}</p></details>}
     {activeSnapshot&&<p className="cg-last-read">{tr?"Kaynakların son okunması":"Sources last read"}: {new Date(activeSnapshot.loadedAt).toLocaleString(tr?"tr-TR":"en-US")}</p>}
-    <div className="cg-summary" aria-label={tr?"Genel durum":"Overview"}>
+    <div className="cg-summary" role="group" aria-label={tr?"Genel durum":"Overview"}>
       <span><b>{records.length}</b> {tr?"kayıt":"records"}</span>
       <span><b>{links.length}</b> {tr?"bağlantı":"connections"}</span>
       <span><b>{records.length-linkedIds.size}</b> {tr?"bağlantısız kayıt":"unlinked records"}</span>

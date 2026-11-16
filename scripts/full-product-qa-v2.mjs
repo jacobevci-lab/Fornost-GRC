@@ -469,6 +469,7 @@ async function auditSidebar(page) {
   for (let i = 0; i < Math.min(count, 5); i += 1) {
     const button = navButtons.nth(i), label = await button.getAttribute("aria-label");
     if (!label) continue;
+    const originalDescription = await button.getAttribute("aria-describedby");
     await button.hover();
     await page.waitForTimeout(120);
     const hoverTooltip = page.locator('[role="tooltip"]:visible').filter({ hasText: label });
@@ -477,9 +478,16 @@ async function auditSidebar(page) {
     await page.waitForTimeout(120);
     const focusTooltip = page.locator('[role="tooltip"]:visible').filter({ hasText: label });
     const focusOk = (await focusTooltip.count()) > 0;
-    tooltipChecks.push({ label, hoverOk, focusOk });
+    await button.press("Escape");
+    await expect(focusTooltip).toHaveCount(0);
+    const restoredDescription = await button.getAttribute("aria-describedby");
+    const cleanupOk = restoredDescription === originalDescription &&
+      !(restoredDescription || "").split(/\s+/).includes("fornost-sidebar-icon-tooltip") &&
+      (await button.getAttribute("title")) === label;
+    tooltipChecks.push({ label, hoverOk, focusOk, cleanupOk });
     if (!hoverOk) finding("high", "sidebar", "Collapsed navigation icon has no hover tooltip", label);
     if (!focusOk) finding("high", "sidebar", "Collapsed navigation icon has no keyboard-focus tooltip", label);
+    if (!cleanupOk) finding("high", "sidebar", "Tooltip leaves a stale accessible description after Escape", label);
   }
   report.sidebar.tooltipChecks = tooltipChecks;
   report.sidebar.compactScreenshot = await snap(page, "sidebar-compact");

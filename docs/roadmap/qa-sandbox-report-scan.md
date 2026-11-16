@@ -22,4 +22,16 @@ and the real Reporting preview and the complete bilingual gate finish. Run the
 focused regression before the application scan; keep product findings visible.
 
 Reference: https://github.com/dequelabs/axe-core-npm/blob/develop/packages/playwright/src/index.ts
-Validation and release: pending on this revision.
+The completed scan on e57189f also surfaced existing product defects: four low
+contrast identity badges/avatars, five workspace heading scales exceeding the
+existing 24px page/18px section range, and orphan tooltip descriptions after
+hover followed by keyboard focus. Administrators must be able to distinguish
+account state and navigate compact menus without stale accessible descriptions.
+Use existing theme tokens, align headings, preserve the original tooltip
+description across repeated activation, and give named control groups valid
+semantics. Enlarge report section checkboxes to 24px within their existing
+30px labels. No layout redesign or authorization/workflow changes.
+
+Acceptance: complete both locale scans with no high findings, verify tooltip
+cleanup after hover/focus/Escape, preserve report exports and sandbox, and check
+changed modules in both themes. Validation and release pending on this revision.
