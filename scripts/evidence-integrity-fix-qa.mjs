@@ -4,6 +4,7 @@ import {randomUUID} from 'node:crypto';
 import {chromium,expect} from '@playwright/test';
 import {createQaContext,openQaModule,switchQaLocale} from './qa-browser-harness.mjs';
 import {qaPassword} from './qa-credentials.mjs';
+import {qaFailureSummary,ownedEvidenceQaIds} from './qa-failure-summary.mjs';
 const production=process.argv.includes('--production');
 const base=production?'https://app.fornostsecurity.com':'http://127.0.0.1:4173';
 const headers=production&&process.env.CF_ACCESS_CLIENT_ID?{'CF-Access-Client-Id':process.env.CF_ACCESS_CLIENT_ID,'CF-Access-Client-Secret':process.env.CF_ACCESS_CLIENT_SECRET}:{};
@@ -11,15 +12,16 @@ const email=production?process.env.FORNOST_SMOKE_EMAIL:'qa-admin@fornost.test',p
 assert.ok(email&&password);
 const prefix='QA-EVIDENCE-FIX-'+randomUUID(),owned=[],results=[],errors=[];
 const output='evidence-integrity-qa-artifacts';await mkdir(output,{recursive:true});
+await writeFile(output+'/run.json',JSON.stringify({prefix,revision:process.env.FORNOST_EXPECTED_REVISION}));
 const browser=await chromium.launch({executablePath:process.env.QA_CHROMIUM_PATH||undefined});
 const context=await createQaContext(browser,base,headers,{viewport:{width:1536,height:960}});
-let page=await context.newPage();page.setDefaultTimeout(15000);page.on('pageerror',e=>errors.push(e.message));
+let page=await context.newPage(),phase='startup',signedIn=false;page.setDefaultTimeout(15000);page.on('pageerror',e=>errors.push(qaFailureSummary(e)));
 const file={name:prefix+'.txt',mimeType:'text/plain',buffer:Buffer.from('Disposable Fornost evidence QA. No customer data.')};
 async function api(path,method='GET',data,status=200){const r=await context.request.fetch(base+path,{method,data,headers:{origin:base,...headers},timeout:20000});assert.equal(r.status(),status,`${method} ${path}: ${r.status()}`);return r.json()}
 async function list(){return (await api('/api/grc')).rows}
 async function upload(multipart,path='/api/evidence',status=201){const r=await context.request.post(base+path,{headers:{origin:base,...headers},multipart:{file,...multipart}});assert.equal(r.status(),status,`${path}: ${await r.text()}`);const data=await r.json();if(path==='/api/evidence'&&status===201)owned.push(data.id);return data}
 async function download(key,status=200,inline=false){const r=await context.request.get(base+`/api/evidence?key=${encodeURIComponent(key)}${inline?'&inline=1':''}`,{headers});assert.equal(r.status(),status);if(status===200)assert.deepEqual(await r.body(),file.buffer)}
-async function step(name,fn){await fn();results.push({name,status:'passed'});console.log('PASS',name)}
+async function step(name,fn){phase=name;await fn();results.push({name,status:'passed'});console.log('PASS',name)}
 let evidenceId,controlId,keys=[];
 try{
  if(production)assert.equal((await api('/api/health')).revision,process.env.FORNOST_EXPECTED_REVISION);
@@ -27,8 +29,9 @@ try{
   await page.goto(base,{waitUntil:'domcontentloaded'});const login=page.locator('.auth-card');await expect(login).toBeVisible();
   await login.locator('[name=email]').fill(email);await login.locator('[name=password]').fill(password);
   const pending=page.waitForResponse(r=>new URL(r.url()).pathname==='/api/auth'&&r.request().method()==='POST');
-  await login.locator('button.primary').click();assert.equal((await pending).status(),200);await expect(page.locator('.shell')).toBeVisible();await switchQaLocale(page,'en');
+  await login.locator('button.primary').click();assert.equal((await pending).status(),200);signedIn=true;await expect(page.locator('.shell')).toBeVisible();await switchQaLocale(page,'en');
  });
+ phase='Create owned control fixture';
  const control=await api('/api/grc','POST',{module:'Kontroller',data:{controlRef:prefix,controlTitle:prefix,owner:'QA',frequency:'Yıllık',implementation:'QA verification',status:'Taslak'}},201);controlId=control.id;owned.push(controlId);
  await openQaModule(page,'Evidence Library');await page.locator('.actions .primary').first().click();const form=page.locator('.record-dialog');
  await form.locator('input[type=file]').setInputFiles(file);
@@ -52,7 +55,7 @@ try{
   const history=await api('/api/evidence/history?id='+evidenceId);assert.equal(history.versions.length,2);assert.equal(history.integrity.state,'verified');keys=history.versions.map(v=>v.fileKey);for(const key of keys){await download(key);await download(key,200,true)}
  });
  await step('Deleting through the browser revokes all versions while retaining history',async()=>{
-  await page.close();page=await context.newPage();page.setDefaultTimeout(15000);page.on('pageerror',e=>errors.push(e.message));await page.goto(base,{waitUntil:'domcontentloaded'});await expect(page.locator('.shell')).toBeVisible();await switchQaLocale(page,'en');await openQaModule(page,'Evidence Library');await page.getByPlaceholder('Search records...',{exact:true}).fill(prefix);const row=page.getByRole('row').filter({hasText:prefix});
+  await page.close();page=await context.newPage();page.setDefaultTimeout(15000);page.on('pageerror',e=>errors.push(qaFailureSummary(e)));await page.goto(base,{waitUntil:'domcontentloaded'});await expect(page.locator('.shell')).toBeVisible();await switchQaLocale(page,'en');await openQaModule(page,'Evidence Library');await page.getByPlaceholder('Search records...',{exact:true}).fill(prefix);const row=page.getByRole('row').filter({hasText:prefix});
   page.once('dialog',d=>d.accept());const pending=page.waitForResponse(r=>new URL(r.url()).pathname==='/api/grc'&&r.request().method()==='DELETE');await row.getByRole('button',{name:'Delete',exact:true}).click();assert.equal((await pending).status(),200);await expect(row).toHaveCount(0);assert.ok(!(await list()).some(r=>r.id===evidenceId));
   for(const key of keys){await download(key,404);await download(key,404,true)}
   const retained=await api('/api/evidence/history?controlRef='+encodeURIComponent(control.code));assert.equal(retained.timeline.filter(v=>v.evidenceId===evidenceId).length,2);assert.ok(retained.timeline.filter(v=>v.evidenceId===evidenceId).every(v=>v.recordAvailable===false));
@@ -62,8 +65,11 @@ try{
  });
  await step('Unauthenticated file access remains denied',async()=>{const anon=await createQaContext(browser,base,headers);const r=await anon.request.get(base+'/api/evidence?key='+encodeURIComponent(keys[0]),{headers});assert.equal(r.status(),401);await anon.close()});
  assert.deepEqual(errors,[]);
-}catch(error){results.push({name:'failure',status:'failed',error:error.message});await page.screenshot({path:output+'/failure.png'}).catch(()=>{});process.exitCode=1;
+}catch(error){results.push({name:phase,status:'failed',error:qaFailureSummary(error)});await page.screenshot({path:output+'/failure.png'}).catch(()=>{});process.exitCode=1;
 }finally{
- for(const id of owned.reverse())try{if((await list()).some(r=>r.id===id))await api('/api/grc?id='+encodeURIComponent(id),'DELETE');assert.ok(!(await list()).some(r=>r.id===id))}catch(error){results.push({name:'cleanup',status:'failed',id,error:error.message});process.exitCode=1}
+ // Recover this run's exact fixtures if a POST committed but its acknowledgement was lost.
+ if(signedIn)try{for(const id of ownedEvidenceQaIds(await list(),prefix))if(!owned.includes(id))owned.push(id)}catch(error){results.push({name:'fixture discovery',status:'failed',error:qaFailureSummary(error)});process.exitCode=1}
+ for(const id of owned.reverse())try{if((await list()).some(r=>r.id===id))await api('/api/grc?id='+encodeURIComponent(id),'DELETE');assert.ok(!(await list()).some(r=>r.id===id))}catch(error){results.push({name:'cleanup',status:'failed',id,error:qaFailureSummary(error)});process.exitCode=1}
+ if(signedIn)try{await api('/api/auth','POST',{action:'logout'});assert.equal((await api('/api/auth')).authenticated,false);results.push({name:'Owned test session closed',status:'passed'})}catch(error){results.push({name:'session cleanup',status:'failed',error:qaFailureSummary(error)});process.exitCode=1}
  await writeFile(output+'/report.json',JSON.stringify({environment:production?'production':'isolated',revision:process.env.FORNOST_EXPECTED_REVISION,results,pageErrors:errors},null,2));console.log('EVIDENCE_FIX_QA',JSON.stringify(results));await browser.close();
 }
