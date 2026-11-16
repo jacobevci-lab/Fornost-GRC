@@ -31,7 +31,7 @@ export function Workspace(p:Props){
  const fmt=(v?:string)=>v?new Intl.DateTimeFormat(tr?'tr-TR':'en-GB',{dateStyle:'medium'}).format(new Date(v)):'—';
  const sourceActionTitle=(a:string)=>a==='delete-source'?(tr?'Kaynağı sil':'Delete source'):a==='restore-source'?(tr?'Kaynağı geri yükle':'Restore source'):(tr?'Kaynağı arşivle':'Archive source');
  return <div className="rg-workspace">
-  <div className="rg-summary" aria-label={tr?'Kurum genelindeki açık işler':'Organization-wide open work'}>
+  <div className="rg-summary" role="group" aria-label={tr?'Kurum genelindeki açık işler':'Organization-wide open work'}>
    <button onClick={()=>{switchTab('changes');setFilter('unassessed');setScope('team')}}><strong>{data?.summary.unassessed??'—'}</strong><span>{tr?'Değerlendirme bekleyen değişiklik':'Changes awaiting assessment'}</span></button>
    <button className="rg-attention" onClick={()=>metric('overdue')}><strong>{data?.summary.overdueImpacts??'—'}</strong><span>{tr?'Geciken aksiyon':'Overdue actions'}</span></button>
    <button onClick={()=>metric('verification')}><strong>{data?.summary.verification??'—'}</strong><span>{tr?'Doğrulama bekleyen aksiyon':'Actions awaiting verification'}</span></button>
@@ -39,7 +39,7 @@ export function Workspace(p:Props){
   <div className="rg-meta"><span>{tr?'Sayaçlar kurum genelini kapsar.':'Counts cover the entire organization.'}</span><span>{data?`${tr?'Son yükleme':'Last loaded'} ${new Date(data.loadedAt).toLocaleTimeString(tr?'tr-TR':'en-GB')}`:''}</span><button disabled={resource.loading||p.busy} onClick={()=>void resource.reload()}>{tr?'Yenile':'Refresh'}</button></div>
   <div role="navigation" className="ri-tabs" aria-label={tr?'Regülasyon görünümleri':'Regulatory views'}>{(['overview','changes','sources','impacts'] as Tab[]).map(t=><button key={t} aria-current={tab===t?'page':undefined} className={tab===t?'active':''} onClick={()=>switchTab(t)}>{({overview:tr?'İş listem':'Worklist',changes:tr?'Değişiklik Envanteri':'Change Register',sources:tr?'Kaynaklar':'Sources',impacts:tr?'Etki ve Aksiyonlar':'Impact & Actions'})[t]}</button>)}</div>
   <div className="rg-tools">
-   {tab!=='sources'&&<div className="rg-scope" aria-label={tr?'İş kapsamı':'Work scope'}><button aria-pressed={scope==='mine'} onClick={()=>{setScope('mine');reset()}}>{tr?'Bana atananlar':'Assigned to me'}</button><button aria-pressed={scope==='team'} onClick={()=>{setScope('team');reset()}}>{tr?'Tüm ekip':'Whole team'}</button></div>}
+   {tab!=='sources'&&<div className="rg-scope" role="group" aria-label={tr?'İş kapsamı':'Work scope'}><button aria-pressed={scope==='mine'} onClick={()=>{setScope('mine');reset()}}>{tr?'Bana atananlar':'Assigned to me'}</button><button aria-pressed={scope==='team'} onClick={()=>{setScope('team');reset()}}>{tr?'Tüm ekip':'Whole team'}</button></div>}
    <input aria-label={tr?'Regülasyonlarda ara':'Search regulations'} placeholder={tr?'Başlık, kaynak, referans veya sahip ara…':'Search title, source, reference or owner…'} value={q} onChange={e=>{setQ(e.target.value);reset()}}/>
    <select aria-label={tr?'İş filtresi':'Work filter'} value={filter} onChange={e=>{setFilter(e.target.value);reset()}}>
     <option value="all">{tab==='sources'?(tr?'Aktif kaynaklar':'Active sources'):(tr?'Açık işler':'Open work')}</option>

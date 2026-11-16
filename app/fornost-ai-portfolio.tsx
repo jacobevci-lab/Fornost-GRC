@@ -97,7 +97,7 @@ export default function FornostAiPortfolio({ lang = "tr", onCreate, onOpenModel,
   return (
     <div className="ai-portfolio ai-decision-workspace">
       <header className="ai-decision-hero">
-        <div><small>FORNOST · AI GOVERNANCE</small><h3>{reports ? t("AI Raporları", "AI Reports") : t("Karar Masası", "Decision Desk")}</h3>
+        <div><small>FORNOST · AI GOVERNANCE</small><h2>{reports ? t("AI Raporları", "AI Reports") : t("Karar Masası", "Decision Desk")}</h2>
         <p>{t("Öncelikli kararlar ve takip gerektiren AI sistemleri.", "Priority decisions and AI systems requiring follow-up.")}</p></div>
         <div><button className="primary" onClick={onCreate}>{t("+ AI sistemi", "+ AI system")}</button><button aria-pressed={reports} onClick={() => setReports(!reports)}>{reports ? t("İş listesine dön", "Back to worklist") : t("Raporlar", "Reports")}</button></div>
       </header>

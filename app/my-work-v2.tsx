@@ -464,7 +464,7 @@ export default function MyWorkV2() {
             : tr ? "Risk, kontrol, kanıt, denetim, süreklilik, olay ve iyileştirme sorumluluklarını tek kuyrukta gör; çalışma sırasını ihtiyacına göre seç." : "See risk, control, evidence, audit, continuity, incident and remediation responsibilities in one queue; choose the order that fits your work."}</p>
         </div>
         <div className="mw2-hero-actions">
-          {user.role === "Admin" && <div className="mw2-scope" aria-label={tr ? "İş kapsamı" : "Work scope"}>
+          {user.role === "Admin" && <div className="mw2-scope" role="group" aria-label={tr ? "İş kapsamı" : "Work scope"}>
             <button type="button" aria-pressed={scope === "mine"} className={scope === "mine" ? "active" : ""} onClick={() => setScope("mine")}>{tr ? "Benim" : "Mine"}</button>
             <button type="button" aria-pressed={scope === "organization"} className={scope === "organization" ? "active" : ""} onClick={() => setScope("organization")}>{tr ? "Organizasyon" : "Organization"}</button>
           </div>}

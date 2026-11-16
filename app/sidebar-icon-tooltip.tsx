@@ -47,7 +47,11 @@ export default function SidebarIconTooltip() {
         button.removeAttribute("title");
       }
       button.dataset.fornostSidebarTooltip = label;
-      previousDescribedByRef.current = button.getAttribute("aria-describedby");
+      // Hover and keyboard focus can activate the same button repeatedly.
+      // Capture its original description once, before adding our tooltip ID.
+      if (sourceRef.current !== button) {
+        previousDescribedByRef.current = button.getAttribute("aria-describedby");
+      }
       button.setAttribute("aria-describedby", tooltipId);
       sourceRef.current = button;
 
