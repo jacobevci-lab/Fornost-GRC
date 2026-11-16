@@ -4,3 +4,6 @@
 .cow-complete[data-outcome="error"] .cow-complete-mark{background:color-mix(in srgb,var(--ws-danger) 12%,var(--ws-surface));color:var(--ws-danger)}
 
 .cow-complete-mark svg{width:26px;height:26px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+
+/* Keep each foreground/background pair readable throughout hover and theme changes. */
+.cow-shell button{transition:border-color .16s ease,box-shadow .16s ease!important}

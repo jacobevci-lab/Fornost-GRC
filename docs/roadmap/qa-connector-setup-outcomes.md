@@ -26,3 +26,9 @@ light/dark, desktop/mobile, active-step and linked-control contrast and keyboard
 focus. Fixtures must intercept writes, never contact a provider or change
 customer records. Run lint, types, existing CI and browser gates, then verify
 the released revision. Rollback is a code revert without migration.
+
+Browser validation also caught transient linked-control contrast of 2.56:1 in
+light-theme hover while the global button background was animating. Scope button
+transitions in this wizard to borders/shadows so text and fill switch together;
+retain the strict contrast check without delaying or suppressing findings. Use
+decorative SVG outcome marks alongside the explicit result text.
