@@ -1,5 +1,6 @@
 "use client";
 import { executionConflictMessage } from "./evidence/execution-feedback";
+import { sourceCreationConflictMessage } from "./evidence/source-save-feedback";
 import { ruleCreationConflictMessage } from "./evidence/rule-save-feedback";
 import { safeWebHref } from "./safe-web-href";
 
@@ -103,6 +104,8 @@ export default function EvidenceAutomation({lang,currentUser}:{lang:Lang;current
   const [message,setMessage]=useState("");
   const [sourceOpen,setSourceOpen]=useState(false);
   const [sourceId,setSourceId]=useState("");
+  const sourceRequestId=useRef("");
+  const [conflictingSourceId,setConflictingSourceId]=useState("");
   const [guide,setGuide]=useState<ConnectorGuide|null>(null);
   const [catalogQuery,setCatalogQuery]=useState("");
   const [ruleOpen,setRuleOpen]=useState(false);
@@ -150,19 +153,20 @@ export default function EvidenceAutomation({lang,currentUser}:{lang:Lang;current
     actionPending.current=true;setBusy(String(body.action||"save"));setMessage("");
     try{
       const r=await fetch(withBasePath("/api/evidence-automation"),{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(body)}),j=await r.json().catch(()=>({}));
-      if(j.code==="RULE_CREATION_CONFLICT"){setMessage(ruleCreationConflictMessage(tr));setConflictingRuleId(typeof j.ruleId==="string"?j.ruleId:"");}
+      if(j.code==="SOURCE_CREATION_CONFLICT"){setMessage(sourceCreationConflictMessage(tr));setConflictingSourceId(typeof j.sourceId==="string"?j.sourceId:"");}
+      else if(j.code==="RULE_CREATION_CONFLICT"){setMessage(ruleCreationConflictMessage(tr));setConflictingRuleId(typeof j.ruleId==="string"?j.ruleId:"");}
       else if(j.code==="EXECUTION_CONFLICT")setMessage(executionConflictMessage(tr));
       else if(!r.ok)setMessage(j.code==="REFERENCE_UNAVAILABLE"?(tr?"Bağlı kontrol kaydı bulunamadı veya yanlış modüle ait. Eşlemeyi düzeltip tekrar kaydedin.":"A mapped control record is unavailable or belongs to another module. Correct the mapping and save again."):(j.error||(tr?"İşlem başarısız.":"Operation failed.")));
       else if(j.reassessmentRequired)setMessage(tr?"Kaynak güncellendi. Bağlı kontroller için yeni değerlendirme gerekiyor; kanıt geçmişi korundu.":"Source updated. Linked controls need a new assessment; evidence history was preserved.");
       else if(body.action==="run-due")setMessage(tr?`${j.recorded} sonuç kaydedildi; ${j.unrecorded} çalışma kaydedilemedi; ${j.skipped} çalışma atlandı.`:`${j.recorded} results saved; ${j.unrecorded} runs not recorded; ${j.skipped} runs skipped.`);
       else setMessage(j.message||(tr?"İşlem tamamlandı.":"Completed."));
-      if(r.ok||j.code==="EXECUTION_CONFLICT"||j.code==="RULE_CREATION_CONFLICT"||body.action==="test-source")await load();
+      if(r.ok||j.code==="EXECUTION_CONFLICT"||j.code==="SOURCE_CREATION_CONFLICT"||j.code==="RULE_CREATION_CONFLICT"||body.action==="test-source")await load();
       return r.ok;
     }catch{
       setMessage(tr?"Sunucuya ulaşılamadı.":"Server unavailable.");return false;
     }finally{actionPending.current=false;setBusy("")}
   }
-  async function saveSource(e:FormEvent){e.preventDefault();if(await api({action:"save-source",sourceId:sourceId||undefined,...source})){setSourceOpen(false);setSource(newConnectorDraft());setSourceId("")}}
+  async function saveSource(e:FormEvent){e.preventDefault();if(!sourceId)sourceRequestId.current ||= crypto.randomUUID();setConflictingSourceId("");if(await api({action:"save-source",requestId:sourceId?undefined:sourceRequestId.current,sourceId:sourceId||undefined,...source})){sourceRequestId.current="";setSourceOpen(false);setSource(newConnectorDraft());setSourceId("")}}
   async function saveRule(e:FormEvent){e.preventDefault();ruleRequestId.current ||= crypto.randomUUID();setConflictingRuleId("");if(await api({action:"save-rule",requestId:ruleRequestId.current,...rule})){ruleRequestId.current="";setRuleOpen(false);setRule({...rule,name:"",controlRefs:"",jsonPath:"",expected:""})}}
   async function closeFinding(){if(!closing)return;if(await api({action:"close-finding",findingId:closing.id,...closure})){setClosing(null);setClosure({note:"",evidenceReference:"",evidenceSha256:"",confirmation:""})}}
 
@@ -187,9 +191,9 @@ export default function EvidenceAutomation({lang,currentUser}:{lang:Lang;current
     }catch{setMessage(tr?"Sürekli güvence servisine ulaşılamadı.":"Continuous assurance service unavailable.")}
     finally{setBusy("")}
   }
-  function closeSource(){setSourceOpen(false);setSource(newConnectorDraft());setSourceId("")}
+  function closeSource(){if(actionPending.current)return;sourceRequestId.current="";setConflictingSourceId("");setSourceOpen(false);setSource(newConnectorDraft());setSourceId("")}
   function pick(entry:typeof catalog[number]){setMessage("");setSourceId("");if(entry[2]==="guide"){setGuide(connectorGuides.find(p=>p.name===entry[1])||null);return;}setSource({...newConnectorDraft(entry[2]),name:entry[1],vendor:entry[1],category:entry[0],driver:connectorProfile(entry[2])?"provider-v1":entry[2]});setSourceOpen(true)}
-  function editSource(x:Source){setMessage("");setSourceId(x.id);setSource({...newConnectorDraft(x.config.providerId),name:x.name,vendor:x.vendor,category:x.category,driver:x.driver,baseUrl:x.config.baseUrl||"",authType:x.config.authType||"bearer",headerName:x.config.headerName||"x-api-key",dataset:x.config.dataset||"",providerConfig:x.config,credentials:{}});setSourceOpen(true)}
+  function editSource(x:Source){sourceRequestId.current="";setConflictingSourceId("");setMessage("");setSourceId(x.id);setSource({...newConnectorDraft(x.config.providerId),name:x.name,vendor:x.vendor,category:x.category,driver:x.driver,baseUrl:x.config.baseUrl||"",authType:x.config.authType||"bearer",headerName:x.config.headerName||"x-api-key",dataset:x.config.dataset||"",providerConfig:x.config,credentials:{}});setSourceOpen(true)}
   const filteredCatalog=catalog.filter(x=>x[1].toLocaleLowerCase().includes(catalogQuery.toLocaleLowerCase()));
 
   const tabNames = {
@@ -249,7 +253,7 @@ export default function EvidenceAutomation({lang,currentUser}:{lang:Lang;current
 
     </>}
     {guide&&<Modal title={guide.name} closeLabel={tr?"Pencereyi kapat":"Close dialog"} onClose={()=>setGuide(null)}><div className="ea-form"><div className="connector-guide wide"><b>{tr?"Ürüne özgü collector gerekiyor":"Product-specific collector required"}</b><p>{tr?guide.requirements:guide.requirementsEn}</p><p>{tr?"Bu ürün için doğrudan bağlanan native sürücü henüz yok. Mevcut bir HTTPS JSON collector'ınız varsa aşağıdan bağlayabilirsiniz.":"There is no native driver for this product yet. If you have an existing HTTPS JSON collector, connect it below."}</p><a href={safeWebHref(guide.docs)} target="_blank" rel="noreferrer">{tr?"Ürün belgesi ↗":"Product documentation ↗"}</a></div><footer><button className="ghost" onClick={()=>setGuide(null)}>{tr?"Kapat":"Close"}</button>{guide.name!=="Webhook Receiver"&&<button className="primary" onClick={()=>{setSource({...newConnectorDraft(),name:guide.name+" collector",vendor:guide.name,category:guide.category,driver:"https-bridge"});setSourceId("");setGuide(null);setSourceOpen(true)}}>{tr?"Mevcut HTTPS collector bağla":"Connect existing HTTPS collector"}</button>}</footer></div></Modal>}
-    {sourceOpen&&<Modal title={sourceId?(tr?"Kanıt kaynağını düzenle":"Edit evidence source"):(tr?"Kanıt kaynağı ekle":"Add evidence source")} closeLabel={tr?"Pencereyi kapat":"Close dialog"} onClose={closeSource}><form className="ea-form" onSubmit={saveSource}><ConnectorFields value={source} onChange={setSource} lang={lang} existing={!!sourceId}/>{message&&<p className="wide" role="status">{message}</p>}<footer><button type="button" className="ghost" onClick={closeSource}>{tr?"Vazgeç":"Cancel"}</button><button className="primary" disabled={!!busy}>{tr?"Kaynağı Kaydet":"Save Source"}</button></footer></form></Modal>}
+    {sourceOpen&&<Modal title={sourceId?(tr?"Kanıt kaynağını düzenle":"Edit evidence source"):(tr?"Kanıt kaynağı ekle":"Add evidence source")} closeLabel={tr?"Pencereyi kapat":"Close dialog"} onClose={closeSource}><form className="ea-form" onSubmit={saveSource}><ConnectorFields value={source} onChange={setSource} lang={lang} existing={!!sourceId}/>{message&&<p className="wide" role="status">{message}</p>}{conflictingSourceId&&<button type="button" className="ghost wide" disabled={!!busy} onClick={()=>{const id=conflictingSourceId;closeSource();setTab("sources");setAddingSource(false);setSelectedSource(id);setFocusVersion(n=>n+1)}}>{tr?"Kaydedilen kaynağı aç":"Open saved source"}</button>}<footer><button type="button" className="ghost" disabled={!!busy} onClick={closeSource}>{tr?"Vazgeç":"Cancel"}</button><button className="primary" disabled={!!busy}>{tr?"Kaynağı Kaydet":"Save Source"}</button></footer></form></Modal>}
 
     {readySource!==null&&<Modal title={tr?"Hazır kontrol etkinleştir":"Enable ready control"} closeLabel={tr?"Pencereyi kapat":"Close dialog"} onClose={()=>setReadySource(null)}><ReadyControlForm sources={sources} initialSourceId={readySource} lang={lang} busy={!!busy} message={message} onSave={api} onCancel={()=>{setReadySource(null);setTab("rules")}}/></Modal>}
     {detailRun&&<Modal title={tr?"Kontrol sonuçları":"Control results"} closeLabel={tr?"Pencereyi kapat":"Close dialog"} onClose={()=>setDetailRun(null)}><ControlRunDetail runId={detailRun.id} expectedRuleId={detailRun.ruleId} lang={lang} onNavigate={()=>setDetailRun(null)}/></Modal>}

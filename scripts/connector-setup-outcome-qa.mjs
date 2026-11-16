@@ -16,8 +16,10 @@ page.on('pageerror',error=>errors.push(error.message));
 const controlRef='QA-CON-SETUP',stamp='2026-11-16T10:00:00.000Z';
 const source={id:'qa-setup-source',name:'QA connector',vendor:'Microsoft',driver:'provider-v1',enabled:true,config:{providerId:'intune',dataset:'managed-devices'},lastTestStatus:'success',lastTestAt:stamp};
 const rule={id:'qa-setup-rule',name:'QA setup control',sourceId:source.id,controlRefs:controlRef,enabled:true,freshness:'missing',lastStatus:'error',lastRunAt:stamp,lastRunId:null};
-let registered=false,current={},actions=[],saveKeys=[],releaseRun;
+let registered=false,current={},actions=[],saveKeys=[],sourceKeys=[],releaseRun;
 const outcomes=[
+  {key:'lost-source-response',lostSource:true,status:'pass',evidence:true,tone:'success',tr:'İlk kontrol başarılı',en:'First control check passed'},
+  {key:'changed-source-retry',lostSource:true,sourceConflict:true},
   {key:'pass',status:'pass',evidence:true,tone:'success',tr:'İlk kontrol başarılı',en:'First control check passed'},
   {key:'fail',status:'fail',evidence:true,finding:true,tone:'warning',tr:'İlk kontrol dikkat gerektiriyor',en:'First control check needs attention'},
   {key:'error',status:'error',tone:'error',tr:'İlk kontrol doğrulanamadı',en:'First control check could not be verified'},
@@ -51,7 +53,7 @@ try{
   await page.route(url=>url.origin===new URL(base).origin&&url.pathname==='/api/evidence-automation',async route=>{
     if(route.request().method()==='GET')return route.fulfill({json:{sources:registered?[source]:[],rules:registered?[rule]:[],runs:[],findings:[]}});
     const body=route.request().postDataJSON();actions.push(body.action);
-    if(body.action==='save-source')return route.fulfill({json:{sourceId:source.id}});
+    if(body.action==='save-source'){sourceKeys.push(body.requestId);assert.match(body.requestId,/^[0-9a-f-]{36}$/);if(current.lostSource){registered=true;if(sourceKeys.length===1)return route.abort('failed');if(current.sourceConflict)return route.fulfill({status:409,json:{code:'SOURCE_CREATION_CONFLICT',sourceId:source.id}});}return route.fulfill({json:{sourceId:source.id}});}
     if(body.action==='discover-source')return route.fulfill({json:{detected:{rootType:'object',paths:[{path:'$.healthy',type:'boolean'}]},suggestedControls:[{ref:controlRef,title:'QA mapped control',score:90,matches:[]}]}});
     if(body.action==='save-rule'){registered=true;saveKeys.push(body.requestId);assert.equal(body.controlRefs,controlRef);assert.match(body.requestId,/^[0-9a-f-]{36}$/);if(current.lostSave&&saveKeys.length===1)return route.abort('failed');if(current.saveConflict)return route.fulfill({status:409,json:{code:'RULE_CREATION_CONFLICT',ruleId:rule.id}});return route.fulfill({json:{ruleId:rule.id,reused:saveKeys.length>1}});}
     if(body.action==='run-rule'){
@@ -64,7 +66,7 @@ try{
   });
   for(const locale of ['tr','en'])for(const outcome of outcomes){
     console.log('CONNECTOR_SETUP_CASE_START',locale,outcome.key);
-    current=outcome;registered=false;actions=[];saveKeys=[];releaseRun=undefined;
+    current=outcome;registered=false;actions=[];saveKeys=[];sourceKeys=[];releaseRun=undefined;
     await page.setViewportSize({width:1440,height:1000});await page.goto(base);
     await switchQaLocale(page,locale);await expect(page.locator('main > .notice')).toHaveCount(0);
     await openQaModule(page,locale==='tr'?'Kanıt Otomasyonu':'Evidence Automation');
@@ -73,6 +75,20 @@ try{
     await expect(wizard).toBeVisible();
     if(outcome.key==='pass')for(const mode of ['light','dark']){await theme(mode);await contrast('.cow-steps',`${locale}/${mode}: active step`);}
     await wizard.getByRole('button',{name:/^(Bağlan ve Algıla|Authenticate & Detect)$/}).click();
+    if(outcome.lostSource){
+      await expect(wizard.locator('.cow-message.error')).toBeVisible();assert.equal(actions.filter(x=>x==='discover-source').length,0);
+      if(outcome.sourceConflict)await wizard.getByLabel(locale==='tr'?'Kaynak adı':'Source name',{exact:true}).fill('Changed after source response loss');
+      await wizard.getByRole('button',{name:/^(Bağlan ve Algıla|Authenticate & Detect)$/}).click();
+      await expect.poll(()=>sourceKeys.length).toBe(2);assert.equal(sourceKeys[0],sourceKeys[1]);
+      if(outcome.sourceConflict){
+        await expect(wizard.locator('.cow-message.error')).toContainText(locale==='tr'?'yeni kaynak oluşturulmadı':'no new source was created');
+        assert.equal(actions.filter(x=>x==='discover-source').length,0);
+        await wizard.getByRole('button',{name:/^(Kaydedilen kaynağı aç|Open saved source)$/}).click();
+        await expect(page.locator(`[data-source-id="${source.id}"]`)).toHaveAttribute('aria-pressed','true');
+        checks.push({locale,outcome:outcome.key,sourceSaveRequests:sourceKeys.length,uniqueSourceKeys:new Set(sourceKeys).size,passed:true});
+        console.log('CONNECTOR_SETUP_CASE_PASS',locale,outcome.key);continue;
+      }
+    }
     await wizard.getByRole('button',{name:/^(Kontrolleri Eşleştir|Map Controls)$/}).click();
     await wizard.getByRole('checkbox').first().check();
     await wizard.getByRole('button',{name:/^(İzlemeyi Yapılandır|Configure Monitoring)$/}).click();
