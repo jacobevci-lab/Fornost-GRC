@@ -7,7 +7,11 @@ inside that frame and stalls; no final report was produced. Workflow retries
 then erased the partial evidence and repeated the same failure.
 
 Audit every document using trusted test instrumentation through Playwright,
-retaining the report sandbox and CSP. Preserve frame-qualified findings and
+retaining the report sandbox and CSP. Sandboxed documents also block axe timers;
+scan their rendered DOM copies in a separate unauthenticated context with all
+network requests blocked, active content removed and restrictive CSP retained.
+Record this mode explicitly; it is document-content coverage, not execution
+inside the protected frame. Preserve frame-qualified findings and
 manual-review results. Bound scans to 30 seconds and make incomplete scans fail
 the gate, with incremental evidence. Remove blind full-scan retries. No changes
 to customer authentication, session lifetime, business records or report security.

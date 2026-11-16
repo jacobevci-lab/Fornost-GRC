@@ -12,6 +12,7 @@ try {
   const started = Date.now();
   const result = await scanAccessibility(page);
   assert.equal(result.frames.length, 2);
+  assert.equal(result.frames[1].mode, 'isolated-document-copy');
   assert.ok(result.violations.some(v => v.id === 'button-name' && v.nodes.some(n => n.target.includes('#outer-unnamed'))), 'host violations must not disappear');
   assert.ok(result.violations.some(v => v.id === 'button-name' && v.nodes.some(n => n.target.includes('#preview') && n.target.includes('#unnamed'))), 'sandbox document must be scanned, not skipped');
   assert.equal(await page.locator('#preview').getAttribute('sandbox'), '');
