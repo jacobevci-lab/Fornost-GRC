@@ -1,14 +1,14 @@
 name: Close exposed dedicated QA sessions
 on:
   push:
-    branches: [main]
+    branches: [fix/qa-session-cleanup-verification]
     paths: ['.github/workflows/qa-session-cleanup.yml']
 permissions:
   contents: read
 jobs:
   cleanup:
-    # One-time incident cleanup for this release, before new revision-gated QA signs in.
-    if: github.event.before == '5c82bdd1216250dc67411fc08ff678930219bffe'
+    # One-time diagnostic retry after production QA, limited to this incident branch.
+    if: github.event.before == '3ac52e3f37673a384cdfa0733e8273fae1a9772a'
     runs-on: ubuntu-latest
     timeout-minutes: 3
     steps:
