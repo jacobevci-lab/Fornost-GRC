@@ -45,3 +45,8 @@ neutral styling. Limit counters to section headers; retain severity styling.
 Add a populated card regression in both themes and locales, checking actual
 rendered contrast. Update the older layout test's 26px heading expectation to
 the accepted 24px heading. No business data or authorization changes.
+
+The populated regression also flagged the two single-digit section counters as
+manual-review contrast findings (4.17:1). Their content is unambiguously text;
+use the existing stronger brand token for those numerals and existing neutral
+surface/text tokens for neutral state labels. Keep the regression strict.
