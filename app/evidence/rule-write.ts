@@ -7,7 +7,7 @@ export type RuleInput={
 };
 
 /** Validate canonical targets inside the INSERT so deletion cannot race rule creation. */
-function ruleInsert(db:D1Database,input:RuleInput,extra={sql:"1",values:[] as string[]}){
+export function ruleInsert(db:D1Database,input:RuleInput,extra={sql:"1",values:[] as unknown[]}){
  const guard=coreReferenceGuard(canonicalCoreReferenceValues(input.controlRefs).map(value=>({
   sourceId:input.id,field:'control_refs',value,modules:['Kontroller','Uyum'],
  })));
@@ -29,7 +29,7 @@ export function ruleCreationRequestId(value:unknown):string|undefined {
  if(typeof value!=="string"||!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value))throw new InvalidRuleCreationRequest("Geçersiz kayıt isteği kimliği.");
  return value.toLowerCase();
 }
-async function creationHash(input:RuleInput){
+export async function creationHash(input:RuleInput){
  const content=JSON.stringify([1,input.name,input.sourceId,input.controlRefs,input.jsonPath,input.operator,input.expected,input.schedule,input.freshnessHours,input.failureThreshold,input.autoFinding,input.owner,input.remediationDueDays,input.templateId??null,input.templateVersion??null]);
  return [...new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(content)))].map(x=>x.toString(16).padStart(2,'0')).join('');
 }

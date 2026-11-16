@@ -70,6 +70,38 @@ Some catalog families deliberately group several products. Their guide is a disc
 
 ## Follow-up product work
 
+### Source-connected AI mapping preview
+
+Evidence Automation → connected source → **Map evidence with AI** runs a bounded
+read-only collection for Intune, Defender for Endpoint or SonarQube. The four
+existing ready tests assess the returned dataset. The configured AI provider
+receives aggregate results, test definitions and up to 24 eligible control
+descriptions from the latest 121 scanned records. The UI flags bounded coverage.
+This is an optional analysis; manual configuration remains available without AI.
+
+The model proposes only existing control IDs and supported test IDs, with a
+rationale and remaining evidence needs. Failed tests are negative evidence,
+not compliance approval; unverifiable tests cannot be proposed. Credentials,
+raw provider data and device identities are excluded from the model context.
+Existing AI operating, classification, data-protection and usage-budget policies
+apply. Admin access is required; at most three analysis requests per actor per
+minute are admitted. No provider settings are changed.
+
+Choose **Review mapping and prepare control**, inspect the schedule/owner and
+explicitly enable the ready control. Source/control changes or a collection older
+than 30 minutes reject approval. The rule and its approval receipt commit together.
+One proposal per analysis can be enabled. Existing source/template uniqueness
+still applies; this flow does not rewrite a previously configured monitor.
+Run the enabled control to collect durable evidence into the Evidence module;
+the preview itself is not a canonical evidence record. The analysis receipt keeps
+the aggregate preview, payload hash, provider/model and human approval lineage.
+
+Validation uses substituted provider/model responses and isolated browser fixtures;
+real customer API and model quality/coverage acceptance remain required. This is a
+bounded source-connected workflow, not an agent that invents adapters or executes
+arbitrary provider operations. Closing an in-flight preview stops the browser wait,
+but server-side analysis may finish; it is never automatically retried.
+
 Intune compliance/encryption, Defender sensor health and SonarQube quality gate now have [ready control tests](ready-control-tests.md) with versioned evaluation and affected-record results. Other products still require manually configured rules or future product-specific tests.
 
 Prioritise AWS role-based and GCP workload-identity collectors, then a version-verified Cortex adapter and Microsoft certificate authentication. Large-tenant incremental cursors/export jobs, backoff with Retry-After, credential-expiry reminders and normalised control templates need separate implementations and end-to-end vendor fixtures. An inbound webhook feature additionally needs signature verification, replay protection, schema/version selection and delivery history; the present card does not expose a fake receiver URL.
