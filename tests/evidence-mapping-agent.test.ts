@@ -106,3 +106,20 @@ test('atomic analysis rate gate permits at most three requests per actor and min
   await claimMappingRun(f.db,f.source,'other@example.test',now);
  }finally{f.sql.close()}
 });
+test('changed approval settings reject replay and competing requests without replacing the saved monitor',async()=>{
+ const f=await fixture();try{
+  const requests=await Promise.allSettled([approveMapping(f.db,f.claim.id,0,f.input(),f.source),approveMapping(f.db,f.claim.id,0,f.input({schedule:'weekly'}),f.source)]);
+  assert.equal(requests.filter(r=>r.status==='fulfilled').length,1);assert.equal(f.count(),1);
+  assert.equal(requests.filter(r=>r.status==='rejected'&&String(r.reason).includes('MAPPING_CHANGED')).length,1);
+  await assert.rejects(approveMapping(f.db,f.claim.id,0,f.input({autoFinding:true,owner:'changed@example.test'}),f.source),/MAPPING_CHANGED/);
+  assert.equal(f.count(),1);
+ }finally{f.sql.close()}
+});
+test('mapping receipt schema upgrades preserve existing rows and repeat safely',async()=>{
+ const f=await fixture();try{
+  f.sql.exec('ALTER TABLE evidence_mapping_runs DROP COLUMN approval_input_hash');
+  await ensureMappingSchema(f.db);await ensureMappingSchema(f.db);
+  assert.equal(f.sql.prepare('SELECT count(*) n FROM evidence_mapping_runs').get()!.n,1);
+  await approveMapping(f.db,f.claim.id,0,f.input(),f.source);assert.equal(f.count(),1);
+ }finally{f.sql.close()}
+});

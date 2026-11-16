@@ -2,7 +2,7 @@ import { assessControl, templatesForSource, type ControlAssessment } from '../co
 import { recordDataClassificationAllowed, type AiDataClassification } from '../ai/data-policy';
 import { redactSensitiveText } from '../ai/security';
 import { observedExecutionGuard } from './execution-guard';
-import { ruleInsert, type RuleInput } from './rule-write';
+import { creationHash, ruleInsert, type RuleInput } from './rule-write';
 
 export type MappingSource = { id:string; name:string; vendor:string; category:string; driver:string; enabled:number; config_json:string; secret_ciphertext:string|null };
 export type MappingControl = { id:string; ref:string; title:string; description:string; revision:string };
@@ -54,7 +54,14 @@ export async function ensureMappingSchema(db:D1Database) {
   await db.prepare(`CREATE TABLE IF NOT EXISTS evidence_mapping_runs(
     id TEXT PRIMARY KEY,source_id TEXT NOT NULL,source_fingerprint TEXT NOT NULL,status TEXT NOT NULL,
     report_json TEXT,provider TEXT,model TEXT,input_hash TEXT,created_by TEXT NOT NULL,created_at TEXT NOT NULL,
-    approved_rule_id TEXT,approved_proposal INTEGER,approved_by TEXT,approved_at TEXT)`).run();
+    approved_rule_id TEXT,approved_proposal INTEGER,approved_by TEXT,approved_at TEXT,approval_input_hash TEXT)`).run();
+  const columns=await db.prepare('PRAGMA table_info(evidence_mapping_runs)').all<{name:string}>();
+  if(!columns.results.some(c=>c.name==='approval_input_hash')){
+    try{await db.prepare('ALTER TABLE evidence_mapping_runs ADD COLUMN approval_input_hash TEXT').run();}catch(error){
+      const current=await db.prepare('PRAGMA table_info(evidence_mapping_runs)').all<{name:string}>();
+      if(!current.results.some(c=>c.name==='approval_input_hash'))throw error;
+    }
+  }
   await db.prepare('CREATE INDEX IF NOT EXISTS evidence_mapping_actor_time ON evidence_mapping_runs(created_by,created_at)').run();
 }
 export async function claimMappingRun(db:D1Database,source:MappingSource,actor:string,now=new Date()) {
@@ -65,7 +72,7 @@ export async function claimMappingRun(db:D1Database,source:MappingSource,actor:s
   if(!result.meta?.changes)throw new MappingAgentError('MAPPING_RATE_LIMIT',429);
   return {id,fingerprint};
 }
-type RunRow={id:string;source_id:string;source_fingerprint:string;status:string;report_json:string;approved_rule_id:string|null;approved_proposal:number|null};
+type RunRow={id:string;source_id:string;source_fingerprint:string;status:string;report_json:string;approved_rule_id:string|null;approved_proposal:number|null;approval_input_hash:string|null};
 
 /** Approval and rule creation share a transaction; no proposal can silently bind changed source/control data. */
 export async function approveMapping(db:D1Database,runId:string,index:number,input:RuleInput,source:MappingSource) {
@@ -74,9 +81,16 @@ export async function approveMapping(db:D1Database,runId:string,index:number,inp
   const report=JSON.parse(row.report_json) as MappingReport,proposal=report.proposals[index],control=report.controls.find(c=>c.id===proposal?.controlId);
   const assessment=report.assessments.find(a=>a.templateId===proposal?.templateId);
   if(!proposal||!control||!assessment||assessment.status==='error'||assessment.templateVersion!==input.templateVersion||source.id!==row.source_id||input.sourceId!==source.id||input.templateId!==proposal.templateId||input.controlRefs!==control.ref)throw new MappingAgentError('MAPPING_CHANGED');
+  const inputHash=await creationHash(input);
+  const replay=async()=>{
+    const saved=await db.prepare(`SELECT r.id,m.approval_input_hash FROM evidence_mapping_runs m JOIN evidence_automation_rules r ON r.id=m.approved_rule_id WHERE m.id=? AND m.approved_proposal=?`).bind(runId,index).first<{id:string;approval_input_hash:string|null}>();
+    if(saved&&saved.approval_input_hash!==inputHash)throw new MappingAgentError('MAPPING_CHANGED');
+    return saved?{ruleId:saved.id,reused:true}:null;
+  };
   if(row.approved_rule_id){
     const existing=await db.prepare('SELECT id FROM evidence_automation_rules WHERE id=?').bind(row.approved_rule_id).first<{id:string}>();
     if(row.approved_proposal!==index||!existing)throw new MappingAgentError('MAPPING_ALREADY_USED');
+    if(row.approval_input_hash!==inputHash)throw new MappingAgentError('MAPPING_CHANGED');
     return {ruleId:existing.id,reused:true};
   }
   const age=Date.parse(input.now)-Date.parse(report.collectedAt);
@@ -87,16 +101,14 @@ export async function approveMapping(db:D1Database,runId:string,index:number,inp
   let result;
   try{result=await db.batch([
     ruleInsert(db,input,{sql:`EXISTS(SELECT 1 FROM evidence_automation_sources s WHERE ${s.sql}) AND EXISTS(SELECT 1 FROM simple_grc_records WHERE id=? AND module='Kontroller' AND data_json=?) AND EXISTS(SELECT 1 FROM evidence_mapping_runs WHERE id=? AND status='completed' AND approved_rule_id IS NULL AND report_json=?)`,values:[...s.values,control.id,target.data_json,runId,row.report_json]}),
-    db.prepare(`UPDATE evidence_mapping_runs SET approved_rule_id=?,approved_proposal=?,approved_by=?,approved_at=? WHERE id=? AND approved_rule_id IS NULL AND changes()=1`).bind(input.id,index,input.actor,input.now,runId),
+    db.prepare(`UPDATE evidence_mapping_runs SET approved_rule_id=?,approved_proposal=?,approved_by=?,approved_at=?,approval_input_hash=? WHERE id=? AND approved_rule_id IS NULL AND changes()=1`).bind(input.id,index,input.actor,input.now,inputHash,runId),
   ]);}catch(error){
     if(!String(error).toLowerCase().includes('unique'))throw error;
-    const replay=await db.prepare(`SELECT r.id FROM evidence_mapping_runs m JOIN evidence_automation_rules r ON r.id=m.approved_rule_id WHERE m.id=? AND m.approved_proposal=?`).bind(runId,index).first<{id:string}>();
-    if(replay)return {ruleId:replay.id,reused:true};
+    const saved=await replay();if(saved)return saved;
     throw new MappingAgentError('MAPPING_ALREADY_USED');
   }
   if(!result[0].meta?.changes){
-    const replay=await db.prepare(`SELECT r.id FROM evidence_mapping_runs m JOIN evidence_automation_rules r ON r.id=m.approved_rule_id WHERE m.id=? AND m.approved_proposal=?`).bind(runId,index).first<{id:string}>();
-    if(replay)return {ruleId:replay.id,reused:true};
+    const saved=await replay();if(saved)return saved;
     throw new MappingAgentError('MAPPING_STALE');
   }
   return {ruleId:input.id,reused:false};
