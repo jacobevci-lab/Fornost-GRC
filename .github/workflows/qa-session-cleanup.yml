@@ -8,7 +8,7 @@ permissions:
 jobs:
   cleanup:
     # One-time diagnostic retry after production QA, limited to this incident branch.
-    if: github.event.before == '3ac52e3f37673a384cdfa0733e8273fae1a9772a'
+    if: github.event.before == '2dacdb80238762b983b0141608dc18873f68273e'
     runs-on: ubuntu-latest
     timeout-minutes: 3
     steps:

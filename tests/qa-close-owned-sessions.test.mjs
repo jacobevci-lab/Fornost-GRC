@@ -16,8 +16,12 @@ function fixture(patch={}){
 test('revocation targets only the authenticated configured QA identity and verifies session closure',async()=>{
  const f=fixture(),events=[];assert.deepEqual(await closeOwnedQaSessions(env,f.fetcher,e=>events.push(e)),{verified:true,revokedSessions:3});assert.equal(f.requests.filter(r=>r.method==='DELETE').length,1);
  assert.deepEqual(events.filter(e=>e.phase).map(e=>e.phase),['login','session-cookie','identity-read','identity-match','revoke-self','revocation-receipt','verify-invalidated','logout']);
- assert.ok(events.every(e=>Object.keys(e).length===1&&(typeof e.phase==='string'||e.httpStatus===200)));
+ assert.ok(events.every(e=>Object.keys(e).length===1&&(typeof e.phase==='string'||e.httpStatus===200||Object.values(e.identity||{}).length===4&&Object.values(e.identity).every(v=>typeof v==='boolean'))));
  assert.ok(!JSON.stringify(events).includes(env.FORNOST_SMOKE_EMAIL)&&!JSON.stringify(events).includes(env.FORNOST_SMOKE_PASSWORD));
+});
+test('configured identity uses the same whitespace and casing normalization as login',async()=>{
+ const f=fixture();assert.deepEqual(await closeOwnedQaSessions({...env,FORNOST_SMOKE_EMAIL:'  QA-SMOKE@example.test\n'},f.fetcher),{verified:true,revokedSessions:3});
+ assert.equal(JSON.parse(f.requests[0].body).email,env.FORNOST_SMOKE_EMAIL);
 });
 test('mismatched identity, nonlocal user, role or non-QA account never revoke sessions',async()=>{
  for(const patch of [{email:'other@example.test'},{source:'entra'},{role:'Viewer'}]){

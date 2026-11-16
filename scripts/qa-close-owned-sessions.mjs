@@ -3,7 +3,7 @@ import {pathToFileURL} from 'node:url';
 import {qaFailureSummary} from './qa-failure-summary.mjs';
 
 export async function closeOwnedQaSessions(env, fetcher=fetch, progress=()=>{}) {
-  const base='https://app.fornostsecurity.com',email=env.FORNOST_SMOKE_EMAIL,password=env.FORNOST_SMOKE_PASSWORD;
+  const base='https://app.fornostsecurity.com',email=env.FORNOST_SMOKE_EMAIL?.trim().toLowerCase(),password=env.FORNOST_SMOKE_PASSWORD;
   assert.ok(email&&password&&/(?:^|[.+_-])(?:qa|smoke|test)(?:[.+_-]|@)/i.test(email),'Dedicated QA identity required');
   const headers={'content-type':'application/json',origin:base,'user-agent':'fornost-production-smoke-test/1.0',accept:'application/json'};
   if(env.CF_ACCESS_CLIENT_ID&&env.CF_ACCESS_CLIENT_SECRET){headers['CF-Access-Client-Id']=env.CF_ACCESS_CLIENT_ID;headers['CF-Access-Client-Secret']=env.CF_ACCESS_CLIENT_SECRET;}
@@ -19,6 +19,7 @@ export async function closeOwnedQaSessions(env, fetcher=fetch, progress=()=>{}) 
     assert.match(cookie,/^fornost_session=[a-f0-9]{64}$/);
     progress({phase:'identity-read'});const profile=await (await call('/api/auth')).json();
     progress({phase:'identity-match'});
+    progress({identity:{authenticated:profile.authenticated===true,local:profile.user?.source==='local',admin:profile.user?.role==='Admin',matchesConfigured:profile.user?.email?.toLowerCase()===email}});
     assert.ok(profile.authenticated&&profile.user?.source==='local'&&profile.user.role==='Admin'&&profile.user.email?.toLowerCase()===email.toLowerCase(),'Authenticated dedicated QA identity must match');
     progress({phase:'revoke-self'});const result=await (await call('/api/users/sessions','DELETE',{userId:profile.user.id})).json();
     progress({phase:'revocation-receipt'});
