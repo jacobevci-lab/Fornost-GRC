@@ -16,13 +16,15 @@ page.on('pageerror',error=>errors.push(error.message));
 const controlRef='QA-CON-SETUP',stamp='2026-11-16T10:00:00.000Z';
 const source={id:'qa-setup-source',name:'QA connector',vendor:'Microsoft',driver:'provider-v1',enabled:true,config:{providerId:'intune',dataset:'managed-devices'},lastTestStatus:'success',lastTestAt:stamp};
 const rule={id:'qa-setup-rule',name:'QA setup control',sourceId:source.id,controlRefs:controlRef,enabled:true,freshness:'missing',lastStatus:'error',lastRunAt:stamp,lastRunId:null};
-let registered=false,current={},actions=[],releaseRun;
+let registered=false,current={},actions=[],saveKeys=[],releaseRun;
 const outcomes=[
   {key:'pass',status:'pass',evidence:true,tone:'success',tr:'İlk kontrol başarılı',en:'First control check passed'},
   {key:'fail',status:'fail',evidence:true,finding:true,tone:'warning',tr:'İlk kontrol dikkat gerektiriyor',en:'First control check needs attention'},
   {key:'error',status:'error',tone:'error',tr:'İlk kontrol doğrulanamadı',en:'First control check could not be verified'},
   {key:'missing-evidence',status:'pass',tone:'unknown',tr:'İlk çalışma sonucu doğrulanamadı',en:'First run result is unconfirmed'},
   {key:'unknown',status:'unexpected-status',tone:'unknown',tr:'İlk çalışma sonucu doğrulanamadı',en:'First run result is unconfirmed'},
+  {key:'lost-save-response',lostSave:true,status:'pass',evidence:true,tone:'success',tr:'İlk kontrol başarılı',en:'First control check passed'},
+  {key:'changed-save-retry',lostSave:true,saveConflict:true,tone:'unknown',tr:'İlk çalışma sonucu doğrulanamadı',en:'First run result is unconfirmed'},
   {key:'lost-response',transportFailure:true,tone:'unknown',tr:'İlk çalışma sonucu doğrulanamadı',en:'First run result is unconfirmed'},
 ];
 async function theme(value){if(await page.locator('html').getAttribute('data-theme')!==value)await page.locator('.theme-toggle:visible').click();await waitForQaIdle(page);}
@@ -51,7 +53,7 @@ try{
     const body=route.request().postDataJSON();actions.push(body.action);
     if(body.action==='save-source')return route.fulfill({json:{sourceId:source.id}});
     if(body.action==='discover-source')return route.fulfill({json:{detected:{rootType:'object',paths:[{path:'$.healthy',type:'boolean'}]},suggestedControls:[{ref:controlRef,title:'QA mapped control',score:90,matches:[]}]}});
-    if(body.action==='save-rule'){registered=true;assert.equal(body.controlRefs,controlRef);return route.fulfill({json:{ruleId:rule.id}});}
+    if(body.action==='save-rule'){registered=true;saveKeys.push(body.requestId);assert.equal(body.controlRefs,controlRef);assert.match(body.requestId,/^[0-9a-f-]{36}$/);if(current.lostSave&&saveKeys.length===1)return route.abort('failed');if(current.saveConflict)return route.fulfill({status:409,json:{code:'RULE_CREATION_CONFLICT',ruleId:rule.id}});return route.fulfill({json:{ruleId:rule.id,reused:saveKeys.length>1}});}
     if(body.action==='run-rule'){
       assert.equal(body.ruleId,rule.id);
       await new Promise(resolve=>{releaseRun=resolve;});
@@ -62,7 +64,7 @@ try{
   });
   for(const locale of ['tr','en'])for(const outcome of outcomes){
     console.log('CONNECTOR_SETUP_CASE_START',locale,outcome.key);
-    current=outcome;registered=false;actions=[];releaseRun=undefined;
+    current=outcome;registered=false;actions=[];saveKeys=[];releaseRun=undefined;
     await page.setViewportSize({width:1440,height:1000});await page.goto(base);
     await switchQaLocale(page,locale);await expect(page.locator('main > .notice')).toHaveCount(0);
     await openQaModule(page,locale==='tr'?'Kanıt Otomasyonu':'Evidence Automation');
@@ -75,10 +77,18 @@ try{
     await wizard.getByRole('checkbox').first().check();
     await wizard.getByRole('button',{name:/^(İzlemeyi Yapılandır|Configure Monitoring)$/}).click();
     await wizard.getByRole('button',{name:/^(İzlemeyi Etkinleştir|Enable Monitoring)$/}).click();
+    if(outcome.lostSave){
+      await expect(wizard.locator('.cow-message.error')).toBeVisible();
+      if(outcome.saveConflict)await wizard.getByLabel(locale==='tr'?'Sürekli kontrol adı':'Continuous control name',{exact:true}).fill('Changed after response loss');
+      await wizard.getByRole('button',{name:/^(İzlemeyi Etkinleştir|Enable Monitoring)$/}).click();
+      await expect.poll(()=>saveKeys.length).toBe(2);assert.equal(saveKeys[0],saveKeys[1]);
+    }
+    if(!outcome.saveConflict){
     await expect.poll(()=>typeof releaseRun).toBe('function');
     await expect(wizard.getByRole('button',{name:/^(Geri|Back)$/})).toBeDisabled();
     await expect(wizard.getByRole('button',{name:/İlk kontrol çalışıyor|Running first control/})).toBeDisabled();
     releaseRun();
+    }
     await expect(result).toHaveAttribute('data-outcome',outcome.tone);
     await expect(result.getByRole('heading',{name:outcome[locale],exact:true})).toBeVisible();
     await expect(wizard.locator('.cow-message.success')).toHaveCount(0);
@@ -86,7 +96,8 @@ try{
     await expect(result.getByRole('button',{name:/^(Otomasyon Bulgusu|Automation Finding)$/})).toHaveCount(outcome.finding?1:0);
     await expect(result.locator('.cow-linked-controls button')).toContainText(controlRef);
     await expect(wizard.getByRole('button',{name:/^(İzlemeyi Etkinleştir|Enable Monitoring)$/})).toHaveCount(0);
-    assert.equal(actions.filter(x=>x==='save-rule').length,1,'Do not recreate the saved rule after a lost run result');
+    assert.equal(actions.filter(x=>x==='save-rule').length,outcome.lostSave?2:1,'Only an unconfirmed save is retried with the same request key');
+    if(outcome.saveConflict){assert.equal(actions.filter(x=>x==='run-rule').length,0);await expect(wizard.locator('.cow-message.error')).toContainText(locale==='tr'?'yeni kayıt oluşturulmadı':'no new record was created');}
     if(['pass','error'].includes(outcome.key))for(const mode of ['light','dark'])for(const width of [1440,390]){
       await page.setViewportSize({width,height:1000});await theme(mode);
       const linked=result.locator('.cow-linked-controls button').first();
@@ -104,7 +115,7 @@ try{
       await expect(page.locator('.ew-selected')).toContainText(rule.name);
       assert.equal(actions.filter(x=>x==='save-rule').length,1);
     }
-    checks.push({locale,outcome:outcome.key,ruleSaves:1,passed:true});
+    checks.push({locale,outcome:outcome.key,saveRequests:saveKeys.length,uniqueSaveKeys:new Set(saveKeys).size,passed:true});
     console.log('CONNECTOR_SETUP_CASE_PASS',locale,outcome.key);
   }
   assert.deepEqual(errors,[]);assert.deepEqual(unexpectedWrites,[]);
