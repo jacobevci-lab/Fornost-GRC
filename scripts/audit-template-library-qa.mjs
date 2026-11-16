@@ -1,3 +1,4 @@
+import {openAuditWorkspaceSection} from './audit-workspace-qa-navigation.mjs';
 import {cleanupQaFixture} from './qa-fixture-cleanup.mjs';
 import {qaPassword} from './qa-credentials.mjs';
 import {chromium,expect} from '@playwright/test';
@@ -9,7 +10,7 @@ const browser=await chromium.launch({executablePath:process.env.QA_CHROMIUM_PATH
 const errors=[],cleanup=[],auditIds=[],templateIds=[];let userId;
 page.on('pageerror',e=>errors.push(e.message));page.on('dialog',d=>d.accept());
 async function api(ctx,path,method='GET',data,status=200){const r=await ctx.request.fetch(base+path,{method,data,headers:{origin:base}});assert.equal(r.status(),status,await r.text());return r.json();}
-async function openAudit(p,name){await p.goto(base);await expect(p.locator('.shell')).toBeVisible();await p.locator('.language-switch:visible').getByRole('button',{name:'EN',exact:true}).click();await p.locator('nav button[aria-label="Audit Management"]').evaluate(e=>e.click());await p.locator('.audit-card-open').filter({hasText:name}).click();await p.getByRole('tab',{name:'Plan and scope',exact:true}).click();await expect(p.locator('.audit-plan-form').getByLabel('Audit objective',{exact:true})).toBeEnabled();}
+async function openAudit(p,name){await p.goto(base);await expect(p.locator('.shell')).toBeVisible();await p.locator('.language-switch:visible').getByRole('button',{name:'EN',exact:true}).click();await p.locator('nav button[aria-label="Audit Management"]').evaluate(e=>e.click());await p.locator('.audit-card-open').filter({hasText:name}).click();await openAuditWorkspaceSection(p,'plan');await expect(p.locator('.audit-plan-form').getByLabel('Audit objective',{exact:true})).toBeEnabled();}
 async function openLibrary(panel){const library=panel.locator('.audit-shared-library');await library.locator(':scope > summary').click();await expect(library.getByLabel('Search shared templates',{exact:true})).toBeVisible();return library;}
 async function publish(library){await library.getByRole('button',{name:'Publish library change',exact:true}).click();await expect(library.getByRole('status').filter({hasText:'Shared template saved.'})).toBeVisible();}
 try{
