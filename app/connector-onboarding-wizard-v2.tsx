@@ -352,7 +352,7 @@ export default function ConnectorOnboardingWizard({ profileId, lang, actor, onCl
 
           {step === 5 && (
             <div className="cow-body cow-complete" data-outcome={outcome.tone}>
-              <div className="cow-complete-mark" aria-hidden="true">{outcome.mark}</div>
+              <div className="cow-complete-mark" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d={outcome.tone === "success" ? "m6 12 4 4 8-9" : outcome.tone === "unknown" ? "M9.5 8a3 3 0 1 1 5 2.3c-1.5 1-2.5 1.4-2.5 3.7M12 18h.01" : "M12 6v8M12 18h.01"} /></svg></div>
               <small>{tr ? "İLK ÇALIŞMA SONUCU" : "FIRST RUN RESULT"}</small>
               <h4 aria-live="polite">{outcome.title}</h4>
               <p>{outcome.detail}</p>

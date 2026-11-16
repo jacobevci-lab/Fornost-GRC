@@ -2,3 +2,5 @@
 /* A saved connector is not necessarily a passing first control. */
 .cow-complete:is([data-outcome="warning"],[data-outcome="unknown"]) .cow-complete-mark{background:color-mix(in srgb,var(--ws-warning) 12%,var(--ws-surface));color:color-mix(in srgb,var(--ws-warning) 70%,var(--ws-ink))}
 .cow-complete[data-outcome="error"] .cow-complete-mark{background:color-mix(in srgb,var(--ws-danger) 12%,var(--ws-surface));color:var(--ws-danger)}
+
+.cow-complete-mark svg{width:26px;height:26px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
