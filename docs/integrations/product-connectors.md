@@ -95,3 +95,18 @@ The native profiles carry endpoint-specific links in `app/connectors/catalog.ts`
 ## Validation scope
 
 `tests/product-connectors.test.ts` executes mocked HTTP contracts for auth, audience, pagination, error responses and collection limits. The isolated runtime QA covers source persistence, secret redaction/rotation, role boundaries and product-specific forms across themes and mobile/desktop widths. Real vendor tenant access, licensing, consent and provider data cannot be asserted by these fixtures; administrators must run Test Connection with their own scoped credentials after deployment.
+
+
+### Creating a control after a connection interruption
+
+The setup wizard and manual continuous-control form retain a creation request
+identifier while a save is retried. If the first save committed but its response
+was lost, the same administrator's identical retry returns the existing rule.
+It does not reset the schedule, history or assurance state. Changed contents under
+the same request produce a conflict with a link to the saved control; inspect
+that control before starting a new creation. A removed result is not recreated
+by replaying its request. Closing/reopening the wizard or reloading the page
+starts a new attempt, so inspect existing controls first after an uncertain save.
+The API accepts an optional UUIDv4 `requestId` on `save-rule`; clients must retain
+it for retries of the same creation. Unkeyed legacy clients retain their previous
+behavior. Source creation and provider requests have separate retry semantics.

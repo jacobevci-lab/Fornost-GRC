@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { executionConflictMessage } from "./evidence/execution-feedback";
+import { ruleCreationConflictMessage } from "./evidence/rule-save-feedback";
 import { withBasePath } from "./base-path";
 import { navigateToFornost } from "./navigation-focus";
 import "./connector-onboarding-wizard.css";
@@ -64,6 +65,7 @@ async function post(body: Record<string, unknown>) {
     body: JSON.stringify(body),
   });
   const payload = await response.json().catch(() => ({})) as Record<string, unknown>;
+  if (!response.ok && payload.code === "RULE_CREATION_CONFLICT") throw Object.assign(new Error("RULE_CREATION_CONFLICT"), { ruleId: clean(payload.ruleId) });
   if (!response.ok) throw new Error(payload.code === "EXECUTION_CONFLICT" ? "EXECUTION_CONFLICT" : clean(payload.error) || "Operation failed");
   return payload;
 }
@@ -100,6 +102,8 @@ export default function ConnectorOnboardingWizard({ profileId, lang, actor, onCl
     remediationDueDays: 7,
   });
   const [runStatus, setRunStatus] = useState("");
+  const ruleRequestId = useRef("");
+  const enablePending = useRef(false);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -186,6 +190,7 @@ export default function ConnectorOnboardingWizard({ profileId, lang, actor, onCl
   }
 
   async function enableMonitoring() {
+    if (enablePending.current) return;
     if (!sourceId || !selectedPath || !selectedControls.length) {
       setError(tr ? "Kaynak, izlenecek JSON path ve en az bir kontrol seçin." : "Select a source, JSON path and at least one control.");
       return;
@@ -194,6 +199,8 @@ export default function ConnectorOnboardingWizard({ profileId, lang, actor, onCl
       setError(tr ? "Bu operatör için beklenen değer gerekli." : "An expected value is required for this operator.");
       return;
     }
+    enablePending.current = true;
+    ruleRequestId.current ||= crypto.randomUUID();
     setBusy("enable");
     setError("");
     setMessage("");
@@ -203,6 +210,7 @@ export default function ConnectorOnboardingWizard({ profileId, lang, actor, onCl
     try {
       const saved = await post({
         action: "save-rule",
+        requestId: ruleRequestId.current,
         name: rule.name.trim() || `${draft.name} · ${selectedPath}`,
         sourceId,
         controlRefs: selectedControls.join("; "),
@@ -227,7 +235,11 @@ export default function ConnectorOnboardingWizard({ profileId, lang, actor, onCl
       setMessage("");
       setStep(5);
     } catch (caught) {
-      if (recordedRuleId) {
+      if (caught instanceof Error && caught.message === "RULE_CREATION_CONFLICT") {
+        const existingId = clean((caught as Error & { ruleId?: string }).ruleId);
+        setError(ruleCreationConflictMessage(tr));
+        if (existingId) { setRuleId(existingId); setRunStatus("unknown"); setStep(5); }
+      } else if (recordedRuleId) {
         setRunStatus("unknown");
         setMessage("");
         setStep(5);
@@ -235,6 +247,7 @@ export default function ConnectorOnboardingWizard({ profileId, lang, actor, onCl
         setError(caught instanceof Error ? (caught.message === "EXECUTION_CONFLICT" ? executionConflictMessage(tr) : caught.message) : (tr ? "İzleme etkinleştirilemedi." : "Monitoring could not be enabled."));
       }
     } finally {
+      enablePending.current = false;
       setBusy("");
     }
   }
