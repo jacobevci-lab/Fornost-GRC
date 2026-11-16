@@ -1,6 +1,6 @@
 import fs from "node:fs/promises";
 import path from "node:path";
-import { chromium } from "@playwright/test";
+import { chromium, expect } from "@playwright/test";
 
 const baseUrl = (process.env.FORNOST_PROD_URL || "https://app.fornostsecurity.com").replace(/\/$/, "");
 const accessClientId = process.env.CF_ACCESS_CLIENT_ID || "";
@@ -96,6 +96,56 @@ async function switchLocale(page, locale) {
   return { changed: true, control: targetLabel };
 }
 
+async function verifyRestoreContrast(page, restore) {
+  const measurements = [];
+  const directory = path.resolve("qa-artifacts-v2/screenshots");
+  await fs.mkdir(directory, { recursive: true });
+  for (const theme of ["light", "dark"]) {
+    if (await page.locator("html").getAttribute("data-theme") !== theme) {
+      await page.locator(".theme-toggle:visible").click();
+      await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
+    }
+    for (const state of ["rest", "hover", "keyboard-focus"]) {
+      await page.mouse.move(0, 0);
+      if (state === "rest") await page.locator(".theme-toggle:visible").focus();
+      if (state === "hover") await restore.hover();
+      if (state === "keyboard-focus") {
+        await restore.focus();
+        await page.keyboard.press("Tab");
+        await page.keyboard.press("Shift+Tab");
+        await expect(restore).toBeFocused();
+        if (!await restore.evaluate(node => node.matches(":focus-visible"))) {
+          throw new Error(`${theme}: restore button lacks keyboard-visible focus`);
+        }
+      }
+      let measured;
+      await expect.poll(async () => {
+        measured = await restore.evaluate(node => {
+          const rgb = value => {
+            const match = /^rgba?\(\s*([\d.]+)[, ]+([\d.]+)[, ]+([\d.]+)(?:\s*[,/]\s*([\d.]+))?\s*\)$/.exec(value);
+            if (!match || (match[4] !== undefined && Number(match[4]) !== 1)) throw new Error(`Unsupported contrast color: ${value}`);
+            return match.slice(1, 4).map(Number);
+          };
+          const luminance = value => rgb(value).map(channel => {
+            const c = channel / 255;
+            return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+          }).reduce((total, channel, index) => total + channel * [0.2126, 0.7152, 0.0722][index], 0);
+          const contrast = (a, b) => (Math.max(luminance(a), luminance(b)) + 0.05) / (Math.min(luminance(a), luminance(b)) + 0.05);
+          const background = getComputedStyle(node).backgroundColor;
+          const foreground = getComputedStyle(node.querySelector("span")).color;
+          const stroke = getComputedStyle(node.querySelector("svg")).stroke;
+          const style = getComputedStyle(node);
+          return { foreground, background, stroke, textRatio: contrast(foreground, background), iconRatio: contrast(stroke, background), focusRing: style.outlineStyle !== "none" && parseFloat(style.outlineWidth) > 0 };
+        });
+        return measured.textRatio >= 4.5 && measured.iconRatio >= 3 && (state !== "keyboard-focus" || measured.focusRing);
+      }, { message: `${theme}/${state}: readable menu restore label, icon and visible focus`, timeout: 5_000 }).toBe(true);
+      measurements.push({ theme, state, ...measured });
+      await restore.screenshot({ path: path.join(directory, `sidebar-restore-${theme}-${state}.png`) });
+    }
+  }
+  return measurements;
+}
+
 async function verifySidebarContract(browser) {
   const context = await browser.newContext({ viewport: { width: 1536, height: 960 }, colorScheme: "light" });
   try {
@@ -150,6 +200,13 @@ async function verifySidebarContract(browser) {
 
     const restore = await firstVisible(page.getByRole("button", { name: /Ana menüyü aç|Open main navigation|Menüyü göster|Show navigation/i }));
     if (!restore) throw new Error("Hidden sidebar cannot be restored");
+    const restoreContrast = await verifyRestoreContrast(page, restore);
+    await page.keyboard.press("Enter");
+    await expect(shell).not.toHaveClass(/sidebar-hidden/);
+    const hideAgain = await firstVisible(page.getByRole("button", { name: /Menüyü gizle|Hide navigation/i }));
+    if (!hideAgain) throw new Error("Navigation did not restore after keyboard activation");
+    await hideAgain.click();
+    await expect(restore).toBeVisible();
     await restore.click();
     await page.waitForTimeout(220);
     if (await shell.evaluate((node) => node.classList.contains("sidebar-hidden"))) {
@@ -164,6 +221,8 @@ async function verifySidebarContract(browser) {
       sampleNavigationLabel: label,
       sampleNavigationTitle: title,
       keyboardFocusable: true,
+      keyboardRestore: true,
+      restoreContrast,
     };
   } finally {
     await context.close();
