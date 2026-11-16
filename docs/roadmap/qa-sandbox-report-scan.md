@@ -35,3 +35,13 @@ semantics. Enlarge report section checkboxes to 24px within their existing
 Acceptance: complete both locale scans with no high findings, verify tooltip
 cleanup after hover/focus/Escape, preserve report exports and sandbox, and check
 changed modules in both themes. Validation and release pending on this revision.
+
+## Populated vendor follow-up
+
+Production revision 666afe6 completed the scan and exposed one repeatable
+contrast failure in a populated vendor priority card (4.17:1). The grid header
+counter selector also matched nested card status labels, overriding their
+neutral styling. Limit counters to section headers; retain severity styling.
+Add a populated card regression in both themes and locales, checking actual
+rendered contrast. Update the older layout test's 26px heading expectation to
+the accepted 24px heading. No business data or authorization changes.
