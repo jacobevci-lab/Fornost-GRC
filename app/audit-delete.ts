@@ -6,7 +6,7 @@ export class AuditLinked extends Error {
   constructor() { super('Denetime bağlı CAPA, talep, çalışma kâğıdı veya başka kayıtlar var. Denetim ve geçmişi silinemez.'); }
 }
 type Row = Record<string, string | number | null>;
-const childTables = ['audit_requests','audit_request_events','audit_request_workflows','audit_reminder_profiles',
+export const auditChildTables = ['audit_requests','audit_request_events','audit_request_workflows','audit_reminder_profiles',
   'audit_workpapers','audit_workpaper_events','audit_milestones','audit_milestone_events',
   'audit_workplan_closures','audit_workplan_closure_items','audit_workplan_events',
   'audit_closure_state','audit_closure_events','audit_status_reports'];
@@ -16,7 +16,7 @@ export async function deleteAudit(db: D1Database, audit: Row, actor: string) {
   const id = String(audit.id), name = String(audit.name);
   const requirements = (await db.prepare("SELECT id,data_json,created_at,updated_at FROM simple_grc_records WHERE module='Denetim Yönetimi' AND json_extract(data_json,'$.auditName')=?").bind(name).all<Row>()).results;
   const enterprise = await enterpriseCoreReferences(db, 'Denetim Yönetimi');
-  const names = JSON.stringify(childTables);
+  const names = JSON.stringify(auditChildTables);
   const catalogSql = "SELECT name FROM sqlite_master WHERE type='table' AND name IN (SELECT value FROM json_each(?))";
   const available = (await db.prepare(catalogSql).bind(names).all<{name:string}>()).results.map(r=>r.name);
   const rules = Object.entries(relationFields).filter(([,r])=>r.modules.includes('Denetim Yönetimi')).map(([field,r])=>({field,sources:r.sources||null}));

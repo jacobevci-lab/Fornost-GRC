@@ -1,3 +1,4 @@
+import { auditRequirementLinkGuards } from './audit-requirement-link';
 import { completedInitialization } from './completed-initialization';
 import { prepareRequestDeadlineAdjustment, requestDeadlineGuard, requestDeadlineGuardArgs } from './audit-request-deadline-store';
 import { ensureCoreGrcSchemaCompatibility } from './api/grc/schema-compat';
@@ -22,7 +23,7 @@ export const auditRequestSchema = [
 ];
 const initialize = completedInitialization();
 export async function ensureAuditRequestSchema(db: D1Database) {
-  await initialize(db, async () => { await ensureCoreGrcSchemaCompatibility(db); await db.batch(auditRequestSchema.map(sql => db.prepare(sql))); await ensureAssuranceNotificationSchema(db); });
+  await initialize(db, async () => { await ensureCoreGrcSchemaCompatibility(db); await db.batch([...auditRequestSchema,...auditRequirementLinkGuards('audit_requests')].map(sql => db.prepare(sql))); await ensureAssuranceNotificationSchema(db); });
 }
 type StoredRequest = { id: string; audit_id: string; data_json: string; revision: string; created_at: string; updated_at: string };
 export function publicAuditRequest(row: StoredRequest): AuditRequest {
@@ -140,7 +141,7 @@ export async function mutateAuditRequest(db: D1Database, actor: Actor, input: Mu
     const email = requestIdentity(actor.email);
     if (action === 'edit') {
       if (!['draft', 'assigned', 'submitted', 'changes_requested'].includes(current.status)) throw new AuditRequestError('transition', 409);
-      const fields = validateAuditRequestFields(input.fields); await validateAssignees(db, fields.owner, fields.reviewer); next = { ...next, ...fields, ...(current.status === 'submitted' ? { status: 'assigned' as const, submittedBy: '', note: 'Talep güncellendi; kanıt yeniden sunulmalı. / Request updated; resubmit evidence.' } : {}) };
+      const fields = validateAuditRequestFields({...current,...(input.fields as object)}); await validateAssignees(db, fields.owner, fields.reviewer); next = { ...next, ...fields, ...(current.status === 'submitted' ? { status: 'assigned' as const, submittedBy: '', note: 'Talep güncellendi; kanıt yeniden sunulmalı. / Request updated; resubmit evidence.' } : {}) };
     } else if (action === 'submit') {
       if (email !== current.owner || !canReadModule(actor, 'Kanıtlar')) throw new AuditRequestError('forbidden', 403);
       if (!['assigned', 'changes_requested'].includes(current.status)) throw new AuditRequestError('transition', 409);

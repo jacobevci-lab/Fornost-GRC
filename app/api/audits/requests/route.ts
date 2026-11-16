@@ -13,7 +13,7 @@ import { readAuditReminderProfile, saveAuditReminderProfile } from '../../../aud
 import { syncAuditRequestNotifications } from '../../../audit-request-notifications';
 
 const json = (body: unknown, status = 200) => NextResponse.json(body, { status, headers: { 'cache-control': 'private, no-store' } });
-const error = (err: unknown) => isAuditClosedError(err) ? json({error:'audit-closed'},409) : err instanceof AuditRequestError ? json({ error: err.code }, err.status) : json({ error: 'unavailable' }, 503);
+const error = (err: unknown) => String(err).includes('requirement-link') ? json({error:'requirement-link'},409) : isAuditClosedError(err) ? json({error:'audit-closed'},409) : err instanceof AuditRequestError ? json({ error: err.code }, err.status) : json({ error: 'unavailable' }, 503);
 export async function GET(req: NextRequest) {
   const auth = await requireRole(req, ['Admin', 'Editor', 'Viewer']); if (auth.response) return auth.response;
   try {

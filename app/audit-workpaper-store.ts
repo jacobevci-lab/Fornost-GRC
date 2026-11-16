@@ -46,7 +46,7 @@ export async function mutateWorkpaper(db: D1Database, actor: Actor, input: Recor
     if (current && email !== current.owner && actor.role !== 'Admin') throw new AuditRequestError('owner', 403);
     // Older clients omit scheduling fields; they must not silently remove existing deadlines.
     const supplied = input.fields;
-    fields = validateWorkpaper(supplied && typeof supplied === 'object' && !Array.isArray(supplied) ? { dueDate: current?.dueDate, reviewDueDate: current?.reviewDueDate, timeZone: current?.timeZone, remindersEnabled: current?.remindersEnabled, ...supplied } : supplied); status = 'draft';
+    fields = validateWorkpaper(supplied && typeof supplied === 'object' && !Array.isArray(supplied) ? { requirementId: current?.requirementId, dueDate: current?.dueDate, reviewDueDate: current?.reviewDueDate, timeZone: current?.timeZone, remindersEnabled: current?.remindersEnabled, ...supplied } : supplied); status = 'draft';
     if (actor.role !== 'Admin' && fields.owner !== email) throw new AuditRequestError('owner', 403);
   } else {
     if (!current) throw new AuditRequestError('missing', 404);

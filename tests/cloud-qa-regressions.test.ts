@@ -33,7 +33,7 @@ test('audit external references protect parent IDs and child IDs/codes, includin
    await assert.rejects(f.remove(),AuditLinked);assert.ok(f.sqlite.prepare('SELECT * FROM simple_audits').get());assert.equal(f.sqlite.prepare('SELECT count(*) n FROM simple_grc_metadata').get()!.n,0);
   }finally{f.sqlite.close()}
  }
- const f=await auditFixture();try{f.sqlite.exec('CREATE TABLE audit_requests(id TEXT,audit_id TEXT);INSERT INTO audit_requests VALUES(\'req\',\'AUDIT-1\')');await assert.rejects(f.remove(),AuditLinked);}finally{f.sqlite.close()}
+ const f=await auditFixture();try{f.sqlite.exec('CREATE TABLE audit_requests(id TEXT,audit_id TEXT,data_json TEXT);INSERT INTO audit_requests(id,audit_id) VALUES(\'req\',\'AUDIT-1\')');await assert.rejects(f.remove(),AuditLinked);}finally{f.sqlite.close()}
 });
 test('active and historical CAPA source references prevent deletion of the actual audit source',async()=>{
  for(const status of ['in-progress','cancelled'])for(const sourceRef of ['AUDIT-1','requirement-1','AUD-001']){
@@ -50,7 +50,7 @@ test('active and historical CAPA source references prevent deletion of the actua
 test('audit races and write failure preserve requirements, codes and archive consistency',async()=>{
  for(const race of ['parent','requirement','new-table','failure']){
   const f=await auditFixture();try{
-   f.before(()=>{if(race==='parent')f.sqlite.exec("UPDATE simple_audits SET name='Changed'");if(race==='requirement')f.sqlite.exec("UPDATE simple_grc_records SET data_json='{}'");if(race==='new-table')f.sqlite.exec('CREATE TABLE audit_requests(id TEXT,audit_id TEXT)');if(race==='failure')f.sqlite.exec("CREATE TRIGGER fail BEFORE DELETE ON simple_audits BEGIN SELECT RAISE(ABORT,'injected'); END");});
+   f.before(()=>{if(race==='parent')f.sqlite.exec("UPDATE simple_audits SET name='Changed'");if(race==='requirement')f.sqlite.exec("UPDATE simple_grc_records SET data_json='{}'");if(race==='new-table')f.sqlite.exec('CREATE TABLE audit_requests(id TEXT,audit_id TEXT,data_json TEXT)');if(race==='failure')f.sqlite.exec("CREATE TRIGGER fail BEFORE DELETE ON simple_audits BEGIN SELECT RAISE(ABORT,'injected'); END");});
    if(race==='failure')await assert.rejects(f.remove());else await assert.rejects(f.remove(),LifecycleConflict);assert.ok(f.sqlite.prepare('SELECT * FROM simple_audits').get());assert.equal(f.sqlite.prepare('SELECT count(*) n FROM simple_grc_metadata').get()!.n,0);assert.equal(f.sqlite.prepare('SELECT count(*) n FROM simple_grc_record_codes').get()!.n,1);
   }finally{f.sqlite.close()}
  }

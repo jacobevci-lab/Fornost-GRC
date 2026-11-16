@@ -2,6 +2,7 @@ import {regulatoryCoreTargets} from './regulatory-intelligence/domain';
 type Source={table:string;column:string;modules:string[];json?:boolean;filter?:string};
 // Server-owned identifiers and predicates only. Historical/closed rows remain references.
 const sources:Source[]=[
+ ...['audit_requests','audit_workpapers'].map(table=>({table,column:"json_extract(data_json,'$.requirementId')",modules:['Denetim Yönetimi']})),
  {table:'workflow_evidence_pins',column:"json_extract(snapshot_json,'$.evidenceId')",modules:['Kanıtlar']},
  {table:'evidence_automation_rules',column:'control_refs',modules:['Kontroller','Uyum']},
  {table:'evidence_automation_runs',column:'evidence_id',modules:['Kanıtlar']},
@@ -37,5 +38,5 @@ export async function enterpriseCoreReferences(db:D1Database,module:string){
    : `SELECT ${rule.column} AS value FROM ${rule.table}${filter}`;
  });
  // A module table created between discovery and DELETE must force a fresh decision.
- return{selects,schemaSql:`(SELECT count(*) FROM (${catalogSql}))=?`,schemaValues:[names,available.size]};
+ return{selects,tables:rules.filter(rule=>available.has(rule.table)).map(rule=>rule.table),schemaSql:`(SELECT count(*) FROM (${catalogSql}))=?`,schemaValues:[names,available.size]};
 }
