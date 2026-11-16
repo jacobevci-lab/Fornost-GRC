@@ -1,7 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { chromium } from "@playwright/test";
-import AxeBuilder from "@axe-core/playwright";
+import { scanAccessibility } from "./qa-accessibility.mjs";
 import { createQaContext, closeQaContext, waitForQaIdle, switchQaLocale, openQaModule } from "./qa-browser-harness.mjs";
 
 const baseUrl = (process.env.FORNOST_PROD_URL || "https://app.fornostsecurity.com").replace(/\/$/, "");
@@ -232,9 +232,7 @@ async function domAudit(page, area) {
 
 async function axeAudit(page, area) {
   try {
-    const results = await new AxeBuilder({ page })
-      .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
-      .analyze();
+    const results = await scanAccessibility(page);
     const violations = results.violations.map((v) => ({
       id: v.id,
       impact: v.impact,
@@ -243,15 +241,18 @@ async function axeAudit(page, area) {
       nodes: v.nodes.slice(0, 8).map((n) => ({ target: n.target, failureSummary: n.failureSummary })),
       nodeCount: v.nodes.length,
     }));
-    report.accessibility.push({ area, violations });
+    report.accessibility.push({ area, status: "scanned", violations, frames: results.frames, incomplete: results.incomplete });
+    await fs.writeFile(path.join(outDir, "qa-progress.json"), JSON.stringify(report, null, 2));
     for (const violation of violations) {
       const severity = violation.impact === "critical" ? "critical" : violation.impact === "serious" ? "high" : violation.impact === "moderate" ? "medium" : "low";
       addFinding(severity, area, `Accessibility: ${violation.id}`, `${violation.help}; nodes=${violation.nodeCount}`, violation.helpUrl);
     }
     return violations;
   } catch (error) {
-    addFinding("medium", area, "Accessibility scan failed", error.message);
-    return [];
+    report.accessibility.push({ area, status: "failed", violations: [], error: error.message });
+    addFinding("high", area, "Accessibility scan failed; coverage incomplete", error.message);
+    await fs.writeFile(path.join(outDir, "qa-progress.json"), JSON.stringify(report, null, 2));
+    throw error;
   }
 }
 

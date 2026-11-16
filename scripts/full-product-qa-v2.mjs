@@ -1,7 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { chromium, expect } from "@playwright/test";
-import AxeBuilder from "@axe-core/playwright";
+import { scanAccessibility } from "./qa-accessibility.mjs";
 import {openOverallAuditReadiness,  createQaContext, waitForQaIdle, switchQaLocale, openQaModule } from "./qa-browser-harness.mjs";
 
 const baseUrl = (process.env.FORNOST_PROD_URL || "https://app.fornostsecurity.com").replace(/\/$/, "");
@@ -113,20 +113,23 @@ async function login(context) {
 
 async function axeAudit(page, area) {
   try {
-    const result = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze();
+    const result = await scanAccessibility(page);
     const violations = result.violations.map((v) => ({
       id: v.id, impact: v.impact, help: v.help, helpUrl: v.helpUrl, nodeCount: v.nodes.length,
       nodes: v.nodes.slice(0, 5).map((n) => ({ target: n.target, failureSummary: n.failureSummary })),
     }));
-    report.accessibility.push({ area, violations });
+    report.accessibility.push({ area, status: "scanned", violations, frames: result.frames, incomplete: result.incomplete });
+    await fs.writeFile(path.join(outDir, "qa-progress.json"), JSON.stringify(report, null, 2));
     for (const v of violations) {
       const severity = v.impact === "critical" ? "critical" : v.impact === "serious" ? "high" : v.impact === "moderate" ? "medium" : "low";
       finding(severity, area, `Accessibility: ${v.id}`, `${v.help}; nodes=${v.nodeCount}`, v.helpUrl);
     }
     return violations.length;
   } catch (error) {
-    finding("medium", area, "Axe audit failed", error.message);
-    return -1;
+    report.accessibility.push({ area, status: "failed", violations: [], error: error.message });
+    finding("high", area, "Accessibility scan failed; coverage incomplete", error.message);
+    await fs.writeFile(path.join(outDir, "qa-progress.json"), JSON.stringify(report, null, 2));
+    throw error;
   }
 }
 
