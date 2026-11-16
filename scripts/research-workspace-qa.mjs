@@ -134,7 +134,7 @@ try {
   await openAuditWorkspaceSection(page,'plan'); await expect(page.getByLabel('Audit objective',{exact:true})).toHaveValue('Unsaved workspace draft must be preserved.');
   await screenshot('audit-plan-desktop',page.locator('.audit-plan-panel')); checks.push('plan draft retained across tabs');
   await workspace.getByRole('tab',{name:'Workspace',exact:true}).click();
-  const a11y=await new AxeBuilder({page}).include('.fw-audit-workspace').analyze(); assert.deepEqual(a11y.violations.map(v=>v.id),[]);
+  const a11y=await new AxeBuilder({page}).include('.fw-audit-workspace').analyze(); await writeFile(`${out}/accessibility.json`,JSON.stringify(a11y.violations,null,2)); assert.deepEqual(a11y.violations.map(v=>v.id),[]);
   await module('Connected GRC Map');
   await page.locator('#connected-grc-workbench').getByRole('combobox',{name:'Module',exact:true}).selectOption('Denetim Yönetimi');await page.locator('#connected-grc-workbench').getByRole('textbox',{name:'Find record',exact:true}).fill(orphan.record_code);
   await page.locator('#connected-grc-workbench .cgw-records>button').filter({hasText:orphan.record_code}).click();
