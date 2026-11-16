@@ -22,7 +22,7 @@ const fields: AuditRequestFields = { title: 'Quarterly access review', instructi
 const now = new Date('2026-10-14T12:00:00Z');
 async function fixture() {
   const sqlite = new DatabaseSync(':memory:');
-  sqlite.exec(`CREATE TABLE simple_audits(id TEXT PRIMARY KEY); INSERT INTO simple_audits VALUES('audit-a'),('audit-b'); CREATE TABLE simple_grc_metadata(key TEXT PRIMARY KEY,value TEXT,updated_at TEXT);
+  sqlite.exec(`CREATE TABLE simple_audits(id TEXT PRIMARY KEY,name TEXT); INSERT INTO simple_audits VALUES('audit-a','Audit A'),('audit-b','Audit B'); CREATE TABLE simple_grc_metadata(key TEXT PRIMARY KEY,value TEXT,updated_at TEXT);
     CREATE TABLE local_users(id TEXT PRIMARY KEY,name TEXT,email TEXT,role TEXT,status TEXT); CREATE TABLE user_module_access(user_id TEXT PRIMARY KEY,policy_json TEXT);
     INSERT INTO local_users VALUES('o','Owner','owner@example.com','Editor','Active'),('r','Reviewer','reviewer@example.com','Editor','Active'),('a','Admin','admin@example.com','Admin','Active');
     CREATE TABLE simple_grc_records(id TEXT PRIMARY KEY,module TEXT,data_json TEXT,created_at TEXT,updated_at TEXT); INSERT INTO simple_grc_records VALUES('EVD-a','Kanıtlar','{}','','');`);

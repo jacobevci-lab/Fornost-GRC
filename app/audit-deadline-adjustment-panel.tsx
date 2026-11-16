@@ -4,19 +4,20 @@ import { planDeadlineAdjustment, sameDeadlineDates, type DeadlineDates, type Dea
 import type { SavedAuditReminderProfile } from './audit-reminder-profile';
 import './audit-deadline-adjustment.css';
 
-type Props = { tr: boolean; saved?: SavedAuditReminderProfile; dates: DeadlineDates; disabled: boolean; canChangeReview?: boolean; onApply: (dates: DeadlineDates, input: DeadlineAdjustmentInput) => void };
+type Props = { headingLevel?: 4 | 5; tr: boolean; saved?: SavedAuditReminderProfile; dates: DeadlineDates; disabled: boolean; canChangeReview?: boolean; onApply: (dates: DeadlineDates, input: DeadlineAdjustmentInput) => void };
 export function AuditDeadlineAdjustmentPanel(props: Props) {
   // Date, calendar or permission changes invalidate the preview before another apply can occur.
   return <Planner key={JSON.stringify([props.dates, props.saved, props.canChangeReview, props.disabled])} {...props}/>;
 }
-function Planner({ tr, saved, dates, disabled, canChangeReview = true, onApply }: Props) {
+function Planner({ tr, saved, dates, disabled, canChangeReview = true, headingLevel = 5, onApply }: Props) {
+  const Heading = headingLevel === 4 ? 'h4' : 'h5';
   const t = (a: string, b: string) => tr ? a : b;
   const [preview, setPreview] = useState<DeadlineDates | null>(null), [reason, setReason] = useState(''), [error, setError] = useState(false);
   const available = !!saved?.revision && saved.profile.mode === 'business';
   const changed = preview && !sameDeadlineDates(dates, preview);
   const reviewLocked = preview && !canChangeReview && preview.reviewDueDate !== dates.reviewDueDate;
   return <section className="audit-deadline-adjustment" aria-label={t('İş günü tarih planlayıcısı', 'Working-day deadline planner')}>
-    <h5>{t('Terminleri iş gününe taşı', 'Move deadlines to working days')}</h5>
+    <Heading>{t('Terminleri iş gününe taşı', 'Move deadlines to working days')}</Heading>
     <p>{t('Her tarih, denetimde kayıtlı takvime göre aynı veya sonraki çalışma gününe taşınır. İki tarih aynı güne gelebilir; aralarındaki gün farkı korunmaz. Önce öneriyi inceleyin, sonra taslağa uygulayıp kaydedin.', 'Each date moves to the same or next working day in the saved audit calendar. Dates may converge; their original gap is not preserved. Review the proposal, apply it to the draft, then save.')}</p>
     {!available && <p>{t('Önce Talepler ve inceleme bölümünde iş günü takvimini kaydedin ve bu ekranı yeniden yükleyin.', 'First save a business-day calendar in Requests and review, then reload this screen.')}</p>}
     <button type="button" disabled={disabled || !available} onClick={() => { try { setPreview(planDeadlineAdjustment(saved!, dates)); setError(false); } catch { setPreview(null); setError(true); } }}>{t('İş günü tarihlerini önizle', 'Preview working-day dates')}</button>

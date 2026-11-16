@@ -20,6 +20,7 @@ type Data = { reminderProfile: SavedAuditReminderProfile; workflow: AuditRequest
   planRevision: string; periodStart: string; periodEnd: string; eventsComplete: boolean;
   events: { id: string; request_id: string; action: string; actor: string; created_at: string; note: string; activationReason: string; planRevision: string; status: AuditRequest['status']; versionIds: string[]; deadlineAdjustment?: DeadlineAdjustment }[] };
 const messages: Record<string, [string, string]> = {
+  'requirement-link': ['Madde bağlantısı değişmiş veya bu denetime ait değil. Maddeyi yenileyip bağlantısını kontrol edin.', 'The requirement link changed or belongs to another audit. Reload the requirement and check its link.'],
   'deadline-calendar-conflict': ['Takvim değişti. Taslağınız korundu; takvimi yenileyin, öneriyi geri alın ve tarihleri yeniden önizleyin.', 'The calendar changed. Your draft is retained; refresh the calendar, undo the proposal and preview the dates again.'],
   'deadline-adjustment': ['Tarih önerisi taslakla eşleşmiyor. Tarihleri yeniden önizleyin.', 'The date proposal does not match the draft. Preview the dates again.'],
   'deadline-calendar': ['İş günü takvimini kaydedip tarihleri yeniden önizleyin.', 'Save a business-day calendar and preview the dates again.'],
@@ -47,7 +48,7 @@ const messages: Record<string, [string, string]> = {
 };
 const actions: Record<string, [string, string]> = { create: ['Taslak eklendi', 'Draft added'], edit: ['Güncellendi', 'Updated'], start: ['Başlatıldı', 'Started'], activate: ['Ek talep etkinleştirildi', 'Additional request activated'], submit: ['Sunuldu', 'Submitted'], return: ['Düzeltme istendi', 'Returned'], accept: ['Kabul edildi', 'Accepted'], cancel: ['İptal edildi', 'Cancelled'] };
 const dateAfter = (days: number) => new Date(Date.now() + days * 86400000).toISOString().slice(0, 10);
-export function AuditRequestPanel({ auditId, lang, focusId = '', readOnly = false }: { auditId: string; lang: string; focusId?: string; readOnly?: boolean }) {
+export function AuditRequestPanel({ auditId, lang, focusId = '', readOnly = false, requirementId = '', requirementTitle = '' }: { requirementId?: string; requirementTitle?: string; auditId: string; lang: string; focusId?: string; readOnly?: boolean }) {
   const en = lang === 'en', t = (tr: string, eng: string) => en ? eng : tr;
   const [data, setData] = useState<Data | null>(null), [loading, setLoading] = useState(true), [ready, setReady] = useState(false);
   const [busy, setBusy] = useState(false), busyRef = useRef(false), [error, setError] = useState(''), [notice, setNotice] = useState('');
@@ -65,11 +66,11 @@ export function AuditRequestPanel({ auditId, lang, focusId = '', readOnly = fals
       const response = await fetch(withBasePath(`/api/audits/requests?auditId=${encodeURIComponent(auditId)}`), { cache: 'no-store', signal: AbortSignal.timeout(20000) });
       const body = await response.json(); if (!response.ok) throw new Error(body.error || 'unavailable');
       if (!body.workflow || !Array.isArray(body.requests) || !Array.isArray(body.people) || !Array.isArray(body.evidenceChoices) || !Array.isArray(body.events)) throw new Error('unavailable');
-      if (live.current && sequence === generation.current) { setData(body); setReady(true); }
+      if (live.current && sequence === generation.current) { setData(requirementId?{...body,requests:body.requests.filter((r:AuditRequest)=>r.requirementId===requirementId)}:body); setReady(true); }
       return true;
     } catch (err) { if (live.current && sequence === generation.current) setError(err instanceof Error ? err.message : 'unavailable'); return false; }
     finally { if (live.current && sequence === generation.current) setLoading(false); }
-  }, [auditId]);
+  }, [auditId,requirementId]);
   useEffect(() => { live.current = true; const timer = window.setTimeout(() => void load(), 0); return () => { live.current = false; window.clearTimeout(timer); }; }, [load]);
   const [clock, setClock] = useState(() => new Date());
   useEffect(() => { const timer = window.setInterval(() => setClock(new Date()), 60000); return () => window.clearInterval(timer); }, []);
@@ -83,7 +84,7 @@ export function AuditRequestPanel({ auditId, lang, focusId = '', readOnly = fals
   const choose = (item: AuditRequest) => { setSelected(item.id); setVersions(item.evidence.map(v => v.id)); setNote(''); setReturnDue(item.dueDate); setReturnReviewDue(item.reviewDueDate); setReturnAdjustment(null); setDraftAdjustment(null); setEditing(null); setError(''); };
   const beginEdit = (item?: AuditRequest) => {
     setEditing({ id: item?.id || `ARQ-${crypto.randomUUID()}`, revision: item?.revision || '' });
-    setDraft(item ? { ...item } : { ...emptyAuditRequest, owner: data?.actorEmail || '', periodStart: data?.periodStart || '', periodEnd: data?.periodEnd || '', dueDate: dateAfter(7), reviewDueDate: dateAfter(10) });
+    setDraft(item ? { ...item } : { ...emptyAuditRequest, ...(requirementId?{requirementId,title:requirementTitle}:{}), owner: data?.actorEmail || '', periodStart: data?.periodStart || '', periodEnd: data?.periodEnd || '', dueDate: dateAfter(7), reviewDueDate: dateAfter(10) });
     setDraftAdjustment(null); setReturnAdjustment(null); setError(''); setLaunch(false); setActivationReason('');
   };
   async function mutate(action: string, extra: Record<string, unknown> = {}) {
@@ -126,6 +127,7 @@ export function AuditRequestPanel({ auditId, lang, focusId = '', readOnly = fals
     {error === 'deadline-calendar-conflict' && <button type="button" disabled={busy || !ready} onClick={() => void refreshDeadlineCalendar()}>{t('Takvimi yenile (taslağı koru)', 'Refresh calendar (keep draft)')}</button>}
     {notice && <p role="status">{notice === 'calendar' ? t('Takvim yenilendi. Taslağınız korundu; öneriyi geri alıp yeniden önizleyin.', 'Calendar refreshed. Your draft was retained; undo the proposal and preview again.') : notice === 'pending' ? t('Kayıt kaydedildi. Hatırlatma kuyruğu henüz güncellenemedi; zamanlayıcı yeniden deneyecek.', 'Saved. Reminder reconciliation is pending; the scheduler will retry.') : t('Kaydedildi.', 'Saved.')}</p>}
     {loading && <p role="status">{t('Yükleniyor…', 'Loading…')}</p>}
+    {requirementId&&<p>{t("Yalnız bu maddeye bağlı talepler. Taslak talepleri başlatmak için ana Kanıt talepleri alanını kullanın.","Requests linked to this requirement only. Use the main Evidence requests area to launch drafts.")}</p>}
     {data && <>
       {!data.complete && <p role="alert">{t('Liste eksik. Güvenli işlem için kayıt sınırı çözülmeli.', 'The list is incomplete. Resolve the record limit before making changes.')}</p>}
       {progress && <div className="ar-progress" aria-label={t('Talep tamamlanma özeti', 'Request completion summary')}>
@@ -144,10 +146,10 @@ export function AuditRequestPanel({ auditId, lang, focusId = '', readOnly = fals
         {!progress.clockComplete && <p role="status">{t('Saat dilimi veya son tarihler doğrulanamadı; gecikme sayısı gösterilemiyor.', 'The time zone or deadlines could not be verified; the overdue count is unavailable.')}</p>}
       </div>}
 
-      <AuditWorkplanPanel key={auditId} auditId={auditId} lang={lang} workflow={data.workflow} canManage={!readOnly && data.canManage && ready && data.complete} evidenceAccess={data.evidenceAccess} disabled={busy || loading || !!editing} onBusy={value => { busyRef.current = value; setBusy(value); }} onChanged={load}/>
+      {!requirementId && <AuditWorkplanPanel key={auditId} auditId={auditId} lang={lang} workflow={data.workflow} canManage={!readOnly && data.canManage && ready && data.complete} evidenceAccess={data.evidenceAccess} disabled={busy || loading || !!editing} onBusy={value => { busyRef.current = value; setBusy(value); }} onChanged={load}/>}
       {data.workflow.state === 'closed' ? <p>{t('İş planı kapalı; önceki talepler ve kararlar okunabilir.', 'The work plan is closed; previous requests and decisions remain readable.')}</p> : data.workflow.state === 'draft' ? <p>{t('Taslak talepler bildirim üretmez. Başlatmadan önce sorumluları, tarihleri ve kayıtlı denetim planını kontrol edin.', 'Draft requests do not generate notifications. Review owners, dates and the saved audit plan before starting.')}</p> : <p>{t('Hatırlatma saat dilimi', 'Reminder time zone')}: <b>{data.workflow.timeZone}</b> · {t('Teslim ve inceleme tarihleri ayrıdır.', 'Delivery and review have separate dates.')}</p>}
-      {data.reminderProfile && <AuditReminderPanel key={`${auditId}:${data.reminderProfile.revision}`} saved={data.reminderProfile} lang={lang} disabled={!editable || !!editing || launch} canManage={canOperate} people={data.people} due={row ? requestNextDue(row) : data.requests[0] ? requestNextDue(data.requests[0]) : ''} timeZone={data.workflow.timeZone} onSave={profile => void mutate('reminder-profile', { profile, expectedRevision: data.reminderProfile.revision, expectedWorkflowRevision: data.workflow.revision })}/>}
-      {!readOnly && data.canManage && data.workflow.state !== 'closed' && <div className="ar-actions"><button type="button" disabled={!editable || !!editing} onClick={() => beginEdit()}>{t('+ Talep ekle', '+ Add request')}</button><button type="button" disabled={!editable || !!editing || !drafts.length} onClick={() => setLaunch(!launch)}>{data.workflow.state === 'draft' ? t('Başlangıç özetini gör', 'Preview launch') : t('Ek talepleri gözden geçir', 'Review additions')}</button></div>}
+      {!requirementId && data.reminderProfile && <AuditReminderPanel key={`${auditId}:${data.reminderProfile.revision}`} saved={data.reminderProfile} lang={lang} disabled={!editable || !!editing || launch} canManage={canOperate} people={data.people} due={row ? requestNextDue(row) : data.requests[0] ? requestNextDue(data.requests[0]) : ''} timeZone={data.workflow.timeZone} onSave={profile => void mutate('reminder-profile', { profile, expectedRevision: data.reminderProfile.revision, expectedWorkflowRevision: data.workflow.revision })}/>}
+      {!readOnly && data.canManage && data.workflow.state !== 'closed' && <div className="ar-actions"><button type="button" disabled={!editable || !!editing} onClick={() => beginEdit()}>{t('+ Talep ekle', '+ Add request')}</button>{!requirementId&&<button type="button" disabled={!editable || !!editing || !drafts.length} onClick={() => setLaunch(!launch)}>{data.workflow.state === 'draft' ? t('Başlangıç özetini gör', 'Preview launch') : t('Ek talepleri gözden geçir', 'Review additions')}</button>}</div>}
       {launch && <div className="ar-launch"><h4>{data.workflow.state === 'draft' ? t('İş planını başlat', 'Start the work plan') : t('Ek talepleri etkinleştir', 'Activate additional requests')}</h4>
         <p>{drafts.length} {t('talep etkinleşecek.', 'requests will become active.')} {new Set(drafts.map(r => r.owner)).size} {t('sorumlu için atama bildirimi hazırlanacak. İnceleyenlere kanıt sunulduğunda iş açılır.', 'owners will receive assignment notifications. Reviewer work opens when evidence is submitted.')}</p>
         <ul className="ar-preview-list">{drafts.map(item => <li key={item.id}><b>{item.title}</b><span>{t('Sorumlu', 'Owner')}: {item.owner} · {t('İnceleyen', 'Reviewer')}: {item.reviewer}</span><span>{t('Teslim / inceleme', 'Delivery / review')}: {item.dueDate} / {item.reviewDueDate}</span><span>{t('Kanıt dönemi', 'Evidence period')}: {item.periodStart ? `${item.periodStart} – ${item.periodEnd}` : t('Belirtilmedi', 'Not specified')}</span><details><summary>{t('Kabul ölçütü', 'Acceptance criteria')}</summary><p className="ar-prewrap">{item.instructions}</p></details></li>)}</ul>

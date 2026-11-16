@@ -13,6 +13,10 @@ import { AuditCatalogUpload } from "./audit-catalog-upload";
 import type { AuditCatalogImport } from "./audit-catalog-import";
 import { readAllGrcPages } from "./grc-pagination";
 import { AuditPlanPanel } from "./audit-plan-panel";
+import { AuditActions } from "./audit-actions";
+import { AuditFindingsPanel } from "./audit-findings-panel";
+import { AuditRequirementDesk, AuditRequirementBoard } from "./audit-requirement-desk";
+import { auditRequirementMatches, type AuditQueue } from "./audit-workspace-state";
 import { AuditResearchWorkspace } from "./audit-research-workspace";
 import { EvidenceUsagePanel } from "./evidence-usage-panel";
 import { EvidenceDocumentPreview } from "./evidence-document-preview";
@@ -2246,7 +2250,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
             canWrite={canWriteModule(currentUser,active)}
             createAudit={createAudit}
             deleteAudit={deleteAudit}
-            refreshAudits={loadAudits}
+            refreshAudits={async()=>{await Promise.all([loadAudits(),load()]);}}
             portfolioState={auditDirectoryState==="error"||registerLoadState==="error"?"error":auditDirectoryState==="ready"&&registerLoadState==="ready"?"ready":"loading"}
             retryPortfolio={()=>{void loadAudits();void load();}}
             canDeleteAudit={currentUser.role === "Admin"}
@@ -3761,11 +3765,16 @@ function AuditModule({
   const [requestFocus, setRequestFocus] = useState<{ id: string; auditId: string } | null>(null);
   const [showUnassigned, setShowUnassigned] = useState(false);
   const [previewAuditId,setPreviewAuditId]=useState("");
+  const [areaFocus,setAreaFocus]=useState<{id:string;area:string}|null>(null);
   const [milestoneFocus,setMilestoneFocus]=useState<{id:string;auditId:string}|null>(null);
   const [workpaperFocus, setWorkpaperFocus] = useState<{ id: string; auditId: string } | null>(null);
   const [closureFocus, setClosureFocus] = useState<{ id: string; auditId: string } | null>(null);
   useEffect(() => {
     const accept = (request: FornostNavigationRequest | null) => {
+      if(request?.module === "Denetim Yönetimi" && request.kind === "audit-area") {
+        const target=audits.find(a=>a.id===request.ref);if(target){setAreaFocus({id:target.id,area:request.filter?.area||"work"});select(target.name);consumePendingFornostFocus("Denetim Yönetimi");}return;
+      }
+      if(request?.module === "Denetim Yönetimi")setAreaFocus(null);
       if(request?.module === "Denetim Yönetimi" && request.kind !== "audit-milestone")setMilestoneFocus(null);
       if(request?.module === "Denetim Yönetimi" && request.kind === "audit-milestone" && request.ref && request.filter?.auditId){
         const target=audits.find(audit=>audit.id===request.filter?.auditId);
@@ -3855,6 +3864,7 @@ function AuditModule({
         {portfolioState==="ready"?<>
           <AuditPortfolioWorkspace audits={audits} rows={portfolioRows} evidence={evidenceRows} activeId={previewAuditId}
             onSelect={setPreviewAuditId} onOpen={select} onDelete={canDeleteAudit?deleteAudit:undefined}
+            renderActions={audit=><AuditActions key={audit.id} audit={audit} lang={lang} canWrite={canWrite} canDelete={canDeleteAudit} onDelete={deleteAudit} onChanged={async()=>{await refreshAudits();}}/>}
             showReadiness={showReadiness} lang={lang} translate={value=>display(value,lang)}/>
           <AuditUnassignedRequirements rows={unassignedAuditRequirements(rows, audits)} lang={lang}
             open={showUnassigned} setOpen={setShowUnassigned} canWrite={canWrite} canDelete={canDeleteAudit} edit={edit} remove={remove}/>
@@ -4016,9 +4026,12 @@ function AuditModule({
           )}
         </div>
       </section>
+      {selectedPortfolio&&<AuditActions key={`audit-actions:${selectedPortfolio.id}`} audit={selectedPortfolio} lang={lang} canWrite={canWrite} canDelete={canDeleteAudit} onDelete={deleteAudit} onChanged={async name=>{await refreshAudits();select(name);}}/>}
       {selectedPortfolio?.closure_state && selectedPortfolio.closure_state !== "open" && <p role="status">{auditClosureLabels[selectedPortfolio.closure_state][tr ? 0 : 1]}{auditLocked ? (tr ? " · Değişiklik için denetim gerekçeyle yeniden açılmalı." : " · Reopen the audit with a reason before making changes.") : ""}</p>}
       {!selectedPortfolio && <section className="fw-orphan-notice" role="status"><div><strong>{tr ? "Aktif denetim bağlantısı eksik" : "Active audit link missing"}</strong><p>{tr ? "Bu maddeler için aktif bir denetim kaydı bulunamadı. Kayıtları inceleyip düzenleyebilir veya bağlantısız maddeler görünümünden mevcut bir denetime bağlayabilirsiniz." : "These requirements have no active audit record. Review or edit them, or link them to an existing audit from the unassigned requirements view."}</p></div><button type="button" onClick={() => { setShowUnassigned(true); select(""); }}>{tr ? "Bağlantısız maddeleri aç" : "Open unassigned requirements"}</button></section>}
       <AuditResearchWorkspace key={selectedPortfolio?.id || `unlinked:${selected}`} auditId={selectedPortfolio?.id || ""} lang={lang}
+        focusArea={areaFocus?.id===selectedPortfolio?.id?areaFocus?.area:""}
+        findings={selectedPortfolio?<AuditFindingsPanel auditId={selectedPortfolio.id} lang={lang}/>:undefined}
         focusWorkpaper={workpaperFocus?.auditId === selectedPortfolio?.id ? workpaperFocus?.id : ""}
         focusClosure={closureFocus?.auditId === selectedPortfolio?.id ? closureFocus?.id : ""}
         items={items} focusedRequirement={focusedRequirement} focusRequest={selectedPortfolio && requestFocus?.auditId === selectedPortfolio.id ? requestFocus.id : ''} go={go}
@@ -4030,7 +4043,11 @@ function AuditModule({
         readiness={selectedPortfolio ? <AuditReadinessGate key={selected} lang={lang} auditName={selected} records={[...items, ...evidenceRows]} /> : null}
         closure={canDeleteAudit && selectedPortfolio ? <AuditClosurePanel key={`closure:${selectedPortfolio.id}:${closureFocus?.auditId === selectedPortfolio.id ? closureFocus.id : ""}`} focusId={closureFocus?.auditId === selectedPortfolio.id ? closureFocus.id : ""} auditId={selectedPortfolio.id} lang={lang} onChanged={refreshAudits} /> : undefined}
         reports={canDeleteAudit && selectedPortfolio ? <AuditStatusReportPanel auditId={selectedPortfolio.id} lang={lang} embedded /> : undefined}
-        requirements={<AuditRequirementsTable
+        requirements={queue=><AuditRequirementsTable
+        queue={queue}
+        auditId={selectedPortfolio?.id||""}
+        evidenceRows={evidenceRows}
+        focusId={focusedRequirement}
         sort={sort}
         setSort={setSort}
         userId={userId}
@@ -4054,6 +4071,7 @@ function AuditModule({
 }
 
 function AuditRequirementsTable({
+  queue="all",auditId="",evidenceRows=[],focusId="",
   sort,
   setSort,
   userId,
@@ -4072,6 +4090,7 @@ function AuditRequirementsTable({
   sort?: ViewSort;
   setSort: (sort: ViewSort | undefined) => void;
   userId: string;
+  queue?:AuditQueue; auditId?:string; evidenceRows?:Row[]; focusId?:string;
   focused: boolean;
   items: Row[];
   allItems: Row[];
@@ -4096,6 +4115,10 @@ function AuditRequirementsTable({
       if (Array.isArray(saved["Denetim Yönetimi"]) && saved["Denetim Yönetimi"].length) setColumns(saved["Denetim Yönetimi"]);
     } catch {}
   }, []);
+  const [layout,setLayout]=useState<'list'|'board'>('list');
+  const [openId,setOpenId]=useState(focusId);
+  useEffect(()=>{if(focusId)setOpenId(focusId);},[focusId]);
+  const openItem=allItems.find(r=>r.id===openId);
   const saveColumns = (keys: string[]) => {
     setColumns(keys);
     try {
@@ -4103,14 +4126,16 @@ function AuditRequirementsTable({
       localStorage.setItem("fornost-grc-columns", JSON.stringify({ ...saved, "Denetim Yönetimi": keys }));
     } catch {}
   };
-  const filtered = sortRegisterRows(items.filter((row) => Object.entries(filters).every(([key, value]) => !value || String(row.data[key] ?? "") === value)), 'Denetim Yönetimi', sort, lang);
-  const filterKey = JSON.stringify([query, filters, sort]);
+  const filtered = sortRegisterRows(items.filter((row) => auditRequirementMatches(row.data,queue) && Object.entries(filters).every(([key, value]) => !value || String(row.data[key] ?? "") === value)), 'Denetim Yönetimi', sort, lang);
+  const filterKey = JSON.stringify([query, filters, sort, queue]);
   useEffect(() => { setPagination(value => ({ ...value, key: filterKey, page: 1 })); }, [filterKey]);
   const page = auditRequirementPage(filtered, pagination.key === filterKey ? pagination.page : 1, pagination.size);
   const goPage = (value: number) => setPagination({ key: filterKey, page: value, size: page.size });
   const clearFilters = () => { setFilters({}); setQuery(""); };
   return (
     <section className="table-card smart-register audit-requirements-register">
+      {openItem&&<AuditRequirementDesk key={openItem.id} row={openItem} auditId={auditId} evidence={evidenceRows} lang={lang} canWrite={canWrite} onEdit={()=>edit(openItem)} onClose={()=>setOpenId("")}/>}
+      <div className="audit-layout-switch" aria-label={tr?"Madde görünümü":"Requirement view"}><button type="button" aria-pressed={layout==='list'} onClick={()=>setLayout('list')}>{tr?"Liste":"List"}</button><button type="button" aria-pressed={layout==='board'} onClick={()=>setLayout('board')}>{tr?"Pano":"Board"}</button></div>
       <div className="audit-table-heading">
         <div><small>{tr ? "STANDART MADDELERİ" : "STANDARD REQUIREMENTS"}</small><h3>{tr ? "Denetim maddeleri ve sorumluluk takibi" : "Audit requirements and ownership tracking"}</h3></div>
         {canWrite && <button className="ghost" onClick={() => openNew()}>{tr ? "+ Özel Madde" : "+ Custom Item"}</button>}
@@ -4122,8 +4147,9 @@ function AuditRequirementsTable({
         <div><button type="button" disabled={page.page === 1} onClick={() => goPage(1)}>{tr ? "İlk" : "First"}</button><button type="button" disabled={page.page === 1} onClick={() => goPage(page.page - 1)}>{tr ? "Önceki" : "Previous"}</button><span>{page.page} / {page.pages}</span><button type="button" disabled={page.page === page.pages} onClick={() => goPage(page.page + 1)}>{tr ? "Sonraki" : "Next"}</button><button type="button" disabled={page.page === page.pages} onClick={() => goPage(page.pages)}>{tr ? "Son" : "Last"}</button></div>
         <button type="button" disabled={!filtered.length} onClick={() => csvDownload("audit-filtered-requirements.csv", filtered, lang)}>{tr ? "Sonuçları indir" : "Export results"} ({filtered.length})</button>
       </div>
+      {layout==='board'&&<p className="fw-muted">{tr?"Pano bu sayfadaki filtrelenmiş maddeleri gösterir. Kartı açarak çalışmaya devam edin.":"The board shows filtered requirements on this page. Open a card to continue working."}</p>}
       <div className="table-wrap" tabIndex={0} role="region" aria-label={lang === "tr" ? "Kayıt tablosu" : "Record table"}>
-        {filtered.length ? <SmartRegister module="Denetim Yönetimi" rows={page.rows} lang={lang} edit={edit} remove={remove} canWrite={canWrite} canDelete={canDelete} columns={columns} /> : allItems.length ? <div className="audit-empty" role="status"><b>{tr ? "Arama veya filtrelerle eşleşen madde yok." : "No requirements match your search or filters."}</b><button type="button" className="ghost" onClick={clearFilters}>{tr ? "Arama ve filtreleri temizle" : "Clear search and filters"}</button></div> : <div className="audit-empty"><b>{tr ? "Bu şablon için otomatik madde bulunamadı." : "No automatic requirements are available for this template."}</b><p>{tr ? "Excel ile içe aktarabilir veya özel madde ekleyebilirsiniz." : "Import from Excel or add a custom item."}</p></div>}
+        {filtered.length ? layout==='board'?<AuditRequirementBoard items={page.rows} lang={lang} onOpen={r=>setOpenId(r.id)}/>:<SmartRegister inspect={r=>setOpenId(r.id)} module="Denetim Yönetimi" rows={page.rows} lang={lang} edit={edit} remove={remove} canWrite={canWrite} canDelete={canDelete} columns={columns} /> : allItems.length ? <div className="audit-empty" role="status"><b>{tr ? "Arama veya filtrelerle eşleşen madde yok." : "No requirements match your search or filters."}</b><button type="button" className="ghost" onClick={clearFilters}>{tr ? "Arama ve filtreleri temizle" : "Clear search and filters"}</button></div> : <div className="audit-empty"><b>{tr ? "Bu şablon için otomatik madde bulunamadı." : "No automatic requirements are available for this template."}</b><p>{tr ? "Excel ile içe aktarabilir veya özel madde ekleyebilirsiniz." : "Import from Excel or add a custom item."}</p></div>}
       </div>
     </section>
   );
@@ -5517,13 +5543,13 @@ function SmartRegister({
                     : undefined
                 }
               >
-                <SmartCell
+                {module==="Denetim Yönetimi"&&c.key==="audit"&&inspect?<div><SmartCell module={module} column={c.key} row={r} lang={lang}/><button type="button" className="audit-requirement-open" onClick={e=>inspect(r,e.currentTarget)}><span>{lang==="tr"?"Maddeyi aç":"Open requirement"} →</span></button></div>:<SmartCell
                   module={module}
                   column={c.key}
                   row={r}
                   lang={lang}
                   viewEvidence={viewEvidence}
-                />
+                />}
               </td>
             ))}
             {canWrite && (

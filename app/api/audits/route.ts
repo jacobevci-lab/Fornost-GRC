@@ -1,3 +1,5 @@
+import { auditRemovalPreview, updateAudit } from "../../audit-management";
+import { canReadModule, canWriteModule, isScoped } from "../../module-access";
 import { deleteAudit, AuditLinked } from "../../audit-delete";
 import { LifecycleConflict } from "../../enterprise-lifecycle-write";
 import { ensureAuditClosureSchema } from "../../audit-closure-schema";
@@ -118,7 +120,28 @@ export async function GET(req: NextRequest) {
   const auth = await requireRole(req, ["Admin", "Editor", "Viewer"]);
   if (auth.response) return auth.response;
   const d = await db(); await ensureAuditClosureSchema(d);
-  const result = await d.prepare("SELECT a.*, COALESCE(c.state,'open') AS closure_state, m.value AS catalog_json FROM simple_audits a LEFT JOIN audit_closure_state c ON c.audit_id=a.id LEFT JOIN simple_grc_metadata m ON m.key='audit_catalog_' || a.id ORDER BY a.updated_at DESC").all<Record<string,unknown>>();
+  if (!canReadModule(auth.actor, "Denetim Yönetimi")) return NextResponse.json({error:"forbidden"},{status:403});
+  if(req.nextUrl.searchParams.get("view")==="findings") {
+    if(isScoped(auth.actor))return NextResponse.json({error:"forbidden"},{status:403});
+    const id=req.nextUrl.searchParams.get("id")||"";
+    const audit=await d.prepare("SELECT id,name FROM simple_audits WHERE id=?").bind(id).first<{id:string;name:string}>();
+    if(!audit)return NextResponse.json({error:"missing"},{status:404});
+    const exists=await d.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='enterprise_findings'").first();
+    if(!exists)return NextResponse.json({findings:[],complete:true},{headers:{"cache-control":"private, no-store"}});
+    const findings=await d.prepare(`WITH RECURSIVE targets(value) AS (SELECT ? UNION SELECT r.id FROM simple_grc_records r WHERE r.module='Denetim Yönetimi' AND json_extract(r.data_json,'$.auditName')=? UNION SELECT c.code FROM simple_grc_record_codes c JOIN simple_grc_records r ON r.id=c.record_id WHERE r.module='Denetim Yönetimi' AND json_extract(r.data_json,'$.auditName')=?), tokens(id,token,rest) AS (
+      SELECT id,'',replace(replace(replace(replace(source_ref,',',';'),'|',';'),char(10),';'),char(13),';')||';' FROM enterprise_findings WHERE source_type='audit'
+      UNION ALL SELECT id,trim(substr(rest,1,instr(rest,';')-1)),substr(rest,instr(rest,';')+1) FROM tokens WHERE rest<>''
+    ) SELECT id,title,status,owner,due_date FROM enterprise_findings WHERE id IN (SELECT id FROM tokens WHERE lower(token) IN (SELECT lower(value) FROM targets)) ORDER BY updated_at DESC,id LIMIT 201`).bind(id,audit.name,audit.name).all();
+    return NextResponse.json({findings:findings.results.slice(0,200),complete:findings.results.length<=200},{headers:{"cache-control":"private, no-store"}});
+  }
+  if (req.nextUrl.searchParams.get("view") === "removal") {
+    if(auth.actor.role!=="Admin") return NextResponse.json({error:"forbidden"},{status:403});
+    const audit = await d.prepare("SELECT * FROM simple_audits WHERE id=?").bind(req.nextUrl.searchParams.get("id")||"").first<Record<string,string|number|null>>();
+    if(!audit)return NextResponse.json({error:"missing"},{status:404});
+    try { return NextResponse.json(await auditRemovalPreview(d,audit),{headers:{"cache-control":"private, no-store"}}); }
+    catch { return NextResponse.json({error:"unavailable"},{status:503}); }
+  }
+  const result = await d.prepare("SELECT a.*, COALESCE(json_extract(v.value,'$.archived'),0) AS archived, COALESCE(v.updated_at,'') AS visibility_revision, COALESCE(c.state,'open') AS closure_state, m.value AS catalog_json FROM simple_audits a LEFT JOIN audit_closure_state c ON c.audit_id=a.id LEFT JOIN simple_grc_metadata m ON m.key='audit_catalog_' || a.id LEFT JOIN simple_grc_metadata v ON v.key='audit_visibility_' || a.id ORDER BY a.updated_at DESC").all<Record<string,unknown>>();
   const audits=result.results.map(row=>{const {catalog_json,...audit}=row;let catalog=null;try{catalog=catalog_json?JSON.parse(String(catalog_json)):null;}catch{}return {...audit,catalog};});
   // Reads must not migrate historical audit snapshots to a newer catalog.
   return NextResponse.json({ audits }, { headers: { "cache-control": "private, no-store" } });
@@ -163,5 +186,24 @@ export async function DELETE(req: NextRequest) {
   } catch(error) {
     const linked=error instanceof AuditLinked, conflict=error instanceof LifecycleConflict, closed=isAuditClosedError(error);
     return NextResponse.json({error:linked||conflict?error.message:closed?auditClosedMessage:"Denetim silinemedi.",code:linked?"AUDIT_LINKED":conflict?"LIFECYCLE_CONFLICT":undefined},{status:linked||conflict||closed?409:503});
+  }
+}
+
+export async function PATCH(req: NextRequest) {
+  const auth=await requireRole(req,["Admin","Editor"]); if(auth.response)return auth.response;
+  if(!canWriteModule(auth.actor,"Denetim Yönetimi"))return NextResponse.json({error:"forbidden"},{status:403});
+  try {
+    const raw=await req.text(); if(raw.length>4096)return NextResponse.json({error:"fields"},{status:413});
+    const body=JSON.parse(raw);
+    if(!body||typeof body!=="object"||Array.isArray(body)||typeof body.id!=="string"||body.id.length>100)return NextResponse.json({error:"fields"},{status:400});
+    if(body.action!=="edit"&&auth.actor.role!=="Admin")return NextResponse.json({error:"forbidden"},{status:403});
+    const d=await db(); await ensureAuditClosureSchema(d);
+    const audit=await d.prepare("SELECT * FROM simple_audits WHERE id=?").bind(body.id).first<Record<string,string|number|null>>();
+    if(!audit)return NextResponse.json({error:"missing"},{status:404});
+    const result=await updateAudit(d,audit,auth.actor.email,body);
+    return NextResponse.json({ok:true,audit:result});
+  } catch(error) {
+    const conflict=error instanceof LifecycleConflict, closed=isAuditClosedError(error), duplicate=String(error).toLowerCase().includes("unique");
+    return NextResponse.json({error:conflict?"conflict":closed?"audit-closed":duplicate?"duplicate":"fields"},{status:conflict||closed||duplicate?409:400});
   }
 }

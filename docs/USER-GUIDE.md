@@ -78,13 +78,19 @@ HTML/SVG, makrolu Office, eski DOC/XLS ve genel ZIP desteklenmez. Yapısal Offic
 
 ## 5. Denetimi baştan sona yürütme
 
+Denetimde dört ana alan vardır: **Çalışma alanı**, **Kanıt talepleri**, **Bulgular**, **Rapor ve kapanış**. Çalışma alanındaki iş sayaçları madde kayıtlarını filtreler. Liste/Pano seçimi aynı filtre ve sayfalama kapsamını kullanır; kartlar sürüklenerek onaylanmaz.
+
+**Maddeyi aç** ile sorumlu/termin, bağlı kanıt ve talepler, test/bağımsız inceleme ve çalışma kâğıdı geçmişine aynı alandan ulaşın. Bu alanda oluşturulan talepler ve çalışma kâğıtları maddenin kalıcı kimliğine bağlanır. Eski, yalnız denetime bağlı işler **Kanıt talepleri** ve **Çalışma alanı → Denetimin tüm çalışma kâğıtları** altında görünmeye devam eder; başlığa bakılarak otomatik eşleştirilmez. Madde içindeki talep taslağını başlatmak için ana Kanıt talepleri alanındaki toplu önizlemeyi kullanın. AI düğmesi kaynak isteyen bir soruyu Ask Fornost'a hazırlar; kullanıcı göndermeden çağrı yapılmaz ve otomatik kabul/onay verilmez.
+
+Denetim başlığındaki **Denetimi düzenle** ad, tür, sahip ve ekibi değiştirir. Ad değiştiğinde maddelerin denetim bağlantısı aynı işlemde güncellenir; madde sahipleri değişmez. Admin **Arşivle** ile denetimi aktif portföyden ayırabilir; açık işler ve hatırlatmalar devam eder, bağımsız kapanış değişmez. Arşivlenmiş denetimler portföydeki filtreyle açılıp geri alınabilir. **Denetimi Sil** önce bağlı iş ve geçmiş sayısını gösterir. Bağlantı varsa silme engellenir; bağlantısız denetim ve maddeleri ikinci bir onayla silinir ve yönetici arşivinde kopyası saklanır.
+
 ### Plan ve gereksinimler
 
 **Denetim Yönetimi** içinden denetimi açın. Amaç, kapsam, denetim sorumlusu ve diğer plan alanlarını kaydedin; doğru gereksinim kayıtlarını seçin/oluşturun. Kaydedilmemiş form değişikliği rapor/kapanış paketine girmez. Katalog başlığı veya hazırlık göstergesi otomatik uygunluk kararı değildir.
 
 ### Tarihli görev ve kilometre taşı
 
-**Plan ve kapsam → Görevler ve kilometre taşları** altında başlık, beklenen çıktı, sorumlu, hedef tarih ve saat dilimi girin. Kayıt Benim İşlerim'e doğrudan yansır. Editor kendi işini oluşturur/yönetir; Admin farklı aktif denetim yazarına atayabilir. Başlatma, tamamlama, iptal ve yeniden açma gerekçe ister; tamamlanmış iş düzenlenmeden önce yeniden açılır. İncelemeci atanmamış görevleri sorumlu veya Admin doğrudan tamamlayabilir. Eski plan notları korunur ve otomatik göreve dönüştürülmez. Görev bazında E-posta hatırlatmalarını aç seçeneği kullanılabilir; varsayılan kapalıdır.
+**Çalışma alanı → Plan, kapsam ve ekip → Görevler ve kilometre taşları** altında başlık, beklenen çıktı, sorumlu, hedef tarih ve saat dilimi girin. Kayıt Benim İşlerim'e doğrudan yansır. Editor kendi işini oluşturur/yönetir; Admin farklı aktif denetim yazarına atayabilir. Başlatma, tamamlama, iptal ve yeniden açma gerekçe ister; tamamlanmış iş düzenlenmeden önce yeniden açılır. İncelemeci atanmamış görevleri sorumlu veya Admin doğrudan tamamlayabilir. Eski plan notları korunur ve otomatik göreve dönüştürülmez. Görev bazında E-posta hatırlatmalarını aç seçeneği kullanılabilir; varsayılan kapalıdır.
 
 Admin göreve farklı bir **Görev incelemecisi** ve **Görev inceleme tarihi** atayabilir. Böyle görevlerde sorumlu gerekçeyle **İncelemeye gönder** seçer. İncelemede içerik kilitlidir; atanan kişi **Onayla ve tamamla** veya **Düzeltme için geri gönder** kullanır. Sorumlu ve gönderimi yapan kendi işini onaylayamaz. Geri gönderilen görev düzenlenip tekrar sunulur; yeniden açılan görev yeni onay gerektirir. Benim İşlerim ve açık e-posta hatırlatmaları hazırlıkta sorumlu/tamamlanma tarihini, incelemede incelemeci/inceleme tarihini izler. [Ayrıntılı akış](audit-milestones.md#independent-milestone-review).
 
@@ -92,7 +98,7 @@ Açık görevler bütün-denetim kapanışını engeller; tamamlayın veya gerek
 
 ### Kanıt talebi: hazırla → başlat → sun → incele
 
-1. **Talepler ve inceleme / Requests and review** bölümünde başlık, kabul ölçütü, sahip, farklı reviewer, teslim/review tarihleri ve gerekiyorsa kanıt dönemini girin. İki atama da aktif ve uygun erişimli olmalıdır.
+1. **Kanıt talepleri / Evidence requests** bölümünde başlık, kabul ölçütü, sahip, farklı reviewer, teslim/review tarihleri ve gerekiyorsa kanıt dönemini girin. İki atama da aktif ve uygun erişimli olmalıdır.
 2. Taslağı kaydedin. Taslaklar henüz Benim İşlerim'e veya bildirimlere çıkmaz.
 3. İş planını başlatırken tam talep listesini, atamaları, tarihleri ve saat dilimini önizlemede kontrol edin. Eski önizleme uyarısında güncel listeyi yeniden inceleyin.
 4. Atanmış sahip olarak 1–10 mevcut kanıt sürümünü seçip sunun. Talep belirli sürümlere sabitlenir.
@@ -106,7 +112,7 @@ Başlamış denetime yeni talep eklerseniz önce sessiz taslak olur; **Review ad
 İsteğe bağlı **Hazırlama termini**, **İnceleme termini** ve **Termin saat dilimi** ile çalışma kâğıdını planlayabilirsiniz. İki tarihi birlikte girin; inceleme tarihi hazırlamadan önce olamaz. İşlerim taslakta hazırlama, gönderimde inceleme terminini izler. İade/geri çekme/yeniden açma hazırlama tarihine döner; tarihler otomatik ötelenmez. Onay/iptalde aktif termin kalkar, kayıt ve geçmişte iki tarih korunur. Hesaplama seçili saat diliminde gün sonuna göredir. E-posta için taslakta **E-posta hatırlatmaları** seçeneğini ayrıca açın; iki termin gereklidir. Hazırlamada sorumluya, incelemede inceleyene bildirim gider. Denetimin hatırlatma takvimi, tatilleri ve varsa eskalasyon alıcısı kullanılır. Onay/iptalde bildirim durur. Mevcut kayıtlarda kapalıdır; aynı sürüm/aşama için her gün tekrar gönderilmez. Kayıt veya takvim değişirse yeni bildirim oluşabilir. E-posta örneklem içeriğini içermez; oturum gerektiren çalışma kâğıdı bağlantısını kullanır.
 
 
-**Workpapers** sekmesinde amaç, test prosedürü, popülasyon/kaynak, seçim yaklaşımı/gerekçesi, sahip ve farklı reviewer girin. En fazla 100 test birimini referans, sonuç, not ve sabitlenmiş kanıt sürümüyle kaydedin. Sonuç ve kanıtları tamamlayıp sahip olarak incelemeye sunun. Reviewer onaylar veya geri gönderir; içeriği daha önce düzenleyen kişi sonradan reviewer yapılarak aynı kâğıdı onaylayamaz.
+**Çalışma alanı → Denetimin tüm çalışma kâğıtları** bölümünde amaç, test prosedürü, popülasyon/kaynak, seçim yaklaşımı/gerekçesi, sahip ve farklı reviewer girin. En fazla 100 test birimini referans, sonuç, not ve sabitlenmiş kanıt sürümüyle kaydedin. Sonuç ve kanıtları tamamlayıp sahip olarak incelemeye sunun. Reviewer onaylar veya geri gönderir; içeriği daha önce düzenleyen kişi sonradan reviewer yapılarak aynı kâğıdı onaylayamaz.
 
 Tam sayım seçilmişse bütün popülasyon temsil edilmelidir; 100'ü aşan popülasyon bu sınır içinde tamamlanmış sayım olarak gösterilemez. CSV evreninden tekrarlanabilir rastgele seçim aşağıda açıklanmıştır; güven aralığı ve istatistiksel örneklem büyüklüğü hesaplanmaz. Onaylı istisna için **İstisnalardan CAPA → CAPA oluştur** yolunu kullanın. Kök neden, aksiyon planı, sorumlu, sorumludan ve aktarımı yapandan farklı Admin doğrulayıcı, termin ve gerekçeyi girip önizleyin; **Onayla ve CAPA oluştur** açık CAPA kaydı oluşturur. Kaynak örnek/kanıt sürümü korunur; aynı örnek tekrar aktarılamaz. CAPA detayından kaynak çalışma kâğıdına dönebilirsiniz. Bu işlem tam erişimli Admin veya atanmış Editor sorumlu/inceleyen içindir. Onaylı kâğıdı değiştirmek için gerekçeli yeniden açma gerekir. [Çalışma kâğıdı rehberi](audit-workpapers.md).
 
@@ -188,7 +194,7 @@ If policy data cannot be loaded, Policy Center shows an explicit error and **Ret
 
 ### Import workpaper samples
 
-In Audit Management → audit → Workpapers, create or edit a draft and open **Import samples from CSV**. Download the `reference,note` template or paste/upload your selected samples, inspect the preview, then choose **Add samples to draft**. Duplicates, malformed rows and population/sample limit violations block the whole import. Imported samples start as Pending without evidence; complete testing and evidence selection, then Save draft. See [Audit workpapers](audit-workpapers.md#bulk-sample-entry).
+In Audit Management → audit → Workspace → All audit workpapers, create or edit a draft and open **Import samples from CSV**. Download the `reference,note` template or paste/upload your selected samples, inspect the preview, then choose **Add samples to draft**. Duplicates, malformed rows and population/sample limit violations block the whole import. Imported samples start as Pending without evidence; complete testing and evidence selection, then Save draft. See [Audit workpapers](audit-workpapers.md#bulk-sample-entry).
 
 ### Filter My Work by module
 
@@ -206,7 +212,7 @@ You can rename, replace or delete up to ten personal views in this browser. Dele
 
 ### Reuse audit plan and milestone templates
 
-Open **Audit Management → audit → Plan and scope → Templates** for plan starters. A second Templates panel within an editable task provides milestone starters. Preview each proposed field beside your draft; filled fields are not preselected. Apply only the fields you choose, then use **Save plan** or **Save milestone** to persist through the existing authorized workflow. People, dates, states and approvals are never copied.
+Open **Audit Management → audit → Workspace → Plan, scope and team → Templates** for plan starters. A second Templates panel within an editable task provides milestone starters. Preview each proposed field beside your draft; filled fields are not preselected. Apply only the fields you choose, then use **Save plan** or **Save milestone** to persist through the existing authorized workflow. People, dates, states and approvals are never copied.
 
 Plans include internal-control and remediation-follow-up starters; milestones include scope, evidence preparation, fieldwork and closure preparation. These are editable prompts, not a claim of compliance or automatic audit completion. You can name and download your customized text as JSON, then paste it into a matching plan/task template panel for preview and reuse. Portable JSON does not create a library record; centrally shared definitions are available separately in Shared template library. Plan templates contain narrative text only; milestone templates contain title and expected output only. Existing task limits, role checks, revision conflicts and closure locks still apply.
 
@@ -219,41 +225,41 @@ Cycles are rejected. A prerequisite cannot be reopened while dependent work is i
 
 ### Repeat an audit task for the next period
 
-In **Audit → Plan and scope → Tasks and milestones**, select a recurrence (weekly, monthly, quarterly, or yearly) and save. Complete the task, enter an action reason, then use **Create next occurrence**; the button shows the calculated due date. The new Planned task appears in My Work with its own deadline. Use **Previous occurrence** / **Next occurrence** to move between periods.
+In **Audit → Workspace → Plan, scope and team → Tasks and milestones**, select a recurrence (weekly, monthly, quarterly, or yearly) and save. Complete the task, enter an action reason, then use **Create next occurrence**; the button shows the calculated due date. The new Planned task appears in My Work with its own deadline. Use **Previous occurrence** / **Next occurrence** to move between periods.
 
 Creation is explicit and happens once per completed task. No next-period tasks are created in the background. Email reminders follow the task setting. The next period is based on the previous due date; month-end dates retain their original day where possible. Only the previous task is carried as a prerequisite; review other prerequisites for the new period. All periods count toward the 100-task audit limit. Set recurrence to One-off on an editable task to stop further periods. A cancelled successor can be reopened; repeatedly clicking the original never creates a replacement duplicate.
 
 
 ### Denetim görevi e-posta hatırlatmaları
 
-**Denetim → Plan ve kapsam → Görevler** içinde **E-posta hatırlatmalarını aç** seçeneğini işaretleyip kaydedin. Ön hatırlatma, son gün, gecikme ve isteğe bağlı eskalasyon tarihleri ekranda gösterilir. Takvim aynı denetimin **Talepler ve inceleme → Hatırlatma takvimi ve eskalasyon** bölümünden yönetilir; görevin saat dilimi kullanılır. E-posta taşıması **Ayarlar → E-posta ve Bildirimler** altında yapılandırılır.
+**Denetim → Çalışma alanı → Plan, kapsam ve ekip → Görevler** içinde **E-posta hatırlatmalarını aç** seçeneğini işaretleyip kaydedin. Ön hatırlatma, son gün, gecikme ve isteğe bağlı eskalasyon tarihleri ekranda gösterilir. Takvim aynı denetimin **Talepler ve inceleme → Hatırlatma takvimi ve eskalasyon** bölümünden yönetilir; görevin saat dilimi kullanılır. E-posta taşıması **Ayarlar → E-posta ve Bildirimler** altında yapılandırılır.
 
 Mevcut görevlerde seçenek kapalıdır. Görev kapanınca veya hatırlatma kapatılınca bekleyen bildirim geri çekilir. Görev/profil değişikliği yeni bildirim oluşturabilir; her gün tekrarlanan e-posta gönderilmez. E-posta teslimi görevin tamamlandığı anlamına gelmez. Yeni tekrar dönemine hatırlatma tercihi aktarılır; kendi tarihi gelene kadar bildirim üretilmez.
 
 ### Denetimler arasında takvim aktarımı
 
-**Denetim → Talepler ve inceleme → Hatırlatma takvimi ve eskalasyon → Hatırlatma profilini düzenle → Takvimi başka denetimde kullan** bölümünden taslak takvimi JSON olarak indirebilirsiniz. Dosya yalnızca gün hesabını, çalışma günlerini ve tatil tarihlerini içerir; kişi, denetim kimliği, bildirim eşiği veya eskalasyon alıcısı içermez.
+**Denetim → Kanıt talepleri → Hatırlatma takvimi ve eskalasyon → Hatırlatma profilini düzenle → Takvimi başka denetimde kullan** bölümünden taslak takvimi JSON olarak indirebilirsiniz. Dosya yalnızca gün hesabını, çalışma günlerini ve tatil tarihlerini içerir; kişi, denetim kimliği, bildirim eşiği veya eskalasyon alıcısı içermez.
 
 Başka denetimde dosyayı seçin veya JSON içeriğini yapıştırıp önizleyin. **Takvimi taslağa uygula**, bu üç alanı değiştirir; tatilleri birleştirmez. Hedef denetimin bildirim eşikleri, eskalasyon sorumlusu ve terminleri korunur. Son olarak **Hatırlatma profilini kaydet** ile kalıcı hale getirin. Kaydetmeden vazgeçerseniz kayıt değişmez. Kaydetmede mevcut yetki, kapalı denetim ve eşzamanlı değişiklik kontrolleri uygulanır; bekleyen bildirimler yeniden değerlendirilir. Aktarım bir kopyadır: kaynak takvim daha sonra değişirse hedef denetimler otomatik güncellenmez. En fazla 16 KB dosya ve 366 benzersiz geçerli tatil tarihi desteklenir; dosya aktarımıdır. Ortak takvim kütüphanesi aşağıda açıklanır; otomatik resmi tatil servisi yoktur.
 
 
 ### Denetim görev paketini toplu oluşturma
 
-**Denetim → Plan ve kapsam → Görevler ve kilometre taşları → Görev paketi oluştur** altında başlangıç paketini hazırlayın. Kapsam, kanıt hazırlığı, saha çalışması ve kapanış görevlerinden gerekenleri seçin; metinleri, sorumluyu, saat dilimini ve her hedef tarihi düzenleyin. İsterseniz seçili görevleri sırayla birbirine bağlayın. **Görev paketini önizle** henüz kayıt oluşturmaz; **Tüm görevleri kaydet** seçili görevleri birlikte kaydeder. Görevler Benim İşlerim’e yansır. Tekil görev taslağınız varsa önce kaydedin veya bırakın.
+**Denetim → Çalışma alanı → Plan, kapsam ve ekip → Görevler ve kilometre taşları → Görev paketi oluştur** altında başlangıç paketini hazırlayın. Kapsam, kanıt hazırlığı, saha çalışması ve kapanış görevlerinden gerekenleri seçin; metinleri, sorumluyu, saat dilimini ve her hedef tarihi düzenleyin. İsterseniz seçili görevleri sırayla birbirine bağlayın. **Görev paketini önizle** henüz kayıt oluşturmaz; **Tüm görevleri kaydet** seçili görevleri birlikte kaydeder. Görevler Benim İşlerim’e yansır. Tekil görev taslağınız varsa önce kaydedin veya bırakın.
 
 Tarihler otomatik atanmaz; hatırlatmalar ve tekrar başlangıçta kapalıdır. Hata veya bağlantı kesintisinde taslak korunur; yeni paket hazırlamadan önce listeyi yeniden yükleyip sonucu kontrol edin. Denetim başına iptaller dahil 100 görev sınırı ve mevcut yetkiler uygulanır.
 
 
 ### Ortak denetim şablonlarını kullanma
 
-**Denetim → Plan ve kapsam** altında plan veya tekil görev için **Şablonlar → Ortak şablon kütüphanesi**, toplu görevler için **Görev paketi oluştur → Ortak şablon kütüphanesi** bölümünü açın. Kurum şablonunu arayın, sürümünü ve içeriğini inceleyip **Bu şablonu taslak önizlemesine aktar** seçeneğini kullanın. Plan/görev metninde uygulanacak alanları seçin; paket için **Ortak paketi taslağa uygula** ile görev listesini alın. Asıl denetim kaydı ancak kendi Kaydet düğmesine bastığınızda değişir.
+**Denetim → Çalışma alanı → Plan, kapsam ve ekip** altında plan veya tekil görev için **Şablonlar → Ortak şablon kütüphanesi**, toplu görevler için **Görev paketi oluştur → Ortak şablon kütüphanesi** bölümünü açın. Kurum şablonunu arayın, sürümünü ve içeriğini inceleyip **Bu şablonu taslak önizlemesine aktar** seçeneğini kullanın. Plan/görev metninde uygulanacak alanları seçin; paket için **Ortak paketi taslağa uygula** ile görev listesini alın. Asıl denetim kaydı ancak kendi Kaydet düğmesine bastığınızda değişir.
 
 Ortak paket kişi veya tarih taşımaz. Sorumlu ve saat diliminizi kontrol edin, her görev tarihini seçin. **Pakete görev ekle**, **Yukarı/Aşağı taşı** ve **Taslak görevini çıkar** seçenekleriyle en fazla 12 görevi düzenleyebilirsiniz. Şablon daha sonra değişirse sizin taslağınız veya kaydınız otomatik değişmez. Eski sürümler ve arşivlenenler yalnız inceleme içindir. Şablon yayınlama/sürümleme/arşivleme yalnız Admin'e açıktır. [Ayrıntılı iş akışı](audit-template-library.md).
 
 
 ### Sürümlü ortak takvimler
 
-**Denetim → Talepler ve inceleme → Hatırlatma takvimi ve eskalasyon → Hatırlatma profilini düzenle → Ortak takvim kütüphanesi** yolunu kullanın. Güncel takvimi seçin, **Takvim değişikliklerini önizle** ile çalışma günlerini ve eklenecek/kaldırılacak tatilleri karşılaştırın. **Ortak takvimi taslağa uygula**, ardından **Hatırlatma profilini kaydet** ile denetime bağlayın. Bildirim eşikleri, eskalasyon alıcısı, saat dilimleri ve kayıtların terminleri korunur.
+**Denetim → Kanıt talepleri → Hatırlatma takvimi ve eskalasyon → Hatırlatma profilini düzenle → Ortak takvim kütüphanesi** yolunu kullanın. Güncel takvimi seçin, **Takvim değişikliklerini önizle** ile çalışma günlerini ve eklenecek/kaldırılacak tatilleri karşılaştırın. **Ortak takvimi taslağa uygula**, ardından **Hatırlatma profilini kaydet** ile denetime bağlayın. Bildirim eşikleri, eskalasyon alıcısı, saat dilimleri ve kayıtların terminleri korunur.
 
 Denetim kullanılan takvim adını ve sürümünü gösterir. **Takvim güncellemelerini kontrol et** yeni sürümü önizlemeye getirir; kütüphane güncellemeleri denetimlere otomatik yayılmaz. Arşivlenen kaynağın önceden kaydedilmiş sürümü çalışmaya devam eder. **Yerel takvim olarak devam et**, takvim alanlarını elle düzenlemek veya JSON uygulamak kaynak bağlantısını taslakta kaldırır; kalıcı olması için kaydedin. Vazgeçmek kayıtlı profili korur. Eşzamanlı kaynak değişikliğinde taslak kaybolmaz; güncel sürümü tekrar kontrol edin.
 
@@ -262,7 +268,7 @@ Yalnız Admin ortak takvim yayımlar, sürümler, arşivler veya yeniden etkinle
 
 ### Terminleri iş gününe taşıma
 
-Denetimin **Talepler ve inceleme** bölümünde iş günü takvimini kaydedin. **Plan ve kapsam → Görevler** veya düzenlenebilir **Çalışma kâğıdı** içinde tarihleri girip **İş günü tarihlerini önizle** seçin. Her tarih aynı ya da sonraki çalışma gününe taşınır; hazırlama ve inceleme aynı güne gelebilir. Eski/yeni tarihleri inceleyin, gerekçe girin, **Tarihleri taslağa uygula** ve ardından normal kaydet düğmesini kullanın. **Tarih önerisini geri al** önceki taslak tarihlerini getirir. Önizleme ve uygulama kayıt yapmaz.
+Denetimin **Talepler ve inceleme** bölümünde iş günü takvimini kaydedin. **Çalışma alanı → Plan, kapsam ve ekip → Görevler** veya düzenlenebilir **Çalışma kâğıdı** içinde tarihleri girip **İş günü tarihlerini önizle** seçin. Her tarih aynı ya da sonraki çalışma gününe taşınır; hazırlama ve inceleme aynı güne gelebilir. Eski/yeni tarihleri inceleyin, gerekçe girin, **Tarihleri taslağa uygula** ve ardından normal kaydet düğmesini kullanın. **Tarih önerisini geri al** önceki taslak tarihlerini getirir. Önizleme ve uygulama kayıt yapmaz.
 
 Takvim eşzamanlı değişirse taslak korunur. Görevde **Takvimi yenile (taslağı koru)**, çalışma kâğıdında **Yeniden dene (taslağı koru)** kullanın; eski öneriyi geri alıp yeni önizleme oluşturun. İnceleme tarihini değiştiren görev önerisini yalnız Admin uygulayabilir. İşlerim kaydedilen terminleri kullanır; eski/yeni tarihler ve takvim sürümü ilgili kaydetme işleminin geçmişinde bulunur. [Kapsam ve örnekler](audit-deadline-planning.md).
 
