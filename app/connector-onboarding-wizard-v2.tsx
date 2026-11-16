@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { executionConflictMessage } from "./evidence/execution-feedback";
+import { sourceCreationConflictMessage } from "./evidence/source-save-feedback";
 import { ruleCreationConflictMessage } from "./evidence/rule-save-feedback";
 import { withBasePath } from "./base-path";
 import { navigateToFornost } from "./navigation-focus";
@@ -65,6 +66,7 @@ async function post(body: Record<string, unknown>) {
     body: JSON.stringify(body),
   });
   const payload = await response.json().catch(() => ({})) as Record<string, unknown>;
+  if (!response.ok && payload.code === "SOURCE_CREATION_CONFLICT") throw Object.assign(new Error("SOURCE_CREATION_CONFLICT"), { sourceId: clean(payload.sourceId) });
   if (!response.ok && payload.code === "RULE_CREATION_CONFLICT") throw Object.assign(new Error("RULE_CREATION_CONFLICT"), { ruleId: clean(payload.ruleId) });
   if (!response.ok) throw new Error(payload.code === "EXECUTION_CONFLICT" ? "EXECUTION_CONFLICT" : clean(payload.error) || "Operation failed");
   return payload;
@@ -102,6 +104,9 @@ export default function ConnectorOnboardingWizard({ profileId, lang, actor, onCl
     remediationDueDays: 7,
   });
   const [runStatus, setRunStatus] = useState("");
+  const sourceRequestId = useRef("");
+  const authenticatePending = useRef(false);
+  const [conflictingSourceId, setConflictingSourceId] = useState("");
   const ruleRequestId = useRef("");
   const enablePending = useRef(false);
 
@@ -134,6 +139,8 @@ export default function ConnectorOnboardingWizard({ profileId, lang, actor, onCl
     : ["Authenticate", "Detect", "Map Controls", "Enable Monitoring", "Result"];
 
   function chooseTemplate(label: string) {
+    if (sourceId) sourceRequestId.current = "";
+    setConflictingSourceId("");
     const next = templates.find((item) => item.label === label) || templates[0]!;
     setTemplate(next);
     setSourceId("");
@@ -156,18 +163,23 @@ export default function ConnectorOnboardingWizard({ profileId, lang, actor, onCl
   }
 
   async function authenticate() {
+    if (authenticatePending.current) return;
     if (!draft.name.trim() || (!draft.providerId && !draft.baseUrl.trim())) {
       setError(tr ? "Kaynak adı ve HTTPS API adresi gerekli." : "Source name and an HTTPS API URL are required.");
       return;
     }
+    authenticatePending.current = true;
+    if (!sourceId) sourceRequestId.current ||= crypto.randomUUID();
+    setConflictingSourceId("");
     setBusy("connect");
     setError("");
     setMessage("");
     try {
-      const saved = await post({ action: "save-source", sourceId: sourceId || undefined, ...draft });
+      const saved = await post({ action: "save-source", sourceId: sourceId || undefined, requestId: sourceId ? undefined : sourceRequestId.current, ...draft });
       const id = clean(saved.sourceId);
       if (!id) throw new Error(tr ? "Kaynak kimliği alınamadı." : "Source ID was not returned.");
       setSourceId(id);
+      setDraft((current) => ({ ...current, secret: "", credentials: {} }));
       const discovered = await post({ action: "discover-source", sourceId: id });
       const detected = (discovered.detected || {}) as { rootType?: string; paths?: DetectedPath[]; truncated?: boolean };
       const nextPaths = Array.isArray(detected.paths) ? detected.paths : [];
@@ -179,12 +191,15 @@ export default function ConnectorOnboardingWizard({ profileId, lang, actor, onCl
       const evidencePaths = nextPaths.filter((item) => !/^\$\.fornostCollection(?:\.|$)/.test(item.path));
       const preferred = evidencePaths.find((item) => !["object", "array"].includes(item.type));
       setSelectedPath(preferred?.path || "");
-      setDraft((current) => ({ ...current, secret: "", credentials: {} }));
       setStep(2);
       setMessage(clean(discovered.message));
     } catch (caught) {
-      setError(caught instanceof Error ? (caught.message === "EXECUTION_CONFLICT" ? executionConflictMessage(tr) : caught.message) : (tr ? "Bağlantı kurulamadı." : "Connection failed."));
+      if (caught instanceof Error && caught.message === "SOURCE_CREATION_CONFLICT") {
+        setError(sourceCreationConflictMessage(tr));
+        setConflictingSourceId(clean((caught as Error & { sourceId?: string }).sourceId));
+      } else setError(caught instanceof Error ? (caught.message === "EXECUTION_CONFLICT" ? executionConflictMessage(tr) : caught.message) : (tr ? "Bağlantı kurulamadı." : "Connection failed."));
     } finally {
+      authenticatePending.current = false;
       setBusy("");
     }
   }
@@ -309,6 +324,7 @@ export default function ConnectorOnboardingWizard({ profileId, lang, actor, onCl
           </nav>
 
           {error && <div className="cow-message error">{error}</div>}
+          {conflictingSourceId && <div className="cow-actions"><button type="button" className="ghost" disabled={!!busy} onClick={() => { onClose(conflictingSourceId); navigateToFornost({ module: "Kanıt Otomasyonu", ref: conflictingSourceId, source: "connector-onboarding", filter: { sourceRef: conflictingSourceId } }); }}>{tr ? "Kaydedilen kaynağı aç" : "Open saved source"}</button></div>}
           {message && <div className="cow-message success">{message}</div>}
 
           {step === 1 && (

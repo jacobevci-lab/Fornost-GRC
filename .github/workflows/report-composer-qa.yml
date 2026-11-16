@@ -21,6 +21,9 @@ on:
       - 'scripts/connector-rule-retry-qa.mjs'
       - 'app/evidence/rule-write.ts'
       - 'app/evidence/rule-save-feedback.ts'
+      - 'app/evidence/source-create.ts'
+      - 'app/evidence/source-save-feedback.ts'
+      - 'scripts/connector-source-retry-qa.mjs'
       - 'app/api/evidence-automation/**'
       - 'app/evidence-automation.tsx'
       - '.github/workflows/report-composer-qa.yml'
@@ -49,7 +52,9 @@ jobs:
       - name: Verify sandboxed accessibility scanner
         run: node scripts/qa-accessibility-regression.mjs
       - name: Generate isolated QA credentials
-        run: node scripts/prepare-local-qa.mjs
+        run: |
+          node scripts/prepare-local-qa.mjs
+          node --input-type=module -e 'import {randomBytes} from "node:crypto"; import {writeFileSync} from "node:fs"; writeFileSync(".dev.vars", "FORNOST_SETTINGS_ENCRYPTION_KEY="+randomBytes(32).toString("hex")+"\n", {mode:0o600});'
       - name: Verify isolated report composer and all exports
         env:
           FORNOST_PROD_URL: http://127.0.0.1:4173
@@ -70,6 +75,7 @@ jobs:
           node scripts/tprm-populated-contrast-qa.mjs
           node scripts/connector-setup-outcome-qa.mjs
           node scripts/connector-rule-retry-qa.mjs
+          node scripts/connector-source-retry-qa.mjs
           node scripts/full-product-qa-gate.mjs
       - uses: actions/upload-artifact@v4
         if: always()
@@ -81,6 +87,7 @@ jobs:
             tprm-contrast-qa-artifacts/
             connector-setup-qa-artifacts/
             connector-rule-retry-qa-artifacts/
+            connector-source-retry-qa-artifacts/
             report-composer-qa-artifacts/*.png
             report-composer-qa-artifacts/*.json
             layout-qa-artifacts/reporting-*.png

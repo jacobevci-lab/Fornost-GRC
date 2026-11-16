@@ -110,3 +110,24 @@ starts a new attempt, so inspect existing controls first after an uncertain save
 The API accepts an optional UUIDv4 `requestId` on `save-rule`; clients must retain
 it for retries of the same creation. Unkeyed legacy clients retain their previous
 behavior. Source creation and provider requests have separate retry semantics.
+
+
+### Retrying an unconfirmed source save
+
+Both source-creation forms now keep a request ID while an open attempt is retried.
+If the server saved the source but its response was lost, sending the same contents
+again returns the original source without rewriting credentials, connection test
+results or linked control history. Changed contents under that request return a
+conflict and an **Open saved source** action when the source still exists. Removed
+sources are not recreated by replaying their request. Review the saved source
+before editing it or deliberately starting another creation attempt.
+
+API clients may send a UUIDv4 `requestId` on initial `save-source` requests; retain
+it and the same payload until the response is confirmed. Keys are scoped to the
+authenticated administrator. Updates still use `sourceId` and the existing update
+concurrency checks; unkeyed legacy creation remains supported. Saving does not
+verify provider connectivity. Credential fingerprints use the server encryption
+key, never plaintext credentials in the receipt; rotating that key may make an
+old retry conflict. Public sources do not require the encryption key. Closing the
+creation UI or reloading begins a new attempt; credentials are never saved in
+browser storage. This does not provide durable draft recovery after reload.
