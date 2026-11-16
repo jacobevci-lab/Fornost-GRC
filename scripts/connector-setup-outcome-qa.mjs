@@ -31,18 +31,20 @@ try{
   await mkdir(out,{recursive:true});
   const login=await context.request.post(base+'/api/auth',{headers:{...headers,origin:base},data:{action:'login',email:process.env.FORNOST_SMOKE_EMAIL||'qa-admin@fornost.test',password:process.env.FORNOST_SMOKE_PASSWORD||qaPassword()}});
   assert.equal(login.status(),200);
+  // Exercise the real authenticated endpoint independently of the UI fixture.
+  // Never start an upstream fetch inside the intercepted browser request.
+  const register=await context.request.get(base+'/api/grc',{headers,timeout:15000});
+  assert.equal(register.status(),200,'Live register preflight');
+  assert.ok(Array.isArray((await register.json()).rows),'Live register rows');
+  console.log('CONNECTOR_REGISTER_PREFLIGHT_PASS');
   await page.route('**/api/**',async route=>{
     if(!['GET','HEAD'].includes(route.request().method())){unexpectedWrites.push(new URL(route.request().url()).pathname);return route.abort();}
     return route.fallback();
   });
   await page.route(url=>url.origin===new URL(base).origin&&url.pathname==='/api/grc',async route=>{
     if(route.request().method()!=='GET')return route.fallback();
-    const response=await route.fetch({headers:{...route.request().headers(),...headers}});assert.equal(response.status(),200);const body=await response.json();
-    assert.ok(Array.isArray(body.rows),'Register response must contain rows');
-    const syntheticRows=new URL(route.request().url()).searchParams.has('cursor')?[]:[{id:'qa-setup-control',module:'Kontroller',record_code:controlRef,data_json:JSON.stringify({controlId:controlRef,title:'QA mapped control'}),created_at:stamp,updated_at:stamp}];
-    // The fixture changes the body. Do not retain the upstream content-length or
-    // transfer headers: deployed responses can declare the original byte count.
-    await route.fulfill({status:200,json:{...body,rows:[...body.rows,...syntheticRows]}});
+    const rows=[{id:'qa-setup-control',module:'Kontroller',record_code:controlRef,data_json:JSON.stringify({controlId:controlRef,title:'QA mapped control'}),created_at:stamp,updated_at:stamp}];
+    await route.fulfill({status:200,json:{rows,nextCursor:null}});
   });
   await page.route(url=>url.origin===new URL(base).origin&&url.pathname==='/api/evidence-automation',async route=>{
     if(route.request().method()==='GET')return route.fulfill({json:{sources:registered?[source]:[],rules:registered?[rule]:[],runs:[],findings:[]}});
@@ -59,6 +61,7 @@ try{
     unexpectedWrites.push(body.action);return route.abort();
   });
   for(const locale of ['tr','en'])for(const outcome of outcomes){
+    console.log('CONNECTOR_SETUP_CASE_START',locale,outcome.key);
     current=outcome;registered=false;actions=[];releaseRun=undefined;
     await page.setViewportSize({width:1440,height:1000});await page.goto(base);
     await switchQaLocale(page,locale);await expect(page.locator('main > .notice')).toHaveCount(0);
@@ -102,6 +105,7 @@ try{
       assert.equal(actions.filter(x=>x==='save-rule').length,1);
     }
     checks.push({locale,outcome:outcome.key,ruleSaves:1,passed:true});
+    console.log('CONNECTOR_SETUP_CASE_PASS',locale,outcome.key);
   }
   assert.deepEqual(errors,[]);assert.deepEqual(unexpectedWrites,[]);
   await writeFile(`${out}/result.json`,JSON.stringify({status:'PASS',coverage:'Actual UI with intercepted connector transport; no provider calls or persisted connector writes',checks},null,2));

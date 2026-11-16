@@ -44,3 +44,13 @@ appears after startup. Keep the request-idle and contrast gates strict. This
 follow-up changes QA fixtures only; real API checks remain in the production
 baseline and smoke tests. Repeat the failed deployed-UI scenario and remaining
 production gates before recording the release as verified.
+
+The next live run still stalled on the intercepted read after correcting the
+row and headers; the header change did not establish the cause of that timeout.
+Separate a bounded, authenticated real-register preflight from a fully static
+browser register fixture. The outcome test needs one synthetic control, not
+customer register contents. Remove the nested upstream route.fetch, retain the
+raw row contract and strict idle checks, and log each scenario start/completion
+without customer data. Real register health remains mandatory in the preflight,
+full-product baseline and CRUD smoke. This is test isolation, not an application
+timeout or authorization change.
