@@ -1,0 +1,25 @@
+name: Close exposed dedicated QA sessions
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/qa-session-cleanup.yml']
+permissions:
+  contents: read
+jobs:
+  cleanup:
+    # One-time incident cleanup for this release, before new revision-gated QA signs in.
+    if: github.event.before == '5c82bdd1216250dc67411fc08ff678930219bffe'
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.13.0
+      - name: Revoke only the configured dedicated test identity's sessions
+        env:
+          CF_ACCESS_CLIENT_ID: ${{ secrets.CF_ACCESS_CLIENT_ID }}
+          CF_ACCESS_CLIENT_SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
+          FORNOST_SMOKE_EMAIL: ${{ secrets.FORNOST_SMOKE_EMAIL }}
+          FORNOST_SMOKE_PASSWORD: ${{ secrets.FORNOST_SMOKE_PASSWORD }}
+        run: node scripts/qa-close-owned-sessions.mjs
