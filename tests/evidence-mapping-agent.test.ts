@@ -58,6 +58,11 @@ test('classification filtering and ambiguous control references do not enter mod
  assert.deepEqual((await mappingControls(rows,'Internal')).map(c=>c.id),['c0']);
  assert.equal((await mappingControls([...rows,rows[0]],'Internal')).length,0);
 });
+test('canonical control identity wins over shared framework labels; template version changes require a new analysis',async()=>{
+ const controls=await mappingControls([{id:'record-a',code:'CTL-001',data_json:'{"controlId":"A.8.24"}'},{id:'record-b',code:'CTL-002',data_json:'{"controlId":"A.8.24"}'}],'Internal');
+ assert.deepEqual(controls.map(c=>c.ref),['CTL-001','CTL-002']);
+ const f=await fixture();try{await assert.rejects(approveMapping(f.db,f.claim.id,0,f.input({templateVersion:2}),f.source),/MAPPING_CHANGED/);assert.equal(f.count(),0);}finally{f.sql.close()}
+});
 test('source changes, expired collections and edited controls reject approval',async()=>{
  for(const change of ['source','expiry','control','deleted'] as const){const f=await fixture();try{
   const source={...f.source},input=f.input();
@@ -85,6 +90,12 @@ test('approval write failure rolls back the entire rule transaction',async()=>{
  const f=await fixture();try{
   f.sql.exec("CREATE TRIGGER fail_mapping BEFORE UPDATE OF approved_rule_id ON evidence_mapping_runs BEGIN SELECT RAISE(ABORT,'test rollback'); END");
   await assert.rejects(approveMapping(f.db,f.claim.id,0,f.input(),f.source),/test rollback/);assert.equal(f.count(),0);
+ }finally{f.sql.close()}
+});
+test('concurrent approvals of the same proposal create one monitor and return its ID',async()=>{
+ const f=await fixture();try{
+  const results=await Promise.all(Array.from({length:6},()=>approveMapping(f.db,f.claim.id,0,f.input(),f.source)));
+  assert.equal(new Set(results.map(r=>r.ruleId)).size,1);assert.equal(f.count(),1);
  }finally{f.sql.close()}
 });
 test('atomic analysis rate gate permits at most three requests per actor and minute',async()=>{

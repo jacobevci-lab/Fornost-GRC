@@ -26,13 +26,14 @@ export function mappingAssessments(source:MappingSource,payload:unknown,lang:'tr
     return {...assessment,name:template.name[lang],definition:template.description[lang],reasons:[...new Set(issues.map(item=>item.reason))]};
   });
 }
-export async function mappingControls(rows:{id:string;data_json:string}[],maximum:AiDataClassification):Promise<MappingControl[]> {
+export async function mappingControls(rows:{id:string;code?:string|null;data_json:string}[],maximum:AiDataClassification):Promise<MappingControl[]> {
   const controls:MappingControl[]=[];
   for(const row of rows){
     let data:Record<string,unknown>;try{data=JSON.parse(row.data_json);}catch{continue;}
     if(!data||typeof data!=='object'||Array.isArray(data)||!recordDataClassificationAllowed(data,maximum))continue;
-    const ref=redactSensitiveText(data.controlId||data.controlCode||data.code||data.reference||row.id,160);
-    if(!ref||/[;,\n\r]/.test(ref))continue;
+    // Bind to one canonical record, not a framework clause shared by several controls.
+    const ref=row.code||row.id;
+    if(!ref||ref.length>160||/[;,|\n\r]/.test(ref))continue;
     controls.push({id:row.id,ref,title:redactSensitiveText(data.controlTitle||data.title||data.name||data.objective||ref,220),description:redactSensitiveText(data.description||data.objective||'',500),revision:await mappingHash(row.data_json)});
   }
   // Ambiguous references cannot safely resolve into the canonical control graph.
@@ -71,7 +72,8 @@ export async function approveMapping(db:D1Database,runId:string,index:number,inp
   const row=await db.prepare('SELECT * FROM evidence_mapping_runs WHERE id=?').bind(runId).first<RunRow>();
   if(!row||row.status!=='completed'||!Number.isInteger(index)||index<0)throw new MappingAgentError('MAPPING_NOT_AVAILABLE');
   const report=JSON.parse(row.report_json) as MappingReport,proposal=report.proposals[index],control=report.controls.find(c=>c.id===proposal?.controlId);
-  if(!proposal||!control||source.id!==row.source_id||input.sourceId!==source.id||input.templateId!==proposal.templateId||input.controlRefs!==control.ref)throw new MappingAgentError('MAPPING_CHANGED');
+  const assessment=report.assessments.find(a=>a.templateId===proposal?.templateId);
+  if(!proposal||!control||!assessment||assessment.status==='error'||assessment.templateVersion!==input.templateVersion||source.id!==row.source_id||input.sourceId!==source.id||input.templateId!==proposal.templateId||input.controlRefs!==control.ref)throw new MappingAgentError('MAPPING_CHANGED');
   if(row.approved_rule_id){
     const existing=await db.prepare('SELECT id FROM evidence_automation_rules WHERE id=?').bind(row.approved_rule_id).first<{id:string}>();
     if(row.approved_proposal!==index||!existing)throw new MappingAgentError('MAPPING_ALREADY_USED');
@@ -82,10 +84,20 @@ export async function approveMapping(db:D1Database,runId:string,index:number,inp
   const target=await db.prepare("SELECT data_json FROM simple_grc_records WHERE id=? AND module='Kontroller'").bind(control.id).first<{data_json:string}>();
   if(!target||await mappingHash(target.data_json)!==control.revision)throw new MappingAgentError('MAPPING_STALE');
   const s=observedExecutionGuard('source',source,'s');
-  const result=await db.batch([
+  let result;
+  try{result=await db.batch([
     ruleInsert(db,input,{sql:`EXISTS(SELECT 1 FROM evidence_automation_sources s WHERE ${s.sql}) AND EXISTS(SELECT 1 FROM simple_grc_records WHERE id=? AND module='Kontroller' AND data_json=?) AND EXISTS(SELECT 1 FROM evidence_mapping_runs WHERE id=? AND status='completed' AND approved_rule_id IS NULL AND report_json=?)`,values:[...s.values,control.id,target.data_json,runId,row.report_json]}),
     db.prepare(`UPDATE evidence_mapping_runs SET approved_rule_id=?,approved_proposal=?,approved_by=?,approved_at=? WHERE id=? AND approved_rule_id IS NULL AND changes()=1`).bind(input.id,index,input.actor,input.now,runId),
-  ]);
-  if(!result[0].meta?.changes)throw new MappingAgentError('MAPPING_STALE');
+  ]);}catch(error){
+    if(!String(error).toLowerCase().includes('unique'))throw error;
+    const replay=await db.prepare(`SELECT r.id FROM evidence_mapping_runs m JOIN evidence_automation_rules r ON r.id=m.approved_rule_id WHERE m.id=? AND m.approved_proposal=?`).bind(runId,index).first<{id:string}>();
+    if(replay)return {ruleId:replay.id,reused:true};
+    throw new MappingAgentError('MAPPING_ALREADY_USED');
+  }
+  if(!result[0].meta?.changes){
+    const replay=await db.prepare(`SELECT r.id FROM evidence_mapping_runs m JOIN evidence_automation_rules r ON r.id=m.approved_rule_id WHERE m.id=? AND m.approved_proposal=?`).bind(runId,index).first<{id:string}>();
+    if(replay)return {ruleId:replay.id,reused:true};
+    throw new MappingAgentError('MAPPING_STALE');
+  }
   return {ruleId:input.id,reused:false};
 }

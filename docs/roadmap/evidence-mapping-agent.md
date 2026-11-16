@@ -10,4 +10,6 @@ Acceptance: source/template/control IDs are server selected; hallucinated IDs an
 
 Deferred: arbitrary-product/browser agents, adapter generation, document OCR, fully autonomous mapping publication, automatic provider configuration changes and large-tenant incremental collection. No customer provider/model UAT is implied by substituted transport tests.
 
+Product direction: evidence automation is a primary Fornost differentiator. Subsequent increments should extend this same connected workflow: durable collection jobs and recovery; complete catalog retrieval with semantic candidate selection; evidence sufficiency across multiple artifacts and frameworks; versioned customer-approved mapping policies; then additional native/collector adapters. Measure operator time to first defensible mapping and review corrections with customer UAT, rather than counting connector cards or claiming model confidence as accuracy. These are planned outcomes, not implemented capabilities in this delivery.
+
 Release: additive analysis table; rollback code without deleting analysis/approval history. Source-backed code and focused SQLite/browser verification precede release. Deployment remains separate from implementation and requires the current production gate to pass.
