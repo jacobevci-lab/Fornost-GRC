@@ -1,0 +1,13 @@
+# Evidence mapping agent — bounded first delivery
+
+The operator currently configures collection and chooses controls manually; the general Evidence Agent only reads GRC records. The requested outcome is a source-connected agent that collects current data, assesses its usable scope, proposes existing controls with reasons and missing evidence, and hands an explicitly reviewed mapping to continuous monitoring.
+
+Start inside Evidence Automation → connected source, using the existing native Intune, Defender for Endpoint and SonarQube collectors and four versioned tests. One collection per request, one bounded AI analysis, no arbitrary endpoint or model-authored executable tests. The agent receives aggregate assessment counts and approved control descriptions, never credentials, raw payloads or device identities. Respect existing AI enablement, emergency stop, budget, data classification and protection policies. Unsupported sources and incomplete-only collections fail explicitly.
+
+An admin reviews a proposal and prepares a ready control. Saving validates the proposal, collection age (30 minutes), source identity and control revision again, and atomically records the approval with the rule. Later rule execution collects the durable evidence through the existing engine; the agent preview is not labelled as an approved evidence record or a compliance verdict. One proposal per analysis can be activated; source/template uniqueness prevents duplicate monitors. A failed acknowledgement is recoverable through the existing source's controls; analysis itself is never automatically retried.
+
+Acceptance: source/template/control IDs are server selected; hallucinated IDs and incomplete tests are rejected; failed tests may support a mapping without implying compliance; empty catalog and no match are distinct; no approval means no rule; stale or concurrently changed source/control cannot be activated; duplicate approval returns the same rule; role checks and TR/EN desktop/mobile behavior are covered. Preserve themes and existing manual workflows.
+
+Deferred: arbitrary-product/browser agents, adapter generation, document OCR, fully autonomous mapping publication, automatic provider configuration changes and large-tenant incremental collection. No customer provider/model UAT is implied by substituted transport tests.
+
+Release: additive analysis table; rollback code without deleting analysis/approval history. Source-backed code and focused SQLite/browser verification precede release. Deployment remains separate from implementation and requires the current production gate to pass.

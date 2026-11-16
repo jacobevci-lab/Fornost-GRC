@@ -7,7 +7,7 @@ export type RuleInput={
 };
 
 /** Validate canonical targets inside the INSERT so deletion cannot race rule creation. */
-function ruleInsert(db:D1Database,input:RuleInput,extra={sql:"1",values:[] as string[]}){
+export function ruleInsert(db:D1Database,input:RuleInput,extra={sql:"1",values:[] as unknown[]}){
  const guard=coreReferenceGuard(canonicalCoreReferenceValues(input.controlRefs).map(value=>({
   sourceId:input.id,field:'control_refs',value,modules:['Kontroller','Uyum'],
  })));

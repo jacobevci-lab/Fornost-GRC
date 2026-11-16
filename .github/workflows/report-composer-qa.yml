@@ -20,6 +20,11 @@ on:
       - 'scripts/connector-setup-outcome-qa.mjs'
       - 'scripts/connector-rule-retry-qa.mjs'
       - 'app/evidence/rule-write.ts'
+      - 'app/evidence/mapping-agent.ts'
+      - 'app/connectors/mapping-agent*'
+      - 'app/connectors/ready-control-form.tsx'
+      - 'app/connectors/evidence-workspace.tsx'
+      - 'scripts/evidence-mapping-agent-qa.mjs'
       - 'app/evidence/rule-save-feedback.ts'
       - 'app/evidence/source-create.ts'
       - 'app/evidence/source-save-feedback.ts'
@@ -76,6 +81,7 @@ jobs:
           node scripts/connector-setup-outcome-qa.mjs
           node scripts/connector-rule-retry-qa.mjs
           node scripts/connector-source-retry-qa.mjs
+          node scripts/evidence-mapping-agent-qa.mjs
           node scripts/full-product-qa-gate.mjs
       - uses: actions/upload-artifact@v4
         if: always()
@@ -88,6 +94,7 @@ jobs:
             connector-setup-qa-artifacts/
             connector-rule-retry-qa-artifacts/
             connector-source-retry-qa-artifacts/
+            evidence-mapping-qa-artifacts/
             report-composer-qa-artifacts/*.png
             report-composer-qa-artifacts/*.json
             layout-qa-artifacts/reporting-*.png

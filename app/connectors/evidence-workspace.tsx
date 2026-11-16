@@ -55,9 +55,9 @@ function collectionProblem(rule: AutomationRule | undefined, tr: boolean) {
 type SourcesProps = {
   lang: Lang; sources: AutomationSource[]; rules: AutomationRule[]; selected: string; select: (id:string)=>void;
   canManage: boolean; busy: boolean; test: (id:string)=>void; edit: (s:AutomationSource)=>void;
-  ready: (id:string)=>void; openRun: (id:string, ruleId:string)=>void; openRule: (id:string)=>void;
+  mapping?: (id:string)=>void; ready: (id:string)=>void; openRun: (id:string, ruleId:string)=>void; openRule: (id:string)=>void;
 };
-export function SourceWorkbench({lang,sources,rules,selected,select,canManage,busy,test,edit,ready,openRun,openRule}: SourcesProps) {
+export function SourceWorkbench({lang,sources,rules,selected,select,canManage,busy,test,edit,ready,mapping,openRun,openRule}: SourcesProps) {
   const tr=lang==="tr";
   const [query,setQuery]=useState("");
   const visible=sources.filter(s=>matches(s.name+" "+s.vendor,query,lang));
@@ -92,6 +92,7 @@ export function SourceWorkbench({lang,sources,rules,selected,select,canManage,bu
       {captured?<div className="ew-chain"><div><small>{tr?"Kaynak":"Source"}</small><b>{active.name}</b></div>
         <div><small>{tr?"Kanıt":"Evidence"}</small>{captured.evidenceRunId?<button className="ew-link" onClick={()=>openRun(captured.evidenceRunId!,captured.id)}>{tr?"Çalışma kanıtını incele":"Inspect run evidence"} ↗</button>:<span>{tr?"Kayıt bağlantısı yok":"Record link unavailable"}</span>}</div>
         <div><small>{tr?"Kontrol":"Control"}</small><button className="ew-link" onClick={()=>openRule(captured.id)}>{captured.name} →</button></div></div>:<p>{tr?"Bu kaynak için henüz kaydedilmiş kanıt yok.":"No evidence has been recorded for this source yet."}</p>}
+      {canManage&&active.enabled&&mapping&&templatesForSource(active).length>0&&<button className="primary" disabled={busy} onClick={()=>mapping(active.id)}>{tr?"AI ile kanıt eşleştir":"Map evidence with AI"}</button>}
       {canManage&&templatesForSource(active).length>0&&<button className="ghost" onClick={()=>ready(active.id)}>{tr?"Hazır kontrol ekle":"Add ready control"}</button>}
     </article>}</div>;
 }
