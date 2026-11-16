@@ -11,6 +11,9 @@ on:
       - 'scripts/full-product-qa*.mjs'
       - 'scripts/reporting-export-qa.mjs'
       - 'app/third-party-risk.css'
+      - 'app/third-party-risk.tsx'
+      - 'app/third-party-risk/labels.ts'
+      - 'app/third-party-risk/work.ts'
       - 'scripts/tprm-populated-contrast-qa.mjs'
       - '.github/workflows/report-composer-qa.yml'
   workflow_dispatch:
