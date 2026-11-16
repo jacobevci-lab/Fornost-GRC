@@ -1,4 +1,4 @@
-import { deleteAudit, AuditLinked } from "../../audit-delete";
+import { deleteAudit, previewAuditDeletion, AuditLinked } from "../../audit-delete";
 import { LifecycleConflict } from "../../enterprise-lifecycle-write";
 import { ensureAuditClosureSchema } from "../../audit-closure-schema";
 import { isAuditClosedError, auditClosedMessage } from "../../audit-closure";
@@ -118,8 +118,19 @@ export async function GET(req: NextRequest) {
   const auth = await requireRole(req, ["Admin", "Editor", "Viewer"]);
   if (auth.response) return auth.response;
   const d = await db(); await ensureAuditClosureSchema(d);
+  if (req.nextUrl.searchParams.get('action') === 'delete-preview') {
+    if (auth.actor.role !== 'Admin') return NextResponse.json({error:'forbidden'},{status:403});
+    const id=req.nextUrl.searchParams.get('id');
+    if (!id || id.length>100) return NextResponse.json({error:'invalid-id'},{status:400});
+    const audit=await d.prepare('SELECT * FROM simple_audits WHERE id=?').bind(id).first<Record<string,string|number|null>>();
+    if (!audit) return NextResponse.json({error:'audit-missing'},{status:404});
+    try { return NextResponse.json(await previewAuditDeletion(d,audit),{headers:{'cache-control':'private, no-store'}}); }
+    catch { return NextResponse.json({error:'unavailable'},{status:503}); }
+  }
   const result = await d.prepare("SELECT a.*, COALESCE(c.state,'open') AS closure_state, m.value AS catalog_json FROM simple_audits a LEFT JOIN audit_closure_state c ON c.audit_id=a.id LEFT JOIN simple_grc_metadata m ON m.key='audit_catalog_' || a.id ORDER BY a.updated_at DESC").all<Record<string,unknown>>();
-  const audits=result.results.map(row=>{const {catalog_json,...audit}=row;let catalog=null;try{catalog=catalog_json?JSON.parse(String(catalog_json)):null;}catch{}return {...audit,catalog};});
+  const archived=await d.prepare("SELECT m.key,m.value FROM simple_grc_metadata m JOIN simple_audits a ON m.key='audit_portfolio_'||a.id").all<{key:string;value:string}>();
+  const visibility=new Map(archived.results.map(row=>[row.key,row.value]));
+  const audits=result.results.map(row=>{const {catalog_json,...audit}=row;let catalog=null,portfolio=null;try{catalog=catalog_json?JSON.parse(String(catalog_json)):null;portfolio=JSON.parse(visibility.get(`audit_portfolio_${row.id}`)||'null');}catch{}return {...audit,catalog,archived:portfolio?.archived===true,portfolioRevision:portfolio?.revision||''};});
   // Reads must not migrate historical audit snapshots to a newer catalog.
   return NextResponse.json({ audits }, { headers: { "cache-control": "private, no-store" } });
 }
@@ -164,4 +175,22 @@ export async function DELETE(req: NextRequest) {
     const linked=error instanceof AuditLinked, conflict=error instanceof LifecycleConflict, closed=isAuditClosedError(error);
     return NextResponse.json({error:linked||conflict?error.message:closed?auditClosedMessage:"Denetim silinemedi.",code:linked?"AUDIT_LINKED":conflict?"LIFECYCLE_CONFLICT":undefined},{status:linked||conflict||closed?409:503});
   }
+}
+
+/** Portfolio organization only: does not approve, close, or erase an audit. */
+export async function PATCH(req: NextRequest) {
+  const auth=await requireRole(req,['Admin']); if(auth.response)return auth.response;
+  try {
+    const input=await req.json();
+    if(!input || typeof input.id!=='string' || input.id.length>100 || !['archive','restore'].includes(input.action) || typeof input.expectedRevision!=='string') return NextResponse.json({error:'invalid-input'},{status:400});
+    const d=await db(), key=`audit_portfolio_${input.id}`, stamp=new Date().toISOString(), revision=crypto.randomUUID();
+    const value=JSON.stringify({archived:input.action==='archive',revision,actor:auth.actor.email,at:stamp});
+    const claimed="EXISTS(SELECT 1 FROM simple_grc_metadata WHERE key=? AND json_extract(value,'$.revision')=?)";
+    const results=await d.batch([
+      d.prepare("INSERT INTO simple_grc_metadata(key,value,updated_at) SELECT ?,?,? WHERE EXISTS(SELECT 1 FROM simple_audits WHERE id=?) AND COALESCE((SELECT json_extract(value,'$.revision') FROM simple_grc_metadata WHERE key=?),'')=? ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated_at=excluded.updated_at RETURNING key").bind(key,value,stamp,input.id,key,input.expectedRevision),
+      d.prepare(`INSERT INTO simple_grc_metadata(key,value,updated_at) SELECT ?,?,? WHERE ${claimed}`).bind(`audit_portfolio_event_${revision}`,JSON.stringify({auditId:input.id,action:input.action,...JSON.parse(value)}),stamp,key,revision),
+    ]);
+    if(!results[0].results.length)return NextResponse.json({error:'conflict'},{status:409});
+    return NextResponse.json({ok:true,revision});
+  }catch{return NextResponse.json({error:'unavailable'},{status:503});}
 }

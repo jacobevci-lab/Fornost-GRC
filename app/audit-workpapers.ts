@@ -1,8 +1,9 @@
+import { auditRequirementLink } from './audit-requirement-link';
 import { AuditRequestError, requestDate, requestDueAt, validateRequestTimeZone, type AuditRequestEvidence } from './audit-requests';
 import type { SavedRandomSelection } from './workpaper-random-sampling';
 export const workpaperStatusLabels = { draft: ['Taslak', 'Draft'], submitted: ['İncelemede', 'In review'], approved: ['Onaylandı', 'Approved'], cancelled: ['İptal edildi', 'Cancelled'] } as const;
 export type WorkpaperSample = { reference: string; result: 'pending' | 'pass' | 'exception'; note: string; versionId: string };
-export type WorkpaperFields = { title: string; objective: string; procedure: string; population: string; populationCount: number; method: 'judgmental' | 'census' | 'random'; rationale: string; conclusion: string; owner: string; reviewer: string; samples: WorkpaperSample[]; dueDate?: string; reviewDueDate?: string; timeZone?: string; remindersEnabled?: boolean };
+export type WorkpaperFields = { requirementId?: string; title: string; objective: string; procedure: string; population: string; populationCount: number; method: 'judgmental' | 'census' | 'random'; rationale: string; conclusion: string; owner: string; reviewer: string; samples: WorkpaperSample[]; dueDate?: string; reviewDueDate?: string; timeZone?: string; remindersEnabled?: boolean };
 export type AuditWorkpaper = WorkpaperFields & { id: string; auditId: string; revision: string; status: keyof typeof workpaperStatusLabels; evidence: AuditRequestEvidence[]; note: string; createdAt: string; updatedAt: string; selection?: SavedRandomSelection };
 export const emptyWorkpaper: WorkpaperFields = { title: '', objective: '', procedure: '', population: '', populationCount: 1, method: 'judgmental', rationale: '', conclusion: '', owner: '', reviewer: '', samples: [], dueDate: '', reviewDueDate: '', timeZone: 'UTC', remindersEnabled: false };
 export function validateWorkpaper(value: unknown): WorkpaperFields {
@@ -22,7 +23,7 @@ export function validateWorkpaper(value: unknown): WorkpaperFields {
   const schedule = validateWorkpaperSchedule(v);
   if (v.remindersEnabled !== undefined && typeof v.remindersEnabled !== 'boolean') throw new AuditRequestError('fields');
   if (v.remindersEnabled && !schedule.dueDate) throw new AuditRequestError('dates');
-  return { ...schedule, remindersEnabled: v.remindersEnabled === true, title, objective, procedure, population, populationCount: Number(v.populationCount), method: v.method as WorkpaperFields['method'], rationale, conclusion, owner, reviewer, samples };
+  return { ...(v.requirementId !== undefined ? {requirementId: auditRequirementLink(v.requirementId)} : {}), ...schedule, remindersEnabled: v.remindersEnabled === true, title, objective, procedure, population, populationCount: Number(v.populationCount), method: v.method as WorkpaperFields['method'], rationale, conclusion, owner, reviewer, samples };
 }
 export function requireWorkpaperComplete(p: WorkpaperFields) {
   if (!p.samples.length || !p.conclusion.trim() || p.samples.some(s => s.result === 'pending' || !s.note || !s.versionId) || (p.method === 'census' && p.samples.length !== p.populationCount)) throw new AuditRequestError('incomplete');

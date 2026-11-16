@@ -1,3 +1,4 @@
+import {openAuditSection} from './audit-workspace-navigation.mjs';
 import { chromium, expect } from '@playwright/test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
@@ -281,7 +282,7 @@ try {
   const current = (await api('/api/grc')).rows.find(item => item.id === orphan.id);
   assert.equal(JSON.parse(current.data_json).auditName, auditName);
   await openModule('Audit Management'); await page.locator('.audit-card-open').filter({ hasText: auditName }).click();
-  await page.getByRole('tab',{name:/^Requirements and tests/}).click();
+  await openAuditSection(page,'requirements');
   const requirementRow = page.getByRole('row').filter({ hasText: `${prefix} orphan` });
   await expect(requirementRow).toBeVisible();
   page.once('dialog', d => d.accept());
@@ -291,8 +292,10 @@ try {
   await page.getByRole('button', { name: '← All audits', exact: true }).click();
   const auditCard = page.locator('.apw-inspector').filter({ has:page.getByRole('heading',{name:auditName,exact:true}) });
   await page.locator('.apw-select').filter({hasText:auditName}).click();
-  await auditCard.locator('.apw-management summary').click();
-  page.once('dialog', d => d.accept()); await auditCard.getByRole('button', { name: 'Delete Audit', exact: true }).click(); await expect(auditCard).toHaveCount(0);
+  await auditCard.getByRole('button', { name: 'Audit actions', exact: true }).click();
+  const auditActions=page.getByRole('dialog',{name:'Audit actions',exact:true});
+  await auditActions.getByRole('checkbox').check();
+  await auditActions.getByRole('button', { name: 'Delete Audit', exact: true }).click(); await expect(auditCard).toHaveCount(0);
 
   await locale('tr'); await openModule('Risk İştahı ve KRI'); await expect(page.getByRole('button', { name: 'KRI Ölçümleri', exact: true })).toBeVisible();
   await openModule('Güvenlik Olayları ve Kriz');

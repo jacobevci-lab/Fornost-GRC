@@ -339,3 +339,15 @@ test('random selection is retained in immutable reports after later reasoned rep
   const report=await readAuditStatusReport(f.db,admin,'audit-a',saved.id);assert.equal(report.integrity,'verified');assert.deepEqual(report.snapshot.items.find(i=>i.kind==='workpaper')?.record.data.selection,original.selection);for(const tr of [true,false]){const exported=auditStatusReportView(report,tr).rows.find(r=>r.id==='AWP-a')!;assert.equal(exported.data.method,tr?'Rastgele örneklem':'Random sampling');assert.ok(String(exported.data.selection).includes(original.selection!.populationSha256));assert.ok(String(exported.data.selection).includes(original.selection!.seed));}assert.notEqual((await readAuditReportSource(f.db,admin,'audit-a')).sourceRevision,source.sourceRevision);
  }finally{f.sqlite.close();}
 });
+
+test('workpaper links use a live requirement in the same audit and preserve it for older clients',async()=>{
+ const f=await fixture();try{
+  f.sqlite.exec(`INSERT INTO simple_grc_records VALUES('REQ-a','Denetim Yönetimi','{"auditName":"Audit A"}','',''),('REQ-b','Denetim Yönetimi','{"auditName":"Audit B"}','','');`);
+  await assert.rejects(f.act('save',owner,{fields:{...fields,requirementId:'REQ-b'}}),/requirement-link/);
+  await f.act('save',owner,{fields:{...fields,requirementId:'REQ-a'}});
+  assert.equal((await f.row()).requirementId,'REQ-a');
+  await f.act('save',owner,{fields});assert.equal((await f.row()).requirementId,'REQ-a');
+  f.race(()=>f.sqlite.exec(`DELETE FROM simple_grc_records WHERE id='REQ-a'`));
+  await assert.rejects(f.act('save',owner,{fields}),/conflict/);
+ }finally{f.sqlite.close();}
+});

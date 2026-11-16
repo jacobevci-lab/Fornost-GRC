@@ -572,3 +572,15 @@ test('request creation cannot cross a concurrent work plan launch or leave a par
     await assert.rejects(mutateAuditRequest(f.db,admin,{auditId:'audit-a',requestId:'ARQ-a',expectedRevision:'',action:'create',...await f.payload()},now),/conflict|event-failure/);assert.equal((await f.state()).requests.length,0);assert.equal(f.events().length,0);
   }finally{f.sqlite.close();}}
 });
+
+test('evidence request links reject another audit and concurrent requirement deletion',async()=>{
+ const f=await fixture();try{
+  f.sqlite.exec(`ALTER TABLE simple_audits ADD COLUMN name TEXT; UPDATE simple_audits SET name=id;
+    INSERT INTO simple_grc_records VALUES('REQ-a','Denetim Yönetimi','{"auditName":"audit-a"}','',''),('REQ-b','Denetim Yönetimi','{"auditName":"audit-b"}','','');`);
+  await assert.rejects(f.create('ARQ-bad',{requirementId:'REQ-b'}),/requirement-link/);
+  await f.create('ARQ-a',{requirementId:'REQ-a'});assert.equal((await f.row()).requirementId,'REQ-a');
+  await f.act('edit',admin,{fields});assert.equal((await f.row()).requirementId,'REQ-a');
+  f.race(()=>f.sqlite.exec(`DELETE FROM simple_grc_records WHERE id='REQ-a'`));
+  await assert.rejects(f.create('ARQ-race',{requirementId:'REQ-a'}),/conflict/);
+ }finally{f.sqlite.close();}
+});

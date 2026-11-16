@@ -1,3 +1,4 @@
+import {openAuditSection} from './audit-workspace-navigation.mjs';
 import {cleanupQaFixture} from './qa-fixture-cleanup.mjs';
 import { chromium, expect } from '@playwright/test';
 import assert from 'node:assert/strict';
@@ -15,7 +16,7 @@ try{
  await page.locator('.language-switch:visible').getByRole('button',{name:'EN',exact:true}).click();
  await page.locator('nav button[aria-label="Audit Management"]').evaluate(el=>el.click());
  await page.locator('.audit-card-open').filter({hasText:name}).click();
-  await page.getByRole('tab',{name:/^Requirements and tests/}).click();
+  await openAuditSection(page,'requirements');
  const table=page.locator('.audit-requirements-register'),pager=table.locator('.audit-requirement-pager'),rows=table.locator('tbody tr'),search=table.getByRole('textbox',{name:'Search records',exact:true});
  await expect(rows).toHaveCount(50);await expect(pager.getByRole('status')).toHaveText('1–50 / 121 requirements');
  await pager.getByRole('button',{name:'Last',exact:true}).click();await expect(rows).toHaveCount(21);

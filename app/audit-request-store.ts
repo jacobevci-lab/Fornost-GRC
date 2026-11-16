@@ -1,3 +1,4 @@
+import { auditRequirementLinkGuard, requireAuditRequirementLink } from './audit-requirement-link';
 import { completedInitialization } from './completed-initialization';
 import { prepareRequestDeadlineAdjustment, requestDeadlineGuard, requestDeadlineGuardArgs } from './audit-request-deadline-store';
 import { ensureCoreGrcSchemaCompatibility } from './api/grc/schema-compat';
@@ -140,7 +141,7 @@ export async function mutateAuditRequest(db: D1Database, actor: Actor, input: Mu
     const email = requestIdentity(actor.email);
     if (action === 'edit') {
       if (!['draft', 'assigned', 'submitted', 'changes_requested'].includes(current.status)) throw new AuditRequestError('transition', 409);
-      const fields = validateAuditRequestFields(input.fields); await validateAssignees(db, fields.owner, fields.reviewer); next = { ...next, ...fields, ...(current.status === 'submitted' ? { status: 'assigned' as const, submittedBy: '', note: 'Talep güncellendi; kanıt yeniden sunulmalı. / Request updated; resubmit evidence.' } : {}) };
+      const fields = validateAuditRequestFields({requirementId: current.requirementId, ...(input.fields as object)}); await validateAssignees(db, fields.owner, fields.reviewer); next = { ...next, ...fields, ...(current.status === 'submitted' ? { status: 'assigned' as const, submittedBy: '', note: 'Talep güncellendi; kanıt yeniden sunulmalı. / Request updated; resubmit evidence.' } : {}) };
     } else if (action === 'submit') {
       if (email !== current.owner || !canReadModule(actor, 'Kanıtlar')) throw new AuditRequestError('forbidden', 403);
       if (!['assigned', 'changes_requested'].includes(current.status)) throw new AuditRequestError('transition', 409);
@@ -167,14 +168,16 @@ export async function mutateAuditRequest(db: D1Database, actor: Actor, input: Mu
       next = { ...next, status: 'cancelled', note: input.note.trim() };
     } else throw new AuditRequestError('action');
   }
+  await requireAuditRequirementLink(db, auditId, next.requirementId || '');
+  const linkArgs = next.requirementId ? [next.requirementId, next.requirementId, auditId] : [];
   const evidenceGuard = ['submit', 'accept'].includes(action) ? ` AND (SELECT COUNT(*) FROM evidence_versions v JOIN simple_grc_records r ON r.id=v.evidence_id AND r.module='Kanıtlar' WHERE v.id IN (${next.evidence.map(() => '?').join(',')}))=?` : '';
   const evidenceArgs = ['submit', 'accept'].includes(action) ? [...next.evidence.map(v => v.id), next.evidence.length] : [];
   const adjustment = await prepareRequestDeadlineAdjustment(db, actor, auditId, input.deadlineAdjustment, input.expectedWorkflowRevision, next);
   const calendarArgs = requestDeadlineGuardArgs(auditId, adjustment);
   const payload = JSON.stringify(next), snapshot = JSON.stringify({ ...next, ...(adjustment ? { deadlineAdjustment: adjustment.snapshot } : {}) });
   const write = action === 'create'
-    ? db.prepare(`INSERT INTO audit_requests(id,audit_id,data_json,revision,created_at,updated_at) SELECT ?,?,?,?,?,? WHERE ${liveParent} AND ${openWorkplan} AND COALESCE((SELECT revision FROM audit_request_workflows WHERE audit_id=?),'')=? AND (SELECT COUNT(*) FROM audit_requests WHERE audit_id=?)<500 ${requestDeadlineGuard} ON CONFLICT(id) DO NOTHING RETURNING id`).bind(requestId, auditId, payload, revision, stamp, stamp, auditId, auditId, auditId, input.expectedWorkflowRevision ?? '', auditId, ...calendarArgs)
-    : db.prepare(`UPDATE audit_requests SET data_json=?,revision=?,updated_at=? WHERE id=? AND audit_id=? AND revision=? AND ${liveParent} AND ${openWorkplan}${evidenceGuard} ${requestDeadlineGuard}`).bind(payload, revision, stamp, requestId, auditId, input.expectedRevision, auditId, auditId, ...evidenceArgs, ...calendarArgs);
+    ? db.prepare(`INSERT INTO audit_requests(id,audit_id,data_json,revision,created_at,updated_at) SELECT ?,?,?,?,?,? WHERE ${liveParent} AND ${openWorkplan} AND COALESCE((SELECT revision FROM audit_request_workflows WHERE audit_id=?),'')=? AND (SELECT COUNT(*) FROM audit_requests WHERE audit_id=?)<500 ${next.requirementId ? auditRequirementLinkGuard : ''} ${requestDeadlineGuard} ON CONFLICT(id) DO NOTHING RETURNING id`).bind(requestId, auditId, payload, revision, stamp, stamp, auditId, auditId, auditId, input.expectedWorkflowRevision ?? '', auditId, ...linkArgs, ...calendarArgs)
+    : db.prepare(`UPDATE audit_requests SET data_json=?,revision=?,updated_at=? WHERE id=? AND audit_id=? AND revision=? AND ${liveParent} AND ${openWorkplan}${evidenceGuard} ${next.requirementId ? auditRequirementLinkGuard : ''} ${requestDeadlineGuard}`).bind(payload, revision, stamp, requestId, auditId, input.expectedRevision, auditId, auditId, ...evidenceArgs, ...linkArgs, ...calendarArgs);
   const results = await db.batch([
     write,
     db.prepare(`INSERT INTO audit_request_events(id,audit_id,request_id,action,actor,snapshot_json,created_at) SELECT ?,audit_id,id,?,?,?,? FROM audit_requests WHERE id=? AND audit_id=? AND revision=?`).bind(revision, action, actor.email, snapshot, stamp, requestId, auditId, revision),

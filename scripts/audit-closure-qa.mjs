@@ -1,3 +1,4 @@
+import {openAuditSection} from './audit-workspace-navigation.mjs';
 import {cleanupQaFixture} from './qa-fixture-cleanup.mjs';
 import { qaPassword } from './qa-credentials.mjs';
 import { chromium, expect } from '@playwright/test';
@@ -12,7 +13,7 @@ for(const p of [page,peer])p.on('pageerror',e=>errors.push(e.message));
 async function api(ctx,path,method='GET',data,status=200){const r=await ctx.request.fetch(base+path,{method,data,headers:{origin:base}});assert.equal(r.status(),status,`${method} ${path}: ${await r.text()}`);return r.json();}
 const canonical=value=>Array.isArray(value)?`[${value.map(canonical).join(',')}]`:value&&typeof value==='object'?`{${Object.keys(value).sort().map(k=>`${JSON.stringify(k)}:${canonical(value[k])}`).join(',')}}`:JSON.stringify(value)??'null';
 async function shell(p){await p.goto(base);await expect(p.locator('.shell')).toBeVisible();await p.locator('.language-switch:visible').getByRole('button',{name:'EN',exact:true}).click();}
-async function openAudit(p,name){await p.locator('nav button[aria-label="Audit Management"]').evaluate(el=>el.click());if(await p.locator('.audit-back').isVisible())await p.locator('.audit-back').click();await p.locator('.audit-card-open').filter({hasText:name}).click();await p.getByRole('tab',{name:'Closure and approval',exact:true}).click();}
+async function openAudit(p,name){await p.locator('nav button[aria-label="Audit Management"]').evaluate(el=>el.click());if(await p.locator('.audit-back').isVisible())await p.locator('.audit-back').click();await p.locator('.audit-card-open').filter({hasText:name}).click();await openAuditSection(p,'closure');}
 try{
  await mkdir(out,{recursive:true});await api(admin,'/api/auth','POST',{action:'login',email:'qa-admin@fornost.test',password:qaPassword()});
  const peerEmail=`closure-reviewer-${tag}@fornost.test`,editorEmail=`closure-editor-${tag}@fornost.test`;
@@ -57,7 +58,7 @@ try{
  assert.deepEqual((await api(editor,'/api/audits/requests')).closures,[]);
  // Reviewer follows their actual My Work task to the exact audit package.
  await shell(peer);await peer.locator('nav button[aria-label="My Work"]').evaluate(el=>el.click());await expect(peer.locator('.my-work-v2')).toBeVisible();await peer.locator('.mw2-filters').getByRole('button',{name:/^All/}).click();
- await peer.locator('.mw2-item').filter({hasText:name}).click();const peerPanel=peer.locator('.audit-closure');await expect(peer.getByRole('tab',{name:'Closure and approval',exact:true})).toHaveAttribute('aria-selected','true');await expect(peerPanel.locator('.asr-saved')).toContainText(summary);
+ await peer.locator('.mw2-item').filter({hasText:name}).click();const peerPanel=peer.locator('.audit-closure');await expect(peer.getByRole('tab',{name:'Report and closure',exact:true})).toHaveAttribute('aria-selected','true');await expect(peerPanel.locator('.asr-saved')).toContainText(summary);
  await peerPanel.getByLabel('Decision or reopening reason',{exact:true}).fill('I reviewed the scope and the assigned follow-up actions.');
  await peerPanel.getByLabel('I reviewed the package scope, results and follow-up of open findings.',{exact:true}).check();
  plan=await api(admin,'/api/audits/plan','PUT',{id:auditId,expectedRevision:plan.revision,plan:{...plan.plan,scope:'Privileged access with revised scope boundary'}});
@@ -89,7 +90,7 @@ try{
  // Late response from an old audit cannot replace the next workspace.
  await panel.getByRole('button',{name:'Refresh closure state',exact:true}).click();
  let releasePreview;const previewBarrier=new Promise(r=>{releasePreview=r;});await page.route('**/api/audits/closure?**preview=1',async route=>{const response=await route.fetch();await previewBarrier;await route.fulfill({response}).catch(()=>{});});
- await panel.getByRole('button',{name:'Prepare closure package',exact:true}).click();await page.locator('.audit-back').click();await page.locator('.audit-card-open').filter({hasText:other}).click();releasePreview();await page.unroute('**/api/audits/closure?**preview=1');await page.getByRole('tab',{name:'Closure and approval',exact:true}).click();await expect(panel.locator('.asr-preview,.asr-saved')).toHaveCount(0);
+ await panel.getByRole('button',{name:'Prepare closure package',exact:true}).click();await page.locator('.audit-back').click();await page.locator('.audit-card-open').filter({hasText:other}).click();releasePreview();await page.unroute('**/api/audits/closure?**preview=1');await openAuditSection(page,'closure');await expect(panel.locator('.asr-preview,.asr-saved')).toHaveCount(0);
  assert.deepEqual(errors,[]);await writeFile(`${out}/result.json`,JSON.stringify({passed:true,scenarios:['complete preview','independent users','My Work exact package','duplicate retry','stale source return','approval','SQL write locks','JSON integrity','reopen retention','late navigation','TR/EN themes responsive'],errors},null,2));console.log('AUDIT_CLOSURE_QA_PASS: blockers, independent approval, My Work navigation, stale-source return, idempotency, locked CRUD/import/plan/workplan/delete, verified complete package, retained reopening and TR/EN responsive views');
 }catch(error){console.error('AUDIT_CLOSURE_QA_FAILED',error.message);await Promise.all([page.screenshot({path:`${out}/failure-preparer.png`,fullPage:true}).catch(()=>{}),peer.screenshot({path:`${out}/failure-reviewer.png`,fullPage:true}).catch(()=>{})]);throw error;}
 finally{

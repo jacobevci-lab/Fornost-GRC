@@ -27,6 +27,7 @@ const messages: Record<string, [string, string]> = {
   'reminder-profile': ['Hatırlatma takvimini, eşikleri ve eskalasyon kişisini kontrol edin.', 'Check the reminder calendar, thresholds and escalation recipient.'],
   'calendar-source': ['Takvim içeriği kaynak sürümle eşleşmiyor. Güncel takvimi yeniden önizleyin veya yerel takvime geçin.', 'Calendar content does not match its source version. Preview the calendar again or use a local calendar.'],
   'calendar-changed': ['Ortak takvim değişti veya arşivlendi. Taslağınız korundu; güncel sürümü kontrol edip yeniden uygulayın.', 'The shared calendar changed or was archived. Your draft was retained; inspect and apply the current version.'],
+  'requirement-link': ['Madde bu denetime ait değil veya kaldırılmış. Güncel maddeyi seçin.', 'The requirement is missing or belongs to another audit. Select the current requirement.'],
   fields: ['Başlık, kabul ölçütü, sorumlu ve inceleyeni doldurun.', 'Complete the title, acceptance criteria, owner and reviewer.'],
   dates: ['Gerçek ve sıralı tarihler girin. İnceleme tarihi teslimden önce olamaz.', 'Enter valid date ranges. Review cannot be due before submission.'],
   'independent-reviewer': ['İnceleyen sorumludan farklı olmalı.', 'The reviewer must differ from the owner.'],
@@ -47,7 +48,7 @@ const messages: Record<string, [string, string]> = {
 };
 const actions: Record<string, [string, string]> = { create: ['Taslak eklendi', 'Draft added'], edit: ['Güncellendi', 'Updated'], start: ['Başlatıldı', 'Started'], activate: ['Ek talep etkinleştirildi', 'Additional request activated'], submit: ['Sunuldu', 'Submitted'], return: ['Düzeltme istendi', 'Returned'], accept: ['Kabul edildi', 'Accepted'], cancel: ['İptal edildi', 'Cancelled'] };
 const dateAfter = (days: number) => new Date(Date.now() + days * 86400000).toISOString().slice(0, 10);
-export function AuditRequestPanel({ auditId, lang, focusId = '', readOnly = false }: { auditId: string; lang: string; focusId?: string; readOnly?: boolean }) {
+export function AuditRequestPanel({ auditId, lang, focusId = '', readOnly = false, requirement, onData, onDirtyChange }: { auditId: string; lang: string; focusId?: string; readOnly?: boolean; requirement?: {id:string;title:string}; onData?:(data:{requests:AuditRequest[];complete:boolean}|null)=>void; onDirtyChange?:(dirty:boolean)=>void }) {
   const en = lang === 'en', t = (tr: string, eng: string) => en ? eng : tr;
   const [data, setData] = useState<Data | null>(null), [loading, setLoading] = useState(true), [ready, setReady] = useState(false);
   const [busy, setBusy] = useState(false), busyRef = useRef(false), [error, setError] = useState(''), [notice, setNotice] = useState('');
@@ -65,12 +66,14 @@ export function AuditRequestPanel({ auditId, lang, focusId = '', readOnly = fals
       const response = await fetch(withBasePath(`/api/audits/requests?auditId=${encodeURIComponent(auditId)}`), { cache: 'no-store', signal: AbortSignal.timeout(20000) });
       const body = await response.json(); if (!response.ok) throw new Error(body.error || 'unavailable');
       if (!body.workflow || !Array.isArray(body.requests) || !Array.isArray(body.people) || !Array.isArray(body.evidenceChoices) || !Array.isArray(body.events)) throw new Error('unavailable');
-      if (live.current && sequence === generation.current) { setData(body); setReady(true); }
+      if (live.current && sequence === generation.current) { setData(body); setReady(true); onData?.(body); }
       return true;
-    } catch (err) { if (live.current && sequence === generation.current) setError(err instanceof Error ? err.message : 'unavailable'); return false; }
+    } catch (err) { if (live.current && sequence === generation.current) { setError(err instanceof Error ? err.message : 'unavailable'); onData?.(null); } return false; }
     finally { if (live.current && sequence === generation.current) setLoading(false); }
-  }, [auditId]);
+  }, [auditId, onData]);
   useEffect(() => { live.current = true; const timer = window.setTimeout(() => void load(), 0); return () => { live.current = false; window.clearTimeout(timer); }; }, [load]);
+  useEffect(()=>{onDirtyChange?.(!!editing||busy);return()=>onDirtyChange?.(false);},[!!editing,busy,onDirtyChange]);
+  useEffect(()=>{setSelected(focusId);setFilter('all');setQuery('');setPage(0);},[requirement?.id,focusId]);
   const [clock, setClock] = useState(() => new Date());
   useEffect(() => { const timer = window.setInterval(() => setClock(new Date()), 60000); return () => window.clearInterval(timer); }, []);
   const progress = data ? auditRequestProgress(data.requests, data.workflow, data.complete && ready, clock) : null;
@@ -83,7 +86,7 @@ export function AuditRequestPanel({ auditId, lang, focusId = '', readOnly = fals
   const choose = (item: AuditRequest) => { setSelected(item.id); setVersions(item.evidence.map(v => v.id)); setNote(''); setReturnDue(item.dueDate); setReturnReviewDue(item.reviewDueDate); setReturnAdjustment(null); setDraftAdjustment(null); setEditing(null); setError(''); };
   const beginEdit = (item?: AuditRequest) => {
     setEditing({ id: item?.id || `ARQ-${crypto.randomUUID()}`, revision: item?.revision || '' });
-    setDraft(item ? { ...item } : { ...emptyAuditRequest, owner: data?.actorEmail || '', periodStart: data?.periodStart || '', periodEnd: data?.periodEnd || '', dueDate: dateAfter(7), reviewDueDate: dateAfter(10) });
+    setDraft(item ? { ...item } : { ...emptyAuditRequest, ...(requirement?{requirementId:requirement.id,title:requirement.title.slice(0,180)}:{}), owner: data?.actorEmail || '', periodStart: data?.periodStart || '', periodEnd: data?.periodEnd || '', dueDate: dateAfter(7), reviewDueDate: dateAfter(10) });
     setDraftAdjustment(null); setReturnAdjustment(null); setError(''); setLaunch(false); setActivationReason('');
   };
   async function mutate(action: string, extra: Record<string, unknown> = {}) {
@@ -116,7 +119,7 @@ export function AuditRequestPanel({ auditId, lang, focusId = '', readOnly = fals
     } catch (err) { if (live.current) setError(err instanceof Error ? err.message : 'unavailable'); }
     finally { busyRef.current = false; if (live.current) setBusy(false); }
   }
-  const visible = (data?.requests || []).filter(item => (filter === 'all' || (filter === 'pending' ? progress?.pendingIds.includes(item.id) : filter === 'overdue' ? progress?.overdueIds.includes(item.id) : item.status === filter)) && `${item.title} ${item.owner} ${item.reviewer} ${item.id}`.toLocaleLowerCase().includes(query.toLocaleLowerCase()));
+  const visible = (data?.requests || []).filter(item => (!requirement || item.requirementId===requirement.id) && (filter === 'all' || (filter === 'pending' ? progress?.pendingIds.includes(item.id) : filter === 'overdue' ? progress?.overdueIds.includes(item.id) : item.status === filter)) && `${item.title} ${item.owner} ${item.reviewer} ${item.id}`.toLocaleLowerCase().includes(query.toLocaleLowerCase()));
   const drafts = data?.requests.filter(item => item.status === 'draft') || [];
   const evidenceOptions = [...(data?.evidenceChoices || []), ...(row?.evidence || []).filter(v => !data?.evidenceChoices.some(e => e.id === v.id))];
   const errorMessage = error ? (messages[error] || messages.unavailable)[en ? 1 : 0] : '';

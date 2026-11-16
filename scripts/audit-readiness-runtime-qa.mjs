@@ -1,3 +1,4 @@
+import {openAuditSection} from './audit-workspace-navigation.mjs';
 import {seedCurrentAssessmentFixture} from './current-assessment-qa-fixture.mjs';
 import { qaPassword } from "./qa-credentials.mjs";
 import { chromium, expect } from '@playwright/test';
@@ -71,7 +72,7 @@ try {
   await page.locator('.language-switch:visible').getByRole('button', { name: 'EN', exact: true }).click();
   await page.locator('nav button[aria-label="Audit Management"]').evaluate(el => el.click());
   await page.locator('.audit-card-open').filter({ hasText: name }).click();
-  await page.getByRole('tab',{name:'Assurance',exact:true}).click();
+  await openAuditSection(page,'readiness');
   const gate = page.locator('.audit-readiness-gate'); await expect(gate.locator('.audit-readiness-state>span')).toHaveText('NOT READY');
   // KPI cards operate within this audit; source links resolve one exact row or stay explicit about ambiguity.
   const requirements = gate.locator('.audit-readiness-gaps'), rows = requirements.locator('.audit-readiness-gap');

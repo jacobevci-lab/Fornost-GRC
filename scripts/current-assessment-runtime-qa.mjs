@@ -1,3 +1,4 @@
+import {openAuditSection} from './audit-workspace-navigation.mjs';
 import {qaPassword} from './qa-credentials.mjs';
 import {seedCurrentAssessmentFixture} from './current-assessment-qa-fixture.mjs';
 import {chromium,expect} from '@playwright/test';
@@ -77,7 +78,7 @@ try{
   await page.setViewportSize({width:1536,height:960});
   await page.locator('.language-switch:visible').getByRole('button',{name:'EN',exact:true}).click();
   await portfolioAudit.getByRole('button',{name:'Review audit',exact:true}).click();
-  await page.getByRole('tab',{name:'Assurance',exact:true}).click();
+  await openAuditSection(page,'readiness');
   await expect(page.locator('.audit-readiness-gate .audit-readiness-state>span')).toHaveText('NOT READY');
   await expect(page.locator('.audit-readiness-gate')).toContainText(name);
   await page.locator('nav button[aria-label="Reporting"]').evaluate(el=>el.click());
@@ -145,7 +146,7 @@ try{
   await page.locator('.language-switch:visible').getByRole('button',{name:'EN',exact:true}).click();
   await page.locator('nav button[aria-label="Audit Management"]').evaluate(el=>el.click());
   // Exact portfolio navigation above already selected this audit; module switches preserve it.
-  await page.getByRole('tab',{name:'Assurance',exact:true}).click();
+  await openAuditSection(page,'readiness');
   await expect(page.locator('.audit-readiness-gate')).toContainText(name);
   const gate=page.locator('.audit-readiness-gate');await expect(gate.locator('.audit-readiness-state>span')).toHaveText('NOT READY');
   await gate.locator('.audit-readiness-gaps>summary').click();await expect(gate).toContainText(diagnostic.en);
