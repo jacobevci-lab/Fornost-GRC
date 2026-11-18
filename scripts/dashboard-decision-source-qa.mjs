@@ -214,7 +214,9 @@ try {
       }
     }
     await expect(focus).toContainText(id.toUpperCase());
-    await expect(page.getByRole("region", { name: "Kayıt tablosu", exact: true }).getByRole("row").filter({ hasText: id === "aud-linked" ? "A ekibi" : "B ekibi" })).toHaveCount(1);
+    const desk = page.getByRole("region", { name: "Madde çalışma alanı", exact: true });
+    await expect(desk.locator("header small")).toHaveText(id.toUpperCase());
+    await expect(desk.locator("dd").filter({ hasText: id === "aud-linked" ? "A ekibi" : "B ekibi" })).toBeVisible();
     await focus.getByRole("button", { name: "Önceki görünüme dön" }).click();
     await expect(row).toBeFocused();
     await expect(queue.getByRole("button", { name: "Denetim", exact: true })).toHaveAttribute("aria-pressed", "true");

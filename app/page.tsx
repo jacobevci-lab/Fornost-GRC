@@ -3837,6 +3837,7 @@ function AuditModule({
   // A directly opened requirement can predate portfolio assignment and have no audit name.
   if (!selected && focusedRequirement && visible.some(row => row.id === focusedRequirement)) {
     return <AuditRequirementsTable sort={sort} setSort={setSort} userId={userId} focused
+      focusId={focusedRequirement} evidenceRows={evidenceRows}
       allItems={visible} items={visible} lang={lang} query={query} setQuery={setQuery}
       edit={edit} remove={remove} openNew={openNew} canWrite={canWrite} canDelete={canDeleteAudit} />;
   }
