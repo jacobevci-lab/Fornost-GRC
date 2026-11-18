@@ -31,14 +31,42 @@ try {
  await mkdir(out,{recursive:true});for(const [ctx,email] of [[admin,owner],[reviewer,f.reviewerEmail],[viewer,f.viewerEmail],[scoped,f.scopedEmail]])await api(ctx,'/api/auth','POST',{action:'login',email,password:qaPassword()});
  await api(admin,'/api/users','POST',{name:`QA Incident Commander ${tag}`,email:commanderEmail,role:'Editor',password:qaPassword(),moduleAccess:{mode:'full'}},201);await api(commander,'/api/auth','POST',{action:'login',email:commanderEmail,password:qaPassword()});
  await api(anonymous,'/api/incidents','GET',undefined,401);await api(scoped,'/api/incidents','GET',undefined,403);await api(viewer,'/api/incidents','POST',{action:'create'},403);
- const asset=(await api(admin,'/api/grc')).rows.find(r=>r.module==='Varlık Envanteri');assert.ok(asset,'QA must contain a canonical asset');
+ const core = (await api(admin,'/api/grc')).rows;
+ const [asset, otherAsset] = core.filter(row => row.module === 'Varlık Envanteri');
+ const risk = core.find(row => row.module === 'Risk Assessment');
+ const bia = core.find(row => row.module === 'BIA');
+ assert.ok(asset && otherAsset && risk && bia, 'Expected linked records in the seeded directory');
  phase='directory declaration and committed-response retry';await open(page);await page.getByRole('button',{name:'+ Declare Incident',exact:true}).click();let d=page.locator('.incident-form');
- for(const [label,value] of [['Incident title',name],['Incident description','A synthetic privileged identity event requires controlled containment and recovery.'],['Business impact','The affected business service requires independent recovery validation.'],['Asset references',asset.id]])await d.getByLabel(label,{exact:true}).fill(value);
+ for(const [label,value] of [['Incident title',name],['Incident description','A synthetic privileged identity event requires controlled containment and recovery.'],['Business impact','The affected business service requires independent recovery validation.']])await d.getByLabel(label,{exact:true}).fill(value);
+ const picker = d.locator('.incident-reference-search');
+ await picker.locator('summary').click();
+ const search = picker.getByRole('searchbox', {name:'Record name or code'});
+ const assetData = JSON.parse(asset.data_json);
+ async function chooseRecord(record, query = record.record_code || record.id) {
+   await search.fill(query);
+   const result = picker.getByRole('button').filter({hasText:record.record_code || record.id});
+   await expect(result).toHaveCount(1);
+   await result.click();
+ }
+ await chooseRecord(asset, assetData.title || assetData.name || asset.record_code);
+ await chooseRecord(asset);
+ await expect(picker.getByRole('status')).toContainText('already linked');
+ await chooseRecord(otherAsset);
+ await chooseRecord(risk);
+ await chooseRecord(bia);
+ await expect(d.getByLabel('Asset references', {exact:true})).toHaveValue(asset.id + ', ' + otherAsset.id);
+ await expect(d.getByLabel('Risk reference', {exact:true})).toHaveValue(risk.id);
+ await expect(d.getByLabel('BIA reference', {exact:true})).toHaveValue(bia.id);
+ await picker.locator('summary').click();
  await person(d,'Incident owner',owner);await person(d,'Incident commander',commanderEmail);await person(d,'Independent reviewer',f.reviewerEmail);assert.equal(await d.getByLabel('Independent reviewer',{exact:true}).locator(`option[value="${owner}"]`).count(),0);
  await d.evaluate(el=>el.scrollTop=0);assert.deepEqual((await new AxeBuilder({page}).include('.incident-form').withTags(['wcag2a','wcag2aa','wcag21aa']).analyze()).violations,[]);await d.screenshot({path:`${out}/declaration.png`});
  await page.route(url=>url.pathname==='/api/incidents',async route=>{const req=route.request();if(req.method()==='POST'&&req.postDataJSON()?.action==='create'&&dropDeclaration){dropDeclaration=false;const r=await route.fetch();assert.equal(r.status(),201,await r.text());incidentId=(await r.json()).id;await route.abort('failed');}else if(req.method()==='GET'&&new URL(req.url()).searchParams.get('view')==='decision'&&failRead)await route.fulfill({status:503,json:{}});else if(req.method()==='POST'&&rejectDecision)await route.fulfill({status:422,json:{code:'EVIDENCE_SELECTION'}});else await route.continue();});
  await d.getByRole('button',{name:'Declare incident',exact:true}).click();await expect(d.getByRole('alert')).toContainText('does not duplicate');await expect(d.getByLabel('Incident title',{exact:true})).toHaveValue(name);
  const replay=await submit(page,d,'Declare incident',201);assert.equal(replay.id,incidentId);assert.equal(replay.replayed,true);assert.equal((await api(admin,'/api/incidents')).incidents.filter(i=>i.title===name).length,1);
+ const saved = (await source(admin)).record;
+ assert.equal(saved.asset_refs, asset.id + ', ' + otherAsset.id);
+ assert.equal(saved.risk_ref, risk.id);
+ assert.equal(saved.bia_ref, bia.id);
  await expect(page.getByRole('region',{name,exact:true})).toBeVisible();await action(page,'triage');checks.push('Actual directory declaration, distinct independent reviewer, canonical asset and lost-response retry without duplication');
 
  phase='concurrent full response cycle and explicit source adoption';await page.locator('.incident-dossier .ic-next button').click();d=page.locator('.incident-decision');const note='Keep this containment draft while the assigned team completes and reopens the incident.';await fill(d,'contain',note);

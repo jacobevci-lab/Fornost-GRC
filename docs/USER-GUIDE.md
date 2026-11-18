@@ -379,7 +379,7 @@ Hata veya başka kullanıcının değişikliği sırasında not ve dosya seçimi
 
 ## Olay müdahalesi ve korunan kanıtlar
 
-Güvenlik Olayları ekranında olay sahibi, farklı bir olay yöneticisi ve bağımsız Admin inceleyeni dizinden seçin. Müdahale, tehdidi giderme, hizmeti geri yükleme, inceleme ve kapanışta kanıt kütüphanesinden gerçek dosya sürümünü kullanın. Her kararın kanıtı ve incelenen olay bilgileri olay ayrıntısındaki geçmişte korunur. Kanıt Kullanımı → Olay kararları bağlantısı aynı olaya döner.
+Güvenlik Olayları ekranında olay sahibi, farklı bir olay yöneticisi ve bağımsız Admin inceleyeni dizinden seçin. Yeni olay formunda **Varlık, risk veya BIA kaydı bul ve bağla** alanından ad veya kodla arayabilirsiniz. Seçtiğiniz varlıklar birlikte saklanır. Risk veya BIA seçimi ilgili alandaki önceki değeri değiştirir. Harici referansları ilgili alana yazabilirsiniz. Müdahale, tehdidi giderme, hizmeti geri yükleme, inceleme ve kapanışta kanıt kütüphanesinden gerçek dosya sürümünü kullanın. Her kararın kanıtı ve incelenen olay bilgileri olay ayrıntısındaki geçmişte korunur. Kanıt Kullanımı → Olay kararları bağlantısı aynı olaya döner.
 
 Karar çakışırsa açıklama, kök neden/dersler, bildirim gerekçesi ve kanıt seçimi korunur. Bağlamı yenileyip değişiklikleri inceleyin; güncel bağlamı benimsedikten sonra onayı yeniden girin. Yanıtı kaybolan aynı ilan formu tekrar gönderildiğinde mükerrer kayıt oluşmaz. Bildirim kararı kaydı dışarıya bildirim göndermez. [Adımlar, roller ve sınırlar](incident-connected-evidence.md).
 

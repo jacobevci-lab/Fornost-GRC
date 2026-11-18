@@ -13,3 +13,9 @@ html[data-theme="dark"] .incident-overlay :is(.incident-detail,.incident-form,.i
 .incident-overlay .incident-action :is(input,select,textarea):focus{outline:2px solid var(--ws-brand)!important;outline-offset:2px}
 .incident-action-fields label{font-size:13px}.incident-context-details p{font-size:14px;line-height:1.6}
 @media(max-width:620px){.incident-context-details dl{grid-template-columns:1fr}.incident-record-history{padding:12px}.incident-action-fields,.incident-decision-context{padding:12px}.incident-overlay{padding:10px}}
+
+.incident-reference-search { grid-column: 1 / -1; min-width: 0; overflow-wrap: anywhere; }
+.incident-reference-search summary { cursor: pointer; font-weight: 600; }
+.incident-reference-search label { margin-top: .65rem; }
+.incident-reference-search ul { list-style: none; padding: 0; margin: .5rem 0; max-height: 14rem; overflow-y: auto; }
+.incident-reference-search li button { display: block; width: 100%; text-align: start; white-space: normal; overflow-wrap: anywhere; }
