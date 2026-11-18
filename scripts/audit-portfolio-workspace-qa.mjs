@@ -58,7 +58,8 @@ try{
   const overflow=await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth);assert.ok(overflow<=4);
   await panel.scrollIntoViewIfNeeded();await page.screenshot({path:out+'/mobile-dark.png'});
   await panel.getByRole('button',{name:'Tedarikçi yetkileri',exact:true}).click();
-  await expect(page.getByRole('region',{name:'Record table',exact:true})).toContainText('Tedarikçi yetkileri');
+  const desk = page.getByRole('region', {name:'Requirement workspace', exact:true});
+  await expect(desk.getByRole('heading', {name:'Tedarikçi yetkileri', exact:true})).toBeVisible();
   assert.ok(br.id);assert.deepEqual(errors,[]);
   console.log('AUDIT_PORTFOLIO_PASS: two real audits, independent counts, unavailable scope and retry, search, exact requirement, mobile, dark, TR/EN');
 } catch(e) {
