@@ -29,6 +29,58 @@ try{
  await search.fill('Alpha');await expect(rows).toHaveCount(50);await expect(pager.getByRole('status')).toHaveText('1–50 / 61 requirements');
  const [download]=await Promise.all([page.waitForEvent('download'),pager.getByRole('button',{name:'Export results (61)',exact:true}).click()]);
  const csv=await fs.readFile(await download.path(),'utf8');assert.equal(new Set(csv.match(/QA-PAGE-\d+/g)||[]).size,61,'Export must include every filtered requirement');assert.equal(csv.trim().split('\n').length,62,'Header plus 61 fixture rows, with no duplicate rows');
+
+ // Follow the filtered result order even when the next requirement is on another page.
+ const evidenceQueue = page.locator('.audit-work-queues').getByRole('button', {name: /Awaiting evidence/});
+ await evidenceQueue.click();
+ await table.getByRole('combobox', {name:'Sort by',exact:true}).selectOption('title');
+ await table.getByRole('combobox', {name:'Sort direction',exact:true}).selectOption('desc');
+ const desk = table.getByRole('region', {name:'Requirement workspace',exact:true});
+ const reviewNav = desk.getByRole('navigation', {name:'Requirement navigation'});
+ const next = reviewNav.getByRole('button', {name:'Next requirement'});
+ const previous = reviewNav.getByRole('button', {name:'Previous requirement'});
+ await rows.nth(48).locator('.audit-requirement-open').press('Enter');
+ await expect(desk.locator('header small')).toHaveText('QA-PAGE-013');
+ await expect(reviewNav.getByRole('status')).toHaveText('49 / 61');
+ const listBounds = await table.locator('.table-wrap').boundingBox();
+ const deskBounds = await desk.boundingBox();
+ assert.ok(deskBounds.x >= listBounds.x + listBounds.width - 1, 'Detail belongs beside the list on desktop');
+ await desk.getByRole('tab',{name:'2 · Evidence and requests'}).click();
+ await next.click();
+ await expect(desk.locator('header small')).toHaveText('QA-PAGE-012');
+ await expect(next).toBeFocused();
+ await next.press('Enter');
+ await expect(desk.locator('header small')).toHaveText('QA-PAGE-011');
+ await expect(desk.getByRole('tab',{name:'2 · Evidence and requests'})).toHaveAttribute('aria-selected','true');
+ await expect(pager.getByRole('status')).toHaveText('51–61 / 61 requirements');
+ await previous.click();
+ await expect(desk.locator('header small')).toHaveText('QA-PAGE-012');
+ await next.click();
+ await next.press('Escape');
+ await expect(desk).toHaveCount(0);
+ await expect(rows.first().locator('.audit-requirement-open')).toBeFocused();
+ await expect(rows.first()).toContainText('QA-PAGE-011');
+ await expect(search).toHaveValue('Alpha');
+ await expect(evidenceQueue).toHaveAttribute('aria-pressed','true');
+ // The narrow board restores the last card and both ends of the sequence are bounded.
+ await page.setViewportSize({width:390,height:844});
+ await table.getByRole('button',{name:'Board',exact:true}).click();
+ const cards = table.locator('.audit-requirement-board button');
+ await cards.last().click();
+ await expect(next).toBeDisabled();
+ await expect(cards.last()).toBeHidden();
+ await previous.click();
+ await expect(desk.locator('header small')).toHaveText('QA-PAGE-002');
+ assert.ok(await desk.evaluate(el=>el.scrollWidth <= el.clientWidth + 1), 'Narrow detail must fit');
+ await desk.getByRole('button',{name:'Close requirement ×',exact:true}).click();
+ await expect(cards.filter({hasText:'QA-PAGE-002'})).toBeFocused();
+ await pager.getByRole('button',{name:'First',exact:true}).click();
+ await cards.first().click();
+ await expect(previous).toBeDisabled();
+ await desk.getByRole('button',{name:'Close requirement ×',exact:true}).click();
+ await table.getByRole('button',{name:'List',exact:true}).click();
+ await page.setViewportSize({width:1536,height:960});
+ await page.locator('.audit-work-queues').getByRole('button',{name:/All requirements/}).click();
  await table.getByRole('button',{name:'Filters',exact:true}).click();
  const status=table.getByLabel('Status',{exact:true});const statusOptions=await status.locator('option').allTextContents();
  await status.selectOption('Başlanmadı');
@@ -49,5 +101,12 @@ try{
   await slider.press('Home');await expect(slider).toHaveValue('0');await slider.press('Escape');await expect(dialog).toHaveCount(0);
  }
  await page.locator('.language-switch:visible').getByRole('button',{name:'TR',exact:true}).click();await expect(pager.getByRole('status')).toHaveText('1–100 / 121 madde');
- assert.deepEqual(errors,[]);console.log('AUDIT_REQUIREMENT_PAGE_PASS: 121 real requirements, last page, off-page search, filter reset, 61-row cross-page CSV export, empty recovery, size selection and bilingual responsive pager.');
+ await page.setViewportSize({width:390,height:844});
+ await page.evaluate(() => { document.documentElement.dataset.theme = 'dark'; });
+ await rows.first().locator('.audit-requirement-open').click();
+ const trDesk = table.getByRole('region',{name:'Madde çalışma alanı',exact:true});
+ await trDesk.getByRole('button',{name:'Sonraki madde',exact:true}).click();
+ await trDesk.getByRole('button',{name:'Önceki madde',exact:true}).press('Escape');
+ await expect(rows.nth(1).locator('.audit-requirement-open')).toBeFocused();
+ assert.deepEqual(errors,[]);console.log('AUDIT_REQUIREMENT_PAGE_PASS: 121 real requirements, last page, off-page search, filter reset, 61-row cross-page CSV export, empty recovery, size selection and bilingual desktop/mobile filtered review with keyboard focus restoration.');
 }finally{await page.close();for(const id of ids)await cleanupQaFixture(context,base,'audit',id);await browser.close();}

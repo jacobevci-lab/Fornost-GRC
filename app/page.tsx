@@ -4118,7 +4118,8 @@ function AuditRequirementsTable({
   const [layout,setLayout]=useState<'list'|'board'>('list');
   const [openId,setOpenId]=useState(focusId);
   useEffect(()=>{if(focusId)setOpenId(focusId);},[focusId]);
-  const openItem=allItems.find(r=>r.id===openId);
+  const registerRef = useRef<HTMLElement>(null);
+  const returnFocusId = useRef("");
   const saveColumns = (keys: string[]) => {
     setColumns(keys);
     try {
@@ -4131,10 +4132,33 @@ function AuditRequirementsTable({
   useEffect(() => { setPagination(value => ({ ...value, key: filterKey, page: 1 })); }, [filterKey]);
   const page = auditRequirementPage(filtered, pagination.key === filterKey ? pagination.page : 1, pagination.size);
   const goPage = (value: number) => setPagination({ key: filterKey, page: value, size: page.size });
+  const openIndex = filtered.findIndex(row => row.id === openId);
+  const openItem = filtered[openIndex];
+  // A requirement removed by a queue, search or refresh must not reopen when the filter is cleared.
+  useEffect(() => {
+    if (openId && !openItem && allItems.some(row => row.id === openId)) setOpenId("");
+  }, [openId, openItem, allItems]);
+  useEffect(() => {
+    if (openItem || !returnFocusId.current) return;
+    const selector = `button[data-requirement-id="${CSS.escape(returnFocusId.current)}"]`;
+    const target = registerRef.current?.querySelector<HTMLButtonElement>(selector);
+    (target || registerRef.current)?.focus();
+    returnFocusId.current = "";
+  }, [openItem]);
+  const showRequirement = (index: number) => {
+    const row = filtered[index];
+    if (!row) return;
+    goPage(Math.floor(index / page.size) + 1);
+    setOpenId(row.id);
+  };
+  const closeRequirement = () => {
+    returnFocusId.current = openId;
+    goPage(Math.floor(openIndex / page.size) + 1);
+    setOpenId("");
+  };
   const clearFilters = () => { setFilters({}); setQuery(""); };
   return (
-    <section className="table-card smart-register audit-requirements-register">
-      {openItem&&<AuditRequirementDesk key={openItem.id} row={openItem} auditId={auditId} evidence={evidenceRows} lang={lang} canWrite={canWrite} onEdit={()=>edit(openItem)} onClose={()=>setOpenId("")}/>}
+    <section ref={registerRef} tabIndex={-1} className="table-card smart-register audit-requirements-register" data-review-open={!!openItem}>
       <div className="audit-layout-switch" aria-label={tr?"Madde görünümü":"Requirement view"}><button type="button" aria-pressed={layout==='list'} onClick={()=>setLayout('list')}>{tr?"Liste":"List"}</button><button type="button" aria-pressed={layout==='board'} onClick={()=>setLayout('board')}>{tr?"Pano":"Board"}</button></div>
       <div className="audit-table-heading">
         <div><small>{tr ? "STANDART MADDELERİ" : "STANDARD REQUIREMENTS"}</small><h3>{tr ? "Denetim maddeleri ve sorumluluk takibi" : "Audit requirements and ownership tracking"}</h3></div>
@@ -4148,8 +4172,31 @@ function AuditRequirementsTable({
         <button type="button" disabled={!filtered.length} onClick={() => csvDownload("audit-filtered-requirements.csv", filtered, lang)}>{tr ? "Sonuçları indir" : "Export results"} ({filtered.length})</button>
       </div>
       {layout==='board'&&<p className="fw-muted">{tr?"Pano bu sayfadaki filtrelenmiş maddeleri gösterir. Kartı açarak çalışmaya devam edin.":"The board shows filtered requirements on this page. Open a card to continue working."}</p>}
-      <div className="table-wrap" tabIndex={0} role="region" aria-label={lang === "tr" ? "Kayıt tablosu" : "Record table"}>
-        {filtered.length ? layout==='board'?<AuditRequirementBoard items={page.rows} lang={lang} onOpen={r=>setOpenId(r.id)}/>:<SmartRegister inspect={r=>setOpenId(r.id)} module="Denetim Yönetimi" rows={page.rows} lang={lang} edit={edit} remove={remove} canWrite={canWrite} canDelete={canDelete} columns={columns} /> : allItems.length ? <div className="audit-empty" role="status"><b>{tr ? "Arama veya filtrelerle eşleşen madde yok." : "No requirements match your search or filters."}</b><button type="button" className="ghost" onClick={clearFilters}>{tr ? "Arama ve filtreleri temizle" : "Clear search and filters"}</button></div> : <div className="audit-empty"><b>{tr ? "Bu şablon için otomatik madde bulunamadı." : "No automatic requirements are available for this template."}</b><p>{tr ? "Excel ile içe aktarabilir veya özel madde ekleyebilirsiniz." : "Import from Excel or add a custom item."}</p></div>}
+      <div className="audit-review-layout">
+        <div className="table-wrap" tabIndex={0} role="region" aria-label={tr ? "Kayıt tablosu" : "Record table"}>
+          {filtered.length > 0 ? (
+            layout === "board"
+              ? <AuditRequirementBoard items={page.rows} selectedId={openId} lang={lang} onOpen={row => setOpenId(row.id)} />
+              : <SmartRegister module="Denetim Yönetimi" rows={page.rows} inspectedId={openId} inspect={row => setOpenId(row.id)}
+                  lang={lang} edit={edit} remove={remove} canWrite={canWrite} canDelete={canDelete} columns={columns} />
+          ) : allItems.length > 0 ? (
+            <div className="audit-empty" role="status">
+              <b>{tr ? "Arama veya filtrelerle eşleşen madde yok." : "No requirements match your search or filters."}</b>
+              <button type="button" className="ghost" onClick={clearFilters}>{tr ? "Arama ve filtreleri temizle" : "Clear search and filters"}</button>
+            </div>
+          ) : (
+            <div className="audit-empty">
+              <b>{tr ? "Bu şablon için otomatik madde bulunamadı." : "No automatic requirements are available for this template."}</b>
+              <p>{tr ? "Excel ile içe aktarabilir veya özel madde ekleyebilirsiniz." : "Import from Excel or add a custom item."}</p>
+            </div>
+          )}
+        </div>
+        {openItem && <AuditRequirementDesk
+          row={openItem} position={openIndex + 1} total={filtered.length}
+          auditId={auditId} evidence={evidenceRows} lang={lang} canWrite={canWrite}
+          onEdit={() => edit(openItem)} onClose={closeRequirement}
+          onPrevious={() => showRequirement(openIndex - 1)} onNext={() => showRequirement(openIndex + 1)}
+        />}
       </div>
     </section>
   );
@@ -5465,6 +5512,7 @@ function SmartRegister({
   rows,
   lang,
   inspect,
+  inspectedId,
   edit,
   remove,
   viewEvidence,
@@ -5477,6 +5525,7 @@ function SmartRegister({
   rows: Row[];
   lang: Lang;
   inspect?: (r: Row, button: HTMLButtonElement) => void;
+  inspectedId?: string;
   edit: (r: Row) => void;
   remove: (id: string) => void;
   viewEvidence?: (row: Row) => void;
@@ -5487,6 +5536,7 @@ function SmartRegister({
   const cols = getAvailableRegisterColumns(module).filter((column) =>
       (columns || defaultRegisterColumnKeys(module)).includes(column.key),
     ),
+    auditOpenColumn = cols.some(column => column.key === "audit") ? "audit" : cols[0]?.key,
     u = ui[lang],
     showRecordCode = module !== "Denetim Yönetimi",
     widths = useColumnWidths(module);
@@ -5543,7 +5593,7 @@ function SmartRegister({
                     : undefined
                 }
               >
-                {module==="Denetim Yönetimi"&&c.key==="audit"&&inspect?<div><SmartCell module={module} column={c.key} row={r} lang={lang}/><button type="button" className="audit-requirement-open" onClick={e=>inspect(r,e.currentTarget)}><span>{lang==="tr"?"Maddeyi aç":"Open requirement"} →</span></button></div>:<SmartCell
+                {module==="Denetim Yönetimi"&&c.key===auditOpenColumn&&inspect?<div><SmartCell module={module} column={c.key} row={r} lang={lang}/><button type="button" className="audit-requirement-open" data-requirement-id={r.id} aria-current={r.id===inspectedId ? "true" : undefined} onClick={e=>inspect(r,e.currentTarget)}><span>{lang==="tr"?"Maddeyi aç":"Open requirement"} →</span></button></div>:<SmartCell
                   module={module}
                   column={c.key}
                   row={r}
