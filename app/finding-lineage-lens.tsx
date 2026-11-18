@@ -1,5 +1,6 @@
 "use client";
 
+import { savedFindingTarget, type FindingReferenceField, type FindingTarget } from "./findings/record-references";
 import {findingLabel} from "./findings/presentation";
 import { navigateToFornost, type FornostNavigationRequest } from "./navigation-focus";
 import "./finding-lineage-lens.css";
@@ -40,7 +41,10 @@ const SOURCE_MODULE: Record<string, string> = {
   "continuous-control": "Kanıt Otomasyonu",
 };
 
-export default function FindingLineageLens({finding,lang,close}:{finding:Finding;lang:Lang;close:()=>void}) {
+export default function FindingLineageLens({finding,lang,close,targets,coreState,retryCore}:{
+  finding:Finding;lang:Lang;close:()=>void;targets:Record<FindingReferenceField, FindingTarget[]>;
+  coreState:"ready"|"loading"|"error";retryCore:()=>void;
+}) {
   const navigate=(request:FornostNavigationRequest)=>{close();navigateToFornost(request);};
   const tr = lang === "tr";
   const sourceModule = Object.hasOwn(SOURCE_MODULE,normalized(finding.sourceType))?SOURCE_MODULE[normalized(finding.sourceType)]:undefined;
@@ -71,14 +75,25 @@ export default function FindingLineageLens({finding,lang,close}:{finding:Finding
       <button type="button" disabled={!sourceModule||!clean(finding.sourceRef)} onClick={() => sourceModule && navigate({ module: sourceModule, ref: finding.sourceRef, kind: finding.sourceType, source: "finding-lineage" })}>
         <small>{tr ? "Kaynak" : "Source"}</small><b>{findingLabel(finding.sourceType,lang)}</b><span>{finding.sourceRef || (tr ? "Referans yok" : "No reference")}</span><em>→</em>
       </button>
-      <button type="button" disabled={!finding.controlRef} onClick={() => finding.controlRef && navigate({ module: "Kontroller", ref: finding.controlRef, kind: "control", source: "finding-lineage" })}>
-        <small>{tr ? "Kontrol" : "Control"}</small><b>{finding.controlRef || "—"}</b><span>{finding.controlRef ? (tr ? "Kontrol izini aç" : "Open control lineage") : (tr ? "Bağlantı yok" : "Not linked")}</span><em>→</em>
-      </button>
-      <button type="button" disabled={!finding.riskRef} onClick={() => finding.riskRef && navigate({ module: "Risk Assessment", ref: finding.riskRef, kind: "risk", source: "finding-lineage" })}>
-        <small>{tr ? "Risk" : "Risk"}</small><b>{finding.riskRef || "—"}</b><span>{finding.riskRef ? (tr ? "Risk geri beslemesini aç" : "Open risk feedback") : (tr ? "Bağlantı yok" : "Not linked")}</span><em>→</em>
-      </button>
+      {(["controlRef", "riskRef"] as const).map(field => {
+        const reference = finding[field];
+        const target = savedFindingTarget(targets[field], reference);
+        const label = field === "riskRef" ? "Risk" : tr ? "Kontrol" : "Control";
+        const status = !reference ? (tr ? "Bağlantı yok" : "Not linked")
+          : coreState === "loading" ? (tr ? "Yükleniyor…" : "Loading…")
+          : coreState === "error" ? (tr ? "Kayıtlar yüklenemedi" : "Records unavailable")
+          : (tr ? "Tek bir kayıtla eşleşmedi" : "No unique record match");
+        return <button key={field} type="button" disabled={!target} onClick={() => target && navigate({
+          module: target.module, ref: target.id, kind: "record", source: "finding-lineage",
+          returnTo: {module: "Bulgular ve CAPA", filter: {findingRef: finding.id}},
+        })}>
+          <small>{label}</small><b>{target?.code || reference || "—"}</b>
+          <span>{target?.title || status}</span>{target && <em aria-hidden="true">→</em>}
+        </button>;
+      })}
     </div>
 
+    {coreState === "error" && (finding.controlRef || finding.riskRef) && <button type="button" onClick={retryCore}>{tr ? "Bağlı kayıtları yeniden yükle" : "Reload linked records"}</button>}
     <p>{tr?"Bu göstergeler alan doluluğunu gösterir; bağlantılı kaydın varlığını, erişimini veya kanıt geçerliliğini doğrulamaz.":"These indicators show field completeness; they do not verify linked-record existence, access or evidence validity."}</p>
     <div className="fll-checks">
       {checks.map((item) => <div key={item.key} className={item.ok ? "ok" : "missing"}>

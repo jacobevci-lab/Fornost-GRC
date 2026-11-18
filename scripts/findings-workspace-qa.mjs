@@ -199,6 +199,14 @@ try{
 
  await panel.getByRole('button',{name:'+ New Finding',exact:true}).click();
  const form=panel.locator('form.finding-form');
+ const controlPicker=form.getByRole('combobox',{name:'Linked control',exact:true});
+ await controlPicker.fill('unselected QA control');
+ await expect(controlPicker).toHaveAttribute('aria-expanded','true');
+ assert.equal(await controlPicker.evaluate(input=>input.checkValidity()),false);
+ await controlPicker.press('Escape');
+ await expect(form).toBeVisible();
+ await expect(controlPicker).toHaveValue('');
+ assert.equal(await controlPicker.evaluate(input=>input.checkValidity()),true);
  rejectCreate=true;await form.getByLabel('Source title',{exact:true}).fill('Keep this draft');await form.dispatchEvent('submit');
  await expect(form.getByRole('alert')).toHaveText('Complete the CAPA plan.');await expect(form.getByLabel('Source title',{exact:true})).toHaveValue('Keep this draft');
  rejectCreate=false;

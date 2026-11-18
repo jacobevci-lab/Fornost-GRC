@@ -174,7 +174,7 @@ export async function POST(req: NextRequest) {
       const id = `FND-${crypto.randomUUID()}`;
       const code = `FND-${new Date().getUTCFullYear()}-${crypto.randomUUID().replace(/-/g, "").slice(0, 8).toUpperCase()}`;
       const now = new Date().toISOString();
-      await insertFinding(env.DB, finding, {id,code,actor:access.actor.email,stamp:now,guard:body.assignmentMode==='directory'?selection.guard:undefined});
+      await insertFinding(env.DB, finding, {id,code,actor:access.actor.email,stamp:now,selectedIds:body.referenceMode==='record-id',guard:body.assignmentMode==='directory'?selection.guard:undefined});
       return json({ id, code, message: "Kurumsal bulgu ve CAPA planı oluşturuldu." }, 201);
     }
 

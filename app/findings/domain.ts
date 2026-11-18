@@ -12,6 +12,8 @@ export function addDays(day:string,days:number){const value=new Date(`${day}T00:
 
 export function validateFinding(input:Record<string,unknown>,today=new Date().toISOString().slice(0,10)){
  const sourceType=clean(input.sourceType,30),sourceRef=clean(input.sourceRef,120),sourceTitle=clean(input.sourceTitle,240),findingType=clean(input.findingType,40),title=clean(input.title,240),description=clean(input.description,3000),severity=clean(input.severity,20),owner=email(input.owner,"Aksiyon sahibi"),reviewer=email(input.reviewer,"Bağımsız reviewer"),rootCause=clean(input.rootCause,2400),correctiveAction=clean(input.correctiveAction,2400),preventiveAction=clean(input.preventiveAction,2400),dueDate=date(input.dueDate,"Termin"),riskRef=clean(input.riskRef,120),controlRef=clean(input.controlRef,120);
+ if(input.referenceMode!==undefined && input.referenceMode!=="record-id")throw new Error("Geçersiz referans seçim türü.");
+ if(input.referenceMode==="record-id" && ((input.riskRef??"")!==riskRef || (input.controlRef??"")!==controlRef))throw new Error("Geçersiz kayıt kimliği.");
  if(!FINDING_SOURCES.includes(sourceType as typeof FINDING_SOURCES[number])||!FINDING_TYPES.includes(findingType as typeof FINDING_TYPES[number])||!FINDING_SEVERITIES.includes(severity as typeof FINDING_SEVERITIES[number]))throw new Error("Kaynak, bulgu türü veya önem seviyesi geçersiz.");
  if(sourceRef.length<2||sourceTitle.length<3||title.length<5||description.length<20||rootCause.length<10||correctiveAction.length<20||preventiveAction.length<20)throw new Error("Kaynak, açıklama, kök neden ve CAPA planı eksiksiz girilmelidir.");
  if(owner===reviewer)throw new Error("Aksiyon sahibi ve bağımsız reviewer farklı olmalıdır.");
