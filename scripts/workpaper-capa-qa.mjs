@@ -37,6 +37,7 @@ try{
  await page.goto(base);await expect(page.locator('.shell')).toBeVisible();await page.locator('.language-switch:visible').getByRole('button',{name:'EN',exact:true}).click();await openPaper(page);
  const panel=page.locator('.aw-capa');await expect(panel.getByRole('button',{name:'Create CAPA · Unit-A',exact:true})).toBeEnabled();await expect(panel.getByRole('button',{name:'Create CAPA · Unit-C',exact:true})).toHaveCount(0);
  await panel.getByRole('button',{name:'Create CAPA · Unit-A',exact:true}).click();await fillPlan(panel);
+ await expect(panel.getByLabel('Preventive action',{exact:true})).toHaveValue('Enforce independent approval before provisioning privileged access.');
  await panel.getByRole('button',{name:'Preview CAPA promotion',exact:true}).click();await expect(panel.getByRole('region',{name:'CAPA promotion preview'})).toContainText(evidence.id);
  assert.equal((await api(admin,`${endpoint}?auditId=${auditId}&workpaperId=${paperId}`)).links.length,0);
  await panel.getByRole('button',{name:'Cancel preview',exact:true}).click();await expect(panel.getByRole('button',{name:'Confirm and create CAPA',exact:true})).toHaveCount(0);
