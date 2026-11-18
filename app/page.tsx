@@ -2193,7 +2193,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
         ) : active === "İş Sürekliliği" ? (
           <ContinuityCenter lang={lang} currentUser={currentUser} />
         ) : active === "Bulgular ve CAPA" ? (
-          <FindingsCenter lang={lang} currentUser={currentUser} />
+          <FindingsCenter lang={lang} currentUser={currentUser} rows={readableRows} coreState={registerLoadState} retryCore={()=>void load()} />
         ) : active === "Politika Merkezi" ? (
           <PolicyLifecycle lang={lang} currentUser={currentUser} />
         ) : active === "Tedarikçiler" && !scoped ? (

@@ -12,3 +12,37 @@ test('target deletion or module reassignment before intake rejects the complete 
 test('audit failure rolls back finding and report revision; corrected retry commits once',async()=>{const f=await setup();try{f.target('Kontroller','CTL');const before=f.revision();f.sqlite.exec("CREATE TRIGGER reject_history BEFORE INSERT ON enterprise_finding_events BEGIN SELECT RAISE(ABORT,'injected history failure'); END");assert.equal((await f.post({...body,controlRef:'CTL-001'})).status,400);assert.equal(f.count('enterprise_findings'),0);assert.equal(f.count('enterprise_finding_events'),0);assert.equal(f.revision(),before);f.sqlite.exec('DROP TRIGGER reject_history');assert.equal((await f.post({...body,controlRef:'CTL-001'})).status,201);assert.equal(f.count('enterprise_findings'),1);assert.equal(f.count('enterprise_finding_events'),1);}finally{f.sqlite.close();}});
 test('committed findings protect linked core records from deletion',async()=>{for(const [field,module,prefix] of cases){const f=await setup();try{const id=f.target(module,prefix);assert.equal((await f.post({...body,[field]:`${prefix}-001`})).status,201);await assert.rejects(deleteCoreRecord(f.db,id,{module,data_json:'{}',updated_at:stamp},stamp),CoreRecordLinked);assert.equal(f.count('simple_grc_records'),1);}finally{f.sqlite.close();}}});
 test('legacy clauses remain valid and continuous-control manual creation remains prohibited',async()=>{const f=await setup();try{assert.equal((await f.post({...body,sourceType:'continuous-control'})).status,409);assert.equal(f.count('enterprise_findings'),0);assert.equal((await f.post(body)).status,201);}finally{f.sqlite.close();}});
+
+test('picker IDs persist together and a deleted ID cannot rebind to another record with its old code',async()=>{
+ const f=await setup();
+ try {
+  const risk=f.target('Risk Assessment','RSK'),control=f.target('Uyum','CMP');
+  const input={...body,referenceMode:'record-id',riskRef:risk,controlRef:control};
+  assert.equal((await f.post(input)).status,201);
+  const saved=f.sqlite.prepare('SELECT risk_ref,control_ref FROM enterprise_findings').get()!;
+  assert.equal(saved.risk_ref,risk);
+  assert.equal(saved.control_ref,control);
+  f.before(()=>{
+   f.sqlite.prepare('DELETE FROM simple_grc_records WHERE id=?').run(control);
+   f.sqlite.prepare('INSERT INTO simple_grc_records VALUES(?,?,?,?,?)').run('replacement','Kontroller','{}',stamp,stamp);
+   f.sqlite.prepare('INSERT INTO simple_grc_record_codes VALUES(?,?,?,?)').run('replacement','Kontroller',control,stamp);
+  });
+  const rejected=await f.post(input);
+  assert.equal(rejected.status,422);
+  assert.equal(rejected.body.code,'REFERENCE_UNAVAILABLE');
+  assert.equal(f.count('enterprise_findings'),1);
+  assert.equal(f.count('enterprise_finding_events'),1);
+ }finally{f.sqlite.close();}
+});
+
+test('picker rejects free text and wrong-module IDs, and allows an empty optional link',async()=>{
+ const f=await setup();
+ try {
+  const risk=f.target('Risk Assessment','RSK');
+  const input={...body,referenceMode:'record-id',riskRef:risk,controlRef:''};
+  assert.equal((await f.post({...input,controlRef:'A.5.18'})).status,422);
+  assert.equal((await f.post({...input,controlRef:risk})).status,422);
+  assert.equal((await f.post(input)).status,201);
+  assert.equal(f.count('enterprise_findings'),1);
+ }finally{f.sqlite.close();}
+});
