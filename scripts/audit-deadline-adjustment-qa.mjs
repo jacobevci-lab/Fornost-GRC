@@ -15,7 +15,19 @@ const read=(kind,id)=>api(admin,`/api/audits/${kind}?auditId=${auditId}&id=${id}
 async function open(p,kind,id){await p.goto(base+'/#fornost-record?'+new URLSearchParams({module:'Denetim Yönetimi',kind,ref:id,auditId}));await expect(p.locator('.shell')).toBeVisible();await p.locator('.language-switch:visible').getByRole('button',{name:'EN',exact:true}).click();await waitForQaIdle(p);}
 const planner=p=>p.getByRole('region',{name:'Working-day deadline planner',exact:true});
 async function preview(p){await planner(p).getByRole('button',{name:'Preview working-day dates',exact:true}).click();await expect(planner(p).getByRole('region',{name:'Deadline adjustment preview',exact:true})).toBeVisible();}
-async function apply(p){await planner(p).getByLabel('Deadline adjustment reason',{exact:true}).fill('Use the approved holiday calendar for the delivery and review.');await planner(p).getByRole('button',{name:'Apply dates to draft',exact:true}).click();}
+async function apply(p) {
+ const panel = planner(p);
+ const reason = panel.getByLabel('Deadline adjustment reason', {exact:true});
+ const applyDates = panel.getByRole('button', {name:'Apply dates to draft', exact:true});
+ const message = 'Use the approved holiday calendar for the delivery and review.';
+ await expect(applyDates).toBeDisabled();
+ await reason.click();
+ await expect(reason).toBeFocused();
+ await reason.pressSequentially(message);
+ await expect(reason).toHaveValue(message);
+ await expect(applyDates).toBeEnabled();
+ await applyDates.click();
+}
 async function calendar(holidays){const s=await api(admin,`/api/audits/requests?auditId=${auditId}`);return api(admin,'/api/audits/requests','POST',{auditId,action:'reminder-profile',expectedRevision:s.reminderProfile.revision,expectedWorkflowRevision:'',profile:{...s.reminderProfile.profile,mode:'business',holidays}});}
 try{
  await mkdir(out,{recursive:true});await api(admin,'/api/auth','POST',{action:'login',email:'qa-admin@fornost.test',password:qaPassword()});
