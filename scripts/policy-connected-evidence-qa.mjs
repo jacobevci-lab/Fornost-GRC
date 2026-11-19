@@ -32,7 +32,34 @@ try{
  await person(d,'Policy owner',owner);await person(d,'Independent reviewer',f.reviewerEmail);policyId=(await submit(page,d,'Save')).id;
  await tab(page,'Policy Register');await row(page).getByRole('button',{name:'+ Version',exact:true}).click();d=page.getByRole('dialog',{name:'New controlled version',exact:true});
  for(const [label,value] of [['Effective date',future(0)],['Change summary','Define controlled policy review and independent evidence decisions.'],['Policy content','This policy governs access, accountability, independent approval and the handling of temporary exceptions. Owners must maintain evidence and review every relevant change.'],['Regulation refs','ISO-27001']])await d.getByLabel(label,{exact:true}).fill(value);
- versionId=(await submit(page,d,'Save')).id;assert.ok(policyId&&versionId);await tab(page,'Versions & Release');await row(page).getByRole('button',{name:'Submit',exact:true}).click();d=page.getByRole('dialog',{name:'Submit for review',exact:true});
+ const directory = (await api(admin,'/api/grc')).rows;
+ const control = directory.find(row => row.module === 'Kontroller');
+ const risk = directory.find(row => row.module === 'Risk Assessment');
+ assert.ok(control && risk, 'Expected control and risk fixtures');
+ async function pick(label, record, query) {
+   const input = d.getByRole('combobox', {name:label,exact:true});
+   await input.fill(query);
+   const result = d.getByRole('listbox', {name:label}).getByRole('option').filter({hasText:record.record_code || record.id});
+   await expect(result).toHaveCount(1);
+   await result.click();
+ }
+ const controlData = JSON.parse(control.data_json);
+ await pick('Add control', control, controlData.title || controlData.controlTitle || control.record_code);
+ await pick('Add risk', risk, risk.record_code || risk.id);
+ const risks = d.getByRole('list', {name:'Risk refs',exact:true});
+ await risks.getByRole('button', {name:/Remove/}).click();
+ await expect(risks).toHaveCount(0);
+ await pick('Add risk', risk, risk.record_code || risk.id);
+ const controlInput = d.getByRole('combobox', {name:'Add control',exact:true});
+ await controlInput.fill(control.record_code || control.id);
+ await expect(d.getByRole('listbox', {name:'Add control'}).getByRole('option').filter({hasText:control.record_code || control.id})).toHaveCount(0);
+ await controlInput.press('Escape');
+ versionId=(await submit(page,d,'Save')).id;assert.ok(policyId&&versionId);
+ const savedVersion = (await workspace(admin)).versions.find(version => version.id === versionId);
+ assert.deepEqual(savedVersion.controlRefs,[control.id]);
+ assert.deepEqual(savedVersion.riskRefs,[risk.id]);
+ assert.deepEqual(savedVersion.regulationRefs,['ISO-27001']);
+ await tab(page,'Versions & Release');await row(page).getByRole('button',{name:'Submit',exact:true}).click();d=page.getByRole('dialog',{name:'Submit for review',exact:true});
  const note='Retain this draft while another administrator changes the policy audience.';await fillDecision(d,'İNCELEMEYE GÖNDER',{note});await d.getByText('Policy content for this decision',{exact:true}).click();await expect(d.locator('.plm-decision-content')).toContainText('This policy governs access');
  checks.push('Actual policy and controlled-version UI creation, eligible owner/reviewer selectors, one required mapping group and exact policy-content preview');
  phase='choice and source recovery';await page.route(url=>url.pathname==='/api/workflow-choices',route=>failChoices?route.fulfill({status:503,json:{error:'unavailable'}}):route.continue());failChoices=true;await d.getByRole('button',{name:'Refresh versions',exact:true}).click();await expect(d.locator('.workflow-evidence').getByRole('alert')).toBeVisible();failChoices=false;await d.locator('.workflow-evidence').getByRole('button',{name:'Retry',exact:true}).click();await expect(d.getByLabel('File version',{exact:true})).toHaveValue(f.version1Id);

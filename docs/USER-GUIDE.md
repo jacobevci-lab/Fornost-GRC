@@ -369,6 +369,8 @@ Sonuçlar değişirse taslak korunur: **Sonuçları yenile → Güncel sonuçlar
 
 ### Politika kararlarında kişi ve kanıt seçimi
 
+**Politika Merkezi → Yeni kontrollü sürüm** formunda **Kontrol ekle** veya **Risk ekle** alanına adın ya da kodun en az iki karakterini yazın. Birden fazla kayıt seçebilirsiniz. Seçimi kaldırmak için kaydın yanındaki × düğmesini kullanın. Harici referanslar için **Referansları elle düzenle** alanını açın.
+
 **Politika Merkezi** içinde politika/istisna sahibi ve bağımsız inceleyen etkin kullanıcı listesinden seçilir. Sürümü gönderme, onaylama, yayınlama; istisnayı onaylama/kapatma ve politikayı kaldırma sırasında **Karar kanıtı** alanından kanıt kaydını ve dosya sürümünü seçin. Dosyanın dönemi ve sürümü görünür; SHA-256 elle girilmez. Kontrol/regülasyon/risk eşlemelerinden en az biri yeterlidir.
 
 Karar bağlamını ve politika içeriğini inceleyin. Kaynak değiştiğinde not ve dosya seçimi korunur: **Karar bağlamını yenile → Güncel bağlamı kullan** ve tam onay ifadesini tekrar girin. Yanıt kaybolursa yeniden göndermeden önce bağlamı yenileyin; işlem tamamlanmışsa tekrar uygulanamaz. Sürüm/istisna satırlarında ve politika ayrıntısında son karar kanıtları; **Kanıt Kullanımı → Politika kararları** altında tarihsel kararlar ve tam kaynak bağlantısı bulunur. [Akış ve sınırlar](policy-connected-evidence.md).

@@ -61,3 +61,9 @@ html[data-theme="dark"] .plm-page .pwl-hero button{color:#122024!important}
 .pim-form button[type=submit]{justify-self:start;padding:9px 14px;border-radius:7px;border:1px solid var(--ws-brand);color:var(--ws-brand-2);background:var(--ws-brand-soft);font:inherit;font-weight:650}.pim-form button:disabled{opacity:.6}
 .pim-error{color:var(--ws-danger)}.pim-original{display:grid;gap:4px;overflow-wrap:anywhere}.pim-original a{color:var(--ws-brand-2)}
 @media(max-width:650px){.pim-fields{grid-template-columns:1fr}.pim-form{padding:12px}.plm-page .pwl-hero>div:last-child{flex-wrap:wrap}}
+
+.policy-version-links { min-width: 0; }
+.policy-version-links > ul { list-style: none; padding: 0; margin: .5rem 0; }
+.policy-version-links > ul > li { display: flex; align-items: center; gap: .5rem; justify-content: space-between; overflow-wrap: anywhere; }
+.policy-version-links details { margin-top: .5rem; }
+.policy-version-links summary { cursor: pointer; }
