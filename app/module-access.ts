@@ -29,6 +29,7 @@ export function isScoped(subject: AccessSubject) { return subject.role !== "Admi
 export function canReadModule(subject: AccessSubject, module: string) {
   return !isScoped(subject) || (ACCESS_MODULES.includes(module as AccessModule) && !!(subject.moduleAccess as Extract<ModuleAccess, { mode: "scoped" }>).modules[module as AccessModule]);
 }
+export function canReadPosture(subject: AccessSubject) { return ["Uyum","Kontroller","Kanıtlar"].every(module => canReadModule(subject,module)); }
 export function canWriteModule(subject: AccessSubject, module: string) {
   return ["Admin", "Editor"].includes(subject.role) && (!isScoped(subject) || (subject.moduleAccess as Extract<ModuleAccess, { mode: "scoped" }>).modules[module as AccessModule] === "write");
 }
@@ -42,6 +43,7 @@ export function canOpenModule(subject: AccessSubject, module: string) {
 export function scopedApiAllowed(subject: AccessSubject, pathname: string, method: string) {
   if (!isScoped(subject)) return true;
   const path = pathname.replace(/\/+$/, ""), read = method === "GET" || method === "HEAD";
+  if (path === "/api/framework-posture") return canReadPosture(subject) && (read || method === "POST" && canWriteModule(subject,"Uyum"));
   if (path === "/api/evidence/followups") return canReadModule(subject,"Kanıtlar") && (read ? canReadModule(subject,"Denetim Yönetimi") : method === "POST" && canWriteModule(subject,"Denetim Yönetimi"));
   if (path === "/api/evidence/usage") return read && canReadModule(subject, "Kanıtlar"); // Each usage source is authorized in the handler.
   if (path === "/api/record-links") return read; // Handler checks both module access and exact target.

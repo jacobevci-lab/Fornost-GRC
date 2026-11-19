@@ -56,6 +56,7 @@ export async function deleteAudit(db: D1Database, audit: Row, actor: string) {
     ...snapshots.map((data,index)=>db.prepare(`INSERT OR REPLACE INTO simple_grc_metadata(key,value,updated_at) SELECT ?,?,? WHERE ${claimed}`).bind(`${key}_requirements_${index}`,data,now,key,operation)),
     db.prepare(`DELETE FROM simple_grc_record_codes WHERE record_id IN (SELECT id FROM simple_grc_records WHERE module='Denetim Yönetimi' AND json_extract(data_json,'$.auditName')=?) AND ${claimed}`).bind(name,key,operation),
     db.prepare(`DELETE FROM simple_grc_records WHERE module='Denetim Yönetimi' AND json_extract(data_json,'$.auditName')=? AND ${claimed}`).bind(name,key,operation),
+    db.prepare(`DELETE FROM simple_grc_metadata WHERE key=? AND ${claimed}`).bind(`audit_posture_${id}`,key,operation),
     db.prepare(`DELETE FROM simple_audits WHERE id=? AND ${claimed}`).bind(id,key,operation),
   ]);
   if (Number(results[0]?.meta?.changes||0)<1) {

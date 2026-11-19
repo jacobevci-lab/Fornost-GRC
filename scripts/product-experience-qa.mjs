@@ -1,3 +1,4 @@
+import {openComplianceRegister} from "./qa-compliance-register.mjs";
 import { chromium, expect } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 import assert from 'node:assert/strict';
@@ -34,7 +35,7 @@ async function open(name){
   if(!await button.isVisible())for(const group of await nav.locator('.nav-group').all()){
     if(await group.getByRole('button',{name,exact:true,includeHidden:true}).count()){await group.locator('.nav-group-trigger').click();break;}
   }
-  await button.click();await expect(page.locator('main>header h1')).toHaveText(name);
+  await button.click();await expect(page.locator('main>header h1')).toHaveText(name);await openComplianceRegister(page,name);
 }
 async function screenshot(name){await page.screenshot({path:`${out}/${name}.png`,fullPage:true,animations:'disabled'});}
 const modules=[

@@ -1,3 +1,4 @@
+import {openComplianceRegister} from "./qa-compliance-register.mjs";
 import {cleanupQaFixture} from './qa-fixture-cleanup.mjs';
 import { openRegisterViews } from "./qa-browser-harness.mjs";
 import { chromium, expect } from '@playwright/test';
@@ -11,7 +12,7 @@ const page=await context.newPage(),errors=[],cleanup=[],checks=[];let risk,audit
 page.setDefaultTimeout(15000);page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error'&&!m.text().includes('Failed to load resource'))errors.push(m.text());});
 async function api(ctx,path,method='GET',data,status=200){const r=await ctx.request.fetch(base+path,{method,data,headers:{origin:base}});assert.equal(r.status(),status,await r.text());return r.json();}
 async function enter(p=page){await p.goto(base);await expect(p.locator('.shell')).toBeVisible();await p.locator('.language-switch:visible').getByRole('button',{name:'EN',exact:true}).click();}
-async function go(name,p=page){await p.locator(`nav button[aria-label="${name}"]`).evaluate(e=>e.click());}
+async function go(name,p=page){await p.locator(`nav button[aria-label="${name}"]`).evaluate(e=>e.click());await openComplianceRegister(p,name);}
 async function panel(p=page){await openRegisterViews(p);const x=p.locator('.saved-register-views:visible');await expect(x).toHaveCount(1);if(await x.getAttribute('open')===null)await x.locator('summary').click();return x;}
 const query=p=>p.getByRole('textbox',{name:'Search records',exact:true});
 try{

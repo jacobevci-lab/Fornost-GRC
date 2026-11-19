@@ -1,5 +1,8 @@
+import { programName } from "../../framework-posture/catalog";
+import { baselineToken, ensurePosture, makeBaseline, PostureError, readMatrix } from "../../framework-posture/store";
+import { iso27001Refs, iso27001Titles } from '../../framework-posture/iso-annex';
 import { auditRemovalPreview, updateAudit } from "../../audit-management";
-import { canReadModule, canWriteModule, isScoped } from "../../module-access";
+import { canReadModule, canReadPosture, canWriteModule, isScoped } from "../../module-access";
 import { deleteAudit, AuditLinked } from "../../audit-delete";
 import { LifecycleConflict } from "../../enterprise-lifecycle-write";
 import { ensureAuditClosureSchema } from "../../audit-closure-schema";
@@ -37,19 +40,6 @@ async function db() {
   await env.DB.batch([env.DB.prepare("CREATE TABLE IF NOT EXISTS simple_grc_record_codes(record_id TEXT PRIMARY KEY,module TEXT NOT NULL,code TEXT NOT NULL UNIQUE,created_at TEXT NOT NULL)"), env.DB.prepare(auditsTable), env.DB.prepare(recordsTable), env.DB.prepare(metadataTable)]);
   return env.DB;
 }
-
-const iso27001Refs = [
-  ...Array.from({ length: 37 }, (_, index) => `A.5.${index + 1}`),
-  ...Array.from({ length: 8 }, (_, index) => `A.6.${index + 1}`),
-  ...Array.from({ length: 14 }, (_, index) => `A.7.${index + 1}`),
-  ...Array.from({ length: 34 }, (_, index) => `A.8.${index + 1}`),
-];
-const iso27001Titles = Object.fromEntries([
-  ["5",["Bilgi güvenliği politikaları","Bilgi güvenliği rolleri ve sorumlulukları","Görevlerin ayrılığı","Yönetim sorumlulukları","Yetkili makamlarla iletişim","Özel ilgi gruplarıyla iletişim","Tehdit istihbaratı","Proje yönetiminde bilgi güvenliği","Bilgi ve diğer ilişkili varlıkların envanteri","Bilgi ve diğer ilişkili varlıkların kabul edilebilir kullanımı","Varlıkların iadesi","Bilginin sınıflandırılması","Bilginin etiketlenmesi","Bilgi aktarımı","Erişim kontrolü","Kimlik yönetimi","Kimlik doğrulama bilgileri","Erişim hakları","Tedarikçi ilişkilerinde bilgi güvenliği","Tedarikçi sözleşmelerinde bilgi güvenliğinin ele alınması","Bilgi ve iletişim teknolojileri tedarik zincirinde bilgi güvenliği","Tedarikçi hizmetlerinin izlenmesi, gözden geçirilmesi ve değişiklik yönetimi","Bulut hizmetlerinin kullanımında bilgi güvenliği","Bilgi güvenliği olay yönetimi planlaması ve hazırlığı","Bilgi güvenliği olaylarının değerlendirilmesi ve kararı","Bilgi güvenliği olaylarına müdahale","Bilgi güvenliği olaylarından öğrenme","Kanıtların toplanması","Kesinti sırasında bilgi güvenliği","İş sürekliliği için BİT hazırlığı","Yasal, düzenleyici ve sözleşmesel gereksinimler","Fikri mülkiyet hakları","Kayıtların korunması","Kişisel verilerin gizliliği ve korunması","Bilgi güvenliğinin bağımsız gözden geçirilmesi","Bilgi güvenliği politika ve standartlarına uyum","Belgelenmiş işletim prosedürleri"]],
-  ["6",["İşe alım öncesi kontroller","İstihdam şartları ve koşulları","Bilgi güvenliği farkındalığı, eğitimi ve öğretimi","Disiplin süreci","İşten ayrılma veya görev değişikliği sonrası sorumluluklar","Gizlilik veya ifşa etmeme anlaşmaları","Uzaktan çalışma","Bilgi güvenliği olaylarının raporlanması"]],
-  ["7",["Fiziksel güvenlik çevreleri","Fiziksel giriş","Ofislerin, odaların ve tesislerin güvenliği","Fiziksel güvenlik izleme","Fiziksel ve çevresel tehditlere karşı koruma","Güvenli alanlarda çalışma","Temiz masa ve temiz ekran","Ekipman yerleşimi ve korunması","Kuruluş dışındaki varlıkların güvenliği","Depolama ortamları","Destek altyapıları","Kablolama güvenliği","Ekipman bakımı","Ekipmanın güvenli imhası veya yeniden kullanımı"]],
-  ["8",["Kullanıcı uç nokta cihazları","Ayrıcalıklı erişim hakları","Bilgiye erişim kısıtlaması","Kaynak koda erişim","Güvenli kimlik doğrulama","Kapasite yönetimi","Kötücül yazılımlara karşı koruma","Teknik zafiyetlerin yönetimi","Yapılandırma yönetimi","Bilginin silinmesi","Veri maskeleme","Veri sızıntısının önlenmesi","Bilginin yedeklenmesi","Bilgi işleme tesislerinin yedekliliği","Günlükleme","İzleme faaliyetleri","Saat senkronizasyonu","Ayrıcalıklı yardımcı programların kullanımı","Canlı sistemlere yazılım kurulumu","Ağ güvenliği","Ağ hizmetlerinin güvenliği","Ağların ayrıştırılması","Web filtreleme","Kriptografi kullanımı","Güvenli geliştirme yaşam döngüsü","Uygulama güvenliği gereksinimleri","Güvenli sistem mimarisi ve mühendislik ilkeleri","Güvenli kodlama","Geliştirme ve kabulde güvenlik testleri","Dış kaynaklı geliştirme","Geliştirme, test ve üretim ortamlarının ayrılması","Değişiklik yönetimi","Test bilgileri","Denetim testleri sırasında bilgi sistemlerinin korunması"]],
-].flatMap(([group,titles]) => (titles as string[]).map((title,index) => [`A.${group}.${index+1}`,title])));
 
 function auditTemplateRows(audit: Record<string, unknown>, imported?: AuditCatalogImport) {
   const template = String(audit.template || ""), name = String(audit.name || ""), nowDate = new Date().toISOString().slice(0, 10);
@@ -151,6 +141,7 @@ export async function POST(req: NextRequest) {
   const auth = await requireRole(req, ["Admin", "Editor"]);
   if (auth.response) return auth.response;
   try {
+    if(!canWriteModule(auth.actor,"Denetim Yönetimi")) return NextResponse.json({error:"forbidden"},{status:403});
     const body = await readCatalogRequest(req) as AuditInput;
     const imported = body.catalogImport === undefined ? undefined : validateCatalogImport(body.catalogImport);
     const name = text(body.name, 160), template = imported?.name || text(body.template, 160) || "Özel Denetim";
@@ -158,16 +149,33 @@ export async function POST(req: NextRequest) {
     const id = `AUDIT-${crypto.randomUUID()}`, now = new Date().toISOString();
     const d = await db();
     const audit = {id,name,template,audit_type:text(body.auditType,100)||"Diğer Denetim",auditor:text(body.auditor,160),audit_owner:text(body.auditOwner,160)};
+    const snapshots:D1PreparedStatement[]=[];
+    const referencesWithEvidence=new Set<string>();
+    if(body.posture!==undefined){
+      if(!canReadPosture(auth.actor))throw new PostureError('forbidden',403);
+      const input=body.posture as {period?:unknown;token?:unknown}|null;
+      if(imported || typeof input?.period!=='string' || typeof input.token!=='string')throw new PostureError('fields');
+      await ensurePosture(d);
+      const baseline=makeBaseline(await readMatrix(d,programName(template)),input.period.trim());
+      if(await baselineToken(baseline)!==input.token)throw new PostureError('preview-changed',409);
+      for(const r of baseline.entries)if(r.controls.some(c=>c.evidence.length)) referencesWithEvidence.add(r.ref);
+      const value=JSON.stringify({...baseline,capturedAt:now});
+      if(new TextEncoder().encode(value).length>1750000)throw new PostureError('snapshot-size',413);
+      snapshots.push(d.prepare("INSERT INTO simple_grc_metadata(key,value,updated_at) VALUES(?,?,?)").bind(`audit_posture_${id}`,value,now));
+    }
     const rows = auditTemplateRows(audit, imported);
-    const provenance = {template,revision:imported?.version || "2026-10-05-full-packs",source:imported?.source || nistCatalogs.find(c=>c.name===template)?.source || (template===asvsManifest.name?asvsManifest.source:getCatalogStatus(template).source || ""),count:rows.length,imported:!!imported,rightsConfirmed:imported?.rightsConfirmed || false,createdBy:auth.actor.email,createdAt:now};
+    for(const row of rows)if(referencesWithEvidence.has(row.requirementRef)) row.evidenceStatus="İncelemede";
+    const provenance = {template,...(snapshots.length?{hasPosture:true}:{}),revision:imported?.version || "2026-10-05-full-packs",source:imported?.source || nistCatalogs.find(c=>c.name===template)?.source || (template===asvsManifest.name?asvsManifest.source:getCatalogStatus(template).source || ""),count:rows.length,imported:!!imported,rightsConfirmed:imported?.rightsConfirmed || false,createdBy:auth.actor.email,createdAt:now};
     await d.batch([
       d.prepare("INSERT INTO simple_audits(id,name,template,audit_type,auditor,audit_owner,status,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?)").bind(id,name,template,audit.audit_type,audit.auditor,audit.audit_owner,text(body.status,40) || "Başlanmadı",now,now),
       d.prepare("INSERT INTO simple_grc_metadata(key,value,updated_at) VALUES(?,?,?)").bind(`audit_catalog_${id}`,JSON.stringify(provenance),now),
+      ...snapshots,
       ...auditRequirementInserts(id,rows,now).map(statement=>d.prepare(statement.sql).bind(...statement.values)),
     ]);
     const insertedRequirements = rows.length;
     return NextResponse.json({ ok: true, id, insertedRequirements }, { status: 201 });
   } catch (error) {
+    if (error instanceof PostureError) return NextResponse.json({error:error.code},{status:error.status});
     if (String(error).toLowerCase().includes("unique")) return NextResponse.json({ error: "Bu adla bir denetim zaten portföyde." }, { status: 409 });
     return NextResponse.json({ error: "Denetim oluşturulamadı." }, { status: 400 });
   }
