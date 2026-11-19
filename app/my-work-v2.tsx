@@ -265,7 +265,7 @@ function itemFromRow(row: Row, user: User, now: number, lang: Lang, completed = 
     waiting: !completed && isWaitingForOthers(row, user),
   };
 }
-function navigateToRecord(row: Row) {
+function openWorkSource(row: Row) {
   if (row.workSource && row.workKind && row.nativeRef) {
     navigateToFornost({ module: row.module, ref: row.nativeRef, kind: row.workKind, source: "my-work-enterprise", ...(["audit-request", "audit-closure", "audit-workpaper", "audit-milestone"].includes(row.workKind) ? { filter: { auditId: clean(row.data.auditId) } } : {}) });
     return;
@@ -292,6 +292,7 @@ export default function MyWorkV2() {
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState(false);
   const [pageIndex, setPageIndex] = useState(0);
+  const returnRow = useRef<{ id: string; userId: string; leftQueue: boolean } | null>(null);
   const controller = useRef<AbortController | null>(null), request = useRef(0);
   const [refreshKey, setRefreshKey] = useState(0);
   const [verifiedRead, setVerifiedRead] = useState<{ mount: HTMLElement; at: Date } | null>(null);
@@ -303,6 +304,7 @@ export default function MyWorkV2() {
       setLang(currentLanguage());
       const legacy = document.querySelector<HTMLElement>(".my-work-page");
       if (!legacy) {
+        if (returnRow.current) returnRow.current.leftQueue = true;
         setMount(null);
         return;
       }
@@ -375,7 +377,7 @@ export default function MyWorkV2() {
     if (!mount) return;
     void load();
     const timer = window.setInterval(() => void load(), 300_000);
-    return () => { window.clearInterval(timer); cancelLoad(); };
+    return () => { window.clearInterval(timer); cancelLoad(); setVerifiedRead(null); };
   }, [mount, load, cancelLoad]);
 
   const scopedRows = useMemo(() => rows.filter(row => scope === "organization" && user.role === "Admin" ? true : matchesIdentity(row, user)), [rows, scope, user]);
@@ -426,7 +428,34 @@ export default function MyWorkV2() {
   }, [data, filter, query, lang, sort]);
 
   useEffect(() => { setPageIndex(0); }, [filter, query, scope, moduleFilter, sort]);
-  const page = paginateWork(visible, pageIndex);
+  const pageSize = 20;
+  const page = paginateWork(visible, pageIndex, pageSize);
+
+  function navigateToRecord(row: Row) {
+    returnRow.current = user.id ? { id: row.id, userId: user.id, leftQueue: false } : null;
+    openWorkSource(row);
+  }
+
+  useEffect(() => {
+    const origin = returnRow.current;
+    if (!origin?.leftQueue || !mount || !lastUpdated || loading || loadError) return;
+    if (origin.userId !== user.id || mount.contains(document.activeElement)) {
+      returnRow.current = null;
+      return;
+    }
+    const index = visible.findIndex(item => item.row.id === origin.id);
+    const targetPage = index >= 0 ? Math.floor(index / pageSize) : page.page;
+    if (targetPage !== pageIndex) {
+      setPageIndex(targetPage);
+      return;
+    }
+    const target = index >= 0
+      ? mount.querySelector<HTMLButtonElement>(`[data-work-id="${CSS.escape(origin.id)}"]`)
+      : mount.querySelector<HTMLInputElement>(".mw2-search input");
+    returnRow.current = null;
+    target?.focus({ preventScroll: true });
+    target?.scrollIntoView({ block: "nearest" });
+  }, [mount, lastUpdated, loading, loadError, user.id, visible, page.page, pageIndex]);
 
   const exportView = () => {
     if (loading || loadError || !lastUpdated || !visible.length) return;
@@ -493,7 +522,7 @@ export default function MyWorkV2() {
           <label className="mw2-search"><span aria-hidden="true">⌕</span><input aria-label={tr ? "İşlerde ara" : "Search work"} value={query} onChange={event => setQuery(event.target.value)} placeholder={tr ? "İşlerde ara…" : "Search work…"} /></label>
         </div>
 
-        {visible.length ? <div className="mw2-list">{page.items.map(item => <button type="button" key={item.row.id} className={`mw2-item ${item.tone}`} onClick={() => navigateToRecord(item.row)}>
+        {visible.length ? <div className="mw2-list">{page.items.map(item => <button type="button" key={item.row.id} data-work-id={item.row.id} className={`mw2-item ${item.tone}`} onClick={() => navigateToRecord(item.row)}>
           <span className="mw2-priority-dot" />
           <span className="mw2-title"><b>{item.title}</b><small>{MODULE_LABELS[item.row.module]?.[lang] || item.row.module} · {recordCode(item.row)}</small></span>
           <span className="mw2-owner"><small>{tr ? "Sahip" : "Owner"}</small><b>{item.owner}</b></span>

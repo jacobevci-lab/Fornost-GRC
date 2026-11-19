@@ -29,7 +29,13 @@ async function decision(p,operation){
  if(['review','close'].includes(operation)){await d.getByLabel('Notification decision',{exact:true}).selectOption('not-required');await d.getByLabel('Notification rationale',{exact:true}).fill('This synthetic exercise has no actual external notification requirement.');}
  await d.getByLabel('Confirmation phrase',{exact:true}).fill(phrases[operation]);const pending=p.waitForResponse(r=>new URL(r.url()).pathname==='/api/incidents'&&r.request().method()==='POST');await d.getByRole('button',{name:'Apply action',exact:true}).click();const r=await pending;assert.equal(r.status(),200,await r.text());await expect(d).toHaveCount(0);await waitForQaIdle(p);
 }
-async function leaveDetail(p){await p.locator('nav button[aria-label="My Work"]').evaluate(el=>el.click());await expect(p.locator('.incident-dossier')).toHaveCount(0);}
+async function leaveDetail(p){
+ const back=p.getByRole('button',{name:'Back to My Work',exact:true});
+ await back.focus();await p.keyboard.press('Enter');
+ await expect(p.locator('.my-work-v2')).toBeVisible();
+ await expect(p.getByRole('textbox',{name:'Search work',exact:true})).toHaveValue(name);
+ await expect(p.getByLabel('Work queue module',{exact:true})).toHaveValue('Güvenlik Olayları');
+}
 try{
  await mkdir(out,{recursive:true});for(const [ctx,email] of [[admin,owner],[reviewer,f.reviewerEmail],[viewer,f.viewerEmail],[scoped,f.scopedEmail]])await api(ctx,'/api/auth','POST',{action:'login',email,password:qaPassword()});
  await api(admin,'/api/users','POST',{name:'QA Inbox Commander',email:commanderEmail,role:'Editor',password:qaPassword(),moduleAccess:{mode:'full'}},201);await api(commander,'/api/auth','POST',{action:'login',email:commanderEmail,password:qaPassword()});
@@ -41,10 +47,31 @@ try{
  phase='response assignments and exact keyboard navigation';
  await work(page,'Priority');await expect(page.locator('.mw2-item')).toContainText('Incident triage needed');await expect(page.locator('.mw2-item time')).toHaveText('No due date');
  await work(commandPage);await expect(commandPage.locator('.mw2-item')).toHaveCount(1);await work(reviewPage,'All',false);await expect(reviewPage.locator('.mw2-item')).toHaveCount(0);
+ await openIncident(page);await leaveDetail(page);
+ await expect(page.locator('.mw2-filters button[aria-pressed="true"]')).toContainText('Priority');
+ await expect(page.locator('.mw2-item')).toBeFocused();
+ // Add work projections only to this browser so the real source can move across a page boundary.
+ const workUrl=url=>url.pathname==='/api/incidents'&&url.searchParams.get('view')==='work';
+ const extraRows=async route=>{
+   const response=await route.fetch(),body=await response.json();
+   const incident=body.incidents.find(row=>row.id===incidentId);
+   const earlier=Array.from({length:20},(_,index)=>({...incident,id:`qa-virtual-${index}`,title:`A ${index} ${name}`}));
+   await route.fulfill({response,json:{...body,incidents:[...earlier,...body.incidents]}});
+ };
+ await page.route(workUrl,extraRows);
+ await page.locator('.my-work-v2').getByRole('button',{name:'Refresh',exact:true}).click();
+ await page.locator('.mw2-pagination').getByRole('button',{name:'Next',exact:true}).click();
+ await openIncident(page);await leaveDetail(page);
+ await expect(page.locator('.mw2-pagination')).toContainText('2 / 2');
+ await expect(page.locator('.mw2-item')).toBeFocused();
+ await openIncident(page);await page.unroute(workUrl,extraRows);await leaveDetail(page);
+ await expect(page.locator('.mw2-pagination')).toContainText('1 / 1');
+ await expect(page.locator('.mw2-item')).toBeFocused();
+ checks.push('Keyboard return preserves the queue filter, query and second page, and follows the same incident after the queue shrinks.');
  await openIncident(page);await decision(page,'triage');await leaveDetail(page);await work(commandPage);await openIncident(commandPage);for(const op of ['contain','eradicate','recover','review'])await decision(commandPage,op);await leaveDetail(commandPage);
  await work(page,'Waiting for others');await expect(page.locator('.mw2-item')).toHaveCount(1);await work(commandPage,'Waiting for others');await expect(commandPage.locator('.mw2-item')).toHaveCount(1);
  await work(reviewPage);await expect(reviewPage.locator('.mw2-item')).toContainText('Awaiting independent incident closure');await reviewPage.locator('.mw2-filters').getByRole('button',{name:/^Waiting for others/}).click();await expect(reviewPage.locator('.mw2-item')).toHaveCount(0);
- await work(reviewPage);await openIncident(reviewPage);await decision(reviewPage,'close');await leaveDetail(reviewPage);
+ await work(reviewPage);await openIncident(reviewPage);await decision(reviewPage,'close');await leaveDetail(reviewPage);await expect(reviewPage.getByRole('textbox',{name:'Search work',exact:true})).toBeFocused();
  await work(page);await expect(page.locator('.mw2-item')).toHaveCount(0);await work(page,'Completed');await expect(page.locator('.mw2-item')).toContainText('Closed');await expect(page.locator('.mw2-item time')).not.toHaveText('No due date');
  await work(reviewPage,'Completed');await openIncident(reviewPage);await decision(reviewPage,'reopen');await leaveDetail(reviewPage);
  await work(page);await expect(page.locator('.mw2-item')).toContainText('Incident containment needed');await page.locator('.mw2-filters').getByRole('button',{name:/^Completed/}).click();await expect(page.locator('.mw2-item')).toHaveCount(0);
