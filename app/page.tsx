@@ -3762,57 +3762,57 @@ function AuditModule({
     [savingAudit, setSavingAudit] = useState(false);
   const [catalogImport, setCatalogImport] = useState<AuditCatalogImport|null>(null);
   const [auditCreateError,setAuditCreateError] = useState("");
-  const [requestFocus, setRequestFocus] = useState<{ id: string; auditId: string } | null>(null);
+  const [taskFocus, setTaskFocus] = useState<{ kind: string; id: string; auditId: string; fromMyWork: boolean } | null>(null);
   const [showUnassigned, setShowUnassigned] = useState(false);
   const [previewAuditId,setPreviewAuditId]=useState("");
   const [areaFocus,setAreaFocus]=useState<{id:string;area:string}|null>(null);
-  const [milestoneFocus,setMilestoneFocus]=useState<{id:string;auditId:string}|null>(null);
-  const [workpaperFocus, setWorkpaperFocus] = useState<{ id: string; auditId: string } | null>(null);
-  const [closureFocus, setClosureFocus] = useState<{ id: string; auditId: string } | null>(null);
   useEffect(() => {
     const accept = (request: FornostNavigationRequest | null) => {
-      if(request?.module === "Denetim Yönetimi" && request.kind === "audit-area") {
-        const target=audits.find(a=>a.id===request.ref);if(target){setAreaFocus({id:target.id,area:request.filter?.area||"work"});select(target.name);consumePendingFornostFocus("Denetim Yönetimi");}return;
-      }
-      if(request?.module === "Denetim Yönetimi")setAreaFocus(null);
-      if(request?.module === "Denetim Yönetimi" && request.kind !== "audit-milestone")setMilestoneFocus(null);
-      if(request?.module === "Denetim Yönetimi" && request.kind === "audit-milestone" && request.ref && request.filter?.auditId){
-        const target=audits.find(audit=>audit.id===request.filter?.auditId);
-        if(target){setRequestFocus(null);setClosureFocus(null);setWorkpaperFocus(null);setMilestoneFocus({id:request.ref,auditId:target.id});select(target.name);consumePendingFornostFocus("Denetim Yönetimi");}
-        return;
-      }
-      if (request?.module === "Denetim Yönetimi" && request.kind !== "audit-workpaper") setWorkpaperFocus(null);
-      if (request?.module === "Denetim Yönetimi" && request.kind === "audit-workpaper" && request.ref && request.filter?.auditId) {
-        const target = audits.find(audit => audit.id === request.filter?.auditId);
-        if (target) { setRequestFocus(null); setClosureFocus(null); setWorkpaperFocus({id:request.ref,auditId:target.id}); select(target.name); consumePendingFornostFocus("Denetim Yönetimi"); }
-        return;
-      }
-      if (request?.module === "Denetim Yönetimi" && request.kind !== "audit-closure") setClosureFocus(null);
-      if (request?.module === "Denetim Yönetimi" && request.kind === "audit-closure" && request.ref && request.filter?.auditId) {
-        const target = audits.find(audit => audit.id === request.filter?.auditId);
-        if (target) { setRequestFocus(null); setClosureFocus({id:request.ref,auditId:target.id}); select(target.name); consumePendingFornostFocus("Denetim Yönetimi"); }
-        return;
-      }
-      if (request?.module === "Denetim Yönetimi" && request.kind === "audit-unassigned") {
-        setRequestFocus(null); select(""); setShowUnassigned(true);
+      if (request?.module !== "Denetim Yönetimi") return;
+      const { kind, ref, filter } = request;
+      if (kind && ["audit-request", "audit-workpaper", "audit-milestone", "audit-closure"].includes(kind) && ref && filter?.auditId) {
+        setAreaFocus(null);
+        setTaskFocus({ kind, id: ref, auditId: filter.auditId, fromMyWork: request.source === "my-work-enterprise" });
         consumePendingFornostFocus("Denetim Yönetimi");
         return;
       }
-      if (request?.module === "Denetim Yönetimi" && request.kind === "audit" && request.ref) {
-        const target = audits.find(audit => audit.id === request.ref);
-        if (target) { setRequestFocus(null); select(target.name); consumePendingFornostFocus("Denetim Yönetimi"); }
-        return;
+      setTaskFocus(null);
+      if (kind === "audit-area" || kind === "audit") {
+        const target = audits.find(audit => audit.id === ref);
+        if (target) {
+          setAreaFocus(kind === "audit-area" ? { id: target.id, area: filter?.area || "work" } : null);
+          select(target.name);
+          consumePendingFornostFocus("Denetim Yönetimi");
+        }
+      } else {
+        setAreaFocus(null);
+        if (kind === "audit-unassigned") {
+          select(""); setShowUnassigned(true);
+          consumePendingFornostFocus("Denetim Yönetimi");
+        }
       }
-      if (request?.module !== "Denetim Yönetimi" || request.kind !== "audit-request" || !request.ref || !request.filter?.auditId) return;
-      const target = audits.find(audit => audit.id === request.filter?.auditId);
-      setRequestFocus({ id: request.ref, auditId: request.filter.auditId });
-      if (target) { select(target.name); consumePendingFornostFocus("Denetim Yönetimi"); }
     };
     accept(peekPendingFornostFocus());
     const listener = (event: Event) => accept((event as CustomEvent<FornostNavigationRequest>).detail);
     window.addEventListener(FORNOST_FOCUS_EVENT, listener);
     return () => window.removeEventListener(FORNOST_FOCUS_EVENT, listener);
   }, [audits, select]);
+
+  const taskAudit = taskFocus ? audits.find(audit => audit.id === taskFocus.auditId) : undefined;
+  useEffect(() => {
+    if (taskAudit && (selected !== taskAudit.name || focusedRequirement)) select(taskAudit.name);
+  }, [taskAudit, selected, select, focusedRequirement]);
+
+  const showPortfolio = () => {
+    setTaskFocus(null);
+    setAreaFocus(null);
+    select("");
+  };
+  const returnToWork = taskFocus?.fromMyWork && (
+    <button type="button" className="ghost" onClick={() => navigateToFornost("Benim İşlerim")}>
+      {tr ? "İş listeme dön" : "Back to My Work"}
+    </button>
+  );
   const portfolioNames = new Set(audits.map((audit) => auditNameKey(audit.name))),
     portfolioRows = rows.filter((row) =>
       portfolioNames.has(auditNameKey(row.data.auditName)),
@@ -3833,6 +3833,19 @@ function AuditModule({
       name: custom ? "" : template,
       auditType: custom ? "Diğer Denetim" : auditKind(template),
     }));
+  }
+  if (taskFocus && (!taskAudit || taskAudit.name !== selected)) {
+    const failed = portfolioState === "error";
+    const missing = portfolioState === "ready" && !taskAudit;
+    return <section className="workspace-empty">
+      <p role={failed || missing ? "alert" : "status"}>{failed ? (tr ? "Denetim portföyü yüklenemedi." : "The audit portfolio could not be loaded.")
+        : missing ? (tr ? "Denetim bulunamadı veya bu denetime erişiminiz yok." : "Audit unavailable or inaccessible.")
+        : (tr ? "Denetim yükleniyor…" : "Loading audit…")}</p>
+      <div className="actions">{returnToWork}
+        {failed && <button type="button" onClick={retryPortfolio}>{tr ? "Yeniden dene" : "Retry"}</button>}
+        <button type="button" onClick={showPortfolio}>{tr ? "Tüm denetimler" : "All audits"}</button>
+      </div>
+    </section>;
   }
   // A directly opened requirement can predate portfolio assignment and have no audit name.
   if (!selected && focusedRequirement && visible.some(row => row.id === focusedRequirement)) {
@@ -3993,12 +4006,17 @@ function AuditModule({
       </>
     );
   const selectedPortfolio = audits.find((audit) => audit.name === selected);
+  const focusedTaskId = (kind: string) => taskFocus?.kind === kind ? taskFocus.id : "";
+  const requestId = focusedTaskId("audit-request");
+  const workpaperId = focusedTaskId("audit-workpaper");
+  const milestoneId = focusedTaskId("audit-milestone");
+  const closureId = focusedTaskId("audit-closure");
   const auditLocked = selectedPortfolio?.closure_state === "closed";
   const items = rows.filter(row => auditNameKey(row.data.auditName) === auditNameKey(selected));
   return (
     <>
       <section className="audit-detail-head">
-        <button className="audit-back" onClick={() => select("")}>
+        <button className="audit-back" onClick={showPortfolio}>
           ← {tr ? "Tüm denetimler" : "All audits"}
         </button>
         <div>
@@ -4011,6 +4029,7 @@ function AuditModule({
           </p>
         </div>
         <div className="actions">
+          {returnToWork}
           <button className="ghost" disabled={!canWrite || auditLocked} onClick={openImport}>
             {tr ? "Excel İçe Aktar" : "Import Excel"}
           </button>
@@ -4033,16 +4052,16 @@ function AuditModule({
       <AuditResearchWorkspace key={selectedPortfolio?.id || `unlinked:${selected}`} auditId={selectedPortfolio?.id || ""} lang={lang}
         focusArea={areaFocus?.id===selectedPortfolio?.id?areaFocus?.area:""}
         findings={selectedPortfolio?<AuditFindingsPanel auditId={selectedPortfolio.id} lang={lang}/>:undefined}
-        focusWorkpaper={workpaperFocus?.auditId === selectedPortfolio?.id ? workpaperFocus?.id : ""}
-        focusClosure={closureFocus?.auditId === selectedPortfolio?.id ? closureFocus?.id : ""}
-        items={items} focusedRequirement={focusedRequirement} focusRequest={selectedPortfolio && requestFocus?.auditId === selectedPortfolio.id ? requestFocus.id : ''} go={go}
+        focusWorkpaper={workpaperId}
+        focusClosure={closureId}
+        items={items} focusedRequirement={focusedRequirement} focusRequest={requestId} go={go}
         catalog={selectedPortfolio ? <FrameworkCatalogNotice framework={selectedPortfolio.template || ""} snapshot={selectedPortfolio.catalog} lang={lang} /> : null}
-        focusMilestone={milestoneFocus?.auditId === selectedPortfolio?.id ? milestoneFocus?.id : ""}
-        plan={selectedPortfolio ? <AuditPlanPanel focusId={milestoneFocus?.auditId === selectedPortfolio.id ? milestoneFocus.id : ""} auditId={selectedPortfolio.id} canWrite={canWrite && !auditLocked} lang={lang} embedded /> : null}
-        requests={selectedPortfolio ? <AuditRequestPanel readOnly={auditLocked} key={`requests:${selected}:${requestFocus?.id || ""}`} auditId={selectedPortfolio.id} lang={lang} focusId={requestFocus?.auditId === selectedPortfolio.id ? requestFocus.id : ''} /> : null}
-        workpapers={selectedPortfolio ? <AuditWorkpaperPanel focusId={workpaperFocus?.auditId === selectedPortfolio.id ? workpaperFocus.id : ""} key={`${selectedPortfolio.id}:${workpaperFocus?.auditId === selectedPortfolio.id ? workpaperFocus.id : ""}`} auditId={selectedPortfolio.id} lang={lang} readOnly={auditLocked} /> : null}
+        focusMilestone={milestoneId}
+        plan={selectedPortfolio ? <AuditPlanPanel focusId={milestoneId} auditId={selectedPortfolio.id} canWrite={canWrite && !auditLocked} lang={lang} embedded /> : null}
+        requests={selectedPortfolio ? <AuditRequestPanel readOnly={auditLocked} key={`requests:${selected}:${requestId}`} auditId={selectedPortfolio.id} lang={lang} focusId={requestId} /> : null}
+        workpapers={selectedPortfolio ? <AuditWorkpaperPanel focusId={workpaperId} key={`${selectedPortfolio.id}:${workpaperId}`} auditId={selectedPortfolio.id} lang={lang} readOnly={auditLocked} /> : null}
         readiness={selectedPortfolio ? <AuditReadinessGate key={selected} lang={lang} auditName={selected} records={[...items, ...evidenceRows]} /> : null}
-        closure={canDeleteAudit && selectedPortfolio ? <AuditClosurePanel key={`closure:${selectedPortfolio.id}:${closureFocus?.auditId === selectedPortfolio.id ? closureFocus.id : ""}`} focusId={closureFocus?.auditId === selectedPortfolio.id ? closureFocus.id : ""} auditId={selectedPortfolio.id} lang={lang} onChanged={refreshAudits} /> : undefined}
+        closure={canDeleteAudit && selectedPortfolio ? <AuditClosurePanel key={`closure:${selectedPortfolio.id}:${closureId}`} focusId={closureId} auditId={selectedPortfolio.id} lang={lang} onChanged={refreshAudits} /> : undefined}
         reports={canDeleteAudit && selectedPortfolio ? <AuditStatusReportPanel auditId={selectedPortfolio.id} lang={lang} embedded /> : undefined}
         requirements={queue=><AuditRequirementsTable
         queue={queue}

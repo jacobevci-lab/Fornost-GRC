@@ -1,3 +1,4 @@
+import {returnToAuditWork} from './audit-workspace-qa-navigation.mjs';
 import {cleanupQaFixture} from './qa-fixture-cleanup.mjs';
 import { qaPassword } from './qa-credentials.mjs';
 import { chromium, expect } from '@playwright/test';
@@ -148,11 +149,31 @@ try {
   await panel.getByRole('button',{name:'Copy record link',exact:true}).click();
   const requestLink=await page.evaluate(()=>navigator.clipboard.readText());assert.ok(requestLink.includes('kind=audit-request'));
   await page.goto(requestLink);await expect(page.getByRole('tab',{name:'Evidence requests',exact:true})).toHaveAttribute('aria-selected','true');await expect(panel.locator('.ar-detail')).toContainText(addition.id);
+  await expect(page.getByRole('button',{name:'Back to My Work',exact:true})).toHaveCount(0);
   // Completed work belongs to the owner; organization scope is Admin-only.
   await page.locator('nav button[aria-label="My Work"]').evaluate(el => el.click());
   await page.locator('.mw2-scope button').filter({ hasText: /Organization|Kurum/ }).click();
   await page.locator('.mw2-filters button').filter({ hasText: /Completed|Tamamlanan/ }).click();
   await page.locator('.mw2-item').filter({ hasText: request.title }).click(); await expect(page.locator('.ar-detail')).toContainText(request.id);
+  const completedTask = await returnToAuditWork(page, request.title);
+  await expect(page.locator('.mw2-scope button[aria-pressed="true"]')).toContainText('Organization');
+  await expect(page.locator('.mw2-filters button[aria-pressed="true"]')).toContainText('Completed');
+  // A queue snapshot can outlive the parent audit's visibility.
+  const inbox = url => url.pathname === '/api/audits/requests' && !url.searchParams.has('auditId');
+  await page.route(inbox, async route => {
+    const response = await route.fetch(), body = await response.json();
+    await route.fulfill({response, json: {...body, requests: body.requests.map(row =>
+      row.id === request.id ? {...row, auditId: 'qa-unavailable-parent'} : row)}});
+  });
+  const refresh = page.locator('.my-work-v2').getByRole('button',{name:'Refresh',exact:true});
+  const projected = page.waitForResponse(response => inbox(new URL(response.url())));
+  await refresh.click(); await projected; await expect(refresh).toBeEnabled();
+  await completedTask.press('Enter');
+  await expect(page.getByRole('alert')).toContainText('Audit unavailable or inaccessible');
+  await expect(page.locator('.audit-detail-head')).toHaveCount(0);
+  await page.unroute(inbox);
+  const restoredTask = await returnToAuditWork(page, request.title);
+  await restoredTask.press('Enter'); await expect(page.locator('.ar-detail')).toContainText(request.id);
   await mkdir('audit-request-qa-artifacts', { recursive: true });
   for (const language of ['EN', 'TR']) {
     await page.locator('.language-switch:visible').getByRole('button', { name: language, exact: true }).click();

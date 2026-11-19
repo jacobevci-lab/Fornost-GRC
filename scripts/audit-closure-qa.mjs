@@ -1,3 +1,4 @@
+import {returnToAuditWork} from './audit-workspace-qa-navigation.mjs';
 import {cleanupQaFixture} from './qa-fixture-cleanup.mjs';
 import { qaPassword } from './qa-credentials.mjs';
 import { chromium, expect } from '@playwright/test';
@@ -76,6 +77,8 @@ try{
  // Reviewer follows their actual My Work task to the exact audit package.
  await shell(peer);await peer.locator('nav button[aria-label="My Work"]').evaluate(el=>el.click());await expect(peer.locator('.my-work-v2')).toBeVisible();await peer.locator('.mw2-filters').getByRole('button',{name:/^All/}).click();
  await peer.locator('.mw2-item').filter({hasText:name}).click();const peerPanel=peer.locator('.audit-closure');await expect(peer.getByRole('tab',{name:'Report and closure',exact:true})).toHaveAttribute('aria-selected','true');await expect(peerPanel.locator('.asr-saved')).toContainText(summary);
+ const closureTask=await returnToAuditWork(peer,name);
+ await closureTask.press('Enter');await expect(peerPanel.locator('.asr-saved')).toContainText(summary);
  await peerPanel.getByLabel('Decision or reopening reason',{exact:true}).fill('I reviewed the scope and the assigned follow-up actions.');
  await peerPanel.getByLabel('I reviewed the package scope, results and follow-up of open findings.',{exact:true}).check();
  plan=await api(admin,'/api/audits/plan','PUT',{id:auditId,expectedRevision:plan.revision,plan:{...plan.plan,scope:'Privileged access with revised scope boundary'}});
