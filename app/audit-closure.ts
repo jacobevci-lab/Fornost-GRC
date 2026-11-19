@@ -1,4 +1,4 @@
-import { auditReportSummary, type AuditReportDetail, type AuditReportSource } from './audit-status-report';
+import { auditReportSummary, outstandingAuditItem, type AuditReportItem, type AuditReportDetail, type AuditReportSource } from './audit-status-report';
 
 export type AuditClosureState = { state: 'open' | 'pending' | 'closed'; revision: string; submissionId: string; reportId: string };
 export type AuditClosureAction = 'submit' | 'approve' | 'return' | 'withdraw' | 'reopen';
@@ -23,6 +23,17 @@ export const auditClosureBlockerLabels: Record<string, [string, string]> = {
   workpapers: ['Tüm çalışma kâğıtları bağımsız incelemeyle onaylanmalı veya gerekçeyle iptal edilmeli.', 'Independently approve or cancel with a reason every workpaper.'],
   findings: ['Açık bağlı bulguların sorumlu ve geçerli termin bilgisi olmalı.', 'Every open linked finding needs an owner and a valid due date.'],
 };
+export function closureFindingGaps(item: AuditReportItem) {
+  const gaps: ('owner' | 'dueDate')[] = [];
+  if (item.kind !== 'finding' || !outstandingAuditItem(item)) return gaps;
+  const {owner, dueDate} = item.record.data;
+  if (!String(owner || '').trim()) gaps.push('owner');
+  const date = String(dueDate);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !Number.isFinite(Date.parse(date)) ||
+      new Date(date).toISOString().slice(0, 10) !== dueDate) gaps.push('dueDate');
+  return gaps;
+}
+
 export function auditClosureBlockers(source: AuditReportSource) {
   const n = auditReportSummary(source.items), blockers: string[] = [];
   if (!source.plan.revision || !['objective', 'scope', 'lead'].every(key => String(source.plan.plan[key as keyof typeof source.plan.plan] || '').trim())) blockers.push('plan');
@@ -31,10 +42,7 @@ export function auditClosureBlockers(source: AuditReportSource) {
   if (n.outstandingMilestones) blockers.push('milestones');
   if (n.outstandingWorkpapers) blockers.push('workpapers');
   if (n.requests && (n.outstandingRequests || source.workflow.state !== 'closed')) blockers.push('requests');
-  if (source.items.some(i => i.kind === 'finding' && i.record.data.status !== 'closed' && (
-    !String(i.record.data.owner || '').trim() || !/^\d{4}-\d{2}-\d{2}$/.test(String(i.record.data.dueDate)) ||
-    !Number.isFinite(Date.parse(String(i.record.data.dueDate))) || new Date(String(i.record.data.dueDate)).toISOString().slice(0, 10) !== i.record.data.dueDate
-  ))) blockers.push('findings');
+  if (source.items.some(item => item.kind === 'finding' && closureFindingGaps(item).length)) blockers.push('findings');
   return blockers;
 }
 export const isAuditClosedError = (error: unknown) => String(error).includes('audit-closed');

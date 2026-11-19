@@ -32,16 +32,34 @@ try{
  await shell(page);await openAudit(page,name);const panel=page.locator('.audit-closure');
  await expect(panel.getByRole('button',{name:'Prepare closure package',exact:true})).toBeEnabled();
  await panel.getByRole('button',{name:'Prepare closure package',exact:true}).click();await expect(panel).toContainText('Complete every audit requirement');await expect(panel).toContainText('Accept or cancel every request');
+ await expect(panel.getByText('Select an independent approver.',{exact:true})).toBeVisible();
+ await expect(panel.getByText('Enter a closure summary of at least 10 characters.',{exact:true})).toBeVisible();
+ await expect(panel.getByText('Enter at least 10 characters of follow-up for open findings.',{exact:true})).toBeVisible();
  const summary='İstanbul audit fieldwork is complete. Open findings retain their owners and target dates.';
  await panel.getByLabel('Closure summary',{exact:true}).fill(summary);await panel.getByLabel('Independent approver',{exact:true}).selectOption(users[0]);
  await panel.getByLabel('Follow-up plan for open findings (required)',{exact:true}).fill('The action owner will complete the review by the recorded due date and CAPA will independently verify it.');
  await expect(panel.getByRole('button',{name:'Submit for independent approval',exact:true})).toBeDisabled();
+ await expect(panel.locator('.acl-needs')).toHaveCount(0);
+ await panel.getByRole('button',{name:/Show closure blockers/}).click();
+ const blockers=panel.getByRole('region',{name:'Closure blockers'});
+ await blockers.getByText(/Complete every audit requirement/).click();
+ await expect(blockers.getByRole('link',{name:/Kapanış kontrolü 25/})).toBeVisible();
+ await expect(blockers.getByRole('link',{name:/Kapanış kontrolü 24/})).toHaveCount(0);
+ await blockers.getByText(/Accept or cancel every request/).click();
+ const requestLink=blockers.getByRole('link',{name:/Optional scope request/});
+ const [linkedPage]=await Promise.all([admin.waitForEvent('page'),requestLink.click()]);
+ try { await expect(linkedPage.locator('.ar-detail')).toContainText('Optional scope request'); }
+ finally { await linkedPage.close(); }
+ await expect(panel.getByLabel('Closure summary',{exact:true})).toHaveValue(summary);
  let source=(await api(admin,endpoint+'&preview=1')).source,last=source.items.find(i=>i.kind==='requirement'&&i.record.data.requirementRef==='C-25');
  await api(admin,'/api/grc','PATCH',{id:last.id,expectedUpdatedAt:last.record.updatedAt,data:{...last.record.data,status:'Kapatıldı',progress:100}});
  let work=await api(admin,`/api/audits/requests?auditId=${auditId}`);
  await api(admin,'/api/audits/requests','POST',{auditId,action:'start',expectedRevision:work.workflow.revision,expectedPlanRevision:work.planRevision,expectedDrafts:work.requests.map(({id,revision})=>({id,revision})),timeZone:'Europe/Istanbul'});
  work=await api(admin,`/api/audits/requests?auditId=${auditId}`);
  await api(admin,'/api/audits/requests','POST',{auditId,action:'cancel',requestId:reqId,expectedRevision:work.requests[0].revision,note:'The scope item is not applicable; approved exclusion.'});
+ await panel.getByRole('button',{name:'Prepare closure package',exact:true}).click();
+ await expect(blockers).toContainText('The evidence request work plan is still open.');
+ await expect(blockers.getByRole('link')).toHaveCount(0);
  work=await api(admin,`/api/audits/requests/closure?auditId=${auditId}&preview=1`);
  const workClosed=await api(admin,'/api/audits/requests/closure','POST',{auditId,action:'close',expectedRevision:work.workflow.revision,expectedPlanRevision:work.plan.revision,expectedRequests:work.requests.map(({id,revision})=>({id,revision})),note:'All requests have an explicit reviewed disposition.'});
  await panel.getByRole('button',{name:'Prepare closure package',exact:true}).click();await expect(panel.getByLabel('Closure summary',{exact:true})).toHaveValue(summary);

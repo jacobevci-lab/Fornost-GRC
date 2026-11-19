@@ -3,7 +3,8 @@ import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { withBasePath } from './base-path';
 import { ReportSource } from './audit-status-report-panel';
 import { auditReportSummary } from './audit-status-report';
-import { auditClosureActionLabels, auditClosureBlockerLabels, auditClosureLabels, type AuditClosureAction, type AuditClosureDetail, type AuditClosureHistory, type AuditClosurePreview } from './audit-closure';
+import { auditClosureActionLabels, auditClosureLabels, type AuditClosureAction, type AuditClosureDetail, type AuditClosureHistory, type AuditClosurePreview } from './audit-closure';
+import {AuditClosureBlockers} from './audit-closure-blockers';
 import './audit-status-report.css';
 
 const messages: Record<string, [string, string]> = {
@@ -68,10 +69,15 @@ export function AuditClosurePanel({ auditId, lang, onChanged, focusId = '' }: { 
     await reload(); await loadDetail(result.id); await onChanged();
     if (live.current) setNotice(action);
   }
+  const blockerList = useRef<HTMLDivElement>(null);
   const currentPackage = !!state && detail?.event.id === state.submissionId;
   const canReview = currentPackage && history?.actorId === detail?.event.reviewerId && history?.actorId !== detail?.event.preparerId;
   const canWithdraw = currentPackage && history?.actorId === detail?.event.preparerId;
   const unresolved = preview ? auditReportSummary(preview.source.items).unresolvedFindings : 0;
+  const submitNeeds = [];
+  if (preview && !preview.reviewers.some(person => person.id === reviewerId)) submitNeeds.push(t('Bağımsız onaylayanı seçin.', 'Select an independent approver.'));
+  if (note.trim().length < 10) submitNeeds.push(t('En az 10 karakterlik kapanış özeti girin.', 'Enter a closure summary of at least 10 characters.'));
+  if (unresolved && followUp.trim().length < 10) submitNeeds.push(t('Açık bulgular için en az 10 karakterlik takip planı girin.', 'Enter at least 10 characters of follow-up for open findings.'));
   return <section className="audit-closure" aria-busy={busy}>
     <h3>{t('Kapanış ve onay', 'Closure and approval')}</h3><div className="asr-content">
       <p>{t('Kayıtlı planı, maddeleri, kanıt taleplerini ve doğrudan bağlı CAPA bulgularını bağımsız incelemeye gönderin. Onay denetimi kilitler; yeniden açmak gerekçe gerektirir.', 'Submit the saved plan, requirements, evidence requests and directly linked CAPA findings for independent review. Approval locks the audit; reopening requires a reason.')}</p>
@@ -86,7 +92,7 @@ export function AuditClosurePanel({ auditId, lang, onChanged, focusId = '' }: { 
       {state?.state === 'closed' && <p>{t('Plan, maddeler ve talepler değişikliğe kapalıdır. Açık CAPA aksiyonlarının takibi devam eder.', 'The plan, requirements and requests are locked. Follow-up of open CAPA actions continues.')}</p>}
       {preview && state?.state === 'open' && <div className="asr-preview">
         <h4>{t('Kapanış paketi önizlemesi', 'Closure package preview')}</h4><div inert={busy}><ReportSource source={preview.source} tr={tr}/></div>
-        {!!preview.blockers.length && <div role="status"><b>{t('Kapanışı engelleyenler', 'Closure blockers')}</b><ul>{preview.blockers.map(b => <li key={b}>{auditClosureBlockerLabels[b]?.[tr ? 0 : 1] || b}</li>)}</ul></div>}
+        <div inert={busy} tabIndex={-1} ref={blockerList}><AuditClosureBlockers key={preview.source.sourceRevision} preview={preview} tr={tr}/></div>
         <fieldset disabled={busy || !ready}>
           <div className="asr-field"><label htmlFor={`${formId}-reviewer`}>{t('Bağımsız onaylayan', 'Independent approver')}</label><select id={`${formId}-reviewer`} value={reviewerId} onChange={e => setReviewerId(e.target.value)}><option value="">{t('Yönetici seçin', 'Select an administrator')}</option>{preview.reviewers.map(r => <option key={r.id} value={r.id}>{r.name} · {r.email}</option>)}</select></div>
           {!preview.reviewers.length && <p>{t('Etkin başka bir yönetici yok. Kullanıcı yönetiminde bağımsız onaylayan hesabı oluşturulmalı.', 'There is no other active administrator. An independent approver account must be created in user administration.')}</p>}
@@ -108,7 +114,9 @@ export function AuditClosurePanel({ auditId, lang, onChanged, focusId = '' }: { 
         <div className="asr-field"><label htmlFor={`${formId}-note`}>{state.state === 'open' ? t('Kapanış özeti', 'Closure summary') : t('Karar veya yeniden açma gerekçesi', 'Decision or reopening reason')}</label><textarea id={`${formId}-note`} rows={3} minLength={10} maxLength={4000} value={note} onChange={e => setNote(e.target.value)}/></div>
         {state.state === 'pending' && canReview && <label className="acl-confirm"><input type="checkbox" checked={reviewed} onChange={e => setReviewed(e.target.checked)}/>{t('Paketin kapsamını, sonuçlarını ve açık bulguların takibini inceledim.', 'I reviewed the package scope, results and follow-up of open findings.')}</label>}
         <div className="asr-actions">
-          {state.state === 'open' && preview && <button disabled={note.trim().length < 10 || !reviewerId || !!preview.blockers.length || (unresolved > 0 && followUp.trim().length < 10)} onClick={() => void run(() => mutate('submit'))}>{t('Bağımsız onaya gönder', 'Submit for independent approval')}</button>}
+          {state.state === 'open' && preview && <><button aria-describedby={submitNeeds.length ? formId+'-needs' : undefined} disabled={!!submitNeeds.length || !!preview.blockers.length} onClick={() => void run(() => mutate('submit'))}>{t('Bağımsız onaya gönder', 'Submit for independent approval')}</button>
+            {!!preview.blockers.length && <button type="button" onClick={()=>blockerList.current?.focus()}>{t('Kapanışı engelleyenleri göster', 'Show closure blockers')} ({preview.blockers.length})</button>}
+            {!!submitNeeds.length && <ul className="acl-needs" id={formId+'-needs'}>{submitNeeds.map(reason=><li key={reason}>{reason}</li>)}</ul>}</>}
           {state.state === 'pending' && <>
             {canReview && <><button disabled={!reviewed || note.trim().length < 10} onClick={() => void run(() => mutate('approve'))}>{t('Onayla ve denetimi kapat', 'Approve and close audit')}</button><button disabled={note.trim().length < 10} onClick={() => void run(() => mutate('return'))}>{t('Düzeltme için iade et', 'Return for changes')}</button></>}
             {canWithdraw && <button disabled={note.trim().length < 10} onClick={() => void run(() => mutate('withdraw'))}>{t('Onaydan geri çek', 'Withdraw from review')}</button>}

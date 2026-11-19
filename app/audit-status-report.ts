@@ -26,14 +26,25 @@ export async function auditReportHash(value: unknown) {
   const hash = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(reportCanonical(value)));
   return Array.from(new Uint8Array(hash)).map(n => n.toString(16).padStart(2, '0')).join('');
 }
+const finishedStatuses: Record<AuditReportItem['kind'], readonly string[]> = {
+  requirement: ['Kapatıldı', 'Kapalı', 'Tamamlandı'],
+  milestone: ['completed', 'cancelled'],
+  workpaper: ['approved', 'cancelled'],
+  request: ['accepted', 'cancelled'],
+  finding: ['closed'],
+};
+
+export function outstandingAuditItem(item: AuditReportItem) {
+  return !finishedStatuses[item.kind].includes(String(item.record.data.status));
+}
 export function auditReportSummary(items: AuditReportItem[]) {
   const requirements = items.filter(i => i.kind === 'requirement'), requests = items.filter(i => i.kind === 'request'), findings = items.filter(i => i.kind === 'finding');
   return {
-    milestones: items.filter(i=>i.kind==='milestone').length, outstandingMilestones: items.filter(i=>i.kind==='milestone'&&!['completed','cancelled'].includes(String(i.record.data.status))).length,
-    workpapers: items.filter(i => i.kind === 'workpaper').length, outstandingWorkpapers: items.filter(i => i.kind === 'workpaper' && !['approved', 'cancelled'].includes(String(i.record.data.status))).length,
-    requirements: requirements.length, unfinishedRequirements: requirements.filter(i => !['Kapatıldı', 'Kapalı', 'Tamamlandı'].includes(String(i.record.data.status))).length,
-    requests: requests.length, outstandingRequests: requests.filter(i => !['accepted', 'cancelled'].includes(String(i.record.data.status))).length,
+    milestones: items.filter(i=>i.kind==='milestone').length, outstandingMilestones: items.filter(i=>i.kind==='milestone'&&outstandingAuditItem(i)).length,
+    workpapers: items.filter(i => i.kind === 'workpaper').length, outstandingWorkpapers: items.filter(i => i.kind === 'workpaper' && outstandingAuditItem(i)).length,
+    requirements: requirements.length, unfinishedRequirements: requirements.filter(outstandingAuditItem).length,
+    requests: requests.length, outstandingRequests: requests.filter(outstandingAuditItem).length,
     acceptedRequests: requests.filter(i => i.record.data.status === 'accepted').length, cancelledRequests: requests.filter(i => i.record.data.status === 'cancelled').length,
-    findings: findings.length, unresolvedFindings: findings.filter(i => i.record.data.status !== 'closed').length,
+    findings: findings.length, unresolvedFindings: findings.filter(outstandingAuditItem).length,
   };
 }
