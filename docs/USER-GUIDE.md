@@ -369,7 +369,7 @@ Sonuçlar değişirse taslak korunur: **Sonuçları yenile → Güncel sonuçlar
 
 ### Politika kararlarında kişi ve kanıt seçimi
 
-**Politika Merkezi → Yeni kontrollü sürüm** formunda **Kontrol ekle** veya **Risk ekle** alanına adın ya da kodun en az iki karakterini yazın. Birden fazla kayıt seçebilirsiniz. Seçimi kaldırmak için kaydın yanındaki × düğmesini kullanın. Harici referanslar için **Referansları elle düzenle** alanını açın.
+**Politika Merkezi → Yeni kontrollü sürüm** formunda **Kontrol ekle** veya **Risk ekle** alanına adın ya da kodun en az iki karakterini yazın. Birden fazla kayıt seçebilirsiniz. Seçimi kaldırmak için kaydın yanındaki × düğmesini kullanın. Harici referanslar için **Referansları elle düzenle** alanını açın. Word veya PDF dosyasından politika içe aktarırken de aynı alanları kullanabilirsiniz. Politika kartında ve **Sürümü incele** ekranında kontrol ve risk bağlantıları başlık ve kodla gösterilir. Bağlantıya tıklayarak ilgili kaydı açabilirsiniz. Harici referanslar düz metin olarak görünür.
 
 **Politika Merkezi** içinde politika/istisna sahibi ve bağımsız inceleyen etkin kullanıcı listesinden seçilir. Sürümü gönderme, onaylama, yayınlama; istisnayı onaylama/kapatma ve politikayı kaldırma sırasında **Karar kanıtı** alanından kanıt kaydını ve dosya sürümünü seçin. Dosyanın dönemi ve sürümü görünür; SHA-256 elle girilmez. Kontrol/regülasyon/risk eşlemelerinden en az biri yeterlidir.
 

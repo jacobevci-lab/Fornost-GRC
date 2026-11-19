@@ -35,6 +35,12 @@ async function open(){
 }
 try{
  await login(context,owner);await login(viewer,f.viewerEmail);
+ const directory = await context.request.get(base+'/api/grc');
+ assert.equal(directory.status(), 200);
+ const {rows} = await directory.json();
+ const control = rows.find(row => row.module === 'Kontroller' && row.record_code);
+ const risk = rows.find(row => row.module === 'Risk Assessment' && row.record_code);
+ assert.ok(control && risk, 'Expected searchable control and risk fixtures');
  const existingTitle='Existing import destination '+tag;
  const record=await context.request.post(base+'/api/policy-lifecycle',{headers:{origin:base},data:{action:'save-policy',assignmentMode:'directory',code:'POL-OLD-'+tag,title:existingTitle,owner,reviewer:f.reviewerEmail,classification:'internal',category:'security',audience:'Security team',reviewFrequencyDays:365}});
  assert.equal(record.status(),200,await record.text());const existing=(await record.json()).id;
@@ -57,6 +63,14 @@ try{
    await dialog.getByLabel('Independent reviewer',{exact:true}).selectOption(f.reviewerEmail);
   }
   await dialog.getByLabel('Planned effective date',{exact:true}).fill('2026-11-11');await dialog.getByLabel('Regulation references').fill('ISO 27001');
+  const selectedLabels = [];
+  for (const [field, target] of [['Add control', control], ['Add risk', risk]]) {
+   await dialog.getByRole('combobox', {name:field, exact:true}).fill(target.record_code);
+   const option = dialog.getByRole('listbox', {name:field}).getByRole('option').filter({hasText:target.record_code});
+   const title = await option.locator('strong').innerText();
+   selectedLabels.push(title === target.record_code ? title : title + ' · ' + target.record_code);
+   await option.click();
+  }
   await page.setViewportSize({width:i?1440:390,height:900});
   assert.ok(await dialog.evaluate(el=>el.scrollWidth<=el.clientWidth+2));
   const save=page.waitForResponse(r=>r.request().method()==='POST'&&new URL(r.url()).pathname==='/api/policy-lifecycle');
@@ -64,12 +78,29 @@ try{
   const result=await save;assert.equal(result.status(),200,await result.text());const payload=await result.json();
   if(i)assert.equal(payload.policyId,existing);
   const version=page.getByRole('dialog',{name:'Version comparison'});await expect(version).toContainText(edited.trim().split('\n').at(-1));await expect(version).toContainText('v1 · Draft');
+  await version.getByText(/Linked records and content digest/).click();
+  async function checkMappings(surface) {
+   const list = surface.locator('.policy-version-mappings');
+   for (const label of selectedLabels) await expect(list.getByRole('button', {name:label, exact:true})).toBeVisible();
+   await expect(list.getByText('ISO 27001', {exact:true})).toBeVisible();
+   await expect(list.getByRole('button', {name:'ISO 27001'})).toHaveCount(0);
+  }
+  await checkMappings(version);
   const link=version.getByRole('link',{name:/Download original file/}),url=new URL(await link.getAttribute('href'),base).href;
   const original=await context.request.get(url);assert.equal(original.status(),200);assert.deepEqual(await original.body(),buffer);
   assert.match(original.headers()['content-disposition'],/attachment/);
   assert.equal((await anonymous.request.get(url)).status(),401);
   assert.equal(await version.locator('.pim-original small').textContent(),'SHA-256 · '+createHash('sha256').update(buffer).digest('hex'));
-  await page.keyboard.press('Escape');await page.setViewportSize({width:1440,height:960});await waitForQaIdle(page);
+  await version.getByRole('button', {name:'Close dialog'}).click();
+  await page.setViewportSize({width:1440,height:960});await waitForQaIdle(page);
+  await page.locator('.plm-tabs').getByRole('button', {name:'Policy Register', exact:true}).click();
+  const policyTitle = i ? existingTitle : 'Imported document '+tag;
+  await page.locator('.plm-table tbody tr').filter({hasText:policyTitle}).getByRole('button', {name:'Open', exact:true}).click();
+  const policy = page.getByRole('dialog', {name:policyTitle, exact:true});
+  await checkMappings(policy);
+  await policy.locator('.policy-version-mappings').getByRole('button', {name:selectedLabels[1], exact:true}).click();
+  await expect(policy).toBeHidden();
+  await expect(page.locator('.core-record-focus')).toContainText(risk.record_code);
  }
  const denied=await viewer.request.post(base+'/api/policy-lifecycle',{headers:{origin:base},multipart:{operation:'preview',file:{name:'policy.pdf',mimeType:'application/pdf',buffer:pdfBytes}}});assert.equal(denied.status(),403);
  console.log('POLICY_DOCUMENT_IMPORT_QA_PASS');
