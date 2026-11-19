@@ -67,3 +67,5 @@ html[data-theme="dark"] .plm-page .pwl-hero button{color:#122024!important}
 .policy-version-links > ul > li { display: flex; align-items: center; gap: .5rem; justify-content: space-between; overflow-wrap: anywhere; }
 .policy-version-links details { margin-top: .5rem; }
 .policy-version-links summary { cursor: pointer; }
+.policy-version-mappings dd { display: flex; flex-wrap: wrap; gap: .5rem; }
+.policy-version-mappings dd > * { max-width: 100%; white-space: normal; overflow-wrap: anywhere; }

@@ -1,6 +1,7 @@
 "use client";
 import {useEffect,useRef,useState,type FormEvent} from "react";
 import {withBasePath} from "../base-path";
+import {PolicyVersionReferenceField} from "./version-reference-field";
 import {WorkflowPersonPicker} from "../workflow-selection-fields";
 import {POLICY_CATEGORIES,POLICY_CLASSIFICATIONS} from "./domain";
 import {policyImportFileLimit,policyImportTextLimit,importMessage} from "./import-format";
@@ -97,9 +98,9 @@ export function PolicyImportForm({tr,email,policies,onSaved,onBusy}:{tr:boolean;
    {(content.length>policyImportTextLimit||content.trim().length<80)&&<p role="status">{importMessage("length",tr)}</p>}
    {warning&&<p role="status">{say("Bazı bölümler okunamamış olabilir. Metni kaynak belgeyle karşılaştırın.","Some sections may be missing. Compare the extracted text with the source document.")}</p>}
    <fieldset className="pim-fields"><legend>{say("Eşlemeler · en az bir referans girin","Mappings · enter at least one reference")}</legend>
-    <label>{say("Kontrol referansları","Control references")}<input value={controls} onChange={e=>setControls(e.target.value)}/></label>
+    <PolicyVersionReferenceField tr={tr} field="controlRef" value={controls} onChange={setControls}/>
     <label>{say("Düzenleme referansları","Regulation references")}<input value={regulations} onChange={e=>setRegulations(e.target.value)}/></label>
-    <label>{say("Risk referansları","Risk references")}<input value={risks} onChange={e=>setRisks(e.target.value)}/></label></fieldset>
+    <PolicyVersionReferenceField tr={tr} field="riskRef" value={risks} onChange={setRisks}/></fieldset>
    <small>{say("Özgün dosya ve düzenlediğiniz metin bu taslak sürüme bağlanır.","The original file and the text you reviewed will be linked to this draft version.")}</small>
    <button type="submit" disabled={pending||content.trim().length<80||content.length>policyImportTextLimit}>{pending?say("Kaydediliyor…","Saving…"):say("Taslak olarak içe aktar","Import as draft")}</button>
   </fieldset>}
