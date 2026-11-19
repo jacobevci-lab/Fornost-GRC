@@ -8,6 +8,7 @@ import { withBasePath } from "./base-path";
 import { navigateToFornost } from "./navigation-focus";
 import "./connector-onboarding-wizard.css";
 import ConnectorFields from "./connectors/fields";
+import {sourceMethod, sourceMethods} from "./connectors/source-method";
 import { connectorProfiles, newConnectorDraft, type ConnectorDraft } from "./connectors/catalog";
 import { connectorSetupOutcome } from "./connectors/setup-outcome";
 
@@ -329,9 +330,13 @@ export default function ConnectorOnboardingWizard({ profileId, lang, actor, onCl
 
           {step === 1 && (
             <div className="cow-body">
-              <div className="cow-copy"><small>1 · {tr ? "BAĞLAN" : "AUTHENTICATE"}</small><h4>{tr ? "Kanıt kaynağını doğrula" : "Validate the evidence source"}</h4><p>{tr ? "Kimlik bilgisi şifreli saklanır. HTTPS JSON collector ile bağlantı ve veri yapısı güvenli biçimde doğrulanır." : "Credentials are stored encrypted. The HTTPS JSON collector validates the connection and data shape safely."}</p></div>
+              <div className="cow-copy"><small>1 · {tr ? "BAĞLAN" : "AUTHENTICATE"}</small><h4>{tr ? "Kanıt kaynağını doğrula" : "Validate the evidence source"}</h4><p>{draft.providerId
+                ? (tr ? "Fornost, seçilen veri kümesini ürünün API’sinden okur." : "Fornost reads the selected dataset from the product API.")
+                : draft.driver==="https-bridge"
+                  ? (tr ? "Mevcut collector’ın HTTPS JSON adresini ve bu adrese ait erişim bilgilerini kullanın." : "Use the HTTPS JSON URL and access credentials of your existing collector.")
+                  : (tr ? "Salt okunur JSON döndüren HTTPS adresini girin." : "Enter an HTTPS endpoint that returns read-only JSON.")}</p></div>
               <div className="cow-form-grid">
-                <label className="wide"><span>{tr ? "Connector şablonu" : "Connector template"}</span><select aria-label={tr ? "Connector şablonu" : "Connector template"} value={template.label} onChange={(event) => chooseTemplate(event.target.value)}>{templates.map((item) => <option key={item.label}>{item.label}</option>)}</select></label>
+                <label className="wide"><span>{tr ? "Connector şablonu" : "Connector template"}</span><select aria-label={tr ? "Connector şablonu" : "Connector template"} value={template.label} onChange={(event) => chooseTemplate(event.target.value)}>{(["direct","custom","collector"] as const).map(method=><optgroup key={method} label={sourceMethods[method][lang]}>{templates.filter(item=>sourceMethod(item.driver)===method).map(item=><option key={item.label}>{item.label}</option>)}</optgroup>)}</select></label>
                 <ConnectorFields value={draft} onChange={setDraft} lang={lang} existing={!!sourceId} choose={false}/>
 
               </div>

@@ -2,6 +2,8 @@
 
 Implementation and documentation review: 2026-10-01. The earlier catalog populated a generic GET URL and static credential for every product. The new `provider-v1` sources have a shared typed catalog, individual setup fields, fixed API routes, server-side authentication and documented collection scopes. Existing sources retain their original behavior until an administrator explicitly edits them.
 
+In **Evidence Automation → Evidence Sources**, search for the product before entering credentials. Direct API profiles show the first dataset and required permission. Products that need a collector show their prerequisites and a setup guide. Administrators who already have a collector can connect its HTTPS JSON endpoint from the guide. **Webhook Receiver** is documentation only. In **More → Connector Catalog**, filter by connection method to see direct APIs, collector-based sources, custom HTTPS JSON endpoints or documentation-only entries.
+
 ## Supported native datasets
 
 Each product card opens its own setup requirements; the same fields are used in the guided onboarding wizard. The catalog links to the official API documentation beside the permission. These are read-only integrations, not vendor configuration/remediation tools.

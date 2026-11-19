@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { connectorProfile, connectorProfiles } from "./catalog";
+import { connectorGuides, type ConnectorGuide } from "./guides";
+import { matchesSource, sourceMethods } from "./source-method";
 export { ControlQueue } from "./control-queue";
 import { templatesForSource } from "./control-templates";
 import NavIcon from "../nav-icon";
@@ -13,29 +15,36 @@ const date = (value: string | undefined, lang: Lang) => {
   if (!value || !Number.isFinite(Date.parse(value))) return "—";
   return new Intl.DateTimeFormat(lang === "tr" ? "tr-TR" : "en-GB", {dateStyle:"medium", timeStyle:"short"}).format(new Date(value));
 };
-const matches = (value: string, query: string, lang: Lang) => value.toLocaleLowerCase(lang).includes(query.trim().toLocaleLowerCase(lang));
 const preferred = ["intune","defender-endpoint","sonarqube"];
 function Badge({ children, tone = "" }: { children: React.ReactNode; tone?: string }) {
   return <span className={`ew-badge ${tone}`}>{children}</span>;
 }
 
-export function SourcePicker({lang, first, configure, browse}: {lang: Lang; first: boolean; configure?: (id: string) => void; browse: () => void}) {
+export function SourcePicker({lang, first, configure, openGuide, browse}: {lang: Lang; first: boolean; configure?: (id: string) => void; openGuide: (guide: ConnectorGuide) => void; browse: () => void}) {
   const tr = lang === "tr";
   const [query,setQuery] = useState("");
   const [selected,setSelected] = useState("intune");
-  const profiles = query.trim() ? connectorProfiles.filter(p => matches(p.name,query,lang)) : preferred.flatMap(id => connectorProfile(id) || []);
-  const active = profiles.find(p => p.id === selected) || profiles[0];
+  const profiles = query.trim() ? connectorProfiles.filter(p => matchesSource(p.name,query)) : preferred.flatMap(id => connectorProfile(id) || []);
+  const guides = query.trim() ? connectorGuides.filter(g => matchesSource(g.name, query)) : [];
+  const guide = guides.find(g => g.name === selected) || (!profiles.length ? guides[0] : undefined);
+  const active = guide ? undefined : profiles.find(p => p.id === selected) || profiles[0];
   return <div className="ew-panes ew-picker">
     <div className="ew-list"><h3>{first?(tr?"İlk kaynağınızı bağlayın":"Connect your first source"):(tr?"Kaynak ekle":"Add source")}</h3>
       <p>{tr?"Hangi üründen kanıt toplayacaksınız?":"Which product will you collect evidence from?"}</p>
       <input type="search" aria-label={tr?"Ürün ara":"Search products"} placeholder={tr?"Ürün ara…":"Search products…"} value={query} onChange={e=>setQuery(e.target.value)}/>
       <div className="ew-items">{profiles.map(p=><button key={p.id} aria-pressed={active?.id===p.id} onClick={()=>setSelected(p.id)}>
         <NavIcon module={p.id==="intune"?"Varlık Envanteri":p.id==="sonarqube"?"Kanıtlar":"Kontroller"}/>
-        <span><b>{p.name}</b><small>{p.datasets[0]?.label[lang]}</small></span>
+        <span><b>{p.name}</b><small>{sourceMethods.direct[lang]} · {p.datasets[0]?.label[lang]}</small></span>
+      </button>)}{guides.map(g=><button key={g.name} aria-pressed={guide===g} onClick={()=>setSelected(g.name)}>
+        <NavIcon module="Kanıtlar"/><span><b>{g.name}</b><small>{sourceMethods[g.referenceOnly ? "reference" : "collector"][lang]}</small></span>
       </button>)}</div>
-      {!active&&<p role="status">{tr?"Eşleşen ürün bulunamadı.":"No matching product."}</p>}
+      {!active&&!guide&&<p role="status">{tr?"Eşleşen ürün bulunamadı.":"No matching product."}</p>}
       <button className="ew-link" onClick={browse}>{tr?"Tüm kataloğu gör":"Browse full catalog"} →</button>
     </div>
+    {guide&&<div className="ew-detail"><h3>{guide.name}</h3><h4>{sourceMethods[guide.referenceOnly ? "reference" : "collector"][lang]}</h4>
+      <p>{tr ? guide.requirements : guide.requirementsEn}</p>
+      <button className="ew-link" onClick={()=>openGuide(guide)}>{tr?"Kurulum rehberini aç":"Open setup guide"} →</button>
+    </div>}
     {active&&<div className="ew-detail"><h3>{active.name}</h3><h4>{tr?"Bağlantı gereksinimleri":"Connection requirements"}</h4>
       <dl className="ew-facts"><div><dt>{tr?"Gerekli izin":"Required permission"}</dt><dd>{active.datasets[0]?.permission}</dd></div>
         <div><dt>{tr?"Kimlik doğrulama":"Authentication"}</dt><dd>{active.auth==="microsoft"?(tr?"Entra uygulama kimliği":"Entra application identity"):active.secrets.map(f=>f.label[lang]).join(", ")}</dd></div>
@@ -60,7 +69,7 @@ type SourcesProps = {
 export function SourceWorkbench({lang,sources,rules,selected,select,canManage,busy,test,edit,ready,mapping,openRun,openRule}: SourcesProps) {
   const tr=lang==="tr";
   const [query,setQuery]=useState("");
-  const visible=sources.filter(s=>matches(s.name+" "+s.vendor,query,lang));
+  const visible=sources.filter(s=>matchesSource(s.name+" "+s.vendor,query));
   const active=visible.find(s=>s.id===selected)||visible[0];
   const linked=active?rules.filter(r=>r.sourceId===active.id):[];
   const latest=linked.filter(r=>r.lastStatus&&r.lastRunAt).sort((a,b)=>Date.parse(b.lastRunAt!)-Date.parse(a.lastRunAt!))[0];
