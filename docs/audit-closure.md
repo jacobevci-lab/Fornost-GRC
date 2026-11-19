@@ -6,6 +6,8 @@ An active Admin prepares the closure summary, selects another active Admin, reco
 
 ## Closure conditions and scope
 
+In **Report and closure → Prepare closure package**, expand a blocker to see the affected records. Requirements, requests, milestones and workpapers open in a separate tab so the closure draft stays available. Finding rows identify missing owners and invalid deadlines. An open request work plan is listed even when every request has been accepted or cancelled. After correcting a source, prepare the package again to check the current records. The submission button lists the missing approver, summary or follow-up text.
+
 - A saved plan must include objective, scope and lead auditor.
 - At least one requirement must exist, and every included requirement must have a completed status.
 - If requests exist, each must be accepted or cancelled and their request work plan must be closed. An audit with no requests can close without a synthetic empty work plan.
