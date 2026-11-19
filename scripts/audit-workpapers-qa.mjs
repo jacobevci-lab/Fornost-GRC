@@ -1,4 +1,4 @@
-import {openAuditWorkspaceSection} from './audit-workspace-qa-navigation.mjs';
+import {openAuditWorkspaceSection, returnToAuditWork} from './audit-workspace-qa-navigation.mjs';
 import {cleanupQaFixture,fixtureCleanupResults} from './qa-fixture-cleanup.mjs';
 import { qaPassword } from './qa-credentials.mjs';
 import { chromium, expect } from '@playwright/test';
@@ -96,7 +96,8 @@ try{
  await panel.getByLabel('Action reason',{exact:true}).fill('Source period is documented; resubmitting for review');await panel.getByRole('button',{name:'Submit for review',exact:true}).click();await expect(panel.getByRole('status').filter({hasText:'Action saved.'})).toHaveText('Action saved.');
  row=(await api(context,`/api/audits/workpapers?auditId=${auditId}`)).papers[0];await api(reviewer,'/api/audits/workpapers','POST',{auditId,id:row.id,action:'approve',expectedRevision:row.revision,note:'Independently reviewed sample selection and evidence'});
  await panel.getByRole('button',{name:'Refresh',exact:true}).click();await expect(panel.getByRole('button',{name:'Reopen with reason',exact:true})).toBeVisible();
- await followWork(page,row.title,row.id,true);await page.screenshot({path:`${out}/my-work-exact-target.png`,fullPage:true});
+ await followWork(page,row.title,row.id,true);const paperTask=await returnToAuditWork(page,row.title);
+ await paperTask.press('Enter');await expect(panel.locator('.aw-detail')).toContainText(row.id);await page.screenshot({path:`${out}/my-work-exact-target.png`,fullPage:true});
  await panel.getByText('Action and sample history',{exact:true}).click();await expect(panel).toContainText('Independently reviewed sample selection and evidence');
  assert.deepEqual((await new AxeBuilder({page}).include('.aw-panel').withTags(['wcag2a','wcag2aa','wcag21aa']).analyze()).violations,[]);
  for(const lang of ['EN','TR']){await page.locator('.language-switch:visible').getByRole('button',{name:lang,exact:true}).click();for(const theme of ['light','dark']){await page.evaluate(theme=>document.documentElement.dataset.theme=theme,theme);for(const width of [1440,390]){await page.setViewportSize({width,height:960});await page.screenshot({path:`${out}/${lang}-${theme}-${width}.png`,fullPage:true});assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+2),'viewport overflow');}}}
