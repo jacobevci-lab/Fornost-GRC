@@ -5,3 +5,7 @@
 .aw-panel .aw-reminder-toggle{flex-direction:row;align-items:center;gap:8px}.aw-panel .aw-reminder-toggle input{width:auto;flex:none}
 
 .aw-random,.aw-selection-receipt{padding:12px;border:1px solid var(--border);border-radius:6px;min-width:0}.aw-random>label{margin:12px 0}.aw-random>.aw-grid{margin-top:12px}.aw-selection-receipt dd{overflow-wrap:anywhere}.aw-panel input[readonly]{background:var(--surface);opacity:.8}
+.aw-review-gaps{margin:12px 0;padding:10px 12px;border:1px solid var(--border);border-radius:6px;overflow-wrap:anywhere}
+.aw-review-gaps summary{cursor:pointer;font-weight:600}
+.aw-review-gaps summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.aw-review-gaps ul{margin:8px 0 0;padding-inline-start:20px}

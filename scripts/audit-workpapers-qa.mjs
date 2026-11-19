@@ -79,6 +79,40 @@ try{
  const save=panel.getByRole('button',{name:'Save draft',exact:true});await save.click();await expect(save).toBeDisabled();await save.dispatchEvent('click');await expect.poll(()=>posts).toBe(1);release();await expect(panel.getByRole('status').filter({hasText:'Action saved.'})).toHaveText('Action saved.');await page.unroute('**/api/audits/workpapers');
  let row=(await api(context,`/api/audits/workpapers?auditId=${auditId}`)).papers[0];assert.equal(row.samples[0].versionId,version.id);assert.equal(row.samples.length,3);assert.equal(row.samples[1].reference,'Account-002');
  assert.equal(row.remindersEnabled,true);assert.equal(row.dueDate,preparationDate);assert.equal(row.reviewDueDate,reviewDate);assert.equal(row.timeZone,'Europe/Istanbul');
+ // A partial workpaper remains savable. Each submission gap identifies its sample.
+ const editDraft = panel.getByRole('button',{name:'Edit draft',exact:true});
+ const submit = panel.getByRole('button',{name:'Submit for review',exact:true});
+ const gaps = panel.locator('.aw-review-gaps');
+ await editDraft.click();
+ await panel.getByLabel('Selection method',{exact:true}).selectOption('census');
+ await panel.getByLabel('Conclusion',{exact:true}).fill('');
+ await panel.getByLabel('Test result 2',{exact:true}).selectOption('pending');
+ await panel.getByLabel('Test note 2',{exact:true}).fill('');
+ await panel.getByLabel('Evidence version 2',{exact:true}).selectOption('');
+ await gaps.locator('summary').click();
+ await expect(gaps).toContainText('Enter the conclusion');
+ await expect(gaps).toContainText('Census testing requires all 10 records');
+ await expect(gaps.getByRole('listitem').filter({hasText:'Account-002'})).toContainText('test result, test note, evidence version');
+ await save.click();await expect(editDraft).toBeEnabled();
+ await panel.getByLabel('Action reason',{exact:true}).fill('Prepared for review');
+ await expect(submit).toBeDisabled();
+ const incomplete=(await api(context,`/api/audits/workpapers?auditId=${auditId}`)).papers.find(p=>p.id===row.id);
+ const denied=await api(context,'/api/audits/workpapers','POST',{auditId,id:row.id,action:'submit',expectedRevision:incomplete.revision,note:'Prepared for review'},400);
+ assert.equal(denied.error,'incomplete');
+ await page.locator('.language-switch:visible').getByRole('button',{name:'TR',exact:true}).click();
+ await gaps.locator('summary').click();await expect(gaps).toContainText('test sonucu, test notu, kanıt sürümü');
+ await page.locator('.language-switch:visible').getByRole('button',{name:'EN',exact:true}).click();
+ await editDraft.click();
+ await panel.getByLabel('Selection method',{exact:true}).selectOption(row.method);
+ await panel.getByLabel('Conclusion',{exact:true}).fill(row.conclusion);
+ await panel.getByLabel('Test result 2',{exact:true}).selectOption(row.samples[1].result);
+ await panel.getByLabel('Test note 2',{exact:true}).fill(row.samples[1].note);
+ await panel.getByLabel('Evidence version 2',{exact:true}).selectOption(row.samples[1].versionId);
+ await expect(gaps).toHaveCount(0);
+ await save.click();await expect(editDraft).toBeEnabled();
+ await panel.getByLabel('Action reason',{exact:true}).fill('  ok  ');await expect(submit).toBeDisabled();
+ await panel.getByLabel('Action reason',{exact:true}).fill('Ready for review');await expect(submit).toBeEnabled();
+ row=(await api(context,`/api/audits/workpapers?auditId=${auditId}`)).papers.find(p=>p.id===row.id);
  await openWork(page,row.title);await page.locator('.mw2-filters').getByRole('button',{name:/^Overdue/}).click();await expect(page.locator('.mw2-item')).toHaveCount(1);await expect(page.locator('.mw2-item time')).toHaveClass('overdue');
  await followWork(page,row.title,row.id);
  const inboxPaper=(await api(context,'/api/audits/requests')).workpapers.find(p=>p.id===row.id);assert.equal(inboxPaper.status,'draft');assert.equal(inboxPaper.dueAt,'2020-01-01T20:59:59.999Z');assert.equal(inboxPaper.evidence,undefined);assert.equal(inboxPaper.samples,undefined);
@@ -103,7 +137,7 @@ try{
  for(const lang of ['EN','TR']){await page.locator('.language-switch:visible').getByRole('button',{name:lang,exact:true}).click();for(const theme of ['light','dark']){await page.evaluate(theme=>document.documentElement.dataset.theme=theme,theme);for(const width of [1440,390]){await page.setViewportSize({width,height:960});await page.screenshot({path:`${out}/${lang}-${theme}-${width}.png`,fullPage:true});assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+2),'viewport overflow');}}}
  await page.locator('.language-switch:visible').getByRole('button',{name:'EN',exact:true}).click();await panel.getByLabel('Action reason',{exact:true}).fill('Additional testing required before final opinion');await panel.getByRole('button',{name:'Reopen with reason',exact:true}).click();await expect(panel.getByRole('status').filter({hasText:'Action saved.'})).toHaveText('Action saved.');await panel.getByLabel('Action reason',{exact:true}).fill('Superseded by a revised test scope; retain history');await panel.getByRole('button',{name:'Cancel with reason',exact:true}).click();await expect(panel.getByRole('status').filter({hasText:'Action saved.'})).toHaveText('Action saved.');
  await panel.getByRole('button',{name:'Copy record link',exact:true}).click();const paperLink=await page.evaluate(()=>navigator.clipboard.readText());assert.ok(paperLink.includes('kind=audit-workpaper'));await page.goto(paperLink);await expect(page.getByRole('tab',{name:'Workspace',exact:true})).toHaveAttribute('aria-selected','true');await expect(panel.locator('.aw-detail')).toContainText(row.id);
- const final=await api(context,`/api/audits/workpapers?auditId=${auditId}&id=${row.id}`);assert.equal(final.papers[0].status,'cancelled');assert.equal(final.papers[0].remindersEnabled,true);assert.equal(final.papers[0].reviewDueDate,reviewDate);assert.equal((await api(context,'/api/audits/requests')).workpapers.find(p=>p.id===row.id).dueAt,'');assert.equal(final.history.length,8);assert.equal(final.papers[0].evidence[0].id,version.id);assert.deepEqual(errors,[]);
+ const final=await api(context,`/api/audits/workpapers?auditId=${auditId}&id=${row.id}`);assert.equal(final.papers[0].status,'cancelled');assert.equal(final.papers[0].remindersEnabled,true);assert.equal(final.papers[0].reviewDueDate,reviewDate);assert.equal((await api(context,'/api/audits/requests')).workpapers.find(p=>p.id===row.id).dueAt,'');assert.deepEqual(final.history.map(event=>event.action),['cancel','reopen','approve','submit','return','submit','save','save','save','save']);assert.equal(final.papers[0].evidence[0].id,version.id);assert.deepEqual(errors,[]);
  await writeFile(`${out}/result.json`,JSON.stringify({result:'PASS',checks:['email opt-in defaults off and persists through lifecycle','bilingual reminder calendar preview','optional deadline UI and timezone persistence','preparation overdue filter in My Work','review deadline switches on submission','terminal deadline cleared from queue','bilingual mobile deadline editor axe','CSV preview without writes','CSV duplicates rejected','changed population revalidated','CSV append preserves existing samples','imported samples pending and unpinned','CSV notes persist through review','mobile import and accessibility','copied workpaper URL opens exact audit and paper','owner draft My Work exact link','reviewer handoff and UI return','reviewer queue removes returned paper','completed owner My Work link','inbox excludes sample evidence details','browser create and version pinning','duplicate click prevention','viewer denial','stale conflict retains draft','owner submission','independent return and approval','history','reopen and cancel','axe','TR EN light dark desktop mobile'],errors},null,2));console.log('AUDIT_WORKPAPERS_QA_PASS');
 }catch(e){await writeFile(`${out}/failure.json`,JSON.stringify({message:e.message,stack:e.stack,errors},null,2));await page.screenshot({path:`${out}/failure.png`,fullPage:true}).catch(()=>{});await peer.screenshot({path:`${out}/reviewer-failure.png`,fullPage:true}).catch(()=>{});console.error('AUDIT_WORKPAPERS_QA_FAILED',e.message);throw e;}
 finally{try{if(auditId)await cleanupQaFixture(context,base,'audit',auditId);if(evidenceId)await cleanupQaFixture(context,base,'record',evidenceId);for(const user of users)await api(context,'/api/users','PATCH',{...user,status:'Disabled'});await writeFile(`${out}/cleanup.json`,JSON.stringify({auditDeleted:fixtureCleanupResults.some(x=>x.kind==='audit'&&x.id===auditId&&x.deleted),evidenceDeleted:fixtureCleanupResults.some(x=>x.kind==='record'&&x.id===evidenceId&&x.deleted),accountsDisabled:users.length}));}catch(error){await writeFile(`${out}/cleanup-failure.json`,JSON.stringify({message:error.message,stack:error.stack},null,2));throw error;}finally{await browser.close();}}

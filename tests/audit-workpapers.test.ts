@@ -20,7 +20,7 @@ import { auditClosureBlockers } from '../app/audit-closure';
 import { readWorkpapers, readWorkpaperWork, mutateWorkpaper } from '../app/audit-workpaper-store';
 import { readAuditReportSource, createAuditStatusReport, readAuditStatusReport } from '../app/audit-status-report-store';
 import { auditWorkpaperSchema, auditWorkpaperSourceTriggers, auditWorkpaperClosureGuards } from '../app/audit-workpaper-schema';
-import { emptyWorkpaper, validateWorkpaper, requireWorkpaperComplete, workpaperDueAt, type WorkpaperFields } from '../app/audit-workpapers';
+import { emptyWorkpaper, validateWorkpaper, workpaperReviewGaps, requireWorkpaperComplete, workpaperDueAt, type WorkpaperFields } from '../app/audit-workpapers';
 const owner: Actor = { id:'o', email:'owner@example.com', name:'Owner', role:'Editor', source:'local' };
 const reviewer: Actor = { ...owner, id:'r', email:'reviewer@example.com' };
 const admin: Actor = { ...owner, id:'a', email:'admin@example.com', role:'Admin' };
@@ -53,6 +53,18 @@ test('sampling validates unique units, population bounds, independence and compl
  assert.throws(()=>requireWorkpaperComplete({...fields,conclusion:''}),/incomplete/);
  assert.throws(()=>requireWorkpaperComplete({...fields,samples:[{...fields.samples[0],result:'pending'}]}),/incomplete/);
  requireWorkpaperComplete({...fields,method:'census',populationCount:1});
+});
+test('submission guidance identifies each incomplete sample and preserves partial drafts', () => {
+  const paper = validateWorkpaper({...fields, conclusion:' ', method:'census', samples:[
+    fields.samples[0], {reference:'Account-002', result:'pending', note:'  ', versionId:''}
+  ]});
+  assert.deepEqual(workpaperReviewGaps(paper), [
+    {kind:'conclusion'}, {kind:'census'},
+    {kind:'sample', index:1, reference:'Account-002', missing:['result','note','version']}
+  ]);
+  assert.throws(() => requireWorkpaperComplete(paper), /incomplete/);
+  assert.deepEqual(workpaperReviewGaps({...fields, samples:[]}), [{kind:'samples'}]);
+  assert.deepEqual(workpaperReviewGaps({...fields, method:'census', populationCount:1}), []);
 });
 test('owner submission, independent return and approval, pinned evidence, reopen and cancellation retain sample history', async()=>{
  const f=await fixture();try{
