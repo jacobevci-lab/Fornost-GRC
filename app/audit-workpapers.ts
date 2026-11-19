@@ -25,8 +25,32 @@ export function validateWorkpaper(value: unknown): WorkpaperFields {
   if (v.remindersEnabled && !schedule.dueDate) throw new AuditRequestError('dates');
   return { ...requirementLink(v.requirementId), ...schedule, remindersEnabled: v.remindersEnabled === true, title, objective, procedure, population, populationCount: Number(v.populationCount), method: v.method as WorkpaperFields['method'], rationale, conclusion, owner, reviewer, samples };
 }
+type SampleGap = 'reference' | 'result' | 'note' | 'version';
+type ReviewGap = { kind: 'conclusion' | 'samples' | 'census' }
+  | { kind: 'sample'; index: number; reference: string; missing: SampleGap[] };
+
+export function workpaperReviewGaps(paper: WorkpaperFields): ReviewGap[] {
+  const gaps: ReviewGap[] = [];
+  if (!paper.conclusion.trim()) gaps.push({ kind: 'conclusion' });
+  if (paper.method === 'census' && paper.samples.length !== paper.populationCount) {
+    gaps.push({ kind: 'census' });
+  } else if (!paper.samples.length) {
+    gaps.push({ kind: 'samples' });
+  }
+  paper.samples.forEach((sample, index) => {
+    const missing: SampleGap[] = [];
+    if (!sample.reference.trim()) missing.push('reference');
+    if (sample.result === 'pending') missing.push('result');
+    if (!sample.note.trim()) missing.push('note');
+    if (!sample.versionId) missing.push('version');
+    if (missing.length) gaps.push({ kind: 'sample', index, reference: sample.reference.trim(), missing });
+  });
+  return gaps;
+}
+
+export const workpaperMinReasonLength = 3;
 export function requireWorkpaperComplete(p: WorkpaperFields) {
-  if (!p.samples.length || !p.conclusion.trim() || p.samples.some(s => s.result === 'pending' || !s.note || !s.versionId) || (p.method === 'census' && p.samples.length !== p.populationCount)) throw new AuditRequestError('incomplete');
+  if (workpaperReviewGaps(p).length) throw new AuditRequestError('incomplete');
 }
 
 /** Optional paired deadlines; omission keeps historical undated workpapers valid. */

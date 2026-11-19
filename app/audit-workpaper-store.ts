@@ -7,7 +7,7 @@ import { canReadModule, canWriteModule, parseModuleAccess } from './module-acces
 import { AuditRequestError } from './audit-requests';
 import { auditRequestId, readRequestEvidence, requireAuditParent } from './audit-request-store';
 import { ensureAuditClosureSchema } from './audit-closure-schema';
-import { requireWorkpaperComplete, validateWorkpaper, workpaperDueAt, type AuditWorkpaper } from './audit-workpapers';
+import { workpaperMinReasonLength, requireWorkpaperComplete, validateWorkpaper, workpaperDueAt, type AuditWorkpaper } from './audit-workpapers';
 type Stored = { id: string; audit_id: string; revision: string; data_json: string; created_at: string; updated_at: string };
 export function publicWorkpaper(row: Stored): AuditWorkpaper { return { ...JSON.parse(row.data_json), id: row.id, auditId: row.audit_id, revision: row.revision, createdAt: row.created_at, updatedAt: row.updated_at }; }
 export async function readWorkpapers(db: D1Database, auditId: string) {
@@ -40,7 +40,7 @@ export async function mutateWorkpaper(db: D1Database, actor: Actor, input: Recor
   const email = actor.email.toLowerCase();
   let fields, status: AuditWorkpaper['status'];
   const note = typeof input.note === 'string' ? input.note.trim() : '';
-  if (note.length > 2000 || (action !== 'save' && note.length < 3)) throw new AuditRequestError('note');
+  if (note.length > 2000 || (action !== 'save' && note.length < workpaperMinReasonLength)) throw new AuditRequestError('note');
   if (action === 'save') {
     if (current && current.status !== 'draft') throw new AuditRequestError('transition', 409);
     if (current && email !== current.owner && actor.role !== 'Admin') throw new AuditRequestError('owner', 403);
