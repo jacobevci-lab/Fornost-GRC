@@ -1,3 +1,4 @@
+import {openComplianceRegister} from "./qa-compliance-register.mjs";
 import {cleanupQaFixture} from './qa-fixture-cleanup.mjs';
 import {chromium,expect} from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
@@ -13,7 +14,7 @@ async function checkpoint(value){phase=value;console.log('REGISTER_IMPORT_QA_PHA
 page.on('pageerror',error=>errors.push(error.message));
 async function api(path,method='GET',data,status=200,ctx=context){const r=await ctx.request.fetch(base+path,{method,data,headers:{origin:base},timeout:15000});assert.equal(r.status(),status,await r.text());return r.json();}
 async function owned(){const data=await api('/api/grc');assert.equal(data.nextCursor,null);return data.rows.filter(row=>String(row.data_json).includes(tag));}
-async function go(name){await checkpoint('Navigate: '+name);const nav=page.locator('#fornost-navigation'),mobile=page.locator('.mobile-nav-toggle');if(await mobile.isVisible()&&await mobile.getAttribute('aria-expanded')!=='true')await mobile.click();const target=nav.getByRole('button',{name,exact:true,includeHidden:true});if(!await target.isVisible())for(const group of await nav.locator('.nav-group').all())if(await group.getByRole('button',{name,exact:true,includeHidden:true}).count()){await group.locator('.nav-group-trigger').click();break;}await target.click();}
+async function go(name){await checkpoint('Navigate: '+name);const nav=page.locator('#fornost-navigation'),mobile=page.locator('.mobile-nav-toggle');if(await mobile.isVisible()&&await mobile.getAttribute('aria-expanded')!=='true')await mobile.click();const target=nav.getByRole('button',{name,exact:true,includeHidden:true});if(!await target.isVisible())for(const group of await nav.locator('.nav-group').all())if(await group.getByRole('button',{name,exact:true,includeHidden:true}).count()){await group.locator('.nav-group-trigger').click();break;}await target.click();await openComplianceRegister(page,name);}
 const dialog=()=>page.getByRole('dialog',{name:/^(Import Excel|Excel içe aktar)$/});
 async function upload(matrix,name='register.xlsx'){
  await checkpoint('Read workbook: '+name);const sheet=matrix.map(row=>row.map(value=>value===null?null:{value,...(value instanceof Date?{format:'yyyy-mm-dd'}:{})}));

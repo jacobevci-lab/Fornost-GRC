@@ -1,3 +1,4 @@
+import {openComplianceRegister} from "./qa-compliance-register.mjs";
 import { openRegisterViews } from "./qa-browser-harness.mjs";
 import {chromium,expect} from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
@@ -27,7 +28,7 @@ async function open(name){
  const mobile=page.locator('.mobile-nav-toggle');if(await mobile.isVisible()&&await mobile.getAttribute('aria-expanded')!=='true')await mobile.click();
  const nav=page.locator('#fornost-navigation'),button=nav.getByRole('button',{name,exact:true,includeHidden:true});await expect(button).toBeAttached();
  if(!await button.isVisible())for(const group of await nav.locator('.nav-group').all())if(await group.getByRole('button',{name,exact:true,includeHidden:true}).count()){await group.locator('.nav-group-trigger').click();break;}
- await button.click();await expect(page.locator('main>header h1')).toHaveText(name);
+ await button.click();await expect(page.locator('main>header h1')).toHaveText(name);await openComplianceRegister(page,name);
 }
 const sort=()=>page.getByRole('combobox',{name:'Sort by',exact:true}),direction=()=>page.getByRole('combobox',{name:'Sort direction',exact:true});
 async function titles(){return page.locator('.table-card table tbody tr').evaluateAll(rows=>rows.map(row=>row.textContent.match(/QA order \d+/)?.[0]));}

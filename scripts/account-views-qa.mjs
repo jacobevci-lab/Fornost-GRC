@@ -1,3 +1,4 @@
+import {openComplianceRegister} from "./qa-compliance-register.mjs";
 import {cleanupQaFixture} from './qa-fixture-cleanup.mjs';
 import { openRegisterViews } from "./qa-browser-harness.mjs";
 import {chromium,expect} from '@playwright/test';
@@ -12,7 +13,7 @@ for(const p of [page,otherPage,readerPage]){p.setDefaultTimeout(15000);p.on('pag
 async function api(context,path,method='GET',data,status=200){const response=await context.request.fetch(base+path,{method,data,headers:{origin:base}});assert.equal(response.status(),status,await response.text());return response.json();}
 const path=(moduleName,scope='personal',id)=>'/api/views?'+new URLSearchParams({module:moduleName,scope,...(id?{id}:{})});
 async function enter(p=page){await p.goto(base);await expect(p.locator('.shell')).toBeVisible();await p.locator('.language-switch:visible').getByRole('button',{name:'EN',exact:true}).click();}
-async function go(name,p=page){await p.locator(`nav button[aria-label="${name}"]`).evaluate(node=>node.click());}
+async function go(name,p=page){await p.locator(`nav button[aria-label="${name}"]`).evaluate(node=>node.click());await openComplianceRegister(p,name);}
 async function panel(p=page){await openRegisterViews(p);const x=p.locator('.account-views:visible');await expect(x).toHaveCount(1);if(await x.getAttribute('open')===null)await x.locator(':scope > summary').click();await expect(x.getByRole('button',{name:'Refresh account views',exact:true})).toBeEnabled();return x;}
 async function scope(p,value){await p.getByLabel('View scope',{exact:true}).selectOption(value);await expect(p.getByRole('button',{name:'Refresh account views',exact:true})).toBeEnabled();await expect(p.getByLabel('Select account view',{exact:true})).toBeEnabled();}
 async function save(p,name,moduleName,selectedScope='personal',context=admin){await p.page().getByRole('combobox',{name:'Sort by',exact:true}).selectOption('title');await p.page().getByRole('combobox',{name:'Sort direction',exact:true}).selectOption('desc');await p.getByLabel('Account view name',{exact:true}).fill(name);await p.getByRole('button',{name:'Preview new account view',exact:true}).click();await p.getByRole('button',{name:'Save account view',exact:true}).click();await expect(p.getByRole('status')).toHaveText('View saved to the server.');const id=await p.getByLabel('Select account view',{exact:true}).inputValue();assert.ok(id);created.push({id,moduleName,scope:selectedScope,context});return id;}

@@ -105,3 +105,19 @@ export const auditMilestoneEvents = sqliteTable("audit_milestone_events", {
 export const continuityPlanReviews = sqliteTable("enterprise_continuity_plan_reviews", {
   id:text("id").primaryKey().notNull(),planId:text("plan_id").notNull(),sourceRevision:text("source_revision").notNull(),previousDate:text("previous_date").notNull(),nextDate:text("next_date").notNull(),note:text("note").notNull(),snapshotJson:text("snapshot_json").notNull(),actorId:text("actor_id").notNull(),actor:text("actor").notNull(),reviewedAt:text("reviewed_at").notNull(),
 },table=>[index("enterprise_continuity_plan_reviews_parent_idx").on(table.planId,table.reviewedAt,table.id)]);
+
+export const frameworkPrograms = sqliteTable("framework_programs", {
+  name: text("name").primaryKey(),
+  createdBy: text("created_by").notNull(),
+  createdAt: text("created_at").notNull(),
+});
+export const frameworkDecisions = sqliteTable("framework_decisions", {
+  program: text("program").notNull(),
+  ref: text("ref").notNull(),
+  applicability: text("applicability").notNull(),
+  reason: text("reason").notNull(),
+  links: text("links").notNull(),
+  revision: text("revision").notNull(),
+  actor: text("actor").notNull(),
+  updatedAt: text("updated_at").notNull(),
+}, table => [primaryKey({columns:[table.program,table.ref]})]);

@@ -1,6 +1,6 @@
 import "./framework-catalog-notice.css";
 import { getCatalogStatus } from "./framework-catalog-status";
-export type CatalogSnapshot = {revision:string;count:number;imported:boolean;source:string};
+export type CatalogSnapshot = {hasPosture?:boolean;revision:string;count:number;imported:boolean;source:string};
 export function FrameworkCatalogNotice({ framework, lang, snapshot }: { framework: string; lang: "tr" | "en"; snapshot?:CatalogSnapshot|null }) {
   if (!framework) return null;
   const status = snapshot?.imported ? {tr:"Kurum tarafından yüklenen katalog. İçerik ve kapsamı yükleyen kuruluş tarafından doğrulanır; Fornost tarafından tamlık onayı verilmez.",en:"Organization-imported catalog. Content and coverage are verified by the importing organization, not certified complete by Fornost.",source:snapshot.source,reviewed:undefined} : getCatalogStatus(framework);

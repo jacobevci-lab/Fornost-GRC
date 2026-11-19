@@ -7,6 +7,7 @@ import { controlAssuranceIssueLabel, controlAssuranceReasonLabels, controlAssura
 import { withBasePath } from './base-path';
 import { navigateToFornost } from './navigation-focus';
 import { evaluateEvidenceEligibility } from './evidence/eligibility';
+import { FrameworkImpact } from './framework-posture/audit';
 import ControlImpactLens from './control-impact-lens';
 import { WorkspaceTabs } from './workspace-tabs';
 import './control-assurance.css';
@@ -114,7 +115,7 @@ export default function ControlAssuranceWorkspace({ rows, lang, go }: { rows: As
         <div><small>{tr ? 'Sonraki test' : 'Next test'}</small><b>{detail.test.nextTestDate || '—'}</b></div>
       </div>
       <WorkspaceTabs label={tr ? 'Kontrol ayrıntı görünümleri' : 'Control detail views'} active={detailTab} onChange={setDetailTab} items={[
-        {key:'overview',label:tr?'Genel bakış':'Overview',content:<><ControlImpactLens detail={detail} lang={lang} reliable={reliable}/><h5>{tr?'Değerlendirme sinyalleri':'Assessment signals'}</h5><ul className="control-assurance-reasons">{detail.item.reasons.map(reason=><li key={reason}>{reasonLabel(reason)}</li>)}</ul><button type="button" onClick={()=>setDetailTab('evidence')}>{tr?'Bağlı kanıtları incele':'Review linked evidence'} →</button></>},
+        {key:'overview',label:tr?'Genel bakış':'Overview',content:<><FrameworkImpact controlId={detail.item.control.id} tr={tr}/><ControlImpactLens detail={detail} lang={lang} reliable={reliable}/><h5>{tr?'Değerlendirme sinyalleri':'Assessment signals'}</h5><ul className="control-assurance-reasons">{detail.item.reasons.map(reason=><li key={reason}>{reasonLabel(reason)}</li>)}</ul><button type="button" onClick={()=>setDetailTab('evidence')}>{tr?'Bağlı kanıtları incele':'Review linked evidence'} →</button></>},
         {key:'evidence',label:tr?'Kanıtlar':'Evidence',count:detail.evidence.length,content:stageContent(['evidence'])},
         {key:'tests',label:tr?'Testler ve otomasyon':'Tests and automation',content:<><div className="control-assurance-test"><span>{tr?'Test sahibi':'Test owner'}: <b>{detail.test.owner||'—'}</b></span><span>{tr?'Sonraki test':'Next test'}: <b>{detail.test.nextTestDate||'—'}</b></span><span>{tr?'Son test sonucu':'Last test result'}: <b>{detail.test.result||'—'}</b></span></div>{stageContent(['automation'])}</>},
         {key:'mapping',label:tr?'Eşleştirmeler':'Mappings',count:detail.frameworks.length+detail.audits.length+detail.risks.length,content:stageContent(['framework','audit','risk'])},

@@ -59,7 +59,7 @@ test("audit requirements show framework references without internal record codes
   assert.match(page, /<b>{reference}<\/b>/);
   assert.doesNotMatch(page, /<b>{d\.auditName \|\| "—"}<\/b>/);
   assert.match(route, /requirementTitle: iso27001Titles\[ref\]/);
-  assert.match(route, /Bilgi güvenliği politikaları/);
+  assert.match(readFileSync("app/framework-posture/iso-annex.ts", "utf8"), /Bilgi güvenliği politikaları/);
   assert.match(route, /audit_catalog_/);
 });
 

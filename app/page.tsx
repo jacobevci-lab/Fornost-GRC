@@ -17,6 +17,8 @@ import { AuditActions } from "./audit-actions";
 import { AuditFindingsPanel } from "./audit-findings-panel";
 import { AuditRequirementDesk, AuditRequirementBoard } from "./audit-requirement-desk";
 import { auditRequirementMatches, type AuditQueue } from "./audit-workspace-state";
+import { FrameworkWorkspace } from "./framework-posture/workspace";
+import { AuditPostureChoice, AuditBaseline, type AuditChoice } from "./framework-posture/audit";
 import { AuditResearchWorkspace } from "./audit-research-workspace";
 import { EvidenceUsagePanel } from "./evidence-usage-panel";
 import { EvidenceDocumentPreview } from "./evidence-document-preview";
@@ -25,7 +27,7 @@ import { AuditRequestPanel } from "./audit-request-panel";
 import { AuditClosurePanel } from "./audit-closure-panel";
 import { auditClosureLabels } from "./audit-closure";
 import { AuditStatusReportPanel } from "./audit-status-report-panel";
-import { canOpenModule, canReadModule, canWriteModule, isScoped, readableModules } from "./module-access";
+import { canOpenModule, canReadPosture, canReadModule, canWriteModule, isScoped, readableModules } from "./module-access";
 import "./module-access.css";
 import { linkedRecordOptions } from "./linked-record-options";
 import { dueTimestamp } from "./due-date";
@@ -1130,6 +1132,7 @@ function returnsToDecisionQueue(request?: FornostNavigationRequest | null) {
 
 function FornostApp({ currentUser }: { currentUser: any }) {
   const scoped = isScoped(currentUser);
+  const [legacyCompliance,setLegacyCompliance]=useState(false);
   const [lang, setLang] = useState<Lang>("tr"),
     [active, setActive] = useState("Ana Sayfa"),
     [rows, setRows] = useState<Row[]>([]),
@@ -1544,6 +1547,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
     auditor: string;
     auditOwner: string;
     catalogImport?: AuditCatalogImport;
+    posture?: {period:string;token:string};
   }) {
     const response = await fetch(withBasePath("/api/audits"), {
       method: "POST",
@@ -1552,6 +1556,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
     });
     const result = await response.json().catch(() => ({}));
     if (!response.ok) {
+      if(result.error==="preview-changed") return "preview-changed" as const;
       setNotice(
         result.error ||
           (lang === "tr"
@@ -2254,11 +2259,17 @@ function FornostApp({ currentUser }: { currentUser: any }) {
             portfolioState={auditDirectoryState==="error"||registerLoadState==="error"?"error":auditDirectoryState==="ready"&&registerLoadState==="ready"?"ready":"loading"}
             retryPortfolio={()=>{void loadAudits();void load();}}
             canDeleteAudit={currentUser.role === "Admin"}
+            allowPosture={canReadPosture(currentUser)}
             showReadiness={!scoped}
             go={navigateToModule}
           />
+        ) : active==="Uyum" && canReadPosture(currentUser) && !legacyCompliance && !focusedRecord ? (
+          <><section className="module-head"><div><small className="module-kicker">{moduleEyebrows[lang][active]}</small><h2>{names[lang][active]}</h2></div></section>
+          <FrameworkWorkspace onControlCreated={()=>{void load();}} createControl={canWriteModule(currentUser,"Kontroller")} tr={lang==="tr"} write={canWriteModule(currentUser,"Uyum")}/>
+          <button type="button" className="ghost" onClick={()=>setLegacyCompliance(true)}>{lang==="tr"?"Özel gereksinimler ve mevcut kayıtlar":"Custom requirements and existing records"}</button></>
         ) : (
           <>
+            {active==="Uyum" && canReadPosture(currentUser) && <button type="button" className="ghost" onClick={()=>{clearRecordFocus();setLegacyCompliance(false);}}>{lang==="tr"?"Çerçeve matrisine dön":"Back to framework matrix"}</button>}
             <section className="module-head">
               <div>
                 <small className="module-kicker">{moduleEyebrows[lang][active] || "FORNOST GRC"}</small>
@@ -2330,7 +2341,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
                 filterPanelOpen={filterPanelOpen}
                 setFilterPanelOpen={setFilterPanelOpen}
               />
-              <RecordWorkspace key={active} rows={readableRows} visible={visible} lang={lang} moduleNames={names[lang]} formatValue={display}
+              <RecordWorkspace allowPosture={canReadPosture(currentUser)} key={active} rows={readableRows} visible={visible} lang={lang} moduleNames={names[lang]} formatValue={display}
                 preview={id => { const row = readableRows.find(item => item.id === id && item.module === "Kanıtlar"); if (row) setPreviewEvidence(row); }}>
                 {(inspect, open) => (
               <div className="table-wrap" hidden={open} tabIndex={0} role="region" aria-label={lang === "tr" ? "Kayıt tablosu" : "Record table"}>
@@ -2975,7 +2986,7 @@ function CoreModuleOverview({module,rows,allRows,lang}:{module:string;rows:Row[]
   const configurations:Record<string,{eyebrow:string;title:string;detail:string;metrics:Array<[string|number,string,string,string]>}>={
     BIA:{eyebrow:tr?"İŞ DAYANIKLILIĞI":"BUSINESS RESILIENCE",title:tr?"Kritik süreç hazırlığı":"Critical process readiness",detail:tr?"Etki, kurtarma hedefi ve test hazırlığını birlikte izleyin.":"Track impact, recovery objectives and test readiness together.",metrics:[[rows.length,tr?"Toplam süreç":"Total processes",tr?"Kapsamdaki iş süreçleri":"Business processes in scope","neutral"],[count("criticality",["Kritik","Critical"]),tr?"Kritik süreç":"Critical processes",tr?"Öncelikli kurtarma kapsamı":"Priority recovery scope","danger"],[rows.filter(row=>hasRecoveryTarget(row.data.rto)&&hasRecoveryTarget(row.data.rpo)).length,tr?"RTO/RPO tanımlı":"RTO/RPO defined",tr?"Kurtarma hedefi bulunan":"With recovery objectives","positive"],[count("status",["Taslak","İncelemede"]),tr?"Karar gereken":"Decision required",tr?"Taslak veya incelemede":"Draft or under review","warning"]]},
     "Varlık Envanteri":{eyebrow:tr?"TEKNOLOJİ MARUZİYETİ":"TECHNOLOGY EXPOSURE",title:tr?"Varlık güvenlik görünümü":"Asset security posture",detail:tr?"Kritiklik, veri sınıfı, internet maruziyeti ve güvenlik kapsamasını tek bakışta değerlendirin.":"Evaluate criticality, data class, internet exposure and security coverage at a glance.",metrics:[[rows.length,tr?"Toplam varlık":"Total assets",tr?"Yönetilen envanter":"Managed inventory","neutral"],[count("criticality",["Kritik","Critical"]),tr?"Kritik varlık":"Critical assets",tr?"Yüksek iş etkisi":"High business impact","danger"],[rows.filter(row=>row.data.internetFacing===true||String(row.data.internetFacing).toLowerCase()==="evet").length,tr?"İnternete açık":"Internet-facing",tr?"Dış saldırı yüzeyi":"External attack surface","warning"],[rows.filter(row=>["Aktif","Active"].includes(String(row.data.status))).length,tr?"Aktif yaşam döngüsü":"Active lifecycle",tr?"Operasyonda olan":"Currently operational","positive"]]},
-    Uyum:{eyebrow:tr?"KONTROL GÜVENCESİ":"CONTROL ASSURANCE",title:tr?"Uyum uygulama görünümü":"Compliance implementation posture",detail:tr?"Framework maddelerini uygulama ve kanıt durumuyla birlikte yönetin.":"Govern framework requirements together with implementation and evidence state.",metrics:[[rows.length,tr?"Toplam madde":"Total requirements",tr?"Değerlendirilen kapsam":"Assessed scope","neutral"],[count("status",["Uyumlu","Compliant"]),tr?"Uyumlu":"Compliant",tr?"Kanıtlanmış maddeler":"Evidence-backed requirements","positive"],[count("status",["Kısmi Uyumlu","Partially Compliant"]),tr?"Kısmi uyum":"Partial",tr?"İyileştirme gereken":"Needs improvement","warning"],[count("status",["Uyumlu Değil","Noncompliant"]),tr?"Uyumlu değil":"Noncompliant",tr?"Öncelikli sapma":"Priority deviation","danger"]]},
+    Uyum:{eyebrow:tr?"KONTROL GÜVENCESİ":"CONTROL ASSURANCE",title:tr?"Uyum uygulama görünümü":"Compliance implementation posture",detail:tr?"Framework maddelerini uygulama ve kanıt durumuyla birlikte yönetin.":"Govern framework requirements together with implementation and evidence state.",metrics:[[rows.length,tr?"Toplam madde":"Total requirements",tr?"Değerlendirilen kapsam":"Assessed scope","neutral"],[count("status",["Uyumlu","Compliant"]),tr?"Uyumlu":"Compliant",tr?"Kayıtta uyumlu olarak işaretli":"Marked compliant in the register","positive"],[count("status",["Kısmi Uyumlu","Partially Compliant"]),tr?"Kısmi uyum":"Partial",tr?"İyileştirme gereken":"Needs improvement","warning"],[count("status",["Uyumlu Değil","Noncompliant"]),tr?"Uyumlu değil":"Noncompliant",tr?"Öncelikli sapma":"Priority deviation","danger"]]},
     Kontroller:{eyebrow:tr?"ORTAK KONTROL KÜTÜPHANESİ":"COMMON CONTROL LIBRARY",title:tr?"Kontrol etkinliği ve kanıt kapsaması":"Control effectiveness and evidence coverage",detail:tr?"Tek bir kontrolü framework, test sahibi ve kanıtlarla uçtan uca bağlayın.":"Connect each control end to end with frameworks, test ownership and evidence.",metrics:[[rows.length,tr?"Toplam kontrol":"Total controls",tr?"Ortak kontrol seti":"Common control set","neutral"],[count("status",["Aktif","Active"]),tr?"Aktif kontrol":"Active controls",tr?"Operasyonel kontroller":"Operational controls","positive"],[count("status",["İyileştirme Gerekli","Needs Improvement"]),tr?"İyileştirme":"Needs improvement",tr?"Etkinlik açığı bulunan":"Effectiveness gaps","warning"],[rows.filter(row=>linkedEvidence.has(String(row.data.controlRef||""))).length,tr?"Kanıt bağlı":"Evidence linked",tr?"En az bir bağlı kanıt":"At least one evidence item","info"]]},
     Kanıtlar:{eyebrow:tr?"KANIT GÜVENİ":"EVIDENCE TRUST",title:tr?"Kanıt güncelliği ve kontrol bağlantısı":"Evidence freshness and control linkage",detail:tr?"Kanıtların sahipliğini, geçerliliğini ve tekrar kullanımını izleyin.":"Track evidence ownership, validity and reusable control mappings.",metrics:[[rows.length,tr?"Toplam kanıt":"Total evidence",tr?"Kanıt kasasındaki kayıt":"Records in evidence vault","neutral"],[count("status",["Onaylandı","Approved"]),tr?"Onaylı":"Approved",tr?"İncelenmiş kanıt":"Reviewed evidence","positive"],[count("status",["İncelemede","In Review"]),tr?"İncelemede":"In review",tr?"Reviewer kararı gereken":"Reviewer decision required","warning"],[count("status",["Süresi Doldu","Expired"]),tr?"Süresi dolmuş":"Expired",tr?"Yenilenmesi gereken":"Renewal required","danger"]]},
   };
@@ -3707,6 +3718,7 @@ function AuditModule({
   refreshAudits,
   canDeleteAudit,
   portfolioState, retryPortfolio,
+  allowPosture,
   showReadiness = true,
   go,
 }: {
@@ -3735,11 +3747,13 @@ function AuditModule({
     auditor: string;
     auditOwner: string;
     catalogImport?: AuditCatalogImport;
-  }) => Promise<boolean>;
+    posture?: {period:string;token:string};
+  }) => Promise<boolean|"preview-changed">;
   deleteAudit: (audit: AuditPortfolioItem) => Promise<void>;
   refreshAudits: () => Promise<unknown>;
   canDeleteAudit: boolean;
   portfolioState:"loading"|"ready"|"error"; retryPortfolio:()=>void;
+  allowPosture:boolean;
   showReadiness?: boolean;
   go: (module: string) => void;
 }) {
@@ -3760,6 +3774,7 @@ function AuditModule({
       auditOwner: "",
     }),
     [savingAudit, setSavingAudit] = useState(false);
+  const [posture,setPosture]=useState<AuditChoice>(false);
   const [catalogImport, setCatalogImport] = useState<AuditCatalogImport|null>(null);
   const [auditCreateError,setAuditCreateError] = useState("");
   const [taskFocus, setTaskFocus] = useState<{ kind: string; id: string; auditId: string; fromMyWork: boolean } | null>(null);
@@ -3819,13 +3834,15 @@ function AuditModule({
     );
   async function submitAudit(event: FormEvent) {
     event.preventDefault();setAuditCreateError("");
-    if(catalogImport && !catalogImport.rightsConfirmed)return;
+    if(posture===null || catalogImport && !catalogImport.rightsConfirmed)return;
     setSavingAudit(true);
-    try { const ok=await createAudit({...auditDraft,...(catalogImport?{catalogImport}:{})});
-      if(ok){setPickerOpen(false);setCatalogImport(null);}else setAuditCreateError(tr?"Denetim oluşturulamadı. Adı ve katalog alanlarını kontrol edin.":"Audit could not be created. Check the name and catalog fields.");
+    try { const ok=await createAudit({...auditDraft,...(catalogImport?{catalogImport}:{}),...(posture?{posture}:{})});
+      if(ok==="preview-changed"){setPosture(null);setAuditCreateError(tr?"Kontrol veya kanıt değişti. Dönemi yeniden önizleyin.":"Controls or evidence changed. Preview the period again.");}
+      else if(ok){setPickerOpen(false);setCatalogImport(null);}else setAuditCreateError(tr?"Denetim oluşturulamadı. Adı ve katalog alanlarını kontrol edin.":"Audit could not be created. Check the name and catalog fields.");
     }catch{setAuditCreateError(tr?"Bağlantı kesildi. Tekrar denemeden önce portföyü yenileyerek kaydı kontrol edin.":"Connection lost. Refresh the portfolio and check for the audit before retrying.");}finally{setSavingAudit(false);}
   }
   function chooseTemplate(template: string) {
+    setPosture(false);
     const custom = template === "Özel Denetim" || template === "Custom Audit";
     setAuditDraft((current) => ({
       ...current,
@@ -3869,7 +3886,7 @@ function AuditModule({
           </div>
           <div className="actions">
             {canWrite && (
-              <button className="primary" onClick={() => setPickerOpen(true)}>
+              <button className="primary" onClick={() => {setPosture(false);setPickerOpen(true);}}>
                 {tr ? "+ Yeni Denetim" : "+ New Audit"}
               </button>
             )}
@@ -3929,7 +3946,8 @@ function AuditModule({
                   </select>
                 </label>
                 {!catalogImport && <FrameworkCatalogNotice framework={auditDraft.template} lang={lang} />}
-                <AuditCatalogUpload lang={lang} value={catalogImport} onChange={setCatalogImport} />
+                <AuditCatalogUpload lang={lang} value={catalogImport} onChange={v=>{setCatalogImport(v);setPosture(false);}} />
+                {allowPosture && !catalogImport && automaticAuditTemplates.some(t=>t===auditDraft.template) && <AuditPostureChoice key={auditDraft.template} template={auditDraft.template} tr={tr} choice={posture} onChange={setPosture}/>}
                 <label className="wide">
                   {tr ? "Denetim adı" : "Audit name"}
                   <input
@@ -3989,7 +4007,7 @@ function AuditModule({
                   >
                     {tr ? "Vazgeç" : "Cancel"}
                   </button>
-                  <button className="primary" disabled={savingAudit || !!(catalogImport && !catalogImport.rightsConfirmed)}>
+                  <button className="primary" disabled={savingAudit || posture===null || !!(catalogImport && !catalogImport.rightsConfirmed)}>
                     {savingAudit
                       ? tr
                         ? "Ekleniyor…"
@@ -4049,6 +4067,7 @@ function AuditModule({
       {selectedPortfolio&&<AuditActions key={`audit-actions:${selectedPortfolio.id}`} audit={selectedPortfolio} lang={lang} canWrite={canWrite} canDelete={canDeleteAudit} onDelete={deleteAudit} onChanged={async name=>{await refreshAudits();select(name);}}/>}
       {selectedPortfolio?.closure_state && selectedPortfolio.closure_state !== "open" && <p role="status">{auditClosureLabels[selectedPortfolio.closure_state][tr ? 0 : 1]}{auditLocked ? (tr ? " · Değişiklik için denetim gerekçeyle yeniden açılmalı." : " · Reopen the audit with a reason before making changes.") : ""}</p>}
       {!selectedPortfolio && <section className="fw-orphan-notice" role="status"><div><strong>{tr ? "Aktif denetim bağlantısı eksik" : "Active audit link missing"}</strong><p>{tr ? "Bu maddeler için aktif bir denetim kaydı bulunamadı. Kayıtları inceleyip düzenleyebilir veya bağlantısız maddeler görünümünden mevcut bir denetime bağlayabilirsiniz." : "These requirements have no active audit record. Review or edit them, or link them to an existing audit from the unassigned requirements view."}</p></div><button type="button" onClick={() => { setShowUnassigned(true); select(""); }}>{tr ? "Bağlantısız maddeleri aç" : "Open unassigned requirements"}</button></section>}
+      {allowPosture && selectedPortfolio?.catalog?.hasPosture && <AuditBaseline records={new Map(items.map(row=>[String(row.data.requirementRef),row.id]))} key={selectedPortfolio.id} auditId={selectedPortfolio.id} tr={tr}/>}
       <AuditResearchWorkspace key={selectedPortfolio?.id || `unlinked:${selected}`} auditId={selectedPortfolio?.id || ""} lang={lang}
         focusArea={areaFocus?.id===selectedPortfolio?.id?areaFocus?.area:""}
         findings={selectedPortfolio?<AuditFindingsPanel auditId={selectedPortfolio.id} lang={lang}/>:undefined}

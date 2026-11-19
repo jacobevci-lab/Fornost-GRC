@@ -1,3 +1,4 @@
+import {openComplianceRegister} from "./qa-compliance-register.mjs";
 import { qaPassword } from "./qa-credentials.mjs";
 import { revealAiWorkspace } from "./qa-ai-workspaces.mjs";
 import { chromium, expect } from '@playwright/test';
@@ -53,7 +54,7 @@ await check('Continuity plan reference protects its core BIA record',async()=>{
  const blocked=await request(admin,`/api/grc?id=${bia.id}`,'DELETE',undefined,409);assert.equal(blocked.code,'RECORD_LINKED');assert.equal((await request(admin,'/api/grc')).rows.find(x=>x.id===bia.id).record_code,bia.code);
 });
 const page=await admin.newPage();currentPage=page;page.setDefaultTimeout(10000);const errors=[];page.on('pageerror',e=>errors.push(e.message));page.on('response',r=>{if(r.status()>=500&&r.url().startsWith(base))errors.push(`HTTP ${r.status()} ${r.url()}`)});
-async function open(label){await page.locator(`nav button[aria-label=${JSON.stringify(label)}]`).evaluate(el=>el.click());await page.waitForTimeout(500)}
+async function open(label){await page.locator(`nav button[aria-label=${JSON.stringify(label)}]`).evaluate(el=>el.click());await page.waitForTimeout(500);await openComplianceRegister(page,label)}
 async function reset(){await page.setViewportSize({width:1536,height:960});await page.goto(base);await page.locator('.shell').waitFor();await page.locator('.language-switch:visible').getByRole('button',{name:'EN',exact:true}).click();}
 async function checkPendingRecordForm(dialog,path){
  let release;const gate=new Promise(resolve=>{release=resolve});let requests=0;
