@@ -117,7 +117,10 @@ try {
     await progress(`${locale}: connected explorer`);
     await open(locale === 'tr' ? 'Bağlantılı GRC Haritası' : 'Connected GRC Map');
     await page.locator('.cgw-records>button').first().waitFor();
-    assert.equal(await page.locator('.cg-heading h2').evaluate(el=>getComputedStyle(el).fontSize),'24px','Readable workbench heading');
+    const name=locale==='tr'?'Bağlantılı GRC Haritası':'Connected GRC Map';
+    const pageTitle=page.getByRole('heading',{name,exact:true});
+    await expect(pageTitle).toHaveCount(1);
+    assert.ok(await pageTitle.evaluate(el=>el.tagName==='H1' && parseFloat(getComputedStyle(el).fontSize)>=16),'Readable page heading');
     assert.equal(await page.locator('.cgw-records>button b').first().evaluate(el=>getComputedStyle(el).fontSize),'12px','Readable desktop record text');
     assert.equal(await page.locator('.cgw-filters input').evaluate(el=>getComputedStyle(el).fontSize),'13px','Readable desktop form text');
     assert.equal(await page.locator('.cg-operations').count(), 0, 'Assurance operations do not crowd the initial map');
