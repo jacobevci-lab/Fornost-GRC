@@ -1,5 +1,6 @@
 // Exercise only a disposable loopback QA installation with a bootstrapped admin.
 import assert from 'node:assert/strict';
+import AxeBuilder from '@axe-core/playwright';
 import {chromium,expect} from '@playwright/test';
 import {qaPassword} from './qa-credentials.mjs';
 
@@ -21,30 +22,37 @@ try{
   await go('Compliance Management');
   const work=page.locator('.posture-workspace');
   if(!(await api(endpoint)).enrolled.includes(iso)){
-    await expect(work.getByRole('button',{name:'ISO 27001 In catalog'})).toBeVisible();
-    await work.getByRole('button',{name:'Add framework',exact:true}).click();
-    await work.getByLabel('Choose from catalog').selectOption(iso);
-    await work.getByRole('button',{name:'Add to scope',exact:true}).click();
+    await expect(work.locator('.posture-column')).toHaveCount(0);
+    await work.getByRole('button',{name:'+ Add ISO 27001',exact:true}).click();
   }
   await work.getByRole('button',{name:/^ISO 27001.*%/}).click();
   await expect(work.getByRole('button',{name:/^Open requirements/})).toBeVisible();
-  const statusButton = (ref, status) => work.getByRole('button',{name:ref+' · '+status+' · Status details',exact:true});
+  const tableRow=ref=>work.locator('tr').filter({has:page.getByRole('rowheader',{name:ref,exact:true})});
   const help=work.locator('.posture-state-help');
-  await statusButton('4.1','Open').focus();
-  await page.keyboard.press('Enter');
+  await expect(work.locator('.posture-column')).toHaveCount(1);
+  await expect(tableRow('4.1').locator('.posture-status')).toHaveText('Open');
+  await expect(tableRow('4.1').locator('button.posture-status')).toHaveCount(0);
+  const link=tableRow('4.1').getByRole('button',{name:'+ Link control'});
+  await link.focus(); await page.keyboard.press('Enter');
   await expect(help).toContainText('Link a library control');
-  await expect(statusButton('4.1','Open')).toHaveAttribute('aria-expanded','true');
-  await page.keyboard.press('Enter');
-  await expect(help).toHaveCount(0);
+  await page.keyboard.press('Enter'); await expect(help).toHaveCount(0);
   const tree=work.getByRole('region',{name:'Requirement outline'});
+  const technological=tree.getByRole('button',{name:/^A\.8 ·/});
+  await technological.click();
+  await expect(technological).toHaveAttribute('aria-pressed','true');
+  await expect(technological).toContainText('0/34');
+  await expect(work.locator('.posture-ledger tbody th').first()).toHaveText('A.8.1');
   await tree.getByRole('searchbox',{name:'Search outline'}).fill('A.5.1');
   await expect(tree.getByRole('button',{name:/^A\.5\.1 /})).toContainText('Information security policies');
   await tree.getByRole('button',{name:/^A\.5\.1 /}).click();
   const editor=page.locator('.posture-editor');
   await expect(editor.locator('xpath=ancestor::tr/preceding-sibling::tr[1]')).toContainText('A.5.1');
-  await editor.locator('.posture-soa summary').click();
-  await editor.getByLabel('Applicability').selectOption('included');
-  await editor.getByLabel('Decision rationale').fill('Identity governance is in scope');
+  const annexRow=tableRow('A.5.1');
+  await annexRow.getByRole('combobox',{name:'A.5.1 · SoA scope'}).selectOption('included');
+  await annexRow.getByLabel('Decision rationale').fill('Identity governance is in scope');
+  await annexRow.getByRole('button',{name:'Save scope'}).click();
+  await expect.poll(async()=>(await matrix(iso)).requirements.find(r=>r.ref==='A.5.1').applicability).toBe('included');
+  await annexRow.getByRole('button',{name:'+ Link control'}).click();
   await editor.getByRole('button',{name:'Create new control'}).click();
   for(const [field,value] of [['Control reference','POSTURE-'+tag],['Control title','Quarterly access review '+tag],['Control owner','IAM'],['Frequency','Quarterly']])await editor.getByLabel(field,{exact:true}).fill(value);
   await editor.getByRole('button',{name:'Create draft'}).click();
@@ -53,8 +61,19 @@ try{
   await expect.poll(async()=>((await matrix(iso)).requirements.find(r=>r.ref==='A.5.1')).links.length).toBeGreaterThan(0);
   const m=await matrix(iso),control=m.controls.find(c=>c.title==='Quarterly access review '+tag);
   assert.ok(control); assert.equal(m.requirements.length,123);
-  await api(endpoint,{action:'enroll',name:soc});
-  await api(endpoint,{action:'save',name:soc,ref:'CC1.1',revision:(await matrix(soc)).requirements[0].revision,applicability:'required',links:[{id:control.id,coverage:'partial'}]});
+  await work.getByRole('button',{name:'+ Add SOC 2',exact:true}).click();
+  await expect(work.locator('.posture-column')).toHaveCount(2);
+  assert.equal(await work.locator('.posture-strip').evaluate(el=>getComputedStyle(el).gridTemplateColumns.split(' ').length),2);
+  await tableRow('CC1.1').getByRole('button',{name:'+ Link control'}).click();
+  await editor.getByLabel('Existing control').selectOption(control.id);
+  await editor.getByRole('button',{name:'Link and save'}).click();
+  await expect(tableRow('CC1.1')).toContainText('Across 2 frameworks');
+  await editor.getByLabel('Coverage').selectOption('partial');
+  await editor.getByRole('button',{name:'Save mapping'}).click();
+  await expect.poll(async()=>(await matrix(soc)).requirements[0].links[0].coverage).toBe('partial');
+  await work.getByRole('button',{name:'Shared requirements',exact:true}).click();
+  await expect(work.locator('.posture-ledger tbody th')).toHaveCount(1);
+  await expect(tableRow('CC1.1')).toContainText(control.code);
   assert.equal((await api(endpoint+'?controlId='+control.id)).impact.length,2);
   await go('Control Library');
   await page.getByPlaceholder('Search records').fill('Quarterly access review '+tag);
@@ -69,11 +88,20 @@ try{
   await work.getByRole('button',{name:/^ISO 27001.*%/}).click();
   await work.getByRole('button',{name:/^All requirements/}).click();
   await work.getByRole('searchbox',{name:'Search requirements',exact:true}).fill('A.5.1');
-  await statusButton('A.5.1','Evidenced').click();
-  await expect(help).toContainText('current approved evidence');
+  await expect(annexRow.locator('.posture-status')).toHaveText('Open');
+  const stored=(await api('/api/grc')).rows.find(r=>r.id===control.id);
+  const implemented=await ctx.request.patch(base+'/api/grc',{headers:{origin:base},data:{id:control.id,expectedUpdatedAt:stored.updated_at,data:{...JSON.parse(stored.data_json),implementation:'Uygulanıyor',status:'Aktif'}}});
+  assert.equal(implemented.status(),200,await implemented.text());
+  await page.reload();await work.getByRole('button',{name:/^All requirements/}).click();
+  await work.getByRole('searchbox',{name:'Search requirements',exact:true}).fill('A.5.1');
+  await expect(annexRow.locator('.posture-status')).toHaveText('Compliant');
+  await expect(tree.getByRole('button',{name:/^A\.5 ·/})).toContainText('1/37');
+  await page.screenshot({path:'/tmp/fornost-compliance-register.png'});
+  const accessible=async()=>{const result=await new AxeBuilder({page}).include('.posture-workspace').withTags(['wcag2a','wcag2aa']).analyze();
+    assert.deepEqual(result.violations.flatMap(v=>v.nodes.map(n=>[v.id,n.target,n.failureSummary])),[]);};
+  await accessible();
   await work.getByRole('button',{name:/^SOC 2.*%/}).click();
-  await statusButton('CC1.1','Open').click();
-  await expect(help).toContainText('only partially support');
+  await expect(tableRow('CC1.1').locator('.posture-status')).toHaveText('Partial');
   await go('Audit Management');
   await page.getByRole('button',{name:'+ New Audit',exact:true}).click();
   const form=page.locator('form').filter({has:page.getByLabel('Template / option')});
@@ -101,8 +129,17 @@ try{
   const snapshot=(await api(endpoint+'?auditId='+audit.id)).baseline;
   assert.equal(snapshot.withEvidence,1);assert.equal(Object.keys(snapshot.evidence).length,1);
   const before=await api(endpoint+'?name='+encodeURIComponent(iso)+'&period='+encodeURIComponent(period));
-  const row=(await matrix(iso)).requirements.find(r=>r.ref==='A.5.1');
-  await api(endpoint,{action:'save',name:iso,ref:row.ref,revision:row.revision,reason:'Scope changed after audit start',applicability:'excluded',links:[]});
+  await go('Compliance Management');
+  await work.getByRole('button',{name:/^ISO 27001.*%/}).click();
+  await work.getByRole('button',{name:/^All requirements/}).click();
+  await work.getByRole('searchbox',{name:'Search requirements',exact:true}).fill('A.5.1');
+  await annexRow.getByRole('combobox',{name:'A.5.1 · SoA scope'}).selectOption('excluded');
+  const rationale=annexRow.getByLabel('Decision rationale');
+  await rationale.fill('   ');await expect(annexRow.getByRole('button',{name:'Save scope'})).toBeDisabled();
+  await rationale.fill('Scope changed after audit start');await annexRow.getByRole('button',{name:'Save scope'}).click();
+  await expect(annexRow.locator('.posture-status')).toHaveText('Out of scope');
+  await expect(tree.getByRole('button',{name:/^A\.5 ·/})).toContainText('0/36');
+  await expect(work.getByRole('button',{name:/^ISO 27001.*%/})).toContainText('0/122');
   await api('/api/audits',{name:'Stale preview '+tag,template:iso,posture:{period,token:before.token}},409);
   assert.deepEqual((await api(endpoint+'?auditId='+audit.id)).baseline,snapshot);
   await go('Compliance Management');
@@ -118,7 +155,7 @@ try{
   const mobileEditor=work.locator('.posture-editor');
   await mobileEditor.getByRole('searchbox',{name:'Kontrol ara'}).fill(control.code);
   await mobileEditor.getByLabel('Mevcut kontrol',{exact:true}).selectOption(control.id);
-  await expect(mobileEditor.locator('.posture-state-help')).toContainText('madde durumu yeniden hesaplanır');
+  await expect(mobileEditor.locator('.posture-state-help')).toContainText('Uygulanabilirlik (SoA)');
   await mobileEditor.getByRole('button',{name:'Bağla ve kaydet'}).click();
   await expect.poll(async()=>((await matrix(iso)).requirements.find(r=>r.ref==='A.5.18')).links.map(l=>l.id)).toContain(control.id);
   await expect(work.getByRole('status')).toContainText('Madde güncellendi');
@@ -127,12 +164,13 @@ try{
   await mobileTree.getByRole('searchbox',{name:'Madde ağacında ara'}).fill('4.1');
   await mobileTree.getByRole('button',{name:/^4\.1 /}).click();
   await mobileEditor.getByLabel('Mevcut kontrol',{exact:true}).selectOption(control.id);
-  await expect(mobileEditor.locator('.posture-state-help')).toContainText('Kaydedildiğinde · Kanıtlı');
+  await expect(mobileEditor.locator('.posture-state-help')).toContainText('Kaydedildiğinde · Uyumlu');
   await mobileEditor.getByRole('button',{name:'Bağla ve kaydet'}).click();
-  await expect(work.getByRole('button',{name:'4.1 · Kanıtlı · Durum ayrıntısı',exact:true})).toBeVisible();
+  await expect(tableRow('4.1').locator('.posture-status')).toHaveText('Uyumlu');
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),true,'mobile viewport overflow');
   const toggle=page.locator('.theme-toggle:visible');
   await toggle.click();
+  await accessible();
   await expect(work.locator('.posture-strip')).toBeVisible();
   await page.setViewportSize({width:1440,height:900});
   await page.getByRole('button',{name:'Özel gereksinimler ve mevcut kayıtlar'}).click();
@@ -147,6 +185,12 @@ try{
   await gap.click();
   await expect(work.locator('.posture-editor')).toBeVisible();
   await expect(work.locator('.posture-row-trigger[aria-expanded=true]')).toHaveAttribute('aria-label',new RegExp('^'+ref.replaceAll('.','[.]')+' ·'));
+  // More than six enrollments wrap into another row.
+  const catalog=await api(endpoint);
+  for(const name of catalog.catalog.filter(n=>!catalog.enrolled.includes(n)).slice(0,5))await api(endpoint,{action:'enroll',name});
+  await page.reload();
+  await expect(work.locator('.posture-column')).toHaveCount(7);
+  assert.equal(await work.locator('.posture-strip').evaluate(el=>getComputedStyle(el).gridTemplateColumns.split(' ').length),6);
   for(const [module,action] of [
     ['Risk Değerlendirmesi','Excel İçe Aktar'],['Denetim Yönetimi','+ Yeni Denetim'],
     ['Risk İştahı ve KRI','+ Risk İştahı'],['Regülasyon Merkezi','Kaynak ekle']
@@ -162,6 +206,19 @@ try{
     }
     await page.keyboard.press('Escape');await expect(dialog).toHaveCount(0);await expect(opener).toBeFocused();
   }
+  const viewer=await browser.newContext();
+  const email='posture-viewer-'+tag+'@fornost.test';
+  await api('/api/users',{name:'Posture viewer',email,password:qaPassword(),role:'Viewer'},201);
+  await api('/api/auth',{action:'login',email,password:qaPassword()},200,viewer);
+  const vp=await viewer.newPage();await vp.goto(base);
+  await vp.locator('.language-switch:visible').getByRole('button',{name:'EN',exact:true}).click();
+  await vp.locator('nav button[aria-label="Compliance Management"]').evaluate(el=>el.click());
+  const vw=vp.locator('.posture-workspace');
+  await expect(vw.locator('table')).toBeVisible();await expect(vw.locator('.posture-scope-cell select')).toHaveCount(0);
+  await expect(vw.getByRole('button',{name:'+ Link control',exact:true})).toHaveCount(0);
+  await api(endpoint,{action:'enroll',name:iso},403,viewer);
+  await api(endpoint,{action:'save',name:iso,ref:'4.1',applicability:'excluded',reason:'Denied',links:[],revision:''},403,viewer);
+  await viewer.close();
   assert.deepEqual(errors,[]);
   console.log('PASS: framework enrollment, control creation and reuse, cross-framework impact, SoA, period/version filtering, frozen audit, stale preview rejection and TR/EN register navigation.');
 }finally{await browser.close();}

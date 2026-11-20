@@ -10,7 +10,7 @@ export type Baseline = {framework:string; period:string; total:number; excluded:
   evidence:Record<string,Pin>};
 export type ProgramIndex = {catalog:string[]; enrolled:string[]};
 
-export type ProgramCoverage = {scope:number; evidenced:number};
-export type OpenItem = {ref:string;title:string;state:"unmapped"|"partial"|"evidence"|"decision";controlCode?:string};
+export type ProgramCoverage = {scope:number; evidenced:number; compliant:number};
+export type OpenItem = {ref:string;title:string;state:"unmapped"|"implementation"|"partial"|"evidence"|"decision";controlCode?:string};
 export type Comparison = {openCount:number;items:OpenItem[]};
-export type Overview = ProgramIndex & {coverage:Record<string,ProgramCoverage>;comparison:Record<string,Comparison>};
+export type Overview = ProgramIndex & {controlFrameworkCounts:Record<string,number>;coverage:Record<string,ProgramCoverage>;comparison:Record<string,Comparison>};

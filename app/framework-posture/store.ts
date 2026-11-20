@@ -2,8 +2,8 @@ import { completedInitialization } from '../completed-initialization';
 import { evaluateEvidenceEligibility } from '../evidence/eligibility';
 import { ensureEvidenceHistorySchema, verifyEvidenceVersionChainWithAnchor, splitEvidenceControlRefs, normalizeEvidenceControlRef, type EvidenceVersionRow } from '../evidence/versioning';
 import { catalogFor, frameworkNames, programName } from './catalog';
-import { requirementState, summarizeCoverage } from './requirements';
-import type { Baseline, Control, Mapping, Matrix, OpenItem, Pin, Requirement } from './types';
+import { implementationIndex, requirementState } from './requirements';
+import type { Baseline, Control, Mapping, Matrix, OpenItem, ProgramCoverage, Pin, Requirement } from './types';
 
 export class PostureError extends Error {
   constructor(public code:string, public status = 400) { super(code); }
@@ -38,7 +38,7 @@ function project(inputs:Awaited<ReturnType<typeof readSources>>,name:string){
   const add = (ref:string,id:string) => {const set=legacyLinks.get(key(ref))??new Set<string>();set.add(id);legacyLinks.set(key(ref),set);};
   for (const r of inputs.controls) {
     const data=JSON.parse(r.data_json), code=r.code||str(data.controlRef)||r.id;
-    controls.push({id:r.id,code,title:str(data.controlTitle)||str(data.title)||code,implementation:str(data.implementation)});
+    controls.push({id:r.id,code,title:str(data.controlTitle)||str(data.title)||code,implementation:str(data.implementation)||str(data.status)});
     for (const value of [r.id,r.code,str(data.controlRef)]) if(value){const alias=key(value),ids=aliases.get(alias)??new Set<string>();ids.add(r.id);aliases.set(alias,ids);}
     const standards=[...new Set(splitEvidenceControlRefs(data.frameworks||data.framework).map(programName))];
     if(standards.length===1 && standards[0]===name && str(data.standardRef)) add(data.standardRef,r.id);
@@ -76,27 +76,34 @@ export function previewCatalog(name:string):Matrix {
 
 export async function programOverview(db:D1Database) {
   const index=await indexPrograms(db);
-  if(!index.enrolled.length)return {...index,coverage:{},comparison:{}};
+  if(!index.enrolled.length)return {...index,coverage:{},comparison:{},controlFrameworkCounts:{}};
   const sources=await readSources(db);
   const programs=index.enrolled.map(name=>({name,...project(sources,name)}));
   const mapped=new Set(programs.flatMap(p=>p.requirements.flatMap(r=>r.links.map(l=>l.id))));
   // Shared controls use the same verified evidence across all enrolled frameworks.
   const pins=await readPins(db,programs[0].aliases,mapped);
+  const implementation=implementationIndex(programs[0].controls);
+  const coverage:Record<string,ProgramCoverage>={};
+  const controlFrameworkCounts:Record<string,number>=Object.create(null);
+  const codes=new Map(programs[0].controls.map(control=>[control.id,control.code]));
   const comparison=Object.fromEntries(programs.map(program=>{
     const items:OpenItem[]=[];
-    let openCount=0;
+    const linkedInScope=new Set<string>();
+    let scope=0,compliant=0,evidenced=0;
     for(const row of program.requirements){
-      const state=requirementState(row,pins);
-      if(state==="covered"||state==="excluded")continue;
-      openCount++;
-      if(items.length<3){
-        const control=program.controls.find(c=>c.id===row.links[0]?.id);
-        items.push({ref:row.ref,title:row.title,state,controlCode:control?.code});
-      }
+      const state=requirementState(row,pins,implementation);
+      if(state==='excluded')continue;
+      scope++;
+      if(row.links.some(link=>pins[link.id]?.length))evidenced++;
+      for(const link of row.links)linkedInScope.add(link.id);
+      if(state==='covered')compliant++;
+      else if(items.length<3)items.push({ref:row.ref,title:row.title,state,controlCode:codes.get(row.links[0]?.id)});
     }
-    return [program.name,{openCount,items}];
+    for(const id of linkedInScope)controlFrameworkCounts[id]=(controlFrameworkCounts[id]??0)+1;
+    coverage[program.name]={scope,compliant,evidenced};
+    return [program.name,{openCount:scope-compliant,items}];
   }));
-  return {...index,comparison,coverage:Object.fromEntries(programs.map(p=>[p.name,summarizeCoverage(p.requirements,pins)]))};
+  return {...index,coverage,comparison,controlFrameworkCounts};
 }
 
 async function readPins(db:D1Database,aliases:Map<string,Set<string>>,mapped:Set<string>) {
@@ -129,8 +136,8 @@ async function readPins(db:D1Database,aliases:Map<string,Set<string>>,mapped:Set
 export async function saveDecision(db:D1Database, body:Record<string,unknown>, actor:string) {
   const program=str(body.name),ref=str(body.ref),item=catalogFor(program).find(r=>r.ref===ref),app=str(body.applicability),reason=str(body.reason);
   if(!item || !Array.isArray(body.links) || body.links.length>250 || typeof body.revision!=='string' || reason.length>2000 ||
-     !(item.annex?['included','excluded','undecided']:['required']).includes(app) ||
-     (['included','excluded'].includes(app)&&!reason))throw new PostureError('decision');
+     !['included','excluded',item.annex?'undecided':'required'].includes(app) ||
+     (app==='excluded'&&!reason))throw new PostureError('decision');
   const links:Mapping[]=[];
   for(const link of body.links){
     if(!link || !str(link.id) || !['partial','supports'].includes(link.coverage) || links.some(l=>l.id===link.id))throw new PostureError('mapping');
