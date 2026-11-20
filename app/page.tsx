@@ -1052,7 +1052,7 @@ function AuthGate() {
         <p>
           {state.bootstrapRequired && !showLogin
             ? "Kurulumu tamamlamak için ilk yerel yönetici hesabını oluşturun. Bu hesap sistem yöneticisi yetkisine sahip olacaktır."
-            : "Entra SSO kullanılamadığında yetkili yerel hesabınızla giriş yapın."}
+            : "Fornost hesabınızın e-posta adresi ve parolasıyla giriş yapın."}
         </p>
         {state.bootstrapRequired && !showLogin && (
           <div className="setup-progress" aria-label="İlk kurulum adımları">
@@ -1130,9 +1130,20 @@ function returnsToDecisionQueue(request?: FornostNavigationRequest | null) {
   return request?.returnTo?.module === "Ana Sayfa" && request.returnTo.kind === "executive-decisions";
 }
 
+const registerCreateLabels: Record<string, [string,string]> = {
+  "Risk Assessment": ["Risk oluştur", "Create risk"], "BIA": ["İş etki analizi oluştur", "Create impact analysis"],
+  "Varlık Envanteri": ["Varlık ekle", "Add asset"], "Uyum": ["Gereksinim oluştur", "Create requirement"],
+  "Kontroller": ["Kontrol oluştur", "Create control"], "Kanıtlar": ["Kanıt yükle", "Upload evidence"]
+};
+
 function FornostApp({ currentUser }: { currentUser: any }) {
   const scoped = isScoped(currentUser);
   const [legacyCompliance,setLegacyCompliance]=useState(false);
+  const complianceViewKey = pageSessionKey(String(currentUser.id)) + "-compliance-view";
+  function changeComplianceView(register:boolean) {
+    setLegacyCompliance(register);
+    try { window.sessionStorage.setItem(complianceViewKey, register ? "register" : "frameworks"); } catch { /* Session storage is optional. */ }
+  }
   const [lang, setLang] = useState<Lang>("tr"),
     [active, setActive] = useState("Ana Sayfa"),
     [rows, setRows] = useState<Row[]>([]),
@@ -1182,13 +1193,14 @@ function FornostApp({ currentUser }: { currentUser: any }) {
       (currentUser.role === "Admin" || !adminModules.has(module)) &&
       canOpenModule(currentUser, module));
     setActive(restored);
+    try { setLegacyCompliance(window.sessionStorage.getItem(complianceViewKey) === "register"); } catch { /* Default to the framework view. */ }
     const savedFocus = readCoreRecordSession(() => window.sessionStorage, String(currentUser.id), module => modules.includes(module) && canOpenModule(currentUser, module) && (currentUser.role === "Admin" || !adminModules.has(module)));
     if (savedFocus && sameDomainModule(savedFocus.module, restored) && !peekPendingFornostFocus()) {
       recordContext.current = savedFocus;
       setRecordRequest(savedFocus);
     }
     setPageRestored(true);
-  }, [pageKey, currentUser]);
+  }, [pageKey, currentUser, complianceViewKey]);
   useEffect(() => {
     // Wait for restoration so the initial Home render cannot overwrite it.
     if (pageRestored) rememberPage(() => window.sessionStorage, pageKey, active);
@@ -2265,14 +2277,13 @@ function FornostApp({ currentUser }: { currentUser: any }) {
           />
         ) : active==="Uyum" && canReadPosture(currentUser) && !legacyCompliance && !focusedRecord ? (
           <><FrameworkWorkspace onControlCreated={()=>{void load();}} createControl={canWriteModule(currentUser,"Kontroller")} tr={lang==="tr"} write={canWriteModule(currentUser,"Uyum")}/>
-          <button type="button" className="ghost" onClick={()=>setLegacyCompliance(true)}>{lang==="tr"?"Özel gereksinimler ve mevcut kayıtlar":"Custom requirements and existing records"}</button></>
+          <button type="button" className="ghost" onClick={()=>changeComplianceView(true)}>{lang==="tr"?"Özel gereksinimler ve mevcut kayıtlar":"Custom requirements and existing records"}</button></>
         ) : (
           <>
-            {active==="Uyum" && canReadPosture(currentUser) && <button type="button" className="ghost" onClick={()=>{clearRecordFocus();setLegacyCompliance(false);}}>{lang==="tr"?"Çerçeve matrisine dön":"Back to framework matrix"}</button>}
+            {active==="Uyum" && canReadPosture(currentUser) && <button type="button" className="ghost" onClick={()=>{clearRecordFocus();changeComplianceView(false);}}>{lang==="tr"?"Çerçeve matrisine dön":"Back to framework matrix"}</button>}
             <section className="module-head">
               <div>
                 <small className="module-kicker">{moduleEyebrows[lang][active] || "FORNOST GRC"}</small>
-                <h2>{names[lang][active]}</h2>
                 <p>{desc}</p>
               </div>
               <div className="actions">
@@ -2296,8 +2307,8 @@ function FornostApp({ currentUser }: { currentUser: any }) {
                   {u.csv}
                 </button>
                 {canWriteModule(currentUser,active) && (
-                  <button className="primary" disabled={registerLoadState !== "ready"} onClick={() => openNew()}>
-                    {u.new}
+                  <button className="primary workspace-create" disabled={registerLoadState !== "ready"} onClick={() => openNew()}>
+                    {registerCreateLabels[active]?.[lang === "tr" ? 0 : 1] || u.new}
                   </button>
                 )}
               </div>
@@ -3775,6 +3786,7 @@ function AuditModule({
     [savingAudit, setSavingAudit] = useState(false);
   const [posture,setPosture]=useState<AuditChoice>(false);
   const [catalogImport, setCatalogImport] = useState<AuditCatalogImport|null>(null);
+  const pickerRef=useRecordDialog<HTMLElement>(pickerOpen,()=>setPickerOpen(false));
   const [auditCreateError,setAuditCreateError] = useState("");
   const [taskFocus, setTaskFocus] = useState<{ kind: string; id: string; auditId: string; fromMyWork: boolean } | null>(null);
   const [showUnassigned, setShowUnassigned] = useState(false);
@@ -3885,7 +3897,7 @@ function AuditModule({
           </div>
           <div className="actions">
             {canWrite && (
-              <button className="primary" onClick={() => {setPosture(false);setPickerOpen(true);}}>
+              <button className="primary workspace-create" onClick={() => {setPosture(false);setPickerOpen(true);}}>
                 {tr ? "+ Yeni Denetim" : "+ New Audit"}
               </button>
             )}
@@ -3909,7 +3921,7 @@ function AuditModule({
               if (e.target === e.currentTarget) setPickerOpen(false);
             }}
           >
-            <section data-escape-layer
+            <section ref={pickerRef} tabIndex={-1} data-escape-layer
               className="modal audit-picker"
               role="dialog"
               aria-modal="true"

@@ -61,7 +61,7 @@ export default function Settings({ lang, currentUser, catalogs, onCatalogChange,
   ],securityScore=Math.round(securityChecks.filter(check=>check.ok).length/securityChecks.length*100);
   if(currentUser.role!=="Admin")return <section className="settings-empty"><b>{tr?"Yönetici yetkisi gerekli":"Administrator access required"}</b><p>{tr?"Bu yönetim ekranını yalnızca Admin rolündeki kullanıcılar açabilir.":"Only users with the Admin role can open this management page."}</p></section>;
   return <>
-    <section className="module-head settings-head"><div><small>{tr?"YÖNETİM KONSOLU":"ADMIN CONSOLE"}</small><h2>{title}</h2><p>{description}</p></div><span className="admin-badge">{tr?"Yalnızca Yönetici":"Administrators only"}</span></section>
+    <section className="module-head settings-head"><div><small>{tr?"YÖNETİM KONSOLU":"ADMIN CONSOLE"}</small>{page==="workflow"&&<h2>{title}</h2>}<p>{description}</p></div><span className="admin-badge">{tr?"Yalnızca Yönetici":"Administrators only"}</span></section>
     {page==="workflow"&&<IntegrationSettings lang={lang} kind="ticketing"/>}
     {page==="email"&&<IntegrationSettings lang={lang} kind="email"/>}
     {page==="ai"&&<AiSettings lang={lang}/>}

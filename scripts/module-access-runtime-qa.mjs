@@ -42,7 +42,7 @@ try{
  await expect(userPage.locator('#executive-decisions, .decision-signals')).toHaveCount(0);
  await userPage.locator('.language-switch:visible').getByRole('button',{name:'EN',exact:true}).click();
  await expect(userPage.locator('.module-scope-home')).toContainText('My workspace');await expect(userPage.locator('nav')).not.toContainText('INTELLIGENCE');await expect(userPage.locator('nav button[aria-label="Reporting"]')).toHaveCount(0);await expect(userPage.locator('nav button[aria-label="Evidence Library"]')).toHaveCount(0);
- await userPage.locator('nav button[aria-label="Business Impact Analysis (BIA)"]').evaluate(el=>el.click());await expect(userPage.locator('.module-head')).toContainText('BIA');await expect(userPage.locator('.module-head .primary')).toHaveCount(0);
+ await userPage.locator('nav button[aria-label="Business Impact Analysis (BIA)"]').evaluate(el=>el.click());await expect(userPage.getByRole('heading',{level:1})).toHaveText('Business Impact Analysis (BIA)');await expect(userPage.locator('.module-head .primary')).toHaveCount(0);
  await userPage.locator('nav button[aria-label="Risk Assessment"]').evaluate(el=>el.click());await expect(userPage.locator('.module-head .primary')).toBeVisible();
  await userPage.locator('.context-ai-trigger').click();await expect(userPage.locator('#fornost-ai-panel')).toBeVisible();await expect(userPage.locator('.fornost-ai-tabs')).toHaveCount(0);await expect(userPage.locator('#fornost-ai-panel')).toContainText('izinli modüllerdeki');await userPage.getByRole('button',{name:'Kapat',exact:true}).click();
  await page.goto(base);await expect(page.locator('.shell')).toBeVisible();await page.locator('.language-switch:visible').getByRole('button',{name:'EN',exact:true}).click();await page.locator('nav button[aria-label="Identity & Access"]').evaluate(el=>el.click());
@@ -66,7 +66,7 @@ try{
   await userPage.reload();
   if(moduleName==='Risk Assessment'){
    // The previously active page is still allowed: refresh must preserve it.
-   await expect(userPage.locator('.module-head')).toContainText('Risk Assessment');
+   await expect(userPage.getByRole('heading',{level:1})).toHaveText('Risk Assessment');
    await userPage.locator('nav button[aria-label="Dashboard"]').evaluate(el=>el.click());
   }
   // Subsequent grant changes revoke the previously active page: restore Home.
