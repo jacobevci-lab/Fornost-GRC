@@ -20,7 +20,7 @@ test("unassessed risks are treated as attention work rather than low-risk work",
 });
 
 test("My Work opens the selected business record through the shared navigation focus contract", () => {
-  assert.match(source, /import \{ navigateToFornost \} from "\.\/navigation-focus"/);
+  assert.match(source, /import \{[^}]*\bnavigateToFornost\b[^}]*\} from "\.\/navigation-focus"/);
   assert.match(source, /source: "my-work"/);
   assert.match(source, /filter: \{ recordRef: recordCode\(row\) \}/);
   assert.match(source, /onClick=\{\(\) => navigateToRecord\(item\.row\)\}/);
