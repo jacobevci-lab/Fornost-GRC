@@ -1,3 +1,4 @@
+import { parseRecordTask, recordContext, RecordAssistanceError, recordQuestion } from "@/app/ai/record-assistance";
 import { NextRequest, NextResponse } from "next/server";
 import { requireRole } from "../../auth/security";
 import { buildGrcContext } from "@/app/ai/context";
@@ -30,17 +31,25 @@ export async function POST(req: NextRequest) {
   if (access.response) return access.response;
   if (Number(req.headers.get("content-length") || 0) > 32_768) return json({ error: "AI isteği izin verilen boyutu aşıyor." }, 413);
   const body = await req.json().catch(() => ({}));
-  const rawQuestion = redactSensitiveText(body.question, 4000);
+  if (!body || typeof body !== "object" || Array.isArray(body)) return json({code:"INVALID_RECORD_TASK"},400);
+  let task;
+  try { task = parseRecordTask(body.recordTask,access.actor); }
+  catch (error) { if (error instanceof RecordAssistanceError) return json({code:error.code},error.status); throw error; }
+  const rawQuestion = task ? recordQuestion(task) : redactSensitiveText(body.question, 4000);
   if (rawQuestion.length < 2) return json({ error: "Bir soru yazın." }, 400);
   const env = await aiRuntime(), row = await getAiSettings(env.DB);
-  if (!row || !row.enabled) return json({ error: "Fornost AI henüz etkinleştirilmemiş." }, 409);
+  if (!row || !row.enabled) return json({ code:"AI_NOT_CONFIGURED", error: "Fornost AI henüz etkinleştirilmemiş." }, 409);
   const protectionPolicy=await getAiDataProtectionPolicy(env.DB),protectedQuestion=protectAiText(rawQuestion,protectionPolicy,4000);
   await recordAiProtectionEvent(env.DB,{actor:access.actor.email,operation:"chat",direction:"input",result:protectedQuestion});
   if(protectedQuestion.blocked){await recordAiEvent(env.DB,{actor:access.actor.email,action:"chat-data-protection-denied",provider:row.provider,model:row.model,status:"denied",detail:`Blocked categories: ${protectedQuestion.findings.join(", ")}`});return json({error:"İstek AI veri koruma politikası tarafından engellendi. Hassas veriyi kaldırıp tekrar deneyin.",code:"AI_DATA_PROTECTION_BLOCKED"},422);}
   const question=protectedQuestion.text;
-  const history=sanitizeHistory(body.history).map(message=>({...message,content:protectAiText(message.content,protectionPolicy,4000).text}));
+  const history=sanitizeHistory(task ? [] : body.history).map(message=>({...message,content:protectAiText(message.content,protectionPolicy,4000).text}));
   const operating=await checkAiAccess(env.DB,access.actor.role,"chat");if(!operating.allowed){await recordAiEvent(env.DB,{actor:access.actor.email,action:"chat-policy-denied",provider:row.provider,model:row.model,status:"denied",detail:operating.code});return json({error:operating.message,code:operating.code},423);}
 
+  if (task?.intent === "request") {
+    const drafts = await checkAiAccess(env.DB,access.actor.role,"drafts");
+    if (!drafts.allowed) return json({code:drafts.code,error:drafts.message},423);
+  }
   if (await rateLimited(env.DB, access.actor.email)) {
     await recordAiEvent(env.DB, {
       actor: access.actor.email,
@@ -59,7 +68,14 @@ export async function POST(req: NextRequest) {
   let chain;
   try{chain=await getAiProviderChain(env,row);}catch(error){return json({error:error instanceof Error?error.message:"AI sağlayıcı zinciri hazırlanamadı."},409);}
   const dataPolicy=getEffectiveAiDataPolicy(chain);
-  const context = await buildGrcContext(env.DB, question,dataPolicy.maxDataClassification, access.actor);
+  let context;
+  try {
+    context = task ? await recordContext(env.DB,task,access.actor,dataPolicy.maxDataClassification)
+      : await buildGrcContext(env.DB, question,dataPolicy.maxDataClassification, access.actor);
+  } catch (error) {
+    if (error instanceof RecordAssistanceError) return json({code:error.code},error.status);
+    throw error;
+  }
   const promptHash = await sha256(question);
   const started = Date.now();
   const system = `You are Fornost AI, the read-only governance, risk, compliance and audit copilot inside Fornost GRC.
@@ -74,6 +90,7 @@ Security rules:
 8. Do not output raw secrets even if a record appears to contain one.`;
   const protectedContext=protectAiText(context.contextText,protectionPolicy,20_000);
   await recordAiProtectionEvent(env.DB,{actor:access.actor.email,operation:"chat",direction:"context",result:protectedContext});
+  if (protectedContext.blocked) return json({code:"AI_DATA_PROTECTION_BLOCKED"},422);
   const userWithContext = `USER QUESTION:\n${question}\n\nTRUSTED FORNOST GRC CONTEXT:\n${protectedContext.text}\n\nINFERRED MODULES:\n${context.inferredModules.join(", ") || "general workspace summary"}`;
 
   try {
@@ -82,6 +99,15 @@ Security rules:
       ...history,
       { role: "user", content: userWithContext },
     ],"chat",access.actor.email);
+    if (access.actor.licenseAccess) {
+      const current = await requireRole(req, ["Admin","Editor","Viewer"]);
+      if (current.response) return current.response;
+      try { parseRecordTask(body.recordTask,current.actor); }
+      catch (error) { if (error instanceof RecordAssistanceError) return json({code:error.code},error.status); throw error; }
+      if (current.actor.id !== access.actor.id || current.actor.role !== access.actor.role ||
+          JSON.stringify(current.actor.moduleAccess) !== JSON.stringify(access.actor.moduleAccess))
+        return json({code:"ACCESS_CHANGED"},403);
+    }
     const protectedOutput=protectAiText(result.content,{...protectionPolicy,mode:"redact",injectionAction:"neutralize"},20_000);
     await recordAiProtectionEvent(env.DB,{actor:access.actor.email,operation:"chat",direction:"output",result:protectedOutput});
     const integrity=enforceGroundedCitations(protectedOutput.text,context.sources.map(source=>source.id));
@@ -94,7 +120,7 @@ Security rules:
       contextRefs: context.sources.map((source) => source.id),
       status: "success",
       latencyMs: Date.now() - started,
-      detail: `${context.sources.length} sources supplied; max ${dataPolicy.maxDataClassification}; ${integrity.citedRefs.length} cited; ${integrity.invalidRefs.length} invalid citations removed; ${result.profile} profile used`,
+      detail: `${task?.intent ?? "workspace"}: ${context.sources.length} sources supplied; max ${dataPolicy.maxDataClassification}; ${integrity.citedRefs.length} cited; ${integrity.invalidRefs.length} invalid citations removed; ${result.profile} profile used`,
     });
     return json({ answer:integrity.answer, activityId, sources:context.sources.filter(source=>integrity.citedRefs.includes(source.id)), citationIntegrity:{grounded:integrity.grounded,cited:integrity.citedRefs.length,invalidRemoved:integrity.invalidRefs.length}, dataPolicy, provider: result.provider, model: result.model, profile:result.profile, mode: "read-only-copilot" });
   } catch (error) {

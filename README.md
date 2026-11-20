@@ -92,6 +92,8 @@ Kurucu kaynakları `/opt/fornost-grc` altına alır, en az 8 GiB boş alanı kon
 
 Varsayılan adres: `https://SUNUCU_IP:8443/fornost-grc/`. İlk girişte yerel Admin oluşturulur. İlk TLS sertifikası kendinden imzalıdır; kurumsal kullanımda güvenilir sertifika yapılandırın. Uygulama kayıtları ve kanıtlar kalıcı container volume'ünde tutulur. Güncelleme öncesinde [yedek alın](docs/onprem/backup-recovery.md); aynı sunucudaki volume kalıcılığı yedekleme değildir.
 
+Yönetici ilk oturumda **Sistem Ayarları → Lisans** ekranından kurulum kimliğini görebilir ve Fornost tarafından imzalanmış paket dosyasını yükleyebilir. [Paket kapsamı ve lisans yönetimi](docs/onprem/licensing.md)
+
 ## Teknik yapı ve geliştirme
 
 Next.js/React/TypeScript arayüzü ve API'ler, Vinext/Vite ile Worker uyumlu çalışma zamanında çalışır. Hosted dağıtım D1/R2 binding'lerini, on-prem container ise kalıcı volume üzerindeki yerel D1/R2 durumunu kullanır. Ayrıntılar [mimaride](docs/ARCHITECTURE.md).

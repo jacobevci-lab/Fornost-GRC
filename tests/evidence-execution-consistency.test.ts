@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { DatabaseSync } from 'node:sqlite';
-import { ensureEvidenceAutomationSchema, executeRule, executeDueRules } from '../app/api/evidence-automation/core';
+import { ensureEvidenceAutomationSchema, executeRule, executeDueRules, requestSource } from '../app/api/evidence-automation/core';
 import { EvidenceExecutionConflict } from '../app/evidence/execution-guard';
 import { recordEvidenceSourceTest, updateEvidenceSource } from '../app/evidence/source-write';
 
@@ -93,5 +93,34 @@ test('simultaneous cold schema initialization adds the execution receipt idempot
 test('an in-flight result cannot survive configuration changes that are reverted before completion',async()=>{
   for(const sql of ["UPDATE evidence_automation_rules SET expected='99'; UPDATE evidence_automation_rules SET expected='90';","UPDATE evidence_automation_sources SET enabled=0; UPDATE evidence_automation_sources SET enabled=1;"]){
     const f=await fixture();try{const held=await heldRun(f);f.sqlite.exec(sql);held.release();await assert.rejects(held.pending,EvidenceExecutionConflict);assert.equal(f.count('evidence_automation_runs'),0);assert.equal(f.count('simple_grc_records'),0);assert.equal(f.row().assessment_revision,2);assert.equal((await f.run()).status,'pass');}finally{f.sqlite.close();}
+  }
+});
+
+test('a manual collection links a new observation to the original evidence for the same control',async()=>{
+  const f=await fixture();
+  const data=JSON.stringify({controlRef:"A.8.1",fileKey:"original.pdf",versionNo:"1"});
+  f.sqlite.prepare("INSERT INTO simple_grc_records VALUES(?,?,?,?,?)").run("original","Kanıtlar",data,"now","now");
+  const opts={now,originEvidenceId:"original",fetcher:async()=>response(95)};
+  const result=await executeRule({DB:f.db},"RULE","qa","manual",opts);
+  const record=(id:string)=>JSON.parse(String(f.sqlite.prepare("SELECT data_json FROM simple_grc_records WHERE id=?").get(id)?.data_json));
+  assert.equal(record(result.evidenceId!).originEvidenceId,"original");
+  assert.deepEqual(record("original"),JSON.parse(data));
+  f.sqlite.prepare("UPDATE simple_grc_records SET data_json=? WHERE id='original'").run('{"controlRef":"another control"}');
+  await assert.rejects(executeRule({DB:f.db},"RULE","qa","manual",opts),EvidenceExecutionConflict);
+  assert.equal(f.count("evidence_automation_runs"),1);
+});
+
+test('generic collectors reject HTTP redirects without a second request', async () => {
+  const f = await fixture();
+  try {
+    let calls = 0;
+    await assert.rejects(requestSource(f.source(), { DB: f.db }, true, async (_url, init) => {
+      calls++;
+      assert.equal(init?.redirect, 'manual');
+      return new Response(null, { status: 302, headers: { location: 'https://other.example/' } });
+    }));
+    assert.equal(calls, 1);
+  } finally {
+    f.sqlite.close();
   }
 });

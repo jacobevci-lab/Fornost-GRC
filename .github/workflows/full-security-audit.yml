@@ -473,7 +473,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Build the exact revision's on-prem image
-        run: docker build --build-arg FORNOST_SOURCE_COMMIT="$GITHUB_SHA" -t fornost-security:scan .
+        run: |
+          export FORNOST_LICENSE_PUBLIC_KEY=$(openssl genpkey -algorithm Ed25519 | openssl pkey -pubout -outform DER | openssl base64 -A | tr '+/' '-_' | tr -d '=')
+          docker build --build-arg FORNOST_LICENSE_PUBLIC_KEY --build-arg FORNOST_SOURCE_COMMIT="$GITHUB_SHA" -t fornost-security:scan .
       - name: Export immutable scan input
         run: |
           mkdir -p security-artifacts/image

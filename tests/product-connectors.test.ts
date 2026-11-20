@@ -31,7 +31,7 @@ test('Microsoft app-only credentials use correct audience, renew per run, and ex
   const cfg=config(id),calls:Array<{url:string;init?:RequestInit}>=[];
   const run=()=>collectProvider(cfg,secret,{fetcher:async(url,init)=>{
    calls.push({url,init});
-   assert.equal(init?.redirect,'error');assert.ok(init?.signal);
+   assert.equal(init?.redirect,'manual');assert.ok(init?.signal);
    if(url.includes('/token'))return json({access_token:ephemeralToken});
    const h=new Headers(init?.headers);assert.equal(h.get('authorization'),`Bearer ${ephemeralToken}`);
    return url.includes('next=2')?json({value:[{id:'two'}]}):json({value:[{id:'one'}],'@odata.nextLink':cfg.baseUrl+(cfg.baseUrl.includes('?')?'&':'?')+'next=2'});

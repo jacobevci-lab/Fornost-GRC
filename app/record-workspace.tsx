@@ -21,11 +21,12 @@ type Props = {
   moduleNames: Record<string, string>;
   formatValue: (value: string, lang: "tr" | "en") => string;
   allowPosture?:boolean;
+  ask?:(id:string)=>void;
   preview: (id: string) => void;
   children: (inspect: Inspect, open: boolean) => ReactNode;
 };
 
-export default function RecordWorkspace({ rows, visible, lang, moduleNames, formatValue, preview, allowPosture, children }: Props) {
+export default function RecordWorkspace({ rows, visible, lang, moduleNames, formatValue, preview, allowPosture, ask, children }: Props) {
   const tr = lang === "tr";
   const [path, setPath] = useState<string[]>([]);
   const [origin, setOrigin] = useState<{ rowId: string; button: HTMLButtonElement; x: number; y: number; tableLeft: number } | null>(null);
@@ -120,6 +121,7 @@ export default function RecordWorkspace({ rows, visible, lang, moduleNames, form
         </div>
         <small>{moduleNames[selected.module] || selected.module} · {displayRecordCode(selected)}</small>
         <h3 ref={title} tabIndex={-1}>{connectedTitle(selected)}</h3>
+        {ask && ["Risk Assessment","Kanıtlar"].includes(selected.module) && <button type="button" className="ghost" onClick={()=>ask(selected.id)}>Ask Fornost</button>}
         {allowPosture && selected.module==="Kontroller" && <FrameworkImpact controlId={selected.id} tr={tr}/>}
         {business && graph && <BusinessContextView anchor={selected} links={graph.links} tr={tr} openRecord={row=>follow(row.id)}
           loading={continuity.loading} partial={continuity.partial} scoped={context?.scoped} retry={continuity.retry}/>}

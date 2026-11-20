@@ -28,7 +28,7 @@ export async function GET(req: NextRequest) {
  const d = await db();
  const allowed = readableModules(auth.actor);
  const clauses: string[] = [], values: string[] = [];
- if (isScoped(auth.actor)) {
+ if (isScoped(auth.actor) || auth.actor.licenseAccess) {
   clauses.push(`module IN (${allowed.map(() => "?").join(",") || "NULL"})`);
   values.push(...allowed);
  }
@@ -105,6 +105,7 @@ export async function DELETE(req:NextRequest){
  try{
   const d=await db(),existing=await d.prepare("SELECT module,data_json,updated_at FROM simple_grc_records WHERE id=?").bind(id).first<{module:string;data_json:string;updated_at:string}>();
   if(!existing)return NextResponse.json({error:"Kayıt bulunamadı."},{status:404});
+  if(!canWriteModule(auth.actor,existing.module))return NextResponse.json({code:"LICENSE_REQUIRED"},{status:403});
   await deleteCoreRecord(d,id,existing,expected===null?undefined:expected);
   return NextResponse.json({ok:true});
  }catch(error){

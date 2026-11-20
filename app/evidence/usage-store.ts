@@ -82,7 +82,7 @@ export async function readEvidenceUsage(db: D1Database, actor: AccessSubject, id
       return rows.results.length <= 200;
     });
   }
-  await source('findings', !isScoped(actor), 1200, async () => {
+  await source('findings', !isScoped(actor) && canReadModule(actor,'Bulgular ve CAPA'), 1200, async () => {
     const rows = await db.prepare(`SELECT id,code,title,owner,status,due_date,evidence_reference,verification_evidence_reference
       FROM enterprise_findings ORDER BY updated_at DESC,id LIMIT 1001`).all<Record<string, string>>();
     for (const row of rows.results.slice(0, 1000)) {
@@ -96,7 +96,7 @@ export async function readEvidenceUsage(db: D1Database, actor: AccessSubject, id
     return rows.results.length <= 1000&&decisions.complete;
   });
   for(const workflow of ['continuity','regulatory','tprm','policy','incidents'] as const) {
-    await source(workflow, !isScoped(actor), 200, async()=>{
+    await source(workflow, !isScoped(actor) && (workflow !== 'tprm' || canReadModule(actor,'Tedarikçiler')) && (workflow !== 'continuity' || canReadModule(actor,'İş Sürekliliği')), 200, async()=>{
       const decisions=await readWorkflowUsage(db,workflow,evidence);
       result.rows.push(...decisions.rows);
       return decisions.complete;

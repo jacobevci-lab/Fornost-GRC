@@ -14,7 +14,8 @@ RUN npm ci --no-audit --no-fund
 COPY . .
 ARG NEXT_PUBLIC_BASE_PATH=/fornost-grc
 ENV NEXT_PUBLIC_BASE_PATH=${NEXT_PUBLIC_BASE_PATH}
-RUN npm run build
+ARG FORNOST_LICENSE_PUBLIC_KEY
+RUN FORNOST_BUILD_COMMERCIAL=1 FORNOST_LICENSE_PUBLIC_KEY="$FORNOST_LICENSE_PUBLIC_KEY" npm run build
 RUN npm prune --omit=dev --no-audit --no-fund \
   && npm cache clean --force
 

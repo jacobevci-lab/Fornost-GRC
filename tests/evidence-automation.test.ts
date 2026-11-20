@@ -19,7 +19,7 @@ test("evidence automation is vendor neutral and maps results to controls",()=>{
 
 test("collector enforces outbound and payload safety boundaries",()=>{
   assert.match(route,/safeHttpUrl/);
-  assert.match(route,/redirect:"error"/);
+  assert.match(route,/redirect:"manual"/);
   assert.match(route,/AbortSignal\.timeout/);
   assert.match(route,/1_000_000/);
   assert.match(route,/encryptSecret/);
