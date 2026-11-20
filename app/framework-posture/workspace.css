@@ -62,9 +62,9 @@
 .posture-ledger tbody td:nth-child(2) {width:43%}
 .posture-home .posture-row-trigger {text-align:start;width:100%;padding:4px 0;display:flex;align-items:center;justify-content:space-between;gap:6px;color:var(--ws-ink);background:none;border:0;font-size:inherit;font-weight:600;white-space:normal}
 .posture-row-trigger span {color:var(--ws-muted)}
-.posture-status {display:inline-block;border-radius:5px;font-size:.82em;font-weight:650;padding:3px 7px;color:var(--ws-warning);background:color-mix(in srgb,var(--ws-warning) 10%,var(--ws-surface))}
-.posture-status.covered {color:var(--ws-positive);background:color-mix(in srgb,var(--ws-positive) 10%,var(--ws-surface))}
-.posture-status.excluded {background:var(--ws-surface-2);color:var(--ws-muted)}
+.posture-ledger .posture-status {display:inline-block;min-height:26px;border:1px solid currentColor;line-height:1.35;border-radius:5px;font-size:.82em;font-weight:650;padding:3px 7px;color:var(--ws-warning);background:color-mix(in srgb,var(--ws-warning) 10%,var(--ws-surface))}
+.posture-ledger .posture-status.covered {color:var(--ws-positive);background:color-mix(in srgb,var(--ws-positive) 10%,var(--ws-surface))}
+.posture-ledger .posture-status.excluded {background:var(--ws-surface-2);color:var(--ws-muted)}
 .posture-reason,.posture-empty,.posture-home footer span {color:var(--ws-muted);font-size:.91em}
 .posture-selected,.posture-detail-row {background:var(--ws-brand-soft)}
 .posture-detail-row>td {padding:0;white-space:normal}
@@ -72,6 +72,8 @@
 .posture-editor .posture-picker {display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.4fr);gap:8px;align-items:end}
 .posture-editor .posture-fields {align-items:start}
 .posture-editor h5,.posture-editor p {margin:8px 0}
+.posture-state-help {color:var(--ws-ink);line-height:1.5;white-space:normal}
+.posture-state-help strong {margin-inline-end:.35em}
 .posture-editor fieldset {margin:0;min-inline-size:0}
 .posture-editor .posture-soa {border-block:1px solid var(--ws-line);padding:4px 0}
 .posture-editor-actions {align-items:flex-start}

@@ -6,7 +6,7 @@ import { sameDomainModule } from "./domain-identity";
 import "./progressive-form-experience.css";
 
 type Lang = "tr" | "en";
-type Target = { form: HTMLFormElement; mount: HTMLElement; labels: HTMLLabelElement[]; quickRisk: boolean; newRecord: boolean };
+type Target = { form: HTMLFormElement; mount: HTMLElement; labels: HTMLLabelElement[]; quickRisk: boolean };
 
 function currentLanguage(): Lang {
   return document.querySelector(".language-switch button.active")?.textContent?.trim().toLowerCase() === "en" ? "en" : "tr";
@@ -36,13 +36,11 @@ function discoverTarget(): Target | null {
   if (labels.length < 10) return null;
   const modal = form.closest(".modal");
   const heading = modal?.querySelector(".modal-head h2")?.textContent || "";
-  const mode = normalize(modal?.querySelector(".modal-head small")?.textContent);
   return {
     form,
     mount: form.querySelector<HTMLElement>(":scope > .fornost-progressive-slot") || actions,
     labels,
     quickRisk: sameDomainModule(heading, "Risk Assessment"),
-    newRecord: ["yeni kayıt", "new record"].includes(mode),
   };
 }
 
@@ -85,22 +83,6 @@ function restoreQuickRiskRequirements(labels: HTMLLabelElement[]) {
   }
 }
 
-function setSelectValue(select: HTMLSelectElement, value: string) {
-  const descriptor = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, "value");
-  descriptor?.set?.call(select, value);
-  select.dispatchEvent(new Event("change", { bubbles: true }));
-}
-
-function primeQuickRiskStatus(target: Target) {
-  if (!target.quickRisk || !target.newRecord) return;
-  const statusLabel = target.labels.find(label => ["durum", "status"].includes(labelCaption(label)));
-  const status = statusLabel?.querySelector<HTMLSelectElement>("select");
-  if (!status) return;
-  const intakeStatus = "Değerlendiriliyor";
-  if (!Array.from(status.options).some(option => option.value === intakeStatus)) return;
-  if (status.value !== intakeStatus) setSelectValue(status, intakeStatus);
-}
-
 export default function ProgressiveFormExperience() {
   const [target, setTarget] = useState<Target | null>(null);
   const [advancedOpen, setAdvancedOpen] = useState(false);
@@ -110,7 +92,7 @@ export default function ProgressiveFormExperience() {
     const discover = () => {
       setLang(currentLanguage());
       const next = discoverTarget();
-      setTarget(current => current?.form === next?.form && current?.labels.length === next?.labels.length && current?.quickRisk === next?.quickRisk && current?.newRecord === next?.newRecord ? current : next);
+      setTarget(current => current?.form === next?.form && current?.labels.length === next?.labels.length && current?.quickRisk === next?.quickRisk ? current : next);
     };
     discover();
     const observer = new MutationObserver(discover);
@@ -134,7 +116,6 @@ export default function ProgressiveFormExperience() {
     target.form.classList.add("fornost-progressive-form");
     if (target.quickRisk) {
       relaxQuickRiskRequirements(groups.advanced);
-      primeQuickRiskStatus(target);
     }
     groups.core.forEach(label => {
       label.classList.add("fornost-core-field");
@@ -159,7 +140,7 @@ export default function ProgressiveFormExperience() {
         <b>{target.quickRisk ? (tr ? "Hızlı risk kaydı" : "Quick risk intake") : (tr ? "Temel alanlar" : "Core fields")}</b>
         <small>
           {target.quickRisk
-            ? (tr ? "Olayı, sorumluyu ve varsa etkilenen varlığı kaydedin. Değerlendirmeyi sonra tamamlayabilirsiniz." : "Record the event, owner and any affected assets. You can complete the assessment later.")
+            ? (tr ? "Risk işleme planı ve gözden geçirme tarihleri gelişmiş alanlardadır." : "Treatment and review dates are in the advanced fields.")
             : (tr
                 ? `${groups.core.length} temel · ${groups.advanced.length} gelişmiş alan`
                 : `${groups.core.length} core · ${groups.advanced.length} advanced fields`)}
