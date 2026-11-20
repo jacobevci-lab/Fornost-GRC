@@ -5,6 +5,7 @@ import type { CatalogKey, CatalogMap } from "./catalogs";
 import IntegrationSettings from "./integration-settings";
 import IdentityAccessDesk from "./identity-access-desk";
 import AiSettings from "./ai-settings";
+import { LicensePanel } from "./licensing/panel";
 import SystemStatusPanel from "./system-status-panel";
 import "./integration-settings.css";
 
@@ -24,7 +25,7 @@ export default function Settings({ lang, currentUser, catalogs, onCatalogChange,
     ["reminders", tr ? "Risk hatırlatmaları" : "Risk reminders"],
     ["demo", tr ? "Örnek veriler" : "Sample data"],
   ];
-  const [systemTab,setSystemTab]=useState<"general"|"status"|"history">("general");
+  const [systemTab,setSystemTab]=useState<"general"|"status"|"history"|"license">("general");
   const [loaded,setLoaded]=useState(false),[loadAttempt,setLoadAttempt]=useState(0);
   useEffect(()=>{
     if(page!=="system"||currentUser.role!=="Admin")return;
@@ -67,9 +68,10 @@ export default function Settings({ lang, currentUser, catalogs, onCatalogChange,
     {page==="ai"&&<AiSettings lang={lang}/>}
     {page==="identity"&&<IdentityAccessDesk lang={lang}/>}
     {page==="catalogs"&&<CatalogManager lang={lang} catalogs={catalogs} onChange={onCatalogChange}/>}
-    {page==="system"&&<nav className="settings-subnav" aria-label={tr?"Sistem ayarı bölümleri":"System settings sections"}>{(["general","status","history"] as const).map(tab=><button type="button" key={tab} aria-current={systemTab===tab?"page":undefined} onClick={()=>setSystemTab(tab)}>{tab==="general"?(tr?"Genel Ayarlar":"General Settings"):tab==="status"?(tr?"Sistem Durumu":"System Status"):(tr?"Değişiklik Geçmişi":"Change History")}</button>)}</nav>}
+    {page==="system"&&<nav className="settings-subnav" aria-label={tr?"Sistem ayarı bölümleri":"System settings sections"}>{(["general","status","license","history"] as const).map(tab=><button type="button" key={tab} aria-current={systemTab===tab?"page":undefined} onClick={()=>setSystemTab(tab)}>{tab==="general"?(tr?"Genel Ayarlar":"General Settings"):tab==="status"?(tr?"Sistem Durumu":"System Status"):tab==="license"?(tr?"Lisans":"License"):(tr?"Değişiklik Geçmişi":"Change History")}</button>)}</nav>}
+    {page==="system"&&systemTab==="license"&&<LicensePanel lang={lang}/>}
     {page==="system"&&systemTab==="status"&&<SystemStatusPanel lang={lang}/>}
-    {page==="system"&&systemTab!=="status"&&!loaded&&<div className="settings-load-state" role="status">{message||(tr?"Ayarlar yükleniyor…":"Loading settings…")}{message&&<button type="button" onClick={()=>setLoadAttempt(value=>value+1)}>{tr?"Yeniden Dene":"Retry"}</button>}</div>}
+    {page==="system"&&systemTab!=="status"&&systemTab!=="license"&&!loaded&&<div className="settings-load-state" role="status">{message||(tr?"Ayarlar yükleniyor…":"Loading settings…")}{message&&<button type="button" onClick={()=>setLoadAttempt(value=>value+1)}>{tr?"Yeniden Dene":"Retry"}</button>}</div>}
     {page==="system"&&systemTab==="general"&&topic==="tls"&&loaded&&<section className="settings-security-overview" aria-label={tr?"Güvenlik ve denetim duruşu":"Security and audit posture"}><div><small>{tr?"GÜVENLİK VE DENETİM DURUŞU":"SECURITY & AUDIT POSTURE"}</small><strong>{securityScore}%</strong><span>{tr?`${securityChecks.filter(check=>check.ok).length}/${securityChecks.length} yapılandırma tercihi`:`${securityChecks.filter(check=>check.ok).length}/${securityChecks.length} configuration preferences`}</span><span>{tr?"Kaydedilen tercihlerdir; canlı güvenlik doğrulaması değildir.":"Saved preferences; not a live security verification."}</span></div><ul>{securityChecks.map(check=><li className={check.ok?"ready":"attention"} key={check.label}><i/>{check.label}<b>{check.ok?(tr?"Tanımlı":"Configured"):(tr?"İncele":"Review")}</b></li>)}</ul></section>}
     {page==="system"&&systemTab==="general"&&loaded&&<div className="system-topic-workspace">
       <nav className="system-topics" aria-label={tr ? "Ayar konuları" : "Settings topics"}>

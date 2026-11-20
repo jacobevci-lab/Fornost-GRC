@@ -44,7 +44,7 @@ export async function collectProvider(saved:Record<string,string>,encryptedPlain
  let credentials:Record<string,unknown>;try{credentials=object(JSON.parse(encryptedPlaintext||'{}'));}catch{throw new ConnectorError('AUTH_FAILED','Stored credentials are invalid.');}if(!providerCredentials(p,credentials))invalid('Saved credentials are missing.');
  const fetcher=options.fetcher||fetch,signal=AbortSignal.timeout(30_000),budget={bytes:0};
  const send=async(url:string,init:RequestInit={})=>{
-  try{return await fetcher(url,{...init,redirect:'error',signal});}catch{throw new ConnectorError('TRANSPORT_ERROR','Connection failed or timed out. Check HTTPS, network access and certificates.');}
+  try{return await fetcher(url,{...init,redirect:'manual',signal});}catch{throw new ConnectorError('TRANSPORT_ERROR','Connection failed or timed out. Check HTTPS, network access and certificates.');}
  };
  const headers:Record<string,string>={accept:'application/json','user-agent':'Fornost-GRC-Evidence-Collector/2.0'};
  if(p.auth==='microsoft'||p.auth==='crowdstrike'){

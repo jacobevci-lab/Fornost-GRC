@@ -20,6 +20,7 @@ import { auditRequirementMatches, type AuditQueue } from "./audit-workspace-stat
 import { FrameworkWorkspace } from "./framework-posture/workspace";
 import { AuditPostureChoice, AuditBaseline, type AuditChoice } from "./framework-posture/audit";
 import { AuditResearchWorkspace } from "./audit-research-workspace";
+import { RecordCollection } from "./evidence/record-collection";
 import { EvidenceUsagePanel } from "./evidence-usage-panel";
 import { EvidenceDocumentPreview } from "./evidence-document-preview";
 import { AuditWorkpaperPanel } from './audit-workpaper-panel';
@@ -1038,7 +1039,7 @@ function AuthGate() {
         </div>
       </div>
     );
-  if (state.authenticated) return <FornostApp key={JSON.stringify([state.user.id,state.user.role,state.user.moduleAccess])} currentUser={state.user} />;
+  if (state.authenticated) return <FornostApp key={JSON.stringify([state.user.id,state.user.role,state.user.moduleAccess,state.user.licenseAccess])} currentUser={state.user} />;
   return (
     <div className="auth-screen">
       <form className="auth-card" onSubmit={submit} aria-busy={submitting}>
@@ -2309,7 +2310,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
               <CoreModuleOverview module={active} rows={by(active)} allRows={rows} lang={lang}/>
             )}
             {!scoped && active === "Kanıtlar" && <EvidenceQualityLens state={evidenceRegisterState} lang={lang} />}
-            {registerLoadState === "ready" && active === "Kanıtlar" && <EvidenceUsagePanel lang={lang} records={by("Kanıtlar")} focusedId={focusedRecord?.id || ""} />}
+            {registerLoadState === "ready" && active === "Kanıtlar" && (!currentUser.licenseAccess || currentUser.licenseAccess.active === "Enterprise") && <EvidenceUsagePanel lang={lang} records={by("Kanıtlar")} focusedId={focusedRecord?.id || ""} />}
             {registerLoadState === "ready" && !scoped && active === "Kontroller" && (
               <details className="module-analysis-disclosure" key="control-analysis">
                 <summary><span><b>{lang === "tr" ? "Kontrol güvencesi ve etki analizi" : "Control assurance & impact analysis"}</b><small>{lang === "tr" ? "Güvence skorları, kanıt zinciri ve öncelikli aksiyonlar" : "Assurance scores, evidence lineage and priority actions"}</small></span></summary>
@@ -2477,6 +2478,9 @@ function FornostApp({ currentUser }: { currentUser: any }) {
       )}
       {previewEvidence && (
         <EvidencePreview
+          key={previewEvidence.id}
+          showUpgrade={currentUser.role === "Admin" && !!currentUser.licenseAccess?.active && currentUser.licenseAccess.active !== "Enterprise"}
+          allowCollection={canWriteModule(currentUser,"Kanıtlar") && canOpenModule(currentUser,"Kanıt Otomasyonu") && (!currentUser.licenseAccess || currentUser.licenseAccess.active === "Enterprise")}
           row={previewEvidence}
           lang={lang}
           onClose={() => setPreviewEvidence(null)}
@@ -5474,6 +5478,7 @@ function EvidenceFreshness({ row, lang }: { row: Row; lang: Lang }) {
   return <StatusPill value={useEvidenceFreshness(row, lang)} lang={lang} />;
 }
 function EvidencePreview({
+  allowCollection, showUpgrade,
   row,
   lang,
   onClose,
@@ -5481,6 +5486,8 @@ function EvidencePreview({
   row: Row;
   lang: Lang;
   onClose: () => void;
+  allowCollection: boolean;
+  showUpgrade: boolean;
 }) {
   const d = row.data, tr = lang === "tr";
   useEffect(() => {
@@ -5533,7 +5540,10 @@ function EvidencePreview({
               [tr ? "Toplanma tarihi" : "Collected at", d.collectedAt],
               [tr ? "Geçerlilik sonu" : "Expires at", d.expiresAt],
               [tr ? "Sürüm" : "Version", d.versionNo ? `v${d.versionNo}` : "—"],
+              ...(d.originEvidenceId ? [[tr?"Başlatan kanıt":"Originating evidence", d.originEvidenceId]] : []),
             ].map(([label,value]) => <div key={label}><dt>{label}</dt><dd>{value || "—"}</dd></div>)}</dl>
+            {showUpgrade && <p>{tr?"Otomatik kanıt toplama Enterprise paketine dahildir.":"Automated evidence collection is included in Enterprise."} <a href="mailto:sales@fornostsecurity.com">{tr?"Satış ekibine yaz":"Contact sales"}</a></p>}
+            {allowCollection && <RecordCollection id={row.id} refs={d.controlRefs || d.controlRef || ""} lang={lang}/>}
             {d.notes && <p>{d.notes}</p>}
             <div className="ev-review-note">{tr ? "Kütüphane durumu denetim talebinin kabulü değildir. Talebe ait teslim ve kabul kararını ilgili denetimin Talepler ve inceleme görünümünden yönetin." : "Library status is separate from audit request acceptance. Manage submission and acceptance in the audit’s Requests and review view."}</div>
           </section>

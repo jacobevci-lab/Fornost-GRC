@@ -18,6 +18,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 35
     env:
+      FORNOST_LICENSE_PUBLIC_KEY: ${{ vars.FORNOST_LICENSE_PUBLIC_KEY }}
       SOURCE_SHA: ${{ github.event.workflow_run.head_sha }}
     steps:
       - uses: actions/checkout@v4
@@ -26,6 +27,7 @@ jobs:
       - name: Build immutable application image
         run: >-
           docker build
+          --build-arg FORNOST_LICENSE_PUBLIC_KEY
           --build-arg NEXT_PUBLIC_BASE_PATH=/fornost-grc
           --build-arg FORNOST_SOURCE_COMMIT=${SOURCE_SHA}
           --tag localhost/fornost-grc-app:${SOURCE_SHA}

@@ -1,9 +1,11 @@
+import { includesEdition, moduleEdition, recoveryModule, type LicenseAccess } from "./licensing/editions";
+
 /** Optional, installation-local access boundaries. Roles remain the upper limit. */
 export const ACCESS_MODULES = ["Risk Assessment", "BIA", "Varlık Envanteri", "Uyum", "Tedarikçiler", "Kontroller", "Kanıtlar", "Denetim Yönetimi"] as const;
 export type AccessModule = typeof ACCESS_MODULES[number];
 export type ModuleGrant = "read" | "write";
 export type ModuleAccess = { mode: "full" } | { mode: "scoped"; modules: Partial<Record<AccessModule, ModuleGrant>> };
-export type AccessSubject = { role: string; moduleAccess?: ModuleAccess };
+export type AccessSubject = { role: string; moduleAccess?: ModuleAccess; licenseAccess?: LicenseAccess };
 export const FULL_ACCESS: ModuleAccess = { mode: "full" };
 export const NO_ACCESS: ModuleAccess = { mode: "scoped", modules: {} };
 
@@ -27,14 +29,20 @@ export function parseModuleAccess(raw: string | null | undefined): ModuleAccess 
 }
 export function isScoped(subject: AccessSubject) { return subject.role !== "Admin" && subject.moduleAccess?.mode === "scoped"; }
 export function canReadModule(subject: AccessSubject, module: string) {
+  if (subject.licenseAccess && !includesEdition(subject.licenseAccess.archive, moduleEdition(module))) return false;
   return !isScoped(subject) || (ACCESS_MODULES.includes(module as AccessModule) && !!(subject.moduleAccess as Extract<ModuleAccess, { mode: "scoped" }>).modules[module as AccessModule]);
 }
 export function canReadPosture(subject: AccessSubject) { return ["Uyum","Kontroller","Kanıtlar"].every(module => canReadModule(subject,module)); }
 export function canWriteModule(subject: AccessSubject, module: string) {
+  if (subject.licenseAccess && !includesEdition(subject.licenseAccess.active, moduleEdition(module))) return false;
   return ["Admin", "Editor"].includes(subject.role) && (!isScoped(subject) || (subject.moduleAccess as Extract<ModuleAccess, { mode: "scoped" }>).modules[module as AccessModule] === "write");
 }
 export function readableModules(subject: AccessSubject) { return ACCESS_MODULES.filter(module => canReadModule(subject, module)); }
 export function canOpenModule(subject: AccessSubject, module: string) {
+  if (subject.licenseAccess && !recoveryModule(module) && !includesEdition(subject.licenseAccess.active, moduleEdition(module))) {
+    if (!ACCESS_MODULES.includes(module as AccessModule) && module !== "Raporlar") return false;
+    if (!canReadModule(subject, module)) return false;
+  }
   if (!isScoped(subject)) return true;
   return module === "Ana Sayfa" || module === "Ask Fornost" || (ACCESS_MODULES.includes(module as AccessModule) && canReadModule(subject, module));
 }

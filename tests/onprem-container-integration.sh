@@ -1,5 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
+# A disposable publisher key for isolated container QA; only its public half is retained.
+if [[ "${FORNOST_BUILD_LOCAL:-false}" == true && -z "${FORNOST_LICENSE_PUBLIC_KEY:-}" ]]; then
+  FORNOST_LICENSE_PUBLIC_KEY=$(openssl genpkey -algorithm Ed25519 | openssl pkey -pubout -outform DER | openssl base64 -A | tr '+/' '-_' | tr -d '=')
+  export FORNOST_LICENSE_PUBLIC_KEY
+fi
 
 [[ "${FORNOST_INTEGRATION_TEST:-}" == "1" ]] || {
   echo "Refusing to modify containers without FORNOST_INTEGRATION_TEST=1." >&2

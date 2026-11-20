@@ -416,6 +416,7 @@ if [[ "${FORNOST_BUILD_LOCAL:-false}" == "true" ]]; then
   "${engine}" build \
     --build-arg "NEXT_PUBLIC_BASE_PATH=${base_path}" \
     --build-arg "FORNOST_SOURCE_COMMIT=${local_source_commit}" \
+    --build-arg "FORNOST_LICENSE_PUBLIC_KEY=${FORNOST_LICENSE_PUBLIC_KEY:-}" \
     --tag "${image}" \
     "${project_root}"
 else

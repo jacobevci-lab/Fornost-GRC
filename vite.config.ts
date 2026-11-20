@@ -1,3 +1,4 @@
+import { createPublicKey } from "node:crypto";
 import {resolveBuildRevision} from "./scripts/build-revision";
 import vinext from "vinext";
 import { defineConfig } from "vite";
@@ -46,8 +47,13 @@ export default defineConfig(async () => {
   // Wrangler snapshots its log path while the Cloudflare plugin is imported.
   const { cloudflare } = await import("@cloudflare/vite-plugin");
 
+  const licenseKey = (process.env.FORNOST_LICENSE_PUBLIC_KEY || "").trim();
+  if (licenseKey || process.env.FORNOST_BUILD_COMMERCIAL === "1") {
+    if (!licenseKey || createPublicKey({key: Buffer.from(licenseKey, "base64url"), format: "der", type: "spki"}).asymmetricKeyType !== "ed25519")
+      throw new Error("A commercial build requires the publisher's Ed25519 SPKI public key.");
+  }
   return {
-    define: { __FORNOST_BUILD_REVISION__: JSON.stringify(resolveBuildRevision()) },
+    define: { __FORNOST_LICENSE_KEY__: JSON.stringify(licenseKey), __FORNOST_BUILD_REVISION__: JSON.stringify(resolveBuildRevision()) },
     server: {
       host: "0.0.0.0",
       allowedHosts: ["terminal.local", "127.0.0.1", "localhost"],

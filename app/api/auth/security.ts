@@ -1,3 +1,5 @@
+import { apiLicensed, type LicenseAccess } from "../../licensing/editions";
+import { installationAccess, publisherKey } from "../../licensing/store";
 import { readLiveSession } from './live-session';
 import { completedInitialization } from "../../completed-initialization";
 import { ensurePasswordIterationsColumn } from "./password-column";
@@ -9,7 +11,7 @@ import { ensureModuleAccessSchema, readModuleAccess } from "../users/access-stor
 import { cleanupExpiredSessions, SESSION_EXPIRY_INDEX_SQL, SESSION_USER_INDEX_SQL } from "./session-storage";
 
 export type AppRole = "Admin" | "Editor" | "Viewer";
-export type Actor = { id: string; email: string; name: string; role: AppRole; source: "local" | "entra"; moduleAccess?: ModuleAccess };
+export type Actor = { id: string; email: string; name: string; role: AppRole; source: "local" | "entra"; moduleAccess?: ModuleAccess; licenseAccess?: LicenseAccess };
 
 // Cloudflare Workers WebCrypto rejects PBKDF2 requests above 100,000 iterations in production.
 // Keep the local credential format at that runtime ceiling until the password KDF is migrated.
@@ -118,6 +120,11 @@ export function sameOrigin(req: NextRequest) {
 }
 
 export async function actor(req: NextRequest): Promise<Actor | null> {
+  const user = await sessionActor(req);
+  return user && publisherKey ? { ...user, licenseAccess: await installationAccess(await identityDb()) } : user;
+}
+
+async function sessionActor(req: NextRequest): Promise<Actor | null> {
   const platformEmail = req.headers.get("oai-authenticated-user-email")?.trim().toLowerCase();
   const { env } = await import("cloudflare:workers");
   const trustPlatformIdentity = ["true", "1"].includes(String((env as unknown as Record<string, unknown>).FORNOST_TRUST_PLATFORM_IDENTITY ?? "").trim().toLowerCase());
@@ -141,9 +148,13 @@ export async function requireRole(req: NextRequest, roles: AppRole[]) {
   if (!current) return { response: NextResponse.json({ error: "Oturum gerekli." }, { status: 401 }) };
   if (!roles.includes(current.role)) return { response: NextResponse.json({ error: "Bu işlem için yetkiniz yok." }, { status: 403 }) };
   if (!sameOrigin(req)) return { response: NextResponse.json({ error: "Geçersiz istek kaynağı." }, { status: 403 }) };
-  const path = req.nextUrl.pathname;
+  let path: string;
+  try { path = decodeURIComponent(req.nextUrl.pathname); }
+  catch { return { response: NextResponse.json({error:"Invalid API path"}, {status:400}) }; }
   const apiPath = BASE_PATH && path.startsWith(`${BASE_PATH}/`) ? path.slice(BASE_PATH.length) : path;
   if (!scopedApiAllowed(current, apiPath, req.method)) return { response: NextResponse.json({ error: "Bu çalışma alanı için modül erişiminiz yok." }, { status: 403 }) };
+  if (current.licenseAccess && !apiLicensed(current.licenseAccess, apiPath, req.method))
+    return { response: NextResponse.json({ code: "LICENSE_REQUIRED", error: "Etkin lisans bu işlemi kapsamıyor. / This operation requires an active license for this feature." }, { status: 403 }) };
   return { actor: current };
 }
 
