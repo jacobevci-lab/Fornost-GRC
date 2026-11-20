@@ -20,6 +20,10 @@ export const FORNOST_PENDING_FOCUS_KEY = "fornost:pending-focus";
 const clean = (value: unknown) => String(value ?? "").normalize("NFKC").trim();
 const normalized = (value: unknown) => clean(value).toLocaleLowerCase("tr-TR");
 
+export function isAuditTaskKind(kind?: string): kind is 'audit-request' | 'audit-workpaper' | 'audit-milestone' | 'audit-closure' {
+  return kind === 'audit-request' || kind === 'audit-workpaper' || kind === 'audit-milestone' || kind === 'audit-closure';
+}
+
 function matchingNavigationButton(module: string) {
   if (typeof document === "undefined") return null;
   const labels = domainModuleSearchLabels(module);

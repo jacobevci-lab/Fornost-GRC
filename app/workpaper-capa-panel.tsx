@@ -3,7 +3,7 @@ import {useCallback,useEffect,useRef,useState} from 'react';
 import {withBasePath} from './base-path';
 import {navigateToFornost} from './navigation-focus';
 import {findingLabel} from './findings/presentation';
-import {FINDING_SEVERITIES,FINDING_TYPES,findingSlaDays} from './findings/domain';
+import {FINDING_SEVERITIES,FINDING_TYPES,addDays,findingSlaDays} from './findings/domain';
 import type {AuditWorkpaper} from './audit-workpapers';
 import {workpaperCapaFinding,workpaperSampleKey,type WorkpaperCapaFields,type WorkpaperCapaLink} from './workpaper-capa';
 import './workpaper-capa.css';
@@ -34,6 +34,7 @@ export function WorkpaperCapaPanel({paper,tr,readOnly,onReload,onBusy}:{paper:Au
  const currentLink=draft?data?.links.find(l=>workpaperSampleKey(l.origin.sample.reference)===workpaperSampleKey(draft.reference)):null;
  const currentSample=draft?exceptions.find(s=>s.reference===draft.reference):null;
  const blocked=busy||loading||needsRefresh||stale||readOnly||!data?.canCreate;
+ const today=new Date().toISOString().slice(0,10);
  const stamp=JSON.stringify({draft,revision:paper.revision,loadedRevision:data?.revision});
  const messages:Record<string,[string,string]>={
   'independent-review':['Doğrulayıcı, CAPA sorumlusundan ve aktarımı yapan kişiden farklı olmalı.','The reviewer must differ from both the CAPA owner and the person promoting it.'],
@@ -78,8 +79,12 @@ export function WorkpaperCapaPanel({paper,tr,readOnly,onReload,onBusy}:{paper:Au
    {labels.map(([key,a,b,max])=><label key={key}>{t(a,b)}<textarea required aria-label={t(a,b)} maxLength={max} rows={3} value={draft.fields[key]} onChange={e=>patch({[key]:e.target.value})}/></label>)}
    <label>{t('Bulgu türü','Finding type')}<select aria-label={t('Bulgu türü','Finding type')} value={draft.fields.findingType} onChange={e=>patch({findingType:e.target.value})}>{FINDING_TYPES.map(v=><option key={v} value={v}>{findingLabel(v,lang)}</option>)}</select></label>
    <label>{t('Önem seviyesi','Severity')}<select aria-label={t('Önem seviyesi','Severity')} value={draft.fields.severity} onChange={e=>patch({severity:e.target.value})}>{FINDING_SEVERITIES.map(v=><option key={v} value={v}>{findingLabel(v,lang)}</option>)}</select></label>
-   {(['owner','reviewer'] as const).map(key=><label key={key}>{key==='owner'?t('CAPA sorumlusu','CAPA owner'):t('Bağımsız Admin doğrulayıcı','Independent Admin reviewer')}<select required aria-label={key==='owner'?t('CAPA sorumlusu','CAPA owner'):t('Bağımsız Admin doğrulayıcı','Independent Admin reviewer')} value={draft.fields[key]} onChange={e=>patch({[key]:e.target.value})}><option value="">{t('Seçin','Select')}</option>{data?.people.filter(p=>key==='owner'||(p.role==='Admin'&&p.email!==data.actorEmail&&p.email!==draft.fields.owner)).map(p=><option key={p.email} value={p.email}>{p.name} · {p.email}</option>)}</select></label>)}
-   <label>{t('CAPA termini','CAPA due date')}<input type="date" required aria-label={t('CAPA termini','CAPA due date')} value={draft.fields.dueDate} onChange={e=>patch({dueDate:e.target.value})}/><small>{t('Önem seviyesine göre en fazla','Maximum for this severity')}: {findingSlaDays(draft.fields.severity)} {t('gün','days')}</small></label>
+   {(['owner','reviewer'] as const).map(key=><label key={key}>{key==='owner'?t('CAPA sorumlusu','CAPA owner'):t('Bağımsız Admin doğrulayıcı','Independent Admin reviewer')}<select required aria-label={key==='owner'?t('CAPA sorumlusu','CAPA owner'):t('Bağımsız Admin doğrulayıcı','Independent Admin reviewer')} value={draft.fields[key]} onChange={e=>{
+     const value=e.currentTarget.value;
+     if(key==='owner' && value===draft.fields.reviewer) patch({owner:value,reviewer:''});
+     else patch({[key]:value});
+   }}><option value="">{t('Seçin','Select')}</option>{data?.people.filter(p=>key==='owner'||(p.role==='Admin'&&p.email!==data.actorEmail&&p.email!==draft.fields.owner)).map(p=><option key={p.email} value={p.email}>{p.name} · {p.email}</option>)}</select></label>)}
+   <label>{t('CAPA termini','CAPA due date')}<input type="date" required min={today} max={addDays(today,findingSlaDays(draft.fields.severity))} aria-label={t('CAPA termini','CAPA due date')} value={draft.fields.dueDate} onChange={e=>patch({dueDate:e.target.value})}/><small>{t('Önem seviyesine göre en fazla','Maximum for this severity')}: {findingSlaDays(draft.fields.severity)} {t('gün','days')}</small></label>
    {(['riskRef','controlRef'] as const).map(key=><label key={key}>{key==='riskRef'?t('Risk referansı (isteğe bağlı)','Risk reference (optional)'):t('Kontrol referansı (isteğe bağlı)','Control reference (optional)')}<input aria-label={key==='riskRef'?t('Risk referansı (isteğe bağlı)','Risk reference (optional)'):t('Kontrol referansı (isteğe bağlı)','Control reference (optional)')} maxLength={120} value={draft.fields[key]} onChange={e=>patch({[key]:e.target.value})}/></label>)}
    <label>{t('Aktarım gerekçesi','Promotion reason')}<textarea aria-label={t('Aktarım gerekçesi','Promotion reason')} required minLength={3} maxLength={2000} value={draft.reason} onChange={e=>{
      const reason=e.currentTarget.value;

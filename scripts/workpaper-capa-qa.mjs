@@ -36,9 +36,32 @@ try{
  await api(viewer,endpoint,'POST',{},403);
  await page.goto(base);await expect(page.locator('.shell')).toBeVisible();await page.locator('.language-switch:visible').getByRole('button',{name:'EN',exact:true}).click();await openPaper(page);
  const panel=page.locator('.aw-capa');await expect(panel.getByRole('button',{name:'Create CAPA · Unit-A',exact:true})).toBeEnabled();await expect(panel.getByRole('button',{name:'Create CAPA · Unit-C',exact:true})).toHaveCount(0);
- await panel.getByRole('button',{name:'Create CAPA · Unit-A',exact:true}).click();await fillPlan(panel);
+ await panel.getByRole('button',{name:'Create CAPA · Unit-A',exact:true}).click();
+ const corrective=panel.getByLabel('Corrective action',{exact:true});
+ await corrective.focus();
+ // Replay delivery of the same workpaper link while the operator is typing.
+ await page.evaluate(({paperId,auditId})=>window.dispatchEvent(new CustomEvent('fornost:focus',{
+   detail:{module:'Denetim Yönetimi',kind:'audit-workpaper',ref:paperId,filter:{auditId}},
+ })),{paperId,auditId});
+ await expect(corrective).toBeFocused();
+ await page.keyboard.type('Check both account approvals.');
+ await expect(corrective).toHaveValue('Check both account approvals.');
+ await expect(page.locator('main .table-card .register-search input')).toHaveValue('');
+ await fillPlan(panel);
+ const dueDate=panel.getByLabel('CAPA due date',{exact:true});
+ const reviewerSelect=panel.getByLabel('Independent Admin reviewer',{exact:true});
+ const ownerSelect=panel.getByLabel('CAPA owner',{exact:true});
+ await ownerSelect.selectOption('qa-admin@fornost.test');
+ await ownerSelect.selectOption(emails.owner);
+ await expect(reviewerSelect).toHaveValue('');
+ await reviewerSelect.selectOption('qa-admin@fornost.test');
+ const validDate=await dueDate.inputValue();
+ await dueDate.fill('2000-01-01');await panel.getByRole('button',{name:'Preview CAPA promotion',exact:true}).click();
+ await expect(dueDate).toBeFocused();assert.ok(await dueDate.evaluate(input=>input.validity.rangeUnderflow));
+ await dueDate.fill(validDate);
  await expect(panel.getByLabel('Preventive action',{exact:true})).toHaveValue('Enforce independent approval before provisioning privileged access.');
- await panel.getByRole('button',{name:'Preview CAPA promotion',exact:true}).click();await expect(panel.getByRole('region',{name:'CAPA promotion preview'})).toContainText(evidence.id);
+ await panel.getByRole('button',{name:'Preview CAPA promotion',exact:true}).click();const preview=panel.getByRole('region',{name:'CAPA promotion preview'});await expect(preview).toContainText(evidence.id);
+ await expect(preview).toContainText('Review the account and remove any unapproved privileged access.');
  assert.equal((await api(admin,`${endpoint}?auditId=${auditId}&workpaperId=${paperId}`)).links.length,0);
  await panel.getByRole('button',{name:'Cancel preview',exact:true}).click();await expect(panel.getByRole('button',{name:'Confirm and create CAPA',exact:true})).toHaveCount(0);
  await panel.getByRole('button',{name:'Preview CAPA promotion',exact:true}).click();await panel.getByLabel('Promotion reason',{exact:true}).fill('Changed reason requires another explicit preview.');await expect(panel.getByRole('button',{name:'Confirm and create CAPA',exact:true})).toHaveCount(0);
