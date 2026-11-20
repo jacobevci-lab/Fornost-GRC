@@ -47,7 +47,6 @@ export default function RegulatoryIntelligence({lang,currentUser}:{lang:Lang;cur
   {resource.error&&<p role="alert">{tr?"Kayıtlar yüklenemedi. Tekrar deneyin.":"Records could not be loaded. Try again."} <button type="button" onClick={()=>void resource.reload()}>{tr?"Tekrar dene":"Retry"}</button></p>}
   {notice&&<div className="ri-notice" onClick={()=>setNotice("")}>{notice}<b>×</b></div>}
   <Workspace tr={tr} user={currentUser} tab={tab} setTab={setTab} revision={revision} busy={busy} focus={workFocus.focus} clearFocus={workFocus.clear} selected={selected} select={setSelected}
-   sourceCreate={()=>{setNotice("");setEditingSource(null);setSourceForm({name:"",authority:"",jurisdiction:"Türkiye",sourceType:"regulator",url:"",owner:currentUser.email,reviewFrequencyDays:30});setSourceOpen(true)}}
    sourceEdit={source=>{setNotice("");setEditingSource(source);setSourceForm(source);setSourceOpen(true)}}
    sourceAction={(source,action)=>api({action,sourceId:source.id,expectedUpdatedAt:source.updatedAt})}
    addImpact={openImpact} changeAction={(change,operation)=>{setSelected(change);if(operation==="start-assessment")void api({action:"change-action",changeId:change.id,operation,note:tr?"Etki değerlendirmesi başlatıldı":"Impact assessment started",confirmation:""});else{setNotice("");setChangeAction({change,operation,note:"",confirmation:""})}}}

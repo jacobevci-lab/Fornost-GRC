@@ -102,7 +102,7 @@ export default function FornostAiPortfolio({ lang = "tr", onCreate, onOpenModel,
         <div><button className="primary workspace-create" onClick={onCreate}>{t("AI sistemi ekle", "Add AI system")}</button><button aria-pressed={reports} onClick={() => setReports(!reports)}>{reports ? t("İş listesine dön", "Back to worklist") : t("Raporlar", "Reports")}</button></div>
       </header>
       <div className="ai-decision-freshness"><small>{t("Son başarılı veri yenileme", "Last successful refresh")}: {new Date(data.generatedAt).toLocaleString(lang === "tr" ? "tr-TR" : "en-GB")}</small><button onClick={() => void load()}>{t("Yenile", "Refresh")}</button></div>
-      {!all.length ? <section className="ai-decision-empty"><h4>{t("Aktif AI sistemi yok", "No active AI systems")}</h4><p>{t("Yeni bir sistemin kullanım amacını, sorumlusunu ve veri kapsamını kaydedin. Kullanımdan kaldırılan kayıtları AI Envanteri sekmesinde bulabilirsiniz.", "Record a new system’s purpose, owner and data scope. Retired records remain available in the AI Inventory tab.")}</p><button className="primary" onClick={onCreate}>{t("AI sistemi ekle", "Add AI system")}</button></section> : reports ? <>
+      {!all.length ? <section className="ai-decision-empty"><h4>{t("Aktif AI sistemi yok", "No active AI systems")}</h4><p>{t("Yeni bir sistemin kullanım amacını, sorumlusunu ve veri kapsamını kaydedin. Kullanımdan kaldırılan kayıtları AI Envanteri sekmesinde bulabilirsiniz.", "Record a new system’s purpose, owner and data scope. Retired records remain available in the AI Inventory tab.")}</p></section> : reports ? <>
       <a href={withBasePath("/api/ai/portfolio?format=csv")}>{t("Yönetim CSV", "Executive CSV")}</a>
       <section className="matrix">
         <header>
