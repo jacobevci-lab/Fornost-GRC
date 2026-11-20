@@ -40,13 +40,15 @@ async function boundedJson(response: Response) {
 }
 
 async function request(url: string, init: RequestInit, timeoutMs: number) {
-  return fetch(url, {
+  const response = await fetch(url, {
     ...init,
-    redirect: "error",
+    redirect: "manual",
     cache: "no-store",
     signal: AbortSignal.timeout(timeoutMs),
     headers: { accept: "application/json", ...(init.headers || {}) },
   });
+  if (response.status >= 300 && response.status < 400) throw new Error("AI provider redirects are disabled.");
+  return response;
 }
 
 export async function callAiProvider(config: AiProviderConfig, messages: AiMessage[]) {

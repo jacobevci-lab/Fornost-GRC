@@ -1,5 +1,6 @@
 'use client';
-import {Fragment,useRef,useState} from 'react';
+import {Fragment,useEffect,useMemo,useRef,useState} from 'react';
+import {displayTitle} from './iso-display';
 import {getCatalogStatus} from '../framework-catalog-status';
 import {postureRequest,usePosture} from './client';
 import {DecisionEditor,type WorkspaceProps} from './decision-editor';
@@ -15,12 +16,21 @@ const preferred:Record<string,string>={
 const pageSize=12;
 const rowId=(ref:string)=>'posture-ref-'+encodeURIComponent(ref);
 
-function Program({name,enrolled,onSaved,...props}:WorkspaceProps & {name:string;enrolled:boolean;onSaved:()=>void}) {
+function Program({name,enrolled,initialRef,onSaved,...props}:WorkspaceProps & {name:string;enrolled:boolean;initialRef:string;onSaved:()=>void}) {
   const {tr}=props;
-  const [revision,refresh]=useState(0),[query,setQuery]=useState(''),[openOnly,setOpenOnly]=useState(enrolled);
-  const [page,setPage]=useState(0),[selected,select]=useState(''),[message,setMessage]=useState('');
+  const [revision,refresh]=useState(0),[query,setQuery]=useState(''),[openOnly,setOpenOnly]=useState(enrolled && !initialRef);
+  const [page,setPage]=useState<number|null>(null),[selected,select]=useState(initialRef),[message,setMessage]=useState('');
   const [gapFilter,setGapFilter]=useState('all');
-  const {data,error}=usePosture<Matrix>(enrolled?{name}:{name,preview:'1'},revision);
+  const {data:matrix,error}=usePosture<Matrix>(enrolled?{name}:{name,preview:'1'},revision);
+  const pendingFocus=useRef(initialRef);
+  const loaded=!!matrix;
+  useEffect(()=>{
+    if(loaded && pendingFocus.current){
+      document.getElementById(rowId(pendingFocus.current))?.focus();
+      pendingFocus.current='';
+    }
+  },[loaded]);
+  const data=useMemo(()=>matrix && {...matrix,requirements:matrix.requirements.map(row=>({...row,title:displayTitle(name,row.ref,row.title,tr)}))},[matrix,name,tr]);
   if(!data)return <p role="status">{error?(tr?'Maddeler yüklenemedi.':'Could not load requirements.'):(tr?'Maddeler yükleniyor…':'Loading requirements…')} {error&&<button onClick={()=>refresh(v=>v+1)}>{tr?'Tekrar dene':'Retry'}</button>}</p>;
 
   const rows=data.requirements.map(row=>({row,state:requirementState(row,data.pins)}));
@@ -33,7 +43,9 @@ function Program({name,enrolled,onSaved,...props}:WorkspaceProps & {name:string;
     if(gapFilter==='evidence')return !row.links.some(l=>data.pins[l.id]?.length);
     return !row.links.length;
   });
-  const pages=Math.max(1,Math.ceil(filtered.length/pageSize)),current=Math.min(page,pages-1);
+  const pages=Math.max(1,Math.ceil(filtered.length/pageSize));
+  const selectedPage=initialRef?Math.max(0,Math.floor(filtered.findIndex(({row})=>row.ref===initialRef)/pageSize)):0;
+  const current=Math.min(page??selectedPage,pages-1);
   const notice=getCatalogStatus(name);
   function pick(row:Requirement) {
     setQuery('');setGapFilter('all');setOpenOnly(false);
@@ -93,6 +105,7 @@ export function FrameworkWorkspace(props:WorkspaceProps) {
   const {tr,write}=props;
   const [revision,refresh]=useState(0),[selected,select]=useState(''),[choice,setChoice]=useState('');
   const [adding,setAdding]=useState(false),[busy,setBusy]=useState(false),[failed,setFailed]=useState(false);
+  const [target,setTarget]=useState({ref:'',revision:0});
   const addTrigger=useRef<HTMLButtonElement>(null);
   const {data,error}=usePosture<Overview>({overview:'1'},revision,true);
   const retry=()=>refresh(v=>v+1);
@@ -101,30 +114,39 @@ export function FrameworkWorkspace(props:WorkspaceProps) {
   const active=names.includes(selected)?selected:names[0];
   const available=data.catalog.filter(n=>!data.enrolled.includes(n));
   const candidate=available.includes(choice)?choice:available[0];
-  const metric=tr?'Güncel, onaylı kanıtı olan maddeler':'Requirements with current approved evidence';
   async function add() {
     if(!candidate||busy)return;
     setBusy(true);setFailed(false);
     try{
       await postureRequest({},undefined,{action:'enroll',name:candidate});
-      select(candidate);setAdding(false);retry();addTrigger.current?.focus();
+      select(candidate);setTarget({ref:'',revision:target.revision+1});setAdding(false);retry();addTrigger.current?.focus();
     }catch{setFailed(true);}finally{setBusy(false);}
   }
   return <section className="posture-workspace posture-home">
-    <div className="posture-portfolio"><div className="posture-strip-head"><span>{metric}</span>
-      {write&&available.length>0&&<button ref={addTrigger} type="button" aria-expanded={adding} onClick={()=>{setChoice(available.includes(active)?active:available[0]);setFailed(false);setAdding(!adding);}}>{tr?'+ Çerçeve ekle':'+ Add framework'}</button>}</div>
+    <div className="posture-portfolio"><div className="posture-strip-head"><h2>{tr?'Çerçeveler arası karşılaştırma':'Framework comparison'}</h2>
+      {write&&available.length>0&&<button className="primary workspace-create" ref={addTrigger} type="button" aria-expanded={adding} onClick={()=>{setChoice(available.includes(active)?active:available[0]);setFailed(false);setAdding(!adding);}}>{tr?'Çerçeve ekle':'Add framework'}</button>}</div>
       <div className="posture-strip" role="group" aria-label={tr?'Çerçeveler':'Frameworks'}>{names.map(name=>{
         const totals=data.coverage[name],percent=totals?.scope?Math.round(100*totals.evidenced/totals.scope):null;
-        return <button key={name} type="button" aria-pressed={active===name} title={name+(totals?' · '+totals.evidenced+'/'+totals.scope:'')} onClick={()=>{select(name);setAdding(false);}}>
-          <span><strong>{preferred[name]||name}</strong>{percent!==null&&<b>{tr?'%'+percent:percent+'%'}</b>}</span>
-          {percent!==null?<progress max="100" value={percent} aria-label={metric}/>:<small>{totals?(tr?'Kapsamda madde yok':'No items in scope'):(tr?'Katalogda':'In catalog')}</small>}
-        </button>;
+        const gaps=data.comparison?.[name];
+        return <div key={name} className="posture-column"><button className="posture-column-head" type="button" aria-pressed={active===name} title={name+(totals?' · '+totals.evidenced+'/'+totals.scope:'')} onClick={()=>{select(name);setTarget({ref:'',revision:target.revision+1});setAdding(false);}}>
+          <span><strong>{preferred[name]||name}</strong>{percent!==null&&<b className="posture-ring" style={{backgroundImage:`conic-gradient(var(--ws-brand) ${percent}%, var(--ws-line) 0)`}}><span>{tr?'%'+percent:percent+'%'}</span></b>}</span>
+          {percent!==null?<small>{totals.evidenced}/{totals.scope} {tr?'kanıtlı':'evidenced'}</small>:<small>{totals?(tr?'Kapsamda madde yok':'No items in scope'):(tr?'Katalogda':'In catalog')}</small>}
+        </button>
+        {gaps&&<div className="posture-column-gaps">
+          <small>{gaps.openCount} {tr?'açık madde':'open requirements'}</small>
+          {gaps.items.map(item=><button type="button" key={item.ref} className="posture-gap" onClick={()=>{
+            select(name);setAdding(false);setTarget({ref:item.ref,revision:target.revision+1});
+          }}><b>{item.ref}</b><strong>{displayTitle(name,item.ref,item.title,tr)}</strong>
+            <span>{reasonLabels[item.state][tr?0:1]}</span>{item.controlCode&&<code>{item.controlCode}</code>}
+            <small>{write && item.state==='unmapped'?(tr?'Kontrol bağla':'Link control'):(tr?'Maddeyi aç':'Open requirement')}</small>
+          </button>)}
+        </div>}</div>;
       })}</div>
       {adding&&<div className="posture-enroll"><label>{tr?'Katalogdan seç':'Choose from catalog'}<select autoFocus disabled={busy} value={candidate} onChange={e=>setChoice(e.target.value)}>{available.map(n=><option key={n}>{n}</option>)}</select></label>
         <button type="button" className="primary" disabled={busy} onClick={add}>{tr?'Kapsama ekle':'Add to scope'}</button>
         <button type="button" disabled={busy} onClick={()=>{setAdding(false);addTrigger.current?.focus();}}>{tr?'Vazgeç':'Cancel'}</button>
         {failed&&<p role="alert">{tr?'Çerçeve eklenemedi. Tekrar deneyin.':'Could not add framework. Please retry.'}</p>}</div>}
     </div>
-    {active&&<Program key={active+data.enrolled.includes(active)} name={active} enrolled={data.enrolled.includes(active)} onSaved={retry} {...props}/>}
+    {active&&<Program key={active+data.enrolled.includes(active)+target.revision} initialRef={target.ref} name={active} enrolled={data.enrolled.includes(active)} onSaved={retry} {...props}/>}
   </section>;
 }

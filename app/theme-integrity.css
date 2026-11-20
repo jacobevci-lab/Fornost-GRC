@@ -203,3 +203,15 @@ html[data-theme] body .shell>main .evidence-assurance-copy>strong{font-size:12px
 html[data-theme] body .shell>main .incident-toolbar>span{white-space:nowrap;flex:0 0 auto}
 html[data-theme] body .shell>main .finding-pagination{display:flex;flex-wrap:wrap}
 html[data-theme] body .shell>main .finding-pagination button{width:auto;min-width:80px;flex:0 0 auto}
+
+/* Header creation actions share dimensions across legacy and newer workspaces. */
+html[data-theme] body .shell main button.workspace-create,
+html[data-theme] body .shell main .posture-home .posture-strip-head button.workspace-create {
+  box-sizing:border-box;display:inline-flex;align-items:center;justify-content:center;
+  transition:none!important;opacity:1;filter:none;
+  height:38px;min-height:38px!important;padding:7px 12px!important;align-self:center;border-radius:8px!important;
+  font-family:inherit!important;font-size:13px!important;line-height:1.35!important;font-weight:600;
+  background:var(--ws-brand)!important;color:var(--fornost-on-brand)!important;border:1px solid var(--ws-brand)!important;
+}
+
+html[data-theme] body .shell main button.workspace-create:enabled:hover {background:var(--ws-brand-2)!important}

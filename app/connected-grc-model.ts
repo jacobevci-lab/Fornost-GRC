@@ -135,6 +135,8 @@ const aliasFields = [
   "planId", "assessmentId", "requirementRef",
 ];
 
+export const connectedGraphFields = new Set([...aliasFields, ...titleFields, ...Object.keys(relationFields), "canonicalRefs", "assetId", "kind"]);
+
 export const connectedTitle = (row: ConnectedGrcRow) =>
   String(titleFields.map((field) => row.data[field]).find(Boolean) || row.code || row.id);
 

@@ -5,8 +5,10 @@ Ticari kurulum lisansı çevrimdışı doğrular. Her paket bir önceki paketin 
 | Paket | Bu seviyede açılan başlıca işlemler |
 | --- | --- |
 | Essentials | Varlık envanteri, risk değerlendirmesi, BIA, kontroller, uyum ve Kanıt Kütüphanesi’ne elle dosya yükleme |
-| Professional | Denetim planlama, kanıt talebi ve dosya sürümünü talebe bağlama, bulgular ve CAPA, tedarikçiler, risk iştahı ve KRI, iş sürekliliği |
-| Enterprise | Connected GRC, API ile kanıt toplama, zamanlanmış kontroller, sürekli güvence ve AI yönetişimi |
+| Professional | Denetim planlama, kanıt talebi ve dosya sürümünü talebe bağlama, bulgular ve CAPA, tedarikçiler, risk iştahı ve KRI, iş sürekliliği. Ask Fornost ile seçilen risk veya kanıt kaydını özetleme ve denetim için kanıt talebi taslağı hazırlama |
+| Enterprise | Connected GRC, API ile kanıt toplama, zamanlanmış kontroller, sürekli güvence ve AI yönetişimi. Ask Fornost ile bağlantılı risk, kontrol ve kanıt analizi ve kaynak gösteren kontrol önerileri |
+
+Professional ve Enterprise için yönetici **AI Ayarları** ekranında modeli etkinleştirir. Her sorgu kullanıcının modül yetkilerine ve modelin veri sınıfı sınırına tabidir. Talebi göndermek ve önerilen bağlantıyı kaydetmek ayrı kullanıcı işlemleridir. Enterprise kayıt analizi en fazla iki bağlantı adımını inceler.
 
 ## Müşteri yöneticisi
 

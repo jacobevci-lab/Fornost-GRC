@@ -60,7 +60,7 @@ export default function IncidentCenter({lang,currentUser}:{lang:Lang;currentUser
  return <section className="incident-page ic-workspace">
   <header className="incident-hero ic-heading"><h2>{tr?"Olay dosyası":"Incident case file"}</h2><div>
     {currentUser.role==="Admin"&&<a href={withBasePath("/api/incidents?format=csv")}>{tr?"Olay CSV":"Incident CSV"}</a>}
-    {canCreate&&<button type="button" className="primary" disabled={busy} onClick={()=>{setNotice("");setForm(emptyForm(currentUser.email));}}>+ {tr?"Olay İlan Et":"Declare Incident"}</button>}
+    {canCreate&&<button type="button" className="primary workspace-create" disabled={busy} onClick={()=>{setNotice("");setForm(emptyForm(currentUser.email));}}>+ {tr?"Olay İlan Et":"Declare Incident"}</button>}
   </div></header>
   {selected&&currentUser.role==="Admin"&&["declared","triage"].includes(selected.status)&&<WorkflowCancelButton key={selected.id+selected.updatedAt} endpoint="/api/incidents" id={selected.id} revision={selected.updatedAt} label={selected.code} tr={tr} onSaved={async()=>{setFilter("all");await resource.reload()}}/>}
   {notice&&<button className="incident-notice" onClick={()=>setNotice("")}>{notice}<b>×</b></button>}

@@ -5,8 +5,8 @@ export function includesEdition(edition: Edition | null, required: Edition) {
   return edition !== null && editions.indexOf(edition) >= editions.indexOf(required);
 }
 
-const professional = new Set(["Tedarikçiler", "Risk İştahı ve KRI", "İş Sürekliliği", "Denetim Yönetimi", "Bulgular ve CAPA"]);
-const enterprise = new Set(["Bağlantılı GRC", "Kanıt Otomasyonu", "AI Yönetişimi", "AI Ayarları", "Ask Fornost"]);
+const professional = new Set(["Tedarikçiler", "Risk İştahı ve KRI", "İş Sürekliliği", "AI Ayarları", "Ask Fornost", "Denetim Yönetimi", "Bulgular ve CAPA"]);
+const enterprise = new Set(["Bağlantılı GRC", "Kanıt Otomasyonu", "AI Yönetişimi"]);
 export function moduleEdition(module: string): Edition {
   if (enterprise.has(module)) return "Enterprise";
   return professional.has(module) ? "Professional" : "Essentials";
@@ -21,6 +21,7 @@ const basicRoutes = new Set(["catalogs", "controls", "dashboard-preferences", "e
 export function apiEdition(path: string): Edition | "recovery" | "unknown" {
   const [, , root, section] = path.replace(/\/+$/, "").split("/");
   if (["license", "auth", "settings", "users", "identity", "health"].includes(root)) return "recovery";
+  if (["/api/ai/status","/api/ai/chat","/api/ai/providers"].includes(path.replace(/\/+$/, ""))) return "Professional";
   if (["evidence-automation", "continuous-assurance", "connected-grc", "executive-assurance", "executive-metrics", "ai"].includes(root)
     || root === "controls" && section === "assurance" || root === "evidence" && (section === "assurance" || section === "usage")
     || root === "grc" && section === "demo") return "Enterprise";

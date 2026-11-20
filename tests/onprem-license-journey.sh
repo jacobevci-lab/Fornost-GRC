@@ -19,7 +19,7 @@ wrangler=(bash scripts/sites-env.sh -- node_modules/.bin/wrangler)
 "${wrangler[@]}" dev --config dist/server/wrangler.json --local --persist-to "$qa_dir/db" \
   --ip 127.0.0.1 --port "$port" --inspector-port 0 --show-interactive-dev-session=false \
   --var "FORNOST_BOOTSTRAP_TOKEN:$QA_BOOTSTRAP_TOKEN" --var "FORNOST_SCHEDULER_TOKEN:$QA_SCHEDULER_TOKEN" \
-  --var FORNOST_ALLOW_PRIVATE_CONNECTORS:true >"$qa_dir/server.log" 2>&1 &
+  --var FORNOST_AI_ALLOW_PRIVATE_ENDPOINTS:true --var FORNOST_AI_ALLOW_LOOPBACK:true --var FORNOST_ALLOW_PRIVATE_CONNECTORS:true >"$qa_dir/server.log" 2>&1 &
 server_pid=$!
 for attempt in {1..60}; do
   if curl --noproxy '*' -fsS --max-time 1 "http://127.0.0.1:$port/api/auth" >/dev/null 2>&1; then break; fi

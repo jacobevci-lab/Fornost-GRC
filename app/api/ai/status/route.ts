@@ -8,6 +8,7 @@ export async function GET(req: NextRequest) {
   const access = await requireRole(req, ["Admin", "Editor", "Viewer"]);
   if (access.response) return access.response;
   const env = await aiRuntime(), row = await getAiSettings(env.DB),policy=await getAiOperatingPolicy(env.DB),chatAccess=evaluateAiAccess(policy,access.actor.role,"chat");
+  const full = !access.actor.licenseAccess || access.actor.licenseAccess.active === "Enterprise";
   return NextResponse.json({
     configured: !!row,
     enabled: !!row?.enabled,
@@ -18,6 +19,6 @@ export async function GET(req: NextRequest) {
     operational:!policy.emergencyStop,
     operatingState:policy.emergencyStop?"emergency-stop":chatAccess.allowed?"ready":"restricted",
     operatingMessage:chatAccess.message,
-    capabilities:{chat:chatAccess.allowed,drafts:!isScoped(access.actor)&&evaluateAiAccess(policy,access.actor.role,"drafts").allowed,agents:!isScoped(access.actor)&&evaluateAiAccess(policy,access.actor.role,"agents").allowed,retrieval:!isScoped(access.actor)&&evaluateAiAccess(policy,access.actor.role,"retrieval").allowed,evaluations:access.actor.role==="Admin"&&evaluateAiAccess(policy,access.actor.role,"evaluations").allowed},
+    capabilities:{chat:chatAccess.allowed,drafts:!isScoped(access.actor)&&evaluateAiAccess(policy,access.actor.role,"drafts").allowed,agents:full&&!isScoped(access.actor)&&evaluateAiAccess(policy,access.actor.role,"agents").allowed,retrieval:full&&!isScoped(access.actor)&&evaluateAiAccess(policy,access.actor.role,"retrieval").allowed,evaluations:full&&access.actor.role==="Admin"&&evaluateAiAccess(policy,access.actor.role,"evaluations").allowed},
   }, { headers: { "cache-control": "no-store" } });
 }

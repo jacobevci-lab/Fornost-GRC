@@ -113,6 +113,7 @@ import "./enterprise-surface-contract.css";
 import "./product-experience.css";
 import "./theme-integrity.css";
 import "./workspace-simplicity.css";
+import { RecordAssistant } from "./ai/record-assistant-panel";
 import RecordWorkspace from "./record-workspace";
 import { ModuleTrailPanel, ModuleTrailContext } from "./module-record-trail-view";
 import { moduleTrailSources } from "./module-record-trail";
@@ -1053,7 +1054,7 @@ function AuthGate() {
         <p>
           {state.bootstrapRequired && !showLogin
             ? "Kurulumu tamamlamak için ilk yerel yönetici hesabını oluşturun. Bu hesap sistem yöneticisi yetkisine sahip olacaktır."
-            : "Entra SSO kullanılamadığında yetkili yerel hesabınızla giriş yapın."}
+            : "Fornost hesabınızın e-posta adresi ve parolasıyla giriş yapın."}
         </p>
         {state.bootstrapRequired && !showLogin && (
           <div className="setup-progress" aria-label="İlk kurulum adımları">
@@ -1131,9 +1132,20 @@ function returnsToDecisionQueue(request?: FornostNavigationRequest | null) {
   return request?.returnTo?.module === "Ana Sayfa" && request.returnTo.kind === "executive-decisions";
 }
 
+const registerCreateLabels: Record<string, [string,string]> = {
+  "Risk Assessment": ["Risk oluştur", "Create risk"], "BIA": ["İş etki analizi oluştur", "Create impact analysis"],
+  "Varlık Envanteri": ["Varlık ekle", "Add asset"], "Uyum": ["Gereksinim oluştur", "Create requirement"],
+  "Kontroller": ["Kontrol oluştur", "Create control"], "Kanıtlar": ["Kanıt yükle", "Upload evidence"]
+};
+
 function FornostApp({ currentUser }: { currentUser: any }) {
   const scoped = isScoped(currentUser);
   const [legacyCompliance,setLegacyCompliance]=useState(false);
+  const complianceViewKey = pageSessionKey(String(currentUser.id)) + "-compliance-view";
+  function changeComplianceView(register:boolean) {
+    setLegacyCompliance(register);
+    try { window.sessionStorage.setItem(complianceViewKey, register ? "register" : "frameworks"); } catch { /* Session storage is optional. */ }
+  }
   const [lang, setLang] = useState<Lang>("tr"),
     [active, setActive] = useState("Ana Sayfa"),
     [rows, setRows] = useState<Row[]>([]),
@@ -1169,6 +1181,18 @@ function FornostApp({ currentUser }: { currentUser: any }) {
   const commandDialogRef = useRecordDialog(commandOpen, closeCommand);
   const [recordRequest, setRecordRequest] = useState<FornostNavigationRequest | null>(null);
   const [focusedRecord, setFocusedRecord] = useState<{ id: string; ref: string; auditName?: string; state?: "loading" | "error"; request?: FornostNavigationRequest } | null>(null);
+  const [assistantId,setAssistantId]=useState("");
+  const professionalAi = currentUser.licenseAccess?.active === "Professional";
+  const recordAi = !currentUser.licenseAccess || professionalAi || currentUser.licenseAccess.active === "Enterprise";
+  function openRecordAi(id:string) {
+    setAssistantId(id); setPreviewEvidence(null); setActive("Ask Fornost");
+  }
+  useEffect(()=>{
+    if (!professionalAi) return;
+    const show = () => {setAssistantId("");setActive("Ask Fornost");};
+    window.addEventListener("fornost:open-ai",show);
+    return ()=>window.removeEventListener("fornost:open-ai",show);
+  },[professionalAi]);
   const readableRows = useMemo(() => rows.filter(row => canReadModule(currentUser, row.module)), [rows, currentUser]);
   const selectedAudit = focusedRecord?.auditName ?? browsedAudit;
   const recordContext = useRef<FornostNavigationRequest | null>(null);
@@ -1179,17 +1203,18 @@ function FornostApp({ currentUser }: { currentUser: any }) {
   const pageKey = pageSessionKey(String(currentUser.id));
   useEffect(() => {
     const restored = restorePage(() => window.sessionStorage, pageKey, module =>
-      modules.includes(module) && module !== "Ask Fornost" &&
+      modules.includes(module) && (module !== "Ask Fornost" || professionalAi) &&
       (currentUser.role === "Admin" || !adminModules.has(module)) &&
       canOpenModule(currentUser, module));
     setActive(restored);
+    try { setLegacyCompliance(window.sessionStorage.getItem(complianceViewKey) === "register"); } catch { /* Default to the framework view. */ }
     const savedFocus = readCoreRecordSession(() => window.sessionStorage, String(currentUser.id), module => modules.includes(module) && canOpenModule(currentUser, module) && (currentUser.role === "Admin" || !adminModules.has(module)));
     if (savedFocus && sameDomainModule(savedFocus.module, restored) && !peekPendingFornostFocus()) {
       recordContext.current = savedFocus;
       setRecordRequest(savedFocus);
     }
     setPageRestored(true);
-  }, [pageKey, currentUser]);
+  }, [pageKey, currentUser, complianceViewKey, professionalAi]);
   useEffect(() => {
     // Wait for restoration so the initial Home render cannot overwrite it.
     if (pageRestored) rememberPage(() => window.sessionStorage, pageKey, active);
@@ -1687,7 +1712,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
     { id: "governance", label: lang === "tr" ? "YÖNETİŞİM" : "GOVERNANCE", items: ["Politika Merkezi","Regülasyon Merkezi","AI Yönetişimi"] },
     { id: "intelligence", label: lang === "tr" ? "İÇGÖRÜ" : "INTELLIGENCE", items: ["Bağlantılı GRC","Raporlar","Ask Fornost"] },
     ...(currentUser.role === "Admin" ? [{ id: "administration", label: lang === "tr" ? "YÖNETİM" : "ADMINISTRATION", items: ["İş Akışı Entegrasyonları","Kimlik ve Erişim","Sistem Ayarları","AI Ayarları","Ana Veri Yönetimi","E-posta ve Bildirimler"] }] : []),
-  ].map(group=>({...group,items:group.items.filter(module=>canOpenModule(currentUser,module)&&(!scoped||module!=="Ask Fornost"))})).filter(group=>group.items.length);
+  ].map(group=>({...group,items:group.items.filter(module=>canOpenModule(currentUser,module)&&(!scoped||module!=="Ask Fornost"||professionalAi))})).filter(group=>group.items.length);
   const activeNavGroup = navGroups.find(group => group.items.includes(active))?.id;
   useEffect(() => {
     if (pageRestored && activeNavGroup) setOpenNavGroup(activeNavGroup);
@@ -1723,7 +1748,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
       setOpenNavGroup(parentGroup.id);
       localStorage.setItem("fornost-grc-open-nav-group", parentGroup.id);
     }
-    if (module === "Ask Fornost") {
+    if (module === "Ask Fornost" && !professionalAi) {
       window.dispatchEvent(new CustomEvent("fornost:open-ai", { detail: module === "Ask Fornost" ? { mode: "chat" } : { view: "portfolio" } }));
       setMobileNavOpen(false);
       setCommandOpen(false);
@@ -2049,7 +2074,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
             </div>
           </div>
           <div className="header-actions">
-            <button
+            {recordAi && <button
               type="button"
               className="context-ai-trigger"
               onClick={() =>
@@ -2065,12 +2090,12 @@ function FornostApp({ currentUser }: { currentUser: any }) {
                   }),
                 )
               }
-              aria-label={lang === "tr" ? "Bu sayfayı Ask Fornost ile analiz et" : "Analyze this page with Ask Fornost"}
-              title={lang === "tr" ? "Sayfayı AI ile analiz et" : "Analyze page with AI"}
+              aria-label={professionalAi ? "Ask Fornost" : lang === "tr" ? "Bu sayfayı Ask Fornost ile analiz et" : "Analyze this page with Ask Fornost"}
+              title={professionalAi ? "Ask Fornost" : lang === "tr" ? "Sayfayı AI ile analiz et" : "Analyze page with AI"}
             >
               <span aria-hidden="true">✦</span>
               <b>Ask Fornost</b>
-            </button>
+            </button>}
             <button
               type="button"
               className="command-trigger"
@@ -2180,6 +2205,8 @@ function FornostApp({ currentUser }: { currentUser: any }) {
           <section className="module-scope-home"><h2>{lang==="tr"?"Çalışma alanım":"My workspace"}</h2><p>{lang==="tr"?"İzin verilen modüllerdeki kayıtları görüntüleyin ve yönetin. Ortak raporlar ve gelişmiş iş akışları için tam çalışma alanı erişimi gerekir.":"View and manage records in your permitted modules. Shared reports and advanced workflows require full workspace access."}</p><div className="module-scope-cards">{readableModules(currentUser).map(module=><button key={module} onClick={()=>navigateToModule(module)}><b>{names[lang][module]}</b><small>{by(module).length} {lang==="tr"?"kayıt":"records"} · {canWriteModule(currentUser,module)?(lang==="tr"?"Okuma ve düzenleme":"Read and edit"):(lang==="tr"?"Okuma":"Read")}</small></button>)}</div>{!readableModules(currentUser).length&&<p>{lang==="tr"?"Henüz modül erişimi atanmadı. Yöneticinizle iletişime geçin.":"No module access has been assigned. Contact your administrator."}</p>}</section>
         ) : active === "Ana Sayfa" ? (
           <Dashboard rows={rows} go={setActive} lang={lang} />
+        ) : active === "Ask Fornost" ? (
+          <RecordAssistant key={assistantId} rows={readableRows} initialId={assistantId} lang={lang} connected={!professionalAi} draft={canWriteModule(currentUser,"Denetim Yönetimi")} loading={registerLoadState==="loading"} failed={registerLoadState==="error"} retry={()=>void load()}/>
         ) : active === "AI Yönetişimi" ? (
           <AiWorkspaceHost lang={lang} />
         ) : active === "Benim İşlerim" ? (
@@ -2266,14 +2293,13 @@ function FornostApp({ currentUser }: { currentUser: any }) {
           />
         ) : active==="Uyum" && canReadPosture(currentUser) && !legacyCompliance && !focusedRecord ? (
           <><FrameworkWorkspace onControlCreated={()=>{void load();}} createControl={canWriteModule(currentUser,"Kontroller")} tr={lang==="tr"} write={canWriteModule(currentUser,"Uyum")}/>
-          <button type="button" className="ghost" onClick={()=>setLegacyCompliance(true)}>{lang==="tr"?"Özel gereksinimler ve mevcut kayıtlar":"Custom requirements and existing records"}</button></>
+          <button type="button" className="ghost" onClick={()=>changeComplianceView(true)}>{lang==="tr"?"Özel gereksinimler ve mevcut kayıtlar":"Custom requirements and existing records"}</button></>
         ) : (
           <>
-            {active==="Uyum" && canReadPosture(currentUser) && <button type="button" className="ghost" onClick={()=>{clearRecordFocus();setLegacyCompliance(false);}}>{lang==="tr"?"Çerçeve matrisine dön":"Back to framework matrix"}</button>}
+            {active==="Uyum" && canReadPosture(currentUser) && <button type="button" className="ghost" onClick={()=>{clearRecordFocus();changeComplianceView(false);}}>{lang==="tr"?"Çerçeve matrisine dön":"Back to framework matrix"}</button>}
             <section className="module-head">
               <div>
                 <small className="module-kicker">{moduleEyebrows[lang][active] || "FORNOST GRC"}</small>
-                <h2>{names[lang][active]}</h2>
                 <p>{desc}</p>
               </div>
               <div className="actions">
@@ -2297,8 +2323,8 @@ function FornostApp({ currentUser }: { currentUser: any }) {
                   {u.csv}
                 </button>
                 {canWriteModule(currentUser,active) && (
-                  <button className="primary" disabled={registerLoadState !== "ready"} onClick={() => openNew()}>
-                    {u.new}
+                  <button className="primary workspace-create" disabled={registerLoadState !== "ready"} onClick={() => openNew()}>
+                    {registerCreateLabels[active]?.[lang === "tr" ? 0 : 1] || u.new}
                   </button>
                 )}
               </div>
@@ -2341,7 +2367,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
                 filterPanelOpen={filterPanelOpen}
                 setFilterPanelOpen={setFilterPanelOpen}
               />
-              <RecordWorkspace allowPosture={canReadPosture(currentUser)} key={active} rows={readableRows} visible={visible} lang={lang} moduleNames={names[lang]} formatValue={display}
+              <RecordWorkspace ask={recordAi ? openRecordAi : undefined} allowPosture={canReadPosture(currentUser)} key={active} rows={readableRows} visible={visible} lang={lang} moduleNames={names[lang]} formatValue={display}
                 preview={id => { const row = readableRows.find(item => item.id === id && item.module === "Kanıtlar"); if (row) setPreviewEvidence(row); }}>
                 {(inspect, open) => (
               <div className="table-wrap" hidden={open} tabIndex={0} role="region" aria-label={lang === "tr" ? "Kayıt tablosu" : "Record table"}>
@@ -2479,6 +2505,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
       {previewEvidence && (
         <EvidencePreview
           key={previewEvidence.id}
+          ask={recordAi ? openRecordAi : undefined}
           showUpgrade={currentUser.role === "Admin" && !!currentUser.licenseAccess?.active && currentUser.licenseAccess.active !== "Enterprise"}
           allowCollection={canWriteModule(currentUser,"Kanıtlar") && canOpenModule(currentUser,"Kanıt Otomasyonu") && (!currentUser.licenseAccess || currentUser.licenseAccess.active === "Enterprise")}
           row={previewEvidence}
@@ -3779,6 +3806,7 @@ function AuditModule({
     [savingAudit, setSavingAudit] = useState(false);
   const [posture,setPosture]=useState<AuditChoice>(false);
   const [catalogImport, setCatalogImport] = useState<AuditCatalogImport|null>(null);
+  const pickerRef=useRecordDialog<HTMLElement>(pickerOpen,()=>setPickerOpen(false));
   const [auditCreateError,setAuditCreateError] = useState("");
   const [taskFocus, setTaskFocus] = useState<{ kind: string; id: string; auditId: string; fromMyWork: boolean } | null>(null);
   const [showUnassigned, setShowUnassigned] = useState(false);
@@ -3889,7 +3917,7 @@ function AuditModule({
           </div>
           <div className="actions">
             {canWrite && (
-              <button className="primary" onClick={() => {setPosture(false);setPickerOpen(true);}}>
+              <button className="primary workspace-create" onClick={() => {setPosture(false);setPickerOpen(true);}}>
                 {tr ? "+ Yeni Denetim" : "+ New Audit"}
               </button>
             )}
@@ -3913,7 +3941,7 @@ function AuditModule({
               if (e.target === e.currentTarget) setPickerOpen(false);
             }}
           >
-            <section data-escape-layer
+            <section ref={pickerRef} tabIndex={-1} data-escape-layer
               className="modal audit-picker"
               role="dialog"
               aria-modal="true"
@@ -5478,7 +5506,7 @@ function EvidenceFreshness({ row, lang }: { row: Row; lang: Lang }) {
   return <StatusPill value={useEvidenceFreshness(row, lang)} lang={lang} />;
 }
 function EvidencePreview({
-  allowCollection, showUpgrade,
+  allowCollection, showUpgrade, ask,
   row,
   lang,
   onClose,
@@ -5486,6 +5514,7 @@ function EvidencePreview({
   row: Row;
   lang: Lang;
   onClose: () => void;
+  ask?: (id:string)=>void;
   allowCollection: boolean;
   showUpgrade: boolean;
 }) {
@@ -5542,6 +5571,7 @@ function EvidencePreview({
               [tr ? "Sürüm" : "Version", d.versionNo ? `v${d.versionNo}` : "—"],
               ...(d.originEvidenceId ? [[tr?"Başlatan kanıt":"Originating evidence", d.originEvidenceId]] : []),
             ].map(([label,value]) => <div key={label}><dt>{label}</dt><dd>{value || "—"}</dd></div>)}</dl>
+            {ask && <button type="button" className="ghost" onClick={()=>ask(row.id)}>Ask Fornost</button>}
             {showUpgrade && <p>{tr?"Otomatik kanıt toplama Enterprise paketine dahildir.":"Automated evidence collection is included in Enterprise."} <a href="mailto:sales@fornostsecurity.com">{tr?"Satış ekibine yaz":"Contact sales"}</a></p>}
             {allowCollection && <RecordCollection id={row.id} refs={d.controlRefs || d.controlRef || ""} lang={lang}/>}
             {d.notes && <p>{d.notes}</p>}

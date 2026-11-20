@@ -68,7 +68,9 @@ Kontrollerde yaşam döngüsü ile uygulama etkinliği ayrı durumlardır. Kontr
 
 ### Uyum Yönetimi
 
-Üst şeritten bir çerçeve seçin. Yüzde, kapsam dışında bırakılmamış maddeler arasında güncel ve onaylı bir kanıt sürümüne bağlı olanların oranıdır. “Katalogda” görünen çerçevelerin maddelerini önizleyebilir, izlemeye başlamak için **Çerçeve ekle → Kapsama ekle** yolunu kullanabilirsiniz.
+Geniş ekranda kapsamınızdaki çerçeveleri yan yana karşılaştırabilirsiniz. Her sütun toplam açık madde sayısını ve katalog sırasındaki ilk üç açık maddeyi gösterir. Karttaki **Kontrol bağla** veya **Maddeyi aç** eylemi ilgili gereksinimi açar. Tüm maddeler için çerçeve başlığını seçin. Dar ekranda çerçeve seçimi ve madde listesi kullanılır. Yüzde, kapsam dışında bırakılmamış maddeler arasında güncel ve onaylı bir kanıt sürümüne bağlı olanların oranıdır. “Katalogda” görünen çerçevelerin maddelerini önizleyebilir, izlemeye başlamak için **Çerçeve ekle → Kapsama ekle** yolunu kullanabilirsiniz.
+
+**Özel gereksinimler ve mevcut kayıtlar** görünümü aynı sekmede sayfayı yenilediğinizde korunur.
 
 **Açık maddeler** eksik kontrol bağlantısını, kısmi eşleştirmeyi, beklenen onaylı kanıtı veya uygulanabilirlik kararını gösterir. Madde ağacında kodu ya da başlığı arayıp seçtiğinizde ilgili satır açılır. Kütüphaneden bir kontrol seçip **Bağla ve kaydet** düğmesini kullanın. ISO 27001 Ek A kararını ve gerekçesini aynı satırdaki **Uygulanabilirlik (SoA)** bölümünden düzenleyebilirsiniz. Özel gereksinimler ve önceki kayıtlar, çalışma alanının altındaki bağlantıdan açılır.
 

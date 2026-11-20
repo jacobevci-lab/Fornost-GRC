@@ -37,7 +37,7 @@ import FornostAiExceptions from "./fornost-ai-exceptions";
 import FornostAiDecommission from "./fornost-ai-decommission";
 import FornostAiFindings from "./fornost-ai-findings";
 
-type User = { id?: string; moduleAccess?: ModuleAccess; name?: string; email: string; role: "Admin" | "Editor" | "Viewer" };
+type User = { licenseAccess?: import("./licensing/editions").LicenseAccess; id?: string; moduleAccess?: ModuleAccess; name?: string; email: string; role: "Admin" | "Editor" | "Viewer" };
 type Status = { configured: boolean; enabled: boolean; operational:boolean;operatingState:"ready"|"restricted"|"emergency-stop";operatingMessage:string;capabilities:{chat:boolean;drafts:boolean;agents:boolean;retrieval:boolean;evaluations:boolean}; provider: string | null; model: string | null; mode: string };
 type Source = { id: string; module: string; title: string };
 type Message = { role: "user" | "assistant"; content: string; activityId?:string; feedbackSent?:boolean; sources?: Source[]; citationIntegrity?: {grounded:boolean;cited:number;invalidRemoved:number} };
@@ -160,13 +160,13 @@ export default function FornostAiCopilot() {
       return;
     }
     const nextUser = body.authenticated ? body.user as User : null;
-    const nextKey=nextUser?JSON.stringify([nextUser.id,nextUser.email,nextUser.role,nextUser.moduleAccess]):"";
+    const nextKey=nextUser?JSON.stringify([nextUser.id,nextUser.email,nextUser.role,nextUser.moduleAccess,nextUser.licenseAccess]):"";
     if(identityKey.current && identityKey.current!==nextKey){setRecordFocus(null);setMessages([]);setDrafts([]);setAgentRuns([]);setQuestion("");setFeedbackDraft(null);setTab("chat");}
     identityKey.current=nextKey;
     setUser(nextUser);
     setIdentityLoading(false);
     if (!nextUser) setIdentityError("Ask Fornost için oturum açmanız gerekiyor.");
-    if (nextUser) await refreshStatus();
+    if (nextUser && (!nextUser.licenseAccess || nextUser.licenseAccess.active === "Enterprise")) await refreshStatus();
   }, [refreshStatus]);
 
   useEffect(() => {
@@ -416,6 +416,7 @@ export default function FornostAiCopilot() {
     <header className="fornost-ai-head"><div><h2>Ask Fornost</h2></div><button data-escape-close type="button" onClick={() => setOpen(false)} aria-label="Kapat">×</button></header>
     <div className="fornost-ai-welcome" role="status"><p>{identityLoading ? "Oturum doğrulanıyor…" : identityError || "Oturum bilgisi bekleniyor…"}</p><button disabled={identityLoading} onClick={() => void refreshIdentity()}>Yeniden dene</button></div>
   </section> : null;
+  if (user.licenseAccess && user.licenseAccess.active !== "Enterprise") return null;
   const aiReady = status?.enabled === true&&status?.operational!==false;
   const chatReady=aiReady&&status?.capabilities?.chat!==false,draftReady=aiReady&&status?.capabilities?.drafts!==false,agentReady=aiReady&&status?.capabilities?.agents!==false;
   const scoped = isScoped(user);

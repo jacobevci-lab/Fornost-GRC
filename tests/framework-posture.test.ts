@@ -3,9 +3,18 @@ import test from 'node:test';
 import {DatabaseSync,type SQLInputValue} from 'node:sqlite';
 import {ISO,SOC,catalogFor} from '../app/framework-posture/catalog';
 import {baselineToken,enroll,ensurePosture,indexPrograms,makeBaseline,previewCatalog,programOverview,PostureError,readImpact,readMatrix,saveDecision} from '../app/framework-posture/store';
+import {displayTitle} from '../app/framework-posture/iso-display';
 import {requirementState} from '../app/framework-posture/requirements';
 import {appendEvidenceVersion} from '../app/evidence/versioning';
 import {canReadPosture,scopedApiAllowed,type AccessSubject} from '../app/module-access';
+
+test('all bundled ISO requirements have an English display title without changing canonical Turkish records',()=>{
+  for(const row of catalogFor(ISO)){
+    assert.notEqual(displayTitle(ISO,row.ref,row.title,false),row.title,row.ref);
+    assert.equal(displayTitle(ISO,row.ref,row.title,true),row.title);
+  }
+  assert.equal(displayTitle(SOC,'4.1','Customer text',false),'Customer text');
+});
 
 async function fixture(){
   const sql=new DatabaseSync(':memory:');
@@ -63,6 +72,10 @@ test('capture only current explicitly approved anchored evidence matching contro
   const summary=await programOverview(db);
   assert.deepEqual(summary.coverage[ISO],{scope:122,evidenced:1});
   assert.deepEqual(summary.coverage[SOC],{scope:catalogFor(SOC).length,evidenced:1});
+  assert.equal(summary.comparison[ISO].items.length,3);
+  assert.equal(summary.comparison[SOC].items[0].state,'partial');
+  assert.equal(summary.comparison[SOC].items[0].controlCode,'CTL-325');
+  assert.equal(summary.comparison[SOC].openCount,catalogFor(SOC).length);
   const preview=previewCatalog(ISO);
   assert.equal(preview.requirements.length,123);
   assert.deepEqual(preview.pins,{});

@@ -22,7 +22,7 @@ try{
   const work=page.locator('.posture-workspace');
   if(!(await api(endpoint)).enrolled.includes(iso)){
     await expect(work.getByRole('button',{name:'ISO 27001 In catalog'})).toBeVisible();
-    await work.getByRole('button',{name:'+ Add framework',exact:true}).click();
+    await work.getByRole('button',{name:'Add framework',exact:true}).click();
     await work.getByLabel('Choose from catalog').selectOption(iso);
     await work.getByRole('button',{name:'Add to scope',exact:true}).click();
   }
@@ -30,6 +30,7 @@ try{
   await expect(work.getByRole('button',{name:/^Open requirements/})).toBeVisible();
   const tree=work.getByRole('region',{name:'Requirement outline'});
   await tree.getByRole('searchbox',{name:'Search outline'}).fill('A.5.1');
+  await expect(tree.getByRole('button',{name:/^A\.5\.1 /})).toContainText('Information security policies');
   await tree.getByRole('button',{name:/^A\.5\.1 /}).click();
   const editor=page.locator('.posture-editor');
   await expect(editor.locator('xpath=ancestor::tr/preceding-sibling::tr[1]')).toContainText('A.5.1');
@@ -110,6 +111,31 @@ try{
   await page.setViewportSize({width:1440,height:900});
   await page.getByRole('button',{name:'Özel gereksinimler ve mevcut kayıtlar'}).click();
   await expect(page.getByRole('button',{name:'Çerçeve matrisine dön'})).toBeVisible();
+  await page.reload();
+  await expect(page.getByRole('button',{name:'Çerçeve matrisine dön'})).toBeVisible();
+  await page.getByRole('button',{name:'Çerçeve matrisine dön'}).click();
+  const columns=work.locator('.posture-column').filter({has:page.locator('.posture-gap')});
+  await expect.poll(()=>columns.count()).toBeGreaterThanOrEqual(2);
+  const gap=columns.nth(1).locator('.posture-gap').first();
+  const ref=await gap.locator('b').innerText();
+  await gap.click();
+  await expect(work.locator('.posture-editor')).toBeVisible();
+  await expect(work.locator('.posture-row-trigger[aria-expanded=true]')).toHaveAttribute('aria-label',new RegExp('^'+ref.replaceAll('.','[.]')+' ·'));
+  for(const [module,action] of [
+    ['Risk Değerlendirmesi','Excel İçe Aktar'],['Denetim Yönetimi','+ Yeni Denetim'],
+    ['Risk İştahı ve KRI','+ Risk İştahı'],['Regülasyon Merkezi','Kaynak ekle']
+  ]){
+    await go(module);
+    const opener=page.getByRole('button',{name:action,exact:true}).first();
+    await opener.focus();await opener.press('Enter');
+    const dialog=page.getByRole('dialog').last();
+    await expect(dialog).toBeVisible();
+    for(const key of ['Shift+Tab','Tab','Tab']){
+      await expect.poll(()=>dialog.evaluate(el=>el.contains(el.ownerDocument.activeElement))).toBe(true);
+      await page.keyboard.press(key);
+    }
+    await page.keyboard.press('Escape');await expect(dialog).toHaveCount(0);await expect(opener).toBeFocused();
+  }
   assert.deepEqual(errors,[]);
   console.log('PASS: framework enrollment, control creation and reuse, cross-framework impact, SoA, period/version filtering, frozen audit, stale preview rejection and TR/EN register navigation.');
 }finally{await browser.close();}

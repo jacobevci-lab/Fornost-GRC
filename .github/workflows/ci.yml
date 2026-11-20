@@ -47,6 +47,23 @@ jobs:
         run: bash scripts/audit-dependencies.sh
       - run: npm run validate:artifact
 
+  commercial-license-journey:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.13.0
+          cache: npm
+      - run: npm ci
+      - run: npm install --no-save --ignore-scripts @playwright/test@1.55.0
+      - run: npx playwright install --with-deps chromium
+      - name: Verify signed editions through the API and browser
+        env:
+          FORNOST_LICENSE_QA_BROWSER: "1"
+        run: bash tests/onprem-license-journey.sh
+
   onprem-container-integration:
     runs-on: ubuntu-latest
     timeout-minutes: 25

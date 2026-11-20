@@ -1,4 +1,5 @@
 'use client';
+import {useRecordDialog} from './use-record-dialog';
 import { useEffect, useRef, useState } from 'react';
 import { readSheet } from 'read-excel-file/browser';
 import { withBasePath } from './base-path';
@@ -14,6 +15,7 @@ export function RegisterImportModal({ module, lang, title, fields, labels, alias
   const [sheet, setSheet] = useState<ImportSheet | null>(null), [mapping, setMapping] = useState<Record<string, string>>({}), [filename, setFilename] = useState('');
   const [error, setError] = useState(''), [issues, setIssues] = useState<ImportIssue[]>([]), [busy, setBusy] = useState(''), [approved, setApproved] = useState<Approved | null>(null), [uncertain, setUncertain] = useState(false), [page, setPage] = useState(0);
   useEffect(() => { active.current = true; return () => { active.current = false; controller.current?.abort(); }; }, []);
+  const dialogRef = useRecordDialog(true, () => { if (busy !== 'commit') onClose(); });
   const invalidate = () => { setApproved(null); setIssues([]); setError(''); setPage(0); };
   async function read(file: File) {
     if (pending.current || uncertain) return;
@@ -78,7 +80,7 @@ export function RegisterImportModal({ module, lang, title, fields, labels, alias
       }
     } finally { window.clearTimeout(timer); pending.current = false; if (active.current) setBusy(''); }
   }
-  return <div className="overlay"><div data-escape-layer className="modal import-modal register-import-modal" role="dialog" aria-modal="true" aria-label={t('Excel içe aktar', 'Import Excel')} aria-busy={!!busy}>
+  return <div className="overlay"><div ref={dialogRef} tabIndex={-1} data-escape-layer className="modal import-modal register-import-modal" role="dialog" aria-modal="true" aria-label={t('Excel içe aktar', 'Import Excel')} aria-busy={!!busy}>
     <div className="modal-head"><div><small>{t('EXCEL İÇE AKTAR', 'IMPORT EXCEL')}</small><h2>{title}</h2></div><button data-escape-close type="button" disabled={busy === 'commit'} aria-label={t('Pencereyi kapat', 'Close dialog')} onClick={onClose}>×</button></div>
     <div className="import-body">
       <p>{t('İlk çalışma sayfası okunur. Yeni kayıtlar oluşturulur; mevcut kayıtlar güncellenmez veya birleştirilmez.', 'The first worksheet is read. This creates new records; existing records are not updated or merged.')}</p>
