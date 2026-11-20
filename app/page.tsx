@@ -102,7 +102,7 @@ import AuditReadinessGate from "./audit-readiness-gate";
 import AuditPortfolioWorkspace, { type AuditPortfolioItem } from "./audit-portfolio-workspace";
 import { requestJsonWithDeadline } from "./bounded-json-request";
 import { withBasePath } from "./base-path";
-import { calculatedRiskScore, effectiveImpact } from "./risk-methodology";
+import { assessedRiskScore, calculatedRiskScore, effectiveImpact } from "./risk-methodology";
 import { defaultCatalogs, type CatalogMap } from "./catalogs";
 import { safeSpreadsheetCell } from "./export-security";
 import { automaticAuditTemplates } from "./framework-templates";
@@ -897,6 +897,10 @@ function band(n: number) {
 function empty(m: string) {
   return Object.fromEntries((fields[m] || []).map((k) => [k, ""]));
 }
+const riskRatingKeys = ["confidentialityImpact", "integrityImpact", "availabilityImpact", "inherentLikelihood"] as const;
+const quickRiskLayout = ["title", "owner", "calculatedImpact", "asset"];
+const quickRiskKeys = new Set([...quickRiskLayout, ...riskRatingKeys]);
+const riskFormFields = [...quickRiskLayout, ...fields["Risk Assessment"].filter(key => !quickRiskKeys.has(key))];
 const requiredFieldsByModule: Record<string, string[]> = {
   "Risk Assessment": ["title", "category", "businessUnit", "owner", "asset", "inherentLikelihood", "inherentImpact", "treatment", "status", "nextReview"],
   BIA: ["process", "processCategory", "businessUnit", "owner", "criticality", "asset", "rto", "rpo", "status"],
@@ -1442,6 +1446,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
     setNotice("");
     setEditing(null);
     const next = empty(active);
+    if (active === "Risk Assessment") next.status = "Değerlendiriliyor";
     if (active === "Denetim Yönetimi" && selectedAudit) {
       next.auditName = selectedAudit;
       const audit = auditPortfolio.find((item) => item.name === selectedAudit);
@@ -2457,7 +2462,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
             ) : (
               <form onSubmit={save} className="form">
                 <div className="fornost-progressive-slot" />
-                {fields[active].map((k) => (
+                {(active === "Risk Assessment" ? riskFormFields : fields[active]).map((k) => (
                   <Field
                     key={k}
                     k={k}
@@ -2652,41 +2657,34 @@ function Field({
     </label>;
   }
   if (k === "calculatedImpact") {
-    const impact = effectiveImpact(form),
-      likelihood = Number(form.inherentLikelihood || 0),
-      total = likelihood * impact;
+    const tr = lang === "tr";
+    const impact = effectiveImpact(form);
+    const total = assessedRiskScore(form);
     return (
-      <div className="wide cia-calculation">
-        <div>
-          <small>{lang === "tr" ? "GİZLİLİK" : "CONFIDENTIALITY"}</small>
-          <b>{form.confidentialityImpact || "—"}</b>
+      <fieldset className="wide risk-rating">
+        <legend>{tr ? "Risk değerlendirmesi" : "Risk rating"}</legend>
+        <div className="risk-rating-fields">
+          {riskRatingKeys.map(key => (
+            <label key={key}>{labelMap[lang][key]}
+              <select name={key} value={form[key] ?? (key === "inherentLikelihood" ? form.likelihood : "") ?? ""}
+                onChange={event => {
+                  const next = { ...form, [key]: event.target.value };
+                  if (key === "inherentLikelihood") delete next.likelihood;
+                  setForm(next);
+                }}>
+                <option value="">{tr ? "Seçin" : "Select"}</option>
+                {scores.map(n => <option key={n} value={n}>{n}</option>)}
+              </select>
+            </label>
+          ))}
         </div>
-        <div>
-          <small>{lang === "tr" ? "BÜTÜNLÜK" : "INTEGRITY"}</small>
-          <b>{form.integrityImpact || "—"}</b>
-        </div>
-        <div>
-          <small>{lang === "tr" ? "ERİŞİLEBİLİRLİK" : "AVAILABILITY"}</small>
-          <b>{form.availabilityImpact || "—"}</b>
-        </div>
-        <div className="cia-result">
-          <small>
-            {lang === "tr"
-              ? "ETKİN ETKİ / RİSK SKORU"
-              : "EFFECTIVE IMPACT / RISK SCORE"}
-          </small>
-          <b>
-            {impact || "—"} / {total || "—"}
-          </b>
-          <span>
-            {total
-              ? display(band(total), lang)
-              : lang === "tr"
-                ? "CIA değerlerini girin"
-                : "Enter CIA values"}
+        <output className="risk-rating-result" aria-live="polite">
+          <span>{tr ? "Etkin etki" : "Effective impact"} <b>{impact ? impact + " / 5" : "—"}</b></span>
+          <span>{tr ? "Risk skoru" : "Risk score"} <b>{total === null ? "—" : total + " / 25"}</b>
+            {total !== null && <strong>{display(band(total), lang)}</strong>}
           </span>
-        </div>
-      </div>
+        </output>
+      </fieldset>
     );
   }
   if (k === "frameworks") {

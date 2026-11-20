@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { assessedRiskScore } from "../app/risk-methodology";
 import test from "node:test";
 import { validate } from "../app/api/grc/route";
 
@@ -46,22 +46,10 @@ test("risk lifecycle blocks operational states until assessment fields are compl
   assert.equal("error" in validate("Risk Assessment", complete), false);
 });
 
-test("risk form exposes title, affected asset and owner while keeping assessment details progressive", () => {
-  const progressiveForm = readFileSync("app/progressive-form-experience.tsx", "utf8");
-  assert.match(progressiveForm, /sameDomainModule\(heading, "Risk Assessment"\)/);
-  assert.match(progressiveForm, /"başlık \/ ad", "title \/ name", "sahibi", "owner", "ilgili varlık", "related asset"/);
-  assert.match(progressiveForm, /Hızlı risk kaydı/);
-  assert.match(progressiveForm, /Olayı, sorumluyu ve varsa etkilenen varlığı kaydedin/);
-  assert.match(progressiveForm, /relaxQuickRiskRequirements\(groups\.advanced\)/);
-  assert.match(progressiveForm, /restoreQuickRiskRequirements\(groups\.advanced\)/);
-});
-
-test("new quick risk primes Under Assessment without overwriting edit-state governance", () => {
-  const progressiveForm = readFileSync("app/progressive-form-experience.tsx", "utf8");
-  const page = readFileSync("app/page.tsx", "utf8");
-  assert.match(progressiveForm, /newRecord: \["yeni kayıt", "new record"\]\.includes\(mode\)/);
-  assert.match(progressiveForm, /if \(!target\.quickRisk \|\| !target\.newRecord\) return/);
-  assert.match(progressiveForm, /const intakeStatus = "Değerlendiriliyor"/);
-  assert.match(progressiveForm, /setSelectValue\(status, intakeStatus\)/);
-  assert.match(page, /"Risk Assessment": \["Açık", "Değerlendiriliyor", "Aksiyon Devam Ediyor", "Kabul Edildi", "Kapalı"\]/);
+test("rating a quick intake saves the dimensions without requiring a treatment plan", () => {
+  const ratings = {confidentialityImpact:"3", integrityImpact:"5", availabilityImpact:"2", inherentLikelihood:"4"};
+  const result = validate("Risk Assessment", {...quickRisk, ...ratings});
+  if ("error" in result) assert.fail(result.error);
+  assert.equal(result.data.status, "Değerlendiriliyor");
+  assert.equal(assessedRiskScore(result.data), 20);
 });

@@ -17,6 +17,12 @@ export function requirementState(row:Requirement,pins:Pins):keyof typeof reasonL
   if(row.applicability==='undecided')return 'decision';
   return 'covered';
 }
+export function statusLabel(state: keyof typeof reasonLabels, tr: boolean) {
+  if (state === 'excluded') return tr ? 'Hariç' : 'Excluded';
+  if (state === 'covered') return tr ? 'Kanıtlı' : 'Evidenced';
+  return tr ? 'Açık' : 'Open';
+}
+
 export const reasonLabels={
   excluded:['Kapsam dışında','Outside scope'],
   unmapped:['Kontrol bağlı değil','No control linked'],

@@ -28,6 +28,14 @@ try{
   }
   await work.getByRole('button',{name:/^ISO 27001.*%/}).click();
   await expect(work.getByRole('button',{name:/^Open requirements/})).toBeVisible();
+  const statusButton = (ref, status) => work.getByRole('button',{name:ref+' · '+status+' · Status details',exact:true});
+  const help=work.locator('.posture-state-help');
+  await statusButton('4.1','Open').focus();
+  await page.keyboard.press('Enter');
+  await expect(help).toContainText('Link a library control');
+  await expect(statusButton('4.1','Open')).toHaveAttribute('aria-expanded','true');
+  await page.keyboard.press('Enter');
+  await expect(help).toHaveCount(0);
   const tree=work.getByRole('region',{name:'Requirement outline'});
   await tree.getByRole('searchbox',{name:'Search outline'}).fill('A.5.1');
   await expect(tree.getByRole('button',{name:/^A\.5\.1 /})).toContainText('Information security policies');
@@ -57,6 +65,15 @@ try{
     const r=await ctx.request.post(base+'/api/evidence',{headers:{origin:base},multipart:{evidenceTitle:'Access evidence '+evidencePeriod,owner:'IAM',period:evidencePeriod,controlRef:control.code,status,file:{name:'sample.png',mimeType:'image/png',buffer:file}}});
     assert.equal(r.status(),201,await r.text());
   }
+  await go('Compliance Management');
+  await work.getByRole('button',{name:/^ISO 27001.*%/}).click();
+  await work.getByRole('button',{name:/^All requirements/}).click();
+  await work.getByRole('searchbox',{name:'Search requirements',exact:true}).fill('A.5.1');
+  await statusButton('A.5.1','Evidenced').click();
+  await expect(help).toContainText('current approved evidence');
+  await work.getByRole('button',{name:/^SOC 2.*%/}).click();
+  await statusButton('CC1.1','Open').click();
+  await expect(help).toContainText('only partially support');
   await go('Audit Management');
   await page.getByRole('button',{name:'+ New Audit',exact:true}).click();
   const form=page.locator('form').filter({has:page.getByLabel('Template / option')});
@@ -101,9 +118,18 @@ try{
   const mobileEditor=work.locator('.posture-editor');
   await mobileEditor.getByRole('searchbox',{name:'Kontrol ara'}).fill(control.code);
   await mobileEditor.getByLabel('Mevcut kontrol',{exact:true}).selectOption(control.id);
+  await expect(mobileEditor.locator('.posture-state-help')).toContainText('madde durumu yeniden hesaplanır');
   await mobileEditor.getByRole('button',{name:'Bağla ve kaydet'}).click();
   await expect.poll(async()=>((await matrix(iso)).requirements.find(r=>r.ref==='A.5.18')).links.map(l=>l.id)).toContain(control.id);
   await expect(work.getByRole('status')).toContainText('Madde güncellendi');
+  await expect(mobileEditor.locator('.posture-state-help')).toContainText('Uygulanabilirlik (SoA)');
+  await work.getByRole('button',{name:'Madde ağacı',exact:true}).click();
+  await mobileTree.getByRole('searchbox',{name:'Madde ağacında ara'}).fill('4.1');
+  await mobileTree.getByRole('button',{name:/^4\.1 /}).click();
+  await mobileEditor.getByLabel('Mevcut kontrol',{exact:true}).selectOption(control.id);
+  await expect(mobileEditor.locator('.posture-state-help')).toContainText('Kaydedildiğinde · Kanıtlı');
+  await mobileEditor.getByRole('button',{name:'Bağla ve kaydet'}).click();
+  await expect(work.getByRole('button',{name:'4.1 · Kanıtlı · Durum ayrıntısı',exact:true})).toBeVisible();
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),true,'mobile viewport overflow');
   const toggle=page.locator('.theme-toggle:visible');
   await toggle.click();

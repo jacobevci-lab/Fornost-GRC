@@ -5,7 +5,7 @@ import {getCatalogStatus} from '../framework-catalog-status';
 import {postureRequest,usePosture} from './client';
 import {DecisionEditor,type WorkspaceProps} from './decision-editor';
 import {RequirementIndex} from './requirement-index';
-import {matchesRequirement,reasonLabels,requirementState} from './requirements';
+import {matchesRequirement,reasonLabels,requirementState,statusLabel} from './requirements';
 import type {Matrix,Overview,Requirement} from './types';
 import './workspace.css';
 
@@ -79,14 +79,18 @@ function Program({name,enrolled,initialRef,onSaved,...props}:WorkspaceProps & {n
         {enrolled&&<><th scope="col">{tr?'Durum':'Status'}</th><th scope="col">{tr?'Neden':'Reason'}</th></>}
       </tr></thead><tbody>{filtered.slice(current*pageSize,(current+1)*pageSize).map(({row,state})=>{
         const expanded=row.ref===selected;
-        const badge=state==='excluded'?(tr?'Hariç':'Excluded'):state==='covered'?(tr?'Kanıtlı':'Evidenced'):(tr?'Açık':'Open');
+        const badge=statusLabel(state,tr);
+        const toggle=()=>{select(expanded?'':row.ref);setMessage('');};
+        const detailId=rowId(row.ref)+'-details';
         return <Fragment key={row.ref}><tr className={expanded?'posture-selected':''}>
           <th scope="row">{row.ref}</th><td><button id={rowId(row.ref)} type="button" className="posture-row-trigger"
             aria-expanded={expanded} aria-label={row.ref+' · '+row.title}
-            onClick={()=>{select(expanded?'':row.ref);setMessage('');}}>{row.title} <span aria-hidden="true"/></button></td>
-          {enrolled&&<><td><span className={'posture-status '+state}>{badge}</span></td><td className="posture-reason">{reasonLabels[state][tr?0:1]}</td></>}
+            aria-controls={expanded?detailId:undefined} onClick={toggle}>{row.title} <span aria-hidden="true"/></button></td>
+          {enrolled&&<><td><button type="button" className={'posture-status '+state} onClick={toggle}
+            aria-expanded={expanded} aria-controls={expanded?detailId:undefined}
+            aria-label={row.ref+' · '+badge+' · '+(tr?'Durum ayrıntısı':'Status details')}>{badge}</button></td><td className="posture-reason">{reasonLabels[state][tr?0:1]}</td></>}
         </tr>
-        {expanded&&<tr className="posture-detail-row"><td colSpan={enrolled?4:2}>
+        {expanded&&<tr className="posture-detail-row"><td id={detailId} colSpan={enrolled?4:2}>
           {enrolled?<DecisionEditor key={row.ref+row.revision} row={row} matrix={data} {...props}
             onClose={()=>close(row.ref)} onReload={()=>refresh(v=>v+1)} onSave={()=>{refresh(v=>v+1);onSaved();setMessage(tr?'Madde güncellendi.':'Requirement updated.');}}/>:
             <p>{tr?'Kontrol bağlamak ve kanıt kapsamını izlemek için bu çerçeveyi kapsama ekleyin.':'Add this framework to scope to link controls and track evidence coverage.'}</p>}

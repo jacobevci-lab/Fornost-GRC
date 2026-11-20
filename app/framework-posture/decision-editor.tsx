@@ -1,12 +1,39 @@
 'use client';
 import {useState} from 'react';
 import {postureRequest} from './client';
-import {applicabilityLabel} from './requirements';
+import {applicabilityLabel,requirementState,statusLabel} from './requirements';
 import {CreateControl} from './create-control';
 import type {Control,Applicability,Coverage,Matrix,Requirement} from './types';
 
 export type WorkspaceProps={tr:boolean;write:boolean;createControl:boolean;onControlCreated:()=>void};
 
+
+const statusHelp = {
+  unmapped: [
+    'Maddeye kütüphaneden bir kontrol bağlayın. Destekleyen kontrolün güncel ve onaylı kanıtı durum hesabına katılır.',
+    'Link a library control to this requirement. Current approved evidence on a supporting control counts toward its status.',
+  ],
+  partial: [
+    'Bağlı kontroller maddeyi kısmen destekliyor. Maddeyi karşılayan bir kontrolü “Destekler” olarak eşleştirin.',
+    'The linked controls only partially support this requirement. Map a control that meets the requirement using “Supports”.',
+  ],
+  evidence: [
+    'Kanıt Kütüphanesi’nde destekleyen kontrolün referansına bağlı güncel kanıtı onaylayın.',
+    'In the Evidence Library, approve current evidence linked to the supporting control’s reference.',
+  ],
+  decision: [
+    'Destekleyen kontrolün onaylı kanıtı var. Uygulanabilirlik (SoA) kararını ve gerekçesini kaydedin.',
+    'The supporting control has approved evidence. Save the applicability (SoA) decision and its rationale.',
+  ],
+  covered: [
+    'Kapsamdaki bu maddeyi destekleyen bir kontrolün güncel, onaylı kanıtı var. Maddeyi “Tüm maddeler” listesinde bulabilirsiniz.',
+    'A supporting control has current approved evidence for this in-scope requirement. Find it under “All requirements”.',
+  ],
+  excluded: [
+    'SoA kararına göre bu madde kapsam dışında. Kapsam değiştiğinde uygulanabilirlik kararını ve gerekçesini güncelleyin.',
+    'The SoA decision excludes this requirement. If scope changes, update its applicability and rationale.',
+  ],
+} as const;
 
 type EditorProps=WorkspaceProps & {row:Requirement;matrix:Matrix;onSave:()=>void;onReload:()=>void;onClose:()=>void};
 export function DecisionEditor({row,matrix,tr,write,createControl,onControlCreated,onSave,onReload,onClose}:EditorProps){
@@ -17,9 +44,13 @@ export function DecisionEditor({row,matrix,tr,write,createControl,onControlCreat
   const available=controls.filter(c=>!links.some(l=>l.id===c.id) && (c.code+' '+c.title).toLocaleLowerCase().includes(search.trim().toLocaleLowerCase()));
   const target=available.find(c=>c.id===choice);
   const dirty=app!==row.applicability || reason!==row.reason || JSON.stringify(links)!==JSON.stringify(row.links);
+  const mappings = target ? [...links, {id:target.id, coverage:'supports' as const}] : links;
+  const state = requirementState({...row, links:mappings, applicability:app}, matrix.pins);
+  // The matrix includes evidence only for controls already mapped in this framework.
+  const mappedInProgram = (id:string) => matrix.requirements.some(r=>r.links.some(l=>l.id===id));
+  const pendingEvidenceCheck = state==='evidence' && mappings.some(l=>l.coverage==='supports' && !mappedInProgram(l.id));
   async function save(){
     setPending(true);setError('');
-    const mappings=target?[...links,{id:target.id,coverage:'supports'}]:links;
     try{
       await postureRequest({},undefined,{action:'save',name:matrix.name,ref:row.ref,revision:row.revision,applicability:app,reason,links:mappings});
       onSave();
@@ -30,6 +61,12 @@ export function DecisionEditor({row,matrix,tr,write,createControl,onControlCreat
   }}>
     <header><h4>{write?(tr?'Kütüphaneden kontrol bağla':'Link a library control'):(tr?'Bağlı kontroller':'Linked controls')}</h4>
       <button type="button" disabled={pending} onClick={onClose}>{tr?'Kapat':'Close'}</button></header>
+    <p className="posture-state-help">{pendingEvidenceCheck
+      ? <><strong>{tr?'Kaydedildiğinde':'After saving'}</strong> {tr
+          ? 'Seçilen kontrolün güncel, onaylı kanıtı kontrol edilir ve madde durumu yeniden hesaplanır.'
+          : 'The selected control is checked for current approved evidence and the requirement status is recalculated.'}</>
+      : <><strong>{target||dirty ? (tr?'Kaydedildiğinde':'After saving') : (tr?'Hesaplanan durum':'Calculated status')} · {statusLabel(state,tr)}</strong> {statusHelp[state][tr?0:1]}</>}
+    </p>
     <fieldset disabled={!write||pending}>
       {write&&<div className="posture-fields posture-picker"><label>{tr?'Kontrol ara':'Search controls'}
         <input type="search" value={search} placeholder={tr?'Kod veya başlık…':'Code or title…'} onChange={e=>{setSearch(e.target.value);setChoice('');}}/></label>
