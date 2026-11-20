@@ -9,17 +9,17 @@ export async function postureRequest<T>(params:Record<string,string>,signal?:Abo
   if(!response.ok)throw new Error(String(response.status));
   return response.json();
 }
-export function usePosture<T>(params:Record<string,string>|null,refresh=0):{data?:T;error?:string} {
+export function usePosture<T>(params:Record<string,string>|null,refresh=0,keepDuringRefresh=false):{data?:T;error?:string} {
   const query=params?JSON.stringify(params):'';
   const key=JSON.stringify([query,refresh]);
-  const [result,setResult]=useState<{key:string;data?:T;error?:string}>();
+  const [result,setResult]=useState<{key:string;query:string;data?:T;error?:string}>();
   useEffect(()=>{
     if(!query)return;
     const controller=new AbortController();
     postureRequest<T>(JSON.parse(query),controller.signal).then(data=>{
-      if(!controller.signal.aborted)setResult({key,data});
-    }).catch(e=>{if(!controller.signal.aborted)setResult({key,error:String(e.message)});});
+      if(!controller.signal.aborted)setResult({key,query,data});
+    }).catch(e=>{if(!controller.signal.aborted)setResult({key,query,error:String(e.message)});});
     return ()=>controller.abort();
   },[query,key]);
-  return result?.key===key?result:{};
+  return result && (result.key===key || (keepDuringRefresh && result.query===query && result.data)) ? result : {};
 }

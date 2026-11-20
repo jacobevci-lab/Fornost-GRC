@@ -3,7 +3,7 @@ import {useState,useRef,useEffect} from 'react';
 import {usePosture,postureRequest} from './client';
 import {navigateToFornost} from '../navigation-focus';
 import {withBasePath} from '../base-path';
-import {applicabilityLabel} from './workspace';
+import {applicabilityLabel} from './requirements';
 import type {Applicability,Baseline,Coverage} from './types';
 
 export type AuditChoice=false|null|{period:string;token:string};

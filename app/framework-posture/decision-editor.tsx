@@ -1,0 +1,63 @@
+'use client';
+import {useState} from 'react';
+import {postureRequest} from './client';
+import {applicabilityLabel} from './requirements';
+import {CreateControl} from './create-control';
+import type {Control,Applicability,Coverage,Matrix,Requirement} from './types';
+
+export type WorkspaceProps={tr:boolean;write:boolean;createControl:boolean;onControlCreated:()=>void};
+
+
+type EditorProps=WorkspaceProps & {row:Requirement;matrix:Matrix;onSave:()=>void;onReload:()=>void;onClose:()=>void};
+export function DecisionEditor({row,matrix,tr,write,createControl,onControlCreated,onSave,onReload,onClose}:EditorProps){
+  const [links,setLinks]=useState(row.links),[app,setApp]=useState(row.applicability),[reason,setReason]=useState(row.reason);
+  const [pending,setPending]=useState(false),[error,setError]=useState(''),[search,setSearch]=useState(''),[choice,setChoice]=useState('');
+  const [created,setCreated]=useState<Control[]>([]);
+  const controls=[...matrix.controls,...created];
+  const available=controls.filter(c=>!links.some(l=>l.id===c.id) && (c.code+' '+c.title).toLocaleLowerCase().includes(search.trim().toLocaleLowerCase()));
+  const target=available.find(c=>c.id===choice);
+  const dirty=app!==row.applicability || reason!==row.reason || JSON.stringify(links)!==JSON.stringify(row.links);
+  async function save(){
+    setPending(true);setError('');
+    const mappings=target?[...links,{id:target.id,coverage:'supports'}]:links;
+    try{
+      await postureRequest({},undefined,{action:'save',name:matrix.name,ref:row.ref,revision:row.revision,applicability:app,reason,links:mappings});
+      onSave();
+    }catch(e){setError((e as Error).message);}finally{setPending(false);}
+  }
+  return <section className="posture-editor" aria-label={tr?'Madde ayrıntısı':'Requirement details'} onKeyDown={e=>{
+    if(e.key==='Escape'&&!pending&&!e.defaultPrevented){e.stopPropagation();onClose();}
+  }}>
+    <header><h4>{write?(tr?'Kütüphaneden kontrol bağla':'Link a library control'):(tr?'Bağlı kontroller':'Linked controls')}</h4>
+      <button type="button" disabled={pending} onClick={onClose}>{tr?'Kapat':'Close'}</button></header>
+    <fieldset disabled={!write||pending}>
+      {write&&<div className="posture-fields posture-picker"><label>{tr?'Kontrol ara':'Search controls'}
+        <input type="search" value={search} placeholder={tr?'Kod veya başlık…':'Code or title…'} onChange={e=>{setSearch(e.target.value);setChoice('');}}/></label>
+        <label>{tr?'Mevcut kontrol':'Existing control'}<select aria-label={tr?'Mevcut kontrol':'Existing control'} value={choice} onChange={e=>setChoice(e.target.value)}><option value="">{tr?'Kontrol seçin':'Select a control'}</option>
+          {available.slice(0,100).map(c=><option key={c.id} value={c.id}>{c.code} · {c.title}</option>)}</select></label></div>}
+      {write&&!available.length&&<p>{tr?'Seçilebilecek kontrol bulunamadı.':'No matching controls available.'}</p>}
+      {links.length>0&&write&&<h5>{tr?'Bağlı kontroller':'Linked controls'}</h5>}
+      {!links.length&&!write&&<p>{tr?'Bu maddeye bağlı kontrol yok.':'No control is linked to this requirement.'}</p>}
+      {links.map(link=>{
+        const c=controls.find(item=>item.id===link.id);
+        if(!c)return null;
+        return <div key={c.id} className="posture-linked"><strong>{c.code} · {c.title}</strong><span>{c.implementation}</span>
+          <label>{tr?'Katkı':'Coverage'}<select value={link.coverage} onChange={e=>setLinks(links.map(l=>l.id===c.id?{...l,coverage:e.target.value as Coverage}:l))}>
+            <option value="supports">{tr?'Destekler':'Supports'}</option><option value="partial">{tr?'Kısmen destekler':'Partially supports'}</option></select></label>
+          {write&&<button type="button" onClick={()=>setLinks(links.filter(l=>l.id!==c.id))}>{tr?'Bağı kaldır':'Unlink'}</button>}
+          {!!matrix.pins[c.id]?.length&&<ul>{matrix.pins[c.id].map(p=><li key={p.id}>{p.title} · v{p.version} · {p.period}</li>)}</ul>}</div>;
+      })}
+      {row.annex&&<details className="posture-soa"><summary>{tr?'Uygulanabilirlik (SoA)':'Applicability (SoA)'} · {applicabilityLabel(app,tr)}</summary>
+        <div className="posture-fields"><label>{tr?'Uygulanabilirlik':'Applicability'}<select value={app} onChange={e=>setApp(e.target.value as Applicability)}>{(['undecided','included','excluded'] as const).map(k=><option key={k} value={k}>{applicabilityLabel(k,tr)}</option>)}</select></label>
+        <label>{tr?'Karar gerekçesi':'Decision rationale'}<textarea value={reason} maxLength={2000} onChange={e=>setReason(e.target.value)} /></label></div></details>}
+      <div className="posture-editor-actions">{write&&createControl&&<CreateControl tr={tr} onCreated={c=>{
+        onControlCreated();setCreated(previous=>[...previous,c]);setChoice('');
+        setLinks(previous=>[...previous,{id:c.id,coverage:'supports'}]);
+      }}/>}
+      {write&&<button type="button" className="primary" disabled={(!target&&!dirty)||(['included','excluded'].includes(app)&&!reason.trim())} onClick={save}>
+        {target?(tr?'Bağla ve kaydet':'Link and save'):(tr?'Eşleştirmeyi kaydet':'Save mapping')}</button>}</div>
+      {created.length>0&&<p role="status">{tr?'Taslak kütüphaneye eklendi. Maddeye bağlamak için eşleştirmeyi kaydedin.':'Draft added to the library. Save the mapping to link it to this requirement.'}</p>}
+    </fieldset>
+    {error&&<p role="alert">{error==='409'?(tr?'Kayıt değişti. Güncel sürümü yükleyip tekrar düzenleyin.':'The record changed. Load the current version and edit again.'):(tr?'Kaydedilemedi. Tekrar deneyin.':'Could not save. Please retry.')} {error==='409'&&<button type="button" onClick={onReload}>{tr?'Yenile':'Reload'}</button>}</p>}
+  </section>;
+}
