@@ -133,8 +133,12 @@ try {
   checks.push('KRI overview count and nested modal visibility at three widths');
   await open('System Settings');
   const settingsTabs = page.locator('.settings-subnav>button');
-  await expect(settingsTabs).toHaveCount(3);
+  await expect(settingsTabs).toHaveText(['General Settings', 'System Status', 'License', 'Change History']);
   assert.equal(new Set(await settingsTabs.evaluateAll(es=>es.map(e=>e.getBoundingClientRect().y))).size,1,'Settings sections share a compact horizontal rail');
+  await page.getByRole('navigation', { name: 'System settings sections' }).getByRole('button', { name: 'License' }).click();
+  const licensePanel = page.getByRole('region', { name: 'Installation license' });
+  await expect(licensePanel).toBeVisible();
+  await expect(licensePanel).toContainText('Internal build');
   await page.route('**/api/ai/status',route=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({configured:false,enabled:false,operatingState:'ready',operatingMessage:'',capabilities:{chat:true}})}));
   await open('AI Settings');
   await expect(page.locator('.ai-control-summary article').first()).toContainText('Access policy');
