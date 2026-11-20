@@ -30,6 +30,10 @@ Eksik menü için yöneticiye başvurun. Paylaşılan bir kayıt bağlantısına
 
 Sonuç tam kaydı açar. Çekirdek listelerde filtre/arama bağlamı aynı kullanıcı ve tarayıcı sekmesi için korunur. **Önceki görünüme dön / Return to previous view** kaynak görünüme döner; haritadan geldiyseniz arama ve seçili düğüm korunur. Çekirdek kayıtta sayfayı yenilemek seçimi korur ve mevcut erişimle kaydı yeniden doğrular; **Tüm kayıtları göster / Show all records** filtreyi açıkça temizler. Kaynak yükleme hatasında yeniden deneyin; hata mesajı “kayıt yok” sonucu değildir.
 
+### Görünüm
+
+Sol menüde **Görünüm** düğmesini açın. Yöneticiler aynı seçiciye **Sistem Ayarları → Görünüm** yoluyla da ulaşabilir. **Fornost (varsayılan)** mevcut temadır. **Nar**, **Karbon & Safran** veya **Traverten** seçeneği çalışma alanında hemen önizlenir. **Kaydet** seçimi hesabınıza kaydeder, **Vazgeç** veya **Esc** önceki renkleri geri getirir. Üst çubuktaki açık/koyu görünüm düğmesi her paletle çalışır.
+
 ### Kayıt işlemleri
 
 Risk, varlık, BIA, uyum, kontrol ve kanıt listelerinde **henüz kayıt yok**, **filtreye uyan kayıt yok**, **yükleniyor** ve **yüklenemedi** durumları ayrı açıklanır. Modül erişimiyle sınırlandırılmış kullanıcıların çekirdek tedarikçi listesi de aynı düzeni kullanır. Boş listede yazma yetkiniz varsa modüle uygun ilk kayıt aksiyonu bulunur. **Arama ve filtreleri temizle / Clear search and filters** yalnız açık sorguyu ve filtreleri sıfırlar; seçtiğiniz sütunları, kayıtları ve kaydettiğiniz görünümleri silmez. Kaynak hatasında **Yeniden yükle / Reload records** ile tekrar deneyin; liste doğrulanana kadar yeni kayıt, içe aktarma ve CSV işlemleri kapalıdır.

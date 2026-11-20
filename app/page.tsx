@@ -80,6 +80,7 @@ import "./ui-accessibility.css";
 import "./module-registers.css";
 import "./layout-guardrails.css";
 import Settings from "./settings";
+import PersonalAppearance from "./personal-appearance";
 import EvidenceAutomation from "./evidence-automation";
 import RegulatoryIntelligence from "./regulatory-intelligence";
 import ThirdPartyRisk from "./third-party-risk";
@@ -1142,6 +1143,7 @@ const registerCreateLabels: Record<string, [string,string]> = {
 
 function FornostApp({ currentUser }: { currentUser: any }) {
   const scoped = isScoped(currentUser);
+  const [appearanceOpen, setAppearanceOpen] = useState(false);
   const [legacyCompliance,setLegacyCompliance]=useState(false);
   const complianceViewKey = pageSessionKey(String(currentUser.id)) + "-compliance-view";
   function changeComplianceView(register:boolean) {
@@ -1877,6 +1879,12 @@ function FornostApp({ currentUser }: { currentUser: any }) {
             </div>
           ))}
         </nav>
+        <button type="button" className="appearance-launcher" aria-haspopup="dialog" onClick={()=>setAppearanceOpen(true)}
+          aria-label={lang==="tr"?"Görünüm":"Appearance"} title={lang==="tr"?"Görünüm":"Appearance"}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
+            <rect x="3" y="5" width="18" height="14" rx="3"/><path d="M9 5v14m3-10h6m-6 4h4"/>
+          </svg><span>{lang==="tr"?"Görünüm":"Appearance"}</span>
+        </button>
         <div className="sidebar-view-controls" role="group" aria-label={lang === "tr" ? "Menü görünümü" : "Navigation view"}>
           <span>{lang === "tr" ? "MENÜ GÖRÜNÜMÜ" : "NAVIGATION VIEW"}</span>
           <div>
@@ -1927,6 +1935,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
           </p>
         </div>
       </aside>
+      <PersonalAppearance tr={lang==="tr"} open={appearanceOpen} onClose={()=>setAppearanceOpen(false)} />
       <button
         type="button"
         className="mobile-nav-backdrop"
@@ -2222,6 +2231,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
           <ThirdPartyRisk lang={lang} currentUser={currentUser} refreshKey={registerImportRevision} onImport={canWriteModule(currentUser, active) && registerLoadState === "ready" ? () => setImportOpen(true) : undefined} />
         ) : adminModules.has(active) ? (
           <Settings
+            onAppearance={()=>setAppearanceOpen(true)}
             lang={lang}
             currentUser={currentUser}
             catalogs={catalogs}
