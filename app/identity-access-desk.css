@@ -3,11 +3,11 @@
 @media(max-width:1000px){.iad-workspace{grid-template-columns:1fr}.iad-detail-header>button{margin-left:auto}.iad-filters{grid-template-columns:minmax(180px,1fr) 150px 160px}.iad-filters>label:first-child{grid-column:auto}}
 @media(max-width:700px){.iad-toolbar{flex-wrap:wrap}.iad .iad-tabs{width:100%;order:2}.iad-toolbar>.primary{margin-left:auto}.iad-profile-strip{align-items:start;flex-wrap:wrap;gap:4px;padding:12px}.iad-profile-strip button{padding-left:0}.iad-filters{grid-template-columns:1fr 1fr;padding:14px}.iad-filters>label:first-child{grid-column:1/-1}.iad-detail,.iad-recent,.iad-history,.iad-profile{padding:16px}.iad-events li{flex-direction:column;gap:5px}.iad-fields,.iad .module-access-grid{grid-template-columns:1fr}.iad fieldset,.iad-dialog header{padding:18px}.iad-dialog{width:calc(100vw - 20px);max-height:calc(100dvh - 24px)}.iad-profile-header,.iad-profile footer{flex-wrap:wrap}.iad-detail-header>button{margin-left:auto}.iad-permissions>div{gap:10px}.iad-profile footer>div{width:100%}.iad-directory-toolbar h3{font-size:18px}.iad-directory-toolbar h3 span{display:block;margin-left:0}.iad-dialog footer{position:sticky;bottom:0;background:var(--cp-panel);padding:14px}.iad-profile fieldset{padding:0}}
 /* Keep contrast stable across the legacy global theme cascade. */
-#identity-access-desk button.primary{background:#0b6b68!important;border-color:#0b6b68!important;color:#fff!important;opacity:1!important;filter:none}
-#identity-access-desk button.primary:hover{background:#084d4b!important;border-color:#084d4b!important;color:#fff!important}
+#identity-access-desk button.primary:not(.workspace-create){background:#0b6b68!important;border-color:#0b6b68!important;color:#fff!important;opacity:1!important;filter:none}
+#identity-access-desk button.primary:not(.workspace-create):hover{background:#084d4b!important;border-color:#084d4b!important;color:#fff!important}
 #identity-access-desk button.primary:disabled,#identity-access-desk button.primary:disabled:hover{background:#586568!important;border-color:#586568!important;color:#fff!important;opacity:1!important}
 /* The selected workspace uses a readable scale instead of the legacy 10px reset. */
-#identity-access-desk :where(div,p,span,b,strong,label,button,a,td,dt,dd,li,input,select,summary){font-size:14px!important;line-height:1.5!important}
+#identity-access-desk :where(div,p,span,b,strong,label,button,a,td,dt,dd,li,input,select,summary):where(:not(.workspace-create)){font-size:14px!important;line-height:1.5!important}
 #identity-access-desk h3{font-size:18px!important;line-height:1.3!important}
 #identity-access-desk h4{font-size:16px!important;line-height:1.4!important}
 #identity-access-desk :is(small,time,.iad-badge,.iad-footnote,.iad-updated){font-size:12px!important;line-height:1.5!important}

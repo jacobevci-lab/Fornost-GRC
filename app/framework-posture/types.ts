@@ -11,4 +11,6 @@ export type Baseline = {framework:string; period:string; total:number; excluded:
 export type ProgramIndex = {catalog:string[]; enrolled:string[]};
 
 export type ProgramCoverage = {scope:number; evidenced:number};
-export type Overview = ProgramIndex & {coverage:Record<string,ProgramCoverage>};
+export type OpenItem = {ref:string;title:string;state:"unmapped"|"partial"|"evidence"|"decision";controlCode?:string};
+export type Comparison = {openCount:number;items:OpenItem[]};
+export type Overview = ProgramIndex & {coverage:Record<string,ProgramCoverage>;comparison:Record<string,Comparison>};

@@ -125,7 +125,7 @@ export default function FindingsCenter({lang,currentUser,rows,coreState,retryCor
     <div><h2>{tr?"Öncelikli iş listesi":"Priority worklist"}</h2></div>
     <div>{currentUser.role==="Admin"&&<button type="button" disabled={exporting||loading||loadError} onClick={()=>void exportCsv()}>
       {exporting?`${tr?"Yükleniyor":"Loading"}… ${exportLoaded}`:(tr?"Tüm CAPA · CSV":"All CAPA · CSV")}</button>}
-      {canCreate&&<button type="button" className="capa-create" disabled={loading||loadError||busy} onClick={()=>{setNotice("");setForm(emptyForm(currentUser.email));}}>+ {tr?"Yeni Bulgu":"New Finding"}</button>}
+      {canCreate&&<button type="button" className="capa-create workspace-create" disabled={loading||loadError||busy} onClick={()=>{setNotice("");setForm(emptyForm(currentUser.email));}}>+ {tr?"Yeni Bulgu":"New Finding"}</button>}
     </div>
   </header>
   <div className="finding-load-status capa-freshness" role={loadError?"alert":"status"}>

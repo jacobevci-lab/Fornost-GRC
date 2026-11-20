@@ -1,7 +1,9 @@
 "use client";
 import {useEffect,useRef} from 'react';
-export function useRecordDialog(open:boolean,onClose:()=>void){
- const ref=useRef<HTMLDivElement>(null);
+export function useRecordDialog<T extends HTMLElement = HTMLDivElement>(open:boolean,onClose:()=>void){
+ const ref=useRef<T>(null);
+ const close=useRef(onClose);
+ useEffect(()=>{close.current=onClose},[onClose]);
  useEffect(()=>{
   const dialog=ref.current;
   if(!open||!dialog)return;
@@ -11,7 +13,7 @@ export function useRecordDialog(open:boolean,onClose:()=>void){
    if(event.defaultPrevented||event.isComposing)return;
    const top=Array.from(document.querySelectorAll<HTMLElement>('[role="dialog"][aria-modal="true"]')).filter(node=>node.getClientRects().length>0).at(-1);
    if(top!==dialog)return;
-   if(event.key==='Escape'){event.preventDefault();event.stopPropagation();onClose();return;}
+   if(event.key==='Escape'){event.preventDefault();event.stopPropagation();close.current();return;}
    if(event.key!=='Tab')return;
    const fields=controls(),first=fields[0],last=fields.at(-1);
    if(!first){event.preventDefault();dialog.focus();return;}
@@ -22,6 +24,6 @@ export function useRecordDialog(open:boolean,onClose:()=>void){
   (firstField??controls()[0]??dialog).focus({preventScroll:true});
   dialog.addEventListener('keydown',keydown);
   return()=>{dialog.removeEventListener('keydown',keydown);if(opener?.isConnected)opener.focus({preventScroll:true});};
- },[open,onClose]);
+ },[open]);
  return ref;
 }
