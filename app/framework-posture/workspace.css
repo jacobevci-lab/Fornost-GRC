@@ -185,6 +185,13 @@
 .posture-branch small{white-space:nowrap;font-variant-numeric:tabular-nums}
 .posture-branch i{display:inline-block;width:7px;height:7px;background:var(--ws-muted);border-radius:50%;margin-inline-end:5px}
 .posture-branch i[data-tone=open]{background:var(--ws-danger)}.posture-branch i[data-tone=covered]{background:var(--ws-positive)}.posture-branch i[data-tone=partial]{background:var(--ws-warning)}
+@container (min-width:581px) {
+  .posture-ledger:has(.posture-scope-cell) tbody td:nth-child(2) {width:36%}
+  .posture-ledger td:has(>.posture-scope-cell) {width:1%}
+  .posture-home .posture-scope-cell {min-width:max-content}
+  .posture-home .posture-scope-cell select {width:auto;padding-inline:6px 2px}
+  .posture-home .posture-scope-cell:has(.posture-scope-draft,details[open]) {width:10rem;min-width:0}
+}
 @container(max-width:580px){
   .posture-home table.posture-ledger,.posture-ledger tbody,.posture-ledger tbody tr{display:block;width:100%}
   .posture-ledger thead{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
