@@ -1,9 +1,9 @@
 'use client';
 import {useState} from 'react';
 import {postureRequest} from './client';
-import {applicabilityLabel,requirementState,statusLabel} from './requirements';
+import {implementationIndex,requirementState,statusLabel} from './requirements';
 import {CreateControl} from './create-control';
-import type {Control,Applicability,Coverage,Matrix,Requirement} from './types';
+import type {Control,Coverage,Matrix,Requirement} from './types';
 
 export type WorkspaceProps={tr:boolean;write:boolean;createControl:boolean;onControlCreated:()=>void};
 
@@ -13,17 +13,21 @@ const statusHelp = {
     'Maddeye kütüphaneden bir kontrol bağlayın. Destekleyen kontrolün güncel ve onaylı kanıtı durum hesabına katılır.',
     'Link a library control to this requirement. Current approved evidence on a supporting control counts toward its status.',
   ],
+  implementation: [
+    'Kontrol Kütüphanesi’nde uygulama durumunu gözden geçirin. Planlanan veya uygulanmayan kontrol bu maddeyi karşılamaz.',
+    'Review the implementation in the Control Library. A planned or unimplemented control does not satisfy the requirement.',
+  ],
   partial: [
-    'Bağlı kontroller maddeyi kısmen destekliyor. Maddeyi karşılayan bir kontrolü “Destekler” olarak eşleştirin.',
-    'The linked controls only partially support this requirement. Map a control that meets the requirement using “Supports”.',
+    'Kontrol uygulamasını ve eşleştirmenin kapsamını kontrol edin. Maddeyi karşılayan bir kontrolü “Destekler” olarak eşleştirin.',
+    'Review the control implementation and the extent of its mapping. Map a control that meets the requirement using “Supports”.',
   ],
   evidence: [
     'Kanıt Kütüphanesi’nde destekleyen kontrolün referansına bağlı güncel kanıtı onaylayın.',
     'In the Evidence Library, approve current evidence linked to the supporting control’s reference.',
   ],
   decision: [
-    'Destekleyen kontrolün onaylı kanıtı var. Uygulanabilirlik (SoA) kararını ve gerekçesini kaydedin.',
-    'The supporting control has approved evidence. Save the applicability (SoA) decision and its rationale.',
+    'Destekleyen kontrolün onaylı kanıtı var. SoA Kapsam sütunundan Uygulanabilirlik (SoA) kararını kaydedin.',
+    'The supporting control has approved evidence. Save the applicability decision in the SoA scope column.',
   ],
   covered: [
     'Kapsamdaki bu maddeyi destekleyen bir kontrolün güncel, onaylı kanıtı var. Maddeyi “Tüm maddeler” listesinde bulabilirsiniz.',
@@ -37,22 +41,22 @@ const statusHelp = {
 
 type EditorProps=WorkspaceProps & {row:Requirement;matrix:Matrix;onSave:()=>void;onReload:()=>void;onClose:()=>void};
 export function DecisionEditor({row,matrix,tr,write,createControl,onControlCreated,onSave,onReload,onClose}:EditorProps){
-  const [links,setLinks]=useState(row.links),[app,setApp]=useState(row.applicability),[reason,setReason]=useState(row.reason);
+  const [links,setLinks]=useState(row.links);
   const [pending,setPending]=useState(false),[error,setError]=useState(''),[search,setSearch]=useState(''),[choice,setChoice]=useState('');
   const [created,setCreated]=useState<Control[]>([]);
   const controls=[...matrix.controls,...created];
   const available=controls.filter(c=>!links.some(l=>l.id===c.id) && (c.code+' '+c.title).toLocaleLowerCase().includes(search.trim().toLocaleLowerCase()));
   const target=available.find(c=>c.id===choice);
-  const dirty=app!==row.applicability || reason!==row.reason || JSON.stringify(links)!==JSON.stringify(row.links);
+  const dirty=JSON.stringify(links)!==JSON.stringify(row.links);
   const mappings = target ? [...links, {id:target.id, coverage:'supports' as const}] : links;
-  const state = requirementState({...row, links:mappings, applicability:app}, matrix.pins);
+  const state = requirementState({...row, links:mappings}, matrix.pins, implementationIndex(controls));
   // The matrix includes evidence only for controls already mapped in this framework.
   const mappedInProgram = (id:string) => matrix.requirements.some(r=>r.links.some(l=>l.id===id));
   const pendingEvidenceCheck = state==='evidence' && mappings.some(l=>l.coverage==='supports' && !mappedInProgram(l.id));
   async function save(){
     setPending(true);setError('');
     try{
-      await postureRequest({},undefined,{action:'save',name:matrix.name,ref:row.ref,revision:row.revision,applicability:app,reason,links:mappings});
+      await postureRequest({},undefined,{action:'save',name:matrix.name,ref:row.ref,revision:row.revision,applicability:row.applicability,reason:row.reason,links:mappings});
       onSave();
     }catch(e){setError((e as Error).message);}finally{setPending(false);}
   }
@@ -84,14 +88,11 @@ export function DecisionEditor({row,matrix,tr,write,createControl,onControlCreat
           {write&&<button type="button" onClick={()=>setLinks(links.filter(l=>l.id!==c.id))}>{tr?'Bağı kaldır':'Unlink'}</button>}
           {!!matrix.pins[c.id]?.length&&<ul>{matrix.pins[c.id].map(p=><li key={p.id}>{p.title} · v{p.version} · {p.period}</li>)}</ul>}</div>;
       })}
-      {row.annex&&<details className="posture-soa"><summary>{tr?'Uygulanabilirlik (SoA)':'Applicability (SoA)'} · {applicabilityLabel(app,tr)}</summary>
-        <div className="posture-fields"><label>{tr?'Uygulanabilirlik':'Applicability'}<select value={app} onChange={e=>setApp(e.target.value as Applicability)}>{(['undecided','included','excluded'] as const).map(k=><option key={k} value={k}>{applicabilityLabel(k,tr)}</option>)}</select></label>
-        <label>{tr?'Karar gerekçesi':'Decision rationale'}<textarea value={reason} maxLength={2000} onChange={e=>setReason(e.target.value)} /></label></div></details>}
       <div className="posture-editor-actions">{write&&createControl&&<CreateControl tr={tr} onCreated={c=>{
         onControlCreated();setCreated(previous=>[...previous,c]);setChoice('');
         setLinks(previous=>[...previous,{id:c.id,coverage:'supports'}]);
       }}/>}
-      {write&&<button type="button" className="primary" disabled={(!target&&!dirty)||(['included','excluded'].includes(app)&&!reason.trim())} onClick={save}>
+      {write&&<button type="button" className="primary" disabled={!target&&!dirty} onClick={save}>
         {target?(tr?'Bağla ve kaydet':'Link and save'):(tr?'Eşleştirmeyi kaydet':'Save mapping')}</button>}</div>
       {created.length>0&&<p role="status">{tr?'Taslak kütüphaneye eklendi. Maddeye bağlamak için eşleştirmeyi kaydedin.':'Draft added to the library. Save the mapping to link it to this requirement.'}</p>}
     </fieldset>

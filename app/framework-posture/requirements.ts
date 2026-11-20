@@ -1,41 +1,39 @@
-import type {Applicability,Matrix, Requirement} from './types';
+import type {Applicability, Control, Matrix, Requirement} from './types';
 
-type Pins = Matrix['pins'];
-export function hasApprovedEvidence(row:Requirement, pins:Pins) {
-  return row.links.some(link=>pins[link.id]?.length);
+export function implementationIndex(controls:Control[]) {
+  return new Map(controls.map(control=>[control.id,control.implementation.trim().toLowerCase()]));
 }
-export function summarizeCoverage(rows:Requirement[], pins:Pins) {
-  const scoped=rows.filter(row=>row.applicability!=='excluded');
-  return {scope:scoped.length,evidenced:scoped.filter(row=>hasApprovedEvidence(row,pins)).length};
-}
-
-export function requirementState(row:Requirement,pins:Pins):keyof typeof reasonLabels {
-  if(row.applicability==='excluded')return 'excluded';
-  if(!row.links.length)return 'unmapped';
-  if(!row.links.some(link=>link.coverage==='supports'))return 'partial';
-  if(!row.links.some(link=>link.coverage==='supports' && pins[link.id]?.length))return 'evidence';
-  if(row.applicability==='undecided')return 'decision';
-  return 'covered';
-}
-export function statusLabel(state: keyof typeof reasonLabels, tr: boolean) {
-  if (state === 'excluded') return tr ? 'Hariç' : 'Excluded';
-  if (state === 'covered') return tr ? 'Kanıtlı' : 'Evidenced';
-  return tr ? 'Açık' : 'Open';
-}
-
-export const reasonLabels={
+export const reasonLabels = {
   excluded:['Kapsam dışında','Outside scope'],
   unmapped:['Kontrol bağlı değil','No control linked'],
-  partial:['Eşleştirme kısmi','Only partial mappings'],
-  evidence:['Destekleyen kontrol için onaylı kanıt eksik','Supporting control lacks current approved evidence'],
+  implementation:['Uygulanmış kontrol yok','No implemented control'],
+  partial:['Uygulama veya eşleştirme kısmi','Partial implementation or mapping'],
+  evidence:['Uygulanan kontrolde güncel, onaylı kanıt eksik','Implemented control lacks current approved evidence'],
   decision:['Uygulanabilirlik kararı bekliyor','Applicability undecided'],
-  covered:['Güncel, onaylı kanıt var','Current approved evidence available'],
-};
+  covered:['Uygulanan kontrol ve güncel, onaylı kanıt var','Implemented control with current approved evidence'],
+} as const;
+export type RequirementState = keyof typeof reasonLabels;
+
+export function requirementState(row:Requirement,pins:Matrix['pins'],implementation:ReadonlyMap<string,string>):RequirementState {
+  if(row.applicability==='excluded')return 'excluded';
+  if(!row.links.length)return 'unmapped';
+  const implemented = row.links.filter(link=>['uygulanıyor','implemented'].includes(implementation.get(link.id)??''));
+  const supporting = implemented.filter(link=>link.coverage==='supports');
+  if(supporting.some(link=>pins[link.id]?.length))return row.applicability==='undecided'?'decision':'covered';
+  if(supporting.length)return 'evidence';
+  if(implemented.length || row.links.some(link=>['kısmi','partially implemented','partial'].includes(implementation.get(link.id)??'')))return 'partial';
+  return 'implementation';
+}
+export function statusLabel(state:RequirementState,tr:boolean) {
+  if(state==='covered')return tr?'Uyumlu':'Compliant';
+  if(state==='excluded')return tr?'Kapsam dışı':'Out of scope';
+  if(state==='implementation'||state==='unmapped')return tr?'Açık':'Open';
+  return tr?'Kısmi':'Partial';
+}
 export function matchesRequirement(row:Requirement,query:string,tr:boolean) {
   const locale=tr?'tr':'en';
   return (row.ref+' '+row.title).toLocaleLowerCase(locale).includes(query.trim().toLocaleLowerCase(locale));
 }
-
 export function applicabilityLabel(value:Applicability,tr:boolean){
-  return {required:tr?'Katalog kapsamında':'In catalog',undecided:tr?'Karar bekliyor':'Undecided',included:tr?'Uygulanabilir':'Applicable',excluded:tr?'Hariç':'Excluded'}[value];
+  return {required:tr?'Uygulanabilir':'Applicable',undecided:tr?'Karar bekliyor':'Undecided',included:tr?'Uygulanabilir':'Applicable',excluded:tr?'Kapsam dışı':'Out of scope'}[value];
 }

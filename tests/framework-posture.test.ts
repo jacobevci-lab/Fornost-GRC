@@ -4,7 +4,7 @@ import {DatabaseSync,type SQLInputValue} from 'node:sqlite';
 import {ISO,SOC,catalogFor} from '../app/framework-posture/catalog';
 import {baselineToken,enroll,ensurePosture,indexPrograms,makeBaseline,previewCatalog,programOverview,PostureError,readImpact,readMatrix,saveDecision} from '../app/framework-posture/store';
 import {displayTitle} from '../app/framework-posture/iso-display';
-import {requirementState} from '../app/framework-posture/requirements';
+import {implementationIndex,requirementState} from '../app/framework-posture/requirements';
 import {appendEvidenceVersion} from '../app/evidence/versioning';
 import {canReadPosture,scopedApiAllowed,type AccessSubject} from '../app/module-access';
 
@@ -27,7 +27,7 @@ async function fixture(){
   }} as unknown as D1Database;
   sql.exec('CREATE TABLE simple_grc_records(id TEXT PRIMARY KEY,module TEXT,data_json TEXT,created_at TEXT,updated_at TEXT); CREATE TABLE simple_grc_record_codes(record_id TEXT PRIMARY KEY,code TEXT)');
   const record=(id:string,module:string,data:object)=>sql.prepare('INSERT INTO simple_grc_records VALUES(?,?,?,NULL,NULL)').run(id,module,JSON.stringify(data));
-  record('C1','Kontroller',{controlTitle:'Accounts',controlRef:'IAM',frameworks:ISO});
+  record('C1','Kontroller',{controlTitle:'Accounts',controlRef:'IAM',frameworks:ISO,implementation:'Uygulanıyor'});
   sql.prepare("INSERT INTO simple_grc_record_codes VALUES('C1','CTL-325')").run();
   await ensurePosture(db);await enroll(db,ISO,'owner');
   return {db,sql,record};
@@ -44,7 +44,7 @@ test('explicit mappings, unambiguous legacy records and separate SoA decisions',
   record('duplicate','Kontroller',{controlRef:'CTL-325'});
   assert.deepEqual(await readImpact(db,'C1'),[]);
   const input={name:ISO,ref:'A.5.1',applicability:'included',reason:'IAM is in scope',revision:'',links:[{id:'C1',coverage:'partial'}]};
-  for(const invalid of [{...input,ref:'4.1'}, {...input,reason:''},{...input,ref:'unknown'}]){
+  for(const invalid of [{...input,applicability:'required'}, {...input,applicability:'excluded',reason:'  '},{...input,ref:'unknown'}]){
     await assert.rejects(saveDecision(db,invalid,'editor'),PostureError);
   }
   await assert.rejects(saveDecision(db,{...input,links:[{id:'legacy',coverage:'supports'}]},'editor'),PostureError);
@@ -70,8 +70,8 @@ test('capture only current explicitly approved anchored evidence matching contro
   await saveDecision(db,{name:SOC,ref:'CC1.1',applicability:'required',links:[{id:'C1',coverage:'partial'}],revision:''},'owner');
   await saveDecision(db,{name:ISO,ref:'A.5.2',applicability:'excluded',reason:'Outside scope',links:[{id:'C1',coverage:'supports'}],revision:''},'owner');
   const summary=await programOverview(db);
-  assert.deepEqual(summary.coverage[ISO],{scope:122,evidenced:1});
-  assert.deepEqual(summary.coverage[SOC],{scope:catalogFor(SOC).length,evidenced:1});
+  assert.deepEqual(summary.coverage[ISO],{scope:122,compliant:1,evidenced:1});
+  assert.deepEqual(summary.coverage[SOC],{scope:catalogFor(SOC).length,compliant:0,evidenced:1});
   assert.equal(summary.comparison[ISO].items.length,3);
   assert.equal(summary.comparison[SOC].items[0].state,'partial');
   assert.equal(summary.comparison[SOC].items[0].controlCode,'CTL-325');
@@ -81,11 +81,25 @@ test('capture only current explicitly approved anchored evidence matching contro
   assert.deepEqual(preview.pins,{});
   assert.ok(preview.requirements.every(row=>!row.links.length));
   const matrix=await readMatrix(db,ISO), captured=makeBaseline(matrix,'Q3'), token=await baselineToken(captured);
+  const implementations=implementationIndex(matrix.controls);
+  implementations.set('other','implemented');
+  assert.equal(summary.controlFrameworkCounts.C1,2);
   const annex=matrix.requirements.find(row=>row.ref==='A.5.1')!;
-  assert.equal(requirementState(annex,matrix.pins),'covered');
-  assert.equal(requirementState({...annex,applicability:'undecided'},matrix.pins),'decision');
-  assert.equal(requirementState({...annex,links:[{id:'C1',coverage:'partial'}]},matrix.pins),'partial');
-  assert.equal(requirementState({...annex,links:[{id:'C1',coverage:'partial'},{id:'other',coverage:'supports'}]},matrix.pins),'evidence');
+  assert.equal(requirementState(annex,matrix.pins,implementations),'covered');
+  assert.equal(requirementState({...annex,applicability:'undecided'},matrix.pins,implementations),'decision');
+  assert.equal(requirementState({...annex,links:[{id:'C1',coverage:'partial'}]},matrix.pins,implementations),'partial');
+  assert.equal(requirementState({...annex,links:[{id:'C1',coverage:'partial'},{id:'other',coverage:'supports'}]},matrix.pins,implementations),'evidence');
+  for(const missing of ['','Uygulama Hazırlığında','Uygulanmıyor']){
+    assert.equal(requirementState(annex,matrix.pins,new Map([['C1',missing.toLowerCase()]])),'implementation');
+  }
+  assert.equal(requirementState(annex,matrix.pins,new Map([['C1','kısmi']])),'partial');
+  assert.equal(requirementState(annex,{},implementations),'evidence');
+  const soc=(await readMatrix(db,SOC)).requirements[0];
+  await assert.rejects(saveDecision(db,{name:SOC,...soc,applicability:'excluded',reason:'  '},'owner'),PostureError);
+  await saveDecision(db,{name:SOC,...soc,applicability:'excluded',reason:'Local service boundary'},'owner');
+  const dropped=await programOverview(db);
+  assert.equal(dropped.controlFrameworkCounts.C1,1);
+  assert.equal(dropped.coverage[SOC].scope,catalogFor(SOC).length-1);
   assert.equal(captured.total,123);assert.equal(captured.withEvidence,1);
   assert.deepEqual(Object.values(captured.evidence).map(p=>p.evidenceId),['valid']);
   sql.prepare("UPDATE simple_grc_records SET data_json=json_set(data_json,'$.status','Reddedildi') WHERE id='valid'").run();

@@ -72,11 +72,13 @@ Kontrollerde yaşam döngüsü ile uygulama etkinliği ayrı durumlardır. Kontr
 
 ### Uyum Yönetimi
 
-Geniş ekranda kapsamınızdaki çerçeveleri yan yana karşılaştırabilirsiniz. Her sütun toplam açık madde sayısını ve katalog sırasındaki ilk üç açık maddeyi gösterir. Karttaki **Kontrol bağla** veya **Maddeyi aç** eylemi ilgili gereksinimi açar. Tüm maddeler için çerçeve başlığını seçin. Dar ekranda çerçeve seçimi ve madde listesi kullanılır. Yüzde, kapsam dışında bırakılmamış maddeler arasında güncel ve onaylı bir kanıt sürümüne bağlı olanların oranıdır. “Katalogda” görünen çerçevelerin maddelerini önizleyebilir, izlemeye başlamak için **Çerçeve ekle → Kapsama ekle** yolunu kullanabilirsiniz.
+Karşılaştırmada yalnızca kapsama eklenmiş çerçeveler görünür. Katalog şeridindeki **+ SOC 2 Ekle** gibi düğmeler çerçeveyi tek tıkla etkinleştirir. **Diğer çerçeveler** kataloğun kalanını açar. Her sütun uyumlu/kapsamdaki madde oranını ve ilk üç açık maddeyi gösterir. Üçten fazla açık madde varsa tüm listeye çerçeve başlığından ulaşabilirsiniz.
+
+**Uyumlu** durumuna geçmek için en az bir kontrol maddeyi tam desteklemeli, uygulanmış olmalı ve aynı kontrolün güncel, onaylı kanıtı bulunmalıdır. Açık veya kısmi satırda eksik koşulu görebilirsiniz. **+ Kontrol bağla** ile kütüphaneden seçim yapıp kaydedin. Aynı kontrol birden fazla aktif çerçevede kapsam içi bir maddeye bağlandıysa kodunun altında çerçeve sayısı görünür. **Ortak Gereksinimler** bu satırları listeler.
+
+**SoA Kapsam** sütunundan yerel kapsam kararınızı kaydedin. **Kapsam dışı** için gerekçe zorunludur. Bu seçim maddeyi yerel uyum oranının paydasından çıkarır. Standart kataloğundaki gereksinim ve geçmiş denetimlerin kapsamı korunur. ISO Ek A’da kararı bekleyen bir madde, kapsam netleşene kadar uyumlu sayılmaz. Madde ağacındaki sayılar uyumlu/kapsamdaki madde sayısını gösterir. Dalı seçerek listeyi daraltabilir, **Tüm dallar** ile kapsamın tamamına dönebilirsiniz.
 
 **Özel gereksinimler ve mevcut kayıtlar** görünümü aynı sekmede sayfayı yenilediğinizde korunur.
-
-**Açık maddeler** eksik kontrol bağlantısını, kısmi eşleştirmeyi, beklenen onaylı kanıtı veya uygulanabilirlik kararını gösterir. Madde ağacında kodu ya da başlığı arayıp seçtiğinizde ilgili satır açılır. Kütüphaneden bir kontrol seçip **Bağla ve kaydet** düğmesini kullanın. ISO 27001 Ek A kararını ve gerekçesini aynı satırdaki **Uygulanabilirlik (SoA)** bölümünden düzenleyebilirsiniz. Özel gereksinimler ve önceki kayıtlar, çalışma alanının altındaki bağlantıdan açılır.
 
 ### Kanıt yükleme ve sürüm
 
