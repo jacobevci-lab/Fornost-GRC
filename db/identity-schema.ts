@@ -42,3 +42,8 @@ export const userAccessEvents = sqliteTable("user_access_events", {
   id: text("id").primaryKey(), userId: text("user_id").notNull(), actor: text("actor").notNull(),
   beforeJson: text("before_json").notNull(), afterJson: text("after_json").notNull(), createdAt: text("created_at").notNull(),
 });
+
+export const userAppearance = sqliteTable("user_appearance", {
+  userId: text("user_id").primaryKey(),
+  palette: text("palette").notNull().default("default"),
+});

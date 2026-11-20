@@ -33,6 +33,7 @@ export async function identityDb() {
   await initializeIdentity(env.DB, async()=>{
       await env.DB.batch([
         env.DB.prepare(usersSql),
+        env.DB.prepare("CREATE TABLE IF NOT EXISTS user_appearance (user_id TEXT PRIMARY KEY NOT NULL, palette TEXT NOT NULL DEFAULT 'default')"),
         env.DB.prepare(sessionsSql),
         env.DB.prepare(SESSION_EXPIRY_INDEX_SQL),
         env.DB.prepare(SESSION_USER_INDEX_SQL),
