@@ -51,7 +51,7 @@ import RegisterEmptyState from "./register-empty-state";
 import { registerExperience } from "./register-experience";
 import { fields, registerColumns, registerFilterKeys } from "./register-view-schema";
 import { SavedRegisterViewsPanel } from "./saved-register-views-panel";
-import { navigateToFornost } from "./navigation-focus";
+import { isAuditTaskKind, navigateToFornost } from "./navigation-focus";
 import {
   CSSProperties,
   FormEvent,
@@ -3796,7 +3796,7 @@ function AuditModule({
     const accept = (request: FornostNavigationRequest | null) => {
       if (request?.module !== "Denetim Yönetimi") return;
       const { kind, ref, filter } = request;
-      if (kind && ["audit-request", "audit-workpaper", "audit-milestone", "audit-closure"].includes(kind) && ref && filter?.auditId) {
+      if (isAuditTaskKind(kind) && ref && filter?.auditId) {
         setAreaFocus(null);
         setTaskFocus({ kind, id: ref, auditId: filter.auditId, fromMyWork: request.source === "my-work-enterprise" });
         consumePendingFornostFocus("Denetim Yönetimi");

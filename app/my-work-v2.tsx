@@ -12,7 +12,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { withBasePath } from "./base-path";
 import { assessedRiskScore } from "./risk-methodology";
-import { navigateToFornost } from "./navigation-focus";
+import { isAuditTaskKind, navigateToFornost } from "./navigation-focus";
 import "./my-work-v2.css";
 import { buildWorkQueueCsv } from "./work-queue-export";
 import { SavedRegisterViewsPanel } from "./saved-register-views-panel";
@@ -267,7 +267,7 @@ function itemFromRow(row: Row, user: User, now: number, lang: Lang, completed = 
 }
 function openWorkSource(row: Row) {
   if (row.workSource && row.workKind && row.nativeRef) {
-    navigateToFornost({ module: row.module, ref: row.nativeRef, kind: row.workKind, source: "my-work-enterprise", ...(["audit-request", "audit-closure", "audit-workpaper", "audit-milestone"].includes(row.workKind) ? { filter: { auditId: clean(row.data.auditId) } } : {}) });
+    navigateToFornost({ module: row.module, ref: row.nativeRef, kind: row.workKind, source: "my-work-enterprise", ...(isAuditTaskKind(row.workKind) ? { filter: { auditId: clean(row.data.auditId) } } : {}) });
     return;
   }
   navigateToFornost({

@@ -7,6 +7,7 @@ import { isCoreRecordRequest } from "./core-record-focus";
 import {
   FORNOST_FOCUS_EVENT,
   consumePendingFornostFocus,
+  isAuditTaskKind,
   peekPendingFornostFocus,
   type FornostNavigationRequest,
 } from "./navigation-focus";
@@ -305,10 +306,14 @@ export default function NavigationFocusBridge() {
     };
 
     const schedule = (request: FornostNavigationRequest | null) => {
-      if (!request || !clean(request.module) || !focusValue(request)) return;
-      if (request.kind === "assurance-work") { stop(); current = null; return; }
-      if (isCoreRecordRequest(request)) { stop(); current = null; return; }
       stop();
+      current = null;
+      if (!request || !clean(request.module) || !focusValue(request)) return;
+      // The audit workspace opens these destinations itself. A register retry would
+      // keep moving focus to Search while the user edits the selected task.
+      if (sameDomainModule(request.module, "Denetim Yönetimi") &&
+          (isAuditTaskKind(request.kind) || ["audit", "audit-area", "audit-unassigned"].includes(request.kind || ""))) return;
+      if (request.kind === "assurance-work" || isCoreRecordRequest(request)) return;
       current = request;
       tryApply();
     };
