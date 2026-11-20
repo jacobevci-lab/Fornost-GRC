@@ -4,7 +4,7 @@ import { requireRole } from '../auth/security';
 import { ensureCoreGrcSchemaCompatibility } from '../grc/schema-compat';
 import { canReadModule, canReadPosture, canWriteModule } from '../../module-access';
 import { programName } from '../../framework-posture/catalog';
-import { baselineToken, ensurePosture, enroll, indexPrograms, makeBaseline, PostureError, readImpact, readMatrix, saveDecision } from '../../framework-posture/store';
+import { baselineToken, ensurePosture, enroll, indexPrograms, makeBaseline, previewCatalog, programOverview, PostureError, readImpact, readMatrix, saveDecision } from '../../framework-posture/store';
 
 const reply = (value:unknown,status=200) => NextResponse.json(value,{status,headers:{'cache-control':'private, no-store'}});
 function failure(error:unknown) {
@@ -25,6 +25,8 @@ export async function GET(req:NextRequest) {
     }
     await ensurePosture(db);
     if(query.has('controlId'))return reply({impact:await readImpact(db,query.get('controlId')||'')});
+    if(query.has('overview'))return reply(await programOverview(db));
+    if(query.has('preview'))return reply(previewCatalog(query.get('name')||''));
     if(!query.has('name'))return reply(await indexPrograms(db));
     if(query.has('period') && !canReadModule(auth.actor,'Denetim Yönetimi'))return reply({error:'forbidden'},403);
     const matrix=await readMatrix(db,programName(query.get('name')||''));

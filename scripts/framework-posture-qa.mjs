@@ -5,7 +5,7 @@ import {qaPassword} from './qa-credentials.mjs';
 
 const base='http://127.0.0.1:4173', iso='ISO/IEC 27001:2022', soc='SOC 2 Trust Services Criteria', tag=Date.now(), period='Q3 2026 · '+tag;
 const browser=await chromium.launch({executablePath:process.env.QA_CHROMIUM_PATH||undefined});
-const ctx=await browser.newContext(),page=await ctx.newPage(),errors=[];
+const ctx=await browser.newContext({viewport:{width:1500,height:960}}),page=await ctx.newPage(),errors=[];
 page.on('pageerror',e=>errors.push(e.message));
 async function api(path,body,status=200,context=ctx){
   const r=await context.request.fetch(base+path,{method:body?'POST':'GET',data:body,headers:{origin:base}});
@@ -21,12 +21,19 @@ try{
   await go('Compliance Management');
   const work=page.locator('.posture-workspace');
   if(!(await api(endpoint)).enrolled.includes(iso)){
-    await work.getByLabel('Choose from catalog').selectOption(iso);await work.getByRole('button',{name:'Add framework'}).click();
+    await expect(work.getByRole('button',{name:'ISO 27001 In catalog'})).toBeVisible();
+    await work.getByRole('button',{name:'+ Add framework',exact:true}).click();
+    await work.getByLabel('Choose from catalog').selectOption(iso);
+    await work.getByRole('button',{name:'Add to scope',exact:true}).click();
   }
-  await work.getByLabel('Active framework').selectOption(iso);
-  await work.getByLabel('Section').selectOption('annex');
-  await work.getByRole('button',{name:/^A\.5\.1 ·/}).click();
+  await work.getByRole('button',{name:/^ISO 27001.*%/}).click();
+  await expect(work.getByRole('button',{name:/^Open requirements/})).toBeVisible();
+  const tree=work.getByRole('region',{name:'Requirement outline'});
+  await tree.getByRole('searchbox',{name:'Search outline'}).fill('A.5.1');
+  await tree.getByRole('button',{name:/^A\.5\.1 /}).click();
   const editor=page.locator('.posture-editor');
+  await expect(editor.locator('xpath=ancestor::tr/preceding-sibling::tr[1]')).toContainText('A.5.1');
+  await editor.locator('.posture-soa summary').click();
   await editor.getByLabel('Applicability').selectOption('included');
   await editor.getByLabel('Decision rationale').fill('Identity governance is in scope');
   await editor.getByRole('button',{name:'Create new control'}).click();
@@ -34,7 +41,6 @@ try{
   await editor.getByRole('button',{name:'Create draft'}).click();
   await expect(editor.getByRole('status')).toContainText('Draft added');
   await editor.getByRole('button',{name:'Save mapping'}).click();
-  await expect(editor.getByRole('button',{name:'Save mapping'})).toBeEnabled();
   await expect.poll(async()=>((await matrix(iso)).requirements.find(r=>r.ref==='A.5.1')).links.length).toBeGreaterThan(0);
   const m=await matrix(iso),control=m.controls.find(c=>c.title==='Quarterly access review '+tag);
   assert.ok(control); assert.equal(m.requirements.length,123);
@@ -43,7 +49,7 @@ try{
   assert.equal((await api(endpoint+'?controlId='+control.id)).impact.length,2);
   await go('Control Library');
   await page.getByPlaceholder('Search records').fill('Quarterly access review '+tag);
-  await page.locator('button[data-record-id="'+control.id+'"]').first().click();
+  await page.locator('button[data-record-id="'+control.id+'"]:visible').first().click();
   await expect(page.locator('.record-workspace .posture-impact')).toContainText('CC1.1');
   const file=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/lX8AAAAASUVORK5CYII=','base64');
   for(const [evidencePeriod,status] of [[period,'Onaylandı'],[period,'İncelemede'],['Q2 2026','Onaylandı']]){
@@ -83,7 +89,25 @@ try{
   assert.deepEqual((await api(endpoint+'?auditId='+audit.id)).baseline,snapshot);
   await go('Compliance Management');
   await page.locator('.language-switch:visible').getByRole('button',{name:'TR',exact:true}).click();
-  await expect(work).toContainText('Çerçeve ve gereksinim matrisi');
+  await expect(work.getByRole('heading',{name:'Madde ağacı'})).toBeVisible();
+  await expect(work.getByRole('button',{name:/^ISO 27001.*%/})).toBeVisible();
+  await page.setViewportSize({width:390,height:844});
+  await work.getByRole('button',{name:'Madde ağacı',exact:true}).click();
+  const mobileTree=work.getByRole('region',{name:'Madde ağacı'});
+  await mobileTree.getByRole('searchbox',{name:'Madde ağacında ara'}).fill('A.5.18');
+  await mobileTree.getByRole('button',{name:/^A\.5\.18 /}).click();
+  await expect(work.locator('.posture-editor')).toBeVisible();
+  const mobileEditor=work.locator('.posture-editor');
+  await mobileEditor.getByRole('searchbox',{name:'Kontrol ara'}).fill(control.code);
+  await mobileEditor.getByLabel('Mevcut kontrol',{exact:true}).selectOption(control.id);
+  await mobileEditor.getByRole('button',{name:'Bağla ve kaydet'}).click();
+  await expect.poll(async()=>((await matrix(iso)).requirements.find(r=>r.ref==='A.5.18')).links.map(l=>l.id)).toContain(control.id);
+  await expect(work.getByRole('status')).toContainText('Madde güncellendi');
+  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),true,'mobile viewport overflow');
+  const toggle=page.locator('.theme-toggle:visible');
+  await toggle.click();
+  await expect(work.locator('.posture-strip')).toBeVisible();
+  await page.setViewportSize({width:1440,height:900});
   await page.getByRole('button',{name:'Özel gereksinimler ve mevcut kayıtlar'}).click();
   await expect(page.getByRole('button',{name:'Çerçeve matrisine dön'})).toBeVisible();
   assert.deepEqual(errors,[]);

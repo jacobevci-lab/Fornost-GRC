@@ -1,88 +1,130 @@
 'use client';
-import {useState} from 'react';
+import {Fragment,useRef,useState} from 'react';
 import {getCatalogStatus} from '../framework-catalog-status';
 import {postureRequest,usePosture} from './client';
-import {CreateControl} from './create-control';
-import type {Control,Applicability,Coverage,Matrix,ProgramIndex,Requirement} from './types';
+import {DecisionEditor,type WorkspaceProps} from './decision-editor';
+import {RequirementIndex} from './requirement-index';
+import {matchesRequirement,reasonLabels,requirementState} from './requirements';
+import type {Matrix,Overview,Requirement} from './types';
 import './workspace.css';
 
-type Props={tr:boolean;write:boolean;createControl:boolean;onControlCreated:()=>void};
-export function applicabilityLabel(value:Applicability,tr:boolean){
-  return {required:tr?'Katalog kapsamında':'In catalog',undecided:tr?'Karar bekliyor':'Undecided',included:tr?'Uygulanabilir':'Applicable',excluded:tr?'Hariç':'Excluded'}[value];
-}
-function DecisionEditor({row,matrix,tr,write,createControl,onControlCreated,onSave,onClose}:{row:Requirement;matrix:Matrix;onSave:()=>void;onClose:()=>void}&Props){
-  const [links,setLinks]=useState(row.links),[app,setApp]=useState(row.applicability),[reason,setReason]=useState(row.reason);
-  const [pending,setPending]=useState(false),[error,setError]=useState(''),[search,setSearch]=useState('');
-  const [created,setCreated]=useState<Control[]>([]);
-  const controls=[...matrix.controls,...created];
-  const available=controls.filter(c=>!links.some(l=>l.id===c.id) && (c.code+' '+c.title).toLocaleLowerCase().includes(search.trim().toLocaleLowerCase()));
-  async function save(){
-    setPending(true);setError('');
-    try{
-      await postureRequest({},undefined,{action:'save',name:matrix.name,ref:row.ref,revision:row.revision,applicability:app,reason,links});
-      onSave();
-    }catch(e){setError((e as Error).message);}finally{setPending(false);}
-  }
-  return <section className="posture-editor" aria-label={tr?'Madde ayrıntısı':'Requirement details'}>
-    <header><h4>{row.ref} · {row.title}</h4><button type="button" disabled={pending} onClick={onClose}>{tr?'Kapat':'Close'}</button></header>
-    <fieldset disabled={!write||pending}>
-    {row.annex && <div className="posture-fields"><label>{tr?'Uygulanabilirlik':'Applicability'}<select value={app} onChange={e=>setApp(e.target.value as Applicability)}>{(['undecided','included','excluded'] as const).map(k=><option key={k} value={k}>{applicabilityLabel(k,tr)}</option>)}</select></label>
-    <label>{tr?'Karar gerekçesi':'Decision rationale'}<textarea value={reason} maxLength={2000} onChange={e=>setReason(e.target.value)} /></label></div>}
-    <h5>{tr?'Bağlı kontroller':'Linked controls'}</h5>
-    {links.length===0&&<p>{tr?'Bu maddeye bağlı kontrol yok.':'No control is linked to this requirement.'}</p>}
-    {links.map(link=>{
-      const c=controls.find(item=>item.id===link.id);
-      if(!c)return null;
-      return <div key={c.id} className="posture-linked"><strong>{c.code} · {c.title}</strong><span>{c.implementation}</span>
-        <label>{tr?'Katkı':'Coverage'}<select value={link.coverage} onChange={e=>setLinks(links.map(l=>l.id===c.id?{...l,coverage:e.target.value as Coverage}:l))}>
-          <option value="supports">{tr?'Destekler':'Supports'}</option><option value="partial">{tr?'Kısmen destekler':'Partially supports'}</option></select></label>
-        {write&&<button type="button" onClick={()=>setLinks(links.filter(l=>l.id!==c.id))}>{tr?'Bağı kaldır':'Unlink'}</button>}
-        <ul>{(matrix.pins[c.id]||[]).map(p=><li key={p.id}>{p.title} · v{p.version} · {p.period}</li>)}</ul></div>;
-    })}
-    {write&&<div className="posture-fields"><label>{tr?'Kontrol ara':'Search controls'}<input value={search} onChange={e=>setSearch(e.target.value)} /></label>
-      <label>{tr?'Mevcut kontrolü bağla':'Link existing control'}<select value="" onChange={e=>{if(e.target.value)setLinks([...links,{id:e.target.value,coverage:'supports'}]);}}>
-      <option value="">{tr?'Kontrol seçin':'Select a control'}</option>{available.slice(0,100).map(c=><option key={c.id} value={c.id}>{c.code} · {c.title}</option>)}</select></label></div>}
-    {write&&createControl&&<CreateControl tr={tr} onCreated={c=>{onControlCreated();setCreated(previous=>[...previous,c]);setLinks(previous=>[...previous,{id:c.id,coverage:'supports'}]);}}/>}
-    {created.length>0&&<p role="status">{tr?'Taslak kütüphaneye eklendi. Maddeye bağlamak için eşleştirmeyi kaydedin.':'Draft added to the library. Save the mapping to link it to this requirement.'}</p>}
-    {write&&<button type="button" className="primary" disabled={['included','excluded'].includes(app)&&!reason.trim()} onClick={save}>{tr?'Eşleştirmeyi kaydet':'Save mapping'}</button>}
-    </fieldset>
-    {error&&<p role="alert">{error==='409'?(tr?'Kayıt değişti. Güncel sürümü yükleyip tekrar düzenleyin.':'The record changed. Load the current version and edit again.'):(tr?'Kaydedilemedi. Tekrar deneyin.':'Could not save. Please retry.')} {error==='409'&&<button type="button" onClick={onSave}>{tr?'Yenile':'Reload'}</button>}</p>}
-  </section>;
-}
-function Program({name,tr,write,createControl,onControlCreated}:{name:string}&Props){
-  const [revision,setRevision]=useState(0),[query,setQuery]=useState(''),[filter,setFilter]=useState('all'),[group,setGroup]=useState('all'),[page,setPage]=useState(0),[ref,setRef]=useState('');
-  const {data,error}=usePosture<Matrix>({name},revision);
-  if(!data)return <p role="status">{error?(tr?'Matris yüklenemedi.':'Matrix unavailable.'):(tr?'Matris yükleniyor…':'Loading matrix…')} {error&&<button onClick={()=>setRevision(revision+1)}>{tr?'Yenile':'Retry'}</button>}</p>;
-  const inScope=data.requirements.filter(r=>r.applicability!=='excluded');
-  const withPin=(r:Requirement)=>r.links.some(l=>data.pins[l.id]?.length);
-  const filtered=data.requirements.filter(r=>(group==='all'||r.annex===(group==='annex')) && (filter==='all'||(r.applicability!=='excluded' && (filter==='gap'?!r.links.length:filter==='partial'?r.links.some(l=>l.coverage==='partial'):!withPin(r)))) && (r.ref+' '+r.title).toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()));
-  const count=Math.max(1,Math.ceil(filtered.length/12)),current=Math.min(page,count-1),row=data.requirements.find(r=>r.ref===ref);
+const preferred:Record<string,string>={
+  'ISO/IEC 27001:2022':'ISO 27001','SOC 2 Trust Services Criteria':'SOC 2','KVKK (6698)':'KVKK',
+  'NIST Cybersecurity Framework (CSF) 2.0':'NIST CSF','PCI DSS 4.0.1':'PCI DSS','DORA (EU 2022/2554)':'DORA',
+};
+const pageSize=12;
+const rowId=(ref:string)=>'posture-ref-'+encodeURIComponent(ref);
+
+function Program({name,enrolled,onSaved,...props}:WorkspaceProps & {name:string;enrolled:boolean;onSaved:()=>void}) {
+  const {tr}=props;
+  const [revision,refresh]=useState(0),[query,setQuery]=useState(''),[openOnly,setOpenOnly]=useState(enrolled);
+  const [page,setPage]=useState(0),[selected,select]=useState(''),[message,setMessage]=useState('');
+  const [gapFilter,setGapFilter]=useState('all');
+  const {data,error}=usePosture<Matrix>(enrolled?{name}:{name,preview:'1'},revision);
+  if(!data)return <p role="status">{error?(tr?'Maddeler yüklenemedi.':'Could not load requirements.'):(tr?'Maddeler yükleniyor…':'Loading requirements…')} {error&&<button onClick={()=>refresh(v=>v+1)}>{tr?'Tekrar dene':'Retry'}</button>}</p>;
+
+  const rows=data.requirements.map(row=>({row,state:requirementState(row,data.pins)}));
+  const openRows=rows.filter(({state})=>state!=='excluded'&&state!=='covered');
+  const filtered=(openOnly?openRows:rows).filter(({row})=>{
+    if(!matchesRequirement(row,query,tr))return false;
+    if(gapFilter==='all')return true;
+    if(row.applicability==='excluded')return false;
+    if(gapFilter==='partial')return row.links.some(l=>l.coverage==='partial');
+    if(gapFilter==='evidence')return !row.links.some(l=>data.pins[l.id]?.length);
+    return !row.links.length;
+  });
+  const pages=Math.max(1,Math.ceil(filtered.length/pageSize)),current=Math.min(page,pages-1);
   const notice=getCatalogStatus(name);
-  return <><p className="posture-note">{tr?notice.tr:notice.en}</p>
-    <div className="posture-totals"><span><b>{inScope.length}</b> {tr?'hariç tutulmamış madde':'requirements not excluded'}</span><span><b>{inScope.filter(r=>r.links.length).length}</b> {tr?'kontrol bağlı':'mapped'}</span><span><b>{inScope.filter(withPin).length}</b> {tr?'onaylı sürüm kanıtı var':'with approved version evidence'}</span></div>
-    <div className="posture-fields"><label>{tr?'Madde ara':'Search requirements'}<input value={query} onChange={e=>{setQuery(e.target.value);setPage(0);}} /></label>
-    {data.requirements.some(r=>r.annex)&&<label>{tr?'Bölüm':'Section'}<select value={group} onChange={e=>{setGroup(e.target.value);setPage(0);}}><option value="all">{tr?'Tümü':'All'}</option><option value="clauses">{tr?'Yönetim sistemi maddeleri':'Management clauses'}</option><option value="annex">{tr?'Ek A · Uygulanabilirlik Bildirgesi (SoA)':'Annex A · Statement of Applicability (SoA)'}</option></select></label>}
-    <label>{tr?'Görünüm':'View'}<select value={filter} onChange={e=>{setFilter(e.target.value);setPage(0);}}><option value="all">{tr?'Tüm maddeler':'All requirements'}</option><option value="gap">{tr?'Kontrol bağlantısı eksik':'Missing control mapping'}</option><option value="partial">{tr?'Kısmi eşleştirme':'Partial mapping'}</option><option value="evidence">{tr?'Onaylı kanıt eksik':'Missing approved evidence'}</option></select></label></div>
-    {row&&<DecisionEditor key={row.ref+row.revision} row={row} matrix={data} onControlCreated={onControlCreated} createControl={createControl} tr={tr} write={write} onClose={()=>setRef('')} onSave={()=>setRevision(revision+1)} />}
-    <div className="posture-scroll"><table><thead><tr><th>{tr?'Madde':'Requirement'}</th><th>{tr?'Kapsam':'Scope'}</th><th>{tr?'Bağlı kontrol':'Linked controls'}</th><th>{tr?'Onaylı kanıt':'Approved evidence'}</th></tr></thead>
-    <tbody>{filtered.slice(current*12,current*12+12).map(r=><tr key={r.ref}><td><button type="button" aria-expanded={r.ref===ref} onClick={()=>setRef(r.ref)}>{r.ref} · {r.title}</button></td><td>{applicabilityLabel(r.applicability,tr)}</td><td>{r.links.length}</td><td>{r.applicability==='excluded'?'—':new Set(r.links.flatMap(l=>(data.pins[l.id]||[]).map(p=>p.id))).size}</td></tr>)}</tbody></table></div>
-    {!filtered.length&&<p>{tr?'Eşleşen madde yok.':'No matching requirements.'}</p>}
-    <footer><span>{filtered.length} {tr?'madde':'requirements'} · {current+1}/{count}</span><button disabled={!current} onClick={()=>setPage(current-1)}>{tr?'Önceki':'Previous'}</button><button disabled={current+1>=count} onClick={()=>setPage(current+1)}>{tr?'Sonraki':'Next'}</button></footer></>;
-}
-export function FrameworkWorkspace({tr,write,createControl,onControlCreated}:Props){
-  const [revision,setRevision]=useState(0),[selected,setSelected]=useState(''),[choice,setChoice]=useState(''),[pending,setPending]=useState(false),[failed,setFailed]=useState(false);
-  const {data,error}=usePosture<ProgramIndex>({},revision);
-  const available=data?.catalog.filter(n=>!data.enrolled.includes(n))||[], candidate=available.includes(choice)?choice:available[0], active=data?.enrolled.includes(selected)?selected:data?.enrolled[0];
-  async function add(){
-    if(!candidate)return;
-    setPending(true);setFailed(false);
-    try{await postureRequest({},undefined,{action:'enroll',name:candidate});setSelected(candidate);setRevision(v=>v+1);}catch{setFailed(true);}finally{setPending(false);}
+  function pick(row:Requirement) {
+    setQuery('');setGapFilter('all');setOpenOnly(false);
+    setPage(Math.floor(rows.findIndex(r=>r.row.ref===row.ref)/pageSize));select(row.ref);setMessage('');
+    requestAnimationFrame(()=>{
+      const trigger=document.getElementById(rowId(row.ref));
+      trigger?.focus({preventScroll:true});trigger?.scrollIntoView({block:'start'});
+    });
   }
-  return <section className="posture-workspace"><header><h3>{tr?'Çerçeve ve gereksinim matrisi':'Framework and requirement matrix'}</h3></header>
-    {!data&&<p role="status">{error?(tr?'Çerçeveler yüklenemedi.':'Frameworks unavailable.'):(tr?'Yükleniyor…':'Loading…')} {error&&<button onClick={()=>setRevision(revision+1)}>{tr?'Yenile':'Retry'}</button>}</p>}
-    {data&&<><div className="posture-fields">{!!data.enrolled.length&&<label>{tr?'Etkin çerçeve':'Active framework'}<select value={active} onChange={e=>setSelected(e.target.value)}>{data.enrolled.map(n=><option key={n}>{n}</option>)}</select></label>}
-    {write&&available.length>0&&<><label>{tr?'Katalogdan seç':'Choose from catalog'}<select disabled={pending} value={candidate} onChange={e=>setChoice(e.target.value)}>{available.map(n=><option key={n}>{n}</option>)}</select></label><button disabled={pending} className="primary" onClick={add}>{tr?'Çerçeve ekle':'Add framework'}</button></>}</div>
-    {failed&&<p role="alert">{tr?'Çerçeve eklenemedi.':'Could not add framework.'}</p>}
-    {active?<Program key={active} name={active} onControlCreated={onControlCreated} createControl={createControl} tr={tr} write={write}/>:<p>{tr?'Henüz çerçeve eklenmedi. Seçilen çerçevenin maddeleri katalogdan gelir.':'No framework added yet. Selecting a framework loads its requirements from the catalog.'}</p>}</>}
+  function changeView(open:boolean) {
+    setOpenOnly(open);setPage(0);setGapFilter('all');select('');setMessage('');
+  }
+  function close(ref:string) {
+    select('');document.getElementById(rowId(ref))?.focus();
+  }
+  return <div className="posture-layout">
+    <section className="posture-register" aria-label={name}>
+      <div className="posture-program-heading"><h3>{name}</h3>
+        <details className="posture-catalog-note"><summary>{tr?'Katalog kapsamı':'Catalog scope'}</summary><p>{tr?notice.tr:notice.en}</p></details></div>
+      <div className="posture-viewbar"><div className="posture-tabs">
+        <button type="button" aria-pressed={!openOnly} onClick={()=>changeView(false)}>{tr?'Tüm maddeler':'All requirements'} <b>{rows.length}</b></button>
+        {enrolled&&<button type="button" aria-pressed={openOnly} onClick={()=>changeView(true)}>{tr?'Açık maddeler':'Open requirements'} <b>{openRows.length}</b></button>}
+      </div>
+      <input type="search" aria-label={tr?'Madde ara':'Search requirements'} placeholder={tr?'Madde ara…':'Search requirements…'} value={query} onChange={e=>{setQuery(e.target.value);setPage(0);}}/>
+      {enrolled&&<select aria-label={tr?'Nedene göre filtrele':'Filter by reason'} value={gapFilter} onChange={e=>{setGapFilter(e.target.value);setPage(0);}}>
+        <option value="all">{tr?'Tüm nedenler':'All reasons'}</option><option value="unmapped">{tr?'Kontrol bağlantısı eksik':'Missing control mapping'}</option>
+        <option value="partial">{tr?'Kısmi eşleştirme':'Partial mapping'}</option><option value="evidence">{tr?'Onaylı kanıt eksik':'Missing approved evidence'}</option></select>}</div>
+      {message&&<p role="status" className="posture-notice">{message}</p>}
+      <table className="posture-ledger"><thead><tr>
+        <th scope="col">{tr?'Madde':'Reference'}</th><th scope="col">{tr?'Gereksinim':'Requirement'}</th>
+        {enrolled&&<><th scope="col">{tr?'Durum':'Status'}</th><th scope="col">{tr?'Neden':'Reason'}</th></>}
+      </tr></thead><tbody>{filtered.slice(current*pageSize,(current+1)*pageSize).map(({row,state})=>{
+        const expanded=row.ref===selected;
+        const badge=state==='excluded'?(tr?'Hariç':'Excluded'):state==='covered'?(tr?'Kanıtlı':'Evidenced'):(tr?'Açık':'Open');
+        return <Fragment key={row.ref}><tr className={expanded?'posture-selected':''}>
+          <th scope="row">{row.ref}</th><td><button id={rowId(row.ref)} type="button" className="posture-row-trigger"
+            aria-expanded={expanded} aria-label={row.ref+' · '+row.title}
+            onClick={()=>{select(expanded?'':row.ref);setMessage('');}}>{row.title} <span aria-hidden="true"/></button></td>
+          {enrolled&&<><td><span className={'posture-status '+state}>{badge}</span></td><td className="posture-reason">{reasonLabels[state][tr?0:1]}</td></>}
+        </tr>
+        {expanded&&<tr className="posture-detail-row"><td colSpan={enrolled?4:2}>
+          {enrolled?<DecisionEditor key={row.ref+row.revision} row={row} matrix={data} {...props}
+            onClose={()=>close(row.ref)} onReload={()=>refresh(v=>v+1)} onSave={()=>{refresh(v=>v+1);onSaved();setMessage(tr?'Madde güncellendi.':'Requirement updated.');}}/>:
+            <p>{tr?'Kontrol bağlamak ve kanıt kapsamını izlemek için bu çerçeveyi kapsama ekleyin.':'Add this framework to scope to link controls and track evidence coverage.'}</p>}
+        </td></tr>}</Fragment>;
+      })}</tbody></table>
+      {!filtered.length&&<p className="posture-empty">{openOnly&&!query&&gapFilter==='all'?(tr?'Bu çerçevede açık madde yok.':'No open requirements in this framework.'):(tr?'Eşleşen madde yok.':'No matching requirements.')}</p>}
+      <footer><span>{filtered.length} {tr?'madde':'requirements'} · {current+1}/{pages}</span>
+        <button type="button" disabled={!current} onClick={()=>{setPage(current-1);select('');}}>{tr?'Önceki':'Previous'}</button>
+        <button type="button" disabled={current+1>=pages} onClick={()=>{setPage(current+1);select('');}}>{tr?'Sonraki':'Next'}</button></footer>
+    </section>
+    <RequirementIndex tr={tr} rows={data.requirements} selected={selected} onPick={pick}/>
+  </div>;
+}
+
+export function FrameworkWorkspace(props:WorkspaceProps) {
+  const {tr,write}=props;
+  const [revision,refresh]=useState(0),[selected,select]=useState(''),[choice,setChoice]=useState('');
+  const [adding,setAdding]=useState(false),[busy,setBusy]=useState(false),[failed,setFailed]=useState(false);
+  const addTrigger=useRef<HTMLButtonElement>(null);
+  const {data,error}=usePosture<Overview>({overview:'1'},revision,true);
+  const retry=()=>refresh(v=>v+1);
+  if(!data)return <section className="posture-workspace posture-home" role="status">{error?(tr?'Çerçeveler yüklenemedi.':'Could not load frameworks.'):(tr?'Çerçeveler yükleniyor…':'Loading frameworks…')} {error&&<button onClick={retry}>{tr?'Tekrar dene':'Retry'}</button>}</section>;
+  const names=[...new Set([...data.enrolled,...Object.keys(preferred).filter(n=>data.catalog.includes(n))])];
+  const active=names.includes(selected)?selected:names[0];
+  const available=data.catalog.filter(n=>!data.enrolled.includes(n));
+  const candidate=available.includes(choice)?choice:available[0];
+  const metric=tr?'Güncel, onaylı kanıtı olan maddeler':'Requirements with current approved evidence';
+  async function add() {
+    if(!candidate||busy)return;
+    setBusy(true);setFailed(false);
+    try{
+      await postureRequest({},undefined,{action:'enroll',name:candidate});
+      select(candidate);setAdding(false);retry();addTrigger.current?.focus();
+    }catch{setFailed(true);}finally{setBusy(false);}
+  }
+  return <section className="posture-workspace posture-home">
+    <div className="posture-portfolio"><div className="posture-strip-head"><span>{metric}</span>
+      {write&&available.length>0&&<button ref={addTrigger} type="button" aria-expanded={adding} onClick={()=>{setChoice(available.includes(active)?active:available[0]);setFailed(false);setAdding(!adding);}}>{tr?'+ Çerçeve ekle':'+ Add framework'}</button>}</div>
+      <div className="posture-strip" role="group" aria-label={tr?'Çerçeveler':'Frameworks'}>{names.map(name=>{
+        const totals=data.coverage[name],percent=totals?.scope?Math.round(100*totals.evidenced/totals.scope):null;
+        return <button key={name} type="button" aria-pressed={active===name} title={name+(totals?' · '+totals.evidenced+'/'+totals.scope:'')} onClick={()=>{select(name);setAdding(false);}}>
+          <span><strong>{preferred[name]||name}</strong>{percent!==null&&<b>{tr?'%'+percent:percent+'%'}</b>}</span>
+          {percent!==null?<progress max="100" value={percent} aria-label={metric}/>:<small>{totals?(tr?'Kapsamda madde yok':'No items in scope'):(tr?'Katalogda':'In catalog')}</small>}
+        </button>;
+      })}</div>
+      {adding&&<div className="posture-enroll"><label>{tr?'Katalogdan seç':'Choose from catalog'}<select autoFocus disabled={busy} value={candidate} onChange={e=>setChoice(e.target.value)}>{available.map(n=><option key={n}>{n}</option>)}</select></label>
+        <button type="button" className="primary" disabled={busy} onClick={add}>{tr?'Kapsama ekle':'Add to scope'}</button>
+        <button type="button" disabled={busy} onClick={()=>{setAdding(false);addTrigger.current?.focus();}}>{tr?'Vazgeç':'Cancel'}</button>
+        {failed&&<p role="alert">{tr?'Çerçeve eklenemedi. Tekrar deneyin.':'Could not add framework. Please retry.'}</p>}</div>}
+    </div>
+    {active&&<Program key={active+data.enrolled.includes(active)} name={active} enrolled={data.enrolled.includes(active)} onSaved={retry} {...props}/>}
   </section>;
 }

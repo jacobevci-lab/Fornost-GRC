@@ -66,6 +66,12 @@ Risk Assessment içinde riskin kapsamını, sahibini ve değerlendirmesini kayde
 
 Kontrollerde yaşam döngüsü ile uygulama etkinliği ayrı durumlardır. Kontrolü ilgili gereksinim ve kanıtla bağlayın; boşluk veya bulguyu ilgili aksiyon/CAPA akışında takip edin. Bağlantılı GRC eksik referansları incelemek için kullanılır; ilişki bulunması tek başına kontrol etkinliği kanıtı değildir.
 
+### Uyum Yönetimi
+
+Üst şeritten bir çerçeve seçin. Yüzde, kapsam dışında bırakılmamış maddeler arasında güncel ve onaylı bir kanıt sürümüne bağlı olanların oranıdır. “Katalogda” görünen çerçevelerin maddelerini önizleyebilir, izlemeye başlamak için **Çerçeve ekle → Kapsama ekle** yolunu kullanabilirsiniz.
+
+**Açık maddeler** eksik kontrol bağlantısını, kısmi eşleştirmeyi, beklenen onaylı kanıtı veya uygulanabilirlik kararını gösterir. Madde ağacında kodu ya da başlığı arayıp seçtiğinizde ilgili satır açılır. Kütüphaneden bir kontrol seçip **Bağla ve kaydet** düğmesini kullanın. ISO 27001 Ek A kararını ve gerekçesini aynı satırdaki **Uygulanabilirlik (SoA)** bölümünden düzenleyebilirsiniz. Özel gereksinimler ve önceki kayıtlar, çalışma alanının altındaki bağlantıdan açılır.
+
 ### Kanıt yükleme ve sürüm
 
 1. **Kanıtlar / Evidence** alanında kaydı ve dosyayı oluşturun; ilgili kontrol/denetim bağlamını belirtin.

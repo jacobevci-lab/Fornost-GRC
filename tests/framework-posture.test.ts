@@ -2,7 +2,8 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {DatabaseSync,type SQLInputValue} from 'node:sqlite';
 import {ISO,SOC,catalogFor} from '../app/framework-posture/catalog';
-import {baselineToken,enroll,ensurePosture,indexPrograms,makeBaseline,PostureError,readImpact,readMatrix,saveDecision} from '../app/framework-posture/store';
+import {baselineToken,enroll,ensurePosture,indexPrograms,makeBaseline,previewCatalog,programOverview,PostureError,readImpact,readMatrix,saveDecision} from '../app/framework-posture/store';
+import {requirementState} from '../app/framework-posture/requirements';
 import {appendEvidenceVersion} from '../app/evidence/versioning';
 import {canReadPosture,scopedApiAllowed,type AccessSubject} from '../app/module-access';
 
@@ -56,7 +57,22 @@ test('capture only current explicitly approved anchored evidence matching contro
     const version=await appendEvidenceVersion(db,{evidenceId:id,fileKey:'evidence/'+id+'.pdf',fileName:'sample.pdf',fileType:'application/pdf',fileSize:10,contentSha256:hash,evidenceTitle:id,owner:'owner',period,frameworks:ISO,controlRefs:'IAM',changeNote:'initial',createdBy:'owner',createdAt:'2026-01-01T00:00:00Z'});
     record(id,'Kanıtlar',{status,period,contentSha256:hash,versionNo:version.versionNo,versionChainSha256:version.chainSha256,controlRef:'IAM',...extra});
   }
+  await enroll(db,SOC,'owner');
+  await saveDecision(db,{name:SOC,ref:'CC1.1',applicability:'required',links:[{id:'C1',coverage:'partial'}],revision:''},'owner');
+  await saveDecision(db,{name:ISO,ref:'A.5.2',applicability:'excluded',reason:'Outside scope',links:[{id:'C1',coverage:'supports'}],revision:''},'owner');
+  const summary=await programOverview(db);
+  assert.deepEqual(summary.coverage[ISO],{scope:122,evidenced:1});
+  assert.deepEqual(summary.coverage[SOC],{scope:catalogFor(SOC).length,evidenced:1});
+  const preview=previewCatalog(ISO);
+  assert.equal(preview.requirements.length,123);
+  assert.deepEqual(preview.pins,{});
+  assert.ok(preview.requirements.every(row=>!row.links.length));
   const matrix=await readMatrix(db,ISO), captured=makeBaseline(matrix,'Q3'), token=await baselineToken(captured);
+  const annex=matrix.requirements.find(row=>row.ref==='A.5.1')!;
+  assert.equal(requirementState(annex,matrix.pins),'covered');
+  assert.equal(requirementState({...annex,applicability:'undecided'},matrix.pins),'decision');
+  assert.equal(requirementState({...annex,links:[{id:'C1',coverage:'partial'}]},matrix.pins),'partial');
+  assert.equal(requirementState({...annex,links:[{id:'C1',coverage:'partial'},{id:'other',coverage:'supports'}]},matrix.pins),'evidence');
   assert.equal(captured.total,123);assert.equal(captured.withEvidence,1);
   assert.deepEqual(Object.values(captured.evidence).map(p=>p.evidenceId),['valid']);
   sql.prepare("UPDATE simple_grc_records SET data_json=json_set(data_json,'$.status','Reddedildi') WHERE id='valid'").run();

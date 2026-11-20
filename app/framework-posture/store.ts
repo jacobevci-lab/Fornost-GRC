@@ -2,6 +2,7 @@ import { completedInitialization } from '../completed-initialization';
 import { evaluateEvidenceEligibility } from '../evidence/eligibility';
 import { ensureEvidenceHistorySchema, verifyEvidenceVersionChainWithAnchor, splitEvidenceControlRefs, normalizeEvidenceControlRef, type EvidenceVersionRow } from '../evidence/versioning';
 import { catalogFor, frameworkNames, programName } from './catalog';
+import { summarizeCoverage } from './requirements';
 import type { Baseline, Control, Mapping, Matrix, Pin, Requirement } from './types';
 
 export class PostureError extends Error {
@@ -62,7 +63,29 @@ export async function readMatrix(db:D1Database,name:string):Promise<Matrix> {
   if (!frameworkNames.includes(name)) throw new PostureError('framework');
   if (!await db.prepare('SELECT 1 FROM framework_programs WHERE name=?').bind(name).first()) throw new PostureError('not-enrolled',404);
   const {aliases,controls,requirements}=project(await readSources(db,name),name);
-  const mapped=new Set(requirements.flatMap(r=>r.links.map(l=>l.id)));
+  const pins=await readPins(db,aliases,new Set(requirements.flatMap(r=>r.links.map(l=>l.id))));
+  return {name,requirements,controls,pins};
+}
+
+export function previewCatalog(name:string):Matrix {
+  if (!frameworkNames.includes(name)) throw new PostureError('framework');
+  return {name,controls:[],pins:{},requirements:catalogFor(name).map(r=>({
+    ...r,applicability:r.annex?'undecided':'required',reason:'',revision:'',links:[]
+  }))};
+}
+
+export async function programOverview(db:D1Database) {
+  const index=await indexPrograms(db);
+  if(!index.enrolled.length)return {...index,coverage:{}};
+  const sources=await readSources(db);
+  const programs=index.enrolled.map(name=>({name,...project(sources,name)}));
+  const mapped=new Set(programs.flatMap(p=>p.requirements.flatMap(r=>r.links.map(l=>l.id))));
+  // Shared controls use the same verified evidence across all enrolled frameworks.
+  const pins=await readPins(db,programs[0].aliases,mapped);
+  return {...index,coverage:Object.fromEntries(programs.map(p=>[p.name,summarizeCoverage(p.requirements,pins)]))};
+}
+
+async function readPins(db:D1Database,aliases:Map<string,Set<string>>,mapped:Set<string>) {
   const pins:Record<string,Pin[]> = Object.create(null);
   if(mapped.size){
     await ensureEvidenceHistorySchema(db);
@@ -86,7 +109,7 @@ export async function readMatrix(db:D1Database,name:string):Promise<Matrix> {
       for(const id of ids)if(mapped.has(id))(pins[id]??=[]).push({id:v.id,evidenceId:v.evidence_id,fileKey:v.file_key,title:v.evidence_title,version:v.version_no,hash:v.content_sha256,period:v.period});
     }
   }
-  return {name,requirements,controls,pins};
+  return pins;
 }
 
 export async function saveDecision(db:D1Database, body:Record<string,unknown>, actor:string) {

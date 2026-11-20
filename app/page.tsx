@@ -2264,8 +2264,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
             go={navigateToModule}
           />
         ) : active==="Uyum" && canReadPosture(currentUser) && !legacyCompliance && !focusedRecord ? (
-          <><section className="module-head"><div><small className="module-kicker">{moduleEyebrows[lang][active]}</small><h2>{names[lang][active]}</h2></div></section>
-          <FrameworkWorkspace onControlCreated={()=>{void load();}} createControl={canWriteModule(currentUser,"Kontroller")} tr={lang==="tr"} write={canWriteModule(currentUser,"Uyum")}/>
+          <><FrameworkWorkspace onControlCreated={()=>{void load();}} createControl={canWriteModule(currentUser,"Kontroller")} tr={lang==="tr"} write={canWriteModule(currentUser,"Uyum")}/>
           <button type="button" className="ghost" onClick={()=>setLegacyCompliance(true)}>{lang==="tr"?"Özel gereksinimler ve mevcut kayıtlar":"Custom requirements and existing records"}</button></>
         ) : (
           <>

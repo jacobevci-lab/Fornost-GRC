@@ -10,9 +10,9 @@ export const programName = (template: string) => ['SOC 2 Type I','SOC 2 Type II'
 export const frameworkNames = [...new Set(automaticAuditTemplates.map(programName))].filter(name =>
   name === ISO || name === SOC || Object.hasOwn(frameworkTemplateCatalogs, name));
 export function catalogFor(name: string) {
-  if (name === ISO) return [...iso27001Management.map(r => ({ref:r.ref,title:r.title,annex:false})),
-    ...iso27001Refs.map(ref => ({ref,title:iso27001Titles[ref],annex:true}))];
-  if (name === SOC) return soc2TemplateControls.map(r => ({ref:r.tscId,title:r.expectation,annex:false}));
+  if (name === ISO) return [...iso27001Management.map(r => ({ref:r.ref,title:r.title,group:r.category,annex:false})),
+    ...iso27001Refs.map(ref => ({ref,title:iso27001Titles[ref],group:ref.split('.').slice(0,2).join('.'),annex:true}))];
+  if (name === SOC) return soc2TemplateControls.map(r => ({ref:r.tscId,title:r.expectation,group:r.tscCategory,annex:false}));
   if (!frameworkNames.includes(name)) return [];
-  return frameworkTemplateCatalogs[name].map(r => ({ref:r.ref,title:r.title,annex:false}));
+  return frameworkTemplateCatalogs[name].map(r => ({ref:r.ref,title:r.title,group:r.category,annex:false}));
 }
