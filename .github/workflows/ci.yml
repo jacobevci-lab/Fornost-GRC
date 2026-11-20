@@ -48,7 +48,7 @@ jobs:
       - run: npm run validate:artifact
 
   commercial-license-journey:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 12
     steps:
       - uses: actions/checkout@v4
@@ -59,6 +59,16 @@ jobs:
       - run: npm ci
       - run: npm install --no-save --ignore-scripts @playwright/test@1.55.0
       - run: npx playwright install --with-deps chromium
+      - name: Validate the commercial release public key when configured
+        if: ${{ vars.FORNOST_LICENSE_PUBLIC_KEY != '' }}
+        env:
+          FORNOST_LICENSE_PUBLIC_KEY: ${{ vars.FORNOST_LICENSE_PUBLIC_KEY }}
+        run: |
+          node --input-type=module <<'JS'
+          import {createPublicKey} from "node:crypto";
+          const key = createPublicKey({key:Buffer.from(process.env.FORNOST_LICENSE_PUBLIC_KEY,"base64url"),format:"der",type:"spki"});
+          if (key.asymmetricKeyType !== "ed25519") throw Error("Expected an Ed25519 public release key");
+          JS
       - name: Verify signed editions through the API and browser
         env:
           FORNOST_LICENSE_QA_BROWSER: "1"

@@ -57,7 +57,7 @@ async function activate(installation, edition, revision) {
 async function browserCheck(edition,evidenceId) {
   if (process.env.FORNOST_LICENSE_QA_BROWSER !== "1") return;
   const {checkEditionUi} = await import("./qa-license-ai-browser.mjs");
-  await checkEditionUi(base.origin,{email:owner,password},edition,evidenceId);
+  await checkEditionUi(base.origin,cookies,edition,evidenceId);
   console.log(edition + " browser actions passed.");
 }
 

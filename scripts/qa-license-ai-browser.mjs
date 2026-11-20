@@ -1,11 +1,10 @@
 import { chromium, expect } from "@playwright/test";
 
-export async function checkEditionUi(base, credentials, edition, evidenceId) {
+export async function checkEditionUi(base, cookies, edition, evidenceId) {
   const browser = await chromium.launch({executablePath:process.env.QA_CHROMIUM_PATH || undefined});
   try {
     const context = await browser.newContext();
-    const login = await context.request.post(base + "/api/auth", {headers:{origin:base},data:{action:"login",...credentials}});
-    expect(login.status()).toBe(200);
+    await context.addCookies([...cookies].map(([name,value])=>({name,value,url:base})));
     const page = await context.newPage();
     await page.goto(base);
     await page.locator(".language-switch:visible").getByRole("button",{name:"EN",exact:true}).click();
