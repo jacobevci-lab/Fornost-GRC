@@ -106,6 +106,8 @@ import AuditReadinessGate from "./audit-readiness-gate";
 import AuditPortfolioWorkspace, { type AuditPortfolioItem } from "./audit-portfolio-workspace";
 import { requestJsonWithDeadline } from "./bounded-json-request";
 import { withBasePath } from "./base-path";
+import { AssetInventoryFields } from "./asset-inventory-fields";
+import { assetLinkedRecords, assetCoverage, assetStatuses, type AssetTarget, type AssetLinks } from "./asset-inventory-model";
 import { RiskAssets, RiskControls, RiskPerson } from "./risk-editor-fields";
 import { riskRecordOptions, riskAssetCaption, riskTitle, type RiskRecordOptions } from "./risk-record-options";
 import { isResidualRiskGoverned } from "./risk-governance-write";
@@ -114,7 +116,7 @@ import { assessedResidualRiskScore, effectiveImpactSources, assessedRiskScore, c
 import { defaultCatalogs, type CatalogMap } from "./catalogs";
 import { safeSpreadsheetCell } from "./export-security";
 import { automaticAuditTemplates } from "./framework-templates";
-import { displayRecordCode } from "./record-codes";
+import { displayRecordCode, isLegacyTechnicalRecordId } from "./record-codes";
 import "./workspace-system.css";
 import "./enterprise-surface-contract.css";
 import "./product-experience.css";
@@ -836,6 +838,7 @@ const valueEN: Record<string, string> = {
   "Transfer Et": "Transfer",
   Kaçın: "Avoid",
   Aktif: "Active",
+  Planlanan: "Planned", "Emekli / EOL": "Retired / EOL",
   Açık: "Open",
   "Uygulama Hazırlığında": "Implementation Preparation",
   "İnceleme Takviminde": "Review Scheduled",
@@ -865,7 +868,14 @@ const valueEN: Record<string, string> = {
   Uyumlu: "Compliant",
   Kısmi: "Partial",
   Kapalı: "Closed",
-  Üretim: "Production",
+  Üretim: "Production", Geliştirme: "Development", "Felaket Kurtarma": "Disaster Recovery",
+  Sunucu: "Server", Uygulama: "Application", Veritabanı: "Database", "Ağ Cihazı": "Network Device",
+  "Uç Nokta": "Endpoint", "Bulut Servisi": "Cloud Service", "Bilgi Varlığı": "Information Asset",
+  "Tedarikçi Hizmeti": "Vendor Service", "İş Süreci": "Business Process", "Doküman / Kayıt": "Document / Record",
+  "Fiziksel Lokasyon": "Physical Location", "Kritik Rol / Personel": "Critical Role / Personnel", "Güvenlik Ürünü": "Security Product",
+  "Herkese Açık": "Public", "Şirket İçi": "Internal", Gizli: "Confidential", "Çok Gizli": "Highly Confidential",
+  Evet: "Yes", Hayır: "No", Kapsamda: "Covered", "Kapsam Dışı": "Out of Scope", Bilinmiyor: "Unknown",
+  Güncel: "Current", Gecikmiş: "Overdue", Muaf: "Exempt",
   Sürekli: "Continuous",
   Stratejik: "Strategic",
   "Kurumsal Yönetim": "Corporate Governance",
@@ -926,7 +936,7 @@ const requiredFieldsByModule: Record<string, string[]> = {
 const statusOptionsByModule: Record<string, string[]> = {
   "Risk Assessment": ["Açık", "Değerlendiriliyor", "Aksiyon Devam Ediyor", "Kabul Edildi", "Kapalı"],
   BIA: ["Taslak", "İncelemede", "Onaylandı", "Aktif", "Arşivlendi"],
-  "Varlık Envanteri": ["Aktif", "Bakımda", "Devre Dışı", "Arşivlendi"],
+  "Varlık Envanteri": assetStatuses,
   Uyum: ["Uyumlu", "Kısmi Uyumlu", "Uyumlu Değil", "Uygulanamaz"],
   Tedarikçiler: ["Aktif", "İncelemede", "Askıda", "Sonlandırıldı"],
   Kontroller: ["Taslak", "Aktif", "İyileştirme Gerekli", "Devre Dışı"],
@@ -1190,7 +1200,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
     [commandQuery, setCommandQuery] = useState(""),
     [commandIndex, setCommandIndex] = useState(0),
     [recentModules, setRecentModules] = useState<string[]>([]);
-  const [dashboardLens, setDashboardLens] = useState<{module:string; framework?:string} | null>(null);
+  const [dashboardLens, setDashboardLens] = useState<{module:string; framework?:string; assetId?:string} | null>(null);
   const lens = dashboardLens?.module === active ? dashboardLens : null;
   const { query, setQuery, filters: registerFilters, setFilters: setRegisterFilters, sort: registerSort, setSort: setRegisterSort } = useRegisterView(String(currentUser.id), active, Boolean(lens));
   const [commandMode, setCommandMode] = useState<"modules" | "records">("modules");
@@ -1201,6 +1211,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
   const readableRows = useMemo(() => rows.filter(row => canReadModule(currentUser, row.module)), [rows, currentUser]);
   const riskAssets = useMemo(() => riskRecordOptions(readableRows,"Varlık Envanteri"), [readableRows]);
   const riskControls = useMemo(() => riskRecordOptions(readableRows,"Kontroller"), [readableRows]);
+  const assetLinks = useMemo(() => active==="Varlık Envanteri" || lens?.assetId ? assetLinkedRecords(readableRows) : new Map<string, AssetLinks>(), [readableRows,active,lens?.assetId]);
   const selectedAudit = focusedRecord?.auditName ?? browsedAudit;
   const recordContext = useRef<FornostNavigationRequest | null>(null);
   const navigationOrigin = useRef<FornostNavigationRequest["returnTo"]>(undefined);
@@ -1302,7 +1313,20 @@ function FornostApp({ currentUser }: { currentUser: any }) {
         localStorage.setItem("fornost-grc-columns", JSON.stringify(columns));
         localStorage.setItem("fornost-grc-column-layout", "v2");
       }
-      if (columns && typeof columns === "object") setColumnPreferences(columns);
+      if (columns && typeof columns === "object") {
+        if (localStorage.getItem("fornost-asset-links-column") !== "1") {
+          const previous = columns["Varlık Envanteri"];
+          if (Array.isArray(previous) && !previous.includes("assetLinks")) {
+            const next = previous.slice();
+            const coverageIndex = next.indexOf("coverage");
+            next.splice(coverageIndex < 0 ? next.length : coverageIndex, 0, "assetLinks");
+            columns = {...columns, "Varlık Envanteri": next};
+            localStorage.setItem("fornost-grc-columns", JSON.stringify(columns));
+          }
+          localStorage.setItem("fornost-asset-links-column", "1");
+        }
+        setColumnPreferences(columns);
+      }
     } catch {}
   }, []);
   const languageRef = useRef(lang);
@@ -1440,8 +1464,8 @@ function FornostApp({ currentUser }: { currentUser: any }) {
         (r) =>
           r.module === active &&
           (!focusedRecord || r.id === focusedRecord.id) &&
-          (!lens || focusedRecord || (active !== "Risk Assessment" || (validMatrixCoordinates(r.data) && (assessedRiskScore(r.data) ?? -1) >= 10))
-            && (active !== "Kanıtlar" || staleEvidence?.has(r.id))) &&
+          (!lens || focusedRecord || (lens.assetId ? assetLinks.get(lens.assetId)?.[active as AssetTarget]?.has(r.id) : (active !== "Risk Assessment" || (validMatrixCoordinates(r.data) && (assessedRiskScore(r.data) ?? -1) >= 10))
+            && (active !== "Kanıtlar" || staleEvidence?.has(r.id)))) &&
           (!selectedAudit ||
             active !== "Denetim Yönetimi" ||
             auditNameKey(r.data.auditName) === auditNameKey(selectedAudit)) &&
@@ -1454,7 +1478,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
             ([key, value]) => !value || String(r.data[key] ?? "") === value,
           ))),
       ), active, registerSort, lang),
-    [rows, active, query, lang, selectedAudit, registerFilters, focusedRecord, registerSort, lens, staleEvidence],
+    [rows, active, query, lang, selectedAudit, registerFilters, focusedRecord, registerSort, lens, staleEvidence,assetLinks],
   );
   function setModuleColumns(keys: string[]) {
     if (!keys.length) return;
@@ -2211,7 +2235,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
             <button type="button" onClick={() => setNotice("")} aria-label={lang === "tr" ? "Bildirimi kapat" : "Dismiss notification"}>×</button>
           </div>
         )}
-        {lens && <div className="dashboard-lens"><span>{({
+        {lens && <div className="dashboard-lens"><span>{lens.assetId ? (lang==="tr"?"Bağlı varlık":"Linked asset")+" · "+(readableRows.find(r=>r.id===lens.assetId)?.data.title||"—") : ({
           "Kontroller":["Aksiyon bekleyen kontroller","Controls needing attention"],
           "Denetim Yönetimi":["Hazırlık açığı olan maddeler","Requirements with readiness gaps"],
           "Kanıtlar":["Güncelliği doğrulanmayan kanıtlar","Evidence not confirmed current"],
@@ -2442,6 +2466,9 @@ function FornostApp({ currentUser }: { currentUser: any }) {
                     inspect={inspect}
                     edit={openEdit}
                     remove={remove}
+                    assetLinks={assetLinks}
+                    openAssetLinks={(id,module)=>{navigateToModule(module);setDashboardLens({module,assetId:id});}}
+                    canReadAssetLinks={module=>canReadModule(currentUser,module)}
                     evidenceAssessment={active === "Kanıtlar" && !scoped ? evidenceRegisterState : undefined}
                     viewEvidence={setPreviewEvidence}
                     columns={selectedColumnKeys}
@@ -2519,7 +2546,10 @@ function FornostApp({ currentUser }: { currentUser: any }) {
             ) : (
               <form onSubmit={save} className="form">
                 <div className="fornost-progressive-slot" />
-                {(active === "Risk Assessment" ? riskFormFields : fields[active]).map((k) => (
+                {active === "Varlık Envanteri" ? <AssetInventoryFields form={form} id={editing?.id} tr={lang==="tr"} rows={readableRows}
+                  update={patch=>setForm(prev=>({...prev,...patch}))}
+                  field={key=><Field k={key} module={active} form={form} setForm={setForm} lang={lang} availableRows={readableRows}/>} />
+                 : (active === "Risk Assessment" ? riskFormFields : fields[active]).map((k) => (
                   <Field
                     key={k}
                     k={k}
@@ -2561,7 +2591,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
           module={active}
           lang={lang}
           title={names[lang][active]}
-          fields={active === "Risk Assessment" ? [...fields[active], "riskScope"] : fields[active]}
+          fields={active === "Risk Assessment" ? [...fields[active], "riskScope"] : active==="Varlık Envanteri" ? [...fields[active],"lifecycleStage","dependencyRefs","externalVendor"] : fields[active]}
           labels={labelMap[lang]}
           aliases={aliases}
           onClose={() => setImportOpen(false)}
@@ -2588,7 +2618,7 @@ function Field({
   setForm,
   lang,
   nameMode = false,
-  auditNames = [], riskAssets, riskControls,
+  auditNames = [], riskAssets, riskControls, availableRows = linkedRows,
 }: {
   k: string;
   module: string;
@@ -2597,11 +2627,11 @@ function Field({
   lang: Lang;
   nameMode?: boolean;
   auditNames?: string[];
-  riskAssets?: RiskRecordOptions; riskControls?: RiskRecordOptions;
+  availableRows?: Row[]; riskAssets?: RiskRecordOptions; riskControls?: RiskRecordOptions;
 }) {
   const scores = ["1", "2", "3", "4", "5"],
     yesNo = ["Evet", "Hayır"],
-    coverage = ["Kapsamda", "Kapsam Dışı", "Bilinmiyor"];
+    coverage = ["Kapsamda", "Kısmi", "Kapsam Dışı", "Uygulanamaz", "Bilinmiyor"];
   const select: Record<string, string[]> = {
     likelihood: scores,
     impact: scores,
@@ -2876,7 +2906,7 @@ function Field({
   if (k === "asset" || k === "processLink") {
     const retainedValues = [String(value)].filter(Boolean);
     const choices = linkedRecordOptions(
-      linkedRows.filter(r => r.module === (k === "asset" ? "Varlık Envanteri" : "BIA")),
+      availableRows.filter(r => r.module === (k === "asset" ? "Varlık Envanteri" : "BIA")),
       k === "asset" ? "title" : "process", retainedValues, lang === "tr",
     );
     const options = choices.map(choice => choice.value);
@@ -2928,7 +2958,7 @@ function Field({
   }
   return (
     <label className={wide ? "wide" : ""}>
-      {labelMap[lang][k]}
+      {module==="Varlık Envanteri" && k==="status" ? (lang==="tr"?"Yaşam Döngüsü":"Lifecycle") : labelMap[lang][k]}
       {k === "framework" && <span style={{display:"block",fontWeight:400}}>{getCatalogStatus(String(value))[lang]}</span>}
       {k === "framework" ? (
         <select
@@ -4891,7 +4921,7 @@ function defaultRegisterColumnKeys(module: string) {
   const compactDefaults:Record<string,string[]>={
     "Risk Assessment":["title","inherentRisk","residualRisk","status","owner","treatment"],
     BIA:["process","ownership","criticality","recovery","readiness","test","updatedAt"],
-    "Varlık Envanteri":["title","ownership","criticality","dataClassification","coverage","lifecycle","updatedAt"],
+    "Varlık Envanteri":["title","ownership","criticality","dataClassification","assetLinks","coverage","lifecycle","updatedAt"],
     Kontroller:["control","owner","frameworks","implementation","evidence","status","updatedAt"],
   };
   return compactDefaults[module] || (registerColumns[module] || []).map((column) => column.key);
@@ -5216,12 +5246,12 @@ function StatusPill({ value, lang }: { value: any; lang: Lang }) {
   );
 }
 function SmartCell({
-  module,
+  module, assetLinks,openAssetLinks,canReadAssetLinks,
   column,
   row,
   lang,
   viewEvidence,
-}: {
+}: AssetLinkActions & {
   module: string;
   column: string;
   row: Row;
@@ -5390,14 +5420,15 @@ function SmartCell({
     );
   }
   if (module === "Varlık Envanteri" && column === "title")
-    return (
-      <div className="stack title-stack">
-        <b>
-          {displayRecordCode(row)} · {d.title || "—"}
-        </b>
-        <small>{d.ip || d.location || ""}</small>
-      </div>
-    );
+    return <div className="stack title-stack"><b>{riskTitle(row)}</b>
+      <small>{[d.environment,d.assetType].filter(Boolean).map(value=>display(value,lang)).join(" · ")||"—"}</small></div>;
+  if (module === "Varlık Envanteri" && column === "assetLinks")
+    return <div className="asset-link-counts">{(["Risk Assessment","BIA"] as const).map(target=>{
+      const allowed=canReadAssetLinks?.(target),count=assetLinks?.get(row.id)?.[target].size??0;
+      const label=target==="BIA"?"BIA":tr?"Risk":count===1?"Risk":"Risks";
+      return allowed && openAssetLinks ? <button type="button" key={target} onClick={()=>openAssetLinks(row.id,target)}>{count} {label}</button>
+        : <span key={target}>{label} —</span>;
+    })}</div>;
   if (column === "assetType")
     return (
       <div className="stack">
@@ -5425,24 +5456,21 @@ function SmartCell({
         <span className="ok">
           {tr ? "B" : "I"} {d.integrityRating || "—"}
         </span>
-        <span className="ok">E {d.availabilityRating || "—"}</span>
+        <span className="ok">{tr ? "E" : "A"} {d.availabilityRating || "—"}</span>
       </div>
     );
   if (column === "coverage")
-    return (
-      <div className="readiness">
-        {[
-          ["EDR", d.edrStatus],
-          ["SIEM", d.siemStatus],
-          [tr ? "Yedek" : "Backup", d.backupStatus],
-          [tr ? "Tarama" : "Scan", d.vulnScan],
-        ].map(([x, v]) => (
-          <span key={x} className={v === "Kapsamda" ? "ok" : "miss"}>
-            {x}
-          </span>
-        ))}
-      </div>
-    );
+    return <div className="asset-coverage">{[["EDR",d.edrStatus],["SIEM",d.siemStatus],[tr?"Yedek":"Backup",d.backupStatus],[tr?"Tarama":"Scan",d.vulnScan]].map(([label,value])=>{
+      const state=assetCoverage(value);
+      const status=state==="covered"?(tr?"Kapsamda":"Covered"):state==="gap"?(tr?"Kapsam dışı":"Not covered"):state==="partial"?(tr?"Kısmi":"Partial"):state==="na"?(tr?"Uygulanamaz":"Not applicable"):(tr?"Bilinmiyor":"Unknown");
+      return <span key={label} data-state={state} title={label+" · "+status}><span aria-hidden="true">{state==="covered"?"✓":state==="gap"?"!":state==="partial"?"◐":"—"} </span>{label}<span className="asset-sr-only"> · {status}</span></span>;
+    })}</div>;
+  if (module==="Varlık Envanteri" && column==="vendor") {
+    if (d.externalVendor || !d.vendor) return String(d.externalVendor || "—");
+    const vendor = linkedRows.find(item=>item.module==="Tedarikçiler" && (item.id===d.vendor || item.code===d.vendor));
+    if (vendor) return [vendor.data.title,vendor.code].filter(Boolean).join(" · ") || "—";
+    return isLegacyTechnicalRecordId(String(d.vendor)) ? "—" : String(d.vendor);
+  }
   if (column === "lifecycle")
     return (
       <div className="stack">
@@ -5568,8 +5596,12 @@ function EvidencePreview({
   );
 }
 
+type AssetLinkActions = {
+  assetLinks?: Map<string,AssetLinks>; openAssetLinks?: (id:string,module:AssetTarget)=>void;
+  canReadAssetLinks?: (module:AssetTarget)=>boolean;
+};
 function SmartRegister({
-  evidenceAssessment,
+  evidenceAssessment, assetLinks,openAssetLinks,canReadAssetLinks,
   module,
   rows,
   lang,
@@ -5581,7 +5613,7 @@ function SmartRegister({
   columns,
   canWrite = true,
   canDelete = false,
-}: {
+}: AssetLinkActions & {
   evidenceAssessment?: EvidenceRegisterAssessment;
   module: string;
   rows: Row[];
@@ -5660,7 +5692,7 @@ function SmartRegister({
                   column={c.key}
                   row={r}
                   lang={lang}
-                  viewEvidence={viewEvidence}
+                  viewEvidence={viewEvidence} assetLinks={assetLinks} openAssetLinks={openAssetLinks} canReadAssetLinks={canReadAssetLinks}
                 />}
               </td>
             ))}

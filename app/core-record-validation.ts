@@ -1,3 +1,4 @@
+import { assetLifecycle, assetStatuses } from "./asset-inventory-model";
 import { assessedResidualRiskScore } from "./risk-methodology";
 import { isResidualRiskGoverned } from "./risk-governance-write";
 import { assuranceRiskLevel } from "./assurance-governance";
@@ -18,7 +19,7 @@ const riskAssessmentFields=["category","businessUnit","inherentLikelihood","inhe
 const allowedStatuses:Record<ModuleName,string[]>={
  "Risk Assessment":["Açık","Değerlendiriliyor","Aksiyon Devam Ediyor","Kabul Edildi","Kapalı"],
  BIA:["Taslak","İncelemede","Onaylandı","Aktif","Arşivlendi"],
- "Varlık Envanteri":["Aktif","Bakımda","Devre Dışı","Arşivlendi"],
+ "Varlık Envanteri":assetStatuses,
  Uyum:["Uyumlu","Kısmi Uyumlu","Uyumlu Değil","Uygulanamaz"],
  Tedarikçiler:["Aktif","İncelemede","Askıda","Sonlandırıldı"],
  Kontroller:["Taslak","Aktif","İyileştirme Gerekli","Devre Dışı"],
@@ -41,6 +42,11 @@ export function normalizeRecordData(module:unknown,input:Data){
   if(data.status==="Devam Ediyor")data.status="Aksiyon Devam Ediyor";
   if(data.status==="İzlemede")data.status="Değerlendiriliyor";
   if(!data.status)data.status="Değerlendiriliyor";
+ }
+ if(module==="Varlık Envanteri"){
+  data.status=assetLifecycle(data);delete data.lifecycleStage;
+  if(typeof data.dependencyRefs==="string")data.dependencyRefs=data.dependencyRefs.split(/[;,|\n]+/).map(v=>v.trim()).filter(Boolean);
+  if(Array.isArray(data.dependencyRefs))data.dependencyRefs=[...new Set(data.dependencyRefs)];
  }
  if(module==="BIA"){if(!data.processCategory)data.processCategory="Operasyonel Süreç";if(!data.status)data.status="Aktif"}
  if(module==="Uyum"){if(data.status==="Kısmi")data.status="Kısmi Uyumlu";if(data.status==="Uyumsuz")data.status="Uyumlu Değil"}
@@ -67,6 +73,7 @@ export function validate(module:unknown,input:unknown){
  const data=normalizeRecordData(module,cleaned);
  const independentRisk=module==="Risk Assessment" && data.riskScope==="organization";
  if(independentRisk && String(data.asset??"").trim())return {error:"Varlıktan bağımsız bir riskte varlık seçilemez."};
+ if(module==="Varlık Envanteri" && data.dependencyRefs!==undefined && (!Array.isArray(data.dependencyRefs) || data.dependencyRefs.some(ref=>typeof ref!=="string" || !ref.trim() || ref.length>120)))return {error:"Geçersiz varlık veya BIA bağlantısı."};
  const missing=required[module].filter(key=>!(independentRisk && key==="asset")).filter(key=>data[key]===undefined||data[key]===null||data[key]==="");
  if(missing.length)return {error:`Zorunlu alanlar eksik: ${missing.join(", ")}`};
  if(!allowedStatuses[module].includes(String(data.status)))return {error:"Geçersiz operasyon durumu."};

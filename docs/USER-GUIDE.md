@@ -70,6 +70,12 @@ Risk Assessment içinde riskin kapsamını, sahibini ve değerlendirmesini kayde
 
 Kontrollerde yaşam döngüsü ile uygulama etkinliği ayrı durumlardır. Kontrolü ilgili gereksinim ve kanıtla bağlayın; boşluk veya bulguyu ilgili aksiyon/CAPA akışında takip edin. Bağlantılı GRC eksik referansları incelemek için kullanılır; ilişki bulunması tek başına kontrol etkinliği kanıtı değildir.
 
+### Varlık envanteri
+
+Varlık formunda sahibi dizinden seçin ve yaşam döngüsünü belirleyin. **Gelişmiş alanları göster** içinde sınıflandırma ve CIA değerleri, altyapı, güvenlik kapsamı ve bağlantılar ayrı bölümlerdedir. Tedarikçiyi dizinden seçebilir veya kayıtlı olmayan üreticinin adını girebilirsiniz. Kritik bağımlılık olarak başka varlıkları veya BIA kayıtlarını seçin.
+
+Tabloda **Risk / BIA Bağı** altındaki sayılara tıklayarak ilgili kayıtları açın. Güvenlik kapsamında ✓ kapsanan, ! kapsam dışı, — ise durumu bilinmeyen kontrolleri gösterir.
+
 ### Risk kaydı ve artık risk
 
 **Risk Değerlendirmesi → Yeni / Düzenle** içinde sahibi dizinden seçtiğinizde adı ve e-postası birlikte kaydolur. Harici bir sorumlu için **Sistem dışı sorumlu gir** seçeneğini kullanın. Varlıkları ad veya kodla arayabilirsiniz. **Kurum Düzeyi Risk** seçimi formdaki varlık bağlantılarını temizler.
