@@ -82,6 +82,11 @@ for(const [moduleName,label,key] of [['Risk Assessment','Risk Assessment','title
    return matches[0].record_code||matches[0].recordCode||matches[0].id;
   }).join(', ');
  }
+ if(moduleName==='Varlık Envanteri'){
+  const contact=dialog.getByRole('combobox',{name:'Owner · search name or email',exact:true});
+  await contact.fill(owner);
+  await dialog.getByRole('listbox',{name:'Owner · search name or email'}).getByRole('option',{name:new RegExp(owner)}).click();
+ }
  const inputs=dialog.locator('input[name]:not([type=hidden]),textarea[name],select[name]');
  for(let i=0;i<await inputs.count();i++){const input=inputs.nth(i),name=await input.getAttribute('name'),tag=await input.evaluate(e=>e.tagName),value=data[name];if(value===undefined||value===null)continue;
  if(tag==='SELECT'){
