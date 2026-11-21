@@ -23,7 +23,7 @@ export function businessContext(anchor:Row,links:ConnectedGrcLink[]) {
   const origin=stage(anchor);
   const result=new Map<Stage,Map<string,ContextNode>>(stages.map(s=>[s,new Map()]));
   if (origin) {
-    const edges=links.filter(link=>["risk-asset","risk-process","continuity-process","continuity-bia"].includes(link.relation));
+    const edges=links.filter(link=>["risk-asset","risk-process","asset-dependency","continuity-process","continuity-bia"].includes(link.relation));
     const index=indexTrailLinks(edges);
     result.get(origin)!.set(anchor.id,{row:anchor,via:[]});
     for (const route of routes[origin]) {

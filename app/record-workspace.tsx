@@ -86,6 +86,7 @@ export default function RecordWorkspace({ rows, visible, lang, moduleNames, form
   }
   const showChain = !!selected && hasAssuranceChain(selected);
   const business = !!selected && hasBusinessContext(selected);
+  const assetDependencies = selected?.module==="Varlık Envanteri" ? graph?.links.filter(link=>link.field==="dependencyRefs" && link.source.id===selected.id).map(link=>link.target) || [] : [];
   const otherLinks = Array.from(linked.values()).filter(row => (!showChain || !hasAssuranceChain(row)) && !(business && hasBusinessContext(row)));
   const data = selected?.data || {};
   const riskScore = selected?.module === "Risk Assessment" ? assessedRiskScore(data) : null;
@@ -93,7 +94,8 @@ export default function RecordWorkspace({ rows, visible, lang, moduleNames, form
     [tr ? "Doğal risk puanı" : "Inherent risk score", riskScore === null ? null : String(riskScore)],
     ...(selected?.module === "Risk Assessment" ? [[tr ? "Artık risk puanı" : "Residual risk score", String(assessedResidualRiskScore(data) ?? "—")]] : []),
     [tr ? "Sorumlu" : "Owner", data.owner || data.auditOwner],
-    [tr ? "Durum" : "Status", data.status],
+    [selected?.module==="Varlık Envanteri" ? (tr?"Yaşam Döngüsü":"Lifecycle") : (tr?"Durum":"Status"), data.status],
+    [tr?"Üretici":"Manufacturer",selected?.module==="Varlık Envanteri" && data.externalVendor],
     [tr ? "İş birimi" : "Business unit", data.businessUnit],
     [tr ? "Sonraki inceleme" : "Next review", data.nextReview],
     [tr ? "Sürüm" : "Version", selected?.module === "Kanıtlar" && (Number(data.versionNo) > 0 ? 'v' + data.versionNo : (tr ? "Sürüm kaydı yok" : "No version recorded"))],
@@ -128,6 +130,8 @@ export default function RecordWorkspace({ rows, visible, lang, moduleNames, form
         {showChain && graph && <AssuranceChain key={selected.id} inspector anchor={selected} links={graph.links} lang={lang} trail={path} openRecord={row => follow(row.id)}/>}
         {!showChain && !business && graph && <RecordTrail key={selected.id} root={selected} links={graph.links} lang={lang}
           label={module => moduleNames[module] || module} openRecord={row => follow(row.id)}/>}
+        {assetDependencies.length>0 && <section><h4>{tr?"Kritik bağımlılıklar":"Critical dependencies"}</h4><div className="asset-link-counts">
+          {assetDependencies.map(row=><button key={row.id} type="button" onClick={()=>follow(row.id)}>{connectedTitle(row)}{row.code && row.code!==row.id ? " · "+row.code : ""}</button>)}</div></section>}
         <dl>{facts.map(([label, value]) => <div key={String(label)}><dt>{String(label)}</dt><dd>{formatValue(String(value), lang)}</dd></div>)}</dl>
         {selected.data.kind === "continuity-plan" && Array.isArray(data.canonicalRefs) && typeof data.canonicalRefs[0] === "string" &&
           <button type="button" className="secondary" onClick={()=>navigateToFornost({module:"İş Sürekliliği",kind:"continuity-plan",ref:String((data.canonicalRefs as string[])[0])})}>{tr?"Süreklilik planını aç":"Open continuity plan"} →</button>}

@@ -9,7 +9,7 @@ type Option = { value: string; label: string; search?: string };
 type Props = { tr: boolean; form: Record<string, unknown>; update: (patch: Record<string,string>) => void };
 type DirectoryPerson = { name: string; email: string };
 
-function ChoiceInput({ label, options, query, onQuery, choose, tr, required, pending, message, more }: {
+export function ChoiceInput({ label, options, query, onQuery, choose, tr, required, pending, message, more }: {
   label: string; options: Option[]; query: string; onQuery: (text: string) => void;
   choose: (value: string) => void; tr: boolean; required?: boolean; pending?: boolean; message?: string; more?: boolean;
 }) {
@@ -105,12 +105,12 @@ export function RiskAssets({form,update,catalog,tr}: Props & { catalog: RiskReco
   </fieldset>;
 }
 
-export function RiskPerson({tr,form,update,field}: Props & {field:"owner"|"actionOwner"}) {
+export function RiskPerson({tr,form,update,field,asset=false}: Props & {field:"owner"|"actionOwner";asset?:boolean}) {
   const [query,setQuery]=useState("");
   const emailKey=field==="owner"?"ownerEmail":"actionOwnerEmail", sourceKey=field+"Source";
   const name=String(form[field]||""), email=String(form[emailKey]||"");
   const manual=form[sourceKey]==="external" || (!form[sourceKey] && Boolean(name||email));
-  const directory=useChoices<{people?:DirectoryPerson[];complete?:boolean}>(manual?null:"/api/grc/risk-owners?q="+encodeURIComponent(query));
+  const directory=useChoices<{people?:DirectoryPerson[];complete?:boolean}>(manual?null:"/api/grc/risk-owners?"+(asset?"module=asset&":"")+"q="+encodeURIComponent(query));
   const people=directory.data.people || [], label=field==="owner"?(tr?"Sahibi":"Owner"):(tr?"Aksiyon Sahibi":"Action owner");
   function changeMode() { setQuery(""); update({[sourceKey]:manual?"directory":"external",[field]:"",[emailKey]:""}); }
   return <fieldset className="risk-editor-group" data-form-group={field==="owner"?"core":"advanced"}>
