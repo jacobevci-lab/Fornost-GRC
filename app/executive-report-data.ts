@@ -35,11 +35,14 @@ export function evidenceRenewals(rows: AssuranceRow[], now: number) {
 export function reportRiskBand(score: number) {
   return score >= 17 ? "critical" : score >= 10 ? "high" : score >= 5 ? "medium" : "low";
 }
+export function validMatrixCoordinates(data:AssuranceRow["data"]) {
+  return [Number(data.inherentLikelihood || data.likelihood),effectiveImpact(data)].every(value=>Number.isInteger(value) && value>=1 && value<=5);
+}
 export function riskMatrixEntries(rows: AssuranceRow[]) {
   return rows.filter(row => row.module === "Risk Assessment" && isRiskAssessed(row.data)).flatMap(row => {
     const likelihood = Number(row.data.inherentLikelihood || row.data.likelihood);
     const impact = effectiveImpact(row.data);
-    if (![likelihood,impact].every(value => Number.isInteger(value) && value >= 1 && value <= 5)) return [];
+    if (!validMatrixCoordinates(row.data)) return [];
     return [{row,likelihood,impact,score:likelihood*impact}];
   }).sort((a,b) => b.score-a.score || a.row.id.localeCompare(b.row.id));
 }

@@ -6,12 +6,6 @@ const executivePanel = readFileSync("app/executive-assurance-panel.tsx", "utf8")
 const attention = readFileSync("app/continuous-assurance-attention.tsx", "utf8");
 const loader = readFileSync("app/assurance-attention-loader.ts", "utf8");
 
-test("executive dashboard reuses the authoritative Continuous Assurance attention surface", () => {
-  assert.match(executivePanel, /import ContinuousAssuranceAttention from "\.\/continuous-assurance-attention"/);
-  assert.match(executivePanel, /<ContinuousAssuranceAttention lang=\{lang\}\/>/);
-  assert.equal((executivePanel.match(/<ContinuousAssuranceAttention /g) || []).length, 1);
-});
-
 test("dashboard attention remains grounded in operational insights rather than executive score inference", () => {
   assert.match(attention, /readAttentionSnapshot\(controller.signal\)/);
   assert.match(loader, /\/api\/evidence-automation\/operations-insights/);
@@ -26,11 +20,7 @@ test("dashboard attention remains grounded in operational insights rather than e
   assert.doesNotMatch(executivePanel, /criticalConnectors|watchConnectors|evidenceGapRules/);
 });
 
-test("executive dashboard does not replace existing assurance, delivery or auditor surfaces", () => {
-  assert.match(executivePanel, /buildExecutiveAssurance/);
-  assert.match(executivePanel, /\/api\/continuous-assurance\/executive/);
-  assert.match(executivePanel, /\/api\/continuous-assurance\/notifications/);
-  assert.match(executivePanel, /\/api\/continuous-assurance\/auditor-pack/);
-  assert.match(executivePanel, /OWNER ACCOUNTABILITY/);
-  assert.match(executivePanel, /DELIVERY &amp; SLA/);
+test("dashboard loads the verified executive snapshot without opening notification history", () => {
+  assert.match(executivePanel, /useExecutiveAssurance\(rows\)/);
+  assert.doesNotMatch(executivePanel, /ContinuousAssuranceAttention|continuous-assurance\/notifications/);
 });

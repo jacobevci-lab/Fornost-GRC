@@ -125,9 +125,9 @@ function Program({name,enrolled,initialRef,counts,onSaved,...props}:WorkspacePro
   </div>;
 }
 
-export function FrameworkWorkspace(props:WorkspaceProps) {
+export function FrameworkWorkspace(props:WorkspaceProps & {initialProgram?:string}) {
   const {tr,write}=props;
-  const [revision,refresh]=useState(0),[selected,select]=useState(''),[choice,setChoice]=useState('');
+  const [revision,refresh]=useState(0),[selected,select]=useState(props.initialProgram || ''),[choice,setChoice]=useState('');
   const [adding,setAdding]=useState(false),[busy,setBusy]=useState(false),[failed,setFailed]=useState(false);
   const [target,setTarget]=useState({ref:'',revision:0});
   const addTrigger=useRef<HTMLButtonElement>(null);
@@ -157,11 +157,11 @@ export function FrameworkWorkspace(props:WorkspaceProps) {
       {write&&available.length>0&&<button className="primary workspace-create" ref={addTrigger} type="button" aria-expanded={adding} onClick={()=>{setChoice(available.includes(active)?active:available[0]);setFailed(false);setAdding(!adding);}}>{tr?'Çerçeve ekle':'Add framework'}</button>}</div>
       {!names.length&&<p className="posture-empty">{tr?'Kapsamda çerçeve yok.':'No frameworks in scope.'}</p>}
       {names.length>0&&<div className="posture-strip" style={{'--posture-columns':Math.min(6,names.length)} as CSSProperties} role="group" aria-label={tr?'Çerçeveler':'Frameworks'}>{names.map(name=>{
-        const totals=data.coverage[name],percent=totals?.scope?Math.round(100*totals.compliant/totals.scope):null;
+        const totals=data.coverage[name],percent=totals?.scope && totals.assessed?Math.round(100*totals.compliant/totals.scope):null;
         const gaps=data.comparison?.[name];
         return <div key={name} className="posture-column"><button className="posture-column-head" type="button" aria-pressed={active===name} title={name+(totals?' · '+totals.compliant+'/'+totals.scope:'')} onClick={()=>{select(name);setTarget({ref:'',revision:target.revision+1});setAdding(false);}}>
           <span><strong>{preferred[name]||name}</strong>{percent!==null&&<b className="posture-ring" style={{backgroundImage:`conic-gradient(var(--ws-brand) ${percent}%, var(--ws-line) 0)`}}><span>{tr?'%'+percent:percent+'%'}</span></b>}</span>
-          {percent!==null?<small>{totals.compliant}/{totals.scope} {tr?'uyumlu':'compliant'}</small>:<small>{totals?(tr?'Kapsamda madde yok':'No items in scope'):(tr?'Katalogda':'In catalog')}</small>}
+          {percent!==null?<small>{totals.compliant}/{totals.scope} {tr?'uyumlu':'compliant'}</small>:<small>{totals?.scope?(tr?'Değerlendirme bekleniyor':'Awaiting assessment'):totals?(tr?'Kapsamda madde yok':'No items in scope'):(tr?'Katalogda':'In catalog')}</small>}
         </button>
         {gaps&&<div className="posture-column-gaps">
           <small>{gaps.openCount} {tr?'açık madde':'open requirements'}</small>

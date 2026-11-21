@@ -21,13 +21,14 @@ type Props = {
   moduleNames: Record<string, string>;
   formatValue: (value: string, lang: "tr" | "en") => string;
   allowPosture?:boolean;
+  initialRecordId?:string;
   preview: (id: string) => void;
   children: (inspect: Inspect, open: boolean) => ReactNode;
 };
 
-export default function RecordWorkspace({ rows, visible, lang, moduleNames, formatValue, preview, allowPosture, children }: Props) {
+export default function RecordWorkspace({ rows, visible, lang, moduleNames, formatValue, preview, allowPosture, initialRecordId, children }: Props) {
   const tr = lang === "tr";
-  const [path, setPath] = useState<string[]>([]);
+  const [path, setPath] = useState<string[]>(() => initialRecordId ? [initialRecordId] : []);
   const [origin, setOrigin] = useState<{ rowId: string; button: HTMLButtonElement; x: number; y: number; tableLeft: number } | null>(null);
   const title = useRef<HTMLHeadingElement>(null);
   const root = visible.find(row => row.id === path[0]);

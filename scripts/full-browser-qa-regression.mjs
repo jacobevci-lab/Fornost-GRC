@@ -110,20 +110,18 @@ try {
     assert.equal(navigation.filter(item => item.language === language).length, 27);
   }
 
-  // Long operational status badges must not squeeze dashboard headings into vertical letters on phones.
+  // Priority filters and records fit the mobile dashboard in both languages.
   for (const language of ['tr', 'en']) {
     await locale(language); await openModule(language === 'tr' ? 'Gösterge Paneli' : 'Dashboard');
     for (const theme of ['light', 'dark']) {
       if (await page.locator('html').getAttribute('data-theme') !== theme) await page.locator('.theme-toggle:visible').click();
       for (const width of [360, 390]) {
         await page.setViewportSize({ width, height: 960 });
-        const summary = page.locator('.executive-operational-detail>summary');
-        await expect(summary).toBeVisible();
-        const title = await summary.locator(':scope>span').first().boundingBox();
-        const badge = await summary.locator(':scope>span').nth(1).boundingBox();
-        assert.ok(title.width >= 180 && title.height < 130, 'Mobile operational heading retains readable width');
-        assert.ok(badge.y >= title.y + title.height - 1, 'Operational status is placed below its mobile heading');
-        await summary.screenshot({ path: `${out}/dashboard-operational-${language}-${theme}-${width}.png` });
+        const queue = page.locator('.priority-actions');
+        await expect(queue.getByRole('heading')).toBeVisible();
+        await expect(queue.locator('.priority-tabs button')).toHaveCount(4);
+        assert.ok(await queue.evaluate(el=>el.scrollWidth<=el.clientWidth+1),'Mobile queue fits its card');
+        await queue.screenshot({ path: out+'/dashboard-queue-'+language+'-'+theme+'-'+width+'.png' });
       }
     }
     await page.setViewportSize({ width: 1536, height: 960 });

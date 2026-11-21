@@ -68,17 +68,9 @@ test("auditor pack is hash-addressed and distinguishes transport acceptance from
  assert.match(pack,/Notification delivery audit/);
 });
 
-test("dashboard executive panel surfaces operations delivery posture and auditor export",()=>{
- const panel=readFileSync("app/executive-assurance-panel.tsx","utf8");
- assert.match(panel,/\/api\/continuous-assurance\/executive/);
- assert.match(panel,/\/api\/continuous-assurance\/notifications/);
- assert.match(panel,/\/api\/continuous-assurance\/auditor-pack/);
- assert.match(panel,/ownerCoverage/);
- assert.match(panel,/overdueRiskReviews/);
- assert.match(panel,/mandatoryRetests/);
- assert.match(panel,/queuedNotifications/);
- assert.match(panel,/slaBreaches/);
- assert.match(panel,/30d transport sent/);
- assert.match(panel,/deliveryRate30d/);
- assert.match(panel,/retryExhausted/);
+test("dashboard links the auditor pack and keeps methodology visible",()=>{
+ const panel=readFileSync("app/executive-dashboard-reference.tsx","utf8");
+ assert.ok(panel.includes("/api/continuous-assurance/auditor-pack"));
+ assert.ok(panel.includes("Canlı GRC verisinden hesaplanır"));
+ assert.ok(panel.includes("DashboardActionQueue"));
 });

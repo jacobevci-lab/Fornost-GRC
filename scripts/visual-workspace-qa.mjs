@@ -25,40 +25,14 @@ const metricSize = locator => expect.poll(async () => locator.first().evaluate(e
 try {
   const auth = await context.request.post(base + '/api/auth', { headers: { origin: base }, data: { action: 'login', email: 'qa-admin@fornost.test', password: qaPassword() } });
   assert.equal(auth.status(), 200);
-  let notificationReads=0, notificationMode='hold'; const delayed=[];
-  await page.route('**/api/continuous-assurance/notifications',async route=>{
-    notificationReads++;
-    if(notificationMode==='hold') await new Promise(resolve=>delayed.push(resolve));
-    if(notificationMode==='invalid') return route.fulfill({status:200,contentType:'application/json',body:'{}'});
-    await route.continue().catch(()=>{});
-  });
-  await page.goto(base); await expect(page.locator('.shell')).toBeVisible();
-  await page.locator('.language-switch:visible').getByRole('button',{name:'EN',exact:true}).click();
-  await expect(page.locator('.evidence-assurance-status')).not.toHaveAttribute('data-state','loading');
-  const detail=page.locator('.executive-operational-detail');
-  assert.equal(notificationReads,0,'Collapsed operational details do not request notification history');
-  await detail.locator(':scope>summary').click();
-  await expect(detail.locator('.executive-operational-detail-body')).toHaveAttribute('aria-busy','true');
-  await expect(detail).toContainText('Some operational data could not be loaded.',{timeout:20000});
-  await expect(detail.locator('.executive-operational-detail-body')).toHaveAttribute('aria-busy','false');
-  await expect(detail.locator('.executive-owner-accountability')).toBeVisible();
-  await expect(detail.locator('.executive-delivery-posture')).toHaveCount(0);
-  for(const locale of ['EN','TR']){await page.locator('.language-switch:visible').getByRole('button',{name:locale,exact:true}).click();await page.setViewportSize({width:390,height:935});assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+4));await detail.screenshot({path:`${out}/operational-timeout-${locale}.png`});}
-  await page.locator('.language-switch:visible').getByRole('button',{name:'EN',exact:true}).click();await page.setViewportSize({width:1365,height:935});
-  notificationMode='live';for(const release of delayed)release();
-  await detail.getByRole('button',{name:'Retry',exact:true}).click();
-  await expect(detail.locator('.executive-delivery-posture')).toBeVisible();
-  await expect(detail).not.toContainText('Some operational data could not be loaded.');
-  assert.equal(notificationReads,2);
-  await detail.locator(':scope>summary').click();await expect(detail.locator('.executive-operational-detail-body')).toHaveCount(0);
-  notificationMode='invalid';await detail.locator(':scope>summary').click();await expect(detail).toContainText('Some operational data could not be loaded.');await expect(detail.locator('.executive-delivery-posture')).toHaveCount(0);
-  notificationMode='live';await detail.getByRole('button',{name:'Retry',exact:true}).click();await expect(detail.locator('.executive-delivery-posture')).toBeVisible();
-  await detail.locator(':scope>summary').click();
-  notificationMode='hold';await detail.locator(':scope>summary').click();await expect.poll(()=>notificationReads).toBe(5);
-  await detail.locator(':scope>summary').click();await expect(detail.locator('.executive-operational-detail-body')).toHaveCount(0);await expect(detail).not.toContainText('Loading operational data');
-  notificationMode='live';for(const release of delayed)release();await detail.locator(':scope>summary').click();await expect(detail.locator('.executive-delivery-posture')).toBeVisible();assert.equal(notificationReads,6);
-  await detail.locator(':scope>summary').click();await page.unroute('**/api/continuous-assurance/notifications');
-  checks.push('Collapsed operational detail avoids notification reads; real timeout, partial-source honesty, bilingual mobile error, retry and malformed-response recovery');
+  let notificationReads=0;
+  page.on('request', request=>{if(new URL(request.url()).pathname==='/api/continuous-assurance/notifications')notificationReads++;});
+  await page.goto(base);
+  const queue = page.locator('.priority-actions');
+  await expect(queue.getByRole('heading')).toBeVisible();
+  await expect(page.locator('.executive-operational-detail')).toHaveCount(0);
+  assert.equal(notificationReads,0);
+  checks.push('Dashboard renders the priority queue without fetching operational notification history');
 
   for (const locale of ['tr', 'en']) {
     await page.locator('.language-switch:visible').getByRole('button', { name: locale.toUpperCase(), exact: true }).click();
@@ -72,7 +46,10 @@ try {
     await expect(assessment.locator('.evidence-assurance-copy strong')).toHaveText(/\S/);
     await assessment.locator(':scope>summary').click();
     assert.equal(await page.locator('.executive-dashboard-reference').getByText(tr ? 'Geciken denetim' : 'Overdue audits', { exact: true }).count(), 0);
-    await expect(page.locator('.audit-remediation-panel')).toContainText(tr ? 'Geciken denetim maddesi' : 'Overdue audit requirements');
+    const auditSummary = page.locator('.audit-remediation-panel');
+    await expect(auditSummary).toContainText(tr ? 'hazır denetim' : 'audits ready');
+    await expect(auditSummary).not.toContainText(tr ? 'Geciken denetim maddesi' : 'Overdue audit requirements');
+    await expect(queue.getByRole('button', { name: tr ? 'Açık Bulgular & CAPA' : 'Open Findings & CAPA', exact: true })).toBeVisible();
     for (const theme of ['light', 'dark']) {
       if (await page.locator('html').getAttribute('data-theme') !== theme) await page.locator('.theme-toggle:visible').click();
       for (const width of [1365, 768, 390]) {
@@ -133,7 +110,7 @@ try {
   checks.push('KRI overview count and nested modal visibility at three widths');
   await open('System Settings');
   const settingsTabs = page.locator('.settings-subnav>button');
-  await expect(settingsTabs).toHaveCount(3);
+  await expect(settingsTabs).toHaveText(['General Settings', 'System Status', 'Change History', 'Appearance']);
   assert.equal(new Set(await settingsTabs.evaluateAll(es=>es.map(e=>e.getBoundingClientRect().y))).size,1,'Settings sections share a compact horizontal rail');
   await page.route('**/api/ai/status',route=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({configured:false,enabled:false,operatingState:'ready',operatingMessage:'',capabilities:{chat:true}})}));
   await open('AI Settings');

@@ -5,7 +5,7 @@ import EvidenceAssuranceStatus from './evidence-assurance-status';
 import { assessmentStateText } from './evidence/assessment-labels';
 import { isOverdueAuditRequirement } from "./audit-overdue-requirements";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   buildExecutiveAssurance,
 } from "./executive-assurance";
@@ -16,8 +16,13 @@ import NavIcon from "./nav-icon";
 import ExecutiveDecisionQueue, { orderDecisions, type DecisionQueueHandle } from "./executive-decision-queue";
 import { useDashboardDecisionCounts } from "./use-dashboard-decision-counts";
 import DashboardHeaderActions, { useDashboardView, PANEL_ORDER } from "./dashboard-customizer";
-import { RenewalChart, ReportMatrix } from "./executive-report-charts";
-import { reportRiskBand } from "./executive-report-data";
+import { ReportMatrix } from "./executive-report-charts";
+import { DashboardActionQueue } from "./dashboard-action-queue";
+import { frameworkPortfolio } from "./dashboard-actions";
+import { usePosture } from "./framework-posture/client";
+import type { Overview } from "./framework-posture/types";
+import type { DashboardRoutes } from "./executive-assurance-panel";
+import { reportRiskBand, validMatrixCoordinates } from "./executive-report-data";
 import { peekPendingFornostFocus } from "./navigation-focus";
 import "./executive-assurance.css";
 import "./executive-report.css";
@@ -44,9 +49,6 @@ const isClosed = (value: unknown) => [
   "kabul edildi",
 ].includes(normalized(value));
 const riskBand = reportRiskBand;
-const frameworkName = (row: AssuranceRow, fallback: string) =>
-  clean(row.data.framework || row.data.frameworkName || row.data.standard || row.data.regulation || row.data.catalog || fallback);
-
 function MiniBar({ value, tone = "neutral" }: { value: number; tone?: PanelRow["tone"] }) {
   const safe = Math.max(0, Math.min(100, value));
   return <i className={`executive-mini-bar ${tone}`}><em style={{ width: `${safe}%` }} /></i>;
@@ -56,12 +58,11 @@ export default function ExecutiveAssurancePanel({
   rows,
   evidenceState,
   lang,
-  go,
-}: {
+  go, drill, upload,
+}: DashboardRoutes & {
   rows: AssuranceRow[];
   evidenceState: ReturnType<typeof useExecutiveAssurance>;
   lang: "tr" | "en";
-  go: (module: string) => void;
 }) {
   const tr = lang === "tr";
   const view = useDashboardView();
@@ -76,7 +77,7 @@ export default function ExecutiveAssurancePanel({
   const compliance = useMemo(() => rows.filter((row) => row.module === "Uyum"), [rows]);
   const audits = useMemo(() => rows.filter((row) => row.module === "Denetim Yönetimi"), [rows]);
 
-  const scoredRisks = useMemo(() => risks.flatMap((row) => { const score = assessedRiskScore(row.data); return score === null ? [] : [{ row, score }]; }), [risks]);
+  const scoredRisks = useMemo(() => risks.flatMap((row) => { const score = assessedRiskScore(row.data); return score === null || !validMatrixCoordinates(row.data) ? [] : [{ row, score }]; }), [risks]);
   const riskBands = useMemo(() => ({
     critical: scoredRisks.filter((item) => riskBand(item.score) === "critical").length,
     high: scoredRisks.filter((item) => riskBand(item.score) === "high").length,
@@ -86,6 +87,9 @@ export default function ExecutiveAssurancePanel({
   const highRisks = riskBands.critical + riskBands.high;
   const percent = (value: number | null, total: number) => total && value !== null ? new Intl.NumberFormat(tr?"tr-TR":"en-GB",{style:"percent",maximumFractionDigits:0}).format(value/100) : "—";
   const confidencePercent = (value: number | null, total: number, ready = evidenceState.evidenceReady) => ready ? percent(value, total) : "—";
+  const assessedAudits = evidenceState.auditPortfolio?.audits.filter(audit => audit.verified && audit.gate !== "empty").length ?? 0;
+  const freshnessKnown = evidenceState.evidenceReady && evidenceState.rows.filter(row => row.module === "Kanıtlar")
+    .every(row => Boolean(String(row.data.status ?? "").trim()));
   const unassessedRisks = risks.length - scoredRisks.length;
 
   const openFindings = typeof counts.findings === "number"
@@ -97,26 +101,20 @@ export default function ExecutiveAssurancePanel({
   const overdueAuditRows = audits.filter(row => isOverdueAuditRequirement(row.data, now));
   const overdueAudits = overdueAuditRows.length;
 
-  const complianceStats = useMemo(() => {
-    const grouped = new Map<string, { total: number; compliant: number }>();
-    compliance.forEach((row) => {
-      const framework = frameworkName(row, tr ? "Genel Uyum" : "General Compliance");
-      const current = grouped.get(framework) || { total: 0, compliant: 0 };
-      current.total += 1;
-      if (["uyumlu", "compliant", "implemented", "uygulandı", "onaylandı", "approved"].includes(normalized(row.data.status || row.data.implementation))) current.compliant += 1;
-      grouped.set(framework, current);
-    });
-    return [...grouped.entries()]
-      .map(([name, value]) => ({ name, total: value.total, score: value.total ? Math.round((value.compliant / value.total) * 100) : 0 }))
-      .sort((a, b) => b.total - a.total)
-      .slice(0, 5);
-  }, [compliance, tr]);
-
-  const complianceTotal = compliance.length;
-  const compliantTotal = compliance.filter((row) => ["uyumlu", "compliant", "implemented", "uygulandı", "onaylandı", "approved"].includes(normalized(row.data.status || row.data.implementation))).length;
-  const complianceScore = complianceTotal ? Math.round((compliantTotal / complianceTotal) * 100) : 0;
+  const [overviewRevision,refreshOverview]=useState(0);
+  const overview=usePosture<Overview>({overview:"1"},overviewRevision);
+  useEffect(() => {
+    const refresh = () => { if (document.visibilityState === "visible") refreshOverview(n => n + 1); };
+    window.addEventListener("focus", refresh);
+    const timer = window.setInterval(refresh, 60_000);
+    return () => { window.removeEventListener("focus", refresh); window.clearInterval(timer); };
+  }, []);
+  const portfolio=frameworkPortfolio(overview.data);
+  const complianceHint=portfolio?.score != null ? `${portfolio.compliant}/${portfolio.scope} ${tr?"madde uyumlu":"requirements compliant"}` : "—";
+  const worst=portfolio?.lowest;
+  const showScore=(ready:boolean,n:number,d:number)=>ready && d>0 ? n+"/"+d : "—";
   const integrityPending = assurance.legacyEvidence + assurance.unavailableEvidence + assurance.integrityUnknownEvidence;
-  const countsComplete = openEscalations !== null && openFindings !== null;
+  const countsComplete = openEscalations !== null && openFindings !== null && unassessedRisks === 0;
   const failedSources = [
     ...(counts.escalations === "unavailable" ? [tr ? "Güvence eskalasyonları" : "Assurance escalations"] : []),
     ...(counts.findings === "unavailable" ? [tr ? "Açık bulgular" : "Open findings"] : []),
@@ -124,7 +122,7 @@ export default function ExecutiveAssurancePanel({
 
   const decisionItems = [
     {
-      value: scoredRisks.filter(({row, score}) => score >= 17 && !isClosed(row.data.status)).length,
+      value: scoredRisks.length || !risks.length ? scoredRisks.filter(({row, score}) => score >= 17 && !isClosed(row.data.status)).length : null,
       label: tr ? "Kritik risk kararı" : "Critical risk decisions",
       detail: tr ? "Kritik seviyedeki risk kayıtlarını incele" : "Review critical risk records",
       module: "Risk Assessment",
@@ -170,21 +168,17 @@ export default function ExecutiveAssurancePanel({
       .map(row => ({ row, reason: "compliance" as const })),
   ]);
 
-  function showOverdue(button: HTMLButtonElement) {
-    if (details.current) details.current.open = true;
-    decisionQueue.current?.openOverdue(button);
-  }
   const summaries = {
     riskHeatmap: {module:"Risk Assessment",style:"risk-posture-panel", title:tr?"Risk görünümü":"Risk posture",
-      line:`${riskBands.high} ${tr?"yüksek":"high"} · ${riskBands.critical} ${tr?"kritik":"critical"}`,
+      line:!scoredRisks.length?"—":`${riskBands.high} ${tr?"yüksek":"high"} · ${riskBands.critical} ${tr?"kritik":"critical"}`,
       note:`${scoredRisks.length} ${tr?"değerlendirilen risk":"assessed risks"} · ${unassessedRisks} ${tr?"bekleyen":"pending"}`},
     frameworkReadiness: {module:"Uyum",style:"compliance-portfolio-panel",title:tr?"Uyum portföyü":"Compliance portfolio",
-      line:complianceStats[0]?.name || (tr?"Çerçeve kaydı yok":"No frameworks recorded"),
-      note:`${compliantTotal}/${complianceTotal} ${tr?"gereksinim uyumlu":"requirements compliant"}`},
+      line:portfolio?`${portfolio.count} ${tr?"aktif çerçeve":"active frameworks"}`:"—",
+      note:portfolio?.score != null ? complianceHint + " · " + percent(portfolio.score,1) : complianceHint},
     assuranceHealth: {module:"Kanıt Otomasyonu",style:"continuous-assurance-panel",title:tr?"Sürekli güvence":"Continuous assurance",
       line:`${evidenceState.evidenceReady?integrityPending:"—"} ${tr?"kanıt doğrulama bekliyor":"evidence awaiting verification"}`,
       note:tr?"Kontrol ve kanıt güveni":"Control and evidence confidence"},
-    auditRemediation: {module:"Denetim Yönetimi",style:"audit-remediation-panel", title:tr?"Denetim ve iyileştirme":"Audit and remediation",line:"",note:""},
+    auditRemediation: {module:"Denetim Yönetimi",style:"audit-remediation-panel", title:tr?"Denetim ve iyileştirme":"Audit and remediation",line:showScore(evidenceState.auditReady && assessedAudits>0,assurance.readyAudits,assurance.totalAudits),note:tr?"hazır denetim":"audits ready"},
   };
   const auditorPack = () => window.open(withBasePath(`/api/continuous-assurance/auditor-pack?lang=${lang}`), "_blank", "noopener,noreferrer");
 
@@ -201,35 +195,34 @@ export default function ExecutiveAssurancePanel({
 
       <div className="executive-dashboard-kpis">
         {[
-          { label: tr ? "Kontrol Güvencesi" : "Control Assurance", value: confidencePercent(assurance.controlScore, assurance.totalControls), detail: `${evidenceState.evidenceReady ? assurance.healthyControls : "—"}/${assurance.totalControls} ${tr ? "sağlıklı" : "healthy"}`, tone: evidenceState.evidenceReady && assurance.controlScore >= 80 ? "positive" : "warning", module: "Kontroller" },
-          { label: tr ? "Denetim Hazırlığı" : "Audit Readiness", value: confidencePercent(assurance.auditScore, assurance.totalAudits, evidenceState.auditReady), detail: `${evidenceState.auditReady ? assurance.readyAudits : "—"}/${assurance.totalAudits} ${tr ? "hazır" : "ready"}`, tone: evidenceState.auditReady && (assurance.auditScore ?? -1) >= 80 ? "positive" : "warning", module: "Denetim Yönetimi" },
-          { label: tr ? "Zincir Kapsaması" : "Chain Coverage", value: percent(assurance.traceabilityScore, rows.length), detail: tr ? "Risk · kontrol · kanıt bağlantıları" : "Risk · control · evidence links", tone: assurance.traceabilityScore >= 80 ? "positive" : "warning", module: "Bağlantılı GRC" },
-          { label: tr ? "Kanıt Güncelliği" : "Evidence Freshness", value: confidencePercent(assurance.freshnessScore, assurance.totalEvidence), detail: `${evidenceState.evidenceReady ? assurance.currentEvidence : "—"}/${assurance.totalEvidence} ${tr ? "güncel" : "current"}`, tone: evidenceState.evidenceReady && assurance.evidenceScore >= 80 ? "positive" : "warning", module: "Kanıtlar" },
-          { label: tr ? "Kritik + Yüksek Risk" : "Critical + High Risk", value: percent(scoredRisks.length ? highRisks / scoredRisks.length * 100 : 0, scoredRisks.length), detail: `${highRisks}/${scoredRisks.length} ${tr ? "değerlendirilen risk" : "assessed risks"}`, tone: highRisks ? "critical" : "positive", module: "Risk Assessment" },
-          { label: tr ? "Uyum Sağlığı" : "Compliance Health", value: percent(complianceScore, complianceTotal), detail: `${compliantTotal}/${complianceTotal} ${tr ? "uyumlu" : "compliant"}`, tone: complianceScore >= 80 ? "positive" : "warning", module: "Uyum" },
+          { label: tr ? "Kontrol Güvencesi" : "Control Assurance", value: confidencePercent(assurance.controlScore, assurance.connectedControls || assurance.automationCoveredControls), detail: `${showScore(evidenceState.evidenceReady && !!(assurance.connectedControls || assurance.automationCoveredControls),assurance.healthyControls,assurance.totalControls)} ${tr ? "sağlıklı" : "healthy"}`, tone: evidenceState.evidenceReady && assurance.controlScore >= 80 ? "positive" : "warning", module: "Kontroller" },
+          { label: tr ? "Denetim Hazırlığı" : "Audit Readiness", value: confidencePercent(assurance.auditScore, assessedAudits, evidenceState.auditReady), detail: `${showScore(evidenceState.auditReady && assessedAudits>0,assurance.readyAudits,assurance.totalAudits)} ${tr ? "hazır" : "ready"}`, tone: evidenceState.auditReady && (assurance.auditScore ?? -1) >= 80 ? "positive" : "warning", module: "Denetim Yönetimi" },
+          { label: tr ? "Zincir Kapsaması" : "Chain Coverage", value: percent(assurance.traceabilityScore, assurance.completeChains + assurance.partialChains), detail: tr ? "Risk · kontrol · kanıt bağlantıları" : "Risk · control · evidence links", tone: assurance.traceabilityScore >= 80 ? "positive" : "warning", module: "Bağlantılı GRC" },
+          { label: tr ? "Kanıt Güncelliği" : "Evidence Freshness", value: confidencePercent(assurance.freshnessScore, assurance.totalEvidence, freshnessKnown), detail: `${showScore(freshnessKnown,assurance.currentEvidence,assurance.totalEvidence)} ${tr ? "güncel" : "current"}`, tone: evidenceState.evidenceReady && assurance.evidenceScore >= 80 ? "positive" : "warning", module: "Kanıtlar" },
+          { label: tr ? "Yüksek & Kritik Risk" : "High & Critical Risk", value: scoredRisks.length ? `${highRisks} / ${scoredRisks.length}` : "—", badge:scoredRisks.length?percent(highRisks/scoredRisks.length*100,scoredRisks.length):undefined, detail:tr?"Değerlendirilen riskler içinde":"Of assessed risks", tone:riskBands.critical?"risk-critical":highRisks?"warning":"neutral", module:"Risk Assessment" },
+          { label: tr ? "Uyum Sağlığı" : "Compliance Health", value: percent(portfolio?.score??null,portfolio?.scope??0), detail:complianceHint, tone:portfolio?.score==null?"neutral":portfolio.score>=80?"positive":"warning", module:"Uyum" },
         ].map((metric) => (
-          <button type="button" className={`executive-kpi ${metric.tone}`} key={metric.label} onClick={() => go(metric.module)}>
-            <span className="executive-kpi-label"><NavIcon module={metric.module} /><small>{metric.label}</small></span>
-            <strong>{metric.value}</strong>
-            <MiniBar value={Number.parseFloat(metric.value.replace("%","")) || 0} />
+          <button type="button" className={`executive-kpi ${metric.tone}`} key={metric.label} onClick={() => drill(metric.module,metric.module==="Uyum"?worst?.name:undefined)}>
+            <span className="executive-kpi-label"><NavIcon module={metric.module} /><small>{metric.label}</small><i aria-hidden="true" className="kpi-arrow">↗</i></span>
+            <strong>{metric.value} {metric.badge && <small className="kpi-percent">{metric.badge}</small>}</strong>
+            {metric.value!=="—" && <MiniBar value={Number.parseFloat((metric.badge??metric.value).replace("%",""))} />}
             <em title={metric.detail}>{metric.detail}</em>
           </button>
         ))}
       </div>
 
       <div className="report-chart-grid">
-        <RenewalChart rows={evidenceState.rows} now={now} ready={evidenceState.evidenceReady} loading={evidenceState.loading} retry={evidenceState.refresh} tr={tr}/>
+        <DashboardActionQueue rows={rows} assessedRows={evidenceState.evidenceReady ? evidenceState.rows : undefined} now={now} tr={tr} upload={upload}/>
         <ReportMatrix risks={risks} tr={tr}/>
       </div>
       <div className="executive-dashboard-grid report-domains" data-layout-mode={referenceLayout ? "reference" : "tiles"}>
         {panelOrder.filter(id=>view.preferences.visible[id]).map(id=>{
           const summary = summaries[id as keyof typeof summaries];
           return <article key={id} className={"report-domain "+summary.style}>
-            <h3><button className="domain-link" onClick={()=>go(summary.module)}><NavIcon module={summary.module}/>{summary.title}</button></h3>
-            {id==="auditRemediation"?<div className="audit-remediation-metrics report-audit-links">
-              <button onClick={()=>go("Bulgular ve CAPA")}>{tr?"Açık bulgu":"Open findings"} <b>{openFindings??"—"}</b></button>
-              <button aria-controls="executive-decisions" onClick={e=>showOverdue(e.currentTarget)}>{tr?"Geciken denetim maddesi":"Overdue audit requirements"} <b>{overdueAudits}</b></button>
-            </div>:<><p>{summary.line}</p><small>{summary.note}</small></>}
+            <h3><button className="domain-link" onClick={()=>id==="frameworkReadiness"?drill("Uyum",worst?.name):go(summary.module)}><NavIcon module={summary.module}/>{summary.title}</button></h3>
+            <p>{summary.line}</p><small>{summary.note}</small>
+            {id==="frameworkReadiness" && worst && <small className={worst.rate<1?"portfolio-warning":"portfolio-lowest"}>{tr?"En düşük uyum":"Lowest compliance"} · {worst.name} ({percent(worst.rate*100,1)})</small>}
+            {id==="frameworkReadiness" && (overview.error || (overview.data && (!portfolio || portfolio.scope===null))) && <button onClick={()=>refreshOverview(v=>v+1)}>{tr?"Uyum verisini yeniden yükle":"Retry compliance data"}</button>}
           </article>;
         })}
       </div>
@@ -260,7 +253,7 @@ export default function ExecutiveAssurancePanel({
       <AuditReadinessPortfolioPanel portfolio={evidenceState.auditPortfolio} lang={lang} />
       {evidenceState.evidenceReady && assurance.assessmentIssues.length > 0 && <ul className="executive-assessment-issues">{assurance.assessmentIssues.map(issue => <li key={issue.reason}>{issue.count} · {assessmentStateText[issue.reason]?.[lang] || issue.reason}</li>)}</ul>}
       </details>
-      <footer className="executive-dashboard-footer"><span>{tr ? "Canlı GRC verisinden hesaplanır" : "Calculated from live GRC data"}</span><span>{assurance.totalControls} {tr ? "kontrol" : "controls"} · {assurance.totalEvidence} {tr ? "kanıt" : "evidence"} · {risks.length} {tr ? "risk" : "risks"} · {compliance.length} {tr ? "uyum maddesi" : "compliance requirements"}</span></footer>
+      <footer className="executive-dashboard-footer"><span>{tr ? "Canlı GRC verisinden hesaplanır" : "Calculated from live GRC data"}</span><span>{assurance.totalControls} {tr ? "kontrol" : "controls"} · {assurance.totalEvidence} {tr ? "kanıt" : "evidence"} · {risks.length} {tr ? "risk" : "risks"} · {portfolio?.scope ?? "—"} {tr ? "uyum maddesi" : "compliance requirements"}</span></footer>
     </section>
   );
 }

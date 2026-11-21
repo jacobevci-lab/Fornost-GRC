@@ -70,8 +70,8 @@ test('capture only current explicitly approved anchored evidence matching contro
   await saveDecision(db,{name:SOC,ref:'CC1.1',applicability:'required',links:[{id:'C1',coverage:'partial'}],revision:''},'owner');
   await saveDecision(db,{name:ISO,ref:'A.5.2',applicability:'excluded',reason:'Outside scope',links:[{id:'C1',coverage:'supports'}],revision:''},'owner');
   const summary=await programOverview(db);
-  assert.deepEqual(summary.coverage[ISO],{scope:122,compliant:1,evidenced:1});
-  assert.deepEqual(summary.coverage[SOC],{scope:catalogFor(SOC).length,compliant:0,evidenced:1});
+  assert.deepEqual(summary.coverage[ISO],{scope:122,compliant:1,evidenced:1,assessed:1});
+  assert.deepEqual(summary.coverage[SOC],{scope:catalogFor(SOC).length,compliant:0,evidenced:1,assessed:1});
   assert.equal(summary.comparison[ISO].items.length,3);
   assert.equal(summary.comparison[SOC].items[0].state,'partial');
   assert.equal(summary.comparison[SOC].items[0].controlCode,'CTL-325');
