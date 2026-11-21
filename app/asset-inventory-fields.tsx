@@ -58,7 +58,7 @@ export function AssetInventoryFields({form,rows,id,field,tr,update}:Props){
       {form.dependencies ? <small>{tr?"Önceki bağımlılık notu":"Previous dependency note"} · {String(form.dependencies)}</small>:null}
     </div>;
     if(key==="regulatoryScope")return <fieldset className="wide asset-tags"><legend>{tr?"Yasal / Düzenleyici Kapsam":"Legal / regulatory scope"}</legend>
-      {[...new Set([...regulatoryTags,...tags])].map(tag=><button key={tag} type="button" aria-pressed={tags.includes(tag)}
+      {[...new Set([...regulatoryTags,...tags])].map(tag=><button key={tag} type="button" aria-label={tag} aria-pressed={tags.includes(tag)}
         onClick={()=>update({regulatoryScope:(tags.includes(tag)?tags.filter(t=>t!==tag):[...tags,tag]).join("; ")})}>{tag}</button>)}
     </fieldset>;
     return field(key);

@@ -20,7 +20,18 @@ export async function verifyAssetInventoryEditor(page,api,open) {
   }
   const search=page.locator(".register-search input"),row=page.locator(".smart-table tbody tr").filter({hasText:title});
   try{
-    await open("Asset Inventory");await page.locator(".module-head .primary").click();
+    // Existing installations already have a saved v2 layout without the links column.
+    await page.evaluate(()=>{
+      const columns=JSON.parse(localStorage.getItem("fornost-grc-columns") || "{}");
+      columns["Varlık Envanteri"]=["title","coverage","lifecycle","criticality"];
+      localStorage.setItem("fornost-grc-columns",JSON.stringify(columns));
+      localStorage.setItem("fornost-grc-column-layout","v2");
+      localStorage.removeItem("fornost-asset-links-column");
+    });
+    await page.reload();await open("Asset Inventory");
+    await expect(page.locator(".smart-table th").filter({hasText:"Risk / BIA Links"})).toBeVisible();
+    assert.deepEqual(await page.evaluate(()=>JSON.parse(localStorage.getItem("fornost-grc-columns"))["Varlık Envanteri"]),["title","assetLinks","coverage","lifecycle","criticality"]);
+    await page.locator(".module-head .primary").click();
     await dialog.locator('[name=title]').fill(title);
     for(const key of ["assetType","businessUnit","criticality"])await dialog.locator('select[name='+key+']').selectOption({index:1});
     await choose("Owner · search name or email",email);

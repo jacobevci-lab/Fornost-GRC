@@ -116,7 +116,7 @@ import { assessedResidualRiskScore, effectiveImpactSources, assessedRiskScore, c
 import { defaultCatalogs, type CatalogMap } from "./catalogs";
 import { safeSpreadsheetCell } from "./export-security";
 import { automaticAuditTemplates } from "./framework-templates";
-import { displayRecordCode } from "./record-codes";
+import { displayRecordCode, isLegacyTechnicalRecordId } from "./record-codes";
 import "./workspace-system.css";
 import "./enterprise-surface-contract.css";
 import "./product-experience.css";
@@ -1313,7 +1313,20 @@ function FornostApp({ currentUser }: { currentUser: any }) {
         localStorage.setItem("fornost-grc-columns", JSON.stringify(columns));
         localStorage.setItem("fornost-grc-column-layout", "v2");
       }
-      if (columns && typeof columns === "object") setColumnPreferences(columns);
+      if (columns && typeof columns === "object") {
+        if (localStorage.getItem("fornost-asset-links-column") !== "1") {
+          const previous = columns["Varlık Envanteri"];
+          if (Array.isArray(previous) && !previous.includes("assetLinks")) {
+            const next = previous.slice();
+            const coverageIndex = next.indexOf("coverage");
+            next.splice(coverageIndex < 0 ? next.length : coverageIndex, 0, "assetLinks");
+            columns = {...columns, "Varlık Envanteri": next};
+            localStorage.setItem("fornost-grc-columns", JSON.stringify(columns));
+          }
+          localStorage.setItem("fornost-asset-links-column", "1");
+        }
+        setColumnPreferences(columns);
+      }
     } catch {}
   }, []);
   const languageRef = useRef(lang);
@@ -2618,7 +2631,7 @@ function Field({
 }) {
   const scores = ["1", "2", "3", "4", "5"],
     yesNo = ["Evet", "Hayır"],
-    coverage = ["Kapsamda", "Kapsam Dışı", "Bilinmiyor"];
+    coverage = ["Kapsamda", "Kısmi", "Kapsam Dışı", "Uygulanamaz", "Bilinmiyor"];
   const select: Record<string, string[]> = {
     likelihood: scores,
     impact: scores,
@@ -5452,7 +5465,12 @@ function SmartCell({
       const status=state==="covered"?(tr?"Kapsamda":"Covered"):state==="gap"?(tr?"Kapsam dışı":"Not covered"):state==="partial"?(tr?"Kısmi":"Partial"):state==="na"?(tr?"Uygulanamaz":"Not applicable"):(tr?"Bilinmiyor":"Unknown");
       return <span key={label} data-state={state} title={label+" · "+status}><span aria-hidden="true">{state==="covered"?"✓":state==="gap"?"!":state==="partial"?"◐":"—"} </span>{label}<span className="asset-sr-only"> · {status}</span></span>;
     })}</div>;
-  if (module==="Varlık Envanteri" && column==="vendor") return String(d.externalVendor || d.vendor || "—");
+  if (module==="Varlık Envanteri" && column==="vendor") {
+    if (d.externalVendor || !d.vendor) return String(d.externalVendor || "—");
+    const vendor = linkedRows.find(item=>item.module==="Tedarikçiler" && (item.id===d.vendor || item.code===d.vendor));
+    if (vendor) return [vendor.data.title,vendor.code].filter(Boolean).join(" · ") || "—";
+    return isLegacyTechnicalRecordId(String(d.vendor)) ? "—" : String(d.vendor);
+  }
   if (column === "lifecycle")
     return (
       <div className="stack">
