@@ -16,7 +16,7 @@ export function usePosture<T>(params:Record<string,string>|null,refresh=0,keepDu
   useEffect(()=>{
     if(!query)return;
     const controller=new AbortController();
-    postureRequest<T>(JSON.parse(query),controller.signal).then(data=>{
+    postureRequest<T>(JSON.parse(query),AbortSignal.any([controller.signal,AbortSignal.timeout(15000)])).then(data=>{
       if(!controller.signal.aborted)setResult({key,query,data});
     }).catch(e=>{if(!controller.signal.aborted)setResult({key,query,error:String(e.message)});});
     return ()=>controller.abort();

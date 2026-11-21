@@ -65,7 +65,7 @@ try {
   await expect(warning).toContainText("Open findings");
   await expect(attention).toContainText("Management signal total is unconfirmed");
   await expect(decisions).not.toContainText("No priority decisions pending");
-  await expect(dashboard.locator(".audit-remediation-metrics").getByRole("button", { name: /Open findings/ })).toContainText("—");
+  await expect(attention.getByRole("button", { name: /Open findings/ })).toContainText("—");
   assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 4));
 
   findingBody = { count: 0 };
@@ -89,6 +89,48 @@ try {
     record("cmp-011", "Uyum", "Erişim haklarının dönemsel gözden geçirilmesi", { status: "Kısmi", owner: "Bilgi Teknolojileri" }),
     record("cmp-017", "Uyum", "Değişiklik kayıtlarında onay kanıtı", { status: "Kısmi", owner: "Altyapı" }),
   ];
+  const sampleRecords = records;
+  records = [
+    ...sampleRecords, record("rsk-025","Risk Assessment","İkinci kritik risk",{likelihood:5,impact:5,owner:"Kimlik Ekibi"}),
+    record("rsk-026","Risk Assessment","Değerlendirme bekliyor",{}),
+  ];
+  const iso = "ISO/IEC 27001:2022", soc = "SOC 2";
+  const overview = {catalog:[iso,soc],enrolled:[iso,soc],controlFrameworkCounts:{},comparison:{},
+    coverage:{[iso]:{scope:4,compliant:1,assessed:2,evidenced:1},[soc]:{scope:2,compliant:2,assessed:2,evidenced:2}}};
+  await page.route("**/api/framework-posture?overview=1",route=>route.fulfill({json:overview}));
+  await page.reload();
+  const kpis = dashboard.locator(".executive-kpi");
+  await expect(kpis).toHaveCount(6);
+  await expect(kpis.filter({hasText:"High & Critical Risk"})).toContainText("3 / 3");
+  await expect(kpis.filter({hasText:"High & Critical Risk"})).toHaveClass(/risk-critical/);
+  await expect(kpis.filter({hasText:"Compliance Health"})).toContainText("50%");
+  await expect(dashboard.locator(".compliance-portfolio-panel")).toContainText("2 active frameworks");
+  await expect(dashboard.locator(".portfolio-warning")).toContainText(iso);
+  await dashboard.locator(".report-cells button").filter({hasText:"2"}).click();
+  const preview=dashboard.locator(".risk-cell-preview li");
+  await expect(preview).toHaveCount(2);
+  await preview.filter({hasText:"RSK-025"}).getByRole("button").click();
+  await expect(page.locator(".record-workspace")).toContainText("İkinci kritik risk");
+  await openQaModule(page,"Dashboard");
+  await kpis.filter({hasText:"High & Critical Risk"}).click();
+  await expect(page.locator(".risk-register")).toContainText("RSK-025");
+  await expect(page.locator(".risk-register")).not.toContainText("RSK-026");
+  await openQaModule(page,"Dashboard");
+  await kpis.filter({hasText:"Chain Coverage"}).click();
+  await expect(page.locator(".cgw-gaps")).toBeVisible();
+  await expect(page.locator(".cgw-gaps select").filter({has:page.locator('option[value="gap"]')})).toHaveValue("gap");
+  await openQaModule(page,"Dashboard");
+  await kpis.filter({hasText:"Control Assurance"}).click();
+  await expect(page.locator(".dashboard-lens")).toContainText("Controls needing attention");
+  await openQaModule(page,"Dashboard");
+  await kpis.filter({hasText:"Audit Readiness"}).click();
+  await expect(page.locator(".audit-readiness-gaps")).toHaveAttribute("open","");
+  await openQaModule(page,"Dashboard");
+  await kpis.filter({hasText:"Compliance Health"}).click();
+  await expect(page.locator(".posture-column-head[aria-pressed=true]")).toHaveAttribute("title",new RegExp(iso));
+  await openQaModule(page,"Dashboard");
+  await page.unroute("**/api/framework-posture?overview=1");
+  records = sampleRecords;
   const chainTime = new Date().toISOString();
   await page.route("**/api/executive-assurance", route => route.fulfill({json: {
     generatedAt: chainTime, verified: true, issues: [],
@@ -101,10 +143,10 @@ try {
   await expect(dashboard.locator(".report-cells [data-band]")).toHaveCount(25);
   await expect(dashboard.locator(".report-cells button")).toHaveCount(2);
   await dashboard.locator(".report-cells button").first().click();
-  await expect(dashboard.locator(".report-risk-key button")).toHaveCount(1);
-  await expect(dashboard.locator(".report-renewals")).toContainText("1 overdue");
-  await dashboard.locator(".report-dates button").first().click();
-  await expect(dashboard.locator(".report-records button")).toContainText("Erişim gözden geçirmesi");
+  await expect(dashboard.locator(".risk-cell-preview li")).toHaveCount(1);
+  await dashboard.getByRole("button", {name:"Evidence Renewals", exact:true}).click();
+  await expect(dashboard.locator(".priority-list li")).toHaveCount(1);
+  await expect(dashboard.locator(".priority-list li")).toContainText("EVD-014");
   await reportDetails.locator(":scope>summary").click();
   const queue = dashboard.locator(".decision-queue");
   const rows = queue.locator(".decision-record");
@@ -167,10 +209,8 @@ try {
     auditPortfolio:{audits:[],verified:true,issues:[],orphanRequirements:0,generatedAt:chainTime}
   }}));
   await page.reload();
-  await expect(dashboard.locator(".report-undated")).toBeVisible();
-  await expect(dashboard.locator(".report-axis i")).toHaveCount(0);
-  await dashboard.locator(".report-undated button").click();
-  await expect(page.locator("main > header h1")).toHaveText("Kanıt Kütüphanesi");
+  await dashboard.getByRole("button",{name:/Kanıt Güncelliği/}).click();
+  await expect(page.locator(".dashboard-lens")).toContainText("Güncelliği doğrulanmayan kanıtlar");
   await openQaModule(page,"Gösterge Paneli");
   const generatedAt = new Date().toISOString();
   const audit = { id: "qa-linked", name: "QA Portfolio", gate: "empty", verified: true, issues: [], requirements: 0, current: 0, blockers: 0 };
@@ -188,40 +228,18 @@ try {
   ];
   await page.reload();
   await expect(queue).toBeHidden();
-  const signal = dashboard.locator(".report-audit-links").getByRole("button", { name: /Geciken denetim maddesi/ });
-  await expect(signal.locator("b")).toHaveText("2");
-  await signal.click();
-  await expect(queue.getByRole("heading", { name: "Geciken denetim maddeleri", exact: true })).toBeFocused();
-  await expect(rows).toHaveCount(2);
-  assert.deepEqual(await rows.evaluateAll(nodes => nodes.map(node => node.dataset.recordId)), ["aud-linked", "aud-unlinked"]);
-  await expect(rows.first()).toContainText("Portföyde · QA Portfolio");
-  await expect(rows.first()).toContainText("A ekibi");
-  await expect(rows.nth(1)).toContainText("Portföye bağlı değil");
-  await expect(rows.nth(1)).toContainText("B ekibi");
-  await expect(rows.nth(1).locator(".decision-date")).toContainText("2024");
+  const overdueRows = dashboard.locator(".priority-list li").filter({hasText:"Geciken denetim maddesi"});
+  await expect(overdueRows).toHaveCount(2);
   for (const id of ["aud-unlinked", "aud-linked"]) {
-    const row = queue.locator(`[data-record-id="${id}"]`);
-    let releaseRead;
-    if (id === "aud-unlinked") pendingRecordRead = new Promise(resolve => { releaseRead = resolve; });
-    await row.press("Enter");
-    if (releaseRead) {
-      try {
-        await expect(focus).toContainText("Kayıt yükleniyor");
-        await expect(page.locator(".audit-overview, .audit-readiness-gate")).toHaveCount(0);
-      } finally {
-        pendingRecordRead = undefined;
-        releaseRead();
-      }
-    }
+    await overdueRows.filter({hasText:id.toUpperCase()}).getByRole("button").press("Enter");
     await expect(focus).toContainText(id.toUpperCase());
     const desk = page.getByRole("region", { name: "Madde çalışma alanı", exact: true });
     await expect(desk.locator("header small")).toHaveText(id.toUpperCase());
-    await expect(desk.locator("dd").filter({ hasText: id === "aud-linked" ? "A ekibi" : "B ekibi" })).toBeVisible();
-    await focus.getByRole("button", { name: "Önceki görünüme dön" }).click();
-    await expect(row).toBeFocused();
-    await expect(queue.getByRole("button", { name: "Denetim", exact: true })).toHaveAttribute("aria-pressed", "true");
+    await expect(desk.locator("dd").filter({hasText:id==="aud-linked"?"A ekibi":"B ekibi"})).toBeVisible();
+    await focus.getByRole("button",{name:"Önceki görünüme dön"}).click();
+    await expect(overdueRows).toHaveCount(2);
   }
-  await queue.screenshot({ path: `${out}/geciken-denetim-maddeleri.png` });
+  await dashboard.locator(".priority-actions").screenshot({path:out+"/geciken-denetim-maddeleri.png"});
   await page.setViewportSize({ width: 1536, height: 960 });
   await openQaModule(page, "Denetim Yönetimi");
   await expect(page.getByRole("heading", { name: "Denetim Portföyü", exact: true })).toBeVisible();

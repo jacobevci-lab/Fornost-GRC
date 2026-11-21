@@ -28,7 +28,7 @@ test("dashboard uses the shared palette and responsive cards", () => {
 
 test("executive metrics retain authoritative data and honest empty states", () => {
   assert.match(dashboard, /assessedRiskScore\(row.data\)/);
-  assert.match(dashboard, /score === null \? \[\]/);
+  assert.match(dashboard, /score === null \|\| !validMatrixCoordinates\(row.data\) \? \[\]/);
   assert.match(dashboard, /role="status"/);
   assert.match(dashboard, /total && value !== null \? .* : "—"/);
 });

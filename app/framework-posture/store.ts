@@ -89,18 +89,19 @@ export async function programOverview(db:D1Database) {
   const comparison=Object.fromEntries(programs.map(program=>{
     const items:OpenItem[]=[];
     const linkedInScope=new Set<string>();
-    let scope=0,compliant=0,evidenced=0;
+    let scope=0,compliant=0,evidenced=0,assessed=0;
     for(const row of program.requirements){
       const state=requirementState(row,pins,implementation);
       if(state==='excluded')continue;
       scope++;
+      if(row.links.some(link=>implementation.get(link.id)))assessed++;
       if(row.links.some(link=>pins[link.id]?.length))evidenced++;
       for(const link of row.links)linkedInScope.add(link.id);
       if(state==='covered')compliant++;
       else if(items.length<3)items.push({ref:row.ref,title:row.title,state,controlCode:codes.get(row.links[0]?.id)});
     }
     for(const id of linkedInScope)controlFrameworkCounts[id]=(controlFrameworkCounts[id]??0)+1;
-    coverage[program.name]={scope,compliant,evidenced};
+    coverage[program.name]={scope,compliant,evidenced,assessed};
     return [program.name,{openCount:scope-compliant,items}];
   }));
   return {...index,coverage,comparison,controlFrameworkCounts};

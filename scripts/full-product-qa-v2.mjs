@@ -245,7 +245,7 @@ async function auditLocale(page, locale) {
       let screenshot = "";
       if (i === 0) {
         await expect(page.locator("main .chain-board, main .assurance-chain, main .module-trail-panel")).toHaveCount(0);
-        await expect(page.locator(".report-renewals h3")).toBeVisible();
+        await expect(page.locator(".priority-actions h3")).toBeVisible();
         await expect(page.locator(".report-matrix [data-band]")).toHaveCount(25);
         await expect(page.locator(".decision-queue")).toBeHidden();
         const hierarchy = await page.evaluate(() => {
@@ -405,30 +405,15 @@ async function auditLocale(page, locale) {
         if (matrix.count !== 25 || matrix.clipped) finding("high", area, "Risk matrix cells are clipped", JSON.stringify(matrix));
       }
       if (i === 0 && locale === "tr") {
-        const signal = page.locator(".report-audit-links button[aria-controls='executive-decisions']");
-        if (await signal.isVisible()) {
-          const count = Number(await signal.locator("b").innerText());
-          await signal.click();
-          const queue = page.locator("#executive-decisions");
-          await expect(queue.getByRole("heading")).toHaveText("Geciken denetim maddeleri");
-          await expect(queue.locator(".decision-queue-head > span")).toHaveText(`${count} kayıt`);
-          await expect(queue.locator(".decision-record")).toHaveCount(Math.min(4, count));
-          if (count > 0) {
-            const first = queue.locator(".decision-record").first();
-            const code = await first.locator(".decision-ref").innerText();
-            const id = await first.getAttribute("data-record-id");
-            await first.click();
-            const detail = page.locator(".core-record-focus");
-            await expect(detail.locator("strong")).toHaveText("Seçili kayıt");
-            await expect(detail.locator("span").first()).toHaveText(code);
-            await waitForQaIdle(page);
-            await detail.getByRole("button", { name: "Önceki görünüme dön" }).click();
-            await expect(queue.locator(".decision-record:focus")).toHaveAttribute("data-record-id", id);
-          }
-          await waitForQaIdle(page);
-          report.overdueAuditDrilldown = { count, checkedReturn: count > 0 };
-        } else {
-          report.overdueAuditDrilldown = { skipped: "audit summary hidden" };
+        const overdue = page.locator(".priority-list li").filter({hasText:"Geciken denetim maddesi"});
+        if (await overdue.count()) {
+          const code = await overdue.first().locator(".priority-identity small").innerText();
+          await overdue.first().getByRole("button").click();
+          const detail = page.locator(".core-record-focus");
+          await expect(detail).toContainText(code);
+          await detail.getByRole("button",{name:"Önceki görünüme dön"}).click();
+          await expect(page.locator(".priority-actions")).toBeVisible();
+          report.overdueAuditDrilldown = {code,checkedReturn:true};
         }
       }
       if (label === "Benim İşlerim" || label === "My Work") {

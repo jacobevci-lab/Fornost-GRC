@@ -24,7 +24,7 @@ function formatDate(value: string, lang: Lang) {
   return new Intl.DateTimeFormat(lang === "tr" ? "tr-TR" : "en-GB", { day: "2-digit", month: "short", year: "numeric" }).format(date);
 }
 
-export default function AuditReadinessGate({lang, auditName = "", records, mode="full", overview}: {lang: Lang; auditName?: string; records?: Row[]; mode?:"full"|"global"|"metric"; overview?:React.ReactNode}) {
+export default function AuditReadinessGate({lang, auditName = "", records, mode="full", initialGaps, overview}: {lang: Lang; auditName?: string; records?: Row[]; mode?:"full"|"global"|"metric"; initialGaps?:boolean; overview?:React.ReactNode}) {
   const [snapshot, setSnapshot] = useState<{ scope: string; result: AuditReadinessResult } | null>(null);
   const [loading, setLoading] = useState(true), [loadError, setLoadError] = useState(false);
   const [gapLimit, setGapLimit] = useState(8), [signalLimit, setSignalLimit] = useState(6);
@@ -124,7 +124,7 @@ export default function AuditReadinessGate({lang, auditName = "", records, mode=
         <button type="button" disabled={!reliable} className={assuranceBlockers.length?"danger":scopedPriorities.length?"warning":""} onClick={showSignals}><small>Continuous Assurance</small><strong>{reliable ? assuranceBlockers.length : "—"}</strong><span>{reliable ? scopedPriorities.length : "—"} {tr?"kapsam sinyali":"scoped signals"}</span></button>
       </div>
 
-      <details ref={requirementsRef} className="audit-readiness-gaps">
+      <details open={initialGaps || undefined} ref={requirementsRef} className="audit-readiness-gaps">
         <summary className="audit-readiness-gaps-head"><div><small>{tr ? "MADDE BAZINDA KANIT" : "EVIDENCE BY REQUIREMENT"}</small><b>{requirementLabels[requirementFilter]}</b></div><span>{reliable ? visibleRequirements.length : "—"}</span></summary>
         <div className="audit-readiness-toolbar">
           <label>{tr ? "Madde görünümü" : "Requirement view"}<select disabled={!reliable} value={requirementFilter} onChange={event => { setRequirementFilter(event.target.value as AuditRequirementFilter); setGapLimit(8); }}>{Object.entries(requirementLabels).map(([value,label]) => <option key={value} value={value}>{label}</option>)}</select></label>

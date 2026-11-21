@@ -92,7 +92,9 @@ import ContinuityCenter from "./continuity-center";
 import ConnectedGrc from "./connected-grc";
 import "./connected-grc.css";
 import ControlAssuranceWorkspace from "./control-assurance-workspace";
-import ExecutiveAssurancePanel from "./executive-assurance-panel";
+import { validMatrixCoordinates } from "./executive-report-data";
+import { evaluateEvidenceEligibility } from "./evidence/eligibility";
+import ExecutiveAssurancePanel, { type DashboardRoutes } from "./executive-assurance-panel";
 import { useExecutiveAssurance } from './use-executive-assurance';
 import AuditReadinessPortfolioPanel from './audit-readiness-portfolio-panel';
 import EvidenceQualityLens from "./evidence-quality-lens";
@@ -1179,12 +1181,14 @@ function FornostApp({ currentUser }: { currentUser: any }) {
     [commandQuery, setCommandQuery] = useState(""),
     [commandIndex, setCommandIndex] = useState(0),
     [recentModules, setRecentModules] = useState<string[]>([]);
-  const { query, setQuery, filters: registerFilters, setFilters: setRegisterFilters, sort: registerSort, setSort: setRegisterSort } = useRegisterView(String(currentUser.id), active);
+  const [dashboardLens, setDashboardLens] = useState<{module:string; framework?:string} | null>(null);
+  const lens = dashboardLens?.module === active ? dashboardLens : null;
+  const { query, setQuery, filters: registerFilters, setFilters: setRegisterFilters, sort: registerSort, setSort: setRegisterSort } = useRegisterView(String(currentUser.id), active, Boolean(lens));
   const [commandMode, setCommandMode] = useState<"modules" | "records">("modules");
   const closeCommand = useCallback(() => { setCommandOpen(false); requestAnimationFrame(() => document.querySelector<HTMLButtonElement>(".command-trigger")?.focus()); }, []);
   const commandDialogRef = useRecordDialog(commandOpen, closeCommand);
   const [recordRequest, setRecordRequest] = useState<FornostNavigationRequest | null>(null);
-  const [focusedRecord, setFocusedRecord] = useState<{ id: string; ref: string; auditName?: string; state?: "loading" | "error"; request?: FornostNavigationRequest } | null>(null);
+  const [focusedRecord, setFocusedRecord] = useState<{ id: string; ref: string; auditName?: string; openDetail?:boolean; state?: "loading" | "error"; request?: FornostNavigationRequest } | null>(null);
   const readableRows = useMemo(() => rows.filter(row => canReadModule(currentUser, row.module)), [rows, currentUser]);
   const selectedAudit = focusedRecord?.auditName ?? browsedAudit;
   const recordContext = useRef<FornostNavigationRequest | null>(null);
@@ -1401,8 +1405,8 @@ function FornostApp({ currentUser }: { currentUser: any }) {
         setNotice("");
         const target = resolveCoreRecord(freshRows, recordRequest);
         const auditName = target?.module === "Denetim Yönetimi" ? String(target.data.auditName || "") : undefined;
-        const fromDecisionQueue = returnsToDecisionQueue(recordRequest);
-        setFocusedRecord({ id: target?.id || "", ref: target?.code || coreRecordReference(recordRequest), auditName: fromDecisionQueue ? auditName : undefined, request: target ? undefined : recordRequest });
+        const fromDecisionQueue = returnsToDecisionQueue(recordRequest) || recordRequest.source === "dashboard-action";
+        setFocusedRecord({ id: target?.id || "", ref: target?.code || coreRecordReference(recordRequest), auditName: fromDecisionQueue ? auditName : undefined, openDetail: recordRequest.source === "dashboard-action", request: target ? undefined : recordRequest });
         if (auditName !== undefined && !fromDecisionQueue) setSelectedAudit(auditName);
       } else {
         setFocusedRecord({ id: "", ref: coreRecordReference(recordRequest), state: "error", request: recordRequest });
@@ -1412,6 +1416,11 @@ function FornostApp({ currentUser }: { currentUser: any }) {
     });
     return () => { cancelled = true; };
   }, [recordRequest, active, load, setNotice]);
+  const staleEvidence = useMemo(() => {
+    if (lens?.module !== "Kanıtlar" || !evidenceRegisterState.ready || !evidenceRegisterState.generatedAt) return null;
+    const now = new Date(evidenceRegisterState.generatedAt);
+    return new Set(evidenceRegisterState.rows.filter(row => row.module === "Kanıtlar" && !evaluateEvidenceEligibility(row.data, now).current).map(row => row.id));
+  }, [lens, evidenceRegisterState.ready, evidenceRegisterState.generatedAt, evidenceRegisterState.rows]);
   const selectedColumnKeys =
     columnPreferences[active] || defaultRegisterColumnKeys(active);
   const visible = useMemo(
@@ -1420,6 +1429,8 @@ function FornostApp({ currentUser }: { currentUser: any }) {
         (r) =>
           r.module === active &&
           (!focusedRecord || r.id === focusedRecord.id) &&
+          (!lens || focusedRecord || (active !== "Risk Assessment" || (validMatrixCoordinates(r.data) && (assessedRiskScore(r.data) ?? -1) >= 10))
+            && (active !== "Kanıtlar" || staleEvidence?.has(r.id))) &&
           (!selectedAudit ||
             active !== "Denetim Yönetimi" ||
             auditNameKey(r.data.auditName) === auditNameKey(selectedAudit)) &&
@@ -1432,7 +1443,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
             ([key, value]) => !value || String(r.data[key] ?? "") === value,
           ))),
       ), active, registerSort, lang),
-    [rows, active, query, lang, selectedAudit, registerFilters, focusedRecord, registerSort],
+    [rows, active, query, lang, selectedAudit, registerFilters, focusedRecord, registerSort, lens, staleEvidence],
   );
   function setModuleColumns(keys: string[]) {
     if (!keys.length) return;
@@ -1443,13 +1454,13 @@ function FornostApp({ currentUser }: { currentUser: any }) {
   function changeLang(next: Lang) {
     setLang(next);
   }
-  function openNew(seed: Record<string, any> = {}) {
+  function openNew(seed: Record<string, any> = {}, module = active) {
     if(recordWritePending.current)return;
     setNotice("");
     setEditing(null);
-    const next = empty(active);
-    if (active === "Risk Assessment") next.status = "Değerlendiriliyor";
-    if (active === "Denetim Yönetimi" && selectedAudit) {
+    const next = empty(module);
+    if (module === "Risk Assessment") next.status = "Değerlendiriliyor";
+    if (module === "Denetim Yönetimi" && selectedAudit) {
       next.auditName = selectedAudit;
       const audit = auditPortfolio.find((item) => item.name === selectedAudit);
       next.auditType = audit?.audit_type || auditKind(selectedAudit);
@@ -1734,6 +1745,16 @@ function FornostApp({ currentUser }: { currentUser: any }) {
           (bRecent === -1 ? 99 : bRecent);
       return modules.indexOf(a) - modules.indexOf(b);
     });
+  function openDashboardLens(module:string, framework?:string) {
+    if (!canOpenModule(currentUser,module)) return;
+    if (module === "Bağlantılı GRC") {
+      navigateToFornost({module,kind:"connected-view",filter:{view:"gaps",gapType:"gap"}});
+      return;
+    }
+    navigateToModule(module);
+    if (module === "Uyum") changeComplianceView(false);
+    setDashboardLens({module,framework});
+  }
   function navigateToModule(module: string) {
     if (!canOpenModule(currentUser,module)) return;
     const parentGroup = navGroups.find((group) => group.items.includes(module));
@@ -1749,6 +1770,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
       return;
     }
     clearRecordFocus();
+    setDashboardLens(null);
     setActive(module);
     setNotice("");
     setMobileNavOpen(false);
@@ -2178,6 +2200,13 @@ function FornostApp({ currentUser }: { currentUser: any }) {
             <button type="button" onClick={() => setNotice("")} aria-label={lang === "tr" ? "Bildirimi kapat" : "Dismiss notification"}>×</button>
           </div>
         )}
+        {lens && <div className="dashboard-lens"><span>{({
+          "Kontroller":["Aksiyon bekleyen kontroller","Controls needing attention"],
+          "Denetim Yönetimi":["Hazırlık açığı olan maddeler","Requirements with readiness gaps"],
+          "Kanıtlar":["Güncelliği doğrulanmayan kanıtlar","Evidence not confirmed current"],
+          "Risk Assessment":["Yüksek ve kritik riskler","High and critical risks"],
+          "Uyum":["Çerçevedeki açık maddeler","Open framework requirements"]
+        }[active] || [active,active])[lang==="tr"?0:1]}</span><button type="button" onClick={()=>navigateToModule(active)}>{lang==="tr"?"Tümünü göster":"Show all"}</button></div>}
         {focusedRecord && <section className="core-record-focus" role="status" aria-live="polite">
           <div><strong>{focusedRecord.state === "loading" ? (lang === "tr" ? "Kayıt yükleniyor…" : "Loading record…") : focusedRecord.state === "error" ? (lang === "tr" ? "Kayıt kaynağı doğrulanamadı" : "Record source could not be verified") : focusedRecord.id && rows.some(row => row.id === focusedRecord.id)
             ? (lang === "tr" ? "Seçili kayıt" : "Selected record")
@@ -2204,7 +2233,8 @@ function FornostApp({ currentUser }: { currentUser: any }) {
         ) : active === "Ana Sayfa" && scoped ? (
           <section className="module-scope-home"><h2>{lang==="tr"?"Çalışma alanım":"My workspace"}</h2><p>{lang==="tr"?"İzin verilen modüllerdeki kayıtları görüntüleyin ve yönetin. Ortak raporlar ve gelişmiş iş akışları için tam çalışma alanı erişimi gerekir.":"View and manage records in your permitted modules. Shared reports and advanced workflows require full workspace access."}</p><div className="module-scope-cards">{readableModules(currentUser).map(module=><button key={module} onClick={()=>navigateToModule(module)}><b>{names[lang][module]}</b><small>{by(module).length} {lang==="tr"?"kayıt":"records"} · {canWriteModule(currentUser,module)?(lang==="tr"?"Okuma ve düzenleme":"Read and edit"):(lang==="tr"?"Okuma":"Read")}</small></button>)}</div>{!readableModules(currentUser).length&&<p>{lang==="tr"?"Henüz modül erişimi atanmadı. Yöneticinizle iletişime geçin.":"No module access has been assigned. Contact your administrator."}</p>}</section>
         ) : active === "Ana Sayfa" ? (
-          <Dashboard rows={rows} go={setActive} lang={lang} />
+          <Dashboard rows={rows} go={navigateToModule} lang={lang} drill={openDashboardLens}
+            upload={canWriteModule(currentUser,"Kanıtlar") ? ()=>{navigateToModule("Kanıtlar");openNew({},"Kanıtlar");} : undefined} />
         ) : active === "AI Yönetişimi" ? (
           <AiWorkspaceHost lang={lang} />
         ) : active === "Benim İşlerim" ? (
@@ -2227,7 +2257,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
           <FindingsCenter lang={lang} currentUser={currentUser} rows={readableRows} coreState={registerLoadState} retryCore={()=>void load()} />
         ) : active === "Politika Merkezi" ? (
           <PolicyLifecycle lang={lang} currentUser={currentUser} />
-        ) : active === "Tedarikçiler" && !scoped ? (
+        ) : active === "Tedarikçiler" && !scoped && !recordRequest && !focusedRecord ? (
           <ThirdPartyRisk lang={lang} currentUser={currentUser} refreshKey={registerImportRevision} onImport={canWriteModule(currentUser, active) && registerLoadState === "ready" ? () => setImportOpen(true) : undefined} />
         ) : adminModules.has(active) ? (
           <Settings
@@ -2251,9 +2281,13 @@ function FornostApp({ currentUser }: { currentUser: any }) {
                       : "system"
             }
           />
+        ) : lens && active === "Kontroller" ? (
+          <ControlAssuranceWorkspace rows={rows} lang={lang} go={navigateToModule} />
+        ) : lens && active === "Denetim Yönetimi" ? (
+          <AuditReadinessGate lang={lang} records={rows} initialGaps />
         ) : active === "Denetim Yönetimi" && (
-          (recordRequest && sameDomainModule(recordRequest.module, active) && returnsToDecisionQueue(recordRequest)) ||
-          (focusedRecord && !focusedRecord.id && returnsToDecisionQueue(focusedRecord.request))
+          (recordRequest && sameDomainModule(recordRequest.module, active) && (returnsToDecisionQueue(recordRequest) || recordRequest.source==="dashboard-action")) ||
+          (focusedRecord && !focusedRecord.id && (returnsToDecisionQueue(focusedRecord.request) || focusedRecord.request?.source==="dashboard-action"))
         ) ? (
           focusedRecord ? null : <p role="status">{lang === "tr" ? "Kayıt yükleniyor…" : "Loading record…"}</p>
         ) : active === "Denetim Yönetimi" ? (
@@ -2291,7 +2325,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
             go={navigateToModule}
           />
         ) : active==="Uyum" && canReadPosture(currentUser) && !legacyCompliance && !focusedRecord ? (
-          <><FrameworkWorkspace onControlCreated={()=>{void load();}} createControl={canWriteModule(currentUser,"Kontroller")} tr={lang==="tr"} write={canWriteModule(currentUser,"Uyum")}/>
+          <><FrameworkWorkspace key={lens?.framework || "portfolio"} initialProgram={lens?.framework} onControlCreated={()=>{void load();}} createControl={canWriteModule(currentUser,"Kontroller")} tr={lang==="tr"} write={canWriteModule(currentUser,"Uyum")}/>
           <button type="button" className="ghost" onClick={()=>changeComplianceView(true)}>{lang==="tr"?"Özel gereksinimler ve mevcut kayıtlar":"Custom requirements and existing records"}</button></>
         ) : (
           <>
@@ -2366,15 +2400,15 @@ function FornostApp({ currentUser }: { currentUser: any }) {
                 filterPanelOpen={filterPanelOpen}
                 setFilterPanelOpen={setFilterPanelOpen}
               />
-              <RecordWorkspace allowPosture={canReadPosture(currentUser)} key={active} rows={readableRows} visible={visible} lang={lang} moduleNames={names[lang]} formatValue={display}
+              <RecordWorkspace initialRecordId={focusedRecord?.openDetail ? focusedRecord.id : undefined} allowPosture={canReadPosture(currentUser)} key={active + ":" + (focusedRecord?.id || "")} rows={readableRows} visible={visible} lang={lang} moduleNames={names[lang]} formatValue={display}
                 preview={id => { const row = readableRows.find(item => item.id === id && item.module === "Kanıtlar"); if (row) setPreviewEvidence(row); }}>
                 {(inspect, open) => (
               <div className="table-wrap" hidden={open} tabIndex={0} role="region" aria-label={lang === "tr" ? "Kayıt tablosu" : "Record table"}>
-                {!focusedRecord && (registerLoadState !== "ready" || !visible.length) ? <RegisterEmptyState
+                {lens?.module==="Kanıtlar" && !staleEvidence ? <p role="status">{evidenceRegisterState.loading ? (lang==="tr"?"Kanıt değerlendirmesi yükleniyor…":"Loading evidence assessment…") : (lang==="tr"?"Kanıt değerlendirmesi doğrulanamadı.":"Evidence assessment unavailable.")} {!evidenceRegisterState.loading && <button onClick={evidenceRegisterState.refresh}>{lang==="tr"?"Yeniden dene":"Retry"}</button>}</p> : !focusedRecord && (registerLoadState !== "ready" || !visible.length) ? <RegisterEmptyState
                   module={active} lang={lang} state={registerLoadState}
-                  filtered={Boolean(query || Object.values(registerFilters).some(Boolean))}
+                  filtered={Boolean(lens || query || Object.values(registerFilters).some(Boolean))}
                   onRetry={() => { setNotice(""); void load(); }}
-                  onClear={() => { setQuery(""); setRegisterFilters({}); requestAnimationFrame(() => document.querySelector<HTMLInputElement>(".register-search input")?.focus()); }}
+                  onClear={() => { if(lens) setDashboardLens(null); setQuery(""); setRegisterFilters({}); requestAnimationFrame(() => document.querySelector<HTMLInputElement>(".register-search input")?.focus()); }}
                   onCreate={canWriteModule(currentUser,active) ? () => openNew() : undefined}
                 /> : active === "Risk Assessment" ? (
                   <RiskRegister
@@ -3014,16 +3048,15 @@ function CoreModuleOverview({module,rows,allRows,lang}:{module:string;rows:Row[]
 
 function Dashboard({
   rows,
-  go,
+  go, drill, upload,
   lang,
-}: {
+}: DashboardRoutes & {
   rows: Row[];
-  go: (x: string) => void;
   lang: Lang;
 }) {
   return (
     <div className="workspace-dashboard" data-dashboard="executive">
-      <ExecutiveAssurancePanel rows={rows} lang={lang} go={go} />
+      <ExecutiveAssurancePanel rows={rows} lang={lang} go={go} drill={drill} upload={upload} />
     </div>
   );
 }
