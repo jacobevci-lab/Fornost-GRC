@@ -1,7 +1,7 @@
 import { validateViewState, type SavedViewState, type ViewSchema } from './saved-register-views';
 import { viewSortOptions, type ViewSort } from './register-sort';
 
-const statuses = ['today', 'priority', 'overdue', 'soon', 'waiting', 'undated', 'completed', 'all'] as const;
+const statuses = ['today', 'priority', 'overdue', 'soon', 'waiting', 'undated', 'completed', 'all', 'owner', 'reviewer', 'unassigned'] as const;
 export type QueueFilter = typeof statuses[number];
 export const workViewSchema: ViewSchema = { filters: ['module', 'status'], columns: ['title', 'owner', 'status', 'due'], sortKeys: viewSortOptions('My Work').map(option => option.key) };
 

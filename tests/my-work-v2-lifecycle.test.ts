@@ -10,7 +10,7 @@ test("My Work separates attention, waiting, completed and undated lifecycle view
   assert.match(source, /Waiting for others/);
   assert.match(source, /Completed in 30 days/);
   assert.match(source, /completedAt >= now - 30 \* DAY/);
-  assert.match(source, /isWaitingForOthers/);
+  assert.match(source, /waiting: !completed && roles.waiting/);
 });
 
 test("unassessed risks are treated as attention work rather than low-risk work", () => {
@@ -22,7 +22,7 @@ test("unassessed risks are treated as attention work rather than low-risk work",
 test("My Work opens the selected business record through the shared navigation focus contract", () => {
   assert.match(source, /import \{[^}]*\bnavigateToFornost\b[^}]*\} from "\.\/navigation-focus"/);
   assert.match(source, /source: "my-work"/);
-  assert.match(source, /filter: \{ recordRef: recordCode\(row\) \}/);
+  assert.match(source, /filter: \{ recordRef: ref \}/);
   assert.match(source, /onClick=\{\(\) => navigateToRecord\(item\.row\)\}/);
   assert.doesNotMatch(source, /const NAV_LABELS/);
 });

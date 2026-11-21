@@ -279,8 +279,9 @@ try {
 
   await openQaModule(page, "Benim İşlerim");
   const inbox = page.locator(".my-work-v2");
-  const emptyTitle = inbox.getByRole("heading", { name: "Kişisel iş kuyruğunda açık işin yok.", exact: true });
+  const emptyTitle = inbox.getByRole("heading", { name: "Şu an üzerinize atanmış açık görev bulunmuyor", exact: true });
   const refresh = inbox.getByRole("button", { name: "Yenile", exact: true });
+  await emptyTitle.scrollIntoViewIfNeeded();
   await expect(emptyTitle).toBeInViewport();
   await page.screenshot({ path: `${out}/mobile-personal-inbox.png` });
   await inbox.getByRole("button", { name: "Organizasyon", exact: true }).click();
@@ -305,6 +306,7 @@ try {
   await expect(inbox.locator(".mw2-empty")).toBeVisible();
   await expect(emptyTitle).toHaveCount(0);
   records = [];
+  await inbox.locator(".mw2-toolbar input").fill("");
   await refresh.click();
   await expect(emptyTitle).toBeVisible();
   records = [

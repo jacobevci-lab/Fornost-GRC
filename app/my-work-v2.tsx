@@ -6,10 +6,11 @@ import {incidentLabel} from './incidents/labels';
 import { enterpriseWorkSources, enterpriseWorkKinds, continuityWorkLabels, projectEnterpriseWork, type EnterpriseWorkSource } from "./enterprise-work";
 import MyWorkAssuranceSignals from "./my-work-assurance-signals";
 import { dueTimestamp } from "./due-date";
-import { workCompletionDate, matchesWorkIdentity, isDueToday, paginateWork, findingWorkRows, findingWorkDisposition, workSourcesComplete } from "./work-queue";
+import { workCompletionDate, isDueToday, paginateWork, findingWorkRows, findingWorkDisposition, workSourcesComplete } from "./work-queue";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { createPortal } from "react-dom";
+import { workCopy, workRoles } from "./work-roles";
+import { dashboardCode } from "./dashboard-actions";
 import { withBasePath } from "./base-path";
 import { assessedRiskScore } from "./risk-methodology";
 import { isAuditTaskKind, navigateToFornost } from "./navigation-focus";
@@ -60,6 +61,7 @@ type QueueItem = {
   priority: number;
   reason: string;
   tone: "critical" | "warning" | "normal" | "muted";
+  roles: ReturnType<typeof workRoles>;
   waiting: boolean;
 };
 
@@ -78,29 +80,12 @@ const CLOSED = new Set([
   "archived",
   "arşivlendi",
 ]);
-const REVIEW_STATES = [
-  "incelemede",
-  "under review",
-  "review",
-  "submitted",
-  "gönderildi",
-  "verification pending",
-  "verification",
-  "doğrulama bekliyor",
-  "approval pending",
-  "onay bekliyor",
-];
-
-
 const clean = (value: unknown) => String(value ?? "").trim();
 const normalized = (value: unknown) => clean(value).normalize("NFKC").toLocaleLowerCase("tr-TR");
-function currentLanguage(): Lang {
-  return document.querySelector(".language-switch button.active")?.textContent?.trim().toLowerCase() === "en" ? "en" : "tr";
-}
 function normalizeRows(body: unknown): Row[] {
   if (!body || typeof body !== "object") return [];
   const source = Array.isArray((body as { rows?: unknown }).rows) ? (body as { rows: RawRow[] }).rows : [];
-  return source.map((raw, index) => {
+  return source.filter(raw => raw && typeof raw === "object").map(raw => {
     let data: Record<string, unknown> = {};
     if (raw.data && typeof raw.data === "object" && !Array.isArray(raw.data)) data = raw.data as Record<string, unknown>;
     else if (typeof raw.data_json === "string") {
@@ -110,34 +95,14 @@ function normalizeRows(body: unknown): Row[] {
       } catch {}
     }
     return {
-      id: clean(raw.id) || `work-${index}`,
-      code: clean(raw.code || raw.recordCode || raw.record_code) || undefined,
+      id: clean(raw.id),
+      code: clean(raw.record_code || raw.recordCode || raw.code) || undefined,
       module: clean(raw.module),
       data,
       createdAt: clean(raw.createdAt || raw.created_at) || undefined,
       updatedAt: clean(raw.updatedAt || raw.updated_at) || undefined,
     };
-  }).filter(row => row.module);
-}
-function ownerValues(row: Row) {
-  const d = row.data;
-  return [
-    d.owner,
-    d.ownerEmail,
-    d.actionOwner,
-    d.followUpOwner,
-    d.testOwner,
-    d.reviewer,
-    d.approver,
-    d.evidenceOwner,
-    d.auditOwner,
-    d.technicalOwner,
-    d.custodian,
-  ].map(clean).filter(Boolean);
-}
-function primaryOwnerValues(row: Row) {
-  const d = row.data;
-  return [d.owner, d.ownerEmail, d.actionOwner, d.testOwner, d.evidenceOwner, d.auditOwner, d.technicalOwner, d.custodian].map(clean).filter(Boolean);
+  }).filter(row => row.module && row.id);
 }
 function dueValue(row: Row) {
   const d = row.data;
@@ -151,18 +116,15 @@ function rowTitle(row: Row) {
   const d = row.data;
   return clean(
     d.title || d.process || d.controlTitle || d.requirementTitle || d.evidenceTitle ||
-      d.service || d.vendorName || d.finding || row.code || row.id,
+      d.service || d.vendorName || d.finding || recordCode(row),
   );
-}
-function rowOwner(row: Row) {
-  return ownerValues(row)[0] || "—";
 }
 function rowStatus(row: Row) {
   const d = row.data;
   return clean(d.status || d.reviewStatus || d.implementation || d.evidenceStatus) || "—";
 }
 function recordCode(row: Row) {
-  return row.code || row.id;
+  return dashboardCode({ ...row, id: row.nativeRef || row.id.replace(/^finding:/, "") });
 }
 function formatDate(value: string, lang: Lang) {
   if (!value) return lang === "tr" ? "Tarih yok" : "No due date";
@@ -170,24 +132,10 @@ function formatDate(value: string, lang: Lang) {
   if (!Number.isFinite(time)) return value;
   return new Intl.DateTimeFormat(lang === "tr" ? "tr-TR" : "en-GB", { day: "2-digit", month: "short", year: "numeric", ...(/^\d{4}-\d{2}-\d{2}$/.test(value) ? { timeZone: "UTC" } : {}) }).format(new Date(time));
 }
-function valuesMatchIdentity(values: string[], user: User) {
-  return matchesWorkIdentity(values, user);
-}
-function matchesIdentity(row: Row, user: User) {
-  return valuesMatchIdentity(ownerValues(row), user);
-}
 function isClosed(row: Row) {
   if (row.workSource) return row.data.workClosed === true;
   if (row.module === "Bulgular ve CAPA") return ["closed","cancelled"].includes(normalized(row.data.status));
   return CLOSED.has(normalized(row.data.status || row.data.reviewStatus));
-}
-function isWaitingForOthers(row: Row, user: User) {
-  if (!valuesMatchIdentity(primaryOwnerValues(row), user)) return false;
-  if (row.workKind === "audit-milestone" && Number(row.data.blockedCount)>0) return true;
-  const counterparties = [row.data.reviewer, row.data.approver, row.data.followUpOwner].map(clean).filter(Boolean);
-  if (!counterparties.length || valuesMatchIdentity(counterparties, user)) return false;
-  const state = normalized(row.data.reviewStatus || row.data.status);
-  return row.data.workWaitingForReview === true || (row.workKind === "policy-version" && state === "approved") || REVIEW_STATES.some(candidate => state.includes(candidate)) || Boolean(row.data.submittedAt || row.data.submittedBy || row.data.reviewStatus);
 }
 function priorityFor(row: Row, dueTime: number, now: number) {
   if (row.workKind === 'incident' && ['critical', 'high'].includes(clean(row.data.severity))) return 1;
@@ -251,18 +199,20 @@ function toneFor(priority: number): QueueItem["tone"] {
 function itemFromRow(row: Row, user: User, now: number, lang: Lang, completed = false): QueueItem {
   const due = dueValue(row);
   const dueTime = dueTimestamp(due);
+  const roles = workRoles(row, user);
   const priority = completed ? 4 : priorityFor(row, dueTime, now);
   return {
     row,
     title: row.workKind ? `${enterpriseWorkKinds[row.workKind]?.[lang] || row.workKind} · ${rowTitle(row)}` : rowTitle(row),
-    owner: rowOwner(row),
+    owner: roles.ownerName,
+    roles,
     status: row.workSource === 'vendor' ? vendorWorkLabels[rowStatus(row)]?.[lang] || rowStatus(row) : row.workKind === 'incident' ? incidentLabel(rowStatus(row), lang) : row.workSource === "continuity" ? continuityWorkLabels[rowStatus(row)]?.[lang] || rowStatus(row) : row.workKind === "audit-milestone" ? milestoneLabels[rowStatus(row) as keyof typeof milestoneLabels]?.[lang === "tr" ? 0 : 1] || rowStatus(row) : rowStatus(row),
     due,
     dueTime,
     priority,
     reason: completed ? (row.workSource === "vendor" ? vendorWorkLabels[rowStatus(row)]?.[lang] || rowStatus(row) : row.workSource === "continuity" ? continuityWorkLabels[rowStatus(row)]?.[lang] || rowStatus(row) : (lang === "tr" ? "Tamamlandı" : "Completed")) : reasonFor(row, dueTime, now, lang),
     tone: completed ? "muted" : toneFor(priority),
-    waiting: !completed && isWaitingForOthers(row, user),
+    waiting: !completed && roles.waiting,
   };
 }
 function openWorkSource(row: Row) {
@@ -270,23 +220,23 @@ function openWorkSource(row: Row) {
     navigateToFornost({ module: row.module, ref: row.nativeRef, kind: row.workKind, source: "my-work-enterprise", ...(isAuditTaskKind(row.workKind) ? { filter: { auditId: clean(row.data.auditId) } } : {}) });
     return;
   }
+  const ref = row.id.replace(/^finding:/, "");
   navigateToFornost({
     module: row.module,
-    ref: recordCode(row),
+    ref,
     kind: "record",
     source: "my-work",
-    filter: { recordRef: recordCode(row) },
+    filter: { recordRef: ref },
   });
 }
 
-export default function MyWorkV2() {
-  const [mount, setMount] = useState<HTMLElement | null>(null);
-  const [lang, setLang] = useState<Lang>("tr");
+export default function MyWorkV2({ active, lang, actor }: { active: boolean; lang: Lang; actor: User }) {
+  const root = useRef<HTMLElement>(null);
   const [rows, setRows] = useState<Row[]>([]);
   const [user, setUser] = useState<User>({});
   const { sort, setSort } = useRegisterView(user.id || '', 'My Work');
   const [scope, setScope] = useState<Scope>("mine");
-  const [filter, setFilter] = useState<QueueFilter>("priority");
+  const [filter, setFilter] = useState<QueueFilter>("all");
   const [query, setQuery] = useState("");
   const [moduleFilter, setModuleFilter] = useState("");
   const [loading, setLoading] = useState(false);
@@ -295,92 +245,73 @@ export default function MyWorkV2() {
   const returnRow = useRef<{ id: string; userId: string; leftQueue: boolean } | null>(null);
   const controller = useRef<AbortController | null>(null), request = useRef(0);
   const [refreshKey, setRefreshKey] = useState(0);
-  const [verifiedRead, setVerifiedRead] = useState<{ mount: HTMLElement; at: Date } | null>(null);
-  const lastUpdated = verifiedRead && verifiedRead.mount === mount ? verifiedRead.at : null;
-
-  useEffect(() => {
-    let created: HTMLDivElement | null = null;
-    const discover = () => {
-      setLang(currentLanguage());
-      const legacy = document.querySelector<HTMLElement>(".my-work-page");
-      if (!legacy) {
-        if (returnRow.current) returnRow.current.leftQueue = true;
-        setMount(null);
-        return;
-      }
-      legacy.classList.add("my-work-v2-legacy-hidden");
-      created = legacy.parentElement?.querySelector<HTMLDivElement>(":scope > .my-work-v2-mount") || null;
-      if (!created) {
-        created = document.createElement("div");
-        created.className = "my-work-v2-mount";
-        legacy.insertAdjacentElement("afterend", created);
-      }
-      setMount(current => current === created ? current : created);
-    };
-    discover();
-    const observer = new MutationObserver(discover);
-    observer.observe(document.body, { childList: true, subtree: true });
-    const onClick = () => setLang(currentLanguage());
-    document.addEventListener("click", onClick);
-    return () => {
-      observer.disconnect();
-      document.removeEventListener("click", onClick);
-      document.querySelector(".my-work-page")?.classList.remove("my-work-v2-legacy-hidden");
-      created?.remove();
-    };
-  }, []);
+  const [lastUpdated, setVerifiedRead] = useState<Date | null>(null);
 
   const load = useCallback(async () => {
-    if (!mount) return;
+    if (!active) return;
     controller.current?.abort();
     const pending = new AbortController(); controller.current = pending;
     const id = ++request.current;
     const timeout = window.setTimeout(() => pending.abort(), 20000);
-    setLoading(true); setRefreshKey(value => value + 1);
+    setLoading(true); setLoadError(false); setVerifiedRead(null); setRefreshKey(value => value + 1);
     try {
       const [grcResult, authResult, findingsResult, ...enterpriseResults] = await Promise.allSettled([
         fetch(withBasePath("/api/grc"), { cache: "no-store", signal: pending.signal }).then(async response => response.ok ? response.json() : Promise.reject(new Error("grc"))),
         fetch(withBasePath("/api/auth"), { cache: "no-store", signal: pending.signal }).then(async response => response.ok ? response.json() : Promise.reject(new Error("auth"))),
         fetch(withBasePath("/api/findings"), { cache: "no-store", signal: pending.signal }).then(async response => response.ok ? response.json() : Promise.reject(new Error("findings"))),
-        ...enterpriseWorkSources.map(source => fetch(withBasePath(source.path), { cache: "no-store", signal: pending.signal }).then(async response => response.ok ? response.json() : Promise.reject(new Error(source.key)))),
+        ...enterpriseWorkSources.map(source => fetch(withBasePath(source.path), { headers:{"x-fornost-work-queue":"1"}, cache: "no-store", signal: pending.signal }).then(async response => response.ok ? response.json() : Promise.reject(new Error(source.key)))),
       ]);
       if (request.current !== id) return;
-      if (authResult.status === "rejected" || !authResult.value?.user?.email) {
+      if (authResult.status === "rejected" || !authResult.value?.user?.email || authResult.value.user.id !== actor.id || authResult.value.user.role !== actor.role || normalized(authResult.value.user.email) !== normalized(actor.email)) {
         setUser({}); setRows([]); setLoadError(true); return;
       }
       const enterprise = enterpriseResults.map((result, index) => ({
         source: enterpriseWorkSources[index].key,
         projection: result.status === "fulfilled" ? projectEnterpriseWork(enterpriseWorkSources[index].key, result.value) : null,
       }));
-      setRows(previous => {
+      {
         const tasks = enterprise.flatMap(({ projection }) => projection?.rows || []);
         const managedVendors = new Set(tasks.filter(row => row.workKind === 'vendor-review').map(row => row.nativeRef));
-        const core = grcResult.status === "fulfilled" ? normalizeRows(grcResult.value) : previous.filter(row => !row.workSource && row.module !== "Bulgular ve CAPA");
-        return [
+        const core = grcResult.status === "fulfilled" ? normalizeRows(grcResult.value) : [];
+        setRows([
           ...core.filter(row => row.module !== 'Tedarikçiler' || !managedVendors.has(row.id)),
-          ...(findingsResult.status === "fulfilled" ? findingWorkRows(findingsResult.value) : previous.filter(row => !row.workSource && row.module === "Bulgular ve CAPA")),
+          ...(findingsResult.status === "fulfilled" ? findingWorkRows(findingsResult.value) : []),
           ...tasks,
-        ];
-      });
+        ]);
+      }
       setUser((authResult.value as { user?: User }).user || {});
       const failed = grcResult.status === "rejected" || findingsResult.status === "rejected" || !workSourcesComplete(grcResult.value, findingsResult.value) || enterprise.some(item => !item.projection?.complete);
       setLoadError(failed);
-      if (!failed) setVerifiedRead({ mount, at: new Date() });
+      if (!failed) setVerifiedRead(new Date());
+    } catch {
+      if (request.current === id) { setRows([]); setLoadError(true); }
     } finally {
       window.clearTimeout(timeout);
       if (request.current === id) setLoading(false);
     }
-  }, [mount]);
+  }, [active, actor.id, actor.email, actor.role]);
 
   const cancelLoad = useCallback(() => { request.current++; controller.current?.abort(); }, []);
   useEffect(() => {
-    if (!mount) return;
+    if (!active) {
+      if (returnRow.current) returnRow.current.leftQueue = true;
+      return;
+    }
     void load();
     const timer = window.setInterval(() => void load(), 300_000);
     return () => { window.clearInterval(timer); cancelLoad(); setVerifiedRead(null); };
-  }, [mount, load, cancelLoad]);
+  }, [active, load, cancelLoad]);
 
-  const scopedRows = useMemo(() => rows.filter(row => scope === "organization" && user.role === "Admin" ? true : matchesIdentity(row, user)), [rows, scope, user]);
+  const organization = scope === "organization" && user.role === "Admin";
+  function selectFilter(next: QueueFilter) {
+    if (next === "unassigned" && user.role === "Admin") setScope("organization");
+    setFilter(next === "unassigned" && user.role !== "Admin" ? "all" : next);
+  }
+  const scopedRows = useMemo(() => rows.filter(row => {
+    if (row.data.assignmentOnly && !organization) return false;
+    const role = workRoles(row, user);
+    return organization || role.owner || role.reviewer;
+  }), [rows, organization, user]);
   const moduleOptions = useMemo(() => [...new Set(scopedRows.map(row => row.module))].sort((a, b) => (MODULE_LABELS[a]?.[lang] || a).localeCompare(MODULE_LABELS[b]?.[lang] || b, lang)), [scopedRows, lang]);
 
   const data = useMemo(() => {
@@ -393,22 +324,23 @@ export default function MyWorkV2() {
       const completedAt = new Date(workCompletionDate(row)).getTime();
       return Number.isFinite(completedAt) && completedAt >= now - 30 * DAY && completedAt <= now;
     });
-    const items = openRows.map(row => itemFromRow(row, user, now, lang)).sort((a, b) => a.priority - b.priority || a.dueTime - b.dueTime || a.title.localeCompare(b.title, lang === "tr" ? "tr" : "en"));
+    const assignmentItems = openRows.filter(row => row.data.assignmentOnly).map(row => itemFromRow(row,user,now,lang));
+    const items = openRows.filter(row => !row.data.assignmentOnly).map(row => itemFromRow(row, user, now, lang)).sort((a, b) => a.priority - b.priority || a.dueTime - b.dueTime || a.title.localeCompare(b.title, lang === "tr" ? "tr" : "en"));
     const completedItems = completedRows.map(row => itemFromRow(row, user, now, lang, true)).sort((a, b) => new Date(workCompletionDate(b.row)).getTime() - new Date(workCompletionDate(a.row)).getTime());
-    const today = items.filter(item => isDueToday(item.due, now)).length;
     const overdue = items.filter(item => Number.isFinite(item.dueTime) && item.dueTime < now).length;
-    const soon = items.filter(item => Number.isFinite(item.dueTime) && item.dueTime >= now && item.dueTime <= now + 14 * DAY).length;
-    const undated = items.filter(item => !Number.isFinite(item.dueTime)).length;
     const priority = items.filter(item => item.priority <= 1).length;
     const waiting = items.filter(item => item.waiting).length;
     const modules = [...new Set(items.map(item => item.row.module))].length;
-    return { hasOpenWork: allOpenRows.length > 0, items, completedItems, today, overdue, soon, undated, priority, waiting, modules, now };
+    return { assignmentItems, hasOpenWork: allOpenRows.length > 0, items, completedItems, overdue, priority, waiting, modules, now };
   }, [scopedRows, user, moduleFilter, lang]);
 
   const visible = useMemo(() => {
     const needle = normalized(query);
-    const source = filter === "completed" ? data.completedItems : data.items;
+    const source = filter === "completed" ? data.completedItems : filter === "unassigned" ? [...data.items, ...data.assignmentItems] : data.items;
     const filtered = source.filter(item => {
+      if (filter === "owner" && !item.roles.owner) return false;
+      if (filter === "reviewer" && !item.roles.awaitingReview) return false;
+      if (filter === "unassigned" && (!organization || !item.roles.unassigned)) return false;
       if (filter === "today" && !isDueToday(item.due, data.now)) return false;
       if (filter === "priority" && item.priority > 1) return false;
       if (filter === "overdue" && !(Number.isFinite(item.dueTime) && item.dueTime < data.now)) return false;
@@ -425,7 +357,7 @@ export default function MyWorkV2() {
       if (sort.key === 'updatedAt') return sortValue(item.row.updatedAt, 'date');
       return sortValue(sort.key === 'owner' ? item.owner : item.title, 'text');
     }, item => item.row.id);
-  }, [data, filter, query, lang, sort]);
+  }, [data, filter, query, lang, sort, organization]);
 
   useEffect(() => { setPageIndex(0); }, [filter, query, scope, moduleFilter, sort]);
   const pageSize = 20;
@@ -438,7 +370,8 @@ export default function MyWorkV2() {
 
   useEffect(() => {
     const origin = returnRow.current;
-    if (!origin?.leftQueue || !mount || !lastUpdated || loading || loadError) return;
+    const mount = root.current;
+    if (!origin?.leftQueue || !active || !mount || !lastUpdated || loading || loadError) return;
     if (origin.userId !== user.id || mount.contains(document.activeElement)) {
       returnRow.current = null;
       return;
@@ -455,7 +388,7 @@ export default function MyWorkV2() {
     returnRow.current = null;
     target?.focus({ preventScroll: true });
     target?.scrollIntoView({ block: "nearest" });
-  }, [mount, lastUpdated, loading, loadError, user.id, visible, page.page, pageIndex]);
+  }, [active, lastUpdated, loading, loadError, user.id, visible, page.page, pageIndex]);
 
   const exportView = () => {
     if (loading || loadError || !lastUpdated || !visible.length) return;
@@ -465,42 +398,41 @@ export default function MyWorkV2() {
     downloadBlob(`fornost-work-${filter}-${lastUpdated.toISOString().slice(0, 10)}.csv`, new Blob([csv], { type: "text/csv;charset=utf-8" }));
   };
 
-  if (!mount) return null;
-  const tr = lang === "tr";
-  const personalQueueEmpty = scope === "mine" && !!lastUpdated && !loading && !loadError && !data.hasOpenWork;
-  const filters: Array<[QueueFilter, string, number]> = [
-    ["today", tr ? "Bugün" : "Today", data.today],
-    ["priority", tr ? "Öncelik" : "Priority", data.priority],
-    ["overdue", tr ? "Geciken" : "Overdue", data.overdue],
-    ["soon", tr ? "14 gün" : "14 days", data.soon],
-    ["waiting", tr ? "Başkalarında bekleyen" : "Waiting for others", data.waiting],
-    ["undated", tr ? "Tarihsiz" : "Undated", data.undated],
-    ["completed", tr ? "Tamamlanan" : "Completed", data.completedItems.length],
-    ["all", tr ? "Tümü" : "All", data.items.length],
-  ];
-
-  return createPortal(
-    <section className="my-work-v2" aria-label={tr ? "Benim işlerim" : "My Work"}>
-      {loadError && <p className="mw2-load-error" role="alert">{tr ? "İş listesi tamamen doğrulanamadı. Kaynak hatası, eksik veri veya okuma sınırı olabilir; dışa aktarma kapalı. Yenile ile tekrar deneyin." : "The complete work list could not be verified. A source failed, data is malformed or a read limit was reached; export is disabled. Use Refresh to retry."}</p>}
+  if (!active) return null;
+  const tr = lang === "tr", locale = tr ? 0 : 1;
+  const ready = !!lastUpdated && !loading && !loadError;
+  const refreshing = loading || (!lastUpdated && !loadError);
+  const personalQueueEmpty = ready && scope === "mine" && !data.hasOpenWork && filter === "all" && !query && !moduleFilter;
+  const filters = ["all", "owner", "reviewer", "waiting", ...(user.role === "Admin" ? ["unassigned" as const] : [])] as const;
+  const links = [["Risk Assessment", workCopy.risk], ["Kanıtlar", workCopy.evidence], ["Denetim Yönetimi", workCopy.audit]] as const;
+  const urgencies = ready ? data.items.flatMap(item => {
+    const expired = item.row.workKind === "policy-exception" && ["expired","approved"].includes(clean(item.row.data.status)) && item.dueTime < data.now;
+    return expired ? [{id:item.row.id, code:recordCode(item.row), title:item.title, reason:workCopy.expiredPolicy[locale], open:() => navigateToRecord(item.row)}] : [];
+  }) : [];
+  return (
+    <section ref={root} className="my-work-v2" aria-label={tr ? "Benim İşlerim" : "My Work"}>
+      {loadError && <p className="mw2-load-error" role="alert">{tr ? "İş listesi tamamen doğrulanamadı. Kaynak hatası, eksik veri veya okuma sınırı olabilir. Yenile ile tekrar deneyin." : "The complete work list could not be verified. A source failed, data is malformed or a read limit was reached. Use Refresh to retry."}</p>}
       <header className="mw2-hero">
         <div>
           <small>{tr ? "AKSİYON MERKEZİ" : "ACTION INBOX"}</small>
-          <h2>{personalQueueEmpty
-            ? (tr ? "Kişisel iş kuyruğunda açık işin yok." : "You have no open items in your personal queue.")
-            : (tr ? "Bugün neye müdahale etmeliyim?" : "What needs my attention today?")}</h2>
-          <p>{personalQueueEmpty
-            ? (tr ? "Güvence aksiyonlarını aşağıdaki bölümden takip edebilirsin." : "Review assurance actions in the section below.")
-            : tr ? "Risk, kontrol, kanıt, denetim, süreklilik, olay ve iyileştirme sorumluluklarını tek kuyrukta gör; çalışma sırasını ihtiyacına göre seç." : "See risk, control, evidence, audit, continuity, incident and remediation responsibilities in one queue; choose the order that fits your work."}</p>
+          <h2>{tr ? "Benim İşlerim" : "My Work"}</h2>
         </div>
         <div className="mw2-hero-actions">
           {user.role === "Admin" && <div className="mw2-scope" role="group" aria-label={tr ? "İş kapsamı" : "Work scope"}>
-            <button type="button" aria-pressed={scope === "mine"} className={scope === "mine" ? "active" : ""} onClick={() => setScope("mine")}>{tr ? "Benim" : "Mine"}</button>
+            <button type="button" aria-pressed={scope === "mine"} className={scope === "mine" ? "active" : ""} onClick={() => { setScope("mine"); if (filter === "unassigned") setFilter("all"); }}>{tr ? "Benim" : "Mine"}</button>
             <button type="button" aria-pressed={scope === "organization"} className={scope === "organization" ? "active" : ""} onClick={() => setScope("organization")}>{tr ? "Organizasyon" : "Organization"}</button>
           </div>}
           <button type="button" className="mw2-refresh" disabled={loading || loadError || !lastUpdated || !visible.length} onClick={exportView} title={tr ? "Seçili kapsam ve filtredeki tüm yüklenen işleri indir" : "Download all loaded work matching the selected scope and filter"}>{tr ? "Listeyi indir (CSV)" : "Download list (CSV)"}</button>
-          <button type="button" className="mw2-refresh" disabled={loading} onClick={() => void load()}>{loading ? (tr ? "Yenileniyor…" : "Refreshing…") : (tr ? "Yenile" : "Refresh")}</button>
+          <button type="button" className="mw2-refresh" disabled={refreshing} onClick={() => void load()}>{refreshing ? (tr ? "Yenileniyor…" : "Refreshing…") : (tr ? "Yenile" : "Refresh")}</button>
         </div>
       </header>
+
+      <div className="mw2-metrics">
+        <button type="button" className={data.overdue ? "critical" : ""} aria-pressed={filter === "overdue"} onClick={() => selectFilter("overdue")}><small>{tr ? "Geciken" : "Overdue"}</small><strong>{ready ? data.overdue : "—"}</strong><span>{tr ? "Termin geçmiş işler" : "Past-due work"}</span></button>
+        <button type="button" className={data.priority ? "warning" : ""} aria-pressed={filter === "priority"} onClick={() => selectFilter("priority")}><small>{tr ? "Dikkat gerekiyor" : "Needs attention"}</small><strong>{ready ? data.priority : "—"}</strong><span>{workCopy.attentionHint[locale]}</span></button>
+        <button type="button" className={data.waiting ? "muted" : ""} aria-pressed={filter === "waiting"} onClick={() => selectFilter("waiting")}><small>{tr ? "Başkalarında bekleyen" : "Waiting for others"}</small><strong>{ready ? data.waiting : "—"}</strong><span>{tr ? "İnceleme / onay bekleyen" : "Reviewer / approval pending"}</span></button>
+        <button type="button" aria-pressed={filter === "completed"} onClick={() => selectFilter("completed")}><small>{tr ? "30 günde tamamlanan" : "Completed in 30 days"}</small><strong>{ready ? data.completedItems.length : "—"}</strong><span>{tr ? "Yakın zamanda kapanan işler" : "Recently closed work"}</span></button>
+      </div>
 
       <div className="mw2-module-filter">
         <label>{tr ? "İş kuyruğu modülü" : "Work queue module"}<select aria-label={tr ? "İş kuyruğu modülü" : "Work queue module"} value={moduleFilter} onChange={event => setModuleFilter(event.target.value)}>
@@ -510,26 +442,27 @@ export default function MyWorkV2() {
         </select></label>
         {moduleFilter && <button type="button" className="mw2-refresh" onClick={() => setModuleFilter("")}>{tr ? "Modül filtresini temizle" : "Clear module filter"}</button>}
         <RegisterSortControls module="My Work" lang={lang} sort={sort} onChange={setSort} disabled={loading || loadError} />
-        <p>{tr ? "Özet sayaçları, iş listesi ve CSV seçili modüle göre süzülür. CSV, liste sıralamasını korur. Güvence sinyalleri kendi kapsamını korur." : "Summary counts, the work list and CSV follow the selected module. CSV preserves the list order. Assurance signals retain their own scope."}</p>
+        <p>{workCopy.exportHint[locale]}</p>
       </div>
       <section className="mw2-queue">
         <header>
           <div><small>{scope === "organization" ? (tr ? "KURUMSAL İŞ KUYRUĞU" : "ORGANIZATION WORK QUEUE") : (tr ? "KİŞİSEL İŞ KUYRUĞU" : "PERSONAL WORK QUEUE")}</small><h3>{scope === "organization" ? (tr ? "Organizasyon aksiyonları" : "Organization actions") : (tr ? "Bana atanmış işler" : "Work assigned to me")}</h3></div>
-          <div className="mw2-meta"><b>{data.items.length}</b><span>{tr ? "açık iş" : "open items"}</span><i>·</i><b>{data.modules}</b><span>{tr ? "modül" : "modules"}</span></div>
+          <div className="mw2-meta"><b>{ready ? data.items.length : "—"}</b><span>{tr ? "açık iş" : "open items"}</span><i>·</i><b>{ready ? data.modules : "—"}</b><span>{tr ? "modül" : "modules"}</span></div>
         </header>
         <div className="mw2-toolbar">
-          <div className="mw2-filters">{filters.map(([value, label, count]) => <button type="button" aria-pressed={filter === value} className={filter === value ? "active" : ""} onClick={() => setFilter(value)} key={value}>{label}<b>{count}</b></button>)}</div>
+          <div className="mw2-filters">{filters.map(value => <button type="button" aria-pressed={filter === value} className={filter === value ? "active" : ""} onClick={() => selectFilter(value)} key={value}>{workCopy[value][locale]}</button>)}</div>
           <label className="mw2-search"><span aria-hidden="true">⌕</span><input aria-label={tr ? "İşlerde ara" : "Search work"} value={query} onChange={event => setQuery(event.target.value)} placeholder={tr ? "İşlerde ara…" : "Search work…"} /></label>
         </div>
 
         {visible.length ? <div className="mw2-list">{page.items.map(item => <button type="button" key={item.row.id} data-work-id={item.row.id} className={`mw2-item ${item.tone}`} onClick={() => navigateToRecord(item.row)}>
           <span className="mw2-priority-dot" />
-          <span className="mw2-title"><b>{item.title}</b><small>{MODULE_LABELS[item.row.module]?.[lang] || item.row.module} · {recordCode(item.row)}</small></span>
+          <span className="mw2-title"><b>{item.title}</b><small>{MODULE_LABELS[item.row.module]?.[lang] || item.row.module} · {recordCode(item.row)}</small><span className="mw2-role">{item.roles.owner ? workCopy.ownerRole[locale] : item.roles.reviewer ? workCopy.reviewerRole[locale] : workCopy.otherRole[locale]}</span>{filter === "unassigned" && <small>{[item.roles.missingOwner && workCopy.noOwner[locale], item.roles.missingReviewer && workCopy.noReviewer[locale]].filter(Boolean).join(" · ")}</small>}</span>
           <span className="mw2-owner"><small>{tr ? "Sahip" : "Owner"}</small><b>{item.owner}</b></span>
           <span className="mw2-state"><em>{item.status}</em><small>{item.waiting && item.row.workKind !== "audit-milestone" ? (tr ? "Başkalarında bekliyor" : "Waiting for others") : item.reason}</small></span>
-          <time className={!Number.isFinite(item.dueTime) ? "undated" : item.dueTime < data.now ? "overdue" : ""}>{filter === "completed" ? formatDate(workCompletionDate(item.row), lang) : formatDate(item.due, lang)}</time>
-          <strong className="mw2-arrow">→</strong>
-        </button>)}</div> : personalQueueEmpty && filter !== "completed" ? null : <div className="mw2-empty"><span>{loadError ? "!" : loading ? "…" : "✓"}</span><div><b>{loadError ? (tr ? "İş listesi doğrulanamadı." : "Work list could not be verified.") : loading ? (tr ? "İşler yükleniyor…" : "Loading work…") : (tr ? "Bu görünümde aksiyon yok." : "No actions in this view.")}</b><p>{tr ? "Filtreyi değiştirin veya kapsamı kontrol edin." : "Change the filter or review the selected scope."}</p></div></div>}
+          <time className={filter === "completed" ? "" : !Number.isFinite(item.dueTime) ? "undated" : item.dueTime < data.now ? "overdue" : ""}>{filter === "completed" ? formatDate(workCompletionDate(item.row), lang) : <>{formatDate(item.due, lang)}{item.dueTime < data.now && <small>{tr ? "Gecikti" : "Overdue"}</small>}</>}</time>
+          <strong className="mw2-arrow">{workCopy.review[locale]}</strong>
+        </button>)}</div> : personalQueueEmpty ? <div className="mw2-empty"><div><h4>{workCopy.empty[locale]}</h4><nav>{links.map(([module, label]) => <button type="button" key={module} onClick={() => navigateToFornost(module)}>{label[locale]} →</button>)}</nav></div></div> :
+          <div className="mw2-empty" role="status">{loadError ? (tr ? "İş listesi doğrulanamadı." : "Work list could not be verified.") : !ready ? (tr ? "İşler yükleniyor…" : "Loading work…") : (tr ? "Bu görünümde aksiyon yok." : "No actions in this view.")}</div>}
         {visible.length > 0 && <footer className="mw2-pagination" aria-label={tr ? "İş listesi sayfaları" : "Work list pages"}>
           <span aria-live="polite">{page.start}–{page.end} / {page.total}</span>
           <div><button type="button" disabled={page.page === 0} onClick={() => setPageIndex(page.page - 1)}>{tr ? "Önceki" : "Previous"}</button><span>{page.page + 1} / {page.pages}</span><button type="button" disabled={page.page + 1 >= page.pages} onClick={() => setPageIndex(page.page + 1)}>{tr ? "Sonraki" : "Next"}</button></div>
@@ -537,18 +470,10 @@ export default function MyWorkV2() {
       </section>
       {user.id && !loadError && <SavedRegisterViewsPanel userId={user.id} module="My Work" lang={lang} variant="work"
         current={{query, filters:{module:moduleFilter, status:filter}, columns:workViewSchema.columns, ...(sort ? {sort} : {})}} schema={workViewSchema} labels={{module:tr?"Modül":"Module",status:tr?"İş durumu":"Work status",title:tr?"Başlık":"Title",owner:tr?"Sahip":"Owner",due:tr?"Termin":"Due date"}}
-        apply={view => { const next = readWorkView(view, Object.keys(MODULE_LABELS)); setQuery(next.query); setModuleFilter(next.module); setFilter(next.status); setSort(next.sort); setPageIndex(0); }} />}
-      <div className="mw2-metrics">
-        <button type="button" className={data.overdue ? "critical" : ""} onClick={() => setFilter("overdue")}><small>{tr ? "Geciken" : "Overdue"}</small><strong>{data.overdue}</strong><span>{tr ? "Termin geçmiş işler" : "Past-due work"}</span></button>
-        <button type="button" className={data.priority ? "warning" : ""} onClick={() => setFilter("priority")}><small>{tr ? "Dikkat gerekiyor" : "Needs attention"}</small><strong>{data.priority}</strong><span>{tr ? "Kritik kapsam, yüksek önem dereceli olay, yakın termin veya değerlendirme" : "Critical scope, high-severity incident, near due date or awaiting assessment"}</span></button>
-        <button type="button" className={data.waiting ? "muted" : ""} onClick={() => setFilter("waiting")}><small>{tr ? "Başkalarında bekleyen" : "Waiting for others"}</small><strong>{data.waiting}</strong><span>{tr ? "İnceleme / onay bekleyen" : "Reviewer / approval pending"}</span></button>
-        <button type="button" onClick={() => setFilter("completed")}><small>{tr ? "30 günde tamamlanan" : "Completed in 30 days"}</small><strong>{data.completedItems.length}</strong><span>{tr ? "Yakın zamanda kapanan işler" : "Recently closed work"}</span></button>
-      </div>
-
-      <MyWorkAssuranceSignals lang={lang} scope={scope} user={user} refreshKey={refreshKey} identityAvailable={!loadError && !!user.email} />
+        apply={view => { const next = readWorkView(view, Object.keys(MODULE_LABELS)); setQuery(next.query); setModuleFilter(next.module); selectFilter(next.status); setSort(next.sort); setPageIndex(0); }} />}
+      {ready && user.email && <MyWorkAssuranceSignals key={`${scope}:${refreshKey}`} urgencies={urgencies} lang={lang} scope={scope} user={user} />}
 
       <footer className="mw2-footnote">{lastUpdated ? (tr ? `Son güncelleme ${lastUpdated.toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" })}` : `Last updated ${lastUpdated.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}`) : ""}</footer>
-    </section>,
-    mount,
+    </section>
   );
 }

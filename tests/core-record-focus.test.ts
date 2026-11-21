@@ -24,5 +24,5 @@ test("global vendor search supports the scoped register without intercepting ent
   const vendor = { id: "vendor-id", module: "Tedarikçiler", code: "VND-001", data: {} };
   assert.equal(resolveCoreRecord([vendor], { module: "Tedarikçiler", ref: vendor.id, kind: "record", source: "global-search" })?.id, vendor.id);
   assert.equal(isCoreRecordRequest({ module: "Tedarikçiler", ref: vendor.id, kind: "vendor-review", source: "global-search" }), false);
-  assert.equal(isCoreRecordRequest({ module: "Tedarikçiler", ref: vendor.id, kind: "record", source: "my-work" }), false);
+  assert.equal(isCoreRecordRequest({ module: "Tedarikçiler", ref: vendor.id, kind: "record", source: "my-work" }), true);
 });

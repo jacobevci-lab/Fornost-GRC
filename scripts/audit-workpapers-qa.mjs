@@ -15,7 +15,7 @@ async function openWork(target, title, completed=false) {
  await target.locator('nav button[aria-label="My Work"]').evaluate(e=>e.click());
  const refresh=target.locator('.my-work-v2').getByRole('button',{name:'Refresh',exact:true});
  await expect(refresh).toBeEnabled();await refresh.click();await expect(refresh).toBeEnabled();
- await target.locator('.mw2-filters').getByRole('button',{name:completed?/^Completed/:/^All/}).click();
+ await target.locator(completed ? '.mw2-metrics' : '.mw2-filters').getByRole('button',{name:completed?/^Completed/:/^All/}).click();
  await target.getByRole('textbox',{name:'Search work',exact:true}).fill(title);
 }
 async function followWork(target, title, id, completed=false) {
@@ -113,7 +113,7 @@ try{
  await panel.getByLabel('Action reason',{exact:true}).fill('  ok  ');await expect(submit).toBeDisabled();
  await panel.getByLabel('Action reason',{exact:true}).fill('Ready for review');await expect(submit).toBeEnabled();
  row=(await api(context,`/api/audits/workpapers?auditId=${auditId}`)).papers.find(p=>p.id===row.id);
- await openWork(page,row.title);await page.locator('.mw2-filters').getByRole('button',{name:/^Overdue/}).click();await expect(page.locator('.mw2-item')).toHaveCount(1);await expect(page.locator('.mw2-item time')).toHaveClass('overdue');
+ await openWork(page,row.title);await page.locator('.mw2-metrics').getByRole('button',{name:/^Overdue/}).click();await expect(page.locator('.mw2-item')).toHaveCount(1);await expect(page.locator('.mw2-item time')).toHaveClass('overdue');
  await followWork(page,row.title,row.id);
  const inboxPaper=(await api(context,'/api/audits/requests')).workpapers.find(p=>p.id===row.id);assert.equal(inboxPaper.status,'draft');assert.equal(inboxPaper.dueAt,'2020-01-01T20:59:59.999Z');assert.equal(inboxPaper.evidence,undefined);assert.equal(inboxPaper.samples,undefined);
  await peer.goto(base);await expect(peer.locator('.shell')).toBeVisible();await peer.locator('.language-switch:visible').getByRole('button',{name:'EN',exact:true}).click();await openWork(peer,row.title);await expect(peer.locator('.mw2-item')).toHaveCount(0);
@@ -124,7 +124,7 @@ try{
  await panel.getByLabel('Action reason',{exact:true}).fill('Sample testing is complete and ready for independent review');await panel.getByRole('button',{name:'Submit for review',exact:true}).click();await expect(panel.getByRole('status').filter({hasText:'Action saved.'})).toHaveText('Action saved.');
  row=(await api(context,`/api/audits/workpapers?auditId=${auditId}`)).papers[0];await api(context,'/api/audits/workpapers','POST',{auditId,id:row.id,action:'approve',expectedRevision:row.revision,note:'Cannot approve own work'},403);
  const submittedPaper=(await api(reviewer,'/api/audits/requests')).workpapers.find(p=>p.id===row.id);assert.equal(submittedPaper.dueAt,'2099-12-30T20:59:59.999Z');
- await openWork(peer,row.title);await peer.locator('.mw2-filters').getByRole('button',{name:/^Overdue/}).click();await expect(peer.locator('.mw2-item')).toHaveCount(0);
+ await openWork(peer,row.title);await peer.locator('.mw2-metrics').getByRole('button',{name:/^Overdue/}).click();await expect(peer.locator('.mw2-item')).toHaveCount(0);
  await followWork(peer,row.title,row.id);await peer.locator('.aw-panel').getByLabel('Action reason',{exact:true}).fill('Clarify the population extraction date');await peer.locator('.aw-panel').getByRole('button',{name:'Request changes',exact:true}).click();await expect(peer.locator('.aw-panel').getByRole('status').filter({hasText:'Action saved.'})).toHaveText('Action saved.');await openWork(peer,row.title);await expect(peer.locator('.mw2-item')).toHaveCount(0);
  await panel.getByRole('button',{name:'Refresh',exact:true}).click();await expect(panel.getByRole('button',{name:'Edit draft',exact:true})).toBeVisible();
  await panel.getByLabel('Action reason',{exact:true}).fill('Source period is documented; resubmitting for review');await panel.getByRole('button',{name:'Submit for review',exact:true}).click();await expect(panel.getByRole('status').filter({hasText:'Action saved.'})).toHaveText('Action saved.');

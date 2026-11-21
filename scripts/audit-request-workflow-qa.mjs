@@ -153,11 +153,11 @@ try {
   // Completed work belongs to the owner; organization scope is Admin-only.
   await page.locator('nav button[aria-label="My Work"]').evaluate(el => el.click());
   await page.locator('.mw2-scope button').filter({ hasText: /Organization|Kurum/ }).click();
-  await page.locator('.mw2-filters button').filter({ hasText: /Completed|Tamamlanan/ }).click();
+  await page.locator('.mw2-metrics button').filter({ hasText: /Completed|tamamlanan/i }).click();
   await page.locator('.mw2-item').filter({ hasText: request.title }).click(); await expect(page.locator('.ar-detail')).toContainText(request.id);
   const completedTask = await returnToAuditWork(page, request.title);
   await expect(page.locator('.mw2-scope button[aria-pressed="true"]')).toContainText('Organization');
-  await expect(page.locator('.mw2-filters button[aria-pressed="true"]')).toContainText('Completed');
+  await expect(page.locator('.mw2-metrics button[aria-pressed="true"]')).toContainText('Completed');
   // A queue snapshot can outlive the parent audit's visibility.
   const inbox = url => url.pathname === '/api/audits/requests' && !url.searchParams.has('auditId');
   await page.route(inbox, async route => {

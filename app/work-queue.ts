@@ -36,7 +36,7 @@ export function findingWorkRows(payload: unknown) {
   return values.flatMap(value => {
     if (!value || typeof value !== "object" || !clean(value.id)) return [];
     return [{ id: `finding:${clean(value.id)}`, code: clean(value.code) || clean(value.id), module: "Bulgular ve CAPA", data: {
-      title: clean(value.title), owner: clean(value.owner), reviewer: clean(value.reviewer),
+      title: clean(value.title), owner: clean(value.owner), reviewer: clean(value.reviewer), submittedBy: clean(value.submittedBy || value.submitted_by), detectedBy: clean(value.detectedBy || value.detected_by),
       dueDate: clean(value.dueDate), acceptUntil: clean(value.acceptUntil), status: clean(value.status), severity: clean(value.severity),
     }, createdAt: clean(value.detectedAt || value.createdAt), updatedAt: clean(value.updatedAt) }];
   });

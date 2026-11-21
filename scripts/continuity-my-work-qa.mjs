@@ -82,7 +82,7 @@ try {
   const decision = page.waitForResponse(r => new URL(r.url()).pathname === '/api/continuity' && r.request().method() === 'POST');
   await dialog.getByRole('button', { name: 'Cancel exercise', exact: true }).click(); assert.equal((await decision).status(), 200); await expect(dialog).toBeHidden();
   await openWork(page, cancelled.code); await expect(page.locator('.mw2-item')).toHaveCount(0);
-  await page.locator('.mw2-filters').getByRole('button', { name: /^Completed/ }).click();
+  await page.locator('.mw2-metrics').getByRole('button', { name: /^Completed/ }).click();
   await expect(page.locator('.mw2-item')).toHaveCount(1); await expect(page.locator('.mw2-item')).toContainText('Cancelled');
   checks.push('Keyboard exact exercise navigation, real UI cancellation and decision-time completion');
 
@@ -98,7 +98,7 @@ try {
   const close = { action: 'close-gap', gapId: gap.id, retestExerciseId: retest.id, note: 'Independent retest confirms the recovery correction.', confirmation: 'AÇIĞI KAPAT', ...evidence };
   await api(admin, '/api/continuity', 'POST', close, 403); await api(reviewer, '/api/continuity', 'POST', close);
   await openWork(page, gap.id); await expect(page.locator('.mw2-item')).toHaveCount(0);
-  await page.locator('.mw2-filters').getByRole('button', { name: /^Completed/ }).click(); await expect(page.locator('.mw2-item')).toHaveCount(1); await focusRecord(gap.id);
+  await page.locator('.mw2-metrics').getByRole('button', { name: /^Completed/ }).click(); await expect(page.locator('.mw2-item')).toHaveCount(1); await focusRecord(gap.id);
   checks.push('Actual failed exercise → assigned gap → independent retest closure → recent completion');
 
   phase = 'source failure, recovery and export'; await openWork(page, name);
@@ -132,7 +132,7 @@ try {
   }
   await api(admin, '/api/continuity', 'POST', { action: 'retire-plan', planId, note: 'Synthetic inbox journey completed and all exercises and gaps resolved.', confirmation: 'PLANI YÜRÜRLÜKTEN KALDIR' });
   await page.setViewportSize({ width: 1440, height: 1000 }); await openWork(page, name); await expect(page.locator('.mw2-item')).toHaveCount(0);
-  await page.locator('.mw2-filters').getByRole('button', { name: /^Completed/ }).click();
+  await page.locator('.mw2-metrics').getByRole('button', { name: /^Completed/ }).click();
   const retired = page.locator('.mw2-item').filter({ has: page.getByText(`Continuity plan · ${name}`, { exact: true }) });
   await expect(retired).toHaveCount(1); await expect(retired).toContainText('Retired');
   await expect(page.locator('.mw2-item')).toHaveCount(4); // The plan and its three terminal exercises share the searched plan name.

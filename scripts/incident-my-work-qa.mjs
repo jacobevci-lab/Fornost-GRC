@@ -19,7 +19,7 @@ async function work(p,filter='All',module=true){
  await p.locator('nav button[aria-label="My Work"]').evaluate(el=>el.click());await expect(p.locator('.my-work-v2')).toBeVisible();await waitForQaIdle(p);
  await p.locator('.my-work-v2').getByRole('button',{name:'Refresh',exact:true}).click();await waitForQaIdle(p);
  await p.getByLabel('Work queue module',{exact:true}).selectOption(module?'Güvenlik Olayları':'');
- await p.locator('.mw2-filters').getByRole('button',{name:new RegExp('^'+filter)}).click();await p.getByRole('textbox',{name:'Search work',exact:true}).fill(name);
+ await p.locator(['Completed','Overdue','Needs attention'].includes(filter) ? '.mw2-metrics' : '.mw2-filters').getByRole('button',{name:new RegExp('^'+filter)}).click();await p.getByRole('textbox',{name:'Search work',exact:true}).fill(name);
 }
 async function openIncident(p){await expect(p.locator('.mw2-item')).toHaveCount(1);await p.locator('.mw2-item').focus();await p.keyboard.press('Enter');await expect(p.getByRole('region',{name,exact:true})).toBeVisible();await expect(p.locator('.ic-case-list .incident-row-open')).toHaveCount(1);await expect(p.locator('.incident-page .enterprise-work-focus')).toContainText(incidentId);}
 async function decision(p,operation){
@@ -45,10 +45,10 @@ try{
  incidentId=(await api(admin,'/api/incidents','POST',{action:'create',assignmentMode:'directory',title:name,category:'account-compromise',severity:'high',detectedDate:new Date().toISOString().slice(0,10),description:'A synthetic identity incident exercises the personal work queue.',businessImpact:'A synthetic service requires controlled response and independent closure.',owner,commander:commanderEmail,reviewer:f.reviewerEmail,assetRefs:asset.id,dataClassification:'Internal',personalData:false},201)).id;
  checks.push('Real anonymous/scoped denial, full-access metadata-only Viewer read and denied mutation');
  phase='response assignments and exact keyboard navigation';
- await work(page,'Priority');await expect(page.locator('.mw2-item')).toContainText('Incident triage needed');await expect(page.locator('.mw2-item time')).toHaveText('No due date');
+ await work(page,'Needs attention');await expect(page.locator('.mw2-item')).toContainText('Incident triage needed');await expect(page.locator('.mw2-item time')).toHaveText('No due date');
  await work(commandPage);await expect(commandPage.locator('.mw2-item')).toHaveCount(1);await work(reviewPage,'All',false);await expect(reviewPage.locator('.mw2-item')).toHaveCount(0);
  await openIncident(page);await leaveDetail(page);
- await expect(page.locator('.mw2-filters button[aria-pressed="true"]')).toContainText('Priority');
+ await expect(page.locator('.mw2-metrics button[aria-pressed="true"]')).toContainText('Needs attention');
  await expect(page.locator('.mw2-item')).toBeFocused();
  // Add work projections only to this browser so the real source can move across a page boundary.
  const workUrl=url=>url.pathname==='/api/incidents'&&url.searchParams.get('view')==='work';
@@ -74,7 +74,7 @@ try{
  await work(reviewPage);await openIncident(reviewPage);await decision(reviewPage,'close');await leaveDetail(reviewPage);await expect(reviewPage.getByRole('textbox',{name:'Search work',exact:true})).toBeFocused();
  await work(page);await expect(page.locator('.mw2-item')).toHaveCount(0);await work(page,'Completed');await expect(page.locator('.mw2-item')).toContainText('Closed');await expect(page.locator('.mw2-item time')).not.toHaveText('No due date');
  await work(reviewPage,'Completed');await openIncident(reviewPage);await decision(reviewPage,'reopen');await leaveDetail(reviewPage);
- await work(page);await expect(page.locator('.mw2-item')).toContainText('Incident containment needed');await page.locator('.mw2-filters').getByRole('button',{name:/^Completed/}).click();await expect(page.locator('.mw2-item')).toHaveCount(0);
+ await work(page);await expect(page.locator('.mw2-item')).toContainText('Incident containment needed');await page.locator('.mw2-metrics').getByRole('button',{name:/^Completed/}).click();await expect(page.locator('.mw2-item')).toHaveCount(0);
  await work(reviewPage);await expect(reviewPage.locator('.mw2-item')).toHaveCount(0);await work(page);
  checks.push('Actual owner/commander response, reviewer handoff, waiting states, independent close and reasoned reopen; exact keyboard navigation and real completion');
  phase='source failures, bounded coverage and exact CSV';

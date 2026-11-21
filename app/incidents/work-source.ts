@@ -2,7 +2,7 @@
 export const INCIDENT_WORK_LIMIT = 2000;
 
 export async function readIncidentWork(db: D1Database) {
-  const result = await db.prepare(`SELECT id,code,title,status,severity,owner,commander,reviewer,
+  const result = await db.prepare(`SELECT id,code,title,status,severity,owner,commander,reviewer,declared_by submittedBy,
     declared_at createdAt,updated_at updatedAt,CASE WHEN status='cancelled' THEN updated_at ELSE closed_at END completedAt
     FROM enterprise_incidents
     ORDER BY CASE WHEN status IN ('closed','cancelled') THEN 1 ELSE 0 END,

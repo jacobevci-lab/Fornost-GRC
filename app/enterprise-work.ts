@@ -76,8 +76,10 @@ export function projectEnterpriseWork(source: EnterpriseWorkSource, payload: unk
   const rows: EnterpriseWorkRow[] = [];
   const add = (kind: string, item: RecordData, data: RecordData, closed: boolean) => {
     const id = text(kind === 'vendor-review' ? item.vendorId : item.id);
-    rows.push({ id: `work:${source}:${kind}:${id}`, code: text(data.code) || id, module: enterpriseWorkKinds[kind].module,
-      workSource: source, workKind: kind, nativeRef: id, data: { ...data, status: text(item.status), workClosed: closed },
+    const key = kind === 'vendor-review' ? id : `work:${kind}:${id}`;
+    const publicCode = object(payload.workCodes) ? text(payload.workCodes[key]) : '';
+    rows.push({ id: `work:${source}:${kind}:${id}`, code: publicCode || text(data.code) || id, module: enterpriseWorkKinds[kind].module,
+      workSource: source, workKind: kind, nativeRef: id, data: { ...data, ...(text(item.submittedBy) ? {submittedBy:item.submittedBy} : {}), status: text(item.status), workClosed: closed },
       updatedAt: text(item.updatedAt || item.attestedAt), createdAt: text(item.createdAt || item.detectedAt),
       ...(source === 'continuity' || source === 'incidents' || source === 'vendor' ? { completedAt: text(item.completedAt) } : {}) });
   };
@@ -124,9 +126,22 @@ export function projectEnterpriseWork(source: EnterpriseWorkSource, payload: unk
         }
       }
     }
+    const assignmentIds = new Set<string>();
+    if (object(payload.assignments)) {
+      if (payload.assignments.complete !== true || !Array.isArray(payload.assignments.rows)) complete = false;
+      if (Array.isArray(payload.assignments.rows)) for (const item of payload.assignments.rows) {
+        if (!object(item) || !text(item.id) || !text(item.auditId) || !text(item.title) ||
+          !['draft','assigned','submitted','changes_requested'].includes(text(item.status)) ||
+          (text(item.owner) && text(item.reviewer)) || assignmentIds.has(text(item.id))) { complete = false; continue; }
+        assignmentIds.add(text(item.id));
+        add('audit-request', item, { title:item.title, auditId:item.auditId, owner:item.owner, reviewer:item.reviewer,
+          assignedReviewer:item.reviewer, assignmentOnly:item.status === 'draft', dueDate:item.dueDate }, false);
+      }
+    }
     for (const item of collections.requests) {
+      if (assignmentIds.has(text(item.id))) continue;
       if (!text(item.auditId) || !text(item.owner) || !text(item.reviewer) || !text(item.dueDate) || !text(item.reviewDueDate) || !['assigned', 'submitted', 'changes_requested', 'accepted', 'cancelled'].includes(text(item.status))) { complete = false; continue; }
-      add('audit-request', item, { title: item.title, auditId: item.auditId, owner: item.owner, reviewer: item.status === 'submitted' ? item.reviewer : '', dueDate: item.dueAt || requestNextDue(item as AuditRequest) }, ['accepted', 'cancelled'].includes(text(item.status)));
+      add('audit-request', item, { assignedReviewer: item.reviewer, title: item.title, auditId: item.auditId, owner: item.owner, reviewer: item.status === 'submitted' ? item.reviewer : '', dueDate: item.dueAt || requestNextDue(item as AuditRequest) }, ['accepted', 'cancelled'].includes(text(item.status)));
     }
   } else if (source === 'policy') {
     const { documents, versions, campaigns, attestations, exceptions } = collections;
@@ -211,7 +226,7 @@ export function projectEnterpriseWork(source: EnterpriseWorkSource, payload: unk
       dueDate: p.status === 'active' ? p.reviewDate : '', criticality: p.criticality }, ['retired','cancelled'].includes(String(p.status)));
     for (const e of exercises) {
       const p = parent(plans, 'id', e.planId); if (!p) continue;
-      add('continuity-exercise', e, { title: `${text(p.name)} · ${text(e.code) || text(e.id)}`, code: e.code,
+      add('continuity-exercise', e, { title: [text(p.name), text(e.code)].filter(Boolean).join(" · "), code: e.code,
         owner: e.facilitator, dueDate: e.scheduledDate, criticality: p.criticality }, e.status !== 'planned');
     }
     for (const g of collections.gaps) {
