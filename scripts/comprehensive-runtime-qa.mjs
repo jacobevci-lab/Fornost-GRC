@@ -335,7 +335,7 @@ await check('My Work: exact ownership, Today, pagination after 80, mobile due da
  await request(admin,'/api/grc','POST',{module:'Kontroller',rows:fixtures},201);
  try {
   await open('My Work');await page.locator('.my-work-v2').getByRole('button',{name:'Refresh',exact:true}).waitFor();await expect(page.locator('.my-work-v2').getByRole('button',{name:'Refresh',exact:true})).toBeEnabled();
-  await page.getByRole('textbox',{name:'Search work',exact:true}).fill(prefix);await page.locator('.mw2-filters').getByRole('button',{name:/^Today/}).click();
+  await page.getByRole('textbox',{name:'Search work',exact:true}).fill(prefix);await page.locator('.mw2-metrics').getByRole('button',{name:/^Needs attention/}).click();
   await expect(page.locator('.mw2-pagination')).toContainText('1–20 / 82');
   for(let i=0;i<4;i++)await page.locator('.mw2-pagination').getByRole('button',{name:'Next',exact:true}).click();
   await expect(page.locator('.mw2-pagination')).toContainText('81–82 / 82');await expect(page.locator('.mw2-item')).toHaveCount(2);

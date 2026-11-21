@@ -15,14 +15,14 @@ export async function readThirdPartyWork(db: D1Database) {
         CASE p.criticality WHEN 'critical' THEN 0 WHEN 'high' THEN 1 WHEN 'medium' THEN 2 ELSE 3 END,p.next_review,p.vendor_id
       LIMIT ?`).bind(TPRM_WORK_LIMIT + 1).all(),
     db.prepare(`SELECT a.id,a.vendor_id vendorId,a.cycle_number cycleNumber,a.status,a.risk_tier riskTier,
-      a.created_at createdAt,a.updated_at updatedAt,a.decided_by decidedBy,
+      a.created_at createdAt,a.updated_at updatedAt,a.decided_by decidedBy,a.submitted_by submittedBy,
       CASE WHEN a.status='cancelled' THEN a.updated_at WHEN a.status IN ('approved','conditional','rejected','superseded') THEN a.decided_at END completedAt
       FROM third_party_assessments a LEFT JOIN third_party_profiles p ON p.vendor_id=a.vendor_id
       ORDER BY CASE WHEN a.status IN ('draft','submitted') AND (p.status IS NULL OR p.status NOT IN ('offboarded','rejected','cancelled')) THEN 0 ELSE 1 END,
         completedAt DESC,CASE a.risk_tier WHEN 'critical' THEN 0 WHEN 'high' THEN 1 WHEN 'medium' THEN 2 ELSE 3 END,a.updated_at DESC,a.id
       LIMIT ?`).bind(TPRM_WORK_LIMIT + 1).all(),
     db.prepare(`SELECT f.id,f.vendor_id vendorId,f.assessment_id assessmentId,f.title,f.status,f.severity,f.owner,f.due_date dueDate,
-      f.created_at createdAt,f.updated_at updatedAt,f.verified_by verifiedBy,CASE WHEN f.status='closed' THEN f.verified_at END completedAt
+      f.created_at createdAt,f.updated_at updatedAt,f.verified_by verifiedBy,f.submitted_by submittedBy,CASE WHEN f.status='closed' THEN f.verified_at END completedAt
       FROM third_party_findings f LEFT JOIN third_party_profiles p ON p.vendor_id=f.vendor_id
       ORDER BY CASE WHEN f.status='closed' OR p.status IN ('offboarded','rejected','cancelled') THEN 1 ELSE 0 END,completedAt DESC,
         CASE f.severity WHEN 'critical' THEN 0 WHEN 'high' THEN 1 WHEN 'medium' THEN 2 ELSE 3 END,f.due_date,f.id

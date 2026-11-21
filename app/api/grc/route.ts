@@ -36,17 +36,15 @@ export async function GET(req: NextRequest) {
   clauses.push("(created_at>? OR (created_at=? AND id>?))");
   values.push(cursor.createdAt, cursor.createdAt, cursor.id);
  }
- const query = d.prepare(`SELECT * FROM simple_grc_records ${clauses.length ? "WHERE " + clauses.join(" AND ") : ""} ORDER BY created_at,id LIMIT 5001`).bind(...values);
+ const query = d.prepare(`SELECT r.*,(SELECT code FROM simple_grc_record_codes WHERE record_id=r.id) AS record_code FROM simple_grc_records r ${clauses.length ? "WHERE " + clauses.join(" AND ") : ""} ORDER BY created_at,id LIMIT 5001`).bind(...values);
  const r = await query.all<Record<string, unknown>>(), hasMore = r.results.length > 5000;
  if (hasMore) r.results.pop();
  const last = r.results.at(-1);
  const nextCursor = hasMore && last ? JSON.stringify({ createdAt: String(last.created_at), id: String(last.id) }) : null;
  // Listing must not seed, compact or allocate codes. Explicit Admin sample
  // restore and normal writes own creation; uncoded legacy rows retain their ID.
- const savedCodes = await d.prepare("SELECT record_id,code FROM simple_grc_record_codes").all<{ record_id: string; code: string }>();
- const codes = new Map((savedCodes.results || []).map(row => [row.record_id, row.code]));
  const rows: Record<string, unknown>[] = r.results.map(row => {
-  const record_code = codes.get(String(row.id)) || String(row.id);
+  const record_code = String(row.record_code || row.id);
   try {
    const data = normalizeRecordData(row.module, JSON.parse(String(row.data_json)) as Data);
    return { ...row, record_code: record_code, data_json: JSON.stringify(data) };

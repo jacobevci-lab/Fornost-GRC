@@ -1,5 +1,4 @@
 "use client";
-import { useEffect, useState } from "react";
 import PlatformEscape from "./platform-escape";
 import FornostAiCopilot from "./fornost-ai-copilot";
 import FornostAiSourceNavigation from "./fornost-ai-source-navigation";
@@ -7,7 +6,6 @@ import ProductionHardening from "./production-hardening";
 import NavigationIntegrity from "./navigation-integrity";
 import NavigationFocusBridge from "./navigation-focus-bridge";
 import SidebarIconTooltip from "./sidebar-icon-tooltip";
-import MyWorkV2 from "./my-work-v2";
 import ProgressiveFormExperience from "./progressive-form-experience";
 
 /**
@@ -20,12 +18,6 @@ import ProgressiveFormExperience from "./progressive-form-experience";
  * compatibility/QA group at the bottom should shrink rather than grow.
  */
 export default function PlatformExperience() {
-  const [fullWorkspace,setFullWorkspace] = useState(false);
-  useEffect(()=>{
-    const sync=()=>setFullWorkspace(document.querySelector('.shell[data-module-scope="full"]')!==null);
-    sync();const observer=new MutationObserver(sync);observer.observe(document.body,{childList:true,subtree:true,attributes:true,attributeFilter:["data-module-scope"]});
-    return()=>observer.disconnect();
-  },[]);
   return (
     <>
       <PlatformEscape />
@@ -33,7 +25,6 @@ export default function PlatformExperience() {
 
       {/* Daily work and connected-assurance experience. */}
       <SidebarIconTooltip />
-      {fullWorkspace && <MyWorkV2 />}
       <ProgressiveFormExperience />
       <NavigationFocusBridge />
 

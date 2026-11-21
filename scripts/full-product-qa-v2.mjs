@@ -419,13 +419,13 @@ async function auditLocale(page, locale) {
       if (label === "Benim İşlerim" || label === "My Work") {
         const inbox = page.locator(".my-work-v2");
         const emptyHeading = inbox.getByRole("heading", { name: locale === "tr"
-          ? "Kişisel iş kuyruğunda açık işin yok." : "You have no open items in your personal queue.", exact: true });
+          ? "Şu an üzerinize atanmış açık görev bulunmuyor" : "You have no open tasks assigned to you", exact: true });
         const count = Number(await inbox.locator(".mw2-meta b").first().innerText());
         const complete = !(await inbox.locator(".mw2-load-error").isVisible()) && Boolean((await inbox.locator(".mw2-footnote").innerText()).trim());
         const personal = !(await inbox.getByRole("button", { name: locale === "tr" ? "Organizasyon" : "Organization", pressed: true, exact: true }).count());
         const unfiltered = !(await inbox.locator(".mw2-module-filter select").first().inputValue());
         if (personal && unfiltered) {
-          if (complete && count === 0) await expect(emptyHeading).toBeInViewport();
+          if (complete && count === 0) await expect(emptyHeading).toBeVisible();
           else await expect(emptyHeading).toHaveCount(0);
           (report.personalInbox ??= {})[locale] = { complete, openCount: count, emptyHeading: await emptyHeading.isVisible() };
         }

@@ -20,7 +20,7 @@ const workState=()=>api(admin,'/api/third-party-risk?view=work');
 async function work(p,filter='All',module=true) {
   if(!(await p.locator('.shell').count()))await p.goto(base);
   await expect(p.locator('.shell')).toBeVisible();await p.locator('.language-switch:visible').getByRole('button',{name:'EN',exact:true}).click();await p.locator('nav button[aria-label="My Work"]').evaluate(el=>el.click());await expect(p.locator('.my-work-v2')).toBeVisible();await waitForQaIdle(p);
-  await p.locator('.my-work-v2').getByRole('button',{name:'Refresh',exact:true}).click();await waitForQaIdle(p);await p.getByLabel('Work queue module',{exact:true}).selectOption(module?'Tedarikçiler':'');await p.locator('.mw2-filters').getByRole('button',{name:new RegExp('^'+filter)}).click();await p.getByRole('textbox',{name:'Search work',exact:true}).fill(name);
+  await p.locator('.my-work-v2').getByRole('button',{name:'Refresh',exact:true}).click();await waitForQaIdle(p);await p.getByLabel('Work queue module',{exact:true}).selectOption(module?'Tedarikçiler':'');await p.locator(['Completed','Overdue','Needs attention'].includes(filter) ? '.mw2-metrics' : '.mw2-filters').getByRole('button',{name:new RegExp('^'+filter)}).click();await p.getByRole('textbox',{name:'Search work',exact:true}).fill(name);
 }
 async function target(p,kind,id) {
   const item=p.locator('.mw2-item').filter({hasText:kind});await expect(item).toHaveCount(1);await item.focus();await p.keyboard.press('Enter');await waitForQaIdle(p);await expect(p.locator('.tprm-page .enterprise-work-focus')).toContainText(id);await expect(p.locator('.tprm-table tbody tr')).toHaveCount(1);

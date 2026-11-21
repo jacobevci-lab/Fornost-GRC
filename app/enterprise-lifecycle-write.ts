@@ -22,8 +22,9 @@ export function lifecycleInsert(db: D1Database, table: string, row: Row) {
 }
 
 export async function commitLifecycle(db: D1Database, claim: D1PreparedStatement, dependents: D1PreparedStatement[]) {
-  const results = await db.batch([claim, ...dependents]);
-  if (Number(results[0]?.meta?.changes || 0) !== 1) throw new LifecycleConflict();
+  // D1 metadata can include code-registry triggers. SQLite changes() counts the source claim itself.
+  const results = await db.batch([claim, db.prepare("SELECT changes() AS claimed"), ...dependents]);
+  if (Number((results[1]?.results?.[0] as {claimed?:number})?.claimed || 0) !== 1) throw new LifecycleConflict();
 }
 
 export function nextLifecycleStamp(previous: unknown) {

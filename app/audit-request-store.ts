@@ -76,6 +76,17 @@ export async function readAuditRequestWork(db: D1Database) {
     return { ...row, dueAt: deadlines.get(key)!, timeZone: raw.time_zone };
   }), complete: rows.results.length <= 1000 };
 }
+/** Only the administrative inbox reads unassigned requests, including drafts excluded from active work. */
+export async function readRequestsMissingAssignment(db:D1Database) {
+  const {results} = await db.prepare(`SELECT r.id,r.audit_id AS auditId,json_extract(r.data_json,'$.title') AS title,
+    json_extract(r.data_json,'$.status') AS status,json_extract(r.data_json,'$.owner') AS owner,
+    json_extract(r.data_json,'$.reviewer') AS reviewer,json_extract(r.data_json,'$.dueDate') AS dueDate
+    FROM audit_requests r JOIN simple_audits a ON a.id=r.audit_id LEFT JOIN audit_request_workflows w ON w.audit_id=r.audit_id
+    WHERE coalesce(w.state,'draft') IN ('draft','active') AND json_extract(r.data_json,'$.status') IN ('draft','assigned','submitted','changes_requested')
+      AND (trim(coalesce(json_extract(r.data_json,'$.owner'),''))='' OR trim(coalesce(json_extract(r.data_json,'$.reviewer'),''))='')
+    ORDER BY r.id LIMIT 1001`).all();
+  return { rows:results.slice(0,1000),complete:results.length<=1000 };
+}
 export async function readRequestEvidence(db: D1Database, ids?: string[]): Promise<AuditRequestEvidence[]> {
   await ensureEvidenceHistorySchema(db);
   const sql = `SELECT v.id,v.evidence_id,v.version_no,v.evidence_title,v.file_name,v.file_key,v.content_sha256,v.period FROM evidence_versions v JOIN simple_grc_records r ON r.id=v.evidence_id AND r.module='Kanıtlar' `;

@@ -1,3 +1,4 @@
+import * as workRecordCodes from "../../app/work-record-codes";
 import * as workflowCancellation from "../../app/workflow-cancellation";
 import * as continuityDraft from "../../app/continuity/draft-store";
 import * as regulatoryWorkspace from '../../app/regulatory-intelligence/workspace-store';
@@ -69,6 +70,7 @@ export function fixture(module:'incidents'|'continuity'|'policy-lifecycle'|'thir
  const compiled=ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;
  const exports:Record<string,unknown>={};
  const require=(name:string)=>{
+  if(name==='../../work-record-codes')return workRecordCodes;
   if(name==='next/server')return{NextResponse:{json:(body:unknown,options:{status:number})=>({body,status:options.status})}};
   if(name==='cloudflare:workers')return{env:{DB:db}};
   if(name==='../auth/security')return{requireRole:async()=>({actor})};

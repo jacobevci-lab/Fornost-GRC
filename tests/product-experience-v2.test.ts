@@ -16,7 +16,7 @@ test("information architecture follows the connected GRC product model", () => {
   for (const connectedView of ["Benim İşlerim", "AI Yönetişimi", "Ask Fornost", "Bağlantılı GRC", "Bulgular ve CAPA"]) {
     assert.match(page, new RegExp(`"${connectedView}"`));
   }
-  assert.match(page, /function MyWork/);
+  assert.match(page, /<MyWorkV2 /);
   assert.match(page, /fornost:open-ai/);
 });
 

@@ -94,6 +94,7 @@ import "./connected-grc.css";
 import ControlAssuranceWorkspace from "./control-assurance-workspace";
 import { validMatrixCoordinates } from "./executive-report-data";
 import { evaluateEvidenceEligibility } from "./evidence/eligibility";
+import MyWorkV2 from "./my-work-v2";
 import ExecutiveAssurancePanel, { type DashboardRoutes } from "./executive-assurance-panel";
 import { useExecutiveAssurance } from './use-executive-assurance';
 import AuditReadinessPortfolioPanel from './audit-readiness-portfolio-panel';
@@ -1405,8 +1406,8 @@ function FornostApp({ currentUser }: { currentUser: any }) {
         setNotice("");
         const target = resolveCoreRecord(freshRows, recordRequest);
         const auditName = target?.module === "Denetim Yönetimi" ? String(target.data.auditName || "") : undefined;
-        const fromDecisionQueue = returnsToDecisionQueue(recordRequest) || recordRequest.source === "dashboard-action";
-        setFocusedRecord({ id: target?.id || "", ref: target?.code || coreRecordReference(recordRequest), auditName: fromDecisionQueue ? auditName : undefined, openDetail: recordRequest.source === "dashboard-action", request: target ? undefined : recordRequest });
+        const fromDecisionQueue = returnsToDecisionQueue(recordRequest) || ["dashboard-action","my-work","my-work-assurance"].includes(recordRequest.source || "");
+        setFocusedRecord({ id: target?.id || "", ref: target?.code || coreRecordReference(recordRequest), auditName: fromDecisionQueue ? auditName : undefined, openDetail: ["dashboard-action","my-work","my-work-assurance"].includes(recordRequest.source || ""), request: target ? undefined : recordRequest });
         if (auditName !== undefined && !fromDecisionQueue) setSelectedAudit(auditName);
       } else {
         setFocusedRecord({ id: "", ref: coreRecordReference(recordRequest), state: "error", request: recordRequest });
@@ -2222,6 +2223,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
             module={active} rows={readableRows} lang={lang} label={module => names[lang][module] || module}
             scoped={scoped} includeAi={active === "AI Yönetişimi" && currentUser.role === "Admin"} coreState={registerLoadState}
             retryCore={() => void load()} focusedId={focusedRecord?.id}/>}
+        {pageRestored && canOpenModule(currentUser,"Benim İşlerim") && <MyWorkV2 key={currentUser.id} active={active==="Benim İşlerim"} lang={lang} actor={currentUser} />}
         {!canOpenModule(currentUser,active) ? <section className="module-scope-home"><h2>{lang==="tr"?"Bu modüle erişiminiz yok":"Module access is unavailable"}</h2><button onClick={()=>navigateToModule("Ana Sayfa")}>{lang==="tr"?"Ana sayfa":"Home"}</button></section> : active === "Ana Sayfa" && (!pageRestored || registerLoadState !== "ready") ? (
           <section className="module-scope-home" role="status" aria-busy={registerLoadState !== "error"}>
             {registerLoadState === "error" ? <>
@@ -2238,7 +2240,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
         ) : active === "AI Yönetişimi" ? (
           <AiWorkspaceHost lang={lang} />
         ) : active === "Benim İşlerim" ? (
-          <MyWork rows={rows} currentUser={currentUser} go={setActive} lang={lang} />
+          null
         ) : active === "Risk İştahı ve KRI" ? (
           <RiskAppetite lang={lang} currentUser={currentUser} />
         ) : active === "Bağlantılı GRC" ? (
@@ -2286,8 +2288,8 @@ function FornostApp({ currentUser }: { currentUser: any }) {
         ) : lens && active === "Denetim Yönetimi" ? (
           <AuditReadinessGate lang={lang} records={rows} initialGaps />
         ) : active === "Denetim Yönetimi" && (
-          (recordRequest && sameDomainModule(recordRequest.module, active) && (returnsToDecisionQueue(recordRequest) || recordRequest.source==="dashboard-action")) ||
-          (focusedRecord && !focusedRecord.id && (returnsToDecisionQueue(focusedRecord.request) || focusedRecord.request?.source==="dashboard-action"))
+          (recordRequest && sameDomainModule(recordRequest.module, active) && (returnsToDecisionQueue(recordRequest) || ["dashboard-action","my-work","my-work-assurance"].includes(recordRequest.source || ""))) ||
+          (focusedRecord && !focusedRecord.id && (returnsToDecisionQueue(focusedRecord.request) || ["dashboard-action","my-work","my-work-assurance"].includes(focusedRecord.request?.source || "")))
         ) ? (
           focusedRecord ? null : <p role="status">{lang === "tr" ? "Kayıt yükleniyor…" : "Loading record…"}</p>
         ) : active === "Denetim Yönetimi" ? (
@@ -3008,28 +3010,6 @@ function Field({
       )}
     </label>
   );
-}
-
-function MyWork({rows,currentUser,go,lang}:{rows:Row[];currentUser:any;go:(module:string)=>void;lang:Lang}){
-  const tr=lang==="tr",identity=[currentUser?.name,currentUser?.email].filter(Boolean).map((value:string)=>value.toLocaleLowerCase(tr?"tr-TR":"en-US"));
-  const closed=new Set(["Kapalı","Tamamlandı","Onaylandı","Closed","Completed","Approved","Retired"]);
-  const candidates=rows.filter(row=>{
-    if(closed.has(String(row.data.status||"")))return false;
-    const owners=[row.data.owner,row.data.actionOwner,row.data.followUpOwner,row.data.testOwner,row.data.reviewer,row.data.approver].filter(Boolean).map((value:unknown)=>String(value).toLocaleLowerCase(tr?"tr-TR":"en-US"));
-    return currentUser?.role==="Admin"||owners.some(owner=>identity.some(me=>owner.includes(me)||me.includes(owner)));
-  }).map(row=>{
-    const due=String(row.data.dueDate||row.data.nextReview||row.data.nextAssessment||row.data.nextTestDate||row.data.reviewDate||row.data.expiresAt||"");
-    const dueTime=dueTimestamp(due);
-    const title=String(row.data.title||row.data.process||row.data.controlTitle||row.data.requirement||row.data.evidenceTitle||row.data.vendorName||displayRecordCode(row));
-    return {row,due,dueTime,title,status:String(row.data.status||row.data.reviewStatus||row.data.implementation||"—")};
-  }).sort((a,b)=>a.dueTime-b.dueTime).slice(0,12);
-  const now=Date.now(),overdue=candidates.filter(item=>Number.isFinite(item.dueTime)&&item.dueTime<now).length,dueSoon=candidates.filter(item=>Number.isFinite(item.dueTime)&&item.dueTime>=now&&item.dueTime<=now+15*86400000).length;
-  const modulesInQueue=new Set(candidates.map(item=>item.row.module)).size;
-  return <section className="my-work-page">
-    <header className="module-command-hero"><div><small>{tr?"KİŞİSEL KOMUTA MERKEZİ":"PERSONAL COMMAND CENTER"}</small><h2>{tr?"Benim işlerim":"My work"}</h2><p>{tr?"Risk, kontrol, denetim, kanıt ve iyileştirme sorumluluklarını tek karar kuyruğunda yönetin.":"Manage risk, control, audit, evidence and remediation responsibilities in one decision queue."}</p></div><span>{currentUser?.name||currentUser?.email}</span></header>
-    <div className="work-metrics"><article className="danger"><small>{tr?"Geciken":"Overdue"}</small><strong>{overdue}</strong><span>{tr?"Hedef tarihi geçmiş":"Past target date"}</span></article><article className="warning"><small>{tr?"15 gün içinde":"Due in 15 days"}</small><strong>{dueSoon}</strong><span>{tr?"Yaklaşan kararlar":"Upcoming decisions"}</span></article><article className="info"><small>{tr?"Açık iş":"Open work"}</small><strong>{candidates.length}</strong><span>{tr?"Atanmış kayıtlar":"Assigned records"}</span></article><article className="positive"><small>{tr?"Bağlı modül":"Connected modules"}</small><strong>{modulesInQueue}</strong><span>{tr?"Tek GRC omurgası":"One GRC backbone"}</span></article></div>
-    <section className="work-queue"><header><div><small>{tr?"ÖNCELİK SIRASI":"PRIORITY ORDER"}</small><h3>{tr?"Karar ve aksiyon kuyruğu":"Decision and action queue"}</h3></div><span>{candidates.length} {tr?"kayıt":"records"}</span></header>{candidates.length?<div>{candidates.map(({row,title,status,due,dueTime})=><button type="button" key={row.id} onClick={()=>go(row.module)}><i className={dueTime<now?"overdue":""}/><span><b>{title}</b><small>{names[lang][row.module]||row.module} · {displayRecordCode(row)}</small></span><em>{status}</em><time>{due?formatRecordDate(due,lang):tr?"Tarih yok":"No due date"}</time><strong>→</strong></button>)}</div>:<p>{tr?"Size atanmış açık kayıt bulunmuyor.":"No open records are assigned to you."}</p>}</section>
-  </section>
 }
 
 function CoreModuleOverview({module,rows,allRows,lang}:{module:string;rows:Row[];allRows:Row[];lang:Lang}){

@@ -1,3 +1,4 @@
+import { withWorkRecordCodes } from "../../../work-record-codes";
 import {syncWorkpaperNotifications} from '../../../audit-workpaper-notifications';
 import {syncMilestoneNotifications} from '../../../audit-milestone-notifications';
 import { readMilestoneWork } from '../../../audit-milestone-store';
@@ -8,7 +9,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireRole } from '../../auth/security';
 import { canReadModule, canWriteModule } from '../../../module-access';
 import { AuditRequestError } from '../../../audit-requests';
-import { auditRequestId, auditRequestPeople, mutateAuditRequest, readAuditRequestWork, readAuditRequestWorkflow, readRequestEvidence } from '../../../audit-request-store';
+import { auditRequestId, auditRequestPeople, readRequestsMissingAssignment, mutateAuditRequest, readAuditRequestWork, readAuditRequestWorkflow, readRequestEvidence } from '../../../audit-request-store';
 import { readAuditReminderProfile, saveAuditReminderProfile } from '../../../audit-reminder-store';
 import { syncAuditRequestNotifications } from '../../../audit-request-notifications';
 
@@ -22,10 +23,11 @@ export async function GET(req: NextRequest) {
     const id = req.nextUrl.searchParams.get('auditId'), evidenceAccess = canReadModule(auth.actor, 'Kanıtlar');
     if (!id) {
       const work = await readAuditRequestWork(env.DB);
+      const assignments = auth.actor.role === 'Admin' && req.headers.get("x-fornost-work-queue") === "1" ? await readRequestsMissingAssignment(env.DB) : undefined;
       const closureWork = await readPendingAuditClosures(env.DB, auth.actor);
       const paperWork = await readWorkpaperWork(env.DB, auth.actor);
       const milestoneWork = await readMilestoneWork(env.DB, auth.actor);
-      return json({ ...work, milestones:milestoneWork.milestones, workpapers: paperWork.workpapers, closures: closureWork.closures, complete: work.complete && closureWork.complete && paperWork.complete && milestoneWork.complete, requests: work.requests.map(row => ({ ...row, evidence: [] })) });
+      return json(await withWorkRecordCodes(req,env.DB,"audit",{ ...work, ...(assignments ? {assignments} : {}), milestones:milestoneWork.milestones, workpapers: paperWork.workpapers, closures: closureWork.closures, complete: work.complete && closureWork.complete && paperWork.complete && milestoneWork.complete, requests: work.requests.map(row => ({ ...row, evidence: [] })) }));
     }
     const auditId = auditRequestId(id), state = await readAuditRequestWorkflow(env.DB, auditId);
     const plan = await env.DB.prepare('SELECT value FROM simple_grc_metadata WHERE key=?').bind(`audit_plan_${auditId}`).first<{ value: string }>();
