@@ -20,6 +20,18 @@ export async function verifyAssetInventoryEditor(page,api,open) {
   }
   const search=page.locator(".register-search input"),row=page.locator(".smart-table tbody tr").filter({hasText:title});
   try{
+    await open("Asset Inventory");
+    // A wide inventory table scrolls inside the register in both locales.
+    for(const language of ["TR","EN"]){
+      await page.locator(".language-switch:visible").getByRole("button",{name:language,exact:true}).click();
+      await expect(page.locator(".asset-coverage").first()).toBeVisible();
+      for(const width of [1440,1366]){
+        await page.setViewportSize({width,height:936});
+        assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),language+" asset inventory exceeds "+width+"px");
+      }
+      await expect(page.locator(".asset-coverage").first().getByRole("img",{name:/EDR · /})).toBeVisible();
+    }
+    await page.setViewportSize({width:1363,height:936});
     // Existing installations already have a saved v2 layout without the links column.
     await page.evaluate(()=>{
       const columns=JSON.parse(localStorage.getItem("fornost-grc-columns") || "{}");

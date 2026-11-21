@@ -2439,7 +2439,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
               <RecordWorkspace initialRecordId={focusedRecord?.openDetail ? focusedRecord.id : undefined} allowPosture={canReadPosture(currentUser)} key={active + ":" + (focusedRecord?.id || "")} rows={readableRows} visible={visible} lang={lang} moduleNames={names[lang]} formatValue={display}
                 preview={id => { const row = readableRows.find(item => item.id === id && item.module === "Kanıtlar"); if (row) setPreviewEvidence(row); }}>
                 {(inspect, open) => (
-              <div className="table-wrap" hidden={open} tabIndex={0} role="region" aria-label={lang === "tr" ? "Kayıt tablosu" : "Record table"}>
+              <div className={active==="Varlık Envanteri"?"table-wrap asset-table-scroll":"table-wrap"} hidden={open} tabIndex={0} role="region" aria-label={lang === "tr" ? "Kayıt tablosu" : "Record table"}>
                 {lens?.module==="Kanıtlar" && !staleEvidence ? <p role="status">{evidenceRegisterState.loading ? (lang==="tr"?"Kanıt değerlendirmesi yükleniyor…":"Loading evidence assessment…") : (lang==="tr"?"Kanıt değerlendirmesi doğrulanamadı.":"Evidence assessment unavailable.")} {!evidenceRegisterState.loading && <button onClick={evidenceRegisterState.refresh}>{lang==="tr"?"Yeniden dene":"Retry"}</button>}</p> : !focusedRecord && (registerLoadState !== "ready" || !visible.length) ? <RegisterEmptyState
                   module={active} lang={lang} state={registerLoadState}
                   filtered={Boolean(lens || query || Object.values(registerFilters).some(Boolean))}
@@ -5463,7 +5463,7 @@ function SmartCell({
     return <div className="asset-coverage">{[["EDR",d.edrStatus],["SIEM",d.siemStatus],[tr?"Yedek":"Backup",d.backupStatus],[tr?"Tarama":"Scan",d.vulnScan]].map(([label,value])=>{
       const state=assetCoverage(value);
       const status=state==="covered"?(tr?"Kapsamda":"Covered"):state==="gap"?(tr?"Kapsam dışı":"Not covered"):state==="partial"?(tr?"Kısmi":"Partial"):state==="na"?(tr?"Uygulanamaz":"Not applicable"):(tr?"Bilinmiyor":"Unknown");
-      return <span key={label} data-state={state} title={label+" · "+status}><span aria-hidden="true">{state==="covered"?"✓":state==="gap"?"!":state==="partial"?"◐":"—"} </span>{label}<span className="asset-sr-only"> · {status}</span></span>;
+      return <span key={label} role="img" aria-label={label+" · "+status} data-state={state} title={label+" · "+status}><span aria-hidden="true">{state==="covered"?"✓":state==="gap"?"!":state==="partial"?"◐":"—"} </span>{label}</span>;
     })}</div>;
   if (module==="Varlık Envanteri" && column==="vendor") {
     if (d.externalVendor || !d.vendor) return String(d.externalVendor || "—");

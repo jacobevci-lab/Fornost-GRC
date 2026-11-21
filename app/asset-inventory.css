@@ -16,4 +16,4 @@
 .asset-coverage [data-state=gap],.asset-coverage [data-state=partial]{color:var(--ws-danger);background:color-mix(in srgb,var(--ws-danger) 10%,var(--ws-surface))}
 .asset-coverage [data-state=unknown],.asset-coverage [data-state=na]{color:var(--ws-muted);background:var(--ws-surface-2)}
 @media(max-width:650px){.record-dialog .asset-form-grid {grid-template-columns:minmax(0,1fr)}}
-.asset-coverage .asset-sr-only {position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);padding:0}
+.asset-table-scroll {position:relative;min-width:0;max-width:100%;contain:inline-size}
