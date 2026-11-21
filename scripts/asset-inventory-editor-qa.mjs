@@ -25,10 +25,11 @@ export async function verifyAssetInventoryEditor(page,api,open) {
     for(const language of ["TR","EN"]){
       await page.locator(".language-switch:visible").getByRole("button",{name:language,exact:true}).click();
       await expect(page.locator(".asset-coverage").first()).toBeVisible();
-      for(const width of [1440,1366]){
+      for(const width of [1536,1440,1366,768,390]){
         await page.setViewportSize({width,height:936});
         assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),language+" asset inventory exceeds "+width+"px");
       }
+      await page.setViewportSize({width:1363,height:936});
       await expect(page.locator(".asset-coverage").first().getByRole("img",{name:/EDR · /})).toBeVisible();
     }
     await page.setViewportSize({width:1363,height:936});
