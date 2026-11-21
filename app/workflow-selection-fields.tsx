@@ -6,18 +6,18 @@ import type {WorkflowEvidence,WorkflowEvidencePin,WorkflowPerson,WorkflowSelecti
 import './workflow-selection-fields.css';
 
 type ChoiceResponse={people?:WorkflowPerson[];complete?:boolean;records?:{id:string;title:string;status:string;latestVersion:number}[];hasMore?:boolean;versions?:WorkflowEvidence[]};
-function useChoices(url:string|null) {
-  const [state,setState]=useState<{key:string;data:ChoiceResponse;error:boolean}>({key:'',data:{},error:false}),[retry,setRetry]=useState(0);
+export function useChoices<T extends object = ChoiceResponse>(url:string|null) {
+  const [state,setState]=useState<{key:string;data:T;error:boolean}>({key:'',data:{} as T,error:false}),[retry,setRetry]=useState(0);
   const key=`${retry}:${url||''}`;
   useEffect(()=>{
     if(!url)return;
     const controller=new AbortController();let live=true;
     const timeout=setTimeout(()=>controller.abort(),15000);
-    const delay=setTimeout(()=>{fetch(withBasePath(url),{signal:controller.signal,cache:'no-store'}).then(async r=>{if(!r.ok)throw new Error('choices');return r.json()}).then(data=>{if(live)setState({key,data,error:false})}).catch(()=>{if(live)setState({key,data:{},error:true})}).finally(()=>clearTimeout(timeout));},200);
+    const delay=setTimeout(()=>{fetch(withBasePath(url),{signal:controller.signal,cache:'no-store'}).then(async r=>{if(!r.ok)throw new Error('choices');return r.json()}).then(data=>{if(live)setState({key,data,error:false})}).catch(()=>{if(live)setState({key,data:{} as T,error:true})}).finally(()=>clearTimeout(timeout));},200);
     return()=>{live=false;clearTimeout(delay);clearTimeout(timeout);controller.abort()};
   },[url,key]);
   const current=state.key===key;
-  return {data:current?state.data:{},error:current&&state.error,loading:Boolean(url)&&!current,retry:()=>setRetry(n=>n+1)};
+  return {data:current?state.data:{} as T,error:current&&state.error,loading:Boolean(url)&&!current,retry:()=>setRetry(n=>n+1)};
 }
 function ChoiceError({tr,retry}:{tr:boolean;retry:()=>void}) {return <p role="alert">{tr?'Seçenekler yüklenemedi. Seçiminiz korunuyor.':'Options could not be loaded. Your selection is preserved.'} <button type="button" onClick={retry}>{tr?'Tekrar dene':'Retry'}</button></p>}
 export function WorkflowPersonPicker({tr,label,value,onChange,reviewer=false,exclude=[]}:{tr:boolean;label:string;value:string;onChange:(value:string)=>void;reviewer?:boolean;exclude?:string[]}) {

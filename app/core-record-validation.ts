@@ -1,3 +1,6 @@
+import { assessedResidualRiskScore } from "./risk-methodology";
+import { isResidualRiskGoverned } from "./risk-governance-write";
+import { assuranceRiskLevel } from "./assurance-governance";
 export const modules=["Risk Assessment","BIA","Varlık Envanteri","Uyum","Tedarikçiler","Kontroller","Kanıtlar","Denetim Yönetimi"] as const;
 export type ModuleName=(typeof modules)[number];
 export type Data=Record<string,unknown>;
@@ -54,7 +57,13 @@ export function validate(module:unknown,input:unknown){
  if(!validModule(module))return {error:"Geçersiz modül."};
  if(!input||typeof input!=="object"||Array.isArray(input))return {error:"Geçersiz kayıt verisi."};
  const source=input as Data,cleaned:Data={};
- for(const [key,value] of Object.entries(source)){if(key.length>60)continue;cleaned[key]=module==="Denetim Yönetimi"&&["requirementStatement","requirementGuidance","requirementAssessment"].includes(key)&&typeof value==="string"?value.slice(0,100000):cleanText(value)}
+ for(const [key,value] of Object.entries(source)){if(key.length>60)continue;
+  if(module==="Risk Assessment" && ["asset","existingControls","controlImplementationNote"].includes(key) && typeof value==="string"){
+    const limit=key==="controlImplementationNote"?2000:32000;
+    if(value.length>limit)return {error:`${key} izin verilen uzunluğu aşıyor.`};
+    cleaned[key]=value.trim();continue;
+  }
+  cleaned[key]=module==="Denetim Yönetimi"&&["requirementStatement","requirementGuidance","requirementAssessment"].includes(key)&&typeof value==="string"?value.slice(0,100000):cleanText(value)}
  const data=normalizeRecordData(module,cleaned);
  const independentRisk=module==="Risk Assessment" && data.riskScope==="organization";
  if(independentRisk && String(data.asset??"").trim())return {error:"Varlıktan bağımsız bir riskte varlık seçilemez."};
@@ -68,6 +77,16 @@ export function validate(module:unknown,input:unknown){
  for(const key of ["inherentLikelihood","inherentImpact","confidentialityImpact","integrityImpact","availabilityImpact","confidentialityRating","integrityRating","availabilityRating","financial","operational","legal","reputation","customer","dataImpact"]){
   if(data[key]!==undefined&&data[key]!==""&&(!Number.isInteger(Number(data[key]))||Number(data[key])<1||Number(data[key])>5))return {error:`${key} 1-5 arasında olmalıdır.`};
  }
+ if(module==="Risk Assessment" && !isResidualRiskGoverned(data)){
+  for(const key of ["residualLikelihood","residualImpact"]){
+   const value=data[key];
+   if(value!==undefined && value!==null && value!=="" && ((typeof value!=="number" && typeof value!=="string") || !/^[1-5]$/.test(String(value))))return {error:`${key} 1-5 arasında olmalıdır.`};
+  }
+  const score=assessedResidualRiskScore(data);
+  if(score===null){delete data.residualScore;delete data.residualRiskLevel;}
+  else {data.residualScore=String(score);data.residualRiskLevel=assuranceRiskLevel(score);}
+ }
+ if(module==="Risk Assessment" && data.actionOwnerEmail && (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(data.actionOwnerEmail)) || String(data.actionOwnerEmail).length>254))return {error:"Geçersiz aksiyon sahibi e-posta adresi."};
  if(module==="Denetim Yönetimi"&&(!Number.isInteger(Number(data.progress))||Number(data.progress)<0||Number(data.progress)>100))return {error:"progress 0-100 arasında olmalıdır."};
  if(data.ownerEmail&&(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(data.ownerEmail))||String(data.ownerEmail).length>254))return {error:"Geçersiz risk sahibi e-posta adresi."};
  for(const key of ["targetDate","lastReview","nextReview","contractEnd","eolDate","lastTestDate","nextTestDate","startDate","endDate","dueDate","approvalDate","acquisitionDate","lastAssessment","nextAssessment","collectedAt","expiresAt"])if(data[key]&&!validDate(data[key]))return {error:`Geçersiz tarih: ${key}`};

@@ -70,6 +70,12 @@ Risk Assessment içinde riskin kapsamını, sahibini ve değerlendirmesini kayde
 
 Kontrollerde yaşam döngüsü ile uygulama etkinliği ayrı durumlardır. Kontrolü ilgili gereksinim ve kanıtla bağlayın; boşluk veya bulguyu ilgili aksiyon/CAPA akışında takip edin. Bağlantılı GRC eksik referansları incelemek için kullanılır; ilişki bulunması tek başına kontrol etkinliği kanıtı değildir.
 
+### Risk kaydı ve artık risk
+
+**Risk Değerlendirmesi → Yeni / Düzenle** içinde sahibi dizinden seçtiğinizde adı ve e-postası birlikte kaydolur. Harici bir sorumlu için **Sistem dışı sorumlu gir** seçeneğini kullanın. Varlıkları ad veya kodla arayabilirsiniz. **Kurum Düzeyi Risk** seçimi formdaki varlık bağlantılarını temizler.
+
+Doğal risk skoru, olasılıkla en yüksek etki değerinin çarpımıdır. **Gelişmiş alanlar** altında uygulanan kontrolleri kütüphaneden seçin, gerekirse uygulama notu ekleyin ve aksiyon sahibini belirtin. Artık olasılık ile artık etkiyi birlikte girdiğinizde artık risk skoru görünür. Bağımsız incelemeye tabi puanları **Sürekli Güvence** üzerinden güncelleyin.
+
 ### Uyum Yönetimi
 
 Karşılaştırmada yalnızca kapsama eklenmiş çerçeveler görünür. Katalog şeridindeki **+ SOC 2 Ekle** gibi düğmeler çerçeveyi tek tıkla etkinleştirir. **Diğer çerçeveler** kataloğun kalanını açar. Her sütun uyumlu/kapsamdaki madde oranını ve ilk üç açık maddeyi gösterir. Üçten fazla açık madde varsa tüm listeye çerçeve başlığından ulaşabilirsiniz.

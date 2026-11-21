@@ -37,13 +37,34 @@ export function coreReferenceGuard(refs:Reference[]){
  )))<>1)`,values:[JSON.stringify(refs)]};
 }
 
+/** Verify changed directory assignments in the same statement as the risk write. */
+export function coreWriteGuard(module:string, records: {id:string;data:Record<string,unknown>;before?:Record<string,unknown>}[]) {
+ const guard=coreReferenceGuard(records.flatMap(record=>newCoreReferences(record.id,module,record.data,record.before)));
+ if(module!=="Risk Assessment")return guard;
+ const contacts=[];
+ for(const {data,before={}} of records){
+  for(const field of ["owner","actionOwner"]){
+   const emailKey=field==="owner"?"ownerEmail":"actionOwnerEmail", source=field+"Source";
+   if(data[source]!=="directory" || (!data[field] && !data[emailKey]))continue;
+   if(before[source]===data[source] && before[field]===data[field] && before[emailKey]===data[emailKey])continue;
+   contacts.push({name:data[field],email:data[emailKey]});
+  }
+ }
+ if(!contacts.length)return guard;
+ return {sql:`${guard.sql} AND NOT EXISTS (
+   SELECT 1 FROM json_each(?) contact WHERE NOT EXISTS (
+    SELECT 1 FROM local_users u WHERE u.status='Active' AND u.email=json_extract(contact.value,'$.email')
+    AND coalesce(nullif(u.name,''),u.email)=json_extract(contact.value,'$.name')))`,
+   values:[...guard.values,JSON.stringify(contacts)]};
+}
+
 export type NewCoreRecord={id:string;code:string;data:Record<string,unknown>};
 export type CoreImportClaim={key:string;value:string;guard:{sql:string;values:(string|null)[]}};
 export class CoreImportConflict extends Error {}
 /** One transaction for the entire import; a rejected reference inserts neither rows nor codes. */
 export async function insertCoreRecords(db:D1Database,module:string,records:NewCoreRecord[],now:string,claim?:CoreImportClaim){
  if(!records.length||records.length>1000)throw new Error('Invalid import size');
- const guard=coreReferenceGuard(records.flatMap(record=>newCoreReferences(record.id,module,record.data)));
+ const guard=coreWriteGuard(module,records);
  const result=await db.batch([
   db.prepare(`INSERT INTO simple_grc_records(id,module,data_json,created_at,updated_at)
  SELECT json_extract(value,'$.id'),?,json_extract(value,'$.data'),?,? FROM json_each(?) WHERE ${guard.sql}${claim?` AND ${claim.guard.sql} AND NOT EXISTS(SELECT 1 FROM simple_grc_metadata WHERE key=?)`:''}`)

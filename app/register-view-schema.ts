@@ -21,6 +21,9 @@ export const fields: Record<string, string[]> = {
     "calculatedImpact",
     "treatment",
     "existingControls",
+    "controlImplementationNote",
+    "residualLikelihood",
+    "residualImpact",
     "plannedAction",
     "actionOwner",
     "targetDate",
@@ -217,6 +220,7 @@ export const registerColumns: Record<
   "Risk Assessment": [
     { key: "title", tr: "Risk Başlığı", en: "Risk Title" },
     { key: "inherentRisk", tr: "Doğal Risk", en: "Inherent Risk" },
+    { key: "residualRisk", tr: "Artık Risk", en: "Residual Risk" },
     { key: "status", tr: "Durum", en: "Status" },
     { key: "owner", tr: "Risk Sahibi", en: "Risk Owner" },
     { key: "treatment", tr: "Risk işleme yöntemi", en: "Risk treatment" },

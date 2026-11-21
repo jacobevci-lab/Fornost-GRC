@@ -12,6 +12,8 @@ test("risk form supports a listed-company taxonomy and multiple related assets",
   "Suistimal, Etik ve Yolsuzluk",
   "ESG, Sürdürülebilirlik ve İklim",
  ])assert.match(page,new RegExp(category));
- assert.match(page,/className="wide asset-multi-picker"/);
- assert.match(page,/<select\s+multiple/);
+ const editor=await readFile("app/risk-editor-fields.tsx","utf8");
+ assert.match(page,/<RiskAssets /);
+ assert.match(editor,/aria-pressed=\{selectedRows.has/);
+ assert.match(editor,/riskScope:"organization",asset:""/);
 });

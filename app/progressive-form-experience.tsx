@@ -6,7 +6,7 @@ import { sameDomainModule } from "./domain-identity";
 import "./progressive-form-experience.css";
 
 type Lang = "tr" | "en";
-type Target = { form: HTMLFormElement; mount: HTMLElement; labels: HTMLLabelElement[]; quickRisk: boolean };
+type Target = { form: HTMLFormElement; mount: HTMLElement; labels: HTMLElement[]; quickRisk: boolean };
 
 function currentLanguage(): Lang {
   return document.querySelector(".language-switch button.active")?.textContent?.trim().toLowerCase() === "en" ? "en" : "tr";
@@ -16,12 +16,12 @@ function normalize(value: unknown) {
   return String(value ?? "").normalize("NFKC").trim().toLocaleLowerCase("tr-TR");
 }
 
-function labelCaption(label: HTMLLabelElement) {
+function labelCaption(label: HTMLElement) {
   return normalize(label.childNodes[0]?.textContent || "");
 }
 
-function isQuickRiskCoreLabel(label: HTMLLabelElement) {
-  return ["başlık / ad", "title / name", "sahibi", "owner", "ilgili varlık", "related asset"].includes(labelCaption(label));
+function isQuickRiskCoreLabel(label: HTMLElement) {
+  return label.dataset.formGroup === "core" || ["başlık / ad", "title / name", "sahibi", "owner", "ilgili varlık", "related asset"].includes(labelCaption(label));
 }
 
 function discoverTarget(): Target | null {
@@ -32,7 +32,7 @@ function discoverTarget(): Target | null {
   if (!form) return null;
   const actions = form.querySelector<HTMLElement>(":scope > .form-actions");
   if (!actions) return null;
-  const labels = Array.from(form.children).filter((child): child is HTMLLabelElement => child instanceof HTMLLabelElement);
+  const labels = Array.from(form.children).filter((child): child is HTMLElement => child instanceof HTMLElement && (child.tagName === "LABEL" || child.hasAttribute("data-form-group")));
   if (labels.length < 10) return null;
   const modal = form.closest(".modal");
   const heading = modal?.querySelector(".modal-head h2")?.textContent || "";
@@ -54,7 +54,7 @@ function partition(target: Target) {
     };
   }
   const required = labels.filter(label => label.dataset.formCore === "true" || Boolean(label.querySelector("input[required],select[required],textarea[required]")));
-  const core = new Set<HTMLLabelElement>(required);
+  const core = new Set<HTMLElement>(required);
   for (const label of labels) {
     if (core.size >= 7) break;
     core.add(label);
@@ -65,7 +65,7 @@ function partition(target: Target) {
   };
 }
 
-function relaxQuickRiskRequirements(labels: HTMLLabelElement[]) {
+function relaxQuickRiskRequirements(labels: HTMLElement[]) {
   for (const label of labels) {
     for (const field of label.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>("input[required],select[required],textarea[required]")) {
       field.dataset.fornostProgressiveRequired = "true";
@@ -74,7 +74,7 @@ function relaxQuickRiskRequirements(labels: HTMLLabelElement[]) {
   }
 }
 
-function restoreQuickRiskRequirements(labels: HTMLLabelElement[]) {
+function restoreQuickRiskRequirements(labels: HTMLElement[]) {
   for (const label of labels) {
     for (const field of label.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>("[data-fornost-progressive-required='true']")) {
       field.required = true;

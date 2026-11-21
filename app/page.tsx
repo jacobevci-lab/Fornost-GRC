@@ -106,7 +106,11 @@ import AuditReadinessGate from "./audit-readiness-gate";
 import AuditPortfolioWorkspace, { type AuditPortfolioItem } from "./audit-portfolio-workspace";
 import { requestJsonWithDeadline } from "./bounded-json-request";
 import { withBasePath } from "./base-path";
-import { assessedRiskScore, calculatedRiskScore, effectiveImpact } from "./risk-methodology";
+import { RiskAssets, RiskControls, RiskPerson } from "./risk-editor-fields";
+import { riskRecordOptions, riskAssetCaption, riskTitle, type RiskRecordOptions } from "./risk-record-options";
+import { isResidualRiskGoverned } from "./risk-governance-write";
+import { assuranceRiskLevel } from "./assurance-governance";
+import { assessedResidualRiskScore, effectiveImpactSources, assessedRiskScore, calculatedRiskScore, effectiveImpact } from "./risk-methodology";
 import { defaultCatalogs, type CatalogMap } from "./catalogs";
 import { safeSpreadsheetCell } from "./export-security";
 import { automaticAuditTemplates } from "./framework-templates";
@@ -345,6 +349,8 @@ Object.assign(labelMap.tr, {
   availabilityImpact: "Erişilebilirlik Etkisi (1-5)",
   calculatedImpact: "Hesaplanan Etki",
   existingControls: "Mevcut Kontroller",
+  residualLikelihood: "Artık Olasılık (1-5)", residualImpact: "Artık Etki (1-5)",
+  controlImplementationNote: "Kontrol Uygulama Notu",
   plannedAction: "Planlanan Aksiyon",
   actionOwner: "Aksiyon Sahibi",
   targetDate: "Hedef Tarih",
@@ -409,6 +415,8 @@ Object.assign(labelMap.en, {
   availabilityImpact: "Availability Impact (1-5)",
   calculatedImpact: "Calculated Impact",
   existingControls: "Existing Controls",
+  residualLikelihood: "Residual likelihood (1-5)", residualImpact: "Residual impact (1-5)",
+  controlImplementationNote: "Control implementation note",
   plannedAction: "Planned Action",
   actionOwner: "Action Owner",
   targetDate: "Target Date",
@@ -901,9 +909,9 @@ function band(n: number) {
 function empty(m: string) {
   return Object.fromEntries((fields[m] || []).map((k) => [k, ""]));
 }
-const riskRatingKeys = ["confidentialityImpact", "integrityImpact", "availabilityImpact", "inherentLikelihood"] as const;
+const riskRatingKeys = ["confidentialityImpact", "integrityImpact", "availabilityImpact", "inherentLikelihood", "inherentImpact"] as const;
 const quickRiskLayout = ["title", "owner", "calculatedImpact", "asset"];
-const quickRiskKeys = new Set([...quickRiskLayout, ...riskRatingKeys]);
+const quickRiskKeys = new Set([...quickRiskLayout, ...riskRatingKeys, "ownerEmail", "controlImplementationNote", "residualImpact"]);
 const riskFormFields = [...quickRiskLayout, ...fields["Risk Assessment"].filter(key => !quickRiskKeys.has(key))];
 const requiredFieldsByModule: Record<string, string[]> = {
   "Risk Assessment": ["title", "category", "businessUnit", "owner", "asset", "inherentLikelihood", "inherentImpact", "treatment", "status", "nextReview"],
@@ -1191,6 +1199,8 @@ function FornostApp({ currentUser }: { currentUser: any }) {
   const [recordRequest, setRecordRequest] = useState<FornostNavigationRequest | null>(null);
   const [focusedRecord, setFocusedRecord] = useState<{ id: string; ref: string; auditName?: string; openDetail?:boolean; state?: "loading" | "error"; request?: FornostNavigationRequest } | null>(null);
   const readableRows = useMemo(() => rows.filter(row => canReadModule(currentUser, row.module)), [rows, currentUser]);
+  const riskAssets = useMemo(() => riskRecordOptions(readableRows,"Varlık Envanteri"), [readableRows]);
+  const riskControls = useMemo(() => riskRecordOptions(readableRows,"Kontroller"), [readableRows]);
   const selectedAudit = focusedRecord?.auditName ?? browsedAudit;
   const recordContext = useRef<FornostNavigationRequest | null>(null);
   const navigationOrigin = useRef<FornostNavigationRequest["returnTo"]>(undefined);
@@ -1497,7 +1507,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
       });
       const result = await r.json().catch(() => ({}));
       if(result.code==="REFERENCE_UNAVAILABLE"){
-        setNotice(lang==="tr"?"Yeni bağlantılardan biri artık kullanılamıyor veya yanlış modüle ait. Formunuz korundu; bağlı kayıt seçimini düzeltip tekrar kaydedin.":"A new linked record is unavailable or belongs to the wrong module. Your form is preserved; correct the linked record and save again.");
+        setNotice(active==="Risk Assessment" ? (lang==="tr"?"Seçilen kayıt veya kullanıcı değişti. Formunuz korundu. Bağlantıyı veya dizindeki kişiyi yeniden seçin.":"A selected record or directory contact changed. Your form is preserved. Select the current record or person again.") : lang==="tr"?"Yeni bağlantılardan biri artık kullanılamıyor veya yanlış modüle ait. Formunuz korundu; bağlı kayıt seçimini düzeltip tekrar kaydedin.":"A new linked record is unavailable or belongs to the wrong module. Your form is preserved; correct the linked record and save again.");
         return;
       }
       if(r.status===409){
@@ -2414,6 +2424,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
                   onCreate={canWriteModule(currentUser,active) ? () => openNew() : undefined}
                 /> : active === "Risk Assessment" ? (
                   <RiskRegister
+                    assets={riskAssets}
                     rows={visible}
                     lang={lang}
                     inspect={inspect}
@@ -2516,6 +2527,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
                     form={form}
                     setForm={setForm}
                     lang={lang}
+                    riskAssets={riskAssets} riskControls={riskControls}
                     auditNames={auditPortfolio.map(audit => audit.name)}
                   />
                 ))}
@@ -2576,7 +2588,7 @@ function Field({
   setForm,
   lang,
   nameMode = false,
-  auditNames = [],
+  auditNames = [], riskAssets, riskControls,
 }: {
   k: string;
   module: string;
@@ -2585,6 +2597,7 @@ function Field({
   lang: Lang;
   nameMode?: boolean;
   auditNames?: string[];
+  riskAssets?: RiskRecordOptions; riskControls?: RiskRecordOptions;
 }) {
   const scores = ["1", "2", "3", "4", "5"],
     yesNo = ["Evet", "Hayır"],
@@ -2702,20 +2715,40 @@ function Field({
       {missing && <small>{lang === "tr" ? "Mevcut bağlantı korunuyor. Düzeltmek için portföyden bir denetim seçin." : "The existing reference is preserved. Select a portfolio audit to correct it."}</small>}
     </label>;
   }
+  if (module === "Risk Assessment") {
+    const tr = lang === "tr", update = (patch: Record<string,string>) => setForm((prev: Record<string,unknown>) => ({...prev,...patch}));
+    if (k === "owner" || k === "actionOwner") return <RiskPerson field={k} tr={tr} form={form} update={update}/>;
+    if (k === "asset" && riskAssets) return <RiskAssets tr={tr} form={form} update={update} catalog={riskAssets}/>;
+    if (k === "existingControls" && riskControls) return <RiskControls tr={tr} form={form} update={update} catalog={riskControls}/>;
+    if (k === "residualLikelihood") {
+      const residual = assessedResidualRiskScore(form), governed = isResidualRiskGoverned(form);
+      return <fieldset className="wide risk-rating" data-form-group="advanced">
+        <legend>{tr ? "Artık Risk" : "Residual risk"}</legend>
+        <div className="risk-rating-fields">{["residualLikelihood","residualImpact"].map(key => <label key={key}>
+          {labelMap[lang][key]}<select name={key} disabled={governed} value={form[key] ?? ""} onChange={e=>update({[key]:e.target.value})}>
+            <option value="">{tr?"Seçin":"Select"}</option>{scores.map(n=><option key={n}>{n}</option>)}</select>
+        </label>)}</div>
+        <output className="risk-rating-result" aria-live="polite">{tr?"Artık Risk Skoru":"Residual risk score"} <b>{residual ?? "—"}</b>
+          {residual !== null && <strong>{display(assuranceRiskLevel(residual),lang)}</strong>}</output>
+        {governed && <small>{tr?"Bu puan Sürekli Güvence modülündeki bağımsız incelemeyle güncellenir.":"Update this rating through independent review in Continuous Assurance."}</small>}
+      </fieldset>;
+    }
+  }
   if (k === "calculatedImpact") {
     const tr = lang === "tr";
     const impact = effectiveImpact(form);
     const total = assessedRiskScore(form);
     return (
-      <fieldset className="wide risk-rating">
+      <fieldset className="wide risk-rating" data-form-group="core">
         <legend>{tr ? "Risk değerlendirmesi" : "Risk rating"}</legend>
         <div className="risk-rating-fields">
           {riskRatingKeys.map(key => (
             <label key={key}>{labelMap[lang][key]}
-              <select name={key} value={form[key] ?? (key === "inherentLikelihood" ? form.likelihood : "") ?? ""}
+              <select name={key} value={form[key] ?? (key === "inherentLikelihood" ? form.likelihood : key === "inherentImpact" ? form.impact : "") ?? ""}
                 onChange={event => {
                   const next = { ...form, [key]: event.target.value };
                   if (key === "inherentLikelihood") delete next.likelihood;
+                  if (key === "inherentImpact") delete next.impact;
                   setForm(next);
                 }}>
                 <option value="">{tr ? "Seçin" : "Select"}</option>
@@ -2726,7 +2759,8 @@ function Field({
         </div>
         <output className="risk-rating-result" aria-live="polite">
           <span>{tr ? "Etkin etki" : "Effective impact"} <b>{impact ? impact + " / 5" : "—"}</b></span>
-          <span>{tr ? "Risk skoru" : "Risk score"} <b>{total === null ? "—" : total + " / 25"}</b>
+          {impact > 0 && <span>{tr ? "Etki kaynağı" : "Impact source"} · {effectiveImpactSources(form).map(key=>labelMap[lang][key].replace(/\s*\(1-5\)$/, "")).join(" / ")}</span>}
+          <span>{tr ? "Doğal Risk Skoru" : "Inherent risk score"} <b>{total === null ? "—" : total + " / 25"}</b>
             {total !== null && <strong>{display(band(total), lang)}</strong>}
           </span>
         </output>
@@ -2840,60 +2874,13 @@ function Field({
     </label>;
   }
   if (k === "asset" || k === "processLink") {
-    const retainedValues = (k === "asset" && module === "Risk Assessment"
-      ? String(value).split(",").map((item) => item.trim())
-      : [String(value)]).filter(Boolean);
+    const retainedValues = [String(value)].filter(Boolean);
     const choices = linkedRecordOptions(
       linkedRows.filter(r => r.module === (k === "asset" ? "Varlık Envanteri" : "BIA")),
       k === "asset" ? "title" : "process", retainedValues, lang === "tr",
     );
     const options = choices.map(choice => choice.value);
     const optionLabel = (option: string) => choices.find(choice => choice.value === option)?.label || option;
-    if (k === "asset" && module === "Risk Assessment") {
-      const selected = String(value)
-        .split(",")
-        .map((x) => x.trim())
-        .filter(Boolean);
-      return (
-        <fieldset className="wide asset-multi-picker">
-          <legend>{labelMap[lang][k]}</legend>
-          <label><input type="checkbox" name="riskScope" checked={form.riskScope==="organization"} disabled={selected.length>0}
-            onChange={e=>setForm({...form,riskScope:e.target.checked?"organization":"asset"})}/>
-            {lang==="tr"?"Belirli bir varlığa bağlı olmayan risk":"Risk independent of a specific asset"}</label>
-          <p>
-            {lang === "tr"
-              ? "Riskten etkilenen bir veya birden fazla varlığı seçin."
-              : "Select one or more assets affected by the risk."}
-          </p>
-          <select
-            multiple
-            name={k}
-            aria-label={labelMap[lang][k]}
-            required={form.riskScope!=="organization"}
-            disabled={form.riskScope==="organization"}
-            value={selected}
-            onChange={(e) =>
-              change(
-                Array.from(e.currentTarget.selectedOptions)
-                  .map((option) => option.value)
-                  .join(", "),
-              )
-            }
-          >
-            {options.map((x) => (
-              <option key={x} value={x}>
-                {optionLabel(x)}
-              </option>
-            ))}
-          </select>
-          <small>
-            {lang === "tr"
-              ? `${selected.length} varlık seçildi · Yeni varlıklar Varlık Envanteri modülünden eklenir.`
-              : `${selected.length} assets selected · Add new assets from Asset Inventory.`}
-          </small>
-        </fieldset>
-      );
-    }
     return (
       <label>
         {labelMap[lang][k]}
@@ -3532,7 +3519,7 @@ function RecordCode({ row, inspect, lang }: { row: Row; inspect?: (row: Row, but
 }
 
 function RiskRegister({
-  rows,
+  rows, assets,
   lang,
   inspect,
   edit,
@@ -3541,7 +3528,7 @@ function RiskRegister({
   canWrite = true,
   canDelete = false,
 }: {
-  rows: Row[];
+  rows: Row[]; assets: RiskRecordOptions;
   lang: Lang;
   inspect?: (r: Row, button: HTMLButtonElement) => void;
   edit: (r: Row) => void;
@@ -3558,7 +3545,7 @@ function RiskRegister({
     <table className="risk-table">
       <colgroup>
         <col style={{ width: widths.width("recordCode", 96) }} />
-        {cols.map((c) => <col key={c.key} style={{ width: widths.width(c.key, ({ title: 235, inherentRisk: 112, status: 150, owner: 155, treatment: 130 } as Record<string, number>)[c.key] || 160) }} />)}
+        {cols.map((c) => <col key={c.key} style={{ width: widths.width(c.key, ({ title: 235, inherentRisk: 112, residualRisk: 112, status: 150, owner: 155, treatment: 130 } as Record<string, number>)[c.key] || 160) }} />)}
         {canWrite && <col className="row-actions-column" style={{ width: 180 }} />}
       </colgroup>
       <thead>
@@ -3578,7 +3565,7 @@ function RiskRegister({
             </td>
             {cols.map((c) => (
               <td key={c.key}>
-                <RiskRegisterCell row={r} column={c.key} lang={lang} />
+                <RiskRegisterCell assets={assets} row={r} column={c.key} lang={lang} />
               </td>
             ))}
             {canWrite && (
@@ -3636,11 +3623,11 @@ function ResizableTh({ columnKey, widths, children, lang }: { columnKey: string;
   return <th className="resizable-column"><span>{children}</span><span className="column-resizer" role="separator" aria-label={lang === "tr" ? `${String(children)} sütun genişliği` : `${String(children)} column width`} aria-orientation="vertical" tabIndex={0} onPointerDown={(e) => widths.begin(columnKey, e)} onKeyDown={(e) => { if (e.key === "ArrowLeft" || e.key === "ArrowRight") { e.preventDefault(); widths.nudge(columnKey, e.key === "ArrowLeft" ? -16 : 16); } }} /></th>;
 }
 function RiskRegisterCell({
-  row,
+  row, assets,
   column,
   lang,
 }: {
-  row: Row;
+  row: Row; assets: RiskRecordOptions;
   column: string;
   lang: Lang;
 }) {
@@ -3649,10 +3636,14 @@ function RiskRegisterCell({
   if (column === "title")
     return (
       <div className="stack title-stack">
-        <b>{d.title || "—"}</b>
-        <small>{d.asset || d.processLink || ""}</small>
+        <b>{riskTitle(row)}</b>
+        <small>{d.riskScope === "organization" ? (tr?"Kurum düzeyi risk":"Organization-level risk") : riskAssetCaption(d.asset, assets, tr) || "—"}</small>
       </div>
     );
+  if (column === "residualRisk") {
+    const score = assessedResidualRiskScore(d);
+    return score === null ? "—" : <div className="score-cell"><b className={`risk ${assuranceRiskLevel(score).toLowerCase()}`}>{score} · {display(assuranceRiskLevel(score),lang)}</b></div>;
+  }
   if (column === "inherentRisk") {
     const likelihood = Number(d.inherentLikelihood || d.likelihood || 0),
       impact = effectiveImpact(d);
@@ -4898,7 +4889,7 @@ function getAvailableRegisterColumns(module: string): RegisterColumn[] {
 }
 function defaultRegisterColumnKeys(module: string) {
   const compactDefaults:Record<string,string[]>={
-    "Risk Assessment":["title","inherentRisk","status","owner","treatment"],
+    "Risk Assessment":["title","inherentRisk","residualRisk","status","owner","treatment"],
     BIA:["process","ownership","criticality","recovery","readiness","test","updatedAt"],
     "Varlık Envanteri":["title","ownership","criticality","dataClassification","coverage","lifecycle","updatedAt"],
     Kontroller:["control","owner","frameworks","implementation","evidence","status","updatedAt"],

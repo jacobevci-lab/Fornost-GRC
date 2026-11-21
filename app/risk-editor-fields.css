@@ -1,0 +1,21 @@
+.record-dialog .risk-editor-group { display:grid; align-content:start; gap:.6rem; min-width:0; margin:0; padding:.8rem; border:1px solid var(--ws-line); border-radius:10px; color:var(--ws-ink); background:var(--ws-surface) }
+.risk-editor-group legend { padding:0 .35rem; font-weight:650 }
+.risk-editor-group button { font:inherit; color:var(--ws-ink); cursor:pointer }
+.risk-editor-group button:focus-visible,.risk-choice input:focus-visible { outline:2px solid var(--ws-brand); outline-offset:2px }
+.risk-choice { min-width:0 }
+.risk-choice input { width:100% }
+.risk-choice ul,.risk-asset-list { max-height:11rem; margin:.3rem 0; padding:0; overflow:auto; list-style:none }
+.risk-choice ul:not(:empty) { border:1px solid var(--ws-line); border-radius:6px }
+.risk-choice li,.risk-asset-list button { padding:.45rem .65rem; overflow-wrap:anywhere; cursor:pointer }
+.risk-choice li:hover,.risk-choice li[aria-selected="true"],.risk-editor-group button[aria-pressed="true"] { color:var(--ws-ink); background:var(--ws-brand-soft); box-shadow:inset 0 0 0 1px var(--ws-brand) }
+.risk-scope,.risk-pills { display:flex; flex-wrap:wrap; gap:.4rem }
+.risk-scope button,.risk-pills button,.risk-asset-list button,.risk-mode-link { border:1px solid var(--ws-line); border-radius:6px; background:var(--ws-surface); padding:.45rem .65rem; text-align:start }
+.risk-pills button { max-width:100%; overflow-wrap:anywhere; border-radius:1rem; background:var(--ws-surface-2) }
+.risk-mode-link { justify-self:start }
+.risk-asset-options { min-width:0; padding:0; margin:0; border:0 }
+.risk-asset-options:disabled { opacity:.6 }
+.risk-asset-list { display:grid; gap:.2rem }
+.risk-asset-list button[aria-pressed="true"]::before { content:"✓ "; font-weight:700 }
+.risk-asset-options:disabled button { cursor:default }
+.record-dialog .risk-rating-fields { grid-template-columns:repeat(auto-fit,minmax(min(100%,8rem),1fr)) }
+.risk-rating-result strong { border-radius:1rem; padding:.12rem .5rem; background:var(--ws-surface); color:var(--ws-ink) }
