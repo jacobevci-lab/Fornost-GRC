@@ -868,7 +868,14 @@ const valueEN: Record<string, string> = {
   Uyumlu: "Compliant",
   Kısmi: "Partial",
   Kapalı: "Closed",
-  Üretim: "Production",
+  Üretim: "Production", Geliştirme: "Development", "Felaket Kurtarma": "Disaster Recovery",
+  Sunucu: "Server", Uygulama: "Application", Veritabanı: "Database", "Ağ Cihazı": "Network Device",
+  "Uç Nokta": "Endpoint", "Bulut Servisi": "Cloud Service", "Bilgi Varlığı": "Information Asset",
+  "Tedarikçi Hizmeti": "Vendor Service", "İş Süreci": "Business Process", "Doküman / Kayıt": "Document / Record",
+  "Fiziksel Lokasyon": "Physical Location", "Kritik Rol / Personel": "Critical Role / Personnel", "Güvenlik Ürünü": "Security Product",
+  "Herkese Açık": "Public", "Şirket İçi": "Internal", Gizli: "Confidential", "Çok Gizli": "Highly Confidential",
+  Evet: "Yes", Hayır: "No", Kapsamda: "Covered", "Kapsam Dışı": "Out of Scope", Bilinmiyor: "Unknown",
+  Güncel: "Current", Gecikmiş: "Overdue", Muaf: "Exempt",
   Sürekli: "Continuous",
   Stratejik: "Strategic",
   "Kurumsal Yönetim": "Corporate Governance",
@@ -5436,14 +5443,14 @@ function SmartCell({
         <span className="ok">
           {tr ? "B" : "I"} {d.integrityRating || "—"}
         </span>
-        <span className="ok">E {d.availabilityRating || "—"}</span>
+        <span className="ok">{tr ? "E" : "A"} {d.availabilityRating || "—"}</span>
       </div>
     );
   if (column === "coverage")
     return <div className="asset-coverage">{[["EDR",d.edrStatus],["SIEM",d.siemStatus],[tr?"Yedek":"Backup",d.backupStatus],[tr?"Tarama":"Scan",d.vulnScan]].map(([label,value])=>{
       const state=assetCoverage(value);
-      const status=state==="covered"?(tr?"Kapsamda":"Covered"):state==="gap"?(tr?"Kapsam dışı":"Not covered"):(tr?"Bilinmiyor":"Unknown");
-      return <span key={label} data-state={state} title={label+" · "+status}><span aria-hidden="true">{state==="covered"?"✓":state==="gap"?"!":"—"} </span>{label}<span className="asset-sr-only"> · {status}</span></span>;
+      const status=state==="covered"?(tr?"Kapsamda":"Covered"):state==="gap"?(tr?"Kapsam dışı":"Not covered"):state==="partial"?(tr?"Kısmi":"Partial"):state==="na"?(tr?"Uygulanamaz":"Not applicable"):(tr?"Bilinmiyor":"Unknown");
+      return <span key={label} data-state={state} title={label+" · "+status}><span aria-hidden="true">{state==="covered"?"✓":state==="gap"?"!":state==="partial"?"◐":"—"} </span>{label}<span className="asset-sr-only"> · {status}</span></span>;
     })}</div>;
   if (module==="Varlık Envanteri" && column==="vendor") return String(d.externalVendor || d.vendor || "—");
   if (column === "lifecycle")

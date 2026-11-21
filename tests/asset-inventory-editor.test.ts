@@ -15,7 +15,7 @@ test("asset editor renders each stored field once, retaining legacy lifecycle se
     assert.equal(data.status,expected);assert.equal(data.lifecycleStage,undefined);
     assert.deepEqual(normalizeRecordData("Varlık Envanteri",data),data);
   }
-  assert.deepEqual(["Kapsamda","Kapsam Dışı","Bilinmiyor",""].map(assetCoverage),["covered","gap","unknown","unknown"]);
+  assert.deepEqual(["Kapsamda","Kapsam Dışı","Kısmi","Uygulanamaz","Bilinmiyor",""].map(assetCoverage),["covered","gap","partial","na","unknown","unknown"]);
 });
 test("filtered risk and BIA lists deduplicate reverse and forward links by asset identity",()=>{
   const rows=[

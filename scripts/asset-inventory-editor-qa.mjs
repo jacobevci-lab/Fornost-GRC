@@ -15,7 +15,7 @@ export async function verifyAssetInventoryEditor(page,api,open) {
   }
   async function choose(label,query){
     const input=dialog.getByRole("combobox",{name:label,exact:true});
-    await input.fill(query);await expect(dialog.getByRole("option",{name:new RegExp(query)})).toBeVisible();
+    await input.fill(query);await expect(dialog.getByRole("listbox",{name:label,exact:true}).getByRole("option",{name:new RegExp(query)})).toBeVisible();
     await input.press("ArrowDown");await input.press("Enter");
   }
   const search=page.locator(".register-search input"),row=page.locator(".smart-table tbody tr").filter({hasText:title});
@@ -65,11 +65,14 @@ export async function verifyAssetInventoryEditor(page,api,open) {
     assert.deepEqual(data.dependencyRefs,[dependency.id]);assert.equal(data.externalVendor,"Unregistered QA manufacturer");assert.equal(data.vendor,"");
     assert.equal(data.status,"Planlanan");assert.equal(data.lifecycleStage,undefined);assert.equal(data.ownerEmail,email);
     await expect(row.getByRole("button",{name:"0 BIA",exact:true})).toBeVisible();
-  }finally{
-    if(riskId)await api("/api/grc?id="+encodeURIComponent(riskId),"DELETE");
-    if(assetId)await api("/api/grc?id="+encodeURIComponent(assetId),"DELETE");
     await page.setViewportSize({width:1363,height:936});
     await page.locator(".language-switch:visible").getByRole("button",{name:"EN",exact:true}).click();
     if(await page.locator("html").getAttribute("data-theme")==="dark")await page.locator(".theme-toggle:visible").click();
+  }catch(error){
+    console.error("Asset inventory QA failed",error.message,await dialog.ariaSnapshot({timeout:1000}).catch(()=>""));
+    throw error;
+  }finally{
+    if(riskId)await api("/api/grc?id="+encodeURIComponent(riskId),"DELETE");
+    if(assetId)await api("/api/grc?id="+encodeURIComponent(assetId),"DELETE");
   }
 }

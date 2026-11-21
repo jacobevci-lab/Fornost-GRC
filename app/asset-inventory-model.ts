@@ -41,5 +41,7 @@ export function assetCoverage(value:unknown) {
   const v=String(value??"").trim().toLocaleLowerCase("tr");
   if(["kapsamda","aktif","active","covered","in scope","enabled","evet","yes","true"].includes(v))return "covered";
   if(["kapsam dışı","kapsam disi","out of scope","not covered","eksik","missing","inactive","disabled","hayır","no","false"].includes(v))return "gap";
+  if(["kısmi","partial","partially covered"].includes(v))return "partial";
+  if(["uygulanamaz","not applicable","n/a"].includes(v))return "na";
   return "unknown";
 }
