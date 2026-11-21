@@ -87,10 +87,10 @@ try{
         await page.keyboard.press('Shift+Tab');await expect(control.locator('button')).toBeFocused();
         await page.keyboard.press('Tab');await expect(firstField).toBeFocused();
         await expect(form.locator('.fornost-progressive-hidden').first()).toBeHidden();
-        const rating=form.locator('.risk-rating'),result=rating.locator('output');
+        const rating=form.locator('.risk-rating[data-form-group=core]'),result=rating.locator('output');
         await expect(control.getByRole('button')).toHaveAttribute('aria-expanded','false');
-        await expect(rating.getByRole('combobox')).toHaveCount(4);
-        await expect(result).toContainText(tr?'Risk skoru —':'Risk score —');
+        await expect(rating.getByRole('combobox')).toHaveCount(5);
+        await expect(result).toContainText(tr?'Doğal Risk Skoru —':'Inherent risk score —');
         for(const [key,value] of Object.entries({confidentialityImpact:'3',integrityImpact:'5',availabilityImpact:'2',inherentLikelihood:'4'})){
           await rating.locator('select[name="'+key+'"]').selectOption(value);
         }
@@ -102,7 +102,7 @@ try{
         await expect(form.locator('select[name="integrityImpact"]')).toHaveCount(1);
         await expect(result).toContainText('20 / 25');
         await rating.locator('select[name="inherentLikelihood"]').selectOption('');
-        await expect(result).toContainText(tr?'Risk skoru —':'Risk score —');
+        await expect(result).toContainText(tr?'Doğal Risk Skoru —':'Inherent risk score —');
       }
       await page.keyboard.press('Escape');await expect(form).toHaveCount(0);await expect(state.locator('button')).toBeFocused();
       checks.push(`${lang}: ${enName} empty-state action, form guidance and cancel`);
@@ -114,7 +114,7 @@ try{
       assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)<=2,'Empty state fits viewport');
       await state.locator('button').click();
       await expect(page.locator('.record-dialog')).toBeVisible();
-      for(const selector of ['.record-dialog','.record-dialog form','.record-dialog .risk-rating']){
+      for(const selector of ['.record-dialog','.record-dialog form','.record-dialog .risk-rating[data-form-group=core]']){
         assert.ok(await page.locator(selector).evaluate(el=>el.scrollWidth-el.clientWidth)<=2,`${lang}/${width}: ${selector} fits without internal horizontal overflow`);
       }
       await screenshot(`${lang}-form-${width}`);await page.keyboard.press('Escape');

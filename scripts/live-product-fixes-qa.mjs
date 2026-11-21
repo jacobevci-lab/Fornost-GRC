@@ -1,3 +1,4 @@
+import { verifyConnectedRiskEditor } from './connected-risk-editor-qa.mjs';
 import { chromium, expect } from '@playwright/test';
 import assert from 'node:assert/strict';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
@@ -65,6 +66,7 @@ try{
   checks.push('F03/F04/F07: exact title, target reload and return restore graph query and selection');await screenshot('03-map-return');
 
   await open('Risk Assessment');await expect(page.locator('.core-record-focus:not(.record-link-entry)')).toHaveCount(0);
+  await verifyConnectedRiskEditor(page,api);checks.push('Connected risk create, edit, directory and external ownership, residual score and scoped assets');
   for(const label of ['Inherent Risk','Status']){
     const heading=page.locator('.risk-table th').filter({hasText:new RegExp(label,'i')}).first();
     await expect(heading).toBeVisible();

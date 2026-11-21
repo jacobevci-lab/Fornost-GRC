@@ -6,7 +6,7 @@ import { FrameworkImpact } from "./framework-posture/audit";
 import NavIcon from "./nav-icon";
 import { ModuleTrailContext, RecordTrail } from "./module-record-trail-view";
 import { AssuranceChain, hasAssuranceChain } from "./assurance-chain-view";
-import { assessedRiskScore } from "./risk-methodology";
+import { assessedRiskScore, assessedResidualRiskScore } from "./risk-methodology";
 import { navigateToFornost } from "./navigation-focus";
 import { displayRecordCode } from "./record-codes";
 
@@ -91,6 +91,7 @@ export default function RecordWorkspace({ rows, visible, lang, moduleNames, form
   const riskScore = selected?.module === "Risk Assessment" ? assessedRiskScore(data) : null;
   const facts = [
     [tr ? "Doğal risk puanı" : "Inherent risk score", riskScore === null ? null : String(riskScore)],
+    ...(selected?.module === "Risk Assessment" ? [[tr ? "Artık risk puanı" : "Residual risk score", String(assessedResidualRiskScore(data) ?? "—")]] : []),
     [tr ? "Sorumlu" : "Owner", data.owner || data.auditOwner],
     [tr ? "Durum" : "Status", data.status],
     [tr ? "İş birimi" : "Business unit", data.businessUnit],

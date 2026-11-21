@@ -11,7 +11,7 @@ const pending = new Set(["incelemede", "under review", "in review", "review", "s
 
 export function workRoles(row: WorkRecord, user: Identity) {
   const d = row.data;
-  const owners = values(d.owner, d.ownerEmail, d.riskOwner, d.actionOwner, d.followUpOwner, d.testOwner,
+  const owners = values(d.owner, d.ownerEmail, d.riskOwner, d.actionOwner, d.actionOwnerEmail, d.followUpOwner, d.testOwner,
     d.evidenceOwner, d.auditOwner, d.technicalOwner, d.custodian);
   const reviewers = values(d.reviewer, d.reviewerEmail, d.approver, d.approverEmail);
   const owner = matchesWorkIdentity(owners, user);

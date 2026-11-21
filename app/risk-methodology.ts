@@ -37,3 +37,15 @@ export function splitRiskAssessmentState<T extends { data: Record<string, unknow
   }
   return { assessed, unassessed };
 }
+
+export function effectiveImpactSources(data: Record<string, unknown>) {
+  const impact = effectiveImpact(data);
+  return impactDimensionKeys.filter(key => impact > 0 && Number(data[key]) === impact && !(key === "impact" && Number(data.inherentImpact) === impact))
+    .map(key => key === "impact" ? "inherentImpact" : key);
+}
+
+export function assessedResidualRiskScore(data: Record<string, unknown>) {
+  const ratings = [data.residualLikelihood, data.residualImpact];
+  if (!ratings.every(value => (typeof value === "number" || typeof value === "string") && /^[1-5]$/.test(String(value).trim()))) return null;
+  return Number(ratings[0]) * Number(ratings[1]);
+}
