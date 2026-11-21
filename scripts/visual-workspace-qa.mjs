@@ -46,7 +46,10 @@ try {
     await expect(assessment.locator('.evidence-assurance-copy strong')).toHaveText(/\S/);
     await assessment.locator(':scope>summary').click();
     assert.equal(await page.locator('.executive-dashboard-reference').getByText(tr ? 'Geciken denetim' : 'Overdue audits', { exact: true }).count(), 0);
-    await expect(page.locator('.audit-remediation-panel')).toContainText(tr ? 'Geciken denetim maddesi' : 'Overdue audit requirements');
+    const auditSummary = page.locator('.audit-remediation-panel');
+    await expect(auditSummary).toContainText(tr ? 'hazır denetim' : 'audits ready');
+    await expect(auditSummary).not.toContainText(tr ? 'Geciken denetim maddesi' : 'Overdue audit requirements');
+    await expect(queue.getByRole('button', { name: tr ? 'Açık Bulgular & CAPA' : 'Open Findings & CAPA', exact: true })).toBeVisible();
     for (const theme of ['light', 'dark']) {
       if (await page.locator('html').getAttribute('data-theme') !== theme) await page.locator('.theme-toggle:visible').click();
       for (const width of [1365, 768, 390]) {
