@@ -59,7 +59,8 @@ try{
    await open(page);await tab(page,"Third Parties");
    await vr.getByRole("button",{name:linked.code,exact:true}).click();
    await expect(page.locator(".core-record-focus").first()).toContainText("Selected record");
-   await expect(page.locator(`button.record-open[data-record-id="${linked.id}"]`).first()).toBeVisible();
+   await expect(page.locator(".core-record-focus").first()).toContainText(linked.code);
+   await expect(page.locator(`button.record-open[data-record-id="${linked.id}"]`).first()).toBeAttached();
  }
  const queueName=name+" pending";
  await api(admin,"/api/grc","POST",{module:"Tedarikçiler",data:{title:queueName,service:"External hosting",owner:"Test owner",criticality:"Kritik",riskLevel:"Yüksek",status:"Aktif"}},201);

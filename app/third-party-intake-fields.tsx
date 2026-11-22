@@ -34,10 +34,10 @@ export function VendorEvidenceField({tr,selected,change}:{tr:boolean;selected:st
   </div>;
 }
 export function useVendorLinks(){
-  const context=useContext(ModuleTrailContext);
+  const context=useContext(ModuleTrailContext), coreRows=context?.rows, ready=context?.coreState==="ready";
   return useMemo(()=>{
-    if(context?.coreState!=="ready")return null;
-    const rows=context.rows.filter(r=>["Varlık Envanteri","BIA","Tedarikçiler"].includes(r.module));
+    if(!ready || !coreRows)return null;
+    const rows=coreRows.filter(r=>["Varlık Envanteri","BIA","Tedarikçiler"].includes(r.module));
     const result=new Map<string,ConnectedGrcRow[]>();
     for(const link of buildConnectedGrcGraph(rows).links){
       if(!["asset-vendor","bia-supplier"].includes(link.relation))continue;
@@ -46,9 +46,9 @@ export function useVendorLinks(){
       result.set(link.target.id,set);
     }
     return result;
-  },[context?.coreState,context?.rows]);
+  },[ready,coreRows]);
 }
 export function VendorRecordLinks({rows,tr}:{rows?:ConnectedGrcRow[];tr:boolean}){
   return rows?.length?<div className="tprm-chips">{rows.map(row=><button type="button" key={row.id} title={connectedTitle(row)}
-    onClick={()=>navigateToFornost({module:row.module,kind:"record",ref:row.id})}>{recordCode(row)||String(row.data.process||row.data.title||row.data.evidenceTitle||(tr?"Kaydı aç":"Open record"))}</button>)}</div>:<>—</>;
+    onClick={()=>navigateToFornost({module:row.module,kind:"record",ref:recordCode(row)||row.id})}>{recordCode(row)||String(row.data.process||row.data.title||row.data.evidenceTitle||(tr?"Kaydı aç":"Open record"))}</button>)}</div>:<>—</>;
 }
