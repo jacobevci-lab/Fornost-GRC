@@ -70,8 +70,9 @@ test('work GET is read-only and omits questionnaires, contacts, narratives and e
 });
 test('assessment decision and later renewal retain original completion time and deciding reviewer',async()=>{
   const f=fixture('third-party-risk');try{
-    await f.get('view=work');seedProfile(f.sqlite,{status:'in-review'});seedAssessment(f.sqlite);
-    const approved=await f.post({action:'assessment-action',assessmentId:assessment.id,operation:'approve',confirmation:'TEDARİKÇİYİ ONAYLA',...evidence});assert.equal(approved.status,200);
+    await f.get('view=work');f.sqlite.exec("CREATE TABLE local_users(email TEXT,role TEXT,status TEXT); INSERT INTO local_users VALUES('reviewer@example.com','Admin','Active')");
+ seed(f.sqlite,'simple_grc_records',{id:profile.vendorId,module:'Tedarikçiler',data_json:'{}',created_at:'2026-01-01',updated_at:'2026-01-01'});seedProfile(f.sqlite,{status:'in-review'});seedAssessment(f.sqlite,{impact:1,likelihood:1,control_maturity:1,inherent_score:1,residual_score:1,questionnaire_json:JSON.stringify(Object.fromEntries(TPRM_CONTROLS.map(k=>[k,true])))});
+    const approved=await f.post({riskAcceptanceReason:'Reviewed residual exposure for this supplier.',action:'assessment-action',assessmentId:assessment.id,operation:'approve',confirmation:'TEDARİKÇİYİ ONAYLA',...evidence});assert.equal(approved.status,200);
     let row=projectEnterpriseWork('vendor',(await f.get('view=work')).body).rows.find(r=>r.nativeRef===assessment.id)!;const date=String(f.sqlite.prepare('SELECT decided_at FROM third_party_assessments').get()!.decided_at);assert.equal(workCompletionDate(row),date);assert.equal(row.data.reviewer,profile.reviewer);
     f.sqlite.prepare('UPDATE third_party_assessments SET decided_at=?').run('2020-01-01T00:00:00Z');
     const renewal=await f.post({action:'renew-assessment',vendorId:profile.vendorId,impact:2,likelihood:2,controlMaturity:4,treatmentPlan:'Review the next period of the vendor relationship.',...Object.fromEntries(TPRM_CONTROLS.map(k=>[k,true]))});assert.equal(renewal.status,201);

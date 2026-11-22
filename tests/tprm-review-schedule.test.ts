@@ -11,7 +11,7 @@ import type { Actor } from '../app/api/auth/security';
 
 const actor = (id: string, role: 'Admin' | 'Editor' | 'Viewer' = 'Admin'): Actor => ({ id, name: id, email: id + '@example.com', role, source: 'local' });
 const date = (days: number) => new Date(Date.now() + days * 86400000).toISOString().slice(0, 10);
-async function setup(previous = date(-1)) {
+async function setup(previous = date(-1),pinSubmission=true) {
   const f = fixture('third-party-risk'); await f.post({}); await ensureCoreGrcSchemaCompatibility(f.db); await ensureWorkflowEvidenceSchema(f.db);
   f.sqlite.exec('CREATE TABLE local_users(id TEXT PRIMARY KEY,name TEXT,email TEXT,role TEXT,status TEXT);CREATE TABLE user_module_access(user_id TEXT PRIMARY KEY,policy_json TEXT);');
   for (const [id, role] of [['maker','Admin'], ['reviewer','Admin'], ['owner','Editor'], ['lead','Editor']]) f.sqlite.prepare('INSERT INTO local_users VALUES(?,?,?,?,?)').run(id,id,id+'@example.com',role,'Active');
@@ -27,7 +27,7 @@ async function setup(previous = date(-1)) {
   const row = (table: string, id = vendorId, identity = table === 'third_party_profiles' ? 'vendor_id' : 'id') => f.sqlite.prepare(`SELECT * FROM ${table} WHERE ${identity}=?`).get(id)!;
   const count = (table: string) => Number(f.sqlite.prepare(`SELECT COUNT(*) n FROM ${table}`).get()!.n);
   f.setActor(actor('owner','Editor'));
-  assert.equal((await f.post({ action:'assessment-action', assessmentId, operation:'submit', note:'Submit the supplier review evidence.', confirmation:'İNCELEMEYE GÖNDER', expectedRevision:row('third_party_assessments',assessmentId).updated_at, ...choice })).status,200);
+  assert.equal((await f.post({ action:'assessment-action', assessmentId, operation:'submit', note:'Submit the supplier review evidence.', confirmation:'İNCELEMEYE GÖNDER', expectedRevision:row('third_party_assessments',assessmentId).updated_at, ...(pinSubmission?choice:{evidenceReference:'External evidence receipt',evidenceSha256:hash}) })).status,200);
   f.setActor(actor('reviewer'));
   const decision = (patch: Record<string,unknown> = {}) => ({ action:'assessment-action', assessmentId, operation:'approve', note:'Independent reviewer checked the assessment and selected the next review date.', confirmation:'TEDARİKÇİYİ ONAYLA', expectedRevision:row('third_party_assessments',assessmentId).updated_at, ...choice, reviewSchedule:{ profileRevision:row('third_party_profiles').updated_at, previousDate:row('third_party_profiles').next_review, contractEnd:row('third_party_profiles').contract_end, nextDate:date(90) }, ...patch });
   return { ...f, row, count, vendorId, assessmentId, decision, scoring };
@@ -112,4 +112,43 @@ test('escaped long decision notes retain valid structured schedule history witho
     const history = ((await f.get()).body.assessments as Record<string,unknown>[])[0].reviewSchedule as Record<string,unknown>;
     assert.ok(history); assert.equal(history.note,note); assert.equal(history.nextDate,date(90));
   } finally { f.sqlite.close(); }
+});
+
+test('assurance document pins the selected version, rejects stale edits and preserves the evidence in decision history after unlink',async()=>{
+  const f=await setup();try{
+    const {evidenceMode,evidenceSelection}=f.decision();
+    const attach={action:'save-assurance',vendorId:f.vendorId,kind:'dpa',expires:date(30),evidenceMode,evidenceSelection,expectedRevision:''};
+    assert.equal((await f.post({...attach,expires:'2027-02-30'})).status,400);
+    assert.equal((await f.post(attach)).status,200);
+    assert.equal((await f.post(attach)).status,409);
+    const profile=async()=>((await f.get()).body.profiles as {documents:{revision:string;versionId:string;expires:string;available:number}[]}[])[0];
+    const doc=(await profile()).documents[0];assert.equal(doc.expires,date(30));assert.equal(doc.versionId,evidenceSelection.versionId);assert.equal(doc.available,1);
+    const decision=f.decision();const {evidenceMode:_m,evidenceSelection:_s,...withAttachedDoc}=decision;
+    assert.ok(_m&&_s);assert.equal((await f.post(withAttachedDoc)).status,200);
+    const remove={action:'save-assurance',vendorId:f.vendorId,kind:'dpa',remove:true,expectedRevision:doc.revision};
+    assert.equal((await f.post(remove)).status,200);assert.equal((await profile()).documents.length,0);
+    const history=((await f.get()).body.assessments as {decisionSnapshot:{checks:{support:boolean};documents:{versionId:string}[]}}[])[0].decisionSnapshot;
+    assert.equal(history.checks.support,true);assert.equal(history.documents[0].versionId,doc.versionId);
+    assert.equal((await f.post(remove)).status,409);
+  }finally{f.sqlite.close()}
+});
+test('all three decisions require independent active Admin, complete scoring and real support or an explicit reason',async()=>{
+  for(const [operation,confirmation] of [['approve','TEDARİKÇİYİ ONAYLA'],['conditional','KOŞULLU ONAYLA'],['reject','TEDARİKÇİYİ REDDET']]){
+    const f=await setup(date(-1),false);try{
+      const {evidenceMode,evidenceSelection,reviewSchedule,...base}=f.decision();assert.ok(evidenceMode&&evidenceSelection&&reviewSchedule);
+      const body={...base,operation,confirmation};
+      assert.equal((await f.post(body)).body.code,'DECISION_GATE');
+      const reason={...body,riskAcceptanceReason:'Accepted by independent reviewer for the limited contract period.'};
+      f.sqlite.exec("UPDATE local_users SET role='Editor' WHERE id='reviewer'");assert.equal((await f.post(reason)).body.code,'DECISION_GATE');
+      f.sqlite.exec("UPDATE local_users SET role='Admin' WHERE id='reviewer'");
+      f.sqlite.exec("UPDATE third_party_assessments SET impact=0");assert.equal((await f.post(reason)).body.code,'DECISION_GATE');
+      f.sqlite.exec("UPDATE third_party_assessments SET impact=3");
+      f.before(()=>f.sqlite.exec("UPDATE local_users SET status='Disabled' WHERE id='reviewer'"));
+      assert.equal((await f.post(reason)).status,409);assert.equal(f.row('third_party_assessments',f.assessmentId).status,'submitted');
+      f.sqlite.exec("UPDATE local_users SET status='Active' WHERE id='reviewer'");
+      assert.equal((await f.post(reason)).status,200);
+      const saved=JSON.parse(String(f.sqlite.prepare("SELECT detail FROM third_party_events WHERE assessment_id=? AND action IN ('assessment-approved','assessment-conditional','assessment-rejected')").get(f.assessmentId)!.detail));
+      assert.equal(saved.gate.riskAcceptanceReason,reason.riskAcceptanceReason);assert.ok(Object.values(saved.gate.checks).every(Boolean));
+    }finally{f.sqlite.close()}
+  }
 });

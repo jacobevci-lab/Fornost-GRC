@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {DatabaseSync} from 'node:sqlite';
 import {fixture} from './helpers/enterprise-route-fixture';
+import {TPRM_CONTROLS} from '../app/third-party-risk/domain';
 const stamp='2026-10-12T00:00:00.000Z';
 const evidence={note:'Independent evidence and decision reviewed.',evidenceReference:'EVD-1',evidenceSha256:'a'.repeat(64)};
 function seed(db:DatabaseSync,table:string,values:Record<string,string|number|null>){
@@ -11,9 +12,10 @@ function seed(db:DatabaseSync,table:string,values:Record<string,string|number|nu
 }
 const count=(db:DatabaseSync,table:string)=>Number(db.prepare(`SELECT count(*) n FROM ${table}`).get()!.n);
 async function policyFixture(){const f=fixture('policy-lifecycle');await f.post({});seed(f.sqlite,'policy_documents',{id:'POL-1',code:'POL-1',current_version_id:'PV-1',status:'published',reviewer:'reviewer@example.com',updated_at:stamp});seed(f.sqlite,'policy_versions',{id:'PV-1',policy_id:'POL-1',status:'published',content_sha256:'a'.repeat(64),updated_at:stamp});seed(f.sqlite,'policy_exceptions',{id:'PEX-1',policy_id:'POL-1',version_id:'PV-1',status:'submitted',owner:'owner@example.com',reviewer:'reviewer@example.com',created_by:'maker@example.com',submitted_by:'maker@example.com',expires_at:'2027-01-01',updated_at:stamp});return f;}
-async function vendorFixture(){const f=fixture('third-party-risk');await f.post({});seed(f.sqlite,'third_party_profiles',{vendor_id:'VEN-1',status:'in-review',reviewer:'reviewer@example.com',risk_owner:'owner@example.com',updated_at:stamp});seed(f.sqlite,'third_party_assessments',{id:'TPA-1',vendor_id:'VEN-1',status:'submitted',critical_gaps_json:'[]',created_by:'maker@example.com',submitted_by:'maker@example.com',updated_at:stamp});return f;}
+async function vendorFixture(){const f=fixture('third-party-risk');await f.post({});f.sqlite.exec("CREATE TABLE local_users(email TEXT,role TEXT,status TEXT); INSERT INTO local_users VALUES('reviewer@example.com','Admin','Active')");
+ seed(f.sqlite,'simple_grc_records',{id:'VEN-1',module:'Tedarikçiler',data_json:'{}',created_at:'2026-01-01',updated_at:'2026-01-01'});seed(f.sqlite,'third_party_profiles',{vendor_id:'VEN-1',status:'in-review',reviewer:'reviewer@example.com',risk_owner:'owner@example.com',updated_at:stamp});seed(f.sqlite,'third_party_assessments',{id:'TPA-1',vendor_id:'VEN-1',status:'submitted',impact:1,likelihood:1,control_maturity:1,inherent_score:1,residual_score:1,questionnaire_json:JSON.stringify(Object.fromEntries(TPRM_CONTROLS.map(k=>[k,true]))),critical_gaps_json:'[]',created_by:'maker@example.com',submitted_by:'maker@example.com',updated_at:stamp});return f;}
 const approveException={action:'exception-action',exceptionId:'PEX-1',operation:'approve-exception',confirmation:'İSTİSNAYI ONAYLA',...evidence};
-const approveVendor={action:'assessment-action',assessmentId:'TPA-1',operation:'approve',confirmation:'TEDARİKÇİYİ ONAYLA',...evidence};
+const approveVendor={riskAcceptanceReason:'Independent risk acceptance recorded for this fixture.',action:'assessment-action',assessmentId:'TPA-1',operation:'approve',confirmation:'TEDARİKÇİYİ ONAYLA',...evidence};
 const finding=(db:DatabaseSync)=>seed(db,'third_party_findings',{id:'TPF-1',vendor_id:'VEN-1',assessment_id:'TPA-1',status:'verification',severity:'high',owner:'owner@example.com',created_by:'maker@example.com',submitted_by:'maker@example.com',updated_at:stamp});
 
 test('policy exception approval commits audit once and rejects replay',async()=>{const f=await policyFixture();try{assert.equal((await f.post(approveException)).status,200);assert.equal(count(f.sqlite,'policy_events'),1);assert.equal((await f.post(approveException)).status,403);assert.equal(count(f.sqlite,'policy_events'),1);}finally{f.sqlite.close();}});

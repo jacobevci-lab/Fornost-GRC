@@ -41,8 +41,8 @@ export async function workflowEvidenceChoices(db:D1Database,q:string,page:number
     if(rows.results.length>1000) throw new WorkflowSelectionError('EVIDENCE_SELECTION');
     return {versions:rows.results.map(publicEvidenceVersion)};
   }
-  const rows=await db.prepare(`SELECT r.id,r.data_json,v.evidence_title,v.version_no FROM simple_grc_records r JOIN evidence_versions v ON v.evidence_id=r.id AND v.version_no=(SELECT MAX(v2.version_no) FROM evidence_versions v2 WHERE v2.evidence_id=r.id) WHERE r.module='Kanıtlar' AND (?='' OR instr(lower(r.id||' '||v.evidence_title||' '||v.period||' '||v.file_name),lower(?))>0) ORDER BY r.updated_at DESC,r.id LIMIT 51 OFFSET ?`).bind(q,q,page*50).all<{id:string;data_json:string;evidence_title:string;version_no:number}>();
-  return {records:rows.results.slice(0,50).map(r=>{let data:Record<string,unknown>={};try{data=JSON.parse(r.data_json)}catch{}return{id:r.id,title:r.evidence_title,status:String(data.status||''),latestVersion:r.version_no}}),hasMore:rows.results.length>50};
+  const rows=await db.prepare(`SELECT r.id,c.code,r.data_json,v.evidence_title,v.version_no FROM simple_grc_records r LEFT JOIN simple_grc_record_codes c ON c.record_id=r.id JOIN evidence_versions v ON v.evidence_id=r.id AND v.version_no=(SELECT MAX(v2.version_no) FROM evidence_versions v2 WHERE v2.evidence_id=r.id) WHERE r.module='Kanıtlar' AND (?='' OR instr(lower(r.id||' '||COALESCE(c.code,'')||' '||v.evidence_title||' '||v.period||' '||v.file_name),lower(?))>0) ORDER BY r.updated_at DESC,r.id LIMIT 51 OFFSET ?`).bind(q,q,page*50).all<{id:string;code:string|null;data_json:string;evidence_title:string;version_no:number}>();
+  return {records:rows.results.slice(0,50).map(r=>{let data:Record<string,unknown>={};try{data=JSON.parse(r.data_json)}catch{}return{id:r.id,code:r.code,title:r.evidence_title,status:String(data.status||''),latestVersion:r.version_no}}),hasMore:rows.results.length>50};
 }
 type SelectionEnv={DB:D1Database;BUCKET?:Pick<R2Bucket,"get">};
 type Prepared={body:Record<string,unknown>;guard:WorkflowGuard;evidence?:WorkflowEvidence};
