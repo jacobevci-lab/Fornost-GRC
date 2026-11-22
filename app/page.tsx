@@ -5395,8 +5395,8 @@ function SmartCell({
   if (column === "recovery")
     return (
       <div className="stack">
-        <b>RTO {hasRecoveryTarget(d.rto) ? d.rto : "—"}h</b>
-        <small>RPO {hasRecoveryTarget(d.rpo) ? d.rpo : "—"}h</small>
+        <b>RTO {hasRecoveryTarget(d.rto) ? d.rto+"h" : "—"}</b>
+        <small>RPO {hasRecoveryTarget(d.rpo) ? d.rpo+"h" : "—"}</small>
       </div>
     );
   if (column === "biaGovernance")

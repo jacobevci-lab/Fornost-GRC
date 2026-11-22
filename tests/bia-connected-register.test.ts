@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {biaCoreFields,biaSections,biaDate,biaImpact,mtpdWarning,sodWarning,sameBiaPerson} from "../app/bia-assessment";
+import {recoveryHoursLabel} from "../app/bia-recovery";
 import {validate} from "../app/core-record-validation";
 import {newCoreReferences,coreWriteGuard} from "../app/core-reference-write";
 import {fields} from "../app/register-view-schema";
@@ -18,6 +19,9 @@ test("BIA enforces recovery hours and independent directory identities on every 
   assert.ok(validate("BIA",{...base,mtpd:null}).data);
   const labelled=validate("BIA",{...base,rto:"1,5 saat",rpo:"0h",mtpd:"2 hours"}).data;
   assert.deepEqual([labelled?.rto,labelled?.rpo,labelled?.mtpd],["1.5","0","2"]);
+  assert.equal(recoveryHoursLabel(labelled?.rto,true),"1,5 saat");
+  assert.equal(recoveryHoursLabel(labelled?.rpo,false),"0 hours");
+  assert.equal(recoveryHoursLabel(null,true),"—");
   assert.equal(validate("BIA",{...base,rto:"2 hours",mtpd:"1 saat"}).error,mtpdWarning.tr);
   assert.ok(validate("BIA",{...base,rto:"within two days"}).error);
   assert.equal(validate("BIA",{...base,rto:"2"}).error,mtpdWarning.tr);
