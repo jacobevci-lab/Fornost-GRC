@@ -82,7 +82,7 @@ for(const [moduleName,label,key] of [['Risk Assessment','Risk Assessment','title
    return matches[0].record_code||matches[0].recordCode||matches[0].id;
   }).join(', ');
  }
- if(moduleName==='Varlık Envanteri'){
+ if(moduleName==='Varlık Envanteri'||moduleName==='BIA'){
   const contact=dialog.getByRole('combobox',{name:'Owner · search name or email',exact:true});
   await contact.fill(owner);
   await dialog.getByRole('listbox',{name:'Owner · search name or email'}).getByRole('option',{name:new RegExp(owner)}).click();

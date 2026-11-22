@@ -9,17 +9,17 @@ type Option = { value: string; label: string; search?: string };
 type Props = { tr: boolean; form: Record<string, unknown>; update: (patch: Record<string,string>) => void };
 type DirectoryPerson = { name: string; email: string };
 
-export function ChoiceInput({ label, options, query, onQuery, choose, tr, required, pending, message, more }: {
+export function ChoiceInput({ label, options, query, onQuery, choose, tr, required, requiredMessage, pending, message, more }: {
   label: string; options: Option[]; query: string; onQuery: (text: string) => void;
-  choose: (value: string) => void; tr: boolean; required?: boolean; pending?: boolean; message?: string; more?: boolean;
+  choose: (value: string) => void; tr: boolean; required?: boolean; requiredMessage?:string; pending?: boolean; message?: string; more?: boolean;
 }) {
   const id = useId(), input = useRef<HTMLInputElement>(null);
   const [open, setOpen] = useState(false), [index, setIndex] = useState(-1);
   const results = options.slice(0,50), active = open && results[index] ? id + "-" + index : undefined;
   useEffect(() => { if (active) document.getElementById(active)?.scrollIntoView({block:"nearest"}); }, [active]);
   useEffect(() => {
-    input.current?.setCustomValidity(required ? (tr ? "Listeden bir kişi seçin veya sistem dışı sorumlu girin." : "Select a person or enter an external owner.") : "");
-  }, [required, tr]);
+    input.current?.setCustomValidity(required ? requiredMessage || (tr ? "Listeden bir kişi seçin veya sistem dışı sorumlu girin." : "Select a person or enter an external owner.") : "");
+  }, [required, requiredMessage, tr]);
   function select(value: string) {
     choose(value); onQuery(""); setIndex(-1); setOpen(false);
   }

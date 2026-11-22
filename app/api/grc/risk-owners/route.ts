@@ -5,14 +5,14 @@ import { canWriteModule } from "../../../module-access";
 export async function GET(req: NextRequest) {
   const auth = await requireRole(req, ["Admin", "Editor"]);
   if (auth.response) return auth.response;
-  const sourceModule = req.nextUrl.searchParams.get("module") === "asset" ? "Varlık Envanteri" : "Risk Assessment";
+  const scope=req.nextUrl.searchParams.get("module");
+  const sourceModule = scope==="bia" ? "BIA" : scope === "asset" ? "Varlık Envanteri" : "Risk Assessment";
   if (!canWriteModule(auth.actor, sourceModule)) return new NextResponse(null, { status: 403 });
   const { env } = await import("cloudflare:workers");
-  const q = (req.nextUrl.searchParams.get("q") || "").trim().slice(0, 160);
-  const pattern = "%" + q.replace(/[\\%_]/g, "\\$&") + "%";
+  const q = (req.nextUrl.searchParams.get("q") || "").trim().slice(0, 254);
   const result = await env.DB.prepare(`SELECT name,email FROM local_users WHERE status='Active'
-    AND (name LIKE ? ESCAPE '\\' OR email LIKE ? ESCAPE '\\') ORDER BY name COLLATE NOCASE,email LIMIT 51`)
-    .bind(pattern, pattern).all<{ name: string; email: string }>();
+    AND (instr(lower(name),lower(?))>0 OR instr(lower(email),lower(?))>0) ORDER BY name COLLATE NOCASE,email LIMIT 51`)
+    .bind(q, q).all<{ name: string; email: string }>();
   return NextResponse.json({ people: result.results.slice(0,50), complete: result.results.length <= 50 },
     { headers: { "cache-control": "private, no-store" } });
 }

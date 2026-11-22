@@ -11,7 +11,7 @@ export function useEnterpriseWorkFocus<T extends string>(module: string, setTab:
   const [focus, setFocus] = useState<WorkFocus | null>(null);
   useEffect(() => {
     const accept = (request: FornostNavigationRequest | null) => {
-      if (!request || !['dashboard-action', 'my-work-enterprise', 'global-search', 'shared-record-link', 'evidence-usage'].includes(request.source || '') || !sameDomainModule(request.module, module) || !request.ref) return;
+      if (!request || !['dashboard-action', 'my-work-enterprise', 'global-search', 'shared-record-link', 'evidence-usage','bia-register'].includes(request.source || '') || !sameDomainModule(request.module, module) || !request.ref) return;
       const kind = request.kind || '', definition = enterpriseWorkKinds[kind];
       if (!definition || definition.module !== module) return;
       setFocus({ kind, ref: request.ref, fromMyWork: request.source === "my-work-enterprise" }); setTab(definition.tab as T); onFocus?.();

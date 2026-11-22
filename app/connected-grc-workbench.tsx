@@ -1,6 +1,7 @@
 "use client";
 import { useId, useMemo, useState } from 'react';
 import NavIcon from './nav-icon';
+import { recoveryHoursLabel } from './bia-recovery';
 import { connectedTitle, connectedRelationLabels, type ConnectedGrcRow as Row, type ConnectedGrcLink as Link } from './connected-grc-model';
 import { connectedNeighborhood, issueLabels, recordOwner, recordMatches, editableConnections, type WorkbenchIssue, type ReachableRecord } from './connected-grc-workbench-model';
 import { canWriteModule, type AccessSubject } from './module-access';
@@ -55,7 +56,7 @@ export default function ConnectedWorkbench(p: Props) {
   const inspectView = inspected && <aside className="cgw-inspector"><h3>{view === 'impact' ? (tr ? 'Neden listede?' : 'Why is this listed?') : (tr ? 'Kayıt ve bağlantı ayrıntıları' : 'Record and relationship details')}</h3>
     <div className="cgw-inspect-identity">{identity(inspected)}</div><p>{moduleLabel(inspected.module)} · {recordOwner(inspected)}</p>
     {inspect ? pathView(inspect) : <p className="cgw-muted">{tr ? 'İlişki yolunu incelemek için haritadaki veya listedeki bir kaydı seçin.' : 'Select a record in the map or list to inspect its relationship path.'}</p>}
-    {inspected.module === 'BIA' && <><div className="cgw-targets"><div><small>{tr ? 'RTO hedefi' : 'RTO target'}</small><b>{String(inspected.data.rto ?? '—')}</b></div><div><small>{tr ? 'RPO hedefi' : 'RPO target'}</small><b>{String(inspected.data.rpo ?? '—')}</b></div></div><small>{tr ? 'BIA hedefleri; tatbikat sonucu değildir.' : 'BIA targets; not exercise results.'}</small></>}
+    {inspected.module === 'BIA' && <><div className="cgw-targets"><div><small>{tr ? 'RTO hedefi' : 'RTO target'}</small><b>{recoveryHoursLabel(inspected.data.rto,tr)}</b></div><div><small>{tr ? 'RPO hedefi' : 'RPO target'}</small><b>{recoveryHoursLabel(inspected.data.rpo,tr)}</b></div></div><small>{tr ? 'BIA hedefleri; tatbikat sonucu değildir.' : 'BIA targets; not exercise results.'}</small></>}
     <h4>{inspect ? (tr ? 'İnceleme konuları' : 'Review topics') : (tr ? 'Görünür kayıtlarda inceleme' : 'Review visible records')} <span>{attention.length}</span></h4>
     {attention.length ? attention.slice(0, 5).map(issue => <article className="cgw-attention" key={issue.id}><b>{issueLabels[issue.kind][language]}</b><small>{issue.row.code || issue.row.id} · {connectedTitle(issue.row)}</small>{issue.due && <small>{issue.due}</small>}{nextAction(issue)}</article>) : <p className="cgw-muted">{complete ? (tr ? 'İncelenen görünür kayıtlarda takip konusu bulunmadı.' : 'No follow-up topic found for the reviewed visible records.') : (tr ? 'Kaynaklar tamamlanmadan eksik olmadığı doğrulanamaz.' : 'No-gap status cannot be confirmed until sources are complete.')}</p>}
     <dl><dt>{tr ? 'Son değişiklik' : 'Last change'}</dt><dd>{inspected.updatedAt ? new Date(inspected.updatedAt).toLocaleString(tr ? 'tr-TR' : 'en-US') : '—'}</dd></dl>

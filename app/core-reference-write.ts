@@ -19,7 +19,7 @@ export function newCoreReferences(sourceId:string,module:string,data:Record<stri
   const modules=rule.modules.filter(target=>target in recordCodePrefixes);
   if(!modules.length)continue;
   const previous=new Set(values(before[field]));
-  for(const value of new Set(values(data[field])))if((identity.test(value)||field==="dependencyRefs")&&!previous.has(value))refs.push({sourceId,field,value,modules});
+  for(const value of new Set(values(data[field])))if((identity.test(value)||["dependencyRefs","technologyRefs","supplierRefs"].includes(field))&&!previous.has(value))refs.push({sourceId,field,value,modules});
  }
  return refs;
 }
@@ -37,18 +37,28 @@ export function coreReferenceGuard(refs:Reference[]){
  )))<>1)`,values:[JSON.stringify(refs)]};
 }
 
-/** Verify changed directory assignments in the same statement as the risk write. */
+/** Verify directory assignments in the same statement as the core record write. */
 export function coreWriteGuard(module:string, records: {id:string;data:Record<string,unknown>;before?:Record<string,unknown>}[]) {
  const guard=coreReferenceGuard(records.flatMap(record=>newCoreReferences(record.id,module,record.data,record.before)));
- if(module!=="Risk Assessment" && module!=="Varlık Envanteri")return guard;
+ if(module!=="Risk Assessment" && module!=="Varlık Envanteri" && module!=="BIA")return guard;
  const contacts=[];
+ const legacyBiaPairs=[];
  for(const {data,before={}} of records){
-  for(const field of module==="Risk Assessment"?["owner","actionOwner"]:["owner"]){
-   const emailKey=field==="owner"?"ownerEmail":"actionOwnerEmail", source=field+"Source";
-   if(data[source]!=="directory" || (!data[field] && !data[emailKey]))continue;
+  if(module==="BIA" && data.owner && data.approver){
+   // Imported BIA rows can identify one person by name and the other by email.
+   const owner=String(data.ownerEmail||data.owner).trim(),approver=String(data.approverEmail||data.approver).trim();
+   if(owner.includes("@")!==approver.includes("@"))legacyBiaPairs.push(owner.includes("@")?{email:owner,name:approver}:{email:approver,name:owner});
+  }
+  for(const field of module==="Risk Assessment"?["owner","actionOwner"]:module==="BIA"?["owner","approver"]:["owner"]){
+   const emailKey=field+"Email", source=field+"Source";
+   if((data[source]!=="directory" && !(module==="BIA" && data[emailKey])) || (!data[field] && !data[emailKey]))continue;
    if(before[source]===data[source] && before[field]===data[field] && before[emailKey]===data[emailKey])continue;
    contacts.push({name:data[field],email:data[emailKey]});
   }
+ }
+ if(legacyBiaPairs.length){
+  guard.sql+=" AND NOT EXISTS (SELECT 1 FROM json_each(?) pair JOIN local_users u ON lower(u.email)=lower(json_extract(pair.value,'$.email')) AND lower(trim(u.name))=lower(json_extract(pair.value,'$.name')))";
+  guard.values.push(JSON.stringify(legacyBiaPairs));
  }
  if(!contacts.length)return guard;
  return {sql:`${guard.sql} AND NOT EXISTS (

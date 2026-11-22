@@ -38,7 +38,7 @@ test("AI configuration has one administrative home and keeps the governed action
 });
 
 test("core registers open with decision-oriented readable columns", () => {
-  assert.match(page, /BIA:\["process","ownership","criticality","recovery","readiness","test","updatedAt"\]/);
+  assert.match(page, /BIA:\["process","ownership","criticality","recovery","readiness","test","continuityPlan","updatedAt"\]/);
   assert.match(page, /"Varlık Envanteri":\["title","ownership","criticality","dataClassification","assetLinks","coverage","lifecycle","updatedAt"\]/);
   assert.match(page, /Kontroller:\["control","owner","frameworks","implementation","evidence","status","updatedAt"\]/);
   assert.match(page, /fornost-grc-column-layout/);

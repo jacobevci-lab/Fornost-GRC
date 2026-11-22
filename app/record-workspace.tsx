@@ -86,7 +86,8 @@ export default function RecordWorkspace({ rows, visible, lang, moduleNames, form
   }
   const showChain = !!selected && hasAssuranceChain(selected);
   const business = !!selected && hasBusinessContext(selected);
-  const assetDependencies = selected?.module==="Varlık Envanteri" ? graph?.links.filter(link=>link.field==="dependencyRefs" && link.source.id===selected.id).map(link=>link.target) || [] : [];
+  const dependencyFields=selected?.module==="BIA"?["technologyRefs","supplierRefs"]:["dependencyRefs"];
+  const assetDependencies=graph?.links.filter(link=>link.source.id===selected?.id && dependencyFields.includes(link.field)).map(link=>link.target)||[];
   const otherLinks = Array.from(linked.values()).filter(row => (!showChain || !hasAssuranceChain(row)) && !(business && hasBusinessContext(row)));
   const data = selected?.data || {};
   const riskScore = selected?.module === "Risk Assessment" ? assessedRiskScore(data) : null;
@@ -100,8 +101,8 @@ export default function RecordWorkspace({ rows, visible, lang, moduleNames, form
     [tr ? "Sonraki inceleme" : "Next review", data.nextReview],
     [tr ? "Sürüm" : "Version", selected?.module === "Kanıtlar" && (Number(data.versionNo) > 0 ? 'v' + data.versionNo : (tr ? "Sürüm kaydı yok" : "No version recorded"))],
     [tr ? "Dönem" : "Period", data.period],
-    ["RTO", data.rtoHours != null ? String(data.rtoHours)+(tr?" saat":" h") : null],
-    ["RPO", data.rpoHours != null ? String(data.rpoHours)+(tr?" saat":" h") : null],
+    ["RTO", (data.rtoHours ?? data.rto) != null && (data.rtoHours ?? data.rto)!=="" ? String(data.rtoHours ?? data.rto)+(tr?" saat":" h") : null],
+    ["RPO", (data.rpoHours ?? data.rpo) != null && (data.rpoHours ?? data.rpo)!=="" ? String(data.rpoHours ?? data.rpo)+(tr?" saat":" h") : null],
   ].filter(([, value]) => typeof value === "string" && value.trim());
 
   return <>
