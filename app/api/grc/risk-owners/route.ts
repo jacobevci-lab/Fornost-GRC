@@ -5,7 +5,8 @@ import { canWriteModule } from "../../../module-access";
 export async function GET(req: NextRequest) {
   const auth = await requireRole(req, ["Admin", "Editor"]);
   if (auth.response) return auth.response;
-  const sourceModule = req.nextUrl.searchParams.get("module") === "asset" ? "Varlık Envanteri" : "Risk Assessment";
+  const scope=req.nextUrl.searchParams.get("module");
+  const sourceModule = scope==="bia" ? "BIA" : scope === "asset" ? "Varlık Envanteri" : "Risk Assessment";
   if (!canWriteModule(auth.actor, sourceModule)) return new NextResponse(null, { status: 403 });
   const { env } = await import("cloudflare:workers");
   const q = (req.nextUrl.searchParams.get("q") || "").trim().slice(0, 160);

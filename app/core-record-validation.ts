@@ -1,3 +1,5 @@
+import { exceedsMtpd, sameBiaPerson, mtpdWarning, sodWarning } from "./bia-assessment";
+import { hasRecoveryTarget } from "./bia-recovery";
 import { assetLifecycle, assetStatuses } from "./asset-inventory-model";
 import { assessedResidualRiskScore } from "./risk-methodology";
 import { isResidualRiskGoverned } from "./risk-governance-write";
@@ -71,6 +73,22 @@ export function validate(module:unknown,input:unknown){
   }
   cleaned[key]=module==="Denetim Yönetimi"&&["requirementStatement","requirementGuidance","requirementAssessment"].includes(key)&&typeof value==="string"?value.slice(0,100000):cleanText(value)}
  const data=normalizeRecordData(module,cleaned);
+ if(module==="BIA"){
+  for(const key of ["rto","rpo","mtpd"]){
+   if(data[key]!==undefined && data[key]!=="" && !hasRecoveryTarget(data[key]))return {error:key.toUpperCase()+" için geçerli bir saat değeri girin."};
+  }
+  if(exceedsMtpd(data))return {error:mtpdWarning.tr};
+  if(sameBiaPerson(data))return {error:sodWarning.tr};
+  for(const role of ["owner","approver"]){
+   const email=data[role+"Email"];
+   if((email || data[role+"Source"]==="directory" && data[role]) && (!data[role] || typeof email!=="string" || email.length>254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)))return {error:"Geçersiz BIA dizin kullanıcısı."};
+  }
+  for(const key of ["technologyRefs","supplierRefs"]){
+   const refs=data[key];if(refs===undefined)continue;
+   if(!Array.isArray(refs)||refs.some(ref=>typeof ref!=="string"||!ref.trim()||ref.length>120))return {error:"Geçersiz BIA bağımlılığı."};
+   data[key]=[...new Set(refs.map(ref=>ref.trim()))];
+  }
+ }
  const independentRisk=module==="Risk Assessment" && data.riskScope==="organization";
  if(independentRisk && String(data.asset??"").trim())return {error:"Varlıktan bağımsız bir riskte varlık seçilemez."};
  if(module==="Varlık Envanteri" && data.dependencyRefs!==undefined && (!Array.isArray(data.dependencyRefs) || data.dependencyRefs.some(ref=>typeof ref!=="string" || !ref.trim() || ref.length>120)))return {error:"Geçersiz varlık veya BIA bağlantısı."};

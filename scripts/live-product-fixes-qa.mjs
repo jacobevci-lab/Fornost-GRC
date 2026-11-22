@@ -1,3 +1,4 @@
+import { verifyBiaEditor } from "./bia-editor-qa.mjs";
 import { verifyAssetInventoryEditor } from "./asset-inventory-editor-qa.mjs";
 import { verifyConnectedRiskEditor } from './connected-risk-editor-qa.mjs';
 import { chromium, expect } from '@playwright/test';
@@ -67,6 +68,7 @@ try{
   checks.push('F03/F04/F07: exact title, target reload and return restore graph query and selection');await screenshot('03-map-return');
 
   await open('Risk Assessment');await expect(page.locator('.core-record-focus:not(.record-link-entry)')).toHaveCount(0);
+  await verifyBiaEditor(page,api,open);checks.push("BIA recovery limits, independent approval, linked dependencies and plan navigation");
   await verifyAssetInventoryEditor(page,api,open);checks.push('Asset create, edit, four sections, directory links, posture, exact risk and BIA drill-downs');
   await open('Risk Assessment');
   await verifyConnectedRiskEditor(page,api);checks.push('Connected risk create, edit, directory and external ownership, residual score and scoped assets');

@@ -1,4 +1,6 @@
 "use client";
+import type {ConnectedGrcRow} from "./connected-grc-model";
+import {hasRecoveryTarget} from "./bia-recovery";
 import { ModuleTrailContext } from "./module-record-trail-view";
 import { linkedRecordOptions } from "./linked-record-options";
 import {ContinuityActivityDossier} from "./continuity-activity-dossier";
@@ -22,7 +24,14 @@ const labels:Record<string,[string,string]>={submitted:["İncelemede","In review
 const confirmations:Record<string,string>={"submit-plan":"PLANI İNCELEMEYE GÖNDER","return-plan":"PLANI TASLAĞA İADE ET","cancel-plan":"PLANI İPTAL ET","approve-plan":"PLANI ONAYLA","activate-plan":"PLANI ETKİNLEŞTİR","retire-plan":"PLANI YÜRÜRLÜKTEN KALDIR","close-gap":"AÇIĞI KAPAT","cancel-exercise":"TATBİKATI İPTAL ET","reschedule-exercise":"TATBİKATI YENİDEN PLANLA"};
 const future=(days:number)=>new Date(Date.now()+days*86400000).toISOString().slice(0,10);
 const newPlan=(email:string)=>({name:"",process:"",biaRef:"",criticality:"high",owner:email,reviewer:"",crisisLead:"",rtoHours:4,rpoHours:1,mtpdHours:24,dependencies:"",recoveryStrategy:"",communicationPlan:"",alternateSite:"",supplierDependencies:"",minimumStaff:2,reviewDate:future(365)});
-export default function ContinuityCenter({lang,currentUser}:{lang:Lang;currentUser:User}){const tr=lang==="tr",[tab,setTab]=useState("plans"),[query,setQuery]=useState(""),[context,setContext]=useState<{planId?:string;exerciseId?:string}|null>(null),[notice,setNotice]=useState(""),[busy,setBusy]=useState(false),[planForm,setPlanForm]=useState<FormState|null>(null),[exerciseForm,setExerciseForm]=useState<FormState|null>(null),[dialog,setDialog]=useState<FormState|null>(null),[reviewPlanId,setReviewPlanId]=useState<string|null>(null);
+function planFromBia(email:string,row:ConnectedGrcRow):FormState{
+ const d=row.data;
+ return {...newPlan(email),biaRef:row.code||row.id,process:String(d.process||""),
+  criticality:({Kritik:"critical",Yüksek:"high",Orta:"medium",Düşük:"low"} as Record<string,string>)[String(d.criticality)]||"",
+  rtoHours:hasRecoveryTarget(d.rto)?Number(d.rto):"",rpoHours:hasRecoveryTarget(d.rpo)?Number(d.rpo):"",mtpdHours:hasRecoveryTarget(d.mtpd)?Number(d.mtpd):"",
+  dependencies:String(d.dependencies||""),recoveryStrategy:String(d.recoveryStrategy||""),supplierDependencies:String(d.supplierDependency||"")};
+}
+export default function ContinuityCenter({lang,currentUser,initialBia}:{lang:Lang;currentUser:User;initialBia?:ConnectedGrcRow|null}){const tr=lang==="tr",[tab,setTab]=useState("plans"),[query,setQuery]=useState(""),[context,setContext]=useState<{planId?:string;exerciseId?:string}|null>(null),[notice,setNotice]=useState(""),[busy,setBusy]=useState(false),[planForm,setPlanForm]=useState<FormState|null>(()=>initialBia && currentUser.role!=="Viewer"?planFromBia(currentUser.email,initialBia):null),[exerciseForm,setExerciseForm]=useState<FormState|null>(null),[dialog,setDialog]=useState<FormState|null>(null),[reviewPlanId,setReviewPlanId]=useState<string|null>(null);
  const trailContext=useContext(ModuleTrailContext);
  const biaOptions=useMemo(()=>linkedRecordOptions((trailContext?.rows||[]).filter(row=>row.module==="BIA"),"process",[],tr),[trailContext?.rows,tr]);
  const resetFilters=useCallback(()=>{setQuery("");setContext(null);setReviewPlanId(null)},[]);

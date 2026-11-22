@@ -447,3 +447,9 @@ AI Yönetişimi, **İş listesi** ile açılır. Sayaçlar takip gereken sisteml
 Bir sistemi seçip **Sistem dosyasını aç** ile tam kaydına geçin. **AI Envanteri** sekmesinde amaç/sorumlu araması, durum, kurum riski ve sorumlu filtrelerini kullanın. Sistem adına basarak ayrıntıyı açın; taslak düzenleme/silme, yetkili kararlar, bağlı alarmlar/bulgular ve kayıt geçmişi burada kalır. Envanter onayı üretim yayın onayı değildir. **Değerlendirmeler** ve **İzleme**, mevcut ilgili çalışma alanlarını açar; diğer iş akışları **Diğer AI çalışma alanları** altında bulunur.
 
 **Raporlar** güvence matrisini, CSV ve sistem bazlı mühürlü denetim paketlerini açar. Paket geçmişi yalnız bu görünüm açıldığında yüklenir. Başarısız veya sonucu doğrulanamayan paket işleminde geçmişi yenileyerek sonucu kontrol edin. API ve rol sınırları değişmedi.
+
+### BIA hedefleri ve süreklilik planları
+
+BIA formunda RTO, RPO ve MTPD saat olarak girilir. RTO, MTPD ile eşit olabilir. RPO sıfır olabilir. Etki özetindeki ortalama yalnız girilen boyutlardan hesaplanır ve kaç boyutun değerlendirildiği gösterilir. Sahibi ve BIA onaylayan için farklı dizin kullanıcıları seçilir. Teknoloji ve tedarikçi bağımlılıkları kayıt koduyla aranabilir. Önceki serbest metin bağımlılıkları mevcut kayıtta not olarak görünür.
+
+Süreklilik Planı sütunundaki BCP rozeti ilgili planı açar. **+ Plan Oluştur** ilgili BIA ve kurtarma hedefleriyle yeni plan formunu açar. Plan, form kaydedildiğinde oluşturulur. İlk testini bekleyen süreçler ve kapsamı doğrulanmamış hazırlık durumları tabloda ayrı gösterilir.

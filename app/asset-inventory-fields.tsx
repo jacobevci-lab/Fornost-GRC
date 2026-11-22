@@ -9,7 +9,7 @@ import "./asset-inventory.css";
 type Props={tr:boolean;form:Record<string,unknown>;rows:ConnectedGrcRow[];id?:string;
   update:(patch:Record<string,unknown>)=>void;field:(key:string)=>ReactNode};
 type Target={value:string;label:string;code:string;title:string;module:string};
-function entity(row:ConnectedGrcRow):Target {
+export function entity(row:ConnectedGrcRow):Target {
   const title=String(row.data.title||row.data.process||"");
   const code=[row.code,row.id].find(ref=>ref && /^(AST|BIA|VEN)-\d+$/i.test(ref))||"";
   return {value:row.id,title,code,module:row.module,label:[title,code].filter(Boolean).join(" · ")||"—"};
@@ -21,7 +21,7 @@ function findTarget(options:Target[],ref:string) {
   return matches.length===1?matches[0]:undefined;
 }
 const tagValues=(v:unknown):string[]=>Array.isArray(v)?v.map(String):String(v||"").split(/[;,|\n]+/).map(s=>s.trim()).filter(Boolean);
-function EntityField({tr,options,label,selected,choose,remove}:{tr:boolean;options:Target[];label:string;selected:string[];choose:(ref:string)=>void;remove:(ref:string)=>void}) {
+export function EntityField({tr,options,label,selected,choose,remove}:{tr:boolean;options:Target[];label:string;selected:string[];choose:(ref:string)=>void;remove:(ref:string)=>void}) {
   const [query,setQuery]=useState("");
   const chosen=new Set(selected.map(v=>findTarget(options,v)?.value));
   const search=normalizeRiskSearch(query);

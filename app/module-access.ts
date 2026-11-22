@@ -49,7 +49,8 @@ export function scopedApiAllowed(subject: AccessSubject, pathname: string, metho
   if (path === "/api/evidence/usage") return read && canReadModule(subject, "Kanıtlar"); // Each usage source is authorized in the handler.
   if (path === "/api/record-links") return read; // Handler checks both module access and exact target.
   if (path === "/api/search") return read; // Handler scopes rows before search and pagination.
-  if (path === "/api/grc/risk-owners") return read && (canWriteModule(subject,"Risk Assessment") || canWriteModule(subject,"Varlık Envanteri")); // The route checks the requested module.
+  if (path === "/api/grc/bia-context") return read && canReadModule(subject,"BIA");
+  if (path === "/api/grc/risk-owners") return read && (canWriteModule(subject,"Risk Assessment") || canWriteModule(subject,"Varlık Envanteri") || canWriteModule(subject,"BIA")); // The route checks the requested module.
   if (path === "/api/grc") return true; // Row/module authorization is inside the handler.
   if (path === "/api/views") return read || method === "POST"; // Handler enforces live module, personal ownership and Admin-only team publication.
   if (path === "/api/catalogs") return read; // Shared field choices, no business records.

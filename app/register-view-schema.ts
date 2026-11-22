@@ -67,6 +67,7 @@ export const fields: Record<string, string[]> = {
     "nextReview",
     "approver",
     "approvalDate",
+    "status",
   ],
   "Varlık Envanteri": [
     "title",
@@ -237,6 +238,7 @@ export const registerColumns: Record<
     { key: "biaGovernance", tr: "Yönetişim", en: "Governance" },
     { key: "readiness", tr: "Kurtarma Hazırlığı", en: "Recovery Readiness" },
     { key: "test", tr: "Son Test / Durum", en: "Last Test / Status" },
+    { key:"continuityPlan",tr:"Süreklilik Planı",en:"Continuity Plan" },
     { key: "updatedAt", tr: "Son Güncelleme", en: "Last Updated" },
   ],
   "Varlık Envanteri": [

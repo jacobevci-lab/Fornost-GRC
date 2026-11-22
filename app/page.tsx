@@ -106,6 +106,11 @@ import AuditReadinessGate from "./audit-readiness-gate";
 import AuditPortfolioWorkspace, { type AuditPortfolioItem } from "./audit-portfolio-workspace";
 import { requestJsonWithDeadline } from "./bounded-json-request";
 import { withBasePath } from "./base-path";
+import { useContext } from "react";
+import { BiaFields } from "./bia-editor-fields";
+import { BiaScope, BiaRegisterContext, BiaPlanCell } from "./bia-register-context";
+import { biaImpact,biaDate,exceedsMtpd } from "./bia-assessment";
+import type {ConnectedGrcRow} from "./connected-grc-model";
 import { AssetInventoryFields } from "./asset-inventory-fields";
 import { assetLinkedRecords, assetCoverage, assetStatuses, type AssetTarget, type AssetLinks } from "./asset-inventory-model";
 import { RiskAssets, RiskControls, RiskPerson } from "./risk-editor-fields";
@@ -838,6 +843,10 @@ const valueEN: Record<string, string> = {
   "Transfer Et": "Transfer",
   Kaçın: "Avoid",
   Aktif: "Active",
+  "Başarılı":"Successful","Kısmen Başarılı":"Partially successful","Başarısız":"Failed",
+  "Mevcut":"Available","Mevcut Değil":"Unavailable","Kritik İş Hizmeti":"Critical business service","Operasyonel Süreç":"Operational process",
+  "Destek Süreci":"Support process","Finansal Süreç":"Financial process","Yasal / Düzenleyici Süreç":"Legal / regulatory process",
+  "Müşteri Süreci":"Customer process","Teknoloji Hizmeti":"Technology service","İnsan Kaynakları Süreci":"Human resources process","Tedarikçi Bağımlı Süreç":"Supplier-dependent process",
   Planlanan: "Planned", "Emekli / EOL": "Retired / EOL",
   Açık: "Open",
   "Uygulama Hazırlığında": "Implementation Preparation",
@@ -1201,6 +1210,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
     [commandIndex, setCommandIndex] = useState(0),
     [recentModules, setRecentModules] = useState<string[]>([]);
   const [dashboardLens, setDashboardLens] = useState<{module:string; framework?:string; assetId?:string} | null>(null);
+  const [biaPlanSeed,setBiaPlanSeed]=useState<ConnectedGrcRow|null>(null);
   const lens = dashboardLens?.module === active ? dashboardLens : null;
   const { query, setQuery, filters: registerFilters, setFilters: setRegisterFilters, sort: registerSort, setSort: setRegisterSort } = useRegisterView(String(currentUser.id), active, Boolean(lens));
   const [commandMode, setCommandMode] = useState<"modules" | "records">("modules");
@@ -1314,6 +1324,14 @@ function FornostApp({ currentUser }: { currentUser: any }) {
         localStorage.setItem("fornost-grc-column-layout", "v2");
       }
       if (columns && typeof columns === "object") {
+        if (localStorage.getItem("fornost-bia-plan-column") !== "1") {
+          const previous=columns.BIA;
+          if(Array.isArray(previous) && !previous.includes("continuityPlan")){
+            columns={...columns,BIA:[...previous,"continuityPlan"]};
+            localStorage.setItem("fornost-grc-columns",JSON.stringify(columns));
+          }
+          localStorage.setItem("fornost-bia-plan-column","1");
+        }
         if (localStorage.getItem("fornost-asset-links-column") !== "1") {
           const previous = columns["Varlık Envanteri"];
           if (Array.isArray(previous) && !previous.includes("assetLinks")) {
@@ -1494,6 +1512,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
     setNotice("");
     setEditing(null);
     const next = empty(module);
+    if (module === "BIA") next.status = "Taslak";
     if (module === "Risk Assessment") next.status = "Değerlendiriliyor";
     if (module === "Denetim Yönetimi" && selectedAudit) {
       next.auditName = selectedAudit;
@@ -1791,6 +1810,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
     setDashboardLens({module,framework});
   }
   function navigateToModule(module: string) {
+    setBiaPlanSeed(null);
     if (!canOpenModule(currentUser,module)) return;
     const parentGroup = navGroups.find((group) => group.items.includes(module));
     if (parentGroup) {
@@ -2288,7 +2308,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
         ) : active === "Güvenlik Olayları" ? (
           <IncidentCenter lang={lang} currentUser={currentUser} />
         ) : active === "İş Sürekliliği" ? (
-          <ContinuityCenter lang={lang} currentUser={currentUser} />
+          <ContinuityCenter lang={lang} currentUser={currentUser} initialBia={biaPlanSeed} />
         ) : active === "Bulgular ve CAPA" ? (
           <FindingsCenter lang={lang} currentUser={currentUser} rows={readableRows} coreState={registerLoadState} retryCore={()=>void load()} />
         ) : active === "Politika Merkezi" ? (
@@ -2436,10 +2456,13 @@ function FornostApp({ currentUser }: { currentUser: any }) {
                 filterPanelOpen={filterPanelOpen}
                 setFilterPanelOpen={setFilterPanelOpen}
               />
+              <BiaScope enabled={active==="BIA"} rows={readableRows} create={canWriteModule(currentUser,"İş Sürekliliği")?row=>{
+                navigateToModule("İş Sürekliliği");setBiaPlanSeed(row);
+              }:undefined}>
               <RecordWorkspace initialRecordId={focusedRecord?.openDetail ? focusedRecord.id : undefined} allowPosture={canReadPosture(currentUser)} key={active + ":" + (focusedRecord?.id || "")} rows={readableRows} visible={visible} lang={lang} moduleNames={names[lang]} formatValue={display}
                 preview={id => { const row = readableRows.find(item => item.id === id && item.module === "Kanıtlar"); if (row) setPreviewEvidence(row); }}>
                 {(inspect, open) => (
-              <div className={active==="Varlık Envanteri"?"table-wrap asset-table-scroll":"table-wrap"} hidden={open} tabIndex={0} role="region" aria-label={lang === "tr" ? "Kayıt tablosu" : "Record table"}>
+              <div className={active==="Varlık Envanteri"?"table-wrap asset-table-scroll":active==="BIA"?"table-wrap bia-table-scroll":"table-wrap"} hidden={open} tabIndex={0} role="region" aria-label={lang === "tr" ? "Kayıt tablosu" : "Record table"}>
                 {lens?.module==="Kanıtlar" && !staleEvidence ? <p role="status">{evidenceRegisterState.loading ? (lang==="tr"?"Kanıt değerlendirmesi yükleniyor…":"Loading evidence assessment…") : (lang==="tr"?"Kanıt değerlendirmesi doğrulanamadı.":"Evidence assessment unavailable.")} {!evidenceRegisterState.loading && <button onClick={evidenceRegisterState.refresh}>{lang==="tr"?"Yeniden dene":"Retry"}</button>}</p> : !focusedRecord && (registerLoadState !== "ready" || !visible.length) ? <RegisterEmptyState
                   module={active} lang={lang} state={registerLoadState}
                   filtered={Boolean(lens || query || Object.values(registerFilters).some(Boolean))}
@@ -2479,6 +2502,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
               </div>
                 )}
               </RecordWorkspace>
+              </BiaScope>
             </section>
           </>
         )}
@@ -2546,7 +2570,9 @@ function FornostApp({ currentUser }: { currentUser: any }) {
             ) : (
               <form onSubmit={save} className="form">
                 <div className="fornost-progressive-slot" />
-                {active === "Varlık Envanteri" ? <AssetInventoryFields form={form} id={editing?.id} tr={lang==="tr"} rows={readableRows}
+                {active === "BIA" ? <BiaFields form={form} tr={lang==="tr"} rows={readableRows} update={patch=>setForm(prev=>({...prev,...patch}))}
+                  field={key=><Field k={key} module={active} form={form} setForm={setForm} lang={lang} availableRows={readableRows}/>} />
+                 : active === "Varlık Envanteri" ? <AssetInventoryFields form={form} id={editing?.id} tr={lang==="tr"} rows={readableRows}
                   update={patch=>setForm(prev=>({...prev,...patch}))}
                   field={key=><Field k={key} module={active} form={form} setForm={setForm} lang={lang} availableRows={readableRows}/>} />
                  : (active === "Risk Assessment" ? riskFormFields : fields[active]).map((k) => (
@@ -4920,7 +4946,7 @@ function getAvailableRegisterColumns(module: string): RegisterColumn[] {
 function defaultRegisterColumnKeys(module: string) {
   const compactDefaults:Record<string,string[]>={
     "Risk Assessment":["title","inherentRisk","residualRisk","status","owner","treatment"],
-    BIA:["process","ownership","criticality","recovery","readiness","test","updatedAt"],
+    BIA:["process","ownership","criticality","recovery","readiness","test","continuityPlan","updatedAt"],
     "Varlık Envanteri":["title","ownership","criticality","dataClassification","assetLinks","coverage","lifecycle","updatedAt"],
     Kontroller:["control","owner","frameworks","implementation","evidence","status","updatedAt"],
   };
@@ -5198,19 +5224,6 @@ function RegisterToolbar({
     </div>
   );
 }
-function maxImpact(r: Row) {
-  return Math.max(
-    0,
-    ...[
-      "financial",
-      "operational",
-      "legal",
-      "reputation",
-      "customer",
-      "dataImpact",
-    ].map((k) => Number(r.data[k] || 0)),
-  );
-}
 function ageInDays(value: any) {
   if (!value) return null;
   const n = (Date.now() - new Date(value).getTime()) / 86400000;
@@ -5221,11 +5234,12 @@ function biaWarnings(r: Row, lang: Lang) {
     d = r.data,
     out: string[] = [];
   if (!hasRecoveryTarget(d.rto) || !hasRecoveryTarget(d.rpo)) out.push(tr ? "Eksik Bilgi" : "Missing Data");
-  if (Number(d.rto) > Number(d.mtpd) && d.mtpd)
+  if (exceedsMtpd(d))
     out.push(tr ? "Hedef Uyumsuz" : "Target Conflict");
   if (d.criticality === "Kritik" && d.drStatus !== "Mevcut")
     out.push(tr ? "DR Eksik" : "DR Gap");
-  if (d.nextTestDate && dueTimestamp(d.nextTestDate) < Date.now())
+  if (["Test Edilmedi","Not Tested"].includes(d.testResult))out.push(tr?"İlk Test Bekleniyor":"Awaiting first test");
+  else if (d.nextTestDate && dueTimestamp(d.nextTestDate)<Date.now())
     out.push(tr ? "Test Gecikmiş" : "Test Overdue");
   const reviewAge = ageInDays(d.lastReview);
   if (reviewAge !== null && reviewAge > 365)
@@ -5258,6 +5272,7 @@ function SmartCell({
   lang: Lang;
   viewEvidence?: (row: Row) => void;
 }) {
+  const bia=useContext(BiaRegisterContext);
   const d = row.data,
     tr = lang === "tr";
   if (column === "updatedAt" || column === "createdAt")
@@ -5351,17 +5366,15 @@ function SmartCell({
     );
   if (["criticality", "riskLevel", "status", "implementation"].includes(column))
     return <StatusPill value={d[column]} lang={lang} />;
-  if (module === "BIA" && column === "process")
-    return (
-      <div className="stack title-stack">
-        <b>{d.process || "—"}</b>
-        <small>
-          {[d.processCategory, d.asset].filter(Boolean).join(" · ")}
-        </small>
-      </div>
-    );
+  if(module==="BIA" && column==="continuityPlan")return <BiaPlanCell row={row} tr={tr}/>;
+  if(module==="BIA" && column==="process"){
+    const asset=bia?.assets.resolve(String(d.asset||""));
+    const code=[asset?.code,asset?.id].find(ref=>ref && /^AST-\d+$/i.test(ref));
+    return <div className="stack title-stack"><b>{riskTitle({...row,data:{title:d.process}})}</b>
+      <small>{[display(d.processCategory,lang),code].filter(Boolean).join(" · ")||"—"}</small></div>;
+  }
   if (column === "businessImpact") {
-    const n = maxImpact(row);
+    const n = biaImpact(d).highest;
     return n ? (
       <div className="impact-score">
         <b>{n}</b>
@@ -5372,7 +5385,7 @@ function SmartCell({
     );
   }
   if (column === "mtpd")
-    return d.mtpd ? (
+    return hasRecoveryTarget(d.mtpd) ? (
       <b>
         {d.mtpd} {tr ? "saat" : "hours"}
       </b>
@@ -5390,27 +5403,24 @@ function SmartCell({
     return (
       <div className="stack">
         <b>{d.approver || (tr ? "Onaylayan atanmamış" : "Approver not assigned")}</b>
-        <small>{d.approvalDate || d.nextReview || "—"}</small>
+        <small>{biaDate(d.approvalDate || d.nextReview,bia?.snapshot?.dateFormat)}</small>
       </div>
     );
-  if (column === "readiness")
-    return (
-      <div className="readiness">
-        <span className={d.backupStatus === "Kapsamda" ? "ok" : "miss"}>
-          Backup
-        </span>
-        <span className={d.drStatus === "Mevcut" ? "ok" : "miss"}>DR</span>
-        <span className={d.manualWorkaround === "Evet" ? "ok" : "miss"}>
-          {tr ? "Manuel" : "Manual"}
-        </span>
-      </div>
-    );
+  if (column === "readiness"){
+    const asset=bia?.assets.resolve(String(d.asset||""));
+    const values=[[tr?"Yedek":"Backup",d.backupStatus||asset?.data.backupStatus],["DR",d.drStatus],[tr?"Manuel":"Manual",d.manualWorkaround]];
+    return <div className="asset-coverage">{values.map(([label,value])=>{
+      const state=["Mevcut","Available"].includes(String(value))?"covered":["Mevcut Değil","Unavailable"].includes(String(value))?"gap":assetCoverage(value);
+      const status=({covered:tr?"Aktif":"Active",gap:tr?"Eksik":"Missing",partial:tr?"Kısmi":"Partial",na:tr?"Uygulanamaz":"Not applicable",unknown:tr?"Bilinmiyor":"Unknown"})[state];
+      return <span key={String(label)} data-state={state} role="img" aria-label={label+" · "+status} title={label+" · "+status}>{state==="covered"?"✓ ":state==="gap"?"! ":state==="partial"?"◐ ":"— "}{String(label)}</span>;
+    })}</div>;
+  }
   if (column === "test") {
     const warnings = biaWarnings(row, lang);
     return (
       <div className="stack">
         <b>{display(d.testResult, lang) || (tr ? "Test yok" : "No test")}</b>
-        <small>{d.lastTestDate || "—"}</small>
+        <small>{biaDate(d.lastTestDate,bia?.snapshot?.dateFormat)}</small>
         <div className="warnings">
           {warnings.map((x) => (
             <span key={x}>{x}</span>

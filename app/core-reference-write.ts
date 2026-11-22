@@ -19,7 +19,7 @@ export function newCoreReferences(sourceId:string,module:string,data:Record<stri
   const modules=rule.modules.filter(target=>target in recordCodePrefixes);
   if(!modules.length)continue;
   const previous=new Set(values(before[field]));
-  for(const value of new Set(values(data[field])))if((identity.test(value)||field==="dependencyRefs")&&!previous.has(value))refs.push({sourceId,field,value,modules});
+  for(const value of new Set(values(data[field])))if((identity.test(value)||["dependencyRefs","technologyRefs","supplierRefs"].includes(field))&&!previous.has(value))refs.push({sourceId,field,value,modules});
  }
  return refs;
 }
@@ -40,12 +40,12 @@ export function coreReferenceGuard(refs:Reference[]){
 /** Verify changed directory assignments in the same statement as the risk write. */
 export function coreWriteGuard(module:string, records: {id:string;data:Record<string,unknown>;before?:Record<string,unknown>}[]) {
  const guard=coreReferenceGuard(records.flatMap(record=>newCoreReferences(record.id,module,record.data,record.before)));
- if(module!=="Risk Assessment" && module!=="Varlık Envanteri")return guard;
+ if(module!=="Risk Assessment" && module!=="Varlık Envanteri" && module!=="BIA")return guard;
  const contacts=[];
  for(const {data,before={}} of records){
-  for(const field of module==="Risk Assessment"?["owner","actionOwner"]:["owner"]){
-   const emailKey=field==="owner"?"ownerEmail":"actionOwnerEmail", source=field+"Source";
-   if(data[source]!=="directory" || (!data[field] && !data[emailKey]))continue;
+  for(const field of module==="Risk Assessment"?["owner","actionOwner"]:module==="BIA"?["owner","approver"]:["owner"]){
+   const emailKey=field+"Email", source=field+"Source";
+   if((data[source]!=="directory" && !(module==="BIA" && data[emailKey])) || (!data[field] && !data[emailKey]))continue;
    if(before[source]===data[source] && before[field]===data[field] && before[emailKey]===data[emailKey])continue;
    contacts.push({name:data[field],email:data[emailKey]});
   }
