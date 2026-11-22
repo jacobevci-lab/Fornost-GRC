@@ -15,10 +15,13 @@ WITH reserved(value) AS (
 ), missing AS (
  SELECT r.id,r.created_at,row_number() OVER(ORDER BY r.created_at,r.id) AS n
  FROM simple_grc_records r WHERE r.module='Tedarikçiler'
-   AND NOT EXISTS(SELECT 1 FROM simple_grc_record_codes c WHERE c.record_id=r.id)
+   AND NOT EXISTS(SELECT 1 FROM simple_grc_record_codes c WHERE c.record_id=r.id AND
+     (c.code<>r.id OR (upper(c.code) GLOB 'VEN-[0-9]*' AND length(substr(c.code,5))>=3 AND substr(c.code,5) NOT GLOB '*[^0-9]*')))
 )
 INSERT INTO simple_grc_record_codes(record_id,module,code,created_at)
-SELECT id,'Tedarikçiler',printf('VEN-%03d',n+(SELECT coalesce(max(value),0) FROM reserved)),created_at FROM missing;
+SELECT id,'Tedarikçiler',printf('VEN-%03d',n+(SELECT coalesce(max(value),0) FROM reserved)),created_at FROM missing WHERE 1
+ON CONFLICT(record_id) DO UPDATE SET code=excluded.code
+WHERE simple_grc_record_codes.code=simple_grc_record_codes.record_id;
 
 INSERT INTO simple_grc_record_code_counters(module,value,updated_at)
 SELECT 'Tedarikçiler',max(CAST(substr(code,5) AS INTEGER)),CURRENT_TIMESTAMP

@@ -62,7 +62,7 @@ try{
    await expect(page.locator(".core-record-focus").first()).toContainText(linked.code);
    await expect(page.locator(`button.record-open[data-record-id="${linked.id}"]`).first()).toBeAttached();
  }
- const queueName=name+" pending";
+ const queueName="QA pending scope "+tag;
  await api(admin,"/api/grc","POST",{module:"Tedarikçiler",data:{title:queueName,service:"External hosting",owner:"Test owner",criticality:"Kritik",riskLevel:"Yüksek",status:"Aktif"}},201);
  await open(page);await tab(page,"Third Parties");
  const queueRow=page.locator(".tprm-table tbody tr").filter({hasText:queueName});

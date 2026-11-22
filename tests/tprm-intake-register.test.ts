@@ -13,6 +13,7 @@ test("legacy vendors get stable codes above occupied codes, IDs and reserved num
   const ids=["VEN-005","VEN-21a7277c-4092-4272-b8ca-fbb32c6a0b35","VEN-older","VEN-coded"];
   for(const id of ids)f.sqlite.prepare("INSERT INTO simple_grc_records VALUES(?,'Tedarikçiler','{}','today','today')").run(id);
   f.sqlite.prepare("INSERT INTO simple_grc_record_codes VALUES('VEN-coded','Tedarikçiler','VEN-079','today')").run();
+  f.sqlite.prepare("INSERT INTO simple_grc_record_codes VALUES(?,'Tedarikçiler',?,'today')").run(ids[1],ids[1]);
   const sql=readFileSync("drizzle/0106_tprm_vendor_codes.sql","utf8");
   f.sqlite.exec(sql);f.sqlite.exec(sql);
   const codes=f.sqlite.prepare("SELECT code FROM simple_grc_record_codes ORDER BY code").all().map(x=>x.code);

@@ -29,6 +29,7 @@
 .tprm-finding-history .workflow-evidence-history{min-width:0;max-width:100%}
 .tprm-finding-history-disclosure>summary{cursor:pointer;padding:10px 0;font-weight:700}
 
+.tprm-form>label {align-self:start}
 .tprm-form .tprm-person {min-width:0;align-self:start}
 .tprm-person .risk-choice label {display:block;margin-bottom:.35rem}
 .tprm-person .risk-choice input {width:100%}
