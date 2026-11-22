@@ -75,7 +75,7 @@ export function validate(module:unknown,input:unknown){
  const data=normalizeRecordData(module,cleaned);
  if(module==="BIA"){
   for(const key of ["rto","rpo","mtpd"]){
-   if(data[key]!==undefined && data[key]!=="" && !hasRecoveryTarget(data[key]))return {error:key.toUpperCase()+" için geçerli bir saat değeri girin."};
+   if(data[key]!=null && data[key]!=="" && !hasRecoveryTarget(data[key]))return {error:key.toUpperCase()+" için geçerli bir saat değeri girin."};
   }
   if(exceedsMtpd(data))return {error:mtpdWarning.tr};
   if(sameBiaPerson(data))return {error:sodWarning.tr};

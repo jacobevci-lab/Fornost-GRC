@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import {writeFile} from 'node:fs/promises';
 import {expect} from '@playwright/test';
 import {qaPassword} from './qa-credentials.mjs';
 
@@ -7,14 +8,14 @@ export async function verifyBiaEditor(page,api,open){
   const base="http://127.0.0.1:4173",moduleName="Business Impact Analysis (BIA)",dialog=page.locator(".record-dialog");
   const records=(await api("/api/grc")).rows,fixture=m=>records.find(r=>r.module===m && /^[A-Z]{3}-\d+$/.test(r.record_code));
   const asset=fixture("Varlık Envanteri"),vendor=fixture("Tedarikçiler"),other=fixture("BIA");
-  const process="QA recovery "+crypto.randomUUID(),owner="qa-admin@fornost.test",approver="bia-"+crypto.randomUUID()+"@fornost.test";
+  const process="QA recovery "+crypto.randomUUID(),owner="qa-admin@fornost.test",approver="reviewer."+crypto.randomUUID()+"@fornost.test", reviewerName="BIA QA reviewer";
   const row=page.locator(".bia-table tbody tr").filter({hasText:process});
   async function write(path,data,status){
     const response=await page.request.post(base+path,{headers:{origin:base},data});
     assert.equal(response.status(),status,await response.text());return response.json();
   }
   async function choose(label,query){
-    const input=dialog.getByRole("combobox",{name:label,exact:true});await input.fill(query);
+    const input=dialog.getByRole("combobox",{name:label,exact:true});await input.scrollIntoViewIfNeeded();await input.fill(query);
     await dialog.getByRole("listbox",{name:label,exact:true}).getByRole("option",{name:new RegExp(query)}).click();
   }
   async function save(method){
@@ -23,7 +24,9 @@ export async function verifyBiaEditor(page,api,open){
   }
   let userId,biaId,planId;
   try{
-    userId=(await write("/api/users",{name:"BIA QA reviewer",email:approver,password:qaPassword(),role:"Editor"},201)).id;
+    userId=(await write("/api/users",{name:reviewerName,email:approver,password:qaPassword(),role:"Editor"},201)).id;
+    const lookup=await api("/api/grc/risk-owners?module=bia&q="+encodeURIComponent(approver));
+    assert.ok(lookup.people.some(p=>p.name===reviewerName && p.email===approver),"Isolated reviewer is searchable by email");
     await open(moduleName);await page.locator(".module-head .primary").click();
     await dialog.locator("[name=process]").fill(process);
     for(const key of ["processCategory","businessUnit","criticality"])await dialog.locator("[name="+key+"]").selectOption({index:1});
@@ -41,7 +44,7 @@ export async function verifyBiaEditor(page,api,open){
     const reviewer="BIA approver · search name or email";
     await dialog.getByRole("combobox",{name:reviewer}).fill(owner);
     await expect(dialog.getByRole("listbox",{name:reviewer})).toHaveAttribute("aria-busy","false");await expect(dialog.getByRole("listbox",{name:reviewer}).getByRole("option",{name:new RegExp(owner)})).toHaveCount(0);
-    await choose(reviewer,approver);await dialog.locator("[name=testResult]").selectOption("Test Edilmedi");await dialog.locator("[name=nextTestDate]").fill("2020-06-03");
+    await choose(reviewer,reviewerName);await dialog.locator("[name=testResult]").selectOption("Test Edilmedi");await dialog.locator("[name=nextTestDate]").fill("2020-06-03");
     const created=await save("POST");biaId=created.id;
     await page.locator(".register-search input").fill(process);await expect(row).toContainText("Awaiting first test");await expect(row).not.toContainText("Test Overdue");
     await expect(row.locator(".title-stack small")).toContainText(asset.record_code);await expect(row.getByRole("img",{name:"DR · Active"})).toBeVisible();
@@ -66,6 +69,11 @@ export async function verifyBiaEditor(page,api,open){
     const plan=(await api("/api/continuity")).plans.find(p=>p.id===planId);
     await page.locator(".bia-table").getByRole("button",{name:plan.code,exact:true}).click();
     await expect(page.locator(".cpd-file h3")).toHaveText(name);
+  }catch(error){
+    const snapshot=await dialog.ariaSnapshot({timeout:1000}).catch(()=>null);
+    const inputs=await dialog.locator('[role="combobox"]').evaluateAll(nodes=>nodes.map(n=>({value:n.value,expanded:n.getAttribute("aria-expanded")})));
+    await writeFile("live-product-fixes-qa-artifacts/bia-failure.json",JSON.stringify({snapshot,inputs},null,2));
+    throw error;
   }finally{
     if(planId){const p=(await api("/api/continuity")).plans.find(p=>p.id===planId);if(p?.status==="draft")await api("/api/continuity","POST",{action:"cancel-plan",planId,expectedUpdatedAt:p.updatedAt,confirmation:"PLANI İPTAL ET",note:"Retire the isolated BIA navigation test draft."});}
     if(biaId)await api("/api/grc?id="+encodeURIComponent(biaId),"DELETE");
