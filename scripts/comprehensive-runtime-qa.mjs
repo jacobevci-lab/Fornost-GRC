@@ -13,6 +13,10 @@ const evidence={note:'Independent QA evidence and verification completed.',evide
 let currentPage=null;
 const results=[], contexts=[]; await fs.mkdir(out,{recursive:true});
 const browser=await chromium.launch({executablePath:process.env.QA_CHROMIUM_PATH||undefined});
+async function chooseContinuityRecord(dialog,label,term){
+  await dialog.getByRole('combobox',{name:label,exact:true}).fill(term);
+  await dialog.getByRole('listbox',{name:label,exact:true}).getByRole('option').filter({hasText:term}).first().click();
+}
 async function check(name,fn){console.log('START',name);try{await fn();results.push({name,status:'passed'});console.log('PASS',name)}catch(e){results.push({name,status:'failed',error:e.message});console.error('FAIL',name,e.message);if(currentPage){await currentPage.screenshot({path:`${out}/failure-${results.length}.png`}).catch(()=>{});await fs.writeFile(`${out}/failure-${results.length}.json`,JSON.stringify(await currentPage.locator('input,select,textarea').evaluateAll(es=>es.filter(e=>e.offsetWidth).map(e=>({name:e.name,type:e.type,value:e.type==='password'?'[redacted]':e.value,valid:e.validity.valid,message:e.validationMessage}))).catch(()=>[]),null,2))}}}
 async function request(ctx,path,method='GET',data,expected=200){const r=await ctx.request.fetch(base+path,{method,headers:{origin:base},data});const body=await r.text();assert.equal(r.status(),expected,`${method} ${path}: ${body.slice(0,700)}`);try{return JSON.parse(body)}catch{return body}}
 async function login(email){const ctx=await browser.newContext({viewport:{width:1536,height:960}});contexts.push(ctx);await request(ctx,'/api/auth','POST',{action:'login',email,password});return ctx}
@@ -149,14 +153,12 @@ await check('Evidence Library UI upload, file integrity, edit and delete',async(
 await check('Continuity UI form, layout, modal, maker-checker, exercise breach and gap closure',async()=>{
  await reset();await open('Business Continuity & Resilience');await page.locator('.continuity-page').waitFor();assert.equal(await page.locator('nav.continuity-tabs').count(),0);assert.ok((await page.locator('.continuity-tabs').boundingBox()).height<100);
  await page.locator('.continuity-hero').getByRole('button',{name:'New Plan'}).click();let dialog=page.locator('dialog.continuity-overlay');await dialog.waitFor();const bounds=await dialog.boundingBox();assert.ok(bounds.x>250&&bounds.y>=20,'Continuity dialog is centered with viewport margins');await page.keyboard.press('Escape');await dialog.waitFor({state:'hidden'});await page.locator('.continuity-hero').getByRole('button',{name:'New Plan'}).click();await dialog.waitFor();assert.equal(await dialog.locator('fieldset').count(),3);
- await dialog.locator('[name=name]').fill('QA Payment recovery plan');await dialog.locator('[name=process]').fill('Payment processing');await dialog.locator('[name=biaRef]').fill('BIA-001');await expect(dialog.getByLabel('Independent reviewer',{exact:true})).toBeEnabled();await dialog.getByLabel('Independent reviewer',{exact:true}).selectOption(reviewer);await dialog.getByLabel('Crisis lead',{exact:true}).selectOption('qa-lead@fornost.test');await dialog.locator('[name=dependencies]').fill('Identity, network and database services');await dialog.locator('[name=recoveryStrategy]').fill('Recover in the secondary region and validate the restored data.');await dialog.locator('[name=communicationPlan]').fill('Notify crisis owners and affected customers.');
- await dialog.locator('[name=biaRef]').fill('BIA-999999999');
- const rejectedPlan=page.waitForResponse(r=>r.url().endsWith('/api/continuity')&&r.request().method()==='POST');
- await dialog.getByRole('button',{name:'Create draft plan'}).click();assert.equal((await rejectedPlan).status(),422);
- await expect(dialog).toBeVisible();await expect(dialog.locator('[name=name]')).toHaveValue('QA Payment recovery plan');
- await expect(dialog.locator('[name=biaRef]')).toHaveValue('BIA-999999999');
- await expect(dialog.getByRole('alert')).toContainText('The linked BIA record is unavailable');
- await dialog.locator('[name=biaRef]').fill('BIA-001');
+ await dialog.getByRole('combobox',{name:'BIA reference'}).fill('BIA-999999999');
+ await expect(dialog.getByRole('listbox',{name:'BIA reference'}).getByRole('option')).toHaveCount(0);
+ await chooseContinuityRecord(dialog,'BIA reference','BIA-001');await chooseContinuityRecord(dialog,'Independent reviewer',reviewer);await chooseContinuityRecord(dialog,'Crisis lead','qa-lead@fornost.test');
+ for(const [name,value] of Object.entries({name:'QA Payment recovery plan',process:'Payment processing',rtoHours:'4',rpoHours:'1',mtpdHours:'24',dependencies:'Identity, network and database services',recoveryStrategy:'Recover in the secondary region and validate the restored data.',communicationPlan:'Notify crisis owners and affected customers.'}))await dialog.locator(`[name=${name}]`).fill(value);
+ await dialog.locator('[name=rpoHours]').fill('5');await expect(dialog.getByRole('button',{name:'Create draft plan'})).toBeDisabled();await expect(dialog.getByRole('alert')).toContainText('RPO cannot exceed RTO');
+ await dialog.locator('[name=rpoHours]').fill('1');
  await page.screenshot({path:`${out}/continuity-form.png`});
  const response=page.waitForResponse(r=>r.url().endsWith('/api/continuity')&&r.request().method()==='POST').catch(()=>null);await dialog.getByRole('button',{name:'Create draft plan'}).click();const r=await response;assert.equal(r.status(),201,await r.text());const {id}=await r.json();await dialog.waitFor({state:'hidden'});
  await request(checker,'/api/continuity','POST',{action:'approve-plan',planId:id,...evidence,confirmation:'PLANI ONAYLA'},409);
@@ -170,7 +172,7 @@ await check('Continuity UI form, layout, modal, maker-checker, exercise breach a
  await request(admin,'/api/continuity','POST',{action:'retire-plan',planId:id,...evidence,confirmation:'PLANI YÜRÜRLÜKTEN KALDIR'},409);
  await request(checker,'/api/continuity','POST',{action:'close-gap',gapId:gap.id,...evidence,confirmation:'AÇIĞI KAPAT'},409);
  await reset();await open('Business Continuity & Resilience');await page.locator('.continuity-page').waitFor();
- await page.locator('.cpd-index button').filter({hasText:'QA Payment recovery plan'}).click();const planRow=page.locator('.cpd-file');await planRow.getByRole('button',{name:'Improvement gaps',exact:true}).click();await page.locator('.continuity-context').waitFor();
+ await page.locator('.cpd-index button').filter({hasText:'QA Payment recovery plan'}).click();const planRow=page.locator('.cpd-file');await planRow.getByRole('button',{name:'Improvements',exact:true}).click();await page.locator('.continuity-context').waitFor();
  const selectGap=()=>page.locator('.cpd-index button').filter({hasText:gap.title}).click();await selectGap();const gapRow=page.locator('.cpd-file');await gapRow.locator('.cpd-exercise button').first().click();await expect(page.locator('.cpd-index button')).toHaveCount(1);await expect(page.locator('.cpd-file>header')).toContainText(ex.code);
  await page.locator('.continuity-tabs').getByRole('button',{name:'Improvement gaps',exact:true}).click();assert.equal(await page.locator('.continuity-context').count(),0);await selectGap();
  await gapRow.getByRole('button',{name:'Schedule verification',exact:true}).click();dialog=page.locator('dialog.continuity-overlay');await dialog.waitFor();await expect(dialog.getByLabel('Facilitator',{exact:true})).toHaveValue(owner);assert.ok((await dialog.locator('[name=scenario]').inputValue()).includes(gap.title));await page.keyboard.press('Escape');await dialog.waitFor({state:'hidden'});

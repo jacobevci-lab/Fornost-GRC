@@ -18,7 +18,7 @@ export async function readContinuityActivityFile(db:D1Database,kind:"exercise"|"
   const record=gapFile ? gap : await db.prepare("SELECT plan_id,id AS exercise_id FROM enterprise_continuity_exercises WHERE id=?").bind(id).first<{plan_id:string;exercise_id:string}>();
   if(!record) return null;
   const [plan,source,gaps,verification,candidates,pins]=await Promise.all([
-    db.prepare("SELECT id,code,name,status,rto_hours AS rtoHours,rpo_hours AS rpoHours FROM enterprise_continuity_plans WHERE id=?")
+    db.prepare("SELECT id,COALESCE((SELECT printf('BCP-%03d',sequence) FROM enterprise_continuity_plan_settings WHERE plan_id=enterprise_continuity_plans.id),code) code,name,status,rto_hours AS rtoHours,rpo_hours AS rpoHours FROM enterprise_continuity_plans WHERE id=?")
       .bind(record.plan_id).first<NonNullable<ContinuityActivityFile["plan"]>>(),
     db.prepare(`SELECT id,code,scenario,status,scheduled_date AS scheduledDate,actual_recovery_hours AS actualRecoveryHours,
       actual_data_loss_hours AS actualDataLossHours,evidence_reference AS evidenceReference

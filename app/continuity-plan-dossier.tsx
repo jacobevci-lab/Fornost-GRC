@@ -9,7 +9,7 @@ import {useWorkflowRecords} from "./use-workflow-records";
 import NavIcon from "./nav-icon";
 import "./continuity-plan-dossier.css";
 
-type Plan = Pick<ContinuityPlan, "id"|"name"|"code"|"process"|"biaRef"|"status"|"owner"|"reviewer"|"crisisLead"|"mtpdHours"|"rtoHours"|"rpoHours">;
+type Plan = ContinuityPlan;
 type Dossier = {
   latest: {id:string; code:string; type:string; completedAt:string|null; scheduledDate:string; outcome:string|null; actualRecoveryHours:number|null; actualDataLossHours:number|null} | null;
   gaps: {id:string; title:string; owner:string; dueDate:string}[];
@@ -40,7 +40,8 @@ export function RecoveryComparison({plan,measurement,tr}:{plan:Pick<Plan,"rtoHou
       </table>;
 }
 
-function PlanResults({plan,tr,text,openExercise,openGap}:{
+function PlanResults({plan,tr,text,openExercise,openGap,schedule}:{
+  schedule:(plan:Plan)=>ReactNode;
   plan:Plan; tr:boolean; text:(key:string)=>string; openExercise:(id:string)=>void; openGap:(id:string)=>void;
 }) {
   const [page,setPage]=useState(0);
@@ -56,7 +57,7 @@ function PlanResults({plan,tr,text,openExercise,openGap}:{
         {latest && <button type="button" className="continuity-link" onClick={()=>openExercise(latest.id)}>{latest.code} ›</button>}
       </header>
       {latest ? <p>{date(latest.completedAt||latest.scheduledDate)} · {text(latest.type)}{latest.outcome && " · "+text(latest.outcome)}</p>
-        : <p>{tr?"Bu plan için henüz tamamlanmış tatbikat yok.":"No exercise has been completed for this plan yet."}</p>}
+        : <div className="bcp-empty-exercise"><p>{tr?"Bu plan için henüz tamamlanmış tatbikat yok.":"No exercise has been completed for this plan yet."}</p>{schedule(plan)}</div>}
       <RecoveryComparison plan={plan} measurement={latest} tr={tr}/>
     </section>
     <section className="cpd-gaps"><h4>{tr?"Açık iyileştirme aksiyonları":"Open improvement actions"}</h4>
@@ -70,7 +71,8 @@ function PlanResults({plan,tr,text,openExercise,openGap}:{
   </>;
 }
 
-export default function ContinuityPlanDossier({plans,tr,text,actions,empty,openExercise,openGap}:{
+export default function ContinuityPlanDossier({plans,tr,text,actions,tabs,schedule,empty,openExercise,openGap}:{
+  tabs:(plan:Plan)=>ReactNode; schedule:(plan:Plan)=>ReactNode;
   plans:Plan[]; tr:boolean; text:(key:string)=>string; actions:(plan:Plan)=>ReactNode; empty:ReactNode;
   openExercise:(id:string)=>void; openGap:(id:string)=>void;
 }) {
@@ -83,15 +85,15 @@ export default function ContinuityPlanDossier({plans,tr,text,actions,empty,openE
     <section className="cpd-index" aria-label={tr?"Plan listesi":"Plan list"}>
       <h3>{tr?"Plan dosyası":"Plan dossier"} <small>{plans.length}</small></h3>
       <div>{plans.map(plan=><button key={plan.id} type="button" aria-pressed={selected?.id===plan.id} onClick={()=>setSelection(plan.id)}>
-        <NavIcon module="Politika Merkezi"/><span><strong>{plan.code}</strong>{plan.name}</span></button>)}</div>
+        <NavIcon module="Politika Merkezi"/><span><strong>{plan.code}</strong>{plan.name}<small className={'bcp-status '+plan.status}>{text(plan.status)}</small></span></button>)}</div>
     </section>
     {selected ? <article className="cpd-file" aria-label={selected.name}>
-      <header><h3>{selected.name}</h3><span>{selected.code} · {text(selected.status)}</span></header>
+      <header className="bcp-heading"><div><h3>{selected.name}</h3><small>{selected.code} · {text(selected.status)}</small></div>{actions(selected)}</header>
       <dl className="cpd-facts"><div><dt>BIA</dt><dd>{bia?<button type="button" className="continuity-link" onClick={()=>navigateToFornost({module:"BIA",kind:"record",ref:bia.id})}>{biaLabel} ›</button>:biaLabel||"—"}</dd></div>
         <div><dt>{tr?"Plan sahibi":"Plan owner"}</dt><dd>{selected.owner}</dd></div>
         <div><dt>MTPD</dt><dd><Duration hours={selected.mtpdHours} tr={tr}/></dd></div></dl>
-      <PlanResults key={selected.id} plan={selected} tr={tr} text={text} openExercise={openExercise} openGap={openGap}/>
-      <footer>{actions(selected)}</footer>
+      <PlanResults schedule={schedule} key={selected.id+selected.updatedAt} plan={selected} tr={tr} text={text} openExercise={openExercise} openGap={openGap}/>
+      <footer>{tabs(selected)}</footer>
     </article> : <div className="cpd-placeholder">{empty}</div>}
   </div>;
 }

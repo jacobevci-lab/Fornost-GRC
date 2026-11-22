@@ -10,6 +10,10 @@ const [admin,reviewer,viewer,scoped]=await Promise.all(Array.from({length:4},()=
 const page=await admin.newPage(),peer=await reviewer.newPage(),checks=[],errors=[];
 let phase='setup';for(const p of [page,peer]){p.setDefaultTimeout(20000);p.on('pageerror',e=>errors.push(e.message))}
 const future=n=>new Date(Date.now()+n*86400000).toISOString().slice(0,10),today=future(0);
+async function chooseContinuityRecord(dialog,label,term){
+  await dialog.getByRole('combobox',{name:label,exact:true}).fill(term);
+  await dialog.getByRole('listbox',{name:label,exact:true}).getByRole('option').filter({hasText:term}).first().click();
+}
 async function api(ctx,path,method='GET',data,status=200){const r=await ctx.request.fetch(base+path,{method,data,headers:{origin:base}});assert.equal(r.status(),status,`${path}: ${await r.text()}`);return r.json()}
 async function open(p,module,lang='EN'){await p.goto(base);await expect(p.locator('.shell')).toBeVisible();await p.locator('.language-switch:visible').getByRole('button',{name:lang,exact:true}).click();await p.locator(`nav button[aria-label=${JSON.stringify(module)}]`).evaluate(e=>e.click());await waitForQaIdle(p)}
 async function selectPerson(dialog,label,email){const field=dialog.getByLabel(label,{exact:true});await expect(field).toBeEnabled();await expect(field.locator(`option[value="${email}"]`)).toHaveCount(1);await field.selectOption(email)}
@@ -25,15 +29,16 @@ try {
   const newer=await admin.request.post(base+'/api/evidence/history',{headers:{origin:base},multipart:{evidenceId,changeNote:'Separate second version for explicit selection',file:{name:'recovery-v2.txt',mimeType:'text/plain',buffer:Buffer.from('Synthetic recovery evidence version two')}}});assert.equal(newer.status(),201,await newer.text());const version2=(await api(admin,`/api/evidence/history?id=${evidenceId}`)).versions.find(v=>v.versionNo===2);
   phase='continuity creation';await open(page,'Business Continuity & Resilience');await page.locator('.continuity-hero').getByRole('button',{name:'New Plan'}).click();let dialog=page.getByRole('dialog',{name:'New continuity plan',exact:true});
   const planName=`QA selected continuity ${tag}`;
-  for(const [name,value] of Object.entries({name:planName,process:'Payment recovery',biaRef:'BIA-001',dependencies:'Identity and database services',recoveryStrategy:'Restore services in the recovery region and validate data.',communicationPlan:'Notify crisis owners and affected service teams.'}))await dialog.locator(`[name=${name}]`).fill(value);
-  await selectPerson(dialog,'Independent reviewer',reviewerEmail);await selectPerson(dialog,'Crisis lead',leadEmail);await capture(page,'.workflow-person:first-of-type','people-en');
+  await chooseContinuityRecord(dialog,'BIA reference','BIA-001');
+  for(const [name,value] of Object.entries({name:planName,process:'Payment recovery',rtoHours:'4',rpoHours:'1',mtpdHours:'24',dependencies:'Identity and database services',recoveryStrategy:'Restore services in the recovery region and validate data.',communicationPlan:'Notify crisis owners and affected service teams.'}))await dialog.locator(`[name=${name}]`).fill(value);
+  await chooseContinuityRecord(dialog,'Independent reviewer',reviewerEmail);await chooseContinuityRecord(dialog,'Crisis lead',leadEmail);await capture(page,'.continuity-form .tprm-person:has(button[aria-label*="qa-admin@"])','people-en');
   const plan=await decision(page,dialog,'Create draft plan','/api/continuity',201);await expect(dialog).toBeHidden();
   const draft=(await api(admin,'/api/continuity')).plans.find(p=>p.id===plan.id);await api(admin,'/api/continuity','POST',{action:'submit-plan',planId:plan.id,expectedUpdatedAt:draft.updatedAt,note:'Owner submitted the prepared draft for independent review.',confirmation:'PLANI İNCELEMEYE GÖNDER'});
   await api(reviewer,'/api/continuity','POST',{action:'approve-plan',planId:plan.id,note:'Independent recovery plan reviewed.',confirmation:'PLANI ONAYLA'});await api(admin,'/api/continuity','POST',{action:'activate-plan',planId:plan.id,note:'Recovery team is ready.',confirmation:'PLANI ETKİNLEŞTİR'});
   await open(page,'Business Continuity & Resilience');await page.locator('.cpd-index button').filter({hasText:planName}).click();
   await expect(page.locator('.cpd-file')).toContainText('No exercise has been completed');
   await expect(page.locator('.cpd-exercise tbody tr').last().locator('td').last()).toHaveText('Not measured');
-  await page.locator('.cpd-file').getByRole('button',{name:'Schedule exercise',exact:true}).click();dialog=page.getByRole('dialog',{name:'Schedule exercise',exact:true});await dialog.locator('[name=scenario]').fill('Simulate regional outage and verify the critical recovery objectives.');await selectPerson(dialog,'Facilitator',owner);await decision(page,dialog,'Schedule','/api/continuity',201);
+  await page.locator('.bcp-header-actions').getByRole('button',{name:'+ Schedule exercise',exact:true}).click();dialog=page.getByRole('dialog',{name:'Schedule exercise',exact:true});await dialog.locator('[name=scenario]').fill('Simulate regional outage and verify the critical recovery objectives.');await selectPerson(dialog,'Facilitator',owner);await decision(page,dialog,'Schedule','/api/continuity',201);
   let state=await api(admin,'/api/continuity'),exercise=state.exercises.find(e=>e.planId===plan.id);assert.ok(exercise);
   await page.locator('.continuity-tabs').getByRole('button',{name:'Exercises',exact:true}).click();
   phase='continuity evidence and recovery';let failChoices=true;await page.route('**/api/workflow-choices?kind=evidence*',route=>failChoices?route.fulfill({status:503,json:{error:'Synthetic read failure'}}):route.continue());

@@ -97,6 +97,8 @@ export const relationFields: Record<string, RelationDefinition> = {
   incidentRiskRef: { relation: "incident-risk", modules: ["Risk Assessment"], sources: ["Güvenlik Olayları"] },
   incidentBiaRef: { relation: "incident-bia", modules: ["BIA"], sources: ["Güvenlik Olayları"] },
 
+  continuityAssets: { relation: "continuity-asset", modules:["Varlık Envanteri"], sources:["İş Sürekliliği"] },
+  continuitySuppliers: { relation: "continuity-supplier", modules:["Tedarikçiler"], sources:["İş Sürekliliği"] },
   continuityBiaRef: { relation: "continuity-bia", modules: ["BIA"], sources: ["İş Sürekliliği"] },
   continuityPlanRef: { relation: "continuity-plan", modules: ["İş Sürekliliği"], sources: ["İş Sürekliliği"] },
 
@@ -376,6 +378,8 @@ export const connectedRelationLabels: Record<string, { tr: string; en: string }>
   "incident-risk": { tr: "riski tetikler", en: "triggers risk" },
   "incident-bia": { tr: "kritik süreci etkiler", en: "impacts critical process" },
   "continuity-bia": { tr: "BIA kapsamını uygular", en: "implements BIA scope" },
+  "continuity-asset": {tr:"bağımlı olduğu varlık",en:"depends on asset"},
+  "continuity-supplier": {tr:"bağımlı olduğu tedarikçi",en:"depends on supplier"},
   "continuity-plan": { tr: "plana bağlı", en: "linked to plan" },
   "policy-version": { tr: "politika sürümü", en: "policy version" },
   "policy-control": { tr: "kontrolü yönetir", en: "governs control" },

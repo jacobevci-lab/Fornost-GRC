@@ -196,6 +196,7 @@ function continuityRows(payload: JsonRecord) {
     title: text(item.name || item.title || item.process),
     name: text(item.name),
     process: text(item.process),
+    continuityAssets:item.assetRefs,continuitySuppliers:item.supplierRefs,
     continuityBiaRef: unique(item.biaRef, item.bia_ref),
     owner:text(item.owner),status:text(item.status),
     rtoHours:item.rtoHours ?? item.rto_hours,rpoHours:item.rpoHours ?? item.rpo_hours,

@@ -13,6 +13,8 @@ const sources:Source[]=[
  {table:'continuous_assurance_exceptions',column:'control_ref',modules:['Kontroller','Uyum']},
  {table:'continuous_assurance_exceptions',column:'risk_ref',modules:['Risk Assessment']},
  {table:'continuous_assurance_exceptions',column:'evidence_reference',modules:['Kanıtlar']},
+ {table:'enterprise_continuity_plan_settings',column:'asset_refs',modules:['Varlık Envanteri'],json:true},
+ {table:'enterprise_continuity_plan_settings',column:'supplier_refs',modules:['Tedarikçiler'],json:true},
  {table:'enterprise_continuity_plans',column:'bia_ref',modules:['BIA']},
  {table:'enterprise_incidents',column:'asset_refs',modules:['Varlık Envanteri']},
  {table:'enterprise_incidents',column:'risk_ref',modules:['Risk Assessment']},

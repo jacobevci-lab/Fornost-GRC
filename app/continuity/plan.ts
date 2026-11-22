@@ -1,8 +1,10 @@
 export function publicContinuityPlan(x: Record<string, unknown>) {
   return {
-    id: String(x.id), code: String(x.code), name: String(x.name), process: String(x.process), biaRef: String(x.bia_ref),
+    id: String(x.id), code: x.sequence ? `BCP-${String(x.sequence).padStart(3,'0')}` : String(x.code), name: String(x.name), process: String(x.process), biaRef: String(x.bia_ref),
     criticality: String(x.criticality), owner: String(x.owner), reviewer: String(x.reviewer), crisisLead: String(x.crisis_lead),
     rtoHours: Number(x.rto_hours), rpoHours: Number(x.rpo_hours), mtpdHours: Number(x.mtpd_hours),
+    exerciseFrequency:String(x.exercise_frequency||''),nextExerciseDate:String(x.next_exercise_date||''),
+    assetRefs:JSON.parse(String(x.asset_refs||'[]')) as string[],supplierRefs:JSON.parse(String(x.supplier_refs||'[]')) as string[],
     dependencies: String(x.dependencies), recoveryStrategy: String(x.recovery_strategy), communicationPlan: String(x.communication_plan),
     alternateSite: String(x.alternate_site || ''), supplierDependencies: String(x.supplier_dependencies || ''),
     minimumStaff: Number(x.minimum_staff), reviewDate: String(x.review_date), status: String(x.status), version: Number(x.version),

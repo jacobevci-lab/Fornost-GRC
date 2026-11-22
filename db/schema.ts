@@ -489,6 +489,12 @@ export const policyImportSources = sqliteTable("policy_import_sources", {
  fileSha256:text("file_sha256").notNull(), objectKey:text("object_key").notNull(),
 });
 
+export const continuityPlanSettings = sqliteTable("enterprise_continuity_plan_settings", {
+ sequence:integer("sequence").primaryKey({autoIncrement:true}),planId:text("plan_id").notNull().unique(),
+ exerciseFrequency:text("exercise_frequency"),nextExerciseDate:text("next_exercise_date"),
+ assetRefs:text("asset_refs").notNull().default("[]"),supplierRefs:text("supplier_refs").notNull().default("[]"),
+});
+
 export const policyImportChunks = sqliteTable("policy_import_chunks", {
  versionId:text("version_id").notNull(), part:integer("part").notNull(), content:blob("content").notNull(),
 }, table=>[primaryKey({columns:[table.versionId,table.part]})]);
