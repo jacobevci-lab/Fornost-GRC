@@ -175,6 +175,46 @@ export async function baselineToken(b:Baseline) {
   return Array.from(new Uint8Array(hash),n=>n.toString(16).padStart(2,'0')).join('');
 }
 
+export async function controlCatalog(db:D1Database,id:string){
+  const {enrolled}=await indexPrograms(db);
+  if(!enrolled.length)return {programs:[]};
+  const inputs=await readSources(db);
+  return {programs:enrolled.map(name=>({name,clauses:project(inputs,name).requirements.map(r=>({
+    ref:r.ref,title:r.title,revision:r.revision,linked:r.links.some(link=>link.id===id)
+  }))}))};
+}
+
+// The source control and all affected requirement decisions use one guarded D1 batch.
+export async function prepareControlMappings(db:D1Database,id:string,raw:unknown,actor:string){
+  if(!Array.isArray(raw)||!raw.length||raw.length>1000)throw new PostureError('mapping');
+  await ensurePosture(db);
+  const {enrolled}=await indexPrograms(db),inputs=await readSources(db);
+  const matrices=new Map<string,Map<string,Requirement>>(),seen=new Set<string>();
+  const decisions=raw.map(change=>{
+    if(!change||typeof change.ref!=='string'||typeof change.linked!=='boolean'||typeof change.revision!=='string'||!enrolled.includes(change.name))throw new PostureError('mapping');
+    const name=change.name as string,ref=change.ref as string,token=JSON.stringify([name,ref]);
+    if(seen.has(token))throw new PostureError('mapping');
+    seen.add(token);
+    if(!matrices.has(name))matrices.set(name,new Map(project(inputs,name).requirements.map(row=>[row.ref,row])));
+    const row=matrices.get(name)!.get(ref);
+    if(!row)throw new PostureError('mapping');
+    if(row.revision!==change.revision)throw new PostureError('conflict',409);
+    const links=row.links.filter(link=>link.id!==id);
+    if(change.linked)links.push(row.links.find(link=>link.id===id)??{id,coverage:'supports'});
+    if(links.length>250)throw new PostureError('mapping');
+    return {name,ref,previous:row.revision,next:crypto.randomUUID(),app:row.applicability,reason:row.reason,links};
+  });
+  const json=JSON.stringify(decisions);
+  const guard={sql:`NOT EXISTS(SELECT 1 FROM json_each(?) j WHERE NOT EXISTS(SELECT 1 FROM framework_programs WHERE name=j.value->>'$.name')
+    OR coalesce((SELECT revision FROM framework_decisions WHERE program=j.value->>'$.name' AND ref=j.value->>'$.ref'),'')<>j.value->>'$.previous')`,values:[json]};
+  const after=db.prepare(`INSERT INTO framework_decisions(program,ref,applicability,reason,links,revision,actor,updated_at)
+    SELECT value->>'$.name',value->>'$.ref',value->>'$.app',value->>'$.reason',value->'$.links',value->>'$.next',?,?
+    FROM json_each(?) WHERE changes()=1
+    ON CONFLICT(program,ref) DO UPDATE SET links=excluded.links,revision=excluded.revision,actor=excluded.actor,updated_at=excluded.updated_at`)
+    .bind(actor,new Date().toISOString(),json);
+  return {guard,after};
+}
+
 export async function readImpact(db:D1Database,id:string) {
   const {enrolled}=await indexPrograms(db);
   const impact:{framework:string;ref:string;title:string;coverage:Mapping["coverage"];applicability:Requirement["applicability"]}[]=[];

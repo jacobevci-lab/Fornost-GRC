@@ -66,6 +66,8 @@ Sahibi veya reviewer'ı olduğunuz işleri ve bekleyen adımı inceleyin. Bir i�
 
 ## 4. Risk, kontrol ve kanıtla çalışma
 
+Kontrol Kütüphanesinde başlık, sorumlular ve iç referans aynı formdan yönetilir. İç referans isteğe bağlıdır. Kontrol sahibi ve testi yürüten kişi farklı olmalıdır. Uyum yazma yetkisiyle aktif çerçevelerin gereksinimlerini kontrolle eşleştirebilirsiniz. Kaydettiğiniz madde bağlantıları Uyum Yönetimi matrisinde de görünür. Bağlı riskleri ve destekleyici kanıtları gelişmiş alanlardan seçin. Kanıt kapsamı boşsa tablodaki **+ Kanıt Bağla** aynı kaydın kanıt seçicisini açar. Bir kanıtı ilişkilendirmek onaylı sürüm ve geçerlilik kontrollerinden bağımsızdır.
+
 Risk Assessment içinde riskin kapsamını, sahibini ve değerlendirmesini kaydedin; mevcut varlık/BIA/kontrol referanslarını ilgili alanlarda bağlayın. Risk İştahı ve KRI alanında ölçümleri ve eşik ihlallerini, İş Sürekliliği'nde BIA bağlantılı hedefleri ve tatbikatları takip edin.
 
 Kontrollerde yaşam döngüsü ile uygulama etkinliği ayrı durumlardır. Kontrolü ilgili gereksinim ve kanıtla bağlayın; boşluk veya bulguyu ilgili aksiyon/CAPA akışında takip edin. Bağlantılı GRC eksik referansları incelemek için kullanılır; ilişki bulunması tek başına kontrol etkinliği kanıtı değildir.
