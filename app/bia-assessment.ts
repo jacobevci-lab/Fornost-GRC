@@ -1,7 +1,8 @@
 import {hasRecoveryTarget} from "./bia-recovery";
 
 export const impactFields = ["financial","operational","legal","reputation","customer","dataImpact"];
-export const biaCoreFields = ["process","processCategory","description","businessUnit","owner","criticality","asset","status","rto","rpo","mtpd"];
+export const biaRecoveryFields = ["rto","rpo","mtpd"];
+export const biaCoreFields = ["process","processCategory","description","businessUnit","owner","criticality","asset","status",...biaRecoveryFields];
 export const biaSections = [
   {tr:"İş Etkisi & Zaman Toleransı",en:"Business impact & time tolerance",fields:[...impactFields,"regulatoryDeadline","minimumService"]},
   {tr:"Bağımlılıklar",en:"Dependencies",fields:["dependencies","technologyDependency","supplierDependency","facilityDependency","peopleDependency","peakPeriod"]},

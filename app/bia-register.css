@@ -3,3 +3,4 @@
 .bia-impact {display:flex;flex-wrap:wrap;align-items:center;gap:.45rem 1rem;padding:.7rem;border:1px solid var(--ws-line);border-radius:.5rem}
 .bia-impact b {flex-basis:100%}
 .bia-table-scroll {position:relative;min-width:0;max-width:100%;contain:inline-size}
+.bia-recovery-fields {display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,10rem),1fr));gap:.65rem 1rem}

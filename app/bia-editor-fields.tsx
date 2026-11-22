@@ -3,7 +3,7 @@ import {Fragment, useEffect, useId, useMemo, useRef, useState, type ReactNode} f
 import {ChoiceInput} from "./risk-editor-fields";
 import {EntityField,entity} from "./asset-inventory-fields";
 import {useChoices} from "./workflow-selection-fields";
-import {biaCoreFields,biaSections,biaImpact,exceedsMtpd,mtpdWarning,sameBiaPerson,sodWarning} from "./bia-assessment";
+import {biaCoreFields,biaRecoveryFields,biaSections,biaImpact,exceedsMtpd,mtpdWarning,sameBiaPerson,sodWarning} from "./bia-assessment";
 import type {ConnectedGrcRow} from "./connected-grc-model";
 import "./bia-register.css";
 
@@ -36,7 +36,7 @@ export function BiaFields({tr,form,update,rows,field}:Editor & {rows:ConnectedGr
   useEffect(()=>{rto.current?.setCustomValidity(invalid?mtpdWarning[lang]:"");},[lang,invalid]);
   function render(key:string):ReactNode {
     if(key==="owner" || key==="approver")return <Person role={key} tr={tr} form={form} update={update}/>;
-    if(["rto","rpo","mtpd"].includes(key))return <label>{(key==="mtpd"?"MTPD / MAO":key.toUpperCase())+(tr?" (saat)":" (hours)")}
+    if(biaRecoveryFields.includes(key))return <label>{(key==="mtpd"?"MTPD / MAO":key.toUpperCase())+(tr?" (saat)":" (hours)")}
       <input name={key} type="number" step="any" min="0" required={key!=="mtpd"} value={String(form[key]??"")}
         ref={key==="rto"?rto:undefined} aria-invalid={key==="rto" && invalid || undefined} aria-describedby={key==="rto"&&invalid?id+"-error":undefined}
         onChange={e=>update({[key]:e.target.value})}/>
@@ -54,7 +54,12 @@ export function BiaFields({tr,form,update,rows,field}:Editor & {rows:ConnectedGr
   const group=biaSections[section];
   function switchTab(next:number){setSection(next);document.getElementById(id+"-tab-"+next)?.focus();}
   return <>
-    <div className="asset-form-grid wide">{biaCoreFields.map(k=><div key={k} className={k==="description"?"wide":undefined}>{render(k)}</div>)}</div>
+    <div className="asset-form-grid wide">
+      {biaCoreFields.filter(k=>!biaRecoveryFields.includes(k)).map(k=><div key={k} className={k==="description"?"wide":undefined}>{render(k)}</div>)}
+      <fieldset className="wide risk-editor-group"><legend>{tr?"Kurtarma hedefleri":"Recovery targets"}</legend>
+        <div className="bia-recovery-fields">{biaRecoveryFields.map(k=><div key={k}>{render(k)}</div>)}</div>
+      </fieldset>
+    </div>
     <div className="wide asset-advanced"><button type="button" aria-expanded={advanced} aria-controls={id+"-advanced"} onClick={()=>setAdvanced(!advanced)}>
       {advanced?(tr?"Gelişmiş alanları gizle":"Hide advanced fields"):(tr?"Gelişmiş alanları göster":"Show advanced fields")}</button>
       <div id={id+"-advanced"} hidden={!advanced}>
