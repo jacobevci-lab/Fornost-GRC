@@ -18,12 +18,17 @@ export function validateThirdParty(input:Record<string,unknown>,today=new Date()
  return{name,service,legalEntity,category,criticality,dataClassification,dataAccess,hostingLocation,businessOwner,riskOwner,reviewer,contact,contractEnd,nextReview,exitPlan};
 }
 
+export function assessmentMetrics(impact:number,likelihood:number,controlMaturity:number,questionnaire:Record<string,unknown>){
+ const passed=TPRM_CONTROLS.filter(key=>questionnaire[key]===true).length,coverage=Math.round(passed/TPRM_CONTROLS.length*100),inherentScore=impact*likelihood,residualScore=Math.max(1,Math.round(inherentScore*(1-coverage/100*0.6)*(1-(controlMaturity-1)*0.08))),riskTier=residualScore>=18?"critical":residualScore>=11?"high":residualScore>=6?"medium":"low";
+ return {coverage,inherentScore,residualScore,riskTier};
+}
+
 export function validateAssessment(input:Record<string,unknown>){
  const vendorId=clean(input.vendorId,100),impact=score(input.impact,"Etki"),likelihood=score(input.likelihood,"Olasılık"),controlMaturity=score(input.controlMaturity,"Kontrol olgunluğu"),treatmentPlan=clean(input.treatmentPlan,2000),questionnaire=Object.fromEntries(TPRM_CONTROLS.map(key=>[key,input[key]===true||input[key]==="true"]));
  if(!vendorId||treatmentPlan.length<10)throw new Error("Tedarikçi ve risk iyileştirme planı zorunludur.");
- const passed=TPRM_CONTROLS.filter(key=>questionnaire[key]).length,coverage=Math.round(passed/TPRM_CONTROLS.length*100),inherentScore=impact*likelihood,residualScore=Math.max(1,Math.round(inherentScore*(1-coverage/100*0.6)*(1-(controlMaturity-1)*0.08))),riskTier=residualScore>=18?"critical":residualScore>=11?"high":residualScore>=6?"medium":"low";
+ const metrics=assessmentMetrics(impact,likelihood,controlMaturity,questionnaire);
  const criticalGaps=TPRM_CONTROLS.filter(key=>["incidentNotification","dataDeletion","auditRights","dpa"].includes(key)&&!questionnaire[key]);
- return{vendorId,impact,likelihood,controlMaturity,treatmentPlan,questionnaire,coverage,inherentScore,residualScore,riskTier,criticalGaps};
+ return{vendorId,impact,likelihood,controlMaturity,treatmentPlan,questionnaire,...metrics,criticalGaps};
 }
 
 export function validateFinding(input:Record<string,unknown>,today=new Date().toISOString().slice(0,10)){

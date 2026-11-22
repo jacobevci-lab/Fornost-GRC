@@ -1,6 +1,6 @@
 # Third-Party Risk Management 2.0
 
-Fornost TPRM 2.0, üçüncü taraf riskini yalnız bir envanter satırı olarak değil; onboarding, due diligence, risk kararı, CAPA, yeniden değerlendirme ve çıkıştan oluşan kanıtlı bir yaşam döngüsü olarak yönetir. Mevcut `Tedarikçiler` kayıtları silinmez; eksik TPRM profilleri kapsam boşluğu olarak gösterilir ve kontrollü biçimde yeni modele alınabilir.
+Fornost TPRM 2.0, üçüncü taraf riskini yalnız bir envanter satırı olarak değil; onboarding, due diligence, risk kararı, CAPA, yeniden değerlendirme ve çıkıştan oluşan kanıtlı bir yaşam döngüsü olarak yönetir. Mevcut `Tedarikçiler` kayıtları silinmez; profili bulunmayan kayıtlar onboarding kuyruğunda gösterilir ve kontrollü biçimde yeni modele alınabilir.
 
 ## Yaşam döngüsü
 
@@ -47,10 +47,16 @@ Yüksek etkili geçişler tam onay ifadeleri kullanır. UI görünürlüğü kol
 
 ## Operasyonel göstergeler
 
-Risk kuyruğu; TPRM dışı eski kayıtları, yüksek/kritik kalıntı riski, yaklaşan/gecikmiş incelemeleri, açık/gecikmiş CAPA'ları ve 90 gün içinde bitecek sözleşmeleri gösterir. CSV çıktısı Admin ile sınırlı, cache dışı ve formül enjeksiyonuna karşı güvenlidir. Tüm karar ve yaşam döngüsü olayları aktör, zaman ve ayrıntıyla değişmez olay tablosuna yazılır.
+Risk kuyruğu onboarding bekleyen kayıtları, yüksek/kritik kalıntı riski, yaklaşan/gecikmiş incelemeleri, açık/gecikmiş CAPA'ları ve 90 gün içinde bitecek sözleşmeleri gösterir. CSV çıktısı Admin ile sınırlı, cache dışı ve formül enjeksiyonuna karşı güvenlidir. Tüm karar ve yaşam döngüsü olayları aktör, zaman ve ayrıntıyla değişmez olay tablosuna yazılır.
 
 ## Bağlı kanıt ve sorumlular
 
 İş/risk sahipleri, bağımsız Admin incelemecisi ve bulgu sahibi etkin kullanıcı dizininden seçilir; tedarikçinin dış iletişim adresi serbest metindir. Bulgu sahibi aynı kaydın incelemecisi olamaz. Gönderim, onay/koşullu onay, bulgu gönderim/doğrulama ve çıkış kararları mevcut kanıt kaydının açıkça seçilen dosya sürümüne sabitlenir. Sunucu SHA-256 ve sürüm zincirini kontrol eder; kullanıcı hash yazmaz.
 
 Karar penceresinde güncel risk, sorumluluk ve iş bağlamını inceleyin. Kaynak değişirse taslak not ve dosya seçimi korunur; **Güncel sürümü kullan** ile yeni bağlamı kabul edip onay ifadesini yeniden girin. Yeni bir dosya yüklemek geçmiş kararı değiştirmez. **Son kararların kanıtları** ve **Kanıt Kütüphanesi → Kullanım ve değişiklik etkisi → Tedarikçi kararları** kaydedilmiş sürümleri ve ilgili işe dönüşü gösterir. [İş akışı, sınırlar ve operasyon](tprm-connected-evidence.md).
+
+### Envanterden değerlendirmeye
+
+Profili açılmamış tedarikçi **Onboarding Bekliyor** olarak görünür. Admin, envanterden kaydı açıp gerekçesini girerek kapsam dışı kararı verebilir veya kaydı yeniden onboarding kuyruğuna alabilir. Karar, aktör ve tarih geçmişte saklanır. Profili olan bir tedarikçinin çıkışı mevcut kanıtlı sonlandırma akışından yürütülür.
+
+Onboarding sırasında üç sorumluyu dizinden seçin. Bağımsız incelemeci etkin bir Admin olmalıdır. Formdaki doğal ve kalıntı risk, kaydedilen değerlendirmeyle aynı yöntemle hesaplanır. Destekleyici kanıt kayıtları tedarikçiyle ilişkilendirilir. Resmî inceleme ve onayda kullanılan dosya sürümü karar anında ayrıca seçilir. Envanterdeki VEN kodu ile tedarikçiyi tanıyabilir, bağlı AST ve BIA rozetlerinden ilgili kaydı açabilirsiniz.

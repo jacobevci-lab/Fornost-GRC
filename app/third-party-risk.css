@@ -28,3 +28,12 @@
 .tprm-finding-history nav{display:flex;align-items:center;flex-wrap:wrap;gap:8px}
 .tprm-finding-history .workflow-evidence-history{min-width:0;max-width:100%}
 .tprm-finding-history-disclosure>summary{cursor:pointer;padding:10px 0;font-weight:700}
+
+.tprm-form>label {align-self:start}
+.tprm-form .tprm-person {min-width:0;align-self:start}
+.tprm-person .risk-choice label {display:block;margin-bottom:.35rem}
+.tprm-person .risk-choice input {width:100%}
+.tprm-chips,.tprm-score {display:flex;flex-wrap:wrap;align-items:center;gap:.4rem}
+.tprm-chips button,.tprm-person .tprm-chip {border-radius:1rem;padding:.25rem .55rem;overflow-wrap:anywhere}
+.tprm-score {justify-content:space-between;background:var(--ws-surface-2);color:var(--ws-ink);border:1px solid var(--ws-line);padding:.65rem .85rem;border-radius:.5rem}
+.tprm-row-actions small,.tprm-form .tprm-prerequisite {color:var(--ws-muted);white-space:normal}

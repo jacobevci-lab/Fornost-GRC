@@ -11,7 +11,7 @@ const errors=[];page.on('pageerror',error=>errors.push(error.message));
 const stamp=new Date().toISOString();
 const document={id:'qa-policy',code:'QA-POL',title:'QA enterprise policy',status:'published',owner,reviewer:'reviewer@fornost.test',category:'security',classification:'internal',audience:'QA',nextReview:date,currentVersionId:'qa-published',updatedAt:stamp,attention:'published'};
 const version={id:'qa-version',policyId:document.id,versionNumber:2,status:'approved',effectiveDate:date,controlRefs:[],regulationRefs:[],riskRefs:[],contentSha256:'a'.repeat(64),summary:'QA release',content:'QA content',updatedAt:stamp};
-const vendor={vendorId:'qa-vendor',name:'QA enterprise vendor',service:'QA',status:'in-review',riskOwner:owner,businessOwner:'business@fornost.test',reviewer:'reviewer@fornost.test',criticality:'high',nextReview:date,contractEnd:date,attention:'in-review',createdAt:stamp,updatedAt:stamp};
+const vendor={vendorId:'qa-vendor',code:'VEN-021',name:'QA enterprise vendor',service:'QA',status:'in-review',riskOwner:owner,businessOwner:'business@fornost.test',reviewer:'reviewer@fornost.test',criticality:'high',nextReview:date,contractEnd:date,attention:'in-review',createdAt:stamp,updatedAt:stamp};
 const change={id:'qa-change',title:'QA enterprise regulation',owner,reviewer:'reviewer@fornost.test',status:'impact-assessment',sourceId:'qa-source',sourceName:'QA source',effectiveDate:date,publishedDate:'2026-10-01',severity:'high',applicability:'applicable',attention:'impact-assessment',totalImpacts:1,openImpacts:1,updatedAt:stamp};
 const fixtures={
  '/api/policy-lifecycle':{documents:[document],versions:[version],campaigns:[{id:'qa-campaign',policyId:document.id,status:'open',dueDate:date}],attestations:[{id:'qa-attest',policyId:document.id,campaignId:'qa-campaign',policyCode:'QA-POL',policyTitle:document.title,campaignName:'QA campaign',subjectEmail:owner,status:'pending',dueDate:date},{id:'qa-not-mine',policyId:document.id,campaignId:'qa-campaign',policyCode:'QA-OTHER',policyTitle:'QA other assignment',subjectEmail:owner+'.other',status:'pending',dueDate:date}],exceptions:[{id:'qa-exception',policyId:document.id,owner,reviewer:'reviewer@fornost.test',status:'expired',scope:'QA expired exception',expiresAt:'2026-10-01',updatedAt:stamp}]},
@@ -36,7 +36,7 @@ try{
  for(const [label,id,module] of cases){
   await openWork();await page.getByRole('textbox',{name:'Search work',exact:true}).fill(label);
   await expect(page.locator('.mw2-item')).toHaveCount(1);await page.locator('.mw2-item').click();
-  const panel=page.locator(module);await expect(panel.locator('.enterprise-work-focus')).toContainText(id);
+  const panel=page.locator(module);await expect(panel.locator('.enterprise-work-focus')).toContainText(id===vendor.vendorId?vendor.code:id);
   await expect(panel.locator('.table-wrap tbody tr')).toHaveCount(1);
   await expect(panel.locator('.enterprise-work-focus')).not.toContainText('unavailable');
   await panel.getByRole('button',{name:'Show all records',exact:true}).click();await expect(panel.locator('.enterprise-work-focus')).toHaveCount(0);

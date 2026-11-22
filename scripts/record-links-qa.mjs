@@ -28,7 +28,7 @@ try{
  await page.goto(base);await english(page);
  for(const row of created){
   assert.deepEqual((await api(admin,endpoint(row.target))).target,row.target);
-  await page.goto(base+'/'+fragment(row.target));const focus=page.locator('.core-record-focus:not(.record-link-entry)');if(row.module==='Tedarikçiler'){await expect(page.locator('.tprm-page .enterprise-work-focus')).toContainText(row.id);await expect(page.locator('.tprm-page .table-wrap tbody')).toContainText(row.title);await page.locator('.tprm-page').getByRole('button',{name:'Copy record link',exact:true}).click();}else{await expect(focus).toContainText(row.code);await expect(focus).toContainText('Selected record');await focus.getByRole('button',{name:'Copy record link',exact:true}).click();}assert.equal(await page.evaluate(()=>navigator.clipboard.readText()),base+'/'+fragment(row.target));
+  await page.goto(base+'/'+fragment(row.target));const focus=page.locator('.core-record-focus:not(.record-link-entry)');if(row.module==='Tedarikçiler'){await expect(page.locator('.tprm-page .enterprise-work-focus')).toContainText(row.code);await expect(page.locator('.tprm-page .table-wrap tbody')).toContainText(row.title);await page.locator('.tprm-page').getByRole('button',{name:'Copy record link',exact:true}).click();}else{await expect(focus).toContainText(row.code);await expect(focus).toContainText('Selected record');await focus.getByRole('button',{name:'Copy record link',exact:true}).click();}assert.equal(await page.evaluate(()=>navigator.clipboard.readText()),base+'/'+fragment(row.target));
  }
  checks.push('eight real registers: authorized resolve, exact focus and copied link round-trip');
  const bia=created.find(r=>r.module==='BIA'),hidden=created.find(r=>r.module==='Kanıtlar');

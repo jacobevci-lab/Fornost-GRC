@@ -117,6 +117,14 @@ async function authenticatedCrudTest() {
     assert(authPayload?.user?.role === "Admin", `Smoke-test identity must have Admin role for cleanup; got ${authPayload?.user?.role || "unknown"}.`);
     printResult("Authenticated session", true, `role=${authPayload.user.role}`);
 
+    const inventory = await request("/api/third-party-risk", {headers: {cookie}});
+    assert(inventory.response.status === 200, `Supplier inventory returned HTTP ${inventory.response.status}`);
+    const {vendors} = parseJson(inventory, "Supplier inventory");
+    assert(Array.isArray(vendors), "Missing supplier inventory");
+    const missingCodes = vendors.filter(v => !/^VEN-\d{3,}$/i.test(v.code)).length;
+    assert(!missingCodes, `${missingCodes} listed suppliers still need a short code`);
+    printResult("Supplier inventory public codes", true, `${vendors.length} verified`);
+
     const marker = `SMOKE-${Date.now()}-${crypto.randomUUID().slice(0, 8)}`;
     const assetTitle = `${marker} Asset`;
     const assetCreate = await jsonRequest("/api/grc", "POST", {

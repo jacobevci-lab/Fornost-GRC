@@ -31,11 +31,53 @@ try{
  await api(viewer,'/api/third-party-risk','POST',{action:'save-vendor'},403);
  phase='directory onboarding';await open(page);await page.locator('.tprm-hero').getByRole('button',{name:'+ Third Party',exact:true}).click();let d=page.getByRole('dialog',{name:'Third-party onboarding and initial assessment',exact:true});
  for(const [label,value] of [['Third-party name',name],['Service','Payment hosting assurance'],['Legal entity','Synthetic Supplier Ltd'],['Vendor contact','external-contact@example.test'],['Contract end',future(365)],['Next review',future(30)],['Data access / processing scope','Synthetic payment metadata only'],['Hosting and data location','EU test region'],['Exit, data return and service transition plan','Export records, revoke supplier access and verify deletion.'],['Risk treatment / acceptance plan','Review supplier evidence and independently verify remediation.']])await d.getByLabel(label,{exact:true}).fill(value);
- await person(d,'Business owner',template.crisisLead);await person(d,'Risk owner',owner);await person(d,'Independent reviewer',f.reviewerEmail);
+ async function assign(label,email){const input=d.getByRole("combobox",{name:label,exact:true});await input.fill(email);await d.getByRole("listbox",{name:label,exact:true}).getByRole("option").filter({hasText:email}).click()}
+ await assign("Business owner",template.crisisLead);await assign("Risk owner",owner);
+ await d.getByRole("combobox",{name:"Independent reviewer",exact:true}).fill(owner);
+ const reviewerChoices=d.getByRole("listbox",{name:"Independent reviewer",exact:true});
+ await expect(reviewerChoices).toHaveAttribute("aria-busy","false");await expect(reviewerChoices.getByRole("option")).toHaveCount(0);
+ await assign("Independent reviewer",f.reviewerEmail);
+ await expect(d.locator(".tprm-score")).toContainText("— → —");
+ await d.getByLabel("Category",{exact:true}).selectOption("cloud");
+ const proof=(await api(admin,'/api/grc')).rows.find(r=>r.id===f.evidenceId);
+ const proofTitle=JSON.parse(proof.data_json).evidenceTitle;
+ await d.getByRole("combobox",{name:/Supporting assurance documents/}).fill(proofTitle);
+ await d.getByRole("listbox",{name:/Supporting assurance documents/}).getByRole("option").filter({hasText:proofTitle}).click();
  await d.getByLabel('Impact (1-5)',{exact:true}).selectOption('3');await d.getByLabel('Likelihood (1-5)',{exact:true}).selectOption('2');await d.getByLabel('Control maturity (1-5)',{exact:true}).selectOption('4');
  for(const box of await d.locator('.tprm-checks input').all())await box.check();
+ await expect(d.locator(".tprm-score")).toContainText("6 → 2");
  const created=await submit(page,d,'Save',201);vendorId=created.vendorId;assessmentId=created.assessmentId;assert.ok(vendorId&&assessmentId);
- let state=await workspace(admin);assert.equal(state.profiles.find(v=>v.vendorId===vendorId).contact,'external-contact@example.test');checks.push('Actual UI intake with active business/risk/reviewer accounts, external contact and twelve assessed domains');
+ let state=await workspace(admin);
+ const saved=state.profiles.find(v=>v.vendorId===vendorId);assert.match(saved.code,/^VEN-\d{3,}$/);assert.deepEqual(saved.vendorEvidenceRefs,[f.evidenceId]);
+ await tab(page,"Third Parties");const vr=assessmentRow(page);await expect(vr).toContainText(saved.code);await expect(vr).not.toContainText(vendorId);
+ phase="linked register navigation and justified exclusion";
+ const sourceRows=(await api(admin,"/api/grc")).rows;
+ for(const [module,overrides] of [["Varlık Envanteri",{vendor:vendorId}],["BIA",{supplierRefs:[vendorId]}]]){
+   const sample=sourceRows.find(r=>r.module===module);
+   const data={...JSON.parse(sample.data_json),...overrides,title:name+" asset",process:name+" process"};
+   const linked=await api(admin,"/api/grc","POST",{module,data},201);
+   await open(page);await tab(page,"Third Parties");
+   await vr.getByRole("button",{name:linked.code,exact:true}).click();
+   await expect(page.locator(".core-record-focus").first()).toContainText("Selected record");
+   await expect(page.locator(".core-record-focus").first()).toContainText(linked.code);
+   await expect(page.locator(`button.record-open[data-record-id="${linked.id}"]`).first()).toBeAttached();
+ }
+ const queueName="QA pending scope "+tag;
+ await api(admin,"/api/grc","POST",{module:"Tedarikçiler",data:{title:queueName,service:"External hosting",owner:"Test owner",criticality:"Kritik",riskLevel:"Yüksek",status:"Aktif"}},201);
+ await open(page);await tab(page,"Third Parties");
+ const queueRow=page.locator(".tprm-table tbody tr").filter({hasText:queueName});
+ await expect(queueRow).toContainText("Awaiting onboarding");
+ await queueRow.getByRole("button",{name:"Open",exact:true}).click();
+ const scopeDialog=page.getByRole("dialog",{name:queueName,exact:true});
+ await scopeDialog.getByRole("button",{name:"Exclude from scope"}).click();
+ await expect(scopeDialog.getByRole("button",{name:"Save"})).toBeDisabled();
+ await scopeDialog.getByLabel("Reason for exclusion").fill("This service is covered by a different legal entity.");
+ await submit(page,scopeDialog,"Save");await expect(queueRow).toContainText("Excluded with reason");
+ await queueRow.getByRole("button",{name:"Open",exact:true}).click();await expect(scopeDialog).toContainText("different legal entity");
+ await scopeDialog.getByRole("button",{name:"Restore to onboarding"}).click();await submit(page,scopeDialog,"Save");
+ await expect(queueRow).toContainText("Awaiting onboarding");
+ checks.push("Asset and BIA short codes open their exact records; critical pending scope requires a reason and can be restored.");
+ assert.equal(state.profiles.find(v=>v.vendorId===vendorId).contact,'external-contact@example.test');checks.push('Actual UI intake with active business/risk/reviewer accounts, external contact and twelve assessed domains');
  phase='decision selection failure and source conflict';await tab(page,'Due Diligence');await assessmentRow(page).getByRole('button',{name:'Submit',exact:true}).click();d=page.getByRole('dialog',{name:'Submit assessment',exact:true});
  const note='Evidence reviewed before the concurrent supplier finding was raised.';await fillDecision(d,'İNCELEMEYE GÖNDER',{note});
  await page.route(url=>url.pathname==='/api/workflow-choices',route=>failChoices?route.fulfill({status:503,json:{error:'unavailable'}}):route.continue());failChoices=true;await d.getByRole('button',{name:'Refresh versions',exact:true}).click();await expect(d.locator('.workflow-evidence').getByRole('alert')).toBeVisible();failChoices=false;await d.locator('.workflow-evidence').getByRole('button',{name:'Retry',exact:true}).click();await expect(d.getByLabel('File version',{exact:true})).toHaveValue(f.version1Id);await expect(d.getByLabel('Decision / action note',{exact:true})).toHaveValue(note);
@@ -64,7 +106,7 @@ try{
  checks.push('Twelve TR/EN light/dark desktop/tablet/mobile decision views, accessibility, Escape and restored focus; evidence-backed exit completed');
  phase='historical usage and exact read-only navigation';const usage=await api(viewer,`/api/evidence/usage?id=${f.evidenceId}`);const rows=usage.rows.filter(r=>r.source==='tprm');assert.equal(rows.length,5);assert.ok(rows.every(r=>r.historical&&r.decision.sourceAvailable&&r.pins[0].state==='older'));assert.equal(usage.sources.find(s=>s.key==='tprm').state,'complete');
  const restricted=await api(scoped,`/api/evidence/usage?id=${f.evidenceId}`);assert.equal(restricted.sources.find(s=>s.key==='tprm').state,'restricted');assert.equal(restricted.rows.filter(r=>r.source==='tprm').length,0);
- for(const [kind,id] of [['vendor-assessment',assessmentId],['vendor-finding',findingId],['vendor-review',vendorId]]){await openUsage();const row=reader.locator('.eu-list article').filter({hasText:id}).first();const pending=reader.waitForResponse(r=>new URL(r.url()).pathname==='/api/third-party-risk'&&new URL(r.url()).searchParams.get('focusId')===id);await row.getByRole('button',{name:/^Open record:/}).click();assert.equal((await pending).status(),200);await expect(reader.locator('.enterprise-work-focus')).toContainText(id);await expect(reader.locator('.tprm-table tbody tr')).toHaveCount(1);assert.equal(await reader.locator('.tprm-row-actions button').count(),0);if(kind==='vendor-review'){await reader.locator('.tprm-table').getByRole('button',{name:'Open',exact:true}).click();await expect(reader.getByRole('button',{name:'Evidence-backed exit',exact:true})).toHaveCount(0)}}
+ for(const [kind,id] of [['vendor-assessment',assessmentId],['vendor-finding',findingId],['vendor-review',vendorId]]){await openUsage();const row=reader.locator('.eu-list article').filter({hasText:id}).first();const pending=reader.waitForResponse(r=>new URL(r.url()).pathname==='/api/third-party-risk'&&new URL(r.url()).searchParams.get('focusId')===id);await row.getByRole('button',{name:/^Open record:/}).click();assert.equal((await pending).status(),200);await expect(reader.locator('.enterprise-work-focus')).toContainText(kind==='vendor-review'?saved.code:id);await expect(reader.locator('.tprm-table tbody tr')).toHaveCount(1);assert.equal(await reader.locator('.tprm-row-actions button').count(),0);if(kind==='vendor-review'){await reader.locator('.tprm-table').getByRole('button',{name:'Open',exact:true}).click();await expect(reader.getByRole('button',{name:'Evidence-backed exit',exact:true})).toHaveCount(0)}}
  await openUsage();await reader.locator('.eu-panel').screenshot({path:`${out}/usage.png`});await api(admin,`/api/grc?id=${f.evidenceId}`,'DELETE',undefined,409);
  checks.push('Full-access Viewer follows all three exact source kinds; scoped account cannot read TPRM usage; retained older versions and deletion protection verified');assert.deepEqual(errors,[]);
  await writeFile(`${out}/result.json`,JSON.stringify({status:'PASS',checks,errors,vendorId,assessmentId,findingId,cleanup:'Owned supplier offboarded and finding closed; immutable synthetic history remains only in disposable loopback QA.'},null,2));console.log('TPRM_CONNECTED_EVIDENCE_QA_PASS');
