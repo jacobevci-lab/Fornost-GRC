@@ -49,7 +49,7 @@ export async function verifyBiaEditor(page,api,open){
     await page.locator(".register-search input").fill(process);await expect(row).toContainText("Awaiting first test");await expect(row).not.toContainText("Test Overdue");
     await expect(row.locator(".title-stack small")).toContainText(asset.record_code);await expect(row.getByRole("img",{name:"DR · Active"})).toBeVisible();
     await row.getByRole("button",{name:"+ Create plan"}).click();
-    const planForm=page.locator(".continuity-form");await expect(planForm.locator("[name=biaRef]")).toHaveValue(created.code);await expect(planForm.locator("[name=rpoHours]")).toHaveValue("0");await expect(planForm.locator("[name=mtpdHours]")).toHaveValue("8");
+    const planForm=page.locator(".continuity-form");await expect(planForm.locator(".asset-entity .risk-pills button").filter({hasText:created.code})).toBeVisible();await expect(planForm.locator("[name=rpoHours]")).toHaveValue("0");await expect(planForm.locator("[name=mtpdHours]")).toHaveValue("8");
     await page.keyboard.press("Escape");await open(moduleName);
     await page.locator(".language-switch:visible").getByRole("button",{name:"TR",exact:true}).click();
     if(await page.locator("html").getAttribute("data-theme")!=="dark")await page.locator(".theme-toggle:visible").click();
