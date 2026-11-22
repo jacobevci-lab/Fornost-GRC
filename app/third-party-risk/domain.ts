@@ -38,11 +38,12 @@ export function validateFinding(input:Record<string,unknown>,today=new Date().to
  return{assessmentId,title,severity,description,owner,dueDate};
 }
 
-export function validateEvidenceAction(input:Record<string,unknown>){
+export function validateEvidenceAction(input:Record<string,unknown>,checkDecisionSupportSeparately=false){
  const operation=clean(input.operation,30),note=clean(input.note,1200),confirmation=clean(input.confirmation,80),evidenceReference=clean(input.evidenceReference,500),evidenceSha256=clean(input.evidenceSha256,64).toLowerCase();
  const phrases:Record<string,string>={submit:"İNCELEMEYE GÖNDER",approve:"TEDARİKÇİYİ ONAYLA",conditional:"KOŞULLU ONAYLA",reject:"TEDARİKÇİYİ REDDET",start:"BULGUYU BAŞLAT","submit-finding":"BULGUYU DOĞRULAMAYA GÖNDER","verify-finding":"BULGUYU KAPAT","reopen-finding":"BULGUYU YENİDEN AÇ",offboard:"TEDARİKÇİYİ KAPAT"};
  if(!phrases[operation]||confirmation!==phrases[operation]||note.length<5)throw new Error(`${phrases[operation]||"Geçerli işlem"} onayı ve açıklama zorunludur.`);
- if(["submit","approve","conditional","submit-finding","verify-finding","offboard"].includes(operation)&&(!evidenceReference||!/^[a-f0-9]{64}$/.test(evidenceSha256)))throw new Error("Kanıt referansı ve 64 karakter SHA-256 zorunludur.");
+ const decisionWithStoredSupport=checkDecisionSupportSeparately&&["approve","conditional"].includes(operation)&&!evidenceReference&&!evidenceSha256;
+ if(!decisionWithStoredSupport&&["submit","approve","conditional","submit-finding","verify-finding","offboard"].includes(operation)&&(!evidenceReference||!/^[a-f0-9]{64}$/.test(evidenceSha256)))throw new Error("Kanıt referansı ve 64 karakter SHA-256 zorunludur.");
  return{operation,note,evidenceReference,evidenceSha256};
 }
 

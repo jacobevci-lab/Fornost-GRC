@@ -8,7 +8,7 @@ Fornost TPRM 2.0, üçüncü taraf riskini yalnız bir envanter satırı olarak 
 2. İlk değerlendirme aynı işlemde oluşturulur. Etki, olasılık, kontrol olgunluğu ve 12 due-diligence alanı deterministik doğal/kalıntı risk üretir.
 3. Atanmış risk sahibi değerlendirmeyi kütüphaneden seçtiği dosya sürümüyle bağımsız incelemeye gönderir.
 4. Atanmış Admin reviewer; oluşturucu ve gönderen kişiden farklıysa tam onay, koşullu onay veya ret kararı verir.
-5. Açık yüksek/kritik bulgu ya da kritik kontrol boşluğu tam onayı engeller. Koşullu onay ayrıntılı risk kabul/iyileştirme notu ve karar kanıtı gerektirir.
+5. Açık yüksek/kritik bulgu ya da kritik kontrol boşluğu tam onayı engeller. Koşullu onay ayrıntılı bir karar notu ile birlikte destekleyici belge veya açık risk kabul gerekçesi gerektirir.
 6. Bulgular sahip, termin, önem ve CAPA açıklamasıyla yürütülür; kapatma ayrı reviewer ve ikinci kanıt zinciri gerektirir.
 7. Yeniden değerlendirme yeni bir döngü oluşturur, önceki karar sürümünü `superseded` durumuna alır ve geçmişi korur.
 8. Offboarding yalnız tüm bulgular kapalıyken, atanmış bağımsız reviewer tarafından kütüphaneden seçilen çıkış kanıtıyla tamamlanır.
@@ -60,3 +60,9 @@ Karar penceresinde güncel risk, sorumluluk ve iş bağlamını inceleyin. Kayna
 Profili açılmamış tedarikçi **Onboarding Bekliyor** olarak görünür. Admin, envanterden kaydı açıp gerekçesini girerek kapsam dışı kararı verebilir veya kaydı yeniden onboarding kuyruğuna alabilir. Karar, aktör ve tarih geçmişte saklanır. Profili olan bir tedarikçinin çıkışı mevcut kanıtlı sonlandırma akışından yürütülür.
 
 Onboarding sırasında üç sorumluyu dizinden seçin. Bağımsız incelemeci etkin bir Admin olmalıdır. Formdaki doğal ve kalıntı risk, kaydedilen değerlendirmeyle aynı yöntemle hesaplanır. Destekleyici kanıt kayıtları tedarikçiyle ilişkilendirilir. Resmî inceleme ve onayda kullanılan dosya sürümü karar anında ayrıca seçilir. Envanterdeki VEN kodu ile tedarikçiyi tanıyabilir, bağlı AST ve BIA rozetlerinden ilgili kaydı açabilirsiniz.
+
+## Güvence belgeleri ve karar ön koşulları
+
+Tedarikçi sahibi beş belge türü için Kanıt Kütüphanesinden bir sürüm ve geçerlilik tarihi seçer. Risk kuyruğu belge bitişini 30, sözleşme bitişini 90 gün önceden gösterir. Kritik/Tier-1 için güncel DPA ve ISO 27001 veya SOC 2/ISAE 3402 güvencesi aranır. Yenileme uyarısı geçmiş kararı korur. Etki alanı tedarikçinin varlıklarını, doğrudan ve bu varlıklar üzerinden bağlı BIA süreçlerini ve kaydedilmiş en kısa kurtarma hedeflerini gösterir.
+
+Karar veren bağımsız Admin, atamaları, tamamlanmış puanlamayı ve geçerli destekleyici belgeyi veya açık risk kabul gerekçesini inceler. Kütüphaneden seçilen değerlendirme gönderim kanıtı da destekleyici belge olarak kullanılabilir. Sunucu karar anındaki ön koşulları, dayanakları ve kararı aynı işlemde geçmişe yazar. Eski kararlar için sonradan bir değerlendirme üretilmez.

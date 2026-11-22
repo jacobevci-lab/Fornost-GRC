@@ -37,3 +37,15 @@
 .tprm-chips button,.tprm-person .tprm-chip {border-radius:1rem;padding:.25rem .55rem;overflow-wrap:anywhere}
 .tprm-score {justify-content:space-between;background:var(--ws-surface-2);color:var(--ws-ink);border:1px solid var(--ws-line);padding:.65rem .85rem;border-radius:.5rem}
 .tprm-row-actions small,.tprm-form .tprm-prerequisite {color:var(--ws-muted);white-space:normal}
+
+.tprm-assurance,.tprm-gate{display:grid;gap:.65rem;min-width:0;color:var(--ws-ink)}
+.tprm-assurance>ul,.tprm-gate>ul{list-style:none;margin:0;padding:0}
+.tprm-assurance>ul>li,.tprm-gate-wrap{display:grid;gap:.45rem;padding:.7rem 0;border-bottom:1px solid var(--ws-line);min-width:0}
+.tprm-doc-heading{display:flex;align-items:baseline;flex-wrap:wrap;justify-content:space-between;gap:.5rem}
+.tprm-assurance li>button,.tprm-assurance .tprm-doc-heading>button{justify-self:start}
+.tprm-flag{display:inline-block;border:1px solid currentColor;border-radius:1em;padding:.15rem .5rem;font-size:.8rem;line-height:1.4;white-space:normal}
+.tprm-flag.valid{color:var(--ws-positive)}.tprm-flag.soon,.tprm-flag.important{color:var(--ws-warning)}
+.tprm-flag.expired{color:var(--ws-danger)}.tprm-flag.missing:not(.important){color:var(--ws-muted)}
+.tprm-doc-editor,.tprm-doc-editor label,.tprm-gate-wrap label{display:grid;gap:.4rem;min-width:0}
+.tprm-expiry{margin-top:1rem;padding:1rem;border:1px solid var(--ws-line);background:var(--ws-surface);border-radius:.7rem}
+.tprm-gate-wrap,.tprm-gate{white-space:normal}.tprm-gate li{margin:.25rem 0}.tprm-gate-wrap textarea{max-width:100%}

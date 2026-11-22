@@ -426,6 +426,12 @@ export const regulatoryChangeEvents = sqliteTable("regulatory_change_events", {
   createdAt: text("created_at").notNull(),
 }, (table) => [index("regulatory_events_change_date_idx").on(table.changeId, table.createdAt)]);
 
+export const thirdPartyAssuranceDocuments = sqliteTable("third_party_assurance_documents", {
+  vendorId:text("vendor_id").notNull(),kind:text("kind").notNull(),revision:text("revision").notNull(),
+  evidenceId:text("evidence_id").notNull(),versionId:text("version_id").notNull(),versionNo:integer("version_no").notNull(),
+  title:text("title").notNull(),sha256:text("sha256").notNull(),expires:text("expires").notNull(),
+}, table=>[primaryKey({columns:[table.vendorId,table.kind]})]);
+
 export const thirdPartyProfiles = sqliteTable("third_party_profiles", {
   vendorId: text("vendor_id").primaryKey(), name: text("name").notNull(), service: text("service").notNull(), legalEntity: text("legal_entity").notNull(), category: text("category").notNull(),
   criticality: text("criticality").notNull(), dataClassification: text("data_classification").notNull(), dataAccess: text("data_access").notNull(), hostingLocation: text("hosting_location").notNull(),

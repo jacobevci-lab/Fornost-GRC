@@ -17,7 +17,7 @@ const sources:Source[]=[
  {table:'enterprise_incidents',column:'bia_ref',modules:['BIA']},
  {table:'policy_versions',column:'control_refs_json',modules:['Kontroller','Uyum'],json:true},
  {table:'policy_versions',column:'risk_refs_json',modules:['Risk Assessment'],json:true},
- ...['third_party_profiles','third_party_assessments','third_party_findings'].map(table=>({table,column:'vendor_id',modules:['Tedarikçiler']})),
+ ...['third_party_profiles','third_party_assessments','third_party_findings','third_party_assurance_documents'].map(table=>({table,column:'vendor_id',modules:['Tedarikçiler']})),
  {table:'enterprise_findings',column:'risk_ref',modules:['Risk Assessment']},
  {table:'enterprise_findings',column:'control_ref',modules:['Kontroller','Uyum']},
  ...Object.entries({audit:['Denetim Yönetimi'],control:['Kontroller','Uyum'],risk:['Risk Assessment'],vendor:['Tedarikçiler']}).map(([type,modules])=>({table:'enterprise_findings',column:'source_ref',modules,filter:`source_type='${type}'`})),
