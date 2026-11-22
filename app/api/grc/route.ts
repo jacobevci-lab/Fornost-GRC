@@ -1,15 +1,16 @@
+import {prepareControlMappings,PostureError} from "../../framework-posture/store";
 import { previewRegisterImport, commitRegisterImport } from "../../register-import-store";
 import { RegisterImportError } from "../../register-import";
 import { validModule, normalizeRecordData, validate, type ModuleName, type Data } from "../../core-record-validation";
 export { cleanText, validModule, validDate, normalizeRecordData, validate } from "../../core-record-validation";
 import {isAuditClosedError,auditClosedMessage} from "../../audit-closure";
-import {insertCoreRecords,CoreReferenceUnavailable} from "../../core-reference-write";
+import {insertCoreRecords,CoreReferenceUnavailable,CoreSideEffectConflict} from "../../core-reference-write";
 import {deleteCoreRecord,CoreRecordLinked} from "../../core-record-delete";
 import {writeCoreRecord} from "../../core-record-write";
 import {LifecycleConflict} from "../../enterprise-lifecycle-write";
 import {parseGrcCursor} from "../../grc-pagination";
 import { preserveRiskGovernance } from "../../risk-governance-write";
-import { canWriteModule, isScoped, readableModules } from "../../module-access";
+import { canReadModule,canReadPosture,canWriteModule, isScoped, readableModules } from "../../module-access";
 import { NextRequest,NextResponse } from "next/server";
 import { requireRole } from "../auth/security";
 import { ensureCoreGrcSchemaCompatibility } from "./schema-compat";
@@ -53,6 +54,16 @@ export async function GET(req: NextRequest) {
  rows.sort((a, b) => String(b.updated_at).localeCompare(String(a.updated_at)));
  return NextResponse.json({ rows, nextCursor }, { headers: { "cache-control": "private, no-store" } });
 }
+function controlLinksAllowed(actor:Parameters<typeof canReadModule>[0],module:string,items:unknown[],before:Data={}){
+ if(module!=="Kontroller")return true;
+ return items.every(item=>!item||typeof item!=="object"||Object.entries({controlRiskRefs:"Risk Assessment",supportingEvidenceRefs:"Kanıtlar"}).every(([key,target])=>
+   canReadModule(actor,target)||JSON.stringify((item as Data)[key]??[])===JSON.stringify(before[key]??[])));
+}
+async function mappings(db:D1Database,actor:Parameters<typeof canReadPosture>[0]&{email:string},module:string,id:string,changes:unknown){
+ if(changes===undefined)return;
+ if(module!=="Kontroller"||!canReadPosture(actor)||!canWriteModule(actor,"Uyum"))throw new PostureError("forbidden",403);
+ return prepareControlMappings(db,id,changes,actor.email);
+}
 export async function POST(req:NextRequest){
  const auth=await requireRole(req,["Admin","Editor"]);if(auth.response)return auth.response;
  let importing=false;
@@ -63,6 +74,7 @@ export async function POST(req:NextRequest){
   importing=b.action==='preview-import'||b.importId!==undefined;
   if(b.action!==undefined&&(b.action!=='preview-import'||b.importId!==undefined))throw new RegisterImportError('import-request');
   if(!canWriteModule(auth.actor,moduleName))return NextResponse.json({error:"Bu modülde yazma yetkiniz yok."},{status:403});
+  if(!controlLinksAllowed(auth.actor,moduleName,Array.isArray(b.rows)?b.rows:[b.data]))return NextResponse.json({error:'forbidden'},{status:403});
   if(b.action==='preview-import')return NextResponse.json({ok:true,preview:true,...await previewRegisterImport(d,auth.actor,moduleName,b.rows)},{headers:{'cache-control':'private, no-store'}});
   if(b.importId!==undefined){
    const result=await commitRegisterImport(d,auth.actor,moduleName,b.rows,b.importId,async(module,rows)=>{
@@ -80,8 +92,11 @@ export async function POST(req:NextRequest){
    return NextResponse.json({ok:true,imported:records.length},{status:201});
   }
   const checked=validate(moduleName,moduleName==="Risk Assessment"&&b.data&&typeof b.data==="object"&&!Array.isArray(b.data)?preserveRiskGovernance(b.data):b.data);if("error" in checked)return NextResponse.json({error:checked.error},{status:400});
-  const id=`${recordCodePrefixes[moduleName]}-${crypto.randomUUID()}`,code=(await reserveRecordCodes(d,moduleName,1,now))[0];await insertCoreRecords(d,moduleName,[{id,code,data:checked.data}],now);return NextResponse.json({ok:true,id,code},{status:201});
- }catch(error){if(error instanceof RegisterImportError)return NextResponse.json({error:error.code,issues:error.issues},{status:error.status});if(isAuditClosedError(error))return NextResponse.json({error:auditClosedMessage,code:"AUDIT_CLOSED"},{status:409});if(error instanceof CoreReferenceUnavailable)return NextResponse.json({error:error.message,code:"REFERENCE_UNAVAILABLE"},{status:422});return NextResponse.json({error:importing?"unavailable":"Geçersiz JSON isteği."},{status:importing?503:400})}
+  const id=`${recordCodePrefixes[moduleName]}-${crypto.randomUUID()}`;
+  const side=await mappings(d,auth.actor,moduleName,id,b.controlMappings);
+  const [code]=await reserveRecordCodes(d,moduleName,1,now);
+  await insertCoreRecords(d,moduleName,[{id,code,data:checked.data}],now,undefined,side);return NextResponse.json({ok:true,id,code},{status:201});
+ }catch(error){if(error instanceof CoreSideEffectConflict)return NextResponse.json({error:'conflict',code:'MAPPING_CONFLICT'},{status:409});if(error instanceof PostureError)return NextResponse.json({error:error.code,code:'MAPPING_'+error.code.toUpperCase()},{status:error.status});if(error instanceof RegisterImportError)return NextResponse.json({error:error.code,issues:error.issues},{status:error.status});if(isAuditClosedError(error))return NextResponse.json({error:auditClosedMessage,code:"AUDIT_CLOSED"},{status:409});if(error instanceof CoreReferenceUnavailable)return NextResponse.json({error:error.message,code:"REFERENCE_UNAVAILABLE"},{status:422});return NextResponse.json({error:importing?"unavailable":"Geçersiz JSON isteği."},{status:importing?503:400})}
 }
 export async function PATCH(req:NextRequest){
  const auth=await requireRole(req,["Admin","Editor"]);if(auth.response)return auth.response;
@@ -90,10 +105,13 @@ export async function PATCH(req:NextRequest){
   const existing=await d.prepare("SELECT module,data_json,updated_at FROM simple_grc_records WHERE id=?").bind(b.id).first<{module:string;data_json:string;updated_at:string}>();
   if(!existing)return NextResponse.json({error:"Kayıt bulunamadı."},{status:404});if(!canWriteModule(auth.actor,existing.module))return NextResponse.json({error:"Bu modülde yazma yetkiniz yok."},{status:403});
   const input=existing.module==="Risk Assessment"&&b.data&&typeof b.data==="object"&&!Array.isArray(b.data)?preserveRiskGovernance(b.data,JSON.parse(existing.data_json)):b.data;
-  const checked=validate(existing.module,input,JSON.parse(existing.data_json).status);if("error" in checked)return NextResponse.json({error:checked.error},{status:400});
-  const updatedAt=await writeCoreRecord(d,b.id,existing,checked.data,b.expectedUpdatedAt);
+  const before=JSON.parse(existing.data_json);
+  if(!controlLinksAllowed(auth.actor,existing.module,[input],before))return NextResponse.json({error:'forbidden'},{status:403});
+  const side=await mappings(d,auth.actor,existing.module,b.id,b.controlMappings);
+  const checked=validate(existing.module,input,before.status,before);if("error" in checked)return NextResponse.json({error:checked.error},{status:400});
+  const updatedAt=await writeCoreRecord(d,b.id,existing,checked.data,b.expectedUpdatedAt,side);
   return NextResponse.json({ok:true,updatedAt});
- }catch(error){if(error instanceof RegisterImportError)return NextResponse.json({error:error.code,issues:error.issues},{status:error.status});if(isAuditClosedError(error))return NextResponse.json({error:auditClosedMessage,code:"AUDIT_CLOSED"},{status:409});if(error instanceof CoreReferenceUnavailable)return NextResponse.json({error:error.message,code:"REFERENCE_UNAVAILABLE"},{status:422});if(error instanceof LifecycleConflict)return NextResponse.json({error:error.message},{status:409});return NextResponse.json({error:"Geçersiz JSON isteği, kayıt sürümü veya okunamayan kayıt."},{status:400})}
+ }catch(error){if(error instanceof CoreSideEffectConflict)return NextResponse.json({error:'conflict',code:'MAPPING_CONFLICT'},{status:409});if(error instanceof PostureError)return NextResponse.json({error:error.code,code:'MAPPING_'+error.code.toUpperCase()},{status:error.status});if(error instanceof RegisterImportError)return NextResponse.json({error:error.code,issues:error.issues},{status:error.status});if(isAuditClosedError(error))return NextResponse.json({error:auditClosedMessage,code:"AUDIT_CLOSED"},{status:409});if(error instanceof CoreReferenceUnavailable)return NextResponse.json({error:error.message,code:"REFERENCE_UNAVAILABLE"},{status:422});if(error instanceof LifecycleConflict)return NextResponse.json({error:error.message},{status:409});return NextResponse.json({error:"Geçersiz JSON isteği, kayıt sürümü veya okunamayan kayıt."},{status:400})}
 }
 export async function DELETE(req:NextRequest){
  const auth=await requireRole(req,["Admin"]);if(auth.response)return auth.response;

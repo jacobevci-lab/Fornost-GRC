@@ -1,3 +1,4 @@
+import {controlTypeKey,controlTypes,sameControlTester} from "./control-library-model";
 import {validVendorEvidenceRefs} from "./third-party-risk/inventory";
 import { biaRecoveryFields, exceedsMtpd, sameBiaPerson, mtpdWarning, sodWarning } from "./bia-assessment";
 import { hasRecoveryTarget } from "./bia-recovery";
@@ -14,7 +15,7 @@ const required:Record<ModuleName,string[]>={
  "Varlık Envanteri":["title","assetType","businessUnit","owner","criticality","status"],
  Uyum:["framework","controlRef","controlTitle","owner","status"],
  Tedarikçiler:["title","service","owner","criticality","riskLevel","status"],
- Kontroller:["controlRef","controlTitle","owner","frequency","implementation","status"],
+ Kontroller:["controlTitle","owner","frequency","implementation","status"],
  Kanıtlar:["evidenceTitle","controlRef","owner","period","status"],
  "Denetim Yönetimi":["auditName","auditType","auditOwner","startDate","endDate","requirementRef","requirementTitle","owner","businessUnit","dueDate","status","progress"]
 };
@@ -65,13 +66,14 @@ export function normalizeRecordData(module:unknown,input:Data){
  if(module==="Tedarikçiler"&&data.status==="İyileştirme Gerekli")data.status="Askıda";
  if(module==="Denetim Yönetimi"){if(data.status==="Planlandı")data.status="Başlanmadı";if(data.status==="Tamamlandı")data.status="Kapatıldı";if(data.status==="Gecikmiş")data.status="Devam Ediyor"}
  if(module==="Kanıtlar"&&!data.status)data.status="Taslak";
+ if(module==="Kontroller"&&data.controlType)data.controlType=controlTypeKey(data.controlType);
  if(module==="Kontroller"&&!data.implementation&&["Uygulanıyor","Kısmi","Uygulama Hazırlığında","Uygulanmıyor","Uygulanamaz"].includes(String(data.status||""))){
   data.implementation=data.status;
   data.status=data.status==="Uygulanıyor"?"Aktif":data.status==="Uygulanamaz"?"Devre Dışı":data.status==="Uygulanmıyor"?"Taslak":"İyileştirme Gerekli";
  }
  return data;
 }
-export function validate(module:unknown,input:unknown,previousStatus?:unknown){
+export function validate(module:unknown,input:unknown,previousStatus?:unknown,previous?:Data){
  if(!validModule(module))return {error:"Geçersiz modül."};
  if(!input||typeof input!=="object"||Array.isArray(input))return {error:"Geçersiz kayıt verisi."};
  const source=input as Data,cleaned:Data={};
@@ -83,6 +85,20 @@ export function validate(module:unknown,input:unknown,previousStatus?:unknown){
   }
   cleaned[key]=module==="Denetim Yönetimi"&&["requirementStatement","requirementGuidance","requirementAssessment"].includes(key)&&typeof value==="string"?value.slice(0,100000):cleanText(value)}
  const data=normalizeRecordData(module,cleaned);
+ if(module==="Kontroller"){
+  if(sameControlTester(data))return {error:"Kontrol sahibi ve kontrol test sorumlusu farklı kişiler olmalıdır."};
+  if(data.controlType && !Object.hasOwn(controlTypes,String(data.controlType)) && data.controlType!==controlTypeKey(previous?.controlType))return {error:"Geçersiz kontrol türü."};
+  for(const role of ["owner","evidenceOwner","testOwner"]){
+   const email=data[role+"Email"];
+   if((email||data[role+"Source"]==="directory"&&data[role])&&(!data[role]||typeof email!=="string"||email.length>254||!/^\S+@\S+\.\S+$/.test(email)))return {error:"Geçersiz kontrol sorumlusu."};
+  }
+  for(const key of ["controlRiskRefs","supportingEvidenceRefs"]){
+   const refs=data[key];if(refs===undefined)continue;
+   if(!Array.isArray(refs)||refs.length>250||refs.some(ref=>typeof ref!=="string"||!ref.trim()||ref.length>120))return {error:"Geçersiz kontrol bağlantısı."};
+   data[key]=[...new Set(refs.map(ref=>ref.trim()))];
+  }
+ }
+
  if(module==="BIA"){
   for(const key of ["rto","rpo","mtpd"]){
    if(data[key]!=null && data[key]!=="" && !hasRecoveryTarget(data[key]))return {error:key.toUpperCase()+" için geçerli bir saat değeri girin."};

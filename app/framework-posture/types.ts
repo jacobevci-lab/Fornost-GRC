@@ -8,6 +8,9 @@ export type Matrix = {name:string; requirements:Requirement[]; controls:Control[
 export type Baseline = {framework:string; period:string; total:number; excluded:number; withEvidence:number;
   entries:{ref:string; title:string; applicability:Applicability; reason:string; controls:(Control & {coverage:Coverage; evidence:string[]})[]}[];
   evidence:Record<string,Pin>};
+export type ControlClause = Pick<Requirement,"ref"|"title"|"revision"> & {linked:boolean};
+export type ControlCatalog = {programs:{name:string;clauses:ControlClause[]}[]};
+export type ControlMappingChange = {name:string;ref:string;revision:string;linked:boolean};
 export type ProgramIndex = {catalog:string[]; enrolled:string[]};
 
 export type ProgramCoverage = {scope:number; assessed:number; evidenced:number; compliant:number};

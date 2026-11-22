@@ -282,6 +282,7 @@ export const registerColumns: Record<
     { key: "frameworks", tr: "İlgili Standartlar", en: "Applicable Standards" },
     { key: "frequency", tr: "Sıklık", en: "Frequency" },
     { key: "implementation", tr: "Uygulama", en: "Implementation" },
+    { key:"linkedRisks",tr:"Bağlı Riskler",en:"Linked Risks" },
     { key: "evidence", tr: "Kanıt Kapsamı", en: "Evidence Coverage" },
     { key: "status", tr: "Durum", en: "Status" },
     { key: "updatedAt", tr: "Son Güncelleme", en: "Last Updated" },

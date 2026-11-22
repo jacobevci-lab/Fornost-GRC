@@ -113,6 +113,11 @@ import { biaImpact,biaDate,exceedsMtpd } from "./bia-assessment";
 import type {ConnectedGrcRow} from "./connected-grc-model";
 import { AssetInventoryFields } from "./asset-inventory-fields";
 import { assetLinkedRecords, assetCoverage, assetStatuses, type AssetTarget, type AssetLinks } from "./asset-inventory-model";
+import { ControlLibraryEditor } from "./control-library-editor";
+import { ControlLinksCell, ControlRegisterContext } from "./control-library-register";
+import { controlConnections, controlTypes, controlTypeKey, sameControlTester } from "./control-library-model";
+import type { ControlMappingChange } from "./framework-posture/types";
+import "./control-library.css";
 import { RiskAssets, RiskControls, RiskPerson } from "./risk-editor-fields";
 import { riskRecordOptions, riskAssetCaption, riskTitle, type RiskRecordOptions } from "./risk-record-options";
 import { isResidualRiskGoverned } from "./risk-governance-write";
@@ -938,7 +943,7 @@ const requiredFieldsByModule: Record<string, string[]> = {
   "Varlık Envanteri": ["title", "assetType", "businessUnit", "owner", "criticality", "status"],
   Uyum: ["framework", "controlRef", "controlTitle", "owner", "status"],
   Tedarikçiler: ["title", "service", "owner", "criticality", "riskLevel", "status"],
-  Kontroller: ["controlRef", "controlTitle", "owner", "frequency", "implementation", "status"],
+  Kontroller: ["controlTitle", "owner", "frequency", "implementation", "status"],
   Kanıtlar: ["evidenceTitle", "controlRef", "owner", "period", "status"],
   "Denetim Yönetimi": ["auditName", "auditType", "auditOwner", "startDate", "endDate", "requirementRef", "requirementTitle", "owner", "businessUnit", "dueDate", "status", "progress"],
 };
@@ -1190,6 +1195,8 @@ function FornostApp({ currentUser }: { currentUser: any }) {
     [notice, setNoticeText] = useState(""),
     [noticeTone,setNoticeTone] = useState<"info"|"success"|"error">("info"),
     [saving, setSaving] = useState(false),
+    [controlMappings,setControlMappings]=useState<ControlMappingChange[]>([]),
+    [controlEvidenceFirst,setControlEvidenceFirst]=useState(false),
     [importOpen, setImportOpen] = useState(false),
     [registerImportRevision, setRegisterImportRevision] = useState(0),
     [previewEvidence, setPreviewEvidence] = useState<Row | null>(null),
@@ -1219,6 +1226,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
   const [recordRequest, setRecordRequest] = useState<FornostNavigationRequest | null>(null);
   const [focusedRecord, setFocusedRecord] = useState<{ id: string; ref: string; auditName?: string; openDetail?:boolean; state?: "loading" | "error"; request?: FornostNavigationRequest } | null>(null);
   const readableRows = useMemo(() => rows.filter(row => canReadModule(currentUser, row.module)), [rows, currentUser]);
+  const controlLinks = useMemo(()=>controlConnections(active==="Kontroller" ? readableRows : []),[active,readableRows]);
   const riskAssets = useMemo(() => riskRecordOptions(readableRows,"Varlık Envanteri"), [readableRows]);
   const riskControls = useMemo(() => riskRecordOptions(readableRows,"Kontroller"), [readableRows]);
   const assetLinks = useMemo(() => active==="Varlık Envanteri" || lens?.assetId ? assetLinkedRecords(readableRows) : new Map<string, AssetLinks>(), [readableRows,active,lens?.assetId]);
@@ -1324,6 +1332,16 @@ function FornostApp({ currentUser }: { currentUser: any }) {
         localStorage.setItem("fornost-grc-column-layout", "v2");
       }
       if (columns && typeof columns === "object") {
+        if(localStorage.getItem("fornost-control-risk-column")!=="1"){
+          const previous=columns.Kontroller;
+          if(Array.isArray(previous)&&!previous.includes("linkedRisks")){
+            const next=previous.slice(),pos=next.indexOf("evidence");
+            next.splice(pos<0?next.length:pos,0,"linkedRisks");
+            columns={...columns,Kontroller:next};
+            localStorage.setItem("fornost-grc-columns",JSON.stringify(columns));
+          }
+          localStorage.setItem("fornost-control-risk-column","1");
+        }
         if (localStorage.getItem("fornost-bia-plan-column") !== "1") {
           const previous=columns.BIA;
           if(Array.isArray(previous) && !previous.includes("continuityPlan")){
@@ -1511,6 +1529,8 @@ function FornostApp({ currentUser }: { currentUser: any }) {
     if(recordWritePending.current)return;
     setNotice("");
     setEditing(null);
+    setControlMappings([]);
+    setControlEvidenceFirst(false);
     const next = empty(module);
     if (module === "BIA") next.status = "Taslak";
     if (module === "Risk Assessment") next.status = "Değerlendiriliyor";
@@ -1529,10 +1549,12 @@ function FornostApp({ currentUser }: { currentUser: any }) {
     setForm(next);
     setModal(true);
   }
-  function openEdit(r: Row) {
+  function openEdit(r: Row, evidenceFirst=false) {
     if(recordWritePending.current)return;
     setNotice("");
     setEditing(r);
+    setControlMappings([]);
+    setControlEvidenceFirst(evidenceFirst);
     setForm({ ...r.data });
     setModal(true);
   }
@@ -1546,9 +1568,12 @@ function FornostApp({ currentUser }: { currentUser: any }) {
       const r = await fetch(withBasePath("/api/grc"), {
         method: editing ? "PATCH" : "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ id: editing?.id, expectedUpdatedAt: editing ? editing.updatedAt || "" : undefined, module: active, data: form }),
+        body: JSON.stringify({ id: editing?.id, expectedUpdatedAt: editing ? editing.updatedAt || "" : undefined, module: active, data: form, ...(active==="Kontroller"&&controlMappings.length?{controlMappings}:{}) }),
       });
       const result = await r.json().catch(() => ({}));
+      if(String(result.code||"").startsWith("MAPPING_")){
+        setNotice(lang==="tr"?"Madde eşleştirmeleri kaydedilemedi. Kataloğu yenileyip seçimlerinizi kontrol edin.":"The requirement mappings could not be saved. Reload the catalog and review your selections.");return;
+      }
       if(result.code==="REFERENCE_UNAVAILABLE"){
         setNotice(active==="Risk Assessment" ? (lang==="tr"?"Seçilen kayıt veya kullanıcı değişti. Formunuz korundu. Bağlantıyı veya dizindeki kişiyi yeniden seçin.":"A selected record or directory contact changed. Your form is preserved. Select the current record or person again.") : lang==="tr"?"Yeni bağlantılardan biri artık kullanılamıyor veya yanlış modüle ait. Formunuz korundu; bağlı kayıt seçimini düzeltip tekrar kaydedin.":"A new linked record is unavailable or belongs to the wrong module. Your form is preserved; correct the linked record and save again.");
         return;
@@ -2422,7 +2447,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
               <RiskOverview rows={by("Risk Assessment")} lang={lang} />
             )}
             {registerLoadState === "ready" && !scoped && ["BIA","Varlık Envanteri","Uyum","Kontroller"].includes(active) && (
-              <CoreModuleOverview module={active} rows={by(active)} allRows={rows} lang={lang}/>
+              <CoreModuleOverview module={active} rows={by(active)} controlEvidenceCount={Array.from(controlLinks.values()).filter(item=>item.evidence.size>0).length} lang={lang}/>
             )}
             {!scoped && active === "Kanıtlar" && <EvidenceQualityLens state={evidenceRegisterState} lang={lang} />}
             {registerLoadState === "ready" && active === "Kanıtlar" && <EvidenceUsagePanel lang={lang} records={by("Kanıtlar")} focusedId={focusedRecord?.id || ""} />}
@@ -2456,6 +2481,10 @@ function FornostApp({ currentUser }: { currentUser: any }) {
                 filterPanelOpen={filterPanelOpen}
                 setFilterPanelOpen={setFilterPanelOpen}
               />
+              <ControlRegisterContext.Provider value={active==="Kontroller"?{
+                links:controlLinks, risks:registerLoadState==="ready"&&canReadModule(currentUser,"Risk Assessment"), evidence:registerLoadState==="ready"&&canReadModule(currentUser,"Kanıtlar"),
+                attach:canWriteModule(currentUser,"Kontroller")&&canReadModule(currentUser,"Kanıtlar")?row=>{const source=readableRows.find(r=>r.id===row.id);if(source)openEdit(source,true)}:undefined
+              }:null}>
               <BiaScope enabled={active==="BIA"} rows={readableRows} create={canWriteModule(currentUser,"İş Sürekliliği")?row=>{
                 navigateToModule("İş Sürekliliği");setBiaPlanSeed(row);
               }:undefined}>
@@ -2503,6 +2532,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
                 )}
               </RecordWorkspace>
               </BiaScope>
+              </ControlRegisterContext.Provider>
             </section>
           </>
         )}
@@ -2570,7 +2600,12 @@ function FornostApp({ currentUser }: { currentUser: any }) {
             ) : (
               <form onSubmit={save} className="form">
                 <div className="fornost-progressive-slot" />
-                {active === "BIA" ? <BiaFields form={form} tr={lang==="tr"} rows={readableRows} update={patch=>setForm(prev=>({...prev,...patch}))}
+                {active==="Kontroller"?<ControlLibraryEditor id={editing?.id} form={form} tr={lang==="tr"} rows={readableRows} incoming={editing?controlLinks.get(editing.id)?.incoming:undefined} evidenceFirst={controlEvidenceFirst}
+                  update={p=>setForm(prev=>({...prev,...p}))} changes={controlMappings} setChanges={setControlMappings}
+                  readPosture={canReadPosture(currentUser)} writePosture={canReadPosture(currentUser)&&canWriteModule(currentUser,"Uyum")}
+                  readRisks={canReadModule(currentUser,"Risk Assessment")} readEvidence={canReadModule(currentUser,"Kanıtlar")}
+                  field={key=><Field k={key} module={active} form={form} setForm={setForm} lang={lang} availableRows={readableRows}/>} />
+                 : active === "BIA" ? <BiaFields form={form} tr={lang==="tr"} rows={readableRows} update={patch=>setForm(prev=>({...prev,...patch}))}
                   field={key=><Field k={key} module={active} form={form} setForm={setForm} lang={lang} availableRows={readableRows}/>} />
                  : active === "Varlık Envanteri" ? <AssetInventoryFields form={form} id={editing?.id} tr={lang==="tr"} rows={readableRows}
                   update={patch=>setForm(prev=>({...prev,...patch}))}
@@ -2592,7 +2627,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
                   <button type="button" disabled={saving} onClick={closeRecordDialog}>
                     {u.cancel}
                   </button>
-                  <button className="primary" disabled={saving} aria-busy={saving}>
+                  <button className="primary" disabled={saving || (active==="Kontroller"&&sameControlTester(form))} aria-busy={saving}>
                     {saving
                       ? lang === "tr"
                         ? "Kaydediliyor…"
@@ -3055,14 +3090,13 @@ function Field({
   );
 }
 
-function CoreModuleOverview({module,rows,allRows,lang}:{module:string;rows:Row[];allRows:Row[];lang:Lang}){
+function CoreModuleOverview({module,rows,controlEvidenceCount,lang}:{module:string;rows:Row[];controlEvidenceCount:number;lang:Lang}){
   const tr=lang==="tr",values=(key:string)=>rows.map(row=>String(row.data[key]||"")),count=(key:string,accepted:string[])=>values(key).filter(value=>accepted.includes(value)).length;
-  const evidence=allRows.filter(row=>row.module==="Kanıtlar"),linkedEvidence=new Set(evidence.map(row=>String(row.data.controlRef||"")).filter(Boolean));
   const configurations:Record<string,{eyebrow:string;title:string;detail:string;metrics:Array<[string|number,string,string,string]>}>={
     BIA:{eyebrow:tr?"İŞ DAYANIKLILIĞI":"BUSINESS RESILIENCE",title:tr?"Kritik süreç hazırlığı":"Critical process readiness",detail:tr?"Etki, kurtarma hedefi ve test hazırlığını birlikte izleyin.":"Track impact, recovery objectives and test readiness together.",metrics:[[rows.length,tr?"Toplam süreç":"Total processes",tr?"Kapsamdaki iş süreçleri":"Business processes in scope","neutral"],[count("criticality",["Kritik","Critical"]),tr?"Kritik süreç":"Critical processes",tr?"Öncelikli kurtarma kapsamı":"Priority recovery scope","danger"],[rows.filter(row=>hasRecoveryTarget(row.data.rto)&&hasRecoveryTarget(row.data.rpo)).length,tr?"RTO/RPO tanımlı":"RTO/RPO defined",tr?"Kurtarma hedefi bulunan":"With recovery objectives","positive"],[count("status",["Taslak","İncelemede"]),tr?"Karar gereken":"Decision required",tr?"Taslak veya incelemede":"Draft or under review","warning"]]},
     "Varlık Envanteri":{eyebrow:tr?"TEKNOLOJİ MARUZİYETİ":"TECHNOLOGY EXPOSURE",title:tr?"Varlık güvenlik görünümü":"Asset security posture",detail:tr?"Kritiklik, veri sınıfı, internet maruziyeti ve güvenlik kapsamasını tek bakışta değerlendirin.":"Evaluate criticality, data class, internet exposure and security coverage at a glance.",metrics:[[rows.length,tr?"Toplam varlık":"Total assets",tr?"Yönetilen envanter":"Managed inventory","neutral"],[count("criticality",["Kritik","Critical"]),tr?"Kritik varlık":"Critical assets",tr?"Yüksek iş etkisi":"High business impact","danger"],[rows.filter(row=>row.data.internetFacing===true||String(row.data.internetFacing).toLowerCase()==="evet").length,tr?"İnternete açık":"Internet-facing",tr?"Dış saldırı yüzeyi":"External attack surface","warning"],[rows.filter(row=>["Aktif","Active"].includes(String(row.data.status))).length,tr?"Aktif yaşam döngüsü":"Active lifecycle",tr?"Operasyonda olan":"Currently operational","positive"]]},
     Uyum:{eyebrow:tr?"KONTROL GÜVENCESİ":"CONTROL ASSURANCE",title:tr?"Uyum uygulama görünümü":"Compliance implementation posture",detail:tr?"Framework maddelerini uygulama ve kanıt durumuyla birlikte yönetin.":"Govern framework requirements together with implementation and evidence state.",metrics:[[rows.length,tr?"Toplam madde":"Total requirements",tr?"Değerlendirilen kapsam":"Assessed scope","neutral"],[count("status",["Uyumlu","Compliant"]),tr?"Uyumlu":"Compliant",tr?"Kayıtta uyumlu olarak işaretli":"Marked compliant in the register","positive"],[count("status",["Kısmi Uyumlu","Partially Compliant"]),tr?"Kısmi uyum":"Partial",tr?"İyileştirme gereken":"Needs improvement","warning"],[count("status",["Uyumlu Değil","Noncompliant"]),tr?"Uyumlu değil":"Noncompliant",tr?"Öncelikli sapma":"Priority deviation","danger"]]},
-    Kontroller:{eyebrow:tr?"ORTAK KONTROL KÜTÜPHANESİ":"COMMON CONTROL LIBRARY",title:tr?"Kontrol etkinliği ve kanıt kapsaması":"Control effectiveness and evidence coverage",detail:tr?"Tek bir kontrolü framework, test sahibi ve kanıtlarla uçtan uca bağlayın.":"Connect each control end to end with frameworks, test ownership and evidence.",metrics:[[rows.length,tr?"Toplam kontrol":"Total controls",tr?"Ortak kontrol seti":"Common control set","neutral"],[count("status",["Aktif","Active"]),tr?"Aktif kontrol":"Active controls",tr?"Operasyonel kontroller":"Operational controls","positive"],[count("status",["İyileştirme Gerekli","Needs Improvement"]),tr?"İyileştirme":"Needs improvement",tr?"Etkinlik açığı bulunan":"Effectiveness gaps","warning"],[rows.filter(row=>linkedEvidence.has(String(row.data.controlRef||""))).length,tr?"Kanıt bağlı":"Evidence linked",tr?"En az bir bağlı kanıt":"At least one evidence item","info"]]},
+    Kontroller:{eyebrow:tr?"ORTAK KONTROL KÜTÜPHANESİ":"COMMON CONTROL LIBRARY",title:tr?"Kontrol etkinliği ve kanıt kapsaması":"Control effectiveness and evidence coverage",detail:tr?"Tek bir kontrolü framework, test sahibi ve kanıtlarla uçtan uca bağlayın.":"Connect each control end to end with frameworks, test ownership and evidence.",metrics:[[rows.length,tr?"Toplam kontrol":"Total controls",tr?"Ortak kontrol seti":"Common control set","neutral"],[count("status",["Aktif","Active"]),tr?"Aktif kontrol":"Active controls",tr?"Operasyonel kontroller":"Operational controls","positive"],[count("status",["İyileştirme Gerekli","Needs Improvement"]),tr?"İyileştirme":"Needs improvement",tr?"Etkinlik açığı bulunan":"Effectiveness gaps","warning"],[controlEvidenceCount,tr?"Kanıt bağlı":"Evidence linked",tr?"En az bir bağlı kanıt":"At least one evidence item","info"]]},
     Kanıtlar:{eyebrow:tr?"KANIT GÜVENİ":"EVIDENCE TRUST",title:tr?"Kanıt güncelliği ve kontrol bağlantısı":"Evidence freshness and control linkage",detail:tr?"Kanıtların sahipliğini, geçerliliğini ve tekrar kullanımını izleyin.":"Track evidence ownership, validity and reusable control mappings.",metrics:[[rows.length,tr?"Toplam kanıt":"Total evidence",tr?"Kanıt kasasındaki kayıt":"Records in evidence vault","neutral"],[count("status",["Onaylandı","Approved"]),tr?"Onaylı":"Approved",tr?"İncelenmiş kanıt":"Reviewed evidence","positive"],[count("status",["İncelemede","In Review"]),tr?"İncelemede":"In review",tr?"Reviewer kararı gereken":"Reviewer decision required","warning"],[count("status",["Süresi Doldu","Expired"]),tr?"Süresi dolmuş":"Expired",tr?"Yenilenmesi gereken":"Renewal required","danger"]]},
   };
   const config=configurations[module];if(!config)return null;
@@ -4931,13 +4965,14 @@ const systemRegisterColumns: RegisterColumn[] = [
 
 function getAvailableRegisterColumns(module: string): RegisterColumn[] {
   const preferred = registerColumns[module] || [];
+  const controlLabels:Record<string,[string,string]>={controlRef:["İç Referans Kodu (İsteğe Bağlı)","Internal reference code (optional)"],controlTitle:["Kontrol Başlığı","Control title"],lastTestDate:["Son Kontrol Testi","Last control test"]};
   const seen = new Set(preferred.map((column) => column.key));
   const direct = (fields[module] || [])
     .filter((key) => !seen.has(key))
     .map((key) => ({
       key,
-      tr: labelMap.tr[key] || key,
-      en: labelMap.en[key] || key,
+      tr: (module==="Kontroller"&&controlLabels[key]?.[0]) || labelMap.tr[key] || key,
+      en: (module==="Kontroller"&&controlLabels[key]?.[1]) || labelMap.en[key] || key,
     }));
   for (const column of systemRegisterColumns)
     if (!seen.has(column.key)) direct.push(column);
@@ -4948,7 +4983,7 @@ function defaultRegisterColumnKeys(module: string) {
     "Risk Assessment":["title","inherentRisk","residualRisk","status","owner","treatment"],
     BIA:["process","ownership","criticality","recovery","readiness","test","continuityPlan","updatedAt"],
     "Varlık Envanteri":["title","ownership","criticality","dataClassification","assetLinks","coverage","lifecycle","updatedAt"],
-    Kontroller:["control","owner","frameworks","implementation","evidence","status","updatedAt"],
+    Kontroller:["control","owner","frameworks","implementation","linkedRisks","evidence","status","updatedAt"],
   };
   return compactDefaults[module] || (registerColumns[module] || []).map((column) => column.key);
 }
@@ -5357,6 +5392,16 @@ function SmartCell({
         </small>
       </div>
     );
+  if(module==="Kontroller"&&column==="control"){
+    const internal=String(d.controlRef||"").trim();
+    return <div className="stack title-stack"><b>{riskTitle({...row,data:{title:d.controlTitle||d.title}})}</b>
+      {internal&&![row.id,displayRecordCode(row)].some(v=>v.toLowerCase()===internal.toLowerCase())&&<small>{internal}</small>}</div>;
+  }
+  if(module==="Kontroller"&&(column==="linkedRisks"||column==="evidence"))return <ControlLinksCell row={row} tr={tr} kind={column==="linkedRisks"?"risks":"evidence"}/>;
+  if(module==="Kontroller"&&column==="controlType"){
+    const key=controlTypeKey(d.controlType);
+    return <>{controlTypes[key as keyof typeof controlTypes]?.[tr?0:1]||key||"—"}</>;
+  }
   if (column === "control")
     return (
       <div className="stack">

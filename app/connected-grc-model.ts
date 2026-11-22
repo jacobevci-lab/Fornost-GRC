@@ -61,6 +61,8 @@ type RelationDefinition = { relation: string; modules: string[]; sources?: strin
 export const relationFields: Record<string, RelationDefinition> = {
   aiModelRef: { relation: "ai-model", modules: ["AI Yönetişimi"], sources: ["AI Yönetişimi"], targetKind: "ai-model", canonicalOnly: true },
   aiFindingRef: { relation: "ai-finding", modules: ["AI Yönetişimi"], sources: ["AI Yönetişimi"], targetKind: "ai-finding", canonicalOnly: true },
+  controlRiskRefs: {relation:"risk-control",modules:["Risk Assessment"],sources:["Kontroller"]},
+  supportingEvidenceRefs: {relation:"control-evidence",modules:["Kanıtlar"],sources:["Kontroller"]},
   existingControls: { relation: "risk-control", modules: ["Kontroller"], sources: ["Risk Assessment"], optionalControlReference: true },
   asset: { relation: "risk-asset", modules: ["Varlık Envanteri"], sources: ["Risk Assessment", "BIA"] },
   processLink: { relation: "risk-process", modules: ["BIA"], sources: ["Risk Assessment", "Kontroller", "Varlık Envanteri"] },
