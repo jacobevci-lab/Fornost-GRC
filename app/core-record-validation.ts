@@ -1,4 +1,4 @@
-import { exceedsMtpd, sameBiaPerson, mtpdWarning, sodWarning } from "./bia-assessment";
+import { biaRecoveryFields, exceedsMtpd, sameBiaPerson, mtpdWarning, sodWarning } from "./bia-assessment";
 import { hasRecoveryTarget } from "./bia-recovery";
 import { assetLifecycle, assetStatuses } from "./asset-inventory-model";
 import { assessedResidualRiskScore } from "./risk-methodology";
@@ -50,7 +50,16 @@ export function normalizeRecordData(module:unknown,input:Data){
   if(typeof data.dependencyRefs==="string")data.dependencyRefs=data.dependencyRefs.split(/[;,|\n]+/).map(v=>v.trim()).filter(Boolean);
   if(Array.isArray(data.dependencyRefs))data.dependencyRefs=[...new Set(data.dependencyRefs)];
  }
- if(module==="BIA"){if(!data.processCategory)data.processCategory="Operasyonel Süreç";if(!data.status)data.status="Aktif"}
+ if(module==="BIA"){
+  if(!data.processCategory)data.processCategory="Operasyonel Süreç";
+  if(!data.status)data.status="Aktif";
+  for(const key of biaRecoveryFields){
+   const value=data[key];
+   if(typeof value!=="string")continue;
+   const hours=/^(\d+(?:[.,]\d+)?)\s*(?:saat|hours?|hrs?|h)$/i.exec(value.trim());
+   if(hours)data[key]=hours[1].replace(",",".");
+  }
+ }
  if(module==="Uyum"){if(data.status==="Kısmi")data.status="Kısmi Uyumlu";if(data.status==="Uyumsuz")data.status="Uyumlu Değil"}
  if(module==="Tedarikçiler"&&data.status==="İyileştirme Gerekli")data.status="Askıda";
  if(module==="Denetim Yönetimi"){if(data.status==="Planlandı")data.status="Başlanmadı";if(data.status==="Tamamlandı")data.status="Kapatıldı";if(data.status==="Gecikmiş")data.status="Devam Ediyor"}

@@ -16,6 +16,10 @@ test("BIA fields occur once and ratings preserve unassessed dimensions",()=>{
 test("BIA enforces recovery hours and independent directory identities on every write",()=>{
   assert.ok(validate("BIA",base).data);
   assert.ok(validate("BIA",{...base,mtpd:null}).data);
+  const labelled=validate("BIA",{...base,rto:"1,5 saat",rpo:"0h",mtpd:"2 hours"}).data;
+  assert.deepEqual([labelled?.rto,labelled?.rpo,labelled?.mtpd],["1.5","0","2"]);
+  assert.equal(validate("BIA",{...base,rto:"2 hours",mtpd:"1 saat"}).error,mtpdWarning.tr);
+  assert.ok(validate("BIA",{...base,rto:"within two days"}).error);
   assert.equal(validate("BIA",{...base,rto:"2"}).error,mtpdWarning.tr);
   for(const invalid of [-1,"unknown",false])assert.ok(validate("BIA",{...base,mtpd:invalid}).error);
   assert.equal(validate("BIA",{...base,approver:" a "}).error,sodWarning.tr);
