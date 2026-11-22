@@ -6,7 +6,7 @@ const states:Record<string,[string,string]>={
   unmanaged:["Onboarding Bekliyor","Awaiting onboarding"],onboarding:["Değerlendirmede","Under assessment"],
   reassessment:["Değerlendirmede","Under assessment"],"in-review":["Değerlendirmede","Under assessment"],
   approved:["Onaylı (Aktif)","Approved (active)"],conditional:["Koşullu Kabul","Conditionally accepted"],
-  excluded:["Gerekçeli Kapsam Dışı","Excluded with reason"],offboarded:["Çıkış / Sonlandırıldı","Offboarded / terminated"],
+  offboarding:["Çıkış Sürecinde","Offboarding in progress"],excluded:["Gerekçeli Kapsam Dışı","Excluded with reason"],offboarded:["Çıkış / Sonlandırıldı","Offboarded / terminated"],
 };
 export const inventoryLabel=(key:string,tr:boolean)=>states[key]?.[tr?0:1];
 export function vendorCode(code:unknown,id:unknown){

@@ -1,3 +1,4 @@
+import {vendorTier,suggestedReview} from "./tier";
 export const TPRM_CRITICALITIES=["low","medium","high","critical"] as const;
 export const TPRM_DATA_CLASSES=["public","internal","confidential","restricted"] as const;
 export const TPRM_CONTROLS=["securityProgram","accessControl","encryption","logging","vulnerabilityManagement","incidentNotification","bcdr","subprocessorGovernance","dataDeletion","auditRights","dataPortability","dpa"] as const;
@@ -9,7 +10,7 @@ const date=(value:unknown)=>{const result=clean(value,10);if(!/^\d{4}-\d{2}-\d{2
 const score=(value:unknown,label:string)=>{const result=Number(value);if(!Number.isInteger(result)||result<1||result>5)throw new Error(`${label} 1-5 arasında olmalıdır.`);return result};
 
 export function validateThirdParty(input:Record<string,unknown>,today=new Date().toISOString().slice(0,10)){
- const name=clean(input.name,200),service=clean(input.service,240),legalEntity=clean(input.legalEntity,200),category=clean(input.category,80),criticality=clean(input.criticality,20),dataClassification=clean(input.dataClassification,30),dataAccess=clean(input.dataAccess,800),hostingLocation=clean(input.hostingLocation,160),businessOwner=email(input.businessOwner),riskOwner=email(input.riskOwner),reviewer=email(input.reviewer),contact=email(input.contact),contractEnd=date(input.contractEnd),nextReview=date(input.nextReview),exitPlan=clean(input.exitPlan,1600);
+ const name=clean(input.name,200),service=clean(input.service,240),legalEntity=clean(input.legalEntity,200),category=clean(input.category,80),criticality=clean(input.criticality,20),dataClassification=clean(input.dataClassification,30),dataAccess=clean(input.dataAccess,800),hostingLocation=clean(input.hostingLocation,160),businessOwner=email(input.businessOwner),riskOwner=email(input.riskOwner),reviewer=email(input.reviewer),contact=email(input.contact),contractEnd=date(input.contractEnd),nextReview=date(input.nextReview||suggestedReview(vendorTier(criticality,dataClassification),contractEnd,today)),exitPlan=clean(input.exitPlan,1600);
  if(name.length<2||service.length<3||legalEntity.length<2||category.length<2)throw new Error("Tedarikçi, hizmet, tüzel kişilik ve kategori zorunludur.");
  if(!TPRM_CRITICALITIES.includes(criticality as typeof TPRM_CRITICALITIES[number])||!TPRM_DATA_CLASSES.includes(dataClassification as typeof TPRM_DATA_CLASSES[number]))throw new Error("Kritiklik veya veri sınıfı geçersiz.");
  if(dataAccess.length<3||hostingLocation.length<2||exitPlan.length<10)throw new Error("Veri erişimi, lokasyon ve uygulanabilir çıkış planı zorunludur.");

@@ -1,4 +1,8 @@
 import * as vendorScope from "../../app/third-party-risk/scope";
+import * as exitStore from "../../app/third-party-risk/exit-store";
+import * as surveyStore from "../../app/third-party-risk/survey-store";
+import * as survey from "../../app/third-party-risk/survey";
+import * as tier from "../../app/third-party-risk/tier";
 import * as assuranceStore from "../../app/third-party-risk/assurance-store";
 import * as vendorInventory from "../../app/third-party-risk/inventory";
 import * as coreCompatibility from "../../app/api/grc/schema-compat";
@@ -76,6 +80,10 @@ export function fixture(module:'incidents'|'continuity'|'policy-lifecycle'|'thir
  const exports:Record<string,unknown>={};
  const require=(name:string)=>{
   if(name==="../../third-party-risk/scope")return vendorScope;
+  if(name==="../../third-party-risk/exit-store")return exitStore;
+  if(name==="../../third-party-risk/survey-store")return surveyStore;
+  if(name==="../../third-party-risk/survey")return survey;
+  if(name==="../../third-party-risk/tier")return tier;
   if(name==="../../third-party-risk/assurance-store")return assuranceStore;
   if(name==="../../third-party-risk/inventory")return vendorInventory;
   if(name==="../grc/schema-compat")return coreCompatibility;

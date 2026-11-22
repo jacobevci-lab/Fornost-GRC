@@ -1,6 +1,7 @@
 "use client";
 import {useContext,useState} from "react";
-import {documentKinds,documentTypes,validity,criticalSupplier,renewalNeeded,daysLeft,recoverySummary,decisionChecks,type AssuranceVendor,type DocumentKind,type AssuranceDocument} from "./third-party-risk/assurance";
+import {documentKinds,documentTypes,validity,renewalNeeded,daysLeft,recoverySummary,decisionChecks,type AssuranceVendor,type DocumentKind,type AssuranceDocument} from "./third-party-risk/assurance";
+import {vendorTier} from "./third-party-risk/tier";
 import {validReviewDate} from "./third-party-risk/review-schedule";
 import {WorkflowEvidencePicker} from "./workflow-selection-fields";
 import {ModuleTrailContext} from "./module-record-trail-view";
@@ -37,7 +38,7 @@ export function SupplierDocuments({v,tr,edit,save,busy}:{v:AssuranceVendor;tr:bo
   const [editing,setEditing]=useState<DocumentKind|null>(null);
   return <section className="tprm-assurance"><h4>{tr?"Güvence Belgeleri & Sertifikalar":"Assurance documents & certificates"}</h4><RenewalWarning v={v} tr={tr}/>
     <ul>{documentKinds.map(kind=>{const doc=v.documents?.find(d=>d.kind===kind),status=validity(doc);
-      return <li key={kind}><div className="tprm-doc-heading"><strong>{documentTypes[kind][tr?0:1]}</strong><span className={"tprm-flag "+status+(status==="missing"&&criticalSupplier(v.criticality)?" important":"")}>{labels[status][tr?0:1]}</span></div>
+      return <li key={kind}><div className="tprm-doc-heading"><strong>{documentTypes[kind][tr?0:1]}</strong><span className={"tprm-flag "+status+(status==="missing"&&vendorTier(v.criticality,v.dataClassification)===1?" important":"")}>{labels[status][tr?0:1]}</span></div>
         {doc&&<p>{doc.code||"—"} · {doc.title} · v{doc.versionNo} · {formatDate(doc.expires)}</p>}
         {editing===kind?<DocumentEditor v={v} kind={kind} tr={tr} doc={doc} save={save} busy={busy} close={()=>setEditing(null)}/>:edit&&<button type="button" disabled={busy} onClick={()=>setEditing(kind)}>{doc?(tr?"Belgeyi düzenle":"Edit document"):(tr?"Kanıt Kütüphanesinden Seç":"Select from Evidence Library")}</button>}</li>;
     })}</ul></section>;

@@ -1,3 +1,4 @@
+import {prepareQaSupplierExit} from './qa-supplier-exit.mjs';
 import { chromium, expect } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 import assert from 'node:assert/strict';
@@ -61,7 +62,7 @@ try{
   const usage=await api(viewer,`/api/evidence/usage?id=${evidenceId}`),extensions=usage.rows.filter(row=>row.decision?.purpose==='vendor-contract-extended');assert.equal(extensions.length,3);assert.ok(extensions.every(row=>row.historical&&row.decision.sourceAvailable&&row.target.kind==='vendor-review'&&row.target.ref===vendorId));
   await reader.goto(base+'/#fornost-record?'+new URLSearchParams({module:'Kanıtlar',kind:'record',ref:evidenceId}));await expect(reader.locator('.shell')).toBeVisible();await reader.locator('.eu-panel>summary').click();await reader.getByLabel('Evidence to inspect',{exact:true}).selectOption(evidenceId);await reader.getByLabel('Usage source',{exact:true}).selectOption('tprm');const use=reader.locator('.eu-list article').filter({has:reader.locator('.eu-decision>b').filter({hasText:/^Contract extension$/})}).first();await expect(use).toBeVisible();await use.getByRole('button',{name:/^Open record:/}).click();await expect(reader.locator('.enterprise-work-focus')).toContainText(vendorCode);
   checks.push('Independent assessment can now schedule within extended term; Viewer reads full history and follows canonical evidence usage back to exact supplier');
-  phase='cleanup';const p=await profile();await api(reviewer,'/api/third-party-risk','POST',{action:'offboard',vendorId,expectedRevision:p.updatedAt,confirmation:'TEDARİKÇİYİ KAPAT',note:'Owned contract QA complete; access and synthetic data return verified.',...choice()});history=await api(viewer,historyPath());assert.equal(history.rows.length,3);assert.deepEqual(errors,[]);
+  phase='cleanup';await api(reviewer,'/api/third-party-risk','POST',{action:'offboard',vendorId,expectedRevision:await prepareQaSupplierExit(api,admin,vendorId,choice()),confirmation:'TEDARİKÇİYİ KAPAT',note:'Owned contract QA complete; access and synthetic data return verified.',...choice()});history=await api(viewer,historyPath());assert.equal(history.rows.length,3);assert.deepEqual(errors,[]);
   await writeFile(`${out}/result.json`,JSON.stringify({status:'PASS',checks,errors,vendorId,assessmentId,cleanup:'Owned supplier offboarded; synthetic decision history remains in disposable loopback QA.'},null,2));console.log('TPRM_CONTRACT_EXTENSION_QA_PASS');
 }catch(error){await writeFile(`${out}/failure.json`,JSON.stringify({phase,message:error.message,checks,errors},null,2));await peer.screenshot({path:`${out}/failure-reviewer.png`,fullPage:true}).catch(()=>{});throw error;}
 finally{await Promise.all(contexts.map(c=>c.close()));await browser.close();}

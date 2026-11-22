@@ -1,3 +1,4 @@
+import {prepareQaSupplierExit} from './qa-supplier-exit.mjs';
 import {openComplianceRegister} from "./qa-compliance-register.mjs";
 import { qaPassword } from "./qa-credentials.mjs";
 import { revealAiWorkspace } from "./qa-ai-workspaces.mjs";
@@ -247,8 +248,13 @@ await check('Master data: add, duplicate validation, delete and role restriction
 await check('Vendor governance: onboarding, assessment, independent approval and offboarding',async()=>{
  const controls=Object.fromEntries(['securityProgram','accessControl','encryption','logging','vulnerabilityManagement','incidentNotification','bcdr','subprocessorGovernance','dataDeletion','auditRights','dataPortability','dpa'].map(x=>[x,true]));
  const {vendorId,assessmentId}=await request(admin,'/api/third-party-risk','POST',{action:'save-vendor',name:'QA Cloud Provider',service:'Identity platform',legalEntity:'QA Provider Ltd',category:'SaaS',criticality:'critical',dataClassification:'confidential',dataAccess:'Employee identity metadata',hostingLocation:'EU',businessOwner:'qa-business@fornost.test',riskOwner:owner,reviewer,contact:'qa-contact@fornost.test',contractEnd:future(365),nextReview:future(90),exitPlan:'Export records, verify deletion and migrate to an approved alternative.',impact:4,likelihood:3,controlMaturity:5,treatmentPlan:'Maintain continuous assurance and annual independent review.',...controls},201);
- for(const [ctx,operation,confirmation] of [[admin,'submit','İNCELEMEYE GÖNDER'],[checker,'approve','TEDARİKÇİYİ ONAYLA']])await request(ctx,'/api/third-party-risk','POST',{action:'assessment-action',assessmentId,operation,confirmation,...evidence});
- await request(checker,'/api/third-party-risk','POST',{action:'offboard',vendorId,confirmation:'TEDARİKÇİYİ KAPAT',...evidence});
+ const receipt=await admin.request.post(base+'/api/evidence',{headers:{origin:base},multipart:{evidenceTitle:'QA supplier data return receipt',owner,period:today,controlRef:'A.5.19',file:{name:'return.txt',mimeType:'text/plain',buffer:Buffer.from('Synthetic QA return certificate')}}});
+ assert.equal(receipt.status(),201);const evidenceId=(await receipt.json()).id,versionId=(await request(admin,'/api/evidence/history?id='+evidenceId)).versions[0].id;
+ const choice={evidenceMode:'library',evidenceSelection:{evidenceId,versionId}};
+ for(const [ctx,operation,confirmation] of [[admin,'submit','İNCELEMEYE GÖNDER'],[checker,'approve','TEDARİKÇİYİ ONAYLA']]){
+ const revision=(await request(ctx,'/api/third-party-risk')).assessments.find(a=>a.id===assessmentId).updatedAt;
+ await request(ctx,'/api/third-party-risk','POST',{action:'assessment-action',assessmentId,operation,confirmation,expectedRevision:revision,note:evidence.note,...choice});}
+ await request(checker,'/api/third-party-risk','POST',{action:'offboard',vendorId,expectedRevision:await prepareQaSupplierExit(request,admin,vendorId,choice),confirmation:'TEDARİKÇİYİ KAPAT'});
 });
 await check('Regulatory changes: source, intake, impact, action, independent verification and closure',async()=>{
  const source=await request(admin,'/api/regulatory-intelligence','POST',{action:'save-source',name:'QA Official Source',authority:'QA Regulator',jurisdiction:'Türkiye',sourceType:'regulator',owner,reviewFrequencyDays:30,url:'https://example.com/regulations'},201);

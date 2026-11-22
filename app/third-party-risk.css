@@ -49,3 +49,13 @@
 .tprm-doc-editor,.tprm-doc-editor label,.tprm-gate-wrap label{display:grid;gap:.4rem;min-width:0}
 .tprm-expiry{margin-top:1rem;padding:1rem;border:1px solid var(--ws-line);background:var(--ws-surface);border-radius:.7rem}
 .tprm-gate-wrap,.tprm-gate{white-space:normal}.tprm-gate li{margin:.25rem 0}.tprm-gate-wrap textarea{max-width:100%}
+
+.tprm-tier{display:inline-block;padding:.2rem .55rem;border-radius:1rem;background:var(--ws-brand-soft);color:var(--ws-ink);white-space:nowrap}
+.tprm-tier-filter,.tprm-gap-options{display:flex;align-items:center;flex-wrap:wrap;gap:.65rem;margin:.75rem 0}
+.tprm-phase-panel{display:grid;gap:.75rem;min-width:0;margin:.75rem 0;padding:1rem;border:1px solid var(--ws-line);border-radius:.7rem;color:var(--ws-ink);background:var(--ws-surface)}
+.tprm-phase-panel :is(h3,h4,p,ul){margin:0}.tprm-phase-panel>button{justify-self:start}
+.tprm-phase-panel label{display:flex;align-items:center;flex-wrap:wrap;gap:.5rem}.tprm-phase-panel input[type=checkbox]{width:1rem;height:1rem}
+.tprm-phase-panel select,.tprm-tier-filter select{max-width:100%}
+.tprm-survey-answers summary{cursor:pointer}.tprm-survey-answers ul{list-style:none;padding:0;white-space:normal}
+.tprm-survey-answers li{display:flex;flex-wrap:wrap;gap:.5rem;align-items:baseline;padding:.55rem 0;border-bottom:1px solid var(--ws-line)}
+.tprm-survey-answers li p{flex-basis:100%;overflow-wrap:anywhere;white-space:pre-wrap}

@@ -11,7 +11,7 @@ Fornost TPRM 2.0, üçüncü taraf riskini yalnız bir envanter satırı olarak 
 5. Açık yüksek/kritik bulgu ya da kritik kontrol boşluğu tam onayı engeller. Koşullu onay ayrıntılı bir karar notu ile birlikte destekleyici belge veya açık risk kabul gerekçesi gerektirir.
 6. Bulgular sahip, termin, önem ve CAPA açıklamasıyla yürütülür; kapatma ayrı reviewer ve ikinci kanıt zinciri gerektirir.
 7. Yeniden değerlendirme yeni bir döngü oluşturur, önceki karar sürümünü `superseded` durumuna alır ve geçmişi korur.
-8. Offboarding yalnız tüm bulgular kapalıyken, atanmış bağımsız reviewer tarafından kütüphaneden seçilen çıkış kanıtıyla tamamlanır.
+8. İş veya risk sahibi ya da hazırlayıcı yönetici erişim iptalini ve veri iadesini/imhasını doğrular, tutanağın kanıt sürümünü bağlar. Tüm bulgular kapandığında atanmış bağımsız yönetici çıkışı onaylar.
 
 ## Due-diligence kapsamı
 
@@ -66,3 +66,11 @@ Onboarding sırasında üç sorumluyu dizinden seçin. Bağımsız incelemeci et
 Tedarikçi sahibi beş belge türü için Kanıt Kütüphanesinden bir sürüm ve geçerlilik tarihi seçer. Risk kuyruğu belge bitişini 30, sözleşme bitişini 90 gün önceden gösterir. Kritik/Tier-1 için güncel DPA ve ISO 27001 veya SOC 2/ISAE 3402 güvencesi aranır. Yenileme uyarısı geçmiş kararı korur. Etki alanı tedarikçinin varlıklarını, doğrudan ve bu varlıklar üzerinden bağlı BIA süreçlerini ve kaydedilmiş en kısa kurtarma hedeflerini gösterir.
 
 Karar veren bağımsız Admin, atamaları, tamamlanmış puanlamayı ve geçerli destekleyici belgeyi veya açık risk kabul gerekçesini inceler. Kütüphaneden seçilen değerlendirme gönderim kanıtı da destekleyici belge olarak kullanılabilir. Sunucu karar anındaki ön koşulları, dayanakları ve kararı aynı işlemde geçmişe yazar. Eski kararlar için sonradan bir değerlendirme üretilmez.
+
+## Tedarikçi kademesi, dış anket ve çıkış
+
+Kritik veya çok gizli tedarikçi Tier 1 (180 gün), yüksek veya gizli tedarikçi Tier 2 (365 gün), kalan sınıflandırılmış kayıtlar Tier 3 (730 gün) olarak izlenir. İlk inceleme önerisi sözleşme bitişini geçmez. Açıkça girilen tarih korunur.
+
+Risk sahibi taslak döngüye ait 12 soruluk CSV şablonunu indirir. Dosyadaki tedarikçi ve döngü doğrulanır. Yalnız Evet kontrolü karşılar. Kısmi ve Hayır yanıtları için risk sahibi, sorumlu, önem ve termini görerek bulgu açabilir. Anketin cevapları ve tedarikçi açıklamaları geçmişte saklanır.
+
+Çıkışta sahip erişim iptalini ve veri imha/iadesini kaydeder, tutanağın kanıt sürümünü seçer. Bağımsız Admin kapatırken sunucu kanıtı, açık bulguları ve hazırlayanın kimliğini yeniden doğrular. Çıkış kararı zaman damgası ve dayanaklarıyla saklanır.

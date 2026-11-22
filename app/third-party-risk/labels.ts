@@ -11,7 +11,7 @@ const labels: Record<string, {tr:string;en:string}> = {
   'critical-finding':{tr:'Kritik bulgu',en:'Critical finding'},
   overdue:{tr:'Gecikmiş',en:'Overdue'},
   public:{tr:'Herkese açık',en:'Public'}, internal:{tr:'Kurum içi',en:'Internal'},
-  confidential:{tr:'Gizli',en:'Confidential'}, restricted:{tr:'Kısıtlı',en:'Restricted'},
+  confidential:{tr:'Gizli',en:'Confidential'}, restricted:{tr:'Çok Gizli',en:'Restricted'},
 };
 
 // Presentation only: canonical values remain in forms, API payloads and CSS.
