@@ -20,7 +20,7 @@ try{
      posts++;await new Promise(resolve=>{release=resolve});
      if(mode==='reject')await route.fulfill({status:422,json:{error:'Correct this test field'}});
      else if(mode==='uncertain')await route.abort();
-     else await route.fulfill({json:{message:'Saved'}});
+     else await route.fulfill({json:{message:'KRI ölçümü kaydedildi.'}});
     }else if(readMode==='error'){
      await route.fulfill({status:503,json:{error:'Unavailable'}});
     }else await route.fulfill({json:{
@@ -79,7 +79,7 @@ try{
   await expect.poll(()=>posts).toBe(2);release();await expect(dialog).toHaveCount(0);await expect(page.locator('.rap-notice')).toContainText(lang==='tr'?'doğrulanamadı':'could not be confirmed');
   await page.getByRole('button',{name:'+ KRI',exact:true}).click();await expect(page.getByRole('dialog').getByRole('alert')).toHaveCount(0);
   mode='success';await page.getByRole('dialog').locator('form').evaluate(form=>form.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true})));
-  await expect.poll(()=>posts).toBe(3);release();await expect(page.getByRole('dialog')).toHaveCount(0);await expect(page.locator('.rap-notice')).toContainText('Saved');
+  await expect.poll(()=>posts).toBe(3);release();await expect(page.getByRole('dialog')).toHaveCount(0);await expect(page.locator('.rap-notice')).toContainText(lang==='tr'?'KRI ölçümü kaydedildi.':'Completed.');
   assert.deepEqual(errors,[]);await page.close();
  }
  console.log('KRI_FORM_QA_PASS: TR/EN, slider keyboard limits, zero/empty measurement, duplicate submit, busy Escape/backdrop/cancel, inline validation, uncertain outcome, success, mobile/desktop overflow');
