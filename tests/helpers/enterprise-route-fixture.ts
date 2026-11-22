@@ -1,3 +1,7 @@
+import * as vendorScope from "../../app/third-party-risk/scope";
+import * as vendorInventory from "../../app/third-party-risk/inventory";
+import * as coreCompatibility from "../../app/api/grc/schema-compat";
+import * as vendorRegistry from "../../app/record-code-store";
 import * as workRecordCodes from "../../app/work-record-codes";
 import * as workflowCancellation from "../../app/workflow-cancellation";
 import * as continuityDraft from "../../app/continuity/draft-store";
@@ -70,6 +74,10 @@ export function fixture(module:'incidents'|'continuity'|'policy-lifecycle'|'thir
  const compiled=ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;
  const exports:Record<string,unknown>={};
  const require=(name:string)=>{
+  if(name==="../../third-party-risk/scope")return vendorScope;
+  if(name==="../../third-party-risk/inventory")return vendorInventory;
+  if(name==="../grc/schema-compat")return coreCompatibility;
+  if(name==="../../record-code-store")return vendorRegistry;
   if(name==='../../work-record-codes')return workRecordCodes;
   if(name==='next/server')return{NextResponse:{json:(body:unknown,options:{status:number})=>({body,status:options.status})}};
   if(name==='cloudflare:workers')return{env:{DB:db}};

@@ -1,3 +1,4 @@
+import {validVendorEvidenceRefs} from "./third-party-risk/inventory";
 import { biaRecoveryFields, exceedsMtpd, sameBiaPerson, mtpdWarning, sodWarning } from "./bia-assessment";
 import { hasRecoveryTarget } from "./bia-recovery";
 import { assetLifecycle, assetStatuses } from "./asset-inventory-model";
@@ -97,6 +98,10 @@ export function validate(module:unknown,input:unknown){
    if(!Array.isArray(refs)||refs.some(ref=>typeof ref!=="string"||!ref.trim()||ref.length>120))return {error:"Geçersiz BIA bağımlılığı."};
    data[key]=[...new Set(refs.map(ref=>ref.trim()))];
   }
+ }
+ if(module==="Tedarikçiler" && data.vendorEvidenceRefs!==undefined){
+  if(!validVendorEvidenceRefs(data.vendorEvidenceRefs))return {error:"Geçersiz tedarikçi kanıt bağlantısı."};
+  data.vendorEvidenceRefs=[...new Set(data.vendorEvidenceRefs.map(ref=>ref.trim()))];
  }
  const independentRisk=module==="Risk Assessment" && data.riskScope==="organization";
  if(independentRisk && String(data.asset??"").trim())return {error:"Varlıktan bağımsız bir riskte varlık seçilemez."};

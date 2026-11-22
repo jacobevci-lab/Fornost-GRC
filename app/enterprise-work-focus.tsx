@@ -25,12 +25,12 @@ export function useEnterpriseWorkFocus<T extends string>(module: string, setTab:
   return { focus, open: (kind:string,ref:string) => {const definition=enterpriseWorkKinds[kind];if(definition?.module===module){setFocus({kind,ref});setTab(definition.tab as T);onFocus?.()}}, clear: () => setFocus(null), matches: (kind: string, id: string) => !focus || focus.kind !== kind || focus.ref === id };
 }
 
-export function EnterpriseWorkFocusBanner({ focus, found, ready, clear, tr }: {
-  focus: WorkFocus | null; found: boolean; ready: boolean; clear: () => void; tr: boolean;
+export function EnterpriseWorkFocusBanner({ focus, found, ready, clear, tr, referenceLabel }: {
+  focus: WorkFocus | null; referenceLabel?: string; found: boolean; ready: boolean; clear: () => void; tr: boolean;
 }) {
   if (!focus) return null;
   return <div className="core-record-focus enterprise-work-focus" role="status"><div>
-    <strong>{enterpriseWorkKinds[focus.kind]?.[tr ? 'tr' : 'en']}</strong><span>{focus.ref}</span>
+    <strong>{enterpriseWorkKinds[focus.kind]?.[tr ? 'tr' : 'en']}</strong><span>{referenceLabel ?? focus.ref}</span>
     {!found && <span>{!ready ? (tr ? 'Kaynak henüz doğrulanamadı.' : 'Source not yet verified.') : (tr ? 'Kayıt bulunamadı veya erişilemiyor.' : 'Record unavailable or inaccessible.')}</span>}
   </div><div>
     {focus.fromMyWork && <button type="button" onClick={() => navigateToFornost("Benim İşlerim")}>{tr ? "İş listeme dön" : "Back to My Work"}</button>}

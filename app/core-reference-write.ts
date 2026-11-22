@@ -19,7 +19,7 @@ export function newCoreReferences(sourceId:string,module:string,data:Record<stri
   const modules=rule.modules.filter(target=>target in recordCodePrefixes);
   if(!modules.length)continue;
   const previous=new Set(values(before[field]));
-  for(const value of new Set(values(data[field])))if((identity.test(value)||["dependencyRefs","technologyRefs","supplierRefs"].includes(field))&&!previous.has(value))refs.push({sourceId,field,value,modules});
+  for(const value of new Set(values(data[field])))if((identity.test(value)||["dependencyRefs","technologyRefs","supplierRefs","vendorEvidenceRefs"].includes(field))&&!previous.has(value))refs.push({sourceId,field,value,modules});
  }
  return refs;
 }
