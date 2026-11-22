@@ -13,7 +13,10 @@ const browser=await chromium.launch({executablePath:process.env.QA_CHROMIUM_PATH
 const context=await createQaContext(browser,base,{}, {viewport:{width:1440,height:1000}});
 const page=await context.newPage(),checks=[];
 const states=['onboarding','review-overdue','review-due','critical-finding','approved','conditional'];
-const expected={tr:['Kabul değerlendirmesi','İnceleme gecikti','İnceleme zamanı','Kritik bulgu','Onaylandı','Koşullu onaylandı'],en:['Onboarding','Review overdue','Review due','Critical finding','Approved','Conditionally approved']};
+const expected={
+  tr:['Değerlendirmede','Onaylı (Aktif)','İnceleme gecikti','Onaylı (Aktif)','İnceleme zamanı','Onaylı (Aktif)','Kritik bulgu','Onaylı (Aktif)','Koşullu Kabul'],
+  en:['Under assessment','Approved (active)','Review overdue','Approved (active)','Review due','Approved (active)','Critical finding','Approved (active)','Conditionally accepted'],
+};
 try {
   await mkdir(out,{recursive:true});
   const login=await context.request.post(base+'/api/auth',{headers:{origin:base},data:{action:'login',email:'qa-admin@fornost.test',password:qaPassword()}});
@@ -23,9 +26,9 @@ try {
     const response=await route.fetch();assert.equal(response.status(),200);
     const data=await response.json();
     const stamp=new Date().toISOString();
-    const vendors=states.map((attention,i)=>({vendorId:`QA-CONTRAST-${i}`,name:`QA contrast supplier ${i}`,service:'Synthetic visual regression',category:'QA',criticality:['high','critical','medium','low'][i%4],status:i===0?'onboarding':'approved',attention,dataClassification:'confidential',riskOwner:'qa-admin@fornost.test',reviewer:'reviewer@example.test',updatedAt:stamp}));
+    const vendors=states.map((attention,i)=>({vendorId:`QA-CONTRAST-${i}`,name:`QA contrast supplier ${i}`,service:'Synthetic visual regression',category:'QA',criticality:['high','critical','medium','low'][i%4],status:['onboarding','conditional'].includes(attention)?attention:'approved',attention,dataClassification:'confidential',riskOwner:'qa-admin@fornost.test',reviewer:'reviewer@example.test',updatedAt:stamp}));
     const assessments=vendors.map((v,i)=>({id:`QA-ASSESSMENT-${i}`,vendorId:v.vendorId,cycleNumber:1,status:'draft',riskTier:'high',inherentScore:16,residualScore:11,coverage:50,questionnaire:{},criticalGaps:['auditRights'],treatmentPlan:'Synthetic review plan',createdBy:'qa-admin@fornost.test',updatedAt:stamp}));
-    const unmanaged={vendorId:'QA-UNMANAGED',name:'QA outside TPRM',service:'Synthetic inventory',criticality:'low',status:'unmanaged',updatedAt:stamp};
+    const unmanaged={vendorId:'QA-UNMANAGED',name:'QA pending supplier',service:'Synthetic inventory',criticality:'low',status:'unmanaged',updatedAt:stamp};
     await route.fulfill({response,json:{...data,vendors:[...vendors,unmanaged],profiles:vendors,assessments,findings:[],evidencePins:[],summary:{total:vendors.length+1,unmanaged:1,critical:2,reviewDue:2,openFindings:0,overdueFindings:0,highRisk:vendors.length,contractsDue:0}}});
   });
   await page.goto(base);await openQaModule(page,'Tedarikçi Yönetimi');
@@ -63,7 +66,7 @@ try {
     await page.locator('.tprm-modal').getByRole('button',{name:locale==='tr'?'Vazgeç':'Cancel',exact:true}).click();
     await page.locator('.tprm-tabs').getByRole('button',{name:locale==='tr'?'Tedarikçi Envanteri':'Third Parties',exact:true}).click();
     await expect(page.locator('.tprm-table tbody tr').last()).toContainText(locale==='tr'?'Değerlendirilmedi':'Not assessed');
-    await expect(page.locator('.tprm-table tbody tr').last()).toContainText(locale==='tr'?'Kapsam dışında':'Outside TPRM');
+    await expect(page.locator('.tprm-table tbody tr').last()).toContainText(locale==='tr'?'Onboarding Bekliyor':'Awaiting onboarding');
     for(const theme of ['light','dark']) {
       if(await page.locator('html').getAttribute('data-theme')!==theme)await page.locator('.theme-toggle:visible').click();
       const audit=await new AxeBuilder({page}).include('.tprm-table .tprm-state').withRules(['color-contrast']).analyze();
