@@ -6,15 +6,24 @@ const date=(v:unknown,label:string)=>{const x=clean(v,10);if(!/^\d{4}-\d{2}-\d{2
 const hours=(v:unknown,label:string,max=8760)=>{if((typeof v!=="number"&&typeof v!=="string")||(typeof v==="string"&&!v.trim()))throw new Error(`${label} için sayısal değer zorunludur.`);const x=Number(v);if(!Number.isFinite(x)||x<0||x>max)throw new Error(`${label} 0-${max} saat arasında olmalıdır.`);return Math.round(x*100)/100};
 const sha=(v:unknown)=>{const x=clean(v,64).toLowerCase();if(!/^[a-f0-9]{64}$/.test(x))throw new Error("64 karakter SHA-256 kanıt özeti zorunludur.");return x};
 
+function references(value:unknown){
+ if(value==null)return [];
+ if(!Array.isArray(value)||value.length>100||value.some(ref=>typeof ref!=="string"||!ref.trim()||ref.length>120))throw new Error("Geçersiz kayıt bağlantısı.");
+ return [...new Set<string>(value.map(ref=>ref.trim()))];
+}
 export function validateContinuityPlan(input:Record<string,unknown>){
  const name=clean(input.name,200),process=clean(input.process,200),biaRef=clean(input.biaRef,120),criticality=clean(input.criticality,20),owner=email(input.owner,"Plan sahibi"),reviewer=email(input.reviewer,"Bağımsız reviewer"),crisisLead=email(input.crisisLead,"Kriz lideri"),rtoHours=hours(input.rtoHours,"RTO"),rpoHours=hours(input.rpoHours,"RPO"),mtpdHours=hours(input.mtpdHours,"MTPD"),dependencies=clean(input.dependencies,3000),recoveryStrategy=clean(input.recoveryStrategy,4000),communicationPlan=clean(input.communicationPlan,3000),alternateSite=clean(input.alternateSite,1000),supplierDependencies=clean(input.supplierDependencies,2000),minimumStaff=Number(input.minimumStaff),reviewDate=date(input.reviewDate,"Gözden geçirme tarihi");
- if(name.length<5||process.length<3||biaRef.length<3||dependencies.length<10||recoveryStrategy.length<20||communicationPlan.length<15)throw new Error("Plan, süreç, BIA, bağımlılık, kurtarma ve iletişim bilgileri eksiksiz olmalıdır.");
+ const assetRefs=references(input.assetRefs),supplierRefs=references(input.supplierRefs);
+ if(input.nextExerciseDate && (typeof input.nextExerciseDate!=="string"||input.nextExerciseDate.length!==10))throw new Error("Geçersiz tatbikat tarihi.");
+ const exerciseFrequency=String(input.exerciseFrequency||""),nextExerciseDate=input.nextExerciseDate?date(input.nextExerciseDate,"Tatbikat tarihi"):"";
+ if(exerciseFrequency&&!["semiannual","annual","post-event"].includes(exerciseFrequency))throw new Error("Geçersiz tatbikat sıklığı.");
+ if(name.length<5||process.length<3||biaRef.length<3||recoveryStrategy.length<20||communicationPlan.length<15)throw new Error("Plan, süreç, BIA, bağımlılık, kurtarma ve iletişim bilgileri eksiksiz olmalıdır.");
  if(!PLAN_CRITICALITIES.includes(criticality as typeof PLAN_CRITICALITIES[number]))throw new Error("Kritiklik geçersiz.");
  if(rtoHours<=0||mtpdHours<=0||rtoHours>mtpdHours)throw new Error("RTO sıfırdan büyük ve MTPD'den küçük/eşit olmalıdır.");
  if(rpoHours>rtoHours)throw new Error("RPO, RTO'dan büyük olamaz.");
  if(!Number.isInteger(minimumStaff)||minimumStaff<1||minimumStaff>100000)throw new Error("Minimum personel 1-100000 arasında olmalıdır.");
  if(new Set([owner,reviewer,crisisLead]).size!==3)throw new Error("Plan sahibi, reviewer ve kriz lideri farklı kişiler olmalıdır.");
- return{name,process,biaRef,criticality,owner,reviewer,crisisLead,rtoHours,rpoHours,mtpdHours,dependencies,recoveryStrategy,communicationPlan,alternateSite,supplierDependencies,minimumStaff,reviewDate};
+ return{assetRefs,supplierRefs,exerciseFrequency,nextExerciseDate,name,process,biaRef,criticality,owner,reviewer,crisisLead,rtoHours,rpoHours,mtpdHours,dependencies,recoveryStrategy,communicationPlan,alternateSite,supplierDependencies,minimumStaff,reviewDate};
 }
 export function validateExercise(input:Record<string,unknown>){const planId=clean(input.planId,100),type=clean(input.type,30),scheduledDate=date(input.scheduledDate,"Tatbikat tarihi"),scenario=clean(input.scenario,3000),facilitator=email(input.facilitator,"Tatbikat yöneticisi");if(!planId||!EXERCISE_TYPES.includes(type as typeof EXERCISE_TYPES[number])||scenario.length<20)throw new Error("Plan, tatbikat türü ve senaryo zorunludur.");return{planId,type,scheduledDate,scenario,facilitator}}
 export function validateExerciseResult(input:Record<string,unknown>){const outcome=clean(input.outcome,20),actualRecoveryHours=hours(input.actualRecoveryHours,"Gerçek kurtarma süresi"),actualDataLossHours=hours(input.actualDataLossHours,"Gerçek veri kaybı"),evidenceReference=clean(input.evidenceReference,500),evidenceSha256=sha(input.evidenceSha256),observations=clean(input.observations,4000),rootCause=clean(input.rootCause,3000);if(!["passed","partial","failed"].includes(outcome)||!evidenceReference||observations.length<15)throw new Error("Sonuç, kanıt ve gözlemler zorunludur.");if(outcome!=="passed"&&rootCause.length<15)throw new Error("Başarısız/kısmi tatbikatta kök neden zorunludur.");return{outcome,actualRecoveryHours,actualDataLossHours,evidenceReference,evidenceSha256,observations,rootCause}}

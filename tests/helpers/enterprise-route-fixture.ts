@@ -9,6 +9,7 @@ import * as coreCompatibility from "../../app/api/grc/schema-compat";
 import * as vendorRegistry from "../../app/record-code-store";
 import * as workRecordCodes from "../../app/work-record-codes";
 import * as workflowCancellation from "../../app/workflow-cancellation";
+import * as continuitySettings from "../../app/continuity/settings-store";
 import * as continuityDraft from "../../app/continuity/draft-store";
 import * as regulatoryWorkspace from '../../app/regulatory-intelligence/workspace-store';
 import * as findingDeadline from "../../app/third-party-risk/finding-deadline";
@@ -104,6 +105,7 @@ export function fixture(module:'incidents'|'continuity'|'policy-lifecycle'|'thir
   if(name==='../../incidents/decisions')return incidentDecisionDomain;
   if(name==='../../incidents/domain')return incidents;
   if(name==='../../incidents/work-source')return incidentWork;
+  if(name==='../../continuity/settings-store')return continuitySettings;
   if(name==='../../continuity/domain')return continuity;
   if(name==='../../continuity/work-source')return continuityWork;
   if(name==='../../continuity/activity-file-store')return continuityActivity;

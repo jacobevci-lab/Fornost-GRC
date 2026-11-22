@@ -1,3 +1,4 @@
+import {readSettings} from "./settings-store";
 import type { Actor } from '../api/auth/security';
 import { completedInitialization } from '../completed-initialization';
 import { commitLifecycle, lifecycleClaim, lifecycleInsert, nextLifecycleStamp } from '../enterprise-lifecycle-write';
@@ -38,7 +39,7 @@ export async function readPlanReviews(db: D1Database, actor: Actor, params: URLS
   await ensurePlanReviewSchema(db);
   const row = await db.prepare('SELECT * FROM enterprise_continuity_plans WHERE id=?').bind(id).first<Row>();
   if (!row) throw new PlanReviewError('REVIEW_MISSING', 404);
-  const plan = publicContinuityPlan(row);
+  const plan = publicContinuityPlan({...row,...await readSettings(db,String(row.id))});
   const records = await db.prepare('SELECT * FROM enterprise_continuity_plan_reviews WHERE plan_id=? ORDER BY reviewed_at DESC,id DESC LIMIT 21').bind(id).all<ReviewRow>();
   const reviews = records.results.slice(0, 20).map(publicReview);
   return { plan, canReview: plan.status === 'active' && independentPlanReviewer(plan, actor), reviews, hasMore: records.results.length > 20, historyVerified: reviews.every(review => review.snapshot !== null) };
@@ -54,7 +55,7 @@ export async function recordPlanReview(db: D1Database, actor: Actor, input: Reco
   await ensurePlanReviewSchema(db);
   const row = await db.prepare('SELECT * FROM enterprise_continuity_plans WHERE id=?').bind(planId).first<Row>();
   if (!row) throw new PlanReviewError('REVIEW_MISSING', 404);
-  const plan = publicContinuityPlan(row);
+  const plan = publicContinuityPlan({...row,...await readSettings(db,String(row.id))});
   if (!independentPlanReviewer(plan, actor)) throw new PlanReviewError('REVIEW_ACCESS', 403);
   const live = await db.prepare("SELECT u.id,u.email,u.role,u.status,a.policy_json FROM local_users u LEFT JOIN user_module_access a ON a.user_id=u.id WHERE u.id=?").bind(actor.id).first<{ id: string; email: string; role: string; status: string; policy_json: string | null }>();
   if (!live || live.role !== 'Admin' || live.status !== 'Active' || live.email.toLowerCase() !== actor.email.toLowerCase()) throw new PlanReviewError('REVIEW_ACCESS', 403);

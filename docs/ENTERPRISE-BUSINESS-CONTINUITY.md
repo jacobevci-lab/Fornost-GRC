@@ -2,6 +2,8 @@
 
 Fornost GRC links approved BIA records to governed continuity plans, recovery objectives, exercises and independently verified improvement gaps.
 
+Plan authors can start from a BIA, adjust its recovery targets and link assets and suppliers. The dossier brings responsibilities, exercise scheduling and improvements together. An approved count includes active plans. A manually recorded improvement belongs to a completed exercise and follows the same independent retest and closure policy as an automatically detected gap.
+
 ## Lifecycle
 
 1. An Editor or Admin creates a draft plan with BIA reference, dependencies, RTO, RPO and MTPD.

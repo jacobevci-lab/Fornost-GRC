@@ -16,11 +16,15 @@ const log=createWriteStream(`${out}/server.log`);
 const server=spawn('npm',['run','dev','--','--host','127.0.0.1','--port','4186','--strictPort'],{stdio:['ignore','pipe','pipe'],detached:true});
 server.stdout.pipe(log);server.stderr.pipe(log);
 let browser,page,phase='server';
+async function chooseContinuityRecord(dialog,label,term){
+  await dialog.getByRole('combobox',{name:label,exact:true}).fill(term);
+  await dialog.getByRole('listbox',{name:label,exact:true}).getByRole('option').filter({hasText:term}).first().click();
+}
 async function api(ctx,path,method='GET',data,status=200){const r=await ctx.request.fetch(base+path,{method,data,headers:{origin:base},timeout:60000});assert.equal(r.status(),status,`${path}: ${await r.text()}`);return r.json()}
 async function open(p,label){await p.goto(base);await expect(p.locator('.shell')).toBeVisible();await switchQaLocale(p,'en');await openQaModule(p,label)}
 async function login(p,email){await p.goto(base);await p.locator('input[name=email]').fill(email);await p.locator('input[name=password]').fill(password);await p.getByRole('button',{name:'Giriş Yap',exact:true}).click();await expect(p.locator('.shell')).toBeVisible();await switchQaLocale(p,'en')}
 async function submit(p,dialog,button,path,status=200,readBody=true){const response=p.waitForResponse(r=>new URL(r.url()).pathname===path&&r.request().method()==='POST');await dialog.getByRole('button',{name:button,exact:true}).click();const r=await response;if(r.status()!==status)assert.fail(`${path}: HTTP ${r.status()} ${await r.text().catch(()=>'(response body unavailable)')}`);return readBody?r.json():null}
-async function planDecision(p,label,phrase){await p.locator('.cpd-file').getByRole('button',{name:({'Approve plan':'Approve','Activate plan':'Activate'})[label]||label,exact:true}).click();const d=p.getByRole('dialog',{name:label,exact:true});await d.locator('[name=note]').fill('Synthetic regression: reviewed draft lifecycle and retained history.');await d.locator('[name=confirmation]').fill(phrase);await submit(p,d,label,'/api/continuity',200,false);await expect(d).toBeHidden()}
+async function planDecision(p,label,phrase){await p.locator('.cpd-file').getByRole('button',{name:({'Approve plan':'Review / Approve','Activate plan':'Activate'})[label]||label,exact:true}).click();const d=p.getByRole('dialog',{name:label,exact:true});await d.locator('[name=note]').fill('Synthetic regression: reviewed draft lifecycle and retained history.');await d.locator('[name=confirmation]').fill(phrase);await submit(p,d,label,'/api/continuity',200,false);await expect(d).toBeHidden()}
 try{
  const deadline=Date.now()+120000;
  while(true){try{const r=await fetch(base+'/api/auth');if(r.ok)break}catch{}if(Date.now()>deadline)throw Error('Local server did not start');await new Promise(r=>setTimeout(r,500))}
@@ -56,16 +60,17 @@ try{
  const bia=await api(admin,'/api/grc','POST',{module:'BIA',data:{process:'QA recovery process '+tag,processCategory:'Operasyonel Süreç',businessUnit:'QA',owner,criticality:'Kritik',asset:asset.code,rto:4,rpo:1,status:'Taslak'}},201);
  await open(page,'Business Continuity & Resilience');await page.locator('.continuity-hero').getByRole('button',{name:'New Plan'}).click();dialog=page.getByRole('dialog',{name:'New continuity plan',exact:true});
  const planName='QA recovery draft '+tag;
- for(const [name,value] of Object.entries({name:planName,process:'Payments recovery',biaRef:bia.code,dependencies:'Identity and database dependencies',recoveryStrategy:'Restore services from the secondary site and verify their integrity.',communicationPlan:'Notify crisis owners and affected teams.'}))await dialog.locator(`[name=${name}]`).fill(value);
- await dialog.getByLabel('Independent reviewer',{exact:true}).selectOption(reviewerEmail);await dialog.getByLabel('Crisis lead',{exact:true}).selectOption(leadEmail);
+ await chooseContinuityRecord(dialog,'BIA reference',bia.code);
+ for(const [name,value] of Object.entries({name:planName,process:'Payments recovery',mtpdHours:'24',dependencies:'Identity and database dependencies',recoveryStrategy:'Restore services from the secondary site and verify their integrity.',communicationPlan:'Notify crisis owners and affected teams.'}))await dialog.locator(`[name=${name}]`).fill(value);
+ await chooseContinuityRecord(dialog,'Independent reviewer',reviewerEmail);await chooseContinuityRecord(dialog,'Crisis lead',leadEmail);
  const plan=await submit(page,dialog,'Create draft plan','/api/continuity',201);await expect(dialog).toBeHidden();
  await page.locator('.cpd-index button').filter({hasText:planName}).click();
- phase='edit draft';await page.locator('.cpd-file').getByRole('button',{name:'Edit draft',exact:true}).click();dialog=page.getByRole('dialog',{name:'Edit draft',exact:true});await dialog.locator('[name=alternateSite]').fill('Updated recovery location');await submit(page,dialog,'Save changes','/api/continuity',200,false);await expect(dialog).toBeHidden();
+ phase='edit draft';await page.locator('.cpd-file').getByRole('button',{name:'Edit',exact:true}).click();dialog=page.getByRole('dialog',{name:'Edit draft',exact:true});await dialog.locator('[name=alternateSite]').fill('Updated recovery location');await submit(page,dialog,'Save changes','/api/continuity',200,false);await expect(dialog).toBeHidden();
  let state=await api(admin,'/api/continuity');assert.equal(state.plans.find(p=>p.id===plan.id).alternateSite,'Updated recovery location');
  phase='submit draft';await planDecision(page,'Submit for review','PLANI İNCELEMEYE GÖNDER');await page.locator('.cpd-file').screenshot({path:`${out}/continuity-submitted.png`});
  const reviewer=await peer.newPage();reviewer.setDefaultTimeout(30000);await login(reviewer,reviewerEmail);await open(reviewer,'Business Continuity & Resilience');await reviewer.locator('.cpd-index button').filter({hasText:planName}).click();
  phase='independent review';await planDecision(reviewer,'Approve plan','PLANI ONAYLA');await open(page,'Business Continuity & Resilience');await page.locator('.cpd-index button').filter({hasText:planName}).click();await planDecision(page,'Activate plan','PLANI ETKİNLEŞTİR');
- phase='schedule exercise';await page.locator('.cpd-file').getByRole('button',{name:'Schedule exercise',exact:true}).click();dialog=page.getByRole('dialog',{name:'Schedule exercise',exact:true});await dialog.locator('[name=scenario]').fill('Simulate service loss and validate the recovery sequence with the assigned team.');await dialog.getByLabel('Facilitator',{exact:true}).selectOption(owner);await submit(page,dialog,'Schedule','/api/continuity',201,false);await expect(dialog).toBeHidden();
+ phase='schedule exercise';await page.locator('.bcp-header-actions').getByRole('button',{name:'+ Schedule exercise',exact:true}).click();dialog=page.getByRole('dialog',{name:'Schedule exercise',exact:true});await dialog.locator('[name=scenario]').fill('Simulate service loss and validate the recovery sequence with the assigned team.');await dialog.getByLabel('Facilitator',{exact:true}).selectOption(owner);await submit(page,dialog,'Schedule','/api/continuity',201,false);await expect(dialog).toBeHidden();
  state=await api(admin,'/api/continuity');assert.equal(state.plans.find(p=>p.id===plan.id).status,'active');assert.ok(state.exercises.some(e=>e.planId===plan.id));checks.push('Browser chain: create → edit → submit → independent approve → activate → schedule exercise');
  assert.deepEqual(errors,[],'Browser runtime errors');await waitForQaIdle(page);
  await writeFile(`${out}/result.json`,JSON.stringify({result:'pass',checks},null,2));console.log(JSON.stringify({result:'pass',checks}));

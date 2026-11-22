@@ -1,5 +1,9 @@
 "use client";
 import { useEffect, useId, useRef, useState, type FormEvent } from 'react';
+import {frequencies} from "./continuity-plan-editor";
+import {useContext} from "react";
+import {entity} from "./asset-inventory-fields";
+import {ModuleTrailContext} from "./module-record-trail-view";
 import { CurrentRecordTrail } from "./module-record-trail-view";
 import { withBasePath } from './base-path';
 import { useWorkflowRecords } from './use-workflow-records';
@@ -9,7 +13,12 @@ import './continuity-plan-review.css';
 type Draft = { requestId: string; expectedRevision: string; note: string; nextReviewDate: string; confirmed: boolean };
 const newDraft = (plan: ContinuityPlan): Draft => ({ requestId: `BPR-${crypto.randomUUID()}`, expectedRevision: plan.updatedAt, note: '', nextReviewDate: '', confirmed: false });
 function PlanFacts({ plan, tr }: { plan: ContinuityPlan; tr: boolean }) {
+  const rows=useContext(ModuleTrailContext)?.rows||[];
+  const links=(refs:string[]|undefined,module:string)=>(refs||[]).map(ref=>{const row=rows.find(r=>r.module===module&&(r.id===ref||r.code===ref));return row?entity(row).label:(tr?"Bağlı kayıt":"Linked record")}).join(" · ");
+  const cadence=frequencies[plan.exerciseFrequency as keyof typeof frequencies];
   const fields = [
+    [tr?"Tatbikat sıklığı":"Exercise frequency",cadence?.[tr?0:1]||"—"],
+    [tr?"Sonraki planlanan tatbikat":"Next planned exercise",plan.nextExerciseDate?plan.nextExerciseDate.split("-").reverse().join("."):"—"],
     [tr ? 'Plan / Süreç' : 'Plan / Process', `${plan.name} · ${plan.process}`],
     [tr ? 'Durum' : 'Status', tr ? ({ draft: 'Taslak', submitted: 'İncelemeye gönderildi', approved: 'Onaylı', active: 'Etkin', retired: 'Yürürlükten kaldırıldı', cancelled: 'İptal edildi' }[plan.status] || plan.status) : plan.status],
     [tr ? 'Kritiklik' : 'Criticality', tr ? ({ critical: 'Kritik', high: 'Yüksek', medium: 'Orta', low: 'Düşük' }[plan.criticality] || plan.criticality) : plan.criticality],
@@ -18,9 +27,9 @@ function PlanFacts({ plan, tr }: { plan: ContinuityPlan; tr: boolean }) {
     [tr ? 'Bağımsız incelemeci' : 'Independent reviewer', plan.reviewer], [tr ? 'Kriz lideri' : 'Crisis lead', plan.crisisLead],
     ['RTO / RPO / MTPD', `${plan.rtoHours}h / ${plan.rpoHours}h / ${plan.mtpdHours}h`],
     [tr ? 'Minimum personel' : 'Minimum staff', String(plan.minimumStaff)], [tr ? 'Gözden geçirme tarihi' : 'Review date', plan.reviewDate],
-    [tr ? 'Bağımlılıklar' : 'Dependencies', plan.dependencies], [tr ? 'Kurtarma stratejisi' : 'Recovery strategy', plan.recoveryStrategy],
+    [tr ? 'Bağımlılıklar' : 'Dependencies', [links(plan.assetRefs,'Varlık Envanteri'),plan.dependencies].filter(Boolean).join(' · ')||'—'], [tr ? 'Kurtarma stratejisi' : 'Recovery strategy', plan.recoveryStrategy],
     [tr ? 'İletişim planı' : 'Communication plan', plan.communicationPlan], [tr ? 'Alternatif konum' : 'Alternate site', plan.alternateSite || '—'],
-    [tr ? 'Tedarikçi bağımlılıkları' : 'Supplier dependencies', plan.supplierDependencies || '—'],
+    [tr ? 'Tedarikçi bağımlılıkları' : 'Supplier dependencies', [links(plan.supplierRefs,'Tedarikçiler'),plan.supplierDependencies].filter(Boolean).join(' · ')||'—'],
   ];
   return <dl className="cpr-facts">{fields.map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl>;
 }

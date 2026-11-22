@@ -3,7 +3,7 @@ export const CONTINUITY_WORK_LIMIT = 2000;
 export async function readContinuityWork(db: D1Database) {
   const limit = CONTINUITY_WORK_LIMIT + 1;
   const [plans, exercises, gaps] = await Promise.all([
-    db.prepare(`SELECT id,code,name,status,owner,reviewer,crisis_lead crisisLead,
+    db.prepare(`SELECT id,COALESCE((SELECT printf('BCP-%03d',sequence) FROM enterprise_continuity_plan_settings WHERE plan_id=enterprise_continuity_plans.id),code) code,name,status,owner,reviewer,crisis_lead crisisLead,
       review_date reviewDate,criticality,updated_at updatedAt,CASE WHEN status='cancelled' THEN updated_at ELSE retired_at END completedAt
       FROM enterprise_continuity_plans ORDER BY CASE WHEN status IN ('retired','cancelled') THEN 1 ELSE 0 END,review_date,id LIMIT ?`).bind(limit).all(),
     db.prepare(`SELECT e.id,e.code,e.plan_id planId,e.type,e.status,e.facilitator,
