@@ -1,3 +1,4 @@
+import {prepareQaSupplierExit} from './qa-supplier-exit.mjs';
 import { chromium, expect } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 import assert from 'node:assert/strict';
@@ -66,7 +67,7 @@ try {
 
   phase='owned fixture completion and offboarding';await peer.setViewportSize({width:1440,height:1000});await work(page);await target(page,'Vendor finding',findingId);await decision(page,'Submit','BULGUYU DOĞRULAMAYA GÖNDER');await work(peer);await target(peer,'Vendor finding',findingId);await decision(peer,'Close','BULGUYU KAPAT');
   await work(page);await target(page,'Vendor assessment',nextAssessmentId);await decision(page,'Submit','İNCELEMEYE GÖNDER');await work(peer);await target(peer,'Vendor assessment',nextAssessmentId);await decision(peer,'Approve','TEDARİKÇİYİ ONAYLA');
-  const profile=(await api(reviewer,'/api/third-party-risk')).profiles.find(p=>p.vendorId===vendorId);await api(reviewer,'/api/third-party-risk','POST',{action:'offboard',vendorId,expectedRevision:profile.updatedAt,note:'Owned synthetic supplier work checks completed; access and retained evidence reviewed.',confirmation:'TEDARİKÇİYİ KAPAT',evidenceMode:'library',evidenceSelection:{evidenceId,versionId}});
+  await api(reviewer,'/api/third-party-risk','POST',{action:'offboard',vendorId,expectedRevision:await prepareQaSupplierExit(api,admin,vendorId,{evidenceMode:'library',evidenceSelection:{evidenceId,versionId}}),note:'Owned synthetic supplier work checks completed; access and retained evidence reviewed.',confirmation:'TEDARİKÇİYİ KAPAT',evidenceMode:'library',evidenceSelection:{evidenceId,versionId}});
   await work(page);await expect(page.locator('.mw2-item')).toHaveCount(0);await work(page,'Completed');await expect(page.locator('.mw2-item')).toHaveCount(4);state=await workState();assert.equal(state.profiles.find(p=>p.vendorId===vendorId).status,'offboarded');assert.ok(state.profiles.find(p=>p.vendorId===vendorId).completedAt);
   checks.push('Both cycles and finding completed through existing decisions; offboarding removes active work and supplies the real retained-event completion');
   assert.deepEqual(errors,[]);await writeFile(`${out}/result.json`,JSON.stringify({status:'PASS',checks,errors,vendorId,assessmentId,nextAssessmentId,findingId,cleanup:'Owned supplier offboarded and finding closed; synthetic decision history retained in disposable loopback QA.'},null,2));console.log('TPRM_WORK_HISTORY_QA_PASS');

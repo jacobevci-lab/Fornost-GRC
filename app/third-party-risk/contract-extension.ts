@@ -10,7 +10,7 @@ export function validContractExtension(next: unknown, previous: unknown, today =
 }
 export function canExtendContract(profile: { status: unknown; reviewer?: unknown; createdBy?: unknown; businessOwner?: unknown; riskOwner?: unknown }, actor: { role: string; email: string }) {
   const email = actor.email.toLowerCase();
-  return [profile.reviewer,profile.createdBy,profile.businessOwner,profile.riskOwner].every(value=>typeof value==='string'&&value.length>0) && actor.role === 'Admin' && !['unmanaged','offboarded','rejected'].includes(String(profile.status)) && String(profile.reviewer).toLowerCase() === email && ![profile.createdBy,profile.businessOwner,profile.riskOwner].some(value => String(value).toLowerCase() === email);
+  return [profile.reviewer,profile.createdBy,profile.businessOwner,profile.riskOwner].every(value=>typeof value==='string'&&value.length>0) && actor.role === 'Admin' && !['unmanaged','offboarding','offboarded','rejected'].includes(String(profile.status)) && String(profile.reviewer).toLowerCase() === email && ![profile.createdBy,profile.businessOwner,profile.riskOwner].some(value => String(value).toLowerCase() === email);
 }
 export function validateContractExtension(input: Record<string, unknown>, profile: { contract_end: unknown; updated_at: unknown }) {
   const value = input.contractExtension as Record<string, unknown> | null;

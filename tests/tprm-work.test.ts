@@ -1,3 +1,4 @@
+import {setup as setupSupplier,prepareExit} from './helpers/supplier-evidence-fixture';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import type { DatabaseSync } from 'node:sqlite';
@@ -89,9 +90,8 @@ test('finding verification and reopening use actual completion and restore activ
   }finally{f.sqlite.close();}
 });
 test('offboarding completion comes from its retained event, never later profile edits',async()=>{
-  const f=fixture('third-party-risk');try{
-    await f.get('view=work');seedProfile(f.sqlite);seed(f.sqlite,'simple_grc_records',{id:profile.vendorId,module:'Tedarikçiler',data_json:'{}',created_at:dates.createdAt,updated_at:dates.updatedAt});
-    const result=await f.post({action:'offboard',vendorId:profile.vendorId,confirmation:'TEDARİKÇİYİ KAPAT',...evidence});assert.equal(result.status,200);
+  const f=await setupSupplier();try{
+    await prepareExit(f);assert.equal((await f.decision('offboard',f.vendorId)).status,200);
     const completed=String(f.sqlite.prepare("SELECT created_at FROM third_party_events WHERE action='vendor-offboard'").get()!.created_at);f.sqlite.prepare('UPDATE third_party_profiles SET updated_at=?').run('2099-01-01T00:00:00Z');
     const row=projectEnterpriseWork('vendor',(await f.get('view=work')).body).rows[0];assert.equal(workCompletionDate(row),completed);assert.notEqual(row.completedAt,row.updatedAt);
   }finally{f.sqlite.close();}

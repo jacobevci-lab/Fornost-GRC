@@ -1,3 +1,4 @@
+import {vendorTier} from "./tier";
 import {validReviewDate} from "./review-schedule";
 import {assessmentMetrics,TPRM_CONTROLS} from "./domain";
 import {hasRecoveryTarget} from "../bia-recovery";
@@ -12,7 +13,7 @@ export const documentTypes = {
 export type DocumentKind = keyof typeof documentTypes;
 export const documentKinds = Object.keys(documentTypes) as DocumentKind[];
 export type AssuranceDocument = {kind:DocumentKind; revision:string; evidenceId:string; versionId:string; versionNo:number; code:string|null; title:string; sha256:string; expires:string; available:number};
-export type AssuranceVendor = {vendorId:string; name:string; status:string; criticality:string; contractEnd?:string; documents?:AssuranceDocument[]; supportIds?:string[]; businessOwner?:string; riskOwner?:string; reviewer?:string; reviewerAdmin?:boolean};
+export type AssuranceVendor = {vendorId:string; name:string; status:string; criticality:string; dataClassification?:string; contractEnd?:string; documents?:AssuranceDocument[]; supportIds?:string[]; businessOwner?:string; riskOwner?:string; reviewer?:string; reviewerAdmin?:boolean};
 export const utcDay=()=>new Date().toISOString().slice(0,10);
 export function daysLeft(date:unknown,today=utcDay()){
   return validReviewDate(date)?(Date.parse(date)-Date.parse(today))/86400000:null;
@@ -24,7 +25,7 @@ export function validity(doc?:AssuranceDocument,today=utcDay()){
 }
 export function criticalSupplier(criticality:string){return /^(critical|kritik|tier[ -]?1)$/i.test(criticality);}
 export function renewalNeeded(v:AssuranceVendor,today=utcDay()){
-  if(!criticalSupplier(v.criticality)||["offboarded","excluded","rejected","cancelled"].includes(v.status))return false;
+  if(vendorTier(v.criticality,v.dataClassification)!==1||["offboarded","excluded","rejected","cancelled"].includes(v.status))return false;
   const valid=(kind:DocumentKind)=>["valid","soon"].includes(validity(v.documents?.find(d=>d.kind===kind),today));
   return !valid("dpa")||!(valid("iso")||valid("soc"));
 }

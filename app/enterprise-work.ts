@@ -176,7 +176,7 @@ export function projectEnterpriseWork(source: EnterpriseWorkSource, payload: unk
     for (const a of assessments) {
       const p = parent(profiles, 'vendorId', a.vendorId); if (!p) continue;
       const closed = ['approved','conditional','rejected','superseded','cancelled'].includes(text(a.status));
-      if (!closed && inactive(p)) continue;
+      if (!closed && (inactive(p)||p.status==='offboarding')) continue;
       add('vendor-assessment', a, { title: `${text(p.name)} · ${a.cycleNumber}`, owner: p.riskOwner, actionOwner: p.businessOwner,
         reviewer: a.status === 'submitted' ? p.reviewer : closed ? text(a.decidedBy) : '', severity: a.riskTier, workWaitingForReview: a.status === 'submitted' }, closed);
     }

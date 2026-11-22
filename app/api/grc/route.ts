@@ -90,7 +90,7 @@ export async function PATCH(req:NextRequest){
   const existing=await d.prepare("SELECT module,data_json,updated_at FROM simple_grc_records WHERE id=?").bind(b.id).first<{module:string;data_json:string;updated_at:string}>();
   if(!existing)return NextResponse.json({error:"Kayıt bulunamadı."},{status:404});if(!canWriteModule(auth.actor,existing.module))return NextResponse.json({error:"Bu modülde yazma yetkiniz yok."},{status:403});
   const input=existing.module==="Risk Assessment"&&b.data&&typeof b.data==="object"&&!Array.isArray(b.data)?preserveRiskGovernance(b.data,JSON.parse(existing.data_json)):b.data;
-  const checked=validate(existing.module,input);if("error" in checked)return NextResponse.json({error:checked.error},{status:400});
+  const checked=validate(existing.module,input,JSON.parse(existing.data_json).status);if("error" in checked)return NextResponse.json({error:checked.error},{status:400});
   const updatedAt=await writeCoreRecord(d,b.id,existing,checked.data,b.expectedUpdatedAt);
   return NextResponse.json({ok:true,updatedAt});
  }catch(error){if(error instanceof RegisterImportError)return NextResponse.json({error:error.code,issues:error.issues},{status:error.status});if(isAuditClosedError(error))return NextResponse.json({error:auditClosedMessage,code:"AUDIT_CLOSED"},{status:409});if(error instanceof CoreReferenceUnavailable)return NextResponse.json({error:error.message,code:"REFERENCE_UNAVAILABLE"},{status:422});if(error instanceof LifecycleConflict)return NextResponse.json({error:error.message},{status:409});return NextResponse.json({error:"Geçersiz JSON isteği, kayıt sürümü veya okunamayan kayıt."},{status:400})}

@@ -3,7 +3,7 @@ export type ReviewerContext = { vendorId: string; name: string; reviewer: string
 export type ReviewerHandoffRecord = { previousReviewer: string; reviewer: string; note: string; counts: ReviewerWorkCounts };
 export type ReviewerHistory = { vendorId: string; page: number; rows: { id: string; actor: string; createdAt: string; detail: ReviewerHandoffRecord | null }[]; hasMore: boolean };
 export const HANDOFF_CONFIRMATION = 'İNCELEMECİYİ DEĞİŞTİR';
-export const canReassignReviewer = (status: string, role: string) => role === 'Admin' && ['onboarding','in-review','reassessment','approved','conditional'].includes(status);
+export const canReassignReviewer = (status: string, role: string) => role === 'Admin' && ['onboarding','in-review','reassessment','approved','conditional','offboarding'].includes(status);
 export class ReviewerHandoffError extends Error {
   constructor(public code: 'TPRM_REVIEWER_INPUT' | 'TPRM_REVIEWER_SOURCE_CHANGED' | 'TPRM_REVIEWER_ACCESS' | 'TPRM_REVIEWER_LIMIT', public status = 400) { super(code); }
 }

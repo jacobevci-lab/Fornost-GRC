@@ -6,27 +6,7 @@ export class SampleImportError extends Error {
 }
 /** Strict two-column CSV. Reject the whole import; never silently truncate or overwrite. */
 export function parseSampleCsv(source: string, maxRows = 100, maxBytes = SAMPLE_IMPORT_BYTES): WorkpaperSample[] {
-  if (new TextEncoder().encode(source).length > maxBytes) throw new SampleImportError('size');
-  const text = source.replace(/^\uFEFF/, '');
-  if (!text.trim()) throw new SampleImportError('empty');
-  const header = text.split(/\r?\n/, 1)[0];
-  const delimiter = [',', ';', '\t'].find(d => header.includes(d)) || ',';
-  const rows: string[][] = []; let row: string[] = [], cell = '', quoted = false, closed = false;
-  const endCell = () => { row.push(cell); cell = ''; closed = false; if (row.length > 2) throw new SampleImportError('format', rows.length + 1); };
-  const endRow = () => { endCell(); if (row.some(v => v.trim())) rows.push(row); row = []; if (rows.length > maxRows + 1) throw new SampleImportError('limit'); };
-  for (let i = 0; i < text.length; i++) {
-    const c = text[i];
-    if (quoted) {
-      if (c === '"') { if (text[i + 1] === '"') { cell += '"'; i++; } else { quoted = false; closed = true; } }
-      else cell += c;
-    } else if (c === delimiter) endCell();
-    else if (c === '\n' || c === '\r') { if (c === '\r' && text[i + 1] === '\n') i++; endRow(); }
-    else if (c === '"' && !cell && !closed) quoted = true;
-    else { if (closed || c === '"' || c === '\0') throw new SampleImportError('format', rows.length + 1); cell += c; }
-    if (cell.length > 2000) throw new SampleImportError('note', rows.length + 1);
-  }
-  if (quoted) throw new SampleImportError('format', rows.length + 1);
-  if (cell || row.length || closed) endRow();
+  const rows=readCsvRows(source,2,maxRows,maxBytes);
   if (rows[0]?.length !== 2 || rows[0][0].trim().toLowerCase() !== 'reference' || rows[0][1].trim().toLowerCase() !== 'note') throw new SampleImportError('headers');
   if (rows.length < 2) throw new SampleImportError('empty');
   const seen = new Set<string>();
@@ -47,5 +27,30 @@ export function parseSampleImport(source: string, existing: readonly WorkpaperSa
   if (!Number.isSafeInteger(populationCount) || populationCount < 1 || populationCount > 1_000_000_000 || existing.length + rows.length > populationCount) throw new SampleImportError('population');
   const existingRefs = new Set(existing.map(s => s.reference.trim().toLowerCase()));
   if (rows.some(s => existingRefs.has(s.reference.toLowerCase()))) throw new SampleImportError('duplicate');
+  return rows;
+}
+
+export function readCsvRows(source:string,columns:number,maxRows:number,maxBytes:number){
+  if (new TextEncoder().encode(source).length > maxBytes) throw new SampleImportError('size');
+  const text = source.replace(/^\uFEFF/, '');
+  if (!text.trim()) throw new SampleImportError('empty');
+  const header = text.split(/\r?\n/, 1)[0];
+  const delimiter = [',', ';', '\t'].find(d => header.includes(d)) || ',';
+  const rows: string[][] = []; let row: string[] = [], cell = '', quoted = false, closed = false;
+  const endCell = () => { row.push(cell); cell = ''; closed = false; if (row.length > columns) throw new SampleImportError('format', rows.length + 1); };
+  const endRow = () => { endCell(); if (row.some(v => v.trim())) rows.push(row); row = []; if (rows.length > maxRows + 1) throw new SampleImportError('limit'); };
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (quoted) {
+      if (c === '"') { if (text[i + 1] === '"') { cell += '"'; i++; } else { quoted = false; closed = true; } }
+      else cell += c;
+    } else if (c === delimiter) endCell();
+    else if (c === '\n' || c === '\r') { if (c === '\r' && text[i + 1] === '\n') i++; endRow(); }
+    else if (c === '"' && !cell && !closed) quoted = true;
+    else { if (closed || c === '"' || c === '\0') throw new SampleImportError('format', rows.length + 1); cell += c; }
+    if (cell.length > 2000) throw new SampleImportError('note', rows.length + 1);
+  }
+  if (quoted) throw new SampleImportError('format', rows.length + 1);
+  if (cell || row.length || closed) endRow();
   return rows;
 }

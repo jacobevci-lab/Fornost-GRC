@@ -71,7 +71,7 @@ export function normalizeRecordData(module:unknown,input:Data){
  }
  return data;
 }
-export function validate(module:unknown,input:unknown){
+export function validate(module:unknown,input:unknown,previousStatus?:unknown){
  if(!validModule(module))return {error:"Geçersiz modül."};
  if(!input||typeof input!=="object"||Array.isArray(input))return {error:"Geçersiz kayıt verisi."};
  const source=input as Data,cleaned:Data={};
@@ -108,7 +108,10 @@ export function validate(module:unknown,input:unknown){
  if(module==="Varlık Envanteri" && data.dependencyRefs!==undefined && (!Array.isArray(data.dependencyRefs) || data.dependencyRefs.some(ref=>typeof ref!=="string" || !ref.trim() || ref.length>120)))return {error:"Geçersiz varlık veya BIA bağlantısı."};
  const missing=required[module].filter(key=>!(independentRisk && key==="asset")).filter(key=>data[key]===undefined||data[key]===null||data[key]==="");
  if(missing.length)return {error:`Zorunlu alanlar eksik: ${missing.join(", ")}`};
- if(!allowedStatuses[module].includes(String(data.status)))return {error:"Geçersiz operasyon durumu."};
+ const exitStatus=(v:unknown)=>["offboarding","offboarded","sonlandırıldı","çıkış sürecinde","çıkış / sonlandırıldı"].includes(String(v??"").trim().toLocaleLowerCase("tr"));
+ const lockedExit=module==="Tedarikçiler"&&(exitStatus(data.status)||exitStatus(previousStatus));
+ if(lockedExit&&data.status!==previousStatus)return {error:"Tedarikçi çıkışı TPRM kontrol listesi ve bağımsız onay gerektirir."};
+ if(!lockedExit&&!allowedStatuses[module].includes(String(data.status)))return {error:"Geçersiz operasyon durumu."};
  if(module==="Risk Assessment"&&data.status!=="Değerlendiriliyor"){
   const assessmentMissing=riskAssessmentFields.filter(key=>data[key]===undefined||data[key]===null||data[key]==="");
   if(assessmentMissing.length)return {error:`Risk değerlendirmesi tamamlanmadan bu duruma geçilemez. Eksik alanlar: ${assessmentMissing.join(", ")}`};
