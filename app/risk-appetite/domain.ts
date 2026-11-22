@@ -3,7 +3,7 @@ export const RISK_CATEGORIES=["cyber","technology","operational","third-party","
 const clean=(value:unknown,max:number)=>String(value??"").trim().replace(/\u0000/g,"").slice(0,max);
 const email=(value:unknown,label:string)=>{const result=clean(value,200).toLowerCase();if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(result))throw new Error(`${label} için geçerli e-posta zorunludur.`);return result};
 const date=(value:unknown,label:string)=>{const result=clean(value,10);if(!/^\d{4}-\d{2}-\d{2}$/.test(result)||new Date(`${result}T00:00:00Z`).toISOString().slice(0,10)!==result)throw new Error(`${label} için geçerli tarih zorunludur.`);return result};
-const number=(value:unknown,label:string,min=-1_000_000_000,max=1_000_000_000)=>{const result=Number(value);if(!Number.isFinite(result)||result<min||result>max)throw new Error(`${label} geçerli sınırlar içinde olmalıdır.`);return result};
+const number=(value:unknown,label:string,min=-1_000_000_000,max=1_000_000_000)=>{const result=Number(value);if((typeof value!=="string"&&typeof value!=="number")||String(value).trim()===""||!Number.isFinite(result)||result<min||result>max)throw new Error(`${label} geçerli sınırlar içinde olmalıdır.`);return result};
 
 export function validateRiskAppetite(input:Record<string,unknown>,today=new Date().toISOString().slice(0,10)){
  const code=clean(input.code,40).toUpperCase(),category=clean(input.category,30),statement=clean(input.statement,2000),kriName=clean(input.kriName,240),metricUnit=clean(input.metricUnit,40),direction=clean(input.direction,10),appetiteTarget=number(input.appetiteTarget,"Risk iştahı"),warningThreshold=number(input.warningThreshold,"Uyarı eşiği"),breachThreshold=number(input.breachThreshold,"İhlal eşiği"),owner=email(input.owner,"Risk sahibi"),reviewer=email(input.reviewer,"Reviewer"),frequencyDays=number(input.frequencyDays,"Ölçüm sıklığı",1,365),validFrom=date(input.validFrom,"Başlangıç"),validUntil=date(input.validUntil,"Bitiş");
@@ -11,8 +11,8 @@ export function validateRiskAppetite(input:Record<string,unknown>,today=new Date
  if(!RISK_CATEGORIES.includes(category as typeof RISK_CATEGORIES[number])||!RISK_DIRECTIONS.includes(direction as typeof RISK_DIRECTIONS[number]))throw new Error("Risk kategorisi veya eşik yönü geçersiz.");
  if(owner===reviewer)throw new Error("Risk sahibi ve bağımsız reviewer farklı olmalıdır.");
  if(validUntil<validFrom||validUntil<today)throw new Error("Geçerlilik bitişi başlangıçtan ve bugünden sonra olmalıdır.");
- if(direction==="upper"&&!(appetiteTarget<=warningThreshold&&warningThreshold<breachThreshold))throw new Error("Üst sınır KRI için iştah ≤ uyarı < ihlal olmalıdır.");
- if(direction==="lower"&&!(appetiteTarget>=warningThreshold&&warningThreshold>breachThreshold))throw new Error("Alt sınır KRI için iştah ≥ uyarı > ihlal olmalıdır.");
+ if(direction==="upper"&&!(appetiteTarget<warningThreshold&&warningThreshold<breachThreshold))throw new Error("Üst sınır KRI için iştah < uyarı < ihlal olmalıdır.");
+ if(direction==="lower"&&!(appetiteTarget>warningThreshold&&warningThreshold>breachThreshold))throw new Error("Alt sınır KRI için iştah > uyarı > ihlal olmalıdır.");
  return{code,category,statement,kriName,metricUnit,direction,appetiteTarget,warningThreshold,breachThreshold,owner,reviewer,frequencyDays,validFrom,validUntil};
 }
 

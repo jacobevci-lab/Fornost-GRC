@@ -37,3 +37,9 @@ Alanları sıralanmış canonical JSON, SHA-256 ile özetlenir. Paketi hazırlay
 - Admin CSV formül enjeksiyonuna karşı güvenlidir ve export olayı audit izine yazılır.
 - `risk_appetite_events` yalnız eklenen, uygulama tarafından güncellenmeyen veya silinmeyen olay geçmişidir.
 - Drizzle migration `drizzle/0071_enterprise_risk_appetite_kri.sql`, çalışma zamanı self-heal şeması API içinde ve tipli model `db/schema.ts` içinde tutulur.
+
+## Bağlı risk ve kanıtlı ölçüm
+
+Risk sahibi bir beyan açarken ortak kayıt dizininden önerilen KRI kodunu, ilgili riskleri ve bağımsız yönetici incelemecisini seçer. Üst sınırda hedef < uyarı < ihlal, alt sınırda hedef > uyarı > ihlal olmalıdır. Ölçüm sorumlusu etkin beyanı, dönemi, kaynak türünü ve kütüphanedeki kanıt sürümünü seçer. Eşiğe ulaşan ölçüm ile ihlal aynı işlemde kaydedilir.
+
+Yönetim özetindeki doğal ve artık puanlar Risk Değerlendirmesi kaydından gelir. İştah durumu bağlı ve yürürlükteki göstergelerin güncel ölçüm bandını kullanır. Uyarı veya ihlal bandı ya da açık ihlal iştah dışıdır. Bütün etkin bağlantılar güncel ve yeşilse iştah içidir. Bağlantı veya güncel ölçüm yetersizse durum — olarak gösterilir.

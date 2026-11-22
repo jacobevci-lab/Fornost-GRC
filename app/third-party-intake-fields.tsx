@@ -1,26 +1,12 @@
 "use client";
 import {useContext,useMemo,useState} from "react";
 import {ChoiceInput} from "./risk-editor-fields";
-import {useChoices} from "./workflow-selection-fields";
 import {ModuleTrailContext} from "./module-record-trail-view";
 import {buildConnectedGrcGraph,connectedTitle,type ConnectedGrcRow} from "./connected-grc-model";
 import {navigateToFornost} from "./navigation-focus";
 import {normalizeRiskSearch} from "./risk-record-options";
 
-export function VendorPerson({label,value,choose,exclude,reviewer=false,tr}:{label:string;value:string;choose:(email:string)=>void;exclude:string[];reviewer?:boolean;tr:boolean}){
-  const [query,setQuery]=useState("");
-  const choices=useChoices("/api/workflow-choices?kind=people&reviewer="+reviewer+"&q="+encodeURIComponent(query));
-  const excluded=new Set(exclude.map(s=>s.toLowerCase()));
-  const options=(choices.data.people||[]).filter(p=>!excluded.has(p.email.toLowerCase())).map(p=>({value:p.email,label:p.name+" · "+p.email}));
-  return <div className="tprm-person">
-    <ChoiceInput label={label} tr={tr} query={query} onQuery={setQuery} choose={choose} options={options}
-      pending={choices.loading} more={choices.data.complete===false} required={!value}
-      requiredMessage={tr?"Listeden bir kullanıcı seçin.":"Choose a user from the list."}
-      message={choices.error?(tr?"Kullanıcılar yüklenemedi.":"Directory unavailable."):undefined}/>
-    {value&&<button type="button" className="tprm-chip" onClick={()=>choose("")} aria-label={(tr?"Kaldır · ":"Remove · ")+value}>{value} ×</button>}
-    {choices.error&&<button type="button" onClick={choices.retry}>{tr?"Yeniden dene":"Retry"}</button>}
-  </div>;
-}
+export {DirectoryPersonCombobox as VendorPerson} from "./directory-person-combobox";
 export function recordCode(row:ConnectedGrcRow){return [row.code,row.id].find(v=>v&&/^(AST|BIA|EVD)-\d{3,}$/i.test(v));}
 export function VendorEvidenceField({tr,selected,change}:{tr:boolean;selected:string[];change:(refs:string[])=>void}){
   const context=useContext(ModuleTrailContext),[query,setQuery]=useState("");

@@ -288,7 +288,7 @@ async function auditLocale(page, locale) {
         await expect(page.locator(".rap-sections button")).toHaveCount(6);
         await expect(page.locator(".rap-monitor h3")).toHaveText(locale === "tr" ? "KRI izleme süreci" : "KRI monitoring process");
         await expect(page.locator(".rap-stages dd")).toHaveCount(6);
-        await expect(page.locator(".rap-risk-register th[scope='col']")).toHaveCount(4);
+        await expect(page.locator(".rap-risk-register th[scope='col']")).toHaveCount(7);
         await page.locator(".rap-jump").click();
         await expect(page.locator(".rap-section-content .rap-table")).toBeVisible();
         await page.locator(".rap-sections button").first().click();

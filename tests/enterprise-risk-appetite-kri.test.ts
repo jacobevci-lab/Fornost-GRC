@@ -7,7 +7,7 @@ const upper={code:"RA-CYB-001",category:"cyber",statement:"Material cyber exposu
 
 test("risk appetite validates upper and lower threshold direction with independent ownership",()=>{
  const value=validateRiskAppetite(upper,"2027-01-01");assert.equal(value.breachThreshold,6);
- assert.throws(()=>validateRiskAppetite({...upper,warningThreshold:7},"2027-01-01"),/iştah ≤ uyarı < ihlal/);
+ assert.throws(()=>validateRiskAppetite({...upper,warningThreshold:7},"2027-01-01"),/iştah < uyarı < ihlal/);
  assert.equal(validateRiskAppetite({...upper,code:"RA-RES-001",direction:"lower",appetiteTarget:99.9,warningThreshold:99,breachThreshold:97},"2027-01-01").direction,"lower");
  assert.throws(()=>validateRiskAppetite({...upper,reviewer:"risk@example.com"},"2027-01-01"),/farklı/);
 });
