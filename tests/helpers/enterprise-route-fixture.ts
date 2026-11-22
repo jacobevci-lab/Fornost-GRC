@@ -60,6 +60,7 @@ import * as continuity from '../../app/continuity/domain';
 import * as policy from '../../app/policy-lifecycle/domain';
 import * as vendor from '../../app/third-party-risk/domain';
 import * as risk from '../../app/risk-appetite/domain';
+import * as kriConnections from '../../app/risk-appetite/connections';
 import * as riskMethodology from '../../app/risk-methodology';
 import * as regulatory from '../../app/regulatory-intelligence/domain';
 import {safeHttpUrl} from '../../app/api/integrations/security';
@@ -131,6 +132,7 @@ export function fixture(module:'incidents'|'continuity'|'policy-lifecycle'|'thir
   if(name==='../../third-party-risk/review-schedule')return vendorReviewSchedule;
   if(name==='../../third-party-risk/work-source')return vendorWork;
   if(name==='../../third-party-risk/domain')return vendor;
+  if(name==='../../risk-appetite/connections')return kriConnections;
   if(name==='../../risk-appetite/domain')return risk;
   if(name==='../../risk-methodology')return riskMethodology;
   if(name==='../../regulatory-intelligence/domain')return regulatory;

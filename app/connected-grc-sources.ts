@@ -238,8 +238,10 @@ function riskAppetiteRows(payload: JsonRecord) {
   const appetites = records(payload.appetites).map((item, index) => makeRow("enterprise", "risk-appetite", "Risk İştahı ve KRI", item, index, {
     title: text(item.statement || item.kriName || item.kri_name || item.category),
     name: text(item.kriName || item.kri_name),
+    appetiteRiskRefs: list(item.riskRefs),
   }));
   const measurements = records(payload.measurements).map((item, index) => makeRow("enterprise", "kri-measurement", "Risk İştahı ve KRI", item, index, {
+    kriEvidenceRef: text(item.evidenceId),
     title: text(item.periodEnd || item.period_end || `Measurement ${index + 1}`),
     appetiteRef: unique(item.appetiteId, item.appetite_id),
   }));

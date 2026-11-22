@@ -2,6 +2,8 @@ import {regulatoryCoreTargets} from './regulatory-intelligence/domain';
 type Source={table:string;column:string;modules:string[];json?:boolean;filter?:string};
 // Server-owned identifiers and predicates only. Historical/closed rows remain references.
 const sources:Source[]=[
+ {table:'risk_appetite_risk_links',column:'risk_id',modules:['Risk Assessment']},
+ {table:'risk_kri_measurement_sources',column:'evidence_id',modules:['Kanıtlar']},
  ...['audit_requests','audit_workpapers'].map(table=>({table,column:"json_extract(data_json,'$.requirementId')",modules:['Denetim Yönetimi']})),
  {table:'workflow_evidence_pins',column:"json_extract(snapshot_json,'$.evidenceId')",modules:['Kanıtlar']},
  {table:'evidence_automation_rules',column:'control_refs',modules:['Kontroller','Uyum']},

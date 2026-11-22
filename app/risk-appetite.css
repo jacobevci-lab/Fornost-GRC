@@ -84,3 +84,19 @@
   .rap-risk-register {padding: 10px 6px}
   .rap-risk-register table :is(th,td) {padding: 7px 4px}
 }
+
+.rap-risk-register table{min-width:720px}
+.rap-risk-register th:first-child{width:12%}
+.rap-risk-register th:nth-child(2){width:25%}
+.rap-risk-register tbody tr:has(a){cursor:pointer}
+.rap-risk-register tbody tr:has(a):is(:hover,:focus-within){background:var(--ws-surface-2)}
+.rap-risk-register a,.rap-chips a{color:var(--ws-brand-2);text-decoration:underline}
+.rap-tools,.rap-chips{display:flex;align-items:center;flex-wrap:wrap;gap:8px}
+.rap-tools{justify-content:flex-end;margin-bottom:12px}
+.rap-page .rap-tools button:disabled{cursor:not-allowed}
+.rap-bands{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px}
+.rap-bands>div{display:grid;gap:4px;padding:8px;border-top:4px solid;border-radius:3px;background:var(--ws-surface-2);overflow-wrap:anywhere}
+.rap-bands .green{border-color:var(--ws-success,#209673)}.rap-bands .amber{border-color:var(--ws-warning,#bc8a24)}.rap-bands .red{border-color:var(--ws-danger,#d3685a)}
+.rap-tolerance [role=alert]{color:var(--ws-danger);font-weight:600}
+.rap-form .risk-choice,.rap-form fieldset{min-width:0}
+.rap-chips{margin-top:6px}.rap-page .rap-state{text-transform:none}

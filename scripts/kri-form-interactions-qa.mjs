@@ -13,6 +13,8 @@ try{
   const errors=[];page.on('pageerror',e=>{errors.push(e.message);console.error('KRI harness page error:',e.message);});
   await page.route('http://kri.test/**',async route=>{
    const req=route.request();
+   if(req.url().includes('/api/workflow-choices')){await route.fulfill({json:{records:[],people:[],versions:[]}});return}
+   if(req.url().includes('riskSearch=')){await route.fulfill({json:{risks:[]}});return}
    if(req.url().includes('/api/risk-appetite')){
     if(req.method()==='POST'){
      posts++;await new Promise(resolve=>{release=resolve});
@@ -22,9 +24,9 @@ try{
     }else if(readMode==='error'){
      await route.fulfill({status:503,json:{error:'Unavailable'}});
     }else await route.fulfill({json:{
-     summary:{total:1,approved:1,breached:0,warning:0,measurementDue:0,openBreaches:0,overdueBreaches:0,scenarioAtRisk:0},
+     nextCode:"KRI-002",summary:{total:1,approved:1,breached:0,warning:0,measurementDue:0,openBreaches:0,overdueBreaches:0,scenarioAtRisk:0},
      linkedRisks:[{id:'1',title:'Unscored risk',category:'',owner:'',score:null},{id:'2',title:'Assessed risk',category:'Security',owner:'Risk team',score:12}],
-     measurements:[],breaches:[],scenarios:[],snapshots:[],appetites:[{id:'qa',code:'QA',category:'cyber',kriName:'Availability',statement:'QA statement',metricUnit:'%',direction:'upper',appetiteTarget:0,warningThreshold:5,breachThreshold:10,owner:'qa@example.test',reviewer:'reviewer@example.test',frequencyDays:30,status:'approved',latestValue:0,latestBand:'green',openBreaches:0,measurementCount:0,attention:'approved'}]}});
+     measurements:[],breaches:[],scenarios:[],snapshots:[],appetites:[{id:'qa',code:'QA',category:'cyber',kriName:'Availability',statement:'QA statement',metricUnit:'%',direction:'upper',appetiteTarget:0,warningThreshold:5,breachThreshold:10,owner:'qa@example.test',reviewer:'reviewer@example.test',frequencyDays:30,validFrom:'2020-01-01',validUntil:'2099-12-31',status:'approved',latestValue:0,latestBand:'green',openBreaches:0,measurementCount:0,attention:'approved'}]}});
    }else await route.fulfill({contentType:'text/html',body:`<html><head><style>:root{--cc-line:#777;--cc-ink:#222;--cc-muted:#444;--cc-surface-2:#eee;--cc-elevated:white}.overlay{position:fixed;inset:0;background:#bbb;display:grid;place-items:center}.modal{background:white}${css}</style></head><body><div id="root"></div><script>${js}</script></body></html>`});
   });
   await page.goto(`http://kri.test/?${lang}`);
@@ -38,7 +40,7 @@ try{
   await expect(stages.locator('dd')).toHaveText(['1','0','0','0','0','0']);
   const rows=page.locator('.rap-risk-register tbody tr');
   await expect(rows.nth(0).locator('th')).toHaveText('Assessed risk');
-  await expect(rows.nth(1).locator('td')).toHaveText(['—','—','—']);
+  await expect(rows.nth(1).locator('td')).toHaveText(['—','—','—','—','—','—']);
   for(const width of [1440,390]){
    await page.setViewportSize({width,height:900});
    const rects=await stages.evaluateAll(nodes=>nodes.map(node=>node.getBoundingClientRect().top));
@@ -52,7 +54,7 @@ try{
   }
   await page.locator('.rap-jump').click();await expect(sections.nth(1)).toHaveAttribute('aria-current','page');
   await page.getByRole('button',{name:lang==='tr'?'Stres Senaryoları':'Stress Scenarios',exact:true}).click();
-  await page.getByRole('button',{name:lang==='tr'?'+ Senaryo':'+ Scenario',exact:true}).click();
+  await page.getByRole('button',{name:lang==='tr'?'+ Stres Senaryosu':'+ Stress scenario',exact:true}).click();
   let dialog=page.getByRole('dialog');
   const slider=dialog.getByRole('slider');await expect(slider).toHaveValue('70');
   await slider.focus();await page.keyboard.press('End');await expect(slider).toHaveValue('100');
