@@ -91,13 +91,13 @@ try {
   const evidence = { evidenceMode: 'library', evidenceSelection: { evidenceId: f.evidenceId, versionId: version.id } };
   await api(admin, '/api/continuity', 'POST', { action: 'complete-exercise', exerciseId: failed.id, outcome: 'failed', actualRecoveryHours: 4, actualDataLossHours: 2, observations: 'Recovery exceeded both synthetic objectives.', rootCause: 'Recovery automation needs a controlled correction.', ...evidence });
   const gap = (await api(admin, '/api/continuity')).gaps.find(row => row.planId === planId && row.status === 'open'); assert.ok(gap);
-  await openWork(page, gap.id); await expect(page.locator('.mw2-item')).toHaveCount(1); await focusRecord(gap.id);
-  await openWork(reviewPage, gap.id); await expect(reviewPage.locator('.mw2-item')).toHaveCount(1);
+  await openWork(page, gap.title); await expect(page.locator('.mw2-item')).toHaveCount(1); await focusRecord(gap.id);
+  await openWork(reviewPage, gap.title); await expect(reviewPage.locator('.mw2-item')).toHaveCount(1);
   const retest = await schedule();
   await api(admin, '/api/continuity', 'POST', { action: 'complete-exercise', exerciseId: retest.id, outcome: 'passed', actualRecoveryHours: 1, actualDataLossHours: 0, observations: 'Recovery now meets both objectives in the synthetic retest.', ...evidence });
   const close = { action: 'close-gap', gapId: gap.id, retestExerciseId: retest.id, note: 'Independent retest confirms the recovery correction.', confirmation: 'AÇIĞI KAPAT', ...evidence };
   await api(admin, '/api/continuity', 'POST', close, 403); await api(reviewer, '/api/continuity', 'POST', close);
-  await openWork(page, gap.id); await expect(page.locator('.mw2-item')).toHaveCount(0);
+  await openWork(page, gap.title); await expect(page.locator('.mw2-item')).toHaveCount(0);
   await page.locator('.mw2-metrics').getByRole('button', { name: /^Completed/ }).click(); await expect(page.locator('.mw2-item')).toHaveCount(1); await focusRecord(gap.id);
   checks.push('Actual failed exercise → assigned gap → independent retest closure → recent completion');
 
