@@ -106,6 +106,7 @@ try {
         const toolbar=await work.locator('.cg-tabs button').evaluateAll(buttons=>buttons.map(b=>b.getBoundingClientRect().y));
         assert.equal(new Set(toolbar).size,1,'Tabs stay on one row');
         await expect(work.locator('.cm-drawer')).toHaveCount(0);
+        await page.locator('.cg-heading').hover();
         await expect(work.locator('.cm-wire-pill')).toHaveCount(0);
         const allCanvas=await work.locator('.cm-scroll').boundingBox();
         assert.ok(allCanvas.height>=1050*.75-1 && allCanvas.width>=(await work.boundingBox()).width-4);

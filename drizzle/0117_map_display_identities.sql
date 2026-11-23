@@ -28,6 +28,7 @@ FROM simple_grc_record_codes c WHERE c.record_id NOT LIKE 'map:display:%';
 
 CREATE TRIGGER IF NOT EXISTS map_display_counter AFTER INSERT ON simple_grc_record_codes
 WHEN NEW.record_id LIKE 'map:display:%'
+ OR (NEW.module='Bulgular ve CAPA' AND NEW.code GLOB 'FND-[0-9][0-9][0-9]*' AND substr(NEW.code,5) NOT GLOB '*[^0-9]*')
 BEGIN
   INSERT INTO simple_grc_record_code_counters(module,value,updated_at)
   VALUES('work:'||substr(NEW.code,1,instr(NEW.code,'-')-1),cast(substr(NEW.code,instr(NEW.code,'-')+1) AS INTEGER),CURRENT_TIMESTAMP)
