@@ -570,7 +570,7 @@ export default function FornostAiCopilot() {
       : activeTab === "vendors" ? <FornostAiVendorAssurance role={user.role}/>
       : activeTab === "access" ? <FornostAiAccessGovernance/>
       : activeTab === "release" ? <FornostAiReleaseGate/>
-      : activeTab === "impact" ? <FornostAiImpactAssessment role={user.role}/>
+      : activeTab === "impact" ? <FornostAiImpactAssessment role={user.role} lang={workspaceLocale === "en" ? "en" : "tr"}/>
       : activeTab === "resilience" ? <FornostAiResilience/>
       : activeTab === "datasets" ? <FornostAiDatasets/>
       : activeTab === "regulatory" ? <FornostAiRegulatory/>

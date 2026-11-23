@@ -222,6 +222,36 @@ try {
   }
   const csv = await ctx.request.get(base + endpoint + '?format=csv&lang=en');
   assert.ok((await csv.text()).includes(m.code));
+  await page.setViewportSize({width:1440,height:940});
+  await home.getByRole('button',{name:'Technical model dossiers →'}).click();
+  await page.locator('.ai-primary-nav').getByRole('button',{name:'Assessments',exact:true}).click();
+  const flags=page.locator('.ai-impact-flags');
+  await expect(flags.getByRole('checkbox')).toHaveCount(10);
+  for(const [lang,theme,width] of [['TR','light',1440],['TR','dark',390],['EN','dark',1440],['EN','light',390]]){
+    await page.setViewportSize({width,height:940});
+    await page.locator('.language-switch:visible').getByRole('button',{name:lang,exact:true}).click();
+    await page.evaluate(value=>{document.documentElement.dataset.theme=value},theme);
+    const box=flags.getByRole('checkbox',{name:lang==='TR'?'Kişisel veri':'Personal data',exact:true});
+    const row=flags.locator('label').first();
+    const grid=await flags.evaluate(el=>getComputedStyle(el).gridTemplateColumns.split(' ').length);
+    assert.equal(grid,width===390?1:2);
+    const swatches=await row.evaluate(el=>{
+      const probe=document.createElement('i');el.append(probe);
+      const colors=['--ws-surface','--ws-brand-soft','--ws-ink'].map(token=>{
+        probe.style.backgroundColor='var('+token+')';return getComputedStyle(probe).backgroundColor;
+      });
+      probe.remove();return colors;
+    });
+    await expect(row).toHaveCSS('background-color',swatches[0]);
+    await expect(row.locator('span')).toHaveCSS('color',swatches[2]);
+    await row.locator('span').click();await expect(box).toBeChecked();
+    await expect(row).toHaveCSS('background-color',swatches[1]);
+    const {violations}=await new AxeBuilder({page}).include('.ai-impact-flags').withRules(['color-contrast','label']).analyze();
+    assert.deepEqual(violations.map(v=>v.id),[],lang+'/'+theme);
+    await box.focus();await page.keyboard.press('Space');await expect(box).not.toBeChecked();
+    await expect(row).toHaveCSS('outline-style','solid');
+    const bounds=await box.boundingBox();assert.ok(bounds&&bounds.width===24&&bounds.height===24);
+  }
   assert.deepEqual(errors, []);
   console.log('AI governance browser QA passed: registration, Shadow admission, SoD, go-live, monitoring, CAPA, suspension, CSV and eight language/theme/viewport combinations.');
 } finally {
