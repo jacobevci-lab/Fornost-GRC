@@ -128,8 +128,15 @@ try {
       assert.ok(!(await api('/api/grc')).rows.some((r) => r.id === fixture));
     }
   });
+  const hasExisting = listed && existing.some((r) => Object.values(title).includes(r.name));
+  let resumed;
+  if (hasExisting)
+    await step('Verify existing exercise and connected lineage', async () => {
+      resumed = await resumeContext(api, existing, owner);
+    });
   const people = { owner };
   const roles = await step('Independent directory identities', async () => {
+    assert.ok(listed && (!hasExisting || resumed), 'Verify the existing exercise first');
     const users = (await api('/api/users')).users;
     // Reuse a dedicated test identity of the right role before provisioning one.
     const participant = (explicit, canonical, roles) => {
@@ -148,8 +155,11 @@ try {
       ['reviewer', 'Admin', process.env.ENTRA_REVIEWER_EMAIL, 'entra-qa-reviewer@fornost.test'],
       ['lead', 'Editor', process.env.ENTRA_LEAD_EMAIL, 'entra-qa-lead@fornost.test'],
     ]) {
-      const email = participant(explicit, canonical, key === 'lead' ? ['Editor', 'Admin'] : ['Admin']);
+      const email = resumed
+        ? resumed.people[key]
+        : participant(explicit, canonical, key === 'lead' ? ['Editor', 'Admin'] : ['Admin']);
       const u = users.find((x) => x.email === email);
+      assert.ok(u || !resumed, 'Existing exercise participant is missing');
       if (u)
         assert.ok(
           u.status === 'Active' && ['Admin', ...(key === 'lead' ? ['Editor'] : [])].includes(u.role),
@@ -175,13 +185,8 @@ try {
     assert.equal(new Set(Object.values(people)).size, 3);
   });
   if (listed && roles && (isolated || process.env.ENTRA_WRITE === 'true')) {
-    const matches = existing.filter((r) => Object.values(title).includes(r.name));
-    if (matches.length) {
-      let resume;
-      const ok = await step('Verify existing exercise and connected lineage', async () => {
-        resume = await resumeContext(api, existing, owner);
-      });
-      if (ok) await journey({ api, page, people: resume.people, step, isolated, report, resume });
+    if (resumed) {
+      await journey({ api, page, people, step, isolated, report, resume: resumed });
     } else {
       await journey({ api, page, people, step, isolated, report });
       if (
