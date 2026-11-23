@@ -50,13 +50,13 @@ export function scopedApiAllowed(subject: AccessSubject, pathname: string, metho
   if (path === "/api/record-links") return read; // Handler checks both module access and exact target.
   if (path === "/api/search") return read; // Handler scopes rows before search and pagination.
   if (path === "/api/grc/bia-context") return read && canReadModule(subject,"BIA");
-  if (path === "/api/grc/risk-owners") return read && (canWriteModule(subject,"Risk Assessment") || canWriteModule(subject,"Varlık Envanteri") || canWriteModule(subject,"BIA") || canWriteModule(subject,"Kontroller")); // The route checks the requested module.
+  if (path === "/api/grc/risk-owners") return read && (canWriteModule(subject,"Risk Assessment") || canWriteModule(subject,"Varlık Envanteri") || canWriteModule(subject,"BIA") || canWriteModule(subject,"Kontroller") || canWriteModule(subject,"Kanıtlar")); // The route checks the requested module.
   if (path === "/api/grc") return true; // Row/module authorization is inside the handler.
   if (path === "/api/views") return read || method === "POST"; // Handler enforces live module, personal ownership and Admin-only team publication.
   if (path === "/api/catalogs") return read; // Shared field choices, no business records.
   if (path === "/api/audits/templates") return read && canReadModule(subject, "Denetim Yönetimi"); // Library administration is Admin-only.
   if (path === "/api/ai/status" || path === "/api/ai/source-target") return read;
   if (path === "/api/ai/chat") return method === "POST";
-  const moduleName = ["/api/audits", "/api/audits/plan", "/api/audits/requests", "/api/audits/requests/closure", "/api/audits/workpapers", "/api/audits/milestones"].includes(path) ? "Denetim Yönetimi" : ["/api/evidence", "/api/evidence/history"].includes(path) ? "Kanıtlar" : null;
+  const moduleName = ["/api/audits", "/api/audits/plan", "/api/audits/requests", "/api/audits/requests/closure", "/api/audits/workpapers", "/api/audits/milestones"].includes(path) ? "Denetim Yönetimi" : ["/api/evidence", "/api/evidence/history", "/api/evidence/review"].includes(path) ? "Kanıtlar" : null;
   return !!moduleName && (read ? canReadModule(subject, moduleName) : canWriteModule(subject, moduleName));
 }

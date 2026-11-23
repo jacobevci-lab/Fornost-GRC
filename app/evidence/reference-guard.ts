@@ -1,12 +1,11 @@
-import { coreReferenceGuard, newCoreReferences, CoreReferenceUnavailable } from "../core-reference-write";
+import { coreWriteGuard, CoreReferenceUnavailable } from "../core-reference-write";
 import { LifecycleConflict } from "../enterprise-lifecycle-write";
 
 export function evidenceReferenceGuard(id: string, data: Record<string, unknown>, before: Record<string, unknown> = {}) {
   // The singular relation accepts canonical controls/compliance requirements;
   // apply it to every token, preserving supported framework/free-text labels.
-  return coreReferenceGuard(newCoreReferences(id, "Kanıtlar",
-    { controlRef: data.controlRefs || data.controlRef },
-    { controlRef: before.controlRefs || before.controlRef }));
+  return coreWriteGuard("Kanıtlar",[{id,data:{...data,controlRefs:undefined,controlRef:data.controlRefs||data.controlRef},
+    before:{...before,controlRefs:undefined,controlRef:before.controlRefs||before.controlRef}}]);
 }
 
 export async function evidenceClaimConflict(db: D1Database, guard: ReturnType<typeof evidenceReferenceGuard>) {

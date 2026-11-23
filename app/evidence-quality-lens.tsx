@@ -71,7 +71,7 @@ export default function EvidenceQualityLens({ state, lang }: { state: EvidenceRe
     <section className="evidence-quality-lens" aria-label={tr ? "Kanıt kalite görünümü" : "Evidence quality lens"}>
       <header>
         <div>
-          <small>{tr ? "EVIDENCE QUALITY" : "EVIDENCE QUALITY"}</small>
+          <small>{tr ? "KANIT KALİTESİ" : "EVIDENCE QUALITY"}</small>
           <h3>{tr ? "Kanıt tazeliği ve bütünlüğü" : "Evidence freshness and integrity"}</h3>
           <p>{tr ? "Denetim hazırlığı için kanıtın yalnız varlığını değil; güncelliğini, kontrol bağlantısını ve versiyon bütünlüğünü izler." : "Tracks not only evidence existence, but also freshness, control linkage and version integrity for audit readiness."}</p>
         </div>

@@ -175,6 +175,29 @@ export async function baselineToken(b:Baseline) {
   return Array.from(new Uint8Array(hash),n=>n.toString(16).padStart(2,'0')).join('');
 }
 
+export async function evidenceControlStandards(db:D1Database,refs?:string[]){
+  await ensurePosture(db);
+  const {enrolled}=await indexPrograms(db);
+  const inputs=await readSources(db),byControl:Record<string,string[]>={};
+  const selected=refs?new Set(refs.map(key)):null;
+  for(const control of inputs.controls){
+    if(selected&&![control.id,control.code].some(ref=>ref&&selected.has(key(ref))))continue;
+    const data=JSON.parse(control.data_json);
+    byControl[control.id]=splitEvidenceControlRefs(data.frameworks||data.framework).map(programName);
+  }
+  for(const name of enrolled){
+    const ids=new Set(project(inputs,name).requirements.flatMap(r=>r.links.map(link=>link.id)));
+    for(const id of ids)if(Object.hasOwn(byControl,id)&&!byControl[id].includes(name))byControl[id].push(name);
+  }
+  return {enrolled,byControl};
+}
+export async function mergeEvidenceStandards(db:D1Database,data:Record<string,unknown>){
+  const refs=splitEvidenceControlRefs(data.controlRefs||data.controlRef).filter(ref=>/^CTL-/i.test(ref));
+  if(!refs.length)return;
+  const {byControl}=await evidenceControlStandards(db,refs);
+  data.frameworks=[...new Set([...splitEvidenceControlRefs(data.frameworks),...Object.values(byControl).flat()])].join("; ");
+}
+
 export async function controlCatalog(db:D1Database,id:string){
   const {enrolled}=await indexPrograms(db);
   if(!enrolled.length)return {programs:[]};

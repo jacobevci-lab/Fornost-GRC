@@ -138,11 +138,17 @@ await check('Dashboard audit deadlines: today remains current, yesterday overdue
  } finally {await request(admin,`/api/grc?id=${created.id}`,'DELETE')}
 });
 await check('Evidence Library UI upload, file integrity, edit and delete',async()=>{
+  const ctlResponse=await admin.request.post(base+'/api/grc',{headers:{origin:base},data:{module:'Kontroller',data:{controlTitle:'QA upload control',owner:'QA',frequency:'Aylık',implementation:'Kısmi',status:'Taslak'}}});
+  assert.equal(ctlResponse.status(),201);const uploadControl=await ctlResponse.json();
  await reset();await open('Evidence Library');await page.locator('.actions .primary').click();const dialog=page.locator('.modal[role=dialog]');await dialog.waitFor();
  const bytes=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=','base64');
  await dialog.locator('input[type=file]').setInputFiles({name:'qa-evidence.png',mimeType:'image/png',buffer:bytes});
- for(const [name,value] of Object.entries({evidenceTitle:'QA uploaded evidence',controlRef:'A.5.18',owner,period:today.slice(0,7)}))await dialog.locator(`[name=${name}]`).fill(value);
- await dialog.locator('[name=status]').selectOption('Taslak');
+   for(const [label,query] of [['Owner','qa-admin@fornost.test'],['Related controls',uploadControl.code]]){
+    await dialog.getByRole('combobox',{name:label,exact:true}).fill(query);
+    await dialog.getByRole('listbox',{name:label,exact:true}).getByRole('option').filter({hasText:query}).first().click();
+  }
+  await dialog.locator('[name=evidenceTitle]').fill('QA uploaded evidence');
+  await dialog.locator('[name=period]').fill('2026-Q4');
  await checkPendingRecordForm(dialog,'/api/evidence');assert.equal(await dialog.locator('input[type=file]').evaluate(input=>input.files.length),1);
  const response=page.waitForResponse(r=>r.url().endsWith('/api/evidence')&&r.request().method()==='POST').catch(()=>null);await dialog.locator('.form-actions .primary').click();const r=await response;assert.equal(r.status(),201,await r.text());const created=await r.json();assert.match(created.contentSha256,/^[a-f0-9]{64}$/);await dialog.waitFor({state:'hidden'});
  const saved=(await request(admin,'/api/grc')).rows.find(x=>x.id===created.id),data=JSON.parse(saved.data_json);const downloaded=await admin.request.get(`${base}/api/evidence?key=${encodeURIComponent(data.fileKey)}`);assert.equal(downloaded.status(),200);assert.deepEqual(await downloaded.body(),bytes);

@@ -1,3 +1,4 @@
+import {validEvidenceRefs,editableEvidence,evidenceDatesInvalid,evidenceReviewerIsIndependent} from "./evidence/intake";
 import {controlTypeKey,controlTypes,sameControlTester} from "./control-library-model";
 import {validVendorEvidenceRefs} from "./third-party-risk/inventory";
 import { biaRecoveryFields, exceedsMtpd, sameBiaPerson, mtpdWarning, sodWarning } from "./bia-assessment";
@@ -78,13 +79,22 @@ export function validate(module:unknown,input:unknown,previousStatus?:unknown,pr
  if(!input||typeof input!=="object"||Array.isArray(input))return {error:"Geçersiz kayıt verisi."};
  const source=input as Data,cleaned:Data={};
  for(const [key,value] of Object.entries(source)){if(key.length>60)continue;
+  if(module==="Kanıtlar"&&key==="controlRefs"&&typeof value==="string"){
+    if(value&&!validEvidenceRefs(value))return {error:"En fazla 100 kontrol seçin. / Select up to 100 controls."};
+    cleaned[key]=value.trim();continue;
+  }
   if(module==="Risk Assessment" && ["asset","existingControls","controlImplementationNote"].includes(key) && typeof value==="string"){
     const limit=key==="controlImplementationNote"?2000:32000;
     if(value.length>limit)return {error:`${key} izin verilen uzunluğu aşıyor.`};
     cleaned[key]=value.trim();continue;
   }
   cleaned[key]=module==="Denetim Yönetimi"&&["requirementStatement","requirementGuidance","requirementAssessment"].includes(key)&&typeof value==="string"?value.slice(0,100000):cleanText(value)}
- const data=normalizeRecordData(module,cleaned);
+ const data=normalizeRecordData(module,module==="Kanıtlar"?editableEvidence(cleaned,previous):cleaned);
+ if(module==="Kanıtlar"){
+  if(data.reviewer&&!evidenceReviewerIsIndependent(data))return {error:"İnceleyen, kanıt sahibi ve yükleyiciden farklı olmalıdır. / Select an independent reviewer."};
+  if(evidenceDatesInvalid(data))return {error:"Geçerlilik bitişi toplanma tarihinden önce olamaz. / Expiry cannot precede collection."};
+  if(data.sourceAssetRef&&data.sourceVendorRef)return {error:"Tek kaynak seçin. / Select a single source."};
+ }
  if(module==="Kontroller"){
   if(sameControlTester(data))return {error:"Kontrol sahibi ve kontrol test sorumlusu farklı kişiler olmalıdır."};
   if(data.controlType && !Object.hasOwn(controlTypes,String(data.controlType)) && data.controlType!==controlTypeKey(previous?.controlType))return {error:"Geçersiz kontrol türü."};

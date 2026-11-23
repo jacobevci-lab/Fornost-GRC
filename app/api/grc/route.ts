@@ -1,4 +1,4 @@
-import {prepareControlMappings,PostureError} from "../../framework-posture/store";
+import {mergeEvidenceStandards,prepareControlMappings,PostureError} from "../../framework-posture/store";
 import { previewRegisterImport, commitRegisterImport } from "../../register-import-store";
 import { RegisterImportError } from "../../register-import";
 import { validModule, normalizeRecordData, validate, type ModuleName, type Data } from "../../core-record-validation";
@@ -55,6 +55,11 @@ export async function GET(req: NextRequest) {
  return NextResponse.json({ rows, nextCursor }, { headers: { "cache-control": "private, no-store" } });
 }
 function controlLinksAllowed(actor:Parameters<typeof canReadModule>[0],module:string,items:unknown[],before:Data={}){
+ if(module==="Kanıtlar")return items.every(value=>{
+  if(!value||typeof value!=="object")return true;
+  const item=value as Data;
+  return Object.entries({sourceAssetRef:"Varlık Envanteri",sourceVendorRef:"Tedarikçiler",controlRefs:"Kontroller",controlRef:"Kontroller"}).every(([key,target])=>item[key]===undefined||String(item[key]||"")===String(before[key]||"")||canReadModule(actor,target));
+ });
  if(module!=="Kontroller")return true;
  return items.every(item=>!item||typeof item!=="object"||Object.entries({controlRiskRefs:"Risk Assessment",supportingEvidenceRefs:"Kanıtlar"}).every(([key,target])=>
    canReadModule(actor,target)||JSON.stringify((item as Data)[key]??[])===JSON.stringify(before[key]??[])));
@@ -106,9 +111,16 @@ export async function PATCH(req:NextRequest){
   if(!existing)return NextResponse.json({error:"Kayıt bulunamadı."},{status:404});if(!canWriteModule(auth.actor,existing.module))return NextResponse.json({error:"Bu modülde yazma yetkiniz yok."},{status:403});
   const input=existing.module==="Risk Assessment"&&b.data&&typeof b.data==="object"&&!Array.isArray(b.data)?preserveRiskGovernance(b.data,JSON.parse(existing.data_json)):b.data;
   const before=JSON.parse(existing.data_json);
+  if(existing.module==="Kanıtlar" && input && typeof input==="object" && (["status","reviewStatus"].some(key=>input[key]!==undefined&&input[key]!==before[key])))return NextResponse.json({code:"USE_EVIDENCE_REVIEW"},{status:403});
+  if(existing.module==="Kanıtlar" && before.versionNo && (!before.uploadedBy||!before.versionUploadedBy)){
+   const authors=await d.prepare("SELECT (SELECT created_by FROM evidence_versions WHERE evidence_id=? ORDER BY version_no LIMIT 1) AS uploader,(SELECT created_by FROM evidence_versions WHERE evidence_id=? ORDER BY version_no DESC LIMIT 1) AS currentUploader").bind(b.id,b.id).first<{uploader:string;currentUploader:string}>();
+   if(authors?.uploader)before.uploadedBy||=authors.uploader;
+   if(authors?.currentUploader)before.versionUploadedBy||=authors.currentUploader;
+  }
   if(!controlLinksAllowed(auth.actor,existing.module,[input],before))return NextResponse.json({error:'forbidden'},{status:403});
   const side=await mappings(d,auth.actor,existing.module,b.id,b.controlMappings);
   const checked=validate(existing.module,input,before.status,before);if("error" in checked)return NextResponse.json({error:checked.error},{status:400});
+  if(existing.module==="Kanıtlar"&&canReadPosture(auth.actor)&&(checked.data.controlRefs!==before.controlRefs||checked.data.controlRef!==before.controlRef||checked.data.frameworks!==before.frameworks))await mergeEvidenceStandards(d,checked.data);
   const updatedAt=await writeCoreRecord(d,b.id,existing,checked.data,b.expectedUpdatedAt,side);
   return NextResponse.json({ok:true,updatedAt});
  }catch(error){if(error instanceof CoreSideEffectConflict)return NextResponse.json({error:'conflict',code:'MAPPING_CONFLICT'},{status:409});if(error instanceof PostureError)return NextResponse.json({error:error.code,code:'MAPPING_'+error.code.toUpperCase()},{status:error.status});if(error instanceof RegisterImportError)return NextResponse.json({error:error.code,issues:error.issues},{status:error.status});if(isAuditClosedError(error))return NextResponse.json({error:auditClosedMessage,code:"AUDIT_CLOSED"},{status:409});if(error instanceof CoreReferenceUnavailable)return NextResponse.json({error:error.message,code:"REFERENCE_UNAVAILABLE"},{status:422});if(error instanceof LifecycleConflict)return NextResponse.json({error:error.message},{status:409});return NextResponse.json({error:"Geçersiz JSON isteği, kayıt sürümü veya okunamayan kayıt."},{status:400})}

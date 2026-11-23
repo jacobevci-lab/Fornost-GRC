@@ -1,3 +1,4 @@
+import {pendingVersion,validEvidenceRefs} from "../../../evidence/intake";
 import { NextRequest, NextResponse } from "next/server";
 import { requireRole } from "../../auth/security";
 import { CoreReferenceUnavailable } from "../../../core-reference-write";
@@ -148,7 +149,9 @@ export async function POST(req: NextRequest) {
   const record = await recordById(env.DB, evidenceId);
   if (!record) return json({ error: "Kanıt kaydı bulunamadı." }, 404);
   const data = parse(record.data_json);
-  const refs = splitEvidenceControlRefs(text(form.get("controlRefs"), 2000) || data.controlRefs || data.controlRef);
+  const requestedRefs=form.get("controlRefs")||data.controlRefs||data.controlRef;
+  if(!validEvidenceRefs(requestedRefs))return json({error:"1–100 kontrol referansı seçin. / Select 1–100 controls."},400);
+  const refs = splitEvidenceControlRefs(requestedRefs);
   if (!refs.length) return json({ error: "En az bir kontrol referansı gerekli." }, 400);
   const guard = evidenceReferenceGuard(evidenceId, { controlRefs: refs.join(", ") }, data);
   if (!await env.DB.prepare(`SELECT 1 valid WHERE ${guard.sql}`).bind(...guard.values).first()) return json({ error: new CoreReferenceUnavailable().message, code: "REFERENCE_UNAVAILABLE" }, 422);
@@ -176,9 +179,9 @@ export async function POST(req: NextRequest) {
     }, {
       claim: { statement: (commit) => {
         const nextData = {
-          ...data,
-          status: "İncelemede",
-          reviewStatus: "pending-review",
+          ...pendingVersion(data),
+          versionUploadedBy:access.actor.email,
+          reviewer:String(data.reviewer||"").toLowerCase()===access.actor.email.toLowerCase()?"":data.reviewer,
           fileKey,
           fileName,
           fileType,
