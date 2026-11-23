@@ -1,3 +1,4 @@
+import { attachAuditInheritance } from './audit-readiness-inheritance';
 import { loadEvidenceAssuranceSnapshot } from './evidence/assurance-runtime';
 import type { EvidenceAssuranceSnapshot } from './evidence/assurance-snapshot';
 import { buildAuditEvidenceAssurance } from './audit-evidence-assurance';
@@ -19,6 +20,8 @@ export async function loadAuditReadinessContext(db: D1Database, now = new Date()
       } catch { recordsComplete = false; return []; }
     });
   } catch { recordsAvailable = false; recordsComplete = false; }
+  try { rows = await attachAuditInheritance(db, rows); }
+  catch { recordsComplete = false; }
   const requirements = buildAuditEvidenceAssurance(auditRowsInScope(rows, ''), [], now).requirements;
   const [sources, evidence] = await Promise.all([
     loadContinuousAssuranceSnapshots(db, { integrityControlRefs: requirements.map(item => item.reference),now }),

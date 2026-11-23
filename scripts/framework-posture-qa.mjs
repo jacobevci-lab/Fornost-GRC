@@ -135,6 +135,10 @@ try{
   assert.equal(assessed.evidenceStatus,'İncelemede');assert.equal(assessed.status,'Başlanmadı');assert.equal(assessed.progress,0);
   const snapshot=(await api(endpoint+'?auditId='+audit.id)).baseline;
   assert.equal(snapshot.withEvidence,1);assert.equal(Object.keys(snapshot.evidence).length,1);
+  const readiness=await api('/api/audits/readiness?auditName='+encodeURIComponent(audit.name));
+  assert.ok(readiness.verified,JSON.stringify(readiness.issues));
+  assert.equal(readiness.evidence.requirements.find(r=>r.reference==='A.5.1')?.status,'current');
+  assert.deepEqual(readiness.evidence.itemCoverage,[{auditName:audit.name,scoped:snapshot.total-snapshot.excluded,current:1}]);
   const before=await api(endpoint+'?name='+encodeURIComponent(iso)+'&period='+encodeURIComponent(period));
   await go('Compliance Management');
   await work.locator('.posture-column-head').filter({hasText:'ISO 27001'}).click();

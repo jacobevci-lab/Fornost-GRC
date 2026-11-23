@@ -17,6 +17,11 @@ export function auditPeriod(start:string,end:string,target:string) {
   if (Boolean(start)!==Boolean(end) || [start,end,target].some(d=>d && !requestDate(d)) || (start && start>end)) throw new Error('audit-dates');
   return start && end ? start+'..'+end : '';
 }
+export function approvedAuditEvidence(status: unknown) {
+  return ['onaylandı', 'approved', 'kabul edildi', 'accepted'].includes(
+    String(status ?? '').normalize('NFKC').trim().toLocaleLowerCase('tr-TR')
+  );
+}
 export function inAuditPeriod(period:string, collected:string, selected:string) {
   const [from,to]=selected.split('..');
   if(!to || !requestDate(from) || !requestDate(to)) return period===selected;

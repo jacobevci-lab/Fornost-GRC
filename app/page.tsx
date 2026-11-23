@@ -17,6 +17,7 @@ import { readAllGrcPages } from "./grc-pagination";
 import { AuditPlanPanel } from "./audit-plan-panel";
 import { AuditTeamFields } from "./audit-team-fields";
 import { auditTypes } from "./audit-engagement";
+import type { AuditItemCoverage } from "./audit-evidence-assurance";
 import { AuditPortfolioMetrics } from "./audit-portfolio-metrics";
 import { AuditActions } from "./audit-actions";
 import { AuditFindingsPanel } from "./audit-findings-panel";
@@ -3979,8 +3980,8 @@ function AuditModule({
       allItems={visible} items={visible} lang={lang} query={query} setQuery={setQuery}
       edit={edit} remove={remove} openNew={openNew} canWrite={canWrite} canDelete={canDeleteAudit} />;
   }
-  const renderPortfolio=(score:number|null)=><>
-          <AuditPortfolioMetrics audits={audits} lang={lang} readiness={score}/>
+  const renderPortfolio=(coverage:AuditItemCoverage[]|null)=><>
+          <AuditPortfolioMetrics audits={audits} lang={lang} coverage={coverage}/>
           <AuditPortfolioWorkspace onCreate={canWrite?openAuditPicker:undefined} audits={audits} rows={portfolioRows} evidence={evidenceRows} activeId={previewAuditId}
             onSelect={setPreviewAuditId} onOpen={select} onDelete={canDeleteAudit?deleteAudit:undefined}
             renderActions={audit=><AuditActions key={audit.id} audit={audit} lang={lang} canWrite={canWrite} canDelete={canDeleteAudit} onDelete={deleteAudit} onChanged={async()=>{await refreshAudits();}}/>}

@@ -1,4 +1,4 @@
-import { inAuditPeriod } from '../audit-engagement';
+import { approvedAuditEvidence, inAuditPeriod } from '../audit-engagement';
 import { completedInitialization } from '../completed-initialization';
 import { evaluateEvidenceEligibility } from '../evidence/eligibility';
 import { ensureEvidenceHistorySchema, verifyEvidenceVersionChainWithAnchor, splitEvidenceControlRefs, normalizeEvidenceControlRef, type EvidenceVersionRow } from '../evidence/versioning';
@@ -120,7 +120,7 @@ async function readPins(db:D1Database,aliases:Map<string,Set<string>>,mapped:Set
     for(const v of versions.results){const group=groups.get(v.evidence_id)??[];group.push(v);groups.set(v.evidence_id,group);}
     for(const group of groups.values()){
       const v=group[group.length-1], data=JSON.parse(v.data_json);
-      if(!evaluateEvidenceEligibility(data).current || !['onaylandı','approved','accepted','kabul edildi'].includes(key(data.status)) ||
+      if(!evaluateEvidenceEligibility(data).current || !approvedAuditEvidence(data.status) ||
         v.content_sha256!==data.contentSha256 || v.period!==str(data.period) || !v.period)continue;
       if((await verifyEvidenceVersionChainWithAnchor(group,{versionNo:data.versionNo,chainSha256:data.versionChainSha256})).state!=='verified')continue;
       const currentRefs=new Set(splitEvidenceControlRefs(data.controlRefs||data.controlRef).map(key));

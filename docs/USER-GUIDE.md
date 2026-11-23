@@ -463,3 +463,5 @@ Bir sistemi seçip **Sistem dosyasını aç** ile tam kaydına geçin. **AI Enva
 BIA formunda RTO, RPO ve MTPD saat olarak girilir. RTO, MTPD ile eşit olabilir. RPO sıfır olabilir. Etki özetindeki ortalama yalnız girilen boyutlardan hesaplanır ve kaç boyutun değerlendirildiği gösterilir. Sahibi ve BIA onaylayan için farklı dizin kullanıcıları seçilir. Teknoloji ve tedarikçi bağımlılıkları kayıt koduyla aranabilir. Önceki serbest metin bağımlılıkları mevcut kayıtta not olarak görünür.
 
 Süreklilik Planı sütunundaki BCP rozeti ilgili planı açar. **+ Plan Oluştur** ilgili BIA ve kurtarma hedefleriyle yeni plan formunu açar. Plan, form kaydedildiğinde oluşturulur. İlk testini bekleyen süreçler ve kapsamı doğrulanmamış hazırlık durumları tabloda ayrı gösterilir.
+
+Portföydeki **Genel Kanıt Hazırlığı**, aktif denetimlerde kapsam içindeki maddelerin kaçında güncel kanıt bulunduğunu gösterir. Aynı standart maddesi farklı denetim dönemlerinde ayrı sayılır. Devralınan kanıt, ilgili dönemde sabitlenen sürüm ve dosya özeti güncel, doğrulanmış kayıtla eşleştiğinde sayılır. Kapsam veya veri doğrulanamadığında yüzde yerine “—” görünür.
