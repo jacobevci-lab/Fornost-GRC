@@ -33,16 +33,24 @@ try{
  });
  phase='Create owned control fixture';
  const control=await api('/api/grc','POST',{module:'Kontroller',data:{controlRef:prefix,controlTitle:prefix,owner:'QA',frequency:'Yıllık',implementation:'QA verification',status:'Taslak'}},201);controlId=control.id;owned.push(controlId);
+ const temporary=await api('/api/grc','POST',{module:'Kontroller',data:{controlTitle:prefix+' stale',owner:'QA',frequency:'Yıllık',implementation:'Kısmi',status:'Taslak'}},201);owned.push(temporary.id);
+ await page.reload({waitUntil:'domcontentloaded'});await expect(page.locator('.shell')).toBeVisible();
  await openQaModule(page,'Evidence Library');await page.locator('.actions .primary').first().click();const form=page.locator('.record-dialog');
  await form.locator('input[type=file]').setInputFiles(file);
- for(const [name,value] of Object.entries({evidenceTitle:prefix,controlRef:'CTL-999999999',owner:'QA',period:'2026'}))await form.locator(`[name=${name}]`).fill(value);
- await form.locator('[name=status]').selectOption('Taslak');
+ async function selectOption(label,query){
+  await form.getByRole('combobox',{name:label,exact:true}).fill(query);
+  await form.getByRole('listbox',{name:label,exact:true}).getByRole('option').filter({hasText:query}).first().click();
+ }
+ await form.locator('[name=evidenceTitle]').fill(prefix);await form.locator('[name=period]').fill('2026');
+ await selectOption('Owner',email);await selectOption('Related controls',temporary.code);
+ await api('/api/grc?id='+encodeURIComponent(temporary.id),'DELETE');owned.splice(owned.indexOf(temporary.id),1);
+ await expect(form.locator('output')).toHaveText('Pending review');
  assert.equal(await form.locator('form').evaluate(f=>f.checkValidity()),true,'QA form must contain all required fields');
  await step('Browser upload rejects a missing canonical control without a record',async()=>{
   const pending=page.waitForResponse(r=>new URL(r.url()).pathname==='/api/evidence'&&r.request().method()==='POST');await form.locator('.form-actions .primary').click();assert.equal((await pending).status(),422);await expect(form).toBeVisible();assert.ok(!(await list()).some(r=>JSON.parse(r.data_json).evidenceTitle===prefix));
  });
  await step('Valid browser upload receives a persistent short EVD code',async()=>{
-  await form.locator('[name=controlRef]').fill(control.code);const pending=page.waitForResponse(r=>new URL(r.url()).pathname==='/api/evidence'&&r.request().method()==='POST');await form.locator('.form-actions .primary').click();const response=await pending;assert.equal(response.status(),201);const created=await response.json();evidenceId=created.id;owned.push(evidenceId);assert.match(created.code,/^EVD-\d{3,}$/);await expect(form).toBeHidden();
+  await form.getByRole('button',{name:new RegExp('Remove .*'+temporary.code)}).click();await selectOption('Related controls',control.code);const pending=page.waitForResponse(r=>new URL(r.url()).pathname==='/api/evidence'&&r.request().method()==='POST');await form.locator('.form-actions .primary').click();const response=await pending;assert.equal(response.status(),201);const created=await response.json();evidenceId=created.id;owned.push(evidenceId);assert.match(created.code,/^EVD-\d{3,}$/);await expect(form).toBeHidden();
   const row=(await list()).find(r=>r.id===evidenceId);assert.equal(row.record_code,created.code);keys.push(JSON.parse(row.data_json).fileKey);await download(keys[0]);
   await page.getByPlaceholder('Search records...',{exact:true}).fill(prefix);await expect(page.getByRole('row').filter({hasText:prefix})).toContainText(created.code);await page.screenshot({path:output+'/short-code.png'});
  });

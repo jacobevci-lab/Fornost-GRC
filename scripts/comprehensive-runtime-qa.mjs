@@ -92,6 +92,10 @@ for(const [moduleName,label,key] of [['Risk Assessment','Risk Assessment','title
   await contact.fill(owner);
   await dialog.getByRole('listbox',{name:'Owner · search name or email'}).getByRole('option',{name:new RegExp(owner)}).click();
  }
+ if(moduleName==='Kontroller'){
+  await dialog.getByRole('combobox',{name:'Owner',exact:true}).fill(owner);
+  await dialog.getByRole('listbox',{name:'Owner',exact:true}).getByRole('option').filter({hasText:owner}).first().click();
+ }
  const inputs=dialog.locator('input[name]:not([type=hidden]),textarea[name],select[name]');
  for(let i=0;i<await inputs.count();i++){const input=inputs.nth(i),name=await input.getAttribute('name'),tag=await input.evaluate(e=>e.tagName),value=data[name];if(value===undefined||value===null)continue;
  if(tag==='SELECT'){
