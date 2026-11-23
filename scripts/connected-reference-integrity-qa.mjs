@@ -68,7 +68,7 @@ try {
   await expect(page.locator('.cgw-node').filter({hasText:title})).toHaveCount(1);
   await page.locator('.cgw-node').filter({hasText:title}).click();
   await page.locator('.cgw-inspector').getByRole('button',{name:'Map this record',exact:true}).click();
-  await expect(page.locator('.cgw-record-heading')).toContainText(title);
+  await expect(page.locator('.cm-inspector h3')).toContainText(title);
   assert.deepEqual(errors, []);
   await fs.writeFile(`${out}/result.json`, JSON.stringify({ status: 'passed', ambiguousTargets: 2, correctedLinks: 1, layouts: 8 }));
 } finally {

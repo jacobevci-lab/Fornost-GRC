@@ -23,9 +23,12 @@ export function connectedNeighborhood(root: Row, links: Link[], depth = 1, limit
   return { records: queue.slice(1), links: links.filter(link => found.has(link.source.id) && found.has(link.target.id)).sort((a, b) => `${a.source.id}:${a.target.id}:${a.field}`.localeCompare(`${b.source.id}:${b.target.id}:${b.field}`)), truncated };
 }
 
-export type WorkbenchIssue = { id: string; row: Row; kind: 'gap' | 'missing' | 'ambiguous' | 'expired' | 'review' | 'plan'; severity: 'high' | 'medium'; relations: string[]; field?: string; detail?: string; candidates?: Row[]; due?: string };
+export type WorkbenchIssue = { id: string; row: Row; kind: 'unlinked' | 'gap' | 'missing' | 'ambiguous' | 'expired' | 'review' | 'plan'; severity: 'high' | 'medium'; relations: string[]; field?: string; detail?: string; candidates?: Row[]; due?: string };
 export function connectedIssues(rows: Row[], links: Link[], gaps: ConnectedGrcCoverageGap[], unresolved: UnresolvedGrcReference[], today = new Date().toISOString().slice(0, 10)): WorkbenchIssue[] {
   const issues: WorkbenchIssue[] = gaps.map(gap => ({ id: `gap:${gap.row.id}:${gap.rule}`, row: gap.row, kind: 'gap', severity: gap.severity, relations: gap.missingRelations }));
+  const linked=new Set(links.flatMap(edge=>[edge.source.id,edge.target.id]));
+  const classified=new Set(gaps.map(g=>g.row.id));
+  const plans=new Set(links.filter(l=>l.relation==='continuity-bia').map(l=>l.target.id));
   unresolved.forEach(ref => issues.push({ id: `ref:${ref.source.id}:${ref.field}:${ref.value}`, row: ref.source, kind: ref.reason, severity: 'high', relations: [ref.relation], field: ref.field, detail: ref.value, candidates: ref.candidates }));
   for (const row of rows) {
     const expiry = typeof row.data.expiresAt === 'string' ? row.data.expiresAt : '';
@@ -34,13 +37,15 @@ export function connectedIssues(rows: Row[], links: Link[], gaps: ConnectedGrcCo
     const review = typeof row.data.nextReview === 'string' ? row.data.nextReview : '';
     if (/^\d{4}-\d{2}-\d{2}$/.test(review) && review < today && !['Kapalı', 'Arşivlendi', 'retired'].includes(String(row.data.status)))
       issues.push({ id: `review:${row.id}`, row, kind: 'review', severity: 'medium', relations: [], due: review });
-    if (row.module === 'BIA' && row.data.status !== 'Arşivlendi' && !links.some(link => link.relation === 'continuity-bia' && link.target.id === row.id))
+    if (row.module === 'BIA' && row.data.status !== 'Arşivlendi' && !plans.has(row.id))
       issues.push({ id: `plan:${row.id}`, row, kind: 'plan', severity: 'high', relations: ['continuity-bia'] });
   }
+  for(const issue of issues)if(['gap','plan','missing','ambiguous'].includes(issue.kind))classified.add(issue.row.id);
+  for(const row of rows)if(!linked.has(row.id)&&!classified.has(row.id))issues.push({id:'unlinked:'+row.id,row,kind:'unlinked',severity:'medium',relations:[]});
   return issues.sort((a, b) => Number(b.severity === 'high') - Number(a.severity === 'high') || (a.due || '9999').localeCompare(b.due || '9999') || a.id.localeCompare(b.id));
 }
 export const issueLabels = {
-  gap: ['Eksik bağlantı', 'Missing connection'], missing: ['Referans çözümlenemedi', 'Unresolved reference'], ambiguous: ['Birden fazla hedef', 'Ambiguous target'],
+  unlinked:['Bağlantısız kayıt','Unlinked record'],gap: ['Eksik bağlantı', 'Missing connection'], missing: ['Referans çözümlenemedi', 'Unresolved reference'], ambiguous: ['Birden fazla hedef', 'Ambiguous target'],
   expired: ['Kanıtın süresi geçti', 'Evidence expired'], review: ['Gözden geçirme gecikti', 'Review overdue'], plan: ['Süreklilik planı bağlantısı yok', 'No continuity plan linked'],
 } as const;
 export const recordOwner = (row: Row) => String(row.data.owner || row.data.auditOwner || row.data.assignee || '—');
@@ -53,9 +58,10 @@ export const editableConnections: Record<string, { field: string; target: string
     { field: 'processLink', target: ['BIA'], label: ['İş süreci / BIA', 'Business process / BIA'] },
     { field: 'existingControls', target: ['Kontroller'], multiple: true, label: ['Riski azaltan kontrol', 'Mitigating control'] },
   ],
-  BIA: [{ field: 'asset', target: ['Varlık Envanteri'], required: true, label: ['Bağımlı varlık', 'Dependent asset'] }],
+  BIA: [{field:'supplierRefs',target:['Tedarikçiler'],multiple:true,label:['Süreç tedarikçisi','Process supplier']},{field:'technologyRefs',target:['Varlık Envanteri'],multiple:true,label:['Teknoloji bağımlılığı','Technology dependency']},{ field: 'asset', target: ['Varlık Envanteri'], required: true, label: ['Bağımlı varlık', 'Dependent asset'] }],
   'Varlık Envanteri': [{ field: 'vendor', target: ['Tedarikçiler'], label: ['Tedarikçi', 'Vendor'] }],
-  Kontroller: [{ field: 'processLink', target: ['BIA'], label: ['İş süreci / BIA', 'Business process / BIA'] }],
+  'Tedarikçiler':[{field:'vendorEvidenceRefs',target:['Kanıtlar'],multiple:true,label:['Tedarikçi kanıtı','Supplier evidence']}],
+  Kontroller: [{field:'supportingEvidenceRefs',target:['Kanıtlar'],multiple:true,label:['Destekleyici kanıt','Supporting evidence']},{field:'controlRiskRefs',target:['Risk Assessment'],multiple:true,label:['Azaltılan risk','Mitigated risk']},{ field: 'processLink', target: ['BIA'], label: ['İş süreci / BIA', 'Business process / BIA'] }],
   Kanıtlar: [{ field: 'controlRefs', target: ['Kontroller'], multiple: true, required: true, label: ['Kanıtlanan kontrol', 'Evidenced control'] }],
   'Denetim Yönetimi': [
     { field: 'riskRef', target: ['Risk Assessment'], label: ['İlgili risk', 'Related risk'] },
@@ -75,7 +81,7 @@ export function changeConnectionData(row: Row, field: string, target: Row, actio
   if (action === 'unlink' && kept.length === previous.length) throw new Error('not-linked');
   const next = action === 'link' ? rule.multiple ? [...kept, target.id] : [target.id] : kept;
   if (rule.required && !next.length) throw new Error('required');
-  const data = { ...row.data, [field]: rule.multiple && field === 'controlRefs' ? next : next.join('; ') };
+  const data = { ...row.data, [field]: rule.multiple && field !== 'existingControls' ? next : next.join('; ') };
   if (row.module === 'Kanıtlar') data.controlRef = next[0] || '';
   return data;
 }

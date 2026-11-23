@@ -12,7 +12,8 @@ test("connected GRC is wired into navigation, UI and documentation",async()=>{
   assert.match(page,/"Bağlantılı GRC"/);
   assert.match(page,/ConnectedGrc rows=\{rows\}/);
   assert.match(component,/CONNECTED GRC/);
-  assert.match(component,/records\.length-linkedIds\.size/);
+  assert.match(component,/health\.coverage/);
+  assert.match(component,/data-metric=\{key\}/);
   assert.match(component,/assessConnectedGrcCoverage/);
   assert.match(component,/connected-assurance/);
   assert.match(component,/connectedGrcExport/);

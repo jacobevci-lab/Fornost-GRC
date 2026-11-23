@@ -13,6 +13,11 @@ import { navigateToFornost, FORNOST_FOCUS_EVENT, peekPendingFornostFocus, consum
 import { assuranceWorkFocus } from "./assurance-work-focus";
 import { connectedSourceIssueText } from "./connected-grc-source-status";
 import { loadConnectedGrcSources } from "./connected-grc-loader";
+import {mapCodes} from './connected-map-identities';
+import {contextLinks} from './connected-map-context';
+import {mapStats,mergeMapRecords} from './connected-map-model';
+import MapAssurance from './connected-map-assurance';
+import './connected-map.css';
 import ConnectedWorkbench from "./connected-grc-workbench";
 import { connectedIssues } from "./connected-grc-workbench-model";
 import type { AccessSubject } from "./module-access";
@@ -28,6 +33,8 @@ export default function ConnectedGrc({rows,lang,go,includeAi=false,actor,refresh
   const tr=lang==="tr",[module,setModule]=useState("all"),[query,setQuery]=useState("");
   const moduleLabel=(name:string)=>tr?(name==="Risk Assessment"?"Risk Değerlendirmesi":name):(moduleNames[name]||name);
   const [view,setView]=useState<"explore"|"impact"|"gaps"|"assurance">("explore");
+  const [network,setNetwork]=useState<'all'|'focus'>('all');
+  const [metric,setMetric]=useState<'all'|'links'|'hubs'|'gaps'>('all');
   const [workItemId,setWorkItemId]=useState<string|null>(null);
   useEffect(()=>{
     const apply=(request:FornostNavigationRequest|null)=>{const id=assuranceWorkFocus(request);if(!id)return;setWorkItemId(id);setView("assurance");consumePendingFornostFocus("Bağlantılı GRC");};
@@ -76,31 +83,45 @@ export default function ConnectedGrc({rows,lang,go,includeAi=false,actor,refresh
     return()=>{current=false;controller.abort();};
   },[includeAi,sourceReload]);
 
-  const sourcesComplete=coreState==="ready"&&!sourceState.loading&&sourceState.ready===sourceState.total;
+  const sourceReadsComplete=coreState==="ready"&&!sourceState.loading&&sourceState.ready===sourceState.total;
   async function refreshAll(){const result=await refreshRows();setSourceReload(value=>value+1);return !!result;}
   const coverageNotice=sourceState.loading?(tr?"Kaynaklar yükleniyor; tamlık ve güvence değerlendirmesi bekleniyor.":"Sources are loading; completeness and assurance assessment is pending."):(tr?"Kaynaklar eksik: bağlantı eksikleri ön değerlendirmedir; toplam tamlık ve güvence sonucu hesaplanmadı.":"Sources are incomplete: connection gaps are provisional; overall completeness and assurance were not assessed.");
 
-  const records=useMemo(()=>{
-    const merged=new Map<string,ConnectedGrcRow>();
-    for(const row of [...rows,...enterpriseRows]) if(!ignored.has(row.module) && (includeAi || row.module!=="AI Yönetişimi")) merged.set(row.id,row);
-    return Array.from(merged.values());
+  const rawRecords=useMemo(()=>{
+    return mergeMapRecords(rows,enterpriseRows).filter(row=>!ignored.has(row.module)&&(includeAi||row.module!=="AI Yönetişimi"));
   },[rows,enterpriseRows,includeAi]);
-  const graph=useMemo(()=>buildConnectedGrcGraph(records),[records]),links=graph.links,unresolved=graph.unresolved;
+  const [catalog,setCatalog]=useState<{input:typeof rawRecords;value:Awaited<ReturnType<typeof mapCodes>>|null}|null>(null);
+  useEffect(()=>{if(!activeSnapshot)return;const abort=new AbortController();
+    void mapCodes(rawRecords,abort.signal).then(value=>{if(!abort.signal.aborted)setCatalog({input:rawRecords,value})}).catch(()=>{if(!abort.signal.aborted)setCatalog({input:rawRecords,value:null})});
+    return()=>abort.abort();
+  },[rawRecords,activeSnapshot]);
+  const currentCatalog=catalog?.input===rawRecords?catalog:undefined;
+  const mapLoading=sourceState.loading||!currentCatalog;
+  const records=currentCatalog?.value?.rows||rawRecords;
+  const graph=useMemo(()=>buildConnectedGrcGraph(records),[records]),unresolved=graph.unresolved;
+  const links=useMemo(()=>[...graph.links,...contextLinks(records,currentCatalog?.value?.edges||[])],[graph,records,currentCatalog]);
+  const sourcesComplete=sourceReadsComplete&&!!currentCatalog?.value;
   const coverage=useMemo(()=>assessConnectedGrcCoverage(records,links),[records,links]);
   const issues=useMemo(()=>connectedIssues(records,links,coverage.gaps,unresolved),[records,links,coverage.gaps,unresolved]);
   const assuranceChains=useMemo(()=>buildContinuousAssuranceChains(records,links,undefined,unresolved),[records,links,unresolved]);
   const attentionChains=assuranceChains.filter(chain=>chain.chainState!=="complete").sort((a,b)=>Number(b.chainState==="broken")-Number(a.chainState==="broken")||b.overdueRemediations-a.overdueRemediations||a.rule.id.localeCompare(b.rule.id));
   const assuranceSummary=useMemo(()=>summarizeContinuousAssurance(assuranceChains),[assuranceChains]);
   const modules=useMemo(()=>Array.from(new Set(records.map(row=>row.module))).sort(),[records]);
-  const linkedIds=new Set(links.flatMap(link=>[link.source.id,link.target.id]));
+  const health=useMemo(()=>mapStats(records,links),[records,links]);
+  const missingIds=new Set(issues.filter(i=>['unlinked','gap','missing','ambiguous','plan'].includes(i.kind)).map(i=>i.row.id));
+  const hubIds=new Set(health.hubs.map(r=>r.id));
+  function chooseMetric(key:typeof metric){
+    setMetric(key);setQuery('');setModule('all');setSelectedId('');setPage(0);setGapQuery('');setGapModule('all');setGapType('all');
+    setView(key==='gaps'?'gaps':'explore');setNetwork('all');
+  }
   const needle=query.trim().toLocaleLowerCase(tr?"tr-TR":"en-US");
-  const matchingRecords=records.filter(row=>(module==="all"||row.module===module)&&(!needle||`${row.code||row.id} ${connectedTitle(row)} ${row.module} ${moduleLabel(row.module)}`.toLocaleLowerCase(tr?"tr-TR":"en-US").includes(needle)));
+  const matchingRecords=health.ranked.filter(row=>(view!=="explore"||metric!=="hubs"||hubIds.has(row.id))&&(module==="all"||row.module===module)&&(!needle||`${row.code||row.id} ${connectedTitle(row)} ${row.module} ${moduleLabel(row.module)}`.toLocaleLowerCase(tr?"tr-TR":"en-US").includes(needle)));
   const currentPage=Math.min(page,Math.max(0,Math.ceil(matchingRecords.length/10)-1));
   const visibleRecords=matchingRecords.slice(currentPage*10,currentPage*10+10);
-  const selected=matchingRecords.find(row=>row.id===selectedId)||visibleRecords[0];
+  const selected=matchingRecords.find(row=>row.id===selectedId)||matchingRecords[0];
   const filtered=links.filter(link=>(module==="all"||link.source.module===module||link.target.module===module)&&(!needle||[link.source,link.target].some(row=>`${row.code||row.id} ${connectedTitle(row)} ${row.module} ${moduleLabel(row.module)}`.toLocaleLowerCase(tr?"tr-TR":"en-US").includes(needle))));
   function selectRecord(id:string){setSelectedId(id)}
-  function followConnection(row:ConnectedGrcRow){setModule("all");setQuery("");setPage(Math.max(0,Math.floor(records.findIndex(item=>item.id===row.id)/10)));selectRecord(row.id)}
+  function followConnection(row:ConnectedGrcRow){setMetric("all");setModule("all");setQuery("");setPage(Math.max(0,Math.floor(health.ranked.findIndex(item=>item.id===row.id)/10)));selectRecord(row.id)}
   function focusRecord(row:ConnectedGrcRow){const index=matchingRecords.findIndex(item=>item.id===row.id);if(index<0){followConnection(row);return;}setSelectedId(row.id);setPage(Math.floor(index/10));}
   function openRecord(row:ConnectedGrcRow){
     const target=connectedGrcNavigation(row);
@@ -109,39 +130,39 @@ export default function ConnectedGrc({rows,lang,go,includeAi=false,actor,refresh
       returnTo:{module:"Bağlantılı GRC",kind:"connected-view",filter:{view,module,query,selectedId:selected?.id||"",page:String(currentPage),gapQuery,gapModule,gapType}}});
   }
   function download(assurance=false){
-    const scope={...sourceState,generatedAt:new Date().toISOString()};
+    const scope={...sourceState,ready:sourceState.ready+(currentCatalog?.value?1:0),total:sourceState.total+1,generatedAt:new Date().toISOString()};
     const result=assurance?connectedGrcAssuranceExport(assuranceChains,scope,lang):connectedGrcExport(filtered,scope);
     if(!result)return;
     const blob=new Blob([result.content],{type:"text/csv;charset=utf-8"});
     const url=URL.createObjectURL(blob),anchor=document.createElement("a");anchor.href=url;anchor.download=result.filename;anchor.click();URL.revokeObjectURL(url);
   }
+  if(workItemId)return <ContinuousAssuranceWorkQueue key={workItemId?`work:${workItemId}`:"queue"} workItemId={workItemId} onClearFocus={()=>setWorkItemId(null)} lang={lang} onOpenAutomation={()=>go("Kanıt Otomasyonu")}/>;
   return <section className="connected-grc connected-explorer">
     <header className="cg-heading">
-      <div><small>CONNECTED GRC</small><p>{tr?"Bağlantıları anlayın, etkileri inceleyin, eksikleri tamamlayın.":"Understand relationships, inspect impact and complete gaps."}</p></div>
-      <div className="cg-source-controls"><span className="cg-source-state" role="status" data-ready={sourceState.ready} data-total={sourceState.total} data-loading={sourceState.loading}>{sourceState.loading?(tr?"Bağlantılar yükleniyor…":"Loading connections…"):sourceState.ready<sourceState.total?(tr?"Bazı kaynaklar eksik veya erişilemiyor; görünüm kısmi olabilir.":"Some sources are unavailable or incomplete; this view may be partial."):(tr?"Veri kaynakları yüklendi":"Data sources loaded")}</span><button type="button" disabled={sourceState.loading} onClick={()=>void refreshAll()}>{sourceState.loading?(tr?"Yükleniyor…":"Loading…"):sourceState.ready<sourceState.total?(tr?"Tekrar dene":"Try again"):(tr?"Yenile":"Refresh")}</button></div>
+      <div><small>{tr?"BAĞLANTILI GRC":"CONNECTED GRC"}</small><p>{tr?"Kayıt ilişkisi, kontrolün etkin olduğu anlamına gelmez.":"A record relationship does not establish control effectiveness."}</p></div>
+      <div className="cg-source-controls"><span className="cg-source-state" role="status" data-ready={sourceState.ready} data-total={sourceState.total} data-loading={mapLoading}>{mapLoading?(tr?"Bağlantılar yükleniyor…":"Loading connections…"):sourceState.ready<sourceState.total?(tr?"Bazı kaynaklar eksik veya erişilemiyor; görünüm kısmi olabilir.":"Some sources are unavailable or incomplete; this view may be partial."):(tr?"Veri kaynakları yüklendi":"Data sources loaded")}</span><button type="button" disabled={sourceState.loading} onClick={()=>void refreshAll()}>{sourceState.loading?(tr?"Yükleniyor…":"Loading…"):sourceState.ready<sourceState.total?(tr?"Tekrar dene":"Try again"):(tr?"Yenile":"Refresh")}</button></div>
     </header>
     {!!activeSnapshot?.result.issues.length&&<details className="cg-source-issues"><summary>{tr?"Kaynak durumu":"Source status"} · {sourceState.ready}/{sourceState.total}</summary><ul>{activeSnapshot.result.issues.map(issue=><li key={issue.key}>{connectedSourceIssueText(issue,lang)}</li>)}</ul><p>{tr?"Eksik kaynaklar bağlantı ve güvence sonuçlarını etkileyebilir. Yeniden deneyebilir veya ilgili modüldeki erişiminizi kontrol edebilirsiniz.":"Missing sources can affect connections and assurance results. Retry or check your access in the affected module."}</p></details>}
     {activeSnapshot&&<p className="cg-last-read">{tr?"Kaynakların son okunması":"Sources last read"}: {new Date(activeSnapshot.loadedAt).toLocaleString(tr?"tr-TR":"en-US")}</p>}
-    <div className="cg-summary" role="group" aria-label={tr?"Genel durum":"Overview"}>
-      <span><b>{records.length}</b> {tr?"kayıt":"records"}</span>
-      <span><b>{links.length}</b> {tr?"bağlantı":"connections"}</span>
-      <span><b>{records.length-linkedIds.size}</b> {tr?"bağlantısız kayıt":"unlinked records"}</span>
-    </div>
+    {currentCatalog&&currentCatalog.value===null&&<p role="alert">{tr?'Kayıt kodları ve harita ilişkileri yüklenemedi.':'Record codes and map relationships could not be loaded.'} <button onClick={()=>void refreshAll()}>{tr?'Tekrar dene':'Retry'}</button></p>}
+    <section className="cm-health"  aria-label={tr?'Bağlantı sağlığı':'Connection health'}><div className="cm-coverage"><div><b>{tr?'Bağlantı Kapsamı':'Relationship coverage'}</b><strong>{sourcesComplete&&health.coverage!==null?health.coverage+'%':'—'}</strong></div><progress max={100} value={sourcesComplete&&health.coverage!==null?health.coverage:0} aria-label={tr?'Bağlantı kapsamı':'Relationship coverage'} aria-valuetext={sourcesComplete&&health.coverage!==null?health.coverage+'%':'—'}/><small>{health.linked.length} / {records.length} {tr?'kayıt bağlantılı':'records linked'}</small></div>
+      {([['all',tr?'Toplam Kayıt':'Total records',records.length],['links',tr?'Aktif Bağlantı':'Active relationships',links.length],['gaps',tr?'Bağlantısız / Eksik Kayıt':'Unlinked / incomplete records',missingIds.size],['hubs',tr?'Yüksek Etkili Merkez':'High-impact hubs',health.hubs.length]] as const).map(([key,label,value])=><button data-metric={key} key={key} type="button" aria-pressed={metric===key&&view===(key==='gaps'?'gaps':'explore')} onClick={()=>chooseMetric(key)} title={key==='hubs'?(tr?'En az üç farklı kayda bağlı':'Connected to at least three distinct records'):label}><span>{label}</span><strong>{sourceState.loading&&!records.length?'—':value}</strong></button>)}
+    </section>
     <div className="cg-tabs" role="group" aria-label={tr?"Harita görünümü":"Map view"}>
-      {([['explore',tr?'Bağlantılar':'Connections'],['impact',tr?'Etki analizi':'Impact analysis'],['gaps',tr?'Eksikler':'Gaps'],['assurance',tr?'Güvence':'Assurance']] as const).map(([id,label])=><button type="button" key={id} aria-pressed={view===id} onClick={()=>setView(id)}>{label}{id==='gaps'&&<span>{new Set(issues.map(issue=>issue.row.id)).size}</span>}</button>)}
+      {([['explore',tr?'Bağlantılar':'Connections'],['impact',tr?'Etki analizi':'Impact analysis'],['gaps',tr?'Eksikler':'Gaps'],['assurance',tr?'Güvence':'Assurance']] as const).map(([id,label])=><button type="button" key={id} aria-pressed={view===id} onClick={()=>{setView(id);setMetric("all")}}>{label}{id==='gaps'&&<span>{new Set(issues.map(issue=>issue.row.id)).size}</span>}</button>)}
     </div>
-    {view!=="assurance"&&<ConnectedWorkbench rows={records} links={links} issues={issues} selected={selected} view={view} lang={lang} actor={actor} complete={sourcesComplete} loading={sourceState.loading||coreState==="loading"} select={focusRecord} openRecord={openRecord} moduleLabel={moduleLabel} refresh={refreshAll} query={query} setQuery={value=>{setQuery(value);setPage(0)}} module={module} setModule={value=>{setModule(value);setPage(0)}} modules={modules} visible={visibleRecords} matchingCount={matchingRecords.length} page={currentPage} setPage={value=>{setPage(value);setSelectedId("")}} exportLinks={()=>download()} issueQuery={gapQuery} setIssueQuery={setGapQuery} issueType={gapType} setIssueType={setGapType} issueModule={gapModule} setIssueModule={setGapModule}/>}
+    {view!=="assurance"&&<ConnectedWorkbench key={metric} openInventory={()=>go('Varlık Envanteri')} network={network} setNetwork={mode=>{setNetwork(mode);if(metric==='links')setMetric('all')}} metric={metric} networkRows={matchingRecords} rows={records} links={links} issues={metric==='gaps'?issues.filter(i=>['unlinked','gap','missing','ambiguous','plan'].includes(i.kind)):issues} selected={selected} view={view} lang={lang} actor={actor} complete={sourcesComplete} loading={mapLoading||coreState==="loading"} select={focusRecord} openRecord={openRecord} moduleLabel={moduleLabel} refresh={refreshAll} query={query} setQuery={value=>{setQuery(value);setPage(0);if(value)setNetwork("focus")}} module={module} setModule={value=>{setModule(value);setPage(0)}} modules={modules} visible={visibleRecords} matchingCount={matchingRecords.length} page={currentPage} setPage={value=>{setPage(value);setSelectedId(matchingRecords[value*10]?.id||"")}} exportLinks={()=>download()} issueQuery={gapQuery} setIssueQuery={setGapQuery} issueType={gapType} setIssueType={setGapType} issueModule={gapModule} setIssueModule={setGapModule}/>}
     {view==="assurance"&&<section className="connected-assurance cg-operations">
-      <header><div><h3>{tr?"Güvence işlemleri":"Assurance operations"}</h3><p>{tr?"Kontrol sonuçlarını, onayları ve takip işlerini yönetin.":"Manage control results, approvals and follow-up work."}</p></div><button type="button" className="cg-assurance-export" disabled={!sourcesComplete} onClick={()=>download(true)}>{tr?"Güvence raporu (CSV)":"Assurance report (CSV)"}</button></header>
       {!sourcesComplete&&<p className="cg-assessment-pending" role="status">{coverageNotice}</p>}
-      {sourcesComplete&&assuranceSummary.rules>0&&<div className="connected-lifecycle-posture" aria-label={tr?"Sürekli güvence operasyonel duruşu":"Continuous assurance operational posture"}>
+      <MapAssurance exportReport={()=>download(true)} rows={records} links={links} tr={tr} complete={sourcesComplete} openRecord={openRecord} go={go}/>
+      {sourcesComplete&&assuranceSummary.rules>0&&<details className="module-analysis-disclosure"><summary>{tr?'Sürekli güvence göstergeleri':'Continuous assurance indicators'}</summary><div className="connected-lifecycle-posture" aria-label={tr?"Sürekli güvence operasyonel duruşu":"Continuous assurance operational posture"}>
         <article className={assuranceSummary.averageAssuranceScore<70?"attention":"healthy"}><small>{tr?"Ortalama güvence":"Average assurance"}</small><strong>{assuranceSummary.averageAssuranceScore}%</strong><span>{assuranceSummary.rules} {tr?"sürekli kontrol":"continuous controls"}</span></article>
         <article className="healthy"><small>{tr?"Etkin":"Effective"}</small><strong>{assuranceSummary.effective}</strong><span>{tr?"doğrulanmış kontrol":"validated controls"}</span></article>
         <article className={assuranceSummary.degraded+assuranceSummary.ineffective?"attention":"healthy"}><small>{tr?"Bozulmuş / Etkisiz":"Degraded / Ineffective"}</small><strong>{assuranceSummary.degraded} / {assuranceSummary.ineffective}</strong><span>{tr?"aksiyon gerektiren":"requiring action"}</span></article>
         <article className={assuranceSummary.brokenChains?"critical":"healthy"}><small>{tr?"Kırık zincir":"Broken chains"}</small><strong>{assuranceSummary.brokenChains}</strong><span>{tr?"eksik yaşam döngüsü":"incomplete lifecycle"}</span></article>
         <article className={assuranceSummary.overdueRemediations?"critical":"healthy"}><small>{tr?"Geciken düzeltmeler":"Overdue remediation"}</small><strong>{assuranceSummary.overdueRemediations}</strong><span>{tr?"termin aşımı":"past due"}</span></article>
         <article className={assuranceSummary.riskLinked<assuranceSummary.rules?"attention":"healthy"}><small>{tr?"Riske bağlı":"Risk linked"}</small><strong>{assuranceSummary.riskLinked}/{assuranceSummary.rules}</strong><span>{tr?"güvence zinciri":"assurance chains"}</span></article>
-      </div>}
+      </div></details>}
       {sourcesComplete&&attentionChains.length>0&&<details className="module-analysis-disclosure cg-chain-review">
         <summary><span><b>{tr?"Takip gerektiren güvence zincirleri":"Assurance chains needing follow-up"} · {attentionChains.length}</b><small>{tr?"Eksik bağlantıyı veya açık işi inceleyin":"Review missing links or outstanding work"}</small></span></summary>
         <div className="cg-chain-list">{attentionChains.slice(0,chainLimit).map(chain=><article key={chain.rule.id}>
@@ -150,7 +171,7 @@ export default function ConnectedGrc({rows,lang,go,includeAi=false,actor,refresh
         </article>)}</div>
         {attentionChains.length>chainLimit&&<button type="button" className="cg-more" onClick={()=>setChainLimit(chainLimit+12)}>{tr?"Daha fazla göster":"Show more"} ({attentionChains.length-chainLimit})</button>}
       </details>}
-      <ContinuousAssuranceWorkQueue key={workItemId?`work:${workItemId}`:"queue"} workItemId={workItemId} onClearFocus={()=>setWorkItemId(null)} lang={lang} onOpenAutomation={()=>go("Kanıt Otomasyonu")}/>
+
       <details className="module-analysis-disclosure">
         <summary><span><b>{tr?"Güvence yönetişimi ve eskalasyonlar":"Assurance governance and escalations"}</b><small>{tr?"Onaylar, yeniden test ve bildirim ayrıntıları":"Approvals, retests and notification details"}</small></span></summary>
         <ContinuousAssuranceGovernance lang={lang}/>

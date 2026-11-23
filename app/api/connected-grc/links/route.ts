@@ -1,3 +1,4 @@
+import {writeContext,resolveMapRecord} from '../../../connected-map-context-store';
 import { NextRequest, NextResponse } from 'next/server';
 import { requireRole } from '../../auth/security';
 import { ConnectionWriteError, connectedLinkHistorySchema, writeConnectedLink } from '../../../connected-grc-link-store';
@@ -11,6 +12,7 @@ export async function POST(req: NextRequest) {
   try {
     const raw = await req.text(); if (raw.length > 12000) return json({ code: 'invalid' }, 413);
     const input = JSON.parse(raw); if (!input || typeof input !== 'object' || Array.isArray(input)) return json({ code: 'invalid' }, 400);
+    if(input.kind==='context')return json(await writeContext(await database(),auth.actor,input));
     return json(await writeConnectedLink(await database(), auth.actor, input));
   } catch (error) {
     if (error instanceof ConnectionWriteError) return json({ code: error.code }, error.status);
@@ -26,8 +28,10 @@ export async function GET(req: NextRequest) {
     const db = await database();
     const source = await db.prepare('SELECT module FROM simple_grc_records WHERE id=?').bind(sourceId).first<{ module: string }>();
     const plan = !source && req.nextUrl.searchParams.get('kind') === 'continuity-plan' ? await db.prepare('SELECT id FROM enterprise_continuity_plans WHERE id=?').bind(sourceId).first() : null;
-    if ((!source && !plan) || (source && !canReadModule(auth.actor, source.module))) return json({ code: 'unavailable' }, 404);
-    const events = await db.prepare('SELECT id,field,action,actor,note,created_at FROM connected_grc_link_events WHERE source_id=? ORDER BY created_at DESC,id DESC LIMIT 30').bind(sourceId).all();
+    const projected=sourceId.startsWith('enterprise:')?await resolveMapRecord(db,sourceId,auth.actor):null;
+    const projectedExists=projected&&await db.prepare('SELECT 1 WHERE '+projected.sql).bind(projected.key).first();
+    if ((!source && !plan && !projectedExists) || (source && !canReadModule(auth.actor, source.module))) return json({ code: 'unavailable' }, 404);
+    const events = await db.prepare("SELECT id,field,action,actor,note,created_at FROM connected_grc_link_events WHERE source_id=? AND (? OR target_id NOT LIKE 'enterprise:ai-%') ORDER BY created_at DESC,id DESC LIMIT 30").bind(sourceId,auth.actor.role==='Admin'?1:0).all();
     return json({ events: events.results });
   } catch { return json({ code: 'unavailable' }, 503); }
 }
