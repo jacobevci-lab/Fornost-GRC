@@ -4317,7 +4317,7 @@ function AuditRequirementsTable({
           )}
         </div>
         {openItem && <AuditRequirementDesk
-          key={openItem.id} inheritedControls={linksFor(openItem)} inheritedEvidence={evidenceFor(openItem)} baselineUnavailable={hasBaseline&&(!baseline||!!baselineError)}
+          inheritedControls={linksFor(openItem)} inheritedEvidence={evidenceFor(openItem)} baselineUnavailable={hasBaseline&&(!baseline||!!baselineError)}
           row={openItem} position={openIndex + 1} total={filtered.length}
           auditId={auditId} evidence={evidenceRows} lang={lang} canWrite={canWrite}
           onEdit={() => edit(openItem)} onClose={closeRequirement}
