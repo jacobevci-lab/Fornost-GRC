@@ -4,6 +4,7 @@ import { openQaModule, switchQaLocale, waitForQaIdle } from '../qa-browser-harne
 import { title as t, note } from './records.mjs';
 
 export async function pick(dialog, label, query) {
+  await waitForQaIdle(dialog.page());
   const input = dialog.getByRole('combobox', { name: label, exact: true });
   await input.fill(query);
   await dialog

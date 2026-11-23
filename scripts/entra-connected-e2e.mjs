@@ -4,7 +4,8 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { chromium } from '@playwright/test';
 import { createQaContext, waitForQaIdle, closeQaContext } from './qa-browser-harness.mjs';
 import { monitor, scanViews } from './entra-qa/observe.mjs';
-import { clean, title } from './entra-qa/records.mjs';
+import { clean, title, inventory } from './entra-qa/records.mjs';
+import { resumeContext } from './entra-qa/resume.mjs';
 import { journey } from './entra-qa/journey.mjs';
 
 const base = process.env.ENTRA_BASE_URL || 'http://127.0.0.1:4173',
@@ -32,8 +33,8 @@ async function step(name, fn) {
     return true;
   } catch (e) {
     const reason = String(e.message).split('\n').slice(0, 4).join(' ').slice(0, 390);
-    report.steps.push({ name, status: 'failed', reason });
-    console.error('FAIL', name, isolated ? reason : 'See stage and status');
+    report.steps.push({ name, status: 'failed', reason, check: e.qaCheck });
+    console.error('FAIL', name, isolated ? reason : e.qaCheck || 'See stage and status');
     return false;
   }
 }
@@ -127,8 +128,15 @@ try {
       assert.ok(!(await api('/api/grc')).rows.some((r) => r.id === fixture));
     }
   });
+  const hasExisting = listed && existing.some((r) => Object.values(title).includes(r.name));
+  let resumed;
+  if (hasExisting)
+    await step('Verify existing exercise and connected lineage', async () => {
+      resumed = await resumeContext(api, existing, owner);
+    });
   const people = { owner };
   const roles = await step('Independent directory identities', async () => {
+    assert.ok(listed && (!hasExisting || resumed), 'Verify the existing exercise first');
     const users = (await api('/api/users')).users;
     // Reuse a dedicated test identity of the right role before provisioning one.
     const participant = (explicit, canonical, roles) => {
@@ -147,8 +155,11 @@ try {
       ['reviewer', 'Admin', process.env.ENTRA_REVIEWER_EMAIL, 'entra-qa-reviewer@fornost.test'],
       ['lead', 'Editor', process.env.ENTRA_LEAD_EMAIL, 'entra-qa-lead@fornost.test'],
     ]) {
-      const email = participant(explicit, canonical, key === 'lead' ? ['Editor', 'Admin'] : ['Admin']);
+      const email = resumed
+        ? resumed.people[key]
+        : participant(explicit, canonical, key === 'lead' ? ['Editor', 'Admin'] : ['Admin']);
       const u = users.find((x) => x.email === email);
+      assert.ok(u || !resumed, 'Existing exercise participant is missing');
       if (u)
         assert.ok(
           u.status === 'Active' && ['Admin', ...(key === 'lead' ? ['Editor'] : [])].includes(u.role),
@@ -174,14 +185,39 @@ try {
     assert.equal(new Set(Object.values(people)).size, 3);
   });
   if (listed && roles && (isolated || process.env.ENTRA_WRITE === 'true')) {
-    const matches = existing.filter((r) => Object.values(title).includes(r.name));
-    if (matches.length)
-      report.steps.push({
-        name: 'Create scenario',
-        status: 'blocked',
-        reason: 'Matching records already exist; review lineage before resuming.',
-      });
-    else await journey({ api, page, people, step, isolated, report });
+    if (resumed) {
+      await journey({ api, page, people, step, isolated, report, resume: resumed });
+    } else {
+      await journey({ api, page, people, step, isolated, report });
+      if (
+        isolated &&
+        process.env.ENTRA_VERIFY_REPLAY === 'true' &&
+        report.steps.every((s) => s.status === 'passed')
+      ) {
+        let resume;
+        const ok = await step('Verify existing exercise and connected lineage', async () => {
+          resume = await resumeContext(api, await inventory(api), owner);
+          // Reproduce a partial draft exclusively in the disposable database.
+          const plan = resume.plan;
+          await api('/api/continuity', {
+            method: 'POST',
+            data: {
+              action: 'edit-plan',
+              planId: plan.id,
+              expectedUpdatedAt: plan.updatedAt,
+              owner: plan.owner,
+              reviewer: plan.reviewer,
+              crisisLead: plan.crisisLead,
+              assetRefs: [],
+              supplierRefs: [],
+            },
+          });
+          resume.plan = (await api('/api/continuity')).plans.find((p) => p.id === plan.id);
+          assert.deepEqual([resume.plan.assetRefs, resume.plan.supplierRefs], [[], []]);
+        });
+        if (ok) await journey({ api, page, people: resume.people, step, isolated, report, resume });
+      }
+    }
   } else
     report.steps.push({
       name: 'Create scenario',
@@ -219,7 +255,7 @@ try {
             contrast: contrast.length,
           }),
         ),
-        steps: report.steps.map(({ name, status }) => ({ name, status })),
+        steps: report.steps.map(({ name, status, check }) => ({ name, status, check })),
         cleanup: report.cleanup && {
           inspected: report.cleanup.inspected,
           candidates: report.cleanup.candidates,

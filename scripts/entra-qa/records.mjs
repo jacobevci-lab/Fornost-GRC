@@ -81,6 +81,8 @@ export async function inventory(api) {
       rows.push({
         key,
         path,
+        data: v,
+        code: raw.record_code || v.code,
         id: raw.id || raw.vendorId,
         name: name || '',
         module: raw.module,

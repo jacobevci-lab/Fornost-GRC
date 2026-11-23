@@ -11,6 +11,8 @@ export async function monitor(ctx, report, origin, step) {
   // row or navigation changes. Keep those distinct from timeouts and HTTP failures.
   const aborts = [],
     failed = [];
+  const startedAt = new WeakMap();
+  ctx.on('request', (r) => startedAt.set(r, Date.now()));
   await ctx.exposeBinding('__entraReadAborted', (_, url, started) =>
     aborts.push({ url, started, time: Date.now() }),
   );
@@ -73,13 +75,18 @@ export async function monitor(ctx, report, origin, step) {
       };
       report.events.push(event);
       if (r.method() === 'GET' && event.message === 'net::ERR_ABORTED')
-        failed.push({ event, url: r.url(), started: r.timing().startTime, time: Date.now() });
+        failed.push({
+          event,
+          url: r.url(),
+          started: startedAt.get(r) || r.timing().startTime,
+          time: Date.now(),
+        });
     }
   });
   return () => {
     for (const { event, url, started, time } of failed) {
       const index = aborts.findIndex(
-        (a) => a.url === url && Math.abs(a.started - started) < 250 && Math.abs(a.time - time) < 2000,
+        (a) => a.url === url && Math.abs(a.started - started) < 2000 && Math.abs(a.time - time) < 2000,
       );
       if (index >= 0) {
         aborts.splice(index, 1);

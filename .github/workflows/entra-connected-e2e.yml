@@ -45,6 +45,8 @@ jobs:
         if: inputs.target != 'production'
         run: node scripts/prepare-local-qa.mjs
       - name: Run headed journey on a fresh local D1
+        env:
+          ENTRA_VERIFY_REPLAY: 'true'
         if: inputs.target != 'production'
         run: |
           set -euo pipefail
