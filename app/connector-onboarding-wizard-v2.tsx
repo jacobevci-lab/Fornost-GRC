@@ -1,12 +1,15 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { executionConflictMessage } from "./evidence/execution-feedback";
 import { sourceCreationConflictMessage } from "./evidence/source-save-feedback";
 import { ruleCreationConflictMessage } from "./evidence/rule-save-feedback";
 import { withBasePath } from "./base-path";
 import { navigateToFornost } from "./navigation-focus";
 import "./connector-onboarding-wizard.css";
+import {requestJsonWithDeadline} from "./bounded-json-request";
+import {SourceAssetField,useAutomationCatalog} from "./connectors/automation-catalog";
+import {AutomationPolicyFields} from "./connectors/automation-policy-fields";
 import ConnectorFields from "./connectors/fields";
 import {sourceMethod, sourceMethods} from "./connectors/source-method";
 import { connectorProfiles, newConnectorDraft, type ConnectorDraft } from "./connectors/catalog";
@@ -15,7 +18,6 @@ import { connectorSetupOutcome } from "./connectors/setup-outcome";
 type Lang = "tr" | "en";
 type DetectedPath = { path: string; type: string };
 type Suggestion = { ref: string; title: string; score: number; matches: string[] };
-type Control = { ref: string; title: string };
 type Template = { label: string; category: string; driver: string; providerId?: string };
 type SourceDraft = ConnectorDraft;
 
@@ -36,39 +38,15 @@ const templates: Template[] = [
 const clean = (value: unknown) => String(value ?? "").normalize("NFKC").trim();
 const normalized = (value: unknown) => clean(value).toLocaleLowerCase("tr-TR");
 
-function controlRows(body: unknown): Control[] {
-  if (!body || typeof body !== "object" || !Array.isArray((body as { rows?: unknown }).rows)) return [];
-  const seen = new Set<string>();
-  const controls: Control[] = [];
-  for (const raw of (body as { rows: Array<Record<string, unknown>> }).rows) {
-    if (clean(raw.module) !== "Kontroller") continue;
-    let data: Record<string, unknown> = {};
-    if (raw.data && typeof raw.data === "object" && !Array.isArray(raw.data)) {
-      data = raw.data as Record<string, unknown>;
-    } else if (typeof raw.data_json === "string") {
-      try {
-        const parsed = JSON.parse(raw.data_json);
-        if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) data = parsed;
-      } catch {}
-    }
-    const ref = clean(data.controlId || data.controlCode || data.code || data.reference || raw.code || raw.recordCode || raw.id);
-    const key = normalized(ref);
-    if (!ref || seen.has(key)) continue;
-    seen.add(key);
-    controls.push({ ref, title: clean(data.controlTitle || data.title || data.name || data.objective || ref) });
-  }
-  return controls.sort((a, b) => a.ref.localeCompare(b.ref, "tr"));
-}
-
 async function post(body: Record<string, unknown>) {
-  const response = await fetch(withBasePath("/api/evidence-automation"), {
+  const {response,body:payload} = await requestJsonWithDeadline(withBasePath("/api/evidence-automation"), {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify(body),
-  });
-  const payload = await response.json().catch(() => ({})) as Record<string, unknown>;
+  },fetch,60000);
   if (!response.ok && payload.code === "SOURCE_CREATION_CONFLICT") throw Object.assign(new Error("SOURCE_CREATION_CONFLICT"), { sourceId: clean(payload.sourceId) });
   if (!response.ok && payload.code === "RULE_CREATION_CONFLICT") throw Object.assign(new Error("RULE_CREATION_CONFLICT"), { ruleId: clean(payload.ruleId) });
+  if(!response.ok&&["ASSET_UNAVAILABLE","INDEPENDENT_REVIEWER_REQUIRED","REFERENCE_UNAVAILABLE"].includes(String(payload.code)))throw new Error(String(payload.code));
   if (!response.ok) throw new Error(payload.code === "EXECUTION_CONFLICT" ? "EXECUTION_CONFLICT" : clean(payload.error) || "Operation failed");
   return payload;
 }
@@ -92,7 +70,9 @@ export default function ConnectorOnboardingWizard({ profileId, lang, actor, onCl
   const [truncated, setTruncated] = useState(false);
   const [selectedPath, setSelectedPath] = useState("");
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
-  const [controls, setControls] = useState<Control[]>([]);
+  const [assetId,setAssetId]=useState("");
+  const {assets,controls,catalogFailed,retry}=useAutomationCatalog();
+  const [reviewer,selectReviewer]=useState(""),[evidenceCode,setEvidenceCode]=useState("");
   const [selectedControls, setSelectedControls] = useState<string[]>([]);
   const [controlQuery, setControlQuery] = useState("");
   const [rule, setRule] = useState({
@@ -110,15 +90,6 @@ export default function ConnectorOnboardingWizard({ profileId, lang, actor, onCl
   const [conflictingSourceId, setConflictingSourceId] = useState("");
   const ruleRequestId = useRef("");
   const enablePending = useRef(false);
-
-  useEffect(() => {
-    const controller = new AbortController();
-    fetch(withBasePath("/api/grc"), { cache:"no-store", signal:controller.signal })
-      .then(response => response.ok ? response.json() : {})
-      .then(body => { if (!controller.signal.aborted) setControls(controlRows(body)); })
-      .catch(() => {});
-    return () => controller.abort();
-  }, []);
 
   const suggestedRefs = useMemo(() => new Set(suggestions.map((item) => normalized(item.ref))), [suggestions]);
   const manualControls = useMemo(() => {
@@ -176,7 +147,7 @@ export default function ConnectorOnboardingWizard({ profileId, lang, actor, onCl
     setError("");
     setMessage("");
     try {
-      const saved = await post({ action: "save-source", sourceId: sourceId || undefined, requestId: sourceId ? undefined : sourceRequestId.current, ...draft });
+      const saved = await post({ action: "save-source", sourceId: sourceId || undefined, requestId: sourceId ? undefined : sourceRequestId.current, ...draft, assetRef:assetId });
       const id = clean(saved.sourceId);
       if (!id) throw new Error(tr ? "Kaynak kimliği alınamadı." : "Source ID was not returned.");
       setSourceId(id);
@@ -188,17 +159,17 @@ export default function ConnectorOnboardingWizard({ profileId, lang, actor, onCl
       setPaths(nextPaths);
       setRootType(clean(detected.rootType));
       setTruncated(detected.truncated === true);
-      setSuggestions(nextSuggestions);
+      setSuggestions(nextSuggestions.filter(item=>/^CTL-\d+$/i.test(item.ref)));
       const evidencePaths = nextPaths.filter((item) => !/^\$\.fornostCollection(?:\.|$)/.test(item.path));
       const preferred = evidencePaths.find((item) => !["object", "array"].includes(item.type));
       setSelectedPath(preferred?.path || "");
       setStep(2);
-      setMessage(clean(discovered.message));
+      setMessage("");
     } catch (caught) {
       if (caught instanceof Error && caught.message === "SOURCE_CREATION_CONFLICT") {
         setError(sourceCreationConflictMessage(tr));
         setConflictingSourceId(clean((caught as Error & { sourceId?: string }).sourceId));
-      } else setError(caught instanceof Error ? (caught.message === "EXECUTION_CONFLICT" ? executionConflictMessage(tr) : caught.message) : (tr ? "Bağlantı kurulamadı." : "Connection failed."));
+      } else setError(caught instanceof Error ? (caught.message==="ASSET_UNAVAILABLE"?(tr?"Varlık kaydı kullanılamıyor.":"Asset record unavailable."):caught.message === "EXECUTION_CONFLICT" ? executionConflictMessage(tr) : caught.message) : (tr ? "Bağlantı kurulamadı." : "Connection failed."));
     } finally {
       authenticatePending.current = false;
       setBusy("");
@@ -225,7 +196,7 @@ export default function ConnectorOnboardingWizard({ profileId, lang, actor, onCl
     let recordedRuleId = "";
     try {
       const saved = await post({
-        action: "save-rule",
+        action: "save-rule", reviewer, mappedControls:selectedControls,
         requestId: ruleRequestId.current,
         name: rule.name.trim() || `${draft.name} · ${selectedPath}`,
         sourceId,
@@ -243,10 +214,10 @@ export default function ConnectorOnboardingWizard({ profileId, lang, actor, onCl
       const id = clean(saved.ruleId);
       if (!id) throw new Error(tr ? "Sürekli kontrol kimliği alınamadı." : "Continuous control ID was not returned.");
       recordedRuleId = id;
-      setRuleId(id);
       const run = await post({ action: "run-rule", ruleId: id }) as RunResult;
+      setRuleId(id);
       setRunStatus(clean(run.status) || "unknown");
-      setRunEvidenceId(clean(run.evidenceId));
+      setRunEvidenceId(clean(run.evidenceId));setEvidenceCode(clean(run.evidenceCode));
       setRunFindingId(clean(run.findingId));
       setMessage("");
       setStep(5);
@@ -256,11 +227,12 @@ export default function ConnectorOnboardingWizard({ profileId, lang, actor, onCl
         setError(ruleCreationConflictMessage(tr));
         if (existingId) { setRuleId(existingId); setRunStatus("unknown"); setStep(5); }
       } else if (recordedRuleId) {
+        setRuleId(recordedRuleId);
         setRunStatus("unknown");
         setMessage("");
         setStep(5);
       } else {
-        setError(caught instanceof Error ? (caught.message === "EXECUTION_CONFLICT" ? executionConflictMessage(tr) : caught.message) : (tr ? "İzleme etkinleştirilemedi." : "Monitoring could not be enabled."));
+        setError(caught instanceof Error ? (caught.message==="INDEPENDENT_REVIEWER_REQUIRED"?(tr?"Aktif ve bağımsız bir inceleyen seçin.":"Choose an active, independent reviewer."):caught.message==="REFERENCE_UNAVAILABLE"?(tr?"Eşlenen kaydı ve inceleyeni kontrol edin.":"Check the mapped record and reviewer."):caught.message === "EXECUTION_CONFLICT" ? executionConflictMessage(tr) : caught.message) : (tr ? "İzleme etkinleştirilemedi." : "Monitoring could not be enabled."));
       }
     } finally {
       enablePending.current = false;
@@ -304,15 +276,15 @@ export default function ConnectorOnboardingWizard({ profileId, lang, actor, onCl
   }
 
   return (
-    <section className="connector-onboarding open" aria-label={tr ? "Connector kurulum sihirbazı" : "Connector setup wizard"}>
+    <section className="connector-onboarding open" aria-label={tr ? "Bağlayıcı Kurulum Sihirbazı" : "Connector setup wizard"}>
         <div data-escape-layer className="cow-shell">
           <header className="cow-head">
             <div>
-              <small>CONNECTED ASSURANCE</small>
-              <h3>{tr ? "Connector Kurulum Sihirbazı" : "Connector Setup Wizard"}</h3>
+              <small>{tr?"BAĞLANTILI GÜVENCE":"CONNECTED ASSURANCE"}</small>
+              <h3>{tr ? "Bağlayıcı Kurulum Sihirbazı" : "Connector Setup Wizard"}</h3>
               <p>{tr ? "Fornost bağlantıyı doğrular, veri yapısını algılar ve kontrol adaylarını önerir. Eşleştirmeyi siz onaylarsınız." : "Fornost validates the connection, detects the data shape and suggests control candidates. You approve the mapping."}</p>
             </div>
-            <button data-escape-close type="button" disabled={!!busy} onClick={reset} aria-label={tr ? "Sihirbazı kapat" : "Close wizard"}>×</button>
+            <button data-escape-close type="button" disabled={!!busy} onClick={reset} className="cow-close"><span aria-hidden="true">✕ </span>{tr?"Kapat / Kaynaklara Dön":"Close / Back to sources"}</button>
           </header>
 
           <nav className="cow-steps" aria-label={tr ? "Kurulum adımları" : "Setup steps"}>
@@ -328,7 +300,12 @@ export default function ConnectorOnboardingWizard({ profileId, lang, actor, onCl
           {conflictingSourceId && <div className="cow-actions"><button type="button" className="ghost" disabled={!!busy} onClick={() => { onClose(conflictingSourceId); navigateToFornost({ module: "Kanıt Otomasyonu", ref: conflictingSourceId, source: "connector-onboarding", filter: { sourceRef: conflictingSourceId } }); }}>{tr ? "Kaydedilen kaynağı aç" : "Open saved source"}</button></div>}
           {message && <div className="cow-message success">{message}</div>}
 
-          {step === 1 && (
+          {catalogFailed&&<div className="cow-message error" role="alert">{tr?"Kayıt kütüphanesi alınamadı.":"Record library unavailable."} <button type="button" onClick={retry}>{tr?"Yeniden dene":"Retry"}</button></div>}
+          {ruleId&&step<5&&<div className="cow-body">
+            <div className="cow-copy"><h4>{stepLabels[step-1]}</h4><p>{[draft.name,selectedPath,selectedControls.join(" · "),[reviewer,rule.freshnessHours+" h"].join(" · ")][step-1]}</p></div>
+            <footer className="cow-actions"><button type="button" className="ghost" onClick={()=>step===1?reset():setStep(step-1)}>{tr?"← Geri":"← Back"}</button><button type="button" className="primary" onClick={()=>setStep(step+1)}>{tr?"İleri →":"Next →"}</button></footer>
+          </div>}
+          {step === 1 && !ruleId && (
             <div className="cow-body">
               <div className="cow-copy"><small>1 · {tr ? "BAĞLAN" : "AUTHENTICATE"}</small><h4>{tr ? "Kanıt kaynağını doğrula" : "Validate the evidence source"}</h4><p>{draft.providerId
                 ? (tr ? "Fornost, seçilen veri kümesini ürünün API’sinden okur." : "Fornost reads the selected dataset from the product API.")
@@ -336,37 +313,39 @@ export default function ConnectorOnboardingWizard({ profileId, lang, actor, onCl
                   ? (tr ? "Mevcut collector’ın HTTPS JSON adresini ve bu adrese ait erişim bilgilerini kullanın." : "Use the HTTPS JSON URL and access credentials of your existing collector.")
                   : (tr ? "Salt okunur JSON döndüren HTTPS adresini girin." : "Enter an HTTPS endpoint that returns read-only JSON.")}</p></div>
               <div className="cow-form-grid">
-                <label className="wide"><span>{tr ? "Connector şablonu" : "Connector template"}</span><select aria-label={tr ? "Connector şablonu" : "Connector template"} value={template.label} onChange={(event) => chooseTemplate(event.target.value)}>{(["direct","custom","collector"] as const).map(method=><optgroup key={method} label={sourceMethods[method][lang]}>{templates.filter(item=>sourceMethod(item.driver)===method).map(item=><option key={item.label}>{item.label}</option>)}</optgroup>)}</select></label>
+                <label className="wide"><span>{tr ? "Bağlayıcı şablonu" : "Connector template"}</span><select aria-label={tr ? "Bağlayıcı şablonu" : "Connector template"} value={template.label} onChange={(event) => chooseTemplate(event.target.value)}>{(["direct","custom","collector"] as const).map(method=><optgroup key={method} label={sourceMethods[method][lang]}>{templates.filter(item=>sourceMethod(item.driver)===method).map(item=><option key={item.label}>{item.label}</option>)}</optgroup>)}</select></label>
                 <ConnectorFields value={draft} onChange={setDraft} lang={lang} existing={!!sourceId} choose={false}/>
+                <SourceAssetField tr={tr} assetId={assetId} assets={assets} choose={setAssetId}/>
+                <small className="wide">{tr?"Bağlantı testi, kontrollerin başarılı olduğunu göstermez. Kimlik bilgileri sunucuda şifreli saklanır.":"A connection test does not establish that controls pass. Credentials are stored encrypted on the server."}</small>
 
               </div>
-              <footer className="cow-actions"><span>{sourceId ? (tr ? "Mevcut taslak güvenli biçimde güncellenecek." : "The existing draft source will be updated securely.") : ""}</span><button type="button" className="primary" disabled={!!busy} onClick={() => void authenticate()}>{busy === "connect" ? (tr ? "Doğrulanıyor…" : "Validating…") : (tr ? "Bağlan ve Algıla" : "Authenticate & Detect")}</button></footer>
+              <footer className="cow-actions"><span>{sourceId ? (tr ? "Mevcut taslak güvenli biçimde güncellenecek." : "The existing draft source will be updated securely.") : ""}</span><button type="button" className="ghost" disabled={!!busy} onClick={reset}>{tr?"Vazgeç":"Cancel"}</button><button type="button" className="primary" disabled={!!busy} onClick={() => void authenticate()}>{busy === "connect" ? (tr ? "Doğrulanıyor…" : "Validating…") : (tr ? "Bağlan ve Algıla" : "Authenticate & Detect")}</button></footer>
             </div>
           )}
 
-          {step === 2 && (
+          {step === 2 && !ruleId && (
             <div className="cow-body">
               <div className="cow-copy"><small>2 · {tr ? "ALGILA" : "DETECT"}</small><h4>{tr ? "API yapısı algılandı" : "API shape detected"}</h4><p>{tr ? "Ham değerler gösterilmez; yalnız alan yolu ve veri tipi listelenir." : "Raw values are never displayed; only field paths and data types are listed."}</p></div>
               <div className="cow-detected-summary"><span><small>{tr ? "Kök tip" : "Root type"}</small><b>{rootType || "—"}</b></span><span><small>{tr ? "Algılanan path" : "Detected paths"}</small><b>{paths.length}</b></span><span><small>{tr ? "Kontrol önerisi" : "Control suggestions"}</small><b>{suggestions.length}</b></span>{truncated && <em>{tr ? "Güvenlik/performance sınırı nedeniyle sonuç kısaltıldı." : "Results were bounded for security/performance."}</em>}</div>
               <label className="cow-path-picker"><span>{tr ? "İzlenecek JSON path" : "JSON path to monitor"}</span><select value={selectedPath} onChange={(event) => setSelectedPath(event.target.value)}><option value="">{tr ? "Path seçin" : "Select a path"}</option>{paths.map((item) => <option key={`${item.path}:${item.type}`} value={item.path}>{item.path} · {item.type}</option>)}</select></label>
               <div className="cow-paths">{paths.slice(0, 18).map((item) => <button type="button" key={`${item.path}:${item.type}`} className={selectedPath === item.path ? "active" : ""} onClick={() => setSelectedPath(item.path)}><b>{item.path}</b><small>{item.type}</small></button>)}</div>
               {!paths.length && <div className="cow-empty">{tr ? "İzlenebilir JSON alanı bulunamadı." : "No monitorable JSON field was found."}</div>}
-              <footer className="cow-actions"><button type="button" className="ghost" onClick={() => setStep(1)}>{tr ? "Geri" : "Back"}</button><button type="button" className="primary" disabled={!selectedPath} onClick={() => setStep(3)}>{tr ? "Kontrolleri Eşleştir" : "Map Controls"}</button></footer>
+              <footer className="cow-actions"><button type="button" className="ghost" onClick={() => setStep(1)}>{tr ? "← Geri" : "← Back"}</button><button type="button" className="primary" disabled={!selectedPath} onClick={() => setStep(3)}>{tr ? "Kontrolleri Eşleştir" : "Map Controls"}</button></footer>
             </div>
           )}
 
-          {step === 3 && (
+          {step === 3 && !ruleId && (
             <div className="cow-body">
-              <div className="cow-copy"><small>3 · {tr ? "KONTROLLER" : "MAP CONTROLS"}</small><h4>{tr ? "Kanıtın hangi kontrolleri desteklediğini onayla" : "Approve which controls this evidence supports"}</h4><p>{tr ? "Öneriler yalnız mevcut Control Library kayıtlarından gelir; otomatik eşleştirme yapılmaz." : "Suggestions come only from the existing Control Library; no mapping is applied automatically."}</p></div>
+              <div className="cow-copy"><small>3 · {tr ? "KONTROLLER" : "MAP CONTROLS"}</small><h4>{tr ? "Kanıtın hangi kontrolleri desteklediğini onayla" : "Approve which controls this evidence supports"}</h4><p>{tr ? "Öneriler yalnız mevcut Kontrol Kütüphanesi kayıtlarından gelir; otomatik eşleştirme yapılmaz." : "Suggestions come only from the existing Control Library; no mapping is applied automatically."}</p></div>
               {suggestions.length > 0 && <div className="cow-suggestions"><small>{tr ? "ÖNERİLEN KONTROLLER" : "SUGGESTED CONTROLS"}</small>{suggestions.map((item) => <label key={item.ref} className={selectedControls.includes(item.ref) ? "selected" : ""}><input type="checkbox" checked={selectedControls.includes(item.ref)} onChange={() => toggleControl(item.ref)} /><span><b>{item.ref}</b><em>{item.title}</em><small>{item.matches.slice(0, 4).join(" · ")}</small></span><i>{item.score}</i></label>)}</div>}
-              <div className="cow-control-search"><label><span>{tr ? "Control Library'de ara" : "Search Control Library"}</span><input value={controlQuery} placeholder={tr ? "Kontrol kodu veya başlık…" : "Control ref or title…"} onChange={(event) => setControlQuery(event.target.value)} /></label><b>{selectedControls.length} {tr ? "seçili" : "selected"}</b></div>
+              <div className="cow-control-search"><label><span>{tr ? "Kontrol Kütüphanesi’nde ara" : "Search Control Library"}</span><input value={controlQuery} placeholder={tr ? "Kontrol kodu veya başlık…" : "Control ref or title…"} onChange={(event) => setControlQuery(event.target.value)} /></label><b>{selectedControls.length} {tr ? "seçili" : "selected"}</b></div>
               <div className="cow-controls">{manualControls.map((item) => <label key={item.ref} className={selectedControls.includes(item.ref) ? "selected" : ""}><input type="checkbox" checked={selectedControls.includes(item.ref)} onChange={() => toggleControl(item.ref)} /><span><b>{item.ref}</b><small>{item.title}</small></span></label>)}</div>
               {!controls.length && <div className="cow-empty">{tr ? "Henüz kontrol eklenmemiş. Kontrol Kütüphanesi’nde bir kontrol oluşturun veya bir standarttan içe aktarın." : "No controls have been added yet. Create a control in the Control Library or import one from a standard."}</div>}
-              <footer className="cow-actions"><button type="button" className="ghost" onClick={() => setStep(2)}>{tr ? "Geri" : "Back"}</button><button type="button" className="primary" disabled={!selectedControls.length} onClick={() => { setRule((current) => ({ ...current, name: current.name || `${draft.name} · ${selectedPath}` })); setStep(4); }}>{tr ? "İzlemeyi Yapılandır" : "Configure Monitoring"}</button></footer>
+              <footer className="cow-actions"><button type="button" className="ghost" onClick={() => setStep(2)}>{tr ? "← Geri" : "← Back"}</button><button type="button" className="primary" disabled={!selectedControls.length} onClick={() => { setRule((current) => ({ ...current, name: current.name || `${draft.name} · ${selectedPath}` })); setStep(4); }}>{tr ? "İzlemeyi Yapılandır" : "Configure Monitoring"}</button></footer>
             </div>
           )}
 
-          {step === 4 && (
+          {step === 4 && !ruleId && (
             <div className="cow-body">
               <div className="cow-copy"><small>4 · {tr ? "İZLEME" : "ENABLE MONITORING"}</small><h4>{tr ? "Sürekli güvence kuralını etkinleştir" : "Enable the continuous assurance rule"}</h4><p>{tr ? "İlk çalışma hemen yapılır; sonraki çalışmalar seçilen takvime göre devam eder. Eşik aşılırsa otomasyon bulgusu bağlı modele eklenir." : "The first run executes immediately and future runs follow the schedule. Threshold breaches create an automation finding in the connected model."}</p></div>
               <div className="cow-monitor-summary"><span><small>{tr ? "Kanıt kaynağı" : "Evidence source"}</small><b>{draft.name}</b></span><span><small>JSON path</small><b>{selectedPath}</b></span><span><small>{tr ? "İzlenen kontroller" : "Controls monitored"}</small><b>{selectedControls.length}</b></span><span><small>{tr ? "Bulgu" : "Finding"}</small><b>{tr ? "Eşik aşımında otomatik" : "Automatic on threshold breach"}</b></span></div>
@@ -375,12 +354,12 @@ export default function ConnectorOnboardingWizard({ profileId, lang, actor, onCl
                 <label><span>{tr ? "Doğrulama" : "Validation"}</span><select value={rule.operator} onChange={(event) => setRule({ ...rule, operator: event.target.value })}><option value="exists">{tr ? "Değer var" : "Value exists"}</option><option value="eq">=</option><option value="contains">contains</option><option value="gte">≥</option><option value="lte">≤</option></select></label>
                 <label><span>{tr ? "Beklenen değer" : "Expected value"}</span><input disabled={rule.operator === "exists"} value={rule.expected} placeholder={rule.operator === "exists" ? (tr ? "Gerekli değil" : "Not required") : "..."} onChange={(event) => setRule({ ...rule, expected: event.target.value })} /></label>
                 <label><span>{tr ? "Takvim" : "Schedule"}</span><select value={rule.schedule} onChange={(event) => setRule({ ...rule, schedule: event.target.value })}><option value="hourly">{tr ? "Saatlik" : "Hourly"}</option><option value="daily">{tr ? "Günlük" : "Daily"}</option><option value="weekly">{tr ? "Haftalık" : "Weekly"}</option><option value="monthly">{tr ? "Aylık" : "Monthly"}</option></select></label>
-                <label><span>{tr ? "Kanıt tazeliği (saat)" : "Evidence freshness (hours)"}</span><input type="number" min="1" max="8760" value={rule.freshnessHours} onChange={(event) => setRule({ ...rule, freshnessHours: Number(event.target.value) })} /></label>
+                <AutomationPolicyFields tr={tr} actor={actor} owner={actor} reviewer={reviewer} select={selectReviewer} hours={rule.freshnessHours} changeHours={freshnessHours=>setRule({...rule,freshnessHours})}/>
                 <label><span>{tr ? "Bulgu eşiği" : "Finding threshold"}</span><input type="number" min="1" max="20" value={rule.failureThreshold} onChange={(event) => setRule({ ...rule, failureThreshold: Number(event.target.value) })} /></label>
                 <label><span>{tr ? "CAPA termin (gün)" : "CAPA due (days)"}</span><input type="number" min="1" max="365" value={rule.remediationDueDays} onChange={(event) => setRule({ ...rule, remediationDueDays: Number(event.target.value) })} /></label>
               </div>
               <div className="cow-control-chips">{selectedControls.map((ref) => <span key={ref}>{ref}</span>)}</div>
-              <footer className="cow-actions"><button type="button" className="ghost" disabled={!!busy} onClick={() => setStep(3)}>{tr ? "Geri" : "Back"}</button><button type="button" className="primary" disabled={!!busy} onClick={() => void enableMonitoring()}>{busy === "enable" ? (tr ? "İlk kontrol çalışıyor…" : "Running first control…") : (tr ? "İzlemeyi Etkinleştir" : "Enable Monitoring")}</button></footer>
+              <footer className="cow-actions"><button type="button" className="ghost" disabled={!!busy} onClick={() => setStep(3)}>{tr ? "← Geri" : "← Back"}</button><button type="button" className="primary" disabled={!!busy||!reviewer} onClick={() => void enableMonitoring()}>{busy === "enable" ? (tr ? "İlk kontrol çalışıyor…" : "Running first control…") : (tr ? "İzlemeyi Etkinleştir" : "Enable Monitoring")}</button></footer>
             </div>
           )}
 
@@ -391,18 +370,18 @@ export default function ConnectorOnboardingWizard({ profileId, lang, actor, onCl
               <h4 aria-live="polite">{outcome.title}</h4>
               <p>{outcome.detail}</p>
               <div className="cow-monitor-summary">
-                <span><small>{tr ? "Kaynak" : "Source"}</small><b>{sourceId || "—"}</b></span>
+                <span><small>{tr ? "Kaynak" : "Source"}</small><b>{draft.name || "—"}</b></span>
                 <span><small>{tr ? "İlk çalışma" : "First run"}</small><b>{outcome.label}</b></span>
-                <span><small>{tr ? "Kanıt" : "Evidence"}</small><b>{runEvidenceId || "—"}</b></span>
+                <span><small>{tr ? "Kanıt" : "Evidence"}</small><b>{evidenceCode || "—"}</b></span>
                 <span><small>{tr ? "Otomasyon bulgusu" : "Automation finding"}</small><b>{runFindingId || (tr ? "Bu çalışmada oluşmadı" : "Not created by this run")}</b></span>
               </div>
 
-              <div className="cow-copy"><small>CONTROL → CONTINUOUS CONTROL RULE → EVIDENCE → AUTOMATION FINDING</small><h4>{tr ? "Bağlı kayıt zinciri" : "Linked record chain"}</h4></div>
+              <div className="cow-copy"><small>{tr?"KONTROL → SÜREKLİ KONTROL KURALI → KANIT → OTOMASYON BULGUSU":"CONTROL → CONTINUOUS CONTROL RULE → EVIDENCE → AUTOMATION FINDING"}</small><h4>{tr ? "Bağlı kayıt zinciri" : "Linked record chain"}</h4></div>
               <div className="cow-control-chips cow-linked-controls">
                 {selectedControlRows.map((item) => <button type="button" key={item.ref} onClick={() => openControl(item.ref)} title={item.title}>{tr ? "Kontrol" : "Control"}: {item.ref}</button>)}
               </div>
               <div className="cow-actions">
-                <span>{tr ? "Her bağlantı gerçek kayıt kimliğini hedefler." : "Every link targets a real record identifier."}</span>
+                <button type="button" className="ghost" onClick={()=>setStep(4)}>{tr?"← Geri":"← Back"}</button>
                 <div>
                   {sourceId && <button type="button" className="ghost" onClick={openSource}>{tr ? "Kaynağı Aç" : "Open Source"}</button>}
                   {ruleId && <button type="button" className="ghost" onClick={openRule}>{tr ? "Sürekli Kontrol Kuralı" : "Continuous Control Rule"}</button>}

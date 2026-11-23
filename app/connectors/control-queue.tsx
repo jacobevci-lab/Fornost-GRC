@@ -9,12 +9,12 @@ type Props = {
   lang: "tr" | "en"; rules: AutomationRule[]; sources: AutomationSource[];
   expanded: string; expand: (id: string) => void; busy: boolean; role: string;
   run: (id: string) => void; toggle: (rule: AutomationRule) => void;
-  refresh: () => Promise<void>; openSource: (id: string) => void;
+  editPolicy:(rule:AutomationRule)=>void; connectSource?:()=>void; refresh: () => Promise<void>; openSource: (id: string) => void;
 };
 const formatDate = (value: string | undefined, tr: boolean) => value && Number.isFinite(Date.parse(value))
   ? new Intl.DateTimeFormat(tr ? "tr-TR" : "en-GB", {dateStyle: "medium", timeStyle: "short"}).format(new Date(value)) : "—";
 
-export function ControlQueue({lang, rules, sources, expanded, expand, busy, role, run, toggle, refresh, openSource}: Props) {
+export function ControlQueue({lang, rules, sources, expanded, expand, busy, role, run, toggle, refresh, connectSource, editPolicy, openSource}: Props) {
   const tr = lang === "tr", id = useId();
   const [view, setView] = useState("priority"), [query, setQuery] = useState("");
   const [owner, setOwner] = useState(""), [filter, setFilter] = useState("all"), [refreshing, setRefreshing] = useState(false);
@@ -53,9 +53,12 @@ export function ControlQueue({lang, rules, sources, expanded, expand, busy, role
         <dl className="ew-control-facts">
           <div><dt>{tr?"Son test":"Last test"}</dt><dd>{formatDate(rule.lastStatus ? rule.lastRunAt : undefined, tr)}</dd></div>
           <div><dt>{tr?"Sorumlu":"Owner"}</dt><dd>{rule.remediationOwner?.trim() || (tr?"Atanmamış":"Unassigned")}</dd></div>
+          <div><dt>{tr?"Kanıt inceleyeni":"Evidence reviewer"}</dt><dd>{rule.reviewer||"—"}</dd></div>
+          <div><dt>{tr?"Geçerlilik süresi":"Freshness TTL"}</dt><dd>{rule.freshnessHours} {tr?"saat":"hours"}</dd></div>
           <div><dt>{tr?"Sonraki çalışma":"Next run"}</dt><dd>{rule.enabled ? formatDate(rule.nextRunAt,tr) : "—"}</dd></div>
         </dl>
         <div className="ew-rule-meta"><span>{freshness(rule)}</span>
+          {role==="Admin"&&<button className="ghost" disabled={pending} onClick={()=>editPolicy(rule)}>{tr?"Kanıt inceleme ayarları":"Evidence review settings"}</button>}
           {source && <button className="ghost" onClick={()=>openSource(source.id)}>{tr?"Kaynağı incele":"Inspect source"}</button>}
           {role !== "Viewer" && <button className="ghost" disabled={pending || !rule.enabled || !source?.enabled} onClick={()=>run(rule.id)}>{tr?"Çalıştır":"Run"}</button>}
           {role === "Admin" && <button className="ghost" disabled={pending || (!rule.enabled && !source)} onClick={()=>toggle(rule)}>{rule.enabled ? (tr?"Duraklat":"Pause") : (tr?"Etkinleştir":"Enable")}</button>}
@@ -74,7 +77,7 @@ export function ControlQueue({lang, rules, sources, expanded, expand, busy, role
       {(query || owner || filter !== "all") && <button className="ew-link" onClick={()=>{setQuery("");setOwner("");setFilter("all");}}>{tr?"Filtreleri temizle":"Clear filters"}</button>}
     </div>
     <p className="ew-queue-counts" role="status">{tr ? `${visible.length} / ${rules.length} kontrol · ${groups.failed.length} başarısız · ${groups.verify.length} inceleme gerekli · ${groups.current.length} güncel ve başarılı · ${groups.paused.length} duraklatıldı` : `${visible.length} / ${rules.length} controls · ${groups.failed.length} failed · ${groups.verify.length} need review · ${groups.current.length} current and passing · ${groups.paused.length} paused`}</p>
-    {!visible.length ? <p className="ew-empty">{rules.length ? (tr?"Bu filtrelerle eşleşen kontrol yok.":"No controls match these filters.") : (tr?"Henüz kontrol yok. İlk değerlendirme için bir kaynağa kontrol ekleyin.":"No controls yet. Add a control to a source for its first assessment.")}</p> : view === "priority" ?
+    {!visible.length ? <div className="ew-empty"><p>{rules.length ? (tr?"Bu filtrelerle eşleşen kontrol yok.":"No controls match these filters.") : (tr?"Henüz kontrol yok. İlk değerlendirme için bir kaynağa kontrol ekleyin.":"No controls yet. Add a control to a source for its first assessment.")}</p>{!rules.length&&connectSource&&<><p id="ea-source-required">{tr?"Önce Kanıt Kaynakları sekmesinden bir kaynak bağlayın":"Connect a source from the Evidence Sources tab first"}</p><button className="ghost" onClick={connectSource}>{role==="Admin"?(tr?"+ İlk Kanıt Kaynağını Bağla →":"+ Connect first evidence source →"):(tr?"Kanıt Kaynaklarına Git →":"Go to evidence sources →")}</button></>}</div> : view === "priority" ?
       <div className="ew-priority-groups">{queueGroups.filter(group=>groups[group].length).map(group=><section key={group} className={`ew-priority-group ${group}`} data-queue-group={group} aria-label={labels[group]}>
         <h4>{labels[group]} <span>{groups[group].length}</span></h4>{groups[group].map(rule=>renderRule(rule))}
       </section>)}</div> : <div className="ew-source-grid">{sourceGroups.map(group=>{

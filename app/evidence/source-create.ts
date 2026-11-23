@@ -1,5 +1,7 @@
 import {ruleCreationRequestId as creationRequestId} from './rule-write';
 
+import {sourceAssetGuard} from "./connector-governance";
+import {CoreReferenceUnavailable} from "../core-reference-write";
 export type SourceCreationInput={
  id:string;name:string;vendor:string;category:string;driver:string;config_json:string;
  secret_ciphertext:string|null;secret:string;encryptionKey:string;now:string;actor:string;
@@ -26,9 +28,10 @@ async function fingerprint(input:SourceCreationInput,requestId:string){
 /** Replayed creation never updates credentials, test results or linked control history. */
 export async function insertEvidenceSource(db:D1Database,input:SourceCreationInput,requestId?:string){
  const key=creationRequestId(requestId),actor=input.actor.toLowerCase();
+ const asset=sourceAssetGuard(input.config_json);
  const insert=(condition='1',values:string[]=[])=>db.prepare(`INSERT INTO evidence_automation_sources(id,name,vendor,category,driver,enabled,config_json,secret_ciphertext,created_at,updated_at,updated_by)
- SELECT ?,?,?,?,?,1,?,?,?,?,? WHERE ${condition}`).bind(input.id,input.name,input.vendor,input.category,input.driver,input.config_json,input.secret_ciphertext,input.now,input.now,input.actor,...values);
- if(!key){await insert().run();return {sourceId:input.id,reused:false};}
+ SELECT ?,?,?,?,?,1,?,?,?,?,? WHERE ${condition} AND ${asset.sql}`).bind(input.id,input.name,input.vendor,input.category,input.driver,input.config_json,input.secret_ciphertext,input.now,input.now,input.actor,...values,...asset.values);
+ if(!key){if(!(await insert().run()).meta?.changes)throw new CoreReferenceUnavailable();return {sourceId:input.id,reused:false};}
  const hash=await fingerprint(input,key);
  const read=()=>db.prepare(`SELECT receipt.source_id,receipt.payload_hash,source.id live_id
  FROM evidence_source_creation_requests receipt LEFT JOIN evidence_automation_sources source ON source.id=receipt.source_id

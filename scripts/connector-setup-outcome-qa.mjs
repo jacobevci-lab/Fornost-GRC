@@ -1,3 +1,4 @@
+import {chooseQaReviewer,reviewerEmail} from './automation-reviewer-qa.mjs';
 import assert from 'node:assert/strict';
 import {mkdir,writeFile} from 'node:fs/promises';
 import {chromium,expect} from '@playwright/test';
@@ -13,7 +14,7 @@ const context=await createQaContext(browser,base,headers,{viewport:{width:1440,h
 page.setDefaultTimeout(15000);
 const errors=[],unexpectedWrites=[],checks=[];
 page.on('pageerror',error=>errors.push(error.message));
-const controlRef='QA-CON-SETUP',stamp='2026-11-16T10:00:00.000Z';
+const controlRef='CTL-901',stamp='2026-11-16T10:00:00.000Z';
 const source={id:'qa-setup-source',name:'QA connector',vendor:'Microsoft',driver:'provider-v1',enabled:true,config:{providerId:'intune',dataset:'managed-devices'},lastTestStatus:'success',lastTestAt:stamp};
 const rule={id:'qa-setup-rule',name:'QA setup control',sourceId:source.id,controlRefs:controlRef,enabled:true,freshness:'missing',lastStatus:'error',lastRunAt:stamp,lastRunId:null};
 let registered=false,current={},actions=[],saveKeys=[],sourceKeys=[],releaseRun;
@@ -45,17 +46,18 @@ try{
     if(!['GET','HEAD'].includes(route.request().method())){unexpectedWrites.push(new URL(route.request().url()).pathname);return route.abort();}
     return route.fallback();
   });
+  await page.route('**/api/grc/risk-owners?**',route=>route.fulfill({json:{people:[{email:reviewerEmail,name:'QA Evidence Reviewer'}],complete:true}}));
   await page.route(url=>url.origin===new URL(base).origin&&url.pathname==='/api/grc',async route=>{
     if(route.request().method()!=='GET')return route.fallback();
-    const rows=[{id:'qa-setup-control',module:'Kontroller',record_code:controlRef,data_json:JSON.stringify({controlId:controlRef,title:'QA mapped control'}),created_at:stamp,updated_at:stamp}];
+    const rows=[{id:'qa-setup-asset',module:'Varlık Envanteri',record_code:'AST-701',data_json:JSON.stringify({title:'Collector host'})},{id:'qa-setup-control',module:'Kontroller',record_code:controlRef,data_json:JSON.stringify({controlId:controlRef,title:'QA mapped control'}),created_at:stamp,updated_at:stamp}];
     await route.fulfill({status:200,json:{rows,nextCursor:null}});
   });
   await page.route(url=>url.origin===new URL(base).origin&&url.pathname==='/api/evidence-automation',async route=>{
     if(route.request().method()==='GET')return route.fulfill({json:{sources:registered?[source]:[],rules:registered?[rule]:[],runs:[],findings:[]}});
     const body=route.request().postDataJSON();actions.push(body.action);
-    if(body.action==='save-source'){sourceKeys.push(body.requestId);assert.match(body.requestId,/^[0-9a-f-]{36}$/);if(current.lostSource){registered=true;if(sourceKeys.length===1)return route.abort('failed');if(current.sourceConflict)return route.fulfill({status:409,json:{code:'SOURCE_CREATION_CONFLICT',sourceId:source.id}});}return route.fulfill({json:{sourceId:source.id}});}
+    if(body.action==='save-source'){assert.equal(body.assetRef,'qa-setup-asset');sourceKeys.push(body.requestId);assert.match(body.requestId,/^[0-9a-f-]{36}$/);if(current.lostSource){registered=true;if(sourceKeys.length===1)return route.abort('failed');if(current.sourceConflict)return route.fulfill({status:409,json:{code:'SOURCE_CREATION_CONFLICT',sourceId:source.id}});}return route.fulfill({json:{sourceId:source.id}});}
     if(body.action==='discover-source')return route.fulfill({json:{detected:{rootType:'object',paths:[{path:'$.healthy',type:'boolean'}]},suggestedControls:[{ref:controlRef,title:'QA mapped control',score:90,matches:[]}]}});
-    if(body.action==='save-rule'){registered=true;saveKeys.push(body.requestId);assert.equal(body.controlRefs,controlRef);assert.match(body.requestId,/^[0-9a-f-]{36}$/);if(current.lostSave&&saveKeys.length===1)return route.abort('failed');if(current.saveConflict)return route.fulfill({status:409,json:{code:'RULE_CREATION_CONFLICT',ruleId:rule.id}});return route.fulfill({json:{ruleId:rule.id,reused:saveKeys.length>1}});}
+    if(body.action==='save-rule'){assert.equal(body.reviewer,reviewerEmail);assert.equal(body.freshnessHours,168);assert.deepEqual(body.mappedControls,[controlRef]);registered=true;saveKeys.push(body.requestId);assert.equal(body.controlRefs,controlRef);assert.match(body.requestId,/^[0-9a-f-]{36}$/);if(current.lostSave&&saveKeys.length===1)return route.abort('failed');if(current.saveConflict)return route.fulfill({status:409,json:{code:'RULE_CREATION_CONFLICT',ruleId:rule.id}});return route.fulfill({json:{ruleId:rule.id,reused:saveKeys.length>1}});}
     if(body.action==='run-rule'){
       assert.equal(body.ruleId,rule.id);
       await new Promise(resolve=>{releaseRun=resolve;});
@@ -70,9 +72,19 @@ try{
     await page.setViewportSize({width:1440,height:1000});await page.goto(base);
     await switchQaLocale(page,locale);await expect(page.locator('main > .notice')).toHaveCount(0);
     await openQaModule(page,locale==='tr'?'Kanıt Otomasyonu':'Evidence Automation');
+    if(outcome===outcomes[0]){
+      const tabs=page.locator('.ea-tabs');await expect(tabs.getByRole('button')).toHaveCount(7);
+      await tabs.locator('[data-ea-tab="rules"]').click();
+      await expect(page.locator('.ew-queue-head').getByRole('button',{name:/Kural Oluştur|Create Rule/})).toBeDisabled();
+      await page.locator('.ew-empty').getByRole('button',{name:/İlk Kanıt Kaynağını Bağla|Connect first evidence source/}).click();
+      await page.locator('.ew-picker').getByRole('button',{name:/Configure connection|Bağlantıyı yapılandır/i}).click();
+      await page.locator('.cow-shell').getByRole('button',{name:/^(Vazgeç|Cancel)$/}).click();
+      await expect(page.locator('.cow-shell')).toHaveCount(0);assert.deepEqual(actions,[]);
+    }
     await page.locator('.ew-picker').getByRole('button',{name:/Configure connection|Bağlantıyı yapılandır/i}).click();
     const wizard=page.locator('.cow-shell'),result=wizard.locator('.cow-complete');
     await expect(wizard).toBeVisible();
+    const asset=wizard.getByRole('combobox',{name:/AST-xxx/});await asset.fill('AST-701');await wizard.getByRole('option',{name:/AST-701/}).click();
     if(outcome.key==='pass')for(const mode of ['light','dark']){await theme(mode);await contrast('.cow-steps',`${locale}/${mode}: active step`);}
     await wizard.getByRole('button',{name:/^(Bağlan ve Algıla|Authenticate & Detect)$/}).click();
     if(outcome.lostSource){
@@ -92,6 +104,8 @@ try{
     await wizard.getByRole('button',{name:/^(Kontrolleri Eşleştir|Map Controls)$/}).click();
     await wizard.getByRole('checkbox').first().check();
     await wizard.getByRole('button',{name:/^(İzlemeyi Yapılandır|Configure Monitoring)$/}).click();
+    await expect(wizard.getByRole('button',{name:/^(İzlemeyi Etkinleştir|Enable Monitoring)$/})).toBeDisabled();
+    await chooseQaReviewer(wizard);await wizard.getByLabel(/TTL/).selectOption('168');
     await wizard.getByRole('button',{name:/^(İzlemeyi Etkinleştir|Enable Monitoring)$/}).click();
     if(outcome.lostSave){
       await expect(wizard.locator('.cow-message.error')).toBeVisible();
@@ -101,10 +115,11 @@ try{
     }
     if(!outcome.saveConflict){
     await expect.poll(()=>typeof releaseRun).toBe('function');
-    await expect(wizard.getByRole('button',{name:/^(Geri|Back)$/})).toBeDisabled();
+    await expect(wizard.getByRole('button',{name:/^← (Geri|Back)$/})).toBeDisabled();
     await expect(wizard.getByRole('button',{name:/İlk kontrol çalışıyor|Running first control/})).toBeDisabled();
     releaseRun();
     }
+    if(outcome.key==='pass'){await result.getByRole('button',{name:/^← (Geri|Back)$/}).click();await wizard.getByRole('button',{name:/^(İleri|Next) →$/}).click();}
     await expect(result).toHaveAttribute('data-outcome',outcome.tone);
     await expect(result.getByRole('heading',{name:outcome[locale],exact:true})).toBeVisible();
     await expect(wizard.locator('.cow-message.success')).toHaveCount(0);

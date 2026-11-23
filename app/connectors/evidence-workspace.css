@@ -96,3 +96,10 @@ html[data-theme] body .shell>main .ew-queue :where(h4,.ew-control-name>b){font-s
 html[data-theme] body .shell>main .ew-queue .ew-source-group>header h4{font-size:16px!important}
 .ea-page.ew-page .ew-queue-head{padding:0!important;border:0!important;background:transparent!important}
 .ew-source-group .ew-inspect-label{display:none}.ew-control-inspect .ew-inspect-label{margin:0}
+
+.ea-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.6rem;margin:0}
+.ea-metrics>div{min-width:0;padding:.7rem .9rem;border:1px solid var(--ws-line);border-radius:10px;background:var(--ws-surface)}
+.ea-metrics dt{font-size:.76rem;color:var(--ws-muted)}.ea-metrics dd{margin:.22rem 0 0;color:var(--ws-ink);font-weight:700;font-size:1.3rem;font-variant-numeric:tabular-nums}
+.ew-page .ew-tabs{display:flex;flex-wrap:wrap;gap:.25rem}
+.ea-reviewer{min-width:0}.ea-reviewer button{max-width:100%;overflow-wrap:anywhere}
+@media(max-width:720px){.ea-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}}

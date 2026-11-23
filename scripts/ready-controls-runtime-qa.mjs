@@ -1,3 +1,4 @@
+import {registerQaReviewer,chooseQaReviewer,reviewerEmail} from './automation-reviewer-qa.mjs';
 import { qaPassword } from "./qa-credentials.mjs";
 import {chromium,expect} from '@playwright/test';
 import assert from 'node:assert/strict';
@@ -12,6 +13,7 @@ async function api(ctx,path,method='GET',data,status=200){const r=await ctx.requ
 const path='/api/evidence-automation',guid='11111111-1111-4111-8111-111111111111';
 try{
  await api(context,'/api/auth','POST',{action:'login',email:'qa-admin@fornost.test',password});
+ await registerQaReviewer(context.request);
  const source=await api(context,path,'POST',{action:'save-source',name:'QA Ready Intune',vendor:'Microsoft Intune',category:'Cloud & SaaS',providerId:'intune',dataset:'managed-devices',providerConfig:{tenantId:guid,clientId:guid},credentials:{clientSecret:crypto.randomUUID()}});
  await page.goto(base);await expect(page.locator('.shell')).toBeVisible();await page.locator('.language-switch:visible').getByRole('button',{name:'EN',exact:true}).click();
  await page.locator('nav button[aria-label="Evidence Automation"]').evaluate(el=>el.click());
@@ -25,17 +27,18 @@ try{
   for(const width of [1536,390]){await page.setViewportSize({width,height:960});assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)<=4);await page.screenshot({path:`${out}/ready-form-${theme}-${width}.png`});}
  }
  await page.setViewportSize({width:1536,height:960});
+ await chooseQaReviewer(dialog);
  const mapped=dialog.getByLabel('Mapped controls',{exact:true});const originalRefs=await mapped.inputValue();
  await mapped.fill('CTL-999999999');
  const rejected=page.waitForResponse(r=>r.url().endsWith(path)&&r.request().method()==='POST');await dialog.getByRole('button',{name:'Enable Ready Control',exact:true}).click();assert.equal((await rejected).status(),422);
  await expect(dialog).toBeVisible();await expect(mapped).toHaveValue('CTL-999999999');await expect(dialog).toContainText('A mapped control record is unavailable');
  await mapped.fill(originalRefs);
  const saved=page.waitForResponse(r=>r.url().endsWith(path)&&r.request().method()==='POST');await dialog.getByRole('button',{name:'Enable Ready Control',exact:true}).click();assert.equal((await saved).status(),200);await expect(dialog).toBeHidden();
- const data=await api(context,path),rule=data.rules.find(x=>x.sourceId===source.sourceId);assert.equal(rule.templateId,'intune-compliance');assert.equal(rule.templateVersion,1);assert.equal(rule.operator,'template');assert.equal(rule.freshnessHours,48);
+ const data=await api(context,path),rule=data.rules.find(x=>x.sourceId===source.sourceId);assert.equal(rule.templateId,'intune-compliance');assert.equal(rule.templateVersion,1);assert.equal(rule.operator,'template');assert.equal(rule.freshnessHours,24);
  await api(context,path,'POST',{action:'save-template-rule',sourceId:source.sourceId,templateId:'intune-compliance',controlRefs:'A.8.1'},409);
  await api(context,path,'POST',{action:'save-template-rule',sourceId:source.sourceId,templateId:'mde-sensor-health',controlRefs:'A.8.7'},400);
  await api(context,path,'POST',{action:'save-template-rule',sourceId:source.sourceId,templateId:'arbitrary-code',controlRefs:'A.8.1'},400);
- const second=await api(context,path,'POST',{action:'save-template-rule',sourceId:source.sourceId,templateId:'intune-encryption',controlRefs:'A.8.24',operator:'exists',jsonPath:'fornostCollection',templateVersion:999,autoFinding:false});
+ const second=await api(context,path,'POST',{reviewer:reviewerEmail,action:'save-template-rule',sourceId:source.sourceId,templateId:'intune-encryption',controlRefs:'A.8.24',operator:'exists',jsonPath:'fornostCollection',templateVersion:999,autoFinding:false});
  const persisted=(await api(context,path)).rules.find(x=>x.id===second.ruleId);assert.equal(persisted.templateVersion,1);assert.equal(persisted.operator,'template');assert.equal(persisted.autoFinding,false);
  for(const role of ['Editor','Viewer']){
   const email=`qa-ready-${role.toLowerCase()}@fornost.test`;await api(context,'/api/users','POST',{name:`Ready QA ${role}`,email,password,role},201);

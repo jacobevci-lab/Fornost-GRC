@@ -2,7 +2,7 @@ import { assessControl, templatesForSource, type ControlAssessment } from '../co
 import { recordDataClassificationAllowed, type AiDataClassification } from '../ai/data-policy';
 import { redactSensitiveText } from '../ai/security';
 import { observedExecutionGuard } from './execution-guard';
-import { creationHash, ruleInsert, type RuleInput } from './rule-write';
+import { creationHash, ruleInsert, reviewPolicyStatements, type RuleInput } from './rule-write';
 
 export type MappingSource = { id:string; name:string; vendor:string; category:string; driver:string; enabled:number; config_json:string; secret_ciphertext:string|null };
 export type MappingControl = { id:string; ref:string; title:string; description:string; revision:string };
@@ -102,6 +102,7 @@ export async function approveMapping(db:D1Database,runId:string,index:number,inp
   try{result=await db.batch([
     ruleInsert(db,input,{sql:`EXISTS(SELECT 1 FROM evidence_automation_sources s WHERE ${s.sql}) AND EXISTS(SELECT 1 FROM simple_grc_records WHERE id=? AND module='Kontroller' AND data_json=?) AND EXISTS(SELECT 1 FROM evidence_mapping_runs WHERE id=? AND status='completed' AND approved_rule_id IS NULL AND report_json=?)`,values:[...s.values,control.id,target.data_json,runId,row.report_json]}),
     db.prepare(`UPDATE evidence_mapping_runs SET approved_rule_id=?,approved_proposal=?,approved_by=?,approved_at=?,approval_input_hash=? WHERE id=? AND approved_rule_id IS NULL AND changes()=1`).bind(input.id,index,input.actor,input.now,inputHash,runId),
+    ...reviewPolicyStatements(db,input),
   ]);}catch(error){
     if(!String(error).toLowerCase().includes('unique'))throw error;
     const saved=await replay();if(saved)return saved;

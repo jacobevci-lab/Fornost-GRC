@@ -1,3 +1,4 @@
+import {chooseQaReviewer} from './automation-reviewer-qa.mjs';
 import assert from 'node:assert/strict';
 import {mkdir,writeFile} from 'node:fs/promises';
 import {chromium,expect} from '@playwright/test';
@@ -54,7 +55,7 @@ try{
   await expect(ready.getByLabel(tr?'Hazır test':'Ready test',{exact:true})).toHaveValue('intune-encryption');
   await expect(ready.getByLabel(tr?'Bağlı kontrol/maddeler':'Mapped controls',{exact:true})).toHaveValue('CTL-901');
   await expect(ready.getByLabel(tr?'Bağlı kontrol/maddeler':'Mapped controls',{exact:true})).not.toBeEditable();
-  assert.equal(saves.length,before);await ready.getByRole('button',{name:tr?'Hazır Kontrolü Etkinleştir':'Enable Ready Control',exact:true}).click();await expect(ready).toBeHidden();
+  await chooseQaReviewer(ready,'qa-mapping-editor@fornost.test');assert.equal(saves.length,before);await ready.getByRole('button',{name:tr?'Hazır Kontrolü Etkinleştir':'Enable Ready Control',exact:true}).click();await expect(ready).toBeHidden();
   assert.equal(saves.length,before+1);assert.equal(saves.at(-1).mappingRunId,'mapping-fixture-run');assert.equal(saves.at(-1).mappingProposalIndex,0);assert.equal(saves.at(-1).controlRefs,'CTL-901');checks.push(`${lang}/${theme}/${width}`);
  }
  for(const state of ['empty','error']){

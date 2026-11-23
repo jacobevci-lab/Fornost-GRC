@@ -32,9 +32,9 @@ try{
   if(surface==='wizard'){
    const add=page.locator('.ew-heading').getByRole('button',{name:tr?'+ Kaynak ekle':'+ Add source',exact:true});if(await add.isVisible())await add.click();
    await page.locator('.ew-picker').getByRole('button',{name:/Configure connection|Bağlantıyı yapılandır/}).click();form=page.locator('.cow-shell');
-   await form.getByLabel(tr?'Connector şablonu':'Connector template',{exact:true}).selectOption({label:'Generic REST / JSON API'});
+   await form.getByLabel(tr?'Bağlayıcı şablonu':'Connector template',{exact:true}).selectOption({label:'Generic REST / JSON API'});
   }else{
-   await page.locator('.ea-tabs details summary').click();await page.locator('.ea-tabs').getByRole('button',{name:tr?'Connector Kataloğu':'Connector Catalog',exact:true}).click();
+   await page.locator('.ea-tabs').getByRole('button',{name:tr?'Connector Kataloğu':'Connector Catalog',exact:true}).click();
    await page.locator('.ea-catalog').getByRole('button',{name:/Generic REST \/ JSON API/}).click();
    form=page.getByRole('dialog',{name:tr?'Kanıt kaynağı ekle':'Add evidence source',exact:true});
   }
@@ -56,7 +56,7 @@ try{
    await expect(page.locator(`[data-source-id="${originalId}"]`)).toHaveAttribute('aria-pressed','true');await expect(page.locator('.ew-detail > header h3')).toHaveText(name);
   }else if(surface==='wizard'){
    await expect(form.locator('.cow-detected-summary')).toBeVisible();assert.equal(discoveries,1);
-   await form.getByRole('button',{name:tr?'Sihirbazı kapat':'Close wizard',exact:true}).click();
+   await form.getByRole('button',{name:tr?'Kapat / Kaynaklara Dön':'Close / Back to sources',exact:true}).click();
    await expect(page.locator(`[data-source-id="${originalId}"]`)).toHaveAttribute('aria-pressed','true');
   }else await expect(form).toBeHidden();
   data=await api(ctx,endpoint);assert.equal(data.sources.filter(s=>s.name===name).length,1);assert.deepEqual(data.sources.find(s=>s.id===originalId),original);

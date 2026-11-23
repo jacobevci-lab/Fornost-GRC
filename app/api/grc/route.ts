@@ -37,7 +37,11 @@ export async function GET(req: NextRequest) {
   clauses.push("(created_at>? OR (created_at=? AND id>?))");
   values.push(cursor.createdAt, cursor.createdAt, cursor.id);
  }
- const query = d.prepare(`SELECT r.*,(SELECT code FROM simple_grc_record_codes WHERE record_id=r.id) AS record_code FROM simple_grc_records r ${clauses.length ? "WHERE " + clauses.join(" AND ") : ""} ORDER BY created_at,id LIMIT 5001`).bind(...values);
+ const choices=req.nextUrl.searchParams.get("automationChoices")==="1";
+ if(choices)clauses.push("module IN ('Kontroller','Varlık Envanteri')");
+ const fields=choices?`r.id,r.module,r.created_at,r.updated_at,json_object('title',coalesce(json_extract(r.data_json,'$.controlTitle'),json_extract(r.data_json,'$.title'),json_extract(r.data_json,'$.name'),'')) AS data_json`:`r.*,CASE WHEN r.module='Varlık Envanteri' THEN
+ (SELECT group_concat(DISTINCT signal) FROM evidence_source_signals WHERE asset_id=r.id) END AS collector_signals`;
+ const query = d.prepare(`SELECT ${fields},(SELECT code FROM simple_grc_record_codes WHERE record_id=r.id) AS record_code FROM simple_grc_records r ${clauses.length ? "WHERE " + clauses.join(" AND ") : ""} ORDER BY created_at,id LIMIT 5001`).bind(...values);
  const r = await query.all<Record<string, unknown>>(), hasMore = r.results.length > 5000;
  if (hasMore) r.results.pop();
  const last = r.results.at(-1);

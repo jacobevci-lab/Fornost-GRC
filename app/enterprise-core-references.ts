@@ -6,6 +6,7 @@ const sources:Source[]=[
  {table:'risk_kri_measurement_sources',column:'evidence_id',modules:['Kanıtlar']},
  ...['audit_requests','audit_workpapers'].map(table=>({table,column:"json_extract(data_json,'$.requirementId')",modules:['Denetim Yönetimi']})),
  {table:'workflow_evidence_pins',column:"json_extract(snapshot_json,'$.evidenceId')",modules:['Kanıtlar']},
+ {table:'evidence_automation_sources',column:"json_extract(config_json,'$.assetRef')",modules:['Varlık Envanteri']},
  {table:'evidence_automation_rules',column:'control_refs',modules:['Kontroller','Uyum']},
  {table:'evidence_automation_runs',column:'evidence_id',modules:['Kanıtlar']},
  {table:'evidence_automation_findings',column:'evidence_id',modules:['Kanıtlar']},
