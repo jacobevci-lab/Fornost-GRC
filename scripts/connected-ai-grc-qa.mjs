@@ -38,10 +38,11 @@ try{
  await page.locator('.cgw-filters input').fill('QA AI drift alert');
  await expect(page.locator('.cgw-records>button')).toHaveCount(1);
  await expect(page.locator('.cgw-node')).toHaveCount(3);
- await expect(page.locator('.cgw-diagram')).toContainText('QA AI remediation');
+ await expect(page.locator('.cm-network')).toContainText('QA AI remediation');
+ await page.locator('.cgw-filters input').blur();
  await page.locator('.cgw-node').filter({hasText:'QA AI assistant'}).click();
  await page.locator('.cgw-inspector').getByRole('button',{name:'Map this record',exact:true}).click();
- await expect(page.locator('.cgw-record-heading h3')).toHaveText('QA AI assistant');
+ await expect(page.locator('.cm-node[data-root=true] b')).toHaveText('QA AI assistant');
  await expect(page.locator('.cgw-node')).toHaveCount(3);
  for(const lang of ['EN','TR']){
   await page.locator('.language-switch:visible').getByRole('button',{name:lang,exact:true}).click();

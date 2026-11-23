@@ -101,7 +101,7 @@ const updatedAt = (item: JsonRecord) => text(item.updatedAt || item.updated_at |
 const idOf = (scope: string, kind: string, item: JsonRecord, index: number) => `${scope}:${kind}:${text(item.id || item.code || (kind === "vendor" && (item.vendorId || item.vendor_id)) || index)}`;
 const makeRow = (scope: string, kind: string, module: string, item: JsonRecord, index: number, data: JsonRecord): ConnectedGrcRow => ({
   id: idOf(scope, kind, item, index),
-  code: text(data.publicCode || item.code || item.externalRef || item.external_ref) || undefined,
+  code: text(data.publicCode || item.recordCode || item.record_code || item.shortCode || item.short_code || item.code || item.externalRef || item.external_ref) || undefined,
   module,
   updatedAt: updatedAt(item),
   data: {
@@ -304,9 +304,10 @@ function thirdPartyRows(payload: JsonRecord) {
     return makeRow("enterprise", "vendor", "Tedarikçiler", item, index, {
       title: text(item.name || item.service),
       name: text(item.name),
+      owner: text(item.businessOwner || item.business_owner || item.owner),
       vendorId,
       identityRefs: unique(vendorId),
-      publicCode: vendorId,
+      publicCode: text(item.code) !== "—" && text(item.code) || (/^VEN-\d{3,}$/i.test(vendorId)?vendorId:undefined),
     });
   });
   const assessments = records(payload.assessments).map((item, index) => makeRow("enterprise", "vendor-assessment", "Tedarikçiler", item, index, {
@@ -461,7 +462,7 @@ function aiRows(payloads: ConnectedGrcEnterprisePayloads): ConnectedGrcRow[] {
 
 export function buildConnectedGrcEnterpriseRows(payloads: ConnectedGrcEnterprisePayloads): ConnectedGrcRow[] {
   const rows = [
-    ...records(payloads.audits?.audits).map((item,index)=>makeRow("enterprise","audit","Denetim Yönetimi",item,index,{title:text(item.name),owner:text(item.audit_owner),auditName:text(item.name),frameworkTemplate:text(item.template)})),
+    ...records(payloads.audits?.audits).map((item,index)=>makeRow("enterprise","audit","Denetim Yönetimi",item,index,{title:text(item.name),owner:text(item.audit_owner),auditName:text(item.name),auditControlRefs:unique(item.auditControlRefs),auditEvidenceRefs:unique(item.auditEvidenceRefs),frameworkTemplate:text(item.template),archived:!!item.archived,closureState:text(item.closure_state)})),
     ...aiRows(payloads),
     ...findingsRows(payloads.findings || {}),
     ...incidentRows(payloads.incidents || {}),

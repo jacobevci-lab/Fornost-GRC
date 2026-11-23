@@ -26,7 +26,7 @@ try{
  if(await group.getAttribute('aria-expanded')!=='true')await group.click();
  const nav=page.locator('nav button[aria-label="Connected GRC Map"]');await nav.scrollIntoViewIfNeeded();await nav.click();
  await page.locator('.cg-tabs').getByRole('button',{name:'Assurance',exact:true}).click();
- await page.locator('.cg-operations .module-analysis-disclosure>summary').click();
+ await page.locator('.cg-operations summary').filter({hasText:'Assurance governance and escalations'}).click();
  const panel=page.locator('.assurance-escalation-center');
  await expect(panel.locator('.aec-list>article')).toHaveCount(20);
  for(let i=0;i<3;i++)await panel.getByRole('button',{name:'Next',exact:true}).click();

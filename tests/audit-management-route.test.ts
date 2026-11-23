@@ -15,7 +15,7 @@ function routeFixture(){
  const exports:Record<string,(r:unknown)=>Promise<{status:number;body:Record<string,unknown>}>>={};
  const code=ts.transpileModule(readFileSync('app/api/audits/route.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;
  new Function('require','exports',code)(require,exports);
- const call=(method:string,body:unknown={},query='')=>exports[method]({nextUrl:new URL('http://fixture.test/api/audits?'+query),text:async()=>JSON.stringify(body)});
+ const call=(method:string,body:unknown={},query='',headers=new Headers())=>exports[method]({headers,nextUrl:new URL('http://fixture.test/api/audits?'+query),text:async()=>JSON.stringify(body)});
  return{sqlite,call,setActor:(a:Actor)=>{actor=a}};
 }
 test('management routes enforce role/scope and keep archival distinct from closure',async()=>{
@@ -34,4 +34,18 @@ test('management routes enforce role/scope and keep archival distinct from closu
   const audits=(await f.call('GET')).body.audits as {archived:number;closure_state:string}[];assert.equal(audits[0].archived,1);assert.equal(audits[0].closure_state,'closed');
   const preview=await f.call('GET',{},'view=removal&id=audit-a');assert.equal(preview.status,200);assert.equal(preview.body.blocked,true);
  }finally{f.sqlite.close()}
+});
+
+test('map audit projection exposes inherited identities only inside authorized scope',async()=>{
+ const f=routeFixture();try {
+  await f.call('GET');
+  f.sqlite.exec("INSERT INTO simple_audits VALUES('a','Annual','Custom','Internal','Team','Owner','open','2026-01-01','2026-01-01')");
+  f.sqlite.prepare('INSERT INTO simple_grc_metadata VALUES(?,?,?)').run('audit_posture_a',JSON.stringify({entries:[{controls:[{id:'control'},{id:'control'}]}],evidence:{pin:{evidenceId:'evidence',fileKey:'private-object'}}}),'2026-01-01');
+  const headers=new Headers({'x-fornost-connected-map':'1'});
+  const result=(await f.call('GET',{},'',headers)).body.audits as {auditControlRefs:string[];auditEvidenceRefs:string[]}[];
+  assert.deepEqual(result[0].auditControlRefs,['control']);assert.deepEqual(result[0].auditEvidenceRefs,['evidence']);
+  assert.ok(!JSON.stringify(result).includes('private-object'));
+  f.setActor({id:'v',name:'Viewer',email:'viewer@test.local',source:'local',role:'Viewer',moduleAccess:{mode:'scoped',modules:{'Denetim Yönetimi':'read'}}});
+  assert.ok(!JSON.stringify((await f.call('GET',{},'',headers)).body).includes('auditControlRefs'));
+ } finally {f.sqlite.close()}
 });

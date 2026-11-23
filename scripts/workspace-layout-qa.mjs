@@ -116,7 +116,7 @@ try {
     await page.screenshot({path:`${output}/${locale}-evidence-library-light.png`});
     await progress(`${locale}: connected explorer`);
     await open(locale === 'tr' ? 'Bağlantılı GRC Haritası' : 'Connected GRC Map');
-    await page.locator('.cgw-records>button').first().waitFor();
+    await page.locator('.cm-node').first().waitFor();
     const name=locale==='tr'?'Bağlantılı GRC Haritası':'Connected GRC Map';
     const pageTitle=page.getByRole('heading',{name,exact:true});
     await expect(pageTitle).toHaveCount(1);
@@ -131,19 +131,22 @@ try {
     await page.locator('.cgw-filters input').fill(fixtureTag);
     await expect(recordButtons).toHaveCount(2);
     for(const title of fixtureTitles){
+      await page.locator('.cgw-filters input').focus();
       await recordButtons.filter({hasText:title}).click();
-      await expect(page.locator('.cgw-record-heading h3')).toHaveText(title);
+      await expect(page.locator('.cm-inspector h3')).toHaveText(title);
       await expect(recordButtons.filter({hasText:title})).toHaveAttribute('aria-pressed','true');
+      await page.locator('.cm-drawer header button').click();
       await expect(page.locator('.cgw-node')).toHaveCount(2);
       await expect(page.locator('.cgw-node').filter({hasText:fixtureTag}).filter({hasNotText:title})).toHaveCount(1);
     }
     await page.locator('.cgw-node').filter({has:page.locator('b',{hasText:new RegExp('^'+fixtureTag+'$')})}).click();
     await page.locator('.cgw-inspector').getByRole('button',{name:locale==='tr'?'Bu kaydın haritası':'Map this record',exact:true}).click();
-    await expect(page.locator('.cgw-record-heading h3')).toHaveText(fixtureTag);
+    await expect(page.locator('.cm-node[data-root=true] b')).toHaveText(fixtureTag);
     await page.locator('.cgw-filters input').fill('no-such-record-qa');
     assert.equal(await recordButtons.count(), 0, 'Search has a useful empty state');
     await page.locator('.cgw-filters').getByRole('button', {name:locale==='tr'?'Temizle':'Clear',exact:true}).click();
     assert.equal(await recordButtons.count(), 10, 'Record list is paginated');
+    await page.locator('.cm-search>button').click();
     await page.locator('.cgw-records footer').getByRole('button', {name:locale==='tr'?'Sonraki':'Next',exact:true}).click();
     assert.match(await page.locator('.cgw-records footer small').innerText(), /^2 \/ /);
     const tabBoxes = await page.locator('.cg-tabs button').evaluateAll(elements=>elements.map(el=>el.getBoundingClientRect().y));

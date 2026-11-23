@@ -36,6 +36,7 @@ try{
  const group=page.locator('nav button[aria-controls="nav-group-intelligence"]');if(await group.getAttribute('aria-expanded')!=='true')await group.click();
  const nav=page.locator('nav button[aria-label="Connected GRC Map"]');await nav.scrollIntoViewIfNeeded();await nav.click();
  await page.locator('.cg-tabs').getByRole('button',{name:'Assurance',exact:true}).click();
+  await page.getByRole('button',{name:'Open assurance work',exact:true}).click();
  const panel=page.locator('.assurance-work-queue');
  await expect(panel.getByRole('alert')).toBeVisible();await expect(panel.locator('.assurance-work-summary b').first()).toHaveText('—');
  await panel.getByRole('button',{name:'Operations',exact:true}).click();await expect(panel.locator('.assurance-ops b').first()).toHaveText('—');

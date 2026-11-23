@@ -38,7 +38,7 @@ export async function loadConnectedGrcSources({ includeAi, signal, sourceKeys, f
       const read = async (path: string) => {
         if (controller.signal.aborted) throw new Error("Source cancelled");
         const response = await fetcher(withBasePath(path), {
-          signal: controller.signal, headers: { accept: "application/json" }, cache: "no-store",
+          signal: controller.signal, headers: endpoint.key==="audits"?{accept:"application/json","x-fornost-connected-map":"1"}:{accept:"application/json"}, cache: "no-store",
         });
         if (!response.ok) {
           reason = response.status === 409 ? "changed" : response.status === 401 || response.status === 403 ? "access" : "unavailable";

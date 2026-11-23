@@ -1,7 +1,7 @@
 import { connectedTitle, type ConnectedGrcLink, type ConnectedGrcCoverageGap, type UnresolvedGrcReference } from "./connected-grc-model";
 import type { ConnectedGapType } from "./connected-grc-gaps";
 import { assuranceChainReasonLabel, type ContinuousAssuranceChain } from "./continuous-assurance-chain";
-type ExportScope = { ready: number; total: number; loading: boolean; generatedAt: string };
+type ExportScope = { catalogComplete?:boolean; ready: number; total: number; loading: boolean; generatedAt: string };
 const csv = (value: unknown) => {
   const text = String(value ?? "");
   const safe = /^[\s]*[=+\-@]/.test(text) ? `'${text}` : text;
@@ -9,7 +9,7 @@ const csv = (value: unknown) => {
 };
 export function connectedGrcExport(links: ConnectedGrcLink[], scope: ExportScope) {
   if (scope.loading) return null;
-  const partial = scope.ready < scope.total;
+  const partial = scope.ready < scope.total || scope.catalogComplete === false;
   const status = partial ? "partial" : "loaded";
   const header = ["Source module", "Source code", "Source title", "Relationship", "Field", "Target module", "Target code", "Target title", "Matched reference", "Source coverage", "Loaded sources", "Expected sources", "Exported at"];
   const metadata = [status, scope.ready, scope.total, scope.generatedAt];
@@ -24,7 +24,7 @@ export function connectedGrcExport(links: ConnectedGrcLink[], scope: ExportScope
 
 // Export the full loaded assessment, not the 12-row follow-up preview.
 export function connectedGrcAssuranceExport(chains: ContinuousAssuranceChain[], scope: ExportScope, lang: "tr" | "en") {
-  if (scope.loading || !Number.isSafeInteger(scope.total) || scope.total < 1 || scope.ready !== scope.total) return null;
+  if (scope.loading || scope.catalogComplete === false || !Number.isSafeInteger(scope.total) || scope.total < 1 || scope.ready !== scope.total) return null;
   const header = ["Rule ID", "Rule code", "Rule title", "Assurance result", "Assurance score", "Chain state", "Reason codes (JSON)", "Reasons (JSON)", "Open findings", "Overdue remediations", "Controls (JSON)", "Findings (JSON)", "Remediations (JSON)", "Risks (JSON)", "Freshness", "Health", "Source coverage", "Loaded sources", "Expected sources", "Exported rules", "Exported at", "Language"];
   const refs = (rows: ContinuousAssuranceChain["controls"]) => JSON.stringify(rows.map(row => ({id:row.id, code:row.code || "", module:row.module})));
   const metadata = ["loaded", scope.ready, scope.total, chains.length, scope.generatedAt, lang];

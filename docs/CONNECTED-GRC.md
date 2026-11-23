@@ -36,7 +36,7 @@ Asset and BIA/process pickers show the record name with its code and save an una
 
 ## Bağlantı inceleme masası
 
-Bağlantılar görünümünde bir kayıt seçin; 1–3 adımlık diyagram veya liste ile ilişkileri inceleyin. Görünüm en fazla 30 kayıt içerir; daha fazlası için başka bir kaydı merkeze alın. Etki analizi, kayıtlı ilişkilere göre üç adıma kadar inceleme yolları gösterir. Ulaşılabilirlik kesin iş etkisi değildir. BIA RTO/RPO değerleri hedeflerdir.
+Genel Ağ, kayıtları beş yönetişim katmanında gösterir. Bağlantı kapsamı, görünür kayıtlar arasında en az bir ilişkisi olanların oranıdır. Merkez kartı üç veya daha fazla farklı komşusu olan kayıtları süzer. Odak Kayıt, ilk açılışta en çok bağlantısı olan kaydı seçer. Odak diyagramı ve listesi 1–3 adımı ve en fazla 30 kaydı gösterir. Etki analizi, kayıtlı ilişkilere göre üç adıma kadar inceleme yolları gösterir. Ulaşılabilirlik kesin iş etkisi değildir. BIA RTO/RPO değerleri hedeflerdir.
 
 Eksikler sekmesi kayıt ve takip konusu sayılarını ayırır. Zorunlu bağlantılar, çözümlenemeyen referanslar, süresi geçmiş kanıtlar, gecikmiş gözden geçirmeler ve plan bağlantısı olmayan BIA kayıtları birlikte incelenir. Kaynak hatalarında sonuçlar kısmi olarak işaretlenir.
 
@@ -45,3 +45,5 @@ Admin ve yetkili Editor, desteklenen temel kayıt alanlarında mevcut hedefi se�
 BIA için plan bağlama yalnız mevcut taslak planın BIA referansını değiştirir. Admin veya plan sahibi Editor işlem yapabilir; onaylı/aktif planlar değiştirilemez ve bu işlem planı onaylamaz. Değişiklik ile kullanıcı/gerekçe/zaman geçmişi aynı veritabanı işlemiyle kaydedilir. Başarılı kayıt sonrası yenileme veya belirsiz ağ hatası otomatik tekrar yazma üretmez. Önce yenileyip bağlantıyı inceleyin.
 
 Bağlantı dışa aktarımı arama/modül filtresine uyan tüm yüklü ilişkileri; etki dışa aktarımı seçili kaydın sınırlı inceleme yollarını; eksik dışa aktarımı filtreye uyan tüm takip konularını içerir. Kısmi kaynak durumu ve dışa aktarım zamanı korunur. Güvence sekmesindeki mevcut kontrol sonucu, onay ve eskalasyon iş akışları korunur.
+
+Güvence ve Kanıt Kapsamı, kontrolleri ve onlara bağlı riskleri güncel, sürümü onaylanmış kanıtlar, aktif denetimler ve açık kurumsal bulgular üzerinden gösterir. Haritada eklenen açıklayıcı ilişkiler denetim, kanıt onayı veya CAPA durumu üretmez. Kayıt ilişkisi, kontrolün etkin olduğu anlamına gelmez.

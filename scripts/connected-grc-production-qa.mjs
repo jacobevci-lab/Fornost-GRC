@@ -187,10 +187,10 @@ try {
 
     leavingDashboard = false;
     const sourceStatusText = (await liveStatus.textContent().catch(() => ""))?.trim() || "";
-    const relationshipRows = Number(await page.locator(".cg-summary > span:nth-child(2) b").textContent());
+    const relationshipRows = Number(await page.locator(".cm-health [data-metric='links'] strong").textContent());
     const unresolvedRows = await page.locator(".connected-unresolved div").count();
     const domainButtons = await page.locator(".cgw-filters select option").allTextContents();
-    const kpiValues = await page.locator(".cg-summary b").allTextContents();
+    const kpiValues = await page.locator(".cm-health button strong").allTextContents();
     const loadingVisible = await liveStatus.getAttribute("data-loading") !== "false";
     const ready = `${await liveStatus.getAttribute("data-ready")}/${await liveStatus.getAttribute("data-total")}`;
 

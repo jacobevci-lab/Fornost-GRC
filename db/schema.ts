@@ -532,3 +532,8 @@ export const aiMonitorDetails=sqliteTable("ai_monitor_details",{
  observationId:text("observation_id").primaryKey(),hallucination:real("hallucination"),leakage:integer("leakage"),findingId:text("finding_id"),incidentId:text("incident_id"),acknowledgedAt:text("acknowledged_at"),
 });
 export const aiSystemDecisions=sqliteTable("ai_system_decisions",{id:text("id").primaryKey(),modelId:text("model_id").notNull(),action:text("action").notNull(),actor:text("actor").notNull(),at:text("at").notNull(),snapshotJson:text("snapshot_json").notNull()});
+
+export const connectedMapContextLinks = sqliteTable("connected_map_context_links", {
+  id:text("id").primaryKey(),sourceId:text("source_id").notNull(),targetId:text("target_id").notNull(),
+  sourceModule:text("source_module").notNull(),targetModule:text("target_module").notNull(),relation:text("relation").notNull(),
+}, table=>[uniqueIndex("connected_map_context_edge").on(table.sourceId,table.targetId,table.relation)]);

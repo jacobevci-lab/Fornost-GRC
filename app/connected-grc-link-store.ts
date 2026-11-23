@@ -1,3 +1,4 @@
+import {pendingVersion} from './evidence/intake';
 import { canReadModule, canWriteModule, type AccessSubject } from './module-access';
 import { changeConnectionData } from './connected-grc-workbench-model';
 import { validate } from './core-record-validation';
@@ -24,10 +25,11 @@ export async function writeConnectedLink(db: D1Database, actor: Actor, input: Re
   const before = JSON.parse(source.data_json);
   // Evidence stores a primary reference as well as its complete list.
   const normalized = source.module === 'Kanıtlar' && (!Array.isArray(before.controlRefs) || !before.controlRefs.length) ? { ...before, controlRefs: before.controlRef ? [before.controlRef] : [] } : before;
-  let data;
+  let data:Record<string,unknown>;
   try { data = changeConnectionData({ ...source, data: normalized }, String(field), { ...target, code: code?.code, data: JSON.parse(target.data_json) }, action as 'link' | 'unlink'); }
   catch (error) { throw new ConnectionWriteError(error instanceof Error ? error.message : 'invalid'); }
   if (JSON.stringify(data) === JSON.stringify(normalized)) throw new ConnectionWriteError('unchanged');
+  if(source.module==='Kanıtlar')data=pendingVersion(data);
   const checked = validate(source.module, data);
   if ('error' in checked) throw new ConnectionWriteError('validation');
   if (JSON.stringify(checked.data[String(field)]) !== JSON.stringify(data[String(field)])) throw new ConnectionWriteError('validation');

@@ -77,6 +77,8 @@ export const relationFields: Record<string, RelationDefinition> = {
   biaRef: { relation: "continuity-process", modules: ["BIA"] },
   controlRef: { relation: "control-evidence", modules: ["Kontroller", "Uyum"], sources: ["Kanıtlar", "Uyum", "Denetim Yönetimi"] },
   controlRefs: { relation: "control-evidence", modules: ["Kontroller"], sources: ["Kanıtlar"] },
+  auditControlRefs: {relation:"audit-control",modules:["Kontroller"],sources:["Denetim Yönetimi"],canonicalOnly:true},
+  auditEvidenceRefs: {relation:"audit-evidence",modules:["Kanıtlar"],sources:["Denetim Yönetimi"],canonicalOnly:true},
   requirementRef: { relation: "audit-control", modules: ["Kontroller", "Uyum"], sources: ["Denetim Yönetimi"] },
   riskRef: { relation: "audit-risk", modules: ["Risk Assessment"], sources: ["Denetim Yönetimi"] },
   evidenceRef: { relation: "audit-evidence", modules: ["Kanıtlar"], sources: ["Denetim Yönetimi"] },
@@ -187,6 +189,8 @@ export function buildConnectedGrcGraph(rows: ConnectedGrcRow[]) {
   for (const source of rows) {
     for (const [field, definition] of Object.entries(relationFields)) {
       if (definition.sources && !definition.sources.includes(source.module)) continue;
+      const relation=field==='controlRef'&&source.module==='Uyum'?'control-framework':
+        field==='controlRef'&&source.module==='Denetim Yönetimi'?'audit-control':definition.relation;
       for (const reference of values(source.data[field])) {
         const key = normalize(reference);
         let matches: ConnectedGrcRow[] = [];
@@ -206,20 +210,20 @@ export function buildConnectedGrcGraph(rows: ConnectedGrcRow[]) {
           if(!matches.length&&!/^CMP-/i.test(reference)) continue;
         }
         if (matches.length !== 1) {
-          const unresolvedKey = `${source.id}|${field}|${definition.relation}|${key}`;
+          const unresolvedKey = `${source.id}|${field}|${relation}|${key}`;
           if (!unresolvedSeen.has(unresolvedKey)) {
             unresolvedSeen.add(unresolvedKey);
-            unresolved.push({ source, field, value: reference, relation: definition.relation, reason: matches.length ? "ambiguous" : "missing", candidates: matches });
+            unresolved.push({ source, field, value: reference, relation, reason: matches.length ? "ambiguous" : "missing", candidates: matches });
           }
           continue;
         }
         for (const target of matches) {
           // Evidence uploads keep both the primary control and the complete control list.
           const identityField = field === "controlRefs" ? "controlRef" : field;
-          const edgeKey = `${source.id}|${target.id}|${definition.relation}|${identityField}`;
+          const edgeKey = `${source.id}|${target.id}|${relation}|${identityField}`;
           if (seen.has(edgeKey)) continue;
           seen.add(edgeKey);
-          links.push({ source, target, matched: reference, field, relation: definition.relation });
+          links.push({ source, target, matched: reference, field, relation });
         }
       }
     }
@@ -267,9 +271,15 @@ export function assessConnectedGrcCoverage(rows: ConnectedGrcRow[], links: Conne
   const eligible = rows.filter((row) => Boolean(ruleForRow(row)));
   const gaps: ConnectedGrcCoverageGap[] = [];
   const rowScores = new Map<string, number>();
+  const indexed=new Map<string,Set<string>>();
+  for(const {source,target,relation} of links)for(const id of [source.id,target.id]){
+    const relations=indexed.get(id)||new Set<string>();
+    relations.add(relation);
+    indexed.set(id,relations);
+  }
   for (const row of eligible) {
     const rule = ruleForRow(row)!;
-    const rowRelations = new Set(links.filter((link) => link.source === row || link.target === row).map((link) => link.relation));
+    const rowRelations = indexed.get(row.id)||new Set<string>();
     const matchedGroups = rule.relationGroups.filter((group) => group.some((relation) => rowRelations.has(relation)));
     const missingGroups = rule.relationGroups.filter((group) => !group.some((relation) => rowRelations.has(relation)));
     const percent = Math.round((matchedGroups.length / rule.relationGroups.length) * 100);

@@ -3,6 +3,7 @@ on:
   pull_request:
     paths:
       - 'app/connected-grc*'
+      - 'app/connected-map*'
       - 'app/api/connected-grc/**'
       - 'scripts/connected-workbench-qa.mjs'
       - '.github/workflows/connected-workbench-qa.yml'

@@ -23,7 +23,7 @@ test('unresolved references never become indirect paths', () => {
 test('work queue distinguishes plan gaps, expired evidence and review dates without inventing dates', () => {
   const bia = row('BIA-001'), archived = row('BIA-002', 'BIA', { status: 'Arşivlendi' }), evidence = row('EVD-001', 'Kanıtlar', { expiresAt: '2026-11-10' }), future = row('EVD-002', 'Kanıtlar', { expiresAt: '2026-11-12' }), risk = row('RSK-001', 'Risk Assessment', { nextReview: '2026-11-09' });
   const issues = connectedIssues([bia, archived, evidence, future, risk], [], [], [], '2026-11-11');
-  assert.deepEqual(new Set(issues.map(item => item.kind)), new Set(['plan', 'expired', 'review']));
+  assert.deepEqual(new Set(issues.map(item => item.kind)), new Set(['plan', 'expired', 'review','unlinked']));
   assert.equal(issues.find(item => item.kind === 'plan')?.due, undefined);
   assert.equal(connectedIssues([bia], [{ ...edge(row('BCP-001'), bia), relation: 'continuity-bia' }], [], [], '2026-11-11').length, 0);
 });

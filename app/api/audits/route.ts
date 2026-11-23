@@ -138,6 +138,17 @@ export async function GET(req: NextRequest) {
     try { return NextResponse.json(await auditRemovalPreview(d,audit),{headers:{"cache-control":"private, no-store"}}); }
     catch { return NextResponse.json({error:"unavailable"},{status:503}); }
   }
+  if(req.headers.get("x-fornost-connected-map")==="1"&&!isScoped(auth.actor)&&canReadPosture(auth.actor)){
+    // Only project identities used for lineage. Pins, hashes and snapshot contents stay in the audit.
+    const result=await d.prepare(`SELECT a.id,a.name,a.template,a.status,a.audit_owner,a.updated_at,
+      coalesce(json_extract(v.value,'$.archived'),0) archived,coalesce(c.state,'open') closure_state,
+      (SELECT json_group_array(DISTINCT json_extract(ctrl.value,'$.id')) FROM json_each(s.value,'$.entries') e,json_each(e.value,'$.controls') ctrl) controls,
+      (SELECT json_group_array(DISTINCT json_extract(pin.value,'$.evidenceId')) FROM json_each(s.value,'$.evidence') pin) evidence
+      FROM simple_audits a LEFT JOIN audit_closure_state c ON c.audit_id=a.id
+      LEFT JOIN simple_grc_metadata v ON v.key='audit_visibility_'||a.id
+      LEFT JOIN simple_grc_metadata s ON s.key='audit_posture_'||a.id ORDER BY a.updated_at DESC`).all<{controls:string;evidence:string}>();
+    return NextResponse.json({audits:result.results.map(({controls,evidence,...audit})=>({...audit,auditControlRefs:JSON.parse(controls),auditEvidenceRefs:JSON.parse(evidence)}))},{headers:{"cache-control":"private, no-store","vary":"x-fornost-connected-map"}});
+  }
   const result = await d.prepare("SELECT a.*, COALESCE(json_extract(v.value,'$.archived'),0) AS archived, COALESCE(v.updated_at,'') AS visibility_revision, COALESCE(c.state,'open') AS closure_state,c.revision AS closure_event, m.value AS catalog_json FROM simple_audits a LEFT JOIN audit_closure_state c ON c.audit_id=a.id LEFT JOIN simple_grc_metadata m ON m.key='audit_catalog_' || a.id LEFT JOIN simple_grc_metadata v ON v.key='audit_visibility_' || a.id ORDER BY a.updated_at DESC").all<Record<string,unknown>>();
   const audits=result.results.map(row=>{const {catalog_json,...audit}=row;let catalog=null;try{catalog=catalog_json?JSON.parse(String(catalog_json)):null;}catch{}return {...audit,catalog};});
   // Reads must not migrate historical audit snapshots to a newer catalog.
