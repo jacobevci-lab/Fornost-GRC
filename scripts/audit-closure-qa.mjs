@@ -20,7 +20,7 @@ try{
  for(const [email,role]of [[peerEmail,'Admin'],[editorEmail,'Editor']]){await api(admin,'/api/users','POST',{email,name:`QA ${role} Closure`,role,password:qaPassword()},201);users.push((await api(admin,'/api/users')).users.find(u=>u.email===email).id);}
  await api(reviewer,'/api/auth','POST',{action:'login',email:peerEmail,password:qaPassword()});await api(editor,'/api/auth','POST',{action:'login',email:editorEmail,password:qaPassword()});
  const name=`QA Closure Audit ${tag}`,other=`QA Closure Other ${tag}`;
- for(const auditName of [name,other])audits.push((await api(admin,'/api/audits','POST',{name:auditName,template:'Özel Denetim',auditOwner:'QA',auditor:'QA'},201)).id);
+ for(const auditName of [name,other])audits.push((await api(admin,'/api/audits','POST',{name:auditName,template:'Özel Denetim',auditOwner:'QA',auditor:'QA Auditor'},201)).id);
  const auditId=audits[0],endpoint=`/api/audits/closure?auditId=${auditId}`;
  let plan=await api(admin,`/api/audits/plan?id=${auditId}`);
  plan=await api(admin,'/api/audits/plan','PUT',{id:auditId,expectedRevision:plan.revision,plan:{...plan.plan,objective:'Verify independent privileged access reviews',scope:'Privileged access and change management',lead:'QA Audit Lead'}});

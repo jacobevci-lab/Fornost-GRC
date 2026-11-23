@@ -40,7 +40,7 @@ try {
   await api(admin, '/api/auth', 'POST', { action: 'login', email: 'qa-admin@fornost.test', password });
   await api(admin, '/api/evidence-automation'); await api(admin, '/api/continuous-assurance');
   await api(admin, `${endpoint}${'x'.repeat(170)}`, 'GET', undefined, 400);
-  auditId = (await api(admin, '/api/audits', 'POST', { name, template: 'Özel Denetim', auditOwner: 'QA', auditor: 'QA', auditType: 'Diğer Denetim' }, 201)).id;
+  auditId = (await api(admin, '/api/audits', 'POST', { name, template: 'Özel Denetim', auditOwner: 'QA', auditor: 'QA Auditor', auditType: 'Diğer Denetim' }, 201)).id;
   const stamp = new Date().toISOString(), date = stamp.slice(0, 10);
   const record = (id, module, data) => `INSERT INTO simple_grc_records VALUES(${q(id)},${q(module)},${q(JSON.stringify(data))},${q(stamp)},${q(stamp)});`;
   const evidence = i => ({ evidenceTitle: `QA readiness evidence ${i}`, controlRef: `QA-READY-CONTROL-${i}`, owner: 'QA', period: date, status: 'Onaylandı', freshUntil: new Date(Date.now() + 86400000).toISOString() });

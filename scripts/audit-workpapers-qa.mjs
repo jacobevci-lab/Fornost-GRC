@@ -32,7 +32,7 @@ try{
   await api(context,'/api/users','POST',{email,name:`QA Workpaper ${role}`,role,password:qaPassword()},201);users.push({id:(await api(context,'/api/users')).users.find(u=>u.email===email).id,role});
   await api(ctx,'/api/auth','POST',{action:'login',email,password:qaPassword()});
  }
- const name=`QA Workpapers ${tag}`;auditId=(await api(context,'/api/audits','POST',{name,template:'Özel Denetim',auditOwner:'QA',auditor:'QA'},201)).id;
+ const name=`QA Workpapers ${tag}`;auditId=(await api(context,'/api/audits','POST',{name,template:'Özel Denetim',auditOwner:'QA',auditor:'QA Auditor'},201)).id;
  const upload=await context.request.post(base+'/api/evidence',{headers:{origin:base},multipart:{evidenceTitle:`QA Workpaper Evidence ${tag}`,owner:'qa-admin@fornost.test',period:'Q3 2026',controlRef:'QA-AC-1',status:'İncelemede',file:{name:'sample.png',mimeType:'image/png',buffer:Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/lX8AAAAASUVORK5CYII=','base64')}}});assert.equal(upload.status(),201,await upload.text());evidenceId=(await upload.json()).id;
  const version=(await api(context,`/api/evidence/history?id=${evidenceId}`)).versions[0];
  await page.goto(base);await expect(page.locator('.shell')).toBeVisible();await page.locator('.language-switch:visible').getByRole('button',{name:'EN',exact:true}).click();await page.locator('nav button[aria-label="Audit Management"]').evaluate(e=>e.click());await page.locator('.audit-card-open').filter({hasText:name}).click();await openAuditWorkspaceSection(page,'workpapers');

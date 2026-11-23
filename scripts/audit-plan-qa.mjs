@@ -8,7 +8,7 @@ let id;const errors=[];page.on('pageerror',e=>errors.push(e.message));
 async function api(path,method='GET',data,status=200){const r=await ctx.request.fetch(base+path,{method,data,headers:{origin:base}});assert.equal(r.status(),status,await r.text());return r.json();}
 try{
  await api('/api/auth','POST',{action:'login',email:'qa-admin@fornost.test',password:qaPassword()});
- const name=`QA Audit Plan ${Date.now()}`;id=(await api('/api/audits','POST',{name,template:'Özel Denetim',auditOwner:'QA',auditor:'QA'},201)).id;
+ const name=`QA Audit Plan ${Date.now()}`;id=(await api('/api/audits','POST',{name,template:'Özel Denetim',auditOwner:'QA',auditor:'QA Auditor'},201)).id;
  const initial=await api(`/api/audits/plan?id=${id}`);assert.equal(initial.revision,'');
  await api('/api/audits/plan','PUT',{id,expectedRevision:'',plan:{...initial.plan,periodStart:'2026-02-30'}},400);
  await page.goto(base);await expect(page.locator('.shell')).toBeVisible();await page.locator('.language-switch:visible').getByRole('button',{name:'EN',exact:true}).click();await page.locator('nav button[aria-label="Audit Management"]').evaluate(el=>el.click());await page.locator('.audit-card-open').filter({hasText:name}).click();

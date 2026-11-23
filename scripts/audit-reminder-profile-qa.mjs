@@ -12,7 +12,7 @@ try{
  await mkdir(out,{recursive:true});await api(context,'/api/auth','POST',{action:'login',email:'qa-admin@fornost.test',password:qaPassword()});
  const email=`reminder-viewer-${tag}@fornost.test`;await api(context,'/api/users','POST',{email,name:'QA Reminder Viewer',role:'Viewer',password:qaPassword()},201);userId=(await api(context,'/api/users')).users.find(u=>u.email===email).id;
  await api(viewer,'/api/auth','POST',{action:'login',email,password:qaPassword()});
- const name=`QA Reminder Profile ${tag}`;auditId=(await api(context,'/api/audits','POST',{name,template:'Özel Denetim',auditOwner:'QA',auditor:'QA'},201)).id;
+ const name=`QA Reminder Profile ${tag}`;auditId=(await api(context,'/api/audits','POST',{name,template:'Özel Denetim',auditOwner:'QA',auditor:'QA Auditor'},201)).id;
  await page.goto(base);await expect(page.locator('.shell')).toBeVisible();await page.locator('.language-switch:visible').getByRole('button',{name:'EN',exact:true}).click();await page.locator('nav button[aria-label="Audit Management"]').evaluate(e=>e.click());await page.locator('.audit-card-open').filter({hasText:name}).click();await page.getByRole('tab',{name:'Evidence requests',exact:true}).click();
  const panel=page.locator('.ar-reminder-profile');await panel.locator(':scope > summary').click();await panel.getByRole('button',{name:'Edit reminder profile',exact:true}).click();
  await panel.getByLabel('Day counting',{exact:true}).selectOption('business');await panel.getByLabel('Holidays — YYYY-MM-DD, one per line',{exact:true}).fill('2026-10-29\n2026-02-30');await panel.getByRole('button',{name:'Save reminder profile',exact:true}).click();await expect(panel.getByRole('alert')).toBeVisible();

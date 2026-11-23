@@ -30,7 +30,7 @@ try{
     }
   }
   const emptyAuditId=(await api('/api/audits','POST',{name:'QA Empty Portfolio Audit',template:'Özel Denetim',auditOwner:'QA',auditType:'Diğer Denetim'},201)).id;extraAuditIds.push(emptyAuditId);
-  auditId=(await api('/api/audits','POST',{name,template:'Özel Denetim',auditOwner:'QA',auditor:'QA',auditType:'Diğer Denetim'},201)).id;
+  auditId=(await api('/api/audits','POST',{name,template:'Özel Denetim',auditOwner:'QA',auditor:'QA Auditor',auditType:'Diğer Denetim'},201)).id;
   const stamp=new Date().toISOString();
   const record=(id,module,data)=>`INSERT INTO simple_grc_records VALUES(${q(id)},${q(module)},${q(JSON.stringify(data))},${q(stamp)},${q(stamp)});`;
   seeded=true;

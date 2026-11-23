@@ -20,7 +20,7 @@ try{
  for(const path of ['/api/continuity','/api/regulatory-intelligence','/api/third-party-risk','/api/policy-lifecycle','/api/incidents'])await api(admin,path);
  const seeds=(await api(admin,'/api/grc')).rows,name=`QA evidence impact ${tag}`;
  const control=await api(admin,'/api/grc','POST',{module:'Kontroller',data:{...JSON.parse(seeds.find(r=>r.module==='Kontroller').data_json),controlTitle:name,controlRef:`QA-${tag}`}},201);records.push(control.id);
- auditId=(await api(admin,'/api/audits','POST',{name,template:'Özel Denetim',auditOwner:'QA',auditor:'QA'},201)).id;
+ auditId=(await api(admin,'/api/audits','POST',{name,template:'Özel Denetim',auditOwner:'QA',auditor:'QA Auditor'},201)).id;
  const upload=await admin.request.post(base+'/api/evidence',{headers:{origin:base},multipart:{evidenceTitle:name,owner:'qa-admin@fornost.test',period:'Q4 2026',controlRef:`QA-${tag}`,status:'İncelemede',file:{name:'access.txt',mimeType:'text/plain',buffer:Buffer.from('Original synthetic access review')}}});assert.equal(upload.status(),201,await upload.text());evidenceId=(await upload.json()).id;
  const version=(await api(admin,`/api/evidence/history?id=${evidenceId}`)).versions[0];
  const requirement=await api(admin,'/api/grc','POST',{module:'Denetim Yönetimi',data:{...JSON.parse(seeds.find(r=>r.module==='Denetim Yönetimi').data_json),auditName:name,requirementTitle:`Usage requirement ${tag}`,evidenceRef:evidenceId}},201);records.push(requirement.id);
