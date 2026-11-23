@@ -50,7 +50,10 @@ try {
   await center.click(); await expect(work.locator('.cm-drawer')).toBeVisible();await page.keyboard.press('Escape');
   await expect(work.locator('.cm-drawer')).toHaveCount(0);
   await choose('Ayrıcalıklı hesaplarda MFA eksikliği');await dismissDetails();
-  await expect(work.locator('.cm-node[data-lane="0"]')).toContainText('Ayrıcalıklı erişim MFA');
+  const incoming=work.locator('.cm-node[data-lane="0"]');
+  await expect(incoming).toHaveCount(2);
+  await expect(incoming.filter({hasText:'Ayrıcalıklı erişim MFA'})).toBeVisible();
+  await expect(incoming.filter({hasText:'MFA yapılandırma kanıtı'})).toBeVisible();
   await expect(work.locator('.cm-node[data-lane="2"]')).toContainText('Cortex XDR');
   await capture('diagram-TR-light-1640');
   phase='diagram list impact';
