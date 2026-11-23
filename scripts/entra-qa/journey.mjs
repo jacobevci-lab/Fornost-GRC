@@ -75,7 +75,9 @@ export async function journey({api,page,people,step,isolated,report}){
     const m=await post(path,{action:'register',profile});remember('ai',m.id,m.code);
     const get=async()=>(await api(path)).systems.find(s=>s.id===m.id);
     const src=await get();assert.equal(src.profile.zdr,true);assert.ok(src.profile.hitl);
-    await post(path,{action:'approve',id:m.id,revision:src.revision,note},[403,409,422,400]);assert.equal((await get()).phase,src.phase);
+    assert.equal((await post(path,{action:'approve',id:m.id,revision:src.revision,note},[403])).code,'sod');
+    const missing=await post(path,{action:'submit',id:m.id,revision:src.revision,assessment:{privacy:'Tatbikat için kişisel veri etkisi değerlendirildi.',checks:['injection','dlp','output','access'],reportType:'dpia'}},[400,422]);
+    assert.equal(missing.code,'evidence');assert.equal((await get()).phase,src.phase);
   });
   await step('Incident relations and 72-hour clock',async()=>{
     assert.ok(ids.asset&&ids.risk&&ids.bia);const stamp=new Date(Date.now()-3600000).toISOString();
@@ -89,6 +91,12 @@ export async function journey({api,page,people,step,isolated,report}){
     const f={action:'create',assignmentMode:'directory',referenceMode:'record-id',sourceType:'incident',sourceRef:ids.incident,sourceTitle:t.incident,findingType:'nonconformity',title:t.finding,description:note+' · İki sentetik hesapta süre sınırı eksik.',severity:'high',owner,reviewer,rootCause:'Eski PIM atamalarında süreli rol ilkesi uygulanmamış.',correctiveAction:'İki örnek atamada süreli etkinleştirmeyi zorunlu kıl.',preventiveAction:'Haftalık PIM uygunluk denetimini izleme kapsamına al.',dueDate:date(15),riskRef:ids.risk,controlRef:ids.control};
     await post('/api/findings',{...f,reviewer:owner},[400,403,422]);const x=await post('/api/findings',f);remember('finding',x.id,x.code);
     const found=(await api('/api/findings?view=graph')).findings.find(v=>v.id===x.id);assert.equal(found.title,t.finding);
+    const decision=async(operation,confirmation)=>{
+      const rev=await api('/api/findings?view=decision&findingId='+encodeURIComponent(x.id));
+      return post('/api/findings',{action:'transition',findingId:x.id,operation,note,confirmation,expectedRevision:rev.revision,decisionMode:'reviewed'},operation==='start'?[200]:[400,422]);
+    };
+    await decision('start','CAPA AKSİYONUNU BAŞLAT');const rejected=await decision('submit','CAPA DOĞRULAMAYA GÖNDER');assert.equal(rejected.code,'EVIDENCE_SELECTION');
+    assert.equal((await api('/api/findings?view=graph')).findings.find(v=>v.id===x.id).status,'in-progress');
   });
   await step('Risk focus, two-hop provenance and drawer',async()=>{
     assert.ok(ids.risk&&ids.finding&&ids.incident&&ids.evidence&&ids.policy);

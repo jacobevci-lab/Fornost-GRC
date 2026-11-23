@@ -83,7 +83,7 @@ export default function ConnectedWorkbench(p: Props) {
     </div></section>;
 
   const focus=p.network==='focus',seenIds=new Set(p.networkRows.map(r=>r.id));
-  const diagramLinks=focus?links.filter(e=>e.source.id===selected?.id||e.target.id===selected?.id):links.filter(e=>seenIds.has(e.source.id)&&seenIds.has(e.target.id));
+  const diagramLinks=focus?links:links.filter(e=>seenIds.has(e.source.id)&&seenIds.has(e.target.id));
   const diagramRows=focus&&selected?[selected]:p.networkRows;
   const allEdges=links.filter(e=>seenIds.has(e.source.id)||seenIds.has(e.target.id));
   const edgeLimit=25,edgeIndex=Math.min(edgePage,Math.max(0,Math.ceil(allEdges.length/edgeLimit)-1));

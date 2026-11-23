@@ -47,8 +47,8 @@ export async function clean(api,report,apply){
     }
     const current=(await api('/api/grc')).rows.find(x=>x.id===r.id);
     if(!current||current.updated_at!==r.revision){report.cleanup.retained.push({...label,reason:'record changed'});continue;}
-    const result=await api('/api/grc?id='+encodeURIComponent(r.id),{method:'DELETE',expected:[200,409]});
-    if(result.code==='RECORD_LINKED')report.cleanup.retained.push({...label,reason:'protected by linked records'});
+    const result=await api('/api/grc?id='+encodeURIComponent(r.id)+'&expectedUpdatedAt='+encodeURIComponent(r.revision),{method:'DELETE',expected:[200,409]});
+    if(result.code)report.cleanup.retained.push({...label,reason:result.code});
     else if((await api('/api/grc')).rows.some(x=>x.id===r.id))throw Error('Deletion did not remove owned record');
     else report.cleanup.deleted.push(label);
   }

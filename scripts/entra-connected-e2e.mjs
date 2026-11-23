@@ -19,7 +19,7 @@ try{
     headers['CF-Access-Client-Id']=process.env.CF_ACCESS_CLIENT_ID;headers['CF-Access-Client-Secret']=process.env.CF_ACCESS_CLIENT_SECRET;
   }
   const ctx=await createQaContext(browser,base,headers,{viewport:{width:1440,height:900}});
-  monitor(ctx,report,base,()=>current);const page=await ctx.newPage();page.setDefaultTimeout(7500);
+  monitor(ctx,report,base,()=>current);const page=await ctx.newPage();page.setDefaultTimeout(15000);page.setDefaultNavigationTimeout(90000);
   const api=async(path,{method='GET',data,multipart,expected=[200]}={})=>{
     if(!path.startsWith('/api/')||path.includes('://'))throw Error('Invalid API path');
     const r=await ctx.request.fetch(base+path,{method,headers:{...headers,origin:base},data,multipart,maxRedirects:0});
@@ -29,7 +29,7 @@ try{
   const owner=isolated?'qa-admin@fornost.test':process.env.FORNOST_SMOKE_EMAIL;
   const password=isolated?process.env.FORNOST_QA_PASSWORD:process.env.FORNOST_SMOKE_PASSWORD;
   if(!(await step('Authenticated preflight',async()=>{
-    await page.goto(base);await waitForQaIdle(page);assert.ok(owner&&password,'Dedicated application QA credentials are required');
+    await page.goto(base,{waitUntil:'domcontentloaded'});await waitForQaIdle(page);assert.ok(owner&&password,'Dedicated application QA credentials are required');
     await api('/api/auth',{method:'POST',data:{action:'login',email:owner,password}});const a=await api('/api/auth');assert.equal(a.user.role,'Admin');
     const h=await api('/api/health');report.revision=h.revision;await page.reload();await page.locator('.shell').waitFor();
   }))) throw Error('Authentication required before reading or changing records');

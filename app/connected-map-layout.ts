@@ -16,6 +16,8 @@ export function mapArrow(edge:Link) {
     reverse = edge.target.module === 'Kanıtlar'; verb = ['Kanıtlar','Evidences'];
   } else if (edge.relation === 'control-framework' && edge.target.module === 'Uyum') {
     reverse = true; verb = ['Kapsar','Covers'];
+  } else if (edge.relation === 'incident-risk' && edge.source.module === 'Güvenlik Olayları') {
+    reverse = true; verb = ['Bağlı olay','Linked incident'];
   } else if (edge.relation.startsWith('finding-') && edge.relation !== 'finding-remediation' && edge.source.module === 'Bulgular ve CAPA') {
     reverse = true; verb = ['Bağlı bulgu','Linked finding'];
   }
@@ -28,12 +30,26 @@ export function arrowLabel(edge:Link,tr:boolean){
 export function layoutMap(rows:Row[], links:Link[], root:Row|undefined, availableWidth:number, availableHeight:number) {
   const count = root ? 3 : layers.length;
   const groups = Array.from({length:count},()=>new Map<string,Row>());
-  const directed = links.map(edge=>({edge,...mapArrow(edge)})).filter(({from,to})=>!root || from.id===root.id || to.id===root.id);
+  const arrows=links.map(edge=>({edge,...mapArrow(edge)}));
+  const directed=root?arrows.filter(({from,to})=>from.id===root.id || to.id===root.id):arrows;
+  const viaControl=new Set<Link>();
   if (root) {
     groups[1].set(root.id,root);
     for (const {from,to} of directed) {
       if (from.id!==root.id) groups[0].set(from.id,from);
       if (to.id!==root.id) groups[2].set(to.id,to);
+    }
+    if(root.module==='Risk Assessment'){
+      const controls=new Set([...groups[0].values()].filter(r=>r.module==='Kontroller').map(r=>r.id));
+      // Preserve the actual evidence-to-control and policy-to-control edges.
+      // A second-hop record never acquires a direct assurance link to the risk.
+      for(const arrow of arrows){
+        const {edge,from,to}=arrow;
+        if(controls.has(to.id) && ((from.module==='Kanıtlar'&&edge.relation==='control-evidence') ||
+          (from.module==='Politika Merkezi'&&edge.relation==='policy-control'))){
+          groups[0].set(from.id,from);viaControl.add(edge);directed.push(arrow);
+        }
+      }
     }
   } else for (const row of rows) groups[layerOf(row)].set(row.id,row);
   const width = Math.max(availableWidth, 2*margin + count*cardWidth + (count-1)*gutter + (root?centerWidth-cardWidth:0));
@@ -55,7 +71,7 @@ export function layoutMap(rows:Row[], links:Link[], root:Row|undefined, availabl
   });
   const wires = directed.flatMap(({edge,from,to})=>{
     const start=positions.get(key(from.id,root?(from.id===root.id?1:0):layerOf(from)));
-    const end=positions.get(key(to.id,root?(to.id===root.id?1:2):layerOf(to)));
+    const end=positions.get(key(to.id,root?(viaControl.has(edge)?0:to.id===root.id?1:2):layerOf(to)));
     if(!start||!end||start===end)return [];
     return [{edge,start,end,key:[edge.source.id,edge.target.id,edge.relation,edge.field].join('|')}];
   });
