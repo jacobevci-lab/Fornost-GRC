@@ -1,3 +1,4 @@
+import * as policyCenter from '../../app/policy-lifecycle/center-store';
 import * as incidentCrisis from '../../app/incidents/crisis';
 import * as incidentCommand from '../../app/incidents/crisis-store';
 import * as findingSources from '../../app/findings/source-records';
@@ -85,6 +86,7 @@ export function fixture(module:'incidents'|'continuity'|'policy-lifecycle'|'thir
  const compiled=ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;
  const exports:Record<string,unknown>={};
  const require=(name:string)=>{
+  if(name==='../../policy-lifecycle/center-store')return policyCenter;
   if(name==='../../incidents/crisis')return incidentCrisis;
   if(name==='../../incidents/crisis-store')return incidentCommand;
   if(name==="../../third-party-risk/scope")return vendorScope;

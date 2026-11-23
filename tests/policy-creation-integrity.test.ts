@@ -18,7 +18,7 @@ test('version creation rejects concurrent retirement, reassignment, open version
 test('version or event insert failure rolls back parent timestamp and leaves no draft',async()=>{for(const table of ['policy_versions','policy_events']){const f=await existing();try{fail(f.sqlite,table);assert.equal((await f.post(version)).status,400);assert.equal(count(f.sqlite,'policy_versions'),1);assert.equal(count(f.sqlite,'policy_events'),0);assert.equal(f.sqlite.prepare('SELECT updated_at FROM policy_documents').get()!.updated_at,stamp);}finally{f.sqlite.close();}}});
 
 function coreTargets(f:Awaited<ReturnType<typeof existing>>){
- f.sqlite.exec('CREATE TABLE simple_grc_records(id TEXT PRIMARY KEY,module TEXT,data_json TEXT,created_at TEXT,updated_at TEXT);CREATE TABLE simple_grc_record_codes(record_id TEXT PRIMARY KEY,module TEXT,code TEXT UNIQUE,created_at TEXT);');
+ f.sqlite.exec('CREATE TABLE IF NOT EXISTS simple_grc_records(id TEXT PRIMARY KEY,module TEXT,data_json TEXT,created_at TEXT,updated_at TEXT);CREATE TABLE IF NOT EXISTS simple_grc_record_codes(record_id TEXT PRIMARY KEY,module TEXT,code TEXT UNIQUE,created_at TEXT);');
  return(module:string,prefix:string)=>{const id=`${prefix}-11111111-1111-4111-8111-111111111111`;f.sqlite.prepare('INSERT INTO simple_grc_records VALUES(?,?,?,?,?)').run(id,module,'{}',stamp,stamp);f.sqlite.prepare('INSERT INTO simple_grc_record_codes VALUES(?,?,?,?)').run(id,module,`${prefix}-001`,stamp);return id;};
 }
 const referenceCases=[['controlRefs','Kontroller','CTL'],['controlRefs','Uyum','CMP'],['riskRefs','Risk Assessment','RSK']] as const;
@@ -33,5 +33,21 @@ test('valid references do not relax parent concurrency or audit rollback checks'
 });
 
 test('committed policy mappings prevent protected deletion of their core targets',async()=>{
- for(const [field,module,prefix] of referenceCases){const f=await existing();try{const id=coreTargets(f)(module,prefix);assert.equal((await f.post({...version,[field]:[`${prefix}-001`]})).status,200);await assert.rejects(deleteCoreRecord(f.db,id,{module,data_json:'{}',updated_at:stamp},stamp),CoreRecordLinked);assert.equal(count(f.sqlite,'simple_grc_records'),1);assert.equal(count(f.sqlite,'simple_grc_record_codes'),1);}finally{f.sqlite.close();}}
+ for(const [field,module,prefix] of referenceCases){const f=await existing();try{const id=coreTargets(f)(module,prefix);assert.equal((await f.post({...version,[field]:[`${prefix}-001`]})).status,200);await assert.rejects(deleteCoreRecord(f.db,id,{module,data_json:'{}',updated_at:stamp},stamp),CoreRecordLinked);assert.equal(count(f.sqlite,'simple_grc_records'),1);assert.ok(f.sqlite.prepare('SELECT 1 FROM simple_grc_record_codes WHERE record_id=?').get(id));}finally{f.sqlite.close();}}
+});
+
+test('registry migration preserves legacy policy codes and yields distinct, repeatable public identifiers',async()=>{
+ const {readFileSync}=await import('node:fs');
+ const db=new DatabaseSync(':memory:');
+ try{
+  db.exec("CREATE TABLE policy_documents(id TEXT PRIMARY KEY,code TEXT UNIQUE,created_at TEXT);CREATE TABLE simple_grc_record_codes(record_id TEXT PRIMARY KEY,module TEXT,code TEXT UNIQUE,created_at TEXT);CREATE TABLE simple_grc_record_code_counters(module TEXT PRIMARY KEY,value INTEGER,updated_at TEXT)");
+  const insert=db.prepare('INSERT INTO policy_documents VALUES(?,?,?)');
+  insert.run('legacy','ISMS-POLICY',stamp);insert.run('numbered','POL-007',stamp);insert.run('custom','TECH-ACCESS',stamp);
+  const migration=readFileSync('drizzle/0113_policy_center_connections.sql','utf8');
+  db.exec(migration);const codes=()=>db.prepare('SELECT record_id,code FROM simple_grc_record_codes ORDER BY record_id').all().map(r=>[r.record_id,r.code]);
+  assert.deepEqual(codes(),[['custom','POL-008'],['legacy','POL-009'],['numbered','POL-007']]);
+  db.exec(migration);assert.equal(codes().length,3);
+  insert.run('imported','NEW-IMPORT',stamp);assert.ok(codes().some(([id,code])=>id==='imported'&&code==='POL-010'));
+  assert.equal(db.prepare("SELECT code FROM policy_documents WHERE id='legacy'").get()?.code,'ISMS-POLICY');
+ }finally{db.close();}
 });

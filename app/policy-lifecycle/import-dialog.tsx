@@ -3,12 +3,12 @@ import {useEffect,useRef,useState,type FormEvent} from "react";
 import {withBasePath} from "../base-path";
 import {PolicyVersionReferenceField} from "./version-reference-field";
 import {WorkflowPersonPicker} from "../workflow-selection-fields";
-import {POLICY_CATEGORIES,POLICY_CLASSIFICATIONS} from "./domain";
+import {currentCategories,policyLabel} from "./labels";
+import {POLICY_CLASSIFICATIONS} from "./domain";
 import {policyImportFileLimit,policyImportTextLimit,importMessage} from "./import-format";
 
 type PolicyOption={id:string;code:string;title:string;status:string};
 const endpoint=withBasePath("/api/policy-lifecycle");
-const turkishOptions:Record<string,string>={security:"Güvenlik",privacy:"Gizlilik",risk:"Risk",compliance:"Uyum",technology:"Teknoloji",people:"İnsan kaynakları",operations:"Operasyon",public:"Kamuya açık",internal:"Kurum içi",confidential:"Gizli",restricted:"Kısıtlı"};
 const newRequestId=()=>"PIM-"+crypto.randomUUID();
 export function PolicyImportForm({tr,email,policies,onSaved,onBusy}:{tr:boolean;email:string;policies:PolicyOption[];onSaved:(id:string)=>void;onBusy:(busy:boolean)=>void}){
  const [file,setFile]=useState<File|null>(null),[phase,setPhase]=useState<"choose"|"reading"|"ready"|"saving">("choose");
@@ -84,8 +84,8 @@ export function PolicyImportForm({tr,email,policies,onSaved,onBusy}:{tr:boolean;
    <div className="pim-fields">
     <label>{say("Politika kodu","Policy code")}<input required minLength={3} maxLength={40} value={code} onChange={e=>setCode(e.target.value)}/></label>
     <label>{say("Başlık","Title")}<input required minLength={5} maxLength={240} value={title} onChange={e=>setTitle(e.target.value)}/></label>
-    <label>{say("Kategori","Category")}<select aria-label={say("Kategori","Category")} value={category} onChange={e=>setCategory(e.target.value)}>{POLICY_CATEGORIES.map(x=><option key={x} value={x}>{tr?turkishOptions[x]:x}</option>)}</select></label>
-    <label>{say("Sınıflandırma","Classification")}<select aria-label={say("Sınıflandırma","Classification")} value={classification} onChange={e=>setClassification(e.target.value)}>{POLICY_CLASSIFICATIONS.map(x=><option key={x} value={x}>{tr?turkishOptions[x]:x}</option>)}</select></label>
+    <label>{say("Kategori","Category")}<select aria-label={say("Kategori","Category")} value={category} onChange={e=>setCategory(e.target.value)}>{currentCategories.map(x=><option key={x} value={x}>{policyLabel(x,tr)}</option>)}</select></label>
+    <label>{say("Sınıflandırma","Classification")}<select aria-label={say("Sınıflandırma","Classification")} value={classification} onChange={e=>setClassification(e.target.value)}>{POLICY_CLASSIFICATIONS.map(x=><option key={x} value={x}>{policyLabel(x,tr)}</option>)}</select></label>
     <WorkflowPersonPicker tr={tr} label={say("Politika sahibi","Policy owner")} value={owner} onChange={setOwner}/>
     <WorkflowPersonPicker tr={tr} reviewer label={say("Bağımsız inceleyen","Independent reviewer")} exclude={[owner,email]} value={reviewer} onChange={setReviewer}/>
     <label>{say("Hedef kitle","Audience")}<input required minLength={3} value={audience} onChange={e=>setAudience(e.target.value)}/></label>

@@ -504,3 +504,8 @@ export const continuityPlanSettings = sqliteTable("enterprise_continuity_plan_se
 export const policyImportChunks = sqliteTable("policy_import_chunks", {
  versionId:text("version_id").notNull(), part:integer("part").notNull(), content:blob("content").notNull(),
 }, table=>[primaryKey({columns:[table.versionId,table.part]})]);
+
+export const policyExceptionConnections = sqliteTable("policy_exception_connections", {
+ exceptionId:text("exception_id").primaryKey(),scopeKind:text("scope_kind").notNull(),scopeRef:text("scope_ref").notNull(),
+ controlRefs:text("control_refs").notNull().default("[]"),riskRef:text("risk_ref"),
+});

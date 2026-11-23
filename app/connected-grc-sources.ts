@@ -44,7 +44,7 @@ const sourceCollections: Record<keyof ConnectedGrcEnterprisePayloads, Record<str
   findings: { findings: 3000 },
   incidents: { incidents: 3000 },
   continuity: { plans: 2000, exercises: 2000, gaps: 2000 },
-  policy: { documents: 1000, versions: 3000 },
+  policy: { documents: 1000, versions: 3000, exceptions: 2000 },
   riskAppetite: { appetites: 1000, measurements: 5000, breaches: 3000, scenarios: 2000 },
   regulatory: { sources: 500, changes: 1000, impacts: 2000 },
   thirdParty: { vendors: 1000, assessments: 2000, findings: 3000 },
@@ -216,6 +216,7 @@ function policyRows(payload: JsonRecord) {
   const documents = records(payload.documents || payload.policies);
   const documentById = new Map(documents.map((item) => [text(item.id), item]));
   const policies = documents.map((item, index) => makeRow("enterprise", "policy", "Politika Merkezi", item, index, {
+    aliasRefs:unique(item.legacyCode,item.aliasRefs),
     title: text(item.title || item.name),
     name: text(item.title || item.name),
   }));
@@ -232,7 +233,12 @@ function policyRows(payload: JsonRecord) {
       policyRegulationRefs: unique(item.regulationRefs, item.regulation_refs),
     });
   });
-  return [...policies, ...versions];
+  const exceptions=records(payload.exceptions).filter(item=>item.scopeRef||item.riskRef||Array.isArray(item.controlRefs)&&item.controlRefs.length).map((item,index)=>
+    makeRow("enterprise","policy-exception","Politika Merkezi",item,index,{
+      title:text(item.scope||item.id), policyRef:unique(item.policyId),policyControlRefs:unique(item.controlRefs),policyRiskRefs:unique(item.riskRef),
+      policyScopeAsset:unique(item.scopeKind==="asset"?item.scopeRef:undefined),policyScopeVendor:unique(item.scopeKind==="vendor"?item.scopeRef:undefined),
+    }));
+  return [...policies, ...versions,...exceptions];
 }
 
 function riskAppetiteRows(payload: JsonRecord) {

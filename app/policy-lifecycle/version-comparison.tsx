@@ -3,6 +3,7 @@ import {useMemo,type ReactNode} from "react";
 import {withBasePath} from "../base-path";
 import {useWorkflowRecords} from "../use-workflow-records";
 import {PolicyVersionMappings, type PolicyMappingTargets} from "./version-mappings";
+import {policyLabel} from "./labels";
 import {comparePolicyText} from "./text-comparison";
 
 export type Version={sourceName?:string;sourceHash?:string;id:string;policyId:string;versionNumber:number;summary:string;content:string;contentSha256:string;controlRefs:string[];regulationRefs:string[];riskRefs:string[];effectiveDate:string;status:string;createdBy:string;submittedBy?:string;approvedBy?:string;publishedBy?:string;updatedAt:string};
@@ -10,7 +11,6 @@ type Policy={id:string;code:string;title:string;owner:string;reviewer:string;cur
 type Link={id:string;label:string};
 export type RelatedKind="exceptions"|"assignments"|"campaigns";
 type Comparison={exceptions:Link[];assignments:Link[];campaigns:Link[];policy:Policy;selected:Version;published:Version|null;history:{id:string;number:number;status:string}[]};
-const labels:Record<string,[string,string]>={draft:["Taslak","Draft"],review:["İncelemede","In review"],approved:["Onaylandı","Approved"],published:["Yayında","Published"],rejected:["Reddedildi","Rejected"],superseded:["Önceki sürüm","Superseded"]};
 
 export function PolicyVersionComparison({id,tr,select,actions,openRelated,targets}:{targets:PolicyMappingTargets;openRelated:(kind:RelatedKind,id:string)=>void;id:string;tr:boolean;select:(id:string)=>void;actions:(v:Version,p:Policy)=>ReactNode}){
   const source=useWorkflowRecords<Comparison>("/api/policy-lifecycle?view=comparison&versionId="+encodeURIComponent(id),null);
@@ -20,7 +20,7 @@ export function PolicyVersionComparison({id,tr,select,actions,openRelated,target
   const diff=useMemo(()=>live&&v&&compare?comparePolicyText(live.content,v.content):null,[compare,live,v]);
   if(source.loading)return <p className="pwl-pad" role="status">{tr?"Sürüm yükleniyor…":"Loading version…"}</p>;
   if(!source.ready||!p||!v||v.id!==id||v.policyId!==p.id||(live&&(live.policyId!==p.id||live.id!==p.current_version_id))||!Array.isArray(data?.history))return <p className="pwl-pad" role="alert">{tr?"Seçilen sürüm alınamadı.":"The selected version is unavailable."} <button onClick={()=>void source.reload()}>{tr?"Yeniden dene":"Retry"}</button></p>;
-  const status=(s:string)=>labels[s]?.[tr?0:1]||s;
+  const status=(s:string)=>policyLabel(s,tr);
   const broken=!!p.current_version_id&&!live&&p.status!=="retired";
   function documentPane(ver:Version,heading:string,parts?:{text:string;changed:boolean}[],previous=false){
     return <section className="pwl-document" aria-label={heading}><header><small>{heading}</small><h4>v{ver.versionNumber} · {status(ver.status)}</h4><span>{["draft","review","approved"].includes(ver.status)?(tr?"Planlanan yürürlük":"Planned effective date"):(tr?"Yürürlük":"Effective")} · {ver.effectiveDate}</span></header>
