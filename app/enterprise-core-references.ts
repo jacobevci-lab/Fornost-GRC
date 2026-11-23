@@ -17,6 +17,7 @@ const sources:Source[]=[
  {table:'enterprise_continuity_plan_settings',column:'asset_refs',modules:['Varlık Envanteri'],json:true},
  {table:'enterprise_continuity_plan_settings',column:'supplier_refs',modules:['Tedarikçiler'],json:true},
  {table:'enterprise_continuity_plans',column:'bia_ref',modules:['BIA']},
+ {table:'incident_crisis_context',column:'vendor_ref',modules:['Tedarikçiler']},
  {table:'enterprise_incidents',column:'asset_refs',modules:['Varlık Envanteri']},
  {table:'enterprise_incidents',column:'risk_ref',modules:['Risk Assessment']},
  {table:'enterprise_incidents',column:'bia_ref',modules:['BIA']},

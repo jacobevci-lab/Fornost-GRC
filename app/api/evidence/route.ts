@@ -1,3 +1,4 @@
+import {incidentUploadContext} from "../../incidents/response-upload";
 import {pendingEvidence,validEvidenceRefs,evidenceDatesInvalid,evidenceReviewerIsIndependent} from "../../evidence/intake";
 import {validDate} from "../../core-record-validation";
 import {mergeEvidenceStandards} from "../../framework-posture/store";
@@ -27,12 +28,14 @@ export async function POST(req:NextRequest){
  const bytes=new Uint8Array(await file.arrayBuffer());
  let fileType: string;
  try { fileType=validateEvidenceUpload(bytes,file.name,file.type); } catch(error) { return NextResponse.json({error:evidenceFileErrorMessage(error)},{status:400}); }
- for(const field of ["evidenceTitle","controlRef","owner","period"])if(!String(fd.get(field)||"").trim())return NextResponse.json({error:`Zorunlu alan eksik: ${field}`},{status:400});
+ const incidentId=fd.get("incidentId"),responseUpload=incidentId!==null?await incidentUploadContext(env.DB,auth.actor,incidentId,fd.get("expectedUpdatedAt")):null;
+ if(incidentId!==null&&!responseUpload)return NextResponse.json({code:"INCIDENT_SOURCE_CHANGED"},{status:409});
+ for(const field of (responseUpload?["evidenceTitle","owner","period"]:["evidenceTitle","controlRef","owner","period"]))if(!String(fd.get(field)||"").trim())return NextResponse.json({error:`Zorunlu alan eksik: ${field}`},{status:400});
  const id=`EVD-${crypto.randomUUID()}`,safeName=file.name.replace(/[^a-zA-Z0-9._-]/g,"_").slice(-120)||"evidence",key=`evidence/${id}/v1-${safeName}`;
  const now=new Date().toISOString(),contentSha256=await sha256HexBytes(bytes);
 
  const data:Record<string,string>={fileKey:key,fileName:safeName,fileType,fileSize:String(file.size),contentSha256,...pendingEvidence,uploadedBy:auth.actor.email,versionUploadedBy:auth.actor.email};for(const k of EVIDENCE_METADATA_FIELDS){const v=fd.get(k);if(typeof v==="string")data[k]=v.trim().slice(0,k==="controlRefs"?16500:2000);}
- if(!validEvidenceRefs(fd.get("controlRefs")||fd.get("controlRef")))return NextResponse.json({code:"CONTROL_LIMIT"},{status:400});
+ if((!responseUpload||fd.get("controlRefs")||fd.get("controlRef"))&&!validEvidenceRefs(fd.get("controlRefs")||fd.get("controlRef")))return NextResponse.json({code:"CONTROL_LIMIT"},{status:400});
  const refs=splitEvidenceControlRefs(data.controlRefs||data.controlRef);data.controlRef=refs[0]||data.controlRef;data.controlRefs=refs.join(", ");
  data.collectedAt||=now.slice(0,10);
  if(!validDate(data.collectedAt)||(data.expiresAt&&!validDate(data.expiresAt))||evidenceDatesInvalid(data))return NextResponse.json({code:"EVIDENCE_DATES"},{status:400});
@@ -40,6 +43,7 @@ export async function POST(req:NextRequest){
  if((data.sourceAssetRef&&data.sourceVendorRef)||(data.sourceAssetRef&&!canReadModule(auth.actor,"Varlık Envanteri"))||(data.sourceVendorRef&&!canReadModule(auth.actor,"Tedarikçiler"))||(!canReadModule(auth.actor,"Kontroller")&&refs.some(ref=>/^CTL-/i.test(ref))))return NextResponse.json({code:"SOURCE_UNAVAILABLE"},{status:403});
  if(canReadPosture(auth.actor))await mergeEvidenceStandards(env.DB,data);
  const guard=evidenceReferenceGuard(id,data);
+ if(responseUpload){guard.sql+=" AND "+responseUpload.guard.sql;guard.values.push(...responseUpload.guard.values);}
  // Fail before storing bytes when the target is already unavailable; the
  // transaction claim repeats the check to close concurrent deletion races.
  if(!await env.DB.prepare(`SELECT 1 valid WHERE ${guard.sql}`).bind(...guard.values).first())return NextResponse.json({error:new CoreReferenceUnavailable().message,code:"REFERENCE_UNAVAILABLE"},{status:422});
@@ -55,7 +59,8 @@ export async function POST(req:NextRequest){
     },
     conflict:async()=>new CoreReferenceUnavailable(),
    },
-   additionalStatements:(commit)=>[env.DB.prepare("INSERT INTO simple_grc_record_codes(record_id,module,code,created_at) SELECT ?,?,?,? WHERE EXISTS(SELECT 1 FROM evidence_versions WHERE id=?)").bind(id,"Kanıtlar",code,now,commit.id)],
+   additionalStatements:(commit)=>[env.DB.prepare("INSERT INTO simple_grc_record_codes(record_id,module,code,created_at) SELECT ?,?,?,? WHERE EXISTS(SELECT 1 FROM evidence_versions WHERE id=?)").bind(id,"Kanıtlar",code,now,commit.id),
+    ...(responseUpload?.statements({id:commit.id,evidenceId:id,versionNo:commit.versionNo,chainSha256:commit.chainSha256,fileKey:key,fileName:safeName,fileSize:file.size,contentSha256,evidenceTitle:data.evidenceTitle,owner:data.owner,period:data.period,createdAt:now})||[])],
   });
   return NextResponse.json({ok:true,id,code,versionNo:version.versionNo,contentSha256,chainSha256:version.chainSha256},{status:201});
  }catch(error){
