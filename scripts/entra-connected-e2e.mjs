@@ -4,7 +4,8 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { chromium } from '@playwright/test';
 import { createQaContext, waitForQaIdle, closeQaContext } from './qa-browser-harness.mjs';
 import { monitor, scanViews } from './entra-qa/observe.mjs';
-import { clean, title } from './entra-qa/records.mjs';
+import { clean, title, inventory } from './entra-qa/records.mjs';
+import { resumeContext } from './entra-qa/resume.mjs';
 import { journey } from './entra-qa/journey.mjs';
 
 const base = process.env.ENTRA_BASE_URL || 'http://127.0.0.1:4173',
@@ -32,8 +33,8 @@ async function step(name, fn) {
     return true;
   } catch (e) {
     const reason = String(e.message).split('\n').slice(0, 4).join(' ').slice(0, 390);
-    report.steps.push({ name, status: 'failed', reason });
-    console.error('FAIL', name, isolated ? reason : 'See stage and status');
+    report.steps.push({ name, status: 'failed', reason, check: e.qaCheck });
+    console.error('FAIL', name, isolated ? reason : e.qaCheck || 'See stage and status');
     return false;
   }
 }
@@ -175,13 +176,26 @@ try {
   });
   if (listed && roles && (isolated || process.env.ENTRA_WRITE === 'true')) {
     const matches = existing.filter((r) => Object.values(title).includes(r.name));
-    if (matches.length)
-      report.steps.push({
-        name: 'Create scenario',
-        status: 'blocked',
-        reason: 'Matching records already exist; review lineage before resuming.',
+    if (matches.length) {
+      let resume;
+      const ok = await step('Verify existing exercise and connected lineage', async () => {
+        resume = await resumeContext(api, existing, owner);
       });
-    else await journey({ api, page, people, step, isolated, report });
+      if (ok) await journey({ api, page, people: resume.people, step, isolated, report, resume });
+    } else {
+      await journey({ api, page, people, step, isolated, report });
+      if (
+        isolated &&
+        process.env.ENTRA_VERIFY_REPLAY === 'true' &&
+        report.steps.every((s) => s.status === 'passed')
+      ) {
+        let resume;
+        const ok = await step('Verify existing exercise and connected lineage', async () => {
+          resume = await resumeContext(api, await inventory(api), owner);
+        });
+        if (ok) await journey({ api, page, people: resume.people, step, isolated, report, resume });
+      }
+    }
   } else
     report.steps.push({
       name: 'Create scenario',
@@ -219,7 +233,7 @@ try {
             contrast: contrast.length,
           }),
         ),
-        steps: report.steps.map(({ name, status }) => ({ name, status })),
+        steps: report.steps.map(({ name, status, check }) => ({ name, status, check })),
         cleanup: report.cleanup && {
           inspected: report.cleanup.inspected,
           candidates: report.cleanup.candidates,
