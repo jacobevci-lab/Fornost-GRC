@@ -74,6 +74,7 @@ test("portfolio requirements retain their own period and pinned evidence version
     const assess = (change:Record<string,unknown>={}) => buildAuditEvidenceAssurance(scoped,[{id:'e1',data:{...data,...change}}]);
     const expected = [{auditName:'A',scoped:1,current:1},{auditName:'B',scoped:1,current:0}];
     assert.deepEqual(assess().itemCoverage,expected);
+    assert.deepEqual(assess({versionNo:'1'}).itemCoverage,expected);
     const duplicates = assess({controlRef:'A.5.15'});
     assert.equal(duplicates.requirements[0].linkedEvidence,1);
     assert.deepEqual(duplicates.itemCoverage,expected);

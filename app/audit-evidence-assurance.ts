@@ -74,7 +74,7 @@ export function buildAuditEvidenceAssurance(
     if (normalized(reference) === normalized(row.data.requirementRef)) {
       for (const pin of scope.pins) {
         const item = evidenceById.get(pin.id);
-        if (item && item.data.versionNo === pin.version && item.data.contentSha256 === pin.hash
+        if (item && Number(item.data.versionNo) === pin.version && item.data.contentSha256 === pin.hash
           && approvedAuditEvidence(item.data.status) && item.data.evidenceIntegrity === 'verified'
           && inAuditPeriod(clean(item.data.period), clean(item.data.collectedAt), scope.period)) matches.set(item.id, item);
         else matches.delete(pin.id);

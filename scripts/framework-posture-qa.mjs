@@ -139,6 +139,11 @@ try{
   assert.ok(readiness.verified,JSON.stringify(readiness.issues));
   assert.equal(readiness.evidence.requirements.find(r=>r.reference==='A.5.1')?.status,'current');
   assert.deepEqual(readiness.evidence.itemCoverage,[{auditName:audit.name,scoped:snapshot.total-snapshot.excluded,current:1}]);
+  await page.getByRole('button',{name:'All audits',exact:false}).first().click();
+  const activeNames=new Set((await api('/api/audits')).audits.filter(a=>!a.archived&&a.closure_state!=='closed').map(a=>a.name));
+  const activeCoverage=(await api('/api/audits/readiness')).evidence.itemCoverage.filter(c=>activeNames.has(c.auditName));
+  const readyItems=activeCoverage.reduce((n,c)=>n+c.current,0),scopedItems=activeCoverage.reduce((n,c)=>n+c.scoped,0);
+  await expect(page.locator('.audit-portfolio-kpis section').filter({hasText:'Overall evidence readiness'}).locator('strong')).toHaveText(Math.round(100*readyItems/scopedItems)+'%');
   const before=await api(endpoint+'?name='+encodeURIComponent(iso)+'&period='+encodeURIComponent(period));
   await go('Compliance Management');
   await work.locator('.posture-column-head').filter({hasText:'ISO 27001'}).click();
