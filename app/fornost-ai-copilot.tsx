@@ -1,10 +1,9 @@
 "use client";
-import AiGovernanceWorkspace from './ai-governance/workspace';
 import { type AiRecordFocus } from "./ai-record-navigation";
 import { safeWebHref } from "./safe-web-href";
 
 import { createPortal } from "react-dom";
-import { type ReactNode, FormEvent, useCallback, useEffect, useRef, useState } from "react";
+import { lazy, Suspense, type ReactNode, FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import { isScoped, type ModuleAccess } from "./module-access";
 import { withBasePath } from "./base-path";
 import { navigateToFornost } from "./navigation-focus";
@@ -71,6 +70,8 @@ function AiSectionPicker({ embedded, label, children }: { embedded: boolean; lab
     }
   }}><summary>{label}</summary>{children}</details>;
 }
+
+const AiGovernanceWorkspace=lazy(()=>import('./ai-governance/workspace'));
 
 export default function FornostAiCopilot() {
   const identityKey = useRef("");
@@ -425,7 +426,7 @@ export default function FornostAiCopilot() {
   const activeTab = scoped ? "chat" : user.role !== "Admin" && (tab === "portfolio" || tab === "audit" || tab === "metrics" || tab === "governance" || tab === "models" || tab === "compliance" || tab === "lifecycle" || tab === "incidents" || tab === "access" || tab === "release" || tab === "resilience" || tab === "datasets" || tab === "regulatory" || tab === "literacy" || tab === "supply-chain" || tab === "red-team" || tab === "transparency" || tab === "assurance" || tab === "assurance-alerts" || tab === "exceptions" || tab === "decommission" || tab === "findings" || tab === "feedback" || tab === "budget" || tab === "policy" || tab === "protection") ? "chat" : tab;
 
   if(workspaceHost && open && !scoped && ['Admin','Editor'].includes(user.role) && !specialist && tab==='portfolio'){
-    return createPortal(<AiGovernanceWorkspace key={user.id} tr={workspaceLocale==='tr'} user={user} focus={recordFocus?.ref} onNative={view=>{setRecordFocus(null);setSpecialist(true);setTab(view)}}/>,workspaceHost);
+    return createPortal(<Suspense fallback={<p role="status">{workspaceLocale==='tr'?'AI Yönetişimi yükleniyor…':'Loading AI governance…'}</p>}><AiGovernanceWorkspace key={user.id} tr={workspaceLocale==='tr'} user={user} focus={recordFocus?.ref} onNative={view=>{setRecordFocus(null);setSpecialist(true);setTab(view)}}/></Suspense>,workspaceHost);
   }
   const panel = <>
     <button className={`fornost-ai-launcher ${aiReady ? "ready" : ""}`} onClick={() => { if (!open) void refreshIdentity(); setOpen((value) => !value); }} aria-expanded={open} aria-controls="fornost-ai-panel">

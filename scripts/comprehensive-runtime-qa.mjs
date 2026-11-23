@@ -373,6 +373,7 @@ await check('My Work: exact ownership, Today, pagination after 80, mobile due da
  }
 });
 await reset();await open('AI Governance');
+await expect(page.locator('.ag-workspace .ag-nav button')).toHaveCount(5);await page.locator('.ag-links').getByRole('button',{name:'Technical model dossiers →'}).click();
 const aiTabs=page.locator('.fornost-ai-tabs button'),aiCount=await aiTabs.count();
 await check('AI governance exposes its complete navigation',()=>assert.ok(aiCount>=30));
 for(const theme of ['light','dark']){
