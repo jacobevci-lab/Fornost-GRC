@@ -214,6 +214,15 @@ export async function journey({ api, page, people, step, isolated, report }) {
     const e = await row(x.id);
     assert.equal(e.contentSha256, x.contentSha256);
     assert.equal(e.controlRef, codes.control);
+    const stored = (await grc()).rows.find((r) => r.id === x.id);
+    const rejected = await post(
+      '/api/evidence/review',
+      { id: x.id, version: x.versionNo, expectedUpdatedAt: stored.updated_at },
+      [403],
+    );
+    assert.equal(rejected.code, 'INDEPENDENT_REVIEWER_REQUIRED');
+    assert.equal((await row(x.id)).reviewStatus, e.reviewStatus);
+    assert.notEqual(e.reviewStatus, 'approved');
   });
   await step('Policy draft and control linkage', async () => {
     assert.ok(ids.control);

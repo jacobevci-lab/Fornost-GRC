@@ -89,6 +89,12 @@ try {
       assert.equal(a.user.role, 'Admin');
       const h = await api('/api/health');
       report.revision = h.revision;
+      if (!isolated && process.env.FORNOST_EXPECTED_REVISION)
+        assert.equal(
+          h.revision,
+          process.env.FORNOST_EXPECTED_REVISION,
+          'Wait for the selected revision to reach production',
+        );
       await page.reload();
       await page.locator('.shell').waitFor();
     }))
@@ -220,6 +226,11 @@ try {
           deleted: report.cleanup.deleted.length,
           cancelled: report.cleanup.cancelled.length,
           retained: report.cleanup.retained.length,
+          retainedByModule: report.cleanup.retained.reduce((counts, r) => {
+            const key = r.module + ' / ' + r.reason;
+            counts[key] = (counts[key] || 0) + 1;
+            return counts;
+          }, {}),
         },
       };
   const unexpected = report.events.filter((e) => !e.expected);
