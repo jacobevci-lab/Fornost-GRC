@@ -5,6 +5,12 @@ on:
       - 'app/fornost-ai-portfolio*'
       - 'app/fornost-ai-model-inventory*'
       - 'app/fornost-ai-copilot.tsx'
+      - 'app/ai-governance/**'
+      - 'app/ai/governance-*.ts'
+      - 'app/api/ai/workspace/**'
+      - 'app/ai-workspace-host.tsx'
+      - 'scripts/ai-governance-workspace-qa.mjs'
+      - 'scripts/ai-model-lifecycle-qa.mjs'
       - 'app/ai-portfolio-work.ts'
       - 'app/ai-decision-workspace.css'
       - 'app/ai-action-list.tsx'
@@ -24,7 +30,7 @@ jobs:
           node-version: 22.13.0
           cache: npm
       - run: npm ci
-      - run: npm install --no-save --ignore-scripts @playwright/test@1.55.0
+      - run: npm install --no-save --ignore-scripts @playwright/test@1.55.0 @axe-core/playwright@4.10.1
       - name: Use runner browser or install Chromium
         shell: bash
         run: |
@@ -48,7 +54,7 @@ jobs:
           import {readFileSync} from 'node:fs';
           import {execFileSync} from 'node:child_process';
           const account=JSON.parse(readFileSync('ai-decision-qa-artifacts/local-account.json','utf8'));
-          for (const script of ['ai-model-lifecycle-qa.mjs','ai-record-navigation-qa.mjs']) {
+          for (const script of ['ai-model-lifecycle-qa.mjs','ai-record-navigation-qa.mjs','ai-governance-workspace-qa.mjs']) {
             execFileSync(process.execPath,['scripts/'+script],{stdio:'inherit',env:{...process.env,FORNOST_QA_PASSWORD:account.password}});
           }
           NODE

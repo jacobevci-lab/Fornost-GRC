@@ -1,6 +1,6 @@
 import { cleanAiText,redactSensitiveText } from "./security";
 
-export const AI_MODEL_DEPLOYMENTS=["External SaaS","Private Cloud","On-Prem","Local"] as const;
+export const AI_MODEL_DEPLOYMENTS=["External SaaS","Private Cloud","On-Prem","Local","Cloud API"] as const;
 export const AI_MODEL_DATA_CLASSES=["Public","Internal","Confidential","Restricted"] as const;
 export const AI_MODEL_AUTONOMY=["Advisory","Human-reviewed","Human-approved","Autonomous"] as const;
 export type AiModelStatus="draft"|"approved"|"suspended"|"retired";

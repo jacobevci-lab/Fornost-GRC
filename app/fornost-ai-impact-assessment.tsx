@@ -73,18 +73,18 @@ const ratings = [
     ["controlMaturity", "Kontrol olgunluğu"],
   ] as const,
   flags = [
-    ["personalData", "Kişisel veri"],
-    ["specialCategoryData", "Özel nitelikli veri"],
-    ["automatedDecision", "Otomatik karar"],
-    ["children", "Çocuklar"],
-    ["workers", "Çalışanlar"],
-    ["publicServices", "Kamu hizmeti"],
-    ["hasTransparency", "Şeffaflık bildirimi"],
-    ["hasHumanOversight", "İnsan gözetimi"],
-    ["hasAppeal", "İtiraz kanalı"],
-    ["dpoConsulted", "DPO görüşü"],
+    ["personalData", "Kişisel veri", "Personal data"],
+    ["specialCategoryData", "Özel nitelikli veri", "Special category data"],
+    ["automatedDecision", "Otomatik karar", "Automated decision"],
+    ["children", "Çocuklar", "Children"],
+    ["workers", "Çalışanlar", "Workers"],
+    ["publicServices", "Kamu hizmeti", "Public services"],
+    ["hasTransparency", "Şeffaflık bildirimi", "Transparency notice"],
+    ["hasHumanOversight", "İnsan gözetimi", "Human oversight"],
+    ["hasAppeal", "İtiraz kanalı", "Appeal channel"],
+    ["dpoConsulted", "DPO görüşü", "DPO consultation"],
   ] as const;
-export default function FornostAiImpactAssessment({ role }: { role: Role }) {
+export default function FornostAiImpactAssessment({ role, lang }: { role: Role; lang: "tr" | "en" }) {
   const [data, setData] = useState<{
       models: { id: string; systemName: string; modelName: string }[];
       risks: Record<string, unknown>[];
@@ -327,7 +327,7 @@ export default function FornostAiImpactAssessment({ role }: { role: Role }) {
             ))}
           </div>
           <div className="ai-impact-flags">
-            {flags.map(([key, label]) => (
+            {flags.map(([key, trLabel, enLabel]) => (
               <label key={key}>
                 <input
                   type="checkbox"
@@ -336,7 +336,7 @@ export default function FornostAiImpactAssessment({ role }: { role: Role }) {
                     setForm({ ...form, [key]: e.target.checked })
                   }
                 />
-                <span>{label}</span>
+                <span>{lang === "tr" ? trLabel : enLabel}</span>
               </label>
             ))}
           </div>

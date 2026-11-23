@@ -123,6 +123,7 @@ function findingsRows(payload: JsonRecord) {
     const controlRefs = unique(item.controlRef, item.control_ref, sourceType === "control" ? sourceRef : "");
     const traceable = Boolean(sourceRef || riskRefs.length || controlRefs.length);
     const sourceField: Record<string, string> = {
+      ai: sourceRef.startsWith("AIM-")?"aiModelRef":"aiFindingRef",
       audit: "findingAuditRef",
       vendor: "findingVendorRef",
       regulatory: "findingRegulatoryRef",
@@ -271,6 +272,7 @@ function regulatoryRows(payload: JsonRecord) {
   }));
   const changes = records(payload.changes).map((item, index) => makeRow("enterprise", "regulatory-change", "Regülasyon Merkezi", item, index, {
     title: text(item.title),
+    ...Object.fromEntries(Object.entries({control:'regulatoryControlRef',policy:'regulatoryPolicyRef',risk:'regulatoryRiskRef',process:'regulatoryProcessRef'}).map(([type,field])=>[field,records(item.preliminary).filter(t=>t.type===type).map(t=>text(t.id))])),
     regulatorySourceRef: unique(item.sourceId, item.source_id, item.sourceName, item.source_name),
   }));
   const impacts = records(payload.impacts).map((item, index) => {
@@ -450,6 +452,7 @@ function aiRows(payloads: ConnectedGrcEnterprisePayloads): ConnectedGrcRow[] {
         modelName: text(item.modelName),
         // Only explicit native IDs are relationships. Control prose, evidence
         // descriptions and arbitrary sourceRef values are not GRC references.
+        ...(kind==='ai-model'&&record(item.governanceRefs)?Object.fromEntries(Object.entries(record(item.governanceRefs)!).filter(([key])=>['asset','vendor','risk','control','evidence','incident'].includes(key)).map(([key,refs])=>['system_'+key,unique(refs)])):{}),
         aiModelRef: kind === "ai-model" ? [] : unique(item.modelId),
         aiFindingRef: kind === "ai-alert" ? unique(item.findingId) : [],
       }));

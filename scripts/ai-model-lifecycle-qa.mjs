@@ -53,37 +53,33 @@ try{
  // Aborted writes must release busy state without replaying the request.
  let intercepted=0;const path='**/api/ai/models';await page.route(path,route=>{if(route.request().method()==='PUT'){intercepted++;return route.abort('failed');}return route.continue();});
  await record.getByRole('button',{name:'Edit',exact:true}).click();await form.getByRole('button',{name:'Update',exact:true}).click();await expect(root.locator('.ai-inventory-notice')).toContainText('Kayıt sonucu doğrulanamadı');await expect(form.getByRole('button',{name:'Update',exact:true})).toBeDisabled();await expect(record.getByRole('button',{name:'Edit',exact:true})).toBeEnabled();assert.equal(intercepted,1);await page.unroute(path);await form.getByRole('button',{name:'Cancel',exact:true}).click();
- const current=await model(id);
- await record.getByRole('button',{name:'Approve',exact:true}).click();
- await record.locator('.ai-inventory-decision textarea').fill('QA approve the displayed revision');
- await record.locator('.ai-inventory-decision input').fill('ONAYLA');
- await call('PUT',{...values,id,expectedUpdatedAt:current.updatedAt,systemName:'QA lifecycle changed assistant'});
- assert.notEqual((await model(id)).updatedAt,original.updatedAt);
- await record.getByRole('button',{name:'Apply decision'}).click();
- await expect(root.locator('.ai-inventory-notice')).toContainText('Model değişti');
- await expect(record).toContainText('QA lifecycle changed assistant');
- await expect(record.locator('.ai-inventory-decision')).toHaveCount(0);
- assert.equal((await model(id)).status,'draft');
- await record.getByRole('button',{name:'Approve',exact:true}).click();
- await record.locator('.ai-inventory-decision textarea').fill('QA reviewed the updated model');
- await record.locator('.ai-inventory-decision input').fill('ONAYLA');
- const beforeFailedApproval=await model(id);await failAudit('model-inventory-approved');
- await record.getByRole('button',{name:'Apply decision'}).click();await expect(root.locator('.ai-inventory-notice')).toContainText('Model kararı kaydedilemedi');await expect(record.locator('.ai-inventory-decision')).toHaveCount(0);await expect(record.getByRole('button',{name:'Approve',exact:true})).toBeEnabled();assert.deepEqual(await model(id),beforeFailedApproval);await restoreAudit();
- await record.getByRole('button',{name:'Approve',exact:true}).click();await record.locator('.ai-inventory-decision textarea').fill('QA retry after audit recovery');await record.locator('.ai-inventory-decision input').fill('ONAYLA');
- await record.getByRole('button',{name:'Apply decision'}).click();
+ const current=await model(id);await call('PATCH',decision(id,'approved',current.updatedAt),409);
+ await record.getByRole('button',{name:'Production approval gate',exact:true}).click();await expect(page.getByRole('button',{name:'Complete system profile'})).toBeVisible();
+ const approvalContext=await browser.newContext(),reviewer='qa-gate-'+Date.now()+'@fornost.test';
+ const post=async(ctx,path,data,expected=200)=>{const r=await ctx.request.post(base+path,{headers:{origin:base},data});assert.equal(r.status(),expected,await r.text());return r.json()};
+ await post(context,'/api/users',{email:reviewer,name:'Gate reviewer',password:qaPassword(),role:'Admin'},201);
+ await post(approvalContext,'/api/auth',{action:'login',email:reviewer,password:qaPassword()});
+ const workspace='/api/ai/workspace',read=async()=>(await (await context.request.get(base+workspace)).json()).systems.find(m=>m.id===id);
+ const profile={name:current.systemName,model:current.modelName,provider:current.vendor,purpose:current.purpose,unit:'Operations',architecture:'llm',deployment:'private',risk:'minimal',tools:'',write:false,hitl:'Human confirms output',sources:['public'],pii:false,noTraining:true,zdr:false,transfer:false,owner:values.owner,technical:values.owner,reviewer,risks:[],controls:[],asset:[],vendor:[],reviewDate:new Date(Date.now()+86400000*45).toISOString().slice(0,10),impact:'3',likelihood:'3',sensitivity:'3',autonomy:'2',maturity:'3',controlNotes:values.controls};
+ await post(context,workspace,{action:'register',id,revision:(await read()).revision,profile},201);
+ await post(context,workspace,{action:'submit',id,revision:(await read()).revision,assessment:{impact:'',mitigation:'',privacy:'',transferBasis:'',checks:[],reportType:''}});
+ const sign={action:'approve',id,revision:(await read()).revision,note:'QA independent reviewer signed'};
+ await post(context,workspace,sign,403);await post(approvalContext,workspace,{...sign,revision:current.updatedAt},409);
+ await failAudit('system-approve');await post(approvalContext,workspace,sign,503);assert.equal((await read()).phase,'review');assert.equal((await model(id)).status,'draft');await restoreAudit();
+ await post(approvalContext,workspace,sign);await approvalContext.close();
+ await page.evaluate(ref=>window.dispatchEvent(new CustomEvent('fornost:open-ai',{detail:{view:'models',recordFocus:{kind:'ai-model',ref}}})),id);
  await expect(record.locator('strong.approved')).toBeVisible();
- await expect(record.getByRole('button',{name:'Approve',exact:true})).toBeDisabled();
  const approved=await model(id);assert.equal(approved.status,'approved');
- await record.getByRole('button',{name:'Activity history',exact:true}).click();const history=record.locator('.ai-record-history-panel');await expect(history).toContainText('Model approved');await expect(history).toContainText('qa-admin@fornost.test');
+ await record.getByRole('button',{name:'Activity history',exact:true}).click();const history=record.locator('.ai-record-history-panel');await expect(history).toContainText('Production approved');await expect(history).toContainText('qa-admin@fornost.test');
  const historyResponse=await context.request.get(`${base}/api/ai/audit?id=${encodeURIComponent(id)}&limit=50`);assert.equal(historyResponse.status(),200);const historyBody=await historyResponse.json();assert.ok(historyBody.logs.length>=2);assert.ok(historyBody.logs.every(log=>log.contextRefs.includes(id)));
  const unknownHistory=await context.request.get(`${base}/api/ai/audit?id=QA-unknown-history`);assert.deepEqual((await unknownHistory.json()).logs,[]);assert.equal((await context.request.get(`${base}/api/ai/audit?id=one&id=two`)).status(),400);
- const historyRoute='**/api/ai/audit?*';await page.route(historyRoute,route=>route.fulfill({status:503,json:{error:'QA history unavailable'}}));await history.getByRole('button',{name:'Refresh',exact:true}).click();await expect(history.getByRole('alert')).toContainText('History could not be loaded');await expect(history.locator('li')).toHaveCount(0);await page.unroute(historyRoute);await history.getByRole('button',{name:'Refresh',exact:true}).click();await expect(history).toContainText('Model approved');
+ const historyRoute='**/api/ai/audit?*';await page.route(historyRoute,route=>route.fulfill({status:503,json:{error:'QA history unavailable'}}));await history.getByRole('button',{name:'Refresh',exact:true}).click();await expect(history.getByRole('alert')).toContainText('History could not be loaded');await expect(history.locator('li')).toHaveCount(0);await page.unroute(historyRoute);await history.getByRole('button',{name:'Refresh',exact:true}).click();await expect(history).toContainText('Production approved');
  for(const theme of ['light','dark'])for(const width of [1536,390]){await page.evaluate(value=>{document.documentElement.dataset.theme=value;},theme);await page.setViewportSize({width,height:960});assert.ok(await history.evaluate(el=>el.scrollWidth<=el.clientWidth+1));await page.screenshot({path:`${out}/record-history-${theme}-${width}.png`});}await page.setViewportSize({width:1536,height:960});await record.getByRole('button',{name:'Activity history',exact:true}).click();await expect(history).toHaveCount(0);
 
  await call('PATCH',decision(id,'suspended',original.updatedAt),409);
  await failAudit('model-inventory-suspended');await call('PATCH',decision(id,'suspended',approved.updatedAt),503);assert.deepEqual(await model(id),approved);await restoreAudit();
  await call('PATCH',decision(id,'suspended',approved.updatedAt));
- const suspended=await model(id);await call('PATCH',decision(id,'approved',suspended.updatedAt));
+ const suspended=await model(id);await call('PATCH',decision(id,'approved',suspended.updatedAt),409);
  const beforeRetire=await model(id);
  await sql(`UPDATE ai_model_inventory SET status='retired',updated_at='2026-10-05T00:00:00.000Z',decision_note='QA completed retirement' WHERE id=${q(id)};`);
  const retired=await model(id);
@@ -96,5 +92,5 @@ try{
  const deletable=await call('POST',{...values,systemName:'QA atomic deletion'},201);ids.push(deletable.id);await call('DELETE',{id:deletable.id,expectedUpdatedAt:(await model(deletable.id)).updatedAt,confirmation:'SİL'});assert.equal(await model(deletable.id),undefined);
  await page.screenshot({path:`${out}/decision-recovery.png`});
  assert.deepEqual(errors,[]);
- await fs.writeFile(`${out}/result.json`,JSON.stringify({status:'passed',realApi:true,scopedRecordHistory:true,historyFailureRecovery:true,historyResponsiveThemes:true,linkedDraftDeletionBlocked:true,linkedDeletionUiRecovery:true,atomicModelWrites:true,auditFailureRollback:true,uiApprovalAuditRecovery:true,versionedDraftEditDelete:true,preservedStaleDraft:true,failedEditRecovered:true,uiStaleDecisionRecovery:true,retiredDecisionsBlocked:4,criticalRiskBlocked:true}));
-}finally{try{await page.close();await sql('DROP TRIGGER IF EXISTS qa_model_audit_failure;');if(ids.length)await sql(`DELETE FROM ai_model_monitoring WHERE model_id IN (${ids.map(q).join(',')});DELETE FROM ai_model_inventory WHERE id IN (${ids.map(q).join(',')}); DELETE FROM ai_activity_logs WHERE ${ids.map(id=>`detail LIKE ${q(id+' %')}`).join(' OR ')};`);}finally{await browser.close();}}
+ await fs.writeFile(`${out}/result.json`,JSON.stringify({status:'passed',realApi:true,scopedRecordHistory:true,historyFailureRecovery:true,historyResponsiveThemes:true,linkedDraftDeletionBlocked:true,linkedDeletionUiRecovery:true,atomicModelWrites:true,auditFailureRollback:true,productionGateAuditRecovery:true,versionedDraftEditDelete:true,preservedStaleDraft:true,failedEditRecovered:true,staleApprovalBlocked:true,retiredDecisionsBlocked:4,criticalRiskBlocked:true}));
+}finally{try{await page.close();await sql('DROP TRIGGER IF EXISTS qa_model_audit_failure;');if(ids.length)await sql(`DELETE FROM ai_model_monitoring WHERE model_id IN (${ids.map(q).join(',')});DELETE FROM ai_system_decisions WHERE model_id IN (${ids.map(q).join(',')});DELETE FROM ai_system_profiles WHERE model_id IN (${ids.map(q).join(',')});DELETE FROM ai_model_inventory WHERE id IN (${ids.map(q).join(',')}); DELETE FROM ai_activity_logs WHERE ${ids.map(id=>`detail LIKE ${q(id+' %')}`).join(' OR ')};`);}finally{await browser.close();}}

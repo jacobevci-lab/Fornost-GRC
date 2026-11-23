@@ -59,8 +59,14 @@ export type ConnectedGrcDomainPosture = {
 type RelationDefinition = { relation: string; modules: string[]; sources?: string[]; targetKind?: string; canonicalOnly?: boolean; optionalControlReference?: boolean; frameworkTag?: boolean };
 
 export const relationFields: Record<string, RelationDefinition> = {
-  aiModelRef: { relation: "ai-model", modules: ["AI Yönetişimi"], sources: ["AI Yönetişimi"], targetKind: "ai-model", canonicalOnly: true },
-  aiFindingRef: { relation: "ai-finding", modules: ["AI Yönetişimi"], sources: ["AI Yönetişimi"], targetKind: "ai-finding", canonicalOnly: true },
+  system_incident: {relation:"system-incident",modules:["Güvenlik Olayları"],sources:["AI Yönetişimi"],targetKind:"incident",canonicalOnly:true},
+  system_asset: {relation:"system-asset",modules:["Varlık Envanteri"],sources:["AI Yönetişimi"],canonicalOnly:true},
+  system_vendor: {relation:"system-vendor",modules:["Tedarikçiler"],sources:["AI Yönetişimi"],canonicalOnly:true},
+  system_risk: {relation:"system-risk",modules:["Risk Assessment"],sources:["AI Yönetişimi"],canonicalOnly:true},
+  system_control: {relation:"system-control",modules:["Kontroller"],sources:["AI Yönetişimi"],canonicalOnly:true},
+  system_evidence: {relation:"system-evidence",modules:["Kanıtlar"],sources:["AI Yönetişimi"],canonicalOnly:true},
+  aiModelRef: { relation: "ai-model", modules: ["AI Yönetişimi"], sources: ["AI Yönetişimi","Bulgular ve CAPA"], targetKind: "ai-model", canonicalOnly: true },
+  aiFindingRef: { relation: "ai-finding", modules: ["AI Yönetişimi"], sources: ["AI Yönetişimi","Bulgular ve CAPA"], targetKind: "ai-finding", canonicalOnly: true },
   sourceAssetRef: {relation:"evidence-source",modules:["Varlık Envanteri"],sources:["Kanıtlar"]},
   sourceVendorRef: {relation:"evidence-source",modules:["Tedarikçiler"],sources:["Kanıtlar"]},
   controlRiskRefs: {relation:"risk-control",modules:["Risk Assessment"],sources:["Kontroller"]},
@@ -354,6 +360,12 @@ export const connectedRemediationModule: Record<string, string> = {
 };
 
 export const connectedRelationLabels: Record<string, { tr: string; en: string }> = {
+  "system-incident":{tr:"sapmadan açılan olay",en:"incident from monitoring"},
+  "system-asset":{tr:"ilgili varlık",en:"related asset"},
+  "system-vendor":{tr:"model sağlayıcısı",en:"model provider"},
+  "system-risk":{tr:"bağlı AI riski",en:"linked AI risk"},
+  "system-control":{tr:"bağlı AI kontrolü",en:"linked AI control"},
+  "system-evidence":{tr:"karar kanıtı",en:"decision evidence"},
   "ai-model": { tr: "AI modeline bağlı", en: "linked to AI model" },
   "ai-finding": { tr: "AI bulgusuna aktarılmış", en: "escalated to AI finding" },
   "evidence-source": {tr:"kaynağından toplandı",en:"collected from"},
