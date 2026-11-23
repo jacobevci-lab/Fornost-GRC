@@ -20,6 +20,7 @@ export async function verifyIncidentCaseWorkspace(page) {
       const event={id:'event-'+id,incident_id:id,action:first?'contain':'triage',from_status:first?'triage':'declared',to_status:first?'contained':'triage',actor:first?'Ece Aydın':'Ayşe Polat',created_at:primary.updatedAt,detail:first?'Erişim sınırlandırıldı.':'İleti incelendi.'};
       return route.fulfill({json:{events:[event],evidencePins:first?[{id:'pin-1',entityId:id,eventId:event.id,purpose:'incident-contain',evidence,createdAt:event.created_at,actor:event.actor}]:[],nextCursor:null}});
     }
+    if(url.searchParams.get('view')==='crisis')return route.fulfill({json:{targets:[{id:'bia',code:'BIA-001',module:'BIA',title:'Payments',rto:4,mtpd:24}],people:[],restoredAt:null,finding:null}});
     if(url.searchParams.has('view'))return route.continue();
     if(unavailable)return route.fulfill({status:503,json:{}});
     return route.fulfill({json:{incidents:records,events:[],limited:false,eventsLimited:false,summary:{total:records.length,active:records.filter(x=>x.status!=='closed').length,critical:records.filter(x=>x.status!=='closed'&&x.severity==='critical').length,breached:records.filter(x=>x.attention==='recovery-breach').length,contained:records.filter(x=>x.status==='contained').length,recovery:0,review:0,personalData:0}}});
@@ -42,8 +43,8 @@ export async function verifyIncidentCaseWorkspace(page) {
     await panel.getByRole('button',{name:/^SLA breaches ·/}).click();await expect(panel.locator('.incident-row-open')).toHaveCount(1);
     await expect(dossier.getByRole('link',{name:'Open evidence'})).toHaveAttribute('href',/primary-v1/);
     await dossier.getByRole('button',{name:'Crisis brief',exact:true}).click();
-    await expect(dossier).toContainText('Incident contained');
-    await expect(dossier).toContainText('Erişim sınırlandırıldı.');await expect(dossier).toContainText('Pending');
+    await expect(dossier).toContainText('BIA-001');await expect(dossier).toContainText('MTPD');
+    await expect(dossier.getByRole('heading',{name:'Crisis team'})).toBeVisible();await expect(dossier).toContainText('Pending');
     await panel.getByRole('button',{name:/^Active ·/}).click();
     await panel.getByRole('button',{name:/Şüpheli e-posta/}).click();await expect(dossier).toHaveAttribute('data-incident-id',second.id);
     await dossier.getByRole('button',{name:'Evidence',exact:true}).click();

@@ -1,4 +1,4 @@
-export const POLICY_CATEGORIES=["security","privacy","risk","compliance","technology","people","operations"] as const;
+export const POLICY_CATEGORIES=["security","privacy","risk","compliance","technology","people","operations","continuity","vendor","ai"] as const;
 export const POLICY_CLASSIFICATIONS=["public","internal","confidential","restricted"] as const;
 
 const clean=(value:unknown,max:number)=>String(value??"").trim().replace(/\u0000/g,"").slice(0,max);
@@ -40,7 +40,7 @@ export function validateCampaign(input:Record<string,unknown>,today=new Date().t
 export function validateException(input:Record<string,unknown>,today=new Date().toISOString().slice(0,10)){
  const policyId=clean(input.policyId,100),versionId=clean(input.versionId,100),scope=clean(input.scope,800),rationale=clean(input.rationale,2000),compensatingControl=clean(input.compensatingControl,2000),owner=email(input.owner,"İstisna sahibi"),reviewer=email(input.reviewer,"Reviewer"),expiresAt=date(input.expiresAt,"İstisna bitişi");
  const days=Math.ceil((new Date(`${expiresAt}T00:00:00Z`).getTime()-new Date(`${today}T00:00:00Z`).getTime())/86_400_000);
- if(!policyId||!versionId||scope.length<5||rationale.length<10||compensatingControl.length<10)throw new Error("Yayındaki politika, kapsam, gerekçe ve telafi kontrolü zorunludur.");
+ if(!policyId||!versionId||scope.length<(input.scopeKind?1:5)||rationale.length<10||compensatingControl.length<10)throw new Error("Yayındaki politika, kapsam, gerekçe ve telafi kontrolü zorunludur.");
  if(owner===reviewer)throw new Error("İstisna sahibi ve bağımsız reviewer farklı olmalıdır.");
  if(days<1||days>180)throw new Error("İstisna süresi 1-180 gün arasında olmalıdır.");
  return{policyId,versionId,scope,rationale,compensatingControl,owner,reviewer,expiresAt};

@@ -5,7 +5,7 @@ import {findingReferenceModules} from './record-references';
 import {validateFinding} from './domain';
 
 /** The audit receipt, not trigger-inclusive source metadata, identifies a committed intake. */
-export async function insertFinding(db:D1Database,finding:ReturnType<typeof validateFinding>,context:{id:string;code:string;actor:string;stamp:string;guard?:WorkflowGuard;selectedIds?:boolean}){
+export async function insertFinding(db:D1Database,finding:ReturnType<typeof validateFinding>,context:{id:string;code:string;actor:string;stamp:string;guard?:WorkflowGuard;selectedIds?:boolean;afterCreate?:D1PreparedStatement[]}){
  const {id,code,actor,stamp}=context;
  const links=[
   {field:'control_ref',value:finding.controlRef,modules:findingReferenceModules.controlRef},
@@ -25,6 +25,7 @@ export async function insertFinding(db:D1Database,finding:ReturnType<typeof vali
    SELECT ?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'open',?,?,?,?,?,? WHERE (${guard.sql}) AND (${context.guard?.sql||'1'})`)
    .bind(id,code,finding.sourceType,finding.sourceRef,finding.sourceTitle,finding.findingType,finding.title,finding.description,finding.severity,finding.owner,finding.reviewer,finding.rootCause,finding.correctiveAction,finding.preventiveAction,finding.dueDate,finding.riskRef||null,finding.controlRef||null,actor,stamp,actor,stamp,...guard.values,...(context.guard?.values||[])),
   lifecycleInsert(db,'enterprise_finding_events',{id:crypto.randomUUID(),finding_id:id,action:'finding-create',from_status:null,to_status:'open',detail:`${finding.sourceType}/${finding.sourceRef}; ${finding.severity}; due ${finding.dueDate}`,evidence_reference:null,evidence_sha256:null,actor,created_at:stamp}),
+  ...(context.afterCreate||[]),
  ]);
  if(Number(results[1]?.meta?.changes||0)!==1){
   if(context.guard&&!Number((await db.prepare(`SELECT (${context.guard.sql}) AS valid`).bind(...context.guard.values).first<{valid:number}>())?.valid))throw new LifecycleConflict();

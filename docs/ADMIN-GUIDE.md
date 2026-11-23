@@ -217,6 +217,12 @@ Tekrar deneme makbuzları mevcut `simple_grc_metadata` tablosunda `core-import:`
 Eski API istemcileri işlem kimliği olmadan uyumlu çalışır; tekrar deneme koruması bu istemciler için geçerli değildir. Eski sürüme dönüldüğünde belirsiz sonuçlu yeni bir içe aktarmayı yeniden göndermeden önce sicili kontrol edin. Gerçek müşteri veri taşıma/UAT ayrı doğrulanmalıdır. [İş akışı ve sınırlar](register-import.md).
 
 
+## Regulatory source and impact intake
+
+An Admin can open **Add first regulatory source**, choose an authority template, edit its details, and link frameworks already active in Compliance Management. Open **Monitored sources** or **Sources** to review and maintain that register.
+
+Admins and Editors can record a change against an active source or choose **General / Source-independent change**. Publication must precede or coincide with the effective date. Select separate directory accounts for the owner and independent reviewer. Map affected control, policy, risk and BIA records before saving. Open **Impact & Actions** in the selected change and choose **Assign action** for each mapping to set the responsible person, work and deadline. Only assigned actions contribute to the overdue-action KPI.
+
 ## Connected evidence selections: continuity and regulatory workflows
 
 The continuity exercise/gap and regulatory impact forms now select canonical evidence versions and active directory accounts. `/api/workflow-choices` requires a full-access Admin or Editor, matching these enterprise modules; scoped accounts and Viewers cannot use it. Reviewer choices require Admin, and new directory-backed review assignments reject the creating actor. Existing decision independence checks remain enforced server-side.

@@ -1,3 +1,6 @@
+import * as policyCenter from '../../app/policy-lifecycle/center-store';
+import * as incidentTables from '../../app/incidents/tables';
+import * as incidentCommand from '../../app/incidents/crisis-store';
 import * as findingSources from '../../app/findings/source-records';
 import * as findingCodes from '../../app/findings/codes';
 import * as vendorScope from "../../app/third-party-risk/scope";
@@ -13,6 +16,8 @@ import * as workRecordCodes from "../../app/work-record-codes";
 import * as workflowCancellation from "../../app/workflow-cancellation";
 import * as continuitySettings from "../../app/continuity/settings-store";
 import * as continuityDraft from "../../app/continuity/draft-store";
+import * as initialization from '../../app/completed-initialization';
+import * as regulatoryConnections from '../../app/regulatory-intelligence/connections';
 import * as regulatoryWorkspace from '../../app/regulatory-intelligence/workspace-store';
 import * as findingDeadline from "../../app/third-party-risk/finding-deadline";
 import * as findingDeadlineStore from "../../app/third-party-risk/finding-deadline-store";
@@ -83,6 +88,9 @@ export function fixture(module:'incidents'|'continuity'|'policy-lifecycle'|'thir
  const compiled=ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;
  const exports:Record<string,unknown>={};
  const require=(name:string)=>{
+  if(name==='../../policy-lifecycle/center-store')return policyCenter;
+  if(name==='../../incidents/tables')return incidentTables;
+  if(name==='../../incidents/crisis-store')return incidentCommand;
   if(name==="../../third-party-risk/scope")return vendorScope;
   if(name==="../../third-party-risk/exit-store")return exitStore;
   if(name==="../../third-party-risk/survey-store")return surveyStore;
@@ -139,6 +147,8 @@ export function fixture(module:'incidents'|'continuity'|'policy-lifecycle'|'thir
   if(name==='../../risk-appetite/connections')return kriConnections;
   if(name==='../../risk-appetite/domain')return risk;
   if(name==='../../risk-methodology')return riskMethodology;
+  if(name==='../../completed-initialization')return initialization;
+  if(name==='../../regulatory-intelligence/connections')return regulatoryConnections;
   if(name==='../../regulatory-intelligence/domain')return regulatory;
   if(name==='../../regulatory-intelligence/workspace-store')return regulatoryWorkspace;
   if(name==='../../findings/domain')return findingDomain;

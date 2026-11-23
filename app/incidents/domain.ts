@@ -35,7 +35,7 @@ export function validateIncidentAction(input: Record<string, unknown>) {
 
 export function incidentAttention(status: string, severity: string, detectedDate: string, now = new Date()) {
   if (["closed","cancelled"].includes(status)) return status;
-  const ageHours = Math.max(0, (now.getTime() - new Date(`${detectedDate}T00:00:00Z`).getTime()) / 3_600_000);
+  const ageHours = Math.max(0, (now.getTime() - new Date(detectedDate.length===10?`${detectedDate}T00:00:00Z`:detectedDate).getTime()) / 3_600_000);
   if (["declared", "triage"].includes(status) && ageHours > incidentResponseHours(severity)) return "response-breach";
   if (!["recovered", "review"].includes(status) && ageHours > incidentRecoveryHours(severity)) return "recovery-breach";
   if (severity === "critical" || severity === "high") return "priority";

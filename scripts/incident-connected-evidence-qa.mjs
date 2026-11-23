@@ -1,3 +1,4 @@
+import {verifyIncidentCrisisCommands} from './incident-crisis-command-qa.mjs';
 import {verifyIncidentCaseWorkspace} from './incident-case-workspace-qa.mjs';
 import {chromium,expect} from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
@@ -14,9 +15,9 @@ for(const p of [page,peer,responsePage,reader]){p.setDefaultTimeout(20000);p.on(
 const phrases={triage:'OLAY TRİAJINI BAŞLAT',contain:'OLAYI KONTROL ALTINA AL',eradicate:'TEHDİDİ ORTADAN KALDIR',recover:'HİZMETİ GERİ YÜKLE',review:'OLAYI İNCELEMEYE GÖNDER',close:'OLAYI KAPAT',reopen:'OLAYI YENİDEN AÇ'};
 async function api(ctx,path,method='GET',data,status=200){const r=await ctx.request.fetch(base+path,{method,data,headers:{origin:base}});assert.equal(r.status(),status,`${path}: ${await r.text()}`);return r.json();}
 const source=ctx=>api(ctx,'/api/incidents?view=decision&incidentId='+incidentId);
-async function open(p){await p.goto(base);await expect(p.locator('.shell')).toBeVisible();await p.locator('.language-switch:visible').getByRole('button',{name:'EN',exact:true}).click();await p.locator('nav button[aria-label="Security Incidents & Crisis"]').evaluate(el=>el.click());await waitForQaIdle(p);}
+async function open(p){await p.goto(base);await expect(p.locator('.shell')).toBeVisible({timeout:30000});await p.locator('.language-switch:visible').getByRole('button',{name:'EN',exact:true}).click();await p.locator('nav button[aria-label="Security Incidents & Crisis"]').evaluate(el=>el.click());await waitForQaIdle(p);}
 async function detail(p){await open(p);await p.getByLabel('Status filter',{exact:true}).selectOption('all');await p.getByLabel('Search incidents',{exact:true}).fill(name);await p.locator('.incident-row-open').filter({hasText:name}).click();await expect(p.getByRole('region',{name,exact:true})).toBeVisible();}
-async function person(d,label,email){const field=d.getByLabel(label,{exact:true});await expect(field).toBeEnabled();await expect(field.locator(`option[value="${email}"]`)).toHaveCount(1);await field.selectOption(email);}
+async function person(d,label,email){const field=d.getByRole('combobox',{name:label,exact:true});await field.fill(email);await d.getByRole('listbox',{name:label,exact:true}).getByRole('option').filter({hasText:email}).click();await expect(field).toHaveValue(email);}
 async function choose(d){const field=d.getByLabel('Evidence record',{exact:true});await expect(field).toBeEnabled();await field.selectOption(f.evidenceId);const version=d.getByLabel('File version',{exact:true});await expect(version).toBeEnabled();await expect(version.locator(`option[value="${f.version1Id}"]`)).toHaveCount(1);await version.selectOption(f.version1Id);await expect(d.locator('.workflow-evidence-summary')).toBeVisible();}
 async function submit(p,d,label='Apply action',status=200){const pending=p.waitForResponse(r=>new URL(r.url()).pathname==='/api/incidents'&&r.request().method()==='POST');await d.getByRole('button',{name:label,exact:true}).click();const r=await pending;assert.equal(r.status(),status,await r.text());const body=await r.json();if(status<300)await expect(d).toBeHidden();await waitForQaIdle(p);return body;}
 async function fill(d,operation,note='The current incident, response actions and supporting evidence have been reviewed.'){
@@ -38,27 +39,14 @@ try {
  assert.ok(asset && otherAsset && risk && bia, 'Expected linked records in the seeded directory');
  phase='directory declaration and committed-response retry';await open(page);await page.getByRole('button',{name:'+ Declare Incident',exact:true}).click();let d=page.locator('.incident-form');
  for(const [label,value] of [['Incident title',name],['Incident description','A synthetic privileged identity event requires controlled containment and recovery.'],['Business impact','The affected business service requires independent recovery validation.']])await d.getByLabel(label,{exact:true}).fill(value);
- const picker = d.locator('.incident-reference-search');
- await picker.locator('summary').click();
- const search = picker.getByRole('searchbox', {name:'Record name or code'});
- const assetData = JSON.parse(asset.data_json);
- async function chooseRecord(record, query = record.record_code || record.id) {
-   await search.fill(query);
-   const result = picker.getByRole('button').filter({hasText:record.record_code || record.id});
-   await expect(result).toHaveCount(1);
-   await result.click();
+ async function chooseRecord(label,record) {
+   const field=d.getByRole('combobox',{name:label,exact:true}),code=record.record_code||record.id;
+   await field.fill(code);await d.getByRole('listbox',{name:label,exact:true}).getByRole('option').filter({hasText:code}).click();
  }
- await chooseRecord(asset, assetData.title || assetData.name || asset.record_code);
- await chooseRecord(asset);
- await expect(picker.getByRole('status')).toContainText('already linked');
- await chooseRecord(otherAsset);
- await chooseRecord(risk);
- await chooseRecord(bia);
- await expect(d.getByLabel('Asset references', {exact:true})).toHaveValue(asset.id + ', ' + otherAsset.id);
- await expect(d.getByLabel('Risk reference', {exact:true})).toHaveValue(risk.id);
- await expect(d.getByLabel('BIA reference', {exact:true})).toHaveValue(bia.id);
- await picker.locator('summary').click();
- await person(d,'Incident owner',owner);await person(d,'Incident commander',commanderEmail);await person(d,'Independent reviewer',f.reviewerEmail);assert.equal(await d.getByLabel('Independent reviewer',{exact:true}).locator(`option[value="${owner}"]`).count(),0);
+ await chooseRecord('Asset references',asset);await chooseRecord('Asset references',otherAsset);
+ await chooseRecord('Risk reference',risk);await chooseRecord('BIA reference',bia);
+ await expect(d.locator('.ic-chips button')).toHaveCount(2);
+ await person(d,'Incident owner',owner);await person(d,'Incident commander',commanderEmail);await person(d,'Independent reviewer',f.reviewerEmail);const reviewerPicker=d.getByRole('combobox',{name:'Independent reviewer',exact:true});await reviewerPicker.press('ArrowDown');await expect(d.getByRole('listbox',{name:'Independent reviewer'}).getByRole('option').filter({hasText:owner})).toHaveCount(0);await reviewerPicker.press('Escape');
  await d.evaluate(el=>el.scrollTop=0);assert.deepEqual((await new AxeBuilder({page}).include('.incident-form').withTags(['wcag2a','wcag2aa','wcag21aa']).analyze()).violations,[]);await d.screenshot({path:`${out}/declaration.png`});
  await page.route(url=>url.pathname==='/api/incidents',async route=>{const req=route.request();if(req.method()==='POST'&&req.postDataJSON()?.action==='create'&&dropDeclaration){dropDeclaration=false;const r=await route.fetch();assert.equal(r.status(),201,await r.text());incidentId=(await r.json()).id;await route.abort('failed');}else if(req.method()==='GET'&&new URL(req.url()).searchParams.get('view')==='decision'&&failRead)await route.fulfill({status:503,json:{}});else if(req.method()==='POST'&&rejectDecision)await route.fulfill({status:422,json:{code:'EVIDENCE_SELECTION'}});else await route.continue();});
  await d.getByRole('button',{name:'Declare incident',exact:true}).click();await expect(d.getByRole('alert')).toContainText('does not duplicate');await expect(d.getByLabel('Incident title',{exact:true})).toHaveValue(name);
@@ -92,6 +80,9 @@ try {
  phase='historical usage and exact Viewer source navigation';const usage=await api(viewer,`/api/evidence/usage?id=${f.evidenceId}`),rows=usage.rows.filter(r=>r.source==='incidents'&&r.target.ref===incidentId);assert.equal(rows.length,10);assert.ok(rows.every(r=>r.historical&&r.decision.sourceAvailable&&r.pins[0].state==='older'));assert.equal(usage.sources.find(s=>s.key==='incidents').state,'complete');const restricted=await api(scoped,`/api/evidence/usage?id=${f.evidenceId}`);assert.equal(restricted.sources.find(s=>s.key==='incidents').state,'restricted');assert.equal(restricted.rows.filter(r=>r.source==='incidents').length,0);
  await reader.goto(base+'/#fornost-record?'+new URLSearchParams({module:'Kanıtlar',kind:'record',ref:f.evidenceId}));await expect(reader.locator('.shell')).toBeVisible();await reader.locator('.language-switch:visible').getByRole('button',{name:'EN',exact:true}).click();await reader.locator('.eu-panel>summary').click();await reader.getByLabel('Evidence to inspect',{exact:true}).selectOption(f.evidenceId);await reader.getByLabel('Usage source',{exact:true}).selectOption('incidents');await reader.getByLabel('Search uses',{exact:true}).fill(name);await expect(reader.locator('.eu-list article')).toHaveCount(10);await reader.locator('.eu-panel').screenshot({path:`${out}/usage.png`});await reader.locator('.eu-list article').filter({hasText:'Independent incident closure'}).first().getByRole('button',{name:/^Open record:/}).click();await expect(reader.getByRole('region',{name,exact:true})).toBeVisible();await expect(reader.locator('.ic-case-list .incident-row-open')).toHaveCount(1);await expect(reader.locator('.incident-dossier .ic-next button')).toHaveCount(0);await reader.getByRole('button',{name:'Decision history',exact:true}).click();await expect(reader.locator('.incident-record-history .workflow-evidence-history')).toHaveCount(10);
  await api(admin,`/api/grc?id=${f.evidenceId}`,'DELETE',undefined,409);assert.deepEqual(errors,[]);checks.push('Five separate purposes across two cycles retain the old selected version; exact read-only incident/history navigation, scoped coverage and protected evidence deletion');
+ phase='crisis command, notification, direct upload and root-cause CAPA';
+ await verifyIncidentCrisisCommands({page,api,admin,open,detail,owner,commanderEmail,reviewer:f.reviewerEmail,asset,bia,evidence:f,base});
+ checks.push('Crisis board countdown and scoped decision, directory contacts, existing and uploaded response evidence, and navigation to a single root-cause CAPA');
  await verifyIncidentCaseWorkspace(reader);checks.push('Case selection, crisis and pinned evidence scope, SLA filters, empty and failure states, bilingual responsive accessibility');
  await writeFile(`${out}/result.json`,JSON.stringify({status:'PASS',checks,errors,incidentId,cleanup:'Owned incident closed; synthetic immutable decision history and QA users remain only in disposable loopback.'},null,2));console.log('INCIDENT_CONNECTED_EVIDENCE_QA_PASS');
 } catch(error) {

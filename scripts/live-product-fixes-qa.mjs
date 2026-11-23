@@ -92,14 +92,15 @@ try{
   if(!assurance.verified)await expect(page.getByRole('button',{name:/Global Assurance Pack/i})).toBeDisabled();
   checks.push('F01/F06: combined export stays gated and CSV describes unfiltered criteria correctly');
 
-  await open('AI Governance');const ai=page.locator('#fornost-ai-panel');
-  await expect(ai).toContainText('Inventory and governance available');
-  await expect(ai.getByRole('button',{name:'Add AI system',exact:true})).toBeVisible();
-  await ai.getByRole('button',{name:'Add AI system',exact:true}).click();await expect(page.locator('#ai-model-create')).toBeVisible();
-  await expect(page.locator('#ai-model-create input').first()).toBeFocused();
-  await revealAiWorkspace(ai,'Decision Desk');await ai.getByRole('button',{name:'Decision Desk',exact:true}).click();
-  await ai.locator('.ai-section-picker>summary').click();assert.equal(await ai.locator('.ai-workspace-group').count(),6);assert.equal(await ai.locator('.fornost-ai-tabs button').count(),34);
-  await screenshot('05-ai-groups');checks.push('F08: provider-independent first-system action and six task groups preserve all 34 workspaces');
+  await open('AI Governance');const ai=page.locator('.ag-workspace');
+  await expect(ai.locator('.ag-nav button')).toHaveCount(5);await expect(ai.locator('.ag-kpis button')).toHaveCount(5);
+  await ai.getByRole('button',{name:'+ Register AI system',exact:true}).click();
+  const registration=page.getByRole('dialog',{name:'Register AI system',exact:true});await expect(registration).toBeVisible();
+  await expect(registration.getByLabel('System / agent name')).toBeVisible();await page.keyboard.press('Escape');
+  await expect(registration).toHaveCount(0);await ai.getByRole('button',{name:'Technical model dossiers →'}).click();
+  const specialist=page.locator('#fornost-ai-panel');await revealAiWorkspace(specialist,'Decision Desk');await specialist.getByRole('button',{name:'Decision Desk',exact:true}).click();
+  await specialist.locator('.ai-section-picker>summary').click();assert.equal(await specialist.locator('.ai-workspace-group').count(),6);assert.equal(await specialist.locator('.fornost-ai-tabs button').count(),34);
+  await screenshot('05-ai-groups');checks.push('F08: five governance tabs and registration work without a provider; technical dossiers retain the specialist workspaces.');
   assert.deepEqual(errors,[]);await writeFile(`${out}/result.json`,JSON.stringify({checks,errors},null,2));
   console.log(checks.join('\n'));
 }catch(error){await writeFile(`${out}/failure.txt`,String(error));await screenshot('failure').catch(()=>{});await writeFile(`${out}/diagnostics.json`,JSON.stringify({checks,navigation:await navigationState().catch(()=>null),headings:await page.locator('.risk-table th').allTextContents().catch(()=>[]),snapshot:await page.locator('main').ariaSnapshot().catch(()=>null)},null,2));throw error;}

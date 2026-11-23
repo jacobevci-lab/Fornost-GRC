@@ -11,7 +11,7 @@ export default function AiWorkspaceHost({ lang }: { lang: "tr" | "en" }) {
       const recordFocus = resolveAiRecordFocus(request);
       if (!recordFocus) return false;
       consumePendingFornostFocus('AI Yönetişimi');
-      window.dispatchEvent(new CustomEvent('fornost:open-ai', { detail: { view: aiRecordViews[recordFocus.kind], recordFocus } }));
+      window.dispatchEvent(new CustomEvent('fornost:open-ai', { detail: { view: request?.source==='go-live-gate'?'portfolio':aiRecordViews[recordFocus.kind], recordFocus } }));
       return true;
     };
     if (!accept(peekPendingFornostFocus())) window.dispatchEvent(new CustomEvent("fornost:open-ai", { detail: { view: "portfolio" } }));

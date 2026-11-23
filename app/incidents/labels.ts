@@ -24,6 +24,7 @@ const eventLabels: Record<string,[string,string]> = {
   review: ["İncelemeye gönderildi","Submitted for review"],
   close: ["Olay kapatıldı","Incident closed"],
   reopen: ["Olay yeniden açıldı","Incident reopened"],
+  "record-notification":["Bildirim kararı kaydedildi","Notification decision recorded"],"link-evidence":["Müdahale kanıtı bağlandı","Response evidence linked"],"create-improvement":["İyileştirme bulgusu açıldı","Improvement finding created"],
   "incident-export": ["CSV dışa aktarıldı","CSV exported"],
 };
 export function incidentEventLabel(action:string,lang:"tr"|"en"){

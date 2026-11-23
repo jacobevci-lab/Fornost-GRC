@@ -26,7 +26,7 @@
 .ic-roles dd,.ic-facts dd { margin:4px 0 0; font-weight:600; }
 .ic-views { border-bottom:1px solid var(--ws-line); padding-bottom:6px; }
 .ic-views button { border-color:transparent; }
-.ic-summary,.ic-brief>div { display:grid; gap:15px; }
+.ic-summary { display:grid; gap:15px; }
 .ic-impact,.ic-next,.ic-notification { padding:14px; background:var(--ws-brand-soft); border-radius:6px; }
 .ic-impact p,.ic-notification p { margin:5px 0 0; white-space:pre-line; }
 .ic-notification { background:var(--ws-surface-2); }
@@ -49,12 +49,10 @@
   .ic-roles,.ic-facts { grid-template-columns:repeat(2,minmax(0,1fr)); }
   .ic-source button,.ic-views button,.ic-shortcuts button { width:auto !important; }
 }
-@media(min-width:1000px) {
-  .incident-dossier.ic-crisis { grid-template-columns:minmax(0,3fr) minmax(0,2fr); align-items:start; }
-  .ic-crisis .ic-case-head,.ic-crisis .ic-views { grid-column:1/-1; }
-  .ic-crisis .ic-history-panel { grid-column:1; grid-row:3; }
-  .ic-crisis .ic-brief { grid-column:2; grid-row:3; }
-  .ic-crisis .ic-roles { grid-template-columns:minmax(0,1fr); }
+@media(min-width:1000px){
+  .ic-command{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+  .ic-command>section {min-width:0}
+
 }
 .ic-proof { display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:8px; padding:10px; background:var(--ws-surface-2); }
 .ic-proof small { display:block; color:var(--ws-muted); }
@@ -62,3 +60,11 @@
 .ic-register-summary { background:var(--ws-surface); border:1px solid var(--ws-line); border-radius:8px; padding:10px 14px; }
 .ic-register-summary summary { cursor:pointer; font-weight:650; }
 .ic-register-summary dl { margin-top:12px; }
+
+.ic-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.ic-kpis>div,.ic-command>section{padding:12px 16px;background:var(--ws-surface);border:1px solid var(--ws-line);border-radius:8px;color:var(--ws-ink)}
+.ic-kpis span,.ic-kpis strong,.ic-command li span{display:block}.ic-kpis strong{font-size:1.5rem}
+.ic-case-head{position:relative}.ic-case-cancel{float:inline-end;margin-inline-start:10px}.ic-case-cancel button,.ic-notification button,.ic-command button,.ic-evidence-action button,.ic-chips button{font:inherit;border:1px solid var(--ws-line);border-radius:6px;padding:5px 9px;background:var(--ws-surface);color:var(--ws-ink);cursor:pointer}
+.ic-clock{display:inline-flex;align-items:center;border:1px solid var(--ws-line);padding:3px 7px;border-radius:6px;font-size:12px}
+.ic-command{display:grid;gap:10px}.ic-command h4{margin:0 0 8px}.ic-command ul,.ic-command dl{padding:0;margin:0;list-style:none}.ic-command li,.ic-command dl>div{padding:6px 0;border-top:1px solid var(--ws-line);overflow-wrap:anywhere}.ic-command dd{margin:0}.ic-command a{color:var(--ws-ink);text-decoration:underline}.ic-evidence-action{display:flex;justify-content:flex-end}.ic-chips{display:flex;gap:4px;flex-wrap:wrap}.ic-command .ic-notification{margin-bottom:6px}
+@media(max-width:700px){.ic-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.ic-clock{white-space:normal}.ic-case-cancel{float:none;justify-self:start}.ic-command{min-width:0}}

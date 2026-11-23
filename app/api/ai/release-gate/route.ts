@@ -424,12 +424,14 @@ export async function PATCH(req: NextRequest) {
   }
   const { DB } = await aiRuntime(),
     row = await DB.prepare(
-      "SELECT model_id,change_id,created_by,status FROM ai_release_gates WHERE id=?",
+      "SELECT model_id,change_id,created_by,status,environment FROM ai_release_gates WHERE id=?",
     )
       .bind(id)
       .first<Record<string, unknown>>();
   if (!row) return json({ error: "Yayın kapısı bulunamadı." }, 404);
   if (decision.status === "approved") {
+    const sign=await DB.prepare("SELECT p.phase,p.decided_by FROM ai_system_profiles p JOIN ai_model_inventory m ON m.id=p.model_id WHERE p.model_id=? AND m.status='approved' AND json_extract(p.profile_json,'$.risk')!='prohibited'").bind(row.model_id).first<{phase:string;decided_by:string}>();
+    if(!sign||!sign.decided_by||!(sign.phase==='production'||sign.phase==='conditional'&&row.environment==='restricted-production'))return json({code:'AI_GATE_REQUIRED',error:'AI üretim onay kapısı / AI production approval gate'},409);
     if (row.status !== "requested")
       return json(
         { error: "Yalnız hazır ve karar bekleyen yayın onaylanabilir." },
