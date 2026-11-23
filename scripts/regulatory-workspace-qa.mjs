@@ -56,7 +56,21 @@ try{
  phase='source protection';await page.locator('.ri-tabs').getByRole('button',{name:'Sources',exact:true}).click();await page.getByRole('textbox',{name:'Search regulations',exact:true}).fill(sourceName);card=page.locator('.rg-source-list article').filter({hasText:sourceName});await expect(card.getByRole('button',{name:'Delete',exact:true})).toBeDisabled();
  phase='recovery';let fail=true;await page.route('**/api/regulatory-intelligence?*',r=>new URL(r.request().url()).searchParams.has('view')&&fail?r.fulfill({status:503,json:{error:'Synthetic failure'}}):r.continue());await page.locator('.rg-meta').getByRole('button',{name:'Refresh',exact:true}).click();await expect(page.locator('.rg-workspace [role=alert]')).toContainText('could not be loaded');await expect(page.locator('.rg-summary')).not.toContainText('0');fail=false;await page.locator('.rg-workspace').getByRole('button',{name:'Retry',exact:true}).click();await expect(card).toBeVisible();await page.unroute('**/api/regulatory-intelligence?*');
  phase='responsive design';if(await page.locator('.ri-notice').count())await page.locator('.ri-notice').click();await page.locator('.ri-tabs').getByRole('button',{name:'Worklist',exact:true}).click();await page.getByRole('textbox',{name:'Search regulations',exact:true}).fill(String(tag));
- for(const lang of ['EN','TR'])for(const theme of ['light','dark'])for(const width of [1600,390]){await page.locator('.language-switch:visible').getByRole('button',{name:lang,exact:true}).click();await page.evaluate(value=>{document.documentElement.dataset.theme=value},theme);await page.setViewportSize({width,height:1000});await waitForQaIdle(page);assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+2),'page overflow');const metrics=await page.locator('.rg-summary strong').first().evaluate(e=>parseFloat(getComputedStyle(e).fontSize));assert.ok(metrics>=24,'readable metric typography');assert.equal(await page.locator('.ri-tabs').evaluate(e=>getComputedStyle(e).display),'flex');const dd=page.locator('.rg-detail dd').first();assert.notEqual(await dd.evaluate(e=>getComputedStyle(e).color),theme==='light'?'rgb(255, 255, 255)':'rgb(0, 0, 0)','detail contrast');await page.locator('.ri-page').screenshot({path:`${out}/regulatory-${lang}-${theme}-${width}.png`});}
+ for (const lang of ['EN','TR']) for (const theme of ['light','dark']) for (const width of [1600,390]) {
+  await page.locator('.language-switch:visible').getByRole('button',{name:lang,exact:true}).click();
+  await page.evaluate(value=>{document.documentElement.dataset.theme=value},theme);
+  await page.setViewportSize({width,height:1000});
+  await waitForQaIdle(page);
+  assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+2),'page overflow');
+  const metrics=await page.locator('.rg-summary strong').first().evaluate(e=>parseFloat(getComputedStyle(e).fontSize));
+  assert.ok(metrics>=24,'readable metric typography');
+  assert.equal(await page.locator('.ri-tabs').evaluate(e=>getComputedStyle(e).display),'flex');
+  const dd=page.locator('.rg-detail dd').first();
+  assert.notEqual(await dd.evaluate(e=>getComputedStyle(e).color),theme==='light'?'rgb(255, 255, 255)':'rgb(0, 0, 0)','detail contrast');
+  const heroContrast=await new AxeBuilder({page}).include('.ri-hero').withRules(['color-contrast']).analyze();
+  assert.deepEqual(heroContrast.violations.map(v=>v.nodes.map(n=>n.target)),[],`${lang} ${theme} ${width} regulatory toolbar contrast`);
+  await page.locator('.ri-page').screenshot({path:`${out}/regulatory-${lang}-${theme}-${width}.png`});
+ }
  phase='localized source and change dialogs';
  for(const lang of ['TR','EN']){
   const tr=lang==='TR';await page.locator('.language-switch:visible').getByRole('button',{name:lang,exact:true}).click();
