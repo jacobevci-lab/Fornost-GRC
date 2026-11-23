@@ -1,19 +1,20 @@
 name: Production D1 Migration
 
 on:
-  #checkov:skip=CKV_GHA_7: Inputs are constrained to a fixed plan/apply choice and an exact confirmation token; they never alter checkout refs, source paths, build entrypoints, or shell command text.
+  #checkov:skip=CKV_GHA_7: Inputs are constrained to a fixed operation choice and an exact confirmation token; they never alter checkout refs, source paths, build entrypoints, or shell command text.
   workflow_dispatch:
     inputs:
       operation:
-        description: "Plan only or apply migrations to production D1"
+        description: "Plan, repair supplier/incident codes and resume the live Entra test, or apply all migrations"
         required: true
         type: choice
         default: plan
         options:
           - plan
+          - repair-codes-and-test
           - apply
       confirmation:
-        description: "For apply, type exactly: fornost-grc-prod"
+        description: "For either write operation, type exactly: fornost-grc-prod"
         required: false
         type: string
 
@@ -39,10 +40,14 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Validate production confirmation
-        if: ${{ inputs.operation == 'apply' }}
+        if: ${{ inputs.operation != 'plan' }}
         shell: bash
         run: |
           set -euo pipefail
+          if [[ "${GITHUB_REF}" != "refs/heads/main" ]]; then
+            echo "Production writes require main." >&2
+            exit 64
+          fi
           if [[ "${CONFIRMATION}" != "fornost-grc-prod" ]]; then
             echo "Apply blocked: confirmation must be exactly 'fornost-grc-prod'." >&2
             exit 64
@@ -79,6 +84,15 @@ jobs:
           --remote
           --config wrangler.d1.jsonc
 
+      - name: Validate and apply the scoped supplier and incident code repair
+        if: inputs.operation == 'repair-codes-and-test'
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --import tsx --test tests/entra-code-repair.test.ts
+          python3 scripts/prepare-entra-code-repair.py > "$RUNNER_TEMP/entra-code-repair.sql"
+          npx wrangler d1 execute fornost-grc-prod --remote --config wrangler.d1.jsonc --yes --file "$RUNNER_TEMP/entra-code-repair.sql"
+
       - name: Apply production migrations
         if: ${{ inputs.operation == 'apply' }}
         run: >-
@@ -93,3 +107,18 @@ jobs:
           --remote
           --config wrangler.d1.jsonc
           --command "SELECT COUNT(*) AS user_table_count FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%';"
+
+  resume-entra:
+    name: Verify existing Entra exercise on production
+    needs: migrate
+    if: inputs.operation == 'repair-codes-and-test' && github.ref == 'refs/heads/main'
+    uses: ./.github/workflows/entra-connected-e2e.yml
+    with:
+      target: production
+      clean: false
+      resume_only: true
+    secrets:
+      FORNOST_SMOKE_EMAIL: ${{ secrets.FORNOST_SMOKE_EMAIL }}
+      FORNOST_SMOKE_PASSWORD: ${{ secrets.FORNOST_SMOKE_PASSWORD }}
+      CF_ACCESS_CLIENT_ID: ${{ secrets.CF_ACCESS_CLIENT_ID }}
+      CF_ACCESS_CLIENT_SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}

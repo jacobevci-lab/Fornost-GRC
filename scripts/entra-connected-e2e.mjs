@@ -137,6 +137,8 @@ try {
   const people = { owner };
   const roles = await step('Independent directory identities', async () => {
     assert.ok(listed && (!hasExisting || resumed), 'Verify the existing exercise first');
+    if (process.env.ENTRA_RESUME_ONLY === 'true')
+      assert.ok(resumed, 'The previously verified Entra exercise is required for this run');
     const users = (await api('/api/users')).users;
     // Reuse a dedicated test identity of the right role before provisioning one.
     const participant = (explicit, canonical, roles) => {

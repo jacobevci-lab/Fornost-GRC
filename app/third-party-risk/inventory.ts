@@ -9,8 +9,8 @@ const states:Record<string,[string,string]>={
   offboarding:["Çıkış Sürecinde","Offboarding in progress"],excluded:["Gerekçeli Kapsam Dışı","Excluded with reason"],offboarded:["Çıkış / Sonlandırıldı","Offboarded / terminated"],
 };
 export const inventoryLabel=(key:string,tr:boolean)=>states[key]?.[tr?0:1];
-export function vendorCode(code:unknown,id:unknown){
-  return [code,id].find((ref):ref is string=>typeof ref==="string" && /^VEN-\d{3,}$/i.test(ref))||"—";
+export function vendorCode(code:unknown,id:unknown,displayCode?:unknown){
+  return [code,displayCode,id].find((ref):ref is string=>typeof ref==="string" && /^VEN-\d{3,}$/i.test(ref))||"—";
 }
 export function vendorCriticality(value:unknown){
   const legacy:Record<string,string>={Kritik:"critical",Yüksek:"high",Orta:"medium",Düşük:"low"};
