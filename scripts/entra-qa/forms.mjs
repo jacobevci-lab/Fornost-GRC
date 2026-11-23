@@ -127,6 +127,11 @@ export async function aiForm(page, profile, codes) {
     ['Architecture', profile.architecture],
     ['Deployment model', profile.deployment],
     ['EU AI Act risk level', profile.risk],
+    ['Impact (1–5)', profile.impact],
+    ['Likelihood (1–5)', profile.likelihood],
+    ['Data sensitivity (1–5)', profile.sensitivity],
+    ['Autonomy risk (1–5)', profile.autonomy],
+    ['Control maturity (1–5)', profile.maturity],
   ])
     await d.getByLabel(label, { exact: true }).selectOption(value);
   for (const label of [
@@ -145,6 +150,17 @@ export async function aiForm(page, profile, codes) {
     ['Independent reviewer (Admin)', profile.reviewer],
   ])
     await pick(d, label, value);
+  const invalid = await d
+    .locator('input:invalid, textarea:invalid, select:invalid')
+    .evaluateAll((fields) =>
+      fields.map(
+        (field) =>
+          field.getAttribute('aria-label') ||
+          field.labels?.[0]?.textContent?.trim().slice(0, 80) ||
+          field.tagName,
+      ),
+    );
+  assert.deepEqual(invalid, [], 'AI profile required fields');
   const response = page.waitForResponse(
     (r) => new URL(r.url()).pathname === '/api/ai/workspace' && r.request().method() === 'POST',
   );

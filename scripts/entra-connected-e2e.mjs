@@ -124,10 +124,24 @@ try {
   const people = { owner };
   const roles = await step('Independent directory identities', async () => {
     const users = (await api('/api/users')).users;
-    for (const [key, role, email] of [
-      ['reviewer', 'Admin', process.env.ENTRA_REVIEWER_EMAIL || 'entra-qa-reviewer@fornost.test'],
-      ['lead', 'Editor', process.env.ENTRA_LEAD_EMAIL || 'entra-qa-lead@fornost.test'],
+    // Reuse a dedicated test identity of the right role before provisioning one.
+    const participant = (explicit, canonical, roles) => {
+      if (explicit || users.some((u) => u.email === canonical)) return explicit || canonical;
+      return (
+        users.find(
+          (u) =>
+            u.status === 'Active' &&
+            roles.includes(u.role) &&
+            /^[a-z0-9.+_-]+@fornost\.test$/i.test(u.email) &&
+            !Object.values(people).includes(u.email),
+        )?.email || canonical
+      );
+    };
+    for (const [key, role, explicit, canonical] of [
+      ['reviewer', 'Admin', process.env.ENTRA_REVIEWER_EMAIL, 'entra-qa-reviewer@fornost.test'],
+      ['lead', 'Editor', process.env.ENTRA_LEAD_EMAIL, 'entra-qa-lead@fornost.test'],
     ]) {
+      const email = participant(explicit, canonical, key === 'lead' ? ['Editor', 'Admin'] : ['Admin']);
       const u = users.find((x) => x.email === email);
       if (u)
         assert.ok(
