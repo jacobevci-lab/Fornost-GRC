@@ -5,6 +5,26 @@ on:
       - 'scripts/entra-connected-e2e.mjs'
       - 'scripts/entra-qa/**'
       - '.github/workflows/entra-connected-e2e.yml'
+  workflow_call:
+    inputs:
+      target:
+        required: true
+        type: string
+      clean:
+        default: false
+        type: boolean
+      resume_only:
+        default: true
+        type: boolean
+    secrets:
+      FORNOST_SMOKE_EMAIL:
+        required: true
+      FORNOST_SMOKE_PASSWORD:
+        required: true
+      CF_ACCESS_CLIENT_ID:
+        required: false
+      CF_ACCESS_CLIENT_SECRET:
+        required: false
   workflow_dispatch:
     inputs:
       target:
@@ -63,6 +83,7 @@ jobs:
           ENTRA_BASE_URL: https://app.fornostsecurity.com
           FORNOST_EXPECTED_REVISION: ${{ github.sha }}
           ENTRA_WRITE: 'true'
+          ENTRA_RESUME_ONLY: ${{ inputs.resume_only || 'false' }}
           ENTRA_CLEAN: ${{ inputs.clean }}
           FORNOST_SMOKE_EMAIL: ${{ secrets.FORNOST_SMOKE_EMAIL }}
           FORNOST_SMOKE_PASSWORD: ${{ secrets.FORNOST_SMOKE_PASSWORD }}
