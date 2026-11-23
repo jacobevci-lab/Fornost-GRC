@@ -25,7 +25,7 @@ export async function commitAutomationReport(db:D1Database,input:{
      return [...input.dependent,
        db.prepare("INSERT INTO simple_grc_records(id,module,data_json,created_at,updated_at) SELECT ?,'Kanıtlar',?,?,?"+guard).bind(id,JSON.stringify(record),stamp,stamp,version.id),
        db.prepare("INSERT INTO simple_grc_record_codes(record_id,module,code,created_at) SELECT ?,'Kanıtlar',?,?"+guard).bind(id,code,stamp,version.id),
-       db.prepare("INSERT INTO simple_evidence_files(file_key,file_name,content_type,content,created_at) SELECT ?,?,?,?,?"+guard).bind(fileKey,fileName,fileType,bytes.buffer,stamp,version.id)];
+       db.prepare("INSERT INTO simple_evidence_files(file_key,file_name,content_type,content,created_at) SELECT ?,?,?,?,?"+guard).bind(fileKey,fileName,fileType,bytes,stamp,version.id)];
    },
  });
 }
