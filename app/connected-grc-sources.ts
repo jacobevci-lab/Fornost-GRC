@@ -123,6 +123,7 @@ function findingsRows(payload: JsonRecord) {
     const controlRefs = unique(item.controlRef, item.control_ref, sourceType === "control" ? sourceRef : "");
     const traceable = Boolean(sourceRef || riskRefs.length || controlRefs.length);
     const sourceField: Record<string, string> = {
+      ai: sourceRef.startsWith("AIM-")?"aiModelRef":"aiFindingRef",
       audit: "findingAuditRef",
       vendor: "findingVendorRef",
       regulatory: "findingRegulatoryRef",
@@ -451,6 +452,7 @@ function aiRows(payloads: ConnectedGrcEnterprisePayloads): ConnectedGrcRow[] {
         modelName: text(item.modelName),
         // Only explicit native IDs are relationships. Control prose, evidence
         // descriptions and arbitrary sourceRef values are not GRC references.
+        ...(kind==='ai-model'&&record(item.governanceRefs)?Object.fromEntries(Object.entries(record(item.governanceRefs)!).filter(([key])=>['asset','vendor','risk','control','evidence','incident'].includes(key)).map(([key,refs])=>['system_'+key,unique(refs)])):{}),
         aiModelRef: kind === "ai-model" ? [] : unique(item.modelId),
         aiFindingRef: kind === "ai-alert" ? unique(item.findingId) : [],
       }));
