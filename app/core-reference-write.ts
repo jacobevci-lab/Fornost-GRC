@@ -19,7 +19,7 @@ export function newCoreReferences(sourceId:string,module:string,data:Record<stri
   const modules=rule.modules.filter(target=>target in recordCodePrefixes);
   if(!modules.length)continue;
   const previous=new Set(values(before[field]));
-  for(const value of new Set(values(data[field])))if((identity.test(value)||["dependencyRefs","technologyRefs","supplierRefs","vendorEvidenceRefs","controlRiskRefs","supportingEvidenceRefs"].includes(field))&&!previous.has(value))refs.push({sourceId,field,value,modules});
+  for(const value of new Set(values(data[field])))if((identity.test(value)||["dependencyRefs","technologyRefs","supplierRefs","vendorEvidenceRefs","controlRiskRefs","supportingEvidenceRefs","sourceAssetRef","sourceVendorRef"].includes(field))&&!previous.has(value))refs.push({sourceId,field,value,modules});
  }
  return refs;
 }
@@ -40,6 +40,24 @@ export function coreReferenceGuard(refs:Reference[]){
 /** Verify directory assignments in the same statement as the core record write. */
 export function coreWriteGuard(module:string, records: {id:string;data:Record<string,unknown>;before?:Record<string,unknown>}[]) {
  const guard=coreReferenceGuard(records.flatMap(record=>newCoreReferences(record.id,module,record.data,record.before)));
+ if(module==="Kanıtlar"){
+  const owners=records.filter(({data,before})=>data.owner!==before?.owner&&String(data.owner||"").includes("@")).map(({data})=>data.owner);
+  const reviews=records.filter(({data,before})=>data.reviewer&&(data.reviewer!==before?.reviewer||data.owner!==before?.owner)).map(({data})=>({reviewer:data.reviewer,owner:data.owner}));
+  if(owners.length){
+   guard.sql+=" AND NOT EXISTS(SELECT 1 FROM json_each(?) o WHERE NOT EXISTS(SELECT 1 FROM local_users WHERE status='Active' AND lower(email)=lower(o.value)))";
+   guard.values.push(JSON.stringify(owners));
+  }
+  if(reviews.length){
+   guard.sql+=` AND NOT EXISTS(SELECT 1 FROM json_each(?) r WHERE NOT EXISTS(
+    SELECT 1 FROM local_users u LEFT JOIN user_module_access a ON a.user_id=u.id
+    WHERE lower(u.email)=lower(r.value->>'$.reviewer') AND u.status='Active' AND u.role IN ('Admin','Editor')
+      AND lower(u.email)<>lower(r.value->>'$.owner') AND lower(u.name)<>lower(r.value->>'$.owner')
+      AND (u.role='Admin' OR a.user_id IS NULL OR CASE WHEN json_valid(a.policy_json)
+        THEN (json_extract(a.policy_json,'$.mode')='full' OR json_extract(a.policy_json,'$.modules.Kanıtlar')='write') END)))`;
+   guard.values.push(JSON.stringify(reviews));
+  }
+  return guard;
+ }
  if(module!=="Risk Assessment" && module!=="Varlık Envanteri" && module!=="BIA" && module!=="Kontroller")return guard;
  const contacts=[];
  const legacyBiaPairs=[];

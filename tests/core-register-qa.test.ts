@@ -41,7 +41,7 @@ test("core registers persist public codes and keep internal IDs hidden", async (
   assert.match(page, /requiredFieldsByModule/);
   assert.match(page, /statusOptionsByModule/);
   assert.match(page, /canDelete=\{currentUser\.role === "Admin"\}/);
-  assert.match(page, /disabled=\{saving\} aria-busy=\{saving\}/);
+  assert.match(page, /disabled=\{saving[^\n]+aria-busy=\{saving\}/);
   assert.match(page, /setRows\(\[\]\)/);
   assert.doesNotMatch(
     page,

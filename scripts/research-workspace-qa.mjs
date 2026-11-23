@@ -51,6 +51,8 @@ async function visiblePdfWidth(frame) {
 try {
   await mkdir(out, { recursive: true });
   await api('/api/auth', 'POST', { action: 'login', email: 'qa-admin@fornost.test', password: qaPassword() });
+  const evidenceReviewer='research-review-'+Date.now()+'@fornost.test';
+  await api('/api/users','POST',{name:'Internal Audit',email:evidenceReviewer,role:'Editor',password:qaPassword()},201);
   auditId = (await api('/api/audits', 'POST', { name: auditName, template: 'Özel Denetim', auditOwner: 'Security Operations', auditor: 'Internal Audit' }, 201)).id;
   const initial = await api(`/api/audits/plan?id=${auditId}`);
   await api('/api/audits/plan', 'PUT', { id: auditId, expectedRevision: initial.revision, plan: { ...initial.plan,
@@ -79,7 +81,7 @@ try {
   }
   const titles = [`Quarterly access evidence ${stamp}`, `Access review log ${stamp}`];
   for (const [index, file] of [{ name: 'quarterly-access-review.pdf', mimeType: 'application/pdf', buffer: Buffer.from(await pdf.save()) }, { name: 'access-review.csv', mimeType: 'text/csv', buffer: Buffer.from('account,decision\nservice-operations,reviewed\n<script>alert(1)</script>,literal evidence text') }].entries()) {
-    const response = await context.request.post(base + '/api/evidence', { headers: { origin: base }, multipart: { evidenceTitle: titles[index], owner: 'Security Operations', period: 'Q3 2026', controlRef, reviewer: 'Internal Audit', sourceSystem: 'Identity governance export', status: 'İncelemede', file } });
+    const response = await context.request.post(base + '/api/evidence', { headers: { origin: base }, multipart: { evidenceTitle: titles[index], owner: 'Security Operations', period: 'Q3 2026', controlRef, reviewer:evidenceReviewer, sourceSystem: 'Identity governance export', status: 'İncelemede', file } });
     assert.equal(response.status(), 201, await response.text()); records.push((await response.json()).id);
   }
   const orphanName = `QA archived audit ${stamp}`;

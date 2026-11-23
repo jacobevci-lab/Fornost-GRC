@@ -8,6 +8,7 @@ import { ModuleTrailContext, RecordTrail } from "./module-record-trail-view";
 import { AssuranceChain, hasAssuranceChain } from "./assurance-chain-view";
 import { assessedRiskScore, assessedResidualRiskScore } from "./risk-methodology";
 import { navigateToFornost } from "./navigation-focus";
+import {evidenceState} from "./evidence/intake";
 import { displayRecordCode } from "./record-codes";
 
 import { hasBusinessContext } from "./business-context";
@@ -20,13 +21,14 @@ type Props = {
   lang: "tr" | "en";
   moduleNames: Record<string, string>;
   formatValue: (value: string, lang: "tr" | "en") => string;
+  evidenceReview?:(row:ConnectedGrcRow)=>ReactNode;
   allowPosture?:boolean;
   initialRecordId?:string;
   preview: (id: string) => void;
   children: (inspect: Inspect, open: boolean) => ReactNode;
 };
 
-export default function RecordWorkspace({ rows, visible, lang, moduleNames, formatValue, preview, allowPosture, initialRecordId, children }: Props) {
+export default function RecordWorkspace({ rows, visible, lang, moduleNames, formatValue, preview, evidenceReview, allowPosture, initialRecordId, children }: Props) {
   const tr = lang === "tr";
   const [path, setPath] = useState<string[]>(() => initialRecordId ? [initialRecordId] : []);
   const [origin, setOrigin] = useState<{ rowId: string; button: HTMLButtonElement; x: number; y: number; tableLeft: number } | null>(null);
@@ -95,7 +97,7 @@ export default function RecordWorkspace({ rows, visible, lang, moduleNames, form
     [tr ? "Doğal risk puanı" : "Inherent risk score", riskScore === null ? null : String(riskScore)],
     ...(selected?.module === "Risk Assessment" ? [[tr ? "Artık risk puanı" : "Residual risk score", String(assessedResidualRiskScore(data) ?? "—")]] : []),
     [tr ? "Sorumlu" : "Owner", data.owner || data.auditOwner],
-    [selected?.module==="Varlık Envanteri" ? (tr?"Yaşam Döngüsü":"Lifecycle") : (tr?"Durum":"Status"), data.status],
+    [selected?.module==="Varlık Envanteri" ? (tr?"Yaşam Döngüsü":"Lifecycle") : (tr?"Durum":"Status"), selected?.module==="Kanıtlar"?evidenceState(data,tr):data.status],
     [tr?"Üretici":"Manufacturer",selected?.module==="Varlık Envanteri" && data.externalVendor],
     [tr ? "İş birimi" : "Business unit", data.businessUnit],
     [tr ? "Sonraki inceleme" : "Next review", data.nextReview],
@@ -125,6 +127,7 @@ export default function RecordWorkspace({ rows, visible, lang, moduleNames, form
         </div>
         <small>{moduleNames[selected.module] || selected.module} · {displayRecordCode(selected)}</small>
         <h3 ref={title} tabIndex={-1}>{connectedTitle(selected)}</h3>
+        {selected.module==="Kanıtlar"&&evidenceReview?.(selected)}
         {allowPosture && selected.module==="Kontroller" && <FrameworkImpact controlId={selected.id} tr={tr}/>}
         {business && graph && <BusinessContextView anchor={selected} links={graph.links} tr={tr} openRecord={row=>follow(row.id)}
           loading={continuity.loading} partial={continuity.partial} scoped={context?.scoped} retry={continuity.retry}/>}

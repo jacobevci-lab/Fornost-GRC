@@ -80,10 +80,17 @@ try{
   await page.locator('button[data-record-id="'+control.id+'"]:visible').first().click();
   await expect(page.locator('.record-workspace .posture-impact')).toContainText('CC1.1');
   const file=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/lX8AAAAASUVORK5CYII=','base64');
+  const proofReviewer="posture-review-"+tag+"@fornost.test",proofContext=await browser.newContext();
+  await api('/api/users',{name:'Posture reviewer',email:proofReviewer,password:qaPassword(),role:'Editor'},201);
+  await api('/api/auth',{action:'login',email:proofReviewer,password:qaPassword()},200,proofContext);
   for(const [evidencePeriod,status] of [[period,'Onaylandı'],[period,'İncelemede'],['Q2 2026','Onaylandı']]){
-    const r=await ctx.request.post(base+'/api/evidence',{headers:{origin:base},multipart:{evidenceTitle:'Access evidence '+evidencePeriod,owner:'IAM',period:evidencePeriod,controlRef:control.code,status,file:{name:'sample.png',mimeType:'image/png',buffer:file}}});
+    const r=await ctx.request.post(base+'/api/evidence',{headers:{origin:base},multipart:{evidenceTitle:'Access evidence '+evidencePeriod,owner:'IAM',period:evidencePeriod,controlRef:control.code,reviewer:proofReviewer,status,file:{name:'sample.png',mimeType:'image/png',buffer:file}}});
     assert.equal(r.status(),201,await r.text());
+    const item=await r.json(),stored=(await api('/api/grc')).rows.find(row=>row.id===item.id);
+    assert.equal(JSON.parse(stored.data_json).status,'İncelemede');
+    if(status==='Onaylandı')await api('/api/evidence/review',{id:item.id,version:1,expectedUpdatedAt:stored.updated_at},200,proofContext);
   }
+  await proofContext.close();
   await go('Compliance Management');
   await work.getByRole('button',{name:/^ISO 27001.*%/}).click();
   await work.getByRole('button',{name:/^All requirements/}).click();

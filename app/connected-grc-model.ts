@@ -61,6 +61,8 @@ type RelationDefinition = { relation: string; modules: string[]; sources?: strin
 export const relationFields: Record<string, RelationDefinition> = {
   aiModelRef: { relation: "ai-model", modules: ["AI Yönetişimi"], sources: ["AI Yönetişimi"], targetKind: "ai-model", canonicalOnly: true },
   aiFindingRef: { relation: "ai-finding", modules: ["AI Yönetişimi"], sources: ["AI Yönetişimi"], targetKind: "ai-finding", canonicalOnly: true },
+  sourceAssetRef: {relation:"evidence-source",modules:["Varlık Envanteri"],sources:["Kanıtlar"]},
+  sourceVendorRef: {relation:"evidence-source",modules:["Tedarikçiler"],sources:["Kanıtlar"]},
   controlRiskRefs: {relation:"risk-control",modules:["Risk Assessment"],sources:["Kontroller"]},
   supportingEvidenceRefs: {relation:"control-evidence",modules:["Kanıtlar"],sources:["Kontroller"]},
   existingControls: { relation: "risk-control", modules: ["Kontroller"], sources: ["Risk Assessment"], optionalControlReference: true },
@@ -350,6 +352,7 @@ export const connectedRemediationModule: Record<string, string> = {
 export const connectedRelationLabels: Record<string, { tr: string; en: string }> = {
   "ai-model": { tr: "AI modeline bağlı", en: "linked to AI model" },
   "ai-finding": { tr: "AI bulgusuna aktarılmış", en: "escalated to AI finding" },
+  "evidence-source": {tr:"kaynağından toplandı",en:"collected from"},
   "risk-control": { tr: "kontrol ile yönetilir", en: "is managed by control" },
   "risk-asset": { tr: "varlığı etkiler", en: "affects asset" },
   "risk-process": { tr: "süreci etkiler", en: "affects process" },

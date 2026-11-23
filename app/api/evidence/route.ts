@@ -1,3 +1,7 @@
+import {pendingEvidence,validEvidenceRefs,evidenceDatesInvalid,evidenceReviewerIsIndependent} from "../../evidence/intake";
+import {validDate} from "../../core-record-validation";
+import {mergeEvidenceStandards} from "../../framework-posture/store";
+import {canReadPosture,canReadModule} from "../../module-access";
 import { NextRequest,NextResponse } from "next/server";
 import { requireRole } from "../auth/security";
 import { ensureCoreGrcSchemaCompatibility } from "../grc/schema-compat";
@@ -24,13 +28,17 @@ export async function POST(req:NextRequest){
  let fileType: string;
  try { fileType=validateEvidenceUpload(bytes,file.name,file.type); } catch(error) { return NextResponse.json({error:evidenceFileErrorMessage(error)},{status:400}); }
  for(const field of ["evidenceTitle","controlRef","owner","period"])if(!String(fd.get(field)||"").trim())return NextResponse.json({error:`Zorunlu alan eksik: ${field}`},{status:400});
- const status=String(fd.get("status")||"Taslak").trim(),allowedStatuses=["Taslak","İncelemede","Onaylandı","Reddedildi","Süresi Doldu"];
- if(!allowedStatuses.includes(status))return NextResponse.json({error:"Geçersiz kanıt durumu."},{status:400});
  const id=`EVD-${crypto.randomUUID()}`,safeName=file.name.replace(/[^a-zA-Z0-9._-]/g,"_").slice(-120)||"evidence",key=`evidence/${id}/v1-${safeName}`;
  const now=new Date().toISOString(),contentSha256=await sha256HexBytes(bytes);
 
- const data:Record<string,string>={fileKey:key,fileName:safeName,fileType,fileSize:String(file.size),contentSha256,status};for(const k of EVIDENCE_METADATA_FIELDS){const v=fd.get(k);if(typeof v==="string")data[k]=v.trim().slice(0,2000);}
+ const data:Record<string,string>={fileKey:key,fileName:safeName,fileType,fileSize:String(file.size),contentSha256,...pendingEvidence,uploadedBy:auth.actor.email,versionUploadedBy:auth.actor.email};for(const k of EVIDENCE_METADATA_FIELDS){const v=fd.get(k);if(typeof v==="string")data[k]=v.trim().slice(0,k==="controlRefs"?16500:2000);}
+ if(!validEvidenceRefs(fd.get("controlRefs")||fd.get("controlRef")))return NextResponse.json({code:"CONTROL_LIMIT"},{status:400});
  const refs=splitEvidenceControlRefs(data.controlRefs||data.controlRef);data.controlRef=refs[0]||data.controlRef;data.controlRefs=refs.join(", ");
+ data.collectedAt||=now.slice(0,10);
+ if(!validDate(data.collectedAt)||(data.expiresAt&&!validDate(data.expiresAt))||evidenceDatesInvalid(data))return NextResponse.json({code:"EVIDENCE_DATES"},{status:400});
+ if(data.reviewer&&!evidenceReviewerIsIndependent(data))return NextResponse.json({code:"INDEPENDENT_REVIEWER_REQUIRED"},{status:400});
+ if((data.sourceAssetRef&&data.sourceVendorRef)||(data.sourceAssetRef&&!canReadModule(auth.actor,"Varlık Envanteri"))||(data.sourceVendorRef&&!canReadModule(auth.actor,"Tedarikçiler"))||(!canReadModule(auth.actor,"Kontroller")&&refs.some(ref=>/^CTL-/i.test(ref))))return NextResponse.json({code:"SOURCE_UNAVAILABLE"},{status:403});
+ if(canReadPosture(auth.actor))await mergeEvidenceStandards(env.DB,data);
  const guard=evidenceReferenceGuard(id,data);
  // Fail before storing bytes when the target is already unavailable; the
  // transaction claim repeats the check to close concurrent deletion races.

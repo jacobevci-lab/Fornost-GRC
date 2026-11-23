@@ -43,6 +43,7 @@ try {
     const file = { name: `evidence.${ext}`, mimeType: 'application/octet-stream', buffer: ['docx', 'xlsx'].includes(ext) ? await office(ext) : Buffer.from(ext === 'json' ? '{"kontrol":"erişim","value":0}' : 'kontrol\tdeğer\nA.5.18,İncelemede') };
     const created = await upload(file, undefined, 201, { fileKey: 'evidence/forged', fileType: 'text/html', fileSize: '0', contentSha256: 'forged', demoImage: '/forged.svg' });
     let data = JSON.parse((await record(created.id)).data_json);
+    assert.equal(data.status,"İncelemede");assert.equal(data.reviewStatus,"pending-review");
     assert.equal(data.fileType, type); assert.equal(data.fileSize, String(file.buffer.length)); assert.equal(data.demoImage, undefined); assert.notEqual(data.fileKey, 'evidence/forged');
     await verifyDownload(data, file, type);
     const initialKey = data.fileKey;
@@ -77,6 +78,8 @@ try {
   assert.ok(afterRemoval.recentVersions.filter(v => v.evidenceId === removedId).every(v => v.recordAvailable === false));
   const retainedDownload = await context.request.get(base + `/api/evidence?key=${encodeURIComponent(removedVersions[0].fileKey)}`);
   assert.equal(retainedDownload.status(), 404);
+  const ctlResponse=await context.request.post(base+'/api/grc',{headers:{origin:base},data:{module:'Kontroller',data:{controlTitle:'QA upload control',owner:'QA',frequency:'Aylık',implementation:'Kısmi',status:'Taslak'}}});
+  assert.equal(ctlResponse.status(),201);const uploadControl=await ctlResponse.json();
   page = await context.newPage(); page.on('pageerror', e => errors.push(e.message));
   await page.goto(base); await expect(page.locator('.shell')).toBeVisible();
   await page.locator('.language-switch:visible').getByRole('button', { name: 'EN', exact: true }).click();
@@ -84,8 +87,15 @@ try {
   await page.locator('.actions .primary').click(); const dialog = page.locator('.modal[role=dialog]');
   await expect(dialog.locator('input[type=file]')).toHaveAttribute('accept', /\.docx,\.xlsx/);
   await dialog.locator('input[type=file]').setInputFiles({ name: 'ui-access.csv', mimeType: 'text/csv', buffer: Buffer.from('account,reviewed\nqa,true') });
-  for (const [field, value] of Object.entries({ evidenceTitle: `QA UI CSV ${tag}`, controlRef: 'QA-DOC-1', owner: 'qa-admin@fornost.test', period: '2026-Q4' })) await dialog.locator(`[name=${field}]`).fill(value);
-  await dialog.locator('[name=status]').selectOption('Taslak');
+  await expect(dialog.locator('[name=evidenceTitle]')).toHaveValue('ui access');
+  await expect(dialog.locator('.ev-drop code')).toHaveText(createHash('sha256').update('account,reviewed\nqa,true').digest('hex'));
+  await expect(dialog.locator('output')).toHaveText('Pending review');
+    for(const [label,query] of [['Owner','qa-admin@fornost.test'],['Related controls',uploadControl.code]]){
+    await dialog.getByRole('combobox',{name:label,exact:true}).fill(query);
+    await dialog.getByRole('listbox',{name:label,exact:true}).getByRole('option').filter({hasText:query}).first().click();
+  }
+  await dialog.locator('[name=evidenceTitle]').fill(`QA UI CSV ${tag}`);
+  await dialog.locator('[name=period]').fill('2026-Q4');
   assert.equal(await dialog.locator('form').evaluate(form => form.checkValidity()), true);
   const savedResponse = page.waitForResponse(r => r.url().endsWith('/api/evidence') && r.request().method() === 'POST');
   await dialog.locator('.form-actions .primary').click(); const saved = await savedResponse; assert.equal(saved.status(), 201, await saved.text());

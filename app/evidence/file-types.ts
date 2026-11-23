@@ -12,4 +12,4 @@ export const EVIDENCE_FILE_HELP = {
   en: 'PDF, PNG/JPG/WebP, CSV/TSV, TXT/LOG, JSON, DOCX and XLSX · up to 10 MB. Text files must use UTF-8. Office files must be unencrypted and macro-free; embedded binary objects are not supported.',
 };
 export const evidenceInlineType = (type: string) => ['application/pdf', 'image/png', 'image/jpeg', 'image/webp'].includes(type);
-export const EVIDENCE_METADATA_FIELDS = ['evidenceTitle', 'controlRef', 'controlRefs', 'controlTitle', 'owner', 'period', 'frameworks', 'sourceSystem', 'collectedAt', 'expiresAt', 'reviewer', 'reviewStatus', 'notes'] as const;
+export const EVIDENCE_METADATA_FIELDS = ['evidenceTitle', 'controlRef', 'controlRefs', 'controlTitle', 'owner', 'period', 'frameworks', 'sourceSystem', 'collectedAt', 'expiresAt', 'reviewer', 'sourceAssetRef', 'sourceVendorRef', 'notes'] as const;

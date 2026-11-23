@@ -1,6 +1,8 @@
 "use client";
 import { CopyRecordLink, RecordLinkEntry } from './record-link-controls';
-import { EVIDENCE_FILE_ACCEPT, EVIDENCE_FILE_HELP } from "./evidence/file-types";
+import {EvidenceLibraryFields,EvidenceControlsContext,EvidenceControlsCell} from "./evidence-library-fields";
+import {EvidenceReviewAction} from "./evidence-review-action";
+import {localDay,pendingEvidence,evidenceState,evidenceDatesInvalid} from "./evidence/intake";
 import { auditRequirementPage } from "./audit-requirement-page";
 import "./audit-requirement-page.css";
 import { submitLocalAuthentication, type LocalAuthInput } from "./local-auth-submit";
@@ -1199,6 +1201,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
     [controlEvidenceFirst,setControlEvidenceFirst]=useState(false),
     [importOpen, setImportOpen] = useState(false),
     [registerImportRevision, setRegisterImportRevision] = useState(0),
+    [evidenceFile,setEvidenceFile]=useState<File|null>(null),
     [previewEvidence, setPreviewEvidence] = useState<Row | null>(null),
     [browsedAudit, setSelectedAudit] = useState(""),
     [auditPortfolio, setAuditPortfolio] = useState<AuditPortfolioItem[]>([]),
@@ -1532,6 +1535,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
     setControlMappings([]);
     setControlEvidenceFirst(false);
     const next = empty(module);
+    if(module==="Kanıtlar"){setEvidenceFile(null);Object.assign(next,pendingEvidence,{collectedAt:localDay()})}
     if (module === "BIA") next.status = "Taslak";
     if (module === "Risk Assessment") next.status = "Değerlendiriliyor";
     if (module === "Denetim Yönetimi" && selectedAudit) {
@@ -1773,11 +1777,16 @@ function FornostApp({ currentUser }: { currentUser: any }) {
   async function uploadEvidence(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if(recordWritePending.current)return;
-    const body=new FormData(e.currentTarget);
+    if(!evidenceFile)return;
+    const body=new FormData();
+    for(const [key,value] of Object.entries(form))if(typeof value==="string")body.set(key,value);
+    body.set("file",evidenceFile);
     recordWritePending.current=true;setSaving(true);setNotice("");
     try{
       const r=await fetch(withBasePath("/api/evidence"),{method:"POST",body});
       const result=await r.json().catch(()=>({}));
+      const errors:Record<string,[string,string]>={EVIDENCE_DATES:["Geçerlilik bitişini ve toplanma tarihini kontrol edin.","Check the collection and expiry dates."],INDEPENDENT_REVIEWER_REQUIRED:["Sahip ve yükleyiciden farklı bir inceleyen seçin.","Select a reviewer other than the owner or uploader."],SOURCE_UNAVAILABLE:["Seçilen bağlantı için erişim gerekiyor.","Access to the selected source is required."],REFERENCE_UNAVAILABLE:["Seçilen kayıt veya kullanıcı değişti. Seçimi güncelleyin.","A selected record or user changed. Update the selection."]};
+      if(!r.ok&&errors[result.code])throw new Error(errors[result.code][lang==="tr"?0:1]);
       if(!r.ok)throw new Error(String(result.error||(lang==="tr"?"Kanıt yüklenemedi. Dosya türünü ve 10 MB sınırını kontrol edin.":"Evidence could not be uploaded. Check the file type and 10 MB limit.")));
       const refreshed=await load();setModal(false);
       setNotice(refreshed?(lang==="tr"?"Kanıt kütüphanesine eklendi.":"Added to the evidence library."):(lang==="tr"?"Kanıt yüklendi ancak liste yenilenemedi. Tekrar göndermeden önce sayfayı yenileyin.":"Evidence was uploaded, but the list could not be refreshed. Reload before submitting again."));
@@ -1785,6 +1794,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
       setNotice(error instanceof Error&&!(error instanceof TypeError)?error.message:(lang==="tr"?"Yükleme sonucu doğrulanamadı. Tekrar göndermeden önce kütüphaneyi kontrol edin.":"The upload result could not be confirmed. Check the library before submitting again."));
     }finally{recordWritePending.current=false;setSaving(false);}
   }
+  const evidenceReview=(row:ConnectedGrcRow)=><EvidenceReviewAction key={row.id} row={row} actor={currentUser} canWrite={canWriteModule(currentUser,"Kanıtlar")} tr={lang==="tr"} refresh={async()=>Boolean(await load())}/>;
   const by = (m: string) => rows.filter((r) => r.module === m),
     desc = registerExperience(active, lang).description;
   const navGroups = [
@@ -2481,6 +2491,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
                 filterPanelOpen={filterPanelOpen}
                 setFilterPanelOpen={setFilterPanelOpen}
               />
+              <EvidenceControlsContext.Provider value={active==="Kanıtlar"?riskControls:null}>
               <ControlRegisterContext.Provider value={active==="Kontroller"?{
                 links:controlLinks, risks:registerLoadState==="ready"&&canReadModule(currentUser,"Risk Assessment"), evidence:registerLoadState==="ready"&&canReadModule(currentUser,"Kanıtlar"),
                 attach:canWriteModule(currentUser,"Kontroller")&&canReadModule(currentUser,"Kanıtlar")?row=>{const source=readableRows.find(r=>r.id===row.id);if(source)openEdit(source,true)}:undefined
@@ -2488,7 +2499,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
               <BiaScope enabled={active==="BIA"} rows={readableRows} create={canWriteModule(currentUser,"İş Sürekliliği")?row=>{
                 navigateToModule("İş Sürekliliği");setBiaPlanSeed(row);
               }:undefined}>
-              <RecordWorkspace initialRecordId={focusedRecord?.openDetail ? focusedRecord.id : undefined} allowPosture={canReadPosture(currentUser)} key={active + ":" + (focusedRecord?.id || "")} rows={readableRows} visible={visible} lang={lang} moduleNames={names[lang]} formatValue={display}
+              <RecordWorkspace evidenceReview={evidenceReview} initialRecordId={focusedRecord?.openDetail ? focusedRecord.id : undefined} allowPosture={canReadPosture(currentUser)} key={active + ":" + (focusedRecord?.id || "")} rows={readableRows} visible={visible} lang={lang} moduleNames={names[lang]} formatValue={display}
                 preview={id => { const row = readableRows.find(item => item.id === id && item.module === "Kanıtlar"); if (row) setPreviewEvidence(row); }}>
                 {(inspect, open) => (
               <div className={active==="Varlık Envanteri"?"table-wrap asset-table-scroll":active==="BIA"?"table-wrap bia-table-scroll":"table-wrap"} hidden={open} tabIndex={0} role="region" aria-label={lang === "tr" ? "Kayıt tablosu" : "Record table"}>
@@ -2533,6 +2544,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
               </RecordWorkspace>
               </BiaScope>
               </ControlRegisterContext.Provider>
+              </EvidenceControlsContext.Provider>
             </section>
           </>
         )}
@@ -2565,42 +2577,12 @@ function FornostApp({ currentUser }: { currentUser: any }) {
             </div>
             <p id="record-form-guide" className="record-form-guide">{registerExperience(active, lang).formHint}</p>
             {editing && <CopyRecordLink key={editing.id} lang={lang} target={{module:active,kind:"record",ref:editing.id}} />}
-            {active === "Kanıtlar" && !editing ? (
-              <form onSubmit={uploadEvidence} className="form">
+            {(
+              <form onSubmit={active==="Kanıtlar"&&!editing?uploadEvidence:save} className="form">
                 <div className="fornost-progressive-slot" />
-                <label className="wide">
-                  {u.file}
-                  <input
-                    name="file"
-                    type="file"
-                    accept={EVIDENCE_FILE_ACCEPT}
-                    required
-                  />
-                  <small>{EVIDENCE_FILE_HELP[lang]}</small>
-                </label>
-                {fields[active].map((k) => (
-                  <Field
-                    key={k}
-                    k={k}
-                    module={active}
-                    form={form}
-                    setForm={setForm}
-                    nameMode
-                    lang={lang}
-                  />
-                ))}
-                {notice&&<p className="record-form-notice wide" role="alert">{notice}</p>}
-                <div className="form-actions">
-                  <button type="button" disabled={saving} onClick={closeRecordDialog}>
-                    {u.cancel}
-                  </button>
-                  <button className="primary" disabled={saving} aria-busy={saving}>{saving?(lang==="tr"?"Yükleniyor…":"Uploading…"):u.upload}</button>
-                </div>
-              </form>
-            ) : (
-              <form onSubmit={save} className="form">
-                <div className="fornost-progressive-slot" />
-                {active==="Kontroller"?<ControlLibraryEditor id={editing?.id} form={form} tr={lang==="tr"} rows={readableRows} incoming={editing?controlLinks.get(editing.id)?.incoming:undefined} evidenceFirst={controlEvidenceFirst}
+                {active==="Kanıtlar"?<EvidenceLibraryFields tr={lang==="tr"} form={form} rows={readableRows} actor={currentUser} editing={Boolean(editing)}
+                  allowPosture={canReadPosture(currentUser)} update={patch=>setForm(prev=>({...prev,...patch}))} onFile={setEvidenceFile}/>
+                 : active==="Kontroller"?<ControlLibraryEditor id={editing?.id} form={form} tr={lang==="tr"} rows={readableRows} incoming={editing?controlLinks.get(editing.id)?.incoming:undefined} evidenceFirst={controlEvidenceFirst}
                   update={p=>setForm(prev=>({...prev,...p}))} changes={controlMappings} setChanges={setControlMappings}
                   readPosture={canReadPosture(currentUser)} writePosture={canReadPosture(currentUser)&&canWriteModule(currentUser,"Uyum")}
                   readRisks={canReadModule(currentUser,"Risk Assessment")} readEvidence={canReadModule(currentUser,"Kanıtlar")}
@@ -2627,12 +2609,12 @@ function FornostApp({ currentUser }: { currentUser: any }) {
                   <button type="button" disabled={saving} onClick={closeRecordDialog}>
                     {u.cancel}
                   </button>
-                  <button className="primary" disabled={saving || (active==="Kontroller"&&sameControlTester(form))} aria-busy={saving}>
+                  <button className="primary" disabled={saving || (active==="Kontroller"&&sameControlTester(form)) || (active==="Kanıtlar" && ((!editing&&!evidenceFile)||!form.controlRef||evidenceDatesInvalid(form)))} aria-busy={saving}>
                     {saving
                       ? lang === "tr"
                         ? "Kaydediliyor…"
                         : "Saving…"
-                      : u.save}
+                      : active==="Kanıtlar"&&!editing?u.upload:u.save}
                   </button>
                 </div>
               </form>
@@ -2642,7 +2624,8 @@ function FornostApp({ currentUser }: { currentUser: any }) {
       )}
       {previewEvidence && (
         <EvidencePreview
-          row={previewEvidence}
+          row={readableRows.find(r=>r.id===previewEvidence.id)||previewEvidence}
+          review={evidenceReview}
           lang={lang}
           onClose={() => setPreviewEvidence(null)}
         />
@@ -4968,7 +4951,7 @@ function getAvailableRegisterColumns(module: string): RegisterColumn[] {
   const controlLabels:Record<string,[string,string]>={controlRef:["İç Referans Kodu (İsteğe Bağlı)","Internal reference code (optional)"],controlTitle:["Kontrol Başlığı","Control title"],lastTestDate:["Son Kontrol Testi","Last control test"]};
   const seen = new Set(preferred.map((column) => column.key));
   const direct = (fields[module] || [])
-    .filter((key) => !seen.has(key))
+    .filter((key) => !seen.has(key) && !(module==="Kanıtlar"&&key==="reviewStatus"))
     .map((key) => ({
       key,
       tr: (module==="Kontroller"&&controlLabels[key]?.[0]) || labelMap.tr[key] || key,
@@ -5392,6 +5375,7 @@ function SmartCell({
         </small>
       </div>
     );
+  if(module==="Kanıtlar"&&column==="control")return <EvidenceControlsCell data={d}/>;
   if(module==="Kontroller"&&column==="control"){
     const internal=String(d.controlRef||"").trim();
     return <div className="stack title-stack"><b>{riskTitle({...row,data:{title:d.controlTitle||d.title}})}</b>
@@ -5409,6 +5393,7 @@ function SmartCell({
         <small>{d.controlTitle || "—"}</small>
       </div>
     );
+  if(module==="Kanıtlar"&&column==="status"&&d.status==="İncelemede")return <span className="coverage-count">{evidenceState(d,tr)}</span>;
   if (["criticality", "riskLevel", "status", "implementation"].includes(column))
     return <StatusPill value={d[column]} lang={lang} />;
   if(module==="BIA" && column==="continuityPlan")return <BiaPlanCell row={row} tr={tr}/>;
@@ -5582,10 +5567,12 @@ function EvidenceFreshness({ row, lang }: { row: Row; lang: Lang }) {
 }
 function EvidencePreview({
   row,
+  review,
   lang,
   onClose,
 }: {
   row: Row;
+  review:(row:Row)=>React.ReactNode;
   lang: Lang;
   onClose: () => void;
 }) {
@@ -5630,7 +5617,7 @@ function EvidencePreview({
             <small>{tr ? "KANIT BAĞLAMI" : "EVIDENCE CONTEXT"}</small>
             <h3>{tr ? "Dosyayı bağlamıyla değerlendirin" : "Review the file in context"}</h3>
             <dl>{[
-              [tr ? "Kayıt durumu" : "Record status", display(d.status, lang)],
+              [tr ? "Kayıt durumu" : "Record status", evidenceState(d,tr)],
               [tr ? "Kanıt dönemi" : "Evidence period", d.period],
               [tr ? "Sorumlu" : "Owner", d.owner],
               [tr ? "İnceleyen" : "Reviewer", d.reviewer],
@@ -5641,6 +5628,7 @@ function EvidencePreview({
               [tr ? "Geçerlilik sonu" : "Expires at", d.expiresAt],
               [tr ? "Sürüm" : "Version", d.versionNo ? `v${d.versionNo}` : "—"],
             ].map(([label,value]) => <div key={label}><dt>{label}</dt><dd>{value || "—"}</dd></div>)}</dl>
+            {review(row)}
             {d.notes && <p>{d.notes}</p>}
             <div className="ev-review-note">{tr ? "Kütüphane durumu denetim talebinin kabulü değildir. Talebe ait teslim ve kabul kararını ilgili denetimin Talepler ve inceleme görünümünden yönetin." : "Library status is separate from audit request acceptance. Manage submission and acceptance in the audit’s Requests and review view."}</div>
           </section>

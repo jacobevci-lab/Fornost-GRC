@@ -196,6 +196,8 @@ Yöneticiye modül, kayıt kodu, işlem saati ve ekrandaki hata metnini iletin. 
 
 Open **Views → Saved views** in the register toolbar in Risk, BIA, Assets, Compliance, Controls, Evidence or an audit’s Requirements and tests tab. Set the search, filters and columns, enter a name and save. Select a view and Apply to reuse it against current records. Rename, replace or delete it without changing business records. Up to 10 views per user/module are saved in this browser, not synchronized between devices. See [Saved register views](saved-register-views.md).
 
+Kanıt yüklerken dosyayı bırakın veya seçin. Dosya adı, boyutu ve SHA-256 özeti yükleme öncesinde görünür. Kontrolleri kısa kodla arayın ve ilişkili standartları kontrol edin. Kaynak olarak varlık, tedarikçi veya bir sistem adı kullanabilirsiniz. Geçerlilik kısayolları toplanma tarihini esas alır. Yeni dosya inceleme bekler. Kanıt sahibi ve yükleyiciden farklı olan atanmış inceleyen, güncel sürümü kanıt önizlemesinden onaylar. Yeni sürüm yüklendiğinde yeniden inceleme gerekir.
+
 Risk, BIA, varlık, uyum ve kontrol tablolarında kayıt kodunu seçerek ayrıntıları açabilirsiniz. Kanıt Kütüphanesi’nde **Ayrıntılar** kayıt bilgilerini, kanıt adı veya kodu dosya önizlemesini açar. Yetkiniz olan bağlı kayıtlar aynı panelde açılır. **Önceki kayıt** bağlantı boyunca geri gider. **Listeye dön** veya **Esc** başlangıçtaki aramaya, sıralamaya ve kaydırma konumuna döner. Telefonda kayıt ayrıntısı tek sütunda açılır.
 
 Risk, kontrol veya kanıt ayrıntısını açtığınızda **Risk – Kontrol – Kanıt İlişkisi** görünür. Dolu çizgiler erişebildiğiniz kayıtların eşleşmiş bağlantılarını, kesikli çizgiler eksik halkaları gösterir. Birden çok eşleşme varsa seçim kutusundan diğer kaydı inceleyebilirsiniz.
