@@ -1,5 +1,6 @@
 "use client";
 
+import {navigateToFornost} from "../navigation-focus";
 import { useState } from "react";
 import { connectorProfile, connectorProfiles } from "./catalog";
 import { connectorGuides, type ConnectorGuide } from "./guides";
@@ -96,6 +97,7 @@ export function SourceWorkbench({lang,sources,rules,selected,select,canManage,bu
     {active&&<article className="ew-detail"><header><div><h3>{active.name}</h3><p>{dataset?.label[lang]||active.vendor}</p></div>{canManage&&<button className="ghost" onClick={()=>edit(active)}>{tr?"Düzenle":"Edit"}</button>}</header>
       <div className={problem||active.lastTestStatus==="error"?"ew-notice warn":"ew-notice"}><span>{problem||(active.lastTestStatus==="error"?(tr?"Son bağlantı testi başarısız oldu.":"The last connection test failed."):(tr?"Bağlantı testi":"Connection test")+" · "+connection(active))}</span>
         {canManage&&<button className="primary" disabled={busy} onClick={()=>test(active.id)}>{tr?"Bağlantıyı doğrula":"Verify connection"}</button>}</div>
+      {active.config.assetRef&&<button type="button" className="ew-link" onClick={()=>navigateToFornost({module:"Varlık Envanteri",kind:"record",ref:active.config.assetRef})}>{tr?"İlgili varlık":"Related asset"} · {active.assetCode||"—"} ↗</button>}
       <dl className="ew-facts"><div><dt>{tr?"Son başarılı kanıt toplama":"Last successful evidence collection"}</dt><dd>{date(captured?.lastEvidenceAt,lang)}</dd></div><div><dt>{tr?"Son çalışma denemesi":"Last run attempt"}</dt><dd>{latest?.lastRunId?<button className="ew-link" onClick={()=>openRun(latest.lastRunId!,latest.id)}>{date(latest.lastRunAt,lang)} ↗</button>:date(latest?.lastRunAt,lang)}</dd></div><div><dt>{tr?"Son bağlantı testi":"Last connection test"}</dt><dd>{date(active.lastTestAt,lang)}</dd></div></dl>
       <h4>{tr?"Son başarılı toplamadan":"From the last successful collection"}</h4>
       {captured?<div className="ew-chain"><div><small>{tr?"Kaynak":"Source"}</small><b>{active.name}</b></div>

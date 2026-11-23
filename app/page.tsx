@@ -148,6 +148,7 @@ import { buildReportHtml, buildReportPdf, buildReportCsv, reportTitleOf, downloa
 
 type Lang = "tr" | "en";
 type Row = {
+  collector_signals?:string;
   id: string;
   code?: string;
   module: string;
@@ -5503,7 +5504,10 @@ function SmartCell({
     return <div className="asset-coverage">{[["EDR",d.edrStatus],["SIEM",d.siemStatus],[tr?"Yedek":"Backup",d.backupStatus],[tr?"Tarama":"Scan",d.vulnScan]].map(([label,value])=>{
       const state=assetCoverage(value);
       const status=state==="covered"?(tr?"Kapsamda":"Covered"):state==="gap"?(tr?"Kapsam dışı":"Not covered"):state==="partial"?(tr?"Kısmi":"Partial"):state==="na"?(tr?"Uygulanamaz":"Not applicable"):(tr?"Bilinmiyor":"Unknown");
-      return <span key={label} role="img" aria-label={label+" · "+status} data-state={state} title={label+" · "+status}><span aria-hidden="true">{state==="covered"?"✓":state==="gap"?"!":state==="partial"?"◐":"—"} </span>{label}</span>;
+      const signal=label==="Tarama"||label==="Scan"?"scan":label;
+      const linked=row.collector_signals?.split(",").includes(signal);
+      const description=label+" · "+status+(linked?(tr?" · Kaynaktan sinyal algılandı":" · Source signal detected"):"");
+      return <span key={label} role="img" aria-label={description} data-state={state} title={description}><span aria-hidden="true">{state==="covered"?"✓":state==="gap"?"!":state==="partial"?"◐":"—"} </span>{label}{linked?(tr?" · Sinyal":" · Signal"):""}</span>;
     })}</div>;
   if (module==="Varlık Envanteri" && column==="vendor") {
     if (d.externalVendor || !d.vendor) return String(d.externalVendor || "—");

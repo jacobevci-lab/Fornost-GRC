@@ -95,3 +95,49 @@ test('an in-flight result cannot survive configuration changes that are reverted
     const f=await fixture();try{const held=await heldRun(f);f.sqlite.exec(sql);held.release();await assert.rejects(held.pending,EvidenceExecutionConflict);assert.equal(f.count('evidence_automation_runs'),0);assert.equal(f.count('simple_grc_records'),0);assert.equal(f.row().assessment_revision,2);assert.equal((await f.run()).status,'pass');}finally{f.sqlite.close();}
   }
 });
+
+test("a governed run seals a pending evidence version and counts it until independent review",async()=>{
+  const f=await fixture();try{
+    const {automationSummary}=await import("../app/evidence/connector-governance");
+    const {verifyEvidenceVersionChainWithAnchor,sha256HexBytes}=await import("../app/evidence/versioning");
+    f.sqlite.exec(`CREATE TABLE local_users(id TEXT PRIMARY KEY,email TEXT,name TEXT,status TEXT,role TEXT);
+      CREATE TABLE user_module_access(user_id TEXT,policy_json TEXT);
+      INSERT INTO local_users VALUES('rev','review@example.test','Iris','Active','Editor');
+      INSERT INTO evidence_rule_review_policy VALUES('RULE','review@example.test');
+      UPDATE evidence_automation_rules SET remediation_owner='owner@example.test',freshness_hours=168`);
+    await recordEvidenceSourceTest(f.db,f.source(),'success',now.toISOString());
+    const summary=()=>automationSummary(f.db,now);
+    assert.deepEqual({...await summary()},{connected:1,active:1,failed:0,pending:0,generated:0});
+    await assert.rejects(executeRule({DB:f.db},'RULE','review@example.test','manual'),EvidenceExecutionConflict);
+    const result=await f.run();assert.equal(result.status,'pass');assert.equal(result.evidenceCode,'EVD-001');
+    const record=f.sqlite.prepare("SELECT data_json FROM simple_grc_records WHERE id=?").get(result.evidenceId!)!;
+    const data=JSON.parse(String(record.data_json));
+    assert.deepEqual([data.reviewer,data.owner,data.status,data.reviewStatus,data.freshUntil],
+      ['review@example.test','owner@example.test','İncelemede','pending-review','2026-10-22T12:00:00.000Z']);
+    const versions=(await f.db.prepare("SELECT * FROM evidence_versions WHERE evidence_id=?").bind(result.evidenceId!).all<import("../app/evidence/versioning").EvidenceVersionRow>()).results;
+    assert.equal((await verifyEvidenceVersionChainWithAnchor(versions,{versionNo:data.versionNo,chainSha256:data.versionChainSha256})).state,'verified');
+    const file=f.sqlite.prepare('SELECT content FROM simple_evidence_files WHERE file_key=?').get(data.fileKey)!;
+    assert.equal(await sha256HexBytes(file.content as Uint8Array),data.contentSha256);
+    assert.deepEqual({...await summary()},{connected:1,active:1,failed:0,pending:1,generated:1});
+    f.sqlite.exec("UPDATE evidence_automation_rules SET remediation_owner='review@example.test'");
+    await assert.rejects(f.run(),EvidenceExecutionConflict);assert.equal(f.count('evidence_versions'),1);
+  }finally{f.sqlite.close()}
+});
+test("discovered asset signals survive a connection check, clear after reconfiguration and never certify coverage",async()=>{
+  const f=await fixture();try{
+    const {detectedCoverage}=await import("../app/evidence/connector-governance");
+    const path={path:"$.siem.events",type:"number"};
+    assert.deepEqual(detectedCoverage({},[path],{}),["SIEM"]);
+    assert.deepEqual(detectedCoverage({providerId:"sentinel"},[{path:"$.fornostCollection.recordCount",type:"number"}],{fornostCollection:{recordCount:0}}),[]);
+    const config_json=JSON.stringify({assetRef:"AST-001",baseUrl:"https://fixture.example/data"});
+    f.sqlite.prepare("INSERT INTO simple_grc_records VALUES('AST-001','Varlık Envanteri','{}','now','now')").run();
+    await updateEvidenceSource(f.db,f.source(),{...f.source(),config_json},now.toISOString(),'qa');
+    await recordEvidenceSourceTest(f.db,f.source(),'success',now.toISOString(),{assetId:"AST-001",signals:["SIEM"]});
+    assert.equal(f.count('evidence_source_signals'),1);assert.equal(f.count('evidence_automation_runs'),0);
+    await recordEvidenceSourceTest(f.db,f.source(),'success',now.toISOString());
+    assert.equal(f.count('evidence_source_signals'),1);
+    await updateEvidenceSource(f.db,f.source(),{...f.source(),config_json:"{}"},now.toISOString(),'qa');
+    assert.equal(f.count('evidence_source_signals'),0);
+    assert.equal(f.sqlite.prepare("SELECT data_json FROM simple_grc_records WHERE id='AST-001'").get()?.data_json,'{}');
+  }finally{f.sqlite.close()}
+});

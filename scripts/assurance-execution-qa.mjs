@@ -1,3 +1,4 @@
+import {registerQaReviewer,reviewerEmail} from './automation-reviewer-qa.mjs';
 import {qaPassword} from './qa-credentials.mjs';
 import {chromium,expect} from '@playwright/test';
 import assert from 'node:assert/strict';
@@ -20,7 +21,8 @@ try{
   await api('/api/auth','POST',{action:'login',email:'qa-admin@fornost.test',password:qaPassword()});
   const source={action:'save-source',name:'QA Execution Source',vendor:'Custom',category:'Work & Custom',driver:'rest-json',baseUrl:'https://fixture.example/initial',authType:'none'};
   sourceId=(await api(path,'POST',source)).sourceId;
-  const rule={action:'save-rule',name:'QA Execution Coverage',sourceId,controlRefs:'A.8.1',jsonPath:'coverage',operator:'gte',expected:'90',schedule:'daily',freshnessHours:24,autoFinding:false};
+  await registerQaReviewer(context.request);
+  const rule={reviewer:reviewerEmail,action:'save-rule',name:'QA Execution Coverage',sourceId,controlRefs:'A.8.1',jsonPath:'coverage',operator:'gte',expected:'90',schedule:'daily',freshnessHours:24,autoFinding:false};
   ruleId=(await api(path,'POST',rule)).ruleId;
   secondId=(await api(path,'POST',{...rule,name:'QA Execution Second'})).ruleId;
   const now=new Date().toISOString();

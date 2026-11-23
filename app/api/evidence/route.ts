@@ -75,7 +75,7 @@ export async function GET(req:NextRequest){
  if(!await canReadEvidenceFile(env.DB,key))return new NextResponse("Bulunamadı",{status:404,headers:{"cache-control":"private, no-store"}});
  let body:BodyInit|null=null,type="application/octet-stream",fileName=key.split("/").pop()||"evidence";
  if(env.BUCKET){const obj=await env.BUCKET.get(key);if(obj){body=obj.body;type=obj.httpMetadata?.contentType||type;}}
- if(!body){await env.DB.prepare(filesTable).run();const stored=await env.DB.prepare("SELECT file_name,content_type,content FROM simple_evidence_files WHERE file_key=?").bind(key).first<{file_name:string;content_type:string;content:ArrayBuffer}>();if(stored){body=stored.content;type=stored.content_type;fileName=stored.file_name;}}
+ if(!body){await env.DB.prepare(filesTable).run();const stored=await env.DB.prepare("SELECT file_name,content_type,content FROM simple_evidence_files WHERE file_key=?").bind(key).first<{file_name:string;content_type:string;content:ArrayBuffer|number[]}>();if(stored){body=Array.isArray(stored.content)?Uint8Array.from(stored.content):stored.content;type=stored.content_type;fileName=stored.file_name;}}
  if(!body)return new NextResponse("Bulunamadı",{status:404});
  const inline=req.nextUrl.searchParams.get("inline")==="1"&&evidenceInlineType(type);
  return new NextResponse(body,{headers:{"content-type":type,"content-disposition":`${inline?"inline":"attachment"}; filename=\"${fileName.replace(/[\"\\]/g,"_")}\"`,"x-content-type-options":"nosniff","cache-control":"private, no-store","content-security-policy":"default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'"}});

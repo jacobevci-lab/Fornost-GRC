@@ -15,6 +15,10 @@ export const simpleGrcRecords = sqliteTable("simple_grc_records", {
   updatedAt: text("updated_at").notNull(),
 }, (table) => [index("simple_grc_records_module_idx").on(table.module, table.updatedAt)]);
 
+export const evidenceRuleReviewPolicy=sqliteTable("evidence_rule_review_policy",{ruleId:text("rule_id").primaryKey(),reviewer:text("reviewer").notNull()});
+export const evidenceSourceSignals=sqliteTable("evidence_source_signals",{sourceId:text("source_id").notNull(),assetId:text("asset_id").notNull(),signal:text("signal").notNull()},
+ table=>[primaryKey({columns:[table.sourceId,table.signal]}),index("evidence_source_signals_asset").on(table.assetId,table.signal)]);
+
 export const evidenceAutomationRules = sqliteTable("evidence_automation_rules", {
   assessmentRevision:integer("assessment_revision").notNull().default(0), templateId:text("template_id"), templateVersion:integer("template_version"),
   id:text("id").primaryKey(), name:text("name").notNull(), sourceId:text("source_id").notNull(), controlRefs:text("control_refs").notNull(),

@@ -188,6 +188,7 @@ try {
     await progress(`${locale}: evidence automation`);
     await open(locale === 'tr' ? 'Kanıt Otomasyonu' : 'Evidence Automation');
     const tabs = page.locator('.ea-tabs');
+    assert.equal(await tabs.getByRole('button').count(),7,'All evidence automation tabs have direct navigation');
     assert.ok((await tabs.boundingBox()).y < 560, 'Evidence navigation remains in the first viewport');
     assert.equal(await page.locator('.ea-page>.ca-dashboard,.ea-page>.eh-panel').count(), 0);
     await page.screenshot({path:`${output}/${locale}-evidence-desktop.png`});
@@ -195,7 +196,6 @@ try {
     await page.waitForTimeout(400);
     await page.screenshot({path:`${output}/${locale}-evidence-alternate-theme.png`});
     for (const name of locale === 'tr' ? ['Güvence','Kanıt Geçmişi'] : ['Assurance','Evidence History']) {
-      await tabs.locator('summary').click();
       await tabs.getByRole('button', {name,exact:true}).click();
       await page.waitForTimeout(600);
       const themed = await page.locator('.ea-page>.ca-dashboard,.ea-page>.eh-panel').evaluate(el => {

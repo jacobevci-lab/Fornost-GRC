@@ -4,9 +4,10 @@ import { useState, type FormEvent } from 'react';
 import type { MappingSelection } from './mapping-agent-panel';
 import { templatesForSource } from './control-templates';
 
+import {AutomationPolicyFields} from "./automation-policy-fields";
 type Source = { id: string; name: string; driver: string; config: Record<string, string>; enabled: boolean };
-export default function ReadyControlForm({ sources, initialSourceId, lang, busy, message, onSave, onCancel, mapping }: {
-  mapping?: MappingSelection; sources: Source[]; initialSourceId: string; lang: 'tr' | 'en'; busy: boolean; message: string;
+export default function ReadyControlForm({ actor,sources, initialSourceId, lang, busy, message, onSave, onCancel, mapping }: {
+  actor:string; mapping?: MappingSelection; sources: Source[]; initialSourceId: string; lang: 'tr' | 'en'; busy: boolean; message: string;
   onSave: (body: Record<string, unknown>) => Promise<boolean>; onCancel: () => void;
 }) {
   const tr = lang === 'tr', eligible = sources.filter(source => source.enabled && templatesForSource(source).length);
@@ -17,10 +18,11 @@ export default function ReadyControlForm({ sources, initialSourceId, lang, busy,
   const template = templates.find(item => item.id === templateId);
   const [refs, setRefs] = useState(mapping?.controlRef || (initial ? templatesForSource(initial)[0].suggestedRefs : ''));
   const [schedule, setSchedule] = useState('daily'), [owner, setOwner] = useState('');
-  const [freshness, setFreshness] = useState(48), [threshold, setThreshold] = useState(1), [dueDays, setDueDays] = useState(7), [autoFinding, setAutoFinding] = useState(true);
+  const [freshness, setFreshness] = useState(24), [threshold, setThreshold] = useState(1), [dueDays, setDueDays] = useState(7), [autoFinding, setAutoFinding] = useState(true);
+  const [reviewer,selectReviewer]=useState("");
   async function submit(event: FormEvent) {
     event.preventDefault(); if (!template) return;
-    if (await onSave({ action: 'save-template-rule', sourceId, templateId, name: template.name[lang], controlRefs: refs, schedule, remediationOwner: owner, freshnessHours: freshness, failureThreshold: threshold, remediationDueDays: dueDays, autoFinding, ...(mapping?{mappingRunId:mapping.runId,mappingProposalIndex:mapping.index}:{}) })) onCancel();
+    if (await onSave({ action: 'save-template-rule', reviewer,sourceId, templateId, name: template.name[lang], controlRefs: refs, schedule, remediationOwner: owner, freshnessHours: freshness, failureThreshold: threshold, remediationDueDays: dueDays, autoFinding, ...(mapping?{mappingRunId:mapping.runId,mappingProposalIndex:mapping.index}:{}) })) onCancel();
   }
   return <form className="ea-form" onSubmit={submit}>
     {mapping&&<p className="wide" role="status">{tr?"AI önerisi — onayınızla sürekli kontrol etkinleştirilecek. ":"AI proposal — your approval will enable continuous monitoring. "}{mapping.rationale}</p>}
@@ -33,15 +35,16 @@ export default function ReadyControlForm({ sources, initialSourceId, lang, busy,
       {template && <div className="wide connector-guide"><b>{template.name[lang]}</b><p>{template.description[lang]}</p><small>{tr ? 'Kapsam, bağlantı hesabının görebildiği kayıtlardır. Aşağıdaki eşlemeler öneridir; kurumunuzun kontrol kapsamını doğrulayın.' : 'Scope is limited to records visible to the connection account. Mappings below are suggestions; verify your organisation’s control scope.'}</small></div>}
       <label className="wide">{tr ? 'Bağlı kontrol/maddeler' : 'Mapped controls'}<input readOnly={!!mapping} required maxLength={1000} value={refs} onChange={event => setRefs(event.target.value)}/></label>
       <label>{tr ? 'Zamanlama' : 'Schedule'}<select value={schedule} onChange={event => setSchedule(event.target.value)}>{['hourly', 'daily', 'weekly', 'monthly'].map((value, i) => <option key={value} value={value}>{tr ? ['Saatlik', 'Günlük', 'Haftalık', 'Aylık'][i] : ['Hourly', 'Daily', 'Weekly', 'Monthly'][i]}</option>)}</select></label>
-      <label>{tr ? 'Düzeltme sahibi (boşsa siz)' : 'Remediation owner (you if blank)'}<input type="email" maxLength={200} value={owner} onChange={event => setOwner(event.target.value)}/></label>
+      <label>{tr ? 'Düzeltme sahibi (boşsa siz)' : 'Remediation owner (you if blank)'}<input type="email" maxLength={200} value={owner} onChange={event => {setOwner(event.target.value);if(event.target.value.trim().toLowerCase()===reviewer)selectReviewer("")}}/></label>
+      <AutomationPolicyFields tr={tr} actor={actor} owner={owner} reviewer={reviewer} select={selectReviewer} hours={freshness} changeHours={setFreshness}/>
       <details className="wide ea-template-options"><summary>{tr ? 'Gelişmiş ayarlar' : 'Advanced settings'}</summary><div>
-        <label>{tr ? 'Kanıt tazeliği (saat)' : 'Evidence freshness (hours)'}<input type="number" min={1} max={8760} required value={freshness} onChange={event => setFreshness(Number(event.target.value))}/></label>
+
         <label>{tr ? 'Ardışık hata eşiği' : 'Consecutive failure threshold'}<input type="number" min={1} max={20} required value={threshold} onChange={event => setThreshold(Number(event.target.value))}/></label>
         <label>{tr ? 'Düzeltme süresi (gün)' : 'Remediation due (days)'}<input type="number" min={1} max={365} required value={dueDays} onChange={event => setDueDays(Number(event.target.value))}/></label>
         <label className="ea-check"><input type="checkbox" checked={autoFinding} onChange={event => setAutoFinding(event.target.checked)}/><span>{tr ? 'Eşik aşılınca bulgu ve risk oluştur' : 'Create finding and risk at threshold'}</span></label>
       </div></details>
     </>}
     {message && <p className="wide" role="status">{message}</p>}
-    <footer><button type="button" className="ghost" disabled={busy} onClick={onCancel}>{tr ? 'Vazgeç' : 'Cancel'}</button><button className="primary" disabled={busy || !template}>{tr ? 'Hazır Kontrolü Etkinleştir' : 'Enable Ready Control'}</button></footer>
+    <footer><button type="button" className="ghost" disabled={busy} onClick={onCancel}>{tr ? 'Vazgeç' : 'Cancel'}</button><button className="primary" disabled={busy || !template || !reviewer}>{tr ? 'Hazır Kontrolü Etkinleştir' : 'Enable Ready Control'}</button></footer>
   </form>;
 }

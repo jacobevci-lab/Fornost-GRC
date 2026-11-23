@@ -27,6 +27,6 @@ test("CCM 2.0 persists schedules, immutable runs and independently closed CAPA",
  assert.match(core,/run-due/);assert.match(core,/SOURCE_REQUEST_FAILED/);assert.match(core,/consecutive_failures/);assert.match(core,/BULGUYU KAPAT/);
  assert.match(core,/Bulguyu sahiplenen kişi aynı bulguyu kapatamaz/);assert.match(core,/Risk Assessment/);assert.match(core,/response_hash/);
  assert.match(migration,/evidence_automation_rules_due_idx/);assert.match(migration,/evidence_automation_findings_open_idx/);assert.match(migration,/closure_evidence_sha256/);
- assert.match(schema,/evidenceAutomationFindings/);assert.match(ui,/Sürekli Kontroller/);assert.match(ui,/Bulgular ve CAPA/);assert.match(ui,/Kanıt tazeliği/);
+ assert.match(schema,/evidenceAutomationFindings/);assert.match(ui,/Sürekli Kontroller/);assert.match(ui,/Bulgular ve CAPA/);assert.match(ui,/AutomationPolicyFields/);assert.match(await readFile("app/connectors/automation-policy-fields.tsx","utf8"),/Tazelik TTL/);
  assert.match(core,/constantTimeEqual\(configuredToken,presentedToken\)/);assert.match(installer,/evidence-scheduler\.token/);assert.match(server,/evidence-scheduler\.sh/);assert.match(scheduler,/x-fornost-scheduler-token/);
 });

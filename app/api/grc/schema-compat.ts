@@ -3,7 +3,8 @@ import { completedInitialization } from "../../completed-initialization";
 // their D1 migrations (0027 and 0078). This compatibility layer only repairs
 // persisted on-prem installations that predate those migration baselines.
 
-const compatibilitySchema = [
+import {signalTable,signalIndex} from "../../evidence/connector-governance";
+const compatibilitySchema = [signalTable,signalIndex,
   `CREATE TABLE IF NOT EXISTS simple_grc_records (id TEXT PRIMARY KEY,module TEXT NOT NULL,data_json TEXT NOT NULL,created_at TEXT NOT NULL,updated_at TEXT NOT NULL)`,
   `CREATE TABLE IF NOT EXISTS simple_grc_metadata (key TEXT PRIMARY KEY,value TEXT NOT NULL,updated_at TEXT NOT NULL)`,
   `CREATE TABLE IF NOT EXISTS simple_audits (id TEXT PRIMARY KEY,name TEXT NOT NULL UNIQUE,template TEXT NOT NULL,audit_type TEXT NOT NULL,auditor TEXT NOT NULL,audit_owner TEXT NOT NULL,status TEXT NOT NULL,created_at TEXT NOT NULL,updated_at TEXT NOT NULL)`,
@@ -11,7 +12,7 @@ const compatibilitySchema = [
   `CREATE TABLE IF NOT EXISTS simple_grc_record_code_counters (module TEXT PRIMARY KEY,value INTEGER NOT NULL DEFAULT 0,updated_at TEXT NOT NULL)`,
 ] as const;
 
-const canonicalTables = [
+const canonicalTables = ["evidence_source_signals",
   "simple_grc_records",
   "simple_grc_metadata",
   "simple_audits",

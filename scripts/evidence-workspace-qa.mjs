@@ -41,7 +41,7 @@ try {
   await expect(picker.getByRole('button',{name:/Microsoft Intune/})).toContainText('Direct API');
   await picker.getByRole('button',{name:/Configure connection/}).click();
   await expect(page.getByLabel('Connector template',{exact:true})).toHaveValue('Microsoft Intune');
-  await page.getByRole('button',{name:'Close wizard',exact:true}).click();
+  await page.getByRole('button',{name:'Close / Back to sources',exact:true}).click();
   await picker.getByRole('searchbox').fill('cortex');
   await expect(picker.locator('.ew-detail')).toContainText('Collector required');
   await picker.getByRole('button',{name:'Open setup guide'}).click();
