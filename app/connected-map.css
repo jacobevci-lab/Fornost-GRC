@@ -33,3 +33,4 @@ dialog.cm-dialog{position:fixed;inset:0;margin:auto;max-height:85dvh;overflow:au
   .cgw-layout:has(.cm-network)>.cgw-records>button{flex:0 0 138px;border:0;border-inline-start:1px solid var(--ws-line)}
   .cgw-layout:has(.cm-network)>.cgw-records>footer{position:static;flex-shrink:0}
 }
+.cm-work-page>button{padding:8px 12px;background:var(--ws-surface);color:var(--ws-ink);border:1px solid var(--ws-line);border-radius:8px;margin-bottom:12px;cursor:pointer}

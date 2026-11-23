@@ -66,6 +66,7 @@ try {
   await switchQaLocale(page, 'en');
   await openQaModule(page, 'Connected GRC Map');
   await page.locator('.connected-grc').getByRole('button', { name: 'Assurance', exact: true }).click();
+  await page.getByRole('button',{name:'Open assurance work',exact:true}).click();
   // Loading a destination is distinct from asserting its business outcome.
   // Observe API reads and aria-busy instead of racing the 5s item assertion.
   await waitForQaIdle(page);

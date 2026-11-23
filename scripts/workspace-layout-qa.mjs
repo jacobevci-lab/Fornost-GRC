@@ -132,14 +132,14 @@ try {
     await expect(recordButtons).toHaveCount(2);
     for(const title of fixtureTitles){
       await recordButtons.filter({hasText:title}).click();
-      await expect(page.locator('.cgw-record-heading h3')).toHaveText(title);
+      await expect(page.locator('.cm-inspector h3')).toHaveText(title);
       await expect(recordButtons.filter({hasText:title})).toHaveAttribute('aria-pressed','true');
       await expect(page.locator('.cgw-node')).toHaveCount(2);
       await expect(page.locator('.cgw-node').filter({hasText:fixtureTag}).filter({hasNotText:title})).toHaveCount(1);
     }
     await page.locator('.cgw-node').filter({has:page.locator('b',{hasText:new RegExp('^'+fixtureTag+'$')})}).click();
     await page.locator('.cgw-inspector').getByRole('button',{name:locale==='tr'?'Bu kaydın haritası':'Map this record',exact:true}).click();
-    await expect(page.locator('.cgw-record-heading h3')).toHaveText(fixtureTag);
+    await expect(page.locator('.cm-inspector h3')).toHaveText(fixtureTag);
     await page.locator('.cgw-filters input').fill('no-such-record-qa');
     assert.equal(await recordButtons.count(), 0, 'Search has a useful empty state');
     await page.locator('.cgw-filters').getByRole('button', {name:locale==='tr'?'Temizle':'Clear',exact:true}).click();

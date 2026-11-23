@@ -57,6 +57,10 @@ try {
   phase = 'assurance coverage';
   await nav('Güvence').click();
   await expect(page.locator('.cm-assurance tbody tr')).toHaveCount(2);
+  await expect(page.locator('.assurance-work-queue')).toHaveCount(0);
+  await page.getByRole('button',{name:'Güvence işlerini aç',exact:true}).click();
+  await expect(page.locator('.assurance-work-queue').getByRole('searchbox')).toBeVisible();
+  await page.getByRole('button',{name:'← Güvence ve Kanıt Kapsamı',exact:true}).click();
   await page.locator('.cm-assurance select').selectOption('approved');
   await expect(page.locator('.cm-assurance tbody tr')).toHaveCount(0);
   await page.locator('.cm-assurance select').selectOption('missing');

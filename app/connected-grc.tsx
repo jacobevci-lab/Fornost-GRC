@@ -53,7 +53,10 @@ export default function ConnectedGrc({rows,lang,go,includeAi=false,actor,refresh
     const restore = (request: FornostNavigationRequest | null) => {
       if (request?.module !== "Bağlantılı GRC" || request.kind !== "connected-view") return;
       const f = request.filter || {};
+      setWorkItemId(null);
       setView(f.view === "gaps" || f.view === "assurance" || f.view === "impact" ? f.view : "explore");
+      setNetwork(f.network==="focus"?"focus":"all");
+      setMetric(f.metric==="links"||f.metric==="hubs"||f.metric==="gaps"?f.metric:"all");
       setModule(f.module || "all"); setQuery((f.query || "").slice(0, 1000));
       setSelectedId(f.selectedId || ""); setPage(Math.max(0, Math.min(10000, Number(f.page) || 0)));
       setGapQuery(f.gapQuery || ""); setGapModule(f.gapModule || "all");
@@ -127,16 +130,17 @@ export default function ConnectedGrc({rows,lang,go,includeAi=false,actor,refresh
     const target=connectedGrcNavigation(row);
     if(!target){go(row.module);return;}
     navigateToFornost({module:target.module,ref:target.ref,kind:target.kind,source:"connected-grc-register",filter:{[target.filterKey]:target.ref},
-      returnTo:{module:"Bağlantılı GRC",kind:"connected-view",filter:{view,module,query,selectedId:selected?.id||"",page:String(currentPage),gapQuery,gapModule,gapType}}});
+      returnTo:{module:"Bağlantılı GRC",kind:"connected-view",filter:{view,network,metric,module,query,selectedId:selected?.id||"",page:String(currentPage),gapQuery,gapModule,gapType}}});
   }
   function download(assurance=false){
-    const scope={...sourceState,ready:sourceState.ready+(currentCatalog?.value?1:0),total:sourceState.total+1,generatedAt:new Date().toISOString()};
+    const scope={...sourceState,catalogComplete:!!currentCatalog?.value,loading:mapLoading,generatedAt:new Date().toISOString()};
     const result=assurance?connectedGrcAssuranceExport(assuranceChains,scope,lang):connectedGrcExport(filtered,scope);
     if(!result)return;
     const blob=new Blob([result.content],{type:"text/csv;charset=utf-8"});
     const url=URL.createObjectURL(blob),anchor=document.createElement("a");anchor.href=url;anchor.download=result.filename;anchor.click();URL.revokeObjectURL(url);
   }
-  if(workItemId)return <ContinuousAssuranceWorkQueue key={workItemId?`work:${workItemId}`:"queue"} workItemId={workItemId} onClearFocus={()=>setWorkItemId(null)} lang={lang} onOpenAutomation={()=>go("Kanıt Otomasyonu")}/>;
+  if(workItemId!==null)return <section className="cm-work-page"><button type="button" onClick={()=>setWorkItemId(null)}>{tr?"← Güvence ve Kanıt Kapsamı":"← Assurance and evidence coverage"}</button>
+    <ContinuousAssuranceWorkQueue key={workItemId?`work:${workItemId}`:"queue"} workItemId={workItemId} onClearFocus={()=>setWorkItemId("")} lang={lang} onOpenAutomation={()=>go("Kanıt Otomasyonu")}/></section>;
   return <section className="connected-grc connected-explorer">
     <header className="cg-heading">
       <div><small>{tr?"BAĞLANTILI GRC":"CONNECTED GRC"}</small><p>{tr?"Kayıt ilişkisi, kontrolün etkin olduğu anlamına gelmez.":"A record relationship does not establish control effectiveness."}</p></div>
@@ -154,7 +158,7 @@ export default function ConnectedGrc({rows,lang,go,includeAi=false,actor,refresh
     {view!=="assurance"&&<ConnectedWorkbench key={metric} openInventory={()=>go('Varlık Envanteri')} network={network} setNetwork={mode=>{setNetwork(mode);if(metric==='links')setMetric('all')}} metric={metric} networkRows={matchingRecords} rows={records} links={links} issues={metric==='gaps'?issues.filter(i=>['unlinked','gap','missing','ambiguous','plan'].includes(i.kind)):issues} selected={selected} view={view} lang={lang} actor={actor} complete={sourcesComplete} loading={mapLoading||coreState==="loading"} select={focusRecord} openRecord={openRecord} moduleLabel={moduleLabel} refresh={refreshAll} query={query} setQuery={value=>{setQuery(value);setPage(0);if(value)setNetwork("focus")}} module={module} setModule={value=>{setModule(value);setPage(0)}} modules={modules} visible={visibleRecords} matchingCount={matchingRecords.length} page={currentPage} setPage={value=>{setPage(value);setSelectedId(matchingRecords[value*10]?.id||"")}} exportLinks={()=>download()} issueQuery={gapQuery} setIssueQuery={setGapQuery} issueType={gapType} setIssueType={setGapType} issueModule={gapModule} setIssueModule={setGapModule}/>}
     {view==="assurance"&&<section className="connected-assurance cg-operations">
       {!sourcesComplete&&<p className="cg-assessment-pending" role="status">{coverageNotice}</p>}
-      <MapAssurance exportReport={()=>download(true)} rows={records} links={links} tr={tr} complete={sourcesComplete} openRecord={openRecord} go={go}/>
+      <MapAssurance openWork={()=>setWorkItemId("")} exportReport={()=>download(true)} rows={records} links={links} tr={tr} complete={sourcesComplete} openRecord={openRecord} go={go}/>
       {sourcesComplete&&assuranceSummary.rules>0&&<details className="module-analysis-disclosure"><summary>{tr?'Sürekli güvence göstergeleri':'Continuous assurance indicators'}</summary><div className="connected-lifecycle-posture" aria-label={tr?"Sürekli güvence operasyonel duruşu":"Continuous assurance operational posture"}>
         <article className={assuranceSummary.averageAssuranceScore<70?"attention":"healthy"}><small>{tr?"Ortalama güvence":"Average assurance"}</small><strong>{assuranceSummary.averageAssuranceScore}%</strong><span>{assuranceSummary.rules} {tr?"sürekli kontrol":"continuous controls"}</span></article>
         <article className="healthy"><small>{tr?"Etkin":"Effective"}</small><strong>{assuranceSummary.effective}</strong><span>{tr?"doğrulanmış kontrol":"validated controls"}</span></article>
