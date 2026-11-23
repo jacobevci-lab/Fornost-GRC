@@ -38,6 +38,7 @@ await page.route(/\/api\/findings(?:\?view=(?:register|decision).*)?$/,async rou
  const total=matching.length,pages=Math.max(1,Math.ceil(total/20)),page=Math.min(Number(params.get('page')||1),pages),start=total?(page-1)*20+1:0,end=Math.min(page*20,total);
  return route.fulfill({json:{findings:matching.slice((page-1)*20,page*20),pagination:{page,pages,total,start,end},events:[],sourceSignals:[{source:'continuous-control',count:0,available:false}],summary:{total:65,open:65,critical:0,overdue:0,verification:0,accepted:0,closed:0,recurring:0}}});
 });
+await page.route('**/api/findings?view=sources&**',route=>route.fulfill({json:{records:[{id:'AUD-source',code:'AUD-042',title:'Quarterly assurance review',controls:[]}],more:false}}));
 let historyUnavailable=true;
 await page.route('**/api/findings/history?*',route=>{
  const url=new URL(route.request().url()),id=url.searchParams.get('findingId');
@@ -60,7 +61,11 @@ try{
  await expect(panel.locator('.finding-empty')).toHaveCount(0);
  unavailable=false;await panel.getByRole('button',{name:'Retry',exact:true}).click();
  await expect(panel.locator('.finding-table tbody tr')).toHaveCount(20);
- await expect(panel.locator('.finding-source-strip')).toContainText('Unavailable');
+ await expect(panel.getByRole('group',{name:'Source filter'})).toBeVisible();
+ assert.ok((await panel.locator('.finding-kpis').boundingBox()).y<(await panel.locator('.finding-toolbar').boundingBox()).y);
+ await panel.getByRole('button',{name:/^Continuous control/}).click();
+ await expect(panel.getByRole('button',{name:/^Continuous control/})).toHaveAttribute('aria-pressed','true');
+ await panel.getByRole('button',{name:'All sources',exact:true}).click();
  emptyRegister=true;await panel.getByRole('button',{name:'Refresh',exact:true}).click();
  await expect(panel.locator('.finding-empty')).toContainText('No CAPA records yet');
  await expect(panel.getByRole('button',{name:'Clear filters',exact:true})).toHaveCount(0);
@@ -133,7 +138,7 @@ try{
  await expect(panel.locator('.finding-table tbody tr')).toHaveCount(1);
  await panel.getByRole('combobox',{name:'Assignment filter',exact:true}).selectOption('review');
  await expect(panel.locator('.finding-table tbody tr')).toHaveCount(0);
- await panel.getByText('All records summary',{exact:true}).click();
+
  await panel.getByRole('button',{name:'Open CAPA',exact:true}).click();
  await expect(panel.getByRole('combobox',{name:'Assignment filter',exact:true})).toHaveValue('all');
  await expect(panel.getByRole('textbox',{name:'Search findings',exact:true})).toHaveValue('');
@@ -207,7 +212,13 @@ try{
  await expect(form).toBeVisible();
  await expect(controlPicker).toHaveValue('');
  assert.equal(await controlPicker.evaluate(input=>input.checkValidity()),true);
- rejectCreate=true;await form.getByLabel('Source title',{exact:true}).fill('Keep this draft');await form.dispatchEvent('submit');
+ const sourceChoice=form.getByRole('combobox',{name:'Source reference',exact:true});
+ await sourceChoice.fill('AUD-042');await form.getByRole('option',{name:'AUD-042 · Quarterly assurance review'}).click();
+ await expect(form.getByLabel('Source title',{exact:true})).toHaveValue('Quarterly assurance review');
+ await expect(form.getByLabel('Source title',{exact:true})).not.toBeEditable();
+ await form.getByLabel('Source type',{exact:true}).selectOption('incident');
+ await expect(sourceChoice).toHaveValue('');await expect(form.getByLabel('Source title',{exact:true})).toHaveValue('');
+ rejectCreate=true;await form.getByLabel('Unregistered source').check();await form.getByLabel('Source title',{exact:true}).fill('Keep this draft');await form.dispatchEvent('submit');
  await expect(form.getByRole('alert')).toHaveText('Complete the CAPA plan.');await expect(form.getByLabel('Source title',{exact:true})).toHaveValue('Keep this draft');
  rejectCreate=false;
  await form.dispatchEvent('submit');await form.dispatchEvent('submit');

@@ -19,7 +19,7 @@ const state = () => api(admin, `/api/policy-lifecycle?view=campaign&campaignId=$
 async function open() { await page.goto(base); await expect(page.locator('.shell')).toBeVisible(); await page.locator('.language-switch:visible').getByRole('button', { name: 'EN', exact: true }).click(); await page.locator('nav button[aria-label="Policy Center"]').evaluate(el => el.click()); await waitForQaIdle(page); await page.locator('[data-policy-tab="attestations"]').click(); }
 async function choose(d, email, tr = false) { await d.getByLabel(tr ? 'Katılımcı ara' : 'Search participants', { exact: true }).fill(email); const choice = d.locator('.pci-choices label').filter({ hasText: email }); await expect(choice).toHaveCount(1); await choice.getByRole('checkbox').check(); }
 async function draft(tr = false) {
-  await page.locator('.plm-float').getByRole('button', { name: tr ? '+ Kampanya' : '+ Campaign', exact: true }).click();
+  await page.locator('.policy-tab-tools').getByRole('button', { name: tr ? '+ Kampanya' : '+ Campaign', exact: true }).click();
   const d = page.getByRole('dialog', { name: tr ? 'Attestation kampanyası' : 'Attestation campaign', exact: true });
   await d.getByLabel(tr ? 'Yayındaki politika' : 'Published policy', { exact: true }).selectOption(policyId); await d.getByLabel(tr ? 'Kampanya adı' : 'Campaign name', { exact: true }).fill(name); await d.getByLabel(tr ? 'Son tarih' : 'Due date', { exact: true }).fill(future(30));
   for (const email of [f.viewerEmail, f.reviewerEmail, editorEmail]) await choose(d, email, tr);
@@ -89,7 +89,7 @@ try {
     await preview(d, lang === 'TR');
     for (const width of [1440, 1024, 390]) { await page.setViewportSize({ width, height: 1000 }); await inspect(d, `${lang}-${theme}-${width}-preview`); }
     const first = d.getByRole('button', { name: lang === 'TR' ? 'Kapat' : 'Close', exact: true }), last = d.getByRole('button', { name: lang === 'TR' ? 'Seçimi düzenle' : 'Edit selection', exact: true });
-    await first.click({ trial: true }); await last.focus(); await page.keyboard.press('Tab'); await expect(first).toBeFocused(); await page.keyboard.press('Shift+Tab'); await expect(last).toBeFocused(); await page.keyboard.press('Escape'); await expect(d).toBeHidden(); await expect(page.locator('.plm-float').getByRole('button', { name: lang === 'TR' ? '+ Kampanya' : '+ Campaign', exact: true })).toBeFocused(); await page.setViewportSize({ width: 1440, height: 1000 });
+    await first.click({ trial: true }); await last.focus(); await page.keyboard.press('Tab'); await expect(first).toBeFocused(); await page.keyboard.press('Shift+Tab'); await expect(last).toBeFocused(); await page.keyboard.press('Escape'); await expect(d).toBeHidden(); await expect(page.locator('.policy-tab-tools').getByRole('button', { name: lang === 'TR' ? '+ Kampanya' : '+ Campaign', exact: true })).toBeFocused(); await page.setViewportSize({ width: 1440, height: 1000 });
   }
   checks.push('24 selection/preview views across TR/EN, light/dark and desktop/tablet/mobile; zero Axe violations/overflow/clipping; keyboard trap, Escape and opener focus');
 

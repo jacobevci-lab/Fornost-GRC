@@ -388,6 +388,16 @@ export const regulatoryChanges = sqliteTable("regulatory_changes", {
   index("regulatory_changes_status_effective_idx").on(table.status, table.severity, table.effectiveDate),
 ]);
 
+export const regulatorySourceFrameworks = sqliteTable("regulatory_source_frameworks", {
+ sourceId: text("source_id").primaryKey().references(()=>regulatoryIntelligenceSources.id,{onDelete:"cascade"}),
+ frameworkNames: text("framework_names").notNull(),
+});
+
+export const regulatoryPreliminaryImpacts = sqliteTable("regulatory_preliminary_impacts", {
+ changeId: text("change_id").notNull().references(()=>regulatoryChanges.id,{onDelete:"cascade"}),
+ targetType: text("target_type").notNull(),targetRef: text("target_ref").notNull(),targetTitle: text("target_title").notNull(),
+}, table=>[primaryKey({columns:[table.changeId,table.targetType,table.targetRef]})]);
+
 export const regulatoryChangeImpacts = sqliteTable("regulatory_change_impacts", {
   id: text("id").primaryKey(),
   changeId: text("change_id").notNull(),
@@ -480,6 +490,8 @@ export const riskAppetiteScenarios = sqliteTable("risk_appetite_scenarios", {id:
 export const riskBoardSnapshots = sqliteTable("risk_board_snapshots", {id:text("id").primaryKey(),period:text("period").notNull(),title:text("title").notNull(),reviewer:text("reviewer").notNull(),snapshotJson:text("snapshot_json").notNull(),snapshotSha256:text("snapshot_sha256").notNull().unique(),status:text("status").notNull().default("draft"),preparedBy:text("prepared_by").notNull(),preparedAt:text("prepared_at").notNull(),approvedBy:text("approved_by"),approvedAt:text("approved_at"),approvalNote:text("approval_note"),evidenceReference:text("evidence_reference"),evidenceSha256:text("evidence_sha256")},table=>[index("risk_board_snapshots_status_period_idx").on(table.status,table.period)]);
 export const riskAppetiteEvents = sqliteTable("risk_appetite_events", {id:text("id").primaryKey(),appetiteId:text("appetite_id"),measurementId:text("measurement_id"),breachId:text("breach_id"),scenarioId:text("scenario_id"),snapshotId:text("snapshot_id"),action:text("action").notNull(),detail:text("detail").notNull(),actor:text("actor").notNull(),createdAt:text("created_at").notNull()},table=>[index("risk_appetite_events_entity_date_idx").on(table.appetiteId,table.createdAt)]);
 
+export const incidentCrisisContext=sqliteTable("incident_crisis_context",{incidentId:text("incident_id").notNull().primaryKey(),detectedAt:text("detected_at"),vendorRef:text("vendor_ref"),awarenessAt:text("awareness_at"),notificationRegime:text("notification_regime"),notificationScope:text("notification_scope")});
+export const enterpriseFindingCodeAliases = sqliteTable("enterprise_finding_code_aliases", {legacyCode:text("legacy_code").primaryKey().notNull(),findingId:text("finding_id").notNull().unique()});
 export const enterpriseFindings = sqliteTable("enterprise_findings", {id:text("id").primaryKey(),code:text("code").notNull().unique(),sourceType:text("source_type").notNull(),sourceRef:text("source_ref").notNull(),sourceTitle:text("source_title").notNull(),findingType:text("finding_type").notNull(),title:text("title").notNull(),description:text("description").notNull(),severity:text("severity").notNull(),owner:text("owner").notNull(),reviewer:text("reviewer").notNull(),rootCause:text("root_cause").notNull(),correctiveAction:text("corrective_action").notNull(),preventiveAction:text("preventive_action").notNull(),dueDate:text("due_date").notNull(),status:text("status").notNull().default("open"),riskRef:text("risk_ref"),controlRef:text("control_ref"),evidenceReference:text("evidence_reference"),evidenceSha256:text("evidence_sha256"),verificationEvidenceReference:text("verification_evidence_reference"),verificationEvidenceSha256:text("verification_evidence_sha256"),acceptanceRationale:text("acceptance_rationale"),acceptUntil:text("accept_until"),recurrenceCount:integer("recurrence_count").notNull().default(0),detectedBy:text("detected_by").notNull(),detectedAt:text("detected_at").notNull(),updatedBy:text("updated_by").notNull(),updatedAt:text("updated_at").notNull(),startedBy:text("started_by"),startedAt:text("started_at"),submittedBy:text("submitted_by"),submittedAt:text("submitted_at"),verifiedBy:text("verified_by"),verifiedAt:text("verified_at"),reopenedBy:text("reopened_by"),reopenedAt:text("reopened_at")},table=>[index("enterprise_findings_status_due_idx").on(table.status,table.severity,table.dueDate),index("enterprise_findings_source_idx").on(table.sourceType,table.sourceRef)]);
 export const enterpriseFindingEvents = sqliteTable("enterprise_finding_events", {id:text("id").primaryKey(),findingId:text("finding_id").notNull(),action:text("action").notNull(),fromStatus:text("from_status"),toStatus:text("to_status"),detail:text("detail").notNull(),evidenceReference:text("evidence_reference"),evidenceSha256:text("evidence_sha256"),actor:text("actor").notNull(),createdAt:text("created_at").notNull()},table=>[index("enterprise_finding_events_finding_date_idx").on(table.findingId,table.createdAt)]);
 
@@ -502,3 +514,21 @@ export const continuityPlanSettings = sqliteTable("enterprise_continuity_plan_se
 export const policyImportChunks = sqliteTable("policy_import_chunks", {
  versionId:text("version_id").notNull(), part:integer("part").notNull(), content:blob("content").notNull(),
 }, table=>[primaryKey({columns:[table.versionId,table.part]})]);
+
+export const policyExceptionConnections = sqliteTable("policy_exception_connections", {
+ exceptionId:text("exception_id").primaryKey(),scopeKind:text("scope_kind").notNull(),scopeRef:text("scope_ref").notNull(),
+ controlRefs:text("control_refs").notNull().default("[]"),riskRef:text("risk_ref"),
+});
+
+export const aiSystemProfiles=sqliteTable("ai_system_profiles",{
+ modelId:text("model_id").primaryKey(),profileJson:text("profile_json").notNull(),assessmentJson:text("assessment_json").notNull().default("{}"),
+ evidenceJson:text("evidence_json"),phase:text("phase").notNull().default("draft"),submittedBy:text("submitted_by"),decidedBy:text("decided_by"),decisionNote:text("decision_note"),updatedAt:text("updated_at").notNull(),
+});
+export const aiShadowRegister=sqliteTable("ai_shadow_register",{
+ id:text("id").primaryKey(),name:text("name").notNull(),context:text("context").notNull(),discoveredBy:text("discovered_by").notNull(),discoveredAt:text("discovered_at").notNull(),
+ status:text("status").notNull().default("unreviewed"),modelId:text("model_id"),decidedBy:text("decided_by"),decisionNote:text("decision_note"),decidedAt:text("decided_at"),
+},table=>[index("ai_shadow_status_idx").on(table.status,table.discoveredAt)]);
+export const aiMonitorDetails=sqliteTable("ai_monitor_details",{
+ observationId:text("observation_id").primaryKey(),hallucination:real("hallucination"),leakage:integer("leakage"),findingId:text("finding_id"),incidentId:text("incident_id"),acknowledgedAt:text("acknowledged_at"),
+});
+export const aiSystemDecisions=sqliteTable("ai_system_decisions",{id:text("id").primaryKey(),modelId:text("model_id").notNull(),action:text("action").notNull(),actor:text("actor").notNull(),at:text("at").notNull(),snapshotJson:text("snapshot_json").notNull()});

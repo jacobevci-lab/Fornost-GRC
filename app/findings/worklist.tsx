@@ -1,3 +1,4 @@
+import {savedFindingTarget,type FindingTarget,type FindingReferenceField} from "./record-references";
 import {Fragment, useState} from "react";
 import type {Finding} from "./workspace";
 import {findingLabel} from "./presentation";
@@ -31,13 +32,13 @@ function nextStep(finding: Finding, tr: boolean) {
   }
 }
 
-export function FindingWorklist({rows, lang, disabled, onOpen}: {
-  rows: Finding[]; lang: Lang; disabled: boolean; onOpen: (finding: Finding) => void;
+export function FindingWorklist({rows, lang, disabled, onOpen, targets}: {
+  targets:Record<FindingReferenceField,FindingTarget[]>; rows: Finding[]; lang: Lang; disabled: boolean; onOpen: (finding: Finding) => void;
 }) {
   const [expanded, setExpanded] = useState<string | null>(null);
   const tr = lang === "tr";
   const today = new Date().toISOString().slice(0, 10);
-  const columns = tr ? ["Bulgu", "Kaynak", "Önem", "Sorumlu", "Termin", "Durum"] : ["Finding", "Source", "Severity", "Owner", "Due", "Status"];
+  const columns = tr ? ["Bulgu", "Kaynak", "Önem", "Sorumlu", "Termin", "Durum", "İşlem"] : ["Finding", "Source", "Severity", "Owner", "Due", "Status","Action"];
   return <table className="finding-table capa-list">
     <thead><tr>{columns.map(label => <th key={label} scope="col">{label}</th>)}</tr></thead>
     <tbody>{rows.map(row => {
@@ -54,15 +55,21 @@ export function FindingWorklist({rows, lang, disabled, onOpen}: {
             </button>
             <div><small className="capa-code">{row.code}</small>
               <button type="button" disabled={disabled} className="finding-row-open"
-                onClick={event => {event.stopPropagation(); onOpen(row);}}>{row.title}</button></div>
+                onClick={event => {event.stopPropagation(); onOpen(row);}}>{row.title}</button>
+              <div className="capa-links">{row.linkedCodes?row.linkedCodes.map(code=><span key={code}>{code}</span>):(["riskRef","controlRef"] as const).map(field=>{
+                const ref=row[field];if(!ref)return null;
+                const target=savedFindingTarget(targets[field],ref);
+                return <span key={field} title={target?.title||ref}>{target?.code||ref}</span>;
+              })}</div></div>
           </div></td>
           <td data-label={columns[1]}>{findingLabel(row.sourceType, lang)}</td>
           <td data-label={columns[2]}><span className={`finding-badge ${row.severity}`}>{findingLabel(row.severity, lang)}</span></td>
           <td data-label={columns[3]}>{row.owner || "—"}</td>
           <td data-label={columns[4]}>{due.date}{due.note && <small className={due.late ? "danger" : ""}>{due.note}</small>}</td>
           <td data-label={columns[5]}><span className={`finding-state ${row.status}`}>{findingLabel(row.status, lang)}</span></td>
+          <td data-label={columns[6]}><button type="button" className="capa-review" disabled={disabled} onClick={event=>{event.stopPropagation();onOpen(row);}}>{tr?"İncele / Doğrula":"Review / Verify"}</button></td>
         </tr>
-        {open && <tr className="capa-next-row"><td colSpan={6}>
+        {open && <tr className="capa-next-row"><td colSpan={7}>
           <div className="capa-next" id={panelId}><div><strong>{tr ? "Sıradaki işlem" : "Next step"}</strong><p>{nextStep(row, tr)}</p></div>
             <button type="button" disabled={disabled} onClick={() => onOpen(row)}>{tr ? "Aksiyon planını aç" : "Open action plan"}</button>
           </div>

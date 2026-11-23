@@ -70,3 +70,7 @@ export function findingAttention(status:string,severity:string,dueDate:string,ac
 export function findingVersionMatches(expected:unknown,current:unknown){
  return expected===undefined||(typeof expected==='string'&&expected.length>0&&expected.length<=40&&expected===current);
 }
+
+export function sameFindingPerson(left:unknown,right:unknown){
+ return typeof left==="string"&&typeof right==="string"&&!!left.trim()&&left.trim().toLowerCase()===right.trim().toLowerCase();
+}

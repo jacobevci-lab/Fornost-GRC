@@ -75,11 +75,10 @@ try{
   await expect(policy.locator('.pwl')).toBeVisible();await expect(alert).toHaveCount(0);
   await expect(policy.getByRole('button',{name:'+ Policy',exact:true})).toBeEnabled();
   await page.evaluate(body=>window.qaPending.forEach(resolve=>{
-   const stale={documents:[],versions:[],campaigns:[],attestations:[],exceptions:[],summary:{total:987654,published:0,reviewDue:0,inWorkflow:0,pendingAttestations:0,activeExceptions:0}};
+   const stale={documents:[],versions:[],campaigns:[],attestations:[],exceptions:[],summary:{total:987654,published:987654,reviewDue:0,inWorkflow:0,pendingAttestations:0,activeExceptions:0}};
    resolve(body?stale:new Response(JSON.stringify(stale)));
   }),body);
   await policy.locator('[data-policy-tab="policies"]').click();
-  await policy.locator('.pwl-register-summary summary').click();
   await expect(policy.locator('.plm-metrics')).not.toContainText('987654');
  }
  await go('Risk Assessment');await intercept('/api/policy-lifecycle');await go('Policy Center');

@@ -59,7 +59,7 @@ try {
   for (const [ctx, operation, confirmation] of [[admin, 'submit', 'İNCELEMEYE GÖNDER'], [reviewer, 'approve', 'POLİTİKAYI ONAYLA'], [reviewer, 'publish', 'POLİTİKAYI YAYINLA']]) await api(ctx, '/api/policy-lifecycle', 'POST', { action: 'version-action', versionId, operation, confirmation, ...evidence });
 
   phase = 'actual campaign creation and response'; await open(page);
-  await page.locator('.plm-float').getByRole('button', { name: '+ Campaign', exact: true }).click();
+  await page.locator('.policy-tab-tools').getByRole('button', { name: '+ Campaign', exact: true }).click();
   let dialog = page.getByRole('dialog', { name: 'Attestation campaign', exact: true });
   await dialog.getByLabel('Published policy', { exact: true }).selectOption(policyId); await dialog.getByLabel('Campaign name', { exact: true }).fill(name); await dialog.getByLabel('Due date', { exact: true }).fill(future);
   for (const email of [owner, f.reviewerEmail, f.viewerEmail]) { await dialog.getByLabel('Search participants', { exact: true }).fill(email); const choice=dialog.locator('.pci-choices label').filter({hasText:email}); await expect(choice).toHaveCount(1); await choice.getByRole('checkbox').check(); }

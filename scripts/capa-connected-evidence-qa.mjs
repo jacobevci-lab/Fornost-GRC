@@ -14,7 +14,7 @@ async function api(ctx,path,method='GET',data,status=200){const r=await ctx.requ
 const source=ctx=>api(ctx,'/api/findings?view=decision&findingId='+findingId);
 async function open(p){await p.goto(base);await expect(p.locator('.shell')).toBeVisible();await p.locator('.language-switch:visible').getByRole('button',{name:'EN',exact:true}).click();await p.locator('nav button[aria-label="Findings & CAPA"]').evaluate(el=>el.click());await waitForQaIdle(p);}
 async function detail(p){await open(p);await p.getByLabel('Search findings',{exact:true}).fill(name);await waitForQaIdle(p);await p.locator('.finding-row-open').filter({hasText:name}).click();await expect(p.getByRole('dialog',{name,exact:true})).toBeVisible();}
-async function person(d,label,email){const field=d.getByLabel(label,{exact:true});await expect(field).toBeEnabled();await expect(field.locator(`option[value="${email}"]`)).toHaveCount(1);await field.selectOption(email);}
+async function person(d,label,email){const field=d.getByRole('combobox',{name:label,exact:true});await field.fill(email);await d.getByRole('listbox',{name:label,exact:true}).getByRole('option').filter({hasText:email}).click();await expect(field).toHaveValue(email);}
 async function choose(d){const field=d.getByLabel('Evidence record',{exact:true});await expect(field).toBeEnabled();await field.selectOption(f.evidenceId);const version=d.getByLabel('File version',{exact:true});await expect(version).toBeEnabled();await expect(version.locator(`option[value="${f.version1Id}"]`)).toHaveCount(1);await version.selectOption(f.version1Id);await expect(d.locator('.workflow-evidence-summary')).toBeVisible();}
 async function submit(p,d,label='Apply action',status=200){const pending=p.waitForResponse(r=>new URL(r.url()).pathname==='/api/findings'&&r.request().method()==='POST');await d.getByRole('button',{name:label,exact:true}).click();const r=await pending;assert.equal(r.status(),status,await r.text());const body=await r.json();if(status<300)await expect(d).toBeHidden();await waitForQaIdle(p);return body;}
 async function fill(d,phrase,{evidence=true,note='The source finding, remediation plan and selected evidence have been reviewed.'}={}){await expect(d.locator('.finding-decision-context')).toContainText(owner);await d.getByLabel('Note',{exact:true}).fill(note);if(evidence)await choose(d);await d.getByLabel('Confirmation phrase',{exact:true}).fill(phrase);}
@@ -33,7 +33,7 @@ try{
  await expect(riskOption).toHaveCount(1);
  await expect(riskOption).toContainText(riskCode);
  await riskOption.click();
- await person(d,'Action owner',owner);await person(d,'Independent reviewer',f.reviewerEmail);assert.equal(await d.getByLabel('Independent reviewer',{exact:true}).locator(`option[value="${owner}"]`).count(),0);
+ await person(d,'Action owner',owner);await person(d,'Independent reviewer',f.reviewerEmail);await d.getByRole('combobox',{name:'Independent reviewer',exact:true}).press('ArrowDown');await expect(d.getByRole('listbox',{name:'Independent reviewer'})).toBeVisible();await expect(d.getByRole('listbox',{name:'Independent reviewer'}).getByRole('option').filter({hasText:owner})).toHaveCount(0);await d.getByRole('combobox',{name:'Independent reviewer',exact:true}).press('Escape');
  findingId=(await submit(page,d,'Create finding & CAPA',201)).id;assert.ok(findingId);
  assert.equal((await source(admin)).record.risk_ref, risk.id);
  await detail(page);await action(page,'Start CAPA','CAPA AKSİYONUNU BAŞLAT',{evidence:false});assert.equal((await source(admin)).record.status,'in-progress');

@@ -18,8 +18,8 @@ test("continuous-control is a canonical source but generic finding creation cann
  const[route,ui]=await Promise.all([readFile("app/api/findings/route.ts","utf8"),readFile("app/findings-center.tsx","utf8")]);
  assert.match(route,/finding\.sourceType === "continuous-control"/);
  assert.match(route,/yalnız yönetişimli Continuous Assurance inceleme kuyruğu üzerinden oluşturulabilir/);
- assert.match(ui,/manualFindingSources=FINDING_SOURCES\.filter\(source=>source!=="continuous-control"\)/);
- assert.match(ui,/manualFindingSources\.map/);
+ assert.match(ui,/FINDING_SOURCES\.map/);
+ assert.match(ui,/queue-capa-promotion/);
 });
 
 test("closure and time-bound risk acceptance require exact evidence-backed confirmation",()=>{

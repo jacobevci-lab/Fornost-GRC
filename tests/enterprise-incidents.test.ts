@@ -30,3 +30,12 @@ test("enterprise incident center is wired across schema, API, UI and navigation"
  for(const token of ["maker-checker","notification_decision","incident-export","reopen_count"])assert.ok(api.toLowerCase().includes(token));
  for(const token of ["Güvenlik Olayları","IncidentCenter","/api/incidents"])assert.ok(`${page}\n${ui}`.includes(token));
 });
+
+test('the 72-hour clock preserves exact UTC instants, unknown legacy times and overdue cases',async()=>{
+ const {noticeClock,instant}=await import('../app/incidents/crisis');
+ const start='2026-10-24T15:45:00.000Z',deadline=Date.parse('2026-10-27T15:45:00Z');
+ assert.equal(noticeClock(null,deadline),null);
+ assert.deepEqual(noticeClock(start,deadline-61*60000),{due:deadline,late:false,hours:1,minutes:1});
+ assert.deepEqual(noticeClock(start,deadline+90000),{due:deadline,late:true,hours:0,minutes:2});
+ assert.throws(()=>instant('2026-01-01'));assert.throws(()=>instant(start,Date.parse(start)-1));
+});

@@ -15,8 +15,9 @@ export function aiRecordTarget(kind:unknown,ref:unknown): { view: typeof aiRecor
   return {view:aiRecordViews[recordFocus.kind],recordFocus};
 }
 export function resolveAiRecordFocus(request: FornostNavigationRequest | null): AiRecordFocus | null {
-  if (!request || request.source !== 'connected-grc-register' || !sameDomainModule(request.module, 'AI Yönetişimi')) return null;
+  if (!request || !['connected-grc-register','finding-lineage','go-live-gate'].includes(request.source||'') || !sameDomainModule(request.module, 'AI Yönetişimi')) return null;
   const kind = request.kind;
+  if(request.source==='go-live-gate'&&kind!=='ai-model')return null;
   if (!kind || !Object.hasOwn(aiRecordViews, kind) || typeof request.ref !== 'string' || !request.ref.trim() || request.ref.length > 100) return null;
   if (request.filter?.recordRef !== request.ref) return null;
   return { kind: kind as AiRecordKind, ref: request.ref };

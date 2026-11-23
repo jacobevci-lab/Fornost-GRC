@@ -37,13 +37,13 @@ export async function readWorkflowUsage(db:D1Database, workflow:Workflow, eviden
     LEFT JOIN enterprise_continuity_exercises e ON p.purpose='exercise-result' AND e.id=p.entity_id
     LEFT JOIN enterprise_continuity_gaps g ON p.purpose='gap-closure' AND g.id=p.entity_id
     LEFT JOIN enterprise_continuity_plans plan ON plan.id=COALESCE(e.plan_id,g.plan_id)` : `
-    i.id IS NOT NULL AND c.id IS NOT NULL AND s.id IS NOT NULL AS source_available,
+    i.id IS NOT NULL AND c.id IS NOT NULL AND (c.source_id='' OR s.id IS NOT NULL) AS source_available,
     i.target_title || ' · ' || c.title AS title,i.action_owner AS owner,i.status,i.due_date
     FROM workflow_evidence_pins p
     LEFT JOIN regulatory_change_impacts i ON i.id=p.entity_id
     LEFT JOIN regulatory_changes c ON c.id=i.change_id
     LEFT JOIN regulatory_intelligence_sources s ON s.id=c.source_id`;
-  const purposes=workflow==='incidents'?['incident-contain','incident-eradicate','incident-recover','incident-review','incident-close']:workflow==='findings'?['capa-submit','capa-verify','capa-accept-risk']:workflow==='policy'?['version-submit','version-approve','version-publish','approve-exception','close-exception','policy-retire']:workflow==='tprm'?['assessment-submit','assessment-approved','assessment-conditional','submit-finding','verify-finding','exit-receipt','vendor-offboard','vendor-contract-extended']:workflow==='continuity'?['exercise-result','gap-closure']:['impact-submit','impact-verify'];
+  const purposes=workflow==='incidents'?['incident-response','incident-contain','incident-eradicate','incident-recover','incident-review','incident-close']:workflow==='findings'?['capa-submit','capa-verify','capa-accept-risk']:workflow==='policy'?['version-submit','version-approve','version-publish','approve-exception','close-exception','policy-retire']:workflow==='tprm'?['assessment-submit','assessment-approved','assessment-conditional','submit-finding','verify-finding','exit-receipt','vendor-offboard','vendor-contract-extended']:workflow==='continuity'?['exercise-result','gap-closure']:['impact-submit','impact-verify'];
   const query=`SELECT p.id,p.entity_id,p.purpose,p.actor,p.created_at,p.snapshot_json,
     EXISTS(SELECT 1 FROM evidence_versions v WHERE v.id=json_extract(p.snapshot_json,'$.id')
       AND v.evidence_id=? AND v.version_no=json_extract(p.snapshot_json,'$.versionNo')

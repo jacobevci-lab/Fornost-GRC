@@ -1,3 +1,4 @@
+import {FINDING_SOURCES} from "./domain";
 export const FINDING_REGISTER_LIMIT = 3000;
 /** Counts cover the canonical register, including records outside the bounded UI list. */
 export async function readFindingRegister(db: D1Database, day = new Date().toISOString().slice(0,10), includeRows=true) {
@@ -10,12 +11,14 @@ export async function readFindingRegister(db: D1Database, day = new Date().toISO
 }
 
 export class FindingRegisterError extends Error {constructor(message:string,public status=400){super(message);}}
-export type FindingRegisterQuery={query:string;filter:string;page:number;lang:'tr'|'en';ref?:string;assignment?:'owned'|'review'};
+export type FindingRegisterQuery={query:string;filter:string;source?:string;page:number;lang:'tr'|'en';ref?:string;assignment?:'owned'|'review'};
 export function parseFindingRegisterQuery(params:URLSearchParams):FindingRegisterQuery{
+ const source=params.get('source')||'all';
+ if(source!=='all'&&!FINDING_SOURCES.some(s=>s===source))throw new FindingRegisterError('Invalid finding source');
  const assignment=params.get('assignment')||'all';
  const ref=params.get('ref')||'',query=(params.get('q')||'').trim(),filter=params.get('filter')||'all',raw=params.get('page')||'1',lang=params.get('lang')||'tr';
  if(!['all','owned','review'].includes(assignment)||ref.length>200||/\p{Cc}/u.test(ref)||query.length>200||!['all','active','open','in-progress','critical','recurring','acceptance-expired','priority','overdue','verification','accepted','closed','cancelled'].includes(filter)||!/^[1-9]\d{0,7}$/.test(raw)||!['tr','en'].includes(lang))throw new FindingRegisterError('Invalid finding search or page');
- return {query,filter,page:Number(raw),lang:lang as 'tr'|'en',...(ref?{ref}: {}),...(assignment!=='all'?{assignment:assignment as 'owned'|'review'}:{})};
+ return {query,filter,...(source!=='all'?{source}:{}),page:Number(raw),lang:lang as 'tr'|'en',...(ref?{ref}: {}),...(assignment!=='all'?{assignment:assignment as 'owned'|'review'}:{})};
 }
 function searchExpression(lang:'tr'|'en'){
  let expression="COALESCE(code,'')||' '||COALESCE(title,'')||' '||COALESCE(source_ref,'')||' '||COALESCE(owner,'')";
@@ -26,6 +29,7 @@ function searchExpression(lang:'tr'|'en'){
 }
 export async function readFindingRegisterPage(db:D1Database,input:FindingRegisterQuery,now=new Date(),actorEmail?:string){
  const day=now.toISOString().slice(0,10),where=['1=1'],values:(string|number)[]=[];
+ if(input.source){where.push('source_type=?');values.push(input.source);}
  if(input.assignment){
   if(!actorEmail)throw new FindingRegisterError('Authenticated assignment context required',400);
   where.push(input.assignment==='owned'?'owner=?':'reviewer=?');values.push(actorEmail);
@@ -67,3 +71,28 @@ function findingSummaryStatement(db:D1Database,day:string){return db.prepare(`SE
    COALESCE(SUM(status='accepted'),0) accepted,
    COALESCE(SUM(status='closed'),0) closed,
    COALESCE(SUM(recurrence_count>0),0) recurring FROM enterprise_findings`).bind(day,day);}
+
+// Resolve the page against the full code registry, even when the core workspace has only a partial list.
+export async function findingPageLinks(db:D1Database,rows:Record<string,unknown>[]){
+ const byFinding=new Map<string,{value:string;field:'risk'|'control'}[]>();
+ for(const row of rows){
+  const refs:{value:string;field:'risk'|'control'}[]=[];
+  for(const field of ['risk','control'] as const){
+   for(const value of String(row[field+'_ref']||'').split(/[;,|\n]/).map(v=>v.trim()).filter(Boolean))refs.push({field,value});
+  }
+  byFinding.set(String(row.id),refs);
+ }
+ const values=[...new Set([...byFinding.values()].flat().map(r=>r.value))];
+ const codes=new Map<string,{code:string;module:string}>();
+ if(values.length){
+  const result=await db.prepare(`SELECT c.record_id,c.code,r.module FROM simple_grc_record_codes c
+   JOIN simple_grc_records r ON r.id=c.record_id AND r.module=c.module
+   WHERE r.module IN ('Risk Assessment','Kontroller','Uyum') AND (c.record_id IN (SELECT value FROM json_each(?)) OR c.code IN (SELECT value FROM json_each(?)))`)
+   .bind(JSON.stringify(values),JSON.stringify(values)).all<{record_id:string;code:string;module:string}>();
+  for(const row of result.results){codes.set(row.record_id,row);codes.set(row.code,row);}
+ }
+ return Object.fromEntries([...byFinding].map(([id,refs])=>[id,[...new Set(refs.flatMap(ref=>{
+  const target=codes.get(ref.value);
+  return target&&(ref.field==='risk'?target.module==='Risk Assessment':target.module!=='Risk Assessment')?[target.code]:[];
+ }))]]));
+}

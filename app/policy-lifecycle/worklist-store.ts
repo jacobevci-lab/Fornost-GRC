@@ -1,6 +1,10 @@
 import {workNames,type PolicyWorkPage,type PolicyWorkItem} from "./worklist";
 import {PolicyDecisionError} from "./decision-store";
 
+import {shortCodeFor} from "./center-store";
+import {policyDecisionAvailable} from "./decisions";
+const workDecisions:Record<string,string>={draft:"submit",review:"approve",approved:"publish",exceptionDraft:"submit-exception",exceptionReview:"approve-exception",expiry:"close-exception"};
+
 type Actor={role:string;email:string};
 const pageSize=25;
 
@@ -32,11 +36,13 @@ export async function readPolicyWorklist(db:D1Database,actor:Actor,params:URLSea
   if(!mine&&actor.role==="Admin")branches.push(`SELECT 'campaign',c.id,c.policy_id,v.version_number,c.created_by,c.due_date,c.name
     FROM policy_attestation_campaigns c JOIN policy_versions v ON v.id=c.version_id AND v.policy_id=c.policy_id WHERE c.status='open'`);
   const stem=`WITH work(kind,id,policyId,versionNumber,responsible,due,detail) AS (${branches.join(" UNION ALL ")})
-    SELECT w.*,p.title,p.code FROM work w JOIN policy_documents p ON p.id=w.policyId`;
+    SELECT w.*,p.title,${shortCodeFor("p")} code,p.status policyStatus,p.reviewer policyReviewer,coalesce(v.status,e.status) status,
+    coalesce(v.created_by,e.created_by) created_by,coalesce(v.submitted_by,e.submitted_by) submitted_by,e.owner,e.reviewer
+    FROM work w JOIN policy_documents p ON p.id=w.policyId LEFT JOIN policy_versions v ON v.id=w.id LEFT JOIN policy_exceptions e ON e.id=w.id`;
   const filters=mine?["lower(w.responsible)=lower(?)"]:[];const values:string[]=mine?[actor.email,actor.email]:[];
   if(search){
     const labels=Object.keys(workNames).map(kind=>`WHEN '${kind}' THEN ?`).join(" ");
-    let txt=`p.code||' '||p.title||' '||w.responsible||' '||coalesce(w.detail,'')||' '||CASE w.kind ${labels} END`;
+    let txt=`${shortCodeFor("p")}||' '||p.code||' '||p.title||' '||w.responsible||' '||coalesce(w.detail,'')||' '||CASE w.kind ${labels} END`;
     for(const [upper,lower] of lang==="tr"?[["I","ı"],["İ","i"],["Ş","ş"],["Ü","ü"],["Ö","ö"],["Ğ","ğ"],["Ç","ç"]]:[["İ","i̇"]])txt=`replace(${txt},'${upper}','${lower}')`;
     filters.push(`instr(lower(${txt}),?)>0`);values.push(...Object.values(workNames).map(names=>names[lang==="tr"?0:1]),search.toLocaleLowerCase(lang==="tr"?"tr-TR":"en-US"));
   }
@@ -52,6 +58,13 @@ export async function readPolicyWorklist(db:D1Database,actor:Actor,params:URLSea
         ${mine?" AND lower(a.subject_email)=lower(?)":""}) AS pendingResponses`).bind(...(mine?[actor.email,actor.email]:[]))
   ]);
   const total=Number(counts.results[0].n),pages=Math.max(1,Math.ceil(total/pageSize));
-  return {rows:records.results as unknown as PolicyWorkItem[],total,pages,page:Math.min(requested,pages),
+  const rows=records.results.map(raw=>{
+    const {policyStatus,policyReviewer,status,created_by,submitted_by,owner,reviewer,...data}=raw;
+    const row=data as unknown as PolicyWorkItem,operation=workDecisions[row.kind];
+    const kind=['draft','review','approved'].includes(row.kind)?'version':'exception';
+    if(operation&&policyDecisionAvailable({kind,record:{status,created_by,submitted_by,owner,reviewer} as Record<string,string|null>,policy:{status:String(policyStatus),reviewer:String(policyReviewer)},version:{},revision:''},operation,actor))row.decision={kind,operation};
+    return row;
+  });
+  return {rows,total,pages,page:Math.min(requested,pages),
     openCampaigns:Number(metrics.results[0].openCampaigns),pendingResponses:Number(metrics.results[0].pendingResponses)};
 }
