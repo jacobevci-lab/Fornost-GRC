@@ -157,3 +157,20 @@ test('closed audit rejects existing plan/core writers and migration matches runt
   await assert.rejects(saveAuditPlan(f.db,'audit-a','plan1',{...emptyAuditPlan,scope:'Changed'},admin.email),/audit-closed/);
  }finally{f.sqlite.close();}
 });
+
+test('closure compares the linked evidence state at approval and preserves the approved version afterwards',async()=>{
+ const f=await fixture();try{
+   f.sqlite.exec(`UPDATE simple_grc_records SET data_json=json_set(data_json,'$.evidenceRef','EVD-008') WHERE id='REQ-a';
+    INSERT INTO simple_grc_records VALUES('evidence-8','Kanıtlar','{"status":"Approved","versionNo":1}','','');
+    INSERT INTO simple_grc_record_codes VALUES('evidence-8','Kanıtlar','EVD-008','');`);
+   await submit(f);
+   f.sqlite.exec("UPDATE simple_grc_records SET data_json=json_set(data_json,'$.versionNo',2) WHERE id='evidence-8'");
+   await assert.rejects(decision(f,'approve'),/changed/);
+   await decision(f,'withdraw',admin);await submit(f);
+   const approved=await decision(f,'approve');
+   f.sqlite.exec("UPDATE simple_grc_records SET data_json=json_set(data_json,'$.status','Pending') WHERE id='evidence-8'");
+   const {report}=await readAuditClosureDetail(f.db,admin,'audit-a',approved.id);
+   assert.equal(report.integrity,'verified');
+   assert.deepEqual(report.snapshot.assuranceRecords?.map(r=>[r.code,r.status,r.version]),[['EVD-008','Approved',2]]);
+ }finally{f.sqlite.close();}
+});

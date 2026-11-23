@@ -11,7 +11,7 @@ import "./audit-portfolio-workspace.css";
 
 export type AuditPortfolioItem = {
   archived?: boolean | number; visibility_revision?: string;
-  closure_state?: "open" | "pending" | "closed";
+  closure_event?:string; closure_state?: "open" | "pending" | "closed";
   catalog?: CatalogSnapshot|null;
   id: string; name: string; template: string; audit_type: string; auditor: string; audit_owner: string; status: string;
   created_at?: string; updated_at?: string;
@@ -19,7 +19,7 @@ export type AuditPortfolioItem = {
 type Requirement = { id:string; module:string; code?:string; data:Record<string,unknown> };
 type Props = {
   audits:AuditPortfolioItem[]; rows:Requirement[]; evidence:Requirement[]; lang:"tr"|"en"; showReadiness:boolean;
-  activeId:string; onSelect:(id:string)=>void; onOpen:(name:string)=>void; onDelete?:(audit:AuditPortfolioItem)=>void;
+  onCreate?:()=>void; activeId:string; onSelect:(id:string)=>void; onOpen:(name:string)=>void; onDelete?:(audit:AuditPortfolioItem)=>void;
   translate:(value:string)=>string; renderActions?:(audit:AuditPortfolioItem)=>ReactNode;
 };
 
@@ -29,7 +29,7 @@ function priority(data:Record<string,unknown>, now:number) {
   return 2;
 }
 
-export default function AuditPortfolioWorkspace({audits,rows,evidence,lang,showReadiness,activeId,onSelect,onOpen,onDelete,translate,renderActions}:Props) {
+export default function AuditPortfolioWorkspace({audits,rows,evidence,lang,showReadiness,onCreate,activeId,onSelect,onOpen,onDelete,translate,renderActions}:Props) {
   const tr=lang==="tr";
   const [now,setNow]=useState(Date.now);
   useEffect(()=>{
@@ -44,7 +44,7 @@ export default function AuditPortfolioWorkspace({audits,rows,evidence,lang,showR
     if(!byName.has(name)) byName.set(name,[]);
     byName.get(name)!.push(row);
   }
-  const visible=audits.filter(a=>Boolean(a.archived)===showArchived).filter(a=>a.name.toLocaleLowerCase(lang).includes(query.trim().toLocaleLowerCase(lang)));
+  const visible=audits.filter(a=>(Boolean(a.archived)||a.closure_state==='closed')===showArchived).filter(a=>a.name.toLocaleLowerCase(lang).includes(query.trim().toLocaleLowerCase(lang)));
   const active=visible.find(a=>a.id===activeId)||visible[0];
   const activeKey=auditNameKey(active?.name);
   const unique=!!activeKey&&audits.filter(a=>auditNameKey(a.name)===activeKey).length===1;
@@ -63,7 +63,7 @@ export default function AuditPortfolioWorkspace({audits,rows,evidence,lang,showR
     <div className="apw-index">
       <div className="apw-index-heading"><h3>{tr?"Denetimler":"Audits"}</h3><span>{audits.length}</span></div>
       {audits.length>0&&<input type="search" value={query} onChange={e=>setQuery(e.target.value)} placeholder={tr?"Denetim ara…":"Search audits…"} aria-label={tr?"Denetim ara":"Search audits"}/>}
-      <button type="button" aria-pressed={showArchived} onClick={()=>setShowArchived(v=>!v)}>{showArchived?(tr?"Aktif denetimler":"Active audits"):(tr?"Arşivlenmiş denetimler":"Archived audits")} ({audits.filter(a=>Boolean(a.archived)!==showArchived).length})</button>
+      <button type="button" aria-pressed={showArchived} onClick={()=>setShowArchived(v=>!v)}>{showArchived?(tr?"Aktif denetimler":"Active audits"):(tr?"Arşivlenmiş denetimler":"Archived audits")} ({audits.filter(a=>(Boolean(a.archived)||a.closure_state==='closed')!==showArchived).length})</button>
       <div className="apw-entries">{visible.map(a=><div className="apw-entry" key={a.id} data-active={a.id===active?.id}>
         <button className="apw-select" type="button" aria-pressed={a.id===active?.id} onClick={()=>onSelect(a.id)}>
           <i aria-hidden="true">{a.id===active?.id?"✓":""}</i><span><b>{a.name}</b><small>{auditState(a)}</small></span>
@@ -99,6 +99,6 @@ export default function AuditPortfolioWorkspace({audits,rows,evidence,lang,showR
     {renderActions?renderActions(active):onDelete&&<div className="apw-management">
       <button type="button" className="ghost" disabled={active.closure_state==="closed"} onClick={()=>onDelete(active)}>{tr?"Denetimi Sil":"Delete Audit"}</button>
     </div>}</article>:<div className="apw-inspector apw-empty"><h3>{audits.length?(tr?"Denetim bulunamadı":"No matching audit"):(tr?"Portföy henüz boş":"The portfolio is empty")}</h3>
-      <p>{audits.length?(tr?"Başka bir denetim adı arayın.":"Try a different audit name."):(tr?"Denetim oluşturulduğunda kapsamı, maddeleri ve kanıt hazırlığı burada görünür.":"Once an audit is created, its scope, requirements and evidence readiness appear here.")}</p></div>}
+      <p>{audits.length?(tr?"Başka bir denetim adı arayın.":"Try a different audit name."):(tr?"Denetim oluşturulduğunda kapsamı, maddeleri ve kanıt hazırlığı burada görünür.":"Once an audit is created, its scope, requirements and evidence readiness appear here.")}</p>{!audits.length&&onCreate&&<button type="button" className="primary" onClick={onCreate}>{tr?"+ İlk Denetimi Başlat":"+ Start first audit"}</button>}</div>}
   </section>;
 }

@@ -1,8 +1,8 @@
 export type Coverage = 'supports' | 'partial';
 export type Applicability = 'required' | 'undecided' | 'included' | 'excluded';
 export type Mapping = { id:string; coverage:Coverage };
-export type Pin = {id:string; evidenceId:string; fileKey:string; title:string; version:number; hash:string; period:string};
-export type Control = {id:string; code:string; title:string; implementation:string};
+export type Pin = {code?:string; collectedAt?:string; id:string; evidenceId:string; fileKey:string; title:string; version:number; hash:string; period:string};
+export type Control = {owner?:string; id:string; code:string; title:string; implementation:string};
 export type Requirement = {ref:string; title:string; group:string; annex:boolean; applicability:Applicability; reason:string; revision:string; links:Mapping[]};
 export type Matrix = {name:string; requirements:Requirement[]; controls:Control[]; pins:Record<string,Pin[]>};
 export type Baseline = {framework:string; period:string; total:number; excluded:number; withEvidence:number;

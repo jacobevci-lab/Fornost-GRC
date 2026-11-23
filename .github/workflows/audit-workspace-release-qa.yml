@@ -28,7 +28,7 @@ jobs:
       matrix:
         include:
           - area: workspace
-            scripts: audit-management-qa research-workspace-qa audit-requirement-page-qa framework-packs-qa audit-plan-qa audit-milestones-qa
+            scripts: audit-engagement-qa audit-management-qa research-workspace-qa audit-requirement-page-qa framework-packs-qa audit-plan-qa audit-milestones-qa
           - area: workpapers
             scripts: audit-workpapers-qa workpaper-random-sampling-qa milestone-review-qa audit-template-library-qa
           - area: requests

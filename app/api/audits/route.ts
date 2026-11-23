@@ -1,3 +1,5 @@
+import { auditPeriod, auditTypes, validateAuditTeam } from '../../audit-engagement';
+import { emptyAuditPlan } from '../../audit-plan';
 import { programName } from "../../framework-posture/catalog";
 import { baselineToken, ensurePosture, makeBaseline, PostureError, readMatrix } from "../../framework-posture/store";
 import { iso27001Refs, iso27001Titles } from '../../framework-posture/iso-annex';
@@ -42,16 +44,16 @@ async function db() {
 }
 
 function auditTemplateRows(audit: Record<string, unknown>, imported?: AuditCatalogImport) {
-  const template = String(audit.template || ""), name = String(audit.name || ""), nowDate = new Date().toISOString().slice(0, 10);
+  const template = String(audit.template || ""), name = String(audit.name || ""), nowDate = audit.structured ? "" : new Date().toISOString().slice(0, 10);
   const common = {
     catalogRevision: imported?.version || "2026-10-05-full-packs",
     auditName: name,
     auditType: String(audit.audit_type || ""),
     auditor: String(audit.auditor || ""),
     auditOwner: String(audit.audit_owner || ""),
-    startDate: nowDate,
-    endDate: nowDate,
-    dueDate: nowDate,
+    startDate: String(audit.periodStart || nowDate),
+    endDate: String(audit.periodEnd || nowDate),
+    dueDate: String(audit.targetDate || nowDate),
     status: "Başlanmadı",
     progress: 0,
     evidenceStatus: "Kanıt Bekleniyor",
@@ -111,6 +113,11 @@ export async function GET(req: NextRequest) {
   if (auth.response) return auth.response;
   const d = await db(); await ensureAuditClosureSchema(d);
   if (!canReadModule(auth.actor, "Denetim Yönetimi")) return NextResponse.json({error:"forbidden"},{status:403});
+  if(req.nextUrl.searchParams.get("view")==="metrics") {
+    const pbc=await d.prepare("SELECT count(*) AS n FROM audit_requests r JOIN simple_audits a ON r.audit_id=a.id WHERE json_extract(r.data_json,'$.status') IN ('assigned','changes_requested','submitted')").first<{n:number}>();
+    const findings=!isScoped(auth.actor) && canReadModule(auth.actor,"Bulgular ve CAPA")?await d.prepare("SELECT count(*) AS n FROM enterprise_findings WHERE source_type='audit' AND status NOT IN ('closed','cancelled') AND NOT (status='accepted' AND accept_until>=date('now'))").first<{n:number}>():null;
+    return NextResponse.json({pbc:pbc?.n??null,findings:findings?.n??null},{headers:{'cache-control':'private, no-store'}});
+  }
   if(req.nextUrl.searchParams.get("view")==="findings") {
     if(isScoped(auth.actor))return NextResponse.json({error:"forbidden"},{status:403});
     const id=req.nextUrl.searchParams.get("id")||"";
@@ -131,7 +138,7 @@ export async function GET(req: NextRequest) {
     try { return NextResponse.json(await auditRemovalPreview(d,audit),{headers:{"cache-control":"private, no-store"}}); }
     catch { return NextResponse.json({error:"unavailable"},{status:503}); }
   }
-  const result = await d.prepare("SELECT a.*, COALESCE(json_extract(v.value,'$.archived'),0) AS archived, COALESCE(v.updated_at,'') AS visibility_revision, COALESCE(c.state,'open') AS closure_state, m.value AS catalog_json FROM simple_audits a LEFT JOIN audit_closure_state c ON c.audit_id=a.id LEFT JOIN simple_grc_metadata m ON m.key='audit_catalog_' || a.id LEFT JOIN simple_grc_metadata v ON v.key='audit_visibility_' || a.id ORDER BY a.updated_at DESC").all<Record<string,unknown>>();
+  const result = await d.prepare("SELECT a.*, COALESCE(json_extract(v.value,'$.archived'),0) AS archived, COALESCE(v.updated_at,'') AS visibility_revision, COALESCE(c.state,'open') AS closure_state,c.revision AS closure_event, m.value AS catalog_json FROM simple_audits a LEFT JOIN audit_closure_state c ON c.audit_id=a.id LEFT JOIN simple_grc_metadata m ON m.key='audit_catalog_' || a.id LEFT JOIN simple_grc_metadata v ON v.key='audit_visibility_' || a.id ORDER BY a.updated_at DESC").all<Record<string,unknown>>();
   const audits=result.results.map(row=>{const {catalog_json,...audit}=row;let catalog=null;try{catalog=catalog_json?JSON.parse(String(catalog_json)):null;}catch{}return {...audit,catalog};});
   // Reads must not migrate historical audit snapshots to a newer catalog.
   return NextResponse.json({ audits }, { headers: { "cache-control": "private, no-store" } });
@@ -148,13 +155,21 @@ export async function POST(req: NextRequest) {
     if (name.length < 3) return NextResponse.json({ error: "Denetim adı en az 3 karakter olmalıdır." }, { status: 400 });
     const id = `AUDIT-${crypto.randomUUID()}`, now = new Date().toISOString();
     const d = await db();
-    const audit = {id,name,template,audit_type:text(body.auditType,100)||"Diğer Denetim",auditor:text(body.auditor,160),audit_owner:text(body.auditOwner,160)};
+    const structured=body.periodStart!==undefined || body.periodEnd!==undefined || body.targetDate!==undefined;
+    const dates={periodStart:body.periodStart??'',periodEnd:body.periodEnd??'',targetDate:body.targetDate??''};
+    if(Object.values(dates).some(v=>typeof v!=='string'))throw new Error('audit-dates');
+    const range=auditPeriod(String(dates.periodStart),String(dates.periodEnd),String(dates.targetDate));
+    const audit = {id,name,template,structured,...dates,audit_type:text(body.auditType,100)||"Diğer Denetim",auditor:text(body.auditor,5400),audit_owner:text(body.auditOwner,254)};
+    if(structured && !auditTypes.some(([label])=>label===audit.audit_type))throw new Error('audit-type');
+    validateAuditTeam(audit.audit_owner,audit.auditor,structured);
+    if(structured && audit.audit_owner && !await d.prepare("SELECT 1 FROM local_users WHERE status='Active' AND lower(email)=lower(?)").bind(audit.audit_owner).first())throw new Error('audit-owner');
     const snapshots:D1PreparedStatement[]=[];
     const referencesWithEvidence=new Set<string>();
     if(body.posture!==undefined){
       if(!canReadPosture(auth.actor))throw new PostureError('forbidden',403);
       const input=body.posture as {period?:unknown;token?:unknown}|null;
       if(imported || typeof input?.period!=='string' || typeof input.token!=='string')throw new PostureError('fields');
+      if(range && input.period!==range)throw new PostureError('preview-changed',409);
       await ensurePosture(d);
       const baseline=makeBaseline(await readMatrix(d,programName(template)),input.period.trim());
       if(await baselineToken(baseline)!==input.token)throw new PostureError('preview-changed',409);
@@ -165,16 +180,18 @@ export async function POST(req: NextRequest) {
     }
     const rows = auditTemplateRows(audit, imported);
     for(const row of rows)if(referencesWithEvidence.has(row.requirementRef)) row.evidenceStatus="İncelemede";
-    const provenance = {template,...(snapshots.length?{hasPosture:true}:{}),revision:imported?.version || "2026-10-05-full-packs",source:imported?.source || nistCatalogs.find(c=>c.name===template)?.source || (template===asvsManifest.name?asvsManifest.source:getCatalogStatus(template).source || ""),count:rows.length,imported:!!imported,rightsConfirmed:imported?.rightsConfirmed || false,createdBy:auth.actor.email,createdAt:now};
+    const provenance = {template,...(structured?{structuredTeam:true}:{}),...(snapshots.length?{hasPosture:true}:{}),revision:imported?.version || "2026-10-05-full-packs",source:imported?.source || nistCatalogs.find(c=>c.name===template)?.source || (template===asvsManifest.name?asvsManifest.source:getCatalogStatus(template).source || ""),count:rows.length,imported:!!imported,rightsConfirmed:imported?.rightsConfirmed || false,createdBy:auth.actor.email,createdAt:now};
     await d.batch([
       d.prepare("INSERT INTO simple_audits(id,name,template,audit_type,auditor,audit_owner,status,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?)").bind(id,name,template,audit.audit_type,audit.auditor,audit.audit_owner,text(body.status,40) || "Başlanmadı",now,now),
       d.prepare("INSERT INTO simple_grc_metadata(key,value,updated_at) VALUES(?,?,?)").bind(`audit_catalog_${id}`,JSON.stringify(provenance),now),
+      ...(structured ? [d.prepare("INSERT INTO simple_grc_metadata(key,value,updated_at) VALUES(?,?,?)").bind(`audit_plan_${id}`,JSON.stringify({plan:{...emptyAuditPlan,...dates},revision:crypto.randomUUID(),updatedAt:now,updatedBy:auth.actor.email}),now)] : []),
       ...snapshots,
       ...auditRequirementInserts(id,rows,now).map(statement=>d.prepare(statement.sql).bind(...statement.values)),
     ]);
     const insertedRequirements = rows.length;
     return NextResponse.json({ ok: true, id, insertedRequirements }, { status: 201 });
   } catch (error) {
+    if(error instanceof Error && ['audit-team','audit-owner','audit-type','audit-dates'].includes(error.message))return NextResponse.json({error:error.message},{status:400});
     if (error instanceof PostureError) return NextResponse.json({error:error.code},{status:error.status});
     if (String(error).toLowerCase().includes("unique")) return NextResponse.json({ error: "Bu adla bir denetim zaten portföyde." }, { status: 409 });
     return NextResponse.json({ error: "Denetim oluşturulamadı." }, { status: 400 });
@@ -201,7 +218,7 @@ export async function PATCH(req: NextRequest) {
   const auth=await requireRole(req,["Admin","Editor"]); if(auth.response)return auth.response;
   if(!canWriteModule(auth.actor,"Denetim Yönetimi"))return NextResponse.json({error:"forbidden"},{status:403});
   try {
-    const raw=await req.text(); if(raw.length>4096)return NextResponse.json({error:"fields"},{status:413});
+    const raw=await req.text(); if(raw.length>10000)return NextResponse.json({error:"fields"},{status:413});
     const body=JSON.parse(raw);
     if(!body||typeof body!=="object"||Array.isArray(body)||typeof body.id!=="string"||body.id.length>100)return NextResponse.json({error:"fields"},{status:400});
     if(body.action!=="edit"&&auth.actor.role!=="Admin")return NextResponse.json({error:"forbidden"},{status:403});

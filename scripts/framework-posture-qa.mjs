@@ -25,7 +25,7 @@ try{
     await expect(work.locator('.posture-column')).toHaveCount(0);
     await work.getByRole('button',{name:'+ Add ISO 27001',exact:true}).click();
   }
-  await work.getByRole('button',{name:/^ISO 27001.*%/}).click();
+  await work.locator('.posture-column-head').filter({hasText:'ISO 27001'}).click();
   await expect(work.getByRole('button',{name:/^Open requirements/})).toBeVisible();
   const tableRow=ref=>work.locator('tr').filter({has:page.getByRole('rowheader',{name:ref,exact:true})});
   const help=work.locator('.posture-state-help');
@@ -92,7 +92,7 @@ try{
   }
   await proofContext.close();
   await go('Compliance Management');
-  await work.getByRole('button',{name:/^ISO 27001.*%/}).click();
+  await work.locator('.posture-column-head').filter({hasText:'ISO 27001'}).click();
   await work.getByRole('button',{name:/^All requirements/}).click();
   await work.getByRole('searchbox',{name:'Search requirements',exact:true}).fill('A.5.1');
   await expect(annexRow.locator('.posture-status')).toHaveText('Open');
@@ -107,7 +107,7 @@ try{
   const accessible=async()=>{const result=await new AxeBuilder({page}).include('.posture-workspace').withTags(['wcag2a','wcag2aa']).analyze();
     assert.deepEqual(result.violations.flatMap(v=>v.nodes.map(n=>[v.id,n.target,n.failureSummary])),[]);};
   await accessible();
-  await work.getByRole('button',{name:/^SOC 2.*%/}).click();
+  await work.locator('.posture-column-head').filter({hasText:'SOC 2'}).click();
   await expect(tableRow('CC1.1').locator('.posture-status')).toHaveText('Partial');
   await go('Audit Management');
   await page.getByRole('button',{name:'+ New Audit',exact:true}).click();
@@ -137,7 +137,7 @@ try{
   assert.equal(snapshot.withEvidence,1);assert.equal(Object.keys(snapshot.evidence).length,1);
   const before=await api(endpoint+'?name='+encodeURIComponent(iso)+'&period='+encodeURIComponent(period));
   await go('Compliance Management');
-  await work.getByRole('button',{name:/^ISO 27001.*%/}).click();
+  await work.locator('.posture-column-head').filter({hasText:'ISO 27001'}).click();
   await work.getByRole('button',{name:/^All requirements/}).click();
   await work.getByRole('searchbox',{name:'Search requirements',exact:true}).fill('A.5.1');
   await annexRow.getByRole('combobox',{name:'A.5.1 · SoA scope'}).selectOption('excluded');
@@ -146,13 +146,13 @@ try{
   await rationale.fill('Scope changed after audit start');await annexRow.getByRole('button',{name:'Save scope'}).click();
   await expect(annexRow.locator('.posture-status')).toHaveText('Out of scope');
   await expect(tree.getByRole('button',{name:/^A\.5 ·/})).toContainText('0/36');
-  await expect(work.getByRole('button',{name:/^ISO 27001.*%/})).toContainText('0/122');
+  await expect(work.locator('.posture-column-head').filter({hasText:'ISO 27001'})).toContainText('0/122');
   await api('/api/audits',{name:'Stale preview '+tag,template:iso,posture:{period,token:before.token}},409);
   assert.deepEqual((await api(endpoint+'?auditId='+audit.id)).baseline,snapshot);
   await go('Compliance Management');
   await page.locator('.language-switch:visible').getByRole('button',{name:'TR',exact:true}).click();
   await expect(work.getByRole('heading',{name:'Madde ağacı'})).toBeVisible();
-  await expect(work.getByRole('button',{name:/^ISO 27001.*%/})).toBeVisible();
+  await expect(work.locator('.posture-column-head').filter({hasText:'ISO 27001'})).toBeVisible();
   await page.setViewportSize({width:390,height:844});
   await work.getByRole('button',{name:'Madde ağacı',exact:true}).click();
   const mobileTree=work.getByRole('region',{name:'Madde ağacı'});

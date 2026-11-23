@@ -90,7 +90,7 @@ try{
  const submitted=(await api(admin,endpoint)).state.submissionId;
  await peerPanel.getByRole('button',{name:'Refresh closure state',exact:true}).click();await peerPanel.getByRole('button',{name:'Review current package',exact:true}).click();await expect(peerPanel.locator('.asr-saved')).toContainText(summary);
  await peerPanel.getByLabel('Decision or reopening reason',{exact:true}).fill('I independently approve the revised audit package and its CAPA follow-up.');await peerPanel.getByLabel('I reviewed the package scope, results and follow-up of open findings.',{exact:true}).check();
- await peerPanel.getByRole('button',{name:'Approve and close audit',exact:true}).click();await expect(peerPanel).toContainText('Closed with approval');
+ await peerPanel.getByRole('button',{name:'Approve and close audit',exact:true}).click();await expect(peerPanel).toContainText('Completed / archived');
  const history=await api(admin,endpoint),approved=history.state.revision,exact=await api(admin,endpoint+`&eventId=${approved}`);
  assert.equal(exact.sha256,createHash('sha256').update(canonical(exact.event)).digest('hex'));assert.equal(exact.report.sha256,createHash('sha256').update(canonical(exact.report.snapshot)).digest('hex'));assert.equal(exact.event.submissionId,submitted);
  assert.equal((await api(admin,'/api/audits')).audits.find(a=>a.id===auditId).closure_state,'closed');assert.ok(!(await api(reviewer,'/api/audits/requests')).closures.some(c=>c.auditId===auditId));

@@ -65,7 +65,7 @@ export async function createWorkpaperCapa(db:D1Database,actor:Actor,input:Record
   if(paper.status!=='approved')throw new AuditRequestError('approved-required',409);
   if(p.role!=='Admin'&&![paper.owner,paper.reviewer].includes(p.email))throw new AuditRequestError('owner',403);
   const sample=paper.samples.find(s=>s.reference===input.reference),evidence=paper.evidence.find(e=>e.id===sample?.versionId);
-  if(!sample||sample.result!=='exception'||!evidence)throw new AuditRequestError('exception-required',409);
+  if(!sample||!['exception','inadequate'].includes(sample.result)||!evidence)throw new AuditRequestError('exception-required',409);
   const origin:WorkpaperCapaOrigin={auditId,auditName:raw.audit_name,workpaperId,workpaperTitle:paper.title,revision:paper.revision,owner:paper.owner,reviewer:paper.reviewer,sample,evidence,reason:input.reason.trim()};
   const finding=workpaperCapaFinding(input.fields,origin,now.toISOString().slice(0,10)),key=workpaperSampleKey(sample.reference);
   if(finding.reviewer===p.email)throw new AuditRequestError('independent-review',403);

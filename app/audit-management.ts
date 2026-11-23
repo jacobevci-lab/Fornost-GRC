@@ -1,3 +1,4 @@
+import { validateAuditTeam, auditTypes } from './audit-engagement';
 import { LifecycleConflict, nextLifecycleStamp } from './enterprise-lifecycle-write';
 import { relationFields } from './connected-grc-model';
 import { enterpriseCoreReferences } from './enterprise-core-references';
@@ -50,8 +51,14 @@ export async function updateAudit(db: D1Database, audit: Audit, actor: string, i
   if (action === 'edit') {
     for (const key of ['name','audit_type','auditor','audit_owner'] as const) {
       const value=input[key];
-      if(typeof value!=='string'||value.length>160||/[\u0000-\u001f]/.test(value))throw new Error('fields');
+      if(typeof value!=='string'||value.length>(key==='auditor'?5400:key==='audit_owner'?254:160)||/[\u0000-\u001f]/.test(value))throw new Error('fields');
       next[key]=value.trim();
+    }
+    const changed=next.audit_owner!==audit.audit_owner || next.auditor!==audit.auditor || next.audit_type!==audit.audit_type;
+    if(changed){
+      const structured=!!await db.prepare("SELECT 1 FROM simple_grc_metadata WHERE key=? AND json_extract(value,'$.structuredTeam')=1").bind('audit_catalog_'+audit.id).first();
+      validateAuditTeam(String(next.audit_owner),String(next.auditor),structured);
+      if(structured && (!auditTypes.some(([t])=>t===next.audit_type) || next.audit_owner && !await db.prepare("SELECT 1 FROM local_users WHERE status='Active' AND lower(email)=lower(?)").bind(next.audit_owner).first()))throw new Error('fields');
     }
     if(String(next.name).length<3||!next.audit_type)throw new Error('fields');
   }

@@ -24,7 +24,7 @@ function formatDate(value: string, lang: Lang) {
   return new Intl.DateTimeFormat(lang === "tr" ? "tr-TR" : "en-GB", { day: "2-digit", month: "short", year: "numeric" }).format(date);
 }
 
-export default function AuditReadinessGate({lang, auditName = "", records, mode="full", initialGaps, overview}: {lang: Lang; auditName?: string; records?: Row[]; mode?:"full"|"global"|"metric"; initialGaps?:boolean; overview?:React.ReactNode}) {
+export default function AuditReadinessGate({lang, auditName = "", records, mode="full", initialGaps, overview,portfolio}: {lang: Lang; auditName?: string; records?: Row[]; mode?:"full"|"global"|"metric"; initialGaps?:boolean; overview?:React.ReactNode;portfolio?:(score:number|null)=>React.ReactNode}) {
   const [snapshot, setSnapshot] = useState<{ scope: string; result: AuditReadinessResult } | null>(null);
   const [loading, setLoading] = useState(true), [loadError, setLoadError] = useState(false);
   const [gapLimit, setGapLimit] = useState(8), [signalLimit, setSignalLimit] = useState(6);
@@ -159,7 +159,7 @@ export default function AuditReadinessGate({lang, auditName = "", records, mode=
     </section>
   );
   if(mode!=="global")return fullPanel;
-  return <details className="apw-global"><summary><strong>{tr?"Genel kanıt hazırlığı":"Overall evidence readiness"}</strong>
+  return <>{portfolio?.(reliable&&assurance.total?assurance.readiness:null)}<details className="apw-global"><summary><strong>{tr?"Genel kanıt hazırlığı":"Overall evidence readiness"}</strong>
     <span>{tr?"Tüm referanslar":"All references"} · {referenceCount}</span></summary>
-    {fullPanel}{overview}</details>;
+    {fullPanel}{overview}</details></>;
 }

@@ -35,6 +35,7 @@ export async function GET(req:NextRequest) {
     if(query.has('periods'))return reply({periods:[...new Set(Object.values(matrix.pins).flat().map(p=>p.period))].sort()});
     if(!query.has('period'))return reply(matrix);
     const baseline=makeBaseline(matrix,(query.get('period')||'').trim());
+    if(query.has('counts'))return reply({withEvidence:baseline.withEvidence,controls:new Set(baseline.entries.filter(r=>r.applicability!=='excluded').flatMap(r=>r.controls.map(c=>c.id))).size,evidence:new Set(Object.values(baseline.evidence).map(p=>p.evidenceId)).size,token:await baselineToken(baseline)});
     return reply({baseline,token:await baselineToken(baseline)});
   } catch(error){return failure(error);}
 }

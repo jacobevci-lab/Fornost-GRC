@@ -1,6 +1,6 @@
 'use client';
-import {useState,useRef,useEffect} from 'react';
-import {usePosture,postureRequest} from './client';
+import {useState,useEffect} from 'react';
+import {usePosture} from './client';
 import {navigateToFornost} from '../navigation-focus';
 import {withBasePath} from '../base-path';
 import {applicabilityLabel} from './requirements';
@@ -10,25 +10,20 @@ export type AuditChoice=false|null|{period:string;token:string};
 function EvidenceSummary({baseline,tr}:{baseline:Baseline;tr:boolean}){
   return <p><b>{baseline.withEvidence}</b> {tr?'maddede bu döneme ait onaylı kanıt var':'requirements with approved evidence for this period'} · <b>{baseline.total-baseline.excluded-baseline.withEvidence}</b> {tr?'maddede dönem kanıtı eksik':'requirements missing period evidence'} · <b>{baseline.excluded}</b> {tr?'hariç':'excluded'}</p>;
 }
-export function AuditPostureChoice({template,tr,choice,onChange}:{template:string;tr:boolean;choice:AuditChoice;onChange:(c:AuditChoice)=>void}){
-  const [period,setPeriod]=useState(''),[preview,setPreview]=useState<Baseline>(),[busy,setBusy]=useState(false),[failed,setFailed]=useState('');
-  const {data,error}=usePosture<{periods:string[]}>(choice===false?null:{name:template,periods:'1'});
-  const mounted=useRef(true);
-  useEffect(()=>{mounted.current=true;return ()=>{mounted.current=false;};},[]);
-  async function check(){
-    setBusy(true);setFailed('');setPreview(undefined);onChange(null);
-    try{
-      const result=await postureRequest<{baseline:Baseline;token:string}>({name:template,period:period.trim()});
-      if(!mounted.current)return;
-      setPreview(result.baseline);onChange({period:period.trim(),token:result.token});
-    }catch{setFailed(tr?'Önizleme yüklenemedi.':'Preview unavailable.');}finally{setBusy(false);}
-  }
-  return <fieldset className="posture-choice wide" disabled={busy}><label><input type="checkbox" checked={choice!==false} onChange={e=>{onChange(e.target.checked?null:false);setPreview(undefined);setFailed('');}}/> {tr?'Mevcut kontrolleri ve onaylı dönem kanıtlarını devral':'Reuse existing controls and approved period evidence'}</label>
-    {choice!==false&&<>{error?<p role="status">{error==='404'?(tr?'Önce Uyum Yönetimi içinde bu çerçeveyi ekleyin.':'Add this framework in Compliance Management first.'):(tr?'Çerçeve bilgileri alınamadı.':'Framework unavailable.')}</p>:<>
-    <label>{tr?'Kanıt dönemi':'Evidence period'}<input value={period} list="posture-periods" maxLength={120} onChange={e=>{setPeriod(e.target.value);setPreview(undefined);onChange(null);}}/></label>
-    <datalist id="posture-periods">{data?.periods.map(p=><option key={p}>{p}</option>)}</datalist>
-    <button type="button" disabled={!data||!period.trim()} onClick={check}>{tr?'Dönemi önizle':'Preview period'}</button></>}
-    {failed&&<p role="alert">{failed}</p>}{preview&&choice&&<><EvidenceSummary baseline={preview} tr={tr}/><p>{tr?'Denetim başlayınca bu sürümler sabitlenir. Test ve denetçi kararı ayrı izlenir.':'Starting the audit freezes these versions. Testing and auditor decisions are tracked separately.'}</p></>}</>}
+export function AuditPostureChoice({template,tr,choice,onChange,range=''}:{template:string;tr:boolean;choice:AuditChoice;onChange:(c:AuditChoice)=>void;range?:string}){
+  const [period,setPeriod]=useState(''),[revision,setRevision]=useState(0);
+  const selected=range||period.trim(),enabled=choice!==false;
+  const {data:periods}=usePosture<{periods:string[]}>(enabled&&!range?{name:template,periods:'1'}:null);
+  const {data,error}=usePosture<{controls:number;evidence:number;withEvidence:number;token:string}>({name:template,period:selected||'∅',counts:'1'},revision);
+  useEffect(()=>{
+    if(enabled && selected && data)onChange({period:selected,token:data.token});
+  },[enabled,selected,data,onChange]);
+  return <fieldset className="posture-choice wide"><label><input type="checkbox" checked={enabled} onChange={e=>onChange(e.target.checked?null:false)}/> {tr?'Mevcut kontrolleri ve onaylı dönem kanıtlarını devral':'Reuse existing controls and approved period evidence'}</label>
+    <p role="status">{data?(tr?`Bu şablon için ${data.controls} kontrol eşleşti. `:`${data.controls} controls mapped to this template. `)+(selected?(tr?`${data.evidence} onaylı kanıt devralınmaya hazır.`:`${data.evidence} approved evidence records ready to inherit.`):(tr?'Onaylı kanıt sayısı için dönem seçin.':'Choose an observation period to count approved evidence.')):error==='404'?(tr?'Bu çerçeve Uyum Yönetimi’nde etkin değil.':'This framework is inactive in Compliance Management.'):(tr?'Devralma önizlemesi':'Inheritance preview')+' · —'}</p>
+    {enabled&&!range&&<><label>{tr?'Kanıt dönemi':'Evidence period'}<input value={period} list="posture-periods" maxLength={120} onChange={e=>{setPeriod(e.target.value);onChange(null);}}/></label>
+    <datalist id="posture-periods">{periods?.periods.map(p=><option key={p}>{p}</option>)}</datalist></>}
+    {(enabled||error)&&<button type="button" onClick={()=>{if(enabled)onChange(null);setRevision(v=>v+1);}}>{tr?'Dönemi önizle':'Preview period'}</button>}
+    {enabled&&selected&&data&&<p>{data.withEvidence} {tr?'maddede bu döneme ait onaylı kanıt var':'requirements with approved evidence for this period'}</p>}
   </fieldset>;
 }
 export function AuditBaseline({auditId,tr,records}:{auditId:string;tr:boolean;records:Map<string,string>}){
