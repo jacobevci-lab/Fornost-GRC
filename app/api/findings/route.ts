@@ -1,3 +1,5 @@
+import {storedFindingCode} from "../../findings/codes";
+import {searchFindingSources,resolveFindingSource,FindingSourceError} from "../../findings/source-records";
 import {cancelWorkflowRecord,CancellationError} from "../../workflow-cancellation";
 import {insertFinding} from "../../findings/intake-store";
 import {readFindingDecision,prepareFindingDecision,FindingDecisionError} from '../../findings/decision-store';
@@ -7,13 +9,13 @@ import {CoreReferenceUnavailable} from "../../core-reference-write";
 import { NextRequest, NextResponse } from "next/server";
 import { requireRole } from "../auth/security";
 import { clean } from "../integrations/security";
-import { findingAttention, findingVersionMatches, validateFinding, validateFindingAction, validateFindingGovernanceGate } from "../../findings/domain";
+import { sameFindingPerson, findingAttention, findingVersionMatches, validateFinding, validateFindingAction, validateFindingGovernanceGate } from "../../findings/domain";
 import { commitFindingTransition } from "../../findings/transition-store";
 import { findingCsvCell as csvCell } from "../../findings/export";
 import { ensureFindingsSchemaCompatibility } from "./schema-compat";
 import { FindingReportPageError, readFindingReportPage, readFindingGraphPage } from "../../findings/report-page";
 
-import { readFindingRegister,readFindingRegisterPage,parseFindingRegisterQuery,FindingRegisterError } from "../../findings/register";
+import { findingPageLinks,readFindingRegister,readFindingRegisterPage,parseFindingRegisterQuery,FindingRegisterError } from "../../findings/register";
 
 type Env = Record<string, unknown> & { DB: D1Database; BUCKET?:R2Bucket };
 
@@ -85,6 +87,11 @@ export async function GET(req: NextRequest) {
     return json({ count: summary.open });
   }
 
+  if(req.nextUrl.searchParams.get('view')==='sources'){
+    if(access.actor.role==='Viewer')return json({error:'Write access required'},403);
+    try{return json(await searchFindingSources(env.DB,req.nextUrl.searchParams.get('source'),req.nextUrl.searchParams.get('q')||''));}
+    catch(error){return json({code:'FINDING_SOURCE_SELECTION'},error instanceof FindingSourceError?error.status:503);}
+  }
   if(req.nextUrl.searchParams.get('view')==='decision'){
     if(req.nextUrl.searchParams.getAll('findingId').length!==1)return json({code:'FINDING_DECISION_INPUT'},400);
     try{return json(await readFindingDecision(env.DB,req.nextUrl.searchParams.get('findingId')));}
@@ -110,10 +117,19 @@ export async function GET(req: NextRequest) {
   let registerQuery;
   try {if(req.nextUrl.searchParams.get("view")==="register")registerQuery=parseFindingRegisterQuery(req.nextUrl.searchParams);}
   catch(error){if(error instanceof CancellationError)return json({code:error.code},error.status);if(error instanceof FindingRegisterError)return json({error:error.message},error.status);throw error;}
+  if(registerQuery){
+    for(const field of ['ref','query'] as const){
+      const value=registerQuery[field];
+      if(value&&/^FND-/i.test(value)){
+        const alias=await env.DB.prepare("SELECT f.code FROM enterprise_finding_code_aliases a JOIN enterprise_findings f ON f.id=a.finding_id WHERE a.legacy_code=? COLLATE NOCASE").bind(value).first<{code:string}>();
+        if(alias)registerQuery[field]=alias.code;
+      }
+    }
+  }
   const [register, eventResult, sourceSignals, registerPage] = await Promise.all([
     registerQuery?Promise.resolve(null):readFindingRegister(env.DB),
-    env.DB.prepare("SELECT * FROM enterprise_finding_events ORDER BY created_at DESC LIMIT 1000").all<Record<string, unknown>>(),
-    Promise.all([
+    env.DB.prepare(registerQuery ? `SELECT e.id,e.finding_id,e.action,e.from_status,e.to_status,e.actor,e.created_at,f.code FROM enterprise_finding_events e JOIN enterprise_findings f ON f.id=e.finding_id WHERE e.action IN ('finding-create','continuous-assurance-promotion','workpaper-exception-promotion','start','submit','verify','reopen','accept-risk','cancel','assign','evidence-added') ORDER BY e.created_at DESC,e.id DESC LIMIT 20` : "SELECT * FROM enterprise_finding_events ORDER BY created_at DESC LIMIT 1000").all<Record<string, unknown>>(),
+    registerQuery ? env.DB.prepare("SELECT source_type AS source,COUNT(*) AS count FROM enterprise_findings GROUP BY source_type").all().then(result=>result.results) : Promise.all([
       sourceCount(env.DB, "continuous-control", "SELECT COUNT(*) n FROM evidence_automation_findings WHERE status!='closed'"),
       sourceCount(env.DB, "third-party", "SELECT COUNT(*) n FROM third_party_findings WHERE status!='closed'"),
       sourceCount(env.DB, "ai-assurance", "SELECT COUNT(*) n FROM ai_findings WHERE status!='closed'"),
@@ -123,7 +139,9 @@ export async function GET(req: NextRequest) {
   ]);
 
   if(registerPage instanceof FindingRegisterError)return json({error:registerPage.message},registerPage.status);
-  const findings = (registerPage?.rows||register!.rows).map(map);
+  const rows=registerPage?.rows||register!.rows;
+  const links=registerPage?await findingPageLinks(env.DB,rows):null;
+  const findings=rows.map(row=>({...map(row),...(links?{linkedCodes:links[String(row.id)]}: {})}));
   const summary = registerPage?.summary||register!.summary;
 
   if (req.nextUrl.searchParams.get("format") === "csv") {
@@ -147,7 +165,7 @@ export async function GET(req: NextRequest) {
     findings,
     coverage: register?.coverage,
     pagination: registerPage?.pagination,
-    events: eventResult.results.map((item) => ({ id: item.id, findingId: item.finding_id, action: item.action, fromStatus: item.from_status, toStatus: item.to_status, detail: item.detail, actor: item.actor, createdAt: item.created_at })),
+    events: eventResult.results.map((item) => ({ id: item.id, findingId: item.finding_id, action: item.action, fromStatus: item.from_status, toStatus: item.to_status, detail: item.detail||"", code:item.code, actor: item.actor, createdAt: item.created_at })),
     sourceSignals,
     summary,
   });
@@ -167,18 +185,22 @@ export async function POST(req: NextRequest) {
     if (action === "create") {
       const selection=await prepareWorkflowSelection(env,access.actor,body,{owner:'writer',reviewer:'reviewer'});
       body=selection.body;
+      if(body.sourceMode!==undefined&&!['record','external'].includes(String(body.sourceMode)))throw new FindingSourceError(400);
+      const source=body.sourceMode==='record'?await resolveFindingSource(env.DB,body.sourceType,body.sourceRef):null;
+      if(source)body={...body,sourceTitle:source.title};
       const finding = validateFinding(body);
       if (finding.sourceType === "continuous-control") {
         return json({ error: "Sürekli kontrol bulguları yalnız yönetişimli Continuous Assurance inceleme kuyruğu üzerinden oluşturulabilir." }, 409);
       }
       const id = `FND-${crypto.randomUUID()}`;
-      const code = `FND-${new Date().getUTCFullYear()}-${crypto.randomUUID().replace(/-/g, "").slice(0, 8).toUpperCase()}`;
+      const code = id;
       const now = new Date().toISOString();
-      await insertFinding(env.DB, finding, {id,code,actor:access.actor.email,stamp:now,selectedIds:body.referenceMode==='record-id',guard:body.assignmentMode==='directory'?selection.guard:undefined});
-      return json({ id, code, message: "Kurumsal bulgu ve CAPA planı oluşturuldu." }, 201);
+      await insertFinding(env.DB, finding, {id,code,actor:access.actor.email,stamp:now,selectedIds:body.referenceMode==='record-id',guard:joinWorkflowGuards(selection.guard,...(source?[source.guard]:[]))});
+      return json({ id, code:await storedFindingCode(env.DB,id), message: "Kurumsal bulgu ve CAPA planı oluşturuldu." }, 201);
     }
 
     if (action === "transition") {
+      if(['submit','verify'].includes(String(body.operation))&&body.evidenceMode!=='library')throw new WorkflowSelectionError('EVIDENCE_SELECTION');
       const decisionGuard=await prepareFindingDecision(env.DB,access.actor,body);
       const selection=await prepareWorkflowSelection(env,access.actor,body,{},['submit','verify','accept-risk'].includes(String(body.operation)));
       body=selection.body;
@@ -194,23 +216,23 @@ export async function POST(req: NextRequest) {
       let update: D1PreparedStatement;
 
       if (operation.operation === "start") {
-        if (status !== "open" || access.actor.role !== "Admin" && finding.owner !== access.actor.email) return json({ error: "CAPA'yı yalnız atanmış aksiyon sahibi veya Admin başlatabilir." }, 403);
+        if (status !== "open" || access.actor.role !== "Admin" && !sameFindingPerson(finding.owner,access.actor.email)) return json({ error: "CAPA'yı yalnız atanmış aksiyon sahibi veya Admin başlatabilir." }, 403);
         next = "in-progress";
         update = lifecycleClaim(env.DB,'enterprise_findings','status=?,started_by=?,started_at=?,updated_by=?,updated_at=?',[next,access.actor.email,now,access.actor.email,now],finding as Record<string,string|number|null>,writeGuard);
       } else if (operation.operation === "submit") {
-        if (status !== "in-progress" || access.actor.role !== "Admin" && finding.owner !== access.actor.email) return json({ error: "CAPA'yı yalnız atanmış aksiyon sahibi doğrulamaya gönderebilir." }, 403);
+        if (status !== "in-progress" || access.actor.role !== "Admin" && !sameFindingPerson(finding.owner,access.actor.email)) return json({ error: "CAPA'yı yalnız atanmış aksiyon sahibi doğrulamaya gönderebilir." }, 403);
         validateFindingGovernanceGate(finding, "submit");
         next = "verification";
         update = lifecycleClaim(env.DB,'enterprise_findings','status=?,evidence_reference=?,evidence_sha256=?,submitted_by=?,submitted_at=?,updated_by=?,updated_at=?',[next,operation.evidenceReference,operation.evidenceSha256,access.actor.email,now,access.actor.email,now],finding as Record<string,string|number|null>,writeGuard);
       } else if (operation.operation === "verify") {
-        if (access.actor.role !== "Admin" || status !== "verification" || finding.reviewer !== access.actor.email) return json({ error: "Bulguyu yalnız atanmış bağımsız Admin reviewer kapatabilir." }, 403);
-        if ([finding.detected_by, finding.owner, finding.submitted_by].includes(access.actor.email)) return json({ error: "Maker-checker: tespit eden, aksiyon sahibi veya gönderen kişi kapatamaz." }, 409);
+        if (access.actor.role !== "Admin" || status !== "verification" || !sameFindingPerson(finding.reviewer,access.actor.email)) return json({ error: "Bulguyu yalnız atanmış bağımsız Admin reviewer kapatabilir." }, 403);
+        if (!finding.detected_by || !finding.submitted_by || [finding.detected_by, finding.owner, finding.submitted_by].some(person=>sameFindingPerson(person,access.actor.email))) return json({ error: "Maker-checker: tespit eden, aksiyon sahibi veya gönderen kişi kapatamaz." }, 409);
         validateFindingGovernanceGate(finding, "verify");
         next = "closed";
         update = lifecycleClaim(env.DB,'enterprise_findings','status=?,verification_evidence_reference=?,verification_evidence_sha256=?,verified_by=?,verified_at=?,acceptance_rationale=NULL,accept_until=NULL,updated_by=?,updated_at=?',[next,operation.evidenceReference,operation.evidenceSha256,access.actor.email,now,access.actor.email,now],finding as Record<string,string|number|null>,writeGuard);
       } else if (operation.operation === "accept-risk") {
-        if (access.actor.role !== "Admin" || !["open", "in-progress"].includes(status) || finding.reviewer !== access.actor.email) return json({ error: "Risk kabulünü yalnız atanmış bağımsız Admin reviewer verebilir." }, 403);
-        if ([finding.detected_by, finding.owner].includes(access.actor.email)) return json({ error: "Maker-checker: tespit eden veya aksiyon sahibi riski kabul edemez." }, 409);
+        if (access.actor.role !== "Admin" || !["open", "in-progress"].includes(status) || !sameFindingPerson(finding.reviewer,access.actor.email)) return json({ error: "Risk kabulünü yalnız atanmış bağımsız Admin reviewer verebilir." }, 403);
+        if ([finding.detected_by, finding.owner].some(person=>sameFindingPerson(person,access.actor.email))) return json({ error: "Maker-checker: tespit eden veya aksiyon sahibi riski kabul edemez." }, 409);
         validateFindingGovernanceGate(finding, "accept-risk");
         next = "accepted";
         update = lifecycleClaim(env.DB,'enterprise_findings','status=?,acceptance_rationale=?,accept_until=?,verification_evidence_reference=?,verification_evidence_sha256=?,verified_by=?,verified_at=?,updated_by=?,updated_at=?',[next,operation.acceptanceRationale,operation.acceptUntil,operation.evidenceReference,operation.evidenceSha256,access.actor.email,now,access.actor.email,now],finding as Record<string,string|number|null>,writeGuard);
@@ -240,6 +262,7 @@ export async function POST(req: NextRequest) {
 
     return json({ error: "Geçersiz işlem." }, 400);
   } catch (error) {if(error instanceof CancellationError)return json({code:error.code},error.status);
+    if(error instanceof FindingSourceError)return json({code:error.message},error.status);
     if(error instanceof FindingDecisionError||error instanceof WorkflowSelectionError)return json({error:error.message,code:error.code},error.status);
     if(error instanceof LifecycleConflict)return json({error:error.message},409);
     if(error instanceof CoreReferenceUnavailable)return json({error:error.message,code:"REFERENCE_UNAVAILABLE"},422);

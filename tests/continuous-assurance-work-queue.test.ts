@@ -27,8 +27,8 @@ test("recovery evaluation uses stored remediation closure and post-closure re-te
 
 test("CAPA promotion goes through governed candidate validation before queueing", () => {
   assert.match(route, /buildContinuousAssuranceCapaCandidate/);
-  assert.match(route, /owner:clean\(body\.owner,200\)\|\|context\.finding\.owner/);
-  assert.match(route, /reviewer:clean\(body\.reviewer/);
+  assert.match(route, /owner:clean\(directory\.body\.owner,200\)\|\|context\.finding\.owner/);
+  assert.match(route, /reviewer:clean\(directory\.body\.reviewer/);
   assert.match(route, /dueDate:clean\(body\.dueDate,10\)\|\|context\.finding\.due_date/);
   assert.match(route, /rootCause:clean\(body\.rootCause/);
   assert.match(route, /correctiveAction:clean\(body\.correctiveAction/);

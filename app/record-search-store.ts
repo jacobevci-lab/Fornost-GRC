@@ -7,7 +7,7 @@ export function foldSearch(value: string) {
   return value.replace(/[İıI]/g, 'i').replace(/Ç/g, 'ç').replace(/Ğ/g, 'ğ').replace(/Ö/g, 'ö').replace(/Ş/g, 'ş').replace(/Ü/g, 'ü').toLowerCase();
 }
 // SQLite LOWER only folds ASCII. Keep this expression aligned with foldSearch.
-function foldSql(expression: string) {
+export function foldSql(expression: string) {
   for (const [from, to] of [['İ', 'i'], ['ı', 'i'], ['I', 'i'], ['Ç', 'ç'], ['Ğ', 'ğ'], ['Ö', 'ö'], ['Ş', 'ş'], ['Ü', 'ü']])
     expression = `replace(${expression},'${from}','${to}')`;
   return `lower(${expression})`;

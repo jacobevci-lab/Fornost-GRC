@@ -1,3 +1,5 @@
+import * as findingSources from '../../app/findings/source-records';
+import * as findingCodes from '../../app/findings/codes';
 import * as vendorScope from "../../app/third-party-risk/scope";
 import * as exitStore from "../../app/third-party-risk/exit-store";
 import * as surveyStore from "../../app/third-party-risk/survey-store";
@@ -146,6 +148,8 @@ export function fixture(module:'incidents'|'continuity'|'policy-lifecycle'|'thir
   if(name==='../../findings/export')return findingExport;
   if(name==='./schema-compat')return findingSchema;
   if(name==='../../findings/report-page')return findingReport;
+  if(name==='../../findings/source-records')return findingSources;
+  if(name==='../../findings/codes')return findingCodes;
   if(name==='../../findings/register')return findingRegister;
   throw new Error(name);
  };

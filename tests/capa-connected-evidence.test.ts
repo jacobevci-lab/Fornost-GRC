@@ -75,14 +75,15 @@ test('directory intake excludes self-review and binds currently eligible assigne
   f.before(()=>f.sqlite.exec("UPDATE local_users SET status='Disabled' WHERE id='owner'"));assert.equal((await f.post(f.create)).status,409);assert.equal(f.count('enterprise_findings'),1);assert.equal(f.count('enterprise_finding_events'),1);assert.equal((await f.post(f.create)).status,422);
  }finally{f.sqlite.close();}
 });
-test('independent decision boundaries, acceptance dates and legacy unpinned callers remain authoritative',async()=>{
+test('independent closure requires library evidence even when a legacy caller supplies a hash',async()=>{
  const f=await setup();try{
   await f.start();f.setActor(actor('maker'));assert.equal((await f.decision('accept-risk')).status,403);
   f.setActor(actor('reviewer'));assert.equal((await f.decision('accept-risk',{acceptUntil:date(181)})).status,400);
-  f.setActor(actor('owner','Editor'));const legacy={decisionMode:undefined,expectedRevision:undefined,evidenceMode:undefined,evidenceSelection:undefined,evidenceReference:'legacy-review',evidenceSha256:'a'.repeat(64)};assert.equal((await f.decision('submit',legacy)).status,200);assert.equal(f.count('workflow_evidence_pins'),0);
+  f.setActor(actor('owner','Editor'));const legacy={decisionMode:undefined,expectedRevision:undefined,evidenceMode:undefined,evidenceSelection:undefined,evidenceReference:'legacy-review',evidenceSha256:'a'.repeat(64)};assert.equal((await f.decision('submit',legacy)).body.code,'EVIDENCE_SELECTION');assert.equal(f.row().status,'in-progress');assert.equal(f.count('workflow_evidence_pins'),0);
+  assert.equal((await f.decision('submit')).status,200);
   f.setActor(actor('maker'));assert.equal((await f.decision('verify')).status,403);f.setActor(actor('viewer','Viewer'));assert.equal((await f.decision('verify')).status,403);
-  f.setActor(actor('reviewer'));assert.equal((await f.decision('verify',legacy)).status,200);assert.equal(f.count('workflow_evidence_pins'),0);
+  f.setActor(actor('reviewer'));assert.equal((await f.decision('verify',legacy)).body.code,'EVIDENCE_SELECTION');assert.equal(f.row().status,'verification');assert.equal(f.count('workflow_evidence_pins'),1);
   assert.equal((await f.get('view=decision&findingId=missing')).status,404);assert.equal((await f.get('view=decision&findingId=../bad')).status,400);
-  assert.deepEqual(await readFindingDecisionPins(f.db,f.id,(await readFindingHistory(f.db,f.id,null,null)).events.map(e=>e.id)),[]);
+  assert.equal((await readFindingDecisionPins(f.db,f.id,(await readFindingHistory(f.db,f.id,null,null)).events.map(e=>e.id)))[0].purpose,'capa-submit');
  }finally{f.sqlite.close();}
 });

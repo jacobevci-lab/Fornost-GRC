@@ -32,6 +32,7 @@ const normalized = (value: unknown) => clean(value).toLocaleLowerCase("tr-TR");
 
 const SOURCE_MODULE: Record<string, string> = {
   audit: "Denetim Yönetimi",
+  ai: "AI Yönetişimi",
   control: "Kontroller",
   risk: "Risk Assessment",
   vendor: "Tedarikçiler",
@@ -72,7 +73,7 @@ export default function FindingLineageLens({finding,lang,close,targets,coreState
     </header>
 
     <div className="fll-route">
-      <button type="button" disabled={!sourceModule||!clean(finding.sourceRef)} onClick={() => sourceModule && navigate({ module: sourceModule, ref: finding.sourceRef, kind: finding.sourceType, source: "finding-lineage" })}>
+      <button type="button" disabled={!sourceModule||!clean(finding.sourceRef)} onClick={() => sourceModule && navigate({ module: sourceModule, ref: finding.sourceRef, kind: finding.sourceType==="ai"?"ai-finding":finding.sourceType, source: "finding-lineage",filter:{recordRef:finding.sourceRef} })}>
         <small>{tr ? "Kaynak" : "Source"}</small><b>{findingLabel(finding.sourceType,lang)}</b><span>{finding.sourceRef || (tr ? "Referans yok" : "No reference")}</span><em>→</em>
       </button>
       {(["controlRef", "riskRef"] as const).map(field => {

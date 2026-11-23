@@ -1,17 +1,7 @@
+import {ensureFindingsSchemaCompatibility} from "../api/findings/schema-compat";
+import {storedFindingCode} from "./codes";
 import { validateFinding } from "./domain";
 import type { CapaPromotionCandidate } from "../continuous-assurance-capa";
-
-const schema = [
-  `CREATE TABLE IF NOT EXISTS enterprise_findings(id TEXT PRIMARY KEY NOT NULL,code TEXT NOT NULL UNIQUE,source_type TEXT NOT NULL,source_ref TEXT NOT NULL,source_title TEXT NOT NULL,finding_type TEXT NOT NULL,title TEXT NOT NULL,description TEXT NOT NULL,severity TEXT NOT NULL,owner TEXT NOT NULL,reviewer TEXT NOT NULL,root_cause TEXT NOT NULL,corrective_action TEXT NOT NULL,preventive_action TEXT NOT NULL,due_date TEXT NOT NULL,status TEXT NOT NULL DEFAULT 'open',risk_ref TEXT,control_ref TEXT,evidence_reference TEXT,evidence_sha256 TEXT,verification_evidence_reference TEXT,verification_evidence_sha256 TEXT,acceptance_rationale TEXT,accept_until TEXT,recurrence_count INTEGER NOT NULL DEFAULT 0,detected_by TEXT NOT NULL,detected_at TEXT NOT NULL,updated_by TEXT NOT NULL,updated_at TEXT NOT NULL,started_by TEXT,started_at TEXT,submitted_by TEXT,submitted_at TEXT,verified_by TEXT,verified_at TEXT,reopened_by TEXT,reopened_at TEXT)`,
-  `CREATE INDEX IF NOT EXISTS enterprise_findings_status_due_idx ON enterprise_findings(status,severity,due_date)`,
-  `CREATE INDEX IF NOT EXISTS enterprise_findings_source_idx ON enterprise_findings(source_type,source_ref)`,
-  `CREATE TABLE IF NOT EXISTS enterprise_finding_events(id TEXT PRIMARY KEY NOT NULL,finding_id TEXT NOT NULL,action TEXT NOT NULL,from_status TEXT,to_status TEXT,detail TEXT NOT NULL,evidence_reference TEXT,evidence_sha256 TEXT,actor TEXT NOT NULL,created_at TEXT NOT NULL)`,
-  `CREATE INDEX IF NOT EXISTS enterprise_finding_events_finding_date_idx ON enterprise_finding_events(finding_id,created_at)`,
-];
-
-async function ready(db: D1Database) {
-  for (const sql of schema) await db.prepare(sql).run();
-}
 
 async function event(db: D1Database, input: { findingId: string; action: string; detail: string; evidenceReference?: string; evidenceSha256?: string; actor: string; createdAt: string }) {
   await db.prepare("INSERT INTO enterprise_finding_events(id,finding_id,action,from_status,to_status,detail,evidence_reference,evidence_sha256,actor,created_at) VALUES(?,?,?,'','open',?,?,?,?,?)")
@@ -27,7 +17,7 @@ export async function promoteContinuousAssuranceFinding(
   now = new Date(),
 ) {
   if (!candidate.eligible || !candidate.payload) throw new Error("CAPA promotion adayı doğrulanmış değil.");
-  await ready(db);
+  await ensureFindingsSchemaCompatibility(db);
   const today = now.toISOString().slice(0, 10);
   const validated = validateFinding(candidate.payload, today);
   const existing = await db.prepare("SELECT id,code,status FROM enterprise_findings WHERE source_type='continuous-control' AND source_ref=? AND control_ref=? AND status NOT IN ('closed','accepted') ORDER BY detected_at DESC LIMIT 1")
@@ -35,7 +25,7 @@ export async function promoteContinuousAssuranceFinding(
   if (existing) return { id: existing.id, code: existing.code, status: existing.status, created: false };
 
   const id = `FND-${crypto.randomUUID()}`;
-  const code = `FND-${now.getUTCFullYear()}-${crypto.randomUUID().replace(/-/g, "").slice(0, 8).toUpperCase()}`;
+  const code = id;
   const stamp = now.toISOString();
   const detectedBy = "system:continuous-assurance";
   await db.prepare("INSERT INTO enterprise_findings(id,code,source_type,source_ref,source_title,finding_type,title,description,severity,owner,reviewer,root_cause,corrective_action,preventive_action,due_date,status,risk_ref,control_ref,evidence_reference,evidence_sha256,detected_by,detected_at,updated_by,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'open',?,?,?,?,?,?,?,?)")
@@ -73,5 +63,5 @@ export async function promoteContinuousAssuranceFinding(
     actor: approvalActor,
     createdAt: stamp,
   });
-  return { id, code, status: "open", created: true };
+  return { id, code:await storedFindingCode(db,id), status: "open", created: true };
 }

@@ -24,7 +24,7 @@ export async function insertFinding(db:D1Database,finding:ReturnType<typeof vali
   db.prepare(`INSERT INTO enterprise_findings(id,code,source_type,source_ref,source_title,finding_type,title,description,severity,owner,reviewer,root_cause,corrective_action,preventive_action,due_date,status,risk_ref,control_ref,detected_by,detected_at,updated_by,updated_at)
    SELECT ?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'open',?,?,?,?,?,? WHERE (${guard.sql}) AND (${context.guard?.sql||'1'})`)
    .bind(id,code,finding.sourceType,finding.sourceRef,finding.sourceTitle,finding.findingType,finding.title,finding.description,finding.severity,finding.owner,finding.reviewer,finding.rootCause,finding.correctiveAction,finding.preventiveAction,finding.dueDate,finding.riskRef||null,finding.controlRef||null,actor,stamp,actor,stamp,...guard.values,...(context.guard?.values||[])),
-  lifecycleInsert(db,'enterprise_finding_events',{id:crypto.randomUUID(),finding_id:id,action:'finding-create',from_status:null,to_status:'open',detail:`${code}; ${finding.sourceType}/${finding.sourceRef}; ${finding.severity}; due ${finding.dueDate}`,evidence_reference:null,evidence_sha256:null,actor,created_at:stamp}),
+  lifecycleInsert(db,'enterprise_finding_events',{id:crypto.randomUUID(),finding_id:id,action:'finding-create',from_status:null,to_status:'open',detail:`${finding.sourceType}/${finding.sourceRef}; ${finding.severity}; due ${finding.dueDate}`,evidence_reference:null,evidence_sha256:null,actor,created_at:stamp}),
  ]);
  if(Number(results[1]?.meta?.changes||0)!==1){
   if(context.guard&&!Number((await db.prepare(`SELECT (${context.guard.sql}) AS valid`).bind(...context.guard.values).first<{valid:number}>())?.valid))throw new LifecycleConflict();

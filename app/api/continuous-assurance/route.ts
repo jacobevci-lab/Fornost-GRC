@@ -1,3 +1,4 @@
+import {prepareWorkflowSelection,WorkflowSelectionError} from "../../workflow-selection-store";
 import { ensureAssessmentLineageSchema, retestConfigurationReason } from "../../evidence/assessment-lineage";
 import {assuranceQueueSummary} from "../../assurance-queue-summary";
 import type {AssuranceSourceState} from "../../assurance-queue-context";
@@ -220,6 +221,8 @@ export async function POST(req:NextRequest){
     }
 
     if(action==="queue-capa-promotion"){
+      const directory=await prepareWorkflowSelection(env,access.actor,body,{owner:'writer',reviewer:'reviewer'});
+
       const targetControl=resolveContinuousAssuranceTargetControl(context.rule.control_refs,body.targetControlRef);
       if(!targetControl.ok){
         const error=targetControl.reason==="target-control-required"
@@ -236,8 +239,8 @@ export async function POST(req:NextRequest){
         title:context.finding.title,
         detail:context.finding.detail,
         severity:context.finding.severity,
-        owner:clean(body.owner,200)||context.finding.owner,
-        reviewer:clean(body.reviewer,200),
+        owner:clean(directory.body.owner,200)||context.finding.owner,
+        reviewer:clean(directory.body.reviewer,200),
         dueDate:clean(body.dueDate,10)||context.finding.due_date,
         controlRef:targetControl.controlRef,
         riskRef:context.risk?.id||"",
@@ -251,10 +254,14 @@ export async function POST(req:NextRequest){
       const existing=await env.DB.prepare("SELECT id,status,result_ref FROM continuous_assurance_work_items WHERE finding_id=? AND action='capa-promotion' AND status IN ('pending-review','completed') ORDER BY created_at DESC LIMIT 1").bind(findingId).first<{id:string;status:string;result_ref:string|null}>();
       if(existing)return json({ok:true,id:existing.id,status:existing.status,resultRef:existing.result_ref||"",message:existing.status==="completed"?"CAPA promotion daha önce tamamlandı.":"CAPA promotion işi zaten beklemede.",candidate});
       const id=`CAW-${crypto.randomUUID()}`,stamp=now.toISOString(),decision={candidate,recovery,targetControlRef:targetControl.controlRef};
-      await env.DB.prepare("INSERT INTO continuous_assurance_work_items(id,finding_id,rule_id,action,status,decision_json,created_at,updated_at,actor) VALUES(?,?,?,'capa-promotion','pending-review',?,?,?,?)").bind(id,findingId,context.rule.id,JSON.stringify(decision),stamp,stamp,access.actor.email).run();
+      const write=await env.DB.prepare(`INSERT INTO continuous_assurance_work_items(id,finding_id,rule_id,action,status,decision_json,created_at,updated_at,actor)
+        SELECT ?,?,?,'capa-promotion','pending-review',?,?,?,? WHERE (${directory.guard.sql})
+        AND NOT EXISTS(SELECT 1 FROM continuous_assurance_work_items WHERE finding_id=? AND action='capa-promotion' AND status IN ('pending-review','completed'))`)
+        .bind(id,findingId,context.rule.id,JSON.stringify(decision),stamp,stamp,access.actor.email,...directory.guard.values,findingId).run();
+      if(!Number(write.meta?.changes))return json({error:"Atama veya inceleme kuyruğu değişti.",code:"ASSIGNEE_SELECTION"},409);
       return json({ok:true,id,message:"Governed CAPA promotion işi inceleme kuyruğuna alındı.",candidate,targetControlRef:targetControl.controlRef},201);
     }
 
     return json({error:"Geçersiz sürekli güvence işlemi."},400);
-  }catch(error){return json({error:error instanceof Error?error.message:"Sürekli güvence işlemi tamamlanamadı."},400)}
+  }catch(error){if(error instanceof WorkflowSelectionError)return json({code:error.code,error:error.message},error.status);return json({error:error instanceof Error?error.message:"Sürekli güvence işlemi tamamlanamadı."},400)}
 }

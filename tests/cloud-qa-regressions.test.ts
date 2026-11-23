@@ -13,12 +13,9 @@ import {connectedGrcNavigation} from '../app/connected-grc-navigation';
 
 async function auditFixture(){
  const f=fixture('findings');await f.post({});
- f.sqlite.exec(`CREATE TABLE simple_audits(id TEXT PRIMARY KEY,name TEXT,template TEXT,audit_type TEXT,auditor TEXT,audit_owner TEXT,status TEXT,created_at TEXT,updated_at TEXT);
- CREATE TABLE simple_grc_records(id TEXT PRIMARY KEY,module TEXT,data_json TEXT,created_at TEXT,updated_at TEXT);
- CREATE TABLE simple_grc_record_codes(record_id TEXT,code TEXT);CREATE TABLE simple_grc_metadata(key TEXT PRIMARY KEY,value TEXT,updated_at TEXT);
- INSERT INTO simple_audits VALUES('AUDIT-1','ISO Audit','ISO','Internal','Auditor','Owner','open','2026-01-01','2026-01-01');
+ f.sqlite.exec(` INSERT INTO simple_audits VALUES('AUDIT-1','ISO Audit','ISO','Internal','Auditor','Owner','open','2026-01-01','2026-01-01');
  INSERT INTO simple_grc_records VALUES('requirement-1','Denetim Yönetimi','{"auditName":"ISO Audit"}','2026-01-01','2026-01-01');
- INSERT INTO simple_grc_record_codes VALUES('requirement-1','AUD-001');`);
+ INSERT INTO simple_grc_record_codes VALUES('requirement-1','Denetim Yönetimi','AUD-001','2026-01-01');`);
  const row=f.sqlite.prepare('SELECT * FROM simple_audits').get() as Record<string,string>;
  return {...f,row,remove:()=>deleteAudit(f.db,row,'admin@example.com')};
 }
