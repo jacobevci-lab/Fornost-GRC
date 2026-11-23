@@ -143,10 +143,12 @@ try {
   assert.equal(work.status, 'completed'); assert.equal(work.resultRef, 'QA-RETEST-PASS'); assert.equal(work.retestOutcome.reason, 'passed');
   const completedException=(await api(admin,route+'/governance')).exceptions.find(row=>row.id==='QA-RETEST-EXCEPTION');
   assert.equal(completedException.retestRequired,false);assert.equal(completedException.retestResultRef,'QA-RETEST-PASS');assert.equal(completedException.retestWorkItemId,queued.id);assert.ok(completedException.retestCompletedAt);assert.equal(completedException.status,'expired');
+  await page.getByRole('button',{name:'← Assurance and evidence coverage',exact:true}).click();
   const governance=page.locator('.assurance-governance'),disclosure=governance.locator('xpath=ancestor::details[1]');if(!(await disclosure.evaluate(el=>el.open)))await disclosure.locator(':scope > summary').click();
   await governance.getByRole('button',{name:'Refresh governance',exact:true}).click();await expect(governance.getByRole('button',{name:'Refresh governance',exact:true})).toBeEnabled();await governance.getByLabel('Search risks, proposals or exceptions').fill('QA-RETEST-EXCEPTION');await expect(governance).toContainText('RE-TEST COMPLETED');await governance.locator('.ag-grid>article').nth(1).screenshot({path:`${out}/exception-completed.png`});
   const riskAfter = JSON.parse((await api(admin, '/api/grc')).rows.find(row => row.id === findingId).data_json);
   assert.equal(riskAfter.residualRiskReviewRequired, true); assert.equal(riskAfter.residualScore, '6'); assert.equal(riskAfter.riskReviewRequestedAt, risk.riskReviewRequestedAt);
+  await page.getByRole('button',{name:'Open assurance work',exact:true}).click();
   await queue.getByRole('button', { name: 'Refresh', exact: true }).click();
   await queue.locator('.assurance-work-filters').getByRole('button', { name: 'All', exact: true }).click();
   await expect(queue.locator('.assurance-work-list>article')).toHaveCount(25);
