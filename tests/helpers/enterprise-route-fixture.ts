@@ -16,6 +16,8 @@ import * as workRecordCodes from "../../app/work-record-codes";
 import * as workflowCancellation from "../../app/workflow-cancellation";
 import * as continuitySettings from "../../app/continuity/settings-store";
 import * as continuityDraft from "../../app/continuity/draft-store";
+import * as initialization from '../../app/completed-initialization';
+import * as regulatoryConnections from '../../app/regulatory-intelligence/connections';
 import * as regulatoryWorkspace from '../../app/regulatory-intelligence/workspace-store';
 import * as findingDeadline from "../../app/third-party-risk/finding-deadline";
 import * as findingDeadlineStore from "../../app/third-party-risk/finding-deadline-store";
@@ -145,6 +147,8 @@ export function fixture(module:'incidents'|'continuity'|'policy-lifecycle'|'thir
   if(name==='../../risk-appetite/connections')return kriConnections;
   if(name==='../../risk-appetite/domain')return risk;
   if(name==='../../risk-methodology')return riskMethodology;
+  if(name==='../../completed-initialization')return initialization;
+  if(name==='../../regulatory-intelligence/connections')return regulatoryConnections;
   if(name==='../../regulatory-intelligence/domain')return regulatory;
   if(name==='../../regulatory-intelligence/workspace-store')return regulatoryWorkspace;
   if(name==='../../findings/domain')return findingDomain;

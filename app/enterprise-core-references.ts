@@ -31,6 +31,7 @@ const sources:Source[]=[
  {table:'enterprise_findings',column:'risk_ref',modules:['Risk Assessment']},
  {table:'enterprise_findings',column:'control_ref',modules:['Kontroller','Uyum']},
  ...Object.entries({audit:['Denetim Yönetimi'],control:['Kontroller','Uyum'],risk:['Risk Assessment'],vendor:['Tedarikçiler']}).map(([type,modules])=>({table:'enterprise_findings',column:'source_ref',modules,filter:`source_type='${type}'`})),
+ ...Object.entries({control:['Kontroller'],risk:['Risk Assessment'],process:['BIA']}).map(([type,modules])=>({table:'regulatory_preliminary_impacts',column:'target_ref',modules,filter:`target_type='${type}'`})),
  ...Object.entries(regulatoryCoreTargets).map(([type,modules])=>({table:'regulatory_change_impacts',column:'target_ref',modules,filter:`target_type='${type}'`})),
 ];
 

@@ -1,12 +1,13 @@
+import {frameworkChoices,frameworkColumn,preliminaryColumn,sourceConnections} from './connections';
 import {regulatoryCoreTargets} from './domain';
 import {commitLifecycle,lifecycleClaim,lifecycleInsert,LifecycleConflict,nextLifecycleStamp} from '../enterprise-lifecycle-write';
 
 type Row=Record<string,unknown>;
 type Mappers={source:(row:Row)=>unknown;change:(row:Row)=>unknown;impact:(row:Row)=>unknown};
 const active="c.status NOT IN ('closed','not-applicable')";
-const changeFrom='regulatory_changes c JOIN regulatory_intelligence_sources s ON s.id=c.source_id';
-const impactFrom='regulatory_change_impacts i JOIN regulatory_changes c ON c.id=i.change_id JOIN regulatory_intelligence_sources s ON s.id=c.source_id';
-const changeSelect=`c.*,s.name source_name,s.authority,s.url source_url,s.enabled source_enabled,
+const changeFrom='regulatory_changes c LEFT JOIN regulatory_intelligence_sources s ON s.id=c.source_id';
+const impactFrom='regulatory_change_impacts i JOIN regulatory_changes c ON c.id=i.change_id LEFT JOIN regulatory_intelligence_sources s ON s.id=c.source_id';
+const changeSelect=`c.*,${preliminaryColumn},s.name source_name,s.authority,s.url source_url,s.enabled source_enabled,
  (SELECT count(*) FROM regulatory_change_impacts i WHERE i.change_id=c.id) total_impacts,
  (SELECT count(*) FROM regulatory_change_impacts i WHERE i.change_id=c.id AND i.status!='completed') open_impacts,
  (SELECT required_action FROM regulatory_change_impacts i WHERE i.change_id=c.id AND i.status!='completed' ORDER BY i.due_date,i.id LIMIT 1) next_action,
@@ -22,24 +23,28 @@ function search(columns:string[],q:string,where:string[],values:unknown[]){
  where.push('('+columns.map(col=>`lower(replace(${col},'İ','i')) LIKE ? ESCAPE '\\'`).join(' OR ')+')');
  values.push(...columns.map(()=>like(q.toLowerCase().replace(/i\u0307/g,'i'))));
 }
-async function page(db:D1Database,from:string,columns:string,where:string[],values:unknown[],order:string,requested:number){
+async function page(db:D1Database,from:string,columns:string,where:string[],values:unknown[],order:string,requested:number,pageSize=limit){
  const predicate=where.length?where.join(' AND '):'1';
  const total=Number((await db.prepare(`SELECT count(*) n FROM ${from} WHERE ${predicate}`).bind(...values).first<{n:number}>())?.n||0);
- const pages=Math.max(1,Math.ceil(total/limit)),current=Math.min(requested,pages);
- const rows=(await db.prepare(`SELECT ${columns} FROM ${from} WHERE ${predicate} ORDER BY ${order} LIMIT ? OFFSET ?`).bind(...values,limit,(current-1)*limit).all<Row>()).results;
- return{rows,total,page:current,pages,pageSize:limit};
+ const pages=Math.max(1,Math.ceil(total/pageSize)),current=Math.min(requested,pages);
+ const rows=(await db.prepare(`SELECT ${columns} FROM ${from} WHERE ${predicate} ORDER BY ${order} LIMIT ? OFFSET ?`).bind(...values,pageSize,(current-1)*pageSize).all<Row>()).results;
+ return{rows,total,page:current,pages,pageSize};
 }
 export async function hasPolicyTable(db:D1Database){return !!await db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='policy_documents'").first();}
-export async function policyTargets(db:D1Database,q=''){
- if(!await hasPolicyTable(db))return [];
- return (await db.prepare("SELECT id,code,title FROM policy_documents WHERE status!='retired' AND (title LIKE ? ESCAPE '\\' OR code LIKE ? ESCAPE '\\') ORDER BY title,id LIMIT 100").bind(like(q),like(q)).all<{id:string;code:string;title:string}>()).results.map(x=>({id:x.id,module:'Politika Merkezi',title:`${x.code} · ${x.title}`}));
+export async function policyTargets(db:D1Database,q='',requested=1,pageSize=limit){
+ if(!await hasPolicyTable(db))return {records:[],total:0,page:1,pages:1,pageSize:limit};
+ const code='COALESCE(c.code,p.code)';
+ const r=await page(db,'policy_documents p LEFT JOIN simple_grc_record_codes c ON c.record_id=p.id',`p.id,${code} code,p.title`,["p.status!='retired'","(p.title LIKE ? ESCAPE '\\' OR p.code LIKE ? ESCAPE '\\' OR c.code LIKE ? ESCAPE '\\')"],[like(q),like(q),like(q)],'p.title,p.id',requested,pageSize);
+ return {...meta(r),records:r.rows.map(x=>({id:String(x.id),module:'Politika Merkezi',title:`${x.code} · ${x.title}`}))};
+
 }
 export async function readWorkspace(db:D1Database,p:URLSearchParams,email:string,m:Mappers){
  const view=p.get('view')||'overview',q=(p.get('q')||'').trim().slice(0,180),scope=p.get('scope')==='mine'?'mine':'team',filter=p.get('filter')||'all',today=new Date().toISOString().slice(0,10);
  if(p.has('targets')){
   const type=p.get('targets')||'';
-  if(type==='policy')return {records:await policyTargets(db,q)};
-  const modules=regulatoryCoreTargets[type]||[];
+  if(type==='framework')return {records:(await frameworkChoices(db)).filter(name=>name.toLocaleLowerCase().includes(q.toLocaleLowerCase())).map(name=>({id:name,title:name}))};
+  if(type==='policy')return policyTargets(db,q,pageNumber(p.get('page')));
+  const modules=type==='control'&&p.get('preliminary')==='1'?['Kontroller']:regulatoryCoreTargets[type]||[];
   const r=await page(db,'simple_grc_records r LEFT JOIN simple_grc_record_codes code ON code.record_id=r.id','r.id,r.module,r.data_json,code.code',[`r.module IN (SELECT value FROM json_each(?))`,"(r.data_json LIKE ? ESCAPE '\\' OR r.id LIKE ? ESCAPE '\\' OR code.code LIKE ? ESCAPE '\\')"],[JSON.stringify(modules),like(q),like(q),like(q)],'r.updated_at DESC,r.id',pageNumber(p.get('page')));
   return {...r,records:r.rows.map(x=>{let data:Row={};try{data=JSON.parse(String(x.data_json))}catch{}return{id:x.id,module:x.module,title:[x.code,data.title||data.controlTitle||data.assetName||data.vendor||data.process||data.auditName||data.evidenceTitle||x.id].filter(Boolean).join(' · ')}})};
  }
@@ -62,7 +67,7 @@ export async function readWorkspace(db:D1Database,p:URLSearchParams,email:string
   if(filter==='archived')where.push('s.enabled=0');else if(filter!=='all-sources')where.push('s.enabled=1');
   if(filter==='due'){where.push('s.next_check_at<=?');values.push(new Date().toISOString());}
   search(['s.name','s.authority','s.owner','s.jurisdiction'],q,where,values);
-  const r=await page(db,'regulatory_intelligence_sources s','s.*,(SELECT count(*) FROM regulatory_changes c WHERE c.source_id=s.id) change_count',where,values,'s.enabled DESC,s.next_check_at,s.id',pageNumber(p.get('page')));
+  const r=await page(db,'regulatory_intelligence_sources s',`s.*,${frameworkColumn},(SELECT count(*) FROM regulatory_changes c WHERE c.source_id=s.id) change_count`,where,values,'s.enabled DESC,s.next_check_at,s.id',pageNumber(p.get('page')));
   return{sources:r.rows.map(m.source),changes:[],impacts:[],summary,pagination:meta(r),loadedAt:new Date().toISOString()};
  }
  if(view==='impacts'){
@@ -98,11 +103,13 @@ export async function mutateSource(db:D1Database,input:Row,email:string,value?:R
  if(!source||!input.expectedUpdatedAt||source.updated_at!==input.expectedUpdatedAt)throw new LifecycleConflict();
  const now=nextLifecycleStamp(source.updated_at);
  const guard=operation==='delete-source'?{sql:'NOT EXISTS(SELECT 1 FROM regulatory_changes WHERE source_id=?)',values:[id]}:assignment;
+ const links=await sourceConnections(db,id,operation==='update-source'?input.frameworks:undefined);
+ const combined={sql:`(${guard.sql}) AND (${links.guard.sql})`,values:[...guard.values,...links.guard.values]};
  const claim=operation==='delete-source'
   ?db.prepare(`DELETE FROM regulatory_intelligence_sources WHERE ${Object.keys(source).map(key=>`${key} IS ?`).join(" AND ")} AND ${guard.sql}`).bind(...Object.values(source),...guard.values)
   :operation==='update-source'&&value&&url
-   ?lifecycleClaim(db,'regulatory_intelligence_sources','name=?,authority=?,jurisdiction=?,source_type=?,url=?,owner=?,review_frequency_days=?,next_check_at=?,updated_by=?,updated_at=?',[value.name,value.authority,value.jurisdiction,value.sourceType,url,value.owner,value.reviewFrequencyDays,new Date(new Date(String(source.last_checked_at||source.created_at)).getTime()+value.reviewFrequencyDays*86400000).toISOString(),email,now],source,guard)
+   ?lifecycleClaim(db,'regulatory_intelligence_sources','name=?,authority=?,jurisdiction=?,source_type=?,url=?,owner=?,review_frequency_days=?,next_check_at=?,updated_by=?,updated_at=?',[value.name,value.authority,value.jurisdiction,value.sourceType,url,value.owner,value.reviewFrequencyDays,new Date(new Date(String(source.last_checked_at||source.created_at)).getTime()+value.reviewFrequencyDays*86400000).toISOString(),email,now],source,combined)
    :lifecycleClaim(db,'regulatory_intelligence_sources','enabled=?,updated_by=?,updated_at=?',[operation==='restore-source'?1:0,email,now],source);
  if(operation==='delete-source'&&await db.prepare('SELECT 1 FROM regulatory_changes WHERE source_id=? LIMIT 1').bind(id).first())throw new Error('Bağlı değişiklikler var. Kaynağı silmek yerine arşivleyin. / Linked changes exist. Archive the source.');
- await commitLifecycle(db,claim,[lifecycleInsert(db,'regulatory_change_events',{id:crypto.randomUUID(),source_id:id,action:operation,detail:`${source.authority} · ${source.name}${value?` → ${value.authority} · ${value.name}`:''}`,actor:email,created_at:now})]);
+ await commitLifecycle(db,claim,[lifecycleInsert(db,'regulatory_change_events',{id:crypto.randomUUID(),source_id:id,action:operation,detail:`${source.authority} · ${source.name}${value?` → ${value.authority} · ${value.name}`:''}`,actor:email,created_at:now}),...links.writes,...(operation==='delete-source'?[db.prepare('DELETE FROM regulatory_source_frameworks WHERE source_id=? AND changes()=1').bind(id)]:[])]);
 }

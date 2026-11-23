@@ -18,7 +18,7 @@ export function validateRegulatorySource(input:Record<string,unknown>){
 
 export function validateRegulatoryChange(input:Record<string,unknown>,today=new Date().toISOString().slice(0,10)){
  const sourceId=text(input.sourceId,100),externalRef=text(input.externalRef,180),title=text(input.title,240),summary=text(input.summary,4000),publishedDate=date(input.publishedDate),effectiveDate=date(input.effectiveDate),severity=text(input.severity,20) as RegulatorySeverity,changeType=text(input.changeType,40),owner=email(input.owner),reviewer=email(input.reviewer);
- if(!sourceId||!externalRef||title.length<5||summary.length<20)throw new Error("Kaynak, referans, başlık ve açıklayıcı özet zorunludur.");
+ if((!sourceId&&input.sourceMode!=="independent")||(sourceId&&input.sourceMode==="independent")||!externalRef||title.length<5||summary.length<20)throw new Error("Kaynak, referans, başlık ve açıklayıcı özet zorunludur.");
  if(!REGULATORY_SEVERITIES.includes(severity)||!REGULATORY_CHANGE_TYPES.includes(changeType as typeof REGULATORY_CHANGE_TYPES[number]))throw new Error("Önem veya değişiklik türü geçersiz.");
  if(effectiveDate<publishedDate)throw new Error("Yürürlük tarihi yayımlanma tarihinden önce olamaz.");
  if(owner===reviewer)throw new Error("Değişiklik sahibi ve bağımsız doğrulayıcı farklı olmalıdır.");
@@ -55,4 +55,11 @@ export function validateImpactAction(input:Record<string,unknown>){
  if(confirmation!==phrase)throw new Error(`${phrase} onayı zorunludur.`);
  if(["submit","verify"].includes(action)&&(!evidenceReference||!/^[a-f0-9]{64}$/.test(evidenceSha256)))throw new Error("Kanıt referansı ve 64 karakter SHA-256 zorunludur.");
  return{action,note,evidenceReference,evidenceSha256};
+}
+
+export type PlannedTarget={type:'control'|'policy'|'risk'|'process';id:string;title:string};
+export function effectiveLabel(date:string,today:string,tr:boolean){
+ const days=Math.round((Date.parse(date.slice(0,10)+'T00:00:00Z')-Date.parse(today.slice(0,10)+'T00:00:00Z'))/86400000);
+ if(days<=0)return tr?'Yürürlükte':'In effect';
+ return tr?`Yürürlüğe ${days} gün kaldı`:`Effective in ${days} ${days===1?'day':'days'}`;
 }

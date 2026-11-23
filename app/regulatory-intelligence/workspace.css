@@ -6,7 +6,7 @@ html[data-theme] body .shell>main .ri-page.rg-page .ri-hero p{max-width:75ch!imp
 html[data-theme] body .shell>main .ri-page.rg-page :is(button,input,select,textarea){font-size:13px!important;min-height:38px;border-radius:8px}
 html[data-theme] body .shell>main .ri-page.rg-page :is(p,td,dd){font-size:14px!important;line-height:1.5!important}
 html[data-theme] body .shell>main .ri-page.rg-page small{font-size:12px!important;line-height:1.45;color:var(--ws-muted)}
-.rg-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));background:var(--ws-surface);border:1px solid var(--ws-line);border-radius:12px;overflow:hidden}
+.rg-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));background:var(--ws-surface);border:1px solid var(--ws-line);border-radius:12px;overflow:hidden}
 html[data-theme] body .shell>main .ri-page.rg-page .rg-summary button{border:0;border-right:1px solid var(--ws-line);border-radius:0;background:transparent;padding:18px;display:flex;align-items:center;gap:16px;text-align:left;white-space:normal;color:var(--ws-ink)}
 html[data-theme] body .shell>main .ri-page.rg-page .rg-summary button:last-child{border-right:0}
 html[data-theme] body .shell>main .ri-page.rg-page .rg-summary strong{font-size:28px!important;line-height:1!important}html[data-theme] body .shell>main .ri-page.rg-page .rg-summary span{font-size:13px!important;line-height:1.45!important}
@@ -54,3 +54,8 @@ html[data-theme] body .shell>main .ri-page.rg-page .rg-register td:nth-child(4){
 html[data-theme] body .shell>main .ri-page.rg-page .rg-register td:nth-child(5){min-width:104px}
 html[data-theme] body .shell>main .ri-page.rg-page .rg-detail :is(dt,summary){font-size:12px!important}
 html[data-theme] body .shell>main .ri-page.rg-page .rg-detail dd{font-size:13px!important}
+
+.rg-preliminary{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;border:1px solid var(--ws-line);border-radius:8px;padding:14px;min-width:0}
+.rg-picker{min-width:0}.rg-detail-tabs{margin:14px 0}.rg-detail-tabs button[aria-pressed=true]{background:var(--ws-brand-soft);font-weight:700}
+html[data-theme] body .shell>main .ri-page.rg-page .rg-summary .rg-attention :is(span,strong){color:var(--ws-danger,#a04430)!important}
+@media(max-width:720px){.rg-preliminary{grid-template-columns:minmax(0,1fr)}.rg-summary{grid-template-columns:repeat(2,minmax(0,1fr))}}

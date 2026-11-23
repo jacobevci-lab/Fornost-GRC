@@ -271,6 +271,7 @@ function regulatoryRows(payload: JsonRecord) {
   }));
   const changes = records(payload.changes).map((item, index) => makeRow("enterprise", "regulatory-change", "Regülasyon Merkezi", item, index, {
     title: text(item.title),
+    ...Object.fromEntries(Object.entries({control:'regulatoryControlRef',policy:'regulatoryPolicyRef',risk:'regulatoryRiskRef',process:'regulatoryProcessRef'}).map(([type,field])=>[field,records(item.preliminary).filter(t=>t.type===type).map(t=>text(t.id))])),
     regulatorySourceRef: unique(item.sourceId, item.source_id, item.sourceName, item.source_name),
   }));
   const impacts = records(payload.impacts).map((item, index) => {
