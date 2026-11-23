@@ -54,6 +54,7 @@ try{
  await sql('DROP TRIGGER qa_retirement_audit_failure;');
  await page.goto(base);await expect(page.locator('.shell')).toBeVisible();await page.locator('.language-switch:visible').getByRole('button',{name:'EN',exact:true}).click();
  await page.locator('nav button[aria-label="AI Governance"]').evaluate(el=>el.click());
+ await page.locator('.ag-links').getByRole('button',{name:'Technical model dossiers →'}).click();
  await page.locator('.ai-section-picker>summary').click();await revealAiWorkspace(page,'AI Alerts');await page.locator('.fornost-ai-tabs').getByRole('button',{name:'AI Alerts',exact:true}).click();
  const alertRoot=page.locator('.ai-alerts');await alertRoot.getByRole('textbox',{name:'Kayıt ara',exact:true}).fill(alertId);
  const alertRecord=alertRoot.locator(`[data-record-id="${alertId}"]`);await alertRecord.getByRole('button',{name:'CAPA oluştur',exact:true}).click();

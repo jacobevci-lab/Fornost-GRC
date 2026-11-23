@@ -424,7 +424,7 @@ export default function FornostAiCopilot() {
   const scoped = isScoped(user);
   const activeTab = scoped ? "chat" : user.role !== "Admin" && (tab === "portfolio" || tab === "audit" || tab === "metrics" || tab === "governance" || tab === "models" || tab === "compliance" || tab === "lifecycle" || tab === "incidents" || tab === "access" || tab === "release" || tab === "resilience" || tab === "datasets" || tab === "regulatory" || tab === "literacy" || tab === "supply-chain" || tab === "red-team" || tab === "transparency" || tab === "assurance" || tab === "assurance-alerts" || tab === "exceptions" || tab === "decommission" || tab === "findings" || tab === "feedback" || tab === "budget" || tab === "policy" || tab === "protection") ? "chat" : tab;
 
-  if(workspaceHost && open && !scoped && ['Admin','Editor'].includes(user.role) && !specialist && (tab==='portfolio'||(tab==='models'&&recordFocus?.kind==='ai-model'))){
+  if(workspaceHost && open && !scoped && ['Admin','Editor'].includes(user.role) && !specialist && tab==='portfolio'){
     return createPortal(<AiGovernanceWorkspace key={user.id} tr={workspaceLocale==='tr'} user={user} focus={recordFocus?.ref} onNative={view=>{setRecordFocus(null);setSpecialist(true);setTab(view)}}/>,workspaceHost);
   }
   const panel = <>
