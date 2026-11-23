@@ -74,3 +74,69 @@ test('D1 upgrade preserves existing vendor codes, repairs UUID codes and reserve
    assert.equal(db.prepare('SELECT value FROM simple_grc_record_code_counters WHERE module=?').get('Denetim Yönetimi')?.value,3);
  }finally{db.close()}
 });
+
+test('focus columns follow governance direction even when the register stores the reverse pointer',async()=>{
+ const {layoutMap,arrowLabel}=await import('../app/connected-map-layout');
+ const asset=record('AST-003','Varlık Envanteri');
+ const root={...risk,data:{...risk.data,asset:asset.id}};
+ const rows=[asset,control,evidence,root],links=buildConnectedGrcGraph(rows).links;
+ const graph=layoutMap(rows,links,root,1280,720);
+ assert.deepEqual(graph.lanes.map(l=>l.count),[1,1,1]);
+ const center=graph.nodes.find(n=>n.row.id===root.id)!;
+ assert.equal(center.x+center.width/2,640);assert.equal(center.y+center.height/2,360);
+ assert.equal(graph.nodes.find(n=>n.lane===0)?.row.id,control.id);
+ assert.equal(graph.nodes.find(n=>n.lane===2)?.row.id,asset.id);
+ assert.equal(graph.nodes.some(n=>n.row.id===evidence.id),false);
+ assert.equal(arrowLabel(links.find(e=>e.relation==='risk-control')!,true),'Azaltır');
+ assert.equal(graph.nodes.every(n=>n.width>=210),true);
+ const both=[...links,...contextLinks(rows,[{...context(asset,root),relation:'affects'}])];
+ const reciprocal=layoutMap(rows,both,root,1280,720);
+ assert.deepEqual(reciprocal.nodes.filter(n=>n.row.id===asset.id).map(n=>n.lane),[0,2]);
+});
+
+test('map resolves the native registry identity for projected records without trusting a related record code',async()=>{
+ const {registryKey}=await import('../app/connected-map-identities');
+ for(const [kind,prefix,module] of [['audit','AUD','Denetim Yönetimi'],['policy','POL','Politika Merkezi'],['incident','INC','Güvenlik Olayları'],['finding-manual','FND','Bulgular ve CAPA'],['ai-model','AIS','AI Yönetişimi']]){
+   const native=prefix+'-014', row=record('enterprise:'+kind+':'+native,module,{kind,canonicalRefs:[native]});
+   assert.equal(mapCode(row),native);
+   assert.equal(mapCode({...row,code:'CTL-001'}),native);
+   const stored=record('enterprise:'+kind+':legacy',module,{kind,canonicalRefs:[],record_code:native});
+   assert.equal(mapCode(stored),native);
+   const key=kind==='finding-manual'?'work:finding:legacy':['policy','ai-model'].includes(kind)?'legacy':stored.id;
+   assert.equal(registryKey(stored),key);
+ }
+});
+
+test('malformed imported codes receive stable registered map codes and reserve the native work sequence',()=>{
+ const db=new DatabaseSync(':memory:');
+ try{
+   const files=readdirSync('drizzle').filter(n=>n.endsWith('.sql')).sort();
+   for(const f of files)db.exec(readFileSync('drizzle/'+f,'utf8'));
+   const insert=db.prepare("INSERT INTO simple_grc_record_codes VALUES(?,?,?,CURRENT_TIMESTAMP)");
+   insert.run('enterprise:audit:legacy','Denetim Yönetimi','A');
+   insert.run('work:policy-version:legacy','Politika Merkezi','OLD-007');
+   insert.run('enterprise:incident:legacy','Güvenlik Olayları','INC-2026-32EA');
+   const get=(id:string)=>db.prepare('SELECT code FROM simple_grc_record_codes WHERE record_id=?').get(id)?.code;
+   assert.equal(get('enterprise:audit:legacy'),'A');
+   assert.match(String(get('map:display:enterprise:audit:legacy')),/^AUD-\d{3,}$/);
+   assert.equal(get('map:display:work:policy-version:legacy'),'PVR-001');
+   assert.equal(get('map:display:enterprise:incident:legacy'),'INC-001');
+   for(const [table,id,key,prefix] of [
+     ['simple_audits','old-audit','enterprise:audit:old-audit','AUD'],
+     ['policy_documents','old-policy','old-policy','POL'],
+     ['enterprise_incidents','old-incident','enterprise:incident:old-incident','INC'],
+     ['enterprise_findings','old-finding','work:finding:old-finding','FND'],
+     ['ai_model_inventory','old-model','old-model','AIS'],
+   ]){
+     const required=db.prepare('PRAGMA table_info('+table+')').all().filter(c=>c.pk||c.notnull&&c.dflt_value===null);
+     const values:Record<string,string>={id,code:'legacy-'+id,owner:'owner',reviewer:'reviewer',commander:'commander',status:'draft'};
+     db.prepare('INSERT INTO '+table+'('+required.map(c=>c.name).join(',')+') VALUES('+required.map(()=>'?').join(',')+')')
+       .run(...required.map(c=>values[String(c.name)]??(c.type==='INTEGER'?1:'fixture')));
+     assert.match(String(get(key)),new RegExp('^'+prefix+'-[0-9]{3,}$'),table);
+   }
+   db.exec("INSERT INTO work_record_code_input VALUES('work:policy-version:next','Politika Merkezi','PVR')");
+   assert.equal(get('work:policy-version:next'),'PVR-002');
+   db.exec(readFileSync('drizzle/0117_map_display_identities.sql','utf8'));
+   assert.equal(get('map:display:work:policy-version:legacy'),'PVR-001');
+ }finally{db.close()}
+});

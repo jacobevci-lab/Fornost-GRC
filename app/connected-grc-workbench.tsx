@@ -1,5 +1,5 @@
 "use client";
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import NavIcon from './nav-icon';
 import { recoveryHoursLabel } from './bia-recovery';
 import { connectedTitle, connectedRelationLabels, type ConnectedGrcRow as Row, type ConnectedGrcLink as Link } from './connected-grc-model';
@@ -7,13 +7,14 @@ import { connectedNeighborhood, issueLabels, recordOwner, recordMatches, type Wo
 import { type AccessSubject } from './module-access';
 import {MapCanvas} from './connected-map-canvas';
 import {mapCode,mapTitle,arrowText} from './connected-map-model';
+import MapDrawer from './connected-map-drawer';
 import MapInspector from './connected-map-inspector';
 import {linkChoices} from './connected-map-links';
 import ConnectedLinkEditor from './connected-grc-link-editor';
 import './connected-grc-workbench.css';
 
 type Props = {
-  openInventory:()=>void;network:'all'|'focus';setNetwork:(v:'all'|'focus')=>void;metric:'all'|'links'|'gaps'|'hubs';networkRows:Row[];
+  tabs:ReactNode;openInventory:()=>void;network:'all'|'focus';setNetwork:(v:'all'|'focus')=>void;metric:'all'|'links'|'gaps'|'hubs';networkRows:Row[];
   rows: Row[]; links: Link[]; issues: WorkbenchIssue[]; selected?: Row; view: 'explore' | 'impact' | 'gaps'; lang: 'tr' | 'en'; actor: AccessSubject & { email: string };
   complete: boolean; loading: boolean; select: (row: Row) => void; openRecord: (row: Row) => void; moduleLabel: (module: string) => string; refresh: () => Promise<boolean>;
   issueQuery: string; setIssueQuery: (value: string) => void; issueType: string; setIssueType: (value: string) => void; issueModule: string; setIssueModule: (value: string) => void;
@@ -22,12 +23,15 @@ type Props = {
 
 export default function ConnectedWorkbench(p: Props) {
   const { rows, links, issues, selected, view, lang, actor, complete, loading, select, openRecord, moduleLabel, issueQuery, setIssueQuery, issueType, setIssueType, issueModule, setIssueModule } = p, tr = lang === 'tr', language = tr ? 0 : 1;
-  const [depth, setDepth] = useState(1), [display, setDisplay] = useState<'diagram' | 'list'>('diagram'), [inspectId, setInspectId] = useState('');
+  const [display, setDisplay] = useState<'diagram' | 'list'>('diagram'), [inspectId, setInspectId] = useState('');
   const [editor, setEditor] = useState<{row:Row;issue?:WorkbenchIssue}|null>(null), [issueId, setIssueId] = useState(''), [mine, setMine] = useState(false), [issueLimit, setIssueLimit] = useState(30), [impactType, setImpactType] = useState('all');
+  const [drawerId,setDrawerId]=useState(''),[picker,setPicker]=useState(false),[toolsOpen,setToolsOpen]=useState(false);
+  const drawerRow=rows.find(row=>row.id===drawerId);
+  function showDetails(row:Row){setPicker(false);setToolsOpen(false);setDrawerId(row.id)}
   const [edgePage,setEdgePage]=useState(0);
   const [previousSelection, setPreviousSelection] = useState(selected?.id);
   if (previousSelection !== selected?.id) { setPreviousSelection(selected?.id); setInspectId(''); }
-  const neighborhood = useMemo(() => selected ? connectedNeighborhood(selected, links, view === 'impact' ? 3 : depth, 30) : { records: [], links: [], truncated: false }, [selected, links, depth, view]);
+  const neighborhood = useMemo(() => selected ? connectedNeighborhood(selected, links, view === 'impact' ? 3 : 1, 30) : { records: [], links: [], truncated: false }, [selected, links, view]);
   const inspect = neighborhood.records.find(item => item.row.id === inspectId);
   const inspected = inspect?.row || selected;
   const visibleIds = new Set([selected?.id, ...neighborhood.records.map(item => item.row.id)]);
@@ -69,7 +73,7 @@ export default function ConnectedWorkbench(p: Props) {
     <button type="button" onClick={() => openRecord(inspected)}>{tr ? 'Kaynak kaydı aç' : 'Open source record'}</button>{inspected.id !== selected?.id && <button type="button" onClick={() => select(inspected)}>{tr ? 'Bu kaydın haritası' : 'Map this record'}</button>}
   </aside>;
 
-  if (view === 'gaps') return <section id="connected-grc-workbench" className="cgw cgw-gaps" aria-label={tr ? 'Eksik tamamlama' : 'Complete gaps'}>{sourceNotice}<div className="cgw-work-toolbar"><div><h3>{tr ? 'Eksik Tamamlama' : 'Complete Gaps'}</h3><p>{new Set(filteredIssues.map(item => item.row.id)).size} {tr ? 'kayıt' : 'records'} · {filteredIssues.length} {tr ? 'takip konusu' : 'follow-up topics'}</p></div><button type="button" disabled={loading} onClick={exportIssues}>{tr ? 'Görünümü indir · CSV' : 'Export view · CSV'}</button></div>
+  if (view === 'gaps') return <section id="connected-grc-workbench" className="cgw cgw-gaps" aria-label={tr ? 'Eksik tamamlama' : 'Complete gaps'}>{p.tabs}{sourceNotice}<div className="cgw-work-toolbar"><div><h3>{tr ? 'Eksik Tamamlama' : 'Complete Gaps'}</h3><p>{new Set(filteredIssues.map(item => item.row.id)).size} {tr ? 'kayıt' : 'records'} · {filteredIssues.length} {tr ? 'takip konusu' : 'follow-up topics'}</p></div><button type="button" disabled={loading} onClick={exportIssues}>{tr ? 'Görünümü indir · CSV' : 'Export view · CSV'}</button></div>
     <div className="cgw-filters"><input aria-label={tr ? 'Eksik ara' : 'Find issue'} value={issueQuery} onChange={e => { setIssueQuery(e.target.value); setIssueLimit(30); }} placeholder={tr ? 'Kayıt veya kod ara' : 'Find record or code'}/><select aria-label={tr ? 'Kaynak modül' : 'Source module'} value={issueModule} onChange={e => { setIssueModule(e.target.value); setIssueLimit(30); }}><option value="all">{tr ? 'Tüm modüller' : 'All modules'}</option>{p.modules.map(name => <option key={name} value={name}>{moduleLabel(name)}</option>)}</select><select aria-label={tr ? 'Konu türü' : 'Issue type'} value={issueType} onChange={e => { setIssueType(e.target.value); setIssueLimit(30); }}><option value="all">{tr ? 'Tüm konular' : 'All topics'}</option><option value="high">{tr ? 'Yüksek öncelik' : 'High priority'}</option><option value="medium">{tr ? 'Orta öncelik' : 'Medium priority'}</option>{Object.entries(issueLabels).map(([key, names]) => <option key={key} value={key}>{names[language]}</option>)}</select><label className="cgw-check"><input type="checkbox" checked={mine} onChange={e => setMine(e.target.checked)}/>{tr ? 'Bana atananlar' : 'Assigned to me'}</label>{(issueQuery || issueType !== 'all' || issueModule !== 'all' || mine) && <button type="button" onClick={() => { setIssueQuery(''); setIssueType('all'); setIssueModule('all'); setMine(false); }}>{tr ? 'Filtreleri temizle' : 'Clear filters'}</button>}</div>
     <div className="cgw-queue-layout"><div className="cgw-panel"><div className="cgw-table-scroll"><table><caption>{tr ? 'Öncelikli işler' : 'Priority work'}</caption><thead><tr><th>{tr ? 'Kayıt ve konu' : 'Record and topic'}</th><th>{tr ? 'Öncelik' : 'Priority'}</th><th>{tr ? 'Sorumlu' : 'Owner'}</th><th>{tr ? 'Tarih' : 'Date'}</th><th>{tr?'İşlem':'Action'}</th></tr></thead><tbody>{filteredIssues.slice(0, issueLimit).map(issue => <tr key={issue.id} data-selected={issue.id === activeIssue?.id}><th scope="row"><button type="button" className="cgw-identity" onClick={() => { setIssueId(issue.id); setEditor(null); }}>{identity(issue.row)}</button><small>{issueLabels[issue.kind][language]}</small></th><td><span className="cgw-badge">{issue.severity === 'high' ? (tr ? 'Yüksek' : 'High') : (tr ? 'Orta' : 'Medium')}</span></td><td>{recordOwner(issue.row)}</td><td>{issue.due || '—'}</td><td>{nextAction(issue,true)}</td></tr>)}</tbody></table></div>
       {!filteredIssues.length && <p className="cgw-empty">{issueQuery || mine || issueType !== 'all' || issueModule !== 'all' ? (tr ? 'Filtreyle eşleşen takip konusu yok. Diğer kayıtlar için filtreleri temizleyin.' : 'No follow-up topics match. Clear filters to see other records.') : complete ? (tr ? 'Tanımlı kurallarda takip konusu bulunamadı.' : 'No follow-up topics found under the defined rules.') : (tr ? 'Eksik değerlendirmesi henüz doğrulanamadı.' : 'Gap assessment is not yet verified.')}</p>}
@@ -79,30 +83,62 @@ export default function ConnectedWorkbench(p: Props) {
     </div></section>;
 
   const focus=p.network==='focus',seenIds=new Set(p.networkRows.map(r=>r.id));
-  const diagramRows=focus&&selected?[selected,...neighborhood.records.map(n=>n.row)]:p.networkRows;
-  const drawnIds=new Set(diagramRows.map(r=>r.id));
-  const diagramLinks=focus?neighborhood.links:links.filter(e=>drawnIds.has(e.source.id)&&drawnIds.has(e.target.id));
+  const diagramLinks=focus?links.filter(e=>e.source.id===selected?.id||e.target.id===selected?.id):links.filter(e=>seenIds.has(e.source.id)&&seenIds.has(e.target.id));
+  const diagramRows=focus&&selected?[selected]:p.networkRows;
   const allEdges=links.filter(e=>seenIds.has(e.source.id)||seenIds.has(e.target.id));
   const edgeLimit=25,edgeIndex=Math.min(edgePage,Math.max(0,Math.ceil(allEdges.length/edgeLimit)-1));
   const root=selected||rows.find(r=>linkChoices(r,actor,p.modules).length),firstLink=root&&linkChoices(root,actor,p.modules).length>0;
   return <section id="connected-grc-workbench" className={`cgw cgw-${view}`} aria-label={tr ? 'Bağlantı inceleme masası' : 'Relationship workbench'}>{sourceNotice}
-    <div className="cgw-filters"><label>{tr ? 'Kayıt ara' : 'Find record'}<input value={p.query} onChange={e => p.setQuery(e.target.value)} placeholder={tr ? 'Ad veya kod…' : 'Name or code…'}/></label><label>{tr ? 'Modül' : 'Module'}<select value={p.module} onChange={e => p.setModule(e.target.value)}><option value="all">{tr ? 'Tüm modüller' : 'All modules'}</option>{p.modules.map(name => <option key={name} value={name}>{moduleLabel(name)}</option>)}</select></label>{(p.query || p.module !== 'all') && <button type="button" onClick={() => { p.setQuery(''); p.setModule('all'); }}>{tr ? 'Temizle' : 'Clear'}</button>}<button type="button" disabled={loading} onClick={view === 'impact' ? exportImpact : p.exportLinks}>{view === 'impact' ? (complete ? (tr ? 'Görünümü indir · CSV' : 'Export view · CSV') : (tr ? 'Kısmi görünümü indir · CSV' : 'Export partial view · CSV')) : (tr ? 'Filtreli bağlantıları indir · CSV' : 'Export filtered links · CSV')}</button></div>
+    <div className="cm-command" onKeyDown={event=>{if(event.key==='Escape'){setPicker(false);setToolsOpen(false)}}}>
+      {p.tabs}
+      <button type="button" className="cm-tools-toggle" aria-controls="cm-map-tools" aria-expanded={toolsOpen} onClick={()=>setToolsOpen(!toolsOpen)}>{tr?'Ara / Filtre':'Map tools'}</button>
+      <div id="cm-map-tools" className="cm-tools-panel" data-open={toolsOpen}>
+        <div className="cgw-filters">
+          <div className="cm-search" onBlur={event=>{if(!event.currentTarget.contains(event.relatedTarget))setPicker(false)}}>
+            <input aria-label={tr?'Kayıt ara':'Find record'} placeholder={tr?'Ad veya kod…':'Name or code…'} value={p.query}
+              onFocus={()=>setPicker(view==='explore')} onChange={event=>{p.setQuery(event.target.value);setPicker(true)}}/>
+            {view==='explore'&&<>
+              <button aria-label={tr?'Kayıt seç':'Select record'} aria-expanded={picker} aria-controls="cm-record-options" onClick={()=>setPicker(v=>!v)}>⌄</button>
+              <section className="cgw-records" id="cm-record-options" hidden={!picker} aria-label={tr?'Kayıt seçimi':'Record selection'}>
+                <header><b>{tr?'Kayıt seç':'Select record'}</b><span>{p.matchingCount}</span></header>
+                {p.visible.map(row=><button className="cgw-identity" type="button" key={row.id} aria-pressed={row.id===selected?.id}
+                  onClick={()=>{select(row);p.setNetwork('focus');setDisplay('diagram');setToolsOpen(false);showDetails(row)}}>{identity(row)}</button>)}
+                {!p.visible.length&&<p className="cgw-empty">{tr?'Eşleşen kayıt yok.':'No matching records.'}</p>}
+                {p.matchingCount>10&&<footer>
+                  <button disabled={!p.page} onClick={()=>p.setPage(p.page-1)}>{tr?'Önceki':'Previous'}</button><small>{p.page+1} / {Math.ceil(p.matchingCount/10)}</small>
+                  <button disabled={(p.page+1)*10>=p.matchingCount} onClick={()=>p.setPage(p.page+1)}>{tr?'Sonraki':'Next'}</button>
+                </footer>}
+              </section>
+            </>}
+          </div>
+          <select aria-label={tr?'Modül':'Module'} value={p.module} onChange={event=>p.setModule(event.target.value)}>
+            <option value="all">{tr?'Tüm modüller':'All modules'}</option>{p.modules.map(name=><option key={name} value={name}>{moduleLabel(name)}</option>)}
+          </select>
+          {(p.query||p.module!=='all')&&<button onClick={()=>{p.setQuery('');p.setModule('all')}}>{tr?'Temizle':'Clear'}</button>}
+          <button title={tr?'Filtreli görünümü indir':'Export filtered view'} disabled={loading} onClick={view==='impact'?exportImpact:p.exportLinks}>
+            {view==='impact'?(complete?(tr?'Görünümü indir · CSV':'Export view · CSV'):(tr?'Kısmi görünümü indir · CSV':'Export partial view · CSV')):'CSV'}
+          </button>
+        </div>
+        {view==='explore'&&<div className="cgw-map-tools">
+          <div role="group" aria-label={tr?'Harita modu':'Network mode'}>{(['all','focus'] as const).map(mode=><button key={mode}
+            aria-pressed={p.network===mode&&display==='diagram'&&p.metric!=='links'} onClick={()=>{p.setNetwork(mode);setDisplay('diagram');setToolsOpen(false)}}>
+            {mode==='all'?(tr?'Genel Ağ (Tümü)':'Full network (All)'):(tr?'Odak Kayıt':'Focus record')}</button>)}</div>
+          <button aria-pressed={p.metric==='links'||display==='list'} onClick={()=>{if(p.metric==='links')p.setNetwork(p.network);setDisplay(display==='list'||p.metric==='links'?'diagram':'list');setToolsOpen(false)}}>{tr?'Liste':'List'}</button>
+        </div>}
+      </div>
+    </div>
     {view === 'impact' && selected && <><div className="cgw-panel">{recordHeader}<p className="cgw-scope">{neighborhood.records.length} {tr ? 'ilişkili kayıt · en fazla 3 adım' : 'related records · up to 3 steps'} · {tr ? 'Kayıtlı ilişkilere göre inceleme' : 'Review based on recorded relationships'}</p></div><p className="cgw-note">{tr ? 'İlişkili olmak, etkilenmenin kesinleştiği anlamına gelmez. Süreç sahibinin değerlendirmesi gerekir.' : 'A relationship does not confirm impact. Assessment by the process owner is required.'}</p></>}
     <div className={view === 'impact' ? 'cgw-impact-layout' : 'cgw-layout'}>
-      {view === 'explore' && <section className="cgw-records" aria-label={tr ? 'Kayıt seçimi' : 'Record selection'}><header><b>{tr ? 'Kayıt seç' : 'Select record'}</b><span>{p.matchingCount}</span></header>{p.visible.map(row => <button className="cgw-identity" type="button" key={row.id} aria-pressed={row.id === selected?.id} onClick={() => {select(row);p.setNetwork('focus')}}>{identity(row)}</button>)}{!p.visible.length && <p className="cgw-empty">{tr ? 'Eşleşen kayıt yok. Arama veya filtreyi değiştirin.' : 'No matching records. Change search or filters.'}</p>}{p.matchingCount > 10 && <footer><button type="button" disabled={p.page === 0} onClick={() => p.setPage(p.page - 1)}>{tr ? 'Önceki' : 'Previous'}</button><small>{p.page + 1} / {Math.ceil(p.matchingCount / 10)}</small><button type="button" disabled={(p.page + 1) * 10 >= p.matchingCount} onClick={() => p.setPage(p.page + 1)}>{tr ? 'Sonraki' : 'Next'}</button></footer>}</section>}
       <section className="cgw-panel cgw-canvas-panel">
-        {view==='explore'&&<div className="cgw-map-tools"><div role="group" aria-label={tr?'Harita modu':'Network mode'}>{(['all','focus'] as const).map(mode=><button key={mode} aria-pressed={p.network===mode} onClick={()=>{p.setNetwork(mode);setDisplay('diagram')}}>{mode==='all'?(tr?'Genel Ağ (Tümü)':'Full network (All)'):(tr?'Odak Kayıt':'Focus record')}</button>)}</div>
-        {focus&&<select aria-label={tr?'Bağlantı derinliği':'Relationship depth'} value={depth} onChange={e=>setDepth(Number(e.target.value))}>{[1,2,3].map(n=><option key={n} value={n}>{n} {tr?'adım':'hops'}</option>)}</select>}
-        <button aria-pressed={p.metric==='links'||display==='list'} onClick={()=>{if(p.metric==='links')p.setNetwork(p.network);setDisplay(display==='list'||p.metric==='links'?'diagram':'list')}}>{tr?'Liste':'List'}</button></div>}
         {view==='impact'&&<header><h3>{tr ? 'İncelenecek kayıtlar' : 'Records to review'}</h3><select aria-label={tr ? 'Etki kapsamı' : 'Impact scope'} value={impactType} onChange={e => setImpactType(e.target.value)}><option value="all">{tr ? 'Tüm ilişkiler' : 'All relationships'}</option><option value="business">{tr ? 'İş süreçleri ve süreklilik' : 'Business processes and continuity'}</option><option value="assurance">{tr ? 'Risk, kontrol ve kanıt' : 'Risk, control and evidence'}</option></select></header>}
-        {view==='explore'&&(p.metric==='links'||display==='list'&&!focus)?<div className="cgw-table-scroll"><table><thead><tr>{[tr?'Kaynak':'Source',tr?'İlişki':'Relationship',tr?'Hedef':'Target'].map(n=><th key={n}>{n}</th>)}</tr></thead><tbody>{allEdges.slice(edgeIndex*edgeLimit,(edgeIndex+1)*edgeLimit).map(e=><tr key={[e.source.id,e.field,e.relation,e.target.id].join('|')}><td><button onClick={()=>select(e.source)}>{identity(e.source)}</button></td><td>{arrowText(e,tr)}</td><td><button onClick={()=>select(e.target)}>{identity(e.target)}</button></td></tr>)}</tbody></table>{!allEdges.length&&<p>{tr?'Bağlantı yok.':'No relationships.'}</p>}{allEdges.length>edgeLimit&&<footer><button disabled={!edgeIndex} onClick={()=>setEdgePage(edgeIndex-1)}>{tr?'Önceki':'Previous'}</button> {edgeIndex+1} / {Math.ceil(allEdges.length/edgeLimit)} <button disabled={(edgeIndex+1)*edgeLimit>=allEdges.length} onClick={()=>setEdgePage(edgeIndex+1)}>{tr?'Sonraki':'Next'}</button></footer>}</div>
-        : view === 'impact' || display === 'list' ? <div className="cgw-table-scroll"><table><thead><tr><th>{tr ? 'Kayıt' : 'Record'}</th><th>{tr ? 'Bağlantı' : 'Relationship'}</th><th>{tr ? 'Sorumlu' : 'Owner'}</th><th>{tr ? 'İnceleme' : 'Review'}</th></tr></thead><tbody>{(view === 'impact' ? impacted : neighborhood.records).map(item => <tr key={item.row.id} data-selected={item.row.id === inspectId}><th scope="row"><button type="button" className="cgw-identity" onClick={() => { setInspectId(item.row.id); setEditor(null); }}>{identity(item.row)}</button></th><td>{item.depth === 1 ? (tr ? 'Doğrudan' : 'Direct') : (tr ? 'Dolaylı' : 'Indirect')} · {item.depth} {tr ? 'adım' : 'steps'}</td><td>{recordOwner(item.row)}</td><td>{issues.filter(issue => issue.row.id === item.row.id).length || '—'}</td></tr>)}</tbody></table>{(view === 'impact' ? impacted : neighborhood.records).length === 0 && <p className="cgw-empty">{tr ? 'Bu kapsamda görünür bağlantı yok.' : 'No visible relationships in this scope.'}</p>}</div> : <>
-          {(!links.length||focus&&!neighborhood.records.length)&&<div className="cm-empty"><b>{tr?'Bu kapsamda görünür bağlantı yok.':'No visible relationships in this scope.'}</b>{firstLink&&root&&<button className="primary" onClick={()=>startEditor(root)}>{links.length?(tr?'Bağlantı ekle':'Add relationship'):(tr?'+ İlk Bağlantıyı Oluştur':'+ Create first relationship')}</button>}{!rows.length&&!loading&&['Admin','Editor'].includes(actor.role)&&<button className="primary" onClick={p.openInventory}>{tr?'+ İlk Bağlantıyı Oluştur':'+ Create first relationship'}</button>}{!rows.length&&<span>{tr?'Önce bir kaynak kayıt oluşturun.':'Create a source record first.'}</span>}</div>}
-          {diagramRows.length>0&&<MapCanvas rows={diagramRows} links={diagramLinks} selected={selected} focus={focus} depths={new Map(neighborhood.records.map(n=>[n.row.id,n.depth]))} tr={tr} select={focus?row=>setInspectId(row.id):select} moduleLabel={moduleLabel}/>}
+        {view==='explore'&&(p.metric==='links'||display==='list'&&!focus)?<div className="cgw-table-scroll"><table><thead><tr>{[tr?'Kaynak':'Source',tr?'İlişki':'Relationship',tr?'Hedef':'Target'].map(n=><th key={n}>{n}</th>)}</tr></thead><tbody>{allEdges.slice(edgeIndex*edgeLimit,(edgeIndex+1)*edgeLimit).map(e=><tr key={[e.source.id,e.field,e.relation,e.target.id].join('|')}><td><button onClick={()=>showDetails(e.source)}>{identity(e.source)}</button></td><td>{arrowText(e,tr)}</td><td><button onClick={()=>showDetails(e.target)}>{identity(e.target)}</button></td></tr>)}</tbody></table>{!allEdges.length&&<p>{tr?'Bağlantı yok.':'No relationships.'}</p>}{allEdges.length>edgeLimit&&<footer><button disabled={!edgeIndex} onClick={()=>setEdgePage(edgeIndex-1)}>{tr?'Önceki':'Previous'}</button> {edgeIndex+1} / {Math.ceil(allEdges.length/edgeLimit)} <button disabled={(edgeIndex+1)*edgeLimit>=allEdges.length} onClick={()=>setEdgePage(edgeIndex+1)}>{tr?'Sonraki':'Next'}</button></footer>}</div>
+        : view === 'impact' || display === 'list' ? <div className="cgw-table-scroll"><table><thead><tr><th>{tr ? 'Kayıt' : 'Record'}</th><th>{tr ? 'Bağlantı' : 'Relationship'}</th><th>{tr ? 'Sorumlu' : 'Owner'}</th><th>{tr ? 'İnceleme' : 'Review'}</th></tr></thead><tbody>{(view === 'impact' ? impacted : neighborhood.records).map(item => <tr key={item.row.id} data-selected={item.row.id === inspectId}><th scope="row"><button type="button" className="cgw-identity" onClick={() => { if(view==='explore')showDetails(item.row);else setInspectId(item.row.id); setEditor(null); }}>{identity(item.row)}</button></th><td>{item.depth === 1 ? (tr ? 'Doğrudan' : 'Direct') : (tr ? 'Dolaylı' : 'Indirect')} · {item.depth} {tr ? 'adım' : 'steps'}</td><td>{recordOwner(item.row)}</td><td>{issues.filter(issue => issue.row.id === item.row.id).length || '—'}</td></tr>)}</tbody></table>{(view === 'impact' ? impacted : neighborhood.records).length === 0 && <p className="cgw-empty">{tr ? 'Bu kapsamda görünür bağlantı yok.' : 'No visible relationships in this scope.'}</p>}</div> : <>
+          {(!diagramRows.length||!links.length||focus&&!diagramLinks.length)&&<div className="cm-empty"><b>{!diagramRows.length?(tr?'Eşleşen kayıt yok.':'No matching records.'):(tr?'Bu kapsamda görünür bağlantı yok.':'No visible relationships in this scope.')}</b>{firstLink&&root&&diagramRows.length>0&&<button className="primary" onClick={()=>startEditor(root)}>{links.length?(tr?'Bağlantı ekle':'Add relationship'):(tr?'+ İlk Bağlantıyı Oluştur':'+ Create first relationship')}</button>}{!rows.length&&!loading&&['Admin','Editor'].includes(actor.role)&&<button className="primary" onClick={p.openInventory}>{tr?'+ İlk Bağlantıyı Oluştur':'+ Create first relationship'}</button>}{!rows.length&&<span>{tr?'Önce bir kaynak kayıt oluşturun.':'Create a source record first.'}</span>}</div>}
+          {diagramRows.length>0&&<MapCanvas rows={diagramRows} links={diagramLinks} selected={selected} focus={focus} tr={tr} select={showDetails} moduleLabel={moduleLabel}/>}
         </>}
-        {focus&&neighborhood.truncated&&<p>{tr?'Odak görünümü 30 kayıtla sınırlı.':'Focus view is limited to 30 records.'}</p>}
+
       </section>
-      {editorView}{view==='impact'?inspectView:inspected&&<MapInspector refocus={inspected.id!==selected?.id?()=>{select(inspected);p.setNetwork('focus')}:undefined} key={'inspector:'+inspected.id} row={inspected} links={links} issues={issues} actor={actor} tr={tr} moduleLabel={moduleLabel} select={select} openRecord={openRecord} refresh={p.refresh} edit={()=>startEditor(inspected)}/>}
+      {view==='impact'?inspectView:drawerId&&drawerRow&&<MapDrawer tr={tr} close={()=>setDrawerId('')}><MapInspector refocus={!focus||drawerRow.id!==selected?.id?()=>{select(drawerRow);p.setNetwork('focus');setDisplay('diagram');setDrawerId('')}:undefined} key={drawerRow.id} row={drawerRow} links={links} issues={issues} actor={actor} tr={tr} moduleLabel={moduleLabel} select={showDetails} openRecord={openRecord} refresh={p.refresh} edit={()=>startEditor(drawerRow)}/></MapDrawer>}{editorView}
     </div></section>;
 }
 

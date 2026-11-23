@@ -13,7 +13,13 @@ export async function POST(req:NextRequest){
     if(!Array.isArray(records)||records.length>400||records.some(x=>typeof x!=='string'||x.length>240))return json({error:'input'},400);
     if(!Array.isArray(ids)||ids.length>400||ids.some(id=>typeof id!=='string'||id.length>240||!id))return json({error:'input'},400);
     const {env}=await import('cloudflare:workers');
-    const result=await env.DB.prepare('SELECT record_id,module,code FROM simple_grc_record_codes WHERE record_id IN (SELECT value FROM json_each(?))').bind(JSON.stringify(ids)).all<{record_id:string;module:string;code:string}>();
+    const result=await env.DB.prepare(`WITH requested(id) AS (SELECT value FROM json_each(?))
+      SELECT requested.id record_id,COALESCE(display.module,native.module) module,CASE WHEN display.code IS NOT NULL AND (
+        native.code NOT GLOB substr(display.code,1,instr(display.code,'-'))||'[0-9][0-9][0-9]*'
+        OR substr(native.code,instr(native.code,'-')+1) GLOB '*[^0-9]*') THEN display.code ELSE COALESCE(native.code,display.code) END code
+      FROM requested LEFT JOIN simple_grc_record_codes native ON native.record_id=requested.id
+      LEFT JOIN simple_grc_record_codes display ON display.record_id='map:display:'||requested.id
+      WHERE COALESCE(display.code,native.code) IS NOT NULL`).bind(JSON.stringify(ids)).all<{record_id:string;module:string;code:string}>();
     await env.DB.prepare(contextTable).run();
     const graph=await env.DB.prepare('SELECT id,source_id,target_id,relation,target_module,source_module FROM connected_map_context_links WHERE source_id IN (SELECT value FROM json_each(?))').bind(JSON.stringify(records)).all<{id:string;source_id:string;target_id:string;relation:string;target_module:string;source_module:string}>();
     const edges=graph.results.filter(e=>auth.actor.role==='Admin'||![e.source_module,e.target_module].includes('AI Yönetişimi')).map(({id,source_id,target_id,relation})=>({id,source_id,target_id,relation}));

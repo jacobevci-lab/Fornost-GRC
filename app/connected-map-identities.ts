@@ -6,8 +6,8 @@ import {isShortCode} from './connected-map-model';
 const workKinds=new Set(['vendor-assessment','vendor-finding','policy-version','policy-exception','regulatory-change','regulatory-impact','continuity-gap']);
 export function registryKey(row:Row){
   if(!row.id.startsWith('enterprise:'))return row.id;
-  const kind=String(row.data.kind),id=String((row.data.canonicalRefs as string[])?.[0]||'');
-  if(kind==='vendor')return String(row.data.vendorId);
+  const kind=String(row.data.kind),id=row.id.slice(('enterprise:'+kind+':').length);
+  if(kind==='vendor')return String(row.data.vendorId||id);
   if(kind==='ai-model'||kind==='policy')return id;
   if(kind==='finding'||kind==='finding-manual')return 'work:finding:'+id;
   if(workKinds.has(kind))return 'work:'+kind+':'+id;

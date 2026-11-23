@@ -37,6 +37,7 @@ async function prepare(def){
  await expect(page.locator('#connected-grc-workbench .cgw-records>button')).toHaveCount(1);
 }
 async function open(def){
+ await page.locator('.cgw-records>button').first().click();
  await page.locator('#connected-grc-workbench').getByRole('button',{name:'Open source record',exact:true}).click();
  await expect(page.locator('#fornost-ai-panel')).toHaveAttribute('data-ai-view',def.view);
  await expect(page.locator(def.root)).toBeVisible();

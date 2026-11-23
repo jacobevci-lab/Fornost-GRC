@@ -56,14 +56,15 @@ try{
   await graph.getByRole('textbox',{name:'Find record',exact:true}).fill(code);
   await waitForQaIdle(page);
   const target=graph.getByRole('region',{name:'Record selection'}).getByRole('button').filter({hasText:code}).filter({hasText:controlTitle});await target.click();
-  await expect(target).toHaveAttribute('aria-pressed','true');
+  await expect(graph.locator('.cm-node[data-root=true]')).toContainText(code);
   await expect(graph.locator('.cm-inspector h3')).toHaveText(controlTitle);
   await graph.getByRole('button',{name:'Open source record',exact:true}).click();
   const focus=page.locator('.core-record-focus:not(.record-link-entry)');await expect(focus).toContainText(code);
   await page.reload();await expect(focus).toContainText(code);await expect(page.locator('.smart-table tbody tr')).toHaveCount(1);
   await focus.getByRole('button',{name:'Return to previous view',exact:true}).click();
   await expect(graph).toBeVisible();await expect(graph.getByRole('textbox',{name:'Find record',exact:true})).toHaveValue(code);
-  await expect(target).toHaveAttribute('aria-pressed','true');
+  await expect(graph.locator('.cm-node[data-root=true]')).toContainText(code);
+  await graph.locator('.cm-node[data-root=true]').click();
   await expect(graph.locator('.cm-inspector h3')).toHaveText(controlTitle);
   checks.push('F03/F04/F07: exact title, target reload and return restore graph query and selection');await screenshot('03-map-return');
 

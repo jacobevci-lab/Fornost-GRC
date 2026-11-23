@@ -14,7 +14,11 @@ async function api(method, path, data, status = 200) { const r = await context.r
 const create = async (module, data) => (await api('POST', '/api/grc', { module, data }, 201)).id;
 const nav = label => page.locator('.cg-tabs').getByRole('button', { name: label, exact: true });
 const workspace = page.locator('.connected-grc'), work = page.locator('#connected-grc-workbench');
-const choose = title => page.locator('.cgw-records').getByRole('button').filter({ hasText: title }).click();
+const choose = async title => {
+  await work.getByRole('button',{name:'Kayıt seç',exact:true}).click();
+  await work.locator('.cgw-records').getByRole('button').filter({hasText:title}).click();
+};
+const dismissDetails=()=>page.getByRole('button',{name:'Ayrıntıları kapat',exact:true}).click();
 const screens = [];
 async function capture(name) { await workspace.screenshot({ path: `${out}/${name}.png` }); screens.push(name); }
 try {
@@ -31,13 +35,35 @@ try {
   await workspace.locator('[data-metric="links"]').click(); await expect(work.locator('tbody tr')).toHaveCount(5);
   await workspace.locator('[data-metric="hubs"]').click(); await expect(work.locator('.cgw-records>button')).toHaveCount(1);
   await workspace.locator('[data-metric="all"]').click(); await expect(work.locator('.cm-lane')).toHaveCount(5);
-  await work.getByRole('button',{name:'Odak Kayıt',exact:true}).click(); await expect(work.locator('.cm-inspector h3')).toContainText('Ayrıcalıklı erişim MFA');
-  await choose('Cortex XDR'); await work.getByLabel('Bağlantı derinliği').selectOption('3'); await expect(work.locator('.cgw-node')).toHaveCount(5); await work.getByLabel('Bağlantı derinliği').selectOption('1'); await capture('diagram-TR-light-1640'); await work.getByLabel('Bağlantı derinliği').selectOption('3');
-  phase = 'diagram list impact'; await work.getByRole('button', { name: 'Liste', exact: true }).click(); await expect(work.locator('tbody tr')).toHaveCount(4); await work.locator('tbody').getByRole('button').filter({ hasText: 'MFA yapılandırma kanıtı' }).click(); await expect(work.locator('.cgw-inspector')).toContainText('Kanıtın süresi geçti'); await nav('Etki analizi').click(); await expect(work.locator('tbody tr')).toHaveCount(4); await work.locator('tbody').getByRole('button').filter({ hasText: 'Kimlik ve erişim yönetimi' }).click(); await expect(work.locator('.cgw-inspector')).toContainText('4 saat'); await capture('bia-impact-TR-light-1640');
+  await work.getByRole('button',{name:'Odak Kayıt',exact:true}).click();
+  await expect(work.locator('.cm-drawer')).toHaveCount(0);
+  const center=work.locator('.cm-node[data-root=true]');
+  await expect(center).toContainText('Ayrıcalıklı erişim MFA');
+  await expect(work.locator('.cm-lane')).toHaveCount(3);
+  const canvas=await work.locator('.cm-scroll').boundingBox(), hub=await center.boundingBox();
+  assert.ok(Math.abs(hub.x+hub.width/2-canvas.x-canvas.width/2)<12 && Math.abs(hub.y+hub.height/2-canvas.y-canvas.height/2)<12,'The hub is centered in the viewport');
+  assert.ok(canvas.height>=1050*.75-1 && hub.width>=210);
+  await expect(work.locator('.cm-wire-pill')).toHaveCount(0);
+  await work.locator('.cm-node').filter({hasText:'MFA yapılandırma kanıtı'}).hover();
+  await expect(work.locator('.cm-wire-pill')).toContainText('Kanıtlar');
+  await expect(work.locator('.cm-node').filter({hasText:'Ayrıcalıklı hesaplarda MFA eksikliği'})).toHaveCSS('opacity','0.25');
+  await center.click(); await expect(work.locator('.cm-drawer')).toBeVisible();await page.keyboard.press('Escape');
+  await expect(work.locator('.cm-drawer')).toHaveCount(0);
+  await choose('Ayrıcalıklı hesaplarda MFA eksikliği');await dismissDetails();
+  await expect(work.locator('.cm-node[data-lane="0"]')).toContainText('Ayrıcalıklı erişim MFA');
+  await expect(work.locator('.cm-node[data-lane="2"]')).toContainText('Cortex XDR');
+  await capture('diagram-TR-light-1640');
+  phase='diagram list impact';
+  await work.getByRole('button',{name:'Liste',exact:true}).click();await expect(work.locator('tbody tr')).toHaveCount(2);
+  await work.locator('tbody').getByRole('button').filter({hasText:'Cortex XDR'}).click();
+  await expect(work.locator('.cm-drawer')).toContainText('Cortex XDR');await dismissDetails();
+  await nav('Etki analizi').click();await expect(work.locator('tbody tr')).toHaveCount(4);
+  await work.locator('tbody').getByRole('button').filter({hasText:'Kimlik ve erişim yönetimi'}).click();
+  await expect(work.locator('.cgw-inspector')).toContainText('4 saat');await capture('bia-impact-TR-light-1640');
   phase = 'UI link and unlink'; await nav('Bağlantılar').click(); await choose('Ayrıcalıklı hesaplarda MFA eksikliği'); await work.locator('.cm-inspector').getByRole('button', { name: 'Bağlantı ekle', exact: true }).click(); const editor = page.locator('.cgw-editor'); await editor.getByLabel('Hedef modül').selectOption('BIA'); await editor.getByLabel('İlişki türü').selectOption('processLink:BIA'); await editor.getByRole('combobox',{name:'Hedef kayıt',exact:true}).fill('Kimlik'); await editor.getByRole('option').filter({hasText:'Kimlik ve erişim yönetimi'}).click(); await editor.getByLabel('İşlem notu').fill('QA: doğrulanmış BIA bağlantısı'); await editor.getByRole('button', { name: 'Bağlantıyı kaydet', exact: true }).click(); await expect(editor).toContainText('Bağlantı kaydedildi'); let records = (await api('GET', '/api/grc')).rows; assert.equal(JSON.parse(records.find(r => r.id === risk).data_json).processLink, bia);
   await editor.getByRole('button', { name: 'Listeyi yenile ve kapat' }).click(); await expect(editor).toHaveCount(0); await waitForQaIdle(page); await work.locator('.cm-inspector').getByRole('button',{name:'Bağlantıyı kaldır · Kimlik ve erişim yönetimi',exact:true}).click(); await expect(work.locator('.cm-inspector')).toContainText('Bağlantı kaldırıldı'); records = (await api('GET', '/api/grc')).rows; assert.equal(JSON.parse(records.find(r => r.id === risk).data_json).processLink, ''); assert.ok(records.some(r => r.id === bia)); assert.equal((await api('GET', '/api/connected-grc/links?sourceId=' + risk)).events.length, 2);
   phase = 'failed write requires inspection, not automatic retry'; await work.locator('.cm-inspector').getByRole('button', { name: 'Bağlantı ekle', exact: true }).click(); await editor.getByLabel('Hedef modül').selectOption('BIA'); await editor.getByLabel('İlişki türü').selectOption('processLink:BIA'); await editor.getByRole('combobox',{name:'Hedef kayıt',exact:true}).fill('Kimlik'); await editor.getByRole('option').filter({hasText:'Kimlik ve erişim yönetimi'}).click(); await editor.getByLabel('İşlem notu').fill('QA: bağlantı hata denemesi'); await page.route('**/api/connected-grc/links', route => route.request().method() === 'POST' ? route.abort() : route.continue()); await editor.getByRole('button', { name: 'Bağlantıyı kaydet', exact: true }).click(); await expect(editor).toContainText('İşlemin sonucu doğrulanamadı'); await expect(editor.getByRole('button', { name: 'Bağlantıyı kaydet', exact: true })).toBeDisabled(); await page.unroute('**/api/connected-grc/links'); await editor.getByRole('button', { name: 'Kapat', exact: true }).click();
-  phase = 'gap work and filters'; await page.locator('.cg-tabs').getByRole('button', { name: /^Eksikler/ }).click(); await expect(work).toContainText('Kanıtın süresi geçti'); await work.getByLabel('Eksik ara').fill('nonexistent-qa-value'); await expect(work).toContainText('Filtreyle eşleşen takip konusu yok'); await work.getByRole('button', { name: 'Filtreleri temizle' }).click(); await work.locator('tbody tr').filter({hasText:'Süreklilik planı bağlantısı yok'}).getByRole('button',{name:'+ Bağla',exact:true}).click(); await expect(editor).toContainText('Bağlamak planı onaylamaz'); await capture('plan-editor-TR-light-1640'); await editor.getByRole('button', { name: 'Kapat', exact: true }).click();
+  phase = 'gap work and filters'; await dismissDetails(); await page.locator('.cg-tabs').getByRole('button', { name: /^Eksikler/ }).click(); await expect(work).toContainText('Kanıtın süresi geçti'); await work.getByLabel('Eksik ara').fill('nonexistent-qa-value'); await expect(work).toContainText('Filtreyle eşleşen takip konusu yok'); await work.getByRole('button', { name: 'Filtreleri temizle' }).click(); await work.locator('tbody tr').filter({hasText:'Süreklilik planı bağlantısı yok'}).getByRole('button',{name:'+ Bağla',exact:true}).click(); await expect(editor).toContainText('Bağlamak planı onaylamaz'); await capture('plan-editor-TR-light-1640'); await editor.getByRole('button', { name: 'Kapat', exact: true }).click();
   phase = 'inline gap resolution and audit trail';
   await create('Uyum',{framework:'QA framework',controlTitle:'QA framework clause',controlRef:'QA-CLAUSE',status:'Kısmi Uyumlu',owner:account.email});
   await workspace.getByRole('button',{name:'Yenile',exact:true}).click();
@@ -73,9 +99,27 @@ try {
     if (await page.locator('html').getAttribute('data-theme') !== theme) await page.locator('.theme-toggle:visible').click();
     for (const [key, title] of [['connections', lang === 'TR' ? 'Bağlantılar' : 'Connections'], ['impact', lang === 'TR' ? 'Etki analizi' : 'Impact analysis'], ['gaps', lang === 'TR' ? /^Eksikler/ : /^Gaps/],['assurance', lang === 'TR' ? 'Güvence' : 'Assurance']]) {
       await page.locator('.cg-tabs').getByRole('button', { name: title, exact: typeof title === 'string' }).click(); await waitForQaIdle(page);
-      if(key==='connections'){await work.getByRole('button',{name:lang==='TR'?'Genel Ağ (Tümü)':'Full network (All)',exact:true}).click(); await expect(work.locator('.cm-lane')).toHaveCount(5);}
+      if(key==='connections'){
+        if(await work.locator('.cm-tools-toggle').isVisible())await work.locator('.cm-tools-toggle').click();
+        await work.getByRole('button',{name:lang==='TR'?'Genel Ağ (Tümü)':'Full network (All)',exact:true}).click();
+        await expect(work.locator('.cm-lane')).toHaveCount(5);
+        const toolbar=await work.locator('.cg-tabs button').evaluateAll(buttons=>buttons.map(b=>b.getBoundingClientRect().y));
+        assert.equal(new Set(toolbar).size,1,'Tabs stay on one row');
+        await expect(work.locator('.cm-drawer')).toHaveCount(0);
+        await expect(work.locator('.cm-wire-pill')).toHaveCount(0);
+        const allCanvas=await work.locator('.cm-scroll').boundingBox();
+        assert.ok(allCanvas.height>=1050*.75-1 && allCanvas.width>=(await work.boundingBox()).width-4);
+        await capture('all-'+lang+'-'+theme+'-'+width);
+        if(await work.locator('.cm-tools-toggle').isVisible())await work.locator('.cm-tools-toggle').click();
+        await work.getByRole('button',{name:lang==='TR'?'Odak Kayıt':'Focus record',exact:true}).click();
+        const card=work.locator('.cm-node[data-root=true]');await expect(card).toBeVisible();
+        await expect.poll(async()=>{const r=await card.boundingBox(),v=await work.locator('.cm-scroll').boundingBox();
+          return Math.max(Math.abs(r.x+r.width/2-v.x-v.width/2),Math.abs(r.y+r.height/2-v.y-v.height/2));}).toBeLessThan(12);
+        await card.click();await expect(work.locator('dialog.cm-drawer')).toBeVisible();await page.keyboard.press('Escape');
+        await page.locator('.cg-heading').hover();await card.blur();
+      }
       assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 2), `overflow ${key}/${lang}/${theme}/${width}`);
-      if (width === 1640 && key!=='assurance') { const aside = work.locator('.cgw-inspector'); assert.ok(await aside.evaluate(e => e.getBoundingClientRect().height < 1400), 'Inspector must fit content, not inherit the shell sidebar height'); }
+      if (width === 1640 && ['gaps','impact'].includes(key)) { const aside = work.locator('.cgw-inspector'); assert.ok(await aside.evaluate(e => e.getBoundingClientRect().height < 1400), 'Inspector must fit content, not inherit the shell sidebar height'); }
       await capture(`${key}-${lang}-${theme}-${width}`);
     }
   }

@@ -1,3 +1,4 @@
+import {recordCodePrefixes,type RecordCodeModule} from './record-codes';
 import {evaluateEvidenceEligibility} from './evidence/eligibility';
 import {contextTypes,storedContextType} from './connected-map-context';
 import { connectedTitle, connectedRelationLabels, type ConnectedGrcRow as Row, type ConnectedGrcLink as Link } from './connected-grc-model';
@@ -15,7 +16,21 @@ export const layerOf = (row:Row) => {
   return index<0?3:index;
 };
 export const isShortCode=(value:unknown):value is string=>typeof value==='string' && /^[A-Z]{2,8}-\d{3,}(?:-REM)?$/i.test(value);
-export const mapCode=(row:Row)=>[row.code,row.id].find(isShortCode)?.toUpperCase()||'—';
+const projectionPrefixes:Record<string,string>={
+  audit:'AUD',incident:'INC',finding:'FND','finding-manual':'FND',remediation:'CAP',
+  policy:'POL','policy-version':'PVR','policy-exception':'PEX',vendor:'VEN','vendor-assessment':'VSA','vendor-finding':'VSF',
+  'continuity-plan':'BCP','continuity-exercise':'BCX','continuity-gap':'BCG','risk-appetite':'RAP','risk-scenario':'RSC','kri-measurement':'KRM','kri-breach':'KRB',
+  'regulatory-source':'RGS','regulatory-change':'RGC','regulatory-impact':'RGI','automation-source':'CON','automation-rule':'CCR','automation-assurance':'CAS',
+  'automation-finding':'CCF','automation-remediation':'CAR','automation-run':'RUN','ai-model':'AIS','ai-finding':'AIF','ai-alert':'AAL',
+};
+export function mapCode(row:Row){
+  const prefix=projectionPrefixes[String(row.data.kind)]||recordCodePrefixes[row.module as RecordCodeModule];
+  const nativeId=row.id.startsWith('enterprise:')?row.id.replace(/^enterprise:[^:]+:/,''):row.id;
+  // Only identifiers belonging to this record may stand in for the joined registry column.
+  const code=[row.code,row.data.recordCode,row.data.record_code,row.data.shortCode,row.data.short_code,nativeId]
+    .find(value=>isShortCode(value)&&(!prefix||value.toUpperCase().startsWith(prefix+'-'))&&!value.endsWith('-REM'));
+  return typeof code==='string'?code.toUpperCase():'—';
+}
 export function mapTitle(row:Row,tr:boolean){
   const title=connectedTitle(row);
   return /[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}/i.test(title)||title.startsWith('enterprise:')||title===row.id&&!isShortCode(title)?(tr?'Adsız kayıt':'Untitled record'):title;

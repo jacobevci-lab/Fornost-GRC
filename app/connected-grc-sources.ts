@@ -101,7 +101,7 @@ const updatedAt = (item: JsonRecord) => text(item.updatedAt || item.updated_at |
 const idOf = (scope: string, kind: string, item: JsonRecord, index: number) => `${scope}:${kind}:${text(item.id || item.code || (kind === "vendor" && (item.vendorId || item.vendor_id)) || index)}`;
 const makeRow = (scope: string, kind: string, module: string, item: JsonRecord, index: number, data: JsonRecord): ConnectedGrcRow => ({
   id: idOf(scope, kind, item, index),
-  code: text(data.publicCode || item.code || item.externalRef || item.external_ref) || undefined,
+  code: text(data.publicCode || item.recordCode || item.record_code || item.shortCode || item.short_code || item.code || item.externalRef || item.external_ref) || undefined,
   module,
   updatedAt: updatedAt(item),
   data: {

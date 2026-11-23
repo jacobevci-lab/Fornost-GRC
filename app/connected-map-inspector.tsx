@@ -3,7 +3,8 @@ import {useRef,useState} from 'react';
 import {withBasePath} from './base-path';
 import {contextId,storedContextType} from './connected-map-context';
 import {editableEdge,linkChoices} from './connected-map-links';
-import {arrowText,mapTitle,mapCode} from './connected-map-model';
+import {mapArrow,arrowLabel} from './connected-map-layout';
+import {mapTitle,mapCode} from './connected-map-model';
 import {issueLabels,recordOwner,type WorkbenchIssue} from './connected-grc-workbench-model';
 import type {ConnectedGrcLink as Link,ConnectedGrcRow as Row} from './connected-grc-model';
 import type {AccessSubject} from './module-access';
@@ -23,7 +24,7 @@ export default function MapInspector({row,links,issues,actor,tr,moduleLabel,sele
   for(const edge of links){
     const out=edge.source.id===row.id;if(!out&&edge.target.id!==row.id)continue;
     const other=out?edge.target:edge.source,group=groups.get(other.module)||[];
-    group.push({edge,other,out});groups.set(other.module,group);
+    group.push({edge,other,out:mapArrow(edge).from.id===row.id});groups.set(other.module,group);
   }
   async function unlink(edge:Link,field:string){
     if(pending.current)return;pending.current=true;setBusy(true);setMessage('');
@@ -36,11 +37,11 @@ export default function MapInspector({row,links,issues,actor,tr,moduleLabel,sele
     finally{pending.current=false;setBusy(false)}
   }
   return <aside className="cgw-inspector cm-inspector"><small>{mapCode(row)} · {moduleLabel(row.module)}</small><h3>{mapTitle(row,tr)}</h3><p>{recordOwner(row)}</p>
-    {!!linkChoices(row,actor,[row.module]).length&&<button type="button" className="primary" onClick={edit}>{tr?'Bağlantı ekle':'Add relationship'}</button>}
+    {!!linkChoices(row,actor,[row.module]).length&&<button type="button" className="primary" onClick={edit}><span aria-hidden="true">+ </span>{tr?'Bağlantı ekle':'Add relationship'}</button>}
     {refocus&&<button type="button" onClick={refocus}>{tr?'Bu kaydın haritası':'Map this record'}</button>}
     <button type="button" onClick={()=>openRecord(row)}>{tr?'Kaynak kaydı aç':'Open source record'}</button>
     {[...groups].map(([module,items])=><section key={module}><h4>{moduleLabel(module)} <span>{items.length}</span></h4>{items.map(({edge,other,out})=>{const field=editableEdge(edge,links,actor);return <div className="cm-relation" key={[edge.source.id,edge.target.id,edge.field,edge.relation].join('|')}>
-      <button onClick={()=>select(other)}><small>{out?(tr?'Giden':'Outgoing'):(tr?'Gelen':'Incoming')} · {arrowText(edge,tr)}</small><b>{mapCode(other)} · {mapTitle(other,tr)}</b></button>
+      <button onClick={()=>select(other)}><small>{out?(tr?'Giden':'Outgoing'):(tr?'Gelen':'Incoming')} · {arrowLabel(edge,tr)}</small><b>{mapCode(other)} · {mapTitle(other,tr)}</b></button>
       {field?<button type="button" disabled={busy} aria-label={(tr?'Bağlantıyı kaldır':'Remove relationship')+' · '+mapTitle(other,tr)} title={tr?'Bağlantıyı kaldır':'Remove relationship'} onClick={()=>void unlink(edge,field)}>×</button>:<button type="button" title={tr?'Kaynak kayıtta yönetilir':'Managed in the source record'} aria-label={(tr?'Kaynak bağlantıyı incele':'Inspect source relationship')+' · '+mapTitle(other,tr)} onClick={()=>openRecord(edge.source)}>↗</button>}</div>})}</section>)}
     {!groups.size&&<p>{tr?'Görünür ilişki yok.':'No visible relationships.'}</p>}
     {issues.filter(i=>i.row.id===row.id).map(i=><small className="cm-issue" key={i.id}>{issueLabels[i.kind][tr?0:1]}</small>)}
