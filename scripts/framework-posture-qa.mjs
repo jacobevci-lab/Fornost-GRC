@@ -213,6 +213,7 @@ try{
   ]){
     await go(module);
     const opener=page.getByRole('button',{name:action,exact:true}).first();
+    await expect(opener).toBeEnabled();
     await opener.focus();await opener.press('Enter');
     const dialog=page.getByRole('dialog').last();
     await expect(dialog).toBeVisible();
