@@ -1,3 +1,4 @@
+import AxeBuilder from '@axe-core/playwright';
 import {chromium,expect} from '@playwright/test';
 import assert from 'node:assert/strict';
 import {mkdir,writeFile} from 'node:fs/promises';
@@ -66,6 +67,9 @@ try{
    for(const theme of ['light','dark']){
     await page.evaluate(t=>document.documentElement.dataset.theme=t,theme);
     const box=await modal.boundingBox();assert.ok(box&&box.width<=390&&box.x>=0,'mobile modal fits');
+    await modal.evaluate(async el=>{await new Promise(requestAnimationFrame);await Promise.allSettled(el.getAnimations({subtree:true}).filter(animation=>animation.effect?.getTiming().iterations!==Infinity).map(animation=>animation.finished));});
+    const contrast=await new AxeBuilder({page}).include('.ri-modal').withRules(['color-contrast']).analyze();
+    assert.deepEqual(contrast.violations.map(v=>v.nodes.map(n=>n.target)),[],`${lang} ${trigger} ${theme} contrast`);
     await modal.screenshot({path:`${out}/modal-${lang}-${theme}-${trigger.length}.png`});
    }
    await modal.getByRole('button',{name:tr?'Vazgeç':'Cancel',exact:true}).click();
