@@ -9,7 +9,8 @@ type Option = { value: string; label: string; search?: string };
 type Props = { tr: boolean; form: Record<string, unknown>; update: (patch: Record<string,string>) => void };
 type DirectoryPerson = { name: string; email: string };
 
-export function ChoiceInput({ label, options, query, onQuery, choose, tr, required, requiredMessage, pending, message, more }: {
+export function ChoiceInput({ label, options, query, onQuery, choose, tr, required, requiredMessage, pending, message, more, selection }: {
+  selection?: {text:string;clear:()=>void};
   label: string; options: Option[]; query: string; onQuery: (text: string) => void;
   choose: (value: string) => void; tr: boolean; required?: boolean; requiredMessage?:string; pending?: boolean; message?: string; more?: boolean;
 }) {
@@ -27,8 +28,8 @@ export function ChoiceInput({ label, options, query, onQuery, choose, tr, requir
     <label htmlFor={id}>{label}</label>
     <input id={id} ref={input} role="combobox" autoComplete="off" aria-expanded={open}
       aria-autocomplete="list" aria-controls={open ? id+"-options" : undefined} aria-activedescendant={active}
-      aria-required={required || undefined} value={query} onFocus={() => setOpen(true)} onBlur={() => setOpen(false)}
-      onChange={event => { onQuery(event.target.value); setIndex(-1); setOpen(true); }}
+      aria-required={required || undefined} value={query || selection?.text || ""} onFocus={event => {setOpen(true);if(selection?.text)event.target.select();}} onBlur={() => setOpen(false)}
+      onChange={event => { if(selection?.text)selection.clear(); onQuery(event.target.value); setIndex(-1); setOpen(true); }}
       onKeyDown={event => {
         if (event.nativeEvent.isComposing) return;
         if (event.key === "Escape" && open) {

@@ -14,7 +14,7 @@ export const workNames = {
 export type PolicyWorkKind = keyof typeof workNames;
 export type PolicyWorkItem = {
   kind: PolicyWorkKind; id:string; policyId:string; code:string; title:string;
-  versionNumber:number|null; responsible:string; due:string|null; detail:string;
+  decision?:{kind:"version"|"exception";operation:string}; versionNumber:number|null; responsible:string; due:string|null; detail:string;
 };
 export type PolicyWorkPage = {
   rows:PolicyWorkItem[]; page:number; pages:number; total:number; openCampaigns:number; pendingResponses:number;

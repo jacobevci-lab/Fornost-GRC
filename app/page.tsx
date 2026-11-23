@@ -15,6 +15,10 @@ import { AuditCatalogUpload } from "./audit-catalog-upload";
 import type { AuditCatalogImport } from "./audit-catalog-import";
 import { readAllGrcPages } from "./grc-pagination";
 import { AuditPlanPanel } from "./audit-plan-panel";
+import { AuditTeamFields } from "./audit-team-fields";
+import { auditTypes } from "./audit-engagement";
+import type { AuditItemCoverage } from "./audit-evidence-assurance";
+import { AuditPortfolioMetrics } from "./audit-portfolio-metrics";
 import { AuditActions } from "./audit-actions";
 import { AuditFindingsPanel } from "./audit-findings-panel";
 import { AuditRequirementDesk, AuditRequirementBoard } from "./audit-requirement-desk";
@@ -118,7 +122,8 @@ import { assetLinkedRecords, assetCoverage, assetStatuses, type AssetTarget, typ
 import { ControlLibraryEditor } from "./control-library-editor";
 import { ControlLinksCell, ControlRegisterContext } from "./control-library-register";
 import { controlConnections, controlTypes, controlTypeKey, sameControlTester } from "./control-library-model";
-import type { ControlMappingChange } from "./framework-posture/types";
+import { usePosture } from "./framework-posture/client";
+import type { Baseline, ControlMappingChange } from "./framework-posture/types";
 import "./control-library.css";
 import { RiskAssets, RiskControls, RiskPerson } from "./risk-editor-fields";
 import { riskRecordOptions, riskAssetCaption, riskTitle, type RiskRecordOptions } from "./risk-record-options";
@@ -1672,7 +1677,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
     if (!response.ok) {
       if(result.error==="preview-changed") return "preview-changed" as const;
       setNotice(
-        result.error ||
+        ({"audit-team":lang==="tr"?"Denetim sahibi ve denetçiler farklı olmalı. E-posta adreslerini kontrol edin.":"The owner and auditors must be different people. Check the email addresses.","audit-dates":lang==="tr"?"Gözlem döneminin başlangıç ve bitişini kontrol edin.":"Check the observation period dates.","audit-owner":lang==="tr"?"Etkin bir denetim sahibi seçin.":"Select an active audit owner."} as Record<string,string>)[result.error] || result.error ||
           (lang === "tr"
             ? "Denetim oluşturulamadı."
             : "Audit could not be created."),
@@ -3857,20 +3862,23 @@ function AuditModule({
     templateOptions = auditCatalog,
     [pickerOpen, setPickerOpen] = useState(false),
     [auditDraft, setAuditDraft] = useState<{
+      periodStart:string; periodEnd:string; targetDate:string;
       template: string;
       name: string;
       auditType: string;
       auditor: string;
       auditOwner: string;
     }>({
+      periodStart:"",periodEnd:"",targetDate:"",
       template: auditCatalog[0],
       name: auditCatalog[0],
-      auditType: auditKind(auditCatalog[0]),
+      auditType: auditTypes[0][0],
       auditor: "",
       auditOwner: "",
     }),
     [savingAudit, setSavingAudit] = useState(false);
   const [posture,setPosture]=useState<AuditChoice>(false);
+  const [readingCatalog,setReadingCatalog]=useState(false);
   const [catalogImport, setCatalogImport] = useState<AuditCatalogImport|null>(null);
   const pickerRef=useRecordDialog<HTMLElement>(pickerOpen,()=>setPickerOpen(false));
   const [auditCreateError,setAuditCreateError] = useState("");
@@ -3931,12 +3939,16 @@ function AuditModule({
     );
   async function submitAudit(event: FormEvent) {
     event.preventDefault();setAuditCreateError("");
-    if(posture===null || catalogImport && !catalogImport.rightsConfirmed)return;
+    if(savingAudit || readingCatalog || posture===null || catalogImport && !catalogImport.rightsConfirmed)return;
     setSavingAudit(true);
     try { const ok=await createAudit({...auditDraft,...(catalogImport?{catalogImport}:{}),...(posture?{posture}:{})});
       if(ok==="preview-changed"){setPosture(null);setAuditCreateError(tr?"Kontrol veya kanıt değişti. Dönemi yeniden önizleyin.":"Controls or evidence changed. Preview the period again.");}
       else if(ok){setPickerOpen(false);setCatalogImport(null);}else setAuditCreateError(tr?"Denetim oluşturulamadı. Adı ve katalog alanlarını kontrol edin.":"Audit could not be created. Check the name and catalog fields.");
     }catch{setAuditCreateError(tr?"Bağlantı kesildi. Tekrar denemeden önce portföyü yenileyerek kaydı kontrol edin.":"Connection lost. Refresh the portfolio and check for the audit before retrying.");}finally{setSavingAudit(false);}
+  }
+  function openAuditPicker(){
+    setAuditDraft({template:auditCatalog[0],name:auditCatalog[0],auditType:auditTypes[0][0],auditOwner:'',auditor:'',periodStart:'',periodEnd:'',targetDate:''});
+    setAuditCreateError('');setReadingCatalog(false);setCatalogImport(null);setPosture(false);setPickerOpen(true);
   }
   function chooseTemplate(template: string) {
     setPosture(false);
@@ -3945,7 +3957,7 @@ function AuditModule({
       ...current,
       template,
       name: custom ? "" : template,
-      auditType: custom ? "Diğer Denetim" : auditKind(template),
+
     }));
   }
   if (taskFocus && (!taskAudit || taskAudit.name !== selected)) {
@@ -3968,6 +3980,15 @@ function AuditModule({
       allItems={visible} items={visible} lang={lang} query={query} setQuery={setQuery}
       edit={edit} remove={remove} openNew={openNew} canWrite={canWrite} canDelete={canDeleteAudit} />;
   }
+  const renderPortfolio=(coverage:AuditItemCoverage[]|null)=><>
+          <AuditPortfolioMetrics audits={audits} lang={lang} coverage={coverage}/>
+          <AuditPortfolioWorkspace onCreate={canWrite?openAuditPicker:undefined} audits={audits} rows={portfolioRows} evidence={evidenceRows} activeId={previewAuditId}
+            onSelect={setPreviewAuditId} onOpen={select} onDelete={canDeleteAudit?deleteAudit:undefined}
+            renderActions={audit=><AuditActions key={audit.id} audit={audit} lang={lang} canWrite={canWrite} canDelete={canDeleteAudit} onDelete={deleteAudit} onChanged={async()=>{await refreshAudits();}}/>}
+            showReadiness={showReadiness} lang={lang} translate={value=>display(value,lang)}/>
+          <AuditUnassignedRequirements rows={unassignedAuditRequirements(rows, audits)} lang={lang}
+            open={showUnassigned} setOpen={setShowUnassigned} canWrite={canWrite} canDelete={canDeleteAudit} edit={edit} remove={remove}/>
+  </>;
   if (!selected)
     return (
       <>
@@ -3983,22 +4004,14 @@ function AuditModule({
           </div>
           <div className="actions">
             {canWrite && (
-              <button className="primary workspace-create" onClick={() => {setPosture(false);setPickerOpen(true);}}>
+              <button className="primary workspace-create" onClick={openAuditPicker}>
                 {tr ? "+ Yeni Denetim" : "+ New Audit"}
               </button>
             )}
           </div>
         </section>
-        {portfolioState==="ready"?<>
-          <AuditPortfolioWorkspace audits={audits} rows={portfolioRows} evidence={evidenceRows} activeId={previewAuditId}
-            onSelect={setPreviewAuditId} onOpen={select} onDelete={canDeleteAudit?deleteAudit:undefined}
-            renderActions={audit=><AuditActions key={audit.id} audit={audit} lang={lang} canWrite={canWrite} canDelete={canDeleteAudit} onDelete={deleteAudit} onChanged={async()=>{await refreshAudits();}}/>}
-            showReadiness={showReadiness} lang={lang} translate={value=>display(value,lang)}/>
-          <AuditUnassignedRequirements rows={unassignedAuditRequirements(rows, audits)} lang={lang}
-            open={showUnassigned} setOpen={setShowUnassigned} canWrite={canWrite} canDelete={canDeleteAudit} edit={edit} remove={remove}/>
-          {showReadiness&&<AuditReadinessGate mode="global" lang={lang} records={[...rows,...evidenceRows]}
-            overview={portfolioRows.length>0?<AuditOverview rows={portfolioRows} lang={lang}/>:null}/>}
-        </>:portfolioState==="error"?<div className="workspace-empty" role="alert"><b>{tr?"Denetim portföyü yüklenemedi.":"The audit portfolio could not be loaded."}</b>
+        {portfolioState==="ready"?showReadiness?<AuditReadinessGate mode="global" lang={lang} records={[...rows,...evidenceRows]} portfolio={renderPortfolio}
+          overview={portfolioRows.length>0?<AuditOverview rows={portfolioRows} lang={lang}/>:null}/>:renderPortfolio(null):portfolioState==="error"?<div className="workspace-empty" role="alert"><b>{tr?"Denetim portföyü yüklenemedi.":"The audit portfolio could not be loaded."}</b>
           <button onClick={retryPortfolio}>{tr?"Yeniden dene":"Retry"}</button></div>:<p role="status">{tr?"Denetim portföyü yükleniyor…":"Loading audit portfolio…"}</p>}
         {pickerOpen && (
           <div
@@ -4043,8 +4056,8 @@ function AuditModule({
                   </select>
                 </label>
                 {!catalogImport && <FrameworkCatalogNotice framework={auditDraft.template} lang={lang} />}
-                <AuditCatalogUpload lang={lang} value={catalogImport} onChange={v=>{setCatalogImport(v);setPosture(false);}} />
-                {allowPosture && !catalogImport && automaticAuditTemplates.some(t=>t===auditDraft.template) && <AuditPostureChoice key={auditDraft.template} template={auditDraft.template} tr={tr} choice={posture} onChange={setPosture}/>}
+                <AuditCatalogUpload onBusy={setReadingCatalog} lang={lang} value={catalogImport} onChange={v=>{setCatalogImport(v);setPosture(false);}} />
+
                 <label className="wide">
                   {tr ? "Denetim adı" : "Audit name"}
                   <input
@@ -4057,40 +4070,11 @@ function AuditModule({
                     }
                   />
                 </label>
-                <label>
-                  {tr ? "Denetim türü" : "Audit type"}
-                  <input
-                    required
-                    value={auditDraft.auditType}
-                    onChange={(e) =>
-                      setAuditDraft({
-                        ...auditDraft,
-                        auditType: e.target.value,
-                      })
-                    }
-                  />
-                </label>
-                <label>
-                  {tr ? "Denetim sahibi" : "Audit owner"}
-                  <input
-                    value={auditDraft.auditOwner}
-                    onChange={(e) =>
-                      setAuditDraft({
-                        ...auditDraft,
-                        auditOwner: e.target.value,
-                      })
-                    }
-                  />
-                </label>
-                <label className="wide">
-                  {tr ? "Denetçi / ekip" : "Auditor / team"}
-                  <input
-                    value={auditDraft.auditor}
-                    onChange={(e) =>
-                      setAuditDraft({ ...auditDraft, auditor: e.target.value })
-                    }
-                  />
-                </label>
+                <label>{tr?"Denetim türü":"Audit type"}<select aria-label={tr?"Denetim türü":"Audit type"} value={auditDraft.auditType} onChange={e=>setAuditDraft({...auditDraft,auditType:e.target.value})}>{auditTypes.map(([value,en])=><option value={value} key={value}>{tr?value:en}</option>)}</select></label>
+                <div className="wide audit-period-fields">{([['periodStart','Gözlem Dönemi Başlangıcı','Observation period start'],['periodEnd','Gözlem Dönemi Bitişi','Observation period end'],['targetDate','Hedef Denetim Tarihi','Target audit date']] as const).map(([key,t,en])=><label key={key}>{tr?t:en}<input type="date" name={key} lang={tr?'tr':'en-GB'} aria-label={tr?t:en} value={auditDraft[key]} required={key==='periodStart'?!!auditDraft.periodEnd:key==='periodEnd'?!!auditDraft.periodStart:false} min={key==='periodEnd'?auditDraft.periodStart:undefined} max={key==='periodStart'?auditDraft.periodEnd:undefined}
+                    onChange={e=>{setAuditDraft({...auditDraft,[key]:e.target.value});if(key!=='targetDate'&&posture!==false)setPosture(null);}}/><small>{auditDraft[key]?auditDraft[key].split('-').reverse().join('.'):'dd.mm.yyyy'}</small></label>)}</div>
+                {allowPosture && !catalogImport && automaticAuditTemplates.some(t=>t===auditDraft.template) && <AuditPostureChoice key={auditDraft.template} template={auditDraft.template} tr={tr} range={auditDraft.periodStart&&auditDraft.periodEnd?auditDraft.periodStart+".."+auditDraft.periodEnd:""} choice={posture} onChange={setPosture}/>}
+                <AuditTeamFields tr={tr} owner={auditDraft.auditOwner} team={auditDraft.auditor} onOwner={auditOwner=>setAuditDraft(v=>({...v,auditOwner}))} onTeam={auditor=>setAuditDraft(v=>({...v,auditor}))}/>
                 <p className="audit-picker-note">
                   {tr
                     ? "Seçilen standart portföye kart olarak eklenir ve katalog kapsamındaki özetler çalışma tablosuna yüklenir."
@@ -4104,7 +4088,7 @@ function AuditModule({
                   >
                     {tr ? "Vazgeç" : "Cancel"}
                   </button>
-                  <button className="primary" disabled={savingAudit || posture===null || !!(catalogImport && !catalogImport.rightsConfirmed)}>
+                  <button className="primary" disabled={savingAudit || readingCatalog || posture===null || !!(catalogImport && !catalogImport.rightsConfirmed)}>
                     {savingAudit
                       ? tr
                         ? "Ekleniyor…"
@@ -4138,7 +4122,7 @@ function AuditModule({
           <small>{tr ? "DENETİM ÇALIŞMA ALANI" : "AUDIT WORKSPACE"}</small>
           <h2>{selected}</h2>
           <p>
-            {selectedPortfolio?.auditor || items[0]?.data.auditor || selectedPortfolio?.audit_type || auditKind(selected)} ·{" "}
+            {selectedPortfolio?.auditor || items[0]?.data.auditor || auditTypes.find(([v])=>v===selectedPortfolio?.audit_type)?.[tr?0:1] || selectedPortfolio?.audit_type || auditKind(selected)} ·{" "}
             {selectedPortfolio?.audit_owner || items[0]?.data.auditOwner ||
               (tr ? "Sorumlu henüz atanmadı" : "Owner not assigned")}
           </p>
@@ -4163,6 +4147,7 @@ function AuditModule({
       </section>
       {selectedPortfolio&&<AuditActions key={`audit-actions:${selectedPortfolio.id}`} audit={selectedPortfolio} lang={lang} canWrite={canWrite} canDelete={canDeleteAudit} onDelete={deleteAudit} onChanged={async name=>{await refreshAudits();select(name);}}/>}
       {selectedPortfolio?.closure_state && selectedPortfolio.closure_state !== "open" && <p role="status">{auditClosureLabels[selectedPortfolio.closure_state][tr ? 0 : 1]}{auditLocked ? (tr ? " · Değişiklik için denetim gerekçeyle yeniden açılmalı." : " · Reopen the audit with a reason before making changes.") : ""}</p>}
+      {auditLocked&&canDeleteAudit&&selectedPortfolio?.closure_event&&<button type="button" className="ghost" onClick={()=>navigateToFornost({module:"Denetim Yönetimi",kind:"audit-closure",ref:selectedPortfolio.closure_event,filter:{auditId:selectedPortfolio.id},source:"audit-workspace"})}>{tr?"Salt-okunur kapanış paketini aç":"Open read-only closure package"} →</button>}
       {!selectedPortfolio && <section className="fw-orphan-notice" role="status"><div><strong>{tr ? "Aktif denetim bağlantısı eksik" : "Active audit link missing"}</strong><p>{tr ? "Bu maddeler için aktif bir denetim kaydı bulunamadı. Kayıtları inceleyip düzenleyebilir veya bağlantısız maddeler görünümünden mevcut bir denetime bağlayabilirsiniz." : "These requirements have no active audit record. Review or edit them, or link them to an existing audit from the unassigned requirements view."}</p></div><button type="button" onClick={() => { setShowUnassigned(true); select(""); }}>{tr ? "Bağlantısız maddeleri aç" : "Open unassigned requirements"}</button></section>}
       {allowPosture && selectedPortfolio?.catalog?.hasPosture && <AuditBaseline records={new Map(items.map(row=>[String(row.data.requirementRef),row.id]))} key={selectedPortfolio.id} auditId={selectedPortfolio.id} tr={tr}/>}
       <AuditResearchWorkspace key={selectedPortfolio?.id || `unlinked:${selected}`} auditId={selectedPortfolio?.id || ""} lang={lang}
@@ -4180,7 +4165,7 @@ function AuditModule({
         closure={canDeleteAudit && selectedPortfolio ? <AuditClosurePanel key={`closure:${selectedPortfolio.id}:${closureId}`} focusId={closureId} auditId={selectedPortfolio.id} lang={lang} onChanged={refreshAudits} /> : undefined}
         reports={canDeleteAudit && selectedPortfolio ? <AuditStatusReportPanel auditId={selectedPortfolio.id} lang={lang} embedded /> : undefined}
         requirements={queue=><AuditRequirementsTable
-        queue={queue}
+        queue={queue} hasBaseline={allowPosture && !!selectedPortfolio?.catalog?.hasPosture}
         auditId={selectedPortfolio?.id||""}
         evidenceRows={evidenceRows}
         focusId={focusedRequirement}
@@ -4207,7 +4192,7 @@ function AuditModule({
 }
 
 function AuditRequirementsTable({
-  queue="all",auditId="",evidenceRows=[],focusId="",
+  queue="all",hasBaseline=false,auditId="",evidenceRows=[],focusId="",
   sort,
   setSort,
   userId,
@@ -4226,7 +4211,7 @@ function AuditRequirementsTable({
   sort?: ViewSort;
   setSort: (sort: ViewSort | undefined) => void;
   userId: string;
-  queue?:AuditQueue; auditId?:string; evidenceRows?:Row[]; focusId?:string;
+  queue?:AuditQueue; hasBaseline?:boolean; auditId?:string; evidenceRows?:Row[]; focusId?:string;
   focused: boolean;
   items: Row[];
   allItems: Row[];
@@ -4254,6 +4239,11 @@ function AuditRequirementsTable({
   const [layout,setLayout]=useState<'list'|'board'>('list');
   const [openId,setOpenId]=useState(focusId);
   useEffect(()=>{if(focusId)setOpenId(focusId);},[focusId]);
+  const {data:inherited,error:baselineError}=usePosture<{baseline:Baseline|null}>(hasBaseline?{auditId}:null);
+  const baseline=inherited?.baseline;
+  const byRef=useMemo(()=>new Map(baseline?.entries.map(entry=>[entry.ref,entry])),[baseline]);
+  const linksFor=(row:Row)=>byRef.get(String(row.data.requirementRef))?.controls||[];
+  const evidenceFor=(row:Row)=>[...new Set(linksFor(row).flatMap(c=>c.evidence))].flatMap(id=>baseline?.evidence[id]?[baseline.evidence[id]]:[]);
   const registerRef = useRef<HTMLElement>(null);
   const returnFocusId = useRef("");
   const saveColumns = (keys: string[]) => {
@@ -4313,7 +4303,7 @@ function AuditRequirementsTable({
           {filtered.length > 0 ? (
             layout === "board"
               ? <AuditRequirementBoard items={page.rows} selectedId={openId} lang={lang} onOpen={row => setOpenId(row.id)} />
-              : <SmartRegister module="Denetim Yönetimi" rows={page.rows} inspectedId={openId} inspect={row => setOpenId(row.id)}
+               : <SmartRegister auditLinks={hasBaseline?r=><small className="audit-inherited-codes">{[...linksFor(r).map(c=>/^CTL-\d+$/i.test(c.code)?c.code:c.title),...evidenceFor(r).map(p=>p.code||p.title)].join(' · ')||'—'}</small>:undefined} module="Denetim Yönetimi" rows={page.rows} inspectedId={openId} inspect={row => setOpenId(row.id)}
                   lang={lang} edit={edit} remove={remove} canWrite={canWrite} canDelete={canDelete} columns={columns} />
           ) : allItems.length > 0 ? (
             <div className="audit-empty" role="status">
@@ -4328,6 +4318,7 @@ function AuditRequirementsTable({
           )}
         </div>
         {openItem && <AuditRequirementDesk
+          inheritedControls={linksFor(openItem)} inheritedEvidence={evidenceFor(openItem)} baselineUnavailable={hasBaseline&&(!baseline||!!baselineError)}
           row={openItem} position={openIndex + 1} total={filtered.length}
           auditId={auditId} evidence={evidenceRows} lang={lang} canWrite={canWrite}
           onEdit={() => edit(openItem)} onClose={closeRequirement}
@@ -5648,6 +5639,7 @@ type AssetLinkActions = {
   canReadAssetLinks?: (module:AssetTarget)=>boolean;
 };
 function SmartRegister({
+  auditLinks,
   evidenceAssessment, assetLinks,openAssetLinks,canReadAssetLinks,
   module,
   rows,
@@ -5661,6 +5653,7 @@ function SmartRegister({
   canWrite = true,
   canDelete = false,
 }: AssetLinkActions & {
+  auditLinks?:(row:Row)=>React.ReactNode;
   evidenceAssessment?: EvidenceRegisterAssessment;
   module: string;
   rows: Row[];
@@ -5734,7 +5727,7 @@ function SmartRegister({
                     : undefined
                 }
               >
-                {module==="Denetim Yönetimi"&&c.key===auditOpenColumn&&inspect?<div><SmartCell module={module} column={c.key} row={r} lang={lang}/><button type="button" className="audit-requirement-open" data-requirement-id={r.id} aria-current={r.id===inspectedId ? "true" : undefined} onClick={e=>inspect(r,e.currentTarget)}><span>{lang==="tr"?"Maddeyi aç":"Open requirement"} →</span></button></div>:<SmartCell
+                {module==="Denetim Yönetimi"&&c.key===auditOpenColumn&&inspect?<div><SmartCell module={module} column={c.key} row={r} lang={lang}/>{auditLinks?.(r)}<button type="button" className="audit-requirement-open" data-requirement-id={r.id} aria-current={r.id===inspectedId ? "true" : undefined} onClick={e=>inspect(r,e.currentTarget)}><span>{lang==="tr"?"Maddeyi aç":"Open requirement"} →</span></button></div>:<SmartCell
                   module={module}
                   column={c.key}
                   row={r}

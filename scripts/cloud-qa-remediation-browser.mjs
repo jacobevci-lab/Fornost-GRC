@@ -49,7 +49,7 @@ try{
 
  phase='policy cancellation';await open(page,'Policy Center');
  await page.locator('[data-policy-tab=policies]').click();
- const row=page.getByRole('row').filter({hasText:'POL-FIX-'+tag});await row.getByRole('button',{name:'Open',exact:true}).click();
+ const row=page.getByRole('row').filter({hasText:'DOCX browser regression '+tag});await expect(row).toContainText(/POL-\d{3,}/);await row.getByRole('button',{name:'Open',exact:true}).click();
  await page.getByRole('button',{name:'Cancel record',exact:true}).click();dialog=page.getByRole('dialog',{name:'Record cancellation'});
  await page.keyboard.press('Escape');await expect(dialog).toBeHidden();await page.getByRole('button',{name:'Cancel record',exact:true}).click();await expect(dialog).toBeVisible();await dialog.getByLabel('Reason',{exact:true}).selectOption('test');await dialog.locator('textarea').fill('Synthetic browser QA policy; cancel while preserving the imported source file.');await dialog.locator('[name=confirmation]').fill('İPTAL ET');
  for(const width of [390,1440]){await page.setViewportSize({width,height:1000});assert.ok(await dialog.evaluate(e=>e.scrollWidth<=e.clientWidth+2),'Cancellation dialog overflow');await dialog.screenshot({path:`${out}/cancel-${width}.png`})}

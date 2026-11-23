@@ -2,7 +2,7 @@ import { requirementLink } from './audit-requirement-link';
 import { AuditRequestError, requestDate, requestDueAt, validateRequestTimeZone, type AuditRequestEvidence } from './audit-requests';
 import type { SavedRandomSelection } from './workpaper-random-sampling';
 export const workpaperStatusLabels = { draft: ['Taslak', 'Draft'], submitted: ['İncelemede', 'In review'], approved: ['Onaylandı', 'Approved'], cancelled: ['İptal edildi', 'Cancelled'] } as const;
-export type WorkpaperSample = { reference: string; result: 'pending' | 'pass' | 'exception'; note: string; versionId: string };
+export type WorkpaperSample = { reference: string; result: 'pending' | 'pass' | 'exception' | 'inadequate'; note: string; versionId: string };
 export type WorkpaperFields = { requirementId?: string; title: string; objective: string; procedure: string; population: string; populationCount: number; method: 'judgmental' | 'census' | 'random'; rationale: string; conclusion: string; owner: string; reviewer: string; samples: WorkpaperSample[]; dueDate?: string; reviewDueDate?: string; timeZone?: string; remindersEnabled?: boolean };
 export type AuditWorkpaper = WorkpaperFields & { id: string; auditId: string; revision: string; status: keyof typeof workpaperStatusLabels; evidence: AuditRequestEvidence[]; note: string; createdAt: string; updatedAt: string; selection?: SavedRandomSelection };
 export const emptyWorkpaper: WorkpaperFields = { title: '', objective: '', procedure: '', population: '', populationCount: 1, method: 'judgmental', rationale: '', conclusion: '', owner: '', reviewer: '', samples: [], dueDate: '', reviewDueDate: '', timeZone: 'UTC', remindersEnabled: false };
@@ -17,7 +17,7 @@ export function validateWorkpaper(value: unknown): WorkpaperFields {
   if (!Array.isArray(v.samples) || v.samples.length > 100 || v.samples.length > Number(v.populationCount)) throw new AuditRequestError('samples');
   const seen = new Set<string>();
   const samples = v.samples.map(s => {
-    if (!s || typeof s !== 'object' || typeof s.reference !== 'string' || !s.reference.trim() || s.reference.length > 200 || seen.has(s.reference.trim().toLowerCase()) || !['pending', 'pass', 'exception'].includes(s.result) || typeof s.note !== 'string' || s.note.length > 2000 || typeof s.versionId !== 'string' || (s.versionId && !/^[a-zA-Z0-9_-]{1,100}$/.test(s.versionId))) throw new AuditRequestError('samples');
+    if (!s || typeof s !== 'object' || typeof s.reference !== 'string' || !s.reference.trim() || s.reference.length > 200 || seen.has(s.reference.trim().toLowerCase()) || !['pending', 'pass', 'exception', 'inadequate'].includes(s.result) || typeof s.note !== 'string' || s.note.length > 2000 || typeof s.versionId !== 'string' || (s.versionId && !/^[a-zA-Z0-9_-]{1,100}$/.test(s.versionId))) throw new AuditRequestError('samples');
     seen.add(s.reference.trim().toLowerCase()); return { reference: s.reference.trim(), result: s.result as WorkpaperSample['result'], note: s.note.trim(), versionId: s.versionId };
   });
   const schedule = validateWorkpaperSchedule(v);

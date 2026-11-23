@@ -1,11 +1,11 @@
-export const auditPlanFields=['objective','scope','exclusions','lead','team','methodology','deliverables','milestones','periodStart','periodEnd','fieldworkStart','fieldworkEnd'] as const;
+export const auditPlanFields=['objective','scope','exclusions','lead','team','methodology','deliverables','milestones','periodStart','periodEnd','fieldworkStart','fieldworkEnd','targetDate'] as const;
 export type AuditPlan=Record<typeof auditPlanFields[number],string>;
 export const emptyAuditPlan=Object.fromEntries(auditPlanFields.map(key=>[key,''])) as AuditPlan;
 export function validateAuditPlan(input:unknown):AuditPlan{
  if(!input||typeof input!=='object'||Array.isArray(input))throw new Error('Invalid plan');
  const data=input as Record<string,unknown>,plan={...emptyAuditPlan};
- for(const key of auditPlanFields){const value=data[key];if(typeof value!=='string'||value.length>4000)throw new Error('Invalid plan field');plan[key]=value.trim();}
- for(const key of ['periodStart','periodEnd','fieldworkStart','fieldworkEnd'] as const){const date=plan[key];if(date&&(!/^\d{4}-\d{2}-\d{2}$/.test(date)||!Number.isFinite(Date.parse(date))||new Date(date).toISOString().slice(0,10)!==date))throw new Error('Invalid date');}
+ for(const key of auditPlanFields){const value=key==='targetDate' && data[key]===undefined?'':data[key];if(typeof value!=='string'||value.length>4000)throw new Error('Invalid plan field');plan[key]=value.trim();}
+ for(const key of ['periodStart','periodEnd','fieldworkStart','fieldworkEnd','targetDate'] as const){const date=plan[key];if(date&&(!/^\d{4}-\d{2}-\d{2}$/.test(date)||!Number.isFinite(Date.parse(date))||new Date(date).toISOString().slice(0,10)!==date))throw new Error('Invalid date');}
  for(const[start,end]of [['periodStart','periodEnd'],['fieldworkStart','fieldworkEnd']]as const)if(Boolean(plan[start])!==Boolean(plan[end])||(plan[start]&&plan[start]>plan[end]))throw new Error('Invalid date range');
  return plan;
 }
@@ -15,4 +15,4 @@ export async function saveAuditPlan(db:D1Database,id:string,expectedRevision:str
  return result.results?.length?{plan,revision,updatedAt,updatedBy:actor}:null;
 }
 
-export const auditPlanLabels:Record<keyof AuditPlan,[string,string]>={objective:['Denetimin amacı','Audit objective'],scope:['Kapsam içi süreç, varlık ve birimler','In-scope processes, assets and units'],exclusions:['Kapsam dışı ve gerekçesi','Exclusions and rationale'],lead:['Baş denetçi','Lead auditor'],team:['Denetim ekibi ve rolleri','Audit team and roles'],methodology:['Yöntem ve örnekleme yaklaşımı','Methodology and sampling approach'],deliverables:['Rapor ve teslimatlar','Reports and deliverables'],milestones:['Kilometre taşları / sorumlu / hedef tarih','Milestones / owner / target date'],periodStart:['İncelenen dönem başlangıcı','Review period start'],periodEnd:['İncelenen dönem sonu','Review period end'],fieldworkStart:['Saha çalışması başlangıcı','Fieldwork start'],fieldworkEnd:['Saha çalışması sonu','Fieldwork end']};
+export const auditPlanLabels:Record<keyof AuditPlan,[string,string]>={targetDate:['Hedef denetim tarihi','Target audit date'],objective:['Denetimin amacı','Audit objective'],scope:['Kapsam içi süreç, varlık ve birimler','In-scope processes, assets and units'],exclusions:['Kapsam dışı ve gerekçesi','Exclusions and rationale'],lead:['Baş denetçi','Lead auditor'],team:['Denetim ekibi ve rolleri','Audit team and roles'],methodology:['Yöntem ve örnekleme yaklaşımı','Methodology and sampling approach'],deliverables:['Rapor ve teslimatlar','Reports and deliverables'],milestones:['Kilometre taşları / sorumlu / hedef tarih','Milestones / owner / target date'],periodStart:['İncelenen dönem başlangıcı','Review period start'],periodEnd:['İncelenen dönem sonu','Review period end'],fieldworkStart:['Saha çalışması başlangıcı','Fieldwork start'],fieldworkEnd:['Saha çalışması sonu','Fieldwork end']};

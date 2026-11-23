@@ -106,6 +106,10 @@ HTML/SVG, makrolu Office, eski DOC/XLS ve genel ZIP desteklenmez. Yapısal Offic
 
 ## 5. Denetimi baştan sona yürütme
 
+**İlk Denetimi Başlat** ile şablonu, denetim türünü ve gözlem dönemini seçin. Kurum dışı denetçileri e-postayla ekleyebilirsiniz. Denetim sahibi ekipte yer alamaz. Devralma önizlemesi aynı kontrolü veya kanıtı birden fazla maddede kullanılsa da bir kez sayar. Dönem tarihleri girildiğinde takvim dönemi tamamen aralıkta kalan onaylı sürümler gösterilir. Serbest dönem etiketlerinde toplama tarihi kullanılır. Tarih aralığı yerine kayıtlı dönem etiketiyle de çalışabilirsiniz.
+
+Maddeyi açıp **Kanıt Talep Et (PBC)** ile sorumlu, bağımsız inceleyen ve terminleri doğrulayın. Taslağı seçip **Benim İşlerim kuyruğuna gönder** ile atamayı tamamlayın. **Çalışma Kâğıdı / Test Sonucu** alanında örnekleri, sonuçları ve kanıt sürümlerini kaydedin. Onaylanan yetersiz örnekten **+ Bulgu Oluştur** ile kaynak izi korunarak CAPA açılır. Bağımsız kapanış onayıyla denetim arşiv görünümüne geçer. Kapanış paketinde kontrol ve kanıtların karar sırasındaki durumu saklanır.
+
 Denetimde dört ana alan vardır: **Çalışma alanı**, **Kanıt talepleri**, **Bulgular**, **Rapor ve kapanış**. Çalışma alanındaki iş sayaçları madde kayıtlarını filtreler. Liste/Pano seçimi aynı filtre ve sayfalama kapsamını kullanır; kartlar sürüklenerek onaylanmaz.
 
 **Kanıt bekleyen** listesinden veya panodan bir madde açın. **Önceki madde** ve **Sonraki madde** etkin arama, filtre ve sıralamayı sayfalar boyunca izler. Masaüstünde liste ile madde yan yana görünür. Dar ekranda madde tek başına açılır. **Maddeyi kapat** veya **Esc**, odağı son incelediğiniz satıra ya da karta getirir.
@@ -459,3 +463,5 @@ Bir sistemi seçip **Sistem dosyasını aç** ile tam kaydına geçin. **AI Enva
 BIA formunda RTO, RPO ve MTPD saat olarak girilir. RTO, MTPD ile eşit olabilir. RPO sıfır olabilir. Etki özetindeki ortalama yalnız girilen boyutlardan hesaplanır ve kaç boyutun değerlendirildiği gösterilir. Sahibi ve BIA onaylayan için farklı dizin kullanıcıları seçilir. Teknoloji ve tedarikçi bağımlılıkları kayıt koduyla aranabilir. Önceki serbest metin bağımlılıkları mevcut kayıtta not olarak görünür.
 
 Süreklilik Planı sütunundaki BCP rozeti ilgili planı açar. **+ Plan Oluştur** ilgili BIA ve kurtarma hedefleriyle yeni plan formunu açar. Plan, form kaydedildiğinde oluşturulur. İlk testini bekleyen süreçler ve kapsamı doğrulanmamış hazırlık durumları tabloda ayrı gösterilir.
+
+Portföydeki **Genel Kanıt Hazırlığı**, aktif denetimlerde kapsam içindeki maddelerin kaçında güncel kanıt bulunduğunu gösterir. Aynı standart maddesi farklı denetim dönemlerinde ayrı sayılır. Devralınan kanıt, ilgili dönemde sabitlenen sürüm ve dosya özeti güncel, doğrulanmış kayıtla eşleştiğinde sayılır. Kapsam veya veri doğrulanamadığında yüzde yerine “—” görünür.

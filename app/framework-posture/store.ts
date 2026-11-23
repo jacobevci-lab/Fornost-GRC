@@ -1,3 +1,4 @@
+import { approvedAuditEvidence, inAuditPeriod } from '../audit-engagement';
 import { completedInitialization } from '../completed-initialization';
 import { evaluateEvidenceEligibility } from '../evidence/eligibility';
 import { ensureEvidenceHistorySchema, verifyEvidenceVersionChainWithAnchor, splitEvidenceControlRefs, normalizeEvidenceControlRef, type EvidenceVersionRow } from '../evidence/versioning';
@@ -38,7 +39,7 @@ function project(inputs:Awaited<ReturnType<typeof readSources>>,name:string){
   const add = (ref:string,id:string) => {const set=legacyLinks.get(key(ref))??new Set<string>();set.add(id);legacyLinks.set(key(ref),set);};
   for (const r of inputs.controls) {
     const data=JSON.parse(r.data_json), code=r.code||str(data.controlRef)||r.id;
-    controls.push({id:r.id,code,title:str(data.controlTitle)||str(data.title)||code,implementation:str(data.implementation)||str(data.status)});
+    controls.push({id:r.id,code,owner:str(data.ownerEmail)||str(data.owner),title:str(data.controlTitle)||str(data.title)||code,implementation:str(data.implementation)||str(data.status)});
     for (const value of [r.id,r.code,str(data.controlRef)]) if(value){const alias=key(value),ids=aliases.get(alias)??new Set<string>();ids.add(r.id);aliases.set(alias,ids);}
     const standards=[...new Set(splitEvidenceControlRefs(data.frameworks||data.framework).map(programName))];
     if(standards.length===1 && standards[0]===name && str(data.standardRef)) add(data.standardRef,r.id);
@@ -112,14 +113,14 @@ async function readPins(db:D1Database,aliases:Map<string,Set<string>>,mapped:Set
   if(mapped.size){
     await ensureEvidenceHistorySchema(db);
     const eligibleRefs=[...aliases].filter(([,ids])=>ids.size===1 && mapped.has([...ids][0])).map(([alias])=>alias);
-    const versions=await db.prepare(`SELECT v.*,r.data_json FROM evidence_versions v JOIN simple_grc_records r ON r.id=v.evidence_id AND r.module='Kanıtlar'
+    const versions=await db.prepare(`SELECT v.*,r.data_json,(SELECT code FROM simple_grc_record_codes WHERE record_id=r.id) AS code FROM evidence_versions v JOIN simple_grc_records r ON r.id=v.evidence_id AND r.module='Kanıtlar'
       WHERE v.evidence_id IN (SELECT ec.evidence_id FROM evidence_version_controls ec WHERE ec.normalized_ref IN (SELECT value FROM json_each(?)))
-      ORDER BY v.evidence_id,v.version_no`).bind(JSON.stringify(eligibleRefs)).all<EvidenceVersionRow & {data_json:string}>();
+      ORDER BY v.evidence_id,v.version_no`).bind(JSON.stringify(eligibleRefs)).all<EvidenceVersionRow & {data_json:string;code:string|null}>();
     const groups=new Map<string,typeof versions.results>();
     for(const v of versions.results){const group=groups.get(v.evidence_id)??[];group.push(v);groups.set(v.evidence_id,group);}
     for(const group of groups.values()){
       const v=group[group.length-1], data=JSON.parse(v.data_json);
-      if(!evaluateEvidenceEligibility(data).current || !['onaylandı','approved','accepted','kabul edildi'].includes(key(data.status)) ||
+      if(!evaluateEvidenceEligibility(data).current || !approvedAuditEvidence(data.status) ||
         v.content_sha256!==data.contentSha256 || v.period!==str(data.period) || !v.period)continue;
       if((await verifyEvidenceVersionChainWithAnchor(group,{versionNo:data.versionNo,chainSha256:data.versionChainSha256})).state!=='verified')continue;
       const currentRefs=new Set(splitEvidenceControlRefs(data.controlRefs||data.controlRef).map(key));
@@ -128,7 +129,7 @@ async function readPins(db:D1Database,aliases:Map<string,Set<string>>,mapped:Set
         const idsForRef=aliases.get(key(ref));
         if(currentRefs.has(key(ref)) && idsForRef?.size===1)ids.add([...idsForRef][0]);
       }
-      for(const id of ids)if(mapped.has(id))(pins[id]??=[]).push({id:v.id,evidenceId:v.evidence_id,fileKey:v.file_key,title:v.evidence_title,version:v.version_no,hash:v.content_sha256,period:v.period});
+      for(const id of ids)if(mapped.has(id))(pins[id]??=[]).push({id:v.id,evidenceId:v.evidence_id,fileKey:v.file_key,code:v.code||'',collectedAt:str(data.collectedAt),title:v.evidence_title,version:v.version_no,hash:v.content_sha256,period:v.period});
     }
   }
   return pins;
@@ -160,9 +161,9 @@ export function makeBaseline(matrix:Matrix, period:string):Baseline {
   const controls=new Map(matrix.controls.map(c=>[c.id,c])), evidence:Record<string,Pin>=Object.create(null);
   const entries=matrix.requirements.map(r=>({
     ref:r.ref,title:r.title,applicability:r.applicability,reason:r.reason,
-    controls:r.links.flatMap(link=>{
+    controls:(r.applicability==='excluded'?[]:r.links).flatMap(link=>{
       const c=controls.get(link.id);if(!c)return [];
-      const pins=(matrix.pins[c.id]??[]).filter(p=>p.period===period && r.applicability!=='excluded');
+      const pins=(matrix.pins[c.id]??[]).filter(p=>inAuditPeriod(p.period,p.collectedAt||'',period) && r.applicability!=='excluded');
       for(const p of pins)evidence[p.id]=p;
       return [{...c,coverage:link.coverage,evidence:pins.map(p=>p.id)}];
     })

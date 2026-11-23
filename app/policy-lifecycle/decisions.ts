@@ -1,6 +1,6 @@
 export type PolicyDecisionKind = 'version' | 'exception' | 'retire';
 export type PolicyDecisionContext = {
-  kind: PolicyDecisionKind; revision: string;
+  kind: PolicyDecisionKind; revision: string; displayCode?:string; connections?:Record<string,string|null>|null;
   record: Record<string, string | number | null>;
   policy: Record<string, string | number | null>;
   version: Record<string, string | number | null>;

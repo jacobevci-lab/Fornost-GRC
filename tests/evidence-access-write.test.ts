@@ -157,3 +157,28 @@ for(const backend of ['R2','database'])test(`failed metadata transaction cleans 
     assert.deepEqual(f.counts(),[0,0,0,0]);assert.equal(objects.size,0);assert.equal(Number(f.sql.prepare('SELECT count(*) n FROM simple_evidence_files').get()!.n),0);
   }finally{f.sql.close()}
 });
+
+test('direct response uploads commit the file, immutable version, incident receipt and pin together',async()=>{
+ const f=await fixture();
+ try{
+  f.sql.exec(readFileSync('drizzle/0073_enterprise_incident_crisis.sql','utf8'));
+  f.sql.exec("CREATE TABLE local_users(id TEXT PRIMARY KEY,email TEXT,status TEXT); INSERT INTO local_users VALUES('qa','qa@example.test','Active')");
+  const fields=f.sql.prepare('PRAGMA table_info(enterprise_incidents)').all() as {name:string;notnull:number;dflt_value:unknown}[];
+  const row:Record<string,string>=Object.fromEntries(fields.filter(c=>c.notnull&&!c.dflt_value).map(c=>[c.name,'fixture']));
+  Object.assign(row,{id:'INC-response-upload',code:'INC-local',owner:'qa@example.test',status:'declared',updated_at:stamp});
+  f.sql.prepare('INSERT INTO enterprise_incidents('+Object.keys(row).join(',')+') VALUES('+Object.keys(row).map(()=>'?').join(',')+')').run(...Object.values(row));
+  const route=handlers(f.db),payload={evidenceTitle:'Incident response log',owner:'qa@example.test',period:'Q4',incidentId:row.id,expectedUpdatedAt:stamp};
+  assert.equal((await route.post({...payload,expectedUpdatedAt:'old'})).status,409);
+  f.sql.exec("CREATE TRIGGER fail_pin BEFORE INSERT ON enterprise_incident_events BEGIN SELECT RAISE(ABORT,'receipt unavailable');END");
+  assert.equal((await route.post(payload)).status,500);
+  assert.equal(f.sql.prepare("SELECT count(*) n FROM simple_grc_records WHERE module='Kanıtlar'").get()!.n,0);
+  assert.equal(f.sql.prepare("SELECT count(*) n FROM simple_evidence_files").get()!.n,0);
+  f.sql.exec('DROP TRIGGER fail_pin');
+  const created=await route.post(payload);assert.equal(created.status,201);
+  const proof=await created.json() as {id:string;code:string};assert.match(proof.code,/^EVD-\d+$/);
+  const pin=f.sql.prepare("SELECT entity_id,snapshot_json FROM workflow_evidence_pins WHERE purpose='incident-response'").get()!;
+  assert.equal(pin.entity_id,row.id);assert.equal(JSON.parse(String(pin.snapshot_json)).evidenceId,proof.id);
+  assert.equal((await route.post(payload)).status,409);
+  assert.equal(f.sql.prepare('SELECT count(*) n FROM enterprise_incident_events').get()!.n,1);
+ }finally{f.sql.close();}
+});

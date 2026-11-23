@@ -32,3 +32,19 @@
 .apw-global[open]>summary{border-bottom:1px solid var(--ws-line)}.apw-global>.audit-readiness-gate{margin:0}
 .apw :is(button,input,summary):focus-visible,.apw-global>summary:focus-visible{outline:2px solid var(--ws-brand);outline-offset:1px}
 @media(max-width:740px){.audit-portfolio.apw{grid-template-columns:minmax(0,1fr)!important}.apw-entries{max-height:170px}.apw-index,.apw-inspector{padding:12px}.apw-table :is(td,th){padding:8px 3px}.apw-table th:first-child{width:40%}.apw-head h3{font-size:1rem}}
+
+.audit-portfolio-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:0 0 14px}
+.audit-portfolio-kpis section{display:grid;align-content:space-between;gap:7px;border:1px solid var(--ws-line);border-radius:10px;background:var(--ws-surface);color:var(--ws-muted);padding:14px;font-size:.84rem}
+.audit-portfolio-kpis strong{color:var(--ws-ink);font-size:1.55rem;font-variant-numeric:tabular-nums}
+.overlay .modal.audit-picker{display:flex;flex-direction:column;overflow:hidden;max-height:90dvh;padding:0}
+.modal.audit-picker>.modal-head{position:relative;inset:auto;flex:none;margin:0;padding:16px 20px}
+.modal.audit-picker>form.form{overflow:auto;min-height:0;align-content:start;padding:18px 20px;scroll-padding:18px}
+.audit-picker .audit-period-fields{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.audit-period-fields label,.audit-person{min-width:0}
+.audit-catalog-drop{border:1px solid var(--ws-line);padding:10px;border-radius:8px}
+.audit-catalog-drop summary{cursor:pointer}
+.audit-catalog-drop .audit-file-drop{width:100%;padding:16px;border:1px dashed var(--ws-brand);background:var(--ws-surface-2);color:var(--ws-ink)}
+.audit-catalog-drop input[hidden]{display:none}
+.audit-person small,.audit-inherited-codes{display:block;color:var(--ws-muted);overflow-wrap:anywhere}
+.audit-inheritance{padding:10px 12px;background:var(--ws-surface-2);border-radius:8px;color:var(--ws-ink)}
+@media(max-width:700px){.audit-portfolio-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.audit-picker .audit-period-fields{grid-template-columns:1fr}.overlay .modal.audit-picker{max-height:94dvh}}

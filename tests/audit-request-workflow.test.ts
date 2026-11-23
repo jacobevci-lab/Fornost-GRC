@@ -572,3 +572,15 @@ test('request creation cannot cross a concurrent work plan launch or leave a par
     await assert.rejects(mutateAuditRequest(f.db,admin,{auditId:'audit-a',requestId:'ARQ-a',expectedRevision:'',action:'create',...await f.payload()},now),/conflict|event-failure/);assert.equal((await f.state()).requests.length,0);assert.equal(f.events().length,0);
   }finally{f.sqlite.close();}}
 });
+
+test('a requirement PBC assigns only its confirmed request and leaves unrelated drafts silent',async()=>{
+ const f=await fixture();try{
+   f.sqlite.exec(`INSERT INTO simple_grc_records VALUES('requirement-a','Denetim Yönetimi','{"auditName":"Audit A"}','','')`);
+   await f.create('ARQ-context',{requirementId:'requirement-a'});await f.create('ARQ-unrelated');
+   const body={auditId:'audit-a',requestId:'ARQ-context',action:'issue',timeZone:'Europe/Istanbul',expectedRevision:'',expectedPlanRevision:'',expectedDrafts:requestDraftPreview((await f.state()).requests.filter(r=>r.id==='ARQ-context'))};
+   await mutateAuditRequest(f.db,admin,body,now);await assert.rejects(mutateAuditRequest(f.db,admin,body,now),/conflict/);
+   const work=await readAuditRequestWork(f.db);
+   assert.deepEqual(work.requests.map(r=>[r.id,r.owner,r.dueDate]),[['ARQ-context',owner.email,fields.dueDate]]);
+   assert.equal((await f.state()).requests.find(r=>r.id==='ARQ-unrelated')?.status,'draft');
+ }finally{f.sqlite.close();}
+});

@@ -30,7 +30,7 @@ export function WorkpaperCapaPanel({paper,tr,readOnly,onReload,onBusy}:{paper:Au
  const invalidate=useCallback(()=>{generation.current++;controller.current?.abort();writeController.current?.abort();},[]);
  useEffect(()=>{const timer=setTimeout(()=>void load(),0);return()=>{clearTimeout(timer);invalidate();};},[load,paper.revision,invalidate]);
  const stale=!!data&&data.revision!==paper.revision;
- const exceptions=paper.samples.filter(s=>s.result==='exception');
+ const exceptions=paper.samples.filter(s=>s.result==='exception'||s.result==='inadequate');
  const currentLink=draft?data?.links.find(l=>workpaperSampleKey(l.origin.sample.reference)===workpaperSampleKey(draft.reference)):null;
  const currentSample=draft?exceptions.find(s=>s.reference===draft.reference):null;
  const blocked=busy||loading||needsRefresh||stale||readOnly||!data?.canCreate;
@@ -71,7 +71,7 @@ export function WorkpaperCapaPanel({paper,tr,readOnly,onReload,onBusy}:{paper:Au
    {paper.status!=='approved'&&<p>{t('Yeni aktarım için çalışma kâğıdının bağımsız incelemesi tamamlanmalıdır.','Independent workpaper review must be completed before a new promotion.')}</p>}
    {!exceptions.length&&<p>{t('Bu sürümde istisna sonucu yok.','This revision has no exception results.')}</p>}
    <ul className="aw-capa-links">{data.links.map(l=><li key={l.findingId}><b>{l.origin.sample.reference} · {l.code}</b><span>{l.missing?t('CAPA kaydı kullanılamıyor; kaynak izi korunuyor.','CAPA is unavailable; the origin is retained.'):findingLabel(l.status,lang)}</span><small>{t('Aktaran','Promoted by')}: {l.actor} · {l.createdAt}</small><details><summary>{t('Aktarım kaynağı ve gerekçesi','Promotion source and reason')}</summary><p>{l.origin.reason}</p><p>{l.origin.sample.note}</p><p>{t('Kaynak sürüm','Source revision')}: {l.sourceRevision}</p><p>{l.origin.evidence.title} · v{l.origin.evidence.versionNo} · {l.origin.evidence.id}</p><p>SHA-256: {l.origin.evidence.contentSha256}</p></details><button type="button" disabled={busy||l.missing} onClick={()=>navigateToFornost({module:'Bulgular ve CAPA',kind:'finding',ref:l.findingId,source:'audit-workpaper'})}>{t('CAPA kaydını aç','Open CAPA record')} · {l.code}</button></li>)}</ul>
-   {data.canCreate&&!readOnly&&!draft&&exceptions.filter(s=>!data.links.some(l=>workpaperSampleKey(l.origin.sample.reference)===workpaperSampleKey(s.reference))).map(s=><button type="button" disabled={blocked||data.links.length>=100} key={s.reference} onClick={()=>open(s.reference)}>{t('CAPA oluştur','Create CAPA')} · {s.reference}</button>)}
+   {data.canCreate&&!readOnly&&!draft&&exceptions.filter(s=>!data.links.some(l=>workpaperSampleKey(l.origin.sample.reference)===workpaperSampleKey(s.reference))).map(s=><button type="button" disabled={blocked||data.links.length>=100} key={s.reference} onClick={()=>open(s.reference)}>{s.result==='inadequate'?t('+ Bulgu Oluştur','+ Create finding'):t('CAPA oluştur','Create CAPA')} · {s.reference}</button>)}
    {data.links.length>=100&&<p>{t('Bu çalışma kâğıdı için 100 aktarım sınırına ulaşıldı.','This workpaper has reached its 100-promotion limit.')}</p>}
   </>}
   {draft&&currentLink&&<p role="status">{t('Bu örneğin CAPA bağlantısı bulundu; yukarıdaki kaydı açabilirsiniz.','This sample already has a CAPA link; open the record above.')} <button type="button" onClick={()=>{setDraft(null);setPreview('');}}>{t('Planı kapat','Close plan')}</button></p>}

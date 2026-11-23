@@ -6,7 +6,7 @@ export async function GET(req: NextRequest) {
   const auth = await requireRole(req, ["Admin", "Editor"]);
   if (auth.response) return auth.response;
   const scope=req.nextUrl.searchParams.get("module");
-  const sourceModule = scope==="evidence" ? "Kanıtlar" : scope==="control" ? "Kontroller" : scope==="bia" ? "BIA" : scope === "asset" ? "Varlık Envanteri" : "Risk Assessment";
+  const sourceModule = scope==="audit" ? "Denetim Yönetimi" : scope==="evidence" ? "Kanıtlar" : scope==="control" ? "Kontroller" : scope==="bia" ? "BIA" : scope === "asset" ? "Varlık Envanteri" : "Risk Assessment";
   if (!canWriteModule(auth.actor, sourceModule)) return new NextResponse(null, { status: 403 });
   const { env } = await import("cloudflare:workers");
   const q = (req.nextUrl.searchParams.get("q") || "").trim().slice(0, 254);

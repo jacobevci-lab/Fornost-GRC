@@ -1,4 +1,4 @@
-export type IncidentDecisionContext = {record: Record<string, string | number | null>; revision: string};
+export type IncidentDecisionContext = {notificationScoped?:boolean;record: Record<string, string | number | null>; revision: string};
 export const incidentEvidenceOperations = ['contain', 'eradicate', 'recover', 'review', 'close'];
 export const incidentDecisionPhrases: Record<string, string> = {
   triage: 'OLAY TRİAJINI BAŞLAT', contain: 'OLAYI KONTROL ALTINA AL', eradicate: 'TEHDİDİ ORTADAN KALDIR',
@@ -17,4 +17,4 @@ export function incidentDecisionDetail(detail: string): IncidentDecisionDetail |
   try {const value=JSON.parse(detail);return value?.format==='fornost-incident-decision-v1' && typeof value.note==='string' && value.reviewedSource && typeof value.reviewedSource==='object' && value.decision && typeof value.decision==='object' ? value : null;} catch {return null;}
 }
 
-export const incidentEvidencePurposeLabels = {'incident-contain':['Olayı kontrol altına alma','Incident containment'],'incident-eradicate':['Tehdidi giderme','Threat eradication'],'incident-recover':['Hizmeti geri yükleme','Service recovery'],'incident-review':['Olay inceleme gönderimi','Incident review submission'],'incident-close':['Bağımsız olay kapanışı','Independent incident closure']} as const;
+export const incidentEvidencePurposeLabels = {'incident-response':['Müdahale kanıtı','Response evidence'],'incident-contain':['Olayı kontrol altına alma','Incident containment'],'incident-eradicate':['Tehdidi giderme','Threat eradication'],'incident-recover':['Hizmeti geri yükleme','Service recovery'],'incident-review':['Olay inceleme gönderimi','Incident review submission'],'incident-close':['Bağımsız olay kapanışı','Independent incident closure']} as const;

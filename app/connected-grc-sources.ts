@@ -44,7 +44,7 @@ const sourceCollections: Record<keyof ConnectedGrcEnterprisePayloads, Record<str
   findings: { findings: 3000 },
   incidents: { incidents: 3000 },
   continuity: { plans: 2000, exercises: 2000, gaps: 2000 },
-  policy: { documents: 1000, versions: 3000 },
+  policy: { documents: 1000, versions: 3000, exceptions: 2000 },
   riskAppetite: { appetites: 1000, measurements: 5000, breaches: 3000, scenarios: 2000 },
   regulatory: { sources: 500, changes: 1000, impacts: 2000 },
   thirdParty: { vendors: 1000, assessments: 2000, findings: 3000 },
@@ -123,6 +123,7 @@ function findingsRows(payload: JsonRecord) {
     const controlRefs = unique(item.controlRef, item.control_ref, sourceType === "control" ? sourceRef : "");
     const traceable = Boolean(sourceRef || riskRefs.length || controlRefs.length);
     const sourceField: Record<string, string> = {
+      ai: sourceRef.startsWith("AIM-")?"aiModelRef":"aiFindingRef",
       audit: "findingAuditRef",
       vendor: "findingVendorRef",
       regulatory: "findingRegulatoryRef",
@@ -216,6 +217,7 @@ function policyRows(payload: JsonRecord) {
   const documents = records(payload.documents || payload.policies);
   const documentById = new Map(documents.map((item) => [text(item.id), item]));
   const policies = documents.map((item, index) => makeRow("enterprise", "policy", "Politika Merkezi", item, index, {
+    aliasRefs:unique(item.legacyCode,item.aliasRefs),
     title: text(item.title || item.name),
     name: text(item.title || item.name),
   }));
@@ -232,7 +234,12 @@ function policyRows(payload: JsonRecord) {
       policyRegulationRefs: unique(item.regulationRefs, item.regulation_refs),
     });
   });
-  return [...policies, ...versions];
+  const exceptions=records(payload.exceptions).filter(item=>item.scopeRef||item.riskRef||Array.isArray(item.controlRefs)&&item.controlRefs.length).map((item,index)=>
+    makeRow("enterprise","policy-exception","Politika Merkezi",item,index,{
+      title:text(item.scope||item.id), policyRef:unique(item.policyId),policyControlRefs:unique(item.controlRefs),policyRiskRefs:unique(item.riskRef),
+      policyScopeAsset:unique(item.scopeKind==="asset"?item.scopeRef:undefined),policyScopeVendor:unique(item.scopeKind==="vendor"?item.scopeRef:undefined),
+    }));
+  return [...policies, ...versions,...exceptions];
 }
 
 function riskAppetiteRows(payload: JsonRecord) {
@@ -265,6 +272,7 @@ function regulatoryRows(payload: JsonRecord) {
   }));
   const changes = records(payload.changes).map((item, index) => makeRow("enterprise", "regulatory-change", "Regülasyon Merkezi", item, index, {
     title: text(item.title),
+    ...Object.fromEntries(Object.entries({control:'regulatoryControlRef',policy:'regulatoryPolicyRef',risk:'regulatoryRiskRef',process:'regulatoryProcessRef'}).map(([type,field])=>[field,records(item.preliminary).filter(t=>t.type===type).map(t=>text(t.id))])),
     regulatorySourceRef: unique(item.sourceId, item.source_id, item.sourceName, item.source_name),
   }));
   const impacts = records(payload.impacts).map((item, index) => {
@@ -444,6 +452,7 @@ function aiRows(payloads: ConnectedGrcEnterprisePayloads): ConnectedGrcRow[] {
         modelName: text(item.modelName),
         // Only explicit native IDs are relationships. Control prose, evidence
         // descriptions and arbitrary sourceRef values are not GRC references.
+        ...(kind==='ai-model'&&record(item.governanceRefs)?Object.fromEntries(Object.entries(record(item.governanceRefs)!).filter(([key])=>['asset','vendor','risk','control','evidence','incident'].includes(key)).map(([key,refs])=>['system_'+key,unique(refs)])):{}),
         aiModelRef: kind === "ai-model" ? [] : unique(item.modelId),
         aiFindingRef: kind === "ai-alert" ? unique(item.findingId) : [],
       }));

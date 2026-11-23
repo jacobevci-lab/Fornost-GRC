@@ -27,6 +27,19 @@ export function parseAuditReadinessResult(value: unknown, auditName: string): Au
   }
   const rows = e.requirements as AuditEvidenceRequirementState[];
   if (!uniqueRefs(rows.map(row => row.reference))) return null;
+  const itemCoverage = e.itemCoverage;
+  if (itemCoverage !== undefined) {
+    if (!Array.isArray(itemCoverage)) return null;
+    const names = new Set<string>();
+    let total = 0;
+    for (const item of itemCoverage) {
+      if (!object(item) || typeof item.auditName !== 'string' || !count(item.scoped) || !count(item.current)
+        || Number(item.current) > Number(item.scoped) || names.has(key(item.auditName))) return null;
+      names.add(key(item.auditName));
+      total += Number(item.scoped);
+    }
+    if (total !== new Set(rows.flatMap(row => row.requirementIds)).size) return null;
+  }
   const scope = new Set(rows.map(row => key(row.reference)));
   if (value.unmonitored.some(ref => !scope.has(key(ref)))) return null;
   const current = rows.filter(row => row.status === 'current').length, stale = rows.filter(row => row.status === 'stale').length;

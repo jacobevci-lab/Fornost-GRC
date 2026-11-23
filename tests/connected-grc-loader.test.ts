@@ -3,7 +3,7 @@ import test from "node:test";
 import { connectedSourceValidity } from "../app/connected-grc-sources";
 import { loadConnectedGrcSources } from "../app/connected-grc-loader";
 
-const empty = { audits: [], complete: true, total: 0, revision: 'a'.repeat(32), nextCursor: null, findings: [], incidents: [], plans: [], exercises: [], gaps: [], documents: [], versions: [], appetites: [], measurements: [], breaches: [], scenarios: [], sources: [], changes: [], impacts: [], vendors: [], assessments: [], rules: [], runs: [] };
+const empty = { audits: [], complete: true, total: 0, revision: 'a'.repeat(32), nextCursor: null, findings: [], incidents: [], plans: [], exercises: [], gaps: [], documents: [], exceptions: [], versions: [], appetites: [], measurements: [], breaches: [], scenarios: [], sources: [], changes: [], impacts: [], vendors: [], assessments: [], rules: [], runs: [] };
 const json = (body: unknown) => Response.json(body);
 const run = (fetcher: typeof fetch, signal = new AbortController().signal, includeAi = false) =>
   loadConnectedGrcSources({ includeAi, signal, fetcher, timeoutMs: 20 });
@@ -115,7 +115,7 @@ test("graph paging conflict discards the source but preserves independent source
 test("every enterprise graph collection rejects missing or duplicate identities", () => {
   const groups = {
     audits: ["audits"], findings: ["findings"], incidents: ["incidents"], continuity: ["plans", "exercises", "gaps"],
-    policy: ["documents", "versions"], riskAppetite: ["appetites", "measurements", "breaches", "scenarios"],
+    policy: ["documents", "versions","exceptions"], riskAppetite: ["appetites", "measurements", "breaches", "scenarios"],
     regulatory: ["sources", "changes", "impacts"], thirdParty: ["vendors", "assessments", "findings"],
     evidenceAutomation: ["sources", "rules", "runs", "findings"],
   } as const;
@@ -131,7 +131,7 @@ test("every enterprise graph collection rejects missing or duplicate identities"
 });
 
 test("automation history and child collection limits suppress complete coverage", () => {
-  for (const [key, collection, limit] of [["evidenceAutomation", "runs", 100], ["evidenceAutomation", "findings", 100], ["policy", "versions", 3000], ["thirdParty", "vendors", 1000]] as const) {
+  for (const [key, collection, limit] of [["evidenceAutomation", "runs", 100], ["evidenceAutomation", "findings", 100], ["policy", "versions", 3000], ["policy","exceptions",2000], ["thirdParty", "vendors", 1000]] as const) {
     const rows = Array.from({ length: limit }, (_, id) => ({ id: String(id), vendorId: String(id) }));
     assert.equal(connectedSourceValidity(key, { ...empty, [collection]: rows.slice(1) }), "ready");
     assert.equal(connectedSourceValidity(key, { ...empty, [collection]: rows }), "incomplete");

@@ -146,27 +146,24 @@ try {
     await page.setViewportSize({ width: 1536, height: 960 });
   }
 
-  // Source counts must not squeeze the CAPA introduction into one-letter lines.
+  // Check the source filters beside the search field at narrow and wide widths.
   for (const language of ['tr', 'en']) {
     await locale(language); await openModule(language === 'tr' ? 'Bulgular ve CAPA' : 'Findings & CAPA');
     await expect(page.locator('.finding-page')).toHaveAttribute('aria-busy', 'false');
-    const strip = page.locator('.finding-source-strip');
-    const sourceQueue = page.locator('.capa-disclosure').filter({has: strip});
-    if (!(await sourceQueue.evaluate(node => node.open))) await sourceQueue.locator('summary').click();
-    await expect(strip.locator(':scope>span')).toHaveCount(4);
-    await expect(strip.locator(':scope>span small')).toHaveText(language === 'tr'
-      ? ['Sürekli kontrol', 'Üçüncü taraf', 'Yapay zekâ güvencesi', 'Mevzuat']
-      : ['Continuous control', 'Third party', 'AI assurance', 'Regulatory']);
+    const strip = page.locator('.finding-toolbar .capa-source-filters');
+    const labels = language === 'tr'
+      ? ['Denetim', 'Sürekli kontrol', 'Üçüncü taraf', 'Güvenlik olayı', 'Yapay zekâ güvencesi', 'Mevzuat']
+      : ['Audit', 'Continuous control', 'Third party', 'Security incident', 'AI assurance', 'Regulatory'];
+    for (const label of labels) await expect(strip.getByRole('button',{name:new RegExp('^'+label+' ')})).toBeVisible();
     for (const theme of ['light', 'dark']) {
       if (await page.locator('html').getAttribute('data-theme') !== theme) await page.locator('.theme-toggle:visible').click();
       for (const width of [360, 390, 1024]) {
         await page.setViewportSize({ width, height: 960 });
-        const title = await strip.locator(':scope>div').boundingBox();
-        assert.ok(title.width >= 180 && title.height < 130, 'CAPA source introduction retains readable width');
-        for (const signal of await strip.locator(':scope>span').all()) {
+        const toolbar = await page.locator('.finding-toolbar').boundingBox();
+        for (const signal of await strip.getByRole('button').all()) {
           const box = await signal.boundingBox();
-          assert.ok(box.width >= 95 && box.height < 130, 'Source counts retain readable labels');
-          if (width < 700) assert.ok(box.y >= title.y + title.height, 'Phone source counts appear below the introduction');
+          assert.ok(box.height > 0 && box.height < 90 && box.x >= toolbar.x - 1 && box.x+box.width <= toolbar.x+toolbar.width+1, 'Source chips wrap inside the search toolbar');
+          assert.ok(await signal.evaluate(node=>node.scrollWidth<=node.clientWidth+1),'Source label is readable');
         }
         await strip.screenshot({ path: `${out}/finding-source-${language}-${theme}-${width}.png` });
       }

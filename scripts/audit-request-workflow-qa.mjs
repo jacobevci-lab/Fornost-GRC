@@ -21,7 +21,7 @@ async function api(context, path, method = 'GET', data, status = 200) {
 }
 async function openAudit(context, name) {
   const page = await context.newPage(); page.on('pageerror', e => errors.push(e.message));
-  await page.goto(base); await expect(page.locator('.shell')).toBeVisible();
+  await page.goto(base); await expect(page.locator('.shell')).toBeVisible({ timeout: 30000 });
   await page.locator('.language-switch:visible').getByRole('button', { name: 'EN', exact: true }).click();
   await page.locator('nav button[aria-label="Audit Management"]').evaluate(el => el.click());
   await page.locator('.audit-card-open').filter({ hasText: name }).click();

@@ -6,6 +6,7 @@ export type AuditReportItem = { kind: 'requirement' | 'request' | 'finding' | 'w
 export type AuditReportSource = {
   audit: { id: string; name: string; template: string; auditType: string; auditor: string; owner: string; status: string };
   catalog: Record<string, unknown> | null; plan: WorkplanPlan; workflow: AuditRequestWorkflow;
+  assuranceRecords?:import('./audit-assurance-snapshot').AuditAssuranceState[];
   sourceRevision: string; items: AuditReportItem[];
 };
 export type AuditStatusReport = AuditReportSource & {

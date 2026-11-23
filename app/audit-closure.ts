@@ -12,7 +12,7 @@ export type AuditClosureHistory = { state: AuditClosureState; events: AuditClosu
 export type AuditClosureDetail = { event: AuditClosureEvent; sha256: string; report: AuditReportDetail };
 export type AuditClosurePreview = { source: AuditReportSource; blockers: string[]; reviewers: { id: string; name: string; email: string }[]; reviewersComplete: boolean };
 export const emptyAuditClosure: AuditClosureState = { state: 'open', revision: '', submissionId: '', reportId: '' };
-export const auditClosureLabels = { open: ['Açık', 'Open'], pending: ['Kapanış onayında', 'Closure in review'], closed: ['Onayla kapatıldı', 'Closed with approval'] } as const;
+export const auditClosureLabels = { open: ['Açık', 'Open'], pending: ['Kapanış onayında', 'Closure in review'], closed: ['Tamamlandı / Arşivlendi', 'Completed / archived'] } as const;
 export const auditClosureActionLabels = { submit: ['Onaya gönderildi', 'Submitted for approval'], approve: ['Onaylandı ve kapatıldı', 'Approved and closed'], return: ['Düzeltme için iade edildi', 'Returned for changes'], withdraw: ['Onaydan geri çekildi', 'Withdrawn from review'], reopen: ['Gerekçeyle yeniden açıldı', 'Reopened with reason'] } as const;
 export const auditClosureBlockerLabels: Record<string, [string, string]> = {
   plan: ['Planın amacı, kapsamı ve baş denetçisi kaydedilmeli.', 'Save the plan objective, scope and lead auditor.'],

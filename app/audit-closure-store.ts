@@ -1,3 +1,4 @@
+import {auditAssuranceRows} from './audit-assurance-snapshot';
 import type { Actor } from './api/auth/security';
 import { auditRequestId } from './audit-request-store';
 import { AuditReportError, auditReportHash, auditReportSummary, type AuditStatusReport } from './audit-status-report';
@@ -95,7 +96,8 @@ export async function mutateAuditClosure(db: D1Database, actor: Actor, input: Re
     snapshot = { ...source, schemaVersion: 1, id: `ARP-${id.slice(4)}`, title: `${source.audit.name} · Kapanış / Closure`.slice(0, 200), summary: note, limitations: normalized.limitations, createdAt: now.toISOString(), createdBy: actor.email };
     reportSha256 = await auditReportHash(snapshot);
     sourceGuard = `EXISTS(SELECT 1 FROM audit_report_source_revision WHERE id=1 AND revision=?) AND ${activeAdmin} AND NOT EXISTS(SELECT 1 FROM audit_status_reports WHERE id=?)`;
-    sourceValues = [source.sourceRevision, reviewerId, reviewerEmail, snapshot.id];
+    sourceGuard += ` AND (${auditAssuranceRows})=?`;
+    sourceValues = [source.sourceRevision, reviewerId, reviewerEmail, snapshot.id,auditId,JSON.stringify(source.assuranceRecords)];
   } else {
     if (!state.submissionId || (action === 'reopen' ? state.state !== 'closed' : state.state !== 'pending')) throw new AuditReportError('state', 409);
     const row = await existingEvent(db, state.submissionId);
@@ -111,6 +113,10 @@ export async function mutateAuditClosure(db: D1Database, actor: Actor, input: Re
       // in the commit. Any source edit since submission requires a new package.
       sourceGuard = `EXISTS(SELECT 1 FROM audit_report_source_revision WHERE id=1 AND revision=?) AND EXISTS(SELECT 1 FROM audit_status_reports WHERE id=? AND snapshot_sha256=? AND item_count=?)`;
       sourceValues = [submission.sourceRevision, submission.reportId, detail.report.sha256, String(detail.report.snapshot.items.length)];
+      if(detail.report.snapshot.assuranceRecords){
+        sourceGuard += ` AND (${auditAssuranceRows})=?`;
+        sourceValues.push(auditId,JSON.stringify(detail.report.snapshot.assuranceRecords));
+      }
     }
   }
   const target: AuditClosureState['state'] = action === 'submit' ? 'pending' : action === 'approve' ? 'closed' : 'open';

@@ -1,3 +1,4 @@
+import {auditAssuranceRows} from './audit-assurance-snapshot';
 import { publicMilestone } from './audit-milestone-store';
 import { publicWorkpaper } from './audit-workpaper-store';
 import type { Actor } from './api/auth/security';
@@ -29,6 +30,7 @@ export async function readAuditReportSource(db: D1Database, actor: Actor, auditI
     db.prepare(`SELECT count(*) AS ambiguous FROM (${linkedFindings} AND ${ambiguousFinding})`).bind(auditId,auditId),
     db.prepare('SELECT * FROM audit_workpapers WHERE audit_id=? ORDER BY id LIMIT 101').bind(auditId),
     db.prepare('SELECT * FROM audit_milestones WHERE audit_id=? ORDER BY id LIMIT 101').bind(auditId),
+    db.prepare(auditAssuranceRows).bind(auditId),
   ]);
   const a = result[1].results[0] as Raw | undefined;
   if (!a) throw new AuditReportError('audit-missing', 404);
@@ -48,6 +50,7 @@ export async function readAuditReportSource(db: D1Database, actor: Actor, auditI
     ...(result[9].results as unknown as Parameters<typeof publicWorkpaper>[0][]).map(raw => { const row = publicWorkpaper(raw); return { kind: 'workpaper' as const, id: row.id, record: { id: row.id, module: 'Audit workpapers', data: { ...row }, createdAt: row.createdAt, updatedAt: row.updatedAt } }; }),
   ].sort((a, b) => a.kind < b.kind ? -1 : a.kind > b.kind ? 1 : a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
   const source: AuditReportSource = {
+    assuranceRecords: JSON.parse(String((result[11].results[0] as {records:string}).records)),
     sourceRevision: String((result[0].results[0] as Raw)?.revision || ''),
     audit: { id: String(a.id), name: String(a.name), template: String(a.template), auditType: String(a.audit_type), auditor: String(a.auditor), owner: String(a.audit_owner), status: String(a.status) },
     catalog: metadata.get(`audit_catalog_${auditId}`) || null,
@@ -112,6 +115,7 @@ export async function createAuditStatusReport(db: D1Database, actor: Actor, inpu
 /** Reused by audit closure so its decision and complete report commit together. */
 export async function auditReportInsertStatements(db: D1Database, snapshot: AuditStatusReport, fingerprint: string, writeToken: string, guard: { sql: string; values: string[] }) {
   const { items, ...header } = snapshot, sha256 = await auditReportHash(snapshot), reportId = snapshot.id;
+  if(new TextEncoder().encode(JSON.stringify(header)).length>1_750_000)throw new AuditReportError('limit',409);
   const chunks: AuditReportItem[][] = []; let chunk: AuditReportItem[] = [], bytes = 0;
   for (const item of items) {
     const size = new TextEncoder().encode(JSON.stringify(item)).length;

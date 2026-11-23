@@ -103,12 +103,14 @@ export async function mutateAuditRequest(db: D1Database, actor: Actor, input: Mu
   if (input.deadlineAdjustment !== undefined && !['create', 'edit', 'return'].includes(action)) throw new AuditRequestError('deadline-adjustment');
   if (typeof input.expectedRevision !== 'string' || input.expectedRevision.length > 100) throw new AuditRequestError('revision');
   await ensureAuditRequestSchema(db); await requireAuditParent(db, auditId);
-  if (action === 'start' || action === 'activate') {
-    const starting = action === 'start', state = await readAuditRequestWorkflow(db, auditId);
+  if (action === 'start' || action === 'activate' || action === 'issue') {
+    const state = await readAuditRequestWorkflow(db, auditId);
+    const target = action==='issue' ? auditRequestId(input.requestId) : '';
+    const starting = action==='start' || (!!target && state.workflow.state==='draft');
     if (!state.complete) throw new AuditRequestError('limit', 409);
     if (state.workflow.state !== (starting ? 'draft' : 'active') || state.workflow.revision !== input.expectedRevision) throw new AuditRequestError('conflict', 409);
     const zone = starting ? validateRequestTimeZone(input.timeZone) : state.workflow.timeZone;
-    const drafts = state.requests.filter(row => row.status === 'draft');
+    const drafts = state.requests.filter(row => row.status === 'draft' && (!target || row.id===target && !!row.requirementId));
     if (!drafts.length) throw new AuditRequestError('empty');
     const preview = validateRequestPreview(input.expectedDrafts);
     if (preview.length !== drafts.length || drafts.some(row => !preview.some(p => p.id === row.id && p.revision === row.revision))) throw new AuditRequestError('preview-changed', 409);
@@ -121,17 +123,17 @@ export async function mutateAuditRequest(db: D1Database, actor: Actor, input: Mu
     // Bind the exact preview inside the transaction. Concurrent draft additions,
     // edits or cancellations must not activate work the operator did not review.
     const guard = `${liveParent} AND COALESCE((SELECT json_extract(value,'$.revision') FROM simple_grc_metadata WHERE key=?),'')=?
-      AND (SELECT COUNT(*) FROM audit_requests WHERE audit_id=? AND json_extract(data_json,'$.status')='draft')=?
+      AND (SELECT COUNT(*) FROM audit_requests WHERE audit_id=? AND json_extract(data_json,'$.status')='draft' AND (?='' OR id=?))=?
       AND NOT EXISTS(SELECT 1 FROM json_each(?) p WHERE NOT EXISTS(SELECT 1 FROM audit_requests r WHERE r.audit_id=? AND r.id=json_extract(p.value,'$.id') AND r.revision=json_extract(p.value,'$.revision') AND json_extract(r.data_json,'$.status')='draft'))
       AND NOT EXISTS(SELECT 1 FROM json_each(?) p WHERE NOT EXISTS(SELECT 1 FROM local_users u LEFT JOIN user_module_access a ON a.user_id=u.id WHERE lower(u.email)=json_extract(p.value,'$.email') AND u.status='Active' AND u.role=json_extract(p.value,'$.role') AND a.policy_json IS json_extract(p.value,'$.policy')))`;
-    const args = [auditId, `audit_plan_${auditId}`, planRevision, auditId, preview.length, JSON.stringify(preview), auditId, JSON.stringify(assignees)];
+    const args = [auditId, `audit_plan_${auditId}`, planRevision, auditId, target,target,preview.length, JSON.stringify(preview), auditId, JSON.stringify(assignees)];
     const claim = starting
       ? db.prepare(`INSERT INTO audit_request_workflows(audit_id,state,revision,time_zone,plan_revision) SELECT ?,'active',?,?,? WHERE ${guard} AND ?='' AND NOT EXISTS(SELECT 1 FROM audit_request_workflows WHERE audit_id=?) ON CONFLICT(audit_id) DO NOTHING RETURNING audit_id`).bind(auditId, revision, zone, planRevision, ...args, input.expectedRevision, auditId)
       : db.prepare(`UPDATE audit_request_workflows SET revision=?,plan_revision=? WHERE audit_id=? AND state='active' AND revision=? AND ${guard} RETURNING audit_id`).bind(revision, planRevision, auditId, input.expectedRevision, ...args);
     const results = await db.batch([
       claim,
-      db.prepare(`UPDATE audit_requests SET data_json=json_set(data_json,'$.status','assigned'),revision=?,updated_at=? WHERE audit_id=? AND json_extract(data_json,'$.status')='draft' AND EXISTS(SELECT 1 FROM audit_request_workflows WHERE audit_id=? AND revision=?)`).bind(revision, stamp, auditId, auditId, revision),
-      db.prepare(`INSERT INTO audit_request_events(id,audit_id,request_id,action,actor,snapshot_json,created_at) SELECT ?||id,audit_id,id,?,?,json_set(data_json,'$.activationReason',?,'$.planRevision',?,'$.workflowRevision',?),? FROM audit_requests WHERE audit_id=? AND revision=?`).bind(`${revision}:`, action, actor.email, reason, planRevision, revision, stamp, auditId, revision),
+      db.prepare(`UPDATE audit_requests SET data_json=json_set(data_json,'$.status','assigned'),revision=?,updated_at=? WHERE audit_id=? AND json_extract(data_json,'$.status')='draft' AND (?='' OR id=?) AND EXISTS(SELECT 1 FROM audit_request_workflows WHERE audit_id=? AND revision=?)`).bind(revision, stamp, auditId, target,target,auditId, revision),
+      db.prepare(`INSERT INTO audit_request_events(id,audit_id,request_id,action,actor,snapshot_json,created_at) SELECT ?||id,audit_id,id,?,?,json_set(data_json,'$.activationReason',?,'$.planRevision',?,'$.workflowRevision',?),? FROM audit_requests WHERE audit_id=? AND revision=?`).bind(`${revision}:`, starting?'start':'activate', actor.email, reason, planRevision, revision, stamp, auditId, revision),
     ]);
     if (!results[0].results?.length) throw new AuditRequestError('conflict', 409);
     return;

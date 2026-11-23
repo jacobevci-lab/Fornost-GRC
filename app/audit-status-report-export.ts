@@ -72,7 +72,7 @@ export function auditStatusReportView(detail: AuditReportDetail, tr: boolean, fo
           const selection = data.selection as SavedRandomSelection;
           data.selection = `${selection.algorithm}\n${selection.sampleCount} / ${selection.populationCount}\nSeed: ${selection.seed}\nSHA-256: ${selection.populationSha256}\n${selection.reason}\n${selection.selectedBy} · ${selection.selectedAt}\n${selection.references.join(', ')}`;
         }
-        if (Array.isArray(data.samples)) data.samples = data.samples.map(v => `${v.reference} · ${v.result === 'pass' ? t('Uygun','Pass') : v.result === 'exception' ? t('İstisna','Exception') : t('Bekliyor','Pending')}\n${v.note}\n${v.versionId}`).join('\n\n');
+        if (Array.isArray(data.samples)) data.samples = data.samples.map(v => `${v.reference} · ${v.result === 'inadequate' ? t('Yetersiz','Inadequate') : v.result === 'pass' ? t('Etkin','Effective') : v.result === 'exception' ? t('İstisna','Exception') : t('Bekliyor','Pending')}\n${v.note}\n${v.versionId}`).join('\n\n');
         if (Array.isArray(data.evidence)) data.evidence = data.evidence.map(v => `${v.title} · v${v.versionNo} · ${v.id}\n${v.fileName}\nSHA-256 ${v.contentSha256}`).join('\n\n');
       }
       else data.status=statuses[String(data.status)]||data.status;

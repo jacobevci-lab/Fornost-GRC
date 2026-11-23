@@ -1,3 +1,5 @@
+import {ensureFindingsSchemaCompatibility} from "./api/findings/schema-compat";
+import {storedFindingCode} from "./findings/codes";
 import type { Actor } from './api/auth/security';
 import { canReadModule, canWriteModule, isScoped, parseModuleAccess } from './module-access';
 import { ensureAuditClosureSchema } from './audit-closure-schema';
@@ -57,7 +59,7 @@ export async function readWorkpaperCapaOrigin(db:D1Database,actor:Actor,findingI
 export async function createWorkpaperCapa(db:D1Database,actor:Actor,input:Record<string,unknown>,now=new Date()){
   const auditId=auditRequestId(input.auditId),workpaperId=auditRequestId(input.workpaperId),findingId=auditRequestId(input.findingId);
   if(!/^FND-[a-f0-9-]{36}$/.test(findingId)||typeof input.expectedRevision!=='string'||input.expectedRevision.length>100||typeof input.reference!=='string'||!input.reference.trim()||input.reference.length>200||typeof input.reason!=='string'||input.reason.trim().length<3||input.reason.length>2000||Object.keys(input).some(k=>!['auditId','workpaperId','findingId','expectedRevision','reference','reason','fields'].includes(k)))throw new AuditRequestError('fields');
-  await ensureAuditClosureSchema(db);const p=await liveActor(db,actor,true);
+  await ensureAuditClosureSchema(db);await ensureFindingsSchemaCompatibility(db);const p=await liveActor(db,actor,true);
   const raw=await db.prepare('SELECT p.*,a.name AS audit_name FROM audit_workpapers p JOIN simple_audits a ON a.id=p.audit_id WHERE p.id=? AND p.audit_id=?').bind(workpaperId,auditId).first<Stored & {audit_name:string}>();
   if(!raw)throw new AuditRequestError('missing',404);
   const paper=publicWorkpaper(raw);
@@ -65,7 +67,7 @@ export async function createWorkpaperCapa(db:D1Database,actor:Actor,input:Record
   if(paper.status!=='approved')throw new AuditRequestError('approved-required',409);
   if(p.role!=='Admin'&&![paper.owner,paper.reviewer].includes(p.email))throw new AuditRequestError('owner',403);
   const sample=paper.samples.find(s=>s.reference===input.reference),evidence=paper.evidence.find(e=>e.id===sample?.versionId);
-  if(!sample||sample.result!=='exception'||!evidence)throw new AuditRequestError('exception-required',409);
+  if(!sample||!['exception','inadequate'].includes(sample.result)||!evidence)throw new AuditRequestError('exception-required',409);
   const origin:WorkpaperCapaOrigin={auditId,auditName:raw.audit_name,workpaperId,workpaperTitle:paper.title,revision:paper.revision,owner:paper.owner,reviewer:paper.reviewer,sample,evidence,reason:input.reason.trim()};
   const finding=workpaperCapaFinding(input.fields,origin,now.toISOString().slice(0,10)),key=workpaperSampleKey(sample.reference);
   if(finding.reviewer===p.email)throw new AuditRequestError('independent-review',403);
@@ -76,7 +78,7 @@ export async function createWorkpaperCapa(db:D1Database,actor:Actor,input:Record
   const people=await db.prepare(`SELECT u.id,lower(u.email) AS email,u.role,u.name,a.policy_json AS policy FROM local_users u LEFT JOIN user_module_access a ON a.user_id=u.id WHERE u.status='Active' AND lower(u.email) IN (SELECT value FROM json_each(?))`).bind(JSON.stringify(emails)).all<Person>();
   if(people.results.length!==emails.length||people.results.some(person=>!eligible(person,true))||!people.results.some(person=>person.email===finding.reviewer&&person.role==='Admin'))throw new AuditRequestError('assignee',403);
   const references=coreReferenceGuard([{field:'risk_ref',value:finding.riskRef,modules:['Risk Assessment']},{field:'control_ref',value:finding.controlRef,modules:['Kontroller','Uyum']}].flatMap(({field,value,modules})=>canonicalCoreReferenceValues(value).map(value=>({sourceId:findingId,field,value,modules}))));
-  const stamp=now.toISOString(),code=`FND-${now.getUTCFullYear()}-${crypto.randomUUID().replace(/-/g,'').slice(0,8).toUpperCase()}`;
+  const stamp=now.toISOString(),code=findingId;
   const results=await db.batch([
     db.prepare(`INSERT INTO enterprise_findings(id,code,source_type,source_ref,source_title,finding_type,title,description,severity,owner,reviewer,root_cause,corrective_action,preventive_action,due_date,status,risk_ref,control_ref,detected_by,detected_at,updated_by,updated_at)
       SELECT ?,?,'audit',?,?,?,?,?,?,?,?,?,?,?,?,'open',?,?,?,?,?,? WHERE ${actorGuard}
@@ -91,5 +93,5 @@ export async function createWorkpaperCapa(db:D1Database,actor:Actor,input:Record
     lifecycleInsert(db,'enterprise_finding_events',{id:crypto.randomUUID(),finding_id:findingId,action:'workpaper-exception-promotion',from_status:null,to_status:'open',detail:`${auditId} / ${workpaperId} / ${sample.reference}; ${origin.reason}`,evidence_reference:evidence.id,evidence_sha256:evidence.contentSha256,actor:p.email,created_at:stamp}),
   ]);
   if(Number(results[2]?.meta?.changes||0)!==1)throw new AuditRequestError('conflict',409);
-  return{id:findingId,code,reused:false};
+  return{id:findingId,code:await storedFindingCode(db,findingId),reused:false};
 }

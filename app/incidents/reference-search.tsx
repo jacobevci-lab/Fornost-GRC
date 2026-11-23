@@ -1,79 +1,35 @@
-"use client";
+'use client';
+import {useState} from 'react';
+import {useChoices} from '../workflow-selection-fields';
+import {ChoiceInput} from '../risk-editor-fields';
+import type {RecordSearchPage} from '../record-search-store';
 
-import { useContext, useMemo, useState } from "react";
-import { connectedTitle } from "../connected-grc-model";
-import { ModuleTrailContext } from "../module-record-trail-view";
-import { foldSearch } from "../record-search-store";
-
-const kinds = [
-  { module: "Varlık Envanteri", field: "assetRefs", tr: "Varlık", en: "Asset" },
-  { module: "Risk Assessment", field: "riskRef", tr: "Risk", en: "Risk" },
-  { module: "BIA", field: "biaRef", tr: "İş etki analizi", en: "Business impact analysis" },
+type Draft=Record<string,string|boolean>;
+const kinds=[
+ ['assetRefs','Varlık Envanteri','Varlık referansları','Asset references'],
+ ['riskRef','Risk Assessment','Risk referansı','Risk reference'],
+ ['biaRef','BIA','BIA referansı','BIA reference'],
+ ['vendorRef','Tedarikçiler','Tedarikçi referansı','Vendor reference']
 ] as const;
-type Kind = typeof kinds[number];
-type IncidentDraft = Record<string, string | boolean>;
-type Props = {
-  tr: boolean;
-  form: IncidentDraft;
-  setForm: (next: IncidentDraft) => void;
-};
-
-export function IncidentReferenceSearch({ tr, form, setForm }: Props) {
-  const directory = useContext(ModuleTrailContext);
-  const [open, setOpen] = useState(false);
-  const [query, setQuery] = useState("");
-  const [notice, setNotice] = useState("");
-  const needle = foldSearch(query.trim());
-  const rows = directory?.coreState === "ready" ? directory.rows : undefined;
-  const matches = useMemo(() => {
-    if (!open || needle.length < 2 || !rows) return [];
-    const results = [];
-    for (const row of rows) {
-      const kind = kinds.find(candidate => candidate.module === row.module);
-      if (!kind) continue;
-      const title = connectedTitle(row);
-      if (foldSearch([title, row.code, row.id].join(" ")).includes(needle)) {
-        results.push({ row, kind, title });
-        if (results.length > 20) break;
-      }
-    }
-    return results;
-  }, [rows, open, needle]);
-
-  function link(kind: Kind, id: string, code: string | undefined, title: string) {
-    const previous = String(form[kind.field] || "");
-    const refs = previous.split(/[;,|\r\n]+/).map(ref => ref.trim()).filter(Boolean);
-    const alreadyLinked = refs.some(ref => [id, code].some(alias => alias && alias.toLowerCase() === ref.toLowerCase()));
-    if (alreadyLinked) {
-      setNotice(tr ? title + " zaten bağlı." : title + " is already linked.");
-      return;
-    }
-    const value = kind.field === "assetRefs" ? [...refs, id].join(", ") : id;
-    if (value.length > (kind.field === "assetRefs" ? 1000 : 120)) {
-      setNotice(tr ? "Referans alanındaki karakter sınırı aşılıyor." : "This selection exceeds the reference field length limit.");
-      return;
-    }
-    setForm({ ...form, [kind.field]: value });
-    setNotice(tr ? title + " bağlandı." : title + " linked.");
-  }
-
-  return <details className="incident-reference-search" onToggle={e => setOpen(e.currentTarget.open)}>
-    <summary>{tr ? "Varlık, risk veya BIA kaydı bul ve bağla" : "Find and link an asset, risk or BIA record"}</summary>
-    {open && (directory?.coreState === "ready" ? <>
-      <p>{tr ? "Birden fazla varlık ekleyebilirsiniz. Risk ve BIA seçimleri ilgili alandaki değeri değiştirir." : "Add multiple assets. Selecting a risk or BIA record replaces the value in that field."}</p>
-      <label>{tr ? "Kayıt adı veya kodu" : "Record name or code"}
-        <input type="search" value={query} onChange={e => { setQuery(e.target.value); setNotice(""); }}
-          placeholder={tr ? "En az iki karakter yazın" : "Enter at least two characters"}
-          onKeyDown={e => { if (e.key === "Enter") e.preventDefault(); }}/>
-      </label>
-      {needle.length >= 2 && (matches.length ? <ul>{matches.slice(0,20).map(({row,kind,title}) =>
-        <li key={row.id}><button type="button" onClick={() => link(kind, row.id, row.code, title)}>
-          {tr ? kind.tr : kind.en} · {title}{row.code && row.code !== title ? " · " + row.code : ""}
-        </button></li>)}</ul> : <p role="status">{tr ? "Eşleşen kayıt yok." : "No matching records."}</p>)}
-      {matches.length > 20 && <p>{tr ? "İlk 20 sonuç gösteriliyor. Aramayı daraltın." : "Showing the first 20 matches. Refine your search."}</p>}
-      <span role="status">{notice}</span>
-    </> : <p role="status">{directory?.coreState === "loading"
-      ? (tr ? "Kayıtlar yükleniyor…" : "Loading records…")
-      : <>{tr ? "Kayıtlar yüklenemedi. " : "Records could not be loaded. "}<button type="button" onClick={directory?.retryCore}>{tr ? "Tekrar dene" : "Retry"}</button></>}</p>)}
-  </details>;
+function Reference({kind,tr,form,update}:{kind:typeof kinds[number];tr:boolean;form:Draft;update:(value:Draft)=>void}){
+ const [field,module,t,e]=kind,[query,setQuery]=useState(''),[labels,setLabels]=useState<Record<string,string>>({});
+ const multi=field==='assetRefs',ids=String(form[field]||'').split(', ').filter(Boolean),q=query.trim();
+ const result=useChoices<RecordSearchPage>(q.length>=2?'/api/search?'+new URLSearchParams({module,q}):null);
+ const rows=(result.data.results||[]).filter(row=>!ids.includes(row.id));
+ const save=(next:string[])=>update({...form,[field]:next.join(', ')});
+ function choose(id:string){
+  const row=rows.find(r=>r.id===id);if(!row)return;
+  setLabels(old=>({...old,[id]:row.code+' · '+row.title}));save(multi?[...ids,id]:[id]);
+ }
+ return <div className="ic-entity"><ChoiceInput label={tr?t:e} tr={tr} query={query} onQuery={setQuery}
+  choose={choose} options={rows.map(row=>({value:row.id,label:row.code+' · '+row.title}))} pending={result.loading} more={!!result.data.nextCursor}
+  message={q.length<2?(tr?'Kod veya başlıktan en az iki karakter girin.':'Enter at least two characters of a code or title.'):undefined}
+  selection={!multi&&ids.length?{text:labels[ids[0]]||ids[0],clear:()=>save([])}:undefined}
+  required={multi&&!ids.length||!!q} requiredMessage={tr?'Listeden kayıt seçin veya aramayı temizleyin.':'Choose a record or clear the search.'}/>
+  {result.error&&<button type="button" onClick={result.retry}>{tr?'Kayıtlar alınamadı · Tekrar dene':'Records unavailable · Retry'}</button>}
+  {multi&&<div className="ic-chips">{ids.map(id=><button key={id} type="button" onClick={()=>save(ids.filter(x=>x!==id))} aria-label={(tr?'Kaldır · ':'Remove · ')+(labels[id]||id)}>{labels[id]||id} ×</button>)}</div>}
+ </div>;
+}
+export function IncidentReferenceSearch({tr,form,setForm}:{tr:boolean;form:Draft;setForm:(v:Draft)=>void}){
+ return <>{kinds.map(kind=><Reference key={kind[0]} kind={kind} tr={tr} form={form} update={setForm}/>)}</>;
 }

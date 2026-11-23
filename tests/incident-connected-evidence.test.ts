@@ -112,3 +112,40 @@ test('exact incident focus crosses list bounds and paginated history returns onl
   assert.equal((await f.get('focusKind=incident&focusId=../bad')).status,400);
  }finally{f.sqlite.close();}
 });
+
+test('crisis operations bind linked entities, record a scoped decision without advancing status and reuse one root-cause CAPA',async()=>{
+ const f=await setup();
+ try{
+  const stamp=new Date(Date.now()-3600000).toISOString(),owner='owner@example.com',id='INC-'+crypto.randomUUID();
+  const insert=f.sqlite.prepare('INSERT INTO simple_grc_records VALUES(?,?,?,?,?)');
+  insert.run('VEN-501','Tedarikçiler','{"title":"Hosting"}',stamp,stamp);
+  insert.run('BIA-501','BIA','{"process":"Payments","rto":2,"mtpd":4,"asset":"AST-001"}',stamp,stamp);
+  const payload={...f.create,requestId:id.slice(4),detectedAt:stamp,detectedDate:stamp.slice(0,10),vendorRef:'VEN-501',referenceMode:'record-id',biaRef:'BIA-501'};
+  assert.equal((await f.post({...payload,vendorRef:'BIA-501'})).status,409);
+  assert.equal((await f.post(payload)).status,201);assert.equal((await f.post(payload)).body.replayed,true);
+  const getRow=()=>f.sqlite.prepare('SELECT * FROM enterprise_incidents WHERE id=?').get(id)!;
+  const action=(name:string,body:Record<string,unknown>={})=>f.post({action:name,incidentId:id,expectedUpdatedAt:getRow().updated_at,...body});
+  f.setActor(actor('other','Editor'));assert.equal((await action('record-notification')).status,403);
+  f.setActor(actor('owner','Editor'));
+  const notice={decision:'required',regime:'both',scope:'authority',rationale:'The assessed personal data breach requires notice to the competent authority.',awarenessAt:stamp};
+  assert.equal((await action('record-notification',{...notice,rationale:'short'})).status,422);
+  assert.equal((await action('record-notification',notice)).status,200);
+  assert.equal(getRow().status,'declared');assert.equal(getRow().notification_decision,'required');
+  const history=f.sqlite.prepare("SELECT detail FROM enterprise_incident_events WHERE incident_id=? AND action='record-notification'").get(id)!;
+  assert.equal(JSON.parse(String(history.detail)).scope,'authority');
+  assert.equal((await action('record-notification',{...notice,expectedUpdatedAt:stamp})).status,409);
+  assert.equal((await action('link-evidence',{evidenceReference:'EVD-pretend'})).status,422);
+  assert.equal((await action('link-evidence',f.choice)).status,200);assert.equal((await action('link-evidence',f.choice)).status,409);
+  assert.equal(f.sqlite.prepare("SELECT count(*) n FROM workflow_evidence_pins WHERE entity_id=? AND purpose='incident-response'").get(id)!.n,1);
+  let board=(await f.get('view=crisis&incidentId='+id)).body;
+  assert.ok((board.targets as {id:string;rto:number}[]).some(t=>t.id==='BIA-501'&&t.rto===2));
+  assert.ok((board.people as {email:string;status:string}[]).some(p=>p.email===owner&&p.status==='Active'));
+  assert.equal((await action('create-improvement')).status,409);
+  f.sqlite.prepare("UPDATE enterprise_incidents SET status='closed',root_cause=?,lessons_learned=? WHERE id=?").run('A recovery dependency had no redundant path.','Test the redundant path during each recovery exercise.',id);
+  const promoted=await action('create-improvement');assert.equal(promoted.status,200,JSON.stringify(promoted.body));
+  const finding=promoted.body.finding as {id:string;code:string};assert.match(finding.code,/^FND-\d{3,}$/);
+  assert.deepEqual((await action('create-improvement')).body.finding,finding);
+  assert.equal(f.sqlite.prepare('SELECT source_ref FROM enterprise_findings WHERE id=?').get(finding.id)!.source_ref,id);
+  board=(await f.get('view=crisis&incidentId='+id)).body;assert.deepEqual(board.finding,finding);
+ }finally{f.sqlite.close();}
+});
