@@ -67,6 +67,8 @@ try{
   await graph.locator('.cm-node[data-root=true]').click();
   await expect(graph.locator('.cm-inspector h3')).toHaveText(controlTitle);
   checks.push('F03/F04/F07: exact title, target reload and return restore graph query and selection');await screenshot('03-map-return');
+  await graph.getByRole('button',{name:'Close details',exact:true}).click();
+  await expect(graph.locator('.cm-drawer')).toHaveCount(0);
 
   await open('Risk Assessment');await expect(page.locator('.core-record-focus:not(.record-link-entry)')).toHaveCount(0);
   await verifyBiaEditor(page,api,open);checks.push("BIA recovery limits, independent approval, linked dependencies and plan navigation");
