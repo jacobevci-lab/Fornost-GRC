@@ -14,10 +14,13 @@ export async function pick(dialog, label, query) {
     .click();
 }
 async function editor(page, module) {
-  await waitForQaIdle(page);
-  await page.reload();
   await switchQaLocale(page, 'en');
   await openQaModule(page, module);
+  // Server-created relations are loaded on shell startup. Refresh the destination
+  // after navigating, so the evidence table does not start a redundant assessment.
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  await page.locator('main > header h1').filter({ hasText: module }).waitFor();
+  await waitForQaIdle(page);
   await page.locator('.module-head .primary').click();
   return page.locator('.record-dialog');
 }

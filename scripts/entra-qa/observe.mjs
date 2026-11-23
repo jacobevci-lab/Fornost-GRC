@@ -7,29 +7,42 @@ const untranslated =
   /\b(?:Independent reviewer|Choose File|Save changes|Search records|No records found|Sign out|Record details|Create draft plan|CONTROLLED INCIDENT DECLARATION)\b/i;
 const key = /\b(?:i18n|translations|common|modules|actions)\.[a-z][\w.]+\b/;
 export async function monitor(ctx, report, origin, step) {
-  // A typeahead intentionally aborts its previous read when the query changes.
-  // Correlate the native request failure with the application's actual signal.
+  // Directory searches and evidence assurance abort superseded reads on query,
+  // row or navigation changes. Keep those distinct from timeouts and HTTP failures.
   const aborts = [],
     failed = [];
-  await ctx.exposeBinding('__entraLookupAbort', (_, url) => aborts.push({ url, time: Date.now() }));
+  await ctx.exposeBinding('__entraReadAborted', (_, url, started) =>
+    aborts.push({ url, started, time: Date.now() }),
+  );
   await ctx.addInitScript(() => {
-    const fetchOriginal = window.fetch;
+    const original = window.fetch;
     window.fetch = function (input, init) {
       const url = new URL(input instanceof Request ? input.url : input, location.href);
       const signal = init?.signal || (input instanceof Request ? input.signal : null);
-      const start = performance.now();
-      const result = fetchOriginal.call(this, input, init);
+      const method = init?.method || (input instanceof Request ? input.method : 'GET');
+      const watched = [
+        '/api/workflow-choices',
+        '/api/grc/risk-owners',
+        '/api/search',
+        '/api/evidence/assurance',
+      ];
       if (
+        method === 'GET' &&
         signal &&
         url.origin === location.origin &&
-        ['/api/workflow-choices', '/api/grc/risk-owners', '/api/search'].includes(url.pathname)
+        watched.includes(url.pathname)
       ) {
-        result.catch((error) => {
-          if (signal.aborted && error.name === 'AbortError' && performance.now() - start < 14000)
-            window.__entraLookupAbort(url.href).catch(() => {});
-        });
+        const started = Date.now();
+        signal.addEventListener(
+          'abort',
+          () => {
+            if (Date.now() - started < 14000)
+              window.__entraReadAborted(url.href, started).catch(() => {});
+          },
+          { once: true },
+        );
       }
-      return result;
+      return original.call(this, input, init);
     };
   });
   const safe = (text) =>
@@ -60,15 +73,17 @@ export async function monitor(ctx, report, origin, step) {
       };
       report.events.push(event);
       if (r.method() === 'GET' && event.message === 'net::ERR_ABORTED')
-        failed.push({ event, url: r.url(), time: Date.now() });
+        failed.push({ event, url: r.url(), started: r.timing().startTime, time: Date.now() });
     }
   });
   return () => {
-    for (const { event, url, time } of failed) {
-      const index = aborts.findIndex((a) => a.url === url && Math.abs(a.time - time) < 2000);
+    for (const { event, url, started, time } of failed) {
+      const index = aborts.findIndex(
+        (a) => a.url === url && Math.abs(a.started - started) < 250 && Math.abs(a.time - time) < 2000,
+      );
       if (index >= 0) {
         aborts.splice(index, 1);
-        event.kind = 'cancelled lookup';
+        event.kind = 'cancelled read';
         event.expected = true;
       }
     }
