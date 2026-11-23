@@ -217,6 +217,10 @@ export async function DELETE(req: NextRequest) {
   try {
   const d = await db(), audit = await d.prepare("SELECT * FROM simple_audits WHERE id=?").bind(id).first<Record<string, string | number | null>>();
   if (!audit) return NextResponse.json({ error: "Denetim bulunamadı." }, { status: 404 });
+  const expected = req.nextUrl.searchParams.get("expectedUpdatedAt");
+  if (expected !== null && expected !== audit.updated_at) {
+    return NextResponse.json({error:"Denetim değişti.",code:"LIFECYCLE_CONFLICT"},{status:409});
+  }
   const deletedRequirements = await deleteAudit(d, audit, auth.actor.email);
   return NextResponse.json({ ok: true, deletedRequirements });
   } catch(error) {
