@@ -3877,6 +3877,7 @@ function AuditModule({
     }),
     [savingAudit, setSavingAudit] = useState(false);
   const [posture,setPosture]=useState<AuditChoice>(false);
+  const [readingCatalog,setReadingCatalog]=useState(false);
   const [catalogImport, setCatalogImport] = useState<AuditCatalogImport|null>(null);
   const pickerRef=useRecordDialog<HTMLElement>(pickerOpen,()=>setPickerOpen(false));
   const [auditCreateError,setAuditCreateError] = useState("");
@@ -3937,7 +3938,7 @@ function AuditModule({
     );
   async function submitAudit(event: FormEvent) {
     event.preventDefault();setAuditCreateError("");
-    if(posture===null || catalogImport && !catalogImport.rightsConfirmed)return;
+    if(savingAudit || readingCatalog || posture===null || catalogImport && !catalogImport.rightsConfirmed)return;
     setSavingAudit(true);
     try { const ok=await createAudit({...auditDraft,...(catalogImport?{catalogImport}:{}),...(posture?{posture}:{})});
       if(ok==="preview-changed"){setPosture(null);setAuditCreateError(tr?"Kontrol veya kanıt değişti. Dönemi yeniden önizleyin.":"Controls or evidence changed. Preview the period again.");}
@@ -3946,7 +3947,7 @@ function AuditModule({
   }
   function openAuditPicker(){
     setAuditDraft({template:auditCatalog[0],name:auditCatalog[0],auditType:auditTypes[0][0],auditOwner:'',auditor:'',periodStart:'',periodEnd:'',targetDate:''});
-    setAuditCreateError('');setCatalogImport(null);setPosture(false);setPickerOpen(true);
+    setAuditCreateError('');setReadingCatalog(false);setCatalogImport(null);setPosture(false);setPickerOpen(true);
   }
   function chooseTemplate(template: string) {
     setPosture(false);
@@ -4054,7 +4055,7 @@ function AuditModule({
                   </select>
                 </label>
                 {!catalogImport && <FrameworkCatalogNotice framework={auditDraft.template} lang={lang} />}
-                <AuditCatalogUpload lang={lang} value={catalogImport} onChange={v=>{setCatalogImport(v);setPosture(false);}} />
+                <AuditCatalogUpload onBusy={setReadingCatalog} lang={lang} value={catalogImport} onChange={v=>{setCatalogImport(v);setPosture(false);}} />
 
                 <label className="wide">
                   {tr ? "Denetim adı" : "Audit name"}
@@ -4086,7 +4087,7 @@ function AuditModule({
                   >
                     {tr ? "Vazgeç" : "Cancel"}
                   </button>
-                  <button className="primary" disabled={savingAudit || posture===null || !!(catalogImport && !catalogImport.rightsConfirmed)}>
+                  <button className="primary" disabled={savingAudit || readingCatalog || posture===null || !!(catalogImport && !catalogImport.rightsConfirmed)}>
                     {savingAudit
                       ? tr
                         ? "Ekleniyor…"

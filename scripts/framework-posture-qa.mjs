@@ -146,7 +146,7 @@ try{
   await rationale.fill('Scope changed after audit start');await annexRow.getByRole('button',{name:'Save scope'}).click();
   await expect(annexRow.locator('.posture-status')).toHaveText('Out of scope');
   await expect(tree.getByRole('button',{name:/^A\.5 ·/})).toContainText('0/36');
-  await expect(work.locator('.posture-column-head').filter({hasText:'ISO 27001'})).toContainText('0/122');
+  await expect(work.locator('.posture-column-head').filter({hasText:'ISO 27001'})).toContainText('Awaiting assessment');
   await api('/api/audits',{name:'Stale preview '+tag,template:iso,posture:{period,token:before.token}},409);
   assert.deepEqual((await api(endpoint+'?auditId='+audit.id)).baseline,snapshot);
   await go('Compliance Management');

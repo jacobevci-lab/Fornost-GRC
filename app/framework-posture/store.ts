@@ -161,7 +161,7 @@ export function makeBaseline(matrix:Matrix, period:string):Baseline {
   const controls=new Map(matrix.controls.map(c=>[c.id,c])), evidence:Record<string,Pin>=Object.create(null);
   const entries=matrix.requirements.map(r=>({
     ref:r.ref,title:r.title,applicability:r.applicability,reason:r.reason,
-    controls:r.links.flatMap(link=>{
+    controls:(r.applicability==='excluded'?[]:r.links).flatMap(link=>{
       const c=controls.get(link.id);if(!c)return [];
       const pins=(matrix.pins[c.id]??[]).filter(p=>inAuditPeriod(p.period,p.collectedAt||'',period) && r.applicability!=='excluded');
       for(const p of pins)evidence[p.id]=p;

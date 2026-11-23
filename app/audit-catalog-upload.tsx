@@ -1,18 +1,19 @@
 'use client';
 import {useEffect,useRef,useState} from 'react';
 import {MAX_CATALOG_BYTES,validateCatalogImport,type AuditCatalogImport} from './audit-catalog-import';
-export function AuditCatalogUpload({lang,value,onChange}:{lang:'tr'|'en';value:AuditCatalogImport|null;onChange:(value:AuditCatalogImport|null)=>void}){
+export function AuditCatalogUpload({lang,value,onChange,onBusy}:{onBusy:(pending:boolean)=>void;lang:'tr'|'en';value:AuditCatalogImport|null;onChange:(value:AuditCatalogImport|null)=>void}){
  const [error,setError]=useState(''),generation=useRef(0);const tr=lang==='tr';
  useEffect(()=>()=>{generation.current++;},[]);
  const picker=useRef<HTMLInputElement>(null);
  async function read(file?:File) {
    if(!file)return;
+   onBusy(true);
    const ticket=++generation.current;onChange(null);setError('');
    try{
      if(file.size>MAX_CATALOG_BYTES)throw new Error();
      const pack=validateCatalogImport(JSON.parse(await file.text()),false);
      if(ticket===generation.current)onChange({...pack,rightsConfirmed:false});
-   }catch{if(ticket===generation.current)setError(tr?'JSON dosyasını, madde kodlarını ve 2 MB boyut sınırını kontrol edin.':'Check the JSON file, requirement codes and 2 MB size limit.');}
+   }catch{if(ticket===generation.current)setError(tr?'JSON dosyasını, madde kodlarını ve 2 MB boyut sınırını kontrol edin.':'Check the JSON file, requirement codes and 2 MB size limit.');}finally{if(ticket===generation.current)onBusy(false);}
  }
  return <details className="wide audit-catalog-drop"><summary>{tr?'+ Özel / lisanslı standart kataloğu (JSON) yükle':'+ Upload custom / licensed standard catalog (JSON)'}{value&&' · '+value.name}</summary>
  <p>{tr?'Yüklediğiniz katalog bu denetimin maddelerini belirler.':'The uploaded catalog supplies the requirements for this audit.'}</p>
