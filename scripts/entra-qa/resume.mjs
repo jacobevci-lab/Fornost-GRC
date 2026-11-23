@@ -29,7 +29,7 @@ export function matchOne(rows, predicate, key, optional = false) {
   return matches[0];
 }
 
-export function planChecks(p, ids, codes, people) {
+function planIdentity(p, ids, codes, people) {
   check(p && [ids.bia, codes.bia].includes(p.biaRef), 'plan.bia');
   check([p.rtoHours, p.rpoHours, p.mtpdHours].map(Number).join(',') === '2,1,4', 'plan.objectives');
   for (const [field, who] of [
@@ -38,11 +38,46 @@ export function planChecks(p, ids, codes, people) {
     ['crisisLead', 'lead'],
   ])
     check(same(p[field], people[who]), 'plan.' + field);
+}
+export function planChecks(p, ids, codes, people) {
+  planIdentity(p, ids, codes, people);
   for (const [field, k] of [
     ['assetRefs', 'asset'],
     ['supplierRefs', 'vendor'],
   ])
     check(p[field]?.length === 1 && containsRef(p[field], ids[k], codes[k]), 'plan.' + field);
+}
+
+export async function verifySavedPlan(api, resume) {
+  const { plan, ids, codes, people } = resume;
+  planIdentity(plan, ids, codes, people);
+  const missing = {};
+  for (const [field, k] of [
+    ['assetRefs', 'asset'],
+    ['supplierRefs', 'vendor'],
+  ]) {
+    const refs = plan[field];
+    check(Array.isArray(refs), 'plan.' + field);
+    if (refs.length === 0) missing[field] = [ids[k]];
+    else check(refs.length === 1 && containsRef(refs, ids[k], codes[k]), 'plan.' + field);
+  }
+  if (!Object.keys(missing).length) return planChecks(plan, ids, codes, people);
+  check(plan.status === 'draft' && plan.updatedAt, 'plan.draft-repair');
+  await api('/api/continuity', {
+    method: 'POST',
+    data: {
+      action: 'edit-plan',
+      planId: plan.id,
+      expectedUpdatedAt: plan.updatedAt,
+      owner: plan.owner,
+      reviewer: plan.reviewer,
+      crisisLead: plan.crisisLead,
+      biaMode: 'record',
+      ...missing,
+    },
+  });
+  const saved = (await api('/api/continuity')).plans.find((p) => p.id === plan.id);
+  planChecks(saved, ids, codes, people);
 }
 
 export async function resumeContext(api, rows, owner) {

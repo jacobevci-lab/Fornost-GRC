@@ -192,6 +192,23 @@ try {
         let resume;
         const ok = await step('Verify existing exercise and connected lineage', async () => {
           resume = await resumeContext(api, await inventory(api), owner);
+          // Reproduce a partial draft exclusively in the disposable database.
+          const plan = resume.plan;
+          await api('/api/continuity', {
+            method: 'POST',
+            data: {
+              action: 'edit-plan',
+              planId: plan.id,
+              expectedUpdatedAt: plan.updatedAt,
+              owner: plan.owner,
+              reviewer: plan.reviewer,
+              crisisLead: plan.crisisLead,
+              assetRefs: [],
+              supplierRefs: [],
+            },
+          });
+          resume.plan = (await api('/api/continuity')).plans.find((p) => p.id === plan.id);
+          assert.deepEqual([resume.plan.assetRefs, resume.plan.supplierRefs], [[], []]);
         });
         if (ok) await journey({ api, page, people: resume.people, step, isolated, report, resume });
       }

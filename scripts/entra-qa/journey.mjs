@@ -1,7 +1,15 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { expect } from '@playwright/test';
-import { check, planChecks, matchOne, containsRef, evidenceBytes, verifyCountdown } from './resume.mjs';
+import {
+  check,
+  planChecks,
+  verifySavedPlan,
+  matchOne,
+  containsRef,
+  evidenceBytes,
+  verifyCountdown,
+} from './resume.mjs';
 import { assetForm, biaForm, riskForm, aiForm } from './forms.mjs';
 import { title as t, note, date } from './records.mjs';
 import { openQaModule, switchQaLocale, waitForQaIdle } from '../qa-browser-harness.mjs';
@@ -33,7 +41,7 @@ export async function journey({ api, page, people, step, isolated, report, resum
   };
   if (resume) {
     await step('Persisted recovery plan and three independent roles', async () =>
-      planChecks(resume.plan, ids, codes, people),
+      verifySavedPlan(api, resume),
     );
   } else {
     await step('Tier 1 supplier', async () => {
