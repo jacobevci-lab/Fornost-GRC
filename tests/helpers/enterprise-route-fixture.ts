@@ -1,5 +1,5 @@
 import * as policyCenter from '../../app/policy-lifecycle/center-store';
-import * as incidentCrisis from '../../app/incidents/crisis';
+import * as incidentTables from '../../app/incidents/tables';
 import * as incidentCommand from '../../app/incidents/crisis-store';
 import * as findingSources from '../../app/findings/source-records';
 import * as findingCodes from '../../app/findings/codes';
@@ -89,7 +89,7 @@ export function fixture(module:'incidents'|'continuity'|'policy-lifecycle'|'thir
  const exports:Record<string,unknown>={};
  const require=(name:string)=>{
   if(name==='../../policy-lifecycle/center-store')return policyCenter;
-  if(name==='../../incidents/crisis')return incidentCrisis;
+  if(name==='../../incidents/tables')return incidentTables;
   if(name==='../../incidents/crisis-store')return incidentCommand;
   if(name==="../../third-party-risk/scope")return vendorScope;
   if(name==="../../third-party-risk/exit-store")return exitStore;

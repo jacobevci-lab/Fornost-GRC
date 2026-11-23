@@ -1,4 +1,5 @@
 "use client";
+import AiGovernanceWorkspace from './ai-governance/workspace';
 import { type AiRecordFocus } from "./ai-record-navigation";
 import { safeWebHref } from "./safe-web-href";
 
@@ -81,6 +82,7 @@ export default function FornostAiCopilot() {
   const [open, setOpen] = useState(false);
   const [workspaceLocale, setWorkspaceLocale] = useState("tr");
   const [recordFocus, setRecordFocus] = useState<AiRecordFocus | null>(null);
+  const [specialist,setSpecialist]=useState(false);
   const [workspaceHost, setWorkspaceHost] = useState<HTMLElement | null>(null);
   const [identityLoading, setIdentityLoading] = useState(false);
   const [identityError, setIdentityError] = useState("");
@@ -175,6 +177,7 @@ export default function FornostAiCopilot() {
       setWorkspaceHost(document.getElementById("ai-governance-workspace"));
       setOpen(true);
       setRecordFocus(detail.recordFocus || null);
+      setSpecialist(false);
       void refreshIdentity();
       if (detail.view) {
         setTab(detail.view);
@@ -421,6 +424,9 @@ export default function FornostAiCopilot() {
   const scoped = isScoped(user);
   const activeTab = scoped ? "chat" : user.role !== "Admin" && (tab === "portfolio" || tab === "audit" || tab === "metrics" || tab === "governance" || tab === "models" || tab === "compliance" || tab === "lifecycle" || tab === "incidents" || tab === "access" || tab === "release" || tab === "resilience" || tab === "datasets" || tab === "regulatory" || tab === "literacy" || tab === "supply-chain" || tab === "red-team" || tab === "transparency" || tab === "assurance" || tab === "assurance-alerts" || tab === "exceptions" || tab === "decommission" || tab === "findings" || tab === "feedback" || tab === "budget" || tab === "policy" || tab === "protection") ? "chat" : tab;
 
+  if(workspaceHost && open && !scoped && ['Admin','Editor'].includes(user.role) && !specialist && (tab==='portfolio'||(tab==='models'&&recordFocus?.kind==='ai-model'))){
+    return createPortal(<AiGovernanceWorkspace key={user.id} tr={workspaceLocale==='tr'} user={user} focus={recordFocus?.ref} onNative={view=>{setRecordFocus(null);setSpecialist(true);setTab(view)}}/>,workspaceHost);
+  }
   const panel = <>
     <button className={`fornost-ai-launcher ${aiReady ? "ready" : ""}`} onClick={() => { if (!open) void refreshIdentity(); setOpen((value) => !value); }} aria-expanded={open} aria-controls="fornost-ai-panel">
       <span>✦</span><b>Ask Fornost</b><i>{status?.operatingState==="emergency-stop"?"STOP":aiReady ? "AI" : "OFF"}</i>
@@ -430,6 +436,7 @@ export default function FornostAiCopilot() {
         <div><small>{workspaceHost ? "FORNOST · AI GOVERNANCE" : "FORNOST AI · READ-ONLY COPILOT"}</small><h2>{workspaceHost ? (workspaceLocale === "tr" ? "AI Yönetişimi" : "AI Governance") : "Ask Fornost"}</h2><p>{workspaceHost ? (workspaceLocale === "tr" ? "Envanter ve yönetişim hazır · AI bağlantısı yalnız yanıt üretimi için gerekir" : "Inventory and governance available · AI connection is only needed for generated assistance") : status?.model || (workspaceLocale === "tr" ? "AI sağlayıcısı bekleniyor" : "Awaiting AI provider")}</p></div>
         {!workspaceHost && <button data-escape-close type="button" onClick={() => setOpen(false)} aria-label="Kapat">×</button>}
       </header>
+      {workspaceHost && !scoped && <button type="button" onClick={()=>{setSpecialist(false);setRecordFocus(null);setTab("portfolio")}}>{workspaceLocale==="tr"?"← AI Yönetişimine dön":"← Return to AI governance"}</button>}
       {workspaceHost && !scoped && user.role === "Admin" && <nav className="ai-primary-nav" aria-label={workspaceLocale === "tr" ? "AI ana gezinme" : "AI primary navigation"}>
         {([["portfolio", "İş listesi", "Worklist"], ["models", "AI Envanteri", "AI Inventory"], ["impact", "Değerlendirmeler", "Assessments"], ["lifecycle", "İzleme", "Monitoring"]] as const).map(([view, tr, en]) => <button key={view} aria-current={activeTab === view ? "page" : undefined} onClick={() => {setRecordFocus(null); setCreateModel(false); setTab(view);}}>{workspaceLocale === "tr" ? tr : en}</button>)}
       </nav>}

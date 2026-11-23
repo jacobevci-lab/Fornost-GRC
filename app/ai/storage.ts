@@ -1,3 +1,4 @@
+import {aiWorkspaceSchema} from './governance-schema';
 import { completedInitialization } from "../completed-initialization";
 import { cleanAiText } from "./security";
 
@@ -620,6 +621,7 @@ export async function aiRuntime() {
       runtime.DB.prepare(aiAssuranceAlertsIndexSql),
       runtime.DB.prepare(aiAssurancePackagesSql),
       runtime.DB.prepare(aiAssurancePackagesIndexSql),
+      ...aiWorkspaceSchema.map(sql=>runtime.DB.prepare(sql)),
     ]));
   return runtime;
 }
