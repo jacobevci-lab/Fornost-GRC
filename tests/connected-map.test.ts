@@ -81,12 +81,14 @@ test('focus columns follow governance direction even when the register stores th
  const root={...risk,data:{...risk.data,asset:asset.id}};
  const rows=[asset,control,evidence,root],links=buildConnectedGrcGraph(rows).links;
  const graph=layoutMap(rows,links,root,1280,720);
- assert.deepEqual(graph.lanes.map(l=>l.count),[1,1,1]);
+ assert.deepEqual(graph.lanes.map(l=>l.count),[2,1,1]);
  const center=graph.nodes.find(n=>n.row.id===root.id)!;
  assert.equal(center.x+center.width/2,640);assert.equal(center.y+center.height/2,360);
  assert.equal(graph.nodes.find(n=>n.lane===0)?.row.id,control.id);
  assert.equal(graph.nodes.find(n=>n.lane===2)?.row.id,asset.id);
- assert.equal(graph.nodes.some(n=>n.row.id===evidence.id),false);
+ assert.equal(graph.nodes.find(n=>n.row.id===evidence.id)?.lane,0);
+ assert.ok(graph.wires.some(w=>w.start.row.id===evidence.id && w.end.row.id===control.id));
+ assert.ok(!graph.wires.some(w=>w.start.row.id===evidence.id && w.end.row.id===root.id));
  assert.equal(arrowLabel(links.find(e=>e.relation==='risk-control')!,true),'Azaltır');
  assert.equal(graph.nodes.every(n=>n.width>=210),true);
  const both=[...links,...contextLinks(rows,[{...context(asset,root),relation:'affects'}])];
