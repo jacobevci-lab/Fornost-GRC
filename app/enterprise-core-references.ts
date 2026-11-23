@@ -1,7 +1,10 @@
 import {regulatoryCoreTargets} from './regulatory-intelligence/domain';
-type Source={table:string;column:string;modules:string[];json?:boolean;filter?:string};
+type Source={table:string;column:string;modules:string[];json?:boolean;objectIds?:boolean;filter?:string};
 // Server-owned identifiers and predicates only. Historical/closed rows remain references.
 const sources:Source[]=[
+ ...Object.entries({asset:'Varlık Envanteri',vendor:'Tedarikçiler',risks:'Risk Assessment',controls:'Kontroller'}).map(([key,module])=>({table:'ai_system_profiles',column:"json_extract(profile_json,'$."+key+"')",modules:[module],objectIds:true})),
+ {table:'ai_system_decisions',column:"json_extract(snapshot_json,'$.pin.evidenceId')",modules:['Kanıtlar']},
+ {table:'ai_system_profiles',column:"json_extract(evidence_json,'$.evidenceId')",modules:['Kanıtlar']},
  {table:'risk_appetite_risk_links',column:'risk_id',modules:['Risk Assessment']},
  {table:'risk_kri_measurement_sources',column:'evidence_id',modules:['Kanıtlar']},
  ...['audit_requests','audit_workpapers'].map(table=>({table,column:"json_extract(data_json,'$.requirementId')",modules:['Denetim Yönetimi']})),
@@ -21,12 +24,17 @@ const sources:Source[]=[
  {table:'enterprise_incidents',column:'asset_refs',modules:['Varlık Envanteri']},
  {table:'enterprise_incidents',column:'risk_ref',modules:['Risk Assessment']},
  {table:'enterprise_incidents',column:'bia_ref',modules:['BIA']},
+ {table:'policy_exception_connections',column:'control_refs',modules:['Kontroller'],json:true},
+ {table:'policy_exception_connections',column:'risk_ref',modules:['Risk Assessment']},
+ {table:'policy_exception_connections',column:'scope_ref',modules:['Varlık Envanteri'],filter:"scope_kind='asset'"},
+ {table:'policy_exception_connections',column:'scope_ref',modules:['Tedarikçiler'],filter:"scope_kind='vendor'"},
  {table:'policy_versions',column:'control_refs_json',modules:['Kontroller','Uyum'],json:true},
  {table:'policy_versions',column:'risk_refs_json',modules:['Risk Assessment'],json:true},
  ...['third_party_profiles','third_party_assessments','third_party_findings','third_party_assurance_documents'].map(table=>({table,column:'vendor_id',modules:['Tedarikçiler']})),
  {table:'enterprise_findings',column:'risk_ref',modules:['Risk Assessment']},
  {table:'enterprise_findings',column:'control_ref',modules:['Kontroller','Uyum']},
  ...Object.entries({audit:['Denetim Yönetimi'],control:['Kontroller','Uyum'],risk:['Risk Assessment'],vendor:['Tedarikçiler']}).map(([type,modules])=>({table:'enterprise_findings',column:'source_ref',modules,filter:`source_type='${type}'`})),
+ ...Object.entries({control:['Kontroller'],risk:['Risk Assessment'],process:['BIA']}).map(([type,modules])=>({table:'regulatory_preliminary_impacts',column:'target_ref',modules,filter:`target_type='${type}'`})),
  ...Object.entries(regulatoryCoreTargets).map(([type,modules])=>({table:'regulatory_change_impacts',column:'target_ref',modules,filter:`target_type='${type}'`})),
 ];
 
@@ -39,6 +47,7 @@ export async function enterpriseCoreReferences(db:D1Database,module:string){
  const available=new Set(result.results.map(row=>row.name));
  const selects=rules.filter(rule=>available.has(rule.table)).map(rule=>{
   const filter=rule.filter?` WHERE ${rule.filter}`:'';
+  if(rule.objectIds)return `SELECT json_extract(part.value,'$.id') AS value FROM ${rule.table} JOIN json_each(${rule.column}) part WHERE part.type='object'`;
   return rule.json
    ? `SELECT part.value FROM ${rule.table} JOIN json_each(CASE WHEN json_valid(${rule.column}) AND json_type(${rule.column})='array' THEN ${rule.column} ELSE json_array(${rule.column}) END) part WHERE part.type='text'${rule.filter?` AND ${rule.filter}`:''}`
    : `SELECT ${rule.column} AS value FROM ${rule.table}${filter}`;

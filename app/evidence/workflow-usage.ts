@@ -37,7 +37,7 @@ export async function readWorkflowUsage(db:D1Database, workflow:Workflow, eviden
     LEFT JOIN enterprise_continuity_exercises e ON p.purpose='exercise-result' AND e.id=p.entity_id
     LEFT JOIN enterprise_continuity_gaps g ON p.purpose='gap-closure' AND g.id=p.entity_id
     LEFT JOIN enterprise_continuity_plans plan ON plan.id=COALESCE(e.plan_id,g.plan_id)` : `
-    i.id IS NOT NULL AND c.id IS NOT NULL AND s.id IS NOT NULL AS source_available,
+    i.id IS NOT NULL AND c.id IS NOT NULL AND (c.source_id='' OR s.id IS NOT NULL) AS source_available,
     i.target_title || ' · ' || c.title AS title,i.action_owner AS owner,i.status,i.due_date
     FROM workflow_evidence_pins p
     LEFT JOIN regulatory_change_impacts i ON i.id=p.entity_id

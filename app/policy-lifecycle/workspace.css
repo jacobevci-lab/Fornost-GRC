@@ -69,3 +69,11 @@ html[data-theme="dark"] .plm-page .pwl-hero button{color:#122024!important}
 .policy-version-links summary { cursor: pointer; }
 .policy-version-mappings dd { display: flex; flex-wrap: wrap; gap: .5rem; }
 .policy-version-mappings dd > * { max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
+
+.plm-page .policy-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.policy-kpis article{min-width:0;padding:14px 16px;background:var(--ws-surface);color:var(--ws-ink);border:1px solid var(--ws-line);border-radius:10px}
+.policy-kpis article b{font-size:1.55rem;color:var(--ws-ink)}.policy-kpis article span{font-size:.82rem;color:var(--ws-muted)}
+.policy-tab-tools,.plm-picked{display:flex;align-items:center;flex-wrap:wrap;gap:6px}.policy-tab-tools{justify-content:flex-end}
+html[data-theme] .policy-tab-tools button.primary{background:var(--ws-brand)!important;color:var(--fornost-on-brand,#fff)!important;border-color:var(--ws-brand)!important}
+.plm-page .plm-state{text-transform:none;font-size:.75rem}.plm-entity{min-width:0}.plm-picked{margin-block:4px}
+@media(max-width:760px){.plm-page .policy-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}

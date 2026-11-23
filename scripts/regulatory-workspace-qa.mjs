@@ -1,3 +1,4 @@
+import AxeBuilder from '@axe-core/playwright';
 import {chromium,expect} from '@playwright/test';
 import assert from 'node:assert/strict';
 import {mkdir,writeFile} from 'node:fs/promises';
@@ -12,26 +13,43 @@ page.setDefaultTimeout(20000);const errors=[];page.on('pageerror',e=>errors.push
 const date=days=>new Date(Date.now()+days*86400000).toISOString().slice(0,10);
 async function post(path,data,status=200){const r=await context.request.post(base+path,{headers:{origin:base},data});assert.equal(r.status(),status,await r.text());return r.json();}
 async function save(dialog,label,status=200){const pending=page.waitForResponse(r=>r.request().method()==='POST'&&new URL(r.url()).pathname==='/api/regulatory-intelligence');await dialog.getByRole('button',{name:label,exact:true}).click();const r=await pending;assert.equal(r.status(),status,await r.text());await waitForQaIdle(page);return r.json();}
-async function addSource(name){await page.locator('.ri-hero').getByRole('button',{name:'Add source',exact:true}).click();const d=page.getByRole('dialog',{name:'Add regulatory source'});for(const [label,value] of [['Source name',name],['Authority','QA Regulator'],['HTTPS URL',`https://example.com/reg-${name.replaceAll(' ','-')}`]])await d.getByLabel(label,{exact:true}).fill(value);await d.getByLabel('Source owner',{exact:true}).selectOption(owner);return save(d,'Save',201);}
+async function pick(dialog,label,query){
+ const combo=dialog.getByRole('combobox',{name:label,exact:true});
+ await combo.fill(query);await dialog.getByRole('option').filter({hasText:query}).first().click();
+}
+async function addSource(name,first=false){if(first)await page.getByRole('button',{name:'+ Add first regulatory source'}).click();else await page.locator('.ri-hero').getByRole('button',{name:'Add source',exact:true}).click();const d=page.getByRole('dialog',{name:'Add regulatory source'});if(first){await d.getByLabel('Source template').selectOption('TCMB');await expect(d.getByLabel('HTTPS URL')).toHaveValue('https://www.tcmb.gov.tr/');await pick(d,'Related compliance frameworks','ISO/IEC 27001:2022');}for(const [label,value] of [['Source name',name],['Authority','QA Regulator'],['HTTPS URL',`https://example.com/reg-${name.replaceAll(' ','-')}`]])await d.getByLabel(label,{exact:true}).fill(value);await pick(d,'Source owner',owner);return save(d,'Save',201);}
 try{
  await post('/api/auth',{action:'login',email:owner,password:qaPassword()});
  await post('/api/users',{name:'QA independent regulatory reviewer',email:reviewer,password:qaPassword(),role:'Admin'},201);
  await page.goto(base);await expect(page.locator('.shell')).toBeVisible();await page.locator('.language-switch:visible').getByRole('button',{name:'EN',exact:true}).click();await page.locator('nav button[aria-label="Regulatory Change Center"]').evaluate(b=>b.click());await waitForQaIdle(page);
  phase='source create and edit';console.log('Regulatory QA:',phase);
- const sourceName='QA primary source '+tag,source=await addSource(sourceName);
+ await post('/api/framework-posture',{action:'enroll',name:'ISO/IEC 27001:2022'});
+ await expect(page.locator('.rg-summary .rg-attention')).toHaveCount(0);
+ await page.locator('.ri-hero').getByRole('button',{name:'+ Change',exact:true}).click();
+ const intake=page.getByRole('dialog',{name:'Record regulatory change'});
+ await intake.getByLabel('Source',{exact:true}).selectOption('independent');await intake.getByLabel('External reference').fill('DRAFT-QA');
+ await intake.getByRole('button',{name:'+ Add new source'}).click();await expect(page.getByRole('dialog',{name:'Add regulatory source'})).toBeVisible();await page.getByRole('dialog').getByRole('button',{name:'Cancel',exact:true}).click();
+ await expect(intake.getByLabel('External reference')).toHaveValue('DRAFT-QA');await intake.getByRole('button',{name:'Cancel'}).click();
+ const sourceName='QA primary source '+tag,source=await addSource(sourceName,true);
  await page.locator('.ri-tabs').getByRole('button',{name:'Sources',exact:true}).click();await page.getByRole('textbox',{name:'Search regulations',exact:true}).fill(sourceName);
- let card=page.locator('.rg-source-list article').filter({hasText:sourceName});await expect(card).toBeVisible();await card.getByRole('button',{name:'Edit',exact:true}).click();let dialog=page.getByRole('dialog',{name:'Edit regulatory source'});await dialog.getByLabel('Source name',{exact:true}).fill(sourceName+' revised');await save(dialog,'Save');await expect(card).toContainText('revised');
+ let card=page.locator('.rg-source-list article').filter({hasText:sourceName});await expect(card).toContainText('ISO/IEC 27001:2022');await card.getByRole('button',{name:'Edit',exact:true}).click();let dialog=page.getByRole('dialog',{name:'Edit regulatory source'});await dialog.getByLabel('Source name',{exact:true}).fill(sourceName+' revised');await save(dialog,'Save');await expect(card).toContainText('revised');
  await card.getByRole('button',{name:'Archive',exact:true}).click();dialog=page.getByRole('dialog',{name:'Archive source'});await save(dialog,'Archive source');await page.getByRole('combobox',{name:'Work filter'}).selectOption('archived');await expect(card).toContainText('Archived');await card.getByRole('button',{name:'Restore',exact:true}).click();await save(page.getByRole('dialog',{name:'Restore source'}),'Restore source');await page.getByRole('combobox',{name:'Work filter'}).selectOption('all');await expect(card).toContainText('Manual review');
  phase='source delete';console.log('Regulatory QA:',phase);
  const unusedName='QA unused source '+tag;await addSource(unusedName);await page.getByRole('textbox',{name:'Search regulations',exact:true}).fill(unusedName);card=page.locator('.rg-source-list article').filter({hasText:unusedName});await card.getByRole('button',{name:'Delete',exact:true}).click();await page.getByRole('dialog',{name:'Delete source'}).getByRole('button',{name:'Cancel',exact:true}).click();await expect(card).toBeVisible();await card.getByRole('button',{name:'Delete',exact:true}).click();await save(page.getByRole('dialog',{name:'Delete source'}),'Delete source');await expect(card).toHaveCount(0);
  phase='change create';console.log('Regulatory QA:',phase);
+ await post('/api/policy-lifecycle',{action:'save-policy',assignmentMode:'directory',code:'POL-RG-'+tag,title:'QA linked policy '+tag,owner,reviewer,classification:'internal',category:'security',audience:'QA team',reviewFrequencyDays:365});
  await page.locator('.ri-hero').getByRole('button',{name:'+ Change',exact:true}).click();dialog=page.getByRole('dialog',{name:'Record regulatory change'});await dialog.getByLabel('Source',{exact:true}).selectOption(source.id);const title='QA access review '+tag;
  for(const [label,value] of [['External reference','QA-'+tag],['Title',title],['Change summary','Review access control and policy scope with retained approval evidence.'],['Published date',date(0)],['Effective date',date(30)]])await dialog.getByLabel(label,{exact:true}).fill(value);
- await dialog.getByLabel('Change owner',{exact:true}).selectOption(owner);await dialog.getByLabel('Independent reviewer',{exact:true}).selectOption(reviewer);const change=await save(dialog,'Save',201);
+ await pick(dialog,'Change owner',owner);
+ await dialog.getByLabel('Independent reviewer',{exact:true}).fill(owner);await expect(dialog.getByRole('status').filter({hasText:'No matches'})).toBeVisible();
+ await pick(dialog,'Independent reviewer',reviewer);
+ await dialog.getByLabel('Effective date',{exact:true}).fill(date(-1));await expect(dialog.getByRole('alert')).toContainText('cannot precede');await dialog.getByLabel('Effective date',{exact:true}).fill(date(30));
+ await pick(dialog,'Affected policies','QA linked policy '+tag);const change=await save(dialog,'Save',201);
  await page.locator('.ri-tabs').getByRole('button',{name:'Worklist',exact:true}).click();await page.getByRole('textbox',{name:'Search regulations',exact:true}).fill(title);await page.getByRole('button',{name:title,exact:true}).click();await expect(page.locator('.rg-detail')).toContainText(title);
  phase='canonical policy impact';console.log('Regulatory QA:',phase);
- const policy=await post('/api/policy-lifecycle',{action:'save-policy',assignmentMode:'directory',code:'POL-RG-'+tag,title:'QA linked policy '+tag,owner,reviewer,classification:'internal',category:'security',audience:'QA team',reviewFrequencyDays:365});
- await page.locator('.rg-detail').getByRole('button',{name:'+ Add impact',exact:true}).click();dialog=page.getByRole('dialog',{name:'Impact and remediation action'});await dialog.getByLabel('Target type',{exact:true}).selectOption('policy');await dialog.getByLabel('Search target records',{exact:true}).fill('QA linked policy '+tag);await dialog.getByLabel('Existing record',{exact:true}).selectOption(policy.id);await dialog.getByLabel('Required change / action',{exact:true}).fill('Update access review scope in the canonical policy.');await dialog.getByLabel('Action owner',{exact:true}).selectOption(owner);await dialog.getByLabel('Due date',{exact:true}).fill(date(7));await save(dialog,'Save',201);await expect(page.locator('.rg-detail')).toContainText('QA linked policy '+tag);await expect(page.locator('.rg-detail')).toContainText('Action due');
+
+ await expect(page.locator('.rg-register')).toContainText('Effective in 30 days');await expect(page.locator('.rg-detail')).toContainText('Awaiting assignment');
+ await page.locator('.rg-detail').getByRole('button',{name:'Assign action',exact:true}).click();dialog=page.getByRole('dialog',{name:'Impact and remediation action'});await expect(dialog).toContainText('QA linked policy '+tag);await dialog.getByLabel('Required change / action',{exact:true}).fill('Update access review scope in the canonical policy.');await dialog.getByLabel('Action owner',{exact:true}).selectOption(owner);await dialog.getByLabel('Due date',{exact:true}).fill(date(7));await save(dialog,'Save',201);await expect(page.locator('.rg-detail')).toContainText('QA linked policy '+tag);await expect(page.locator('.rg-detail')).toContainText('Action due');
  phase='search and pagination';console.log('Regulatory QA:',phase);
  for(let i=0;i<23;i++)await post('/api/regulatory-intelligence',{action:'create-change',sourceId:source.id,externalRef:`PAGE-${tag}-${i}`,title:`QA regulation ${tag} ${i}`,summary:'A synthetic regulatory change for pagination and scope verification.',publishedDate:date(0),effectiveDate:date(20+i),severity:i===0?'critical':'medium',changeType:'amendment',owner:i%2?reviewer:owner,reviewer:i%2?owner:reviewer},201);
  await page.getByRole('textbox',{name:'Search regulations',exact:true}).fill(String(tag));await waitForQaIdle(page);await expect(page.locator('.rg-register tbody tr')).toHaveCount(20);await page.locator('.rg-register .rg-pager').getByRole('button',{name:'Next',exact:true}).click();await expect(page.locator('.rg-register tbody tr')).toHaveCount(4);await page.getByRole('textbox',{name:'Search regulations',exact:true}).fill(title);await expect(page.locator('.rg-register tbody tr')).toHaveCount(1);
@@ -39,5 +57,23 @@ try{
  phase='recovery';let fail=true;await page.route('**/api/regulatory-intelligence?*',r=>new URL(r.request().url()).searchParams.has('view')&&fail?r.fulfill({status:503,json:{error:'Synthetic failure'}}):r.continue());await page.locator('.rg-meta').getByRole('button',{name:'Refresh',exact:true}).click();await expect(page.locator('.rg-workspace [role=alert]')).toContainText('could not be loaded');await expect(page.locator('.rg-summary')).not.toContainText('0');fail=false;await page.locator('.rg-workspace').getByRole('button',{name:'Retry',exact:true}).click();await expect(card).toBeVisible();await page.unroute('**/api/regulatory-intelligence?*');
  phase='responsive design';if(await page.locator('.ri-notice').count())await page.locator('.ri-notice').click();await page.locator('.ri-tabs').getByRole('button',{name:'Worklist',exact:true}).click();await page.getByRole('textbox',{name:'Search regulations',exact:true}).fill(String(tag));
  for(const lang of ['EN','TR'])for(const theme of ['light','dark'])for(const width of [1600,390]){await page.locator('.language-switch:visible').getByRole('button',{name:lang,exact:true}).click();await page.evaluate(value=>{document.documentElement.dataset.theme=value},theme);await page.setViewportSize({width,height:1000});await waitForQaIdle(page);assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+2),'page overflow');const metrics=await page.locator('.rg-summary strong').first().evaluate(e=>parseFloat(getComputedStyle(e).fontSize));assert.ok(metrics>=24,'readable metric typography');assert.equal(await page.locator('.ri-tabs').evaluate(e=>getComputedStyle(e).display),'flex');const dd=page.locator('.rg-detail dd').first();assert.notEqual(await dd.evaluate(e=>getComputedStyle(e).color),theme==='light'?'rgb(255, 255, 255)':'rgb(0, 0, 0)','detail contrast');await page.locator('.ri-page').screenshot({path:`${out}/regulatory-${lang}-${theme}-${width}.png`});}
- assert.deepEqual(errors,[]);await writeFile(out+'/report.json',JSON.stringify({result:'passed',changeId:change.id,sourceId:source.id,layouts:8,checks:['create/edit/archive/restore/delete source','cancel delete','linked source protected','create change','canonical policy impact','pagination','read recovery','TR/EN and light/dark responsive']},null,2));console.log('REGULATORY_WORKSPACE_QA_PASS');
+ phase='localized source and change dialogs';
+ for(const lang of ['TR','EN']){
+  const tr=lang==='TR';await page.locator('.language-switch:visible').getByRole('button',{name:lang,exact:true}).click();
+  for(const [trigger,field] of [[tr?'Kaynak ekle':'Add source',tr?'Kaynak sahibi':'Source owner'],[tr?'+ Değişiklik':'+ Change',tr?'Bağımsız inceleyen':'Independent reviewer']]){
+   await page.locator('.ri-hero').getByRole('button',{name:trigger,exact:true}).click();const modal=page.getByRole('dialog');
+   await expect(modal).toContainText(tr?'FORNOST REGÜLASYON İSTİHBARATI':'FORNOST REGULATORY INTELLIGENCE');
+   await expect(modal.getByRole('combobox',{name:field,exact:true})).toHaveCount(1);
+   for(const theme of ['light','dark']){
+    await page.evaluate(t=>document.documentElement.dataset.theme=t,theme);
+    const box=await modal.boundingBox();assert.ok(box&&box.width<=390&&box.x>=0,'mobile modal fits');
+    await modal.evaluate(async el=>{await new Promise(requestAnimationFrame);await Promise.allSettled(el.getAnimations({subtree:true}).filter(animation=>animation.effect?.getTiming().iterations!==Infinity).map(animation=>animation.finished));});
+    const contrast=await new AxeBuilder({page}).include('.ri-modal').withRules(['color-contrast']).analyze();
+    assert.deepEqual(contrast.violations.map(v=>v.nodes.map(n=>n.target)),[],`${lang} ${trigger} ${theme} contrast`);
+    await modal.screenshot({path:`${out}/modal-${lang}-${theme}-${trigger.length}.png`});
+   }
+   await modal.getByRole('button',{name:tr?'Vazgeç':'Cancel',exact:true}).click();
+  }
+ }
+ assert.deepEqual(errors,[]);await writeFile(out+'/report.json',JSON.stringify({result:'passed',changeId:change.id,sourceId:source.id,layouts:8,checks:['localized mobile intake in both themes','draft preserved on inline source cancel','framework enrollment selection','date validation and independent directory reviewer','preliminary impact assignment','create/edit/archive/restore/delete source','cancel delete','linked source protected','create change','canonical policy impact','pagination','read recovery','TR/EN and light/dark responsive']},null,2));console.log('REGULATORY_WORKSPACE_QA_PASS');
 }catch(error){await page.screenshot({path:out+'/failure.png',fullPage:true}).catch(()=>{});await writeFile(out+'/failure.json',JSON.stringify({phase,message:error.message,errors},null,2));throw error;}finally{await browser.close();}

@@ -146,3 +146,52 @@ test('worklist searches beyond the directory cap and clamps pages deterministica
   assert.equal((await f.get('view=worklist&scope=mine&page=-1')).status,400);
  }finally{f.sqlite.close()}
 });
+
+test('policy register allocates stable short codes, preserves earlier identifiers and counts live queues',async()=>{
+ const f=await setup();
+ try{
+  const before=(await f.get()).body;
+  const old=(before.documents as {id:string;code:string;legacyCode:string}[]).find(p=>p.id===f.policyId)!;
+  assert.equal(old.legacyCode,f.policy.code);assert.equal(old.code,'POL-001');
+  assert.equal(before.nextCode,'POL-002');
+  f.setActor(actor('maker'));
+  assert.equal((await f.post({...f.policy,code:old.code,shortCode:true})).body.code,'POLICY_CODE_TAKEN');
+  const submitted={...f.policy,code:before.nextCode,autoCode:true};
+  f.setActor(actor('maker'));
+  const second=await f.post(submitted),third=await f.post({...submitted,title:'Another policy using the same preview'});
+  assert.equal(second.body.code,'POL-002');assert.equal(third.body.code,'POL-003');
+  assert.equal((await f.get('view=worklist&scope=org&q=POL-003')).body.total,1);
+  const summary=async()=>(await f.get()).body.summary as Record<string,number>;
+  f.setActor(actor('owner','Editor'));assert.equal((await f.decision('submit')).status,200);
+  assert.equal((await summary()).awaitingReview,1);
+  const work=async()=>(await f.get('view=worklist&scope=org')).body.rows as {kind:string;decision?:{operation:string}}[];
+  assert.equal((await work()).find(r=>r.kind==='review')?.decision,undefined);
+  f.setActor(actor('reviewer'));assert.equal((await work()).find(r=>r.kind==='review')?.decision?.operation,'approve');
+  await f.decision('approve');await f.decision('publish');assert.equal((await summary()).published,1);assert.equal((await summary()).awaitingReview,0);
+ }finally{f.sqlite.close();}
+});
+
+test('exception scope, compensating controls and independently approved risk are typed, protected and atomic',async()=>{
+ const f=await setup();
+ try{
+  await f.publish();
+  const stamp=new Date().toISOString(),insert=f.sqlite.prepare('INSERT INTO simple_grc_records VALUES(?,?,?,?,?)');
+  for(const [id,module] of [['AST-401','Varlık Envanteri'],['VEN-401','Tedarikçiler'],['CTL-401','Kontroller'],['CTL-402','Kontroller'],['RSK-401','Risk Assessment']])insert.run(id,module,'{"businessUnit":"IT"}',stamp,stamp);
+  f.setActor(actor('maker'));
+  const data={action:'create-exception',assignmentMode:'directory',policyId:f.policyId,versionId:f.policyVersionId,scope:'Production vendor',scopeKind:'vendor',scopeRef:'VEN-401',controlRefs:['CTL-401','CTL-402'],rationale:'Scoped migration exception for payments.',compensatingControl:'Two independent controls reviewed weekly.',owner:'owner@example.com',reviewer:'reviewer@example.com',expiresAt:future(30)};
+  assert.notEqual((await f.post({...data,scopeRef:'AST-401'})).status,200);
+  assert.notEqual((await f.post({...data,controlRefs:['RSK-401']})).status,200);
+  assert.equal((await f.post({...data,scope:'Finans',scopeKind:'unit',scopeRef:'Finans'})).status,200);
+  assert.notEqual((await f.post({...data,scopeKind:'unit',scopeRef:'unregistered'})).status,200);
+  const result=await f.post(data);assert.equal(result.status,200);const id=String(result.body.id);
+  f.setActor(actor('owner','Editor'));await f.decision('submit-exception',id);
+  assert.equal((await f.decision('approve-exception',id,{riskRef:'RSK-401'})).status,403);
+  f.setActor(actor('reviewer'));assert.notEqual((await f.decision('approve-exception',id,{riskRef:'VEN-401'})).status,200);
+  const old=await f.context('exception',id);
+  f.sqlite.prepare("UPDATE policy_exception_connections SET control_refs='[]' WHERE exception_id=?").run(id);
+  assert.equal((await f.decision('approve-exception',id,{expectedRevision:old.revision,riskRef:'RSK-401'})).status,409);
+  assert.equal((await f.decision('approve-exception',id,{riskRef:'RSK-401'})).status,200);
+  const {body}=await f.get(),linked=(body.exceptions as {id:string;riskRef:string;scopeRef:string}[]).find(r=>r.id===id)!;
+  assert.equal(linked.riskRef,'RSK-401');assert.equal(linked.scopeRef,'VEN-401');assert.equal((body.summary as {activeExceptions:number}).activeExceptions,1);
+ }finally{f.sqlite.close();}
+});

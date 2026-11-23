@@ -5,10 +5,10 @@ type Source = keyof ConnectedGrcEnterprisePayloads;
 // Load neighbouring enterprise sources only on demand. Core records already belong to the current session.
 export const moduleTrailSources: Record<string, Source[]> = {
   "BIA": ["continuity", "incidents"],
-  "Varlık Envanteri": ["continuity", "incidents", "thirdParty"],
+  "Varlık Envanteri": ["continuity", "incidents", "thirdParty","policy"],
   "Uyum": ["policy", "regulatory"],
   "Denetim Yönetimi": ["audits", "findings"],
-  "Tedarikçiler": ["thirdParty", "findings"],
+  "Tedarikçiler": ["thirdParty", "findings","policy"],
   "Bulgular ve CAPA": ["audits", "findings", "thirdParty", "incidents", "evidenceAutomation", "policy", "regulatory"],
   "İş Sürekliliği": ["continuity", "incidents"],
   "Güvenlik Olayları": ["incidents", "findings", "continuity"],

@@ -20,19 +20,22 @@ const catalogs:Record<string,string> = {
 };
 export type FindingSourceChoice={id:string;title:string;code:string;controls:string[]};
 export class FindingSourceError extends Error { constructor(public status:number){super('FINDING_SOURCE_SELECTION');} }
-function catalog(type:unknown){
+async function catalog(db:D1Database,type:unknown){
   if(typeof type!=='string'||!Object.hasOwn(catalogs,type))throw new FindingSourceError(400);
+  if(type==='ai' && await db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='ai_model_inventory'").first()){
+    return catalogs.ai+" UNION ALL SELECT m.id,m.system_name,COALESCE(c.code,m.id),'' FROM ai_model_inventory m LEFT JOIN simple_grc_record_codes c ON c.record_id=m.id";
+  }
   return catalogs[type];
 }
 export async function searchFindingSources(db:D1Database,type:unknown,query:string){
   if(query.length>160)throw new FindingSourceError(400);
-  const rows=await db.prepare(`SELECT * FROM (${catalog(type)}) WHERE instr(${foldSql("id||' '||title||' '||code")},?)>0 ORDER BY title COLLATE NOCASE,id LIMIT 51`)
+  const rows=await db.prepare(`SELECT * FROM (${await catalog(db,type)}) WHERE instr(${foldSql("id||' '||title||' '||code")},?)>0 ORDER BY title COLLATE NOCASE,id LIMIT 51`)
     .bind(foldSearch(query.trim())).all<{id:string;title:string;code:string;controls:string}>();
   return {records:rows.results.slice(0,50).map(row=>({...row,controls:splitContinuousAssuranceControlRefs(row.controls)})),more:rows.results.length>50};
 }
 export async function resolveFindingSource(db:D1Database,type:unknown,id:unknown){
   if(typeof id!=='string'||!id||id.length>120)throw new FindingSourceError(422);
-  const sql=catalog(type);
+  const sql=await catalog(db,type);
   const rows=await db.prepare(`SELECT title FROM (${sql}) WHERE id=? LIMIT 2`).bind(id).all<{title:string}>();
   if(rows.results.length!==1)throw new FindingSourceError(422);
   const title=rows.results[0].title;

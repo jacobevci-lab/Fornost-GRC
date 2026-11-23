@@ -388,6 +388,16 @@ export const regulatoryChanges = sqliteTable("regulatory_changes", {
   index("regulatory_changes_status_effective_idx").on(table.status, table.severity, table.effectiveDate),
 ]);
 
+export const regulatorySourceFrameworks = sqliteTable("regulatory_source_frameworks", {
+ sourceId: text("source_id").primaryKey().references(()=>regulatoryIntelligenceSources.id,{onDelete:"cascade"}),
+ frameworkNames: text("framework_names").notNull(),
+});
+
+export const regulatoryPreliminaryImpacts = sqliteTable("regulatory_preliminary_impacts", {
+ changeId: text("change_id").notNull().references(()=>regulatoryChanges.id,{onDelete:"cascade"}),
+ targetType: text("target_type").notNull(),targetRef: text("target_ref").notNull(),targetTitle: text("target_title").notNull(),
+}, table=>[primaryKey({columns:[table.changeId,table.targetType,table.targetRef]})]);
+
 export const regulatoryChangeImpacts = sqliteTable("regulatory_change_impacts", {
   id: text("id").primaryKey(),
   changeId: text("change_id").notNull(),
@@ -504,3 +514,21 @@ export const continuityPlanSettings = sqliteTable("enterprise_continuity_plan_se
 export const policyImportChunks = sqliteTable("policy_import_chunks", {
  versionId:text("version_id").notNull(), part:integer("part").notNull(), content:blob("content").notNull(),
 }, table=>[primaryKey({columns:[table.versionId,table.part]})]);
+
+export const policyExceptionConnections = sqliteTable("policy_exception_connections", {
+ exceptionId:text("exception_id").primaryKey(),scopeKind:text("scope_kind").notNull(),scopeRef:text("scope_ref").notNull(),
+ controlRefs:text("control_refs").notNull().default("[]"),riskRef:text("risk_ref"),
+});
+
+export const aiSystemProfiles=sqliteTable("ai_system_profiles",{
+ modelId:text("model_id").primaryKey(),profileJson:text("profile_json").notNull(),assessmentJson:text("assessment_json").notNull().default("{}"),
+ evidenceJson:text("evidence_json"),phase:text("phase").notNull().default("draft"),submittedBy:text("submitted_by"),decidedBy:text("decided_by"),decisionNote:text("decision_note"),updatedAt:text("updated_at").notNull(),
+});
+export const aiShadowRegister=sqliteTable("ai_shadow_register",{
+ id:text("id").primaryKey(),name:text("name").notNull(),context:text("context").notNull(),discoveredBy:text("discovered_by").notNull(),discoveredAt:text("discovered_at").notNull(),
+ status:text("status").notNull().default("unreviewed"),modelId:text("model_id"),decidedBy:text("decided_by"),decisionNote:text("decision_note"),decidedAt:text("decided_at"),
+},table=>[index("ai_shadow_status_idx").on(table.status,table.discoveredAt)]);
+export const aiMonitorDetails=sqliteTable("ai_monitor_details",{
+ observationId:text("observation_id").primaryKey(),hallucination:real("hallucination"),leakage:integer("leakage"),findingId:text("finding_id"),incidentId:text("incident_id"),acknowledgedAt:text("acknowledged_at"),
+});
+export const aiSystemDecisions=sqliteTable("ai_system_decisions",{id:text("id").primaryKey(),modelId:text("model_id").notNull(),action:text("action").notNull(),actor:text("actor").notNull(),at:text("at").notNull(),snapshotJson:text("snapshot_json").notNull()});

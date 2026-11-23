@@ -2,8 +2,8 @@ import {useEffect,useState} from "react";
 import {useWorkflowRecords} from "../use-workflow-records";
 import {workNames,type PolicyWorkPage,type PolicyWorkItem} from "./worklist";
 
-export function PolicyWorklist({tr,role,emptyRegister,open,create,inventory}:{
-  tr:boolean;role:string;emptyRegister:boolean;open:(row:PolicyWorkItem)=>void;create:()=>void;inventory:()=>void;
+export function PolicyWorklist({tr,role,emptyRegister,open,act,create,inventory}:{
+  tr:boolean;role:string;emptyRegister:boolean;open:(row:PolicyWorkItem)=>void;act:(row:PolicyWorkItem)=>void;create:()=>void;inventory:()=>void;
 }){
   const [scope,setScope]=useState(role==="Viewer"?"mine":"org"),[text,setText]=useState(""),[query,setQuery]=useState(""),[page,setPage]=useState(1),[expanded,expand]=useState("");
   useEffect(()=>{const t=setTimeout(()=>{setQuery(text.trim());setPage(1);expand("");},180);return()=>clearTimeout(t);},[text]);
@@ -30,13 +30,16 @@ export function PolicyWorklist({tr,role,emptyRegister,open,create,inventory}:{
       <input type="search" aria-label={tr?"İş listesinde ara":"Search worklist"} placeholder={tr?"Politika, işlem veya sorumlu ara…":"Search policy, task or assignee…"} value={text} maxLength={200} onChange={e=>setText(e.target.value)}/></div>
     {busy?<p role="status">{tr?"İş listesi yükleniyor…":"Loading worklist…"}</p>:!data?<p role="alert">{tr?"İş listesi alınamadı.":"Worklist unavailable."} <button onClick={()=>void source.reload()}>{tr?"Yeniden dene":"Retry"}</button></p>:<>
       <div className="pwl-counts"><span>{activeScope==="mine"?(tr?"Atandığım açık kampanya":"My open campaigns"):(tr?"Açık kampanya":"Open campaigns")} <b>{data.openCampaigns}</b></span><span>{activeScope==="mine"?(tr?"Bekleyen beyanım":"My pending responses"):(tr?"Bekleyen çalışan beyanı":"Pending employee responses")} <b>{data.pendingResponses}</b></span></div>
-      {data.rows.length?<div className="pwl-table"><table><thead><tr>{(tr?["Politika ve kayıt","Bekleyen işlem","Sorumlu","İlgili tarih"]:["Policy and record","Pending task","Responsible","Relevant date"]).map(s=><th scope="col" key={s}>{s}</th>)}</tr></thead>
+      {data.rows.length?<div className="pwl-table"><table><thead><tr>{(tr?["Politika ve kayıt","Bekleyen işlem","Sorumlu","İlgili tarih","Aksiyon"]:["Policy and record","Pending task","Responsible","Relevant date","Action"]).map(s=><th scope="col" key={s}>{s}</th>)}</tr></thead>
       {data.rows.map(row=>{
         const key=row.kind+":"+row.id,shown=expanded===key,exception=["expiry","exceptionReview","exceptionDraft"].includes(row.kind);
         return <tbody key={key}><tr><td><button className="pwl-row" aria-expanded={shown} onClick={()=>expand(shown?"":key)}><span aria-hidden="true" className="pwl-marker"/><span><b>{row.title}</b><small>{row.code}{row.versionNumber!=null?` · v${row.versionNumber}`:""}</small></span></button></td>
           <td data-label={tr?"İşlem":"Task"}>{workNames[row.kind][tr?0:1]}</td><td data-label={tr?"Sorumlu":"Responsible"}>{row.responsible}</td>
-          <td data-label={tr?"Tarih":"Date"}><span className={row.due&&row.due<today?"pwl-late":""}>{date(row)}</span>{row.due&&<small>{exception?(tr?"İstisna bitişi":"Exception expiry"):row.kind==="periodic"?(tr?"İnceleme tarihi":"Review due"):(tr?"Yanıt son tarihi":"Response deadline")}</small>}</td></tr>
-          {shown&&<tr className="pwl-detail"><td colSpan={4}><div><span>{row.detail||workNames[row.kind][tr?0:1]}</span><button onClick={()=>open(row)}>{action(row)}</button></div></td></tr>}</tbody>;
+          <td data-label={tr?"Tarih":"Date"}><span className={row.due&&row.due<today?"pwl-late":""}>{date(row)}</span>{row.due&&<small>{exception?(tr?"İstisna bitişi":"Exception expiry"):row.kind==="periodic"?(tr?"İnceleme tarihi":"Review due"):(tr?"Yanıt son tarihi":"Response deadline")}</small>}</td><td data-label={tr?"Aksiyon":"Action"}><button type="button" onClick={()=>row.decision?act(row):open(row)}>{row.decision?({
+           submit:tr?"İncelemeye Gönder":"Submit for review","submit-exception":tr?"İncelemeye Gönder":"Submit for review",approve:tr?"İncele / Onayla":"Review / Approve",
+           "approve-exception":tr?"İncele / Onayla":"Review / Approve",publish:tr?"Yayına Al":"Publish","close-exception":tr?"İncele / Kapat":"Review / Close"
+          }[row.decision.operation]||action(row)):action(row)} →</button></td></tr>
+          {shown&&<tr className="pwl-detail"><td colSpan={5}><div><span>{row.detail||workNames[row.kind][tr?0:1]}</span><button onClick={()=>open(row)}>{action(row)}</button></div></td></tr>}</tbody>;
       })}</table></div>:<div className="pwl-empty"><h3>{emptyRegister&&role==="Viewer"?(tr?"Size atanmış politika yok":"No policies assigned to you"):emptyRegister?(tr?"Henüz politika yok":"No policies yet"):query?(tr?"Aramayla eşleşen iş yok":"No matching work"):activeScope==="mine"?(tr?"Size atanmış bekleyen iş yok":"No pending work assigned to you"):(tr?"Bekleyen yönetişim işi yok":"No pending governance work")}</h3>
         {emptyRegister&&role!=="Viewer"?<button onClick={create}>{tr?"İlk politikayı oluştur":"Create the first policy"}</button>:query?<button onClick={()=>setText("")}>{tr?"Aramayı temizle":"Clear search"}</button>:!emptyRegister&&<button onClick={inventory}>{tr?"Envanteri aç":"Open register"}</button>}</div>}
       {data.pages>1&&<nav className="pwl-pages" aria-label={tr?"İş listesi sayfaları":"Worklist pages"}><button disabled={data.page===1} onClick={()=>{expand("");setPage(data.page-1)}}>{tr?"Önceki":"Previous"}</button><span>{data.page} / {data.pages} · {data.total} {tr?"iş":"tasks"}</span><button disabled={data.page>=data.pages} onClick={()=>{expand("");setPage(data.page+1)}}>{tr?"Sonraki":"Next"}</button></nav>}
