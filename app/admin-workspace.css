@@ -15,3 +15,5 @@
 #admin-workspace .connector-register{overflow-x:auto;margin-top:20px}
 #admin-workspace .connector-register th,#admin-workspace .connector-register td{padding:12px;text-align:left;border-bottom:1px solid var(--ws-line);white-space:normal}
 #admin-workspace .connector-register td small{display:block;color:var(--ws-muted)}
+
+#admin-workspace strong{font-family:inherit!important;font-size:inherit!important}

@@ -5,7 +5,7 @@ import {query,realAdmin,testNames,inventory,removeAccount} from '../../../script
 assert.equal(process.env.GITHUB_REF,'refs/heads/main','Production QA identities require main');
 assert.equal(process.env.GITHUB_REPOSITORY,'jacobevci-lab/Fornost-GRC');
 // Recover abandoned identities from cancelled runners; active concurrent runs remain untouched.
-for(const user of await inventory())if(user.id.startsWith('ephemeral-qa:')&&Date.parse(user.created_at)<Date.now()-6*3100000)await removeAccount(user,'Expired QA cleanup');
+for(const user of await inventory())if(user.id.startsWith('ephemeral-qa:')&&Date.parse(user.created_at)<Date.now()-6*3600000)await removeAccount(user,'Expired QA cleanup');
 const id='ephemeral-qa:'+randomUUID(),email=id.replace(':','-')+'@qa.fornost.test',name='Temporary production QA '+process.env.GITHUB_RUN_ID;
 const password=randomBytes(32).toString('base64url')+'aA1!',salt=randomBytes(16),hash=pbkdf2Sync(password,salt,100000,32,'sha256').toString('hex'),now=new Date().toISOString();
 console.log('::add-mask::'+password);appendFileSync(process.env.GITHUB_STATE,`account_id=${id}\n`);

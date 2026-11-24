@@ -13,7 +13,7 @@ test("permission summaries apply the role ceiling and scoped boundary",()=>{
  assert.equal(modulePermission({...user,role:"Editor"},"BIA","en"),"Read and edit");
  assert.equal(modulePermission(user,"Kontroller","en"),"No access");
  assert.equal(scopeLabel(user,"tr"),"1 modül");
- assert.equal(scopeLabel({...user,role:"Admin"},"en"),"Full workspace");
+ assert.equal(scopeLabel({...user,role:"Admin"},"en"),"All modules");
 });
 test("history distinguishes deleted accounts and local session revocation without parsing failures",()=>{
  assert.equal(accountEvent('{"operation":"delete-local-account"}',"en"),"Local account deleted");
