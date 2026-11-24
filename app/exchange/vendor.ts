@@ -1,9 +1,11 @@
+import {event} from '../enterprise/http';
+import {withBasePath} from '../base-path';
+import {defaultVendorScope,portalQuestions} from './vendor-questionnaire';
 import {
   check,
   emailOk,
   hash,
   plusDays,
-  sendLink,
   stamp,
   token,
   type Env,
@@ -27,13 +29,18 @@ type Profile = {
   risk_owner: string;
   criticality: string;
   updated_at: string;
+  scope: string;
+  org_entity_id: string;
 };
 export async function invite(
   env: Env,
   req: Request,
   id: string,
   actor: string,
+  options: {days?:unknown;scope?:unknown} = {},
 ) {
+  const days=options.days??14,scope=options.scope===undefined?defaultVendorScope:String(options.scope).trim();
+  check([7,14,30].includes(Number(days))&&typeof days==='number'&&scope.length>0&&scope.length<=2000);
   const db = env.DB,
     p = await db
       .prepare(
@@ -57,43 +64,39 @@ export async function invite(
     .bind(id)
     .first<{ id: string; updated_at: string }>();
   const key = token(),
-    digest = await hash(key);
+    digest = await hash(key),at=stamp(),expiresAt=plusDays(days as number);
   await db.batch([
     db
       .prepare(
-        "DELETE FROM vendor_invitations WHERE vendor_id=? AND receipt IS NULL",
+        "UPDATE vendor_invitations SET expires_at=? WHERE vendor_id=? AND receipt IS NULL AND expires_at>?",
       )
-      .bind(id),
+      .bind(at,id,at),
     db
       .prepare("INSERT INTO vendor_invitations VALUES(?,?,?,?,?,?,?,NULL)")
       .bind(
         digest,
         id,
         p.contact,
-        plusDays(14),
+        expiresAt,
         actor,
         draft?.id || null,
         draft?.updated_at || null,
       ),
+    db.prepare("INSERT INTO vendor_invitation_details VALUES(?,?,?,NULL)").bind(digest,scope,at),
+    event(db,actor,'vendor-invite-created',JSON.stringify({vendor:id,days,expiresAt})),
   ]);
-  return sendLink(
-    db,
-    env,
-    req,
-    p.contact,
-    "/vendor-portal/" + key,
-    "Fornost · Tedarikçi güvenlik değerlendirmesi / Supplier security assessment",
-  );
+  return {url:withBasePath('/vendor-portal/'+key),expiresAt,days};
+
 }
 export const docKinds = ["SOC 2 Type II", "ISO 27001", "Pentest", "DPA"];
 export async function vendorContext(db: D1Database, key: string) {
   check(/^[a-f0-9]{64}$/.test(key), 404, "link");
   const p = await db
     .prepare(
-      "SELECT p.* FROM vendor_invitations i JOIN third_party_profiles p ON p.vendor_id=i.vendor_id WHERE i.digest=? AND i.receipt IS NULL AND i.expires_at>? AND i.email=p.contact AND lower(i.email)<>lower(p.reviewer) AND " +
+      "SELECT p.*,coalesce(d.scope,?) scope,coalesce(o.org_entity_id,'root') org_entity_id FROM vendor_invitations i JOIN third_party_profiles p ON p.vendor_id=i.vendor_id LEFT JOIN vendor_invitation_details d ON d.digest=i.digest LEFT JOIN org_record_entities o ON o.kind='vendor' AND o.record_id=p.vendor_id WHERE i.digest=? AND i.receipt IS NULL AND i.expires_at>? AND i.email=p.contact AND lower(i.email)<>lower(p.reviewer) AND " +
         active,
     )
-    .bind(await hash(key), stamp())
+    .bind(defaultVendorScope,await hash(key), stamp())
     .first<Profile>();
   check(p, 410, "link");
   return p;
@@ -121,6 +124,12 @@ export async function submitVendor(env: Env, req: Request, key: string) {
     check(value === "yes" || value === "no");
     answers[q] = value === "yes";
   }
+  const declarations:Record<string,string>={};
+  for(const key of Object.keys(portalQuestions)){const value=fd.get(key);check(value==='yes'||value==='no',422,'questionnaire');declarations[key]=value;}
+  for(const key of ['dataLocation','subprocessors']){const value=fd.get(key);check(typeof value==='string'&&value.trim().length>0&&value.length<=2000,422,'questionnaire');declarations[key]=value.trim();}
+  answers.accessControl=answers.accessControl&&declarations.mfa==='yes';
+  answers.bcdr=answers.bcdr&&declarations.backups==='yes';
+  answers.dpa=answers.dpa&&declarations.privacy==='yes';
   const at = stamp(),
     period = at.slice(0, 10),
     who = "vendor:" + p.contact,
@@ -132,7 +141,7 @@ export async function submitVendor(env: Env, req: Request, key: string) {
       name: "questionnaire.json",
       type: "application/json",
       bytes: new TextEncoder().encode(
-        JSON.stringify({ answers, submittedAt: at }),
+        JSON.stringify({ answers, declarations, scope:p.scope, submittedAt: at }),
       ),
     },
   ];
@@ -171,11 +180,11 @@ export async function submitVendor(env: Env, req: Request, key: string) {
       .prepare(
         "UPDATE vendor_invitations SET receipt=? WHERE digest=? AND receipt IS NULL AND expires_at>? AND " +
           sameDraft +
-          " AND EXISTS(SELECT 1 FROM third_party_profiles p WHERE p.vendor_id=vendor_invitations.vendor_id AND p.updated_at=? AND p.contact=vendor_invitations.email AND " +
+          " AND EXISTS(SELECT 1 FROM third_party_profiles p WHERE p.vendor_id=vendor_invitations.vendor_id AND p.updated_at=? AND coalesce((SELECT org_entity_id FROM org_record_entities WHERE kind='vendor' AND record_id=p.vendor_id),'root')=? AND p.contact=vendor_invitations.email AND " +
           active +
           ")",
       )
-      .bind(receipt, digest, at, p.updated_at),
+      .bind(receipt, digest, at, p.updated_at,p.org_entity_id),
   ];
   const put = (
     table: string,
@@ -263,6 +272,7 @@ export async function submitVendor(env: Env, req: Request, key: string) {
         created_at: at,
         updated_at: at,
       });
+      put("org_record_entities",{kind:'evidence',record_id:id,org_entity_id:p.org_entity_id,note:'Vendor portal evidence',revision:at});
       put("simple_grc_record_codes", {
         record_id: id,
         module: "Kanıtlar",
@@ -360,6 +370,7 @@ export async function submitVendor(env: Env, req: Request, key: string) {
       actor: who,
       created_at: at,
     });
+    statements.push(event(db,who,'vendor-assessment-submitted',JSON.stringify({vendor:p.vendor_id,evidence:codes,reviewer:p.reviewer}),'changes()=1'));
     const result = await db.batch(statements);
     check(result[0].meta?.changes === 1, 409, "link");
     return { submitted: true };
@@ -372,4 +383,16 @@ export async function submitVendor(env: Env, req: Request, key: string) {
     for (const k of staged) await env.BUCKET?.delete(k);
     throw e;
   }
+}
+
+export async function invitationView(db:D1Database,id:string){
+ return {invitations:(await db.prepare(`SELECT i.digest id,i.expires_at expiresAt,i.receipt,d.scope,d.created_at createdAt,d.revoked_at revokedAt FROM vendor_invitations i LEFT JOIN vendor_invitation_details d ON d.digest=i.digest WHERE i.vendor_id=? ORDER BY i.expires_at DESC LIMIT 30`).bind(id).all()).results};
+}
+export async function revokeInvitation(db:D1Database,id:string,digest:string,actor:string){
+ check(/^[a-f0-9]{64}$/.test(digest));const at=stamp();
+ const result=await db.batch([
+  db.prepare('UPDATE vendor_invitations SET expires_at=? WHERE vendor_id=? AND digest=? AND receipt IS NULL AND expires_at>?').bind(at,id,digest,at),
+  event(db,actor,'vendor-invite-revoked',JSON.stringify({vendor:id}),'changes()=1'),
+  db.prepare('UPDATE vendor_invitation_details SET revoked_at=? WHERE digest=? AND changes()=1').bind(at,digest),
+ ]);check(result[0].meta?.changes,409,'state');return {ok:true};
 }

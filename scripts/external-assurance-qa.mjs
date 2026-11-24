@@ -1,141 +1,55 @@
-import assert from "node:assert/strict";
-import { randomBytes } from "node:crypto";
-import { createRequire } from "node:module";
-const { chromium } = createRequire(import.meta.url)("playwright");
-const origin = "http://127.0.0.1:4184";
-const browser = await chromium.launch({
-  executablePath: process.env.QA_CHROMIUM_PATH,
-  headless: !process.env.DISPLAY,
-  args: ["--no-sandbox", "--disable-dev-shm-usage"],
-});
-try {
-  const staff = await browser.newContext({
-    viewport: { width: 1440, height: 900 },
-    extraHTTPHeaders: { Origin: origin },
-  });
-  const auth = await staff.request.post(origin + "/api/auth", {
-    data: {
-      action: "authorize_bootstrap",
-      token: process.env.ENTERPRISE_BOOTSTRAP_KEY,
-    },
-  });
-  assert(auth.ok());
-  const setup = await staff.request.post(origin + "/api/auth", {
-    data: {
-      action: "bootstrap",
-      name: "Exchange QA",
-      email: "exchange@fornost.test",
-      password: randomBytes(24).toString("hex") + "Aa1!",
-    },
-  });
-  assert(setup.ok());
-  const user = (await (await staff.request.get(origin + "/api/auth")).json())
-    .user;
-  const errors = [];
-  const watch = (p) => {
-    p.on("pageerror", (e) => errors.push(e.message));
-    p.on("console", (m) => {
-      if (m.type() === "error") errors.push(m.text());
-    });
-    p.on("response", (r) => {
-      if (r.url().startsWith(origin + "/api/") && r.status() >= 400)
-        errors.push(r.status() + " " + new URL(r.url()).pathname);
-    });
-  };
-  async function module(key) {
-    const p = await staff.newPage();
-    watch(p);
-    await p.addInitScript(
-      ({ id, key, origin }) => {
-        if (window.top !== window || location.origin !== origin) return;
-        sessionStorage.setItem(
-          "fornost-grc-page:v1:" + encodeURIComponent(id),
-          key,
-        );
-      },
-      { id: user.id, key, origin },
-    );
-    await p.goto(origin);
-    return p;
-  }
-  const hub = await module("İş Akışı Entegrasyonları");
-  await hub
-    .getByRole("heading", { name: "Kurumsal bağlayıcılar", exact: true })
-    .waitFor();
-  await hub
-    .getByRole("button", { name: "Yapılandır", exact: true })
-    .first()
-    .click();
-  await hub.getByLabel("Tenant ID", { exact: true }).waitFor();
-  await hub.close();
-  const trust = await module("Trust Center Yönetimi");
-  await trust.getByLabel("Güvenlik mimarisi · TR").fill("İzole QA mimarisi");
-  await trust
-    .getByLabel("Güvenlik mimarisi · EN")
-    .fill("Isolated QA architecture");
-  await trust.getByRole("button", { name: "Seçimi yayımla" }).click();
-  await trust.getByText("Yayın güncellendi.").waitFor();
-  const guest = await browser.newContext({
-      viewport: { width: 390, height: 844 },
-    }),
-    portal = await guest.newPage();
-  watch(portal);
-  const publicRequests = [];
-  portal.on("request", (r) => {
-    if (r.url().includes("/api/"))
-      publicRequests.push(new URL(r.url()).pathname);
-  });
-  await portal.goto(origin + "/trust-center");
-  await portal.getByText("İzole QA mimarisi").waitFor();
-  await portal.getByRole("button", { name: "EN", exact: true }).click();
-  await portal.getByText("Isolated QA architecture").waitFor();
-  await portal.getByRole("button", { name: "Dark mode" }).click();
-  assert.equal(await portal.locator("html").getAttribute("data-theme"), "dark");
-  assert(publicRequests.every((x) => x === "/api/public-exchange/trust"));
-  assert.equal(
-    (await guest.request.get(origin + "/api/exchange?area=board")).status(),
-    401,
-  );
-  const invitation = await staff.request.post(origin + "/api/exchange", {
-    data: { action: "invite", id: "portal-qa" },
-  });
-  assert.equal(invitation.status(), 200);
-  await portal.goto(new URL((await invitation.json()).url, origin).href);
-  await portal.getByRole("heading", { name: "Portal QA supplier" }).waitFor();
-  const selectors = portal.locator("select");
-  assert.equal(await selectors.count(), 12);
-  for (const s of await selectors.all()) await s.selectOption("yes");
-  await portal.getByRole("button", { name: "Submit assessment" }).click();
-  await portal
-    .getByText("Assessment received and submitted for independent review.")
-    .waitFor();
-  const report = await module("Raporlar");
-  await report
-    .getByRole("button", { name: "Yönetim Kurulu Paketi Oluştur" })
-    .click();
-  await report.getByRole("button", { name: "Özeti oluştur" }).click();
-  const slide = await staff.newPage();
-  watch(slide);
-  await slide.goto(
-    new URL(
-      await report.getByRole("link", { name: /16:9/ }).getAttribute("href"),
-      origin,
-    ).href,
-  );
-  await slide
-    .getByRole("heading", { name: "Kritik tedarikçi yoğunlaşması" })
-    .waitFor();
-  for (const name of ["Yönetici özeti PDF indir", "16:9 slaytları indir"]) {
-    const [dl] = await Promise.all([
-      slide.waitForEvent("download"),
-      slide.getByRole("button", { name }).click(),
-    ]);
-    assert.equal(await dl.failure(), null);
-  }
-  assert.deepEqual(errors, []);
-  console.log(
-    "PASS · integration cards, publication, anonymous TR/EN and dark mode, vendor submission, PDF and slide downloads",
-  );
-} finally {
-  await browser.close();
-}
+// Disposable localhost D1 only. Provider calls are exercised separately with isolated transports.
+import assert from 'node:assert/strict';
+import {randomBytes} from 'node:crypto';
+import {createRequire} from 'node:module';
+import {mkdir,writeFile} from 'node:fs/promises';
+import {execFileSync} from 'node:child_process';
+import {PDFDocument} from 'pdf-lib';
+const {chromium}=createRequire(import.meta.url)('playwright');
+const origin='http://127.0.0.1:4184',out='external-stakeholder-qa-artifacts';await mkdir(out,{recursive:true});
+const browser=await chromium.launch({executablePath:process.env.QA_CHROMIUM_PATH,headless:!process.env.DISPLAY,args:['--no-sandbox','--disable-dev-shm-usage']});
+let page,phase='bootstrap';const errors=[];
+try{
+ const staff=await browser.newContext({viewport:{width:1440,height:1000},extraHTTPHeaders:{Origin:origin}}),guest=await browser.newContext({viewport:{width:390,height:1000},extraHTTPHeaders:{Origin:origin}});
+ const post=async(path,data,ctx=staff)=>{const r=await ctx.request.post(origin+path,{data});assert(r.ok(),await r.text());return r.json();};
+ const get=async(path,ctx=staff)=>{const r=await ctx.request.get(origin+path);assert(r.ok(),await r.text());return r.json();};
+ const password=()=>randomBytes(24).toString('hex')+'Aa1!';
+ await post('/api/auth',{action:'authorize_bootstrap',token:process.env.ENTERPRISE_BOOTSTRAP_KEY});await post('/api/auth',{action:'bootstrap',name:'Exchange QA',email:'exchange@fornost.test',password:password()});
+ await post('/api/users',{name:'Portal owner',email:'owner@local.test',role:'Editor',password:password()});const user=(await get('/api/auth')).user;
+ const watch=p=>{p.setDefaultTimeout(30000);p.on('pageerror',e=>errors.push(e.message));};
+ const openModule=async key=>{const p=await staff.newPage();watch(p);await p.goto(origin);await p.evaluate(({id,key})=>sessionStorage.setItem('fornost-grc-page:v1:'+encodeURIComponent(id),key),{id:user.id,key});await p.reload();await p.locator('#fornost-navigation').waitFor({timeout:120000});return p;};
+ phase='vendor invitation management';page=await openModule('Tedarikçiler');await page.locator('.tprm-tabs').getByRole('button',{name:'Tedarikçi Envanteri',exact:true}).click();await page.locator('tr').filter({hasText:'Portal QA supplier'}).getByRole('button',{name:'Aç',exact:true}).click();
+ const invitation=page.locator('.exchange.ex-card').filter({has:page.getByRole('heading',{name:'Dış tedarikçi değerlendirmesi',exact:true})});
+ await invitation.getByLabel('Bağlantı geçerliliği',{exact:true}).selectOption('7');await invitation.getByLabel('İstenen değerlendirme kapsamı',{exact:true}).fill('Production customer data in TR / EU');
+ await invitation.getByRole('button',{name:'Güvenlik Değerlendirmesi Bağlantısı Oluştur',exact:true}).click();await invitation.getByLabel('Paylaşım bağlantısı',{exact:true}).waitFor();const oldUrl=await invitation.getByLabel('Paylaşım bağlantısı',{exact:true}).inputValue(),oldKey=oldUrl.split('/').at(-1);
+ const context=await guest.request.get(origin+'/api/public-exchange/vendor',{headers:{authorization:'Bearer '+oldKey}});assert.deepEqual(Object.keys(await context.json()).sort(),['name','scope']);
+ await invitation.getByRole('button',{name:'Bağlantıyı iptal et',exact:true}).click();await invitation.getByText('Davet iptal edildi.',{exact:true}).waitFor();assert.equal((await guest.request.get(origin+'/api/public-exchange/vendor',{headers:{authorization:'Bearer '+oldKey}})).status(),410);
+ await invitation.getByLabel('Bağlantı geçerliliği',{exact:true}).selectOption('30');await invitation.getByRole('button',{name:'Güvenlik Değerlendirmesi Bağlantısı Oluştur',exact:true}).click();await invitation.getByLabel('Paylaşım bağlantısı',{exact:true}).waitFor();const inviteUrl=await invitation.getByLabel('Paylaşım bağlantısı',{exact:true}).inputValue();assert.notEqual(inviteUrl,oldUrl);
+ await page.getByRole('dialog',{name:'Portal QA supplier',exact:true}).screenshot({path:out+'/vendor-admin.png',animations:'disabled'});
+ const portal=await guest.newPage();watch(portal);page=portal;await portal.goto(inviteUrl);await portal.getByRole('heading',{name:'Portal QA supplier',exact:true}).waitFor();assert.equal(await portal.getByText('Private other supplier',{exact:true}).count(),0);await portal.getByText('Production customer data in TR / EU',{exact:true}).waitFor();
+ for(const lang of ['tr','en']){if(lang==='en')await portal.getByRole('button',{name:'EN',exact:true}).click();for(const theme of ['light','dark']){if(await portal.locator('html').getAttribute('data-theme')!==theme)await portal.getByRole('button',{name:lang==='tr'?(theme==='dark'?'Koyu tema':'Açık tema'):(theme==='dark'?'Dark mode':'Light mode'),exact:true}).click();for(const width of [1440,390]){await portal.setViewportSize({width,height:1000});await portal.screenshot({path:`${out}/vendor-${lang}-${theme}-${width}.png`,fullPage:true,animations:'disabled'});assert.equal(await portal.evaluate(()=>document.documentElement.scrollWidth>innerWidth+2),false);}}}
+ phase='external form and evidence upload';assert.equal(await portal.locator('select').count(),15);for(const s of await portal.locator('select').all())await s.selectOption('yes');await portal.getByLabel('Data processing and backup countries',{exact:true}).fill('TR / EU');await portal.getByLabel('Subprocessors / fourth parties (state if none)',{exact:true}).fill('Example Cloud - EU');
+ const pdf=await PDFDocument.create();pdf.addPage().drawText('Synthetic SOC 2 summary for isolated QA');const bytes=Buffer.from(await pdf.save());await portal.getByLabel('SOC 2 Type II',{exact:true}).setInputFiles({name:'qa-soc2.pdf',mimeType:'application/pdf',buffer:bytes});
+ await portal.getByRole('button',{name:'Submit assessment',exact:true}).click();await portal.getByText('Assessment received and submitted for independent review.',{exact:true}).waitFor();
+ let workspace=await get('/api/third-party-risk');assert.equal(workspace.profiles.find(v=>v.vendorId==='portal-qa').status,'in-review');assert.equal(workspace.profiles.find(v=>v.vendorId==='private-vendor').status,'onboarding');assert.equal(workspace.assessments.find(a=>a.vendorId==='portal-qa').status,'submitted');
+ const evidence=(await get('/api/grc')).rows.filter(r=>r.module==='Kanıtlar'&&JSON.parse(r.data_json).sourceVendorRef==='portal-qa');assert.equal(evidence.length,2);const document=evidence.find(r=>JSON.parse(r.data_json).fileType==='application/pdf'),data=JSON.parse(document.data_json);assert.equal(data.reviewStatus,'pending-review');
+ const scoped=(await get('/api/enterprise/records?kind=evidence')).rows.filter(r=>evidence.some(e=>e.id===r.id));assert(scoped.every(e=>e.org_entity_id==='portal-entity'&&/^EVD-\d+$/.test(e.code)));
+ phase='independent evidence approval and trust publication';await post('/api/evidence/review',{id:document.id,expectedUpdatedAt:document.updated_at,version:Number(data.versionNo)});let trustView=await get('/api/exchange?area=trust');assert.equal(trustView.options.documents.length,1);assert.equal(trustView.options.policies.length,1);const version=trustView.options.documents[0].id;
+ const trust=await openModule('Trust Center Yönetimi');page=trust;await trust.getByLabel('Portal başlığı · TR',{exact:true}).fill('Kurumsal Güven Portalı');await trust.getByLabel('Portal başlığı · EN',{exact:true}).fill('Corporate Trust Portal');await trust.getByLabel('Güvenlik mimarisi · TR',{exact:true}).fill('Bağımsız incelemeye dayalı güvenlik özeti');await trust.getByLabel('Güvenlik mimarisi · EN',{exact:true}).fill('Security overview based on independent review');await trust.getByLabel('Portal published security policy',{exact:true}).check();await trust.getByLabel(trustView.options.documents[0].title,{exact:true}).check();assert.equal(await trust.getByLabel('NDA onayı zorunlu',{exact:true}).isChecked(),true);assert.equal(await trust.getByLabel('Private draft security policy',{exact:true}).count(),0);await trust.getByRole('button',{name:'Seçimi yayımla',exact:true}).click();await trust.getByText('Yayın güncellendi.',{exact:true}).waitFor();
+ await portal.goto(origin+'/trust-center');await portal.getByRole('heading',{name:'Corporate Trust Portal',exact:true}).waitFor();await portal.getByText(/POL-900 · Portal published/).waitFor();assert.equal(await portal.getByText('Private draft security policy',{exact:true}).count(),0);
+ await portal.getByRole('button',{name:'NDA & access request',exact:true}).click();await portal.getByLabel('Full name',{exact:true}).fill('External QA visitor');await portal.getByLabel('Company',{exact:true}).fill('QA Customer');await portal.getByLabel('Business email',{exact:true}).fill('external@customer.test');await portal.getByLabel('Request reason',{exact:true}).fill('Procurement due diligence before contract signing');await portal.locator('input[name=accepted]').check();await portal.screenshot({path:out+'/trust-request-en-dark-mobile.png',fullPage:true,animations:'disabled'});await portal.getByRole('button',{name:'Submit request',exact:true}).click();await portal.getByText('Your access request was received.',{exact:true}).waitFor();
+ phase='human access approval and watermarked download';await trust.getByRole('button',{name:'Yenile',exact:true}).click();await trust.getByText('External QA visitor · QA Customer',{exact:true}).waitFor();await trust.getByRole('button',{name:'Filigranlı erişimi onayla',exact:true}).click();await trust.getByLabel('Erişim bağlantısı',{exact:true}).waitFor();const accessUrl=await trust.getByLabel('Erişim bağlantısı',{exact:true}).inputValue();await trust.screenshot({path:out+'/trust-admin-approved.png',fullPage:true,animations:'disabled'});
+ await portal.goto(accessUrl);await portal.getByRole('button',{name:'Download watermarked PDF',exact:true}).waitFor();const dl=portal.waitForEvent('download');await portal.getByRole('button',{name:'Download watermarked PDF',exact:true}).click();const download=await dl;assert.equal(await download.failure(),null);await download.saveAs(out+'/watermarked.pdf');await trust.getByRole('button',{name:'Erişimi iptal et',exact:true}).click();await trust.getByText('İptal',{exact:true}).waitFor();assert.equal((await guest.request.get(origin+'/api/public-exchange/download',{headers:{authorization:'Bearer '+accessUrl.split('#access=')[1]}})).status(),410);
+ const rejected=await post('/api/public-exchange/trust',{document:version,name:'Rejected visitor',email:'rejected@customer.test',company:'QA Customer',reason:'Separate customer security review',accepted:true},guest);assert.equal(rejected.submitted,true);await trust.getByRole('button',{name:'Yenile',exact:true}).click();await trust.getByRole('button',{name:'Reddet',exact:true}).click();await trust.getByText('Reddedildi',{exact:true}).waitFor();
+ phase='connector simulations and real isolated webhook mutations';const entra=await post('/api/exchange',{action:'configure',kind:'entra',enabled:true,secret:'isolated-not-a-real-key',config:{tenant:'aaaa0000-0000-0000-0000-000000000000',client:'bbbb0000-0000-0000-0000-000000000000',mappings:[{metric:'highRiskSignIns',control:'portal-control',kri:'portal-kri'}]}});
+ const hub=await openModule('İş Akışı Entegrasyonları');page=hub;const card=hub.locator('.ex-card').filter({has:hub.getByRole('heading',{name:'Microsoft Entra ID',exact:true})});await card.getByRole('button',{name:'Test Sinyali Simüle Et',exact:true}).click();await card.getByText('Simülasyon sonucu — canlı telemetri değildir',{exact:true}).waitFor();assert.equal((await get('/api/risk-appetite')).measurements.length,0);await card.screenshot({path:out+'/entra-simulation.png',animations:'disabled'});
+ const signal={mfaCoverage:90,pimGlobalAdmins:2,highRiskSignIns:4};const hook=await guest.request.post(origin+'/api/public-exchange/hook-entra',{headers:{authorization:'Bearer '+entra.hook,'x-event-id':'qa-entra'},data:signal});assert(hook.ok(),await hook.text());assert.equal((await get('/api/risk-appetite')).measurements[0].value,4);const ctl=JSON.parse((await get('/api/grc')).rows.find(r=>r.id==='portal-control').data_json);assert.equal(ctl.identityTelemetry.highRiskSignIns.value,4);assert.equal(ctl.status,'Taslak');
+ const tickets=await post('/api/exchange',{action:'configure',kind:'tickets',enabled:true});const q=v=>"'"+String(v).replaceAll("'","''")+"'";execFileSync('node_modules/.bin/wrangler',['d1','execute','fornost-grc-prod','--local','--config','wrangler.d1.jsonc','--command',`UPDATE enterprise_findings SET evidence_reference=${q(document.id)},evidence_sha256=${q(data.contentSha256)} WHERE id='portal-finding'`],{stdio:'pipe'});
+ await post('/api/exchange',{action:'simulate',kind:'tickets',finding:'portal-finding'});assert.equal((await get('/api/findings')).findings.find(f=>f.id==='portal-finding').status,'open');
+ for(let i=0;i<2;i++){const r=await guest.request.post(origin+'/api/public-exchange/hook-tickets',{headers:{authorization:'Bearer '+tickets.hook,'x-event-id':'qa-jira-done'},data:{issue:{key:'GRC-QA-1',fields:{status:{name:'Done',statusCategory:{key:'done'}}}}}});assert(r.ok(),await r.text());}
+ assert.equal((await get('/api/findings')).findings.find(f=>f.id==='portal-finding').status,'verification');
+ const audit=await get('/api/enterprise/records?view=audit');for(const action of ['vendor-invite-created','vendor-invite-revoked','vendor-assessment-submitted','trust-access-approved','trust-access-rejected','trust-document-downloaded','connector-simulated'])assert.ok(audit.rows.some(r=>r.action===action),action);
+ phase='existing board package regression';const report=await openModule('Raporlar');page=report;await report.getByRole('button',{name:'Yönetim Kurulu Paketi Oluştur',exact:true}).click();await report.getByRole('button',{name:'Özeti oluştur',exact:true}).click();const slide=await staff.newPage();watch(slide);await slide.goto(new URL(await report.getByRole('link',{name:/16:9/}).getAttribute('href'),origin).href);await slide.getByRole('heading',{name:'Kritik tedarikçi yoğunlaşması',exact:true}).waitFor();for(const name of ['Yönetici özeti PDF indir','16:9 slaytları indir']){const [dl]=await Promise.all([slide.waitForEvent('download'),slide.getByRole('button',{name,exact:true}).click()]);assert.equal(await dl.failure(),null);}
+ assert.equal((await guest.request.get(origin+'/api/exchange?area=trust')).status(),401);assert.deepEqual(errors,[]);
+ await writeFile(out+'/result.json',JSON.stringify({ok:true,vendorExpiryAndRevoke:true,externalUpload:true,pendingEvidence:scoped.map(e=>e.code),entityInheritance:true,noAutomaticVendorApproval:true,publishedPolicyOnly:true,ndaRequest:true,approvalAndWatermarkedDownload:true,rejectionAndRevocation:true,simulationDoesNotMutate:true,entraKriControlUpdate:true,jiraVerificationOnly:true,auditTrail:true,trEnLightDark:true,errors},null,2));console.log('External stakeholder browser QA passed');
+}catch(error){if(page){await page.screenshot({path:out+'/failure.png',fullPage:true}).catch(()=>{});await writeFile(out+'/failure.txt',phase+'\n'+await page.locator('body').innerText().catch(()=>''));}throw error;}finally{await browser.close();}

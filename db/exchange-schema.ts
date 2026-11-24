@@ -95,3 +95,6 @@ export const boardPackages = sqliteTable("board_packages", {
   actor: text("actor").notNull(),
   createdAt: text("created_at").notNull(),
 });
+
+export const vendorInvitationDetails=sqliteTable("vendor_invitation_details",{digest:text("digest").primaryKey().notNull(),scope:text("scope").notNull(),createdAt:text("created_at").notNull(),revokedAt:text("revoked_at")});
+export const trustRequestDetails=sqliteTable("trust_request_details",{requestId:text("request_id").primaryKey().notNull(),reason:text("reason").notNull(),ndaRequired:integer("nda_required").notNull(),acceptedAt:text("accepted_at")});

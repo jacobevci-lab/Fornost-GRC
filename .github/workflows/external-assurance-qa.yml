@@ -9,6 +9,7 @@ on:
       - 'app/trust-center/**'
       - 'app/board-pack/**'
       - 'scripts/external-assurance-qa.mjs'
+      - 'scripts/external-assurance-qa-fixture.mjs'
       - '.github/workflows/external-assurance-qa.yml'
   workflow_dispatch:
 permissions:
@@ -33,9 +34,10 @@ jobs:
           export ENTERPRISE_BOOTSTRAP_KEY="$(openssl rand -hex 32)"
           echo "::add-mask::$ENTERPRISE_BOOTSTRAP_KEY"
           umask 077
-          printf 'FORNOST_BOOTSTRAP_TOKEN="%s"\n' "$ENTERPRISE_BOOTSTRAP_KEY" > dist/server/.dev.vars
+          printf 'FORNOST_SETTINGS_ENCRYPTION_KEY="isolated-qa-encryption-key-no-customer-data"\nFORNOST_BOOTSTRAP_TOKEN="%s"\n' "$ENTERPRISE_BOOTSTRAP_KEY" > dist/server/.dev.vars
           node_modules/.bin/wrangler d1 migrations apply fornost-grc-prod --local --config wrangler.d1.jsonc >/tmp/core-migration.log
-          node_modules/.bin/wrangler d1 execute fornost-grc-prod --local --config wrangler.d1.jsonc --command="INSERT INTO third_party_profiles VALUES('portal-qa','Portal QA supplier','demo','demo','demo','critical','internal','limited','EU','owner@local.test','owner@local.test','exchange@fornost.test','vendor@supplier.test','2028-01-01','2027-01-01','demo','onboarding','admin','2026-01-01','admin','2026-01-01')" >/dev/null
+          node scripts/external-assurance-qa-fixture.mjs > /tmp/external-fixture.sql
+          node_modules/.bin/wrangler d1 execute fornost-grc-prod --local --config wrangler.d1.jsonc --file=/tmp/external-fixture.sql >/dev/null
           node_modules/.bin/vite preview --host 127.0.0.1 --port 4184 --strictPort >/tmp/core-server.log 2>&1 &
           server=$!
           trap 'kill "$server" 2>/dev/null || true; rm -f dist/server/.dev.vars' EXIT
@@ -46,3 +48,8 @@ jobs:
           done
           curl -fsS http://127.0.0.1:4184/api/auth -o /dev/null
           QA_CHROMIUM_PATH="$(command -v google-chrome)" xvfb-run -a node scripts/external-assurance-qa.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: external-stakeholder-browser
+          path: external-stakeholder-qa-artifacts/

@@ -1,3 +1,4 @@
+import {event} from '../enterprise/http';
 import { cloudEvents } from "./cloud";
 import { check, hash, init, stamp, text, token, type Env } from "./store";
 import {
@@ -92,7 +93,7 @@ export async function connectorView(db: D1Database) {
   const options = (
     await db
       .prepare(
-        "SELECT c.record_id id,c.code,r.module,COALESCE(json_extract(r.data_json,'$.title'),json_extract(r.data_json,'$.name'),json_extract(r.data_json,'$.controlName'),'') title FROM simple_grc_record_codes c JOIN simple_grc_records r ON r.id=c.record_id WHERE r.module IN ('Risk Assessment','Varlık Envanteri','Kontroller') ORDER BY c.code",
+        "SELECT c.record_id id,c.code,r.module,COALESCE(json_extract(r.data_json,'$.controlTitle'),json_extract(r.data_json,'$.title'),json_extract(r.data_json,'$.name'),json_extract(r.data_json,'$.controlName'),'') title FROM simple_grc_record_codes c JOIN simple_grc_records r ON r.id=c.record_id WHERE r.module IN ('Risk Assessment','Varlık Envanteri','Kontroller') ORDER BY c.code",
       )
       .all()
   ).results;
@@ -102,6 +103,7 @@ export async function connectorView(db: D1Database) {
       return { kind, ...row, config: row ? JSON.parse(row.config) : empty };
     }),
     options,
+    tickets:(await db.prepare("SELECT f.id,f.code,f.title,t.ticket FROM enterprise_findings f JOIN exchange_tickets t ON t.finding_id=f.id WHERE t.state='linked' AND f.status IN ('open','in-progress') ORDER BY f.code LIMIT 150").all()).results,
     kris: (
       await db
         .prepare(
@@ -642,6 +644,27 @@ async function observe(
   }
   return { ok: true, summary };
 }
+export async function simulate(env:Env,kind:string,body:Record<string,unknown>,actor:string){
+ const row=await get(env.DB,kind);check(row,409,'config');const c=JSON.parse(row.config) as Config;
+ let result:unknown,effects:unknown=[];
+ if(kind==='entra'){
+  check(c.mappings.length,422,'mapping');const sample={mfaCoverage:83,pimGlobalAdmins:2,highRiskSignIns:7};
+  result=await observe(env,kind,'simulation:'+crypto.randomUUID(),c,sample,true);
+  effects=await Promise.all(c.mappings.map(async m=>({metric:m.metric,value:sample[m.metric as keyof typeof sample],control:m.control?(await env.DB.prepare('SELECT code FROM simple_grc_record_codes WHERE record_id=?').bind(m.control).first<{code:string}>())?.code:null,kri:m.kri?(await env.DB.prepare('SELECT code FROM risk_appetite_statements WHERE id=?').bind(m.kri).first<{code:string}>())?.code:null})));
+ }else if(kind==='tickets'){
+  const f=await env.DB.prepare("SELECT f.id,f.code,f.status,t.ticket FROM enterprise_findings f JOIN exchange_tickets t ON t.finding_id=f.id WHERE f.id=? AND t.state='linked'").bind(text(body.finding,128)).first<{id:string;code:string;status:string;ticket:string}>();
+  check(f&&['open','in-progress'].includes(f.status),409,'ticket');
+  result=await observe(env,kind,'simulation:'+crypto.randomUUID(),c,{ticket:f.ticket,status:'Done'},true);
+  effects=[{finding:f.code,from:f.status,to:'verification',humanApprovalRequired:true}];
+ }else if(kind==='chat'){
+  check(['slack','teams'].includes(c.provider),409,'config');result=notificationPayload(c.provider,'Fornost · SIMULATION · Trust Center NDA request');
+ }else{
+  check(kind==='cloud'&&c.resources.length,422,'mapping');const m=c.resources[0];result=await observe(env,kind,'simulation:'+crypto.randomUUID(),c,{provider:m.provider,resource:m.resource,category:'encryption',severity:'low'},true);
+ }
+ await event(env.DB,actor,'connector-simulated',JSON.stringify({kind,mode:'simulation',mutated:false,effects})).run();
+ return {mode:'simulation',mutated:false,result,effects};
+}
+
 export async function inbound(
   env: Env,
   req: Request,
@@ -754,11 +777,8 @@ export async function openTicket(env: Env, id: string) {
     .run();
   return { ticket: result.ticket.id, url: result.ticket.url };
 }
-async function chat(env: Env, r: Stored, kind: string, message: string) {
-  const c = JSON.parse(r.config) as Config,
-    url = chatEndpoint(await decryptSecret(r.secret, key(env)), c.provider);
-  const body =
-    c.provider === "slack"
+export function notificationPayload(provider:string,message:string){
+  return provider === "slack"
       ? {
           text: message.replace(/[<>&]/g, ""),
           mrkdwn: false,
@@ -783,6 +803,11 @@ async function chat(env: Env, r: Stored, kind: string, message: string) {
             },
           ],
         };
+}
+async function chat(env: Env, r: Stored, kind: string, message: string) {
+  const c = JSON.parse(r.config) as Config,
+    url = chatEndpoint(await decryptSecret(r.secret, key(env)), c.provider);
+  const body=notificationPayload(c.provider,message);
   const res = await fetch(url, {
     method: "POST",
     headers: { "content-type": "application/json" },
@@ -802,6 +827,7 @@ export async function notifyDue(env: Env) {
       `WITH notices AS (
  SELECT 'attest:'||id id,'Politika beyanı / Policy attestation · '||name label,due_date due FROM policy_attestation_campaigns WHERE status='open'
  UNION ALL SELECT 'sla:'||id,'CAPA termini / CAPA deadline · '||title,due_date FROM enterprise_findings WHERE status IN ('open','in-progress','verification') AND due_date BETWEEN date('now') AND date('now','+7 day')
+ UNION ALL SELECT 'nda:'||id,'Trust Center · Yeni NDA / erişim talebi / New NDA / access request',acknowledged_at FROM trust_requests WHERE status='pending'
  UNION ALL SELECT 'pbc:'||id,'Kanıt talebi / Evidence request · '||COALESCE(json_extract(data_json,'$.title'),''),json_extract(data_json,'$.dueDate') FROM audit_requests WHERE json_extract(data_json,'$.status') IN ('assigned','changes_requested'))
  SELECT * FROM notices WHERE NOT EXISTS(SELECT 1 FROM exchange_notices n WHERE n.id=notices.id||':'||due AND (n.state='sent' OR n.state='sending' AND n.updated_at>strftime('%Y-%m-%dT%H:%M:%fZ','now','-1 hour'))) ORDER BY due LIMIT 20`,
     )

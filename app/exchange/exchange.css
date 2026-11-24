@@ -183,3 +183,5 @@
     aspect-ratio: 16/9;
   }
 }
+
+.exchange .ex-simulation pre{white-space:pre-wrap;overflow-wrap:anywhere;max-height:24rem;overflow:auto}.exchange .ex-card .ex-actions input{min-width:0;max-width:100%;flex:1}.exchange .ex-form fieldset{min-width:0}.exchange .ex-form fieldset>label{display:grid;gap:.4rem;margin-bottom:.75rem}
