@@ -1,3 +1,5 @@
+import {ensureEnterprise} from "../../enterprise/schema";
+import {entityAccess,entityFields,type Entity} from "./entity-access";
 import {NextRequest,NextResponse} from "next/server";
 import {identityDb,passwordHash,requireRole,validPassword} from "../auth/security";
 import {readBoundedJsonObject,JsonBodyError} from "../request-body";
@@ -5,13 +7,14 @@ import {AccountError,accountFields,createAccount,changeAccount,directoryEntry} f
 
 export async function GET(req:NextRequest){
  const auth=await requireRole(req,["Admin"]);if(auth.response)return auth.response;
- const db=await identityDb();
- const rows=await db.prepare(`SELECT ${accountFields},u.failed_attempts,u.locked_until,u.created_at FROM local_users u LEFT JOIN user_module_access a ON a.user_id=u.id ORDER BY u.created_at DESC`).all<Parameters<typeof directoryEntry>[0]>();
+ const db=await identityDb();await ensureEnterprise(db);
+ const entities=(await db.prepare("SELECT id,parent_id,name,kind FROM org_entities ORDER BY name").all<Entity>()).results;
+ const rows=await db.prepare(`SELECT ${accountFields},${entityFields},u.failed_attempts,u.locked_until,u.created_at FROM local_users u LEFT JOIN user_module_access a ON a.user_id=u.id ORDER BY u.created_at DESC`).all<Parameters<typeof directoryEntry>[0]>();
  const events=await db.prepare(`SELECT e.id,e.user_id,e.actor,e.before_json,e.after_json,e.created_at,
   COALESCE(u.email,json_extract(e.after_json,'$.email'),(SELECT json_extract(d.after_json,'$.email') FROM user_access_events d WHERE d.user_id=e.user_id AND d.id GLOB 'local-delete:*' LIMIT 1),e.user_id) email
   FROM user_access_events e LEFT JOIN local_users u ON u.id=e.user_id ORDER BY e.created_at DESC,e.rowid DESC LIMIT 20`).all();
- const activeAdmins=rows.results.filter(u=>u.role==="Admin"&&u.status==="Active");
- return NextResponse.json({users:rows.results.map(row=>({...directoryEntry(row),own:row.id===auth.actor.id,lastAdmin:activeAdmins.length===1&&activeAdmins[0].id===row.id})),events:events.results},{headers:{"cache-control":"no-store"}});
+ const activeAdmins=rows.results.filter(u=>u.role==="Admin"&&u.status==="Active"&&entityAccess(u).role==="group-admin");
+ return NextResponse.json({users:rows.results.map(row=>({...directoryEntry(row),orgScope:entityAccess(row,entities.length===1),own:row.id===auth.actor.id,lastAdmin:activeAdmins.length===1&&activeAdmins[0].id===row.id})),events:events.results,entities},{headers:{"cache-control":"no-store"}});
 }
 async function write(req:NextRequest,method:"POST"|"PATCH"|"DELETE"){
  const auth=await requireRole(req,["Admin"]);if(auth.response)return auth.response;

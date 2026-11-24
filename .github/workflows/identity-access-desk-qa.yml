@@ -56,11 +56,13 @@ jobs:
           node scripts/user-session-revocation-qa.mjs
           node scripts/identity-access-desk-qa.mjs
           node scripts/module-access-runtime-qa.mjs
+          node scripts/admin-consistency-qa.mjs
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: identity-desk-qa
           path: |
+            admin-consistency-qa-artifacts/
             identity-desk-qa-artifacts/*.png
             identity-desk-qa-artifacts/report.json
             identity-desk-qa-artifacts/failure.json

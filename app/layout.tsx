@@ -45,6 +45,7 @@ import "./fornost-ai-findings.css";
 import "./quality-guardrails.css";
 import "./production-hardening.css";
 import "./sidebar-icon-tooltip.css";
+import "./admin-workspace.css";
 
 import BootstrapSecurityGate from "./bootstrap-security-gate";
 import PlatformExperience from "./platform-experience";

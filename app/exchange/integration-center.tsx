@@ -1,6 +1,8 @@
 "use client";
-import { useState } from "react";
-import { api, Field, State, t, useAction, useLoad, type Locale } from "./ui";
+import { useState, useCallback, useEffect, useRef } from "react";
+import { api, Field, State, t, useAction, type Locale } from "./ui";
+import IntegrationConnectionDesk from "../integration-connection-desk";
+import {connectorNames,type ConnectorRegister,type ConnectorRow} from "../integrations/connector-register";
 import { withBasePath } from "../base-path";
 type Opt = { id: string; code: string; title: string; module?: string };
 type MapRow = { metric: string; control: string; kri: string };
@@ -17,25 +19,20 @@ type Config = {
   mappings: MapRow[];
   resources: Resource[];
 };
-type Card = {
+type Card = ConnectorRow & {
   kind: string;
   enabled?: number;
   hasSecret?: number;
   config: Config;
 };
-type View = {
+type View = Omit<ConnectorRegister,"cards"> & {
   cards: Card[];
   options: Opt[];
   kris: Opt[];
   tickets:{id:string;code:string;title:string;ticket:string}[];
   signals: { kind: string; observed_at: string; summary: string }[];
 };
-const names: Record<string, [string, string]> = {
-  entra: ["Microsoft Entra ID", "Microsoft Entra ID"],
-  cloud: ["Bulut güvenlik duruşu", "Cloud security posture"],
-  tickets: ["Jira / ServiceNow", "Jira / ServiceNow"],
-  chat: ["Slack / Microsoft Teams", "Slack / Microsoft Teams"],
-};
+const names=connectorNames;
 const metricNames: Record<string, [string, string]> = {
   mfaCoverage: ["MFA kayıt kapsamı (%)", "MFA registration coverage (%)"],
   pimGlobalAdmins: [
@@ -97,11 +94,13 @@ function Connector({
   view,
   lang,
   reload,
+  onTicketConfigure,
 }: {
   card: Card;
   view: View;
   lang: Locale;
   reload: () => void;
+  onTicketConfigure:()=>void;
 }) {
   const k = card.kind,
     [editing, edit] = useState(false),
@@ -126,7 +125,7 @@ function Connector({
     setHook(r.hook || "");
     setSecret("");
     a.say(l("Ayarlar kaydedildi.", "Settings saved."));
-    if (!r.hook) reload();
+    reload();
   };
   return (
     <article className="ex-card">
@@ -169,7 +168,7 @@ function Connector({
               const r = await api<{
                 summary?: Record<string, number>;
                 mode?: string;
-              }>("exchange", { action: "test", kind: k });
+              }>("exchange", { action: "test", kind: k }).finally(reload);
               a.say(
                 r.summary
                   ? Object.entries(r.summary)
@@ -207,7 +206,7 @@ function Connector({
           </button>
         )}
       </div>
-      <div className="ex-actions">{k==='tickets'&&<Field label={l('Simülasyon için bağlı CAPA','Linked CAPA for simulation')}><select value={finding} onChange={e=>setFinding(e.target.value)}><option value="">—</option>{view.tickets.map(f=><option key={f.id} value={f.id}>{f.code} · {f.ticket}</option>)}</select></Field>}<button disabled={a.busy||!card.enabled||k==='tickets'&&!finding} onClick={()=>a.act(async()=>{setSimulation(await api<SimulationView>('exchange',{action:'simulate',kind:k,finding}));a.say(l('Simülasyon tamamlandı. Canlı kayıtlar değiştirilmedi ve bildirim gönderilmedi.','Simulation completed. No live records changed and no notification was sent.'));})}>{l('Test Sinyali Simüle Et','Simulate test signal')}</button></div>
+      <div className="ex-actions">{k==='tickets'&&<Field label={l('Simülasyon için bağlı CAPA','Linked CAPA for simulation')}><select value={finding} onChange={e=>setFinding(e.target.value)}><option value="">—</option>{view.tickets.map(f=><option key={f.id} value={f.id}>{f.code} · {f.ticket}</option>)}</select></Field>}<button disabled={a.busy||!card.enabled||k==='tickets'&&!finding} onClick={()=>a.act(async()=>{setSimulation(await api<SimulationView>('exchange',{action:'simulate',kind:k,finding}));a.say(l('Simülasyon tamamlandı. Canlı kayıtlar değiştirilmedi ve bildirim gönderilmedi.','Simulation completed. No live records changed and no notification was sent.'));reload();})}>{l('Test Sinyali Simüle Et','Simulate test signal')}</button></div>
       {simulation&&<SimulationResult value={simulation} kind={k} lang={lang}/>}
       {editing && (
         <form
@@ -366,12 +365,7 @@ function Connector({
             </>
           )}
           {k === "tickets" && (
-            <p>
-              {l(
-                "Sağlayıcı ve kimlik bilgilerini aşağıdaki bilet ayarlarından yönetin.",
-                "Manage the provider and credentials in ticket settings below.",
-              )}
-            </p>
+            <button type="button" onClick={onTicketConfigure}>{l("Bilet sağlayıcısını düzenle","Edit ticket provider")}</button>
           )}
           {k === "chat" && (
             <Field label={l("Bildirim kanalı", "Notification channel")}>
@@ -433,10 +427,14 @@ function Connector({
   );
 }
 export default function IntegrationCenter({ lang }: { lang: Locale }) {
-  const { v, err, reload } = useLoad<View>("exchange?area=connectors");
-  if (!v) return <State lang={lang} error={err} />;
+  const [v,setView]=useState<View>(),[err,setError]=useState<unknown>(),[ticketEdit,setTicketEdit]=useState(0);
+  const controller=useRef<AbortController|null>(null);
+  const reload=useCallback(async()=>{controller.current?.abort();const c=new AbortController();controller.current=c;try{const value=await api<View>('exchange?area=connectors',undefined,undefined,c.signal);if(!c.signal.aborted){setView(value);setError(undefined);}}catch(error){if(!c.signal.aborted)setError(error)}},[]);
+  useEffect(()=>{const timer=setTimeout(()=>void reload(),0);return()=>{clearTimeout(timer);controller.current?.abort()}},[reload]);
+  if (!v) return <div><State lang={lang} error={err}/>{!!err&&<button onClick={()=>void reload()}>{t(lang,"Yeniden dene","Retry")}</button>}</div>;
   return (
     <section className="exchange">
+      {!!err&&<p role="alert">{t(lang,"Bağlantı listesi yenilenemedi. Son okunan bilgiler gösteriliyor.","Could not refresh connections. Showing the last loaded information.")} <button onClick={()=>void reload()}>{t(lang,"Yeniden dene","Retry")}</button></p>}
       <h2>{t(lang, "Kurumsal bağlayıcılar", "Enterprise connectors")}</h2>
       <div className="ex-grid">
         {v.cards.map((card) => (
@@ -446,9 +444,11 @@ export default function IntegrationCenter({ lang }: { lang: Locale }) {
             view={v}
             lang={lang}
             reload={reload}
+            onTicketConfigure={()=>setTicketEdit(n=>n+1)}
           />
         ))}
       </div>
+      <IntegrationConnectionDesk lang={lang} register={v} onChange={reload} editRequest={ticketEdit}/>
       {v.signals.length > 0 && (
         <details>
           <summary>{t(lang, "Alınan sinyaller", "Received signals")}</summary>

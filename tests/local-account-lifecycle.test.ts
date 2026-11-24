@@ -73,3 +73,44 @@ test('a failed removal rolls back its session, grants and access event together'
   assert.equal(f.sql.prepare("SELECT count(*) n FROM user_access_events WHERE id GLOB 'local-delete:*'").get()!.n,0);
  }finally{f.sql.close();}
 });
+
+test('entity scopes are saved atomically with account details, revoke sessions, and reject stale grants',async()=>{
+ const f=fixture();try{
+  const id=await createAccount(f.db,f.admin,f.body,f.password);
+  f.sql.exec("INSERT INTO org_entities VALUES('child','root','subsidiary','Subsidiary'); INSERT INTO org_entities VALUES('other','root','unit','Unit');");
+  f.sql.prepare("INSERT INTO local_sessions VALUES('scope-token',?,'2099-01-01','2026-01-01','2026-01-01')").run(id);
+  const body={id,name:'Scoped',role:'Editor',status:'Active',expectedRevision:f.read(id).revision,orgScope:{role:'entity-manager',entities:['child','other'],revision:''}};
+  await changeAccount(f.db,f.admin,body,false);
+  assert.equal(f.sql.prepare('SELECT COUNT(*) n FROM org_memberships WHERE user_id=?').get(id)!.n,2);
+  assert.equal(f.sql.prepare('SELECT COUNT(*) n FROM local_sessions').get()!.n,0);
+  await assert.rejects(changeAccount(f.db,f.admin,{...body,expectedRevision:f.read(id).revision},false),{code:'stale'});
+  const revision=String(f.sql.prepare('SELECT revision FROM org_user_roles WHERE user_id=?').get(id)!.revision);
+  f.sql.exec("CREATE TRIGGER reject_scope BEFORE INSERT ON org_memberships BEGIN SELECT RAISE(ABORT,'grant write failure'); END;");
+  await assert.rejects(changeAccount(f.db,f.admin,{...body,name:'Must roll back',expectedRevision:f.read(id).revision,orgScope:{role:'contributor',entities:['other'],revision}},false),/grant write failure/);
+  assert.equal(f.read(id).name,'Scoped');assert.equal(f.sql.prepare('SELECT COUNT(*) n FROM org_memberships WHERE user_id=?').get(id)!.n,2);
+  f.sql.exec('DROP TRIGGER reject_scope');await changeAccount(f.db,f.admin,f.deletion(id),true);
+  assert.equal(f.sql.prepare('SELECT COUNT(*) n FROM org_memberships').get()!.n,0);assert.equal(f.sql.prepare('SELECT COUNT(*) n FROM org_user_roles').get()!.n,0);
+ }finally{f.sql.close();}
+});
+test('entity grant authority, unknown entities, role ceilings and self lockout fail closed',async()=>{
+ const f=fixture();try{
+  const id=await createAccount(f.db,f.admin,f.body,f.password);
+  const patch={id,role:'Editor',status:'Active',expectedRevision:f.read(id).revision};
+  for(const orgScope of [{role:'group-admin',entities:[],revision:''},{role:'contributor',entities:['missing'],revision:''},{role:'group-ciso',entities:['root'],revision:''}])await assert.rejects(changeAccount(f.db,f.admin,{...patch,orgScope},false));
+  await assert.rejects(changeAccount(f.db,f.admin,{...patch,id:'admin',role:'Admin',expectedRevision:f.read('admin').revision,orgScope:{role:'entity-manager',entities:['root'],revision:''}},false),{code:'self-scope'});
+  f.sql.exec("INSERT INTO org_user_roles VALUES('admin','group-ciso','rev');");
+  await assert.rejects(changeAccount(f.db,f.admin,{...patch,orgScope:{role:'contributor',entities:['root'],revision:''}},false),{code:'stale'});
+  assert.equal(f.sql.prepare('SELECT COUNT(*) n FROM org_memberships').get()!.n,0);
+ }finally{f.sql.close();}
+});
+test('entity deletion or concurrent scope change before commit cannot partially update an account',async()=>{
+ const f=fixture();try{
+  const id=await createAccount(f.db,f.admin,f.body,f.password);
+  const patch={id,name:'Lost update',role:'Editor',status:'Active',expectedRevision:f.read(id).revision,orgScope:{role:'contributor',entities:['root'],revision:''}};
+  f.before(()=>f.sql.prepare("INSERT INTO org_user_roles VALUES(?,'contributor','concurrent')").run(id));
+  await assert.rejects(changeAccount(f.db,f.admin,patch,false),{code:'stale'});assert.equal(f.read(id).name,'Temp');
+ }finally{f.sql.close();}
+});
+test('editing a legacy single-entity account does not silently replace its effective entity access',async()=>{
+ const f=fixture();try{const id=await createAccount(f.db,f.admin,f.body,f.password);await changeAccount(f.db,f.admin,{id,name:'Legacy renamed',role:'Editor',status:'Active',expectedRevision:f.read(id).revision,orgScope:{role:'contributor',entities:['root'],revision:''}},false);assert.equal(f.sql.prepare('SELECT role FROM org_user_roles WHERE user_id=?').get(id),undefined);assert.equal(f.read(id).name,'Legacy renamed');}finally{f.sql.close();}
+});

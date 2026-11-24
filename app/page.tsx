@@ -1,7 +1,7 @@
 "use client";
 import {QuestionnaireCopilot} from "./ai/grc/questionnaire-ui";
 import {EvidenceAiReview} from "./ai/grc/evidence-ui";
-import IntegrationCenter from "./exchange/integration-center";
+
 import TrustAdmin from "./exchange/trust-admin";
 import {BoardWizard} from "./exchange/board-ui";
 import { CopyRecordLink, RecordLinkEntry } from './record-link-controls';
@@ -2386,7 +2386,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
         ) : active === "Trust Center Yönetimi" ? (
           <TrustAdmin lang={lang}/>
         ) : adminModules.has(active) ? (
-          <>{active==="İş Akışı Entegrasyonları"&&currentUser.orgScope?.role==="group-admin"&&<IntegrationCenter lang={lang}/>}
+          <div id="admin-workspace" className="admin-workspace">
           <Settings
             onAppearance={()=>setAppearanceOpen(true)}
             lang={lang}
@@ -2409,7 +2409,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
                       : "system"
             }
           />
-          </>
+          </div>
         ) : lens && active === "Kontroller" ? (
           <ControlAssuranceWorkspace rows={rows} lang={lang} go={navigateToModule} />
         ) : lens && active === "Denetim Yönetimi" ? (

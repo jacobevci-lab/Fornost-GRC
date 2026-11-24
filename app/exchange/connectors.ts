@@ -1,3 +1,5 @@
+import {ensureIntegrations} from "../integrations/schema";
+import {mergeConnectorRegister} from "../integrations/connector-register";
 import {event} from '../enterprise/http';
 import { cloudEvents } from "./cloud";
 import { check, hash, init, stamp, text, token, type Env } from "./store";
@@ -77,40 +79,50 @@ function chatEndpoint(url: string, provider: string) {
   return u.href;
 }
 export async function connectorView(db: D1Database) {
+  await ensureIntegrations(db);
+  const sourceTables=new Set((await db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name IN ('simple_grc_records','simple_grc_record_codes','enterprise_findings','risk_appetite_statements')").all<{name:string}>()).results.map(row=>row.name));
   const rows = (
     await db
       .prepare(
-        "SELECT kind,config,enabled,secret IS NOT NULL hasSecret,hook_hash IS NOT NULL hasHook FROM exchange_connectors",
+        "SELECT kind,config,enabled,updated_at,updated_by,secret IS NOT NULL hasSecret,hook_hash IS NOT NULL hasHook FROM exchange_connectors",
       )
       .all<{
         kind: string;
         config: string;
         enabled: number;
         hasSecret: number;
+        updated_at:string;updated_by:string;
         hasHook: number;
       }>()
   ).results;
-  const options = (
+  const options = sourceTables.has("simple_grc_records")&&sourceTables.has("simple_grc_record_codes") ? (
     await db
       .prepare(
         "SELECT c.record_id id,c.code,r.module,COALESCE(json_extract(r.data_json,'$.controlTitle'),json_extract(r.data_json,'$.title'),json_extract(r.data_json,'$.name'),json_extract(r.data_json,'$.controlName'),'') title FROM simple_grc_record_codes c JOIN simple_grc_records r ON r.id=c.record_id WHERE r.module IN ('Risk Assessment','Varlık Envanteri','Kontroller') ORDER BY c.code",
       )
       .all()
-  ).results;
-  return {
-    cards: kinds.map((kind) => {
+  ).results : [];
+  const transport=await db.prepare("SELECT provider,enabled,updated_at,updated_by FROM integration_settings WHERE kind='ticketing'").first<{provider:string;enabled:number;updated_at:string;updated_by:string}>();
+  const cards=kinds.map((kind) => {
       const row = rows.find((x) => x.kind === kind);
       return { kind, ...row, config: row ? JSON.parse(row.config) : empty };
-    }),
+    });
+  return {
+    cards:mergeConnectorRegister(cards,transport).map(row=>({...row,config:cards.find(c=>c.kind===row.kind)!.config})),
+    history:(await db.prepare(`SELECT id,kind,action,status,detail,actor,created_at FROM (
+     SELECT 'connector:'||id id,json_extract(subject,'$.kind') kind,action,COALESCE(json_extract(subject,'$.status'),'success') status,'' detail,actor,stamp created_at FROM org_access_events WHERE action IN ('connector-configured','connector-simulated','connector-test','connector-sync') AND json_valid(subject)
+     UNION ALL SELECT 'ticket:'||id,'tickets',action,status,detail,actor,created_at FROM integration_events WHERE kind='ticketing'
+     UNION ALL SELECT 'signal:'||kind||':'||event_id,kind,'signal-received','success','','webhook',observed_at FROM exchange_signals
+    ) ORDER BY created_at DESC,id DESC LIMIT 100`).all()).results,
     options,
-    tickets:(await db.prepare("SELECT f.id,f.code,f.title,t.ticket FROM enterprise_findings f JOIN exchange_tickets t ON t.finding_id=f.id WHERE t.state='linked' AND f.status IN ('open','in-progress') ORDER BY f.code LIMIT 150").all()).results,
-    kris: (
+    tickets:sourceTables.has("enterprise_findings")?(await db.prepare("SELECT f.id,f.code,f.title,t.ticket FROM enterprise_findings f JOIN exchange_tickets t ON t.finding_id=f.id WHERE t.state='linked' AND f.status IN ('open','in-progress') ORDER BY f.code LIMIT 150").all()).results:[],
+    kris: sourceTables.has("risk_appetite_statements")?(
       await db
         .prepare(
           "SELECT id,code,kri_name title FROM risk_appetite_statements WHERE status='approved' ORDER BY code",
         )
         .all()
-    ).results,
+    ).results:[],
     signals: (
       await db
         .prepare(
@@ -204,7 +216,7 @@ export async function configure(
     : old?.secret || null;
   const hook =
     kind !== "chat" && (!old?.hook_hash || b.rotate === true) ? token() : null;
-  await env.DB.prepare(
+  await env.DB.batch([env.DB.prepare(
     "INSERT OR REPLACE INTO exchange_connectors VALUES(?,?,?,?,?,?,?)",
   )
     .bind(
@@ -215,8 +227,7 @@ export async function configure(
       b.enabled === true ? 1 : 0,
       actor,
       stamp(),
-    )
-    .run();
+    ),event(env.DB,actor,"connector-configured",JSON.stringify({kind,status:"success"}))]);
   return { ok: true, hook };
 }
 async function graph(env: Env, row: Stored) {
