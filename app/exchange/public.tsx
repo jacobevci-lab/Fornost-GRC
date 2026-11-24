@@ -3,6 +3,8 @@ import {
   useSyncExternalStore,
   useEffect,
   useState,
+  useId,
+  useRef,
   type FormEvent,
   type ReactNode,
 } from "react";
@@ -10,6 +12,17 @@ import { withBasePath } from "../base-path";
 import {portalQuestions} from "./vendor-questionnaire";
 import { questions } from "../third-party-risk/survey";
 import { api, Field, State, t, useAction, useLoad, type Locale } from "./ui";
+function VendorDocument({ kind, lang }: { kind: string; lang: Locale }) {
+  const id = useId(), input = useRef<HTMLInputElement>(null), [name, setName] = useState("");
+  return <div className="ex-upload">
+    <label htmlFor={id}>{kind}</label>
+    <input id={id} ref={input} tabIndex={-1} type="file" accept="application/pdf,.pdf" name={kind}
+      onChange={e => setName(e.target.files?.[0]?.name || "")} />
+    <div className="ex-actions"><button type="button" aria-label={`${kind} · ${t(lang, "Dosya seç", "Choose file")}`}
+      onClick={() => input.current?.click()}>{t(lang, "Dosya seç", "Choose file")}</button>
+      <span role="status">{name || t(lang, "Henüz dosya seçilmedi", "No file selected")}</span></div>
+  </div>;
+}
 function Vendor({ lang, token }: { lang: Locale; token: string }) {
   const { v, err } = useLoad<{ name: string;scope:string }>("public-exchange/vendor", token),
     a = useAction(lang),
@@ -66,9 +79,7 @@ function Vendor({ lang, token }: { lang: Locale; token: string }) {
           )}
         </p>
         {["SOC 2 Type II", "ISO 27001", "Pentest", "DPA"].map((k) => (
-          <Field key={k} label={k}>
-            <input type="file" accept="application/pdf,.pdf" name={k} />
-          </Field>
+          <VendorDocument key={k} kind={k} lang={lang} />
         ))}
         <button className="ex-primary" disabled={a.busy}>
           {t(lang, "Değerlendirmeyi gönder", "Submit assessment")}
