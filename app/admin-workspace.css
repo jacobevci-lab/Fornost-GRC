@@ -1,0 +1,17 @@
+/* One application font and scale, including top-layer dialogs, in all administration views. */
+#admin-workspace {font-family:var(--font-sans);font-size:var(--text-body);color:var(--ws-ink)}
+#admin-workspace :where(button,input,select,textarea,table,th,td,h2,h3,h4,p,span,label,dt,dd,summary,small,time,dialog){font-family:var(--font-sans)!important}
+#admin-workspace :where(p,label,input,select,textarea,button,td,dt,dd,li,summary){font-size:var(--text-body)!important;line-height:1.5!important}
+#admin-workspace :where(h3){font-size:var(--text-heading)!important;line-height:1.35!important}
+#admin-workspace :where(h4){font-size:16px!important;line-height:1.4!important}
+#admin-workspace :where(th,small,time){font-size:var(--text-caption)!important;line-height:1.5!important}
+#admin-workspace [hidden]{display:none!important}
+#admin-workspace :where(table){width:100%;font-variant-numeric:tabular-nums}
+#admin-workspace .entity-scope-options{display:grid;gap:8px;max-height:240px;overflow:auto;padding:12px;border:1px solid var(--ws-line);border-radius:8px}
+#admin-workspace .entity-scope-options label{display:flex;align-items:center;gap:10px}
+#admin-workspace .entity-scope-options input{width:auto;flex:none}
+#admin-workspace .entity-grants{display:flex;flex-wrap:wrap;gap:6px;padding:0;list-style:none}
+#admin-workspace .entity-grants li{padding:4px 8px;background:var(--ws-surface-2);border:1px solid var(--ws-line);border-radius:6px;color:var(--ws-ink)}
+#admin-workspace .connector-register{overflow-x:auto;margin-top:20px}
+#admin-workspace .connector-register th,#admin-workspace .connector-register td{padding:12px;text-align:left;border-bottom:1px solid var(--ws-line);white-space:normal}
+#admin-workspace .connector-register td small{display:block;color:var(--ws-muted)}

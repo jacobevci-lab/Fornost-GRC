@@ -252,6 +252,8 @@ jobs:
           exit "$failed"
 
   dast-owasp:
+    # Production credential use is limited to the released main branch; branch audits retain the isolated runtime job.
+    if: github.ref == 'refs/heads/main'
     name: Safe production DAST and OWASP runtime checks
     runs-on: ubuntu-latest
     timeout-minutes: 35
@@ -259,8 +261,6 @@ jobs:
       FORNOST_PROD_URL: ${{ vars.FORNOST_PROD_URL }}
       CF_ACCESS_CLIENT_ID: ${{ secrets.CF_ACCESS_CLIENT_ID }}
       CF_ACCESS_CLIENT_SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
-      FORNOST_SMOKE_EMAIL: ${{ secrets.FORNOST_SMOKE_EMAIL }}
-      FORNOST_SMOKE_PASSWORD: ${{ secrets.FORNOST_SMOKE_PASSWORD }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -269,6 +269,12 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22.13.0
+
+      - name: Prepare temporary production QA account
+        uses: ./.github/actions/production-qa-account
+        with:
+          token: ${{ secrets.CLOUDFLARE_D1_API_TOKEN }}
+          account: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
 
       - name: Prepare DAST artifacts
         run: |

@@ -77,6 +77,12 @@ jobs:
           for i in {1..90}; do if curl -fsS http://127.0.0.1:4173/api/health >/dev/null 2>&1; then break; fi; sleep 1; done
           curl -fsS -o /dev/null -H "Origin: http://127.0.0.1:4173" -H "Content-Type: application/json" --data-binary @/tmp/fornost-qa-bootstrap.json http://127.0.0.1:4173/api/auth
           xvfb-run -a -s "-screen 0 1440x900x24" node scripts/entra-connected-e2e.mjs
+      - name: Prepare temporary production QA account
+        if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && (inputs.target == 'production' || inputs.target == 'production-resume')
+        uses: ./.github/actions/production-qa-account
+        with:
+          token: ${{ secrets.CLOUDFLARE_D1_API_TOKEN }}
+          account: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
       - name: Run authorized scenario on the live application
         if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && (inputs.target == 'production' || inputs.target == 'production-resume')
         env:
@@ -85,8 +91,6 @@ jobs:
           ENTRA_WRITE: 'true'
           ENTRA_RESUME_ONLY: ${{ inputs.target == 'production-resume' || inputs.resume_only || 'false' }}
           ENTRA_CLEAN: ${{ inputs.target != 'production-resume' && inputs.clean }}
-          FORNOST_SMOKE_EMAIL: ${{ secrets.FORNOST_SMOKE_EMAIL }}
-          FORNOST_SMOKE_PASSWORD: ${{ secrets.FORNOST_SMOKE_PASSWORD }}
           CF_ACCESS_CLIENT_ID: ${{ secrets.CF_ACCESS_CLIENT_ID }}
           CF_ACCESS_CLIENT_SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
           ENTRA_REVIEWER_EMAIL: ${{ vars.ENTRA_REVIEWER_EMAIL }}

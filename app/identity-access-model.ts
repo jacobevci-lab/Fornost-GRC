@@ -1,9 +1,11 @@
+import type {EntityAccess,Entity} from "./api/users/entity-access";
+export type {EntityAccess,Entity};
 import { ACCESS_MODULES, canReadModule, canWriteModule, validateModuleAccess, type AccessModule, type ModuleAccess } from "./module-access";
 import { isSessionRevocationEvent } from "./user-session-actions";
 export type Lang = "tr" | "en";
-export type LocalUser = { revision:string; own:boolean; lastAdmin:boolean; moduleAccess:ModuleAccess; id:string; name:string; email:string; role:"Admin"|"Editor"|"Viewer"; status:"Active"|"Disabled"; failed_attempts?:number; locked_until?:string };
+export type LocalUser = { orgScope?:EntityAccess; revision:string; own:boolean; lastAdmin:boolean; moduleAccess:ModuleAccess; id:string; name:string; email:string; role:"Admin"|"Editor"|"Viewer"; status:"Active"|"Disabled"; failed_attempts?:number; locked_until?:string };
 export type AccessEvent = {id:string;email:string;actor:string;created_at:string;after_json?:string};
-export function validDirectory(value:unknown):value is {users:LocalUser[];events:AccessEvent[]} {
+export function validDirectory(value:unknown):value is {users:LocalUser[];events:AccessEvent[];entities?:Entity[]} {
  if(!value||typeof value!=="object")return false;
  const body=value as {users?:unknown;events?:unknown};
  return Array.isArray(body.users)&&body.users.every(u=>u&&["id","name","email","revision"].every(k=>typeof u[k]==="string")&&["Admin","Editor","Viewer"].includes(u.role)&&["Active","Disabled"].includes(u.status)&&typeof u.own==="boolean"&&typeof u.lastAdmin==="boolean"&&!!validateModuleAccess(u.moduleAccess))&&Array.isArray(body.events)&&body.events.every(e=>e&&["id","email","actor","created_at"].every(k=>typeof e[k]==="string"));
@@ -24,3 +26,5 @@ export function accountEvent(value:string|undefined,lang:Lang){
  if(operation==="create-local-account")return tr?"Yerel hesap oluşturuldu":"Local account created";
  return tr?"Hesap erişimi güncellendi":"Account access updated";
 }
+
+export function entityRoleLabel(role:string,lang:Lang){return ({"group-admin":["Grup Yöneticisi","Group Admin"],"group-ciso":["Grup CISO","Group CISO"],"entity-manager":["İştirak Yöneticisi","Entity Manager"],contributor:["Katılımcı","Contributor"]}[role]||[role,role])[lang==="tr"?0:1];}

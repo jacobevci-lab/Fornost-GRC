@@ -1,3 +1,4 @@
+import {event} from "../../enterprise/http";
 import type { NextRequest } from "next/server";
 import { requireRole } from "../auth/security";
 import { readBoundedJsonObject } from "../request-body";
@@ -88,7 +89,11 @@ async function handle(req: NextRequest, write: boolean) {
           return reply(await simulate(env,text(b.kind,20),b,user.email));
         case "sync":
         case "test":
-          return reply(await sync(env, text(b.kind, 20), b.action === "test"));
+          {
+          const kind=text(b.kind,20);
+          try{const result=await sync(env,kind,b.action==="test");await event(db,user.email,"connector-"+b.action,JSON.stringify({kind,status:"success"})).run();return reply(result);}
+          catch(error){await event(db,user.email,"connector-"+b.action,JSON.stringify({kind,status:"error"})).run();throw error;}
+          }
         case "recover-ticket":
           return reply(await recoverTicket(env, id, text(b.reference, 80)));
         case "ticket":

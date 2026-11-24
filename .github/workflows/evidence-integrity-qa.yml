@@ -72,14 +72,18 @@ jobs:
       FORNOST_PROD_URL: https://app.fornostsecurity.com
       CF_ACCESS_CLIENT_ID: ${{ secrets.CF_ACCESS_CLIENT_ID }}
       CF_ACCESS_CLIENT_SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
-      FORNOST_SMOKE_EMAIL: ${{ secrets.FORNOST_SMOKE_EMAIL }}
-      FORNOST_SMOKE_PASSWORD: ${{ secrets.FORNOST_SMOKE_PASSWORD }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22.13.0
           cache: npm
+      - name: Prepare temporary production QA account
+        uses: ./.github/actions/production-qa-account
+        with:
+          token: ${{ secrets.CLOUDFLARE_D1_API_TOKEN }}
+          account: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
       - run: npm ci
       - run: npm install --no-save --ignore-scripts @playwright/test@1.55.0
       - name: Browser

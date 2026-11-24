@@ -25,8 +25,8 @@ try {
  if(process.env.ENTERPRISE_BOOTSTRAP_KEY)await api('POST','/api/auth',{action:'authorize_bootstrap',token:process.env.ENTERPRISE_BOOTSTRAP_KEY});
  await api('POST', '/api/auth', { action: 'bootstrap', email: 'qa-admin@fornost.test', name: 'Integration QA', password: qaPassword() });
  await page.goto(base); await expect(page.locator('.shell')).toBeVisible({timeout:30000});
- await openQaModule(page, 'Entegrasyonlar'); await expect(desk).toContainText('İlk iş takibi bağlantınızı kurun'); await capture('empty-TR-light');
- phase = 'wizard draft persistence'; await button('Kuruluma başla').click();
+ await openQaModule(page, 'Entegrasyonlar'); await expect(desk.locator('[data-connector]')).toHaveCount(4); await capture('empty-TR-light');
+ phase = 'wizard draft persistence'; await button('Bilet sağlayıcısını düzenle').click();
  await button('Devam et').click(); await desk.getByLabel('Bağlantı adı', { exact: true }).fill('Jira · Güvenlik Ekibi');
  await desk.getByLabel('Sorumlu ekip', { exact: true }).fill('Bilgi Güvenliği');
  await desk.getByLabel('Jira adresi', { exact: true }).fill('https://example.atlassian.net');
@@ -40,7 +40,7 @@ try {
  let current = await row(); assert.equal(current.enabled, false); assert.equal(current.hasSecret, true);
  assert.equal(current.config.name, 'Jira · Güvenlik Ekibi'); assert.equal(JSON.stringify(current).includes('synthetic-integration-fixture-key'), false);
  assert.equal(Object.hasOwn(current, 'secret_ciphertext'), false);
- await button('Kapat').click(); await page.reload(); await waitForQaIdle(page); await expect(desk).toContainText('Jira · Güvenlik Ekibi');
+ await button('Kapat').click(); await page.reload(); await waitForQaIdle(page); await expect(desk.locator('[data-connector=tickets]')).toContainText('Jira Cloud');
  phase = 'role and version guards';
  const editor = await browser.newContext(), editorEmail='ticket-editor@fornost.test';
  await api('POST','/api/users',{email:editorEmail,name:'Ticket QA editor',role:'Editor',password:qaPassword()},201);
@@ -58,7 +58,7 @@ try {
  await api('DELETE', '/api/integrations', { kind: 'ticketing', expectedUpdatedAt: oldVersion }, 409);
  await refresh();
  phase = 'filter and dirty-form recovery'; await desk.getByLabel('Bağlantı ara').fill('no-match'); await expect(desk).toContainText('Filtreyle eşleşen bağlantı yok'); await button('Filtreleri temizle').click();
- await button('Bağlantıyı düzenle').click(); await button('Devam et').click(); await desk.getByLabel('Bağlantı adı', { exact: true }).fill('Unsaved');
+ await button('Bilet sağlayıcısını düzenle').click(); await button('Devam et').click(); await desk.getByLabel('Bağlantı adı', { exact: true }).fill('Unsaved');
  await page.keyboard.press('Escape'); await expect(desk).toContainText('Kaydedilmemiş değişiklikler var'); await button('Düzenlemeye dön').click();
  await button('Kapat').click(); await button('Değişiklikleri bırak').click(); await expect(desk.locator('.icd-editor')).toHaveCount(0);
  assert.equal((await row()).config.name, 'Jira · Güvenlik Ekibi');
@@ -69,11 +69,11 @@ try {
  await page.unroute('**/api/integrations/health'); await refresh(); await expect(button('Etkinleştir')).toBeDisabled();
  phase = 'read failures never become an empty or editable configuration';
  await page.route('**/api/integrations', route => route.request().method() === 'GET' ? route.fulfill({ status: 503, json: {} }) : route.continue());
- await refresh(); await expect(desk).toContainText('Bağlantı bilgileri alınamadı'); await expect(button('Bağlantıyı düzenle')).toBeDisabled(); await expect(desk.locator('.icd-empty')).toHaveCount(0);
+ await refresh(); await expect(desk).toContainText('Bağlantı bilgileri alınamadı'); await expect(button('Bilet sağlayıcısını düzenle')).toBeDisabled(); await expect(desk.locator('.icd-empty')).toHaveCount(0);
  await page.unroute('**/api/integrations'); await button('Yeniden dene').click(); await waitForQaIdle(page);
- await page.route('**/api/integrations?view=history', route => route.fulfill({ status: 503, json: {} }));
- await refresh(); await button('Bağlantı geçmişi').click(); await expect(desk).toContainText('Geçmiş alınamadı');
- await page.unroute('**/api/integrations?view=history'); await refresh(); await expect(desk).toContainText('Duraklatma');
+ await page.route('**/api/exchange?area=connectors', route => route.fulfill({ status: 503, json: {} }));
+ await refresh(); await button('Bağlantı geçmişi').click(); await expect(page.locator('.exchange')).toContainText('Bağlantı listesi yenilenemedi');
+ await page.unroute('**/api/exchange?area=connectors'); await refresh(); await expect(desk).toContainText('Duraklatma');
  await button('Bağlantılar').click();
  phase = 'TR/EN light/dark desktop/mobile';
  for (const lang of ['tr', 'en']) for (const theme of ['light', 'dark']) for (const width of [1536, 390]) {
@@ -87,7 +87,7 @@ try {
  await page.setViewportSize({ width: 1536, height: 1024 }); await switchQaLocale(page, 'tr');
  if (await page.locator('html').getAttribute('data-theme') !== 'light') await page.locator('.theme-toggle:visible').click();
  phase = 'disconnect retains audit history'; await button('Bağlantıyı kaldır').click(); await expect(desk).toContainText('saklanan anahtar silinir');
- await button('Vazgeç').click(); assert.ok(await row()); await button('Bağlantıyı kaldır').click(); await button('Kaldırmayı onayla').click(); await expect(desk).toContainText('İlk iş takibi bağlantınızı kurun'); assert.equal(await row(), undefined);
+ await button('Vazgeç').click(); assert.ok(await row()); await button('Bağlantıyı kaldır').click(); await button('Kaldırmayı onayla').click(); await expect(desk.locator('[data-connector]')).toHaveCount(4); assert.equal(await row(), undefined);
  const history = (await api('GET', '/api/integrations?view=history')).events;
  for (const action of ['save', 'enable', 'pause', 'disconnect']) assert.ok(history.some(e => e.action === action), `missing audit event: ${action}`);
  assert.equal(JSON.stringify(history).includes('synthetic-integration-fixture-key'), false);
