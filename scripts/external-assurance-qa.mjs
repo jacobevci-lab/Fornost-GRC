@@ -60,7 +60,7 @@ try {
   }
   const hub = await module("İş Akışı Entegrasyonları");
   await hub
-    .getByRole("heading", { name: "Entegrasyon Merkezi", exact: true })
+    .getByRole("heading", { name: "Kurumsal bağlayıcılar", exact: true })
     .waitFor();
   await hub
     .getByRole("button", { name: "Yapılandır", exact: true })

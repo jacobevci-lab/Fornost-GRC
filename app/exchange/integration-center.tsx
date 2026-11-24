@@ -428,7 +428,7 @@ export default function IntegrationCenter({ lang }: { lang: Locale }) {
   if (!v) return <State lang={lang} error={err} />;
   return (
     <section className="exchange">
-      <h2>{t(lang, "Entegrasyon Merkezi", "Integration Center")}</h2>
+      <h2>{t(lang, "Kurumsal bağlayıcılar", "Enterprise connectors")}</h2>
       <div className="ex-grid">
         {v.cards.map((card) => (
           <Connector
