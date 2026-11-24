@@ -56,6 +56,7 @@ export function scopedApiAllowed(subject: AccessSubject, pathname: string, metho
   if (path === "/api/catalogs") return read; // Shared field choices, no business records.
   if (path === "/api/audits/templates") return read && canReadModule(subject, "Denetim Yönetimi"); // Library administration is Admin-only.
   if (path === "/api/ai/status" || path === "/api/ai/source-target") return read;
+  if (path === "/api/ai/agentic") return read || method === "POST"; // Each registry tool checks module and entity access.
   if (path === "/api/ai/chat") return method === "POST";
   const moduleName = ["/api/audits", "/api/audits/plan", "/api/audits/requests", "/api/audits/requests/closure", "/api/audits/workpapers", "/api/audits/milestones"].includes(path) ? "Denetim Yönetimi" : ["/api/evidence", "/api/evidence/history", "/api/evidence/review"].includes(path) ? "Kanıtlar" : null;
   return !!moduleName && (read ? canReadModule(subject, moduleName) : canWriteModule(subject, moduleName));

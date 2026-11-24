@@ -1,3 +1,4 @@
+import { agentActor } from './access';
 import { validate } from '../../core-record-validation';
 import { insertCoreRecords } from '../../core-reference-write';
 import { reserveRecordCodes } from '../../record-code-store';
@@ -17,9 +18,9 @@ export type Proposal = {
     created_at: string;
     applied_at: string | null;
 };
-export const card = (p: Proposal) => ({ id: p.id, kind: p.kind, params: JSON.parse(p.params_json), revision: p.revision, status: p.status, expiresAt: p.expires_at, result: p.result_json ? JSON.parse(p.result_json) : null });
+export const card = (p: Proposal) => ({ id: p.id, kind: p.kind, params: Object.fromEntries(Object.entries(JSON.parse(p.params_json)).filter(([k])=>!['authorization','riskId','controlId'].includes(k))), revision: p.revision, status: p.status, expiresAt: p.expires_at, result: p.result_json ? JSON.parse(p.result_json) : null });
 export async function saveProposal(db: D1Database, actor: Actor, kind: string, params: Record<string, unknown>, pins: Pin[]) {
-    await allowed(db, actor, 'agents');
+    if(kind.startsWith('tool:'))await agentActor(db,actor,true);else await allowed(db, actor, 'agents');
     const id = crypto.randomUUID(), revision = crypto.randomUUID(), now = new Date().toISOString(), expires = new Date(Date.now() + 20 * 60000).toISOString();
     const encoded = JSON.stringify(params), source = JSON.stringify(pins);
     if (encoded.length > 150000 || source.length > 500000)
@@ -63,10 +64,12 @@ export async function proposeCommand(db: D1Database, actor: Actor, question: str
     return { proposal: await saveProposal(db, actor, 'risk', { title, data: checked.data, assetCode: asset.code }, [{ table: 'simple_grc_records', row: { id: asset.id, module: 'Varlık Envanteri', data_json: asset.data_json, updated_at: asset.updated_at } }, { table: 'local_users', row: owner }]) };
 }
 export async function readProposal(db: D1Database, actor: Actor, b: Record<string, unknown>) {
-    await allowed(db, actor, 'agents');
+    await agentActor(db,actor,true);
     const p = await db.prepare('SELECT * FROM ai_hitl_proposals WHERE id=? AND actor_id=?').bind(text(b.id, 100), actor.id).first<Proposal>();
     if (!p)
         throw new AgenticError('AI_NOT_FOUND', 404);
+    if(!p.kind.startsWith('tool:'))await allowed(db,actor,'agents');
+    else {const {authorityGuard}=await import('./access');const params=JSON.parse(p.params_json),g=authorityGuard(actor,params.authorization);if(!(await db.prepare(`SELECT 1 WHERE ${g.sql}`).bind(...g.values).first()))throw new AgenticError('AI_STALE',409);}
     if (p.revision !== b.revision)
         throw new AgenticError('AI_STALE', 409);
     return p;
@@ -82,7 +85,8 @@ export async function applyCommand(db: D1Database, actor: Actor, b: Record<strin
     if (p.status !== 'pending' || p.expires_at <= new Date().toISOString())
         throw new AgenticError('AI_EXPIRED', 409);
     const params = JSON.parse(p.params_json), guard = proposalGuard(p), now = new Date().toISOString();
-    if (p.kind === 'risk') {
+    if(p.kind.startsWith('tool:')){const {applyTool}=await import('./tool-proposals');await applyTool(db,actor,p);}
+    else if (p.kind === 'risk') {
         const id = p.id, code = (await reserveRecordCodes(db, 'Risk Assessment', 1, now))[0];
         try {
             await insertCoreRecords(db, 'Risk Assessment', [{ id, code, data: params.data }], now, undefined, { guard, after: applied(db, p, { id, code, module: 'Risk Assessment' }) });

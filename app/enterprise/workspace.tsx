@@ -1,4 +1,5 @@
 'use client';
+import AgenticChat from '../ai/agentic/chat-ui';
 import {useEffect,useState} from 'react';
 import {type Access,type Kind,issue,labels,request,useData} from './client';
 import {FairDetail,FairFields} from './fair-panel';
@@ -40,9 +41,11 @@ export function Register({tr,access}:{tr:boolean;access:Access}){
  {access.writable.includes(kind)&&<button className="primary" disabled={busy}>{tr?'Kaydet':'Save'}</button>} <button type="button" onClick={()=>edit(null)}>{tr?'Kapat':'Close'}</button></form>}
  {message&&<p role="status">{message}</p>}</section>;
 }
-export function ScopedWorkspace(){
+export function ScopedWorkspace({user}:{user:{email:string;role:string}}){
+ const [ask,setAsk]=useState(false);
  const {data,error,reload}=useData<Access>('enterprise/scope'),[tr,setTr]=useState(()=>typeof window==='undefined'||localStorage.getItem('fornost-grc-language')!=='en'),[dark,setDark]=useState(()=>typeof window!=='undefined'&&localStorage.getItem('fornost-grc-theme-v5')==='dark');
  useEffect(()=>{document.documentElement.dataset.theme=dark?'dark':'light';document.documentElement.style.colorScheme=dark?'dark':'light';document.documentElement.lang=tr?'tr':'en'},[dark,tr]);
- return <main className="ec-shell"><header className="ec-toolbar"><h1>{tr?'Kurumsal çalışma alanı':'Enterprise workspace'}</h1><ScopeSelect tr={tr}/><button onClick={()=>{localStorage.setItem('fornost-grc-language',tr?'en':'tr');setTr(!tr)}}>{tr?'EN':'TR'}</button><button onClick={()=>{localStorage.setItem('fornost-grc-theme-v5',dark?'light':'dark');setDark(!dark)}}>{tr?(dark?'Açık tema':'Koyu tema'):(dark?'Light theme':'Dark theme')}</button><button onClick={async()=>{await request('auth',{action:'logout'});location.reload()}}>{tr?'Çıkış':'Sign out'}</button></header>
+ return <main className="ec-shell"><header className="ec-toolbar"><h1>{tr?'Kurumsal çalışma alanı':'Enterprise workspace'}</h1><ScopeSelect tr={tr}/><button aria-expanded={ask} onClick={()=>setAsk(!ask)}>+ Ask Fornost</button><button onClick={()=>{localStorage.setItem('fornost-grc-language',tr?'en':'tr');setTr(!tr)}}>{tr?'EN':'TR'}</button><button onClick={()=>{localStorage.setItem('fornost-grc-theme-v5',dark?'light':'dark');setDark(!dark)}}>{tr?(dark?'Açık tema':'Koyu tema'):(dark?'Light theme':'Dark theme')}</button><button onClick={async()=>{await request('auth',{action:'logout'});location.reload()}}>{tr?'Çıkış':'Sign out'}</button></header>
+ {ask&&<AgenticChat user={user} lang={tr?'tr':'en'}/>}
  {data?<Register tr={tr} access={data}/>:error?<button onClick={reload}>{tr?'Tekrar dene':'Retry'}</button>:<p>{tr?'Yükleniyor…':'Loading…'}</p>}</main>;
 }

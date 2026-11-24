@@ -13,7 +13,7 @@
 
 ## Authority and privacy
 
-- Consolidated full-access accounts can use this workspace; Editors/Admins can request/apply actions. Viewers can only query. Scoped accounts retain the existing scoped read-only chat. Per-system governance also enforces owner/Admin authority.
+- Ask Fornost registry reads and CAPA/risk/evidence-note proposals now enforce live module/entity scope (see modular-agent-tools.md). Editors/Admins can apply actions only with the relevant write grant; Viewers only query. Regulatory/deep-governance workspaces and legacy reminders still require consolidated full access. Per-system governance also enforces owner/Admin authority.
 - Proposal parameters are stored on the server. Only the requesting user can approve the exact proposal revision. Cards expire after 20 minutes. Source changes or withdrawn authority prevent application. Repeated/concurrent approvals return the original receipt.
 - Native writes and `Ask Fornost (Kullanıcı Onaylı)` audit receipts commit together. Reminders never send external messages or close findings. Risk drafts are initial proposals, not approved assessments. Published policy content remains unchanged; the usual independent review/publish path applies to the new version.
 - Analysis uses the existing privacy router. Offline mode makes no provider calls. Restricted material is excluded; BYOK retrieval is limited to Internal/Public sources. No model output can select SQL, invoke arbitrary tools, approve evidence or bypass SoD.

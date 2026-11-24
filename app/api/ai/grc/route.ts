@@ -3,7 +3,7 @@ import { requireRole } from '../../auth/security';
 import { isScoped } from '../../../module-access';
 import { canManage } from '../../../enterprise/scope';
 import { aiRuntime,recordAiEvent } from '../../../ai/storage';
-import { defaultPrivacy,privacyRow,savePrivacy,analyzeWithRouter,type PrivacyConfig,type Runtime } from '../../../ai/grc/router';
+import { defaultPrivacy,privacyRow,savePrivacy,type PrivacyConfig,type Runtime } from '../../../ai/grc/router';
 import { prepareStore,evidenceContext,reviewStoredEvidence,analyzeVendorFile,sourceCatalog,createQuestionnaire } from '../../../ai/grc/store';
 import { sourcesCurrent,draftAnswer,csv,type Answer,type Lang } from '../../../ai/grc/domain';
 import { convertVendorItem } from '../../../ai/grc/conversion';
@@ -17,7 +17,7 @@ export async function GET(req:NextRequest){
  if(kind==='evidence'||kind==='vendor'){
   if(!id)throw new Error('AI_NOT_FOUND');
   const row=await env.DB.prepare('SELECT * FROM grc_ai_results WHERE kind=? AND subject=? ORDER BY created_at DESC LIMIT 1').bind(kind,id).first<{result:string;source_hash:string}>();
-  if(kind==='evidence'){const context=await evidenceContext(env,id);return json({analysis:row?{...row,result:JSON.parse(row.result),stale:row.source_hash!==context.hash}:null});}
+  if(kind==='evidence'){const context=await evidenceContext(env,id);const notes=(await env.DB.prepare("SELECT id,result,actor,created_at FROM grc_ai_results WHERE kind='evidence-note' AND subject=? ORDER BY created_at DESC LIMIT 10").bind(id).all<{id:string;result:string;actor:string;created_at:string}>()).results.map(n=>({...n,result:JSON.parse(n.result),stale:JSON.parse(n.result).evidenceRevision!==context.row.updated_at}));return json({analysis:row?{...row,result:JSON.parse(row.result),stale:row.source_hash!==context.hash}:null,notes});}
   return json({analysis:row?{...row,result:JSON.parse(row.result)}:null});
  }
  if(kind==='questionnaires')return json({items:(await env.DB.prepare('SELECT id,title,revision,actor,created_at FROM grc_ai_questionnaires ORDER BY created_at DESC LIMIT 100').all()).results});
@@ -44,7 +44,7 @@ export async function POST(req:NextRequest){
  }
  const raw=await req.text();if(raw.length>500000)throw new Error('AI_TEXT_LIMIT');const b=JSON.parse(raw),lang:Lang=b.lang==='en'?'en':'tr';
  if(b.action==='config'){if(!canManage(a.actor))return json({code:'AI_ADMIN'},403);return json(await savePrivacy(env,b as PrivacyConfig,a.actor.email));}
- if(b.action==='test'){if(!canManage(a.actor))return json({code:'AI_ADMIN'},403);return json({ok:true,response:await analyzeWithRouter(env,a.actor.email,'connection-test',{instruction:'Reply OK',lang})});}
+ if(b.action==='test'){if(!canManage(a.actor))return json({code:'AI_ADMIN'},403);const {LLMGateway}=await import('../../../ai/llm-gateway');const result=await new LLMGateway(env).analyze(a.actor.email,'connection-test',{instruction:'Reply OK',lang});return json({ok:!result.fallback,...result});}
  if(b.action==='evidence')return json(await reviewStoredEvidence(env,String(b.id),a.actor.email,lang,b.transcript));
  if(b.action==='convert'){const result=await convertVendorItem(env,a.actor,b);await recordAiEvent(env.DB,{actor:a.actor.email,action:'vendor-convert',status:'success',contextRefs:[String(b.id),result.id],detail:String(b.target)});return json(result);}
  if(b.action==='create-questionnaire')return json(await createQuestionnaire(env,a.actor.email,String(b.title||''),b.questions,lang));

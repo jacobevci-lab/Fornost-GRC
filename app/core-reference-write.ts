@@ -91,7 +91,7 @@ export class CoreSideEffectConflict extends Error {}
 export async function checkSideConflict(db:D1Database,side?:CoreSideEffect){
  if(side && !(await db.prepare(`SELECT 1 valid WHERE ${side.guard.sql}`).bind(...side.guard.values).first()))throw new CoreSideEffectConflict();
 }
-export type CoreSideEffect={guard:{sql:string;values:string[]};after:D1PreparedStatement};
+export type CoreSideEffect={guard:{sql:string;values:string[]};after:D1PreparedStatement;tail?:D1PreparedStatement[]};
 export type NewCoreRecord={id:string;code:string;data:Record<string,unknown>};
 export type CoreImportClaim={key:string;value:string;guard:{sql:string;values:(string|null)[]}};
 export class CoreImportConflict extends Error {}
@@ -109,6 +109,7 @@ export async function insertCoreRecords(db:D1Database,module:string,records:NewC
    .bind(module,now,JSON.stringify(records.map(({id,code})=>({id,code}))),records.length),
   ...(side?[side.after]:[]),
   ...(claim?[db.prepare('INSERT INTO simple_grc_metadata(key,value,updated_at) SELECT ?,?,? WHERE changes()=?').bind(claim.key,claim.value,now,records.length)]:[]),
+  ...(side?.tail||[]),
  ]);
  // The code insert is gated by SQLite changes()=records.length, which excludes
  // trigger writes. D1 metadata includes those writes, so its positive receipt

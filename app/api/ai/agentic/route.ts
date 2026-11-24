@@ -3,8 +3,10 @@ import { readBoundedJsonObject, JsonBodyError } from '../../request-body';
 import { requireRole } from '../../auth/security';
 import { aiRuntime, recordAiEvent } from '../../../ai/storage';
 import { ready, allowed, fullAccess, AgenticError, text } from '../../../ai/agentic/common';
-import { liveContext } from '../../../ai/agentic/context';
-import { proposeCommand, applyCommand, readProposal, card } from '../../../ai/agentic/proposals';
+import { runAgent } from '../../../ai/agentic/tool-registry';
+import { agentActor } from '../../../ai/agentic/access';
+import { reviseTool } from '../../../ai/agentic/tool-proposals';
+import { applyCommand, readProposal, card } from '../../../ai/agentic/proposals';
 import { analyzeRegulation, proposeRegulatory } from '../../../ai/agentic/regulatory';
 import type { Runtime } from '../../../ai/grc/router';
 const json = (data: unknown, status = 200) => NextResponse.json(data, { status, headers: { 'cache-control': 'private, no-store' } });
@@ -16,13 +18,13 @@ export async function GET(req: NextRequest) {
         return a.response;
     try {
         const env = await aiRuntime() as Runtime;
-        fullAccess(a.actor);
+        await agentActor(env.DB,a.actor);
         await ready(env.DB);
-        await allowed(env.DB, a.actor, 'chat');
-        if (req.nextUrl.searchParams.get('kind') === 'reminders')
-            return json({ items: (await env.DB.prepare("SELECT r.*,f.title FROM ai_work_reminders r JOIN enterprise_findings f ON f.id=r.finding_id WHERE lower(r.owner)=lower(?) AND r.status='open' ORDER BY r.due_date,r.id LIMIT 100").bind(a.actor.email).all()).results });
+        await agentActor(env.DB,a.actor);
+        if (req.nextUrl.searchParams.get('kind') === 'reminders'){fullAccess(a.actor);
+            return json({ items: (await env.DB.prepare("SELECT r.*,f.title FROM ai_work_reminders r JOIN enterprise_findings f ON f.id=r.finding_id WHERE lower(r.owner)=lower(?) AND r.status='open' ORDER BY r.due_date,r.id LIMIT 100").bind(a.actor.email).all()).results });}
         const rows = (await env.DB.prepare("SELECT * FROM ai_hitl_proposals WHERE actor_id=? AND status='pending' AND expires_at>strftime('%Y-%m-%dT%H:%M:%fZ','now') ORDER BY created_at DESC LIMIT 20").bind(a.actor.id).all<Parameters<typeof card>[0]>()).results;
-        return json({ items: rows.map(card) });
+        const visible=[];for(const p of rows){try{await readProposal(env.DB,a.actor,{id:p.id,revision:p.revision});visible.push(card(p));}catch{}}return json({items:visible});
     }
     catch (e) {
         return fail(e);
@@ -35,17 +37,17 @@ export async function POST(req: NextRequest) {
     try {
         const b = await readBoundedJsonObject(req, 200000);
         const env = await aiRuntime() as Runtime, actor = a.actor;
-        fullAccess(actor, b.action !== 'query');
+        await agentActor(env.DB,actor,b.action!=='query');
         await ready(env.DB);
         const lang = b.lang === 'en' ? 'en' : 'tr';
         if (b.action === 'query') {
-            await allowed(env.DB, actor, 'chat');
+            await agentActor(env.DB,actor);
             const question = text(b.question, 4000);
             if (!question)
                 throw new AgenticError('AI_FIELDS');
-            const { intent } = await import('../../../ai/agentic/proposals');
-            return json(intent(question) ? await proposeCommand(env.DB, actor, question, b, lang) : await liveContext(env, actor, question, lang));
+            return json(await runAgent(env,actor,question,b,lang));
         }
+        if(b.action==='revise'){const p=await readProposal(env.DB,actor,b);if(!b.patch||typeof b.patch!=='object'||Array.isArray(b.patch))throw new AgenticError('AI_FIELDS');return json(await reviseTool(env.DB,actor,p,b.patch as Record<string,unknown>));}
         if (b.action === 'apply')
             return json(await applyCommand(env.DB, actor, b));
         if (b.action === 'cancel') {
