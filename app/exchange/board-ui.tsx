@@ -164,11 +164,20 @@ async function downloadPdf(b: Board, id: string) {
     reportId: "BRD-" + id.slice(0, 8),
     generatedAt: b.at,
     composer: true,
+    preparedBy: b.preparedBy || "Fornost GRC",
     sections: ["metrics"],
     scope: b.lang === "tr" ? "Konsolide kurum" : "Consolidated enterprise",
     classification: b.lang === "tr" ? "Kurum içi" : "Internal",
   });
-  const url = URL.createObjectURL(await renderReportPdf(snapshot)),
+  const url = URL.createObjectURL(
+      await renderReportPdf(
+        snapshot,
+        undefined,
+        b.lang === "tr"
+          ? b.sections.length + " rapor bölümü"
+          : b.sections.length + " report sections",
+      ),
+    ),
     a = document.createElement("a");
   a.href = url;
   a.download = "Fornost-board.pdf";

@@ -23,6 +23,7 @@ export async function createBoard(
         l("Yönetim Kurulu Özeti", "Board executive summary"),
       at,
       lang: b.lang,
+      preparedBy: actor,
       sections: [],
     };
   for (const k of sections) {

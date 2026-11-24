@@ -46,6 +46,26 @@ const metricNames: Record<string, [string, string]> = {
     "High-risk sign-ins (24h)",
   ],
 };
+const signalLabels: Record<string, [string, string]> = {
+  provider: ["Sağlayıcı", "Provider"],
+  category: ["Bulgu türü", "Finding category"],
+  severity: ["Önem", "Severity"],
+  resource: ["Kaynak", "Resource"],
+  ticket: ["Bilet", "Ticket"],
+  status: ["Durum", "Status"],
+};
+const signalValues: Record<string, string> = {
+  encryption: "Şifreleme",
+  "public-storage": "Herkese açık depolama",
+  iam: "IAM",
+  high: "Yüksek",
+  critical: "Kritik",
+  medium: "Orta",
+  low: "Düşük",
+  resolved: "Giderildi",
+  done: "Tamamlandı",
+  closed: "Kapalı",
+};
 function Select({
   options,
   value,
@@ -430,7 +450,11 @@ export default function IntegrationCenter({ lang }: { lang: Locale }) {
               {Object.entries(JSON.parse(s.summary))
                 .map(
                   ([k, v]) =>
-                    (metricNames[k]?.[lang === "tr" ? 0 : 1] || k) + " " + v,
+                    ((metricNames[k] || signalLabels[k])?.[
+                      lang === "tr" ? 0 : 1
+                    ] || k) +
+                    " " +
+                    (lang === "tr" ? (signalValues[String(v)] ?? v) : v),
                 )
                 .join(" · ")}
             </p>

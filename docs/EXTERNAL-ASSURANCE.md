@@ -17,7 +17,7 @@ Inbound URL: `POST /api/public-exchange/hook-{entra|cloud|tickets}`. Use `Author
 
 Cloud example: `{"provider":"AWS","resource":"arn:aws:s3:::customer-exports","category":"public-storage","severity":"high"}`. Supported normalized severities are low, medium, high, critical and resolved.
 
-Ticket example: `{"ticket":"GRC-12","status":"Done","evidenceCode":"EVD-007","evidenceSha256":"<current 64-character SHA-256>"}`. Missing or stale evidence returns a conflict. A delivery whose outcome is uncertain remains reserved against duplicate external ticket creation.
+Ticket example: `{"ticket":"GRC-12","status":"Done","evidenceCode":"EVD-007","evidenceSha256":"<current 64-character SHA-256>"}`. Missing or stale evidence returns a conflict. A delivery whose outcome is uncertain remains reserved against duplicate external ticket creation. Enter its reference in the finding drawer to recover the link. Fornost reads the provider record and checks the original finding correlation before accepting it.
 
 ## External portals
 

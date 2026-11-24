@@ -46,12 +46,14 @@ try {
     const p = await staff.newPage();
     watch(p);
     await p.addInitScript(
-      ({ id, key }) =>
+      ({ id, key, origin }) => {
+        if (window.top !== window || location.origin !== origin) return;
         sessionStorage.setItem(
           "fornost-grc-page:v1:" + encodeURIComponent(id),
           key,
-        ),
-      { id: user.id, key },
+        );
+      },
+      { id: user.id, key, origin },
     );
     await p.goto(origin);
     return p;

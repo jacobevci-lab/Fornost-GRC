@@ -19,6 +19,7 @@ export const boardLabels: Record<Section, [string, string]> = {
 export type Board = {
   title: string;
   at: string;
+  preparedBy?: string;
   lang: "tr" | "en";
   sections: { title: string; rows: [string, string][] }[];
 };

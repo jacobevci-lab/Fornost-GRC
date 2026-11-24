@@ -144,7 +144,9 @@ export function RecordAction({
   lang: Locale;
 }) {
   const a = useAction(lang),
-    [url, link] = useState("");
+    [url, link] = useState(""),
+    [recovery, showRecovery] = useState(false),
+    [reference, setReference] = useState("");
   return (
     <div className="exchange ex-inline">
       <button
@@ -157,7 +159,11 @@ export function RecordAction({
               sent?: boolean;
               url?: string;
               ticket?: string;
-            }>("exchange", { action: kind, id });
+            }>("exchange", { action: kind, id }).catch((e) => {
+              if (kind === "ticket" && e.message === "reconcile")
+                showRecovery(true);
+              throw e;
+            });
             if (r.url) link(new URL(r.url, location.origin).href);
             a.say(
               r.ticket ||
@@ -184,6 +190,43 @@ export function RecordAction({
               "Create Jira / ServiceNow ticket",
             )}
       </button>
+      {recovery && (
+        <div className="ex-actions">
+          <Field
+            label={t(
+              lang,
+              "Oluşturulan biletin kodu",
+              "Created ticket reference",
+            )}
+          >
+            <input
+              value={reference}
+              onChange={(e) => setReference(e.target.value)}
+            />
+          </Field>
+          <button
+            type="button"
+            disabled={a.busy || !reference}
+            onClick={() =>
+              a.act(async () => {
+                const r = await api<{ url: string; ticket: string }>(
+                  "exchange",
+                  { action: "recover-ticket", id, reference },
+                );
+                link(r.url);
+                showRecovery(false);
+                a.say(r.ticket);
+              })
+            }
+          >
+            {t(
+              lang,
+              "Sağlayıcıdan doğrula ve bağla",
+              "Verify with provider and link",
+            )}
+          </button>
+        </div>
+      )}
       {url &&
         (kind === "invite" ? (
           <button

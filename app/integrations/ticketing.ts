@@ -20,6 +20,7 @@ function publicTicket(provider:IntegrationProvider,payload:JsonRecord,config:Con
   return {id:id||"created",url,status:"created" as const};
 }
 
+export class TicketRejectedError extends Error {}
 export async function createTicket(provider:IntegrationProvider,config:Config,secret:string,allowPrivate:boolean,input:JsonRecord){
   const title=clean(input.title,200),description=clean(input.description,4000);if(!title)throw new Error("Ticket başlığı gerekli.");
   const base=["github-issues","azure-devops"].includes(provider)?"":endpoint(config,allowPrivate);let url=base,body:unknown;const headers:Record<string,string>={"content-type":"application/json"};
@@ -30,7 +31,12 @@ export async function createTicket(provider:IntegrationProvider,config:Config,se
   else if(provider==="azure-devops"){const org=clean(config.organization,100),project=clean(config.project,150),type=encodeURIComponent(clean(config.workItemType,80)||"Task");if(!org||!project)throw new Error("Azure DevOps organization ve project gerekli.");url=`https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_apis/wit/workitems/$${type}?api-version=7.1`;headers.authorization=basic("",secret);headers["content-type"]="application/json-patch+json";body=[{op:"add",path:"/fields/System.Title",value:title},{op:"add",path:"/fields/System.Description",value:description||title},{op:"add",path:"/fields/System.Tags",value:"Fornost GRC"}];}
   else if(provider==="webhook"){headers.authorization=`Bearer ${secret}`;body={event:"grc.ticket.create",title,description,sourceId:clean(input.sourceId,120)};}
   else throw new Error("Bu sağlayıcı ticket oluşturmayı desteklemiyor.");
-  const response=await outbound(url,{method:"POST",headers,body:JSON.stringify(body)}),payload=await parseResponse(response);if(!response.ok)throw new Error(`Ticket oluşturulamadı (${response.status}).`);return publicTicket(provider,payload,config);
+  const response=await outbound(url,{method:"POST",headers,body:JSON.stringify(body)}),payload=await parseResponse(response);if(!response.ok){
+    const message=`Ticket oluşturulamadı (${response.status}).`;
+    if([400,401,403,404,422].includes(response.status))throw new TicketRejectedError(message);
+    throw new Error(message);
+  }
+  return publicTicket(provider,payload,config);
 }
 
 export async function createConfiguredTicket(db:D1Database,env:Record<string,unknown>,input:JsonRecord){

@@ -11,6 +11,7 @@ import {
   openTicket,
   sync,
 } from "../../exchange/connectors";
+import { recoverTicket } from "../../exchange/ticket-recovery";
 import { invite } from "../../exchange/vendor";
 import { decide, publish, trustView } from "../../exchange/trust";
 import { createBoard, readBoard } from "../../exchange/board";
@@ -39,7 +40,7 @@ async function handle(req: NextRequest, write: boolean) {
             )
             .bind(id, user.email)
             .first()
-        : b.action === "ticket"
+        : b.action === "ticket" || b.action === "recover-ticket"
           ? await db
               .prepare(
                 "SELECT 1 FROM enterprise_findings WHERE id=? AND lower(owner)=lower(?)",
@@ -82,6 +83,8 @@ async function handle(req: NextRequest, write: boolean) {
         case "sync":
         case "test":
           return reply(await sync(env, text(b.kind, 20), b.action === "test"));
+        case "recover-ticket":
+          return reply(await recoverTicket(env, id, text(b.reference, 80)));
         case "ticket":
           return reply(await openTicket(env, id));
       }

@@ -674,3 +674,57 @@ test("AWS, Azure and GCP bridge normalize tenant resource identifiers without ac
     cloudEvents({ provider: "AWS", id: "random-core-record" }),
   );
 });
+
+test("ambiguous ticket delivery can be recovered only from the provider's original correlation", async (ctx) => {
+  const { env, sql } = await fixture();
+  const { openTicket } = await import("../app/exchange/connectors");
+  const { recoverTicket } = await import("../app/exchange/ticket-recovery");
+  await configure(env, { kind: "tickets", enabled: true }, "admin");
+  seed(sql, "integration_settings", {
+    id: "jira",
+    kind: "ticketing",
+    provider: "jira",
+    enabled: 1,
+    config_json: JSON.stringify({
+      baseUrl: "https://jira.example",
+      username: "qa",
+      projectKey: "GRC",
+    }),
+  });
+  seed(sql, "enterprise_findings", {
+    id: "finding123",
+    status: "open",
+    title: "Anything",
+  });
+  let posts = 0,
+    description = "";
+  ctx.mock.method(
+    globalThis,
+    "fetch",
+    async (_url: RequestInfo | URL, init?: RequestInit) => {
+      if (init?.method === "POST") {
+        posts++;
+        throw Error("Connection lost");
+      }
+      return Response.json({
+        key: "GRC-42",
+        fields: {
+          description: {
+            content: [{ content: [{ type: "text", text: description }] }],
+          },
+        },
+      });
+    },
+  );
+  await assert.rejects(openTicket(env, "finding123"));
+  await assert.rejects(openTicket(env, "finding123"));
+  assert.equal(posts, 1);
+  await assert.rejects(recoverTicket(env, "finding123", "GRC-42"));
+  description = "Anything\nFornost: finding123";
+  assert.equal(
+    (await recoverTicket(env, "finding123", "GRC-42")).ticket,
+    "GRC-42",
+  );
+  assert.equal((await openTicket(env, "finding123")).ticket, "GRC-42");
+  assert.equal(posts, 1);
+});

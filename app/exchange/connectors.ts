@@ -6,7 +6,10 @@ import {
   safeHttpUrl,
 } from "../api/integrations/security";
 import { testTicketConnection } from "../integrations/ticketing-test";
-import { createConfiguredTicket } from "../integrations/ticketing";
+import {
+  createConfiguredTicket,
+  TicketRejectedError,
+} from "../integrations/ticketing";
 import {
   publicEvidenceVersion,
   verifyEvidenceVersionChainWithAnchor,
@@ -708,11 +711,25 @@ export async function openTicket(env: Env, id: string) {
     .bind(id, provider.provider)
     .run();
   check(r.meta?.changes, 409, "reconcile");
-  const result = await createConfiguredTicket(db, env, {
-    title: f.title,
-    description: f.description + "\nFornost: " + id,
-    sourceId: id,
-  });
+  let result;
+  try {
+    result = await createConfiguredTicket(db, env, {
+      title: f.title,
+      description: f.description.slice(0, 3600) + "\nFornost: " + id,
+      sourceId: id,
+    });
+  } catch (e) {
+    if (e instanceof TicketRejectedError) {
+      await db
+        .prepare(
+          "DELETE FROM exchange_tickets WHERE finding_id=? AND state='sending'",
+        )
+        .bind(id)
+        .run();
+      check(false, 502, "provider");
+    }
+    check(false, 409, "reconcile");
+  }
   check(result.ticket.id !== "created", 502, "reconcile");
   await db
     .prepare(
