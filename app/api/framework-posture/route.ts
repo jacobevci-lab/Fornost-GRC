@@ -1,3 +1,5 @@
+import {entityIds} from '../../enterprise/access';
+import {verifyControl} from '../../framework-posture/verification';
 import { NextRequest, NextResponse } from 'next/server';
 import { readCatalogRequest } from '../../audit-catalog-import';
 import { requireRole } from '../auth/security';
@@ -17,7 +19,8 @@ export async function GET(req:NextRequest) {
   try {
     const {env:{DB:db}}=await import('cloudflare:workers');
     await ensureCoreGrcSchemaCompatibility(db);
-    const query=req.nextUrl.searchParams;
+    const query=req.nextUrl.searchParams,scopeIds=await entityIds(db,auth.actor);
+    if(auth.actor.orgScope?.restricted&&['auditId','controlEditor','controlId','evidenceControls'].some(key=>query.has(key)))return reply({error:'forbidden'},403);
     if(query.has('auditId')){
       if(!canReadModule(auth.actor,'Denetim Yönetimi'))return reply({error:'forbidden'},403);
       const result=await db.prepare("SELECT m.value FROM simple_grc_metadata m JOIN simple_audits a ON m.key='audit_posture_'||a.id WHERE a.id=?").bind(query.get('auditId')).first<{value:string}>();
@@ -27,11 +30,11 @@ export async function GET(req:NextRequest) {
     if(query.has('evidenceControls'))return reply(await evidenceControlStandards(db));
     if(query.has('controlEditor'))return reply(await controlCatalog(db,query.get('controlEditor')||''));
     if(query.has('controlId'))return reply({impact:await readImpact(db,query.get('controlId')||'')});
-    if(query.has('overview'))return reply(await programOverview(db));
+    if(query.has('overview'))return reply(await programOverview(db,scopeIds));
     if(query.has('preview'))return reply(previewCatalog(query.get('name')||''));
     if(!query.has('name'))return reply(await indexPrograms(db));
     if(query.has('period') && !canReadModule(auth.actor,'Denetim Yönetimi'))return reply({error:'forbidden'},403);
-    const matrix=await readMatrix(db,programName(query.get('name')||''));
+    const matrix=await readMatrix(db,programName(query.get('name')||''),scopeIds);
     if(query.has('periods'))return reply({periods:[...new Set(Object.values(matrix.pins).flat().map(p=>p.period))].sort()});
     if(!query.has('period'))return reply(matrix);
     const baseline=makeBaseline(matrix,(query.get('period')||'').trim());
@@ -52,6 +55,7 @@ export async function POST(req:NextRequest) {
     await ensurePosture(db);
     if(body.action==='save')await ensureCoreGrcSchemaCompatibility(db);
     if(body.action==='enroll')await enroll(db,String(body.name||''),auth.actor.email);
+    else if(body.action==='verify-control')await verifyControl(db,auth.actor,body);
     else if(body.action==='save')await saveDecision(db,body,auth.actor.email);
     else return reply({error:'action'},400);
     return reply({ok:true});

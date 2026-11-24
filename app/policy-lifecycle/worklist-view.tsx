@@ -1,3 +1,4 @@
+import {EntityLabel} from '../enterprise/entity-label';
 import {useEffect,useState} from "react";
 import {useWorkflowRecords} from "../use-workflow-records";
 import {workNames,type PolicyWorkPage,type PolicyWorkItem} from "./worklist";
@@ -33,7 +34,7 @@ export function PolicyWorklist({tr,role,emptyRegister,open,act,create,inventory}
       {data.rows.length?<div className="pwl-table"><table><thead><tr>{(tr?["Politika ve kayıt","Bekleyen işlem","Sorumlu","İlgili tarih","Aksiyon"]:["Policy and record","Pending task","Responsible","Relevant date","Action"]).map(s=><th scope="col" key={s}>{s}</th>)}</tr></thead>
       {data.rows.map(row=>{
         const key=row.kind+":"+row.id,shown=expanded===key,exception=["expiry","exceptionReview","exceptionDraft"].includes(row.kind);
-        return <tbody key={key}><tr><td><button className="pwl-row" aria-expanded={shown} onClick={()=>expand(shown?"":key)}><span aria-hidden="true" className="pwl-marker"/><span><b>{row.title}</b><small>{row.code}{row.versionNumber!=null?` · v${row.versionNumber}`:""}</small></span></button></td>
+        return <tbody key={key}><tr><td><button className="pwl-row" aria-expanded={shown} onClick={()=>expand(shown?"":key)}><span aria-hidden="true" className="pwl-marker"/><span><b>{row.title}</b><small>{row.code}{row.versionNumber!=null?` · v${row.versionNumber}`:""}</small><EntityLabel kind="policy" id={row.policyId} tr={tr}/></span></button></td>
           <td data-label={tr?"İşlem":"Task"}>{workNames[row.kind][tr?0:1]}</td><td data-label={tr?"Sorumlu":"Responsible"}>{row.responsible}</td>
           <td data-label={tr?"Tarih":"Date"}><span className={row.due&&row.due<today?"pwl-late":""}>{date(row)}</span>{row.due&&<small>{exception?(tr?"İstisna bitişi":"Exception expiry"):row.kind==="periodic"?(tr?"İnceleme tarihi":"Review due"):(tr?"Yanıt son tarihi":"Response deadline")}</small>}</td><td data-label={tr?"Aksiyon":"Action"}><button type="button" onClick={()=>row.decision?act(row):open(row)}>{row.decision?({
            submit:tr?"İncelemeye Gönder":"Submit for review","submit-exception":tr?"İncelemeye Gönder":"Submit for review",approve:tr?"İncele / Onayla":"Review / Approve",

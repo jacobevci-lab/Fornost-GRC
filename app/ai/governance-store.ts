@@ -132,10 +132,10 @@ async function references(db: D1Database, p: Profile) {
     values: [pairs]
   };
 }
-export async function register(env: GovernanceEnv, actor: Actor, b: Body) {
+export async function register(env: GovernanceEnv, actor: Actor, b: Body, intake?:{id:string;guard:{sql:string;values:unknown[]};tail:D1PreparedStatement[]}) {
   const db = env.DB,
     p = parseProfile((b.profile || {}) as Partial<Profile>),
-    id = b.id ? String(b.id) : 'AIM-' + crypto.randomUUID();
+    id = intake?.id || (b.id ? String(b.id) : 'AIM-' + crypto.randomUUID());
   const existing = b.id ? await getModel(db, id, actor) : null;
   if (actor.role !== 'Admin' && (!existing ? actor.email !== p.owner : actor.email !== existing.owner)) throw new DeskError('denied', 403);
   if (existing && (existing.revision !== b.revision || !['draft', 'assessment', 'suspended'].includes(existing.phase) && !(existing.phase === 'production' && !existing.profile))) throw new DeskError('stage', 409);
@@ -145,7 +145,7 @@ export async function register(env: GovernanceEnv, actor: Actor, b: Body) {
     links = await references(db, p);
   const shadow = typeof b.shadowId === 'string' && b.shadowId ? b.shadowId : null;
   if (shadow && (actor.role !== 'Admin' || existing)) throw new DeskError('denied', 403);
-  const guard = joinWorkflowGuards(selection.guard, links, shadow ? {
+  const guard = joinWorkflowGuards(selection.guard, links, intake?.guard, shadow ? {
     sql: "EXISTS(SELECT 1 FROM ai_shadow_register WHERE id=? AND status='unreviewed')",
     values: [shadow]
   } : undefined);
@@ -198,7 +198,7 @@ export async function register(env: GovernanceEnv, actor: Actor, b: Body) {
   const claim = existing ? db.prepare(`UPDATE ai_model_inventory SET ${Object.keys(patch).map(k => k + '=?').join(',')} WHERE id=? AND COALESCE((SELECT updated_at FROM ai_system_profiles WHERE model_id=?),updated_at)=? AND ${guard.sql}`).bind(...Object.values(patch), id, id, existing.revision, ...guard.values) : db.prepare(`INSERT INTO ai_model_inventory(${Object.keys(fresh).join(',')}) SELECT ${Object.keys(fresh).map(() => '?').join(',')} WHERE ${guard.sql}`).bind(...Object.values(fresh), ...guard.values);
   const intakePhase = existing?.phase === 'production' ? 'suspended' : shadow || existing?.phase === 'assessment' ? 'assessment' : 'draft';
   const profile = db.prepare(`INSERT INTO ai_system_profiles(model_id,profile_json,phase,updated_at) SELECT ?,?,?,? WHERE changes()=1 ON CONFLICT(model_id) DO UPDATE SET profile_json=excluded.profile_json,phase=excluded.phase,assessment_json='{}',evidence_json=NULL,submitted_by=NULL,decided_by=NULL,decision_note=NULL,updated_at=excluded.updated_at`).bind(id, JSON.stringify(p), intakePhase, now);
-  await commitLifecycle(db, claim, [profile, ...(shadow ? [db.prepare("UPDATE ai_shadow_register SET status='admitted',model_id=?,decided_by=?,decided_at=?,decision_note=? WHERE id=? AND changes()=1").bind(id, actor.email, now, p.purpose, shadow)] : []), receipt(db, id, actor.email, shadow ? 'shadow-admitted' : 'system-register', p.name, now)]);
+  await commitLifecycle(db, claim, [profile, ...(shadow ? [db.prepare("UPDATE ai_shadow_register SET status='admitted',model_id=?,decided_by=?,decided_at=?,decision_note=? WHERE id=? AND changes()=1").bind(id, actor.email, now, p.purpose, shadow)] : []), receipt(db, id, actor.email, shadow ? 'shadow-admitted' : 'system-register', p.name, now),...(intake?.tail||[])]);
   return {
     id
   };

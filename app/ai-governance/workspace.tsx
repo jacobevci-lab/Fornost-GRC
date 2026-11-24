@@ -1,5 +1,6 @@
 'use client';
 
+import {EntityLabel} from '../enterprise/entity-label';
 import {DeepGovernanceTools,ShadowImport} from '../ai/agentic/deep-ui';
 import { useState, useRef } from 'react';
 import { useWorkflowRecords } from '../use-workflow-records';
@@ -280,7 +281,7 @@ export default function Workspace({
                 <td>
                   <button onClick={() => review(m)}>{m.code}</button>
                 </td>
-                <td>{m.name}</td>
+                <td>{m.name}<EntityLabel kind="ai" id={m.id} tr={tr}/></td>
                 <td>{p ? word(p.architecture, tr) : '—'}</td>
                 <td>{m.vendor}</td>
                 <td>

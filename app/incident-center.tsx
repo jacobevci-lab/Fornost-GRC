@@ -1,4 +1,5 @@
 "use client";
+import {EntityLabel} from './enterprise/entity-label';
 import {DirectoryPersonField} from "./directory-person-field";
 import {localInput,eventText} from "./incidents/crisis";
 import {IncidentDossier,hasIncidentBreach,matchesIncident,type Incident} from "./incidents/case-workspace";
@@ -84,7 +85,7 @@ export default function IncidentCenter({lang,currentUser}:{lang:Lang;currentUser
       <button type="button" aria-pressed={filter==="breached"} onClick={()=>setFilter("breached")}>{tr?"SLA ihlali":"SLA breaches"} · {summary.breached}</button>
     </div>}
     <div className="ic-case-list">{filtered.map(row=><button type="button" key={row.id} className="incident-row-open" aria-pressed={selected?.id===row.id} disabled={resource.loading} onClick={()=>select(row.id)}>
-      <small>{row.code}</small><b>{row.title}</b><span>{label(row.severity)} · {label(row.status)}</span>{hasIncidentBreach(row)&&<span className="ic-breach">{label(row.attention)}</span>}
+      <small>{row.code}</small><EntityLabel kind="incident" id={row.id} tr={tr}/><b>{row.title}</b><span>{label(row.severity)} · {label(row.status)}</span>{hasIncidentBreach(row)&&<span className="ic-breach">{label(row.attention)}</span>}
     </button>)}</div>
   </section>
   {selected?<IncidentDossier key={selected.id} row={selected} lang={lang} user={currentUser} disabled={!ready||busy} onAction={openAction} reload={async()=>{await resource.reload();}} onCancelSaved={async()=>{setFilter("all");await resource.reload();}}/>:

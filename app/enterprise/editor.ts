@@ -3,6 +3,8 @@ export type EditableField={field:string;storage:'json'|'column';column:string;st
 export function editableField(kind:string,table:string):EditableField{
  const json=(column:string,states:string[]):EditableField=>({field:column,storage:'json',column,states});
  switch(kind){
+  case 'ai':return {field:'purpose',storage:'column',column:'purpose',states:[]};
+  case 'evidence':return json('description',[]);
   case 'risk':return json('description',['Açık','Değerlendiriliyor','Aksiyon Devam Ediyor']);
   case 'asset':return json('description',['Planlanan','Aktif','Bakımda']);
   case 'bia':return json('description',['Taslak']);

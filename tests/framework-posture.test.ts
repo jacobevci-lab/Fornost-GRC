@@ -31,6 +31,7 @@ async function fixture(){
     sql.exec('BEGIN');try{const results=statements.map(s=>s.execute());sql.exec('COMMIT');return results;}catch(e){sql.exec('ROLLBACK');throw e;}
   }} as unknown as D1Database;
   sql.exec('CREATE TABLE simple_grc_records(id TEXT PRIMARY KEY,module TEXT,data_json TEXT,created_at TEXT,updated_at TEXT); CREATE TABLE simple_grc_record_codes(record_id TEXT PRIMARY KEY,code TEXT)');
+  sql.exec("CREATE TABLE local_users(email TEXT,status TEXT);INSERT INTO local_users VALUES('reviewer@example.test','Active')");
   const record=(id:string,module:string,data:object)=>sql.prepare('INSERT INTO simple_grc_records VALUES(?,?,?,NULL,NULL)').run(id,module,JSON.stringify(data));
   record('C1','Kontroller',{controlTitle:'Accounts',controlRef:'IAM',frameworks:ISO,implementation:'Uygulanıyor'});
   sql.prepare("INSERT INTO simple_grc_record_codes VALUES('C1','CTL-325')").run();
@@ -75,6 +76,11 @@ test('capture only current explicitly approved anchored evidence matching contro
   await enroll(db,SOC,'owner');
   await saveDecision(db,{name:SOC,ref:'CC1.1',applicability:'required',links:[{id:'C1',coverage:'partial'}],revision:''},'owner');
   await saveDecision(db,{name:ISO,ref:'A.5.2',applicability:'excluded',reason:'Outside scope',links:[{id:'C1',coverage:'supports'}],revision:''},'owner');
+  // Historical fixture now explicitly includes independent control-effectiveness receipts.
+  sql.exec(`INSERT INTO control_effectiveness_reviews
+    SELECT 'review-'||e.id,'C1',v.id,c.data_json,e.data_json,coalesce(c.updated_at,''),coalesce(e.updated_at,''),'reviewer@example.test','Independent control test','2026-01-02'
+    FROM simple_grc_records e JOIN evidence_versions v ON v.evidence_id=e.id
+    JOIN simple_grc_records c ON c.id='C1' WHERE e.id IN ('valid','other')`);
   const summary=await programOverview(db);
   assert.deepEqual(summary.coverage[ISO],{scope:122,compliant:1,evidenced:1,assessed:1});
   assert.deepEqual(summary.coverage[SOC],{scope:catalogFor(SOC).length,compliant:0,evidenced:1,assessed:1});

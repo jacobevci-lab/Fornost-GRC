@@ -13,6 +13,15 @@ export const pciDssRequirements = rows("PCI DSS — ana gereksinimler", "Bilgi G
 ]);
 
 export const frameworkTemplateCatalogs: Record<string, FrameworkRequirement[]> = {
+  // Selected article topics verified against BDDK circular 2023/1, p.1.
+  // https://www.bddk.org.tr/Duyuru/EkGetir/1999?ekId=839
+  // Not the complete regulation; see framework-catalog-status.ts before interpreting percentages.
+  "BDDK BSEBY (2020)": rows("Seçilmiş elektronik bankacılık maddeleri / Selected e-banking articles", "Bilgi Güvenliği", [
+    ["Madde 34", "Elektronik bankacılıkta kimlik doğrulama / Electronic banking authentication"],
+    ["Madde 35", "İşlem sorumluluğu ve inkâr edilemezlik / Transaction accountability and non-repudiation"],
+    ["Madde 38", "İnternet bankacılığında güvenlik / Internet banking security"],
+    ["Madde 39", "Mobil bankacılıkta güvenlik / Mobile banking security"],
+  ]),
   ...nistRequirementCatalogs,
   [asvsCatalog.name]: asvsCatalog.requirements,
   "PCI DSS 4.0.1": pciDssRequirements,

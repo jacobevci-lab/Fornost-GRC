@@ -8,6 +8,8 @@ Fornost GRC, kurumların risklerini, kontrollerini, kanıtlarını, denetimlerin
 
 Güvenlik Anketi Copilot, CSV/TSV sütun eşleme, iki dilli örnek anket ve kaynaklarla desteklenen, insan incelemeli dışa aktarım sunar. Tedarikçi güvence analizi bağlı kanıtları kullanabilir ve insan onayıyla yerel CAPA / taslak kontrol kayıtları açabilir. Kapsam ve gizlilik sınırları: [AI for GRC](docs/AI-FOR-GRC.md).
 
+Enterprise kapsamları; iştirak bazında yetkili kayıt oluşturma, konsolide görünüm ve kapsam içi GRC haritası sunar. Çapraz çerçeve uyumu, güncel onaylı kanıt ve bağımsız kontrol doğrulamasıyla hesaplanır. FAIR-Lite, para birimlerini karıştırmadan SLE/ALE maruziyetini gösterir. Ayrıntılar: [Enterprise ölçeklendirme](docs/enterprise-scale-delivery.md).
+
 ## Ürün ne işe yarar?
 
 | İhtiyaç | Fornost ile yapılan iş |

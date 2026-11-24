@@ -5,14 +5,14 @@ import {visibleEntities,canManage,orgCookie,orgRoles} from '../../../enterprise/
 import {reply,failure,assertInput,event} from '../../../enterprise/http';
 import {BASE_PATH} from '../../../base-path';
 import {kinds} from '../../../enterprise/register';
-import {canReadModule,canWriteModule} from '../../../module-access';
+import {canReadModule,canWriteModule,canReadPosture} from '../../../module-access';
 export async function GET(req:NextRequest){
  const a=await requireRole(req,['Admin','Editor','Viewer']);if(a.response)return a.response;
  const db=await identityDb(),entities=await visibleEntities(db,a.actor);
  const users=canManage(a.actor)&&req.nextUrl.searchParams.get("manage")==="1"?(await db.prepare(`SELECT u.id,u.name,u.email,u.role platformRole,r.role,r.revision,
  (SELECT json_group_array(org_entity_id) FROM org_memberships WHERE user_id=u.id) memberships
  FROM local_users u LEFT JOIN org_user_roles r ON r.user_id=u.id WHERE u.status='Active' ORDER BY u.name`).all()).results:[];
- return reply({scope:a.actor.orgScope,entities,users,self:a.actor.id,
+ return reply({scope:a.actor.orgScope,entities,users,self:a.actor.id,posture:canReadPosture(a.actor),
  readable:Object.entries(kinds).filter(([,v])=>canReadModule(a.actor,v)).map(([k])=>k),
  writable:Object.entries(kinds).filter(([,v])=>canWriteModule(a.actor,v)).map(([k])=>k),manage:canManage(a.actor)});
 }

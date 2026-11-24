@@ -146,7 +146,9 @@ import "./enterprise-surface-contract.css";
 import "./product-experience.css";
 import "./theme-integrity.css";
 import "./workspace-simplicity.css";
-import {FairFields} from './enterprise/fair-panel';
+import {EntityLabel} from './enterprise/entity-label';
+import {FinancialSummary} from './enterprise/financial-summary';
+import {FairFields, FairCell} from './enterprise/fair-panel';
 import RecordWorkspace from "./record-workspace";
 import { ModuleTrailPanel, ModuleTrailContext } from "./module-record-trail-view";
 import { moduleTrailSources } from "./module-record-trail";
@@ -2490,7 +2492,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
               </div>
             </section>
             {registerLoadState === "ready" && active === "Risk Assessment" && (
-              <RiskOverview rows={by("Risk Assessment")} lang={lang} />
+              <><RiskOverview rows={by("Risk Assessment")} lang={lang} /><FinancialSummary tr={lang==="tr"}/></>
             )}
             {registerLoadState === "ready" && !scoped && ["BIA","Varlık Envanteri","Uyum","Kontroller"].includes(active) && (
               <CoreModuleOverview module={active} rows={by(active)} controlEvidenceCount={Array.from(controlLinks.values()).filter(item=>item.evidence.size>0).length} lang={lang}/>
@@ -3133,7 +3135,7 @@ function Dashboard({
 }) {
   return (
     <div className="workspace-dashboard" data-dashboard="executive">
-      <ExecutiveAssurancePanel rows={rows} lang={lang} go={go} drill={drill} upload={upload} />
+      <ExecutiveAssurancePanel rows={rows} lang={lang} go={go} drill={drill} upload={upload} /><FinancialSummary tr={lang==="tr"}/>
     </div>
   );
 }
@@ -3624,8 +3626,9 @@ function AuditOverview({ rows, lang }: { rows: Row[]; lang: Lang }) {
 }
 function RecordCode({ row, inspect, lang }: { row: Row; inspect?: (row: Row, button: HTMLButtonElement) => void; lang: Lang }) {
   const code = displayRecordCode(row);
-  return inspect ? <button type="button" className="code record-open" data-record-id={row.id} title={lang === "tr" ? "Kayıt ayrıntılarını aç" : "Open record details"}
-    onClick={event => inspect(row, event.currentTarget)}>{code}</button> : <b className="code" title={row.id}>{code}</b>;
+  const kind=({"Risk Assessment":"risk","Varlık Envanteri":"asset",BIA:"bia",Tedarikçiler:"vendor",Kontroller:"control",Kanıtlar:"evidence"} as const)[row.module as "Risk Assessment"];
+  return <>{inspect ? <button type="button" className="code record-open" data-record-id={row.id} title={lang === "tr" ? "Kayıt ayrıntılarını aç" : "Open record details"}
+    onClick={event => inspect(row, event.currentTarget)}>{code}</button> : <b className="code" title={row.id}>{code}</b>}{kind&&<EntityLabel kind={kind} id={row.id} tr={lang==="tr"}/>}</>;
 }
 
 function RiskRegister({
@@ -3750,6 +3753,7 @@ function RiskRegisterCell({
         <small>{d.riskScope === "organization" ? (tr?"Kurum düzeyi risk":"Organization-level risk") : riskAssetCaption(d.asset, assets, tr) || "—"}</small>
       </div>
     );
+  if (column === "fairLite") return <FairCell tr={tr} value={d.fairLite}/>;
   if (column === "residualRisk") {
     const score = assessedResidualRiskScore(d);
     return score === null ? "—" : <div className="score-cell"><b className={`risk ${assuranceRiskLevel(score).toLowerCase()}`}>{score} · {display(assuranceRiskLevel(score),lang)}</b></div>;
@@ -4970,7 +4974,7 @@ const systemRegisterColumns: RegisterColumn[] = [
 ];
 
 function getAvailableRegisterColumns(module: string): RegisterColumn[] {
-  const preferred = registerColumns[module] || [];
+  const preferred = [...(registerColumns[module] || []), ...(module==="Risk Assessment"?[{key:"fairLite",tr:"Finansal Maruziyet",en:"Financial exposure"}]:[])];
   const controlLabels:Record<string,[string,string]>={controlRef:["İç Referans Kodu (İsteğe Bağlı)","Internal reference code (optional)"],controlTitle:["Kontrol Başlığı","Control title"],lastTestDate:["Son Kontrol Testi","Last control test"]};
   const seen = new Set(preferred.map((column) => column.key));
   const direct = (fields[module] || [])
@@ -4986,7 +4990,7 @@ function getAvailableRegisterColumns(module: string): RegisterColumn[] {
 }
 function defaultRegisterColumnKeys(module: string) {
   const compactDefaults:Record<string,string[]>={
-    "Risk Assessment":["title","inherentRisk","residualRisk","status","owner","treatment"],
+    "Risk Assessment":["title","inherentRisk","residualRisk","fairLite","status","owner","treatment"],
     BIA:["process","ownership","criticality","recovery","readiness","test","continuityPlan","updatedAt"],
     "Varlık Envanteri":["title","ownership","criticality","dataClassification","assetLinks","coverage","lifecycle","updatedAt"],
     Kontroller:["control","owner","frameworks","implementation","linkedRisks","evidence","status","updatedAt"],
