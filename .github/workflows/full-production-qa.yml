@@ -80,7 +80,13 @@ jobs:
         run: node scripts/full-product-qa-gate.mjs
 
       - name: Validate Connected GRC live-source graph
-        run: node scripts/connected-grc-production-qa.mjs
+        shell: bash
+        run: |
+          args=()
+          if ! git diff --quiet HEAD^ HEAD -- scripts/entra-connected-e2e.mjs scripts/entra-qa; then
+            args+=(--verify-entra-incident)
+          fi
+          node scripts/connected-grc-production-qa.mjs "${args[@]}"
 
       - name: Confirm production revision after QA
         run: node scripts/wait-for-production-revision.mjs --once

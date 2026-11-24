@@ -9,6 +9,9 @@ import {
   containsRef,
   evidenceBytes,
   verifyCountdown,
+  incidentDescription,
+  verifyIncidentIdentity,
+  samePerson,
 } from './resume.mjs';
 import { assetForm, biaForm, riskForm, aiForm } from './forms.mjs';
 import { title as t, note, date } from './records.mjs';
@@ -380,7 +383,7 @@ export async function journey({ api, page, people, step, isolated, report, resum
       referenceMode: 'record-id',
       requestId: crypto.randomUUID(),
       title: t.incident,
-      description: note + ' · Gerçek bir olay bildirimi içermez.',
+      description: incidentDescription,
       businessImpact: 'Tatbikat kapsamında kimlik hizmetinde etki değerlendirmesi.',
       severity: 'high',
       category: 'account-compromise',
@@ -399,18 +402,7 @@ export async function journey({ api, page, people, step, isolated, report, resum
     const old =
       resume &&
       matchOne((await api('/api/incidents')).incidents, (x) => x.title === t.incident, 'incident', true);
-    if (old) {
-      check(
-        old.description === input.description &&
-          old.declaredBy?.toLowerCase() === owner.toLowerCase() &&
-          old.owner?.toLowerCase() === owner.toLowerCase() &&
-          old.personalData &&
-          containsRef(old.assetRefs, ids.asset, codes.asset) &&
-          containsRef(old.riskRef, ids.risk, codes.risk) &&
-          containsRef(old.biaRef, ids.bia, codes.bia),
-        'incident.provenance',
-      );
-    }
+    if (old) verifyIncidentIdentity(old, { ids, codes, people });
     const i = old || (await post('/api/incidents', input));
     remember('incident', i.id);
 
@@ -426,7 +418,8 @@ export async function journey({ api, page, people, step, isolated, report, resum
     check(/^INC-\d{3,}$/.test(shortCode || ''), 'incident.short-code');
   });
   await step('Finding, corrective action and explicit SoD rejection', async () => {
-    assert.ok(ids.incident && ids.risk && ids.control);
+    if (!ids.incident) throw Object.assign(new Error('Incident prerequisite'), { qaBlockedBy: 'requires.incident' });
+    assert.ok(ids.risk && ids.control);
     const f = {
       action: 'create',
       assignmentMode: 'directory',
@@ -461,8 +454,8 @@ export async function journey({ api, page, people, step, isolated, report, resum
         .record;
       check(
         detail.description === f.description &&
-          detail.owner?.toLowerCase() === owner.toLowerCase() &&
-          detail.reviewer?.toLowerCase() === reviewer.toLowerCase() &&
+          samePerson(detail.owner, owner) &&
+          samePerson(detail.reviewer, reviewer) &&
           detail.source_ref === ids.incident &&
           containsRef(detail.risk_ref, ids.risk, codes.risk) &&
           containsRef(detail.control_ref, ids.control, codes.control) &&
@@ -499,7 +492,8 @@ export async function journey({ api, page, people, step, isolated, report, resum
     );
   });
   await step('Risk focus, two-hop provenance and drawer', async () => {
-    assert.ok(ids.risk && ids.finding && ids.incident && ids.evidence && ids.policy);
+    if (!ids.finding) throw Object.assign(new Error('Finding prerequisite'), { qaBlockedBy: 'requires.finding' });
+    assert.ok(ids.risk && ids.incident && ids.evidence && ids.policy);
     await waitForQaIdle(page);
     await page.reload();
     await switchQaLocale(page, 'en');

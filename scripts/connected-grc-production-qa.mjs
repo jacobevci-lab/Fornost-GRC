@@ -103,6 +103,22 @@ try {
     throw new Error("Connected GRC production QA cannot continue without an authenticated session.");
   }
 
+  if (process.argv.includes("--verify-entra-incident")) {
+    const { verifyDeployedIncident } = await import("./entra-qa/deployed-incident.mjs");
+    const read = async (path) => {
+      const response = await context.request.get(baseUrl + path, {headers: accessHeaders, maxRedirects: 0});
+      if (!response.ok()) throw new Error("Entra read check failed: HTTP " + response.status());
+      return response.json();
+    };
+    try {
+      console.log(await verifyDeployedIncident(read, smokeEmail));
+    } catch (error) {
+      const check = typeof error?.qaCheck === "string" && /^[a-zA-Z.-]{1,80}$/.test(error.qaCheck) ? error.qaCheck : "read-failed";
+      fail("Entra incident replay", check);
+      console.error("Entra incident replay:", check);
+    }
+  }
+
   for (const source of sourceDefinitions) {
     const probe = await probeConnectedGrcSource(context.request, `${baseUrl}${source.path}`, {
       ...accessHeaders, accept: "application/json",
