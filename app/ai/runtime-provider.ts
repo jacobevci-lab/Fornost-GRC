@@ -1,7 +1,8 @@
+import {privacyRow,privacyProfile,guardLegacyRoute} from "./grc/router";
 import { decryptSecret } from "@/app/api/integrations/security";
 import { boundedNumber, envFlag, safeAiEndpoint } from "./security";
 import { callAiProvider, type AiMessage, type AiProviderConfig } from "./provider";
-import type { AiProviderKind, AiSettingsRow } from "./storage";
+import { recordAiEvent,type AiProviderKind,type AiSettingsRow } from "./storage";
 import { resolveProviderDataPolicy, strictestDataClassification } from "./data-policy";
 import { AiBudgetExceededError,enforceAiBudget,isAiBudgetExceeded,recordAiUsage } from "./budget";
 
@@ -21,6 +22,8 @@ async function profile(env:Runtime,row:Pick<AiSettingsRow,"provider"|"base_url"|
 }
 
 export async function getAiProviderChain(env:Runtime,primary:AiSettingsRow){
+  const privacy=await privacyRow(env.DB);
+  if(privacy){const item=await privacyProfile(env,privacy);if(!item)throw new Error("AI_OFFLINE_MODE");const local=JSON.parse(privacy.config).mode==="local";return [{...item,profile:"primary" as const,trustZone:local?"private" as const:"external" as const,maxDataClassification:local?"Confidential" as const:"Internal" as const}];}
   const chain=[await profile(env,primary,"primary")];
   const fallback=await env.DB.prepare("SELECT provider,base_url,model,enabled,config_json,secret_ciphertext FROM ai_provider_fallbacks WHERE id='default'").first<FallbackRow>();
   if(fallback?.enabled)chain.push(await profile(env,fallback,"fallback"));
@@ -38,7 +41,7 @@ async function health(db:D1Database,item:AiRuntimeProfile,operation:string,statu
 
 export async function callAiWithFailover(db:D1Database,chain:AiRuntimeProfile[],messages:AiMessage[],operation:string,actor="system"){
   const failures:string[]=[];let budgetFailures=0;
-  for(const item of chain){const started=Date.now();try{await enforceAiBudget(db,item.profile);const response=await callAiProvider(item,messages);let usageRecorded=true;try{await recordAiUsage(db,{actor,operation,profile:item.profile,provider:item.provider,model:item.model,usage:response.usage});}catch{usageRecorded=false;}const usageDetail=response.usage.metered?`${response.usage.promptTokens+response.usage.completionTokens} tokens metered`:"provider usage unavailable";await health(db,item,operation,"success",Date.now()-started,`Provider call completed; ${usageDetail}${usageRecorded?"":"; usage ledger write failed"}`);return {content:response.content,usage:response.usage,provider:item.provider,model:item.model,profile:item.profile,failures};}catch(error){const message=error instanceof Error?error.message:"Provider call failed",budgetExceeded=isAiBudgetExceeded(error);if(budgetExceeded)budgetFailures++;failures.push(`${item.profile}:${message}`);await health(db,item,operation,budgetExceeded?"denied":"error",Date.now()-started,message);}}
+  for(const item of chain){const started=Date.now();try{await enforceAiBudget(db,item.profile);const safeMessages=await guardLegacyRoute(db,item,messages);await recordAiEvent(db,{actor,action:operation+":started",provider:item.provider,model:item.model,status:"success",detail:"Provider call started; no document content logged"});const response=await callAiProvider(item,safeMessages);let usageRecorded=true;try{await recordAiUsage(db,{actor,operation,profile:item.profile,provider:item.provider,model:item.model,usage:response.usage});}catch{usageRecorded=false;}const usageDetail=response.usage.metered?`${response.usage.promptTokens+response.usage.completionTokens} tokens metered`:"provider usage unavailable";await health(db,item,operation,"success",Date.now()-started,`Provider call completed; ${usageDetail}${usageRecorded?"":"; usage ledger write failed"}`);return {content:response.content,usage:response.usage,provider:item.provider,model:item.model,profile:item.profile,failures};}catch(error){const message=error instanceof Error?error.message:"Provider call failed",budgetExceeded=isAiBudgetExceeded(error);if(budgetExceeded)budgetFailures++;failures.push(`${item.profile}:${message}`);await health(db,item,operation,budgetExceeded?"denied":"error",Date.now()-started,message);}}
   if(budgetFailures===chain.length)throw new AiBudgetExceededError("Etkin AI sağlayıcılarının aylık token bütçesi doldu.");
   throw new Error(`AI sağlayıcı zinciri başarısız: ${failures.join(" | ")}`);
 }

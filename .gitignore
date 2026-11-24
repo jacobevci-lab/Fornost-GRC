@@ -52,3 +52,7 @@ __pycache__/
 
 /integration-desk-qa-artifacts/
 *.tsbuildinfo
+
+/public/fornost-ocr/
+
+/ai-grc-qa-artifacts/

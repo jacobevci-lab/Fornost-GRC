@@ -548,3 +548,8 @@ export const orgScimTokens=sqliteTable("org_scim_tokens",{id:integer("id").prima
 export const orgAccessEvents=sqliteTable("org_access_events",{id:text("id").primaryKey(),actor:text("actor").notNull(),action:text("action").notNull(),subject:text("subject").notNull(),stamp:text("stamp").notNull()});
 
 export * from "./exchange-schema";
+
+export const grcAiConfig=sqliteTable("grc_ai_config",{id:integer("id").primaryKey(),config:text("config").notNull(),secret:text("secret"),revision:text("revision").notNull()});
+export const grcAiResults=sqliteTable("grc_ai_results",{id:text("id").primaryKey(),kind:text("kind").notNull(),subject:text("subject").notNull(),sourceHash:text("source_hash").notNull(),result:text("result").notNull(),actor:text("actor").notNull(),createdAt:text("created_at").notNull()},t=>[index("grc_ai_results_subject").on(t.kind,t.subject,t.createdAt)]);
+export const grcAiQuestionnaires=sqliteTable("grc_ai_questionnaires",{id:text("id").primaryKey(),title:text("title").notNull(),answers:text("answers").notNull(),revision:text("revision").notNull(),actor:text("actor").notNull(),createdAt:text("created_at").notNull()});
+export const grcAiConversions=sqliteTable("grc_ai_conversions",{id:text("id").primaryKey(),resultId:text("result_id").notNull(),item:integer("item").notNull(),target:text("target").notNull(),recordId:text("record_id").notNull(),actor:text("actor").notNull(),createdAt:text("created_at").notNull()},t=>[unique().on(t.resultId,t.item,t.target)]);

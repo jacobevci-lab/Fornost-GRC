@@ -1,0 +1,15 @@
+"use client";
+import {useState} from 'react';
+import type {ConnectedGrcRow} from '../../connected-grc-model';
+import {withBasePath} from '../../base-path';
+import {say,type Lang,type reviewEvidence} from './domain';
+import {api,Notice,Preliminary,useOperation} from './ui-common';
+import {localOcr} from './ocr';
+type Review=ReturnType<typeof reviewEvidence>&{version:number;fileHash:string;ocrRequired:boolean;modelNotes:string|null};
+export function EvidenceAiReview({row,lang,canWrite}:{row:ConnectedGrcRow;lang:Lang;canWrite:boolean}){
+ const [open,setOpen]=useState(false),[analysis,setAnalysis]=useState<{result:Review;stale?:boolean}|null>(null),op=useOperation(lang),t=(tr:string,en:string)=>say(lang,tr,en);
+ const load=async()=>{const data=await api(`?kind=evidence&id=${encodeURIComponent(row.id)}`);setAnalysis(data.analysis);};
+ async function review(){let transcript:undefined|{text:string;hash:string};if(String(row.data.fileType).startsWith('image/')){const response=await fetch(withBasePath('/api/evidence?key='+encodeURIComponent(String(row.data.fileKey))));if(!response.ok)throw new Error('AI_FILE_INTEGRITY');transcript={text:await localOcr(await response.blob()),hash:String(row.data.contentSha256)};}await api('',{action:'evidence',id:row.id,lang,transcript});await load();}
+ if(!row.data.fileKey)return null;
+ return <section className="grc-ai grc-ai-review"><button type="button" aria-expanded={open} onClick={()=>{setOpen(!open);if(!open)void op.run(load);}}>{t('AI Ön İnceleme Özeti','AI Preliminary Review')}</button>{open&&<><Preliminary lang={lang}/>{analysis?<><b>{t('Güven skoru','Confidence')} {analysis.result.confidence}% · v{analysis.result.version}</b>{analysis.stale&&<p role="alert">{t('Kaynak değişti. Analizi yenileyin.','Source changed. Run a new review.')}</p>}<div className="grc-ai-grid">{analysis.result.dimensions.map(d=><article key={d.key}><b>{({recency:t('Güncellik','Recency'),scope:t('Sistem / kapsam','System / scope'),configuration:t('Yapılandırma etkinliği','Configuration effectiveness'),completeness:t('Eksik bilgi','Missing information')})[d.key]} · {d.score}/100</b><p>{d.detail}</p></article>)}</div><p><b>{t('Önerilen karar: ','Suggested decision: ')}</b>{analysis.result.decision==='remediation'?t('İyileştirme gerekli','Remediation needed'):t('İnsan incelemesi','Human review')}</p>{analysis.result.findings.length>0&&<ul>{analysis.result.findings.map((f,i)=><li key={i}>{f}</li>)}</ul>}{analysis.result.ocr&&<p>{t('OCR metni tarayıcıda çıkarılmıştır ve doğrulanmamıştır. Görseli kontrol edin.','OCR text was extracted in the browser and is unverified. Check the image.')}</p>}{analysis.result.modelNotes&&<details><summary>{t('Model gözlemleri (doğrulanmamış)','Model observations (unverified)')}</summary><p className="grc-ai-text">{analysis.result.modelNotes}</p></details>}</>:<p>{t('Bu kanıt için ön inceleme yok.','No preliminary review for this evidence.')}</p>}{canWrite&&<button type="button" disabled={op.busy} onClick={()=>void op.run(review)}>{t('AI ile Ön İnceleme Yap','Run AI Preliminary Review')}</button>}<Notice {...op} lang={lang}/></>}</section>;
+}

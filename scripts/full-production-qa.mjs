@@ -35,12 +35,12 @@ const moduleLabels = [
   "AI Yönetişimi",
   "Ask Fornost",
   "Sistem Ayarları",
-  "AI Ayarları",
+  "AI Yapılandırması",
   "Ana Veri Yönetimi",
   "Entegrasyonlar",
   "E-posta ve Bildirimler",
   "Kimlik ve Erişim",
-  "Trust Center Yönetimi",
+  "Trust Center Yönetimi", "Güvenlik Anketi Copilot",
 ];
 
 const representativeModules = new Set([
