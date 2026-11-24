@@ -143,3 +143,7 @@ Atanmış risk sahibi taslak değerlendirmeyi gerekçeyle düzenleyebilir; bağ�
 Vendor Management now exposes per-finding decision history from Findings & CAPA and the existing action dialog. Owners can read return reasons before resubmitting; full-access readers can inspect earlier submissions, closures and reopenings with each event's retained evidence version. Twenty-event cursor pages and explicit read/pin failures keep historical coverage truthful. See [workflow and limits](docs/tprm-finding-history.md).
 
 Assigned independent reviewers can now record reasoned deadline changes for open supplier findings. My Work uses the revised date; prior deadlines/lateness, feedback and evidence remain retained. Source conflicts and lost responses preserve the draft for explicit review. See [deadline planning and recovery](docs/tprm-finding-deadline.md).
+
+### Modular AI gateway and governed tools
+
+Ask Fornost now uses a six-tool registry with live module/entity filtering, editable human-approved CAPA/risk/evidence-note cards, and the common LLMGateway (Ollama/vLLM, customer BYOK, deterministic fallback). AI never approves evidence/vendors or closes CAPA. Administration → Audit Trail exposes metadata-only call and human-approval receipts. See [configuration, permissions, limits and tests](docs/modular-agent-tools.md).

@@ -4,12 +4,13 @@ import { withBasePath } from "./base-path";
 import type { CatalogKey, CatalogMap } from "./catalogs";
 import IntegrationSettings from "./integration-settings";
 import IdentityAccessDesk from "./identity-access-desk";
+import AgentAuditTrail from './ai/agentic/audit-ui';
 import AiSettings from "./ai-settings";
 import SystemStatusPanel from "./system-status-panel";
 import "./integration-settings.css";
 
 type Lang = "tr" | "en";
-export type SettingsPage = "system" | "ai" | "catalogs" | "workflow" | "email" | "identity";
+export type SettingsPage = "system" | "ai" | "catalogs" | "workflow" | "email" | "identity" | "audit";
 type Config = { reminderDays:string;remindersEnabled:boolean;tlsMode:string;domain:string;minimumTls:string;forceHttps:boolean;hstsEnabled:boolean;organizationName:string;timezone:string;dateFormat:string;sessionTimeoutMinutes:string;auditRetentionDays:string;telemetryEnabled:boolean };
 type SettingEvent = { id:string;action:string;actor:string;changedKeys:string[];createdAt:string };
 const defaults: Config = { reminderDays:"15",remindersEnabled:true,tlsMode:"managed",domain:"",minimumTls:"1.2",forceHttps:true,hstsEnabled:true,organizationName:"Fornost Enterprise",timezone:"Europe/Istanbul",dateFormat:"DD.MM.YYYY",sessionTimeoutMinutes:"30",auditRetentionDays:"365",telemetryEnabled:false };
@@ -44,6 +45,7 @@ export default function Settings({ lang, currentUser, catalogs, onCatalogChange,
   async function save(e:FormEvent){e.preventDefault();if(saving||!loaded)return;setSaving(true);setMessage("");const response=await fetch(withBasePath("/api/settings"),{method:"PUT",headers:{"content-type":"application/json"},body:JSON.stringify(cfg)}).catch(()=>null),body=await response?.json().catch(()=>({}))||{};setCertPassword("");setCertFile(null);if(response?.ok){setCfg({...defaults,...body});setUpdated({by:body.updatedBy||null,at:body.updatedAt||null});if(body.event)setAuditEvents(events=>[body.event,...events].slice(0,12));try{localStorage.removeItem("fornost-grc-settings")}catch{}setMessage(tr?"Kurumsal platform ayarları kaydedildi. Sertifika ve parolalar bu yapılandırmaya yazılmadı.":"Organization-wide platform settings saved. Certificates and passwords were not written to this configuration.")}else setMessage(String(body.error||(tr?"Sistem ayarları kaydedilemedi.":"System settings could not be saved.")));setSaving(false)}
   const headings:Record<SettingsPage,{tr:[string,string];en:[string,string]}>= {
     system:{tr:["Sistem Ayarları","HTTPS/TLS güvenliği ve risk hatırlatma kurallarını yönetin."],en:["System Settings","Manage HTTPS/TLS security and risk reminder rules."]},
+    audit:{tr:["Denetim İzi","AI çağrıları ve insan onaylı sistem aksiyonlarını inceleyin."],en:["Audit Trail","Review AI calls and human-approved system actions."]},
     ai:{tr:["AI Ayarları","Model gateway, veri paylaşım sınırları, fallback ve operasyon politikasını yönetin."],en:["AI Settings","Manage the model gateway, data-sharing boundaries, fallback and operating policy."]},
     catalogs:{tr:["Ana Veri Yönetimi","Risk, BIA ve varlık envanterinde kullanılan seçim listelerini yönetin."],en:["Master Data Management","Manage selection lists used across Risk, BIA and Asset Inventory."]},
     workflow:{tr:["Entegrasyon Merkezi","Bağlantıları, erişimleri ve işlem durumunu tek yerden yönetin."],en:["Integration Center","Manage connections, access and activity in one place."]},
@@ -64,7 +66,7 @@ export default function Settings({ lang, currentUser, catalogs, onCatalogChange,
     <section className="module-head settings-head"><div><small>{tr?"YÖNETİM KONSOLU":"ADMIN CONSOLE"}</small>{page==="workflow"&&<h2>{title}</h2>}<p>{description}</p></div><span className="admin-badge">{tr?"Yalnızca Yönetici":"Administrators only"}</span></section>
     {page==="workflow"&&<IntegrationSettings lang={lang} kind="ticketing"/>}
     {page==="email"&&<IntegrationSettings lang={lang} kind="email"/>}
-    {page==="ai"&&<AiSettings lang={lang}/>}
+    {page==="ai"&&<AiSettings lang={lang}/>}{page==="audit"&&<AgentAuditTrail lang={lang}/>}
     {page==="identity"&&<IdentityAccessDesk lang={lang}/>}
     {page==="catalogs"&&<CatalogManager lang={lang} catalogs={catalogs} onChange={onCatalogChange}/>}
     {page==="system"&&<nav className="settings-subnav" aria-label={tr?"Sistem ayarı bölümleri":"System settings sections"}>{(["general","status","history"] as const).map(tab=><button type="button" key={tab} aria-current={systemTab===tab?"page":undefined} onClick={()=>setSystemTab(tab)}>{tab==="general"?(tr?"Genel Ayarlar":"General Settings"):tab==="status"?(tr?"Sistem Durumu":"System Status"):(tr?"Değişiklik Geçmişi":"Change History")}</button>)}<button type="button" aria-haspopup="dialog" onClick={onAppearance}>{tr?"Görünüm":"Appearance"}</button></nav>}

@@ -3,6 +3,11 @@ on:
   pull_request:
     paths:
       - 'app/ai/agentic/**'
+      - 'app/ai/llm-gateway.ts'
+      - 'app/ai/grc/**'
+      - 'app/enterprise/scope.ts'
+      - 'app/enterprise/workspace.tsx'
+      - 'app/module-access.ts'
       - 'app/api/ai/agentic/**'
       - 'app/api/ai/deep-governance/**'
       - 'app/ai-governance/**'

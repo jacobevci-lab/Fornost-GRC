@@ -3,6 +3,7 @@ import { isScoped } from '../../module-access';
 import { checkAiAccess } from '../operating-policy';
 import { ensureFindingsSchemaCompatibility } from '../../api/findings/schema-compat';
 import { ensureCoreGrcSchemaCompatibility } from '../../api/grc/schema-compat';
+import { ensureGrcAi } from '../grc/schema';
 import { ensureAgentic } from './schema';
 export type { Actor };
 export class AgenticError extends Error {
@@ -10,7 +11,7 @@ export class AgenticError extends Error {
 }
 export const text = (v: unknown, n = 2000) => String(v ?? '').trim().replace(/\0/g, '').slice(0, n);
 export const normal = (v: string) => v.toLocaleLowerCase('tr').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/ı/g, 'i');
-export async function ready(db: D1Database) { await ensureCoreGrcSchemaCompatibility(db); await ensureFindingsSchemaCompatibility(db); await ensureAgentic(db); }
+export async function ready(db: D1Database) { await ensureCoreGrcSchemaCompatibility(db); await ensureFindingsSchemaCompatibility(db); await ensureAgentic(db); await ensureGrcAi(db); }
 export function fullAccess(actor: Actor, write = false) { if (actor.orgScope?.restricted || isScoped(actor) || write && !['Admin', 'Editor'].includes(actor.role))
     throw new AgenticError('AI_SCOPE', 403); }
 export async function allowed(db: D1Database, actor: Actor, operation: 'chat' | 'agents' | 'drafts') { fullAccess(actor, operation !== 'chat'); if (!(await checkAiAccess(db, actor.role, operation)).allowed)
@@ -19,7 +20,7 @@ export type Pin = {
     table: string;
     row: Record<string, unknown>;
 };
-const tables = ['simple_grc_records', 'local_users', 'enterprise_findings', 'regulatory_changes', 'policy_documents', 'policy_versions', 'ai_model_inventory', 'ai_system_profiles', 'ai_governance_extensions'];
+const tables = ['simple_grc_records', 'local_users', 'enterprise_findings', 'regulatory_changes', 'policy_documents', 'policy_versions', 'ai_model_inventory', 'ai_system_profiles', 'ai_governance_extensions','enterprise_incidents','risk_appetite_statements'];
 export function pinGuard(pins: Pin[]) {
     const groups = new Map<string, {
         table: string;

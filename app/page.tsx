@@ -194,6 +194,7 @@ const modules = [
   "Ask Fornost",
   "Sistem Ayarları",
   "AI Ayarları",
+  "Denetim İzi",
   "Ana Veri Yönetimi",
   "İş Akışı Entegrasyonları",
   "Trust Center Yönetimi",
@@ -203,6 +204,7 @@ const modules = [
 const adminModules = new Set([
   "Sistem Ayarları",
   "AI Ayarları",
+  "Denetim İzi",
   "Ana Veri Yönetimi",
   "İş Akışı Entegrasyonları",
   "Trust Center Yönetimi",
@@ -235,6 +237,7 @@ const names: Record<Lang, Record<string, string>> = {
     "Ask Fornost": "Ask Fornost",
     "Sistem Ayarları": "Sistem Ayarları",
     "AI Ayarları": "AI Yapılandırması",
+    "Denetim İzi": "Denetim İzi",
     "Ana Veri Yönetimi": "Ana Veri Yönetimi",
     "İş Akışı Entegrasyonları": "Entegrasyonlar",
     "Trust Center Yönetimi": "Trust Center Yönetimi",
@@ -266,6 +269,7 @@ const names: Record<Lang, Record<string, string>> = {
     "Ask Fornost": "Ask Fornost",
     "Sistem Ayarları": "System Settings",
     "AI Ayarları": "AI Configuration",
+    "Denetim İzi": "Audit Trail",
     "Ana Veri Yönetimi": "Master Data",
     "İş Akışı Entegrasyonları": "Integrations",
     "Trust Center Yönetimi": "Trust Center Management",
@@ -1101,7 +1105,7 @@ function AuthGate() {
         </div>
       </div>
     );
-  if (state.authenticated && state.user?.orgScope?.restricted) return <ScopedWorkspace key={JSON.stringify([state.user.id,state.user.orgScope])}/>;
+  if (state.authenticated && state.user?.orgScope?.restricted) return <ScopedWorkspace user={state.user} key={JSON.stringify([state.user.id,state.user.orgScope])}/>;
   if (state.authenticated) return <FornostApp key={JSON.stringify([state.user.id,state.user.role,state.user.moduleAccess])} currentUser={state.user} />;
   return (
     <div className="auth-screen">
@@ -1827,7 +1831,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
     { id: "assurance", label: lang === "tr" ? "GÜVENCE" : "ASSURANCE", items: ["Denetim Yönetimi","Bulgular ve CAPA","Güvenlik Olayları"] },
     { id: "governance", label: lang === "tr" ? "YÖNETİŞİM" : "GOVERNANCE", items: ["Politika Merkezi","Regülasyon Merkezi","AI Yönetişimi",...(currentUser.orgScope?.role==="group-admin"?["Trust Center Yönetimi"]:[])] },
     { id: "intelligence", label: lang === "tr" ? "İÇGÖRÜ" : "INTELLIGENCE", items: ["Bağlantılı GRC","Raporlar","Güvenlik Anketi Copilot","Ask Fornost"] },
-    ...(currentUser.role === "Admin" ? [{ id: "administration", label: lang === "tr" ? "YÖNETİM" : "ADMINISTRATION", items: ["İş Akışı Entegrasyonları","Kimlik ve Erişim","Sistem Ayarları","AI Ayarları","Ana Veri Yönetimi","E-posta ve Bildirimler"] }] : []),
+    ...(currentUser.role === "Admin" ? [{ id: "administration", label: lang === "tr" ? "YÖNETİM" : "ADMINISTRATION", items: ["İş Akışı Entegrasyonları","Kimlik ve Erişim","Sistem Ayarları","AI Ayarları","Denetim İzi","Ana Veri Yönetimi","E-posta ve Bildirimler"] }] : []),
   ].map(group=>({...group,items:group.items.filter(module=>canOpenModule(currentUser,module)&&(!scoped||module!=="Ask Fornost"))})).filter(group=>group.items.length);
   const activeNavGroup = navGroups.find(group => group.items.includes(active))?.id;
   useEffect(() => {
@@ -2392,6 +2396,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
                 ? "catalogs"
                 : active === "AI Ayarları"
                   ? "ai"
+                : active === "Denetim İzi" ? "audit"
                 : active === "İş Akışı Entegrasyonları"
                   ? "workflow"
                   : active === "E-posta ve Bildirimler"
