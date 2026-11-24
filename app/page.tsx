@@ -1399,6 +1399,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
     languageRef.current = lang;
     localStorage.setItem("fornost-grc-language", lang);
     document.documentElement.lang = lang;
+    window.dispatchEvent(new CustomEvent("fornost:ai-workspace-locale", { detail: lang }));
   }, [lang]);
   useEffect(() => {
     const saved = localStorage.getItem("fornost-grc-theme-v5");

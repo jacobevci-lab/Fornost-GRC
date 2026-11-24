@@ -180,6 +180,7 @@ export default function FornostAiCopilot() {
     const openContextualCopilot = (event: Event) => {
       const detail = (event as CustomEvent<{module?:string;prompt?:string;mode?:"chat"|"agent";agentKind?:AgentKind;view?:"portfolio"|"governance"|"models"|"assurance-alerts"|"findings";recordFocus?:AiRecordFocus}>).detail || {};
       setWorkspaceHost(document.getElementById("ai-governance-workspace"));
+      setWorkspaceLocale(document.documentElement.lang === "en" ? "en" : "tr");
       setOpen(true);
       setRecordFocus(detail.recordFocus || null);
       setSpecialist(false);
@@ -422,7 +423,7 @@ export default function FornostAiCopilot() {
 
   if (entityRestricted) return null;
   if (!user) return open ? <section data-escape-layer id="fornost-ai-panel" className="fornost-ai-panel is-compact" aria-label="Fornost AI Copilot" aria-busy={identityLoading}>
-    <header className="fornost-ai-head"><div><h2>Ask Fornost</h2></div><button data-escape-close type="button" onClick={() => setOpen(false)} aria-label="Kapat">×</button></header>
+    <header className="fornost-ai-head"><div><h2>Ask Fornost</h2></div><button data-escape-close type="button" onClick={() => setOpen(false)} aria-label={workspaceLocale === "tr" ? "Kapat" : "Close"}>×</button></header>
     <div className="fornost-ai-welcome" role="status"><p>{identityLoading ? "Oturum doğrulanıyor…" : identityError || "Oturum bilgisi bekleniyor…"}</p><button disabled={identityLoading} onClick={() => void refreshIdentity()}>Yeniden dene</button></div>
   </section> : null;
   const aiReady = status?.enabled === true&&status?.operational!==false;
@@ -434,12 +435,12 @@ export default function FornostAiCopilot() {
     return createPortal(<Suspense fallback={<p role="status">{workspaceLocale==='tr'?'AI Yönetişimi yükleniyor…':'Loading AI governance…'}</p>}><AiGovernanceWorkspace key={user.id} tr={workspaceLocale==='tr'} user={user} focus={recordFocus?.ref} onNative={view=>{setRecordFocus(null);setSpecialist(true);setTab(view)}}/></Suspense>,workspaceHost);
   }
   const panel = <>
-    <button className={`fornost-ai-launcher ${aiReady ? "ready" : ""}`} onClick={() => { if (!open) void refreshIdentity(); setOpen((value) => !value); }} aria-expanded={open} aria-controls="fornost-ai-panel">
+    <button className={`fornost-ai-launcher ${aiReady ? "ready" : ""}`} onClick={() => { if (!open) { setWorkspaceLocale(document.documentElement.lang === "en" ? "en" : "tr"); void refreshIdentity(); } setOpen((value) => !value); }} aria-expanded={open} aria-controls="fornost-ai-panel">
       <span>✦</span><b>Ask Fornost</b><i>{status?.operatingState==="emergency-stop"?"STOP":aiReady ? "AI" : "OFF"}</i>
     </button>
     {open && <section data-escape-layer id="fornost-ai-panel" className={`fornost-ai-panel ${activeTab === "chat" ? "is-compact" : "is-workspace"}`} data-ai-view={activeTab} aria-label="Fornost AI Copilot">
       <header className={`fornost-ai-head ${workspaceHost && user.role === "Admin" && !scoped ? "ai-workspace-redundant-head" : ""}`}>
-        <div><small>{workspaceHost ? "FORNOST · AI GOVERNANCE" : (scoped?"FORNOST AI · READ-ONLY COPILOT":"FORNOST AI · HUMAN-APPROVED ACTIONS")}</small><h2>{workspaceHost ? (workspaceLocale === "tr" ? "AI Yönetişimi" : "AI Governance") : "Ask Fornost"}</h2><p>{workspaceHost ? (workspaceLocale === "tr" ? "Envanter ve yönetişim hazır · AI bağlantısı yalnız yanıt üretimi için gerekir" : "Inventory and governance available · AI connection is only needed for generated assistance") : activeTab === "chat" && !!user.email ? (workspaceLocale === "tr" ? "Bağlantılı analiz · İnsan onaylı aksiyonlar" : "Connected analysis · Human-approved actions") : status?.model || (workspaceLocale === "tr" ? "AI sağlayıcısı bekleniyor" : "Awaiting AI provider")}</p></div>
+        <div><small>{workspaceHost ? "FORNOST · AI GOVERNANCE" : (workspaceLocale === "tr" ? "FORNOST AI · İNSAN ONAYLI AKSİYONLAR" : "FORNOST AI · HUMAN-APPROVED ACTIONS")}</small><h2>{workspaceHost ? (workspaceLocale === "tr" ? "AI Yönetişimi" : "AI Governance") : "Ask Fornost"}</h2><p>{workspaceHost ? (workspaceLocale === "tr" ? "Envanter ve yönetişim hazır · AI bağlantısı yalnız yanıt üretimi için gerekir" : "Inventory and governance available · AI connection is only needed for generated assistance") : activeTab === "chat" && !!user.email ? (workspaceLocale === "tr" ? "Bağlantılı analiz · İnsan onaylı aksiyonlar" : "Connected analysis · Human-approved actions") : status?.model || (workspaceLocale === "tr" ? "AI sağlayıcısı bekleniyor" : "Awaiting AI provider")}</p></div>
         {!workspaceHost && <button data-escape-close type="button" onClick={() => setOpen(false)} aria-label="Kapat">×</button>}
       </header>
       {workspaceHost && !scoped && <button type="button" onClick={()=>{setSpecialist(false);setRecordFocus(null);setTab("portfolio")}}>{workspaceLocale==="tr"?"← AI Yönetişimine dön":"← Return to AI governance"}</button>}
@@ -496,7 +497,7 @@ export default function FornostAiCopilot() {
 </div></details>}
       </div></AiSectionPicker>}
 
-      {scoped && <p className="fornost-ai-notice">Ask Fornost yalnız izinli modül ve kurum kapsamındaki kayıtları kullanır. Her yazma işlemi ayrıca onaylanır.</p>}
+      {scoped && <p className="fornost-ai-notice">{workspaceLocale === "tr" ? "Ask Fornost yalnız izinli modül ve kurum kapsamındaki kayıtları kullanır. Her yazma işlemi ayrıca onaylanır." : "Ask Fornost uses only records in your authorized modules and organization scope. Every write requires your approval."}</p>}
       {activeTab === "portfolio" ? <FornostAiPortfolio viewerEmail={user.email} onOpenModel={id => {setCreateModel(false); setRecordFocus({kind:"ai-model", ref:id}); setTab("models");}} lang={workspaceLocale === "en" ? "en" : "tr"} onCreate={() => { setRecordFocus(null); setCreateModel(true); setTab("models"); }}/> : activeTab === "chat" && !!user.email ? <AgenticChat key={(user.id||user.email)+question} lang={workspaceLocale === "en" ? "en" : "tr"} user={user} initialPrompt={question}/> : activeTab === "chat" ? <>
         <div className="fornost-ai-mode"><span className={chatReady ? "online" : "offline"}/><b>{status?.operatingState==="emergency-stop"?"Acil durduruldu":chatReady ? "Hazır" : "Erişim kısıtlı"}</b><em>{status?.operatingMessage||status?.provider||"Provider yok"}</em></div>
         {(statusError || (status && (!status.configured || !status.enabled))) && <div className="fornost-ai-notice" role="status">
