@@ -93,6 +93,8 @@ function Program({name,enrolled,initialRef,counts,onSaved,...props}:WorkspacePro
           <th scope="col">{tr?'SoA Kapsam':'SoA scope'}</th><th scope="col">{tr?'Aksiyon':'Action'}</th></>}
       </tr></thead><tbody>{filtered.slice(current*pageSize,(current+1)*pageSize).map(({row,state})=>{
         const expanded=row.ref===selected;
+        const shared=state==='covered'?row.links.filter(link=>counts[link.id]>1 && link.coverage==='supports' && data.pins[link.id]?.length &&
+          ['uygulanıyor','implemented'].includes(implementation.get(link.id)??'')).map(link=>controls.get(link.id)?.code).filter(Boolean):[];
         const badge=statusLabel(state,tr);
         const toggle=()=>{select(expanded?'':row.ref);setMessage('');};
         const detailId=rowId(row.ref)+'-details';
@@ -101,6 +103,7 @@ function Program({name,enrolled,initialRef,counts,onSaved,...props}:WorkspacePro
             aria-expanded={expanded} aria-label={row.ref+' · '+row.title}
             aria-controls={expanded?detailId:undefined} onClick={toggle}>{row.title} <span aria-hidden="true"/></button></td>
           {enrolled&&<><td data-label={tr?'Durum':'Status'}><span className={'posture-status '+state}>{badge}</span>
+            {shared.length>0&&<small className="ec-shared">{tr?'Ortak Kontrol Üzerinden Karşılandı':'Satisfied through shared control'} · {shared.join(', ')}</small>}
             <small className="posture-reason">{reasonLabels[state][tr?0:1]}</small></td>
             <td data-label={tr?'Bağlı kontroller':'Linked controls'}><div className="posture-chips">{row.links.map(link=><span className="posture-control-chip" key={link.id} title={controls.get(link.id)?.title}>
               <code>{controls.get(link.id)?.code}</code>{state!=='excluded' && counts[link.id]>1 && <small>{tr?counts[link.id]+' çerçevede geçerli':'Across '+counts[link.id]+' frameworks'}</small>}</span>)}

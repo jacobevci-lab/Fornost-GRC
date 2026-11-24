@@ -4,7 +4,7 @@ const decoder = new TextDecoder();
 export const integrationProviders = [
   "jira", "jira-dc", "servicenow", "azure-devops", "github-issues", "webhook",
   "smtp-bridge", "microsoft-graph-mail", "email-api",
-  "entra-oidc", "okta-oidc", "generic-oidc", "saml", "ldap", "ldaps",
+  "entra-oidc", "okta-oidc", "google-oidc","generic-oidc", "saml", "ldap", "ldaps",
 ] as const;
 
 export type IntegrationProvider = (typeof integrationProviders)[number];
@@ -84,7 +84,7 @@ export function safeIntegrationConfig(value: unknown): Record<string, string | b
     if (!/^[a-zA-Z][a-zA-Z0-9_]{0,49}$/.test(key)) continue;
     if (/(secret|password|token|api.?key|private.?key|credential)/i.test(key)) continue;
     if (typeof item === "boolean") output[key] = item;
-    else if (typeof item === "string") output[key] = clean(item, 2048);
+    else if (typeof item === "string") output[key] = clean(item, key === "metadataXml" ? 48000 : 2048);
   }
   return output;
 }

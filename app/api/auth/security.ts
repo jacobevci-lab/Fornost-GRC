@@ -1,3 +1,4 @@
+import {orgCookie,resolveScope,scopeRoute,type Scope} from '../../enterprise/scope';
 import { readLiveSession } from './live-session';
 import { completedInitialization } from "../../completed-initialization";
 import { ensurePasswordIterationsColumn } from "./password-column";
@@ -9,7 +10,7 @@ import { ensureModuleAccessSchema, readModuleAccess } from "../users/access-stor
 import { cleanupExpiredSessions, SESSION_EXPIRY_INDEX_SQL, SESSION_USER_INDEX_SQL } from "./session-storage";
 
 export type AppRole = "Admin" | "Editor" | "Viewer";
-export type Actor = { id: string; email: string; name: string; role: AppRole; source: "local" | "entra"; moduleAccess?: ModuleAccess };
+export type Actor = { id: string; email: string; name: string; role: AppRole; source: "local" | "entra"; moduleAccess?: ModuleAccess; orgScope?:Scope };
 
 // Cloudflare Workers WebCrypto rejects PBKDF2 requests above 100,000 iterations in production.
 // Keep the local credential format at that runtime ceiling until the password KDF is migrated.
@@ -118,7 +119,7 @@ export function sameOrigin(req: NextRequest) {
   return normalizedOrigin === req.nextUrl.origin || (!!proxiedOrigin && normalizedOrigin === proxiedOrigin);
 }
 
-export async function actor(req: NextRequest): Promise<Actor | null> {
+async function sessionActor(req: NextRequest): Promise<Actor | null> {
   const platformEmail = req.headers.get("oai-authenticated-user-email")?.trim().toLowerCase();
   const { env } = await import("cloudflare:workers");
   const trustPlatformIdentity = ["true", "1"].includes(String((env as unknown as Record<string, unknown>).FORNOST_TRUST_PLATFORM_IDENTITY ?? "").trim().toLowerCase());
@@ -137,6 +138,13 @@ export async function actor(req: NextRequest): Promise<Actor | null> {
   return current ? { ...current, role: current.role as AppRole } : null;
 }
 
+export async function actor(req:NextRequest):Promise<Actor|null>{
+  const user=await sessionActor(req);
+  if(!user)return null;
+  const orgScope=await resolveScope(await identityDb(),user,req.cookies.get(orgCookie)?.value);
+  return {...user,role:orgScope.role==='group-ciso'?'Viewer':user.role,orgScope};
+}
+
 export async function requireRole(req: NextRequest, roles: AppRole[]) {
   const current = await actor(req);
   if (!current) return { response: NextResponse.json({ error: "Oturum gerekli." }, { status: 401 }) };
@@ -144,7 +152,7 @@ export async function requireRole(req: NextRequest, roles: AppRole[]) {
   if (!sameOrigin(req)) return { response: NextResponse.json({ error: "Geçersiz istek kaynağı." }, { status: 403 }) };
   const path = req.nextUrl.pathname;
   const apiPath = BASE_PATH && path.startsWith(`${BASE_PATH}/`) ? path.slice(BASE_PATH.length) : path;
-  if (!scopedApiAllowed(current, apiPath, req.method)) return { response: NextResponse.json({ error: "Bu çalışma alanı için modül erişiminiz yok." }, { status: 403 }) };
+  if (!scopeRoute(current.orgScope,apiPath,req.method) || (!apiPath.startsWith("/api/enterprise/") && !scopedApiAllowed(current, apiPath, req.method))) return { response: NextResponse.json({ error: "Bu çalışma alanı için modül erişiminiz yok." }, { status: 403 }) };
   return { actor: current };
 }
 

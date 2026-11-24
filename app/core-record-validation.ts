@@ -7,6 +7,7 @@ import { assetLifecycle, assetStatuses } from "./asset-inventory-model";
 import { assessedResidualRiskScore } from "./risk-methodology";
 import { isResidualRiskGoverned } from "./risk-governance-write";
 import { assuranceRiskLevel } from "./assurance-governance";
+import {readEstimate} from './enterprise/fair';
 export const modules=["Risk Assessment","BIA","Varlık Envanteri","Uyum","Tedarikçiler","Kontroller","Kanıtlar","Denetim Yönetimi"] as const;
 export type ModuleName=(typeof modules)[number];
 export type Data=Record<string,unknown>;
@@ -90,6 +91,14 @@ export function validate(module:unknown,input:unknown,previousStatus?:unknown,pr
   }
   cleaned[key]=module==="Denetim Yönetimi"&&["requirementStatement","requirementGuidance","requirementAssessment"].includes(key)&&typeof value==="string"?value.slice(0,100000):cleanText(value)}
  const data=normalizeRecordData(module,module==="Kanıtlar"?editableEvidence(cleaned,previous):cleaned);
+ if(module==="Risk Assessment"){
+  delete data.ale;
+  if(data.fairLite!=null){
+   const estimate=readEstimate(data.fairLite);
+   if(!estimate)return {error:"FAIR-Lite girdileri geçersiz. / Invalid financial estimate."};
+   data.fairLite=estimate;
+  }else delete data.fairLite;
+ }
  if(module==="Kanıtlar"){
   if(data.reviewer&&!evidenceReviewerIsIndependent(data))return {error:"İnceleyen, kanıt sahibi ve yükleyiciden farklı olmalıdır. / Select an independent reviewer."};
   if(evidenceDatesInvalid(data))return {error:"Geçerlilik bitişi toplanma tarihinden önce olamaz. / Expiry cannot precede collection."};

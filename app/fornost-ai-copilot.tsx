@@ -37,7 +37,7 @@ import FornostAiExceptions from "./fornost-ai-exceptions";
 import FornostAiDecommission from "./fornost-ai-decommission";
 import FornostAiFindings from "./fornost-ai-findings";
 
-type User = { id?: string; moduleAccess?: ModuleAccess; name?: string; email: string; role: "Admin" | "Editor" | "Viewer" };
+type User = { orgScope?:{restricted:boolean}; id?: string; moduleAccess?: ModuleAccess; name?: string; email: string; role: "Admin" | "Editor" | "Viewer" };
 type Status = { configured: boolean; enabled: boolean; operational:boolean;operatingState:"ready"|"restricted"|"emergency-stop";operatingMessage:string;capabilities:{chat:boolean;drafts:boolean;agents:boolean;retrieval:boolean;evaluations:boolean}; provider: string | null; model: string | null; mode: string };
 type Source = { id: string; module: string; title: string };
 type Message = { role: "user" | "assistant"; content: string; activityId?:string; feedbackSent?:boolean; sources?: Source[]; citationIntegrity?: {grounded:boolean;cited:number;invalidRemoved:number} };
@@ -77,6 +77,7 @@ export default function FornostAiCopilot() {
   const identityKey = useRef("");
   const identityRequest = useRef(0);
   const statusRequest = useRef(0);
+  const [entityRestricted,setEntityRestricted]=useState(false);
   const [user, setUser] = useState<User | null>(null);
   const [status, setStatus] = useState<Status | null>(null);
   const [statusError, setStatusError] = useState("");
@@ -162,7 +163,9 @@ export default function FornostAiCopilot() {
       setIdentityError("Oturum doğrulanamadı. Bağlantınızı kontrol edip yeniden deneyin.");
       return;
     }
-    const nextUser = body.authenticated ? body.user as User : null;
+    const identity = body.authenticated ? body.user as User : null;
+    setEntityRestricted(!!identity?.orgScope?.restricted);
+    const nextUser = identity?.orgScope?.restricted ? null : identity;
     const nextKey=nextUser?JSON.stringify([nextUser.id,nextUser.email,nextUser.role,nextUser.moduleAccess]):"";
     if(identityKey.current && identityKey.current!==nextKey){setRecordFocus(null);setMessages([]);setDrafts([]);setAgentRuns([]);setQuestion("");setFeedbackDraft(null);setTab("chat");}
     identityKey.current=nextKey;
@@ -416,6 +419,7 @@ export default function FornostAiCopilot() {
 
   async function deleteAgentRun(id:string){if(!window.confirm("Bu başarısız veya arşivlenmiş agent çalışması silinsin mi?"))return;setAgentBusy(true);const response=await fetch(withBasePath("/api/ai/agents"),{method:"DELETE",headers:{"content-type":"application/json"},body:JSON.stringify({id,confirmation:"SİL"})}).catch(()=>null);if(response?.ok)await loadAgents();else{const body=await response?.json().catch(()=>({}))||{};setNotice(String(body.error||"Agent çalışması silinemedi."));}setAgentBusy(false);}
 
+  if (entityRestricted) return null;
   if (!user) return open ? <section data-escape-layer id="fornost-ai-panel" className="fornost-ai-panel is-compact" aria-label="Fornost AI Copilot" aria-busy={identityLoading}>
     <header className="fornost-ai-head"><div><h2>Ask Fornost</h2></div><button data-escape-close type="button" onClick={() => setOpen(false)} aria-label="Kapat">×</button></header>
     <div className="fornost-ai-welcome" role="status"><p>{identityLoading ? "Oturum doğrulanıyor…" : identityError || "Oturum bilgisi bekleniyor…"}</p><button disabled={identityLoading} onClick={() => void refreshIdentity()}>Yeniden dene</button></div>

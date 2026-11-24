@@ -5,7 +5,7 @@ export class JsonBodyError extends Error {
   }
 }
 
-export async function readBoundedBody(request: Request, maxBytes: number): Promise<Uint8Array<ArrayBuffer>> {
+export async function readBoundedBody(request: Pick<Request,"headers"|"body">, maxBytes: number): Promise<Uint8Array<ArrayBuffer>> {
   const declaredTooLarge = Number(request.headers.get("content-length") || 0) > maxBytes;
   if (!request.body) throw new JsonBodyError(400);
   const reader = request.body.getReader();

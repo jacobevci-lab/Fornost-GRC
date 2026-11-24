@@ -16,7 +16,7 @@ const defaults:Record<Kind,Form>={
 const providers:Record<Kind,{value:string;label:string}[]>={
  ticketing:[{value:"jira",label:"Jira Cloud"},{value:"servicenow",label:"ServiceNow"},{value:"azure-devops",label:"Azure DevOps Boards"},{value:"github-issues",label:"GitHub Issues"},{value:"webhook",label:"Generic Webhook"}],
  email:[{value:"smtp-bridge",label:"SMTP Relay Bridge"},{value:"microsoft-graph-mail",label:"Microsoft Graph Mail"},{value:"email-api",label:"HTTP Email API"}],
- identity:[{value:"entra-oidc",label:"Microsoft Entra ID (OIDC)"},{value:"okta-oidc",label:"Okta (OIDC)"},{value:"generic-oidc",label:"Generic OIDC"},{value:"saml",label:"SAML 2.0"},{value:"ldap",label:"LDAP"},{value:"ldaps",label:"LDAPS"}],
+ identity:[{value:"entra-oidc",label:"Microsoft Entra ID (OIDC)"},{value:"okta-oidc",label:"Okta (OIDC)"},{value:"google-oidc",label:"Google Workspace (OIDC)"},{value:"generic-oidc",label:"Generic OIDC"},{value:"saml",label:"SAML 2.0"},{value:"ldap",label:"LDAP"},{value:"ldaps",label:"LDAPS"}],
 };
 const fieldMap:Record<string,{key:string;label:string;placeholder?:string;type?:string}[]>={
  jira:[{key:"baseUrl",label:"Jira URL",placeholder:"https://company.atlassian.net"},{key:"username",label:"User Email"},{key:"projectKey",label:"Project Key"},{key:"issueType",label:"Issue Type"}],
@@ -29,6 +29,7 @@ const fieldMap:Record<string,{key:string;label:string;placeholder?:string;type?:
  "email-api":[{key:"endpoint",label:"Email API URL"},{key:"sender",label:"Sender Email",type:"email"}],
  "entra-oidc":[{key:"issuer",label:"Issuer",placeholder:"https://login.microsoftonline.com/TENANT/v2.0"},{key:"tenantId",label:"Tenant ID"},{key:"clientId",label:"Client ID"},{key:"redirectUri",label:"Redirect URI"},{key:"groupsClaim",label:"Groups Claim"}],
  "okta-oidc":[{key:"issuer",label:"Issuer",placeholder:"https://company.okta.com/oauth2/default"},{key:"clientId",label:"Client ID"},{key:"redirectUri",label:"Redirect URI"},{key:"groupsClaim",label:"Groups Claim"}],
+ "google-oidc":[{key:"issuer",label:"Issuer",placeholder:"https://accounts.google.com"},{key:"clientId",label:"Client ID"},{key:"redirectUri",label:"Redirect URI"},{key:"groupsClaim",label:"Groups Claim"}],
  "generic-oidc":[{key:"issuer",label:"Issuer"},{key:"clientId",label:"Client ID"},{key:"redirectUri",label:"Redirect URI"},{key:"groupsClaim",label:"Groups Claim"}],
  saml:[{key:"metadataUrl",label:"IdP Metadata URL"},{key:"entityId",label:"SP Entity ID"},{key:"acsUrl",label:"ACS URL"}],
  ldap:[{key:"bridgeUrl",label:"IAM Bridge URL"},{key:"directoryUrl",label:"LDAP URL",placeholder:"ldap://directory.company.local:389"},{key:"baseDn",label:"Base DN"},{key:"bindDn",label:"Bind DN"},{key:"userFilter",label:"User Filter",placeholder:"(sAMAccountName={username})"}],

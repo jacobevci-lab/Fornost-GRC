@@ -8,6 +8,8 @@ import "./audit-requirement-page.css";
 import { submitLocalAuthentication, type LocalAuthInput } from "./local-auth-submit";
 import { CAPA_REPORT_MODULE, loadCapaReport, capaReportFailure, capaReportFailureMessage, type CapaReportFailure } from "./findings/reporting";
 import { pageSessionKey, restorePage, rememberPage } from "./page-session";
+import {ScopedWorkspace,ScopeSelect} from './enterprise/workspace';
+import './enterprise/enterprise.css';
 import { readSessionSnapshot, preserveUnchangedSessionUser, type SessionSnapshot } from "./session-snapshot";
 import { getCatalogStatus } from "./framework-catalog-status";
 import { FrameworkCatalogNotice } from "./framework-catalog-notice";
@@ -139,6 +141,7 @@ import "./enterprise-surface-contract.css";
 import "./product-experience.css";
 import "./theme-integrity.css";
 import "./workspace-simplicity.css";
+import {FairFields} from './enterprise/fair-panel';
 import RecordWorkspace from "./record-workspace";
 import { ModuleTrailPanel, ModuleTrailContext } from "./module-record-trail-view";
 import { moduleTrailSources } from "./module-record-trail";
@@ -1086,6 +1089,7 @@ function AuthGate() {
         </div>
       </div>
     );
+  if (state.authenticated && state.user?.orgScope?.restricted) return <ScopedWorkspace key={JSON.stringify([state.user.id,state.user.orgScope])}/>;
   if (state.authenticated) return <FornostApp key={JSON.stringify([state.user.id,state.user.role,state.user.moduleAccess])} currentUser={state.user} />;
   return (
     <div className="auth-screen">
@@ -2192,6 +2196,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
             </div>
           </div>
           <div className="header-actions">
+            <ScopeSelect tr={lang==="tr"}/>
             <button
               type="button"
               className="context-ai-trigger"
@@ -2610,6 +2615,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
                     auditNames={auditPortfolio.map(audit => audit.name)}
                   />
                 ))}
+                {active==="Risk Assessment"&&<FairFields tr={lang==="tr"} value={form.fairLite} update={fairLite=>setForm(prev=>({...prev,fairLite}))}/>}
                 {notice&&<p className="record-form-notice wide" role="alert">{notice}</p>}
                 <div className="form-actions">
                   <button type="button" disabled={saving} onClick={closeRecordDialog}>

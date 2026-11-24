@@ -7,6 +7,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireRole } from "../auth/security";
 import { clean, decryptSecret, encryptSecret, safeHttpUrl, safeIntegrationConfig, validProvider, type IntegrationProvider } from "./security";
 
+import {validSaml} from '../../enterprise/metadata';
+import {readBoundedBody} from '../request-body';
 type Config = Record<string, string | boolean>;
 type JsonRecord = Record<string, unknown>;
 type Stored = { id:string; kind:string; provider:string; enabled:number; config_json:string; secret_ciphertext:string|null; updated_at:string; updated_by:string };
@@ -14,7 +16,7 @@ const kinds = ["ticketing", "email", "identity"] as const;
 const providersByKind:Record<(typeof kinds)[number],IntegrationProvider[]>={
   ticketing:["jira","jira-dc","servicenow","azure-devops","github-issues","webhook"],
   email:["smtp-bridge","microsoft-graph-mail","email-api"],
-  identity:["entra-oidc","okta-oidc","generic-oidc","saml","ldap","ldaps"],
+  identity:["entra-oidc","okta-oidc","google-oidc","generic-oidc","saml","ldap","ldaps"],
 };
 
 const integrationSchema = [
@@ -103,6 +105,7 @@ export async function PUT(req:NextRequest) {
   if(!kinds.includes(kind as typeof kinds[number])||!validProvider(provider)||!providersByKind[kind as typeof kinds[number]].includes(provider))return json({error:"Geçersiz entegrasyon türü veya sağlayıcı."},400);
   if(kind==='email' && body.config?.applicationUrl !== undefined && body.config.applicationUrl !== '' && !applicationLinkBase(body.config.applicationUrl)) return json({error:'Uygulama adresi HTTPS olmalı; kullanıcı bilgisi, sorgu veya fragment içermemeli. / Application URL must use HTTPS without credentials, query or fragment.'},400);
   const config=safeIntegrationConfig(body.config),secret=clean(body.secret,4096),enabled=body.enabled===true;
+  if(kind==='identity'&&provider==='saml'&&config.metadataXml&&!validSaml(String(config.metadataXml)))return json({error:'Geçersiz IdP metaverisi / Invalid IdP metadata'},422);
   const env=await runtime(),now=new Date().toISOString(),existing=await getStored(env.DB,kind);
   if(body.expectedUpdatedAt!==undefined&&body.expectedUpdatedAt!==(existing?.updated_at||""))return json({error:"Bağlantı değişti. Yenileyin / Connection changed. Refresh before saving."},409);
   const key=envText(env,"FORNOST_SETTINGS_ENCRYPTION_KEY");
@@ -146,17 +149,21 @@ async function testConnection(provider:IntegrationProvider, config:Config, secre
     if(!response.ok)throw new Error(`IAM bridge bağlantısı başarısız (${response.status}).`);
     return {ok:true,message:"IAM bridge sağlık kontrolü geçti. LDAP bind ve kullanıcı girişi doğrulanmadı. / Bridge health check passed; LDAP bind and sign-in are unverified."};
   }
-  if(["entra-oidc","okta-oidc","generic-oidc"].includes(provider)){
+  if(["entra-oidc","okta-oidc","google-oidc","generic-oidc"].includes(provider)){
     const issuer=endpoint(config,allowPrivate),response=await outbound(`${issuer}/.well-known/openid-configuration`);
     if(!response.ok)throw new Error(`OIDC discovery başarısız (${response.status}).`);
     const metadata=await parseResponse(response); if(!safeHttpUrl(metadata.authorization_endpoint,allowPrivate))throw new Error("OIDC metadata geçersiz.");
     return {ok:true,message:"OIDC discovery belgesi ve authorization_endpoint alanı okunabildi. Kullanıcı girişi doğrulanmadı. / Discovery preflight passed; sign-in is unverified."};
   }
   if(provider==="saml"){
-    const response=await outbound(endpoint(config,allowPrivate),{headers:{accept:"application/xml,text/xml"}});
-    if(!response.ok)throw new Error(`SAML metadata alınamadı (${response.status}).`);
-    const text=(await response.text()).slice(0,100_000); if(!text.includes("EntityDescriptor"))throw new Error("SAML metadata geçersiz.");
-    return {ok:true,message:"SAML belgesi alındı ve EntityDescriptor işareti bulundu. İmza ve kullanıcı girişi doğrulanmadı. / Metadata marker found; signature and sign-in are unverified."};
+    let xml=String(config.metadataXml||'');
+    if(!xml){
+      const response=await outbound(endpoint(config,allowPrivate),{headers:{accept:"application/xml,text/xml"}});
+      if(!response.ok)throw new Error("SAML metadata unavailable");
+      xml=new TextDecoder().decode(await readBoundedBody(response,100000));
+    }
+    if(!validSaml(xml))throw new Error("Geçersiz IdP metaverisi / Invalid IdP metadata");
+    return {ok:true,message:"IdP metaverisi doğrulandı / IdP metadata checked."};
   }
   const base=endpoint(config,allowPrivate); let url=base; const headers:Record<string,string>={};
   if(provider==="jira"){url=`${base}/rest/api/3/myself`;headers.authorization=basic(clean(config.username,320),secret)}
