@@ -5,7 +5,7 @@ import { chromium } from '@playwright/test';
 import { createQaContext, waitForQaIdle, closeQaContext } from './qa-browser-harness.mjs';
 import { monitor, scanViews } from './entra-qa/observe.mjs';
 import { clean, title, inventory } from './entra-qa/records.mjs';
-import { resumeContext } from './entra-qa/resume.mjs';
+import { resumeContext, sessionOwner } from './entra-qa/resume.mjs';
 import { journey } from './entra-qa/journey.mjs';
 
 const base = process.env.ENTRA_BASE_URL || 'http://127.0.0.1:4173',
@@ -33,8 +33,10 @@ async function step(name, fn) {
     return true;
   } catch (e) {
     const reason = String(e.message).split('\n').slice(0, 4).join(' ').slice(0, 390);
-    report.steps.push({ name, status: 'failed', reason, check: e.qaCheck });
-    console.error('FAIL', name, isolated ? reason : e.qaCheck || 'See stage and status');
+    const status = e.qaBlockedBy ? 'blocked' : 'failed';
+    const check = e.qaBlockedBy || e.qaCheck;
+    report.steps.push({ name, status, reason, check });
+    console.error(status.toUpperCase(), name, isolated ? reason : check || 'See stage and status');
     return false;
   }
 }
@@ -78,16 +80,17 @@ try {
     );
     return b;
   };
-  const owner = isolated ? 'qa-admin@fornost.test' : process.env.FORNOST_SMOKE_EMAIL;
+  const loginEmail = isolated ? 'qa-admin@fornost.test' : process.env.FORNOST_SMOKE_EMAIL;
+  let owner;
   const password = isolated ? process.env.FORNOST_QA_PASSWORD : process.env.FORNOST_SMOKE_PASSWORD;
   if (
     !(await step('Authenticated preflight', async () => {
       await page.goto(base, { waitUntil: 'domcontentloaded' });
       await waitForQaIdle(page);
-      assert.ok(owner && password, 'Dedicated application QA credentials are required');
-      await api('/api/auth', { method: 'POST', data: { action: 'login', email: owner, password } });
+      assert.ok(loginEmail && password, 'Dedicated application QA credentials are required');
+      await api('/api/auth', { method: 'POST', data: { action: 'login', email: loginEmail, password } });
       const a = await api('/api/auth');
-      assert.equal(a.user.role, 'Admin');
+      owner = sessionOwner(loginEmail, a.user);
       const h = await api('/api/health');
       report.revision = h.revision;
       if (!isolated && process.env.FORNOST_EXPECTED_REVISION)

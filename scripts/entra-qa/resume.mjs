@@ -5,13 +5,14 @@ import { title, note } from './records.mjs';
 export function check(ok, code) {
   if (!ok) throw Object.assign(new Error(code), { qaCheck: code });
 }
-const same = (a, b) =>
-  String(a || '')
-    .trim()
-    .toLowerCase() ===
-  String(b || '')
-    .trim()
-    .toLowerCase();
+const normalizeEmail = (value) => typeof value === 'string' ? value.trim().toLowerCase() : '';
+export const samePerson = (left, right) => Boolean(normalizeEmail(left)) && normalizeEmail(left) === normalizeEmail(right);
+
+export function sessionOwner(loginEmail, session) {
+  check(session?.role === 'Admin' && samePerson(session.email, loginEmail), 'identity.session-owner');
+  return normalizeEmail(session.email);
+}
+
 export const containsRef = (value, id, code) => [value].flat().some((ref) => ref === id || ref === code);
 export const evidenceBytes = () =>
   Buffer.from(
@@ -37,7 +38,7 @@ function planIdentity(p, ids, codes, people) {
     ['reviewer', 'reviewer'],
     ['crisisLead', 'lead'],
   ])
-    check(same(p[field], people[who]), 'plan.' + field);
+    check(samePerson(p[field], people[who]), 'plan.' + field);
 }
 export function planChecks(p, ids, codes, people) {
   planIdentity(p, ids, codes, people);
@@ -107,7 +108,7 @@ export async function resumeContext(api, rows, owner) {
     vendors.assessments.some((a) => a.vendorId === v.vendorId && a.treatmentPlan?.includes(note)),
     'vendor.provenance',
   );
-  check(same(v.riskOwner, owner), 'vendor.owner');
+  check(samePerson(v.riskOwner, owner), 'vendor.owner');
   const people = { owner, reviewer: v.reviewer, lead: v.businessOwner };
   check(
     new Set(Object.values(people).map((v) => String(v).toLowerCase())).size === 3,
@@ -124,7 +125,7 @@ export async function resumeContext(api, rows, owner) {
       containsRef(b.supplierRefs, ids.vendor, codes.vendor),
     'bia.dependencies',
   );
-  check(c.description === note && same(c.owner, owner), 'control.provenance');
+  check(c.description === note && samePerson(c.owner, owner), 'control.provenance');
   check(
     e.contentSha256 === createHash('sha256').update(evidenceBytes()).digest('hex') &&
       containsRef(e.controlRef, ids.control, codes.control),
@@ -143,7 +144,7 @@ export async function resumeContext(api, rows, owner) {
     policies.versions.some(
       (v) =>
         v.policyId === p.id &&
-        same(v.createdBy, owner) &&
+        samePerson(v.createdBy, owner) &&
         v.summary?.includes(note) &&
         v.controlRefs?.includes(codes.control),
     ),
@@ -151,23 +152,36 @@ export async function resumeContext(api, rows, owner) {
   );
   remember('policy', p, p.id, p.code);
   const plan = matchOne((await api('/api/continuity')).plans, (p) => p.name === title.plan, 'plan');
-  check(plan.communicationPlan?.includes(note) && same(plan.createdBy, owner), 'plan.provenance');
+  check(plan.communicationPlan?.includes(note) && samePerson(plan.createdBy, owner), 'plan.provenance');
   remember('plan', plan, plan.id, plan.code);
   const k = matchOne((await api('/api/risk-appetite')).appetites, (k) => k.kriName === title.kri, 'kri');
   check(
-    k.statement?.includes(note) && k.riskRefs.includes(ids.risk) && same(k.owner, owner),
+    k.statement?.includes(note) && k.riskRefs.includes(ids.risk) && samePerson(k.owner, owner),
     'kri.provenance',
   );
   remember('kri', k, k.id, k.code);
   const ai = matchOne((await api('/api/ai/workspace')).systems, (m) => m.name === title.ai, 'ai');
   check(
     ai.profile?.purpose?.includes(note) &&
-      same(ai.profile.owner, owner) &&
+      samePerson(ai.profile.owner, owner) &&
       ai.profile.risks.some((v) => v.id === ids.risk),
     'ai.provenance',
   );
   remember('ai', ai, ai.id, ai.code);
   return { ids, codes, people, plan };
+}
+
+export const incidentDescription = note + ' · Gerçek bir olay bildirimi içermez.';
+
+export function verifyIncidentIdentity(incident, { ids, codes, people }) {
+  check(incident?.title === title.incident && incident.description === incidentDescription, 'incident.exercise-marker');
+  for (const [field, assigned] of [['declaredBy', 'owner'], ['owner', 'owner'], ['commander', 'lead'], ['reviewer', 'reviewer']]) {
+    check(samePerson(incident[field], people[assigned]), 'incident.' + field);
+  }
+  check(incident.personalData === true, 'incident.personal-data');
+  for (const [field, key] of [['assetRefs', 'asset'], ['riskRef', 'risk'], ['biaRef', 'bia']]) {
+    check(ids[key] && codes[key] && containsRef(incident[field], ids[key], codes[key]), 'incident.' + field);
+  }
 }
 
 export async function verifyCountdown(page, detectedAt) {
