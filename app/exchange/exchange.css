@@ -64,6 +64,10 @@
 .exchange fieldset {
   min-width: 0;
 }
+.ex-upload { position: relative; display: grid; gap: .5rem; }
+.ex-upload .ex-actions { border: 1px dashed var(--ex-line); border-radius: 7px; padding: .65rem; }
+.ex-upload span { overflow-wrap: anywhere; min-width: 0; }
+.exchange .ex-upload input[type="file"] { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip-path: inset(50%); }
 .exchange label,
 .exchange code {
   overflow-wrap: anywhere;
@@ -183,3 +187,5 @@
     aspect-ratio: 16/9;
   }
 }
+
+.exchange .ex-simulation pre{white-space:pre-wrap;overflow-wrap:anywhere;max-height:24rem;overflow:auto}.exchange .ex-card .ex-actions input{min-width:0;max-width:100%;flex:1}.exchange .ex-form fieldset{min-width:0}.exchange .ex-form fieldset>label{display:grid;gap:.4rem;margin-bottom:.75rem}

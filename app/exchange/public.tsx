@@ -3,14 +3,28 @@ import {
   useSyncExternalStore,
   useEffect,
   useState,
+  useId,
+  useRef,
   type FormEvent,
   type ReactNode,
 } from "react";
 import { withBasePath } from "../base-path";
+import {portalQuestions} from "./vendor-questionnaire";
 import { questions } from "../third-party-risk/survey";
 import { api, Field, State, t, useAction, useLoad, type Locale } from "./ui";
+function VendorDocument({ kind, lang }: { kind: string; lang: Locale }) {
+  const id = useId(), input = useRef<HTMLInputElement>(null), [name, setName] = useState("");
+  return <div className="ex-upload">
+    <label htmlFor={id}>{kind}</label>
+    <input id={id} ref={input} tabIndex={-1} type="file" accept="application/pdf,.pdf" name={kind}
+      onChange={e => setName(e.target.files?.[0]?.name || "")} />
+    <div className="ex-actions"><button type="button" aria-label={`${kind} · ${t(lang, "Dosya seç", "Choose file")}`}
+      onClick={() => input.current?.click()}>{t(lang, "Dosya seç", "Choose file")}</button>
+      <span role="status">{name || t(lang, "Henüz dosya seçilmedi", "No file selected")}</span></div>
+  </div>;
+}
 function Vendor({ lang, token }: { lang: Locale; token: string }) {
-  const { v, err } = useLoad<{ name: string }>("public-exchange/vendor", token),
+  const { v, err } = useLoad<{ name: string;scope:string }>("public-exchange/vendor", token),
     a = useAction(lang),
     [done, set] = useState(false);
   if (done)
@@ -44,6 +58,7 @@ function Vendor({ lang, token }: { lang: Locale; token: string }) {
           "Supplier security assessment",
         )}
       </h2>
+      <p className="ex-prose">{v.scope}</p>
       <form onSubmit={submit} className="ex-form">
         {Object.entries(questions).map(([key, q]) => (
           <Field key={key} label={q[lang === "tr" ? 0 : 1]}>
@@ -54,6 +69,7 @@ function Vendor({ lang, token }: { lang: Locale; token: string }) {
             </select>
           </Field>
         ))}
+        <fieldset><legend>{t(lang,'MFA, yedekleme ve veri işleme','MFA, backup and data processing')}</legend>{Object.entries(portalQuestions).map(([key,q])=><Field key={key} label={q[lang==='tr'?0:1]}><select required name={key} defaultValue=""><option value="">—</option><option value="yes">{t(lang,'Evet','Yes')}</option><option value="no">{t(lang,'Hayır','No')}</option></select></Field>)}<Field label={t(lang,'Veri işleme ve yedekleme ülkeleri','Data processing and backup countries')}><textarea required maxLength={2000} name="dataLocation"/></Field><Field label={t(lang,'Alt yükleniciler / 4. taraflar (yoksa belirtin)','Subprocessors / fourth parties (state if none)')}><textarea required maxLength={2000} name="subprocessors"/></Field></fieldset>
         <h3>{t(lang, "Destekleyici belgeler", "Supporting documents")}</h3>
         <p>
           {t(
@@ -63,9 +79,7 @@ function Vendor({ lang, token }: { lang: Locale; token: string }) {
           )}
         </p>
         {["SOC 2 Type II", "ISO 27001", "Pentest", "DPA"].map((k) => (
-          <Field key={k} label={k}>
-            <input type="file" accept="application/pdf,.pdf" name={k} />
-          </Field>
+          <VendorDocument key={k} kind={k} lang={lang} />
         ))}
         <button className="ex-primary" disabled={a.busy}>
           {t(lang, "Değerlendirmeyi gönder", "Submit assessment")}
@@ -78,22 +92,35 @@ function Vendor({ lang, token }: { lang: Locale; token: string }) {
 type Trust = {
   tr: string;
   en: string;
-  policies: { title: string; version: number; content: string }[];
-  documents: { id: string; title: string }[];
+  titleTr:string;titleEn:string;
+  policies: { title: string; code:string; version: number; content: string }[];
+  documents: { id: string; title: string;ndaRequired:boolean }[];
   frameworks: string[];
 };
 function TrustPage({ lang }: { lang: Locale }) {
   const { v, err } = useLoad<Trust>("public-exchange/trust"),
     a = useAction(lang),
     [doc, select] = useState(""),
-    [grant] = useState(
+    [grant, setGrant] = useState(
       () => new URLSearchParams(location.hash.slice(1)).get("access") || "",
     ),
     l = (x: string, y: string) => t(lang, x, y);
   useEffect(() => {
-    if (grant)
-      history.replaceState(null, "", location.pathname + location.search);
-  }, [grant]);
+    const captureGrant = () => {
+      const value = new URLSearchParams(location.hash.slice(1)).get("access");
+      if (value) {
+        setGrant(value);
+        history.replaceState(history.state, "", location.pathname + location.search);
+      }
+    };
+    captureGrant();
+    window.addEventListener("hashchange", captureGrant);
+    window.addEventListener("popstate", captureGrant);
+    return () => {
+      window.removeEventListener("hashchange", captureGrant);
+      window.removeEventListener("popstate", captureGrant);
+    };
+  }, []);
   function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const form = new FormData(e.currentTarget);
@@ -104,6 +131,7 @@ function TrustPage({ lang }: { lang: Locale }) {
         company: form.get("company"),
         email: form.get("email"),
         accepted: form.get("accepted") === "on",
+        reason:form.get("reason"),
       });
       select("");
       a.say(l("Erişim talebiniz alındı.", "Your access request was received."));
@@ -111,7 +139,7 @@ function TrustPage({ lang }: { lang: Locale }) {
   }
   return (
     <>
-      <h1>{l("Müşteri Güven Merkezi", "Customer Trust Center")}</h1>
+      <h1>{(lang==="tr"?v?.titleTr:v?.titleEn)||l("Müşteri Güven Merkezi", "Customer Trust Center")}</h1>
       {grant && (
         <button
           className="ex-primary"
@@ -156,6 +184,7 @@ function TrustPage({ lang }: { lang: Locale }) {
                   "Enrolled compliance frameworks",
                 )}
               </h2>
+              <p>{l('Bu rozetler izlenen çerçeveleri gösterir; sertifikasyon veya tam uyum beyanı değildir.','These badges identify enrolled frameworks; they do not certify full compliance.')}</p>
               <div className="ex-actions">
                 {v.frameworks.map((x) => (
                   <span className="ex-tag" key={x}>
@@ -171,7 +200,7 @@ function TrustPage({ lang }: { lang: Locale }) {
               {v.policies.map((p, i) => (
                 <details key={i}>
                   <summary>
-                    {p.title} · v{p.version}
+                    {p.code} · {p.title} · v{p.version}
                   </summary>
                   <p className="ex-prose">{p.content}</p>
                 </details>
@@ -185,7 +214,7 @@ function TrustPage({ lang }: { lang: Locale }) {
                 <div className="ex-head" key={d.id}>
                   <strong>{d.title}</strong>
                   <button onClick={() => select(d.id)}>
-                    {l("NDA ve erişim talebi", "NDA & access request")}
+                    {d.ndaRequired?l("NDA ve erişim talebi", "NDA & access request"):l("Erişim talebi","Access request")}
                   </button>
                 </div>
               ))}
@@ -220,13 +249,14 @@ function TrustPage({ lang }: { lang: Locale }) {
               />
             </Field>
           ))}
-          <label>
+          <Field label={l('Talep nedeni','Request reason')}><textarea name="reason" required minLength={10} maxLength={2000}/></Field>
+          {v?.documents.find(x=>x.id===doc)?.ndaRequired&&<label>
             <input type="checkbox" required name="accepted" />{" "}
             {l(
               "Belgeyi gizli tutmayı, yalnızca şirketimin değerlendirmesinde kullanmayı ve üçüncü kişilerle paylaşmamayı kabul ediyorum.",
               "I agree to keep the document confidential, use it only for my company’s evaluation and refrain from sharing it with third parties.",
             )}
-          </label>
+          </label>}
           <div className="ex-actions">
             <button className="ex-primary" disabled={a.busy}>
               {l("Talebi gönder", "Submit request")}

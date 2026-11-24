@@ -4,7 +4,7 @@ import { DatabaseSync, type SQLInputValue } from "node:sqlite";
 import { readFileSync, readdirSync } from "node:fs";
 import { PDFDocument } from "pdf-lib";
 import { init, type Env } from "../app/exchange/store";
-import { invite, submitVendor, vendorContext } from "../app/exchange/vendor";
+import { invite, submitVendor, vendorContext,invitationView,revokeInvitation } from "../app/exchange/vendor";
 import {
   publish,
   trustView,
@@ -12,7 +12,7 @@ import {
   decide,
   download,
 } from "../app/exchange/trust";
-import { configure, inbound, notifyDue } from "../app/exchange/connectors";
+import { configure, inbound, notifyDue,simulate } from "../app/exchange/connectors";
 import { createBoard, readBoard } from "../app/exchange/board";
 import { TPRM_CONTROLS } from "../app/third-party-risk/domain";
 import {
@@ -88,6 +88,7 @@ function seed(
 async function submit(env: Env, key: string, document = true) {
   const f = new FormData();
   for (const q of TPRM_CONTROLS) f.set(q, q === "dpa" ? "no" : "yes");
+  for(const q of ["mfa","backups","privacy"])f.set(q,"yes");f.set("dataLocation","TR / EU");f.set("subprocessors","None");
   if (document) {
     const pdf = await PDFDocument.create();
     pdf.addPage().drawText("Confidential");
@@ -127,6 +128,7 @@ async function supplier() {
     cycle_number: 1,
     status: "draft",
   });
+  sql.exec("INSERT INTO org_entities VALUES('entity-a','root','subsidiary','Entity A');INSERT INTO org_record_entities VALUES('vendor','vendor1','entity-a','','1')");
   const first = await invite(env, req, "vendor1", "admin"),
     second = await invite(env, req, "vendor1", "admin");
   const key = second.url!.split("/").at(-1)!;
@@ -168,6 +170,7 @@ test("external assessment consumes only its current invite, preserves prior draf
     );
     assert.equal(data.sourceVendorRef, "vendor1");
     assert.equal(data.reviewStatus, "pending-review");
+    assert.equal(sql.prepare("SELECT org_entity_id FROM org_record_entities WHERE kind='evidence' AND record_id=?").get(v.evidence_id)!.org_entity_id,"entity-a");
   }
   assert.deepEqual(
     sql
@@ -241,6 +244,7 @@ test("trust is opt-in; requests pin an approved version and revocation blocks th
     email: "taylor@customer.example",
     company: "Customer",
     accepted: true,
+    reason:"Customer procurement due diligence",
   };
   await assert.rejects(requestAccess(db, req, { ...b, accepted: false }));
   await requestAccess(db, req, b);
@@ -353,6 +357,7 @@ test("scoped cloud and Entra hooks deduplicate, update native records, keep cont
     },
     "admin",
   );
+  const simulation=await simulate(env,"entra",{},"admin");assert.equal(simulation.mutated,false);assert.equal(sql.prepare("SELECT count(*) n FROM risk_kri_measurements").get()!.n,0);
   await send("entra", entra.hook!, "sample", {
     mfaCoverage: 90,
     pimGlobalAdmins: 2,
@@ -434,6 +439,8 @@ test("Done requires a library file and independent reviewer; repeated callbacks 
     sql.prepare("SELECT status FROM enterprise_findings").get()?.status,
     "open",
   );
+  sql.prepare("UPDATE enterprise_findings SET evidence_reference=?,evidence_sha256=? WHERE id='f'").run(ref,digest);
+  const simulation=await simulate(env,"tickets",{finding:"f"},"admin");assert.equal(simulation.mutated,false);assert.equal(sql.prepare("SELECT status FROM enterprise_findings WHERE id='f'").get()!.status,"open");
   await send({ evidenceCode: ref, evidenceSha256: digest });
   await send({ evidenceCode: ref, evidenceSha256: digest });
   assert.equal(
@@ -727,4 +734,55 @@ test("ambiguous ticket delivery can be recovered only from the provider's origin
   );
   assert.equal((await openTicket(env, "finding123")).ticket, "GRC-42");
   assert.equal(posts, 1);
+});
+
+test('vendor links constrain validity, expose one scope, revoke independently and preserve audit history',async()=>{
+ const {env,db,sql}=await fixture();seed(sql,'local_users',{id:'checker',email:'reviewer@local.test',role:'Admin',status:'Active'});
+ for(const id of ['one','two'])seed(sql,'third_party_profiles',{vendor_id:id,name:id,contact:id+'@supplier.test',reviewer:'reviewer@local.test',risk_owner:'owner@local.test',status:'onboarding'});
+ for(const days of [7,14,30]){
+  const r=await invite(env,req,'one','admin',{days,scope:'Production processing in TR / EU'}),key=r.url.split('/').at(-1)!;
+  assert.ok(Math.abs(new Date(r.expiresAt).getTime()-Date.now()-days*86400000)<5000);
+  assert.equal((await vendorContext(db,key)).scope,'Production processing in TR / EU');
+ }
+ await assert.rejects(invite(env,req,'one','admin',{days:365}));
+ const other=await invite(env,req,'two','admin',{days:7});const view=await invitationView(db,'one');
+ const current=view.invitations.find(i=>String(i.expiresAt)>new Date().toISOString())!;
+ await assert.rejects(revokeInvitation(db,'two',String(current.id),'admin'));
+ await revokeInvitation(db,'one',String(current.id),'admin');
+ assert.equal((await vendorContext(db,other.url.split('/').at(-1)!)).name,'two');
+ assert.equal(sql.prepare("SELECT count(*) n FROM org_access_events WHERE action='vendor-invite-revoked'").get()!.n,1);
+ assert.equal((await invitationView(db,'one')).invitations.length,3);
+});
+
+test('trust rejects draft policies and missing reason; NDA tightening revokes unacknowledged grants and preserves human decisions',async()=>{
+ const {env,db,sql}=await supplier();const v=sql.prepare("SELECT * FROM evidence_versions WHERE file_type='application/pdf'").get()!;
+ sql.prepare("UPDATE simple_grc_records SET data_json=json_set(data_json,'$.status','Onaylandı','$.reviewStatus','approved','$.reviewedBy','reviewer@local.test','$.reviewedVersion',?) WHERE id=?").run(v.id,v.evidence_id);
+ seed(sql,'policy_documents',{id:'policy',code:'POL-900',title:'Published security policy',status:'draft',current_version_id:'pv'});
+ seed(sql,'policy_versions',{id:'pv',policy_id:'policy',status:'draft',version_number:1,content:'Approved security policy content'});
+ const cfg={titleTr:'Müşteri güven portalı',titleEn:'Customer trust portal',policies:['pv'],documents:[v.id],frameworks:[],ndaRequired:[]};
+ await assert.rejects(publish(db,cfg,'admin'));
+ sql.exec("UPDATE policy_documents SET status='published';UPDATE policy_versions SET status='published'");await publish(db,cfg,'admin');
+ const publicView=await trustView(db);assert.equal(publicView.titleEn,'Customer trust portal');assert.equal(publicView.policies[0].code,'POL-900');
+ const b={document:v.id,name:'Taylor',email:'taylor@customer.test',company:'Customer',reason:'Procurement security review',accepted:false};
+ await assert.rejects(requestAccess(db,req,{...b,reason:''}));await requestAccess(db,req,b);
+ const id=String(sql.prepare('SELECT id FROM trust_requests').get()!.id),grant=await decide(env,req,id,'approve','admin');
+ assert.ok('url' in grant);const key=grant.url!.split('#access=')[1];await download(env,key);
+ await publish(db,{...cfg,ndaRequired:[v.id]},'admin');await assert.rejects(download(env,key));
+ await assert.rejects(requestAccess(db,req,b));await requestAccess(db,req,{...b,accepted:true});
+ const pending=String(sql.prepare("SELECT id FROM trust_requests WHERE status='pending'").get()!.id);await decide(env,req,pending,'reject','admin');
+ await assert.rejects(decide(env,req,pending,'approve','admin'));
+ assert.equal(sql.prepare('SELECT count(*) n FROM trust_request_details').get()!.n,2);
+ assert.equal(sql.prepare("SELECT count(*) n FROM org_access_events WHERE action='trust-access-rejected'").get()!.n,1);
+ sql.exec("UPDATE policy_documents SET status='draft'");assert.equal((await trustView(db)).policies?.length,0);
+});
+
+test('Slack and Teams NDA notifications contain no visitor PII, deduplicate, and simulation never sends',async(ctx)=>{
+ const {env,sql}=await fixture();seed(sql,'trust_requests',{id:'nda-request',version_id:'v',name:'Private Visitor',company:'Private Company',email:'private@customer.test',nda_version:'1',status:'pending',acknowledged_at:new Date().toISOString()});
+ const delivered:string[]=[];ctx.mock.method(globalThis,'fetch',async(_url:RequestInfo|URL,options?:RequestInit)=>{delivered.push(String(options?.body));return new Response('ok')});
+ for(const provider of ['slack','teams']){
+  await configure(env,{kind:'chat',enabled:true,config:{provider},secret:provider==='slack'?'https://hooks.slack.com/services/test/test/test':'https://test.webhook.office.com/webhook/test'},'admin');
+  const before=delivered.length;await simulate(env,'chat',{},'admin');assert.equal(delivered.length,before);
+  sql.exec('DELETE FROM exchange_notices');assert.equal((await notifyDue(env)).sent,1);assert.equal((await notifyDue(env)).sent,0);
+  assert.match(delivered.at(-1)!,/Trust Center/);assert.equal(delivered.at(-1)!.includes('private@'),false);assert.equal(delivered.at(-1)!.includes('Private Company'),false);
+ }
 });

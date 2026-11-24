@@ -27,6 +27,7 @@ type View = {
   cards: Card[];
   options: Opt[];
   kris: Opt[];
+  tickets:{id:string;code:string;title:string;ticket:string}[];
   signals: { kind: string; observed_at: string; summary: string }[];
 };
 const names: Record<string, [string, string]> = {
@@ -66,6 +67,11 @@ const signalValues: Record<string, string> = {
   done: "Tamamlandı",
   closed: "Kapalı",
 };
+type SimulationView={mode:string;mutated:boolean;effects:{metric?:string;value?:number;control?:string;kri?:string;finding?:string;from?:string;to?:string}[];result?:{summary?:Record<string,unknown>}};
+function SimulationResult({value,kind,lang}:{value:SimulationView;kind:string;lang:Locale}){
+ const l=(tr:string,en:string)=>t(lang,tr,en);
+ return <section className="ex-simulation"><h4>{l('Simülasyon sonucu — canlı telemetri değildir','Simulation result — not live telemetry')}</h4><p>{l('Bu sonuç yalnızca önizlemedir. Kontrol/KRI değerleri ve CAPA durumu değişmedi; dış bildirim gönderilmedi.','Preview only. Control/KRI values and CAPA status are unchanged; no external notification was sent.')}</p>{value.effects.length>0?<ul>{value.effects.map((e,i)=><li key={i}>{e.finding?`${e.finding} → ${l('Doğrulamada · bağımsız insan onayı gerekir','In verification · independent human approval required')}`:`${metricNames[e.metric||'']?.[lang==='tr'?0:1]||e.metric}: ${e.value} → ${[e.control,e.kri].filter(Boolean).join(' · ')}`}</li>)}</ul>:<p>{kind==='chat'?l('Yapılandırılmış Slack/Teams bildirim örneği hazırlandı.','A structured Slack/Teams notification sample was prepared.'):l('Kaynak ve kayıt eşlemeleri doğrulandı.','Resource and record mappings were validated.')}</p>}</section>;
+}
 function Select({
   options,
   value,
@@ -103,6 +109,7 @@ function Connector({
     [enabled, enable] = useState(!!card.enabled),
     [secret, setSecret] = useState(""),
     [hook, setHook] = useState(""),
+    [simulation,setSimulation]=useState<SimulationView|null>(null),[finding,setFinding]=useState(""),
     a = useAction(lang),
     l = (x: string, y: string) => t(lang, x, y);
   const set = (key: keyof Config, value: unknown) =>
@@ -145,8 +152,8 @@ function Connector({
               "CAPA tickets and evidence-gated verification.",
             ),
             chat: l(
-              "Beyan kampanyaları, CAPA terminleri ve PBC talepleri.",
-              "Attestation campaigns, CAPA deadlines and PBC requests.",
+              "Beyan kampanyaları, CAPA terminleri, PBC ve Trust Center erişim talepleri.",
+              "Attestation campaigns, CAPA deadlines, PBC and Trust Center access requests.",
             ),
           }[k]
         }
@@ -183,7 +190,7 @@ function Connector({
             })
           }
         >
-          {l("Test sinyali", "Test signal")}
+          {l("Canlı bağlantıyı test et", "Test live connection")}
         </button>
         {["entra", "chat"].includes(k) && (
           <button
@@ -200,6 +207,8 @@ function Connector({
           </button>
         )}
       </div>
+      <div className="ex-actions">{k==='tickets'&&<Field label={l('Simülasyon için bağlı CAPA','Linked CAPA for simulation')}><select value={finding} onChange={e=>setFinding(e.target.value)}><option value="">—</option>{view.tickets.map(f=><option key={f.id} value={f.id}>{f.code} · {f.ticket}</option>)}</select></Field>}<button disabled={a.busy||!card.enabled||k==='tickets'&&!finding} onClick={()=>a.act(async()=>{setSimulation(await api<SimulationView>('exchange',{action:'simulate',kind:k,finding}));a.say(l('Simülasyon tamamlandı. Canlı kayıtlar değiştirilmedi ve bildirim gönderilmedi.','Simulation completed. No live records changed and no notification was sent.'));})}>{l('Test Sinyali Simüle Et','Simulate test signal')}</button></div>
+      {simulation&&<SimulationResult value={simulation} kind={k} lang={lang}/>}
       {editing && (
         <form
           className="ex-form"

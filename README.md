@@ -151,3 +151,5 @@ Assigned independent reviewers can now record reasoned deadline changes for open
 ### Modular AI gateway and governed tools
 
 Ask Fornost now uses a six-tool registry with live module/entity filtering, editable human-approved CAPA/risk/evidence-note cards, and the common LLMGateway (Ollama/vLLM, customer BYOK, deterministic fallback). AI never approves evidence/vendors or closes CAPA. Administration → Audit Trail exposes metadata-only call and human-approval receipts. See [configuration, permissions, limits and tests](docs/modular-agent-tools.md).
+
+External stakeholder workflows support expiring/revocable vendor invitations, scoped pending evidence, published-policy Trust Center content, document-specific NDA requirements and audited human access decisions. Connector simulations remain distinct from live telemetry; see [external stakeholder delivery](docs/external-stakeholder-delivery.md).

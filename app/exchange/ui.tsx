@@ -1,5 +1,6 @@
 "use client";
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import {VendorInvitation} from "./vendor-invite";
+import { cloneElement, isValidElement, useCallback, useEffect, useState, type ReactNode } from "react";
 import { withBasePath } from "../base-path";
 export type Locale = "tr" | "en";
 export const t = (lang: Locale, tr: string, en: string) =>
@@ -45,8 +46,10 @@ const errors: Record<string, [string, string]> = {
     "İstek sınırına ulaşıldı. Daha sonra deneyin.",
     "Request limit reached. Try again later.",
   ],
+  questionnaire:["MFA, yedekleme, gizlilik ve veri konumu alanlarını tamamlayın.","Complete MFA, backup, privacy and data location declarations."],
+  ticket:["Güncel kanıtı olan açık bir bağlı CAPA seçin.","Select an open linked CAPA with current evidence."],
   nda: [
-    "Kurumsal e-posta, kimlik bilgileri ve gizlilik kabulü gerekli.",
+    "Kurumsal e-posta, kimlik bilgileri, talep nedeni ve gereken NDA kabulünü kontrol edin.",
     "Provide a business email, contact details and confidentiality acceptance.",
   ],
 };
@@ -138,7 +141,9 @@ export function Field({
   return (
     <label className="ex-field">
       <span>{label}</span>
-      {children}
+      {isValidElement<Record<string, unknown>>(children) && typeof children.type === "string" && ["input", "select", "textarea"].includes(children.type)
+        ? cloneElement(children, { "aria-label": label })
+        : children}
     </label>
   );
 }
@@ -149,7 +154,7 @@ export function State({ lang, error }: { lang: Locale; error?: unknown }) {
     </p>
   );
 }
-export function RecordAction({
+function TicketRecordAction({
   kind,
   id,
   lang,
@@ -263,3 +268,5 @@ export function RecordAction({
     </div>
   );
 }
+
+export function RecordAction(props:Parameters<typeof TicketRecordAction>[0]){return props.kind==="invite"?<VendorInvitation id={props.id} lang={props.lang}/>:<TicketRecordAction {...props}/>;}

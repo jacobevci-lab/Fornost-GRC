@@ -1,3 +1,4 @@
+import { ensureEnterprise } from "../enterprise/schema";
 import { EnterpriseError } from "../enterprise/http";
 import { sha256HexBytes } from "../evidence/versioning";
 import { applicationLinkBase } from "../record-links";
@@ -6,6 +7,8 @@ import { deliverConfiguredEmail } from "../api/integrations/email-transport";
 import { completedInitialization } from "../completed-initialization";
 const ready = completedInitialization();
 const ddl = [
+  "CREATE TABLE IF NOT EXISTS vendor_invitation_details (digest TEXT PRIMARY KEY NOT NULL, scope TEXT NOT NULL, created_at TEXT NOT NULL, revoked_at TEXT)",
+  "CREATE TABLE IF NOT EXISTS trust_request_details (request_id TEXT PRIMARY KEY NOT NULL, reason TEXT NOT NULL, nda_required INTEGER NOT NULL, accepted_at TEXT)",
   "CREATE TABLE IF NOT EXISTS exchange_connectors (kind TEXT PRIMARY KEY, config TEXT NOT NULL, secret TEXT, hook_hash TEXT, enabled INTEGER NOT NULL, updated_by TEXT NOT NULL, updated_at TEXT NOT NULL)",
   "CREATE TABLE IF NOT EXISTS exchange_signals (kind TEXT NOT NULL, event_id TEXT NOT NULL, observed_at TEXT NOT NULL, summary TEXT NOT NULL, PRIMARY KEY(kind,event_id))",
   "CREATE TABLE IF NOT EXISTS exchange_tickets (finding_id TEXT PRIMARY KEY, provider TEXT NOT NULL, ticket TEXT UNIQUE, url TEXT, state TEXT NOT NULL)",
@@ -19,6 +22,7 @@ const ddl = [
   "CREATE TABLE IF NOT EXISTS board_packages (id TEXT PRIMARY KEY, snapshot TEXT NOT NULL, digest TEXT NOT NULL, actor TEXT NOT NULL, created_at TEXT NOT NULL)",
 ];
 export async function init(db: D1Database) {
+  await ensureEnterprise(db);
   await ready(db, () => db.batch(ddl.map((q) => db.prepare(q))));
 }
 export function check(v: unknown, status = 400, code = "input"): asserts v {

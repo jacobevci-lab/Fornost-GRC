@@ -7,12 +7,13 @@ import { failure, reply } from "../../enterprise/http";
 import { check, init, text, type Env } from "../../exchange/store";
 import {
   configure,
+  simulate,
   connectorView,
   openTicket,
   sync,
 } from "../../exchange/connectors";
 import { recoverTicket } from "../../exchange/ticket-recovery";
-import { invite } from "../../exchange/vendor";
+import { invite,invitationView,revokeInvitation } from "../../exchange/vendor";
 import { decide, publish, trustView } from "../../exchange/trust";
 import { createBoard, readBoard } from "../../exchange/board";
 async function handle(req: NextRequest, write: boolean) {
@@ -28,12 +29,11 @@ async function handle(req: NextRequest, write: boolean) {
     const b = write ? await readBoundedJsonObject(req, 90000) : {},
       id = text(b.id || req.nextUrl.searchParams.get("id"), 128);
     const ownedWrite =
-      write &&
-      !area &&
+      (!area||area==="vendor") &&
       user.role === "Editor" &&
       !isScoped(user) &&
       !user.orgScope?.restricted &&
-      (b.action === "invite"
+      ((b.action === "invite"||b.action === "revoke-invite"||!write&&area==="vendor")
         ? await db
             .prepare(
               "SELECT 1 FROM third_party_profiles WHERE vendor_id=? AND lower(?) IN (lower(risk_owner),lower(business_owner))",
@@ -49,7 +49,7 @@ async function handle(req: NextRequest, write: boolean) {
               .first()
           : false);
     check(
-      canManage(user) ||
+      canManage(user)&&!isScoped(user) ||
         ownedWrite ||
         (area === "board" &&
           user.orgScope?.role === "group-ciso" &&
@@ -67,19 +67,25 @@ async function handle(req: NextRequest, write: boolean) {
             : { available: true },
       );
     if (!write) {
+      if(area==="vendor")return reply(await invitationView(db,id));
       if (area === "trust") return reply(await trustView(db, true));
       if (area === "connectors") return reply(await connectorView(db));
     } else {
       switch (b.action) {
         case "invite":
-          return reply(await invite(env, req, id, user.email));
+          return reply(await invite(env, req, id, user.email,{days:b.days,scope:b.scope}));
+        case "revoke-invite":
+          return reply(await revokeInvitation(db,id,text(b.invitation,64),user.email));
         case "publish":
           return reply(await publish(db, b, user.email));
         case "approve":
         case "revoke":
+        case "reject":
           return reply(await decide(env, req, id, b.action, user.email));
         case "configure":
           return reply(await configure(env, b, user.email));
+        case "simulate":
+          return reply(await simulate(env,text(b.kind,20),b,user.email));
         case "sync":
         case "test":
           return reply(await sync(env, text(b.kind, 20), b.action === "test"));

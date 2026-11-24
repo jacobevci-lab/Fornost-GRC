@@ -20,7 +20,8 @@ async function handle(req: Request, ctx: Context, write: boolean) {
         await throttle(env.DB, req, "vendor", 30);
         return reply(await submitVendor(env, req, key));
       }
-      return reply({ name: (await vendorContext(env.DB, key)).name });
+      const vendor=await vendorContext(env.DB,key);
+      return reply({name:vendor.name,scope:vendor.scope});
     }
     if (area === "trust")
       return reply(
