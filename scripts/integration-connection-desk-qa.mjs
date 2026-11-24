@@ -22,9 +22,10 @@ const row = async () => (await api('GET', '/api/integrations')).integrations.fin
 async function capture(name) { await desk.screenshot({ path: `${out}/${name}.png` }); screenshots.push(name); }
 try {
  assert.equal((await api('GET', '/api/auth')).bootstrapRequired, true, 'A fresh isolated runtime is required');
+ if(process.env.ENTERPRISE_BOOTSTRAP_KEY)await api('POST','/api/auth',{action:'authorize_bootstrap',token:process.env.ENTERPRISE_BOOTSTRAP_KEY});
  await api('POST', '/api/auth', { action: 'bootstrap', email: 'qa-admin@fornost.test', name: 'Integration QA', password: qaPassword() });
- await page.goto(base); await expect(page.locator('.shell')).toBeVisible();
- await openQaModule(page, 'İş Akışı Entegrasyonları'); await expect(desk).toContainText('İlk iş takibi bağlantınızı kurun'); await capture('empty-TR-light');
+ await page.goto(base); await expect(page.locator('.shell')).toBeVisible({timeout:30000});
+ await openQaModule(page, 'Entegrasyonlar'); await expect(desk).toContainText('İlk iş takibi bağlantınızı kurun'); await capture('empty-TR-light');
  phase = 'wizard draft persistence'; await button('Kuruluma başla').click();
  await button('Devam et').click(); await desk.getByLabel('Bağlantı adı', { exact: true }).fill('Jira · Güvenlik Ekibi');
  await desk.getByLabel('Sorumlu ekip', { exact: true }).fill('Bilgi Güvenliği');

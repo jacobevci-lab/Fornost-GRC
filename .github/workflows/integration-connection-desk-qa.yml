@@ -21,7 +21,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 22.13.0
+          node-version: 24
           cache: npm
       - run: npm ci
       - run: npm install --no-save --ignore-scripts @playwright/test@1.55.0
@@ -32,16 +32,22 @@ jobs:
           else
             npx playwright install chromium
           fi
+      - run: npm run build
       - name: Generate isolated QA credentials
         run: |
           node scripts/prepare-local-qa.mjs
-          node --input-type=module -e 'import {randomBytes} from "node:crypto"; import {writeFileSync} from "node:fs"; writeFileSync(".dev.vars", "FORNOST_SETTINGS_ENCRYPTION_KEY="+randomBytes(32).toString("hex")+"\n", {mode:0o600});'
+          umask 077
+          bootstrap_key="$(openssl rand -hex 32)"
+          echo "::add-mask::$bootstrap_key"
+          echo "ENTERPRISE_BOOTSTRAP_KEY=$bootstrap_key" >> "$GITHUB_ENV"
+          printf 'FORNOST_BOOTSTRAP_TOKEN="%s"\nFORNOST_SETTINGS_ENCRYPTION_KEY="%s"\n' "$bootstrap_key" "$(openssl rand -hex 32)" > dist/server/.dev.vars
+          node_modules/.bin/wrangler d1 migrations apply fornost-grc-prod --local --config wrangler.d1.jsonc >/tmp/integration-desk-migration.log
       - name: Verify connection lifecycle and layouts
         run: |
           set -euo pipefail
-          npm run dev -- --host 127.0.0.1 --port 4173 --strictPort > /tmp/integration-runtime.log 2>&1 &
+          node_modules/.bin/vite preview --host 127.0.0.1 --port 4173 --strictPort > /tmp/integration-runtime.log 2>&1 &
           server_pid=$!
-          trap 'kill "$server_pid" 2>/dev/null || true' EXIT
+          trap 'kill "$server_pid" 2>/dev/null || true; rm -f dist/server/.dev.vars' EXIT
           for attempt in $(seq 1 60); do
             if curl --fail --silent http://127.0.0.1:4173/api/auth > /dev/null; then break; fi
             sleep 1
