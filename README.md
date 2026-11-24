@@ -6,6 +6,8 @@ Fornost GRC, kurumların risklerini, kontrollerini, kanıtlarını, denetimlerin
 
 Ürün müşterinin kendi ortamına kurulur. Çekirdek GRC kullanımı için harici AI hizmeti gerekmez; veri toplayıcılar, kurumsal kimlik, e-posta, ticket ve AI sağlayıcıları ihtiyaca göre yapılandırılır. Paylaşımlı çok müşterili SaaS, bu ürünün dağıtım modeli değildir.
 
+Güvenlik Anketi Copilot, CSV/TSV sütun eşleme, iki dilli örnek anket ve kaynaklarla desteklenen, insan incelemeli dışa aktarım sunar. Tedarikçi güvence analizi bağlı kanıtları kullanabilir ve insan onayıyla yerel CAPA / taslak kontrol kayıtları açabilir. Kapsam ve gizlilik sınırları: [AI for GRC](docs/AI-FOR-GRC.md).
+
 ## Ürün ne işe yarar?
 
 | İhtiyaç | Fornost ile yapılan iş |
