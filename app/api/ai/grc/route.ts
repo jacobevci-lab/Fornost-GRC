@@ -17,9 +17,9 @@ export async function GET(req:NextRequest){
  if(kind==='vendor-documents'){if(!id)throw new Error('AI_NOT_FOUND');return json(await vendorEvidenceChoices(env,id));}
  if(kind==='evidence'||kind==='vendor'){
   if(!id)throw new Error('AI_NOT_FOUND');
-  const row=await env.DB.prepare('SELECT * FROM grc_ai_results WHERE kind=? AND subject=? ORDER BY created_at DESC LIMIT 1').bind(kind,id).first<{result:string;source_hash:string;subject:string}>();
+  const row=await env.DB.prepare('SELECT * FROM grc_ai_results WHERE kind=? AND subject=? ORDER BY created_at DESC LIMIT 1').bind(kind,id).first<{id:string;result:string;source_hash:string;subject:string}>();
   if(kind==='evidence'){const context=await evidenceContext(env,id);const notes=(await env.DB.prepare("SELECT id,result,actor,created_at FROM grc_ai_results WHERE kind='evidence-note' AND subject=? ORDER BY created_at DESC LIMIT 10").bind(id).all<{id:string;result:string;actor:string;created_at:string}>()).results.map(n=>({...n,result:JSON.parse(n.result),stale:JSON.parse(n.result).evidenceRevision!==context.row.updated_at}));return json({analysis:row?{...row,result:JSON.parse(row.result),stale:row.source_hash!==context.hash}:null,notes});}
-  const conversions=row?(await env.DB.prepare("SELECT v.item,v.target,v.record_id id,c.code FROM grc_ai_conversions v JOIN simple_grc_record_codes c ON c.record_id=CASE v.target WHEN 'finding' THEN 'work:finding:'||v.record_id ELSE v.record_id END WHERE v.result_id=?").bind((row as {id?:string}).id).all()).results:[];
+  const conversions=row?(await env.DB.prepare("SELECT v.item,v.target,v.record_id id,c.code FROM grc_ai_conversions v JOIN simple_grc_record_codes c ON c.record_id=CASE v.target WHEN 'finding' THEN 'work:finding:'||v.record_id ELSE v.record_id END WHERE v.result_id=?").bind(row.id).all()).results:[];
   return json({analysis:row?{...row,result:JSON.parse(row.result),stale:!await vendorAnalysisCurrent(env,row),conversions}:null});
  }
  if(kind==='questionnaires')return json({items:(await env.DB.prepare('SELECT id,title,revision,actor,created_at FROM grc_ai_questionnaires ORDER BY created_at DESC LIMIT 100').all()).results});
