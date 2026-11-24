@@ -168,7 +168,7 @@ function Connector({
               const r = await api<{
                 summary?: Record<string, number>;
                 mode?: string;
-              }>("exchange", { action: "test", kind: k });
+              }>("exchange", { action: "test", kind: k }).finally(reload);
               a.say(
                 r.summary
                   ? Object.entries(r.summary)
@@ -186,7 +186,6 @@ function Connector({
                       )
                     : l("Test başarılı.", "Test succeeded."),
               );
-              reload();
             })
           }
         >
@@ -432,7 +431,7 @@ export default function IntegrationCenter({ lang }: { lang: Locale }) {
   const controller=useRef<AbortController|null>(null);
   const reload=useCallback(async()=>{controller.current?.abort();const c=new AbortController();controller.current=c;try{const value=await api<View>('exchange?area=connectors',undefined,undefined,c.signal);if(!c.signal.aborted){setView(value);setError(undefined);}}catch(error){if(!c.signal.aborted)setError(error)}},[]);
   useEffect(()=>{const timer=setTimeout(()=>void reload(),0);return()=>{clearTimeout(timer);controller.current?.abort()}},[reload]);
-  if (!v) return <State lang={lang} error={err} />;
+  if (!v) return <div><State lang={lang} error={err}/>{!!err&&<button onClick={()=>void reload()}>{t(lang,"Yeniden dene","Retry")}</button>}</div>;
   return (
     <section className="exchange">
       {!!err&&<p role="alert">{t(lang,"Bağlantı listesi yenilenemedi. Son okunan bilgiler gösteriliyor.","Could not refresh connections. Showing the last loaded information.")} <button onClick={()=>void reload()}>{t(lang,"Yeniden dene","Retry")}</button></p>}

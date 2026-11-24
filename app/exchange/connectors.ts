@@ -80,6 +80,7 @@ function chatEndpoint(url: string, provider: string) {
 }
 export async function connectorView(db: D1Database) {
   await ensureIntegrations(db);
+  const sourceTables=new Set((await db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name IN ('simple_grc_records','simple_grc_record_codes','enterprise_findings','risk_appetite_statements')").all<{name:string}>()).results.map(row=>row.name));
   const rows = (
     await db
       .prepare(
@@ -94,13 +95,13 @@ export async function connectorView(db: D1Database) {
         hasHook: number;
       }>()
   ).results;
-  const options = (
+  const options = sourceTables.has("simple_grc_records")&&sourceTables.has("simple_grc_record_codes") ? (
     await db
       .prepare(
         "SELECT c.record_id id,c.code,r.module,COALESCE(json_extract(r.data_json,'$.controlTitle'),json_extract(r.data_json,'$.title'),json_extract(r.data_json,'$.name'),json_extract(r.data_json,'$.controlName'),'') title FROM simple_grc_record_codes c JOIN simple_grc_records r ON r.id=c.record_id WHERE r.module IN ('Risk Assessment','Varlık Envanteri','Kontroller') ORDER BY c.code",
       )
       .all()
-  ).results;
+  ).results : [];
   const transport=await db.prepare("SELECT provider,enabled,updated_at,updated_by FROM integration_settings WHERE kind='ticketing'").first<{provider:string;enabled:number;updated_at:string;updated_by:string}>();
   const cards=kinds.map((kind) => {
       const row = rows.find((x) => x.kind === kind);
@@ -114,14 +115,14 @@ export async function connectorView(db: D1Database) {
      UNION ALL SELECT 'signal:'||kind||':'||event_id,kind,'signal-received','success','','webhook',observed_at FROM exchange_signals
     ) ORDER BY created_at DESC,id DESC LIMIT 100`).all()).results,
     options,
-    tickets:(await db.prepare("SELECT f.id,f.code,f.title,t.ticket FROM enterprise_findings f JOIN exchange_tickets t ON t.finding_id=f.id WHERE t.state='linked' AND f.status IN ('open','in-progress') ORDER BY f.code LIMIT 150").all()).results,
-    kris: (
+    tickets:sourceTables.has("enterprise_findings")?(await db.prepare("SELECT f.id,f.code,f.title,t.ticket FROM enterprise_findings f JOIN exchange_tickets t ON t.finding_id=f.id WHERE t.state='linked' AND f.status IN ('open','in-progress') ORDER BY f.code LIMIT 150").all()).results:[],
+    kris: sourceTables.has("risk_appetite_statements")?(
       await db
         .prepare(
           "SELECT id,code,kri_name title FROM risk_appetite_statements WHERE status='approved' ORDER BY code",
         )
         .all()
-    ).results,
+    ).results:[],
     signals: (
       await db
         .prepare(

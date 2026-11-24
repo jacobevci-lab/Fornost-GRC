@@ -81,7 +81,7 @@ export async function changeAccount(db:D1Database,actor:ActorKey,body:Record<str
  // Claim the displayed state and recheck administrator authority and availability inside the transaction.
  const claim=db.prepare(`INSERT INTO user_access_events(id,user_id,actor,before_json,after_json,created_at)
   SELECT ?,?,?,?,?,? ${directory} WHERE u.id=? AND u.name=? AND u.role=? AND u.status=? AND a.policy_json IS ? AND ${liveAdmin} AND ${needsOther?enoughAdmins:"1"} AND ${scopeGuard.sql}`)
-  .bind(eventId,id,actor.email,JSON.stringify(previous),JSON.stringify(after),now,id,row.name,row.role,row.status,row.policy_json,actor.id,actor.email,...scopeGuard.values);
+  .bind(eventId,id,actor.email,JSON.stringify({...previous,orgScope:previousOrg}),JSON.stringify(after),now,id,row.name,row.role,row.status,row.policy_json,actor.id,actor.email,...scopeGuard.values);
  const steps=[claim];
  if(remove||changed)steps.push(db.prepare(`DELETE FROM local_sessions WHERE user_id=? AND ${eventExists}`).bind(id,eventId));
  if(remove){
