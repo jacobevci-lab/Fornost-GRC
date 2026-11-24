@@ -90,14 +90,26 @@ function TrustPage({ lang }: { lang: Locale }) {
   const { v, err } = useLoad<Trust>("public-exchange/trust"),
     a = useAction(lang),
     [doc, select] = useState(""),
-    [grant] = useState(
+    [grant, setGrant] = useState(
       () => new URLSearchParams(location.hash.slice(1)).get("access") || "",
     ),
     l = (x: string, y: string) => t(lang, x, y);
   useEffect(() => {
-    if (grant)
-      history.replaceState(null, "", location.pathname + location.search);
-  }, [grant]);
+    const captureGrant = () => {
+      const value = new URLSearchParams(location.hash.slice(1)).get("access");
+      if (value) {
+        setGrant(value);
+        history.replaceState(history.state, "", location.pathname + location.search);
+      }
+    };
+    captureGrant();
+    window.addEventListener("hashchange", captureGrant);
+    window.addEventListener("popstate", captureGrant);
+    return () => {
+      window.removeEventListener("hashchange", captureGrant);
+      window.removeEventListener("popstate", captureGrant);
+    };
+  }, []);
   function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const form = new FormData(e.currentTarget);
