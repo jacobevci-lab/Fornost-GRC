@@ -42,7 +42,9 @@ try {
  assert.equal(Object.hasOwn(current, 'secret_ciphertext'), false);
  await button('Kapat').click(); await page.reload(); await waitForQaIdle(page); await expect(desk).toContainText('Jira · Güvenlik Ekibi');
  phase = 'role and version guards';
- const editor = await browser.newContext(); await api('POST', '/api/auth', { action: 'demo_login' }, 200, editor.request);
+ const editor = await browser.newContext(), editorEmail='ticket-editor@fornost.test';
+ await api('POST','/api/users',{email:editorEmail,name:'Ticket QA editor',role:'Editor',password:qaPassword()},201);
+ await api('POST','/api/auth',{action:'login',email:editorEmail,password:qaPassword()},200,editor.request);
  for (const path of ['/api/integrations', '/api/integrations?view=history', '/api/integrations/health']) await api('GET', path, undefined, 403, editor.request);
  for (const method of ['PUT', 'DELETE']) await api(method, '/api/integrations', { kind: 'ticketing' }, 403, editor.request);
  await api('POST', '/api/integrations', { kind: 'ticketing', action: 'test' }, 403, editor.request);
