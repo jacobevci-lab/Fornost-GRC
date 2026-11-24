@@ -303,11 +303,11 @@ export default function Workspace({
               setErr('');
             }}>{models.map(m => <option key={m.id} value={m.id}>{m.code} · {m.name}</option>)}</select>
           </label>
+          <DeepGovernanceTools key={current.id} m={current} tr={tr} user={user} reload={reload}/>
           <AssessmentPanel key={current.id + current.revision} m={current} tr={tr} user={user} busy={busy} submit={submit} edit={() => open({
             kind: 'register',
             m: current
           })} />
-          <DeepGovernanceTools key={current.id} m={current} tr={tr} user={user} reload={reload}/>
         </> : <p className="ag-empty">{t('Değerlendirme başlatmak için bir AI sistemi kaydedin.', 'Register an AI system to start an assessment.')}</p>}</>}
  {tab === 3 && <Monitoring systems={models} tr={tr} busy={busy} onAdd={m => open({
         kind: 'monitor',

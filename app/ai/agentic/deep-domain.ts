@@ -105,7 +105,7 @@ export function discoverCsv(content: string, mapping?: Record<string, number>) {
         throw new Error('AI_CSV');
     const candidates: Discovery[] = [], seen = new Set<string>();
     rows.slice(1).forEach((r, index) => { const value = (key: keyof typeof fields) => String(r[fields[key]] || '').trim().slice(0, 800), name = value('name'), domain = value('domain'), label = normalize(name + ' ' + domain), catalog = known.some(k => label.includes(k)), signal = /\b(ai|llm|gpt|copilot)\b|yapay zeka|code assistant|ai note/i.test(name + ' ' + domain); if (!catalog && !signal)
-        return; const identity = value('identity') || normalize(domain) || normalize(name), key = normalize(identity); if (!key || seen.has(key))
+        return; const identity = value('identity') || normalize(domain) || normalize(name), key = value('identity')?'id:'+value('identity'):'name:'+normalize(domain||name); if (!key || seen.has(key))
         return; seen.add(key); candidates.push({ key, name: name || domain, identity, domain, permissions: value('permissions'), reason: catalog ? 'catalog' : 'signal', row: index + 2 }); });
     return { headers: rows[0], needsMapping: false, candidates, scanned: rows.length - 1 };
 }

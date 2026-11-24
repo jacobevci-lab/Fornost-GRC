@@ -482,7 +482,7 @@ export default function FornostAiCopilot() {
 {user.role === "Admin" && <button className={activeTab === "decommission" ? "active" : ""} onClick={() => setTab("decommission")}>{workspaceLocale === "tr" ? "AI Emeklilik" : "AI Retirement"}</button>}
 </div></details>}
         <details className="ai-workspace-group"><summary>{workspaceLocale === "tr" ? "AI yardımı" : "AI assistance"}</summary><div>
-<button className={activeTab === "chat" ? "active" : ""} onClick={() => setTab("chat")}>Copilot</button>
+<button onClick={() => setTab("chat")}>Copilot</button>
 <button className={activeTab === "agents" ? "active" : ""} onClick={() => { setTab("agents"); void loadAgents(); }}>{workspaceLocale === "tr" ? "Agentlar" : "Agents"}</button>
 <button className={activeTab === "knowledge" ? "active" : ""} onClick={() => setTab("knowledge")}>{workspaceLocale === "tr" ? "Bilgi Tabanı" : "Knowledge Base"}</button>
 <button className={activeTab === "drafts" ? "active" : ""} onClick={() => { setTab("drafts"); void loadDrafts(); }}>{workspaceLocale === "tr" ? "Taslaklar" : "Drafts"}</button>

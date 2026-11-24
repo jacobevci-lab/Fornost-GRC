@@ -15,6 +15,7 @@ const json = (data: unknown, status = 200) => NextResponse.json(data, {
   headers
 });
 function failure(e: unknown) {
+  if(e instanceof Error && e.message.includes('AI_DEEP_REVIEW_REQUIRED'))return json({code:'deep-review'},409);
   if (e instanceof DeskError) return json({
     code: e.code
   }, e.status);

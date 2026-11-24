@@ -257,6 +257,7 @@ export function blockers(p: Profile, a: Assessment, pin: Pick<Pin, 'id'> | null)
   return issues;
 }
 export const messages: Record<string, [string, string]> = {
+  'deep-review':['EU AI Act belirsizliklerini, atanan kontrol listesini ve AI BOM yazma yetkilerinin HITL noktalarını tamamlayın.','Complete EU AI Act uncertainty review, the assigned checklist and HITL checkpoints for AI BOM write permissions.'],
   reviewDate: ['Bir sonraki gözden geçirme için gelecekteki bir tarih seçin.', 'Choose a future date for the next periodic review.'],
   autonomy: ['Kritik artık risk taşıyan otonom modelde yazma yetkisini veya risk kontrollerini gözden geçirin.', 'Review write access or controls for an autonomous model with critical residual risk.'],
   classification: ['Sınıf, mevcut mevzuat profilindeki riskin altında olamaz.', 'The risk class cannot be lower than the existing regulatory profile.'],
