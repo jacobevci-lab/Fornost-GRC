@@ -154,14 +154,14 @@ function Settings({
             {v.options.documents.find((d) => d.id === r.version_id)?.title ||
               "—"}{" "}
             ·{" "}
-            {
+            <span className="ex-tag">{
               {
                 pending: l("Bekliyor", "Pending"),
                 approved: l("Onaylı", "Approved"),
                 revoked: l("İptal", "Revoked"),
                 rejected:l("Reddedildi","Rejected"),
               }[r.status]
-            }
+            }</span>
           </p>
           {r.reason&&<p className="ex-prose">{l('Talep nedeni','Request reason')}: {r.reason}</p>}<small>{r.ndaRequired?(r.acceptedAt?l('NDA kabul edildi','NDA accepted'):l('NDA kabulü eksik','NDA acceptance missing')):l('NDA zorunlu değil; yönetici onayı gerekli','NDA not required; administrator approval required')}{r.expiresAt?' · '+l('Geçerlilik','Valid until')+': '+new Date(r.expiresAt).toLocaleDateString():''}</small>
           <div className="ex-actions">
@@ -184,11 +184,12 @@ function Settings({
                       url(new URL(res.url, location.origin).href);
                       a.say(
                         l(
-                          "E-posta gönderilemedi. Erişim bağlantısını alıcıyla paylaşın.",
-                          "Email was not delivered. Share the access link with the recipient.",
+                          res.sent ? "Erişim bağlantısı e-postayla gönderildi." : "Erişim bağlantısını alıcıyla paylaşın.",
+                          res.sent ? "The access link was sent by email." : "Share the access link with the recipient.",
                         ),
                       );
                     }
+                    if (action !== "approve") url("");
                     reload();
                   })
                 }
