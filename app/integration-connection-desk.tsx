@@ -9,7 +9,7 @@ import { accessFields, targetFields, ticketProviders, providerName, ticketDefaul
 import type { TargetCheck } from "./integrations/ticketing-test";
 import "./integration-connection-desk.css";
 
-import {connectorNames,type ConnectorRegister,type ConnectorEvent} from "./integrations/connector-register";
+import {connectorNames,type ConnectorRegister} from "./integrations/connector-register";
 
 type Lang = "tr" | "en";
 type Event = { id: string; action: string; status: string; detail: string; actor: string; created_at: string };
@@ -91,13 +91,13 @@ export default function IntegrationConnectionDesk({ lang,register,onChange,editR
   const state = connectionState(row, health, available && healthAvailable, snapshotTime);
   const label = statusLabels[state][tr ? 0 : 1];
   const time = (value?: string) => value && Number.isFinite(Date.parse(value)) ? new Date(value).toLocaleString(tr ? "tr-TR" : "en-GB", { dateStyle: "short", timeStyle: "short" }) : "—";
-  function edit() {
+  const edit=useCallback(() => {
     if (!available || loading || busy) return;
     setDraft({ provider: row?.provider || "jira", config: { ...(row?.config || ticketDefaults("jira")) }, secret: "", hasSecret: Boolean(row?.hasSecret), version: row?.updated_at || "", dirty: false, saved: Boolean(row) });
     setStep(0); setChecks([]); setNotice(undefined); setDiscard(false); setDisconnect(false);
-  }
+  },[available,loading,busy,row]);
   const handledEdit=useRef(0);
-  useEffect(()=>{if(editRequest>handledEdit.current&&available&&!loading){handledEdit.current=editRequest;edit();}},[editRequest,available,loading]);
+  useEffect(()=>{const timer=setTimeout(()=>{if(editRequest>handledEdit.current&&available&&!loading&&!busy){handledEdit.current=editRequest;edit();}},0);return()=>clearTimeout(timer)},[editRequest,available,loading,busy,edit]);
   function update(key: string, value: string) { setDraft(d => d ? { ...d, dirty: true, config: { ...d.config, [key]: value } } : d); setChecks([]); setNotice(undefined); }
   function closeEditor() { if (draft?.dirty) setDiscard(true); else { setDraft(undefined); setTimeout(() => editTrigger.current?.focus(), 0); } }
   async function mutate(name: string, method: string, body: Record<string, unknown>) {

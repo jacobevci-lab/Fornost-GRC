@@ -111,3 +111,6 @@ test('entity deletion or concurrent scope change before commit cannot partially 
   await assert.rejects(changeAccount(f.db,f.admin,patch,false),{code:'stale'});assert.equal(f.read(id).name,'Temp');
  }finally{f.sql.close();}
 });
+test('editing a legacy single-entity account does not silently replace its effective entity access',async()=>{
+ const f=fixture();try{const id=await createAccount(f.db,f.admin,f.body,f.password);await changeAccount(f.db,f.admin,{id,name:'Legacy renamed',role:'Editor',status:'Active',expectedRevision:f.read(id).revision,orgScope:{role:'contributor',entities:['root'],revision:''}},false);assert.equal(f.sql.prepare('SELECT role FROM org_user_roles WHERE user_id=?').get(id),undefined);assert.equal(f.read(id).name,'Legacy renamed');}finally{f.sql.close();}
+});

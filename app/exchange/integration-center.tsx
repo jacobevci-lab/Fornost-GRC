@@ -431,7 +431,7 @@ export default function IntegrationCenter({ lang }: { lang: Locale }) {
   const [v,setView]=useState<View>(),[err,setError]=useState<unknown>(),[ticketEdit,setTicketEdit]=useState(0);
   const controller=useRef<AbortController|null>(null);
   const reload=useCallback(async()=>{controller.current?.abort();const c=new AbortController();controller.current=c;try{const value=await api<View>('exchange?area=connectors',undefined,undefined,c.signal);if(!c.signal.aborted){setView(value);setError(undefined);}}catch(error){if(!c.signal.aborted)setError(error)}},[]);
-  useEffect(()=>{void reload();return()=>controller.current?.abort()},[reload]);
+  useEffect(()=>{const timer=setTimeout(()=>void reload(),0);return()=>{clearTimeout(timer);controller.current?.abort()}},[reload]);
   if (!v) return <State lang={lang} error={err} />;
   return (
     <section className="exchange">

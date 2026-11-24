@@ -59,8 +59,8 @@ export async function changeAccount(db:D1Database,actor:ActorKey,body:Record<str
  const row=await db.prepare(`SELECT ${accountFields} ${directory} WHERE u.id=?`).bind(id).first<Values>();
  if(!row)throw new AccountError("missing",404,"Kullanıcı bulunamadı.");
  const previous=publicState(row);
- const orgRow=await db.prepare(`SELECT ${entityFields} FROM local_users u WHERE u.id=?`).bind(id).first<{org_role?:EntityAccess["role"];org_revision?:string;org_entities?:string}>();
- const previousOrg=entityAccess({...row,...orgRow});
+ const orgRow=await db.prepare(`SELECT ${entityFields},EXISTS(SELECT 1 FROM org_entities WHERE id!='root') entity_active FROM local_users u WHERE u.id=?`).bind(id).first<{org_role?:EntityAccess["role"];org_revision?:string;org_entities?:string;entity_active:number}>();
+ const previousOrg=entityAccess({...row,...orgRow},!orgRow?.entity_active);
  if(remove&&id===actor.id)throw new AccountError("self",409,"Kendi hesabınızı silemezsiniz.");
  if(remove&&(body.email!==row.email||typeof body.expectedRevision!=="string"))throw invalid();
  if(body.expectedRevision!==undefined&&body.expectedRevision!==revision(previous))throw conflict();
