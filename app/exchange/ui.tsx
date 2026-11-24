@@ -1,6 +1,6 @@
 "use client";
 import {VendorInvitation} from "./vendor-invite";
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { cloneElement, isValidElement, useCallback, useEffect, useState, type ReactNode } from "react";
 import { withBasePath } from "../base-path";
 export type Locale = "tr" | "en";
 export const t = (lang: Locale, tr: string, en: string) =>
@@ -141,7 +141,9 @@ export function Field({
   return (
     <label className="ex-field">
       <span>{label}</span>
-      {children}
+      {isValidElement<Record<string, unknown>>(children) && typeof children.type === "string" && ["input", "select", "textarea"].includes(children.type)
+        ? cloneElement(children, { "aria-label": label })
+        : children}
     </label>
   );
 }
