@@ -15,7 +15,7 @@ export function ScopeSelect({tr}:{tr:boolean}){
  if(error)return <small role="alert">{tr?'Kapsam okunamadı':'Scope unavailable'}</small>;
  if(!data)return null;
  async function select(id:string){setBusy(true);try{await request('enterprise/scope',{action:'select',entity:id||null});window.location.reload()}catch(e){setMessage(issue(tr,e));setBusy(false)}}
- return <label className="ec-selector"><span>{tr?'Kurumsal çalışma alanı':'Enterprise workspace'}</span><select disabled={busy} value={data.scope.selected??''} onChange={e=>void select(e.target.value)}>
+ return <label className="ec-selector"><span>{tr?'Kurumsal çalışma alanı':'Enterprise workspace'}</span><select aria-label={tr?'Kurumsal çalışma alanı':'Enterprise workspace'} disabled={busy} value={data.scope.selected??''} onChange={e=>void select(e.target.value)}>
  <option value="">{data.scope.group?(tr?'Tüm Kurum (Konsolide Görünüm)':'All entities (consolidated)'):(tr?'Yetkili kapsamlarım':'My authorized scopes')}</option>
  {data.entities.map(e=><option key={e.id} value={e.id}>{e.name}</option>)}</select>{message&&<small role="alert">{message}</small>}</label>;
 }

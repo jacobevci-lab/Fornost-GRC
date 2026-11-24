@@ -29,7 +29,9 @@ export async function verifyControl(db:D1Database,actor:Actor,body:Record<string
  if(!source||!evidence)throw new PostureError('conflict',409);
  const data=JSON.parse(source.data_json),ev=JSON.parse(evidence.data_json),lower=(x:unknown)=>String(x||'').trim().toLowerCase();
  const owner=lower(data.ownerEmail||data.owner);
- if(!owner||['taslak','draft','arşivlendi','archived','emekli','retired'].includes(lower(data.status))||[owner,lower(ev.owner),lower(ev.uploadedBy)].some(v=>v&&(v===lower(actor.email)||v===lower(actor.name))))throw new PostureError('independent-reviewer',403);
+ const owners=(await db.prepare("SELECT id FROM local_users WHERE status='Active' AND (lower(email)=? OR lower(name)=?)").bind(owner,owner).all<{id:string}>()).results;
+ const authors=(await db.prepare('SELECT created_by FROM evidence_versions WHERE evidence_id=? AND (version_no=1 OR id=?)').bind(pin.evidenceId,pin.id).all<{created_by:string}>()).results.map(r=>lower(r.created_by));
+ if(owners.length!==1||owners[0].id===actor.id||['taslak','draft','arşivlendi','archived','emekli','retired'].includes(lower(data.status))||[owner,lower(ev.owner),lower(ev.uploadedBy),...authors].some(v=>v&&(v===lower(actor.email)||v===lower(actor.name))))throw new PostureError('independent-reviewer',403);
  const active=await db.prepare("SELECT id FROM local_users WHERE id=? AND lower(email)=lower(?) AND status='Active' AND role IN ('Admin','Editor')").bind(actor.id,actor.email).first();
  if(!active)throw new PostureError('forbidden',403);
  const guard=authorityGuard(actor,auth),id=crypto.randomUUID();

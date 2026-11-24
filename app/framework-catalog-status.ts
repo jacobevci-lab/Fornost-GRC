@@ -4,6 +4,7 @@ export type CatalogStatus = { tr: string; en: string; source?: string; reviewed?
 const reviewed = "2026-10-05";
 const iso = (id: string): CatalogStatus => ({ reviewed, source: `https://www.iso.org/standard/${id}`, tr: "Baskı doğrulandı. Yalnızca yerel hazırlık konuları içerir; LOCAL referansları standart maddesi değildir. Lisanslı metinle madde eşlemesi henüz tamamlanmadı.", en: "Edition verified. Local preparation topics only; LOCAL references are not standard clauses. Mapping against the licensed text is not complete." });
 export const catalogStatuses: Record<string, CatalogStatus> = {
+  "BDDK BSEBY (2020)": {reviewed:"2026-11-24",source:"https://www.bddk.org.tr/Duyuru/EkGetir/1999?ekId=839",tr:"Kısmi katalog: BDDK 2023/1 Genelgesinde referans verilen BSEBY 34, 35, 38 ve 39. maddelerinin yalnızca konu özetleri. Yüzdeler bu dört maddeye aittir; tüm BDDK mevzuatına uyumu göstermez. Fıkralar, uygulanabilirlik koşulları ve sonraki değişikliklerin tamamı dahil değildir; güncel konsolide metin ayrıca değerlendirilmelidir.",en:"Partial catalog: topic summaries only for BSEBY articles 34, 35, 38 and 39 referenced in BDDK circular 2023/1. Percentages cover these four articles, not all BDDK regulation. Paragraphs, applicability conditions and all subsequent amendments are not included; assess the current consolidated text separately."},
   "ISO/IEC 27701:2025": iso("27701"),
   "ISO/IEC 27017:2026": iso("27017"),
   "ISO/IEC 27018:2025": iso("27018"),

@@ -32,3 +32,7 @@ Extend the existing org_entities / org_record_entities model and fail-closed sco
 ## Validation
 
 `tests/enterprise-scale.test.ts` exercises all ten native intake families, canonical codes, idempotent retries, atomic receipts, sibling isolation, module denial, guessed IDs, cross-entity references, grant revocation/reference moves during a transaction, multi-framework verification and stale-source withdrawal, plus SLE/ALE rounding and currency separation. `scripts/enterprise-scale-qa.mjs` exercises the same principal flows through a real browser and HTTP API on a disposable local D1 in CI, with desktop/mobile TR/EN and light/dark screenshots.
+
+BDDK mapping uses the explicitly partial BSEBY article-topic catalog (34, 35, 38, 39), verified against BDDK circular 2023/1. The catalog disclosure states that percentages cover these four articles only, not full BDDK compliance. Source: https://www.bddk.org.tr/Duyuru/EkGetir/1999?ekId=839 .
+
+Management → Audit Trail displays paginated entity changes, native scoped creation receipts and independent control verification events. The endpoint is restricted to consolidated group administrators.

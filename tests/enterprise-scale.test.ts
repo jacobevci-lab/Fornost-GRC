@@ -8,8 +8,13 @@ import {listRecords,type Kind} from '../app/enterprise/register';
 import {annualLossMinor,singleLossMinor,readEstimate,exposure} from '../app/enterprise/fair';
 import {enroll,readMatrix,saveDecision,programOverview,ensurePosture} from '../app/framework-posture/store';
 import {verifyControl} from '../app/framework-posture/verification';
-import {ISO,SOC} from '../app/framework-posture/catalog';
+import {ISO,SOC,frameworkNames,catalogFor} from '../app/framework-posture/catalog';
+import {getCatalogStatus} from '../app/framework-catalog-status';
 import {appendEvidenceVersion} from '../app/evidence/versioning';
+
+test('BDDK mapping catalog discloses its four-article scope',()=>{
+ const name='BDDK BSEBY (2020)';assert.ok(frameworkNames.includes(name));assert.deepEqual(catalogFor(name).map(r=>r.ref),['Madde 34','Madde 35','Madde 38','Madde 39']);assert.match(getCatalogStatus(name).en,/not all BDDK/);
+});
 
 const fair={currency:'TRY' as const,frequency:25,minimum:100,likely:200,maximum:600};
 test('FAIR-Lite uses unrounded PERT severity for ALE and keeps currencies distinct',()=>{
@@ -90,8 +95,11 @@ test('one independently verified control updates ISO and SOC together; source ch
  const after=await programOverview(db);assert.equal(after.coverage[ISO].compliant,1);assert.equal(after.coverage[SOC].compliant,1);assert.equal(after.controlFrameworks.ctl.length,2);
  const privateMatrix=await readMatrix(db,ISO,['unrelated']);assert.equal(privateMatrix.controls.length,0);assert.equal(Object.keys(privateMatrix.pins).length,0);assert.ok(privateMatrix.requirements.every(r=>r.links.length===0));
  assert.equal((await programOverview(db,['unrelated'])).coverage[ISO].compliant,0);
- sql.exec("UPDATE simple_grc_records SET data_json=json_set(data_json,'$.description','Changed configuration') WHERE id='ctl'");
+ const original=sql.prepare("SELECT data_json FROM simple_grc_records WHERE id='ctl'").get()!.data_json;
+ sql.exec("UPDATE simple_grc_records SET data_json=json_set(data_json,'$.description','Changed configuration'),updated_at='changed-revision' WHERE id='ctl'");
  const stale=await programOverview(db);assert.equal(stale.coverage[ISO].compliant,0);assert.equal(stale.coverage[SOC].compliant,0);
+ sql.prepare("UPDATE simple_grc_records SET data_json=?,updated_at='reverted-revision' WHERE id='ctl'").run(original);
+ assert.equal((await programOverview(db)).coverage[ISO].compliant,0); // A → B → A must not revive a signature
  await verifyControl(db,actor,body);
  sql.exec("UPDATE simple_grc_records SET data_json=json_set(data_json,'$.expiresAt','2020-01-01') WHERE id='EVD-test'");
  assert.equal((await programOverview(db)).coverage[SOC].compliant,0);
