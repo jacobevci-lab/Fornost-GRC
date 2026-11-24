@@ -29,9 +29,16 @@ jobs:
           set -euo pipefail
           export ENTERPRISE_BOOTSTRAP_KEY="$(openssl rand -hex 32)"
           echo "::add-mask::$ENTERPRISE_BOOTSTRAP_KEY"
-          npx wrangler d1 migrations apply fornost-grc-prod --local --persist-to /tmp/enterprise-core-d1 --config wrangler.d1.jsonc >/tmp/core-migration.log
-          npx wrangler dev --local --ip 127.0.0.1 --port 4184 --config dist/server/wrangler.json --persist-to /tmp/enterprise-core-d1 --var "FORNOST_BOOTSTRAP_TOKEN:$ENTERPRISE_BOOTSTRAP_KEY" --show-interactive-dev-session=false >/tmp/core-server.log 2>&1 &
+          umask 077
+          printf 'FORNOST_BOOTSTRAP_TOKEN="%s"\n' "$ENTERPRISE_BOOTSTRAP_KEY" > dist/server/.dev.vars
+          node_modules/.bin/wrangler d1 migrations apply fornost-grc-prod --local --config wrangler.d1.jsonc >/tmp/core-migration.log
+          node_modules/.bin/vite preview --host 127.0.0.1 --port 4184 --strictPort >/tmp/core-server.log 2>&1 &
           server=$!
-          trap 'kill "$server" 2>/dev/null || true' EXIT
-          for i in {1..120}; do if curl -fsS http://127.0.0.1:4184/api/health >/dev/null 2>&1; then break; fi; sleep 1; done
+          trap 'kill "$server" 2>/dev/null || true; rm -f dist/server/.dev.vars' EXIT
+          for i in {1..60}; do
+            if curl -fsS http://127.0.0.1:4184/api/auth -o /dev/null 2>/dev/null; then break; fi
+            if ! kill -0 "$server" 2>/dev/null; then tail -35 /tmp/core-server.log; exit 1; fi
+            sleep 1
+          done
+          curl -fsS http://127.0.0.1:4184/api/auth -o /dev/null
           QA_CHROMIUM_PATH="$(command -v google-chrome)" xvfb-run -a node scripts/enterprise-core-qa.mjs
