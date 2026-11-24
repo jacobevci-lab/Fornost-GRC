@@ -20,16 +20,16 @@ const moduleLabels = {
     "Politika Merkezi", "Tedarikçi Yönetimi", "Kontrol Kütüphanesi", "Kanıt Kütüphanesi",
     "Kanıt Otomasyonu", "Regülasyon Merkezi", "Güvenlik Olayları ve Kriz", "Bulgular ve CAPA",
     "Denetim Yönetimi", "Bağlantılı GRC Haritası", "Raporlama", "AI Yönetişimi", "Ask Fornost",
-    "Sistem Ayarları", "AI Ayarları", "Ana Veri Yönetimi", "Entegrasyonlar",
-    "E-posta ve Bildirimler", "Kimlik ve Erişim", "Trust Center Yönetimi",
+    "Sistem Ayarları", "AI Yapılandırması", "Ana Veri Yönetimi", "Entegrasyonlar",
+    "E-posta ve Bildirimler", "Kimlik ve Erişim", "Trust Center Yönetimi", "Güvenlik Anketi Copilot",
   ],
   en: [
     "Dashboard", "My Work", "Risk Assessment", "Risk Appetite & KRI",
     "Business Impact Analysis (BIA)", "Business Continuity & Resilience", "Asset Inventory", "Compliance Management",
     "Policy Center", "Vendor Management", "Control Library", "Evidence Library", "Evidence Automation",
     "Regulatory Change Center", "Security Incidents & Crisis", "Findings & CAPA", "Audit Management",
-    "Connected GRC Map", "Reporting", "AI Governance", "Ask Fornost", "System Settings", "AI Settings",
-    "Master Data", "Integrations", "Email & Notifications", "Identity & Access", "Trust Center Management",
+    "Connected GRC Map", "Reporting", "AI Governance", "Ask Fornost", "System Settings", "AI Configuration",
+    "Master Data", "Integrations", "Email & Notifications", "Identity & Access", "Trust Center Management", "Security Questionnaire Copilot",
   ],
 };
 

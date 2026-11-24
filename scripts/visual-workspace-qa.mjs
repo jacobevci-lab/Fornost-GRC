@@ -113,7 +113,8 @@ try {
   await expect(settingsTabs).toHaveText(['General Settings', 'System Status', 'Change History', 'Appearance']);
   assert.equal(new Set(await settingsTabs.evaluateAll(es=>es.map(e=>e.getBoundingClientRect().y))).size,1,'Settings sections share a compact horizontal rail');
   await page.route('**/api/ai/status',route=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({configured:false,enabled:false,operatingState:'ready',operatingMessage:'',capabilities:{chat:true}})}));
-  await open('AI Settings');
+  await open('AI Configuration');
+  await page.locator('.ai-settings-page>details>summary').click();
   await expect(page.locator('.ai-control-summary article').first()).toContainText('Access policy');
   await expect(page.locator('.ai-control-summary article').first().locator('b')).toHaveText('Allowed');
   await expect(page.locator('.ai-control-summary article').first()).toContainText('does not verify provider connectivity');
