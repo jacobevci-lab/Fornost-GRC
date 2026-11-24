@@ -173,10 +173,10 @@ function Connector({
                           (v ?? "—"),
                       )
                       .join(" · ")
-                  : r.mode === "mapping"
+                  : r.mode === "cloud-probe"
                     ? l(
-                        "Yerel eşlemeler doğrulandı. Dış iletimi webhook test sinyaliyle doğrulayın.",
-                        "Local mappings validated. Send a webhook test signal to verify external delivery.",
+                        "Test sinyali varlık ve risk eşlemelerinden geçti.",
+                        "The test signal passed the asset and risk mappings.",
                       )
                     : l("Test başarılı.", "Test succeeded."),
               );

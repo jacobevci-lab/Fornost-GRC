@@ -313,6 +313,7 @@ async function observe(
   id: string,
   c: Config,
   b: Record<string, unknown>,
+  dryRun = false,
 ) {
   const db = env.DB;
   check(/^[a-zA-Z0-9_.:-]{1,120}$/.test(id));
@@ -328,6 +329,7 @@ async function observe(
     digest = await hash(JSON.stringify(b)),
     stmts: D1PreparedStatement[] = [],
     summary: Record<string, unknown> = {};
+  let requiredTicketEvent: string | null = null;
   if (kind === "entra") {
     for (const metric of metrics) {
       const value = b[metric];
@@ -568,6 +570,7 @@ async function observe(
       );
       const who = "connector:ticket",
         event = crypto.randomUUID();
+      requiredTicketEvent = event;
       stmts.push(
         db
           .prepare(
@@ -608,13 +611,25 @@ async function observe(
       );
     }
   } else check(false);
+  if (dryRun) return { test: true, summary };
   try {
-    await db.batch([
-      db
-        .prepare("INSERT INTO exchange_signals VALUES(?,?,?,?)")
-        .bind(kind, id, at, JSON.stringify(summary)),
+    // A changed CAPA or evidence version leaves the event available for provider retry.
+    const committed = await db.batch([
       ...stmts,
+      db
+        .prepare(
+          "INSERT INTO exchange_signals SELECT ?,?,?,? WHERE ? IS NULL OR EXISTS(SELECT 1 FROM enterprise_finding_events WHERE id=?)",
+        )
+        .bind(
+          kind,
+          id,
+          at,
+          JSON.stringify(summary),
+          requiredTicketEvent,
+          requiredTicketEvent,
+        ),
     ]);
+    check(committed.at(-1)?.meta?.changes, 409, "closure");
   } catch (e) {
     if (
       await db
@@ -859,10 +874,21 @@ export async function sync(env: Env, kind: string, test: boolean) {
   }
   check(kind === "cloud" && c.resources.length, 422, "mapping");
   for (const m of c.resources) {
-    await checkRef(env.DB, m.asset, "Varlık Envanteri");
-    await checkRef(env.DB, m.risk, "Risk Assessment");
+    await observe(
+      env,
+      "cloud",
+      "probe:" + crypto.randomUUID(),
+      c,
+      {
+        provider: m.provider,
+        resource: m.resource,
+        category: "encryption",
+        severity: "low",
+      },
+      true,
+    );
   }
-  return { test: true, mode: "mapping" };
+  return { test: true, mode: "cloud-probe" };
 }
 
 export async function scheduledExchange(env: Env, at: Date) {
