@@ -8,6 +8,7 @@ const schemaPaths = [
   path.join(root, "db", "identity-schema.ts"),
   path.join(root, "db", "core-grc-schema.ts"),
   path.join(root, "db", "evidence-schema.ts"),
+  path.join(root, "db", "exchange-schema.ts"),
 ];
 
 const migrationFiles = (await readdir(migrationsDir))

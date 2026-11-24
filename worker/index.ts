@@ -1,5 +1,6 @@
 /** Cloudflare Worker entry point for the vinext-starter template. */
 import { handleImageOptimization, DEFAULT_DEVICE_SIZES, DEFAULT_IMAGE_SIZES } from "vinext/server/image-optimization";
+import {scheduledExchange} from "../app/exchange/connectors";
 import handler from "vinext/server/app-router-entry";
 import {runScheduledAssuranceOperations} from "../app/assurance-scheduled-runtime";
 
@@ -88,11 +89,18 @@ const worker = {
     }
 
     const response = await handler.fetch(request, env, ctx);
-    return hardenResponse(response);
+    const hardened=hardenResponse(response);
+    if (/\/(vendor-portal|trust-center|board-pack|api\/public-exchange)(\/|$)/.test(url.pathname)) {
+      const headers=new Headers(hardened.headers);
+      headers.set("Referrer-Policy","no-referrer");headers.set("Cache-Control","private, no-store");
+      return new Response(hardened.body,{status:hardened.status,statusText:hardened.statusText,headers});
+    }
+    return hardened;
   },
 
   async scheduled(controller: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
     const runAt = new Date(controller.scheduledTime);
+    ctx.waitUntil(scheduledExchange(env,runAt).catch(()=>console.error("Scheduled exchange synchronization failed")));
     ctx.waitUntil(runScheduledAssuranceOperations(env.DB, env, runAt).catch((error) => {
       console.error("Scheduled assurance operations failed", error instanceof Error ? error.message : "unknown error");
     }));

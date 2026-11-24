@@ -546,3 +546,5 @@ export const orgRecordEntities=sqliteTable("org_record_entities",{kind:text("kin
 export const orgDirectoryConfig=sqliteTable("org_directory_config",{id:integer("id").primaryKey(),config:text("config").notNull(),revision:text("revision").notNull()});
 export const orgScimTokens=sqliteTable("org_scim_tokens",{id:integer("id").primaryKey(),digest:text("digest").notNull(),createdAt:text("created_at").notNull()});
 export const orgAccessEvents=sqliteTable("org_access_events",{id:text("id").primaryKey(),actor:text("actor").notNull(),action:text("action").notNull(),subject:text("subject").notNull(),stamp:text("stamp").notNull()});
+
+export * from "./exchange-schema";
