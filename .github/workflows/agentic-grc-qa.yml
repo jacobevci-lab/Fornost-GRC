@@ -1,0 +1,58 @@
+name: Agentic GRC browser QA
+on:
+  pull_request:
+    paths:
+      - 'app/ai/agentic/**'
+      - 'app/api/ai/agentic/**'
+      - 'app/api/ai/deep-governance/**'
+      - 'app/ai-governance/**'
+      - 'app/fornost-ai-copilot.tsx'
+      - 'app/regulatory-intelligence/**'
+      - 'drizzle/0121_agentic_grc.sql'
+      - 'app/api/ai/grc/**'
+      - 'app/ai/provider.ts'
+      - 'app/ai/runtime-provider.ts'
+      - 'scripts/agentic-grc-qa*.mjs'
+      - 'scripts/prepare-ocr-assets.mjs'
+      - '.github/workflows/agentic-grc-qa.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  privacy-and-workflows:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm install --prefix /tmp/fornost-qa-tools --no-save playwright@1.55.0
+      - run: npm run build
+      - name: Verify AI workflows with an isolated D1
+        shell: bash
+        run: |
+          set -euo pipefail
+          export ENTERPRISE_BOOTSTRAP_KEY="$(openssl rand -hex 32)"
+          echo "::add-mask::$ENTERPRISE_BOOTSTRAP_KEY"
+          umask 077
+          printf 'FORNOST_BOOTSTRAP_TOKEN="%s"\n' "$ENTERPRISE_BOOTSTRAP_KEY" > dist/server/.dev.vars
+          node_modules/.bin/wrangler d1 migrations apply fornost-grc-prod --local --config wrangler.d1.jsonc >/tmp/ai-migration.log
+          node scripts/agentic-grc-qa-fixture.mjs >/tmp/agentic-seed.sql
+          node_modules/.bin/wrangler d1 execute fornost-grc-prod --local --config wrangler.d1.jsonc --file=/tmp/agentic-seed.sql >/dev/null
+          node_modules/.bin/vite preview --host 127.0.0.1 --port 4184 --strictPort >/tmp/ai-server.log 2>&1 &
+          server=$!
+          trap 'kill "$server" 2>/dev/null || true; rm -f dist/server/.dev.vars' EXIT
+          for i in {1..60}; do
+            if curl -fsS http://127.0.0.1:4184/api/auth -o /dev/null 2>/dev/null; then break; fi
+            if ! kill -0 "$server" 2>/dev/null; then tail -35 /tmp/ai-server.log; exit 1; fi
+            sleep 1
+          done
+          AI_QA_PLAYWRIGHT=/tmp/fornost-qa-tools/node_modules/playwright/index.mjs QA_CHROMIUM_PATH="$(command -v google-chrome)" node scripts/agentic-grc-qa.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: agentic-grc-browser
+          path: agentic-grc-qa-artifacts/

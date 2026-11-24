@@ -1,5 +1,6 @@
 'use client';
 
+import {DeepGovernanceTools,ShadowImport} from '../ai/agentic/deep-ui';
 import { useState, useRef } from 'react';
 import { useWorkflowRecords } from '../use-workflow-records';
 import { withBasePath } from '../base-path';
@@ -306,12 +307,14 @@ export default function Workspace({
             kind: 'register',
             m: current
           })} />
+          <DeepGovernanceTools key={current.id} m={current} tr={tr} user={user} reload={reload}/>
         </> : <p className="ag-empty">{t('Değerlendirme başlatmak için bir AI sistemi kaydedin.', 'Register an AI system to start an assessment.')}</p>}</>}
  {tab === 3 && <Monitoring systems={models} tr={tr} busy={busy} onAdd={m => open({
         kind: 'monitor',
         m
       })} onAction={action} />}
  {tab === 4 && <>
+        <ShadowImport tr={tr} reload={reload}/>
         <div className="ag-row">
           <div className="ag-filters">
             <label>
