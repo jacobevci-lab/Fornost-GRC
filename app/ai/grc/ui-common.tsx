@@ -1,5 +1,5 @@
 "use client";
-import {useState} from 'react';
+import {useId,useRef,useState} from 'react';
 import {withBasePath} from '../../base-path';
 import {say,type Lang} from './domain';
 export async function api(query='',body?:unknown){const response=await fetch(withBasePath('/api/ai/grc'+query),{method:body?'POST':'GET',cache:'no-store',...(body instanceof FormData?{body}:{headers:{'Content-Type':'application/json'},body:body?JSON.stringify(body):undefined})});const data=await response.json();if(!response.ok)throw new Error(data.code||'AI_FAILED');return data;}
@@ -7,3 +7,7 @@ export function errorText(error:unknown,lang:Lang){const code=error instanceof E
 export function useOperation(lang:Lang){const [busy,setBusy]=useState(false),[notice,setNotice]=useState('');async function run<T>(fn:()=>Promise<T>):Promise<T|undefined>{if(busy)return;setBusy(true);setNotice('');try{return await fn();}catch(e){setNotice(errorText(e,lang));}finally{setBusy(false);}}return {busy,notice,setNotice,run};}
 export function Preliminary({lang}:{lang:Lang}){return <p className="grc-ai-note">{say(lang,'AI ön incelemesi · İnsan doğrulaması gerekir. Güven skoru, kaynak kapsamına dayalı bir göstergedir.','AI preliminary review · Human verification required. Confidence indicates source coverage.')}</p>;}
 export function Notice({busy,notice,lang}:{busy:boolean;notice:string;lang:Lang}){return <p role={notice?'alert':'status'} aria-live="polite">{busy?say(lang,'İşleniyor…','Processing…'):notice}</p>;}
+export function FileField({lang,label,accept,disabled,onFile}:{lang:Lang;label:string;accept:string;disabled?:boolean;onFile:(file:File)=>void}){
+ const id=useId(),input=useRef<HTMLInputElement>(null),[name,setName]=useState('');
+ return <div className="grc-ai-file"><label htmlFor={id}>{label}</label><input id={id} ref={input} className="grc-ai-file-input" type="file" accept={accept} disabled={disabled} onChange={e=>{const file=e.target.files?.[0];if(file){setName(file.name);onFile(file);}e.target.value='';}}/><div><button type="button" disabled={disabled} onClick={()=>input.current?.click()}>{say(lang,'Dosya seç','Choose file')}</button><span>{name||say(lang,'Henüz dosya seçilmedi','No file selected')}</span></div></div>;
+}
