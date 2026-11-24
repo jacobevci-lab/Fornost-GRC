@@ -37,9 +37,10 @@ const moduleLabels = [
   "Sistem Ayarları",
   "AI Ayarları",
   "Ana Veri Yönetimi",
-  "İş Akışı Entegrasyonları",
+  "Entegrasyonlar",
   "E-posta ve Bildirimler",
   "Kimlik ve Erişim",
+  "Trust Center Yönetimi",
 ];
 
 const representativeModules = new Set([

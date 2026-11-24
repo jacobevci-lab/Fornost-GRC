@@ -24,6 +24,7 @@ export const DOMAIN_MODULE_KEYS = [
   "ai-settings",
   "master-data",
   "workflow-integrations",
+  "trust-center",
   "email-notifications",
   "identity-access",
 ] as const;
@@ -95,7 +96,8 @@ export const DOMAIN_MODULES: readonly ModuleIdentity[] = [
   { key: "system-settings", legacy: "Sistem Ayarları", tr: "Sistem Ayarları", en: "System Settings" },
   { key: "ai-settings", legacy: "AI Ayarları", tr: "AI Ayarları", en: "AI Settings" },
   { key: "master-data", legacy: "Ana Veri Yönetimi", tr: "Ana Veri Yönetimi", en: "Master Data" },
-  { key: "workflow-integrations", legacy: "İş Akışı Entegrasyonları", tr: "İş Akışı Entegrasyonları", en: "Workflow Integrations", aliases: ["Integrations", "Entegrasyonlar"] },
+  { key: "workflow-integrations", legacy: "İş Akışı Entegrasyonları", tr: "Entegrasyonlar", en: "Integrations", aliases: ["Workflow Integrations"] },
+  { key: "trust-center", legacy: "Trust Center Yönetimi", tr: "Trust Center Yönetimi", en: "Trust Center Management" },
   { key: "email-notifications", legacy: "E-posta ve Bildirimler", tr: "E-posta ve Bildirimler", en: "Email & Notifications", aliases: ["Email and Notifications"] },
   { key: "identity-access", legacy: "Kimlik ve Erişim", tr: "Kimlik ve Erişim", en: "Identity & Access", aliases: ["Identity and Access", "IAM / SSO"] },
 ] as const;

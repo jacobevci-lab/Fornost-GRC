@@ -10,7 +10,7 @@ const context=await browser.newContext(),page=await context.newPage(),errors=[];
 page.setDefaultTimeout(20000);page.on('pageerror',e=>errors.push(e.message));
 async function go(name){await page.locator(`nav button[aria-label="${name}"]`).evaluate(e=>e.click());}
 async function openOverview(){
- await go('Workflow Integrations');
+ await go('Integrations');
  const desk=page.getByRole('region',{name:'Integration Center',exact:true});
  await desk.getByRole('button',{name:'Continuous assurance',exact:true}).click();
  await desk.locator('.icd-assurance>summary').click();

@@ -44,7 +44,7 @@ try {
   for (const language of ['tr', 'en']) {
     await page.locator('.language-switch:visible').getByRole('button', { name: language.toUpperCase(), exact: true }).click();
     const labels = await page.locator('#fornost-navigation .nav-group-items button').evaluateAll(nodes => nodes.map(node => node.getAttribute('aria-label')));
-    assert.equal(labels.length, 27);
+    assert.equal(labels.length, 28);
     for (const theme of ['light', 'dark']) {
       if (await page.locator('html').getAttribute('data-theme') !== theme) await page.locator('.theme-toggle:visible').click();
       for (const width of [1536, 1024, 390]) {
