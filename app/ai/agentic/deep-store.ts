@@ -67,7 +67,7 @@ export async function previewShadow(env: Runtime, actor: Actor, b: Record<string
         const approved = rows.some(r => r.status === 'approved' && normalized(r.system_name) === normalized(c.name));
         candidates.push({ ...c, fingerprint, status: exists ? 'already-discovered' : approved ? 'inventory-match' : 'unapproved' });
     }
-    const id = crypto.randomUUID(), result = { ...parsed, candidates, source: b.source, actorId: actor.id, fileHash: await digest(String(b.csv)), pins: rows.map(row => ({ table: 'ai_model_inventory', row })), count: rows.length };
+    const id = crypto.randomUUID(), result = { ...parsed, candidates, source: b.source, lang:b.lang==='en'?'en':'tr', actorId: actor.id, fileHash: await digest(String(b.csv)), pins: rows.map(row => ({ table: 'ai_model_inventory', row })), count: rows.length };
     await env.DB.prepare('INSERT INTO grc_ai_results VALUES(?,?,?,?,?,?,?)').bind(id, 'shadow-preview', String(b.source), await digest(JSON.stringify(rows)), JSON.stringify(result), actor.email, new Date().toISOString()).run();
     await recordAiEvent(env.DB, { actor: actor.email, action: 'shadow-preview', status: 'success', contextRefs: [id], detail: `${parsed.scanned} rows; ${candidates.length} signals; rules only` });
     return { ...parsed, candidates, id };
@@ -98,7 +98,7 @@ export async function importShadow(env: Runtime, actor: Actor, b: Record<string,
     // Each candidate is an atomic insert + receipt; a retry skips any previously committed fingerprint.
     for (const c of candidates) {
         const id = 'SHADOW-' + c.fingerprint.slice(0, 32), detail = JSON.stringify({ source: preview.source, row: c.row, domain: c.domain, permissions: c.permissions, reason: c.reason, fileHash: preview.fileHash });
-        const results = await env.DB.batch([env.DB.prepare(`INSERT INTO ai_shadow_register(id,name,context,discovered_by,discovered_at,status) SELECT ?,?,?,?,?,'unreviewed' WHERE ${guard.sql} AND NOT EXISTS(SELECT 1 FROM ai_shadow_discoveries WHERE fingerprint=?)`).bind(id, c.name.slice(0, 200), detail, actor.email, now, ...values, c.fingerprint), env.DB.prepare('SELECT changes() added'), env.DB.prepare('INSERT INTO ai_shadow_discoveries SELECT ?,?,?,?,?,? WHERE changes()=1').bind(c.fingerprint, id, preview.source, detail, actor.email, now), receipt(env.DB, id, actor.email, 'shadow-import', 'Unapproved candidate; no enforcement or OAuth changes', now)]);
+        const results = await env.DB.batch([env.DB.prepare(`INSERT INTO ai_shadow_register(id,name,context,discovered_by,discovered_at,status) SELECT ?,?,?,?,?,'unreviewed' WHERE ${guard.sql} AND NOT EXISTS(SELECT 1 FROM ai_shadow_discoveries WHERE fingerprint=?)`).bind(id, c.name.slice(0, 200), `${preview.source.toUpperCase()} · CSV ${preview.lang==='en'?'row':'satır'} ${c.row}\n${c.domain}\nOAuth: ${c.permissions||'—'}\n${preview.lang==='en'?'AI signal; independent review required.':'AI sinyali; bağımsız inceleme gerekir.'}`, actor.email, now, ...values, c.fingerprint), env.DB.prepare('SELECT changes() added'), env.DB.prepare('INSERT INTO ai_shadow_discoveries SELECT ?,?,?,?,?,? WHERE changes()=1').bind(c.fingerprint, id, preview.source, detail, actor.email, now), receipt(env.DB, id, actor.email, 'shadow-import', 'Unapproved candidate; no enforcement or OAuth changes', now)]);
         const count = Number((results[1]?.results?.[0] as {
             added?: number;
         })?.added || 0);
