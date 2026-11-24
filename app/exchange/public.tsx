@@ -1,5 +1,11 @@
 "use client";
-import { useEffect, useState, type FormEvent, type ReactNode } from "react";
+import {
+  useSyncExternalStore,
+  useEffect,
+  useState,
+  type FormEvent,
+  type ReactNode,
+} from "react";
 import { withBasePath } from "../base-path";
 import { questions } from "../third-party-risk/survey";
 import { api, Field, State, t, useAction, useLoad, type Locale } from "./ui";
@@ -80,15 +86,14 @@ function TrustPage({ lang }: { lang: Locale }) {
   const { v, err } = useLoad<Trust>("public-exchange/trust"),
     a = useAction(lang),
     [doc, select] = useState(""),
-    [grant, setGrant] = useState(""),
+    [grant] = useState(
+      () => new URLSearchParams(location.hash.slice(1)).get("access") || "",
+    ),
     l = (x: string, y: string) => t(lang, x, y);
   useEffect(() => {
-    const key = new URLSearchParams(location.hash.slice(1)).get("access");
-    if (key) {
-      setGrant(key);
+    if (grant)
       history.replaceState(null, "", location.pathname + location.search);
-    }
-  }, []);
+  }, [grant]);
   function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const form = new FormData(e.currentTarget);
@@ -236,21 +241,31 @@ function TrustPage({ lang }: { lang: Locale }) {
     </>
   );
 }
-export function PublicShell({
-  render,
-}: {
-  render: (lang: Locale) => ReactNode;
-}) {
-  const [lang, set] = useState<Locale>("tr"),
-    [dark, theme] = useState(false);
-  useEffect(() => {
-    set(localStorage.getItem("fornost-public-lang") === "en" ? "en" : "tr");
-    theme(
-      localStorage.getItem("fornost-public-theme")
-        ? localStorage.getItem("fornost-public-theme") === "dark"
-        : matchMedia("(prefers-color-scheme: dark)").matches,
-    );
-  }, []);
+type ShellProps = { render: (lang: Locale) => ReactNode };
+const subscribeToHydration = () => () => {};
+export function PublicShell(props: ShellProps) {
+  const hydrated = useSyncExternalStore(
+    subscribeToHydration,
+    () => true,
+    () => false,
+  );
+  return hydrated ? (
+    <PortalContent {...props} />
+  ) : (
+    <main className="exchange ex-public" aria-busy="true">
+      <strong>Fornost GRC</strong>
+    </main>
+  );
+}
+function PortalContent({ render }: ShellProps) {
+  const [lang, set] = useState<Locale>(() =>
+    localStorage.getItem("fornost-public-lang") === "en" ? "en" : "tr",
+  );
+  const [dark, theme] = useState(() =>
+    localStorage.getItem("fornost-public-theme")
+      ? localStorage.getItem("fornost-public-theme") === "dark"
+      : matchMedia("(prefers-color-scheme: dark)").matches,
+  );
   useEffect(() => {
     document.documentElement.lang = lang;
     document.documentElement.dataset.theme = dark ? "dark" : "light";

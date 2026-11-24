@@ -79,22 +79,37 @@ export function message(lang: Locale, error: unknown) {
   ])[lang === "tr" ? 0 : 1];
 }
 export function useLoad<T>(path: string, token?: string) {
-  const [state, set] = useState<{ v?: T; err?: unknown }>({}),
+  const [state, set] = useState<{
+      path?: string;
+      rev?: number;
+      token?: string;
+      v?: T;
+      err?: unknown;
+    }>({}),
     [rev, bump] = useState(0);
   useEffect(() => {
     const c = new AbortController();
-    set({});
     api<T>(path, undefined, token, c.signal).then(
       (v) => {
-        if (!c.signal.aborted) set({ v });
+        if (!c.signal.aborted) set({ path, rev, token, v });
       },
       (err) => {
-        if (!c.signal.aborted) set({ err });
+        if (!c.signal.aborted) set({ path, rev, token, err });
       },
     );
     return () => c.abort();
   }, [path, rev, token]);
-  return { ...state, reload: useCallback(() => bump((n) => n + 1), []) };
+  return {
+    v:
+      state.path === path && state.rev === rev && state.token === token
+        ? state.v
+        : undefined,
+    err:
+      state.path === path && state.rev === rev && state.token === token
+        ? state.err
+        : undefined,
+    reload: useCallback(() => bump((n) => n + 1), []),
+  };
 }
 export function useAction(lang: Locale) {
   const [busy, set] = useState(false),
