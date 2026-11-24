@@ -1,5 +1,6 @@
 'use client';
 
+import {DeepGovernanceTools,ShadowImport} from '../ai/agentic/deep-ui';
 import { useState, useRef } from 'react';
 import { useWorkflowRecords } from '../use-workflow-records';
 import { withBasePath } from '../base-path';
@@ -302,6 +303,7 @@ export default function Workspace({
               setErr('');
             }}>{models.map(m => <option key={m.id} value={m.id}>{m.code} · {m.name}</option>)}</select>
           </label>
+          <DeepGovernanceTools key={current.id} m={current} tr={tr} user={user} reload={reload}/>
           <AssessmentPanel key={current.id + current.revision} m={current} tr={tr} user={user} busy={busy} submit={submit} edit={() => open({
             kind: 'register',
             m: current
@@ -312,6 +314,7 @@ export default function Workspace({
         m
       })} onAction={action} />}
  {tab === 4 && <>
+        <ShadowImport tr={tr} reload={reload}/>
         <div className="ag-row">
           <div className="ag-filters">
             <label>

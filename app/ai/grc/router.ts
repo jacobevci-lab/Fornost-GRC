@@ -73,7 +73,7 @@ export async function analyzeWithRouter(env:Runtime,actor:string,operation:strin
  await recordAiEvent(env.DB,{actor,action:operation+':started',status:'success',promptHash,provider:c.mode,model:c.model,detail:'Metadata only; preliminary analysis'});
  try{
   const policy=await env.DB.prepare("SELECT emergency_stop,agents_enabled FROM ai_operating_policy WHERE id='default'").first<{emergency_stop:number;agents_enabled:number}>();
-  if(policy?.emergency_stop||policy&&policy.agents_enabled===0&&operation!=='connection-test')throw new Error('AI_EMERGENCY_STOP');
+  if(policy?.emergency_stop||policy&&policy.agents_enabled===0&&!['connection-test','connected-analysis'].includes(operation))throw new Error('AI_EMERGENCY_STOP');
   if(c.mode==='offline'){await recordAiEvent(env.DB,{actor,action:operation,status:'success',promptHash,provider:'offline',detail:'Rules only; no network call'});return null;}
   if(classification==='Restricted'||c.mode==='byok'&&classification==='Confidential')throw new Error('AI_CLASSIFICATION');
   const profile=await privacyProfile(env,row!);if(!profile)throw new Error('AI_PRIVACY_ROUTE_BLOCKED');

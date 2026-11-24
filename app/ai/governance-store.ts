@@ -1,3 +1,4 @@
+import {ensureAgentic} from './agentic/schema';
 import type { Actor } from '../api/auth/security';
 import { ensureCoreGrcSchemaCompatibility } from '../api/grc/schema-compat';
 import { ensureFindingsSchemaCompatibility } from '../api/findings/schema-compat';
@@ -31,6 +32,7 @@ export function receipt(db: D1Database, id: string, actor: string, action: strin
 }
 const selectModel = `SELECT m.*,c.code,p.profile_json,p.assessment_json,p.evidence_json,p.phase,p.submitted_by,p.decision_note profile_note,
  COALESCE(p.updated_at,m.updated_at) revision,
+ (SELECT json_extract(wizard_json,'$.governingRisk') FROM ai_governance_extensions WHERE model_id=m.id) extension_risk,
  EXISTS(SELECT 1 FROM ai_findings f WHERE f.model_id=m.id AND f.status NOT IN ('resolved','dismissed')) OR EXISTS(SELECT 1 FROM ai_assurance_alerts a WHERE a.model_id=m.id AND a.status!='resolved')
  OR EXISTS(SELECT 1 FROM enterprise_findings f WHERE f.source_type='ai' AND (f.status NOT IN ('closed','accepted','cancelled') OR f.status='accepted' AND f.accept_until<date('now')) AND (f.source_ref=m.id OR f.source_ref IN (SELECT id FROM ai_findings n WHERE n.model_id=m.id))) native_issue,
  (SELECT CASE classification WHEN 'high-risk' THEN 'high' WHEN 'limited-risk' THEN 'limited' WHEN 'minimal-risk' THEN 'minimal' WHEN 'prohibited' THEN 'prohibited' ELSE '' END FROM ai_regulatory_profiles WHERE model_id=m.id) native_risk,
@@ -59,16 +61,17 @@ const map = (r: Body): SystemRow => ({
   submittedBy: String(r.submitted_by || ''),
   metrics: [],
   nativeGate: !!r.native_gate,
-  nativeRisk: String(r.native_risk || '')
+  nativeRisk: governingRisk(String(r.native_risk || ''),String(r.extension_risk || ''))
 });
 export async function getModel(db: D1Database, id: unknown, actor: Actor) {
+  await ensureAgentic(db);
   await ensureFindingsSchemaCompatibility(db);
   const r = await db.prepare(selectModel + ' WHERE m.id=? AND ' + scope).bind(String(id || ''), actor.role, actor.email, actor.email).first<Body>();
   if (!r) throw new DeskError('denied', 403);
   return map(r);
 }
 export async function desk(db: D1Database, actor: Actor): Promise<Desk> {
-  await Promise.all([ensureCoreGrcSchemaCompatibility(db), ensureFindingsSchemaCompatibility(db), ensureIncidentTables(db)]);
+  await Promise.all([ensureCoreGrcSchemaCompatibility(db), ensureFindingsSchemaCompatibility(db), ensureIncidentTables(db),ensureAgentic(db)]);
   const [models, metrics, shadow, next] = await db.batch<Body>([db.prepare(selectModel + ' WHERE ' + scope + ' ORDER BY m.system_name,m.id').bind(actor.role, actor.email, actor.email), db.prepare(`SELECT o.*,d.hallucination,d.leakage,d.finding_id,d.incident_id,d.acknowledged_at,f.code finding_code,i.code incident_code,f.status finding_status,i.status incident_status
   FROM ai_model_monitoring o JOIN ai_model_inventory m ON m.id=o.model_id LEFT JOIN ai_system_profiles p ON p.model_id=m.id LEFT JOIN ai_monitor_details d ON d.observation_id=o.id LEFT JOIN enterprise_findings f ON f.id=d.finding_id LEFT JOIN enterprise_incidents i ON i.id=d.incident_id WHERE ${scope} ORDER BY o.recorded_at DESC,o.id`).bind(actor.role, actor.email, actor.email), db.prepare("SELECT * FROM ai_shadow_register WHERE ?='Admin' OR discovered_by=? ORDER BY discovered_at DESC,id").bind(actor.role, actor.email), db.prepare("SELECT printf('AIS-%03d',max(n)+1) code FROM (SELECT COALESCE(MAX(CAST(substr(code,5) AS INTEGER)),0) n FROM simple_grc_record_codes WHERE code GLOB 'AIS-[0-9]*' UNION ALL SELECT value FROM simple_grc_record_code_counters WHERE module='AI Yönetişimi')")]);
   const systems = models.results.map(map),

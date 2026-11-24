@@ -1,4 +1,5 @@
 "use client";
+import {AgentReminders} from './ai/agentic/chat-ui';
 import {vendorWorkLabels} from './third-party-risk/work';
 
 import {milestoneLabels} from './audit-milestones';
@@ -471,6 +472,7 @@ export default function MyWorkV2({ active, lang, actor }: { active: boolean; lan
       {user.id && !loadError && <SavedRegisterViewsPanel userId={user.id} module="My Work" lang={lang} variant="work"
         current={{query, filters:{module:moduleFilter, status:filter}, columns:workViewSchema.columns, ...(sort ? {sort} : {})}} schema={workViewSchema} labels={{module:tr?"Modül":"Module",status:tr?"İş durumu":"Work status",title:tr?"Başlık":"Title",owner:tr?"Sahip":"Owner",due:tr?"Termin":"Due date"}}
         apply={view => { const next = readWorkView(view, Object.keys(MODULE_LABELS)); setQuery(next.query); setModuleFilter(next.module); selectFilter(next.status); setSort(next.sort); setPageIndex(0); }} />}
+      {ready && user.email && <AgentReminders key={user.email+refreshKey} lang={lang}/>}
       {ready && user.email && <MyWorkAssuranceSignals key={`${scope}:${refreshKey}`} urgencies={urgencies} lang={lang} scope={scope} user={user} />}
 
       <footer className="mw2-footnote">{lastUpdated ? (tr ? `Son güncelleme ${lastUpdated.toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" })}` : `Last updated ${lastUpdated.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}`) : ""}</footer>

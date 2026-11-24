@@ -1,4 +1,5 @@
 "use client";
+import AgenticChat from './ai/agentic/chat-ui';
 import { type AiRecordFocus } from "./ai-record-navigation";
 import { safeWebHref } from "./safe-web-href";
 
@@ -438,14 +439,15 @@ export default function FornostAiCopilot() {
     </button>
     {open && <section data-escape-layer id="fornost-ai-panel" className={`fornost-ai-panel ${activeTab === "chat" ? "is-compact" : "is-workspace"}`} data-ai-view={activeTab} aria-label="Fornost AI Copilot">
       <header className={`fornost-ai-head ${workspaceHost && user.role === "Admin" && !scoped ? "ai-workspace-redundant-head" : ""}`}>
-        <div><small>{workspaceHost ? "FORNOST · AI GOVERNANCE" : "FORNOST AI · READ-ONLY COPILOT"}</small><h2>{workspaceHost ? (workspaceLocale === "tr" ? "AI Yönetişimi" : "AI Governance") : "Ask Fornost"}</h2><p>{workspaceHost ? (workspaceLocale === "tr" ? "Envanter ve yönetişim hazır · AI bağlantısı yalnız yanıt üretimi için gerekir" : "Inventory and governance available · AI connection is only needed for generated assistance") : status?.model || (workspaceLocale === "tr" ? "AI sağlayıcısı bekleniyor" : "Awaiting AI provider")}</p></div>
+        <div><small>{workspaceHost ? "FORNOST · AI GOVERNANCE" : (scoped?"FORNOST AI · READ-ONLY COPILOT":"FORNOST AI · HUMAN-APPROVED ACTIONS")}</small><h2>{workspaceHost ? (workspaceLocale === "tr" ? "AI Yönetişimi" : "AI Governance") : "Ask Fornost"}</h2><p>{workspaceHost ? (workspaceLocale === "tr" ? "Envanter ve yönetişim hazır · AI bağlantısı yalnız yanıt üretimi için gerekir" : "Inventory and governance available · AI connection is only needed for generated assistance") : activeTab === "chat" && !scoped ? (workspaceLocale === "tr" ? "Bağlantılı analiz · İnsan onaylı aksiyonlar" : "Connected analysis · Human-approved actions") : status?.model || (workspaceLocale === "tr" ? "AI sağlayıcısı bekleniyor" : "Awaiting AI provider")}</p></div>
         {!workspaceHost && <button data-escape-close type="button" onClick={() => setOpen(false)} aria-label="Kapat">×</button>}
       </header>
       {workspaceHost && !scoped && <button type="button" onClick={()=>{setSpecialist(false);setRecordFocus(null);setTab("portfolio")}}>{workspaceLocale==="tr"?"← AI Yönetişimine dön":"← Return to AI governance"}</button>}
       {workspaceHost && !scoped && user.role === "Admin" && <nav className="ai-primary-nav" aria-label={workspaceLocale === "tr" ? "AI ana gezinme" : "AI primary navigation"}>
         {([["portfolio", "İş listesi", "Worklist"], ["models", "AI Envanteri", "AI Inventory"], ["impact", "Değerlendirmeler", "Assessments"], ["lifecycle", "İzleme", "Monitoring"]] as const).map(([view, tr, en]) => <button key={view} aria-current={activeTab === view ? "page" : undefined} onClick={() => {setRecordFocus(null); setCreateModel(false); setTab(view);}}>{workspaceLocale === "tr" ? tr : en}</button>)}
       </nav>}
-      {!scoped && <AiSectionPicker embedded={!!workspaceHost} label={workspaceLocale === "tr" ? "Diğer AI çalışma alanları" : "More AI workspaces"}><div className="fornost-ai-tabs" onClick={()=>setRecordFocus(null)} role="group" aria-label="AI workspace sections">
+      {!scoped && activeTab === "chat" && user.role !== "Viewer" && <nav className="agent-chat-nav"><button type="button" onClick={()=>{setOpen(false);navigateToFornost('AI Yönetişimi')}}>{workspaceLocale==='tr'?'AI Yönetişimini Aç':'Open AI Governance'}</button><button type="button" onClick={()=>setTab('agents')}>{workspaceLocale==='tr'?'Diğer AI Çalışma Alanları':'More AI Workspaces'}</button></nav>}
+      {!scoped && activeTab !== "chat" && <AiSectionPicker embedded={!!workspaceHost} label={workspaceLocale === "tr" ? "Diğer AI çalışma alanları" : "More AI workspaces"}><div className="fornost-ai-tabs" onClick={()=>setRecordFocus(null)} role="group" aria-label="AI workspace sections">
         <details className="ai-workspace-group"><summary>{workspaceLocale === "tr" ? "Envanter ve sahiplik" : "Inventory and ownership"}</summary><div>
 {user.role === "Admin" && <button className={activeTab === "portfolio" ? "active" : ""} onClick={() => setTab("portfolio")}>{workspaceLocale === "tr" ? "Karar Masası" : "Decision Desk"}</button>}
 {user.role === "Admin" && <button className={activeTab === "models" ? "active" : ""} onClick={() => { setCreateModel(false); setTab("models"); }}>{workspaceLocale === "tr" ? "AI Envanteri" : "AI Inventory"}</button>}
@@ -480,7 +482,7 @@ export default function FornostAiCopilot() {
 {user.role === "Admin" && <button className={activeTab === "decommission" ? "active" : ""} onClick={() => setTab("decommission")}>{workspaceLocale === "tr" ? "AI Emeklilik" : "AI Retirement"}</button>}
 </div></details>}
         <details className="ai-workspace-group"><summary>{workspaceLocale === "tr" ? "AI yardımı" : "AI assistance"}</summary><div>
-<button className={activeTab === "chat" ? "active" : ""} onClick={() => setTab("chat")}>Copilot</button>
+<button onClick={() => setTab("chat")}>Copilot</button>
 <button className={activeTab === "agents" ? "active" : ""} onClick={() => { setTab("agents"); void loadAgents(); }}>{workspaceLocale === "tr" ? "Agentlar" : "Agents"}</button>
 <button className={activeTab === "knowledge" ? "active" : ""} onClick={() => setTab("knowledge")}>{workspaceLocale === "tr" ? "Bilgi Tabanı" : "Knowledge Base"}</button>
 <button className={activeTab === "drafts" ? "active" : ""} onClick={() => { setTab("drafts"); void loadDrafts(); }}>{workspaceLocale === "tr" ? "Taslaklar" : "Drafts"}</button>
@@ -495,7 +497,7 @@ export default function FornostAiCopilot() {
       </div></AiSectionPicker>}
 
       {scoped && <p className="fornost-ai-notice">Ask Fornost yalnız izinli modüllerdeki kayıtları kullanır. Ortak bilgi tabanı ve agent iş akışları bu hesap için kapalıdır.</p>}
-      {activeTab === "portfolio" ? <FornostAiPortfolio viewerEmail={user.email} onOpenModel={id => {setCreateModel(false); setRecordFocus({kind:"ai-model", ref:id}); setTab("models");}} lang={workspaceLocale === "en" ? "en" : "tr"} onCreate={() => { setRecordFocus(null); setCreateModel(true); setTab("models"); }}/> : activeTab === "chat" ? <>
+      {activeTab === "portfolio" ? <FornostAiPortfolio viewerEmail={user.email} onOpenModel={id => {setCreateModel(false); setRecordFocus({kind:"ai-model", ref:id}); setTab("models");}} lang={workspaceLocale === "en" ? "en" : "tr"} onCreate={() => { setRecordFocus(null); setCreateModel(true); setTab("models"); }}/> : activeTab === "chat" && !scoped ? <AgenticChat key={(user.id||user.email)+question} lang={workspaceLocale === "en" ? "en" : "tr"} user={user} initialPrompt={question}/> : activeTab === "chat" ? <>
         <div className="fornost-ai-mode"><span className={chatReady ? "online" : "offline"}/><b>{status?.operatingState==="emergency-stop"?"Acil durduruldu":chatReady ? "Hazır" : "Erişim kısıtlı"}</b><em>{status?.operatingMessage||status?.provider||"Provider yok"}</em></div>
         {(statusError || (status && (!status.configured || !status.enabled))) && <div className="fornost-ai-notice" role="status">
           <p>{statusError || (!status?.configured ? "AI sağlayıcısı henüz yapılandırılmamış. Copilot ve AI çalışma alanları korunuyor; yanıt üretmek için sağlayıcı bağlantısı gerekiyor." : "AI sağlayıcısı devre dışı. Yanıt üretmek için AI ayarlarından etkinleştirin.")}</p>
