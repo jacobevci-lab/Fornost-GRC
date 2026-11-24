@@ -68,6 +68,41 @@ function futureDate(days = 30) {
   return date.toISOString().slice(0, 10);
 }
 
+async function externalAssuranceSmoke(cookie = "") {
+  if (!cookie) {
+    const publicView = await request("/api/public-exchange/trust");
+    assert(publicView.response.status === 200, `Public Trust Center returned HTTP ${publicView.response.status}`);
+    const view = parseJson(publicView, "Public Trust Center");
+    assert(["policies", "documents", "frameworks"].every(key => Array.isArray(view[key])), "Public Trust Center catalog is incomplete");
+    assert(!("requests" in view) && !("config" in view) && !("options" in view), "Public Trust Center exposed administration data");
+    assert(publicView.response.headers.get("cache-control")?.includes("no-store"), "Public portal responses must not be cached");
+    assert(publicView.response.headers.get("referrer-policy") === "no-referrer", "Public portal must suppress referrers");
+    for (const area of ["connectors", "trust", "board"]) {
+      const denied = await request(`/api/exchange?area=${area}`);
+      assert(denied.response.status === 401, `Anonymous ${area} access must return 401`);
+    }
+    const vendor = await request("/api/public-exchange/vendor");
+    assert(vendor.response.status === 404, "Supplier questionnaire must require its invitation token");
+    printResult("Public Trust Center and external assurance access boundaries", true);
+    return;
+  }
+  for (const area of ["connectors", "trust", "board"]) {
+    const result = await request(`/api/exchange?area=${area}`, { headers: { cookie } });
+    assert(result.response.status === 200, `Authenticated ${area} returned HTTP ${result.response.status}`);
+    const data = parseJson(result, `Authenticated ${area}`);
+    if (area === "connectors") {
+      assert(Array.isArray(data.cards) && data.cards.length === 4, "Integration Center must expose all four connector cards");
+      assert(["entra", "cloud", "tickets", "chat"].every(kind => data.cards.some(card => card.kind === kind)), "Integration Center is missing a connector");
+      assert(data.cards.every(card => !("secret" in card) && !("hook_hash" in card)), "Integration Center exposed stored credentials");
+    } else if (area === "trust") {
+      assert(data.config && data.options && Array.isArray(data.requests), "Trust Center administration is incomplete");
+    } else {
+      assert(data.available === true, "Board reporting is unavailable");
+    }
+    printResult(`External assurance ${area} storage and authenticated read`, true);
+  }
+}
+
 async function authenticatedCrudTest() {
   if (!smokeEmail && !smokePassword) {
     console.warn("SKIP  Authenticated Asset/Risk CRUD — FORNOST_SMOKE_EMAIL and FORNOST_SMOKE_PASSWORD are not configured.");
@@ -116,6 +151,7 @@ async function authenticatedCrudTest() {
     assert(authPayload?.authenticated === true, "Smoke-test session is not authenticated.");
     assert(authPayload?.user?.role === "Admin", `Smoke-test identity must have Admin role for cleanup; got ${authPayload?.user?.role || "unknown"}.`);
     printResult("Authenticated session", true, `role=${authPayload.user.role}`);
+    await externalAssuranceSmoke(cookie);
 
     const inventory = await request("/api/third-party-risk", {headers: {cookie}});
     assert(inventory.response.status === 200, `Supplier inventory returned HTTP ${inventory.response.status}`);
@@ -251,6 +287,7 @@ async function run() {
     console.warn(`WARN  Baseline security headers missing: ${missingHeaders.join(", ")}`);
   }
 
+  await externalAssuranceSmoke();
   await authenticatedCrudTest();
   console.log("Production smoke test completed successfully.");
 }

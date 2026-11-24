@@ -11,6 +11,9 @@ const browser = await chromium.launch({ executablePath: process.env.QA_CHROMIUM_
 const context = await browser.newContext({ viewport: { width: 1536, height: 960 } });
 const page = await context.newPage(); page.setDefaultTimeout(10000);
 const results = [], errors = [], pending = new Set();
+const languages = ['tr', 'en'], themes = ['light', 'dark'], widths = [1536, 1024, 390];
+const expectedModules = 28;
+const expectedViews = expectedModules * languages.length * themes.length * widths.length;
 page.on('pageerror', error => errors.push(error.message));
 page.on('request', request => { if (request.method() === 'GET' && request.url().startsWith(`${base}/api/`)) pending.add(request); });
 page.on('requestfinished', request => pending.delete(request));
@@ -41,13 +44,13 @@ try {
   assert.equal(login.status(), 200);
   await page.goto(base); await expect(page.locator('.shell')).toBeVisible();
   assert.ok(await page.locator('#fornost-navigation .nav-group').count() <= 8, 'Product navigation complexity budget');
-  for (const language of ['tr', 'en']) {
+  for (const language of languages) {
     await page.locator('.language-switch:visible').getByRole('button', { name: language.toUpperCase(), exact: true }).click();
     const labels = await page.locator('#fornost-navigation .nav-group-items button').evaluateAll(nodes => nodes.map(node => node.getAttribute('aria-label')));
-    assert.equal(labels.length, 28);
-    for (const theme of ['light', 'dark']) {
+    assert.equal(labels.length, expectedModules);
+    for (const theme of themes) {
       if (await page.locator('html').getAttribute('data-theme') !== theme) await page.locator('.theme-toggle:visible').click();
-      for (const width of [1536, 1024, 390]) {
+      for (const width of widths) {
         await page.setViewportSize({ width, height: 960 });
         for (const [index, label] of labels.entries()) {
           const id = `${language}-${theme}-${width}-${String(index + 1).padStart(2, '0')}`;
@@ -108,11 +111,11 @@ try {
     }
   }
 } finally {
-  await fs.writeFile(`${out}/summary.json`, JSON.stringify({ expectedViews: 324, views: results, pageErrors: errors }, null, 2));
+  await fs.writeFile(`${out}/summary.json`, JSON.stringify({ expectedViews, views: results, pageErrors: errors }, null, 2));
   await browser.close();
 }
-assert.equal(results.length, 324, 'Every module in both languages/themes at three viewports');
+assert.equal(results.length, expectedViews, 'Every module in both languages/themes at three viewports');
 for (const result of results.filter(item => !item.passed)) console.error('ENTERPRISE_UI_FINDING', result.id, result.label, result.error);
 assert.equal(results.filter(item => !item.passed).length, 0, 'Visual and navigation findings must be fixed');
 assert.deepEqual(errors, []);
-console.log('ENTERPRISE_UI_MATRIX_PASS: 324 real visible menu visits with screenshots, layout, link/control names and all module inventories');
+console.log(`ENTERPRISE_UI_MATRIX_PASS: ${expectedViews} real visible menu visits with screenshots, layout, link/control names and all module inventories`);
