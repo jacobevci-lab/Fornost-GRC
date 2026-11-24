@@ -25,14 +25,14 @@ export function OrganizationAdmin({tr}:{tr:boolean}){
 }
 export function DirectoryAdmin({tr}:{tr:boolean}){
  const access=useData<Access>('enterprise/scope'),dir=useData<Directory>('enterprise/directory');
- const [draft,setDraft]=useState<{revision:string;rules:DirectoryRule[]}|null>(null),[token,setToken]=useState(''),[message,msg]=useState(''),[busy,setBusy]=useState(false);
+ const [draft,setDraft]=useState<{revision:string;rules:DirectoryRule[]}|null>(null),[token,setToken]=useState(''),[showToken,reveal]=useState(false),[message,msg]=useState(''),[busy,setBusy]=useState(false);
  const d=dir.data,org=access.data,idx=tr?0:1;
  if(!d||!org)return <p role="status">{dir.error||access.error?issue(tr,null):tr?'Yükleniyor…':'Loading…'}</p>;
  const rules=draft?.rules??d.rules,change=(rules:DirectoryRule[])=>setDraft({revision:draft?.revision??d.revision,rules});
  async function submit(action:'rules'|'rotate'|'revoke'){
   if(!d||busy)return;setBusy(true);msg('');try{
    const v=await request<{token?:string}>('enterprise/directory',{action,revision:action==='rules'?(draft?.revision??d.revision):d.tokenRevision,...(action==='rules'?{rules}:{})});
-   if(action==='rules')setDraft(null);else setToken(v.token||'');dir.reload();msg(tr?'Kaydedildi.':'Saved.');
+   if(action==='rules')setDraft(null);else {setToken(v.token||'');reveal(false)}dir.reload();msg(tr?'Kaydedildi.':'Saved.');
   }catch(e){msg(issue(tr,e));dir.reload()}finally{setBusy(false)}
  }
  async function test(form:FormData){
@@ -51,7 +51,8 @@ export function DirectoryAdmin({tr}:{tr:boolean}){
  <div><button type="button" onClick={()=>change([...rules,{attribute:'group',value:'',entity:'root',role:'contributor'}])}>{tr?'+ Eşleme kuralı':'+ Mapping rule'}</button> <button disabled={!draft||busy}>{tr?'Kuralları kaydet':'Save rules'}</button></div></form>
  <h4>SCIM 2.0 Bearer Token</h4><p>{tr?'Bu anahtar yalnızca provizyonlama simülasyonuna erişir. Yeni anahtar eskisinin erişimini sonlandırır.':'This key accesses the provisioning simulation. Generating a new key revokes the previous one.'}</p>
  <button disabled={busy} onClick={()=>void submit('rotate')}>{d.tokenRevision?(tr?'Anahtarı yenile':'Rotate token'):(tr?'Anahtar üret':'Generate token')}</button> {d.tokenRevision&&<button disabled={busy} onClick={()=>void submit('revoke')}>{tr?'Anahtarı iptal et':'Revoke token'}</button>}
- <form className="ec-editor" onSubmit={e=>{e.preventDefault();void test(new FormData(e.currentTarget))}}><label>{tr?'Oturuma özel anahtar (kopyalamak için seçin)':'Session-only token (select to copy)'}<input type="password" required value={token} autoComplete="off" onChange={e=>setToken(e.target.value)}/></label>
+ <form className="ec-editor" onSubmit={e=>{e.preventDefault();void test(new FormData(e.currentTarget))}}><label>{tr?'Oturuma özel anahtar (kopyalamak için seçin)':'Session-only token (select to copy)'}<input type={showToken?"text":"password"} required value={token} autoComplete="off" onChange={e=>setToken(e.target.value)}/></label>
+ {token&&<div><button type="button" onClick={()=>reveal(!showToken)}>{showToken?(tr?'Gizle':'Hide'):(tr?'Göster':'Show')}</button> <button type="button" onClick={async()=>{try{await navigator.clipboard.writeText(token);msg(tr?'Anahtar kopyalandı.':'Token copied.')}catch{reveal(true);msg(tr?'Anahtarı seçip kopyalayın.':'Select and copy the token.')}}}>{tr?'Anahtarı kopyala':'Copy token'}</button></div>}
  <label>{tr?'Örnek kullanıcı':'Sample user'}<input required name="name" type="email"/></label><label>{tr?'Departman':'Department'}<input name="department"/></label><label>{tr?'Gruplar (virgülle)':'Groups (comma-separated)'}<input name="group"/></label><button disabled={busy||!token||!!draft}>{tr?'Bağlantıyı Test Et':'Test connection'}</button></form>
  {message&&<p role="status">{message}</p>}</section>;
 }

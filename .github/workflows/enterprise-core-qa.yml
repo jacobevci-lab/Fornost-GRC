@@ -22,12 +22,15 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm install --no-save --package-lock=false playwright@1.55.0
+      - run: npm run build
       - name: Verify Enterprise Core on an isolated D1
         shell: bash
         run: |
           set -euo pipefail
-          npx wrangler d1 migrations apply fornost-grc-prod --local --config wrangler.d1.jsonc >/tmp/core-migration.log
-          npm run dev -- --host 127.0.0.1 --port 4184 --strictPort >/tmp/core-server.log 2>&1 &
+          export ENTERPRISE_BOOTSTRAP_KEY="$(openssl rand -hex 32)"
+          echo "::add-mask::$ENTERPRISE_BOOTSTRAP_KEY"
+          npx wrangler d1 migrations apply fornost-grc-prod --local --persist-to /tmp/enterprise-core-d1 --config wrangler.d1.jsonc >/tmp/core-migration.log
+          npx wrangler dev --local --ip 127.0.0.1 --port 4184 --config dist/server/wrangler.json --persist-to /tmp/enterprise-core-d1 --var "FORNOST_BOOTSTRAP_TOKEN:$ENTERPRISE_BOOTSTRAP_KEY" --show-interactive-dev-session=false >/tmp/core-server.log 2>&1 &
           server=$!
           trap 'kill "$server" 2>/dev/null || true' EXIT
           for i in {1..120}; do if curl -fsS http://127.0.0.1:4184/api/health >/dev/null 2>&1; then break; fi; sleep 1; done

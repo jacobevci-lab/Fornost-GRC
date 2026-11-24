@@ -62,7 +62,7 @@ export async function updateRecord(db:D1Database,user:Actor,b:Record<string,unkn
  const estimate=changeEstimate?readEstimate(b.fairLite):null;
  if(changeEstimate)assertInput((b.fairLite===null||estimate)&&(typeof b.previousEstimate==='string'||b.previousEstimate===null));
  const fieldEdit=b.fieldEdit as undefined|{source:string;field:string;previous:string;value:string};
- let native:D1PreparedStatement|undefined;
+ const native:D1PreparedStatement[]=[];
  if(fieldEdit!==undefined){
   assertInput(fieldEdit&&[sources[k].table,...(k==='vendor'?['third_party_profiles']:[])].includes(fieldEdit.source));
   const f=editableField(k,fieldEdit.source);
@@ -70,17 +70,21 @@ export async function updateRecord(db:D1Database,user:Actor,b:Record<string,unkn
   if(['finding','incident'].includes(k))assertInput(fieldEdit.value.trim());
   const key=fieldEdit.source==='third_party_profiles'?'vendor_id':'id',now=new Date().toISOString();
   const set=f.storage==='json'?`data_json=json_set(data_json,'$.${f.column}',?)`:`${f.column}=?`;
-  native=db.prepare(`UPDATE ${fieldEdit.source} SET ${set},updated_at=? WHERE ${key}=? AND EXISTS(SELECT 1 FROM org_record_entities WHERE kind=? AND record_id=? AND revision=?)`).bind(fieldEdit.value.trim(),now,b.id,k,b.id,rev);
+  native.push(db.prepare(`UPDATE ${fieldEdit.source} SET ${set},updated_at=? WHERE ${key}=? AND EXISTS(SELECT 1 FROM org_record_entities WHERE kind=? AND record_id=? AND revision=?)`).bind(fieldEdit.value.trim(),now,b.id,k,b.id,rev));
+  if(k==='audit')native.push(db.prepare(`UPDATE simple_grc_records SET data_json=json_set(data_json,'$.auditType',?),updated_at=?
+   WHERE module='Denetim Yönetimi' AND json_extract(data_json,'$.auditName')=(SELECT name FROM simple_audits WHERE id=?)
+   AND EXISTS(SELECT 1 FROM org_record_entities WHERE kind='audit' AND record_id=? AND revision=?)`).bind(fieldEdit.value,now,b.id,b.id,rev));
  }
  const q=`${a.cte} INSERT INTO org_record_entities(kind,record_id,org_entity_id,note,revision)
  SELECT '${k}',x.id,?,?,? FROM (${src}) x LEFT JOIN org_record_entities o ON o.kind='${k}' AND o.record_id=x.id
  WHERE x.id=? AND coalesce(o.revision,'')=? AND (${a.where})
  ${fieldEdit?"AND x.source=? AND x.field=? AND x.field_value=? AND (x.editor='' OR lower(x.editor)=lower(?) OR ?=1)":''}
+ ${k==='audit'&&fieldEdit?"AND NOT EXISTS(SELECT 1 FROM simple_grc_records i WHERE i.module='Denetim Yönetimi' AND json_extract(i.data_json,'$.auditName')=x.title AND (coalesce(json_extract(i.data_json,'$.status'),'')<>'Başlanmadı' OR coalesce(json_extract(i.data_json,'$.progress'),0)<>0))":''}
  ${changeEstimate?'AND x.estimate IS ?':''} AND EXISTS(SELECT 1 FROM org_entities WHERE id=?) AND (?=1 OR coalesce(o.org_entity_id,'root')=?)
  ON CONFLICT(kind,record_id) DO UPDATE SET org_entity_id=excluded.org_entity_id,note=excluded.note,revision=excluded.revision`;
  const bindings=[...(a.cte?[user.id]:[]),b.entity,b.note.trim(),rev,b.id,b.revision,...(user.orgScope?.selected?[user.orgScope.selected]:[]),...(fieldEdit?[fieldEdit.source,fieldEdit.field,fieldEdit.previous,user.email,manager?1:0]:[]),...(changeEstimate?[b.previousEstimate]:[]),b.entity,manager?1:0,b.entity];
  const financial=changeEstimate?[db.prepare(`UPDATE simple_grc_records SET data_json=CASE WHEN ? IS NULL THEN json_remove(data_json,'$.fairLite') ELSE json_set(data_json,'$.fairLite',json(?)) END,updated_at=?
  WHERE id=? AND module='Risk Assessment' AND EXISTS(SELECT 1 FROM org_record_entities WHERE kind='risk' AND record_id=? AND revision=?) AND json_extract(data_json,'$.fairLite') IS NOT ?`).bind(estimate?JSON.stringify(estimate):null,JSON.stringify(estimate),new Date().toISOString(),b.id,b.id,rev,estimate?JSON.stringify(estimate):null)]:[];
- const result=await db.batch([db.prepare(q).bind(...bindings),event(db,user.email,'org-record-update',JSON.stringify({kind:k,id:b.id,entity:b.entity,revision:rev}),'changes()=1'),...(native?[native]:[]),...financial]);
+ const result=await db.batch([db.prepare(q).bind(...bindings),event(db,user.email,'org-record-update',JSON.stringify({kind:k,id:b.id,entity:b.entity,revision:rev}),'changes()=1'),...native,...financial]);
  if(!result[0].meta?.changes)throw new EnterpriseError(409,'conflict');
 }

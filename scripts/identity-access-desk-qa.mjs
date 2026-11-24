@@ -38,11 +38,11 @@ try{
  await page.setViewportSize({width:1536,height:1024});await switchQaLocale(page,'en');
  if(await page.locator('html').getAttribute('data-theme')!=='light')await page.locator('.theme-toggle:visible').click();
  await button('Roles & scope').click();await expect(detail.locator('.iad-permissions>div')).toHaveCount(8);await capture('scope-EN');
- phase='corporate profile persistence and honest metadata check';await button('Corporate sign-in').click();const profile=desk.locator('.iad-profile');
+ phase='corporate profile persistence and honest metadata check';await button('Enterprise SSO and SCIM').click();const profile=desk.locator('.iad-profile');
  await expect(profile).toContainText('Native OIDC/SAML login, MFA and SCIM are not enabled');
  await profile.getByLabel('Issuer URL',{exact:true}).fill('https://idp.example.test');await profile.getByLabel('Client ID',{exact:true}).fill('qa-client');await profile.getByLabel('Client secret / Bind secret',{exact:true}).fill('synthetic-qa-profile-secret');
  // View switches keep the unsaved draft; explicit refresh asks before discarding it.
- await button('Users').click();await button('Corporate sign-in').click();await expect(profile.getByLabel('Client ID',{exact:true})).toHaveValue('qa-client');await button('Refresh profile').click();await expect(profile).toContainText('Refreshing discards unsaved profile changes');await profile.getByRole('button',{name:'Keep editing'}).click();
+ await button('Users').click();await button('Enterprise SSO and SCIM').click();await expect(profile.getByLabel('Client ID',{exact:true})).toHaveValue('qa-client');await button('Refresh profile').click();await expect(profile).toContainText('Refreshing discards unsaved profile changes');await profile.getByRole('button',{name:'Keep editing'}).click();
  const save=page.waitForResponse(r=>r.url().endsWith('/api/integrations')&&r.request().method()==='PUT');await button('Save profile').click();assert.equal((await save).status(),200);await expect(profile).toContainText('Profile saved. This does not enable SSO sign-in.');await expect(profile.getByLabel('Client secret / Bind secret')).toHaveValue('');
  let row=(await api('GET','/api/integrations')).integrations.find(p=>p.kind==='identity');assert.equal(row.hasSecret,true);assert.equal(JSON.stringify(row).includes('synthetic-qa-profile-secret'),false);assert.equal(row.enabled,false);
  await page.route('**/api/integrations',route=>route.request().method()==='POST'?route.fulfill({json:{ok:true,message:'Simulated discovery response'}}):route.continue());await button('Metadata / bridge check').click();await expect(profile).toContainText('User sign-in, role and MFA remain unverified');await page.unroute('**/api/integrations');

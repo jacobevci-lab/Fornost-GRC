@@ -11,6 +11,10 @@ try{
  page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error')errors.push(m.text())});
  page.on('response',r=>{if(r.url().startsWith(origin+'/api/')&&r.status()>=400)errors.push(r.status()+' '+new URL(r.url()).pathname)});
  const name='Enterprise QA',email='qa-core@fornost.test',password=process.env.ENTERPRISE_QA_PASSWORD||randomBytes(28).toString('hex')+'Aa1!';
+ if(process.env.ENTERPRISE_BOOTSTRAP_KEY){
+  const auth=await context.request.post(origin+'/api/auth',{data:{action:'authorize_bootstrap',token:process.env.ENTERPRISE_BOOTSTRAP_KEY}});
+  assert.equal(auth.ok(),true,'local bootstrap authorization '+auth.status());
+ }
  const session=await context.request.post(origin+'/api/auth',{data:{action:'bootstrap',name,email,password}});
  assert.equal(session.ok(),true,'fresh local D1 bootstrap '+session.status());
  const user=(await (await context.request.get(origin+'/api/auth')).json()).user;assert(user?.id);
