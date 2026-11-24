@@ -1,5 +1,6 @@
 "use client";
 
+import {EntityLabel} from './enterprise/entity-label';
 import { useEffect, useState, type ReactNode } from "react";
 import type { CatalogSnapshot } from "./framework-catalog-notice";
 import { auditClosureLabels } from "./audit-closure";
@@ -66,7 +67,7 @@ export default function AuditPortfolioWorkspace({audits,rows,evidence,lang,showR
       <button type="button" aria-pressed={showArchived} onClick={()=>setShowArchived(v=>!v)}>{showArchived?(tr?"Aktif denetimler":"Active audits"):(tr?"Arşivlenmiş denetimler":"Archived audits")} ({audits.filter(a=>(Boolean(a.archived)||a.closure_state==='closed')!==showArchived).length})</button>
       <div className="apw-entries">{visible.map(a=><div className="apw-entry" key={a.id} data-active={a.id===active?.id}>
         <button className="apw-select" type="button" aria-pressed={a.id===active?.id} onClick={()=>onSelect(a.id)}>
-          <i aria-hidden="true">{a.id===active?.id?"✓":""}</i><span><b>{a.name}</b><small>{auditState(a)}</small></span>
+          <i aria-hidden="true">{a.id===active?.id?"✓":""}</i><span><b>{a.name}</b><EntityLabel kind="audit" id={a.id} tr={tr}/><small>{auditState(a)}</small></span>
         </button>
         <button type="button" className="audit-card-open apw-shortcut" onClick={()=>open(a)} title={(tr?"Denetimi aç":"Open audit")+" · "+a.name}>
           <span className="apw-sr">{(tr?"Denetimi aç":"Open audit")+" · "+a.name}</span><span aria-hidden="true">↗</span>

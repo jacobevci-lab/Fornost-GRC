@@ -4,7 +4,7 @@ import {withBasePath} from '../base-path';
 import type {DirectoryRule} from './directory';
 import type {Scope,Entity} from './scope';
 export const labels={
- risk:['Risk','Risk'],asset:['Varlık','Asset'],bia:['BIA','BIA'],vendor:['Tedarikçi','Supplier'],control:['Kontrol','Control'],policy:['Politika','Policy'],audit:['Denetim','Audit'],finding:['Bulgu','Finding'],incident:['Olay','Incident']
+ risk:['Risk','Risk'],asset:['Varlık','Asset'],bia:['BIA','BIA'],vendor:['Tedarikçi','Supplier'],control:['Kontrol','Control'],policy:['Politika','Policy'],audit:['Denetim','Audit'],finding:['Bulgu','Finding'],incident:['Olay','Incident'],ai:['AI Sistemi','AI system'],evidence:['Kanıt','Evidence']
 };
 export type Kind=keyof typeof labels;
 export type Identity={id:string;name:string;email:string;platformRole:string;role:string|null;memberships:string;revision:string|null};

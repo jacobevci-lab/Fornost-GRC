@@ -1,3 +1,4 @@
+import {verificationSchema,markVerifiedPins} from './verification';
 import {evidenceReviewerIsIndependent} from '../evidence/intake';
 import { approvedAuditEvidence, inAuditPeriod } from '../audit-engagement';
 import { completedInitialization } from '../completed-initialization';
@@ -13,6 +14,7 @@ export class PostureError extends Error {
 const ready=completedInitialization();
 export async function ensurePosture(db:D1Database) {
   await ready(db,()=>db.batch([
+    db.prepare(verificationSchema),
     db.prepare('CREATE TABLE IF NOT EXISTS framework_programs(name TEXT PRIMARY KEY, created_by TEXT NOT NULL, created_at TEXT NOT NULL)'),
     db.prepare('CREATE TABLE IF NOT EXISTS framework_decisions(program TEXT NOT NULL,ref TEXT NOT NULL, applicability TEXT NOT NULL,reason TEXT NOT NULL,links TEXT NOT NULL,revision TEXT NOT NULL, actor TEXT NOT NULL,updated_at TEXT NOT NULL, PRIMARY KEY(program,ref))')
   ]));
@@ -78,7 +80,7 @@ export function previewCatalog(name:string):Matrix {
 
 export async function programOverview(db:D1Database) {
   const index=await indexPrograms(db);
-  if(!index.enrolled.length)return {...index,coverage:{},comparison:{},controlFrameworkCounts:{}};
+  if(!index.enrolled.length)return {...index,coverage:{},comparison:{},controlFrameworkCounts:{},controlFrameworks:{}};
   const sources=await readSources(db);
   const programs=index.enrolled.map(name=>({name,...project(sources,name)}));
   const mapped=new Set(programs.flatMap(p=>p.requirements.flatMap(r=>r.links.map(l=>l.id))));
@@ -87,6 +89,7 @@ export async function programOverview(db:D1Database) {
   const implementation=implementationIndex(programs[0].controls);
   const coverage:Record<string,ProgramCoverage>={};
   const controlFrameworkCounts:Record<string,number>=Object.create(null);
+  const controlFrameworks:Record<string,{name:string;refs:string[]}[]>=Object.create(null);
   const codes=new Map(programs[0].controls.map(control=>[control.id,control.code]));
   const comparison=Object.fromEntries(programs.map(program=>{
     const items:OpenItem[]=[];
@@ -102,11 +105,11 @@ export async function programOverview(db:D1Database) {
       if(state==='covered')compliant++;
       else if(items.length<3)items.push({ref:row.ref,title:row.title,state,controlCode:codes.get(row.links[0]?.id)});
     }
-    for(const id of linkedInScope)controlFrameworkCounts[id]=(controlFrameworkCounts[id]??0)+1;
+    for(const id of linkedInScope){controlFrameworkCounts[id]=(controlFrameworkCounts[id]??0)+1;(controlFrameworks[id]??=[]).push({name:program.name,refs:program.requirements.filter(r=>r.applicability!=='excluded'&&r.links.some(l=>l.id===id)).map(r=>r.ref)});}
     coverage[program.name]={scope,compliant,evidenced,assessed};
     return [program.name,{openCount:scope-compliant,items}];
   }));
-  return {...index,coverage,comparison,controlFrameworkCounts};
+  return {...index,coverage,comparison,controlFrameworkCounts,controlFrameworks};
 }
 
 async function readPins(db:D1Database,aliases:Map<string,Set<string>>,mapped:Set<string>) {
@@ -135,6 +138,7 @@ async function readPins(db:D1Database,aliases:Map<string,Set<string>>,mapped:Set
       for(const id of ids)if(mapped.has(id))(pins[id]??=[]).push({id:v.id,evidenceId:v.evidence_id,fileKey:v.file_key,code:v.code||'',collectedAt:str(data.collectedAt),title:v.evidence_title,version:v.version_no,hash:v.content_sha256,period:v.period});
     }
   }
+  if(Object.keys(pins).length)await markVerifiedPins(db,pins);
   return pins;
 }
 

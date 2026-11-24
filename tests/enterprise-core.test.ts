@@ -56,7 +56,7 @@ test('descendant grants, sibling isolation, native financial writes, stale updat
  await assert.rejects(listRecords(db,{...actor,moduleAccess:{mode:'scoped',modules:{}}},'risk',0));
  sql.exec("DELETE FROM org_memberships WHERE user_id='editor'");
  assert.equal((await listRecords(db,actor,'risk',0)).rows.length,0);
- assert.equal(Object.keys(kinds).length,9);
+ assert.equal(Object.keys(kinds).length,11);
 });
 test('token rotation, replay conflict, department/group simulation, revocation and no local account mutations',async()=>{
  const {sql,db}=fixture();await ensureEnterprise(db);
@@ -81,8 +81,8 @@ test('FAIR PERT expectancy, numeric bounds and separate currency totals',()=>{
  const raw={currency:'TRY',frequency:25,minimum:100,likely:200,maximum:600},e=readEstimate(raw)!;
  assert.equal(annualLossMinor(e),BigInt(6250));
  for(const patch of [{frequency:101},{frequency:-1},{currency:'CAD'},{likely:601},{minimum:201},{maximum:'NaN'},{frequency:''}])assert.equal(readEstimate({...raw,...patch}),null);
- const result=exposure([{data:{fairLite:e}},{data:{}},{data:{fairLite:{...e,currency:'EUR',frequency:0}}}]);
- assert.equal(result.measured,2);assert.deepEqual([...result.totals],[['TRY',BigInt(6250)],['EUR',BigInt(0)]]);assert.match(money(BigInt(6250),'EUR',true),/62,50/);
+ const result=exposure([{data:{fairLite:e}},{data:{}},{data:{fairLite:{...e,currency:'EUR',frequency:1}}}]);
+ assert.equal(result.measured,2);assert.deepEqual([...result.totals],[['TRY',BigInt(6250)],['EUR',BigInt(250)]]);assert.match(money(BigInt(6250),'EUR',true),/62,50/);
 });
 test('SAML preflight requires actual IdP services and namespace',()=>{
  const xml='<EntityDescriptor xmlns="urn:oasis:names:tc:SAML:2.0:metadata" entityID="provider"><IDPSSODescriptor protocolSupportEnumeration="urn:oasis:names:tc:SAML:2.0:protocol"><SingleSignOnService Location="https://example.org/sso"/></IDPSSODescriptor></EntityDescriptor>';

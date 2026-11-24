@@ -1,3 +1,4 @@
+import {verifyControl} from '../../framework-posture/verification';
 import { NextRequest, NextResponse } from 'next/server';
 import { readCatalogRequest } from '../../audit-catalog-import';
 import { requireRole } from '../auth/security';
@@ -52,6 +53,7 @@ export async function POST(req:NextRequest) {
     await ensurePosture(db);
     if(body.action==='save')await ensureCoreGrcSchemaCompatibility(db);
     if(body.action==='enroll')await enroll(db,String(body.name||''),auth.actor.email);
+    else if(body.action==='verify-control')await verifyControl(db,auth.actor,body);
     else if(body.action==='save')await saveDecision(db,body,auth.actor.email);
     else return reply({error:'action'},400);
     return reply({ok:true});

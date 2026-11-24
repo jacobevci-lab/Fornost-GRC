@@ -9,8 +9,9 @@ export const reasonLabels = {
   implementation:['Uygulanmış kontrol yok','No implemented control'],
   partial:['Uygulama veya eşleştirme kısmi','Partial implementation or mapping'],
   evidence:['Uygulanan kontrolde güncel, onaylı kanıt eksik','Implemented control lacks current approved evidence'],
+  verification:['Bağımsız kontrol doğrulaması bekliyor','Independent control verification pending'],
   decision:['Uygulanabilirlik kararı bekliyor','Applicability undecided'],
-  covered:['Uygulanan kontrol ve güncel, onaylı kanıt var','Implemented control with current approved evidence'],
+  covered:['Bağımsız doğrulanmış kontrol ve güncel, onaylı kanıt var','Independently verified control with current approved evidence'],
 } as const;
 export type RequirementState = keyof typeof reasonLabels;
 
@@ -19,7 +20,8 @@ export function requirementState(row:Requirement,pins:Matrix['pins'],implementat
   if(!row.links.length)return 'unmapped';
   const implemented = row.links.filter(link=>['uygulanıyor','implemented'].includes(implementation.get(link.id)??''));
   const supporting = implemented.filter(link=>link.coverage==='supports');
-  if(supporting.some(link=>pins[link.id]?.length))return row.applicability==='undecided'?'decision':'covered';
+  if(supporting.some(link=>pins[link.id]?.some(pin=>pin.verified)))return row.applicability==='undecided'?'decision':'covered';
+  if(supporting.some(link=>pins[link.id]?.length))return 'verification';
   if(supporting.length)return 'evidence';
   if(implemented.length || row.links.some(link=>['kısmi','partially implemented','partial'].includes(implementation.get(link.id)??'')))return 'partial';
   return 'implementation';

@@ -1,3 +1,4 @@
+import {EntityLabel} from '../enterprise/entity-label';
 import {savedFindingTarget,type FindingTarget,type FindingReferenceField} from "./record-references";
 import {Fragment, useState} from "react";
 import type {Finding} from "./workspace";
@@ -53,7 +54,7 @@ export function FindingWorklist({rows, lang, disabled, onOpen, targets}: {
               onClick={event => {event.stopPropagation(); setExpanded(open ? null : row.id);}}>
               <span className="capa-marker" aria-hidden="true"/>
             </button>
-            <div><small className="capa-code">{row.code}</small>
+            <div><small className="capa-code">{row.code}</small><EntityLabel kind="finding" id={row.id} tr={tr}/>
               <button type="button" disabled={disabled} className="finding-row-open"
                 onClick={event => {event.stopPropagation(); onOpen(row);}}>{row.title}</button>
               <div className="capa-links">{row.linkedCodes?row.linkedCodes.map(code=><span key={code}>{code}</span>):(["riskRef","controlRef"] as const).map(field=>{

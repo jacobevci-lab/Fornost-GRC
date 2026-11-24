@@ -25,6 +25,7 @@ const statusHelp = {
     'Kanıt Kütüphanesi’nde destekleyen kontrolün referansına bağlı güncel kanıtı onaylayın.',
     'In the Evidence Library, approve current evidence linked to the supporting control’s reference.',
   ],
+  verification: ['Kontrol sahibi dışında yetkili bir insan, güncel kanıtla kontrol etkinliğini doğrulamalıdır.','An authorized human other than the control owner must verify effectiveness against current evidence.'],
   decision: [
     'Destekleyen kontrolün onaylı kanıtı var. SoA Kapsam sütunundan Uygulanabilirlik (SoA) kararını kaydedin.',
     'The supporting control has approved evidence. Save the applicability decision in the SoA scope column.',
@@ -86,7 +87,7 @@ export function DecisionEditor({row,matrix,tr,write,createControl,onControlCreat
           <label>{tr?'Katkı':'Coverage'}<select value={link.coverage} onChange={e=>setLinks(links.map(l=>l.id===c.id?{...l,coverage:e.target.value as Coverage}:l))}>
             <option value="supports">{tr?'Destekler':'Supports'}</option><option value="partial">{tr?'Kısmen destekler':'Partially supports'}</option></select></label>
           {write&&<button type="button" onClick={()=>setLinks(links.filter(l=>l.id!==c.id))}>{tr?'Bağı kaldır':'Unlink'}</button>}
-          {!!matrix.pins[c.id]?.length&&<ul>{matrix.pins[c.id].map(p=><li key={p.id}>{p.title} · v{p.version} · {p.period}</li>)}</ul>}</div>;
+          {!!matrix.pins[c.id]?.length&&<ul>{matrix.pins[c.id].map(p=><li key={p.id}>{p.code} · {p.title} · v{p.version} · {p.period}{p.verified?<small> · {tr?'Etkin / Doğrulandı':'Effective / Verified'} · {p.verifiedBy}</small>:write&&<ControlVerification tr={tr} name={matrix.name} controlId={c.id} evidenceVersion={p.id} onSaved={onSave}/>}</li>)}</ul>}</div>;
       })}
       <div className="posture-editor-actions">{write&&createControl&&<CreateControl tr={tr} onCreated={c=>{
         onControlCreated();setCreated(previous=>[...previous,c]);setChoice('');
@@ -98,4 +99,9 @@ export function DecisionEditor({row,matrix,tr,write,createControl,onControlCreat
     </fieldset>
     {error&&<p role="alert">{error==='409'?(tr?'Kayıt değişti. Güncel sürümü yükleyip tekrar düzenleyin.':'The record changed. Load the current version and edit again.'):(tr?'Kaydedilemedi. Tekrar deneyin.':'Could not save. Please retry.')} {error==='409'&&<button type="button" onClick={onReload}>{tr?'Yenile':'Reload'}</button>}</p>}
   </section>;
+}
+
+function ControlVerification({tr,name,controlId,evidenceVersion,onSaved}:{tr:boolean;name:string;controlId:string;evidenceVersion:string;onSaved:()=>void}){
+ const [note,setNote]=useState(''),[busy,setBusy]=useState(false),[error,setError]=useState('');
+ return <details className="ec-finance"><summary>{tr?'Bağımsız etkinlik doğrulaması':'Independent effectiveness verification'}</summary><label>{tr?'Test ve doğrulama gerekçesi':'Test and verification rationale'}<textarea value={note} minLength={10} maxLength={2000} onChange={e=>setNote(e.target.value)}/></label><button type="button" disabled={busy||note.trim().length<10} onClick={async()=>{setBusy(true);setError('');try{await postureRequest({},undefined,{action:'verify-control',name,controlId,evidenceVersion,note});onSaved()}catch(e){setError((e as Error).message==='403'?(tr?'Kontrol/kanıt sahibi kendi kaydını doğrulayamaz; yetkili bağımsız doğrulayıcı gerekir.':'Owners cannot verify their own control/evidence; an authorized independent reviewer is required.'):(tr?'Doğrulanamadı. Güncel kontrol ve onaylı kanıtı yeniden yükleyin.':'Verification failed. Reload the current control and approved evidence.'))}finally{setBusy(false)}}}>{tr?'Etkin / Doğrulandı olarak kaydet':'Record as Effective / Verified'}</button>{error&&<p role="alert">{error}</p>}</details>;
 }

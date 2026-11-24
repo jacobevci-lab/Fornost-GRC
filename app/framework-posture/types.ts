@@ -1,7 +1,7 @@
 export type Coverage = 'supports' | 'partial';
 export type Applicability = 'required' | 'undecided' | 'included' | 'excluded';
 export type Mapping = { id:string; coverage:Coverage };
-export type Pin = {code?:string; collectedAt?:string; id:string; evidenceId:string; fileKey:string; title:string; version:number; hash:string; period:string};
+export type Pin = {verified?:boolean;verifiedBy?:string;code?:string; collectedAt?:string; id:string; evidenceId:string; fileKey:string; title:string; version:number; hash:string; period:string};
 export type Control = {owner?:string; id:string; code:string; title:string; implementation:string};
 export type Requirement = {ref:string; title:string; group:string; annex:boolean; applicability:Applicability; reason:string; revision:string; links:Mapping[]};
 export type Matrix = {name:string; requirements:Requirement[]; controls:Control[]; pins:Record<string,Pin[]>};
@@ -14,6 +14,6 @@ export type ControlMappingChange = {name:string;ref:string;revision:string;linke
 export type ProgramIndex = {catalog:string[]; enrolled:string[]};
 
 export type ProgramCoverage = {scope:number; assessed:number; evidenced:number; compliant:number};
-export type OpenItem = {ref:string;title:string;state:"unmapped"|"implementation"|"partial"|"evidence"|"decision";controlCode?:string};
+export type OpenItem = {ref:string;title:string;state:"unmapped"|"implementation"|"partial"|"evidence"|"verification"|"decision";controlCode?:string};
 export type Comparison = {openCount:number;items:OpenItem[]};
-export type Overview = ProgramIndex & {controlFrameworkCounts:Record<string,number>;coverage:Record<string,ProgramCoverage>;comparison:Record<string,Comparison>};
+export type Overview = ProgramIndex & {controlFrameworks:Record<string,{name:string;refs:string[]}[]>;controlFrameworkCounts:Record<string,number>;coverage:Record<string,ProgramCoverage>;comparison:Record<string,Comparison>};

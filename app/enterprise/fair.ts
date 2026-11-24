@@ -12,7 +12,7 @@ export function readEstimate(input:unknown):Estimate|null {
     return Number(v);
   });
   const [frequency,minimum,likely,maximum]=numbers;
-  return numbers.every(Number.isFinite) && frequency<=100 && minimum<=likely && likely<=maximum
+  return numbers.every(Number.isFinite) && frequency>=1 && frequency<=100 && minimum<=likely && likely<=maximum
     ? {currency:raw.currency as Currency,frequency,minimum,likely,maximum} : null;
 }
 // Beta-PERT mean severity multiplied by the annual probability of one loss event.
@@ -20,6 +20,10 @@ export function readEstimate(input:unknown):Estimate|null {
 export function annualLossMinor(e:Estimate):bigint {
   const cents=(v:number)=>BigInt(Math.round(v*100));
   return ((cents(e.minimum)+BigInt(4)*cents(e.likely)+cents(e.maximum))*cents(e.frequency)+BigInt(30000))/BigInt(60000);
+}
+export function singleLossMinor(e:Estimate):bigint {
+  const cents=(v:number)=>BigInt(Math.round(v*100));
+  return (cents(e.minimum)+BigInt(4)*cents(e.likely)+cents(e.maximum)+BigInt(3))/BigInt(6);
 }
 export function exposure(rows:ReadonlyArray<{data:Record<string,unknown>}>) {
   const totals=new Map<Currency,bigint>();let measured=0;

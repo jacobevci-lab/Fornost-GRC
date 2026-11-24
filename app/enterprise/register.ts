@@ -4,21 +4,22 @@ import {event,EnterpriseError,assertInput} from './http';
 import {editableField,validFieldValue} from './editor';
 import {readEstimate} from './fair';
 import {grantedTree,canManage} from './scope';
-export const kinds={risk:'Risk Assessment',asset:'Varlık Envanteri',bia:'BIA',vendor:'Tedarikçiler',control:'Kontroller',policy:'Politika Merkezi',audit:'Denetim Yönetimi',finding:'Bulgular ve CAPA',incident:'Güvenlik Olayları'} as const;
-type Kind=keyof typeof kinds;
+export const kinds={risk:'Risk Assessment',asset:'Varlık Envanteri',bia:'BIA',vendor:'Tedarikçiler',control:'Kontroller',policy:'Politika Merkezi',audit:'Denetim Yönetimi',finding:'Bulgular ve CAPA',incident:'Güvenlik Olayları',ai:'AI Yönetişimi',evidence:'Kanıtlar'} as const;
+export type Kind=keyof typeof kinds;
 type Source={table:string;id:string;title:string;state:string;native:string;key:string;condition?:string};
 const core=(module:string,title:string):Source=>({table:'simple_grc_records',id:'r.id',title:`json_extract(r.data_json,'$.${title}')`,state:"json_extract(r.data_json,'$.status')",native:'r.id',key:'r.id',condition:`r.module='${module}'`});
-const sources:Record<Kind,Source>={
+export const sources:Record<Kind,Source>={
+ ai:{table:'ai_model_inventory',id:'r.id',title:'r.system_name',state:'r.status',native:'r.id',key:'r.id'},evidence:core(kinds.evidence,'evidenceTitle'),
  risk:core(kinds.risk,'title'),asset:core(kinds.asset,'title'),bia:core(kinds.bia,'process'),vendor:core(kinds.vendor,'title'),control:core(kinds.control,'controlTitle'),
  policy:{table:'policy_documents',id:'r.id',title:'r.title',state:'r.status',native:'r.code',key:'r.id'},
  audit:{table:'simple_audits',id:'r.id',title:'r.name',state:'r.status',native:'r.id',key:"'enterprise:audit:'||r.id"},
  finding:{table:'enterprise_findings',id:'r.id',title:'r.title',state:'r.status',native:'r.code',key:"'work:finding:'||r.id"},
  incident:{table:'enterprise_incidents',id:'r.id',title:'r.title',state:'r.status',native:'r.code',key:"'enterprise:incident:'||r.id"}
 };
-const prefixes:Record<Kind,string>={risk:'RSK',asset:'AST',bia:'BIA',vendor:'VEN',control:'CTL',policy:'POL',audit:'AUD',finding:'FND',incident:'INC'};
+const prefixes:Record<Kind,string>={risk:'RSK',asset:'AST',bia:'BIA',vendor:'VEN',control:'CTL',policy:'POL',audit:'AUD',finding:'FND',incident:'INC',ai:'AIS',evidence:'EVD'};
 export function recordKind(v:unknown):Kind{assertInput(typeof v==='string'&&Object.hasOwn(kinds,v));return v as Kind;}
 function canView(user:Actor,k:Kind){return canReadModule(user,kinds[k]);}
-async function sourceSql(db:D1Database,k:Kind){
+export async function sourceSql(db:D1Database,k:Kind){
  const tables=(await db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name IN (?,?,?)").bind(sources[k].table,'third_party_profiles','simple_grc_record_codes').all<{name:string}>()).results.map(t=>t.name);
  let list=tables.includes(sources[k].table)?[sources[k]]:[];
  if(k==='vendor'&&tables.includes('third_party_profiles')){
@@ -34,7 +35,7 @@ async function sourceSql(db:D1Database,k:Kind){
    ${k==='risk'?"json_extract(r.data_json,'$.fairLite')":"NULL"} estimate FROM ${s.table} r WHERE ${s.condition||'1'}`
  }).join(' UNION ALL ');
 }
-function access(user:Actor){
+export function recordAccess(user:Actor){
  const selected=user.orgScope?.selected;
  const values:string[]=[];
  const rules:string[]=[];
@@ -42,22 +43,32 @@ function access(user:Actor){
  if(selected){rules.push("coalesce(o.org_entity_id,'root') IN (WITH RECURSIVE branch(id) AS (SELECT id FROM org_entities WHERE id=? UNION SELECT e.id FROM org_entities e JOIN branch b ON e.parent_id=b.id) SELECT id FROM branch)");values.push(selected);}
  return {cte:user.orgScope?.group?'':grantedTree,where:rules.join(' AND ')||'1',values};
 }
-export async function listRecords(db:D1Database,user:Actor,k:Kind,offset:number){
+export async function listRecords(db:D1Database,user:Actor,k:Kind,offset:number,id='',query=''){
  if(!canView(user,k))throw new EnterpriseError(403,'scope');
  const src=await sourceSql(db,k);if(!src)return {rows:[],more:false};
- const a=access(user),prefix=prefixes[k],valid=(expr:string)=>`${expr} GLOB '${prefix}-[0-9][0-9][0-9]*' AND substr(${expr},5) NOT GLOB '*[^0-9]*'`;
+ const a=recordAccess(user),prefix=prefixes[k],valid=(expr:string)=>`${expr} GLOB '${prefix}-[0-9][0-9][0-9]*' AND substr(${expr},5) NOT GLOB '*[^0-9]*'`;
  const rows=(await db.prepare(`${a.cte} SELECT x.id,x.title,x.status,x.estimate,x.source,x.field_value,CASE WHEN x.editor='' OR lower(x.editor)=lower(?) OR ?=1 THEN x.field END field,coalesce(o.org_entity_id,'root') org_entity_id,coalesce(o.note,'') note,coalesce(o.revision,'') revision,
  CASE WHEN ${valid('c.code')} THEN c.code WHEN ${valid('alias.code')} THEN alias.code WHEN ${valid('x.native')} THEN x.native ELSE NULL END code
  FROM (${src}) x LEFT JOIN org_record_entities o ON o.kind='${k}' AND o.record_id=x.id
  LEFT JOIN simple_grc_record_codes c ON c.record_id=x.registry LEFT JOIN simple_grc_record_codes alias ON alias.record_id='map:display:'||x.registry
- WHERE ${a.where} ORDER BY x.title,x.id LIMIT 101 OFFSET ?`).bind(...(a.cte?[user.id]:[]),user.email,canManage(user)?1:0,...(user.orgScope?.selected?[user.orgScope.selected]:[]),offset).all()).results;
+ WHERE ${a.where} AND (?='' OR x.id=?) AND (?='' OR instr(lower(coalesce(c.code,'')||' '||coalesce(x.title,'')),lower(?))>0) ORDER BY x.title,x.id LIMIT 101 OFFSET ?`).bind(...(a.cte?[user.id]:[]),user.email,canManage(user)?1:0,...(user.orgScope?.selected?[user.orgScope.selected]:[]),id,id,query,query,offset).all()).results;
  return {rows:rows.slice(0,100),more:rows.length>100};
+}
+export async function recordEntityLabels(db:D1Database,user:Actor,k:Kind,ids:string[]){
+ if(!canView(user,k))throw new EnterpriseError(403,'scope');
+ assertInput(ids.length<=100&&ids.every(id=>typeof id==='string'&&id.length<=240));
+ const src=await sourceSql(db,k);if(!src)return {labels:{}};
+ const a=recordAccess(user);
+ const rows=(await db.prepare(`${a.cte} SELECT x.id,e.name FROM (${src}) x
+ LEFT JOIN org_record_entities o ON o.kind=? AND o.record_id=x.id JOIN org_entities e ON e.id=coalesce(o.org_entity_id,'root')
+ WHERE ${a.where} AND x.id IN(SELECT value FROM json_each(?))`).bind(...(a.cte?[user.id]:[]),k,...(user.orgScope?.selected?[user.orgScope.selected]:[]),JSON.stringify(ids)).all<{id:string;name:string}>()).results;
+ return {labels:Object.fromEntries(rows.map(r=>[r.id,r.name]))};
 }
 export async function updateRecord(db:D1Database,user:Actor,b:Record<string,unknown>){
  const k=recordKind(b.kind),src=await sourceSql(db,k);
  assertInput(typeof b.id==='string'&&b.id.length<=240&&typeof b.revision==='string'&&typeof b.note==='string'&&b.note.length<=4000&&typeof b.entity==='string');
  if(!src||!canView(user,k)||!canWriteModule(user,kinds[k]))throw new EnterpriseError(403,'scope');
- const a=access(user),rev=crypto.randomUUID(),manager=canManage(user);
+ const a=recordAccess(user),rev=crypto.randomUUID(),manager=canManage(user);
  const changeEstimate=k==='risk'&&Object.hasOwn(b,'fairLite');
  const estimate=changeEstimate?readEstimate(b.fairLite):null;
  if(changeEstimate)assertInput((b.fairLite===null||estimate)&&(typeof b.previousEstimate==='string'||b.previousEstimate===null));

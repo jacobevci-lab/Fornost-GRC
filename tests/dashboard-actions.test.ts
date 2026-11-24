@@ -9,7 +9,7 @@ const now = Date.parse("2026-11-21T12:00:00Z");
 const row = (id: string, module: string, data: AssuranceRow["data"], code = id): AssuranceRow => ({id, module, code, data});
 const coverage = (scope: number, compliant: number, assessed = scope) => ({scope, compliant, assessed, evidenced: compliant});
 function overview(values: Overview["coverage"]): Overview {
-  return {enrolled: Object.keys(values), coverage: values, comparison: {}, controlFrameworkCounts: {}, catalog: []};
+  return {enrolled: Object.keys(values), coverage: values, comparison: {}, controlFrameworkCounts: {}, controlFrameworks: {}, catalog: []};
 }
 
 test("compliance weights only enrolled frameworks by scope and distinguishes enrollment from assessment", () => {

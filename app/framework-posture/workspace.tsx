@@ -17,7 +17,7 @@ const preferred:Record<string,string>={
 const pageSize=12;
 const rowId=(ref:string)=>'posture-ref-'+encodeURIComponent(ref);
 
-function Program({name,enrolled,initialRef,counts,onSaved,...props}:WorkspaceProps & {name:string;enrolled:boolean;initialRef:string;counts:Overview['controlFrameworkCounts'];onSaved:()=>void}) {
+function Program({name,enrolled,initialRef,counts,frameworks,onSaved,...props}:WorkspaceProps & {name:string;enrolled:boolean;initialRef:string;counts:Overview['controlFrameworkCounts'];frameworks:Overview['controlFrameworks'];onSaved:()=>void}) {
   const {tr}=props;
   const [revision,refresh]=useState(0),[query,setQuery]=useState(''),[openOnly,setOpenOnly]=useState(enrolled && !initialRef);
   const [page,setPage]=useState<number|null>(null),[selected,select]=useState(initialRef),[message,setMessage]=useState('');
@@ -85,7 +85,7 @@ function Program({name,enrolled,initialRef,counts,onSaved,...props}:WorkspacePro
         <option value="all">{tr?'Tüm nedenler':'All reasons'}</option><option value="unmapped">{tr?'Kontrol bağlantısı eksik':'Missing control mapping'}</option>
         <option value="partial">{tr?'Kısmi uygulama veya eşleştirme':'Partial implementation or mapping'}</option><option value="evidence">{tr?'Onaylı kanıt eksik':'Missing approved evidence'}</option>
         <option value="implementation">{tr?'Uygulanmış kontrol yok':'No implemented control'}</option>
-        <option value="decision">{tr?'SoA kararı bekliyor':'Pending SoA decision'}</option></select>}</div>
+        <option value="verification">{tr?'Bağımsız doğrulama bekliyor':'Independent verification pending'}</option><option value="decision">{tr?'SoA kararı bekliyor':'Pending SoA decision'}</option></select>}</div>
       {message&&<p role="status" className="posture-notice">{message}</p>}
       <div className="posture-ledger-wrap"><table className="posture-ledger"><thead><tr>
         <th scope="col">{tr?'Madde':'Reference'}</th><th scope="col">{tr?'Gereksinim':'Requirement'}</th>
@@ -94,7 +94,7 @@ function Program({name,enrolled,initialRef,counts,onSaved,...props}:WorkspacePro
       </tr></thead><tbody>{filtered.slice(current*pageSize,(current+1)*pageSize).map(({row,state})=>{
         const expanded=row.ref===selected;
         const shared=state==='covered'?row.links.filter(link=>counts[link.id]>1 && link.coverage==='supports' && data.pins[link.id]?.length &&
-          ['uygulanıyor','implemented'].includes(implementation.get(link.id)??'')).map(link=>controls.get(link.id)?.code).filter(Boolean):[];
+          ['uygulanıyor','implemented'].includes(implementation.get(link.id)??'')).filter(link=>data.pins[link.id]?.some(p=>p.verified)):[];
         const badge=statusLabel(state,tr);
         const toggle=()=>{select(expanded?'':row.ref);setMessage('');};
         const detailId=rowId(row.ref)+'-details';
@@ -103,7 +103,7 @@ function Program({name,enrolled,initialRef,counts,onSaved,...props}:WorkspacePro
             aria-expanded={expanded} aria-label={row.ref+' · '+row.title}
             aria-controls={expanded?detailId:undefined} onClick={toggle}>{row.title} <span aria-hidden="true"/></button></td>
           {enrolled&&<><td data-label={tr?'Durum':'Status'}><span className={'posture-status '+state}>{badge}</span>
-            {shared.length>0&&<small className="ec-shared">{tr?'Ortak Kontrol Üzerinden Karşılandı':'Satisfied through shared control'} · {shared.join(', ')}</small>}
+            {shared.map(link=><details key={link.id} className="ec-shared"><summary>{tr?'Ortak Kontrol ile Karşılandı':'Satisfied through shared control'} ({controls.get(link.id)?.code} · {counts[link.id]} {tr?'Çerçeve':'Frameworks'})</summary><ul>{frameworks[link.id]?.map(f=><li key={f.name}>{f.name} · {f.refs.join(', ')}</li>)}</ul></details>)}
             <small className="posture-reason">{reasonLabels[state][tr?0:1]}</small></td>
             <td data-label={tr?'Bağlı kontroller':'Linked controls'}><div className="posture-chips">{row.links.map(link=><span className="posture-control-chip" key={link.id} title={controls.get(link.id)?.title}>
               <code>{controls.get(link.id)?.code}</code>{state!=='excluded' && counts[link.id]>1 && <small>{tr?counts[link.id]+' çerçevede geçerli':'Across '+counts[link.id]+' frameworks'}</small>}</span>)}
@@ -187,6 +187,6 @@ export function FrameworkWorkspace(props:WorkspaceProps & {initialProgram?:strin
         <button type="button" disabled={busy} onClick={()=>{setAdding(false);addTrigger.current?.focus();}}>{tr?'Vazgeç':'Cancel'}</button>
         <button type="button" disabled={busy} onClick={()=>{select(candidate);setTarget({ref:'',revision:target.revision+1});setAdding(false);}}>{tr?'Maddeleri önizle':'Preview requirements'}</button></div>}
     </div>
-    {active&&<Program key={active+data.enrolled.includes(active)+target.revision} initialRef={target.ref} counts={data.controlFrameworkCounts} name={active} enrolled={data.enrolled.includes(active)} onSaved={retry} {...props}/>}
+    {active&&<Program key={active+data.enrolled.includes(active)+target.revision} initialRef={target.ref} counts={data.controlFrameworkCounts} frameworks={data.controlFrameworks} name={active} enrolled={data.enrolled.includes(active)} onSaved={retry} {...props}/>}
   </section>;
 }
