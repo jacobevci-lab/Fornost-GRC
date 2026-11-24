@@ -13,7 +13,7 @@ const fail=(e:unknown)=>{const code=e instanceof Error&&/^AI_[A-Z_]+$/.test(e.me
 export async function GET(req:NextRequest){
  const a=await access(req);if(a.response)return a.response;
  try{const env=await aiRuntime() as Runtime;await prepareStore(env);const kind=req.nextUrl.searchParams.get('kind'),id=req.nextUrl.searchParams.get('id');
- if(kind==='config'){if(!canManage(a.actor))return json({code:'AI_ADMIN'},403);const row=await privacyRow(env.DB);return json({...row?JSON.parse(row.config):defaultPrivacy,revision:row?.revision||'',hasSecret:!!row?.secret});}
+ if(kind==='config'){if(!canManage(a.actor))return json({code:'AI_ADMIN'},403);const row=await privacyRow(env.DB);return json({...row?JSON.parse(row.config):defaultPrivacy,configured:!!row,revision:row?.revision||'',hasSecret:!!row?.secret});}
  if(kind==='evidence'||kind==='vendor'){
   if(!id)throw new Error('AI_NOT_FOUND');
   const row=await env.DB.prepare('SELECT * FROM grc_ai_results WHERE kind=? AND subject=? ORDER BY created_at DESC LIMIT 1').bind(kind,id).first<{result:string;source_hash:string}>();

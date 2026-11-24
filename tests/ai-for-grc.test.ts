@@ -58,8 +58,8 @@ test('BYOK uses only attested endpoint, encrypted key, redaction and store=false
  const fetch=t.mock.method(globalThis,'fetch',async(url:unknown,init?:RequestInit)=>{assert.equal(url,'https://tenant.openai.azure.com/openai/v1/chat/completions');body=String(init?.body);headers=new Headers(init?.headers);return Response.json({choices:[{message:{content:'Review only'}}],usage:{prompt_tokens:10,completion_tokens:2}});});
  const c={...router.defaultPrivacy,mode:'byok' as const,provider:'azure' as const,baseUrl:'https://tenant.openai.azure.com/openai/v1',model:'deployment',retentionConfirmed:true,retentionReference:'verified-contract-123',secret:'provider-api-secret',revision:''};
  await router.savePrivacy(f.env,c,actor.email);assert.ok(!String(f.sql.prepare('SELECT secret FROM grc_ai_config').get()!.secret).includes(c.secret));
- await router.analyzeWithRouter(f.env,actor.email,'evidence-review',{email:'person@example.test',password:'super-secret-value'});
- assert.equal(headers!.get('api-key'),c.secret);assert.equal(JSON.parse(body).store,false);assert.ok(!body.includes('person@example.test'));assert.ok(!body.includes('super-secret-value'));
+ await router.analyzeWithRouter(f.env,actor.email,'evidence-review',{email:'person@example.test',password:'super-secret-value',document:JSON.stringify({token:'nested-secret',password:'multiple secret words'})});
+ assert.equal(headers!.get('api-key'),c.secret);assert.equal(JSON.parse(body).store,false);assert.ok(!body.includes('person@example.test'));assert.ok(!body.includes('super-secret-value'));assert.ok(!body.includes('nested-secret'));assert.ok(!body.includes('multiple secret words'));
  await assert.rejects(router.analyzeWithRouter(f.env,actor.email,'evidence-review',{text:'confidential'},'Confidential'),/AI_CLASSIFICATION/);assert.equal(fetch.mock.callCount(),1);
  const row=await router.privacyRow(f.db);await assert.rejects(router.savePrivacy(f.env,{...c,revision:row!.revision,baseUrl:'https://other.openai.azure.com/openai/v1',secret:''},actor.email),/AI_SECRET/);
 });

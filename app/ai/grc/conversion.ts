@@ -15,14 +15,14 @@ export async function convertVendorItem(env:Runtime,actor:Actor,b:Record<string,
  if(!['finding','control'].includes(String(b.target))||!Number.isInteger(b.item))throw new Error('AI_CONVERSION');
  const analysis=await env.DB.prepare("SELECT * FROM grc_ai_results WHERE id=? AND kind='vendor'").bind(b.id).first<{id:string;subject:string;source_hash:string;result:string}>();if(!analysis)throw new Error('AI_NOT_FOUND');
  const result=JSON.parse(analysis.result),item:VendorItem=result.items[Number(b.item)];if(!item)throw new Error('AI_CONVERSION');
- const vendor=await env.DB.prepare('SELECT * FROM third_party_profiles WHERE vendor_id=?').bind(analysis.subject).first(),core=await coreRecord(env.DB,analysis.subject,'Tedarikçiler');
+ const vendor=await env.DB.prepare('SELECT * FROM third_party_profiles WHERE vendor_id=?').bind(analysis.subject).first<{updated_at:string;status:string;data_classification:string}>(),core=await coreRecord(env.DB,analysis.subject,'Tedarikçiler');
  if(analysis.source_hash!==await digest(JSON.stringify(vendor)+core.data_json+core.updated_at))throw new Error('AI_STALE');
  const key=await digest(`${analysis.id}:${b.item}:${b.target}`),id=(b.target==='finding'?'FND-':'CTL-')+key.slice(0,32).replace(/(.{8})(.{4})(.{4})(.{4})(.{12})/,'$1-$2-$3-$4-$5');
  const existing=await env.DB.prepare('SELECT record_id FROM grc_ai_conversions WHERE id=?').bind(key).first<{record_id:string}>();if(existing)return {id:existing.record_id,duplicate:true};
  const now=new Date().toISOString();
  const selection=await prepareWorkflowSelection(env,actor,{...b,assignmentMode:'directory'},b.target==='finding'?{owner:'writer',reviewer:'reviewer'}:{owner:'writer'});
  const nativeSource=await resolveFindingSource(env.DB,'vendor',analysis.subject);
- const guard=joinWorkflowGuards(selection.guard,nativeSource.guard,{sql:'EXISTS(SELECT 1 FROM simple_grc_records WHERE id=? AND data_json=? AND updated_at=?)',values:[core.id,core.data_json,core.updated_at]});
+ const guard=joinWorkflowGuards(selection.guard,nativeSource.guard,{sql:'EXISTS(SELECT 1 FROM simple_grc_records WHERE id=? AND data_json=? AND updated_at=?)',values:[core.id,core.data_json,core.updated_at]},{sql:'EXISTS(SELECT 1 FROM third_party_profiles WHERE vendor_id=? AND updated_at IS ? AND status IS ? AND data_classification IS ?)',values:[analysis.subject,vendor?.updated_at??null,vendor?.status??null,vendor?.data_classification??null]});
  const link=env.DB.prepare('INSERT INTO grc_ai_conversions SELECT ?,?,?,?,?,?,? WHERE EXISTS(SELECT 1 FROM '+(b.target==='finding'?'enterprise_findings':'simple_grc_records')+' WHERE id=?)').bind(key,analysis.id,b.item,b.target,id,actor.email,now,id);
  try{
  if(b.target==='finding'){
