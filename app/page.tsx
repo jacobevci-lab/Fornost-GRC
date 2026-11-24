@@ -1,4 +1,6 @@
 "use client";
+import {QuestionnaireCopilot} from "./ai/grc/questionnaire-ui";
+import {EvidenceAiReview} from "./ai/grc/evidence-ui";
 import IntegrationCenter from "./exchange/integration-center";
 import TrustAdmin from "./exchange/trust-admin";
 import {BoardWizard} from "./exchange/board-ui";
@@ -187,6 +189,7 @@ const modules = [
   "Denetim Yönetimi",
   "Bağlantılı GRC",
   "Raporlar",
+  "Güvenlik Anketi Copilot",
   "AI Yönetişimi",
   "Ask Fornost",
   "Sistem Ayarları",
@@ -227,10 +230,11 @@ const names: Record<Lang, Record<string, string>> = {
     "Denetim Yönetimi": "Denetim Yönetimi",
     "Bağlantılı GRC": "Bağlantılı GRC Haritası",
     Raporlar: "Raporlama",
+    "Güvenlik Anketi Copilot":"Güvenlik Anketi Copilot",
     "AI Yönetişimi": "AI Yönetişimi",
     "Ask Fornost": "Ask Fornost",
     "Sistem Ayarları": "Sistem Ayarları",
-    "AI Ayarları": "AI Ayarları",
+    "AI Ayarları": "AI Yapılandırması",
     "Ana Veri Yönetimi": "Ana Veri Yönetimi",
     "İş Akışı Entegrasyonları": "Entegrasyonlar",
     "Trust Center Yönetimi": "Trust Center Yönetimi",
@@ -257,10 +261,11 @@ const names: Record<Lang, Record<string, string>> = {
     "Denetim Yönetimi": "Audit Management",
     "Bağlantılı GRC": "Connected GRC Map",
     Raporlar: "Reporting",
+    "Güvenlik Anketi Copilot":"Security Questionnaire Copilot",
     "AI Yönetişimi": "AI Governance",
     "Ask Fornost": "Ask Fornost",
     "Sistem Ayarları": "System Settings",
-    "AI Ayarları": "AI Settings",
+    "AI Ayarları": "AI Configuration",
     "Ana Veri Yönetimi": "Master Data",
     "İş Akışı Entegrasyonları": "Integrations",
     "Trust Center Yönetimi": "Trust Center Management",
@@ -1600,7 +1605,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
         return;
       }
       if(r.status===409){
-        const refreshed=await load();setModal(false);setEditing(null);
+      const refreshed=await load();setModal(false);setEditing(null);
         if(!refreshed){setNotice(lang==="tr"?"Kayıt değişti ve güncel liste yüklenemedi. Yeniden denemeden önce sayfayı yenileyin.":"The record changed and the current list could not be loaded. Reload before retrying.");return;}
         setNotice(lang==="tr"?"Kayıt başka bir işlemde değişti. Güncel kayıt yüklendi; yeniden açıp değişikliklerinizi kontrol edin.":"The record changed in another operation. Reopen the refreshed record and review your changes.");
         return;
@@ -1797,7 +1802,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
     if(!evidenceFile)return;
     const body=new FormData();
     for(const [key,value] of Object.entries(form))if(typeof value==="string")body.set(key,value);
-    body.set("file",evidenceFile);
+    body.set("file",evidenceFile);body.set("lang",lang);
     recordWritePending.current=true;setSaving(true);setNotice("");
     try{
       const r=await fetch(withBasePath("/api/evidence"),{method:"POST",body});
@@ -1805,13 +1810,14 @@ function FornostApp({ currentUser }: { currentUser: any }) {
       const errors:Record<string,[string,string]>={EVIDENCE_DATES:["Geçerlilik bitişini ve toplanma tarihini kontrol edin.","Check the collection and expiry dates."],INDEPENDENT_REVIEWER_REQUIRED:["Sahip ve yükleyiciden farklı bir inceleyen seçin.","Select a reviewer other than the owner or uploader."],SOURCE_UNAVAILABLE:["Seçilen bağlantı için erişim gerekiyor.","Access to the selected source is required."],REFERENCE_UNAVAILABLE:["Seçilen kayıt veya kullanıcı değişti. Seçimi güncelleyin.","A selected record or user changed. Update the selection."]};
       if(!r.ok&&errors[result.code])throw new Error(errors[result.code][lang==="tr"?0:1]);
       if(!r.ok)throw new Error(String(result.error||(lang==="tr"?"Kanıt yüklenemedi. Dosya türünü ve 10 MB sınırını kontrol edin.":"Evidence could not be uploaded. Check the file type and 10 MB limit.")));
+      if(evidenceFile.type.startsWith("image/")&&!scoped&&!currentUser.orgScope?.restricted)try{const {localOcr}=await import("./ai/grc/ocr");const {api}=await import("./ai/grc/ui-common");await api("",{action:"evidence",id:result.id,lang,transcript:{text:await localOcr(evidenceFile),hash:result.contentSha256}});}catch{/* Uploaded image remains available for manual preliminary review. */}
       const refreshed=await load();setModal(false);
       setNotice(refreshed?(lang==="tr"?"Kanıt kütüphanesine eklendi.":"Added to the evidence library."):(lang==="tr"?"Kanıt yüklendi ancak liste yenilenemedi. Tekrar göndermeden önce sayfayı yenileyin.":"Evidence was uploaded, but the list could not be refreshed. Reload before submitting again."));
     }catch(error){
       setNotice(error instanceof Error&&!(error instanceof TypeError)?error.message:(lang==="tr"?"Yükleme sonucu doğrulanamadı. Tekrar göndermeden önce kütüphaneyi kontrol edin.":"The upload result could not be confirmed. Check the library before submitting again."));
     }finally{recordWritePending.current=false;setSaving(false);}
   }
-  const evidenceReview=(row:ConnectedGrcRow)=><EvidenceReviewAction key={row.id} row={row} actor={currentUser} canWrite={canWriteModule(currentUser,"Kanıtlar")} tr={lang==="tr"} refresh={async()=>Boolean(await load())}/>;
+  const evidenceReview=(row:ConnectedGrcRow)=><div key={row.id}>{!scoped&&!currentUser.orgScope?.restricted&&<EvidenceAiReview row={row} lang={lang} canWrite={canWriteModule(currentUser,"Kanıtlar")}/>}<EvidenceReviewAction row={row} actor={currentUser} canWrite={canWriteModule(currentUser,"Kanıtlar")} tr={lang==="tr"} refresh={async()=>Boolean(await load())}/></div>;
   const by = (m: string) => rows.filter((r) => r.module === m),
     desc = registerExperience(active, lang).description;
   const navGroups = [
@@ -1820,7 +1826,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
     { id: "compliance", label: lang === "tr" ? "UYUM" : "COMPLIANCE", items: ["Uyum","Kontroller","Kanıtlar","Kanıt Otomasyonu"] },
     { id: "assurance", label: lang === "tr" ? "GÜVENCE" : "ASSURANCE", items: ["Denetim Yönetimi","Bulgular ve CAPA","Güvenlik Olayları"] },
     { id: "governance", label: lang === "tr" ? "YÖNETİŞİM" : "GOVERNANCE", items: ["Politika Merkezi","Regülasyon Merkezi","AI Yönetişimi",...(currentUser.orgScope?.role==="group-admin"?["Trust Center Yönetimi"]:[])] },
-    { id: "intelligence", label: lang === "tr" ? "İÇGÖRÜ" : "INTELLIGENCE", items: ["Bağlantılı GRC","Raporlar","Ask Fornost"] },
+    { id: "intelligence", label: lang === "tr" ? "İÇGÖRÜ" : "INTELLIGENCE", items: ["Bağlantılı GRC","Raporlar","Güvenlik Anketi Copilot","Ask Fornost"] },
     ...(currentUser.role === "Admin" ? [{ id: "administration", label: lang === "tr" ? "YÖNETİM" : "ADMINISTRATION", items: ["İş Akışı Entegrasyonları","Kimlik ve Erişim","Sistem Ayarları","AI Ayarları","Ana Veri Yönetimi","E-posta ve Bildirimler"] }] : []),
   ].map(group=>({...group,items:group.items.filter(module=>canOpenModule(currentUser,module)&&(!scoped||module!=="Ask Fornost"))})).filter(group=>group.items.length);
   const activeNavGroup = navGroups.find(group => group.items.includes(active))?.id;
@@ -2352,6 +2358,8 @@ function FornostApp({ currentUser }: { currentUser: any }) {
           <RiskAppetite lang={lang} currentUser={currentUser} />
         ) : active === "Bağlantılı GRC" ? (
           <ConnectedGrc rows={rows} lang={lang} go={setActive} includeAi={currentUser.role === "Admin"} actor={currentUser} refreshRows={load} coreState={registerLoadState} />
+        ) : active === "Güvenlik Anketi Copilot" ? (
+          <QuestionnaireCopilot lang={lang} canWrite={currentUser.role!=="Viewer"}/>
         ) : active === "Raporlar" ? (
           <>{(currentUser.orgScope?.role==="group-admin"||currentUser.orgScope?.role==="group-ciso"&&!scoped)&&<BoardWizard lang={lang}/>}<Reports rows={rows} lang={lang} go={navigateToModule} preparedBy={currentUser.email} includeCapa={currentUser.role === "Admin"} coreState={registerLoadState} refreshRows={load} /></>
         ) : active === "Kanıt Otomasyonu" ? (

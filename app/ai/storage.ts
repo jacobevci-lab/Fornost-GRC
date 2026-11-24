@@ -2,7 +2,7 @@ import {aiWorkspaceSchema} from './governance-schema';
 import { completedInitialization } from "../completed-initialization";
 import { cleanAiText } from "./security";
 
-export type AiProviderKind = "openai-compatible" | "ollama";
+export type AiProviderKind = "openai-compatible" | "ollama" | "azure" | "bedrock";
 
 export type AiSettingsRow = {
   id: string;

@@ -62,7 +62,11 @@ export async function POST(req:NextRequest){
    additionalStatements:(commit)=>[env.DB.prepare("INSERT INTO simple_grc_record_codes(record_id,module,code,created_at) SELECT ?,?,?,? WHERE EXISTS(SELECT 1 FROM evidence_versions WHERE id=?)").bind(id,"Kanıtlar",code,now,commit.id),
     ...(responseUpload?.statements({id:commit.id,evidenceId:id,versionNo:commit.versionNo,chainSha256:commit.chainSha256,fileKey:key,fileName:safeName,fileSize:file.size,contentSha256,evidenceTitle:data.evidenceTitle,owner:data.owner,period:data.period,createdAt:now})||[])],
   });
-  return NextResponse.json({ok:true,id,code,versionNo:version.versionNo,contentSha256,chainSha256:version.chainSha256},{status:201});
+  let aiReview="unavailable";
+  if(!auth.actor.orgScope?.restricted&&auth.actor.moduleAccess?.mode!=="scoped")try{
+    const {aiRuntime}=await import("../../ai/storage");const {prepareStore,reviewStoredEvidence}=await import("../../ai/grc/store");const aiEnv=await aiRuntime();await prepareStore(aiEnv);await reviewStoredEvidence(aiEnv,id,auth.actor.email,fd.get("lang")==="en"?"en":"tr");aiReview="completed";
+  }catch{/* Upload remains committed; manual review can retry independently. */}
+  return NextResponse.json({ok:true,id,code,aiReview,versionNo:version.versionNo,contentSha256,chainSha256:version.chainSha256},{status:201});
  }catch(error){
   try{
    if(env.BUCKET){const bucket=env.BUCKET as unknown as {delete?:(objectKey:string)=>Promise<unknown>};if(bucket.delete)await bucket.delete(key);}

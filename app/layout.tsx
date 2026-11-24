@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import "./ai/grc/grc-ai.css";
 import "./exchange/exchange.css";
 import "./setup.css";
 import "./risk-governance.css";

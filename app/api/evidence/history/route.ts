@@ -197,7 +197,11 @@ export async function POST(req: NextRequest) {
           .bind(JSON.stringify(nextData), createdAt, evidenceId, record.data_json, record.updated_at, ...guard.values);
       }, conflict: () => evidenceClaimConflict(env.DB, guard) },
     });
-    return json({ ok: true, message: `Kanıt v${version.versionNo} olarak versiyonlandı.`, version: { ...version, evidenceId, fileKey, fileName, contentSha256, controlRefs: refs } }, 201);
+    let aiReview="unavailable";
+    if(!access.actor.orgScope?.restricted&&access.actor.moduleAccess?.mode!=="scoped")try{
+      const {aiRuntime}=await import("../../../ai/storage");const {prepareStore,reviewStoredEvidence}=await import("../../../ai/grc/store");const aiEnv=await aiRuntime();await prepareStore(aiEnv);await reviewStoredEvidence(aiEnv,evidenceId,access.actor.email,form.get("lang")==="en"?"en":"tr");aiReview="completed";
+    }catch{/* The new evidence version stays committed regardless of AI availability. */}
+    return json({ ok: true, aiReview, message: `Kanıt v${version.versionNo} olarak versiyonlandı.`, version: { ...version, evidenceId, fileKey, fileName, contentSha256, controlRefs: refs } }, 201);
   } catch (error) {
     await removeEvidenceObject(env, fileKey);
     if (error instanceof CoreReferenceUnavailable) return json({ error: error.message, code: "REFERENCE_UNAVAILABLE" }, 422);

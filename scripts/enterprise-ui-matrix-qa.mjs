@@ -12,7 +12,7 @@ const context = await browser.newContext({ viewport: { width: 1536, height: 960 
 const page = await context.newPage(); page.setDefaultTimeout(10000);
 const results = [], errors = [], pending = new Set();
 const languages = ['tr', 'en'], themes = ['light', 'dark'], widths = [1536, 1024, 390];
-const expectedModules = 28;
+const expectedModules = 29;
 const expectedViews = expectedModules * languages.length * themes.length * widths.length;
 page.on('pageerror', error => errors.push(error.message));
 page.on('request', request => { if (request.method() === 'GET' && request.url().startsWith(`${base}/api/`)) pending.add(request); });

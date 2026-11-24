@@ -71,13 +71,14 @@ export async function callAiProvider(config: AiProviderConfig, messages: AiMessa
 
   const response = await request(openAiUrl(config.baseUrl, "/chat/completions"), {
     method: "POST",
-    headers: { "content-type": "application/json", ...authHeaders(config.apiKey) },
+    headers: { "content-type": "application/json", ...(config.provider === "azure" ? { "api-key": config.apiKey || "" } : authHeaders(config.apiKey)) },
     body: JSON.stringify({
       model: config.model,
       messages,
       temperature: config.temperature,
       max_tokens: config.maxTokens,
       stream: false,
+      store: false,
     }),
   }, config.timeoutMs);
   const payload = await boundedJson(response);
@@ -92,6 +93,7 @@ export async function callAiProvider(config: AiProviderConfig, messages: AiMessa
 }
 
 export async function testAiProvider(config: AiProviderConfig) {
+  if(config.provider==="azure"||config.provider==="bedrock"){await callAiProvider({...config,maxTokens:8},[{role:"user",content:"Reply OK"}]);return {message:"Connection verified",models:[],selectedModelAvailable:null};}
   const url = config.provider === "ollama" ? ollamaUrl(config.baseUrl, "/api/tags") : openAiUrl(config.baseUrl, "/models");
   const response = await request(url, { headers: authHeaders(config.apiKey) }, Math.min(config.timeoutMs, 15_000));
   if (response.ok) {

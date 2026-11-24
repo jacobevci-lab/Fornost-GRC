@@ -30,6 +30,7 @@ const eslintConfig = defineConfig([
     ".next/**",
     "out/**",
     "build/**",
+    "public/fornost-ocr/**",
     "next-env.d.ts",
   ]),
 ]);
