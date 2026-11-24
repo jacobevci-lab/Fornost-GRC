@@ -72,7 +72,7 @@ export async function POST(req: NextRequest) {
   catch (error) { if (error instanceof JsonBodyError) return NextResponse.json({ error: error.message }, { status: error.status }); throw error; }
   const action = normalize(body.action), db = await identityDb();
   if (action === "logout") {
-    await destroySession(req); const res = NextResponse.json({ ok: true }); res.cookies.set("fornost_session", "", { ...cookie(req), maxAge: 0 }); return res;
+    await destroySession(req); const res = NextResponse.json({ ok: true }); res.cookies.set("fornost_org_entity","",{...cookie(req),maxAge:0}); res.cookies.set("fornost_session", "", { ...cookie(req), maxAge: 0 }); return res;
   }
   if (action === "authorize_bootstrap") {
     const count = await db.prepare("SELECT COUNT(*) total FROM local_users WHERE role='Admin'").first<{ total: number }>();

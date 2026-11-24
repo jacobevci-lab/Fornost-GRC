@@ -65,11 +65,12 @@ test('capture only current explicitly approved anchored evidence matching contro
   await readMatrix(db,ISO);
   for(const [id,status,period,extra] of [
     ['valid','Onaylandı','Q3',{}],['pending','İncelemede','Q3',{}],['expired','Approved','Q3',{expiresAt:'2020-01-01'}],
-    ['other','Approved','Q2',{}],['broken','Approved','Q3',{versionChainSha256:'bad'}],['changed','Approved','Q3',{controlRefs:'ELSE'}],
+    ['other','Approved','Q2',{}],['unreviewed','Approved','Q3',{reviewedVersion:null}],['self','Approved','Q3',{owner:'reviewer@example.test'}],['broken','Approved','Q3',{versionChainSha256:'bad'}],['changed','Approved','Q3',{controlRefs:'ELSE'}],
   ] as const){
     const hash='a'.repeat(64);
     const version=await appendEvidenceVersion(db,{evidenceId:id,fileKey:'evidence/'+id+'.pdf',fileName:'sample.pdf',fileType:'application/pdf',fileSize:10,contentSha256:hash,evidenceTitle:id,owner:'owner',period,frameworks:ISO,controlRefs:'IAM',changeNote:'initial',createdBy:'owner',createdAt:'2026-01-01T00:00:00Z'});
-    record(id,'Kanıtlar',{status,period,contentSha256:hash,versionNo:version.versionNo,versionChainSha256:version.chainSha256,controlRef:'IAM',...extra});
+    const head=sql.prepare("SELECT id FROM evidence_versions WHERE evidence_id=? ORDER BY version_no DESC LIMIT 1").get(id);
+    record(id,'Kanıtlar',{reviewStatus:'approved',reviewer:'reviewer@example.test',reviewedBy:'reviewer@example.test',reviewedVersion:head?.id,status,period,contentSha256:hash,versionNo:version.versionNo,versionChainSha256:version.chainSha256,controlRef:'IAM',...extra});
   }
   await enroll(db,SOC,'owner');
   await saveDecision(db,{name:SOC,ref:'CC1.1',applicability:'required',links:[{id:'C1',coverage:'partial'}],revision:''},'owner');
@@ -105,6 +106,9 @@ test('capture only current explicitly approved anchored evidence matching contro
   const dropped=await programOverview(db);
   assert.equal(dropped.controlFrameworkCounts.C1,1);
   assert.equal(dropped.coverage[SOC].scope,catalogFor(SOC).length-1);
+  const linked=(await readMatrix(db,SOC)).requirements.find(row=>row.ref==='CC1.1')!;
+  await saveDecision(db,{name:SOC,ref:'CC1.1',applicability:'required',revision:linked.revision,links:[{id:'C1',coverage:'supports'}]},'owner');
+  const shared=await programOverview(db);assert.equal(shared.coverage[ISO].compliant,1);assert.equal(shared.coverage[SOC].compliant,1);
   assert.equal(captured.total,123);assert.equal(captured.withEvidence,1);
   assert.deepEqual(Object.values(captured.evidence).map(p=>p.evidenceId),['valid']);
   sql.prepare("UPDATE simple_grc_records SET data_json=json_set(data_json,'$.status','Reddedildi') WHERE id='valid'").run();

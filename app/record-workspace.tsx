@@ -3,6 +3,7 @@
 import { useContext, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { buildConnectedGrcGraph, connectedTitle, type ConnectedGrcRow } from "./connected-grc-model";
 import { FrameworkImpact } from "./framework-posture/audit";
+import {FairDetail} from './enterprise/fair-panel';
 import NavIcon from "./nav-icon";
 import { ModuleTrailContext, RecordTrail } from "./module-record-trail-view";
 import { AssuranceChain, hasAssuranceChain } from "./assurance-chain-view";
@@ -127,6 +128,7 @@ export default function RecordWorkspace({ rows, visible, lang, moduleNames, form
         </div>
         <small>{moduleNames[selected.module] || selected.module} · {displayRecordCode(selected)}</small>
         <h3 ref={title} tabIndex={-1}>{connectedTitle(selected)}</h3>
+        {selected.module==="Risk Assessment"&&<FairDetail tr={tr} value={selected.data.fairLite}/>}
         {selected.module==="Kanıtlar"&&evidenceReview?.(selected)}
         {allowPosture && selected.module==="Kontroller" && <FrameworkImpact controlId={selected.id} tr={tr}/>}
         {business && graph && <BusinessContextView anchor={selected} links={graph.links} tr={tr} openRecord={row=>follow(row.id)}

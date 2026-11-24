@@ -3,11 +3,12 @@ import { useCallback, useEffect, useRef, useState, type FormEvent } from "react"
 import { withBasePath } from "./base-path";
 import { ACCESS_MODULES, canReadModule, FULL_ACCESS, NO_ACCESS, type ModuleAccess } from "./module-access";
 import ModuleAccessEditor from "./module-access-editor";
+import {OrganizationAdmin,DirectoryAdmin} from './enterprise/admin';
 import IdentityProfilePanel, { type ProfileSummary } from "./identity-profile-panel";
 import { accountError, accountEvent, moduleLabel, modulePermission, roleLabel, scopeLabel, validDirectory, type AccessEvent, type Lang, type LocalUser } from "./identity-access-model";
 import "./identity-access-desk.css";
 
-type View="users"|"profile"|"roles"|"history";
+type View="organization"|"users"|"profile"|"roles"|"history";
 type Draft={name:string;email:string;password:string;role:LocalUser["role"];moduleAccess:ModuleAccess};
 type Confirmation={user:LocalUser;action:"delete"|"status"|"sessions"};
 const dateLabel=(date:string,lang:Lang)=>new Date(date).toLocaleString(lang==="tr"?"tr-TR":"en-GB");
@@ -58,12 +59,12 @@ export default function IdentityAccessDesk({lang}:{lang:Lang}){
   }else if(action==="sessions")await write("DELETE",{userId:user.id},user,true);
   else await write("PATCH",{id:user.id,name:user.name,role:user.role,moduleAccess:user.moduleAccess,status:user.status==="Active"?"Disabled":"Active",expectedRevision:user.revision},user);
  }
- const tabs:[View,string][]=[["users",tr?"Kullanıcılar":"Users"],["profile",tr?"Kurumsal giriş":"Corporate sign-in"],["roles",tr?"Roller ve kapsam":"Roles & scope"],["history",tr?"Erişim geçmişi":"Access history"]];
+ const tabs:[View,string][]=[["users",tr?"Kullanıcılar":"Users"],["profile",tr?"Kurumsal SSO ve SCIM":"Enterprise SSO and SCIM"],["organization",tr?"Kurum kapsamları":"Entity scopes"],["roles",tr?"Roller ve kapsam":"Roles & scope"],["history",tr?"Erişim geçmişi":"Access history"]];
  return <section id="identity-access-desk" className="iad" aria-label={tr?"Erişim çalışma masası":"Access workspace"}>
   <div className="iad-toolbar"><div className="iad-tabs" role="group" aria-label={tr?"Kimlik görünümleri":"Identity views"}>{tabs.map(([key,label])=><button type="button" key={key} aria-pressed={view===key} onClick={()=>{setView(key);setConfirmation(null);setMessage("")}}>{label}</button>)}</div><button type="button" className="primary workspace-create" aria-label={tr?"Kullanıcı ekle":"Add user"} disabled={blocked} onClick={()=>{setMessage("");setEditor("new")}}>{tr?"Kullanıcı ekle":"Add user"}</button></div>
-  {view!=="profile"&&<div className="iad-profile-strip"><span>{profile.status==="loading"?(tr?"Kimlik profili okunuyor…":"Loading identity profile…"):profile.status==="error"?(tr?"Kimlik profili durumu alınamadı.":"Identity profile status is unavailable."):profile.status==="empty"?(tr?"Kurumsal kimlik profili yapılandırılmadı.":"No corporate identity profile is configured."):`${profile.provider} · ${tr?"Profil kayıtlı; SSO oturumu doğrulanmadı.":"Profile saved; SSO sign-in is unverified."}`}</span><button type="button" onClick={()=>setView("profile")}>{tr?"Profili aç":"Open profile"} →</button></div>}
+  {view!=="profile"&&view!=="organization"&&<div className="iad-profile-strip"><span>{profile.status==="loading"?(tr?"Kimlik profili okunuyor…":"Loading identity profile…"):profile.status==="error"?(tr?"Kimlik profili durumu alınamadı.":"Identity profile status is unavailable."):profile.status==="empty"?(tr?"Kurumsal kimlik profili yapılandırılmadı.":"No corporate identity profile is configured."):`${profile.provider} · ${tr?"Profil kayıtlı; SSO oturumu doğrulanmadı.":"Profile saved; SSO sign-in is unverified."}`}</span><button type="button" onClick={()=>setView("profile")}>{tr?"Profili aç":"Open profile"} →</button></div>}
   {message&&<p className="iad-notice" role="status">{message}</p>}
-  {view!=="profile"&&<>
+  {view!=="profile"&&view!=="organization"&&<>
    <div className="iad-directory-toolbar"><h3>{view==="history"?(tr?"Erişim değişiklikleri":"Access changes"):view==="roles"?(tr?"Rol ve erişim kapsamı":"Roles and access scope"):(tr?"Kullanıcılar":"Users")} <span>{loading?"…":error?"—":`${users.length} ${tr?"hesap":"accounts"}`}</span></h3><button type="button" disabled={busy||loading} onClick={()=>{setConfirmation(null);setMessage("");void load()}}>{tr?"Yenile":"Refresh"}</button></div>
    {error?<div role="alert" className="iad-notice error">{error}</div>:loading?<p className="iad-empty" role="status">{tr?"Kullanıcılar yükleniyor…":"Loading users…"}</p>:view==="history"?<section className="iad-surface iad-history"><p>{tr?"En son 20 hesap ve yerel oturum değişikliği. Bu liste giriş denemeleri günlüğü değildir.":"The latest 20 account and local-session changes. This is not a sign-in attempts log."}</p><EventList events={events} lang={lang}/></section>:<>
     <div className="iad-workspace">
@@ -95,7 +96,8 @@ export default function IdentityAccessDesk({lang}:{lang:Lang}){
    </>}
    {updated&&!error&&<p className="iad-updated">{tr?"Son okuma":"Last read"}: {dateLabel(updated,lang)}</p>}
   </>}
-  <div hidden={view!=="profile"}><IdentityProfilePanel lang={lang} onSummary={setProfile}/></div>
+  {view==="organization"&&<OrganizationAdmin tr={tr}/>}
+  <div hidden={view!=="profile"}><IdentityProfilePanel lang={lang} onSummary={setProfile}/>{view==="profile"&&<DirectoryAdmin tr={tr}/>}</div>
   {editor&&<AccountEditor key={editor==="new"?"new":editor.id} user={editor==="new"?undefined:editor} lang={lang} busy={busy} onClose={()=>setEditor(null)} onSave={draft=>write(editor==="new"?"POST":"PATCH",editor==="new"?{...draft,moduleAccess:draft.role==="Admin"?FULL_ACCESS:draft.moduleAccess}:{id:editor.id,name:draft.name,role:draft.role,moduleAccess:draft.role==="Admin"?FULL_ACCESS:draft.moduleAccess,status:editor.status,expectedRevision:editor.revision},editor==="new"?undefined:editor)}/>}
  </section>;
 }

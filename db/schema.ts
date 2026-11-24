@@ -1,4 +1,4 @@
-import { blob, primaryKey, index, integer, real, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
+import { blob, primaryKey, index, integer, real, sqliteTable, text, unique, uniqueIndex } from "drizzle-orm/sqlite-core";
 
 export const platformSettings = sqliteTable("platform_settings", {
   id:text("id").primaryKey(),configJson:text("config_json").notNull(),updatedBy:text("updated_by").notNull(),updatedAt:text("updated_at").notNull(),
@@ -537,3 +537,12 @@ export const connectedMapContextLinks = sqliteTable("connected_map_context_links
   id:text("id").primaryKey(),sourceId:text("source_id").notNull(),targetId:text("target_id").notNull(),
   sourceModule:text("source_module").notNull(),targetModule:text("target_module").notNull(),relation:text("relation").notNull(),
 }, table=>[uniqueIndex("connected_map_context_edge").on(table.sourceId,table.targetId,table.relation)]);
+export const orgEntities = sqliteTable("org_entities", {
+ id:text("id").primaryKey(), parentId:text("parent_id").references(():import("drizzle-orm/sqlite-core").AnySQLiteColumn=>orgEntities.id), kind:text("kind").notNull(), name:text("name").notNull()
+},t=>[unique().on(t.parentId,t.name)]);
+export const orgUserRoles=sqliteTable("org_user_roles",{userId:text("user_id").primaryKey(),role:text("role").notNull(),revision:text("revision").notNull()});
+export const orgMemberships=sqliteTable("org_memberships",{userId:text("user_id").notNull().references(()=>orgUserRoles.userId),entity:text("org_entity_id").notNull().references(()=>orgEntities.id)},t=>[primaryKey({columns:[t.userId,t.entity]})]);
+export const orgRecordEntities=sqliteTable("org_record_entities",{kind:text("kind").notNull(),record:text("record_id").notNull(),entity:text("org_entity_id").notNull().references(()=>orgEntities.id),note:text("note").notNull().default(""),revision:text("revision").notNull()},t=>[primaryKey({columns:[t.kind,t.record]}),index("org_record_entities_scope").on(t.entity,t.kind)]);
+export const orgDirectoryConfig=sqliteTable("org_directory_config",{id:integer("id").primaryKey(),config:text("config").notNull(),revision:text("revision").notNull()});
+export const orgScimTokens=sqliteTable("org_scim_tokens",{id:integer("id").primaryKey(),digest:text("digest").notNull(),createdAt:text("created_at").notNull()});
+export const orgAccessEvents=sqliteTable("org_access_events",{id:text("id").primaryKey(),actor:text("actor").notNull(),action:text("action").notNull(),subject:text("subject").notNull(),stamp:text("stamp").notNull()});

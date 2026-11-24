@@ -15,11 +15,15 @@ export function usePosture<T>(params:Record<string,string>|null,refresh=0,keepDu
   const [result,setResult]=useState<{key:string;query:string;data?:T;error?:string}>();
   useEffect(()=>{
     if(!query)return;
-    const controller=new AbortController();
+    let controller=new AbortController();
+    function read(){
+    controller.abort();controller=new AbortController();const active=controller;
     postureRequest<T>(JSON.parse(query),AbortSignal.any([controller.signal,AbortSignal.timeout(15000)])).then(data=>{
-      if(!controller.signal.aborted)setResult({key,query,data});
-    }).catch(e=>{if(!controller.signal.aborted)setResult({key,query,error:String(e.message)});});
-    return ()=>controller.abort();
+      if(!active.signal.aborted)setResult({key,query,data});
+    }).catch(e=>{if(!active.signal.aborted)setResult({key,query,error:String(e.message)});});
+    }
+    read();window.addEventListener('focus',read);
+    return ()=>{window.removeEventListener('focus',read);controller.abort()};
   },[query,key]);
   return result && (result.key===key || (keepDuringRefresh && result.query===query && result.data)) ? result : {};
 }

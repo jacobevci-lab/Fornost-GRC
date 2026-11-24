@@ -1,5 +1,6 @@
 "use client";
 
+import {ExposureCard} from './enterprise/fair-panel';
 import { useMemo, useState } from "react";
 import type { AssuranceRow } from "./control-assurance";
 import { connectedTitle } from "./connected-grc-model";
@@ -20,6 +21,7 @@ export function ReportMatrix({risks,tr}:{risks:AssuranceRow[];tr:boolean}) {
   const selected=buckets.get(cell);
   return <section className="report-chart report-matrix" aria-labelledby="report-matrix-title">
     <h3 id="report-matrix-title">{tr?"Olasılık ve etki matrisi":"Likelihood and impact matrix"}</h3>
+    <ExposureCard tr={tr} risks={risks}/>
     <div className="report-matrix-wrap"><span className="report-y">{tr?"Etki":"Impact"}</span><div className="report-cells">
       {[5,4,3,2,1].map(impact=><div className="report-matrix-row" key={impact}><span>{impact}</span>{[1,2,3,4,5].map(likelihood=>{
         const k=coord(likelihood,impact), group=buckets.get(k)||[];
