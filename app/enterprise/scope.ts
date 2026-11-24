@@ -25,5 +25,5 @@ export function canManage(user:Actor){return user.role==='Admin'&&user.orgScope?
 export const orgCookie='fornost_org_entity';
 export function scopeRoute(scope:Scope|undefined,path:string,method:string){
  if(!scope?.restricted)return true;
- return ['/api/enterprise/scope','/api/enterprise/records','/api/ai/agentic'].includes(path.replace(/\/+$/,'')) || (path==='/api/appearance'&&['GET','PUT'].includes(method));
+ return ['/api/enterprise/scope','/api/enterprise/records','/api/ai/agentic'].includes(path.replace(/\/+$/,'')) || (path==='/api/framework-posture'&&method==='GET') || (path==='/api/appearance'&&['GET','PUT'].includes(method));
 }

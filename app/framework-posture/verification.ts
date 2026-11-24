@@ -7,9 +7,12 @@ import {readMatrix,PostureError} from './store';
 import type {Pin} from './types';
 
 export const verificationSchema=`CREATE TABLE IF NOT EXISTS control_effectiveness_reviews(
- id TEXT PRIMARY KEY,control_id TEXT NOT NULL,evidence_version TEXT NOT NULL,
+ id TEXT PRIMARY KEY NOT NULL,control_id TEXT NOT NULL,evidence_version TEXT NOT NULL,
  control_snapshot TEXT NOT NULL,evidence_snapshot TEXT NOT NULL,
+ control_revision TEXT NOT NULL,evidence_revision TEXT NOT NULL,
  reviewer TEXT NOT NULL,note TEXT NOT NULL,created_at TEXT NOT NULL)`;
+
+export const verificationIndex='CREATE INDEX IF NOT EXISTS control_effectiveness_source ON control_effectiveness_reviews(control_id,evidence_version)';
 
 // Deliberately separate from evidence approval. No AI tool can write this receipt.
 export async function verifyControl(db:D1Database,actor:Actor,body:Record<string,unknown>){
@@ -21,8 +24,8 @@ export async function verifyControl(db:D1Database,actor:Actor,body:Record<string
  if(typeof name!=='string'||typeof controlId!=='string'||typeof evidenceVersion!=='string'||typeof note!=='string'||note.trim().length<10||note.length>2000)throw new PostureError('fields');
  const matrix=await readMatrix(db,name),control=matrix.controls.find(c=>c.id===controlId),pin=matrix.pins[controlId]?.find(p=>p.id===evidenceVersion);
  if(!control||!pin||!['uygulanıyor','implemented'].includes(control.implementation.toLowerCase()))throw new PostureError('verification-evidence',409);
- const source=await db.prepare("SELECT data_json FROM simple_grc_records WHERE id=? AND module='Kontroller'").bind(controlId).first<{data_json:string}>();
- const evidence=await db.prepare("SELECT data_json FROM simple_grc_records WHERE id=? AND module='Kanıtlar'").bind(pin.evidenceId).first<{data_json:string}>();
+ const source=await db.prepare("SELECT data_json,updated_at FROM simple_grc_records WHERE id=? AND module='Kontroller'").bind(controlId).first<{data_json:string;updated_at:string}>();
+ const evidence=await db.prepare("SELECT data_json,updated_at FROM simple_grc_records WHERE id=? AND module='Kanıtlar'").bind(pin.evidenceId).first<{data_json:string;updated_at:string}>();
  if(!source||!evidence)throw new PostureError('conflict',409);
  const data=JSON.parse(source.data_json),ev=JSON.parse(evidence.data_json),lower=(x:unknown)=>String(x||'').trim().toLowerCase();
  const owner=lower(data.ownerEmail||data.owner);
@@ -31,11 +34,11 @@ export async function verifyControl(db:D1Database,actor:Actor,body:Record<string
  if(!active)throw new PostureError('forbidden',403);
  const guard=authorityGuard(actor,auth),id=crypto.randomUUID();
  const result=await db.batch([
-  db.prepare(`INSERT INTO control_effectiveness_reviews SELECT ?,?,?,?,?,?,?,? WHERE ${guard.sql}
-   AND EXISTS(SELECT 1 FROM simple_grc_records WHERE id=? AND module='Kontroller' AND data_json=?)
-   AND EXISTS(SELECT 1 FROM simple_grc_records WHERE id=? AND module='Kanıtlar' AND data_json=?)
+  db.prepare(`INSERT INTO control_effectiveness_reviews SELECT ?,?,?,?,?,?,?,?,?,? WHERE ${guard.sql}
+   AND EXISTS(SELECT 1 FROM simple_grc_records WHERE id=? AND module='Kontroller' AND data_json=? AND coalesce(updated_at,'')=?)
+   AND EXISTS(SELECT 1 FROM simple_grc_records WHERE id=? AND module='Kanıtlar' AND data_json=? AND coalesce(updated_at,'')=?)
    AND (SELECT id FROM evidence_versions WHERE evidence_id=? ORDER BY version_no DESC LIMIT 1)=?`)
-   .bind(id,controlId,pin.id,source.data_json,evidence.data_json,actor.email,note.trim(),new Date().toISOString(),...guard.values,controlId,source.data_json,pin.evidenceId,evidence.data_json,pin.evidenceId,pin.id),
+   .bind(id,controlId,pin.id,source.data_json,evidence.data_json,source.updated_at||'',evidence.updated_at||'',actor.email,note.trim(),new Date().toISOString(),...guard.values,controlId,source.data_json,source.updated_at||'',pin.evidenceId,evidence.data_json,evidence.updated_at||'',pin.evidenceId,pin.id),
   event(db,actor.email,'control-effectiveness-verified',JSON.stringify({id,control:control.code,evidence:pin.code,version:pin.version}),'changes()=1')
  ]);
  if(!result[0].meta?.changes)throw new PostureError('conflict',409);
@@ -44,9 +47,9 @@ export async function verifyControl(db:D1Database,actor:Actor,body:Record<string
 
 export async function markVerifiedPins(db:D1Database,pins:Record<string,Pin[]>){
  const reviews=(await db.prepare(`SELECT v.control_id,v.evidence_version,v.reviewer FROM control_effectiveness_reviews v
- JOIN simple_grc_records c ON c.id=v.control_id AND c.module='Kontroller' AND c.data_json=v.control_snapshot
+ JOIN simple_grc_records c ON c.id=v.control_id AND c.module='Kontroller' AND c.data_json=v.control_snapshot AND coalesce(c.updated_at,'')=v.control_revision
  JOIN evidence_versions ev ON ev.id=v.evidence_version
- JOIN simple_grc_records e ON e.id=ev.evidence_id AND e.module='Kanıtlar' AND e.data_json=v.evidence_snapshot
+ JOIN simple_grc_records e ON e.id=ev.evidence_id AND e.module='Kanıtlar' AND e.data_json=v.evidence_snapshot AND coalesce(e.updated_at,'')=v.evidence_revision
  JOIN local_users u ON lower(u.email)=lower(v.reviewer) AND u.status='Active'
  WHERE v.control_id IN (SELECT value FROM json_each(?))`).bind(JSON.stringify(Object.keys(pins))).all<{control_id:string;evidence_version:string;reviewer:string}>()).results;
  for(const [id,list] of Object.entries(pins))for(const pin of list){const review=reviews.find(v=>v.control_id===id&&v.evidence_version===pin.id);if(review){pin.verified=true;pin.verifiedBy=review.reviewer;}}

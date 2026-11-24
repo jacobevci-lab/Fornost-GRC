@@ -8,7 +8,7 @@ export const labels={
 };
 export type Kind=keyof typeof labels;
 export type Identity={id:string;name:string;email:string;platformRole:string;role:string|null;memberships:string;revision:string|null};
-export type Access={scope:Scope;entities:Entity[];users:Identity[];manage:boolean;readable:Kind[];writable:Kind[];self:string};
+export type Access={posture?:boolean;scope:Scope;entities:Entity[];users:Identity[];manage:boolean;readable:Kind[];writable:Kind[];self:string};
 export type Directory={rules:DirectoryRule[];revision:string;tokenRevision:string};
 export async function request<T>(path:string,body?:object,method='POST',token?:string,signal?:AbortSignal):Promise<T>{
  const response=await fetch(withBasePath('/api/'+path),{method:body?method:'GET',cache:'no-store',signal,headers:{...(body?{'Content-Type':'application/json'}:{}),...(token?{Authorization:'Bearer '+token}:{})},body:body?JSON.stringify(body):undefined});

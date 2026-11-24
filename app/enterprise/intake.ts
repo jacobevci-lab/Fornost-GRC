@@ -114,9 +114,9 @@ export async function createScopedRecord(db:D1Database,user:Actor,b:Record<strin
  }else if(kind==='incident'){
   await ensureIncidentTables(db);
   const selection=await prepareWorkflowSelection({DB:db},user,{...v,owner,assignmentMode:'directory'},{owner:'writer',commander:'writer',reviewer:'reviewer'},false,[owner,String(v.commander)]);
-  const x=validateIncident({...selection.body,assetRefs:assetCode,dataClassification:'Internal',personalData:false});
+  const x=validateIncident({...selection.body,assetRefs:assetCode,dataClassification:v.dataClassification,personalData:v.personalData==='yes'});
   const code='INC-'+crypto.randomUUID();
-  await insertReferencedEnterpriseRecord(db,'enterprise_incidents',{id,code,title:x.title,category:x.category,severity:x.severity,detected_date:x.detectedDate,description:x.description,business_impact:x.businessImpact,owner,commander:x.commander,reviewer:x.reviewer,asset_refs:x.assetRefs,data_classification:x.dataClassification,personal_data:0,status:'declared',declared_by:owner,declared_at:now,updated_by:owner,updated_at:now},[{field:'asset_refs',modules:[kinds.asset]}],[
+  await insertReferencedEnterpriseRecord(db,'enterprise_incidents',{id,code,title:x.title,category:x.category,severity:x.severity,detected_date:x.detectedDate,description:x.description,business_impact:x.businessImpact,owner,commander:x.commander,reviewer:x.reviewer,asset_refs:x.assetRefs,data_classification:x.dataClassification,personal_data:x.personalData?1:0,status:'declared',declared_by:owner,declared_at:now,updated_by:owner,updated_at:now},[{field:'asset_refs',modules:[kinds.asset]}],[
    lifecycleInsert(db,'enterprise_incident_events',{id:crypto.randomUUID(),incident_id:id,action:'incident-declare',to_status:'declared',detail:x.title,actor:owner,created_at:now}),...tail],joinWorkflowGuards(guard,selection.guard));
  }else if(kind==='ai'){
   await registerAi({DB:db},user,{profile:{...blankProfile,...v,name:v.title,purpose:v.description,unit:target.name,owner,sources:[v.sources],pii:v.sources==='pii',noTraining:false,zdr:false,transfer:false,write:false,asset:[],vendor:[],risks:[],controls:[]}}, {id,guard,tail});

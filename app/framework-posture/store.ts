@@ -1,4 +1,4 @@
-import {verificationSchema,markVerifiedPins} from './verification';
+import {verificationSchema,verificationIndex,markVerifiedPins} from './verification';
 import {evidenceReviewerIsIndependent} from '../evidence/intake';
 import { approvedAuditEvidence, inAuditPeriod } from '../audit-engagement';
 import { completedInitialization } from '../completed-initialization';
@@ -14,7 +14,7 @@ export class PostureError extends Error {
 const ready=completedInitialization();
 export async function ensurePosture(db:D1Database) {
   await ready(db,()=>db.batch([
-    db.prepare(verificationSchema),
+    db.prepare(verificationSchema),db.prepare(verificationIndex),
     db.prepare('CREATE TABLE IF NOT EXISTS framework_programs(name TEXT PRIMARY KEY, created_by TEXT NOT NULL, created_at TEXT NOT NULL)'),
     db.prepare('CREATE TABLE IF NOT EXISTS framework_decisions(program TEXT NOT NULL,ref TEXT NOT NULL, applicability TEXT NOT NULL,reason TEXT NOT NULL,links TEXT NOT NULL,revision TEXT NOT NULL, actor TEXT NOT NULL,updated_at TEXT NOT NULL, PRIMARY KEY(program,ref))')
   ]));
@@ -30,10 +30,11 @@ type Core = {id:string; code:string|null; data_json:string};
 type Saved = {ref:string; applicability:Requirement['applicability']; reason:string; links:string; revision:string};
 const key = normalizeEvidenceControlRef;
 const str = (x:unknown) => typeof x === 'string' ? x.trim() : '';
-async function readSources(db:D1Database,name?:string){
-  const coreSql = 'SELECT r.id,c.code,r.data_json FROM simple_grc_records r LEFT JOIN simple_grc_record_codes c ON c.record_id=r.id WHERE r.module=? ORDER BY r.id';
+async function readSources(db:D1Database,name?:string,scopeIds?:string[]|null){
+  const coreSql = `SELECT r.id,c.code,r.data_json FROM simple_grc_records r LEFT JOIN simple_grc_record_codes c ON c.record_id=r.id WHERE r.module=? ${scopeIds?"AND coalesce((SELECT org_entity_id FROM org_record_entities WHERE record_id=r.id AND kind=CASE r.module WHEN 'Kontroller' THEN 'control' ELSE 'compliance' END),'root') IN(SELECT value FROM json_each(?))":''} ORDER BY r.id`;
+  const args=scopeIds?[JSON.stringify(scopeIds)]:[];
   const [controlsRead,legacy,decisions] = await db.batch([
-    db.prepare(coreSql).bind('Kontroller'),db.prepare(coreSql).bind('Uyum'),name ? db.prepare('SELECT * FROM framework_decisions WHERE program=?').bind(name) : db.prepare('SELECT * FROM framework_decisions')
+    db.prepare(coreSql).bind('Kontroller',...args),db.prepare(coreSql).bind('Uyum',...args),name ? db.prepare('SELECT * FROM framework_decisions WHERE program=?').bind(name) : db.prepare('SELECT * FROM framework_decisions')
   ]);
   return {controls:controlsRead.results as Core[],legacy:legacy.results as Core[],decisions:decisions.results as (Saved&{program:string})[]};
 }
@@ -63,11 +64,11 @@ function project(inputs:Awaited<ReturnType<typeof readSources>>,name:string){
   for(const r of requirements) r.links=r.links.filter(l=>liveIds.has(l.id));
   return {aliases,controls,requirements};
 }
-export async function readMatrix(db:D1Database,name:string):Promise<Matrix> {
+export async function readMatrix(db:D1Database,name:string,scopeIds?:string[]|null):Promise<Matrix> {
   if (!frameworkNames.includes(name)) throw new PostureError('framework');
   if (!await db.prepare('SELECT 1 FROM framework_programs WHERE name=?').bind(name).first()) throw new PostureError('not-enrolled',404);
-  const {aliases,controls,requirements}=project(await readSources(db,name),name);
-  const pins=await readPins(db,aliases,new Set(requirements.flatMap(r=>r.links.map(l=>l.id))));
+  const {aliases,controls,requirements}=project(await readSources(db,name,scopeIds),name);
+  const pins=await readPins(db,aliases,new Set(requirements.flatMap(r=>r.links.map(l=>l.id))),scopeIds);
   return {name,requirements,controls,pins};
 }
 
@@ -78,14 +79,14 @@ export function previewCatalog(name:string):Matrix {
   }))};
 }
 
-export async function programOverview(db:D1Database) {
+export async function programOverview(db:D1Database,scopeIds?:string[]|null) {
   const index=await indexPrograms(db);
   if(!index.enrolled.length)return {...index,coverage:{},comparison:{},controlFrameworkCounts:{},controlFrameworks:{}};
-  const sources=await readSources(db);
+  const sources=await readSources(db,undefined,scopeIds);
   const programs=index.enrolled.map(name=>({name,...project(sources,name)}));
   const mapped=new Set(programs.flatMap(p=>p.requirements.flatMap(r=>r.links.map(l=>l.id))));
   // Shared controls use the same verified evidence across all enrolled frameworks.
-  const pins=await readPins(db,programs[0].aliases,mapped);
+  const pins=await readPins(db,programs[0].aliases,mapped,scopeIds);
   const implementation=implementationIndex(programs[0].controls);
   const coverage:Record<string,ProgramCoverage>={};
   const controlFrameworkCounts:Record<string,number>=Object.create(null);
@@ -112,14 +113,14 @@ export async function programOverview(db:D1Database) {
   return {...index,coverage,comparison,controlFrameworkCounts,controlFrameworks};
 }
 
-async function readPins(db:D1Database,aliases:Map<string,Set<string>>,mapped:Set<string>) {
+async function readPins(db:D1Database,aliases:Map<string,Set<string>>,mapped:Set<string>,scopeIds?:string[]|null) {
   const pins:Record<string,Pin[]> = Object.create(null);
   if(mapped.size){
     await ensureEvidenceHistorySchema(db);
     const eligibleRefs=[...aliases].filter(([,ids])=>ids.size===1 && mapped.has([...ids][0])).map(([alias])=>alias);
     const versions=await db.prepare(`SELECT v.*,r.data_json,(SELECT code FROM simple_grc_record_codes WHERE record_id=r.id) AS code FROM evidence_versions v JOIN simple_grc_records r ON r.id=v.evidence_id AND r.module='Kanıtlar'
-      WHERE v.evidence_id IN (SELECT ec.evidence_id FROM evidence_version_controls ec WHERE ec.normalized_ref IN (SELECT value FROM json_each(?)))
-      ORDER BY v.evidence_id,v.version_no`).bind(JSON.stringify(eligibleRefs)).all<EvidenceVersionRow & {data_json:string;code:string|null}>();
+      WHERE ${scopeIds?"coalesce((SELECT org_entity_id FROM org_record_entities WHERE kind='evidence' AND record_id=r.id),'root') IN(SELECT value FROM json_each(?)) AND ":''} v.evidence_id IN (SELECT ec.evidence_id FROM evidence_version_controls ec WHERE ec.normalized_ref IN (SELECT value FROM json_each(?)))
+      ORDER BY v.evidence_id,v.version_no`).bind(...(scopeIds?[JSON.stringify(scopeIds)]:[]),JSON.stringify(eligibleRefs)).all<EvidenceVersionRow & {data_json:string;code:string|null}>();
     const groups=new Map<string,typeof versions.results>();
     for(const v of versions.results){const group=groups.get(v.evidence_id)??[];group.push(v);groups.set(v.evidence_id,group);}
     for(const group of groups.values()){

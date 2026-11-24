@@ -23,7 +23,7 @@ export function ExposureCard({tr,risks}:{tr:boolean;risks:ReadonlyArray<{data:Re
 export function FairDetail({tr,value}:{tr:boolean;value:unknown}){
  const e=readEstimate(value);if(!e)return null;
  return <section className="ec-exposure"><strong>{tr?'Finansal etki ve maruziyet':'Financial impact and exposure'} · FAIR-Lite</strong>
- <span>{tr?'Yıllık sıklık':'Annual probability'} · {e.frequency}%</span>{fields.slice(1).map(([k,t,en])=><span key={k}>{tr?t:en} · {money(BigInt(Math.round(e[k]*100)),e.currency,tr)}</span>)}
+ <span>{tr?'Yıllık olasılık':'Annual probability'} · {e.frequency}%</span>{fields.slice(1).map(([k,t,en])=><span key={k}>{tr?t:en} · {money(BigInt(Math.round(e[k]*100)),e.currency,tr)}</span>)}
  <b>SLE · {money(singleLossMinor(e),e.currency,tr)}</b><b>ALE · {money(annualLossMinor(e),e.currency,tr)}</b></section>;
 }
 export function FairCell({tr,value}:{tr:boolean;value:unknown}){

@@ -31,8 +31,8 @@ const statusHelp = {
     'The supporting control has approved evidence. Save the applicability decision in the SoA scope column.',
   ],
   covered: [
-    'Kapsamdaki bu maddeyi destekleyen bir kontrolün güncel, onaylı kanıtı var. Maddeyi “Tüm maddeler” listesinde bulabilirsiniz.',
-    'A supporting control has current approved evidence for this in-scope requirement. Find it under “All requirements”.',
+    'Kapsamdaki bu maddeyi destekleyen kontrol, güncel ve onaylı kanıtla bağımsız olarak doğrulandı. Maddeyi “Tüm maddeler” listesinde bulabilirsiniz.',
+    'A supporting control was independently verified against current approved evidence for this in-scope requirement. Find it under “All requirements”.',
   ],
   excluded: [
     'SoA kararına göre bu madde kapsam dışında. Kapsam değiştiğinde uygulanabilirlik kararını ve gerekçesini güncelleyin.',

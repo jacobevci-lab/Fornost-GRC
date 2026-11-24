@@ -78,7 +78,7 @@ test('capture only current explicitly approved anchored evidence matching contro
   await saveDecision(db,{name:ISO,ref:'A.5.2',applicability:'excluded',reason:'Outside scope',links:[{id:'C1',coverage:'supports'}],revision:''},'owner');
   // Historical fixture now explicitly includes independent control-effectiveness receipts.
   sql.exec(`INSERT INTO control_effectiveness_reviews
-    SELECT 'review-'||e.id,'C1',v.id,c.data_json,e.data_json,'reviewer@example.test','Independent control test','2026-01-02'
+    SELECT 'review-'||e.id,'C1',v.id,c.data_json,e.data_json,coalesce(c.updated_at,''),coalesce(e.updated_at,''),'reviewer@example.test','Independent control test','2026-01-02'
     FROM simple_grc_records e JOIN evidence_versions v ON v.evidence_id=e.id
     JOIN simple_grc_records c ON c.id='C1' WHERE e.id IN ('valid','other')`);
   const summary=await programOverview(db);

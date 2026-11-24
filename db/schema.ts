@@ -16,6 +16,13 @@ export const simpleGrcRecords = sqliteTable("simple_grc_records", {
   updatedAt: text("updated_at").notNull(),
 }, (table) => [index("simple_grc_records_module_idx").on(table.module, table.updatedAt)]);
 
+export const controlEffectivenessReviews = sqliteTable('control_effectiveness_reviews', {
+  id:text('id').primaryKey(),controlId:text('control_id').notNull(),evidenceVersion:text('evidence_version').notNull(),
+  controlSnapshot:text('control_snapshot').notNull(),evidenceSnapshot:text('evidence_snapshot').notNull(),
+  controlRevision:text('control_revision').notNull(),evidenceRevision:text('evidence_revision').notNull(),
+  reviewer:text('reviewer').notNull(),note:text('note').notNull(),createdAt:text('created_at').notNull(),
+},table=>[index('control_effectiveness_source').on(table.controlId,table.evidenceVersion)]);
+
 export const evidenceRuleReviewPolicy=sqliteTable("evidence_rule_review_policy",{ruleId:text("rule_id").primaryKey(),reviewer:text("reviewer").notNull()});
 export const evidenceSourceSignals=sqliteTable("evidence_source_signals",{sourceId:text("source_id").notNull(),assetId:text("asset_id").notNull(),signal:text("signal").notNull()},
  table=>[primaryKey({columns:[table.sourceId,table.signal]}),index("evidence_source_signals_asset").on(table.assetId,table.signal)]);

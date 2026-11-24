@@ -106,7 +106,7 @@ function Program({name,enrolled,initialRef,counts,frameworks,onSaved,...props}:W
             {shared.map(link=><details key={link.id} className="ec-shared"><summary>{tr?'Ortak Kontrol ile Karşılandı':'Satisfied through shared control'} ({controls.get(link.id)?.code} · {counts[link.id]} {tr?'Çerçeve':'Frameworks'})</summary><ul>{frameworks[link.id]?.map(f=><li key={f.name}>{f.name} · {f.refs.join(', ')}</li>)}</ul></details>)}
             <small className="posture-reason">{reasonLabels[state][tr?0:1]}</small></td>
             <td data-label={tr?'Bağlı kontroller':'Linked controls'}><div className="posture-chips">{row.links.map(link=><span className="posture-control-chip" key={link.id} title={controls.get(link.id)?.title}>
-              <code>{controls.get(link.id)?.code}</code>{state!=='excluded' && counts[link.id]>1 && <small>{tr?counts[link.id]+' çerçevede geçerli':'Across '+counts[link.id]+' frameworks'}</small>}</span>)}
+              <code>{controls.get(link.id)?.code}</code>{state!=='excluded' && counts[link.id]>1 && <small>{tr?counts[link.id]+' çerçevede eşleşiyor':'Mapped across '+counts[link.id]+' frameworks'}</small>}</span>)}
               {!row.links.length&&<span aria-label={tr?'Kontrol yok':'No controls'}>—</span>}</div></td>
             <td data-label={tr?'SoA Kapsam':'SoA scope'}><ScopeCell key={row.revision} name={name} row={row} tr={tr} write={props.write} onEdit={()=>select('')} onSave={saved} onReload={()=>refresh(v=>v+1)}/></td>
             <td data-label={tr?'Aksiyon':'Action'}><button type="button" className="posture-link-action" onClick={toggle} aria-expanded={expanded}
