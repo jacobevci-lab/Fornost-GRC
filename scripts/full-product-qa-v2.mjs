@@ -20,8 +20,8 @@ const moduleLabels = {
     "Politika Merkezi", "Tedarikçi Yönetimi", "Kontrol Kütüphanesi", "Kanıt Kütüphanesi",
     "Kanıt Otomasyonu", "Regülasyon Merkezi", "Güvenlik Olayları ve Kriz", "Bulgular ve CAPA",
     "Denetim Yönetimi", "Bağlantılı GRC Haritası", "Raporlama", "AI Yönetişimi", "Ask Fornost",
-    "Sistem Ayarları", "AI Ayarları", "Ana Veri Yönetimi", "İş Akışı Entegrasyonları",
-    "E-posta ve Bildirimler", "Kimlik ve Erişim",
+    "Sistem Ayarları", "AI Ayarları", "Ana Veri Yönetimi", "Entegrasyonlar",
+    "E-posta ve Bildirimler", "Kimlik ve Erişim", "Trust Center Yönetimi",
   ],
   en: [
     "Dashboard", "My Work", "Risk Assessment", "Risk Appetite & KRI",
@@ -29,11 +29,11 @@ const moduleLabels = {
     "Policy Center", "Vendor Management", "Control Library", "Evidence Library", "Evidence Automation",
     "Regulatory Change Center", "Security Incidents & Crisis", "Findings & CAPA", "Audit Management",
     "Connected GRC Map", "Reporting", "AI Governance", "Ask Fornost", "System Settings", "AI Settings",
-    "Master Data", "Workflow Integrations", "Email & Notifications", "Identity & Access",
+    "Master Data", "Integrations", "Email & Notifications", "Identity & Access", "Trust Center Management",
   ],
 };
 
-const representativeIndexes = Array.from({ length: 27 }, (_, index) => index);
+const representativeIndexes = Array.from({ length: moduleLabels.tr.length }, (_, index) => index);
 const accessHeaders = {};
 if (accessClientId && accessClientSecret) {
   accessHeaders["CF-Access-Client-Id"] = accessClientId;

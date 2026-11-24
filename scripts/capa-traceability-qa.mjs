@@ -26,7 +26,7 @@ try{
  });
  await page.goto(base);await expect(page.locator('.shell')).toBeVisible({timeout:30000});
  await page.locator('.language-switch:visible').getByRole('button',{name:'EN',exact:true}).click();
- await page.locator('nav button[aria-label="Workflow Integrations"]').evaluate(n=>n.click());
+ await page.locator('nav button[aria-label="Integrations"]').evaluate(n=>n.click());
  await page.getByRole('region',{name:'Integration Center',exact:true}).getByRole('button',{name:'Continuous assurance',exact:true}).click();
  const panel=page.locator('.ca-attention'),lifecycle=panel.locator('[aria-label="CAPA remediation lifecycle"]');
  await expect(lifecycle).toContainText('Closed and verified',{timeout:30000});assert.ok(calls.some(c=>c.length===50));assert.ok(calls.some(c=>c.length===1));assert.ok(calls.every(c=>c.length<=50));

@@ -22,9 +22,10 @@ const row = async () => (await api('GET', '/api/integrations')).integrations.fin
 async function capture(name) { await desk.screenshot({ path: `${out}/${name}.png` }); screenshots.push(name); }
 try {
  assert.equal((await api('GET', '/api/auth')).bootstrapRequired, true, 'A fresh isolated runtime is required');
+ if(process.env.ENTERPRISE_BOOTSTRAP_KEY)await api('POST','/api/auth',{action:'authorize_bootstrap',token:process.env.ENTERPRISE_BOOTSTRAP_KEY});
  await api('POST', '/api/auth', { action: 'bootstrap', email: 'qa-admin@fornost.test', name: 'Integration QA', password: qaPassword() });
- await page.goto(base); await expect(page.locator('.shell')).toBeVisible();
- await openQaModule(page, 'İş Akışı Entegrasyonları'); await expect(desk).toContainText('İlk iş takibi bağlantınızı kurun'); await capture('empty-TR-light');
+ await page.goto(base); await expect(page.locator('.shell')).toBeVisible({timeout:30000});
+ await openQaModule(page, 'Entegrasyonlar'); await expect(desk).toContainText('İlk iş takibi bağlantınızı kurun'); await capture('empty-TR-light');
  phase = 'wizard draft persistence'; await button('Kuruluma başla').click();
  await button('Devam et').click(); await desk.getByLabel('Bağlantı adı', { exact: true }).fill('Jira · Güvenlik Ekibi');
  await desk.getByLabel('Sorumlu ekip', { exact: true }).fill('Bilgi Güvenliği');
@@ -41,7 +42,9 @@ try {
  assert.equal(Object.hasOwn(current, 'secret_ciphertext'), false);
  await button('Kapat').click(); await page.reload(); await waitForQaIdle(page); await expect(desk).toContainText('Jira · Güvenlik Ekibi');
  phase = 'role and version guards';
- const editor = await browser.newContext(); await api('POST', '/api/auth', { action: 'demo_login' }, 200, editor.request);
+ const editor = await browser.newContext(), editorEmail='ticket-editor@fornost.test';
+ await api('POST','/api/users',{email:editorEmail,name:'Ticket QA editor',role:'Editor',password:qaPassword()},201);
+ await api('POST','/api/auth',{action:'login',email:editorEmail,password:qaPassword()},200,editor.request);
  for (const path of ['/api/integrations', '/api/integrations?view=history', '/api/integrations/health']) await api('GET', path, undefined, 403, editor.request);
  for (const method of ['PUT', 'DELETE']) await api(method, '/api/integrations', { kind: 'ticketing' }, 403, editor.request);
  await api('POST', '/api/integrations', { kind: 'ticketing', action: 'test' }, 403, editor.request);

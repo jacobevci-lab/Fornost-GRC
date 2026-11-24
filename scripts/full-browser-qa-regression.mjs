@@ -107,7 +107,7 @@ try {
         navigation.push({ language, label });
       }
     }
-    assert.equal(navigation.filter(item => item.language === language).length, 27);
+    assert.equal(navigation.filter(item => item.language === language).length, 28);
   }
 
   // Priority filters and records fit the mobile dashboard in both languages.
@@ -314,7 +314,7 @@ try {
   await expect(portfolio).toContainText('No active AI systems');
   assert.deepEqual(pageErrors, []);
   await fs.writeFile(`${out}/summary.json`, JSON.stringify({ navigation, dashboardInitialScope: true, assuranceRefreshCoalescing: true, delayedSave: true, immediateDelete: true, auditCreateRepairDelete: true, languages: ['tr','en'], viewports: [390,1536], pageErrors }, null, 2));
-  console.log('FULL_BROWSER_REGRESSION_PASS: delayed dashboard scope, 54 visible menu visits, save-refresh race, immediate deletion, audit create/orphan repair/delete, TR/EN light/dark responsive layouts and localized incident form');
+  console.log('FULL_BROWSER_REGRESSION_PASS: delayed dashboard scope, 56 visible menu visits, save-refresh race, immediate deletion, audit create/orphan repair/delete, TR/EN light/dark responsive layouts and localized incident form');
 } catch (error) {
   await page.screenshot({ path: `${out}/failure.png`, fullPage: true }).catch(() => {});
   await fs.writeFile(`${out}/failure.json`, JSON.stringify({ message: error.message, navigation, pageErrors }, null, 2));

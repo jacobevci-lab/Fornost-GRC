@@ -1,4 +1,5 @@
 "use client";
+import {usePathname} from "next/navigation";
 import PlatformEscape from "./platform-escape";
 import FornostAiCopilot from "./fornost-ai-copilot";
 import FornostAiSourceNavigation from "./fornost-ai-source-navigation";
@@ -18,6 +19,8 @@ import ProgressiveFormExperience from "./progressive-form-experience";
  * compatibility/QA group at the bottom should shrink rather than grow.
  */
 export default function PlatformExperience() {
+  const path=usePathname();
+  if(/\/(vendor-portal|trust-center|board-pack)(\/|$)/.test(path||""))return null;
   return (
     <>
       <PlatformEscape />

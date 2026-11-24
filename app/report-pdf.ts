@@ -4,7 +4,7 @@ import {withBasePath} from './base-path';
 import type {reportSnapshot} from './report-export';
 
 type Snapshot=ReturnType<typeof reportSnapshot>;
-export async function renderReportPdf(s:Snapshot,suppliedFont?:Uint8Array){
+export async function renderReportPdf(s:Snapshot,suppliedFont?:Uint8Array,scopeLine?:string){
  let fontBytes=suppliedFont;
  if(!fontBytes){const response=await fetch(withBasePath('/fonts/FornostReportSans.ttf'),{signal:AbortSignal.timeout(15000)});if(!response.ok)throw new Error('Report font unavailable');fontBytes=new Uint8Array(await response.arrayBuffer());}
  const doc=await PDFDocument.create();doc.registerFontkit(fontkit);
@@ -29,7 +29,7 @@ export async function renderReportPdf(s:Snapshot,suppliedFont?:Uint8Array){
  addPage();paragraph(s.title,21,accent);
  paragraph(`${s.tr?'Rapor kimliği':'Report ID'}: ${s.id} · ${s.classification}`,10,muted);
  paragraph(`${s.tr?'Oluşturma (UTC)':'Generated (UTC)'}: ${s.generatedAt} · ${s.tr?'Hazırlayan':'Prepared by'}: ${s.preparedBy}`,9,muted);
- paragraph(`${s.tr?'Kapsam':'Scope'}: ${s.records.length} ${s.tr?'kayıt':'records'} · ${s.template==='detailed'?(s.tr?'Detaylı kayıt dökümü':'Detailed register'):(s.tr?'Yönetim özeti':'Management summary')}`,11);
+ paragraph(scopeLine??`${s.tr?'Kapsam':'Scope'}: ${s.records.length} ${s.tr?'kayıt':'records'} · ${s.template==='detailed'?(s.tr?'Detaylı kayıt dökümü':'Detailed register'):(s.tr?'Yönetim özeti':'Management summary')}`,11);
  paragraph(s.scope,9);
  paragraph(s.filters.map(f=>`${f.label}: ${f.value}`).join(' · ')||(s.tr?'Ek filtre yok':'No additional filters'),9);
  const widths=[65,94,190,82,118,110,111],size=8.5,leading=12;

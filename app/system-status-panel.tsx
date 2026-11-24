@@ -39,7 +39,7 @@ export default function SystemStatusPanel({ lang }: { lang: "tr" | "en" }) {
     <h3>{tr ? "Entegrasyonların Son Testleri" : "Last Integration Tests"}</h3>
     <p>{tr ? "Kayıtlı test geçmişidir; anlık bağlantı durumunu göstermez. Yeni test için ilgili ayar sayfasını kullanın." : "Recorded test history, not current connectivity. Run a new test from the corresponding settings page."}</p>
     <div className="settings-status-grid">
-      {([["identity", tr ? "Kimlik ve Erişim" : "Identity & Access"], ["ticketing", tr ? "İş Akışı Entegrasyonları" : "Workflow Integrations"], ["email", tr ? "E-posta ve Bildirimler" : "Email & Notifications"]] as const).map(([kind, title]) => {
+      {([["identity", tr ? "Kimlik ve Erişim" : "Identity & Access"], ["ticketing", tr ? "Entegrasyonlar" : "Integrations"], ["email", tr ? "E-posta ve Bildirimler" : "Email & Notifications"]] as const).map(([kind, title]) => {
         const item = parseIntegrationStatus(integrations, kind);
         return <article key={kind}><b>{title}</b><span data-state={item.state}>{label(item.state)}</span><small>{item.testedAt ? date(item.testedAt) : tr ? "Geçerli test kaydı okunamadı." : "No verified test record available."}</small></article>;
       })}

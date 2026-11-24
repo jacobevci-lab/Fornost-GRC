@@ -7,6 +7,7 @@ export default function BootstrapSecurityGate() {
   useEffect(() => {
     const configuredBasePath = process.env.NEXT_PUBLIC_BASE_PATH?.trim().replace(/\/+$/, "") || "";
     const pathname = window.location.pathname;
+    if (/\/(vendor-portal|trust-center|board-pack)(\/|$)/.test(pathname)) return;
     const setupPath = `${configuredBasePath}/setup` || "/setup";
     if (pathname === setupPath || pathname.startsWith(`${setupPath}/`)) return;
 

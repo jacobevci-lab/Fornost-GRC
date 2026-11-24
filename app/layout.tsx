@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import "./exchange/exchange.css";
 import "./setup.css";
 import "./risk-governance.css";
 import "./reporting.css";
@@ -43,6 +44,7 @@ import "./fornost-ai-findings.css";
 import "./quality-guardrails.css";
 import "./production-hardening.css";
 import "./sidebar-icon-tooltip.css";
+
 import BootstrapSecurityGate from "./bootstrap-security-gate";
 import PlatformExperience from "./platform-experience";
 

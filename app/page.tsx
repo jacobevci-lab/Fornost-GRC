@@ -1,4 +1,7 @@
 "use client";
+import IntegrationCenter from "./exchange/integration-center";
+import TrustAdmin from "./exchange/trust-admin";
+import {BoardWizard} from "./exchange/board-ui";
 import { CopyRecordLink, RecordLinkEntry } from './record-link-controls';
 import {EvidenceLibraryFields,EvidenceControlsContext,EvidenceControlsCell} from "./evidence-library-fields";
 import {EvidenceReviewAction} from "./evidence-review-action";
@@ -190,6 +193,7 @@ const modules = [
   "AI Ayarları",
   "Ana Veri Yönetimi",
   "İş Akışı Entegrasyonları",
+  "Trust Center Yönetimi",
   "E-posta ve Bildirimler",
   "Kimlik ve Erişim",
 ];
@@ -198,6 +202,7 @@ const adminModules = new Set([
   "AI Ayarları",
   "Ana Veri Yönetimi",
   "İş Akışı Entegrasyonları",
+  "Trust Center Yönetimi",
   "E-posta ve Bildirimler",
   "Kimlik ve Erişim",
 ]);
@@ -227,7 +232,8 @@ const names: Record<Lang, Record<string, string>> = {
     "Sistem Ayarları": "Sistem Ayarları",
     "AI Ayarları": "AI Ayarları",
     "Ana Veri Yönetimi": "Ana Veri Yönetimi",
-    "İş Akışı Entegrasyonları": "İş Akışı Entegrasyonları",
+    "İş Akışı Entegrasyonları": "Entegrasyonlar",
+    "Trust Center Yönetimi": "Trust Center Yönetimi",
     "E-posta ve Bildirimler": "E-posta ve Bildirimler",
     "Kimlik ve Erişim": "Kimlik ve Erişim",
   },
@@ -256,7 +262,8 @@ const names: Record<Lang, Record<string, string>> = {
     "Sistem Ayarları": "System Settings",
     "AI Ayarları": "AI Settings",
     "Ana Veri Yönetimi": "Master Data",
-    "İş Akışı Entegrasyonları": "Workflow Integrations",
+    "İş Akışı Entegrasyonları": "Integrations",
+    "Trust Center Yönetimi": "Trust Center Management",
     "E-posta ve Bildirimler": "Email & Notifications",
     "Kimlik ve Erişim": "Identity & Access",
   },
@@ -1812,7 +1819,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
     { id: "risk", label: lang === "tr" ? "RİSK" : "RISK", items: ["Risk Assessment","Varlık Envanteri","BIA","Tedarikçiler","Risk İştahı ve KRI","İş Sürekliliği"] },
     { id: "compliance", label: lang === "tr" ? "UYUM" : "COMPLIANCE", items: ["Uyum","Kontroller","Kanıtlar","Kanıt Otomasyonu"] },
     { id: "assurance", label: lang === "tr" ? "GÜVENCE" : "ASSURANCE", items: ["Denetim Yönetimi","Bulgular ve CAPA","Güvenlik Olayları"] },
-    { id: "governance", label: lang === "tr" ? "YÖNETİŞİM" : "GOVERNANCE", items: ["Politika Merkezi","Regülasyon Merkezi","AI Yönetişimi"] },
+    { id: "governance", label: lang === "tr" ? "YÖNETİŞİM" : "GOVERNANCE", items: ["Politika Merkezi","Regülasyon Merkezi","AI Yönetişimi",...(currentUser.orgScope?.role==="group-admin"?["Trust Center Yönetimi"]:[])] },
     { id: "intelligence", label: lang === "tr" ? "İÇGÖRÜ" : "INTELLIGENCE", items: ["Bağlantılı GRC","Raporlar","Ask Fornost"] },
     ...(currentUser.role === "Admin" ? [{ id: "administration", label: lang === "tr" ? "YÖNETİM" : "ADMINISTRATION", items: ["İş Akışı Entegrasyonları","Kimlik ve Erişim","Sistem Ayarları","AI Ayarları","Ana Veri Yönetimi","E-posta ve Bildirimler"] }] : []),
   ].map(group=>({...group,items:group.items.filter(module=>canOpenModule(currentUser,module)&&(!scoped||module!=="Ask Fornost"))})).filter(group=>group.items.length);
@@ -2346,7 +2353,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
         ) : active === "Bağlantılı GRC" ? (
           <ConnectedGrc rows={rows} lang={lang} go={setActive} includeAi={currentUser.role === "Admin"} actor={currentUser} refreshRows={load} coreState={registerLoadState} />
         ) : active === "Raporlar" ? (
-          <Reports rows={rows} lang={lang} go={navigateToModule} preparedBy={currentUser.email} includeCapa={currentUser.role === "Admin"} coreState={registerLoadState} refreshRows={load} />
+          <>{(currentUser.orgScope?.role==="group-admin"||currentUser.orgScope?.role==="group-ciso"&&!scoped)&&<BoardWizard lang={lang}/>}<Reports rows={rows} lang={lang} go={navigateToModule} preparedBy={currentUser.email} includeCapa={currentUser.role === "Admin"} coreState={registerLoadState} refreshRows={load} /></>
         ) : active === "Kanıt Otomasyonu" ? (
           <EvidenceAutomation lang={lang} currentUser={currentUser} />
         ) : active === "Regülasyon Merkezi" ? (
@@ -2361,7 +2368,10 @@ function FornostApp({ currentUser }: { currentUser: any }) {
           <PolicyLifecycle lang={lang} currentUser={currentUser} />
         ) : active === "Tedarikçiler" && !scoped && !recordRequest && !focusedRecord ? (
           <ThirdPartyRisk lang={lang} currentUser={currentUser} refreshKey={registerImportRevision} onImport={canWriteModule(currentUser, active) && registerLoadState === "ready" ? () => setImportOpen(true) : undefined} />
+        ) : active === "Trust Center Yönetimi" ? (
+          <TrustAdmin lang={lang}/>
         ) : adminModules.has(active) ? (
+          <>{active==="İş Akışı Entegrasyonları"&&currentUser.orgScope?.role==="group-admin"&&<IntegrationCenter lang={lang}/>}
           <Settings
             onAppearance={()=>setAppearanceOpen(true)}
             lang={lang}
@@ -2383,6 +2393,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
                       : "system"
             }
           />
+          </>
         ) : lens && active === "Kontroller" ? (
           <ControlAssuranceWorkspace rows={rows} lang={lang} go={navigateToModule} />
         ) : lens && active === "Denetim Yönetimi" ? (
