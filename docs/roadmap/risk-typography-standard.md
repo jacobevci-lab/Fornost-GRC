@@ -64,4 +64,15 @@ Existing UI regression expectations for larger dashboard/AI KPI values and
 headings are updated to the same explicit compact values, preserving interaction,
 contrast and overflow checks.
 
-Final browser matrix and deployment verification in progress.
+Browser matrix run 45562712288 on 511030768f2c8c10ce0e21c7f9bbb29c1e42005a
+passed 384 views and 49,158 element measurements: all 30 navigation destinations
+in TR/EN and light/dark at desktop/mobile widths, 14 real dialog types, Risk
+record detail, Ask Fornost drawer, seven settings surfaces, both public portal
+forms and 125% text scaling. No font, size, line-height, clipping, document-overflow
+or page-error failures were reported. Public portal data is a deterministic
+presentation fixture; the existing external-assurance suite owns authorization.
+
+Manual screenshot inspection identified the sidebar brand caption clipping; it
+now wraps, with a dedicated geometry check. Long resizable headers also wrap.
+Final revision checks and deployment evidence are tracked in PR #483 and its
+Compact Typography QA / production QA artifacts.
