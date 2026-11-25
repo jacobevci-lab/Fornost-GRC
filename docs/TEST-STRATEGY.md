@@ -11,6 +11,12 @@
 | Artifact | Worker `default.fetch`, hosting manifesti ve build çıktısı |
 | Repository | `git diff --check`, gizli bilgi ve istenmeyen dosya kontrolü |
 
+## Pull request incelemesinde erişilebilirlik ve bağımlılıklar
+
+Workspace Layout QA, geçici yerel hesabı açtıktan sonra tedarikçi kartları ve envanter durum etiketlerinin kontrastını axe ile denetler. Gerçek arayüz sentetik tedarikçi yanıtlarıyla çalışır. Kayıt arama penceresi de Türkçe ve İngilizce, açık ve koyu temada kontrol edilir. QA bağımlılıkları `scripts/package-lock.json` dosyasında sabitlenir. `npm ci --prefix scripts` ve `scripts/node_modules/.bin/playwright install chromium` ile kurulumdan sonra `npm run test:axe-scanner` ana sayfa ve sandbox içindeki adsız düğmelerin gerçekten bulunduğunu ve tamamlanamayan taramanın hata verdiğini kontrol eder. Bu sentetik test, gerçek arama penceresindeki ciddi ve kritik ihlalleri denetleyen ürün testini tamamlar.
+
+CI, her PR'da ve ana dala gönderimde Trivy 0.76.2 ile bağımlılıkları (geliştirme bağımlılıkları dahil) ve yapılandırmaları tarar. `trivy-repository` artefaktı tüm önem düzeylerindeki sonuçları içerir. Tarama hatası, uygulama veya QA kilit dosyasında ya da Dockerfile'da eksik kapsam ve her HIGH/CRITICAL bulgu işi başarısız kılar. Yerelde aynı kontrolü temiz bir checkout üzerinde `bash scripts/check-repository-security.sh /tmp/trivy-repository.json` ile çalıştırabilirsiniz. Trivy ve jq gereklidir. Çıkış kodu 2, HIGH veya CRITICAL bir bulgu olduğunu gösterir. İş özetinde bulgu sayıları, günlüklerde ve JSON raporunda etkilenen paket ve yapılandırmalar listelenir.
+
 ## Fonksiyonel regresyon matrisi
 
 Modülün desteklediği işlemlere göre listeleme, arama, oluşturma, düzenleme, silme/iptal, zorunlu alanlar, sınır değerleri, boş durum, TR/EN ve responsive davranış kontrol edilir. Denetim modülünde ana denetim kartı → çalışma alanı → madde → ilerleme → import/export akışı ayrıca test edilir.
@@ -53,4 +59,4 @@ Canlı ortamda authenticated OWASP ZAP/Nessus WAS taraması, oran sınırlı ve 
 - Bütün-denetim kapanışı: kaynak revizyonu, bağımsız onay, transaction rollback, yazma kilitleri, paket bütünlüğü ve gerekçeli yeniden açma.
 - On-prem: Docker/Podman, kurulum kalıcılığı, yedek checksum ve ayrı volume üzerinde uygulamayla geri dönüş.
 
-İlgili scriptler `.github/workflows/workspace-layout-qa.yml`, CI ve yayın workflow'larında tanımlıdır. Layout workflow'u uygulama/QA yolu değişikliklerinde çalışır; yalnız dokümantasyon değişikliği yeni 324 görünüm taraması anlamına gelmez. Son tarihli sürüm kanıtı ve müşteri UAT ayrımı için [Production Readiness](PRODUCTION-READINESS.md) okunmalıdır.
+İlgili scriptler `.github/workflows/workspace-layout-qa.yml`, CI ve yayın workflow'larında tanımlıdır. Layout workflow'u uygulama, QA veya npm bağımlılık dosyalarının değişikliklerinde çalışır; yalnız dokümantasyon değişikliği yeni 324 görünüm taraması anlamına gelmez. Son tarihli sürüm kanıtı ve müşteri UAT ayrımı için [Production Readiness](PRODUCTION-READINESS.md) okunmalıdır.

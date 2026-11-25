@@ -5,7 +5,7 @@ import {mkdir, writeFile} from 'node:fs/promises';
 import {qaPassword} from './qa-credentials.mjs';
 import {createQaContext, openQaModule, switchQaLocale, waitForQaIdle} from './qa-browser-harness.mjs';
 
-// Run after report-composer QA has bootstrapped its disposable local runtime.
+// Run after the disposable local runtime has a QA admin account.
 // Only the vendor GET response is synthetic; render the actual application and
 // complete stylesheet cascade. This is populated visual coverage, not CRUD QA.
 const base='http://127.0.0.1:4173',out='tprm-contrast-qa-artifacts';

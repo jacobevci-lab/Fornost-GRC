@@ -47,6 +47,41 @@ jobs:
         run: bash scripts/audit-dependencies.sh
       - run: npm run validate:artifact
 
+  repository-security:
+    name: Trivy repository dependencies and configuration
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install checksum-verified Trivy 0.76.2
+        working-directory: ${{ runner.temp }}
+        run: |
+          curl --fail --silent --show-error --location --retry 3 \
+            https://github.com/aquasecurity/trivy/releases/download/v0.76.2/trivy_0.76.2_Linux-64bit.tar.gz \
+            --output trivy.tar.gz
+          echo 'bc0fc726e017b8927a62b2d3531d7a84ee01769daf5c99ed866dced54089fdbf  trivy.tar.gz' | sha256sum --check --strict
+          mkdir trivy-bin
+          tar -xzf trivy.tar.gz -C trivy-bin trivy
+          echo "$RUNNER_TEMP/trivy-bin" >> "$GITHUB_PATH"
+      - name: Scan repository and enforce HIGH and CRITICAL findings
+        run: bash scripts/check-repository-security.sh "$RUNNER_TEMP/trivy-repository.json"
+      - name: Preserve repository security evidence
+        id: archive_trivy
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: trivy-repository
+          path: ${{ runner.temp }}/trivy-repository.json
+          if-no-files-found: error
+          retention-days: 14
+      - name: Report unavailable Trivy archive
+        if: ${{ !cancelled() && steps.archive_trivy.outcome == 'failure' }}
+        run: |
+          message='Trivy JSON archive unavailable. See the repository scan step for its outcome and diagnostics.'
+          echo "::warning::$message"
+          echo "$message" >> "$GITHUB_STEP_SUMMARY"
+
   onprem-container-integration:
     runs-on: ubuntu-latest
     timeout-minutes: 25

@@ -1,0 +1,14 @@
+{
+  "name": "fornost-grc-qa-tools",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22.13.0"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "4.14.1",
+    "@playwright/test": "1.65.1",
+    "axe-core": "4.14.1"
+  }
+}
