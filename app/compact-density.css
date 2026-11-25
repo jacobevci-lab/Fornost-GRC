@@ -51,12 +51,12 @@
   padding: .5rem .625rem !important;
   gap: .5rem !important;
 }
-:where(.register-search) {
+:where(.register-search, .mw2-search) {
   min-height: var(--grc-control-height) !important;
   height: var(--grc-control-height) !important;
   padding: 0 .5rem !important;
 }
-:where(.register-search input) {
+:where(.register-search input, .mw2-search input) {
   min-height: 0 !important;
   height: 100% !important;
   padding-inline: 0 !important;
