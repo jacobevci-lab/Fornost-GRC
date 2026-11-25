@@ -63,7 +63,7 @@ try{
   await waitForQaIdle(page);
   assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+2),'page overflow');
   const metrics=await page.locator('.rg-summary strong').first().evaluate(e=>parseFloat(getComputedStyle(e).fontSize));
-  assert.equal(metrics,20,'compact tabular KPI typography');
+  assert.equal(metrics,17,'compact tabular KPI typography');
   assert.equal(await page.locator('.ri-tabs').evaluate(e=>getComputedStyle(e).display),'flex');
   const dd=page.locator('.rg-detail dd').first();
   assert.notEqual(await dd.evaluate(e=>getComputedStyle(e).color),theme==='light'?'rgb(255, 255, 255)':'rgb(0, 0, 0)','detail contrast');

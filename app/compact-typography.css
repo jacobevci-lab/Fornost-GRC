@@ -1,16 +1,18 @@
 /* Imported as the FIRST cascade layer by globals.css. Important declarations in
  * this layer outrank legacy unlayered module rules without a specificity race.
- * Layout, colors, spacing and visibility remain owned by their components.
- * The Risk register supplies the hierarchy; all surfaces share its scale.
+ * Compact spacing is owned by compact-density.css in the same layer.
+ * Components retain their layout, colors and visibility. The root stays at 100%.
  */
 :root {
-  --grc-text-data: .8125rem;
-  --grc-text-caption: .75rem;
+  --grc-text-data: .75rem;
+  --grc-text-caption: .6875rem;
+  --grc-text-detail: .65625rem;
+  --grc-text-micro: .625rem;
   --grc-text-section: .8125rem;
-  --grc-text-card: .9375rem;
-  --grc-text-page: 1rem;
-  --grc-text-kpi: 1.25rem;
-  --grc-leading-data: 1.45;
+  --grc-text-card: .8125rem;
+  --grc-text-page: .9375rem;
+  --grc-text-kpi: 1.0625rem;
+  --grc-leading-data: 1.35;
   --grc-leading-heading: 1.35;
   --grc-leading-page: 1.3;
   --grc-leading-kpi: 1.2;
@@ -52,8 +54,30 @@ body {
   line-height: var(--grc-leading-data) !important;
 }
 :where(b, strong, th, legend) { font-weight: 600 !important; }
-:where(small, time, figcaption, caption, thead th, .module-kicker, .header-context>small) {
+:where(small, time, figcaption, caption) {
   font-size: var(--grc-text-caption) !important;
+  line-height: var(--grc-leading-data) !important;
+}
+:where(thead th, .module-kicker, .header-context>small, .nav-group-trigger,
+  .nav-group>small, .nav-section>small, .sidebar-view-controls>span) {
+  font-size: var(--grc-text-micro) !important;
+  line-height: var(--grc-leading-data) !important;
+  text-transform: uppercase !important;
+  letter-spacing: .08em !important;
+}
+:where(td small, td .code, td code, td .row-subtitle, td .subline) {
+  font-size: var(--grc-text-detail) !important;
+  line-height: var(--grc-leading-data) !important;
+}
+:where(.tag, .badge, .status-pill, .status-badge, .priority-badge, .risk,
+  .entity-badge, .source-badge, .kpi-percent,
+  .admin-badge, .ai-settings-status, .bcp-status, .ca-state, .cm-status,
+  .control-run-status, .delivery-state, .dispatch-state, .ea-status, .ed10-status,
+  .executive-status, .finding-badge, .finding-state, .iad-badge,
+  .incident-badge, .incident-state, .live-badge, .mw2-state, .plm-state,
+  .rap-state, .ri-state, .state-pill, .tprm-state, .work-status,
+  [data-typography="badge"]) {
+  font-size: var(--grc-text-micro) !important;
   line-height: var(--grc-leading-data) !important;
 }
 :where(h1) {
@@ -66,7 +90,7 @@ body {
   font-weight: 600 !important;
   line-height: var(--grc-leading-heading) !important;
 }
-:where(h3, h4, h5, h6, legend) {
+:where(h3, h4, h5, h6, legend, .domain-link) {
   font-size: var(--grc-text-section) !important;
   font-weight: 600 !important;
   line-height: var(--grc-leading-heading) !important;

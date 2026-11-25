@@ -120,9 +120,9 @@ try {
     const name=locale==='tr'?'Bağlantılı GRC Haritası':'Connected GRC Map';
     const pageTitle=page.getByRole('heading',{name,exact:true});
     await expect(pageTitle).toHaveCount(1);
-    assert.ok(await pageTitle.evaluate(el=>el.tagName==='H1' && parseFloat(getComputedStyle(el).fontSize)>=16),'Readable page heading');
-    assert.equal(await page.locator('.cgw-records>button b').first().evaluate(el=>getComputedStyle(el).fontSize),'13px','Readable desktop record text');
-    assert.equal(await page.locator('.cgw-filters input').evaluate(el=>getComputedStyle(el).fontSize),'13px','Readable desktop form text');
+    assert.ok(await pageTitle.evaluate(el=>el.tagName==='H1' && parseFloat(getComputedStyle(el).fontSize)>=15),'Readable page heading');
+    assert.equal(await page.locator('.cgw-records>button b').first().evaluate(el=>getComputedStyle(el).fontSize),'12px','Readable desktop record text');
+    assert.equal(await page.locator('.cgw-filters input').evaluate(el=>getComputedStyle(el).fontSize),'12px','Readable desktop form text');
     assert.equal(await page.locator('.cg-operations').count(), 0, 'Assurance operations do not crowd the initial map');
     assert.equal(await page.locator('.cgw-gaps').count(), 0, 'Missing connections have their own view');
     assert.ok((await page.locator('.cgw-layout').boundingBox()).y < 600, 'Record explorer is above the fold');
@@ -166,7 +166,7 @@ try {
     await page.screenshot({path:`${output}/${locale}-connected-alternate-theme.png`});
     await page.setViewportSize({width:390,height:900});
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth-innerWidth) <= 4, 'Connected explorer fits mobile');
-    assert.equal(await page.locator('.cgw-records>button b').first().evaluate(el=>getComputedStyle(el).fontSize),'13px','Mobile record text remains readable');
+    assert.equal(await page.locator('.cgw-records>button b').first().evaluate(el=>getComputedStyle(el).fontSize),'12px','Mobile record text remains readable');
     await page.screenshot({path:`${output}/${locale}-connected-mobile.png`});
     await page.setViewportSize({width:1536,height:960});
     await progress(`${locale}: audit stability`);

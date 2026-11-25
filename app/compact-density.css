@@ -1,0 +1,117 @@
+/* Same first cascade layer as typography: one density contract at 100% zoom.
+ * Do not set overflow or fixed heights on multiline content/card actions.
+ * Native hidden fields, toggles, range controls and resize handles keep their
+ * component geometry. All values scale with the user's default text size.
+ */
+:root {
+  --grc-control-height: 2rem;
+  --grc-action-height: 1.75rem;
+  --grc-cell-y: .375rem;
+  --grc-cell-x: .625rem;
+  --grc-card-padding: .75rem;
+}
+:where(th, td) {
+  padding: var(--grc-cell-y) var(--grc-cell-x) !important;
+}
+:where(button):not(:where([role="switch"], .column-resize-handle, .resize-handle)) {
+  min-height: var(--grc-action-height) !important;
+  height: auto !important;
+  padding: .25rem .5rem !important;
+}
+:where(input):not(:where([type="checkbox"], [type="radio"], [type="range"],
+  [type="hidden"], [type="file"], [type="color"])),
+:where(select):not([multiple]):not([size]) {
+  min-height: var(--grc-control-height) !important;
+  height: var(--grc-control-height) !important;
+  padding-block: .25rem !important;
+  padding-inline: .5rem !important;
+}
+:where(select[multiple], select[size], textarea) {
+  min-height: 4rem !important;
+  padding: .375rem .5rem !important;
+}
+:where(input[type="file"]) { font-size: var(--grc-text-data) !important; }
+::file-selector-button {
+  min-height: var(--grc-action-height) !important;
+  padding: .25rem .5rem !important;
+}
+:where(.tag, .badge, .status-pill, .status-badge, .priority-badge, .risk,
+  .entity-badge, .source-badge, .kpi-percent,
+  .admin-badge, .ai-settings-status, .bcp-status, .ca-state, .cm-status,
+  .control-run-status, .delivery-state, .dispatch-state, .ea-status, .ed10-status,
+  .executive-status, .finding-badge, .finding-state, .iad-badge,
+  .incident-badge, .incident-state, .live-badge, .mw2-state, .plm-state,
+  .rap-state, .ri-state, .state-pill, .tprm-state, .work-status,
+  [data-typography="badge"]) {
+  padding: .125rem .375rem !important;
+}
+
+/* Keep wide rows scrollable and field groups responsive as their modules intend. */
+:where(.table-tools, .register-toolbar, .register-tools, .register-filter-bar) {
+  padding: .5rem .625rem !important;
+  gap: .5rem !important;
+}
+:where(.register-search) {
+  min-height: var(--grc-control-height) !important;
+  height: auto !important;
+  padding: 0 .5rem !important;
+}
+:where(.register-search input) { padding-inline: 0 !important; }
+:where(.form, .modal form.form) { padding: .875rem 1rem !important; gap: .625rem !important; }
+:where(.modal-head, .record-dialog .modal-head) { padding: .75rem 1rem !important; }
+:where(.form-actions, .modal-footer) { padding-block: .625rem !important; gap: .5rem !important; }
+
+/* Expanded and mobile navigation: 12px items, 10px groups, six-pixel rhythm. */
+:where(.nav-group-items>button, .nav-section>button, .nav-group-trigger) {
+  padding: .375rem .625rem !important;
+  min-height: var(--grc-action-height) !important;
+  height: auto !important;
+  gap: .5rem !important;
+}
+:where(.nav-group-items>button>i, .nav-section>button>i) {
+  width: 1.25rem !important;
+  height: 1.25rem !important;
+  flex: 0 0 1.25rem !important;
+}
+:where(.sidebar-view-controls button) { min-height: 2.5rem !important; }
+@media (min-width: 901px) {
+  :where(.sidebar-compact .nav-group-items>button, .sidebar-collapsed .nav-group-items>button) {
+    min-height: 2.25rem !important;
+    padding: .375rem !important;
+  }
+}
+
+/* KPI cards, including cards implemented as drill-through buttons. */
+:where(
+  .kpi, .executive-kpi, .command-stat, .risk-metrics>article,
+  .module-overview>div>article, .rap-metrics>article, .rap-metrics>div,
+  .continuity-kpis>article, .plm-metrics>article, .tprm-metrics>article,
+  .ri-metrics>article, .incident-kpis>article, .finding-kpis>button,
+  .connected-kpis>article, .mw2-metrics>article, .work-metrics>article,
+  .ag-kpis>button, .policy-kpis>article, .audit-kpis>article,
+  .audit-portfolio-kpis>section, .apw-metric, .ic-kpis>div, .ec-kpis>button,
+  .audit-detail-kpis>article, .audit-evidence-metrics>article,
+  .audit-readiness-metrics>article, .audit-readiness-metrics>button,
+  .control-assurance-kpis>article, .eql-health>article, .eql-metrics>article,
+  .ea-stats>article, .ca-metrics>article, .eh-metrics>article,
+  .ai-decision-metrics>article, .ai-inventory-stats>article, .ai-metric-grid>article,
+  .fornost-ai-metric-grid>article, .ai-control-summary>article,
+  .settings-security-overview>div, .soc2-status-grid>article,
+  .rg-summary>button, [data-density="metric-card"]
+) {
+  padding: var(--grc-card-padding) !important;
+  min-height: 0 !important;
+  height: auto !important;
+  gap: .375rem !important;
+}
+:where(.executive-kpi-label) { min-height: 0 !important; height: auto !important; }
+:where(
+  .kpi>span, .kpi>small, .executive-kpi em, .risk-metrics article span,
+  .rap-metrics span, .continuity-kpis span, .plm-metrics span, .tprm-metrics span,
+  .ri-metrics span, .incident-kpis span, .finding-kpis span, .connected-kpis span,
+  .ag-kpis span, .policy-kpis span, .audit-portfolio-kpis span,
+  .ic-kpis span, .ec-kpis span, .rg-summary span
+) {
+  font-size: var(--grc-text-caption) !important;
+  line-height: var(--grc-leading-data) !important;
+}
