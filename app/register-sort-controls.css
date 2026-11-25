@@ -41,7 +41,7 @@
 .compact-register-toolbar .register-sort-controls select {
   box-sizing: border-box; height: 36px; min-height: 36px !important; margin: 0;
   padding: 0 10px; border: 1px solid var(--ws-line-strong); border-radius: 7px;
-  background: var(--ws-surface); color: var(--ws-ink); font-family: inherit;
+  background: var(--ws-surface); color: var(--ws-ink);
   font-size: 12px !important; font-weight: 600; line-height: 1.2;
 }
 .compact-register-toolbar .register-sort-controls select { field-sizing: content; max-width: 100%; }

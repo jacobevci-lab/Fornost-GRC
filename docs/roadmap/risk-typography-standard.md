@@ -34,4 +34,27 @@ layout. Code and hashes may use the monospace stack.
 
 ## Reference and results
 
-Pending baseline browser capture and implementation.
+Baseline captured by Compact Typography QA run 45561598410, commit
+7bdfdc4e20309ec5b48e291c0d542d905295d22b. The actual Risk font stack is
+Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif.
+
+| Role | Before (computed) | Shared target (default 16px root) |
+| --- | --- | --- |
+| Breadcrumb | 10px / 14.5px | 12px / 17.4px |
+| Page heading | 16px / 20.8px | 16px / 20.8px, 600 |
+| Section heading | 13px / 17.55px | 13px / 17.55px, 600 |
+| Card heading | 11–18px | 13–15px / 1.35, 600 |
+| Table heading | 10px / 14.5px | 12px / 17.4px, 600 |
+| Data, tabs and buttons | 10–14px / 14.5–21px | 13px / 18.85px |
+| Form label / field | 11–12px / 15.4–18px | 13px / 18.85px |
+| Modal heading | 18px / 23.4px | 16px / 20.8px, 600 |
+| KPI value | Competing 10–24px rules | 20px / 24px, 600, tabular |
+
+The explicit requested 12–13px data and 20px KPI targets resolve the legacy
+10px blanket override, rather than perpetuating that accidental shrinking.
+The first cascade layer in globals.css owns important typography declarations;
+module styles continue owning layout and color. This covers detached/top-layer
+surfaces without IDs or escalating specificity. Root-relative units honor text
+scaling. Code/hash styles are explicit semantic exceptions.
+
+Implementation and final browser validation in progress.

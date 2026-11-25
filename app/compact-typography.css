@@ -1,0 +1,109 @@
+/* Imported as the FIRST cascade layer by globals.css. Important declarations in
+ * this layer outrank legacy unlayered module rules without a specificity race.
+ * Layout, colors, spacing and visibility remain owned by their components.
+ * The Risk register supplies the hierarchy; all surfaces share its scale.
+ */
+:root {
+  --grc-text-data: .8125rem;
+  --grc-text-caption: .75rem;
+  --grc-text-section: .8125rem;
+  --grc-text-card: .9375rem;
+  --grc-text-page: 1rem;
+  --grc-text-kpi: 1.25rem;
+  --grc-leading-data: 1.45;
+  --grc-leading-heading: 1.35;
+  --grc-leading-page: 1.3;
+  --grc-leading-kpi: 1.2;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+html {
+  font-family: var(--font-sans) !important;
+  font-size: 100% !important;
+}
+body {
+  font-family: var(--font-sans) !important;
+  font-size: var(--grc-text-data) !important;
+  font-weight: 400 !important;
+  line-height: var(--grc-leading-data) !important;
+}
+/* Explicit inheritance also covers UA styles, top-layer dialogs, portalled
+ * drawers, SVG labels, and the unauthenticated vendor/Trust Center routes.
+ * Descendants inherit the semantic role of their parent (e.g. a heading link).
+ */
+body :where(*) {
+  font-family: inherit !important;
+  font-size: inherit !important;
+  font-weight: inherit !important;
+  line-height: inherit !important;
+}
+:where(table, th, td, input, select, textarea, button) {
+  font-family: var(--font-sans) !important;
+}
+:where(table, td, tbody th, label, input, select, textarea, button, summary, [role="tab"]) {
+  font-size: var(--grc-text-data) !important;
+  line-height: var(--grc-leading-data) !important;
+}
+:where(button, summary, label, [role="tab"]) { font-weight: 500 !important; }
+:where(b, strong, th, legend) { font-weight: 600 !important; }
+:where(small, time, figcaption, caption, thead th, dt, .module-kicker, .header-context>small) {
+  font-size: var(--grc-text-caption) !important;
+  line-height: var(--grc-leading-data) !important;
+}
+:where(h1) {
+  font-size: var(--grc-text-page) !important;
+  font-weight: 600 !important;
+  line-height: var(--grc-leading-page) !important;
+}
+:where(h2) {
+  font-size: var(--grc-text-card) !important;
+  font-weight: 600 !important;
+  line-height: var(--grc-leading-heading) !important;
+}
+:where(h3, h4, h5, h6, legend) {
+  font-size: var(--grc-text-section) !important;
+  font-weight: 600 !important;
+  line-height: var(--grc-leading-heading) !important;
+}
+:where(.module-head h2, .modal-head h2, .rap-hero h2, .ex-public>header h1) {
+  font-size: var(--grc-text-page) !important;
+  line-height: var(--grc-leading-page) !important;
+}
+:where(code, pre, samp, .code, .font-mono, [data-typography="code"]) {
+  font-family: var(--font-mono) !important;
+}
+/* Values only: never promote every bold descendant of a dashboard/card. */
+:where(
+  .kpi>b, .risk-metrics article b, .module-overview>div>article>strong,
+  .rap-stages dd, .rap-metrics b, .rap-linked strong,
+  .continuity-kpis strong, .plm-metrics b, .tprm-metrics b, .ri-metrics b,
+  .incident-kpis strong, .finding-kpis strong, .connected-kpis b,
+  .mw2-metrics strong, .work-metrics strong,
+  .audit-kpis article>b, .audit-detail-kpis b, .audit-evidence-metrics strong,
+  .audit-readiness-metrics strong, .audit-readiness-state strong,
+  .control-assurance-kpis strong, .eql-health strong, .eql-metrics strong,
+  .ea-stats b, .ca-score strong, .ca-metrics strong, .eh-metrics strong,
+  .assurance-notification-kpis b, .connected-lifecycle-posture article strong,
+  .executive-delivery-posture article b, .executive-kpi strong,
+  .attention-breakdown strong, .assurance-score-row strong,
+  .audit-remediation-metrics strong, .report-assurance-strip b,
+  .decision-signals .decision-signal-total strong,
+  .dashboard-metric strong, .ed4-metric>strong, .ed6-summary-item>span strong,
+  .ed9-health-item strong, .ed9-domain-metrics strong,
+  .posture-ring strong, .rail-metric strong, .exposure-total strong,
+  .posture-dial b, .command-stat>div>b,
+  .ai-decision-metrics strong, .ai-inventory-stats b, .ai-metric-grid strong,
+  .fornost-ai-metric-grid article>b, .ai-control-summary b,
+  .ai-assurance .stats b, .ai-dataset-stats b, .ai-decommission .stats b,
+  .ai-exceptions .stats b, .ai-findings .stats b, .ai-literacy .stats b,
+  .ai-portfolio .stats b, .ai-red-team .stats b, .ai-red-team .score strong,
+  .ai-regulatory .stats b, .ai-resilience-stats b, .ai-supply .stats b,
+  .ai-transparency .stats b, .fw-progress-value>strong, .fw-audit-signals strong,
+  .settings-security-overview>div strong, .soc2-status-grid b,
+  .rg-summary strong, [data-typography="metric"]
+) {
+  font-size: var(--grc-text-kpi) !important;
+  font-weight: 600 !important;
+  line-height: var(--grc-leading-kpi) !important;
+  font-variant-numeric: tabular-nums !important;
+}

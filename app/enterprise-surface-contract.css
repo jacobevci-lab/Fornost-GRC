@@ -7,8 +7,6 @@
 html{scrollbar-color:var(--ws-line-strong) var(--ws-bg)}
 body{overflow-x:hidden}
 ::selection{background:var(--ws-brand-soft);color:var(--ws-brand-2)}
-
-:where(button,input,select,textarea){font-family:inherit}
 :where(input,select,textarea){max-width:100%}
 :where(input,select,textarea)::placeholder{color:var(--ws-faint)!important;opacity:1}
 :where(input,select,textarea):disabled{border-color:var(--ws-line)!important;background:var(--ws-surface-2)!important;color:var(--ws-faint)!important;cursor:not-allowed;opacity:.82}
@@ -133,7 +131,6 @@ html[data-theme="dark"] :where(.auth-card,.settings-card,.integration-hub,.integ
 }
 
 /* Shared typography and navigation sizing across all module workspaces. */
-body{font-family:var(--font-sans)}
 .shell #fornost-navigation .nav-group-items button{min-width:0;font-size:13px!important;line-height:1.4!important}
 .shell #fornost-navigation .nav-group-items button>span{display:block;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .shell #fornost-navigation .nav-group-trigger{font-size:11px!important;letter-spacing:.06em}

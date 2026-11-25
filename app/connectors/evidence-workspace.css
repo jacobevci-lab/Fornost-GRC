@@ -1,6 +1,6 @@
 .ea-page.ew-page{min-width:0;gap:14px!important;color:var(--ws-ink)}
 .ew-heading,.ew-detail>header,.ew-queue-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
-.ew-heading h2,.ew-page h3,.ew-page h4{margin:0;color:var(--ws-ink);font-family:inherit;letter-spacing:normal}
+.ew-heading h2,.ew-page h3,.ew-page h4{margin:0;color:var(--ws-ink);letter-spacing:normal}
 .ew-heading h2{font-size:var(--type-page-title,1.4rem);line-height:1.25}
 .ew-page h3{font-size:1.05rem}.ew-page h4{font-size:.9rem}
 .ew-page p,.ew-facts dt,.ew-items small,.ew-chain small,.ew-rule-meta,.ew-page h3 small{color:var(--ws-muted)}

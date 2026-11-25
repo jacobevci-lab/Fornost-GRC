@@ -36,7 +36,7 @@ body,html[data-theme="dark"] body{
   position:relative;width:43px!important;height:43px!important;border-radius:50%!important;
   background:radial-gradient(circle at 35% 28%,#b9b2ff,#796cff 45%,#4c43c8)!important;
   border:1px solid rgba(255,255,255,.28);box-shadow:0 0 0 5px rgba(124,110,255,.08),0 10px 30px rgba(81,68,220,.34)!important;
-  color:#fff;font-size:16px;font-family:Georgia,serif;font-weight:800;
+  color:#fff;font-size:16px;font-weight:800;
 }
 .brand>span:after{content:"";position:absolute;inset:-5px;border:1px solid rgba(155,144,255,.22);border-radius:50%}
 .brand b{color:#f8faff;font-size:16px!important;letter-spacing:-.03em}.brand small{margin-top:3px;color:#7988a1!important;font-size:9px!important;letter-spacing:.11em;text-transform:uppercase}
@@ -78,7 +78,7 @@ nav{display:grid!important;gap:13px!important;padding:0 2px}
   box-shadow:0 30px 75px rgba(5,11,25,.24),inset 0 1px rgba(255,255,255,.045);color:#f7f8ff;
 }
 .command-hero:before{content:"";position:absolute;width:460px;height:460px;border:1px solid rgba(255,255,255,.055);border-radius:50%;right:-170px;top:-215px;box-shadow:0 0 0 62px rgba(255,255,255,.018),0 0 0 124px rgba(255,255,255,.012)}
-.command-hero:after{content:"FORNOST";position:absolute;right:26px;bottom:-20px;color:rgba(255,255,255,.025);font-family:Georgia,serif;font-size:82px;font-weight:900;letter-spacing:.08em;pointer-events:none}
+.command-hero:after{content:"FORNOST";position:absolute;right:26px;bottom:-20px;color:rgba(255,255,255,.025);font-size:82px;font-weight:900;letter-spacing:.08em;pointer-events:none}
 .command-copy,.posture-card{position:relative;z-index:1}.live-badge{width:max-content;display:flex;align-items:center;gap:8px;padding:7px 10px;border:1px solid rgba(169,159,255,.2);border-radius:99px;background:rgba(115,101,244,.09);color:#bdb6ff;font-size:8.5px;font-weight:900;letter-spacing:.14em}.live-badge i{width:6px;height:6px;border-radius:50%;background:#44dac8;box-shadow:0 0 12px #44dac8}
 .command-copy h2{max-width:760px;margin:15px 0 12px;font-size:clamp(28px,3vw,42px);line-height:1.09;letter-spacing:-.055em}.command-copy p{max-width:690px;margin:0;color:#aeb9ce;font-size:12.5px;line-height:1.65}
 .command-actions{display:flex;gap:9px;margin-top:24px}.command-actions button{height:42px;padding:0 15px;border-radius:11px;font-size:10.5px;font-weight:800;cursor:pointer}.command-primary{border:1px solid #8c82ff;background:linear-gradient(135deg,#8276ff,#6256dc);color:#fff;box-shadow:0 10px 26px rgba(81,67,213,.3)}.command-primary span{margin-left:14px}.command-secondary{border:1px solid rgba(255,255,255,.13);background:rgba(255,255,255,.055);color:#dce2ee}.command-actions button:hover{transform:translateY(-1px)}
